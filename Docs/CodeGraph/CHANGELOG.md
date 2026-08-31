@@ -2,7 +2,31 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.263) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.264) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+
+## [1.3.297] - 2026-08-31
+
+### Kết quả E1, và bộ phân loại Nhật/Anh quay về whitelist
+
+Thêm **1** file Swift (426 → 427), sửa 2 file. Chưa biên dịch (viết trên Windows).
+
+**Kết quả E1 trên iPhone 11:**
+
+* **Phủ âm vị: 0 scalar ngoài từ vựng.** espeak `en-us` trên 24 từ không sinh ký hiệu nào ngoài 161 ký hiệu của model ⇒ **tầng tra id không mất chữ**, toàn bộ hiện tượng "mất chữ nhiều" nằm bên trong `IPAToVietnameseMapper`.
+* **Nghe thử: `θˈɪŋk` đúng, `ðˈɪs` và `kˈæt` sai.** Xác nhận đúng cái bẫy đã nêu ở 1.3.296: có mặt trong từ vựng không đồng nghĩa với đã được train. Hướng đi vì vậy là **hybrid** — đưa IPA thẳng vào model nhưng thay ký hiệu chưa train bằng ký hiệu gần nhất đã train (`ð → z`, `æ → ɛ`), không phải passthrough toàn bộ.
+* **Ca đối chứng của tôi sai, không phải dụng cụ sai.** `sˈaːw` không phải IPA của "sao" nên nghe ra "chao" là đúng với chuỗi đã đưa vào. Thêm nút lấy IPA **thật** từ espeak `vi` rồi tổng hợp lại chính chuỗi đó — đối chứng tự kiểm chứng thay vì tự đoán.
+* Thêm phép **so bộ ký hiệu `vi` vs `en-us`**: model là Piper tiếng Việt nên tập âm vị đã train chính là tập espeak `vi` sinh ra; ký hiệu chỉ có ở `en-us` là ứng viên chưa train. Một lần bấm thay cho nghe thử từng ký hiệu.
+
+**Bộ phân loại Nhật/Anh — 8/24 ca sai, và đó là giới hạn của phương pháp:**
+
+* `sakura`/`sonata`, `kimono`/`tomato`, `karate`/`potato`, `nakama`/`banana` giống nhau trên **mọi** dấu hiệu bề mặt: 6 chữ, CVCVCV, kết thúc nguyên âm, không cụm phụ âm Anh, không âm đặc trưng Nhật. Không hàm chấm điểm nào tách được chúng; mọi ngưỡng đều sai một phía.
+* 1.3.290 bỏ `englishBlacklist` với lý do **đúng** ("tập từ tiếng Anh cần loại trừ là vô hạn") nhưng kết luận **sai**. Điều nó bỏ sót: **hướng** của danh sách quan trọng hơn sự tồn tại của nó. Tập từ gốc Nhật xuất hiện trong truyện tiếng Việt là **hữu hạn và nhỏ**. Nay `JapaneseLoanwordList` (~200 từ) là lớp quyết định thứ nhất; hàm chấm điểm chỉ xử lý từ lạ.
+* **Hai lỗi chấm điểm đo được, đã sửa**: (1) `ou`/`ai`/`ei`/`oi` nằm trong `englishClusters` và **bị trừ** 2 điểm dù chúng là dãy nguyên âm romaji hoàn toàn hợp lệ — đó chính là lý do `arigatou`, `senpai`, `hokkaido`, `shoujo` bị xếp sai thành tiếng Anh; nay chúng **cộng** 2 điểm. (2) Bỏ luật "từ dài mà không có cụm phụ âm Anh (+1)": mọi từ gốc Latin trong tiếng Anh (tomato, potato, sonata, banana, camera, opera, pasta) đều là CVCVCV không cụm phụ âm, nên luật đó cộng điểm cho đúng nhóm cần loại.
+* Ngưỡng 2 → **4**: whitelist đã gánh ca phổ biến nên hàm chấm điểm được phép bảo thủ và nghiêng về tiếng Anh. Trong truyện dịch, từ tiếng Anh nhiều hơn từ Nhật cả bậc; đọc một từ Nhật lạ theo luật Anh là sai nhẹ hơn chiều ngược lại.
+
+**Cố ý chưa sửa**: thiếu dấu thanh trong `IPAToVietnameseMapper` (bộ ca kiểm cho "bac"/"xit-tơm"/"iet"/"tec-xơ" — âm tiết Việt kết thúc bằng `-c`/`-t` mà không có thanh là sai phonotactics) và `arigatou → a-ri-ga-tô-ư`. Cả hai chỉ còn quan trọng nếu E1 vòng 2 kết luận phải giữ đường phiên âm sang chữ Việt.
+
+`check_architecture.py` giữ **14 violation** đúng cùng một tập. CodeGraph: cập nhật `00`, `02`, `04`, `10`, `14`; `09`, `11`, `13`, `rules` ghi nhận `--no-change-needed`.
 
 ## [1.3.296] - 2026-08-31
 
@@ -356,17 +380,3 @@ Thêm **2** file Swift (359 → 361), sửa 11 file; **không** `@Model` nào đ
 * **`manifest.counts.config`** thêm mới với `decodeIfPresent(…) ?? 0` như mọi khoá khác nên `.fbbackup` tạo trước bản này vẫn decode được (hiện 0); `RestoreOptionsSheet` bật sẵn công tắc khi `counts.settings > 0 || counts.config > 0`, thêm hàng "File cấu hình", và footer nói rõ là gộp thêm quy tắc mục lục + công cụ tra cứu.
 * **Sửa hai chỗ mô tả sai**: footer `BackupHubView` từng có thể đọc thành "mọi bản sao lưu đều kèm luật thay ký tự TTS", nhưng file đó đi theo nhóm **tuỳ chọn** `.dictCustom` (từ 1.3.263) — nay footer nêu đúng phần luôn có mặt và subtitle của `.dictCustom` mang thông tin đó ngay tại công tắc.
 * **Gate**: `check_architecture.py` giữ đúng **14 violation**, cùng một tập; 2 file mới đều ≤ 400 dòng và đúng 1 type top level (`Report` nest trong `BackupConfigArchiver`, `Failure` nest trong `SearchEngineTransfer`), `architecture_allowlist.json` không đổi. `validate_links.py`: 6 doc stale (`00_index`, `02_file_graph`, `03_type_graph`, `09_dependency_rules`, `11_subsystems`, `14_complexity_report`) đã cập nhật + `--accept`, PASS 16 doc / 361 file.
-
-## [1.3.264] - 2026-08-24
-
-### Backup kèm cài đặt, sửa nghĩa tại chỗ, không dọn truyện trên kệ
-
-Thêm **3** file Swift (356 → 359), sửa 10 file; **không** `@Model` nào đổi shape, **không** thêm `BackupScope` case, **không** thêm dependency. Chưa biên dịch (viết trên Windows, không có `xcodebuild`/`xcodegen`) — **phải chạy `xcodegen generate` trên macOS/CI** vì có file mới.
-
-* **Bản sao lưu mang theo cài đặt & cấu hình của app.** `Sources/Services/Backup/BackupSettingsArchiver.swift` (123) chụp `UserDefaults.standard.dictionaryRepresentation()` thành **plist nhị phân** ở entry `settings/user_defaults.plist` — plist chứ không JSON vì nó giữ đúng kiểu `Bool`/`Int`/`Double`/`Date`/`Data`/mảng/từ điển. Khối này **luôn** được ghi vào archive (vài chục KB) và **không** thuộc `BackupScope` nào: thêm case là bản app cũ decode `manifest.scopes` (kiểu `[BackupScope]`, decoder tổng hợp) thất bại — cùng lý do với `dict/tts/` ở 1.3.263. Quyền quyết định chuyển sang chiều khôi phục bằng cờ `BackupRestoreWorker.Options.restoreSettings`.
-* **Bộ lọc khoá là luật hình dạng + deny-list, không phải danh sách trắng**: nhận khoá bắt đầu bằng chữ **thường ASCII** (khoá app là camelCase/snake_case, rác hệ thống là `Apple*`/`NS*`/`WebKit*`/`PK*`/`com.apple.*`/`kCF*`), rồi trừ khoá API & token (`google_cloud_tts_custom_api_key`, `googleDriveClientId`), đường dẫn tuyệt đối theo máy (`ttsExtensionLocalPath`), mốc lượt chạy cuối của ba phân hệ nền, hàng đợi retry xoá file, tiến độ đọc từng truyện (`lastChapterIndex_*`, `lastParagraphIndex_*`) và hẹn giờ tắt TTS. Nhờ vậy khoá cài đặt thêm sau này **tự vào** bản sao lưu. Refresh token Drive nằm ở Keychain/file nên vốn không có đường lọt vào đây.
-* **Ba chốt an toàn**: mỗi giá trị phải qua `PropertyListSerialization.propertyList(["value": value], isValidFor: .binary)` trước khi vào snapshot (giá trị không hợp lệ làm `data(fromPropertyList:)` ném ObjC exception **không catch được**); chiều đọc lọc `isExportable` **lần nữa** vì file có thể do bản app khác tạo; và ghi cài đặt là **bước cuối** của `restore()` — manager đang chạy vẫn giữ giá trị cũ trong RAM nên `BackupCoordinator` nối "Mở lại app để cài đặt có hiệu lực" vào toast. `manifest.counts.settings` decode lenient (`?? 0`) nên file tạo trước bản này vẫn đọc được, và công tắc trong `RestoreOptionsSheet` tự tắt + mờ khi số đó là 0.
-* **Màn "Quản lý nghĩa từ": mỗi nghĩa là một ô nhập sửa được, kèm nút lên/xuống.** `Sources/Views/Dictionary/ManageDefinitionsDraft.swift` (126, thuần `Foundation`) giữ bản nháp với `Row.id: UUID` — bắt buộc đổi từ khoá-theo-chuỗi sang khoá-theo-`UUID` vì nội dung ô nhập không còn là khoá ổn định, và hai nghĩa trùng chữ vẫn phải là hai hàng khác nhau; `Sources/Views/Dictionary/ManageDefinitionRowView.swift` (73) là một hàng gồm `TextField` + 4 nút icon `.borderless` (lên/xuống/chèn ô trống phía trên/xoá, hoặc hoàn tác khi đã xoá mềm).
-* **`ManageDefinitionsView.swift` 343 → 186 dòng**: bỏ 4 khối `TextField` "thêm nghĩa" gần như giống nhau và hộp thoại nhập nghĩa (thành thừa khi mọi hàng đều sửa được), bỏ `localMatches`/`deletedMeanings`. Đĩa chỉ bị ghi **một lần lúc đóng màn** (`hasSaved` + `.onDisappear`) và chỉ cho nhóm mà `activeMeanings` khác bản đọc lúc mở; xoá là **xoá mềm** (gạch ngang, hoàn tác được); `Row.preservesEmpty` — chỉ đúng với hàng rỗng đọc từ đĩa — giữ quy ước nghĩa rỗng đầu chuỗi (`/foo`) khỏi bị viết lại lặng lẽ. Chữ ký `ManageDefinitionsView(word:bookId:matches:onChanged:)` không đổi nên call site duy nhất không phải sửa.
-* **Lượt dọn truyện cũ không bao giờ chạm truyện trên Kệ sách** (yêu cầu tường minh của người dùng): `guard !book.isOnShelf` thêm vào `StaleBookCleanupCoordinator.staleBookIds` ngay trước chốt `isLocalBook`, nên phạm vi thu về đúng phần **lịch sử** (`isOnShelf == false`). Vì cả `runIfDue`, `runNow` và `previewStaleCount` dùng chung bộ lọc này, số đếm trong Cài đặt vẫn khớp số truyện thật sự bị xoá; hai footer của `StaleBookCleanupSettingsView` sửa lại cho khỏi hứa sai. `BookStorageManager` **không** bị sửa — nó vẫn phải xoá được truyện trên kệ khi người dùng tự bấm xoá.
-* **Gate**: `check_architecture.py` giữ đúng **14 violation**, cùng một tập; 3 file mới đều ≤ 400 dòng và đúng 1 type top level (`Report` nest trong `BackupSettingsArchiver`, `Row` nest trong `ManageDefinitionsDraft`), `architecture_allowlist.json` không đổi. `validate_links.py`: 5 doc stale (`00_index`, `02_file_graph`, `09_dependency_rules`, `11_subsystems`, `14_complexity_report`) đã cập nhật + `--accept`, PASS 16 doc / 359 file.

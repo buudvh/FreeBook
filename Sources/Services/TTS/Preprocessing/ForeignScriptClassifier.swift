@@ -45,12 +45,22 @@ enum ForeignScriptClassifier {
                                           "sm", "sn", "sw", "tr", "dr", "pr", "br", "cr", "gr", "fr",
                                           "bl", "cl", "fl", "gl", "pl", "nt", "nd", "mp", "ng", "rt",
                                           "rd", "rn", "rm", "rl", "lt", "ld", "lm", "lf", "ct", "pt",
-                                          "xt", "ea", "ou", "ai", "oa", "ie", "ei", "au", "aw", "ow",
-                                          "oi", "oy", "ay", "ey"]
+                                          "xt", "ea", "oa", "ie", "au", "aw", "ow", "oy", "ay", "ey"]
 
-    /// Điểm tối thiểu để coi là tiếng Nhật. Ngưỡng đo bằng `TransliterationGoldenSet` — đổi số này thì
-    /// phải chạy lại bộ ca kiểm ở màn Thử phiên âm.
-    static let japaneseThreshold = 2
+    /// Dãy nguyên âm **chỉ** romaji có: trường âm (`ou`, `uu`, `aa`, `ii`, `ee`, `oo`) và nguyên âm đôi
+    /// (`ai`, `ei`, `oi`). Bốn cái đầu trong nhóm này trước đây nằm trong `englishClusters` và bị **trừ**
+    /// điểm — đó chính là lý do `arigatou`, `senpai`, `hokkaido`, `shoujo` đều bị xếp sai thành tiếng Anh.
+    private static let romajiVowelSequences = ["ou", "uu", "aa", "ii", "ee", "oo", "ai", "ei", "oi"]
+
+    /// Điểm tối thiểu để coi là tiếng Nhật, cho những từ **không** có trong `JapaneseLoanwordList`.
+    ///
+    /// Cố ý cao: whitelist đã gánh các ca phổ biến, nên hàm chấm điểm chỉ còn phải xử lý từ lạ, và ở đó
+    /// nó phải nghiêng về **tiếng Anh**. Trong truyện dịch, từ tiếng Anh nhiều hơn từ Nhật cả bậc; đọc
+    /// một từ Nhật lạ theo luật Anh là sai nhẹ hơn đọc một từ Anh theo luật Nhật. Ngưỡng 4 nghĩa là cần
+    /// **hai** dấu hiệu mạnh (ví dụ trường âm + âm đặc trưng) mới đổi phe.
+    ///
+    /// Đổi số này thì phải chạy lại bộ ca kiểm ở màn Thử phiên âm.
+    static let japaneseThreshold = 4
 
     struct Verdict {
         let isJapanese: Bool
@@ -65,6 +75,12 @@ enum ForeignScriptClassifier {
     static func classify(_ word: String) -> Verdict {
         var reasons: [String] = []
         let normalized = normalize(word)
+
+        // Whitelist chạy **trước** mọi phép chấm điểm: `sakura` và `sonata` giống nhau trên mọi dấu
+        // hiệu bề mặt, nên không hàm chấm điểm nào tách được chúng. Xem `JapaneseLoanwordList`.
+        if JapaneseLoanwordList.contains(normalized) {
+            return Verdict(isJapanese: true, score: 99, reasons: ["có trong danh sách từ gốc Nhật"])
+        }
 
         guard normalized.count >= 2 else {
             return Verdict(isJapanese: false, score: -99, reasons: ["quá ngắn"])
@@ -109,6 +125,15 @@ enum ForeignScriptClassifier {
             reasons.append("âm đặc trưng '\(marker)' (+2)")
         }
 
+        var vowelSequenceHits = 0
+        for sequence in romajiVowelSequences where simplified.contains(sequence) {
+            vowelSequenceHits += 1
+        }
+        if vowelSequenceHits > 0 {
+            score += 2 * vowelSequenceHits
+            reasons.append("\(vowelSequenceHits) dãy nguyên âm romaji (+\(2 * vowelSequenceHits))")
+        }
+
         if sokuonCount > 0 {
             score += 2
             reasons.append("phụ âm đôi kiểu sokuon (+2)")
@@ -124,10 +149,9 @@ enum ForeignScriptClassifier {
             reasons.append("có 'n' làm âm tiết riêng (+1)")
         }
 
-        if normalized.count >= 6, clusterHits == 0 {
-            score += 1
-            reasons.append("từ dài mà không có cụm phụ âm Anh (+1)")
-        }
+        // Đã bỏ luật "từ dài mà không có cụm phụ âm Anh (+1)": mọi từ gốc Latin/Roman trong tiếng Anh
+        // (tomato, potato, sonata, banana, camera, opera, cinema, pasta…) đều là CVCVCV không cụm phụ
+        // âm, nên luật đó cộng điểm cho đúng nhóm cần loại. Bộ ca kiểm đo được 4 ca sai vì nó.
 
         let isJapanese = score >= japaneseThreshold
         reasons.append("tổng \(score) so với ngưỡng \(japaneseThreshold)")

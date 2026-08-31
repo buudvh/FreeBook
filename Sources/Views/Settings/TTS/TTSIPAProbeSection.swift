@@ -41,7 +41,23 @@ struct TTSIPAProbeSection: View {
         "voice", "house", "day", "toy", "hue", "nature", "vision", "little"
     ]
 
+    /// Phủ rộng âm vị **tiếng Việt**: đủ 6 thanh, các phụ âm đầu khó (`ng`, `nh`, `tr`, `ch`, `kh`,
+    /// `ph`, `th`, `gi`, `d`, `x`, `s`, `r`), và các âm cuối (`-c`, `-t`, `-p`, `-ch`, `-nh`, `-ng`).
+    ///
+    /// Dùng để dựng **bộ ký hiệu mà model thật sự thấy khi train**: model này là Piper tiếng Việt, nên
+    /// tập âm vị nó được huấn luyện chính là tập mà espeak `vi` sinh ra. Ký hiệu chỉ xuất hiện ở
+    /// `en-us` mà không bao giờ ở `vi` là **ứng viên chưa được train** — đó là lý do `θ` đọc được mà
+    /// `ð`/`æ` thì không, và đây là cách biết trước mà không phải nghe từng ký hiệu một.
+    private static let vietnameseProbeWords = [
+        "sao", "sáo", "sào", "sảo", "são", "sạo",
+        "nghiêng", "nhanh", "trong", "chung", "không", "phong", "thương", "giang",
+        "dạy", "xanh", "sương", "rừng", "lười", "quyển", "khuya", "nguyệt",
+        "bác", "bát", "bắp", "bích", "bình", "bằng", "tuyệt", "hoàng", "uống", "yêu"
+    ]
+
     @State private var ipaInput = "həlˈoʊ"
+    @State private var vietnameseInput = "sao"
+    @State private var symbolDiff = ""
     @State private var status = ""
     @State private var inventorySummary = ""
     @State private var coverage: [Coverage] = []
@@ -80,6 +96,31 @@ struct TTSIPAProbeSection: View {
             Text("E1 · Nghe IPA thô")
         } footer: {
             Text("Đưa chuỗi này **thẳng** vào model, bỏ qua toàn bộ tầng phiên âm. Nếu `θˈɪŋk`, `ðˈɪs`, `kˈæt` nghe ra âm tiếng Anh thì bỏ được hẳn bước phiên âm sang chữ Việt. Nếu ra tiếng lạ hoặc im lặng thì các ký hiệu đó có trong từ vựng nhưng chưa được train.")
+        }
+
+        Section {
+            TextField("Từ tiếng Việt", text: $vietnameseInput)
+                .autocorrectionDisabled()
+            Button("Lấy IPA (vi) → điền vào ô trên") { fillFromVietnamese() }
+                .disabled(isBusy || vietnameseInput.trimmingCharacters(in: .whitespaces).isEmpty)
+        } header: {
+            Text("E1 · Ca đối chứng")
+        } footer: {
+            Text("Lấy IPA **thật** mà espeak `vi` sinh ra cho một từ tiếng Việt, rồi tổng hợp lại chính chuỗi đó. Nghe ra đúng từ vừa nhập ⇒ dụng cụ đo đáng tin. Nghe ra từ khác ⇒ lỗi ở dụng cụ, không phải ở model. Đừng dùng chuỗi IPA tự đoán làm đối chứng: `sˈaːw` **không** phải IPA của \"sao\".")
+        }
+
+        Section {
+            Button("So bộ ký hiệu vi và en-us") { runSymbolDiff() }
+                .disabled(isBusy)
+            if !symbolDiff.isEmpty {
+                Text(symbolDiff)
+                    .font(.system(.footnote, design: .monospaced))
+                    .textSelection(.enabled)
+            }
+        } header: {
+            Text("E1 · Ký hiệu nào chưa được train")
+        } footer: {
+            Text("Model này là Piper **tiếng Việt**, nên tập âm vị nó được huấn luyện chính là tập mà espeak `vi` sinh ra. Ký hiệu chỉ có ở `en-us` mà không bao giờ có ở `vi` là **ứng viên chưa được train** — biết trước bằng một lần bấm, thay vì nghe thử từng ký hiệu.")
         }
 
         Section {
@@ -177,8 +218,69 @@ struct TTSIPAProbeSection: View {
         }
     }
 
-    private func runCoverage() {
-        guard let urls = modelURLs() else {
+    /// Lấy IPA thật của espeak `vi` cho một từ tiếng Việt và điền vào ô IPA thô.
+    ///
+    /// Ca đối chứng **phải** lấy từ chính espeak, không được tự đoán. Chuỗi `sˈaːw` mà tôi từng dùng
+    /// làm đối chứng cho "sao" là đoán sai, và nó làm hiểu lầm rằng dụng cụ đo hỏng.
+    private func fillFromVietnamese() {
+        let word = vietnameseInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        isBusy = true
+        Task {
+            let ipa = await Task.detached(priority: .userInitiated) {
+                (try? EspeakPhonemizer.phonemize(text: word)) ?? ""
+            }.value
+            await MainActor.run {
+                isBusy = false
+                if ipa.isEmpty {
+                    status = "Lỗi: espeak không trả IPA cho '\(word)'."
+                } else {
+                    ipaInput = ipa
+                    status = "IPA (vi) của '\(word)': \(ipa)"
+                }
+            }
+        }
+    }
+
+    /// Dựng hai bộ ký hiệu (`vi` và `en-us`) rồi lấy phần chỉ có ở `en-us`.
+    private func runSymbolDiff() {
+        isBusy = true
+        Task {
+            let report = await Task.detached(priority: .userInitiated) { () -> String in
+                func symbols(_ words: [String], english: Bool) -> Set<String> {
+                    var result: Set<String> = []
+                    for word in words {
+                        let ipa = english
+                            ? ((try? EspeakPhonemizer.phonemizeEnglish(text: word)) ?? "")
+                            : ((try? EspeakPhonemizer.phonemize(text: word)) ?? "")
+                        for scalar in ipa.unicodeScalars where !scalar.properties.isWhitespace {
+                            result.insert(String(scalar))
+                        }
+                    }
+                    return result
+                }
+
+                let vietnamese = symbols(Self.vietnameseProbeWords, english: false)
+                let english = symbols(Self.coverageWords, english: true)
+                guard !vietnamese.isEmpty, !english.isEmpty else {
+                    return "Lỗi: espeak không trả IPA (thiếu giọng vi hoặc en-us?)."
+                }
+
+                let onlyEnglish = english.subtracting(vietnamese).sorted()
+                let shared = english.intersection(vietnamese).sorted()
+                return """
+                vi: \(vietnamese.count) ký hiệu · en-us: \(english.count) ký hiệu
+                CHỈ có ở en-us (ứng viên CHƯA train): \(onlyEnglish.isEmpty ? "(không có)" : onlyEnglish.joined(separator: " "))
+                Có ở cả hai (chắc chắn đã train): \(shared.joined(separator: " "))
+                """
+            }.value
+            await MainActor.run {
+                symbolDiff = report
+                isBusy = false
+            }
+        }
+    }
+
+    private func runCoverage() {        guard let urls = modelURLs() else {
             inventorySummary = "Chưa tải model của giọng '\(TTSManager.shared.selectedVoice)'."
             return
         }

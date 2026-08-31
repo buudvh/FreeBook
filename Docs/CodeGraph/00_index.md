@@ -15,6 +15,15 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## E1 đo được: θ đọc được, ð/æ không; bộ phân loại phải quay về whitelist (1.3.297)
+
+* **Phủ âm vị: 0 scalar ngoài từ vựng.** espeak `en-us` trên 24 từ không sinh ra ký hiệu nào ngoài 161 ký hiệu của model. Nghĩa là **không có chỗ mất chữ nào ở tầng tra id** — toàn bộ "mất chữ" nằm bên trong `IPAToVietnameseMapper`.
+* **Nghe thử: `θˈɪŋk` đúng, `ðˈɪs` và `kˈæt` sai.** Có mặt trong từ vựng thật sự không đồng nghĩa với đã được train, đúng như dự đoán. Nên hướng đi là **hybrid**: đưa IPA thẳng vào model, nhưng thay các ký hiệu chưa train bằng ký hiệu gần nhất đã train — không phải passthrough toàn bộ, cũng không phải phiên âm sang chữ Việt toàn bộ.
+* **Ca đối chứng của tôi sai, không phải dụng cụ sai.** `sˈaːw` không phải IPA của "sao". Thêm nút lấy IPA **thật** từ espeak `vi` cho một từ tiếng Việt rồi tổng hợp lại chính chuỗi đó — đối chứng tự kiểm chứng, không đoán.
+* **Thêm phép so bộ ký hiệu `vi` vs `en-us`**: model là Piper tiếng Việt nên tập âm vị đã train chính là tập espeak `vi` sinh ra. Ký hiệu chỉ có ở `en-us` là ứng viên chưa train — một lần bấm thay cho nghe thử từng ký hiệu.
+* **Bộ phân loại Nhật/Anh: 8/24 ca sai, lệch cả hai chiều, và không hàm chấm điểm nào sửa được.** `sakura`/`sonata`, `kimono`/`tomato`, `karate`/`potato`, `nakama`/`banana` giống nhau trên **mọi** dấu hiệu bề mặt. 1.3.290 bỏ blacklist với lý do đúng ("tập từ tiếng Anh là vô hạn") nhưng kết luận sai; điều nó bỏ sót là **hướng** của danh sách: tập từ gốc Nhật xuất hiện trong truyện Việt là hữu hạn và nhỏ. Nay whitelist `JapaneseLoanwordList` chạy trước, hàm chấm điểm chỉ xử lý từ lạ và cố ý nghiêng về tiếng Anh.
+* Sửa luôn hai lỗi chấm điểm đo được: `ou`/`ai`/`ei`/`oi` **bị trừ** điểm dù là dãy nguyên âm romaji hợp lệ (đó là lý do `arigatou`, `senpai`, `hokkaido`, `shoujo` sai), nay **cộng** điểm; và bỏ luật "từ dài không có cụm phụ âm Anh (+1)" vốn cộng điểm cho đúng nhóm từ gốc Latin cần loại.
+
 ## Đo được: model Piper nhận IPA đầy đủ, không chỉ âm vị tiếng Việt (1.3.296)
 
 * **Phát hiện đảo ngược giả định của 1.3.290 và 1.3.291.** `phoneme_id_map` của model đang dùng có **161 ký hiệu và là bộ IPA đầy đủ**, gồm mọi thứ espeak `en-us` sinh ra (`æ ð θ ŋ ɑ ɔ ɛ ə ɚ ɜ ɝ ɪ ʊ ʌ ʃ ʒ ɹ ɫ ɾ ᵻ ɐ ˈ ˌ ː`) và mọi thứ tiếng Nhật cần (`ɕ ʑ ɸ ɲ ŋ ɾ ː`). Nghĩa là **cả tầng `IPAToVietnameseMapper` có thể là không cần thiết**: đưa IPA tiếng Anh thẳng vào chuỗi phoneme là hợp lệ về từ vựng.

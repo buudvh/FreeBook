@@ -15,6 +15,37 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Kết quả E1 và rủi ro còn lại (1.3.297)
+
+**E1 đạt một phần.** `θˈɪŋk` đọc đúng; `ðˈɪs` và `kˈæt` sai. Xác nhận đúng cái bẫy đã nêu: **có mặt
+trong từ vựng không đồng nghĩa với đã được train**. Hệ quả cho thiết kế: hướng đi là **hybrid** — đưa
+IPA thẳng vào model, nhưng thay ký hiệu chưa train bằng ký hiệu gần nhất đã train (`ð → z`, `æ → ɛ` là
+hai ứng viên đầu, cần xác nhận bằng phép so bộ ký hiệu). Không phải passthrough toàn bộ, cũng không
+phải phiên âm sang chữ Việt toàn bộ.
+
+**Phủ âm vị: 0 scalar ngoài từ vựng.** Đây là kết quả quan trọng thứ hai: espeak `en-us` trên 24 từ
+không sinh ra ký hiệu nào ngoài 161 ký hiệu của model. Nghĩa là **tầng tra id không mất chữ**, và toàn
+bộ hiện tượng "mất chữ nhiều" nằm bên trong `IPAToVietnameseMapper`. Bảng `downgrade` của
+`PiperPhonemeInventory` vì vậy chưa có việc gì làm với tiếng Anh; nó vẫn cần cho tiếng Nhật (`ɴ`).
+
+**Ca đối chứng cũ của tôi sai, và đó là một rủi ro về phương pháp.** `sˈaːw` không phải IPA của "sao";
+nghe ra "chao" là đúng với chuỗi đã đưa vào, không phải lỗi model. Chuỗi đối chứng tự đoán có thể dẫn
+tới kết luận ngược hẳn. Nay ca đối chứng lấy IPA **thật** từ espeak `vi` rồi tổng hợp lại chính chuỗi
+đó, nên nó tự kiểm chứng.
+
+**Bộ phân loại: 8/24 ca sai, và đây là giới hạn của phương pháp chứ không phải lỗi hiệu chỉnh.**
+`sakura`/`sonata`, `kimono`/`tomato`, `karate`/`potato`, `nakama`/`banana` giống nhau trên mọi dấu hiệu
+bề mặt (6 chữ, CVCVCV, kết thúc nguyên âm, không cụm phụ âm Anh, không âm đặc trưng Nhật). Không ngưỡng
+nào tách được chúng — mọi lựa chọn đều sai một phía. Rủi ro còn lại sau khi thêm whitelist: từ gốc Nhật
+**không** có trong danh sách sẽ bị đọc theo luật tiếng Anh (ngưỡng 4 cố ý bảo thủ). Đây là đánh đổi có
+chủ ý, vì trong truyện dịch từ tiếng Anh nhiều hơn cả bậc.
+
+**Chưa sửa, và cố ý chưa sửa:** thiếu dấu thanh trong `IPAToVietnameseMapper` (bộ ca kiểm cho thấy
+"bac"/"xit-tơm"/"iet"/"tec-xơ" — âm tiết Việt kết thúc bằng `-c`/`-t` mà không có thanh là **sai
+phonotactics**, espeak `vi` sẽ xử lý không đoán được), và `arigatou → a-ri-ga-tô-ư` (luật `ou → ô`
+không nổ). Cả hai chỉ còn quan trọng nếu E1 vòng 2 kết luận phải giữ đường phiên âm sang chữ Việt; đầu
+tư vào chúng trước khi biết điều đó là làm việc có thể phải bỏ.
+
 ## Rủi ro của hướng đưa IPA thẳng vào model (1.3.296)
 
 **Rủi ro chính, và là lý do lượt này chỉ ship dụng cụ đo chứ chưa sửa: ký hiệu có trong từ vựng nhưng có thể chưa được train.** `phoneme_id_map` 161 ký hiệu là bảng IPA chuẩn Piper phát cho **mọi** giọng — nó nói lên model *nhận* được `θ ð æ`, không nói lên dữ liệu huấn luyện tiếng Việt từng chứa chúng. Embedding chưa train sẽ đọc ra tiếng lạ hoặc im lặng. Đây đúng là cái bẫy của lượt VieNeu (`style token 18` có tên `doc_truyen` nhưng nằm trong vùng random-init). Vì vậy thứ tự bắt buộc là **nghe trước, refactor sau**.

@@ -15,6 +15,14 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Số dòng sau lượt 1.3.297
+
+* **Thêm 1 file Swift** (426 → **427**): `JapaneseLoanwordList` ~95 dòng, chỉ là dữ liệu `Set<String>`.
+* `ForeignScriptClassifier` 189 → 213, `TTSIPAProbeSection` 221 → 323. Cả hai không có baseline nên trần là 400.
+* **Bậc phức tạp của phân loại giảm cho ca phổ biến**: một lượt tra `Set` O(1) thay cho cắt greedy + ~60 phép `contains`. Từ lạ vẫn đi qua đường cũ.
+* **Phép so bộ ký hiệu** là 24 + 30 lượt gọi espeak, nằm trong `Task.detached`. Chỉ chạy khi người dùng bấm.
+* `check_architecture.py` giữ **14 violation nền**.
+
 ## Số dòng sau lượt 1.3.296
 
 * **Thêm 3 file Swift** (423 → **426**): `TTSIPAProbeSection` 221, `ONNXPiperEngine+Phonemes` 151, `PiperPhonemeInventory` 87. Tất cả ≤ 400 dòng, mỗi file một primary type top-level.

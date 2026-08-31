@@ -15,6 +15,28 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Bộ phân loại có hai lớp (1.3.297)
+
+```
+ForeignScriptClassifier.classify(word)
+  ├─ normalize                        (lowercase, bỏ macron, bỏ dấu)
+  ├─ JapaneseLoanwordList.contains    ← LỚP 1: khớp là Nhật, điểm 99, dừng
+  └─ chấm điểm                        ← LỚP 2: chỉ cho từ lạ, ngưỡng 4
+       ├─ có l/q/v/x        → Anh (-99)
+       ├─ segment thất bại  → Anh (-99)
+       ├─ đuôi -ing/-tion…  −3
+       ├─ cụm th/ck/st…     −2 mỗi cụm   (đã bỏ ou/ai/ei/oi khỏi danh sách này)
+       ├─ dãy nguyên âm romaji ou/uu/ai/ei/oi/aa/ii/ee/oo  **+2 mỗi cái**
+       ├─ âm đặc trưng tsu/ryu/sho…  +2
+       ├─ sokuon            +2
+       ├─ kết thúc nguyên âm +1
+       └─ 'n' làm âm tiết riêng +1
+```
+
+Lớp 1 tồn tại vì lớp 2 **không thể** tách `sakura` khỏi `sonata` — hai từ giống nhau trên mọi dấu hiệu. Ngưỡng 4 (trước là 2) vì whitelist đã gánh ca phổ biến, nên lớp 2 được phép bảo thủ và nghiêng về tiếng Anh.
+
+Thêm hai đường đo ở `TTSIPAProbeSection`: `fillFromVietnamese` (espeak `vi` → điền ô IPA thô, ca đối chứng tự kiểm chứng) và `runSymbolDiff` (dựng hai bộ ký hiệu `vi`/`en-us` rồi lấy phần chỉ có ở `en-us`).
+
 ## Đường đo IPA thô, tách khỏi tầng phiên âm (1.3.296)
 
 ```

@@ -15,6 +15,12 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Whitelist từ gốc Nhật (1.3.297)
+
+1 file mới (426 → **427**): `Sources/Services/TTS/Preprocessing/JapaneseLoanwordList.swift` (~95) — `Set<String>` khoảng 200 từ gốc Nhật viết bằng chữ Latin, là lớp quyết định đầu tiên của `ForeignScriptClassifier`.
+
+`ForeignScriptClassifier.swift` 189 → 213: whitelist chạy trước phép chấm điểm, thêm `romajiVowelSequences`, bỏ luật "từ dài không cụm phụ âm Anh". `TTSIPAProbeSection.swift` 221 → 323: thêm ca đối chứng lấy IPA thật từ espeak `vi`, và phép so bộ ký hiệu `vi` vs `en-us`.
+
 ## Ba file dụng cụ đo cho phiên âm (1.3.296)
 
 3 file mới (423 → **426**):
