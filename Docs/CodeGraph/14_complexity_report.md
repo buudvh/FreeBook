@@ -15,6 +15,13 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Số dòng sau lượt 1.3.294
+
+* **Thêm 1 file Swift** (448 → **449**): `ONNXVieNeuEngine+SelfCheck.swift` 126 dòng. `ONNXVieNeuEngine.swift` 336 → 366, còn 34 dòng trước trần 400.
+* **Chi phí lúc chạy: một frame greedy mỗi lần nạp runtime** (~20 ms) cộng 4 phép so 4 phần tử. Tắt được bằng `vieneuSelfCheckEnabled = false`.
+* **Đo `rawPeak`/`rawRms` là một lượt quét tuyến tính trên mẫu audio**, cùng bậc với `normalise` vốn đã quét một lượt.
+* `check_architecture.py` giữ **14 violation nền**.
+
 ## Số dòng sau lượt 1.3.292
 
 * **Thêm 25 file Swift** (423 → **448**), tất cả ≤ 400 dòng, mỗi file một primary type top-level. File lớn nhất: `SeaG2P` 398, `VieNeuDecodeLoop` 340, `ONNXVieNeuEngine` 336, `VieNeuNPZArchive` 302, `VieNeuModelDownloader` ~250, `VieNeuEmbeddingTables` 244, `SeaG2PDictionary` 221, `VieNeuModelManagerView` ~200, `VieNeuTokenizer` 179, `ONNXVieNeuEngine+Audio` ~135, `VieNeuSampler` 138.

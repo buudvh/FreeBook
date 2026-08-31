@@ -15,6 +15,10 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Thêm file tự kiểm cho VieNeu (1.3.294)
+
+1 file mới (448 → **449**): `Sources/Services/TTS/VieNeuTTS/ONNXVieNeuEngine+SelfCheck.swift` (126 dòng) — extension, không phải type mới. `Runtime`, `runtime`, `loadRuntime()`, `buildPrompt(...)`, `resolveAnchor(...)` của `ONNXVieNeuEngine` đổi từ `private` sang internal để extension ở file khác dùng được.
+
 ## Phân hệ VieNeuTTS và protocol engine on-device (1.3.292)
 
 25 file mới, không xoá file nào. Tổng file Swift: 423 → 448.

@@ -18,7 +18,8 @@ final class ONNXVieNeuEngine: @unchecked Sendable {
     /// Số luồng intra-op. Đổi được qua UserDefaults để đo lại trên máy thật mà không phải build lại.
     static let intraOpThreadsKey = "vieneuIntraOpThreads"
 
-    private struct Runtime {
+    /// Nội bộ (không `private`) để `ONNXVieNeuEngine+SelfCheck` dùng được.
+    struct Runtime {
         let modelDirectory: URL
         let environment: ORTEnv
         let prefillSession: ORTSession
@@ -35,10 +36,12 @@ final class ONNXVieNeuEngine: @unchecked Sendable {
     }
 
     private let store: VieNeuModelStore
-    private var runtime: Runtime?
+    var runtime: Runtime?
     private let runtimeLock = NSLock()
     /// Anchor đã tính cho từng giọng — phép chiếu x-vector không đổi theo chunk nên chỉ tính một lần.
     private var anchorCache: [String: [Float]] = [:]
+    /// Đã chạy tự kiểm cho runtime hiện tại chưa.
+    private var didRunSelfCheck = false
 
     init(store: VieNeuModelStore) {
         self.store = store
@@ -54,12 +57,25 @@ final class ONNXVieNeuEngine: @unchecked Sendable {
 
     /// Nạp trước toàn bộ session, bảng embedding và từ điển.
     func prepare() throws {
-        _ = try loadRuntime()
+        selfCheckIfNeeded(runtime: try loadRuntime())
+    }
+
+    /// Chạy tự kiểm **sau khi `runtimeLock` đã nhả**.
+    ///
+    /// Không gọi từ trong `loadRuntime()`: `runSelfCheck` đi qua `resolveAnchor`, mà hàm đó cũng lấy
+    /// `runtimeLock` — `NSLock` không phải khoá đệ quy nên gọi lồng là treo cứng ngay lần nạp đầu.
+    func selfCheckIfNeeded(runtime: Runtime) {
+        runtimeLock.lock()
+        let shouldRun = !didRunSelfCheck
+        didRunSelfCheck = true
+        runtimeLock.unlock()
+        guard shouldRun else { return }
+        runSelfCheck(runtime: runtime)
     }
 
     // MARK: - Nạp runtime
 
-    private func loadRuntime() throws -> Runtime {
+    func loadRuntime() throws -> Runtime {
         runtimeLock.lock()
         defer { runtimeLock.unlock() }
 
@@ -146,6 +162,7 @@ final class ONNXVieNeuEngine: @unchecked Sendable {
         )
         self.runtime = runtime
         self.anchorCache.removeAll()
+        self.didRunSelfCheck = false
 
         AppLogger.shared.log(
             """
@@ -177,6 +194,7 @@ final class ONNXVieNeuEngine: @unchecked Sendable {
         boundaryKind: TTSBoundaryKind
     ) throws -> (data: Data, pcmDuration: Double) {
         let runtime = try loadRuntime()
+        selfCheckIfNeeded(runtime: runtime)
         guard let voice = runtime.catalog.resolve(voiceName) else {
             throw TTSError.internalError("Không có giọng nào dùng được trong voices_v3_turbo.json")
         }
@@ -226,6 +244,17 @@ final class ONNXVieNeuEngine: @unchecked Sendable {
         )
         let codecSeconds = CFAbsoluteTimeGetCurrent() - codecStart
 
+        // Đo **trước** khi chuẩn hoá: đây là cách phân biệt tiếng nói với tiếng ồn bằng số. Giọng
+        // đọc cho rms/peak ~0.2 (tham chiếu trên engine Python: peak 0.58, rms 0.12); tiếng ồn
+        // trắng cho ~0.5-0.7. Đo sau `normalise` thì peak luôn là 0.9 nên mất hết thông tin.
+        var rawPeak: Float = 0
+        var rawEnergy: Float = 0
+        for value in samples where value.isFinite {
+            rawPeak = max(rawPeak, abs(value))
+            rawEnergy += value * value
+        }
+        let rawRMS = samples.isEmpty ? 0 : (rawEnergy / Float(samples.count)).squareRoot()
+
         normalise(&samples)
         appendBoundarySilence(&samples, boundaryKind: boundaryKind, sampleRate: runtime.config.audioSampleRate)
 
@@ -248,7 +277,9 @@ final class ONNXVieNeuEngine: @unchecked Sendable {
             codec=\(String(format: "%.0f", codecSeconds * 1000))ms \
             acoustic=\(String(format: "%.2f", profile.acousticSeconds / Double(frameCount) * 1000))ms/frame \
             decode=\(String(format: "%.2f", profile.decodeSeconds / Double(frameCount) * 1000))ms/frame \
-            sample=\(String(format: "%.2f", profile.samplingSeconds / Double(frameCount) * 1000))ms/frame
+            sample=\(String(format: "%.2f", profile.samplingSeconds / Double(frameCount) * 1000))ms/frame \
+            rawPeak=\(String(format: "%.3f", rawPeak)) rawRms=\(String(format: "%.3f", rawRMS)) \
+            rmsPeak=\(String(format: "%.2f", rawPeak > 0 ? rawRMS / rawPeak : 0))
             """
         )
         return (wav, duration)
@@ -273,7 +304,7 @@ final class ONNXVieNeuEngine: @unchecked Sendable {
     /// Token dẫn đầu **luôn** là `defaultStyleTokenID` (16). Không dùng nhãn phong cách trong file
     /// giọng: id 13..42 là ô dự trữ random-init chưa train, `tin_tuc` (17) và `doc_truyen` (18) đều
     /// nằm trong đó.
-    private func buildPrompt(
+    func buildPrompt(
         phonemeIDs: [Int64],
         voice: VieNeuVoice,
         anchor: [Float]?,
@@ -317,7 +348,7 @@ final class ONNXVieNeuEngine: @unchecked Sendable {
         return (embeddings, rowCount)
     }
 
-    private func resolveAnchor(for voice: VieNeuVoice, runtime: Runtime) throws -> [Float]? {
+    func resolveAnchor(for voice: VieNeuVoice, runtime: Runtime) throws -> [Float]? {
         guard runtime.config.usesSpeakerEmbedding else { return nil }
         runtimeLock.lock()
         if let cached = anchorCache[voice.name] {

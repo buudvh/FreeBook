@@ -4,6 +4,21 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.262) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.294] - 2026-08-31
+
+### Tự kiểm số học cho VieNeu, loại 5 nghi vấn gây nhiễu audio
+
+Thiết bị báo audio nhiễu, không giống tiếng Việt, dễ crash, khoảng cách giữa hai chunk lớn. Log gửi về **không có dòng `🗣️ [VieNeu]` nào** nên chưa xác nhận được engine nào tạo ra audio đó; lượt này dựng công cụ chẩn đoán thay vì đoán.
+
+* **Dựng engine tham chiếu Python chạy trên đúng bộ `onnx_int8`** (local dir, không PyTorch) làm oracle, rồi đối chiếu số học. Loại được **5** nghi vấn: (1) export int8 **không hỏng** — 4.56 s audio, peak 0.58, rms 0.12, tỉ lệ rms/peak 0.21 là đặc trưng tiếng nói còn ồn trắng cho 0.5–0.7; (2) **speaker anchor** của bản Swift cho `max|Δ| = 7.45e-09` so với `_speaker_anchor` — GEMV `NoTrans` trên `xvec_w` (768,192) cộng LayerNorm phương sai toàn phần là đúng; (3) **npz** `text_emb` (419,768) fp32 và `audio_emb` (16,1024,768) fp32, C-contiguous, **stored** không nén ⇒ chỉ số phẳng `(ch*1024+code)*768+h` đúng; (4) **tokenizer** có id phoneme **giống nhau** giữa bộ gốc và bộ int8, chỉ 30 nhãn `<|reserved_N|>` bị đổi số; (5) **`SeaG2P`** cho chuỗi phoneme **giống hệt** sea-g2p thật với văn xuôi tiếng Việt thuần.
+* **Sửa một hiểu sai của 1.3.292**: id 16 là `<|style_0|>` — token **thật**, và ô dự trữ bắt đầu ở **26** chứ không phải 13. Ghi chú `reserved_token_start = 13` trong `config.json` mô tả cách đánh số của bộ **gốc**. Kết luận "token dẫn đầu = 16" vẫn đúng, nhưng lý do thì khác.
+* **Lỗi thật đã tìm ra ở `SeaG2P`, nhưng không phải nguyên nhân gây nhiễu**: thiếu tầng normalize của sea-g2p. "VieNeu-TTS v3" ra `vˈiːnuː - tˌiːtˌiːˈɛs vˈiː3` (giữ gạch nối làm token, dính chữ cái, **để nguyên chữ số**) thay vì `vˈaɪ nˈuː tˈiː tˈiː ˈɛs vˈe bˈaː`. Chữ số trong ký hiệu này là **dấu thanh** nên đó là lỗi thật — nhưng trong FreeBook `TextPreprocessor` đã chặn trước, và câu trong log thiết bị là tiếng Việt thuần.
+* **Thêm `ONNXVieNeuEngine+SelfCheck`**: chạy greedy (`temperature = 0`, `penalty = 1.0`) đúng **một** frame trên chuỗi phoneme **cố định** — bỏ G2P ra ngoài — rồi in 4 mốc kèm mức lệch so với giá trị tham chiếu đã đo: `anchor[0..3]`, `embRow0[0..3]`, số hàng prompt, và 16 code của frame đầu. Một lần chạy trên máy là đủ để biết lỗi ở tầng nào: code khớp ⇒ lỗi ở codec/hậu xử lý; code lệch ⇒ lỗi trong `VieNeuDecodeLoop`.
+* **`selfCheckIfNeeded` phải chạy ngoài `runtimeLock`.** `runSelfCheck` đi qua `resolveAnchor`, mà hàm đó cũng lấy `runtimeLock`; `NSLock` không phải khoá đệ quy nên gọi từ trong `loadRuntime()` là **treo cứng** ngay lần nạp đầu. Cờ `didRunSelfCheck` reset khi dựng `Runtime` mới.
+* **Log tổng hợp thêm `rawPeak`/`rawRms`/`rmsPeak`, đo trước khi chuẩn hoá.** Đo sau `normalise` thì peak luôn là 0.9 nên mất hết thông tin; `rmsPeak` là cách phân biệt tiếng nói với tiếng ồn bằng số mà không cần nghe.
+* **Ghi nhận một điều chưa từng được kiểm chứng**: không có bằng chứng nào cho thấy bản port Swift từng cho ra audio đúng. Bản thử nghiệm chạy `active_vq = 8` — thứ 1.3.292 đã xác định là làm tiếng đục — nên "chậm nhưng nghe được" chưa bao giờ được xác nhận. Lỗi có thể có từ đầu.
+* `check_architecture.py` giữ **14 violation** đúng cùng một tập; `ONNXVieNeuEngine.swift` 336 → 366, còn 34 dòng trước trần. CodeGraph: cập nhật `00`, `02`, `04`, `10`, `14`; `09`, `11`, `13`, `rules` ghi nhận `--no-change-needed`.
+
 ## [1.3.293] - 2026-08-31
 
 ### Sửa lỗi biên dịch VieNeuRepetitionHistory bắt self trước khi khởi tạo

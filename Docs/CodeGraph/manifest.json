@@ -3,9 +3,9 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-08-31T02:40:21Z",
-  "gitCommit": "05122a130f60db4f457db4364eb69db18a76432f",
-  "sourceFileCount": 448,
+  "generatedAt": "2026-08-31T04:19:30Z",
+  "gitCommit": "f1e276d955f4ec8f212ea3aafe641dcaac998463",
+  "sourceFileCount": 449,
   "documentCount": 16,
   "documents": [
     {
@@ -246,6 +246,7 @@
         "Sources/Services/TTS/TTSParagraphBuilder.swift",
         "Sources/Services/TTS/TTSSynthesisIdentity.swift",
         "Sources/Services/TTS/VieNeuTTS/ONNXVieNeuEngine+Audio.swift",
+        "Sources/Services/TTS/VieNeuTTS/ONNXVieNeuEngine+SelfCheck.swift",
         "Sources/Services/TTS/VieNeuTTS/ONNXVieNeuEngine.swift",
         "Sources/Services/TTS/VieNeuTTS/SeaG2P.swift",
         "Sources/Services/TTS/VieNeuTTS/SeaG2PDictionary.swift",
@@ -465,12 +466,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "60b651eba61ec6352c62a9f4944874adfc4b14e07dc5e794181389d7547d34a0",
-      "sourceHash": "9018b92548e98eeb86da60ed86f814dbc1a313fa2b4376b4c7d8c492e8a9ee04",
-      "generatedHash": "a5fc83dc51cb8ea46825d60f3ecb1337523ebf34ae2ec6aa1cda3378cc23d140",
-      "generatedAt": "2026-08-31T01:38:48Z",
-      "reviewedAt": "2026-08-31T01:38:48Z",
-      "reviewedCommit": "3f381281222ea38af81289f69d43b0ba70f81ff8",
+      "structureHash": "1fe990072dec47140601935ac2ba50fe03027f01e5ea34d983bfec082817a936",
+      "sourceHash": "8e34f37c00cec4e6e59fc3dc577fbb3007030fff2ea0fddfbdc1816792a5e57c",
+      "generatedHash": "b1568aa087dc87225a42813043bfbc6b4e69e0750d90817570409ded1ca90a39",
+      "generatedAt": "2026-08-31T04:19:29Z",
+      "reviewedAt": "2026-08-31T04:19:29Z",
+      "reviewedCommit": "f1e276d955f4ec8f212ea3aafe641dcaac998463",
       "reviewMode": "accept"
     },
     {
@@ -738,6 +739,7 @@
         "Sources/Services/TTS/TTSParagraphBuilder.swift",
         "Sources/Services/TTS/TTSSynthesisIdentity.swift",
         "Sources/Services/TTS/VieNeuTTS/ONNXVieNeuEngine+Audio.swift",
+        "Sources/Services/TTS/VieNeuTTS/ONNXVieNeuEngine+SelfCheck.swift",
         "Sources/Services/TTS/VieNeuTTS/ONNXVieNeuEngine.swift",
         "Sources/Services/TTS/VieNeuTTS/SeaG2P.swift",
         "Sources/Services/TTS/VieNeuTTS/SeaG2PDictionary.swift",
@@ -957,12 +959,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "60b651eba61ec6352c62a9f4944874adfc4b14e07dc5e794181389d7547d34a0",
-      "sourceHash": "9018b92548e98eeb86da60ed86f814dbc1a313fa2b4376b4c7d8c492e8a9ee04",
-      "generatedHash": "ee5720fa1766030dfd845e6578a3f9155aed601be615a071d410b5a0fa87f887",
-      "generatedAt": "2026-08-31T01:38:48Z",
-      "reviewedAt": "2026-08-31T01:38:48Z",
-      "reviewedCommit": "3f381281222ea38af81289f69d43b0ba70f81ff8",
+      "structureHash": "1fe990072dec47140601935ac2ba50fe03027f01e5ea34d983bfec082817a936",
+      "sourceHash": "8e34f37c00cec4e6e59fc3dc577fbb3007030fff2ea0fddfbdc1816792a5e57c",
+      "generatedHash": "2f5926f449d7d8c943eabaeb8ab486bf40ec57299e1bf740c1cf7b9398c89c94",
+      "generatedAt": "2026-08-31T04:19:29Z",
+      "reviewedAt": "2026-08-31T04:19:29Z",
+      "reviewedCommit": "f1e276d955f4ec8f212ea3aafe641dcaac998463",
       "reviewMode": "accept"
     },
     {
@@ -1149,6 +1151,7 @@
         "Sources/Services/TTS/TTSParagraphBuilder.swift",
         "Sources/Services/TTS/TTSSynthesisIdentity.swift",
         "Sources/Services/TTS/VieNeuTTS/ONNXVieNeuEngine+Audio.swift",
+        "Sources/Services/TTS/VieNeuTTS/ONNXVieNeuEngine+SelfCheck.swift",
         "Sources/Services/TTS/VieNeuTTS/ONNXVieNeuEngine.swift",
         "Sources/Services/TTS/VieNeuTTS/SeaG2P.swift",
         "Sources/Services/TTS/VieNeuTTS/SeaG2PDictionary.swift",
@@ -1206,13 +1209,13 @@
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "structureHash": "53fc61147578bffc9da6ad51dc4fa1976e3ed44e793a42a5d5d2346854f34060",
-      "sourceHash": "a45400e6b0f95d8db6215db3ae2e44b70aa4168140e487b8f78189462d86e7fa",
-      "generatedHash": "84b46da4edfa89627e5d23b783b7ce5a7afca4e7f8f9e2ba8c2728e442bc5ff9",
-      "generatedAt": "2026-08-31T02:40:21Z",
-      "reviewedAt": "2026-08-31T02:40:21Z",
-      "reviewedCommit": "05122a130f60db4f457db4364eb69db18a76432f",
-      "reviewMode": "no-change-needed"
+      "structureHash": "3b002207b9ff4b5ef40ec53331215b4481652edee72e1e95146373d7c62ecd1d",
+      "sourceHash": "e4bee940c14b3ffe106a82c703a1bf7fa85f1c3c0407a7caf1c4e2768777e793",
+      "generatedHash": "32ab9e378318b1fa18a19286b5cdc475b17bdeb4b7bcab0c3f2da93972b1497e",
+      "generatedAt": "2026-08-31T04:19:29Z",
+      "reviewedAt": "2026-08-31T04:19:29Z",
+      "reviewedCommit": "f1e276d955f4ec8f212ea3aafe641dcaac998463",
+      "reviewMode": "accept"
     },
     {
       "filename": "05_state_graph.md",
@@ -1694,6 +1697,7 @@
         "Sources/Services/TTS/TTSParagraphBuilder.swift",
         "Sources/Services/TTS/TTSSynthesisIdentity.swift",
         "Sources/Services/TTS/VieNeuTTS/ONNXVieNeuEngine+Audio.swift",
+        "Sources/Services/TTS/VieNeuTTS/ONNXVieNeuEngine+SelfCheck.swift",
         "Sources/Services/TTS/VieNeuTTS/ONNXVieNeuEngine.swift",
         "Sources/Services/TTS/VieNeuTTS/SeaG2P.swift",
         "Sources/Services/TTS/VieNeuTTS/SeaG2PDictionary.swift",
@@ -1913,13 +1917,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "eb98220807dc2a661ed0236a3104d113d40b8391c108be8b364dbef0e7b70b34",
-      "sourceHash": "6a04507ab1f23ed5d5392b6d327bf6b422df3fb35c315723296c764bceec530f",
+      "structureHash": "0def4746ef485ac8e14ed97c82008c991dd00e68b1590c38d0b89957a3f7dd7f",
+      "sourceHash": "ebef017c9eee09ed8dd31f0cc13ec32c6c3e2ee1c04607965671c05ab9dbed56",
       "generatedHash": "e357d63b6f0ed1a914b87bec6d559c31d2b70264f6bd4c30f48319279e218072",
-      "generatedAt": "2026-08-31T01:38:48Z",
-      "reviewedAt": "2026-08-31T01:38:48Z",
-      "reviewedCommit": "3f381281222ea38af81289f69d43b0ba70f81ff8",
-      "reviewMode": "accept"
+      "generatedAt": "2026-08-31T04:19:30Z",
+      "reviewedAt": "2026-08-31T04:19:30Z",
+      "reviewedCommit": "f1e276d955f4ec8f212ea3aafe641dcaac998463",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "10_risk_report.md",
@@ -2021,6 +2025,7 @@
         "Sources/Services/TTS/TTSParagraphBuilder.swift",
         "Sources/Services/TTS/TTSSynthesisIdentity.swift",
         "Sources/Services/TTS/VieNeuTTS/ONNXVieNeuEngine+Audio.swift",
+        "Sources/Services/TTS/VieNeuTTS/ONNXVieNeuEngine+SelfCheck.swift",
         "Sources/Services/TTS/VieNeuTTS/ONNXVieNeuEngine.swift",
         "Sources/Services/TTS/VieNeuTTS/SeaG2P.swift",
         "Sources/Services/TTS/VieNeuTTS/SeaG2PDictionary.swift",
@@ -2044,13 +2049,13 @@
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "structureHash": "ed9cffa6fb8cda84225200adf335f5f9708afe523647eacca3ba7c075d124eff",
-      "sourceHash": "ca927070d9fa23073ee7bf3def0aecbcdc259df77da6bfa206abca04e334b06a",
-      "generatedHash": "b59121bc8fd0888101527a8823ad75cdb8ccdf67300e9fbe23052746fa7e4414",
-      "generatedAt": "2026-08-31T02:39:53Z",
-      "reviewedAt": "2026-08-31T02:39:53Z",
-      "reviewedCommit": "05122a130f60db4f457db4364eb69db18a76432f",
-      "reviewMode": "no-change-needed"
+      "structureHash": "69389ba4d2f0da173585ff9fdac9e34c984c394e5081eb2dc9131bef08a8f6e5",
+      "sourceHash": "a6e8c2b6c6b51429e2147d034a578b037a39ea2903ef9ffd926f14053dbabed1",
+      "generatedHash": "661406de69d409e21ad1261a0d9e168019c969b76eb46550e7087482e9590adf",
+      "generatedAt": "2026-08-31T04:19:29Z",
+      "reviewedAt": "2026-08-31T04:19:29Z",
+      "reviewedCommit": "f1e276d955f4ec8f212ea3aafe641dcaac998463",
+      "reviewMode": "accept"
     },
     {
       "filename": "11_subsystems.md",
@@ -2244,6 +2249,7 @@
         "Sources/Services/TTS/TTSParagraphBuilder.swift",
         "Sources/Services/TTS/TTSSynthesisIdentity.swift",
         "Sources/Services/TTS/VieNeuTTS/ONNXVieNeuEngine+Audio.swift",
+        "Sources/Services/TTS/VieNeuTTS/ONNXVieNeuEngine+SelfCheck.swift",
         "Sources/Services/TTS/VieNeuTTS/ONNXVieNeuEngine.swift",
         "Sources/Services/TTS/VieNeuTTS/SeaG2P.swift",
         "Sources/Services/TTS/VieNeuTTS/SeaG2PDictionary.swift",
@@ -2463,12 +2469,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "9f5e5ec8d2774189ea86d6ed012ecb3820592cfeb99c73a3dd8ccdcd1d21ba3d",
-      "sourceHash": "6ec35e9cd54201bca7f2883e04fc13d768a98ad76c131154aa1afca30a71ee20",
+      "structureHash": "5393d010fb82a6582ef3fb27d7399c3198c73ea3424a5863fd3a88667693d6c1",
+      "sourceHash": "3634cb1b4b7e045b214cec9def49f2621c7e4f5e1a5e5503adf6a2203c794173",
       "generatedHash": "c57fcdb906260e7949f75bcf96301c91fcb291b6c6aa2e0b94af3759dc3c86e8",
-      "generatedAt": "2026-08-31T02:39:53Z",
-      "reviewedAt": "2026-08-31T02:39:53Z",
-      "reviewedCommit": "05122a130f60db4f457db4364eb69db18a76432f",
+      "generatedAt": "2026-08-31T04:19:30Z",
+      "reviewedAt": "2026-08-31T04:19:30Z",
+      "reviewedCommit": "f1e276d955f4ec8f212ea3aafe641dcaac998463",
       "reviewMode": "no-change-needed"
     },
     {
@@ -2620,6 +2626,7 @@
         "Sources/Services/TTS/TTSParagraphBuilder.swift",
         "Sources/Services/TTS/TTSSynthesisIdentity.swift",
         "Sources/Services/TTS/VieNeuTTS/ONNXVieNeuEngine+Audio.swift",
+        "Sources/Services/TTS/VieNeuTTS/ONNXVieNeuEngine+SelfCheck.swift",
         "Sources/Services/TTS/VieNeuTTS/ONNXVieNeuEngine.swift",
         "Sources/Services/TTS/VieNeuTTS/SeaG2P.swift",
         "Sources/Services/TTS/VieNeuTTS/SeaG2PDictionary.swift",
@@ -2676,12 +2683,12 @@
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "structureHash": "17ef70fffd3ab268044f7c946cf69a78ddcb455553b7efe495b5fba417c4d508",
-      "sourceHash": "f57b4d8dc2525697abb1689bb7042d1bcdc967a0528881998cb8ffb3720b819e",
+      "structureHash": "a013edf99f67f0565bb0591a002ff6211006a66eeae47df5e68da53cecfcdef6",
+      "sourceHash": "1e8c00d394833f67bd685b288a7d3e113d99ecbb772b1101ad9111e3e8825573",
       "generatedHash": "4aadf9e79af14e60368b251d7afd832b85299b352e1fb4aaae59b1482533d363",
-      "generatedAt": "2026-08-31T02:39:53Z",
-      "reviewedAt": "2026-08-31T02:39:53Z",
-      "reviewedCommit": "05122a130f60db4f457db4364eb69db18a76432f",
+      "generatedAt": "2026-08-31T04:19:30Z",
+      "reviewedAt": "2026-08-31T04:19:30Z",
+      "reviewedCommit": "f1e276d955f4ec8f212ea3aafe641dcaac998463",
       "reviewMode": "no-change-needed"
     },
     {
@@ -2922,6 +2929,7 @@
         "Sources/Services/TTS/TTSParagraphBuilder.swift",
         "Sources/Services/TTS/TTSSynthesisIdentity.swift",
         "Sources/Services/TTS/VieNeuTTS/ONNXVieNeuEngine+Audio.swift",
+        "Sources/Services/TTS/VieNeuTTS/ONNXVieNeuEngine+SelfCheck.swift",
         "Sources/Services/TTS/VieNeuTTS/ONNXVieNeuEngine.swift",
         "Sources/Services/TTS/VieNeuTTS/SeaG2P.swift",
         "Sources/Services/TTS/VieNeuTTS/SeaG2PDictionary.swift",
@@ -3141,12 +3149,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "60b651eba61ec6352c62a9f4944874adfc4b14e07dc5e794181389d7547d34a0",
-      "sourceHash": "9018b92548e98eeb86da60ed86f814dbc1a313fa2b4376b4c7d8c492e8a9ee04",
-      "generatedHash": "0cbcaa7adb57191cab7690201a41a37c3df068a357718a64351e96c4c15e448c",
-      "generatedAt": "2026-08-31T01:38:48Z",
-      "reviewedAt": "2026-08-31T01:38:48Z",
-      "reviewedCommit": "3f381281222ea38af81289f69d43b0ba70f81ff8",
+      "structureHash": "1fe990072dec47140601935ac2ba50fe03027f01e5ea34d983bfec082817a936",
+      "sourceHash": "8e34f37c00cec4e6e59fc3dc577fbb3007030fff2ea0fddfbdc1816792a5e57c",
+      "generatedHash": "5f3b224a3d7fb2ed2481864fb258ac39702ec979cee6fa18f5d94e7442be7071",
+      "generatedAt": "2026-08-31T04:19:29Z",
+      "reviewedAt": "2026-08-31T04:19:29Z",
+      "reviewedCommit": "f1e276d955f4ec8f212ea3aafe641dcaac998463",
       "reviewMode": "accept"
     },
     {
@@ -3241,6 +3249,7 @@
         "Sources/Services/TTS/TTSParagraphBuilder.swift",
         "Sources/Services/TTS/TTSSynthesisIdentity.swift",
         "Sources/Services/TTS/VieNeuTTS/ONNXVieNeuEngine+Audio.swift",
+        "Sources/Services/TTS/VieNeuTTS/ONNXVieNeuEngine+SelfCheck.swift",
         "Sources/Services/TTS/VieNeuTTS/ONNXVieNeuEngine.swift",
         "Sources/Services/TTS/VieNeuTTS/SeaG2P.swift",
         "Sources/Services/TTS/VieNeuTTS/SeaG2PDictionary.swift",
@@ -3265,12 +3274,12 @@
         "Sources/Views/Reader/ReaderTextView.swift",
         "Sources/Views/Reader/ReaderView.swift"
       ],
-      "structureHash": "99522c22c586ad1aae71beb870b3f990504d1e35157d055f314d48859b76320b",
-      "sourceHash": "fcf1845040f3d132022ccf6788439f42de65ff80ea7d887718c19a560e717704",
+      "structureHash": "385ee92f92df0a482108d9934b235b5de67727b6261c37a9c478088db102fbb9",
+      "sourceHash": "b09eb0c218be4b92401eeeef53b5f0193cf12af3e32d9b70601e924b391deff0",
       "generatedHash": "bc5ac5858f952a1b2f1dc9286a542136889ec71345ca8a2ad7df6eae1895f151",
-      "generatedAt": "2026-08-31T02:39:53Z",
-      "reviewedAt": "2026-08-31T02:39:53Z",
-      "reviewedCommit": "05122a130f60db4f457db4364eb69db18a76432f",
+      "generatedAt": "2026-08-31T04:19:30Z",
+      "reviewedAt": "2026-08-31T04:19:30Z",
+      "reviewedCommit": "f1e276d955f4ec8f212ea3aafe641dcaac998463",
       "reviewMode": "no-change-needed"
     }
   ]

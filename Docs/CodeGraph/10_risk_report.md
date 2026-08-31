@@ -15,6 +15,48 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Đã loại được rủi ro nào của VieNeu, và còn lại gì (1.3.294)
+
+**Ba rủi ro build của 1.3.292 đều đã loại** — CI của 1.3.293 xanh: selector
+`ORTSessionOptions.addConfigEntry(withKey:value:)` **có** trong binding ObjC đang pin, contrib op int8
+biên dịch được, và 25 file mới chỉ có **một** lỗi (closure bắt `self` trước khi `channels` khởi tạo).
+
+**Bộ `onnx_int8` không hỏng.** Chạy engine tham chiếu Python trên **đúng** bộ int8 đó (local dir,
+`temperature = 0`) cho 4.56 s audio, peak 0.58, rms 0.12 — tỉ lệ rms/peak 0.21 là đặc trưng tiếng nói,
+tiếng ồn trắng cho 0.5–0.7. Nghĩa là nếu thiết bị cho ra nhiễu thì lỗi nằm ở **bản port Swift**, không
+ở export.
+
+**Bốn thành phần đã đối chiếu số học với bản tham chiếu và khớp:**
+
+* **Speaker anchor** — thuật toán của bản Swift (GEMV `NoTrans` trên `xvec_w` (768,192), rồi LayerNorm
+  phương sai **toàn phần**) cho `max|Δ| = 7.45e-09` so với `_speaker_anchor`. Đúng.
+* **Bảng npz** — `text_emb` (419,768) fp32, `audio_emb` (16,1024,768) fp32, cả hai C-contiguous, npz
+  **stored** (không nén). Chỉ số phẳng `(ch * 1024 + code) * 768 + h` của bản Swift là đúng.
+* **Tokenizer** — id của **mọi** phoneme giống nhau giữa `tokenizer.json` gốc và bản `onnx_int8`; chỉ 30
+  nhãn `<|reserved_N|>` bị đổi số. `<|unk|>` = 43, vocab phoneme bắt đầu ở 44 ở cả hai.
+* **Style token 16 là token thật, không phải ô random-init.** Trong tokenizer của `onnx_int8`, id 16 là
+  `<|style_0|>`; ô dự trữ bắt đầu ở **26**, không phải 13. Ghi chú `reserved_token_start = 13` trong
+  `config.json` mô tả cách đánh số của bộ **gốc**. Kết luận "dùng 16" vẫn đúng, nhưng lý do thì khác
+  với những gì 1.3.292 ghi.
+
+**`SeaG2P` khớp cho văn xuôi tiếng Việt, lệch ở chữ số và gạch nối.** Cùng một câu tiếng Việt thuần,
+bản Swift cho chuỗi phoneme **giống hệt** sea-g2p thật. Nhưng "VieNeu-TTS v3" thì sea-g2p thật cho
+`vˈaɪ nˈuː tˈiː tˈiː ˈɛs vˈe bˈaː` (tách ở gạch nối, đọc từng chữ cái, `v3` → "vê ba") còn bản Swift cho
+`vˈiːnuː - tˌiːtˌiːˈɛs vˈiː3` (giữ gạch nối làm token, dính chữ cái, **để nguyên chữ số 3**). Chữ số
+trong ký hiệu này là **dấu thanh** nên đó là lỗi thật — nhưng trong FreeBook nó đã được
+`TextPreprocessor` chặn trước, và nó **không** giải thích được tiếng ồn.
+
+**Còn lại, chưa loại được:**
+
+* Lỗi nằm đâu đó trong cơ chế Swift mà không đọc code ra được: xử lý `ORTValue`, tuổi thọ buffer, hoặc
+  vòng `VieNeuDecodeLoop`. `ONNXVieNeuEngine+SelfCheck` được thêm chính để bisect chỗ này bằng **một**
+  lần chạy trên máy.
+* **Không có bằng chứng nào cho thấy bản port Swift từng cho ra audio đúng.** Bản thử nghiệm chạy với
+  `active_vq = 8` — thứ mà 1.3.292 đã xác định là làm tiếng đục — nên "chậm nhưng nghe được" chưa bao
+  giờ được kiểm chứng. Lỗi có thể có từ đầu và nằm trong phần code dùng chung.
+* RAM và throttle nhiệt vẫn chưa đo. Log thiết bị cho `thermal=serious` và `[NghiEnergy] Underrun` chỉ
+  3 giây sau khi bắt đầu phát, khớp với "khoảng cách giữa 2 chunk lớn".
+
 ## Rủi ro của engine VieNeu-TTS (1.3.292)
 
 **Chưa được kiểm chứng trên thiết bị.** Toàn bộ phân hệ này được viết trên Windows, chưa biên dịch và chưa chạy lần nào. Ba điểm phải kiểm ngay ở lần build/chạy đầu:

@@ -15,6 +15,13 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Tự kiểm số học cho engine VieNeu (1.3.294)
+
+* Thiết bị báo audio nhiễu. Đối chiếu với engine tham chiếu Python chạy trên **đúng** bộ `onnx_int8` đã loại được 5 nghi vấn: export int8 tốt (4.56 s audio, rms/peak 0.21 — đặc trưng tiếng nói), speaker anchor khớp `max|Δ| = 7.45e-09`, shape/dtype/layout npz đúng, id phoneme của tokenizer giống nhau giữa hai bộ, và `SeaG2P` cho chuỗi phoneme **giống hệt** sea-g2p thật với văn xuôi tiếng Việt. Chi tiết: [10_risk_report.md](10_risk_report.md).
+* Phát hiện phụ: id 16 là `<|style_0|>` — một token **thật**, và ô dự trữ bắt đầu ở **26** chứ không phải 13. Kết luận "dùng 16" của 1.3.292 vẫn đúng nhưng lý do thì khác.
+* Thêm `ONNXVieNeuEngine+SelfCheck`: chạy greedy 1 frame trên chuỗi phoneme **cố định** rồi in 4 mốc số học (anchor, hàng embedding 0, số hàng prompt, 16 code frame đầu) kèm mức lệch so với giá trị tham chiếu đã đo. Một lần chạy trên máy là đủ để biết lỗi ở tầng nào.
+* Log tổng hợp thêm `rawPeak`/`rawRms`/`rmsPeak` đo **trước** khi chuẩn hoá — đo sau thì peak luôn 0.9 nên mất hết thông tin.
+
 ## VieNeu-TTS v3 Turbo thành engine offline thứ hai của nhánh nghitts (1.3.292)
 
 * **`tool == "nghitts"` nay nghĩa "engine chạy trên máy", không còn nghĩa "Piper".** Engine cụ thể do khoá UserDefaults `nghiEngineKind` ∈ `{piper, vieneu}` chọn. Giữ nguyên chuỗi `"nghitts"` là chủ ý: nó được so sánh ở ~45 chỗ và điều khiển toàn bộ policy on-device, nên engine mới **thừa hưởng** cả 45 nhánh đó.

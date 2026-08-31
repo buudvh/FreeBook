@@ -15,6 +15,21 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Đường tự kiểm của VieNeu (1.3.294)
+
+```
+prepare() / synthesize()
+  └─ loadRuntime()                     (giữ runtimeLock, nhả trước khi trả về)
+  └─ selfCheckIfNeeded(runtime:)       ← NGOÀI lock
+       └─ runSelfCheck(runtime:)
+            ├─ resolveAnchor           (cũng lấy runtimeLock)
+            ├─ tokenizer.encode        (chuỗi phoneme cố định, bỏ G2P ra ngoài)
+            ├─ buildPrompt
+            └─ decodeLoop.generate     (temperature 0, penalty 1.0, maxFrames 1)
+```
+
+`selfCheckIfNeeded` **phải** nằm ngoài `loadRuntime()`: `runSelfCheck` đi qua `resolveAnchor`, mà hàm đó cũng lấy `runtimeLock`. `NSLock` không phải khoá đệ quy nên gọi lồng là treo cứng ngay lần nạp đầu. Cờ `didRunSelfCheck` (reset khi dựng `Runtime` mới) giữ cho nó chạy đúng một lần mỗi lần nạp.
+
 ## Vòng suy luận VieNeu và đường chọn engine on-device (1.3.292)
 
 **Đường tổng hợp một chunk** (nhánh `nghitts` + `nghiEngineKind == vieneu`):
