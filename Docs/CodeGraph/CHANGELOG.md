@@ -2,7 +2,28 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.261) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.262) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+
+## [1.3.295] - 2026-08-31
+
+### Revert toàn bộ engine VieNeu-TTS
+
+Revert ba commit `1.3.292`–`1.3.294` (25 file mới, 8 file sửa). Cây code trở lại đúng trạng thái `1.3.291`: 423 file Swift, `check_architecture.py` 14 violation nền, `validate_links.py` PASS. Không xoá bằng `reset --hard` mà bằng `git revert` nên lịch sử vẫn tra cứu được nếu muốn làm lại.
+
+**Lý do**: audio trên iPhone 11 ra nhiễu và không giống tiếng Việt, app dễ crash, khoảng cách giữa hai chunk lớn. Sau khi đối chiếu số học với engine tham chiếu Python thì lỗi nằm ở **bản port Swift**, không ở model — nhưng chưa khoanh được tầng nào, và chi phí giữ một engine chưa dùng được trong cây code cao hơn giá trị của nó.
+
+**Giữ lại ở đây những gì đã kiểm chứng được, để lần sau không phải làm lại:**
+
+* **Bộ `onnx_int8` không hỏng.** Engine tham chiếu Python chạy trên đúng bộ đó cho 4.56 s audio, peak 0.58, rms 0.12 — tỉ lệ rms/peak 0.21 là đặc trưng tiếng nói (ồn trắng cho 0.5–0.7).
+* **Thuật toán speaker anchor đúng**: GEMV `NoTrans` trên `xvec_w` (768,192) rồi LayerNorm phương sai **toàn phần** cho `max|Δ| = 7.45e-09` so với `_speaker_anchor`.
+* **Layout npz**: `text_emb` (419,768) fp32, `audio_emb` (16,1024,768) fp32, C-contiguous, npz **stored** (không nén) ⇒ chỉ số phẳng `(ch*1024 + code)*768 + h` là đúng.
+* **Tokenizer**: id của **mọi** phoneme giống nhau giữa `tokenizer.json` gốc và bản `onnx_int8`; chỉ 30 nhãn `<|reserved_N|>` bị đổi số. `<|unk|>` = 43, vocab phoneme bắt đầu ở 44 ở cả hai.
+* **Token dẫn đầu prompt = 16 là đúng, nhưng vì lý do khác 1.3.292 ghi**: trong tokenizer của `onnx_int8`, id 16 là `<|style_0|>` — token **thật, đã train** — và ô dự trữ bắt đầu ở **26**, không phải 13. Ghi chú `reserved_token_start = 13` trong `config.json` mô tả cách đánh số của bộ **gốc**.
+* **`ORTSessionOptions.addConfigEntry(withKey:value:)` có** trong binding ObjC của phiên bản ORT đang pin; contrib op int8 biên dịch được. Hai rủi ro build đó không còn phải lo nếu làm lại.
+* **Số đo trên iPhone 11 (bộ fp32, 84 frame = 6.72 s audio)**: decode step 19.92 ms/frame ≈ **20.8 GB/s** — thuần bị chặn băng thông; acoustic 7.93 ms/frame; lấy mẫu 2.86 ms/frame; prefill 0.461 s; codec 1.342 s. Vòng AR 31.25 ms/frame ≈ 2.6× realtime, nhưng `thermal=serious` và `[NghiEnergy] Underrun` xuất hiện chỉ 3 giây sau khi bắt đầu phát.
+* **Bản port Swift chưa từng được chứng minh là cho ra audio đúng.** Bản thử nghiệm chạy `active_vq = 8`, thứ làm tiếng đục vì codec là RVQ residual.
+
+**Chưa khoanh được**: lỗi ở đâu trong cơ chế Swift (xử lý `ORTValue`, tuổi thọ buffer, hay vòng `VieNeuDecodeLoop`). Nếu làm lại thì bước đầu tiên là dựng lại bộ tự kiểm greedy 1 frame và so 16 code của frame đầu với giá trị tham chiếu — code khớp thì lỗi ở codec/hậu xử lý, code lệch thì lỗi ở vòng sinh.
 
 ## [1.3.291] - 2026-08-31
 
@@ -349,15 +370,3 @@ Thêm **4** file Swift (352 → 356), sửa 15 file; **không** `@Model` nào đ
 * **Truyện local luôn được sao lưu nội dung dù tắt `.content`** vì chúng không tải lại được từ mạng: `BackupExportWorker` 240 → **248** chọn `contentBooks` = toàn bộ khi có `.content`, ngược lại `filter { $0.isLocalBook }`; `BackupRestoreWorker` 245 → **249** phản chiếu bằng `options.scopes.contains(.content) || book.isLocalBook`. Thêm computed `BackupPayload.BookRecord.isLocalBook` (204 → **217**) để tầng payload không phải mở SwiftData. Hạn chế được ghi nhận, không sửa: `BackupSizeEstimator` (45 → **54**) báo thiếu trong ca này vì tên file là `sha256(bookId)`, và `manifest.scopes` vẫn không ghi `.content` — khôi phục vẫn đúng vì nó quyết định theo `book.isLocalBook`, không theo scope.
 * **"Xoá tất cả thông báo" giờ chỉ xoá thông báo đã đọc** (đảo lại quyết định của 1.3.260): `NotificationInboxManager` 88 → **93** đổi `deleteUnread()` thành `deleteRead()` (`records.filter { !$0.isRead }`) + thêm `hasRead`. Vẫn cố ý **không** toast xác nhận: `ToastManager.show` ghi vào chính hộp thư này nên toast sẽ tạo ngay một thông báo chưa đọc mới. `NotificationInboxStore.clearAll()` còn đó nhưng không UI nào gọi.
 * `check_architecture.py` giữ **14 violation, đúng cùng một tập** trước/sau; 4 file mới đều ≤ 400 dòng và đúng 1 type top level, `SettingsView` 441 → 443 (baseline 453), không nới baseline, không sửa `architecture_allowlist.json`. CodeGraph: cập nhật `00`, `02`, `03`, `04`, `06`, `08`, `09`, `10`, `11`, `14`; `13` đã xem, không cần đổi.
-
-## [1.3.262] - 2026-08-24
-
-### Nút back không chữ chạy thật, ô URL tự bôi đen, bypass browser nhiều tab
-
-Thêm **6** file Swift (346 → 352), sửa 2 file; **không** `@Model` nào đổi shape, **không** thêm dependency. Chưa biên dịch (viết trên Windows, không có `xcodebuild`/`xcodegen`) — **phải chạy `xcodegen generate` trên macOS/CI** vì có file mới.
-
-* **Sửa lỗi "bỏ chữ nút back không hoạt động" của 1.3.260**: nguyên nhân là `NavigationBarAppearance` đọc `UINavigationBar.appearance().standardAppearance` rồi sửa **tại chỗ** — appearance proxy chỉ bảo đảm hợp đồng cho *setter*, getter của nó không trả về đối tượng đang có hiệu lực, nên phép sửa rơi vào hư không. Nay dựng **4 `UINavigationBarAppearance()` mới**: `standard`/`compact` dùng `configureWithDefaultBackground()`, `scrollEdge`/`compactScrollEdge` dùng `configureWithTransparentBackground()` (đúng mặc định iOS 15+ nên diện mạo thanh nav không đổi). Thêm `.font: .systemFont(ofSize: 0.1)` cạnh `.foregroundColor: .clear` cho cả 4 trạng thái `backButtonAppearance` để nhãn không **chiếm chỗ** — chỉ đổi màu thì chevron bị đẩy lệch khỏi vị trí quen thuộc. Vẫn không dùng `UIBarButtonItem.appearance()`.
-* **Bypass browser mở nhiều tab, link ngoài mở tab mới**: 4 file mới `BypassBrowserTabStore` (149), `BypassBrowserTab` (107), `BypassBrowserTabBar` (62), `BypassBrowserWebPane` (38). Trước đây `BypassWebView` **không gắn `WKUIDelegate`** nên `target="_blank"`/`window.open` không làm gì cả. Store là chủ sở hữu duy nhất mọi `WKWebView` và là delegate dùng chung; `createWebViewWith` **dùng lại** `WKWebViewConfiguration` do WebKit trao và **không** tự `load` (tạo config mới ⇒ mất `window.opener`; tự load ⇒ nạp hai lần), trần **8 tab** vì mỗi tab là một webview, đạt trần thì nạp link trên tab hiện tại. KVO (6 khoá) nằm trên tab chứ không trên `Coordinator` nên tab nền vẫn cập nhật tiêu đề/URL; đổi tab chỉ đổi subview của một `UIView` container nên giữ nguyên lịch sử và vị trí cuộn. `webViewDidClose` đóng đúng tab; `closeTab` từ chối đóng tab cuối.
-* **Chạm ô URL là bôi đen toàn bộ địa chỉ**: file mới `URLBarTextField` (102) bọc `UITextField` vì SwiftUI `TextField` (iOS 17) không có API chọn hết. Đặt `selectedTextRange` trong `textFieldDidBeginEditing` phải **hoãn một vòng run loop** (UIKit ghi đè bằng caret cuối chuỗi ngay sau callback), và dùng `selectedTextRange` thay `selectAll(nil)` để không bật kèm menu Cut/Copy/Paste. Cờ `isEditing` chặn observer URL của webview ghi đè lúc đang gõ; `updateUIView` chỉ gán `text` khi khác thật.
-* **`BypassWebView.swift` 599 → 350 dòng** (baseline legacy 599, chỉ được giảm): gỡ `WebViewStore`, `SwiftUIWebView` + Coordinator, `fileprivate isDomainBlocked` (dùng lại `isEngineDomainBlocked` của Engine — một nguồn sự thật cho danh sách chặn) và `generateHomeHtml()` (tách nguyên văn sang `BypassBrowserHomePage`, 170 dòng). API công khai `BypassWebView(urlString:host:onImport:)` **không đổi** nên 6 call site không phải sửa.
-* `check_architecture.py` giữ **14 violation, đúng cùng một tập** trước/sau; 6 file mới đều ≤ 400 dòng và đúng 1 type top level, không nới baseline, không sửa `architecture_allowlist.json`. CodeGraph: cập nhật `00`, `02`, `03`, `09`, `11`, `14`.
