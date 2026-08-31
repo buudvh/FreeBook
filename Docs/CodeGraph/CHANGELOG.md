@@ -4,6 +4,14 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.262) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.293] - 2026-08-31
+
+### Sửa lỗi biên dịch VieNeuRepetitionHistory bắt self trước khi khởi tạo
+
+* CI của 1.3.292 đỏ ở **đúng một** lỗi: `VieNeuRepetitionHistory.init` gọi `map { _ in Channel(window: self.window) }`, mà closure bắt `self` trước khi `channels` được khởi tạo. Dùng biến cục bộ `clampedWindow` thay `self.window`. Không đổi hành vi.
+* **Ba rủi ro build nêu ở 1.3.292 đã được loại**: selector `ORTSessionOptions.addConfigEntry(withKey:value:)` **có** trong binding ObjC đang pin, contrib op int8 biên dịch được, và không có lỗi nào khác trong 25 file mới — `xcodebuild archive` đi qua cả bước `Resolve and patch Package dependencies`. Hai câu hỏi runtime còn lại (ORT có mmap chung `.data` giữa hai session, RAM thực tế) chỉ trả lời được trên iPhone 11.
+* CodeGraph: 5 doc `staleOn: content` phủ `Services/**` ghi nhận `--no-change-needed` (sửa một dòng, không đổi hợp đồng nào).
+
 ## [1.3.292] - 2026-08-31
 
 ### VieNeu-TTS v3 Turbo thành engine offline thứ hai của nhánh nghitts

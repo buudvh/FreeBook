@@ -32,8 +32,11 @@ struct VieNeuRepetitionHistory {
     private let window: Int
 
     init(channelCount: Int, window: Int = VieNeuRepetitionHistory.defaultWindow) {
-        self.window = max(1, window)
-        self.channels = (0..<max(0, channelCount)).map { _ in Channel(window: self.window) }
+        // Dùng biến cục bộ trong closure, không `self.window`: closure bắt `self` trước khi
+        // `channels` được khởi tạo nên trình biên dịch từ chối.
+        let clampedWindow = max(1, window)
+        self.window = clampedWindow
+        self.channels = (0..<max(0, channelCount)).map { _ in Channel(window: clampedWindow) }
     }
 
     mutating func add(code: Int32, channel: Int) {
