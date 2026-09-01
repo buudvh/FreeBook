@@ -31,7 +31,8 @@ public enum ExtensionDebugProtocol {
     }
 
     /// Mã lỗi cố định — client dựa vào mã, không dựa vào câu chữ tiếng Việt.
-    public enum ErrorCode: String, Codable, Sendable {
+    /// Conform `Error` để dùng trực tiếp làm failure của `Result` trong `ExtensionDebugPairingAuthority`.
+    public enum ErrorCode: String, Codable, Sendable, Error {
         case unsupportedVersion = "UNSUPPORTED_VERSION"
         case malformedMessage = "MALFORMED_MESSAGE"
         case notPaired = "NOT_PAIRED"
