@@ -3,8 +3,8 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-09-01T06:14:20Z",
-  "gitCommit": "7f9697d96eb1aed873798d65c51429f642d3b6a2",
+  "generatedAt": "2026-09-01T06:35:00Z",
+  "gitCommit": "6fd8d42aec51bbe294b22769ad7880fb974046d7",
   "sourceFileCount": 459,
   "documentCount": 16,
   "documents": [
@@ -2704,12 +2704,12 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "3668b6b2860c8d01d5a33bb55121343352543a208e27e96a0194ef3cefd7d277",
-      "sourceHash": "88fe8cd1152ea670db017d7d74f0061350530e275f0808b9a45fb948279e45df",
+      "sourceHash": "edec6045f737c147f86e9579d0dd21a59a28328fea50d6e87e11555489b79d2f",
       "generatedHash": "e64eb6cac7c4007fcc9167bd4e391ebb67ae598b901a8a06e5482c57111ab98a",
-      "generatedAt": "2026-09-01T06:14:20Z",
-      "reviewedAt": "2026-09-01T06:14:20Z",
-      "reviewedCommit": "7f9697d96eb1aed873798d65c51429f642d3b6a2",
-      "reviewMode": "accept"
+      "generatedAt": "2026-09-01T06:35:00Z",
+      "reviewedAt": "2026-09-01T06:35:00Z",
+      "reviewedCommit": "6fd8d42aec51bbe294b22769ad7880fb974046d7",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "14_complexity_report.md",
