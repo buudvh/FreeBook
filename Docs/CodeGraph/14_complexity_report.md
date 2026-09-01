@@ -15,6 +15,15 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Số dòng sau lượt 1.3.302
+
+* **Thêm 13 file Swift** (428 → **441**), tất cả ≤ 400 dòng và mỗi file một primary type top-level. Lớn nhất: `ExtensionDebugConsoleView` 217, `ExtensionDebugRunner` 206; nhỏ nhất `DeveloperSettingsSection` 17.
+* **Hai file ở/sát baseline được giữ bằng tách file, không nới baseline**: `JSExecutor.swift` 1516 → **1553** (chỉ một stored property, một tham số init và 6 lời gọi một dòng; thân các điểm phát ở `JSExecutor+Debug.swift` 77 dòng) — vẫn là violation cũ, không loại mới. `SettingsView.swift` 447 → **450**, còn dưới baseline 453 nhờ đưa mục mới sang `DeveloperSettingsSection.swift`.
+* **`ExtensionManager.swift` giữ đúng 1049 dòng** — runner dùng lại API `internal` của nó nên không thêm dòng nào.
+* **Chi phí thường trực khi không debug**: mỗi điểm phát là một phép so `nil` (`guard let sink = debugSink else { return }`) trước mọi format chuỗi ⇒ đường đọc/tải production không cấp phát thêm.
+* **Bậc phức tạp của trace**: `emit` O(1) (một `NSLock`, một `Task`); `hub.append` O(1) trừ lúc vượt trần tổng thì O(k) cho k event bị evict; `visibleEvents` của reader là một lượt `filter` O(n) trên tối đa 600 phần tử, chạy theo mỗi lượt body của màn debug — chỉ tồn tại khi màn đó đang mở.
+* `check_architecture.py` giữ **14 violation nền**, không violation mới.
+
 ## Số dòng sau lượt 1.3.297
 
 * **Thêm 1 file Swift** (426 → **427**): `JapaneseLoanwordList` ~95 dòng, chỉ là dữ liệu `Set<String>`.

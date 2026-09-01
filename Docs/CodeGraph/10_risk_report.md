@@ -15,6 +15,16 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rủi ro của trace debug extension (1.3.302)
+
+* **Đã chặn — rò bí mật qua trace.** Redaction nằm ở phía *tạo* event, không ở phía gửi, nên không có đường nào để event chưa sạch lọt ra khi Phase 2 gắn socket. `ExtensionDebugRedactor` cố ý **không có hàm nhận header hay body**: thiếu hàm là chốt rẻ nhất. URL giữ scheme/host/path và thay **mọi** giá trị query bằng `…`; user/password/fragment bị bỏ. Summary kết quả dùng `compactRepresentation` (`[Array: 20 items]`) nên nội dung chương không bao giờ vào trace.
+* **Đã chặn — path tuyệt đối trong sandbox.** `ExtensionDebugSourceLocation.script` luôn là path **tương đối** so với gốc extension, và stack bị bỏ phần thư mục. Client Phase 2 chỉ được biết path có khai trong manifest.
+* **Đã chặn — script chạy tràn làm treo UI.** Quota 600 event/run + 2000 toàn hub; vượt trần run thì bỏ event **mới** và chèn một `eventsDropped`, nên `console.log` trong vòng `while` không làm hub phình vô hạn. `emit` không blocking nên quota không bao giờ chặn JS.
+* **Còn hở, có chủ ý — trace là plaintext trong RAM.** Hub sống trong process, không ghi đĩa, mất khi app tắt. Không có mã hoá; ai xem được màn hình thì xem được trace. Chấp nhận vì màn này chỉ vào được bằng thao tác người dùng trong Cài Đặt và không phát ra mạng.
+* **Còn hở, có chủ ý — debug run có side effect thật.** Nó gọi network thật của extension, ghi `localStorage`/`cacheStorage`/cookie của **đúng package đó** (namespace `vbook_ext_storage_<md5(localPath)>_`). Phase 1 cố ý chạy source **installed** để chứng minh runtime thật; tách storage cho bản nháp là việc của Phase 3.
+* **Rủi ro đã biết — `ExtensionManager` và `ExtensionDebugEntrypoint` là hai bản của cùng một contract.** Đánh đổi để manager không phải đổi chữ ký. Nếu sau này `search` đổi `page` từ `String` sang `Int` mà chỉ sửa một bên, màn debug sẽ chạy đúng nhưng production sai (hoặc ngược lại) — và triệu chứng xuất hiện ở chỗ khác. Doc ở đầu `ExtensionDebugEntrypoint` ghi rõ nghĩa vụ này.
+* **Không phải rủi ro — đường production.** Mọi call site cũ truyền `debugSink = nil` và mọi điểm phát `guard let sink else { return }` ngay đầu, nên đường đọc/tải chỉ trả thêm một phép kiểm tra `nil`; không cấp phát, không format chuỗi.
+
 ## Đổi cấu hình dựng đoạn làm cache chương khác lỗi thời (1.3.299)
 
 * **Đã chặn**: bật/tắt "hiện tên chương" hoặc "bỏ tiêu đề trùng" mà chỉ dựng lại chương đang hiển thị thì các chương còn trong `ChapterCache` vẫn giữ `paragraphItems` dựng theo cờ **cũ**, và cấu hình mới trông như chỉ áp cho một chương. `ReaderViewModel.invalidateParagraphLayoutForCachedChapters` hạ `translationToken = 0` cho mọi chương khác để worker điều hướng dựng lại khi người dùng tới — cùng cơ chế `updateCachedTranslatedContent` đang dùng cho đổi từ điển.

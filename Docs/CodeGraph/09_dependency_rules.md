@@ -15,6 +15,16 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vị trí tầng của 13 file debug extension (1.3.302)
+
+* **9 file mới ở `Sources/Services/Extensions/Debug/` + `Engine/JSExecutor+Debug.swift` không `import SwiftUI`** ⇒ hợp lệ với `SERVICE_SWIFTUI_IMPORT`; không file nào gọi `ToastManager` ⇒ hợp lệ với `SERVICE_TOAST_COUPLING`. Trace được phát bằng `AsyncStream` của `ExtensionDebugEventHub`, đúng khuôn `TTSPresentationEventCenter`/`DownloadPresentationEventCenter`.
+* **4 file Views chỉ đọc.** `ExtensionDebugConsoleView` dùng `@Query` để liệt kê `Extension` và **không** `modelContext.insert/delete/save` ⇒ hợp lệ với `VIEW_SWIFTDATA_MUTATION`. Không có cạnh ngược Services → Views.
+* **Cạnh mới trong tầng Services**: `JSExecutor` → `ExtensionDebugEventSink` (protocol, optional) và `ExtensionDebugRunner` → `ExtensionManager` (`internal`). Cạnh thứ hai là chỗ đánh đổi có tên: nó giữ `ExtensionManager` **không đổi một dòng nào**, đổi lại tạo một nghĩa vụ — sửa contract `execute(...)` ở manager thì phải sửa `ExtensionDebugEntrypoint` cùng lượt, vì hai bên nay là hai bản của cùng một contract.
+* **Không có cạnh nào đi ra mạng ở lượt này.** Không `NWListener`, không Bonjour, không `URLSession` mới; `JSExecutor` vẫn là chỗ duy nhất fetch.
+* **Không nới luật kiến trúc nào**: 13 file mới đều ≤ 400 dòng và có đúng một primary type top-level (`ExtensionDebugEventSink.swift` chỉ có protocol + extension của protocol). `architecture_allowlist.json` không thêm entry.
+* **Hai file ở/sát baseline được xử lý bằng tách file, không bằng nới baseline**: `JSExecutor.swift` nhận đúng một stored property + 6 lời gọi một dòng, phần thân đặt ở `JSExecutor+Debug.swift`; mục Cài Đặt mới thành `DeveloperSettingsSection.swift` vì `SettingsView.swift` chỉ còn 6 dòng dư trước baseline 453.
+* `check_architecture.py` giữ **14 violation nền**, không violation mới.
+
 ## Hai file mới đều là extension/modifier (1.3.291)
 
 * **`TextPreprocessor+Bulk.swift` là `extension` của actor**, đặt cạnh file gốc. Nó buộc `wordMap`, `saveWordMapToDisk()`, `transliterationCache`, `transliterationCacheOrder` chuyển `private` → `internal` vì `private` là phạm vi **file** — nới phạm vi truy cập trong module, không nới luật kiến trúc, và file gốc không thêm dòng nào (đang đúng baseline 1121).

@@ -12,20 +12,30 @@ public final class JSExecutor: @unchecked Sendable {
     internal var activeNetworkTasks: [Int: URLSessionDataTask] = [:]
     internal var nextNetworkTaskID = 0
     internal var executionCancelled = false
+    /// Trace của lượt debug. Luồng đọc/tải production truyền `nil` và vì thế hành vi không đổi; xem
+    /// `JSExecutor+Debug`. Cố ý **không** phải shared/singleton: mỗi run có sink riêng, đúng như mỗi
+    /// run có một `JSExecutor` riêng.
+    internal let debugSink: ExtensionDebugEventSink?
 
-    public init(localPath: String? = nil, downloadUrl: String? = nil) {
+    public init(
+        localPath: String? = nil,
+        downloadUrl: String? = nil,
+        debugSink: ExtensionDebugEventSink? = nil
+    ) {
         self.context = JSContext()
         self.localPath = localPath
         self.downloadUrl = downloadUrl
+        self.debugSink = debugSink
 
         // 1. Cấu hình Exception Handler
-        context.exceptionHandler = { context, exception in
+        context.exceptionHandler = { [weak self] context, exception in
             let desc = exception?.toString() ?? "Unknown Javascript error"
             let line = exception?.objectForKeyedSubscript("line")?.toString() ?? "unknown"
             let column = exception?.objectForKeyedSubscript("column")?.toString() ?? "unknown"
             let stack = exception?.objectForKeyedSubscript("stack")?.toString() ?? "no stacktrace"
             AppLogger.shared.log("❌ JSContext Exception: \(desc) at line \(line), column \(column)")
             AppLogger.shared.log("🥞 JS Stacktrace: \(stack)")
+            self?.emitDebugException(description: desc, line: line, column: column, stack: stack)
         }
 
         // 2. Đăng ký JSHtml namespace cho JS với tên "Html"
@@ -34,7 +44,7 @@ public final class JSExecutor: @unchecked Sendable {
         // 3. Đăng ký hàm fetch toàn cục (đã được ghi đè bằng sync fetch ở dưới)
 
         // 4. Định nghĩa console.log để debug từ tiện ích dễ hơn
-        let logBlock: @convention(block) () -> Void = {
+        let logBlock: @convention(block) () -> Void = { [weak self] in
             let args = JSContext.currentArguments() ?? []
 
             let message = args.map { item in
@@ -59,6 +69,7 @@ public final class JSExecutor: @unchecked Sendable {
             .joined(separator: " ")
 
             AppLogger.shared.log("💬 JS Console: \(message)")
+            self?.emitDebugConsole(message)
         }
 
         let console = JSValue(newObjectIn: context)
@@ -568,10 +579,12 @@ public final class JSExecutor: @unchecked Sendable {
             let resolvedUrlString = urlString
             if isEngineDomainBlocked(resolvedUrlString) {
                 // AppLogger.shared.log("🚫 [JSExecutor] Blocked network fetch to: \(resolvedUrlString)")
+                self.emitDebugFetchFinished(taskID: 0, url: resolvedUrlString, status: 403, statusText: "Blocked domain", bytes: 0, startedAt: Date())
                 return ["html": "", "status": 403, "raw": "", "headers": [String: String]()]
             }
             // AppLogger.shared.log("🌐 [JSExecutor] Sync Fetching: \(resolvedUrlString)")
             guard let url = URL(string: resolvedUrlString) else {
+                self.emitDebugFetchFinished(taskID: 0, url: resolvedUrlString, status: 400, statusText: "URL không hợp lệ", bytes: 0, startedAt: Date())
                 return ["html": "", "status": 400, "raw": "", "headers": [String: String]()]
             }
             var resultHtml = ""
@@ -623,6 +636,9 @@ public final class JSExecutor: @unchecked Sendable {
             request.timeoutInterval = timeoutSeconds
 
             let taskID = self.reserveNetworkTaskID()
+            let fetchStartedAt = Date()
+            self.emitDebugFetchStarted(taskID: taskID, url: resolvedUrlString, method: request.httpMethod ?? "GET")
+            var responseByteCount = 0
             let task = URLSession.shared.dataTask(with: request) { data, response, error in
                 defer {
                     self.unregisterNetworkTask(id: taskID)
@@ -658,11 +674,20 @@ public final class JSExecutor: @unchecked Sendable {
                         resultHtml = self.decodeData(data)
                     }
                     resultRawBase64 = data.base64EncodedString()
+                    responseByteCount = data.count
                 }
             }
 
             guard self.registerNetworkTask(task, id: taskID) else {
                 task.cancel()
+                self.emitDebugFetchFinished(
+                    taskID: taskID,
+                    url: resolvedUrlString,
+                    status: 499,
+                    statusText: "Cancelled",
+                    bytes: 0,
+                    startedAt: fetchStartedAt
+                )
                 return ["html": "", "status": 499, "statusText": "Cancelled", "raw": "", "headers": [String: String](), "url": resolvedUrlString]
             }
             task.resume()
@@ -678,9 +703,18 @@ public final class JSExecutor: @unchecked Sendable {
                 _ = semaphore.wait(timeout: .now() + 1.0)
             }
 
+            self.emitDebugFetchFinished(
+                taskID: taskID,
+                url: finalUrl,
+                status: statusCode,
+                statusText: statusText,
+                bytes: responseByteCount,
+                startedAt: fetchStartedAt
+            )
             return ["html": resultHtml, "status": statusCode, "statusText": statusText, "raw": resultRawBase64, "headers": responseHeaders, "url": finalUrl]
         }
         context.setObject(syncFetchBlock, forKeyedSubscript: "_nativeSyncFetch" as NSCopying & NSObjectProtocol)
+
 
         // Đăng ký hàm decode base64 native hỗ trợ tùy chọn bảng mã
         let decodeBase64Block: @convention(block) (String, String) -> String = { base64Str, encodingName in
@@ -1478,6 +1512,8 @@ public final class JSExecutor: @unchecked Sendable {
         activeNetworkTasks.removeAll()
         networkTaskLock.unlock()
 
+        emitDebugCancelled()
+
         for task in tasks {
             task.cancel()
         }
@@ -1509,6 +1545,7 @@ public final class JSExecutor: @unchecked Sendable {
         if let exception = context.exception {
             let desc = exception.toString() ?? "JS Compile Exception"
             context.exception = nil
+            emitDebugCompileFailed(desc)
             throw NSError(domain: "JSExecutor", code: -501, userInfo: [NSLocalizedDescriptionKey: "JS Compile error: \(desc)"])
         }
     }

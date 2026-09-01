@@ -4,6 +4,25 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.264) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.302] - 2026-09-01
+
+### Debug extension Phase 0–1: structured trace nội bộ và runner execute(...), chưa mở server
+
+Thêm **13** file Swift mới (428 → **441**), sửa **2** file hiện có. Triển khai Phase 0–1 của `Docs/Plans/2026-08-23-plan-debug-ext-app-server.md`; Phase 2–4 (NWListener, Bonjour, WebSocket, VS Code client, draft snapshot) **chưa làm**.
+
+**Phase 0 — đã chốt và ghi vào plan**: 7 entrypoint được phép (`search`/`detail`/`toc`/`chap`/`genre`/`home`/`custom`; `page` và TTS ngoài MVP), schema event v1, chính sách redact allowlist, quota 600 event/run + 2000/hub, command IDs + vị trí package VS Code, policy `ws` vs `wss`, và xác nhận Phase 1 **không** cần thêm khoá `Info.plist`/`project.yml`.
+
+**Phase 1 — tầng Services (9 file)**:
+- `ExtensionDebugEvent` (contract v1, `Codable`), `ExtensionDebugSourceLocation` (script path **tương đối** + line/column + revision), `ExtensionDebugEventSink` (protocol đồng bộ), `ExtensionDebugRedactor`, `ExtensionDebugEventHub` (actor: ring buffer + quota + `AsyncStream`), `ExtensionDebugSession` (sink của một run), `ExtensionDebugEntrypoint` (typed arguments), `ExtensionDebugRunner` (actor: chạy/huỷ), `JSExecutor+Debug` (5 điểm phát).
+- `JSExecutor` nhận `debugSink: ExtensionDebugEventSink?` mặc định `nil`; hook ở console, exception handler, compile fail, cancel, native fetch (start/finish/fail + status/duration/bytes). Mọi điểm phát `guard let sink else { return }` nên đường production chỉ trả thêm một phép so `nil`.
+- **`ExtensionManager.swift` không đổi một dòng nào**: runner gọi lại `getScriptPath` / `getCombinedConfigs` / `verifyJSResponse` / `compactRepresentation` (`internal`, cùng module). Summary kết quả dùng `compactRepresentation` chứ không `stringify` để nội dung chương không vào trace.
+
+**Phase 1 — tầng Views (4 file)**: `ExtensionDebugConsoleView` (chọn extension/entrypoint/input, chạy, huỷ, xem trace), `ExtensionDebugTraceReader` (projection reader đọc hub), `ExtensionDebugEventRow`, `DeveloperSettingsSection`. Vào từ **Cài Đặt → Nhà Phát Triển → Debug Extension**. Trace **không** phụ thuộc `AppLogger.isLoggingEnabled`.
+
+**Ba chỗ cố ý lệch plan** (ghi rõ trong plan + `11_subsystems`): `ExtensionDebugSession` là `final class` chứ không `actor` (sink bị gọi đồng bộ trong `@convention(block)` của JSC và callback `URLSession`); `ExtensionManager` không nhận tham số sink; `runStarted`/`runFinished` do runner phát chứ không phải executor.
+
+`check_architecture.py` giữ **14** violation nền, **không violation mới**: 13 file mới đều ≤ 400 dòng và một primary type; `JSExecutor.swift` 1516 → 1553 (violation cũ, không loại mới); `SettingsView.swift` 447 → 450 vẫn dưới baseline 453 nhờ tách `DeveloperSettingsSection.swift`. CodeGraph: cập nhật `00`, `02`, `07`, `09`, `10`, `11`, `13`, `14`, `rules`. Chưa biên dịch tại chỗ (Windows) — dựa vào CI.
+
 ## [1.3.301] - 2026-09-01
 
 ### Rule dịch số: cặp chữ số Hán trần là khoảng "từ mấy đến mấy", không phải số ghép

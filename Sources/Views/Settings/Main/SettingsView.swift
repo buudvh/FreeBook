@@ -215,6 +215,8 @@ struct SettingsView: View {
 
                 StaleBookCleanupSettingsSection()
 
+                DeveloperSettingsSection()
+
                 Section(header: Text("Cấu Hình Ghi Log")) {
                     Toggle(isOn: $isLoggingEnabled) {
                         VStack(alignment: .leading, spacing: 4) {

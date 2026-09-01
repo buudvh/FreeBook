@@ -15,6 +15,17 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời tài nguyên của một run debug (1.3.302)
+
+* **`JSExecutor` mới mỗi run rồi thả** — đúng kiến trúc hiện tại, không shared executor. Sink là `ExtensionDebugSession` riêng của run đó, giữ bằng `let` trong thân `Task` nên chết cùng run.
+* **`ExtensionDebugRunner.activeRuns` không rò.** `start` chèn `Task` vào map, thân task gọi `finish(runId:)` ở cuối. Vì `finish` cần vào actor mà `start` đang giữ, nó **không thể** chạy trước khi `start` chèn xong — không có ca "task xong trước khi được ghi vào map".
+* **Huỷ đi đúng đường sẵn có**: `Task.cancel()` → `withTaskCancellationHandler` trong `JSExecutor.callAsync` → `cancelCurrentExecution()` → `task.cancel()` cho mọi `URLSessionDataTask` đang mở + dọn `activeBrowsers`/`activeVisibleBrowsers`. Runner không tự quản network handle nào.
+* **Bộ đệm hub bị chặn hai tầng**: 600 event/run và 2000 event toàn hub (ring buffer, bỏ cũ nhất và trừ lại `countByRun` để bộ đếm không trôi). Không ghi đĩa, không `UserDefaults` — mất khi app tắt, và đó là chủ ý.
+* **`AsyncStream` continuation tự dọn**: mỗi subscriber một stream từ `AsyncStream.makeStream()`; `onTermination` gỡ continuation khỏi map. `ExtensionDebugTraceReader.attach()` idempotent nên `.task` của View gọi lại không tạo stream thứ hai; `detach()` cancel task.
+* **Reader chặn 600 event hiển thị** rồi cắt phần đầu — trần riêng của UI, độc lập với trần của hub.
+* **`NSLock` trong session chỉ bảo vệ một `Int`** và không bao giờ được giữ qua một lời gọi khác; `emit` không cấp phát gì ngoài một `ExtensionDebugEvent` và một `Task` ngắn.
+* **Không thêm tài nguyên hệ thống nào**: không listener, socket, timer, file, window hay observer. Bộ nhớ thường trực khi không debug bằng đúng một actor rỗng (`ExtensionDebugEventHub.shared`) và một actor rỗng (`ExtensionDebugRunner.shared`).
+
 ## Vòng đời `Timer` của hẹn giờ tắt TTS (1.3.300)
 
 * **Đúng một `Timer` lặp 1 s, giữ ở `sleepTimerObj`, và mọi đường tạo nó đi qua `scheduleSleepTimerTick()`.** Ba lối vào (`startTimerCountdown`, `resumeTimerCountdown`, nhánh restart của `restartSleepTimerIfNeeded`) đều gọi `stopTimerCountdown` trước khi schedule, nên không có ca nào hai timer cùng trừ một biến.

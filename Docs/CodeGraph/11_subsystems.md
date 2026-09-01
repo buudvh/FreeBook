@@ -15,6 +15,16 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ mới: Debug Extension (Phase 1) — 1.3.302
+
+* **Ranh giới**: `Sources/Services/Extensions/Debug/` (8 file) + `Engine/JSExecutor+Debug.swift` là toàn bộ tầng Services; `Sources/Views/Settings/Debug/` (3 file) + `DeveloperSettingsSection` là toàn bộ tầng Views. Vào từ **Cài Đặt → Nhà Phát Triển → Debug Extension**.
+* **Phân hệ này *dùng lại* runtime extension, không nhân bản nó.** [`ExtensionDebugRunner`](../../Sources/Services/Extensions/Debug/ExtensionDebugRunner.swift) gọi `ExtensionManager.getScriptPath` / `getCombinedConfigs` / `verifyJSResponse` / `compactRepresentation` (`internal`, cùng module) và tạo một `JSExecutor` **mới mỗi run** như mọi tác vụ bóc tách khác. Vì vậy `ExtensionManager.swift` **không đổi một dòng nào** và `ExtTTSRuntime` (executor sống lâu, ngoại lệ duy nhất của luật "không shared executor") không nằm trong phạm vi debug.
+* **Ai phát event nào**: `JSExecutor` phát `console` / `exception` / `compileFailed` / `cancelled` / `fetch*` — nó chỉ biết những gì xảy ra bên trong một lượt thực thi. Runner phát `runStarted` / `responseValidated` / `responseError` / `runFinished` — chỉ nó biết entrypoint và duration của cả lượt. Hub phát `eventsDropped`.
+* **`ExtensionDebugSession` không phải actor dù plan đề nghị thế.** Sink bị gọi đồng bộ trong `@convention(block)` của JavaScriptCore và trong callback `URLSession`; actor sẽ buộc `await` ở đúng những chỗ không được phép, còn bọc `Task` tại call site thì mất thứ tự event. Nên: class + `NSLock` chỉ để cấp `sequence`, buffer/quota giữ trong actor `ExtensionDebugEventHub`.
+* **Bảy entrypoint, không phải chín.** `search`/`detail`/`toc`/`chap`/`genre`/`home`/`custom`. `page` và TTS ngoài MVP: `page` bị gọi lồng trong `toc`, TTS sinh audio, cả hai chưa chốt quota và cách huỷ.
+* **Ranh giới với `AppLogger`**: hai đường độc lập. Trace **không** đọc `isLoggingEnabled` và **không** tail `app_logs.txt` — `AppLogger.init` tự tắt log mỗi lần khởi chạy nên log file không dùng được làm giao thức debug. Đổi lại `AppLogger.log` ở các điểm phát vẫn giữ nguyên, không bị thay thế.
+* **Chưa có phần server.** Không `NWListener`, Bonjour, WebSocket hay đường nhận source từ ngoài; `Info.plist`/`project.yml` chưa cần khoá nào. Đó là Phase 2–3 của [plan](../Plans/2026-08-23-plan-debug-ext-app-server.md).
+
 ## Rule dịch: nhận dạng khoảng xấp xỉ thuộc formatter, không thuộc rule của người dùng (1.3.301)
 
 * **Ranh giới**: [`QuickTranslationNumberFormatter`](../../Sources/Services/Translation/Engine/QuickTranslationNumberFormatter.swift#L1) là chỗ duy nhất biết *chuỗi số Hán nghĩa là gì*; matcher chỉ nuốt ký tự theo lớp và gọi hàm render theo loại token. Vì thế ca `四五岁` → `4 đến 5 tuổi` được sửa **một lần** ở formatter và áp cho mọi rule người dùng đang có, thay vì bắt từng người viết thêm rule `<h><h>岁`.

@@ -15,6 +15,38 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Đường trace của một lượt debug extension (1.3.302)
+
+```text
+ExtensionDebugConsoleView  (Views)
+  └─ ExtensionDebugRunner.start(...)                → runId, trả về ngay
+       └─ Task
+            ├─ resolveScript                        khoá `script` trong plugin.json
+            │                                        | custom: tìm theo TÊN FILE ở gốc rồi src/
+            ├─ ExtensionDebugSession(runId, scriptKey, scriptPath, revision = sha256(source)[0..<12])
+            ├─ emit runStarted
+            ├─ JSExecutor(localPath:downloadUrl:debugSink: session)   ← executor MỚI mỗi run
+            │    ├─ console/print/Log      → emit console
+            │    ├─ exceptionHandler       → emit exception  (+ line/column/stack)
+            │    ├─ prepareScript throw    → emit compileFailed
+            │    ├─ cancelCurrentExecution → emit cancelled
+            │    └─ _nativeSyncFetch       → emit fetchStarted / fetchFinished | fetchFailed
+            ├─ verifyJSResponse            → emit responseValidated | responseError
+            └─ emit runFinished
+
+ExtensionDebugSession.emit  (đồng bộ, không blocking)
+  ├─ NSLock → cấp `sequence` (đơn điệu theo runId)
+  └─ Task { await hub.append(event) }
+       └─ ExtensionDebugEventHub (actor): quota → ring buffer → yield mọi AsyncStream
+            └─ ExtensionDebugTraceReader (@MainActor) → @Published allEvents → View
+```
+
+* **Chiều dữ liệu vẫn một chiều.** Views → Runner → JSExecutor/ExtensionManager; trace đi ngược lên **chỉ** qua `AsyncStream` của hub, không có tham chiếu Services → Views. Cùng khuôn với `TTSPresentationEventCenter`.
+* **`emit` là điểm cắt đồng bộ/không đồng bộ.** Nó bị gọi từ thread đang chạy JS và từ callback `URLSession`, nên chỉ được làm hai việc: cấp số thứ tự dưới `NSLock` rồi bàn sang hub bằng `Task`. Mọi thứ đắt hơn (buffer, quota, broadcast) nằm sau ranh giới actor.
+* **Redaction xảy ra ở phía *tạo* event, không ở phía gửi.** `ExtensionDebugEvent` được coi là đã sạch; nhờ vậy khi Phase 2 gắn socket thì không tồn tại đường nào để một event chưa redact lọt ra.
+* **Reader giữ mọi event rồi lọc theo `focusedRunId`**, không lọc ngay ở stream: nếu lọc sớm thì những event phát ra giữa lúc bấm Run và lúc View biết `runId` sẽ mất — mà đó đúng là `runStarted` và lỗi compile.
+* **`script` và `location.script` là hai thứ khác nhau**: một là *script key* (`search`) để nhóm trace, một là *path tương đối* (`src/search.js`) để client Phase 2 mở file. Không được trộn.
+
 ## `<n>` phân biệt số ghép và khoảng xấp xỉ Hán (1.3.301)
 
 ```text

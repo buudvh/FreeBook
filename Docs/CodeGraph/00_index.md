@@ -15,6 +15,18 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Debug extension Phase 1: structured trace nội bộ, chưa mở server (1.3.302)
+
+Triển khai Phase 0–1 của [plan debug ext qua app server](../Plans/2026-08-23-plan-debug-ext-app-server.md). **13 file mới** (428 → **441**), sửa **2** file hiện có.
+
+* **Đường mới, không phải nhánh của đường cũ.** `ExtensionDebugRunner` (actor) chạy đúng `execute(...)` của extension đã cài, dùng lại `getScriptPath` / `getCombinedConfigs` / `verifyJSResponse` / `compactRepresentation` của `ExtensionManager` — nên **`ExtensionManager.swift` không đổi một dòng nào** và 9 hàm public của nó giữ nguyên chữ ký.
+* **`JSExecutor` nhận `debugSink: ExtensionDebugEventSink?` (mặc định `nil`).** Mọi call site production truyền `nil`; các điểm phát đều `guard let sink = debugSink else { return }` nên đường đọc/tải chỉ trả thêm một phép kiểm tra `nil`. Hook ở console, exception handler, compile fail, cancel và native fetch.
+* **Trace không phụ thuộc `AppLogger.isLoggingEnabled`** và không tail `app_logs.txt` — đó là lý do màn debug tồn tại: `AppLogger` tự tắt mỗi lần khởi chạy (`AppLogger.swift:50`), nên log file không dùng được làm giao thức debug.
+* **Redaction là allowlist.** URL giữ scheme + host + path, **mọi giá trị query thành `…`**; header/cookie/body/nội dung chương/`configJson`/localStorage **không có hàm nào nhận vào** trong `ExtensionDebugRedactor` — thiếu hàm là cách rẻ nhất để không ai vô tình gọi. Summary kết quả dùng `compactRepresentation` (`[Array: 20 items]`), không `stringify`.
+* **Quota bắt buộc, không phải tối ưu**: 600 event/run, 2000 event toàn hub; vượt trần run thì bỏ event **mới** (giữ phần đầu vì lỗi thường ở đó) và chèn một `eventsDropped`.
+* **Chưa có gì mở ra mạng**: không `NWListener`, không Bonjour, không WebSocket, không nhận source từ ngoài. `Info.plist`/`project.yml` không cần thêm khoá nào ở lượt này.
+* Vào từ **Cài Đặt → Nhà Phát Triển → Debug Extension**.
+
 ## E1 đo được: θ đọc được, ð/æ không; bộ phân loại phải quay về whitelist (1.3.297)
 
 * **Phủ âm vị: 0 scalar ngoài từ vựng.** espeak `en-us` trên 24 từ không sinh ra ký hiệu nào ngoài 161 ký hiệu của model. Nghĩa là **không có chỗ mất chữ nào ở tầng tra id** — toàn bộ "mất chữ" nằm bên trong `IPAToVietnameseMapper`.

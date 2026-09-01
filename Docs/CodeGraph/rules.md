@@ -15,6 +15,17 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Quy chuẩn cho trace debug extension (1.3.302)
+
+Bốn luật này là **bắt buộc** với mọi thay đổi chạm phân hệ debug extension:
+
+1. **`ExtensionDebugEventSink.emit` không được blocking.** Nó bị gọi từ thread đang chạy JavaScript (trong `@convention(block)` của JavaScriptCore) và từ callback `URLSession`. Cấm `await`, cấm I/O, cấm giữ khoá qua một lời gọi khác. Đó là lý do sink là `final class` + `NSLock` chứ không phải `actor` — mọi việc nặng thuộc `ExtensionDebugEventHub`.
+2. **Redact ở phía tạo event, không ở phía gửi.** `ExtensionDebugEvent` được coi là đã sạch từ lúc khởi tạo. Không thêm hàm nào vào `ExtensionDebugRedactor` để nhận header, cookie, request/response body, nội dung chương, `configJson` hay localStorage — việc **không có hàm** là chốt an toàn, không phải thiếu sót.
+3. **Trace không được phụ thuộc `AppLogger`.** Không đọc `isLoggingEnabled`, không tail `app_logs.txt`. `AppLogger.init` tự tắt log mỗi lần khởi chạy nên log file không dùng được làm giao thức debug; đó là lý do phân hệ này tồn tại.
+4. **`ExtensionDebugEntrypoint.jsArguments` là bản sao của contract `execute(...)` ở `ExtensionManager`.** Sửa một bên phải sửa bên kia cùng lượt. Hai chỗ dễ sai đã có sẵn: `search` truyền `page` dưới dạng `String`, và `toc` chỉ resolve URL khi extension **không** khai script `page`.
+
+Thêm `case` vào `ExtensionDebugEvent.Category` là đổi contract v1 ⇒ nâng `ExtensionDebugEvent.contractVersion`, không thêm im lặng.
+
 ## TTS transliteration: no-drop invariants (1.3.291)
 
 * **No transliterator may return an empty string.** If a word cannot be rendered, return the original token verbatim. The only downstream guard is chunk-level (`PiperTTSService.isUnspeakable`), so an empty token is silently missing audio, which users hear as dropped words.

@@ -15,6 +15,30 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 13 file của phân hệ debug extension (1.3.302)
+
+13 file mới (428 → **441**). Không file nào chạm trần 400.
+
+| File mới | Tầng | Vai trò | Dòng |
+| --- | --- | --- | --- |
+| [`Services/Extensions/Debug/ExtensionDebugEvent.swift`](../../Sources/Services/Extensions/Debug/ExtensionDebugEvent.swift) | Services | Contract v1 của một dòng trace, `Codable` | 107 |
+| [`.../ExtensionDebugSourceLocation.swift`](../../Sources/Services/Extensions/Debug/ExtensionDebugSourceLocation.swift) | Services | script path tương đối + line/column + revision | 39 |
+| [`.../ExtensionDebugEventSink.swift`](../../Sources/Services/Extensions/Debug/ExtensionDebugEventSink.swift) | Services | Protocol đồng bộ + overload tiện dụng + `location(...)` | 60 |
+| [`.../ExtensionDebugRedactor.swift`](../../Sources/Services/Extensions/Debug/ExtensionDebugRedactor.swift) | Services | Cổng duy nhất sinh chuỗi được phép hiện | 67 |
+| [`.../ExtensionDebugEventHub.swift`](../../Sources/Services/Extensions/Debug/ExtensionDebugEventHub.swift) | Services | `actor`: ring buffer, quota, `AsyncStream` broadcast | 105 |
+| [`.../ExtensionDebugSession.swift`](../../Sources/Services/Extensions/Debug/ExtensionDebugSession.swift) | Services | Sink của một run: runId + sequence | 70 |
+| [`.../ExtensionDebugEntrypoint.swift`](../../Sources/Services/Extensions/Debug/ExtensionDebugEntrypoint.swift) | Services | 7 entrypoint + typed arguments khớp production | 105 |
+| [`.../ExtensionDebugRunner.swift`](../../Sources/Services/Extensions/Debug/ExtensionDebugRunner.swift) | Services | `actor`: chạy/huỷ run, phát `runStarted`…`runFinished` | 206 |
+| [`Services/Extensions/Engine/JSExecutor+Debug.swift`](../../Sources/Services/Extensions/Engine/JSExecutor+Debug.swift) | Services | 5 điểm phát của executor | 77 |
+| [`Views/Settings/Debug/ExtensionDebugConsoleView.swift`](../../Sources/Views/Settings/Debug/ExtensionDebugConsoleView.swift) | Views | Màn chọn extension/entrypoint/input, chạy, huỷ | 217 |
+| [`.../ExtensionDebugTraceReader.swift`](../../Sources/Views/Settings/Debug/ExtensionDebugTraceReader.swift) | Views | Projection reader đọc hub | 73 |
+| [`.../ExtensionDebugEventRow.swift`](../../Sources/Views/Settings/Debug/ExtensionDebugEventRow.swift) | Views | Một dòng trace | 53 |
+| [`Views/Settings/Main/DeveloperSettingsSection.swift`](../../Sources/Views/Settings/Main/DeveloperSettingsSection.swift) | Views | Mục "Nhà Phát Triển" trong Cài Đặt | 17 |
+
+File sửa: `JSExecutor.swift` 1516 → **1553** (thêm `debugSink`, tham số init, 6 điểm phát một dòng); `SettingsView.swift` 447 → **450** (một dòng gọi `DeveloperSettingsSection`, vẫn dưới baseline 453). `ExtensionManager.swift` **không đổi**.
+
+Mục "Nhà Phát Triển" phải ra file riêng vì `SettingsView.swift` chỉ còn 6 dòng dư trước baseline — đúng mẫu `BackupSettingsSection` / `TTSSettingsSection` đang dùng.
+
 ## Whitelist từ gốc Nhật (1.3.297)
 
 1 file mới (426 → **427**): `Sources/Services/TTS/Preprocessing/JapaneseLoanwordList.swift` (~95) — `Set<String>` khoảng 200 từ gốc Nhật viết bằng chữ Latin, là lớp quyết định đầu tiên của `ForeignScriptClassifier`.
