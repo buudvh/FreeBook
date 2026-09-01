@@ -4,6 +4,21 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.272) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.309] - 2026-09-01
+
+### Chạy được nguồn truyện JSON của Legado, song song với extension VBook
+
+Thêm **50** file Swift (459 → **509**), sửa **17** file. Toàn bộ ≤ 400 dòng, mỗi file một primary type.
+
+- **Runtime thứ hai cho nguồn truyện.** `LegadoSourceRuntime` thông dịch trực tiếp bộ rule khai báo của Legado (書源) — tự gọi mạng, tự bóc tách, không cần app Legado làm cầu nối. Điểm vào duy nhất là `SourceRuntime` (facade mới) định tuyến theo `packageId`: tiền tố `legado_` đi runtime mới, còn lại về `ExtensionManager` như cũ. Không sửa `ExtensionManager.swift` (1 049 dòng, baseline chỉ được giảm).
+- **Nguồn Legado là "extension ảo"**: dùng lại `@Model Extension` với `type = "legado"`, JSON đặt ở `extensions/<packageId>/source.json`. Không đổi schema SwiftData — schema 5 `@Model` không có `SchemaMigrationPlan`.
+- **Túi biến của rule nằm ngoài DB.** `@put`/`java.put` ở trang tìm kiếm rồi `java.get` ở rule nội dung là mẫu phổ biến nhất của nguồn (đo được: `java.get` 741 lần, `java.put` 456 trên 2 746 nguồn), mà `Book`/`Chapter` không có trường tương ứng. Giải pháp: sidecar `legado_state/<sha256(bookId)>.json` do `LegadoBookStateStore` sở hữu, xoá cùng lượt với `.bin` và cover trong `BookStorageManager`. Không chạm `chapter_metadata` vì đó là store dùng chung với sách VBook.
+- **Cú pháp đã hỗ trợ**: phương ngữ jsoup (`class./tag./id./text./children`) + CSS selector thật (SwiftSoup có luôn `:contains()`, `:eq()`), JSONPath tập con, XPath tập con, Regex, `@js:`/`<js>` với bridge ~25 hàm `java.*` + `source`/`book`/`chapter`, khối tuỳ chọn URL (`method`/`body`/`charset`/`retry`), `{{key}}`/`{{page}}`/`<a,b>` + cú pháp cũ `searchKey`, `##thay###`, `@put`/`@get`, `&&`/`||`/`%%`, chỉ số `[a:b:c]` và `!0:3`, vòng `nextTocUrl`/`nextContentUrl` có chặn lặp vòng, GBK/Big5 cả hai chiều encode-decode.
+- **Chưa hỗ trợ, báo có tên qua `LegadoUnsupportedFeature`**: `webView`, `@webjs:`, đăng nhập, `jsLib`, giải mã font (`queryTTF`), `imageDecode`, `payAction`, và script dùng thẳng lớp Java của Rhino. Quét tĩnh lúc import nên người dùng thấy cảnh báo ngay ở mô tả nguồn.
+- **XPath không dùng libxml2** mà là bộ đánh giá tập con trên SwiftSoup: libxml2 cần module map riêng cho Swift và không kiểm chứng được trên Windows, trong khi tập XPath nguồn truyện dùng rất hẹp. Biểu thức vượt tập con bị từ chối tường minh chứ không trả rỗng âm thầm.
+- **UI**: "Import nguồn Legado (.json)" trong menu của Quản lý tiện ích — nhập từ URL, từ tệp, hoặc dán JSON; hiện số nguồn đã nhập, số bị bỏ, và danh sách nguồn cần tính năng chưa hỗ trợ.
+- Chưa build được (máy Windows): xác minh bằng đọc code + `check_architecture.py` (không thêm violation nào; `ChapterContentRepository` giữ đúng 455 dòng, `BookDetailView` giảm 1 207 → 1 205) + `validate_links.py` PASS.
+
 ## [1.3.308] - 2026-09-01
 
 ### CI nhận nhánh legado_source; ghi nhận script kiểm kê cú pháp nguồn Legado

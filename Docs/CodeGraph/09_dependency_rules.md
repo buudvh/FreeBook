@@ -15,6 +15,15 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Tang cua runtime nguon thu hai (1.3.309)
+
+* **`SourceRuntime` la mot facade o `Sources/Services/Extensions/`, khong phai o Views.** No la diem dinh tuyen duy nhat giua hai runtime nguon, va moi caller (Views, `ChapterContentRepository`, `BookDownloadWorker`) chi biet facade. Dat o Services vi quyet dinh "nguon nay chay bang gi" la quy tac mien nghiep vu, khong phai trinh bay.
+* **Chieu phu thuoc moi**: `Views/ChapterText/Download → SourceRuntime → {ExtensionManager | LegadoSourceRuntime} → LegadoRuleEvaluator → {LegadoJsoupEngine | LegadoJSONPath | LegadoXPathEvaluator | LegadoRegexExtractor | LegadoJSRuntime}`. Khong co mui nao di nguoc: engine boc tach **khong** biet gi ve SwiftData, View, hay `ExtensionManager`.
+* **`Sources/Models/LegadoSource/` khong import SwiftSoup/JavaScriptCore.** Tang Models chi giu DTO va bo doc JSON khoan dung (`LegadoJSON`); moi thu can thu vien ngoai nam o `Sources/Services/LegadoSource/`.
+* **`LegadoSourceRuntime` khong tu ghi SwiftData.** No tra DTO (`ExtensionItemResult`, `NovelDetailResult`, `ChapterResult`) va ghi **file** sidecar cho tui bien; moi thao tac DB van di qua `ExtensionTransactionCoordinator` / `BookTransactionCoordinator` nhu cu. `LegadoSourceImporter` cung chi **dung** `UpsertExtensionCommand` roi de View day qua coordinator.
+* **`LegadoPathSafety` la ban rieng cua phan he.** Repo cai lai `validatePathSafety` doc lap o tung owner (`BookBinManager`, `ImageCacheManager`, `BookStorageManager`, `ChapterStorePath`); file nay giu dung quy uoc do thay vi chia se code — sua mot cho khong lan sang cho khac la **co y**.
+* **`LegadoTextEncoding` khong mo rong `TextEncodingOption`.** `TextEncodingDecoder` chi giai ma; phan he can ma hoa (percent-encode sang GBK) nen giu bang rieng, cung de khong day file do vuot baseline dong.
+
 ## Vi tri tang cua store neo cuon (1.3.307)
 
 * **`DiscoveryScrollAnchorStore` nam o `Sources/Views/Discovery/`, khong phai Services.** No la state trinh bay thuan (vi tri cuon), khong co nghia gi ngoai mot phien xem; day len Services la tao mot nguon su that gia cho thu chi UI can.

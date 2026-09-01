@@ -15,6 +15,15 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Runtime thu hai cho nguon truyen: nguon JSON cua Legado (1.3.309)
+
+* **FreeBook nay chay duoc hai loai nguon.** Ben canh extension VBook (JavaScript, `ExtensionManager`), them `LegadoSourceRuntime` thong dich **nguon truyen JSON cua Legado** (書源) — tuc bo rule khai bao dang `{"searchUrl": …, "ruleToc": {…}}` ma nguoi dung Legado chia se nhau. Khong can app Legado lam cau noi, khong can LAN: engine tu goi mang va tu boc tach.
+* **Diem vao duy nhat la [SourceRuntime](../../Sources/Services/Extensions/SourceRuntime.swift#L1)** (file moi): dinh tuyen theo `packageId` (`legado_` -> runtime Legado, con lai -> `ExtensionManager`). Moi tang goi boc tach (Search, Discovery, BookDetail, Reader, `ChapterContentRepository`, `DownloadManager`) da doi sang goi facade nay. Khong sua `ExtensionManager.swift` vi file do 1 049 dong, nam trong baseline "chi duoc giam".
+* **Nguon Legado la "extension ao"**: dung lai `@Model Extension` voi `type = "legado"`, JSON dat o `extensions/<packageId>/source.json`. **Khong doi schema SwiftData** — schema 5 `@Model` khong co `SchemaMigrationPlan`.
+* **Tui bien cua rule (`@put`/`java.put`) nam ngoai DB.** Legado persist `Book.variable`/`BookChapter.variable`; FreeBook khong co truong tuong ung nen dung sidecar `legado_state/<sha256(bookId)>.json` do [LegadoBookStateStore](../../Sources/Services/LegadoSource/LegadoBookStateStore.swift#L1) so huu, xoa cung luot voi `.bin` va cover trong `BookStorageManager`.
+* **Pham vi da lam** (do tren corpus 2 746 nguon that): phuong ngu jsoup + CSS, JSONPath (tap con), XPath (tap con tren SwiftSoup), Regex, `@js:`/`<js>` voi bridge ~25 ham `java.*`, khoi tuy chon URL (`method`/`body`/`charset`/`retry`), `{{key}}`/`{{page}}`/`<a,b>`, `##thay###`, `@put`/`@get`, `&&`/`||`/`%%`, chi so `[a:b:c]`, vong `nextTocUrl`/`nextContentUrl`. **Chua lam**: `webView`, `@webjs:`, dang nhap, `jsLib`, giai ma font, `imageDecode`, `payAction` — tat ca bao bang `LegadoUnsupportedFeature` chu khong tra rong im lang.
+* **50 file Swift moi** (459 → **509**), sua **17** file.
+
 ## Giu vi tri cuon o Kham Pha, va thanh keo cho khoang do dai token (1.3.307)
 
 * **Doi tab roi ve tab cu khong con nhay ve dau.** [DiscoveryScrollAnchorStore](../../Sources/Views/Discovery/DiscoveryScrollAnchorStore.swift#L1) (file moi) ghi nho **`link` cua truyen dang o tren cung** cua tung tab; `DiscoveryCategoryTabView` chot neo luc roi tab va `scrollTo(anchor: .top)` luc quay lai. Neo la `link` chu khong phai offset (chieu cao hang phu thuoc bia/ten) va cung khong phai `ExtensionItemResult.id` — id do la `UUID()` moi moi lan boc tach nen khong song qua mot luot nap lai.

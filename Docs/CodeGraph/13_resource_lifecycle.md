@@ -15,6 +15,15 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Tai nguyen cua phan he nguon Legado (1.3.309)
+
+* **`JSContext` song theo tac vu, khong theo nguon.** Moi luot boc tach tao mot `LegadoJSRuntime` roi tha; khong co runtime dung chung (`sharedExecutor` la anti-pattern co ten trong `rules.md`). **Ngoai le duy nhat**: vong `nextContentUrl` cua mot chuong dung lai mot runtime, vi tao lai `JSContext` cho tung trang noi dung qua dat.
+* **`URLSession` la mot the hien dung chung** trong `LegadoHTTPClient` (timeout 30 s/request, 60 s/resource, cookie `.always`). Khong tao session moi cho tung yeu cau — cookie cua nguon phai song qua ca chuoi tim kiem → chi tiet → muc luc → noi dung.
+* **`sendBlocking` co giai phong bat buoc.** Khi het thoi gian cho, task bi `cancel()` roi doi them **toi da 1 giay** de callback khong ghi vao bien ket qua sau khi ham da tra ve — dung khuon `_nativeSyncFetch` cua `JSExecutor`.
+* **File `source.json` chi doc mot lan / nguon**, sau do nam trong cache cua actor `LegadoSourceStore`. Xoa nguon thi `remove(packageId:)` xoa ca thu muc va muc cache.
+* **File sidecar tui bien chi sinh khi can.** `legado_state/<sha256(bookId)>.json` duoc ghi atomic va **xoa cung luot** voi `books/*.bin` + `covers/*.jpg` trong `BookStorageManager` — dung nguyen tac "xoa sach di qua dung mot dieu phoi vien". Xoa that bai khong ném loi: state la du lieu phu, mat no chi khien nguon phai boc tach lai.
+* **Ba cache LRU co tran cung** (`LegadoRuleCompiler` 512, `LegadoXPathParser` 256, `LegadoRegexExtractor` 128) — khong dung `NSCache` vi can thu tu truy cap on dinh va khong muon he thong xa som ngoai tam kiem soat.
+
 ## Cong duoc ghi nho, listener tu thu lai, khong keep-alive (1.3.305)
 
 * **Cong la tai nguyen co ten, khong con ngau nhien.** `extDebugServerPort` (mac dinh 17772, tranh 17771 cua LocalTTS) duoc ghi lai moi lan listener vao `.ready`. `allowLocalEndpointReuse = true` nen tat roi bat lai ngay khong bi "address in use". Chuoi xu ly khi mo that bai co ba bac va **dung thu tu**: cong ghi nho dang ban -> mo cong bat ky (mot lan); roi moi thu lai cung cong (<= 3 lan); het luot moi bao `.failed`.

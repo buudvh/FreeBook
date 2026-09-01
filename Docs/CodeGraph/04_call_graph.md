@@ -15,6 +15,44 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Duong goi cua nguon Legado (1.3.309)
+
+```
+SearchView / DiscoveryView / BookDetailView / ReaderChapterListView
+ChapterContentRepository.fetchFromExtension
+BookDownloadWorker.fetchChapterContent
+        |
+        v
+SourceRuntime.{search|detail|toc|chapter|home|genre|categoryPage}(packageId: …)
+        |
+        +-- packageId khong bat dau "legado_" --> ExtensionManager (nguyen nhu cu)
+        |
+        v  packageId bat dau "legado_"
+LegadoSourceStore.source(atLocalPath:)          // doc source.json, cache
+        |
+        v
+LegadoSourceRuntime.{search|explore|bookInfo|toc|content}
+        |
+        +--> makeSession()  -> LegadoVariableBag + LegadoJSRuntime + LegadoRuleEvaluator
+        +--> request()      -> LegadoUrlBuilder.build -> LegadoRequestSpec
+        +--> LegadoHTTPClient.send                    // retry ngay tai day, tang tren khong bọc thêm
+        +--> LegadoRuleContext.from(response)
+        +--> LegadoRuleEvaluator.{string|stringList|elements|url}
+        |         |
+        |         +-- .standard -> LegadoJsoupEngine -> LegadoJsoupDialect -> LegadoIndexSelector
+        |         |                                 -> LegadoJsoupExtractor
+        |         +-- .json     -> LegadoJSONPath
+        |         +-- .xpath    -> LegadoXPathParser -> LegadoXPathEvaluator
+        |         +-- .regex    -> LegadoRegexExtractor
+        |         +-- .js       -> LegadoJSRuntime.evaluate -> LegadoJSBridge (java.*)
+        |                                 |
+        |                                 +-- java.ajax/connect/get/post -> LegadoHTTPClient.sendBlocking
+        |                                 +-- java.getString/getElements -> quay lai LegadoJsoupEngine
+        +--> LegadoBookStateStore.save   // chi khi rule that su put bien
+```
+
+Hai vong lap nam **trong** runtime, khong lo ra caller: `nextTocUrl` (toi da 200 trang) va `nextContentUrl` (toi da 50 trang), ca hai chan lap vong bang tap URL da tham.
+
 ## Duong lenh cua debug server (1.3.303)
 
 ```

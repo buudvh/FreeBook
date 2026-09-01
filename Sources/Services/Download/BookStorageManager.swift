@@ -100,6 +100,10 @@ public final class BookStorageManager {
                     let coverPath = ImageCacheManager.shared.localCoverURL(for: bookId).path
                     await Self.shared.enqueueFailedDeletionAsync(path: coverPath)
                 }
+
+                // Túi biến/`tocUrl` của nguồn Legado nằm ngoài SwiftData nên phải xoá ở đây, cùng
+                // lượt với `.bin` và cover. Không có file thì hàm này là no-op.
+                await LegadoBookStateStore.shared.removeState(bookId: bookId)
             }
         }
 
@@ -171,6 +175,10 @@ public final class BookStorageManager {
                     let coverPath = ImageCacheManager.shared.localCoverURL(for: bookId).path
                     await Self.shared.enqueueFailedDeletionAsync(path: coverPath)
                 }
+
+                // Túi biến/`tocUrl` của nguồn Legado nằm ngoài SwiftData nên phải xoá ở đây, cùng
+                // lượt với `.bin` và cover. Không có file thì hàm này là no-op.
+                await LegadoBookStateStore.shared.removeState(bookId: bookId)
             }
         }
     }
@@ -255,6 +263,10 @@ public final class BookStorageManager {
                     let coverPath = ImageCacheManager.shared.localCoverURL(for: bookId).path
                     await Self.shared.enqueueFailedDeletionAsync(path: coverPath)
                 }
+
+                // Túi biến/`tocUrl` của nguồn Legado nằm ngoài SwiftData nên phải xoá ở đây, cùng
+                // lượt với `.bin` và cover. Không có file thì hàm này là no-op.
+                await LegadoBookStateStore.shared.removeState(bookId: bookId)
             }
         }
     }

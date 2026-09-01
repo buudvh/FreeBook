@@ -5,6 +5,7 @@ import JavaScriptCore
 /// Tái sử dụng một thực thể `JSExecutor` duy nhất xuyên suốt toàn bộ quá trình
 /// để tránh khởi tạo lại `JSContext` liên tục và hỗ trợ hủy tác vụ ngay lập tức.
 public actor BookDownloadWorker {
+    private let packageId: String
     private let localPath: String
     private let downloadUrl: String
     private let configJson: String
@@ -12,7 +13,8 @@ public actor BookDownloadWorker {
     private var isPrepared: Bool = false
     private var isCancelled: Bool = false
 
-    public init(localPath: String, downloadUrl: String = "", configJson: String = "{}") {
+    public init(packageId: String = "", localPath: String, downloadUrl: String = "", configJson: String = "{}") {
+        self.packageId = packageId
         self.localPath = localPath
         self.downloadUrl = downloadUrl
         self.configJson = configJson
@@ -37,6 +39,19 @@ public actor BookDownloadWorker {
     public func fetchChapterContent(url: String, host: String?) async throws -> String {
         try Task.checkCancellation()
         guard !isCancelled else { throw CancellationError() }
+
+        // Nguồn Legado không có script `chap`; nó dùng runtime rule riêng và không cần executor
+        // dùng lại, nên đi thẳng qua facade.
+        if SourceRuntime.isLegado(packageId: packageId) {
+            return try await SourceRuntime.chapter(
+                packageId: packageId,
+                localPath: localPath,
+                downloadUrl: downloadUrl,
+                url: url,
+                host: host,
+                configJson: configJson
+            )
+        }
 
         try prepareIfNeeded()
         guard let executor = self.executor else {

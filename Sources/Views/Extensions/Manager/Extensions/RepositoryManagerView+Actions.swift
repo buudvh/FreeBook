@@ -126,6 +126,7 @@ extension RepositoryManagerView {
         case ExtensionType.novel: return "Truyện chữ"
         case ExtensionType.chineseNovel: return "Truyện Trung"
         case ExtensionType.tts: return "Giọng đọc (TTS)"
+        case ExtensionType.legado: return "Nguồn Legado"
         default: return type.capitalized
         }
     }

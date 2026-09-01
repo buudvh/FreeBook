@@ -15,6 +15,17 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phan he nguon JSON Legado (1.3.309)
+
+* **Ranh gioi**: `LegadoSourceRuntime` so huu *luong* (tim kiem → chi tiet → muc luc → noi dung, gom ca vong `nextTocUrl`/`nextContentUrl`), `LegadoRuleEvaluator` so huu *cach doc mot chuoi rule*, con tung bo boc tach (`LegadoJsoupEngine`, `LegadoJSONPath`, `LegadoXPathEvaluator`, `LegadoRegexExtractor`) khong biet gi ve HTTP hay tui bien. Cat nhu vay vi cu phap rule cua Legado tron nhieu che do trong **cung mot chuoi**, nen phan "chon che do" phai tach khoi phan "chay che do".
+* **Rule khong duoc bien dich lai moi lan.** `LegadoRuleCompiler` cache theo chuoi rule (LRU 512). Nhung noi suy `{{…}}` va `@get:{…}` **khong** nam trong ban bien dich — Legado lam luc dung rule, o day doi sang luc chay de mot rule dung duoc cho nhieu truyen co tui bien khac nhau.
+* **`BalanceScanner` la thu khien viec cat rule dung.** Khong the `split("@")` tho: dau `@`, `&&`, `||` xuat hien ben trong selector (`[href="a@b"]`, `:contains(a&&b)`) va trong `{{…}}`. Scanner theo doi ngoac vuong/tron/nhon + nhay don/doi + `\` escape, bo qua dau phan cach o trong.
+* **Phuong ngu jsoup chi co 5 tien to dac biet** (`class.`/`tag.`/`id.`/`text.`/`children`), moi thu khac roi ve `select()` — tuc CSS selector that. Do tren nguon that thi nhanh CSS moi la nhanh pho bien, va **SwiftSoup ho tro luon** pseudo-selector nguon hay dung (`:contains()`, `:eq()`, `[attr]`) nen khong phai tu cai.
+* **XPath la tap con tren SwiftSoup, khong dung libxml2.** libxml2 doi module map rieng cho Swift va khong kiem chung duoc tren may Windows, trong khi tap XPath nguon truyen dung rat hep (`//div[@class='x']/a/@href`). Bieu thuc vuot tap con bi tu choi **tuong minh** qua `LegadoUnsupportedFeature.xpathBeyondSubset`, khong tra rong am tham.
+* **JS chay tren JSContext rieng, khong dung lai `JSExecutor`.** Surface toan cuc khac han: Legado can `java`, `source`, `book`, `chapter`, `result`, `baseUrl`, `key`, `page`; VBook can `Html`, `fetch`, `Response`. Moi tac vu tao mot runtime roi giai phong (dung ky luat "khong executor dung chung"), rieng vong `nextContentUrl` cua **mot** chuong dung lai mot runtime.
+* **`java.ajax` phai chan luong.** Rhino cua Legado dong bo; JSContext cung vay. `LegadoHTTPClient.sendBlocking` dung `DispatchSemaphore` co gioi han thoi gian, theo dung khuon `_nativeSyncFetch` cua `JSExecutor`. Luat cam semaphore cua repo ap cho viec cho `WKWebView` (deadlock main thread), khong ap cho `URLSession` chay ngoai main.
+* **Thu chua ho tro duoc bao co ten.** `LegadoUnsupportedFeature` quet tinh luc import (webView, dang nhap, `jsLib`, font, `imageDecode`, `payAction`, package Java cua Rhino) va hien o mo ta nguon; engine con ghi them khi gap luc chay. Nguyen tac: khong im lang tra rong.
+
 ## Kham Pha: vi tri cuon thuoc DiscoveryView, khong thuoc tab (1.3.307)
 
 * **Ranh gioi**: `DiscoveryCategoryTabView` so huu *du lieu* cua tab (`PaginatedNovelLoader` trong `@StateObject`), con *vi tri cuon* thuoc `DiscoveryView` qua `DiscoveryScrollAnchorStore`. Phai tach nhu vay vi chinh cai tab la thu bi dung lai: `TabView(.page)` do `UIPageViewController` dung nen trang roi vung lan can bi do, va cua so +-3 tab con xoa han tab xa hon. Store song o cap tren nen neo qua duoc ca hai duong do.

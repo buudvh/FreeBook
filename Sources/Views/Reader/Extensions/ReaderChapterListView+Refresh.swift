@@ -19,7 +19,8 @@ extension ReaderChapterListView {
         Task {
             do {
                 var allChapters: [ChapterResult] = []
-                if ExtensionManager.shared.hasScript(localPath: ext.localPath, scriptKey: "page") {
+                if !SourceRuntime.isLegado(packageId: ext.packageId),
+                   ExtensionManager.shared.hasScript(localPath: ext.localPath, scriptKey: "page") {
                     let pages = try await ExtensionManager.shared.page(
                         localPath: ext.localPath,
                         downloadUrl: ext.downloadUrl,
@@ -28,21 +29,25 @@ extension ReaderChapterListView {
                         configJson: ext.configJson
                     )
                     for pageURL in pages {
-                        allChapters.append(contentsOf: try await ExtensionManager.shared.toc(
+                        allChapters.append(contentsOf: try await SourceRuntime.toc(
+                            packageId: ext.packageId,
                             localPath: ext.localPath,
                             downloadUrl: ext.downloadUrl,
                             url: pageURL,
                             host: localBook?.host,
-                            configJson: ext.configJson
+                            configJson: ext.configJson,
+                            bookId: localBook?.bookId
                         ))
                     }
                 } else {
-                    allChapters = try await ExtensionManager.shared.toc(
+                    allChapters = try await SourceRuntime.toc(
+                        packageId: ext.packageId,
                         localPath: ext.localPath,
                         downloadUrl: ext.downloadUrl,
                         url: url,
                         host: localBook?.host,
-                        configJson: ext.configJson
+                        configJson: ext.configJson,
+                        bookId: localBook?.bookId
                     )
                 }
 

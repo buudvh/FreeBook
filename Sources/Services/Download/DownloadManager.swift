@@ -263,6 +263,7 @@ public final class DownloadManager: ObservableObject {
         let worker: BookDownloadWorker?
         if let bgExt = bgExt {
             worker = BookDownloadWorker(
+                packageId: bgExt.packageId,
                 localPath: bgExt.localPath,
                 downloadUrl: bgExt.downloadUrl,
                 configJson: bgExt.configJson

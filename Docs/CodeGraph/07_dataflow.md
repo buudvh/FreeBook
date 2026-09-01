@@ -15,6 +15,30 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Luong du lieu qua runtime nguon thu hai (1.3.309)
+
+```
+HTTP response (Data)
+  |
+  v  LegadoTextEncoding.decode(declaredCharset:)      // charset nguon khai -> <meta charset> -> auto
+String
+  |
+  v  LegadoRuleContext.from(response)                 // JSON thi giu JSON, con lai parse HTML
+{ .html(Element) | .json(Any) | .text(String) }
+  |
+  v  LegadoRuleEvaluator                              // moi doan rule doc ket qua doan truoc
+[String] / [LegadoRuleContext]
+  |
+  v  ExtensionItemResult / NovelDetailResult / ChapterResult / String
+  |
+  v  cac tang cu, khong doi: cleanHTML() -> ChapterTextNormalizer -> ChapterDocument
+```
+
+* **Bang ma di theo yeu cau, khong doan mo.** `charset` trong khoi tuy chon URL duoc dung cho **ca hai chieu**: percent-encode tu khoa tim kiem (`LegadoPercentEncoder`, GBK cho ra `%CE%D2`) va giai ma phan hoi. Bo qua chieu encode thi tim kiem tra rong ma khong co loi nao.
+* **Noi dung chuong ra o dang HTML hoac text tho**, dung hop dong hien tai: `ChapterContentRepository` da goi `rawContent.cleanHTML()` cho **moi** nguon. Nhung `ContentRule.replaceRegex` phai duoc engine ap **truoc khi tra** — do la phan cua nguon, khong phai cua app.
+* **URL mang theo khoi tuy chon di suot.** `bookUrl`/`chapterUrl` cua Legado co the la `https://x.com/api,{"method":"POST",…}`; chuoi nay duoc luu nguyen vao `Book.detailUrl`/`Chapter.url` va **chi** `LegadoUrlBuilder` tach ra luc goi mang, giong `BookChapter.getAbsoluteURL` cua Legado.
+* **Tui bien di nguoc chieu du lieu**: rule ghi (`@put`, `java.put`) → `LegadoVariableBag` → file sidecar; luot fetch sau doc nguoc len (`@get:{k}`, `java.get`). Day la duong duy nhat trong phan he ma du lieu di tu "ket qua boc tach" ve "dau vao boc tach".
+
 ## Duong lenh khong con cua ghep noi (1.3.305)
 
 ```

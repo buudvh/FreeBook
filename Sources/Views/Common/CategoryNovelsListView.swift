@@ -27,6 +27,7 @@ struct CategoryNovelsListView: View {
         self.configJson = configJson
         self.sourceName = sourceName
         _loader = StateObject(wrappedValue: PaginatedNovelLoader(
+            packageId: extensionPackageId,
             localPath: localPath,
             downloadUrl: downloadUrl,
             scriptFileName: category.script,

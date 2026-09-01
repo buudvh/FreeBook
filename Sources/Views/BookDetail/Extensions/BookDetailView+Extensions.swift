@@ -239,7 +239,7 @@ extension BookDetailView {
         }
 
         let bookHost = resolvedHost
-        async let detailTask = ExtensionManager.shared.detail(localPath: ext.localPath, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: bookHost, configJson: ext.configJson)
+        async let detailTask = SourceRuntime.detail(packageId: ext.packageId, localPath: ext.localPath, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: bookHost, configJson: ext.configJson, bookId: actualBookId)
 
         do {
             let detailResult = try await detailTask
@@ -288,21 +288,22 @@ extension BookDetailView {
         do {
             let path = ext.localPath
             var allChapters: [ChapterResult] = []
-            if ExtensionManager.shared.hasScript(localPath: path, scriptKey: "page") {
+            if !SourceRuntime.isLegado(packageId: ext.packageId),
+               ExtensionManager.shared.hasScript(localPath: path, scriptKey: "page") {
                 let pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
                 await MainActor.run {
                     self.tocPages = pages
                 }
 
                 for pageUrl in pages {
-                    let pageChaps = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pageUrl, host: resolvedHost, configJson: ext.configJson)
+                    let pageChaps = try await SourceRuntime.toc(packageId: ext.packageId, localPath: path, downloadUrl: ext.downloadUrl, url: pageUrl, host: resolvedHost, configJson: ext.configJson, bookId: actualBookId)
                     allChapters.append(contentsOf: pageChaps)
                 }
                 await MainActor.run {
                     self.remainingPagesLoaded = true
                 }
             } else {
-                let tocResult = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: localBook?.host, configJson: ext.configJson)
+                let tocResult = try await SourceRuntime.toc(packageId: ext.packageId, localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: localBook?.host, configJson: ext.configJson, bookId: actualBookId)
                 allChapters = tocResult
             }
 

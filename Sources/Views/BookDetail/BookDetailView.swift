@@ -1124,12 +1124,10 @@ struct BookDetailView: View {
 
                 for pageUrl in remainingPages {
                     try Task.checkCancellation()
-                    let pageChaps = try await ExtensionManager.shared.toc(
-                        localPath: ext.localPath,
-                        downloadUrl: ext.downloadUrl,
-                        url: pageUrl,
-                        host: resolvedHost,
-                        configJson: ext.configJson
+                    let pageChaps = try await SourceRuntime.toc(
+                        packageId: ext.packageId, localPath: ext.localPath,
+                        downloadUrl: ext.downloadUrl, url: pageUrl,
+                        host: resolvedHost, configJson: ext.configJson, bookId: targetBookId
                     )
                     try Task.checkCancellation()
 

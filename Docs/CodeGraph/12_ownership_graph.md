@@ -15,6 +15,26 @@ Tài liệu này mô tả mối quan hệ sở hữu đối tượng (Object Own
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Chu so huu du lieu cua nguon Legado (1.3.309)
+
+```
+LegadoSourceStore (actor)          <- so huu source.json + cache theo packageId
+LegadoBookStateStore (actor)       <- so huu tui bien + tocUrl theo bookId (file sidecar)
+  |
+  +-- BookStorageManager goi removeState(bookId:) khi xoa sach   (khong ai khac duoc xoa)
+
+LegadoVariableBag (class, mot luot boc tach)
+  |- sessionVariables   (chi trong luot)
+  |- bookVariables      -> persist qua LegadoBookStateStore
+  |- chapterVariables   -> persist theo chapterIndex
+
+SourceRuntime (enum, khong trang thai)   <- chi dinh tuyen, khong so huu gi
+LegadoSourceRuntime (singleton, khong trang thai)  <- moi luot tu tao Session rieng
+```
+
+* **`DiscoveryCategoryTabView` khong doi chu so huu**: no nhan them `packageId` chi de chuyen xuong `PaginatedNovelLoader`; du lieu tab van thuoc loader trong `@StateObject`, vi tri cuon van thuoc `DiscoveryView`.
+* **Khong co thu gi cua nguon Legado nam trong SwiftData** ngoai hang `Extension` (`type = "legado"`, `localPath` tro vao thu muc chua `source.json`). Moi trang thai phu la file, do actor so huu.
+
 ## Chu so huu vi tri cuon Kham Pha (1.3.307)
 
 ```

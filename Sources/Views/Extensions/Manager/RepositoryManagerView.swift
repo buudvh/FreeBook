@@ -32,6 +32,7 @@ struct RepositoryManagerView: View {
     @State internal var showingFilterSheet = false
     @State internal var showingUninstallAllAlert = false
     @State internal var showingZipImporter = false
+    @State internal var showingLegadoImporter = false
     @AppStorage("extFilterType") internal var filterType: String = "all"
     @AppStorage("extFilterLocale") internal var filterLocale: String = "all"
     @AppStorage("extFilterAuthor") internal var filterAuthor: String = "all"
@@ -149,6 +150,9 @@ struct RepositoryManagerView: View {
                     addNewRepository(name: name, url: url)
                 }
             }
+            .sheet(isPresented: $showingLegadoImporter) {
+                LegadoSourceImportView()
+            }
             .sheet(item: $selectedExtensionForConfig) { ext in
                 ExtensionConfigView(ext: ext)
             }
@@ -185,7 +189,11 @@ struct RepositoryManagerView: View {
                     Button(action: { showingZipImporter = true }) {
                         Label("Import tiện ích (.zip)", systemImage: "doc.badge.plus")
                     }
-                    
+
+                    Button(action: { showingLegadoImporter = true }) {
+                        Label("Import nguồn Legado (.json)", systemImage: "square.and.arrow.down.on.square")
+                    }
+
                     Divider()
                     
                     Button(role: .destructive, action: { showingUninstallAllAlert = true }) {

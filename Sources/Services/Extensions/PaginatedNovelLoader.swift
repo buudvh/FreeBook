@@ -12,6 +12,7 @@ final class PaginatedNovelLoader: ObservableObject {
     @Published private(set) var errorMessage = ""
     @Published private(set) var canLoadMore = false
 
+    private let packageId: String
     private let localPath: String
     private let downloadUrl: String
     private let scriptFileName: String
@@ -23,12 +24,14 @@ final class PaginatedNovelLoader: ObservableObject {
     private var retryCount = 0
 
     init(
+        packageId: String = "",
         localPath: String,
         downloadUrl: String = "",
         scriptFileName: String,
         input: String,
         configJson: String = "{}"
     ) {
+        self.packageId = packageId
         self.localPath = localPath
         self.downloadUrl = downloadUrl
         self.scriptFileName = scriptFileName
@@ -59,7 +62,8 @@ final class PaginatedNovelLoader: ObservableObject {
         }
 
         do {
-            let (results, nextPage) = try await ExtensionManager.shared.executeCustomScript(
+            let (results, nextPage) = try await SourceRuntime.categoryPage(
+                packageId: packageId,
                 localPath: localPath,
                 downloadUrl: downloadUrl,
                 scriptFileName: scriptFileName,

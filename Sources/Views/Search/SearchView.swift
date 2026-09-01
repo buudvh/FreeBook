@@ -622,15 +622,16 @@ struct SearchView: View {
         
         do {
             let path = ext.localPath
-            let detailResult = try await ExtensionManager.shared.detail(localPath: path, downloadUrl: ext.downloadUrl, url: result.link, host: ext.sourceUrl, configJson: ext.configJson)
-            
-            var firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: result.link, host: detailResult.host, configJson: ext.configJson)
-            
-            if ExtensionManager.shared.hasScript(localPath: path, scriptKey: "page") {
+            let detailResult = try await SourceRuntime.detail(packageId: ext.packageId, localPath: path, downloadUrl: ext.downloadUrl, url: result.link, host: ext.sourceUrl, configJson: ext.configJson, bookId: newBookId)
+
+            var firstPageChapters = try await SourceRuntime.toc(packageId: ext.packageId, localPath: path, downloadUrl: ext.downloadUrl, url: result.link, host: detailResult.host, configJson: ext.configJson, bookId: newBookId)
+
+            if !SourceRuntime.isLegado(packageId: ext.packageId),
+               ExtensionManager.shared.hasScript(localPath: path, scriptKey: "page") {
                 let pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: result.link, host: detailResult.host, configJson: ext.configJson)
                 if pages.count > 1 {
                     for pageUrl in pages.dropFirst() {
-                        let pageChaps = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pageUrl, host: detailResult.host, configJson: ext.configJson)
+                        let pageChaps = try await SourceRuntime.toc(packageId: ext.packageId, localPath: path, downloadUrl: ext.downloadUrl, url: pageUrl, host: detailResult.host, configJson: ext.configJson, bookId: newBookId)
                         firstPageChapters.append(contentsOf: pageChaps)
                     }
                 }
@@ -780,7 +781,8 @@ struct SearchView: View {
                         
                         group.addTask {
                             do {
-                                let extResults = try await ExtensionManager.shared.search(
+                                let extResults = try await SourceRuntime.search(
+                                    packageId: packageId,
                                     localPath: path,
                                     downloadUrl: downloadUrl,
                                     query: trimmedQuery,
@@ -832,7 +834,8 @@ struct SearchView: View {
             
             Task {
                 do {
-                    let results = try await ExtensionManager.shared.search(
+                    let results = try await SourceRuntime.search(
+                        packageId: ext.packageId,
                         localPath: ext.localPath,
                         downloadUrl: ext.downloadUrl,
                         query: trimmedQuery,

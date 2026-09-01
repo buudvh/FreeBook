@@ -30,7 +30,8 @@ struct DiscoveryView: View {
             .filter {
                 !$0.localPath.isEmpty
                     && $0.isEnabled
-                    && ($0.type == ExtensionType.novel || $0.type == ExtensionType.chineseNovel)
+                    && ($0.type == ExtensionType.novel || $0.type == ExtensionType.chineseNovel
+                        || $0.type == ExtensionType.legado)
             }
             .sorted { ext1, ext2 in
                 // Nguồn được ghim lên đầu, sau đó sắp xếp theo A-Z
@@ -312,6 +313,7 @@ struct DiscoveryView: View {
                                             if shouldRenderCategoryTab(id: item.id) {
                                                 DiscoveryCategoryTabView(
                                                     category: item,
+                                                    packageId: extPackageId,
                                                     localPath: ext.localPath,
                                                     downloadUrl: ext.downloadUrl,
                                                     configJson: ext.configJson,
@@ -508,7 +510,7 @@ struct DiscoveryView: View {
             
             // Tải Home song song độc lập
             do {
-                loadedHome = try await ExtensionManager.shared.home(localPath: ext.localPath, downloadUrl: ext.downloadUrl, configJson: ext.configJson)
+                loadedHome = try await SourceRuntime.home(packageId: ext.packageId, localPath: ext.localPath, downloadUrl: ext.downloadUrl, configJson: ext.configJson)
             } catch {
                 #if DEBUG
                 AppLogger.shared.log("⚠️ [DiscoveryView] Không có hoặc lỗi chạy script home: \(error.localizedDescription)")
@@ -517,7 +519,7 @@ struct DiscoveryView: View {
             
             // Tải Genre song song độc lập
             do {
-                loadedGenre = try await ExtensionManager.shared.genre(localPath: ext.localPath, downloadUrl: ext.downloadUrl, configJson: ext.configJson)
+                loadedGenre = try await SourceRuntime.genre(packageId: ext.packageId, localPath: ext.localPath, downloadUrl: ext.downloadUrl, configJson: ext.configJson)
             } catch {
                 #if DEBUG
                 AppLogger.shared.log("⚠️ [DiscoveryView] Không có hoặc lỗi chạy script genre: \(error.localizedDescription)")
@@ -567,6 +569,7 @@ struct DiscoveryView: View {
 
 struct DiscoveryCategoryTabView: View {
     let category: CategoryResult
+    let packageId: String
     let localPath: String
     let downloadUrl: String
     let configJson: String
@@ -584,6 +587,7 @@ struct DiscoveryCategoryTabView: View {
 
     init(
         category: CategoryResult,
+        packageId: String,
         localPath: String,
         downloadUrl: String,
         configJson: String,
@@ -593,6 +597,7 @@ struct DiscoveryCategoryTabView: View {
         onSelectNovel: @escaping (ExtensionItemResult) -> Void
     ) {
         self.category = category
+        self.packageId = packageId
         self.localPath = localPath
         self.downloadUrl = downloadUrl
         self.configJson = configJson
@@ -601,6 +606,7 @@ struct DiscoveryCategoryTabView: View {
         self.scrollAnchors = scrollAnchors
         self.onSelectNovel = onSelectNovel
         _loader = StateObject(wrappedValue: PaginatedNovelLoader(
+            packageId: packageId,
             localPath: localPath,
             downloadUrl: downloadUrl,
             scriptFileName: category.script,

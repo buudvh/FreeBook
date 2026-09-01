@@ -46,13 +46,14 @@ extension BookDetailView {
                 var pages: [String] = tocPages
 
                 if allChapters.isEmpty {
-                    if ExtensionManager.shared.hasScript(localPath: path, scriptKey: "page") {
+                    if !SourceRuntime.isLegado(packageId: ext.packageId),
+                       ExtensionManager.shared.hasScript(localPath: path, scriptKey: "page") {
                         pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
                         let firstUrl = pages.first ?? initialDetailUrl
-                        let firstChaps = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: firstUrl, host: resolvedHost, configJson: ext.configJson)
+                        let firstChaps = try await SourceRuntime.toc(packageId: ext.packageId, localPath: path, downloadUrl: ext.downloadUrl, url: firstUrl, host: resolvedHost, configJson: ext.configJson, bookId: actualBookId)
                         allChapters.append(contentsOf: firstChaps)
                     } else {
-                        let firstChaps = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
+                        let firstChaps = try await SourceRuntime.toc(packageId: ext.packageId, localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson, bookId: actualBookId)
                         allChapters.append(contentsOf: firstChaps)
                     }
                     try Task.checkCancellation()
@@ -67,7 +68,7 @@ extension BookDetailView {
                         try Task.checkCancellation()
                         let currentPageNum = idx + 2
                         self.prepareProgressText = "Đang lấy mục lục... Trang \(currentPageNum)/\(totalPages) (Đã lấy \(allChapters.count) chương)"
-                        let pageChaps = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pageUrl, host: resolvedHost, configJson: ext.configJson)
+                        let pageChaps = try await SourceRuntime.toc(packageId: ext.packageId, localPath: path, downloadUrl: ext.downloadUrl, url: pageUrl, host: resolvedHost, configJson: ext.configJson, bookId: actualBookId)
                         allChapters.append(contentsOf: pageChaps)
                         await Task.yield()
                     }

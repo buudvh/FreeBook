@@ -433,12 +433,12 @@ actor ChapterContentRepository {
     ) async throws -> String {
         try await withThrowingTaskGroup(of: String.self) { group in
             group.addTask {
-                try await ExtensionManager.shared.chap(
-                    localPath: extensionInfo.localPath,
-                    downloadUrl: extensionInfo.downloadUrl,
-                    url: request.url,
-                    host: request.host,
-                    configJson: extensionInfo.configJson ?? "{}"
+                try await SourceRuntime.chapter(
+                    packageId: extensionInfo.packageId, localPath: extensionInfo.localPath,
+                    downloadUrl: extensionInfo.downloadUrl, url: request.url, host: request.host,
+                    configJson: extensionInfo.configJson ?? "{}", bookId: request.bookId,
+                    chapterIndex: request.chapterIndex, chapterTitle: request.title,
+                    bookUrl: request.bookMetadata?.detailUrl
                 )
             }
             group.addTask {

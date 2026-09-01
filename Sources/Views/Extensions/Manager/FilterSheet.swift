@@ -82,6 +82,7 @@ public struct FilterSheet: View {
         case ExtensionType.novel: return "Truyện chữ (Novel)"
         case ExtensionType.chineseNovel: return "Truyện Trung Quốc (Chinese)"
         case ExtensionType.tts: return "Giọng đọc (TTS)"
+        case ExtensionType.legado: return "Nguồn Legado (JSON)"
         default: return type.capitalized
         }
     }

@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Trạng thái của một lượt bóc tách nguồn Legado (1.3.309)
+
+* **Ba tầng biến, ba tuổi thọ khác nhau.** `LegadoVariableBag.sessionVariables` chỉ sống trong một lượt; `bookVariables` được ghi ra `legado_state/<sha256(bookId)>.json` nên **sống qua các lần khởi chạy app**; `chapterVariables` cũng persist nhưng khoá theo `chapterIndex`. Phải có tầng giữa vì mẫu dùng phổ biến nhất của nguồn là `java.put('bookId', …)` ở rule tìm kiếm rồi `java.get('bookId')` ở rule nội dung — hai lần fetch cách nhau cả phiên.
+* **`isDirty` là điều kiện duy nhất để ghi file.** Nguồn không dùng biến thì không sinh file nào; đây là lý do một kệ sách toàn nguồn VBook sẽ không có thư mục `legado_state` nào.
+* **`tocUrl` là state, không phái sinh được.** `BookInfoRule.tocUrl` cho phép mục lục ở URL khác trang chi tiết, mà `Book` chỉ có `detailUrl` và `detailUrl` **không được đổi** (vì `bookId = BookIdUtils.make(packageId, detailUrl)`). Vì vậy `tocUrl` được ghi vào sidecar lúc đọc chi tiết và đọc lại lúc làm mới mục lục.
+* **`LegadoJSRuntime.unsupportedFeatures` là state tích luỹ trong lượt**, không reset giữa các đoạn rule; `LegadoRuleEvaluator` hút nó lên sau mỗi lần gọi JS để báo cáo tương thích thấy được cả thứ chỉ lộ ra lúc chạy.
+* **Cache rule là state toàn cục có chủ ý** (`LegadoRuleCompiler` LRU 512, `LegadoXPathParser` 256, `LegadoRegexExtractor` 128). Khoá là chuỗi rule thô nên không lẫn giữa các nguồn; đổi nguồn không cần dọn cache.
+
 ## Bộ đếm hẹn giờ tắt: `sleepTimerRemainingSeconds` là state của phiên, không phái sinh từ `timerMode` (1.3.300)
 
 * Ba biến, ba vai riêng: `timerMode` là **ý định** của người dùng (persist ở `ttsSleepTimerMode` / `ttsSleepTimerMinutes`), `sleepTimerRemainingSeconds` là **phần chưa đếm** của phiên hiện tại (chỉ trong RAM), `isTimerRunning` là **có `Timer` đang tick hay không**. Nạp lại `remaining` từ `minutes` của `timerMode` là xoá mất biến thứ hai — đúng lỗi "tạm dừng rồi phát lại thì đếm lại từ đầu".

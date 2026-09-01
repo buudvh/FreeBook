@@ -15,6 +15,14 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Do phuc tap sau khi them runtime nguon Legado (1.3.309)
+
+* **Them 50 file Swift** (459 -> **509**), tat ca <= 400 dong va moi file mot primary type top-level. Nam file lon nhat: `LegadoJSONPath` 322, `LegadoRuleEvaluator` 258, `LegadoJSRuntime` 240, `LegadoIndexSelector` 234, `LegadoUrlBuilder` 233.
+* **Cho phuc tap that nam o ba ham, khong rai deu.** `LegadoIndexSelector.parseBracketForm`/`parseLegacyForm` (quet nguoc chuoi, 2 dang cu phap chi so), `LegadoJSONPath.tokenize` + `walk` (7 loai token), va `LegadoRuleEvaluator.stringList`/`elements` (6 che do x 2 kieu ket qua). Ba cho nay la port truc tiep cua thuat toan Legado nen giu nguyen hinh dang de doi chieu duoc voi ban goc.
+* **Khong file nao trong phan he vuot 400**, nhung `LegadoJSONPath` 322 va `LegadoRuleEvaluator` 258 la hai cho gan tran nhat — them che do rule moi thi tach file truoc khi them.
+* **Tang len 5 980 dong** cho ca phan he (Models 10 file / Services 28 file / facade / View nhap nguon), tuc bang co toan bo `Sources/Services/Extensions/Engine/` hien tai (3 340 dong) cong mot nua.
+* **Baseline dong khong bi noi ra cho file cu**: `ChapterContentRepository.swift` giu dung 455 (bang baseline) va `BookDetailView.swift` giam tu 1 207 xuong 1 205 du van tren baseline 1 201 tu truoc.
+
 ## Do phuc tap sau luot giu vi tri cuon (1.3.307)
 
 * File moi nho: [`DiscoveryScrollAnchorStore.swift`](../../Sources/Views/Discovery/DiscoveryScrollAnchorStore.swift) **59** dong, 5 ham, khong nhanh nao sau 2 muc.

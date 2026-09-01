@@ -15,6 +15,15 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Type cua runtime nguon Legado (1.3.309)
+
+* **`SourceRuntime` la enum khong trang thai**, 7 ham tinh (`search`, `detail`, `toc`, `chapter`, `home`, `genre`, `categoryPage`) + 2 vi tu `isLegado(type:)`/`isLegado(packageId:)`. Chu ky **giu nguyen** cua `ExtensionManager` va them `packageId:` o dau, nen call site chi doi mot dong.
+* **Ba DTO chia se khong doi**: `ExtensionItemResult`, `NovelDetailResult`, `ChapterResult`. Runtime Legado tra dung ba type nay, nen `ChapterContentRepository`, `DownloadManager`, TTS, Reader khong biet nguon den tu dau. Cho khong co truong tuong ung (`kind`, `wordCount`, `lastChapter`, `updateTime`) duoc gop vao `NovelDetailResult.detail`; `genres`/`suggests`/`comments` tra `[]` — khong bia du lieu.
+* **`LegadoRuleContext` la enum 3 case** (`html(Element)`, `json(Any)`, `text(String)`) voi 3 phep chuyen (`stringValue`, `htmlElement`, `jsonValue`). Legado giu `Any` roi ep kieu o tung che do; enum hoa de viec ep kieu la tuong minh va khong im lang tra rong khi kieu khong khop.
+* **`LegadoCompiledRule` la ban bien dich cua mot doan rule**: `mode`, `rule`, `replaceRegex`, `replacement`, `replaceFirstOnly`, `putMap`. Mot chuoi rule cho ra **nhieu** ban nay khi no tron `@js:`/`<js>` voi selector.
+* **`LegadoVariableBag` la class (khong struct)** vi bridge JS va evaluator cung ghi vao no trong cung mot luot; `isDirty` quyet dinh co ghi file sidecar hay khong.
+* **Hai actor**: `LegadoSourceStore` (doc/ghi `source.json`, cache theo `packageId`) va `LegadoBookStateStore` (tui bien + `tocUrl` theo `bookId`). Dat actor vi ca hai deu la tai nguyen file dung chung giua nhieu tac vu boc tach chay song song.
+
 ## API moi cua debug server (1.3.303)
 
 * **`ExtensionDebugServer` la mat tien duy nhat cho tang Views**: `start(container:serviceName:)`, `stop()`, `statusStream()`, `approvePairing()`, `rejectPairing()`, `decideInstall(id:approved:)`. `NWListener`/`NWConnection` khong lo ra ngoai actor nay.

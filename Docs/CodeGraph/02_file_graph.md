@@ -15,6 +15,16 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +50 file cho phan he nguon JSON Legado (1.3.309)
+
+459 -> **509** file Swift. Khong file nao cham tran 400 (lon nhat: `LegadoJSONPath.swift` 322).
+
+Ba thu muc moi:
+
+* `Sources/Models/LegadoSource/` — **10** file thuan Codable/DTO: `LegadoBookSource`, `LegadoListRule`, `LegadoBookInfoRule`, `LegadoTocRule`, `LegadoContentRule`, `LegadoExploreKind`, `LegadoRuleMode`, `LegadoCompiledRule`, `LegadoUnsupportedFeature`, `LegadoJSON`.
+* `Sources/Services/LegadoSource/` — **28** file engine. Nhom lai theo vai: *cat rule* (`LegadoRuleLexer`, `BalanceScanner`, `LegadoRuleCompiler`, `LegadoRuleCache`), *boc tach* (`LegadoJsoupDialect`, `LegadoJsoupExtractor`, `LegadoJsoupEngine`, `LegadoIndexSelector`, `LegadoJSONPath`, `LegadoXPathParser`, `LegadoXPathStep`, `LegadoXPathEvaluator`, `LegadoRegexExtractor`, `LegadoRuleContext`, `LegadoRuleEvaluator`), *mang* (`LegadoUrlOption`, `LegadoRequestSpec`, `LegadoUrlBuilder`, `LegadoHTTPClient`, `LegadoHTTPResponse`, `LegadoPercentEncoder`, `LegadoTextEncoding`), *JS* (`LegadoJSScope`, `LegadoJSRuntime`, `LegadoJSBridge` + 2 file `+`), *tien ich* (`LegadoCrypto`, `LegadoChapterNumber`, `LegadoPathSafety`), *dieu phoi* (`LegadoSourceRuntime` + `+Detail` + `+Content`, `LegadoSourceStore`, `LegadoBookStateStore`, `LegadoSourceImporter`, `LegadoRuntimeError`).
+* Ngoai ra: [`SourceRuntime.swift`](../../Sources/Services/Extensions/SourceRuntime.swift) (facade dinh tuyen) va [`LegadoSourceImportView.swift`](../../Sources/Views/Extensions/Manager/LegadoSourceImportView.swift) (man hinh nhap nguon).
+
 ## +1 file Views cho vi tri cuon Kham Pha (1.3.307)
 
 458 -> **459** file Swift.
