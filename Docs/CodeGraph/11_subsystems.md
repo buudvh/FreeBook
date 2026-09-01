@@ -15,6 +15,15 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Debug Extension mo rong thanh 4 phase (1.3.303)
+
+* **Ranh gioi sau luot nay**: `Debug/` (trace, Phase 1) + `Debug/Server/` (giao thuc, pairing, router, Phase 2) + `Debug/Staging/` (snapshot nhap, cai, rollback, Phase 3-4) o tang Services; `Views/Settings/Debug/` co 2 man - Console (chay tay trong app) va Server (bat kenh cho VS Code).
+* **Hai man khong phu thuoc nhau.** Console chay `ExtensionDebugRunner` truc tiep; Server chay no qua router. Cung mot runner, cung mot hub, nen trace cua ca hai duong giong nhau tung field - do la ly do Phase 1 duoc lam truoc va khong phai sua lai o Phase 2.
+* **Router la bien gioi tin cay.** Moi thu den tu socket dung o day: kiem version, kiem pairing, dich payload thanh `ExtensionDebugEntrypoint`. Khong co lenh nao mang path, va `extensions.list` khong tra `localPath` hay `configJson`.
+* **Staging la mot phan he luu tru nho, tu chua**: no so huu `extension-drafts/` va la cho duy nhat tao/xoa file trong do. `BookStorageManager` khong lien quan; hai vung du lieu khong chong nhau.
+* **Cai ban nhap la thao tac *pha huy* duy nhat cua phan he**, nen no co ba lop: validate (Phase 3) -> xac nhan tren thiet bi kem diff -> backup + swap nguyen tu. Rollback dung lai dung backup do.
+* **Client VS Code la phan mo rong ngoai repo iOS**: `Tools/VSCode/FreeBookExtDebug`, 10 command, OutputChannel lam trace, DiagnosticCollection cho loi co `location`, SecretStorage cho token. No **khong** duoc CI build; ai dung thi `npm install && npm run compile`.
+
 ## Phân hệ mới: Debug Extension (Phase 1) — 1.3.302
 
 * **Ranh giới**: `Sources/Services/Extensions/Debug/` (8 file) + `Engine/JSExecutor+Debug.swift` là toàn bộ tầng Services; `Sources/Views/Settings/Debug/` (3 file) + `DeveloperSettingsSection` là toàn bộ tầng Views. Vào từ **Cài Đặt → Nhà Phát Triển → Debug Extension**.

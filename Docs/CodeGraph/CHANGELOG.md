@@ -4,6 +4,35 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.264) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.303] - 2026-09-01
+
+### Debug extension Phase 2–4: server LAN có pairing, snapshot nháp, cài + rollback, và client VS Code
+
+Thêm **18** file Swift mới (441 → **459**), sửa **3** file, thêm **1** package VS Code (`Tools/VSCode/FreeBookExtDebug`, TypeScript — ngoài target iOS, **không** được CI biên dịch). Hoàn tất Phase 2, 3, 4 của `Docs/Plans/2026-08-23-plan-debug-ext-app-server.md`.
+
+**Phase 2 — app server trên LAN:**
+- `ExtensionDebugServer` (actor): `NWListener` + `NWProtocolWebSocket` + Bonjour `_freebook-extdebug._tcp`, **port ngẫu nhiên**, **tối đa một client**, bật/tắt bằng tay ở Cài Đặt → Nhà Phát Triển → Debug Server (LAN). `MainTabView` tắt hẳn khi app rời foreground.
+- `ExtensionDebugPairingAuthority`: token 256-bit **dùng một lần**, hết hạn 3 phút, so sánh hằng thời gian. Token đúng **chỉ mở cửa xin phép** — phải bấm "Cho phép kết nối" trên thiết bị mới có session.
+- `ExtensionDebugCommandRouter` (+`+Draft`): chỗ **duy nhất** cưỡng chế "chưa pair thì không được gì". Thực thi `hello`, `pair`, `extensions.list`, `run.start`, `run.cancel`, `run.get`, `events.subscribe`.
+- `ExtensionDebugProtocol`: envelope v1 + 13 `CommandType` + 13 `ErrorCode`, payload phẳng `Codable` (không `[String: Any]`).
+- UI: `ExtensionDebugServerView` (trạng thái, cổng, Bonjour, QR + chuỗi pairing, approve/reject, Stop), `ExtensionDebugServerReader`, `ExtensionDebugPairingQRView`.
+- `project.yml`: thêm `NSLocalNetworkUsageDescription` + `NSBonjourServices`.
+
+**Phase 3 — snapshot nháp:**
+- `draft.stage` (manifest khai trước path/size/sha256) → nhiều `draft.chunk` → `draft.finish` (đối chiếu checksum, rồi `ExtensionDraftValidator` kiểm `plugin.json`, containment script, `load(...)`, cú pháp). Chỉ revision đã qua `finish` mới chạy được với `sourceMode: "draft"`.
+- `ExtensionDraftStagingStore` (actor) sở hữu `applicationSupportDirectory/extension-drafts/` — **ngoài** `extensions/`, xoá sạch lúc khởi động app và lúc tắt server. Hai lớp kiểm path (`pathIssue` + containment sau `standardizedFileURL`); không giải nén archive nào nên không có symlink/zip bomb.
+- Storage/cookie/localStorage của bản nháp **tự** tách khỏi production: `JSExecutor` dùng tiền tố `vbook_ext_storage_<md5(localPath)>_`.
+
+**Phase 4 — cài bản staged và rollback:**
+- `draft.install`/`draft.rollback` **treo** ở `ExtensionDebugInstallGate` cho tới khi người dùng bấm trên thiết bị, và người bấm thấy trước danh sách `+/~/-` từng file (`ExtensionDraftInstaller.changeSummary`).
+- Bản cũ được copy sang `.backup/<packageId>/` **trước** khi thay; thay bằng `FileManager.replaceItemAt` (nguyên tử, cùng volume). Không auto-commit khi VS Code save.
+
+**Client VS Code**: 10 command, OutputChannel làm trace, `DiagnosticCollection` chỉ gắn khi `sourceRevision` còn khớp (không khớp thì ghi `(stale)`), token chỉ ở `SecretStorage`, `src/protocol.ts` là mirror của Swift.
+
+**Hai chỗ lệch chốt Phase 0, đã ghi rõ**: pairing URI **có thêm `host`** (IP nội bộ) để client chỉ cần một thư viện WebSocket thay vì dependency mDNS — IP không phải bí mật, token vẫn là thứ được bảo vệ; và unsaved-overlay của Phase 3 **chưa làm** (chỉ có saved snapshot).
+
+`check_architecture.py` giữ **14** violation nền, **không violation mới**: 18 file mới đều ≤ 400 dòng và một primary type (router phải tách `+Draft` để không chạm trần). CodeGraph: cập nhật `00`, `01`, `02`, `03`, `04`, `06`, `07`, `08`, `09`, `10`, `11`, `13`, `14`, `rules`. Chưa biên dịch tại chỗ (Windows) — dựa vào CI; và toàn bộ đường mạng/Bonjour/permission **phải xác minh trên máy thật**, simulator không đại diện.
+
 ## [1.3.302] - 2026-09-01
 
 ### Debug extension Phase 0–1: structured trace nội bộ và runner execute(...), chưa mở server

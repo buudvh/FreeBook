@@ -15,6 +15,18 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Debug extension Phase 2–4: server LAN, snapshot nháp, cài + rollback (1.3.303)
+
+**18 file Swift mới** (441 → **459**), sửa **3** file, thêm **1 package VS Code** ở `Tools/VSCode/FreeBookExtDebug` (TypeScript, không nằm trong build iOS và không có bước build trong CI).
+
+* **Phase 2 — server**: [`ExtensionDebugServer`](../../Sources/Services/Extensions/Debug/Server/ExtensionDebugServer.swift) (actor) dựng `NWListener` + `NWProtocolWebSocket` + Bonjour `_freebook-extdebug._tcp`, **port ngẫu nhiên**, **tối đa một client**. Bật/tắt bằng tay ở **Cài Đặt → Nhà Phát Triển → Debug Server (LAN)**; `MainTabView` tắt hẳn khi app rời foreground.
+* **Pairing hai bước, không phải một.** Token 256-bit dùng một lần, hết hạn 3 phút, đi trong QR/URI. Token đúng **chỉ mở cửa xin phép**; phải bấm "Cho phép kết nối" trên thiết bị mới có session — đó là thứ chặn một máy trong cùng LAN đọc lỏm token.
+* **Router là chỗ duy nhất cưỡng chế "chưa pair thì không được gì"**, và `run.start` chỉ nhận `packageId` + `entrypoint` + input: không có field path nào, không `eval`, không source raw.
+* **Phase 3 — snapshot nháp**: `draft.stage` (manifest khai trước path/size/sha256) → nhiều `draft.chunk` → `draft.finish` (đối chiếu checksum rồi validate `plugin.json`, containment script, `load(...)`, cú pháp). Chỉ revision đã qua `finish` mới chạy được với `sourceMode: "draft"`. Staging nằm ở `applicationSupportDirectory/extension-drafts/`, **ngoài** `extensions/`, và bị xoá sạch khi tắt server hoặc mở lại app.
+* **Storage của bản nháp tự tách khỏi production** — không phải nhờ code mới: `JSExecutor` đặt tiền tố `vbook_ext_storage_<md5(localPath)>_`, và bản nháp có `localPath` khác.
+* **Phase 4 — cài và rollback**: `draft.install`/`draft.rollback` **treo** ở `ExtensionDebugInstallGate` cho tới khi người dùng bấm trên thiết bị, và người bấm thấy trước danh sách `+/~/-` từng file. Bản cũ được copy sang `.backup/<packageId>/` **trước** khi thay, thay bằng `FileManager.replaceItemAt` (nguyên tử, cùng volume). Không có auto-commit khi VS Code save.
+* **Giới hạn còn lại, cố ý**: kết nối là `ws` chưa TLS (chỉ LAN tin cậy); cài bản nháp **chỉ đổi file**, hàng `Extension` trong SwiftData không được cập nhật; chưa có unsaved-overlay của Phase 3.
+
 ## Debug extension Phase 1: structured trace nội bộ, chưa mở server (1.3.302)
 
 Triển khai Phase 0–1 của [plan debug ext qua app server](../Plans/2026-08-23-plan-debug-ext-app-server.md). **13 file mới** (428 → **441**), sửa **2** file hiện có.

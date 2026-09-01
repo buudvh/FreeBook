@@ -15,6 +15,15 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vi tri tang cua Phase 2-4 (1.3.303)
+
+* **14 file Services moi khong `import SwiftUI`** va khong goi `ToastManager` => hop le voi `SERVICE_SWIFTUI_IMPORT` va `SERVICE_TOAST_COUPLING`. Trang thai di len Views bang `AsyncStream` (`statusStream`, `pendingStream`), dung khuon event center hien hanh.
+* **Canh moi ra ngoai module**: `Network` (`NWListener`/`NWConnection`/`NWProtocolWebSocket`) chi xuat hien trong `ExtensionDebugServer` va `ExtensionDebugConnection`; `CryptoKit` them mot consumer la `Data+Crypto`. `CoreImage.CIFilterBuiltins` chi o tang Views (`ExtensionDebugPairingQRView`).
+* **Canh Services -> SwiftData la *doc*, bang `ModelContext` rieng** dung tu `ModelContainer` duoc Views bom vao luc bat server - dung luat "tac vu nen khong dung context cua MainActor". Router khong ghi SwiftData; he qua la cai ban nhap **khong** cap nhat hang `Extension` (xem `10_risk_report`).
+* **3 file Views moi chi doc**: `ExtensionDebugServerView` dung `modelContext.container` de bom vao server va **khong** `insert/delete/save` => hop le voi `VIEW_SWIFTDATA_MUTATION`.
+* **`Tools/VSCode/FreeBookExtDebug` nam ngoai `Sources/`** nen khong thuoc target iOS, khong bi `check_architecture.py` quet, va khong co luat kien truc nao ap len no. Contract giua hai ben la `src/protocol.ts` <-> `ExtensionDebugProtocol.swift` - nghia vu sua song song, da ghi o `rules.md`.
+* **Khong noi luat nao**: 18 file moi deu <= 400 dong, mot primary type top-level. `architecture_allowlist.json` khong them entry; `check_architecture.py` giu **14 violation nen**.
+
 ## Vị trí tầng của 13 file debug extension (1.3.302)
 
 * **9 file mới ở `Sources/Services/Extensions/Debug/` + `Engine/JSExecutor+Debug.swift` không `import SwiftUI`** ⇒ hợp lệ với `SERVICE_SWIFTUI_IMPORT`; không file nào gọi `ToastManager` ⇒ hợp lệ với `SERVICE_TOAST_COUPLING`. Trace được phát bằng `AsyncStream` của `ExtensionDebugEventHub`, đúng khuôn `TTSPresentationEventCenter`/`DownloadPresentationEventCenter`.

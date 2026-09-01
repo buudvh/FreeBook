@@ -1,115 +1,58 @@
 {
-  "name": "freebook-ext-debug",
+  "name": "freebook-extdebug",
   "displayName": "FreeBook Extension Debug",
-  "description": "Debug VBook execute(...) scripts through the FreeBook iOS app.",
+  "description": "Chạy execute(...) của VBook extension trên app FreeBook đang mở trên iPhone/iPad cùng mạng LAN, và xem trace console/fetch/exception ngay trong VS Code.",
   "version": "0.1.0",
-  "publisher": "freebook-internal",
+  "publisher": "freebook",
   "private": true,
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "UNLICENSED",
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": [
-    "Other"
-  ],
-  "activationEvents": [
-    "onCommand:freebookExtDebug.openPanel",
-    "onView:freebookExtDebug.sidebar",
-    "onCommand:freebookExtDebug.pair",
-    "onCommand:freebookExtDebug.selectExtensionRoot",
-    "onCommand:freebookExtDebug.runCurrent",
-    "onCommand:freebookExtDebug.runSavedProfile",
-    "onCommand:freebookExtDebug.useMockTransport",
-    "onCommand:freebookExtDebug.cancelRun",
-    "onCommand:freebookExtDebug.openTrace"
-  ],
+  "categories": ["Debuggers", "Other"],
+  "activationEvents": [],
   "main": "./out/extension.js",
-  "extensionKind": [
-    "ui"
-  ],
   "capabilities": {
     "untrustedWorkspaces": {
-      "supported": false
+      "supported": false,
+      "description": "Cần workspace tin cậy vì extension đọc plugin.json và gửi mã nguồn sang thiết bị."
     }
   },
   "contributes": {
     "commands": [
-      {
-        "command": "freebookExtDebug.openPanel",
-        "title": "Open FreeBook Debug",
-        "icon": "media/freebook-debug.svg"
-      },
-      {
-        "command": "freebookExtDebug.pair",
-        "title": "Pair with FreeBook App"
-      },
-      {
-        "command": "freebookExtDebug.selectExtensionRoot",
-        "title": "Select Extension Root"
-      },
-      {
-        "command": "freebookExtDebug.runCurrent",
-        "title": "Run Current execute"
-      },
-      {
-        "command": "freebookExtDebug.runSavedProfile",
-        "title": "Run Saved Profile"
-      },
-      {
-        "command": "freebookExtDebug.useMockTransport",
-        "title": "Use Mock Transport"
-      },
-      {
-        "command": "freebookExtDebug.cancelRun",
-        "title": "Cancel Current Run"
-      },
-      {
-        "command": "freebookExtDebug.openTrace",
-        "title": "Open Trace"
-      }
+      { "command": "freebook.extdebug.pair", "title": "FreeBook: Pair with App", "category": "FreeBook" },
+      { "command": "freebook.extdebug.selectExtension", "title": "FreeBook: Select Extension", "category": "FreeBook" },
+      { "command": "freebook.extdebug.runCurrent", "title": "FreeBook: Run Current execute", "category": "FreeBook" },
+      { "command": "freebook.extdebug.runScript", "title": "FreeBook: Run Script…", "category": "FreeBook" },
+      { "command": "freebook.extdebug.runProfile", "title": "FreeBook: Run Saved Profile", "category": "FreeBook" },
+      { "command": "freebook.extdebug.stageDraft", "title": "FreeBook: Stage Workspace Draft", "category": "FreeBook" },
+      { "command": "freebook.extdebug.installDraft", "title": "FreeBook: Install Staged Draft (needs device approval)", "category": "FreeBook" },
+      { "command": "freebook.extdebug.rollback", "title": "FreeBook: Rollback Installed Extension", "category": "FreeBook" },
+      { "command": "freebook.extdebug.cancelRun", "title": "FreeBook: Cancel Current Run", "category": "FreeBook" },
+      { "command": "freebook.extdebug.openTrace", "title": "FreeBook: Open Trace", "category": "FreeBook" }
     ],
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "freebookExtDebug",
-          "title": "FreeBook Debug",
-          "icon": "media/freebook-debug.svg"
+    "configuration": {
+      "title": "FreeBook Extension Debug",
+      "properties": {
+        "freebook.extdebug.defaultPage": {
+          "type": "number",
+          "default": 1,
+          "description": "Số trang mặc định cho profile search/custom."
         }
-      ]
-    },
-    "views": {
-      "freebookExtDebug": [
-        {
-          "type": "webview",
-          "id": "freebookExtDebug.sidebar",
-          "name": "Extension Debug"
-        }
-      ]
-    },
-    "menus": {
-      "editor/title": [
-        {
-          "command": "freebookExtDebug.openPanel",
-          "when": "resourceExtname == .js",
-          "group": "navigation@50"
-        }
-      ]
+      }
     }
   },
   "scripts": {
-    "compile": "tsc -p .",
-    "watch": "tsc -watch -p .",
-    "check": "tsc -p . --noEmit",
-    "package": "npm run compile && vsce package --allow-missing-repository"
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
   },
   "dependencies": {
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "@types/node": "^20.17.0",
+    "@types/node": "^20.14.0",
     "@types/vscode": "^1.85.0",
-    "@types/ws": "^8.5.13",
-    "@vscode/vsce": "^3.2.0",
-    "typescript": "^5.7.3"
+    "@types/ws": "^8.5.12",
+    "typescript": "^5.5.0"
   }
 }

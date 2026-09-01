@@ -15,6 +15,25 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vong doi trang thai debug server (1.3.303)
+
+```
+stopped --Bat server--> starting --listener .ready--> waitingForClient
+                                                        | client gui pair (token dung)
+                                                        v
+                                                  waitingForApproval
+                                                        | nguoi dung bam "Cho phep"
+                                                        v
+                                                      paired --client disconnect--> waitingForClient (TOKEN MOI)
+   ^                                                    |
+   +---------- Tat server | app roi foreground ---------+
+```
+
+* **Client roi di thi cap token moi**, khong dung lai token cu: token cu da di qua mang nen coi nhu da chay.
+* **App roi foreground la tat han**, khong tam dung: `MainTabView.onChange(of: scenePhase)` goi `ExtensionDebugServer.stop()`, va `stop()` go Bonjour, dong socket, huy moi run, nha moi waiter, xoa sach staging.
+* **Event trace va event trang thai la hai kenh khac nhau**: trace di qua `ExtensionDebugEventHub` (`AsyncStream<ExtensionDebugEvent>`), trang thai di qua `ExtensionDebugServer.statusStream()`, va cua xac nhan di qua `ExtensionDebugInstallGate.pendingStream()`. Tang Views gop ba thu do, tang Services khong biet ve nhau.
+* Khong them `NotificationCenter` name nao - signalling moi dung `AsyncStream`, dung quy uoc hien hanh.
+
 ## Hẹn giờ tắt TTS: một `Timer`, ba nguồn dừng, một nguồn tiếp (1.3.300)
 
 ```

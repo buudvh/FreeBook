@@ -15,6 +15,19 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rui ro cua debug server LAN (1.3.303)
+
+* **Da chan - server mo im lang.** Mac dinh tat, chi bat bang thao tac trong Cai Dat, va `MainTabView` tat han khi app roi foreground. Khong co `UIBackgroundModes` nao cho no song tiep, nen khong co ca "quen tat roi de mo ca ngay".
+* **Da chan - mot may trong cung LAN doc lom token.** Token dung dung **chi mo cua xin phep**; phai bam "Cho phep ket noi" tren thiet bi moi co session. Token 256-bit, mot lan, het han 3 phut, khong vao Bonjour TXT record, khong vao log, khong vao `ExtensionDebugEvent`. So sanh token bang thuat toan hang thoi gian.
+* **Da chan - client thu hai chen vao.** `newConnectionHandler` `cancel()` ngay ket noi thu hai; khong xep hang. Client roi di thi cap **token moi**, khong dung lai token cu.
+* **Da chan - lenh tu mang chi dinh cho ghi file.** `run.start` khong co field path; `draft.chunk` chi nhan `relativePath` da khai trong manifest, di qua `pathIssue` roi kiem containment lan hai sau `standardizedFileURL`. Khong giai nen archive nen khong co symlink/zip bomb.
+* **Da chan - ghi de extension khong ai biet.** `draft.install`/`draft.rollback` treo o `ExtensionDebugInstallGate` cho toi khi nguoi dung bam, va nguoi bam thay truoc danh sach `+/~/-` tung file. Ban cu duoc copy sang `.backup/` **truoc** khi thay; thay bang `replaceItemAt` (nguyen tu).
+* **Con ho, co y - `ws` chua co TLS.** Ai o cung LAN va nghe duoc goi tin se doc duoc trace va lenh (khong doc duoc token neu ho khong thay QR, nhung doc duoc noi dung phien sau khi da pair). Chap nhan cho MVP tren LAN tin cay; chuyen `wss` + fingerprint qua QR la viec bat buoc truoc khi mo cho moi truong rong hon. Da ghi o Phase 0 cua plan.
+* **Con ho, co y - IP trong pairing URI.** Chot Phase 0 noi URI chi chua service/port/token; ban trien khai them `host`. IP noi bo khong phai bi mat va no bo duoc dependency mDNS cho client tren Windows/Linux - nhung day la mot lech chot da co y, khong phai sot.
+* **Rui ro da biet - cai ban nhap chi doi file.** Hang `Extension` trong SwiftData (`version`, `name`, `configJson`) **khong** duoc cap nhat, vi ghi SwiftData phai qua `ExtensionTransactionCoordinator` va mot ban dang thu khong nen doi metadata thu vien. He qua: sau `draft.install`, `plugin.json` tren dia co the khai version khac voi version trong thu vien. Rollback dua file ve dung ban cu nen do lech nay tu het.
+* **Rui ro da biet - `.backup/` chi giu mot the he.** Cai hai lan lien tiep thi ban goc bi mat: lan cai thu hai sao luu chinh ban vua cai. Ai muon quay ve ban goc phai cai lai extension tu kho.
+* **Chua lam - unsaved overlay cua Phase 3.** Chi co saved snapshot; document dang mo chua luu thi khong duoc gui. Do la buoc ke tiep trong plan, khong phai sot.
+
 ## Rủi ro của trace debug extension (1.3.302)
 
 * **Đã chặn — rò bí mật qua trace.** Redaction nằm ở phía *tạo* event, không ở phía gửi, nên không có đường nào để event chưa sạch lọt ra khi Phase 2 gắn socket. `ExtensionDebugRedactor` cố ý **không có hàm nhận header hay body**: thiếu hàm là chốt rẻ nhất. URL giữ scheme/host/path và thay **mọi** giá trị query bằng `…`; user/password/fragment bị bỏ. Summary kết quả dùng `compactRepresentation` (`[Array: 20 items]`) nên nội dung chương không bao giờ vào trace.

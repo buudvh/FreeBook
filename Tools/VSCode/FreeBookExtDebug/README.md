@@ -1,61 +1,56 @@
-# FreeBook Extension Debug
+# FreeBook Extension Debug — VS Code client
 
-VS Code client nội bộ để chạy các hàm global `execute(...)` của VBook extension
-trong runtime JavaScriptCore thật của app FreeBook.
+Client của debug server trong app FreeBook (iOS). Cho phép chạy `execute(...)` của VBook extension **trên
+thiết bị thật** rồi xem trace console/fetch/exception ngay trong VS Code.
 
-## Trạng thái hiện tại
+> Chưa publish lên Marketplace và chưa có bước build trong CI của repo. Đây là package nguồn, chạy bằng
+> `npm install && npm run compile` rồi F5 trong VS Code.
 
-- **Mock Transport** kiểm tra command, profile, snapshot và trace UI; nó luôn hiện rõ
-  rằng không chạy JSExecutor iOS.
-- **App Transport** đã có protocol WebSocket v1, nhưng chỉ chạy thật khi app iOS triển
-  khai FreeBook Debug Server tương ứng.
-- Client không thực thi JavaScript bằng Node.js và không chứa VBook runtime thay thế.
+## Yêu cầu
 
-## Phát triển và đóng gói
+- VS Code desktop 1.85+, workspace **tin cậy** (`workspace.isTrusted`).
+- App FreeBook bản Dev/Ad Hoc, đang **foreground**, cùng mạng LAN.
+- Trong app: **Cài Đặt → Nhà Phát Triển → Debug Server (LAN) → Bật server**.
 
-```powershell
-npm install
-npm run check
-npm run package
-```
+## Ghép nối
 
-Lệnh cuối tạo file VSIX cục bộ để cài thủ công vào VS Code.
+1. App hiện QR và một chuỗi `freebook-extdebug://pair?host=…&port=…&service=…&token=…`.
+2. VS Code: `FreeBook: Pair with App`, dán chuỗi đó.
+3. App hiện tên client và chờ bạn bấm **Cho phép kết nối**. Token đúng chỉ mở cửa xin phép — không tự
+   cấp session.
 
-## Cách dùng
+Token được lưu bằng `SecretStorage`, dùng một lần và hết hạn sau 3 phút. Nó không vào settings,
+workspace state hay Output Channel.
 
-### Cài một lần
+## Lệnh
 
-1. Trong VS Code, mở Extensions (`Ctrl+Shift+X`) → nút `…` → **Install from VSIX…**.
-2. Chọn file `freebook-ext-debug-0.1.0.vsix` được tạo trong thư mục này.
-3. Reload VS Code nếu VS Code yêu cầu.
+| Lệnh | Việc |
+| --- | --- |
+| `FreeBook: Pair with App` | Ghép nối |
+| `FreeBook: Select Extension` | Chọn extension đã cài trên app |
+| `FreeBook: Run Current execute` | Chạy entrypoint suy ra từ tên file đang mở (phải nằm trong manifest) |
+| `FreeBook: Run Script…` | Chọn entrypoint và nhập input, source `installed` |
+| `FreeBook: Run Saved Profile` | Như trên nhưng source `draft` |
+| `FreeBook: Stage Workspace Draft` | Gửi snapshot `plugin.json` + `*.js` (gốc và `src/`) lên staging của app |
+| `FreeBook: Install Staged Draft` | Ghi đè extension đang cài — **cần bấm đồng ý trên thiết bị** |
+| `FreeBook: Rollback Installed Extension` | Trả lại bản trước lần cài gần nhất |
+| `FreeBook: Cancel Current Run` | Huỷ run đang chạy |
+| `FreeBook: Open Trace` | Mở Output Channel |
 
-### Chạy mỗi ngày
+## Ranh giới cần biết
 
-1. Mở thư mục extension VBook, rồi mở một file `.js` của extension.
-2. Bấm icon **FreeBook Debug** ở thanh Activity Bar bên trái. Nút nhỏ trên title
-   của file `.js` cũng mở đúng sidebar này.
-3. Sidebar tự nhận extension; nếu cần, bấm **Chọn…** để chọn thư mục chứa
-   `plugin.json`. Chọn script, điền các input đang hiện và chọn **Draft** hoặc
-   **Installed**.
-4. Khi app chưa có Debug Server, bấm **Use Mock** rồi **Run execute** để kiểm tra
-   form, snapshot và protocol. Panel/Trace luôn ghi rõ `Mock — không chạy
-   JSExecutor iOS`.
-5. Khi app server đã sẵn sàng, bấm **Pair App** và dán pairing URI dạng
-   `freebook-debug://pair?endpoint=ws%3A%2F%2F...&token=...`. Sau đó bấm
-   **Run execute**; trace xuất hiện ngay dưới form. **Open Trace** chỉ mở log đầy
-   đủ của VS Code khi cần.
+- **App là thẩm quyền cuối cùng** về manifest, entrypoint và contract. Client chỉ validate hình dạng để
+  báo lỗi sớm; nó không bao giờ gửi filesystem path tuỳ ý hay source raw trong `run.start`.
+- **Diagnostic chỉ gắn khi `sourceRevision` khớp** bản đã stage/cài. Event của bản cũ chỉ hiện trong
+  trace kèm `(stale)`.
+- **Trace đã redact ở phía app**: không có header, cookie, body, nội dung chương; giá trị query trong URL
+  hiện dưới dạng `…`.
+- Kết nối là `ws` **chưa có TLS** — chỉ dùng trên LAN tin cậy. Chuyển `wss` + fingerprint qua QR là việc
+  phải làm trước khi mở cho môi trường rộng hơn.
 
-`Installed` chỉ bật khi app báo extension có package ID trùng khớp. `Draft` luôn
-đọc toàn bộ cây extension từ các file đã lưu, chặn khi còn editor bẩn, và stage
-cả file root lẫn `src/` trước khi chạy. Extension không tự lưu file cho bạn.
+## Contract
 
-Các command cũ như **Run Current execute** và **Run Saved Profile** vẫn có trong
-Command Palette cho trường hợp cần thao tác nhanh, nhưng sidebar là luồng dùng
-chính.
-
-## Giới hạn MVP
-
-- Chỉ VS Code desktop local.
-- Chỉ workspace đáng tin cậy.
-- Source draft lấy nội dung đã lưu; không tự lưu hay upload buffer chưa lưu.
-- Token pairing chỉ lưu qua VS Code SecretStorage.
+`src/protocol.ts` là mirror của Swift:
+`Sources/Services/Extensions/Debug/Server/ExtensionDebugProtocol.swift` và
+`Sources/Services/Extensions/Debug/ExtensionDebugEvent.swift`. Sửa một bên phải sửa bên kia cùng lượt.
+`timestamp` là số giây theo reference date của Apple (2001-01-01), do `JSONEncoder` mặc định.

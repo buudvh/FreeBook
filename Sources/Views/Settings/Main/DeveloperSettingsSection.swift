@@ -8,10 +8,13 @@ struct DeveloperSettingsSection: View {
             NavigationLink(destination: ExtensionDebugConsoleView()) {
                 Label("Debug Extension", systemImage: "ladybug")
             }
+            NavigationLink(destination: ExtensionDebugServerView()) {
+                Label("Debug Server (LAN)", systemImage: "antenna.radiowaves.left.and.right")
+            }
         } header: {
             Text("Nhà Phát Triển")
         } footer: {
-            Text("Chạy execute(...) của extension đã cài và xem trace console/fetch/exception thời gian thực. Không phụ thuộc cấu hình ghi log bên dưới.")
+            Text("Chạy execute(...) của extension đã cài và xem trace console/fetch/exception thời gian thực. Debug Server mở kênh cho VS Code trên cùng mạng LAN; mặc định tắt.")
         }
     }
 }

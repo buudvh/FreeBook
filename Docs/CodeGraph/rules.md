@@ -15,6 +15,18 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Quy chuan cho debug server (1.3.303)
+
+Nam luat nay bat buoc voi moi thay doi cham `Debug/Server/` hoac `Debug/Staging/`:
+
+1. **Khong bao gio bo qua cua xac nhan tren thiet bi.** Token dung chi cho phep *xin* pair; `isPaired` chi `true` sau `approvePending()`. `draft.install`/`draft.rollback` phai di qua `ExtensionDebugInstallGate`. Them mot lenh nao ghi de du lieu nguoi dung thi lenh do cung phai di qua cong nay.
+2. **Khong nhan path tu client.** Lenh chi duoc mang `packageId`, `entrypoint`, input va `relativePath` **da khai trong manifest**. Cam them field nao nhan `URL`, path tuyet doi, hay source JavaScript raw vao `run.start`.
+3. **Moi duong tat may phai `InstallGate.cancelPending()`.** Do la cho duy nhat trong app co continuation treo vo han; thieu mot duong la `Task` cua router treo ca phien.
+4. **`ExtensionDraftStagingStore` la cho duy nhat tao/xoa file trong `extension-drafts/`.** Khong ai khac duoc ghi vao do, va no khong duoc ghi ra ngoai do.
+5. **`src/protocol.ts` la mirror cua `ExtensionDebugProtocol.swift` + `ExtensionDebugEvent.swift`.** Sua mot ben phai sua ben kia cung luot. App la tham quyen cuoi cung ve manifest, entrypoint va contract; client chi validate hinh dang de bao loi som.
+
+Doi `Envelope`, them `CommandType` hay `ErrorCode` la doi contract v1 => nang `ExtensionDebugProtocol.version` va `ExtensionDebugEvent.contractVersion`, khong them im lang.
+
 ## Quy chuẩn cho trace debug extension (1.3.302)
 
 Bốn luật này là **bắt buộc** với mọi thay đổi chạm phân hệ debug extension:

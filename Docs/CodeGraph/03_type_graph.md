@@ -15,6 +15,16 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## API moi cua debug server (1.3.303)
+
+* **`ExtensionDebugServer` la mat tien duy nhat cho tang Views**: `start(container:serviceName:)`, `stop()`, `statusStream()`, `approvePairing()`, `rejectPairing()`, `decideInstall(id:approved:)`. `NWListener`/`NWConnection` khong lo ra ngoai actor nay.
+* **`ExtensionDebugPairingAuthority` khong co API "cap session" truc tiep.** `requestPairing(token:clientName:)` chi tra `.success` nghia la *duoc phep xin*; `isPaired` chi `true` sau `approvePending()`. Khong co duong nao bo qua buoc bam tren thiet bi.
+* **`ExtensionDebugCommandRouter` nhan `send` closure**, khong nhan `NWConnection`. Nho vay router doc lap voi tang truyen va khong giu tai nguyen socket.
+* **`ExtensionDebugInstalledSnapshot` la ranh gioi `@Model`**: router doc SwiftData bang `ModelContext` rieng roi copy sang struct `Sendable`; khong `Extension` nao ra khoi context cua no.
+* **`ExtensionDraftStagingStore` chi nhan `relativePath` + `Data`** - khong co overload nao nhan `URL` hay path tuyet doi, nen client khong co API de chi dinh cho ghi.
+* **`ExtensionDebugInstallGate.requestApproval(_:) async -> Decision`** la diem treo: no bien "lenh tu mang" thanh "cho nguoi bam". `cancelPending()` la nghia vu cua moi duong tat may - khong goi la `Task` cua router treo mai.
+* `Data.sha256Hex()` tach khoi `String.sha256()`: snapshot la **byte**, encode lai sang String truoc khi bam se lam hong checksum file nhi phan.
+
 ## API mở rộng widget TTS từ Reader (1.3.277)
 
 * `TTSFloatingWidgetWindowManager` thêm state nội bộ `shouldRevealOnNextShow` và method `requestRevealOnNextShow()`. Đây là API tầng View, không đi qua `TTSManager` để giữ `Services/TTS` không phụ thuộc `Views/TTSWidget`.

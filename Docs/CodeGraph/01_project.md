@@ -15,6 +15,13 @@ Tài liệu này phác thảo kiến trúc tổng thể, sơ đồ thư mục, c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Pham vi moi: app co mot server LAN, chi bat bang tay (1.3.303)
+
+* **Day la lan dau app mo mot cong nghe.** Truoc 1.3.303 moi thu la client. Nay co `NWListener` + Bonjour, nen `project.yml` phai khai `NSLocalNetworkUsageDescription` va `NSBonjourServices` (`_freebook-extdebug._tcp`) - hai khoa Info.plist dau tien lien quan mang noi bo.
+* **Threat model di kem, khong phai tuy chon**: mac dinh tat, chi bat bang thao tac trong Cai Dat, foreground-only (`MainTabView` tat khi roi foreground), port ngau nhien, toi da mot client, token dung mot lan + het han 3 phut, va phai xac nhan tren thiet bi. Xem `10_risk_report`.
+* **Them mot thu muc du lieu**: `applicationSupportDirectory/extension-drafts/` cho snapshot nhap va `.backup/` cho ban truoc khi cai. Ca hai la du lieu tam - staging bi xoa sach moi lan mo app; `.backup` giu toi lan cai ke tiep de rollback duoc.
+* **Them mot package khong thuoc build iOS**: `Tools/VSCode/FreeBookExtDebug` (TypeScript). CI hien tai chi `xcodegen` + `xcodebuild`, nen package nay **khong duoc bien dich boi CI** - trang thai do la co y va duoc ghi o README cua no.
+
 ## Architecture & Refactor Summary (v4.1/v4.2/v5.0)
 
 Dự án FreeBook đã hoàn tất tái cấu trúc kiến trúc v4.1/v5.0 với các điểm chính:

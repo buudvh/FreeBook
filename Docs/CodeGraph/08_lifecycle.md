@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vong doi debug server gan vao scenePhase (1.3.303)
+
+* **Foreground-only la rang buoc vong doi, khong phai khuyen nghi.** `MainTabView.onChange(of: scenePhase)` goi `ExtensionDebugServer.stop()` o `.inactive`/`.background`, cung cho da checkpoint TTS va flush tien do doc. Khong co `UIBackgroundModes` nao cho phep no song tiep.
+* **`stop()` la mot luot don day du**, thu tu co y nghia: `listener.cancel()` (go Bonjour + dong cong) -> dong connection -> `router.detach()` (huy task forward event) -> `pairing.reset()` -> `Runner.cancelAll()` -> `InstallGate.cancelPending()` (nha moi waiter dang treo) -> `StagingStore.discardAll()`.
+* **Staging cung bi don luc khoi dong** (`MainTabView.onAppear`): ban nhap la du lieu tam, khong duoc song qua mot lan chay app. `.backup/` **khong** bi don - no phai ton tai de rollback duoc sau khi app khoi dong lai.
+* **Client disconnect khong tat server**: quay lai `waitingForClient` va cap token moi. Nhung no van huy moi run va nha cua xac nhan - khong de lai run mo coi khi khong con ai xem trace.
+* **Hai waiter treo vo han duoc nha boi dung ba duong**: nguoi dung bam, client disconnect, hoac server stop. Khong co timeout, vi mot nguoi dang doc diff 30 file khong nen bi het gio.
+
 ## "Mở Cài đặt" là một lượt dismiss Reader, không phải đổi tab ngầm (1.3.299)
 
 * Reader luôn sống trong `fullScreenCover`, nên vòng đời của nó **không** kết thúc khi `MainTabView.selectedTab` đổi. Mục "Mở Cài đặt" vì thế gọi `dismiss()` trước, rồi mới phát `navigateToSettingsTab`.

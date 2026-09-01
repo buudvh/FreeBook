@@ -15,6 +15,16 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## So dong sau luot 1.3.303
+
+* **Them 18 file Swift** (441 -> **459**), tat ca <= 400 dong va moi file mot primary type top-level. Lon nhat: `ExtensionDebugCommandRouter` 278, `ExtensionDebugServer` 248, `ExtensionDebugServerView` 191.
+* **Router phai tach hai file** (`+Draft` 183 dong) de khong cham tran 400 - cung mau `X+Feature.swift` ma repo dang dung cho god-object.
+* **Ba file sua nho**: `DeveloperSettingsSection` 17 -> 20, `MainTabView` 118 -> 126, `project.yml` +4 dong. Khong file nao o baseline bi phinh.
+* **Chi phi thuong truc khi khong bat server**: hai actor rong (`ExtensionDebugServer.shared`, `ExtensionDraftStagingStore.shared`) cong mot lan `removeItem` best-effort luc khoi dong. Khong listener, khong socket, khong timer.
+* **Bac phuc tap**: `handle` la mot `switch` O(1); `installedExtensions()` la mot fetch SwiftData + doc `plugin.json` moi extension (chi chay theo lenh, khong theo moi event); `changeSummary` la O(n) file voi mot luot SHA-256 moi file - chay dung mot lan truoc khi xin xac nhan.
+* **Package VS Code khong tinh vao so dong Swift** va khong co buoc build trong CI: `src/extension.ts` ~330 dong, `client.ts` ~150, `draft.ts` ~130, `protocol.ts` ~150.
+* `check_architecture.py` giu **14 violation nen**, khong violation moi.
+
 ## Số dòng sau lượt 1.3.302
 
 * **Thêm 13 file Swift** (428 → **441**), tất cả ≤ 400 dòng và mỗi file một primary type top-level. Lớn nhất: `ExtensionDebugConsoleView` 217, `ExtensionDebugRunner` 206; nhỏ nhất `DeveloperSettingsSection` 17.

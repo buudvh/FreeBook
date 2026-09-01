@@ -15,6 +15,30 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Duong du lieu cua snapshot nhap (1.3.303)
+
+```
+VS Code workspace (workspace.fs)
+  |- buildDraftBundle: plugin.json + *.js (goc va src/) -> sha256 tung file
+  |                     -> revision = sha256(path:hash...)
+  |- draft.stage   { manifest }             -> StagingStore.beginStage
+  |                                              |- shapeIssues() TRUOC khi tao thu muc
+  |- draft.chunk   { relativePath, base64 }  -> appendChunk (chi path da khai, cong don <= size khai)
+  |- draft.finish                            -> finishStage: so size + sha256 tung file
+  |                                              |- ExtensionDraftValidator.validate
+  |                                                   |- plugin.json doc duoc, co muc "script"
+  |                                                   |- moi script co mat (goc roi src/)
+  |                                                   |- load("x") tro toi file co that
+  |                                                   |- validateSyntax tren JSExecutor dung-mot-lan
+  |- run.start { sourceMode: "draft", sourceRevision } -> localPath = extension-drafts/<pkg>/<rev>
+```
+
+* **Manifest den truoc byte.** Nho vay quota, path an toan va "thieu `plugin.json`" bi chan truoc khi ghi gi len dia; va khong ton tai duong de gui mot file khong khai trong manifest.
+* **Khong giai nen archive nao.** Server tu `create` tung file tu byte nhan duoc, nen khong co symlink, hard link hay zip bomb - chi co file thuong voi size da biet truoc.
+* **Hai lop kiem path**: `ExtensionDraftManifest.pathIssue` (dang chuoi) roi kiem containment sau `standardizedFileURL`. Mot dang traversal la vuot lop mot van khong ra khoi thu muc draft.
+* **Validate khong co side effect mang**: no chi `validateSyntax`, co y **khong** goi `execute(...)`.
+* **Storage cua ban nhap tach khoi production ma khong can code moi**: `JSExecutor` dat tien to `vbook_ext_storage_<md5(localPath)>_`, va `localPath` cua ban nhap khac cua ban da cai.
+
 ## Đường trace của một lượt debug extension (1.3.302)
 
 ```text

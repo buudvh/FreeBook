@@ -15,6 +15,35 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Duong lenh cua debug server (1.3.303)
+
+```
+VS Code  --ws://host:port  (subprotocol freebook-extdebug.v1)
+  |- ExtensionDebugConnection.receiveMessage
+       |- ExtensionDebugServer.route
+            |- ExtensionDebugCommandRouter.handle
+                 |- hello                -> appVersion, contractVersion, requiresPairing
+                 |- pair                 -> PairingAuthority.requestPairing -> status .waitingForApproval
+                 |     (nguoi dung bam)  -> Server.approvePairing -> PairingAuthority.approvePending
+                 |                          -> gui type:"paired"
+                 |- [da pair]
+                      |- extensions.list -> ModelContext rieng -> [ExtensionDebugInstalledSnapshot]
+                      |- run.start       -> (draft? StagingStore.draftDirectory : snapshot.localPath)
+                      |                     -> ExtensionDebugRunner.start -> runId
+                      |- run.cancel/get  -> Runner.cancel | Hub.events(for:)
+                      |- events.subscribe-> Hub.stream() -> forward tung event ra socket
+                      |- draft.stage     -> StagingStore.beginStage (kiem manifest TRUOC khi nhan byte)
+                      |- draft.chunk     -> StagingStore.appendChunk (chi path da khai)
+                      |- draft.finish    -> finishStage (checksum) -> ExtensionDraftValidator.validate
+                      |- draft.install   -> Installer.changeSummary -> InstallGate.requestApproval
+                      |                     (TREO) -> nguoi dung bam -> Installer.install
+                      |- draft.rollback  -> InstallGate.requestApproval -> Installer.rollback
+```
+
+* **Hai cho treo cho nguoi that**, va ca hai deu nam *sau* khi lenh da hop le: pairing va install. Do la cho duy nhat trong toan app ma mot loi goi cho vo han - nen moi duong tat may (`stop()`, client disconnect) deu phai goi `InstallGate.cancelPending()`.
+* **`run.start` khong co nhanh nao nhan path.** Che do `draft` chi doi `localPath` thanh thu muc staging *do server tu resolve* tu `packageId` + `revision`.
+* Duong trace giu nguyen tu 1.3.302: `JSExecutor` -> sink -> hub; `events.subscribe` chi them mot consumer cua cung `AsyncStream`.
+
 ## Hai công tắc tiêu đề chương đi qua ReaderView chứ không tự ghi (1.3.299)
 
 ```
