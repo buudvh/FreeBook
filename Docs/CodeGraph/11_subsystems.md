@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Kham Pha: vi tri cuon thuoc DiscoveryView, khong thuoc tab (1.3.307)
+
+* **Ranh gioi**: `DiscoveryCategoryTabView` so huu *du lieu* cua tab (`PaginatedNovelLoader` trong `@StateObject`), con *vi tri cuon* thuoc `DiscoveryView` qua `DiscoveryScrollAnchorStore`. Phai tach nhu vay vi chinh cai tab la thu bi dung lai: `TabView(.page)` do `UIPageViewController` dung nen trang roi vung lan can bi do, va cua so +-3 tab con xoa han tab xa hon. Store song o cap tren nen neo qua duoc ca hai duong do.
+* **Doc/ghi neo di theo su kien tab, khong theo su kien cuon.** Tung hang chi ghi `setVisible` vao mot `Set` (khong `@State`); phep quet tim hang tren cung chi chay **mot lan moi luot roi tab** (`onDisappear`, va `onChange(of: selectedCategoryId)` khi tab thoi la tab dang xem). Nho vay cuon mot danh sach dai khong dung lai cay view theo tung hang.
+* **Neo la `link`, khong phai `ExtensionItemResult.id`.** `id` la `UUID()` moi moi lan boc tach, nen voi tab xa (ngoai +-3, loader bi xoa va du lieu nap lai) neo theo id se khong bao gio khop. `link` on dinh qua nap lai nen khoi phuc duoc ca trong ca do; doi lai `scrollTo` co the mo neu hai hang trung link — vo hai, no chon hang dau tien.
+* **Neo bi xoa sach o `loadDiscoveryData()`**: doi nguon hay nap lai danh muc thi danh sach cu khong con, neo cu tro vao id khong ton tai.
+* **Khoi phuc co hai nhip**: luc tab xuat hien (tre 0.2 s cho `List` dung xong) va luc danh sach vua co hang dau tien (`novels.count` tu 0 len). `pendingRestoreAnchor` bi xoa ngay sau luot ap, nen cac luot `loadMore` sau do khong keo nguoi dung ve cho cu.
+
 ## Debug server tro thanh mot server LAN thuong (1.3.305)
 
 * **Ranh gioi moi**: bat cong tac la [`ExtensionDebugServer`](../../Sources/Services/Extensions/Debug/Server/ExtensionDebugServer.swift#L1) lang nghe tren cong da ghi nho, va **bat ky** client trong cung Wi-Fi noi duoc bang `ws://<ip>:<port>`. Toan bo tang ghep noi (token mot lan, het han 3 phut, QR, buoc "Cho phep ket noi") da bi **xoa** theo yeu cau nguoi dung: no la nghi le, khong phai thu chan duoc mot may trong cung LAN.

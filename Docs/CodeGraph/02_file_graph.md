@@ -15,6 +15,16 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +1 file Views cho vi tri cuon Kham Pha (1.3.307)
+
+458 -> **459** file Swift.
+
+| Thay doi | File | Vai tro | Dong |
+| --- | --- | --- | --- |
+| Them | [`Views/Discovery/DiscoveryScrollAnchorStore.swift`](../../Sources/Views/Discovery/DiscoveryScrollAnchorStore.swift) | ghi nho `link` hang tren cung + tap hang dang hien cua tung tab | 59 |
+
+`DiscoveryView.swift` 940 -> 984 dong (them `ScrollViewReader`, 2 modifier `onAppear/onDisappear` cho hang, 2 ham `captureAnchor`/`applyPendingRestore`); `QuickTranslationRuleTokenLengthBar.swift` 132 -> 145. Khong file nao cham tran 400 tru `DiscoveryView` (file legacy, baseline rieng, khong vuot baseline).
+
 ## Bo ghep noi: -2 file, +1 file (1.3.305)
 
 459 -> **458** file Swift.

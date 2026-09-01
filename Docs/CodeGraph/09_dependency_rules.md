@@ -15,6 +15,13 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vi tri tang cua store neo cuon (1.3.307)
+
+* **`DiscoveryScrollAnchorStore` nam o `Sources/Views/Discovery/`, khong phai Services.** No la state trinh bay thuan (vi tri cuon), khong co nghia gi ngoai mot phien xem; day len Services la tao mot nguon su that gia cho thu chi UI can.
+* **Khong `import SwiftUI`, khong `@Published`, khong `ObservableObject`** — chi `Foundation` + `@MainActor`. Day la co y: no duoc giu trong `@State` de moi luot ghi **khong** invalidate body, dung khuon `ParagraphTracker` cua Reader.
+* **Chieu phu thuoc khong doi**: `DiscoveryView` (chu so huu) -> truyen tham chieu xuong `DiscoveryCategoryTabView`. Tab khong tao store, khong biet tab khac, va khong doc SwiftData them cho nao.
+* `QuickTranslationRuleTokenLengthBar` chi doi layout + them `Slider`; khong canh phu thuoc moi, van chi biet `QuickTranslationRuleDraftAnalyzer.TokenSpec`.
+
 ## Vi tri tang sau khi bo ghep noi (1.3.305)
 
 * **Canh `CoreImage.CIFilterBuiltins` da mat**: no chi ton tai o `ExtensionDebugPairingQRView`, va file do bi xoa. Tang Views cua phan he debug gio chi con SwiftUI + `UIPasteboard`.

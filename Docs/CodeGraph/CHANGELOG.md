@@ -4,6 +4,19 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.272) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.307] - 2026-09-01
+
+### Khám Phá giữ vị trí cuộn từng tab; khoảng độ dài token có thêm thanh kéo
+
+Thêm **1** file Swift (458 → **459**), sửa **2** file.
+
+- **Đổi tab ở Khám Phá rồi về tab cũ không còn nhảy về đầu.** Nguyên nhân không phải mất dữ liệu: `TabView(.page)` do `UIPageViewController` dựng nên trang rời vùng lân cận bị dỡ, và cửa sổ ±3 tab của `DiscoveryView` còn xoá hẳn tab xa hơn — cả hai đều làm `List` mất offset dù `PaginatedNovelLoader` vẫn còn dữ liệu. `DiscoveryScrollAnchorStore` (mới) ghi nhớ **`link` của truyện đang ở trên cùng** của từng tab; tab chốt neo lúc rời (`onDisappear` + `onChange(of: selectedCategoryId)`) và `scrollTo(anchor: .top)` lúc quay lại. Neo **không** dùng `CGFloat` offset (chiều cao hàng phụ thuộc bìa/tên nên offset không tái lập được sau một lượt dựng lại) và **không** dùng `ExtensionItemResult.id` — id đó là `UUID()` mới mỗi lần bóc tách, nên với tab xa (> ±3, loader bị xoá và dữ liệu nạp lại) neo theo id sẽ không bao giờ khớp. `link` là định danh nội dung nên khôi phục được cả trong ca đó.
+  - Chi phí được giữ ở mức thấp có chủ ý: từng hàng chỉ ghi `setVisible` vào một `Set` trong một `class` giữ ở `@State` (không `@Published`, đúng khuôn `ParagraphTracker`), nên cuộn **không** invalidate body; phép quét tìm hàng trên cùng chỉ chạy một lần mỗi lượt đổi tab.
+  - Khôi phục có hai nhịp vì dữ liệu có thể chưa nạp xong lúc tab xuất hiện: lúc `onAppear` (trễ 0.2 s cho `List` dựng xong) và lúc `novels.count` từ 0 lên. `pendingRestoreAnchor` bị xoá ngay sau lượt áp nên `loadMore` sau đó không kéo người dùng về chỗ cũ. Neo bị xoá sạch ở `loadDiscoveryData()`.
+- **Khoảng độ dài token ở màn thêm/sửa rule có thêm thanh kéo**, mỗi đầu một hàng `[−] thanh-kéo giá trị [+]`. Hai nút `+/−` **giữ nguyên** ở hai bên theo yêu cầu; `stepper` (VStack, hai cột cạnh nhau) đổi thành `lengthRow` (HStack full-width) vì thanh kéo cần chiều rộng. Thanh kéo và hai nút đi qua **cùng một** `adjust`, nên `TokenSpec.clamp()` vẫn là chỗ duy nhất quyết định vùng hợp lệ — kéo `Tối đa` xuống dưới `Tối thiểu` thì nó dừng ở `Tối thiểu`, không tạo ra khoảng ngược.
+
+`check_architecture.py` giữ **14** violation nền, không violation mới. CodeGraph: cập nhật `00`, `02`, `09`, `11`, `12`, `14`. Chưa biên dịch tại chỗ (Windows) — và hành vi cuộn phải thử tay trên máy thật vì nó phụ thuộc lúc nào `UIPageViewController` dỡ trang.
+
 ## [1.3.306] - 2026-09-01
 
 ### Debug server bỏ hẳn ghép nối: bật là lắng nghe, cổng được ghi nhớ, rời màn hình hay minimize không tắt

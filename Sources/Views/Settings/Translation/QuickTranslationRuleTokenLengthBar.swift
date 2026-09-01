@@ -1,12 +1,15 @@
 import SwiftUI
 
-/// Thanh điều chỉnh khoảng độ dài của **token đang chọn** trong mẫu: `[−] tối thiểu [+]` và
-/// `[−] tối đa [+]`, bước 1, kèm công tắc `?` (token vắng mặt vẫn khớp).
+/// Thanh điều chỉnh khoảng độ dài của **token đang chọn** trong mẫu: mỗi đầu một hàng
+/// `[−] thanh-kéo giá trị [+]`, bước 1, kèm công tắc `?` (token vắng mặt vẫn khớp).
+///
+/// Thanh kéo và hai nút `+/−` là **hai lối vào cùng một cửa** (`adjust`): nút cho một bước chính xác,
+/// thanh kéo cho lượt nhảy xa. Không lối nào tự kẹp biên — `TokenSpec.clamp()` làm việc đó.
 ///
 /// Mọi biên đều lấy từ parser chứ không tự đặt: `min ≥ 1` là điều kiện cứng (sai thì
 /// `UNKNOWN_TOKEN_NAME`, lỗi hard), `max ≥ min`, và token không khai `:min-max` nghĩa là `1...12` —
 /// nên khi hai đầu về đúng mặc định, `TokenSpec.syntax` tự xuất lại token trần thay vì viết thừa
-/// `:1-12`. Nhờ vậy không có đường bấm nào tạo ra được token sai cú pháp.
+/// `:1-12`. Nhờ vậy không có đường bấm hay kéo nào tạo ra được token sai cú pháp.
 struct QuickTranslationRuleTokenLengthBar: View {
     typealias TokenSpec = QuickTranslationRuleDraftAnalyzer.TokenSpec
 
@@ -29,26 +32,24 @@ struct QuickTranslationRuleTokenLengthBar: View {
             }
 
             if spec.supportsLengthRange {
-                HStack(spacing: 12) {
-                    stepper(
+                VStack(spacing: 6) {
+                    lengthRow(
                         title: "Tối thiểu",
                         value: spec.minLength,
                         canDecrease: spec.minLength > 1,
-                        canIncrease: spec.minLength < TokenSpec.adjustableUpperBound
-                    ) { delta in
-                        adjust { $0.minLength += delta }
-                    }
+                        canIncrease: spec.minLength < TokenSpec.adjustableUpperBound,
+                        onStep: { delta in adjust { $0.minLength += delta } },
+                        onSlide: { newValue in adjust { $0.minLength = newValue } }
+                    )
 
-                    Divider().frame(height: 26)
-
-                    stepper(
+                    lengthRow(
                         title: "Tối đa",
                         value: spec.maxLength,
                         canDecrease: spec.maxLength > spec.minLength,
-                        canIncrease: spec.maxLength < TokenSpec.adjustableUpperBound
-                    ) { delta in
-                        adjust { $0.maxLength += delta }
-                    }
+                        canIncrease: spec.maxLength < TokenSpec.adjustableUpperBound,
+                        onStep: { delta in adjust { $0.maxLength += delta } },
+                        onSlide: { newValue in adjust { $0.maxLength = newValue } }
+                    )
                 }
 
                 if spec.isDefaultRange {
@@ -83,27 +84,39 @@ struct QuickTranslationRuleTokenLengthBar: View {
         .accessibilityLabel(spec.isOptional ? "Bỏ dấu ? của token" : "Cho token vắng mặt vẫn khớp")
     }
 
-    private func stepper(
+    /// `[−] ──o── giá trị [+]`. Thanh kéo và hai nút đi qua **cùng một** `adjust`, nên `clamp()` là chỗ
+    /// duy nhất quyết định vùng hợp lệ: kéo `Tối đa` xuống dưới `Tối thiểu` thì nó dừng ở `Tối thiểu`
+    /// thay vì tạo ra một khoảng ngược.
+    private func lengthRow(
         title: String,
         value: Int,
         canDecrease: Bool,
         canIncrease: Bool,
-        onStep: @escaping (Int) -> Void
+        onStep: @escaping (Int) -> Void,
+        onSlide: @escaping (Int) -> Void
     ) -> some View {
-        VStack(spacing: 2) {
+        HStack(spacing: 8) {
             Text(title)
                 .font(.system(size: 9))
                 .foregroundColor(.secondary)
+                .frame(width: 52, alignment: .leading)
 
-            HStack(spacing: 6) {
-                stepButton("minus", isEnabled: canDecrease) { onStep(-1) }
+            stepButton("minus", isEnabled: canDecrease) { onStep(-1) }
 
-                Text("\(value)")
-                    .font(.system(size: 15, weight: .semibold, design: .monospaced))
-                    .frame(minWidth: 22)
+            Slider(
+                value: Binding(
+                    get: { Double(value) },
+                    set: { onSlide(Int($0.rounded())) }
+                ),
+                in: 1...Double(TokenSpec.adjustableUpperBound),
+                step: 1
+            )
 
-                stepButton("plus", isEnabled: canIncrease) { onStep(1) }
-            }
+            Text("\(value)")
+                .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                .frame(minWidth: 22, alignment: .trailing)
+
+            stepButton("plus", isEnabled: canIncrease) { onStep(1) }
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(title): \(value)")

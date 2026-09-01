@@ -15,6 +15,23 @@ Tài liệu này mô tả mối quan hệ sở hữu đối tượng (Object Own
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Chu so huu vi tri cuon Kham Pha (1.3.307)
+
+```
+DiscoveryView
+  |- @State selectedCategoryId            (tab dang xem)
+  |- @State scrollAnchors  -----------------> DiscoveryScrollAnchorStore  (class, @MainActor)
+  |                                            |- anchors[categoryId] = link      (hang tren cung)
+  |                                            |- visible[categoryId] = Set<link>
+  |- TabView -> DiscoveryCategoryTabView (moi tab)
+       |- @StateObject loader              (du lieu cua rieng tab)
+       |- let scrollAnchors                (tham chieu, KHONG so huu)
+```
+
+* **Mot store cho ca man**, khong phai mot store moi tab: tab la thu bi do, nen no khong the la chu so huu cua thu phai song qua luot do do.
+* **Tab chi ghi va doc, khong tao va khong xoa.** `removeAll()` chi duoc goi tu `DiscoveryView.loadDiscoveryData()` — dung mot chu so huu cho vong doi.
+* `pendingRestoreAnchor` la `@State` **cua tab**: no la y dinh nhat thoi ("con mot neo chua ap duoc"), chet cung tab la dung.
+
 ## Rule dịch Quick Translate: engine, màn hình quản lý và công tắc (1.3.272)
 
 * **Chủ của bộ rule đang chạy là `QuickTranslationRuleStore.shared`, và nó sở hữu bằng snapshot bất biến.** Snapshot nằm trong `nonisolated(unsafe) var snapshot` được `NSLock` bảo vệ; mọi bên đọc lấy **giá trị** (`activeSnapshot`) rồi tự dùng, nên một lượt `rewrite` đang chạy không bao giờ thấy bộ rule đổi giữa đường. Snapshot sở hữu rules đã compile, warning đã cắt và `sourceHash`; đổi bộ rule = tạo snapshot mới + `generation += 1`, không mutate snapshot cũ.

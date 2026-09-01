@@ -51,6 +51,9 @@ struct DiscoveryView: View {
     
     // ID danh mục / Tab đang được chọn hiển thị
     @State private var selectedCategoryId: String = ""
+    /// Vị trí cuộn của từng tab. `@State` giữ một `class` (không `@StateObject`) nên ghi vào đây lúc
+    /// cuộn không invalidate body — xem `DiscoveryScrollAnchorStore`.
+    @State private var scrollAnchors = DiscoveryScrollAnchorStore()
     @State private var discoveryError: String = ""
     
     // Thể loại được chọn để điều hướng đẩy view chuyên biệt
@@ -314,6 +317,7 @@ struct DiscoveryView: View {
                                                     configJson: ext.configJson,
                                                     isTranslationEnabled: isTranslationEnabled,
                                                     selectedCategoryId: $selectedCategoryId,
+                                                    scrollAnchors: scrollAnchors,
                                                     onSelectNovel: { novel in
                                                         selectedDetailRoute = DiscoveryDetailRoute(
                                                             bookId: "\(extSourceName.lowercased())_\(novel.link)",
@@ -495,6 +499,8 @@ struct DiscoveryView: View {
         guard let ext = selectedExtension else { return }
         isLoading = true
         discoveryError = ""
+        // Danh mục sắp được dựng lại từ đầu: neo cũ trỏ vào danh sách không còn tồn tại.
+        scrollAnchors.removeAll()
         
         Task {
             var loadedHome: [CategoryResult] = []
@@ -566,10 +572,15 @@ struct DiscoveryCategoryTabView: View {
     let configJson: String
     let isTranslationEnabled: Bool
     @Binding var selectedCategoryId: String
+    /// Neo cuộn dùng chung của cả Khám Phá — giữ ở `DiscoveryView` nên sống qua một lượt tab bị dựng lại.
+    let scrollAnchors: DiscoveryScrollAnchorStore
     let onSelectNovel: (ExtensionItemResult) -> Void
 
     @StateObject private var loader: PaginatedNovelLoader
     @State private var initialLoadTask: Task<Void, Never>? = nil
+    /// Neo đang chờ áp. Có giá trị từ lúc tab xuất hiện/được chọn tới lúc `scrollTo` chạy được —
+    /// dữ liệu có thể chưa nạp xong ở thời điểm xuất hiện.
+    @State private var pendingRestoreAnchor: String? = nil
 
     init(
         category: CategoryResult,
@@ -578,6 +589,7 @@ struct DiscoveryCategoryTabView: View {
         configJson: String,
         isTranslationEnabled: Bool,
         selectedCategoryId: Binding<String>,
+        scrollAnchors: DiscoveryScrollAnchorStore,
         onSelectNovel: @escaping (ExtensionItemResult) -> Void
     ) {
         self.category = category
@@ -586,6 +598,7 @@ struct DiscoveryCategoryTabView: View {
         self.configJson = configJson
         self.isTranslationEnabled = isTranslationEnabled
         self._selectedCategoryId = selectedCategoryId
+        self.scrollAnchors = scrollAnchors
         self.onSelectNovel = onSelectNovel
         _loader = StateObject(wrappedValue: PaginatedNovelLoader(
             localPath: localPath,
@@ -631,33 +644,52 @@ struct DiscoveryCategoryTabView: View {
                 }
                 .frame(maxHeight: .infinity)
             } else {
-                List {
-                    ForEach(loader.novels) { novel in
-                        Button {
-                            onSelectNovel(novel)
-                        } label: {
-                            BookListItemView(item: novel, style: .discovery)
+                ScrollViewReader { proxy in
+                    List {
+                        ForEach(loader.novels) { novel in
+                            Button {
+                                onSelectNovel(novel)
+                            } label: {
+                                BookListItemView(item: novel, style: .discovery)
+                            }
+                            .buttonStyle(.plain)
+                            // Neo theo `link` chu khong phai `novel.id`: `ExtensionItemResult.id` la
+                            // `UUID()` moi moi lan bocs tach, nen sau mot luot nap lai no khong con khop
+                            // va neo se vo dung. `link` la dinh danh noi dung, on dinh qua nap lai.
+                            .id(novel.link)
+                            .onAppear { scrollAnchors.setVisible(novel.link, isVisible: true, categoryId: category.id) }
+                            .onDisappear { scrollAnchors.setVisible(novel.link, isVisible: false, categoryId: category.id) }
                         }
-                        .buttonStyle(.plain)
-                    }
 
-                    if loader.canLoadMore {
-                        HStack {
-                            Spacer()
-                            ProgressView()
-                                .onAppear {
-                                    Task {
-                                        await loader.loadMore()
+                        if loader.canLoadMore {
+                            HStack {
+                                Spacer()
+                                ProgressView()
+                                    .onAppear {
+                                        Task {
+                                            await loader.loadMore()
+                                        }
                                     }
-                                }
-                            Spacer()
+                                Spacer()
+                            }
+                            .listRowSeparator(.hidden)
                         }
-                        .listRowSeparator(.hidden)
                     }
-                }
-                .listStyle(.plain)
-                .refreshable {
-                    await loader.reload()
+                    .listStyle(.plain)
+                    .refreshable {
+                        await loader.reload()
+                    }
+                    // Neo có thể được đặt lúc dữ liệu chưa nạp xong, nên phải thử lại khi danh sách
+                    // vừa có hàng đầu tiên. `pendingRestoreAnchor` bị xoá ngay sau lượt áp nên các
+                    // lượt `loadMore` sau đó không kéo người dùng về chỗ cũ.
+                    .onChange(of: loader.novels.count) { oldValue, _ in
+                        guard oldValue == 0 else { return }
+                        applyPendingRestore(proxy: proxy)
+                    }
+                    .onAppear {
+                        pendingRestoreAnchor = scrollAnchors.anchor(for: category.id)
+                        applyPendingRestore(proxy: proxy, delay: 0.2)
+                    }
                 }
             }
         }
@@ -667,9 +699,37 @@ struct DiscoveryCategoryTabView: View {
         .onDisappear {
             initialLoadTask?.cancel()
             initialLoadTask = nil
+            // Chốt neo đúng lúc rời tab: một phép quét cho mỗi lượt đổi tab, thay vì mỗi hàng cuộn.
+            captureAnchor()
         }
-        .onChange(of: selectedCategoryId) { _, _ in
+        .onChange(of: selectedCategoryId) { _, newValue in
             checkAndLoadData()
+            if newValue == category.id {
+                // Tab này vừa thành tab đang xem: nạp neo để lượt `applyPendingRestore` kế tiếp có việc.
+                pendingRestoreAnchor = scrollAnchors.anchor(for: category.id)
+            } else {
+                // Đường thứ hai để chốt neo, cho ca `onDisappear` không nổ (trang chưa bị dỡ hẳn).
+                captureAnchor()
+            }
+        }
+    }
+
+    private func captureAnchor() {
+        guard scrollAnchors.hasVisibleRows(categoryId: category.id) else { return }
+        scrollAnchors.captureAnchor(categoryId: category.id, orderedIds: loader.novels.map(\.link))
+    }
+
+    private func applyPendingRestore(proxy: ScrollViewProxy, delay: TimeInterval = 0.05) {
+        guard let anchor = pendingRestoreAnchor else { return }
+        // Neo trỏ hàng đầu tiên thì không có gì phải khôi phục — tránh một cú nhảy vô nghĩa.
+        guard loader.novels.first?.link != anchor else {
+            pendingRestoreAnchor = nil
+            return
+        }
+        guard loader.novels.contains(where: { $0.link == anchor }) else { return }
+        pendingRestoreAnchor = nil
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            proxy.scrollTo(anchor, anchor: .top)
         }
     }
 

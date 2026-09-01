@@ -15,6 +15,11 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Giu vi tri cuon o Kham Pha, va thanh keo cho khoang do dai token (1.3.307)
+
+* **Doi tab roi ve tab cu khong con nhay ve dau.** [DiscoveryScrollAnchorStore](../../Sources/Views/Discovery/DiscoveryScrollAnchorStore.swift#L1) (file moi) ghi nho **`link` cua truyen dang o tren cung** cua tung tab; `DiscoveryCategoryTabView` chot neo luc roi tab va `scrollTo(anchor: .top)` luc quay lai. Neo la `link` chu khong phai offset (chieu cao hang phu thuoc bia/ten) va cung khong phai `ExtensionItemResult.id` — id do la `UUID()` moi moi lan boc tach nen khong song qua mot luot nap lai.
+* **Thanh keo cho `Toi thieu`/`Toi da`** o man them/sua rule: moi dau mot hang `[-] thanh-keo gia tri [+]`. Hai nut `+/-` **duoc giu nguyen** theo yeu cau; thanh keo va nut di qua cung mot cua `adjust` nen `TokenSpec.clamp()` van la cho duy nhat quyet dinh vung hop le.
+
 ## Âm tiết Việt hợp lệ: dấu thanh bắt buộc, nguyên âm đôi không nhận coda, `j`/`ya` đọc `d` (1.3.305)
 
 Sửa **3** file Swift trong `Services/TTS/Preprocessing/`, không thêm/xoá file.

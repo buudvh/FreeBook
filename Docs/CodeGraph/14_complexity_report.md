@@ -15,6 +15,13 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Do phuc tap sau luot giu vi tri cuon (1.3.307)
+
+* File moi nho: [`DiscoveryScrollAnchorStore.swift`](../../Sources/Views/Discovery/DiscoveryScrollAnchorStore.swift) **59** dong, 5 ham, khong nhanh nao sau 2 muc.
+* [`DiscoveryView.swift`](../../Sources/Views/Discovery/DiscoveryView.swift) 940 -> **984**: them mot `ScrollViewReader` boc `List`, hai modifier tren hang, va hai ham `captureAnchor`/`applyPendingRestore` (moi ham <= 13 dong, khong nhanh long nhau qua 2 muc).
+* [`QuickTranslationRuleTokenLengthBar.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRuleTokenLengthBar.swift) 132 -> **145**: `stepper` (VStack) bi thay bang `lengthRow` (HStack + `Slider`), hai lan goi thay vi hai lan goi — cung so nhanh, khong tang do sau.
+* **Do phuc tap thuat toan cua duong moi**: ghi `setVisible` la O(1) moi hang; tim hang tren cung la O(n) nhung **mot lan moi luot doi tab**, khong phai moi hang cuon. Day la ly do neo duoc chot o `onDisappear` chu khong tinh lai lien tuc.
+
 ## So dong sau luot 1.3.303
 
 * **Them 18 file Swift** (441 -> **459**), tat ca <= 400 dong va moi file mot primary type top-level. Lon nhat: `ExtensionDebugCommandRouter` 278, `ExtensionDebugServer` 248, `ExtensionDebugServerView` 191.
