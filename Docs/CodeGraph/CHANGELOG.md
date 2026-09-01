@@ -4,6 +4,16 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.272) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.308] - 2026-09-01
+
+### CI nhận nhánh legado_source; ghi nhận script kiểm kê cú pháp nguồn Legado
+
+Không sửa file Swift nào (vẫn **459**). Sửa **1** file CI. Không thêm file mới.
+
+- **`build-ipa.yml` nhận thêm nhánh `legado_source`** trong trigger `push`. Nhánh này dành cho việc tích hợp nguồn truyện JSON của Legado. Lưu ý bộ lọc `paths` vẫn chỉ là `Sources/**` và `project.yml`, nên commit chỉ đụng CI/script/tài liệu **không** kích hoạt build — muốn chạy thử thì dùng `workflow_dispatch`.
+- **Ghi nhận muộn `Scripts/legado_source_census.py`**: file đã theo commit `5aec568` (bản thân commit đó có nói "còn trong cây làm việc") nhưng chưa có entry CHANGELOG. Script đo tần suất cú pháp trên tập nguồn JSON thật của Legado (mảng `BookSource` xuất từ app hoặc tải từ yckceo). In phân bố `bookSourceType`, chế độ rule suy ra theo đúng thứ tự nhận biết của `AnalyzeRule`, tần suất từng cú pháp (`{{}}`, `##thay`, `@put/@get`, `&&`/`||`/`%%`, chỉ số `[a:b:c]`, `webView`, `charset`…), danh sách `java.*`/`source.*` cần bridge, và tỉ lệ nguồn chạy được theo từng phạm vi hỗ trợ. Chỉ đọc file, không gọi mạng, chạy được trên Windows.
+  - Kết quả đo trên 3 050 nguồn (2 746 nguồn truyện chữ): phạm vi lõi không JS/XPath chỉ phủ **17.1%**, thêm XPath + JS lên **69.4%**, thêm webView + đăng nhập lên **87.8%**. Con số này quyết định thứ tự làm việc trong plan.
+
 ## [1.3.307] - 2026-09-01
 
 ### Khám Phá giữ vị trí cuộn từng tab; khoảng độ dài token có thêm thanh kéo

@@ -2,7 +2,7 @@ name: Build Unsigned IPA
 
 on:
   push:
-    branches: [ main, sigle_reader ]
+    branches: [ main, sigle_reader, legado_source ]
     paths:
       - 'Sources/**'
       - 'project.yml'
