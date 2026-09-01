@@ -3,8 +3,8 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-09-01T06:35:00Z",
-  "gitCommit": "6fd8d42aec51bbe294b22769ad7880fb974046d7",
+  "generatedAt": "2026-09-01T06:36:34Z",
+  "gitCommit": "0923e8f8edafd08685089f1e3f0878a963d5d4bd",
   "sourceFileCount": 459,
   "documentCount": 16,
   "documents": [
@@ -1435,12 +1435,12 @@
         "Sources/Views/Reader/Extensions/ReaderViewModel+Translation.swift"
       ],
       "structureHash": "92676e2662b0c6a3c5546c97acf867cff249edb4c33c7156fb34f0c01ce87a51",
-      "sourceHash": "79190195f785f5f298eab3baed47102d11e5da5faabd5bae41a73cc7174d64af",
+      "sourceHash": "c7b540bb6a6f43cc6a5f5082a874ffe94c68051e0d6316e89e29ec32de6d1ba9",
       "generatedHash": "1e2bf361228021778b0796b1492303878f0aac4d67e26ace3dee265031ea112a",
-      "generatedAt": "2026-09-01T06:14:20Z",
-      "reviewedAt": "2026-09-01T06:14:20Z",
-      "reviewedCommit": "7f9697d96eb1aed873798d65c51429f642d3b6a2",
-      "reviewMode": "accept"
+      "generatedAt": "2026-09-01T06:36:34Z",
+      "reviewedAt": "2026-09-01T06:36:34Z",
+      "reviewedCommit": "0923e8f8edafd08685089f1e3f0878a963d5d4bd",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "08_lifecycle.md",
@@ -2488,12 +2488,12 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "428011cffd5a092db222f214ce7d0fa5b430ae24cfaeac65e228dc7bccbdd82d",
-      "sourceHash": "e0f8f88c57bf5ea31cb06b948b55ad4a62f6cfec7102dc0c8e7f7e2d5bcaf221",
+      "sourceHash": "8442632ef2cc5a8fbdb03b566996aa0c08e565f459fe448ed53da894ea27bed3",
       "generatedHash": "ca2cdd33f86c951d5f5368db0483200012c3cbe9a2609be645296f4aa9554f64",
-      "generatedAt": "2026-09-01T06:14:20Z",
-      "reviewedAt": "2026-09-01T06:14:20Z",
-      "reviewedCommit": "7f9697d96eb1aed873798d65c51429f642d3b6a2",
-      "reviewMode": "accept"
+      "generatedAt": "2026-09-01T06:36:34Z",
+      "reviewedAt": "2026-09-01T06:36:34Z",
+      "reviewedCommit": "0923e8f8edafd08685089f1e3f0878a963d5d4bd",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "12_ownership_graph.md",
