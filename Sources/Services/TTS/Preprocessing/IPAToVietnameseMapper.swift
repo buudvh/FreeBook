@@ -8,8 +8,10 @@ import Foundation
 /// dòng bảng kiểm được từng dòng, thay cho ~200 regex chính tả không kiểm được.
 ///
 /// Bất biến quan trọng: đầu ra phải là **âm tiết tiếng Việt hợp lệ**, vì nó lại được espeak (giọng
-/// `vi`) phiên âm tiếp cho Piper. Chuỗi không hợp lệ (`ă` đứng một mình, coda `s`, cụm `str`) làm
-/// espeak-vi đọc sai hoặc bỏ qua. Ba luật ép hợp lệ nằm ở `legalOnset`, `legalCoda` và `assemble`.
+/// `vi`) phiên âm tiếp cho Piper. Chuỗi không hợp lệ (`ơng`, `âyp`, coda `s`, cụm `str`, hay âm tiết
+/// đóng bằng phụ âm tắc mà **không dấu**) làm espeak-vi đọc sai hoặc bỏ qua. Năm luật ép hợp lệ nằm ở
+/// `legalOnset`, `legalCoda`, `diphthongs` (nguyên âm đôi không nhận phụ âm cuối), `acute` (dấu sắc bắt
+/// buộc cho coda tắc) và `normalize`.
 enum IPAToVietnameseMapper {
 
     /// Nguyên âm đơn và đôi. Nguyên âm đôi phải đứng **trước** trong thứ tự dò vì khớp dài nhất.
@@ -17,7 +19,9 @@ enum IPAToVietnameseMapper {
         ("eɪ", "ây"), ("aɪ", "ai"), ("ɔɪ", "oi"), ("aʊ", "ao"), ("oʊ", "ô"), ("əʊ", "ô"),
         ("ɪə", "ia"), ("eə", "e"), ("ʊə", "ua"), ("juː", "iu"), ("ju", "iu"),
         ("iː", "i"), ("uː", "u"), ("ɑː", "a"), ("ɔː", "o"), ("ɜː", "ơ"), ("ɪ", "i"),
-        ("ʊ", "u"), ("æ", "a"), ("ɑ", "a"), ("ɒ", "o"), ("ɔ", "o"), ("ʌ", "ơ"),
+        // `ʌ` → `â`, **không** phải `ơ`: tiếng Việt không có rime `ơng`, nên "young" từng ra `dơng` —
+        // một chuỗi không tồn tại. Với `â` thì `âng âp ât âc âm ân` đều hợp lệ ("young" → "dâng").
+        ("ʊ", "u"), ("æ", "a"), ("ɑ", "a"), ("ɒ", "o"), ("ɔ", "o"), ("ʌ", "â"),
         ("ə", "ơ"), ("ɛ", "e"), ("e", "ê"), ("i", "i"), ("u", "u"), ("o", "ô"), ("a", "a"),
         // Ký hiệu riêng của espeak-ng cho en-us. Không khai thì `tokenize` bỏ qua âm đó và cả từ mất
         // tiếng, nên phải phủ hết những cái hay gặp.
@@ -27,7 +31,10 @@ enum IPAToVietnameseMapper {
     /// Phụ âm ở **đầu** âm tiết.
     private static let onsets: [(ipa: String, vi: String)] = [
         ("tʃ", "ch"), ("dʒ", "gi"), ("ʃ", "s"), ("ʒ", "gi"), ("θ", "th"), ("ð", "đ"),
-        ("ŋ", "ng"), ("ɡ", "g"), ("g", "g"), ("ɹ", "r"), ("r", "r"), ("j", "i"),
+        // `j` ở đầu âm tiết → `d` (không phải `i`): viết `i` thì espeak-vi đọc `ia`/`iơ` thành nguyên
+        // âm đôi nên "yes" ra hai âm tiết. Cùng lựa chọn với `ya/yu/yo` của `JapaneseTransliterator`.
+        // Hàng `j` trong bảng `codas` **vẫn là `i`** — ở đó nó là bán nguyên âm cuối của `ai`, `ây`.
+        ("ŋ", "ng"), ("ɡ", "g"), ("g", "g"), ("ɹ", "r"), ("r", "r"), ("j", "d"),
         ("w", "o"), ("h", "h"), ("p", "p"), ("b", "b"), ("t", "t"), ("d", "đ"),
         ("k", "c"), ("f", "ph"), ("v", "v"), ("s", "x"), ("z", "d"), ("m", "m"),
         ("n", "n"), ("l", "l"), ("ɫ", "l"), ("ɾ", "r"), ("ʁ", "r")
@@ -47,6 +54,29 @@ enum IPAToVietnameseMapper {
     /// Onset hai chữ hợp lệ của tiếng Việt. Cụm không có trong đây bị rút về **phụ âm cuối** của cụm
     /// (đúng cách bộ luật cũ làm: `str` → `tr`, `bl` → `l`, `sp` → `p`).
     private static let legalDoubleOnsets: Set<String> = ["ch", "gh", "gi", "kh", "ng", "nh", "ph", "qu", "th", "tr"]
+
+    /// Nguyên âm đôi. Trong tiếng Việt chúng **không nhận phụ âm cuối** — `âyp`, `aip`, `aok` không
+    /// tồn tại — nên `split` phải đẩy toàn bộ phụ âm giữa hai nguyên âm sang âm tiết sau, và `assemble`
+    /// bỏ coda khi đã hết âm tiết để đẩy. Đây là chỗ "april" từng ra `âyp-rơn`, một chuỗi người Việt
+    /// không đọc được.
+    private static let diphthongs: Set<String> = ["ây", "ai", "oi", "ao", "ia", "ua", "iu"]
+
+    /// Phụ âm cuối tắc. Tiếng Việt **không có** âm tiết nào vừa đóng bằng nhóm này vừa không dấu, nên
+    /// mọi âm tiết như vậy bắt buộc mang dấu sắc (`trit` → `trít`, `tat` → `tát`).
+    private static let stopCodas: Set<String> = ["p", "t", "c", "ch"]
+
+    /// Dấu sắc. Chỉ cần bảng **một ký tự**: nhờ luật `diphthongs`, mọi âm tiết cần đánh dấu ở đây đều
+    /// có nucleus là một nguyên âm đơn.
+    private static let acuteVowels: [Character: Character] = [
+        "a": "á", "ă": "ắ", "â": "ấ", "e": "é", "ê": "ế", "i": "í",
+        "o": "ó", "ô": "ố", "ơ": "ớ", "u": "ú", "ư": "ứ", "y": "ý"
+    ]
+
+    /// Rime cố định của âm tiết giảm nhẹ `/əl/` và `/ən/`, mang **dấu huyền** — đúng cách người Việt
+    /// đọc "google" → "gu-gồ", "colonel" → "cơ-nồ", "station" → "…-sình". Khoá là **ký hiệu IPA** chứ
+    /// không phải coda đã map, vì `l`, `ɫ` và `n` đều cho coda `"n"` nên sau khi map thì không còn phân
+    /// biệt được `/əl/` với `/ən/`.
+    private static let reducedRimes: [String: String] = ["l": "ồ", "ɫ": "ồ", "n": "ình"]
 
     private static let stressMarks: Set<Character> = ["ˈ", "ˌ", "ː", "‿", "|", "‖", "ʰ", "̩", "̯", "ˑ", "˞", "ʲ", "ˠ", "̃"]
 
@@ -96,7 +126,9 @@ enum IPAToVietnameseMapper {
     }
 
     /// Một âm tiết = (phụ âm đầu…) + nguyên âm + (phụ âm cuối…). Ranh giới đặt **trước** phụ âm cuối
-    /// cùng của chuỗi phụ âm giữa hai nguyên âm, đúng quy tắc maximal onset.
+    /// cùng của chuỗi phụ âm giữa hai nguyên âm, đúng quy tắc maximal onset — **trừ** khi âm tiết đang
+    /// dựng có nucleus là nguyên âm đôi: khi đó nó không nhận được phụ âm cuối nào, nên **toàn bộ** cụm
+    /// phụ âm phải sang âm tiết sau ("april" ⇒ `ây` + `pɹəl`, không phải `âyp` + `ɹəl`).
     private static func split(units: [String]) -> [[String]] {
         var syllables: [[String]] = []
         var current: [String] = []
@@ -105,9 +137,9 @@ enum IPAToVietnameseMapper {
         for unit in units {
             if isVowel(unit) {
                 if seenVowel {
-                    // Nguyên âm thứ hai: nhả phụ âm cuối cùng sang âm tiết mới làm onset.
+                    let carryAll = endsWithDiphthong(current)
                     var carried: [String] = []
-                    while let last = current.last, !isVowel(last), carried.count < 1 {
+                    while let last = current.last, !isVowel(last), carryAll || carried.count < 1 {
                         carried.insert(last, at: 0)
                         current.removeLast()
                     }
@@ -125,11 +157,21 @@ enum IPAToVietnameseMapper {
         return syllables
     }
 
+    /// Nucleus của âm tiết đang dựng có phải nguyên âm đôi — tức không nhận được phụ âm cuối.
+    private static func endsWithDiphthong(_ units: [String]) -> Bool {
+        guard let vowelUnit = units.last(where: { isVowel($0) }),
+              let vi = vowels.first(where: { $0.ipa == vowelUnit })?.vi else { return false }
+        return diphthongs.contains(vi)
+    }
+
     /// Dựng **các** âm tiết Việt hợp lệ cho một âm tiết IPA.
     ///
-    /// Trả về mảng chứ không phải một chuỗi vì tiếng Việt không có cụm phụ âm: cụm đầu và phần thừa ở
-    /// cuối phải **tách thành âm tiết đệm** (`+ "ơ"`) chứ không được bỏ. Bản 1.3.290 giữ đúng một phụ âm
-    /// mỗi đầu và bỏ phần còn lại — đó chính là chỗ "street" mất /s/ và "text" mất đuôi.
+    /// Trả về mảng chứ không phải một chuỗi vì tiếng Việt không có cụm phụ âm đầu: cụm đó phải **tách
+    /// thành âm tiết đệm** (`+ "ơ"`) chứ không được bỏ ("street" → `xơ` + `trít`).
+    ///
+    /// Phần **thừa ở cuối** thì ngược lại: bị **bỏ**. Bản 1.3.291 đọc nó thành một âm tiết đệm nữa
+    /// ("task" → `tat-cơ`, "text" → `tếc-xơ`); đó là đảo lại theo yêu cầu người dùng — âm gió cuối của
+    /// tiếng Anh không có chỗ trong âm tiết tiếng Việt, thà mất nó còn hơn thêm một tiếng lạ.
     private static func assemble(_ units: [String]) -> [String] {
         guard let vowelIndex = units.firstIndex(where: { isVowel($0) }) else {
             // Âm tiết không có nguyên âm: đọc từng phụ âm thành một âm tiết đệm, không bỏ chữ nào.
@@ -138,16 +180,24 @@ enum IPAToVietnameseMapper {
             }.map { normalize(onset: $0, nucleus: "ơ", coda: "") }
         }
 
+        let vowelUnit = units[vowelIndex]
         let onsetUnits = Array(units[units.startIndex..<vowelIndex])
         let codaUnits = Array(units[(vowelIndex + 1)...])
-        guard let nucleus = vowels.first(where: { $0.ipa == units[vowelIndex] })?.vi else { return [] }
+        guard let nucleus = vowels.first(where: { $0.ipa == vowelUnit })?.vi else { return [] }
 
         let onset = legalOnset(onsetUnits)
         var result = onset.leading.map { normalize(onset: $0, nucleus: "ơ", coda: "") }
-        result.append(normalize(onset: onset.head, nucleus: nucleus, coda: legalCoda(codaUnits)))
-        if let trailing = trailingFiller(codaUnits) {
-            result.append(normalize(onset: trailing, nucleus: "ơ", coda: ""))
+
+        // `/əl/` và `/ən/` là rime cố định mang dấu huyền, không đi qua bảng coda.
+        if vowelUnit == "ə", let reduced = reducedRime(codaUnits) {
+            result.append(normalize(onset: onset.head, nucleus: reduced, coda: ""))
+            return result
         }
+
+        // Nguyên âm đôi không nhận phụ âm cuối. `split` đã đẩy cụm sang âm tiết sau khi còn âm tiết để
+        // đẩy; tới đây là cuối từ nên bỏ coda.
+        let coda = diphthongs.contains(nucleus) ? "" : legalCoda(codaUnits)
+        result.append(normalize(onset: onset.head, nucleus: nucleus, coda: coda))
         return result
     }
 
@@ -166,7 +216,7 @@ enum IPAToVietnameseMapper {
         return (Array(mapped.dropLast()), mapped[mapped.count - 1])
     }
 
-    /// Phụ âm cuối **đầu tiên** hợp lệ. Phần còn lại do `trailingFiller` lo, không bị bỏ.
+    /// Phụ âm cuối **đầu tiên** hợp lệ. Phần còn lại bị bỏ (xem `assemble`).
     private static func legalCoda(_ units: [String]) -> String {
         for unit in units {
             if let coda = codas[unit], !coda.isEmpty { return coda }
@@ -174,37 +224,48 @@ enum IPAToVietnameseMapper {
         return ""
     }
 
-    /// Phụ âm còn lại sau coda, đọc thành **một** âm tiết đệm ("text" → "tếc-xơ"). Cố ý chỉ lấy một:
-    /// đọc hết mọi phụ âm thừa làm câu dài và lạ hơn là mất một âm.
-    private static func trailingFiller(_ units: [String]) -> String? {
-        var seenCoda = false
+    /// Rime cố định khi phụ âm cuối **đầu tiên** là `l`/`ɫ`/`n` — chỉ dùng cho nucleus `ə`.
+    private static func reducedRime(_ units: [String]) -> String? {
         for unit in units {
-            guard let coda = codas[unit], !coda.isEmpty else { continue }
-            if !seenCoda {
-                seenCoda = true
-                continue
-            }
-            return onsets.first(where: { $0.ipa == unit })?.vi
+            if let reduced = reducedRimes[unit] { return reduced }
+            if let coda = codas[unit], !coda.isEmpty { return nil }
         }
         return nil
     }
 
-    /// Ba chỗ chính tả tiếng Việt bắt buộc: `c/k/q` theo nguyên âm sau, `g/gh`, và nguyên âm ngắn
-    /// `ă/â` không đứng một mình.
+    /// Ba chỗ chính tả tiếng Việt bắt buộc: dấu sắc cho coda tắc, `c/k/g/gh/ng/ngh` theo nguyên âm sau,
+    /// và nguyên âm ngắn `ă/â` không đứng một mình.
     private static func normalize(onset: String, nucleus: String, coda: String) -> String {
-        var head = onset
-        let frontVowel = nucleus.first.map { "iêe".contains($0) } ?? false
+        var body = nucleus
+        // Sống lại từ 1.3.305: trước khi có `ʌ → â` thì bảng nguyên âm không sinh ra `â` nào nên nhánh
+        // này là code chết. Nay `/ʌ/` ở âm tiết mở phải về `ơ` vì `â` đứng một mình không phải âm tiết.
+        if coda.isEmpty, body == "ă" || body == "â" {
+            body = "ơ"
+        }
+        if stopCodas.contains(coda) {
+            body = acute(body)
+        }
 
+        // Xét trên **chữ đã bỏ dấu thanh**: `ế`, `í` vẫn là nguyên âm trước, nên `k`/`gh`/`ngh` vẫn phải
+        // áp. So sánh trực tiếp với "iêe" như bản cũ thì mọi âm tiết có dấu đều trượt luật này.
+        let frontVowel = body.first
+            .map { String($0).folding(options: .diacriticInsensitive, locale: nil).lowercased() }
+            .map { "ie".contains($0) } ?? false
+
+        var head = onset
         if head == "c" && frontVowel { head = "k" }
         if head == "k" && !frontVowel { head = "c" }
         if head == "g" && frontVowel { head = "gh" }
         if head == "gh" && !frontVowel { head = "g" }
         if head == "ng" && frontVowel { head = "ngh" }
 
-        var body = nucleus
-        if coda.isEmpty, body == "ă" || body == "â" {
-            body = "ơ"
-        }
         return head + body + coda
+    }
+
+    private static func acute(_ nucleus: String) -> String {
+        guard nucleus.count == 1, let first = nucleus.first, let marked = acuteVowels[first] else {
+            return nucleus
+        }
+        return String(marked)
     }
 }

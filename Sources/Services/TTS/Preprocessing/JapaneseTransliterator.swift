@@ -142,9 +142,14 @@ final class JapaneseTransliterator {
         "ha": "ha", "hi": "hi", "hu": "hư", "he": "hê", "ho": "hô",
         "fu": "phư",
         "ma": "ma", "mi": "mi", "mu": "mư", "me": "mê", "mo": "mô",
-        // ya/yu/yo là /ja ju jo/. Bản cũ map sang "da/du/dô" — nhưng "d" tiếng Việt đọc /z/ nên
-        // "Yamato" thành /za-ma-to/. Dùng bán nguyên âm "i" mới ra đúng /j/.
-        "ya": "ia", "yi": "i", "yu": "iu", "ye": "iê", "yo": "iô",
+        // ya/yu/yo là /ja ju jo/, và tiếng Việt **không có** chữ nào đọc đúng /j/ ở vị trí phụ âm đầu,
+        // nên đây là chọn cái sai ít hơn. Bản 1.3.290 viết bằng bán nguyên âm "i" với lý do "d" đọc
+        // /z/ ở giọng Bắc; nhưng espeak-vi đọc "ia" là **nguyên âm đôi** /iə/ chứ không phải glide, nên
+        // "Yamato" ra "i-a-ma-tô" — sai cả số âm tiết, tệ hơn sai một phụ âm. Quay lại "d" theo yêu cầu
+        // người dùng (và "d" đọc đúng /j/ ở giọng Nam). Hệ quả biết trước: hàng này trùng đầu ra với
+        // hàng za/zi/zu/ze/zo. Hàng yo-on (kya, ryu, gyo…) **giữ** chữ "i" vì ở đó "i" là dấu ngạc hoá
+        // bên trong âm tiết, không phải phụ âm đầu.
+        "ya": "da", "yi": "di", "yu": "du", "ye": "dê", "yo": "dô",
         "ra": "ra", "ri": "ri", "ru": "rư", "re": "rê", "ro": "rô",
         "wa": "oa", "wi": "uy", "we": "uê", "wo": "ô",
         "ga": "ga", "gi": "ghi", "gu": "gư", "ge": "ghê", "go": "gô",
@@ -154,10 +159,11 @@ final class JapaneseTransliterator {
         "pa": "pa", "pi": "pi", "pu": "pư", "pe": "pê", "po": "pô",
         "ja": "gia", "ji": "gi", "ju": "giu", "je": "giê", "jo": "giô",
         "a": "a", "i": "i", "u": "ư", "e": "ê", "o": "ô",
-        // Âm dài viết như âm ngắn — cùng lý do với `ー` ở bảng kana: tiếng Việt không có nguyên âm dài.
-        // `ou`/`ei` là cách viết trường âm o/e trong romaji ("arigatou", "sensei"); không có hai khoá
-        // này thì `greedySegment` cắt thành "to"+"u" và sinh thêm một âm tiết "ư" thừa.
-        "aa": "a", "ii": "i", "uu": "ư", "ee": "ê", "oo": "ô", "ou": "ô", "ei": "ê",
+        // Trường âm **không** khai khoá ở đây — xem `collapseLongVowels`. Gộp phải làm *trước* khi cắt
+        // âm tiết: `greedySegment` khớp dài nhất **tại từng vị trí**, nên ở "arigatou" nó ăn "to" ở vị
+        // trí 5 rồi bỏ lại "u" thành một âm tiết "ư" thừa — khoá "ou" trong bảng này không bao giờ có cơ
+        // hội khớp. Bản 1.3.291 thêm "ou"/"ei" vào đây và tưởng đã xong, nhưng "arigatou" vẫn ra
+        // "a-ri-ga-tô-ư" và "ryuu" ra "riu-ư".
         // Âm ngoại lai của katakana hiện đại: ヴ và hàng ファ/フィ/フェ/フォ. Các âm khác (ティ, ジェ,
         // シェ, チェ) đã có khoá trong bảng gốc nên không khai lại — trùng khoá trong dictionary
         // literal làm crash lúc chạy.
@@ -168,6 +174,29 @@ final class JapaneseTransliterator {
 
     private static let validRomajiSyllables: Set<String> = Set(romajiToViSyllable.keys)
 
+    /// Các cách viết trường âm trong romaji, gộp về âm ngắn. `ai/oi/ui/au` **không** có ở đây: đó là
+    /// nguyên âm đôi thật, gộp là mất âm ("senpai", "kaze").
+    private static let longVowelForms: [(String, String)] = [
+        ("ou", "o"), ("ei", "e"), ("aa", "a"), ("ii", "i"), ("uu", "u"), ("ee", "e"), ("oo", "o")
+    ]
+
+    /// Đọc trường âm **như âm ngắn**: "arigatou" → "arigato", "ryuu" → "ryu", "sensei" → "sense",
+    /// "shoujo" → "shojo". Cùng lựa chọn với `ー` ở bảng kana — tiếng Việt không có nguyên âm dài, và
+    /// nhân đôi nguyên âm làm espeak-vi/Piper đọc thành hai âm tiết rời nghe như nói lắp.
+    ///
+    /// Lặp tới khi ổn định vì một lượt thay có thể sinh ra cặp mới ("aaa" → "aa" → "a").
+    private static func collapseLongVowels(_ word: String) -> String {
+        var current = word
+        var previous = ""
+        while current != previous {
+            previous = current
+            for (long, short) in longVowelForms {
+                current = current.replacingOccurrences(of: long, with: short)
+            }
+        }
+        return current
+    }
+
     private static func normalizeRomaji(_ word: String) -> String {
         var w = word.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         let macronMap = ["ā": "a", "ī": "i", "ū": "u", "ē": "e", "ō": "o"]
@@ -175,7 +204,7 @@ final class JapaneseTransliterator {
             w = w.replacingOccurrences(of: k, with: v)
         }
         w = w.folding(options: .diacriticInsensitive, locale: nil)
-        return w
+        return collapseLongVowels(w)
     }
 
     private static func greedySegment(_ word: String) -> [String]? {
@@ -242,16 +271,20 @@ final class JapaneseTransliterator {
 
         let viSyllables = syllables.map { romajiToViSyllable[$0] ?? $0 }
 
+        // Nhập âm tiết vào âm tiết trước, và ghi lại âm tiết romaji thứ `i` rơi vào ô nào của `merged`
+        // — bước gắn sokuon phía dưới cần đúng ánh xạ đó. Bản cũ tính lại bằng `findMergedIndex`, chỉ
+        // biết luật `"n"`; nay có hai luật nhập nên tính một lần ở đây là nguồn duy nhất.
         var merged: [String] = []
-        i = 0
-        while i < viSyllables.count {
-            if viSyllables[i] == "n" && i > 0 && !merged.isEmpty {
-                merged[merged.count - 1] = merged[merged.count - 1] + "n"
-                i += 1
+        var mergedIndexOfSyllable = [Int](repeating: 0, count: viSyllables.count)
+        for (index, syllable) in viSyllables.enumerated() {
+            if syllable == "n", index > 0, !merged.isEmpty {
+                merged[merged.count - 1] += "n"
+            } else if syllable == "i", index > 0, let previous = merged.last, canTakeGlideI(previous) {
+                merged[merged.count - 1] += "i"
             } else {
-                merged.append(viSyllables[i])
-                i += 1
+                merged.append(syllable)
             }
+            mergedIndexOfSyllable[index] = merged.count - 1
         }
 
         if !sokuonChars.isEmpty {
@@ -265,7 +298,7 @@ final class JapaneseTransliterator {
             for (sokuPos, sokuChar) in sokuonChars {
                 for (si, (start, end)) in sylBoundaries.enumerated() {
                     if sokuPos >= start && sokuPos < end {
-                        let mergedIdx = findMergedIndex(syllables: syllables, mergedCount: merged.count, sylIndex: si)
+                        let mergedIdx = mergedIndexOfSyllable[si]
                         if mergedIdx > 0 && mergedIdx < merged.count {
                             let sokuVi = sokuonCoda(sokuChar)
                             merged[mergedIdx - 1] = merged[mergedIdx - 1] + sokuVi
@@ -282,17 +315,14 @@ final class JapaneseTransliterator {
         return result.isEmpty ? word : result
     }
 
-    private static func findMergedIndex(syllables: [String], mergedCount: Int, sylIndex: Int) -> Int {
-        var mi = 0
-        for si in 0..<syllables.count {
-            if si == sylIndex {
-                return mi
-            }
-            if syllables[si] != "n" || si == 0 {
-                mi += 1
-            }
-        }
-        return mi
+    /// `i` đi sau một nguyên âm khác là **bán nguyên âm cuối**, tiếng Việt viết liền thành một rime:
+    /// "senpai" → `xên-pai`, "koi" → `kôi`, "sui" → `xưi`. Đọc rời thành hai âm tiết (`pa-i`) là sai.
+    ///
+    /// Chỉ nhập được vào âm tiết kết thúc bằng nguyên âm **khác** `i`/`y`: nhập vào âm tiết đã có phụ âm
+    /// cuối (`xên`) hoặc đã kết thúc bằng bán nguyên âm (`uy`) là tạo rime không tồn tại.
+    private static func canTakeGlideI(_ syllable: String) -> Bool {
+        guard let last = syllable.last else { return false }
+        return "aăâeêoôơuư".contains(last)
     }
 
     private static func sokuonCoda(_ char: Character) -> String {
