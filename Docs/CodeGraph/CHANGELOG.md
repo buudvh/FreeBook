@@ -4,6 +4,25 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.264) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.299] - 2026-09-01
+
+### Sửa 4 lỗi còn lại của cài đặt trình đọc: chiều cao sheet, 2 toggle tiêu đề chương, mở tab Cài Đặt, kiểu chữ 1 dòng
+
+Sửa **4** file Swift. Chưa biên dịch (viết trên Windows — không có macOS).
+
+**Sửa lỗi do 1.3.298 để lại:**
+- **Cây làm việc của 1.3.298 không biên dịch được**: `ReaderView` vẫn truyền `onToggleChapterTitle:` / `onToggleRemoveDuplicatedTitle:` cho `ReaderHeaderFooterOverlayView` sau khi hai tham số đó đã bị xoá khỏi overlay. Đã gỡ ở call site.
+- **Hai toggle tiêu đề chương không có tác dụng**: `ReaderSettingsView` bind thẳng vào `@State` của `ReaderView`, nhưng nguồn sự thật lúc dựng đoạn là `UserDefaults` (`processAndSaveChapter` đọc `showChapterTitle_<bookId>` / `removeDuplicatedTitle_<bookId>`). Nay `Toggle` dùng `Binding` tự dựng: setter ghi `@State` rồi gọi `onShowChapterTitleChanged` / `onRemoveDuplicatedTitleChanged` → `ReaderView+Controls.applyShowChapterTitle` / `applyRemoveDuplicatedTitle` (lưu khoá + dựng lại đoạn). Hai hàm `toggleChapterTitleVisibility` / `toggleRemoveDuplicatedTitle` được thay bằng hai hàm `apply…` nhận giá trị mới, vì việc flip giờ thuộc setter của binding.
+- **"Mở Cài đặt" trong dropdown không hoạt động**: observer `navigateToSettingsTab` ở `MainTabView` vẫn đúng, nhưng Reader nằm trong `fullScreenCover` nên tab đổi *bên dưới* cover. Thêm `dismiss()` trước khi phát notification.
+- **Bảng cài đặt bị cắt hàng cuối**: `ScrollView` + `.presentationDetents([.fraction(0.75), .large])` thay chiều cao cố định `.height(500)`/`.height(600)` — nội dung co giãn theo việc bật dịch (3 hàng phụ) nên mọi con số cố định đều cắt ở một cấu hình nào đó. Thêm `presentationDragIndicator(.visible)`.
+- **Kiểu chữ vẫn xuống 2 dòng**: nhãn thu gọn của `Picker(.menu)` do hệ thống dựng nên không nhận chắc `lineLimit`. Đổi sang `Menu` chứa `Picker`, nhãn tự dựng (`Text(fontFamily.rawValue).lineLimit(1).truncationMode(.tail)` + `chevron.up.chevron.down`).
+
+**Dọn theo:**
+- `ReaderViewModel.invalidateParagraphLayoutForCachedChapters()` (mới, `ReaderViewModel+Translation`): hạ `translationToken = 0` cho mọi chương khác rồi `refreshParagraphItems()`, để chương đã cache không giữ `paragraphItems` dựng theo cờ cũ. Cùng cơ chế `updateCachedTranslatedContent` dùng cho đổi từ điển.
+- Xoá `@State showingTOCRules` / `showingJunkFilterManagerSheet` và hai `.sheet` tương ứng khỏi `ReaderView` (1.3.298 gỡ hai mục menu nhưng để lại state không còn lối phát); xoá 4 `@Binding` chết khỏi `ReaderHeaderFooterOverlayView`. `TOCRulesConfigView` / `JunkFilterManagementView` vẫn vào được từ tab Cài Đặt.
+
+`check_architecture.py`: **15 → 14** violation (`ReaderView.swift` 2079 → 2051, về dưới baseline 2053). Không violation mới. CodeGraph: cập nhật `04`, `05`, `08`, `10`, `11`, `13`; `07`, `rules` ghi nhận `--no-change-needed`.
+
 ## [1.3.298] - 2026-09-01
 
 ### Fix sleep timer khi pause TTS, cải tiến UI trình đọc, cache chi tiết truyện & Discovery tabs

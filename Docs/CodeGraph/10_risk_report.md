@@ -15,6 +15,12 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Đổi cấu hình dựng đoạn làm cache chương khác lỗi thời (1.3.299)
+
+* **Đã chặn**: bật/tắt "hiện tên chương" hoặc "bỏ tiêu đề trùng" mà chỉ dựng lại chương đang hiển thị thì các chương còn trong `ChapterCache` vẫn giữ `paragraphItems` dựng theo cờ **cũ**, và cấu hình mới trông như chỉ áp cho một chương. `ReaderViewModel.invalidateParagraphLayoutForCachedChapters` hạ `translationToken = 0` cho mọi chương khác để worker điều hướng dựng lại khi người dùng tới — cùng cơ chế `updateCachedTranslatedContent` đang dùng cho đổi từ điển.
+* **Còn hở, có chủ ý**: hai cờ chỉ được đọc lại lúc dựng đoạn, nên TTS đang phát **không** dựng lại chunk giữa chương; chương kế tiếp mới theo cờ mới. Đây là hành vi từ 1.3.189, lượt này không đổi.
+* **Rủi ro đã gặp thật, đã sửa**: `ReaderSettingsView` dùng chiều cao sheet cố định (`.height(500)` rồi `.height(600)`) trong khi nội dung co giãn — 3 hàng phụ chỉ xuất hiện khi bật dịch — nên hàng cuối bị cắt. Nay là `ScrollView` + `.presentationDetents([.fraction(0.75), .large])`: không cấu hình nào của nội dung cắt được hàng nào.
+
 ## Kết quả E1 và rủi ro còn lại (1.3.297)
 
 **E1 đạt một phần.** `θˈɪŋk` đọc đúng; `ðˈɪs` và `kˈæt` sai. Xác nhận đúng cái bẫy đã nêu: **có mặt

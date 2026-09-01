@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## "Mở Cài đặt" là một lượt dismiss Reader, không phải đổi tab ngầm (1.3.299)
+
+* Reader luôn sống trong `fullScreenCover`, nên vòng đời của nó **không** kết thúc khi `MainTabView.selectedTab` đổi. Mục "Mở Cài đặt" vì thế gọi `dismiss()` trước, rồi mới phát `navigateToSettingsTab`.
+* Rời Reader theo đường này đi đúng đường tắt máy bình thường của Reader — không có nhánh vòng đời riêng, không bỏ qua flush tiến độ. TTS đang phát không bị ảnh hưởng: widget nổi sống ở window riêng của `TTSFloatingWidgetWindowManager`.
+* Đường này chỉ đóng **một** lớp trình bày. Nếu Reader được mở từ một màn đang là sheet thì sheet đó vẫn còn và che tab Cài Đặt; các lối vào hiện tại (`ShelfView`, `ShelfSearchView`, `BookDetailView` đẩy trong `NavigationStack` của tab) không rơi vào ca này.
+
 ## Vòng đời mở rộng ban đầu của widget TTS khi nghe từ Reader (1.3.277)
 
 * Reader gọi `requestRevealOnNextShow()` ngay trước `TTSManager.startSpeaking(...)`. Khi `startSpeaking` set `showFloatingWidget = true`, `AppLaunchRootView` vẫn là nơi refresh window như cũ; window manager chỉ consume cờ reveal nếu có.

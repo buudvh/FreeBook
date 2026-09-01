@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader: bảng cài đặt là chủ của cấu hình đọc, dropdown chỉ còn lối ra ngoài (1.3.299)
+
+* **Ranh giới sau lượt này**: [`ReaderSettingsView`](../../Sources/Views/Reader/ReaderSettingsView.swift#L1) giữ toàn bộ cấu hình đọc (cỡ chữ, giãn dòng, kiểu chữ, theme, nhóm dịch, hai cờ tiêu đề chương). [`ReaderHeaderFooterOverlayView`](../../Sources/Views/Reader/ReaderHeaderFooterOverlayView.swift#L1) chỉ còn nút `gearshape` mở bảng đó, cộng menu `ellipsis` với 4 lối **ra ngoài** Reader: từ điển truyện, mở bằng trình duyệt, đổi nguồn truyện, mở tab Cài Đặt.
+* **Bảng cài đặt không tự ghi cấu hình theo truyện.** Nó nhận `@Binding` cho cấu hình toàn cục (`@AppStorage` của `ReaderView`), nhưng với hai cờ theo `bookId` thì chỉ báo giá trị mới ra ngoài; `ReaderView+Controls` lưu khoá UserDefaults và gọi `ReaderViewModel` dựng lại đoạn. Giữ đúng chiều Views → ViewModel → Services và không nhân đôi tên khoá xuống tầng sheet.
+* **Kiểu chữ dùng `Menu` chứa `Picker`, không phải `Picker(.menu)`.** Nhãn thu gọn của picker `.menu` do hệ thống dựng nên không nhận chắc `lineLimit`; tên phông dài nhất ("Tống Thể - 宋体 (Hán Tự Cổ Điển)") vì thế xuống hai dòng và đẩy cao cả hàng. Nhãn tự dựng (`Text` + `chevron.up.chevron.down`, `lineLimit(1)`, `truncationMode(.tail)`) giữ đúng một dòng.
+* **Hai `.sheet` `showingTOCRules` / `showingJunkFilterManagerSheet` đã bị xoá khỏi `ReaderView`**: 1.3.298 gỡ hai mục menu nhưng để lại state + sheet không còn lối phát. Hai màn đó thuộc phân hệ Settings và vẫn vào được từ tab Cài Đặt.
+
 ## Phân hệ TTS: hai lớp bảo vệ mới cho tiền xử lý (1.3.291)
 
 * **Bất biến "không token nào biến thành rỗng" là hợp đồng mới của cả phân hệ.** Trước đây chỉ có chốt mức chunk (`isUnspeakable` → WAV im lặng) nên token rỗng lọt qua và người dùng nghe **thiếu từ**.

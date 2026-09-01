@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Hai cờ tiêu đề chương: `@State` là bản sao để vẽ, UserDefaults là nguồn sự thật (1.3.299)
+
+* `ReaderView.showChapterTitle` / `removeDuplicatedTitle` **không** phải nguồn sự thật. Người đọc chúng lúc dựng đoạn là `ReaderViewModel.processAndSaveChapter` và `TTSManager`, cả hai đọc `UserDefaults` theo `bookId`. Hai `@State` chỉ tồn tại để `Toggle` vẽ đúng vị trí, và được nạp lại ở `initializeReaderIfNeeded`.
+* Vì vậy `ReaderSettingsView` **không** bind trực tiếp vào chúng: `Toggle` dùng `Binding` tự dựng, setter ghi `@State` *và* gọi closure của `ReaderView` để lưu khoá + dựng lại đoạn. Bind trực tiếp (1.3.298) tạo ra hai nguồn lệch nhau — cái vẽ đổi, cái dựng không đổi.
+* `onShowChapterTitleChanged` / `onRemoveDuplicatedTitleChanged` nhận **giá trị mới** và cố ý **không** toggle lần nữa: chủ sở hữu việc flip là setter của binding, không phải `ReaderView`. Đây là lý do hai hàm cũ `toggleChapterTitleVisibility`/`toggleRemoveDuplicatedTitle` bị thay bằng `applyShowChapterTitle`/`applyRemoveDuplicatedTitle`.
+* `showingTOCRules` và `showingJunkFilterManagerSheet` đã bị **xoá** khỏi `ReaderView` cùng hai `.sheet` của chúng: sau khi 1.3.298 gỡ hai mục menu thì không còn lối phát nào. `TOCRulesConfigView`/`JunkFilterManagementView` vẫn vào được từ tab Cài Đặt.
+
 ## Con trỏ của ô nhập mẫu là state chia sẻ giữa UIKit và SwiftUI (1.3.289)
 
 * **`selectionStart`/`selectionLength` vẫn là một nguồn sự thật duy nhất, nhưng nay có hai người ghi**: `QuickTranslationRulePatternField` (báo con trỏ thật của `UITextView` lên) và dải chip / nút token / thanh min–max (đặt vùng chọn xuống). Không có bản sao thứ hai của con trỏ ở đâu.

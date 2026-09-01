@@ -15,6 +15,35 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Hai công tắc tiêu đề chương đi qua ReaderView chứ không tự ghi (1.3.299)
+
+```
+ReaderSettingsView.Toggle "Hiển thị tên chương trong nội dung"
+  └─ Binding.set(newValue)
+       ├─ showChapterTitle = newValue            ← @State của ReaderView, để Toggle vẽ đúng
+       └─ onShowChapterTitleChanged(newValue)
+            └─ ReaderView.applyShowChapterTitle          (ReaderView+Controls)
+                 ├─ UserDefaults "showChapterTitle_<bookId>"
+                 └─ ReaderViewModel.invalidateParagraphLayoutForCachedChapters
+                      ├─ cached.translationToken = 0     (mọi chương ≠ chương đang hiện)
+                      └─ refreshParagraphItems → processAndSaveChapter → buildCancellable
+```
+
+"Loại bỏ tiêu đề chương trùng trong nội dung" đi đúng đường trên qua `applyRemoveDuplicatedTitle` và khoá `removeDuplicatedTitle_<bookId>`.
+
+Điểm cốt lõi: `processAndSaveChapter` đọc hai cờ **từ UserDefaults**, không từ `@State`. 1.3.298 chuyển hai toggle vào `ReaderSettingsView` nhưng bind thẳng vào `@State`, nên không nhánh nào ghi khoá và không nhánh nào dựng lại đoạn — công tắc đổi được hình mà không đổi nội dung. Hai closure trên khôi phục đúng chuỗi mà `toggleChapterTitleVisibility`/`toggleRemoveDuplicatedTitle` (đã xoá) từng chạy khi hai mục còn ở menu `ellipsis`.
+
+## "Mở Cài đặt" phải đóng Reader trước khi đổi tab (1.3.299)
+
+```
+ReaderHeaderFooterOverlayView menu ellipsis → onOpenAppSettings
+  ├─ dismiss()                                   ← đóng fullScreenCover của Reader
+  └─ NotificationCenter "navigateToSettingsTab"
+       └─ MainTabView.onReceive → selectedTab = 3
+```
+
+Observer ở `MainTabView` đã có từ 1.3.298 và vẫn nhận đúng notification; mảnh thiếu là `dismiss()`. Reader được trình bày bằng `fullScreenCover` (`ShelfView`, `ShelfSearchView`, `BookDetailView`) nên tab đổi **bên dưới** cover và người dùng không thấy gì xảy ra.
+
 ## Bộ phân loại có hai lớp (1.3.297)
 
 ```

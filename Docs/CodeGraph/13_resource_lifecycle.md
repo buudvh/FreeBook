@@ -15,6 +15,13 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Không tài nguyên mới; hai sheet của Reader bị thu hồi (1.3.299)
+
+* Lượt này không thêm task, timer, observer, file, cache hay buffer. `ReaderSettingsView` đổi từ `VStack` chiều cao cố định sang `ScrollView` — cùng số view con, không cấp phát thêm ngoài scroll container.
+* **Giảm**: `ReaderView` bỏ hai `@State` (`showingTOCRules`, `showingJunkFilterManagerSheet`) cùng hai `.sheet` gắn kèm, nên `TOCRulesConfigView` / `JunkFilterManagementView` không còn được dựng trong cây view của Reader.
+* `invalidateParagraphLayoutForCachedChapters` **không** dựng sẵn đoạn cho chương khác: nó chỉ hạ `translationToken` rồi dựng lại đúng chương đang hiển thị. Chi phí một lượt bấm công tắc vì vậy bị chặn ở một chương, và cửa sổ 12 entry / 12 MiB của `ChapterContentRepository` không bị đụng tới.
+* `ReaderViewModel.translationRefreshTask` là chỗ duy nhất giữ lượt dựng lại, và `refreshParagraphItems` cancel lượt trước, nên bấm hai công tắc liên tiếp không xếp chồng task.
+
 ## Vòng đời từ điển phiên âm khi xoá tất cả (1.3.291)
 
 * **`deleteAllWords()` dọn đúng ba thứ trong một lượt, trong cùng isolation của actor**: `wordMap` (RAM), file `non-vietnamese-words.plist` (ghi **rỗng**, atomic), và cặp `transliterationCache`/`transliterationCacheOrder` — bỏ sót cache là mọi từ đã phiên âm vẫn trả kết quả cũ tới khi bị evict.

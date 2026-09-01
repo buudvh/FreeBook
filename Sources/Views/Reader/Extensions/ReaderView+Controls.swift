@@ -144,16 +144,19 @@ extension ReaderView {
         selectedTheme == .dark ? Color.black.opacity(0.78) : Color.white.opacity(0.72)
     }
 
-    internal func toggleChapterTitleVisibility() {
-        showChapterTitle.toggle()
-        UserDefaults.standard.set(showChapterTitle, forKey: "showChapterTitle_\(bookId)")
-        viewModel?.refreshParagraphItems()
+    /// Áp cấu hình "hiện tên chương trong nội dung" cho truyện này. Cờ được lưu theo `bookId` vì
+    /// `ReaderViewModel` (và `TTSManager`) đọc thẳng từ UserDefaults lúc dựng đoạn — đổi `@State`
+    /// mà không lưu thì màn hình không đổi gì. Người gọi đã cập nhật `showChapterTitle` nên hàm
+    /// này **không** toggle lần nữa.
+    internal func applyShowChapterTitle(_ newValue: Bool) {
+        UserDefaults.standard.set(newValue, forKey: "showChapterTitle_\(bookId)")
+        viewModel?.invalidateParagraphLayoutForCachedChapters()
     }
 
-    internal func toggleRemoveDuplicatedTitle() {
-        removeDuplicatedTitle.toggle()
-        UserDefaults.standard.set(removeDuplicatedTitle, forKey: "removeDuplicatedTitle_\(bookId)")
-        viewModel?.refreshParagraphItems()
+    /// Cùng hợp đồng với `applyShowChapterTitle` cho cờ bỏ tiêu đề chương trùng ở đầu nội dung.
+    internal func applyRemoveDuplicatedTitle(_ newValue: Bool) {
+        UserDefaults.standard.set(newValue, forKey: "removeDuplicatedTitle_\(bookId)")
+        viewModel?.invalidateParagraphLayoutForCachedChapters()
     }
 
     internal func reloadCurrentChapterFromMenu() {

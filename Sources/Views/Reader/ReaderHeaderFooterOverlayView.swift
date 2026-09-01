@@ -4,14 +4,10 @@ struct ReaderHeaderFooterOverlayView: View {
     let selectedTheme: ReaderTheme
     @Binding var isTranslationEnabled: Bool
     @Binding var isAutoScrollDisabled: Bool
-    @Binding var showChapterTitle: Bool
-    @Binding var removeDuplicatedTitle: Bool
     @Binding var showingBookDictionary: Bool
     @Binding var showingBypassBrowser: Bool
     @Binding var showingSettings: Bool
     @Binding var showingChapterList: Bool
-    @Binding var showingTOCRules: Bool
-    @Binding var showingJunkFilter: Bool
     let readerBookDisplayTitle: String
     let readerChapterDisplayTitle: String
     let hasLocalBook: Bool
@@ -26,8 +22,6 @@ struct ReaderHeaderFooterOverlayView: View {
     let onDismiss: () -> Void
     let onReloadChapter: () -> Void
     let onChangeSource: () -> Void
-    let onToggleChapterTitle: () -> Void
-    let onToggleRemoveDuplicatedTitle: () -> Void
     let onOpenChapterList: () -> Void
     let onOpenReaderSearch: () -> Void
     let onPrevChapter: () -> Void
@@ -105,10 +99,6 @@ struct ReaderHeaderFooterOverlayView: View {
                             Button(action: onChangeSource) {
                                 Label("Đổi nguồn truyện", systemImage: "arrow.triangle.2.circlepath")
                             }
-                        }
-
-                        Button(action: { showingTOCRules = true }) {
-                            Label("Quy tắc mục lục (TOC)", systemImage: "list.bullet.indent")
                         }
 
                         Button(action: onOpenAppSettings) {

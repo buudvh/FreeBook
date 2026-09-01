@@ -207,6 +207,18 @@ extension ReaderViewModel {
         refreshParagraphItems()
     }
 
+    /// Cấu hình dựng đoạn (hiện tên chương / bỏ tiêu đề trùng) vừa đổi ⇒ mọi `paragraphItems` đã
+    /// cache đều lỗi thời. Chương đang hiển thị dựng lại ngay; các chương khác chỉ bị hạ
+    /// `translationToken` để worker điều hướng dựng lại khi người dùng tới — đúng cơ chế
+    /// `updateCachedTranslatedContent` đang dùng, không dựng sẵn cả cửa sổ cache.
+    func invalidateParagraphLayoutForCachedChapters() {
+        let currentIndex = displayedChapterIndex
+        for (idx, cached) in cache.cache where idx != currentIndex {
+            cached.translationToken = 0
+        }
+        refreshParagraphItems()
+    }
+
     func refreshParagraphItems() {
         translationRefreshTask?.cancel()
         currentRevision += 1

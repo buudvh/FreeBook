@@ -172,10 +172,8 @@ struct ReaderView: View {
     @AppStorage("readerFontFamily") internal var fontFamily: ReaderFontFamily = .georgia // Phông chữ đọc sách
     @AppStorage("hasOpenedReader") internal var hasOpenedReader = false
     @State internal var showingSettings = false // Hiện bảng cài đặt font chữ, màu nền
-    @State internal var showingTOCRules = false
     @State internal var showingJunkDeleteSheet = false
     @State internal var junkPatternInput = ""
-    @State internal var showingJunkFilterManagerSheet = false
 
     // Trạng thái bypass Cloudflare và import sách
     @State internal var showingBypassBrowser = false
@@ -566,33 +564,13 @@ struct ReaderView: View {
                 isLuatNhanEnabled: $isTranslationLuatNhanEnabled,
                 shouldConvertTraditionalToSimplified: $shouldConvertTraditionalToSimplified,
                 showChapterTitle: $showChapterTitle,
-                removeDuplicatedTitle: $removeDuplicatedTitle
+                removeDuplicatedTitle: $removeDuplicatedTitle,
+                onShowChapterTitleChanged: applyShowChapterTitle,
+                onRemoveDuplicatedTitleChanged: applyRemoveDuplicatedTitle
             )
-            .presentationDetents([.height(500)])
-        }
-        .sheet(isPresented: $showingJunkFilterManagerSheet) {
-            NavigationStack {
-                JunkFilterManagementView()
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Xong") {
-                                showingJunkFilterManagerSheet = false
-                            }
-                        }
-                    }
-            }
-        }
-        .sheet(isPresented: $showingTOCRules) {
-            NavigationStack {
-                TOCRulesConfigView()
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Xong") {
-                                showingTOCRules = false
-                            }
-                        }
-                    }
-            }
+            // Nội dung co giãn theo việc bật dịch (3 hàng phụ) nên chiều cao cố định luôn cắt mất
+            // hàng cuối: bảng cài đặt cuộn được và mở lên hết màn hình khi cần.
+            .presentationDetents([.fraction(0.75), .large])
         }
         .sheet(isPresented: $showingBookDictionary) {
             NavigationStack {
@@ -1075,14 +1053,10 @@ struct ReaderView: View {
                 selectedTheme: selectedTheme,
                 isTranslationEnabled: $isTranslationEnabled,
                 isAutoScrollDisabled: $isAutoScrollDisabled,
-                showChapterTitle: $showChapterTitle,
-                removeDuplicatedTitle: $removeDuplicatedTitle,
                 showingBookDictionary: $showingBookDictionary,
                 showingBypassBrowser: $showingBypassBrowser,
                 showingSettings: $showingSettings,
                 showingChapterList: $showingChapterList,
-                showingTOCRules: $showingTOCRules,
-                showingJunkFilter: $showingJunkFilterManagerSheet,
                 readerBookDisplayTitle: readerBookDisplayTitle,
                 readerChapterDisplayTitle: readerChapterDisplayTitle,
                 hasLocalBook: localBook != nil,
@@ -1098,8 +1072,6 @@ struct ReaderView: View {
                 onChangeSource: {
                     navigateToChangeSource = true
                 },
-                onToggleChapterTitle: toggleChapterTitleVisibility,
-                onToggleRemoveDuplicatedTitle: toggleRemoveDuplicatedTitle,
                 onOpenChapterList: {
                     _ = getOrInitChapterListStore()
                     showingChapterList = true
@@ -1110,6 +1082,9 @@ struct ReaderView: View {
                 onPrevChapter: prevChapter,
                 onNextChapter: nextChapter,
                 onOpenAppSettings: {
+                    // Reader được trình bày bằng `fullScreenCover` nên đổi tab bên dưới là vô hình —
+                    // phải đóng cover trước, rồi mới báo `MainTabView` nhảy sang tab Cài Đặt.
+                    dismiss()
                     NotificationCenter.default.post(name: NSNotification.Name("navigateToSettingsTab"), object: nil)
                 }
             )
