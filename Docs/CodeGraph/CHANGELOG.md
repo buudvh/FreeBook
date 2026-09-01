@@ -4,6 +4,15 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.272) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.310] - 2026-09-01
+
+### Sửa lỗi biên dịch `getElementById` trong phương ngữ jsoup của nguồn Legado
+
+Không thêm/xoá file (vẫn **509**), sửa **1** file.
+
+- **`LegadoJsoupDialect.swift:68` không biên dịch được**: `try? element.getElementById(_:)` bị viết như thể trả `Element??` rồi bóc hai lần (`if let optional = …, let found = optional`). `try?` của Swift **đã làm phẳng** `Element?` của SwiftSoup, nên `optional` là `Element` và lần `if let` thứ hai là lỗi `initializer for conditional binding must have Optional type`. Rút về một lần `if let`.
+- Đây là lỗi biên dịch **duy nhất** của 5 980 dòng ở 1.3.309 — viết mà không có compiler (máy Windows), CI mới là lượt kiểm chứng đầu tiên. Build trước đó đã qua `xcodegen generate` và `Resolve and patch Package dependencies`, chỉ đỏ ở `Build and Archive App`.
+
 ## [1.3.309] - 2026-09-01
 
 ### Chạy được nguồn truyện JSON của Legado, song song với extension VBook

@@ -65,7 +65,8 @@ public enum LegadoJsoupDialect {
             case "tag":
                 return (try? element.getElementsByTag(argument))?.array() ?? []
             case "id":
-                if let optional = try? element.getElementById(argument), let found = optional {
+                // `try?` đã làm phẳng `Element?` của SwiftSoup, nên chỉ cần một lần `if let`.
+                if let found = try? element.getElementById(argument) {
                     return [found]
                 }
                 return []
