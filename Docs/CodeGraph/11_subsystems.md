@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Debug server nghe nhu mot server API thuong; Bonjour la tuy chon (1.3.304)
+
+* **Duong ket noi chinh la `ws://<ip>:<port>`.** Server mo mot cong TCP ngau nhien va lang nghe; may tinh cung Wi-Fi noi thang vao dia chi do. `ExtensionDebugServerStatus.websocketEndpoint` la thu UI hien va cho copy - khong con bat nguoi dung phai co mDNS moi dung duoc.
+* **Bonjour ha xuong tuy chon, mac dinh tat.** Ly do do duoc: `NWListener.service` doi Info.plist/entitlement duoc he thong cap cho *chinh bundle dang chay*, ma app nay chay qua LiveContainer nen dang ky mDNS tra `NWError -65555 (NoAuth)` - va vi service gan vao listener, that bai do keo ca listener sang `.failed`, tuc **server chet du cong TCP da mo xong**. Do dung la loi nguoi dung gap.
+* **That bai Bonjour khong con la loi chi mang.** `handleListenerState` bat `.failed` khi dang quang ba, roi dung lai listener **khong** Bonjour va giu nguyen token dang hien tren QR. Trang thai di ve `waitingForClient` kem mot `bonjourNote` (ghi chu, khong phai `failureMessage`).
+* **Hai bien khac nhau, co y**: lua chon cua nguoi dung (`@AppStorage("extDebugAdvertiseBonjour")`) va thuc te cua listener (`isAdvertisingBonjour`). Sau mot luot fallback hai thu nay lech nhau, va `status.serviceName` chi co gia tri khi listener **that su** dang quang ba.
+* **Giao thuc va pairing khong doi.** Van la WebSocket `freebook-extdebug.v1`, van token mot lan + xac nhan tren thiet bi. Bo Bonjour chi bo mot buoc *tim thay nhau*, khong bo buoc *duoc phep*.
+
 ## Debug Extension mo rong thanh 4 phase (1.3.303)
 
 * **Ranh gioi sau luot nay**: `Debug/` (trace, Phase 1) + `Debug/Server/` (giao thuc, pairing, router, Phase 2) + `Debug/Staging/` (snapshot nhap, cai, rollback, Phase 3-4) o tang Services; `Views/Settings/Debug/` co 2 man - Console (chay tay trong app) va Server (bat kenh cho VS Code).

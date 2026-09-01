@@ -15,6 +15,13 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Listener co the duoc dung lai mot lan trong cung mot luot bat (1.3.304)
+
+* **`launchListener(withBonjour:note:)` tach khoi `start()`** vi mot luot bat server nay co the tao **hai** `NWListener`: lan dau co Bonjour, lan hai khong. Lan hai khong cap token moi - nguoi dung dang nhin QR khong bi doi ma duoi chan.
+* **Listener cu bi `cancel()` va nil hoa truoc khi dung listener moi**, nen khong bao gio co hai listener cung song. `didFallbackFromBonjour` chan vong lap: fallback dung mot lan, that bai tiep la `.failed` thuc su.
+* **Cong TCP doi sau fallback.** `NWListener` moi xin `.any` nen port thuong khac lan dau; do la ly do `pairingURI` duoc dung lai tu `handleListenerState(.ready)` chu khong cache tu luot truoc.
+* **`stop()` khong doi**: van `cancel()` listener, dong socket, `router.detach()`, `pairing.reset()`, huy run, nha waiter, xoa staging. Hai co `isAdvertisingBonjour`/`didFallbackFromBonjour` cung duoc dat lai o day.
+
 ## Tai nguyen he thong moi: listener, socket, thu muc staging (1.3.303)
 
 * **`NWListener` la tai nguyen he thong dau tien app giu o tang nghe.** No chi ton tai giua `start()` va `stop()`; `stop()` goi `cancel()` va nil hoa ngay, nen Bonjour cung duoc go cung luc (service gan vao listener, khong dang ky rieng).

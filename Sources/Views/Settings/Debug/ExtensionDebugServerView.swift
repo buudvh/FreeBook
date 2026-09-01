@@ -10,6 +10,9 @@ struct ExtensionDebugServerView: View {
     @Environment(\.modelContext) private var modelContext
     @StateObject private var reader = ExtensionDebugServerReader()
     @State private var isBusy = false
+    /// Mặc định **tắt**: app chạy qua LiveContainer nên `NWListener.service` hay trả `NoAuth` và làm
+    /// chết cả listener. Kết nối thẳng `ws://ip:port` không cần Bonjour.
+    @AppStorage("extDebugAdvertiseBonjour") private var advertisesBonjour = false
 
     private var serviceName: String {
         "FreeBook " + (UIDevice.current.name.split(separator: " ").last.map(String.init) ?? "Debug")
@@ -41,7 +44,25 @@ struct ExtensionDebugServerView: View {
                 Text(reader.status.phaseLabel)
                     .foregroundStyle(reader.status.phase == .failed ? .red : .secondary)
             }
-            if let port = reader.status.port {
+            if let endpoint = reader.status.websocketEndpoint {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Địa chỉ kết nối")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    HStack {
+                        Text(endpoint)
+                            .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                            .textSelection(.enabled)
+                        Spacer()
+                        Button {
+                            UIPasteboard.general.string = endpoint
+                        } label: {
+                            Image(systemName: "doc.on.doc")
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                }
+            } else if let port = reader.status.port {
                 HStack {
                     Text("Cổng")
                     Spacer()
@@ -57,6 +78,9 @@ struct ExtensionDebugServerView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            if let note = reader.status.bonjourNote {
+                Text(note).font(.caption).foregroundStyle(.secondary)
+            }
             if let message = reader.status.failureMessage {
                 Text(message).font(.caption).foregroundStyle(.orange)
             }
@@ -67,6 +91,9 @@ struct ExtensionDebugServerView: View {
                     Text(client).foregroundStyle(.secondary)
                 }
             }
+
+            Toggle("Quảng bá Bonjour (tuỳ chọn)", isOn: $advertisesBonjour)
+                .disabled(reader.status.isRunning)
 
             if reader.status.isRunning {
                 Button(role: .destructive, action: stopServer) {
@@ -82,7 +109,7 @@ struct ExtensionDebugServerView: View {
         } header: {
             Text("Server")
         } footer: {
-            Text("Chỉ chạy khi app ở foreground; vào nền là tự tắt. Cổng ngẫu nhiên, tối đa một client.")
+            Text("Server nghe TCP trên cổng ngẫu nhiên như một server API thường: máy tính cùng Wi-Fi nối vào `ws://ip:port` là được, không cần Bonjour. Bật Bonjour chỉ để VS Code tự tìm thấy thiết bị; nếu hệ thống từ chối đăng ký, server tự chạy tiếp không Bonjour. Chỉ chạy khi app ở foreground, tối đa một client.")
         }
     }
 
@@ -161,8 +188,13 @@ struct ExtensionDebugServerView: View {
         isBusy = true
         let container = modelContext.container
         let name = serviceName
+        let bonjour = advertisesBonjour
         Task {
-            await ExtensionDebugServer.shared.start(container: container, serviceName: name)
+            await ExtensionDebugServer.shared.start(
+                container: container,
+                serviceName: name,
+                advertisesBonjour: bonjour
+            )
             isBusy = false
         }
     }

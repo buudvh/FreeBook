@@ -23,6 +23,12 @@ public actor ExtensionDebugServer {
     private var status = ExtensionDebugServerStatus()
     private var observers: [UUID: AsyncStream<ExtensionDebugServerStatus>.Continuation] = [:]
     private var currentToken: String?
+    private var currentExpiry: Date?
+    private var currentServiceName: String = "FreeBook"
+    /// Listener hiện tại có đang quảng bá Bonjour hay không. Khác với lựa chọn của người dùng: sau một
+    /// lượt fallback, người dùng vẫn bật nhưng listener thì không.
+    private var isAdvertisingBonjour = false
+    private var didFallbackFromBonjour = false
 
     public init() {}
 
@@ -52,16 +58,27 @@ public actor ExtensionDebugServer {
 
     // MARK: - Bật / tắt
 
-    public func start(container: ModelContainer, serviceName: String) async {
+    /// `advertisesBonjour` mặc định **tắt**. Lý do: Bonjour cần Info.plist/entitlement được hệ thống
+    /// cấp cho *chính bundle đang chạy*, mà app này chạy qua LiveContainer nên `NWListener.service`
+    /// thường trả `NWError -65555 (NoAuth)` và làm cả listener chuyển sang `.failed` — server chết dù
+    /// cổng TCP đã mở xong. Kết nối trực tiếp `ws://<ip>:<port>` không cần Bonjour và là đường chính.
+    public func start(container: ModelContainer, serviceName: String, advertisesBonjour: Bool = false) async {
         guard listener == nil else { return }
         publish { $0 = ExtensionDebugServerStatus(phase: .starting) }
 
         let token = await pairing.issueToken()
         currentToken = token
-        let expiry = await pairing.currentExpiry
-        let newRouter = ExtensionDebugCommandRouter(container: container, pairing: pairing)
-        router = newRouter
+        currentExpiry = await pairing.currentExpiry
+        currentServiceName = serviceName
+        didFallbackFromBonjour = false
+        router = ExtensionDebugCommandRouter(container: container, pairing: pairing)
 
+        launchListener(withBonjour: advertisesBonjour, note: nil)
+    }
+
+    /// Dựng `NWListener` mới. Tách khỏi `start` để lượt fallback (Bonjour thất bại) dùng lại được mà
+    /// **không** cấp token mới — người dùng đang nhìn QR không bị đổi mã dưới chân.
+    private func launchListener(withBonjour: Bool, note: String?) {
         let parameters = NWParameters.tcp
         let websocket = NWProtocolWebSocket.Options()
         websocket.autoReplyPing = true
@@ -69,14 +86,18 @@ public actor ExtensionDebugServer {
 
         do {
             let newListener = try NWListener(using: parameters)
-            newListener.service = NWListener.Service(name: serviceName, type: "_freebook-extdebug._tcp")
+            if withBonjour {
+                newListener.service = NWListener.Service(name: currentServiceName, type: "_freebook-extdebug._tcp")
+            }
             newListener.stateUpdateHandler = { [weak self] state in
-                Task { await self?.handleListenerState(state, token: token, expiry: expiry, serviceName: serviceName) }
+                Task { await self?.handleListenerState(state) }
             }
             newListener.newConnectionHandler = { [weak self] connection in
                 Task { await self?.accept(connection) }
             }
             listener = newListener
+            isAdvertisingBonjour = withBonjour
+            publish { $0.bonjourNote = note }
             newListener.start(queue: queue)
         } catch {
             publish { $0 = ExtensionDebugServerStatus(phase: .failed, failureMessage: error.localizedDescription) }
@@ -93,6 +114,9 @@ public actor ExtensionDebugServer {
         await router?.detach()
         router = nil
         currentToken = nil
+        currentExpiry = nil
+        isAdvertisingBonjour = false
+        didFallbackFromBonjour = false
         await pairing.reset()
         await ExtensionDebugRunner.shared.cancelAll()
         await ExtensionDebugInstallGate.shared.cancelPending()
@@ -100,25 +124,39 @@ public actor ExtensionDebugServer {
         publish { $0 = ExtensionDebugServerStatus(phase: .stopped) }
     }
 
-    private func handleListenerState(
-        _ state: NWListener.State,
-        token: String,
-        expiry: Date?,
-        serviceName: String
-    ) {
+    private func handleListenerState(_ state: NWListener.State) {
         switch state {
         case .ready:
             let port = listener?.port?.rawValue
-            let uri = Self.pairingURI(serviceName: serviceName, port: port, token: token)
+            let host = ExtensionDebugNetworkAddress.currentIPv4()
+            let uri = Self.pairingURI(
+                host: host,
+                serviceName: currentServiceName,
+                port: port,
+                token: currentToken ?? ""
+            )
             publish {
                 $0.phase = .waitingForClient
                 $0.port = port
-                $0.serviceName = serviceName
+                $0.host = host
+                $0.serviceName = isAdvertisingBonjour ? currentServiceName : nil
                 $0.pairingURI = uri
-                $0.pairingExpiresAt = expiry
+                $0.pairingExpiresAt = currentExpiry
                 $0.failureMessage = nil
             }
         case .failed(let error):
+            // Bonjour là tiện lợi, không phải điều kiện. Đăng ký mDNS thất bại thì dựng lại listener
+            // **không** Bonjour thay vì để cả server chết — cổng TCP vốn đã mở được.
+            if isAdvertisingBonjour, !didFallbackFromBonjour {
+                didFallbackFromBonjour = true
+                listener?.cancel()
+                listener = nil
+                launchListener(
+                    withBonjour: false,
+                    note: "Bonjour không đăng ký được (\(error.localizedDescription)) — đã chuyển sang kết nối trực tiếp theo IP:port."
+                )
+                return
+            }
             publish {
                 $0.phase = .failed
                 $0.failureMessage = error.localizedDescription
@@ -185,14 +223,19 @@ public actor ExtensionDebugServer {
         // đi qua mạng nên không dùng lại.
         let token = await pairing.issueToken()
         currentToken = token
-        let expiry = await pairing.currentExpiry
-        let uri = Self.pairingURI(serviceName: status.serviceName ?? "FreeBook", port: status.port, token: token)
+        currentExpiry = await pairing.currentExpiry
+        let uri = Self.pairingURI(
+            host: status.host,
+            serviceName: currentServiceName,
+            port: status.port,
+            token: token
+        )
         publish {
             $0.phase = .waitingForClient
             $0.pairedClientName = nil
             $0.pendingClientName = nil
             $0.pairingURI = uri
-            $0.pairingExpiresAt = expiry
+            $0.pairingExpiresAt = currentExpiry
             $0.failureMessage = reason
         }
     }
@@ -232,15 +275,15 @@ public actor ExtensionDebugServer {
         }
     }
 
-    /// URI dán sang VS Code và cũng là nội dung QR. Chứa **host + service + port + token**; host được
-    /// thêm so với chốt Phase 0 để client chỉ cần một thư viện WebSocket — xem
-    /// `ExtensionDebugNetworkAddress`. Token không bao giờ vào TXT record hay log.
-    private static func pairingURI(serviceName: String, port: UInt16?, token: String) -> String {
+    /// URI dán sang VS Code và cũng là nội dung QR. Chứa **host + port + token** (service chỉ để hiển
+    /// thị); host là đường kết nối chính vì Bonjour không phải lúc nào cũng đăng ký được. Token không
+    /// bao giờ vào TXT record hay log.
+    private static func pairingURI(host: String?, serviceName: String, port: UInt16?, token: String) -> String {
         var components = URLComponents()
         components.scheme = "freebook-extdebug"
         components.host = "pair"
         components.queryItems = [
-            URLQueryItem(name: "host", value: ExtensionDebugNetworkAddress.currentIPv4() ?? ""),
+            URLQueryItem(name: "host", value: host ?? ""),
             URLQueryItem(name: "service", value: serviceName),
             URLQueryItem(name: "port", value: port.map(String.init) ?? ""),
             URLQueryItem(name: "token", value: token)

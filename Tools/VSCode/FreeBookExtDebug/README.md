@@ -14,10 +14,15 @@ thiết bị thật** rồi xem trace console/fetch/exception ngay trong VS Code
 
 ## Ghép nối
 
-1. App hiện QR và một chuỗi `freebook-extdebug://pair?host=…&port=…&service=…&token=…`.
+1. App hiện địa chỉ `ws://<ip>:<port>` cùng QR và một chuỗi
+   `freebook-extdebug://pair?host=…&port=…&service=…&token=…`.
 2. VS Code: `FreeBook: Pair with App`, dán chuỗi đó.
 3. App hiện tên client và chờ bạn bấm **Cho phép kết nối**. Token đúng chỉ mở cửa xin phép — không tự
    cấp session.
+
+Client nối **trực tiếp theo IP:port**, không cần Bonjour — server hoạt động như một server API thường
+trên Wi-Fi. Bonjour chỉ là tuỳ chọn để thiết bị tự hiện ra; nếu hệ thống từ chối đăng ký mDNS (hay gặp
+khi app chạy qua LiveContainer: `NWError -65555 NoAuth`), server tự chạy tiếp mà không quảng bá.
 
 Token được lưu bằng `SecretStorage`, dùng một lần và hết hạn sau 3 phút. Nó không vào settings,
 workspace state hay Output Channel.
