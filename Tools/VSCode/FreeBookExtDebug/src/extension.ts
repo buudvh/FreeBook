@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { ExtDebugClient } from './client';
 import { buildDraftBundle, stageDraft } from './draft';
-import { DebugEvent, ExtensionInfo, PairingURI, parsePairingURI } from './protocol';
+import { DebugEvent, ExtensionInfo, ServerTarget, parseTarget } from './protocol';
 
 /**
  * Client VS Code của FreeBook debug server (Phase 2–4 của plan).
@@ -9,16 +9,14 @@ import { DebugEvent, ExtensionInfo, PairingURI, parsePairingURI } from './protoc
  * Ba ranh giới cố ý:
  * 1. **App là thẩm quyền cuối cùng.** Client validate hình dạng input để báo lỗi sớm, nhưng manifest,
  *    entrypoint và contract do app quyết; client không bao giờ gửi filesystem path tuỳ ý.
- * 2. **Token chỉ ở `SecretStorage`.** Không vào settings, không vào workspace state, không vào
- *    OutputChannel.
+ * 2. **Không có bí mật nào để giữ.** Từ 1.3.305 server không ghép nối: client chỉ cần `ws://ip:port`,
+ *    và địa chỉ đó nằm trong `workspaceState` chứ không phải `SecretStorage`.
  * 3. **Diagnostic chỉ gắn khi revision còn khớp.** Event của bản cũ chỉ hiện trong trace kèm chữ
  *    `(stale)`, không được đè lỗi của mã hiện tại.
  */
 
-const SECRET_KEY = 'freebook.extdebug.pairing';
-
 let client: ExtDebugClient | undefined;
-let target: PairingURI | undefined;
+let target: ServerTarget | undefined;
 let output: vscode.OutputChannel;
 let diagnostics: vscode.DiagnosticCollection;
 let statusBar: vscode.StatusBarItem;
@@ -32,12 +30,12 @@ export function activate(context: vscode.ExtensionContext): void {
   diagnostics = vscode.languages.createDiagnosticCollection('freebook-extdebug');
   statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   statusBar.command = 'freebook.extdebug.openTrace';
-  updateStatusBar('chưa ghép nối');
+  updateStatusBar('chưa kết nối');
   statusBar.show();
 
   context.subscriptions.push(output, diagnostics, statusBar);
   context.subscriptions.push(
-    vscode.commands.registerCommand('freebook.extdebug.pair', () => pair(context)),
+    vscode.commands.registerCommand('freebook.extdebug.connect', () => connect(context)),
     vscode.commands.registerCommand('freebook.extdebug.selectExtension', selectExtension),
     vscode.commands.registerCommand('freebook.extdebug.runCurrent', runCurrentDocument),
     vscode.commands.registerCommand('freebook.extdebug.runScript', () => runInteractive('installed')),
@@ -54,62 +52,50 @@ export async function deactivate(): Promise<void> {
   await client?.disconnect();
 }
 
-// MARK: - Pairing
+// MARK: - Ket noi
 
-async function pair(context: vscode.ExtensionContext): Promise<void> {
+async function connect(context: vscode.ExtensionContext): Promise<void> {
   if (!vscode.workspace.isTrusted) {
     vscode.window.showErrorMessage('FreeBook ExtDebug cần workspace tin cậy.');
     return;
   }
 
-  const stored = await context.secrets.get(SECRET_KEY);
+  const remembered = context.workspaceState.get<string>(TARGET_KEY) ?? 'ws://192.168.1.5:17772';
   const raw = await vscode.window.showInputBox({
-    title: 'Dán chuỗi ghép nối hiện cạnh QR trên app',
-    placeHolder: 'freebook-extdebug://pair?host=…&port=…&token=…',
-    value: stored ?? '',
-    password: true,
+    title: 'Địa chỉ debug server hiện trên app',
+    prompt: 'Dán chuỗi ws://ip:port trong Cài Đặt → Nhà Phát Triển → Debug Server (LAN)',
+    value: remembered,
     ignoreFocusOut: true
   });
   if (!raw) {
     return;
   }
-  const parsed = parsePairingURI(raw);
+  const parsed = parseTarget(raw);
   if (!parsed) {
-    vscode.window.showErrorMessage('Chuỗi ghép nối không đúng dạng.');
+    vscode.window.showErrorMessage('Địa chỉ không đúng dạng. Ví dụ: ws://192.168.1.5:17772');
     return;
   }
 
   target = parsed;
-  await context.secrets.store(SECRET_KEY, raw);
+  await context.workspaceState.update(TARGET_KEY, `ws://${parsed.host}:${parsed.port}`);
 
-  client = new ExtDebugClient(handleEvent, onPaired, onClosed);
+  client = new ExtDebugClient(handleEvent, onClosed);
   try {
     await client.connect(parsed);
-    const hello = await client.request('hello');
+    const hello = await client.request('hello', { clientName: clientName() });
     log(`hello: app ${hello.appVersion ?? '?'} · contract v${hello.contractVersion ?? '?'}`);
-    await client.request('pair', { token: parsed.token, clientName: clientName() });
-    updateStatusBar('chờ xác nhận trên thiết bị');
-    vscode.window.showInformationMessage('Đã gửi token. Hãy bấm “Cho phép kết nối” trên thiết bị.');
+    updateStatusBar('đã kết nối');
+    await client.subscribeEvents();
+    await selectExtension();
   } catch (error) {
-    updateStatusBar('lỗi ghép nối');
-    vscode.window.showErrorMessage(`Ghép nối thất bại: ${describe(error)}`);
+    updateStatusBar('lỗi kết nối');
+    vscode.window.showErrorMessage(`Không kết nối được: ${describe(error)}`);
   }
 }
 
 function clientName(): string {
   const folder = vscode.workspace.workspaceFolders?.[0]?.name ?? 'workspace';
   return `VS Code · ${folder}`;
-}
-
-async function onPaired(): Promise<void> {
-  updateStatusBar('đã ghép nối');
-  log('đã được xác nhận trên thiết bị');
-  try {
-    await client?.subscribeEvents();
-    await selectExtension();
-  } catch (error) {
-    log(`không subscribe được event: ${describe(error)}`);
-  }
 }
 
 function onClosed(reason: string): void {
@@ -352,7 +338,7 @@ function applyDiagnostic(event: DebugEvent): void {
 
 function requireClient(): boolean {
   if (!client?.isConnected || !target) {
-    vscode.window.showWarningMessage('Chưa ghép nối. Chạy “FreeBook: Pair with App”.');
+    vscode.window.showWarningMessage('Chưa kết nối. Chạy “FreeBook: Connect to App”.');
     return false;
   }
   return true;

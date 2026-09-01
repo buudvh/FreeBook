@@ -15,6 +15,24 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Duong lenh khong con cua ghep noi (1.3.305)
+
+```
+ws://<ip>:<port>  (subprotocol freebook-extdebug.v1)
+  |- ExtensionDebugConnection.receiveMessage
+       |- ExtensionDebugServer.route -> router.handle(data) -> clientName?
+            |- hello            -> appVersion, contractVersion   (khong con requiresPairing)
+            |- extensions.list  -> ModelContext rieng -> [ExtensionDebugInstalledSnapshot]
+            |- run.start        -> (draft? StagingStore.draftDirectory : snapshot.localPath)
+            |- run.cancel/get, events.subscribe
+            |- draft.stage/chunk/finish/discard
+            |- draft.install/rollback -> InstallGate.requestApproval  (TREO cho bam tren thiet bi)
+```
+
+Hai thu bi **xoa** khoi duong nay: lenh `pair` va cua "chua pair thi khong duoc gi". Hai chot con lai la chot that va khong doi: server tu resolve script tu manifest (`run.start` khong co field path, khong `eval`), va moi lenh ghi de du lieu nguoi dung van phai bam tren thiet bi.
+
+`clientName` di len UI qua gia tri tra ve cua `router.handle` - router khong biet gi ve status, server la cho duy nhat publish.
+
 ## Duong du lieu cua snapshot nhap (1.3.303)
 
 ```

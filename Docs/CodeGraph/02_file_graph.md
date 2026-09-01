@@ -15,6 +15,18 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Bo ghep noi: -2 file, +1 file (1.3.305)
+
+459 -> **458** file Swift.
+
+| Thay doi | File | Ly do |
+| --- | --- | --- |
+| Xoa | `Debug/Server/ExtensionDebugPairingAuthority.swift` | khong con token/het han/cua xac nhan ket noi |
+| Xoa | `Settings/Debug/ExtensionDebugPairingQRView.swift` | khong con QR de quet; man hinh chi hien `ws://ip:port` |
+| Them | [`Debug/Server/ExtensionDebugServerLauncher.swift`](../../Sources/Services/Extensions/Debug/Server/ExtensionDebugServerLauncher.swift) | cho duy nhat biet co `extDebugServerEnabled` va cach bat lai luc khoi dong (22 dong) |
+
+`ExtensionDebugServer` 248 -> 260 dong, `ExtensionDebugCommandRouter` 278 -> 239, `ExtensionDebugServerStatus` 91 -> 63, `ExtensionDebugServerView` 223 -> 133. Khong file nao cham tran 400.
+
 ## 18 file Swift + 1 package VS Code cua Phase 2-4 (1.3.303)
 
 18 file moi (441 -> **459**). Khong file nao cham tran 400.
@@ -26,7 +38,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 | [`Debug/Server/ExtensionDebugCommandRouter+Draft.swift`](../../Sources/Services/Extensions/Debug/Server/ExtensionDebugCommandRouter+Draft.swift) | Services | nhanh `draft.*` (Phase 3-4) | 183 |
 | [`Debug/Server/ExtensionDebugConnection.swift`](../../Sources/Services/Extensions/Debug/Server/ExtensionDebugConnection.swift) | Services | khung truyen WebSocket mot client | 117 |
 | [`Debug/Server/ExtensionDebugProtocol.swift`](../../Sources/Services/Extensions/Debug/Server/ExtensionDebugProtocol.swift) | Services | envelope + payload + ma loi v1 | 129 |
-| [`Debug/Server/ExtensionDebugPairingAuthority.swift`](../../Sources/Services/Extensions/Debug/Server/ExtensionDebugPairingAuthority.swift) | Services | token mot lan, het han, cua xac nhan | 101 |
+| `Debug/Server/ExtensionDebugPairingAuthority.swift` *(da xoa o 1.3.306)* | Services | token mot lan, het han, cua xac nhan | 101 |
 | [`Debug/Server/ExtensionDebugInstallGate.swift`](../../Sources/Services/Extensions/Debug/Server/ExtensionDebugInstallGate.swift) | Services | treo `draft.install`/`rollback` cho bam | 113 |
 | [`Debug/Server/ExtensionDebugServerStatus.swift`](../../Sources/Services/Extensions/Debug/Server/ExtensionDebugServerStatus.swift) | Services | snapshot trang thai cho Views | 76 |
 | [`Debug/Server/ExtensionDebugInstalledSnapshot.swift`](../../Sources/Services/Extensions/Debug/Server/ExtensionDebugInstalledSnapshot.swift) | Services | ban sao bat bien cua hang `Extension` | 43 |
@@ -38,7 +50,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 | [`Common/Extensions/Data+Crypto.swift`](../../Sources/Common/Extensions/Data+Crypto.swift) | Common | `Data.sha256Hex()` cho checksum nhi phan | 13 |
 | [`Views/Settings/Debug/ExtensionDebugServerView.swift`](../../Sources/Views/Settings/Debug/ExtensionDebugServerView.swift) | Views | bat/tat server, QR, approve, diff cai dat | 191 |
 | [`Views/Settings/Debug/ExtensionDebugServerReader.swift`](../../Sources/Views/Settings/Debug/ExtensionDebugServerReader.swift) | Views | gop stream server + install gate | 53 |
-| [`Views/Settings/Debug/ExtensionDebugPairingQRView.swift`](../../Sources/Views/Settings/Debug/ExtensionDebugPairingQRView.swift) | Views | QR bang `CIFilter.qrCodeGenerator` | 39 |
+| `Views/Settings/Debug/ExtensionDebugPairingQRView.swift` *(da xoa o 1.3.306)* | Views | QR bang `CIFilter.qrCodeGenerator` | 39 |
 
 File sua: `DeveloperSettingsSection.swift` (them link server), `MainTabView.swift` (tat server khi roi foreground + xoa staging luc khoi dong), `project.yml` (2 khoa Info.plist).
 

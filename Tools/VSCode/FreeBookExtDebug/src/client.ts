@@ -5,7 +5,7 @@ import {
   Envelope,
   Payload,
   PROTOCOL_VERSION,
-  PairingURI,
+  ServerTarget,
   SUBPROTOCOL
 } from './protocol';
 
@@ -13,10 +13,9 @@ import {
  * Client WebSocket của debug server trên app.
  *
  * Một kết nối, một request-in-flight-map. Mọi lệnh đều `request()` (chờ `reply`/`error`); event của
- * server (`type: 'event'`) và thông báo `paired` đi qua callback riêng vì chúng không thuộc request nào.
+ * server (`type: 'event'`) đi qua callback riêng vì nó không thuộc request nào.
  *
- * Token **chỉ** nằm trong bộ nhớ của phiên và trong `SecretStorage` của VS Code; class này không ghi nó
- * ra OutputChannel hay log.
+ * Không có bước ghép nối: server bật là nối được bằng `ws://host:port`.
  */
 export class ExtDebugClient {
   private socket: WebSocket | undefined;
@@ -25,7 +24,6 @@ export class ExtDebugClient {
 
   constructor(
     private readonly onEvent: (event: DebugEvent) => void,
-    private readonly onPaired: () => void,
     private readonly onClosed: (reason: string) => void
   ) {}
 
@@ -33,7 +31,7 @@ export class ExtDebugClient {
     return this.socket?.readyState === WebSocket.OPEN;
   }
 
-  async connect(target: PairingURI, timeoutMs = 8000): Promise<void> {
+  async connect(target: ServerTarget, timeoutMs = 8000): Promise<void> {
     await this.disconnect();
     const url = `ws://${target.host}:${target.port}`;
     const socket = new WebSocket(url, [SUBPROTOCOL], { handshakeTimeout: timeoutMs });
@@ -127,11 +125,6 @@ export class ExtDebugClient {
       }
       return;
     }
-    if (envelope.type === 'paired') {
-      this.onPaired();
-      return;
-    }
-
     const waiter = this.pending.get(envelope.requestId);
     if (!waiter) {
       return;

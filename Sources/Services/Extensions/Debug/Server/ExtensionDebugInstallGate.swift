@@ -2,7 +2,7 @@ import Foundation
 
 /// Cửa xác nhận vật lý cho hai lệnh nguy hiểm nhất của Phase 4: `draft.install` và `draft.rollback`.
 ///
-/// Nó tồn tại vì lệnh đến **từ mạng**. Pairing đã chứng minh "đúng máy phát triển", nhưng ghi đè
+/// Nó tồn tại vì lệnh đến **từ mạng**, và từ 1.3.305 server không còn ghép nối — nghĩa là ghi đè
 /// extension đang cài là việc không được phép xảy ra chỉ vì một message TCP: phải có một lần bấm trên
 /// thiết bị, và người bấm phải thấy trước **danh sách file sẽ đổi**.
 ///

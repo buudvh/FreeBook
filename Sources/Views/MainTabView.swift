@@ -62,6 +62,8 @@ struct MainTabView: View {
             Self.cleanupLegacyChapterSearchIndex()
             // Bản nháp debug là dữ liệu tạm: không được sống qua một lần chạy app.
             Task { await ExtensionDraftStagingStore.shared.discardAll() }
+            // Công tắc debug server sống lâu hơn màn hình: mở lại app thì theo lựa chọn cũ.
+            ExtensionDebugServerLauncher.restoreIfEnabled(container: modelContext.container)
         }
         .task {
             await runAutoDriveBackupIfDue(container: modelContext.container)
@@ -78,9 +80,6 @@ struct MainTabView: View {
             }
             guard phase == .inactive || phase == .background else { return }
             TTSManager.shared.checkpointForBackground()
-            // Debug server là foreground-only theo threat model: rời foreground là tắt hẳn, gỡ Bonjour
-            // và xoá staging. Không có chế độ chạy nền.
-            Task { await ExtensionDebugServer.shared.stop() }
             let backgroundSession = BackgroundTaskSession.begin(name: "Flush reading progress")
             Task(priority: .high) {
                 try? await ReadingProgressStore.shared.flushAll()

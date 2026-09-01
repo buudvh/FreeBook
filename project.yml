@@ -50,9 +50,7 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         UIBackgroundModes:
           - audio
-        NSLocalNetworkUsageDescription: "FreeBook mở một server debug trên mạng nội bộ để máy phát triển kết nối và chạy thử extension. Chỉ bật bằng tay trong Cài Đặt và tự tắt khi app vào nền."
-        NSBonjourServices:
-          - _freebook-extdebug._tcp
+        NSLocalNetworkUsageDescription: "FreeBook mở một server debug trên mạng nội bộ để máy phát triển kết nối và chạy thử extension. Mặc định tắt, chỉ bật bằng tay trong Cài Đặt."
         GOOGLE_CLOUD_TTS_API_KEY: "$(GOOGLE_CLOUD_TTS_API_KEY)"
         GOOGLE_DRIVE_CLIENT_ID: "$(GOOGLE_DRIVE_CLIENT_ID)"
     settings:

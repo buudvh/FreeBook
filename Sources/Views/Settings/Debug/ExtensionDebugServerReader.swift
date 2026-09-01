@@ -5,7 +5,7 @@ import Foundation
 /// thành state sẵn sàng render.
 ///
 /// Gộp ở đây chứ không ở tầng Services vì hai nguồn thuộc hai concern khác nhau —
-/// `ExtensionDebugServer` sở hữu vòng đời socket/pairing, `ExtensionDebugInstallGate` sở hữu cửa xác
+/// `ExtensionDebugServer` sở hữu vòng đời socket, `ExtensionDebugInstallGate` sở hữu cửa xác
 /// nhận Phase 4 — và không nên biết về nhau chỉ để UI hiện trong cùng một màn.
 @MainActor
 final class ExtensionDebugServerReader: ObservableObject {
@@ -42,12 +42,5 @@ final class ExtensionDebugServerReader: ObservableObject {
         statusTask = nil
         gateTask?.cancel()
         gateTask = nil
-    }
-
-    var pairingCountdownText: String? {
-        guard let expiry = status.pairingExpiresAt else { return nil }
-        let remaining = Int(expiry.timeIntervalSinceNow)
-        guard remaining > 0 else { return "Token đã hết hạn" }
-        return "Token còn \(remaining / 60):\(String(format: "%02d", remaining % 60))"
     }
 }

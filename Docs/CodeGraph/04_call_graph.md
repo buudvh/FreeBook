@@ -124,9 +124,9 @@ transliterateToken
   └─ EnglishPhonemeTransliterator.detailed
        ├─ espeak(en-us) → IPA → IPAToVietnameseMapper
        │     assemble(units) → [String]            ← trả **mảng** âm tiết
-       │       ├─ leading onset ⇒ "xơ", "tơ"        (không còn bị bỏ)
-       │       ├─ âm tiết chính ⇒ "rít"
-       │       └─ trailingFiller ⇒ "xơ"             (phụ âm cuối thừa)
+       │       ├─ leading onset ⇒ "xơ"             (cụm đầu, không còn bị bỏ)
+       │       ├─ âm tiết chính ⇒ "trít"           ("tr" hợp lệ nên giữ liền)
+       │       └─ phụ âm cuối thừa ⇒ **bỏ**        (1.3.305; trước là âm tiết đệm "xơ")
        └─ rỗng? ⇒ EnglishTransliterator → rỗng? ⇒ nonEmpty(fallback: token gốc)
 
 Xoá tất cả phiên âm:
@@ -142,7 +142,7 @@ Xoá tất cả phiên âm:
 
 ```text
 TextPreprocessor.preprocess(text)                       [actor]
-  0. JapaneseTransliterator.convertToRomaji             kana → romaji (ー → nhân đôi nguyên âm)
+  0. JapaneseTransliterator.convertToRomaji             kana → romaji (ー → bỏ, đọc như âm ngắn)
   1. replaceDictionaryWords(.acronym) → (.word)         cụm từ, thắng trước mọi thứ
   2. vòng token:
        VietnameseTokenGate.shouldTransliterate(token, at: i, in: matches, source:)
@@ -152,7 +152,7 @@ TextPreprocessor.preprocess(text)                       [actor]
        └─ transliterateToken
             ├─ lookupWord (từ điển phiên âm người dùng)  → thắng
             ├─ JapaneseTransliterator.isJapaneseRomaji
-            │    └─ ForeignScriptClassifier.classify     điểm ≥ 2 ⇒ Nhật
+            │    └─ ForeignScriptClassifier.classify     whitelist ⇒ Nhật; còn lại điểm ≥ 4 ⇒ Nhật
             │         → JapaneseTransliterator.transliterateRomaji
             └─ EnglishPhonemeTransliterator.transliterate
                  ├─ EspeakPhonemizer.phonemizeEnglish    espeak_SetVoiceByName("en-us")
@@ -164,6 +164,49 @@ TextPreprocessor.preprocess(text)                       [actor]
 * **Ba call site tiếng Anh** trong `transliterateToken` (nhánh có dấu `-`/`.` và nhánh thường) đều đổi sang `EnglishPhonemeTransliterator`, nên không có đường nào còn gọi thẳng bộ luật chính tả trừ chính nhánh dự phòng.
 * `EspeakPhonemizer` giờ có **ba** lối vào cùng chia sẻ một `NSLock` và một cờ khởi tạo: `phonemize` (Piper, giọng `vi`), `phonemizeEnglish` (đổi giọng tạm), `probeVoices` (màn thử nghiệm). Mọi lối đổi giọng đều trả lại `vi` trước khi nhả lock.
 * Màn Thử phiên âm gọi đúng các hàm trên chứ không cài lại đường nào, nên nó phản ánh pipeline thật.
+
+## Đọc romaji Nhật: gộp trường âm phải xảy ra trước khi cắt âm tiết (1.3.305)
+
+```text
+JapaneseTransliterator.transliterateRomaji(word)
+  1. normalizeRomaji                       lowercased → bỏ macron (ō→o) → fold dấu
+       └─ collapseLongVowels               ou→o, ei→e, aa/ii/uu/ee/oo → âm ngắn   ← lặp tới ổn định
+  2. tách sokuon                           phụ âm đôi → 1 phụ âm + ghi vị trí
+  3. greedySegment                         khớp 3→2→1 tại TỪNG vị trí; nil ⇒ trả nguyên văn
+  4. romajiToViSyllable                    âm tiết romaji → âm tiết Việt
+  5. nhập âm tiết                           'n' → coda; 'i' sau nguyên âm → bán nguyên âm cuối
+  6. gắn sokuon                            coda k→c, s/t/d/z→t, p/b→p vào âm tiết TRƯỚC
+  7. joined("-")                           rỗng ⇒ trả nguyên văn token
+```
+
+* **Thứ tự bước 1 trước bước 3 là bất biến, không phải tiện tay.** `greedySegment` khớp dài nhất *tại từng vị trí*, nên với "arigatou" nó ăn `to` ở vị trí 5 rồi bỏ lại `u` thành một âm tiết `ư` thừa — khoá `"ou"`/`"uu"` trong `romajiToViSyllable` (bản 1.3.291) **không bao giờ có cơ hội khớp**. Vì thế các khoá đó đã bị xoá và việc gộp chuyển vào `collapseLongVowels`. Thêm lại khoá trường âm vào bảng là lặp lại đúng lỗi cũ.
+* `ai`, `oi`, `ui`, `au` **không** nằm trong `longVowelForms`: đó là nguyên âm đôi thật ("senpai", "kaze"), gộp là mất âm. Chúng đi qua **bước 5** thay vì bước 1: âm tiết `i` đứng sau một âm tiết kết thúc bằng nguyên âm khác `i`/`y` được nhập thành một rime (`pa`+`i` → `pai`, `ko`+`i` → `kôi`, `su`+`i` → `xưi`), không đọc rời thành hai tiếng.
+* **Bước 5 và bước 6 dùng chung `mergedIndexOfSyllable`.** Vị trí sokuon tính trên mảng âm tiết *romaji*, còn coda phải gắn vào ô của mảng *đã nhập*; hai mảng không còn cùng độ dài nên phải có ánh xạ. Bản cũ tính lại bằng `findMergedIndex`, hàm đó chỉ biết luật `"n"` — thêm luật nhập thứ hai mà không sửa nó là sokuon gắn lệch âm tiết.
+* `ya/yi/yu/ye/yo` → `da/di/du/dê/dô`. Tiếng Việt không có chữ nào đọc đúng /j/ ở phụ âm đầu; viết bằng bán nguyên âm `i` thì espeak-vi đọc `ia` thành nguyên âm đôi /iə/ nên "Yamato" ra ba âm tiết "i-a-ma-tô". Hàng yo-on (`kya`, `ryu`, `gyo`…) **giữ** chữ `i` vì ở đó `i` là dấu ngạc hoá bên trong âm tiết.
+
+## Dựng âm tiết Việt từ IPA: ba luật hợp lệ hoá (1.3.305)
+
+```text
+IPAToVietnameseMapper.transliterate(ipa:)
+  1. lọc stressMarks
+  2. tokenize                    khớp 3→2→1, ưu tiên dài nhất (tʃ, eɪ, iː không bị xé)
+  3. split                       maximal onset — nhả 1 phụ âm sang âm tiết sau
+       └─ nucleus là nguyên âm đôi? ⇒ nhả **toàn bộ** cụm phụ âm      ← "april" ra ây + pɹəl
+  4. assemble  → [String]
+       ├─ legalOnset             cụm đầu: cặp cuối hợp lệ thì giữ liền ("tr"), còn lại thành âm tiết đệm "ơ"
+       ├─ ə + l/ɫ ⇒ "ồ"  |  ə + n ⇒ "ình"     rime cố định, mang dấu huyền
+       ├─ nucleus nguyên âm đôi ⇒ **bỏ** coda                          ← hết âm tiết để đẩy
+       ├─ legalCoda              coda hợp lệ ĐẦU TIÊN; phần thừa bị bỏ
+       └─ normalize              ă/â đứng một mình → ơ; coda tắc ⇒ dấu sắc; c/k, g/gh, ng/ngh
+  5. joined("-")
+```
+
+* **Ba luật này tồn tại vì bảng nguyên âm và bảng coda tra *độc lập* nhau**, nên chúng có thể ghép ra rime không tồn tại. Trước 1.3.305 nó sinh ra `ơng` ("young" → `dơng`), `âyp` ("april" → `âyp-rơn`) và mọi âm tiết đóng bằng phụ âm tắc đều **không dấu** (`trit`, `tat`) — tiếng Việt không có âm tiết nào như vậy, nên espeak-vi đọc sai hoặc bỏ qua.
+* `/ʌ/` → `â` chứ không phải `ơ`: `âng âp ât âc âm ân` đều hợp lệ, `ơng` thì không.
+* **Dấu chỉ cần bảng một ký tự** (`acuteVowels`). Nhờ luật "nguyên âm đôi không nhận coda", mọi âm tiết cần đánh dấu đều có nucleus là nguyên âm đơn — không phải giải bài đặt dấu trên nguyên âm đôi.
+* `normalize` xét nguyên âm trước/sau trên **chữ đã bỏ dấu thanh**; so trực tiếp với `"iêe"` như bản cũ thì `ế`, `í` trượt luật `k`/`gh`/`ngh`.
+* **Phần thừa ở cuối bị bỏ, không thành âm tiết đệm** ("task" → `tát`, "text" → `téc`). Đây là đảo lại `trailingFiller` của 1.3.291 theo yêu cầu người dùng — đánh đổi: mất phụ âm cuối.
+* `/j/` ở **onset** → `d`; hàng `j` của bảng `codas` vẫn là `i` (bán nguyên âm cuối của `ai`, `ây`).
 
 ## Con trỏ của ô nhập mẫu đi hai chiều (1.3.289)
 

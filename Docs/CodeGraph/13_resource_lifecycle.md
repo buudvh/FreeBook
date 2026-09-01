@@ -15,6 +15,13 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Cong duoc ghi nho, listener tu thu lai, khong keep-alive (1.3.305)
+
+* **Cong la tai nguyen co ten, khong con ngau nhien.** `extDebugServerPort` (mac dinh 17772, tranh 17771 cua LocalTTS) duoc ghi lai moi lan listener vao `.ready`. `allowLocalEndpointReuse = true` nen tat roi bat lai ngay khong bi "address in use". Chuoi xu ly khi mo that bai co ba bac va **dung thu tu**: cong ghi nho dang ban -> mo cong bat ky (mot lan); roi moi thu lai cung cong (<= 3 lan); het luot moi bao `.failed`.
+* **Khong co timer/audio nao de giu tien trinh song.** Da can nhac keep-alive kieu `LocalTTS/Services/BackgroundKeepAlive.swift` (vong lap gan-im-lang + `AVAudioSession`) roi **bo**, vi no buoc phai sua duong audio cua `TTSManager` (`stopPlayback` goi `setActive(false)`) - va phan he debug khong duoc phep quyet dinh thay TTS. He qua: khong tai nguyen nen nao bi giu, doi lai socket ngung nhan khi iOS treo app.
+* **Giam**: `CIFilter` cua QR khong con duoc dung (view bi xoa); `ExtensionDebugPairingAuthority` khong con giu token/`Date` het han nao trong RAM.
+* Task thu lai duoc tao trong `handleLaunchFailure` va tu ket thuc sau mot nhip `Task.sleep`; `stop()` dat `restartAttempts = 0` va huy listener nen khong co vong thu lai nao song qua mot lan tat.
+
 ## Listener co the duoc dung lai mot lan trong cung mot luot bat (1.3.304)
 
 * **`launchListener(withBonjour:note:)` tach khoi `start()`** vi mot luot bat server nay co the tao **hai** `NWListener`: lan dau co Bonjour, lan hai khong. Lan hai khong cap token moi - nguoi dung dang nhin QR khong bi doi ma duoi chan.

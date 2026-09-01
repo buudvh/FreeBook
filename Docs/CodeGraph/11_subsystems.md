@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Debug server tro thanh mot server LAN thuong (1.3.305)
+
+* **Ranh gioi moi**: bat cong tac la [`ExtensionDebugServer`](../../Sources/Services/Extensions/Debug/Server/ExtensionDebugServer.swift#L1) lang nghe tren cong da ghi nho, va **bat ky** client trong cung Wi-Fi noi duoc bang `ws://<ip>:<port>`. Toan bo tang ghep noi (token mot lan, het han 3 phut, QR, buoc "Cho phep ket noi") da bi **xoa** theo yeu cau nguoi dung: no la nghi le, khong phai thu chan duoc mot may trong cung LAN.
+* **Cai gi con lai lam chot**: `ExtensionDebugInstallGate`. Moi lenh ghi de extension da cai (`draft.install`, `draft.rollback`) van treo cho toi khi nguoi dung bam tren thiet bi va thay truoc danh sach `+/~/-` tung file. Do la chot **duy nhat** con lai, va no dung cho: no bao ve du lieu, khong bao ve ket noi.
+* **Doi lai bang gi**: khi server dang bat, ai o cung Wi-Fi cung chay duoc script cua extension va doc duoc trace. Da ghi ro trong muc "Gioi han da biet" ngay tren man hinh. Mac dinh tat va cong tac nam trong Cai Dat -> Nha Phat Trien.
+* **Mo hinh tham khao la `LocalTTS/Services/LocalHTTPServer.swift`** (cong co dinh + `allowLocalEndpointReuse` + tu thu lai), lech mot cho co chu y: LocalTTS rang buoc `requiredLocalEndpoint` ve `127.0.0.1` vi no phuc vu app khac tren cung may; o day client la may tinh khac nen phai nghe tren moi interface.
+* **Chu so huu cong tac** khong phai man hinh: [`ExtensionDebugServerLauncher`](../../Sources/Services/Extensions/Debug/Server/ExtensionDebugServerLauncher.swift#L1) la cho duy nhat biet khoa `extDebugServerEnabled`.
+
 ## Debug server nghe nhu mot server API thuong; Bonjour la tuy chon (1.3.304)
 
 * **Duong ket noi chinh la `ws://<ip>:<port>`.** Server mo mot cong TCP ngau nhien va lang nghe; may tinh cung Wi-Fi noi thang vao dia chi do. `ExtensionDebugServerStatus.websocketEndpoint` la thu UI hien va cho copy - khong con bat nguoi dung phai co mDNS moi dung duoc.

@@ -15,6 +15,19 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Debug server roi khoi `scenePhase` (1.3.305)
+
+```
+MainTabView.onAppear
+  |- ExtensionDraftStagingStore.discardAll()          (ban nhap la du lieu tam)
+  |- ExtensionDebugServerLauncher.restoreIfEnabled    <- MOI: bat lai theo co da luu
+MainTabView.onChange(scenePhase -> background)
+  |- TTSManager.checkpointForBackground()
+  |- (da BO: ExtensionDebugServer.stop())
+```
+
+Truoc 1.3.305 vao nen la tat server. Nay khong con canh do: cong tac la `@AppStorage("extDebugServerEnabled")` nen roi man hinh Cai Dat hay minimize app deu khong tat server, va mo lai app thi `restoreIfEnabled` bat lai. **Khong** co keep-alive nao, nen khi iOS treo tien trinh o nen thi socket ngung nhan - do la gioi han cua he, khong phai mot canh su kien trong app.
+
 ## Vong doi trang thai debug server (1.3.303)
 
 ```

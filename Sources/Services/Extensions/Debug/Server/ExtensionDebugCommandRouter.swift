@@ -1,21 +1,18 @@
 import Foundation
 import SwiftData
 
-/// Router lệnh của debug server: nơi **duy nhất** cưỡng chế "chưa pair thì không được list/run/stage".
+/// Router lệnh của debug server.
 ///
-/// Hai luật của Phase 0 nằm ở đây:
-/// 1. Chỉ `hello` và `pair` được phép trước khi pair. Mọi lệnh khác trả `NOT_PAIRED`.
-/// 2. Server tự resolve script qua manifest của extension đã chọn. **Không** nhận `localPath`,
-///    filename tuỳ ý hay source JavaScript raw trong `run.start` — đó là lý do payload chỉ có
-///    `packageId` + `entrypoint` + input, không có field path nào.
+/// Từ 1.3.305 **không còn cửa pairing**: bật server là client nối được, đúng như một server API trên
+/// LAN. Hai chốt còn lại vẫn là chốt thật:
+/// 1. Server tự resolve script qua manifest của extension đã chọn — `run.start` chỉ nhận `packageId` +
+///    `entrypoint` + input, **không** có field path, không `eval`, không source raw.
+/// 2. Mọi lệnh ghi đè dữ liệu người dùng (`draft.install`, `draft.rollback`) vẫn phải đi qua
+///    `ExtensionDebugInstallGate`, tức phải bấm trên thiết bị.
 public actor ExtensionDebugCommandRouter {
     private let container: ModelContainer
-    private let pairing: ExtensionDebugPairingAuthority
     private let hub: ExtensionDebugEventHub
     private let runner: ExtensionDebugRunner
-    private let staging: ExtensionDraftStagingStore
-    private let installer: ExtensionDraftInstaller
-    private let gate: ExtensionDebugInstallGate
 
     /// Kênh gửi ra client, do server bơm vào. Router không giữ `NWConnection`.
     private var send: (@Sendable (ExtensionDebugProtocol.Envelope) -> Void)?
@@ -23,20 +20,12 @@ public actor ExtensionDebugCommandRouter {
 
     public init(
         container: ModelContainer,
-        pairing: ExtensionDebugPairingAuthority,
         hub: ExtensionDebugEventHub = .shared,
-        runner: ExtensionDebugRunner = .shared,
-        staging: ExtensionDraftStagingStore = .shared,
-        installer: ExtensionDraftInstaller = .shared,
-        gate: ExtensionDebugInstallGate = .shared
+        runner: ExtensionDebugRunner = .shared
     ) {
         self.container = container
-        self.pairing = pairing
         self.hub = hub
         self.runner = runner
-        self.staging = staging
-        self.installer = installer
-        self.gate = gate
     }
 
     public func attach(send: @escaping @Sendable (ExtensionDebugProtocol.Envelope) -> Void) {
@@ -49,10 +38,12 @@ public actor ExtensionDebugCommandRouter {
         send = nil
     }
 
-    public func handle(_ data: Data) async {
+    /// Trả về tên client nếu message này khai báo tên (`hello`), để server hiện lên UI.
+    @discardableResult
+    public func handle(_ data: Data) async -> String? {
         guard let envelope = try? JSONDecoder().decode(ExtensionDebugProtocol.Envelope.self, from: data) else {
             emit(ExtensionDebugProtocol.errorEnvelope(requestId: "-", code: .malformedMessage, message: "Không parse được message"))
-            return
+            return nil
         }
         guard envelope.version == ExtensionDebugProtocol.version else {
             emit(ExtensionDebugProtocol.errorEnvelope(
@@ -60,29 +51,17 @@ public actor ExtensionDebugCommandRouter {
                 code: .unsupportedVersion,
                 message: "Server nói version \(ExtensionDebugProtocol.version)"
             ))
-            return
+            return nil
         }
         guard let type = ExtensionDebugProtocol.CommandType(rawValue: envelope.type) else {
             emit(ExtensionDebugProtocol.errorEnvelope(requestId: envelope.requestId, code: .malformedMessage, message: "Lệnh '\(envelope.type)' không có"))
-            return
+            return nil
         }
 
         switch type {
         case .hello:
-            await handleHello(envelope)
-        case .pair:
-            await handlePair(envelope)
-        default:
-            guard await pairing.isPaired else {
-                emit(ExtensionDebugProtocol.errorEnvelope(requestId: envelope.requestId, code: .notPaired, message: "Chưa ghép nối"))
-                return
-            }
-            await handlePaired(type, envelope)
-        }
-    }
-
-    private func handlePaired(_ type: ExtensionDebugProtocol.CommandType, _ envelope: ExtensionDebugProtocol.Envelope) async {
-        switch type {
+            handleHello(envelope)
+            return envelope.payload?.clientName
         case .extensionsList:
             handleExtensionsList(envelope)
         case .runStart:
@@ -95,35 +74,17 @@ public actor ExtensionDebugCommandRouter {
             handleEventsSubscribe(envelope)
         case .draftStage, .draftChunk, .draftFinish, .draftDiscard, .draftInstall, .draftRollback:
             await handleDraft(type, envelope)
-        case .hello, .pair:
-            break
         }
+        return nil
     }
 
-    // MARK: - hello / pair
+    // MARK: - hello
 
-    private func handleHello(_ envelope: ExtensionDebugProtocol.Envelope) async {
+    private func handleHello(_ envelope: ExtensionDebugProtocol.Envelope) {
         var payload = ExtensionDebugProtocol.Payload()
         payload.appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
         payload.contractVersion = ExtensionDebugEvent.contractVersion
-        payload.requiresPairing = !(await pairing.isPaired)
         reply(to: envelope, payload: payload)
-    }
-
-    private func handlePair(_ envelope: ExtensionDebugProtocol.Envelope) async {
-        guard let token = envelope.payload?.token, !token.isEmpty else {
-            emit(ExtensionDebugProtocol.errorEnvelope(requestId: envelope.requestId, code: .malformedMessage, message: "Thiếu token"))
-            return
-        }
-        let clientName = envelope.payload?.clientName ?? "Máy phát triển"
-        switch await pairing.requestPairing(token: token, clientName: clientName) {
-        case .failure(let code):
-            emit(ExtensionDebugProtocol.errorEnvelope(requestId: envelope.requestId, code: code, message: "Ghép nối bị từ chối"))
-        case .success:
-            var payload = ExtensionDebugProtocol.Payload()
-            payload.message = "Chờ người dùng xác nhận trên thiết bị"
-            reply(to: envelope, payload: payload)
-        }
     }
 
     // MARK: - extensions / run
@@ -156,8 +117,8 @@ public actor ExtensionDebugCommandRouter {
         var localPath = snapshot.localPath
         if envelope.payload?.sourceMode == "draft" {
             guard let revision = envelope.payload?.sourceRevision,
-                  await staging.hasDraft(packageId: packageId, revision: revision),
-                  let draftDirectory = await staging.draftDirectory(packageId: packageId, revision: revision) else {
+                  await ExtensionDraftStagingStore.shared.hasDraft(packageId: packageId, revision: revision),
+                  let draftDirectory = await ExtensionDraftStagingStore.shared.draftDirectory(packageId: packageId, revision: revision) else {
                 emit(ExtensionDebugProtocol.errorEnvelope(requestId: envelope.requestId, code: .draftMissing, message: "Chưa có bản nháp đã validate cho revision này"))
                 return
             }

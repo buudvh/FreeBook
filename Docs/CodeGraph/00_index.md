@@ -15,6 +15,17 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Âm tiết Việt hợp lệ: dấu thanh bắt buộc, nguyên âm đôi không nhận coda, `j`/`ya` đọc `d` (1.3.305)
+
+Sửa **3** file Swift trong `Services/TTS/Preprocessing/`, không thêm/xoá file.
+
+* **Lỗi gốc không phải bốn ca lẻ mà là một chỗ thiếu kiểm tra**: `assemble` tra nucleus từ bảng nguyên âm và coda từ bảng coda **độc lập nhau**, nên ghép ra được rime không tồn tại. Hệ quả đo được: `ơng` ("young" → `dơng`), `âyp` ("april" → `âyp-rơn`), và **mọi** âm tiết đóng bằng `p t c ch` đều không dấu (`trit`, `tat`, `det`) — tiếng Việt không có âm tiết nào như vậy, mà đầu ra này lại được espeak giọng `vi` phiên âm tiếp cho Piper.
+* **Ba luật hợp lệ hoá mới** trong [`IPAToVietnameseMapper`](../../Sources/Services/TTS/Preprocessing/IPAToVietnameseMapper.swift): coda tắc ⇒ **dấu sắc**; nguyên âm đôi (`ây ai oi ao ia ua iu`) **không nhận coda** nên `split` đẩy cả cụm phụ âm sang âm tiết sau; `/əl/` ⇒ `ồ` và `/ən/` ⇒ `ình` là rime cố định mang dấu huyền. `/ʌ/` đổi `ơ` → `â`.
+* **Phần thừa cuối bị bỏ, không thành âm tiết đệm** — đảo lại `trailingFiller` của 1.3.291: "task" → `tát`, "text" → `téc`. Đánh đổi có chủ ý: mất phụ âm cuối, đổi lấy nhịp đọc không có tiếng lạ.
+* **`/j/` và `ya/yu/yo` đọc `d`.** Tiếng Việt không có chữ nào đọc /j/ ở phụ âm đầu; viết `i` thì espeak-vi đọc thành nguyên âm đôi /iə/ nên "yes" và "Yamato" tách thêm một âm tiết. Hàng `j` của bảng **coda** vẫn là `i`.
+* **`i` sau nguyên âm nhập thành rime trong romaji Nhật**: "senpai" → `xên-pai`, "koi" → `kôi`, "sui" → `xưi`. Bước nhập và bước gắn sokuon nay dùng chung `mergedIndexOfSyllable` — `findMergedIndex` cũ chỉ biết luật `"n"` nên có luật nhập thứ hai là gắn lệch.
+* **Còn đỏ có chủ ý** trong bộ ca kiểm: `/w/` ở phụ âm đầu map thành `o` nên "one"/"wish" ra `oân`/`oích` (không phải tiếng Việt), và `/ð/` map thành `đ` nên "though" ra `đô`. Chưa có quyết định về đích.
+
 ## Debug extension Phase 2–4: server LAN, snapshot nháp, cài + rollback (1.3.303)
 
 **18 file Swift mới** (441 → **459**), sửa **3** file, thêm **1 package VS Code** ở `Tools/VSCode/FreeBookExtDebug` (TypeScript, không nằm trong build iOS và không có bước build trong CI).
@@ -59,7 +70,7 @@ Triển khai Phase 0–1 của [plan debug ext qua app server](../Plans/2026-08-
 
 * **"Đọc mất chữ" là 5 chỗ bỏ chữ im lặng, không phải một bug lẻ**: (1) `ONNXPiperEngine` duyệt âm vị **theo từng unicode scalar**, scalar không có trong `phoneme_id_map` thì chỉ log rồi bỏ; (2) `IPAToVietnameseMapper` bỏ ký hiệu IPA lạ, xoá âm tiết không dựng được, giữ **một** phụ âm mỗi đầu cụm; (3) bộ luật chính tả cắt phụ âm cuối; (4) không có chốt chống rỗng ở **mức token** (`PiperTTSService.isUnspeakable` chỉ chặn cả chunk); (5) cổng ngữ cảnh của 1.3.290 mở quá rộng nên từ tiếng Việt cũng bị đẩy vào đường tiếng Anh.
 * **Bất biến mới: không bộ phiên âm nào được trả rỗng** — rỗng thì trả lại **nguyên văn** token. Áp cho cả ba đường (IPA, luật chính tả, romaji Nhật).
-* **Cụm phụ âm tách thành âm tiết đệm thay vì bị cắt.** `assemble` trả `[String]`: cụm đầu thành các âm tiết `+ "ơ"` ("street" → "xơ-tơ-rít" chứ không phải "trít"), phụ âm cuối thừa thành **một** âm tiết đệm ("text" → "tếc-xơ").
+* **Cụm phụ âm tách thành âm tiết đệm thay vì bị cắt.** `assemble` trả `[String]`: cụm đầu thành các âm tiết `+ "ơ"`, phụ âm cuối thừa thành **một** âm tiết đệm. *(Hai ví dụ trong bản gốc của mục này — "street" → "xơ-tơ-rít", "text" → "tếc-xơ" — đều sai: `legalDoubleOnsets` vốn đã giữ `tr` liền nên "street" ra `xơ-trit`; và 1.3.305 đã bỏ hẳn âm tiết đệm cuối ⇒ `xơ-trít`, `téc`.)*
 * **Cổng ngữ cảnh siết lại**: âm tiết Việt mơ hồ ("man", "song", "nam") chỉ được phiên âm khi **kẹp giữa** từ lạ ở *cả hai* phía.
 * **Trường âm tiếng Nhật đọc như âm ngắn** — đảo lại quyết định của 1.3.290. `ー` bị bỏ ("ラーメン" → "ra-mên"): tiếng Việt không có nguyên âm dài nên nhân đôi nguyên âm làm Piper đọc thành **hai âm tiết rời** có ngắt thanh hầu. Cùng nguyên tắc, thêm `ou → ô`, `ei → ê` ("arigatou" → "a-ri-ga-tô", trước sinh thêm âm tiết "ư" thừa).
 * **Xoá tất cả phiên âm**: mục menu mới ở màn Từ điển TTS, đi qua [`deleteAllWords()`](../../Sources/Services/TTS/Preprocessing/TextPreprocessor+Bulk.swift#L16) — ghi file **rỗng** chứ không xoá file, để lượt tải lại từ HuggingFace không có gì để trộn thắng. Cảnh báo của nút "Tải lại từ điển gốc" cũng sửa cho khớp hành vi **trộn** từ 1.3.290.

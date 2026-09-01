@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Debug server: vong doi thuoc cong tac, khong thuoc man hinh (1.3.305)
+
+* **Chu so huu la `@AppStorage("extDebugServerEnabled")`**, khong phai `ExtensionDebugServerView`. Roi man hinh Cai Dat khong tat server; `MainTabView.onAppear` goi `ExtensionDebugServerLauncher.restoreIfEnabled(container:)` nen mo lai app la server bat lai theo lua chon cu. Mac dinh co la **tat**.
+* **Da bo luat foreground-only.** `scenePhase -> background` khong con goi `stop()`. Nhung cung **khong** co keep-alive audio (da can nhac roi bo theo yeu cau: khong dung vao duong audio cua TTS), nen khi iOS treo tien trinh o nen thi socket ngung nhan va nhan lai khi app tro lai foreground. Day la gioi han duoc chap nhan, khong phai bug.
+* **Cong duoc ghi nho** (`extDebugServerPort`, mac dinh 17772): luot bat sau mo lai dung URL cu neu cong con ranh. Cong bi ban thi fallback sang cong bat ky **mot lan**, roi ghi nho cong that su mo duoc - lan sau lai la URL do.
+* `stop()` van la mot lan don tron: huy listener, dong ket noi, `router.detach()`, `Runner.cancelAll()`, `InstallGate.cancelPending()` (nha moi waiter, neu khong `Task` cua router treo mai), va `StagingStore.discardAll()`.
+
 ## Vong doi debug server gan vao scenePhase (1.3.303)
 
 * **Foreground-only la rang buoc vong doi, khong phai khuyen nghi.** `MainTabView.onChange(of: scenePhase)` goi `ExtensionDebugServer.stop()` o `.inactive`/`.background`, cung cho da checkpoint TTS va flush tien do doc. Khong co `UIBackgroundModes` nao cho phep no song tiep.

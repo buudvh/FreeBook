@@ -1,13 +1,10 @@
 import Foundation
 
-/// Địa chỉ IPv4 của thiết bị trên Wi-Fi, để nhét vào pairing URI.
+/// Địa chỉ IPv4 của thiết bị trên Wi-Fi, để dựng chuỗi `ws://<ip>:<port>` hiện cho người dùng.
 ///
-/// **Cố ý lệch Phase 0** (chốt "URI chỉ chứa service/port/token"): không có host thì client VS Code buộc
-/// phải tự resolve Bonjour, tức phải thêm dependency mDNS và phải hoạt động trên cả Windows/Linux —
-/// nơi resolve `.local` không đáng tin. Thêm IP vào URI làm client chỉ cần một thư viện WebSocket.
-///
-/// Việc này **không** làm yếu bảo mật: IP nội bộ không phải bí mật, thứ bí mật là token, và token vẫn
-/// dùng một lần + hết hạn + phải được bấm đồng ý trên thiết bị.
+/// Đây là thứ thay cho Bonjour: client chỉ cần một thư viện WebSocket và địa chỉ này, không cần
+/// dependency mDNS — thứ vốn không đáng tin trên Windows/Linux và bị hệ thống từ chối khi app chạy qua
+/// LiveContainer (`NWError -65555 NoAuth`).
 public enum ExtensionDebugNetworkAddress {
     /// Ưu tiên `en0` (Wi-Fi); nếu không có thì lấy interface IPv4 non-loopback đầu tiên.
     public static func currentIPv4() -> String? {

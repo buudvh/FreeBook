@@ -16,7 +16,6 @@ public enum ExtensionDebugProtocol {
 
     public enum CommandType: String, Codable, Sendable {
         case hello
-        case pair
         case extensionsList = "extensions.list"
         case runStart = "run.start"
         case runCancel = "run.cancel"
@@ -31,13 +30,9 @@ public enum ExtensionDebugProtocol {
     }
 
     /// Mã lỗi cố định — client dựa vào mã, không dựa vào câu chữ tiếng Việt.
-    /// Conform `Error` để dùng trực tiếp làm failure của `Result` trong `ExtensionDebugPairingAuthority`.
     public enum ErrorCode: String, Codable, Sendable, Error {
         case unsupportedVersion = "UNSUPPORTED_VERSION"
         case malformedMessage = "MALFORMED_MESSAGE"
-        case notPaired = "NOT_PAIRED"
-        case pairingRejected = "PAIRING_REJECTED"
-        case pairingExpired = "PAIRING_EXPIRED"
         case unknownExtension = "UNKNOWN_EXTENSION"
         case unknownEntrypoint = "UNKNOWN_ENTRYPOINT"
         case unknownRun = "UNKNOWN_RUN"
@@ -65,8 +60,7 @@ public enum ExtensionDebugProtocol {
     /// Union phẳng: mỗi lệnh chỉ đọc những field nó cần. Phẳng thay vì lồng theo `type` để client
     /// TypeScript không phải dựng 13 kiểu rời rạc, và để thêm field mới không phá bản cũ.
     public struct Payload: Codable, Sendable {
-        // pair
-        public var token: String?
+        // hello
         public var clientName: String?
         // extensions.list reply
         public var extensions: [ExtensionInfo]?
@@ -98,7 +92,6 @@ public enum ExtensionDebugProtocol {
         // hello reply
         public var appVersion: String?
         public var contractVersion: Int?
-        public var requiresPairing: Bool?
 
         public init() {}
     }

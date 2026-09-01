@@ -15,6 +15,13 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vi tri tang sau khi bo ghep noi (1.3.305)
+
+* **Canh `CoreImage.CIFilterBuiltins` da mat**: no chi ton tai o `ExtensionDebugPairingQRView`, va file do bi xoa. Tang Views cua phan he debug gio chi con SwiftUI + `UIPasteboard`.
+* **`ExtensionDebugServerLauncher` la `enum` chi co static** o tang Services: khong `import SwiftUI`, khong `ToastManager` => hop le voi `SERVICE_SWIFTUI_IMPORT` va `SERVICE_TOAST_COUPLING`. No doc `UserDefaults` va bat `ExtensionDebugServer` - cung chieu Views -> Services, khong co canh nguoc.
+* **Canh Views -> Services them mot cho**: `MainTabView` goi `ExtensionDebugServerLauncher.restoreIfEnabled(container:)`. Day la ly do launcher ton tai thay vi de `MainTabView` tu doc khoa va tu goi actor - `MainTabView` khong nen biet ten khoa `UserDefaults` cua phan he khac.
+* **Khong noi luat nao**: file moi 22 dong, mot primary type. `check_architecture.py` giu **14 violation nen**, khong violation moi.
+
 ## Vi tri tang cua Phase 2-4 (1.3.303)
 
 * **14 file Services moi khong `import SwiftUI`** va khong goi `ToastManager` => hop le voi `SERVICE_SWIFTUI_IMPORT` va `SERVICE_TOAST_COUPLING`. Trang thai di len Views bang `AsyncStream` (`statusStream`, `pendingStream`), dung khuon event center hien hanh.

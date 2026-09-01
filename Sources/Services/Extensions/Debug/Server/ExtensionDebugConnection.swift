@@ -4,7 +4,7 @@ import Network
 /// Một kết nối WebSocket của debug server. Ở MVP chỉ tồn tại **một** instance tại một thời điểm.
 ///
 /// Lớp này chỉ làm khung truyền: nhận message → giao cho handler, và gửi `Envelope` đã encode. Nó
-/// **không** biết gì về pairing hay lệnh — quyết định đó thuộc `ExtensionDebugCommandRouter`, để đường
+/// **không** biết gì về nội dung lệnh — việc đó thuộc `ExtensionDebugCommandRouter`, để đường
 /// "chưa pair thì không được list/run" chỉ có đúng một chỗ cưỡng chế.
 public final class ExtensionDebugConnection: @unchecked Sendable {
     public typealias MessageHandler = @Sendable (Data) -> Void

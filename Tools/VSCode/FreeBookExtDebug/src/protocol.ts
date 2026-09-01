@@ -11,7 +11,6 @@ export const PROTOCOL_VERSION = 1;
 
 export type CommandType =
   | 'hello'
-  | 'pair'
   | 'extensions.list'
   | 'run.start'
   | 'run.cancel'
@@ -85,7 +84,6 @@ export interface DraftManifest {
 }
 
 export interface Payload {
-  token?: string;
   clientName?: string;
   extensions?: ExtensionInfo[];
   packageId?: string;
@@ -111,7 +109,6 @@ export interface Payload {
   message?: string;
   appVersion?: string;
   contractVersion?: number;
-  requiresPairing?: boolean;
 }
 
 export interface Envelope {
@@ -122,30 +119,40 @@ export interface Envelope {
   payload?: Payload;
 }
 
-export interface PairingURI {
+export interface ServerTarget {
   host: string;
   port: number;
-  service: string;
-  token: string;
 }
 
-/** Parse chuỗi hiện cạnh QR trên app. Trả `null` nếu không đúng dạng. */
-export function parsePairingURI(raw: string): PairingURI | null {
-  let url: URL;
+/**
+ * Nhận cả ba dạng người dùng có thể dán:
+ * - `ws://192.168.1.5:17772`
+ * - `192.168.1.5:17772`
+ * - `freebook-extdebug://pair?host=…&port=…` (dạng cũ; token nếu có sẽ bị bỏ qua)
+ */
+export function parseTarget(raw: string): ServerTarget | null {
+  const text = raw.trim();
+  if (!text) {
+    return null;
+  }
+
+  if (text.startsWith('freebook-extdebug:')) {
+    try {
+      const url = new URL(text);
+      const host = url.searchParams.get('host') ?? '';
+      const port = Number(url.searchParams.get('port') ?? '0');
+      return host && port ? { host, port } : null;
+    } catch {
+      return null;
+    }
+  }
+
+  const withScheme = text.includes('://') ? text : `ws://${text}`;
   try {
-    url = new URL(raw.trim());
+    const url = new URL(withScheme);
+    const port = Number(url.port);
+    return url.hostname && port ? { host: url.hostname, port } : null;
   } catch {
     return null;
   }
-  if (url.protocol !== 'freebook-extdebug:') {
-    return null;
-  }
-  const host = url.searchParams.get('host') ?? '';
-  const port = Number(url.searchParams.get('port') ?? '0');
-  const service = url.searchParams.get('service') ?? '';
-  const token = url.searchParams.get('token') ?? '';
-  if (!host || !port || !token) {
-    return null;
-  }
-  return { host, port, service, token };
 }
