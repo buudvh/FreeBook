@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rule dịch: nhận dạng khoảng xấp xỉ thuộc formatter, không thuộc rule của người dùng (1.3.301)
+
+* **Ranh giới**: [`QuickTranslationNumberFormatter`](../../Sources/Services/Translation/Engine/QuickTranslationNumberFormatter.swift#L1) là chỗ duy nhất biết *chuỗi số Hán nghĩa là gì*; matcher chỉ nuốt ký tự theo lớp và gọi hàm render theo loại token. Vì thế ca `四五岁` → `4 đến 5 tuổi` được sửa **một lần** ở formatter và áp cho mọi rule người dùng đang có, thay vì bắt từng người viết thêm rule `<h><h>岁`.
+* **Người dùng không phải đổi gì.** Rule dạng `<n>岁 = {0} tuổi` giữ nguyên; chỉ giá trị `{0}` đổi từ `45` thành `4 đến 5` khi nguồn là cặp chữ số Hán trần tăng liền bậc. Không thêm token mới, không thêm khoá cấu hình, `Configuration.signature` không đổi nên snapshot/cache rule không bị vô hiệu.
+* **Đây là thay đổi hành vi không có cửa tắt** — chủ ý: `四五` = 45 là *sai chữ Hán*, không phải một lựa chọn phong cách. Ba cửa hẹp (đúng một dãy, dài đúng hai, tăng liền bậc) là thứ giữ cho ca đọc-từng-chữ-số như `二零二五` không bị kéo vào.
+* **Ranh giới với TTS không đổi**: formatter sinh chữ "đến" chứ không sinh dấu `-`, vì `TextPreprocessor.processUnitsRangeAndRatio` chỉ mở dấu `-` thành "đến" khi phía sau là một đơn vị trong danh sách của nó (`tuổi` không có trong đó). Sinh "đến" ngay ở tầng dịch nên phần đọc số của TTS không phải biết gì về idiom Hán.
+
 ## Reader: bảng cài đặt là chủ của cấu hình đọc, dropdown chỉ còn lối ra ngoài (1.3.299)
 
 * **Ranh giới sau lượt này**: [`ReaderSettingsView`](../../Sources/Views/Reader/ReaderSettingsView.swift#L1) giữ toàn bộ cấu hình đọc (cỡ chữ, giãn dòng, kiểu chữ, theme, nhóm dịch, hai cờ tiêu đề chương). [`ReaderHeaderFooterOverlayView`](../../Sources/Views/Reader/ReaderHeaderFooterOverlayView.swift#L1) chỉ còn nút `gearshape` mở bảng đó, cộng menu `ellipsis` với 4 lối **ra ngoài** Reader: từ điển truyện, mở bằng trình duyệt, đổi nguồn truyện, mở tab Cài Đặt.

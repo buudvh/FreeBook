@@ -15,6 +15,23 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## `<n>` phân biệt số ghép và khoảng xấp xỉ Hán (1.3.301)
+
+```text
+walkNumeral → renderNumeral(value)
+  ├─ toàn digit ASCII/full-width       → normalizeFullWidth        "45" → "45"
+  ├─ approximateRange(value) != nil    → "{low} đến {high}"        "四五" → "4 đến 5"      ← MỚI
+  ├─ không có ký tự bậc 十百千万…       → renderDigitwise           "二零二五" → "2025"
+  └─ còn lại                           → parseChineseNumeral       "一百二十三" → "123"
+```
+
+* **Điều kiện của nhánh mới là một sự thật về chữ Hán, không phải heuristic**: tiếng Trung viết 45 là `四十五`, không bao giờ là `四五`. Nên **hai chữ số Hán trần liền nhau là idiom "từ mấy đến mấy"**, và trước 1.3.301 nó bị `renderDigitwise` ghép thành `45`.
+* **Cách tính hai đầu khoảng không phụ thuộc vị trí của cặp số.** `approximateRange` thay cặp đó lần lượt bằng từng chữ số rồi đọc cả chuỗi như một số thường, nên cùng một nhánh phủ `四五` (0 bậc), `十七八` → 17…18 (bậc đứng trước), `三十四五` → 34…35, `二三十` → 20…30 và `三四百` → 300…400 (bậc đứng sau).
+* **Ba cửa hẹp giữ hành vi cũ**: phải có **đúng một** dãy chữ số Hán trần, dãy phải dài **đúng hai**, và hai chữ số phải tăng liền bậc. Vì vậy `二零二五` (dãy 4), `零五` và `一〇` (không liền bậc) vẫn đi đúng đường cũ. Chuỗi digit ASCII/full-width thoát ở nhánh đầu nên `"45"` người dùng gõ tay không bao giờ bị đổi.
+* **Chỉ `<n>` đổi.** `<y>/<h>/<d>` là các token *đọc từng chữ số* theo đặc tả — biến `二零二五` thành `2025` là việc của chúng — nên `renderDigitwise`/`renderHanDigits`/`renderAsciiDigits` không đụng tới.
+* Phần đọc số Hán tách ra `parseChineseNumeral` trả `Int?` (`nil` khi tràn) để cả `renderNumeral` và `approximateRange` dùng chung một bản. Ngữ nghĩa cộng dồn theo *section* (`一万亿` = `100010000`) giữ nguyên theo reference.
+* Đường xuống TTS không cần gì thêm: `"4 đến 5 tuổi"` đi qua `TextPreprocessor.processDigits` (`\b\d+\b`) thành `"bốn đến năm tuổi"`.
+
 ## Bản nháp rule: một dòng đi qua đúng pipeline thật (1.3.288)
 
 ```text

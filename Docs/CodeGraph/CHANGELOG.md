@@ -4,6 +4,23 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.264) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.301] - 2026-09-01
+
+### Rule dịch số: cặp chữ số Hán trần là khoảng "từ mấy đến mấy", không phải số ghép
+
+Sửa **1** file Swift.
+
+- **`四五岁` bị dịch thành `45 tuổi` thay vì `4 đến 5 tuổi`**: token `<n>` gặp chuỗi không có ký tự bậc thì rơi xuống `renderDigitwise`, tức nối chữ số lại (`四五` → `45`). Nhưng tiếng Trung viết 45 là `四十五`, nên **hai chữ số Hán trần liền nhau luôn là idiom khoảng xấp xỉ**. Thêm nhánh `approximateRange` trong `renderNumeral`: thay cặp đó lần lượt bằng từng chữ số rồi đọc cả chuỗi như một số thường, nên một nhánh phủ mọi vị trí của cặp số — `四五` → `4 đến 5`, `十七八` → `17 đến 18`, `三十四五` → `34 đến 35`, `二三十` → `20 đến 30`, `三四百` → `300 đến 400`.
+
+**Ba cửa hẹp giữ hành vi cũ** (cố ý bảo thủ, sai sót nghiêng về "giữ nguyên như trước"):
+- Phải có **đúng một** dãy chữ số Hán trần, dãy dài **đúng hai**, và hai chữ số **tăng liền bậc**. Nhờ vậy `二零二五` → `2025` (dãy 4 chữ số, đọc từng chữ), `零五` → `05` và `一〇` → `10` (không liền bậc) không đổi.
+- Chuỗi digit ASCII/full-width thoát ở nhánh đầu của `renderNumeral`, nên `"45"` gõ tay không bao giờ bị đổi thành khoảng.
+- `<y>`, `<h>`, `<d>` là các token *đọc từng chữ số* theo đặc tả nên **không** đổi; chỉ `<n>` đổi.
+
+Dọn theo: phần đọc số Hán tách ra `parseChineseNumeral(_:) -> Int?` để `renderNumeral` và `approximateRange` dùng chung một bản; ngữ nghĩa cộng dồn theo section (`一万亿` = `100010000`) và hành vi trả nguyên văn khi tràn giữ nguyên.
+
+Không thêm token, không thêm khoá cấu hình, `Configuration.signature` không đổi nên snapshot/cache rule không bị vô hiệu. `check_architecture.py` giữ **14** violation (file này 161 → 226 dòng, vẫn dưới trần 400). CodeGraph: cập nhật `07`, `11`. Chưa biên dịch tại chỗ (Windows) — dựa vào CI.
+
 ## [1.3.300] - 2026-09-01
 
 ### Hẹn giờ tắt TTS: pause chỉ tạm dừng bộ đếm, phát lại thì đếm tiếp thay vì đếm lại từ đầu

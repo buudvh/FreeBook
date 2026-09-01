@@ -51,14 +51,79 @@ public enum QuickTranslationNumberFormatter {
     // MARK: - Render
 
     /// `<n>`: số Hán → số Ả Rập. Chuỗi toàn chữ số ASCII/full-width được trả nguyên văn (giữ cả `0` dẫn đầu).
+    ///
+    /// Trước khi coi chuỗi là **một** số, kiểm tra dạng khoảng xấp xỉ (`四五` = "4 đến 5") — xem
+    /// `approximateRange`. Tiếng Trung không bao giờ viết 45 là `四五` (phải là `四十五`), nên hai chữ
+    /// số Hán trần đứng liền nhau luôn là idiom "từ mấy đến mấy", không phải số ghép.
     public static func renderNumeral(_ value: String) -> String {
         if !value.isEmpty, value.allSatisfy({ ($0.isASCII || "０１２３４５６７８９".contains($0)) && $0.isNumber }) {
             return normalizeFullWidth(value)
         }
+        if let range = approximateRange(value) {
+            return "\(range.low) đến \(range.high)"
+        }
         if !value.contains(where: { smallMagnitudes[$0] != nil || largeMagnitudes[$0] != nil }) {
             return renderDigitwise(value)
         }
+        guard let parsed = parseChineseNumeral(value) else { return value }
+        return String(parsed)
+    }
 
+    /// Chỉ chữ số Hán **trần** — không gồm bậc `十百千万…`, không gồm `0-9` ASCII/full-width.
+    private static let bareHanDigits: Set<Character> = Set("〇零一二两兩三四五六七八九")
+
+    /// Nhận dạng khoảng xấp xỉ kiểu Hán: đúng **một** dãy gồm **đúng hai** chữ số Hán trần liền nhau
+    /// và hai chữ số đó tăng liền bậc (`d`, `d+1`). Giá trị hai đầu tính bằng cách thay dãy đó lần lượt
+    /// bằng từng chữ số rồi đọc như một số thường, nên mọi vị trí của dãy đều đúng:
+    ///
+    /// * `四五` → 4 … 5        (dãy ở giữa chuỗi rỗng)
+    /// * `十七八` → 17 … 18    (dãy ở cuối, có bậc phía trước)
+    /// * `三十四五` → 34 … 35
+    /// * `二三十` → 20 … 30    (dãy ở đầu, có bậc phía sau)
+    /// * `三四百` → 300 … 400
+    ///
+    /// Trả `nil` cho mọi thứ khác — đặc biệt là dãy dài hơn hai (`二零二五` = 2025 đọc từng chữ số) và
+    /// dãy không tăng liền bậc (`零五`, `一〇`) — để hành vi cũ giữ nguyên.
+    private static func approximateRange(_ value: String) -> (low: Int, high: Int)? {
+        let chars = Array(value)
+        guard chars.count >= 2 else { return nil }
+
+        var runStart: Int? = nil
+        var index = 0
+        while index < chars.count {
+            guard bareHanDigits.contains(chars[index]) else {
+                index += 1
+                continue
+            }
+            var end = index
+            while end < chars.count, bareHanDigits.contains(chars[end]) {
+                end += 1
+            }
+            let length = end - index
+            if length >= 2 {
+                // Dãy thứ hai, hoặc dãy dài hơn 2 ⇒ không phải idiom khoảng: bỏ qua cả chuỗi.
+                if runStart != nil || length != 2 { return nil }
+                runStart = index
+            }
+            index = end
+        }
+
+        guard let start = runStart,
+              let first = digitMap[chars[start]],
+              let second = digitMap[chars[start + 1]],
+              second == first + 1 else { return nil }
+
+        let prefix = String(chars[0..<start])
+        let suffix = String(chars[(start + 2)...])
+        guard let low = parseChineseNumeral(prefix + String(chars[start]) + suffix),
+              let high = parseChineseNumeral(prefix + String(chars[start + 1]) + suffix),
+              low < high else { return nil }
+        return (low, high)
+    }
+
+    /// Đọc một chuỗi số Hán thành `Int`; `nil` khi tràn. Cộng dồn theo *section* nên `一万亿` ra
+    /// `100010000` — giữ nguyên theo reference `ruleEngine.ts`.
+    private static func parseChineseNumeral(_ value: String) -> Int? {
         var total = 0
         var section = 0
         var current = 0
@@ -90,11 +155,11 @@ public enum QuickTranslationNumberFormatter {
             } else {
                 current = add(multiply(current, 10), digitMap[char] ?? 0)
             }
-            if overflow { return value }
+            if overflow { return nil }
         }
 
         let result = add(add(total, section), current)
-        return overflow ? value : String(result)
+        return overflow ? nil : result
     }
 
     /// `<y>`: đọc từng chữ số. Ký tự không phải chữ số được giữ nguyên (như reference).
