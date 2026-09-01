@@ -15,6 +15,28 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Hẹn giờ tắt TTS: một `Timer`, ba nguồn dừng, một nguồn tiếp (1.3.300)
+
+```
+startSleepTimer(minutes:) ── isPlaying? ──► startTimerCountdown → scheduleSleepTimerTick
+                           └─ không ─────► chỉ nạp remaining (chờ lượt phát đầu)
+
+tick mỗi 1 s ─► remaining -= 1
+             └─ tới 0 ─► stopTimerCountdown(keepMode: true) → onSleepTimerExpired → pause()
+                                                            └─ TTSPresentationEventCenter.showToast
+
+pause()        ─► stopTimerCountdown(keepMode: true)    đứng lại, GIỮ remaining
+stopPlayback() ─► stopTimerCountdown(keepMode: true)    (mới ở 1.3.300)
+cancelSleepTimer / setStopAtEndOfChapter
+               ─► stopTimerCountdown(keepMode: false)   xoá cả mode lẫn remaining
+
+resume() / speakCurrent() ─► restartSleepTimerIfNeeded ─► resumeTimerCountdown | startTimerCountdown
+```
+
+`stopPlayback` trước 1.3.300 **không** dừng bộ đếm: dừng phát hoàn toàn rồi `Timer` vẫn tick tới 0 và bắn toast "đã tự động tạm dừng đọc" trong lúc không có gì phát. Toast vẫn đi qua `TTSPresentationEventCenter` — tầng Services không gọi `ToastManager`.
+
+Điểm dễ sai khi thêm lối vào mới: `restartSleepTimerIfNeeded` **không** phải "bật lại từ đầu". Nó là bộ chọn giữa *đếm tiếp* và *nạp vòng mới*, và nó bị gọi mỗi đoạn ở `speakCurrent()`.
+
 ## Highlight chuẩn bị TTS không thêm kênh sự kiện (1.3.276)
 
 * **Không tên `NotificationCenter` mới, không event center mới, không publisher mới.** Vệt tô chuẩn bị đi theo chính projection state đã có của TTS: `TTSManager.playbackSnapshot` → `ReaderTTSStateReader` → `ReaderView`.

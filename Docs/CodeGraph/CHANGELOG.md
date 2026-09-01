@@ -4,6 +4,20 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.264) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.300] - 2026-09-01
+
+### Hẹn giờ tắt TTS: pause chỉ tạm dừng bộ đếm, phát lại thì đếm tiếp thay vì đếm lại từ đầu
+
+Sửa **1** file Swift.
+
+- **Pause rồi phát lại thì hẹn giờ đếm lại từ đầu**: `restartSleepTimerIfNeeded()` gọi thẳng `startTimerCountdown(minutes:)`, mà hàm này nạp `sleepTimerRemainingSeconds = minutes * 60`. Nay hàm phân ba ca — đang chạy thì không làm gì, còn giây dư thì `resumeTimerCountdown()` đếm tiếp, hết giờ rồi (remaining == 0, mode vẫn còn) mới nạp một vòng mới. Phần schedule `Timer` tách ra `scheduleSleepTimerTick()` để hai đường dùng chung.
+
+**Hai lỗi cùng đường tìm thấy khi sửa:**
+- **`stopPlayback()` không dừng bộ đếm**: dừng phát hoàn toàn rồi `Timer` vẫn tick tới 0 và bắn toast "đã tự động tạm dừng đọc" trong lúc không có gì phát. Thêm `stopTimerCountdown(keepMode: true)` — giữ `timerMode` + số giây còn lại để lượt phát sau đếm tiếp, cùng luật với `pause()`.
+- **Badge hẹn giờ trống khi tạm dừng**: `sleepTimerBadgeText` đòi `isTimerRunning`, mà `pause()` đặt cờ đó về `false`, nên hẹn giờ trông như đã bị huỷ. Điều kiện hiển thị đổi thành `sleepTimerRemainingSeconds > 0` — chỉ `cancelSleepTimer`/`setStopAtEndOfChapter` mới đưa số này về 0.
+
+`check_architecture.py` giữ **14** violation (`TTSManager.swift` 4001 → 4023, vẫn là violation cũ, không phát sinh loại mới). CodeGraph: cập nhật `05`, `06`, `13`; `04`, `08`, `10`, `11`, `rules` ghi nhận `--no-change-needed`. Chưa biên dịch tại chỗ (Windows) — dựa vào CI.
+
 ## [1.3.299] - 2026-09-01
 
 ### Sửa 4 lỗi còn lại của cài đặt trình đọc: chiều cao sheet, 2 toggle tiêu đề chương, mở tab Cài Đặt, kiểu chữ 1 dòng

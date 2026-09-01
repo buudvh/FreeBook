@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Bộ đếm hẹn giờ tắt: `sleepTimerRemainingSeconds` là state của phiên, không phái sinh từ `timerMode` (1.3.300)
+
+* Ba biến, ba vai riêng: `timerMode` là **ý định** của người dùng (persist ở `ttsSleepTimerMode` / `ttsSleepTimerMinutes`), `sleepTimerRemainingSeconds` là **phần chưa đếm** của phiên hiện tại (chỉ trong RAM), `isTimerRunning` là **có `Timer` đang tick hay không**. Nạp lại `remaining` từ `minutes` của `timerMode` là xoá mất biến thứ hai — đúng lỗi "tạm dừng rồi phát lại thì đếm lại từ đầu".
+* Vì vậy `restartSleepTimerIfNeeded` phân **ba** ca thay vì một: đang chạy ⇒ không làm gì; `remaining > 0` ⇒ `resumeTimerCountdown()` đếm tiếp; `remaining == 0` mà mode vẫn còn ⇒ `startTimerCountdown(minutes:)` nạp một vòng mới (ca bấm phát lại sau khi hẹn giờ đã tự tạm dừng). Hàm này bị gọi ở **mỗi** lượt `speakCurrent()`, nên cửa `guard !isTimerRunning` là thứ giữ nó khỏi reset theo từng đoạn.
+* `remaining` chỉ về 0 ở hai chỗ: tick cuối cùng, và `stopTimerCountdown(keepMode: false)` (tức `cancelSleepTimer` / `setStopAtEndOfChapter`). `pause()` và `stopPlayback()` dùng `keepMode: true` nên không đụng tới nó.
+* `sleepTimerBadgeText` vì thế **không** còn đọc `isTimerRunning`: điều kiện hiển thị là `remaining > 0`. Badge trống lúc tạm dừng làm người dùng tưởng hẹn giờ đã bị huỷ trong khi state vẫn còn nguyên.
+
 ## Hai cờ tiêu đề chương: `@State` là bản sao để vẽ, UserDefaults là nguồn sự thật (1.3.299)
 
 * `ReaderView.showChapterTitle` / `removeDuplicatedTitle` **không** phải nguồn sự thật. Người đọc chúng lúc dựng đoạn là `ReaderViewModel.processAndSaveChapter` và `TTSManager`, cả hai đọc `UserDefaults` theo `bookId`. Hai `@State` chỉ tồn tại để `Toggle` vẽ đúng vị trí, và được nạp lại ở `initializeReaderIfNeeded`.

@@ -453,12 +453,12 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         case .off:
             return ""
         case .minutes:
-            if isTimerRunning && sleepTimerRemainingSeconds > 0 {
-                let mins = sleepTimerRemainingSeconds / 60
-                let secs = sleepTimerRemainingSeconds % 60
-                return String(format: "%d:%02d", mins, secs)
-            }
-            return ""
+            // Hiện cả khi bộ đếm đang tạm dừng: `pause()` giữ số giây còn lại, badge trống làm người
+            // dùng tưởng hẹn giờ đã bị huỷ. Chỉ có `cancelSleepTimer` mới đưa số này về 0.
+            guard sleepTimerRemainingSeconds > 0 else { return "" }
+            let mins = sleepTimerRemainingSeconds / 60
+            let secs = sleepTimerRemainingSeconds % 60
+            return String(format: "%d:%02d", mins, secs)
         case .endOfChapter:
             return "Hết bài"
         }
@@ -505,6 +505,19 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     public func startTimerCountdown(minutes: Int) {
         stopTimerCountdown(keepMode: true)
         self.sleepTimerRemainingSeconds = minutes * 60
+        scheduleSleepTimerTick()
+    }
+
+    /// Tiếp tục bộ đếm từ số giây **còn lại**, không nạp lại từ đầu. `pause()` chỉ gọi
+    /// `stopTimerCountdown(keepMode: true)` nên `sleepTimerRemainingSeconds` vẫn giữ phần chưa đếm;
+    /// nạp lại `minutes * 60` ở đây là làm người dùng mất sạch thời gian đã đếm mỗi lần tạm dừng.
+    private func resumeTimerCountdown() {
+        guard sleepTimerRemainingSeconds > 0 else { return }
+        stopTimerCountdown(keepMode: true)
+        scheduleSleepTimerTick()
+    }
+
+    private func scheduleSleepTimerTick() {
         self.isTimerRunning = true
 
         self.sleepTimerObj = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
@@ -531,11 +544,16 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
+    /// Gọi ở `resume()` và mỗi lượt `speakCurrent()`. Đang chạy thì không làm gì; còn giây dư thì
+    /// **đếm tiếp**; hết giờ rồi (remaining == 0, mode vẫn còn) thì bắt đầu lại một vòng đầy đủ —
+    /// đó là ca người dùng bấm phát lại sau khi hẹn giờ đã tự tạm dừng.
     public func restartSleepTimerIfNeeded() {
-        if case .minutes(let mins) = timerMode {
-            if !isTimerRunning || sleepTimerRemainingSeconds <= 0 {
-                startTimerCountdown(minutes: mins)
-            }
+        guard case .minutes(let mins) = timerMode else { return }
+        guard !isTimerRunning else { return }
+        if sleepTimerRemainingSeconds > 0 {
+            resumeTimerCountdown()
+        } else {
+            startTimerCountdown(minutes: mins)
         }
     }
 
@@ -1517,6 +1535,10 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         chapterQueueRefreshTask?.cancel()
         chapterQueueRefreshTask = nil
         cancelChapterAdvanceTask()
+        // Dừng hẳn thì bộ đếm hẹn giờ phải đứng lại. Trước đây `stopPlayback` không đụng tới nó nên
+        // `Timer` vẫn tick tới 0 rồi bắn toast "đã tự động tạm dừng" trong lúc không có gì phát.
+        // Giữ `timerMode` + số giây còn lại để lượt phát sau đếm tiếp — cùng luật với `pause()`.
+        stopTimerCountdown(keepMode: true)
         nowPlayingUpdateGeneration &+= 1
         nowPlayingMetadataTask?.cancel()
         nowPlayingMetadataTask = nil

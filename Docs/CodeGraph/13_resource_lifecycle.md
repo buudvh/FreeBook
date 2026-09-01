@@ -15,6 +15,13 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời `Timer` của hẹn giờ tắt TTS (1.3.300)
+
+* **Đúng một `Timer` lặp 1 s, giữ ở `sleepTimerObj`, và mọi đường tạo nó đi qua `scheduleSleepTimerTick()`.** Ba lối vào (`startTimerCountdown`, `resumeTimerCountdown`, nhánh restart của `restartSleepTimerIfNeeded`) đều gọi `stopTimerCountdown` trước khi schedule, nên không có ca nào hai timer cùng trừ một biến.
+* **Đường rò đã bít**: `stopPlayback()` nay cũng `stopTimerCountdown(keepMode: true)`. Trước đó dừng phát hoàn toàn vẫn để lại một `Timer` sống tới khi hết giờ — tiêu tài nguyên nền và bắn một toast lạc.
+* Closure của timer dùng `[weak self]` hai lần (block của `Timer`, và `Task { @MainActor }` bên trong) nên timer không giữ mạnh manager.
+* `resumeTimerCountdown` không cấp phát gì mới ngoài `Timer`; toàn bộ khác biệt của nó với `startTimerCountdown` là **không** nạp lại `sleepTimerRemainingSeconds`.
+
 ## Không tài nguyên mới; hai sheet của Reader bị thu hồi (1.3.299)
 
 * Lượt này không thêm task, timer, observer, file, cache hay buffer. `ReaderSettingsView` đổi từ `VStack` chiều cao cố định sang `ScrollView` — cùng số view con, không cấp phát thêm ngoài scroll container.
