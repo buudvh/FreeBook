@@ -9,7 +9,8 @@ struct ReaderSettingsView: View {
     @Binding var isPronounsEnabled: Bool
     @Binding var isLuatNhanEnabled: Bool
     @Binding var shouldConvertTraditionalToSimplified: Bool
-    var onOpenJunkFilter: (() -> Void)? = nil
+    @Binding var showChapterTitle: Bool
+    @Binding var removeDuplicatedTitle: Bool
 
     var body: some View {
         VStack(spacing: 16) {
@@ -38,6 +39,7 @@ struct ReaderSettingsView: View {
                 Picker("Kiểu chữ", selection: $fontFamily) {
                     ForEach(ReaderFontFamily.allCases) { family in
                         Text(family.rawValue).tag(family)
+                            .lineLimit(1)
                     }
                 }
                 .pickerStyle(.menu)
@@ -79,22 +81,11 @@ struct ReaderSettingsView: View {
                     .padding(.leading, 12)
             }
 
-            if let onOpenJunkFilter = onOpenJunkFilter {
-                Button(action: onOpenJunkFilter) {
-                    HStack {
-                        Label("Quản lý lọc rác", systemImage: "trash.slash")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.horizontal)
-                    .padding(.vertical, 4)
-                }
-                .buttonStyle(.plain)
-            }
+            Toggle("Hiển thị tên chương trong nội dung", isOn: $showChapterTitle)
+                .padding(.horizontal)
+            
+            Toggle("Loại bỏ tiêu đề chương trùng trong nội dung", isOn: $removeDuplicatedTitle)
+                .padding(.horizontal)
 
             Spacer()
         }

@@ -781,6 +781,23 @@ struct BookDetailView: View {
                 return
             }
         }
+        
+        // Kiểm tra cache trước khi tải
+        if let cachedEntry = BookDetailCacheManager.shared.getCache(for: actualBookId) {
+            self.title = cachedEntry.title
+            self.author = cachedEntry.author
+            self.coverUrl = cachedEntry.coverUrl
+            self.desc = cachedEntry.desc
+            self.detail = cachedEntry.detail
+            self.genres = cachedEntry.genres
+            self.suggests = cachedEntry.suggests
+            self.comments = cachedEntry.comments
+            self.host = cachedEntry.host
+            self.isLoadingDetail = false
+            // Vẫn cần tải TOC
+            loadTOCDataOnly()
+            return
+        }
 
         isLoadingDetail = true
         isLoadingTOC = true
@@ -826,6 +843,21 @@ struct BookDetailView: View {
                             }
                         }
                         self.isLoadingDetail = false
+                        
+                        // Lưu vào cache
+                        let cacheEntry = BookDetailCacheManager.BookDetailCacheEntry(
+                            title: detailResult.name,
+                            author: detailResult.author,
+                            coverUrl: detailResult.cover,
+                            desc: detailResult.description.cleanHTML(),
+                            detail: detailResult.detail,
+                            genres: detailResult.genres,
+                            suggests: detailResult.suggests,
+                            comments: detailResult.comments,
+                            host: detailResult.host,
+                            timestamp: Date()
+                        )
+                        BookDetailCacheManager.shared.setCache(for: self.actualBookId, entry: cacheEntry)
                     }
                 } catch {
                     await MainActor.run { self.detailErrorMessage = error.localizedDescription; self.isLoadingDetail = false }

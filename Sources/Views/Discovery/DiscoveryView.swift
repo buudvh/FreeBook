@@ -88,7 +88,8 @@ struct DiscoveryView: View {
               let itemIndex = homeItems.firstIndex(where: { $0.id == id }) else {
             return true
         }
-        return abs(itemIndex - selectedIndex) <= 1
+        // Giữ 7 tab (3 trước, current, 3 sau) để cache nhiều hơn mà không quá tốn bộ nhớ
+        return abs(itemIndex - selectedIndex) <= 3
     }
     
     var body: some View {

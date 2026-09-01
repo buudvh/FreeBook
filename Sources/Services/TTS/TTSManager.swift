@@ -1384,6 +1384,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         publishLifecycleState(isPlaying: false)
         setSystemNowPlayingPlaybackState(.paused)
         cancelNextChapterPrefixWork()
+        stopTimerCountdown(keepMode: true)
 
         if tool == "system" {
             siriService.pause()

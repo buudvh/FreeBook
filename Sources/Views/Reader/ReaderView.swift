@@ -565,10 +565,8 @@ struct ReaderView: View {
                 isPronounsEnabled: $isTranslationPronounsEnabled,
                 isLuatNhanEnabled: $isTranslationLuatNhanEnabled,
                 shouldConvertTraditionalToSimplified: $shouldConvertTraditionalToSimplified,
-                onOpenJunkFilter: {
-                    showingSettings = false
-                    showingJunkFilterManagerSheet = true
-                }
+                showChapterTitle: $showChapterTitle,
+                removeDuplicatedTitle: $removeDuplicatedTitle
             )
             .presentationDetents([.height(500)])
         }
@@ -1110,7 +1108,10 @@ struct ReaderView: View {
                     showingReaderSearch = true
                 },
                 onPrevChapter: prevChapter,
-                onNextChapter: nextChapter
+                onNextChapter: nextChapter,
+                onOpenAppSettings: {
+                    NotificationCenter.default.post(name: NSNotification.Name("navigateToSettingsTab"), object: nil)
+                }
             )
         }
     }

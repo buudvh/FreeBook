@@ -32,6 +32,7 @@ struct ReaderHeaderFooterOverlayView: View {
     let onOpenReaderSearch: () -> Void
     let onPrevChapter: () -> Void
     let onNextChapter: () -> Void
+    let onOpenAppSettings: () -> Void
 
     var readerChromeBackground: Color {
         selectedTheme.backgroundColor
@@ -81,15 +82,15 @@ struct ReaderHeaderFooterOverlayView: View {
                         .accessibilityLabel("Tải lại chương")
                     }
 
+                    Button(action: { showingSettings = true }) {
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(selectedTheme.textColor)
+                            .frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel("Cài đặt trình đọc")
+
                     Menu {
-                        Button(action: onToggleChapterTitle) {
-                            Label("Hiển thị tên chương trong nội dung", systemImage: showChapterTitle ? "checkmark.square" : "square")
-                        }
-
-                        Button(action: onToggleRemoveDuplicatedTitle) {
-                            Label("Loại bỏ tiêu đề chương trùng trong nội dung", systemImage: removeDuplicatedTitle ? "checkmark.square" : "square")
-                        }
-
                         if hasLocalBook {
                             Button(action: { showingBookDictionary = true }) {
                                 Label("Từ điển truyện", systemImage: "book.closed")
@@ -106,16 +107,12 @@ struct ReaderHeaderFooterOverlayView: View {
                             }
                         }
 
-                        Button(action: { showingSettings = true }) {
-                            Label("Cài đặt trình đọc", systemImage: "gearshape")
-                        }
-
                         Button(action: { showingTOCRules = true }) {
                             Label("Quy tắc mục lục (TOC)", systemImage: "list.bullet.indent")
                         }
 
-                        Button(action: { showingJunkFilter = true }) {
-                            Label("Quản lý lọc rác", systemImage: "trash.slash")
+                        Button(action: onOpenAppSettings) {
+                            Label("Mở Cài đặt", systemImage: "gearshape.fill")
                         }
                     } label: {
                         Image(systemName: "ellipsis")
