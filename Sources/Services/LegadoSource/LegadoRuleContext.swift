@@ -10,6 +10,17 @@ public enum LegadoRuleContext {
     case json(Any)
     case text(String)
 
+    /// Ngữ cảnh hiện tại là JSON.
+    ///
+    /// Quan trọng cho việc chọn chế độ: trong Legado, khi dữ liệu đang là JSON thì một rule **trần**
+    /// (`title`, `url`) là JSONPath chứ không phải selector — `AnalyzeRule.SourceRule.init` xét
+    /// `isJSON || ruleStr.startsWith("$.")`. Cờ này để `LegadoRuleEvaluator` quyết định đúng ở từng
+    /// bước, thay vì chỉ xét một lần theo phản hồi HTTP.
+    public var isJSON: Bool {
+        if case .json = self { return true }
+        return false
+    }
+
     /// Chuỗi tương ứng — dùng khi bước sau cần chuỗi (regex, JS, hoặc re-parse).
     public var stringValue: String {
         switch self {

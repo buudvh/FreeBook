@@ -4,6 +4,17 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.272) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.311] - 2026-09-01
+
+### Nguồn Legado: nối URL tương đối bằng chuỗi, rule trần trên JSON là JSONPath, explore làm home
+
+Không thêm/xoá file (vẫn **509**), sửa **5** file.
+
+- **Lỗi "cộng bookSourceUrl sai" — nguyên nhân thật là `URL(string:)`.** `LegadoUrlBuilder.resolve` dùng `URL(string: relativeTo:)`, mà rule URL của nguồn thường đã chứa từ khoá tiếng Trung **chưa** percent-encode (`/i/sor.aspx?key=洪荒`). `URL(string:)` trả `nil` với ký tự phi ASCII, nên phép nối thất bại **âm thầm** và hàm trả về đúng chuỗi tương đối — `bookSourceUrl` không bao giờ được cộng vào. Chuyển sang nối chuỗi thuần: xét `//`, `/`, `?`, `#` và đường dẫn tương đối theo thư mục hiện tại; `origin(of:)` cũng bỏ `URL(string:)`. Thêm `makeURL(_:)` làm lưới an toàn cuối (percent-encode phần bất hợp lệ) và cho `LegadoHTTPClient` dùng ở cả hai đường đồng bộ/bất đồng bộ. Gặp ở `ixdzs8.com` (`/bsearch?q={{key}}`) và `shudugu.org` (`/i/sor.aspx?key={{key}}`).
+- **Rule trần trên dữ liệu JSON giờ hiểu là JSONPath.** `ruleToc` của `ixdzs8.com` dựng danh sách chương bằng `@js:` trả mảng object rồi khai `chapterName: "title"` — `title` là tên field JSON, không phải selector HTML. Trước đây engine chỉ xét JSON **một lần** theo phản hồi HTTP nên đoán sai; nay `LegadoRuleContext.isJSON` quyết định ở từng bước, đúng như `isJSON` của `AnalyzeRule`.
+- **`{{…}}` chứa rule chứ không chỉ chứa JS.** Bắt đầu bằng `@`, `$.`, `$[`, `//` thì chạy như rule trên ngữ cảnh hiện tại (Legado phân biệt bằng `SourceRule.isRule`). Cần cho `ruleBookInfo.intro` kiểu `作者:{{@class.bauthor[0]@text}}`.
+- **Khám Phá của nguồn Legado dùng `exploreUrl` làm home** (theo yêu cầu người dùng): trả danh sách mục ở `home` để được UI tab vuốt ngang, và `genre` trả `[]` để cùng danh sách không hiện hai lần.
+
 ## [1.3.310] - 2026-09-01
 
 ### Sửa lỗi biên dịch `getElementById` trong phương ngữ jsoup của nguồn Legado

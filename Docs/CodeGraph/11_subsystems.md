@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Nguon Legado: ba cho de doan sai, da chot lai (1.3.311)
+
+* **Noi URL tuong doi phai bang chuoi, khong bang `URL(string:relativeTo:)`.** Rule URL cua nguon thuong da mang tu khoa tieng Trung **chua** percent-encode (`/i/sor.aspx?key=洪荒`); `URL(string:)` tra `nil` voi ky tu phi ASCII nen phep noi that bai **am tham** va `bookSourceUrl` khong duoc cong vao. `LegadoUrlBuilder.resolve` gio xet `//`, `/`, `?`, `#`, va duong dan tuong doi theo **thu muc hien tai** cua baseUrl (dung RFC, khong phai theo goc). `makeURL(_:)` la luoi an toan cuoi truoc khi goi mang.
+* **Che do rule phai xet theo du lieu dang cam, khong xet mot lan theo phan hoi.** Rule **tran** (`title`, `url`) tren du lieu JSON la JSONPath — nguon dung `@js:` dung danh sach chuong roi khai `chapterName: "title"` la ca pho bien. `LegadoRuleContext.isJSON` + `LegadoRuleEvaluator.effectiveMode` quyet dinh o tung buoc; truoc do engine chi xet `response.looksLikeJSON` nen doan sai voi moi nguon dung JS.
+* **`{{…}}` co hai nghia.** Bat dau bang `@`, `$.`, `$[`, `//` la **rule** chay tren ngu canh hien tai; con lai la bieu thuc JS. Legado phan biet bang `SourceRule.isRule`. Gap o `ruleBookInfo.intro` kieu `作者:{{@class.bauthor[0]@text}}`.
+* **Kham Pha cua nguon Legado dung `exploreUrl` lam home**, khong lam genre: `exploreUrl` chinh la danh sach muc de luot nen dat vao home de duoc UI tab vuot ngang, va `genre` tra `[]` de cung danh sach khong hien hai lan.
+
 ## Phan he nguon JSON Legado (1.3.309)
 
 * **Ranh gioi**: `LegadoSourceRuntime` so huu *luong* (tim kiem → chi tiet → muc luc → noi dung, gom ca vong `nextTocUrl`/`nextContentUrl`), `LegadoRuleEvaluator` so huu *cach doc mot chuoi rule*, con tung bo boc tach (`LegadoJsoupEngine`, `LegadoJSONPath`, `LegadoXPathEvaluator`, `LegadoRegexExtractor`) khong biet gi ve HTTP hay tui bien. Cat nhu vay vi cu phap rule cua Legado tron nhieu che do trong **cung mot chuoi**, nen phan "chon che do" phai tach khoi phan "chay che do".

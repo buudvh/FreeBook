@@ -206,28 +206,96 @@ public enum LegadoUrlBuilder {
         return encoded.data(using: .ascii) ?? encoded.data(using: .utf8)
     }
 
-    /// URL tương đối → tuyệt đối. Giữ nguyên khi đã là tuyệt đối hoặc là scheme lạ.
+    /// URL tương đối → tuyệt đối, **bằng phép nối chuỗi** chứ không qua `URL(string:relativeTo:)`.
+    ///
+    /// Lý do: rule URL của nguồn thường đã chứa từ khoá tiếng Trung chưa percent-encode
+    /// (`/i/sor.aspx?key=洪荒`), và `URL(string:)` trả `nil` với ký tự phi ASCII. Khi đó
+    /// `URL(string:relativeTo:)` thất bại **âm thầm** và hàm này trả về đúng chuỗi tương đối, khiến
+    /// `bookSourceUrl` không được nối vào — lỗi "cộng bookSourceUrl sai".
     public static func resolve(_ raw: String, baseUrl: String) -> String {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return baseUrl }
         let lower = trimmed.lowercased()
         if lower.hasPrefix("http://") || lower.hasPrefix("https://") { return trimmed }
-        if lower.hasPrefix("//") {
+        if lower.hasPrefix("data:") || lower.hasPrefix("javascript:") { return trimmed }
+
+        if trimmed.hasPrefix("//") {
             let scheme = baseUrl.lowercased().hasPrefix("http://") ? "http:" : "https:"
             return scheme + trimmed
         }
-        guard let base = URL(string: baseUrl) else { return trimmed }
-        return URL(string: trimmed, relativeTo: base)?.absoluteString ?? trimmed
+        if trimmed.hasPrefix("/") {
+            guard let origin = origin(of: baseUrl) else { return trimmed }
+            return origin + trimmed
+        }
+        if trimmed.hasPrefix("?") || trimmed.hasPrefix("#") {
+            return stripQueryAndFragment(baseUrl) + trimmed
+        }
+        return directory(of: baseUrl) + trimmed
     }
 
-    /// Gốc `scheme://host` của một URL — dùng làm `baseUrl` cho các bước sau.
+    /// Gốc `scheme://host[:port]` của một URL — dùng làm `baseUrl` cho các bước sau.
     public static func origin(of urlString: String) -> String? {
-        guard let url = URL(string: urlString),
-              let scheme = url.scheme,
-              let host = url.host else { return nil }
-        if let port = url.port {
-            return "\(scheme)://\(host):\(port)"
+        let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let schemeRange = trimmed.range(of: "://") else { return nil }
+        let authorityStart = schemeRange.upperBound
+        let terminators: [Character] = ["/", "?", "#"]
+        var index = authorityStart
+        while index < trimmed.endIndex {
+            if terminators.contains(trimmed[index]) {
+                return String(trimmed[trimmed.startIndex..<index])
+            }
+            index = trimmed.index(after: index)
         }
-        return "\(scheme)://\(host)"
+        return trimmed
+    }
+
+    private static func stripQueryAndFragment(_ urlString: String) -> String {
+        var result = urlString
+        if let hash = result.firstIndex(of: "#") {
+            result = String(result[result.startIndex..<hash])
+        }
+        if let question = result.firstIndex(of: "?") {
+            result = String(result[result.startIndex..<question])
+        }
+        return result
+    }
+
+    /// Thư mục hiện tại của một URL (phần tới dấu `/` cuối cùng của path).
+    private static func directory(of urlString: String) -> String {
+        let clean = stripQueryAndFragment(urlString)
+        guard let schemeRange = clean.range(of: "://") else {
+            return clean.hasSuffix("/") ? clean : clean + "/"
+        }
+        let pathStart = schemeRange.upperBound
+        guard let lastSlash = clean[pathStart...].lastIndex(of: "/") else {
+            return clean + "/"
+        }
+        return String(clean[clean.startIndex...lastSlash])
+    }
+
+    /// Bọc chuỗi URL thành `URL`. Thử trực tiếp trước; không được thì percent-encode ký tự bất hợp lệ.
+    ///
+    /// Chỉ là lưới an toàn cuối: phần query/body đã được encode theo **bảng mã của nguồn** ở
+    /// `LegadoPercentEncoder`, nên tới đây thường chỉ còn ký tự phi ASCII trong path.
+    public static func makeURL(_ raw: String) -> URL? {
+        if let url = URL(string: raw) { return url }
+        if let url = URL(string: encodeIllegalCharacters(raw)) { return url }
+        return nil
+    }
+
+    static func encodeIllegalCharacters(_ raw: String) -> String {
+        let allowed = CharacterSet(charactersIn: "#%/:?@&=+$,;!*'()[]~-._").union(.alphanumerics)
+        var output = ""
+        output.reserveCapacity(raw.utf8.count)
+        for scalar in raw.unicodeScalars {
+            if allowed.contains(scalar) {
+                output.unicodeScalars.append(scalar)
+            } else {
+                for byte in String(scalar).utf8 {
+                    output += String(format: "%%%02X", byte)
+                }
+            }
+        }
+        return output
     }
 }

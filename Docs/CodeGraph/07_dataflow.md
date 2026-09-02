@@ -15,6 +15,25 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Thu tu encode va noi URL cua nguon Legado (1.3.311)
+
+```
+rule URL tho ("/i/sor.aspx?key={{key}}")
+  |
+  v  chay @js:/<js>            (@result la ket qua buoc truoc)
+  v  noi suy {{…}}             (rule neu bat dau @ $. $[ // ; con lai la JS)
+  v  searchKey / searchPage    (cu phap cu)
+  v  <a,b,c>                   (chon theo so trang)
+  v  tach khoi tuy chon ,{…}
+  v  resolve(baseUrl)          <- **noi chuoi**, khong dung URL(string:relativeTo:)
+  v  encode query/body theo charset cua nguon   (GBK -> %CE%D2)
+  v  makeURL()                 <- luoi cuoi: percent-encode phan con bat hop le
+URL
+```
+
+* **Vi sao thu tu nay bat buoc**: neu resolve chay bang `URL(string:relativeTo:)` thi no **that bai am tham** ngay khi URL con ky tu tieng Trung chua encode, tra ve chuoi tuong doi va lam mat `bookSourceUrl`. Nen resolve phai lam bang chuoi va viec encode phai o **sau** resolve, khong phai truoc.
+* **Encode query dung bang ma cua nguon, `makeURL` thi khong.** `LegadoPercentEncoder` biet `charset` (GBK/Big5) va lo phan query/body; `makeURL` chi don ky tu con lai (thuong la path) bang UTF-8 — dat sau nen khong dap len phan da encode dung.
+
 ## Luong du lieu qua runtime nguon thu hai (1.3.309)
 
 ```

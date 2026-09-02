@@ -63,7 +63,7 @@ public final class LegadoHTTPClient: @unchecked Sendable {
     }
 
     private func perform(_ spec: LegadoRequestSpec) async throws -> LegadoHTTPResponse {
-        guard let url = URL(string: spec.url) else {
+        guard let url = LegadoUrlBuilder.makeURL(spec.url) else {
             throw ClientError.invalidURL(spec.url)
         }
         var request = URLRequest(url: url)
@@ -114,7 +114,7 @@ public final class LegadoHTTPClient: @unchecked Sendable {
     /// `_nativeSyncFetch` của `JSExecutor` đã chạy ổn định. Luật cấm semaphore của repo áp cho việc
     /// chờ `WKWebView` (gây deadlock main thread), không áp cho `URLSession` chạy ngoài main.
     public func sendBlocking(_ spec: LegadoRequestSpec, timeout: TimeInterval = 30) -> LegadoHTTPResponse? {
-        guard let url = URL(string: spec.url) else { return nil }
+        guard let url = LegadoUrlBuilder.makeURL(spec.url) else { return nil }
         var request = URLRequest(url: url)
         request.httpMethod = spec.method.uppercased()
         request.httpBody = spec.body

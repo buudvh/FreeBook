@@ -156,9 +156,10 @@ public enum SourceRuntime {
                 configJson: configJson
             )
         }
-        // Legado không có khái niệm "tab trang chủ"; ném lỗi để caller rơi về `genre` đúng như khi
-        // extension VBook không khai script `home`.
-        throw LegadoRuntimeError.missingRule("home")
+        // Nguồn Legado không có khái niệm "tab trang chủ" riêng, nhưng `exploreUrl` của nó đúng là một
+        // danh sách mục để lướt — nên dùng nó làm **home** để được UI tab vuốt ngang, và trả `[]` ở
+        // `genre` để cùng danh sách không hiện hai lần.
+        return try await exploreCategories(localPath: localPath)
     }
 
     public static func genre(
@@ -174,6 +175,10 @@ public enum SourceRuntime {
                 configJson: configJson
             )
         }
+        return []
+    }
+
+    private static func exploreCategories(localPath: String) async throws -> [CategoryResult] {
         let source = try await LegadoSourceStore.shared.source(atLocalPath: localPath)
         let kinds = try await LegadoSourceRuntime.shared.exploreKinds(source: source)
         guard !kinds.isEmpty else {

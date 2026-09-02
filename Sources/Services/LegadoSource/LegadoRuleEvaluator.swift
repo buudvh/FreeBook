@@ -79,7 +79,7 @@ public final class LegadoRuleEvaluator {
         guard let segment = segments.first else { return [] }
         runPutRules(segment.putMap, on: context)
 
-        switch segment.mode {
+        switch effectiveMode(of: segment, on: context) {
         case .standard:
             guard let element = context.htmlElement else { return [] }
             let rule = interpolate(segment.rule, on: context)
@@ -137,7 +137,7 @@ public final class LegadoRuleEvaluator {
         on context: LegadoRuleContext,
         isFirstSegment: Bool
     ) -> [String] {
-        switch segment.mode {
+        switch effectiveMode(of: segment, on: context) {
         case .standard:
             guard let element = context.htmlElement else { return [] }
             let rule = interpolate(segment.rule, on: context)
@@ -177,6 +177,19 @@ public final class LegadoRuleEvaluator {
             unsupportedFeatures.insert(.webJsRule)
             return []
         }
+    }
+
+    /// Chế độ thật của một đoạn rule, sau khi xét dữ liệu đang cầm.
+    ///
+    /// Rule **trần** (không tiền tố) mà dữ liệu là JSON thì phải hiểu là JSONPath: `ruleToc` của nguồn
+    /// dựng danh sách chương bằng `@js:` trả về mảng object rồi khai `chapterName: "title"` — `title`
+    /// là tên field JSON, không phải selector HTML.
+    private func effectiveMode(
+        of segment: LegadoCompiledRule,
+        on context: LegadoRuleContext
+    ) -> LegadoRuleMode {
+        guard segment.mode == .standard, context.isJSON else { return segment.mode }
+        return .json
     }
 
     private func applyReplacement(_ segment: LegadoCompiledRule, to value: String) -> String {
@@ -229,11 +242,19 @@ public final class LegadoRuleEvaluator {
         return LegadoRuleLexer.expandInner(result) { [weak self] inner in
             guard let self else { return "" }
             let trimmed = inner.trimmingCharacters(in: .whitespacesAndNewlines)
-            // `{{key}}` và `{{page}}` là biến trong scope JS, đi qua cùng đường với biểu thức khác.
+            // `{{…}}` chứa **rule** khi bắt đầu bằng `@`, `$.`, `$[`, `//` — Legado phân biệt bằng
+            // `SourceRule.isRule` (`:818-823`). Còn lại mới là biểu thức JS.
+            if Self.looksLikeRule(trimmed), let context {
+                return self.string(trimmed, on: context) ?? ""
+            }
             let input = context.map { self.jsInput(for: $0) } ?? ""
             guard let value = self.jsRuntime.evaluateToString(trimmed, result: input) else { return "" }
             return value
         }
+    }
+
+    private static func looksLikeRule(_ text: String) -> Bool {
+        text.hasPrefix("@") || text.hasPrefix("$.") || text.hasPrefix("$[") || text.hasPrefix("//")
     }
 
     private func replaceGetMarkers(_ rule: String) -> String {
