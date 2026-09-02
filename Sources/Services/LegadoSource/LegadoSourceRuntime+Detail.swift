@@ -204,8 +204,10 @@ extension LegadoSourceRuntime {
         }
 
         guard !deduplicated.isEmpty else {
+            AppLogger.shared.log("❌ [Legado][\(source.bookSourceName)] mục lục rỗng sau \(pageCount) trang — rule chapterList: \(rule.chapterList?.prefix(120) ?? "nil")")
             throw LegadoRuntimeError.emptyResult("mục lục")
         }
+        AppLogger.shared.log("📖 [Legado][\(source.bookSourceName)] mục lục: \(deduplicated.count) chương / \(pageCount) trang")
 
         if let bookId, session.variables.isDirty {
             await LegadoBookStateStore.shared.save(

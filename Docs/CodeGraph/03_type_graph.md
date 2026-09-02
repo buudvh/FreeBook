@@ -15,6 +15,12 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## API moi cua runtime nguon Legado (1.3.312)
+
+* **`LegadoRuleEvaluator` co hai ham tra chuoi voi ngu nghia khac nhau, khong duoc dung lan**: `string(_:on:)` **noi** moi ket qua bang `\n` (dung cho intro/content), con `url(_:on:)` lay **gia tri dau tien** roi resolve (dung cho bookUrl/coverUrl/chapterUrl/nextTocUrl). Day dung la ranh gioi `getString` vs `getString0` cua Legado.
+* **`LegadoJSRuntime.resolvedHeaderMap()`** la diem duy nhat biet `header` co the la JSON thuan hay script `@js:`/`<js>`. Ca `LegadoSourceRuntime.request` va bridge `java.ajax/get/post` deu goi qua no.
+* **`LegadoJSScope.jsLib`** duoc nap trong `init` cua runtime (sau `java`/`source`, truoc moi rule), khong phai tham so cua tung lan chay rule. `sourceHeader` doi thanh `var` de resolve xong ghi lai duoc.
+
 ## Type cua runtime nguon Legado (1.3.309)
 
 * **`SourceRuntime` la enum khong trang thai**, 7 ham tinh (`search`, `detail`, `toc`, `chapter`, `home`, `genre`, `categoryPage`) + 2 vi tu `isLegado(type:)`/`isLegado(packageId:)`. Chu ky **giu nguyen** cua `ExtensionManager` va them `packageId:` o dau, nen call site chi doi mot dong.

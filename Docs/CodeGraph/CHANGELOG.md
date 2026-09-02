@@ -4,6 +4,18 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.272) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.312] - 2026-09-02
+
+### Nguồn Legado: URL lấy giá trị đầu, phân trang Khám Phá, nạp jsLib, header script, thêm log
+
+Không thêm/xoá file (vẫn **509**), sửa **10** file.
+
+- **URL vẫn bị "cộng dư" — vì rule URL trả nhiều giá trị.** `evaluator.url(...)` gọi `string(...)` mà hàm đó **nối cả danh sách bằng `\n`**. Rule `a@href` trên một thẻ `<li>` khớp nhiều `<a>` (link truyện, link tác giả, link chương mới), nên resolve nhận cả khối và sinh URL rác: `https://ixdzs8.com/ read/159180/ /author/%E8%BE%B0%E4%B8%9C /read/159180/p1696.html` → 404. Sửa: rule URL lấy **giá trị đầu tiên**, đúng như Legado gọi `getString0` khi `isUrl` (`AnalyzeRule.kt:384`).
+- **`{{page}}` không hoạt động trong Khám Phá — nguyên nhân ở `PaginatedNovelLoader`, không ở engine.** `canLoadMore` xét `input.contains("{0}")`, mà `{0}` là chỗ cắm số trang của **VBook**; nguồn Legado dùng `{{page}}`. Vì vậy mọi mục Legado luôn `canLoadMore == false`, trang 2 không bao giờ được gọi và `{{page}}` trông như không nội suy. Thêm `inputSupportsPaging` xét cả hai cú pháp.
+- **`jsLib` giờ được nạp thật**, không còn nằm trong danh sách chưa hỗ trợ. `LegadoJSRuntime` chạy thư viện sau khi cài `java`/`source` và trước mọi rule. Cần cho nguồn kiểu `shudugu.org`: `coverUrl` của nó là `img@src@js:getCover(result)` với `getCover` định nghĩa trong `jsLib` — thiếu bước này thì mọi bìa đều rỗng.
+- **`header` dạng script được hỗ trợ.** Legado cho phép `header` là `@js:`/`<js>` (sinh token/User-Agent theo thời điểm); `resolvedHeaderMap()` chạy script rồi parse JSON, và bridge `java.ajax/get/post` cũng dùng bản đã giải thay vì chuỗi thô. Header dạng JSON thuần vốn đã hoạt động.
+- **Thêm log ở các mốc chẩn đoán được**: mỗi yêu cầu (method + URL + kích thước body + charset), mỗi phản hồi (mã HTTP + số byte + số ký tự sau giải mã), số phần tử/số truyện bóc được từ danh sách, số chương và số trang mục lục, độ dài nội dung chương, và lý do khi rỗng kèm rule đang dùng. Trước đó phân hệ gần như im lặng nên không lần được lỗi từ log.
+
 ## [1.3.311] - 2026-09-01
 
 ### Nguồn Legado: nối URL tương đối bằng chuỗi, rule trần trên JSON là JSONPath, explore làm home

@@ -86,11 +86,13 @@ extension LegadoSourceRuntime {
         }
 
         guard !pieces.isEmpty else {
+            AppLogger.shared.log("❌ [Legado][\(source.bookSourceName)] nội dung rỗng sau \(pageCount) trang — rule content: \(contentRule.prefix(120))")
             throw LegadoRuntimeError.emptyResult("nội dung chương")
         }
 
         var body = pieces.joined(separator: "\n")
         body = applySourceReplacements(body, rule: source.ruleContent.replaceRegex)
+        AppLogger.shared.log("📄 [Legado][\(source.bookSourceName)] nội dung: \(body.count) ký tự / \(pageCount) trang")
 
         if let bookId, session.variables.isDirty {
             await LegadoBookStateStore.shared.save(

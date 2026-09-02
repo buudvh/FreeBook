@@ -37,14 +37,19 @@ public final class LegadoRuleEvaluator {
     }
 
     /// Chuỗi kết quả và resolve thành URL tuyệt đối — dùng cho `bookUrl`, `coverUrl`, `chapterUrl`.
+    ///
+    /// **Lấy giá trị đầu tiên, không nối cả danh sách.** Một rule như `a@href` trên một thẻ `<li>` rất
+    /// hay khớp nhiều `<a>` (link truyện, link tác giả, link chương mới); nối chúng bằng `\n` rồi
+    /// resolve sẽ ra một URL rác kiểu `https://x.com/ read/1/ /author/y /read/1/p2.html` và server trả
+    /// 404. Legado gọi `getString0` (phần tử đầu) đúng cho trường hợp `isUrl` (`AnalyzeRule.kt:384`).
     public func url(_ rawRule: String?, on context: LegadoRuleContext) -> String? {
-        guard let raw = string(rawRule, on: context)?
-            .trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else { return nil }
+        guard let first = stringList(rawRule, on: context).first?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !first.isEmpty else { return nil }
         // Giữ nguyên khối tuỳ chọn `,{…}`: nó là phần của "địa chỉ" theo nghĩa của Legado và phải
         // sống tới lúc gọi mạng (`BookChapter.kt:174-176` cũng chỉ tách khi absolutize).
-        let (address, hasOption) = splitOption(raw)
+        let (address, hasOption) = splitOption(first)
         let resolved = LegadoUrlBuilder.resolve(address, baseUrl: baseUrl)
-        return hasOption ? resolved + String(raw.dropFirst(address.count)) : resolved
+        return hasOption ? resolved + String(first.dropFirst(address.count)) : resolved
     }
 
     public func stringList(_ rawRule: String?, on context: LegadoRuleContext) -> [String] {

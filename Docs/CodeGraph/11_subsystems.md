@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Nguon Legado: rule URL lay gia tri dau, jsLib, header script (1.3.312)
+
+* **Rule URL lay gia tri **dau tien**, khong noi ca danh sach.** `a@href` tren mot `<li>` rat hay khop nhieu `<a>` (link truyen, link tac gia, link chuong moi). Noi chung bang `\n` roi resolve sinh URL rac va server tra 404. Legado goi `getString0` cho truong hop `isUrl`; day la ranh gioi de nham nhat cua `getString` vs `getString0`.
+* **`{{page}}` cua Kham Pha hong o tang View, khong o engine.** `PaginatedNovelLoader.canLoadMore` xet `input.contains("{0}")` — `{0}` la cho cam so trang cua **VBook**, con Legado dung `{{page}}`. Hai runtime dung hai quy uoc khac nhau nen dieu kien phai xet ca hai; thieu mot cai thi trang 2 khong bao gio duoc goi va bien noi suy trong nhu khong chay.
+* **`jsLib` nam trong vong doi cua JS runtime, khong phai cua rule.** Nap **mot lan** khi dung `LegadoJSRuntime`, sau `java`/`source` (thu vien co the goi chung) va truoc moi rule. Nguon dat ham dung chung o day roi goi tu rule (`@js:getCover(result)`), nen thieu buoc nap thi rule khong loi cu phap ma chi tra rong — rat kho lan.
+* **`header` co the la script.** `resolvedHeaderMap()` chay `@js:`/`<js>` roi parse JSON; ca bridge `java.ajax/get/post` cung dung ban da giai. Header loi thi tra `[:]` chu khong chan yeu cau.
+
 ## Nguon Legado: ba cho de doan sai, da chot lai (1.3.311)
 
 * **Noi URL tuong doi phai bang chuoi, khong bang `URL(string:relativeTo:)`.** Rule URL cua nguon thuong da mang tu khoa tieng Trung **chua** percent-encode (`/i/sor.aspx?key=洪荒`); `URL(string:)` tra `nil` voi ky tu phi ASCII nen phep noi that bai **am tham** va `bookSourceUrl` khong duoc cong vao. `LegadoUrlBuilder.resolve` gio xet `//`, `/`, `?`, `#`, va duong dan tuong doi theo **thu muc hien tai** cua baseUrl (dung RFC, khong phai theo goc). `makeURL(_:)` la luoi an toan cuoi truoc khi goi mang.

@@ -98,7 +98,8 @@ public enum LegadoJSBridge {
         body: String? = nil
     ) -> LegadoHTTPResponse? {
         let scope = runtime.currentScope
-        var headers = LegadoJSON.headerMap(scope.sourceHeader)
+        // Dùng header đã giải (kể cả khi nguồn khai `header` bằng `@js:`), không phải chuỗi thô.
+        var headers = runtime.resolvedHeaderMap()
         for (name, value) in extraHeaders { headers[name] = value }
 
         var spec = LegadoUrlBuilder.build(

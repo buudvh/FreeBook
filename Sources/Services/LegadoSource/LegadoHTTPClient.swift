@@ -94,10 +94,14 @@ public final class LegadoHTTPClient: @unchecked Sendable {
         }
 
         guard (200..<400).contains(statusCode) else {
+            AppLogger.shared.log("❌ [LegadoHTTP] HTTP \(statusCode) ← \(spec.method) \(spec.url.prefix(220))")
             throw ClientError.httpStatus(statusCode, spec.url)
         }
 
         let body = LegadoTextEncoding.decode(data, declaredCharset: spec.charset)
+        AppLogger.shared.log(
+            "✅ [LegadoHTTP] \(statusCode) \(data.count)B → \(body.count) ký tự ← \(spec.url.prefix(180))"
+        )
         return LegadoHTTPResponse(
             statusCode: statusCode,
             body: body,

@@ -52,17 +52,23 @@ public final class LegadoSourceRuntime: @unchecked Sendable {
     ) -> LegadoRequestSpec {
         let evaluator = session.evaluator
         let jsRuntime = session.jsRuntime
-        return LegadoUrlBuilder.build(
+        let spec = LegadoUrlBuilder.build(
             rule: rule,
             baseUrl: baseUrl,
             key: key,
             page: page,
-            sourceHeaders: source.headerMap,
+            sourceHeaders: jsRuntime.resolvedHeaderMap(),
             interpolate: { text in evaluator.interpolate(text, on: nil) },
             evaluateJS: { code, current in
                 jsRuntime.evaluateToString(code, result: current)
             }
         )
+        AppLogger.shared.log(
+            "🌐 [Legado][\(source.bookSourceName)] \(spec.method) \(spec.url.prefix(220))"
+                + (spec.body != nil ? " body=\(spec.body?.count ?? 0)B" : "")
+                + (spec.charset != nil ? " charset=\(spec.charset ?? "")" : "")
+        )
+        return spec
     }
 
     // MARK: - Tìm kiếm
@@ -212,6 +218,11 @@ public final class LegadoSourceRuntime: @unchecked Sendable {
         if rule.isReversed {
             results.reverse()
         }
+        AppLogger.shared.log(
+            "📚 [Legado][\(source.bookSourceName)] danh sách: \(itemContexts.count) phần tử → "
+                + "\(results.count) truyện"
+                + (results.isEmpty ? " — kiểm tra rule bookList/name/bookUrl" : "")
+        )
         return results
     }
 

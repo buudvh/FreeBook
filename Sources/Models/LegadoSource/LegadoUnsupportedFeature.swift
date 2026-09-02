@@ -8,7 +8,6 @@ public enum LegadoUnsupportedFeature: String, CaseIterable {
     case webViewRule = "webView"
     case webJsRule = "@webjs:"
     case login = "đăng nhập"
-    case jsLib = "jsLib"
     case fontDecode = "queryTTF/replaceFont"
     case imageDecode = "imageDecode"
     case payAction = "payAction"
@@ -24,8 +23,6 @@ public enum LegadoUnsupportedFeature: String, CaseIterable {
             return "Nguồn dùng rule `@webjs:` chạy trong WebView."
         case .login:
             return "Nguồn yêu cầu đăng nhập (`loginUrl`/`loginUi`/`loginCheckJs`)."
-        case .jsLib:
-            return "Nguồn nạp thư viện JS dùng chung (`jsLib`)."
         case .fontDecode:
             return "Nguồn làm rối chữ bằng font riêng, cần `queryTTF`/`replaceFont`."
         case .imageDecode:
@@ -49,7 +46,6 @@ public enum LegadoUnsupportedFeature: String, CaseIterable {
             || !(source.loginCheckJs ?? "").isEmpty {
             found.insert(.login)
         }
-        if !(source.jsLib ?? "").isEmpty { found.insert(.jsLib) }
         if !(source.ruleContent.imageDecode ?? "").isEmpty { found.insert(.imageDecode) }
         if !(source.ruleContent.payAction ?? "").isEmpty { found.insert(.payAction) }
 

@@ -28,6 +28,32 @@ public final class LegadoJSRuntime {
         installScopeObjects()
     }
 
+    /// Header hiệu lực của nguồn: nếu `header` là `@js:`/`<js>` thì chạy để lấy JSON.
+    ///
+    /// Legado cho phép `header` là script (`BaseSource.getHeaderMap`), thường dùng để sinh token hay
+    /// User-Agent theo thời điểm. Trả `[:]` khi script lỗi — không chặn cả yêu cầu vì header.
+    public func resolvedHeaderMap() -> [String: String] {
+        guard let raw = scope.sourceHeader?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !raw.isEmpty else { return [:] }
+        let lower = raw.lowercased()
+        guard lower.hasPrefix("@js:") || lower.hasPrefix("<js>") else {
+            return LegadoJSON.headerMap(raw)
+        }
+        let code: String
+        if lower.hasPrefix("@js:") {
+            code = String(raw.dropFirst(4))
+        } else {
+            let body = raw.dropFirst(4)
+            code = body.range(of: "</js>", options: .caseInsensitive)
+                .map { String(body[body.startIndex..<$0.lowerBound]) } ?? String(body)
+        }
+        guard let json = evaluateToString(code, result: "") else {
+            AppLogger.shared.log("⚠️ [LegadoJS] header script của \(scope.sourceName) không trả giá trị")
+            return [:]
+        }
+        return LegadoJSON.headerMap(json)
+    }
+
     // MARK: - Chạy script
 
     /// Chạy script với biến `result` là `input`. Trả `nil` khi script lỗi.
@@ -93,6 +119,24 @@ public final class LegadoJSRuntime {
         }
         LegadoJSBridge.install(on: context, runtime: self)
         installScopeObjects()
+        installJSLib()
+    }
+
+    /// Nạp `jsLib` của nguồn — thư viện hàm dùng chung mà rule gọi tới (`@js:getCover(result)`).
+    ///
+    /// Phải chạy **sau** khi cài `java`/`source` (thư viện có thể dùng chúng) và **trước** mọi rule.
+    /// Thiếu bước này thì rule nào gọi hàm của thư viện đều nổ `ReferenceError` và trả rỗng.
+    private func installJSLib() {
+        guard let library = scope.jsLib?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !library.isEmpty else { return }
+        context.exception = nil
+        context.evaluateScript(library)
+        if let exception = context.exception {
+            AppLogger.shared.log("❌ [LegadoJS] jsLib của \(scope.sourceName) lỗi: \(exception.toString() ?? "?")")
+            context.exception = nil
+        } else {
+            AppLogger.shared.log("📚 [LegadoJS] Đã nạp jsLib của \(scope.sourceName) (\(library.count) ký tự)")
+        }
     }
 
     private func installScopeObjects() {

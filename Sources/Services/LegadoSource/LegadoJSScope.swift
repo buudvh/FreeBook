@@ -9,7 +9,9 @@ public struct LegadoJSScope {
     public let sourceUrl: String
     public let sourceName: String
     public let sourceComment: String?
-    public let sourceHeader: String?
+    public var sourceHeader: String?
+    /// `jsLib` của nguồn — thư viện hàm dùng chung, phải nạp vào context **trước** khi chạy rule.
+    public let jsLib: String?
     public let baseUrl: String
     public let charset: String?
 
@@ -33,6 +35,7 @@ public struct LegadoJSScope {
         sourceName: String,
         sourceComment: String? = nil,
         sourceHeader: String? = nil,
+        jsLib: String? = nil,
         baseUrl: String,
         charset: String? = nil
     ) {
@@ -40,6 +43,7 @@ public struct LegadoJSScope {
         self.sourceName = sourceName
         self.sourceComment = sourceComment
         self.sourceHeader = sourceHeader
+        self.jsLib = jsLib
         self.baseUrl = baseUrl
         self.charset = charset
     }
@@ -54,6 +58,7 @@ public struct LegadoJSScope {
             sourceName: source.bookSourceName,
             sourceComment: source.bookSourceComment,
             sourceHeader: source.header,
+            jsLib: source.jsLib,
             baseUrl: baseUrl ?? source.bookSourceUrl,
             charset: charset
         )

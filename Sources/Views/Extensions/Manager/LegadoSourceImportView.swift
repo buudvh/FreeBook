@@ -87,8 +87,8 @@ struct LegadoSourceImportView: View {
 
                 Section {
                     Text("""
-                    Chỉ nhận nguồn truyện chữ (bookSourceType = 0). Nguồn cần WebView, đăng nhập, \
-                    jsLib hay giải mã font sẽ được nhập nhưng báo cảnh báo và có thể không đọc được.
+                    Chỉ nhận nguồn truyện chữ (bookSourceType = 0). Nguồn cần WebView, đăng nhập \
+                    hay giải mã font sẽ được nhập nhưng báo cảnh báo và có thể không đọc được.
                     """)
                     .font(.caption)
                     .foregroundStyle(.secondary)

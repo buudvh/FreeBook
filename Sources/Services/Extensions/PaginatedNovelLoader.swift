@@ -39,10 +39,18 @@ final class PaginatedNovelLoader: ObservableObject {
         self.configJson = configJson
     }
 
+    /// Mục Khám Phá có chỗ cắm số trang hay không.
+    ///
+    /// Hai runtime dùng **hai chỗ giữ khác nhau**: extension VBook cắm `{0}` vào `input`, còn nguồn
+    /// Legado dùng `{{page}}` trong URL của mục. Trước đây chỉ xét `{0}` nên mọi mục Legado luôn
+    /// `canLoadMore == false` — trang 2 không bao giờ được gọi, và `{{page}}` trông như không hoạt động.
+    private var inputSupportsPaging: Bool {
+        input.contains("{0}") || input.contains("{{page}}")
+    }
+
     func loadInitial() async {
         await load(page: 1)
     }
-
     func loadMore() async {
         guard !isLoadingMore, !isLoading else { return }
         await load(page: currentPage + 1)
@@ -85,7 +93,7 @@ final class PaginatedNovelLoader: ObservableObject {
 
             nextPageUrl = nextPage
             currentPage = page
-            canLoadMore = results.count >= 10 && (nextPage != nil || input.contains("{0}"))
+            canLoadMore = results.count >= 10 && (nextPage != nil || inputSupportsPaging)
             isLoading = false
             isLoadingMore = false
             retryCount = 0
