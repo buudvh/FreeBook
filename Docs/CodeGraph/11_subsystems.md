@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Mot luat duy nhat cho so Han viet dinh nhau (1.3.314)
+
+* **Bo hai luat, con mot.** `approximateRange` (day hai chu so → khoang "4 den 5") va `enumeratedDigits` (day tu ba chu so → danh sach) la hai cach xu ly **cung mot hien tuong**, nen da gop thanh `enumeratedNumbers`: moi day chu so Han tran lien nhau deu ra **danh sach ngan bang `, `**. Doi hanh vi so voi 1.3.301: `四五` gio la `4, 5`.
+* **Cach tinh gia tri khong phu thuoc vi tri cua bac.** Thay ca day bang **mot** chu so roi doc chuoi nhu mot so thuong, nen bac dung truoc (`十三四` → 13, 14), dung sau (`二三十` → 20, 30) hay ca hai phia (`三百四五十` → 340, 350) deu dung — khong can nhanh rieng cho tung dang.
+* **Ba cua hep giu so ghep that chinh xac**: chi **mot** day (chuoi hai day roi nhu `二三十四五` doc nhu mot so vi khong suy duoc cach ghep), **khong** chua `零`/`〇` (`二零二五` = 2025 doc theo vi tri), va phai tang **dung mot** moi buoc (`五三七` = 537 la ma so). Vi vay `三百二十级` van ra `320 cấp` — no khong co day chu so tran nao dai >= 2.
+
 ## Ranh gioi sau nam loi doc/dich/TTS (1.3.313)
 
 * **Viet hoa thuoc `postProcessText`, khong thuoc Reader.** Reader chi hien chuoi da qua `TranslateUtils`; muon doi luat viet hoa thi sua lop ky tu "mo cau moi" o day. `-` da bi bo khoi lop do: no la gach noi tu ghep va gach dau dong hoi thoai.

@@ -52,18 +52,15 @@ public enum QuickTranslationNumberFormatter {
 
     /// `<n>`: số Hán → số Ả Rập. Chuỗi toàn chữ số ASCII/full-width được trả nguyên văn (giữ cả `0` dẫn đầu).
     ///
-    /// Trước khi coi chuỗi là **một** số, kiểm tra dạng khoảng xấp xỉ (`四五` = "4 đến 5") — xem
-    /// `approximateRange`. Tiếng Trung không bao giờ viết 45 là `四五` (phải là `四十五`), nên hai chữ
-    /// số Hán trần đứng liền nhau luôn là idiom "từ mấy đến mấy", không phải số ghép.
+    /// Trước khi coi chuỗi là **một** số, kiểm tra dạng **nhiều số viết dính nhau** — xem
+    /// `enumeratedNumbers`. Tiếng Trung không bao giờ viết 23 là `二三` (phải là `二十三`), nên chữ số
+    /// Hán trần đứng liền nhau là các số riêng, không phải một số ghép.
     public static func renderNumeral(_ value: String) -> String {
         if !value.isEmpty, value.allSatisfy({ ($0.isASCII || "０１２３４５６７８９".contains($0)) && $0.isNumber }) {
             return normalizeFullWidth(value)
         }
-        if let range = approximateRange(value) {
-            return "\(range.low) đến \(range.high)"
-        }
-        if let list = enumeratedDigits(value) {
-            return list
+        if let numbers = enumeratedNumbers(value) {
+            return numbers.map(String.init).joined(separator: ", ")
         }
         if !value.contains(where: { smallMagnitudes[$0] != nil || largeMagnitudes[$0] != nil }) {
             return renderDigitwise(value)
@@ -75,48 +72,33 @@ public enum QuickTranslationNumberFormatter {
     /// Chỉ chữ số Hán **trần** — không gồm bậc `十百千万…`, không gồm `0-9` ASCII/full-width.
     private static let bareHanDigits: Set<Character> = Set("〇零一二两兩三四五六七八九")
 
-    /// Dãy **ba chữ số Hán trần trở lên, tăng liền bậc** ⇒ một **danh sách** số, không phải một số ghép.
+    /// Nhận dạng **nhiều số viết dính nhau** và trả về từng số.
     ///
-    /// Cùng tiền đề với `approximateRange`: tiếng Trung không viết 123 là `一二三` (phải là
-    /// `一百二十三`), nên chuỗi đó là các số viết dính nhau. Với **hai** chữ số nó là idiom khoảng
-    /// ("四五" = 4 đến 5, xử lý ở `approximateRange`); từ **ba** chữ số trở lên nó là liệt kê:
-    /// `一二三级` → `1, 2, 3 cấp`.
+    /// Điều kiện: chuỗi có đúng **một** dãy gồm **từ hai** chữ số Hán trần liền nhau, và các chữ số đó
+    /// tăng liền bậc (`d`, `d+1`, `d+2`…). Giá trị từng số tính bằng cách thay cả dãy đó lần lượt bằng
+    /// **một** chữ số rồi đọc chuỗi như một số thường — nhờ vậy bậc đứng trước hay sau đều đúng:
     ///
-    /// Ba cửa hẹp giữ hành vi cũ cho mọi thứ khác:
-    /// * Toàn chuỗi phải là chữ số Hán trần — có bậc (`一百二十三`) hay digit ASCII thì đi đường cũ.
-    /// * **Không** chứa `零`/`〇` — `二零二五` là năm đọc theo từng chữ số, không phải liệt kê.
-    /// * Phải tăng **đúng một** mỗi bước — `五三七` là mã số, giữ nguyên `537`.
-    private static func enumeratedDigits(_ value: String) -> String? {
-        let chars = Array(value)
-        guard chars.count >= 3, chars.allSatisfy({ bareHanDigits.contains($0) }) else { return nil }
-        guard !chars.contains("零"), !chars.contains("〇") else { return nil }
-
-        var digits: [Int] = []
-        for char in chars {
-            guard let digit = digitMap[char] else { return nil }
-            if let last = digits.last, digit != last + 1 { return nil }
-            digits.append(digit)
-        }
-        return digits.map(String.init).joined(separator: ", ")
-    }
-
-    /// Nhận dạng khoảng xấp xỉ kiểu Hán: đúng **một** dãy gồm **đúng hai** chữ số Hán trần liền nhau
-    /// và hai chữ số đó tăng liền bậc (`d`, `d+1`). Giá trị hai đầu tính bằng cách thay dãy đó lần lượt
-    /// bằng từng chữ số rồi đọc như một số thường, nên mọi vị trí của dãy đều đúng:
+    /// * `二三` → 2, 3            (không có bậc)
+    /// * `一二三` → 1, 2, 3
+    /// * `十三四` → 13, 14        (bậc đứng trước: 十三四岁 = 13, 14 tuổi)
+    /// * `三十四五` → 34, 35
+    /// * `二三十` → 20, 30        (bậc đứng sau)
+    /// * `三四百` → 300, 400
+    /// * `三百四五十` → 340, 350  (bậc cả hai phía)
     ///
-    /// * `四五` → 4 … 5        (dãy ở giữa chuỗi rỗng)
-    /// * `十七八` → 17 … 18    (dãy ở cuối, có bậc phía trước)
-    /// * `三十四五` → 34 … 35
-    /// * `二三十` → 20 … 30    (dãy ở đầu, có bậc phía sau)
-    /// * `三四百` → 300 … 400
-    ///
-    /// Trả `nil` cho mọi thứ khác — đặc biệt là dãy dài hơn hai (`二零二五` = 2025 đọc từng chữ số) và
-    /// dãy không tăng liền bậc (`零五`, `一〇`) — để hành vi cũ giữ nguyên.
-    private static func approximateRange(_ value: String) -> (low: Int, high: Int)? {
+    /// Trả `nil` — tức đọc như **một** số — cho mọi trường hợp còn lại. Ba cửa hẹp:
+    /// * Chỉ **một** dãy. `二三四五六七` kiểu mã số nhiều đoạn không rơi vào đây vì vẫn là một dãy, nhưng
+    ///   chuỗi có hai dãy rời (`二三十四五`) thì bỏ, vì không biết ghép theo cụm nào.
+    /// * **Không** chứa `零`/`〇`: `二零二五` là năm đọc theo từng chữ số (2025), không phải liệt kê.
+    /// * Phải tăng **đúng một** mỗi bước: `五三七` là mã số nên giữ `537`, và `三百二十` không có dãy nào
+    ///   dài ≥ 2 nên vẫn ra đúng `320`.
+    private static func enumeratedNumbers(_ value: String) -> [Int]? {
         let chars = Array(value)
         guard chars.count >= 2 else { return nil }
+        guard !chars.contains("零"), !chars.contains("〇") else { return nil }
 
         var runStart: Int? = nil
+        var runLength = 0
         var index = 0
         while index < chars.count {
             guard bareHanDigits.contains(chars[index]) else {
@@ -129,24 +111,32 @@ public enum QuickTranslationNumberFormatter {
             }
             let length = end - index
             if length >= 2 {
-                // Dãy thứ hai, hoặc dãy dài hơn 2 ⇒ không phải idiom khoảng: bỏ qua cả chuỗi.
-                if runStart != nil || length != 2 { return nil }
+                // Dãy thứ hai ⇒ không biết ghép bậc theo cụm nào, bỏ cả chuỗi.
+                if runStart != nil { return nil }
                 runStart = index
+                runLength = length
             }
             index = end
         }
 
-        guard let start = runStart,
-              let first = digitMap[chars[start]],
-              let second = digitMap[chars[start + 1]],
-              second == first + 1 else { return nil }
+        guard let start = runStart else { return nil }
+
+        var digits: [Int] = []
+        for offset in 0..<runLength {
+            guard let digit = digitMap[chars[start + offset]] else { return nil }
+            if let last = digits.last, digit != last + 1 { return nil }
+            digits.append(digit)
+        }
 
         let prefix = String(chars[0..<start])
-        let suffix = String(chars[(start + 2)...])
-        guard let low = parseChineseNumeral(prefix + String(chars[start]) + suffix),
-              let high = parseChineseNumeral(prefix + String(chars[start + 1]) + suffix),
-              low < high else { return nil }
-        return (low, high)
+        let suffix = String(chars[(start + runLength)...])
+        var numbers: [Int] = []
+        for char in chars[start..<(start + runLength)] {
+            guard let parsed = parseChineseNumeral(prefix + String(char) + suffix) else { return nil }
+            if let last = numbers.last, parsed <= last { return nil }
+            numbers.append(parsed)
+        }
+        return numbers
     }
 
     /// Đọc một chuỗi số Hán thành `Int`; `nil` khi tràn. Cộng dồn theo *section* nên `一万亿` ra
