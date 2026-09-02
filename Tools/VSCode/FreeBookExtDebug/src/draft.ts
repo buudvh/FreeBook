@@ -15,12 +15,98 @@ export interface DraftBundle {
   contents: Map<string, Uint8Array>;
 }
 
+export interface WorkspaceExtensionInfo {
+  folderUri: vscode.Uri;
+  folderPath: string;
+  folderName: string;
+  packageId: string;
+  name: string;
+  version: string;
+  author?: string;
+  description?: string;
+  scripts: string[];
+}
+
 function sha256(data: Uint8Array): string {
   return createHash('sha256').update(data).digest('hex');
 }
 
 /**
- * Dựng snapshot từ workspace bằng `workspace.fs` (không giả định filesystem local).
+ * Đọc thông tin extension từ một thư mục bất kỳ chứa `plugin.json`.
+ */
+export async function readExtensionFromFolder(folderUri: vscode.Uri): Promise<WorkspaceExtensionInfo | undefined> {
+  const pluginUri = vscode.Uri.joinPath(folderUri, 'plugin.json');
+  try {
+    const raw = await vscode.workspace.fs.readFile(pluginUri);
+    const json = JSON.parse(Buffer.from(raw).toString('utf-8'));
+    const metadata = json.metadata || {};
+    const folderPath = folderUri.fsPath;
+    const folderName = folderUri.path.split('/').filter(Boolean).pop() ?? 'extension';
+
+    const scriptKeys = new Set<string>();
+    if (json.script && typeof json.script === 'object') {
+      for (const k of Object.keys(json.script)) {
+        scriptKeys.add(k);
+      }
+    }
+    for (const relativeDir of ['', 'src']) {
+      const dirUri = relativeDir ? vscode.Uri.joinPath(folderUri, relativeDir) : folderUri;
+      try {
+        const items = await vscode.workspace.fs.readDirectory(dirUri);
+        for (const [name, type] of items) {
+          if (type === vscode.FileType.File && name.endsWith('.js')) {
+            scriptKeys.add(name.replace(/\.js$/, ''));
+          }
+        }
+      } catch {}
+    }
+
+    const packageId = String(metadata.packageId || json.packageId || metadata.name || json.name || folderName);
+    const name = String(metadata.name || json.name || folderName);
+    const version = String(metadata.version || json.version || '1.0');
+    const author = metadata.author || json.author;
+    const description = metadata.description || json.description;
+
+    return {
+      folderUri,
+      folderPath,
+      folderName,
+      packageId,
+      name,
+      version,
+      author,
+      description,
+      scripts: Array.from(scriptKeys)
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Tự động tìm tất cả các extension nằm trong Workspace.
+ */
+export async function discoverWorkspaceExtensions(): Promise<WorkspaceExtensionInfo[]> {
+  const results: WorkspaceExtensionInfo[] = [];
+  const foundUris = await vscode.workspace.findFiles('**/plugin.json', '**/node_modules/**', 50);
+
+  for (const uri of foundUris) {
+    const folderUri = vscode.Uri.joinPath(uri, '..');
+    const info = await readExtensionFromFolder(folderUri);
+    if (info) {
+      // Tránh trùng lặp
+      if (!results.some((r) => r.folderUri.toString() === info.folderUri.toString())) {
+        results.push(info);
+      }
+    }
+  }
+
+  results.sort((a, b) => a.name.localeCompare(b.name));
+  return results;
+}
+
+/**
+ * Dựng snapshot từ thư mục extension cụ thể bằng `workspace.fs` (không giả định filesystem local).
  *
  * Gom `plugin.json` + mọi `.js` ở gốc và trong `src/`. Cố ý **không** cố suy ra đúng tập phụ thuộc:
  * `load(...)` có thể động, nên gửi cả bộ `.js` rẻ hơn và không bao giờ thiếu file — app validate lại
@@ -35,7 +121,7 @@ export async function buildDraftBundle(
   try {
     pluginBytes = await vscode.workspace.fs.readFile(pluginUri);
   } catch {
-    throw new Error('Không đọc được plugin.json ở gốc thư mục extension');
+    throw new Error(`Không đọc được plugin.json ở gốc thư mục: ${folder.fsPath}`);
   }
 
   const contents = new Map<string, Uint8Array>();
@@ -76,8 +162,6 @@ export async function buildDraftBundle(
     throw new Error(`Snapshot ${total} byte, vượt trần ${MAX_TOTAL_BYTES}`);
   }
 
-  // Revision là hash của (path + hash nội dung) đã sắp — đổi một byte ở bất kỳ file nào là đổi revision,
-  // và cùng nội dung luôn cho cùng revision nên stage lại không tạo bản trùng lặp.
   const fingerprint = createHash('sha256');
   for (const entry of entries) {
     fingerprint.update(`${entry.relativePath}:${entry.sha256}\n`);
@@ -89,10 +173,6 @@ export async function buildDraftBundle(
 
 /**
  * Nạp snapshot lên app: `draft.stage` → nhiều `draft.chunk` → `draft.finish`.
- *
- * Trình tự này là hợp đồng: server chỉ nhận chunk cho file **đã khai** trong manifest, và `run.start`
- * với `sourceMode: 'draft'` chỉ chấp nhận revision đã qua `draft.finish` (tức đã khớp checksum và
- * validate cú pháp/`load(...)`).
  */
 export async function stageDraft(
   client: ExtDebugClient,

@@ -19,8 +19,26 @@
     }
   },
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "freebook-ext-debug",
+          "title": "FreeBook Debug",
+          "icon": "media/freebook-debug.svg"
+        }
+      ]
+    },
+    "views": {
+      "freebook-ext-debug": [
+        {
+          "type": "webview",
+          "id": "freebook.extdebug.sidebar",
+          "name": "Extension Runner"
+        }
+      ]
+    },
     "commands": [
-      { "command": "freebook.extdebug.pair", "title": "FreeBook: Pair with App", "category": "FreeBook" },
+      { "command": "freebook.extdebug.connect", "title": "FreeBook: Connect to App", "category": "FreeBook" },
       { "command": "freebook.extdebug.selectExtension", "title": "FreeBook: Select Extension", "category": "FreeBook" },
       { "command": "freebook.extdebug.runCurrent", "title": "FreeBook: Run Current execute", "category": "FreeBook" },
       { "command": "freebook.extdebug.runScript", "title": "FreeBook: Run Script…", "category": "FreeBook" },
@@ -28,7 +46,8 @@
       { "command": "freebook.extdebug.stageDraft", "title": "FreeBook: Stage Workspace Draft", "category": "FreeBook" },
       { "command": "freebook.extdebug.installDraft", "title": "FreeBook: Install Staged Draft (needs device approval)", "category": "FreeBook" },
       { "command": "freebook.extdebug.rollback", "title": "FreeBook: Rollback Installed Extension", "category": "FreeBook" },
-      { "command": "freebook.extdebug.cancelRun", "title": "FreeBook: Cancel Current Run", "category": "FreeBook" },
+      { "command": "freebook.extdebug.browseFolder", "title": "FreeBook: Browse Extension Folder…", "category": "FreeBook" },
+      { "command": "freebook.extdebug.refreshWorkspace", "title": "FreeBook: Refresh Workspace Extensions", "category": "FreeBook" },
       { "command": "freebook.extdebug.openTrace", "title": "FreeBook: Open Trace", "category": "FreeBook" }
     ],
     "configuration": {

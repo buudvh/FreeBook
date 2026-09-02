@@ -53,6 +53,14 @@ public final class ExtensionDebugSession: ExtensionDebugEventSink, @unchecked Se
         nextSequence += 1
         lock.unlock()
 
+        let sanitizedMessage: String
+        switch category {
+        case .responseValidated, .responseError:
+            sanitizedMessage = ExtensionDebugRedactor.responsePayload(message)
+        default:
+            sanitizedMessage = ExtensionDebugRedactor.message(message)
+        }
+
         let event = ExtensionDebugEvent(
             runId: runId,
             sequence: sequence,
@@ -61,7 +69,7 @@ public final class ExtensionDebugSession: ExtensionDebugEventSink, @unchecked Se
             sourceRevision: sourceRevision,
             level: level,
             category: category,
-            message: ExtensionDebugRedactor.message(message),
+            message: sanitizedMessage,
             location: location,
             details: details
         )

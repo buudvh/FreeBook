@@ -5,8 +5,7 @@ import {
   Envelope,
   Payload,
   PROTOCOL_VERSION,
-  ServerTarget,
-  SUBPROTOCOL
+  ServerTarget
 } from './protocol';
 
 /**
@@ -34,7 +33,7 @@ export class ExtDebugClient {
   async connect(target: ServerTarget, timeoutMs = 8000): Promise<void> {
     await this.disconnect();
     const url = `ws://${target.host}:${target.port}`;
-    const socket = new WebSocket(url, [SUBPROTOCOL], { handshakeTimeout: timeoutMs });
+    const socket = new WebSocket(url, { handshakeTimeout: timeoutMs });
     this.socket = socket;
 
     await new Promise<void>((resolve, reject) => {

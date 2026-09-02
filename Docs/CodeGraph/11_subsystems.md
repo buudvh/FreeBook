@@ -15,6 +15,16 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Viet hoa sau dau hai cham va tien to thoai (1.3.322)
+
+* **`TranslateUtils.postProcessText` ho tro dau hai cham (`:`, `：`) va gach dau dong (`-`, `—`, `–`).** Biểu thức chính quy `capitalizeRegex` mở rộng `[.!?:]+` và tiền tố mở câu để viết hoa chính xác chữ cái đầu của câu thoại/trích dẫn đặt sau dấu hai chấm hoặc gạch đầu dòng, kể cả khi có các loại dấu ngoặc bọc ngoài.
+
+## Debug Extension: payload Response.success/error day du va Beautified JSON (1.3.321)
+
+* **`ExtensionDebugRunner` tra JSON day du qua `manager.stringify(clean)` thay vi `compactRepresentation`.** Truoc day `compactRepresentation` tom tat moi mang/object thanh `[Array: N items]` / `[Object: N keys]`, khien nguoi phat trien extension khong xem duoc du lieu tra ve tu `Response.success`.
+* **`ExtensionDebugRedactor` bo sung `responsePayload(_:)` voi tran 128 KB.** Khong con ap dung `collapseWhitespace` lam xao tron JSON hoac cat o 600 ky tu cua `message(_:)`. `ExtensionDebugSession` dinh tuyen `.responseValidated` va `.responseError` qua ham nay.
+* **Client VS Code format Beautified JSON (`null, 2`)**: `handleEvent` tren `extension.ts` va `sidebarView.ts` parse JSON de in ra dep tren ca Output Channel va Live Trace cua Sidebar UI.
+
 ## Nap truoc NghiTTS: doan rong khong con cat ca luot (1.3.320)
 
 * **Ranh gioi moi**: `nghiRefillCandidate(currentIndex:)` la cho **duy nhat** quyet dinh "nap doan nao tiep theo", con `scheduleNghiRefill` chi lo dung tac vu. Truoc day hai viec tron vao nhau nen mot doan rong lam ca ham thoat som.

@@ -13,6 +13,7 @@ public enum ExtensionDebugRedactor {
     public static let maxMessageLength = 600
     public static let maxStackLength = 1200
     public static let maxURLLength = 300
+    public static let maxResponsePayloadLength = 128 * 1024
 
     /// Giữ lại tên khoá query, thay giá trị bằng `…`. Chuỗi không phân tích được thì cắt ở `?`.
     public static func url(_ raw: String) -> String {
@@ -33,6 +34,11 @@ public enum ExtensionDebugRedactor {
 
     public static func message(_ raw: String) -> String {
         truncate(collapseWhitespace(raw), limit: maxMessageLength)
+    }
+
+    /// Payload của Response.success / Response.error: giữ nguyên định dạng JSON và ngắt dòng, giới hạn 128 KB.
+    public static func responsePayload(_ raw: String) -> String {
+        truncate(raw, limit: maxResponsePayloadLength)
     }
 
     /// Stack của JavaScriptCore có thể chứa path tuyệt đối trong sandbox — bỏ phần thư mục, giữ tên

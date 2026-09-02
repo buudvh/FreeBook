@@ -372,7 +372,6 @@ def write_manifest(manifest: dict[str, Any], now: str, commit: str) -> None:
     MANIFEST_PATH.write_text(
         json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
-        newline="\n",
     )
 
 

@@ -1,883 +1,643 @@
-import { randomBytes } from "node:crypto";
-import * as vscode from "vscode";
+import * as vscode from 'vscode';
+import { DebugEvent, ExtensionInfo } from './protocol';
+import { WorkspaceExtensionInfo } from './draft';
 
-/** The two destinations supported by the debug protocol. */
-export type SidebarMode = "draft" | "installed";
-
-/** A root that the controller has discovered or remembers for this workspace. */
-export interface SidebarRoot {
-    /** Opaque controller-owned id. It is never interpreted by the webview. */
-    readonly id: string;
-    readonly label: string;
-    readonly description?: string;
-}
-
-/** A text field rendered below the selected execute(...) script. */
-export interface SidebarField {
-    /** Opaque id returned unchanged in the `run` message. */
-    readonly id: string;
-    readonly label: string;
-    readonly kind: "text" | "url" | "number" | "json" | "textarea";
-    readonly placeholder?: string;
-    readonly hint?: string;
-    readonly value?: string;
-    readonly required?: boolean;
-    readonly min?: number;
-    readonly rows?: number;
-}
-
-/** A script available in the selected VBook extension. */
-export interface SidebarScript {
-    /** Usually the extension-relative path, but owned by the controller. */
-    readonly id: string;
-    readonly label: string;
-    readonly description?: string;
-    readonly manifestKey?: string;
-    /** True for a saved JS file that is not declared in plugin.json. */
-    readonly draftOnly?: boolean;
-    /** Present when protocol v1 cannot faithfully invoke this app-specific script. */
-    readonly disabled?: boolean;
-    readonly disabledReason?: string;
-    readonly fields: readonly SidebarField[];
-}
-
-export interface SidebarConnection {
-    readonly kind: "disconnected" | "mock" | "app";
-    readonly label: string;
-    readonly detail?: string;
-}
-
-/**
- * The complete, JSON-only presentation model for the sidebar. The controller
- * owns this state; the webview may only request changes through SidebarMessage.
- */
 export interface SidebarState {
-    readonly roots: readonly SidebarRoot[];
-    readonly selectedRootId?: string;
-    readonly scripts: readonly SidebarScript[];
-    readonly selectedScriptId?: string;
-    readonly mode: SidebarMode;
-    /** Installed is disabled unless the app lists an identical package ID. */
-    readonly installedAvailable: boolean;
-    readonly isRunning: boolean;
-    readonly connection?: SidebarConnection;
-    /** Short, already-redacted status copy for the compact status row. */
-    readonly status?: string;
+  isConnected: boolean;
+  targetAddress: string;
+  clientName?: string;
+  appVersion?: string;
+  appExtensions: ExtensionInfo[];
+  workspaceExtensions: WorkspaceExtensionInfo[];
+  selectedKey?: string; // "ws:<folderUriStr>" | "app:<packageId>"
+  selectedPackageId?: string;
+  selectedEntrypoint: string;
+  mode: 'installed' | 'draft';
+  isRunning: boolean;
+  currentRunId?: string;
+  stagedRevision?: string;
+  installedRevision?: string;
+  statusMessage?: string;
 }
 
-/**
- * Messages emitted by the trusted sidebar UI. All values are revalidated by
- * the provider before the controller sees them; the controller must still
- * enforce its own filesystem and protocol invariants.
- */
-export type SidebarMessage =
-    | { readonly type: "ready" }
-    | { readonly type: "browseRoot" }
-    | { readonly type: "selectRoot"; readonly rootId: string }
-    | { readonly type: "selectScript"; readonly scriptId: string }
-    | { readonly type: "selectMode"; readonly mode: SidebarMode }
-    | {
-        readonly type: "run";
-        readonly rootId?: string;
-        readonly scriptId?: string;
-        readonly mode: SidebarMode;
-        readonly values: Readonly<Record<string, string>>;
-    }
-    | { readonly type: "pair" }
-    | { readonly type: "useMock" }
-    | { readonly type: "cancel" }
-    | { readonly type: "openTrace" };
+export interface SidebarActions {
+  onConnect: (address: string) => Promise<void>;
+  onDisconnect: () => Promise<void>;
+  onBrowseFolder: () => Promise<void>;
+  onRefreshWorkspace: () => Promise<void>;
+  onSelectExtension: (selection: { type: 'workspace' | 'app'; packageId: string; folderUriStr?: string }) => void;
+  onRun: (entrypoint: string, mode: 'installed' | 'draft', params: Record<string, string>) => Promise<void>;
+  onCancelRun: () => Promise<void>;
+  onStageDraft: () => Promise<void>;
+  onInstallDraft: () => Promise<void>;
+  onRollback: () => Promise<void>;
+  onOpenTrace: () => void;
+}
 
-type SidebarHostMessage =
-    | { readonly type: "state"; readonly state: SidebarState }
-    | { readonly type: "trace"; readonly line: string }
-    | { readonly type: "traceReset"; readonly lines: readonly string[] }
-    | { readonly type: "notice"; readonly message: string };
+export class SidebarViewProvider implements vscode.WebviewViewProvider {
+  public static readonly viewType = 'freebook.extdebug.sidebar';
 
-const MAX_TRACE_LINES = 160;
-const MAX_TRACE_LINE_LENGTH = 16_384;
+  private view?: vscode.WebviewView;
+  private traceBuffer: string[] = [];
+  private readonly maxTraceLines = 100;
 
-/**
- * Compact, CSP-restricted sidebar UI. It intentionally owns no debug state or
- * protocol logic: all operations are sent to the supplied async controller.
- */
-export class FreeBookDebugSidebarProvider implements vscode.WebviewViewProvider, vscode.Disposable {
-    public static readonly viewType = "freebookExtDebug.sidebar";
+  constructor(
+    private readonly extensionUri: vscode.Uri,
+    private state: SidebarState,
+    private readonly actions: SidebarActions
+  ) {}
 
-    private view: vscode.WebviewView | undefined;
-    private state: SidebarState | undefined;
-    private readonly traceLines: string[] = [];
-    private viewDisposables: vscode.Disposable[] = [];
-    private isDisposed = false;
+  public resolveWebviewView(
+    webviewView: vscode.WebviewView,
+    _context: vscode.WebviewViewResolveContext,
+    _token: vscode.CancellationToken
+  ): void {
+    this.view = webviewView;
 
-    public constructor(
-        private readonly handleMessage: (message: SidebarMessage) => Promise<void>,
-    ) {}
+    webviewView.webview.options = {
+      enableScripts: true,
+      localResourceRoots: [this.extensionUri]
+    };
 
-    public resolveWebviewView(
-        webviewView: vscode.WebviewView,
-        _context: vscode.WebviewViewResolveContext,
-        token: vscode.CancellationToken,
-    ): void {
-        this.releaseView();
-        this.view = webviewView;
+    webviewView.webview.html = this.getHtml();
 
-        webviewView.webview.options = {
-            enableScripts: true,
-            // The sidebar has no images, fonts, or scripts on disk. Keeping the
-            // resource allow-list empty prevents accidental local-file access.
-            localResourceRoots: [],
-        };
-        webviewView.webview.html = this.createHtml();
-
-        this.viewDisposables.push(
-            webviewView.webview.onDidReceiveMessage((rawMessage: unknown) => {
-                void this.receiveMessage(rawMessage);
-            }),
-            webviewView.onDidDispose(() => this.releaseView(webviewView)),
-            token.onCancellationRequested(() => this.releaseView(webviewView)),
-        );
-    }
-
-    /** Replaces the sidebar presentation model; safe to call before it is visible. */
-    public postState(state: SidebarState): void {
-        this.state = state;
-        this.post({ type: "state", state });
-    }
-
-    /** Adds one already-redacted trace line to the sidebar's compact trace area. */
-    public appendTrace(line: string): void {
-        const safeLine = line.length > MAX_TRACE_LINE_LENGTH
-            ? `${line.slice(0, MAX_TRACE_LINE_LENGTH)} …[truncated]`
-            : line;
-        this.traceLines.push(safeLine);
-        if (this.traceLines.length > MAX_TRACE_LINES) {
-            this.traceLines.splice(0, this.traceLines.length - MAX_TRACE_LINES);
+    webviewView.webview.onDidReceiveMessage(async (message: any) => {
+      try {
+        switch (message.type) {
+          case 'ready':
+            this.sendState();
+            this.sendTraceReset();
+            break;
+          case 'connect':
+            await this.actions.onConnect(message.address);
+            break;
+          case 'disconnect':
+            await this.actions.onDisconnect();
+            break;
+          case 'browseFolder':
+            await this.actions.onBrowseFolder();
+            break;
+          case 'refreshWorkspace':
+            await this.actions.onRefreshWorkspace();
+            break;
+          case 'selectExtension':
+            this.actions.onSelectExtension(message.selection);
+            break;
+          case 'run':
+            await this.actions.onRun(message.entrypoint, message.mode, message.params || {});
+            break;
+          case 'cancelRun':
+            await this.actions.onCancelRun();
+            break;
+          case 'stageDraft':
+            await this.actions.onStageDraft();
+            break;
+          case 'installDraft':
+            await this.actions.onInstallDraft();
+            break;
+          case 'rollback':
+            await this.actions.onRollback();
+            break;
+          case 'openTrace':
+            this.actions.onOpenTrace();
+            break;
+          case 'clearTrace':
+            this.traceBuffer = [];
+            this.sendTraceReset();
+            break;
         }
-        this.post({ type: "trace", line: safeLine });
+      } catch (error) {
+        vscode.window.showErrorMessage(`Lỗi thao tác: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    });
+  }
+
+  public updateState(newState: Partial<SidebarState>): void {
+    this.state = { ...this.state, ...newState };
+    this.sendState();
+  }
+
+  public appendTraceEvent(event: DebugEvent): void {
+    const time = new Date(event.timestamp * 1000).toISOString().slice(11, 19);
+    const loc = event.location ? ` [${event.location.script}:${event.location.line ?? '?'}]` : '';
+    let line: string;
+    if (event.category === 'responseValidated') {
+      let formatted = event.message;
+      try {
+        const parsed = JSON.parse(event.message);
+        formatted = JSON.stringify(parsed, null, 2);
+      } catch {}
+      line = `[${time}] ✅ [Response.success]:\n${formatted}`;
+    } else if (event.category === 'responseError') {
+      line = `[${time}] ❌ [Response.error]: ${event.message}`;
+    } else {
+      line = `[${time}] [${event.category}]${loc} ${event.message}`;
     }
-
-    /** Rehydrates the visible panel after it is opened or reconstructed. */
-    public replaceTrace(lines: readonly string[]): void {
-        this.traceLines.length = 0;
-        for (const line of lines.slice(-MAX_TRACE_LINES)) {
-            const safeLine = line.length > MAX_TRACE_LINE_LENGTH
-                ? `${line.slice(0, MAX_TRACE_LINE_LENGTH)} …[truncated]`
-                : line;
-            this.traceLines.push(safeLine);
-        }
-        this.post({ type: "traceReset", lines: this.traceLines });
+    this.traceBuffer.push(line);
+    if (this.traceBuffer.length > this.maxTraceLines) {
+      this.traceBuffer.shift();
     }
+    this.view?.webview.postMessage({ type: 'traceAppend', line });
+  }
 
-    public dispose(): void {
-        this.isDisposed = true;
-        this.releaseView();
-        this.state = undefined;
-        this.traceLines.length = 0;
-    }
+  private sendState(): void {
+    this.view?.webview.postMessage({ type: 'state', state: this.state });
+  }
 
-    private async receiveMessage(rawMessage: unknown): Promise<void> {
-        const message = parseSidebarMessage(rawMessage);
-        if (!message || this.isDisposed) {
-            return;
-        }
+  private sendTraceReset(): void {
+    this.view?.webview.postMessage({ type: 'traceReset', lines: this.traceBuffer });
+  }
 
-        if (message.type === "ready") {
-            this.postCachedPresentation();
-        }
-
-        try {
-            await this.handleMessage(message);
-        } catch {
-            // Never relay arbitrary controller error strings into the webview:
-            // pairing URIs and server errors may contain sensitive material.
-            this.post({
-                type: "notice",
-                message: "Không thể xử lý yêu cầu. Hãy xem FreeBook Ext Debug Trace để biết trạng thái.",
-            });
-        }
-    }
-
-    private postCachedPresentation(): void {
-        if (this.state) {
-            this.post({ type: "state", state: this.state });
-        }
-        this.post({ type: "traceReset", lines: this.traceLines });
-    }
-
-    private post(message: SidebarHostMessage): void {
-        const view = this.view;
-        if (!view || this.isDisposed) {
-            return;
-        }
-        try {
-            void view.webview.postMessage(message).then(undefined, () => {
-                // A hidden/disposed view can reject a post. Cached state will be
-                // resent when its next document sends the `ready` message.
-            });
-        } catch {
-            // WebviewView can be disposed between the guard and postMessage.
-        }
-    }
-
-    private releaseView(expected?: vscode.WebviewView): void {
-        if (expected && this.view !== expected) {
-            return;
-        }
-        this.view = undefined;
-        const disposables = this.viewDisposables;
-        this.viewDisposables = [];
-        for (const disposable of disposables) {
-            disposable.dispose();
-        }
-    }
-
-    private createHtml(): string {
-        const nonce = randomBytes(16).toString("base64");
-        const csp = [
-            "default-src 'none'",
-            `style-src 'nonce-${nonce}'`,
-            `script-src 'nonce-${nonce}'`,
-            "img-src data:",
-            "font-src 'none'",
-            "connect-src 'none'",
-        ].join("; ");
-
-        return `<!DOCTYPE html>
+  private getHtml(): string {
+    return `<!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="${csp}">
-    <title>FreeBook Debug</title>
-    <style nonce="${nonce}">
-        :root {
-            color: var(--vscode-foreground);
-            font-family: var(--vscode-font-family);
-            font-size: var(--vscode-font-size);
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FreeBook Debug</title>
+  <style>
+    :root {
+      --font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+      --font-size: var(--vscode-font-size, 13px);
+    }
+    body {
+      font-family: var(--font-family);
+      font-size: var(--font-size);
+      color: var(--vscode-foreground);
+      background-color: var(--vscode-sideBar-background);
+      padding: 10px;
+      margin: 0;
+      box-sizing: border-box;
+      line-height: 1.4;
+    }
+    .card {
+      background: var(--vscode-editorWidget-background, rgba(255,255,255,0.04));
+      border: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.2));
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 12px;
+    }
+    .card-title {
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--vscode-descriptionForeground);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--vscode-badge-background);
+      color: var(--vscode-badge-foreground);
+    }
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #888;
+    }
+    .status-dot.connected { background: #4caf50; box-shadow: 0 0 6px #4caf50; }
+    .status-dot.running { background: #2196f3; box-shadow: 0 0 6px #2196f3; }
+    .status-dot.error { background: #f44336; }
 
-        * { box-sizing: border-box; }
+    .form-group {
+      margin-bottom: 8px;
+    }
+    label {
+      display: block;
+      font-size: 11px;
+      margin-bottom: 3px;
+      color: var(--vscode-descriptionForeground);
+    }
+    input, select, textarea {
+      width: 100%;
+      box-sizing: border-box;
+      background: var(--vscode-input-background);
+      color: var(--vscode-input-foreground);
+      border: 1px solid var(--vscode-input-border, rgba(128,128,128,0.3));
+      border-radius: 3px;
+      padding: 5px 7px;
+      font-size: var(--font-size);
+      font-family: inherit;
+      outline: none;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--vscode-focusBorder);
+    }
+    .btn-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    button {
+      flex: 1;
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+      border: none;
+      border-radius: 3px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+    button:hover:not(:disabled) {
+      background: var(--vscode-button-hoverBackground);
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    button.secondary {
+      background: var(--vscode-button-secondaryBackground);
+      color: var(--vscode-button-secondaryForeground);
+    }
+    button.secondary:hover:not(:disabled) {
+      background: var(--vscode-button-secondaryHoverBackground);
+    }
+    button.danger {
+      background: #d32f2f;
+      color: #fff;
+    }
+    button.danger:hover:not(:disabled) {
+      background: #b71c1c;
+    }
+    .btn-icon {
+      padding: 5px 8px;
+      flex: initial;
+    }
 
-        body {
-            margin: 0;
-            padding: 10px;
-            color: var(--vscode-foreground);
-            background: var(--vscode-sideBar-background);
-        }
+    .trace-box {
+      background: var(--vscode-terminal-background, #1e1e1e);
+      color: var(--vscode-terminal-foreground, #cccccc);
+      border: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.2));
+      border-radius: 4px;
+      padding: 6px;
+      font-family: var(--vscode-editor-font-family, Consolas, monospace);
+      font-size: 11px;
+      height: 160px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .trace-line {
+      margin-bottom: 2px;
+      line-height: 1.3;
+    }
+    .trace-line.error { color: #f48771; }
+    .trace-line.warn { color: #cca700; }
+    .trace-line.info { color: #75beff; }
+    .trace-line.success { color: #89d185; }
 
-        button, input, select, textarea {
-            width: 100%;
-            color: var(--vscode-input-foreground);
-            background: var(--vscode-input-background);
-            border: 1px solid var(--vscode-input-border, transparent);
-            border-radius: 3px;
-            font: inherit;
-        }
-
-        button {
-            min-height: 28px;
-            padding: 4px 8px;
-            cursor: pointer;
-            color: var(--vscode-button-foreground);
-            background: var(--vscode-button-background);
-            border-color: transparent;
-        }
-
-        button:hover:not(:disabled) { background: var(--vscode-button-hoverBackground); }
-        button.secondary {
-            color: var(--vscode-button-secondaryForeground);
-            background: var(--vscode-button-secondaryBackground);
-        }
-        button.secondary:hover:not(:disabled) { background: var(--vscode-button-secondaryHoverBackground); }
-        button:disabled, select:disabled, input:disabled, textarea:disabled {
-            cursor: default;
-            opacity: 0.55;
-        }
-
-        input, select, textarea { padding: 5px 7px; }
-        textarea { min-height: 64px; resize: vertical; }
-        input:focus, select:focus, textarea:focus, button:focus-visible {
-            outline: 1px solid var(--vscode-focusBorder);
-            outline-offset: 1px;
-        }
-
-        .header {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 8px;
-            margin: 0 0 10px;
-        }
-        .title { font-size: 13px; font-weight: 600; }
-        .subtitle { margin-top: 2px; color: var(--vscode-descriptionForeground); font-size: 11px; }
-        .badge {
-            flex: none;
-            max-width: 124px;
-            overflow: hidden;
-            padding: 2px 6px;
-            border-radius: 10px;
-            color: var(--vscode-badge-foreground);
-            background: var(--vscode-badge-background);
-            font-size: 10px;
-            line-height: 15px;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .badge.mock { color: var(--vscode-editorWarning-foreground); }
-        .badge.disconnected { color: var(--vscode-descriptionForeground); }
-
-        .card {
-            margin: 0 0 10px;
-            padding: 9px;
-            border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
-            border-radius: 5px;
-            background: var(--vscode-sideBarSectionHeader-background, transparent);
-        }
-        .field { margin: 0 0 9px; }
-        .field:last-child { margin-bottom: 0; }
-        label { display: block; margin: 0 0 4px; font-size: 11px; font-weight: 600; }
-        .hint { margin: 4px 0 0; color: var(--vscode-descriptionForeground); font-size: 10px; line-height: 1.35; }
-        .root-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
-        .root-row button { width: auto; white-space: nowrap; }
-        .mode-row { display: grid; grid-template-columns: 1fr; gap: 5px; }
-        .mode-note { color: var(--vscode-descriptionForeground); font-size: 10px; line-height: 1.35; }
-        .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-        .actions .run { grid-column: 1 / -1; font-weight: 600; }
-        .actions .trace { grid-column: 1 / -1; }
-        .status {
-            min-height: 17px;
-            margin: -2px 0 9px;
-            color: var(--vscode-descriptionForeground);
-            font-size: 11px;
-            line-height: 1.4;
-        }
-        .status:empty { display: none; }
-        .trace-title { margin: 0 0 5px; font-size: 11px; font-weight: 600; }
-        .trace {
-            max-height: 182px;
-            overflow: auto;
-            padding: 6px;
-            border: 1px solid var(--vscode-textBlockQuote-border);
-            border-radius: 3px;
-            color: var(--vscode-editor-foreground);
-            background: var(--vscode-textCodeBlock-background);
-            font-family: var(--vscode-editor-font-family);
-            font-size: 10px;
-            line-height: 1.45;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-        .trace-line { margin: 0 0 3px; }
-        .trace-line:last-child { margin-bottom: 0; }
-        .empty { color: var(--vscode-descriptionForeground); font-style: italic; }
-        .script-detail { margin: 4px 0 0; color: var(--vscode-descriptionForeground); font-size: 10px; }
-    </style>
+    .segmented-control {
+      display: flex;
+      background: var(--vscode-input-background);
+      border: 1px solid var(--vscode-input-border, rgba(128,128,128,0.3));
+      border-radius: 3px;
+      padding: 2px;
+      gap: 2px;
+    }
+    .segment-btn {
+      flex: 1;
+      padding: 3px;
+      font-size: 11px;
+      border: none;
+      background: transparent;
+      color: var(--vscode-foreground);
+      border-radius: 2px;
+    }
+    .segment-btn.active {
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+    }
+  </style>
 </head>
 <body>
-    <main id="app" aria-live="polite"></main>
-    <script nonce="${nonce}">
-        (() => {
-            const vscode = acquireVsCodeApi();
-            const app = document.getElementById("app");
-            const maxTraceLines = ${MAX_TRACE_LINES};
-            let sidebarState = undefined;
-            let traceLines = [];
-            let uiState = readUiState();
-            let isChangingRoot = false;
 
-            function readUiState() {
-                const value = vscode.getState();
-                if (!value || typeof value !== "object") {
-                    return { values: Object.create(null) };
-                }
-                const values = value.values && typeof value.values === "object" && !Array.isArray(value.values)
-                    ? value.values
-                    : Object.create(null);
-                return {
-                    rootId: typeof value.rootId === "string" ? value.rootId : undefined,
-                    scriptId: typeof value.scriptId === "string" ? value.scriptId : undefined,
-                    mode: value.mode === "installed" || value.mode === "draft" ? value.mode : undefined,
-                    values: values,
-                };
-            }
+  <!-- Card 1: Connection -->
+  <div class="card">
+    <div class="card-title">
+      <span>Kết Nối LAN</span>
+      <span id="connBadge" class="status-badge">
+        <span id="connDot" class="status-dot"></span>
+        <span id="connText">Chưa kết nối</span>
+      </span>
+    </div>
+    <div class="form-group">
+      <input type="text" id="targetAddr" placeholder="ws://192.168.1.5:17772" value="ws://192.168.88.146:17772" />
+    </div>
+    <div class="btn-row">
+      <button id="btnConnect" onclick="toggleConnect()">⚡ Kết Nối</button>
+    </div>
+  </div>
 
-            function saveUiState() {
-                vscode.setState(uiState);
-            }
+  <!-- Card 2: Extension Selection -->
+  <div class="card">
+    <div class="card-title">
+      <span>Extension Đang Chọn</span>
+      <div>
+        <a href="#" onclick="refreshWorkspace(); return false;" title="Quét lại workspace" style="font-size:11px; color:var(--vscode-textLink-foreground); margin-right:6px;">🔄 Quét</a>
+        <a href="#" onclick="browseFolder(); return false;" title="Duyệt thư mục trên ổ đĩa" style="font-size:11px; color:var(--vscode-textLink-foreground);">📂 Mở...</a>
+      </div>
+    </div>
+    <div class="form-group">
+      <select id="extSelect" onchange="onExtensionChanged()">
+        <option value="">(Đang tải danh sách...)</option>
+      </select>
+    </div>
+    <div class="btn-row">
+      <button class="secondary" onclick="stageDraft()" title="Đẩy các file JS của extension đang chọn lên app làm bản nháp">📦 Stage Nháp</button>
+      <button class="secondary" onclick="installDraft()" title="Cài đặt đè bản nháp lên thiết bị">📥 Cài Nháp</button>
+      <button class="secondary" onclick="rollback()" title="Khôi phục phiên bản trước đó">↩ Rollback</button>
+    </div>
+  </div>
 
-            function post(message) {
-                vscode.postMessage(message);
-            }
+  <!-- Card 3: Execution Control -->
+  <div class="card">
+    <div class="card-title">Chạy Script (Execute)</div>
+    
+    <div class="form-group">
+      <label>Nguồn chạy:</label>
+      <div class="segmented-control">
+        <button id="modeInstalled" class="segment-btn active" onclick="setMode('installed')">Đã cài (App)</button>
+        <button id="modeDraft" class="segment-btn" onclick="setMode('draft')">Bản nháp (Draft)</button>
+      </div>
+    </div>
 
-            function selectedRoot() {
-                const roots = sidebarState && Array.isArray(sidebarState.roots) ? sidebarState.roots : [];
-                const local = roots.find((root) => root && root.id === uiState.rootId);
-                const host = roots.find((root) => root && sidebarState && root.id === sidebarState.selectedRootId);
-                return local || host || roots[0];
-            }
+    <div class="form-group">
+      <label>Entrypoint:</label>
+      <select id="entrypointSelect" onchange="onEntrypointChanged()">
+        <option value="search">search (Tìm kiếm)</option>
+        <option value="detail">detail (Chi tiết truyện)</option>
+        <option value="toc">toc (Mục lục chương)</option>
+        <option value="chap">chap (Nội dung chương)</option>
+        <option value="genre">genre (Thể loại)</option>
+        <option value="home">home (Trang chủ)</option>
+        <option value="custom">custom (Tự chọn file)</option>
+      </select>
+    </div>
 
-            function selectedScript() {
-                const scripts = sidebarState && Array.isArray(sidebarState.scripts) ? sidebarState.scripts : [];
-                const local = scripts.find((script) => script && script.id === uiState.scriptId);
-                const host = scripts.find((script) => script && sidebarState && script.id === sidebarState.selectedScriptId);
-                return local || host || scripts[0];
-            }
+    <div id="paramKeyword" class="form-group">
+      <label>Keyword:</label>
+      <input type="text" id="inputKeyword" placeholder="Từ khoá tìm kiếm..." />
+    </div>
 
-            function selectedMode() {
-                const requested = uiState.mode || (sidebarState && sidebarState.mode) || "draft";
-                const script = selectedScript();
-                return requested === "installed" && (
-                    !(sidebarState && sidebarState.installedAvailable)
-                    || Boolean(script && script.draftOnly)
-                )
-                    ? "draft"
-                    : requested;
-            }
+    <div id="paramUrl" class="form-group" style="display:none;">
+      <label>URL:</label>
+      <input type="text" id="inputUrl" placeholder="https://..." />
+    </div>
 
-            function resetValuesForScript(script) {
-                const next = Object.create(null);
-                if (script && Array.isArray(script.fields)) {
-                    for (const field of script.fields) {
-                        if (field && typeof field.id === "string") {
-                            next[field.id] = typeof field.value === "string" ? field.value : "";
-                        }
-                    }
-                }
-                uiState.values = next;
-            }
+    <div id="paramPage" class="form-group">
+      <label>Page:</label>
+      <input type="number" id="inputPage" value="1" min="1" />
+    </div>
 
-            function syncUiSelection() {
-                const root = selectedRoot();
-                const script = selectedScript();
-                const scriptChanged = uiState.scriptId !== (script && script.id);
-                uiState.rootId = root && typeof root.id === "string" ? root.id : undefined;
-                uiState.scriptId = script && typeof script.id === "string" ? script.id : undefined;
-                uiState.mode = selectedMode();
-                if (scriptChanged) {
-                    resetValuesForScript(script);
-                } else if (script && Array.isArray(script.fields)) {
-                    for (const field of script.fields) {
-                        if (field && typeof field.id === "string" && typeof uiState.values[field.id] !== "string") {
-                            uiState.values[field.id] = typeof field.value === "string" ? field.value : "";
-                        }
-                    }
-                }
-                saveUiState();
-            }
+    <div id="paramCustomScript" class="form-group" style="display:none;">
+      <label>Tên file script:</label>
+      <input type="text" id="inputCustomScript" placeholder="list.js" />
+    </div>
 
-            function element(tag, className, text) {
-                const node = document.createElement(tag);
-                if (className) {
-                    node.className = className;
-                }
-                if (typeof text === "string") {
-                    node.textContent = text;
-                }
-                return node;
-            }
+    <div id="paramCustomInput" class="form-group" style="display:none;">
+      <label>Input:</label>
+      <input type="text" id="inputCustomInput" placeholder="Tham số truyền vào..." />
+    </div>
 
-            function addOption(select, value, label, description, selected, disabled) {
-                const option = document.createElement("option");
-                option.value = value;
-                option.textContent = description ? label + " — " + description : label;
-                option.selected = Boolean(selected);
-                option.disabled = Boolean(disabled);
-                select.appendChild(option);
-            }
+    <div class="btn-row">
+      <button id="btnRun" onclick="runScript()">▶ Run</button>
+      <button id="btnCancel" class="danger" onclick="cancelRun()" disabled>⏹ Cancel</button>
+    </div>
+  </div>
 
-            function createField(field) {
-                const wrapper = element("div", "field");
-                const label = element("label", "", field.label || field.id || "Input");
-                const inputId = "field-" + String(field.id || "value").replace(/[^A-Za-z0-9_-]/g, "_");
-                label.htmlFor = inputId;
-                wrapper.appendChild(label);
+  <!-- Card 4: Live Trace -->
+  <div class="card">
+    <div class="card-title">
+      <span>Live Trace</span>
+      <div>
+        <a href="#" onclick="openTrace(); return false;" style="font-size:10px; color:var(--vscode-textLink-foreground); margin-right:8px;">Mở Output</a>
+        <a href="#" onclick="clearTrace(); return false;" style="font-size:10px; color:var(--vscode-textLink-foreground);">Xoá</a>
+      </div>
+    </div>
+    <div id="traceBox" class="trace-box"></div>
+  </div>
 
-                const multiline = field.kind === "json" || field.kind === "textarea";
-                const input = document.createElement(multiline ? "textarea" : "input");
-                input.id = inputId;
-                input.name = String(field.id || "");
-                input.required = Boolean(field.required);
-                input.placeholder = typeof field.placeholder === "string" ? field.placeholder : "";
-                input.value = typeof uiState.values[field.id] === "string"
-                    ? uiState.values[field.id]
-                    : (typeof field.value === "string" ? field.value : "");
-                if (multiline) {
-                    input.rows = Number.isInteger(field.rows) && field.rows > 0 ? field.rows : (field.kind === "json" ? 4 : 3);
-                    if (field.kind === "json") {
-                        input.spellcheck = false;
-                        const validateJson = () => {
-                            if (!input.value.trim()) {
-                                input.setCustomValidity("");
-                                return;
-                            }
-                            try {
-                                JSON.parse(input.value);
-                                input.setCustomValidity("");
-                            } catch {
-                                input.setCustomValidity("Nhập JSON hợp lệ.");
-                            }
-                        };
-                        input.addEventListener("input", validateJson);
-                        validateJson();
-                    }
-                } else {
-                    // ExtensionManager accepts both absolute URLs and relative
-                    // paths that the app resolves against host. type=url
-                    // would reject the latter before the app can apply that
-                    // contract, so URL fields use a text input with URL hints.
-                    input.type = field.kind === "number" ? "number" : "text";
-                    if (field.kind === "url") {
-                        input.inputMode = "url";
-                        input.autocapitalize = "none";
-                    }
-                    if (field.kind === "number" && Number.isFinite(field.min)) {
-                        input.min = String(field.min);
-                        input.step = "1";
-                        input.inputMode = "numeric";
-                    }
-                }
-                input.addEventListener("input", () => {
-                    uiState.values[field.id] = input.value;
-                    saveUiState();
-                });
-                wrapper.appendChild(input);
+  <script>
+    const vscode = acquireVsCodeApi();
+    let currentState = {
+      isConnected: false,
+      targetAddress: 'ws://192.168.88.146:17772',
+      appExtensions: [],
+      workspaceExtensions: [],
+      mode: 'installed',
+      selectedEntrypoint: 'search',
+      isRunning: false
+    };
 
-                if (typeof field.hint === "string" && field.hint) {
-                    wrapper.appendChild(element("p", "hint", field.hint));
-                }
-                return wrapper;
-            }
+    function toggleConnect() {
+      if (currentState.isConnected) {
+        vscode.postMessage({ type: 'disconnect' });
+      } else {
+        const addr = document.getElementById('targetAddr').value.trim();
+        vscode.postMessage({ type: 'connect', address: addr });
+      }
+    }
 
-            function renderTrace() {
-                const trace = document.getElementById("trace");
-                if (!trace) {
-                    return;
-                }
-                trace.textContent = "";
-                if (traceLines.length === 0) {
-                    trace.appendChild(element("div", "empty", "Chưa có trace. Mock chỉ kiểm tra protocol, không chạy JSExecutor iOS."));
-                    return;
-                }
-                for (const line of traceLines) {
-                    trace.appendChild(element("div", "trace-line", String(line)));
-                }
-                trace.scrollTop = trace.scrollHeight;
-            }
+    function browseFolder() {
+      vscode.postMessage({ type: 'browseFolder' });
+    }
 
-            function render() {
-                syncUiSelection();
-                app.textContent = "";
+    function refreshWorkspace() {
+      vscode.postMessage({ type: 'refreshWorkspace' });
+    }
 
-                const connection = sidebarState && sidebarState.connection;
-                const header = element("header", "header");
-                const copy = element("div", "");
-                copy.appendChild(element("div", "title", "FreeBook Debug"));
-                copy.appendChild(element("div", "subtitle", "Chạy execute(...) qua FreeBook App"));
-                header.appendChild(copy);
-                const connectionKind = connection && (connection.kind === "app" || connection.kind === "mock" || connection.kind === "disconnected")
-                    ? connection.kind
-                    : "disconnected";
-                header.appendChild(element("div", "badge " + connectionKind, connection && connection.label ? connection.label : "Chưa kết nối"));
-                app.appendChild(header);
+    function setMode(mode) {
+      currentState.mode = mode;
+      document.getElementById('modeInstalled').classList.toggle('active', mode === 'installed');
+      document.getElementById('modeDraft').classList.toggle('active', mode === 'draft');
+    }
 
-                const configuration = element("section", "card");
-                const rootField = element("div", "field");
-                rootField.appendChild(element("label", "", "Extension root"));
-                const rootRow = element("div", "root-row");
-                const rootSelect = document.createElement("select");
-                rootSelect.setAttribute("aria-label", "Extension root");
-                const roots = sidebarState && Array.isArray(sidebarState.roots) ? sidebarState.roots : [];
-                const root = selectedRoot();
-                if (roots.length === 0) {
-                    addOption(rootSelect, "", "Chưa chọn extension", "", true, true);
-                    rootSelect.disabled = true;
-                } else {
-                    for (const candidate of roots) {
-                        addOption(rootSelect, candidate.id, candidate.label || candidate.id, candidate.description || "", root && candidate.id === root.id, false);
-                    }
-                    rootSelect.disabled = isChangingRoot;
-                }
-                rootSelect.addEventListener("change", () => {
-                    isChangingRoot = true;
-                    uiState.rootId = rootSelect.value;
-                    uiState.scriptId = undefined;
-                    uiState.values = Object.create(null);
-                    saveUiState();
-                    post({ type: "selectRoot", rootId: rootSelect.value });
-                    render();
-                });
-                rootRow.appendChild(rootSelect);
-                const browseButton = element("button", "secondary", "Chọn…");
-                browseButton.type = "button";
-                browseButton.addEventListener("click", () => post({ type: "browseRoot" }));
-                rootRow.appendChild(browseButton);
-                rootField.appendChild(rootRow);
-                configuration.appendChild(rootField);
+    function onExtensionChanged() {
+      const val = document.getElementById('extSelect').value;
+      if (!val) return;
+      if (val.startsWith('ws:')) {
+        const folderUriStr = val.substring(3);
+        const ext = (currentState.workspaceExtensions || []).find(e => e.folderUri === folderUriStr || e.folderPath === folderUriStr);
+        vscode.postMessage({
+          type: 'selectExtension',
+          selection: { type: 'workspace', packageId: ext ? ext.packageId : '', folderUriStr }
+        });
+        setMode('draft');
+      } else if (val.startsWith('app:')) {
+        const packageId = val.substring(4);
+        vscode.postMessage({
+          type: 'selectExtension',
+          selection: { type: 'app', packageId }
+        });
+      }
+    }
 
-                const scriptField = element("div", "field");
-                scriptField.appendChild(element("label", "", "Script / execute"));
-                const scriptSelect = document.createElement("select");
-                scriptSelect.setAttribute("aria-label", "Script execute");
-                const scripts = sidebarState && Array.isArray(sidebarState.scripts) ? sidebarState.scripts : [];
-                const script = selectedScript();
-                if (scripts.length === 0) {
-                    addOption(scriptSelect, "", "Chưa có script", "Chọn extension root trước", true, true);
-                    scriptSelect.disabled = true;
-                } else {
-                    for (const candidate of scripts) {
-                        const suffix = candidate.disabled
-                            ? (candidate.disabledReason || "Chưa hỗ trợ")
-                            : (candidate.draftOnly ? "Draft only" : (candidate.manifestKey || ""));
-                        addOption(scriptSelect, candidate.id, candidate.label || candidate.id, suffix, script && candidate.id === script.id, Boolean(candidate.disabled));
-                    }
-                    scriptSelect.disabled = isChangingRoot;
-                }
-                scriptSelect.addEventListener("change", () => {
-                    uiState.scriptId = scriptSelect.value;
-                    const next = scripts.find((candidate) => candidate && candidate.id === scriptSelect.value);
-                    resetValuesForScript(next);
-                    saveUiState();
-                    post({ type: "selectScript", scriptId: scriptSelect.value });
-                    render();
-                });
-                scriptField.appendChild(scriptSelect);
-                if (script && script.description) {
-                    scriptField.appendChild(element("div", "script-detail", script.description));
-                }
-                configuration.appendChild(scriptField);
+    function onEntrypointChanged() {
+      const ep = document.getElementById('entrypointSelect').value;
+      currentState.selectedEntrypoint = ep;
+      
+      document.getElementById('paramKeyword').style.display = (ep === 'search') ? 'block' : 'none';
+      document.getElementById('paramUrl').style.display = (['detail', 'toc', 'chap'].includes(ep)) ? 'block' : 'none';
+      document.getElementById('paramPage').style.display = (['search', 'custom'].includes(ep)) ? 'block' : 'none';
+      document.getElementById('paramCustomScript').style.display = (ep === 'custom') ? 'block' : 'none';
+      document.getElementById('paramCustomInput').style.display = (ep === 'custom') ? 'block' : 'none';
+    }
 
-                if (script && Array.isArray(script.fields)) {
-                    for (const field of script.fields) {
-                        if (field && typeof field.id === "string") {
-                            configuration.appendChild(createField(field));
-                        }
-                    }
-                }
+    function runScript() {
+      const ep = document.getElementById('entrypointSelect').value;
+      const params = {
+        keyword: document.getElementById('inputKeyword').value,
+        url: document.getElementById('inputUrl').value,
+        page: document.getElementById('inputPage').value,
+        scriptFileName: document.getElementById('inputCustomScript').value,
+        input: document.getElementById('inputCustomInput').value
+      };
+      vscode.postMessage({
+        type: 'run',
+        entrypoint: ep,
+        mode: currentState.mode,
+        params
+      });
+    }
 
-                const modeField = element("div", "field");
-                modeField.appendChild(element("label", "", "Run mode"));
-                const modeWrap = element("div", "mode-row");
-                const modeSelect = document.createElement("select");
-                modeSelect.setAttribute("aria-label", "Run mode");
-                const mode = selectedMode();
-                addOption(modeSelect, "draft", "Draft", "Stage file đã lưu", mode === "draft", false);
-                addOption(
-                    modeSelect,
-                    "installed",
-                    "Installed",
-                    "Extension đã cài trên app",
-                    mode === "installed",
-                    !(sidebarState && sidebarState.installedAvailable) || Boolean(script && script.draftOnly),
-                );
-                modeSelect.addEventListener("change", () => {
-                    uiState.mode = modeSelect.value === "installed" ? "installed" : "draft";
-                    saveUiState();
-                    post({ type: "selectMode", mode: uiState.mode });
-                    render();
-                });
-                modeWrap.appendChild(modeSelect);
-                const modeNote = script && script.disabled
-                    ? (script.disabledReason || "Script này chưa được protocol debug v1 hỗ trợ.")
-                    : script && script.draftOnly
-                    ? "Script này không khai trong plugin.json nên chỉ chạy Draft."
-                    : (sidebarState && sidebarState.installedAvailable
-                        ? "Installed chỉ dùng khi package ID trên app khớp."
-                        : "Draft chỉ stage file đã lưu; Installed chưa có package ID khớp.");
-                modeWrap.appendChild(element("div", "mode-note", modeNote));
-                modeField.appendChild(modeWrap);
-                configuration.appendChild(modeField);
-                app.appendChild(configuration);
+    function cancelRun() {
+      vscode.postMessage({ type: 'cancelRun' });
+    }
 
-                const status = element(
-                    "div",
-                    "status",
-                    isChangingRoot
-                        ? "Đang đổi extension root…"
-                        : (sidebarState && sidebarState.status ? sidebarState.status : ""),
-                );
-                app.appendChild(status);
+    function stageDraft() {
+      vscode.postMessage({ type: 'stageDraft' });
+    }
 
-                const actions = element("section", "actions");
-                const runButton = element("button", "run", sidebarState && sidebarState.isRunning ? "Đang chạy…" : "Run execute");
-                runButton.type = "button";
-                runButton.disabled = Boolean(!root || !script || script.disabled || isChangingRoot || (sidebarState && sidebarState.isRunning));
-                runButton.addEventListener("click", () => {
-                    const inputs = configuration.querySelectorAll("input, textarea");
-                    for (const input of inputs) {
-                        if (!input.checkValidity()) {
-                            input.reportValidity();
-                            input.focus();
-                            return;
-                        }
-                    }
-                    const values = Object.create(null);
-                    if (script && Array.isArray(script.fields)) {
-                        for (const field of script.fields) {
-                            if (field && typeof field.id === "string") {
-                                values[field.id] = typeof uiState.values[field.id] === "string" ? uiState.values[field.id] : "";
-                            }
-                        }
-                    }
-                    post({
-                        type: "run",
-                        rootId: root && root.id,
-                        scriptId: script && script.id,
-                        mode: selectedMode(),
-                        values: values,
-                    });
-                });
-                actions.appendChild(runButton);
+    function installDraft() {
+      vscode.postMessage({ type: 'installDraft' });
+    }
 
-                const pairButton = element("button", "secondary", "Pair App");
-                pairButton.type = "button";
-                pairButton.addEventListener("click", () => post({ type: "pair" }));
-                actions.appendChild(pairButton);
+    function rollback() {
+      vscode.postMessage({ type: 'rollback' });
+    }
 
-                const mockButton = element("button", "secondary", "Use Mock");
-                mockButton.type = "button";
-                mockButton.addEventListener("click", () => post({ type: "useMock" }));
-                actions.appendChild(mockButton);
+    function openTrace() {
+      vscode.postMessage({ type: 'openTrace' });
+    }
 
-                const cancelButton = element("button", "secondary", "Cancel");
-                cancelButton.type = "button";
-                cancelButton.disabled = !(sidebarState && sidebarState.isRunning);
-                cancelButton.addEventListener("click", () => post({ type: "cancel" }));
-                actions.appendChild(cancelButton);
+    function clearTrace() {
+      vscode.postMessage({ type: 'clearTrace' });
+    }
 
-                const traceButton = element("button", "secondary trace", "Open Trace");
-                traceButton.type = "button";
-                traceButton.addEventListener("click", () => post({ type: "openTrace" }));
-                actions.appendChild(traceButton);
-                app.appendChild(actions);
+    window.addEventListener('message', (event) => {
+      const msg = event.data;
+      if (msg.type === 'state') {
+        currentState = { ...currentState, ...msg.state };
+        updateUI();
+      } else if (msg.type === 'traceAppend') {
+        appendTraceLine(msg.line);
+      } else if (msg.type === 'traceReset') {
+        const box = document.getElementById('traceBox');
+        box.innerHTML = '';
+        for (const l of msg.lines || []) {
+          appendTraceLine(l);
+        }
+      }
+    });
 
-                const traceCard = element("section", "card");
-                traceCard.appendChild(element("div", "trace-title", "Trace"));
-                const trace = element("div", "trace");
-                trace.id = "trace";
-                trace.setAttribute("role", "log");
-                traceCard.appendChild(trace);
-                app.appendChild(traceCard);
-                renderTrace();
-            }
+    function updateUI() {
+      const isConn = currentState.isConnected;
+      const dot = document.getElementById('connDot');
+      const text = document.getElementById('connText');
+      const btn = document.getElementById('btnConnect');
 
-            window.addEventListener("message", (event) => {
-                const message = event.data;
-                if (!message || typeof message !== "object" || typeof message.type !== "string") {
-                    return;
-                }
-                if (message.type === "state" && message.state && typeof message.state === "object") {
-                    const priorScriptId = uiState.scriptId;
-                    sidebarState = message.state;
-                    isChangingRoot = false;
-                    if (typeof sidebarState.selectedRootId === "string") {
-                        uiState.rootId = sidebarState.selectedRootId;
-                    }
-                    if (typeof sidebarState.selectedScriptId === "string") {
-                        uiState.scriptId = sidebarState.selectedScriptId;
-                    }
-                    if (sidebarState.mode === "draft" || sidebarState.mode === "installed") {
-                        uiState.mode = sidebarState.mode;
-                    }
-                    if (priorScriptId !== uiState.scriptId) {
-                        uiState.values = Object.create(null);
-                    }
-                    saveUiState();
-                    render();
-                } else if (message.type === "trace" && typeof message.line === "string") {
-                    traceLines.push(message.line);
-                    if (traceLines.length > maxTraceLines) {
-                        traceLines.splice(0, traceLines.length - maxTraceLines);
-                    }
-                    renderTrace();
-                } else if (message.type === "traceReset" && Array.isArray(message.lines)) {
-                    traceLines = message.lines.filter((line) => typeof line === "string").slice(-maxTraceLines);
-                    renderTrace();
-                } else if (message.type === "notice" && typeof message.message === "string") {
-                    isChangingRoot = false;
-                    if (!sidebarState) {
-                        sidebarState = {
-                            roots: [],
-                            scripts: [],
-                            mode: "draft",
-                            installedAvailable: false,
-                            isRunning: false,
-                        };
-                    }
-                    sidebarState = Object.assign({}, sidebarState, { status: message.message });
-                    render();
-                }
-            });
+      dot.className = 'status-dot ' + (isConn ? (currentState.isRunning ? 'running' : 'connected') : '');
+      text.innerText = isConn ? (currentState.clientName ? 'Đã nối: ' + currentState.clientName : 'Đã kết nối') : 'Chưa kết nối';
+      btn.innerText = isConn ? 'Ngắt Kết Nối' : '⚡ Kết Nối';
+      btn.className = isConn ? 'secondary' : '';
 
-            render();
-            post({ type: "ready" });
-        })();
-    </script>
+      if (currentState.targetAddress) {
+        document.getElementById('targetAddr').value = currentState.targetAddress;
+      }
+
+      const select = document.getElementById('extSelect');
+      const prevVal = select.value;
+      select.innerHTML = '';
+
+      const wsList = currentState.workspaceExtensions || [];
+      const appList = currentState.appExtensions || [];
+
+      if (wsList.length > 0) {
+        const groupWs = document.createElement('optgroup');
+        groupWs.label = '📁 Thư Mục Trong Máy (Workspace)';
+        for (const ext of wsList) {
+          const opt = document.createElement('option');
+          opt.value = 'ws:' + (ext.folderUri ? (ext.folderUri.path || ext.folderUri.toString()) : ext.folderPath);
+          opt.innerText = ext.name + ' (' + ext.packageId + ') v' + ext.version + ' [' + ext.folderName + ']';
+          groupWs.appendChild(opt);
+        }
+        select.appendChild(groupWs);
+      }
+
+      if (appList.length > 0) {
+        const groupApp = document.createElement('optgroup');
+        groupApp.label = '📱 Đã Cài Trên App (iOS)';
+        for (const ext of appList) {
+          const opt = document.createElement('option');
+          opt.value = 'app:' + ext.packageId;
+          opt.innerText = ext.name + ' (' + ext.packageId + ') v' + ext.version;
+          groupApp.appendChild(opt);
+        }
+        select.appendChild(groupApp);
+      }
+
+      if (wsList.length === 0 && appList.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.innerText = '(Không tìm thấy extension trong folder & app)';
+        select.appendChild(opt);
+      }
+
+      if (currentState.selectedKey) {
+        select.value = currentState.selectedKey;
+      } else if (prevVal && Array.from(select.options).some(o => o.value === prevVal)) {
+        select.value = prevVal;
+      } else if (select.options.length > 0) {
+        select.selectedIndex = 0;
+      }
+
+      document.getElementById('btnRun').disabled = !isConn || currentState.isRunning;
+      document.getElementById('btnCancel').disabled = !isConn || !currentState.isRunning;
+    }
+
+    function appendTraceLine(text) {
+      const box = document.getElementById('traceBox');
+      const div = document.createElement('div');
+      div.className = 'trace-line';
+      if (text.includes('[exception]') || text.includes('[compileFailed]') || text.includes('[fetchFailed]') || text.includes('[Response.error]') || text.includes('Error')) {
+        div.className += ' error';
+      } else if (text.includes('[Response.success]') || text.includes('✅')) {
+        div.className += ' success';
+      } else if (text.includes('[console]')) {
+        div.className += ' info';
+      }
+      div.innerText = text;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    vscode.postMessage({ type: 'ready' });
+  </script>
 </body>
 </html>`;
-    }
-}
-
-function parseSidebarMessage(value: unknown): SidebarMessage | undefined {
-    if (!isRecord(value) || typeof value.type !== "string") {
-        return undefined;
-    }
-
-    switch (value.type) {
-        case "ready":
-        case "browseRoot":
-        case "pair":
-        case "useMock":
-        case "cancel":
-        case "openTrace":
-            return { type: value.type };
-        case "selectRoot":
-            return isUiString(value.rootId, 4_096) ? { type: "selectRoot", rootId: value.rootId } : undefined;
-        case "selectScript":
-            return isUiString(value.scriptId, 4_096) ? { type: "selectScript", scriptId: value.scriptId } : undefined;
-        case "selectMode":
-            return isSidebarMode(value.mode) ? { type: "selectMode", mode: value.mode } : undefined;
-        case "run": {
-            if (!isSidebarMode(value.mode) || !isStringRecord(value.values)) {
-                return undefined;
-            }
-            if (value.rootId !== undefined && !isUiString(value.rootId, 4_096)) {
-                return undefined;
-            }
-            if (value.scriptId !== undefined && !isUiString(value.scriptId, 4_096)) {
-                return undefined;
-            }
-            return {
-                type: "run",
-                ...(typeof value.rootId === "string" ? { rootId: value.rootId } : {}),
-                ...(typeof value.scriptId === "string" ? { scriptId: value.scriptId } : {}),
-                mode: value.mode,
-                values: value.values,
-            };
-        }
-        default:
-            return undefined;
-    }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isSidebarMode(value: unknown): value is SidebarMode {
-    return value === "draft" || value === "installed";
-}
-
-function isUiString(value: unknown, maxLength: number): value is string {
-    return typeof value === "string" && value.length <= maxLength;
-}
-
-function isStringRecord(value: unknown): value is Readonly<Record<string, string>> {
-    if (!isRecord(value)) {
-        return false;
-    }
-    const entries = Object.entries(value);
-    return entries.length <= 64 && entries.every(([key, nested]) => (
-        isUiString(key, 256) && isUiString(nested, 65_536)
-    ));
+  }
 }

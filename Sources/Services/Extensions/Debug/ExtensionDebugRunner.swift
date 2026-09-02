@@ -130,11 +130,10 @@ public actor ExtensionDebugRunner {
                 extName: URL(fileURLWithPath: localPath).lastPathComponent,
                 scriptName: scriptKey
             )
-            // `compactRepresentation` chứ không `stringify`: summary chỉ được có hình dạng, tuyệt đối
-            // không có nội dung chương hay payload thật.
+            let responseString = manager.stringify(clean)
             session.emit(
                 .responseValidated,
-                message: manager.compactRepresentation(clean),
+                message: responseString,
                 details: Self.durationDetails(from: startedAt)
             )
             session.emit(.runFinished, message: "Hoàn tất", details: Self.durationDetails(from: startedAt))

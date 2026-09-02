@@ -4,6 +4,27 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.272) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.322] - 2026-09-02
+
+### Viết hoa sau dấu hai chấm và tiền tố thoại trong Reader
+
+Sửa **1** file Swift ([`TranslateUtils.swift`](../../Sources/Services/Translation/Utils/TranslateUtils.swift)).
+
+- **`TranslateUtils.postProcessText`:** Cập nhật `capitalizeRegex` mở rộng `[.!?:]+` (gồm `:` và `：`) và bổ sung các loại gạch ngang đầu dòng (`-`, `—`, `–`). Tự động viết hoa chữ cái đầu câu thoại/trích dẫn sau dấu hai chấm, kể cả khi có dấu ngoặc (`"`, `“`, `‘`, `(`, `[`, `{`, `【`) hoặc gạch đầu dòng bao bọc.
+- Kiểm thử: 18/18 test cases đạt 100% PASS.
+
+## [1.3.321] - 2026-09-02
+
+### Debug Extension: trả đầy đủ JSON Response.success/error và format Beautified JSON
+
+Sửa **5** file Swift, khôi phục và nâng cấp **VS Code Extension** (`Tools/VSCode/FreeBookExtDebug`).
+
+- **`ExtensionDebugRunner` trả JSON đầy đủ:** Đổi từ `manager.compactRepresentation(clean)` sang `manager.stringify(clean)` khi emit event `.responseValidated`. Không còn tóm tắt thành `[Array: N items]` hay `[Object: N keys]`.
+- **`ExtensionDebugRedactor` nâng trần payload phản hồi lên 128 KB:** Thêm hàm `responsePayload(_:)` giữ nguyên toàn bộ định dạng JSON và ngắt dòng, không bị `collapseWhitespace` hay cắt ở 600 ký tự như `message(_:)`. `ExtensionDebugSession` định tuyến `.responseValidated` và `.responseError` qua hàm này.
+- **VS Code Extension nâng cấp:**
+  - Khôi phục giao diện **Sidebar Webview Panel** (`src/sidebarView.ts`) trên Activity Bar với các tính năng: kết nối LAN `ws://ip:port`, chọn extension, stage bản nháp, cài đặt/rollback, điều khiển Run/Cancel, và Live Trace.
+  - Tự động parse và in Beautified JSON (`null, 2`) cho `Response.success` và `Response.error` trên cả Output Channel và Live Trace.
+
 ## [1.3.320] - 2026-09-02
 
 ### Sửa stall nạp trước NghiTTS, hủy thật inference, và bốn lượt tối ưu tiền xử lý

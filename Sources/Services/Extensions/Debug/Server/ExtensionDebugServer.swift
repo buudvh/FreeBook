@@ -200,9 +200,14 @@ public actor ExtensionDebugServer {
 
     private func accept(_ nwConnection: NWConnection) {
         guard connection == nil, let router else {
+            // Chỉ nhận **một** client. Nếu client trước còn treo ở đây thì client mới bị từ chối
+            // ngay, và phía client chỉ thấy "kết nối bị đóng" — log này là chỗ duy nhất phân biệt
+            // được ca đó với ca server chưa chạy.
+            AppLogger.shared.log("🚫 [ExtDebug] Từ chối kết nối \(String(describing: nwConnection.endpoint)): \(connection == nil ? "chưa có router" : "đã có client khác")")
             nwConnection.cancel()
             return
         }
+        AppLogger.shared.log("🤝 [ExtDebug] Nhận kết nối từ \(String(describing: nwConnection.endpoint))")
         let handler = ExtensionDebugConnection(
             connection: nwConnection,
             queue: queue,
