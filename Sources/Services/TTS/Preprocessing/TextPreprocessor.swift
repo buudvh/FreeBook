@@ -121,36 +121,35 @@ final actor TextPreprocessor {
     var transliterationCache: [String: String] = [:]
     var transliterationCacheOrder: [String] = []
 
-    private struct UnitPatternSpec {
-        let expansion: String
+    private struct UnitPatternGroup {
         let numericRegex: NSRegularExpression
         let spelledRegex: NSRegularExpression
     }
 
-    private static let unitPatternSpecs: [UnitPatternSpec] = {
-        let numberSpelledPattern = #"(?:(?:\b(?:một|hai|ba|bốn|năm|sáu|bảy|tám|chín|mười|không|trăm|nghìn|triệu|tỷ|lẻ|mốt|tư|lăm|phẩy)\b\s*)+)"#
-        let sortedUnits = unitExpansions.keys.sorted { $0.count > $1.count }
-        return sortedUnits.compactMap { unit in
-            guard let expansion = unitExpansions[unit] else { return nil }
-            let escapedUnit = NSRegularExpression.escapedPattern(for: unit)
-            let numericPattern: String
-            let spelledPattern: String
+    // Chuỗi số viết bằng chữ; dùng chung cho cả hai nhóm đơn vị.
+    private static let numberSpelledPattern = #"(?:(?:\b(?:một|hai|ba|bốn|năm|sáu|bảy|tám|chín|mười|không|trăm|nghìn|triệu|tỷ|lẻ|mốt|tư|lăm|phẩy)\b\s*)+)"#
 
-            if unit.count == 1 {
-                numericPattern = #"(\d+)\s*"# + escapedUnit + #"(?!\s*[a-zA-Zà-ỹ])(?=\s*[^a-zA-Zà-ỹ]|$)"#
-                spelledPattern = #"("# + numberSpelledPattern + #")\s*\b"# + escapedUnit + #"\b(?!\s*[a-zA-Zà-ỹ])(?=\s*[^a-zA-Zà-ỹ]|$)"#
-            } else {
-                numericPattern = #"(\d+)\s*"# + escapedUnit + #"(?=\s|[^\w]|$)"#
-                spelledPattern = #"("# + numberSpelledPattern + #")\s*\b"# + escapedUnit + #"\b(?=\s|[^\w]|$)"#
-            }
+    // Alternation của các đơn vị, nhánh dài xếp trước để "km/h" thắng "km" và "cm²" thắng "cm" —
+    // đúng thứ tự "giảm dần theo độ dài" mà vòng lặp 51 đơn vị trước đây dựa vào.
+    private static func unitAlternation(where predicate: (String) -> Bool) -> String {
+        let keys = unitExpansions.keys.filter(predicate).sorted { $0.count != $1.count ? $0.count > $1.count : $0 < $1 }
+        return keys.map { NSRegularExpression.escapedPattern(for: $0) }.joined(separator: "|")
+    }
 
-            return UnitPatternSpec(
-                expansion: expansion,
-                numericRegex: try! NSRegularExpression(pattern: numericPattern, options: [.caseInsensitive]),
-                spelledRegex: try! NSRegularExpression(pattern: spelledPattern, options: [.caseInsensitive])
-            )
-        }
-    }()
+    private static func makeUnitGroup(alternation: String, suffix: String) -> UnitPatternGroup {
+        let numericPattern = #"(\d+)\s*("# + alternation + #")"# + suffix
+        let spelledPattern = #"("# + numberSpelledPattern + #")\s*\b("# + alternation + #")\b"# + suffix
+        return UnitPatternGroup(
+            numericRegex: try! NSRegularExpression(pattern: numericPattern, options: [.caseInsensitive]),
+            spelledRegex: try! NSRegularExpression(pattern: spelledPattern, options: [.caseInsensitive])
+        )
+    }
+
+    // Đơn vị 1 ký tự: hai hậu tố lookahead chặt hơn, không cho chữ cái đứng ngay sau.
+    private static let singleCharUnitGroup = makeUnitGroup(alternation: unitAlternation(where: { $0.count == 1 }), suffix: #"(?!\s*[a-zA-Zà-ỹ])(?=\s*[^a-zA-Zà-ỹ]|$)"#)
+
+    // Đơn vị nhiều ký tự: hậu tố chỉ cần ranh giới không phải \w.
+    private static let multiCharUnitGroup = makeUnitGroup(alternation: unitAlternation(where: { $0.count > 1 }), suffix: #"(?=\s|[^\w]|$)"#)
 
     func lookupAcronym(_ key: String) -> String? {
         return acronymMap[key]
@@ -679,64 +678,43 @@ final actor TextPreprocessor {
 
 
     private static func processCurrency(_ text: String) -> String {
-        var e = text
-
-        while let match = PreprocessorRegex.currencyVND.firstMatch(in: e, options: [], range: NSRange(location: 0, length: e.utf16.count)) {
-            let nsString = e as NSString
-            let val = nsString.substring(with: match.range(at: 1)).replacingOccurrences(of: ",", with: "")
-            let replacement = "\(VietnameseNumberSpeller.spell(val)) đồng"
-            e = nsString.replacingCharacters(in: match.range, with: replacement)
+        // Bốn vòng `firstMatch` cũ quét lại từ đầu chuỗi sau **mỗi** lần thay ⇒ O(k×N) và cũng là
+        // dạng vòng dễ treo. `VietnameseNumberSpeller.spell` không bao giờ trả về chữ số nên bản
+        // thay thế không thể khớp lại chính pattern — một lượt `matches` là đủ.
+        let vndReplacer: MatchReplacer = { match, ns in
+            let val = ns.substring(with: match.range(at: 1)).replacingOccurrences(of: ",", with: "")
+            return "\(VietnameseNumberSpeller.spell(val)) đồng"
+        }
+        let dollarReplacer: MatchReplacer = { match, ns in
+            let val = ns.substring(with: match.range(at: 1)).replacingOccurrences(of: ",", with: "")
+            return "\(VietnameseNumberSpeller.spell(val)) đô la"
         }
 
-        while let match = PreprocessorRegex.currencyD.firstMatch(in: e, options: [], range: NSRange(location: 0, length: e.utf16.count)) {
-            let nsString = e as NSString
-            let val = nsString.substring(with: match.range(at: 1)).replacingOccurrences(of: ",", with: "")
-            let replacement = "\(VietnameseNumberSpeller.spell(val)) đồng"
-            e = nsString.replacingCharacters(in: match.range, with: replacement)
-        }
-
-        while let match = PreprocessorRegex.dollarPrefix.firstMatch(in: e, options: [], range: NSRange(location: 0, length: e.utf16.count)) {
-            let nsString = e as NSString
-            let val = nsString.substring(with: match.range(at: 1)).replacingOccurrences(of: ",", with: "")
-            let replacement = "\(VietnameseNumberSpeller.spell(val)) đô la"
-            e = nsString.replacingCharacters(in: match.range, with: replacement)
-        }
-
-        while let match = PreprocessorRegex.dollarSuffix.firstMatch(in: e, options: [], range: NSRange(location: 0, length: e.utf16.count)) {
-            let nsString = e as NSString
-            let val = nsString.substring(with: match.range(at: 1)).replacingOccurrences(of: ",", with: "")
-            let replacement = "\(VietnameseNumberSpeller.spell(val)) đô la"
-            e = nsString.replacingCharacters(in: match.range, with: replacement)
-        }
-
+        var e = replaceMatches(in: text, regex: PreprocessorRegex.currencyVND, replacer: vndReplacer)
+        e = replaceMatches(in: e, regex: PreprocessorRegex.currencyD, replacer: vndReplacer)
+        e = replaceMatches(in: e, regex: PreprocessorRegex.dollarPrefix, replacer: dollarReplacer)
+        e = replaceMatches(in: e, regex: PreprocessorRegex.dollarSuffix, replacer: dollarReplacer)
         return e
     }
 
     private static func processPercentages(_ text: String) -> String {
-        var e = text
-
-        while let match = PreprocessorRegex.percentageRange.firstMatch(in: e, options: [], range: NSRange(location: 0, length: e.utf16.count)) {
-            let nsString = e as NSString
-            let s = nsString.substring(with: match.range(at: 1))
-            let r = nsString.substring(with: match.range(at: 2))
-            let replacement = "\(VietnameseNumberSpeller.spell(s)) đến \(VietnameseNumberSpeller.spell(r)) phần trăm"
-            e = nsString.replacingCharacters(in: match.range, with: replacement)
+        // Cùng lý do như `processCurrency`: ba vòng `firstMatch` cũ thành ba lượt `matches`.
+        var e = replaceMatches(in: text, regex: PreprocessorRegex.percentageRange) { match, ns in
+            let s = ns.substring(with: match.range(at: 1))
+            let r = ns.substring(with: match.range(at: 2))
+            return "\(VietnameseNumberSpeller.spell(s)) đến \(VietnameseNumberSpeller.spell(r)) phần trăm"
         }
 
-        while let match = PreprocessorRegex.percentageDecimal.firstMatch(in: e, options: [], range: NSRange(location: 0, length: e.utf16.count)) {
-            let nsString = e as NSString
-            let s = nsString.substring(with: match.range(at: 1))
-            let r = nsString.substring(with: match.range(at: 2))
+        e = replaceMatches(in: e, regex: PreprocessorRegex.percentageDecimal) { match, ns in
+            let s = ns.substring(with: match.range(at: 1))
+            let r = ns.substring(with: match.range(at: 2))
             let cleanedR = r.replacingOccurrences(of: "^0+", with: "", options: .regularExpression)
-            let replacement = "\(VietnameseNumberSpeller.spell(s)) phẩy \(VietnameseNumberSpeller.spell(cleanedR.isEmpty ? "0" : cleanedR)) phần trăm"
-            e = nsString.replacingCharacters(in: match.range, with: replacement)
+            return "\(VietnameseNumberSpeller.spell(s)) phẩy \(VietnameseNumberSpeller.spell(cleanedR.isEmpty ? "0" : cleanedR)) phần trăm"
         }
 
-        while let match = PreprocessorRegex.percentageSingle.firstMatch(in: e, options: [], range: NSRange(location: 0, length: e.utf16.count)) {
-            let nsString = e as NSString
-            let s = nsString.substring(with: match.range(at: 1))
-            let replacement = "\(VietnameseNumberSpeller.spell(s)) phần trăm"
-            e = nsString.replacingCharacters(in: match.range, with: replacement)
+        e = replaceMatches(in: e, regex: PreprocessorRegex.percentageSingle) { match, ns in
+            let s = ns.substring(with: match.range(at: 1))
+            return "\(VietnameseNumberSpeller.spell(s)) phần trăm"
         }
 
         return e
@@ -781,35 +759,58 @@ final actor TextPreprocessor {
         "°N": "độ N", "°D": "độ D"
     ]
 
-    private static func processUnits(_ text: String) -> String {
-        var e = text
-        for spec in unitPatternSpecs {
-            let expansion = spec.expansion
+    // Tra ngược đơn vị vừa khớp về bản đọc. Pattern bật `.caseInsensitive` nên "KM" hay "°c" cũng
+    // phải tra được, mà khoá "°C" lại viết hoa nên không thể chỉ dùng `lowercased()`.
+    private static let unitExpansionsLowercased: [String: String] = {
+        var map: [String: String] = [:]
+        for (key, value) in unitExpansions {
+            map[key.lowercased()] = value
+        }
+        return map
+    }()
 
-            e = replaceMatches(in: e, regex: spec.numericRegex) { match, ns in
-                let val = ns.substring(with: match.range(at: 1))
-                return val + " " + expansion
+    private static func unitExpansion(for matched: String) -> String? {
+        return unitExpansions[matched] ?? unitExpansionsLowercased[matched.lowercased()]
+    }
+
+    // Tiền kiểm rẻ cho nhánh "spelled": tìm chuỗi con rẻ hơn nhiều so với chạy regex có quantifier
+    // lồng trên toàn văn bản. Lỏng hơn regex thật (không xét ranh giới từ) nên không bỏ sót ca nào.
+    private static let spelledNumberProbes: [String] = [
+        "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín", "mười",
+        "không", "trăm", "nghìn", "triệu", "tỷ", "lẻ", "mốt", "tư", "lăm", "phẩy"
+    ]
+
+    private static func containsSpelledNumber(_ text: String) -> Bool {
+        return spelledNumberProbes.contains { text.range(of: $0, options: [.caseInsensitive]) != nil }
+    }
+
+    private static func isWordCharacter(_ ns: NSString, at index: Int) -> Bool {
+        let char = ns.substring(with: NSRange(location: index, length: 1))
+        return PreprocessorRegex.wordChar.firstMatch(in: char, options: [], range: NSRange(location: 0, length: 1)) != nil
+    }
+
+    private static func processUnits(_ text: String) -> String {
+        // 51 đơn vị trước đây mỗi đơn vị một cặp regex ⇒ 102 lượt quét toàn văn bản mỗi lần gọi. Nay
+        // gộp còn 4: nhóm nhiều ký tự chạy trước nhóm 1 ký tự để giữ nguyên thứ tự "dài trước, ngắn
+        // sau" của vòng lặp cũ (nhờ đó "5m2" ra "5 mét vuông" chứ không phải "5 mét2").
+        var e = text
+        // Bản đọc do nhánh số Ả Rập sinh ra không chứa từ số đếm nào, nên chỉ cần soi một lần ở đây.
+        let hasSpelledNumber = containsSpelledNumber(e)
+
+        for group in [multiCharUnitGroup, singleCharUnitGroup] {
+            e = replaceMatches(in: e, regex: group.numericRegex) { match, ns in
+                guard let expansion = unitExpansion(for: ns.substring(with: match.range(at: 2))) else { return nil }
+                return ns.substring(with: match.range(at: 1)) + " " + expansion
             }
 
-            e = replaceMatches(in: e, regex: spec.spelledRegex) { match, ns in
+            guard hasSpelledNumber else { continue }
+            e = replaceMatches(in: e, regex: group.spelledRegex) { match, ns in
+                guard let expansion = unitExpansion(for: ns.substring(with: match.range(at: 2))) else { return nil }
                 let start = match.range.location
-                let length = match.range.length
+                let nextIndex = start + match.range.length
 
-                let prevIndex = start - 1
-                let nextIndex = start + length
-
-                if prevIndex >= 0 {
-                    let prevChar = ns.substring(with: NSRange(location: prevIndex, length: 1))
-                    if PreprocessorRegex.wordChar.firstMatch(in: prevChar, options: [], range: NSRange(location: 0, length: 1)) != nil {
-                        return nil
-                    }
-                }
-                if nextIndex < ns.length {
-                    let nextChar = ns.substring(with: NSRange(location: nextIndex, length: 1))
-                    if PreprocessorRegex.wordChar.firstMatch(in: nextChar, options: [], range: NSRange(location: 0, length: 1)) != nil {
-                        return nil
-                    }
-                }
+                if start > 0, isWordCharacter(ns, at: start - 1) { return nil }
+                if nextIndex < ns.length, isWordCharacter(ns, at: nextIndex) { return nil }
 
                 let spelled = ns.substring(with: match.range(at: 1))
                 return spelled.trimmingCharacters(in: .whitespacesAndNewlines) + " " + expansion
@@ -878,34 +879,49 @@ final actor TextPreprocessor {
         case word
     }
 
+    // Regex `\s+` → " " chỉ đổi chuỗi khi có khoảng trắng liên tiếp hoặc khoảng trắng không phải dấu
+    // cách thường; `trimmingCharacters` chỉ có tác dụng khi chuỗi mở/kết bằng khoảng trắng. Vị từ này
+    // bao trùm cả hai (thuộc tính White_Space là tập cha của `\s` trong ICU) nên không bỏ sót ca nào.
+    private static func needsWhitespaceNormalization(_ text: String) -> Bool {
+        var previousWasWhitespace = true  // coi như đứng sau khoảng trắng để bắt luôn ca đầu chuỗi
+        for scalar in text.unicodeScalars {
+            guard scalar.properties.isWhitespace else {
+                previousWasWhitespace = false
+                continue
+            }
+            if previousWasWhitespace || scalar.value != 0x20 { return true }
+            previousWasWhitespace = true
+        }
+        return previousWasWhitespace
+    }
+
+    private static func collapseWhitespace(_ text: String) -> String {
+        let collapsed = PreprocessorRegex.whitespaceCollapse.stringByReplacingMatches(in: text, options: [], range: NSRange(location: 0, length: text.utf16.count), withTemplate: " ")
+        return collapsed.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private func replaceDictionaryWords(in text: String, type: DictionaryType, config: PreprocessorRuntimeConfig) -> String {
         guard config.dictionaryReplacementEnabled else {
-            // Self.preprocessLog("📖 [ReplaceDictionary] Type: \(typeStr), dictionary replacement disabled; skipping.")
             return text
         }
-        // Self.preprocessLog("📖 [ReplaceDictionary] Type: \(typeStr), Input: '\(text)'")
         // Tìm toàn bộ các token là từ (word tokens) trong văn bản
         let regex = PreprocessorRegex.wordTokens
 
         let nsString = text as NSString
         let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsString.length))
         guard !matches.isEmpty else {
-            // Self.preprocessLog("📖 [ReplaceDictionary] Type: \(typeStr), No word matches found.")
             return text
         }
 
-        struct WordToken {
-            let text: String
-            let range: NSRange
-        }
-
-        let words = matches.map { WordToken(text: nsString.substring(with: $0.range).lowercased(), range: $0.range) }
+        // Chỉ cần vị trí token: bản cũ còn dựng thêm một chuỗi `.lowercased()` cho **mọi** token mà
+        // vòng lặp dưới đây không bao giờ đọc tới.
+        let wordRanges = matches.map { $0.range }
 
         var result = ""
         var lastCopiedIndex = 0
         var i = 0
 
-        while i < words.count {
+        while i < wordRanges.count {
             var matchedLength = 0
             var replacement: String? = nil
             var matchStartLoc = 0
@@ -913,17 +929,17 @@ final actor TextPreprocessor {
 
             // Tìm kiếm tham lam (greedy matching): thử khớp cụm từ tối đa 4 từ giảm dần về 1 từ
             for lookAhead in (1...4).reversed() {
-                guard i + lookAhead <= words.count else { continue }
+                guard i + lookAhead <= wordRanges.count else { continue }
 
-                let startLoc = words[i].range.location
-                let lastWord = words[i + lookAhead - 1]
-                let endLoc = lastWord.range.location + lastWord.range.length
+                let startLoc = wordRanges[i].location
+                let lastRange = wordRanges[i + lookAhead - 1]
+                let endLoc = lastRange.location + lastRange.length
 
-                // Lấy cụm từ gốc từ văn bản ban đầu và chuẩn hóa khoảng trắng để đối chiếu
+                // Lấy cụm từ gốc từ văn bản ban đầu và chuẩn hóa khoảng trắng để đối chiếu.
+                // `cleanEmojisAndSymbols` đã gộp mọi khoảng trắng thành một dấu cách trước đó nên
+                // regex ở đây gần như luôn vô ích — chỉ chạy khi cụm từ thật sự cần chuẩn hoá.
                 let rawPhrase = nsString.substring(with: NSRange(location: startLoc, length: endLoc - startLoc)).lowercased()
-                let phrase = PreprocessorRegex.whitespaceCollapse
-                    .stringByReplacingMatches(in: rawPhrase, options: [], range: NSRange(location: 0, length: rawPhrase.utf16.count), withTemplate: " ")
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                let phrase = Self.needsWhitespaceNormalization(rawPhrase) ? Self.collapseWhitespace(rawPhrase) : rawPhrase
 
                 // Tra cứu trực tiếp từ bộ nhớ của actor
                 let matchedValue = (type == .acronym) ? acronymMap[phrase] : wordMap[phrase]
@@ -946,8 +962,6 @@ final actor TextPreprocessor {
                 let replacementText = (type == .word) ? "\u{FEFF}\(match)\u{FEFF}" : match
                 result += replacementText
 
-                // Self.preprocessLog("   - Replaced phrase '\(nsString.substring(with: NSRange(location: matchStartLoc, length: matchEndLoc - matchStartLoc)))' with '\(replacementText)'")
-
                 lastCopiedIndex = matchEndLoc
                 i += matchedLength
             } else {
@@ -960,7 +974,6 @@ final actor TextPreprocessor {
             result += nsString.substring(with: NSRange(location: lastCopiedIndex, length: nsString.length - lastCopiedIndex))
         }
 
-        // Self.preprocessLog("📖 [ReplaceDictionary] Type: \(typeStr), Output: '\(result)'")
         return result
     }
 
@@ -1023,31 +1036,23 @@ final actor TextPreprocessor {
 
     // MARK: - Main Preprocess Pipeline
     func preprocess(_ text: String) -> String {
-        // Self.preprocessLog("🚀 [Preprocess] Start preprocessing for: '\(text)'")
         if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             Self.preprocessLog("🚀 [Preprocess] Text is empty, returning empty string.")
             return ""
         }
 
         let runtimeConfig = PreprocessorRuntimeConfig.load()
-        // Self.preprocessLog(
-        //     "🚀 [Preprocess] Config snapshot: numeric=\(runtimeConfig.numericNormalizationEnabled), dictionary=\(runtimeConfig.dictionaryReplacementEnabled), transliteration=\(runtimeConfig.transliterationEnabled)"
-        // )
 
         // 0. Chuyển đổi Hiragana/Katakana tiếng Nhật sang Romaji
         let pipelineInput: String
         if runtimeConfig.transliterationEnabled {
-            // Self.preprocessLog("🚀 [Preprocess] Step 0a: Converting Japanese characters (Romaji)...")
             pipelineInput = JapaneseTransliterator.convertToRomaji(text)
         } else {
-            // Self.preprocessLog("🚀 [Preprocess] Step 0a: Transliteration disabled; keeping original script.")
             pipelineInput = text
         }
 
-        // Self.preprocessLog("🚀 [Preprocess] Step 0b: Running Vietnamese text processor...")
         let processedVi = Self.processVietnameseText(pipelineInput, config: runtimeConfig)
 
-        // Self.preprocessLog("🚀 [Preprocess] Step 0c: Cleaning emojis and symbols...")
         let cleaned = Self.cleanEmojisAndSymbols(processedVi)
 
         let lowercased = cleaned.lowercased()
@@ -1055,14 +1060,10 @@ final actor TextPreprocessor {
         // 1. Thay thế từ viết tắt (Acronyms) khi config bật
         var replacedText = lowercased
         if runtimeConfig.dictionaryReplacementEnabled {
-            // Self.preprocessLog("🚀 [Preprocess] Step 1: Replacing acronyms...")
             replacedText = replaceDictionaryWords(in: lowercased, type: .acronym, config: runtimeConfig)
 
             // 2. Tiến hành khớp từ điển tiếng Anh và chạy bộ quy tắc
-            // Self.preprocessLog("🚀 [Preprocess] Step 2: Translating English words...")
             replacedText = replaceDictionaryWords(in: replacedText, type: .word, config: runtimeConfig)
-        } else {
-            // Self.preprocessLog("🚀 [Preprocess] Step 1/2: Dictionary replacement disabled; skipping acronym and word maps.")
         }
 
         let shouldProcessTokens = runtimeConfig.dictionaryReplacementEnabled || runtimeConfig.transliterationEnabled
@@ -1075,7 +1076,6 @@ final actor TextPreprocessor {
             result = ""
             var lastOffset = 0
 
-            // Self.preprocessLog("🚀 [Preprocess] Step 2b: Processing individual non-Vietnamese tokens...")
             for (tokenIndex, match) in matches.enumerated() {
                 if match.range.location > lastOffset {
                     let gapRange = NSRange(location: lastOffset, length: match.range.location - lastOffset)

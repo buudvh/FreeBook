@@ -37,6 +37,10 @@ final class PiperTTSService: @unchecked Sendable {
         }.value
     }
 
+    /// Tổng hợp một đoạn và chỉ trả WAV.
+    ///
+    /// Bỏ trống `synthesisKey` là an toàn: `synthesizeWithDuration` tự sinh key mặc định nên
+    /// request vẫn được gộp thay vì chạy ONNX hai lần cho cùng một đoạn text.
     func synthesize(
         text: String,
         voice: String,
@@ -58,6 +62,11 @@ final class PiperTTSService: @unchecked Sendable {
         return result.data
     }
 
+    /// Tổng hợp một đoạn, trả cả thời lượng PCM.
+    ///
+    /// `synthesisKey == nil` **không** còn nghĩa là "không gộp request": key được sinh tự động từ
+    /// `(file model, tốc độ, loại ranh giới, nội dung text)` để `PiperSynthesisCoordinator` luôn
+    /// gộp được hai đường cùng yêu cầu một đoạn text thay vì chạy ONNX hai lần đầy đủ.
     func synthesizeWithDuration(
         text: String,
         voice: String,
@@ -67,10 +76,17 @@ final class PiperTTSService: @unchecked Sendable {
         requestID: UUID = UUID(),
         synthesisKey: String? = nil
     ) async throws -> (data: Data, pcmDuration: Double, queueWaitMs: Double, synthesisMs: Double) {
+        let effectiveKey = synthesisKey ?? makeDefaultSynthesisKey(
+            text: text,
+            voice: voice,
+            speed: speed,
+            boundaryKind: boundaryKind,
+            streaming: false
+        )
         let payload = try await PiperSynthesisCoordinator.shared.enqueuePayload(
             priority: priority,
             requestID: requestID,
-            synthesisKey: synthesisKey
+            synthesisKey: effectiveKey
         ) { [weak self] in
             guard let self = self else { throw CancellationError() }
             return try await self.executeInternalSynthesisWithDuration(text: text, voice: voice, speed: speed, boundaryKind: boundaryKind)
@@ -89,11 +105,24 @@ final class PiperTTSService: @unchecked Sendable {
         speed: Double,
         priority: SynthesisPriority = .demand,
         requestID: UUID = UUID(),
+        synthesisKey: String? = nil,
         onChunkPayload: @escaping @Sendable (TTSPCMChunkPayload) async throws -> Void
     ) async throws -> Data {
+        let effectiveKey = synthesisKey ?? makeDefaultSynthesisKey(
+            text: text,
+            voice: voice,
+            speed: speed,
+            boundaryKind: .paragraphEnd,
+            streaming: true
+        )
+        // Vẫn đặt key để `promote(synthesisKey:)` nâng được mức ưu tiên, nhưng **cấm gộp**:
+        // closure `onChunkPayload` nằm trong `work` của waiter đầu tiên, waiter thứ hai gộp vào sẽ
+        // không bao giờ được gọi lại ⇒ mất sạch chunk PCM và mất luôn double-buffering.
         return try await PiperSynthesisCoordinator.shared.enqueue(
             priority: priority,
-            requestID: requestID
+            requestID: requestID,
+            synthesisKey: effectiveKey,
+            allowsCoalescing: false
         ) { [weak self] in
             guard let self = self else { throw CancellationError() }
             return try await self.executeInternalSynthesisStream(
@@ -103,6 +132,32 @@ final class PiperTTSService: @unchecked Sendable {
                 onChunkPayload: onChunkPayload
             )
         }
+    }
+
+    /// Sinh `synthesisKey` mặc định khi caller không truyền.
+    ///
+    /// Gộp đúng bốn thứ quyết định kết quả tổng hợp: file model (suy ra từ `voiceId`), tốc độ,
+    /// loại ranh giới và nội dung text. `engine` mang thêm nhãn `stream` để key của đường stream
+    /// không bao giờ trùng key của đường thường. Tiền tố `auto-` để phân biệt với key tường minh
+    /// do `TTSSynthesisIdentity.computeKey` sinh ở tầng trên (dạng 64 ký tự hex).
+    private func makeDefaultSynthesisKey(
+        text: String,
+        voice: String,
+        speed: Double,
+        boundaryKind: TTSBoundaryKind,
+        streaming: Bool
+    ) -> String {
+        let voiceId = voice.toASCIIID
+        let modelPath = modelStore.modelURL(for: voiceId, extension: "onnx").path
+        let digest = TTSSynthesisIdentity.computeKey(
+            chapterURL: modelPath,
+            chapterIndex: -1,
+            paragraphIndex: -1,
+            finalText: text,
+            engine: streaming ? "nghitts-stream" : "nghitts",
+            voice: "\(voiceId)|speed=\(speed)|boundary=\(boundaryKind.rawValue)"
+        )
+        return "auto-\(digest)"
     }
 
     private func executeInternalSynthesis(text: String, voice: String, speed: Double, boundaryKind: TTSBoundaryKind) async throws -> Data {

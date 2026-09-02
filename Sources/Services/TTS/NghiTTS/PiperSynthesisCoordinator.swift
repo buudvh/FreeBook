@@ -41,6 +41,10 @@ internal actor PiperSynthesisCoordinator {
 
     private struct PendingRequest {
         let synthesisKey: String?
+        /// `false` = cấm gộp waiter vào request này (và cấm request này gộp vào request khác).
+        /// Dùng cho đường stream: chỉ `onChunkPayload` của waiter đầu tiên được gọi, waiter thứ hai
+        /// sẽ mất sạch chunk PCM. Payload của đường stream cũng có `pcmDuration = 0`.
+        let allowsCoalescing: Bool
         var priority: SynthesisPriority
         let sequenceNumber: UInt64
         let enqueuedAt: TimeInterval
@@ -51,8 +55,15 @@ internal actor PiperSynthesisCoordinator {
     private struct ActiveRequest {
         let id: UUID
         let synthesisKey: String?
+        let allowsCoalescing: Bool
+        /// Mức ưu tiên hiện hành của request đang chạy. Được nâng khi có waiter ưu tiên cao hơn
+        /// gộp vào hoặc khi `promote` gọi tới, nhờ vậy `cancelPendingOptionalReserveRequests`
+        /// không bao giờ hủy một tác vụ đã bị đòi bởi `.demand`.
+        var priority: SynthesisPriority
         let enqueuedAt: TimeInterval
-        let work: @Sendable () async throws -> PiperSynthesisPayload
+        /// Handle của tác vụ đang chạy `work`. Giữ lại để hủy được thật sự, thay vì chỉ resume
+        /// continuation rồi để ONNX suy luận tiếp một đoạn audio chắc chắn sẽ bị bỏ.
+        let workTask: Task<PiperSynthesisPayload, Error>
         var waiters: [Waiter]
     }
 
@@ -61,13 +72,24 @@ internal actor PiperSynthesisCoordinator {
     private var isProcessing = false
     private var nextSequenceNumber: UInt64 = 0
 
+    /// Xếp hàng một tác vụ chỉ trả `Data`.
+    ///
+    /// `allowsCoalescing` không có giá trị mặc định: đường này bọc kết quả thành
+    /// `PiperSynthesisPayload(pcmDuration: 0)` nên chia sẻ nó cho một waiter đang cần thời lượng
+    /// thật là sai. Caller phải tự khẳng định request của mình có chia sẻ được hay không.
     internal func enqueue(
         priority: SynthesisPriority,
         requestID: UUID,
         synthesisKey: String? = nil,
+        allowsCoalescing: Bool,
         work: @escaping @Sendable () async throws -> Data
     ) async throws -> Data {
-        let payload = try await enqueuePayload(priority: priority, requestID: requestID, synthesisKey: synthesisKey) {
+        let payload = try await enqueuePayload(
+            priority: priority,
+            requestID: requestID,
+            synthesisKey: synthesisKey,
+            allowsCoalescing: allowsCoalescing
+        ) {
             let data = try await work()
             return PiperSynthesisPayload(data: data, pcmDuration: 0.0)
         }
@@ -78,6 +100,7 @@ internal actor PiperSynthesisCoordinator {
         priority: SynthesisPriority,
         requestID: UUID,
         synthesisKey: String? = nil,
+        allowsCoalescing: Bool = true,
         work: @escaping @Sendable () async throws -> PiperSynthesisPayload
     ) async throws -> PiperSynthesisPayload {
         let waiterID = UUID()
@@ -85,8 +108,8 @@ internal actor PiperSynthesisCoordinator {
             try await withCheckedThrowingContinuation { continuation in
                 let waiter = Waiter(waiterID: waiterID, requestID: requestID, continuation: continuation)
 
-                if let synthesisKey = synthesisKey {
-                    if let idx = self.pendingQueue.firstIndex(where: { $0.synthesisKey == synthesisKey }) {
+                if let synthesisKey = synthesisKey, allowsCoalescing {
+                    if let idx = self.pendingQueue.firstIndex(where: { $0.synthesisKey == synthesisKey && $0.allowsCoalescing }) {
                         self.pendingQueue[idx].waiters.append(waiter)
                         if priority > self.pendingQueue[idx].priority {
                             self.pendingQueue[idx].priority = priority
@@ -94,8 +117,14 @@ internal actor PiperSynthesisCoordinator {
                         }
                         return
                     }
-                    if var active = self.activeRequest, active.synthesisKey == synthesisKey {
+                    if var active = self.activeRequest, active.synthesisKey == synthesisKey, active.allowsCoalescing {
                         active.waiters.append(waiter)
+                        // Nâng mức ưu tiên của request đang chạy theo waiter mới: nếu không, một
+                        // request vào từ `.optionalReserve` rồi được `.demand` gộp vào vẫn bị coi là
+                        // reserve và sẽ bị hủy khi tạm dừng, làm mất đúng chunk đang cần.
+                        if priority > active.priority {
+                            active.priority = priority
+                        }
                         self.activeRequest = active
                         return
                     }
@@ -104,6 +133,7 @@ internal actor PiperSynthesisCoordinator {
                 self.nextSequenceNumber += 1
                 let req = PendingRequest(
                     synthesisKey: synthesisKey,
+                    allowsCoalescing: allowsCoalescing,
                     priority: priority,
                     sequenceNumber: self.nextSequenceNumber,
                     enqueuedAt: ProcessInfo.processInfo.systemUptime,
@@ -128,6 +158,12 @@ internal actor PiperSynthesisCoordinator {
                 sortPendingQueue()
             }
         }
+        // Request đã vào `activeRequest` cũng phải được nâng: đó là dấu hiệu duy nhất cho biết
+        // tác vụ đang chạy hiện đã thuộc diện `.demand` và không được phép hủy khi tạm dừng.
+        if var active = activeRequest, active.synthesisKey == synthesisKey, newPriority > active.priority {
+            active.priority = newPriority
+            activeRequest = active
+        }
     }
 
     internal func detachWaiter(waiterID: UUID) {
@@ -144,10 +180,36 @@ internal actor PiperSynthesisCoordinator {
         if var active = activeRequest {
             if let wIdx = active.waiters.firstIndex(where: { $0.waiterID == waiterID }) {
                 let waiter = active.waiters.remove(at: wIdx)
-                waiter.continuation.resume(throwing: CancellationError())
                 activeRequest = active
+                // Không còn ai chờ kết quả: dừng thật tác vụ đang chạy. Trước đây vòng xử lý vẫn
+                // `await work()` tới hết nên ONNX suy luận cho audio chắc chắn bị bỏ (nóng máy), và
+                // vì vòng xử lý là tuần tự nên request `.demand` mới phải xếp sau ⇒ khựng tiếng.
+                if active.waiters.isEmpty {
+                    _ = cancelActiveWork()
+                    AppLogger.shared.log("🛑 [PiperCoordinator] Hủy tổng hợp đang chạy vì hết waiter key=\(shortKey(active.synthesisKey))")
+                }
+                waiter.continuation.resume(throwing: CancellationError())
             }
         }
+    }
+
+    /// Hủy thật request đang chạy và trả về bản ghi của nó (nếu có).
+    ///
+    /// Cancel handle của `Task` làm `try Task.checkCancellation()` giữa các chunk trong
+    /// `ONNXPiperEngine.synthesizeInternal` ném lỗi, nên engine dừng ở chunk kế tiếp thay vì
+    /// chạy hết đoạn. `activeRequest` bị xoá ngay để request mới cùng `synthesisKey` không gộp
+    /// vào một tác vụ đang chết. Hàm này **không** resume waiter — mỗi caller tự quyết định
+    /// resume ai, tránh resume một continuation hai lần.
+    private func cancelActiveWork() -> ActiveRequest? {
+        guard let active = activeRequest else { return nil }
+        activeRequest = nil
+        active.workTask.cancel()
+        return active
+    }
+
+    private func shortKey(_ key: String?) -> String {
+        guard let key = key else { return "nil" }
+        return String(key.suffix(8))
     }
 
     /// Cancels ONLY pending requests with priority .optionalReserve.
@@ -168,6 +230,18 @@ internal actor PiperSynthesisCoordinator {
                 waiter.continuation.resume(throwing: CancellationError())
             }
         }
+
+        // Request reserve đã vào `activeRequest` trước đây thoát được đợt hủy này và vẫn chạy tới
+        // hết. Chỉ hủy đúng mức `.optionalReserve`: `.demand`, `.immediateSuccessor` và
+        // `.nextChapterMandatory` vẫn phải sống qua lần tạm dừng.
+        if let active = activeRequest, active.priority == .optionalReserve {
+            if let cancelledActive = cancelActiveWork() {
+                AppLogger.shared.log("🛑 [PiperCoordinator] Hủy tổng hợp reserve đang chạy key=\(shortKey(cancelledActive.synthesisKey))")
+                for waiter in cancelledActive.waiters {
+                    waiter.continuation.resume(throwing: CancellationError())
+                }
+            }
+        }
     }
 
     internal func cancelPendingRequests() {
@@ -182,8 +256,8 @@ internal actor PiperSynthesisCoordinator {
 
     internal func cancelAll() {
         cancelPendingRequests()
-        if let active = activeRequest {
-            activeRequest = nil
+        if let active = cancelActiveWork() {
+            AppLogger.shared.log("🛑 [PiperCoordinator] cancelAll hủy tổng hợp đang chạy key=\(shortKey(active.synthesisKey))")
             for waiter in active.waiters {
                 waiter.continuation.resume(throwing: CancellationError())
             }
@@ -208,18 +282,30 @@ internal actor PiperSynthesisCoordinator {
             while !pendingQueue.isEmpty {
                 let req = pendingQueue.removeFirst()
                 let reqID = UUID()
-                let active = ActiveRequest(
+                let synthesisStartedAt = ProcessInfo.processInfo.systemUptime
+
+                // Bọc `work` trong một Task riêng để giữ được handle mà hủy. Hủy handle này làm
+                // `try Task.checkCancellation()` giữa các chunk trong
+                // `ONNXPiperEngine.synthesizeInternal` ném lỗi, engine dừng ở chunk kế tiếp.
+                let work = req.work
+                let workTask = Task<PiperSynthesisPayload, Error> {
+                    try await work()
+                }
+                self.activeRequest = ActiveRequest(
                     id: reqID,
                     synthesisKey: req.synthesisKey,
+                    allowsCoalescing: req.allowsCoalescing,
+                    priority: req.priority,
                     enqueuedAt: req.enqueuedAt,
-                    work: req.work,
+                    workTask: workTask,
                     waiters: req.waiters
                 )
-                self.activeRequest = active
 
                 do {
-                    let synthesisStartedAt = ProcessInfo.processInfo.systemUptime
-                    let result = try await req.work()
+                    // Vẫn chờ tới khi task kết thúc thật, kể cả khi đã hủy: cancel của Swift là
+                    // hợp tác, `ORTSession.run` của chunk hiện tại luôn chạy xong. Chờ ở đây giữ
+                    // bất biến "chỉ một operation tổng hợp tại một thời điểm".
+                    let result = try await workTask.value
                     let synthesisFinishedAt = ProcessInfo.processInfo.systemUptime
                     let measuredResult = PiperSynthesisPayload(
                         data: result.data,
@@ -234,6 +320,8 @@ internal actor PiperSynthesisCoordinator {
                         }
                     }
                 } catch {
+                    // `activeRequest` đã bị xoá nghĩa là đường hủy đã resume waiter của nó rồi —
+                    // không được resume lần thứ hai.
                     if let currentActive = self.activeRequest, currentActive.id == reqID {
                         for waiter in currentActive.waiters {
                             waiter.continuation.resume(with: .failure(error))
@@ -241,7 +329,9 @@ internal actor PiperSynthesisCoordinator {
                     }
                 }
 
-                self.activeRequest = nil
+                if let currentActive = self.activeRequest, currentActive.id == reqID {
+                    self.activeRequest = nil
+                }
             }
             self.isProcessing = false
         }

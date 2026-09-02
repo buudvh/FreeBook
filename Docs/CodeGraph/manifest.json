@@ -3,9 +3,9 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-09-02T12:39:26Z",
-  "gitCommit": "bc52bad0385b4103e45a397f5202b5225f9fb803",
-  "sourceFileCount": 464,
+  "generatedAt": "2026-09-02T14:19:52Z",
+  "gitCommit": "d3cc9bc075756c2029cfa0a0c562aded60b3f1b6",
+  "sourceFileCount": 461,
   "documentCount": 16,
   "documents": [
     {
@@ -305,7 +305,6 @@
         "Sources/Services/Translation/Manager/DictionaryInvalidationScope.swift",
         "Sources/Services/Translation/Manager/TranslationManager.swift",
         "Sources/Services/Translation/Utils/DictionaryCache.swift",
-        "Sources/Services/Translation/Utils/ReferenceDictionaryReader.swift",
         "Sources/Services/Translation/Utils/TOCRuleSaveCoordinator.swift",
         "Sources/Services/Translation/Utils/TranslateUtils.swift",
         "Sources/Views/AppLoadingView.swift",
@@ -360,8 +359,6 @@
         "Sources/Views/Dictionary/ManageDefinitionRowView.swift",
         "Sources/Views/Dictionary/ManageDefinitionsDraft.swift",
         "Sources/Views/Dictionary/ManageDefinitionsView.swift",
-        "Sources/Views/Dictionary/ReferenceDictionaryHubView.swift",
-        "Sources/Views/Dictionary/ReferenceDictionaryListView.swift",
         "Sources/Views/Discovery/DiscoveryScrollAnchorStore.swift",
         "Sources/Views/Discovery/DiscoveryView.swift",
         "Sources/Views/Download/DownloadTrackerView.swift",
@@ -481,12 +478,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "c7f3cc1522f39131d5e53e862066bc89206a5bc27c4d9e7479af83bc93c03e10",
-      "sourceHash": "f2d7dd25cdc6debdf59bb56b132e5c23f2405381ab27ff4cb8fc7d7cd4204954",
-      "generatedHash": "944f0ff82d8e3292d1fa6cfed7ee48a22aec4c5090cf3d96d561f0ac33444185",
-      "generatedAt": "2026-09-02T12:39:25Z",
-      "reviewedAt": "2026-09-02T12:39:25Z",
-      "reviewedCommit": "bc52bad0385b4103e45a397f5202b5225f9fb803",
+      "structureHash": "4e2a5ae2864a896cbb848256821ac48ed48b4aecc0a0310849d78ef8fba3620b",
+      "sourceHash": "969ad51125b3dcad35f8cb843bbb6b7f6a554a2ec94779fd4c957b8129f08a23",
+      "generatedHash": "42c64c44ff8ac15207a47f862846d6eaea518b22152cb1d39fae00534f3dc2da",
+      "generatedAt": "2026-09-02T14:19:52Z",
+      "reviewedAt": "2026-09-02T14:19:52Z",
+      "reviewedCommit": "d3cc9bc075756c2029cfa0a0c562aded60b3f1b6",
       "reviewMode": "accept"
     },
     {
@@ -813,7 +810,6 @@
         "Sources/Services/Translation/Manager/DictionaryInvalidationScope.swift",
         "Sources/Services/Translation/Manager/TranslationManager.swift",
         "Sources/Services/Translation/Utils/DictionaryCache.swift",
-        "Sources/Services/Translation/Utils/ReferenceDictionaryReader.swift",
         "Sources/Services/Translation/Utils/TOCRuleSaveCoordinator.swift",
         "Sources/Services/Translation/Utils/TranslateUtils.swift",
         "Sources/Views/AppLoadingView.swift",
@@ -868,8 +864,6 @@
         "Sources/Views/Dictionary/ManageDefinitionRowView.swift",
         "Sources/Views/Dictionary/ManageDefinitionsDraft.swift",
         "Sources/Views/Dictionary/ManageDefinitionsView.swift",
-        "Sources/Views/Dictionary/ReferenceDictionaryHubView.swift",
-        "Sources/Views/Dictionary/ReferenceDictionaryListView.swift",
         "Sources/Views/Discovery/DiscoveryScrollAnchorStore.swift",
         "Sources/Views/Discovery/DiscoveryView.swift",
         "Sources/Views/Download/DownloadTrackerView.swift",
@@ -989,12 +983,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "c7f3cc1522f39131d5e53e862066bc89206a5bc27c4d9e7479af83bc93c03e10",
-      "sourceHash": "f2d7dd25cdc6debdf59bb56b132e5c23f2405381ab27ff4cb8fc7d7cd4204954",
-      "generatedHash": "2d920d33f71b0afe992b58ec1282ebc2d32d3ef64c62cbb5af5ad816e2ce1b75",
-      "generatedAt": "2026-09-02T12:39:25Z",
-      "reviewedAt": "2026-09-02T12:39:25Z",
-      "reviewedCommit": "bc52bad0385b4103e45a397f5202b5225f9fb803",
+      "structureHash": "4e2a5ae2864a896cbb848256821ac48ed48b4aecc0a0310849d78ef8fba3620b",
+      "sourceHash": "969ad51125b3dcad35f8cb843bbb6b7f6a554a2ec94779fd4c957b8129f08a23",
+      "generatedHash": "1f78a6d0a9d15bb7cc4025f5159afa1b8db3824a633254a5dd30859f4722d823",
+      "generatedAt": "2026-09-02T14:19:52Z",
+      "reviewedAt": "2026-09-02T14:19:52Z",
+      "reviewedCommit": "d3cc9bc075756c2029cfa0a0c562aded60b3f1b6",
       "reviewMode": "accept"
     },
     {
@@ -1221,11 +1215,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "231daba766f928d83284bff7c37000f723b81f050006b6a3c913e474514ad0cb",
-      "sourceHash": "09eaab1b7fe47c06d4328d090deca7c46c022a594ad280607ed30a17084a6c00",
+      "sourceHash": "55467c3564cace60ff1bac561af66c8a991441368e016381651a7f0087305126",
       "generatedHash": "fef77370c9ff06f61a2bc1235425aeb503cf01c5283473352899925596300f9f",
-      "generatedAt": "2026-09-02T08:09:16Z",
-      "reviewedAt": "2026-09-02T08:09:16Z",
-      "reviewedCommit": "8455156b47ce41bb5078a38c23ffe3e0803380b3",
+      "generatedAt": "2026-09-02T14:17:15Z",
+      "reviewedAt": "2026-09-02T14:17:15Z",
+      "reviewedCommit": "d3cc9bc075756c2029cfa0a0c562aded60b3f1b6",
       "reviewMode": "no-change-needed"
     },
     {
@@ -1279,12 +1273,12 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "8949d3a2f86c83b97c4e6da0db4b20045e1417b321db5d08511d89c8be47d43f",
-      "sourceHash": "546ed95b856f413e3197784e20510aa8db828359ad049f2945d1f7c1897c5d69",
+      "sourceHash": "e5984a99419112b1b92c16f24918e9f07ecab8c15315c6aedc6d19ff5816f245",
       "generatedHash": "d3233538815d2038fd908c04796bfc4e240d672f95dca4a910da99a5db35193f",
-      "generatedAt": "2026-09-01T04:02:09Z",
-      "reviewedAt": "2026-09-01T04:02:09Z",
-      "reviewedCommit": "5563ae3092fae835214566cd1ce78614a652474d",
-      "reviewMode": "accept"
+      "generatedAt": "2026-09-02T14:17:15Z",
+      "reviewedAt": "2026-09-02T14:17:15Z",
+      "reviewedCommit": "d3cc9bc075756c2029cfa0a0c562aded60b3f1b6",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "06_event_graph.md",
@@ -1319,12 +1313,12 @@
         "Sources/Views/MainTabView.swift"
       ],
       "structureHash": "12c2f90f0472928c5273756cb1b5f51e430eee1b0114829880c4188993f756de",
-      "sourceHash": "b5f5188f3344faca935f9edb1fef9ced6a69b2be1b21e94943d33897375fcfdf",
+      "sourceHash": "09cef3dc1b4cf2f004d3377a06921f29786e683f26577ba2fb2e521275e5eb2d",
       "generatedHash": "07704615096dfe1d40bc487ffb62ab59b74ac809b38cee5771c0c8452192d6b6",
-      "generatedAt": "2026-09-01T08:49:23Z",
-      "reviewedAt": "2026-09-01T08:49:23Z",
-      "reviewedCommit": "3514d1273c2f4463e97a23dde08054fe6e9ca5a6",
-      "reviewMode": "accept"
+      "generatedAt": "2026-09-02T14:17:15Z",
+      "reviewedAt": "2026-09-02T14:17:15Z",
+      "reviewedCommit": "d3cc9bc075756c2029cfa0a0c562aded60b3f1b6",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "07_dataflow.md",
@@ -1442,17 +1436,16 @@
         "Sources/Services/Translation/Manager/DictionaryInvalidationScope.swift",
         "Sources/Services/Translation/Manager/TranslationManager.swift",
         "Sources/Services/Translation/Utils/DictionaryCache.swift",
-        "Sources/Services/Translation/Utils/ReferenceDictionaryReader.swift",
         "Sources/Services/Translation/Utils/TOCRuleSaveCoordinator.swift",
         "Sources/Services/Translation/Utils/TranslateUtils.swift",
         "Sources/Views/Reader/Extensions/ReaderViewModel+Translation.swift"
       ],
-      "structureHash": "874208bfbba54d2f1da0b2998a186f369ad6e6446efd59f5b59b7515fd0ec9ae",
-      "sourceHash": "d474eb4124d36e7dc2151858dcf22d04fa699504441bc1e76fc038b14332beb1",
+      "structureHash": "2bb79e657a836310d41b77b82804d697045f3dd53320220f36a31494e9eb2de1",
+      "sourceHash": "56a92c1c490c51a7c488153f16ab01633d3dffe8f7b8fcf05ea879c81018dee2",
       "generatedHash": "773b047f6595bc5b2f4b36dde7be1d86edebd48475901bca615a4e173736b5fd",
-      "generatedAt": "2026-09-02T12:39:26Z",
-      "reviewedAt": "2026-09-02T12:39:26Z",
-      "reviewedCommit": "bc52bad0385b4103e45a397f5202b5225f9fb803",
+      "generatedAt": "2026-09-02T14:17:15Z",
+      "reviewedAt": "2026-09-02T14:17:15Z",
+      "reviewedCommit": "d3cc9bc075756c2029cfa0a0c562aded60b3f1b6",
       "reviewMode": "no-change-needed"
     },
     {
@@ -1481,12 +1474,12 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "acad37ecfe6bd6c367da5de500cdaf028298b3fb613e49e119afecb80611eb31",
-      "sourceHash": "4a6bb4f0beadd59982a4efce44ce56c9d0f10025a0164394b40ed320ba36f8b6",
+      "sourceHash": "eef07a987e09fb95c71ff755d0ab27a70b0799cd669535d790b4b0aa8d0b520d",
       "generatedHash": "5ae0a1f61913409863e1ef6ab93d4cf3425fc45b45bf853e8fa3514e9bfe345b",
-      "generatedAt": "2026-09-01T08:49:23Z",
-      "reviewedAt": "2026-09-01T08:49:23Z",
-      "reviewedCommit": "3514d1273c2f4463e97a23dde08054fe6e9ca5a6",
-      "reviewMode": "accept"
+      "generatedAt": "2026-09-02T14:17:15Z",
+      "reviewedAt": "2026-09-02T14:17:15Z",
+      "reviewedCommit": "d3cc9bc075756c2029cfa0a0c562aded60b3f1b6",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "09_dependency_rules.md",
@@ -1789,7 +1782,6 @@
         "Sources/Services/Translation/Manager/DictionaryInvalidationScope.swift",
         "Sources/Services/Translation/Manager/TranslationManager.swift",
         "Sources/Services/Translation/Utils/DictionaryCache.swift",
-        "Sources/Services/Translation/Utils/ReferenceDictionaryReader.swift",
         "Sources/Services/Translation/Utils/TOCRuleSaveCoordinator.swift",
         "Sources/Services/Translation/Utils/TranslateUtils.swift",
         "Sources/Views/AppLoadingView.swift",
@@ -1844,8 +1836,6 @@
         "Sources/Views/Dictionary/ManageDefinitionRowView.swift",
         "Sources/Views/Dictionary/ManageDefinitionsDraft.swift",
         "Sources/Views/Dictionary/ManageDefinitionsView.swift",
-        "Sources/Views/Dictionary/ReferenceDictionaryHubView.swift",
-        "Sources/Views/Dictionary/ReferenceDictionaryListView.swift",
         "Sources/Views/Discovery/DiscoveryScrollAnchorStore.swift",
         "Sources/Views/Discovery/DiscoveryView.swift",
         "Sources/Views/Download/DownloadTrackerView.swift",
@@ -1965,12 +1955,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "a44cacfb7938b5cd42c6c2a5c80323986667a2dae0e763f29d038b168da8c48c",
-      "sourceHash": "557442ceb194936ab78a6f3d2584808d1708f4f16a8b42e3fbbcf9f268b58eb6",
+      "structureHash": "bb828020b60b01f2223a51a375a492f249c44f5b9e5d3c5e5a31d91ef85d7440",
+      "sourceHash": "20feede599f6332f83c1c4fac9d2daeebbe4372e3ea74fd12213fae06c37d875",
       "generatedHash": "3c6ff61055c1015bfc3cad650e5678ad0a5d7460fad8bc711d7633eca5e34b6c",
-      "generatedAt": "2026-09-02T12:39:26Z",
-      "reviewedAt": "2026-09-02T12:39:26Z",
-      "reviewedCommit": "bc52bad0385b4103e45a397f5202b5225f9fb803",
+      "generatedAt": "2026-09-02T14:17:15Z",
+      "reviewedAt": "2026-09-02T14:17:15Z",
+      "reviewedCommit": "d3cc9bc075756c2029cfa0a0c562aded60b3f1b6",
       "reviewMode": "no-change-needed"
     },
     {
@@ -2078,11 +2068,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "61052240c58d85124e854b30633bcd6aab36cac8d6adaca750aa164edf72d02a",
-      "sourceHash": "b236057821c3797cba77033ce87d5601acca6ffb522a601b46120d17547ed81e",
+      "sourceHash": "fd5d2d3d4f64342f592e0f68565b0a7ff2c3ab943d65da0bf9d921e3e3e31a86",
       "generatedHash": "6634dc88bbc02b1db7c747d722c316dd022f8d9f41bc14bb4a2939fd2b4ac0f6",
-      "generatedAt": "2026-09-02T08:09:16Z",
-      "reviewedAt": "2026-09-02T08:09:16Z",
-      "reviewedCommit": "8455156b47ce41bb5078a38c23ffe3e0803380b3",
+      "generatedAt": "2026-09-02T14:17:15Z",
+      "reviewedAt": "2026-09-02T14:17:15Z",
+      "reviewedCommit": "d3cc9bc075756c2029cfa0a0c562aded60b3f1b6",
       "reviewMode": "no-change-needed"
     },
     {
@@ -2333,7 +2323,6 @@
         "Sources/Services/Translation/Manager/DictionaryInvalidationScope.swift",
         "Sources/Services/Translation/Manager/TranslationManager.swift",
         "Sources/Services/Translation/Utils/DictionaryCache.swift",
-        "Sources/Services/Translation/Utils/ReferenceDictionaryReader.swift",
         "Sources/Services/Translation/Utils/TOCRuleSaveCoordinator.swift",
         "Sources/Services/Translation/Utils/TranslateUtils.swift",
         "Sources/Views/AppLoadingView.swift",
@@ -2388,8 +2377,6 @@
         "Sources/Views/Dictionary/ManageDefinitionRowView.swift",
         "Sources/Views/Dictionary/ManageDefinitionsDraft.swift",
         "Sources/Views/Dictionary/ManageDefinitionsView.swift",
-        "Sources/Views/Dictionary/ReferenceDictionaryHubView.swift",
-        "Sources/Views/Dictionary/ReferenceDictionaryListView.swift",
         "Sources/Views/Discovery/DiscoveryScrollAnchorStore.swift",
         "Sources/Views/Discovery/DiscoveryView.swift",
         "Sources/Views/Download/DownloadTrackerView.swift",
@@ -2509,12 +2496,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "39f8d38be6a5f0da6e7091be4e0dfefc4b572fa7118e55e86ccdb44ffce8746c",
-      "sourceHash": "7ac501fc5cbe619f2188135e74226f2cec707f92a15650ebbc03bd15694b13a0",
-      "generatedHash": "38c596bbad6c4e57c781767eb2f36ce3a77c64517a184ca210f5e31e45e6f3e0",
-      "generatedAt": "2026-09-02T12:39:25Z",
-      "reviewedAt": "2026-09-02T12:39:25Z",
-      "reviewedCommit": "bc52bad0385b4103e45a397f5202b5225f9fb803",
+      "structureHash": "d26b3e59818629e6711f19614a6b5a3db7b3d5ecaf0866dcf2282b0d2a59488e",
+      "sourceHash": "0df7003a2f603c50d4ba34bb985056f8f04ac48030c93de068ca234dfeafdd79",
+      "generatedHash": "a57f1152f6fcfea1066ba6089263fbd92004072cf9581466498107e964837a88",
+      "generatedAt": "2026-09-02T14:16:38Z",
+      "reviewedAt": "2026-09-02T14:16:38Z",
+      "reviewedCommit": "d3cc9bc075756c2029cfa0a0c562aded60b3f1b6",
       "reviewMode": "accept"
     },
     {
@@ -2727,12 +2714,12 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "795174af60b26c1bd2bb311e87ef8f8b295ce7442e7a7d59e1d83c3f41e3768f",
-      "sourceHash": "d890b19085d566b5726706d799a5d55a863edd607e24c14772c40ad34f19cd1e",
-      "generatedHash": "5bfed610c593ee60e8b318c250ffdeb5d05a764c7ae91a57115568f8a160b516",
-      "generatedAt": "2026-09-02T08:09:16Z",
-      "reviewedAt": "2026-09-02T08:09:16Z",
-      "reviewedCommit": "8455156b47ce41bb5078a38c23ffe3e0803380b3",
-      "reviewMode": "no-change-needed"
+      "sourceHash": "a8d3a8f881fdccfb7b27fa99c0e89c66ced38355d31ecd2585fb546a6fc69260",
+      "generatedHash": "63dc7edbd172b2ea61faef9842cb39b360ae39cb74f6a6491c2a73a00839b75d",
+      "generatedAt": "2026-09-02T14:16:38Z",
+      "reviewedAt": "2026-09-02T14:16:38Z",
+      "reviewedCommit": "d3cc9bc075756c2029cfa0a0c562aded60b3f1b6",
+      "reviewMode": "accept"
     },
     {
       "filename": "14_complexity_report.md",
@@ -3031,7 +3018,6 @@
         "Sources/Services/Translation/Manager/DictionaryInvalidationScope.swift",
         "Sources/Services/Translation/Manager/TranslationManager.swift",
         "Sources/Services/Translation/Utils/DictionaryCache.swift",
-        "Sources/Services/Translation/Utils/ReferenceDictionaryReader.swift",
         "Sources/Services/Translation/Utils/TOCRuleSaveCoordinator.swift",
         "Sources/Services/Translation/Utils/TranslateUtils.swift",
         "Sources/Views/AppLoadingView.swift",
@@ -3086,8 +3072,6 @@
         "Sources/Views/Dictionary/ManageDefinitionRowView.swift",
         "Sources/Views/Dictionary/ManageDefinitionsDraft.swift",
         "Sources/Views/Dictionary/ManageDefinitionsView.swift",
-        "Sources/Views/Dictionary/ReferenceDictionaryHubView.swift",
-        "Sources/Views/Dictionary/ReferenceDictionaryListView.swift",
         "Sources/Views/Discovery/DiscoveryScrollAnchorStore.swift",
         "Sources/Views/Discovery/DiscoveryView.swift",
         "Sources/Views/Download/DownloadTrackerView.swift",
@@ -3207,13 +3191,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "c7f3cc1522f39131d5e53e862066bc89206a5bc27c4d9e7479af83bc93c03e10",
-      "sourceHash": "f2d7dd25cdc6debdf59bb56b132e5c23f2405381ab27ff4cb8fc7d7cd4204954",
-      "generatedHash": "3dbcdb5c8d0fab7ffa38c33aaa3ee1a6ccca523c95bcacfb915b7dd0b51798b6",
-      "generatedAt": "2026-09-02T12:39:26Z",
-      "reviewedAt": "2026-09-02T12:39:26Z",
-      "reviewedCommit": "bc52bad0385b4103e45a397f5202b5225f9fb803",
-      "reviewMode": "no-change-needed"
+      "structureHash": "4e2a5ae2864a896cbb848256821ac48ed48b4aecc0a0310849d78ef8fba3620b",
+      "sourceHash": "969ad51125b3dcad35f8cb843bbb6b7f6a554a2ec94779fd4c957b8129f08a23",
+      "generatedHash": "4c616b383f27809ceff0f8910ee917b31121358c928143c6859921ba1fcf8291",
+      "generatedAt": "2026-09-02T14:16:38Z",
+      "reviewedAt": "2026-09-02T14:16:38Z",
+      "reviewedCommit": "d3cc9bc075756c2029cfa0a0c562aded60b3f1b6",
+      "reviewMode": "accept"
     },
     {
       "filename": "rules.md",
@@ -3313,11 +3297,11 @@
         "Sources/Views/Reader/ReaderView.swift"
       ],
       "structureHash": "a6a86605a858858299ba3584d10125ea04fe92fae43fd3bbe8697849096ae31f",
-      "sourceHash": "93d339d28de32473040bfee49b74b7f556dbc70a641c011f76d997f518c7b4d9",
+      "sourceHash": "56bf768b9f62738980fa3dabdd039af15c3c215fa3c30c69a0cb5faee0e7724c",
       "generatedHash": "3375a8ad82853f192d4603b6e4a947e9191765b59755c914793bd9038ffec742",
-      "generatedAt": "2026-09-02T08:09:16Z",
-      "reviewedAt": "2026-09-02T08:09:16Z",
-      "reviewedCommit": "8455156b47ce41bb5078a38c23ffe3e0803380b3",
+      "generatedAt": "2026-09-02T14:17:15Z",
+      "reviewedAt": "2026-09-02T14:17:15Z",
+      "reviewedCommit": "d3cc9bc075756c2029cfa0a0c562aded60b3f1b6",
       "reviewMode": "no-change-needed"
     }
   ]

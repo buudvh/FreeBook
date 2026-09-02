@@ -15,6 +15,13 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Tai nguyen: inference bi bo do va marker doan rong (1.3.320)
+
+* **`Task` cua request dang tong hop gio la tai nguyen co chu**: `ActiveRequest.workTask`. Huy no la cach duy nhat dung ONNX giua doan; truoc day tac vu chay tiep tren mot ket qua chac chan bi bo.
+* **Vong xu ly van `await workTask.value` ke ca sau khi huy.** Cancel cua Swift la hop tac va `ORTSession.run` cua chunk hien tai luon chay xong, nen cho o day la cach giu bat bien "chi mot operation tong hop tai mot thoi diem" — khong phai thieu sot.
+* **Marker doan rong (`nghiEmptyParagraphIndices`) song theo chuong**, don qua `clearNghiRefillFailureStates()` ← `cancelNghiRefill()` ← `clearCurrentParagraphPrefetchCache()`. Marker cu chi gay mot lan tong hop on-demand, khong lam sai trang thai.
+* **Cache ke hoach thay the (`replacementPlan`) song theo `rules`**, dung lai lien tuc giua cac doan; `didSet` cua `rules` la chot invalidation duy nhat, phu ca duong nap lai file, reset ve mac dinh va import.
+
 ## Tai nguyen bo them / bo bot o NghiTTS (1.3.316)
 
 * **Cache payload im lang** (`PiperTTSService`): toi da **12** entry, khoa `(sampleRate, so sample)`, vuot tran thi xoa sach roi dung lai. Bao ve bang `NSLock` vi day la `static` tren mot `final class @unchecked Sendable` duoc goi tu nhieu luot tong hop. Moi entry la mot `[Float]` toan 0 cong WAV tuong ung — nho, va so to hop `(pause × speed)` thuc te rat it.

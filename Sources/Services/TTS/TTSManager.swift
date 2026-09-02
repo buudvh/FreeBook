@@ -2554,6 +2554,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     private var nghiRefillFailureStates: [RefillFailureKey: RefillFailureState] = [:]
     private var nghiRefillRetryTask: Task<Void, Never>?
     private var nghiRefillRetryGeneration: UInt64 = 0
+    /// Index các đoạn rỗng sau khi áp quy tắc thay thế: không tổng hợp được nên nạp trước phải bỏ
+    /// qua. Chỉ đúng với `paragraphs` hiện hành nên được dọn cùng lúc với `preloadedData`.
+    private var nghiEmptyParagraphIndices: Set<Int> = []
+    /// Chặn trên số đoạn rỗng được bỏ qua trong một lượt xếp hàng nạp trước.
+    private static let maxNghiEmptyRefillSkips = 8
 
     internal func cancelNghiRefillRetry() {
         nghiRefillRetryGeneration &+= 1
@@ -2563,7 +2568,17 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
     internal func clearNghiRefillFailureStates() {
         nghiRefillFailureStates.removeAll()
+        nghiEmptyParagraphIndices.removeAll()
         cancelNghiRefillRetry()
+    }
+
+    /// Đoạn không nên nạp trước nữa trong chương đang phát: đoạn bị chặn vì tổng hợp lỗi,
+    /// cộng với đoạn rỗng sau khi áp quy tắc thay thế (`speakCurrent` cũng skip chúng).
+    private func nghiSkippedRefillIndices() -> Set<Int> {
+        return nghiEmptyParagraphIndices.union(nghiRefillFailureStates.compactMap { (key, state) -> Int? in
+            guard key.sessionID == self.sessionID, key.chapterIndex == self.playingChapterIndex, state.isBlocked else { return nil }
+            return key.paragraphIndex
+        })
     }
 
     public func calculateNghiCachedTime() -> Double {
@@ -2631,20 +2646,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         prepareNextNghiAudioIfPossible()
         triggerNextChapterPrefetch()
 
-        let currentSessionID = sessionID
-        let currentChapter = playingChapterIndex
-        let blockedIndices = Set(
-            nghiRefillFailureStates.compactMap { (key, state) -> Int? in
-                guard key.sessionID == currentSessionID, key.chapterIndex == currentChapter, state.isBlocked else { return nil }
-                return key.paragraphIndex
-            }
-        )
-
+        let blockedIndices = nghiSkippedRefillIndices()
         let N = currentParagraphIndex
         let nextIndex = N + 1
-        let isNextBlocked = blockedIndices.contains(nextIndex)
         let isNextPrepared = nghiAudioPlayerQueue.nextItem?.paragraphIndex == nextIndex
-        if nextIndex < paragraphs.count && preloadedData[nextIndex] == nil && !isNextPrepared && !isNextBlocked {
+        if nextIndex < paragraphs.count && preloadedData[nextIndex] == nil && !isNextPrepared && !blockedIndices.contains(nextIndex) {
             scheduleNghiRefill()
             return
         }
@@ -2662,10 +2668,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
         if cachedTime < threshold {
             cancelNghiWakeTask()
-            let optionalCount = preloadedData.keys.filter { $0 >= N + 2 }.count
-            if optionalCount < NghiSynthesisPolicy.maxOptionalReserveItems {
-                scheduleNghiRefill()
-            }
+            // Trần optional reserve do `nghiRefillCandidate` tự áp, không kiểm tra lặp ở đây.
+            scheduleNghiRefill()
         } else {
             let sleepSeconds = max(0.5, cachedTime - threshold)
             cancelNghiWakeTask()
@@ -2691,6 +2695,20 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             }
         }
         return nil
+    }
+
+    /// Ứng viên nạp trước kế tiếp: ưu tiên đoạn **sẽ thực sự được đọc** ngay sau đoạn hiện tại
+    /// (bước qua các đoạn đã đánh dấu rỗng), hết việc bắt buộc mới xét optional reserve.
+    private func nghiRefillCandidate(currentIndex N: Int) -> (index: Int, isEssential: Bool)? {
+        let skipped = nghiSkippedRefillIndices(), essentialLimit = min(paragraphs.count, N + 2 + Self.maxNghiEmptyRefillSkips)
+        var cursor = N + 1
+        while cursor < essentialLimit && nghiEmptyParagraphIndices.contains(cursor) { cursor += 1 }
+        if cursor < essentialLimit && preloadedData[cursor] == nil && !skipped.contains(cursor) && nghiAudioPlayerQueue.nextItem?.paragraphIndex != cursor { return (cursor, true) }
+        guard calculateNghiCachedTime() < nghittsSafeCachedTimeThreshold,
+              preloadedData.keys.filter({ $0 >= N + 2 }).count < NghiSynthesisPolicy.maxOptionalReserveItems,
+              let optionalIndex = Self.selectNghiOptionalRefillCandidate(currentParagraphIndex: N, paragraphsCount: paragraphs.count,
+                preloadedIndices: Set(preloadedData.keys), blockedIndices: skipped) else { return nil }
+        return (optionalIndex, false)
     }
 
     private func isValidNghiRefillContext(
@@ -2779,41 +2797,22 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
               Self.canScheduleNghiRefill(hasRefillTask: nghiRefillTask != nil, hasRetryTask: nghiRefillRetryTask != nil),
               let service = nghiTTSService else { return }
 
-        let currentSessionID = sessionID
-        let currentChapter = playingChapterIndex
-        let blockedIndices = Set(
-            nghiRefillFailureStates.compactMap { (key, state) -> Int? in
-                guard key.sessionID == currentSessionID, key.chapterIndex == currentChapter, state.isBlocked else { return nil }
-                return key.paragraphIndex
-            }
-        )
-
         let N = currentParagraphIndex
-        let nextIndex = N + 1
-        let optionalCount = preloadedData.keys.filter { $0 >= N + 2 }.count
-        let targetIndex: Int?
-
-        let isNextBlocked = blockedIndices.contains(nextIndex)
-        let isNextPrepared = nghiAudioPlayerQueue.nextItem?.paragraphIndex == nextIndex
-        if nextIndex < paragraphs.count && preloadedData[nextIndex] == nil && !isNextPrepared && !isNextBlocked {
-            targetIndex = nextIndex
-        } else if calculateNghiCachedTime() < nghittsSafeCachedTimeThreshold && optionalCount < NghiSynthesisPolicy.maxOptionalReserveItems {
-            targetIndex = Self.selectNghiOptionalRefillCandidate(
-                currentParagraphIndex: N,
-                paragraphsCount: paragraphs.count,
-                preloadedIndices: Set(preloadedData.keys),
-                blockedIndices: blockedIndices
-            )
-        } else {
-            targetIndex = nil
+        // Đoạn rỗng sau khi áp quy tắc thay thế không tổng hợp được: đánh dấu bỏ qua rồi tìm tiếp
+        // đoạn có nội dung thật (tối đa `maxNghiEmptyRefillSkips` đoạn mỗi lượt) thay vì `return`
+        // — chính chỗ này từng làm nạp trước tê liệt suốt thời gian đoạn hiện tại đang phát.
+        var target: (index: Int, isEssential: Bool, text: String)?
+        for _ in 0..<Self.maxNghiEmptyRefillSkips {
+            guard let candidate = nghiRefillCandidate(currentIndex: N) else { break }
+            let candidateText = TTSReplacementManager.shared.applyReplacements(to: paragraphs[candidate.index].text)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !candidateText.isEmpty { target = (candidate.index, candidate.isEssential, candidateText); break }
+            nghiEmptyParagraphIndices.insert(candidate.index)
+            AppLogger.shared.log("⏭️ [TTSManager] Nạp trước bỏ qua đoạn rỗng index=\(candidate.index)")
         }
-
-        guard let index = targetIndex else { return }
+        guard let target else { return }
+        let (index, isEssentialNext, text) = target
         let paragraph = paragraphs[index]
-        let text = TTSReplacementManager.shared.applyReplacements(to: paragraph.text)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
-        let isEssentialNext = index == nextIndex
         let synthesisPriority: SynthesisPriority = isEssentialNext ? .immediateSuccessor : .optionalReserve
 
         let expectedSessionID = sessionID

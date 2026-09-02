@@ -15,10 +15,18 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Sua stall nap truoc, huy that inference, va bon luot toi uu tien xu ly (1.3.320)
+
+* **Nap truoc khong con te liet vi mot doan rong.** `TTSManager.scheduleNghiRefill` gap doan co text rong sau khi ap quy tac thay the thi `return` — khong sinh tac vu nao **va** khong duyet tiep. Log thuc te: 8 giay lien khong co lan nap truoc nao, roi `Underrun` o 96/98/100. Nay doan rong duoc danh dau vao mot `Set<Int>` rieng va vong tim buoc qua no (chan tren 8 doan) de toi doan **se thuc su duoc doc**.
+* **Huy gio dung that tac vu dang chay.** `PiperSynthesisCoordinator` giu handle `Task`; het waiter thi cancel handle do ⇒ `try Task.checkCancellation()` giua cac chunk trong engine nem loi, ONNX dung o chunk ke tiep thay vi chay het doan chac chan bi bo.
+* **`synthesisKey` co ban mac dinh** nen dedup that su hoat dong; duong stream danh dau `allowsCoalescing: false` de khong mat chunk cua waiter thu hai.
+* **Bon luot toi uu tien xu ly**: `processUnits` 102 → **4** luot quet, `processCurrency`/`processPercentages` bo 7 vong `while firstMatch`, `applyReplacements` 95 → **6** luot, `replaceDictionaryWords` bo ~40 000 loi goi regex moi chuong.
+* **Xoa hub tu dien tham chieu** theo yeu cau: 464 → **461** file Swift.
+
 ## Thu giong doc, hub tu dien tham chieu, va hai danh sach quan ly duoc dong bo (1.3.318)
 
 * **Thu giong doc NghiTTS**: [NghiTTSTextToolView](../../Sources/Views/Settings/TTS/NghiTTSTextToolView.swift#L1) (moi) — nhap chu, chon giong, keo toc do, bam phat. Dung lai **dung** `PiperTTSService` cua `TTSManager` (khong tao service thu hai, tranh mot `ORTSession` nua trong RAM) va bi chan khi TTS dang doc truyen.
-* **Hub tu dien tham chieu**: [ReferenceDictionaryHubView](../../Sources/Views/Dictionary/ReferenceDictionaryHubView.swift#L1) + [ReferenceDictionaryListView](../../Sources/Views/Dictionary/ReferenceDictionaryListView.swift#L1) (moi) cho phien am, dai tu, luat nhan — co tim kiem, dem, tai them theo trang nhu cac danh sach khac. Tach khoi `DictType` co y: nhoi ba bo nay vao do se buoc **17** diem `switch` trong module xu ly hai case vo nghia.
+* **Hub tu dien tham chieu**: `ReferenceDictionaryHubView` + `ReferenceDictionaryListView` (moi) cho phien am, dai tu, luat nhan — co tim kiem, dem, tai them theo trang nhu cac danh sach khac. Tach khoi `DictType` co y: nhoi ba bo nay vao do se buoc **17** diem `switch` trong module xu ly hai case vo nghia.
 * **Hai danh sach quan ly duoc dong bo** voi cac list khac (tim kiem + dong dem): thay the ky tu TTS va loc rac. Kem **mot loi that** duoc sua: khi dang tim, `onMove` nhan `IndexSet` tro vao mang **da loc** roi ap len `manager.rules` nen keo-tha se doi cho sai rule — gio keo-tha bi chan trong luc tim.
 * **4 file Swift moi** (460 → **464**), sua **4** file.
 

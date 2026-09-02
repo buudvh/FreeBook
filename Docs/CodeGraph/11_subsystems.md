@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Nap truoc NghiTTS: doan rong khong con cat ca luot (1.3.320)
+
+* **Ranh gioi moi**: `nghiRefillCandidate(currentIndex:)` la cho **duy nhat** quyet dinh "nap doan nao tiep theo", con `scheduleNghiRefill` chi lo dung tac vu. Truoc day hai viec tron vao nhau nen mot doan rong lam ca ham thoat som.
+* **Danh dau doan rong bang `Set<Int>` rieng, khong bang `preloadedData[i] = Data()`.** Tai lieu dieu tra goi y cach thu hai, nhung `prepareNextNghiAudioIfPossible` chi kiem `!= nil` roi day thang vao `AVAudioPlayer(data:)` — data rong thi khoi tao throw, catch xoa khoi cache, index do lai duoc xep hang lai ⇒ churn. Set marker khong bao gio cham player va duoc hop vao chinh `blockedIndices` san co, nen `requestNghiNextChapterPrefixIfNeeded` cung het coi doan rong la "con viec trong chuong".
+* **Huy o `PiperSynthesisCoordinator` gio co ba duong** (het waiter, huy reserve luc tam dung, `cancelAll`) va tat ca di qua `cancelActiveWork()`. Ham do **khong** resume waiter — moi caller tu quyet dinh resume ai; vong xu ly thi so `activeRequest.id == reqID` truoc khi resume. Do la cach giu bat bien "moi continuation resume dung mot lan".
+* **Duong stream khong chia se duoc**, co y: `onChunkPayload` bi bat ben trong closure cua waiter dau tien, nen moi hinh thuc gop deu lam waiter thu hai khong nhan callback. Bo loc dedup vi vay chan **hai chieu** — non-shareable khong gop vao ai va khong ai gop vao no.
+* **Tien xu ly: so luot quet la thu duoc do, khong phai cam tinh.** `processUnits` 102 → 4, `applyReplacements` 95 → 6, `processCurrency`/`processPercentages` tu O(k×N) ve mot luot moi pattern, `replaceDictionaryWords` tu ~40 000 loi goi regex moi chuong ve 0 trong truong hop thuong.
+
 ## Ranh gioi cua thu giong doc, hub tham chieu, va hai danh sach co tim kiem (1.3.319)
 
 * **Thu giong doc dung lai service cua `TTSManager`, khong tao service rieng.** Mot `PiperTTSService` moi keo theo mot `ORTSession` thu hai trong RAM va mot duong tong hop **khong** di qua `PiperSynthesisCoordinator` — trai bat bien "chi mot operation tong hop tai mot thoi diem". Nut phat con bi chan khi TTS dang doc truyen (chung engine, chung `AVAudioSession`), va chot lai mot lan nua ngay luc bam vi view **khong** observe `TTSManager` theo luat repo.

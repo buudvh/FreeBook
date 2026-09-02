@@ -15,14 +15,20 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## -3 file hub tu dien tham chieu (1.3.320)
+
+464 -> **461** file Swift. Xoa `ReferenceDictionaryHubView.swift` (42), `ReferenceDictionaryListView.swift` (118), `ReferenceDictionaryReader.swift` (95) cung section "Tham Chieu" va ham `referenceStatusText()` trong `DictionaryHubView.swift` (169 → 152).
+
+Khong them file nao: ca bon luot toi uu deu nam trong file san co, va hai file bi cham baseline dong (`TTSManager.swift` 4023 → 4022, `TextPreprocessor.swift` giu dung 1121) deu khong tang.
+
 ## +4 file: thu giong doc va hub tu dien tham chieu (1.3.318)
 
 460 -> **464** file Swift. Khong file nao cham tran 400.
 
 * [`Sources/Views/Settings/TTS/NghiTTSTextToolView.swift`](../../Sources/Views/Settings/TTS/NghiTTSTextToolView.swift) — **180** dong.
-* [`Sources/Services/Translation/Utils/ReferenceDictionaryReader.swift`](../../Sources/Services/Translation/Utils/ReferenceDictionaryReader.swift) — **96** dong. Nam o Services vi no doc file va tra DTO; View khong tu doc dia.
-* [`Sources/Views/Dictionary/ReferenceDictionaryHubView.swift`](../../Sources/Views/Dictionary/ReferenceDictionaryHubView.swift) — **43** dong.
-* [`Sources/Views/Dictionary/ReferenceDictionaryListView.swift`](../../Sources/Views/Dictionary/ReferenceDictionaryListView.swift) — **125** dong.
+* `Sources/Services/Translation/Utils/ReferenceDictionaryReader.swift` — **96** dong (da xoa o 1.3.320).
+* `Sources/Views/Dictionary/ReferenceDictionaryHubView.swift` — **43** dong (da xoa o 1.3.320).
+* `Sources/Views/Dictionary/ReferenceDictionaryListView.swift` — **125** dong (da xoa o 1.3.320).
 
 ## -3 file dung cu do IPA, +2 file goi y phien am (1.3.317)
 

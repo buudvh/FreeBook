@@ -15,6 +15,14 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Do phuc tap sau bon luot toi uu (1.3.320)
+
+* **`TextPreprocessor.swift` giu dung 1121 dong** = baseline, du them 4 helper moi (`unitAlternation`, `makeUnitGroup`, `unitExpansion`, `containsSpelledNumber`, `needsWhitespaceNormalization`). Bu bang cach xoa 51 spec regex thu cong va 17 dong log da comment-out.
+* **`TTSManager.swift` 4023 → 4022**: hai khoi tinh `blockedIndices` trung nhau duoc gop thanh mot ham `nghiSkippedRefillIndices()`, du du them `nghiRefillCandidate` va vong bo qua doan rong.
+* **`TTSReplacementManager.swift` 281 → 392** — file nay chi co exemption `MULTI_PRIMARY_TYPES`, khong co `FILE_SIZE_LIMIT`, nen tran la 400: con **8 dong du**. Them che do thay the moi thi phai tach file truoc.
+* **`PiperSynthesisCoordinator.swift` 249 → 339** va **`PiperTTSService.swift` 301 → 356**, ca hai duoi tran 400.
+* Cho phuc tap that tang len la `PiperSynthesisCoordinator`: gio co ba duong huy (het waiter, huy reserve, `cancelAll`) va moi duong phai resume continuation **dung mot lan**. Bat bien duoc giu bang cach so `activeRequest.id == reqID` trong vong xu ly.
+
 ## Do phuc tap sau khi dong bo goi y phien am (1.3.317)
 
 * **Xoa 3 file (561 dong), them 2 file (154 dong)**: 461 → **460** file Swift. Rong ra 407 dong.

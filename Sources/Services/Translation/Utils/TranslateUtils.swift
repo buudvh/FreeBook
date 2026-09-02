@@ -670,8 +670,8 @@ public final class TranslateUtils {
         result = trimSpacesAfter.stringByReplacingMatches(in: result, options: [], range: NSRange(result.startIndex..<result.endIndex, in: result), withTemplate: "$1")
         
         var nsString = result as NSString
-        // `-` **không** mở câu mới (gạch nối từ ghép, gạch đầu dòng hội thoại) nên đã bỏ khỏi lớp này.
-        let capitalizeRegex = try! NSRegularExpression(pattern: #"(^\s*|[.!?“‘”’\[【]\s*)(\p{Ll})"#, options: [.anchorsMatchLines])
+        // Viết hoa đầu dòng hoặc sau dấu kết thúc câu (`.`, `!`, `?`, kể cả khi có dấu đóng/mở ngoặc bọc ngoài).
+        let capitalizeRegex = try! NSRegularExpression(pattern: #"(^\s*[“‘"'\(\[\{【]?\s*|[.!?]+[”’"'\)\]\}】]*\s*[“‘"'\(\[\{【]?\s*)(\p{Ll})"#, options: [.anchorsMatchLines])
         let matches = capitalizeRegex.matches(in: result, options: [], range: NSRange(result.startIndex..<result.endIndex, in: result))
         let offset = 0
         for match in matches {
