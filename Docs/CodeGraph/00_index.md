@@ -15,6 +15,13 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Thu giong doc, hub tu dien tham chieu, va hai danh sach quan ly duoc dong bo (1.3.318)
+
+* **Thu giong doc NghiTTS**: [NghiTTSTextToolView](../../Sources/Views/Settings/TTS/NghiTTSTextToolView.swift#L1) (moi) — nhap chu, chon giong, keo toc do, bam phat. Dung lai **dung** `PiperTTSService` cua `TTSManager` (khong tao service thu hai, tranh mot `ORTSession` nua trong RAM) va bi chan khi TTS dang doc truyen.
+* **Hub tu dien tham chieu**: [ReferenceDictionaryHubView](../../Sources/Views/Dictionary/ReferenceDictionaryHubView.swift#L1) + [ReferenceDictionaryListView](../../Sources/Views/Dictionary/ReferenceDictionaryListView.swift#L1) (moi) cho phien am, dai tu, luat nhan — co tim kiem, dem, tai them theo trang nhu cac danh sach khac. Tach khoi `DictType` co y: nhoi ba bo nay vao do se buoc **17** diem `switch` trong module xu ly hai case vo nghia.
+* **Hai danh sach quan ly duoc dong bo** voi cac list khac (tim kiem + dong dem): thay the ky tu TTS va loc rac. Kem **mot loi that** duoc sua: khi dang tim, `onMove` nhan `IndexSet` tro vao mang **da loc** roi ap len `manager.rules` nen keo-tha se doi cho sai rule — gio keo-tha bi chan trong luc tim.
+* **4 file Swift moi** (460 → **464**), sua **4** file.
+
 ## Dong bo goi y phien am, bo chunk khong co chu, xoa dung cu do IPA (1.3.317)
 
 * **Goi y phien am gio di dung duong cua pipeline.** [TTSPhoneticSuggestionBuilder](../../Sources/Services/TTS/Preprocessing/TTSPhoneticSuggestionBuilder.swift#L1) (moi) lam lai theo thu tu cua `TextPreprocessor.transliterateToken`: gap dau phu → tra tu dien → cong `ForeignScriptClassifier` → duong Anh qua espeak IPA. Truoc day chip goi y dung `EnglishTransliterator` (bo luat chinh ta) nen khac han chuoi TTS thuc doc.

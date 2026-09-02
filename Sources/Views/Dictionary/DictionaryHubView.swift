@@ -64,6 +64,17 @@ struct DictionaryHubView: View {
                     )
                 }
             }
+
+            Section(header: Text("Tham Chiếu")) {
+                NavigationLink(destination: ReferenceDictionaryHubView()) {
+                    DictionaryNavRow(
+                        title: "Phiên âm, Đại từ, Luật nhân",
+                        icon: "character.book.closed",
+                        iconColor: .teal,
+                        subtitle: referenceStatusText()
+                    )
+                }
+            }
         }
         .id(refreshToken)
         .navigationTitle("Từ Điển")
@@ -80,6 +91,12 @@ struct DictionaryHubView: View {
     }
 
     /// "N đang bật • M đã tắt" cho một phạm vi rule. Bộ rule không đi kèm app nên rỗng là bình thường.
+    /// Tổng số mục của ba bộ tham chiếu. Dùng `wordCount` của Trie nên vẫn đúng khi chỉ có bản `.dat`.
+    private func referenceStatusText() -> String {
+        let total = ReferenceDictionaryReader.Kind.allCases.reduce(0) { $0 + $1.loadedCount }
+        return total > 0 ? "\(total) mục đã nạp" : "Chưa nạp"
+    }
+
     private func ruleStatusText(scope: QuickTranslationRuleScope) -> String {
         let snapshot: QuickTranslationRuleSnapshot?
         switch scope {

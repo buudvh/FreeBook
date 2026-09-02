@@ -27,6 +27,17 @@ struct JunkFilterManagementView: View {
     @State private var alertMessage = ""
     @State private var showingAlert = false
 
+    private var isSearching: Bool {
+        !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// Cung mot cau chu voi cac danh sach khac: dang loc thi noi ro thu tu khong con la thu tu ap dung.
+    private var listHeader: String {
+        isSearching
+            ? "\(filteredRules.count)/\(manager.rules.count) quy tắc khớp — thứ tự áp dụng chỉ đúng khi không tìm kiếm"
+            : "Danh sách quy tắc (\(manager.rules.count)), áp dụng từ trên xuống"
+    }
+
     private var filteredRules: [JunkFilterRule] {
         let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
@@ -61,12 +72,28 @@ struct JunkFilterManagementView: View {
                     .padding(.vertical, 24)
                 }
             } else {
-                Section(header: Text("Danh sách quy tắc (\(filteredRules.count))")) {
-                    ForEach(filteredRules) { rule in
-                        ruleRow(for: rule)
+                Section(header: Text(listHeader)) {
+                    if isSearching {
+                        // Danh sach da bi loc: `IndexSet` cua `onMove` tro vao mang **da loc** nen ap len
+                        // `manager.rules` se doi cho sai rule — thu tu lai la thu tu ap dung. Xoa thi an
+                        // toan vi da map qua `filteredRules[index]` roi xoa theo `id`.
+                        ForEach(filteredRules) { rule in
+                            ruleRow(for: rule)
+                                .swipeActions(edge: .trailing) {
+                                    Button(role: .destructive) {
+                                        manager.deleteRule(id: rule.id)
+                                    } label: {
+                                        Label("Xoá", systemImage: "trash")
+                                    }
+                                }
+                        }
+                    } else {
+                        ForEach(filteredRules) { rule in
+                            ruleRow(for: rule)
+                        }
+                        .onDelete(perform: deleteRules)
+                        .onMove(perform: moveRules)
                     }
-                    .onDelete(perform: deleteRules)
-                    .onMove(perform: moveRules)
                 }
             }
         }
@@ -75,7 +102,9 @@ struct JunkFilterManagementView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
-                EditButton()
+                if !isSearching {
+                    EditButton()
+                }
             }
 
             ToolbarItemGroup(placement: .bottomBar) {

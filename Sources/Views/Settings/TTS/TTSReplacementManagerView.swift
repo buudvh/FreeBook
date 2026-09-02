@@ -27,6 +27,21 @@ struct TTSReplacementManagerView: View {
     // Trạng thái thông báo lỗi/thành công
     @State private var alertMessage = ""
     @State private var showingAlert = false
+    @State private var searchText = ""
+
+    /// Rule khop tu khoa. Khi dang tim, thu tu hien ra **khong** con la thu tu ap dung, nen phai chan
+    /// keo-tha va khong dung `IndexSet` de xoa — xem `visibleRules`.
+    private var isSearching: Bool {
+        !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var visibleRules: [TTSReplacementRule] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !query.isEmpty else { return manager.rules }
+        return manager.rules.filter {
+            $0.pattern.lowercased().contains(query) || $0.replacement.lowercased().contains(query)
+        }
+    }
     
     var body: some View {
         List {
@@ -54,18 +69,42 @@ struct TTSReplacementManagerView: View {
                 }
             } else {
                 Section {
-                    ForEach(manager.rules) { rule in
-                        ruleRow(for: rule)
+                    Text(countText)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                Section {
+                    if isSearching {
+                        // Danh sach da bi loc: `IndexSet` cua `onDelete`/`onMove` tro vao mang **da loc**
+                        // nen ap len `manager.rules` se xoa/di chuyen sai rule. Xoa theo `id` thay vi vi tri.
+                        ForEach(visibleRules) { rule in
+                            ruleRow(for: rule)
+                                .swipeActions(edge: .trailing) {
+                                    Button(role: .destructive) {
+                                        manager.deleteRule(id: rule.id)
+                                    } label: {
+                                        Label("Xoá", systemImage: "trash")
+                                    }
+                                }
+                        }
+                    } else {
+                        ForEach(manager.rules) { rule in
+                            ruleRow(for: rule)
+                        }
+                        .onDelete(perform: deleteRules)
+                        .onMove(perform: moveRules)
                     }
-                    .onDelete(perform: deleteRules)
-                    .onMove(perform: moveRules)
                 }
             }
         }
+        .searchable(text: $searchText, prompt: "Tìm mẫu hoặc chuỗi thay thế...")
         .navigationTitle("Thay thế ký tự TTS")
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
-                EditButton()
+                if !isSearching {
+                    EditButton()
+                }
             }
             
             ToolbarItemGroup(placement: .bottomBar) {
@@ -273,6 +312,12 @@ struct TTSReplacementManagerView: View {
     }
     
     // Sửa/Xóa/Di chuyển
+    private var countText: String {
+        isSearching
+            ? "\(visibleRules.count)/\(manager.rules.count) quy tắc khớp. Thứ tự áp dụng chỉ đúng khi không tìm kiếm."
+            : "\(manager.rules.count) quy tắc, áp dụng từ trên xuống."
+    }
+
     private func deleteRules(at offsets: IndexSet) {
         for index in offsets {
             let rule = manager.rules[index]

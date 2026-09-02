@@ -15,6 +15,22 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ranh gioi cua thu giong doc, hub tham chieu, va hai danh sach co tim kiem (1.3.319)
+
+* **Thu giong doc dung lai service cua `TTSManager`, khong tao service rieng.** Mot `PiperTTSService` moi keo theo mot `ORTSession` thu hai trong RAM va mot duong tong hop **khong** di qua `PiperSynthesisCoordinator` — trai bat bien "chi mot operation tong hop tai mot thoi diem". Nut phat con bi chan khi TTS dang doc truyen (chung engine, chung `AVAudioSession`), va chot lai mot lan nua ngay luc bam vi view **khong** observe `TTSManager` theo luat repo.
+* **Ba bo tu dien tham chieu KHONG duoc nhoi vao `DictType`.** Chung khong co ban rieng theo truyen va khong di qua duong CRUD mot-tu (`TranslationManager` khong ghi vao `.dat` va `ChinesePhienAmWords.txt`). Them case vao `DictType` se buoc 17 diem `switch` — trong do co token cua rule dich nhanh — xu ly hai case vo nghia. Vi vay co `ReferenceDictionaryReader` rieng.
+* **`DoubleArrayTrie` khong liet ke duoc entry** (chi co `wordCount` + tra cuu), nen danh sach doc lai file `.txt`. Bo nao chi co ban `.dat` thi hien so muc dang hoat dong kem ly do khong liet ke duoc — khong im lang tra rong.
+* **Loc theo tim kiem va keo-tha loai tru nhau.** `onMove` nhan `IndexSet` tro vao mang **da loc**; ap len `manager.rules` la doi cho sai rule, ma thu tu o hai danh sach nay **la** thu tu ap dung. Nen trong luc tim: keo-tha bi chan, `EditButton` an, xoa doi sang theo `id`.
+
+## Quy tắc viết hoa sau dấu câu trong TranslateUtils (1.3.318)
+
+* **Bỏ tự động viết hoa đơn lẻ sau dấu ngoặc kép/đơn cong và ngoặc vuông.** Trước đây `[.!?“‘”’\[【]` tự động viết hoa ký tự tiếp theo sau bất kỳ dấu ngoặc nào (kể cả dấu đóng ngoặc giữa câu như `“từ này” không phải`), làm chữ sau dấu đóng ngoặc bị viết hoa sai (`“Từ này” Không phải`).
+* **Chỉ viết hoa sau dấu đóng ngoặc khi có dấu kết thúc câu đứng liền trước.** Biểu thức mới `(^\s*[“‘"'\(\[\{【]?\s*|[.!?]+[”’"'\)\]\}】]*\s*[“‘"'\(\[\{【]?\s*)(\p{Ll})` áp dụng viết hoa cho:
+  - Đầu dòng / đầu đoạn (hỗ trợ dấu mở ngoặc đầu dòng như `“Hôm nay`, `[Chương 1`).
+  - Sau dấu kết thúc câu thông thường (`.`, `!`, `?`).
+  - Sau dấu đóng ngoặc có dấu kết thúc câu đi trước (`.” `, `!” `, `?” `, `.] `).
+  - Không viết hoa sau dấu đóng ngoặc giữa câu nếu không có dấu kết thúc câu đi trước (`“bán-thần” dùng...`, `[ghi chú] trong...`).
+
 ## Goi y phien am di dung duong cua pipeline; bo chunk khong co chu (1.3.317)
 
 * **Goi y phien am truoc day dung mot duong KHAC voi luc doc that.** No goi `EnglishTransliterator` (bo luat chinh ta) trong khi pipeline goi `EnglishPhonemeTransliterator` (espeak IPA), va goi `transliterateRomaji` **vo dieu kien** thay vi qua cong `ForeignScriptClassifier`. Ket qua: voi gan nhu moi tu tieng Anh, chip goi y khac han chuoi TTS thuc doc; con voi tu Anh cat duoc kieu romaji (`sonata`, `tomato`) no hien mot cach doc Nhat ma pipeline khong bao gio chon.

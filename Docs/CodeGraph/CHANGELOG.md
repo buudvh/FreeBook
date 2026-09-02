@@ -4,6 +4,33 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.272) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.319] - 2026-09-02
+
+### Thử giọng đọc NghiTTS, hub từ điển tham chiếu, đồng bộ hai danh sách quản lý
+
+Thêm **4** file Swift (460 → **464**), sửa **4** file.
+
+- **Thử giọng đọc NghiTTS** (`NghiTTSTextToolView`): ô nhập chữ, chọn giọng từ danh sách model đã tải, thanh tốc độ 0.5–2.0×, nút phát thử và nút dừng, kèm số liệu (kích thước, thời gian tổng hợp, độ dài clip). Dùng lại **đúng** `PiperTTSService` của `TTSManager` chứ không tạo service riêng — một service mới nghĩa là một `ORTSession` thứ hai trong RAM và một đường tổng hợp không đi qua `PiperSynthesisCoordinator`, trái bất biến "chỉ một operation tổng hợp tại một thời điểm". Nút phát bị chặn khi TTS đang đọc truyện, và chốt lại một lần nữa ngay lúc bấm vì view không observe `TTSManager` theo luật repo.
+- **Hub từ điển tham chiếu** cho phiên âm / đại từ / luật nhân, vào từ màn Từ Điển. Danh sách có tìm kiếm, dòng đếm và tải thêm theo trang — cùng khuôn với `DictionaryListView`. **Không** nhồi ba bộ này vào `DictType`: chúng không có bản riêng theo truyện, không đi qua đường CRUD một-từ, và thêm case sẽ buộc **17** điểm `switch` trong module (kể cả token của rule dịch nhanh) xử lý hai case vô nghĩa.
+- **Không có thêm/sửa/xoá ở hub tham chiếu**, có lý do: `TranslationManager` không ghi vào các file `.dat` và `ChinesePhienAmWords.txt`, nên một nút Lưu ở đây sẽ không có tác dụng thật. Bộ nào chỉ có bản `.dat` thì hiện số mục đang hoạt động kèm lý do không liệt kê được (`DoubleArrayTrie` chỉ có `wordCount` + tra cứu, không liệt kê entry).
+- **Đồng bộ hai danh sách quản lý** (thay thế ký tự TTS, lọc rác) với các list khác: thêm tìm kiếm và dòng đếm cho danh sách thay thế, chuẩn hoá câu chữ dòng đếm cho cả hai.
+- **Sửa một lỗi thật phát hiện khi làm việc đó**: cả hai danh sách render mảng **đã lọc** nhưng wire `onMove` vào `manager.moveRules`, mà `IndexSet` của `onMove` trỏ vào mảng đã lọc — kéo-thả trong lúc tìm kiếm sẽ đổi chỗ sai rule, và thứ tự ở hai danh sách này **chính là** thứ tự áp dụng. Nay trong lúc tìm: kéo-thả bị chặn, `EditButton` ẩn, xoá đổi sang theo `id`.
+- Chưa build được (máy Windows). `check_architecture.py` giữ **14** violation nền.
+
+## [1.3.318] - 2026-09-02
+
+### Điều chỉnh quy tắc viết hoa sau dấu câu trong TranslateUtils: bỏ tự viết hoa sau ngoặc, chỉ viết hoa khi có dấu kết thúc câu
+
+Sửa **1** file Swift (`TranslateUtils.swift`).
+
+- **Bỏ tự động viết hoa đơn lẻ sau dấu ngoặc kép/đơn cong và ngoặc vuông.** Trước đây pattern `[.!?“‘”’\[【]` tự động viết hoa ký tự tiếp theo sau bất kỳ dấu ngoặc nào, khiến các từ đặt trong ngoặc ở giữa câu khi kết thúc ngoặc đóng (`”`, `]`) bị viết hoa từ tiếp theo (`“từ này” không phải` $\rightarrow$ `“Từ này” Không phải`).
+- **Chỉ viết hoa sau dấu đóng ngoặc khi có dấu kết thúc câu đứng liền trước.** Biểu thức mới `(^\s*[“‘"'\(\[\{【]?\s*|[.!?]+[”’"'\)\]\}】]*\s*[“‘"'\(\[\{【]?\s*)(\p{Ll})` áp dụng viết hoa chuẩn xác cho:
+  - Đầu dòng / đầu đoạn (hỗ trợ cả trường hợp mở ngoặc ở đầu dòng như `“Hôm nay`, `[Chương 1`).
+  - Sau dấu kết thúc câu thông thường (`.`, `!`, `?`).
+  - Sau dấu đóng ngoặc có dấu kết thúc câu đi trước (`.” `, `!” `, `?” `, `.] `).
+  - Không viết hoa sau dấu đóng ngoặc giữa câu nếu không có dấu kết thúc câu đi trước (`“bán-thần” dùng...`, `[ghi chú] trong...`).
+- Chưa build được (máy Windows). `check_architecture.py` giữ đúng **14** violation nền.
+
 ## [1.3.317] - 2026-09-02
 
 ### Gợi ý phiên âm đi đúng đường của pipeline, có badge JP/EN; bỏ chunk không có chữ; xoá dụng cụ đo IPA

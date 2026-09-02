@@ -26,6 +26,10 @@ struct NghiTTSSettingsView: View {
                 NavigationLink(destination: TTSTransliterationTesterView()) {
                     Label("Thử phiên âm", systemImage: "waveform.and.magnifyingglass")
                 }
+
+                NavigationLink(destination: NghiTTSTextToolView()) {
+                    Label("Thử giọng đọc", systemImage: "text.bubble")
+                }
             }
             
             Section("Cấu hình khoảng ngắt (giây)") {
