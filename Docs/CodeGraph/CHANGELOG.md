@@ -4,6 +4,18 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.272) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.315] - 2026-09-02
+
+### Chọn bộ riêng/chung ngay lúc bấm Lưu thay vì bằng ô chọn trong form
+
+Sửa **1** file Swift (vẫn **461**).
+
+- **Bỏ `scopeSection`** — ô chọn "Bộ riêng truyện / Bộ chung" nằm sẵn trong form của màn thêm/sửa rule. Thay bằng `confirmationDialog` nổ ra khi bấm **Lưu**, nên phạm vi được quyết định lúc rule đã viết xong chứ không phải trước đó.
+- Popup chỉ hiện ở chế độ **thêm** và khi đang có truyện mở — đúng đúng điều kiện mà ô chọn cũ dùng để hiện ra. Không có truyện nào mở thì chỉ còn bộ chung nên lưu thẳng, không hỏi. Chế độ **sửa** vẫn ghi vào đúng phạm vi của rule đó và hiện phạm vi ở dòng thông tin, không hỏi lại — hỏi ở đây sẽ ghi bản sao sang bộ kia mà vẫn để lại rule cũ.
+- `submit()` tách thành `submit()` (quyết định có hỏi hay không) và `performSubmit(scope:)` (ghi thật). `saveToBook` vẫn được cập nhật theo lựa chọn trong popup để bản nháp khôi phục đúng.
+- **Không sửa gì cho hai yêu cầu "vế trái đã có thì đè vế phải, chưa có thì thêm mới"**: cả hai bộ đã làm đúng vậy từ trước qua `QuickTranslationRuleRecordStore.upsert` — trùng mẫu thì thay vế phải tại đúng vị trí dòng, không trùng thì thêm vào cuối; dùng chung cho `addOrOverwriteRule`, `updateRule` của cả bộ chung và bộ riêng.
+- Chưa build được (máy Windows). `check_architecture.py` giữ **14** violation nền.
+
 ## [1.3.314] - 2026-09-02
 
 ### Số Hán viết dính nhau đọc thành danh sách, gộp về một luật duy nhất

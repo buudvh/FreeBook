@@ -64,6 +64,9 @@ struct QuickTranslationRuleEditorSheet: View {
     @State var selectionLength: Int
     /// Lỗi do store trả về lúc lưu (khác với lỗi cú pháp mà bản nháp tự chấm được).
     @State private var errorText: String? = nil
+    /// Bật khi bấm Lưu ở chế độ **thêm** và có truyện đang mở: phạm vi được chọn ngay lúc lưu thay vì
+    /// bằng một ô chọn nằm sẵn trong form.
+    @State private var showingScopeDialog = false
     /// Ô đang gõ, chỉ để ghi vào bản nháp. Ô Mẫu là `UIViewRepresentable` nên không dùng được
     /// `@FocusState` cho nó; ô Bản dịch vẫn là `TextField` nên có `@FocusState` riêng đồng bộ vào đây.
     @State private var focusedField: QuickTranslationRuleDraftStore.Field?
@@ -118,7 +121,8 @@ struct QuickTranslationRuleEditorSheet: View {
         return false
     }
 
-    /// Phạm vi sẽ ghi. Chế độ sửa luôn dùng scope từ `mode`; chế độ thêm theo segment.
+    /// Phạm vi sẽ ghi khi **không** hỏi: chế độ sửa dùng scope từ `mode`, chế độ thêm mà không có
+    /// truyện nào đang mở thì chỉ còn bộ chung. Chế độ thêm có truyện mở đi qua popup, không qua đây.
     private var effectiveScope: QuickTranslationRuleScope {
         if isEditing {
             if case .edit(_, _, _, let scope) = mode { return scope }
@@ -151,7 +155,6 @@ struct QuickTranslationRuleEditorSheet: View {
             Form {
                 patternSection(segments: segments)
                 replacementSection(analysis: analysis)
-                scopeSection
                 editInfoSection
 
                 if !pattern.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -175,6 +178,25 @@ struct QuickTranslationRuleEditorSheet: View {
                     Button("Lưu") { submit() }
                         .disabled(!canSave)
                 }
+            }
+            .confirmationDialog(
+                "Lưu rule vào bộ nào?",
+                isPresented: $showingScopeDialog,
+                titleVisibility: .visible
+            ) {
+                if let contextBookId, !contextBookId.isEmpty {
+                    Button("Bộ riêng truyện") {
+                        saveToBook = true
+                        performSubmit(scope: .book(contextBookId))
+                    }
+                }
+                Button("Bộ chung") {
+                    saveToBook = false
+                    performSubmit(scope: .global)
+                }
+                Button("Hủy", role: .cancel) {}
+            } message: {
+                Text("Bộ riêng chỉ áp cho truyện đang đọc và thắng bộ chung khi trùng mọi tiêu chí ưu tiên khác.")
             }
             .onAppear {
                 if didRestoreDraft {
@@ -269,21 +291,6 @@ struct QuickTranslationRuleEditorSheet: View {
     }
 
     @ViewBuilder
-    private var scopeSection: some View {
-        if !isEditing, let contextBookId, !contextBookId.isEmpty {
-            Section {
-                Picker("Lưu vào", selection: $saveToBook) {
-                    Text("Bộ riêng truyện").tag(true)
-                    Text("Bộ chung").tag(false)
-                }
-                .pickerStyle(.segmented)
-            } footer: {
-                Text("Bộ riêng chỉ áp cho truyện đang đọc và **thắng** bộ chung khi trùng mọi tiêu chí ưu tiên khác.")
-            }
-        }
-    }
-
-    @ViewBuilder
     private var editInfoSection: some View {
         if case .edit(_, _, let sourceLine, let scope) = mode {
             Section {
@@ -298,11 +305,29 @@ struct QuickTranslationRuleEditorSheet: View {
 
     // MARK: - Lưu
 
+    /// Bấm Lưu. Ở chế độ **thêm** và đang có truyện mở, phạm vi được hỏi ngay tại đây thay vì bằng một
+    /// ô chọn nằm sẵn trong form — người dùng quyết định lúc đã viết xong rule, không phải trước đó.
     private func submit() {
         let key = pattern.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else { return }
 
-        switch onSubmit(key, replacement, effectiveScope) {
+        if !isEditing, let contextBookId, !contextBookId.isEmpty {
+            showingScopeDialog = true
+            return
+        }
+        performSubmit(scope: effectiveScope)
+    }
+
+    /// Lưu thật vào một phạm vi cụ thể.
+    ///
+    /// Mẫu đã có trong phạm vi đó thì **đè vế phải** và giữ nguyên vị trí dòng; chưa có thì thêm mới —
+    /// cùng một lời gọi `QuickTranslationRuleRecordStore.upsert` cho cả hai bộ, nên không có nhánh
+    /// "trùng mẫu thì báo lỗi" nào.
+    private func performSubmit(scope: QuickTranslationRuleScope) {
+        let key = pattern.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty else { return }
+
+        switch onSubmit(key, replacement, scope) {
         case .success:
             errorText = nil
             QuickTranslationRuleDraftStore.shared.clear(id: mode.id)

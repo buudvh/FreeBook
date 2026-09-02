@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Chon pham vi rule o luc luu, khong o form (1.3.315)
+
+* **Quyet dinh pham vi doi cho, khong doi luat.** O chon "Bo rieng / Bo chung" bi bo khoi form; `confirmationDialog` no ra khi bam **Luu**. Dieu kien hien popup **y nguyen** dieu kien hien o chon cu: che do **them** va dang co truyen mo. Khong co truyen mo thi chi con bo chung nen luu thang.
+* **Che do sua khong hoi lai.** Rule sua duoc ghi vao dung pham vi cua no; hoi o day se ghi mot **ban sao** sang bo kia ma van de lai rule cu — dung cai bay ma `editInfoSection` da canh bao cho viec doi mau.
+* **`submit()` tach hai tang**: `submit()` chi quyet dinh co hoi hay khong, `performSubmit(scope:)` moi ghi. Nho vay ba duong (popup chon rieng, popup chon chung, luu thang) di vao **cung mot** cho ghi.
+* **"Ve trai da co thi de ve phai" khong phai luat cua UI ma cua store**: `QuickTranslationRuleRecordStore.upsert` thay ve phai tai dung vi tri dong khi trung mau, them vao cuoi khi khong trung. Ca `addOrOverwriteRule` va `updateRule` cua **hai** bo deu goi no, nen khong ton tai nhanh "trung mau thi bao loi".
+
 ## Mot luat duy nhat cho so Han viet dinh nhau (1.3.314)
 
 * **Bo hai luat, con mot.** `approximateRange` (day hai chu so → khoang "4 den 5") va `enumeratedDigits` (day tu ba chu so → danh sach) la hai cach xu ly **cung mot hien tuong**, nen da gop thanh `enumeratedNumbers`: moi day chu so Han tran lien nhau deu ra **danh sach ngan bang `, `**. Doi hanh vi so voi 1.3.301: `四五` gio la `4, 5`.
