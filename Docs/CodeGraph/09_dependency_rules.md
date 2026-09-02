@@ -15,6 +15,12 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vi tri tang cua hai file moi (1.3.313)
+
+* **`ExtensionInstallAudit` nam o `Sources/Services/Extensions/`, khong o Views.** No doc dia (`plugin.json` con hay khong) — day la su that ve he thong file, khong phai state trinh bay. View chi map `@Query` thanh `[Entry]` roi day `Plan` sang coordinator; **khong** View nao tu goi `FileManager` de quyet dinh xoa gi.
+* **Ranh gioi doc/ghi khong bi tron**: audit **chi doc**, `ExtensionTransactionCoordinator.applyInstallAudit` **chi ghi**. Nho vay luat `VIEW_SWIFTDATA_MUTATION` van dung va viec xoa hang van di qua dung mot cho.
+* **`VietnameseOrdinalSpeller` nam trong `TTS/Preprocessing/`, khong o `Translation/`.** No la buoc **doc** (số → chữ đọc), khong phai buoc **dich**; dat o Translation se lam ban dich hien ra chu "thứ nhất" trong Reader, sai muc dich.
+
 ## Vi tri tang cua store neo cuon (1.3.307)
 
 * **`DiscoveryScrollAnchorStore` nam o `Sources/Views/Discovery/`, khong phai Services.** No la state trinh bay thuan (vi tri cuon), khong co nghia gi ngoai mot phien xem; day len Services la tao mot nguon su that gia cho thu chi UI can.

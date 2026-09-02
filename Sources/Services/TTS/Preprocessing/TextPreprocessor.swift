@@ -858,8 +858,8 @@ final actor TextPreprocessor {
 
         //Self.preprocessLog("   - Running processUnits")
         e = processUnits(e)
-
-        //Self.preprocessLog("   - Running processDigits")
+        // Số thứ tự phải chạy trước `processDigits`: bước đó đọc mọi chữ số theo số đếm.
+        e = VietnameseOrdinalSpeller.apply(e)
         e = processDigits(e)
         } else {
             // Self.preprocessLog("   - Numeric normalization disabled; skipping number/date/time/currency pipeline")

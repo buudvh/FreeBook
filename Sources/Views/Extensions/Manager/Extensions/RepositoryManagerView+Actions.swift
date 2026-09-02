@@ -101,10 +101,52 @@ extension RepositoryManagerView {
     internal func uninstallExtension(_ ext: Extension) {
         guard !ext.localPath.isEmpty else { return }
         ExtensionManager.shared.uninstall(localPath: ext.localPath)
-        let cmd = UpdateExtensionFolderCommand(packageId: ext.packageId, localFolder: "")
-        let result = ExtensionTransactionCoordinator.shared.updateExtensionFolder(command: cmd, in: modelContext)
+
+        // Tiện ích không thuộc kho và không có `downloadUrl` (import từ zip) thì gỡ là mất hẳn: giữ
+        // hàng lại chỉ tạo một nút Tải về báo lỗi vì không có nguồn nào để tải.
+        if isRegisteredExtension(ext) {
+            let cmd = UpdateExtensionFolderCommand(packageId: ext.packageId, localFolder: "")
+            let result = ExtensionTransactionCoordinator.shared.updateExtensionFolder(command: cmd, in: modelContext)
+            if case .failure(let err) = result {
+                errorMessage = "Lỗi gỡ tiện ích \(ext.name): \(err.localizedDescription)"
+            }
+            return
+        }
+
+        let name = ext.name
+        let result = ExtensionTransactionCoordinator.shared.deleteExtension(
+            packageId: ext.packageId,
+            in: modelContext
+        )
+        switch result {
+        case .success:
+            AppLogger.shared.log("🧹 [ExtManager] Đã xoá tiện ích import cục bộ khỏi thư viện: \(name)")
+        case .failure(let err):
+            errorMessage = "Lỗi gỡ tiện ích \(name): \(err.localizedDescription)"
+        }
+    }
+
+    /// Có nguồn để tải lại hay không: thuộc một kho, hoặc tự có `downloadUrl`.
+    internal func isRegisteredExtension(_ ext: Extension) -> Bool {
+        ext.repository != nil || !ext.downloadUrl.isEmpty
+    }
+
+    /// Đối chiếu DB với thực tế trên đĩa rồi dọn. Gọi khi mở màn hình quản lý.
+    @MainActor
+    internal func auditInstalledExtensions() {
+        let entries = allExtensions.map { ext in
+            ExtensionInstallAudit.Entry(
+                packageId: ext.packageId,
+                name: ext.name,
+                localPath: ext.localPath,
+                isRegistered: isRegisteredExtension(ext)
+            )
+        }
+        let plan = ExtensionInstallAudit.plan(for: entries)
+        guard !plan.isEmpty else { return }
+        let result = ExtensionTransactionCoordinator.shared.applyInstallAudit(plan: plan, in: modelContext)
         if case .failure(let err) = result {
-            errorMessage = "Lỗi gỡ tiện ích \(ext.name): \(err.localizedDescription)"
+            errorMessage = "Lỗi dọn tiện ích: \(err.localizedDescription)"
         }
     }
 
@@ -113,10 +155,20 @@ extension RepositoryManagerView {
         let installed = allExtensions.filter { !$0.localPath.isEmpty }
         for ext in installed {
             ExtensionManager.shared.uninstall(localPath: ext.localPath)
-            let cmd = UpdateExtensionFolderCommand(packageId: ext.packageId, localFolder: "")
-            let res = ExtensionTransactionCoordinator.shared.updateExtensionFolder(command: cmd, in: modelContext)
-            if case .failure(let err) = res {
-                errorMessage = "Lỗi gỡ tiện ích \(ext.name): \(err.localizedDescription)"
+            if isRegisteredExtension(ext) {
+                let cmd = UpdateExtensionFolderCommand(packageId: ext.packageId, localFolder: "")
+                let res = ExtensionTransactionCoordinator.shared.updateExtensionFolder(command: cmd, in: modelContext)
+                if case .failure(let err) = res {
+                    errorMessage = "Lỗi gỡ tiện ích \(ext.name): \(err.localizedDescription)"
+                }
+            } else {
+                let res = ExtensionTransactionCoordinator.shared.deleteExtension(
+                    packageId: ext.packageId,
+                    in: modelContext
+                )
+                if case .failure(let err) = res {
+                    errorMessage = "Lỗi gỡ tiện ích \(ext.name): \(err.localizedDescription)"
+                }
             }
         }
     }

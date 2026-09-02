@@ -15,6 +15,30 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Hai duong goi moi (1.3.313)
+
+```
+TextPreprocessor.processVietnameseText
+  |- … processUnits
+  |- VietnameseOrdinalSpeller.apply        <- MOI, phai dung o day
+  |- processDigits                          (doc moi chu so theo so dem)
+
+RepositoryManagerView.onAppear
+  |- auditInstalledExtensions()             <- MOI, chay TRUOC refreshAllRepositories
+  |    |- ExtensionInstallAudit.plan(for:)          doc dia (plugin.json con khong)
+  |    |- ExtensionTransactionCoordinator.applyInstallAudit(plan:in:)
+  |         |- xoa hang: mat file + khong co nguon tai lai
+  |         |- xoa localPath: mat file nhung thuoc kho
+  |- refreshAllRepositories()
+
+RepositoryManagerView.uninstallExtension(ext)
+  |- ExtensionManager.uninstall(localPath:)          xoa thu muc
+  |- isRegisteredExtension(ext) ? updateExtensionFolder(localFolder: "")
+                                : deleteExtension(packageId:)   <- MOI
+```
+
+* **Thu tu `audit` truoc `refresh` la co y**: hang da mat file ma khong co nguon tai lai chi gay loi khi kho tra ve registry, nen don truoc roi moi dong bo.
+
 ## Duong lenh cua debug server (1.3.303)
 
 ```

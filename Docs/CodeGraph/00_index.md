@@ -15,6 +15,15 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Nam loi doc/dich/TTS: viet hoa sau gach noi, so Han lien nhau, so thu tu, dinh chu giua hai rule, ext mo coi (1.3.313)
+
+* **Reader khong con viet hoa chu sau `-`.** Lop ky tu "mo cau moi" trong [`TranslateUtils.postProcessText`](../../Sources/Services/Translation/Utils/TranslateUtils.swift#L672) co ca `-`, nen `bán-thần` thanh `bán-Thần`. `-` la gach noi tu ghep va gach dau dong hoi thoai, khong phai dau ket cau.
+* **`一二三级` gio ra `1, 2, 3 cấp`** thay vi `123 cấp`. Day tu **ba** chu so Han tran tang lien bac la mot **danh sach** so viet dinh nhau, khong phai so ghep (tieng Trung viet 123 la `一百二十三`). Cung tien de voi khoang xap xi hai chu so (`四五` = "4 den 5") da co tu 1.3.301.
+* **`thứ 1` doc thanh "thứ nhất".** [`VietnameseOrdinalSpeller`](../../Sources/Services/TTS/Preprocessing/VietnameseOrdinalSpeller.swift#L1) (file moi) chay **truoc** `processDigits`; chi hai gia tri bat quy tac (`1` → nhất, `4` → tư), so nhieu chu so de nguyen cho so dem.
+* **Hai rule dich khop lien ke khong con dinh chu.** `十年第一魂技` ra `10 nămHồn kỹ thứ 1` vi `assemble` noi hai ban dich ma khong co ky tu goc nao o giua, va tokenizer VietPhrase coi ca cum Latin la **mot** token nen cho dinh song tiep.
+* **Tien ich import tu zip mat file thi xoa han khoi DB.** [`ExtensionInstallAudit`](../../Sources/Services/Extensions/ExtensionInstallAudit.swift#L1) (file moi) doi chieu DB voi dia; hang khong co nguon tai lai ma mat file chi con la mot nut Tai ve bao loi.
+* **2 file Swift moi** (459 → **461**), sua **7** file.
+
 ## Giu vi tri cuon o Kham Pha, va thanh keo cho khoang do dai token (1.3.307)
 
 * **Doi tab roi ve tab cu khong con nhay ve dau.** [DiscoveryScrollAnchorStore](../../Sources/Views/Discovery/DiscoveryScrollAnchorStore.swift#L1) (file moi) ghi nho **`link` cua truyen dang o tren cung** cua tung tab; `DiscoveryCategoryTabView` chot neo luc roi tab va `scrollTo(anchor: .top)` luc quay lai. Neo la `link` chu khong phai offset (chieu cao hang phu thuoc bia/ten) va cung khong phai `ExtensionItemResult.id` — id do la `UUID()` moi moi lan boc tach nen khong song qua mot luot nap lai.

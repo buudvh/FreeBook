@@ -4,6 +4,19 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.272) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.313] - 2026-09-02
+
+### Năm lỗi đọc/dịch/TTS: viết hoa sau gạch nối, số Hán liền nhau, số thứ tự, dính chữ giữa hai rule, ext mồ côi
+
+Thêm **2** file Swift (459 → **461**), sửa **7** file. Số phiên bản nhảy từ 1.3.307 lên 1.3.313 để không đụng 1.3.308–312 đã dùng trên nhánh `legado_source`.
+
+- **Reader không còn viết hoa chữ sau dấu `-`.** Lớp ký tự "mở câu mới" của `TranslateUtils.postProcessText` có cả `-`, nên `bán-thần` thành `bán-Thần`. `-` là gạch nối từ ghép và gạch đầu dòng hội thoại, không phải dấu kết câu — đã bỏ khỏi lớp đó.
+- **`一二三级` giờ ra `1, 2, 3 cấp`** thay vì `123 cấp`. Dãy từ **ba** chữ số Hán trần tăng liền bậc là một **danh sách** số viết dính nhau, không phải số ghép: tiếng Trung viết 123 là `一百二十三`. Cùng tiền đề với khoảng xấp xỉ hai chữ số (`四五` → "4 đến 5") đã có từ 1.3.301. Ba cửa hẹp giữ hành vi cũ: phải toàn chữ số Hán trần (có bậc thì đọc thành một số), **không** chứa `零`/`〇` (nên `二零二五` vẫn là `2025`), và tăng **đúng một** mỗi bước (nên mã số `五三七` vẫn là `537`).
+- **`thứ 1` được NghiTTS đọc là "thứ nhất".** `VietnameseOrdinalSpeller` (file mới) chạy **trước** `processDigits` — sau bước đó mọi chữ số đã thành số đếm nên không còn dấu vết để nhận ra số thứ tự. Chỉ hai giá trị bất quy tắc (`1` → nhất, `4` → tư); `thứ 21` để nguyên cho số đếm để không sinh ra "thứ hai mươi nhất". Áp cho cả `hạng`.
+- **Hai rule dịch khớp liền kề không còn dính chữ.** `十年第一魂技` ra `10 nămHồn kỹ thứ 1` vì `assemble` nối hai bản dịch khi không còn ký tự gốc nào ở giữa, và tokenizer VietPhrase coi cả cụm Latin là **một** token nên chỗ dính sống tới output cuối. Chèn một khoảng trắng khi hai đầu đều là chữ/số, và tính nó vào `outputRange` của đoạn hiện tại để mảng segment vẫn phủ liền mạch — span dịch được dựng từ đó.
+- **Tiện ích import từ zip mất file thì xoá hẳn khỏi DB.** Trước đây gỡ tiện ích chỉ xoá `localPath` và giữ hàng để tải lại; đúng cho tiện ích của kho nhưng tiện ích import zip không thuộc kho nào và không có `downloadUrl`, nên hàng còn lại chỉ hiện một nút Tải về **báo lỗi**. `ExtensionInstallAudit` (file mới) đối chiếu DB với đĩa (`plugin.json` còn hay không) rồi: mất file + không có nguồn tải lại → xoá hàng; mất file nhưng thuộc kho → chỉ xoá `localPath`. Chạy lúc mở màn hình quản lý, trước khi làm mới kho; xoá thẳng và ghi `AppLogger`, không hỏi xác nhận. Gỡ tiện ích import zip cũng xoá hàng luôn thay vì để lại.
+- Chưa build được (máy Windows). `check_architecture.py` giữ **14** violation nền, không thêm cái nào — `TextPreprocessor.swift` giữ đúng 1 121 dòng (bằng baseline) bằng cách bỏ một dòng log đã comment, `TranslateUtils.swift` giữ đúng 1 023 dòng như trước lượt sửa.
+
 ## [1.3.307] - 2026-09-01
 
 ### Khám Phá giữ vị trí cuộn từng tab; khoảng độ dài token có thêm thanh kéo

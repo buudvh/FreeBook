@@ -15,6 +15,21 @@ Tài liệu này mô tả mối quan hệ sở hữu đối tượng (Object Own
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ai duoc xoa hang tien ich (1.3.313)
+
+```
+ExtensionTransactionCoordinator          <- chu so huu DUY NHAT cua viec ghi/xoa hang Extension
+  |- pruneRepositoryExtensions   xoa hang cua kho da go khoi registry (chi hang CHUA cai)
+  |- applyInstallAudit           xoa hang mat file + khong co nguon tai lai; xoa localPath cho hang cua kho
+  |- deleteExtension             xoa mot hang khi go tien ich khong co nguon tai lai
+
+ExtensionInstallAudit                    <- chi DOC dia, khong so huu gi, khong ghi gi
+RepositoryManagerView                    <- chuyen [Entry] -> Plan -> coordinator, khong tu quyet
+```
+
+* **Ba duong xoa nhung mot chu so huu.** Truoc luot nay chi co `pruneRepositoryExtensions`, va no co y **khong** cham hang da cai — dieu do dung cho tien ich cua kho nhung de lai hang chet cho tien ich import zip. Hai duong moi bu dung khoang trong do, khong noi long duong cu.
+* **`isRegisteredExtension` la mot vi tu, khong phai trang thai luu tru**: `repository != nil || !downloadUrl.isEmpty`. Khong them cot DB nao de danh dau "import cuc bo".
+
 ## Chu so huu vi tri cuon Kham Pha (1.3.307)
 
 ```

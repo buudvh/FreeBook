@@ -259,7 +259,15 @@ public enum QuickTranslationRuleEngine {
 
         for match in selected {
             appendPassthrough(upTo: match.start)
-            let rendered = match.rendered
+            var rendered = match.rendered
+            // Hai rule khớp **liền kề** nhau (không còn ký tự gốc ở giữa) thì hai bản dịch bị dán vào
+            // nhau: `十年` + `第一魂技` ra `10 nămHồn kỹ thứ 1`. Tokenizer VietPhrase coi cả cụm Latin
+            // là **một** token nên chỗ dán này sống tới output cuối. Chèn một khoảng trắng khi hai đầu
+            // đều là chữ/số, và tính nó vào `outputRange` của đoạn này để mảng segment vẫn phủ liền
+            // mạch toàn bộ output — span dịch được dựng từ đó.
+            if needsSeparator(between: output, and: rendered) {
+                rendered = " " + rendered
+            }
             output += rendered
             let renderedLength = (rendered as NSString).length
             segments.append(QuickTranslationRewriteResult.Segment(
@@ -277,6 +285,23 @@ public enum QuickTranslationRuleEngine {
             segments: segments,
             appliedRuleCount: selected.count
         )
+    }
+
+    /// Có cần chèn khoảng trắng giữa phần đã ghép và bản dịch kế tiếp.
+    ///
+    /// Chỉ chèn khi **cả hai** đầu là chữ hoặc số: gạch nối, dấu câu và khoảng trắng đã tự ngăn cách,
+    /// và chữ Hán ở phần gốc thì tokenizer sẽ tự tách nên không cần thêm.
+    private static func needsSeparator(between output: String, and rendered: String) -> Bool {
+        guard let last = output.unicodeScalars.last, let first = rendered.unicodeScalars.first else {
+            return false
+        }
+        return isWordScalar(last) && isWordScalar(first)
+    }
+
+    private static func isWordScalar(_ scalar: Unicode.Scalar) -> Bool {
+        // Chữ Hán không tính là "chữ" ở đây: nó thuộc phần gốc chưa dịch và tokenizer tự tách.
+        if (0x4E00...0x9FFF).contains(scalar.value) { return false }
+        return CharacterSet.alphanumerics.contains(scalar)
     }
 
     private static func passthrough(_ text: String, length: Int) -> QuickTranslationRewriteResult {

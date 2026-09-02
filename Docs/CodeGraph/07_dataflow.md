@@ -15,6 +15,29 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Hai cho du lieu bi bien dang tren duong dich/doc (1.3.313)
+
+```
+text goc
+  |- QuickTranslationRuleEngine.assemble
+  |     hai match LIEN KE -> hai ban dich bi dan: "10 năm" + "Hồn kỹ thứ 1" = "10 nămHồn kỹ thứ 1"
+  |     -> chen " " khi hai dau deu la chu/so, tinh vao outputRange cua doan hien tai
+  |- performTranslation -> tokenize
+  |     mot cum Latin lien nhau la MOT token => cho dan song tiep, tokenizer khong sua ho
+  |- postProcessText
+        viet hoa sau [. ! ? “ ‘ ” ’ [ 【]  — `-` da bi bo khoi lop nay
+```
+
+```
+text hien thi -> TTS
+  |- … processUnits
+  |- VietnameseOrdinalSpeller   "thứ 1" -> "thứ nhất"    (chi 1 va 4)
+  |- processDigits              moi chu so con lai -> so dem
+```
+
+* **Vi sao thu tu nay bat buoc**: `processDigits` khong biet ngu canh, no doi `1` thanh "một" o moi cho. Sau buoc do khong con chu so nao de nhan ra "so thu tu", nen stage thu tu phai dung truoc.
+* **Khoang trang chen o `assemble` phai thuoc mot segment.** Mang segment map `sourceRange` → `outputRange` va phai phu lien mach toan bo output vi span dich duoc dung tu do; ky tu khong thuoc segment nao se lam lech moi span phia sau.
+
 ## Duong lenh khong con cua ghep noi (1.3.305)
 
 ```

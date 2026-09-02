@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ranh gioi sau nam loi doc/dich/TTS (1.3.313)
+
+* **Viet hoa thuoc `postProcessText`, khong thuoc Reader.** Reader chi hien chuoi da qua `TranslateUtils`; muon doi luat viet hoa thi sua lop ky tu "mo cau moi" o day. `-` da bi bo khoi lop do: no la gach noi tu ghep va gach dau dong hoi thoai.
+* **Doc so Han: ba tang quyet dinh, khong duoc tron.** `renderNumeral` xet theo thu tu: chuoi digit ASCII → nguyen van; hai chu so Han tran tang lien bac → khoang ("4 den 5"); **ba tro len** tang lien bac → danh sach ("1, 2, 3"); con lai co bac → doc thanh mot so, khong bac → doc tung chu so. Ba cua hep giu hanh vi cu cho danh sach: toan chu so Han tran, khong chua `零`/`〇` (nam nhu `二零二五`), va tang **dung mot** moi buoc (ma so nhu `五三七` giu nguyen `537`).
+* **So thu tu la mot stage rieng, dat truoc `processDigits`.** Sau `processDigits` moi chu so da thanh so dem nen khong con dau vet de nhan ra so thu tu. Chi `1`/`4` bat quy tac; `thứ 21` de nguyen cho so dem de khong sinh "thu hai muoi nhat".
+* **Chen khoang trang giua hai ban dich la viec cua `assemble`, khong phai cua tokenizer.** Tokenizer VietPhrase coi mot cum Latin lien nhau la **mot** token nen no khong tach ho. Khoang trang chen vao duoc tinh vao `outputRange` cua doan hien tai de mang segment van phu lien mach — span dich duoc dung tu do.
+* **Xoa tien ich khoi DB co dung mot dieu kien: khong con nguon tai lai.** `repository == nil && downloadUrl.isEmpty` (tien ich import zip) thi go la mat han, giu hang chi tao nut Tai ve bao loi. Tien ich cua kho van giu hang va chi xoa `localPath` de tai lai duoc. `ExtensionInstallAudit` doc dia, coordinator ghi DB, View chi noi hai ben — khong ai lam ca hai viec.
+
 ## Kham Pha: vi tri cuon thuoc DiscoveryView, khong thuoc tab (1.3.307)
 
 * **Ranh gioi**: `DiscoveryCategoryTabView` so huu *du lieu* cua tab (`PaginatedNovelLoader` trong `@StateObject`), con *vi tri cuon* thuoc `DiscoveryView` qua `DiscoveryScrollAnchorStore`. Phai tach nhu vay vi chinh cai tab la thu bi dung lai: `TabView(.page)` do `UIPageViewController` dung nen trang roi vung lan can bi do, va cua so +-3 tab con xoa han tab xa hon. Store song o cap tren nen neo qua duoc ca hai duong do.

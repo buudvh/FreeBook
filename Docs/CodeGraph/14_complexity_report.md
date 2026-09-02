@@ -15,6 +15,12 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Do phuc tap sau nam loi doc/dich/TTS (1.3.313)
+
+* **Them 2 file Swift** (459 -> **461**): `VietnameseOrdinalSpeller` **46** dong (1 regex, 1 ham), `ExtensionInstallAudit` **80** dong (2 struct long, 2 ham tinh, khong nhanh nao sau 2 muc).
+* **Khong file nao vuot baseline moi.** `TextPreprocessor.swift` giu **dung** 1 121 dong (bang baseline) bang cach bo mot dong log da comment de doi lay stage moi; `TranslateUtils.swift` giu **dung** 1 023 dong nhu truoc luot sua.
+* **Cho phuc tap tang la `QuickTranslationNumberFormatter.renderNumeral`**: gio co 5 nhanh (digit ASCII / khoang hai chu so / danh sach ba chu so / doc tung chu so / doc thanh mot so). Ba nhanh giua deu la port truc tiep tien de "chu so Han tran lien nhau khong phai so ghep", nen giu chung canh nhau de doi chieu duoc.
+
 ## Do phuc tap sau luot giu vi tri cuon (1.3.307)
 
 * File moi nho: [`DiscoveryScrollAnchorStore.swift`](../../Sources/Views/Discovery/DiscoveryScrollAnchorStore.swift) **59** dong, 5 ham, khong nhanh nao sau 2 muc.

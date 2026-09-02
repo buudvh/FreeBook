@@ -62,6 +62,9 @@ public enum QuickTranslationNumberFormatter {
         if let range = approximateRange(value) {
             return "\(range.low) đến \(range.high)"
         }
+        if let list = enumeratedDigits(value) {
+            return list
+        }
         if !value.contains(where: { smallMagnitudes[$0] != nil || largeMagnitudes[$0] != nil }) {
             return renderDigitwise(value)
         }
@@ -71,6 +74,31 @@ public enum QuickTranslationNumberFormatter {
 
     /// Chỉ chữ số Hán **trần** — không gồm bậc `十百千万…`, không gồm `0-9` ASCII/full-width.
     private static let bareHanDigits: Set<Character> = Set("〇零一二两兩三四五六七八九")
+
+    /// Dãy **ba chữ số Hán trần trở lên, tăng liền bậc** ⇒ một **danh sách** số, không phải một số ghép.
+    ///
+    /// Cùng tiền đề với `approximateRange`: tiếng Trung không viết 123 là `一二三` (phải là
+    /// `一百二十三`), nên chuỗi đó là các số viết dính nhau. Với **hai** chữ số nó là idiom khoảng
+    /// ("四五" = 4 đến 5, xử lý ở `approximateRange`); từ **ba** chữ số trở lên nó là liệt kê:
+    /// `一二三级` → `1, 2, 3 cấp`.
+    ///
+    /// Ba cửa hẹp giữ hành vi cũ cho mọi thứ khác:
+    /// * Toàn chuỗi phải là chữ số Hán trần — có bậc (`一百二十三`) hay digit ASCII thì đi đường cũ.
+    /// * **Không** chứa `零`/`〇` — `二零二五` là năm đọc theo từng chữ số, không phải liệt kê.
+    /// * Phải tăng **đúng một** mỗi bước — `五三七` là mã số, giữ nguyên `537`.
+    private static func enumeratedDigits(_ value: String) -> String? {
+        let chars = Array(value)
+        guard chars.count >= 3, chars.allSatisfy({ bareHanDigits.contains($0) }) else { return nil }
+        guard !chars.contains("零"), !chars.contains("〇") else { return nil }
+
+        var digits: [Int] = []
+        for char in chars {
+            guard let digit = digitMap[char] else { return nil }
+            if let last = digits.last, digit != last + 1 { return nil }
+            digits.append(digit)
+        }
+        return digits.map(String.init).joined(separator: ", ")
+    }
 
     /// Nhận dạng khoảng xấp xỉ kiểu Hán: đúng **một** dãy gồm **đúng hai** chữ số Hán trần liền nhau
     /// và hai chữ số đó tăng liền bậc (`d`, `d+1`). Giá trị hai đầu tính bằng cách thay dãy đó lần lượt

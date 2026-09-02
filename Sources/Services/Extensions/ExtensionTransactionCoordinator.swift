@@ -181,6 +181,65 @@ public final class ExtensionTransactionCoordinator {
         }
     }
 
+    /// Áp kế hoạch dọn của `ExtensionInstallAudit` trong **một** transaction.
+    ///
+    /// Trả về số hàng đã xoá. Không hỏi xác nhận: hàng bị xoá là hàng đã mất file **và** không có
+    /// nguồn để tải lại, tức nó chỉ còn là một nút Tải về không chạy được.
+    @discardableResult
+    public func applyInstallAudit(
+        plan: ExtensionInstallAudit.Plan,
+        in context: ModelContext
+    ) -> Result<Int, ExtensionTransactionError> {
+        guard !plan.isEmpty else { return .success(0) }
+
+        let all = (try? context.fetch(FetchDescriptor<Extension>())) ?? []
+        let deleteSet = Set(plan.deletePackageIds)
+        let clearSet = Set(plan.clearFolderPackageIds)
+        var deleted = 0
+
+        for ext in all {
+            if deleteSet.contains(ext.packageId) {
+                context.delete(ext)
+                deleted += 1
+            } else if clearSet.contains(ext.packageId), !ext.localPath.isEmpty {
+                ext.localPath = ""
+            }
+        }
+
+        guard deleted > 0 || !clearSet.isEmpty else { return .success(0) }
+        do {
+            try context.save()
+            if deleted > 0 {
+                AppLogger.shared.log("🧹 [ExtAudit] Xoá \(deleted) tiện ích mất file và không có nguồn tải lại: \(plan.deletedNames.joined(separator: ", "))")
+            }
+            if !clearSet.isEmpty {
+                AppLogger.shared.log("🧹 [ExtAudit] Đưa \(clearSet.count) tiện ích của kho về trạng thái chưa cài (file đã mất)")
+            }
+            return .success(deleted)
+        } catch {
+            return .failure(ExtensionTransactionError.saveFailed(error.localizedDescription))
+        }
+    }
+
+    /// Xoá hẳn một tiện ích khỏi DB — dùng khi gỡ tiện ích **không** có nguồn tải lại.
+    public func deleteExtension(
+        packageId: String,
+        in context: ModelContext
+    ) -> Result<Void, ExtensionTransactionError> {
+        var descriptor = FetchDescriptor<Extension>(predicate: #Predicate { $0.packageId == packageId })
+        descriptor.fetchLimit = 1
+        guard let ext = try? context.fetch(descriptor).first else {
+            return .failure(ExtensionTransactionError.entityNotFound(packageId))
+        }
+        context.delete(ext)
+        do {
+            try context.save()
+            return .success(())
+        } catch {
+            return .failure(ExtensionTransactionError.saveFailed(error.localizedDescription))
+        }
+    }
+
     public func togglePinned(packageId: String, in context: ModelContext) -> Result<Void, ExtensionTransactionError> {
         var descriptor = FetchDescriptor<Extension>(predicate: #Predicate { $0.packageId == packageId })
         descriptor.fetchLimit = 1

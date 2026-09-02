@@ -169,6 +169,8 @@ struct RepositoryManagerView: View {
             }
             .onAppear {
                 renderedTab = selectedTab
+                // Dọn trước khi làm mới kho: hàng đã mất file mà không có nguồn tải lại chỉ gây lỗi.
+                auditInstalledExtensions()
                 if repositories.isEmpty {
                     addSampleRepository()
                 } else {

@@ -15,6 +15,13 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +2 file: so thu tu TTS va kiem toan tien ich da cai (1.3.313)
+
+459 -> **461** file Swift.
+
+* [`Sources/Services/TTS/Preprocessing/VietnameseOrdinalSpeller.swift`](../../Sources/Services/TTS/Preprocessing/VietnameseOrdinalSpeller.swift) — **46** dong. File rieng chu khong them vao `TextPreprocessor.swift` vi file do dang **dung** baseline dong (1 121, chi duoc giam); cho stage moi lay bang cach bo mot dong log da comment.
+* [`Sources/Services/Extensions/ExtensionInstallAudit.swift`](../../Sources/Services/Extensions/ExtensionInstallAudit.swift) — **80** dong. Doc dia nam o Services, ghi DB van o `ExtensionTransactionCoordinator`; View chi chuyen ke hoach giua hai ben.
+
 ## +1 file Views cho vi tri cuon Kham Pha (1.3.307)
 
 458 -> **459** file Swift.
