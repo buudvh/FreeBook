@@ -15,6 +15,15 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Dong bo goi y phien am, bo chunk khong co chu, xoa dung cu do IPA (1.3.317)
+
+* **Goi y phien am gio di dung duong cua pipeline.** [TTSPhoneticSuggestionBuilder](../../Sources/Services/TTS/Preprocessing/TTSPhoneticSuggestionBuilder.swift#L1) (moi) lam lai theo thu tu cua `TextPreprocessor.transliterateToken`: gap dau phu → tra tu dien → cong `ForeignScriptClassifier` → duong Anh qua espeak IPA. Truoc day chip goi y dung `EnglishTransliterator` (bo luat chinh ta) nen khac han chuoi TTS thuc doc.
+* **Moi chip co badge nguon** (`TĐ`/`JP`/`EN`) qua [TTSPhoneticSuggestion](../../Sources/Models/TTS/TTSPhoneticSuggestion.swift#L1) (moi), va chip mà pipeline **that su** se chon duoc lam noi. Dau `-` bi bo khoi goi y.
+* **Chunk khong co chu/so bi bo o `TTSParagraphBuilder`** thay vi thanh mot khoang ngat im lang.
+* **Xoa `TTSIPAProbeSection` + 2 file engine chi no dung** — dung cu do mot lan cho thi nghiem E1, ket qua da ghi trong CHANGELOG.
+* **Widget trinh duyet thu nho** cao **38** (2/3 cua widget nghe truyen), icon `safari`.
+* **Xoa 3 file, them 2 file** (461 → **460**), sua **5** file.
+
 ## Nam loi doc/dich/TTS: viet hoa sau gach noi, so Han lien nhau, so thu tu, dinh chu giua hai rule, ext mo coi (1.3.313)
 
 * **Reader khong con viet hoa chu sau `-`.** Lop ky tu "mo cau moi" trong [`TranslateUtils.postProcessText`](../../Sources/Services/Translation/Utils/TranslateUtils.swift#L672) co ca `-`, nen `bán-thần` thanh `bán-Thần`. `-` la gach noi tu ghep va gach dau dong hoi thoai, khong phai dau ket cau.

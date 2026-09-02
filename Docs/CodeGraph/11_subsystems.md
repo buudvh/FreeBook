@@ -15,6 +15,15 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Goi y phien am di dung duong cua pipeline; bo chunk khong co chu (1.3.317)
+
+* **Goi y phien am truoc day dung mot duong KHAC voi luc doc that.** No goi `EnglishTransliterator` (bo luat chinh ta) trong khi pipeline goi `EnglishPhonemeTransliterator` (espeak IPA), va goi `transliterateRomaji` **vo dieu kien** thay vi qua cong `ForeignScriptClassifier`. Ket qua: voi gan nhu moi tu tieng Anh, chip goi y khac han chuoi TTS thuc doc; con voi tu Anh cat duoc kieu romaji (`sonata`, `tomato`) no hien mot cach doc Nhat ma pipeline khong bao gio chon.
+* **`TTSPhoneticSuggestionBuilder` la ban rut gon cua `transliterateToken`, giu nguyen thu tu quyet dinh**: gap dau phu + ha chu thuong → tra tu dien → cong `ForeignScriptClassifier` → duong Anh qua IPA. Lech dung mot cho co chu y: tra **ca hai** duong JP va EN de nguoi dung chon tay, va danh dau duong pipeline **that su** se chon bang `isPipelineChoice`.
+* **Khoa tra tu dien phai gap dau phu.** Pipeline tra bang `folding(.diacriticInsensitive).lowercased()`; ban cu chi `lowercased()` nen khoa co dau khong bao gio khop.
+* **Dau `-` bi bo o goi y, khong bo trong engine.** Dau do la cach transliterator danh dau ranh gioi am tiet; luu vao tu dien thi no thanh ky tu that va di tiep vao espeak. Engine giu nguyen vi golden set dang ghi dang co `-`.
+* **Chunk khong co chu/so bi bo o `TTSParagraphBuilder`**, khong con di xuong engine. Truoc day no thanh mot item phat: service nhan ra khong doc duoc roi tra WAV im lang dai bang khoang nghi, nen nguoi nghe gap mot khoang ngat vo nghia va hang doi van phai dung/huy mot `AVAudioPlayer`. Bo o builder la cho som nhat con biet ngu canh chunk, va `paragraphIndex` cua cac chunk con lai khong doi vi no la id dong goc.
+* **`TTSIPAProbeSection` da bi xoa** cung hai file engine chi no dung (`ONNXPiperEngine+Phonemes`, `PiperPhonemeInventory`). Do la dung cu do mot lan cho thi nghiem E1; ket qua da ghi trong CHANGELOG va lay lai duoc tu git history neu lam E1 vong 2. Man "Thu phien am" **van con** — phan soi mot tu cua no la khuon cho badge JP/EN.
+
 ## Bon cho toi uu NghiTTS va cong chan chu so o tien xu ly (1.3.316)
 
 * **Cong chan theo chu so** o `processVietnameseText`: ~24 luot quet toan van ban (`formatNumbers`, ngay, gio, tien, phan tram, dien thoai, thap phan, `processDigits`) deu **bat buoc** co `\d` moi khop duoc gi, nen gio nam trong `if hasDigit`. Hai buoc **khong** vao cong, co ly do: `processRomanNumerals` lam viec tren **chu** — va no *sinh ra* chu so (`III` → `3`) nen co duoc tinh lai ngay sau no; `processUnits` co nhanh doc so viet bang chu ("hai muoi km").

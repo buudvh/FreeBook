@@ -537,28 +537,9 @@ public struct AddWordSheet: View {
         key.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private var suggestions: [String] {
-        let trimmed = trimmedKey
-        guard !trimmed.isEmpty else { return [] }
-
-        var result: [String] = []
-        var seen = Set<String>()
-
-        if let library = librarySuggestion, !library.isEmpty, seen.insert(library).inserted {
-            result.append(library)
-        }
-
-        let japanese = JapaneseTransliterator.transliterateRomaji(trimmed)
-        if !japanese.isEmpty, seen.insert(japanese).inserted {
-            result.append(japanese)
-        }
-
-        let english = EnglishTransliterator.transliterateWord(trimmed)
-        if !english.isEmpty, seen.insert(english).inserted {
-            result.append(english)
-        }
-
-        return result
+    /// Gợi ý được dựng bằng **đúng đường** mà NghiTTS dùng lúc đọc — xem `TTSPhoneticSuggestionBuilder`.
+    private var suggestions: [TTSPhoneticSuggestion] {
+        TTSPhoneticSuggestionBuilder.suggestions(for: trimmedKey, libraryHit: librarySuggestion)
     }
 
     public var body: some View {
@@ -581,23 +562,37 @@ public struct AddWordSheet: View {
                     Section("Gợi ý phiên âm") {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
-                                ForEach(suggestions, id: \.self) { suggestion in
+                                ForEach(suggestions) { suggestion in
                                     Button(action: {
-                                        value = suggestion
+                                        value = suggestion.text
                                     }) {
-                                        Text(suggestion)
-                                            .font(.subheadline)
-                                            .foregroundColor(librarySuggestion == suggestion ? .blue : .gray)
-                                            .padding(.horizontal, 12)
-                                            .padding(.vertical, 6)
-                                            .background(Color.secondary.opacity(0.1))
-                                            .clipShape(Capsule())
-                                            .overlay(
-                                                Capsule()
-                                                    .stroke(librarySuggestion == suggestion ? Color.blue.opacity(0.45) : Color.gray.opacity(0.3), lineWidth: 1)
+                                        HStack(spacing: 6) {
+                                            Text(suggestion.origin.badge)
+                                                .font(.caption2.weight(.bold))
+                                                .padding(.horizontal, 5)
+                                                .padding(.vertical, 2)
+                                                .background(suggestion.origin.tint.opacity(0.18))
+                                                .foregroundColor(suggestion.origin.tint)
+                                                .clipShape(RoundedRectangle(cornerRadius: 4))
+                                            Text(suggestion.text)
+                                                .font(.subheadline)
+                                                .foregroundColor(suggestion.isPipelineChoice ? .primary : .secondary)
+                                        }
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 6)
+                                        .background(Color.secondary.opacity(0.1))
+                                        .clipShape(Capsule())
+                                        .overlay(
+                                            Capsule().stroke(
+                                                suggestion.isPipelineChoice
+                                                    ? suggestion.origin.tint.opacity(0.5)
+                                                    : Color.gray.opacity(0.3),
+                                                lineWidth: suggestion.isPipelineChoice ? 1.5 : 1
                                             )
+                                        )
                                     }
                                     .buttonStyle(.plain)
+                                    .accessibilityLabel("\(suggestion.text). \(suggestion.origin.explanation)")
                                 }
                             }
                         }
@@ -655,8 +650,10 @@ public struct AddWordSheet: View {
         suggestionLoadTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 300_000_000)
             guard !Task.isCancelled else { return }
-            let trimmed = trimmedKey.lowercased()
-            librarySuggestion = trimmed.isEmpty ? nil : await TextPreprocessor.shared.lookupWord(trimmed)
+            // Tra bằng khoá **đã gấp dấu phụ**, giống `transliterateToken` lúc đọc; hạ chữ thường
+            // một mình là chưa đủ nên trước đây khoá có dấu không bao giờ khớp.
+            let lookupKey = TTSPhoneticSuggestionBuilder.normalizedKey(trimmedKey)
+            librarySuggestion = lookupKey.isEmpty ? nil : await TextPreprocessor.shared.lookupWord(lookupKey)
         }
     }
 }

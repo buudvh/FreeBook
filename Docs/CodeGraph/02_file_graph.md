@@ -15,6 +15,22 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## -3 file dung cu do IPA, +2 file goi y phien am (1.3.317)
+
+461 -> **460** file Swift.
+
+Xoa:
+
+* `Sources/Views/Settings/TTS/TTSIPAProbeSection.swift` (323 dong) — 4 section thi nghiem E1: nhap IPA tho roi phat bang Piper.
+* `Sources/Services/TTS/NghiTTS/ONNXPiperEngine+Phonemes.swift` (151 dong) va `Sources/Services/TTS/NghiTTS/PiperPhonemeInventory.swift` (87 dong) — chi section tren goi, xoa no thi hai file nay mat het caller.
+
+Them:
+
+* [`Sources/Models/TTS/TTSPhoneticSuggestion.swift`](../../Sources/Models/TTS/TTSPhoneticSuggestion.swift) — **74** dong. Giu ca `Origin` (nguon goi y) va mau badge; mau dat o day chu khong o View vi `TTSDictionaryEditView.swift` dang vuot baseline dong va chi duoc phep giam.
+* [`Sources/Services/TTS/Preprocessing/TTSPhoneticSuggestionBuilder.swift`](../../Sources/Services/TTS/Preprocessing/TTSPhoneticSuggestionBuilder.swift) — **80** dong.
+
+`TTSDictionaryEditView.swift` **giam** 705 → 702 dong nho thay khoi dung goi y bang mot loi goi builder.
+
 ## +2 file: so thu tu TTS va kiem toan tien ich da cai (1.3.313)
 
 459 -> **461** file Swift.

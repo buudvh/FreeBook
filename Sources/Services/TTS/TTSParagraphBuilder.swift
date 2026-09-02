@@ -23,6 +23,12 @@ enum TTSParagraphBuilder {
         return entries.flatMap { entry in
             chunks(for: entry, maximumLength: maximumLength)
         }
+        // Chunk không có chữ/số nào (dòng `***`, `---`, chỉ dấu câu) bị **bỏ hẳn** thay vì đi tiếp
+        // xuống engine. Trước đây nó vẫn thành một item phát: `PiperTTSService` nhận ra không đọc được
+        // rồi trả một WAV im lặng dài bằng khoảng nghỉ, nên người nghe gặp một khoảng ngắt vô nghĩa và
+        // hàng đợi vẫn phải dựng/huỷ một `AVAudioPlayer` cho nó. Bỏ ở đây là chỗ sớm nhất còn biết
+        // ngữ cảnh chunk, và `paragraphIndex` của các chunk còn lại không đổi vì nó là id dòng gốc.
+        .filter { !PiperTTSService.isUnspeakable($0.text) }
     }
 
     private static func chunks(

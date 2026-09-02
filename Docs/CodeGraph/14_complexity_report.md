@@ -15,6 +15,13 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Do phuc tap sau khi dong bo goi y phien am (1.3.317)
+
+* **Xoa 3 file (561 dong), them 2 file (154 dong)**: 461 → **460** file Swift. Rong ra 407 dong.
+* **`TTSDictionaryEditView.swift` giam 705 → 702** du them badge va accessibility label: khoi dung goi y 24 dong bi thay bang **mot** loi goi `TTSPhoneticSuggestionBuilder`, va mau badge dat trong model chu khong trong View. File nay dang tren baseline 641 tu truoc nen moi dong tiet kiem duoc deu co gia.
+* **`TTSPhoneticSuggestionBuilder` co dung mot nhanh quyet dinh**, khong co vong lap nao: gap khoa → tra tu dien → cong `ForeignScriptClassifier` → hai loi goi transliterator. Do phuc tap nam o *thu tu*, khong o cau truc.
+* **`TTSParagraphBuilder.buildFromEntries` them mot `.filter`** — mot dong, khong doi do phuc tap cua phan cat chunk.
+
 ## Do phuc tap sau nam loi doc/dich/TTS (1.3.313)
 
 * **Them 2 file Swift** (459 -> **461**): `VietnameseOrdinalSpeller` **46** dong (1 regex, 1 ham), `ExtensionInstallAudit` **80** dong (2 struct long, 2 ham tinh, khong nhanh nao sau 2 muc).

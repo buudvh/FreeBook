@@ -4,6 +4,21 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.272) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.317] - 2026-09-02
+
+### Gợi ý phiên âm đi đúng đường của pipeline, có badge JP/EN; bỏ chunk không có chữ; xoá dụng cụ đo IPA
+
+Xoá **3** file, thêm **2** file (461 → **460**), sửa **5** file.
+
+- **Gợi ý phiên âm trước đây dùng một đường KHÁC với lúc đọc thật.** Nó gọi `EnglishTransliterator` (bộ luật chính tả) trong khi pipeline gọi `EnglishPhonemeTransliterator` (espeak IPA), và gọi `transliterateRomaji` **vô điều kiện** thay vì qua cổng `ForeignScriptClassifier`. Hệ quả: với gần như mọi từ tiếng Anh chip gợi ý khác hẳn chuỗi TTS thực đọc; còn với từ Anh cắt được kiểu romaji (`sonata`, `tomato`) nó hiện một cách đọc Nhật mà pipeline không bao giờ chọn. `TTSPhoneticSuggestionBuilder` (mới) làm lại theo đúng thứ tự của `TextPreprocessor.transliterateToken`.
+- **Khoá tra từ điển giờ gấp dấu phụ** (`folding(.diacriticInsensitive).lowercased()`) giống lúc đọc; bản cũ chỉ `lowercased()` nên khoá có dấu không bao giờ khớp.
+- **Mỗi gợi ý có badge nguồn** `TĐ`/`JP`/`EN` với màu riêng, và chip mà pipeline **thật sự** sẽ chọn được làm nổi (viền dày hơn, chữ đậm màu hơn) — trả lời đúng câu "đâu là phiên âm Nhật, đâu là Anh". Kèm `accessibilityLabel` nói rõ lý do của từng gợi ý.
+- **Bỏ dấu `-` trong gợi ý** (`xơ-trít` → `xơ trít`). Chỉ bỏ ở gợi ý, **không** bỏ trong engine: dấu đó là cách transliterator đánh dấu ranh giới âm tiết và golden set đang ghi dạng có `-`; nhưng khi nó được lưu vào từ điển thì thành ký tự thật và đi tiếp vào espeak, nên giá trị người dùng lưu phải sạch.
+- **Chunk không có chữ/số bị bỏ ở `TTSParagraphBuilder`**, không còn đi xuống engine. Trước đây nó vẫn thành một item phát: service nhận ra không đọc được rồi trả một WAV im lặng dài bằng khoảng nghỉ, nên người nghe gặp một khoảng ngắt vô nghĩa và hàng đợi vẫn phải dựng rồi huỷ một `AVAudioPlayer`. Bỏ ở builder là chỗ sớm nhất còn biết ngữ cảnh chunk, và `paragraphIndex` của các chunk còn lại không đổi vì nó là id dòng gốc.
+- **Xoá `TTSIPAProbeSection`** cùng hai file engine chỉ nó dùng (`ONNXPiperEngine+Phonemes`, `PiperPhonemeInventory`). Khảo sát cho thấy nó **vẫn truy cập được trong bản release** bằng 3 lần chạm, không có cờ DEBUG — nhưng nó là dụng cụ đo một lần cho thí nghiệm E1, kết quả đã ghi trong CHANGELOG và lấy lại được từ git history nếu làm E1 vòng 2. Màn "Thử phiên âm" **vẫn còn**.
+- **Widget trình duyệt thu nhỏ** cao **38** = 2/3 chiều cao widget nghe truyện (56), `minWidth` 74, icon `safari`, cỡ chữ 14/12.
+- Chưa build được (máy Windows). `check_architecture.py` giữ **14** violation nền; `TTSDictionaryEditView.swift` **giảm** 705 → 702 dòng dù thêm badge.
+
 ## [1.3.316] - 2026-09-02
 
 ### Tối ưu NghiTTS và tiền xử lý text; chia sẻ cả bộ rule riêng; widget trình duyệt; ẩn nút tải từ điển
