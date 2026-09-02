@@ -283,13 +283,29 @@ final actor TextPreprocessor {
     typealias MatchReplacer = (NSTextCheckingResult, NSString) -> String?
 
     private static func replaceMatches(in text: String, regex: NSRegularExpression, replacer: MatchReplacer) -> String {
-        var result = text
         let nsString = text as NSString
-        let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: text.utf16.count))
-        for match in matches.reversed() {
-            if let replacement = replacer(match, nsString) {
-                result = (result as NSString).replacingCharacters(in: match.range, with: replacement)
+        let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsString.length))
+        guard !matches.isEmpty else { return text }
+
+        // Cộng dồn một chiều vào một buffer. Bản cũ `replacingCharacters` cho **từng** match nên copy
+        // lại toàn bộ chuỗi mỗi lần ⇒ O(M×N); đây là đường chung của hơn 30 điểm gọi trong pipeline.
+        var result = ""
+        result.reserveCapacity(nsString.length)
+        var cursor = 0
+        for match in matches {
+            guard match.range.location >= cursor else { continue }
+            if match.range.location > cursor {
+                result += nsString.substring(with: NSRange(location: cursor, length: match.range.location - cursor))
             }
+            if let replacement = replacer(match, nsString) {
+                result += replacement
+            } else {
+                result += nsString.substring(with: match.range)
+            }
+            cursor = match.range.location + match.range.length
+        }
+        if cursor < nsString.length {
+            result += nsString.substring(from: cursor)
         }
         return result
     }
@@ -811,66 +827,50 @@ final actor TextPreprocessor {
     }
 
     private static func processVietnameseText(_ text: String, config: PreprocessorRuntimeConfig, unlimitedRoman: Bool = false) -> String {
-        // Self.preprocessLog("📝 [Vietnamese Normalizer] Starting preprocess for text: '\(text)'")
-        var e = text
-
-        //Self.preprocessLog("   - Running precomposedStringWithCanonicalMapping")
-        e = text.precomposedStringWithCanonicalMapping
-
-        //Self.preprocessLog("   - Running cleanText")
+        var e = text.precomposedStringWithCanonicalMapping
         e = cleanText(e)
-
-        //Self.preprocessLog("   - Running normalizeQuotesAndDashes")
         e = normalizeQuotesAndDashes(e)
 
         if config.numericNormalizationEnabled {
-        //Self.preprocessLog("   - Running formatNumbers")
-        e = formatNumbers(e)
+            // Cổng chặn theo chữ số: ~24 lượt quét toàn văn bản dưới đây đều **bắt buộc** có `\d` mới
+            // khớp được gì, nhưng trước đó vẫn chạy đủ trên đoạn văn xuôi không có chữ số nào — trường
+            // hợp phổ biến nhất trong tiểu thuyết. `.decimalDigits` phủ cả chữ số full-width.
+            var hasDigit = e.rangeOfCharacter(from: .decimalDigits) != nil
 
-        //Self.preprocessLog("   - Running processUnitsRangeAndRatio")
-        e = processUnitsRangeAndRatio(e)
+            if hasDigit {
+                e = formatNumbers(e)
+                e = processUnitsRangeAndRatio(e)
+                e = processYearRanges(e)
+                e = processDates(e)
+                e = processTime(e)
+            }
 
-        //Self.preprocessLog("   - Running processYearRanges")
-        e = processYearRanges(e)
+            // Số La Mã là **chữ**, nên bước này nằm ngoài cổng; nhưng nó sinh ra chữ số Ả Rập
+            // (`III` → `3`) nên phải tính lại cờ sau khi chạy.
+            e = processRomanNumerals(e, unlimited: unlimitedRoman)
+            if !hasDigit {
+                hasDigit = e.rangeOfCharacter(from: .decimalDigits) != nil
+            }
 
-        //Self.preprocessLog("   - Running processDates")
-        e = processDates(e)
+            if hasDigit {
+                e = processCurrency(e)
+                e = processPercentages(e)
+                e = processPhoneNumbers(e)
+                e = processDecimals(e)
+            }
 
-        //Self.preprocessLog("   - Running processTime")
-        e = processTime(e)
+            // `processUnits` có nhánh đọc số **viết bằng chữ** ("hai mươi km") nên không vào cổng.
+            e = processUnits(e)
 
-        //Self.preprocessLog("   - Running processRomanNumerals")
-        e = processRomanNumerals(e, unlimited: unlimitedRoman)
-
-
-
-        //Self.preprocessLog("   - Running processCurrency")
-        e = processCurrency(e)
-
-        //Self.preprocessLog("   - Running processPercentages")
-        e = processPercentages(e)
-
-        //Self.preprocessLog("   - Running processPhoneNumbers")
-        e = processPhoneNumbers(e)
-
-        //Self.preprocessLog("   - Running processDecimals")
-        e = processDecimals(e)
-
-        //Self.preprocessLog("   - Running processUnits")
-        e = processUnits(e)
-        // Số thứ tự phải chạy trước `processDigits`: bước đó đọc mọi chữ số theo số đếm.
-        e = VietnameseOrdinalSpeller.apply(e)
-        e = processDigits(e)
-        } else {
-            // Self.preprocessLog("   - Numeric normalization disabled; skipping number/date/time/currency pipeline")
+            if hasDigit {
+                // Số thứ tự phải chạy trước `processDigits`: bước đó đọc mọi chữ số theo số đếm.
+                e = VietnameseOrdinalSpeller.apply(e)
+                e = processDigits(e)
+            }
         }
 
-        // Self.preprocessLog("   - Trimming and cleaning white spaces")
         e = PreprocessorRegex.whitespaceCollapse.stringByReplacingMatches(in: e, options: [], range: NSRange(location: 0, length: e.utf16.count), withTemplate: " ")
-        e = e.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        // Self.preprocessLog("📝 [Vietnamese Normalizer] Finished. Output: '\(e)'")
-        return e
+        return e.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     enum DictionaryType {

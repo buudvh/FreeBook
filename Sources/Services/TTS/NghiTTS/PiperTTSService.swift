@@ -181,6 +181,36 @@ final class PiperTTSService: @unchecked Sendable {
         let wavData: Data
     }
 
+    /// Bộ nhớ đệm cho payload im lặng.
+    ///
+    /// Đoạn im lặng chỉ phụ thuộc `(sampleRate, số sample)` — mọi sample đều là 0 — nên `[Float]` và
+    /// WAV sinh ra là **hằng**. Trước đây mỗi khoảng nghỉ trong chương đều cấp phát lại mảng rồi encode
+    /// lại WAV; một chương dài có hàng nghìn khoảng nghỉ. Cache là chính xác tuyệt đối, không đổi hành vi.
+    private static let silenceCacheLock = NSLock()
+    private static var silenceCache: [String: (samples: [Float], wav: Data)] = [:]
+    private static let silenceCacheLimit = 12
+
+    private static func cachedSilence(sampleRate: Int, count: Int) -> (samples: [Float], wav: Data) {
+        let key = "\(sampleRate)|\(count)"
+        silenceCacheLock.lock()
+        if let hit = silenceCache[key] {
+            silenceCacheLock.unlock()
+            return hit
+        }
+        silenceCacheLock.unlock()
+
+        let samples = [Float](repeating: 0.0, count: max(0, count))
+        let wav = WAVEncoder.encodePCM16(samples: samples, sampleRate: sampleRate, channels: 1)
+
+        silenceCacheLock.lock()
+        if silenceCache.count >= silenceCacheLimit {
+            silenceCache.removeAll()
+        }
+        silenceCache[key] = (samples, wav)
+        silenceCacheLock.unlock()
+        return (samples, wav)
+    }
+
     static func makeSilenceSpec(
         text: String,
         speed: Double,
@@ -197,7 +227,7 @@ final class PiperTTSService: @unchecked Sendable {
         let effectiveSpeed = max(0.1, speed)
         let scaledDuration = pauseDuration / effectiveSpeed
         let silenceSamplesCount = Int(Double(sampleRate) * scaledDuration)
-        let silenceSamples = [Float](repeating: 0.0, count: max(0, silenceSamplesCount))
+        let silenceSamples = cachedSilence(sampleRate: sampleRate, count: silenceSamplesCount).samples
         let pcmDur = Double(silenceSamplesCount) / Double(sampleRate)
         return SilenceSpec(samples: silenceSamples, sampleRate: sampleRate, pcmDuration: pcmDur)
     }
@@ -217,11 +247,7 @@ final class PiperTTSService: @unchecked Sendable {
             totalChunks: 1,
             isLast: true
         )
-        let wavData = WAVEncoder.encodePCM16(
-            samples: spec.samples,
-            sampleRate: spec.sampleRate,
-            channels: 1
-        )
+        let wavData = cachedSilence(sampleRate: spec.sampleRate, count: spec.samples.count).wav
         return SilenceStreamingPayload(chunkPayload: payload, wavData: wavData)
     }
 

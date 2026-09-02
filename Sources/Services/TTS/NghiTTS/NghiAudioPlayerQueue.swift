@@ -42,7 +42,6 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
 
     private(set) var currentPlayer: AVAudioPlayer?
     private var nextPlayer: AVAudioPlayer?
-    private var nextData: Data?
     private var nextIsScheduled = false
     private var playbackRate: Float = 1.0
 
@@ -146,7 +145,6 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
 
         let player = try makePlayer(data: data)
         nextPlayer = player
-        nextData = data
         nextItem = item
         if let currentItem {
             state = .prepared(current: currentItem, next: item)
@@ -185,7 +183,12 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
     }
 
     func updateRate(_ rate: Double) {
-        playbackRate = clampedRate(rate)
+        let newRate = clampedRate(rate)
+        // Kéo slider tốc độ bắn rất nhiều event, phần lớn là cùng một giá trị sau khi clamp. Không có
+        // cửa này thì mỗi event đều `stop()` + `prepareToPlay()` + schedule lại nextPlayer giữa lúc
+        // đang phát — đúng loại việc gây giật ở biên đoạn.
+        guard newRate != playbackRate else { return }
+        playbackRate = newRate
         currentPlayer?.rate = playbackRate
         nextPlayer?.rate = playbackRate
 
@@ -239,10 +242,14 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
         // Safe scheduling window: nếu thời gian còn lại giữa 5ms và 50ms, KHÔNG ép schedule bằng atTime.
         // Giữ nextPlayer ở trạng thái prepared, để khi currentPlayer finish, promoteNextAfterCurrentFinished sẽ play() ngay lập tức.
         guard wallClockRemaining > 0.050 else {
-            if wallClockRemaining <= 0.005 {
-                AppLogger.shared.log("ℹ️ [NghiAudioPlayerQueue] Audio effectively over (wallClockRemaining <= 5ms); skipping atTime schedule for immediate delegate handoff")
-            } else {
-                AppLogger.shared.log("ℹ️ [NghiAudioPlayerQueue] Remaining time (\(String(format: "%.3f", wallClockRemaining))s) <= 50ms safe window; keeping nextPlayer prepared for immediate finish handoff")
+            // Dựng chuỗi log ngay trên đường bàn giao đoạn là chi phí đặt sai chỗ: hàm này bị gọi lại
+            // mỗi lần `prepareNext`/`resume`/`updateRate`, và mặc định log đang tắt.
+            if AppLogger.shared.isLoggingEnabled {
+                if wallClockRemaining <= 0.005 {
+                    AppLogger.shared.log("ℹ️ [NghiAudioPlayerQueue] Audio effectively over (wallClockRemaining <= 5ms); skipping atTime schedule for immediate delegate handoff")
+                } else {
+                    AppLogger.shared.log("ℹ️ [NghiAudioPlayerQueue] Remaining time (\(String(format: "%.3f", wallClockRemaining))s) <= 50ms safe window; keeping nextPlayer prepared for immediate finish handoff")
+                }
             }
             return
         }
@@ -268,7 +275,6 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
         nextPlayer?.stop()
         nextPlayer?.delegate = nil
         nextPlayer = nil
-        nextData = nil
         nextItem = nil
         nextIsScheduled = false
         if let currentItem {
@@ -291,7 +297,6 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
         currentItem = nextItem
         self.nextPlayer = nil
         self.nextItem = nil
-        nextData = nil
         nextIsScheduled = false
         state = .playing(current: nextItem)
 

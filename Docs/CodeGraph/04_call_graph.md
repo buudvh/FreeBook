@@ -15,6 +15,26 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Pipeline tien xu ly sau khi co cong chu so (1.3.316)
+
+```
+processVietnameseText
+  |- precomposed -> cleanText -> normalizeQuotesAndDashes
+  |- hasDigit = e.rangeOfCharacter(from: .decimalDigits) != nil
+  |
+  |- if hasDigit:  formatNumbers, processUnitsRangeAndRatio, processYearRanges,
+  |                processDates, processTime
+  |- processRomanNumerals            <- NGOAI cong (lam viec tren chu)
+  |- if !hasDigit: tinh lai hasDigit <- vi Roman SINH RA chu so (III -> 3)
+  |- if hasDigit:  processCurrency, processPercentages, processPhoneNumbers, processDecimals
+  |- processUnits                    <- NGOAI cong (co nhanh so viet bang chu)
+  |- if hasDigit:  VietnameseOrdinalSpeller, processDigits
+  |- whitespaceCollapse -> trim
+```
+
+* **Hai buoc ngoai cong la co ly do, khong phai bo sot.** Dat chung vao cong se lam mat so La Ma va mat nhanh "hai muoi km".
+* **Thu tu tinh lai co bat buoc phai o sau `processRomanNumerals`**: neu tinh mot lan duy nhat o dau, van ban chi co so La Ma se bo qua het cac buoc phia sau.
+
 ## Hai duong goi moi (1.3.313)
 
 ```

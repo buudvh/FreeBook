@@ -4,6 +4,22 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.272) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.316] - 2026-09-02
+
+### Tối ưu NghiTTS và tiền xử lý text; chia sẻ cả bộ rule riêng; widget trình duyệt; ẩn nút tải từ điển
+
+Sửa **9** file Swift (vẫn **461**). Bốn khảo sát chạy bằng subagent song song; mỗi phát hiện đều được kiểm chứng lại trong code trước khi sửa.
+
+- **Cổng chặn theo chữ số ở tiền xử lý TTS.** ~24 lượt quét toàn văn bản (`formatNumbers`, ngày, giờ, tiền, phần trăm, điện thoại, thập phân, `processDigits`) đều **bắt buộc** có `\d` mới khớp được gì, nhưng vẫn chạy đủ trên đoạn văn xuôi không có chữ số nào. Hai bước cố ý **nằm ngoài** cổng: `processRomanNumerals` làm việc trên chữ — và vì nó *sinh ra* chữ số (`III` → `3`) nên cờ được tính lại ngay sau nó; `processUnits` có nhánh đọc số viết bằng chữ ("hai mươi km").
+- **`replaceMatches` cộng dồn một chiều vào một buffer** thay vì `replacingCharacters` cho từng match (mỗi lần copy lại cả chuỗi ⇒ O(M×N)). Đây là đường chung của hơn 30 điểm gọi nên chi phí nhân theo cả pipeline.
+- **`NghiAudioPlayerQueue.updateRate` có cửa no-op.** Kéo slider tốc độ bắn nhiều event cùng giá trị sau clamp; trước đây mỗi event đều `stop()` + `prepareToPlay()` + schedule lại `nextPlayer` **giữa lúc đang phát** — đúng loại việc gây giật ở biên đoạn.
+- **Payload im lặng được cache** theo `(sampleRate, số sample)`, tối đa 12 entry. Mọi sample đều là 0 nên `[Float]` và WAV là hằng; trước đây mỗi khoảng nghỉ đều cấp phát lại và encode WAV lại, một chương dài có hàng nghìn khoảng nghỉ. Cache chính xác tuyệt đối, không đổi hành vi.
+- **Log trên đường bàn giao đoạn được bọc `isLoggingEnabled`** (hàm bị gọi lại mỗi lần `prepareNext`/`resume`/`updateRate`, mà log mặc định đang tắt), và **xoá biến chết `nextData`** — nó giữ sống toàn bộ buffer WAV của đoạn kế tiếp mà không ai đọc.
+- **Chia sẻ cả bộ rule riêng có điểm vào ngang hàng với Xuất/Xoá**: nút trong menu `ellipsis.circle`. Trước đó chức năng đã tồn tại nhưng chỉ nằm trong menu của **từng hàng** rule nên gần như không tìm ra được, và mất hẳn khi bộ riêng chưa có rule nào. Mục cũ được giữ nhưng đổi nhãn cho rõ là **cả bộ**, kèm sửa `accessibilityLabel` vốn không hề nhắc tới nó.
+- **Widget trình duyệt thu nhỏ** cao 36 → **56** cho khớp widget nghe truyện, `minWidth` 90 → 110, icon `globe` → **`safari`**.
+- **Ẩn nút tải từ điển mặc định khi đã có VietPhrase.** Trước đây nút luôn hiện và chỉ đổi nhãn thành "Tải lại"; việc nạp lại đã có nút "Làm mới dữ liệu dịch" ngay dưới lo.
+- Chưa build được (máy Windows). `check_architecture.py` giữ **14** violation nền — `TextPreprocessor.swift` giữ đúng 1 121 dòng (bằng baseline) sau khi dọn các dòng log đã comment trong hàm pipeline.
+
 ## [1.3.315] - 2026-09-02
 
 ### Chọn bộ riêng/chung ngay lúc bấm Lưu thay vì bằng ô chọn trong form

@@ -15,6 +15,15 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Bon cho toi uu NghiTTS va cong chan chu so o tien xu ly (1.3.316)
+
+* **Cong chan theo chu so** o `processVietnameseText`: ~24 luot quet toan van ban (`formatNumbers`, ngay, gio, tien, phan tram, dien thoai, thap phan, `processDigits`) deu **bat buoc** co `\d` moi khop duoc gi, nen gio nam trong `if hasDigit`. Hai buoc **khong** vao cong, co ly do: `processRomanNumerals` lam viec tren **chu** — va no *sinh ra* chu so (`III` → `3`) nen co duoc tinh lai ngay sau no; `processUnits` co nhanh doc so viet bang chu ("hai muoi km").
+* **`replaceMatches` gio cong don mot chieu vao mot buffer.** Ban cu goi `replacingCharacters` cho tung match, moi lan copy lai ca chuoi ⇒ O(M×N). Day la duong chung cua hon 30 diem goi nen chi phi nhan theo ca pipeline.
+* **`updateRate` co cua no-op.** Keo slider toc do ban rat nhieu event cung gia tri sau clamp; khong co cua nay thi moi event deu `stop()` + `prepareToPlay()` + schedule lai `nextPlayer` **giua luc dang phat** — dung loai viec gay giat o bien doan.
+* **Payload im lang duoc cache theo `(sampleRate, so sample)`.** Moi sample deu la 0 nen `[Float]` va WAV la **hang**; truoc day moi khoang nghi trong chuong deu cap phat lai va encode lai, mot chuong dai co hang nghin khoang nghi. Cache chinh xac tuyet doi, khong doi hanh vi.
+* **Log tren duong ban giao doan bi bao bang `isLoggingEnabled`**, va `nextData` (bien giu ca buffer WAV cua doan ke tiep, khong ai doc) da bi xoa.
+* **Chia se ca bo rule rieng co diem vao ngang hang voi Xuat/Xoa**: nut nam trong menu `ellipsis.circle` — noi chua moi thao tac ca-bo. Sheet van do **presenter** (`QuickTranslationRuleListView`) gan tren body chinh, khong gan trong noi dung toolbar. Muc cu trong menu tung hang duoc giu nhung doi nhan cho ro la **ca bo**.
+
 ## Chon pham vi rule o luc luu, khong o form (1.3.315)
 
 * **Quyet dinh pham vi doi cho, khong doi luat.** O chon "Bo rieng / Bo chung" bi bo khoi form; `confirmationDialog` no ra khi bam **Luu**. Dieu kien hien popup **y nguyen** dieu kien hien o chon cu: che do **them** va dang co truyen mo. Khong co truyen mo thi chi con bo chung nen luu thang.

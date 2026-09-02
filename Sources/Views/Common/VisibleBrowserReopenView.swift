@@ -52,16 +52,19 @@ struct VisibleBrowserReopenButton: View {
     }
 
     private var pillContent: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "globe")
-                .font(.system(size: 13, weight: .semibold))
+        HStack(spacing: 8) {
+            // Icon Safari thay cho `globe`: nó là thứ người dùng nhận ra ngay là "trình duyệt".
+            Image(systemName: "safari")
+                .font(.system(size: 20, weight: .semibold))
             Text("\(tabCount) tab")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 15, weight: .semibold))
                 .lineLimit(1)
         }
         .foregroundStyle(pulseMonitor.isPulsing ? Color.white : Color.primary)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 16)
+        // Chiều cao khớp widget nghe truyện (`FloatingWidgetContainerViewController.Layout.height` = 56)
+        // để hai widget nổi trông cùng một họ khi cùng hiện trên màn hình.
+        .frame(height: 56)
         .background(
             Capsule(style: .continuous)
                 .fill(.ultraThinMaterial)

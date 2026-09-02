@@ -110,14 +110,20 @@ struct QuickTranslationRuleEntryRow: View {
                     Button {
                         onShareToBook()
                     } label: {
-                        Label("Chia sẻ sang truyện khác…", systemImage: "square.and.arrow.up")
+                        // Nhãn phải nói rõ đây là **cả bộ**: mục nằm trong menu của một hàng nên rất dễ
+                        // hiểu thành "chia sẻ riêng rule này".
+                        Label("Chia sẻ cả bộ rule riêng sang truyện khác…", systemImage: "square.and.arrow.up.on.square")
                     }
                 }
             } label: {
                 transferIcon(color: .accentColor)
             }
             .menuStyle(.borderlessButton)
-            .accessibilityLabel("Chuyển rule dòng \(rule.sourceLine) sang \(target.longLabel)")
+            .accessibilityLabel(
+                scope.isGlobal
+                    ? "Chuyển rule dòng \(rule.sourceLine) sang \(target.longLabel)"
+                    : "Chuyển rule dòng \(rule.sourceLine) sang \(target.longLabel), hoặc chia sẻ cả bộ rule riêng sang truyện khác"
+            )
         } else {
             Button(action: onMissingContext) {
                 transferIcon(color: .secondary)

@@ -31,6 +31,8 @@ struct QuickTranslationRuleListView: View {
     @State private var editorMode: QuickTranslationRuleEditorSheet.Mode? = nil
     @State private var showingDisabled = false
     @State private var shareSourceRule: DisplayRule? = nil
+    /// Chia sẻ **cả bộ** rule riêng, mở từ menu `ellipsis.circle` — nơi chứa mọi thao tác cả-bộ.
+    @State private var showingShareAll = false
 
     private static let pageSize = 200
 
@@ -132,7 +134,11 @@ struct QuickTranslationRuleListView: View {
                 }
             }
         }
-        .quickTranslationRuleIOMenu(scope: scope, showingDisabled: showingDisabled) {
+        .quickTranslationRuleIOMenu(
+            scope: scope,
+            showingDisabled: showingDisabled,
+            onShareAll: scope.isGlobal ? nil : { showingShareAll = true }
+        ) {
             visibleLimit = Self.pageSize
         }
         .sheet(item: $editorMode) { mode in
@@ -145,6 +151,9 @@ struct QuickTranslationRuleListView: View {
             }
         }
         .sheet(item: $shareSourceRule) { _ in
+            shareSheetContent
+        }
+        .sheet(isPresented: $showingShareAll) {
             shareSheetContent
         }
         .onChange(of: searchText) { _, _ in

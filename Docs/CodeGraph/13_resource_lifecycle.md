@@ -15,6 +15,12 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Tai nguyen bo them / bo bot o NghiTTS (1.3.316)
+
+* **Cache payload im lang** (`PiperTTSService`): toi da **12** entry, khoa `(sampleRate, so sample)`, vuot tran thi xoa sach roi dung lai. Bao ve bang `NSLock` vi day la `static` tren mot `final class @unchecked Sendable` duoc goi tu nhieu luot tong hop. Moi entry la mot `[Float]` toan 0 cong WAV tuong ung — nho, va so to hop `(pause × speed)` thuc te rat it.
+* **`nextData` bi xoa**: no giu song toan bo buffer WAV cua doan ke tiep ma **khong ai doc**. Du lieu that van nam trong `AVAudioPlayer` cua `nextPlayer`, nen xoa bien nay khong mat gi — chi tra lai RAM.
+* **Khong them tai nguyen nao khac.** Cong chan chu so va `replaceMatches` mot chieu chi **giam** cong viec: khong tao cache, khong tao task, khong giu thêm bo dem.
+
 ## Cong duoc ghi nho, listener tu thu lai, khong keep-alive (1.3.305)
 
 * **Cong la tai nguyen co ten, khong con ngau nhien.** `extDebugServerPort` (mac dinh 17772, tranh 17771 cua LocalTTS) duoc ghi lai moi lan listener vao `.ready`. `allowLocalEndpointReuse = true` nen tat roi bat lai ngay khong bi "address in use". Chuoi xu ly khi mo that bai co ba bac va **dung thu tu**: cong ghi nho dang ban -> mo cong bat ky (mot lan); roi moi thu lai cung cong (<= 3 lan); het luot moi bao `.failed`.

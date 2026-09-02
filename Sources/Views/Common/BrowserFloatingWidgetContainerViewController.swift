@@ -20,9 +20,11 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
     private var tapGesture: UITapGestureRecognizer!
 
     enum Layout {
-        static let minWidth: CGFloat = 90
+        static let minWidth: CGFloat = 110
         static let maxWidth: CGFloat = 240
-        static let height: CGFloat = 36
+        /// Khớp `FloatingWidgetContainerViewController.Layout.height` của widget nghe truyện — hai
+        /// widget nổi phải cùng chiều cao để không lệch nhau khi cùng hiện.
+        static let height: CGFloat = 56
         static let horizontalMargin: CGFloat = 8
         static let verticalMargin: CGFloat = 8
     }

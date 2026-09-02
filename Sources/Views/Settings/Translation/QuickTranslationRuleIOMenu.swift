@@ -17,6 +17,11 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
     let scope: QuickTranslationRuleScope
     let showingDisabled: Bool
     let onChanged: () -> Void
+    /// Mở sheet chọn truyện để chia sẻ **cả bộ** rule riêng. `nil` = không hiện mục đó.
+    ///
+    /// Sheet do **presenter** (`QuickTranslationRuleListView`) gắn trên body chính, không gắn ở đây:
+    /// nội dung toolbar không phải chỗ đặt presenter.
+    let onShareAll: (() -> Void)?
 
     struct SharedFile: Identifiable {
         var id: String { url.absoluteString }
@@ -80,6 +85,15 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
                                 Label("Xuất bộ rule \(scopeLabel)", systemImage: "square.and.arrow.up")
                             }
                             .disabled(!hasRuleFile)
+
+                            if !scope.isGlobal, let onShareAll {
+                                Button {
+                                    onShareAll()
+                                } label: {
+                                    Label("Chia sẻ bộ rule riêng sang truyện khác…", systemImage: "square.and.arrow.up.on.square")
+                                }
+                                .disabled(!hasRuleFile)
+                            }
 
                             Button(role: .destructive) {
                                 showingDeleteConfirm = true
@@ -297,8 +311,14 @@ extension View {
     func quickTranslationRuleIOMenu(
         scope: QuickTranslationRuleScope,
         showingDisabled: Bool,
+        onShareAll: (() -> Void)? = nil,
         onChanged: @escaping () -> Void
     ) -> some View {
-        modifier(QuickTranslationRuleIOMenu(scope: scope, showingDisabled: showingDisabled, onChanged: onChanged))
+        modifier(QuickTranslationRuleIOMenu(
+            scope: scope,
+            showingDisabled: showingDisabled,
+            onChanged: onChanged,
+            onShareAll: onShareAll
+        ))
     }
 }

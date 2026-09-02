@@ -155,7 +155,9 @@ struct SettingsView: View {
                                     .font(.caption)
                                 ProgressView(value: translationManager.downloadProgress)
                             }
-                        } else {
+                        } else if !translationManager.isDownloaded() {
+                            // Đã có dữ liệu VietPhrase thì ẩn hẳn nút này: nút "Làm mới" bên dưới lo
+                            // việc nạp lại, còn tải lại từ mạng chỉ có ích khi chưa có dữ liệu.
                             Button(action: {
                                 Task {
                                     await translationManager.downloadDefaultDictionaries()
@@ -164,7 +166,7 @@ struct SettingsView: View {
                                     }
                                 }
                             }) {
-                                Label(translationManager.isDownloaded() ? "Tải lại từ điển mặc định" : "Tải từ điển mặc định", systemImage: "arrow.down.circle")
+                                Label("Tải từ điển mặc định", systemImage: "arrow.down.circle")
                             }
                             .disabled(!importingTypes.isEmpty)
                         }
