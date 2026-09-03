@@ -11,10 +11,6 @@ extension TTSManager {
         preloadedData.removeAll()
         preloadedDurations.removeAll()
         nghiAudioPlayerQueue.clearPreparedNext()
-        
-        if tool != "system" && tool != "nghitts" && tool != "google" {
-            extService.cleanupAllTempFiles()
-        }
     }
 
     public func clearAllTTSCaches() {

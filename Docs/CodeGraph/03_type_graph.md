@@ -15,6 +15,23 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## `@Model` thứ 6 và hai field mới trên `Book` (1.3.328)
+
+* **`BookCollection` là `@Model` đầu tiên thêm vào schema kể từ khi repo có 5 model.** Shape: `@Attribute(.unique) collectionId: String`, `name: String`, `sortOrder: Int = 0`, `createdAt: Date = Date()`, và `@Relationship(deleteRule: .nullify, inverse: \Book.collections) books: [Book] = []`. Tên type là **`BookCollection`**, không phải `Collection` — `Collection` sẽ che `Swift.Collection` trong toàn module và làm mọi generic constraint sau này hiểu sai.
+* **`Book` đổi shape (thêm, không sửa)**: `isPinned: Bool = false` và `collections: [BookCollection] = []`. Cả hai có giá trị mặc định nên **lightweight migration** đủ — repo không có `VersionedSchema`/`SchemaMigrationPlan`, và `ModelContainer` init thất bại là `fatalError`, nên bất kỳ thay đổi phá vỡ nào ở đây sẽ làm app không mở được.
+* **Chiều nghịch khai đúng một đầu**: macro `@Relationship(inverse:)` nằm ở `BookCollection.books`, còn `Book.collections` để trơn — giống cặp `Repository.extensions` ⇄ `Extension.repository`. Khai `inverse:` cả hai đầu là dựng sai quan hệ.
+* **`deleteRule: .nullify` là bất biến ngữ nghĩa, không phải mặc định tình cờ**: xoá một bộ sưu tập chỉ tháo liên kết; `.cascade` ở đây nghĩa là xoá sách thật khỏi kệ.
+* `BookTransactionError` thêm 3 case (`collectionNotFound`, `invalidCollectionName`, `duplicateCollectionName`) — enum này chỉ dùng nội bộ qua `LocalizedError`, không ai `switch` exhaustively nên thêm case không phá call site nào.
+* **Type mới ở tầng View**: `BookSheetAction` (+ nested `Mode`, `Target`), `BookActionRunner` (`@MainActor struct`, chỉ static), `BookActionSheet`, `ShelfBookRowView`, `NewChapterBadgeView`, `CollectionsTabView`, `CollectionDetailView`, `CollectionPickerSheet`. `BookDetailView` thêm đúng một `@State` (`collectionPickerBook: Book?`).
+* **Type bị xoá**: `TTSTransliterationTesterView`, `TransliterationGoldenSet` (kèm nested `Case`). Hai method bị xoá: `EspeakPhonemizer.probeVoices`, `VietnameseTokenGate.explain` — cả hai chỉ có màn đã xoá gọi.
+* `BackupPayload.CollectionRecord` là record thứ 5 của archive. `BackupPayload.BookRecord` **đổi shape**: thêm `isPinned: Bool?` — optional có chủ đích, vì `init(from:)` tổng hợp của Swift không dùng giá trị mặc định nên khoá không-optional mới sẽ làm mọi `.fbbackup` cũ decode lỗi. `BackupManifest.Counts` thêm `collections` (an toàn nhờ `init(from:)` viết tay sẵn có).
+
+## `KeyboardDismissGesture` có đường tháo, không chỉ đường cài (1.3.323)
+
+* **Bề mặt công khai không đổi**: vẫn đúng `shared` + `activate()`. Thay đổi nằm ở phần private — thêm `keyboardWillHide()` (`@objc`) và `uninstall()`, đối xứng với `keyboardWillShow()`/`installIfNeeded()`. Người gọi duy nhất (`AppLaunchRootView.onAppear`) không phải sửa gì.
+* **Bất biến mới của type**: recognizer chỉ tồn tại trong quãng bàn phím đang hiện. Nghĩa là "`activate()` đã chạy chưa" (cờ `isObserving`) và "recognizer đang có trên window hay không" là **hai** trạng thái khác nhau — cái sau không được cache, phải đọc từ chính window qua `UIGestureRecognizer.name`.
+* **`isEditableTextInput(_:)` giữ nguyên hợp đồng** (`as?` + `isEnabled`/`isEditable`, không so tên class) và vẫn cố ý trả `false` cho `UITextView` chỉ đọc. Điều nó **không** làm được là phân biệt "tap vào chữ" với "vừa bôi đen chữ xong rồi thả tay" — cùng một `UITapGestureRecognizer` nhìn hai cú đó y như nhau. Vì vậy hàng rào của vùng bôi đen là **vòng đời recognizer**, không phải bộ lọc touch.
+
 ## API moi cua debug server (1.3.303)
 
 * **`ExtensionDebugServer` la mat tien duy nhat cho tang Views**: `start(container:serviceName:)`, `stop()`, `statusStream()`, `approvePairing()`, `rejectPairing()`, `decideInstall(id:approved:)`. `NWListener`/`NWConnection` khong lo ra ngoai actor nay.

@@ -15,6 +15,51 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Đường gọi Ext TTS sau khi có cache script (1.3.330)
+
+```
+TTSManager.startPrefetchTask / TTSChapterPrefetcher / TTSNextChapterPrefixCache
+  ├─ ExtensionManager.getTTSRuntimeFingerprint(localPath:configJson:)   ← dựng synthesisKey
+  │    └─ ExtTTSScriptCache.payload(...).fingerprint          (cache hit: 2 × stat)
+  └─ ExtTTSService.synthesizeData(...)      ← retry 2 lượt, MỘT tầng duy nhất
+       └─ ExtensionManager.ttsGenerate(...)
+            ├─ ExtTTSScriptCache.payload(...)                 (cùng cache, cùng 2 × stat)
+            └─ ExtTTSRuntime.generate(..., fingerprint:)
+                 ├─ Identity == requestedIdentity ?  → dùng lại JSExecutor
+                 └─ khác  → cancelCurrentExecution → JSExecutor mới → injectGlobals → prepareScript
+```
+
+* **Hai lối vào cùng đi qua một cache.** Trước lượt này `getTTSRuntimeFingerprint` và `ttsGenerate` mỗi bên tự đọc `plugin.json` + `tts.js` và tự `getCombinedConfigs`, tức **cùng một kết quả được tính hai lần** cho mỗi đoạn văn. Cache miss chỉ xảy ra khi `configJson` đổi hoặc một trong hai file đổi mốc sửa.
+* **`ExtTTSScriptCache.payload` gọi ngược `ExtensionManager.getScriptPath`/`getCombinedConfigs`** — cố ý, để luật tìm file script (gốc extension → `src/`) và luật trộn config (default trong `plugin.json` ← `configJson` của người dùng) vẫn chỉ có **một** bản.
+* **`Identity` so fingerprint, không so nội dung.** Cùng nghĩa như trước (fingerprint băm script + config + đường dẫn) nhưng bỏ được phép so chuỗi O(len(script)) mỗi đoạn.
+* **Retry vẫn đúng một tầng**: `ExtTTSService.synthesizeData` (2 lượt). Cache **không** retry; nó `throw` thẳng để lượt retry ở trên quyết định.
+* `ExtensionManager.resetTTSRuntime()` gọi `ExtTTSScriptCache.invalidateAll()` **trước** `ttsRuntime.reset()` — thứ tự này để lượt tổng hợp kế tiếp không dựng lại executor bằng payload cũ.
+
+## Đường gọi của bộ sưu tập; `EspeakPhonemizer` còn hai lối vào (1.3.328)
+
+```
+nhấn giữ một cuốn sách (Kệ sách / Lịch sử / trong bộ sưu tập)
+  └─ BookActionSheet
+       ├─ phần bộ sưu tập  → BookCollectionCoordinator.addBook / removeBook / createCollection
+       │                      (sheet TỰ xử lý — không đi qua onAction)
+       └─ mọi mục còn lại  → onAction(BookSheetAction)
+            └─ ShelfView.handleBookAction / CollectionDetailView.handle
+                 ├─ mở navigation/sheet của chính màn đó (chi tiết, đổi nguồn, sửa thông tin, tác vụ)
+                 └─ BookActionRunner.<thân việc>
+                      ├─ togglePin / addToShelf / removeFromShelfOnly / removeFromHistory
+                      │    └─ BookTransactionCoordinator (setPinned / setOnShelf / removeFromShelf / setHistory)
+                      ├─ removeFromCollection → BookCollectionCoordinator.removeBook
+                      ├─ deleteBook           → BookStorageManager.deleteBookAsync
+                      ├─ retranslateChapterTitles → ChapterStore.updateTitleTranslations
+                      └─ checkNewChapters     → NewChapterInboxManager.check → showNewChapterSummary
+```
+
+* **Ranh giới "ai làm gì" là cố ý**: sheet phát *ý định*, màn gọi lo *trình bày*, `BookActionRunner` lo *thân việc*. Phần bộ sưu tập là ngoại lệ duy nhất — nó không cần navigation nào nên xử lý tại chỗ, nhờ vậy danh sách bộ cập nhật ngay trong sheet.
+* **`newChapterTarget` / `checkNewChapters` / `showNewChapterSummary` nay là static của `BookActionRunner`**; `ShelfView+NewChapters` uỷ quyền vào đó. Trước lượt này chúng là method của `ShelfView` nên màn Bộ sưu tập sẽ phải có bản thứ hai — chính là lớp lỗi "hai bản chạy lệch nhau" mà repo đang tránh.
+* **Bất biến "trong bộ sưu tập ⇒ trên kệ" được cưỡng chế ở tầng coordinator, không ở call site**: `addBook`/`setMemberships` gọi `promoteToShelf`; `removeFromShelf`/`setOnShelf(false)`/`addBookToShelf(isOnShelf: false)` dọn `collections` + `isPinned`. Nghĩa là không call site nào phải nhớ luật này.
+* **`EspeakPhonemizer` từ ba lối vào còn hai**: `phonemize` (Piper, giọng `vi`) và `phonemizeEnglish` (đổi giọng tạm rồi trả `vi` trong `defer`). `probeVoices` đã bị xoá cùng màn Thử phiên âm — phát biểu "ba lối vào" ở mục 1.3.30x bên dưới **không còn đúng**. Bất biến giữ nguyên: mọi lối đổi giọng đều trả lại `vi` trước khi nhả lock.
+* `VietnameseTokenGate` còn đúng một lối vào công khai `shouldTransliterate`; `explain` (chỉ màn đã xoá gọi) đã bị bỏ.
+
 ## Pipeline tien xu ly sau khi co cong chu so (1.3.316)
 
 ```

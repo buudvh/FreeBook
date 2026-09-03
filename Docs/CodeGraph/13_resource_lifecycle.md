@@ -15,6 +15,37 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ext TTS không còn tài nguyên file; hai cache RAM mới (1.3.330)
+
+* **Ext TTS hết hẳn tài nguyên hệ thống.** Đường PCM cũ ghi mỗi đoạn ra một file `.wav`/`.mp3` trong `temporaryDirectory`, theo dõi bằng `activeTempFiles` + `NSLock` rồi dọn bằng `defer`/`cleanupAllTempFiles`. Toàn bộ khối đó đã bị xoá (không caller nào từ lâu), nên `ExtTTSService` giờ chỉ nhận base64 → `Data` trong RAM. Kéo theo `TTSManager.cleanUpTempFile()` — hàm rỗng còn được gọi ở 3 chỗ.
+* **Sửa lại phát biểu "File tạm được dọn dẹp trực tiếp trong `ExtTTSService.synthesize`"**: không còn hàm đó, cũng không còn file tạm nào của Ext TTS để dọn.
+* **`ExtTTSScriptCache` là tài nguyên RAM có trần tự nhiên**: một entry cho mỗi `localPath`, mỗi entry giữ `scriptContent` (chuỗi `tts.js`, cỡ chục KB) + config đã serialize + digest. Máy có N extension TTS thì trần là N entry — thực tế là 1–2. Đổi lại: bỏ được **2 lần đọc trọn `tts.js` + 4 lần đọc `plugin.json` mỗi đoạn văn**, tức bỏ đúng phần I/O đang cạnh tranh với việc tải/đọc của người dùng.
+* **`ExtensionIconImageCache` giữ `UIImage` đã giải mã**, trần 128 entry, vượt thì xoá sạch. Không dùng `NSCache` — hành vi đuổi của `NSCache` không xác định được, mà ở đây tổng dung lượng là vài trăm KB nên trần đếm là đủ và dễ suy luận hơn. Đây cũng là chỗ **giảm** I/O đĩa cho Kệ sách: `ExtensionIconView` nằm trong mọi dòng và trước đây đọc + giải mã PNG **mỗi lượt vẽ**.
+* **Cửa cooldown của kho là tài nguyên *mạng*, không phải RAM**: `RepositoryRefreshPolicy` cắt lượt tự động xuống 1 lần / 6 giờ. Một lượt là 1 request registry mỗi kho cộng một `plugin.json` cho mỗi tiện ích **chưa cài** (6 luồng song song, timeout 10 s) — với kho 100 ext cài 5 thì đó là ~95 kết nối mỗi lần mở tab.
+
+## `EspeakPhonemizer` còn hai lối vào; bộ sưu tập không tạo tài nguyên hệ thống nào (1.3.328)
+
+* **Sửa lại phát biểu "một engine espeak … nay có ba lối vào" của mục 1.3.30x bên dưới**: `probeVoices` đã bị xoá cùng màn Thử phiên âm, nên còn **hai** lối vào chia sẻ một `NSLock` + một cờ khởi tạo: `phonemize` (Piper, giọng `vi`) và `phonemizeEnglish` (đổi `en-us` rồi trả `vi` trong `defer`). `espeak_Initialize` vẫn chạy đúng một lần cả phiên.
+* **Bất biến "giọng luôn được trả về `vi`" không đổi**, chỉ còn một lối vào có thể phá nó thay vì hai. Rủi ro vòng đời cũ "`probeVoices` giữ lock qua nhiều lần `espeak_SetVoiceByName` trong lúc TTS đang phát" **đã biến mất** cùng hàm đó.
+* **Phân hệ Bộ sưu tập không sở hữu tài nguyên hệ thống nào**: không file, không thư mục, không cache, không kết nối. Toàn bộ trạng thái nằm trong `library.db` (bảng `BookCollection` + bảng liên kết N-N do SwiftData tự dựng). Nghĩa là nó **không** thêm mục nào vào danh sách thư mục dưới `applicationSupportDirectory`, và không có đường dọn dẹp/retry queue nào cần thêm.
+* **Không `ModelContext` nào bị giữ lâu**: các View dùng context của môi trường, `BackupLibraryReader`/`BackupLibraryWriter` vẫn tự dựng context riêng trên cùng container và bỏ ngay sau lượt — `restoreCollections` chạy trên một writer riêng, đúng luật "tác vụ nền tạo context riêng".
+* **Đường sao lưu chỉ thêm một entry văn bản** (`library/collections.json`, cỡ vài KB) vào staging đã có; không thêm thư mục staging nào, không đổi vòng đời `makeWorkingDirectory`/`removeItem` của worker.
+
+## Tài nguyên của đường cài mới: một thư mục trong `extensions/` và một hàng SwiftData (1.3.325)
+
+* **Lần đầu phân hệ debug tạo tài nguyên *sống lâu hơn phiên debug*.** Trước 1.3.325 mọi thứ nó tạo đều là tạm: `extension-drafts/` bị `discardAll()` khi tắt server hoặc mở lại app, `.backup/<packageId>/` chỉ để rollback. Nay `draft.install` nhánh cài mới sinh **hai** thứ tồn tại vô thời hạn: thư mục `extensions/<packageId>/` và một hàng `Extension`. Chủ sở hữu của cả hai chuyển sang phân hệ Extension bình thường — xoá bằng màn quản lý tiện ích, **không** có đường thu hồi nào trong phân hệ debug.
+* **Thư mục staging được copy, không move.** Nhờ vậy vòng đời vùng staging không đổi một bước nào: nó vẫn thuộc `ExtensionDraftStagingStore` và vẫn bị xoá sạch theo đúng hai mốc cũ. Giá phải trả là tốn thêm một bản sao ≤ 4 MiB trong lúc cài — rẻ hơn hẳn việc để `run.start` của cùng revision chết sau khi cài.
+* **Thư mục đích đã tồn tại mà chưa có hàng SwiftData nào trỏ tới** (lần cài trước chết giữa đường, hoặc bản ghi bị xoá mà file còn) đi cùng đường thu hồi với `install`: `backup(installedUrl:packageId:)` copy sang `.backup/<packageId>/` **trước** khi `replaceItemAt`. Vì vậy vẫn `rollback` được, và không tồn tại trạng thái hai bản trộn vào nhau.
+* **`backup` giờ là một hàm dùng chung cho cả hai đường ghi đè** — chỉ có **một** chỗ quyết định "bản cũ được giữ ở đâu". Trước đây đoạn sao lưu nằm inline trong `install`; nhân bản nó cho đường cài mới là cách chắc chắn để hai đường lệch nhau sau vài lượt sửa.
+* **`ModelContext` của lượt ghi là tài nguyên một-lần-dùng**: dựng trong `writeLibraryRow`, chết ngay khi closure `MainActor.run` kết thúc. Không cache, không giữ tham chiếu — đúng luật "tác vụ nền tạo context riêng từ container".
+
+## Recognizer bàn phím: từ "cố ý không thu hồi" thành "thu hồi theo bàn phím" (1.3.323)
+
+* **Sửa lại phát biểu của mục 1.3.266 bên dưới** ("vòng đời của nó *là* vòng đời window… không có `dismantleUIView`/`deinit` nào cần dọn"): nay `UITapGestureRecognizer` của [KeyboardDismissGesture](../../Sources/Common/Utils/KeyboardDismissGesture.swift#L1) **có** đường thu hồi — `keyboardWillHideNotification` → `uninstall()`. Vòng đời của nó là **quãng bàn phím đang hiện**, không phải vòng đời window.
+* **Lý do thu hồi không phải là rò tài nguyên mà là tác dụng phụ**: một recognizer nằm sẵn trên window thì mọi nhịp thả tay đều gọi `endEditing(true)`, mà lệnh đó buộc first responder bất kỳ resign — kể cả `ReaderUITextView` chỉ đọc hoặc `WKContentView` đang giữ vùng bôi đen. Bản thân recognizer rẻ; ở đây "tồn tại" đồng nghĩa với "đang can thiệp". Đây là lớp bug thứ hai của tài nguyên sống dai, khác với lớp "recognizer chết cộng dồn" ở 1.3.261.
+* **`uninstall()` quét mọi window, không lọc `windowLevel == .normal && !isHidden` như `installIfNeeded()`**: window có thể đã bị ẩn giữa hai lần bàn phím, và một recognizer bỏ sót vẫn bắn `endEditing`.
+* **Hai điều của 1.3.266 vẫn đúng nguyên**: recognizer → singleton cố ý không `[weak self]` (dùng `#selector`, singleton không bao giờ hủy), và hai observer notification **không** được `removeObserver` — cờ `isObserving` bảo đảm đúng một cặp, chúng chết cùng process.
+
 ## Tai nguyen: inference bi bo do va marker doan rong (1.3.320)
 
 * **`Task` cua request dang tong hop gio la tai nguyen co chu**: `ActiveRequest.workTask`. Huy no la cach duy nhat dung ONNX giua doan; truoc day tac vu chay tiep tren mot ket qua chac chan bi bo.

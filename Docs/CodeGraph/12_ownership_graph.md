@@ -15,6 +15,30 @@ Tài liệu này mô tả mối quan hệ sở hữu đối tượng (Object Own
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ai sở hữu bộ sưu tập và cờ ghim (1.3.328)
+
+```
+BookCollectionCoordinator                <- chủ sở hữu DUY NHẤT của việc ghi BookCollection
+  |- createCollection / renameCollection / deleteCollection
+  |- reorderCollections                  ghi lại sortOrder sau kéo-thả
+  |- addBook / removeBook / setMemberships
+  |- promoteToShelf (private)            bất biến "trong bộ ⇒ trên kệ", không phải tiện tay
+
+BookTransactionCoordinator               <- chủ sở hữu của Book, kể cả isPinned và việc DỌN membership
+  |- setPinned / setHistory              hai lối vào mới
+  |- removeFromShelf                     hạ isOnShelf ⇒ collections = [], isPinned = false
+  |- setOnShelf(false) / addBookToShelf  cùng luật dọn như trên
+
+BookActionRunner                         <- KHÔNG sở hữu gì; gọi coordinator rồi hiện toast
+BookActionSheet / CollectionsTabView     <- chỉ @Query để đọc, phát lệnh, xử lý Result
+BackupLibraryWriter.restoreCollections   <- khôi phục kiểu gộp, đi qua coordinator như mọi đường ghi khác
+```
+
+* **Hai chủ sở hữu, một bất biến.** Bộ sưu tập thuộc `BookCollectionCoordinator`, nhưng bất biến "truyện trong bộ sưu tập luôn ở trên kệ" có **hai phía**: phía thêm (coordinator bộ sưu tập bật `isOnShelf`) và phía rời kệ (coordinator sách dọn `collections`). Đặt cả hai vào một chỗ là không được — hạ `isOnShelf` xảy ra ở đường xoá khỏi kệ, chỗ đó không biết gì về bộ sưu tập nếu không được dạy.
+* **Xoá bộ sưu tập không bao giờ xoá sách**: `deleteRule: .nullify` lo phần dữ liệu, `deleteCollection` còn dọn tay `books = []` trước khi `context.delete` cho rõ ý. Đây là chỗ dễ hiểu sai nhất của tính năng nên nó được ghi cả trong code lẫn ở đây.
+* **Ghim chỉ là thứ tự hiển thị**, không ai ngoài `BookTransactionCoordinator.setPinned` được ghi `Book.isPinned`; `check_architecture.py` đã canh sẵn chuỗi `.isPinned =` cho nhóm `SCOPED_VIEWS`.
+* **Khôi phục backup không mở đường ghi mới**: `restoreCollections` gộp theo **tên** (không phân biệt hoa/thường) rồi gắn thành viên qua `addBook`, nên bất biến trên vẫn do coordinator giữ, không do writer tự làm.
+
 ## Ai duoc xoa hang tien ich (1.3.313)
 
 ```

@@ -206,7 +206,7 @@ struct RepositoryManagerView: View {
                 }
             }
             ToolbarItem(placement: .navigationBarLeading) {
-                Button(action: refreshAllRepositories) {
+                Button(action: { refreshAllRepositories(force: true) }) {
                     if isRefreshingAll {
                         ProgressView()
                     } else {
@@ -222,19 +222,24 @@ struct RepositoryManagerView: View {
     internal var allExtensionsTab: some View {
         VStack(spacing: 8) {
             if renderedTab == 0 {
-                filterStatusBar
+                // Tính **một lần** cho cả lượt vẽ: trước 1.3.330 `filteredExtensions` chạy 3 lần
+                // (thanh đếm, `isEmpty`, `List`), mỗi lần là 4 vòng `filter` + một `sorted` dùng
+                // `localizedCompare` — nhân với mỗi ký tự người dùng gõ vào ô tìm kiếm.
+                let extensions = filteredExtensions
+
+                filterStatusBar(count: extensions.count)
                 searchAndFilterBar
                 Divider()
                 updateAllBanner
-                
+
                 if !errorMessage.isEmpty {
                     Text(errorMessage)
                         .foregroundColor(.red)
                         .font(.caption)
                         .padding(.horizontal)
                 }
-                
-                if filteredExtensions.isEmpty {
+
+                if extensions.isEmpty {
                     VStack(spacing: 12) {
                         Spacer()
                         Image(systemName: "puzzlepiece.extension")
@@ -245,7 +250,7 @@ struct RepositoryManagerView: View {
                         Spacer()
                     }
                 } else {
-                    List(filteredExtensions) { ext in
+                    List(extensions) { ext in
                         extensionRow(ext)
                     }
                     .listStyle(.plain)
@@ -256,9 +261,9 @@ struct RepositoryManagerView: View {
     }
 
     @ViewBuilder
-    internal var filterStatusBar: some View {
+    internal func filterStatusBar(count: Int) -> some View {
         HStack {
-            Text("Đang hiển thị \(filteredExtensions.count) tiện ích")
+            Text("Đang hiển thị \(count) tiện ích")
                 .font(.caption)
                 .foregroundColor(.secondary)
             Spacer()
@@ -362,15 +367,10 @@ struct RepositoryManagerView: View {
     @ViewBuilder
     internal func extensionRow(_ ext: Extension) -> some View {
         HStack(alignment: .top, spacing: 12) {
-            if let iconUrl = ext.iconUrl, let url = URL(string: iconUrl) {
-                AsyncImage(url: url) { image in
-                    image.resizable()
-                } placeholder: {
-                    Image(systemName: "puzzlepiece.extension")
-                        .foregroundColor(.accentColor)
-                }
-                .frame(width: 44, height: 44)
-                .cornerRadius(8)
+            // Dùng `ExtensionIconView`: nó ưu tiên `icon.png` **cục bộ** (qua cache) rồi mới ra mạng,
+            // nên tiện ích đã cài không tải icon lần nào và vẫn hiện đúng khi offline.
+            if !ext.localPath.isEmpty || !(ext.iconUrl ?? "").isEmpty {
+                ExtensionIconView(localPath: ext.localPath, iconUrl: ext.iconUrl, size: 44)
             } else {
                 Image(systemName: ext.type == ExtensionType.tts ? "waveform" : "book.closed")
                     .resizable()
@@ -648,11 +648,14 @@ struct RepositoryManagerView: View {
         }
     }
     
-    internal func refreshAllRepositories() {
+    internal func refreshAllRepositories(force: Bool = false) {
         guard !repositories.isEmpty else { return }
+        // Lượt tự động lúc mở tab đi qua cửa cooldown; nút refresh trên toolbar thì không.
+        guard force || RepositoryRefreshPolicy.shouldRunAutoRefresh() else { return }
+        guard !isRefreshingAll else { return }
         isRefreshingAll = true
         statusMessage = "Đang cập nhật lại các kho..."
-        
+
         Task {
             var updatedCount = 0
             for repo in repositories {
@@ -672,8 +675,11 @@ struct RepositoryManagerView: View {
                     AppLogger.shared.log("⚠️ [RepoRefresh] Fetch registry failed for repo \(repo.name): \(error.localizedDescription)")
                 }
             }
-            
+
             await MainActor.run {
+                if updatedCount > 0 {
+                    RepositoryRefreshPolicy.markRefreshed()
+                }
                 statusMessage = "Đã cập nhật \(updatedCount) kho tiện ích."
                 isRefreshingAll = false
             }

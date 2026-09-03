@@ -1801,7 +1801,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         } else {
             stopCurrentHardwarePlayer()
         }
-        cleanUpTempFile()
     }
 
     private func nextParagraph() {
@@ -3376,7 +3375,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
 
     private func playNghiAudioData(_ audioData: Data, playbackId: String) {
-        cleanUpTempFile()
         stopCurrentHardwarePlayer()
 
         let setupStart = ProcessInfo.processInfo.systemUptime
@@ -3449,7 +3447,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             return
         }
 
-        cleanUpTempFile()
         stopCurrentHardwarePlayer()
 
         let setupStart = ProcessInfo.processInfo.systemUptime
@@ -3688,10 +3685,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 TTSPresentationEventCenter.shared.send(.showToast(message: "Lỗi NghiTTS: \(error.localizedDescription). Tạm dừng đọc.", type: .error))
             }
         }
-    }
-
-    private func cleanUpTempFile() {
-        // File tạm được dọn dẹp trực tiếp trong ExtTTSService.synthesize
     }
 
     // MARK: - Text Segmentation (Phân đoạn văn bản)

@@ -15,6 +15,31 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vị trí tầng của hai cache và một policy (1.3.330)
+
+* **`ExtTTSScriptCache` ở `Sources/Services/TTS/Ext/`** — cùng thư mục với thứ nó phục vụ. Nó gọi `ExtensionManager.getScriptPath`/`getCombinedConfigs` (`Services → Services`, đúng chiều) và **không** `import SwiftUI`, **không** gọi `ToastManager`. Đây không phải phụ thuộc vòng: `ExtensionManager` gọi cache, cache gọi lại hai hàm *thuần đọc file* của `ExtensionManager` — quan hệ ở mức hàm, không phải hai tầng gọi qua lại.
+* **`RepositoryRefreshPolicy` ở `Sources/Services/Extensions/Manager/`, không ở Views** — cùng lý do `NewChapterCheckPolicy` nằm ở `Services/NewChapters/`: "có được chạy lượt tự động lúc này không" là **chính sách của phân hệ**, không phải trạng thái trình bày. `enum` toàn `static`, chỉ `import Foundation`.
+* **`ExtensionIconImageCache` ở `Sources/Views/Common/`, không ở Services** — nó giữ `UIImage` và `import UIKit`; đưa xuống Services là mở đường cho tầng đó phụ thuộc UIKit. Đúng chỗ của nó là cạnh `ExtensionIconView`, là người dùng duy nhất.
+* **Không luật nào bị nới**: ba file mới đều ≤ 400 dòng và đúng 1 type top level ⇒ không thêm entry `architecture_allowlist.json`. `RepositoryManagerView` vẫn không `modelContext.insert/delete/save` (cửa cooldown chỉ đọc/ghi `UserDefaults`).
+* **Một violation cũ được trả nợ, không phải bỏ qua**: `ExtensionManager.swift` 1049 → 1015 ≤ baseline 1022 nhờ dời phần băm sang cache. `check_architecture.py` **13 → 12**, cùng một tập trừ file đó.
+
+## Vị trí tầng của phân hệ bộ sưu tập (1.3.328)
+
+* **11 file mới nằm đúng tầng của chúng**: `BookCollection.swift` ở `Sources/Models/Database/` (cạnh 5 `@Model` kia), `BookCollectionCoordinator.swift` ở `Sources/Services/Books/` (cạnh `BookTransactionCoordinator`), 8 file View ở `Sources/Views/Shelf/{BookActions,Collections}/` và `Sources/Views/BookDetail/Extensions/`. Chiều phụ thuộc: `Views/Shelf/** → BookCollectionCoordinator → BookCollection` — Views → Services → Models, không có cạnh ngược.
+* **`BookCollectionCoordinator` không `import SwiftUI` và không gọi `ToastManager`** ⇒ hợp lệ với `SERVICE_SWIFTUI_IMPORT` và `SERVICE_TOAST_COUPLING`. Toast do tầng View (`BookActionRunner`, `CollectionsTabView`) hiện, đúng như `BackupCoordinator` làm.
+* **`BookActionRunner` ở `Sources/Views/`, không ở Services** — dù nó không dựng View nào. Lý do: nó gọi `ToastManager.shared`, việc mà tầng Service bị cấm. Nó là *presentation logic* dùng chung, chỗ đúng của nó là tầng View.
+* **`Sources/Views/Shelf/BookActions/*` và `Sources/Views/Shelf/Collections/*` không ghi SwiftData trực tiếp**: không `modelContext.insert/delete/save`, mọi lệnh ghi đi qua `BookTransactionCoordinator`/`BookCollectionCoordinator` và `Result` luôn được xử lý. Lưu ý cơ chế: `check_architecture.py:139` nhận `SCOPED_VIEWS` bằng **so khớp chuỗi trên đường dẫn**, nên bất kỳ file mới có "ShelfView" trong path đều thừa hưởng luôn lệnh cấm gán `.isPinned`/`.isOnShelf` — đây là lý do các file mới đặt tên không lấy tiền tố đó mà vẫn tuân luật.
+* **Một vi phạm cũ được dọn, không phải bỏ qua**: `ShelfView.removeFromHistory` trước đây gán `book.isHistory` rồi `try? modelContext.save()` (regex của gate không bắt được vì `isHistory` không nằm trong danh sách thuộc tính bị canh). Giờ đi qua `BookTransactionCoordinator.setHistory`. `check_architecture.py` từ **14 → 13** violation, cùng một tập trừ `BookDetailView` (đã về dưới baseline dòng).
+* **Cạnh mới ở phân hệ Backup**: `BackupLibraryWriter → BookCollectionCoordinator` (`Services → Services`, đúng chiều). Writer vẫn không tự `save()` model nào ngoài coordinator.
+* **Cạnh bị xoá**: `Views/Settings/TTS → EspeakPhonemizer.probeVoices` và `Views/Settings/TTS → TransliterationGoldenSet`. Không cạnh nào bị nới lỏng để bù.
+
+## Vị trí tầng của file mới và cạnh ghi SwiftData của phân hệ debug (1.3.325)
+
+* **`Sources/Services/Extensions/Debug/Staging/ExtensionDraftMetadata.swift` (136 dòng, `import Foundation`)** nằm đúng tầng `Services`, cạnh `ExtensionDraftManifest` cùng thư mục. Nó phụ thuộc `Models` (`UpsertExtensionCommand`, `ExtensionType`) — chiều `Services → Models`, đúng luật. Không `import SwiftUI`, không `import SwiftData`, không gọi `ToastManager`.
+* **Cạnh mới `ExtensionDebugCommandRouter → ExtensionTransactionCoordinator` là chiều được phép** (`Services → Services`), và là đường **duy nhất** phân hệ debug ghi SwiftData. `ExtensionDebugCommandRouter+Draft.swift` vì thế `import SwiftData` để dựng `ModelContext(container)`; installer thì **không** — nó giữ nguyên vai "chỉ đụng file".
+* **`ExtensionDraftInstaller → ExtensionManager.extensionsDirectory`**: cố ý dùng lại chủ sở hữu duy nhất của đường dẫn `extensions/` thay vì tự dựng lại `applicationSupportDirectory/extensions`. Đây đúng là lớp bug mà `CLAUDE.md` cảnh báo (SHA-256 và `validatePathSafety` bị cài lại độc lập ở từng owner) — thêm một bản sao thứ hai của path này là thêm một chỗ để lệch.
+* **Không luật kiến trúc nào bị nới**: `check_architecture.py` giữ đúng 14 violation, cùng một tập; file mới ≤ 400 dòng và đúng 1 type top level nên **không** thêm entry `architecture_allowlist.json`. `Sources/Views/Settings/Debug/ExtensionDebugServerView.swift` vẫn không `modelContext.insert/delete/save` — quyết định của người dùng đi qua `decideInstall` rồi về actor gate.
+
 ## Vi tri tang cua hai file moi (1.3.313)
 
 * **`ExtensionInstallAudit` nam o `Sources/Services/Extensions/`, khong o Views.** No doc dia (`plugin.json` con hay khong) — day la su that ve he thong file, khong phai state trinh bay. View chi map `@Query` thanh `[Entry]` roi day `Plan` sang coordinator; **khong** View nao tu goi `FileManager` de quyet dinh xoa gi.

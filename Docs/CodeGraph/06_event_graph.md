@@ -15,6 +15,20 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## `shelfTab` đổi nghĩa: Lịch Sử là 3, không còn là 2 (1.3.328)
+
+* **Không kênh sự kiện mới nào ở lượt này** — không tên `NotificationCenter` mới, không event center, không `AsyncStream`. Nhưng **payload của một kênh cũ đổi nghĩa**: `sourceChangedNavigateToShelf` mang `userInfo["shelfTab"] as? Int`, và tab Lịch Sử của `ShelfView` chuyển từ **2 → 3** vì tab Bộ Sưu Tập chiếm chỗ 2.
+* **Hai đầu của kênh này là hai file khác nhau và không có hằng số kiểu nào ràng chúng**: bên gửi `SearchView.swift` (`targetShelfTab = createSnapshot.isOnShelf ? 1 : 3`), bên nhận `ShelfView.swift` (`.onReceive(...)` gán thẳng vào `selectedTab`). Tên notification là string literal trần, số tab là số nguyên trần ⇒ đổi một đầu mà quên đầu kia là **điều hướng sai tab, im lặng, không lỗi nào nổ**. Đây đúng là lớp lỗi mà mục "NotificationCenter là event bus nhưng tên là string trần" cảnh báo, chỉ khác là ở đây cả *giá trị* cũng trần.
+* `selectedTab` là `@State`, **không** `@AppStorage`, nên việc đánh số lại không làm hỏng trạng thái đã lưu của người dùng — đó là lý do đổi số an toàn hơn là nhét tab mới xuống cuối với tag lệch thứ tự hiển thị.
+* Sheet nhấn giữ (`BookActionSheet`) giao tiếp với màn gọi bằng **closure `onAction`**, không phải notification: một `enum BookSheetAction` truyền lên, không có kênh toàn cục nào được thêm cho việc này.
+
+## Kênh bàn phím thành cặp show/hide (1.3.323)
+
+* **Sửa lại phát biểu "kênh mới duy nhất là `keyboardWillShowNotification`" của 1.3.266**: nay `KeyboardDismissGesture` đăng ký **hai** observer hệ thống — `UIResponder.keyboardWillShowNotification` (cài recognizer) và `UIResponder.keyboardWillHideNotification` (gỡ recognizer). Vẫn không thêm tên `NotificationCenter` nội bộ nào, không event center, không `AsyncStream`.
+* **Cả hai handler vẫn bỏ hoàn toàn `userInfo`**: sự kiện dùng như *tín hiệu thời điểm* (bàn phím bắt đầu hiện / bắt đầu tắt), không phải nguồn dữ liệu về khung bàn phím hay thời lượng animation.
+* **Nhảy giữa hai ô nhập sinh cặp hide → show liền nhau và điều đó vô hại**: gỡ rồi cài lại trong cùng một nhịp, `installIfNeeded()` chống nhân bản bằng `UIGestureRecognizer.name`.
+* **`keyboardWillHide` đến *trước* lúc bàn phím tắt xong, đó chính là điều cần**: cú tap gây ra việc tắt đã bắn action rồi, còn cú chạm **đang** diễn ra (long-press bôi đen chữ trong Reader làm `UITextView` giành first responder ⇒ bàn phím tắt) thì recognizer bị gỡ giữa đường nên UIKit huỷ nó — không action nào nổ ở nhịp thả tay, tức không `endEditing(true)` nào xoá vùng bôi vừa tạo.
+
 ## Debug server roi khoi `scenePhase` (1.3.305)
 
 ```

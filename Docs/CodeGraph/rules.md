@@ -15,6 +15,49 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ext TTS script cache, icon cache, repo refresh: invariants (1.3.330)
+
+1. **`ExtTTSScriptCache` is the only reader of `tts.js` and the only place that merges TTS config.** Do not re-add a direct `String(contentsOf:)` in `ttsGenerate` or a second SHA256 in `getTTSRuntimeFingerprint`: those two paths reading disk independently is how a `synthesisKey` from one revision could end up caching audio produced by another.
+2. **Cache validity is `(configJson, plugin.json modDate, script modDate)` — all three.** `plugin.json` decides the script *filename*, so watching only the script lets a renamed entry point serve the old file forever.
+3. **`resetTTSRuntime()` invalidates the cache before resetting the runtime.** Reversing the order leaves a window where the next synthesis rebuilds the executor from a stale payload.
+4. **`ExtTTSRuntime.Identity` compares the fingerprint, never the script text.** Comparing `scriptContent` is an O(len(script)) string compare on every paragraph, and the fingerprint already covers script + config + path.
+5. **Ext TTS owns no files.** It returns `Data` only. Do not reintroduce temp-file staging: the deleted PCM path wrote one file per paragraph and needed a lock plus an explicit cleanup list to undo it. If a PCM path is ever needed again, decode in memory and apply normalisation **once**.
+6. **Retry stays in exactly one layer** — `ExtTTSService.synthesizeData` (2 attempts). The cache must `throw` straight through, and `TTSManager` must not wrap another retry loop.
+7. **Automatic repository refresh goes through `RepositoryRefreshPolicy`; manual refresh does not.** A refresh is one registry request per repo *plus* one `plugin.json` request per not-installed extension, so an ungated `.onAppear` sweep is ~95 requests for a 100-extension repo. `markRefreshed()` may only be called when at least one repo actually updated — otherwise one offline visit silences the next 6 hours.
+8. **`ExtensionIconImageCache` keys on `(path, modDate)` and caches misses too.** Most extensions ship no `icon.png`; without negative caching every redraw stats and fails again. Never key on path alone — reinstalling an extension must show the new icon.
+9. **Prefer `ExtensionIconView` over `AsyncImage` for extension icons.** It reads the local `icon.png` first, so installed extensions never hit the network and still render offline. Keep the type-specific fallback (`waveform` for TTS) for rows that have neither a local path nor an icon URL.
+10. **Compute a filtered/sorted list once per view update.** `filteredExtensions` runs four `filter` passes plus a `sorted` using `localizedCompare`; calling it separately from a counter, an `isEmpty` check and a `List` multiplies the most expensive part of the redraw by three.
+
+## Book collections: invariants (1.3.328)
+
+These are **binding** for any change touching `BookCollection`, `Book.isPinned`, the Shelf tabs, or the long-press sheet:
+
+1. **A book in a collection is always on the shelf.** Every path that adds membership must set `isOnShelf` (`BookCollectionCoordinator.promoteToShelf`), and every path that clears `isOnShelf` must empty `Book.collections` and clear `isPinned` (`BookTransactionCoordinator.removeFromShelf`, `setOnShelf(false)`, `addBookToShelf(isOnShelf: false)`). The invariant is enforced in the coordinators so no call site has to remember it.
+2. **Removing from a collection never removes from the shelf, and deleting a collection never deletes books.** `deleteRule: .nullify` on both ends of the N-N relationship is load-bearing — `.cascade` here means deleting real books. `deleteCollection` also clears `books` by hand before `context.delete` because this is the easiest thing in the feature to get wrong.
+3. **The type is `BookCollection`, never `Collection`.** A module-level `Collection` shadows `Swift.Collection` and silently changes what every later generic constraint means.
+4. **New SwiftData properties stay additive with defaults.** There is no `VersionedSchema`/`SchemaMigrationPlan`, and `ModelContainer` init failure is `fatalError`, so a non-additive schema change ships an app that cannot launch.
+5. **Collection membership and pin state are written only through coordinators.** Views read with `@Query` and handle the returned `Result`; `check_architecture.py` already watches `.isPinned =` for `SCOPED_VIEWS`, and it matches those views **by path substring**, so any new file with `ShelfView` in its path inherits the ban.
+6. **Shelf tab indices are a cross-screen contract.** `ShelfView` tabs are Downloads 0, Kệ Sách 1, Bộ Sưu Tập 2, Lịch Sử 3, and `SearchView` posts that integer as `userInfo["shelfTab"]` on `sourceChangedNavigateToShelf`. Both the notification name and the value are bare literals: change one end and navigation silently lands on the wrong tab.
+7. **Do not wrap a shelf row in a `Button` and add a long-press on top.** Releasing after the long press still fires the button, which opens the Reader behind the sheet. Use `onTapGesture` + `onLongPressGesture`.
+8. **Pin-first ordering is two `filter` passes, not one `sorted`.** `sorted(by:)` is not stable in Swift, so comparing two keys in one pass reshuffles books inside each group; `pinned + unpinned` preserves the `lastReadDate` order the `@Query` already established.
+9. **Backup gains entries, never a `BackupScope` case.** Collections and `isPinned` ride along with the mandatory `.books` scope via `library/collections.json`. New non-optional keys in `BackupPayload` records must be `Optional` (or get a hand-written `init(from:)`): Swift's synthesized decoder ignores property defaults, so a plain new key breaks every older archive. Restore is a **merge** — collections matched by case-insensitive name, members attached only when the book exists locally.
+
+## Supersedes: transliteration verification no longer lives in the app (1.3.328)
+
+* **The 1.3.290 bullet "Verification for this subsystem lives in the app … `TTSTransliterationTesterView` + `TransliterationGoldenSet`" and the 1.3.290 instruction to "re-run `TransliterationGoldenSet` from the Thử phiên âm screen" no longer apply.** Both the screen and the golden set were deleted on request; `EspeakPhonemizer.probeVoices` and `VietnameseTokenGate.explain` went with them.
+* **What remains is listening.** The only in-app check for a phoneme table or threshold change is "Thử giọng đọc" (`NghiTTSTextToolView`) — type text, hear it. There is no automated gate: `check_architecture.py` only counts lines and `validate_links.py` only compares hashes. State plainly in the changelog when a transliteration change was not listened to.
+* **The rest of the 1.3.290/1.3.291 transliteration invariants stand unchanged** (never return empty, never delete sounds to satisfy phonotactics, restore the espeak voice to `vi`, all espeak access through `EspeakPhonemizer`, don't grow a word blacklist, group regex alternations, collapse long vowels before segmentation, `/j/` splits onset/coda). Where those bullets cite the golden set as the record of a listening decision, treat the bullet itself as the record.
+* **Japanese `u` renders as `u`, not `ư` (1.3.328).** `ku su tsu tu nu hu fu mu ru gu zu du bu pu` and bare `u` all use Vietnamese `u`. `ư` is /ɨ/ — unrounded — and espeak-vi speaks it as a different vowel ("Naruto" → *na-rư-tô*). Value collisions this creates (`tsu`/`tu` → `chu`, `zu` → `du`) are harmless: only dictionary **keys** must be unique.
+
+## Quy chuẩn cho đường cài mới của debug server (1.3.325)
+
+Bốn luật này bắt buộc với mọi thay đổi chạm nhánh `draft.install`:
+
+* **File trước, bản ghi sau — không đảo.** Copy vào `extensions/<packageId>/` xong mới ghi hàng `Extension`. Hàng SwiftData trỏ vào thư mục không tồn tại là lỗi im lặng ở mọi màn đang `@Query`; thư mục mồ côi thì `ExtensionInstallAudit` thấy được và lần cài sau tự sao lưu rồi thay.
+* **`packageId` là danh tính do *app* suy từ `plugin.json`, không phải giá trị client gửi.** Client gửi id chỉ để làm khoá vùng staging. Ba đường cài (repo sync, import zip, cài từ debug) phải cho **cùng một** id với cùng một cái tên — sửa luật ở một chỗ thì phải sửa cả `ExtensionSyncCommandBuilder.packageId(forName:)`, `ExtensionManager.installFromLocalZip` và `ExtensionDraftMetadata.slug(forName:)`, nếu không thư viện sẽ có hai hàng cho một extension.
+* **Ghi SwiftData chỉ ở router, chỉ qua `ExtensionTransactionCoordinator`, và chỉ bằng `ModelContext` dựng mới từ container.** `ExtensionDraftInstaller` phải giữ nguyên vai "chỉ đụng file" — nó là actor nền và không được giữ `ModelContext`.
+* **Mọi nhánh ghi vào dữ liệu người dùng đều phải qua `ExtensionDebugInstallGate`, và `Kind` phải nói đúng việc sắp làm.** Thêm một nhánh ghi mới mà tái dùng `Kind` cũ là làm người bấm hiểu sai thứ họ đồng ý; đường cài mới bắt buộc kèm tên đọc từ `plugin.json` vì `packageId` một mình không đủ để quyết định.
+
 ## Quy chuan cho debug server (1.3.303)
 
 Nam luat nay bat buoc voi moi thay doi cham `Debug/Server/` hoac `Debug/Staging/`:
@@ -93,6 +136,7 @@ Thêm `case` vào `ExtensionDebugEvent.Category` là đổi contract v1 ⇒ nân
 * **Vẫn được tắt bàn phím tường minh** khi đó là *lệnh* của người dùng — nút "Xong", đóng overlay, submit form: dùng `View.hideKeyboard()` (`Common/Extensions/View+Keyboard.swift`). Ranh giới: recognizer nền xử lý tap vào vùng trống; lệnh tường minh xử lý phần còn lại.
 * **Nếu phải sửa `KeyboardDismissGesture`, giữ ba thiết lập sau** — mỗi cái chặn một lỗi cụ thể: `cancelsTouchesInView = false` (không thì nút/hàng `List` mất touch), `shouldRecognizeSimultaneouslyWith → true` (không thì pan của scroll view và tap chọn hàng bị chặn), và `shouldReceive touch` bỏ qua ô **đang nhập được** (không thì bấm vào chính ô đang gõ lại tắt bàn phím). Thêm loại ô nhập mới thì sửa trong `isEditableTextInput` bằng `as?` + cờ `isEnabled`/`isEditable`, **không** so tên class.
 * **Chỉ cài lên `UIWindow` ở level `.normal`.** Cài lên window của toast/TTS widget/widget trình duyệt (quanh level `.alert`, hit-test passthrough) là vô ích và gây nhiễu; bàn phím nằm ở window hệ thống riêng nên vốn không đi qua đây.
+* **Recognizer chỉ được tồn tại trong quãng bàn phím đang hiện (1.3.323).** `keyboardWillShowNotification` cài, `keyboardWillHideNotification` gỡ — **không** được "cài một lần rồi để đó cho gọn". `handleTap` gọi `endEditing(true)`, và lệnh đó buộc **first responder bất kỳ** trong window resign, kể cả `UITextView` chỉ đọc của Reader hay `WKContentView` của web view đang giữ vùng bôi đen ⇒ mất vùng chọn ở đúng nhịp thả tay, hay gặp nhất với vùng bôi **ngắn** (tap chỉ fail khi ngón di chuyển quá ngưỡng, không phải khi giữ lâu). Bộ lọc `shouldReceive` không thay được hàng rào này: nó không phân biệt được "tap vào chữ" với "vừa bôi đen xong rồi thả tay". `uninstall()` phải quét **mọi** window, không lọc `windowLevel`/`isHidden` như lúc cài, nếu không window đã ẩn sẽ giữ lại recognizer mồ côi.
 
 ## Next-chapter prefix audio invariants (1.3.234)
 

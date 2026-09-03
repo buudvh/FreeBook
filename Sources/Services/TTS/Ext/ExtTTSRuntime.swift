@@ -5,11 +5,13 @@ import JavaScriptCore
 /// serialized by the actor and by RemoteTTSSynthesisCoordinator. The runtime
 /// is rebuilt when the script/config identity changes or execution fails.
 internal actor ExtTTSRuntime {
+    /// Danh tính runtime. Dùng **fingerprint** thay vì cả nội dung script: `Equatable` trên
+    /// `scriptContent` nghĩa là so cả chuỗi vài chục KB mỗi đoạn văn, mà fingerprint đã bao trùm
+    /// script + config + đường dẫn (xem `ExtTTSScriptCache`).
     private struct Identity: Equatable, Sendable {
         let localPath: String
         let downloadUrl: String
-        let scriptContent: String
-        let configurationData: Data
+        let fingerprint: String
     }
 
     private var identity: Identity?
@@ -20,6 +22,7 @@ internal actor ExtTTSRuntime {
         downloadUrl: String,
         scriptContent: String,
         configurationData: Data,
+        fingerprint: String,
         text: String,
         voice: String,
         extensionName: String
@@ -27,8 +30,7 @@ internal actor ExtTTSRuntime {
         let requestedIdentity = Identity(
             localPath: localPath,
             downloadUrl: downloadUrl,
-            scriptContent: scriptContent,
-            configurationData: configurationData
+            fingerprint: fingerprint
         )
 
         let activeExecutor: JSExecutor

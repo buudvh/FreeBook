@@ -6,8 +6,7 @@ struct ExtensionIconView: View {
     let size: CGFloat
     
     var body: some View {
-        if !localPath.isEmpty,
-           let uiImage = UIImage(contentsOfFile: URL(fileURLWithPath: localPath).appendingPathComponent("icon.png").path) {
+        if let uiImage = ExtensionIconImageCache.shared.icon(forExtensionAt: localPath) {
             Image(uiImage: uiImage)
                 .resizable()
                 .aspectRatio(contentMode: .fit)

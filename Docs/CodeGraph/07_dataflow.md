@@ -15,6 +15,42 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Hai bộ nhớ đệm mới, và luồng lọc danh sách ext chỉ chạy một lần (1.3.330)
+
+* **`ExtTTSScriptCache` — cache thứ nhất của phân hệ Ext TTS.** Dữ liệu chảy: `localPath + configJson` → `stat(plugin.json)` + `stat(script)` → *hit*: trả `Payload {scriptContent, configurationData, fingerprint}` từ RAM; *miss*: `getScriptPath` → đọc `tts.js` → `getCombinedConfigs` → `JSONSerialization(.sortedKeys)` → SHA256 → ghi cache. Khoá vô hiệu hoá là **mốc sửa của cả hai file**, không phải chỉ script: `plugin.json` quyết định *tên* file script.
+* **Cùng một `Payload` chảy vào hai chỗ**: `fingerprint` → `TTSSynthesisIdentity.computeKey(extensionFingerprint:)` (khoá dedupe/cache audio), và `scriptContent`/`configurationData` → `ExtTTSRuntime` khi phải dựng lại `JSExecutor`. Trước 1.3.330 hai nhánh này đọc đĩa riêng nên có thể lệch nhau trong cùng một đoạn văn nếu file đổi giữa hai lần đọc.
+* **`ExtensionIconImageCache` — cache ảnh, khoá `(đường dẫn icon.png, modDate)`, ghi nhớ cả `nil`.** Ghi nhớ trường hợp không có ảnh là phần đáng nói: extension không kèm `icon.png` chiếm số đông, không có negative cache thì mỗi lượt vẽ vẫn `stat` + đọc thất bại. Thêm ảnh sau đó vẫn thấy ngay vì file mới làm `modDate` khác 0 ⇒ khoá khác.
+* **Luồng thứ tự danh sách ext (mục 1.3.31x bên dưới) không đổi hình dạng, chỉ đổi số lần chạy**: `@Query var allExtensions` → `RepositoryFilterPolicy.filterExtensions` → `sortExtensions` giờ chạy **một lần** mỗi lượt vẽ, kết quả đi vào cả thanh đếm (`filterStatusBar(count:)`), nhánh `isEmpty` và `List`. Trước đây ba chỗ đó gọi `filteredExtensions` riêng nên cùng một phép lọc + sắp xếp chạy ba lần.
+* Google TTS: key trong `Info.plist` chảy qua `static let` (đọc `Bundle` một lần cả phiên); key cá nhân **vẫn** đọc `UserDefaults` mỗi lượt tổng hợp vì nó là dữ liệu người dùng đổi được lúc chạy.
+
+## Đường ghi đầu tiên của phân hệ debug: staging → extensions/ → SwiftData (1.3.325)
+
+```
+draft.install (packageId cua client + revision)
+  |- StagingStore.hasDraft/draftDirectory      -> extension-drafts/<pkgClient>/<revision>/
+  |- ExtensionDraftMetadata.read(plugin.json)  -> packageId THAT + name/version/type/locale/source
+  |- installedExtensions()  khop pkgClient HOAC pkgThat ?
+       |- CO  -> installOverExisting: changeSummary -> InstallGate(.install)   -> chi doi FILE
+       |- CHUA -> installAsNew:      newInstallSummary -> InstallGate(.installNew)
+                    |- installNew: copy staging -> extensions/<pkgThat>/       (FILE truoc)
+                    |- writeLibraryRow: MainActor + ModelContext(container)
+                         -> ExtensionTransactionCoordinator.upsertExtension     (BAN GHI sau)
+                         -> NotificationCenter "extensionDidUpdate"
+  |- reply { packageId: pkgThat, message }
+```
+
+* **Chiều dữ liệu mới là từ mạng vào thư viện, nên nó có đúng một cửa**: `ExtensionDebugInstallGate`. Không có đường nào khác trong phân hệ debug ghi SwiftData, và chính router (không phải installer) là chỗ gọi coordinator — installer vẫn chỉ đụng file.
+* **`packageId` của client chỉ là khoá staging, không phải danh tính.** Danh tính đọc từ `plugin.json` của bản nháp. Nhờ vậy hai id lệch nhau (`Truyen Full` vs `truyen_full`) vẫn hội tụ về một hàng SwiftData duy nhất, và reply trả `packageId` thật để client tự sửa lựa chọn.
+* **`run.start` với `sourceMode: "draft"` nay có hai nguồn metadata**: có bản đã cài thì lấy `downloadUrl`/`configJson`/`sourceUrl` của nó; chưa cài thì `downloadUrl`/`configJson` rỗng và `host` lấy `metadata.source` của bản nháp. `getCombinedConfigs` vẫn đọc mặc định từ khoá `config` trong `plugin.json` nên chuỗi config rỗng không làm mất giá trị mặc định.
+* **Thư mục staging được *copy*, không *move*, vào `extensions/`**: sau khi cài, `run.start` với cùng revision vẫn chạy được, và vùng staging vẫn do `ExtensionDraftStagingStore` sở hữu (nó xoá sạch khi tắt server hoặc mở lại app).
+
+## Lỗi `UNKNOWN_EXTENSION` nay mang danh sách id đã cài (1.3.324)
+
+* **Chiều dữ liệu ra thêm đúng một thứ: tập `packageId` của extension đã cài, chỉ nằm trong `message` của envelope `error`.** Với client đây **không** phải dữ liệu mới — `extensions.list` vốn trả đúng tập id đó trên cùng kết nối — nên không có ranh giới redaction nào bị nới. Không thêm `localPath`, `configJson` hay bất kỳ đường dẫn tuyệt đối nào.
+* **Vì sao cần**: client suy `packageId` từ `plugin.json` trong workspace, còn app sinh id theo **ba** luật khác nhau tuỳ đường cài (repo sync `name.lowercased()` + thay dấu cách bằng `_`; import zip `metadata.packageId` hoặc `name.lowercased()` **không** thay dấu cách; restore backup giữ nguyên id đã lưu). Lệch id là lỗi thường gặp nhất của phân hệ này, mà câu "Không có extension này" trơ trọi không cho người dùng đường nào tự sửa.
+* **Bốn lệnh cùng đi qua một hàm** `ExtensionDebugCommandRouter.unknownExtensionMessage(requested:installed:)`: `run.start`, `draft.stage`, `draft.install`, `draft.rollback` — trước đây mỗi chỗ một câu chữ riêng.
+* **Thiếu tham số nay là `MALFORMED_MESSAGE`, không còn `UNKNOWN_EXTENSION`**: `draft.install` thiếu `packageId`/`sourceRevision` và `draft.rollback` thiếu `packageId` là lỗi cú pháp lệnh, không phải lỗi danh tính. Client chỉ in `[code] message` và không có nhánh nào rẽ theo mã, nên đổi mã ở đây không phá tương thích.
+
 ## Hai cho du lieu bi bien dang tren duong dich/doc (1.3.313)
 
 ```

@@ -15,6 +15,30 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời hai cache mới và cửa cooldown của kho (1.3.330)
+
+* **`ExtTTSScriptCache` sống cùng process, hết hạn theo mốc sửa file** — không có TTL, không dọn theo bộ nhớ. Ba đường làm mới: `configJson` đổi (người dùng sửa cấu hình extension), `plugin.json` hoặc `tts.js` đổi mốc sửa (cài lại / sửa script trong app), và `ExtensionManager.resetTTSRuntime()` gọi `invalidateAll()`. Cache giữ đúng **một** entry cho mỗi `localPath` nên nó không phình theo số lần đọc.
+* **Thứ tự trong `resetTTSRuntime()` là bất biến**: `invalidateAll()` **trước** `ttsRuntime.reset()`. Đảo lại thì có khe hở để lượt tổng hợp kế tiếp dựng executor mới bằng payload cũ.
+* **`RepositoryRefreshPolicy` là mốc thời điểm, không phải trạng thái phiên**: `repositoryLastRefreshAt` nằm trong `UserDefaults` nên cooldown sống qua lần khởi động lại app — đúng như `newChapterLastBatchAt`. `markRefreshed()` **chỉ** được gọi khi lượt đó cập nhật được ≥ 1 kho: một lượt trắng vì mất mạng không được khoá cửa 6 giờ tiếp theo.
+* **Hai đường vào việc làm mới kho, khác nhau ở cửa**: `.onAppear` của tab Tiện Ích gọi `refreshAllRepositories()` (qua cửa); nút refresh trên toolbar gọi `refreshAllRepositories(force: true)` (bỏ qua cửa). `auditInstalledExtensions()` **vẫn chạy mỗi lần mở tab** — nó chỉ đối chiếu file trên đĩa, không có request nào.
+* **`ExtensionIconImageCache` không có bước dọn theo vòng đời view**: giữ tối đa 128 entry rồi xoá sạch. `UIImage` ở đây là ảnh vài KB, và cache sống suốt process nên nó cũng là nơi hưởng lợi khi người dùng cuộn qua lại cùng một danh sách.
+* Vòng đời file tạm của Ext TTS **biến mất khỏi hệ thống**: `activeTempFiles`/`cleanupTempFile`/`cleanupAllTempFiles` và `TTSManager.cleanUpTempFile()` đều bị xoá cùng đường PCM không caller. Ext TTS giờ chỉ trả `Data` trong RAM, không tạo file nào để phải dọn.
+
+## Schema đi từ 5 lên 6 `@Model` — mốc nguy hiểm nhất của khởi động (1.3.328)
+
+* **`FreeBookApp.init()` vẫn là chỗ duy nhất khai schema**, nay có `BookCollection.self` bên cạnh `Repository`, `Extension`, `Book`, `Chapter`, `DownloadTaskModel`. Đây là bước **đầu tiên** của vòng khởi động và nó không có đường lùi: `ModelContainer` init thất bại là `fatalError("Không thể khởi tạo ModelContainer…")`, tức app không mở được, không màn lỗi nào.
+* **Không thêm bước migration nào, và đó là quyết định có điều kiện**: repo không có `VersionedSchema`/`SchemaMigrationPlan`, nên lightweight migration của SwiftData phải tự lo. Nó lo được vì mọi thứ thêm vào đều **additive + có mặc định**: model mới, `Book.isPinned = false`, `Book.collections = []`. Không đổi tên, không đổi kiểu, không xoá field nào.
+* **Không cần backfill khi mở app lần đầu sau cập nhật.** Trái với `BookTitleTranslationMigrator.runIfNeeded` (chạy trong `.task` của `AppLaunchRootView`), bộ sưu tập bắt đầu ở trạng thái rỗng và cờ ghim mặc định `false` — không có dữ liệu cũ nào cần diễn giải lại. `AppLaunchRootView` **không** thêm bước nào ở lượt này.
+* **Vòng đời một `BookCollection` gắn với người dùng, không gắn với truyện**: tạo bằng tay, xoá bằng tay, và **sống sót** qua việc xoá truyện — SwiftData tự tháo liên kết (`.nullify`) khi `Book` bị `context.delete` ở `BookStorageManager.deleteBookAsync`. Ngược lại, xoá một bộ sưu tập không chạm vòng đời truyện nào.
+* **Điểm rời kệ là mốc dọn dẹp bắt buộc**: `removeFromShelf` (và `setOnShelf(false)`) hạ `isOnShelf` **và** dọn `collections` + `isPinned` trong cùng một `save()`. Nếu tách hai bước, sẽ có quãng thời gian tồn tại truyện "nằm trong bộ sưu tập mà không ở trên kệ" — trạng thái mà tab Bộ sưu tập hiển thị được nhưng kệ sách thì không.
+* **Vòng đời màn Bộ sưu tập nhận `collectionId`, không nhận đối tượng**: `CollectionDetailView` tra lại từ `@Query` mỗi lần vẽ, nên bộ bị xoá trong lúc màn còn trên navigation stack chỉ dẫn tới trạng thái rỗng có thông báo, không phải tham chiếu tới đối tượng đã chết.
+
+## Vòng đời recognizer bàn phím gắn với bàn phím, không với window (1.3.323)
+
+* **Sửa lại phát biểu "không có bước gỡ recognizer trong vòng đời — recognizer sống cùng window" của 1.3.266** (mục "Bàn phím: cài recognizer trễ…" bên dưới): nay vòng đời là **cài ở `keyboardWillShow` → gỡ ở `keyboardWillHide`**, lặp lại mỗi lần bàn phím lên xuống. `AppLaunchRootView.onAppear` vẫn chỉ gọi `activate()` và vẫn không cài gì tại đó.
+* **Phần không đổi**: `activate()` idempotent qua cờ `isObserving` nên `onAppear` chạy lại không tạo observer thứ hai; hai observer notification **không** bao giờ `removeObserver` (chủ là singleton, chết cùng process); mỗi lần bàn phím hiện vẫn quét lại `connectedScenes → windows` nên window sinh sau (scene mới, LiveContainer) vẫn được phủ.
+* **Bất đối xứng có chủ ý giữa hai đầu vòng đời**: `installIfNeeded()` lọc `windowLevel == .normal && !isHidden`, còn `uninstall()` **không lọc gì** — bộ lọc chỉ hợp lý khi *chọn nơi cài*; lúc gỡ mà lọc thì window đã bị ẩn giữa hai lần bàn phím sẽ giữ lại một recognizer mồ côi vẫn gọi `endEditing(true)`.
+
 ## Debug server: vong doi thuoc cong tac, khong thuoc man hinh (1.3.305)
 
 * **Chu so huu la `@AppStorage("extDebugServerEnabled")`**, khong phai `ExtensionDebugServerView`. Roi man hinh Cai Dat khong tat server; `MainTabView.onAppear` goi `ExtensionDebugServerLauncher.restoreIfEnabled(container:)` nen mo lai app la server bat lai theo lua chon cu. Mac dinh co la **tat**.

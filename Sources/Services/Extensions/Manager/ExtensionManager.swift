@@ -91,8 +91,7 @@ public struct ChapterResult: Equatable {
 public final class ExtensionManager: ObservableObject {
     public static let shared = ExtensionManager()
     internal let ttsRuntime = ExtTTSRuntime()
-    
-    internal var fingerprintCache: [String: String] = [:]
+
     @Published public var loadingStates: [String: Bool] = [:]
     
     private init() {}
@@ -851,17 +850,17 @@ public final class ExtensionManager: ObservableObject {
     
     // Tạo âm thanh TTS từ extension
     public func ttsGenerate(localPath: String, downloadUrl: String = "", text: String, voice: String, configJson: String = "{}") async throws -> String {
-        let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "tts")
-        let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
-        let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
-        let configurationData = try JSONSerialization.data(withJSONObject: configs, options: [.sortedKeys])
+        // Nội dung script + config + fingerprint lấy từ cache: xem `ExtTTSScriptCache` để biết vì sao
+        // đọc lại mỗi đoạn là không chấp nhận được.
+        let payload = try ExtTTSScriptCache.shared.payload(localPath: localPath, configJson: configJson)
 
         do {
             let resultStr = try await ttsRuntime.generate(
                 localPath: localPath,
                 downloadUrl: downloadUrl,
-                scriptContent: scriptContent,
-                configurationData: configurationData,
+                scriptContent: payload.scriptContent,
+                configurationData: payload.configurationData,
+                fingerprint: payload.fingerprint,
                 text: text,
                 voice: voice,
                 extensionName: URL(fileURLWithPath: localPath).lastPathComponent
@@ -875,44 +874,11 @@ public final class ExtensionManager: ObservableObject {
     }
 
     public func getTTSRuntimeFingerprint(localPath: String, configJson: String) -> String? {
-        guard let scriptUrl = try? getScriptPath(extensionPath: localPath, scriptKey: "tts"),
-              let scriptData = try? Data(contentsOf: scriptUrl) else {
-            return nil
-        }
-
-        let modDate = (try? FileManager.default.attributesOfItem(atPath: scriptUrl.path)[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
-        let cacheKey = "\(localPath)|\(configJson)|\(modDate)"
-        if let cached = fingerprintCache[cacheKey] {
-            return cached
-        }
-
-        var hasher = SHA256()
-
-        var scriptLen = UInt64(scriptData.count).littleEndian
-        hasher.update(data: Data(bytes: &scriptLen, count: 8))
-        hasher.update(data: scriptData)
-
-        let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
-        guard let configData = try? JSONSerialization.data(withJSONObject: configs, options: [.sortedKeys]) else {
-            return nil
-        }
-        var configLen = UInt64(configData.count).littleEndian
-        hasher.update(data: Data(bytes: &configLen, count: 8))
-        hasher.update(data: configData)
-
-        let pathData = Data(localPath.utf8)
-        var pathLen = UInt64(pathData.count).littleEndian
-        hasher.update(data: Data(bytes: &pathLen, count: 8))
-        hasher.update(data: pathData)
-
-        let digest = hasher.finalize()
-        let result = digest.map { String(format: "%02x", $0) }.joined()
-        fingerprintCache[cacheKey] = result
-        return result
+        try? ExtTTSScriptCache.shared.payload(localPath: localPath, configJson: configJson).fingerprint
     }
 
     public func resetTTSRuntime() async {
-        fingerprintCache.removeAll()
+        ExtTTSScriptCache.shared.invalidateAll()
         await ttsRuntime.reset()
     }
     internal func verifyJSResponse(_ jsValue: JSValue, extName: String = "", scriptName: String = "") throws -> JSValue {

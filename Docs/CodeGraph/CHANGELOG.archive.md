@@ -1,6 +1,224 @@
 # CHANGELOG (Lưu trữ) - Nhật ký Thay đổi CodeGraph FreeBook
 
-Lịch sử thay đổi cũ (version ≤ 1.3.272) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+Lịch sử thay đổi cũ (version ≤ 1.3.295) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+
+## [1.3.295] - 2026-08-31
+
+### Revert toàn bộ engine VieNeu-TTS
+
+Revert ba commit `1.3.292`–`1.3.294` (25 file mới, 8 file sửa). Cây code trở lại đúng trạng thái `1.3.291`: 423 file Swift, `check_architecture.py` 14 violation nền, `validate_links.py` PASS. Không xoá bằng `reset --hard` mà bằng `git revert` nên lịch sử vẫn tra cứu được nếu muốn làm lại.
+
+**Lý do**: audio trên iPhone 11 ra nhiễu và không giống tiếng Việt, app dễ crash, khoảng cách giữa hai chunk lớn. Sau khi đối chiếu số học với engine tham chiếu Python thì lỗi nằm ở **bản port Swift**, không ở model — nhưng chưa khoanh được tầng nào, và chi phí giữ một engine chưa dùng được trong cây code cao hơn giá trị của nó.
+
+**Giữ lại ở đây những gì đã kiểm chứng được, để lần sau không phải làm lại:**
+
+* **Bộ `onnx_int8` không hỏng.** Engine tham chiếu Python chạy trên đúng bộ đó cho 4.56 s audio, peak 0.58, rms 0.12 — tỉ lệ rms/peak 0.21 là đặc trưng tiếng nói (ồn trắng cho 0.5–0.7).
+* **Thuật toán speaker anchor đúng**: GEMV `NoTrans` trên `xvec_w` (768,192) rồi LayerNorm phương sai **toàn phần** cho `max|Δ| = 7.45e-09` so với `_speaker_anchor`.
+* **Layout npz**: `text_emb` (419,768) fp32, `audio_emb` (16,1024,768) fp32, C-contiguous, npz **stored** (không nén) ⇒ chỉ số phẳng `(ch*1024 + code)*768 + h` là đúng.
+* **Tokenizer**: id của **mọi** phoneme giống nhau giữa `tokenizer.json` gốc và bản `onnx_int8`; chỉ 30 nhãn `<|reserved_N|>` bị đổi số. `<|unk|>` = 43, vocab phoneme bắt đầu ở 44 ở cả hai.
+* **Token dẫn đầu prompt = 16 là đúng, nhưng vì lý do khác 1.3.292 ghi**: trong tokenizer của `onnx_int8`, id 16 là `<|style_0|>` — token **thật, đã train** — và ô dự trữ bắt đầu ở **26**, không phải 13. Ghi chú `reserved_token_start = 13` trong `config.json` mô tả cách đánh số của bộ **gốc**.
+* **`ORTSessionOptions.addConfigEntry(withKey:value:)` có** trong binding ObjC của phiên bản ORT đang pin; contrib op int8 biên dịch được. Hai rủi ro build đó không còn phải lo nếu làm lại.
+* **Số đo trên iPhone 11 (bộ fp32, 84 frame = 6.72 s audio)**: decode step 19.92 ms/frame ≈ **20.8 GB/s** — thuần bị chặn băng thông; acoustic 7.93 ms/frame; lấy mẫu 2.86 ms/frame; prefill 0.461 s; codec 1.342 s. Vòng AR 31.25 ms/frame ≈ 2.6× realtime, nhưng `thermal=serious` và `[NghiEnergy] Underrun` xuất hiện chỉ 3 giây sau khi bắt đầu phát.
+* **Bản port Swift chưa từng được chứng minh là cho ra audio đúng.** Bản thử nghiệm chạy `active_vq = 8`, thứ làm tiếng đục vì codec là RVQ residual.
+
+**Chưa khoanh được**: lỗi ở đâu trong cơ chế Swift (xử lý `ORTValue`, tuổi thọ buffer, hay vòng `VieNeuDecodeLoop`). Nếu làm lại thì bước đầu tiên là dựng lại bộ tự kiểm greedy 1 frame và so 16 code của frame đầu với giá trị tham chiếu — code khớp thì lỗi ở codec/hậu xử lý, code lệch thì lỗi ở vòng sinh.
+
+## [1.3.291] - 2026-08-31
+
+### Chống mất chữ khi phiên âm, trường âm Nhật đọc như âm ngắn, xoá tất cả phiên âm
+
+- **Sửa lỗi đọc mất chữ.** Truy ra **5 chỗ bỏ chữ im lặng**: `ONNXPiperEngine` bỏ mọi unicode scalar không có trong `phoneme_id_map` (chỉ log); `IPAToVietnameseMapper` bỏ ký hiệu IPA lạ, xoá âm tiết không dựng được, giữ **một** phụ âm mỗi đầu cụm; bộ luật chính tả cắt phụ âm cuối; **không có chốt chống rỗng ở mức token** (`PiperTTSService.isUnspeakable` chỉ chặn cả chunk); và cổng ngữ cảnh của 1.3.290 đẩy cả từ tiếng Việt vào đường tiếng Anh. Bất biến mới: **không bộ phiên âm nào được trả rỗng**, rỗng thì trả nguyên văn token — áp cho cả ba đường.
+- **Cụm phụ âm tách thành âm tiết đệm thay vì bị cắt.** `assemble` trả `[String]`: cụm đầu thành các âm tiết `+ "ơ"` ("street" → "xơ-tơ-rít", trước là "trít" mất /s/), phụ âm cuối thừa thành **một** âm tiết đệm ("text" → "tếc-xơ"). Đây là cách người Việt thật sự đọc từ nước ngoài, và nó bỏ hẳn lý do phải bỏ âm để hợp chuẩn chính tả.
+- **Siết cổng ngữ cảnh của 1.3.290**: âm tiết Việt mơ hồ ("man", "song", "nam") chỉ được phiên âm khi **kẹp giữa** từ lạ ở *cả hai* phía, thay vì chỉ cần một láng giềng lạ — trước đây "anh Nam gọi taxi" có thể làm "nam" bị phiên âm oan. `VietnameseTokenGate` trả `(before, after)`.
+- **Trường âm tiếng Nhật đọc như âm ngắn — đảo lại quyết định của 1.3.290.** `ー` bị bỏ ("ラーメン" → "ra-mên") vì tiếng Việt không có nguyên âm dài: nhân đôi nguyên âm làm Piper đọc thành **hai âm tiết rời** có ngắt thanh hầu, nghe như nói lắp. Cùng nguyên tắc, thêm `ou → ô` và `ei → ê` ("arigatou" → "a-ri-ga-tô", trước sinh thêm một âm tiết "ư" thừa). Ghi rõ trong code + bộ ca kiểm rằng đây là **lựa chọn nghe**, không phải chuẩn Hepburn.
+- **Thêm "Xoá tất cả phiên âm"** ở màn Từ điển TTS: `TextPreprocessor.deleteAllWords()` (file mới `TextPreprocessor+Bulk.swift`) dọn `wordMap` + ghi plist **rỗng** + xoá LRU cache trong một lượt; UI là `TTSDictionaryBulkActionsModifier` (`@MainActor ViewModifier`, đúng khuôn `QuickTranslationRuleIOMenu`). Ghi file rỗng chứ không xoá file — "chưa tải từ điển" và "người dùng muốn trống" là hai trạng thái khác nhau. Cảnh báo của nút "Tải lại từ điển gốc" sửa lại cho khớp hành vi **trộn** từ 1.3.290 (câu cũ nói sẽ ghi đè, đã sai).
+- Sửa kỳ vọng bộ ca kiểm: ラーメン → "ra-mên", ジェット → "giêt-tô" (sokuon gắn vào âm tiết **trước**, tôi đặt sai ở 1.3.290), thêm ca `arigatou`, `street`, `text`.
+- 2 file Swift mới (421 → **423**). `TextPreprocessor.swift` giữ **đúng** 1121 dòng (chỉ đổi 4 từ khoá truy cập vì `private` là phạm vi file), `TTSDictionaryEditView.swift` **giảm** 706 → 705. `check_architecture.py` giữ 14 violation nền.
+- **Chưa làm trong lượt này**: Phase 0 (đo `phoneme_id_map` của model), Phase 2 (map âm vị tiếng Anh **trong** inventory của model để bỏ hẳn khâu chính tả), Phase 3 (để espeak tự chuyển ngôn ngữ), Phase 4 (kana → IPA trực tiếp).
+
+## [1.3.290] - 2026-08-30
+
+### NghiTTS: phiên âm tiếng Anh qua IPA của espeak, bỏ blacklist tiếng Nhật
+
+- **Bộ luật tiếng Anh tự huỷ lẫn nhau.** `sRules` chạy trước `rRules` trên cùng chuỗi nên `ck → c` và `sh → s` xoá cụm trước khi các luật đuôi kịp thấy ⇒ 10 luật chết (`ack$/eck$/ick$/ock$/uck$`, `ash$/esh$/ish$/osh$/ush$`). Dời hai luật đó xuống đầu `tRules`: "back" → "bác" thay vì "bac", "duck" → "đúc" thay vì "đuc".
+- **Ba luật khớp giữa từ vì thiếu ngoặc**: `"\bcr|pr|gr|dr|fr"` là `(\bcr)|(pr)|…` nên `pr/gr/dr/fr` đổi ở mọi vị trí ("april" → "ail", "hydro" → "hyro"). Nay `\b(?:…)`; cùng nhóm `\b(?:sc|sk)` và `\b(?:bl|cl|sl|pl)`.
+- **Mọi từ mở đầu bằng "y" đọc thành /d/**: hai `if` nối tiếp, câu sau đọc chuỗi vừa bị `y → d` rồi đổi tiếp thành `đ` ("yes" → "đet"). Nay `else if`, và tiền tố `y` map sang `i` vì "d" tiếng Việt đọc /z/ trong khi "y" đầu từ là bán nguyên âm /j/.
+- **Đường chính của tiếng Anh không còn đoán theo chính tả.** `EnglishPhonemeTransliterator` hỏi espeak-ng giọng `en-us` lấy **IPA thật**, `IPAToVietnameseMapper` dựng âm tiết Việt hợp lệ (onset/nucleus/coda + chuẩn hoá `c/k/g/gh/ngh`); bộ luật cũ tụt xuống dự phòng. Không thêm dependency: `build-ipa.yml` khi dọn dữ liệu espeak vẫn giữ `en_dict` + `voices/en`, chỉ có code là chưa bao giờ đổi giọng. `EspeakPhonemizer` tách `initializeIfNeeded`/`textToPhonemes`, thêm `phonemizeEnglish` (đặt `en-us`, trả `vi` trong `defer` — Piper luôn cần giọng `vi`) và `probeVoices`.
+- **Phân loại Nhật/Anh bỏ blacklist tay.** Xoá `englishBlacklist` ~420 từ (vá theo từng ca, có cả "ee", "san"); `ForeignScriptClassifier` chấm điểm dấu hiệu — romaji hợp lệ chỉ còn là *điều kiện cần*. Phải đổi kiến trúc vì "tomato", "potato", "sonata" đều cắt được thành âm romaji: tập từ tiếng Anh cần loại trừ là vô hạn.
+- **Bảng romaji→Việt**: `ya/yu/yo` từ `da/du/dô` (đọc /za/) thành `ia/iu/iô`. `za/zi/zu` **giữ nguyên** `da/di/dư` vì "d" tiếng Việt vốn đọc /z/, khớp /dz/ tiếng Nhật — đây là chỗ tôi nói sai ở lượt khảo sát trước.
+- **Trường âm `ー` không còn bị xoá**: `convertToRomaji` nhân đôi nguyên âm trước ("ラーメン" → "raamen") và bảng nhận thêm `aa/ii/uu/ee/oo` để `greedySegment` không vỡ. Thêm katakana hiện đại: ヴ, ファ/フィ/フェ/フォ, ティ/ディ, ウィ/ウェ/ウォ, ジェ/シェ/チェ.
+- **Cổng "là từ tiếng Việt" xét ngữ cảnh.** `VietnameseTokenGate`: token có dấu → giữ; không phải âm tiết Việt → phiên âm; ~700 âm tiết **mơ hồ** ("man", "can", "song", "tin", "phim") → chỉ phiên âm khi có láng giềng lạ trong cửa sổ ±2 token, chặn ở dấu kết câu.
+- **Tải lại từ điển không còn xoá phiên âm tự thêm**: `downloadDictionaries` **trộn** với bản dưới máy (mục dưới máy thắng) thay vì ghi đè `non-vietnamese-words.plist` — file mà `updateWord` cũng ghi.
+- **Thước đo nằm trong app**: màn **Thử phiên âm** (Cấu hình NghiTTS) kiểm giọng espeak có thật không, soi đường đi của một từ (từ điển → phân loại → IPA → kết quả), và chạy `TransliterationGoldenSet` ~55 ca. Vì `Tests/` bị coi như không tồn tại và máy chạy qua LiveContainer không đính được debugger.
+- 6 file Swift mới (415 → **421**), tất cả ≤ 400 dòng; `TextPreprocessor.swift` giữ **đúng** 1121 dòng (bằng baseline), `JapaneseTransliterator.swift` **giảm** 411 → 320. `check_architecture.py` giữ 14 violation nền.
+
+## [1.3.289] - 2026-08-30
+
+### Rule editor: chèn token tại con trỏ của ô nhập mẫu
+
+- **Nút token luôn chèn vào cuối mẫu.** Ở 1.3.288 con trỏ duy nhất là vạch 2pt giữa hai chip của dải mẫu, nên trừ khi bấm đúng vạch đó, mọi lần chèn đều rơi xuống cuối chuỗi. Sửa bằng `QuickTranslationRulePatternField` — `UIViewRepresentable` bọc `UITextView` để đọc/ghi **con trỏ thật**: `textViewDidChangeSelection` báo lên `selectionStart`/`selectionLength`, `updateUIView` áp ngược lại khi dải chip hoặc nút token đặt vùng chọn mới. Phải bọc UIKit vì iOS 17 không cho SwiftUI đọc vùng chọn của `TextField` (`TextSelection` là iOS 18). Bấm token giờ chèn tại con trỏ, hoặc **thay** đoạn đang bôi đen.
+- Quy đổi đơn vị đặt đúng ở biên UIKit: model đếm theo **ký tự** (`Array(pattern)`), `UITextView` dùng `NSRange` UTF-16, hai chiều đổi qua `String.Index`. Hai chốt chống vòng lặp cập nhật: `isApplying` (không báo lên khi tự áp xuống) và `lastReportedRange` (không áp lại range vừa báo lên — cần khi chuỗi có ký tự ngoài BMP).
+- Thanh `:min-max` nay mở theo **con trỏ** chứ không chỉ theo vùng chọn khít: token có `start < caret ≤ end` là mở. Vừa chèn `<n>` xong là chỉnh được độ dài ngay, và chạm vào giữa `<n:1-6>` trong ô nhập cũng mở đúng token đó.
+- Bỏ cờ `isProgrammaticPatternEdit` và heuristic "gõ tay ⇒ con trỏ về cuối" của 1.3.288: chúng chỉ tồn tại vì trước đó không đọc được con trỏ thật, giữ lại là hai nguồn tranh nhau quyết định con trỏ ở đâu. `reconcileSelection` giờ chỉ kẹp biên.
+- `@FocusState` chỉ còn cho ô Bản dịch; ô Mẫu tự `becomeFirstResponder()` một lần trong `makeUIView` khi bản nháp nói nó đang được gõ, và báo focus ra ngoài bằng `onFocusChange`. `focusedField` đổi từ `@FocusState` sang `@State` thường vì nó là *dữ liệu của bản nháp*, không phải cái điều khiển focus.
+- 2 file Swift mới (413 → **415**), nhưng `QuickTranslationRuleEditorSheet.swift` **giảm** 374 → 319 dòng nhờ dời 6 hàm biên tập sang `QuickTranslationRuleEditorSheet+Editing.swift`; các `@State` liên quan chuyển sang `internal` (đúng khuôn `ReaderView` + `ReaderView+Selection`). `check_architecture.py` giữ 14 violation nền.
+
+## [1.3.288] - 2026-08-30
+
+### Rule editor: giữ bản nháp, bảng token, thanh min-max, chip {i}
+
+- **Mất sạch chữ đang gõ ở màn thêm/sửa rule khi TTS tự chuyển chương.** Sheet **vẫn mở** mà mọi ô về giá trị seed ⇒ SwiftUI dựng lại content của sheet, `init` chạy lại. Sửa bằng `QuickTranslationRuleDraftStore` (1 slot theo `Mode.id`, sống ngoài cây view, không `ObservableObject`): `init` seed `@State` từ slot, mọi thay đổi mirror ngược lại, `@FocusState` khôi phục ở `onAppear`. Draft chỉ xoá khi **lưu thành công** hoặc bấm **Hủy** — cố ý không xoá ở `onDisappear` vì chính lượt dựng lại có thể kèm một lần disappear. Không hoist lên `@State` của `ReaderView` được: `@State` không khai được trong extension và `ReaderView.swift` đang vượt baseline (2076 > 2053) nên chỉ được giảm dòng. Fix áp cho **cả hai** call site mà không sửa call site nào.
+- **Bảng nút token** (`QuickTranslationRuleTokenPaletteView`): 10 token dựng từ `QuickTranslationRuleTokenSettings.Kind.allCases` + 4 nút cú pháp nhóm; chạm là chèn tại con trỏ hoặc **thay** vùng đang chọn. Token đang tắt ở Cấu hình token rule hiện mờ kèm cảnh báo. Kèm `QuickTranslationRulePatternStripView` — dải chip của mẫu (một token là **một** chip) cấp con trỏ và vùng chọn, vì iOS 17 không cho SwiftUI đọc vị trí con trỏ của `TextField` mà luồng chính (nút `+` của Check rule) cần **thay** một đoạn chữ Trung thành token.
+- **Thanh min–max bước 1, `[−]`/`[+]` hai bên** (`QuickTranslationRuleTokenLengthBar`) cho token đang chọn, kèm công tắc `?`. Biên lấy từ parser chứ không đặt lại: `min ≥ 1`, `max ≥ min`, trần 20; token không khai `:min-max` nghĩa là `1...12` nên về mặc định thì xuất token **trần**, `min == max` xuất `:N`. `<L>`/`<hv>` không có thanh vì parser ép chúng về đúng 1 ký tự.
+- **Chip `{0}/{1}/{2}` theo số token của mẫu** (`QuickTranslationRuleCaptureChipsView`) để chèn vào bản dịch, chip chưa dùng tô đỏ, cộng section **Kiểm tra** (`QuickTranslationRuleDraftIssuesView`) hiện **mọi** issue ngay khi gõ thay vì một issue sau khi bấm Lưu. Verdict do `QuickTranslationRuleDraftAnalyzer` cấp: dựng đúng dòng store sẽ ghi (`RecordStore.serialize`) rồi chạy lại `parse` → `compile`, nên không có trạng thái "ở đây xanh mà lưu vẫn đỏ". `QuickTranslationRuleCompiler.parseTemplate` mở `private` → `internal` để không có bản quét `{…}` thứ hai.
+- Sheet hướng dẫn Check rule dời từ ZStack của `ruleToolsOverlay` xuống chính panel Check rule: một view chỉ có một chỗ trình bày.
+- 7 file Swift mới (406 → **413**), tất cả ≤ 400 dòng và 1 primary type top-level; `ReaderView.swift` không thêm dòng nào. `check_architecture.py` giữ **14 violation nền**, không violation mới. Host Windows không build được — tính đúng đắn biên dịch do CI xác nhận.
+- Đẩy 10 entry cũ nhất (1.3.249–1.3.258) sang `CHANGELOG.archive.md` để file chính về 30 entry theo quy ước.
+
+## [1.3.287] - 2026-08-28
+
+### Add `<h>` (Chinese digits) and `<d>` (ASCII + fullwidth digits) numeral tokens
+
+- `QuickTranslationRuleElement.NumeralKind` thay cho trạng thái `isDigitwise: Bool`: `<n>` = `.chinese`, `<y>` = `.digitwise`, `<h>` = `.hanDigits`, `<d>` = `.asciiDigits`.
+- `<h>` chỉ nuốt chữ số Hán `〇零一二两兩三四五六七八九`; `<d>` chỉ nuốt `0123456789` ASCII + full-width `０..９` (U+FF10-FF19), render full-width về ASCII. `<n>/<y>` cũng nhận full-width giờ.
+- `QuickTranslationNumberFormatter` thêm `hanDigitsUnits`/`asciiDigitsUnits`, `units(for:)`, `renderHanDigits`/`renderAsciiDigits`; `digitMap` thêm full-width. Matcher/Compiler dùng `units(for:)` cho boundary guard và render theo loại.
+- `QuickTranslationRuleTokenSettings` tăng 8 → **10** token (thêm `h`/`d` + 2 khoá UserDefaults lower-camel-case); `QuickTranslationRuleTokenSettingsView` thêm 2 Toggle ở nhóm "Token số và nhãn". `|` giữa các token số vẫn được parse theo loại đầu tiên để giữ tương thích `<n|y>` cũ.
+- Mọi file sửa vẫn ≤ 400 dòng; không thêm file mới.
+
+## [1.3.286] - 2026-08-28
+
+### Merge Quick Translation rule action menus
+
+- `QuickTranslationRuleListView` chỉ còn một dropdown `quickTranslationRuleIOMenu(scope:showingDisabled:)`; tab Đang bật hiện nhập/xuất/xoá bộ rule, tab Đã tắt hiện nhập/xuất/bật lại/xoá danh sách rule tắt.
+- Xoá modifier riêng `QuickTranslationRuleDisableIOMenu`, chuyển các thao tác rule tắt sang `QuickTranslationRuleIOMenu+DisabledActions.swift` để vẫn giữ mỗi file dưới 400 dòng.
+- Giữ `DocumentPickerPresenter`/`ShareSheet` gắn trên body chính, không đưa presenter vào toolbar.
+
+## [1.3.285] - 2026-08-28
+
+### Fix: Correct disabled rule import API label
+
+- Sửa chữ ký `QuickTranslationRuleDisableStore.importPatterns(imported:mode:scope:)` khớp call site nhập danh sách rule tắt, tránh lỗi compile do label `imported:`.
+- Tách scope mặc định của `QuickTranslationRuleEditorSheet` trong Reader thành helper rõ ràng, giữ nguyên hành vi sửa/thêm rule theo đúng scope.
+
+## [1.3.282] - 2026-08-28
+
+### Fix Check rule edit, add disable rules import/export
+
+- Màn Check rule: popup ấn giữ chip thêm nút **"Sửa rule"** (mở `QuickTranslationRuleEditorSheet` chế độ `.edit` với scope đúng của rule — riêng/chung). Sheet dùng `updateRule(oldPattern:)` đúng ngữ nghĩa: đổi mẫu = thêm rule mới, giữ rule cũ.
+- `QuickTranslationRuleEditorSheet.Mode.edit` thêm associated value `scope: QuickTranslationRuleScope` — mode tự chứa, mọi đường mở sheet đều biết sửa bộ nào.
+- Xuất/nhập/bật lại/xoá **rule tắt riêng & chung**: thêm ViewModifier `QuickTranslationRuleDisableIOMenu` gắn vào List (file mới < 400 dòng). Menu có 4 mục: Nhập (.txt, 3 chế độ `DataImportMode`), Xuất, Bật lại tất cả, Xoá tất cả rule đã tắt (destructive, xoá hẳn rule khỏi file + dọn danh sách tắt). Nhập dùng đủ 3 mode chuẩn app (2 mode đè/giữ đồng nghĩa với tập mẫu — ghi chú trong code).
+- `QuickTranslationRuleDisableStore`: thêm `importPatterns(_:mode:scope:)` (luôn notifyChange) + `clearDisabled(scope:)`.
+- `QuickTranslationRuleStore+Editing` / `QuickTranslationRuleBookStore`: thêm bulk `deleteRules(patterns:)` / `deleteRules(patterns:bookId:)` — filter records rồi ghi lại; không fail khi có mẫu stale.
+- Cập nhật accessibility/hướng dẫn: "Ấn giữ: sửa / bật / tắt / xoá".
+
+## [1.3.283] - 2026-08-28
+
+### Fix: Remove @ObservedObject from QuickTranslationRuleIOMenu
+
+- Gỡ `@ObservedObject` khỏi `QuickTranslationRuleIOMenu`, vì `ViewModifier` dùng trực tiếp các singleton store giống modifier danh sách rule tắt.
+- Giữ nguyên hành vi đọc, nhập, xuất và xoá rule theo phạm vi chung/riêng.
+
+## [1.3.284] - 2026-08-28
+
+### Fix: Isolate Quick Translation rule modifiers on MainActor
+
+- Đánh dấu hai `ViewModifier` quản lý rule dịch là `@MainActor` để truy cập singleton store có trạng thái UI an toàn khi build với Swift concurrency hiện hành.
+
+## [1.3.281] - 2026-08-28
+
+### Fix rule list back bug, add rule set import/export
+
+- Chuyển `QuickTranslationRuleIOMenu` từ View nhúng toolbar sang **ViewModifier** áp lên `List`, gỡ bug SwiftUI: `DocumentPickerPresenter` (UIViewControllerRepresentable) đặt trong toolbar gây kẹt transition khi pop trong sheet → màn trắng (bug 1.3.281). Giống `DictionaryListView`, mọi presenter/presentation giờ gắn lên body chính.
+- Menu Nhập/Xuất/Xoá hiện cho **cả rule riêng và chung** (trước chỉ riêng).
+- Route import/export/xoá theo `scope`: `QuickTranslationRuleBookStore` (riêng) / `QuickTranslationRuleStore` (chung).
+- Giữ `.searchable` (bằng chứng: Rule Chung back bình thường → `.searchable` không phải thủ phạm).
+
+## [1.3.280] - 2026-08-26
+
+### Canonicalize Quick Translation rule storage
+
+Sửa lỗi build CI của hai API xoá rule sau khi chuyển sang closure `withMutationLock`.
+
+* Thêm `return withMutationLock { ... }` cho `deleteRule(pattern:)` ở store chung và riêng.
+* Giữ nguyên commit subject cho lần push sửa CI.
+
+## [1.3.279] - 2026-08-26
+
+### Canonicalize Quick Translation rule storage
+
+Quick Translation Rule chung và riêng theo truyện nay dùng cùng ngữ nghĩa TXT như VP/Name custom: thao tác theo key `pattern`, duplicate giữ dòng đầu, dòng hỏng bị bỏ qua và mọi lần ghi sinh lại file canonical `.txt`.
+
+* Thay `QuickTranslationRuleFileEditor` bằng `QuickTranslationRuleRecordStore` cho parse/merge/upsert/delete/serialize records.
+* `QuickTranslationRuleStore` và `QuickTranslationRuleBookStore` đều thêm/sửa/xoá theo `pattern`; không dùng UUID/sourceLine/sourceRevision cho nghiệp vụ.
+* Snapshot và trace bỏ `rowID`; UI list dùng `pattern` làm identity sau canonical first-wins và đảo thứ tự file để rule cuối file lên đầu.
+* Import preview và import 3 chế độ tính theo key hợp lệ; comments/header/dòng lỗi rơi khỏi file sau lần ghi đầu.
+* Windows không có `xcodebuild`/`xcodegen`; đã chạy validator tĩnh, build Swift cần xác nhận trên macOS/CI.
+
+## [1.3.278] - 2026-08-26
+
+### Match preparing TTS highlight color to config
+
+Preparing highlight của đoạn sắp nghe nay dùng đúng màu highlight đã cấu hình, trùng với active TTS highlight.
+
+* `ReaderTextView` bỏ alpha riêng `0.28` cho preparing highlight; background luôn là `theme.highlightUIColor`.
+* Preparing highlight cũng áp `theme.highlightTextUIColor` nếu theme/config có màu chữ highlight, giống active highlight.
+* `highlightIsPreparing` vẫn giữ vai trò diff/repaint khi chuyển preparing → active, nhưng không còn tạo palette riêng.
+* Không đổi state TTS, progress, Now Playing, prefetch hay thứ tự ưu tiên active → preparing → search.
+
+## [1.3.277] - 2026-08-26
+
+### Reveal TTS widget when starting from Reader
+
+Khi bấm nút nghe trong Reader hoặc bôi đen rồi bấm "Nghe", widget TTS mở ở dạng capsule ban đầu thay vì peeking. Không đổi `TTSManager.startSpeaking`, không đổi `WidgetMode`, không thêm notification/event center.
+
+* `TTSFloatingWidgetWindowManager` thêm request một lượt `requestRevealOnNextShow()` với cờ pending `shouldRevealOnNextShow`, consume khi container sẵn sàng hoặc reveal ngay nếu widget đã tồn tại.
+* `FloatingWidgetContainerViewController` expose `reveal(animated:)`, dùng lại `FloatingWidgetViewModel.reveal()` nên auto-hide 3 giây và layout/snap hiện có giữ nguyên.
+* `ReaderView.startTTS(...)` gọi request reveal ngay trước `ttsManager.startSpeaking(...)`; đây là điểm chung của nút headphones và menu bôi đen "Nghe".
+* Giữ ranh giới kiến trúc: `Services/TTS` không biết widget UI; request nằm ở tầng View.
+
+## [1.3.276] - 2026-08-26
+
+### Show preparing TTS highlight before audio starts
+
+Thêm state highlight chuẩn bị để Reader tô đoạn sắp nghe ngay khi bấm phát, trước khi engine TTS tổng hợp/phát audio thật. Không thêm file Swift, không đổi `@Model`, không thêm notification/event center mới.
+
+* `TTSPlaybackSnapshot` thêm `preparingParentParagraphIndex` và `preparingHighlightRange`; `TTSManager.speakCurrent()` publish hai field này trước khi dispatch engine, còn `commitAudibleParagraphState(index:)` vẫn là cửa duy nhất publish active `highlightRange` khi audio bắt đầu.
+* Reader projection (`ReaderTTSStateReader`) truyền state chuẩn bị chỉ cho đúng sách đang phát. `ReaderView` chọn highlight theo thứ tự active TTS → preparing TTS → search, và `ParagraphCardView`/`ReaderTextView` render vệt chuẩn bị bằng `highlightIsPreparing`.
+* State chuẩn bị chỉ là presentation state: không lưu tiến độ, không update Now Playing, không claim `ReadingProgressStore`, không đổi prefetch/cache audio và không dùng mapper highlight.
+* Windows không có `xcodebuild`; đã chạy kiểm tra tĩnh cục bộ, build Swift cần xác nhận trên macOS/CI.
+
+## [1.3.275] - 2026-08-26
+
+### Fix Reader lookup route visibility for CI build
+
+Sửa access control của `ReaderLookupRoute` để extension `ReaderView+Selection` có thể khởi tạo route tra cứu ngoài. Không đổi hành vi UI, navigation hay dữ liệu.
+
+* `ReaderLookupRoute` chuyển từ `private` thành internal để phù hợp với `ReaderView.lookupRoute` và call site ở file extension.
+* Sửa lỗi archive CI: `cannot find 'ReaderLookupRoute' in scope` và `property must be declared fileprivate because its type uses a private type`.
+* Windows không có `xcodebuild`; đã chạy kiểm tra tĩnh và sẽ xác nhận bằng CI macOS.
+
+## [1.3.274] - 2026-08-26
+
+### Rule dịch: trace lý do match, bật/tắt từng rule, bộ rule riêng theo truyện, overlay xem bản gốc
+
+Thêm **17** file Swift, sửa **17** file Swift, không xoá file, không đổi shape `@Model`, **không** thêm resource bundled (bộ riêng là dữ liệu người dùng, nằm ở `translate/books/<bookId>/`). **Chưa biên dịch** (viết trên Windows, không có `xcodebuild`); có file Swift mới nên khi lên macOS phải `xcodegen generate`.
+
+* **Hai bộ rule thật — bộ riêng theo truyện**: `QuickTranslationRuleScope` (Models, `enum { global, book(String) }`, `rank` 0 riêng / 1 chung) và `QuickTranslationRuleBookStore` (chủ `translate/books/<bookId>/QuickTranslateRules.txt`, LRU cap **3** truyện, compile lazy, cùng hợp đồng validate-then-swap, dùng lại Parser/Compiler/FileEditor/`rowIDs` của bộ chung). Engine trộn hai bộ trong cùng một lượt rewrite (hai lần `collectFound` + `select` **một** lần trên tập hợp nhất); `scopeRank` là tiêu chí ưu tiên **thứ 5**, đứng ngay trước `sourceLine`, nên trong một bộ đơn lẻ thứ tự cũ không đổi — rule riêng thắng rule chung khi trùng mọi tiêu chí khác. Đường dịch không có `bookId` (meta/global, `Qt` bridge) chỉ thấy bộ chung — đúng thiết kế.
+* **Bật/tắt từng rule bằng FILE, không sửa file rule**: `QuickTranslationRuleDisableFile` (hàm thuần trên `String`, không chạm `FileManager`) + `QuickTranslationRuleDisableStore` (chủ hai file `QuickTranslateRulesDisabled.txt` chung/riêng). Rule đang tắt **vẫn nằm** trong `snapshot.rules` (bật lại được, giữ `sourceLine`/`rowIDs`); khoá là **mẫu** chứ không phải `sourceLine`; `Snapshot.isDisabled(pattern:scopeRank:)` là toàn bộ ngữ nghĩa — tắt ở bộ chung là tắt cho **mọi** truyện, muốn dùng lại ở một truyện thì thêm mẫu vào bộ rule riêng. Ghi file thất bại ⇒ không bump, không notify — `Toggle` quay về trạng thái cũ. Mọi invalidation gói vào đúng một `notifyDictionariesDidUpdate(bookId:scope: .config(bookId:))`, không thêm notification mới.
+* **Màn Check rule ở Reader xem "vì sao thắng/thua/tắt"**: `QuickTranslationRuleDiagnostics` (Service) soi cả đoạn và giữ **cả** rule thua chồng lấn + rule đang tắt, bắt buộc dùng lại `collectFound` (`includesDisabled: true`) + `select` của engine — thay đổi visibility `private` → `internal` duy nhất ở engine — và không ghi trạng thái (`notesComplexRules: false`). DTO `QuickTranslationRuleTrace` (Models) mang `rowID` (handle xoá, không dùng `sourceLine` — lý do crash đã sửa 1.3.271), `scope`, `sourceRange`, `captures` và `Status` 6 case; `id` xác định theo `rowID#location`. `QuickTranslationRuleMatcher.Capture` gộp `text` + `sourceRange?` thành **một** mảng (rollback `let saved = captures` ở 5 chỗ) để hiện được chữ gốc từng token.
+* **Hai công cụ mới trong menu bôi đen (2 hàng × 4 cột, thêm "Gốc" và "Rule")**: panel "Copy nội dung gốc" (`ReaderCopyOriginalOverlayView` — **mọi** đường đóng đều copy, không có nút Hủy; chọn lại cụm trên text gốc vì map ngược qua `ReaderSelectionMapper` khi bật dịch có thể lệch ở vùng rule vừa rewrite) và màn Check rule (`ReaderRuleTraceOverlayView` — thanh gốc → nghĩa rule → nghĩa token → dải chip; bấm ký tự snap vào cụm rule; ấn giữ chip ra popup Bật/Tắt/Xoá; nút `+` thêm rule từ cụm đang chọn; chip 3 mức màu `ReaderRuleChipStyle`; `ReaderRuleTraceGuideSheet` cho nút `?`). Khối biên tập vùng chọn dời sang `ReaderView+Selection.swift` (bốn panel Dịch/Xoá từ rác/Copy gốc/Check rule dùng chung); `ReaderView.swift` 2286 → **2076** (−210) nhờ dời 179 dòng + xoá 73 dòng code chết, nhiều `@State` bỏ `private` thành `internal` (phạm vi file).
+* **Danh sách rule theo phạm vi, 2 tab Đang bật / Đã tắt**: hàng `[Sửa][Chuyển][Tắt][Xoá]` (`QuickTranslationRuleEntryRow`, mirror `DictionaryEntryRow`); Chuyển là **COPY** qua `QuickTranslationRuleTransfer` (nguồn giữ nguyên; ở danh sách Chung không biết truyện đang mở thì mờ + báo lý do); bộ riêng có menu Nhập (3 chế độ qua `DataImportMode`)/Xuất/Xoá cả bộ (`QuickTranslationRuleIOMenu`); hub Từ điển thêm section **Rule Dịch** với subtitle "N đang bật • M đã tắt"; swipe Sửa/Xoá bị bỏ. Ô Thử nhanh và màn Quản lý giờ **tôn trọng file tắt**; `menuWidth` của bong bóng suy ra từ hằng thành phần (bug tràn mép khi hard-code).
+* **Backup liên quan**: tên file riêng truyện gom về **một** nguồn (`TranslationManager+BookScopedFiles` — `BackupPaths.bookDictionaryFiles`/`bookRuleFiles` và luồng đổi nguồn của `SearchView` đều đọc từ đó, hết nhân bản ở hai chỗ); bộ rule riêng + file tắt riêng đi theo scope `.dictBooks` nhưng **tách vòng lặp** khỏi từ điển riêng (vòng cũ trộn bằng `parseRecords` — bỏ dòng không có `=` và sinh lại `key=value`, làm mất comment + thứ tự dòng là tie-break cuối của priority), chiều khôi phục dùng `importRules(.overwriteExisting)` + `DisableStore.merge`; file tắt **chung** vào `config/QuickTranslateRulesDisabled.txt` (`BackupConfigArchiver`), khôi phục **hợp tập** — "khôi phục chỉ thêm, không xoá".
+* **Xác minh** (không dùng `Tests/`): 17 file mới đều ≤ 400 dòng (lớn nhất `ReaderRuleTraceOverlayView` 383) và đúng 1 type top level ⇒ không cần entry `architecture_allowlist.json`; tổng file Swift 388 → **405**. `validate_links.py` PASS sau khi cập nhật toàn bộ 13 doc CodeGraph bị stale (7 doc đã sửa vùng GENERATED từ trước + 6 doc sửa/ghi nhận trong lượt này). `check_architecture.py` đã chạy và giữ nguyên **14 violation** baseline (cùng một tập, `ReaderView.swift` 2076 dòng) — không có violation mới; host là Windows nên không build được tại chỗ; CI xanh mới chứng minh *biên dịch được*.
+
+## [1.3.273] - 2026-08-25
+
+### Rule dịch: sửa build token
+
+Sửa lỗi biên dịch SwiftUI ở màn **Cấu hình token rule**.
+
+* Đổi hai `Section` sang initializer `content/header/footer` tương thích với toolchain CI; giao diện và logic bật/tắt token không đổi.
+* Đã rà lại `11_subsystems.md` và ghi nhận `--no-change-needed`; CI macOS sẽ xác nhận build archive.
 
 ## [1.3.272] - 2026-08-25
 

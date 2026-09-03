@@ -15,6 +15,109 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +3 file: hai cache và một cửa cooldown; ExtTTSService còn 65 dòng (1.3.330)
+
+471 → **474** file Swift. Không thư mục mới, nhưng **có file mới** ⇒ phải `xcodegen generate` khi lên macOS.
+
+| File mới | Vai trò | Dòng |
+|---|---|---|
+| [`Services/TTS/Ext/ExtTTSScriptCache.swift`](../../Sources/Services/TTS/Ext/ExtTTSScriptCache.swift) | giữ `scriptContent` + config đã trộn + fingerprint của extension TTS; đường nóng còn **2 lần `stat()`** | 128 |
+| [`Services/Extensions/Manager/RepositoryRefreshPolicy.swift`](../../Sources/Services/Extensions/Manager/RepositoryRefreshPolicy.swift) | cửa cooldown cho lượt **tự động** làm mới kho (mặc định 6 giờ) | 42 |
+| [`Views/Common/ExtensionIconImageCache.swift`](../../Sources/Views/Common/ExtensionIconImageCache.swift) | cache `icon.png` theo `(path, modDate)`, ghi nhớ cả trường hợp **không có** ảnh | 45 |
+
+| File sửa | Dòng | Thay đổi |
+|---|---|---|
+| [`Services/TTS/Ext/ExtTTSService.swift`](../../Sources/Services/TTS/Ext/ExtTTSService.swift) | 230 → **65** | xoá `synthesize(...targetFormat:)`, `preprocessBufferForExtTTS`, `activeTempFiles`/`tempFileLock`/`cleanupTempFile`/`cleanupAllTempFiles`; bỏ `import AVFoundation`; `@unchecked Sendable` → `Sendable` |
+| [`Services/Extensions/Manager/ExtensionManager.swift`](../../Sources/Services/Extensions/Manager/ExtensionManager.swift) | 1049 → **1015** | `ttsGenerate` + `getTTSRuntimeFingerprint` đọc qua cache; xoá `fingerprintCache`. **Về dưới baseline 1022** |
+| [`Services/TTS/Ext/ExtTTSRuntime.swift`](../../Sources/Services/TTS/Ext/ExtTTSRuntime.swift) | 108 → **110** | `Identity` mang `fingerprint` thay cho `scriptContent` + `configurationData`; `generate` nhận thêm `fingerprint:` |
+| [`Services/TTS/Google/GoogleTTSService.swift`](../../Sources/Services/TTS/Google/GoogleTTSService.swift) | 201 → **210** | `validVoiceIds` và key trong `Info.plist` thành `static let`; key cá nhân vẫn đọc mỗi lần |
+| [`Services/TTS/TTSManager.swift`](../../Sources/Services/TTS/TTSManager.swift) | 4022 → **4015** | xoá hàm rỗng `cleanUpTempFile()` + 3 call site |
+| [`Services/TTS/Extensions/TTSManager+PrefetchCache.swift`](../../Sources/Services/TTS/Extensions/TTSManager+PrefetchCache.swift) | 47 → **43** | bỏ nhánh gọi `cleanupAllTempFiles()` (tập luôn rỗng) |
+| [`Views/Extensions/Manager/RepositoryManagerView.swift`](../../Sources/Views/Extensions/Manager/RepositoryManagerView.swift) | 728 → **734** | `refreshAllRepositories(force:)`; `filteredExtensions` tính một lần; `filterStatusBar(count:)`; icon dùng `ExtensionIconView` |
+| [`Views/Common/ExtensionIconView.swift`](../../Sources/Views/Common/ExtensionIconView.swift) | 39 → **39** | đọc ảnh qua `ExtensionIconImageCache` thay vì `UIImage(contentsOfFile:)` mỗi lượt vẽ |
+
+* **Cạnh mới**: `ExtensionManager → ExtTTSScriptCache → ExtensionManager` (cache gọi lại `getScriptPath`/`getCombinedConfigs`, cùng tầng Services, không tạo vòng phụ thuộc kiểu tầng); `RepositoryManagerView → RepositoryRefreshPolicy`; `ExtensionIconView → ExtensionIconImageCache`.
+* **Cạnh bị xoá**: `ExtTTSService → AVFoundation` và `TTSManager+PrefetchCache → ExtTTSService.cleanupAllTempFiles`.
+* `check_architecture.py` **13 → 12** violation: `ExtensionManager` rời danh sách nhờ giảm 34 dòng.
+
+## +11 / -2 file: bộ sưu tập sách, ghim kệ, xoá màn Thử phiên âm (1.3.328)
+
+462 → **471** file Swift. Hai thư mục mới ⇒ **phải** `xcodegen generate` khi lên macOS.
+
+| File mới | Vai trò | Dòng |
+|---|---|---|
+| [`Models/Database/BookCollection.swift`](../../Sources/Models/Database/BookCollection.swift) | `@Model` thứ **6**; quan hệ N-N với `Book`, `deleteRule: .nullify` ở cả hai đầu | 38 |
+| [`Services/Books/BookCollectionCoordinator.swift`](../../Sources/Services/Books/BookCollectionCoordinator.swift) | chủ transaction bộ sưu tập: CRUD + thành viên; cưỡng chế "trong bộ ⇒ trên kệ" | 151 |
+| [`Views/Shelf/BookActions/BookSheetAction.swift`](../../Sources/Views/Shelf/BookActions/BookSheetAction.swift) | `enum` hành động + `Mode` (shelf/history/collection) + `Target` cho `.sheet(item:)` | 43 |
+| [`Views/Shelf/BookActions/BookActionRunner.swift`](../../Sources/Views/Shelf/BookActions/BookActionRunner.swift) | thân các hành động dùng chung ba màn; giữ luôn `newChapterTarget`/`checkNewChapters`/`showNewChapterSummary` | 188 |
+| [`Views/Shelf/BookActions/BookActionSheet.swift`](../../Sources/Views/Shelf/BookActions/BookActionSheet.swift) | sheet nhấn-giữ: bìa + tên + tác giả + danh sách bộ sưu tập (có dấu "+" cuối) + mọi mục của context menu cũ | 264 |
+| [`Views/Shelf/BookActions/ShelfBookRowView.swift`](../../Sources/Views/Shelf/BookActions/ShelfBookRowView.swift) | một dòng truyện: `BookListItemView` + ghim + badge chương mới | 30 |
+| [`Views/Shelf/BookActions/NewChapterBadgeView.swift`](../../Sources/Views/Shelf/BookActions/NewChapterBadgeView.swift) | badge chương mới, tách khỏi `ShelfView+NewChapters` để màn Bộ sưu tập dùng chung | 28 |
+| [`Views/Shelf/Collections/CollectionsTabView.swift`](../../Sources/Views/Shelf/Collections/CollectionsTabView.swift) | tab Bộ Sưu Tập: danh sách, tạo/đổi tên/xoá, kéo-thả thứ tự | 203 |
+| [`Views/Shelf/Collections/CollectionDetailView.swift`](../../Sources/Views/Shelf/Collections/CollectionDetailView.swift) | danh sách truyện trong một bộ, **cùng bộ hành động** với kệ sách | 268 |
+| [`Views/Shelf/Collections/CollectionPickerSheet.swift`](../../Sources/Views/Shelf/Collections/CollectionPickerSheet.swift) | chọn bộ (tuỳ chọn) sau khi thêm truyện vào kệ; có mục tạo bộ mới | 126 |
+| [`Views/BookDetail/Extensions/BookDetailView+ShelfPlacement.swift`](../../Sources/Views/BookDetail/Extensions/BookDetailView+ShelfPlacement.swift) | `placeOnShelf(savedDesc:)` tách khỏi `BookDetailView` rồi mở `CollectionPickerSheet` | 33 |
+
+| File xoá | Dòng | Lý do |
+|---|---|---|
+| `Views/Settings/TTS/TTSTransliterationTesterView.swift` | 277 | theo yêu cầu: bỏ màn "Thử phiên âm" |
+| `Services/TTS/Preprocessing/TransliterationGoldenSet.swift` | 128 | chỉ có màn trên gọi; không còn caller nào |
+
+| File sửa | Dòng | Thay đổi |
+|---|---|---|
+| [`Views/Shelf/ShelfMain/ShelfView.swift`](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift) | 910 → **780** | 4 tab (thêm Bộ Sưu Tập = tag 2, Lịch Sử 2 → **3**); hai `.contextMenu` (121 dòng) thay bằng `onTapGesture` + `onLongPressGesture` mở sheet; `handleBookAction`; `shelfBooks` ghim-trước; xoá `bookItemView`/`retranslateChapterTitles`/`addToShelf`/`removeFromShelfOnly`/`removeFromHistory`/`clearReaderFallback` (dead) |
+| [`Views/Shelf/ShelfMain/Extensions/ShelfView+NewChapters.swift`](../../Sources/Views/Shelf/ShelfMain/Extensions/ShelfView+NewChapters.swift) | 127 → **57** | `newChapterTarget`/`checkNewChapters` uỷ quyền `BookActionRunner`; xoá `newChapterBadge` + `showNewChapterSummary` |
+| [`Models/Database/Book.swift`](../../Sources/Models/Database/Book.swift) | 79 → **90** | `isPinned: Bool = false`, `collections: [BookCollection] = []` (chiều nghịch khai ở `BookCollection`) |
+| [`Services/Books/BookTransactionCoordinator.swift`](../../Sources/Services/Books/BookTransactionCoordinator.swift) | 239 → **288** | `setPinned`, `setHistory`; `removeFromShelf`/`setOnShelf(false)`/`addBookToShelf(isOnShelf: false)` dọn `collections` + `isPinned` |
+| [`Models/Books/BookTransactionError.swift`](../../Sources/Models/Books/BookTransactionError.swift) | 13 → **19** | `collectionNotFound`, `invalidCollectionName`, `duplicateCollectionName` |
+| [`App/FreeBookApp.swift`](../../Sources/App/FreeBookApp.swift) | 113 → **114** | `BookCollection.self` vào `ModelContainer` |
+| [`Views/BookDetail/BookDetailView.swift`](../../Sources/Views/BookDetail/BookDetailView.swift) | 1207 → **1197** | `addToShelf()` gọi `placeOnShelf`; `@State collectionPickerBook` + `.sheet(item:)`. **Về dưới baseline 1201** |
+| [`Views/Search/SearchView.swift`](../../Sources/Views/Search/SearchView.swift) | 858 → **859** | `targetShelfTab` cho Lịch Sử 2 → 3 (khớp số tab mới của `ShelfView`) |
+| [`Services/Backup/BackupPaths.swift`](../../Sources/Services/Backup/BackupPaths.swift) | 161 → **165** | entry `library/collections.json`, **không** thêm `BackupScope` |
+| [`Services/Backup/BackupPayload.swift`](../../Sources/Services/Backup/BackupPayload.swift) | 217 → **240** | `CollectionRecord`; `BookRecord.isPinned: Bool?` (optional để archive cũ còn decode) |
+| [`Services/Backup/BackupManifest.swift`](../../Sources/Services/Backup/BackupManifest.swift) | 114 → **120** | `Counts.collections` + `decodeIfPresent` |
+| [`Services/Backup/BackupLibraryReader.swift`](../../Sources/Services/Backup/BackupLibraryReader.swift) | 139 → **159** | `Payload.collections`, `readCollections()`, đọc `isPinned` |
+| [`Services/Backup/BackupLibraryWriter.swift`](../../Sources/Services/Backup/BackupLibraryWriter.swift) | 188 → **246** | `restoreCollections` (gộp theo tên), ghim cho truyện mới thêm |
+| [`Services/Backup/BackupExportWorker.swift`](../../Sources/Services/Backup/BackupExportWorker.swift) | 253 → **260** | stage `collections.json`, `counts.collections` |
+| [`Services/Backup/BackupRestoreWorker.swift`](../../Sources/Services/Backup/BackupRestoreWorker.swift) | 280 → **290** | decode + gọi `restoreCollections`, log thêm số bộ |
+| [`Views/Settings/Backup/RestoreOptionsSheet.swift`](../../Sources/Views/Settings/Backup/RestoreOptionsSheet.swift) | 130 → **133** | hàng "Bộ sưu tập" khi `counts.collections > 0` |
+| [`Views/Settings/TTS/NghiTTSSettingsView.swift`](../../Sources/Views/Settings/TTS/NghiTTSSettingsView.swift) | 154 → **154** | bỏ `NavigationLink` Thử phiên âm; thêm `Toggle` "Dùng IPA của espeak cho tiếng Anh" (chuyển chỗ ở của `EnglishPhonemeTransliterator.useEspeakKey`) |
+| [`Services/TTS/EspeakPhonemizer.swift`](../../Sources/Services/TTS/EspeakPhonemizer.swift) | 193 → **173** | xoá `probeVoices` (chỉ màn đã xoá gọi) |
+| [`Services/TTS/Preprocessing/VietnameseTokenGate.swift`](../../Sources/Services/TTS/Preprocessing/VietnameseTokenGate.swift) | 110 → **95** | xoá `explain` (0 caller) |
+| [`Services/TTS/Preprocessing/JapaneseTransliterator.swift`](../../Sources/Services/TTS/Preprocessing/JapaneseTransliterator.swift) | 341 → **347** | 15 hàng `ư` → `u`; comment giải thích |
+
+* **Cạnh mới**: `Views/Shelf/**` → `BookCollectionCoordinator` → `BookCollection` (Views → Services → Models, đúng chiều); `Services/Backup/**` → `BookCollectionCoordinator`. Không cạnh ngược nào.
+* **Cạnh bị xoá**: `Views/Settings/TTS` → `EspeakPhonemizer.probeVoices` và → `TransliterationGoldenSet` (cả hai đầu đã biến mất).
+* `ShelfView` giảm 130 dòng nên khoảng trống dưới baseline 942 nới ra; `BookDetailView` lần đầu **trở lại** dưới baseline sau nhiều lượt vượt.
+
+## +1 file cho đường cài mới từ VS Code (1.3.325)
+
+| File mới | Vai trò | Dòng |
+|---|---|---|
+| [`Services/Extensions/Debug/Staging/ExtensionDraftMetadata.swift`](../../Sources/Services/Extensions/Debug/Staging/ExtensionDraftMetadata.swift) | DTO đọc `plugin.json` của bản nháp (`read(from:)`, `slug(forName:)`, `upsertCommand(localPath:)`) — nguồn duy nhất suy `packageId` + metadata cho hàng `Extension` khi cài mới | 136 |
+
+| File sửa | Dòng | Thay đổi |
+|---|---|---|
+| [`Debug/Server/ExtensionDebugCommandRouter+Draft.swift`](../../Sources/Services/Extensions/Debug/Server/ExtensionDebugCommandRouter+Draft.swift) | 204 → **297** | `import SwiftData`; `handleDraftInstall` tách thành `installOverExisting` / `installAsNew`; thêm `writeLibraryRow`; `handleDraftStage` bỏ chốt "phải đã cài" |
+| [`Debug/Server/ExtensionDebugCommandRouter.swift`](../../Sources/Services/Extensions/Debug/Server/ExtensionDebugCommandRouter.swift) | 262 → **308** | `container` thành `internal`; `handleRunStart` cho phép `sourceMode: draft` khi chưa cài; tách `startRun(...)` dùng chung hai nguồn |
+| [`Debug/Staging/ExtensionDraftInstaller.swift`](../../Sources/Services/Extensions/Debug/Staging/ExtensionDraftInstaller.swift) | 147 → **201** | thêm `installNew`, `newInstallSummary`, tách `backup(installedUrl:packageId:)` dùng chung; `InstallError.unsafePackageId` |
+| [`Debug/Server/ExtensionDebugInstallGate.swift`](../../Sources/Services/Extensions/Debug/Server/ExtensionDebugInstallGate.swift) | 113 → **134** | `Kind.installNew`; `Request.displayName`; `summary` ba nhánh |
+| [`Views/Settings/Debug/ExtensionDebugServerView.swift`](../../Sources/Views/Settings/Debug/ExtensionDebugServerView.swift) | 130 → **151** | `approveLabel(for:)` / `installFooter(for:)`; header + bullet giới hạn nói riêng cho đường cài mới |
+
+* Tổng file Swift 461 → **462**; không thư mục mới ⇒ **phải** `xcodegen generate` khi lên macOS.
+* **Cạnh mới**: `ExtensionDebugCommandRouter` → `ExtensionTransactionCoordinator` + `ExtensionDraftMetadata` → `UpsertExtensionCommand` (Services → Models, đúng chiều); `ExtensionDraftInstaller` → `ExtensionManager.extensionsDirectory` (dùng lại chủ sở hữu duy nhất của đường dẫn `extensions/`, không nhân bản path). Không cạnh nào bị xoá.
+* `Tools/VSCode/FreeBookExtDebug/src/{extension.ts,draft.ts}` + `README.md` sửa cùng lượt; `Tools/**` không thuộc phạm vi `validate_links.py`.
+
+## Không file mới; recognizer bàn phím có đường gỡ (1.3.323)
+
+| File sửa | Dòng | Thay đổi |
+|---|---|---|
+| [`Common/Utils/KeyboardDismissGesture.swift`](../../Sources/Common/Utils/KeyboardDismissGesture.swift) | 112 → **149** | `activate()` đăng ký thêm observer `keyboardWillHideNotification`; thêm `keyboardWillHide()` + `uninstall()` (gỡ recognizer khỏi **mọi** window theo `UIGestureRecognizer.name`); phần tăng chủ yếu là comment giải thích vì sao phải gỡ |
+
+* Tổng file Swift **không đổi** (không thêm/xoá/đổi tên file nào), không thư mục mới ⇒ không cần `xcodegen generate`.
+* **Không cạnh phụ thuộc nào mới hay bị xoá**: file vẫn chỉ `import UIKit`, vẫn là lá của đồ thị, người gọi duy nhất vẫn là `AppLaunchRootView.onAppear`.
+* Bảng ở mục 1.3.266 bên dưới liệt kê thành viên của file; danh sách đủ nay là `activate()`, `keyboardWillShow()`, `keyboardWillHide()`, `installIfNeeded()`, `uninstall()`, `handleTap(_:)`, `isEditableTextInput(_:)` + hai hàm `UIGestureRecognizerDelegate`.
+
 ## -3 file hub tu dien tham chieu (1.3.320)
 
 464 -> **461** file Swift. Xoa `ReferenceDictionaryHubView.swift` (42), `ReferenceDictionaryListView.swift` (118), `ReferenceDictionaryReader.swift` (95) cung section "Tham Chieu" va ham `referenceStatusText()` trong `DictionaryHubView.swift` (169 → 152).
@@ -170,8 +273,8 @@ Mục "Nhà Phát Triển" phải ra file riêng vì `SettingsView.swift` chỉ 
 | [`Services/TTS/Preprocessing/EnglishPhonemeTransliterator.swift`](../../Sources/Services/TTS/Preprocessing/EnglishPhonemeTransliterator.swift) | Services | espeak `en-us` → IPA → mapper, dự phòng về bộ luật cũ | 67 |
 | [`Services/TTS/Preprocessing/ForeignScriptClassifier.swift`](../../Sources/Services/TTS/Preprocessing/ForeignScriptClassifier.swift) | Services | chấm điểm Nhật/Anh thay cho blacklist | 189 |
 | [`Services/TTS/Preprocessing/VietnameseTokenGate.swift`](../../Sources/Services/TTS/Preprocessing/VietnameseTokenGate.swift) | Services | cổng "là từ tiếng Việt" theo ngữ cảnh láng giềng | 106 |
-| [`Services/TTS/Preprocessing/TransliterationGoldenSet.swift`](../../Sources/Services/TTS/Preprocessing/TransliterationGoldenSet.swift) | Services | ~55 ca kiểm định hướng, dữ liệu thuần | 114 |
-| [`Views/Settings/TTS/TTSTransliterationTesterView.swift`](../../Sources/Views/Settings/TTS/TTSTransliterationTesterView.swift) | Views | màn Thử phiên âm: probe giọng, soi một từ, chạy ca kiểm | 277 |
+| `Services/TTS/Preprocessing/TransliterationGoldenSet.swift` *(xoá ở 1.3.328)* | Services | ~55 ca kiểm định hướng, dữ liệu thuần | 114 |
+| `Views/Settings/TTS/TTSTransliterationTesterView.swift` *(xoá ở 1.3.328)* | Views | màn Thử phiên âm: probe giọng, soi một từ, chạy ca kiểm | 277 |
 
 | File sửa | Thay đổi | Dòng |
 |---|---|---|

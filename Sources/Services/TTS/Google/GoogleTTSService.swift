@@ -18,26 +18,36 @@ public struct GoogleVoice: Identifiable, Hashable, Sendable {
 
 public final class GoogleTTSService: Sendable {
     public static let shared = GoogleTTSService()
-    
+
+    /// Dựng **một lần**: trước 1.3.330 mỗi lượt tổng hợp lại `map` + dựng `Set` mới.
+    private static let validVoiceIds: Set<String> = Set(GoogleVoice.allVoices.map { $0.id })
+
+    /// Key nhúng trong `Info.plist` không đổi trong suốt một phiên chạy, nên chỉ tra `Bundle` một lần.
+    /// Key cá nhân của người dùng thì **vẫn đọc mỗi lần** — nó đổi được ngay trong Cài đặt.
+    private static let bundleApiKey: String = {
+        guard let raw = Bundle.main.object(forInfoDictionaryKey: "GOOGLE_CLOUD_TTS_API_KEY") as? String else {
+            return ""
+        }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != "$(GOOGLE_CLOUD_TTS_API_KEY)", !trimmed.contains("$(") else {
+            return ""
+        }
+        return trimmed
+    }()
+
     public init() {}
-    
+
     public func getApiKey() -> String {
         // 1. API Key cá nhân do người dùng nhập trong Cài đặt TTS
         if let customKey = UserDefaults.standard.string(forKey: "google_cloud_tts_custom_api_key"),
            !customKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return customKey.trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        
+
         // 2. API Key hệ thống nhúng trong Info.plist (từ GitHub Secret)
-        if let bundleKey = Bundle.main.object(forInfoDictionaryKey: "GOOGLE_CLOUD_TTS_API_KEY") as? String,
-           !bundleKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-           bundleKey != "$(GOOGLE_CLOUD_TTS_API_KEY)",
-           !bundleKey.contains("$(") {
-            return bundleKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        return ""
+        return Self.bundleApiKey
     }
-    
+
     public var hasApiKey: Bool {
         return !getApiKey().isEmpty
     }
@@ -70,8 +80,7 @@ public final class GoogleTTSService: Sendable {
         request.timeoutInterval = 12.0
         
         // Đảm bảo voice được chọn là 1 trong 6 giọng đọc hợp lệ của Google TTS
-        let validVoiceIds = Set(GoogleVoice.allVoices.map { $0.id })
-        let safeVoice = validVoiceIds.contains(voice) ? voice : "via"
+        let safeVoice = Self.validVoiceIds.contains(voice) ? voice : "via"
         
         let requestBody: [String: Any] = [
             "text": [

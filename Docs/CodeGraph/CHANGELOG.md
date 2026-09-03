@@ -2,7 +2,134 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.272) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.295) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+
+## [1.3.330] - 2026-09-03
+
+### Cache script Ext TTS, cooldown làm mới kho, cache icon tiện ích
+
+Thêm **3** file Swift (471 → **474**), sửa **8**. Đợt 1 của loạt tối ưu Google TTS / Ext TTS / tab Tiện Ích.
+
+- **Ext TTS: mỗi đoạn văn từ 6 lần I/O xuống 2 lần `stat()`.** Trước lượt này, cứ 2–4 giây một lần suốt cả truyện, `ExtensionManager.ttsGenerate` **và** `getTTSRuntimeFingerprint` cộng lại làm **4 lần đọc `plugin.json` + 2 lần đọc trọn `tts.js` + 4 lần parse JSON + 2 lần serialize** — tất cả cho ra cùng một kết quả. `getTTSRuntimeFingerprint` cũ còn đọc script **trước** khi tra cache nên cache chỉ tiết kiệm SHA256, không tiết kiệm I/O. File mới [`ExtTTSScriptCache`](../../Sources/Services/TTS/Ext/ExtTTSScriptCache.swift) (128 dòng) giữ `scriptContent` + config đã trộn + fingerprint, hết hạn theo `(configJson, modDate của plugin.json, modDate của script)`. Phải canh cả `plugin.json` vì nó quyết định *tên* file script.
+- **`ExtTTSRuntime.Identity` so fingerprint thay vì so cả chuỗi script.** Cùng độ phân giải (fingerprint băm script + config + đường dẫn) nhưng bỏ được phép so O(len(script)) mỗi đoạn. `resetTTSRuntime()` gọi `invalidateAll()` **trước** `ttsRuntime.reset()` — đảo lại là để hở khe dựng executor mới bằng payload cũ.
+- **Bỏ khe hở lệch fingerprint/nội dung**: hai lối vào đọc đĩa riêng nghĩa là một lần cài lại đúng giữa hai lần đọc sẽ tạo `synthesisKey` của bản cũ nhưng chạy bản mới, tức audio sai bị cache dưới khoá đúng. Giờ cả hai lấy từ một `Payload`.
+- **Xoá đường PCM chết của Ext TTS** — `ExtTTSService.swift` **230 → 65** dòng. `synthesize(...targetFormat:)` (102 dòng), `preprocessBufferForExtTTS` (45) và bộ theo dõi file tạm (`activeTempFiles`/`tempFileLock`/`cleanupTempFile`/`cleanupAllTempFiles`) **không có caller nào** trong `Sources/` — đã grep toàn cây. Bản cũ còn mang lỗi thật: `preprocessBufferForExtTTS` chạy **hai lần** trên cùng buffer (input block của converter rồi output), tức chuẩn hoá biên độ và fade áp đôi. Kéo theo `TTSManager.cleanUpTempFile()` (hàm **rỗng** còn được gọi ở 3 chỗ) và nhánh gọi `cleanupAllTempFiles()` ở `TTSManager+PrefetchCache`. Ext TTS giờ không tạo file nào, `@unchecked Sendable` → `Sendable`.
+- **Tab Tiện Ích không còn quét mạng mỗi lần mở.** `.onAppear` gọi `refreshAllRepositories()` vô điều kiện, mà một lượt làm mới là 1 request registry cho **mỗi kho** cộng một request `plugin.json` cho **mỗi tiện ích chưa cài** (`ExtensionSyncCommandBuilder`, 6 luồng, timeout 10 s) — kho 100 tiện ích mà máy cài 5 là ~95 request. File mới [`RepositoryRefreshPolicy`](../../Sources/Services/Extensions/Manager/RepositoryRefreshPolicy.swift) (cooldown mặc định 6 giờ, `UserDefaults`) chặn lượt **tự động**; nút refresh trên toolbar gọi `force: true` nên **không** qua cửa. `markRefreshed()` chỉ ghi khi ≥ 1 kho cập nhật được — một lượt trắng vì mất mạng không khoá 6 giờ tiếp theo.
+- **`filteredExtensions` tính một lần mỗi lượt vẽ thay vì 3 lần.** Thanh đếm, nhánh `isEmpty` và `List` trước đây gọi riêng, mỗi lần là 4 vòng `filter` + một `sorted` dùng `localizedCompare` (so sánh chuỗi đắt nhất trong Foundation) — nhân với **từng ký tự** gõ vào ô tìm kiếm. `filterStatusBar` đổi thành `filterStatusBar(count:)`.
+- **Icon extension có cache** — file mới [`ExtensionIconImageCache`](../../Sources/Views/Common/ExtensionIconImageCache.swift), khoá `(đường dẫn icon.png, modDate)`, **ghi nhớ cả trường hợp không có ảnh**. `UIImage(contentsOfFile:)` không dùng cache dùng chung của UIKit (chỉ `UIImage(named:)` có), nên mỗi lượt SwiftUI dựng lại một dòng là một lần đọc đĩa + giải mã PNG — và `ExtensionIconView` nằm trong **mọi** dòng Kệ sách, Khám phá, mục lục Reader. Đây là phần lan ra ngoài tab Tiện Ích.
+- **Hàng ở tab Tiện Ích đổi `AsyncImage` → `ExtensionIconView`**: đọc `icon.png` cục bộ trước rồi mới ra mạng, nên tiện ích đã cài không tải icon lần nào và hiện đúng cả khi offline. Giữ nguyên fallback theo loại (`waveform` cho TTS, `book.closed` cho truyện) cho hàng không có cả `localPath` lẫn `iconUrl`.
+- **Google TTS**: `validVoiceIds` và key nhúng trong `Info.plist` thành `static let` (trước đây mỗi lượt tổng hợp dựng lại `Set` và tra `Bundle`). Key **cá nhân** của người dùng vẫn đọc `UserDefaults` mỗi lần vì đổi được ngay trong Cài đặt.
+- Gate: `check_architecture.py` **13 → 12 violation** — `ExtensionManager.swift` 1049 → **1015** ≤ baseline 1022 nhờ dời phần băm sang cache, không violation mới nào. `validate_links.py` PASS (16 doc, 474 file) sau khi cập nhật 11 doc và ghi `--no-change-needed` cho 2 doc. **Chưa biên dịch, chưa nghe thử** — host là Windows; có **3 file Swift mới** nên khi lên macOS **phải** chạy `xcodegen generate`. Việc gộp nhiều đoạn vào một request Google (đã đo được 5–13× trên máy này) để **đợt 2**.
+
+
+## [1.3.329] - 2026-09-03
+
+### Thông báo chương mới không mất khi đánh dấu đã đọc, ẩn nút tải rule mặc định khi đã có rule
+
+Sửa **5** file Swift; không thêm/xoá file nào.
+
+- **Nguyên nhân dòng thông báo biến mất: "có chương mới" và "dòng trong Trung tâm thông báo" dùng chung một con số.** `NewChapterRecord.markSeen()` đưa `newChapterCount` về 0 và `firstFoundAt` về `nil`, còn `NotificationInboxView` lọc dòng bằng `hasNew` ⇒ bấm vào dòng (hoặc mở truyện từ kệ) là dòng mất. Giữ lại con số cũ cũng không đủ: `NewChapterProbe.applyDiff` **luôn** ghi lại `newChapterCount` ở mọi lượt dò, nên lượt kiểm tra kế tiếp sẽ xoá nó lần nữa.
+- **Tách hai thứ ra**: [`NewChapterRecord`](../../Sources/Services/NewChapters/NewChapterRecord.swift) thêm nhóm `announced*` (`announcedChapterCount`, `announcedIsCountExact`, `announcedAt`, `announcementReadAt`) là **thông báo đã phát**, sống độc lập với `newChapterCount` là **trạng thái badge**. Probe gọi `announceCurrentFinding()` khi tìm ra chương mới; `markSeen()` cố ý **không** đụng nhóm này, chỉ thêm `markAnnouncementRead()`.
+- **Badge giữ nguyên hành vi**: `hasNew`, `totalNewBooks`, `NewChapterBadgeView` vẫn đọc `newChapterCount` nên badge kệ sách và badge chuông vẫn tắt ngay khi đánh dấu đã đọc — không call site nào ở tầng View phải sửa. Đây là lý do chọn thêm field thay vì đổi nghĩa `hasNew`.
+- **Luật một đợt thông báo**: đợt mới (chưa có thông báo, hoặc thông báo trước **đã đọc**) mở một dòng chưa đọc lấy mốc `firstFoundAt`; đợt đang chờ đọc mà dò thêm được chương thì chỉ cập nhật con số và giữ nguyên mốc phát hiện đầu tiên. Đọc rồi mà có thêm chương ⇒ nổi lên lại như thông báo mới; ba lượt kiểm tra trong cùng một đợt ⇒ vẫn một dòng.
+- **Trung tâm thông báo đối xử hai loại nội dung như nhau**: dòng chương mới có dấu chấm chưa đọc, icon đổi `bell.badge.fill` → `bell` khi đã đọc, swipe để xoá, và "Xoá thông báo đã đọc" nay dọn **cả** toast lẫn dòng chương mới. Xoá một dòng chỉ gọi `clearAnnouncement()` chứ **không** xoá record — record giữ mốc `seen*`, xoá nó là lượt dò sau báo lại từ đầu như truyện mới.
+- **Vá dữ liệu của bản cũ**: `loadIfNeeded()` chạy `backfillAnnouncements()` dựng thông báo từ `newChapterCount` đã lưu, nếu không thì người vừa cập nhật thấy badge sáng mà Trung tâm thông báo trống. Chạy được vì `NewChapterRecord.init(from:)` vốn `decodeIfPresent` mọi khoá.
+- **`markAllAnnouncementsRead()` gộp một lần ghi đĩa** thay cho vòng lặp gọi `markSeen` từng truyện của "Đánh dấu đã đọc hết" (trước đây là N lần ghi file). Vòng lặp chụp `Array(records.values)` trước khi sửa dictionary.
+- **Ẩn nút "Tải bộ rule mặc định" khi `ruleCount > 0`** ([`QuickTranslationRulesView`](../../Sources/Views/Settings/Translation/QuickTranslationRulesView.swift)). Nút đó ghi **đè** bộ đang chạy và màn này không có undo, nên với người đã sửa/nhập bộ riêng thì đó là một cú mất dữ liệu cách đúng một lần bấm. Không tạo đường cụt: "Xoá bộ rule khỏi máy" đưa `ruleCount` về 0 và nút hiện lại, "Nhập file rule (.txt)" vẫn luôn có, footer đổi chữ để nói rõ vì sao nút biến mất. Điều kiện là `ruleCount == 0` chứ không phải `!isLoaded` — `makeStatus` đặt `isLoaded = true` cho mọi snapshot kể cả file phân tích ra 0 rule, đúng lúc người dùng cần tải lại nhất.
+- Gate: `check_architecture.py` giữ **13 violation** (cùng một tập, không có mục nào mới); `validate_links.py` PASS sau khi cập nhật `11_subsystems.md`. **Chưa biên dịch** — host là Windows, không có `xcodebuild`; không file Swift nào được thêm/xoá nên **không** cần `xcodegen generate`.
+
+
+## [1.3.328] - 2026-09-03
+
+### Bộ sưu tập sách, ghim truyện lên đầu kệ, bỏ màn Thử phiên âm, phiên âm Nhật đọc "u"
+
+Thêm **11** file Swift (462 → **471**), xoá **2**, sửa **20**. Hai thư mục mới (`Sources/Views/Shelf/BookActions/`, `Sources/Views/Shelf/Collections/`).
+
+- **`@Model` thứ 6: [`BookCollection`](../../Sources/Models/Database/BookCollection.swift), quan hệ N-N với `Book`.** Tên type cố ý **không** phải `Collection` — một `Collection` ở phạm vi module sẽ che `Swift.Collection` và làm mọi generic constraint viết sau này hiểu sai. `FreeBookApp.init()` vẫn là chỗ duy nhất khai schema. `Book` thêm `isPinned: Bool = false` và `collections: [BookCollection] = []`; tất cả đều additive + có mặc định vì repo không có `SchemaMigrationPlan` và `ModelContainer` init lỗi là `fatalError` (⇒ app không mở được). Chiều nghịch `@Relationship(inverse:)` khai đúng **một** đầu (`BookCollection.books`), giống cặp `Repository.extensions` ⇄ `Extension.repository`.
+- **`deleteRule: .nullify` là bất biến ngữ nghĩa, không phải mặc định tình cờ.** Xoá bộ sưu tập chỉ tháo liên kết; `.cascade` ở đây nghĩa là xoá truyện thật khỏi kệ. `deleteCollection` còn dọn tay `books = []` trước `context.delete` cho rõ ý.
+- **Bất biến "trong bộ sưu tập ⇒ trên kệ" được cưỡng chế ở coordinator, không ở call site.** [`BookCollectionCoordinator`](../../Sources/Services/Books/BookCollectionCoordinator.swift) (151 dòng, chủ transaction mới) bật `isOnShelf` ở mọi đường thêm; ngược lại `BookTransactionCoordinator.removeFromShelf` / `setOnShelf(false)` / `addBookToShelf(isOnShelf: false)` dọn `collections` + `isPinned` trong cùng `save()`. Bỏ truyện khỏi bộ sưu tập **không** đưa nó khỏi kệ — đúng yêu cầu.
+- **Kệ sách có 4 tab**: Downloads (0), Kệ Sách (1), **Bộ Sưu Tập (2)**, Lịch Sử (**3**). Số tab là hợp đồng liên màn: `SearchView` gửi nó qua `userInfo["shelfTab"]` của notification `sourceChangedNavigateToShelf` — cả tên notification lẫn giá trị đều là literal trần, nên `SearchView.swift` được sửa cùng lượt (`2 → 3`). `selectedTab` là `@State` chứ không `@AppStorage` nên đánh số lại không phá trạng thái đã lưu.
+- **Nhấn giữ một cuốn sách nay mở [`BookActionSheet`](../../Sources/Views/Shelf/BookActions/BookActionSheet.swift), không còn `.contextMenu`.** Menu ngữ cảnh của SwiftUI chỉ nhận `Button`/`Link` nên không dựng được phần đầu (bìa + tên + tác giả) lẫn danh sách bộ sưu tập bấm thêm/bớt tại chỗ với dấu **"+" ở cuối danh sách**. **Toàn bộ mục cũ giữ nguyên chữ và thứ tự**, thêm Ghim/Bỏ ghim và (khi mở từ trong một bộ) "Bỏ khỏi bộ sưu tập này". Dòng truyện đổi từ `Button { } label: { }` sang `onTapGesture` + `onLongPressGesture`: bọc trong `Button` thì cú nhả tay sau khi giữ vẫn kích hoạt action, mở luôn Reader phía sau sheet.
+- **Ba màn dùng chung một bộ hành động** qua [`BookActionRunner`](../../Sources/Views/Shelf/BookActions/BookActionRunner.swift): Kệ sách, Lịch sử và [`CollectionDetailView`](../../Sources/Views/Shelf/Collections/CollectionDetailView.swift) cùng phát `BookSheetAction`, thân việc nằm một chỗ. Đó là cách "truyện trong bộ sưu tập có mọi hành động như trên kệ" đúng theo cấu trúc, không nhờ hai bản copy. `newChapterTarget`/`checkNewChapters`/`showNewChapterSummary` cũng dời vào đây (`ShelfView+NewChapters.swift` 127 → **57**), badge chương mới tách thành `NewChapterBadgeView`, dòng truyện tách thành `ShelfBookRowView`.
+- **Ghim là thứ tự hiển thị, không phải nhóm dữ liệu** — cùng ngữ nghĩa `Extension.isPinned`. Sắp xếp làm trên RAM vì `@Query` sort theo `lastReadDate` được tab Lịch sử dùng chung, và **ghim-trước làm bằng hai lượt `filter`** (`pinned + unpinned`) chứ không một `sorted` hai khoá: `sorted(by:)` của Swift không ổn định nên sẽ trộn thứ tự trong cùng nhóm.
+- **Chọn bộ sưu tập khi thêm vào kệ là tuỳ chọn**: [`CollectionPickerSheet`](../../Sources/Views/Shelf/Collections/CollectionPickerSheet.swift) hiện sau khi truyện lên kệ ở màn Chi tiết, có mục tạo bộ mới, bỏ qua cũng được. Để làm việc này mà không làm `BookDetailView.swift` phình thêm, `addToShelf` được dời sang file mới `BookDetailView+ShelfPlacement.swift` — nhờ vậy file đó **1207 → 1197**, lần đầu **về dưới** baseline 1201.
+- **Tab Bộ sưu tập ([`CollectionsTabView`](../../Sources/Views/Shelf/Collections/CollectionsTabView.swift))**: tạo/đổi tên/xoá (kèm cảnh báo "truyện vẫn ở trên kệ"), kéo-thả thứ tự, đếm số truyện. Trùng tên (không phân biệt hoa/thường) bị chặn ở coordinator. Lọc/so tên làm **trên RAM** vì predicate lọc chuỗi của SwiftData iOS 17 dịch sai sang SQLite. `CollectionDetailView` nhận `collectionId` chứ không nhận đối tượng — bộ bị xoá trong lúc màn còn trên stack chỉ dẫn tới trạng thái rỗng có thông báo.
+- **Sao lưu mở rộng mà không thêm `BackupScope`**: `library/collections.json` + `BookRecord.isPinned` đi kèm nhóm bắt buộc `.books` (thêm case `BackupScope` sẽ làm bản app cũ decode `manifest.scopes` lỗi — luật đã ghi hai lần trong `BackupPaths.swift`). `BookRecord.isPinned` phải là `Bool?`: `init(from:)` tổng hợp của Swift **không** dùng giá trị mặc định nên một khoá không-optional mới sẽ làm **mọi** `.fbbackup` cũ decode lỗi. `Counts.collections` an toàn nhờ `init(from:)` viết tay sẵn có. Khôi phục là **gộp**: bộ trùng tên dùng lại bộ đang có, thành viên chỉ gắn khi truyện có mặt trong máy, và cờ ghim chỉ áp cho truyện **mới thêm**.
+- **Xoá màn "Thử phiên âm" theo yêu cầu** (`TTSTransliterationTesterView.swift` 277 dòng) cùng mọi thứ chỉ nó dùng: `TransliterationGoldenSet.swift` (128), `EspeakPhonemizer.probeVoices`, `VietnameseTokenGate.explain`. Nói thẳng hệ quả: phân hệ tiền xử lý TTS **không còn thước đo có hệ thống** — `Tests/` bị coi như không tồn tại, LiveContainer không đính được debugger, nên từ nay chỉ còn **nghe thử** ở "Thử giọng đọc". `rules.md` (mục 1.3.290 nói việc kiểm chứng nằm ở màn đó) và `10_risk_report`/`04_call_graph`/`13_resource_lifecycle` đã được ghi rõ là **không còn đúng**. Công tắc `EnglishPhonemeTransliterator.useEspeakKey` mất chỗ ở nên **chuyển** sang `NghiTTSSettingsView` — bỏ luôn thì đường IPA của espeak bật vĩnh viễn, không có đường thoát.
+- **Phiên âm Nhật: hàng `u` đọc là `u`, không phải `ư`.** 15 giá trị trong `romajiToViSyllable` đổi tại chỗ (`ku su tsu tu nu hu fu mu ru gu zu du bu pu` và `u` trơ). `ư` là /ɨ/ không tròn môi, espeak-vi đọc ra âm khác hẳn ("Naruto" → *na-rư-tô*, "sushi" → *xư-si*). Trùng **giá trị** sinh ra (`tsu`/`tu` → `chu`, `zu` → `du` như `yu`) là vô hại — chỉ **khoá** của dictionary literal cần khác nhau. `collapseLongVowels`, `ー` → `""` và `sokuonCoda` **không** bị chạm nên hồi quy "arigatou → a-ri-ga-tô-ư" không quay lại.
+- **Trả nợ một vi phạm kiến trúc cũ**: `ShelfView.removeFromHistory` từng gán `book.isHistory` rồi `try? modelContext.save()` ngay trong View (regex của gate không bắt vì `isHistory` không nằm trong danh sách thuộc tính bị canh); nay đi qua `BookTransactionCoordinator.setHistory`. Cùng lượt xoá `clearReaderFallback` trong `ShelfView` — hàm chết, `BookStorageManager` có bản riêng của nó. `ShelfView.swift` **910 → 780** (baseline 942).
+- Gate: `check_architecture.py` **14 → 13 violation** (tập cũ trừ `BookDetailView`); không violation mới. `validate_links.py` PASS sau khi cập nhật 14 doc. **Chưa biên dịch** — host là Windows, không có `xcodebuild`; có **11 file Swift mới** nên khi lên macOS **phải** chạy `xcodegen generate`. **Chưa nghe thử** thay đổi phiên âm Nhật, và từ lượt này không còn bộ ca kiểm nào để chạy.
+
+
+## [1.3.327] - 2026-09-03
+
+### Gom nút của hai màn quản lý quy tắc vào một dropdown thế chỗ nút Edit
+
+Sửa **2** file Swift ([`JunkFilterManagementView.swift`](../../Sources/Views/Settings/Translation/JunkFilterManagementView.swift) 369 → **378**, [`TTSReplacementManagerView.swift`](../../Sources/Views/Settings/TTS/TTSReplacementManagerView.swift) 379 → **390**).
+
+- **Từ ba điểm điều khiển về một.** Trước đây mỗi màn có `EditButton()` ở `.navigationBarTrailing`, `Menu` "Tùy chọn" và nút `+` ở `.bottomBar`. Nay chỉ còn một `ToolbarItem(placement: .topBarTrailing)` — đúng chỗ `EditButton` cũ — chứa tất cả: Thêm quy tắc → Sắp xếp lại → Nhập/Xuất JSON → Xoá tất cả (lọc rác) hoặc Khôi phục mặc định (TTS). Thanh đáy biến mất hẳn, nhường chỗ cho danh sách.
+- **`EditButton()` thay bằng `@State editMode` + `.environment(\.editMode, $editMode)`** — không phải để cho đẹp: `EditButton` tự quản trạng thái nên `Menu` không đọc được để đổi nhãn, và nhãn của nó do hệ thống dịch nên lệch với chữ tiếng Việt hardcode ở hai màn. Mục menu giờ đổi giữa "Sắp xếp lại" và "Xong sắp xếp" kèm icon tương ứng.
+- **Thêm một chốt mới đi kèm việc tự quản `editMode`**: `.onChange(of: isSearching)` đưa `editMode` về `.inactive` khi bắt đầu tìm kiếm. Mục sắp xếp vẫn bị ẩn khi đang lọc (như cũ, vì `onMove` chỉ gắn ở nhánh không lọc) — không có chốt này thì List kẹt ở edit mode trong khi mục thoát duy nhất đã bị ẩn khỏi menu.
+- Thứ tự trong menu theo quy ước iOS: hành động chính trước, hành động phá huỷ cuối và cách bằng `Divider`. Toàn bộ đường dữ liệu (`onDelete`/`onMove`/`swipeActions`, hai `confirmationDialog`, `DocumentPickerPresenter`, `ShareSheet`) không đổi.
+- Gate: `check_architecture.py` giữ đúng **14 violation** (cùng một tập). Lưu ý headroom: `TTSReplacementManagerView.swift` còn **10 dòng** là tới trần 400 — lần sửa sau ở file này nên tách bớt thay vì thêm. **Chưa biên dịch** — host là Windows, không có `xcodebuild`; không file Swift nào được thêm/xoá nên **không** cần `xcodegen generate`.
+
+## [1.3.326] - 2026-09-03
+
+### Dọn tài liệu ghép nối đã bị bỏ của VS Code extension
+
+Sửa **3** file của `Tools/VSCode/FreeBookExtDebug` (`README.md`, `src/protocol.ts`, `package.json`); **không** file Swift nào.
+
+- **README bỏ toàn bộ mục "Ghép nối"** — nó vẫn mô tả `FreeBook: Pair with App`, chuỗi `freebook-extdebug://pair?…&token=…`, bước bấm "Cho phép kết nối" và token lưu bằng `SecretStorage` hết hạn 3 phút. Pairing bị bỏ từ **1.3.305**; không còn lệnh, token hay `SecretStorage` nào trong code (đã grep `src/` và `package.json` để chắc — chỉ còn đúng comment trong Swift ghi nhận việc đã bỏ). Thay bằng mục "Kết nối" nói đúng ba bước hiện tại và nhấn rằng chốt an toàn duy nhất còn lại là bấm trên thiết bị cho `Install Staged Draft`/`Rollback`.
+- **Bảng lệnh khớp lại `package.json`**: bỏ dòng `Pair with App` (lệnh không tồn tại), thêm `Connect to App`, `Browse Extension Folder…`, `Refresh Workspace Extensions` — ba lệnh có thật mà README chưa hề liệt kê.
+- **`freebook.extdebug.cancelRun` được khai trong `contributes.commands`.** Nó vốn `registerCommand` trong `extension.ts` và có nút ở Sidebar, nhưng thiếu khai báo nên **không** hiện trong Command Palette; README thì vẫn liệt kê nó. Tiêu đề `installDraft` đổi thành "(overwrite or new install, needs device approval)" cho khớp hai nhánh của 1.3.325.
+- **`protocol.ts`**: comment của `Envelope.type` bỏ `paired` khỏi danh sách kiểu server trả về — server không còn phát kiểu đó. `parseTarget` **giữ nguyên** khả năng nhận chuỗi `freebook-extdebug://pair?host=…&port=…` kiểu cũ (bỏ qua `token`/`service`), và điều đó nay được ghi rõ trong README thay vì để người đọc tưởng pairing còn sống.
+- **README thêm mục "Chạy script mà không cần cài"** — trả lời đúng câu hỏi hay gặp: `Select Extension` → `Stage Workspace Draft` → `Run Saved Profile` (`sourceMode: "draft"`) chạy thẳng từ `extension-drafts/`, không chạm thư viện. Kèm hai giới hạn: `Run Script…` (source `installed`) vẫn đòi extension đã cài, và staging bị xoá sạch khi tắt server hoặc mở lại app.
+- Gate: `tsc -p ./` **PASS**. Không sửa `Sources/**` nên `validate_links.py` không doc nào stale (`Tools/**` ngoài phạm vi manifest) và `check_architecture.py` giữ nguyên **14 violation**.
+
+## [1.3.325] - 2026-09-03
+
+### Cài mới extension từ VS Code, không chỉ ghi đè bản đã có
+
+Thêm **1** file Swift (461 → **462**), sửa **5** file Swift và **3** file của `Tools/VSCode/FreeBookExtDebug`.
+
+- **`draft.install` có hai nhánh, không thêm lệnh mới vào protocol.** Router tra thư viện bằng **cả hai** id (id client gửi và id app suy ra từ `plugin.json`): khớp ⇒ `installOverExisting` ghi đè file như trước; không khớp ⇒ `installAsNew` dựng `extensions/<packageId>/` từ thư mục staging rồi ghi hàng `Extension` qua `ExtensionTransactionCoordinator`. Đây là chỗ **duy nhất** trong phân hệ debug ghi SwiftData.
+- **File mới [`ExtensionDraftMetadata.swift`](../../Sources/Services/Extensions/Debug/Staging/ExtensionDraftMetadata.swift) (136 dòng)** đọc `plugin.json` của bản nháp theo **đúng** luật của `ExtensionManager.installFromLocalZip` (`metadata.packageId` thắng, thiếu thì `name.lowercased()` thay dấu cách bằng `_`) và dựng `UpsertExtensionCommand`. Cố ý **không** tin `packageId` của client: nhờ vậy client gửi `Truyen Full` khi app đang có `truyen_full` vẫn rơi vào nhánh *cập nhật*, không sinh hàng SwiftData thứ hai.
+- **Thứ tự file → bản ghi là bất biến an toàn, không phải chi tiết triển khai.** Bản ghi trỏ vào thư mục không tồn tại là lỗi im lặng ở mọi màn `@Query`; ngược lại chỉ là thư mục mồ côi mà `ExtensionInstallAudit` phát hiện được. Ghi bản ghi thất bại thì client nhận `INTERNAL_ERROR` nói rõ "đã copy file nhưng không ghi được thư viện".
+- **`writeLibraryRow` hop sang `MainActor` với `ModelContext(container)` riêng** (coordinator là `@MainActor`, còn luật repo cấm dùng chung context của MainActor cho tác vụ nền); chỉ một `String?` băng qua ranh giới isolation. Phát `"extensionDidUpdate"` cùng khuôn với `BackupRestoreWorker` để màn Khám Phá thấy extension mới mà không cần mở lại app.
+- **`installNew` copy chứ không move thư mục staging** — `run.start` với cùng revision phải còn chạy được sau khi cài, và vùng staging vẫn do `ExtensionDraftStagingStore` sở hữu. Thư mục đích đã tồn tại mà chưa có hàng nào trỏ tới (lần cài trước chết giữa đường) đi đúng đường của `install`: sao lưu `.backup/<packageId>/` rồi `replaceItemAt`. Đoạn sao lưu được tách thành `backup(installedUrl:packageId:)` dùng chung cho hai đường.
+- **`run.start` với `sourceMode: "draft"` không còn đòi extension đã cài** — cách thử một extension mới trước khi thêm vào thư viện. Thiếu bản đã cài thì `downloadUrl`/`configJson` rỗng và `host` lấy `metadata.source` của bản nháp; `getCombinedConfigs` vẫn nạp mặc định từ khoá `config` trong `plugin.json`. Hai nguồn cùng đi qua một hàm `startRun(...)` để không lệch nhau.
+- **`draft.stage` bỏ chốt "phải đã cài".** Chốt thật của vùng staging vốn là trần `ExtensionDraftManifest` (200 file / 1 MiB mỗi file / 4 MiB tổng), kiểm tra containment từng path, và việc staging bị xoá sạch khi tắt server hoặc mở lại app.
+- **Cửa xác nhận vật lý nói đúng việc sắp làm**: `ExtensionDebugInstallGate.Kind` thêm `.installNew`, `Request` mang `displayName` đọc từ `plugin.json`, `summary` ba nhánh. Màn Debug Server đổi nhãn "Đồng ý cài mới", header "Yêu cầu thêm extension mới", footer cảnh báo app sẽ tạo thư mục + bản ghi mới, và bullet "Giới hạn đã biết" tách riêng hai nhánh.
+- **Client**: `resolvePackageId({ allowNew })` cho phép stage/install/run-draft chạy với extension chưa có trên app (vẫn chặn `sourceMode: installed`); sau khi cài thì nạp lại `extensions.list` và nhận `packageId` thật từ reply. README cập nhật bảng lệnh + hai ranh giới mới.
+- Gate: `tsc -p ./` (`npm run compile`) **PASS**. `check_architecture.py` giữ đúng **14 violation** (cùng một tập; file mới 136 dòng ≤ 400 và đúng 1 type top level). **Chưa biên dịch Swift** — host là Windows, không có `xcodebuild`; có **1 file Swift mới** nên khi lên macOS **phải** chạy `xcodegen generate`.
+
+## [1.3.324] - 2026-09-03
+
+### Sửa lệch packageId giữa VS Code và app, Run Current File thiếu tham số
+
+Sửa **2** file Swift ([`ExtensionDebugCommandRouter.swift`](../../Sources/Services/Extensions/Debug/Server/ExtensionDebugCommandRouter.swift) 239 → **262**, [`+Draft.swift`](../../Sources/Services/Extensions/Debug/Server/ExtensionDebugCommandRouter+Draft.swift) 183 → **204**) và **2** file TypeScript của `Tools/VSCode/FreeBookExtDebug`.
+
+- **Nguyên nhân "cài bản nháp / test script đều lỗi": hai bên không cùng một luật sinh `packageId`.** Client lấy `metadata.packageId || json.packageId || metadata.name || json.name || folderName` **thô** từ `plugin.json`, còn app sinh id theo ba luật khác nhau tuỳ đường cài: repo sync dùng `ExtensionSyncCommandBuilder.packageId(forName:)` = `name.lowercased()` + thay dấu cách bằng `_`; import zip dùng `metadata.packageId` hoặc `name.lowercased()` **không** thay dấu cách; restore backup giữ nguyên id đã lưu. Một extension tên "Truyen Full" vì vậy là `truyen_full` trên app nhưng `Truyen Full` ở client ⇒ **mọi** lệnh có `packageId` (`run.start` cả hai `sourceMode`, `draft.stage`, `draft.install`, `draft.rollback`) bị trả `UNKNOWN_EXTENSION` kể cả khi extension đang có trên app.
+- **Sửa ở client, vì app là thẩm quyền cuối cùng về danh tính.** `resolvePackageId()` đối chiếu lựa chọn hiện tại với `extensions.list` theo bốn bước (id trùng khít → id trùng slug tên → slug tên trùng slug tên → tên rút gọn bỏ dấu trùng nhau) rồi mới gửi; không khớp thì báo rõ kèm danh sách id app đang có. `stagedRevisions` cũng khoá theo id đã resolve nên id lúc stage và lúc install luôn là một. Chưa kết nối thì giữ id đoán để hành vi offline không đổi.
+- **"Run Current File" gửi run trắng nên luôn lỗi.** Nó lấy tên file làm entrypoint mà **không** hỏi tham số, trong khi `ExtensionDebugCommandRouter.entrypoint(from:)` trả `nil` nếu `search` thiếu `keyword` hoặc `detail`/`toc`/`chap` thiếu `url` ⇒ `UNKNOWN_ENTRYPOINT`; chỉ `genre`/`home` chạy được. Nay `collectEntrypointParams` (dùng chung với Run Script/Run Profile) hỏi trước khi gửi.
+- **Điều kiện rẽ nhánh `custom` sai đối tượng**: cũ so tên file với khoá `script` trong `plugin.json` (tên script của extension), nay so với **sáu entrypoint chuẩn** của server — `list.js` khai trong `script` vẫn phải đi đường `custom` kèm `scriptFileName`.
+- **`getActiveFolderUri()` gói nhầm thư mục** khi người dùng chọn extension từ danh sách "Trên App": nó rơi thẳng về `workspaceFolders[0]`. Nay tìm thư mục workspace cùng danh tính trước.
+- **Phía app: lỗi `UNKNOWN_EXTENSION` nay nói ra id đang có** (`unknownExtensionMessage(requested:installed:)`, dùng chung cho bốn lệnh). Không lộ gì mới vì `extensions.list` vốn trả đúng tập id đó. Thiếu `packageId`/`sourceRevision` của `draft.install`/`draft.rollback` đổi sang `MALFORMED_MESSAGE` cho đúng bản chất; client chỉ in `[code] message` nên không phá tương thích.
+- **Giới hạn chưa đổi (chủ ý, không phải bug)**: `draft.stage`/`run.start`/`draft.install` vẫn bắt buộc extension **đã có** trên app — `ExtensionDraftInstaller` chỉ thay file trong `snapshot.localPath` và không ghi SwiftData, nên chưa có đường cài một extension hoàn toàn mới từ VS Code.
+- Gate: `tsc -p ./` (`npm run compile`) **PASS**, đây là lần đầu có bằng chứng biên dịch thật trong một lượt sửa phân hệ này. `check_architecture.py` giữ đúng **14 violation** (cùng một tập; hai file router 262/204 dòng đều ≤ 400). **Chưa biên dịch Swift** — host là Windows, không có `xcodebuild`; không file Swift nào được thêm/xoá nên **không** cần `xcodegen generate`.
+
+## [1.3.323] - 2026-09-03
+
+### Gỡ tap tắt bàn phím khi bàn phím đóng để không mất vùng bôi đen
+
+Sửa **1** file Swift ([`KeyboardDismissGesture.swift`](../../Sources/Common/Utils/KeyboardDismissGesture.swift), 112 → **149**).
+
+- **Nguyên nhân (người dùng xác nhận trên máy thật: chưa mở bàn phím thì không bao giờ bị).** `KeyboardDismissGesture` cài `UITapGestureRecognizer` lên `UIWindow` ở lần bàn phím hiện **đầu tiên** rồi để nằm đó suốt phiên. Handler gọi `endEditing(true)`, mà lệnh đó buộc **first responder bất kỳ** trong window resign — kể cả `ReaderUITextView` chỉ đọc đang giữ vùng bôi đen, hoặc `WKContentView` của web view tra cứu (công cụ tìm kiếm mở qua `ReaderLookupRoute`). Vì `cancelsTouchesInView = false` và recognizer nhận diện đồng thời, nó không chặn cú long-press chọn chữ — nó chỉ âm thầm xoá vùng chọn ở đúng nhịp thả tay, rồi `textViewDidChangeSelection` bắn `length == 0` và `ReaderView` tắt `FloatingSelectionMenu`.
+- **Vì sao vùng bôi ngắn hay bị nhất**: `UITapGestureRecognizer` fail khi ngón **di chuyển** quá ngưỡng, không phải khi giữ lâu. Kéo một vệt dài thì tap tự fail nên vùng chọn sống; chọn một từ thì ngón gần như không di chuyển nên tap nhận diện và xoá.
+- **Cách sửa**: recognizer chỉ sống trong quãng bàn phím đang hiện. `activate()` đăng ký thêm `keyboardWillHideNotification` → `keyboardWillHide()` → `uninstall()` gỡ recognizer khỏi **mọi** window theo `UIGestureRecognizer.name`. Cố ý **không lọc** `windowLevel == .normal && !isHidden` như `installIfNeeded()`: bộ lọc chỉ hợp lý khi chọn nơi cài, còn lúc gỡ mà lọc thì window đã bị ẩn giữa hai lần bàn phím sẽ giữ lại một recognizer mồ côi vẫn gọi `endEditing`.
+- **Hành vi "bấm ra ngoài ô nhập là tắt bàn phím" không đổi**: đúng lúc có bàn phím để tắt thì recognizer luôn có mặt. Ba thiết lập bắt buộc của recognizer (`cancelsTouchesInView = false`, `shouldRecognizeSimultaneouslyWith → true`, `shouldReceive` bỏ qua ô đang nhập được) giữ nguyên vì không cái nào là nguyên nhân. `Sources/Views/Reader/**` không bị chạm một dòng nào — kể cả overlay "bắt tap ra ngoài" của `FloatingSelectionMenu`, thứ từng là nghi phạm thứ hai nhưng bị loại vì không mở bàn phím thì không bao giờ mất vùng bôi.
+- **Khe hẹp cố ý để lại**: nếu bàn phím **đang** hiện đúng lúc người dùng bôi đen (ví dụ ô nhập trong trang web vẫn giữ tiêu điểm), cú tap đó vẫn vừa tắt bàn phím vừa xoá vùng chọn; recognizer biến mất ngay sau đó nên lần bôi kế tiếp bình thường.
+- Gate: `check_architecture.py` giữ đúng **14 violation** (cùng một tập; file 149 dòng vẫn ≤ 400 và đúng 1 type top level). **Chưa biên dịch** — host là Windows, không có `xcodebuild`; không file Swift nào được thêm/xoá/đổi tên nên **không** cần `xcodegen generate`.
 
 ## [1.3.322] - 2026-09-02
 
@@ -373,220 +500,3 @@ Thêm **3** file Swift (423 → 426), sửa 2 file. **Không** đổi đường 
 * **Cổng quyết định cho lượt sau**: nghe được tiếng Anh ⇒ chuyển quyết định ngôn ngữ xuống **tầng phoneme** (`TTSPhonemeStreamBuilder` tách span, phiên âm từng span bằng đúng giọng, ghép IPA; `JapaneseRomajiIPA` cho tiếng Nhật, đảo lại quyết định bỏ `ー` của 1.3.291 vì `ː` có trong từ vựng). `θ ð æ` ra tiếng lạ ⇒ giữ hướng phiên âm sang âm Việt nhưng dùng bảng đếm để bổ sung `IPAToVietnameseMapper` cho đúng chỗ đang bị bỏ.
 * `check_architecture.py` giữ **14 violation** đúng cùng một tập; 3 file mới đều ≤ 400 dòng và đúng 1 type top level. CodeGraph: cập nhật `00`, `02`, `04`, `10`, `14`; `09`, `11`, `13`, `rules` ghi nhận `--no-change-needed`.
 
-## [1.3.295] - 2026-08-31
-
-### Revert toàn bộ engine VieNeu-TTS
-
-Revert ba commit `1.3.292`–`1.3.294` (25 file mới, 8 file sửa). Cây code trở lại đúng trạng thái `1.3.291`: 423 file Swift, `check_architecture.py` 14 violation nền, `validate_links.py` PASS. Không xoá bằng `reset --hard` mà bằng `git revert` nên lịch sử vẫn tra cứu được nếu muốn làm lại.
-
-**Lý do**: audio trên iPhone 11 ra nhiễu và không giống tiếng Việt, app dễ crash, khoảng cách giữa hai chunk lớn. Sau khi đối chiếu số học với engine tham chiếu Python thì lỗi nằm ở **bản port Swift**, không ở model — nhưng chưa khoanh được tầng nào, và chi phí giữ một engine chưa dùng được trong cây code cao hơn giá trị của nó.
-
-**Giữ lại ở đây những gì đã kiểm chứng được, để lần sau không phải làm lại:**
-
-* **Bộ `onnx_int8` không hỏng.** Engine tham chiếu Python chạy trên đúng bộ đó cho 4.56 s audio, peak 0.58, rms 0.12 — tỉ lệ rms/peak 0.21 là đặc trưng tiếng nói (ồn trắng cho 0.5–0.7).
-* **Thuật toán speaker anchor đúng**: GEMV `NoTrans` trên `xvec_w` (768,192) rồi LayerNorm phương sai **toàn phần** cho `max|Δ| = 7.45e-09` so với `_speaker_anchor`.
-* **Layout npz**: `text_emb` (419,768) fp32, `audio_emb` (16,1024,768) fp32, C-contiguous, npz **stored** (không nén) ⇒ chỉ số phẳng `(ch*1024 + code)*768 + h` là đúng.
-* **Tokenizer**: id của **mọi** phoneme giống nhau giữa `tokenizer.json` gốc và bản `onnx_int8`; chỉ 30 nhãn `<|reserved_N|>` bị đổi số. `<|unk|>` = 43, vocab phoneme bắt đầu ở 44 ở cả hai.
-* **Token dẫn đầu prompt = 16 là đúng, nhưng vì lý do khác 1.3.292 ghi**: trong tokenizer của `onnx_int8`, id 16 là `<|style_0|>` — token **thật, đã train** — và ô dự trữ bắt đầu ở **26**, không phải 13. Ghi chú `reserved_token_start = 13` trong `config.json` mô tả cách đánh số của bộ **gốc**.
-* **`ORTSessionOptions.addConfigEntry(withKey:value:)` có** trong binding ObjC của phiên bản ORT đang pin; contrib op int8 biên dịch được. Hai rủi ro build đó không còn phải lo nếu làm lại.
-* **Số đo trên iPhone 11 (bộ fp32, 84 frame = 6.72 s audio)**: decode step 19.92 ms/frame ≈ **20.8 GB/s** — thuần bị chặn băng thông; acoustic 7.93 ms/frame; lấy mẫu 2.86 ms/frame; prefill 0.461 s; codec 1.342 s. Vòng AR 31.25 ms/frame ≈ 2.6× realtime, nhưng `thermal=serious` và `[NghiEnergy] Underrun` xuất hiện chỉ 3 giây sau khi bắt đầu phát.
-* **Bản port Swift chưa từng được chứng minh là cho ra audio đúng.** Bản thử nghiệm chạy `active_vq = 8`, thứ làm tiếng đục vì codec là RVQ residual.
-
-**Chưa khoanh được**: lỗi ở đâu trong cơ chế Swift (xử lý `ORTValue`, tuổi thọ buffer, hay vòng `VieNeuDecodeLoop`). Nếu làm lại thì bước đầu tiên là dựng lại bộ tự kiểm greedy 1 frame và so 16 code của frame đầu với giá trị tham chiếu — code khớp thì lỗi ở codec/hậu xử lý, code lệch thì lỗi ở vòng sinh.
-
-## [1.3.291] - 2026-08-31
-
-### Chống mất chữ khi phiên âm, trường âm Nhật đọc như âm ngắn, xoá tất cả phiên âm
-
-- **Sửa lỗi đọc mất chữ.** Truy ra **5 chỗ bỏ chữ im lặng**: `ONNXPiperEngine` bỏ mọi unicode scalar không có trong `phoneme_id_map` (chỉ log); `IPAToVietnameseMapper` bỏ ký hiệu IPA lạ, xoá âm tiết không dựng được, giữ **một** phụ âm mỗi đầu cụm; bộ luật chính tả cắt phụ âm cuối; **không có chốt chống rỗng ở mức token** (`PiperTTSService.isUnspeakable` chỉ chặn cả chunk); và cổng ngữ cảnh của 1.3.290 đẩy cả từ tiếng Việt vào đường tiếng Anh. Bất biến mới: **không bộ phiên âm nào được trả rỗng**, rỗng thì trả nguyên văn token — áp cho cả ba đường.
-- **Cụm phụ âm tách thành âm tiết đệm thay vì bị cắt.** `assemble` trả `[String]`: cụm đầu thành các âm tiết `+ "ơ"` ("street" → "xơ-tơ-rít", trước là "trít" mất /s/), phụ âm cuối thừa thành **một** âm tiết đệm ("text" → "tếc-xơ"). Đây là cách người Việt thật sự đọc từ nước ngoài, và nó bỏ hẳn lý do phải bỏ âm để hợp chuẩn chính tả.
-- **Siết cổng ngữ cảnh của 1.3.290**: âm tiết Việt mơ hồ ("man", "song", "nam") chỉ được phiên âm khi **kẹp giữa** từ lạ ở *cả hai* phía, thay vì chỉ cần một láng giềng lạ — trước đây "anh Nam gọi taxi" có thể làm "nam" bị phiên âm oan. `VietnameseTokenGate` trả `(before, after)`.
-- **Trường âm tiếng Nhật đọc như âm ngắn — đảo lại quyết định của 1.3.290.** `ー` bị bỏ ("ラーメン" → "ra-mên") vì tiếng Việt không có nguyên âm dài: nhân đôi nguyên âm làm Piper đọc thành **hai âm tiết rời** có ngắt thanh hầu, nghe như nói lắp. Cùng nguyên tắc, thêm `ou → ô` và `ei → ê` ("arigatou" → "a-ri-ga-tô", trước sinh thêm một âm tiết "ư" thừa). Ghi rõ trong code + bộ ca kiểm rằng đây là **lựa chọn nghe**, không phải chuẩn Hepburn.
-- **Thêm "Xoá tất cả phiên âm"** ở màn Từ điển TTS: `TextPreprocessor.deleteAllWords()` (file mới `TextPreprocessor+Bulk.swift`) dọn `wordMap` + ghi plist **rỗng** + xoá LRU cache trong một lượt; UI là `TTSDictionaryBulkActionsModifier` (`@MainActor ViewModifier`, đúng khuôn `QuickTranslationRuleIOMenu`). Ghi file rỗng chứ không xoá file — "chưa tải từ điển" và "người dùng muốn trống" là hai trạng thái khác nhau. Cảnh báo của nút "Tải lại từ điển gốc" sửa lại cho khớp hành vi **trộn** từ 1.3.290 (câu cũ nói sẽ ghi đè, đã sai).
-- Sửa kỳ vọng bộ ca kiểm: ラーメン → "ra-mên", ジェット → "giêt-tô" (sokuon gắn vào âm tiết **trước**, tôi đặt sai ở 1.3.290), thêm ca `arigatou`, `street`, `text`.
-- 2 file Swift mới (421 → **423**). `TextPreprocessor.swift` giữ **đúng** 1121 dòng (chỉ đổi 4 từ khoá truy cập vì `private` là phạm vi file), `TTSDictionaryEditView.swift` **giảm** 706 → 705. `check_architecture.py` giữ 14 violation nền.
-- **Chưa làm trong lượt này**: Phase 0 (đo `phoneme_id_map` của model), Phase 2 (map âm vị tiếng Anh **trong** inventory của model để bỏ hẳn khâu chính tả), Phase 3 (để espeak tự chuyển ngôn ngữ), Phase 4 (kana → IPA trực tiếp).
-
-## [1.3.290] - 2026-08-30
-
-### NghiTTS: phiên âm tiếng Anh qua IPA của espeak, bỏ blacklist tiếng Nhật
-
-- **Bộ luật tiếng Anh tự huỷ lẫn nhau.** `sRules` chạy trước `rRules` trên cùng chuỗi nên `ck → c` và `sh → s` xoá cụm trước khi các luật đuôi kịp thấy ⇒ 10 luật chết (`ack$/eck$/ick$/ock$/uck$`, `ash$/esh$/ish$/osh$/ush$`). Dời hai luật đó xuống đầu `tRules`: "back" → "bác" thay vì "bac", "duck" → "đúc" thay vì "đuc".
-- **Ba luật khớp giữa từ vì thiếu ngoặc**: `"\bcr|pr|gr|dr|fr"` là `(\bcr)|(pr)|…` nên `pr/gr/dr/fr` đổi ở mọi vị trí ("april" → "ail", "hydro" → "hyro"). Nay `\b(?:…)`; cùng nhóm `\b(?:sc|sk)` và `\b(?:bl|cl|sl|pl)`.
-- **Mọi từ mở đầu bằng "y" đọc thành /d/**: hai `if` nối tiếp, câu sau đọc chuỗi vừa bị `y → d` rồi đổi tiếp thành `đ` ("yes" → "đet"). Nay `else if`, và tiền tố `y` map sang `i` vì "d" tiếng Việt đọc /z/ trong khi "y" đầu từ là bán nguyên âm /j/.
-- **Đường chính của tiếng Anh không còn đoán theo chính tả.** `EnglishPhonemeTransliterator` hỏi espeak-ng giọng `en-us` lấy **IPA thật**, `IPAToVietnameseMapper` dựng âm tiết Việt hợp lệ (onset/nucleus/coda + chuẩn hoá `c/k/g/gh/ngh`); bộ luật cũ tụt xuống dự phòng. Không thêm dependency: `build-ipa.yml` khi dọn dữ liệu espeak vẫn giữ `en_dict` + `voices/en`, chỉ có code là chưa bao giờ đổi giọng. `EspeakPhonemizer` tách `initializeIfNeeded`/`textToPhonemes`, thêm `phonemizeEnglish` (đặt `en-us`, trả `vi` trong `defer` — Piper luôn cần giọng `vi`) và `probeVoices`.
-- **Phân loại Nhật/Anh bỏ blacklist tay.** Xoá `englishBlacklist` ~420 từ (vá theo từng ca, có cả "ee", "san"); `ForeignScriptClassifier` chấm điểm dấu hiệu — romaji hợp lệ chỉ còn là *điều kiện cần*. Phải đổi kiến trúc vì "tomato", "potato", "sonata" đều cắt được thành âm romaji: tập từ tiếng Anh cần loại trừ là vô hạn.
-- **Bảng romaji→Việt**: `ya/yu/yo` từ `da/du/dô` (đọc /za/) thành `ia/iu/iô`. `za/zi/zu` **giữ nguyên** `da/di/dư` vì "d" tiếng Việt vốn đọc /z/, khớp /dz/ tiếng Nhật — đây là chỗ tôi nói sai ở lượt khảo sát trước.
-- **Trường âm `ー` không còn bị xoá**: `convertToRomaji` nhân đôi nguyên âm trước ("ラーメン" → "raamen") và bảng nhận thêm `aa/ii/uu/ee/oo` để `greedySegment` không vỡ. Thêm katakana hiện đại: ヴ, ファ/フィ/フェ/フォ, ティ/ディ, ウィ/ウェ/ウォ, ジェ/シェ/チェ.
-- **Cổng "là từ tiếng Việt" xét ngữ cảnh.** `VietnameseTokenGate`: token có dấu → giữ; không phải âm tiết Việt → phiên âm; ~700 âm tiết **mơ hồ** ("man", "can", "song", "tin", "phim") → chỉ phiên âm khi có láng giềng lạ trong cửa sổ ±2 token, chặn ở dấu kết câu.
-- **Tải lại từ điển không còn xoá phiên âm tự thêm**: `downloadDictionaries` **trộn** với bản dưới máy (mục dưới máy thắng) thay vì ghi đè `non-vietnamese-words.plist` — file mà `updateWord` cũng ghi.
-- **Thước đo nằm trong app**: màn **Thử phiên âm** (Cấu hình NghiTTS) kiểm giọng espeak có thật không, soi đường đi của một từ (từ điển → phân loại → IPA → kết quả), và chạy `TransliterationGoldenSet` ~55 ca. Vì `Tests/` bị coi như không tồn tại và máy chạy qua LiveContainer không đính được debugger.
-- 6 file Swift mới (415 → **421**), tất cả ≤ 400 dòng; `TextPreprocessor.swift` giữ **đúng** 1121 dòng (bằng baseline), `JapaneseTransliterator.swift` **giảm** 411 → 320. `check_architecture.py` giữ 14 violation nền.
-
-## [1.3.289] - 2026-08-30
-
-### Rule editor: chèn token tại con trỏ của ô nhập mẫu
-
-- **Nút token luôn chèn vào cuối mẫu.** Ở 1.3.288 con trỏ duy nhất là vạch 2pt giữa hai chip của dải mẫu, nên trừ khi bấm đúng vạch đó, mọi lần chèn đều rơi xuống cuối chuỗi. Sửa bằng `QuickTranslationRulePatternField` — `UIViewRepresentable` bọc `UITextView` để đọc/ghi **con trỏ thật**: `textViewDidChangeSelection` báo lên `selectionStart`/`selectionLength`, `updateUIView` áp ngược lại khi dải chip hoặc nút token đặt vùng chọn mới. Phải bọc UIKit vì iOS 17 không cho SwiftUI đọc vùng chọn của `TextField` (`TextSelection` là iOS 18). Bấm token giờ chèn tại con trỏ, hoặc **thay** đoạn đang bôi đen.
-- Quy đổi đơn vị đặt đúng ở biên UIKit: model đếm theo **ký tự** (`Array(pattern)`), `UITextView` dùng `NSRange` UTF-16, hai chiều đổi qua `String.Index`. Hai chốt chống vòng lặp cập nhật: `isApplying` (không báo lên khi tự áp xuống) và `lastReportedRange` (không áp lại range vừa báo lên — cần khi chuỗi có ký tự ngoài BMP).
-- Thanh `:min-max` nay mở theo **con trỏ** chứ không chỉ theo vùng chọn khít: token có `start < caret ≤ end` là mở. Vừa chèn `<n>` xong là chỉnh được độ dài ngay, và chạm vào giữa `<n:1-6>` trong ô nhập cũng mở đúng token đó.
-- Bỏ cờ `isProgrammaticPatternEdit` và heuristic "gõ tay ⇒ con trỏ về cuối" của 1.3.288: chúng chỉ tồn tại vì trước đó không đọc được con trỏ thật, giữ lại là hai nguồn tranh nhau quyết định con trỏ ở đâu. `reconcileSelection` giờ chỉ kẹp biên.
-- `@FocusState` chỉ còn cho ô Bản dịch; ô Mẫu tự `becomeFirstResponder()` một lần trong `makeUIView` khi bản nháp nói nó đang được gõ, và báo focus ra ngoài bằng `onFocusChange`. `focusedField` đổi từ `@FocusState` sang `@State` thường vì nó là *dữ liệu của bản nháp*, không phải cái điều khiển focus.
-- 2 file Swift mới (413 → **415**), nhưng `QuickTranslationRuleEditorSheet.swift` **giảm** 374 → 319 dòng nhờ dời 6 hàm biên tập sang `QuickTranslationRuleEditorSheet+Editing.swift`; các `@State` liên quan chuyển sang `internal` (đúng khuôn `ReaderView` + `ReaderView+Selection`). `check_architecture.py` giữ 14 violation nền.
-
-## [1.3.288] - 2026-08-30
-
-### Rule editor: giữ bản nháp, bảng token, thanh min-max, chip {i}
-
-- **Mất sạch chữ đang gõ ở màn thêm/sửa rule khi TTS tự chuyển chương.** Sheet **vẫn mở** mà mọi ô về giá trị seed ⇒ SwiftUI dựng lại content của sheet, `init` chạy lại. Sửa bằng `QuickTranslationRuleDraftStore` (1 slot theo `Mode.id`, sống ngoài cây view, không `ObservableObject`): `init` seed `@State` từ slot, mọi thay đổi mirror ngược lại, `@FocusState` khôi phục ở `onAppear`. Draft chỉ xoá khi **lưu thành công** hoặc bấm **Hủy** — cố ý không xoá ở `onDisappear` vì chính lượt dựng lại có thể kèm một lần disappear. Không hoist lên `@State` của `ReaderView` được: `@State` không khai được trong extension và `ReaderView.swift` đang vượt baseline (2076 > 2053) nên chỉ được giảm dòng. Fix áp cho **cả hai** call site mà không sửa call site nào.
-- **Bảng nút token** (`QuickTranslationRuleTokenPaletteView`): 10 token dựng từ `QuickTranslationRuleTokenSettings.Kind.allCases` + 4 nút cú pháp nhóm; chạm là chèn tại con trỏ hoặc **thay** vùng đang chọn. Token đang tắt ở Cấu hình token rule hiện mờ kèm cảnh báo. Kèm `QuickTranslationRulePatternStripView` — dải chip của mẫu (một token là **một** chip) cấp con trỏ và vùng chọn, vì iOS 17 không cho SwiftUI đọc vị trí con trỏ của `TextField` mà luồng chính (nút `+` của Check rule) cần **thay** một đoạn chữ Trung thành token.
-- **Thanh min–max bước 1, `[−]`/`[+]` hai bên** (`QuickTranslationRuleTokenLengthBar`) cho token đang chọn, kèm công tắc `?`. Biên lấy từ parser chứ không đặt lại: `min ≥ 1`, `max ≥ min`, trần 20; token không khai `:min-max` nghĩa là `1...12` nên về mặc định thì xuất token **trần**, `min == max` xuất `:N`. `<L>`/`<hv>` không có thanh vì parser ép chúng về đúng 1 ký tự.
-- **Chip `{0}/{1}/{2}` theo số token của mẫu** (`QuickTranslationRuleCaptureChipsView`) để chèn vào bản dịch, chip chưa dùng tô đỏ, cộng section **Kiểm tra** (`QuickTranslationRuleDraftIssuesView`) hiện **mọi** issue ngay khi gõ thay vì một issue sau khi bấm Lưu. Verdict do `QuickTranslationRuleDraftAnalyzer` cấp: dựng đúng dòng store sẽ ghi (`RecordStore.serialize`) rồi chạy lại `parse` → `compile`, nên không có trạng thái "ở đây xanh mà lưu vẫn đỏ". `QuickTranslationRuleCompiler.parseTemplate` mở `private` → `internal` để không có bản quét `{…}` thứ hai.
-- Sheet hướng dẫn Check rule dời từ ZStack của `ruleToolsOverlay` xuống chính panel Check rule: một view chỉ có một chỗ trình bày.
-- 7 file Swift mới (406 → **413**), tất cả ≤ 400 dòng và 1 primary type top-level; `ReaderView.swift` không thêm dòng nào. `check_architecture.py` giữ **14 violation nền**, không violation mới. Host Windows không build được — tính đúng đắn biên dịch do CI xác nhận.
-- Đẩy 10 entry cũ nhất (1.3.249–1.3.258) sang `CHANGELOG.archive.md` để file chính về 30 entry theo quy ước.
-
-## [1.3.287] - 2026-08-28
-
-### Add `<h>` (Chinese digits) and `<d>` (ASCII + fullwidth digits) numeral tokens
-
-- `QuickTranslationRuleElement.NumeralKind` thay cho trạng thái `isDigitwise: Bool`: `<n>` = `.chinese`, `<y>` = `.digitwise`, `<h>` = `.hanDigits`, `<d>` = `.asciiDigits`.
-- `<h>` chỉ nuốt chữ số Hán `〇零一二两兩三四五六七八九`; `<d>` chỉ nuốt `0123456789` ASCII + full-width `０..９` (U+FF10-FF19), render full-width về ASCII. `<n>/<y>` cũng nhận full-width giờ.
-- `QuickTranslationNumberFormatter` thêm `hanDigitsUnits`/`asciiDigitsUnits`, `units(for:)`, `renderHanDigits`/`renderAsciiDigits`; `digitMap` thêm full-width. Matcher/Compiler dùng `units(for:)` cho boundary guard và render theo loại.
-- `QuickTranslationRuleTokenSettings` tăng 8 → **10** token (thêm `h`/`d` + 2 khoá UserDefaults lower-camel-case); `QuickTranslationRuleTokenSettingsView` thêm 2 Toggle ở nhóm "Token số và nhãn". `|` giữa các token số vẫn được parse theo loại đầu tiên để giữ tương thích `<n|y>` cũ.
-- Mọi file sửa vẫn ≤ 400 dòng; không thêm file mới.
-
-## [1.3.286] - 2026-08-28
-
-### Merge Quick Translation rule action menus
-
-- `QuickTranslationRuleListView` chỉ còn một dropdown `quickTranslationRuleIOMenu(scope:showingDisabled:)`; tab Đang bật hiện nhập/xuất/xoá bộ rule, tab Đã tắt hiện nhập/xuất/bật lại/xoá danh sách rule tắt.
-- Xoá modifier riêng `QuickTranslationRuleDisableIOMenu`, chuyển các thao tác rule tắt sang `QuickTranslationRuleIOMenu+DisabledActions.swift` để vẫn giữ mỗi file dưới 400 dòng.
-- Giữ `DocumentPickerPresenter`/`ShareSheet` gắn trên body chính, không đưa presenter vào toolbar.
-
-## [1.3.285] - 2026-08-28
-
-### Fix: Correct disabled rule import API label
-
-- Sửa chữ ký `QuickTranslationRuleDisableStore.importPatterns(imported:mode:scope:)` khớp call site nhập danh sách rule tắt, tránh lỗi compile do label `imported:`.
-- Tách scope mặc định của `QuickTranslationRuleEditorSheet` trong Reader thành helper rõ ràng, giữ nguyên hành vi sửa/thêm rule theo đúng scope.
-
-## [1.3.282] - 2026-08-28
-
-### Fix Check rule edit, add disable rules import/export
-
-- Màn Check rule: popup ấn giữ chip thêm nút **"Sửa rule"** (mở `QuickTranslationRuleEditorSheet` chế độ `.edit` với scope đúng của rule — riêng/chung). Sheet dùng `updateRule(oldPattern:)` đúng ngữ nghĩa: đổi mẫu = thêm rule mới, giữ rule cũ.
-- `QuickTranslationRuleEditorSheet.Mode.edit` thêm associated value `scope: QuickTranslationRuleScope` — mode tự chứa, mọi đường mở sheet đều biết sửa bộ nào.
-- Xuất/nhập/bật lại/xoá **rule tắt riêng & chung**: thêm ViewModifier `QuickTranslationRuleDisableIOMenu` gắn vào List (file mới < 400 dòng). Menu có 4 mục: Nhập (.txt, 3 chế độ `DataImportMode`), Xuất, Bật lại tất cả, Xoá tất cả rule đã tắt (destructive, xoá hẳn rule khỏi file + dọn danh sách tắt). Nhập dùng đủ 3 mode chuẩn app (2 mode đè/giữ đồng nghĩa với tập mẫu — ghi chú trong code).
-- `QuickTranslationRuleDisableStore`: thêm `importPatterns(_:mode:scope:)` (luôn notifyChange) + `clearDisabled(scope:)`.
-- `QuickTranslationRuleStore+Editing` / `QuickTranslationRuleBookStore`: thêm bulk `deleteRules(patterns:)` / `deleteRules(patterns:bookId:)` — filter records rồi ghi lại; không fail khi có mẫu stale.
-- Cập nhật accessibility/hướng dẫn: "Ấn giữ: sửa / bật / tắt / xoá".
-
-## [1.3.283] - 2026-08-28
-
-### Fix: Remove @ObservedObject from QuickTranslationRuleIOMenu
-
-- Gỡ `@ObservedObject` khỏi `QuickTranslationRuleIOMenu`, vì `ViewModifier` dùng trực tiếp các singleton store giống modifier danh sách rule tắt.
-- Giữ nguyên hành vi đọc, nhập, xuất và xoá rule theo phạm vi chung/riêng.
-
-## [1.3.284] - 2026-08-28
-
-### Fix: Isolate Quick Translation rule modifiers on MainActor
-
-- Đánh dấu hai `ViewModifier` quản lý rule dịch là `@MainActor` để truy cập singleton store có trạng thái UI an toàn khi build với Swift concurrency hiện hành.
-
-## [1.3.281] - 2026-08-28
-
-### Fix rule list back bug, add rule set import/export
-
-- Chuyển `QuickTranslationRuleIOMenu` từ View nhúng toolbar sang **ViewModifier** áp lên `List`, gỡ bug SwiftUI: `DocumentPickerPresenter` (UIViewControllerRepresentable) đặt trong toolbar gây kẹt transition khi pop trong sheet → màn trắng (bug 1.3.281). Giống `DictionaryListView`, mọi presenter/presentation giờ gắn lên body chính.
-- Menu Nhập/Xuất/Xoá hiện cho **cả rule riêng và chung** (trước chỉ riêng).
-- Route import/export/xoá theo `scope`: `QuickTranslationRuleBookStore` (riêng) / `QuickTranslationRuleStore` (chung).
-- Giữ `.searchable` (bằng chứng: Rule Chung back bình thường → `.searchable` không phải thủ phạm).
-
-## [1.3.280] - 2026-08-26
-
-### Canonicalize Quick Translation rule storage
-
-Sửa lỗi build CI của hai API xoá rule sau khi chuyển sang closure `withMutationLock`.
-
-* Thêm `return withMutationLock { ... }` cho `deleteRule(pattern:)` ở store chung và riêng.
-* Giữ nguyên commit subject cho lần push sửa CI.
-
-## [1.3.279] - 2026-08-26
-
-### Canonicalize Quick Translation rule storage
-
-Quick Translation Rule chung và riêng theo truyện nay dùng cùng ngữ nghĩa TXT như VP/Name custom: thao tác theo key `pattern`, duplicate giữ dòng đầu, dòng hỏng bị bỏ qua và mọi lần ghi sinh lại file canonical `.txt`.
-
-* Thay `QuickTranslationRuleFileEditor` bằng `QuickTranslationRuleRecordStore` cho parse/merge/upsert/delete/serialize records.
-* `QuickTranslationRuleStore` và `QuickTranslationRuleBookStore` đều thêm/sửa/xoá theo `pattern`; không dùng UUID/sourceLine/sourceRevision cho nghiệp vụ.
-* Snapshot và trace bỏ `rowID`; UI list dùng `pattern` làm identity sau canonical first-wins và đảo thứ tự file để rule cuối file lên đầu.
-* Import preview và import 3 chế độ tính theo key hợp lệ; comments/header/dòng lỗi rơi khỏi file sau lần ghi đầu.
-* Windows không có `xcodebuild`/`xcodegen`; đã chạy validator tĩnh, build Swift cần xác nhận trên macOS/CI.
-
-## [1.3.278] - 2026-08-26
-
-### Match preparing TTS highlight color to config
-
-Preparing highlight của đoạn sắp nghe nay dùng đúng màu highlight đã cấu hình, trùng với active TTS highlight.
-
-* `ReaderTextView` bỏ alpha riêng `0.28` cho preparing highlight; background luôn là `theme.highlightUIColor`.
-* Preparing highlight cũng áp `theme.highlightTextUIColor` nếu theme/config có màu chữ highlight, giống active highlight.
-* `highlightIsPreparing` vẫn giữ vai trò diff/repaint khi chuyển preparing → active, nhưng không còn tạo palette riêng.
-* Không đổi state TTS, progress, Now Playing, prefetch hay thứ tự ưu tiên active → preparing → search.
-
-## [1.3.277] - 2026-08-26
-
-### Reveal TTS widget when starting from Reader
-
-Khi bấm nút nghe trong Reader hoặc bôi đen rồi bấm "Nghe", widget TTS mở ở dạng capsule ban đầu thay vì peeking. Không đổi `TTSManager.startSpeaking`, không đổi `WidgetMode`, không thêm notification/event center.
-
-* `TTSFloatingWidgetWindowManager` thêm request một lượt `requestRevealOnNextShow()` với cờ pending `shouldRevealOnNextShow`, consume khi container sẵn sàng hoặc reveal ngay nếu widget đã tồn tại.
-* `FloatingWidgetContainerViewController` expose `reveal(animated:)`, dùng lại `FloatingWidgetViewModel.reveal()` nên auto-hide 3 giây và layout/snap hiện có giữ nguyên.
-* `ReaderView.startTTS(...)` gọi request reveal ngay trước `ttsManager.startSpeaking(...)`; đây là điểm chung của nút headphones và menu bôi đen "Nghe".
-* Giữ ranh giới kiến trúc: `Services/TTS` không biết widget UI; request nằm ở tầng View.
-
-## [1.3.276] - 2026-08-26
-
-### Show preparing TTS highlight before audio starts
-
-Thêm state highlight chuẩn bị để Reader tô đoạn sắp nghe ngay khi bấm phát, trước khi engine TTS tổng hợp/phát audio thật. Không thêm file Swift, không đổi `@Model`, không thêm notification/event center mới.
-
-* `TTSPlaybackSnapshot` thêm `preparingParentParagraphIndex` và `preparingHighlightRange`; `TTSManager.speakCurrent()` publish hai field này trước khi dispatch engine, còn `commitAudibleParagraphState(index:)` vẫn là cửa duy nhất publish active `highlightRange` khi audio bắt đầu.
-* Reader projection (`ReaderTTSStateReader`) truyền state chuẩn bị chỉ cho đúng sách đang phát. `ReaderView` chọn highlight theo thứ tự active TTS → preparing TTS → search, và `ParagraphCardView`/`ReaderTextView` render vệt chuẩn bị bằng `highlightIsPreparing`.
-* State chuẩn bị chỉ là presentation state: không lưu tiến độ, không update Now Playing, không claim `ReadingProgressStore`, không đổi prefetch/cache audio và không dùng mapper highlight.
-* Windows không có `xcodebuild`; đã chạy kiểm tra tĩnh cục bộ, build Swift cần xác nhận trên macOS/CI.
-
-## [1.3.275] - 2026-08-26
-
-### Fix Reader lookup route visibility for CI build
-
-Sửa access control của `ReaderLookupRoute` để extension `ReaderView+Selection` có thể khởi tạo route tra cứu ngoài. Không đổi hành vi UI, navigation hay dữ liệu.
-
-* `ReaderLookupRoute` chuyển từ `private` thành internal để phù hợp với `ReaderView.lookupRoute` và call site ở file extension.
-* Sửa lỗi archive CI: `cannot find 'ReaderLookupRoute' in scope` và `property must be declared fileprivate because its type uses a private type`.
-* Windows không có `xcodebuild`; đã chạy kiểm tra tĩnh và sẽ xác nhận bằng CI macOS.
-
-## [1.3.274] - 2026-08-26
-
-### Rule dịch: trace lý do match, bật/tắt từng rule, bộ rule riêng theo truyện, overlay xem bản gốc
-
-Thêm **17** file Swift, sửa **17** file Swift, không xoá file, không đổi shape `@Model`, **không** thêm resource bundled (bộ riêng là dữ liệu người dùng, nằm ở `translate/books/<bookId>/`). **Chưa biên dịch** (viết trên Windows, không có `xcodebuild`); có file Swift mới nên khi lên macOS phải `xcodegen generate`.
-
-* **Hai bộ rule thật — bộ riêng theo truyện**: `QuickTranslationRuleScope` (Models, `enum { global, book(String) }`, `rank` 0 riêng / 1 chung) và `QuickTranslationRuleBookStore` (chủ `translate/books/<bookId>/QuickTranslateRules.txt`, LRU cap **3** truyện, compile lazy, cùng hợp đồng validate-then-swap, dùng lại Parser/Compiler/FileEditor/`rowIDs` của bộ chung). Engine trộn hai bộ trong cùng một lượt rewrite (hai lần `collectFound` + `select` **một** lần trên tập hợp nhất); `scopeRank` là tiêu chí ưu tiên **thứ 5**, đứng ngay trước `sourceLine`, nên trong một bộ đơn lẻ thứ tự cũ không đổi — rule riêng thắng rule chung khi trùng mọi tiêu chí khác. Đường dịch không có `bookId` (meta/global, `Qt` bridge) chỉ thấy bộ chung — đúng thiết kế.
-* **Bật/tắt từng rule bằng FILE, không sửa file rule**: `QuickTranslationRuleDisableFile` (hàm thuần trên `String`, không chạm `FileManager`) + `QuickTranslationRuleDisableStore` (chủ hai file `QuickTranslateRulesDisabled.txt` chung/riêng). Rule đang tắt **vẫn nằm** trong `snapshot.rules` (bật lại được, giữ `sourceLine`/`rowIDs`); khoá là **mẫu** chứ không phải `sourceLine`; `Snapshot.isDisabled(pattern:scopeRank:)` là toàn bộ ngữ nghĩa — tắt ở bộ chung là tắt cho **mọi** truyện, muốn dùng lại ở một truyện thì thêm mẫu vào bộ rule riêng. Ghi file thất bại ⇒ không bump, không notify — `Toggle` quay về trạng thái cũ. Mọi invalidation gói vào đúng một `notifyDictionariesDidUpdate(bookId:scope: .config(bookId:))`, không thêm notification mới.
-* **Màn Check rule ở Reader xem "vì sao thắng/thua/tắt"**: `QuickTranslationRuleDiagnostics` (Service) soi cả đoạn và giữ **cả** rule thua chồng lấn + rule đang tắt, bắt buộc dùng lại `collectFound` (`includesDisabled: true`) + `select` của engine — thay đổi visibility `private` → `internal` duy nhất ở engine — và không ghi trạng thái (`notesComplexRules: false`). DTO `QuickTranslationRuleTrace` (Models) mang `rowID` (handle xoá, không dùng `sourceLine` — lý do crash đã sửa 1.3.271), `scope`, `sourceRange`, `captures` và `Status` 6 case; `id` xác định theo `rowID#location`. `QuickTranslationRuleMatcher.Capture` gộp `text` + `sourceRange?` thành **một** mảng (rollback `let saved = captures` ở 5 chỗ) để hiện được chữ gốc từng token.
-* **Hai công cụ mới trong menu bôi đen (2 hàng × 4 cột, thêm "Gốc" và "Rule")**: panel "Copy nội dung gốc" (`ReaderCopyOriginalOverlayView` — **mọi** đường đóng đều copy, không có nút Hủy; chọn lại cụm trên text gốc vì map ngược qua `ReaderSelectionMapper` khi bật dịch có thể lệch ở vùng rule vừa rewrite) và màn Check rule (`ReaderRuleTraceOverlayView` — thanh gốc → nghĩa rule → nghĩa token → dải chip; bấm ký tự snap vào cụm rule; ấn giữ chip ra popup Bật/Tắt/Xoá; nút `+` thêm rule từ cụm đang chọn; chip 3 mức màu `ReaderRuleChipStyle`; `ReaderRuleTraceGuideSheet` cho nút `?`). Khối biên tập vùng chọn dời sang `ReaderView+Selection.swift` (bốn panel Dịch/Xoá từ rác/Copy gốc/Check rule dùng chung); `ReaderView.swift` 2286 → **2076** (−210) nhờ dời 179 dòng + xoá 73 dòng code chết, nhiều `@State` bỏ `private` thành `internal` (phạm vi file).
-* **Danh sách rule theo phạm vi, 2 tab Đang bật / Đã tắt**: hàng `[Sửa][Chuyển][Tắt][Xoá]` (`QuickTranslationRuleEntryRow`, mirror `DictionaryEntryRow`); Chuyển là **COPY** qua `QuickTranslationRuleTransfer` (nguồn giữ nguyên; ở danh sách Chung không biết truyện đang mở thì mờ + báo lý do); bộ riêng có menu Nhập (3 chế độ qua `DataImportMode`)/Xuất/Xoá cả bộ (`QuickTranslationRuleIOMenu`); hub Từ điển thêm section **Rule Dịch** với subtitle "N đang bật • M đã tắt"; swipe Sửa/Xoá bị bỏ. Ô Thử nhanh và màn Quản lý giờ **tôn trọng file tắt**; `menuWidth` của bong bóng suy ra từ hằng thành phần (bug tràn mép khi hard-code).
-* **Backup liên quan**: tên file riêng truyện gom về **một** nguồn (`TranslationManager+BookScopedFiles` — `BackupPaths.bookDictionaryFiles`/`bookRuleFiles` và luồng đổi nguồn của `SearchView` đều đọc từ đó, hết nhân bản ở hai chỗ); bộ rule riêng + file tắt riêng đi theo scope `.dictBooks` nhưng **tách vòng lặp** khỏi từ điển riêng (vòng cũ trộn bằng `parseRecords` — bỏ dòng không có `=` và sinh lại `key=value`, làm mất comment + thứ tự dòng là tie-break cuối của priority), chiều khôi phục dùng `importRules(.overwriteExisting)` + `DisableStore.merge`; file tắt **chung** vào `config/QuickTranslateRulesDisabled.txt` (`BackupConfigArchiver`), khôi phục **hợp tập** — "khôi phục chỉ thêm, không xoá".
-* **Xác minh** (không dùng `Tests/`): 17 file mới đều ≤ 400 dòng (lớn nhất `ReaderRuleTraceOverlayView` 383) và đúng 1 type top level ⇒ không cần entry `architecture_allowlist.json`; tổng file Swift 388 → **405**. `validate_links.py` PASS sau khi cập nhật toàn bộ 13 doc CodeGraph bị stale (7 doc đã sửa vùng GENERATED từ trước + 6 doc sửa/ghi nhận trong lượt này). `check_architecture.py` đã chạy và giữ nguyên **14 violation** baseline (cùng một tập, `ReaderView.swift` 2076 dòng) — không có violation mới; host là Windows nên không build được tại chỗ; CI xanh mới chứng minh *biên dịch được*.
-
-## [1.3.273] - 2026-08-25
-
-### Rule dịch: sửa build token
-
-Sửa lỗi biên dịch SwiftUI ở màn **Cấu hình token rule**.
-
-* Đổi hai `Section` sang initializer `content/header/footer` tương thích với toolchain CI; giao diện và logic bật/tắt token không đổi.
-* Đã rà lại `11_subsystems.md` và ghi nhận `--no-change-needed`; CI macOS sẽ xác nhận build archive.

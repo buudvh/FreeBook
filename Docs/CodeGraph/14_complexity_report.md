@@ -15,6 +15,37 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Ba file mới nhỏ, một file giảm 165 dòng, một baseline được trả (1.3.330)
+
+* Tổng file Swift 471 → **474**. File mới đều nhỏ và đúng 1 type top level ⇒ **không** thêm entry `architecture_allowlist.json`: `ExtTTSScriptCache` 128, `ExtensionIconImageCache` 45, `RepositoryRefreshPolicy` 42.
+* **`ExtTTSService.swift` 230 → 65** — xoá đường PCM không caller. Đây là giảm *thật*, không phải dời chỗ: `synthesize(...targetFormat:)` (102 dòng), `preprocessBufferForExtTTS` (45), bộ theo dõi file tạm (18) đều biến mất, không có file nào nhận lại.
+* **`ExtensionManager.swift` 1049 → 1015 (baseline 1022) ⇒ rời danh sách violation.** `getTTSRuntimeFingerprint` từ 36 dòng còn 3; phần băm SHA256 dời sang `ExtTTSScriptCache`. `check_architecture.py` **13 → 12**.
+* `TTSManager.swift` 4022 → **4015** (vẫn trên baseline 3470): xoá hàm rỗng `cleanUpTempFile()` + 3 call site. `TTSManager+PrefetchCache.swift` 47 → **43**.
+* `RepositoryManagerView.swift` 728 → **734** (baseline 751, còn 17 dòng): thêm tham số `force:`, `filterStatusBar(count:)`, và một `let` gom kết quả lọc.
+* **Bậc phức tạp giảm ở hai chỗ đo được**:
+  * Ext TTS mỗi đoạn: từ *2 lần đọc file kích thước script + 4 lần parse JSON + 1 lần so chuỗi O(len(script))* xuống *2 lần `stat()` + so 3 giá trị vô hướng*. Chi phí giờ **không phụ thuộc kích thước `tts.js`** nữa.
+  * Tab Tiện Ích mỗi lượt vẽ: `filterExtensions` + `sortExtensions` từ **3 lần** xuống **1 lần**. `sorted` dùng `localizedCompare` là so sánh chuỗi đắt nhất trong Foundation, nên đây là hệ số 3 trên phần đắt nhất của lượt vẽ.
+* `ExtensionIconImageCache` giữ tối đa 128 entry và **xoá sạch** khi vượt (không LRU): danh sách tiện ích/kệ sách chỉ có vài chục icon nên một lần dọn hiếm khi xảy ra, và code dọn LRU thật sẽ dài hơn phần nó tiết kiệm.
+
+## Mười một file mới, hai file xoá, hai baseline được trả nợ (1.3.328)
+
+* Tổng file Swift 462 → **471**. File mới, tất cả **≤ 400** dòng và đúng 1 type top level ⇒ **không** thêm entry `architecture_allowlist.json`: `BookCollection` 38, `BookCollectionCoordinator` 151, `BookSheetAction` 43, `BookActionRunner` 188, `BookActionSheet` 264, `ShelfBookRowView` 30, `NewChapterBadgeView` 28, `CollectionsTabView` 203, `CollectionDetailView` 268, `CollectionPickerSheet` 126, `BookDetailView+ShelfPlacement` 33.
+* **Hai file trả nợ baseline**:
+  * `ShelfView.swift` 910 → **780** (baseline 942). Nguồn giảm: hai khối `.contextMenu` 121 dòng bị thay bằng 2 cử chỉ + 1 sheet, và 5 hàm hành động chuyển sang `BookActionRunner`. Khoảng trống dưới baseline nới từ 32 lên **162** dòng.
+  * `BookDetailView.swift` 1207 → **1197** (baseline 1201). Đây là lần đầu file này **về dưới** baseline: `addToShelf` 21 dòng dời sang `BookDetailView+ShelfPlacement.swift`, đổi lại chỉ thêm 3 dòng cho `@State` + `.sheet`.
+* `ShelfView+NewChapters.swift` 127 → **57** — không mất chức năng nào, ba thân hàm (`newChapterTarget`, `checkNewChapters`, `showNewChapterSummary`) dời sang `BookActionRunner` để màn Bộ sưu tập dùng cùng một bản.
+* Hai file xoá: `TTSTransliterationTesterView.swift` (277) và `TransliterationGoldenSet.swift` (128). `EspeakPhonemizer.swift` 193 → **173**, `VietnameseTokenGate.swift` 110 → **95**.
+* **Không đổi bậc phức tạp ở đâu.** `shelfBooks`/`CollectionDetailView.books` là hai lượt `filter` trên mảng đã sort (ghim-trước bằng cách nối hai mảng — `sorted(by:)` của Swift không ổn định nên so sánh hai khoá trong một lượt sẽ trộn thứ tự trong cùng nhóm). `BookCollectionCoordinator` fetch toàn bộ `BookCollection` rồi lọc trên RAM: đây là **bắt buộc**, predicate lọc chuỗi của SwiftData iOS 17 dịch sai sang SQLite; số bộ sưu tập là con số người dùng tự tạo, cỡ hàng chục.
+* `JapaneseTransliterator.swift` 341 → **347** (baseline 411): 15 giá trị trong bảng đổi tại chỗ, phần tăng là comment giải thích vì sao chọn `u`.
+* `check_architecture.py` **14 → 13 violation** — tập cũ trừ `BookDetailView` (LINE_LIMIT_EXCEEDED). Không violation mới nào.
+
+## Một file mới, năm file sửa, không file nào tới trần (1.3.325)
+
+* [`ExtensionDraftMetadata.swift`](../../Sources/Services/Extensions/Debug/Staging/ExtensionDraftMetadata.swift) **136** dòng, đúng 1 type top level ⇒ không thêm/nới entry `architecture_allowlist.json`. Tổng file Swift 461 → **462**.
+* File sửa, tất cả **≤ 400**: `ExtensionDebugCommandRouter+Draft.swift` 204 → **297**, `ExtensionDebugCommandRouter.swift` 262 → **308**, `ExtensionDraftInstaller.swift` 147 → **201**, `ExtensionDebugInstallGate.swift` 113 → **134**, `ExtensionDebugServerView.swift` 130 → **151**.
+* **Phần tăng của `+Draft.swift` gần một nửa là do *tách* hàm, không phải thêm nhánh**: `handleDraftInstall` cũ 48 dòng nay chia thành `handleDraftInstall` (33) + `installOverExisting` (34) + `installAsNew` (44) + `writeLibraryRow` (17). Đổi lại, mỗi hàm chỉ còn một quyết định và cửa gate xuất hiện đúng một lần mỗi nhánh.
+* `check_architecture.py` giữ đúng **14 violation**, cùng một tập như trước lượt này.
+
 ## Do phuc tap sau bon luot toi uu (1.3.320)
 
 * **`TextPreprocessor.swift` giu dung 1121 dong** = baseline, du them 4 helper moi (`unitAlternation`, `makeUnitGroup`, `unitExpansion`, `containsSpelledNumber`, `needsWhitespaceNormalization`). Bu bang cach xoa 51 spec regex thu cong va 17 dong log da comment-out.

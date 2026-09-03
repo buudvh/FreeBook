@@ -15,6 +15,14 @@ Tài liệu này phác thảo kiến trúc tổng thể, sơ đồ thư mục, c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ Bộ sưu tập sách — `@Model` thứ 6 (1.3.328)
+
+* **Lần đầu schema SwiftData lớn thêm kể từ khi repo có 5 `@Model`.** `BookCollection` (`Sources/Models/Database/BookCollection.swift`) quan hệ **N-N** với `Book`; `FreeBookApp.init()` vẫn là **chỗ duy nhất** khai schema. Không có `VersionedSchema`/`SchemaMigrationPlan`, nên mọi field mới phải additive + có mặc định (`Book.isPinned = false`, `Book.collections = []`) — lightweight migration là toàn bộ hàng rào ở đây, và `ModelContainer` init thất bại là `fatalError`.
+* **Không mở cơ chế mới nào**: chiều phụ thuộc vẫn View → coordinator → Models. `BookCollectionCoordinator` (`@MainActor`) là chủ transaction duy nhất của bộ sưu tập, cùng khuôn `in context: ModelContext` → `Result` như `BookTransactionCoordinator`/`ExtensionTransactionCoordinator`. Tầng Views chỉ `@Query` để đọc.
+* **Tên type là `BookCollection`, không phải `Collection`** — `Collection` ở phạm vi module sẽ che `Swift.Collection` và làm mọi generic constraint viết sau này hiểu sai type. Đây là quyết định có chủ ý, không phải đặt tên dài cho vui.
+* **Sao lưu mở rộng theo đúng lối cũ**: `library/collections.json` + `BookRecord.isPinned` đi kèm nhóm `.books`, **không** thêm case `BackupScope` (rawValue vào `manifest.scopes` sẽ làm bản app cũ decode lỗi — luật đã ghi hai lần trong `BackupPaths.swift`).
+* **Một vi phạm kiến trúc cũ được trả nợ trong cùng lượt**: `ShelfView.removeFromHistory` từng gán `book.isHistory` rồi `try? modelContext.save()` ngay trong View; nay đi qua `BookTransactionCoordinator.setHistory`. `check_architecture.py` từ 14 → **13** violation.
+
 ## Pham vi moi: app co mot server LAN, chi bat bang tay (1.3.303)
 
 * **Day la lan dau app mo mot cong nghe.** Truoc 1.3.303 moi thu la client. Nay co `NWListener` + Bonjour, nen `project.yml` phai khai `NSLocalNetworkUsageDescription` va `NSBonjourServices` (`_freebook-extdebug._tcp`) - hai khoa Info.plist dau tien lien quan mang noi bo.
