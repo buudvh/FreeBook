@@ -29,6 +29,10 @@ struct TTSReplacementManagerView: View {
     @State private var showingAlert = false
     @State private var searchText = ""
 
+    /// Tự giữ `editMode` thay vì dùng `EditButton()`: nút đó không đặt được trong `Menu` với nhãn tiếng
+    /// Việt, và `Menu` cần đọc được trạng thái để đổi nhãn "Sắp xếp lại" ⇄ "Xong sắp xếp".
+    @State private var editMode: EditMode = .inactive
+
     /// Rule khop tu khoa. Khi dang tim, thu tu hien ra **khong** con la thu tu ap dung, nen phai chan
     /// keo-tha va khong dung `IndexSet` de xoa — xem `visibleRules`.
     private var isSearching: Bool {
@@ -99,43 +103,46 @@ struct TTSReplacementManagerView: View {
             }
         }
         .searchable(text: $searchText, prompt: "Tìm mẫu hoặc chuỗi thay thế...")
+        .environment(\.editMode, $editMode)
+        .onChange(of: isSearching) { _, searching in
+            // Đang lọc thì thứ tự hiện ra không phải thứ tự áp dụng nên kéo-thả bị chặn; phải rời chế độ
+            // sắp xếp, nếu không List kẹt ở edit mode mà mục thoát trong menu đã bị ẩn.
+            if searching { editMode = .inactive }
+        }
         .navigationTitle("Thay thế ký tự TTS")
         .toolbar {
-            ToolbarItemGroup(placement: .navigationBarTrailing) {
-                if !isSearching {
-                    EditButton()
-                }
-            }
-            
-            ToolbarItemGroup(placement: .bottomBar) {
+            ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button(action: {
-                        showingResetOptions = true
-                    }) {
-                        Label("Khôi phục mặc định", systemImage: "arrow.triangle.2.circlepath")
+                    Button(action: { prepareForAdd() }) {
+                        Label("Thêm quy tắc", systemImage: "plus")
                     }
-                    
-                    Button(action: {
-                        showingFileImporter = true
-                    }) {
+
+                    if !isSearching {
+                        Button(action: { toggleReordering() }) {
+                            Label(
+                                editMode == .active ? "Xong sắp xếp" : "Sắp xếp lại",
+                                systemImage: editMode == .active ? "checkmark" : "arrow.up.arrow.down"
+                            )
+                        }
+                    }
+
+                    Divider()
+
+                    Button(action: { showingFileImporter = true }) {
                         Label("Nhập cấu hình (JSON)", systemImage: "square.and.arrow.down")
                     }
-                    
-                    Button(action: {
-                        exportRules()
-                    }) {
+
+                    Button(action: { exportRules() }) {
                         Label("Xuất cấu hình (JSON)", systemImage: "square.and.arrow.up")
+                    }
+
+                    Divider()
+
+                    Button(action: { showingResetOptions = true }) {
+                        Label("Khôi phục mặc định", systemImage: "arrow.triangle.2.circlepath")
                     }
                 } label: {
                     Label("Tùy chọn", systemImage: "ellipsis.circle")
-                }
-                
-                Spacer()
-                
-                Button(action: {
-                    prepareForAdd()
-                }) {
-                    Image(systemName: "plus")
                 }
             }
         }
@@ -327,6 +334,10 @@ struct TTSReplacementManagerView: View {
     
     private func moveRules(from source: IndexSet, to destination: Int) {
         manager.moveRules(from: source, to: destination)
+    }
+
+    private func toggleReordering() {
+        editMode = editMode == .active ? .inactive : .active
     }
     
     // Chuẩn bị form Thêm

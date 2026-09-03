@@ -18,7 +18,16 @@ import UIKit
 /// bàn phím sống trong window hệ thống riêng nên tap vào bàn phím không bao giờ chạm recognizer này.
 ///
 /// Cài trễ theo `keyboardWillShowNotification` thay vì lúc khởi động: lúc `App.init` chưa có window
-/// nào, và cách này phủ luôn window sinh ra sau (scene mới, LiveContainer).
+/// nào, và cách này phủ luôn window sinh ra sau (scene mới, LiveContainer). Bàn phím tắt thì **gỡ
+/// recognizer** theo `keyboardWillHideNotification`: nó chỉ tồn tại đúng quãng có bàn phím để tắt.
+///
+/// Vì sao phải gỡ chứ không để nằm sẵn cho gọn: `handleTap` gọi `endEditing(true)`, mà lệnh đó buộc
+/// **first responder bất kỳ** trong window resign — kể cả `ReaderUITextView` chỉ đọc đang giữ vùng
+/// bôi đen, hay `WKContentView` của trang web đang bôi đen chữ. Resign là mất vùng chọn. Recognizer
+/// đặt `cancelsTouchesInView = false` và nhận diện đồng thời nên nó không chặn cú long-press chọn
+/// chữ; nó chỉ âm thầm xoá vùng chọn ở đúng nhịp thả ngón tay. Vùng bôi **ngắn** trúng nhiều nhất vì
+/// tap chỉ fail khi ngón di chuyển quá ngưỡng — kéo một vệt dài thì tap tự fail, chọn một từ thì
+/// không. Đây là bug đã xác nhận trên máy thật ở Reader và ở web view tra cứu của công cụ tìm kiếm.
 @MainActor
 final class KeyboardDismissGesture: NSObject, UIGestureRecognizerDelegate {
     static let shared = KeyboardDismissGesture()
@@ -42,10 +51,20 @@ final class KeyboardDismissGesture: NSObject, UIGestureRecognizerDelegate {
             name: UIResponder.keyboardWillShowNotification,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(keyboardWillHide),
+            name: UIResponder.keyboardWillHideNotification,
+            object: nil
+        )
     }
 
     @objc private func keyboardWillShow() {
         installIfNeeded()
+    }
+
+    @objc private func keyboardWillHide() {
+        uninstall()
     }
 
     private func installIfNeeded() {
@@ -70,6 +89,24 @@ final class KeyboardDismissGesture: NSObject, UIGestureRecognizerDelegate {
 
     @objc private func handleTap(_ gesture: UITapGestureRecognizer) {
         gesture.view?.endEditing(true)
+    }
+
+    /// Gỡ recognizer khỏi **mọi** window, không lọc theo level hay `isHidden` như lúc cài: window có
+    /// thể đã bị ẩn giữa hai lần bàn phím, mà recognizer bỏ sót thì vẫn bắn `endEditing` lúc thả tay.
+    ///
+    /// Gỡ giữa lúc một cú chạm đang diễn ra là an toàn: UIKit huỷ recognizer đó nên không action nào
+    /// nổ nữa. Đúng thứ cần cho luồng "bàn phím đang mở rồi long-press bôi đen chữ trong Reader" —
+    /// `UITextView` giành first responder ⇒ bàn phím tắt ⇒ recognizer biến mất **trước** nhịp thả tay.
+    private func uninstall() {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        for scene in scenes {
+            for window in scene.windows {
+                guard let recognizers = window.gestureRecognizers else { continue }
+                for recognizer in recognizers where recognizer.name == Self.gestureName {
+                    window.removeGestureRecognizer(recognizer)
+                }
+            }
+        }
     }
 
     // MARK: - UIGestureRecognizerDelegate

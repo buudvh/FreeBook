@@ -91,6 +91,9 @@ struct RestoreOptionsSheet: View {
             infoRow("Tạo lúc", Self.dateText(manifest.createdAt))
             infoRow("Phiên bản app", manifest.appVersion)
             infoRow("Truyện", "\(manifest.counts.books)")
+            if manifest.counts.collections > 0 {
+                infoRow("Bộ sưu tập", "\(manifest.counts.collections)")
+            }
             infoRow("Chương", "\(manifest.counts.chapters) (\(manifest.counts.cachedChapters) đã tải)")
             if manifest.counts.covers > 0 {
                 infoRow("Ảnh bìa truyện nhập", "\(manifest.counts.covers)")

@@ -44,10 +44,11 @@
       { "command": "freebook.extdebug.runScript", "title": "FreeBook: Run Script…", "category": "FreeBook" },
       { "command": "freebook.extdebug.runProfile", "title": "FreeBook: Run Saved Profile", "category": "FreeBook" },
       { "command": "freebook.extdebug.stageDraft", "title": "FreeBook: Stage Workspace Draft", "category": "FreeBook" },
-      { "command": "freebook.extdebug.installDraft", "title": "FreeBook: Install Staged Draft (needs device approval)", "category": "FreeBook" },
+      { "command": "freebook.extdebug.installDraft", "title": "FreeBook: Install Staged Draft (overwrite or new install, needs device approval)", "category": "FreeBook" },
       { "command": "freebook.extdebug.rollback", "title": "FreeBook: Rollback Installed Extension", "category": "FreeBook" },
       { "command": "freebook.extdebug.browseFolder", "title": "FreeBook: Browse Extension Folder…", "category": "FreeBook" },
       { "command": "freebook.extdebug.refreshWorkspace", "title": "FreeBook: Refresh Workspace Extensions", "category": "FreeBook" },
+      { "command": "freebook.extdebug.cancelRun", "title": "FreeBook: Cancel Current Run", "category": "FreeBook" },
       { "command": "freebook.extdebug.openTrace", "title": "FreeBook: Open Trace", "category": "FreeBook" }
     ],
     "configuration": {

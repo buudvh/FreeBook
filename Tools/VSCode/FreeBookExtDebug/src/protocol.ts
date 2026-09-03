@@ -114,7 +114,7 @@ export interface Payload {
 export interface Envelope {
   version: number;
   requestId: string;
-  /** Lệnh khi client gửi; `reply` | `error` | `event` | `paired` khi server trả. */
+  /** Lệnh khi client gửi; `reply` | `error` | `event` khi server trả. */
   type: string;
   payload?: Payload;
 }

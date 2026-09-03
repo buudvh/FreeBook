@@ -26,6 +26,17 @@ public final class Book {
     
     public var isOnShelf: Bool = true // Sách có nằm trên Kệ sách chính hay không
     public var isHistory: Bool = false // Sách có nằm trong danh sách Lịch sử đọc hay không
+    /// Ghim lên đầu kệ sách. Cùng ngữ nghĩa với `Extension.isPinned` — chỉ ảnh hưởng thứ tự hiển thị,
+    /// không đổi gì trong dữ liệu. Sắp xếp làm trên RAM, **không** đưa vào `@Query` sort chung với
+    /// `lastReadDate` vì tab Lịch sử dùng cùng một query.
+    public var isPinned: Bool = false
+
+    /// Các bộ sưu tập chứa truyện này (N-N). Chiều nghịch khai ở `BookCollection.books`, nên ở đây để
+    /// trơn — khai `@Relationship` cả hai đầu với `inverse:` hai lần là SwiftData dựng sai quan hệ.
+    ///
+    /// Bất biến: **truyện có bộ sưu tập thì bắt buộc `isOnShelf == true`**. Mọi chỗ hạ `isOnShelf`
+    /// phải dọn mảng này (xem `BookTransactionCoordinator.removeFromShelf`).
+    public var collections: [BookCollection] = []
     
     // @Relationship: Định nghĩa mối quan hệ giữa các bảng.
     // deleteRule: .cascade nghĩa là khi xóa cuốn sách này, tất cả các Chương (Chapter) thuộc về nó cũng sẽ tự động bị xóa theo.

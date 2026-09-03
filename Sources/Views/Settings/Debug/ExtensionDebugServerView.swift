@@ -90,15 +90,34 @@ struct ExtensionDebugServerView: View {
                 }
             }
             Button(action: { decideInstall(id: pending.id, approved: true) }) {
-                Label(pending.kind == .install ? "Đồng ý ghi đè" : "Đồng ý rollback", systemImage: "checkmark.seal")
+                Label(approveLabel(for: pending.kind), systemImage: "checkmark.seal")
             }
             Button(role: .destructive, action: { decideInstall(id: pending.id, approved: false) }) {
                 Label("Không", systemImage: "xmark.seal")
             }
         } header: {
-            Text("Yêu cầu ghi đè extension")
+            Text(pending.kind == .installNew ? "Yêu cầu thêm extension mới" : "Yêu cầu ghi đè extension")
         } footer: {
-            Text("Bản đang cài được sao lưu trước khi thay, và thay theo kiểu nguyên tử. Có thể rollback sau đó.")
+            Text(installFooter(for: pending.kind))
+        }
+    }
+
+    private func approveLabel(for kind: ExtensionDebugInstallGate.Kind) -> String {
+        switch kind {
+        case .install: return "Đồng ý ghi đè"
+        case .installNew: return "Đồng ý cài mới"
+        case .rollback: return "Đồng ý rollback"
+        }
+    }
+
+    /// Chuỗi trả về là `String` runtime nên `Text` **không** hiểu markdown ở đây (khác các `Text("…")`
+    /// literal trong `safetySection`) — vì vậy viết phẳng, không `**` hay backtick.
+    private func installFooter(for kind: ExtensionDebugInstallGate.Kind) -> String {
+        switch kind {
+        case .installNew:
+            return "Extension này chưa có trên máy: app sẽ tạo thư mục mới trong extensions/ và thêm một bản ghi vào thư viện. Chỉ đồng ý nếu bạn biết máy nào đang gửi."
+        case .install, .rollback:
+            return "Bản đang cài được sao lưu trước khi thay, và thay theo kiểu nguyên tử. Có thể rollback sau đó."
         }
     }
 
@@ -108,7 +127,8 @@ struct ExtensionDebugServerView: View {
             Text("• Kết nối là `ws` chưa có TLS.")
             Text("• Trace đã bỏ header, cookie, body và nội dung chương; giá trị query trong URL hiện dưới dạng “…”.")
             Text("• Bản nháp sống trong `extension-drafts/` và bị xoá sạch khi tắt server hoặc mở lại app.")
-            Text("• Cài bản nháp chỉ thay file; metadata trong thư viện không đổi.")
+            Text("• Cài bản nháp lên extension **đã có** chỉ thay file; metadata trong thư viện không đổi.")
+            Text("• Extension **chưa có** trên máy thì cài mới được: app tạo thư mục và thêm bản ghi thư viện — vẫn phải bấm đồng ý ở đây.")
         }
         .font(.caption)
         .foregroundStyle(.secondary)

@@ -114,6 +114,8 @@ public actor BackupRestoreWorker {
         var chapters = BackupChapterRestorer.Outcome()
 
         let books = decode([BackupPayload.BookRecord].self, entry: BackupPaths.books) ?? []
+        // Archive tạo trước 1.3.328 không có file này — không có bộ sưu tập nào là chuyện bình thường.
+        let collections = decode([BackupPayload.CollectionRecord].self, entry: BackupPaths.collections) ?? []
 
         if options.scopes.contains(.extensions) {
             library.merge(await restoreExtensionsAndRepositories())
@@ -125,6 +127,13 @@ public actor BackupRestoreWorker {
             BackupLibraryWriter(container: capturedContainer).insertMissingBooks(books)
         }
         library.merge(bookReport)
+
+        if !collections.isEmpty {
+            let collectionReport = await MainActor.run {
+                BackupLibraryWriter(container: capturedContainer).restoreCollections(collections)
+            }
+            library.merge(collectionReport)
+        }
 
         await restoreChapters(books: books, library: &library, chapters: &chapters)
 
@@ -163,6 +172,7 @@ public actor BackupRestoreWorker {
             + "\(chapters.restoredChapters) chương, \(chapters.restoredCachedChapters) chương có nội dung, "
             + "\(covers.restoredCovers) bìa (\(covers.skippedCovers) đã có), "
             + "\(library.insertedRepositories) kho, \(library.upsertedExtensions) ext, "
+            + "\(library.insertedCollections) bộ sưu tập, "
             + "\(dictionaries.customFiles + dictionaries.bookFiles + dictionaries.sharedFiles) file từ điển, "
             + "\(settings.restoredKeys) khoá cài đặt, "
             + "\(config.tocRules) quy tắc mục lục, \(config.searchEngines) công cụ tra cứu"

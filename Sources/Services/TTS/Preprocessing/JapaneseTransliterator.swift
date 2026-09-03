@@ -123,10 +123,16 @@ final class JapaneseTransliterator {
     }
 
     // Bảng ánh xạ Romaji sang Phiên âm Việt
+    //
+    // Hàng `u` (ku, su, tsu, nu, fu, mu, ru, gu, zu, bu, pu, và `u` trơ) viết bằng **"u"**, không phải
+    // "ư". /u/ tiếng Nhật là nguyên âm tròn môi không căng; "u" tiếng Việt là /u/ — sai rất ít. "ư" là
+    // /ɨ/ không tròn môi, espeak-vi đọc ra một âm khác hẳn, làm "Naruto" nghe thành "na-rư-tô" và
+    // "sushi" thành "xư-si". Hệ quả biết trước: `tsu`/`tu` cùng ra "chu" như `chu`, và `zu` ra "du"
+    // trùng `yu` — chỉ **khoá** của dictionary literal cần khác nhau, trùng giá trị thì vô hại.
     private static let romajiToViSyllable: [String: String] = [
         "sha": "sa", "shi": "si", "shu": "su", "she": "sê", "sho": "sô",
         "cha": "cha", "chi": "chi", "chu": "chu", "che": "chê", "cho": "chô",
-        "tsu": "chư",
+        "tsu": "chu",
         "kya": "kia", "kyu": "kiu", "kyo": "kiô",
         "nya": "nia", "nyu": "niu", "nyo": "niô",
         "hya": "hia", "hyu": "hiu", "hyo": "hiô",
@@ -135,13 +141,13 @@ final class JapaneseTransliterator {
         "gya": "ghia", "gyu": "ghiu", "gyo": "ghiô",
         "bya": "bia", "byu": "biu", "byo": "biô",
         "pya": "pia", "pyu": "piu", "pyo": "piô",
-        "ka": "ka", "ki": "ki", "ku": "kư", "ke": "kê", "ko": "kô",
-        "sa": "xa", "si": "xi", "su": "xư", "se": "xê", "so": "xô",
-        "ta": "ta", "ti": "chi", "tu": "chư", "te": "tê", "to": "tô",
-        "na": "na", "ni": "ni", "nu": "nư", "ne": "nê", "no": "nô",
-        "ha": "ha", "hi": "hi", "hu": "hư", "he": "hê", "ho": "hô",
-        "fu": "phư",
-        "ma": "ma", "mi": "mi", "mu": "mư", "me": "mê", "mo": "mô",
+        "ka": "ka", "ki": "ki", "ku": "ku", "ke": "kê", "ko": "kô",
+        "sa": "xa", "si": "xi", "su": "xu", "se": "xê", "so": "xô",
+        "ta": "ta", "ti": "chi", "tu": "chu", "te": "tê", "to": "tô",
+        "na": "na", "ni": "ni", "nu": "nu", "ne": "nê", "no": "nô",
+        "ha": "ha", "hi": "hi", "hu": "hu", "he": "hê", "ho": "hô",
+        "fu": "phu",
+        "ma": "ma", "mi": "mi", "mu": "mu", "me": "mê", "mo": "mô",
         // ya/yu/yo là /ja ju jo/, và tiếng Việt **không có** chữ nào đọc đúng /j/ ở vị trí phụ âm đầu,
         // nên đây là chọn cái sai ít hơn. Bản 1.3.290 viết bằng bán nguyên âm "i" với lý do "d" đọc
         // /z/ ở giọng Bắc; nhưng espeak-vi đọc "ia" là **nguyên âm đôi** /iə/ chứ không phải glide, nên
@@ -150,15 +156,15 @@ final class JapaneseTransliterator {
         // hàng za/zi/zu/ze/zo. Hàng yo-on (kya, ryu, gyo…) **giữ** chữ "i" vì ở đó "i" là dấu ngạc hoá
         // bên trong âm tiết, không phải phụ âm đầu.
         "ya": "da", "yi": "di", "yu": "du", "ye": "dê", "yo": "dô",
-        "ra": "ra", "ri": "ri", "ru": "rư", "re": "rê", "ro": "rô",
+        "ra": "ra", "ri": "ri", "ru": "ru", "re": "rê", "ro": "rô",
         "wa": "oa", "wi": "uy", "we": "uê", "wo": "ô",
-        "ga": "ga", "gi": "ghi", "gu": "gư", "ge": "ghê", "go": "gô",
-        "za": "da", "zi": "di", "zu": "dư", "ze": "dê", "zo": "dô",
-        "da": "đa", "di": "đi", "du": "đư", "de": "đê", "do": "đô",
-        "ba": "ba", "bi": "bi", "bu": "bư", "be": "bê", "bo": "bô",
-        "pa": "pa", "pi": "pi", "pu": "pư", "pe": "pê", "po": "pô",
+        "ga": "ga", "gi": "ghi", "gu": "gu", "ge": "ghê", "go": "gô",
+        "za": "da", "zi": "di", "zu": "du", "ze": "dê", "zo": "dô",
+        "da": "đa", "di": "đi", "du": "đu", "de": "đê", "do": "đô",
+        "ba": "ba", "bi": "bi", "bu": "bu", "be": "bê", "bo": "bô",
+        "pa": "pa", "pi": "pi", "pu": "pu", "pe": "pê", "po": "pô",
         "ja": "gia", "ji": "gi", "ju": "giu", "je": "giê", "jo": "giô",
-        "a": "a", "i": "i", "u": "ư", "e": "ê", "o": "ô",
+        "a": "a", "i": "i", "u": "u", "e": "ê", "o": "ô",
         // Trường âm **không** khai khoá ở đây — xem `collapseLongVowels`. Gộp phải làm *trước* khi cắt
         // âm tiết: `greedySegment` khớp dài nhất **tại từng vị trí**, nên ở "arigatou" nó ăn "to" ở vị
         // trí 5 rồi bỏ lại "u" thành một âm tiết "ư" thừa — khoá "ou" trong bảng này không bao giờ có cơ
@@ -316,7 +322,7 @@ final class JapaneseTransliterator {
     }
 
     /// `i` đi sau một nguyên âm khác là **bán nguyên âm cuối**, tiếng Việt viết liền thành một rime:
-    /// "senpai" → `xên-pai`, "koi" → `kôi`, "sui" → `xưi`. Đọc rời thành hai âm tiết (`pa-i`) là sai.
+    /// "senpai" → `xên-pai`, "koi" → `kôi`, "sui" → `xui`. Đọc rời thành hai âm tiết (`pa-i`) là sai.
     ///
     /// Chỉ nhập được vào âm tiết kết thúc bằng nguyên âm **khác** `i`/`y`: nhập vào âm tiết đã có phụ âm
     /// cuối (`xên`) hoặc đã kết thúc bằng bán nguyên âm (`uy`) là tạo rime không tồn tại.

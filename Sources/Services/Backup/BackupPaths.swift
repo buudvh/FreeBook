@@ -10,6 +10,10 @@ public enum BackupPaths {
     public static let manifest = "manifest.json"
     public static let slugs = "library/slugs.json"
     public static let books = "library/books.json"
+    /// Bộ sưu tập + danh sách `bookId` thành viên. **Đi kèm nhóm `.books`**, không có `BackupScope`
+    /// riêng: rawValue của scope được ghi vào `manifest.scopes` nên thêm case mới làm bản app cũ
+    /// decode manifest lỗi. File thiếu (archive tạo trước 1.3.328) chỉ đơn giản là không có bộ nào.
+    public static let collections = "library/collections.json"
     public static let repositories = "library/repositories.json"
     public static let extensions = "library/extensions.json"
 

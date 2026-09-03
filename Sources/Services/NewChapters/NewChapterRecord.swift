@@ -30,7 +30,22 @@ struct NewChapterRecord: Codable, Sendable, Equatable {
     var firstFoundAt: Date?
     var lastFailure: String?
 
+    // MARK: - Thông báo đã phát (tách khỏi badge)
+
+    /// Bộ ba `announced*` là **thông báo đã phát** cho người dùng, cố ý **không** dùng chung với
+    /// `newChapterCount`: con số kia là trạng thái badge và bị **mỗi** lượt probe ghi lại (`applyDiff`
+    /// luôn gán, `markSeen` đưa về 0), nên trước 1.3.329 dòng thông báo biến mất ngay khi đánh dấu đã
+    /// đọc. Thông báo chỉ mất khi người dùng tự xoá.
+    var announcedChapterCount: Int
+    var announcedIsCountExact: Bool
+    var announcedAt: Date?
+    /// `nil` ⇒ chưa đọc.
+    var announcementReadAt: Date?
+
     var hasNew: Bool { newChapterCount > 0 }
+
+    var hasAnnouncement: Bool { announcedAt != nil && announcedChapterCount > 0 }
+    var isAnnouncementRead: Bool { announcementReadAt != nil }
 
     /// Nhãn badge: số chương khi đếm được chính xác, còn lại là dấu chấm.
     var badgeText: String {
@@ -51,6 +66,10 @@ struct NewChapterRecord: Codable, Sendable, Equatable {
         self.latestChapterTitle = ""
         self.firstFoundAt = nil
         self.lastFailure = nil
+        self.announcedChapterCount = 0
+        self.announcedIsCountExact = true
+        self.announcedAt = nil
+        self.announcementReadAt = nil
     }
 
     /// Decode chịu lỗi: mọi khoá đều `decodeIfPresent` để file của bản app cũ vẫn đọc được sau khi
@@ -69,10 +88,17 @@ struct NewChapterRecord: Codable, Sendable, Equatable {
         self.latestChapterTitle = try container.decodeIfPresent(String.self, forKey: .latestChapterTitle) ?? ""
         self.firstFoundAt = try container.decodeIfPresent(Date.self, forKey: .firstFoundAt)
         self.lastFailure = try container.decodeIfPresent(String.self, forKey: .lastFailure)
+        self.announcedChapterCount = try container.decodeIfPresent(Int.self, forKey: .announcedChapterCount) ?? 0
+        self.announcedIsCountExact = try container.decodeIfPresent(Bool.self, forKey: .announcedIsCountExact) ?? true
+        self.announcedAt = try container.decodeIfPresent(Date.self, forKey: .announcedAt)
+        self.announcementReadAt = try container.decodeIfPresent(Date.self, forKey: .announcementReadAt)
     }
 
     /// Người dùng đã mở truyện ⇒ mốc nhảy tới kết quả kiểm tra gần nhất và badge tắt.
     /// Số lượng **chỉ** được cập nhật khi lần kiểm tra đó lấy đủ mục lục.
+    ///
+    /// Cố ý **không** đụng nhóm `announced*`: đó là dòng trong Trung tâm thông báo, đánh dấu đã đọc
+    /// không được làm nó biến mất.
     mutating func markSeen() {
         if !probedLastChapterUrl.isEmpty {
             seenLastChapterUrl = probedLastChapterUrl
@@ -83,5 +109,32 @@ struct NewChapterRecord: Codable, Sendable, Equatable {
         newChapterCount = 0
         isCountExact = true
         firstFoundAt = nil
+    }
+
+    mutating func markAnnouncementRead(at date: Date = Date()) {
+        guard hasAnnouncement, announcementReadAt == nil else { return }
+        announcementReadAt = date
+    }
+
+    /// Người dùng xoá dòng khỏi Trung tâm thông báo. Chỉ bỏ **thông báo**, giữ nguyên mốc đã thấy —
+    /// xoá cả record sẽ làm lượt kiểm tra sau mất mốc và báo lại từ đầu.
+    mutating func clearAnnouncement() {
+        announcedChapterCount = 0
+        announcedIsCountExact = true
+        announcedAt = nil
+        announcementReadAt = nil
+    }
+
+    /// Ghi nhận một đợt chương mới vừa dò ra thành **thông báo**. Đợt mới (chưa có thông báo, hoặc
+    /// thông báo trước đã đọc) bắt đầu một dòng chưa đọc; đợt đang chờ đọc thì chỉ cập nhật con số và
+    /// giữ nguyên mốc thời gian phát hiện đầu tiên.
+    mutating func announceCurrentFinding(at date: Date = Date()) {
+        guard hasNew else { return }
+        if announcedAt == nil || isAnnouncementRead {
+            announcedAt = firstFoundAt ?? date
+            announcementReadAt = nil
+        }
+        announcedChapterCount = newChapterCount
+        announcedIsCountExact = isCountExact
     }
 }

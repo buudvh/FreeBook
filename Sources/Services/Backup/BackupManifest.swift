@@ -21,6 +21,8 @@ public struct BackupManifest: Codable, Sendable {
         /// Số file cấu hình rời (`config/*.json`: quy tắc mục lục, công cụ tra cứu nhanh).
         /// 0 với file tạo trước 1.3.265.
         public var config: Int
+        /// Số bộ sưu tập (`library/collections.json`). 0 với file tạo trước 1.3.328.
+        public var collections: Int
 
         public init(
             books: Int = 0,
@@ -33,7 +35,8 @@ public struct BackupManifest: Codable, Sendable {
             customDictionaries: Int = 0,
             sharedDictionaries: Int = 0,
             settings: Int = 0,
-            config: Int = 0
+            config: Int = 0,
+            collections: Int = 0
         ) {
             self.books = books
             self.chapters = chapters
@@ -46,11 +49,13 @@ public struct BackupManifest: Codable, Sendable {
             self.sharedDictionaries = sharedDictionaries
             self.settings = settings
             self.config = config
+            self.collections = collections
         }
 
         private enum CodingKeys: String, CodingKey {
             case books, chapters, cachedChapters, covers, repositories, extensions
             case bookDictionaries, customDictionaries, sharedDictionaries, settings, config
+            case collections
         }
 
         /// Viết tay vì `init(from:)` tổng hợp **không** dùng giá trị mặc định của thuộc tính:
@@ -68,6 +73,7 @@ public struct BackupManifest: Codable, Sendable {
             sharedDictionaries = try container.decodeIfPresent(Int.self, forKey: .sharedDictionaries) ?? 0
             settings = try container.decodeIfPresent(Int.self, forKey: .settings) ?? 0
             config = try container.decodeIfPresent(Int.self, forKey: .config) ?? 0
+            collections = try container.decodeIfPresent(Int.self, forKey: .collections) ?? 0
         }
     }
 

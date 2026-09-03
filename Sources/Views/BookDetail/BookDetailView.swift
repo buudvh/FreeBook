@@ -57,6 +57,8 @@ struct BookDetailView: View {
     @State private var selectedTab = 0
     @State private var isMenuExpanded = false
     @State internal var loadingTask: Task<Void, Never>? = nil
+    /// Truyện vừa được đưa lên kệ, đang chờ người dùng chọn bộ sưu tập (chọn hay không đều được).
+    @State internal var collectionPickerBook: Book? = nil
 
     // Màn hình chuẩn bị mở sách mới
     @State internal var bookOpenTask: Task<Void, Never>? = nil
@@ -278,6 +280,9 @@ struct BookDetailView: View {
                     )
                 }
             }
+        }
+        .sheet(item: $collectionPickerBook) { book in
+            CollectionPickerSheet(bookId: book.bookId)
         }
     }
 
@@ -970,22 +975,7 @@ struct BookDetailView: View {
     private func addToShelf() {
         let savedDesc = detail.isEmpty ? desc : "\(desc)\n\n---\n\(cleanDetailText(detail))"
         Task { @MainActor in
-            let targetBook: Book?
-            if let book = localBook {
-                let res = BookTransactionCoordinator.shared.setOnShelf(bookId: book.bookId, isOnShelf: true, in: modelContext)
-                switch res {
-                case .success: targetBook = book
-                case .failure(let err):
-                    self.detailErrorMessage = "Lỗi thêm vào kệ: \(err.localizedDescription)"
-                    return
-                }
-            } else {
-                targetBook = await createBookOnShelf(savedDesc: savedDesc)
-            }
-            guard let targetBook = targetBook else { return }
-            if tocPages.count > 1 && !remainingPagesLoaded {
-                startBackgroundRemainingPagesLoading(for: targetBook)
-            }
+            await placeOnShelf(savedDesc: savedDesc)
         }
     }
 

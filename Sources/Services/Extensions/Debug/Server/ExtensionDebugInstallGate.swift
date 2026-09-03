@@ -1,10 +1,12 @@
 import Foundation
 
-/// Cửa xác nhận vật lý cho hai lệnh nguy hiểm nhất của Phase 4: `draft.install` và `draft.rollback`.
+/// Cửa xác nhận vật lý cho ba lệnh nguy hiểm nhất: `draft.install` (ghi đè), `draft.install` của một
+/// extension **chưa có trên app** (cài mới), và `draft.rollback`.
 ///
 /// Nó tồn tại vì lệnh đến **từ mạng**, và từ 1.3.305 server không còn ghép nối — nghĩa là ghi đè
-/// extension đang cài là việc không được phép xảy ra chỉ vì một message TCP: phải có một lần bấm trên
-/// thiết bị, và người bấm phải thấy trước **danh sách file sẽ đổi**.
+/// extension đang cài, hay **thêm** một extension vào thư viện, là việc không được phép xảy ra chỉ vì
+/// một message TCP: phải có một lần bấm trên thiết bị, và người bấm phải thấy trước **danh sách file
+/// sẽ đổi**.
 ///
 /// Một request tại một thời điểm. Request mới ghi đè request cũ (client chỉ có một, và request cũ nếu
 /// còn treo thì đã lỗi thời).
@@ -13,6 +15,7 @@ public actor ExtensionDebugInstallGate {
 
     public enum Kind: String, Sendable {
         case install
+        case installNew
         case rollback
     }
 
@@ -21,20 +24,38 @@ public actor ExtensionDebugInstallGate {
         public let kind: Kind
         public let packageId: String
         public let revision: String
+        /// Tên đọc từ `plugin.json` của bản nháp. Chỉ đường **cài mới** cần: người bấm chưa từng thấy
+        /// extension này trong thư viện nên một `packageId` trơ trọi là không đủ để quyết định.
+        public let displayName: String?
         /// Dòng diff đã sẵn sàng hiển thị (`+ path`, `~ path`, `- path`).
         public let changes: [String]
 
-        public init(id: UUID = UUID(), kind: Kind, packageId: String, revision: String, changes: [String]) {
+        public init(
+            id: UUID = UUID(),
+            kind: Kind,
+            packageId: String,
+            revision: String,
+            displayName: String? = nil,
+            changes: [String]
+        ) {
             self.id = id
             self.kind = kind
             self.packageId = packageId
             self.revision = revision
+            self.displayName = displayName
             self.changes = changes
         }
 
         public var summary: String {
-            let action = kind == .install ? "Cài bản nháp" : "Rollback"
-            return "\(action) \(packageId) (\(revision)) — \(changes.count) thay đổi"
+            switch kind {
+            case .install:
+                return "Cài bản nháp \(packageId) (\(revision)) — \(changes.count) thay đổi"
+            case .installNew:
+                let label = displayName.map { "\($0) → \(packageId)" } ?? packageId
+                return "Cài MỚI extension \(label) (\(revision)) — \(changes.count) file"
+            case .rollback:
+                return "Rollback \(packageId) (\(revision)) — \(changes.count) thay đổi"
+            }
         }
     }
 

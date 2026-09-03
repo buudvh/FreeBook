@@ -41,21 +41,6 @@ enum VietnameseTokenGate {
         return neighbours.before > 0 && neighbours.after > 0
     }
 
-    /// Dùng cho màn Thử phiên âm: nói rõ vì sao token được giữ hay bị phiên âm.
-    static func explain(
-        _ token: String,
-        at index: Int,
-        in matches: [NSTextCheckingResult],
-        source: NSString
-    ) -> String {
-        if hasVietnameseDiacritic(token) { return "giữ nguyên: có dấu tiếng Việt" }
-        if !VietnameseWordChecker.isVietnameseWord(token) { return "phiên âm: không phải âm tiết tiếng Việt" }
-        let neighbours = foreignNeighbours(around: index, in: matches, source: source)
-        return neighbours.before > 0 && neighbours.after > 0
-            ? "phiên âm: âm tiết mơ hồ, kẹp giữa \(neighbours.before) từ lạ bên trái và \(neighbours.after) bên phải"
-            : "giữ nguyên: âm tiết tiếng Việt (lạ bên trái \(neighbours.before), bên phải \(neighbours.after))"
-    }
-
     // MARK: - Phụ trợ
 
     private static func hasVietnameseDiacritic(_ token: String) -> Bool {

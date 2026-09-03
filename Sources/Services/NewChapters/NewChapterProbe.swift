@@ -78,6 +78,8 @@ enum NewChapterProbe {
             if record.firstFoundAt == nil {
                 record.firstFoundAt = Date()
             }
+            // Dòng trong Trung tâm thông báo sống độc lập với badge — xem `NewChapterRecord`.
+            record.announceCurrentFinding()
         } else {
             record.firstFoundAt = nil
         }

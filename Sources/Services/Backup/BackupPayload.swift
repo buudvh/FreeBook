@@ -32,6 +32,9 @@ public enum BackupPayload {
         public let lastReadDate: Date
         public let isOnShelf: Bool
         public let isHistory: Bool
+        /// `Optional` **có chủ đích**: `init(from:)` tổng hợp của Swift không dùng giá trị mặc định
+        /// của thuộc tính, nên khoá mới phải là optional để archive tạo trước 1.3.328 còn decode được.
+        public let isPinned: Bool?
 
         public init(
             bookId: String,
@@ -49,7 +52,8 @@ public enum BackupPayload {
             currentChapterTitle: String,
             lastReadDate: Date,
             isOnShelf: Bool,
-            isHistory: Bool
+            isHistory: Bool,
+            isPinned: Bool? = nil
         ) {
             self.bookId = bookId
             self.title = title
@@ -67,6 +71,7 @@ public enum BackupPayload {
             self.lastReadDate = lastReadDate
             self.isOnShelf = isOnShelf
             self.isHistory = isHistory
+            self.isPinned = isPinned
         }
 
         /// `true` khi truyện được nhập từ file trong máy (TXT/EPUB) — không có nguồn online để tải
@@ -88,6 +93,24 @@ public enum BackupPayload {
         public var hasUnrecoverableCover: Bool {
             let url = coverUrl.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             return !url.hasPrefix("http://") && !url.hasPrefix("https://")
+        }
+    }
+
+    /// Một bộ sưu tập và danh sách `bookId` thành viên. Quan hệ N-N được ghi **ở phía bộ sưu tập** để
+    /// khôi phục chỉ cần một vòng: tạo bộ (hoặc dùng bộ trùng tên đã có) rồi gắn các truyện có mặt.
+    public struct CollectionRecord: Codable, Sendable {
+        public let collectionId: String
+        public let name: String
+        public let sortOrder: Int
+        public let createdAt: Date
+        public let bookIds: [String]
+
+        public init(collectionId: String, name: String, sortOrder: Int, createdAt: Date, bookIds: [String]) {
+            self.collectionId = collectionId
+            self.name = name
+            self.sortOrder = sortOrder
+            self.createdAt = createdAt
+            self.bookIds = bookIds
         }
     }
 

@@ -41,26 +41,6 @@ final class EspeakPhonemizer {
         return textToPhonemes(text)
     }
 
-    /// Thử đặt từng giọng rồi trả lại giọng tổng hợp. Dùng cho màn thử phiên âm: máy chạy qua
-    /// LiveContainer không đính được debugger nên đây là cách duy nhất biết `en-us` có thật hay không.
-    static func probeVoices(_ names: [String]) -> [String: Bool] {
-        lock.lock()
-        defer { lock.unlock() }
-
-        do {
-            try initializeIfNeeded()
-        } catch {
-            return [:]
-        }
-
-        var result: [String: Bool] = [:]
-        for name in names {
-            result[name] = espeak_SetVoiceByName(name).rawValue == 0
-        }
-        _ = espeak_SetVoiceByName(synthesisVoice)
-        return result
-    }
-
     /// Gọi khi đã giữ `lock`.
     private static func initializeIfNeeded() throws {
         guard !isInitialized else { return }

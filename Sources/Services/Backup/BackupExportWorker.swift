@@ -37,6 +37,7 @@ public actor BackupExportWorker {
         let encoder = BackupPayload.makeEncoder()
         var counts = BackupManifest.Counts()
         counts.books = payload.books.count
+        counts.collections = payload.collections.count
         counts.repositories = payload.repositories.count
         counts.extensions = payload.extensions.count
 
@@ -137,6 +138,12 @@ public actor BackupExportWorker {
 
         try BackupZipArchive.stage(data: try encoder.encode(slugs), entryName: BackupPaths.slugs, in: staging)
         try BackupZipArchive.stage(data: try encoder.encode(payload.books), entryName: BackupPaths.books, in: staging)
+        // Bộ sưu tập đi cùng nhóm `.books` (bắt buộc) — xem `BackupPaths.collections`.
+        try BackupZipArchive.stage(
+            data: try encoder.encode(payload.collections),
+            entryName: BackupPaths.collections,
+            in: staging
+        )
 
         guard scopes.contains(.extensions) else { return }
         try BackupZipArchive.stage(

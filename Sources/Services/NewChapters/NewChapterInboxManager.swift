@@ -39,6 +39,27 @@ final class NewChapterInboxManager: ObservableObject {
         records.values.reduce(0) { $0 + ($1.hasNew ? 1 : 0) }
     }
 
+    /// Các dòng "có chương mới" của Trung tâm thông báo. Khác `totalNewBooks`: dòng **ở lại** sau khi
+    /// đánh dấu đã đọc, chỉ mất khi người dùng tự xoá.
+    ///
+    /// Sắp xếp ngay ở đây (mới nhất trước, `bookId` phá hoà) vì `records` là dictionary — thứ tự lặp
+    /// không xác định, để View tự sort theo ngày thì hai dòng cùng mốc sẽ đổi chỗ giữa các lần vẽ.
+    var announcements: [NewChapterRecord] {
+        records.values
+            .filter { $0.hasAnnouncement }
+            .sorted { lhs, rhs in
+                let left = lhs.announcedAt ?? .distantPast
+                let right = rhs.announcedAt ?? .distantPast
+                if left != right { return left > right }
+                return lhs.bookId < rhs.bookId
+            }
+    }
+
+    /// Có dòng chương mới nào **đã đọc** để dọn không — dùng cho mục "Xoá thông báo đã đọc".
+    var hasReadAnnouncement: Bool {
+        records.values.contains { $0.hasAnnouncement && $0.isAnnouncementRead }
+    }
+
     func record(for bookId: String) -> NewChapterRecord? {
         records[bookId]
     }
@@ -47,6 +68,20 @@ final class NewChapterInboxManager: ObservableObject {
         guard !didLoad else { return }
         didLoad = true
         records = await NewChapterStore.shared.all()
+        backfillAnnouncements()
+    }
+
+    /// `new_chapters.json` của bản app trước 1.3.329 chỉ có `newChapterCount`. Dựng thông báo tương
+    /// ứng để người vừa cập nhật không thấy Trung tâm thông báo trống trong khi badge vẫn sáng.
+    private func backfillAnnouncements() {
+        var updated: [NewChapterRecord] = []
+        for var record in Array(records.values) where record.hasNew && !record.hasAnnouncement {
+            record.announceCurrentFinding(at: record.firstFoundAt ?? record.lastCheckedAt ?? Date())
+            records[record.bookId] = record
+            updated.append(record)
+        }
+        guard !updated.isEmpty else { return }
+        Task { await NewChapterStore.shared.save(updated) }
     }
 
     func prune(keeping bookIds: Set<String>) async {
@@ -54,12 +89,63 @@ final class NewChapterInboxManager: ObservableObject {
         records = await NewChapterStore.shared.all()
     }
 
-    /// Người dùng đã mở truyện ⇒ tắt badge. Không có gì mới thì không ghi đĩa.
+    /// Người dùng đã mở truyện (hoặc bấm dòng thông báo) ⇒ tắt badge **và** đánh dấu dòng đã đọc.
+    /// Dòng thông báo vẫn ở lại Trung tâm thông báo. Không có gì đổi thì không ghi đĩa.
     func markSeen(bookId: String) {
-        guard var record = records[bookId], record.hasNew else { return }
-        record.markSeen()
+        guard var record = records[bookId] else { return }
+        let clearsBadge = record.hasNew
+        let marksRead = record.hasAnnouncement && !record.isAnnouncementRead
+        guard clearsBadge || marksRead else { return }
+        if clearsBadge {
+            record.markSeen()
+        }
+        record.markAnnouncementRead()
         records[bookId] = record
         Task { await NewChapterStore.shared.save(record) }
+    }
+
+    /// Xoá **một** dòng khỏi Trung tâm thông báo. Chỉ bỏ thông báo, giữ mốc đã thấy để lượt kiểm tra
+    /// sau không báo lại từ đầu.
+    func clearAnnouncement(bookId: String) {
+        guard var record = records[bookId], record.hasAnnouncement else { return }
+        record.clearAnnouncement()
+        records[bookId] = record
+        Task { await NewChapterStore.shared.save(record) }
+    }
+
+    /// "Xoá thông báo đã đọc" — chỉ bỏ dòng **đã** đọc. Trả về số dòng đã xoá.
+    @discardableResult
+    func clearReadAnnouncements() -> Int {
+        let targets = records.values.filter { $0.hasAnnouncement && $0.isAnnouncementRead }
+        guard !targets.isEmpty else { return 0 }
+        var updated: [NewChapterRecord] = []
+        for var record in targets {
+            record.clearAnnouncement()
+            records[record.bookId] = record
+            updated.append(record)
+        }
+        Task { await NewChapterStore.shared.save(updated) }
+        return targets.count
+    }
+
+    /// Đánh dấu đã đọc mọi dòng thông báo trong một lần ghi đĩa.
+    func markAllAnnouncementsRead() {
+        var updated: [NewChapterRecord] = []
+        // Chụp mảng trước khi vòng lặp ghi vào `records` — không lặp trực tiếp trên view của dictionary
+        // đang bị sửa.
+        for var record in Array(records.values) {
+            let clearsBadge = record.hasNew
+            let marksRead = record.hasAnnouncement && !record.isAnnouncementRead
+            guard clearsBadge || marksRead else { continue }
+            if clearsBadge {
+                record.markSeen()
+            }
+            record.markAnnouncementRead()
+            records[record.bookId] = record
+            updated.append(record)
+        }
+        guard !updated.isEmpty else { return }
+        Task { await NewChapterStore.shared.save(updated) }
     }
 
     /// Lượt tự động: qua cửa `NewChapterCheckPolicy` mới chạy, và chỉ lấy

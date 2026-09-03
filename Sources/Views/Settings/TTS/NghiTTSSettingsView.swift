@@ -8,6 +8,9 @@ struct NghiTTSSettingsView: View {
     @AppStorage(PreprocessorSettingKey.numericNormalizationEnabled) private var preprocessorNumericNormalizationEnabled = true
     @AppStorage(PreprocessorSettingKey.dictionaryReplacementEnabled) private var preprocessorDictionaryReplacementEnabled = true
     @AppStorage(PreprocessorSettingKey.transliterationEnabled) private var preprocessorTransliterationEnabled = true
+    /// Công tắc này trước đây nằm ở màn "Thử phiên âm" (đã xoá ở 1.3.328). Giữ lại ở đây vì nó là
+    /// đường thoát duy nhất khi IPA của espeak đọc sai một loạt từ tiếng Anh.
+    @AppStorage(EnglishPhonemeTransliterator.useEspeakKey) private var useEspeakIPAForEnglish = true
     
     // Pause Durations (seconds)
     @AppStorage("newlinePauseDuration") private var newlinePause = 0.4
@@ -22,10 +25,7 @@ struct NghiTTSSettingsView: View {
                 Toggle("Chuẩn hóa cách đọc số", isOn: $preprocessorNumericNormalizationEnabled)
                 Toggle("Áp dụng thay thế từ điển", isOn: $preprocessorDictionaryReplacementEnabled)
                 Toggle("Phiên âm tiếng Anh/Nhật", isOn: $preprocessorTransliterationEnabled)
-
-                NavigationLink(destination: TTSTransliterationTesterView()) {
-                    Label("Thử phiên âm", systemImage: "waveform.and.magnifyingglass")
-                }
+                Toggle("Dùng IPA của espeak cho tiếng Anh", isOn: $useEspeakIPAForEnglish)
 
                 NavigationLink(destination: NghiTTSTextToolView()) {
                     Label("Thử giọng đọc", systemImage: "text.bubble")

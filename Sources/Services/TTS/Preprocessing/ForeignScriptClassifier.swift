@@ -59,7 +59,7 @@ enum ForeignScriptClassifier {
     /// một từ Nhật lạ theo luật Anh là sai nhẹ hơn đọc một từ Anh theo luật Nhật. Ngưỡng 4 nghĩa là cần
     /// **hai** dấu hiệu mạnh (ví dụ trường âm + âm đặc trưng) mới đổi phe.
     ///
-    /// Đổi số này thì phải chạy lại bộ ca kiểm ở màn Thử phiên âm.
+    /// Đổi số này thì phải nghe lại bằng màn "Thử giọng đọc".
     static let japaneseThreshold = 4
 
     struct Verdict {

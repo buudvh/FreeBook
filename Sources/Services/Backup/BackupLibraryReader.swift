@@ -8,6 +8,7 @@ public struct BackupLibraryReader {
     /// Toàn bộ dữ liệu SwiftData cần cho một archive, đã tách khỏi `@Model`.
     public struct Payload: Sendable {
         public var books: [BackupPayload.BookRecord]
+        public var collections: [BackupPayload.CollectionRecord]
         public var repositories: [BackupPayload.RepositoryRecord]
         public var extensions: [BackupPayload.ExtensionRecord]
         /// bookId của các truyện có thư mục từ điển riêng nhưng không còn trong thư viện —
@@ -16,11 +17,13 @@ public struct BackupLibraryReader {
 
         public init(
             books: [BackupPayload.BookRecord],
+            collections: [BackupPayload.CollectionRecord] = [],
             repositories: [BackupPayload.RepositoryRecord],
             extensions: [BackupPayload.ExtensionRecord],
             orphanDictionaryBookIds: [String]
         ) {
             self.books = books
+            self.collections = collections
             self.repositories = repositories
             self.extensions = extensions
             self.orphanDictionaryBookIds = orphanDictionaryBookIds
@@ -41,6 +44,7 @@ public struct BackupLibraryReader {
 
         return Payload(
             books: books,
+            collections: readCollections(),
             repositories: includeExtensions ? readRepositories() : [],
             extensions: includeExtensions ? readExtensions() : [],
             orphanDictionaryBookIds: scopes.contains(.dictBooks)
@@ -69,7 +73,23 @@ public struct BackupLibraryReader {
                 currentChapterTitle: book.currentChapterTitle,
                 lastReadDate: book.lastReadDate,
                 isOnShelf: book.isOnShelf,
-                isHistory: book.isHistory
+                isHistory: book.isHistory,
+                isPinned: book.isPinned
+            )
+        }
+    }
+
+    /// Bộ sưu tập luôn được đọc: nó thuộc nhóm `.books` (nhóm bắt buộc) và chỉ nặng vài KB.
+    private func readCollections() -> [BackupPayload.CollectionRecord] {
+        let descriptor = FetchDescriptor<BookCollection>(sortBy: [SortDescriptor(\.sortOrder), SortDescriptor(\.createdAt)])
+        guard let rows = try? context.fetch(descriptor) else { return [] }
+        return rows.map { collection in
+            BackupPayload.CollectionRecord(
+                collectionId: collection.collectionId,
+                name: collection.name,
+                sortOrder: collection.sortOrder,
+                createdAt: collection.createdAt,
+                bookIds: collection.books.map { $0.bookId }.sorted()
             )
         }
     }

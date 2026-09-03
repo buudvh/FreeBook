@@ -39,7 +39,9 @@ struct ShelfView: View {
     @State private var navigateToChangeSource = false
 
     // @State: Biến trạng thái nội bộ của View. Khi giá trị thay đổi, UI sẽ tự động vẽ lại.
-    @State internal var selectedTab = 1 // Tab đang chọn: 0 là Tải trước, 1 là Kệ Sách, 2 là Lịch Sử
+    // Tab đang chọn: 0 Tải trước, 1 Kệ Sách, 2 Bộ sưu tập, 3 Lịch Sử. `SearchView` gửi số này qua
+    // notification `sourceChangedNavigateToShelf` — đổi số ở đây là phải sửa cả đầu kia.
+    @State internal var selectedTab = 1
     @State private var showingClearHistoryAlert = false // Hiện alert xác nhận xóa lịch sử đọc
     @State private var showingShelfSearch = false // Hiện màn hình tìm kiếm sách trong Kệ sách & Lịch sử
     @State private var showingNotificationInbox = false // Hiện Trung tâm thông báo (nút chuông)
@@ -93,8 +95,16 @@ struct ShelfView: View {
     @State private var openingBook: Book? = nil
     @AppStorage("readerSelectedTheme") private var selectedTheme: ReaderTheme = .dark
 
+    // Sheet nhấn-giữ một cuốn sách (thay cho context menu cũ) và đích "Xem chi tiết" phát từ sheet đó.
+    @State private var actionTarget: BookSheetAction.Target? = nil
+    @State private var detailTargetBook: Book? = nil
+    @State private var navigateToBookDetail = false
+
+    /// Ghim lên đầu, phần còn lại giữ thứ tự `lastReadDate` của `@Query`. Tách hai mảng thay vì
+    /// `sorted` một lần vì `sorted(by:)` của Swift **không ổn định** — trộn thứ tự trong cùng nhóm.
     private var shelfBooks: [Book] {
-        allBooks.filter { $0.isOnShelf }
+        let onShelf = allBooks.filter { $0.isOnShelf }
+        return onShelf.filter { $0.isPinned } + onShelf.filter { !$0.isPinned }
     }
 
     private var historyBooks: [Book] {
@@ -115,6 +125,15 @@ struct ShelfView: View {
         Array(historyBooks.prefix(historyLimit))
     }
 
+    private var navigationTitleText: String {
+        switch selectedTab {
+        case 0: return "Downloads"
+        case 1: return "Kệ Sách"
+        case 2: return "Bộ Sưu Tập"
+        default: return "Lịch Sử Đọc"
+        }
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -123,7 +142,8 @@ struct ShelfView: View {
                 Picker("Phân loại", selection: $selectedTab) {
                     Text("Downloads").tag(0)
                     Text("Kệ Sách").tag(1)
-                    Text("Lịch Sử").tag(2)
+                    Text("Bộ Sưu Tập").tag(2)
+                    Text("Lịch Sử").tag(3)
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal)
@@ -140,13 +160,17 @@ struct ShelfView: View {
                         shelfTabView
                             .tag(1)
 
+                        // TAB BỘ SƯU TẬP
+                        CollectionsTabView()
+                            .tag(2)
+
                         // TAB LỊCH SỬ
                         historyTabView
-                            .tag(2)
+                            .tag(3)
                     }
                     .tabViewStyle(.page(indexDisplayMode: .never))
             }
-            .navigationTitle(selectedTab == 0 ? "Downloads" : (selectedTab == 1 ? "Kệ Sách" : "Lịch Sử Đọc"))
+            .navigationTitle(navigationTitleText)
             .navigationBarTitleDisplayMode(.inline)
             // Kiểm tra chương mới chạy async sau khi Kệ sách đã hiện — không chặn khởi động app,
             // và tự bỏ qua nếu chưa hết cooldown / chưa tới giờ người dùng chọn.
@@ -223,7 +247,7 @@ struct ShelfView: View {
                             }
                         }
 
-                        if selectedTab == 2 && !historyBooks.isEmpty {
+                        if selectedTab == 3 && !historyBooks.isEmpty {
                             Button(role: .destructive, action: {
                                 showingClearHistoryAlert = true
                             }) {
@@ -266,6 +290,18 @@ struct ShelfView: View {
             }
             .navigationDestination(isPresented: $showingShelfSearch) {
                 ShelfSearchView()
+            }
+            .sheet(item: $actionTarget) { target in
+                BookActionSheet(
+                    target: target,
+                    isCheckingNewChapters: newChapters.isChecking,
+                    onAction: { action in
+                        handleBookAction(action, for: target.book)
+                    }
+                )
+            }
+            .navigationDestination(isPresented: $navigateToBookDetail) {
+                bookDetailDestinationView
             }
             .sheet(isPresented: $showingNotificationInbox) {
                 NotificationInboxView(onOpenBook: { book in
@@ -497,6 +533,21 @@ struct ShelfView: View {
     }
 }
 
+    /// Đích "Xem chi tiết" phát từ `BookActionSheet`. Dùng `navigationDestination(isPresented:)` +
+    /// state phụ như chỗ "Đổi nguồn" ngay dưới, thay vì `item:` — cùng một lối viết trong cả file.
+    @ViewBuilder
+    private var bookDetailDestinationView: some View {
+        if let book = detailTargetBook {
+            BookDetailView(
+                bookId: book.bookId,
+                extensionPackageId: book.extensionPackageId,
+                initialDetailUrl: book.detailUrl,
+                sourceName: book.sourceName,
+                initialHost: book.host
+            )
+        }
+    }
+
     @ViewBuilder
     private var changeSourceDestinationView: some View {
         if let targetBook = changeSourceTargetBook {
@@ -538,83 +589,26 @@ struct ShelfView: View {
             } else {
                 List {
                     ForEach(displayedShelfBooks) { book in
-                        Button {
-                            newChapters.markSeen(bookId: book.bookId)
-                            readerPresentationRoute = ShelfReaderRoute(
-                                bookId: book.bookId,
-                                extensionPackageId: book.extensionPackageId,
-                                chapterIndex: book.currentChapterIndex,
-                                paragraphIndex: nil,
-                                detailUrl: book.detailUrl,
-                                sourceName: book.sourceName
-                            )
-                        } label: {
-                            bookItemView(book)
-                        }
-                        .buttonStyle(.plain)
-                        .contextMenu {
-                            if !book.isLocalBook {
-                                NavigationLink(destination: BookDetailView(
+                        // Nhấn giữ mở `BookActionSheet` thay cho `.contextMenu` cũ: menu ngữ cảnh chỉ
+                        // nhận `Button` nên không dựng được phần đầu có ảnh bìa và danh sách bộ sưu tập.
+                        // Dùng `onTapGesture` + `onLongPressGesture` chứ **không** bọc `Button`: bọc
+                        // Button thì nhả tay sau khi giữ vẫn kích hoạt action, mở luôn cả Reader.
+                        ShelfBookRowView(book: book, extensions: allExtensions)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                newChapters.markSeen(bookId: book.bookId)
+                                readerPresentationRoute = ShelfReaderRoute(
                                     bookId: book.bookId,
                                     extensionPackageId: book.extensionPackageId,
-                                    initialDetailUrl: book.detailUrl,
-                                    sourceName: book.sourceName,
-                                    initialHost: book.host
-                                )) {
-                                    Label("Xem chi tiết", systemImage: "info.circle")
-                                }
-
-                                Button {
-                                    checkNewChapters(for: book)
-                                } label: {
-                                    Label("Kiểm tra chương mới", systemImage: "bell.badge")
-                                }
-                                .disabled(newChapters.isChecking)
-
-                                Button {
-                                    changeSourceTargetBook = book
-                                    navigateToChangeSource = true
-                                } label: {
-                                    Label("Đổi nguồn", systemImage: "arrow.triangle.2.circlepath")
-                                }
+                                    chapterIndex: book.currentChapterIndex,
+                                    paragraphIndex: nil,
+                                    detailUrl: book.detailUrl,
+                                    sourceName: book.sourceName
+                                )
                             }
-
-                            Button {
-                                editingInfoBook = book
-                            } label: {
-                                Label("Sửa thông tin", systemImage: "square.and.pencil")
+                            .onLongPressGesture(minimumDuration: 0.35) {
+                                actionTarget = BookSheetAction.Target(book: book, mode: .shelf)
                             }
-
-                            Button {
-                                prepareTaskForBook(book, type: .download)
-                            } label: {
-                                Label("Tải truyện", systemImage: "arrow.down.circle")
-                            }
-
-                            Button {
-                                prepareTaskForBook(book, type: .exportTxt)
-                            } label: {
-                                Label("Xuất ebook", systemImage: "square.and.arrow.up")
-                            }
-
-                            Button {
-                                retranslateChapterTitles(for: book)
-                            } label: {
-                                Label("Dịch lại tên chương", systemImage: "arrow.clockwise.circle")
-                            }
-
-                            Button {
-                                removeFromShelfOnly(book)
-                            } label: {
-                                Label("Xoá khỏi kệ sách", systemImage: "bookmark.slash")
-                            }
-
-                            Button(role: .destructive) {
-                                removeFromShelf(book)
-                            } label: {
-                                Label("Xoá", systemImage: "trash.fill")
-                            }
-                        }
                     }
 
                     if shelfBooks.count > shelfLimit {
@@ -661,77 +655,21 @@ struct ShelfView: View {
             } else {
                 List {
                     ForEach(displayedHistoryBooks) { book in
-                        Button {
-                            readerPresentationRoute = ShelfReaderRoute(
-                                bookId: book.bookId,
-                                extensionPackageId: book.extensionPackageId,
-                                chapterIndex: book.currentChapterIndex,
-                                paragraphIndex: nil,
-                                detailUrl: book.detailUrl,
-                                sourceName: book.sourceName
-                            )
-                        } label: {
-                            bookItemView(book)
-                        }
-                        .buttonStyle(.plain)
-                        .contextMenu {
-                            NavigationLink(destination: BookDetailView(
-                                bookId: book.bookId,
-                                extensionPackageId: book.extensionPackageId,
-                                initialDetailUrl: book.detailUrl,
-                                sourceName: book.sourceName,
-                                initialHost: book.host
-                            )) {
-                                Label("Xem chi tiết", systemImage: "info.circle")
+                        ShelfBookRowView(book: book, extensions: allExtensions)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                readerPresentationRoute = ShelfReaderRoute(
+                                    bookId: book.bookId,
+                                    extensionPackageId: book.extensionPackageId,
+                                    chapterIndex: book.currentChapterIndex,
+                                    paragraphIndex: nil,
+                                    detailUrl: book.detailUrl,
+                                    sourceName: book.sourceName
+                                )
                             }
-
-                            if !book.isOnShelf {
-                                Button {
-                                    addToShelf(book)
-                                } label: {
-                                    Label("Thêm vào kệ sách", systemImage: "plus.circle.fill")
-                                }
+                            .onLongPressGesture(minimumDuration: 0.35) {
+                                actionTarget = BookSheetAction.Target(book: book, mode: .history)
                             }
-
-                            if !book.isLocalBook {
-                                Button {
-                                    changeSourceTargetBook = book
-                                    navigateToChangeSource = true
-                                } label: {
-                                    Label("Đổi nguồn", systemImage: "arrow.triangle.2.circlepath")
-                                }
-                            }
-
-                            Button {
-                                editingInfoBook = book
-                            } label: {
-                                Label("Sửa thông tin", systemImage: "square.and.pencil")
-                            }
-
-                            Button {
-                                prepareTaskForBook(book, type: .download)
-                            } label: {
-                                Label("Tải truyện", systemImage: "arrow.down.circle")
-                            }
-
-                            Button {
-                                prepareTaskForBook(book, type: .exportTxt)
-                            } label: {
-                                Label("Xuất ebook", systemImage: "square.and.arrow.up")
-                            }
-
-                            Button {
-                                retranslateChapterTitles(for: book)
-                            } label: {
-                                Label("Dịch lại tên chương", systemImage: "arrow.clockwise.circle")
-                            }
-
-                            Button(role: .destructive) {
-                                removeFromHistory(book)
-                            } label: {
-                                Label("Xóa lịch sử", systemImage: "clock.badge.xmark")
-                            }
-                        }
                     }
 
                     if historyBooks.count > historyLimit {
@@ -753,57 +691,42 @@ struct ShelfView: View {
         }
     }
 
-    @ViewBuilder
-    private func bookItemView(_ book: Book) -> some View {
-        let ext = allExtensions.first(where: { $0.packageId == book.extensionPackageId })
-        // Badge nằm **cạnh** `BookListItemView` chứ không nhét vào trong: view đó dùng chung với
-        // Khám phá / chia sẻ truyện, sửa nó là đổi cả những màn không liên quan.
-        HStack(spacing: 8) {
-            BookListItemView(
-                item: book,
-                extensionLocalPath: ext?.localPath ?? "",
-                extensionIconUrl: ext?.iconUrl
-            )
-            newChapterBadge(for: book.bookId)
-        }
-    }
-
-    private func retranslateChapterTitles(for book: Book) {
-        TranslateUtils.clearChapterTitleCache(for: book.bookId)
-        ToastManager.shared.show(message: "Đang dịch lại tên chương...")
-
-        let bookId = book.bookId
-        let bookTitle = book.title
-
-        Task {
-            guard let storeChaps = try? await ChapterStore.shared.fetchOrderedTOC(bookId: bookId), !storeChaps.isEmpty else { return }
-
-            struct StoreChapterSnapshot: Sendable {
-                let index: Int
-                let url: String
-                let title: String
+    /// Thực thi mục người dùng chọn trong `BookActionSheet`. Thân của từng hành động nằm ở
+    /// `BookActionRunner` để màn Bộ sưu tập cư xử y hệt; ở đây chỉ còn phần mở sheet/navigation.
+    private func handleBookAction(_ action: BookSheetAction, for book: Book) {
+        switch action {
+        case .openDetail:
+            detailTargetBook = book
+            navigateToBookDetail = true
+        case .checkNewChapters:
+            checkNewChapters(for: book)
+        case .changeSource:
+            changeSourceTargetBook = book
+            navigateToChangeSource = true
+        case .editInfo:
+            editingInfoBook = book
+        case .download:
+            prepareTaskForBook(book, type: .download)
+        case .exportEbook:
+            prepareTaskForBook(book, type: .exportTxt)
+        case .retranslateChapterTitles:
+            BookActionRunner.retranslateChapterTitles(for: book)
+        case .togglePin:
+            BookActionRunner.togglePin(book, in: modelContext)
+        case .addToShelf:
+            BookActionRunner.addToShelf(book, in: modelContext)
+        case .removeFromShelfOnly:
+            BookActionRunner.removeFromShelfOnly(book, in: modelContext)
+        case .removeFromCurrentCollection:
+            // Kệ sách/Lịch sử không mở sheet ở chế độ `.collection` nên mục này không bao giờ tới đây;
+            // giữ nhánh cho `switch` đủ case, việc thật do `CollectionDetailView` làm.
+            break
+        case .removeFromHistory:
+            if BookActionRunner.removeFromHistory(book, in: modelContext) {
+                deleteBookFromDevice(book)
             }
-            let snapshots = storeChaps.map { StoreChapterSnapshot(index: $0.index, url: $0.url, title: $0.title) }
-
-            let updates: [(index: Int, url: String, titleTrans: String)] = await Task.detached(priority: .userInitiated) {
-                var list: [(index: Int, url: String, titleTrans: String)] = []
-                for snap in snapshots {
-                    if Task.isCancelled { break }
-                    if !snap.title.isEmpty {
-                        let translated = TranslateUtils.translateChapterTitle(snap.title, bookId: bookId)
-                        list.append((index: snap.index, url: snap.url, titleTrans: translated))
-                    }
-                }
-                return list
-            }.value
-
-            if !updates.isEmpty {
-                try? await ChapterStore.shared.updateTitleTranslations(bookId: bookId, updates: updates)
-            }
-
-            await MainActor.run {
-                ToastManager.shared.show(message: "Đã dịch lại xong tên chương cho: \(TranslateUtils.translateBookTitleIfNeeded(bookTitle, bookId: bookId))")
-            }
+        case .deleteBook:
+            deleteBookFromDevice(book)
         }
     }
 
@@ -812,65 +735,14 @@ struct ShelfView: View {
         self.selectedBookForTask = book
     }
 
-    private func addToShelf(_ book: Book) {
-        let res = BookTransactionCoordinator.shared.setOnShelf(bookId: book.bookId, isOnShelf: true, in: modelContext)
-        switch res {
-        case .success:
-            ToastManager.shared.show(message: "Đã thêm '\(TranslateUtils.translateBookTitleIfNeeded(book.title, bookId: book.bookId))' vào kệ sách", type: .success)
-        case .failure(let err):
-            AppLogger.shared.log("❌ [ShelfView] Lỗi thêm vào kệ: \(err.localizedDescription)")
-            ToastManager.shared.show(message: "Không thể thêm vào kệ sách: \(err.localizedDescription)", type: .error)
-        }
-    }
-
-    private func removeFromShelf(_ book: Book) {
+    private func deleteBookFromDevice(_ book: Book) {
         let bookId = book.bookId
         let container = modelContext.container
         isProcessingDeletion = true
         Task { @MainActor in
-            do {
-                try await BookStorageManager.shared.deleteBookAsync(bookId: bookId, container: container)
-            } catch {
-                AppLogger.shared.log("❌ Lỗi khi xóa khỏi kệ sách tại ShelfView: \(error.localizedDescription)")
-            }
+            await BookActionRunner.deleteBook(bookId: bookId, container: container)
             self.isProcessingDeletion = false
         }
-    }
-
-    private func removeFromShelfOnly(_ book: Book) {
-        let res = BookTransactionCoordinator.shared.removeFromShelf(bookId: book.bookId, in: modelContext)
-        switch res {
-        case .success:
-            ToastManager.shared.show(message: "Đã xoá '\(TranslateUtils.translateBookTitleIfNeeded(book.title, bookId: book.bookId))' khỏi kệ sách", type: .success)
-        case .failure(let err):
-            AppLogger.shared.log("❌ [ShelfView] Lỗi xoá khỏi kệ sách: \(err.localizedDescription)")
-            ToastManager.shared.show(message: "Không thể xoá khỏi kệ sách: \(err.localizedDescription)", type: .error)
-        }
-    }
-
-    private func removeFromHistory(_ book: Book) {
-        if book.isOnShelf {
-            book.isHistory = false
-            try? modelContext.save()
-            ToastManager.shared.show(message: "Đã xóa khỏi lịch sử đọc", type: .success)
-        } else {
-            let bookId = book.bookId
-            let container = modelContext.container
-            isProcessingDeletion = true
-            Task { @MainActor in
-                do {
-                    try await BookStorageManager.shared.deleteBookAsync(bookId: bookId, container: container)
-                } catch {
-                    AppLogger.shared.log("❌ Lỗi khi xóa lịch sử tại ShelfView: \(error.localizedDescription)")
-                }
-                self.isProcessingDeletion = false
-            }
-        }
-    }
-
-    private func clearReaderFallback(for bookId: String) {
-        UserDefaults.standard.removeObject(forKey: "lastChapterIndex_\(bookId)")
-        UserDefaults.standard.removeObject(forKey: "lastParagraphIndex_\(bookId)")
     }
 
     private func clearAllHistory() {

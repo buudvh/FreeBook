@@ -28,6 +28,11 @@ public final class BookTransactionCoordinator {
             book.isOnShelf = command.isOnShelf
             book.isHistory = command.isHistory
             book.lastReadDate = command.lastReadDate ?? Date()
+            if !command.isOnShelf {
+                // Truyện tụt khỏi kệ (đổi nguồn, khôi phục backup…) thì không được giữ bộ sưu tập cũ.
+                book.collections = []
+                book.isPinned = false
+            }
         } else {
             book = Book(
                 bookId: command.bookId,
@@ -119,6 +124,11 @@ public final class BookTransactionCoordinator {
         book.isOnShelf = isOnShelf
         book.isHistory = false
         book.lastReadDate = Date()
+        // Giữ bất biến "trong bộ sưu tập ⇒ ở trên kệ" kể cả khi có caller hạ cờ qua hàm này.
+        if !isOnShelf {
+            book.collections = []
+            book.isPinned = false
+        }
         do {
             try context.save()
             return .success(())
@@ -137,6 +147,27 @@ public final class BookTransactionCoordinator {
         book.isOnShelf = false
         book.isHistory = true
         book.lastReadDate = Date()
+        // Bất biến "truyện trong bộ sưu tập luôn ở trên kệ": rời kệ là rời hết bộ sưu tập. Không xoá
+        // `BookCollection` nào — chỉ tháo liên kết.
+        book.collections = []
+        book.isPinned = false
+        do {
+            try context.save()
+            return .success(())
+        } catch {
+            return .failure(BookTransactionError.saveFailed(error.localizedDescription))
+        }
+    }
+
+    /// Ghim/bỏ ghim truyện lên đầu kệ. Cùng khuôn với `ExtensionTransactionCoordinator.togglePinned`.
+    @discardableResult
+    public func setPinned(bookId: String, isPinned: Bool, in context: ModelContext) -> Result<Void, Error> {
+        var descriptor = FetchDescriptor<Book>(predicate: #Predicate { $0.bookId == bookId })
+        descriptor.fetchLimit = 1
+        guard let book = try? context.fetch(descriptor).first else {
+            return .failure(BookTransactionError.bookNotFound(bookId))
+        }
+        book.isPinned = isPinned
         do {
             try context.save()
             return .success(())
@@ -154,6 +185,24 @@ public final class BookTransactionCoordinator {
         }
         book.currentChapterIndex = index
         book.lastReadDate = Date()
+        do {
+            try context.save()
+            return .success(())
+        } catch {
+            return .failure(BookTransactionError.saveFailed(error.localizedDescription))
+        }
+    }
+
+    /// Bỏ truyện khỏi danh sách Lịch sử mà vẫn giữ trên kệ. Trước 1.3.328 `ShelfView` gán thẳng
+    /// `book.isHistory` rồi `modelContext.save()` — vi phạm luật View-SwiftData, giờ đi qua đây.
+    @discardableResult
+    public func setHistory(bookId: String, isHistory: Bool, in context: ModelContext) -> Result<Void, Error> {
+        var descriptor = FetchDescriptor<Book>(predicate: #Predicate { $0.bookId == bookId })
+        descriptor.fetchLimit = 1
+        guard let book = try? context.fetch(descriptor).first else {
+            return .failure(BookTransactionError.bookNotFound(bookId))
+        }
+        book.isHistory = isHistory
         do {
             try context.save()
             return .success(())

@@ -1,6 +1,7 @@
 import Foundation
+import SwiftData
 
-/// Nhánh `draft.*` của router: nạp snapshot nháp (Phase 3), cài và rollback (Phase 4).
+/// Nhánh `draft.*` của router: nạp snapshot nháp (Phase 3), cài / cài mới và rollback (Phase 4–5).
 ///
 /// Trình tự bắt buộc, cưỡng chế bằng chính state của `ExtensionDraftStagingStore`:
 /// `draft.stage` (manifest) → nhiều `draft.chunk` → `draft.finish` (checksum + validate) → `run.start`
@@ -37,10 +38,11 @@ extension ExtensionDebugCommandRouter {
             replyError(to: envelope, code: .malformedMessage, message: "Thiếu manifest")
             return
         }
-        guard installedExtensions().contains(where: { $0.packageId == manifest.packageId }) else {
-            replyError(to: envelope, code: .unknownExtension, message: "packageId chưa được cài trên app")
-            return
-        }
+        // **Không** đòi extension đã có trên app nữa: từ 1.3.325, bản nháp của một extension chưa cài là
+        // đầu vào hợp lệ của `draft.install` (đường cài mới). Chốt an toàn của vùng staging không phải là
+        // "đã cài hay chưa" mà là trần của `ExtensionDraftManifest` (200 file / 1 MiB mỗi file / 4 MiB
+        // tổng), kiểm tra containment từng path, và việc staging bị xoá sạch khi tắt server hoặc mở lại
+        // app. Ghi vào thư viện thì vẫn phải bấm trên thiết bị, ở `draft.install`.
         let issues = await ExtensionDraftStagingStore.shared.beginStage(manifest)
         guard issues.isEmpty else {
             replyIssues(to: envelope, code: .draftInvalid, issues: issues)
@@ -98,13 +100,12 @@ extension ExtensionDebugCommandRouter {
         reply(to: envelope, payload: ExtensionDebugProtocol.Payload())
     }
 
-    // MARK: - Phase 4
+    // MARK: - Phase 4–5 (ghi đè / cài mới / rollback)
 
     private func handleDraftInstall(_ envelope: ExtensionDebugProtocol.Envelope) async {
         guard let packageId = envelope.payload?.packageId,
-              let revision = envelope.payload?.sourceRevision,
-              let snapshot = installedExtensions().first(where: { $0.packageId == packageId }) else {
-            replyError(to: envelope, code: .unknownExtension, message: "Thiếu packageId/revision hoặc extension chưa cài")
+              let revision = envelope.payload?.sourceRevision else {
+            replyError(to: envelope, code: .malformedMessage, message: "Thiếu packageId hoặc revision")
             return
         }
         guard await ExtensionDraftStagingStore.shared.hasDraft(packageId: packageId, revision: revision),
@@ -113,13 +114,41 @@ extension ExtensionDebugCommandRouter {
             return
         }
 
+        // App là thẩm quyền về danh tính: id thật đọc từ `plugin.json` của bản nháp, **không** lấy từ
+        // client. Nhờ vậy client gửi `Truyen Full` trong khi app đang có `truyen_full` vẫn được nhận
+        // diện là *cập nhật*, không sinh hàng SwiftData thứ hai cho cùng một extension.
+        let metadata: ExtensionDraftMetadata
+        do {
+            metadata = try ExtensionDraftMetadata.read(from: directory)
+        } catch {
+            replyError(to: envelope, code: .draftInvalid, message: error.localizedDescription)
+            return
+        }
+
+        let installed = installedExtensions()
+        let snapshot = installed.first(where: { $0.packageId == packageId })
+            ?? installed.first(where: { $0.packageId == metadata.packageId })
+
+        if let snapshot {
+            await installOverExisting(envelope, directory: directory, revision: revision, snapshot: snapshot)
+        } else {
+            await installAsNew(envelope, directory: directory, revision: revision, metadata: metadata)
+        }
+    }
+
+    private func installOverExisting(
+        _ envelope: ExtensionDebugProtocol.Envelope,
+        directory: URL,
+        revision: String,
+        snapshot: ExtensionDebugInstalledSnapshot
+    ) async {
         let changes = await ExtensionDraftInstaller.shared.changeSummary(
             draftDirectory: directory,
             installedPath: snapshot.localPath
         )
         let request = ExtensionDebugInstallGate.Request(
             kind: .install,
-            packageId: packageId,
+            packageId: snapshot.packageId,
             revision: revision,
             changes: changes
         )
@@ -131,9 +160,10 @@ extension ExtensionDebugCommandRouter {
             try await ExtensionDraftInstaller.shared.install(
                 draftDirectory: directory,
                 installedPath: snapshot.localPath,
-                packageId: packageId
+                packageId: snapshot.packageId
             )
             var payload = ExtensionDebugProtocol.Payload()
+            payload.packageId = snapshot.packageId
             payload.message = "Đã cài \(changes.count) thay đổi; bản cũ được giữ để rollback"
             reply(to: envelope, payload: payload)
         } catch {
@@ -141,10 +171,70 @@ extension ExtensionDebugCommandRouter {
         }
     }
 
+    /// Cài một extension **chưa có trên app**: dựng thư mục trong `extensions/` rồi ghi hàng `Extension`
+    /// qua `ExtensionTransactionCoordinator`.
+    ///
+    /// Thứ tự **file trước, bản ghi sau** là bắt buộc: ghi bản ghi trước mà copy file thất bại thì thư
+    /// viện có một extension trỏ vào thư mục không tồn tại — lỗi im lặng ở mọi màn đang `@Query`. Ngược
+    /// lại, file có mà bản ghi chưa có chỉ là thư mục mồ côi: `ExtensionInstallAudit` phát hiện được, và
+    /// lần cài sau tự sao lưu rồi thay.
+    private func installAsNew(
+        _ envelope: ExtensionDebugProtocol.Envelope,
+        directory: URL,
+        revision: String,
+        metadata: ExtensionDraftMetadata
+    ) async {
+        let changes = await ExtensionDraftInstaller.shared.newInstallSummary(draftDirectory: directory)
+        let request = ExtensionDebugInstallGate.Request(
+            kind: .installNew,
+            packageId: metadata.packageId,
+            revision: revision,
+            displayName: metadata.name,
+            changes: changes
+        )
+        guard await ExtensionDebugInstallGate.shared.requestApproval(request) == .approved else {
+            replyError(to: envelope, code: .approvalRequired, message: "Người dùng không xác nhận trên thiết bị")
+            return
+        }
+
+        let installedPath: String
+        do {
+            installedPath = try await ExtensionDraftInstaller.shared.installNew(
+                draftDirectory: directory,
+                packageId: metadata.packageId
+            )
+        } catch {
+            replyError(to: envelope, code: .internalError, message: error.localizedDescription)
+            return
+        }
+
+        if let failure = await writeLibraryRow(metadata: metadata, localPath: installedPath) {
+            replyError(
+                to: envelope,
+                code: .internalError,
+                message: "Đã copy file nhưng không ghi được thư viện: \(failure)"
+            )
+            return
+        }
+
+        var payload = ExtensionDebugProtocol.Payload()
+        payload.packageId = metadata.packageId
+        payload.message = "Đã cài mới '\(metadata.name)' (\(metadata.packageId)) — \(changes.count) file"
+        reply(to: envelope, payload: payload)
+    }
+
     private func handleDraftRollback(_ envelope: ExtensionDebugProtocol.Envelope) async {
-        guard let packageId = envelope.payload?.packageId,
-              let snapshot = installedExtensions().first(where: { $0.packageId == packageId }) else {
-            replyError(to: envelope, code: .unknownExtension, message: "Thiếu packageId hoặc extension chưa cài")
+        guard let packageId = envelope.payload?.packageId else {
+            replyError(to: envelope, code: .malformedMessage, message: "Thiếu packageId")
+            return
+        }
+        let installed = installedExtensions()
+        guard let snapshot = installed.first(where: { $0.packageId == packageId }) else {
+            replyError(
+                to: envelope,
+                code: .unknownExtension,
+                message: Self.unknownExtensionMessage(requested: packageId, installed: installed)
+            )
             return
         }
         guard await ExtensionDraftInstaller.shared.hasBackup(packageId: packageId) else {
@@ -166,6 +256,30 @@ extension ExtensionDebugCommandRouter {
             reply(to: envelope, payload: ExtensionDebugProtocol.Payload())
         } catch {
             replyError(to: envelope, code: .internalError, message: error.localizedDescription)
+        }
+    }
+
+    /// Ghi hàng `Extension` cho bản vừa cài mới. Trả `nil` khi thành công, câu lỗi khi thất bại.
+    ///
+    /// `ModelContext` được dựng **mới** từ container thay vì dùng context của MainActor — đây là ghi từ
+    /// tác vụ nền, đúng luật của repo. Coordinator là `@MainActor` nên vẫn phải hop; chỉ một `String?`
+    /// băng qua ranh giới isolation. `"extensionDidUpdate"` phát cùng nhịp với đường restore backup
+    /// (`BackupRestoreWorker`) để màn Khám Phá thấy extension mới mà không cần mở lại app.
+    private func writeLibraryRow(metadata: ExtensionDraftMetadata, localPath: String) async -> String? {
+        let command = metadata.upsertCommand(localPath: localPath)
+        let container = self.container
+        return await MainActor.run(resultType: String?.self) {
+            let result = ExtensionTransactionCoordinator.shared.upsertExtension(
+                command: command,
+                in: ModelContext(container)
+            )
+            switch result {
+            case .success:
+                NotificationCenter.default.post(name: Notification.Name("extensionDidUpdate"), object: nil)
+                return nil
+            case .failure(let error):
+                return error.localizedDescription
+            }
         }
     }
 

@@ -27,6 +27,10 @@ struct JunkFilterManagementView: View {
     @State private var alertMessage = ""
     @State private var showingAlert = false
 
+    /// Tự giữ `editMode` thay vì dùng `EditButton()`: nút đó không đặt được trong `Menu` với nhãn tiếng
+    /// Việt, và `Menu` cần đọc được trạng thái để đổi nhãn "Sắp xếp lại" ⇄ "Xong sắp xếp".
+    @State private var editMode: EditMode = .inactive
+
     private var isSearching: Bool {
         !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -98,46 +102,47 @@ struct JunkFilterManagementView: View {
             }
         }
         .searchable(text: $searchText, prompt: "Tìm từ lọc rác...")
+        .environment(\.editMode, $editMode)
+        .onChange(of: isSearching) { _, searching in
+            // Đang lọc thì thứ tự hiện ra không phải thứ tự áp dụng nên kéo-thả bị chặn; phải rời chế độ
+            // sắp xếp, nếu không List kẹt ở edit mode mà mục thoát trong menu đã bị ẩn.
+            if searching { editMode = .inactive }
+        }
         .navigationTitle("Quản lý lọc rác")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItemGroup(placement: .navigationBarTrailing) {
-                if !isSearching {
-                    EditButton()
-                }
-            }
-
-            ToolbarItemGroup(placement: .bottomBar) {
+            ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button(action: {
-                        showingFileImporter = true
-                    }) {
+                    Button(action: { prepareForAdd() }) {
+                        Label("Thêm quy tắc", systemImage: "plus")
+                    }
+
+                    if !isSearching {
+                        Button(action: { toggleReordering() }) {
+                            Label(
+                                editMode == .active ? "Xong sắp xếp" : "Sắp xếp lại",
+                                systemImage: editMode == .active ? "checkmark" : "arrow.up.arrow.down"
+                            )
+                        }
+                    }
+
+                    Divider()
+
+                    Button(action: { showingFileImporter = true }) {
                         Label("Nhập cấu hình (JSON)", systemImage: "square.and.arrow.down")
                     }
 
-                    Button(action: {
-                        exportRules()
-                    }) {
+                    Button(action: { exportRules() }) {
                         Label("Xuất cấu hình (JSON)", systemImage: "square.and.arrow.up")
                     }
 
                     Divider()
 
-                    Button(role: .destructive, action: {
-                        showingClearAlert = true
-                    }) {
+                    Button(role: .destructive, action: { showingClearAlert = true }) {
                         Label("Xóa tất cả quy tắc", systemImage: "trash")
                     }
                 } label: {
                     Label("Tùy chọn", systemImage: "ellipsis.circle")
-                }
-
-                Spacer()
-
-                Button(action: {
-                    prepareForAdd()
-                }) {
-                    Image(systemName: "plus")
                 }
             }
         }
@@ -315,6 +320,10 @@ struct JunkFilterManagementView: View {
 
     private func moveRules(from source: IndexSet, to destination: Int) {
         manager.moveRules(from: source, to: destination)
+    }
+
+    private func toggleReordering() {
+        editMode = editMode == .active ? .inactive : .active
     }
 
     private func prepareForAdd() {

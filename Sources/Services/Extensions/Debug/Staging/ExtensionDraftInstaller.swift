@@ -1,19 +1,23 @@
 import Foundation
 
-/// Cài bản nháp đã validate lên extension đang cài, và rollback (Phase 4).
+/// Cài bản nháp đã validate lên extension đang cài, cài **mới** một extension chưa có trên app, và
+/// rollback (Phase 4 + Phase 5).
 ///
 /// Đây là thao tác **duy nhất** trong cả phân hệ debug có thể làm mất dữ liệu của người dùng, nên nó
 /// có ba chốt:
-/// 1. **Không tự chạy.** `install` chỉ được gọi sau khi `ExtensionDebugInstallGate` báo người dùng đã
-///    bấm đồng ý trên thiết bị. Không có auto-commit khi VS Code save.
+/// 1. **Không tự chạy.** `install`/`installNew` chỉ được gọi sau khi `ExtensionDebugInstallGate` báo
+///    người dùng đã bấm đồng ý trên thiết bị. Không có auto-commit khi VS Code save.
 /// 2. **Bản cũ được giữ trước khi thay.** Bản installed được copy sang `.backup/<packageId>/` *trước*
 ///    khi swap; `rollback` đưa lại đúng bản đó.
 /// 3. **Swap nguyên tử.** Dùng `FileManager.replaceItemAt` trên cùng volume (cả hai đều trong
 ///    `applicationSupportDirectory`), nên không tồn tại trạng thái nửa vời: hoặc bản cũ, hoặc bản mới.
 ///
-/// Giới hạn đã biết: installer **chỉ đổi file**. Hàng `Extension` trong SwiftData (`version`, `name`…)
-/// không được cập nhật — ghi SwiftData phải đi qua `ExtensionTransactionCoordinator`, và một bản nháp
-/// đang thử không nên đổi metadata thư viện. Xem `10_risk_report`.
+/// Ranh giới cố ý giữ: installer **chỉ đụng file**. Hàng `Extension` trong SwiftData do
+/// `ExtensionDebugCommandRouter` ghi qua `ExtensionTransactionCoordinator` — luật của repo là mọi ghi
+/// SwiftData đi qua coordinator, và `ExtensionDraftInstaller` là actor nền không được giữ
+/// `ModelContext`. Với đường **cập nhật**, metadata thư viện vẫn không đổi (một bản nháp đang thử
+/// không nên đổi tên/phiên bản trong thư viện); chỉ đường **cài mới** mới sinh hàng mới. Xem
+/// `10_risk_report`.
 public actor ExtensionDraftInstaller {
     public static let shared = ExtensionDraftInstaller()
 
@@ -23,6 +27,7 @@ public actor ExtensionDraftInstaller {
         case backupFailed(String)
         case swapFailed(String)
         case noBackup
+        case unsafePackageId
 
         public var errorDescription: String? {
             switch self {
@@ -31,6 +36,7 @@ public actor ExtensionDraftInstaller {
             case .backupFailed(let reason): return "Không sao lưu được bản cũ: \(reason)"
             case .swapFailed(let reason): return "Không thay được thư mục extension: \(reason)"
             case .noBackup: return "Không có bản sao lưu để rollback"
+            case .unsafePackageId: return "packageId không dùng được làm tên thư mục"
             }
         }
     }
@@ -75,6 +81,12 @@ public actor ExtensionDraftInstaller {
         return lines
     }
 
+    /// Toàn bộ file của bản nháp dưới dạng dòng `+ path`, cho cửa xác nhận của đường **cài mới** — ở đó
+    /// không có bản cũ nào để so, nên mọi file đều là file thêm.
+    public func newInstallSummary(draftDirectory: URL) -> [String] {
+        Self.relativeFiles(in: draftDirectory).sorted().map { "+ \($0)" }
+    }
+
     public func install(draftDirectory: URL, installedPath: String, packageId: String) throws {
         let fileManager = FileManager.default
         guard fileManager.fileExists(atPath: draftDirectory.appendingPathComponent("plugin.json").path) else {
@@ -82,10 +94,54 @@ public actor ExtensionDraftInstaller {
         }
         let installedUrl = URL(fileURLWithPath: installedPath)
         guard fileManager.fileExists(atPath: installedUrl.path) else { throw InstallError.installedMissing }
+
+        try backup(installedUrl: installedUrl, packageId: packageId)
+        try Self.atomicReplace(target: installedUrl, withContentsOf: draftDirectory, suffix: "incoming")
+    }
+
+    /// Cài **mới**: dựng `extensions/<packageId>/` từ bản nháp và trả path đích cho người gọi ghi vào
+    /// hàng SwiftData.
+    ///
+    /// Thư mục đích có thể đã tồn tại dù app chưa có hàng nào trỏ tới nó (lần cài trước chết giữa
+    /// đường, bản ghi bị xoá mà file còn lại — đúng lớp lệch mà `ExtensionInstallAudit` đi tìm). Trường
+    /// hợp đó đi cùng một đường với `install`: sao lưu bản cũ rồi thay nguyên tử, nên vẫn rollback được
+    /// và không bao giờ có hai bản trộn vào nhau.
+    ///
+    /// Thư mục nháp được **copy**, không move: `run.start` với `sourceMode: "draft"` phải còn chạy được
+    /// sau khi cài, và vùng staging vẫn do `ExtensionDraftStagingStore` sở hữu (nó xoá sạch khi tắt
+    /// server hoặc mở lại app).
+    public func installNew(draftDirectory: URL, packageId: String) throws -> String {
+        let fileManager = FileManager.default
+        guard fileManager.fileExists(atPath: draftDirectory.appendingPathComponent("plugin.json").path) else {
+            throw InstallError.draftMissing
+        }
+        guard ExtensionDraftManifest.pathIssue(packageId) == nil else {
+            throw InstallError.unsafePackageId
+        }
+        let destination = ExtensionManager.shared.extensionsDirectory
+            .appendingPathComponent(packageId, isDirectory: true)
+
+        if fileManager.fileExists(atPath: destination.path) {
+            try backup(installedUrl: destination, packageId: packageId)
+            try Self.atomicReplace(target: destination, withContentsOf: draftDirectory, suffix: "incoming")
+            return destination.path
+        }
+
+        do {
+            try fileManager.copyItem(at: draftDirectory, to: destination)
+        } catch {
+            throw InstallError.swapFailed(error.localizedDescription)
+        }
+        return destination.path
+    }
+
+    /// Sao lưu bản đang có sang `.backup/<packageId>/`. Dùng chung cho cả hai đường ghi đè, nên chỉ có
+    /// **một** chỗ quyết định "bản cũ được giữ ở đâu".
+    private func backup(installedUrl: URL, packageId: String) throws {
+        let fileManager = FileManager.default
         guard let backupUrl = backupDirectory(packageId: packageId) else {
             throw InstallError.backupFailed("packageId không an toàn")
         }
-
         do {
             try fileManager.createDirectory(at: Self.backupRoot, withIntermediateDirectories: true)
             if fileManager.fileExists(atPath: backupUrl.path) {
@@ -95,8 +151,6 @@ public actor ExtensionDraftInstaller {
         } catch {
             throw InstallError.backupFailed(error.localizedDescription)
         }
-
-        try Self.atomicReplace(target: installedUrl, withContentsOf: draftDirectory, suffix: "incoming")
     }
 
     public func rollback(installedPath: String, packageId: String) throws {

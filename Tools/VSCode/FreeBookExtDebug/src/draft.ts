@@ -32,6 +32,26 @@ function sha256(data: Uint8Array): string {
 }
 
 /**
+ * Mirror của `ExtensionSyncCommandBuilder.packageId(forName:)` bên Swift: `name.lowercased()` rồi thay
+ * dấu cách bằng `_`.
+ *
+ * Đây chỉ là **phỏng đoán**, không phải nguồn sự thật. App có ba đường cài extension và mỗi đường sinh
+ * `packageId` theo một luật khác: repo sync dùng hàm trên, import zip dùng `metadata.packageId` hoặc
+ * `name.lowercased()` **không** thay dấu cách (`ExtensionManager.installFromLocalZip`), còn restore
+ * backup giữ nguyên id đã lưu. Vì vậy mọi lệnh có `packageId` phải đối chiếu lại với `extensions.list`
+ * trước khi gửi — xem `resolvePackageId()` trong `extension.ts`.
+ */
+export function slugPackageId(name: string): string {
+  return name.toLowerCase().split(' ').join('_').trim();
+}
+
+/** Bỏ dấu và mọi ký tự không phải chữ/số, để so tên hiển thị giữa app và thư mục nguồn. */
+export function compactName(value: string): string {
+  // NFD tách dấu thành ký tự riêng, rồi bước lọc `[^a-z0-9]` dọn luôn cả dấu và dấu cách.
+  return value.normalize('NFD').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+/**
  * Đọc thông tin extension từ một thư mục bất kỳ chứa `plugin.json`.
  */
 export async function readExtensionFromFolder(folderUri: vscode.Uri): Promise<WorkspaceExtensionInfo | undefined> {
@@ -61,7 +81,7 @@ export async function readExtensionFromFolder(folderUri: vscode.Uri): Promise<Wo
       } catch {}
     }
 
-    const packageId = String(metadata.packageId || json.packageId || metadata.name || json.name || folderName);
+    const packageId = String(metadata.packageId || json.packageId || slugPackageId(String(metadata.name || json.name || folderName)));
     const name = String(metadata.name || json.name || folderName);
     const version = String(metadata.version || json.version || '1.0');
     const author = metadata.author || json.author;

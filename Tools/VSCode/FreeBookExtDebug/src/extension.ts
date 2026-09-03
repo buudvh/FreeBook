@@ -2,8 +2,10 @@ import * as vscode from 'vscode';
 import { ExtDebugClient } from './client';
 import {
   buildDraftBundle,
+  compactName,
   discoverWorkspaceExtensions,
   readExtensionFromFolder,
+  slugPackageId,
   stageDraft,
   WorkspaceExtensionInfo
 } from './draft';
@@ -235,9 +237,82 @@ function getActivePackageId(): string | undefined {
   return selectedWorkspaceExt?.packageId || selectedAppExt?.packageId;
 }
 
+/**
+ * `packageId` **thật** mà app đang dùng cho lựa chọn hiện tại, hoặc `undefined` nếu app không có
+ * extension nào khớp.
+ *
+ * Vì sao phải có bước này: id đọc từ `plugin.json` chỉ là phỏng đoán, còn app sinh id theo ba luật
+ * khác nhau tuỳ đường cài (xem `slugPackageId`). Gửi id đoán sai thì **mọi** lệnh có `packageId`
+ * (`run.start`, `draft.stage`, `draft.install`, `draft.rollback`) đều bị trả `UNKNOWN_EXTENSION`, kể
+ * cả khi extension đó đang có trên app — đây là lỗi hay gặp nhất của phân hệ này.
+ *
+ * Thứ tự đối chiếu: id trùng khít → id trùng với slug của tên → slug tên trùng slug tên → tên rút gọn
+ * trùng nhau. Chưa kết nối (danh sách app rỗng) thì giữ id đoán để hành vi offline không đổi.
+ *
+ * `allowNew: true` cho các lệnh **được phép** chạy với extension chưa có trên app — stage, install
+ * (đường cài mới), và run với `sourceMode: 'draft'`. Khi đó không khớp là bình thường, id đoán được
+ * dùng làm khoá staging và app tự resolve lại id thật từ `plugin.json` lúc cài.
+ */
+function resolvePackageId(options: { quiet?: boolean; allowNew?: boolean } = {}): string | undefined {
+  if (selectedAppExt) {
+    return selectedAppExt.packageId;
+  }
+  const ws = selectedWorkspaceExt;
+  if (!ws) {
+    return undefined;
+  }
+  if (appExtensions.length === 0) {
+    return ws.packageId;
+  }
+  const match = findAppTwin(ws.packageId, ws.name);
+  if (!match) {
+    if (options.allowNew) {
+      log(`packageId: '${ws.packageId}' chưa có trên app — sẽ đi đường cài mới`);
+      return ws.packageId;
+    }
+    if (!options.quiet) {
+      const known = appExtensions.map((e) => e.packageId).join(', ') || '(app chưa cài extension nào)';
+      vscode.window.showErrorMessage(
+        `App không có extension nào khớp '${ws.name}' (${ws.packageId}). ` +
+          `Chạy bản đã cài cần extension có trên app; muốn thử bản nháp thì dùng Stage + Run Profile. ` +
+          `App đang có: ${known}`
+      );
+    }
+    return undefined;
+  }
+  if (match.packageId !== ws.packageId) {
+    log(`packageId: '${ws.packageId}' (thư mục) → '${match.packageId}' (app)`);
+  }
+  return match.packageId;
+}
+
+function findAppTwin(packageId: string, name: string): ExtensionInfo | undefined {
+  return (
+    appExtensions.find((e) => e.packageId === packageId) ??
+    appExtensions.find((e) => e.packageId === slugPackageId(name)) ??
+    appExtensions.find((e) => slugPackageId(e.name) === slugPackageId(name)) ??
+    appExtensions.find((e) => compactName(e.name) === compactName(name))
+  );
+}
+
 function getActiveFolderUri(): vscode.Uri | undefined {
   if (selectedWorkspaceExt) {
     return selectedWorkspaceExt.folderUri;
+  }
+  // Đã chọn extension từ danh sách của app: tìm thư mục nguồn cùng danh tính trong workspace. Mặc
+  // định lấy `workspaceFolders[0]` là sai khi workspace không phải chính thư mục extension — stage sẽ
+  // gói nhầm bộ nguồn.
+  if (selectedAppExt) {
+    const appExt = selectedAppExt;
+    const twin = workspaceExtensions.find(
+      (e) =>
+        e.packageId === appExt.packageId ||
+        slugPackageId(e.name) === slugPackageId(appExt.name) ||
+        compactName(e.name) === compactName(appExt.name)
+    );
+    if (twin) {
+      return twin.folderUri;
+    }
   }
   return vscode.workspace.workspaceFolders?.[0]?.uri;
 }
@@ -409,6 +484,52 @@ async function selectExtensionInteractive(): Promise<void> {
 
 // MARK: - Execution
 
+/** Sáu entrypoint chuẩn mà `ExtensionDebugCommandRouter.entrypoint(from:)` nhận; còn lại là `custom`. */
+const STANDARD_ENTRYPOINTS = ['search', 'detail', 'toc', 'chap', 'genre', 'home'];
+
+function defaultPage(): number {
+  return vscode.workspace.getConfiguration('freebook.extdebug').get<number>('defaultPage', 1);
+}
+
+/**
+ * Hỏi tham số **bắt buộc** của entrypoint. Thiếu là server trả `UNKNOWN_ENTRYPOINT` ngay lập tức:
+ * `search` cần `keyword`, `detail`/`toc`/`chap` cần `url`, `custom` cần `scriptFileName`; `genre`/`home`
+ * không có tham số nào.
+ *
+ * Trả `undefined` khi người dùng bấm Esc ở một ô bắt buộc — người gọi phải dừng, không được gửi run
+ * thiếu tham số.
+ */
+async function collectEntrypointParams(
+  entrypoint: string,
+  title: string
+): Promise<Record<string, string> | undefined> {
+  const params: Record<string, string> = {};
+  if (entrypoint === 'search') {
+    const keyword = await vscode.window.showInputBox({ title: `${title} · keyword` });
+    if (keyword === undefined) {
+      return undefined;
+    }
+    params.keyword = keyword;
+    params.page = String(defaultPage());
+  } else if (['detail', 'toc', 'chap'].includes(entrypoint)) {
+    const url = await vscode.window.showInputBox({ title: `${title} · url` });
+    if (!url) {
+      return undefined;
+    }
+    params.url = url;
+  } else if (entrypoint === 'custom') {
+    const fileName = await vscode.window.showInputBox({ title: `${title} · tên file script (vd: list.js)` });
+    if (!fileName) {
+      return undefined;
+    }
+    const input = await vscode.window.showInputBox({ title: `${title} · input (dùng {0} cho số trang)` });
+    params.scriptFileName = fileName;
+    params.input = input ?? '';
+    params.page = String(defaultPage());
+  }
+  return params;
+}
+
 async function runCurrentDocument(): Promise<void> {
   if (!requireClient() || !requireSelection()) {
     return;
@@ -420,59 +541,53 @@ async function runCurrentDocument(): Promise<void> {
   }
   const fileName = document.fileName.split(/[\\/]/).pop() ?? '';
   const key = fileName.replace(/\.js$/, '');
-  const scripts = selectedWorkspaceExt?.scripts || selectedAppExt?.scripts || [];
+  const mode = selectedWorkspaceExt ? 'draft' : 'installed';
 
-  if (scripts.length > 0 && !scripts.includes(key)) {
-    // Nếu file chưa có trong scripts, vẫn cho phép chạy dạng custom
-    await startRun('custom', 'draft', { scriptFileName: fileName });
+  // Tên file không nằm trong sáu entrypoint chuẩn ⇒ chạy dạng `custom` với đúng tên file. Cố ý **không**
+  // so với khoá `script` của `plugin.json` như bản trước: khoá ở đó là tên script của extension, không
+  // phải entrypoint của server — `list` khai trong `script` vẫn phải đi đường `custom`.
+  if (!STANDARD_ENTRYPOINTS.includes(key)) {
+    const input = await vscode.window.showInputBox({ title: `${fileName} · input (dùng {0} cho số trang)` });
+    await startRun('custom', mode, {
+      scriptFileName: fileName,
+      input: input ?? '',
+      page: String(defaultPage())
+    });
     return;
   }
 
-  const mode = selectedWorkspaceExt ? 'draft' : 'installed';
-  await startRun(key, mode);
+  // `search`/`detail`/`toc`/`chap` bắt buộc có tham số; bản trước gửi run trắng nên luôn nhận
+  // `UNKNOWN_ENTRYPOINT` và chỉ `genre`/`home` chạy được.
+  const params = await collectEntrypointParams(key, fileName);
+  if (!params) {
+    return;
+  }
+  await startRun(key, mode, params);
 }
 
 async function runInteractive(mode: 'installed' | 'draft'): Promise<void> {
   if (!requireClient() || !requireSelection()) {
     return;
   }
-  const pkgId = getActivePackageId()!;
+  const pkgId = resolvePackageId({ allowNew: mode === 'draft' });
+  if (!pkgId) {
+    return;
+  }
   if (mode === 'draft' && !stagedRevisions.get(pkgId)) {
     vscode.window.showWarningMessage('Chưa stage bản nháp nào. Chạy “Stage Workspace Draft” trước.');
     return;
   }
   const entrypoint = await vscode.window.showQuickPick(
-    ['search', 'detail', 'toc', 'chap', 'genre', 'home', 'custom'],
+    [...STANDARD_ENTRYPOINTS, 'custom'],
     { title: `Entrypoint (${mode})` }
   );
   if (!entrypoint) {
     return;
   }
 
-  const params: Record<string, string> = {};
-  const page = vscode.workspace.getConfiguration('freebook.extdebug').get<number>('defaultPage', 1);
-  if (entrypoint === 'search') {
-    const keyword = await vscode.window.showInputBox({ title: 'keyword' });
-    if (keyword === undefined) {
-      return;
-    }
-    params.keyword = keyword;
-    params.page = String(page);
-  } else if (['detail', 'toc', 'chap'].includes(entrypoint)) {
-    const url = await vscode.window.showInputBox({ title: 'url' });
-    if (!url) {
-      return;
-    }
-    params.url = url;
-  } else if (entrypoint === 'custom') {
-    const fileName = await vscode.window.showInputBox({ title: 'tên file script (vd: list.js)' });
-    if (!fileName) {
-      return;
-    }
-    const input = await vscode.window.showInputBox({ title: 'input (dùng {0} cho số trang)' });
-    params.scriptFileName = fileName;
-    params.input = input ?? '';
-    params.page = String(page);
+  const params = await collectEntrypointParams(entrypoint, `Entrypoint ${entrypoint} (${mode})`);
+  if (!params) {
+    return;
   }
 
   await startRun(entrypoint, mode, params);
@@ -487,7 +602,11 @@ async function startRun(
     return;
   }
 
-  const pkgId = getActivePackageId()!;
+  const pkgId = resolvePackageId({ allowNew: mode === 'draft' });
+  if (!pkgId) {
+    syncSidebar({ isRunning: false, currentRunId: undefined });
+    return;
+  }
   const payload: Record<string, unknown> = {
     packageId: pkgId,
     entrypoint,
@@ -543,7 +662,10 @@ async function stageWorkspaceDraft(): Promise<void> {
     vscode.window.showErrorMessage('Không tìm thấy thư mục extension hợp lệ.');
     return;
   }
-  const pkgId = getActivePackageId()!;
+  const pkgId = resolvePackageId({ allowNew: true });
+  if (!pkgId) {
+    return;
+  }
 
   await vscode.window.withProgress(
     { location: vscode.ProgressLocation.Notification, title: `Stage bản nháp [${pkgId}] lên app` },
@@ -566,13 +688,21 @@ async function installStagedDraft(): Promise<void> {
   if (!requireClient() || !requireSelection()) {
     return;
   }
-  const pkgId = getActivePackageId()!;
+  const pkgId = resolvePackageId({ allowNew: true });
+  if (!pkgId) {
+    return;
+  }
   const revision = stagedRevisions.get(pkgId);
   if (!revision) {
     vscode.window.showWarningMessage(`Chưa stage bản nháp nào cho '${pkgId}'.`);
     return;
   }
-  log('draft.install: chờ bạn xác nhận trên thiết bị…');
+  const isNewInstall = appExtensions.length > 0 && !findAppTwin(pkgId, selectedWorkspaceExt?.name ?? pkgId);
+  log(
+    isNewInstall
+      ? 'draft.install (cài mới): chờ bạn xác nhận trên thiết bị…'
+      : 'draft.install: chờ bạn xác nhận trên thiết bị…'
+  );
   try {
     const reply = await client!.request(
       'draft.install',
@@ -581,6 +711,13 @@ async function installStagedDraft(): Promise<void> {
     );
     installedRevision = revision;
     syncSidebar({ installedRevision: revision });
+    // App trả về packageId **thật** nó đã dùng (nó tự resolve lại từ `plugin.json`), nên nạp lại danh
+    // sách để lần chạy sau ghép đúng extension — nhất là sau một lượt cài mới.
+    if (reply.packageId && reply.packageId !== pkgId) {
+      log(`app dùng packageId '${reply.packageId}' cho bản vừa cài`);
+      stagedRevisions.set(reply.packageId, revision);
+    }
+    await fetchAppExtensions();
     vscode.window.showInformationMessage(reply.message ?? `Đã cài bản nháp cho '${pkgId}'.`);
   } catch (error) {
     vscode.window.showErrorMessage(`draft.install thất bại: ${describe(error)}`);
@@ -591,7 +728,10 @@ async function rollbackInstalled(): Promise<void> {
   if (!requireClient() || !requireSelection()) {
     return;
   }
-  const pkgId = getActivePackageId()!;
+  const pkgId = resolvePackageId();
+  if (!pkgId) {
+    return;
+  }
   log('draft.rollback: chờ bạn xác nhận trên thiết bị…');
   try {
     await client!.request('draft.rollback', { packageId: pkgId }, 10 * 60 * 1000);
@@ -648,7 +788,7 @@ function applyDiagnostic(event: DebugEvent): void {
   if (!folder || !event.location) {
     return;
   }
-  const pkgId = getActivePackageId();
+  const pkgId = resolvePackageId({ quiet: true, allowNew: true });
   const staged = pkgId ? stagedRevisions.get(pkgId) : undefined;
   const knownRevisions = [staged, installedRevision].filter(Boolean);
   if (knownRevisions.length > 0 && !knownRevisions.includes(event.sourceRevision)) {

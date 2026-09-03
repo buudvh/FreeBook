@@ -7,10 +7,17 @@ import SwiftData
 /// LAN. Hai chốt còn lại vẫn là chốt thật:
 /// 1. Server tự resolve script qua manifest của extension đã chọn — `run.start` chỉ nhận `packageId` +
 ///    `entrypoint` + input, **không** có field path, không `eval`, không source raw.
-/// 2. Mọi lệnh ghi đè dữ liệu người dùng (`draft.install`, `draft.rollback`) vẫn phải đi qua
-///    `ExtensionDebugInstallGate`, tức phải bấm trên thiết bị.
+/// 2. Mọi lệnh ghi vào dữ liệu người dùng (`draft.install` — cả nhánh ghi đè lẫn nhánh **cài mới** —
+///    và `draft.rollback`) vẫn phải đi qua `ExtensionDebugInstallGate`, tức phải bấm trên thiết bị.
+///
+/// Từ 1.3.325 `draft.install` có hai nhánh: extension đã có trên app thì **ghi đè** file (metadata thư
+/// viện không đổi), chưa có thì **cài mới** — dựng `extensions/<packageId>/` rồi thêm hàng `Extension`
+/// qua `ExtensionTransactionCoordinator`. Đây là chỗ duy nhất trong phân hệ debug ghi SwiftData, và nó
+/// ghi bằng `ModelContext` riêng dựng từ `container`.
 public actor ExtensionDebugCommandRouter {
-    private let container: ModelContainer
+    /// `internal` chứ không `private`: nhánh `draft.*` nằm ở file `+Draft.swift`, mà `private` trong
+    /// Swift là phạm vi **file** — đường cài mới cần container để dựng `ModelContext` riêng.
+    internal let container: ModelContainer
     private let hub: ExtensionDebugEventHub
     private let runner: ExtensionDebugRunner
 
@@ -104,17 +111,21 @@ public actor ExtensionDebugCommandRouter {
     }
 
     private func handleRunStart(_ envelope: ExtensionDebugProtocol.Envelope) async {
-        guard let packageId = envelope.payload?.packageId,
-              let snapshot = installedExtensions().first(where: { $0.packageId == packageId }) else {
-            emit(ExtensionDebugProtocol.errorEnvelope(requestId: envelope.requestId, code: .unknownExtension, message: "Không có extension này"))
+        guard let packageId = envelope.payload?.packageId else {
+            emit(ExtensionDebugProtocol.errorEnvelope(requestId: envelope.requestId, code: .malformedMessage, message: "Thiếu packageId"))
             return
         }
         guard let entrypoint = Self.entrypoint(from: envelope.payload) else {
             emit(ExtensionDebugProtocol.errorEnvelope(requestId: envelope.requestId, code: .unknownEntrypoint, message: "Entrypoint không hợp lệ"))
             return
         }
+        let installed = installedExtensions()
+        let snapshot = installed.first(where: { $0.packageId == packageId })
 
-        var localPath = snapshot.localPath
+        // `sourceMode: "draft"` chạy thẳng từ thư mục staging và **không** đòi extension đã cài: đó là
+        // cách thử một extension mới trước khi quyết định thêm nó vào thư viện. Metadata còn thiếu được
+        // đọc từ `plugin.json` của chính bản nháp; `configJson` rỗng vẫn hợp lệ vì
+        // `ExtensionManager.getCombinedConfigs` lấy mặc định từ khoá `config` trong `plugin.json`.
         if envelope.payload?.sourceMode == "draft" {
             guard let revision = envelope.payload?.sourceRevision,
                   await ExtensionDraftStagingStore.shared.hasDraft(packageId: packageId, revision: revision),
@@ -122,15 +133,55 @@ public actor ExtensionDebugCommandRouter {
                 emit(ExtensionDebugProtocol.errorEnvelope(requestId: envelope.requestId, code: .draftMissing, message: "Chưa có bản nháp đã validate cho revision này"))
                 return
             }
-            localPath = draftDirectory.path
+            let draftMetadata = try? ExtensionDraftMetadata.read(from: draftDirectory)
+            await startRun(
+                envelope,
+                packageId: packageId,
+                localPath: draftDirectory.path,
+                downloadUrl: snapshot?.downloadUrl ?? "",
+                configJson: snapshot?.configJson ?? "",
+                host: snapshot?.sourceUrl ?? draftMetadata?.sourceUrl,
+                entrypoint: entrypoint
+            )
+            return
         }
 
-        let runId = await runner.start(
+        guard let snapshot else {
+            emit(ExtensionDebugProtocol.errorEnvelope(
+                requestId: envelope.requestId,
+                code: .unknownExtension,
+                message: Self.unknownExtensionMessage(requested: packageId, installed: installed)
+            ))
+            return
+        }
+        await startRun(
+            envelope,
             packageId: packageId,
-            localPath: localPath,
+            localPath: snapshot.localPath,
             downloadUrl: snapshot.downloadUrl,
             configJson: snapshot.configJson,
             host: snapshot.sourceUrl,
+            entrypoint: entrypoint
+        )
+    }
+
+    /// Một chỗ duy nhất phát `run.start` cho cả hai nguồn (bản đã cài / thư mục nháp), để hai đường
+    /// không bao giờ lệch nhau về những gì được truyền vào runner.
+    private func startRun(
+        _ envelope: ExtensionDebugProtocol.Envelope,
+        packageId: String,
+        localPath: String,
+        downloadUrl: String,
+        configJson: String,
+        host: String?,
+        entrypoint: ExtensionDebugEntrypoint
+    ) async {
+        let runId = await runner.start(
+            packageId: packageId,
+            localPath: localPath,
+            downloadUrl: downloadUrl,
+            configJson: configJson,
+            host: host,
             entrypoint: entrypoint
         )
         var payload = ExtensionDebugProtocol.Payload()
@@ -203,6 +254,24 @@ public actor ExtensionDebugCommandRouter {
         return rows
             .filter { !$0.localPath.isEmpty }
             .map { ExtensionDebugInstalledSnapshot(extensionRow: $0) }
+    }
+
+    /// Lỗi `UNKNOWN_EXTENSION` phải nói ra app đang có id nào.
+    ///
+    /// Client suy `packageId` từ `plugin.json`, còn app sinh id theo **ba** luật khác nhau tuỳ đường
+    /// cài: repo sync dùng `name.lowercased()` + thay dấu cách bằng `_`
+    /// (`ExtensionSyncCommandBuilder.packageId(forName:)`), import zip dùng `metadata.packageId` hoặc
+    /// `name.lowercased()` **không** thay dấu cách, restore backup giữ nguyên id đã lưu. Vì vậy lệch id
+    /// là lỗi thường gặp nhất của phân hệ này, và một câu "Không có extension này" trơ trọi không cho
+    /// người dùng đường nào để tự sửa. Liệt kê id **không lộ gì mới**: `extensions.list` vốn đã trả
+    /// đúng những id đó cho cùng client.
+    internal static func unknownExtensionMessage(
+        requested: String?,
+        installed: [ExtensionDebugInstalledSnapshot]
+    ) -> String {
+        let ids = installed.map(\.packageId).sorted()
+        let list = ids.isEmpty ? "(app chưa cài extension nào)" : ids.joined(separator: ", ")
+        return "Không có extension '\(requested ?? "-")'. App đang có: \(list)"
     }
 
     private static func entrypoint(from payload: ExtensionDebugProtocol.Payload?) -> ExtensionDebugEntrypoint? {

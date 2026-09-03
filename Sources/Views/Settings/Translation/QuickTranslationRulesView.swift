@@ -168,18 +168,23 @@ struct QuickTranslationRulesView: View {
     @ViewBuilder
     private var actionSection: some View {
         Section {
-            Button {
-                downloadDefaultRules()
-            } label: {
-                HStack {
-                    Label("Tải bộ rule mặc định", systemImage: "arrow.down.circle")
-                    Spacer()
-                    if store.isDownloading {
-                        ProgressView()
+            // Ẩn khi máy đã có rule: bộ mặc định chỉ dùng để **bắt đầu**, và nút này ghi đè bộ đang
+            // chạy — người dùng đã sửa/nhập bộ riêng rồi thì đó là một cú mất dữ liệu chỉ cách một
+            // lần bấm. Xoá bộ rule (`ruleCount` về 0) là nút hiện lại.
+            if store.status.ruleCount == 0 {
+                Button {
+                    downloadDefaultRules()
+                } label: {
+                    HStack {
+                        Label("Tải bộ rule mặc định", systemImage: "arrow.down.circle")
+                        Spacer()
+                        if store.isDownloading {
+                            ProgressView()
+                        }
                     }
                 }
+                .disabled(store.isDownloading)
             }
-            .disabled(store.isDownloading)
 
             Button {
                 showingImporter = true
@@ -204,7 +209,11 @@ struct QuickTranslationRulesView: View {
         } header: {
             Text("Bộ rule")
         } footer: {
-            Text("Bộ rule mặc định tải từ HuggingFace, cùng chỗ với VietPhrase / PhienAm (\(QuickTranslationRuleStore.ruleFileName)). File tải về được kiểm tra trước khi thay bộ đang chạy.")
+            if store.status.ruleCount == 0 {
+                Text("Bộ rule mặc định tải từ HuggingFace, cùng chỗ với VietPhrase / PhienAm (\(QuickTranslationRuleStore.ruleFileName)). File tải về được kiểm tra trước khi thay bộ đang chạy.")
+            } else {
+                Text("Máy đã có \(store.status.ruleCount) rule nên nút tải bộ mặc định được ẩn — nó ghi đè bộ đang chạy. Cần tải lại thì xoá bộ rule khỏi máy trước.")
+            }
         }
     }
 

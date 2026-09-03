@@ -32,8 +32,10 @@ struct NotificationInboxView: View {
         /// Thời điểm dùng để nhóm/sắp xếp.
         var date: Date {
             switch self {
-            case .newChapter(let record): return record.firstFoundAt ?? record.lastCheckedAt ?? .distantPast
-            case .toast(let record): return record.date
+            case .newChapter(let record):
+                return record.announcedAt ?? record.firstFoundAt ?? record.lastCheckedAt ?? .distantPast
+            case .toast(let record):
+                return record.date
             }
         }
 
@@ -50,10 +52,9 @@ struct NotificationInboxView: View {
         Dictionary(allBooks.map { ($0.bookId, $0) }, uniquingKeysWith: { first, _ in first })
     }
 
+    /// Lọc theo **thông báo đã phát**, không theo badge: dòng phải ở lại sau khi đánh dấu đã đọc.
     private var newChapterItems: [InboxItem] {
-        newChapters.records.values
-            .filter { $0.hasNew }
-            .map { InboxItem.newChapter($0) }
+        newChapters.announcements.map { InboxItem.newChapter($0) }
     }
 
     private var toastItems: [InboxItem] {
@@ -116,6 +117,13 @@ struct NotificationInboxView: View {
         switch item {
         case .newChapter(let record):
             newChapterRow(record)
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button(role: .destructive) {
+                        newChapters.clearAnnouncement(bookId: record.bookId)
+                    } label: {
+                        Label("Xoá", systemImage: "trash")
+                    }
+                }
         case .toast(let record):
             toastRow(record)
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -138,7 +146,7 @@ struct NotificationInboxView: View {
             }
         } label: {
             HStack(alignment: .top, spacing: 12) {
-                Image(systemName: "bell.badge.fill")
+                Image(systemName: record.isAnnouncementRead ? "bell" : "bell.badge.fill")
                     .foregroundColor(.orange)
                     .font(.title3)
                     .frame(width: 28)
@@ -158,6 +166,12 @@ struct NotificationInboxView: View {
                     }
                 }
                 Spacer(minLength: 0)
+                if !record.isAnnouncementRead {
+                    Circle()
+                        .fill(Color.accentColor)
+                        .frame(width: 8, height: 8)
+                        .padding(.top, 6)
+                }
                 Image(systemName: "chevron.right")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -244,10 +258,11 @@ struct NotificationInboxView: View {
                 Button(role: .destructive) {
                     // Không hiện toast xác nhận: `ToastManager.show` lại ghi vào chính hộp thư này.
                     inbox.deleteRead()
+                    newChapters.clearReadAnnouncements()
                 } label: {
                     Label("Xoá thông báo đã đọc", systemImage: "trash")
                 }
-                .disabled(!inbox.hasRead)
+                .disabled(!inbox.hasRead && !newChapters.hasReadAnnouncement)
             } label: {
                 Image(systemName: "ellipsis.circle")
             }
@@ -255,12 +270,10 @@ struct NotificationInboxView: View {
         }
     }
 
-    /// "Đánh dấu đã đọc hết": đọc mọi toast + tắt badge mọi truyện có chương mới.
+    /// "Đánh dấu đã đọc hết": đọc mọi toast + mọi dòng chương mới (dòng vẫn ở lại danh sách).
     private func markEverythingRead() {
         inbox.markAllRead()
-        for record in newChapters.records.values where record.hasNew {
-            newChapters.markSeen(bookId: record.bookId)
-        }
+        newChapters.markAllAnnouncementsRead()
     }
 
     // MARK: - Định dạng
@@ -272,12 +285,14 @@ struct NotificationInboxView: View {
         return record.latestChapterTitle.isEmpty ? "Truyện" : record.latestChapterTitle
     }
 
+    /// Đọc **con số của thông báo**, không đọc `newChapterCount`: sau khi đánh dấu đã đọc con số kia
+    /// về 0, còn dòng này vẫn phải nói đúng đợt đó có mấy chương.
     private func newChapterSubtitle(_ record: NewChapterRecord) -> String {
-        guard record.newChapterCount > 0 else { return "Có chương mới" }
-        if record.isCountExact {
-            return "\(record.newChapterCount) chương mới"
+        guard record.announcedChapterCount > 0 else { return "Có chương mới" }
+        if record.announcedIsCountExact {
+            return "\(record.announcedChapterCount) chương mới"
         }
-        return "≥\(record.newChapterCount) chương mới"
+        return "≥\(record.announcedChapterCount) chương mới"
     }
 
     private func dayTitle(_ day: Date) -> String {

@@ -23,6 +23,7 @@ struct FreeBookApp: App {
                 for: Repository.self,
                 Extension.self,
                 Book.self,
+                BookCollection.self,
                 Chapter.self,
                 DownloadTaskModel.self,
                 configurations: config

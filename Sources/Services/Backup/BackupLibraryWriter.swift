@@ -11,6 +11,7 @@ public struct BackupLibraryWriter {
         public var insertedBooks = 0
         public var skippedBooks = 0
         public var mirroredChapters = 0
+        public var insertedCollections = 0
         public var errors: [String] = []
 
         public mutating func merge(_ other: Report) {
@@ -19,6 +20,7 @@ public struct BackupLibraryWriter {
             insertedBooks += other.insertedBooks
             skippedBooks += other.skippedBooks
             mirroredChapters += other.mirroredChapters
+            insertedCollections += other.insertedCollections
             errors.append(contentsOf: other.errors)
         }
     }
@@ -123,6 +125,18 @@ public struct BackupLibraryWriter {
             switch addResult {
             case .success:
                 report.insertedBooks += 1
+                // Ghim là lựa chọn của người dùng ở máy nguồn; chỉ áp cho truyện **mới thêm** để
+                // không đè trạng thái ghim của máy đang khôi phục.
+                if record.isPinned == true, record.isOnShelf {
+                    let pinResult = BookTransactionCoordinator.shared.setPinned(
+                        bookId: record.bookId,
+                        isPinned: true,
+                        in: context
+                    )
+                    if case .failure(let error) = pinResult {
+                        report.errors.append("Ghim \(record.title): \(error.localizedDescription)")
+                    }
+                }
                 // `addBookToShelf` không tính `titleTrans`/`authorTrans`, mà kệ sách đọc hai field đó.
                 let infoResult = BookTransactionCoordinator.shared.updateBookInfo(
                     command: EditBookInfoCommand(
@@ -138,6 +152,50 @@ public struct BackupLibraryWriter {
                 }
             case .failure(let error):
                 report.errors.append("Truyện \(record.title): \(error.localizedDescription)")
+            }
+        }
+
+        return report
+    }
+
+    /// Khôi phục bộ sưu tập theo kiểu **gộp**: bộ trùng tên (không phân biệt hoa/thường) thì dùng lại
+    /// bộ đang có, chỉ bổ sung thành viên; không có thì tạo mới. Chỉ gắn những truyện **thật sự có**
+    /// trong máy — `BookCollectionCoordinator.addBook` tự bật `isOnShelf`, giữ đúng bất biến.
+    public func restoreCollections(_ records: [BackupPayload.CollectionRecord]) -> Report {
+        var report = Report()
+        guard !records.isEmpty else { return report }
+
+        let existingBookIds = self.existingBookIds()
+
+        for record in records {
+            let existing = (try? context.fetch(FetchDescriptor<BookCollection>())) ?? []
+            let matched = existing.first {
+                $0.name.compare(record.name, options: .caseInsensitive) == .orderedSame
+            }
+
+            let collectionId: String
+            if let matched {
+                collectionId = matched.collectionId
+            } else {
+                switch BookCollectionCoordinator.shared.createCollection(name: record.name, in: context) {
+                case .success(let created):
+                    collectionId = created.collectionId
+                    report.insertedCollections += 1
+                case .failure(let error):
+                    report.errors.append("Bộ sưu tập \(record.name): \(error.localizedDescription)")
+                    continue
+                }
+            }
+
+            for bookId in record.bookIds where existingBookIds.contains(bookId) {
+                let result = BookCollectionCoordinator.shared.addBook(
+                    bookId: bookId,
+                    toCollection: collectionId,
+                    in: context
+                )
+                if case .failure(let error) = result {
+                    report.errors.append("Bộ sưu tập \(record.name) ← \(bookId): \(error.localizedDescription)")
+                }
             }
         }
 
