@@ -2,9 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.295) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.296) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
-## [1.3.330] - 2026-09-03
+## [1.3.331] - 2026-09-03
+
+### Sửa lỗi biên dịch: startBackgroundRemainingPagesLoading là private
+
+Sửa **1** file Swift ([`BookDetailView.swift`](../../Sources/Views/BookDetail/BookDetailView.swift), 1 từ khoá).
+
+- **CI của 1.3.330 đỏ với đúng một lỗi**: `BookDetailView+ShelfPlacement.swift:28: error: 'startBackgroundRemainingPagesLoading' is inaccessible due to 'private' protection level`. Nguyên nhân là bẫy cũ của repo: `private` trong Swift là phạm vi **file**, nên hàm đó không nhìn được từ file `+ShelfPlacement` mới tách ở 1.3.328. Đổi `private` → `internal`, đúng khuôn mọi member mà `BookDetailView` chia sẻ với các file `+` của nó (`createBookOnShelf`, `tocPages`, `remainingPagesLoaded`… đều đã `internal`).
+- Đã soát lại **toàn bộ** symbol mà `BookDetailView+ShelfPlacement.swift` dùng (`localBook`, `modelContext`, `detailErrorMessage`, `createBookOnShelf`, `tocPages`, `remainingPagesLoaded`, `collectionPickerBook`): tất cả đã `internal`, không còn chỗ nào hở.
+- Bài học ghi lại cho lượt sau: tách một hàm sang file `X+Feature.swift` thì phải kiểm access level của **mọi** thứ nó gọi, không chỉ của chính nó — `check_architecture.py` và `validate_links.py` đều không bắt được lớp lỗi này, chỉ `xcodebuild` bắt.
+- Gate: `check_architecture.py` giữ **12 violation**, `validate_links.py` PASS.
+
+
 
 ### Cache script Ext TTS, cooldown làm mới kho, cache icon tiện ích
 
@@ -485,18 +496,4 @@ Thêm **1** file Swift (426 → 427), sửa 2 file. Chưa biên dịch (viết t
 **Cố ý chưa sửa**: thiếu dấu thanh trong `IPAToVietnameseMapper` (bộ ca kiểm cho "bac"/"xit-tơm"/"iet"/"tec-xơ" — âm tiết Việt kết thúc bằng `-c`/`-t` mà không có thanh là sai phonotactics) và `arigatou → a-ri-ga-tô-ư`. Cả hai chỉ còn quan trọng nếu E1 vòng 2 kết luận phải giữ đường phiên âm sang chữ Việt.
 
 `check_architecture.py` giữ **14 violation** đúng cùng một tập. CodeGraph: cập nhật `00`, `02`, `04`, `10`, `14`; `09`, `11`, `13`, `rules` ghi nhận `--no-change-needed`.
-
-## [1.3.296] - 2026-08-31
-
-### Dụng cụ đo cho phiên âm: nghe IPA thô và đếm ký hiệu ngoài từ vựng model
-
-Thêm **3** file Swift (423 → 426), sửa 2 file. **Không** đổi đường tổng hợp đang chạy — lượt này ship *thước đo*, chưa phải bản sửa. Chưa biên dịch (viết trên Windows).
-
-* **Phát hiện đảo ngược giả định của cả 1.3.290 và 1.3.291.** Tải `phoneme_id_map` của model đang dùng (`raikiri1498/nghitts/models/ngoc_huyen_moi.onnx.json`) và đếm: **161 ký hiệu, và nó là bộ IPA đầy đủ**, không phải bộ âm vị tiếng Việt. Có đủ mọi ký hiệu espeak `en-us` sinh ra (`æ ð θ ŋ ɑ ɔ ɛ ə ɚ ɜ ɝ ɪ ʊ ʌ ʃ ʒ ɹ ɫ ɾ ᵻ ɐ ˈ ˌ ː`; `tʃ`/`dʒ` là hai scalar rời nên cũng đủ) và mọi ký hiệu tiếng Nhật cần (`ɕ ʑ ɸ ɲ ŋ ɾ ː`). Nghĩa là **đưa IPA tiếng Anh thẳng vào chuỗi phoneme là hợp lệ về từ vựng**, và cả vòng "IPA → chữ Việt → text → phiên âm lại" — nguồn của cả sai lệch lẫn mất chữ — có thể bỏ được.
-* **Nhưng có mặt trong từ vựng không có nghĩa là đã được train**, nên không refactor gì trong lượt này. 161 ký hiệu là bảng chuẩn Piper phát cho *mọi* giọng, không phải bằng chứng dữ liệu huấn luyện tiếng Việt từng chứa `θ`, `ð`, `æ`. Đây đúng là cái bẫy đã gặp ở lượt VieNeu (`style token 18` có tên `doc_truyen` nhưng nằm trong vùng random-init). Phải **nghe** trước.
-* **`PiperPhonemeInventory`**: đọc `phoneme_id_map` từ `<giọng>.onnx.json`, `missingScalars(in:)` đếm scalar ngoài từ vựng kèm tần suất, và bảng `downgrade` hạ cấp ký hiệu không có về ký hiệu có (`ɴ→n`, `ʧ→tʃ`, `ʨ→tɕ`, tie bar → bỏ có chủ ý, `|→_`). Bảng này được **gieo từ chính phép đo inventory**, không phải đoán; ký hiệu chưa biết trả `nil` để bị **đếm** thay vì bỏ im lặng.
-* **`ONNXPiperEngine+Phonemes`**: `synthesizeRawPhonemes(_:)` chạy model trên **đúng** chuỗi IPA cho trước, không chunk, không phiên âm, không chuẩn hoá âm lượng theo chuỗi. Đây là điểm cốt lõi của phép đo: mọi đường hiện có đều đi qua `IPAToVietnameseMapper` nên **không tách được** lỗi của model khỏi lỗi của tầng phiên âm. Là file riêng vì `ONNXPiperEngine.swift` đang ở **đúng** baseline 469 dòng và chỉ được phép giảm; `CachedRuntime`/`getRuntime` đổi `private` → internal bằng cách đổi từ khoá, **không thêm dòng**.
-* **`TTSIPAProbeSection`** ở màn Thử phiên âm: ô nhập IPA thô kèm 7 nút preset (`həlˈoʊ`, `stɹˈiːt`, `θˈɪŋk`, `ðˈɪs`, `kˈæt`, `ɾaːmen`, và một ca tiếng Việt đối chứng), phát ngay qua `AVAudioPlayer`; cộng bảng phủ âm vị chạy espeak `en-us` trên 24 từ rồi liệt kê scalar nào ngoài từ vựng. Là `View` riêng chứ không phải extension vì state của `TTSTransliterationTesterView` là `private`. Engine giữ trong `@State` để không dựng `ORTSession` mới mỗi lần bấm; 24 lượt espeak nằm trong `Task.detached` vì đó là lời gọi C có khoá.
-* **Cổng quyết định cho lượt sau**: nghe được tiếng Anh ⇒ chuyển quyết định ngôn ngữ xuống **tầng phoneme** (`TTSPhonemeStreamBuilder` tách span, phiên âm từng span bằng đúng giọng, ghép IPA; `JapaneseRomajiIPA` cho tiếng Nhật, đảo lại quyết định bỏ `ー` của 1.3.291 vì `ː` có trong từ vựng). `θ ð æ` ra tiếng lạ ⇒ giữ hướng phiên âm sang âm Việt nhưng dùng bảng đếm để bổ sung `IPAToVietnameseMapper` cho đúng chỗ đang bị bỏ.
-* `check_architecture.py` giữ **14 violation** đúng cùng một tập; 3 file mới đều ≤ 400 dòng và đúng 1 type top level. CodeGraph: cập nhật `00`, `02`, `04`, `10`, `14`; `09`, `11`, `13`, `rules` ghi nhận `--no-change-needed`.
 

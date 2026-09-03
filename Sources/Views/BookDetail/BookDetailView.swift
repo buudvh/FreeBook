@@ -1096,7 +1096,7 @@ struct BookDetailView: View {
         }
     }
 
-    private func startBackgroundRemainingPagesLoading(for targetBook: Book? = nil) {
+    internal func startBackgroundRemainingPagesLoading(for targetBook: Book? = nil) {
         guard tocPages.count > 1, !remainingPagesLoaded, !isLoadingRemainingPages else { return }
         isLoadingRemainingPages = true
         tocErrorMessage = ""

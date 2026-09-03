@@ -3,8 +3,8 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-09-03T15:15:48Z",
-  "gitCommit": "859dd963a283f3e68e7e31b7c47177c017f5da8b",
+  "generatedAt": "2026-09-03T15:40:29Z",
+  "gitCommit": "6c385f56100489e99257f26853b1f988bc8af6a5",
   "sourceFileCount": 474,
   "documentCount": 16,
   "documents": [
@@ -2551,12 +2551,12 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "4f0bbf723decd191ae43ec359dcd832d37e0e0acd1273c04c75e20600f98b292",
-      "sourceHash": "c75601dbd74433cfec5439ca86436ff4e0e0e7954398ddee88c402320b050f42",
+      "sourceHash": "3bef9a7c01d5be8c16a577cff128af158ca86d6c93367c9347cca9217a168392",
       "generatedHash": "7a69ea70851fdebc82011d26dfaf4fb8a9b5936bfac418cb99e28064f8813e6b",
-      "generatedAt": "2026-09-03T15:15:43Z",
-      "reviewedAt": "2026-09-03T15:15:43Z",
-      "reviewedCommit": "859dd963a283f3e68e7e31b7c47177c017f5da8b",
-      "reviewMode": "accept"
+      "generatedAt": "2026-09-03T15:40:29Z",
+      "reviewedAt": "2026-09-03T15:40:29Z",
+      "reviewedCommit": "6c385f56100489e99257f26853b1f988bc8af6a5",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "12_ownership_graph.md",
@@ -2589,12 +2589,12 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "b0d4d4d4bca7562eb71c38165e49eaf44434d87b57111fb5c46f1762529b0396",
-      "sourceHash": "4eca2b52d84dcc1a6612016bad07092d3741ff3a7b59f0bd03cd0b9ece3e74ef",
+      "sourceHash": "681f3f709a85c30011ea591d2ad5491ab1c59988e4466e17f1589c9e38190215",
       "generatedHash": "c245ef8727bae05ffcbe8031132c7900d19704a048443f09026fab02b2baeac5",
-      "generatedAt": "2026-09-03T12:34:55Z",
-      "reviewedAt": "2026-09-03T12:34:55Z",
-      "reviewedCommit": "859dd963a283f3e68e7e31b7c47177c017f5da8b",
-      "reviewMode": "accept"
+      "generatedAt": "2026-09-03T15:40:29Z",
+      "reviewedAt": "2026-09-03T15:40:29Z",
+      "reviewedCommit": "6c385f56100489e99257f26853b1f988bc8af6a5",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "13_resource_lifecycle.md",
