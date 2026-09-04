@@ -2,7 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.297) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.298) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+
+## [1.3.335] - 2026-09-04
+
+### Sửa lỗi biên dịch: tách thân ReaderView thành nhiều tầng thuộc tính
+
+Sửa **1** file Swift ([`ReaderView.swift`](../../Sources/Views/Reader/ReaderView.swift), 1969 → **1997** dòng, baseline 2053).
+
+- **CI của 1.3.334 đỏ với đúng một lỗi**: `Sources/Views/Reader/ReaderView.swift:350:9: error: the compiler is unable to type-check this expression in reasonable time; try breaking up the expression into distinct sub-expressions`. Không phải lỗi logic: `readerPresentationView` đã là **một** biểu thức dài 330 dòng (`GeometryReader` + `ZStack` 7 con + 21 modifier gồm 6 `sheet`, 2 `fullScreenCover`, 10 `onChange`, `onReceive`, `toolbar`, `background`), và việc thêm `definitionPanelOverlay(in: geometry)` của việc **B** đẩy nó vượt ngân sách suy luận kiểu.
+- **Tách theo đúng khuôn đã có trong file** (`readerLifecycleView` → `readerDataObservationView` vốn đã xếp tầng như vậy): thêm 4 thuộc tính + 2 hàm `@ViewBuilder`, mỗi cái là một đơn vị type-check riêng — `readerOverlayStack` (`GeometryReader` + `ZStack` + `.toolbar`), `readerSheetLayer` (4 `sheet`), `readerObserverLayer` (10 `onChange` + `onReceive`), `readerPresentationNavigationLayer` (2 `sheet` + 2 `fullScreenCover` + `background`), cộng `floatingSelectionMenuOverlay(in:)` (50 dòng gọi `ReaderFloatingMenuOverlayView`) và `junkDeleteOverlay(in:)` (54 dòng panel xoá rác). `readerPresentationView` còn đúng một dòng trỏ vào tầng ngoài cùng.
+- **Thứ tự áp modifier giữ y nguyên** (`toolbar` → 4 `sheet` → 10 `onChange` + `onReceive` → 2 `sheet` + 2 `fullScreenCover` → `background`) nên cây view sinh ra giống hệt trước khi tách: không đổi hành vi, không đổi mốc vòng đời, không đổi vùng an toàn. Hai overlay rút ra vẫn nhận `GeometryProxy` tường minh vì panel xoá rác đọc `geometry.safeAreaInsets.bottom`.
+- **Giữ trong `ReaderView.swift`, không dời sang file `+`**: các tầng này chạm `@State` còn `private` (28/86 khai báo), mà `private` của Swift là phạm vi **file** — dời ra là vỡ ngay. Đây cũng là lớp lỗi đã làm CI 1.3.331 đỏ.
+- Gate: `check_architecture.py` giữ **8 violation** cũ (`ReaderView.swift` 1997/2053 dòng, không phát sinh vi phạm mới); `validate_links.py` PASS (16 doc, 483 file) — sửa `08_lifecycle`, `10_risk_report`, `rules.md`, ghi nhận `no-change-needed` cho `04_call_graph`, `11_subsystems`, `13_resource_lifecycle`.
+- **Vẫn chưa biên dịch tại chỗ** — host là Windows, `xcodebuild` chỉ chạy trên macOS. Bằng chứng của lượt này là đọc code + hai validator; CI xanh chỉ chứng minh **biên dịch được**. Không thêm/xoá file Swift nên lượt này **không** cần `xcodegen generate`.
 
 ## [1.3.334] - 2026-09-04
 
@@ -497,25 +510,3 @@ Sửa **4** file Swift. Chưa biên dịch (viết trên Windows — không có 
 - Xoá `@State showingTOCRules` / `showingJunkFilterManagerSheet` và hai `.sheet` tương ứng khỏi `ReaderView` (1.3.298 gỡ hai mục menu nhưng để lại state không còn lối phát); xoá 4 `@Binding` chết khỏi `ReaderHeaderFooterOverlayView`. `TOCRulesConfigView` / `JunkFilterManagementView` vẫn vào được từ tab Cài Đặt.
 
 `check_architecture.py`: **15 → 14** violation (`ReaderView.swift` 2079 → 2051, về dưới baseline 2053). Không violation mới. CodeGraph: cập nhật `04`, `05`, `08`, `10`, `11`, `13`; `07`, `rules` ghi nhận `--no-change-needed`.
-
-## [1.3.298] - 2026-09-01
-
-### Fix sleep timer khi pause TTS, cải tiến UI trình đọc, cache chi tiết truyện & Discovery tabs
-
-Thêm **1** file Swift mới (`BookDetailCacheManager`), sửa **7** file Swift hiện có.
-
-**Fix lỗi:**
-- **Sleep timer vẫn đếm ngược khi pause TTS**: Thêm `stopTimerCountdown(keepMode: true)` vào `TTSManager.pause()` để tạm dừng bộ đếm khi người dùng tạm dừng đọc; `resume()` đã có `restartSleepTimerIfNeeded()` sẽ tự tiếp tục.
-
-**Cải tiến UI Trình đọc (Reader):**
-- **Nút cài đặt ra khỏi dropdown**: Thêm nút `gearshape` (44×44) đứng giữa nút `reload` và dropdown `ellipsis` trên header.
-- **Chuyển 2 toggle vào cài đặt**: "Hiển thị tên chương trong nội dung" và "Loại bỏ tiêu đề chương trùng trong nội dung" từ menu `ellipsis` chuyển vào `ReaderSettingsView` thành 2 `Toggle` trực tiếp.
-- **Font picker limit 1 dòng**: Thêm `.lineLimit(1)` cho text trong picker chọn kiểu chữ.
-- **Bỏ "Quản lý lọc rác" khỏi cài đặt trình đọc**: Xoá button mở `JunkFilterManagementView` khỏi `ReaderSettingsView`.
-- **Dropdown menu**: Xoá "Quy tắc mục lục (TOC)" và "Quản lý lọc rác"; thêm "Mở Cài đặt" → điều hướng đến tab Settings (index 3) qua `NotificationCenter`.
-
-**Cache hiệu năng:**
-- **BookDetailView**: Thêm `BookDetailCacheManager` cache in-memory (TTL 5 phút) cho dữ liệu chi tiết truyện (title, author, cover, desc, detail, genres, suggests, comments, host). Quay lại từ genres/comments không tải lại.
-- **DiscoveryView**: Mở rộng `shouldRenderCategoryTab` từ ±1 tab sang **±3 tab** (giữ 7 tab cùng lúc) để cache nhiều tab hơn mà không quá tốn bộ nhớ.
-
-`check_architecture.py` giữ **15 violation** (baseline cũ). CodeGraph: cập nhật `00`, `02`, `03`, `06`, `08`, `09`, `11`, `12`, `14`; `04`, `05`, `10`, `13`, `rules` ghi nhận `--no-change-needed`.

@@ -15,6 +15,13 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ngân sách type-check của `ReaderView` là một rủi ro có thật, đã nổ một lần (1.3.335)
+
+* **Rủi ro đã hiện thực hoá.** Mục 1.3.334 ngay dưới nói "lượt này chưa được biên dịch — host là Windows"; CI sau đó **đỏ** với đúng một lỗi: `Sources/Views/Reader/ReaderView.swift:350:9: error: the compiler is unable to type-check this expression in reasonable time`. Nguyên nhân là thêm `definitionPanelOverlay(in: geometry)` vào một biểu thức đã dài **330 dòng** (`GeometryReader` + `ZStack` 7 con + 21 modifier). Không phải lỗi logic — nhưng là lỗi chặn toàn bộ build, và **không** gate local nào bắt được: `check_architecture.py` chỉ đếm dòng vật lý, `validate_links.py` chỉ so hash.
+* **Rủi ro còn lại — mỗi lần thêm view con vào `ReaderView` là một lần tiến gần trần trở lại.** Sau khi tách 8 tầng, tầng lớn nhất còn `readerPresentationNavigationLayer` (~90 dòng, có closure `let browserUrl: String = { … }()` lồng trong `fullScreenCover`). Dấu hiệu sớm duy nhất là thời gian biên dịch file này; không có cảnh báo nào trước khi nó chuyển thành lỗi cứng.
+* **Rủi ro thấp nhưng cần biết — tách tầng không phải phép biến đổi trung tính về mặt SwiftUI nếu làm sai thứ tự.** Ở lượt này thứ tự modifier được giữ đúng từng bước (`toolbar` → 4 `sheet` → 10 `onChange` + `onReceive` → 2 `sheet` + 2 `fullScreenCover` → `background`), nên cây view sinh ra giống hệt. Đổi thứ tự khi tách (ví dụ đẩy `background` lên trước `sheet`) sẽ đổi vùng an toàn và ngữ cảnh trình bày mà **không** có lỗi biên dịch nào báo.
+* **Chưa biên dịch tại chỗ.** Host vẫn là Windows, `xcodebuild` không chạy được: bằng chứng duy nhất cho lượt sửa này là đọc code + `check_architecture.py` (vẫn **8** violation cũ, `ReaderView.swift` 1997/2053 dòng) + `validate_links.py`. CI xanh — nếu xanh — chỉ chứng minh **biên dịch được**.
+
 ## Rủi ro của gộp tiền tố chương sau, tải lẻ chương, và panel Dịch gánh Check rule (1.3.334)
 
 * **Rủi ro nặng nhất — lệch chỉ số ⇄ audio, lần này ở tiền tố chương sau.** Cùng lớp rủi ro với 1.3.332 nhưng ở `TTSNextChapterPrefixCache`, nơi audio được nhồi vào `preloadedData` theo index tuyệt đối. Ba lớp chặn: chunk rỗng (sau `applyReplacements` + trim) **bị loại khỏi lượt gộp** và không được cấp slot nào; `TTSNextChapterPrefixSynthesizer.googleBatch` throw nếu `audios.count != texts.count`; `offset = batchIndices[0]` chỉ dùng để dựng khoá, còn việc gán vẫn đi qua `batchIndices[i]` chứ không phải `offset + i`. Đây là chỗ phải nghe thử đầu tiên: **mở chương mới ngay sau khi tiền tố nạp xong** và kiểm câu đầu chương có đúng câu đầu không.

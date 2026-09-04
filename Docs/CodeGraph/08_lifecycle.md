@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Thân `ReaderView` là chuỗi tầng thuộc tính, không phải một biểu thức (1.3.335)
+
+* **Chuỗi tầng hiện tại, từ ngoài vào trong**: `body` → `readerLifecycleView` (`.task(id:)` + `.onAppear` + `.onDisappear`) → `readerDataObservationView` → `readerPresentationView` → `readerPresentationNavigationLayer` (2 `sheet` + 2 `fullScreenCover` + `background` chứa hai `NavigationLink`) → `readerObserverLayer` (10 `onChange` + 1 `onReceive`) → `readerSheetLayer` (4 `sheet`) → `readerOverlayStack` (`GeometryReader` + `ZStack` + `.toolbar(.hidden, for: .navigationBar)`). Mỗi tầng là **một** thuộc tính `some View`; thứ tự áp modifier giữ **y nguyên** như trước khi tách, nên không mốc vòng đời nào dịch chuyển — chỉ vị trí khai báo đổi.
+* **Lý do tách là mốc biên dịch, không phải mốc runtime**: gộp cả chuỗi vào một biểu thức làm trình biên dịch bỏ cuộc (`error: the compiler is unable to type-check this expression in reasonable time`) và build đỏ. Thêm overlay / `sheet` / `onChange` mới thì **thêm vào tầng đúng vai**, đừng gộp các tầng lại — đây là cùng một khuôn đã có sẵn ở `readerLifecycleView` → `readerDataObservationView`.
+* **Sửa số dòng của mục 1.3.334 ngay dưới**: mốc đóng panel Dịch nay ở `ReaderView.swift:550` (`.onChange(of: showingDefinitionSheet)` → `handleDefinitionPanelClosed()`), mốc dò lại rule khi `selectedWordOffset` đổi ở `ReaderView.swift:557`. Cả hai nằm trong `readerObserverLayer`; phát biểu "hậu xử lý không nằm trong `closeDefinitionPanel()`" **vẫn đúng**.
+* **Hai overlay rút thành hàm `@ViewBuilder` nhưng vòng đời không đổi**: `floatingSelectionMenuOverlay(in:)` và `junkDeleteOverlay(in:)` vẫn ở trong cùng `ZStack`, vẫn nhận cùng `GeometryProxy` (nên `geometry.safeAreaInsets.bottom` của panel xoá rác vẫn đọc đúng vùng an toàn), và `junkDeleteOverlay` vẫn giữ nguyên `if showingJunkDeleteSheet` + `.transition(.move(edge: .bottom))` + `.zIndex(6)` — mốc dựng/huỷ view của panel xoá rác không dịch chuyển.
+
 ## Panel Dịch: mốc mở và mốc đóng đều có việc phải làm (1.3.334)
 
 * **Mốc mở là `openDefinitionPanel()`, và thứ tự trong nó là bất biến**: reset `didChangeRuleData` + `focusedRuleTraceID` → `refreshRuleTraces()` → **rồi mới** `showingDefinitionSheet = true`. Dò rule trước khi hiện là để panel không nhấp nháy từ "Không rule nào chạm đoạn này." sang danh sách chip ngay sau lượt vẽ đầu.

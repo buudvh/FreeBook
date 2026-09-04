@@ -347,6 +347,13 @@ struct ReaderView: View {
     }
 
     private var readerPresentationView: some View {
+        readerPresentationNavigationLayer
+    }
+
+    // Thân view được tách thành nhiều tầng thuộc tính (overlay → sheet → observer →
+    // navigation). Mỗi tầng là một đơn vị suy luận kiểu riêng, nếu gộp lại thành một
+    // biểu thức thì trình biên dịch vượt ngân sách type-check và build đỏ.
+    private var readerOverlayStack: some View {
         GeometryReader { geometry in
             ZStack {
                 selectedTheme.backgroundColor
@@ -355,111 +362,9 @@ struct ReaderView: View {
 
                 definitionPanelOverlay(in: geometry)
 
-                ReaderFloatingMenuOverlayView(
-                    isShowing: $showingFloatingMenu,
-                    clearSelectionTrigger: $clearSelectionTrigger,
-                    selectionMinY: selectionMinY ?? 200,
-                    selectionMaxY: selectionMaxY ?? 240,
-                    geometryOriginY: geometry.frame(in: .global).minY,
-                    screenWidth: geometry.size.width,
-                    screenHeight: geometry.size.height,
-                    onTranslate: {
-                        openDefinitionPanel()
-                    },
-                    onSpeak: {
-                        if let pIndex = editingParagraphIndex {
-                            let sourceOffset = isTranslationEnabled ? selectedWordOffset : selectedDisplayedOffset
-                            let resumeIdentity = TTSChunkResumeIdentity(
-                                sourceLineId: pIndex,
-                                sourceOffset: sourceOffset,
-                                sourceLength: selectedWordLength
-                            )
-                            startTTS(at: chapterIndex, paragraphIndex: pIndex, startTextOffset: sourceOffset, resumeIdentity: resumeIdentity)
-                        }
-                    },
-                    onPhoneme: {
-                        updateEditorFromSelection()
-                        showingAddNghiTTSPhonemeSheet = true
-                    },
-                    onCopy: {
-                        updateEditorFromSelection()
-                        UIPasteboard.general.string = selectedDisplayedText
-                        ToastManager.shared.show(message: "Đã sao chép: \"\(selectedDisplayedText)\"")
-                    },
-                    onCopyOriginal: {
-                        openCopyOriginalPanel()
-                    },
-                    onReadSelected: {
-                        readSelectedText()
-                    },
-                    onDeleteJunk: {
-                        updateEditorFromSelection()
-                        junkPatternInput = selectedTextForDefinition.isEmpty ? selectedDisplayedText : selectedTextForDefinition
-                        showingJunkDeleteSheet = true
-                    },
-                    onAddToTTSReplacement: {
-                        pendingTTSReplacementPattern = selectedDisplayedText
-                        showingAddTTSReplacementSheet = true
-                    },
-                    onSearchWeb: {
-                        searchSelectionOnGoogle()
-                    }
-                )
+                floatingSelectionMenuOverlay(in: geometry)
 
-                if showingJunkDeleteSheet {
-                    VStack(spacing: 0) {
-                        // Vùng trống phía trên bắt tap để đóng panel xoá từ rác
-                        Color.clear
-                            .contentShape(Rectangle())
-                            .simultaneousGesture(
-                                TapGesture().onEnded {
-                                    withAnimation {
-                                        showingJunkDeleteSheet = false
-                                    }
-                                }
-                            )
-
-                        ReaderJunkDeleteOverlayView(
-                            isPresented: $showingJunkDeleteSheet,
-                            selectedTheme: selectedTheme,
-                            originalSentence: originalSentence,
-                            selectedWordOffset: $selectedWordOffset,
-                            selectedWordLength: $selectedWordLength,
-                            translationTokens: translationTokens,
-                            junkPatternInput: $junkPatternInput,
-                            onExpandSelectionLeft: expandSelectionLeft,
-                            onShrinkSelectionLeft: shrinkSelectionLeft,
-                            onShrinkSelectionRight: shrinkSelectionRight,
-                            onExpandSelectionRight: expandSelectionRight,
-                            onUpdateEditorFromSelection: updateEditorFromSelection,
-                            onConfirmDelete: { pattern in
-                                confirmDeleteJunk(pattern)
-                            },
-                            onCancel: {
-                                showingJunkDeleteSheet = false
-                            }
-                        )
-                        .padding([.horizontal, .bottom])
-                        .background(
-                            UnevenRoundedRectangle(topLeadingRadius: 16, topTrailingRadius: 16)
-                                .fill(selectedTheme == .dark ? Color(red: 0.12, green: 0.12, blue: 0.14) : Color.white)
-                        )
-                        .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: -4)
-                        .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? 0 : 8)
-                        .gesture(
-                            DragGesture()
-                                .onEnded { value in
-                                    if value.translation.height > 50 {
-                                        withAnimation {
-                                            showingJunkDeleteSheet = false
-                                        }
-                                    }
-                                }
-                        )
-                    }
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .zIndex(6)
-                }
+                junkDeleteOverlay(in: geometry)
 
                 ruleToolsOverlay(in: geometry)
 
@@ -467,6 +372,121 @@ struct ReaderView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar) // Ẩn navigation bar gốc
+    }
+
+    private func floatingSelectionMenuOverlay(in geometry: GeometryProxy) -> some View {
+        ReaderFloatingMenuOverlayView(
+            isShowing: $showingFloatingMenu,
+            clearSelectionTrigger: $clearSelectionTrigger,
+            selectionMinY: selectionMinY ?? 200,
+            selectionMaxY: selectionMaxY ?? 240,
+            geometryOriginY: geometry.frame(in: .global).minY,
+            screenWidth: geometry.size.width,
+            screenHeight: geometry.size.height,
+            onTranslate: {
+                openDefinitionPanel()
+            },
+            onSpeak: {
+                if let pIndex = editingParagraphIndex {
+                    let sourceOffset = isTranslationEnabled ? selectedWordOffset : selectedDisplayedOffset
+                    let resumeIdentity = TTSChunkResumeIdentity(
+                        sourceLineId: pIndex,
+                        sourceOffset: sourceOffset,
+                        sourceLength: selectedWordLength
+                    )
+                    startTTS(at: chapterIndex, paragraphIndex: pIndex, startTextOffset: sourceOffset, resumeIdentity: resumeIdentity)
+                }
+            },
+            onPhoneme: {
+                updateEditorFromSelection()
+                showingAddNghiTTSPhonemeSheet = true
+            },
+            onCopy: {
+                updateEditorFromSelection()
+                UIPasteboard.general.string = selectedDisplayedText
+                ToastManager.shared.show(message: "Đã sao chép: \"\(selectedDisplayedText)\"")
+            },
+            onCopyOriginal: {
+                openCopyOriginalPanel()
+            },
+            onReadSelected: {
+                readSelectedText()
+            },
+            onDeleteJunk: {
+                updateEditorFromSelection()
+                junkPatternInput = selectedTextForDefinition.isEmpty ? selectedDisplayedText : selectedTextForDefinition
+                showingJunkDeleteSheet = true
+            },
+            onAddToTTSReplacement: {
+                pendingTTSReplacementPattern = selectedDisplayedText
+                showingAddTTSReplacementSheet = true
+            },
+            onSearchWeb: {
+                searchSelectionOnGoogle()
+            }
+        )
+    }
+
+    @ViewBuilder
+    private func junkDeleteOverlay(in geometry: GeometryProxy) -> some View {
+        if showingJunkDeleteSheet {
+            VStack(spacing: 0) {
+                // Vùng trống phía trên bắt tap để đóng panel xoá từ rác
+                Color.clear
+                    .contentShape(Rectangle())
+                    .simultaneousGesture(
+                        TapGesture().onEnded {
+                            withAnimation {
+                                showingJunkDeleteSheet = false
+                            }
+                        }
+                    )
+
+                ReaderJunkDeleteOverlayView(
+                    isPresented: $showingJunkDeleteSheet,
+                    selectedTheme: selectedTheme,
+                    originalSentence: originalSentence,
+                    selectedWordOffset: $selectedWordOffset,
+                    selectedWordLength: $selectedWordLength,
+                    translationTokens: translationTokens,
+                    junkPatternInput: $junkPatternInput,
+                    onExpandSelectionLeft: expandSelectionLeft,
+                    onShrinkSelectionLeft: shrinkSelectionLeft,
+                    onShrinkSelectionRight: shrinkSelectionRight,
+                    onExpandSelectionRight: expandSelectionRight,
+                    onUpdateEditorFromSelection: updateEditorFromSelection,
+                    onConfirmDelete: { pattern in
+                        confirmDeleteJunk(pattern)
+                    },
+                    onCancel: {
+                        showingJunkDeleteSheet = false
+                    }
+                )
+                .padding([.horizontal, .bottom])
+                .background(
+                    UnevenRoundedRectangle(topLeadingRadius: 16, topTrailingRadius: 16)
+                        .fill(selectedTheme == .dark ? Color(red: 0.12, green: 0.12, blue: 0.14) : Color.white)
+                )
+                .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: -4)
+                .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? 0 : 8)
+                .gesture(
+                    DragGesture()
+                        .onEnded { value in
+                            if value.translation.height > 50 {
+                                withAnimation {
+                                    showingJunkDeleteSheet = false
+                                }
+                            }
+                        }
+                )
+            }
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .zIndex(6)
+        }
+    }
+
+    private var readerSheetLayer: some View {
+        readerOverlayStack
         .sheet(isPresented: $showingSettings) {
             ReaderSettingsView(
                 fontSize: $fontSize,
@@ -523,6 +543,10 @@ struct ReaderView: View {
                     }
             }
         }
+    }
+
+    private var readerObserverLayer: some View {
+        readerSheetLayer
         .onChange(of: showingDefinitionSheet) { _, newValue in
             if newValue {
                 searchEngines = SearchEngine.loadEngines()
@@ -587,6 +611,10 @@ struct ReaderView: View {
                 scheduleCoalescedTranslationRefresh(scope: incomingScope)
             }
         }
+    }
+
+    private var readerPresentationNavigationLayer: some View {
+        readerObserverLayer
         .sheet(isPresented: $showingAddNghiTTSPhonemeSheet) {
             AddWordSheet(initialKey: selectedDisplayedText, showSuggestions: true) { key, val in
                 _ = Task {

@@ -15,6 +15,14 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## `ReaderView` body layering: invariants (1.3.335)
+
+1. **`ReaderView`'s body is a chain of one-modifier-group properties, and it must stay that way.** Order, outermost first: `body` → `readerLifecycleView` → `readerDataObservationView` → `readerPresentationView` → `readerPresentationNavigationLayer` → `readerObserverLayer` → `readerSheetLayer` → `readerOverlayStack`. Never merge two layers back into one expression: a single 330-line `GeometryReader`/`ZStack`/modifier expression is what produced `error: the compiler is unable to type-check this expression in reasonable time` and a red build.
+2. **New view content goes into the layer that owns its role**, not into whichever layer is nearest: overlays into the `ZStack` of `readerOverlayStack` (as a one-line call to a `@ViewBuilder` member), presentation into `readerSheetLayer` or `readerPresentationNavigationLayer`, reactions into `readerObserverLayer`, lifecycle into `readerLifecycleView`. If a layer grows past roughly 100 lines, split it rather than letting the type-checker budget decide.
+3. **Anything inline in that `ZStack` longer than a couple of lines becomes a `@ViewBuilder` member taking `in geometry: GeometryProxy`.** `floatingSelectionMenuOverlay(in:)` and `junkDeleteOverlay(in:)` are the pattern; keep passing the proxy explicitly instead of capturing an outer one, because the junk-delete panel reads `geometry.safeAreaInsets.bottom`.
+4. **Splitting layers must preserve modifier order exactly.** The composed tree is only identical if each extracted property re-applies its group in the original sequence (`toolbar` → 4 `sheet` → `onChange`×10 + `onReceive` → 2 `sheet` + 2 `fullScreenCover` → `background`). Reordering while splitting changes safe-area and presentation context and produces **no** compiler error.
+5. **Members that only `ReaderView.swift` uses stay `private` in that file.** These layers touch `@State` that is still `private` (28 of 86 declarations), so they cannot move into a `ReaderView+*.swift` file — Swift `private` is file-scoped. Only promote a member to `internal` when it genuinely has to be called from another file.
+
 ## Batched next-chapter prefix, per-chapter download, rule tracing inside the Dịch panel: invariants (1.3.334)
 
 1. **The next-chapter prefix cache is the second batching site, and it keeps its own key space.** `TTSNextChapterPrefixCache+GoogleBatch` builds `batchKey = "gbatch|" + synthesisKeys.joined(separator: "|")` from the per-chunk `synthesisKey`s. Never reuse a single chunk's key for a batch, and never let a batch write into the per-chunk key space — a voice/rate/replacement change on any chunk must produce a different batch key.

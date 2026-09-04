@@ -1,6 +1,28 @@
 # CHANGELOG (Lưu trữ) - Nhật ký Thay đổi CodeGraph FreeBook
 
-Lịch sử thay đổi cũ (version ≤ 1.3.297) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+Lịch sử thay đổi cũ (version ≤ 1.3.298) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+
+## [1.3.298] - 2026-09-01
+
+### Fix sleep timer khi pause TTS, cải tiến UI trình đọc, cache chi tiết truyện & Discovery tabs
+
+Thêm **1** file Swift mới (`BookDetailCacheManager`), sửa **7** file Swift hiện có.
+
+**Fix lỗi:**
+- **Sleep timer vẫn đếm ngược khi pause TTS**: Thêm `stopTimerCountdown(keepMode: true)` vào `TTSManager.pause()` để tạm dừng bộ đếm khi người dùng tạm dừng đọc; `resume()` đã có `restartSleepTimerIfNeeded()` sẽ tự tiếp tục.
+
+**Cải tiến UI Trình đọc (Reader):**
+- **Nút cài đặt ra khỏi dropdown**: Thêm nút `gearshape` (44×44) đứng giữa nút `reload` và dropdown `ellipsis` trên header.
+- **Chuyển 2 toggle vào cài đặt**: "Hiển thị tên chương trong nội dung" và "Loại bỏ tiêu đề chương trùng trong nội dung" từ menu `ellipsis` chuyển vào `ReaderSettingsView` thành 2 `Toggle` trực tiếp.
+- **Font picker limit 1 dòng**: Thêm `.lineLimit(1)` cho text trong picker chọn kiểu chữ.
+- **Bỏ "Quản lý lọc rác" khỏi cài đặt trình đọc**: Xoá button mở `JunkFilterManagementView` khỏi `ReaderSettingsView`.
+- **Dropdown menu**: Xoá "Quy tắc mục lục (TOC)" và "Quản lý lọc rác"; thêm "Mở Cài đặt" → điều hướng đến tab Settings (index 3) qua `NotificationCenter`.
+
+**Cache hiệu năng:**
+- **BookDetailView**: Thêm `BookDetailCacheManager` cache in-memory (TTL 5 phút) cho dữ liệu chi tiết truyện (title, author, cover, desc, detail, genres, suggests, comments, host). Quay lại từ genres/comments không tải lại.
+- **DiscoveryView**: Mở rộng `shouldRenderCategoryTab` từ ±1 tab sang **±3 tab** (giữ 7 tab cùng lúc) để cache nhiều tab hơn mà không quá tốn bộ nhớ.
+
+`check_architecture.py` giữ **15 violation** (baseline cũ). CodeGraph: cập nhật `00`, `02`, `03`, `06`, `08`, `09`, `11`, `12`, `14`; `04`, `05`, `10`, `13`, `rules` ghi nhận `--no-change-needed`.
 
 ## [1.3.297] - 2026-08-31
 
