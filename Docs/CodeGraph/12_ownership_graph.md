@@ -15,6 +15,26 @@ Tài liệu này mô tả mối quan hệ sở hữu đối tượng (Object Own
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ai sở hữu việc làm mới tên dịch, lượt gộp tiền tố, và trạng thái tải lẻ chương (1.3.334)
+
+```
+BookTransactionCoordinator                  <- chủ transaction DUY NHẤT của Book
+  |- updateBookInfo                         người dùng sửa thông tin truyện (đường cũ)
+  |- refreshTitleTranslations(bookId:in:)    MỚI: từ điển VietPhrase nạp xong / mở truyện
+       |- BookTitleTranslationMigrator.refreshTranslations(for:) -> Bool
+       |     chỉ GÁN titleTrans/authorTrans, KHÔNG save()
+       |- didChange ? try context.save() : .success(false)
+ReaderView.initializeReaderIfNeeded  ─┐
+BookDetailView.task(id: actualBookId) ─┴─> gọi coordinator, xử lý Result, KHÔNG tự save()
+```
+
+* **`BookTitleTranslationMigrator` mất quyền ghi, giữ quyền quyết định.** Nó vẫn là nơi duy nhất biết *cách* suy ra `titleTrans`/`authorTrans` từ bảng VietPhrase (và `runIfNeeded` vẫn là chủ của lượt backfill lúc khởi động), nhưng `save()` giờ thuộc `BookTransactionCoordinator`. Gọi `refreshTranslations(for:)` ngoài coordinator sẽ làm bẩn `ModelContext` mà không ai commit — đó là dấu hiệu gọi sai chủ.
+* **Hai View không còn sở hữu bất kỳ lệnh ghi SwiftData nào.** Đây là hai chỗ vi phạm `VIEW_SWIFTDATA_MUTATION` cuối cùng của repo; sau lượt này gate còn 8 violation, không còn violation nào thuộc luật này. `BookDetailView` tra `localBook` bằng `detailUrl` + `extensionPackageId` nên nó truyền `localBook?.bookId` — không phải `bookId` của kết quả tìm kiếm.
+* **`TTSNextChapterPrefixCache` giữ nguyên quyền sở hữu `preloadedData`/`preloadedDurations` của tiền tố.** `TTSNextChapterPrefixSynthesizer` (2 `static func`, không state) chỉ *tạo* audio; `+GoogleBatch.swift` chỉ *xếp lượt* và fan kết quả về `finishSynthesis(index:)` của cache. Không ai ngoài cache được ghi vào hai map đó.
+* **Chủ sở hữu định danh lượt gộp là cache, không phải coordinator**: `nextTaskToken &+= 1` phát **một** token cho **mọi** index của lượt, và `batchKey = "gbatch|" + synthesisKeys.joined(separator: "|")` là không gian khoá riêng, không đụng khoá của cache từng chunk. `RemoteTTSSynthesisCoordinator` vẫn sở hữu dedupe/huỷ/telemetry và **sở hữu luôn cả vòng retry** — `TTSManager` không được bọc thêm.
+* **`downloadingChapterIndices` là `@State` của `ReaderChapterListView`, không phải state của phân hệ tải.** Nó chỉ nói "hàng này đang xoay", sống và chết cùng màn danh sách chương. Chủ thật của kết quả vẫn là `ChapterContentRepository` (nội dung) và `ChapterStore` (cờ `markCached`). `DownloadManager`/`DownloadTaskModel` **không** liên quan tới nút này.
+* **`ReaderView+RuleTools` vẫn sở hữu toàn bộ state của Check rule** (`ruleTraces`, `focusedRuleTraceID`, `didChangeRuleData`) dù màn hiển thị đã chuyển sang panel Dịch — `ReaderDefinitionOverlayView` nhận chúng qua tham số, không tự giữ bản sao. `ReaderRuleAction` chỉ là intent truyền lên, không mang state.
+
 ## Ai sở hữu bộ sưu tập và cờ ghim (1.3.328)
 
 ```
@@ -138,6 +158,6 @@ DiscoveryView
    - `BackupChapterRestorer` sở hữu duy nhất quyết định "offset trong backup còn hiệu lực hay không" (`keptOffsets`) — không nơi nào khác được copy offset qua máy khác.
    - `GoogleDriveConfiguration` sở hữu duy nhất việc nạp client id (Info.plist + override `UserDefaults("googleDriveClientId")`) và suy ra `redirectURI`; `GoogleDriveAuthService` sở hữu access token trong bộ nhớ; `GoogleDriveTokenStore` sở hữu duy nhất refresh token bền (Keychain, fallback file có file protection). Không type nào khác đọc hai nguồn này, và không nơi nào log giá trị token.
    - `ExtensionSyncCommandBuilder` sở hữu công việc tải/parse `plugin.json` khi đồng bộ kho (trước 1.3.246 nằm trong thân `RepositoryManagerView.syncExtensions`); `ExtensionTransactionCoordinator` sở hữu duy nhất `context.save()` cho cả lô.
-   - `BookTransactionCoordinator.updateBookInfo` sở hữu duy nhất việc tính lại `titleTrans`/`authorTrans` khi người dùng tự sửa thông tin truyện; `ImageCacheManager.saveCover` là đường ghi duy nhất cho bìa do người dùng chọn từ máy (`covers/<sha256(bookId)>.jpg`), và cũng chỉ nó được xoá bìa để buộc tải lại theo `coverUrl`.
+   - `BookTransactionCoordinator.updateBookInfo` sở hữu duy nhất việc tính lại `titleTrans`/`authorTrans` khi người dùng tự sửa thông tin truyện *(1.3.334: từ điển VietPhrase nạp xong sau đó là đường thứ hai, và chủ của nó là `BookTransactionCoordinator.refreshTitleTranslations` — vẫn cùng một coordinator, xem mục 1.3.334 ở đầu tài liệu)*; `ImageCacheManager.saveCover` là đường ghi duy nhất cho bìa do người dùng chọn từ máy (`covers/<sha256(bookId)>.jpg`), và cũng chỉ nó được xoá bìa để buộc tải lại theo `coverUrl`.
    - `BackupHubView` sở hữu quyền chặn restore khi TTS đang phát, nhưng **không** sở hữu trạng thái TTS — nó đọc qua projection reader `TTSWidgetStateReader`; `TTSManager` giữ nguyên quyền sở hữu tiến độ đọc trong lúc phát.
 <!-- GENERATED END -->

@@ -4,8 +4,11 @@ import SwiftData
 /// Sheet hiện ra khi **nhấn giữ** một cuốn sách ở Kệ sách / Lịch sử / trong một bộ sưu tập.
 ///
 /// Thay cho `.contextMenu` cũ: menu ngữ cảnh của SwiftUI chỉ nhận được `Button`/`Link`, không dựng
-/// được phần đầu có ảnh bìa lẫn danh sách bộ sưu tập bấm thêm/bớt tại chỗ. Toàn bộ mục cũ được giữ
-/// nguyên chữ và thứ tự để người dùng không phải học lại.
+/// được phần đầu có ảnh bìa lẫn danh sách bộ sưu tập bấm thêm/bớt tại chỗ.
+///
+/// Từ 1.3.334 hai mục "Xem chi tiết" và "Ghim" **không còn là hàng riêng**: phần đầu (bìa + tên) chạm
+/// để xem chi tiết, nhấn giữ để ghim/bỏ ghim. Điều kiện hiện hai hành động đó giữ y như khi chúng còn
+/// là hàng — chi tiết chỉ có với truyện không phải TXT nội bộ (hoặc ở Lịch sử), ghim không có ở Lịch sử.
 ///
 /// Sheet **tự** lo phần bộ sưu tập (qua `BookCollectionCoordinator`), còn các hành động khác chỉ phát
 /// `BookSheetAction` cho màn gọi nó xử lý — vì chúng cần navigation/sheet của riêng màn đó.
@@ -49,6 +52,8 @@ struct BookActionSheet: View {
             List {
                 Section {
                     header
+                } footer: {
+                    Text(headerHint)
                 }
 
                 Section {
@@ -85,6 +90,28 @@ struct BookActionSheet: View {
 
     // MARK: - Phần đầu
 
+    /// Chi tiết chỉ mở được khi truyện có nguồn để mở: đúng điều kiện của hàng "Xem chi tiết" cũ.
+    private var canOpenDetail: Bool {
+        target.mode == .history || !book.isLocalBook
+    }
+
+    private var canTogglePin: Bool {
+        target.mode != .history
+    }
+
+    private var headerHint: String {
+        switch (canOpenDetail, canTogglePin) {
+        case (true, true):
+            return "Chạm phần trên để xem chi tiết, nhấn giữ để \(book.isPinned ? "bỏ ghim" : "ghim lên đầu kệ")."
+        case (true, false):
+            return "Chạm phần trên để xem chi tiết."
+        case (false, true):
+            return "Nhấn giữ phần trên để \(book.isPinned ? "bỏ ghim" : "ghim lên đầu kệ")."
+        case (false, false):
+            return "Bỏ khỏi bộ sưu tập không xoá truyện khỏi kệ sách."
+        }
+    }
+
     @ViewBuilder
     private var header: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -110,8 +137,29 @@ struct BookActionSheet: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+
+            if canOpenDetail {
+                Image(systemName: "info.circle")
+                    .foregroundColor(.accentColor)
+                    .accessibilityHidden(true)
+            }
         }
         .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        // `onTapGesture` phải đăng ký **trước** `onLongPressGesture`, ngược lại chạm nhanh cũng bị
+        // nhận diện là nhấn giữ và không bao giờ mở được chi tiết.
+        .onTapGesture {
+            guard canOpenDetail else { return }
+            emit(.openDetail)
+        }
+        .onLongPressGesture(minimumDuration: 0.4) {
+            guard canTogglePin else { return }
+            emit(.togglePin)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(DisplayTextFormatter.titleCase(displayedTitle))
+        .accessibilityHint(headerHint)
+        .accessibilityAddTraits(canOpenDetail ? .isButton : [])
     }
 
     private var displayedTitle: String {
@@ -199,13 +247,10 @@ struct BookActionSheet: View {
     @ViewBuilder
     private var actionRows: some View {
         if target.mode == .history {
-            actionRow(.openDetail, "Xem chi tiết", "info.circle")
-
             if !book.isOnShelf {
                 actionRow(.addToShelf, "Thêm vào kệ sách", "plus.circle.fill")
             }
         } else if !book.isLocalBook {
-            actionRow(.openDetail, "Xem chi tiết", "info.circle")
             actionRow(.checkNewChapters, "Kiểm tra chương mới", "bell.badge")
                 .disabled(isCheckingNewChapters)
         }
@@ -218,14 +263,6 @@ struct BookActionSheet: View {
         actionRow(.download, "Tải truyện", "arrow.down.circle")
         actionRow(.exportEbook, "Xuất ebook", "square.and.arrow.up")
         actionRow(.retranslateChapterTitles, "Dịch lại tên chương", "arrow.clockwise.circle")
-
-        if target.mode != .history {
-            actionRow(
-                .togglePin,
-                book.isPinned ? "Bỏ ghim khỏi đầu kệ" : "Ghim lên đầu kệ",
-                book.isPinned ? "pin.slash" : "pin"
-            )
-        }
 
         if currentCollectionId != nil {
             actionRow(.removeFromCurrentCollection, "Bỏ khỏi bộ sưu tập này", "folder.badge.minus")

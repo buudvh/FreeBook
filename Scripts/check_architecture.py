@@ -139,7 +139,9 @@ def run_checks():
             is_scoped_view = rel_path in SCOPED_VIEWS or any(v.replace(".swift", "") in rel_path for v in SCOPED_VIEWS)
             if rel_path.startswith("Sources/Views/"):
                 has_context_mutation = re.search(r'modelContext\.(insert|delete|save)', clean_code)
-                has_model_property_mutation = is_scoped_view and re.search(r'\.(isOnShelf|isPinned|localPath|version|downloadUrl|titleTrans|lastUpdated|currentChapterIndex)\s*=', clean_code)
+                # `self.<prop> = ...` bị loại: trong một View (struct) `self` không bao giờ là @Model,
+                # đó chỉ là init gán thuộc tính của chính View (vd DiscoveryCategoryTabView.init).
+                has_model_property_mutation = is_scoped_view and re.search(r'(?<!\bself)\.(isOnShelf|isPinned|localPath|version|downloadUrl|titleTrans|lastUpdated|currentChapterIndex)\s*=', clean_code)
                 has_ignored_coordinator_call = is_scoped_view and re.search(r'_\s*=\s*(BookTransactionCoordinator|ExtensionTransactionCoordinator)', clean_code)
                 if has_context_mutation or has_model_property_mutation or has_ignored_coordinator_call:
                     if rel_path not in view_write_allowlist:

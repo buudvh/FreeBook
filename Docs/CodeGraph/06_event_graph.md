@@ -15,6 +15,13 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Làm mới tên dịch không còn là sự kiện ghi ở tầng View (1.3.334)
+
+* **Sửa lại mục 1.3.190 bên dưới** ("Opening a book emits a refresh event… `modelContext.save()` runs when needed"): từ 1.3.334 `ReaderView.initializeReaderIfNeeded` và `BookDetailView.task(id: actualBookId)` **không** gọi `BookTitleTranslationMigrator.refreshTranslations(for:)` và **không** `save()`. Cả hai phát đúng một lệnh: `BookTransactionCoordinator.refreshTitleTranslations(bookId:in:)`. Coordinator gọi migrator để **gán**, rồi tự `save()` **chỉ khi** có field đổi (`.success(false)` ⇒ không mở transaction rỗng); lỗi thì hai View ghi log, không hiện toast. Sự kiện "mở truyện làm mới tên dịch" vẫn tồn tại và vẫn tức thời — chỉ đổi chủ transaction.
+* **Không kênh sự kiện mới nào ở lượt này**: không tên `NotificationCenter` mới, không event center, không `AsyncStream`. Việc gộp request tiền tố chương sau nằm hoàn toàn trong `TTSNextChapterPrefixCache` + coordinator + service; lượt gộp hỏng báo bằng `AppLogger` rồi tự xếp lại từng chunk, không phát sự kiện ra ngoài.
+* **Sự kiện đóng panel Dịch có đúng một chỗ xử lý.** Panel đóng được bằng ba đường (nút ✕, kéo xuống, `closeDefinitionPanel()`), hai đường đầu đi qua binding `isPresented` nên **không** gọi hàm nào. Vì vậy hậu xử lý (`applyTranslation()` khi `didChangeRuleData`, và bung deferral làm mới từ điển) nằm ở `.onChange(of: showingDefinitionSheet)` → `handleDefinitionPanelClosed()`. Đặt ở hàm đóng là mất hai đường kia.
+* **Tải lẻ một chương phát toast trực tiếp từ tầng View** (`ToastManager.shared` trong `ReaderChapterListView+Download`), không qua event center. Đúng luật: `ToastManager` chỉ bị cấm ở `Sources/Services/**`, và cái ra quyết định ở đây là View chứ không phải service nền.
+
 ## `shelfTab` nay là `ShelfTab.rawValue`, có bên nhận kiểm tra (1.3.332)
 
 * **Sửa lại mục 1.3.328 ngay dưới**: payload `userInfo["shelfTab"]` vẫn là `Int`, nhưng hai đầu không còn viết số trần. `SearchView` gửi `(createSnapshot.isOnShelf ? ShelfTab.shelf : .history).rawValue`; `ShelfView` nhận qua `ShelfTab(rawValue:)` và **bỏ qua** giá trị không map được thay vì gán vào `selectedTab`. Bảng số cũng đổi vì thứ tự tab đổi: Downloads 0, **Bộ Sưu Tập 1**, **Kệ Sách 2**, Lịch Sử 3.

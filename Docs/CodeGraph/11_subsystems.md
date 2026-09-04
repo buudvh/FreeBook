@@ -15,6 +15,16 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Check rule không còn là phân hệ riêng; hàng chương tự tải được một chương (1.3.334)
+
+* **Công cụ Check rule bị giải thể vào phân hệ Từ điển/Dịch.** Hai file View của nó bị xoá (`ReaderRuleTraceOverlayView`, `ReaderRuleTraceGuideSheet` — xem hai hàng đã đánh dấu ở bảng "Phía View" bên dưới), và toàn bộ vai trò về `ReaderDefinitionOverlayView` + `ReaderDefinitionOverlayView+Rules.swift`. Tầng Services **không đổi một dòng**: `QuickTranslationRuleDiagnostics` vẫn là bộ soi duy nhất, `ReaderView+RuleTools` vẫn là state-handler duy nhất. Đây là hợp nhất ở tầng trình bày, không phải viết lại phân hệ rule.
+* **Ranh giới mới trong panel Dịch: ô nghĩa dịch (cho nhập) vs ô nghĩa rule (chỉ đọc).** `ruleMeaningRowView` là ô thứ hai, nằm dưới ô nghĩa dịch, hiển thị nghĩa của chip đang chọn. Tách hai ô là điều kiện để hợp nhất không xung đột: trước đó nghĩa rule và nghĩa từ điển tranh nhau cùng một `TextField`.
+* **`ReaderDefinitionOverlayView` tách thành 3 file theo trục "logic rule / hàng UI / thân màn"**: `+Rules.swift` (chip, focus, ô nghĩa rule, 3 câu thông báo), `+Rows.swift` (`combinedFormattingAndPickersView`, `dictSegmentButton`, `updateButtonView`, `quickLookupLinksView` — dời nguyên trạng, **không** đổi một dòng logic), file gốc giữ thân màn + state. `+Rows.swift` tồn tại **chỉ** để file gốc về dưới baseline 468 dòng; đừng gộp lại.
+* **Phân hệ danh sách chương của Reader nay có thao tác ghi cache riêng.** `ReaderChapterListView` tách ba: file gốc (state + filter), `Extensions/ReaderChapterListView+List.swift` (thân danh sách), `Extensions/ReaderChapterListView+Download.swift` (tải lẻ). Nút tải **chỉ** hiện ở chương chưa tải và chỉ khi `canDownloadChapters` (không phải TXT nội bộ, có `ext`, có `localBook`). `ReaderChapterRowView.trailingAccessory` giữ ba trạng thái trong **cùng một** khung 30×30 (chưa tải → nút tải, đang tải → `ProgressView`, đã tải → dấu đã lưu) để hàng không giật khi đổi trạng thái.
+* **Nút tải lẻ **không** thuộc phân hệ `DownloadManager`.** Nó gọi `ChapterContentRepository.load` + `ChapterStore.markCached` trực tiếp; không tạo `DownloadTaskModel`, không vào hàng đợi `BookDownloadWorker`, không hiện ở tab Downloads. Hai phân hệ này cố ý tách: `DownloadManager` là tải cả truyện có tiến độ và huỷ được, nút này là mồi cache một chương.
+* **Phân hệ TTS remote có đường gộp thứ hai.** 1.3.332 gộp *cửa sổ nạp trước của chương đang đọc*; 1.3.334 gộp *tiền tố chương sau* (`TTSNextChapterPrefixCache+GoogleBatch.swift`). Hai đường độc lập, khác không gian khoá (`gbatch|…` cho tiền tố), và cùng dùng lại `RemoteTTSSynthesisCoordinator` nên bất biến "một lượt tổng hợp remote tại một thời điểm" giữ nguyên. `TTSNextChapterPrefixSynthesizer` là service thuần (2 `static func`), không giữ state — cache vẫn là chủ sở hữu duy nhất của `preloadedData`.
+* **Phân hệ Kệ sách: ghim thành nhóm riêng, không còn là cờ trong một danh sách.** `ShelfView` và `CollectionDetailView` đều chia hai nhóm ("Đang ghim" / "Truyện khác"); phân trang **chỉ** áp lên nhóm không ghim, nên truyện ghim luôn thấy được không cần cuộn. Không có nhóm nào khi chưa ghim gì. `BookActionSheet` bỏ hai hàng ("Xem chi tiết", "Ghim"): tap header → chi tiết, ấn giữ header → ghim/bỏ ghim, và `.onTapGesture` phải đăng ký **trước** `.onLongPressGesture` nếu không một cú tap nhanh bị đọc thành ấn giữ.
+
 ## Phân hệ TTS remote có hai đường nạp trước; tab Kệ sách có kiểu riêng (1.3.332)
 
 * **Google TTS nay có hai đường tổng hợp, và ranh giới giữa chúng là "ai đang đợi"**: đoạn đang chờ nghe đi đường một-đoạn-một-request (`startPrefetchTask`, `synthesize`), cửa sổ nạp trước đi đường gộp (`startGoogleBatchPrefetch`, `synthesizeBatch`). Đường một-đoạn **không** bị thay thế — nó còn là đường dự phòng khi lượt gộp lỗi và là đường duy nhất của Ext TTS.
@@ -298,8 +308,8 @@ Phía View:
 | File | Vai trò |
 |---|---|
 | `Views/Reader/ReaderCopyOriginalOverlayView.swift` | Panel Copy nội dung gốc (chọn cụm trên text gốc; mọi đường đóng đều copy) |
-| `Views/Reader/ReaderRuleTraceOverlayView.swift` | Màn Check rule: thanh gốc → thanh nghĩa rule → nghĩa từng token → dải chip |
-| `Views/Reader/ReaderRuleTraceGuideSheet.swift` | Nội dung nút `?` (3 màu, badge R/C, thao tác, 6 tiêu chí ưu tiên) |
+| `Views/Reader/ReaderRuleTraceOverlayView.swift` | Màn Check rule: thanh gốc → thanh nghĩa rule → nghĩa từng token → dải chip *(xoá ở 1.3.334 — vai này về `ReaderDefinitionOverlayView` + `+Rules`)* |
+| `Views/Reader/ReaderRuleTraceGuideSheet.swift` | Nội dung nút `?` (3 màu, badge R/C, thao tác, 6 tiêu chí ưu tiên) *(xoá ở 1.3.334 cùng nút `?`)* |
 | `Views/Reader/Components/ReaderRuleChipStyle.swift` | 3 mức màu chip; màu ở tầng View, Models không biết `Color` |
 | `Views/Reader/Components/ReaderRuleTraceChip.swift` | Một chip + ấn giữ ra popup Bật/Tắt/Xoá |
 | `Views/Reader/Extensions/ReaderView+RuleTools.swift` | State-handler + overlay của **cả hai** công cụ mới |

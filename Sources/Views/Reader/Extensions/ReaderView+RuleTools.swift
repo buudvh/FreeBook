@@ -40,13 +40,15 @@ extension ReaderView {
 
     // MARK: - Check rule
 
-    func openRuleTracePanel() {
+    /// Mở panel Dịch — nay là chỗ duy nhất có Check rule (1.3.334). Phải chẩn đoán rule **trước** khi
+    /// hiện, nếu không dải chip trống một nhịp rồi mới nhảy vào.
+    func openDefinitionPanel() {
         updateEditorFromSelection()
-        closeOtherSelectionPanels(except: .ruleTrace)
+        closeOtherSelectionPanels(except: nil)
         didChangeRuleData = false
         focusedRuleTraceID = nil
         refreshRuleTraces()
-        showingRuleTraceSheet = true
+        showingDefinitionSheet = true
     }
 
     /// Chẩn đoán lại **cả đoạn** rồi giữ lại focus nếu chip cũ còn tồn tại.
@@ -62,9 +64,15 @@ extension ReaderView {
         }
     }
 
-    /// Đóng sheet check rule. Có đổi dữ liệu rule thì **dịch lại**; không đổi gì thì không dựng lại.
-    func closeRuleTracePanel() {
-        showingRuleTraceSheet = false
+    /// Đóng panel Dịch. Chỉ hạ cờ — phần "dịch lại khi rule đã đổi" nằm ở `.onChange(of:
+    /// showingDefinitionSheet)` của `ReaderView`, vì nút ✕ trong panel đóng bằng binding `isPresented`
+    /// nên không đi qua hàm này. Một chỗ xử lý cho **mọi** đường đóng.
+    func closeDefinitionPanel() {
+        showingDefinitionSheet = false
+    }
+
+    /// Gọi từ `.onChange` khi panel Dịch vừa đóng: có đổi dữ liệu rule thì dựng lại bản dịch.
+    func handleDefinitionPanelClosed() {
         let shouldRetranslate = didChangeRuleData
         didChangeRuleData = false
         if shouldRetranslate {
@@ -77,7 +85,7 @@ extension ReaderView {
 
     // MARK: - Thao tác trên một rule
 
-    func handleRuleAction(_ trace: QuickTranslationRuleTrace, _ action: ReaderRuleTraceOverlayView.RuleAction) {
+    func handleRuleAction(_ trace: QuickTranslationRuleTrace, _ action: ReaderRuleAction) {
         switch action {
         case .setDisabled(let disabled, let scope):
             let outcome = QuickTranslationRuleDisableStore.shared.setDisabled(
@@ -222,17 +230,15 @@ extension ReaderView {
 
     // MARK: - Overlay
 
-    /// Bốn panel dùng chung vùng chọn nên chỉ một cái được mở.
+    /// Ba panel dùng chung vùng chọn nên chỉ một cái được mở. `nil` = đóng hết (dùng khi mở panel Dịch).
     enum SelectionPanel {
         case copyOriginal
-        case ruleTrace
     }
 
-    func closeOtherSelectionPanels(except panel: SelectionPanel) {
-        showingDefinitionSheet = false
+    func closeOtherSelectionPanels(except panel: SelectionPanel?) {
         showingJunkDeleteSheet = false
         if panel != .copyOriginal { showingCopyOriginalSheet = false }
-        if panel != .ruleTrace { showingRuleTraceSheet = false }
+        if panel != nil { showingDefinitionSheet = false }
     }
 
     @ViewBuilder
@@ -256,32 +262,6 @@ extension ReaderView {
                 .zIndex(7)
             }
 
-            if showingRuleTraceSheet {
-                bottomPanel(in: geometry, onDismiss: { closeRuleTracePanel() }) {
-                    ReaderRuleTraceOverlayView(
-                        paragraphIndex: editingParagraphIndex ?? 0,
-                        bookId: bookId,
-                        originalSentence: originalSentence,
-                        selectedWordOffset: $selectedWordOffset,
-                        selectedWordLength: $selectedWordLength,
-                        traces: ruleTraces,
-                        focusedTraceID: $focusedRuleTraceID,
-                        isRuleFeatureEnabled: QuickTranslationRuleStore.shared.isEnabled,
-                        hasAnyRuleSet: QuickTranslationRuleStore.shared.currentSnapshot != nil
-                            || QuickTranslationRuleBookStore.shared.snapshot(for: bookId) != nil,
-                        onAddRule: { ruleEditorMode = .add(prefilledPattern: selectedOriginalText()) },
-                        onRuleAction: { trace, action in handleRuleAction(trace, action) },
-                        onShowGuide: { showingRuleGuide = true },
-                        onClose: { closeRuleTracePanel() }
-                    )
-                }
-                // Gắn vào chính panel Check rule chứ không lên ZStack ngoài: một view chỉ có **một**
-                // chỗ trình bày, mà ZStack ngoài đã phải giữ sheet thêm/sửa rule.
-                .sheet(isPresented: $showingRuleGuide) {
-                    ReaderRuleTraceGuideSheet()
-                }
-                .zIndex(8)
-            }
         }
         .sheet(item: $ruleEditorMode) { mode in
             QuickTranslationRuleEditorSheet(

@@ -15,6 +15,15 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Panel Dịch: mốc mở và mốc đóng đều có việc phải làm (1.3.334)
+
+* **Mốc mở là `openDefinitionPanel()`, và thứ tự trong nó là bất biến**: reset `didChangeRuleData` + `focusedRuleTraceID` → `refreshRuleTraces()` → **rồi mới** `showingDefinitionSheet = true`. Dò rule trước khi hiện là để panel không nhấp nháy từ "Không rule nào chạm đoạn này." sang danh sách chip ngay sau lượt vẽ đầu.
+* **Mốc đóng có ba đường nhưng chỉ một chỗ xử lý.** Nút ✕ gọi `closeDefinitionPanel()`, còn kéo xuống và tap ra ngoài chỉ hạ binding `isPresented` — không hàm nào chạy. Vì vậy `closeDefinitionPanel()` **chỉ** hạ cờ, và toàn bộ hậu xử lý nằm ở `.onChange(of: showingDefinitionSheet)` (`ReaderView.swift:526`) → `handleDefinitionPanelClosed()`: nếu `didChangeRuleData` thì `applyTranslation()` để bản dịch phản ánh rule vừa thêm/sửa. Đặt việc này trong hàm đóng là mất hai đường kia.
+* **Cùng `.onChange` đó còn là mốc dò lại rule khi panel mở lại mà không đóng Reader** (`ReaderView.swift:534`: `if showingDefinitionSheet { refreshRuleTraces() }`). `refreshRuleTraces()` giữ nguyên chip đang chọn nếu nó còn tồn tại sau lượt dò; chip mất thì focus rơi về `ruleTraces.first`.
+* **Vòng đời state tải lẻ chương gắn với hàng chương, không với task.** `downloadingChapterIndices` là `@State` của `ReaderChapterListView`; mỗi lượt tải `insert(index)` rồi `defer { remove(index) }` **trong** `Task`, nên đóng danh sách chương giữa lúc tải không rò state — nhưng cũng **không** huỷ lượt tải: task không được giữ handle, `ChapterContentRepository` tiếp tục ghi cache. Đây là chủ ý (đúng luật "nội dung đã qua checkpoint thì lệnh ghi nền không được cancel"), hệ quả là toast kết quả vẫn hiện sau khi danh sách đã đóng.
+* **`ReaderView` không thêm bước khởi động nào**, chỉ đổi chủ transaction ở bước có sẵn: `initializeReaderIfNeeded` giờ gọi `BookTransactionCoordinator.refreshTitleTranslations(bookId:in:)` thay vì tự gán `titleTrans` rồi `try? modelContext.save()`. Mốc chạy, số lần chạy và thứ tự trong `initializeReaderIfNeeded` giữ nguyên.
+* **Hai màn bị xoá khỏi vòng đời Reader**: `ReaderRuleTraceOverlayView` (sheet Check rule) và `ReaderRuleTraceGuideSheet` (nút `?`). Không còn `sheet` nào của Reader phụ thuộc `ruleTraces` ngoài panel Dịch, nên `ruleTraces` chỉ được nạp/xoá quanh vòng đời panel đó.
+
 ## Vòng đời hai cache mới và cửa cooldown của kho (1.3.330)
 
 * **`ExtTTSScriptCache` sống cùng process, hết hạn theo mốc sửa file** — không có TTL, không dọn theo bộ nhớ. Ba đường làm mới: `configJson` đổi (người dùng sửa cấu hình extension), `plugin.json` hoặc `tts.js` đổi mốc sửa (cài lại / sửa script trong app), và `ExtensionManager.resetTTSRuntime()` gọi `invalidateAll()`. Cache giữ đúng **một** entry cho mỗi `localPath` nên nó không phình theo số lần đọc.

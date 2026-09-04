@@ -129,15 +129,15 @@ struct ReaderView: View {
     @State var selectedWordOffset = 0
     @State var selectedWordLength = 0
     @State var selectedDisplayedOffset = 0
-    @State private var searchEngines: [SearchEngine] = []
-    @State private var showingSearchEnginesConfigSheet = false
+    @State internal var searchEngines: [SearchEngine] = []
+    @State internal var showingSearchEnginesConfigSheet = false
     @State var translationMode: String = "VP" // Dịch dạng: "VP" (Vietphrase) hoặc "HV" (Hán Việt)
     @State var translationTokens: [TranslationWordToken] = []
     @State var dictionaryMatches: [DictionaryMatchInfo] = []
     // Gợi ý nghĩa của từ đang chọn — tính trong `ReaderView+Suggestions.swift`, không phải computed property
     // (xem doc ở file đó: computed property khiến ~6 lần tra trie chạy lại mỗi lần body evaluate).
     @State internal var suggestionChips: [SuggestionChip] = []
-    @State private var showingManageDefinitionsSheet = false
+    @State internal var showingManageDefinitionsSheet = false
     /// `internal` để `ReaderView+Controls` đọc được: đầu dò cuộn tay phải bỏ qua cú kéo đang mở
     /// menu bôi đen (kéo để nới vùng chọn không phải là "người dùng cuộn trang").
     @State internal var showingFloatingMenu = false
@@ -153,8 +153,6 @@ struct ReaderView: View {
 
     /// Panel copy nội dung gốc và màn check rule — state ở đây, hành vi ở `ReaderView+RuleTools`.
     @State var showingCopyOriginalSheet = false
-    @State var showingRuleTraceSheet = false
-    @State var showingRuleGuide = false
     @State var ruleTraces: [QuickTranslationRuleTrace] = []
     @State var focusedRuleTraceID: String? = nil
     @State var ruleEditorMode: QuickTranslationRuleEditorSheet.Mode? = nil
@@ -355,90 +353,7 @@ struct ReaderView: View {
                     .ignoresSafeArea()
                 readerMainContent(geometry: geometry)
 
-                // Panel dịch dạng overlay ở đáy (Full-width Bottom Sheet)
-                if showingDefinitionSheet {
-                    VStack(spacing: 0) {
-                        // Vùng trống phía trên bắt tap để đóng panel dịch
-                        Color.clear
-                            .contentShape(Rectangle())
-                            .simultaneousGesture(
-                                TapGesture().onEnded {
-                                    withAnimation {
-                                        showingDefinitionSheet = false
-                                    }
-                                }
-                            )
-
-                        ReaderDefinitionOverlayView(
-                            isPresented: $showingDefinitionSheet,
-                            selectedTheme: selectedTheme,
-                            originalSentence: originalSentence,
-                            selectedWordOffset: $selectedWordOffset,
-                            selectedWordLength: $selectedWordLength,
-                            translationTokens: translationTokens,
-                            customMeaning: $customMeaning,
-                            saveAsNameType: $saveAsNameType,
-                            saveToBookSpecific: $saveToBookSpecific,
-                            pinnedSaveAsNameType: pinnedSaveAsNameType,
-                            pinnedSaveToBookSpecific: pinnedSaveToBookSpecific,
-                            onPinNameType: { isName in
-                                pinnedSaveAsNameType = isName
-                                saveAsNameType = isName
-                                ToastManager.shared.show(message: "Đã ghim mặc định Loại: \(isName ? "Names" : "VP")", type: .success)
-                            },
-                            onPinScope: { isBook in
-                                pinnedSaveToBookSpecific = isBook
-                                saveToBookSpecific = isBook
-                                ToastManager.shared.show(message: "Đã ghim mặc định Phạm vi: \(isBook ? "Riêng" : "Chung")", type: .success)
-                            },
-                            suggestionChips: suggestionChips,
-                            searchEngines: searchEngines,
-                            selectedTextForDefinition: selectedTextForDefinition,
-                            bookId: bookId,
-                            dictionaryMatches: $dictionaryMatches,
-                            translationMode: $translationMode,
-                            showingManageDefinitionsSheet: $showingManageDefinitionsSheet,
-                            onExpandSelectionLeft: expandSelectionLeft,
-                            onShrinkSelectionLeft: shrinkSelectionLeft,
-                            onShrinkSelectionRight: shrinkSelectionRight,
-                            onExpandSelectionRight: expandSelectionRight,
-                            onUpdateEditorFromSelection: updateEditorFromSelection,
-                            onFormatMeaning: formatMeaning,
-                            onSaveDefinition: saveDefinition,
-                            onPerformQuickLookup: performQuickLookup,
-                            onOpenSearchEngineConfig: {
-                                showingSearchEnginesConfigSheet = true
-                            },
-                            // Overlay chỉ gọi closure này sau khi màn quản lý định nghĩa báo có thay đổi ⇒
-                            // tính lại chip cùng lúc với `dictionaryMatches` để gợi ý không bị cũ.
-                            onGetDictionaryMatches: { word in
-                                refreshSuggestionChips(for: word)
-                                return getDictionaryMatches(for: word)
-                            },
-                            onGetHanViet: { getHanViet(for: $0) },
-                            onApplyTranslation: applyTranslation
-                        )
-                        .padding([.horizontal, .bottom])
-                        .background(
-                            UnevenRoundedRectangle(topLeadingRadius: 16, topTrailingRadius: 16)
-                                .fill(selectedTheme == .dark ? Color(red: 0.12, green: 0.12, blue: 0.14) : Color.white)
-                        )
-                        .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: -4)
-                        .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? 0 : 8)
-                        .gesture(
-                            DragGesture()
-                                .onEnded { value in
-                                    if value.translation.height > 50 {
-                                        withAnimation {
-                                            showingDefinitionSheet = false
-                                        }
-                                    }
-                                }
-                        )
-                    }
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .zIndex(5)
-                }
+                definitionPanelOverlay(in: geometry)
 
                 ReaderFloatingMenuOverlayView(
                     isShowing: $showingFloatingMenu,
@@ -449,8 +364,7 @@ struct ReaderView: View {
                     screenWidth: geometry.size.width,
                     screenHeight: geometry.size.height,
                     onTranslate: {
-                        updateEditorFromSelection()
-                        showingDefinitionSheet = true
+                        openDefinitionPanel()
                     },
                     onSpeak: {
                         if let pIndex = editingParagraphIndex {
@@ -487,8 +401,8 @@ struct ReaderView: View {
                         pendingTTSReplacementPattern = selectedDisplayedText
                         showingAddTTSReplacementSheet = true
                     },
-                    onInspectRules: {
-                        openRuleTracePanel()
+                    onSearchWeb: {
+                        searchSelectionOnGoogle()
                     }
                 )
 
@@ -613,8 +527,11 @@ struct ReaderView: View {
             if newValue {
                 searchEngines = SearchEngine.loadEngines()
             } else {
-                checkAndReleaseDeferredTranslationRefresh()
+                handleDefinitionPanelClosed()
             }
+        }
+        .onChange(of: selectedWordOffset) { _, _ in
+            if showingDefinitionSheet { refreshRuleTraces() }
         }
         .onChange(of: showingFloatingMenu) { _, newValue in
             if !newValue {
@@ -1176,11 +1093,11 @@ struct ReaderView: View {
             localBookSnapshot = (try? modelContext.fetch(descriptor))?.first(where: { $0.bookId == bookId })
         }
 
-        // Cập nhật lại tên dịch/phương âm khi mở truyện (không chờ migration lần mở app sau)
-        if let book = localBook {
-            BookTitleTranslationMigrator.refreshTranslations(for: book)
-            if modelContext.hasChanges {
-                try? modelContext.save()
+        // Cập nhật lại tên dịch/phương âm khi mở truyện (không chờ migration lần mở app sau).
+        // Transaction thuộc `BookTransactionCoordinator` — View không tự `modelContext.save()`.
+        if let targetBookId = localBook?.bookId {
+            if case .failure(let error) = BookTransactionCoordinator.shared.refreshTitleTranslations(bookId: targetBookId, in: modelContext) {
+                AppLogger.shared.log("⚠️ [ReaderBootstrap] Không cập nhật được tên dịch: \(error.localizedDescription)")
             }
         }
 
@@ -1388,7 +1305,7 @@ struct ReaderView: View {
         viewModel?.toggleTranslation(enabled: isTranslationEnabled)
     }
 
-    private func saveDefinition() {
+    internal func saveDefinition() {
         let word = selectedTextForDefinition.trimmingCharacters(in: .whitespacesAndNewlines)
         let meaning = customMeaning.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -1739,7 +1656,7 @@ struct ReaderView: View {
 
     private var isAnySelectionOrOverlayActive: Bool {
         showingFloatingMenu || showingDefinitionSheet || showingAddNghiTTSPhonemeSheet || showingJunkDeleteSheet || showingAddTTSReplacementSheet
-            || showingCopyOriginalSheet || showingRuleTraceSheet
+            || showingCopyOriginalSheet
     }
 
     func checkAndReleaseDeferredTranslationRefresh() {

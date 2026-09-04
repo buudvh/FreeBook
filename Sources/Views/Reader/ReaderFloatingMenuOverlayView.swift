@@ -17,7 +17,7 @@ struct ReaderFloatingMenuOverlayView: View {
     let onReadSelected: () -> Void
     let onDeleteJunk: () -> Void
     let onAddToTTSReplacement: () -> Void
-    let onInspectRules: () -> Void
+    let onSearchWeb: () -> Void
 
     var body: some View {
         ZStack {
@@ -78,10 +78,10 @@ struct ReaderFloatingMenuOverlayView: View {
                         isShowing = false
                         onAddToTTSReplacement()
                     },
-                    onInspectRules: {
+                    onSearchWeb: {
                         clearSelectionTrigger = UUID()
                         isShowing = false
-                        onInspectRules()
+                        onSearchWeb()
                     }
                 )
                 .transition(.opacity.combined(with: .scale(scale: 0.9)))

@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Dải chip của **mẫu** đang gõ, mượn đúng idiom thanh chữ gốc của màn Check rule
-/// (`ReaderRuleTraceOverlayView.originalSentenceRowView`).
+/// (hàng câu gốc của panel Dịch, `ReaderDefinitionOverlayView.originalSentenceRowView`).
 ///
 /// Vai trò: cho thấy **cấu trúc** mẫu (một token `<n:1-6>` là **một** chip, không phải 7 ký tự lẻ),
 /// chọn nhanh một token để mở thanh `:min-max`, đặt con trỏ vào giữa hai chip, và xoá cả chip liền

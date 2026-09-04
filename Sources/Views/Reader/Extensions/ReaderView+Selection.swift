@@ -99,6 +99,18 @@ extension ReaderView {
         self.lookupRoute = ReaderLookupRoute(urlString: url.absoluteString)
     }
 
+    /// Nút "Tìm" của menu bôi đen (1.3.334, thế chỗ nút Check rule cũ): tra cụm đang bôi đen bằng
+    /// Google. Đi qua **đúng** `performQuickLookup` để chỉ có một chỗ mở URL và một chỗ chốt scheme
+    /// http/https — không tự dựng đường mở Safari thứ hai.
+    func searchSelectionOnGoogle() {
+        performQuickLookup(
+            using: SearchEngine(
+                name: "Google",
+                urlTemplate: "https://www.google.com/search?q=%s"
+            )
+        )
+    }
+
     /// Tra một từ qua **7** tầng theo đúng thứ tự ưu tiên của pipeline dịch, để màn Dịch nói rõ
     /// nghĩa đang đến từ đâu. Thứ tự này là hợp đồng với UI — đổi thứ tự là đổi nghĩa hiển thị.
     func getDictionaryMatches(for word: String) -> [DictionaryMatchInfo] {

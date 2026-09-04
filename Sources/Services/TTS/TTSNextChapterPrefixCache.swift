@@ -40,14 +40,14 @@ internal final class TTSNextChapterPrefixCache {
         internal let finalText: String
     }
 
-    private var activeKey: TTSPreparedNextChapterKey?
-    private var chunks: [Int: PreparedChunk] = [:]
+    internal var activeKey: TTSPreparedNextChapterKey?
+    internal var chunks: [Int: PreparedChunk] = [:]
     private var durations: [Int: Double] = [:]
-    private var tasks: [Int: Task<Void, Never>] = [:]
-    private var taskTokens: [Int: UInt64] = [:]
+    internal var tasks: [Int: Task<Void, Never>] = [:]
+    internal var taskTokens: [Int: UInt64] = [:]
     private var failureStates: [Int: TTSManager.RefillFailureState] = [:]
-    private var nextTaskToken: UInt64 = 0
-    private var generation: UInt64 = 0
+    internal var nextTaskToken: UInt64 = 0
+    internal var generation: UInt64 = 0
 
     private init() {}
 
@@ -109,10 +109,30 @@ internal final class TTSNextChapterPrefixCache {
         let upperBound = min(playbackParagraphs.count, boundedCapacity + 1)
         guard upperBound > 1 else { return }
 
+        var missing: [Int] = []
         for index in 1..<upperBound {
             guard chunks[index] == nil,
                   tasks[index] == nil,
                   failureStates[index]?.isBlocked != true else { continue }
+            missing.append(index)
+        }
+        guard !missing.isEmpty else { return }
+
+        // Google gộp cả prefix vào **một** request; các engine khác một chunk một lượt.
+        if key.tool == "google", missing.count >= 2 {
+            startGoogleBatchSynthesis(
+                key: key,
+                indices: missing,
+                playbackParagraphs: playbackParagraphs,
+                prefetchDelayMs: prefetchDelayMs,
+                googleService: googleService,
+                extService: extService,
+                audioWorker: audioWorker
+            )
+            return
+        }
+
+        for index in missing {
             startSynthesis(
                 key: key,
                 index: index,
@@ -182,7 +202,7 @@ internal final class TTSNextChapterPrefixCache {
 
     // MARK: - Tổng hợp một chunk
 
-    private func startSynthesis(
+    internal func startSynthesis(
         key: TTSPreparedNextChapterKey,
         index: Int,
         paragraph: TTSParagraph,
@@ -218,7 +238,7 @@ internal final class TTSNextChapterPrefixCache {
         tasks[index] = Task { @MainActor [weak self] in
             let data: Data
             do {
-                data = try await Self.synthesize(
+                data = try await TTSNextChapterPrefixSynthesizer.one(
                     key: key,
                     textToSpeak: textToSpeak,
                     boundaryKind: boundaryKind,
@@ -254,72 +274,11 @@ internal final class TTSNextChapterPrefixCache {
         }
     }
 
-    private nonisolated static func synthesize(
-        key: TTSPreparedNextChapterKey,
-        textToSpeak: String,
-        boundaryKind: TTSBoundaryKind,
-        synthesisKey: String,
-        offset: Int,
-        prefetchDelayMs: Int,
-        nghiService: PiperTTSService?,
-        googleService: GoogleTTSService,
-        extService: ExtTTSService,
-        audioWorker: TTSAudioSynthesisWorker
-    ) async throws -> Data {
-        if key.tool == "nghitts" {
-            guard let nghiService else { throw CancellationError() }
-            return try await nghiService.synthesize(
-                text: textToSpeak,
-                voice: key.selectedVoice,
-                speed: 1.0,
-                boundaryKind: boundaryKind,
-                priority: .optionalReserve,
-                requestID: UUID(),
-                synthesisKey: synthesisKey
-            )
-        }
-
-        if key.tool == "google" {
-            let pitchToUse = key.googlePitch ?? 1.0
-            return try await audioWorker.synthesizeParagraph(
-                synthesisKey: synthesisKey,
-                engine: "google",
-                textLength: textToSpeak.count,
-                priority: .nextChapter,
-                offset: offset,
-                prefetchDelayMs: prefetchDelayMs
-            ) {
-                try await googleService.synthesize(
-                    text: textToSpeak,
-                    voice: key.selectedVoice,
-                    speed: 1.0,
-                    pitch: pitchToUse
-                )
-            }
-        }
-
-        return try await audioWorker.synthesizeParagraph(
-            synthesisKey: synthesisKey,
-            engine: key.tool,
-            textLength: textToSpeak.count,
-            priority: .nextChapter,
-            offset: offset,
-            prefetchDelayMs: prefetchDelayMs
-        ) {
-            try await extService.synthesizeData(
-                text: textToSpeak,
-                voice: key.selectedVoice,
-                localPath: key.extensionLocalPath,
-                configJson: key.extensionConfigJson
-            )
-        }
-    }
-
     /// Ghi kết quả về bộ đệm. Ba lớp guard: `generation` (thế hệ toàn cục),
     /// `activeKey` (đúng chương/cấu hình) và `token` (đúng task của index này — chống
     /// task cũ đã bị `trim` hủy xóa mất entry của task mới, tương ứng
     /// `removePrefetchTask(for:taskGen:)` của cửa sổ đoạn văn).
-    private func finishSynthesis(
+    internal func finishSynthesis(
         index: Int,
         key: TTSPreparedNextChapterKey,
         token: UInt64,
@@ -367,7 +326,7 @@ internal final class TTSNextChapterPrefixCache {
         }
     }
 
-    private func logFailure(
+    internal func logFailure(
         key: TTSPreparedNextChapterKey,
         index: Int,
         attempt: Int,

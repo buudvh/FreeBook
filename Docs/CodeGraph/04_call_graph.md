@@ -15,6 +15,61 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ba đường gọi mới: gộp tiền tố chương sau, tải lẻ một chương, panel Dịch (1.3.334)
+
+```
+TTSNextChapterPrefixCache.request(key:…)
+  ├─ missing = chunk chưa có trong cache
+  ├─ tool == "google" && missing.count >= 2
+  │    └─ startGoogleBatchSynthesis(key:indices:…)          (+GoogleBatch.swift)
+  │         ├─ TTSReplacementManager.applyReplacements  ← bỏ chunk rỗng SAU khi thay thế
+  │         ├─ TTSSynthesisIdentity.computeKey mỗi chunk → batchKey = "gbatch|k₀|k₁|…"
+  │         ├─ batchIndices.count < 2  ⇒ quay lại startSynthesis từng chunk
+  │         ├─ một token cho MỌI index; tasks[index] = cùng một Task
+  │         └─ Task { TTSNextChapterPrefixSynthesizer.googleBatch(…) }
+  │              ├─ TTSAudioSynthesisWorker.synthesizeParagraph(synthesisKey: batchKey, …)
+  │              │    └─ RemoteTTSSynthesisCoordinator  → GoogleTTSService.synthesizeBatch(parts:)
+  │              ├─ TTSBatchAudioPayload.encode / .decode
+  │              └─ guard audios.count == texts.count  ⇒ throw nếu lệch
+  │              → finishSynthesis(index:…) cho TỪNG index (giữ 3 lớp guard cũ)
+  │              → catch is CancellationError: return
+  │              → catch khác: recoverBatchFailure → startSynthesis lại CHỈ chunk còn nil
+  └─ còn lại: startSynthesis(key:index:…) → TTSNextChapterPrefixSynthesizer.one(…)
+```
+
+```
+ReaderChapterRowView (nút mũi tên xuống)
+  └─ onDownload → ReaderChapterListView.downloadChapter(_:)      (+Download.swift)
+       ├─ guard canDownloadChapters (= !isLocalTXTBook && ext != nil && localBook != nil)
+       ├─ guard !isPlaceholder, !isCached, url không rỗng
+       ├─ downloadingChapterIndices.insert(index)   → hàng đổi sang ProgressView
+       └─ Task { defer { remove(index) } }
+            ├─ ChapterContentRepository.configure(container:)
+            ├─ ChapterStore.fetchChapter(bookId:index:url:)   ← host của ĐÚNG hàng chương
+            ├─ ChapterContentRepository.load(ChapterContentRequest(forceRefresh: false))
+            │    └─ tự enqueueWrite ⇒ KHÔNG gọi ReaderViewModel.loadChapterContentFromExtension
+            └─ store.markCached(index:) + toast
+```
+
+```
+ReaderView: nút "Dịch" (hoặc menu bôi đen)
+  └─ openDefinitionPanel()                       (ReaderView+RuleTools.swift:45)
+       ├─ closeOtherSelectionPanels(except: nil)
+       ├─ refreshRuleTraces()        ← chạy TRƯỚC khi hiện, để dải chip không trống một frame
+       └─ showingDefinitionSheet = true
+            └─ definitionPanelOverlay(in:)        (ReaderView+DefinitionPanel.swift:15)
+                 └─ ReaderDefinitionOverlayView(… ruleTraces, focusedRuleTraceID,
+                      isRuleFeatureEnabled, hasAnyRuleSet, onRuleAction, onAddRule)
+                      ├─ ruleMeaningRowView   (chỉ đọc; ruleNoticeText khi chưa có bộ/tắt/không khớp)
+                      └─ ruleChipRowView      (nút + ở ĐẦU dải, rồi ScrollView chip)
+                           └─ onRuleAction(trace, ReaderRuleAction) → handleRuleAction(_:_:)
+  ✕ hoặc kéo xuống ⇒ isPresented = false
+       └─ .onChange(of: showingDefinitionSheet) → handleDefinitionPanelClosed()
+```
+
+* **`selectedWordOffset` đổi trong lúc panel đang mở ⇒ `refreshRuleTraces()` chạy lại**, nên dời vùng chọn sang đoạn khác là dải chip đổi theo. Đây là chỗ thay cho việc mở lại màn Check rule.
+* **`ReaderView.initializeReaderIfNeeded` và `BookDetailView.task(id:)` không còn gọi `BookTitleTranslationMigrator` trực tiếp**: cả hai gọi `BookTransactionCoordinator.refreshTitleTranslations(bookId:in:)`, coordinator mới gọi `migrator.refreshTranslations(for:)` rồi tự `save()` khi `didChange`.
+
 ## Đường gọi nạp trước Google sau khi gộp request (1.3.332)
 
 ```
@@ -427,6 +482,8 @@ engine audio starts
 * Reader ưu tiên vệt tô theo thứ tự **active TTS → preparing TTS → search**. Vệt chuẩn bị chỉ áp dụng cho đúng `playingBookId`, `playingChapterIndex` và `preparingParentParagraphIndex` của đoạn đang render.
 
 ## Hai lối gọi mới từ menu bôi đen của Reader (1.3.274)
+
+> **1.3.334**: nhánh "Rule" dưới đây **không còn**. Nút đó nay là "Tìm" (`searchSelectionOnGoogle`), còn `openRuleTracePanel`/`ReaderRuleTraceOverlayView` bị thay bằng `openDefinitionPanel` + hai hàng rule trong panel Dịch — xem mục đầu tài liệu. Nhánh "Gốc" giữ nguyên.
 
 ```text
 FloatingSelectionMenu ("Gốc")

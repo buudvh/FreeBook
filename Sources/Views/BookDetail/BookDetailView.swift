@@ -235,10 +235,12 @@ struct BookDetailView: View {
             updateFilteredOnlineChapters()
         }
         .task(id: actualBookId) {
-            guard let book = localBook else { return }
-            BookTitleTranslationMigrator.refreshTranslations(for: book)
-            if modelContext.hasChanges {
-                try? modelContext.save()
+            // Transaction thuộc `BookTransactionCoordinator` — View không tự `modelContext.save()`.
+            // Lấy `bookId` từ chính `localBook`: `localBook` dò theo `detailUrl` nên không chắc trùng
+            // `actualBookId` khi `resolvedBookId` chưa được phân giải.
+            guard let targetBookId = localBook?.bookId else { return }
+            if case .failure(let error) = BookTransactionCoordinator.shared.refreshTitleTranslations(bookId: targetBookId, in: modelContext) {
+                AppLogger.shared.log("⚠️ [BookDetailView] Không cập nhật được tên dịch: \(error.localizedDescription)")
             }
         }
         .onChange(of: ChapterStoreConfiguration.enableSwiftDataTOCWrite ? localBook?.chapters.count : chapterSnapshots.count) { _, _ in

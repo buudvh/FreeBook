@@ -1,6 +1,30 @@
 # CHANGELOG (Lưu trữ) - Nhật ký Thay đổi CodeGraph FreeBook
 
-Lịch sử thay đổi cũ (version ≤ 1.3.296) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+Lịch sử thay đổi cũ (version ≤ 1.3.297) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+
+## [1.3.297] - 2026-08-31
+
+### Kết quả E1, và bộ phân loại Nhật/Anh quay về whitelist
+
+Thêm **1** file Swift (426 → 427), sửa 2 file. Chưa biên dịch (viết trên Windows).
+
+**Kết quả E1 trên iPhone 11:**
+
+* **Phủ âm vị: 0 scalar ngoài từ vựng.** espeak `en-us` trên 24 từ không sinh ký hiệu nào ngoài 161 ký hiệu của model ⇒ **tầng tra id không mất chữ**, toàn bộ hiện tượng "mất chữ nhiều" nằm bên trong `IPAToVietnameseMapper`.
+* **Nghe thử: `θˈɪŋk` đúng, `ðˈɪs` và `kˈæt` sai.** Xác nhận đúng cái bẫy đã nêu ở 1.3.296: có mặt trong từ vựng không đồng nghĩa với đã được train. Hướng đi vì vậy là **hybrid** — đưa IPA thẳng vào model nhưng thay ký hiệu chưa train bằng ký hiệu gần nhất đã train (`ð → z`, `æ → ɛ`), không phải passthrough toàn bộ.
+* **Ca đối chứng của tôi sai, không phải dụng cụ sai.** `sˈaːw` không phải IPA của "sao" nên nghe ra "chao" là đúng với chuỗi đã đưa vào. Thêm nút lấy IPA **thật** từ espeak `vi` rồi tổng hợp lại chính chuỗi đó — đối chứng tự kiểm chứng thay vì tự đoán.
+* Thêm phép **so bộ ký hiệu `vi` vs `en-us`**: model là Piper tiếng Việt nên tập âm vị đã train chính là tập espeak `vi` sinh ra; ký hiệu chỉ có ở `en-us` là ứng viên chưa train. Một lần bấm thay cho nghe thử từng ký hiệu.
+
+**Bộ phân loại Nhật/Anh — 8/24 ca sai, và đó là giới hạn của phương pháp:**
+
+* `sakura`/`sonata`, `kimono`/`tomato`, `karate`/`potato`, `nakama`/`banana` giống nhau trên **mọi** dấu hiệu bề mặt: 6 chữ, CVCVCV, kết thúc nguyên âm, không cụm phụ âm Anh, không âm đặc trưng Nhật. Không hàm chấm điểm nào tách được chúng; mọi ngưỡng đều sai một phía.
+* 1.3.290 bỏ `englishBlacklist` với lý do **đúng** ("tập từ tiếng Anh cần loại trừ là vô hạn") nhưng kết luận **sai**. Điều nó bỏ sót: **hướng** của danh sách quan trọng hơn sự tồn tại của nó. Tập từ gốc Nhật xuất hiện trong truyện tiếng Việt là **hữu hạn và nhỏ**. Nay `JapaneseLoanwordList` (~200 từ) là lớp quyết định thứ nhất; hàm chấm điểm chỉ xử lý từ lạ.
+* **Hai lỗi chấm điểm đo được, đã sửa**: (1) `ou`/`ai`/`ei`/`oi` nằm trong `englishClusters` và **bị trừ** 2 điểm dù chúng là dãy nguyên âm romaji hoàn toàn hợp lệ — đó chính là lý do `arigatou`, `senpai`, `hokkaido`, `shoujo` bị xếp sai thành tiếng Anh; nay chúng **cộng** 2 điểm. (2) Bỏ luật "từ dài mà không có cụm phụ âm Anh (+1)": mọi từ gốc Latin trong tiếng Anh (tomato, potato, sonata, banana, camera, opera, pasta) đều là CVCVCV không cụm phụ âm, nên luật đó cộng điểm cho đúng nhóm cần loại.
+* Ngưỡng 2 → **4**: whitelist đã gánh ca phổ biến nên hàm chấm điểm được phép bảo thủ và nghiêng về tiếng Anh. Trong truyện dịch, từ tiếng Anh nhiều hơn từ Nhật cả bậc; đọc một từ Nhật lạ theo luật Anh là sai nhẹ hơn chiều ngược lại.
+
+**Cố ý chưa sửa**: thiếu dấu thanh trong `IPAToVietnameseMapper` (bộ ca kiểm cho "bac"/"xit-tơm"/"iet"/"tec-xơ" — âm tiết Việt kết thúc bằng `-c`/`-t` mà không có thanh là sai phonotactics) và `arigatou → a-ri-ga-tô-ư`. Cả hai chỉ còn quan trọng nếu E1 vòng 2 kết luận phải giữ đường phiên âm sang chữ Việt.
+
+`check_architecture.py` giữ **14 violation** đúng cùng một tập. CodeGraph: cập nhật `00`, `02`, `04`, `10`, `14`; `09`, `11`, `13`, `rules` ghi nhận `--no-change-needed`.
 
 ## [1.3.296] - 2026-08-31
 

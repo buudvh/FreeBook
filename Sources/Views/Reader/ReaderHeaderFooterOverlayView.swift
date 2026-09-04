@@ -105,7 +105,7 @@ struct ReaderHeaderFooterOverlayView: View {
                             Label("Mở Cài đặt", systemImage: "gearshape.fill")
                         }
                     } label: {
-                        Image(systemName: "ellipsis")
+                        Image(systemName: "ellipsis.circle")
                             .rotationEffect(.degrees(90))
                             .font(.system(size: 18, weight: .semibold))
                             .foregroundColor(selectedTheme.textColor)

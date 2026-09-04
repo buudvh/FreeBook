@@ -15,6 +15,16 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Một request thay N; `Task` tải lẻ chương không ai giữ handle (1.3.334)
+
+* **Tài nguyên mạng của tiền tố chương sau giảm theo số chunk.** Nhánh Google trước đây mở **một kết nối cho mỗi chunk** của tiền tố; nay mở **một** cho cả lượt (`batchIndices.count >= 2` mới gộp). Đổi lại, đỉnh RAM của lượt parse tăng: cả phản hồi được giải một lần thành `[Data]`, nên cửa sổ tiền tố càng rộng thì đỉnh càng cao — trần thực tế hiện là `clamp(currentPrefetchCount, 1, 10)`.
+* **Không thêm file tạm nào**: audio của lượt gộp đi thẳng vào `preloadedData` trong RAM (`Data`), không qua `temporaryDirectory`. Cửa sổ trượt vẫn là cơ chế thu hồi duy nhất — không dọn là OOM, và điều đó **không** đổi vì gộp.
+* **`Task` của lượt gộp bị giữ bằng token, không bằng handle.** `Task { @MainActor [weak self] }` (bắt buộc `[weak self]`) đối chiếu `nextTaskToken` khi trả kết quả; token lệch thì bỏ. Nhờ vậy huỷ không cần `cancel()` từng chỗ, nhưng cũng có nghĩa **request đang bay vẫn chạy tới khi xong** — nó chỉ không được nhận. `CancellationError` `return` thẳng, không kích đường lùi.
+* **`Task` của nút tải lẻ chương là tài nguyên không ai giữ handle** — không `@State` nào lưu `Task`, nên không có đường `cancel()`. Nó tự dọn phần trạng thái UI bằng `defer { downloadingChapterIndices.remove(index) }`, còn phần ghi (`ChapterContentRepository` → `books/<sha256>.bin`, `ChapterStore.markCached`) **cố ý** chạy đến hết. Bấm nhiều chương là nhiều `Task` song song, không hàng đợi, không trần: cần tải nhiều thì dùng `DownloadManager`.
+* **Nút tải lẻ làm `books/<sha256(bookId)>.bin` phình thêm đúng một lần mỗi chương** — file này append-only, không compaction, chỉ thu hồi khi xoá cả truyện. Nút dùng `forceRefresh: false` nên bấm lại chương đã tải **không** ghi thêm; nhưng nó cũng vì thế không phải cách để "tải lại chương mới".
+* **Không `ModelContext` nền nào được tạo thêm ở lượt này.** `refreshTitleTranslations` nhận `ModelContext` của MainActor do View truyền vào (đúng luật: chỉ tác vụ nền mới cần context riêng), và nó **không** mở transaction khi không có gì đổi (`.success(false)` ⇒ không `save()`), tức bớt được một lượt ghi `library.db` mỗi lần mở truyện.
+* **Không tên `NotificationCenter` mới, không observer mới, không `WKWebView` mới.**
+
 ## Ext TTS không còn tài nguyên file; hai cache RAM mới (1.3.330)
 
 * **Ext TTS hết hẳn tài nguyên hệ thống.** Đường PCM cũ ghi mỗi đoạn ra một file `.wav`/`.mp3` trong `temporaryDirectory`, theo dõi bằng `activeTempFiles` + `NSLock` rồi dọn bằng `defer`/`cleanupAllTempFiles`. Toàn bộ khối đó đã bị xoá (không caller nào từ lâu), nên `ExtTTSService` giờ chỉ nhận base64 → `Data` trong RAM. Kéo theo `TTSManager.cleanUpTempFile()` — hàm rỗng còn được gọi ở 3 chỗ.

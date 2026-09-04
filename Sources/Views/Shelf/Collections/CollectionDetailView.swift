@@ -34,11 +34,23 @@ struct CollectionDetailView: View {
         allExtensions.filter { !$0.localPath.isEmpty && $0.isEnabled }
     }
 
-    /// Ghim lên đầu, phần còn lại theo lượt đọc gần nhất. Tách hai mảng thay vì `sorted` một lần vì
-    /// `sorted(by:)` của Swift **không ổn định** — trộn thứ tự trong cùng nhóm.
-    private var books: [Book] {
-        let ordered = (collection?.books ?? []).sorted { $0.lastReadDate > $1.lastReadDate }
-        return ordered.filter { $0.isPinned } + ordered.filter { !$0.isPinned }
+    private var isEmpty: Bool {
+        (collection?.books ?? []).isEmpty
+    }
+
+    /// 1.3.334 tách truyện ghim và truyện còn lại thành **hai section riêng** thay vì nối vào một mảng
+    /// phẳng, khớp với tab Kệ sách. Lọc trước rồi mới sắp: sắp cả mảng rồi lọc cho ra thứ tự y hệt mà
+    /// phải sắp hai lần.
+    private var pinnedBooks: [Book] {
+        (collection?.books ?? [])
+            .filter { $0.isPinned }
+            .sorted { $0.lastReadDate > $1.lastReadDate }
+    }
+
+    private var unpinnedBooks: [Book] {
+        (collection?.books ?? [])
+            .filter { !$0.isPinned }
+            .sorted { $0.lastReadDate > $1.lastReadDate }
     }
 
     var body: some View {
@@ -104,7 +116,7 @@ struct CollectionDetailView: View {
                 title: "Bộ sưu tập không còn tồn tại",
                 message: "Bộ sưu tập này đã bị xoá."
             )
-        } else if books.isEmpty {
+        } else if isEmpty {
             emptyState(
                 icon: "books.vertical",
                 title: "Bộ sưu tập đang trống",
@@ -112,37 +124,81 @@ struct CollectionDetailView: View {
             )
         } else {
             List {
-                ForEach(books) { book in
-                    ShelfBookRowView(book: book, extensions: allExtensions)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            newChapters.markSeen(bookId: book.bookId)
-                            readerRoute = ShelfReaderRoute(
-                                bookId: book.bookId,
-                                extensionPackageId: book.extensionPackageId,
-                                chapterIndex: book.currentChapterIndex,
-                                paragraphIndex: nil,
-                                detailUrl: book.detailUrl,
-                                sourceName: book.sourceName
-                            )
+                // Chưa ghim truyện nào thì chỉ có một nhóm — dựng thẳng, không bọc section, để không
+                // có tiêu đề nhóm lơ lửng một mình.
+                if pinnedBooks.isEmpty {
+                    ForEach(unpinnedBooks) { book in
+                        bookRow(book)
+                    }
+                } else {
+                    Section {
+                        ForEach(pinnedBooks) { book in
+                            bookRow(book)
                         }
-                        .onLongPressGesture(minimumDuration: 0.35) {
-                            actionTarget = BookSheetAction.Target(
-                                book: book,
-                                mode: .collection(collectionId: collectionId)
-                            )
+                    } header: {
+                        sectionHeader("Đang ghim", icon: "pin.fill", color: .orange, count: pinnedBooks.count)
+                    }
+
+                    Section {
+                        ForEach(unpinnedBooks) { book in
+                            bookRow(book)
                         }
-                        .swipeActions(edge: .trailing) {
-                            Button(role: .destructive) {
-                                BookActionRunner.removeFromCollection(book, collectionId: collectionId, in: modelContext)
-                            } label: {
-                                Label("Bỏ khỏi bộ", systemImage: "folder.badge.minus")
-                            }
-                        }
+                    } header: {
+                        sectionHeader("Truyện khác", icon: "books.vertical", color: .secondary, count: unpinnedBooks.count)
+                    }
                 }
             }
             .listStyle(.plain)
         }
+    }
+
+    private func bookRow(_ book: Book) -> some View {
+        ShelfBookRowView(book: book, extensions: allExtensions)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                newChapters.markSeen(bookId: book.bookId)
+                readerRoute = ShelfReaderRoute(
+                    bookId: book.bookId,
+                    extensionPackageId: book.extensionPackageId,
+                    chapterIndex: book.currentChapterIndex,
+                    paragraphIndex: nil,
+                    detailUrl: book.detailUrl,
+                    sourceName: book.sourceName
+                )
+            }
+            .onLongPressGesture(minimumDuration: 0.35) {
+                actionTarget = BookSheetAction.Target(
+                    book: book,
+                    mode: .collection(collectionId: collectionId)
+                )
+            }
+            .swipeActions(edge: .trailing) {
+                Button(role: .destructive) {
+                    BookActionRunner.removeFromCollection(book, collectionId: collectionId, in: modelContext)
+                } label: {
+                    Label("Bỏ khỏi bộ", systemImage: "folder.badge.minus")
+                }
+            }
+    }
+
+    /// `textCase(nil)` để tiêu đề giữ nguyên chữ thường — mặc định của `List` là in hoa hết.
+    private func sectionHeader(_ title: String, icon: String, color: Color, count: Int) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.caption2)
+                .foregroundColor(color)
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundColor(color)
+            Text("\(count)")
+                .font(.caption2.weight(.semibold))
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 1)
+                .background(Color.secondary.opacity(0.15), in: Capsule())
+            Spacer()
+        }
+        .textCase(nil)
     }
 
     @ViewBuilder

@@ -2,7 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.296) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.297) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+
+## [1.3.334] - 2026-09-04
+
+### Check rule về panel Dịch, gộp tiền tố Google, tải lẻ chương, tách nhóm ghim
+
+Thêm **8** file Swift (477 → **483**), xoá **2**, sửa **18**, cộng `Scripts/check_architecture.py`. Đợt 3 của loạt tối ưu: 8 việc A–H trong một lượt.
+
+- **A — Gộp request Google TTS của cache tiền tố chương sau.** 1.3.332 đã gộp cửa sổ nạp trước của chương *đang đọc*; nay tiền tố *chương sau* cũng đi một request. File mới [`TTSNextChapterPrefixCache+GoogleBatch`](../../Sources/Services/TTS/TTSNextChapterPrefixCache+GoogleBatch.swift) (158 dòng) xếp lượt, [`TTSNextChapterPrefixSynthesizer`](../../Sources/Services/TTS/TTSNextChapterPrefixSynthesizer.swift) (113 dòng, 2 `static func`, **không** giữ state) gọi engine. Cùng ba lớp chặn lệch chỉ số như 1.3.332: chunk rỗng (sau `applyReplacements` + trim) **bị loại khỏi lượt gộp** và đi đường một-request, `googleBatch` throw nếu `audios.count != texts.count`, và việc gán vẫn theo `batchIndices[i]` chứ không phải `offset + i`. Khoá riêng `gbatch|<synthesisKey>|…` nên không đụng không gian khoá của cache từng chunk; `guard batchIndices.count >= 2` để không đánh đổi độ bền lấy con số không có thật; một `nextTaskToken` cho **mọi** index của lượt; `CancellationError` `return` thẳng, còn lỗi thật thì `recoverBatchFailure` xếp lại từng chunk. Retry vẫn **đúng một tầng** — trong `RemoteTTSSynthesisCoordinator`, `TTSManager` không bọc thêm.
+- **B — Check rule chuyển hẳn vào panel Dịch, chẩn đoán cả đoạn.** Xoá `ReaderRuleTraceOverlayView.swift` (396 dòng) và `ReaderRuleTraceGuideSheet.swift` (74 dòng, cùng nút `?`). Panel Dịch nhận việc qua ba file mới: [`+Rules`](../../Sources/Views/Reader/ReaderDefinitionOverlayView+Rules.swift) (156 dòng — dải chip, focus, **ô nghĩa rule chỉ đọc** nằm dưới ô nghĩa dịch, ba câu thông báo phân biệt "chưa có rule" / "công tắc đang tắt" / "không rule nào chạm đoạn"), [`+Rows`](../../Sources/Views/Reader/ReaderDefinitionOverlayView+Rows.swift) (164 dòng, dời nguyên trạng để file gốc về dưới baseline), [`ReaderView+DefinitionPanel`](../../Sources/Views/Reader/ReaderView+DefinitionPanel.swift) (107 dòng) + [`ReaderRuleAction`](../../Sources/Views/Reader/ReaderRuleAction.swift) (13 dòng). Nút `+` giữ ở **đầu** dải chip như màn cũ; chiều cao lên `.presentationDetents([.height(660), .large])`. Khác biệt duy nhất so với màn cũ: `focusedRuleRange` = `trace.sourceRange`, tức tô phạm vi **rule chạm được**, không snap về vùng bôi đen — snap là mất ngữ cảnh mà rule thật khớp. Hậu xử lý khi đóng nằm ở `.onChange(of: showingDefinitionSheet)` chứ không ở `closeDefinitionPanel()`, vì kéo xuống và tap ra ngoài chỉ hạ binding `isPresented`. Tầng Services **không đổi một dòng**: `QuickTranslationRuleDiagnostics` vẫn là bộ soi duy nhất.
+- **C — Nút "Rule" trên menu bôi đen thành nút "Tìm"** (`function`/"Rule" → `magnifyingglass`/"Tìm"), mở Google Search cho cụm đang bôi đen (`searchSelectionOnGoogle()`). Đổi tên callback `onInspectRules` → `onSearchWeb` ở cả hai đầu để không còn tên gợi sai việc.
+- **D — Sheet ấn giữ truyện bỏ hai hàng "Xem chi tiết" và "Ghim".** Thay bằng cử chỉ trên header: tap → xem chi tiết, ấn giữ (0.4 s) → ghim/bỏ ghim. `.onTapGesture` phải đăng ký **trước** `.onLongPressGesture`, nếu không một cú tap nhanh bị đọc thành ấn giữ. `headerHint` có 4 nhánh nên người dùng biết header đang làm được gì (truyện local không có màn chi tiết, mục lịch sử không ghim được).
+- **E — Tách ghim và không ghim thành hai section riêng** ở cả tab Kệ Sách và màn bộ sưu tập: "Đang ghim" (`pin.fill`, cam) và "Truyện khác". Phân trang **chỉ** áp lên nhóm không ghim nên truyện ghim luôn thấy được mà không cần cuộn; chưa ghim gì thì không bọc section nào.
+- **F — Đồng bộ icon dropdown**: Reader và Chi tiết truyện đổi `ellipsis` → `ellipsis.circle` cho khớp Kệ sách. Đúng hai dòng.
+- **G — Nút tải cho từng chương trong danh sách chương**, chỉ hiện ở chương **chưa** tải, có `ProgressView` xoay khi đang tải. `ReaderChapterListView` tách ba (468 → **295**): file gốc, [`+List`](../../Sources/Views/Reader/Extensions/ReaderChapterListView+List.swift) (179 dòng), [`+Download`](../../Sources/Views/Reader/Extensions/ReaderChapterListView+Download.swift) (74 dòng). Ba trạng thái của hàng dùng **cùng một** khung 30×30 (`ReaderChapterRowView.trailingAccessory`) để hàng không giật khi đổi trạng thái. Nút này **mồi cache** qua `ChapterContentRepository.load(forceRefresh: false)` + `ChapterStore.markCached`, **không** tạo `DownloadTaskModel` và không vào hàng đợi `BookDownloadWorker`; nó cố ý không đi qua `ReaderViewModel.loadChapterContentFromExtension` vì đường đó còn dịch chương và dựng `[ParagraphItem]`. `Task` không giữ handle nên **không huỷ được** — đúng luật "nội dung đã qua checkpoint cancel cuối thì lệnh ghi nền không được cancel", hệ quả là toast có thể hiện sau khi danh sách đã đóng.
+- **H — Trả nợ hai vi phạm `VIEW_SWIFTDATA_MUTATION` cuối cùng.** `ReaderView.initializeReaderIfNeeded` và `BookDetailView.task(id:)` từng gọi `BookTitleTranslationMigrator.refreshTranslations(for:)` (gán thẳng `titleTrans`/`authorTrans` của `@Model`) rồi tự `try? modelContext.save()`; nay đi qua `BookTransactionCoordinator.refreshTitleTranslations(bookId:in:)` và **xử lý `Result`**. Migrator hạ xuống vai "chỉ gán, trả `Bool` didChange"; coordinator `save()` **chỉ khi** có field đổi nên mở truyện không còn mở transaction rỗng. `BookDetailView` tra `localBook` bằng `detailUrl` + `extensionPackageId` nên nó truyền `localBook?.bookId`. Còn `DiscoveryView` là **báo oan**: `self.currentChapterIndex = …` là `@State` của chính struct View — sửa regex ở [`check_architecture.py:144`](../../Scripts/check_architecture.py) bằng lookbehind `(?<!\bself)`, mọi `<biến khác>.currentChapterIndex = …` vẫn bị bắt.
+- Gate: `check_architecture.py` **12 → 8 violation** — hết hẳn `VIEW_SWIFTDATA_MUTATION`, 8 chỗ còn lại đều là nợ dòng cũ. Hai baseline `ReaderChapterListView` (408) và `ReaderDefinitionOverlayView` (468) **cố ý giữ nguyên** dù file đã về 295/372, nên có ~200 dòng dư — không phải chỗ để tiêu. `validate_links.py` PASS (16 doc, **483** file) sau khi cập nhật 15 doc; `03_type_graph` không đụng.
+- **Chưa biên dịch, chưa chạy thử** — host là Windows. Có **8 file Swift mới** nên khi lên macOS **phải** `xcodegen generate`. Việc phải nghe/nhìn đầu tiên: mở chương mới ngay sau khi tiền tố nạp xong (kiểm câu đầu chương có đúng câu đầu không) và panel Dịch trên máy màn nhỏ (660pt có thể chạm trần khi bật cỡ chữ trợ năng lớn). Headroom cần nhớ: [`BookDetailView.swift`](../../Sources/Views/BookDetail/BookDetailView.swift) đang **1199/1201** — file chật nhất repo, lần sửa sau ở đó phải tách file trước.
 
 ## [1.3.333] - 2026-09-04
 
@@ -502,28 +519,3 @@ Thêm **1** file Swift mới (`BookDetailCacheManager`), sửa **7** file Swift 
 - **DiscoveryView**: Mở rộng `shouldRenderCategoryTab` từ ±1 tab sang **±3 tab** (giữ 7 tab cùng lúc) để cache nhiều tab hơn mà không quá tốn bộ nhớ.
 
 `check_architecture.py` giữ **15 violation** (baseline cũ). CodeGraph: cập nhật `00`, `02`, `03`, `06`, `08`, `09`, `11`, `12`, `14`; `04`, `05`, `10`, `13`, `rules` ghi nhận `--no-change-needed`.
-
-## [1.3.297] - 2026-08-31
-
-### Kết quả E1, và bộ phân loại Nhật/Anh quay về whitelist
-
-Thêm **1** file Swift (426 → 427), sửa 2 file. Chưa biên dịch (viết trên Windows).
-
-**Kết quả E1 trên iPhone 11:**
-
-* **Phủ âm vị: 0 scalar ngoài từ vựng.** espeak `en-us` trên 24 từ không sinh ký hiệu nào ngoài 161 ký hiệu của model ⇒ **tầng tra id không mất chữ**, toàn bộ hiện tượng "mất chữ nhiều" nằm bên trong `IPAToVietnameseMapper`.
-* **Nghe thử: `θˈɪŋk` đúng, `ðˈɪs` và `kˈæt` sai.** Xác nhận đúng cái bẫy đã nêu ở 1.3.296: có mặt trong từ vựng không đồng nghĩa với đã được train. Hướng đi vì vậy là **hybrid** — đưa IPA thẳng vào model nhưng thay ký hiệu chưa train bằng ký hiệu gần nhất đã train (`ð → z`, `æ → ɛ`), không phải passthrough toàn bộ.
-* **Ca đối chứng của tôi sai, không phải dụng cụ sai.** `sˈaːw` không phải IPA của "sao" nên nghe ra "chao" là đúng với chuỗi đã đưa vào. Thêm nút lấy IPA **thật** từ espeak `vi` rồi tổng hợp lại chính chuỗi đó — đối chứng tự kiểm chứng thay vì tự đoán.
-* Thêm phép **so bộ ký hiệu `vi` vs `en-us`**: model là Piper tiếng Việt nên tập âm vị đã train chính là tập espeak `vi` sinh ra; ký hiệu chỉ có ở `en-us` là ứng viên chưa train. Một lần bấm thay cho nghe thử từng ký hiệu.
-
-**Bộ phân loại Nhật/Anh — 8/24 ca sai, và đó là giới hạn của phương pháp:**
-
-* `sakura`/`sonata`, `kimono`/`tomato`, `karate`/`potato`, `nakama`/`banana` giống nhau trên **mọi** dấu hiệu bề mặt: 6 chữ, CVCVCV, kết thúc nguyên âm, không cụm phụ âm Anh, không âm đặc trưng Nhật. Không hàm chấm điểm nào tách được chúng; mọi ngưỡng đều sai một phía.
-* 1.3.290 bỏ `englishBlacklist` với lý do **đúng** ("tập từ tiếng Anh cần loại trừ là vô hạn") nhưng kết luận **sai**. Điều nó bỏ sót: **hướng** của danh sách quan trọng hơn sự tồn tại của nó. Tập từ gốc Nhật xuất hiện trong truyện tiếng Việt là **hữu hạn và nhỏ**. Nay `JapaneseLoanwordList` (~200 từ) là lớp quyết định thứ nhất; hàm chấm điểm chỉ xử lý từ lạ.
-* **Hai lỗi chấm điểm đo được, đã sửa**: (1) `ou`/`ai`/`ei`/`oi` nằm trong `englishClusters` và **bị trừ** 2 điểm dù chúng là dãy nguyên âm romaji hoàn toàn hợp lệ — đó chính là lý do `arigatou`, `senpai`, `hokkaido`, `shoujo` bị xếp sai thành tiếng Anh; nay chúng **cộng** 2 điểm. (2) Bỏ luật "từ dài mà không có cụm phụ âm Anh (+1)": mọi từ gốc Latin trong tiếng Anh (tomato, potato, sonata, banana, camera, opera, pasta) đều là CVCVCV không cụm phụ âm, nên luật đó cộng điểm cho đúng nhóm cần loại.
-* Ngưỡng 2 → **4**: whitelist đã gánh ca phổ biến nên hàm chấm điểm được phép bảo thủ và nghiêng về tiếng Anh. Trong truyện dịch, từ tiếng Anh nhiều hơn từ Nhật cả bậc; đọc một từ Nhật lạ theo luật Anh là sai nhẹ hơn chiều ngược lại.
-
-**Cố ý chưa sửa**: thiếu dấu thanh trong `IPAToVietnameseMapper` (bộ ca kiểm cho "bac"/"xit-tơm"/"iet"/"tec-xơ" — âm tiết Việt kết thúc bằng `-c`/`-t` mà không có thanh là sai phonotactics) và `arigatou → a-ri-ga-tô-ư`. Cả hai chỉ còn quan trọng nếu E1 vòng 2 kết luận phải giữ đường phiên âm sang chữ Việt.
-
-`check_architecture.py` giữ **14 violation** đúng cùng một tập. CodeGraph: cập nhật `00`, `02`, `04`, `10`, `14`; `09`, `11`, `13`, `rules` ghi nhận `--no-change-needed`.
-

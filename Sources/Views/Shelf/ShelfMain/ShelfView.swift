@@ -99,11 +99,20 @@ struct ShelfView: View {
     @State private var detailTargetBook: Book? = nil
     @State private var navigateToBookDetail = false
 
-    /// Ghim lên đầu, phần còn lại giữ thứ tự `lastReadDate` của `@Query`. Tách hai mảng thay vì
-    /// `sorted` một lần vì `sorted(by:)` của Swift **không ổn định** — trộn thứ tự trong cùng nhóm.
-    private var shelfBooks: [Book] {
-        let onShelf = allBooks.filter { $0.isOnShelf }
-        return onShelf.filter { $0.isPinned } + onShelf.filter { !$0.isPinned }
+    /// Từ 1.3.334 hai nhóm **không** còn nối thành một mảng phẳng: mỗi nhóm là một section riêng của
+    /// tab Kệ sách để người dùng thấy ngay truyện nào đang ghim. Trong mỗi nhóm vẫn giữ nguyên thứ tự
+    /// `lastReadDate` của `@Query` (không `sorted` lại vì `sorted(by:)` của Swift **không ổn định**).
+    private var pinnedShelfBooks: [Book] {
+        allBooks.filter { $0.isOnShelf && $0.isPinned }
+    }
+
+    private var unpinnedShelfBooks: [Book] {
+        allBooks.filter { $0.isOnShelf && !$0.isPinned }
+    }
+
+    /// Chỉ cần biết kệ có rỗng hay không, nên không dựng mảng gộp chỉ để gọi `isEmpty`.
+    private var isShelfEmpty: Bool {
+        !allBooks.contains { $0.isOnShelf }
     }
 
     private var historyBooks: [Book] {
@@ -116,8 +125,9 @@ struct ShelfView: View {
         notificationInbox.unreadCount + newChapters.totalNewBooks
     }
 
+    /// Phân trang **chỉ** áp cho nhóm chưa ghim: nhóm ghim luôn hiện đủ vì người dùng chủ động ghim.
     private var displayedShelfBooks: [Book] {
-        Array(shelfBooks.prefix(shelfLimit))
+        Array(unpinnedShelfBooks.prefix(shelfLimit))
     }
 
     private var displayedHistoryBooks: [Book] {
@@ -219,7 +229,7 @@ struct ShelfView: View {
                             Label("Mở trình duyệt web", systemImage: "globe")
                         }
 
-                        if selectedTab == .shelf && !shelfBooks.isEmpty {
+                        if selectedTab == .shelf && !isShelfEmpty {
                             Button(action: {
                                 checkAllNewChapters()
                             }) {
@@ -557,7 +567,7 @@ struct ShelfView: View {
     @ViewBuilder
     private var shelfTabView: some View {
         Group {
-            if shelfBooks.isEmpty {
+            if isShelfEmpty {
                 VStack(spacing: 20) {
                     Image(systemName: "books.vertical")
                         .resizable()
@@ -578,46 +588,104 @@ struct ShelfView: View {
                 .frame(maxHeight: .infinity)
             } else {
                 List {
-                    ForEach(displayedShelfBooks) { book in
-                        // Nhấn giữ mở `BookActionSheet` thay cho `.contextMenu` cũ: menu ngữ cảnh chỉ
-                        // nhận `Button` nên không dựng được phần đầu có ảnh bìa và danh sách bộ sưu tập.
-                        // Dùng `onTapGesture` + `onLongPressGesture` chứ **không** bọc `Button`: bọc
-                        // Button thì nhả tay sau khi giữ vẫn kích hoạt action, mở luôn cả Reader.
-                        ShelfBookRowView(book: book, extensions: allExtensions)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                newChapters.markSeen(bookId: book.bookId)
-                                readerPresentationRoute = ShelfReaderRoute(
-                                    bookId: book.bookId,
-                                    extensionPackageId: book.extensionPackageId,
-                                    chapterIndex: book.currentChapterIndex,
-                                    paragraphIndex: nil,
-                                    detailUrl: book.detailUrl,
-                                    sourceName: book.sourceName
-                                )
+                    // Chưa ghim truyện nào thì kệ chỉ có một nhóm — dựng thẳng, không bọc section, để
+                    // bố cục giống hệt trước 1.3.334 (không có tiêu đề nhóm lơ lửng một mình).
+                    if pinnedShelfBooks.isEmpty {
+                        unpinnedShelfRows
+                    } else {
+                        Section {
+                            ForEach(pinnedShelfBooks) { book in
+                                shelfBookRow(book)
                             }
-                            .onLongPressGesture(minimumDuration: 0.35) {
-                                actionTarget = BookSheetAction.Target(book: book, mode: .shelf)
-                            }
-                    }
-
-                    if shelfBooks.count > shelfLimit {
-                        HStack {
-                            Spacer()
-                            ProgressView()
-                                .onAppear {
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                        shelfLimit += 50
-                                    }
-                                }
-                            Spacer()
+                        } header: {
+                            shelfSectionHeader(
+                                "Đang ghim",
+                                icon: "pin.fill",
+                                color: .orange,
+                                count: pinnedShelfBooks.count
+                            )
                         }
-                        .listRowSeparator(.hidden)
+
+                        Section {
+                            unpinnedShelfRows
+                        } header: {
+                            shelfSectionHeader(
+                                "Truyện khác",
+                                icon: "books.vertical",
+                                color: .secondary,
+                                count: unpinnedShelfBooks.count
+                            )
+                        }
                     }
                 }
                 .listStyle(.plain)
             }
         }
+    }
+
+    @ViewBuilder
+    private var unpinnedShelfRows: some View {
+        ForEach(displayedShelfBooks) { book in
+            shelfBookRow(book)
+        }
+
+        if unpinnedShelfBooks.count > shelfLimit {
+            HStack {
+                Spacer()
+                ProgressView()
+                    .onAppear {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            shelfLimit += 50
+                        }
+                    }
+                Spacer()
+            }
+            .listRowSeparator(.hidden)
+        }
+    }
+
+    /// Một hàng của tab Kệ sách. Tách thành hàm vì 1.3.334 dựng hàng ở **hai** section (ghim / khác).
+    private func shelfBookRow(_ book: Book) -> some View {
+        // Nhấn giữ mở `BookActionSheet` thay cho `.contextMenu` cũ: menu ngữ cảnh chỉ
+        // nhận `Button` nên không dựng được phần đầu có ảnh bìa và danh sách bộ sưu tập.
+        // Dùng `onTapGesture` + `onLongPressGesture` chứ **không** bọc `Button`: bọc
+        // Button thì nhả tay sau khi giữ vẫn kích hoạt action, mở luôn cả Reader.
+        ShelfBookRowView(book: book, extensions: allExtensions)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                newChapters.markSeen(bookId: book.bookId)
+                readerPresentationRoute = ShelfReaderRoute(
+                    bookId: book.bookId,
+                    extensionPackageId: book.extensionPackageId,
+                    chapterIndex: book.currentChapterIndex,
+                    paragraphIndex: nil,
+                    detailUrl: book.detailUrl,
+                    sourceName: book.sourceName
+                )
+            }
+            .onLongPressGesture(minimumDuration: 0.35) {
+                actionTarget = BookSheetAction.Target(book: book, mode: .shelf)
+            }
+    }
+
+    /// `textCase(nil)` để tiêu đề giữ nguyên chữ thường — mặc định của `List` là in hoa hết.
+    private func shelfSectionHeader(_ title: String, icon: String, color: Color, count: Int) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.caption2)
+                .foregroundColor(color)
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundColor(color)
+            Text("\(count)")
+                .font(.caption2.weight(.semibold))
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 1)
+                .background(Color.secondary.opacity(0.15), in: Capsule())
+            Spacer()
+        }
+        .textCase(nil)
     }
 
     @ViewBuilder

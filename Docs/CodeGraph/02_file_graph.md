@@ -15,6 +15,52 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +8 file, −2 file: gộp tiền tố Google, panel Dịch kiêm Check rule, tải lẻ chương (1.3.334)
+
+477 → **483** file Swift ⇒ phải `xcodegen generate` khi lên macOS.
+
+| File mới | Vai trò | Dòng |
+|---|---|---|
+| [`Services/TTS/TTSNextChapterPrefixSynthesizer.swift`](../../Sources/Services/TTS/TTSNextChapterPrefixSynthesizer.swift) | `enum` toàn `static nonisolated`: một chunk (`one`) và gộp Google (`googleBatch`) | 113 |
+| [`Services/TTS/TTSNextChapterPrefixCache+GoogleBatch.swift`](../../Sources/Services/TTS/TTSNextChapterPrefixCache+GoogleBatch.swift) | dựng lượt gộp, phát kết quả về từng index, phục hồi khi lượt gộp lỗi | 158 |
+| [`Views/Reader/ReaderRuleAction.swift`](../../Sources/Views/Reader/ReaderRuleAction.swift) | `enum ReaderRuleAction` — tách khỏi file overlay bị xoá | 13 |
+| [`Views/Reader/ReaderView+DefinitionPanel.swift`](../../Sources/Views/Reader/ReaderView+DefinitionPanel.swift) | `definitionPanelOverlay(in:)` — chỗ nối 6 tham số rule vào panel Dịch | 107 |
+| [`Views/Reader/ReaderDefinitionOverlayView+Rules.swift`](../../Sources/Views/Reader/ReaderDefinitionOverlayView+Rules.swift) | ô nghĩa rule (chỉ đọc), dải chip + nút `+`, popup 6 thao tác rule | 156 |
+| [`Views/Reader/ReaderDefinitionOverlayView+Rows.swift`](../../Sources/Views/Reader/ReaderDefinitionOverlayView+Rows.swift) | ba hàng dưới của panel Dịch, dời nguyên khối để file gốc về dưới baseline | 164 |
+| [`Views/Reader/Extensions/ReaderChapterListView+List.swift`](../../Sources/Views/Reader/Extensions/ReaderChapterListView+List.swift) | thân `List` của danh sách chương + nối `isDownloading`/`onDownload` | 179 |
+| [`Views/Reader/Extensions/ReaderChapterListView+Download.swift`](../../Sources/Views/Reader/Extensions/ReaderChapterListView+Download.swift) | `canDownloadChapters` + `downloadChapter(_:)` | 74 |
+
+| File bị xoá | Dòng | Vì sao |
+|---|---|---|
+| `Views/Reader/ReaderRuleTraceOverlayView.swift` | 396 | màn Check rule gộp vào panel Dịch; `RuleAction` dời sang `ReaderRuleAction.swift` |
+| `Views/Reader/ReaderRuleTraceGuideSheet.swift` | 74 | nút `?` bị bỏ |
+
+| File sửa | Dòng | Thay đổi |
+|---|---|---|
+| [`Views/Reader/ReaderView.swift`](../../Sources/Views/Reader/ReaderView.swift) | 2052 → **1969** | bỏ `showingRuleTraceSheet`/`showingRuleGuide`; panel Dịch dời sang `+DefinitionPanel`; `onSearchWeb`; `refreshTitleTranslations` qua coordinator |
+| [`Views/Reader/ReaderDefinitionOverlayView.swift`](../../Sources/Views/Reader/ReaderDefinitionOverlayView.swift) | 489 → **372** | detent 530 → 660; thân chia hai `Group` 6 con; `@State ruleActionTarget`/`showingRuleActions` |
+| [`Views/Reader/ReaderChapterListView.swift`](../../Sources/Views/Reader/ReaderChapterListView.swift) | 468 → **295** | `@State downloadingChapterIndices`; thân `List` dời sang `+List` |
+| [`Views/Reader/Extensions/ReaderView+RuleTools.swift`](../../Sources/Views/Reader/Extensions/ReaderView+RuleTools.swift) | 347 → **327** | `openDefinitionPanel`/`closeDefinitionPanel`/`handleDefinitionPanelClosed`; `SelectionPanel` còn `case copyOriginal` |
+| [`Views/Reader/Extensions/ReaderView+Selection.swift`](../../Sources/Views/Reader/Extensions/ReaderView+Selection.swift) | 179 → **191** | `searchSelectionOnGoogle()` |
+| [`Views/Reader/Components/ReaderChapterRowView.swift`](../../Sources/Views/Reader/Components/ReaderChapterRowView.swift) | 67 → **107** | tách vùng chạm; `trailingAccessory` ba trạng thái trong khung 30×30 |
+| [`Views/Reader/Components/FloatingSelectionMenu.swift`](../../Sources/Views/Reader/Components/FloatingSelectionMenu.swift) | 202 → **202** | `onInspectRules` → `onSearchWeb`; nhãn "Rule"/`function` → "Tìm"/`magnifyingglass` |
+| [`Views/Reader/ReaderFloatingMenuOverlayView.swift`](../../Sources/Views/Reader/ReaderFloatingMenuOverlayView.swift) | 92 → **92** | đổi tên tham số theo `FloatingSelectionMenu` |
+| [`Views/Reader/ReaderHeaderFooterOverlayView.swift`](../../Sources/Views/Reader/ReaderHeaderFooterOverlayView.swift) | 202 → **202** | icon `ellipsis` → `ellipsis.circle` |
+| [`Views/BookDetail/BookDetailView.swift`](../../Sources/Views/BookDetail/BookDetailView.swift) | 1197 → **1199** | `refreshTitleTranslations` qua coordinator (baseline 1201, còn **2 dòng**) |
+| [`Views/BookDetail/Extensions/BookDetailView+Extensions.swift`](../../Sources/Views/BookDetail/Extensions/BookDetailView+Extensions.swift) | 345 → **345** | icon `ellipsis` → `ellipsis.circle` |
+| [`Views/Shelf/ShelfMain/ShelfView.swift`](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift) | 772 → **840** | `pinnedShelfBooks`/`unpinnedShelfBooks`/`isShelfEmpty`; hai `Section`; `shelfBookRow`/`shelfSectionHeader` |
+| [`Views/Shelf/Collections/CollectionDetailView.swift`](../../Sources/Views/Shelf/Collections/CollectionDetailView.swift) | 268 → **324** | cùng cách tách hai nhóm; `bookRow(_:)` |
+| [`Views/Shelf/BookActions/BookActionSheet.swift`](../../Sources/Views/Shelf/BookActions/BookActionSheet.swift) | 270 → **307** | bỏ 2 hàng; phần đầu chạm/nhấn giữ; `canOpenDetail`/`canTogglePin`/`headerHint` |
+| [`Services/TTS/TTSNextChapterPrefixCache.swift`](../../Sources/Services/TTS/TTSNextChapterPrefixCache.swift) | 380 → **339** | cửa `tool == "google" && missing.count >= 2`; helper dời sang synthesizer; nhiều `private` → `internal` |
+| [`Services/Books/BookTransactionCoordinator.swift`](../../Sources/Services/Books/BookTransactionCoordinator.swift) | 288 → **312** | `refreshTitleTranslations(bookId:in:) -> Result<Bool, Error>` |
+| [`Services/Translation/BookTitleTranslationMigrator.swift`](../../Sources/Services/Translation/BookTitleTranslationMigrator.swift) | 39 → **47** | `refreshTranslations(for:)` chỉ gán, trả `Bool didChange` |
+| [`Views/Settings/Translation/QuickTranslationRulePatternStripView.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRulePatternStripView.swift) | 121 → **121** | doc comment trỏ về panel Dịch thay vì file đã xoá |
+| [`Scripts/check_architecture.py`](../../Scripts/check_architecture.py) | 173 → **173** | regex gán `@Model` thêm lookbehind `(?<!\bself)` |
+
+* **Cạnh mới**: `TTSNextChapterPrefixCache → TTSNextChapterPrefixCache+GoogleBatch → TTSNextChapterPrefixSynthesizer → GoogleTTSService.synthesizeBatch` + `→ TTSBatchAudioPayload`; `ReaderChapterListView+Download → ChapterContentRepository` + `→ ChapterStore.fetchChapter`; `ReaderView → BookTransactionCoordinator.refreshTitleTranslations` và `BookDetailView → …` (thay cho cạnh cũ tới `modelContext.save`).
+* **Cạnh bị xoá**: `ReaderView → ReaderRuleTraceOverlayView`, `ReaderRuleTraceOverlayView → ReaderRuleTraceGuideSheet`, `ReaderView → BookTitleTranslationMigrator` và `BookDetailView → BookTitleTranslationMigrator` (giờ đi qua coordinator).
+* `check_architecture.py` **12 → 8 violation**; hai file rời danh sách nhờ giảm dòng, hai vi phạm `VIEW_SWIFTDATA_MUTATION` được dọn hẳn.
+
 ## +3 file: gộp request Google, kiểu tab kệ sách (1.3.332)
 
 474 → **477** file Swift ⇒ phải `xcodegen generate` khi lên macOS.
@@ -29,7 +75,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 |---|---|---|
 | [`Services/TTS/TTSManager.swift`](../../Sources/Services/TTS/TTSManager.swift) | 4015 → **4001** | `updatePrefetchWindow` gọi `pruneRemotePrefetchTasks(keeping:)` + `dispatchRemotePrefetch(for:)`; `startPrefetchTask`/`checkAndPromoteNextChapterAudioIfNeeded` thành `internal` |
 | [`Services/TTS/Google/GoogleTTSService.swift`](../../Sources/Services/TTS/Google/GoogleTTSService.swift) | 210 → **260** | tách `makeRequest` / `audioParts(from:)` / `withRetry`; thêm `synthesizeBatch(parts:…)`; parser trả **mọi** audio thay vì `.first` |
-| [`Views/Reader/ReaderRuleTraceOverlayView.swift`](../../Sources/Views/Reader/ReaderRuleTraceOverlayView.swift) | 388 → **396** | `RuleAction.moveScope`; nút "Chuyển sang bộ …" trong popup chip |
+| `Views/Reader/ReaderRuleTraceOverlayView.swift` *(xoá ở 1.3.334)* | 388 → **396** | `RuleAction.moveScope`; nút "Chuyển sang bộ …" trong popup chip |
 | [`Views/Reader/Extensions/ReaderView+RuleTools.swift`](../../Sources/Views/Reader/Extensions/ReaderView+RuleTools.swift) | 299 → **347** | `moveRule(_:to:)` — ghi ở đích rồi xoá ở nguồn |
 | [`Views/Shelf/ShelfMain/ShelfView.swift`](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift) | 780 → **772** | `selectedTab: ShelfTab`; Picker dựng từ `allCases`; bỏ `navigationTitleText` |
 | [`Views/Shelf/ShelfMain/Extensions/ShelfView+BookImport.swift`](../../Sources/Views/Shelf/ShelfMain/Extensions/ShelfView+BookImport.swift) | 273 → **273** | `selectedTab = .shelf` |
@@ -384,8 +430,8 @@ Mục "Nhà Phát Triển" phải ra file riêng vì `SettingsView.swift` chỉ 
 | [`…/QuickTranslationRuleTransfer.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleTransfer.swift) | chuyển một rule sang phạm vi còn lại (**COPY**) + chia sẻ cả bộ riêng sang truyện khác | 71 |
 | [`Services/Translation/Extensions/TranslationManager+BookScopedFiles.swift`](../../Sources/Services/Translation/Extensions/TranslationManager+BookScopedFiles.swift) | **một** nguồn khai tên file riêng truyện, thay 2 danh sách nhân bản cũ | 28 |
 | [`Views/Reader/ReaderCopyOriginalOverlayView.swift`](../../Sources/Views/Reader/ReaderCopyOriginalOverlayView.swift) | panel Copy nội dung gốc; không có nút Hủy, mọi đường đóng đều copy | 202 |
-| [`Views/Reader/ReaderRuleTraceOverlayView.swift`](../../Sources/Views/Reader/ReaderRuleTraceOverlayView.swift) | màn Check rule: thanh gốc → nghĩa rule → nghĩa token → dải chip + popup ấn giữ | 383 |
-| [`Views/Reader/ReaderRuleTraceGuideSheet.swift`](../../Sources/Views/Reader/ReaderRuleTraceGuideSheet.swift) | nội dung nút `?` | 74 |
+| `Views/Reader/ReaderRuleTraceOverlayView.swift` *(xoá ở 1.3.334)* | màn Check rule: thanh gốc → nghĩa rule → nghĩa token → dải chip + popup ấn giữ | 383 |
+| `Views/Reader/ReaderRuleTraceGuideSheet.swift` *(xoá ở 1.3.334)* | nội dung nút `?` | 74 |
 | [`Views/Reader/Components/ReaderRuleChipStyle.swift`](../../Sources/Views/Reader/Components/ReaderRuleChipStyle.swift) | 3 mức màu chip + dấu ✓ của rule thắng | 61 |
 | [`Views/Reader/Components/ReaderRuleTraceChip.swift`](../../Sources/Views/Reader/Components/ReaderRuleTraceChip.swift) | một chip + badge R/C + ấn giữ | 68 |
 | [`Views/Reader/Extensions/ReaderView+RuleTools.swift`](../../Sources/Views/Reader/Extensions/ReaderView+RuleTools.swift) | hành vi + overlay của **cả hai** công cụ mới | 272 |

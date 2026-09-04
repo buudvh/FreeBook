@@ -41,7 +41,7 @@ extension BookDetailView {
                 Label("Chia sẻ", systemImage: "square.and.arrow.up")
             }
         } label: {
-            Image(systemName: "ellipsis")
+            Image(systemName: "ellipsis.circle")
                 .rotationEffect(.degrees(90))
         }
     }

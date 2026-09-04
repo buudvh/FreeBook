@@ -15,6 +15,14 @@ Tài liệu này phác thảo kiến trúc tổng thể, sơ đồ thư mục, c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Luật "View không ghi SwiftData" đã sạch nợ ở hai View lớn cuối (1.3.334)
+
+* **Mục 2 của bản tổng kết v4.1/v5.0 bên dưới giờ mới đúng hoàn toàn.** Nó tuyên bố "SwiftUI Views không được gán thuộc tính `@Model`", nhưng tới trước 1.3.334 vẫn còn đúng hai chỗ vi phạm thật: `ReaderView.initializeReaderIfNeeded` và `BookDetailView.task(id:)` gọi `BookTitleTranslationMigrator.refreshTranslations(for:)` — hàm này gán `titleTrans`/`authorTrans` rồi View tự `try? modelContext.save()`. Cả hai nay đi qua `BookTransactionCoordinator.refreshTitleTranslations(bookId:in:)` và xử lý `Result`. Migrator chỉ còn gán và trả `Bool` didChange; **không** còn `save()` bên trong nó.
+* **Command mới không mang DTO** — khác với `AddBookToShelfCommand`/`UpsertExtensionCommand`. `refreshTitleTranslations` nhận `bookId: String` vì payload thật (bảng từ điển VietPhrase) là state toàn cục của `TranslationManager`, không phải giá trị caller cung cấp; đóng nó vào struct chỉ tạo DTO một trường vô nghĩa. Khuôn còn lại vẫn giữ: `in context: ModelContext`, trả `Result`, `try context.save()` là dòng cuối.
+* **`check_architecture.py` 12 → 8 violation.** Bốn chỗ hết: hai `VIEW_SWIFTDATA_MUTATION` trên và hai món nợ dòng (`ReaderChapterListView` 468 → 295, `ReaderDefinitionOverlayView` 489 → 372, cả hai nhờ tách file `+List`/`+Download`/`+Rules`/`+Rows`). Baseline trong `architecture_allowlist.json` **không** bị siết theo — chấp nhận ~200 dòng dư hơn là khoá cứng con số vừa đạt được.
+* **Gate được sửa chính xác hơn, không nới**: regex gán `@Model` ở `check_architecture.py:144` thêm lookbehind `(?<!\bself)`. `DiscoveryView` bị báo oan cho `self.currentChapterIndex = …` — đó là `@State` của chính struct View, không phải `@Model`. Mọi `<biến khác>.currentChapterIndex = …` vẫn bị bắt.
+* **Không mở cơ chế nào, không thêm dependency, không đổi schema** ở lượt này: 8 file mới, 2 file xoá, `Sources/**/*.swift` 477 → 483. `project.yml` khai `sources: - path: Sources` theo thư mục nên file mới **không** cần sửa manifest.
+
 ## Phân hệ Bộ sưu tập sách — `@Model` thứ 6 (1.3.328)
 
 * **Lần đầu schema SwiftData lớn thêm kể từ khi repo có 5 `@Model`.** `BookCollection` (`Sources/Models/Database/BookCollection.swift`) quan hệ **N-N** với `Book`; `FreeBookApp.init()` vẫn là **chỗ duy nhất** khai schema. Không có `VersionedSchema`/`SchemaMigrationPlan`, nên mọi field mới phải additive + có mặc định (`Book.isPinned = false`, `Book.collections = []`) — lightweight migration là toàn bộ hàng rào ở đây, và `ModelContainer` init thất bại là `fatalError`.

@@ -15,6 +15,16 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Panel Dịch gánh thêm state của Check rule; `downloadingChapterIndices` là state tạm của hàng chương (1.3.334)
+
+* **Ba `@State` cờ panel về một cờ.** `showingRuleTraceSheet` và `showingRuleGuide` bị **xoá** khỏi `ReaderView`; `showingDefinitionSheet` giờ là cờ duy nhất cho cả tra nghĩa lẫn Check rule, nên không còn tổ hợp "hai panel cùng mở" phải loại trừ nhau. `SelectionPanel` vì thế rút xuống đúng **một** case (`.copyOriginal`), và `closeOtherSelectionPanels(except:)` nhận `SelectionPanel?`.
+* **`ruleTraces` + `focusedRuleTraceID` vẫn ở `ReaderView`, không dời xuống overlay.** Lý do: `refreshRuleTraces()` cần `originalSentence`, `bookId`, `selectedWordOffset/Length` — toàn bộ đều là state của Reader. Overlay chỉ nhận chúng qua tham số, nên không có bản sao thứ hai của danh sách rule.
+* **`focusedRuleTrace` và `focusedRuleRange` là state *dẫn xuất*, không phải state mới**: chưa chọn chip nào thì `focusedRuleTrace` lấy `ruleTraces.first` (ô nghĩa rule không bao giờ trống trơn khi có rule), và `focusedRuleRange` chỉ là `trace.sourceRange`. Quan trọng: **vùng chọn của người dùng và vùng rule đang xem là hai state riêng** — bấm chip tô thêm một lớp chứ **không** snap vùng chọn như màn Check rule cũ, nên thứ quyết định tra từ điển không bị đổi sau lưng.
+* **`ruleActionTarget`/`showingRuleActions` buộc phải khai trong `struct ReaderDefinitionOverlayView` gốc**, không khai được ở `+Rules.swift`: `extension` của Swift không thêm được stored property. Đây là ràng buộc cơ học, không phải lựa chọn thiết kế.
+* **`didChangeRuleData` giữ nguyên vai "có cần dịch lại khi đóng panel"**, nhưng chỗ tiêu thụ nó chuyển sang `.onChange(of: showingDefinitionSheet)` → `handleDefinitionPanelClosed()`. Bắt buộc, vì nút ✕ và cú kéo xuống đóng panel qua binding `isPresented`, **không** đi qua `closeDefinitionPanel()`. `openDefinitionPanel()` reset cả `didChangeRuleData` và `focusedRuleTraceID`.
+* **`selectedWordOffset` đổi trong lúc panel mở ⇒ `refreshRuleTraces()`**, và `refreshRuleTraces` tự **giữ focus nếu chip cũ còn tồn tại**, chỉ xoá `focusedRuleTraceID` khi rule đó biến mất khỏi kết quả. Không có ca "chip đã xoá mà ô nghĩa còn hiện nghĩa của nó".
+* **`downloadingChapterIndices: Set<Int>` của `ReaderChapterListView` là state *tạm của phiên*, không phải nguồn sự thật.** Nguồn sự thật "chương đã tải" vẫn là `isCached` do `store` cấp; `Set` chỉ quyết định hàng nào vẽ `ProgressView`. Nó được dọn bằng `defer` ngay trong `Task` nên mọi đường ra — thành công, lỗi, `CancellationError` — đều trả hàng về trạng thái tĩnh. `guard !downloadingChapterIndices.contains(index)` là thứ chặn bấm hai lần.
+
 ## Bộ đếm hẹn giờ tắt: `sleepTimerRemainingSeconds` là state của phiên, không phái sinh từ `timerMode` (1.3.300)
 
 * Ba biến, ba vai riêng: `timerMode` là **ý định** của người dùng (persist ở `ttsSleepTimerMode` / `ttsSleepTimerMinutes`), `sleepTimerRemainingSeconds` là **phần chưa đếm** của phiên hiện tại (chỉ trong RAM), `isTimerRunning` là **có `Timer` đang tick hay không**. Nạp lại `remaining` từ `minutes` của `timerMode` là xoá mất biến thứ hai — đúng lỗi "tạm dừng rồi phát lại thì đếm lại từ đầu".

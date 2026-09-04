@@ -18,22 +18,30 @@ public enum BookTitleTranslationMigrator {
 
     /// Cập nhật lại `titleTrans`/`authorTrans` cho một cuốn sách ngay khi mở từ
     /// Kệ sách / màn hình chi tiết — không chờ migration lần mở app kế tiếp.
-    /// Chỉ ghi khi giá trị thay đổi (tránh save thừa); bỏ qua nếu từ điển chưa load.
-    /// Caller phải tự `modelContext.save()` sau khi gọi.
-    public static func refreshTranslations(for book: Book) {
-        guard TranslationManager.shared.isVietPhraseLoaded else { return }
+    /// Bỏ qua nếu từ điển chưa load.
+    ///
+    /// Chỉ **gán** giá trị, việc `save()` thuộc `BookTransactionCoordinator.refreshTitleTranslations`
+    /// (từ 1.3.334 tầng View không còn tự save nữa). Trả `true` khi có field thực sự đổi để caller
+    /// khỏi mở transaction rỗng.
+    @discardableResult
+    public static func refreshTranslations(for book: Book) -> Bool {
+        guard TranslationManager.shared.isVietPhraseLoaded else { return false }
 
+        var didChange = false
         if !book.title.isEmpty {
             let translated = TranslateUtils.translateMeta(book.title, bookId: book.bookId)
             if translated != book.titleTrans {
                 book.titleTrans = translated
+                didChange = true
             }
         }
         if !book.author.isEmpty {
             let translated = TranslateUtils.translateAuthorHanViet(book.author)
             if translated != book.authorTrans {
                 book.authorTrans = translated
+                didChange = true
             }
         }
+        return didChange
     }
 }

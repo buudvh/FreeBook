@@ -114,6 +114,30 @@ public final class BookTransactionCoordinator {
         }
     }
 
+    /// Làm mới `titleTrans`/`authorTrans` lúc mở truyện (Reader / màn Chi tiết).
+    ///
+    /// Trước 1.3.334 hai màn đó tự gọi `BookTitleTranslationMigrator.refreshTranslations` rồi
+    /// `try? modelContext.save()` — ghi SwiftData ngay trong tầng View, đúng cái luật
+    /// `VIEW_SWIFTDATA_MUTATION` cấm. Giờ transaction thuộc coordinator, còn công thức dịch vẫn ở
+    /// migrator. Trả `.success(false)` khi không có gì đổi (không mở transaction rỗng).
+    @discardableResult
+    public func refreshTitleTranslations(bookId: String, in context: ModelContext) -> Result<Bool, Error> {
+        var descriptor = FetchDescriptor<Book>(predicate: #Predicate { $0.bookId == bookId })
+        descriptor.fetchLimit = 1
+        guard let book = try? context.fetch(descriptor).first else {
+            return .failure(BookTransactionError.bookNotFound(bookId))
+        }
+        guard BookTitleTranslationMigrator.refreshTranslations(for: book) else {
+            return .success(false)
+        }
+        do {
+            try context.save()
+            return .success(true)
+        } catch {
+            return .failure(BookTransactionError.saveFailed(error.localizedDescription))
+        }
+    }
+
     @discardableResult
     public func setOnShelf(bookId: String, isOnShelf: Bool, in context: ModelContext) -> Result<Void, Error> {
         var descriptor = FetchDescriptor<Book>(predicate: #Predicate { $0.bookId == bookId })

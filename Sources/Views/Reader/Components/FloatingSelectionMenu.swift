@@ -21,7 +21,7 @@ public struct FloatingSelectionMenu: View {
     public let onReadSelected: () -> Void
     public let onDeleteJunk: () -> Void
     public let onAddToTTSReplacement: () -> Void
-    public let onInspectRules: () -> Void
+    public let onSearchWeb: () -> Void
 
     private let gap: CGFloat = 24
     private let ngheWidth: CGFloat = 62
@@ -52,7 +52,7 @@ public struct FloatingSelectionMenu: View {
         onReadSelected: @escaping () -> Void,
         onDeleteJunk: @escaping () -> Void,
         onAddToTTSReplacement: @escaping () -> Void,
-        onInspectRules: @escaping () -> Void
+        onSearchWeb: @escaping () -> Void
     ) {
         self.selectionMinY = selectionMinY
         self.selectionMaxY = selectionMaxY
@@ -67,7 +67,7 @@ public struct FloatingSelectionMenu: View {
         self.onReadSelected = onReadSelected
         self.onDeleteJunk = onDeleteJunk
         self.onAddToTTSReplacement = onAddToTTSReplacement
-        self.onInspectRules = onInspectRules
+        self.onSearchWeb = onSearchWeb
     }
 
     public var body: some View {
@@ -122,8 +122,8 @@ public struct FloatingSelectionMenu: View {
                     }
                     .frame(width: buttonWidth, height: row2Height)
 
-                    Button(action: onInspectRules) {
-                        menuItemContent(icon: "function", label: "Rule")
+                    Button(action: onSearchWeb) {
+                        menuItemContent(icon: "magnifyingglass", label: "Tìm")
                     }
                     .frame(width: buttonWidth, height: row2Height)
 
