@@ -15,6 +15,21 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +4 file: bảng dấu câu, sheet phiên âm, khối quản lý bộ, khối hành động màn tìm kiếm (1.3.336)
+
+483 → **487** file Swift ⇒ phải `xcodegen generate` khi lên macOS.
+
+| File mới | Vai trò | Dòng |
+|---|---|---|
+| [`Views/Settings/TTS/AddWordSheet.swift`](../../Sources/Views/Settings/TTS/AddWordSheet.swift) | sheet thêm phiên âm; dựng gợi ý trong `Task.detached`, `body` chỉ đọc `@State` | 202 |
+| [`Views/Shelf/ShelfMain/Extensions/ShelfSearchView+Actions.swift`](../../Sources/Views/Shelf/ShelfMain/Extensions/ShelfSearchView+Actions.swift) | sheet/navigation phụ + chuyển `BookSheetAction` → `BookActionRunner` cho màn tìm kiếm | 118 |
+| [`Services/Translation/Utils/TranslationPunctuationMapper.swift`](../../Sources/Services/Translation/Utils/TranslationPunctuationMapper.swift) | bảng dấu câu Trung → Latin, áp **sau** khi tra từ điển | 98 |
+| [`Views/Shelf/Collections/CollectionDetailView+Manage.swift`](../../Sources/Views/Shelf/Collections/CollectionDetailView+Manage.swift) | menu `ellipsis.circle` + đổi tên + xoá bộ sưu tập | 68 |
+
+* **Ba trong bốn file sinh ra vì trần dòng, không vì thiết kế lại**: `AddWordSheet` rời `TTSDictionaryEditView.swift` (702 → **559**, dưới baseline 641 ⇒ file đó rời danh sách violation), `ShelfSearchView+Actions` giữ `ShelfSearchView.swift` ở **292** (nếu để chung là 396/400), `CollectionDetailView+Manage` kéo `CollectionDetailView.swift` từ 405 về **354**.
+* **File thứ tư (`TranslationPunctuationMapper`) là tách theo *vai*, không theo dòng**: bảng phải được gọi ở một mắt khác trong chuỗi xử lý, nên nó có tên riêng. Kèm theo, `TranslateUtils.swift` giảm 1023 → **968** (baseline 917 — vẫn vượt, nhưng chỉ đi xuống).
+* **Không file nào bị xoá** ở lượt này.
+
 ## +8 file, −2 file: gộp tiền tố Google, panel Dịch kiêm Check rule, tải lẻ chương (1.3.334)
 
 477 → **483** file Swift ⇒ phải `xcodegen generate` khi lên macOS.

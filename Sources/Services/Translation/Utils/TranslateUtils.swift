@@ -60,64 +60,6 @@ public final class TranslateUtils {
         TOCRule(id: "rule21", name: "Quy tắc mở rộng nâng cao", rule: #"(?im)^.{0,6}(?:[引楔]子|正文(?!完|结)|[引序前]言|[序终]章|扉页|[上中下][部篇卷]|卷首语|后记|尾声|番外|={2,4}|第\s{0,4}[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]+?\s{0,4}(?:章|节(?!课)|卷|页[、 　\s]|集(?![合和])|部(?![分是门落])|篇(?!张))).{0,100}$|^.{0,6}[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟a-z]{1,8}[、. 　\s].{0,100}$"#, example: "第1章 激进规则,适配更多非常用格式", enabled: false)
     ]
 
-    private static let punctuationMapping: [Character: String] = [
-        "。": ". ",
-        "．": ". ",
-        "，": ", ",
-        "、": ", ",
-        "；": "; ",
-        "：": ": ",
-        "！": "! ",
-        "？": "? ",
-        "…": "... ",
-
-        //"（": "【",
-        //"）": "】",
-        //"〔": "【",
-        //"〕": "】",
-        //"【": "【",
-        //"】": "】",
-        //"〖": "【",
-        //"〗": "】",
-        //"〘": "【",
-        //"〙": "】",
-        //"〚": "【",
-        //"〛": "】",
-        //"『": "【",
-        //"』": "】",
-        //"《": "【",
-        //"》": "】",
-        //"〈": "【",
-        //"〉": "】",
-        //"｛": "【",
-        //"｝": "】",
-        //"「": "【",
-        //"」": "】",
-        //"(": "【",
-        //")": "】",
-        //"{": "【",
-        //"}": "】",
-        //"[": "【",
-        //"]": "】",
-        //"［": "【",
-        //"］": "】",
-        //"<": "【",
-        //">": "】",
-        //"＜": "【",
-        //"＞": "】",
-        //"﹙": "【",
-        //"﹚": "】",
-        //"﹛": "【",
-        //"﹜": "】",
-        //"﹝": "【",
-        //"﹞": "】",
-
-
-        "～": "~",
-        "—": "-",
-        "　": " "
-    ]
-    
     private static let chapterUnitMap: [String: String] = [
         "卷": "Quyển",
         "回": "Hồi",
@@ -551,29 +493,32 @@ public final class TranslateUtils {
         applyingQuickTranslationRules: Bool = true
     ) -> String {
         // Rule dịch chạy **sau** Phồn thể → Giản thể (đã làm ở `textForTranslation`) và **trước**
-        // `punctuationMapping`: LHS của rule có literal `．`, `.`, `,` và dấu ngoặc, normalize dấu câu
-        // trước sẽ đổi literal và chèn space làm match sai. Vẫn thoả yêu cầu "trước tokenize".
+        // tokenize: LHS của rule có literal `．`, `.`, `,` và dấu ngoặc.
         var source = text
         if applyingQuickTranslationRules,
            let rewritten = QuickTranslationRuleEngine.rewrite(text, bookId: bookId) {
             source = rewritten.text
         }
 
-        var converted = ""
-        for char in source {
-            converted.append(punctuationMapping[char] ?? String(char))
-        }
-        
-        let tokens = tokenize(converted, bookId: bookId)
+        // Tokenize **chuỗi gốc**, không phải chuỗi đã chuẩn hoá dấu câu: từ 1.3.336 việc đổi dấu Trung
+        // → Latin dời xuống sau khi tra từ điển (`TranslationPunctuationMapper`). Đổi trước là mọi mục
+        // từ điển có dấu trong khoá (`弹指、遮天`) không bao giờ khớp được, vì tới lúc trie tra thì `、`
+        // đã thành `", "`. Đây cũng là lý do đường này và `getTranslationTokens` từng cho hai hệ token
+        // khác nhau — nay cùng một hệ.
+        let tokens = tokenize(source, bookId: bookId)
         var translatedWords: [String] = []
         let phienAm = TranslationManager.shared.phienAmMap
-        
-        for token in tokens {            
+
+        for token in tokens {
             let (meaning, _) = resolveTokenMeaning(for: token, bookId: bookId, phienAm: phienAm)
             translatedWords.append(meaning)
         }
         
-        return postProcessText(translatedWords.joined(separator: " "))
+        // Chuẩn hoá dấu câu **ở đây**, giữa `joined` và `postProcessText`: sớm hơn thì khoá từ điển có
+        // dấu không khớp, muộn hơn thì `postProcessText` mất dấu kết câu để viết hoa và để dọn khoảng
+        // trắng (nó chỉ nhận `.!?:：`).
+        let joined = TranslationPunctuationMapper.apply(to: translatedWords.joined(separator: " "))
+        return postProcessText(joined)
     }
     
     private struct NameCandidate {

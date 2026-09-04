@@ -15,6 +15,15 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Một enum mới ở Services, một View rời file chủ, hai type mở rộng shape (1.3.336)
+
+* **Type mới duy nhất ở Services: `TranslationPunctuationMapper`** — `public enum` không case, chỉ `private static let mapping: [Character: String]` + `public static func apply(to:)`. Bảng là `[Character: String]` (không phải `[Character: Character]`) vì một ký tự ra nhiều ký tự: `。` → `". "`. Nó **thay thế** `TranslateUtils.punctuationMapping` (đã xoá) — đừng dựng lại bảng thứ hai ở bất kỳ đâu.
+* **`AddWordSheet` chuyển từ `public struct` trong `TTSDictionaryEditView.swift` sang `struct` ở file riêng.** Hạ `public` → `internal` an toàn vì repo là **một** module. Shape state đổi: bỏ `librarySuggestion: String?`, thêm `suggestions: [TTSPhoneticSuggestion]` + `isBuildingSuggestions: Bool`; `suggestionLoadTask` giữ nguyên. `init(initialKey:showSuggestions:onAdd:)` **không đổi** nên hai call site (Reader, màn từ điển TTS) không phải sửa.
+* **`TTSPhoneticSuggestion` và `TTSPhoneticSuggestion.Origin` khai thêm `Sendable`.** Bắt buộc, không phải trang trí: struct/enum `public` không được suy ra `Sendable` ngầm, mà giá trị này giờ đi qua biên `Task.detached`. Các field đều là `String`/`Bool`/enum raw-String; `Color` chỉ là computed property nên không ảnh hưởng.
+* **`QuickTranslationRuleDraftStore.Draft` +2 field**: `replacementSelectionStart`, `replacementSelectionLength`. `Draft` là struct trong RAM (không `Codable`) nên thêm field không có vấn đề tương thích; nó vẫn `Equatable` để `.onChange(of: currentDraft)` hoạt động.
+* **`QuickTranslationRulePatternField` +1 tham số `usesMonospacedFont: Bool = true`**, khai bằng `var` (không `let`) để init memberwise vẫn cấp tham số này — `let` có giá trị mặc định bị loại khỏi init memberwise. Đặt **trước** `onFocusChange` để trailing closure vẫn bám đúng tham số cuối.
+* **`QuickTranslationRuleEditorSheet` bỏ `@FocusState isReplacementFocused`**: cả hai ô nhập nay là `UIViewRepresentable` và tự báo focus qua `onFocusChange` → `focusedField`. Một cơ chế focus, không phải hai.
+
 ## `@Model` thứ 6 và hai field mới trên `Book` (1.3.328)
 
 * **`BookCollection` là `@Model` đầu tiên thêm vào schema kể từ khi repo có 5 model.** Shape: `@Attribute(.unique) collectionId: String`, `name: String`, `sortOrder: Int = 0`, `createdAt: Date = Date()`, và `@Relationship(deleteRule: .nullify, inverse: \Book.collections) books: [Book] = []`. Tên type là **`BookCollection`**, không phải `Collection` — `Collection` sẽ che `Swift.Collection` trong toàn module và làm mọi generic constraint sau này hiểu sai.

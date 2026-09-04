@@ -15,6 +15,14 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## `NSLock` của espeak là tài nguyên dùng chung; task gợi ý có đường huỷ (1.3.336)
+
+* **Tài nguyên bị tranh chấp ở đây là `EspeakPhonemizer.lock`, không phải CPU.** Một `NSLock` **static** che cả `phonemize` (tiếng Việt, đường tổng hợp NghiTTS) và `phonemizeEnglish` (IPA cho gợi ý phiên âm) — vì `libespeak-ng` không an toàn khi gọi song song. Trước 1.3.336 `AddWordSheet` gọi `phonemizeEnglish` **trong `body`**, tức main thread chờ lock: mở sheet lúc đang nghe TTS là đóng băng UI cho tới khi lượt tổng hợp hiện tại nhả lock, và mỗi lượt vẽ lặp lại đúng việc đó. Nay lượt chờ đó nằm trong `Task.detached`.
+* **`espeak_Initialize` là mốc một-lần-cho-mỗi-process và nó đắt**: giữ lock, đọc `espeak-ng-data`, và có **nhánh dự phòng quét đệ quy** mọi bundle/framework để tìm thư mục dữ liệu. Lần gọi đầu tiên của gợi ý phiên âm có thể chính là lần khởi tạo đó — thêm một lý do nó không được nằm trên main thread.
+* **`suggestionLoadTask` là handle thật, có hai đường huỷ**: mỗi lượt gõ `cancel()` lượt trước, và `onDisappear` `cancel()` + gán `nil`. Ba `guard !Task.isCancelled` (sau debounce, sau tra từ điển, sau khi dựng) chặn việc ghi `@State` của một lượt đã cũ. Lưu ý giới hạn: huỷ **không** dừng được lời gọi C đang chạy trong `Task.detached` — nó chạy hết rồi kết quả bị bỏ.
+* **Không tài nguyên mới nào ở đường dịch.** `TranslationPunctuationMapper.apply` cấp phát đúng một `String` (đã `reserveCapacity`) cho mỗi lượt dịch và không giữ state; bảng tra là `static let` sống cùng process như trước. Cache dịch vẫn là `NSCache` cũ với khoá cũ — không có tầng cache nào thêm và không có gì phải invalidate.
+* **`Task` xoá sách của màn tìm kiếm cũng không ai giữ handle** — giống Kệ sách và màn bộ sưu tập: `isProcessingDeletion` chỉ khoá UI bằng overlay, còn `BookActionRunner.deleteBook` chạy đến hết. Đóng màn giữa lúc xoá không rò state (overlay chết theo view) nhưng cũng không dừng việc xoá file.
+
 ## Một request thay N; `Task` tải lẻ chương không ai giữ handle (1.3.334)
 
 * **Tài nguyên mạng của tiền tố chương sau giảm theo số chunk.** Nhánh Google trước đây mở **một kết nối cho mỗi chunk** của tiền tố; nay mở **một** cho cả lượt (`batchIndices.count >= 2` mới gộp). Đổi lại, đỉnh RAM của lượt parse tăng: cả phản hồi được giải một lần thành `[Data]`, nên cửa sổ tiền tố càng rộng thì đỉnh càng cao — trần thực tế hiện là `clamp(currentPrefetchCount, 1, 10)`.

@@ -15,6 +15,15 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Bốn file mới, không xoá file nào; một file nữa rời danh sách violation (1.3.336)
+
+* Tổng file Swift 483 → **487** (+4, −0). Cả bốn dưới trần 400 và đúng 1 type top level (ba file là `extension`, không tính là type) ⇒ **không** thêm entry `architecture_allowlist.json`: `AddWordSheet` 202, `ShelfSearchView+Actions` 118, `TranslationPunctuationMapper` 98, `CollectionDetailView+Manage` 68.
+* **`check_architecture.py` 8 → 7 violation.** `TTSDictionaryEditView.swift` 702 → **559** (baseline 641) rời danh sách nhờ dời `AddWordSheet` ra file riêng. Bảy chỗ còn lại đều là nợ dòng cũ, không phát sinh mới.
+* **Hai file giảm nhưng vẫn trong danh sách**: `TranslateUtils.swift` 1023 → **968** (baseline 917) sau khi bảng dấu câu rời đi. Không nới baseline nào.
+* **Hai file chạm trần rồi lùi lại**: `ShelfSearchView.swift` gộp cả khối hành động là **396**/400 — đã tách để về **292**; `CollectionDetailView.swift` gộp cả khối quản lý bộ là **405**/400 (**vi phạm thật**, đã bắt được trước khi commit) — đã tách để về **354**. Đây là hai lần tách vì trần dòng, không vì thiết kế.
+* **Độ phức tạp có nghĩa lại đúng một chỗ**: `AddWordSheet.body` mất computed property `suggestions` (nó gọi espeak đồng bộ mỗi lượt vẽ) và chỉ còn đọc `@State` — chi phí mỗi lượt vẽ đi từ "một lượt phiên âm espeak dưới `NSLock` dùng chung" xuống một phép đọc mảng.
+* `QuickTranslationRuleEditorSheet.swift` 345 → **370**, `+Editing.swift` 96 → **126**, `QuickTranslationRulePatternField.swift` 149 → **156** — đều còn xa trần 400.
+
 ## Tám file mới, hai file xoá; ba file rời danh sách violation (1.3.334)
 
 * Tổng file Swift 477 → **483** (+8, −2). Tám file mới đều dưới trần 400 và đúng 1 type top level (sáu file là `extension`, không tính là type) ⇒ **không** thêm entry `architecture_allowlist.json`: `ReaderChapterListView+List` 179, `ReaderDefinitionOverlayView+Rows` 164, `TTSNextChapterPrefixCache+GoogleBatch` 158, `ReaderDefinitionOverlayView+Rules` 156, `TTSNextChapterPrefixSynthesizer` 113, `ReaderView+DefinitionPanel` 107, `ReaderChapterListView+Download` 74, `ReaderRuleAction` 13.

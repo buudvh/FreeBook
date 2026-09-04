@@ -29,7 +29,7 @@ extension TranslateUtils {
         var spans: [TranslationSpan] = []
 
         for token in tokens {
-            let candidate = postProcessText(token.translatedText)
+            let candidate = translatedCandidate(for: token)
             guard !candidate.isEmpty, cursor <= translatedNSString.length else { continue }
 
             // Đoạn nào không chứng minh được mapping thì bỏ span **của riêng đoạn đó**, không bịa
@@ -76,7 +76,7 @@ extension TranslateUtils {
         var spans: [TranslationSpan] = []
 
         for token in tokens {
-            let candidate = postProcessText(token.translatedText)
+            let candidate = translatedCandidate(for: token)
             guard !candidate.isEmpty, cursor <= translatedNSString.length else { continue }
 
             let searchRange = NSRange(location: cursor, length: translatedNSString.length - cursor)
@@ -98,6 +98,15 @@ extension TranslateUtils {
         }
 
         return spans
+    }
+
+    /// Chuỗi cần dò trong bản dịch cho **một** token.
+    ///
+    /// Phải đi qua `TranslationPunctuationMapper` **giống hệt** bản dịch (1.3.336 dời việc đổi dấu câu
+    /// xuống sau khi tra từ điển): nếu không, token là dấu câu Trung — hoặc nghĩa từ điển có `、` trong
+    /// đó — sẽ không bao giờ dò thấy và span của nó bị bỏ.
+    static func translatedCandidate(for token: TranslationWordToken) -> String {
+        postProcessText(TranslationPunctuationMapper.apply(to: token.translatedText))
     }
 
     static func findTranslatedTokenRange(

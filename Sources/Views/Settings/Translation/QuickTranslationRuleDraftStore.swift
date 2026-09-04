@@ -32,6 +32,10 @@ final class QuickTranslationRuleDraftStore {
         /// Vùng chọn trong mẫu, tính theo **chỉ số ký tự** của `Array(pattern)`.
         var selectionStart: Int
         var selectionLength: Int
+        /// Vùng chọn trong ô Bản dịch, cùng đơn vị. Có từ 1.3.336, khi ô đó cũng có con trỏ thật để
+        /// chip `{i}` chèn đúng chỗ — không lưu thì mỗi lượt dựng lại sheet con trỏ nhảy về cuối.
+        var replacementSelectionStart: Int
+        var replacementSelectionLength: Int
         var focus: Field?
     }
 

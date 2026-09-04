@@ -15,6 +15,48 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ba đường gọi đổi hình: dịch một chuỗi, dựng gợi ý phiên âm, nhấn giữ ở màn tìm kiếm (1.3.336)
+
+```
+TranslateUtils.performTranslation(text:bookId:)
+  ├─ QuickTranslationRuleEngine.rewrite            (rule dịch, chuỗi gốc)
+  ├─ tokenize(source)  ← CHUỖI GỐC, không còn bản đã đổi dấu câu
+  │    └─ VietPhraseTokenizer.tokenize → trie (khoá có `、` khớp được từ đây)
+  ├─ resolveTokenMeaning(for:) mỗi token → getFirstMeaning
+  ├─ joined(separator: " ")
+  ├─ TranslationPunctuationMapper.apply(to:)       ← MỚI, đúng chỗ này
+  └─ postProcessText                               (viết hoa + dọn khoảng trắng)
+```
+
+* **Vị trí `apply` bị kẹp hai đầu**: trước `tokenize` thì khoá từ điển có dấu không khớp; sau `postProcessText` thì mất viết hoa sau `。` (hàm đó chỉ nhận `.!?:：`).
+* **Cùng bản đồ đó được dùng lại ở đường dựng span**: `buildTranslationSpans` / `translationSpansApplyingRules` → `translatedCandidate(for:)` → `TranslationPunctuationMapper.apply` → `postProcessText` → `findTranslatedTokenRange`. Trước 1.3.336 candidate không qua mapper nên token dấu câu luôn dò trượt.
+
+```
+AddWordSheet.onAppear / onChange(key)
+  └─ scheduleSuggestionLoad(immediately:)
+       └─ Task { @MainActor }                      (huỷ lượt trước; debounce 300ms, lượt đầu bỏ debounce)
+            ├─ TextPreprocessor.shared.lookupWord  (actor await)
+            └─ Task.detached(.userInitiated)       ← espeak nằm TRONG đây
+                 └─ TTSPhoneticSuggestionBuilder.suggestions
+                      ├─ JapaneseTransliterator.transliterateRomaji
+                      └─ EnglishPhonemeTransliterator.detailed
+                           └─ EspeakPhonemizer.phonemizeEnglish   (NSLock dùng chung với NghiTTS)
+```
+
+* **`Task.detached` chứ không `Task`**: `Task` thừa hưởng actor của chỗ tạo (`@MainActor`) nên espeak vẫn chạy trên main thread — đúng thứ đang phải chữa. `body` giờ **không** còn đường nào tới `EspeakPhonemizer`.
+
+```
+ShelfSearchView.resultRow(book)
+  ├─ onTapGesture       → newChapters.markSeen → readerRoute (fullScreenCover)
+  └─ onLongPressGesture(0.35) → actionTarget = Target(book, book.isOnShelf ? .shelf : .history)
+       └─ BookActionSheet → handle(_:for:)        (ShelfSearchView+Actions)
+            ├─ BookActionRunner.{togglePin,addToShelf,removeFromShelfOnly,removeFromHistory,…}
+            └─ mở sheet/navigation của màn: BookDetailView, SearchView (đổi nguồn), TaskOptionsSheet, BookInfoEditView
+```
+
+* **Không bọc `Button`**: bọc thì nhả tay sau khi giữ vẫn kích hoạt action và mở luôn Reader — cùng bẫy đã ghi ở `ShelfView.shelfBookRow`.
+* `CollectionDetailView` thêm hai đường gọi ngắn: `collectionMenu` → `commitRename`/`commitDelete` → `BookCollectionCoordinator` → (`success`) `dismiss()`.
+
 ## Ba đường gọi mới: gộp tiền tố chương sau, tải lẻ một chương, panel Dịch (1.3.334)
 
 ```

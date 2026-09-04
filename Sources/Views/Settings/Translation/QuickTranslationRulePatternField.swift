@@ -8,6 +8,10 @@ import UIKit
 /// **cuối** mẫu — đúng lỗi báo lại sau 1.3.288. Dải chip vẫn giữ vai trò chọn token để sửa `:min-max`,
 /// nhưng con trỏ nay do chính ô nhập cấp và hai chiều đồng bộ với nhau.
 ///
+/// Từ 1.3.336 ô **Bản dịch** (vế phải) cũng dùng chính field này với `usesMonospacedFont: false`, vì
+/// chip `{0} {1}…` cần chèn tại con trỏ y như bảng token của vế trái. Chữ nghĩa tiếng Việt không có lý
+/// do gì phải monospace, nên chỉ khác đúng ở font.
+///
 /// Quy đổi đơn vị nằm **đúng ở biên này**: model của màn nhập đếm theo **ký tự** (`Array(pattern)`),
 /// còn UIKit dùng `NSRange` UTF-16. Hai chiều đổi qua `String.Index`, không giả định 1 ký tự = 1 unit.
 ///
@@ -20,6 +24,9 @@ struct QuickTranslationRulePatternField: UIViewRepresentable {
     @Binding var selectionLength: Int
     /// Bật khi bản nháp được khôi phục và ô này đang là ô gõ — giữ bàn phím qua lượt dựng lại sheet.
     let autoFocus: Bool
+    /// `var` có giá trị mặc định (không phải `let`) để init memberwise vẫn cấp tham số này — call site
+    /// cũ của ô Mẫu không phải sửa gì.
+    var usesMonospacedFont: Bool = true
     let onFocusChange: (Bool) -> Void
 
     func makeUIView(context: Context) -> UITextView {
@@ -29,10 +36,10 @@ struct QuickTranslationRulePatternField: UIViewRepresentable {
         view.backgroundColor = .clear
         view.textContainerInset = .zero
         view.textContainer.lineFragmentPadding = 0
-        view.font = UIFont.monospacedSystemFont(
-            ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize,
-            weight: .regular
-        )
+        let bodySize = UIFont.preferredFont(forTextStyle: .body).pointSize
+        view.font = usesMonospacedFont
+            ? UIFont.monospacedSystemFont(ofSize: bodySize, weight: .regular)
+            : UIFont.preferredFont(forTextStyle: .body)
         view.adjustsFontForContentSizeCategory = true
         view.autocorrectionType = .no
         view.autocapitalizationType = .none

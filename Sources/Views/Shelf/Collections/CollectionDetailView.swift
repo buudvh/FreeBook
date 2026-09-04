@@ -9,7 +9,10 @@ import SwiftData
 struct CollectionDetailView: View {
     let collectionId: String
 
-    @Environment(\.modelContext) private var modelContext
+    /// `internal` (không `private`) từ đây trở xuống ở những chỗ mà `CollectionDetailView+Manage` chạm
+    /// tới: khối quản lý bộ nằm ở file khác, mà `private` của Swift là phạm vi **file**.
+    @Environment(\.modelContext) var modelContext
+    @Environment(\.dismiss) var dismiss
 
     @Query private var allCollections: [BookCollection]
     @Query private var allExtensions: [Extension]
@@ -25,8 +28,14 @@ struct CollectionDetailView: View {
     @State private var changeSourceTargetBook: Book? = nil
     @State private var navigateToChangeSource = false
     @State private var isProcessingDeletion = false
+    /// Quản lý chính bộ sưu tập (đổi tên / xoá) ngay tại màn chi tiết: trước 1.3.336 hai việc này chỉ
+    /// có ở **swipe action** của danh sách bộ — không ai thấy, và đang ở trong bộ thì phải lùi ra mới
+    /// làm được.
+    @State var showingRenameAlert = false
+    @State var renameText = ""
+    @State var showingDeleteConfirm = false
 
-    private var collection: BookCollection? {
+    var collection: BookCollection? {
         allCollections.first(where: { $0.collectionId == collectionId })
     }
 
@@ -62,6 +71,27 @@ struct CollectionDetailView: View {
         }
         .navigationTitle(collection?.name ?? "Bộ sưu tập")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                collectionMenu
+            }
+        }
+        .alert("Đổi tên bộ sưu tập", isPresented: $showingRenameAlert) {
+            TextField("Tên bộ sưu tập", text: $renameText)
+                .textInputAutocapitalization(.sentences)
+            Button("Lưu") { commitRename() }
+            Button("Hủy", role: .cancel) {}
+        }
+        .confirmationDialog(
+            "Xoá bộ sưu tập \"\(collection?.name ?? "")\"?",
+            isPresented: $showingDeleteConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Xoá bộ sưu tập", role: .destructive) { commitDelete() }
+            Button("Hủy", role: .cancel) {}
+        } message: {
+            Text("Chỉ bộ sưu tập bị xoá. Các truyện bên trong vẫn ở nguyên trên kệ sách.")
+        }
         .sheet(item: $actionTarget) { target in
             BookActionSheet(
                 target: target,

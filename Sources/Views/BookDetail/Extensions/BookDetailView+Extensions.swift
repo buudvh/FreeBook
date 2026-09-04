@@ -42,7 +42,6 @@ extension BookDetailView {
             }
         } label: {
             Image(systemName: "ellipsis.circle")
-                .rotationEffect(.degrees(90))
         }
     }
 

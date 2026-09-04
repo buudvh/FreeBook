@@ -8,8 +8,8 @@ import SwiftUI
 /// qua cổng `ForeignScriptClassifier`. Kết quả: với gần như mọi từ tiếng Anh, chip gợi ý khác hẳn chuỗi
 /// mà TTS thực đọc. Type này gom cả nguồn gốc để hiện badge và để đường dựng gợi ý đi đúng thứ tự của
 /// `TextPreprocessor.transliterateToken`.
-public struct TTSPhoneticSuggestion: Identifiable, Hashable {
-    public enum Origin: String {
+public struct TTSPhoneticSuggestion: Identifiable, Hashable, Sendable {
+    public enum Origin: String, Sendable {
         /// Lấy từ từ điển phiên âm đang có.
         case library
         /// Đường tiếng Nhật (`JapaneseTransliterator`).

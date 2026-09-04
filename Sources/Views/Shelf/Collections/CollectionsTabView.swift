@@ -82,6 +82,23 @@ struct CollectionsTabView: View {
                         }
                         .tint(.orange)
                     }
+                    // Swipe action một mình là quá kín: từ 1.3.336 nhấn giữ cũng ra đúng hai việc đó.
+                    .contextMenu {
+                        Button {
+                            renameTargetId = collection.collectionId
+                            renameText = collection.name
+                            showingRenameAlert = true
+                        } label: {
+                            Label("Đổi tên", systemImage: "pencil")
+                        }
+
+                        Button(role: .destructive) {
+                            deleteTargetId = collection.collectionId
+                            showingDeleteConfirm = true
+                        } label: {
+                            Label("Xoá bộ sưu tập", systemImage: "trash")
+                        }
+                    }
                 }
                 .onMove(perform: moveCollections)
             } header: {

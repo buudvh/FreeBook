@@ -4,18 +4,41 @@ import SwiftData
 /// Màn hình tìm kiếm sách trong Kệ sách + Lịch sử, được push từ nút search trên
 /// `ShelfView`. Dùng chung lịch sử tìm kiếm (`search_history`) với màn hình Tìm Kiếm.
 /// Bấm vào kết quả sẽ mở ReaderView. Chỉ tìm theo **tên truyện** (gốc + bản dịch).
+///
+/// Nhấn giữ một kết quả mở `BookActionSheet` **y như Kệ sách**: cùng sheet, cùng
+/// `BookActionRunner`, cùng bộ sheet/navigation phụ (chi tiết, đổi nguồn, sửa thông tin, tải/xuất).
+/// Chế độ sheet theo trạng thái truyện — `.shelf` khi truyện còn trên kệ, `.history` khi chỉ còn
+/// trong lịch sử — nên các mục hiện ra khớp với chỗ truyện đang thực sự nằm.
 struct ShelfSearchView: View {
     private let historyHeaderHeight: CGFloat = 40
     private let historyRowHeight: CGFloat = 45
     private let historySectionSpacing: CGFloat = 12
     private let maxVisibleHistoryRows = 4
 
+    @Environment(\.modelContext) var modelContext
+
     @Query(sort: \Book.lastReadDate, order: .reverse) private var allBooks: [Book]
-    @Query private var allExtensions: [Extension]
+    @Query var allExtensions: [Extension]
     @AppStorage(SearchHistoryStore.storageKey) private var searchHistoryJSON = "[]"
+    @ObservedObject private var newChapters = NewChapterInboxManager.shared
 
     @State private var searchQuery = ""
     @State private var readerRoute: ShelfReaderRoute? = nil
+    @State private var actionTarget: BookSheetAction.Target? = nil
+    /// `internal` (không `private`): khối hành động nằm ở `ShelfSearchView+Actions` — file khác, mà
+    /// `private` của Swift là phạm vi **file**.
+    @State var detailTargetBook: Book? = nil
+    @State var navigateToBookDetail = false
+    @State var editingInfoBook: Book? = nil
+    @State var selectedBookForTask: Book? = nil
+    @State var selectedTaskType: TaskType = .download
+    @State var changeSourceTargetBook: Book? = nil
+    @State var navigateToChangeSource = false
+    @State var isProcessingDeletion = false
+
+    var activeExtensions: [Extension] {
+        allExtensions.filter { !$0.localPath.isEmpty && $0.isEnabled }
+    }
 
     private var searchHistory: [String] {
         get { SearchHistoryStore.decode(searchHistoryJSON) }
@@ -58,17 +81,55 @@ struct ShelfSearchView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            searchBarView
-            Divider()
-            if trimmedQuery.isEmpty {
-                historyView
-            } else {
-                if !matchingHistory.isEmpty {
+        searchPresentationView
+            .sheet(item: $actionTarget) { target in
+                BookActionSheet(
+                    target: target,
+                    isCheckingNewChapters: newChapters.isChecking,
+                    onAction: { action in
+                        handle(action, for: target.book)
+                    }
+                )
+            }
+            .sheet(item: $selectedBookForTask) { book in
+                TaskOptionsSheet(book: book, taskType: selectedTaskType)
+            }
+            .sheet(item: $editingInfoBook) { book in
+                BookInfoEditView(
+                    bookId: book.bookId,
+                    title: book.title,
+                    author: book.author,
+                    coverUrl: book.coverUrl
+                )
+            }
+            .navigationDestination(isPresented: $navigateToBookDetail) {
+                bookDetailDestinationView
+            }
+            .navigationDestination(isPresented: $navigateToChangeSource) {
+                changeSourceDestinationView
+            }
+    }
+
+    /// Tách khỏi `body` để mỗi thuộc tính là một đơn vị suy luận kiểu riêng — cùng lý do
+    /// `ReaderView` phải xếp tầng ở 1.3.335.
+    private var searchPresentationView: some View {
+        ZStack {
+            VStack(spacing: 0) {
+                searchBarView
+                Divider()
+                if trimmedQuery.isEmpty {
                     historyView
-                        .frame(height: matchingHistoryHeight)
+                } else {
+                    if !matchingHistory.isEmpty {
+                        historyView
+                            .frame(height: matchingHistoryHeight)
+                    }
+                    resultsView
                 }
-                resultsView
+            }
+
+            if isProcessingDeletion {
+                deletionOverlay
             }
         }
         .navigationTitle("Tìm trong Kệ sách & Lịch sử")
@@ -193,27 +254,39 @@ struct ShelfSearchView: View {
         } else {
             List {
                 ForEach(filteredBooks) { book in
-                    Button {
-                        readerRoute = ShelfReaderRoute(
-                            bookId: book.bookId,
-                            extensionPackageId: book.extensionPackageId,
-                            chapterIndex: book.currentChapterIndex,
-                            paragraphIndex: nil,
-                            detailUrl: book.detailUrl,
-                            sourceName: book.sourceName
-                        )
-                    } label: {
-                        let ext = allExtensions.first(where: { $0.packageId == book.extensionPackageId })
-                        BookListItemView(
-                            item: book,
-                            extensionLocalPath: ext?.localPath ?? "",
-                            extensionIconUrl: ext?.iconUrl
-                        )
-                    }
-                    .buttonStyle(.plain)
+                    resultRow(book)
                 }
             }
             .listStyle(.plain)
+        }
+    }
+
+    /// Dùng `onTapGesture` + `onLongPressGesture` chứ **không** bọc `Button`: bọc Button thì nhả tay
+    /// sau khi giữ vẫn kích hoạt action, mở luôn cả Reader — cùng bẫy đã ghi ở `ShelfView`.
+    private func resultRow(_ book: Book) -> some View {
+        let ext = allExtensions.first(where: { $0.packageId == book.extensionPackageId })
+        return BookListItemView(
+            item: book,
+            extensionLocalPath: ext?.localPath ?? "",
+            extensionIconUrl: ext?.iconUrl
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            newChapters.markSeen(bookId: book.bookId)
+            readerRoute = ShelfReaderRoute(
+                bookId: book.bookId,
+                extensionPackageId: book.extensionPackageId,
+                chapterIndex: book.currentChapterIndex,
+                paragraphIndex: nil,
+                detailUrl: book.detailUrl,
+                sourceName: book.sourceName
+            )
+        }
+        .onLongPressGesture(minimumDuration: 0.35) {
+            actionTarget = BookSheetAction.Target(
+                book: book,
+                mode: book.isOnShelf ? .shelf : .history
+            )
         }
     }
 }

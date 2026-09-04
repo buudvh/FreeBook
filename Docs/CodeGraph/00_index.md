@@ -15,6 +15,16 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Đợt 4: VP có dấu khớp lại, gợi ý phiên âm rời main thread, 4 việc UI (1.3.336)
+
+* **Bug thật, nguyên nhân ở vị trí trong chuỗi xử lý: mục từ điển có dấu trong khoá không bao giờ khớp.** `TranslateUtils.performTranslation` áp bảng dấu câu (`。．，、；：！？…～—　`) **trước** `tokenize`, nên tới lúc tra trie thì `弹指、遮天` đã thành `弹指, 遮天`. Bảng dời sang [`TranslationPunctuationMapper`](../../Sources/Services/Translation/Utils/TranslationPunctuationMapper.swift) và chạy **sau** khi tra từ điển, trước `postProcessText` (hàm đó cần `.!?:` để viết hoa). Dấu hiệu chẩn đoán đã dùng: panel Dịch (tokenize chuỗi gốc) hiện đúng nghĩa của mục đó trong khi đọc chương thì không áp — hai đường tokenize nay về cùng một hệ.
+* **"Mở thêm phiên âm chậm" là main thread chờ lock của espeak.** `AddWordSheet.suggestions` là computed property gọi trong `body` → `EnglishPhonemeTransliterator` → `EspeakPhonemizer.phonemizeEnglish`, hàm C đồng bộ giữ **`NSLock` dùng chung với đường tổng hợp NghiTTS** (lần đầu còn `espeak_Initialize` + nhánh quét đệ quy bundle). Nay việc đó nằm trong `Task.detached`, `body` chỉ đọc `@State`; sheet cũng rời ra [file riêng](../../Sources/Views/Settings/TTS/AddWordSheet.swift) nên `TTSDictionaryEditView.swift` về dưới baseline.
+* **Chip `{0} {1}…` chèn tại con trỏ** thay vì nối vào cuối: ô Bản dịch dùng chính `QuickTranslationRulePatternField` (thêm `usesMonospacedFont`) với cặp `replacementSelection*` riêng, lưu cả trong bản nháp. Vế phải nay có đúng cơ chế của vế trái.
+* **Tên chương trong Trung tâm thông báo được dịch** ngay chỗ hiển thị (`NotificationInboxView.displayedChapterTitle`), guard `isTranslationEnabled && containsChinese` như `BookListItemView`. `NewChapterRecord` vẫn lưu nguyên văn.
+* **Nhấn giữ ở màn tìm trong Kệ sách & Lịch sử** mở `BookActionSheet` như Kệ sách, chế độ suy ra từ `book.isOnShelf`. Dùng `onTapGesture` + `onLongPressGesture`, **không** bọc `Button`.
+* **Bộ sưu tập có nút xoá thấy được**: menu `ellipsis.circle` (Đổi tên / Xoá) trong màn chi tiết bộ + `.contextMenu` cho hàng ở tab Bộ sưu tập; swipe action cũ giữ nguyên. Vẫn chỉ `BookCollectionCoordinator` ghi.
+* Gate: `check_architecture.py` **8 → 7**; `validate_links.py` PASS (16 doc, **487** file). Chưa biên dịch tại chỗ — host Windows.
+
 ## Đợt 3: Check rule về hẳn panel Dịch; tải lẻ từng chương; trả nợ hai vi phạm View-SwiftData (1.3.334)
 
 * **Màn Check rule không còn tồn tại như một màn riêng.** Hai file `ReaderRuleTraceOverlayView.swift` (396 dòng) và `ReaderRuleTraceGuideSheet.swift` (74 dòng) bị **xoá**; chức năng chuyển hết vào panel Dịch: ô **nghĩa rule chỉ đọc** nằm ngay dưới ô nghĩa dịch, dải chip rule có nút `+` **ở đầu dải**, và phạm vi chẩn đoán là **cả đoạn văn** chứa từ đang bôi đen chứ không phải riêng cụm đó. Xem [`ReaderDefinitionOverlayView+Rules`](../../Sources/Views/Reader/ReaderDefinitionOverlayView+Rules.swift#L28). Nút `?` (hướng dẫn) bị bỏ theo yêu cầu.

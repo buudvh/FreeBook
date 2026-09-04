@@ -15,10 +15,14 @@ import SwiftUI
 /// lại là Reader tự chuyển chương lúc đang nghe làm SwiftUI dựng lại content của sheet (sheet vẫn mở),
 /// `init` chạy lại và mọi ô về giá trị seed.
 ///
-/// Bốn công cụ nhập nhanh đều tác động lên **cùng** một vùng chọn (`selectionStart`/`selectionLength`,
-/// tính theo chỉ số ký tự của `Array(pattern)`): ô nhập `QuickTranslationRulePatternField` cấp con trỏ
-/// **thật**, dải chip cho chọn token và đặt con trỏ giữa hai chip, bảng token chèn hoặc thay token tại
-/// con trỏ, thanh min–max sửa token đang chọn.
+/// Bốn công cụ nhập nhanh của vế trái đều tác động lên **cùng** một vùng chọn
+/// (`selectionStart`/`selectionLength`, tính theo chỉ số ký tự của `Array(pattern)`): ô nhập
+/// `QuickTranslationRulePatternField` cấp con trỏ **thật**, dải chip cho chọn token và đặt con trỏ giữa
+/// hai chip, bảng token chèn hoặc thay token tại con trỏ, thanh min–max sửa token đang chọn.
+///
+/// Từ 1.3.336 vế phải có **đúng cơ chế đó**: ô Bản dịch cũng là `QuickTranslationRulePatternField`
+/// (khác font) với cặp `replacementSelectionStart`/`replacementSelectionLength` riêng, nên chip `{i}`
+/// chèn tại con trỏ thay vì nối vào cuối chuỗi.
 struct QuickTranslationRuleEditorSheet: View {
     /// `Identifiable` để màn danh sách mở sheet bằng `.sheet(item:)` — mở theo *dữ liệu* thì không có
     /// khoảng thời gian sheet đã hiện mà state còn rỗng như cách `isPresented` + biến phụ.
@@ -62,15 +66,19 @@ struct QuickTranslationRuleEditorSheet: View {
     /// lại — hai chiều cùng một biến, không có bản sao thứ hai.
     @State var selectionStart: Int
     @State var selectionLength: Int
+    /// Con trỏ / vùng chọn trong ô **Bản dịch**, cùng đơn vị và cùng lý do `internal` như trên. Có từ
+    /// 1.3.336: trước đó chip `{i}` nối thẳng vào **cuối** `replacement` vì ô này là `TextField` và
+    /// SwiftUI iOS 17 không cấp vùng chọn của nó.
+    @State var replacementSelectionStart: Int
+    @State var replacementSelectionLength: Int
     /// Lỗi do store trả về lúc lưu (khác với lỗi cú pháp mà bản nháp tự chấm được).
     @State private var errorText: String? = nil
     /// Bật khi bấm Lưu ở chế độ **thêm** và có truyện đang mở: phạm vi được chọn ngay lúc lưu thay vì
     /// bằng một ô chọn nằm sẵn trong form.
     @State private var showingScopeDialog = false
-    /// Ô đang gõ, chỉ để ghi vào bản nháp. Ô Mẫu là `UIViewRepresentable` nên không dùng được
-    /// `@FocusState` cho nó; ô Bản dịch vẫn là `TextField` nên có `@FocusState` riêng đồng bộ vào đây.
+    /// Ô đang gõ, chỉ để ghi vào bản nháp. Cả hai ô nhập đều là `UIViewRepresentable` nên không dùng
+    /// được `@FocusState`; mỗi ô tự báo lên qua `onFocusChange`.
     @State private var focusedField: QuickTranslationRuleDraftStore.Field?
-    @FocusState private var isReplacementFocused: Bool
 
     /// Ô đang gõ lúc bản nháp được lưu. Khôi phục ở `onAppear` để một lượt dựng lại không làm tụt
     /// bàn phím giữa lúc gõ.
@@ -112,6 +120,10 @@ struct QuickTranslationRuleEditorSheet: View {
         _saveToBook = State(initialValue: restored?.saveToBook ?? !defaultScope.isGlobal)
         _selectionStart = State(initialValue: restored?.selectionStart ?? Array(seedPattern).count)
         _selectionLength = State(initialValue: restored?.selectionLength ?? 0)
+        _replacementSelectionStart = State(
+            initialValue: restored?.replacementSelectionStart ?? Array(seedReplacement).count
+        )
+        _replacementSelectionLength = State(initialValue: restored?.replacementSelectionLength ?? 0)
         restoredFocus = restored?.focus
         didRestoreDraft = restored != nil
     }
@@ -143,6 +155,8 @@ struct QuickTranslationRuleEditorSheet: View {
             saveToBook: saveToBook,
             selectionStart: selectionStart,
             selectionLength: selectionLength,
+            replacementSelectionStart: replacementSelectionStart,
+            replacementSelectionLength: replacementSelectionLength,
             focus: focusedField
         )
     }
@@ -204,22 +218,15 @@ struct QuickTranslationRuleEditorSheet: View {
                     // lượt dựng lại để lần sau chẩn đoán được nguyên nhân gốc.
                     AppLogger.shared.log("📝 [RuleEditor] Sheet dựng lại giữa lúc gõ — đã khôi phục bản nháp (\(isEditing ? "sửa" : "thêm"))")
                 }
-                if restoredFocus == .replacement {
-                    isReplacementFocused = true
-                }
-            }
-            .onChange(of: isReplacementFocused) { _, focused in
-                if focused {
-                    focusedField = .replacement
-                } else if focusedField == .replacement {
-                    focusedField = nil
-                }
             }
             .onChange(of: currentDraft) { _, newValue in
                 QuickTranslationRuleDraftStore.shared.store(newValue, for: mode.id)
             }
             .onChange(of: pattern) { _, newValue in
                 reconcileSelection(after: newValue)
+            }
+            .onChange(of: replacement) { _, newValue in
+                reconcileReplacementSelection(after: newValue)
             }
         }
     }
@@ -276,17 +283,35 @@ struct QuickTranslationRuleEditorSheet: View {
     @ViewBuilder
     private func replacementSection(analysis: QuickTranslationRuleDraftAnalyzer.Analysis) -> some View {
         Section {
-            TextField("Chương {0}", text: $replacement, axis: .vertical)
-                .autocorrectionDisabled()
-                .focused($isReplacementFocused)
+            ZStack(alignment: .topLeading) {
+                if replacement.isEmpty {
+                    Text("Chương {0}")
+                        .foregroundColor(Color(uiColor: .placeholderText))
+                        .allowsHitTesting(false)
+                }
+
+                QuickTranslationRulePatternField(
+                    text: $replacement,
+                    selectionStart: $replacementSelectionStart,
+                    selectionLength: $replacementSelectionLength,
+                    autoFocus: restoredFocus == .replacement,
+                    usesMonospacedFont: false
+                ) { focused in
+                    if focused {
+                        focusedField = .replacement
+                    } else if focusedField == .replacement {
+                        focusedField = nil
+                    }
+                }
+            }
 
             QuickTranslationRuleCaptureChipsView(analysis: analysis) { index in
-                replacement += "{\(index)}"
+                insertIntoReplacement("{\(index)}")
             }
         } header: {
             Text("Bản dịch (vế phải dấu =)")
         } footer: {
-            Text("`{0}`, `{1}`… đánh số **token** theo thứ tự xuất hiện, không đánh số nhóm hay literal. Mọi token phải được dùng, và mẫu phải có ít nhất một ký tự thường làm neo.")
+            Text("`{0}`, `{1}`… đánh số **token** theo thứ tự xuất hiện, không đánh số nhóm hay literal. Chip chèn **tại con trỏ** của ô nhập, hoặc thay đoạn đang bôi đen. Mọi token phải được dùng, và mẫu phải có ít nhất một ký tự thường làm neo.")
         }
     }
 

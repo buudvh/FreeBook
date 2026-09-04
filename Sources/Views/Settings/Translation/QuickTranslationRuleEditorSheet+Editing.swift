@@ -1,13 +1,15 @@
 import SwiftUI
 
-/// Khối biên tập **mẫu** của màn thêm/sửa rule: định vị token đang chọn, chèn/thay token, xoá lùi.
+/// Khối biên tập **mẫu** và **bản dịch** của màn thêm/sửa rule: định vị token đang chọn, chèn/thay
+/// token, xoá lùi, và chèn `{i}` tại con trỏ ô Bản dịch.
 ///
 /// Tách khỏi `QuickTranslationRuleEditorSheet.swift` vì file đó đã tới 300+ dòng và trần của
 /// `check_architecture.py` cho file mới là 400. Vì `private` trong Swift là phạm vi **file**, các
-/// `@State` mà khối này sửa (`pattern`, `selectionStart`, `selectionLength`) phải là `internal` —
-/// cùng lý do và cùng khuôn với `ReaderView` + `ReaderView+Selection`.
+/// `@State` mà khối này sửa (`pattern`, `selectionStart`, `selectionLength`, `replacement`,
+/// `replacementSelection*`) phải là `internal` — cùng lý do và cùng khuôn với `ReaderView` +
+/// `ReaderView+Selection`.
 ///
-/// Bất biến của cả khối: `selectionStart`/`selectionLength` đếm theo **ký tự** trên `Array(pattern)`.
+/// Bất biến của cả khối: mọi chỉ số vùng chọn đếm theo **ký tự** trên `Array(...)` của chuỗi tương ứng.
 /// Quy đổi sang `NSRange` UTF-16 chỉ xảy ra ở `QuickTranslationRulePatternField`, tức đúng biên UIKit.
 extension QuickTranslationRuleEditorSheet {
 
@@ -92,5 +94,33 @@ extension QuickTranslationRuleEditorSheet {
             .last(where: { $0.end <= start }) else { return }
         let updated = QuickTranslationRuleDraftAnalyzer.replacing(range: previous.range, in: pattern, with: "")
         setPattern(updated, caret: previous.start)
+    }
+
+    // MARK: - Ô Bản dịch (vế phải)
+
+    /// Chèn `{i}` tại con trỏ của ô Bản dịch, hoặc **thay** vùng đang chọn — đúng ngữ nghĩa của bảng
+    /// token ở vế trái. `QuickTranslationRuleDraftAnalyzer.replacing` chỉ cắt/dán theo chỉ số ký tự nên
+    /// dùng được cho cả hai vế; nó **không** phân tích cú pháp mẫu.
+    func insertIntoReplacement(_ text: String) {
+        let count = Array(replacement).count
+        let start = min(max(0, replacementSelectionStart), count)
+        let end = min(max(start, start + replacementSelectionLength), count)
+        let updated = QuickTranslationRuleDraftAnalyzer.replacing(
+            range: start..<end,
+            in: replacement,
+            with: text
+        )
+        replacement = updated
+        replacementSelectionStart = min(start + Array(text).count, Array(updated).count)
+        replacementSelectionLength = 0
+    }
+
+    /// Kẹp con trỏ ô Bản dịch về biên hợp lệ sau khi chuỗi đổi từ đường khác (khôi phục bản nháp).
+    func reconcileReplacementSelection(after newReplacement: String) {
+        let count = Array(newReplacement).count
+        replacementSelectionStart = min(max(0, replacementSelectionStart), count)
+        if replacementSelectionStart + replacementSelectionLength > count {
+            replacementSelectionLength = 0
+        }
     }
 }

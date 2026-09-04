@@ -15,6 +15,16 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Dấu câu Trung dời xuống cuối dòng dịch; gợi ý phiên âm rời main thread (1.3.336)
+
+* **Sửa phát biểu ngầm của mọi mục dịch phía dưới: bảng dấu câu **không** còn chạy trước `tokenize`.** Dòng chảy mới của `TranslateUtils.performTranslation`: rule dịch → `tokenize(source)` trên **chuỗi gốc** → `resolveTokenMeaning` từng token → `joined(separator: " ")` → `TranslationPunctuationMapper.apply` → `postProcessText`. Bảng tra dời sang file riêng [`TranslationPunctuationMapper`](../../Sources/Services/Translation/Utils/TranslationPunctuationMapper.swift).
+* **Vì sao phải đổi (bug người dùng báo, không phải giả thiết)**: 12 ký tự `。．，、；：！？…～—　` bị đổi **trước** khi tra trie, nên mọi khoá từ điển chứa một trong số đó không bao giờ khớp — `弹指、遮天` tới lúc tra đã thành `弹指, 遮天`.
+* **Hai đường tokenize nay cùng một hệ toạ độ.** `getTranslationTokens` (span, panel Dịch, `snapToToken`) vốn đã tokenize chuỗi **gốc**, còn đường dịch tokenize chuỗi đã đổi dấu — nghịch lý quan sát được là panel Dịch hiện đúng nghĩa của mục có dấu trong khi đọc chương thì không áp. Nay cả hai đều đi trên `source`.
+* **Vị trí bị kẹp hai đầu**: phải **sau** tra từ điển (không thì bug trên tái diễn) và **trước** `postProcessText` (hàm đó chỉ nhận `.!?:：` làm dấu kết câu để viết hoa, và chỉ xoá khoảng trắng trước `,.?!` ASCII).
+* **Span dò theo cùng bản đồ đó**: `translatedCandidate(for:)` áp mapper lên `token.translatedText` **trước** `postProcessText`. Không làm vậy thì token dấu câu — và nghĩa từ điển có `、` bên trong — không dò thấy trong bản dịch và span của nó bị bỏ.
+* **Đánh đổi có chủ ý**: **nghĩa** lấy từ từ điển giờ cũng đi qua bảng (`—`→`-`, `…`→`...`, `～`→`~`), trước đây không. Đúng mục đích của bảng: không để dấu câu Trung lọt tới người đọc và tới TTS. Cache dịch là `NSCache` trong RAM nên không có dữ liệu cũ nào phải dọn; khoá cache **không** cần bump.
+* **Dòng dựng gợi ý phiên âm chảy ra khỏi `body`**: `AddWordSheet` giữ `[TTSPhoneticSuggestion]` trong `@State`; một `Task { @MainActor }` debounce 300 ms (lượt đầu **không** debounce) tra `TextPreprocessor.lookupWord` rồi `Task.detached` dựng gợi ý bằng `TTSPhoneticSuggestionBuilder`. `body` chỉ đọc state — không còn nhánh nào gọi espeak trong lượt vẽ.
+
 ## Dòng ghi tên dịch đổi chủ; một request Google nuôi cả cửa sổ tiền tố (1.3.334)
 
 * **Dòng làm mới `titleTrans`/`authorTrans` mất một bước ghi ở tầng View.** Trước: `ReaderView`/`BookDetailView` → `BookTitleTranslationMigrator.refreshTranslations(for:)` (gán thẳng vào `@Model`) → View tự `try? modelContext.save()`. Nay: View → `BookTransactionCoordinator.refreshTitleTranslations(bookId:in:)` → `FetchDescriptor<Book>` (`fetchLimit = 1`) → migrator **chỉ gán** → `Bool` didChange → coordinator `try context.save()` **chỉ khi** `true`. Dữ liệu vào vẫn là `TranslationManager` (bảng VietPhrase đang nạp), không phải giá trị caller truyền.

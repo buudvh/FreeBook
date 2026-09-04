@@ -16,6 +16,7 @@ struct NotificationInboxView: View {
     @Query(sort: \Book.lastReadDate, order: .reverse) private var allBooks: [Book]
     @ObservedObject private var newChapters = NewChapterInboxManager.shared
     @ObservedObject private var inbox = NotificationInboxManager.shared
+    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
 
     /// Một dòng trong danh sách: truyện có chương mới hoặc một toast đã hiện.
     private enum InboxItem: Identifiable {
@@ -159,7 +160,7 @@ struct NotificationInboxView: View {
                         .font(.footnote.weight(.medium))
                         .foregroundColor(.orange)
                     if !record.latestChapterTitle.isEmpty {
-                        Text("Mới nhất: \(record.latestChapterTitle)")
+                        Text("Mới nhất: \(displayedChapterTitle(for: record))")
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .lineLimit(1)
@@ -282,7 +283,18 @@ struct NotificationInboxView: View {
         if let title = book?.title, !title.isEmpty {
             return TranslateUtils.translateBookTitleIfNeeded(title, bookId: record.bookId)
         }
-        return record.latestChapterTitle.isEmpty ? "Truyện" : record.latestChapterTitle
+        let fallback = displayedChapterTitle(for: record)
+        return fallback.isEmpty ? "Truyện" : fallback
+    }
+
+    /// `latestChapterTitle` được `NewChapterProbe` lưu **nguyên văn** từ mục lục nguồn (thường là chữ
+    /// Hán), nên phải dịch ở chỗ hiển thị — tên truyện ngay trên nó đã dịch từ trước, để một dòng chữ
+    /// Hán bên dưới là lệch. Guard giống `BookListItemView`: chỉ dịch khi công tắc đang bật và chuỗi
+    /// thật sự có chữ Hán, nhờ vậy tên chương tiếng Việt/Anh không đi qua bộ dịch một cách vô ích.
+    private func displayedChapterTitle(for record: NewChapterRecord) -> String {
+        let raw = record.latestChapterTitle
+        guard isTranslationEnabled, TranslateUtils.containsChinese(raw) else { return raw }
+        return TranslateUtils.translateChapterTitle(raw, bookId: record.bookId)
     }
 
     /// Đọc **con số của thông báo**, không đọc `newChapterCount`: sau khi đánh dấu đã đọc con số kia
