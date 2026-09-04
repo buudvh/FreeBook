@@ -84,8 +84,11 @@ extension ReaderView {
 
     // MARK: - Tra cứu
 
-    func performQuickLookup(using engine: SearchEngine) {
-        let word = selectedTextForDefinition.trimmingCharacters(in: .whitespacesAndNewlines)
+    /// `query` mặc định là `selectedTextForDefinition` — chuỗi đã map về **text gốc**, đúng cho các
+    /// trang tra Hán-Việt/từ điển ở panel Dịch. Truyền `query` tường minh khi cần tra đúng **chữ người
+    /// dùng đang thấy** (nút "Tìm").
+    func performQuickLookup(using engine: SearchEngine, query: String? = nil) {
+        let word = (query ?? selectedTextForDefinition).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !word.isEmpty else { return }
 
         let rawUrl = engine.urlTemplate.replacingOccurrences(of: "%s", with: word)
@@ -102,12 +105,18 @@ extension ReaderView {
     /// Nút "Tìm" của menu bôi đen (1.3.334, thế chỗ nút Check rule cũ): tra cụm đang bôi đen bằng
     /// Google. Đi qua **đúng** `performQuickLookup` để chỉ có một chỗ mở URL và một chỗ chốt scheme
     /// http/https — không tự dựng đường mở Safari thứ hai.
+    ///
+    /// Tra **`selectedDisplayedText`**, tức đúng chữ đang bôi đen (bản dịch khi bật dịch), **không**
+    /// phải `selectedTextForDefinition` (chuỗi gốc đã map ngược) — người dùng bôi tiếng Việt thì mong
+    /// Google tìm tiếng Việt. Vẫn có đường lùi về chuỗi gốc nếu vì lý do nào đó chưa có chữ hiển thị.
     func searchSelectionOnGoogle() {
+        let displayed = selectedDisplayedText.trimmingCharacters(in: .whitespacesAndNewlines)
         performQuickLookup(
             using: SearchEngine(
                 name: "Google",
                 urlTemplate: "https://www.google.com/search?q=%s"
-            )
+            ),
+            query: displayed.isEmpty ? nil : displayed
         )
     }
 

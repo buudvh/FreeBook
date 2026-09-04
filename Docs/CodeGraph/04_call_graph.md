@@ -15,6 +15,36 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Nút "Tìm" đổi nguồn chuỗi; hai hàng kệ sách thành một nút; nhấn giữ có nhịp rung (1.3.337)
+
+```
+FloatingSelectionMenu "Tìm"
+  └─ searchSelectionOnGoogle()
+       └─ performQuickLookup(using: Google, query: selectedDisplayedText)   ← chữ ĐANG THẤY
+            └─ ReaderLookupRoute → fullScreenCover(BypassWebView)
+
+ReaderDefinitionOverlayView (link tra cứu)
+  └─ onPerformQuickLookup(engine)
+       └─ performQuickLookup(using: engine)            ← query = nil ⇒ selectedTextForDefinition (text GỐC)
+```
+
+* **`onPerformQuickLookup` phải bọc closure `{ performQuickLookup(using: $0) }`**, không truyền thẳng tên hàm: `performQuickLookup` nay có tham số `query` mặc định, và một function reference kèm default argument **không** tự chuyển sang `(SearchEngine) -> Void`. Truyền thẳng là lỗi biên dịch, không phải cảnh báo.
+* **Đường lùi có chủ ý**: `searchSelectionOnGoogle` truyền `query: nil` khi `selectedDisplayedText` rỗng, nên nút không bao giờ im lặng không làm gì.
+
+```
+Hàng truyện (Kệ sách / Lịch sử / Bộ sưu tập / Màn tìm kiếm)
+  └─ onLongPressGesture(BookSheetAction.longPressMinimumDuration = 0.25)
+       ├─ BookSheetAction.playLongPressFeedback()      ← rung ngay tại ngưỡng
+       └─ actionTarget = Target(book, mode)  →  BookActionSheet
+
+BookActionSheet
+  ├─ headerTappableContent: tap → emit(.openDetail) | long-press → emit(.togglePin)
+  ├─ shelfToggleButton:      emit(book.isOnShelf ? .removeFromShelfOnly : .addToShelf)
+  └─ actionRows:             không còn hàng .addToShelf / .removeFromShelfOnly
+```
+
+* **Không presenter nào phải sửa**: `handle(_:for:)` của Kệ sách, màn bộ sưu tập và màn tìm kiếm vẫn nhận đúng hai case cũ (`.addToShelf`, `.removeFromShelfOnly`) — chỉ **chỗ phát** đổi từ hàng danh sách sang nút icon.
+
 ## Ba đường gọi đổi hình: dịch một chuỗi, dựng gợi ý phiên âm, nhấn giữ ở màn tìm kiếm (1.3.336)
 
 ```

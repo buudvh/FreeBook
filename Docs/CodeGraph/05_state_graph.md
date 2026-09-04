@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Sheet hành động bỏ hai hàng kệ sách; nút "Tìm" đọc state hiển thị thay vì state gốc (1.3.337)
+
+* **`BookActionSheet` không thêm `@State` nào**, nhưng bỏ cả `NavigationStack`: kéo theo mất tiêu đề "Tuỳ chọn truyện" và nút "Xong". Đường đóng sheet giờ **chỉ** còn vuốt xuống, nên `.presentationDragIndicator(.visible)` là bắt buộc, không phải trang trí. `@Environment(\.dismiss)` vẫn cần vì `emit(_:)` gọi `dismiss()` trước khi phát hành động.
+* **Trạng thái "trên kệ" đọc trực tiếp từ `book.isOnShelf`, không nhân bản thành `@State`.** Hai hàng "Thêm vào kệ sách"/"Xoá khỏi kệ sách" cũ có điều kiện hiện khác nhau; nay `shelfToggleButton` chọn chiều bằng đúng cờ đó nên không có tổ hợp nào hiện cả hai, và không có state nào cần đồng bộ lại sau khi hành động chạy — `@Query` của màn chủ tự đẩy `Book` mới xuống sheet.
+* **Phần đầu tách hai vùng để state cử chỉ không chồng nhau**: `headerTappableContent` giữ `onTapGesture` + `onLongPressGesture`, `headerTrailingColumn` chứa hai icon. Nút kệ sách là **sibling**, không phải `overlay`, nên không có ca "một cú chạm hai bên cùng nhận".
+* **Ngưỡng nhấn giữ thành một hằng dùng chung**: `BookSheetAction.longPressMinimumDuration = 0.25` cho cả 5 chỗ (2 ở Kệ sách, bộ sưu tập, màn tìm kiếm, phần đầu sheet) thay cho 0.35/0.4 rải rác. Kèm `playLongPressFeedback()` — nhịp rung là *phản hồi trạng thái* duy nhất trước khi sheet hiện, vì menu tự dựng không có bản xem trước phóng to như `.contextMenu` hệ thống.
+* **Nút "Tìm" đọc `selectedDisplayedText`, không đọc `selectedTextForDefinition`.** Hai state này cố ý khác nhau: `selectedDisplayedText` là chữ **đang thấy** (bản dịch khi bật dịch), `selectedTextForDefinition` là chuỗi đã map ngược về **text gốc** để tra từ điển. Các link tra Hán-Việt ở panel Dịch vẫn dùng state gốc — `performQuickLookup(using:query:)` nhận override, mặc định giữ hành vi cũ.
+
 ## Panel Dịch gánh thêm state của Check rule; `downloadingChapterIndices` là state tạm của hàng chương (1.3.334)
 
 * **Ba `@State` cờ panel về một cờ.** `showingRuleTraceSheet` và `showingRuleGuide` bị **xoá** khỏi `ReaderView`; `showingDefinitionSheet` giờ là cờ duy nhất cho cả tra nghĩa lẫn Check rule, nên không còn tổ hợp "hai panel cùng mở" phải loại trừ nhau. `SelectionPanel` vì thế rút xuống đúng **một** case (`.copyOriginal`), và `closeOtherSelectionPanels(except:)` nhận `SelectionPanel?`.

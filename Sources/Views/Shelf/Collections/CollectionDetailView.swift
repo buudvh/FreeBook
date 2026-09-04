@@ -196,7 +196,8 @@ struct CollectionDetailView: View {
                     sourceName: book.sourceName
                 )
             }
-            .onLongPressGesture(minimumDuration: 0.35) {
+            .onLongPressGesture(minimumDuration: BookSheetAction.longPressMinimumDuration) {
+                BookSheetAction.playLongPressFeedback()
                 actionTarget = BookSheetAction.Target(
                     book: book,
                     mode: .collection(collectionId: collectionId)

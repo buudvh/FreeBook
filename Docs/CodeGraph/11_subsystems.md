@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Sheet hành động truyện gọn lại một tầng; ngưỡng nhấn giữ về một nguồn (1.3.337)
+
+* **`BookActionSheet` bỏ hẳn tầng `NavigationStack`.** Không còn thanh tiêu đề "Tuỳ chọn truyện" lẫn nút "Xong"; sheet là một `List` trần với `presentationDetents` + tay cầm vuốt. Hệ quả cần biết: **không** thêm được `.toolbar` hay `navigationDestination` vào sheet này nữa — hành động nào cần navigation vẫn phải phát `BookSheetAction` cho màn chủ, đúng như hợp đồng cũ.
+* **Hai hàng kệ sách rời danh sách hành động, thành một nút icon ở góc dưới phải phần đầu.** Đây là bước tiếp của 1.3.334 (đưa "Xem chi tiết"/"Ghim" vào phần đầu): phần đầu nay gánh **ba** thao tác — chạm = chi tiết, nhấn giữ = ghim, nút icon = thêm/xoá kệ. Ranh giới giữ được vì phần đầu chia hai vùng *cạnh nhau*: `headerTappableContent` (bìa + tên, mang cử chỉ) và `headerTrailingColumn` (hai icon). Nút không nằm trong `overlay` đè lên vùng cử chỉ.
+* **`BookSheetAction` lên vai thứ hai: nơi giữ hằng số tương tác của mọi hàng truyện.** `longPressMinimumDuration` (0.25s) + `playLongPressFeedback()` sống ở đó vì cả 5 chỗ nhấn giữ đều đã import type này; nhân bản hằng số ra từng View là cách chắc chắn để chúng lệch nhau sau vài lượt sửa. File này vì thế `import UIKit` (hợp lệ — nó ở `Sources/Views/**`).
+* **Phân hệ tra cứu web tách hai đường theo *nguồn chuỗi*, không theo engine**: nút "Tìm" của menu bôi đen tra chữ **đang thấy** (`selectedDisplayedText`), còn các link tra cứu ở panel Dịch tra chuỗi **gốc** (`selectedTextForDefinition`). Cả hai vẫn đi qua đúng một cửa `performQuickLookup` — chỗ duy nhất chốt scheme http/https và dựng `ReaderLookupRoute`.
+
 ## Chuẩn hoá dấu câu thành phân hệ con của Dịch; màn tìm kiếm kệ mượn trọn bộ hành động của Kệ sách (1.3.336)
 
 * **Bảng dấu câu Trung → Latin rời `TranslateUtils` thành một đơn vị có tên.** [`TranslationPunctuationMapper`](../../Sources/Services/Translation/Utils/TranslationPunctuationMapper.swift) là `enum` static thuần, và điểm quan trọng không phải bảng mà là **vị trí**: nó chạy **sau** khi tra từ điển, ngay trước `postProcessText`. Áp trước `tokenize` (cách cũ) làm mọi khoá có dấu — `弹指、遮天` — không bao giờ khớp. Phân hệ Dịch còn lại **không đổi**: `VietPhraseTokenizer`, `TrieDictionary`, `QuickTranslationRuleEngine` giữ nguyên vai trò.

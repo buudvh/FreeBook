@@ -62,7 +62,10 @@ extension ReaderView {
                     onUpdateEditorFromSelection: updateEditorFromSelection,
                     onFormatMeaning: formatMeaning,
                     onSaveDefinition: saveDefinition,
-                    onPerformQuickLookup: performQuickLookup,
+                    // Bọc closure chứ **không** truyền thẳng `performQuickLookup`: hàm đó có tham số
+                    // `query` mặc định, mà một function reference kèm default argument **không** tự
+                    // chuyển sang `(SearchEngine) -> Void` — truyền thẳng là lỗi biên dịch.
+                    onPerformQuickLookup: { performQuickLookup(using: $0) },
                     onOpenSearchEngineConfig: {
                         showingSearchEnginesConfigSheet = true
                     },

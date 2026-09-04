@@ -10,6 +10,10 @@ import SwiftData
 /// để xem chi tiết, nhấn giữ để ghim/bỏ ghim. Điều kiện hiện hai hành động đó giữ y như khi chúng còn
 /// là hàng — chi tiết chỉ có với truyện không phải TXT nội bộ (hoặc ở Lịch sử), ghim không có ở Lịch sử.
 ///
+/// Từ 1.3.337 hai hàng kệ sách cũng rời danh sách: `shelfToggleButton` ở **góc dưới phải** phần đầu làm
+/// cả hai chiều, chọn theo `book.isOnShelf`. Sheet **không** còn `NavigationStack`, tiêu đề "Tuỳ chọn
+/// truyện" và nút "Xong" — chỉ còn tay cầm vuốt xuống.
+///
 /// Sheet **tự** lo phần bộ sưu tập (qua `BookCollectionCoordinator`), còn các hành động khác chỉ phát
 /// `BookSheetAction` cho màn gọi nó xử lý — vì chúng cần navigation/sheet của riêng màn đó.
 struct BookActionSheet: View {
@@ -48,36 +52,29 @@ struct BookActionSheet: View {
     }
 
     var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    header
-                } footer: {
-                    Text(headerHint)
-                }
-
-                Section {
-                    collectionRows
-                } header: {
-                    Text("Bộ sưu tập")
-                } footer: {
-                    Text("Bỏ khỏi bộ sưu tập không xoá truyện khỏi kệ sách.")
-                }
-
-                Section {
-                    actionRows
-                }
+        List {
+            Section {
+                header
+            } footer: {
+                Text(headerHint)
             }
-            .listStyle(.insetGrouped)
-            .navigationTitle("Tuỳ chọn truyện")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Xong") { dismiss() }
-                }
+
+            Section {
+                collectionRows
+            } header: {
+                Text("Bộ sưu tập")
+            } footer: {
+                Text("Bỏ khỏi bộ sưu tập không xoá truyện khỏi kệ sách.")
+            }
+
+            Section {
+                actionRows
             }
         }
+        .listStyle(.insetGrouped)
         .presentationDetents([.medium, .large])
+        // Không còn nút "Xong" nên phải để lộ tay cầm: vuốt xuống là đường đóng duy nhất.
+        .presentationDragIndicator(.visible)
         .alert("Bộ sưu tập mới", isPresented: $showingCreateAlert) {
             TextField("Tên bộ sưu tập", text: $newCollectionName)
                 .textInputAutocapitalization(.sentences)
@@ -100,20 +97,33 @@ struct BookActionSheet: View {
     }
 
     private var headerHint: String {
+        let shelf = "Nút góc dưới phải: \(book.isOnShelf ? "xoá khỏi kệ sách" : "thêm vào kệ sách")."
         switch (canOpenDetail, canTogglePin) {
         case (true, true):
-            return "Chạm phần trên để xem chi tiết, nhấn giữ để \(book.isPinned ? "bỏ ghim" : "ghim lên đầu kệ")."
+            return "Chạm phần trên để xem chi tiết, nhấn giữ để \(book.isPinned ? "bỏ ghim" : "ghim lên đầu kệ"). \(shelf)"
         case (true, false):
-            return "Chạm phần trên để xem chi tiết."
+            return "Chạm phần trên để xem chi tiết. \(shelf)"
         case (false, true):
-            return "Nhấn giữ phần trên để \(book.isPinned ? "bỏ ghim" : "ghim lên đầu kệ")."
+            return "Nhấn giữ phần trên để \(book.isPinned ? "bỏ ghim" : "ghim lên đầu kệ"). \(shelf)"
         case (false, false):
-            return "Bỏ khỏi bộ sưu tập không xoá truyện khỏi kệ sách."
+            return shelf
         }
     }
 
+    /// Phần đầu chia làm **hai vùng cạnh nhau, không lồng nhau**: khối bìa + tên nhận cử chỉ chạm/nhấn
+    /// giữ, cột phải chứa hai icon. Đặt nút kệ sách trong `overlay` lên trên vùng có cử chỉ là để hai
+    /// bên tranh nhau cùng một cú chạm, nên nó là *sibling*.
     @ViewBuilder
     private var header: some View {
+        HStack(alignment: .top, spacing: 12) {
+            headerTappableContent
+            headerTrailingColumn
+        }
+        .padding(.vertical, 4)
+    }
+
+    @ViewBuilder
+    private var headerTappableContent: some View {
         HStack(alignment: .top, spacing: 12) {
             BookCoverView(bookId: book.bookId, coverUrl: book.coverUrl, width: 60, height: 84)
                 .cornerRadius(6)
@@ -137,14 +147,7 @@ struct BookActionSheet: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-
-            if canOpenDetail {
-                Image(systemName: "info.circle")
-                    .foregroundColor(.accentColor)
-                    .accessibilityHidden(true)
-            }
         }
-        .padding(.vertical, 4)
         .contentShape(Rectangle())
         // `onTapGesture` phải đăng ký **trước** `onLongPressGesture`, ngược lại chạm nhanh cũng bị
         // nhận diện là nhấn giữ và không bao giờ mở được chi tiết.
@@ -152,14 +155,51 @@ struct BookActionSheet: View {
             guard canOpenDetail else { return }
             emit(.openDetail)
         }
-        .onLongPressGesture(minimumDuration: 0.4) {
+        .onLongPressGesture(minimumDuration: BookSheetAction.longPressMinimumDuration) {
             guard canTogglePin else { return }
+            BookSheetAction.playLongPressFeedback()
             emit(.togglePin)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(DisplayTextFormatter.titleCase(displayedTitle))
         .accessibilityHint(headerHint)
         .accessibilityAddTraits(canOpenDetail ? .isButton : [])
+    }
+
+    /// `minHeight: 84` khớp chiều cao ảnh bìa nên nút luôn nằm đúng đáy panel ngay cả khi tên truyện
+    /// ngắn; `maxHeight: .infinity` để cột giãn theo hàng khi tên dài hơn ảnh bìa. Thiếu một trong hai
+    /// thì nút trôi lên giữa panel.
+    @ViewBuilder
+    private var headerTrailingColumn: some View {
+        VStack(alignment: .trailing, spacing: 0) {
+            if canOpenDetail {
+                Image(systemName: "info.circle")
+                    .foregroundColor(.accentColor)
+                    .accessibilityHidden(true)
+            }
+
+            Spacer(minLength: 8)
+
+            shelfToggleButton
+        }
+        .frame(minHeight: 84, maxHeight: .infinity, alignment: .trailing)
+    }
+
+    /// Hai hàng "Thêm vào kệ sách" / "Xoá khỏi kệ sách" cũ gộp thành **một** nút icon ở góc dưới phải
+    /// của phần đầu: trạng thái suy ra từ `book.isOnShelf` nên không bao giờ hiện cả hai.
+    @ViewBuilder
+    private var shelfToggleButton: some View {
+        Button {
+            emit(book.isOnShelf ? .removeFromShelfOnly : .addToShelf)
+        } label: {
+            Image(systemName: book.isOnShelf ? "bookmark.slash.fill" : "bookmark.fill")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(book.isOnShelf ? .red : .accentColor)
+                .frame(width: 40, height: 32)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(book.isOnShelf ? "Xoá khỏi kệ sách" : "Thêm vào kệ sách")
     }
 
     private var displayedTitle: String {
@@ -244,13 +284,11 @@ struct BookActionSheet: View {
 
     // MARK: - Hành động
 
+    /// Hai hàng kệ sách ("Thêm vào kệ sách" / "Xoá khỏi kệ sách") **không** còn ở đây — chúng thành một
+    /// nút icon ở góc dưới phải phần đầu (xem `shelfToggleButton`).
     @ViewBuilder
     private var actionRows: some View {
-        if target.mode == .history {
-            if !book.isOnShelf {
-                actionRow(.addToShelf, "Thêm vào kệ sách", "plus.circle.fill")
-            }
-        } else if !book.isLocalBook {
+        if target.mode != .history, !book.isLocalBook {
             actionRow(.checkNewChapters, "Kiểm tra chương mới", "bell.badge")
                 .disabled(isCheckingNewChapters)
         }
@@ -272,7 +310,6 @@ struct BookActionSheet: View {
         if target.mode == .history {
             destructiveRow(.removeFromHistory, "Xóa lịch sử", "clock.badge.xmark")
         } else {
-            actionRow(.removeFromShelfOnly, "Xoá khỏi kệ sách", "bookmark.slash")
             destructiveRow(.deleteBook, "Xoá", "trash.fill")
         }
     }

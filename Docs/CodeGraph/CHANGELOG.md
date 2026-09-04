@@ -2,7 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.299) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.300) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+
+## [1.3.337] - 2026-09-04
+
+### Gộp hai hàng kệ sách thành nút icon, bỏ header sheet, nhấn giữ nhanh hơn, nút Tìm dùng chữ đang thấy
+
+Sửa **7** file Swift, không thêm/xoá file nào. Đợt 5: năm việc A–E.
+
+- **A — Bỏ hai hàng "Thêm vào kệ sách" / "Xoá khỏi kệ sách"** khỏi danh sách hành động của `BookActionSheet`. Nhánh `target.mode == .history` vì thế còn rỗng nên gộp thẳng thành `if target.mode != .history, !book.isLocalBook` cho hàng "Kiểm tra chương mới". Hai case `.addToShelf` / `.removeFromShelfOnly` **giữ nguyên** trong `BookSheetAction`, nên `handle(_:for:)` của Kệ sách, màn bộ sưu tập và màn tìm kiếm không phải sửa một dòng.
+- **B — Thêm nút icon kệ sách ở góc dưới phải phần đầu** (`shelfToggleButton`): `bookmark.fill` (xanh) khi chưa trên kệ, `bookmark.slash.fill` (đỏ) khi đang trên kệ — chiều suy ra từ `book.isOnShelf` nên không bao giờ hiện cả hai. Phần đầu tách hai vùng **cạnh nhau**: `headerTappableContent` (bìa + tên, mang `onTapGesture`/`onLongPressGesture`) và `headerTrailingColumn` (`info.circle` trên, nút kệ dưới). Cố ý **không** dùng `overlay` đè lên vùng cử chỉ. Cột phải để `.frame(minHeight: 84, maxHeight: .infinity)` — `minHeight` khớp ảnh bìa để nút nằm đúng đáy khi tên ngắn, `maxHeight` để cột giãn khi tên dài hơn bìa; thiếu một trong hai thì nút trôi lên giữa panel.
+- **C — Nhấn giữ nhanh hơn và có nhịp rung.** `BookSheetAction.longPressMinimumDuration = 0.25` thay cho 0.35/0.4 rải rác ở **5** chỗ (Kệ sách ×2, bộ sưu tập, màn tìm kiếm, phần đầu sheet), cộng `playLongPressFeedback()` (`UIImpactFeedbackGenerator(.medium)`, cùng cường độ với các chỗ rung khác trong app). Lý do cảm giác chậm: `.contextMenu` hệ thống phóng to bản xem trước **ngay khi** ngón tay chạm, còn menu tự dựng không có gì báo cho tới lúc sheet hiện — nên ngoài việc hạ ngưỡng phải có một phản hồi tại đúng thời điểm kích hoạt. `maximumDistance` mặc định (10pt) vẫn huỷ cử chỉ khi đang cuộn nên hạ ngưỡng không sinh kích hoạt oan.
+- **D — Bỏ header và nút "Xong" của sheet**: xoá luôn `NavigationStack` (không còn `navigationTitle` "Tuỳ chọn truyện" lẫn `toolbar`), thêm `.presentationDragIndicator(.visible)` vì vuốt xuống nay là **đường đóng duy nhất**. Ràng buộc mới cần nhớ: sheet này không còn navigation nên không thêm được `.toolbar`/`navigationDestination` — hành động cần navigation vẫn phải phát `BookSheetAction` cho màn chủ.
+- **E — Nút "Tìm" tra chữ đang bôi đen, không tra chuỗi gốc.** `performQuickLookup` nhận thêm `query: String? = nil`; `searchSelectionOnGoogle()` truyền `selectedDisplayedText` (bản dịch khi bật dịch), có đường lùi về `nil` nếu chuỗi đó rỗng. Các link tra Hán-Việt ở panel Dịch **giữ nguyên** hành vi cũ (`selectedTextForDefinition`, tức text gốc) — đúng với việc chúng tra từ điển chữ Hán. Bẫy kèm theo: `onPerformQuickLookup` phải bọc `{ performQuickLookup(using: $0) }` chứ không truyền thẳng tên hàm, vì function reference có default argument **không** tự chuyển sang `(SearchEngine) -> Void`.
+- Gate: `check_architecture.py` giữ **7 violation** cũ, không phát sinh mới (`BookActionSheet.swift` 307 → **341**/400, `BookSheetAction.swift` 43 → **59**). `validate_links.py` PASS (16 doc, 487 file) sau khi cập nhật `04_call_graph`, `05_state_graph`, `11_subsystems` và ghi `no-change-needed` cho `13_resource_lifecycle`.
+- **Chưa biên dịch, chưa chạy thử** — host là Windows. Không thêm/xoá file Swift nên **không** cần `xcodegen generate`. Việc phải nhìn đầu tiên: nút kệ sách có nằm đúng góc dưới phải với cả tên truyện ngắn và tên 3 dòng, và chạm nút đó **không** kích hoạt luôn cử chỉ chạm/nhấn giữ của phần đầu.
 
 ## [1.3.336] - 2026-09-04
 
@@ -493,17 +507,3 @@ Sửa **1** file Swift.
 Dọn theo: phần đọc số Hán tách ra `parseChineseNumeral(_:) -> Int?` để `renderNumeral` và `approximateRange` dùng chung một bản; ngữ nghĩa cộng dồn theo section (`一万亿` = `100010000`) và hành vi trả nguyên văn khi tràn giữ nguyên.
 
 Không thêm token, không thêm khoá cấu hình, `Configuration.signature` không đổi nên snapshot/cache rule không bị vô hiệu. `check_architecture.py` giữ **14** violation (file này 161 → 226 dòng, vẫn dưới trần 400). CodeGraph: cập nhật `07`, `11`. Chưa biên dịch tại chỗ (Windows) — dựa vào CI.
-
-## [1.3.300] - 2026-09-01
-
-### Hẹn giờ tắt TTS: pause chỉ tạm dừng bộ đếm, phát lại thì đếm tiếp thay vì đếm lại từ đầu
-
-Sửa **1** file Swift.
-
-- **Pause rồi phát lại thì hẹn giờ đếm lại từ đầu**: `restartSleepTimerIfNeeded()` gọi thẳng `startTimerCountdown(minutes:)`, mà hàm này nạp `sleepTimerRemainingSeconds = minutes * 60`. Nay hàm phân ba ca — đang chạy thì không làm gì, còn giây dư thì `resumeTimerCountdown()` đếm tiếp, hết giờ rồi (remaining == 0, mode vẫn còn) mới nạp một vòng mới. Phần schedule `Timer` tách ra `scheduleSleepTimerTick()` để hai đường dùng chung.
-
-**Hai lỗi cùng đường tìm thấy khi sửa:**
-- **`stopPlayback()` không dừng bộ đếm**: dừng phát hoàn toàn rồi `Timer` vẫn tick tới 0 và bắn toast "đã tự động tạm dừng đọc" trong lúc không có gì phát. Thêm `stopTimerCountdown(keepMode: true)` — giữ `timerMode` + số giây còn lại để lượt phát sau đếm tiếp, cùng luật với `pause()`.
-- **Badge hẹn giờ trống khi tạm dừng**: `sleepTimerBadgeText` đòi `isTimerRunning`, mà `pause()` đặt cờ đó về `false`, nên hẹn giờ trông như đã bị huỷ. Điều kiện hiển thị đổi thành `sleepTimerRemainingSeconds > 0` — chỉ `cancelSleepTimer`/`setStopAtEndOfChapter` mới đưa số này về 0.
-
-`check_architecture.py` giữ **14** violation (`TTSManager.swift` 4001 → 4023, vẫn là violation cũ, không phát sinh loại mới). CodeGraph: cập nhật `05`, `06`, `13`; `04`, `08`, `10`, `11`, `rules` ghi nhận `--no-change-needed`. Chưa biên dịch tại chỗ (Windows) — dựa vào CI.
