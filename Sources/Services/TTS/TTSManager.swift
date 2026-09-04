@@ -2364,7 +2364,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
-    private func checkAndPromoteNextChapterAudioIfNeeded() {
+    internal func checkAndPromoteNextChapterAudioIfNeeded() {
         guard isPlaying,
               tool != "system",
               currentParagraphIndex >= 0,
@@ -2478,17 +2478,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             return idx < paragraphs.count ? idx : nil
         }
 
-        var tasksToCancel: [Int] = []
-        for idx in prefetchTasks.keys {
-            if !targetIndices.contains(idx) {
-                tasksToCancel.append(idx)
-            }
-        }
-        for idx in tasksToCancel {
-            prefetchTasks[idx]?.cancel()
-            prefetchTasks.removeValue(forKey: idx)
-            prefetchTaskGenerations.removeValue(forKey: idx)
-        }
+        pruneRemotePrefetchTasks(keeping: targetIndices)
 
         let cacheKeepIndices = Set(Array(N...(N + count)))
         var cacheToClear: [Int] = []
@@ -2501,11 +2491,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             preloadedData.removeValue(forKey: idx)
         }
 
-        for idx in targetIndices {
-            if preloadedData[idx] == nil && prefetchTasks[idx] == nil {
-                startPrefetchTask(for: idx)
-            }
-        }
+        dispatchRemotePrefetch(for: targetIndices)
         checkAndPromoteNextChapterAudioIfNeeded()
         requestRemoteNextChapterPrefixIfNeeded(windowCount: count, inChapterTargetCount: targetIndices.count)
     }
@@ -2975,7 +2961,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
-    private func startPrefetchTask(for index: Int) {
+    internal func startPrefetchTask(for index: Int) {
         if tool == "nghitts" {
             scheduleNghiRefill()
             return

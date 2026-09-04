@@ -15,6 +15,32 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Đường gọi nạp trước Google sau khi gộp request (1.3.332)
+
+```
+updatePrefetchWindow()                       (mỗi lần đổi đoạn)
+  ├─ pruneRemotePrefetchTasks(keeping:)      huỷ task KHÔNG còn phục vụ index nào trong cửa sổ
+  └─ dispatchRemotePrefetch(for: N+1…N+k)
+       ├─ tool != "google" hoặc < 2 đoạn thiếu
+       │    └─ startPrefetchTask(for:) từng index         (đường cũ, cũng là đường của Ext TTS)
+       └─ tool == "google"
+            └─ makeGoogleBatch(for:)   ← bỏ đoạn text rỗng, dựng khoá "gbatch|<key₀>|<key₁>…"
+                 └─ startGoogleBatchPrefetch(_:)
+                      └─ TTSAudioSynthesisWorker.synthesizeParagraph(synthesisKey: batch.key, …)
+                           └─ RemoteTTSSynthesisCoordinator.synthesize(key:…)   ← vẫn tuần tự hoá
+                                └─ GoogleTTSService.synthesizeBatch(parts:)
+                                     ├─ makeRequest(textParts: [String])
+                                     ├─ withRetry { audioParts(from:) }     ← retry MỘT tầng
+                                     └─ TTSBatchAudioPayload.encode([Data])
+                      └─ decode → preloadedData[N+1…N+k]
+                           lỗi khung / lỗi mạng → fallbackToPerParagraphPrefetch(_:)
+```
+
+* **`GoogleTTSService` còn một chỗ parse duy nhất**: `audioParts(from:)` trả **mọi** blob audio theo thứ tự; `synthesize` (một đoạn) chỉ là `.first` của nó. Trước 1.3.332 parser cứng ở `.first` nên không đọc được phản hồi nhiều part.
+* **Khoá coordinator của lượt gộp là chuỗi nối khoá từng đoạn**, nên hai lượt gộp trùng nội dung tự dedupe bằng đúng cơ chế cũ, không thêm bảng tra nào.
+* **`makeGoogleBatch` dựng text bằng đúng đường của `startPrefetchTask`** (`TTSReplacementManager.applyReplacements` → trim). Hai đường phải cho ra cùng một chuỗi, nếu không cùng một đoạn sẽ có hai audio khác nhau tuỳ đường nào chạy.
+* **Chip Check rule**: `ReaderRuleTraceChip.onLongPress` → popup → `RuleAction.moveScope(destination)` → `ReaderView.handleRuleAction` → `moveRule(_:to:)` = `QuickTranslationRuleTransfer.copy` **rồi** `deleteRule` ở phạm vi nguồn. Copy thất bại thì không xoá gì; xoá thất bại thì báo rõ "rule đang ở cả hai nơi".
+
 ## Đường gọi Ext TTS sau khi có cache script (1.3.330)
 
 ```

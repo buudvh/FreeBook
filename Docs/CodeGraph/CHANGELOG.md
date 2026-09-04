@@ -4,7 +4,25 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.296) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
-## [1.3.331] - 2026-09-03
+## [1.3.332] - 2026-09-04
+
+### Gộp request Google TTS, chuyển phạm vi rule, đảo thứ tự tab kệ sách
+
+Thêm **3** file Swift (474 → **477**), sửa **7**. Đợt 2 của loạt tối ưu, cộng ba việc lẻ.
+
+- **Đo API trước khi viết code.** Chạy thử thật với key của người dùng trên endpoint `readaloud.googleapis.com/v1:generateAudioDocStream`: `textParts` **nhận mảng**, và phản hồi là `[{metadata}, {text}, {audio}, {text}, {audio}, …]` — một cặp `text`+`audio` cho **mỗi** part, đúng thứ tự. Kiểm ánh xạ bằng 3 part dài 4/64/130 ký tự → audio 4128/20352/33408 byte, tăng đúng thứ tự; `metadata.fullText` + `textLocation.offset` cho phép đối chiếu tường minh. Số đo: 1 đoạn **370 ms**, 5 đoạn tuần tự 1469 ms, **5 đoạn/1 request 655 ms**, **10 đoạn 735 ms** (~5×), **20 đoạn 559 ms** (~13×) — độ trễ bị chi phối bởi một lần round trip, gần như không phụ thuộc số part.
+- **Cái bẫy đã đo được: part rỗng bị API bỏ im lặng.** Gửi `["Câu một", "", "Câu ba"]` chỉ nhận **2** audio và `metadata.textParts` cũng chỉ có 2 mục ⇒ lập chỉ mục theo vị trí sẽ **lệch một nhịp** và mọi đoạn sau đó nghe sai đoạn. Chặn ba lớp: `makeGoogleBatch` loại text rỗng trước khi gửi (những index đó đi đường một-đoạn), `synthesizeBatch` từ chối part rỗng, và **bắt buộc** `audios.count == parts.count` — không khớp thì `throw` để rơi về đường cũ.
+- **Chỉ cửa sổ nạp trước được gộp.** Đoạn đang chờ nghe giữ nguyên một request riêng: 370 ms một mình vẫn nhanh hơn chờ một batch lớn, và đó là chỗ người dùng đang đợi. File mới [`TTSManager+RemoteBatchPrefetch`](../../Sources/Services/TTS/Extensions/TTSManager+RemoteBatchPrefetch.swift) (205 dòng) là chủ sở hữu duy nhất của việc xếp hàng nạp trước remote; `updatePrefetchWindow` từ 26 dòng còn 12 nên `TTSManager.swift` **giảm** 4015 → 4001.
+- **Lượt gộp vẫn là một job của `RemoteTTSSynthesisCoordinator`** nên bất biến "một lượt tổng hợp remote tại một thời điểm" không bị nới. Vì job của coordinator chuyển đúng kiểu `Data`, nhiều blob mp3 đi qua khung nhị phân của file mới [`TTSBatchAudioPayload`](../../Sources/Services/TTS/TTSBatchAudioPayload.swift) (`[magic][count][len]×n[bytes]…`) thay vì đổi actor đó thành generic — sửa nó là chạm vào dedupe/huỷ/telemetry đang chạy đúng.
+- **Dọn task nạp trước đổi từ "theo index" sang "theo định danh task".** Một task gộp được ghi vào `prefetchTasks` cho **mọi** index nó phục vụ; cửa sổ trượt một nhịp là index cũ nhất rơi ra, và cách huỷ cũ sẽ giết luôn phần đang cần cho các đoạn còn lại. `pruneRemotePrefetchTasks(keeping:)` chỉ huỷ task không còn phục vụ index nào trong cửa sổ.
+- **`GoogleTTSService` tách lại thành ba phần** — `makeRequest` (nhận `String` hoặc `[String]`), `audioParts(from:)` trả **mọi** audio thay vì `.first`, và `withRetry` dùng chung cho cả hai đường (retry vẫn **đúng một tầng**, 2 lượt). Đường một-đoạn giữ nguyên hành vi: nó là `.first` của cùng một parser. Lượt đo thử gặp một **503 UNAVAILABLE** thật nên fallback không phải phòng xa: lỗi gộp thì `fallbackToPerParagraphPrefetch` xếp lại từng đoạn.
+- **Ext TTS không gộp được** và đó là do API: `execute(text, voice)` của JavaScript nhận một đoạn mỗi lần. `dispatchRemotePrefetch` vì vậy chỉ rẽ nhánh gộp khi `tool == "google"`.
+- **Chip Check rule thêm "Chuyển sang bộ chung / bộ riêng của truyện".** `RuleAction.moveScope` + `moveRule(_:to:)`: ghi ở đích **rồi** xoá ở nguồn. Thứ tự đó là có lý do — lỗi giữa đường thì rule người dùng tự viết vẫn còn, và nếu xoá thất bại thì toast nói thẳng "rule đang ở cả hai nơi" chứ không im lặng. `QuickTranslationRuleTransfer.copy` **giữ nguyên** ngữ nghĩa copy vì nút Chuyển của từ điển dùng chung nó.
+- **Thứ tự tab Kệ sách: Downloads → Bộ Sưu Tập → Kệ Sách → Lịch Sử.** Kèm file mới [`ShelfTab`](../../Sources/Views/Shelf/ShelfMain/ShelfTab.swift) — số tab là hợp đồng liên màn (`SearchView` gửi qua `userInfo["shelfTab"]`), trước đây cả hai đầu viết số trần nên đảo thứ tự là đổi ngầm nghĩa của payload. Nay bên gửi dùng `rawValue`, bên nhận ép qua `ShelfTab(rawValue:)` và **bỏ qua** số lạ. `ShelfView.swift` giảm 780 → 772.
+- Gate: `check_architecture.py` giữ **12 violation** (cùng một tập). `validate_links.py` PASS (16 doc, 477 file) sau khi cập nhật 8 doc và ghi `--no-change-needed` cho 4 doc. **Chưa biên dịch, chưa nghe thử** — host là Windows; có **3 file Swift mới** nên khi lên macOS **phải** chạy `xcodegen generate`. Lưu ý headroom: `ReaderRuleTraceOverlayView.swift` **396/400** dòng và **không có baseline** — lần sửa sau ở file đó phải tách file.
+- **Chưa làm trong lượt này**: gộp Check rule vào màn Dịch (hình dạng UI còn hai cách hiểu, và `ReaderDefinitionOverlayView` đang 489/468 nên phải tách file trước), và `timingInfo` của phản hồi Google (mốc thời gian **theo từng từ** — cho thời lượng chính xác từng đoạn và bôi sáng theo từ, hiện chưa dùng gì).
+
+
 
 ### Sửa lỗi biên dịch: startBackgroundRemainingPagesLoading là private
 

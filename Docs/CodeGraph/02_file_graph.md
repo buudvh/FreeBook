@@ -15,6 +15,30 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +3 file: gộp request Google, kiểu tab kệ sách (1.3.332)
+
+474 → **477** file Swift ⇒ phải `xcodegen generate` khi lên macOS.
+
+| File mới | Vai trò | Dòng |
+|---|---|---|
+| [`Services/TTS/Extensions/TTSManager+RemoteBatchPrefetch.swift`](../../Sources/Services/TTS/Extensions/TTSManager+RemoteBatchPrefetch.swift) | gom cửa sổ nạp trước Google thành **một** request; dọn task nạp trước dùng chung | 205 |
+| [`Services/TTS/TTSBatchAudioPayload.swift`](../../Sources/Services/TTS/TTSBatchAudioPayload.swift) | khung nhị phân đóng nhiều blob mp3 thành một `Data` để đi qua coordinator | 67 |
+| [`Views/Shelf/ShelfMain/ShelfTab.swift`](../../Sources/Views/Shelf/ShelfMain/ShelfTab.swift) | `enum ShelfTab: Int` — bốn tab theo đúng thứ tự hiển thị, thay số trần | 38 |
+
+| File sửa | Dòng | Thay đổi |
+|---|---|---|
+| [`Services/TTS/TTSManager.swift`](../../Sources/Services/TTS/TTSManager.swift) | 4015 → **4001** | `updatePrefetchWindow` gọi `pruneRemotePrefetchTasks(keeping:)` + `dispatchRemotePrefetch(for:)`; `startPrefetchTask`/`checkAndPromoteNextChapterAudioIfNeeded` thành `internal` |
+| [`Services/TTS/Google/GoogleTTSService.swift`](../../Sources/Services/TTS/Google/GoogleTTSService.swift) | 210 → **260** | tách `makeRequest` / `audioParts(from:)` / `withRetry`; thêm `synthesizeBatch(parts:…)`; parser trả **mọi** audio thay vì `.first` |
+| [`Views/Reader/ReaderRuleTraceOverlayView.swift`](../../Sources/Views/Reader/ReaderRuleTraceOverlayView.swift) | 388 → **396** | `RuleAction.moveScope`; nút "Chuyển sang bộ …" trong popup chip |
+| [`Views/Reader/Extensions/ReaderView+RuleTools.swift`](../../Sources/Views/Reader/Extensions/ReaderView+RuleTools.swift) | 299 → **347** | `moveRule(_:to:)` — ghi ở đích rồi xoá ở nguồn |
+| [`Views/Shelf/ShelfMain/ShelfView.swift`](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift) | 780 → **772** | `selectedTab: ShelfTab`; Picker dựng từ `allCases`; bỏ `navigationTitleText` |
+| [`Views/Shelf/ShelfMain/Extensions/ShelfView+BookImport.swift`](../../Sources/Views/Shelf/ShelfMain/Extensions/ShelfView+BookImport.swift) | 273 → **273** | `selectedTab = .shelf` |
+| [`Views/Search/SearchView.swift`](../../Sources/Views/Search/SearchView.swift) | 1003 → **1003** | gửi `ShelfTab.shelf/.history.rawValue` thay số trần |
+
+* **Cạnh mới**: `TTSManager+RemoteBatchPrefetch → GoogleTTSService.synthesizeBatch` + `→ TTSBatchAudioPayload`; `ShelfView`/`ShelfView+BookImport`/`SearchView → ShelfTab`.
+* **Không cạnh nào bị xoá**: đường một-đoạn-một-request vẫn còn nguyên và là đường **dự phòng** khi lượt gộp lỗi, cũng là đường duy nhất của Ext TTS.
+* `check_architecture.py` giữ **12 violation** (cùng một tập); `TTSManager.swift` giảm 14 dòng.
+
 ## +3 file: hai cache và một cửa cooldown; ExtTTSService còn 65 dòng (1.3.330)
 
 471 → **474** file Swift. Không thư mục mới, nhưng **có file mới** ⇒ phải `xcodegen generate` khi lên macOS.

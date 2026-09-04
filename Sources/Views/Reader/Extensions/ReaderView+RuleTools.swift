@@ -116,7 +116,55 @@ extension ReaderView {
                 )
             }
             handleRuleOutcome(outcome, successMessage: "Đã xoá rule khỏi \(trace.scope.longLabel.lowercased()).")
+
+        case .moveScope(let destination):
+            moveRule(trace, to: destination)
         }
+    }
+
+    /// Chuyển một rule sang phạm vi còn lại = **ghi ở đích rồi xoá ở nguồn**.
+    ///
+    /// `QuickTranslationRuleTransfer.copy` cố ý là copy (xem doc của nó), nên phần "xoá ở nguồn" nằm ở
+    /// đây chứ không sửa ngữ nghĩa của transfer — nút Chuyển của từ điển vẫn là copy như trước.
+    ///
+    /// Ghi ở đích **trước** để nếu lỗi thì rule vẫn còn nguyên ở nguồn: mất một rule người dùng tự viết
+    /// là hỏng dữ liệu, còn tồn tại ở hai chỗ chỉ là dư và nói được thành lời.
+    private func moveRule(_ trace: QuickTranslationRuleTrace, to destination: QuickTranslationRuleScope) {
+        let copyOutcome = QuickTranslationRuleTransfer.copy(
+            pattern: trace.pattern,
+            replacement: trace.replacement,
+            to: destination
+        )
+        guard case .success = copyOutcome else {
+            handleRuleOutcome(copyOutcome, successMessage: "")
+            return
+        }
+
+        let deleteOutcome: QuickTranslationRuleStore.LoadOutcome
+        switch trace.scope {
+        case .global:
+            deleteOutcome = QuickTranslationRuleStore.shared.deleteRule(pattern: trace.pattern)
+        case .book(let identifier):
+            deleteOutcome = QuickTranslationRuleBookStore.shared.deleteRule(
+                pattern: trace.pattern,
+                bookId: identifier
+            )
+        }
+
+        guard case .success = deleteOutcome else {
+            didChangeRuleData = true
+            refreshRuleTraces()
+            ToastManager.shared.show(
+                message: "Đã ghi rule vào \(destination.longLabel.lowercased()) nhưng không xoá được bản ở \(trace.scope.longLabel.lowercased()) — rule đang ở cả hai nơi.",
+                type: .error
+            )
+            return
+        }
+
+        handleRuleOutcome(
+            deleteOutcome,
+            successMessage: "Đã chuyển rule sang \(destination.longLabel.lowercased())."
+        )
     }
 
     /// Lưu rule mới từ nút `+` hoặc sửa rule từ Check rule. Trả `LoadOutcome` để sheet biết đóng hay giữ lại kèm lý do.

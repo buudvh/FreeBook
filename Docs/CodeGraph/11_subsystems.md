@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ TTS remote có hai đường nạp trước; tab Kệ sách có kiểu riêng (1.3.332)
+
+* **Google TTS nay có hai đường tổng hợp, và ranh giới giữa chúng là "ai đang đợi"**: đoạn đang chờ nghe đi đường một-đoạn-một-request (`startPrefetchTask`, `synthesize`), cửa sổ nạp trước đi đường gộp (`startGoogleBatchPrefetch`, `synthesizeBatch`). Đường một-đoạn **không** bị thay thế — nó còn là đường dự phòng khi lượt gộp lỗi và là đường duy nhất của Ext TTS.
+* **`TTSManager+RemoteBatchPrefetch` là chủ sở hữu duy nhất của việc xếp hàng nạp trước remote** (`dispatchRemotePrefetch`) và của việc dọn task ngoài cửa sổ (`pruneRemotePrefetchTasks`). `updatePrefetchWindow` chỉ còn tính cửa sổ + dọn cache rồi gọi hai hàm đó.
+* **`TTSBatchAudioPayload` là thành viên mới ở ranh giới coordinator**: nó tồn tại **chỉ** vì `RemoteTTSSynthesisCoordinator` chuyển `Data`. Đừng dùng nó cho việc khác, và đừng đổi coordinator thành generic để bỏ nó — actor đó đang giữ dedupe/huỷ/telemetry của cả phân hệ remote.
+* **Phân hệ rule dịch: chip Check rule nay đủ bốn thao tác** (sửa, bật/tắt, chuyển phạm vi, xoá). "Chuyển phạm vi" là move ở tầng call site, còn `QuickTranslationRuleTransfer` giữ nguyên ngữ nghĩa copy để nút Chuyển của từ điển không đổi hành vi.
+* **Phân hệ Kệ sách: thứ tự tab là Downloads → Bộ Sưu Tập → Kệ Sách → Lịch Sử**, và `ShelfTab` là nơi duy nhất biết bảng số đó. Trước 1.3.332 số tab nằm rải ở ba file dưới dạng literal.
+
 ## Ext TTS gọn lại một nửa; tab Tiện Ích có cửa cooldown (1.3.330)
 
 * **Phân hệ Ext TTS còn đúng hai việc**: gọi `tts.js` lấy base64 (`ExtTTSService`, 230 → **65** dòng) và giữ một `JSExecutor` sống lâu (`ExtTTSRuntime`). Đường PCM cũ — ghi file tạm, đọc lại bằng `AVAudioFile`, `AVAudioConverter`, chuẩn hoá biên độ + fade — **không có caller nào trong `Sources/`** và đã bị xoá. Nó còn mang một lỗi thật: `preprocessBufferForExtTTS` chạy hai lần trên cùng buffer (input block rồi output), tức fade và gain áp đôi. Cần lại đường PCM thì viết mới.

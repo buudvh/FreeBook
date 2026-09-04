@@ -253,7 +253,7 @@ extension ShelfView {
 
                 try? FileManager.default.removeItem(at: tempFileUrl)
                 self.isImporting = false
-                self.selectedTab = 1 // Chuyển sang Tab Kệ Sách để thấy truyện vừa nhập
+                self.selectedTab = .shelf // Chuyển sang Tab Kệ Sách để thấy truyện vừa nhập
             } catch {
                 try? FileManager.default.removeItem(at: tempFileUrl)
                 self.isImporting = false

@@ -15,6 +15,12 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## `shelfTab` nay là `ShelfTab.rawValue`, có bên nhận kiểm tra (1.3.332)
+
+* **Sửa lại mục 1.3.328 ngay dưới**: payload `userInfo["shelfTab"]` vẫn là `Int`, nhưng hai đầu không còn viết số trần. `SearchView` gửi `(createSnapshot.isOnShelf ? ShelfTab.shelf : .history).rawValue`; `ShelfView` nhận qua `ShelfTab(rawValue:)` và **bỏ qua** giá trị không map được thay vì gán vào `selectedTab`. Bảng số cũng đổi vì thứ tự tab đổi: Downloads 0, **Bộ Sưu Tập 1**, **Kệ Sách 2**, Lịch Sử 3.
+* **Không kênh sự kiện mới nào ở lượt này.** Việc gộp request Google nằm hoàn toàn trong `TTSManager` + coordinator + service, không phát notification, không thêm event center; lượt gộp thất bại báo bằng `AppLogger` và tự xếp lại từng đoạn, không có sự kiện nào ra ngoài.
+* **Chuyển phạm vi rule không phát tín hiệu riêng**: `moveRule` đi qua đúng hai store cũ, và hai store đó vốn đã tự phát `generation`/invalidate của mình. Panel Check rule tự `refreshRuleTraces()` rồi đặt `didChangeRuleData` để lúc đóng panel mới dịch lại một lần.
+
 ## `shelfTab` đổi nghĩa: Lịch Sử là 3, không còn là 2 (1.3.328)
 
 * **Không kênh sự kiện mới nào ở lượt này** — không tên `NotificationCenter` mới, không event center, không `AsyncStream`. Nhưng **payload của một kênh cũ đổi nghĩa**: `sourceChangedNavigateToShelf` mang `userInfo["shelfTab"] as? Int`, và tab Lịch Sử của `ShelfView` chuyển từ **2 → 3** vì tab Bộ Sưu Tập chiếm chỗ 2.

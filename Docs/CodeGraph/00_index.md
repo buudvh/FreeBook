@@ -15,6 +15,18 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Đợt tối ưu 2: một request Google cho cả cửa sổ nạp trước (1.3.332)
+
+* **Đo trên thiết bị thật trước khi viết code** (key thật, endpoint thật): API `generateAudioDocStream` nhận `textParts` là **mảng** và trả về một phần tử `audio` cho **mỗi** part, đúng thứ tự. 1 đoạn ≈ 370 ms; **10 đoạn trong một request ≈ 735 ms** (~5×); 20 đoạn ≈ 560 ms (~13×). Độ trễ bị chi phối bởi một lần round trip, gần như không phụ thuộc số part.
+* **Cái bẫy của API**: part **rỗng bị bỏ im lặng** ⇒ số audio ít hơn số part và **mọi chỉ số lệch một nhịp**. [`GoogleTTSService.synthesizeBatch`](../../Sources/Services/TTS/Google/GoogleTTSService.swift#L74) vì vậy từ chối part rỗng và **bắt buộc** `audios.count == parts.count`, không khớp thì `throw` để rơi về đường một-đoạn.
+* **Chỉ cửa sổ nạp trước được gộp, đoạn đang chờ nghe thì không.** Đoạn hiện tại vẫn một request riêng vì đó là chỗ người dùng đang đợi; cửa sổ `N+1…N+k` mới là chỗ không ai đợi. Xem [`TTSManager+RemoteBatchPrefetch`](../../Sources/Services/TTS/Extensions/TTSManager+RemoteBatchPrefetch.swift#L13).
+* **Gộp vẫn đi qua `RemoteTTSSynthesisCoordinator`** — bất biến "một lượt tổng hợp remote tại một thời điểm" không bị nới. Vì job của coordinator chuyển đúng kiểu `Data`, nhiều blob mp3 được đóng khung bằng [`TTSBatchAudioPayload`](../../Sources/Services/TTS/TTSBatchAudioPayload.swift#L11) thay vì đổi actor đó thành generic.
+* **Dọn task nạp trước không còn huỷ theo index**: một task gộp nằm ở nhiều index, cửa sổ trượt một nhịp là index cũ nhất rơi ra — huỷ theo index sẽ giết luôn phần đang cần. `pruneRemotePrefetchTasks(keeping:)` chỉ huỷ task **không còn** phục vụ index nào trong cửa sổ.
+* **Ext TTS không gộp được** và điều đó là do API: `execute(text, voice)` của JavaScript nhận một đoạn mỗi lần.
+* **Chuyển phạm vi rule ngay trên chip Check rule**: nhấn giữ chip có thêm "Chuyển sang bộ chung / bộ riêng của truyện". Là **move** (ghi ở đích rồi xoá ở nguồn) và phần xoá nằm ở call site — `QuickTranslationRuleTransfer.copy` cố ý vẫn là copy như nút Chuyển của từ điển.
+* **Thứ tự tab Kệ sách: Downloads → Bộ Sưu Tập → Kệ Sách → Lịch Sử**, và số tab nay là [`ShelfTab`](../../Sources/Views/Shelf/ShelfMain/ShelfTab.swift#L12) chứ không phải `Int` trần — `SearchView` gửi `rawValue`, `ShelfView` nhận lại qua `ShelfTab(rawValue:)` và bỏ qua số lạ.
+* 474 → **477** file Swift; `check_architecture.py` giữ **12 violation**, `TTSManager.swift` giảm 14 dòng. **Chưa biên dịch, chưa nghe thử** — host là Windows.
+
 ## Đợt tối ưu 1: Ext TTS, Google TTS, tab Tiện Ích (1.3.330)
 
 * **Ext TTS: đường nóng từ 6 lần I/O mỗi đoạn văn xuống 2 lần `stat()`.** Trước lượt này, mỗi đoạn (2–4 giây một lần, suốt cả truyện) `ttsGenerate` + `getTTSRuntimeFingerprint` cộng lại làm **4 lần đọc `plugin.json` + 2 lần đọc trọn `tts.js` + 4 lần parse JSON + 2 lần serialize**, rồi `ExtTTSRuntime.Identity` còn so **cả chuỗi script**. Giờ [`ExtTTSScriptCache`](../../Sources/Services/TTS/Ext/ExtTTSScriptCache.swift#L14) giữ `scriptContent`/config/fingerprint, khoá theo `(configJson, modDate của plugin.json, modDate của script)`, và `Identity` so **fingerprint**.

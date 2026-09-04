@@ -15,6 +15,18 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Batched Google TTS prefetch: invariants (1.3.332)
+
+1. **Only the prefetch window is batched; the paragraph the user is waiting for is not.** `updatePrefetchWindow` covers `N+1…N+k`; the current paragraph keeps its own single-part request because one round trip alone (~370 ms) beats waiting for a bigger one.
+2. **A batch is still one coordinator job.** Route every remote synthesis through `RemoteTTSSynthesisCoordinator`; do not call `GoogleTTSService` directly from a prefetch path. Multiple mp3 blobs travel as one `Data` via `TTSBatchAudioPayload` — that framing exists specifically so the coordinator does not have to become generic.
+3. **Never send an empty part, and always verify the count.** The API silently drops blank parts, which shifts every later index onto the wrong audio. `makeGoogleBatch` filters, `synthesizeBatch` rejects, and the returned count must equal the sent count or the call must throw.
+4. **Batch text must be produced the same way as single-paragraph text** (`TTSReplacementManager.applyReplacements` then trim). Two code paths that build the text differently will synthesise two different audios for the same paragraph depending on which one ran.
+5. **Retry stays inside `GoogleTTSService`** (`withRetry`, 2 attempts). `TTSManager` must not wrap another retry loop around a batch; a failed batch falls back to per-paragraph requests instead.
+6. **Register a batch task under every index it serves, and cancel by task identity, not by index.** The window slides one paragraph at a time, so index-based cancellation kills a batch that is still needed for the remaining indices.
+7. **Only Google batches.** Ext TTS calls `execute(text, voice)` in JavaScript — one paragraph per call. Do not invent a batching protocol for extensions.
+8. **Scope changes on a rule are copy-then-delete, in that order.** `QuickTranslationRuleTransfer.copy` stays a copy (it is shared with the dictionary's Chuyển button); the delete lives at the call site. Writing the destination first means a mid-way failure leaves the rule intact rather than losing user-authored data, and the "exists in both places" outcome must be reported, not hidden.
+9. **Shelf tab indices go through `ShelfTab`, never bare integers.** The order is Downloads → Bộ Sưu Tập → Kệ Sách → Lịch Sử; `SearchView` posts `rawValue` and `ShelfView` rejects values that do not map to a case.
+
 ## Ext TTS script cache, icon cache, repo refresh: invariants (1.3.330)
 
 1. **`ExtTTSScriptCache` is the only reader of `tts.js` and the only place that merges TTS config.** Do not re-add a direct `String(contentsOf:)` in `ttsGenerate` or a second SHA256 in `getTTSRuntimeFingerprint`: those two paths reading disk independently is how a `synthesisKey` from one revision could end up caching audio produced by another.

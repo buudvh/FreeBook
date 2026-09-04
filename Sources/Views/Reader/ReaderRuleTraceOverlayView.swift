@@ -17,6 +17,8 @@ struct ReaderRuleTraceOverlayView: View {
         case setDisabled(Bool, QuickTranslationRuleScope)
         case edit
         case delete
+        /// Chuyển rule sang phạm vi còn lại (riêng ⇄ chung). Là **move**: ghi ở đích rồi xoá ở nguồn.
+        case moveScope(QuickTranslationRuleScope)
     }
 
     let paragraphIndex: Int
@@ -323,6 +325,12 @@ struct ReaderRuleTraceOverlayView: View {
             let disabledGlobally = disableStore.isDisabled(pattern: trace.pattern, in: .global)
             Button(disabledGlobally ? "Bật cho mọi truyện" : "Tắt cho mọi truyện") {
                 onRuleAction(trace, .setDisabled(!disabledGlobally, .global))
+            }
+        }
+
+        if let destination = QuickTranslationRuleTransfer.opposite(of: trace.scope, contextBookId: bookId) {
+            Button("Chuyển sang \(destination.longLabel.lowercased())") {
+                onRuleAction(trace, .moveScope(destination))
             }
         }
 

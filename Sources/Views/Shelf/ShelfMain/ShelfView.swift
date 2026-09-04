@@ -39,9 +39,8 @@ struct ShelfView: View {
     @State private var navigateToChangeSource = false
 
     // @State: Biến trạng thái nội bộ của View. Khi giá trị thay đổi, UI sẽ tự động vẽ lại.
-    // Tab đang chọn: 0 Tải trước, 1 Kệ Sách, 2 Bộ sưu tập, 3 Lịch Sử. `SearchView` gửi số này qua
-    // notification `sourceChangedNavigateToShelf` — đổi số ở đây là phải sửa cả đầu kia.
-    @State internal var selectedTab = 1
+    // Thứ tự tab: Downloads → Bộ Sưu Tập → Kệ Sách → Lịch Sử (xem `ShelfTab`).
+    @State internal var selectedTab: ShelfTab = .shelf
     @State private var showingClearHistoryAlert = false // Hiện alert xác nhận xóa lịch sử đọc
     @State private var showingShelfSearch = false // Hiện màn hình tìm kiếm sách trong Kệ sách & Lịch sử
     @State private var showingNotificationInbox = false // Hiện Trung tâm thông báo (nút chuông)
@@ -125,25 +124,15 @@ struct ShelfView: View {
         Array(historyBooks.prefix(historyLimit))
     }
 
-    private var navigationTitleText: String {
-        switch selectedTab {
-        case 0: return "Downloads"
-        case 1: return "Kệ Sách"
-        case 2: return "Bộ Sưu Tập"
-        default: return "Lịch Sử Đọc"
-        }
-    }
-
     var body: some View {
         NavigationStack {
             ZStack {
                 VStack(spacing: 0) {
-                // Segmented control to switch tabs
+                // Segmented control to switch tabs. Thứ tự: Downloads → Bộ Sưu Tập → Kệ Sách → Lịch Sử.
                 Picker("Phân loại", selection: $selectedTab) {
-                    Text("Downloads").tag(0)
-                    Text("Kệ Sách").tag(1)
-                    Text("Bộ Sưu Tập").tag(2)
-                    Text("Lịch Sử").tag(3)
+                    ForEach(ShelfTab.allCases) { tab in
+                        Text(tab.pickerTitle).tag(tab)
+                    }
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal)
@@ -154,23 +143,23 @@ struct ShelfView: View {
                     TabView(selection: $selectedTab) {
                         // TAB TẢI TRƯỚC
                         DownloadTrackerView()
-                            .tag(0)
-
-                        // TAB KỆ SÁCH
-                        shelfTabView
-                            .tag(1)
+                            .tag(ShelfTab.downloads)
 
                         // TAB BỘ SƯU TẬP
                         CollectionsTabView()
-                            .tag(2)
+                            .tag(ShelfTab.collections)
+
+                        // TAB KỆ SÁCH
+                        shelfTabView
+                            .tag(ShelfTab.shelf)
 
                         // TAB LỊCH SỬ
                         historyTabView
-                            .tag(3)
+                            .tag(ShelfTab.history)
                     }
                     .tabViewStyle(.page(indexDisplayMode: .never))
             }
-            .navigationTitle(navigationTitleText)
+            .navigationTitle(selectedTab.navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
             // Kiểm tra chương mới chạy async sau khi Kệ sách đã hiện — không chặn khởi động app,
             // và tự bỏ qua nếu chưa hết cooldown / chưa tới giờ người dùng chọn.
@@ -197,7 +186,7 @@ struct ShelfView: View {
                     }
                     .accessibilityLabel("Trung tâm thông báo")
                 }
-                if selectedTab != 0 {
+                if selectedTab != .downloads {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button(action: {
                             showingShelfSearch = true
@@ -230,7 +219,7 @@ struct ShelfView: View {
                             Label("Mở trình duyệt web", systemImage: "globe")
                         }
 
-                        if selectedTab == 1 && !shelfBooks.isEmpty {
+                        if selectedTab == .shelf && !shelfBooks.isEmpty {
                             Button(action: {
                                 checkAllNewChapters()
                             }) {
@@ -239,7 +228,7 @@ struct ShelfView: View {
                             .disabled(newChapters.isChecking)
                         }
 
-                        if selectedTab == 0 && !DownloadManager.shared.tasks.isEmpty {
+                        if selectedTab == .downloads && !DownloadManager.shared.tasks.isEmpty {
                             Button(action: {
                                 DownloadManager.shared.clearFinishedTasks()
                             }) {
@@ -247,7 +236,7 @@ struct ShelfView: View {
                             }
                         }
 
-                        if selectedTab == 3 && !historyBooks.isEmpty {
+                        if selectedTab == .history && !historyBooks.isEmpty {
                             Button(role: .destructive, action: {
                                 showingClearHistoryAlert = true
                             }) {
@@ -307,7 +296,7 @@ struct ShelfView: View {
                 NotificationInboxView(onOpenBook: { book in
                     // Sheet đóng trước, present Reader ở turn sau để hai lớp trình bày không chọi nhau.
                     DispatchQueue.main.async {
-                        self.selectedTab = 1
+                        self.selectedTab = .shelf
                         self.readerPresentationRoute = ShelfReaderRoute(
                             bookId: book.bookId,
                             extensionPackageId: book.extensionPackageId,
@@ -344,12 +333,13 @@ struct ShelfView: View {
                         detailUrl: ttsManager.playingBookDetailUrl,
                         sourceName: ttsManager.playingBookSourceName
                     )
-                    self.selectedTab = 1 // Switch to Shelf tab
+                    self.selectedTab = .shelf
                     self.readerPresentationRoute = route
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("sourceChangedNavigateToShelf"))) { notification in
-                if let tab = notification.userInfo?["shelfTab"] as? Int {
+                // Payload là `ShelfTab.rawValue`; số lạ (bản app cũ gửi) thì bỏ qua thay vì kẹt tab sai.
+                if let raw = notification.userInfo?["shelfTab"] as? Int, let tab = ShelfTab(rawValue: raw) {
                     self.selectedTab = tab
                 }
             }

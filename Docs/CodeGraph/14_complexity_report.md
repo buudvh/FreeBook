@@ -15,6 +15,16 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Ba file mới; `TTSManager` giảm 14 dòng nhờ dời điều phối nạp trước (1.3.332)
+
+* Tổng file Swift 474 → **477**. File mới đều dưới trần 400 và đúng 1 type top level ⇒ **không** thêm entry allowlist: `TTSManager+RemoteBatchPrefetch` 205 (extension, không tính là type), `TTSBatchAudioPayload` 67, `ShelfTab` 38.
+* **`TTSManager.swift` 4015 → 4001** (baseline 3470, vẫn violation): `updatePrefetchWindow` từ 26 dòng còn 12 nhờ dời hai khối (dọn task ngoài cửa sổ, xếp hàng nạp trước) sang file `+RemoteBatchPrefetch`. Đây là giảm thật, không phải dời dấu ngoặc.
+* `GoogleTTSService.swift` 210 → **260**: thêm `synthesizeBatch` + tách `makeRequest`/`audioParts`/`withRetry`. Phần tăng chủ yếu là hàm mới; `withRetry` **gộp** hai bản retry sẽ phải có nếu viết retry riêng cho đường gộp.
+* `ReaderRuleTraceOverlayView.swift` 388 → **396** — file này **không có baseline**, trần cứng là 400 nên chỉ còn **4 dòng**. Lần sửa sau ở đây phải tách file, không thêm được nữa.
+* `ShelfView.swift` 780 → **772**: `navigationTitleText` (8 dòng) chuyển thành `ShelfTab.navigationTitle`, `Picker` dựng từ `allCases` thay vì 4 dòng `Text().tag()`.
+* **Bậc phức tạp của một lượt nạp trước cửa sổ**: từ **k** request HTTP tuần tự (mỗi cái ~370 ms, cộng `offset × delayStep` giữa các lượt) xuống **1** request (~735 ms cho k = 10). Chi phí gần như không phụ thuộc k trong dải 1–20 vì nó là một round trip.
+* `pruneRemotePrefetchTasks` thêm một `Set<Task>` mỗi lượt gọi (≤ 10 phần tử) để so định danh task — đổi lại là bỏ được lớp lỗi "huỷ mất lượt gộp còn dùng được".
+
 ## Ba file mới nhỏ, một file giảm 165 dòng, một baseline được trả (1.3.330)
 
 * Tổng file Swift 471 → **474**. File mới đều nhỏ và đúng 1 type top level ⇒ **không** thêm entry `architecture_allowlist.json`: `ExtTTSScriptCache` 128, `ExtensionIconImageCache` 45, `RepositoryRefreshPolicy` 42.

@@ -58,33 +58,72 @@ public final class GoogleTTSService: Sendable {
         speed: Double = 1.0,
         pitch: Double = 1.0
     ) async throws -> Data {
-        let apiKey = getApiKey()
-        guard !apiKey.isEmpty else {
-            throw NSError(domain: "GoogleTTSService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Chưa cấu hình Google Cloud TTS API Key"])
-        }
-        
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else {
             throw NSError(domain: "GoogleTTSService", code: -2, userInfo: [NSLocalizedDescriptionKey: "Văn bản trống"])
         }
-        
-        let urlString = "https://readaloud.googleapis.com/v1:generateAudioDocStream"
-        guard let url = URL(string: urlString) else {
+
+        let request = try makeRequest(textParts: trimmedText, voice: voice, speed: speed, pitch: pitch)
+        let parts = try await withRetry { try await self.audioParts(from: request) }
+        guard let first = parts.first else {
+            throw NSError(domain: "GoogleTTSService", code: -5, userInfo: [NSLocalizedDescriptionKey: "Google TTS API không có audio."])
+        }
+        return first
+    }
+
+    /// Tổng hợp **nhiều đoạn trong một request**. API nhận `textParts` là mảng và trả về một phần tử
+    /// `audio` cho **mỗi** part, theo đúng thứ tự — đo trên thiết bị thật: 1 đoạn ≈ 370 ms, 10 đoạn
+    /// trong một request ≈ 735 ms, 20 đoạn ≈ 560 ms (độ trễ bị chi phối bởi một lần round trip).
+    ///
+    /// **Part rỗng bị API bỏ im lặng** ⇒ số audio trả về ít hơn số part gửi đi và mọi chỉ số lệch một
+    /// nhịp. Vì vậy hàm này từ chối part rỗng ngay đầu vào, và **bắt buộc** số audio khớp số part —
+    /// không khớp thì `throw` để người gọi rơi về đường một-đoạn-một-request thay vì gán bừa.
+    public func synthesizeBatch(
+        parts: [String],
+        voice: String = "via",
+        speed: Double = 1.0,
+        pitch: Double = 1.0
+    ) async throws -> [Data] {
+        let trimmed = parts.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        guard !trimmed.isEmpty, !trimmed.contains(where: { $0.isEmpty }) else {
+            throw NSError(domain: "GoogleTTSService", code: -2, userInfo: [NSLocalizedDescriptionKey: "Danh sách đoạn có phần tử rỗng"])
+        }
+
+        let request = try makeRequest(textParts: trimmed, voice: voice, speed: speed, pitch: pitch)
+        let audios = try await withRetry { try await self.audioParts(from: request) }
+        guard audios.count == trimmed.count else {
+            throw NSError(
+                domain: "GoogleTTSService",
+                code: -7,
+                userInfo: [NSLocalizedDescriptionKey: "Google TTS trả \(audios.count) audio cho \(trimmed.count) đoạn"]
+            )
+        }
+        return audios
+    }
+
+    /// `textParts` nhận `String` (một đoạn) hoặc `[String]` (gộp nhiều đoạn) — đúng hai dạng API chấp nhận.
+    private func makeRequest(textParts: Any, voice: String, speed: Double, pitch: Double) throws -> URLRequest {
+        let apiKey = getApiKey()
+        guard !apiKey.isEmpty else {
+            throw NSError(domain: "GoogleTTSService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Chưa cấu hình Google Cloud TTS API Key"])
+        }
+
+        guard let url = URL(string: "https://readaloud.googleapis.com/v1:generateAudioDocStream") else {
             throw NSError(domain: "GoogleTTSService", code: -3, userInfo: [NSLocalizedDescriptionKey: "URL API không hợp lệ"])
         }
-        
+
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
         request.timeoutInterval = 12.0
-        
+
         // Đảm bảo voice được chọn là 1 trong 6 giọng đọc hợp lệ của Google TTS
         let safeVoice = Self.validVoiceIds.contains(voice) ? voice : "via"
-        
+
         let requestBody: [String: Any] = [
             "text": [
-                "textParts": trimmedText
+                "textParts": textParts
             ],
             "advanced_options": [
                 "force_language": "vi",
@@ -102,16 +141,21 @@ public final class GoogleTTSService: Sendable {
                 ]
             ]
         ]
-        
+
         request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-        
+        return request
+    }
+
+    /// Retry **đúng một tầng** cho cả hai đường (một đoạn và gộp nhiều đoạn): tối đa 2 lượt, chỉ với
+    /// lỗi tạm thời. `TTSManager` không được bọc thêm vòng retry nào.
+    private func withRetry<T>(_ body: @Sendable () async throws -> T) async throws -> T {
         var attempts = 0
         let maxAttempts = 2
-        
+
         while true {
             attempts += 1
             do {
-                return try await performSynthesizeRequest(request: request)
+                return try await body()
             } catch {
                 if Task.isCancelled || attempts >= maxAttempts {
                     throw error
@@ -139,7 +183,11 @@ public final class GoogleTTSService: Sendable {
         }
     }
 
-    private func performSynthesizeRequest(request: URLRequest) async throws -> Data {
+    /// Trả về **mọi** blob audio trong phản hồi, theo đúng thứ tự part đã gửi.
+    ///
+    /// Phản hồi có dạng `[{metadata}, {text}, {audio}, {text}, {audio}, …]` — một cặp `text` + `audio`
+    /// cho mỗi part. Phần tử `text` mang `timingInfo` (mốc thời gian theo từng từ) mà app **chưa** dùng.
+    private func audioParts(from request: URLRequest) async throws -> [Data] {
         let (data, response) = try await URLSession.shared.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {
@@ -186,25 +234,27 @@ public final class GoogleTTSService: Sendable {
             }
         }
 
-        let base64String = responseElements.lazy.compactMap { dictionary -> String? in
+        let audios: [Data] = responseElements.compactMap { dictionary -> Data? in
+            let encoded: String?
             if let audioObject = dictionary["audio"] as? [String: Any],
                let bytes = audioObject["bytes"] as? String,
                !bytes.isEmpty {
-                return bytes
+                encoded = bytes
+            } else if let bytes = dictionary["bytes"] as? String, !bytes.isEmpty {
+                encoded = bytes
+            } else {
+                encoded = nil
             }
-            if let bytes = dictionary["bytes"] as? String, !bytes.isEmpty {
-                return bytes
-            }
-            return nil
-        }.first
-        
-        guard let validBase64 = base64String,
-              let audioData = Data(base64Encoded: validBase64.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            guard let encoded else { return nil }
+            return Data(base64Encoded: encoded.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+
+        guard !audios.isEmpty else {
             let rawResponseString = String(data: data, encoding: .utf8) ?? ""
             AppLogger.shared.log("❌ [GoogleTTSService] Phản hồi JSON không chứa dữ liệu âm thanh hợp lệ. Response Raw: \(rawResponseString)")
             throw NSError(domain: "GoogleTTSService", code: -5, userInfo: [NSLocalizedDescriptionKey: "Google TTS API không có audio. Chi tiết: \(rawResponseString)"])
         }
-        
-        return audioData
+
+        return audios
     }
 }

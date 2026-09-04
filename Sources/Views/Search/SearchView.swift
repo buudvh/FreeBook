@@ -714,8 +714,8 @@ struct SearchView: View {
                     ToastManager.shared.show(message: "Đã thêm nguồn mới '\(ext.name)' vào kệ sách!", type: .success)
                 }
 
-                // Số tab của `ShelfView`: 1 = Kệ Sách, 3 = Lịch Sử (2 là Bộ Sưu Tập từ 1.3.328).
-                let targetShelfTab = createSnapshot.isOnShelf ? 1 : 3
+                // Gửi `ShelfTab.rawValue` chứ không phải số trần — xem `ShelfTab`.
+                let targetShelfTab = (createSnapshot.isOnShelf ? ShelfTab.shelf : ShelfTab.history).rawValue
                 NotificationCenter.default.post(
                     name: NSNotification.Name("sourceChangedNavigateToShelf"),
                     object: nil,

@@ -15,6 +15,16 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rủi ro của việc gộp request Google TTS (1.3.332)
+
+* **Rủi ro nặng nhất — lệch chỉ số đoạn ⇄ audio.** API **bỏ im lặng** part rỗng, nên gửi 5 part mà một part rỗng thì nhận 4 audio và mọi đoạn từ đó trở đi nghe sai đoạn. Đã chặn ba lớp: `makeGoogleBatch` loại text rỗng **trước** khi gửi (và những index đó đi đường một-đoạn), `synthesizeBatch` từ chối part rỗng ở đầu vào, và **bắt buộc** `audios.count == parts.count` — không khớp thì `throw`, không gán bừa. Đây là chỗ phải nghe thử đầu tiên trên máy thật.
+* **Rủi ro đã biết — một lỗi mạng làm mất cả cửa sổ thay vì một đoạn.** Lượt đo thử API gặp một `503 UNAVAILABLE` thật, nên chuyện này sẽ xảy ra. Giảm thiểu: `withRetry` 2 lượt trong `GoogleTTSService`, và `fallbackToPerParagraphPrefetch` xếp lại từng đoạn cho đúng những index đã hỏng. Bù lại: gộp làm **số request giảm 5–10 lần**, tức số lần có cơ hội gặp 503 cũng giảm.
+* **Rủi ro đã chặn — cửa sổ trượt huỷ mất lượt gộp còn dùng được.** Một task gộp được ghi vào `prefetchTasks` cho **mọi** index nó phục vụ; nếu vẫn huỷ theo index như trước thì đúng một nhịp sau khi phát, index cũ nhất rơi khỏi cửa sổ và task bị huỷ, kéo theo cả những đoạn còn cần. `pruneRemotePrefetchTasks(keeping:)` so **định danh task**, chỉ huỷ task không còn phục vụ index nào trong cửa sổ.
+* **Rủi ro đã biết — bộ nhớ của một lượt gộp.** 20 part trả ~615 KB base64 → ~380 KB mp3, và toàn bộ phản hồi được `JSONSerialization` một lần. Cửa sổ hiện tại là `clamp(currentPrefetchCount, 1, 10)` nên thực tế tối đa 10 part; nếu ai nâng trần cửa sổ thì phải xem lại đỉnh bộ nhớ của lượt parse.
+* **Không mở đường vòng nào quanh coordinator.** Lượt gộp vẫn là **một** job của `RemoteTTSSynthesisCoordinator` nên bất biến "một lượt tổng hợp remote tại một thời điểm" giữ nguyên; telemetry năng lượng vẫn đếm đúng (`textChars` là tổng, `audioBytes` là tổng của lượt).
+* **Rủi ro đã biết — `moveScope` không nguyên tử.** Chuyển phạm vi rule là hai lần ghi file (`copy` rồi `delete`). Ghi ở đích **trước** để lỗi giữa đường không làm mất rule người dùng tự viết; nếu xoá thất bại thì rule tồn tại ở **cả hai** phạm vi và toast nói đúng điều đó. Không có transaction nào phủ hai file, và làm một cái ở đây là quá tay.
+* **Rủi ro đã biết — đảo thứ tự tab đổi nghĩa payload `shelfTab`.** Bản app cũ (nếu chạy song song bằng cách nào đó) gửi số theo bảng cũ; `ShelfView` nay ép qua `ShelfTab(rawValue:)` và **bỏ qua** số lạ thay vì kẹt tab sai. `selectedTab` là `@State` nên không có trạng thái đã lưu nào bị hỏng vì việc đánh số lại.
+
 ## Rủi ro của đợt tối ưu 1: cache cũ và kho không tự cập nhật (1.3.330)
 
 * **Rủi ro chính — cache script phục vụ bản `tts.js` cũ.** `ExtTTSScriptCache` hết hạn theo **mốc sửa** của `plugin.json` và của file script. Ba đường làm mới đều đã nối: sửa cấu hình (`configJson` vào khoá), cài lại / sửa script trong app (file đổi mốc), `resetTTSRuntime()` (`invalidateAll`). Đường **chưa** phủ: một file bị thay mà mốc sửa **không đổi** (chép bằng công cụ giữ nguyên timestamp). Triệu chứng sẽ là "sửa script mà giọng đọc không đổi" cho tới khi tắt/mở lại app — không mất dữ liệu, nhưng khó truy nếu không đọc mục này.
