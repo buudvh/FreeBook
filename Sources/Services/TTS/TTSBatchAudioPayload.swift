@@ -7,7 +7,9 @@ import Foundation
 /// blob mp3, nên phải đóng chúng lại thành một `Data` để đi qua coordinator thay vì đổi actor đó thành
 /// generic — sửa nó là chạm vào phần dedupe/huỷ/telemetry đang chạy đúng.
 ///
-/// Khung nhị phân, little-endian: `[count: UInt32][len₀: UInt32]…[lenₙ₋₁: UInt32][bytes₀]…[bytesₙ₋₁]`.
+/// Khung nhị phân, little-endian: `[magic "FBT1"][count][len₀]…[lenₙ₋₁][bytes₀]…[bytesₙ₋₁]`, mỗi số là
+/// `UInt32`. Có magic để một `Data` không phải khung (ví dụ mp3 lọt vào đường gộp) bị `decode` từ chối
+/// ngay thay vì trả ra rác.
 enum TTSBatchAudioPayload {
     private static let headerMagic: UInt32 = 0x4642_5431  // "FBT1"
 
@@ -36,7 +38,6 @@ enum TTSBatchAudioPayload {
             guard let length = data.readUInt32(at: &cursor) else { return nil }
             lengths.append(Int(length))
         }
-
         let total = lengths.reduce(0, +)
         guard data.count - cursor == total else { return nil }
 
@@ -52,16 +53,27 @@ enum TTSBatchAudioPayload {
 }
 
 private extension Data {
+    /// Ghi 4 byte little-endian **tường minh** thay vì `Swift.withUnsafeBytes(of:_:)`: trong một
+    /// `extension Data`, tên `withUnsafeBytes` không qualify sẽ khớp vào *instance method* của `Data`
+    /// chứ không phải hàm toàn cục — đúng lỗi biên dịch của 1.3.332. Tự lắp byte cũng bỏ luôn phần
+    /// phụ thuộc endianness của máy và không cần con trỏ.
     mutating func append(uint32 value: UInt32) {
-        var little = value.littleEndian
-        withUnsafeBytes(of: &little) { append(contentsOf: $0) }
+        append(contentsOf: [
+            UInt8(truncatingIfNeeded: value),
+            UInt8(truncatingIfNeeded: value >> 8),
+            UInt8(truncatingIfNeeded: value >> 16),
+            UInt8(truncatingIfNeeded: value >> 24)
+        ])
     }
 
     func readUInt32(at cursor: inout Int) -> UInt32? {
         guard count - cursor >= 4 else { return nil }
         let start = startIndex + cursor
-        let slice = self[start..<(start + 4)]
+        let byte0 = UInt32(self[start])
+        let byte1 = UInt32(self[start + 1])
+        let byte2 = UInt32(self[start + 2])
+        let byte3 = UInt32(self[start + 3])
         cursor += 4
-        return slice.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self).littleEndian }
+        return byte0 | (byte1 << 8) | (byte2 << 16) | (byte3 << 24)
     }
 }

@@ -4,7 +4,19 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.296) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
-## [1.3.332] - 2026-09-04
+## [1.3.333] - 2026-09-04
+
+### Sửa lỗi biên dịch: withUnsafeBytes trong extension Data khớp instance method
+
+Sửa **1** file Swift ([`TTSBatchAudioPayload.swift`](../../Sources/Services/TTS/TTSBatchAudioPayload.swift), 67 → **80** dòng).
+
+- **CI của 1.3.332 đỏ với đúng một lỗi**: `TTSBatchAudioPayload.swift:57: error: use of 'withUnsafeBytes' refers to instance method rather than global function 'withUnsafeBytes(of:_:)' in module 'Swift'`. Trong một `extension Data`, tên `withUnsafeBytes` không qualify **luôn** khớp vào `Data.withUnsafeBytes(_:)` chứ không phải hàm toàn cục `Swift.withUnsafeBytes(of:_:)` — hai hàm khác signature nên lỗi nổ ngay chỗ gọi.
+- **Không chữa bằng cách viết `Swift.withUnsafeBytes(...)`**, mà bỏ hẳn con trỏ: `append(uint32:)` lắp 4 byte bằng dịch bit, `readUInt32(at:)` đọc 4 byte rồi ghép lại. Đổi lại được ba thứ cùng lúc — hết bẫy phân giải tên, hết phụ thuộc endianness của máy (khung là little-endian **tường minh** ở cả hai chiều), và không còn `loadUnaligned` để phải nghĩ về alignment.
+- Thêm magic `"FBT1"` vào đầu khung (đã có từ 1.3.332) được ghi rõ trong doc: một `Data` không phải khung — ví dụ blob mp3 lọt vào đường gộp — bị `decode` từ chối ngay thay vì trả ra rác.
+- Bài học: hàm toàn cục trùng tên với method của type đang `extension` là lớp lỗi mà cả `check_architecture.py` lẫn `validate_links.py` đều không thấy; chỉ `xcodebuild` bắt.
+- Gate: `check_architecture.py` giữ **12 violation**, `validate_links.py` PASS.
+
+
 
 ### Gộp request Google TTS, chuyển phạm vi rule, đảo thứ tự tab kệ sách
 
