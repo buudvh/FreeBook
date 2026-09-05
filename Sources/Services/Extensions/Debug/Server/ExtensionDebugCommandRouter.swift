@@ -8,7 +8,8 @@ import SwiftData
 /// 1. Server tự resolve script qua manifest của extension đã chọn — `run.start` chỉ nhận `packageId` +
 ///    `entrypoint` + input, **không** có field path, không `eval`, không source raw.
 /// 2. Mọi lệnh ghi vào dữ liệu người dùng (`draft.install` — cả nhánh ghi đè lẫn nhánh **cài mới** —
-///    và `draft.rollback`) vẫn phải đi qua `ExtensionDebugInstallGate`, tức phải bấm trên thiết bị.
+///    và `draft.rollback`) vẫn đi qua `ExtensionDebugInstallGate`. Từ 1.3.349 cửa đó **mặc định mở
+///    sẵn**: không cần bấm gì trên thiết bị, và mỗi lần cài được ghi vào `app_logs.txt`.
 ///
 /// Từ 1.3.325 `draft.install` có hai nhánh: extension đã có trên app thì **ghi đè** file (metadata thư
 /// viện không đổi), chưa có thì **cài mới** — dựng `extensions/<packageId>/` rồi thêm hàng `Extension`

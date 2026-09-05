@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Debug extension: bỏ ma sát xác nhận, giữ đường lùi (1.3.349)
+
+* **Chính sách của phân hệ đổi**: cửa xác nhận cài không còn là chốt bắt buộc mà là **tuỳ chọn mặc định tắt**. Đây là quyết định của chủ dự án cho một công cụ debug trên mạng nhà; phân hệ đổi lại bằng hai thứ: một công tắc bật lại được, và một dòng log cảnh báo cho **mỗi** lần ghi không có người xác nhận.
+* **Không xoá `ExtensionDebugInstallGate`.** Toàn bộ máy móc `pending`/`waiters`/`pendingStream` giữ nguyên và vẫn chạy khi công tắc tắt — xoá đi là mất đường lùi và mất luôn phần UI hiện trước danh sách file sẽ đổi.
+* **Ba chú thích khẳng định "phải bấm trên thiết bị" đã được sửa** ở `ExtensionDebugCommandRouter`, `+Draft` và chính gate. Chú thích nói sai về chốt an toàn là loại nợ tệ nhất trong phân hệ này.
+* **`executableScripts` của 1.3.348 đã đo trên máy**: 26/26 extension có, và `ttkan.co` lộ ra 4 script phụ trước đây không thấy được. Chốt an toàn của rollback cũng đo được: extension người dùng tự cài không bị tháo.
 ## Debug extension: đóng nốt hai lệnh cuối, và bịt đường một chiều (1.3.348)
 
 * **Toàn bộ `CommandType` đã được chạy thật.** `draft.install`/`draft.rollback` là hai lệnh cuối, đo được nhờ người dùng bấm xác nhận trên máy. Sau năm vòng, phân hệ này không còn lệnh nào chưa từng chạy qua client thật.

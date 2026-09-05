@@ -15,6 +15,13 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Cửa xác nhận cài mặc định mở sẵn; `executableScripts` đo được (1.3.349)
+
+* **`draft.install` / `draft.rollback` không còn đòi bấm trên thiết bị.** `ExtensionDebugInstallGate.requestApproval` trả `.approved` ngay khi `isAutoApproveEnabled` (mặc định **true**) và **không** đặt `pending`, nên màn Debug server không hiện hộp nào. Công tắc "Không cần bấm xác nhận" ở màn đó tắt được để quay lại đường bấm tay.
+* **Đánh đổi phải ghi ra**: server không có ghép nối (bỏ từ 1.3.305), nên trong lúc nó bật, máy nào tới được cổng cũng ghi được extension vào thư viện — tức chạy được JavaScript tuỳ ý trong app. Chốt còn lại là **tắt server khi không dùng**, và mỗi lần cài đều ghi `app_logs.txt` (`⚠️ [ExtDebug] Tự động cho phép…`) để truy lại được.
+* **Khoá đọc bằng `object(forKey:)` chứ không `bool(forKey:)`**: phải phân biệt "chưa đặt" (⇒ true, hành vi mặc định mới) với "đã đặt false" (⇒ người dùng chủ động bật lại cửa bấm).
+* **`executableScripts` đo trên máy: đúng và có giá trị thật.** 26/26 extension trả về danh sách; `ttkan.co` khai 6 script trong `plugin.json` nhưng có **10** file chạy được — `comment.js`, `gen.js`, `gen2.js`, `recommend.js` trước đây client không thấy. Chạy thử `qidian/src/chap.js` qua đường `custom`: `runStarted → fetchFailed → console → responseValidated → runFinished`.
+* **Chốt an toàn của rollback đo được là đúng**: `draft.rollback` trên `qidian` (extension người dùng tự cài) trả `DRAFT_MISSING` với câu "…không do debug cài mới trong phiên hiện tại". Client debug không xoá được extension người dùng.
 ## `draft.install` cài mới được mà rollback không tháo được (1.3.348)
 
 * **`draft.install` đo lần đầu, có người bấm xác nhận trên máy: chạy đúng.** Cài mới `probe.debug.sandbox` ⇒ app trả `packageId: "probe_debug_sandbox"` — app tự chuẩn hoá id từ `plugin.json` của bản nháp, **không** lấy từ client, đúng như doc của `handleDraftInstall` ghi. Hàng thư viện được ghi, và `run.start` trên bản **đã cài** trả `runStarted → responseValidated → runFinished` với đúng kết quả script sinh ra.

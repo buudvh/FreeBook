@@ -8,7 +8,8 @@ import SwiftData
 /// với `sourceMode: "draft"`. Không có đường nào để `run.start` chạy một revision chưa qua `finish`.
 ///
 /// `draft.install` / `draft.rollback` **không bao giờ** tự chạy: chúng treo ở
-/// `ExtensionDebugInstallGate` cho tới khi người dùng bấm trên thiết bị, và người bấm thấy trước danh
+/// `ExtensionDebugInstallGate`. Từ 1.3.349 cửa đó **mặc định mở sẵn** (không cần bấm gì); tắt công tắc
+/// "Không cần bấm xác nhận" ở màn Debug server thì nó lại treo cho tới khi người dùng bấm và thấy danh
 /// sách file sẽ đổi.
 extension ExtensionDebugCommandRouter {
     internal func handleDraft(
@@ -42,7 +43,8 @@ extension ExtensionDebugCommandRouter {
         // đầu vào hợp lệ của `draft.install` (đường cài mới). Chốt an toàn của vùng staging không phải là
         // "đã cài hay chưa" mà là trần của `ExtensionDraftManifest` (200 file / 1 MiB mỗi file / 4 MiB
         // tổng), kiểm tra containment từng path, và việc staging bị xoá sạch khi tắt server hoặc mở lại
-        // app. Ghi vào thư viện thì vẫn phải bấm trên thiết bị, ở `draft.install`.
+        // app. Ghi vào thư viện vẫn đi qua `ExtensionDebugInstallGate` ở `draft.install` — cửa đó mặc
+        // định mở sẵn từ 1.3.349.
         let issues = await ExtensionDraftStagingStore.shared.beginStage(manifest)
         guard issues.isEmpty else {
             // Vượt trần dung lượng là điều kiện chặn **khác hẳn** "manifest sai": một cái bắt người

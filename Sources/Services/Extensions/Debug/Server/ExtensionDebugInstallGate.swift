@@ -1,17 +1,30 @@
 import Foundation
 
-/// Cửa xác nhận vật lý cho ba lệnh nguy hiểm nhất: `draft.install` (ghi đè), `draft.install` của một
-/// extension **chưa có trên app** (cài mới), và `draft.rollback`.
+/// Cửa xác nhận cho ba lệnh ghi vào dữ liệu người dùng: `draft.install` (ghi đè), `draft.install` của
+/// một extension **chưa có trên app** (cài mới), và `draft.rollback`.
 ///
-/// Nó tồn tại vì lệnh đến **từ mạng**, và từ 1.3.305 server không còn ghép nối — nghĩa là ghi đè
-/// extension đang cài, hay **thêm** một extension vào thư viện, là việc không được phép xảy ra chỉ vì
-/// một message TCP: phải có một lần bấm trên thiết bị, và người bấm phải thấy trước **danh sách file
-/// sẽ đổi**.
+/// **Từ 1.3.349 cửa này mặc định MỞ SẴN** (`isAutoApproveEnabled == true`): mọi lệnh debug chạy được
+/// mà không cần bấm gì trên thiết bị, theo yêu cầu của chủ dự án. Công tắc ở màn Debug server bật lại
+/// được cửa bấm tay khi cần.
+///
+/// Điều phải biết khi để mặc định như vậy: lệnh đến **từ mạng LAN** và server **không có ghép nối**
+/// (bỏ từ 1.3.305). Nên trong lúc server bật, bất kỳ máy nào tới được cổng đó đều ghi được extension
+/// vào thư viện — tức chạy được JavaScript tuỳ ý trong app. Đây là đánh đổi có chủ ý của một công cụ
+/// debug trên mạng nhà; tắt server khi không dùng là chốt còn lại duy nhất.
 ///
 /// Một request tại một thời điểm. Request mới ghi đè request cũ (client chỉ có một, và request cũ nếu
 /// còn treo thì đã lỗi thời).
 public actor ExtensionDebugInstallGate {
     public static let shared = ExtensionDebugInstallGate()
+
+    /// Khoá bắt đầu bằng chữ thường để `BackupSettingsArchiver` tự sao lưu.
+    public static let autoApproveDefaultsKey = "extDebugAutoApproveInstall"
+
+    /// **Mặc định `true`** — không có khoá nghĩa là không cần bấm. Đọc qua `object(forKey:)` chứ không
+    /// `bool(forKey:)` để phân biệt "chưa đặt" với "đã đặt false".
+    public static var isAutoApproveEnabled: Bool {
+        UserDefaults.standard.object(forKey: autoApproveDefaultsKey) as? Bool ?? true
+    }
 
     public enum Kind: String, Sendable {
         case install
@@ -95,9 +108,19 @@ public actor ExtensionDebugInstallGate {
         }
     }
 
-    /// Treo cho tới khi người dùng bấm. Không có timeout: client có thể `run.cancel`/đóng socket, và
-    /// đóng socket sẽ gọi `cancelPending`.
+    /// Treo cho tới khi người dùng bấm — **trừ khi** `isAutoApproveEnabled` (mặc định), lúc đó trả
+    /// `.approved` ngay và **không** đặt `pending`, nên màn Debug server không hiện hộp nào.
+    ///
+    /// Không có timeout ở nhánh bấm tay: client có thể `run.cancel`/đóng socket, và đóng socket sẽ gọi
+    /// `cancelPending`.
     public func requestApproval(_ request: Request) async -> Decision {
+        if Self.isAutoApproveEnabled {
+            // Ghi log vì đây là một lần ghi vào dữ liệu người dùng **không** có ai xác nhận: khi có gì
+            // lạ trong thư viện extension thì `app_logs.txt` là chỗ duy nhất truy lại được.
+            AppLogger.shared.log("⚠️ [ExtDebug] Tự động cho phép (không cần bấm): \(request.summary)")
+            return .approved
+        }
+
         if let previous = pending, let continuation = waiters.removeValue(forKey: previous.id) {
             continuation.resume(returning: .superseded)
         }

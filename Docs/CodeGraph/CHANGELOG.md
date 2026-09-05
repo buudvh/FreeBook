@@ -4,6 +4,20 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.300) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.349] - 2026-09-05
+
+### Cài từ debug không cần bấm xác nhận, mặc định bật
+
+Sửa **4** file Swift.
+
+- **`draft.install` và `draft.rollback` chạy ngay, không hỏi gì.** `ExtensionDebugInstallGate.requestApproval` trả `.approved` lập tức khi `isAutoApproveEnabled` và **không** đặt `pending`, nên màn Debug server không hiện hộp xác nhận nào. Mặc định là **bật**, tức hành vi mới là hành vi ngay sau khi cập nhật.
+- **Đánh đổi, ghi ra để không ai phải đoán**: server **không có ghép nối** (bỏ từ 1.3.305), nên trong lúc nó bật, bất kỳ máy nào tới được cổng đó đều ghi được extension vào thư viện — tức chạy được JavaScript tuỳ ý trong app. Cửa bấm tay vốn là chốt duy nhất còn lại trên đường ghi; nay chốt đó mở sẵn. Hai thứ bù lại: công tắc **"Không cần bấm xác nhận"** ở màn Debug server tắt được để quay về đường bấm tay, và **mỗi** lần cho phép tự động đều ghi `app_logs.txt` (`⚠️ [ExtDebug] Tự động cho phép…`) để truy lại được về sau. Chốt thực tế còn lại là tắt server khi không dùng.
+- **Không xoá `ExtensionDebugInstallGate`.** Toàn bộ `pending`/`waiters`/`pendingStream` và phần UI hiện trước danh sách file sẽ đổi giữ nguyên, vẫn chạy khi công tắc tắt. Xoá đi là mất đường lùi và mất luôn màn diff.
+- **Khoá đọc bằng `object(forKey:)` chứ không `bool(forKey:)`**: phải phân biệt "chưa đặt" (⇒ `true`, hành vi mặc định mới) với "đã đặt `false`" (⇒ người dùng chủ động bật lại cửa bấm). Khoá `extDebugAutoApproveInstall` bắt đầu bằng chữ thường nên `BackupSettingsArchiver` tự sao lưu.
+- **Ba chú thích khẳng định "phải bấm trên thiết bị" đã sửa** ở `ExtensionDebugCommandRouter`, `ExtensionDebugCommandRouter+Draft` và header của chính gate. Chú thích nói sai về một chốt an toàn là loại nợ tệ nhất trong phân hệ này.
+- **Kèm theo, đo trên máy hai thứ của 1.3.348** (không cần bấm gì): `extensions.list` trả `executableScripts` cho **26/26** extension, và `ttkan.co` khai 6 script trong `plugin.json` nhưng có **10** file chạy được — `comment.js`, `gen.js`, `gen2.js`, `recommend.js` trước đây client không liệt kê được. Chạy thử `qidian/src/chap.js` qua đường `custom`: `runStarted → fetchFailed → console → responseValidated → runFinished`. Chốt an toàn của rollback cũng đúng: `draft.rollback` trên `qidian` (extension người dùng tự cài) trả `DRAFT_MISSING` với câu "…không do debug cài mới trong phiên hiện tại".
+- Gate: `check_architecture.py` giữ đúng **7 violation** cũ, tập y hệt; `ExtensionDebugInstallGate` 134 → **157**/400, `ExtensionDebugServerView` 152 → **166**/400. `validate_links.py` PASS. **Chưa biên dịch** (host Windows); không thêm file Swift nên không cần `xcodegen generate`. **Chưa kiểm chạy**: máy đang ở 1.3.348 nên `draft.install`/`draft.rollback` vẫn đòi bấm; cài IPA mới thì cả chuỗi cài mới → rollback chạy được không cần tay, và đó cũng là lúc kiểm luôn bản sửa rollback của 1.3.348 (hiện vẫn chưa được đo).
+
 ## [1.3.348] - 2026-09-05
 
 ### Rollback tháo được bản debug cài mới, Entrypoint quét theo hàm execute
@@ -474,19 +488,3 @@ Xoá **3** file, thêm **2** file (461 → **460**), sửa **5** file.
 - **Xoá `TTSIPAProbeSection`** cùng hai file engine chỉ nó dùng (`ONNXPiperEngine+Phonemes`, `PiperPhonemeInventory`). Khảo sát cho thấy nó **vẫn truy cập được trong bản release** bằng 3 lần chạm, không có cờ DEBUG — nhưng nó là dụng cụ đo một lần cho thí nghiệm E1, kết quả đã ghi trong CHANGELOG và lấy lại được từ git history nếu làm E1 vòng 2. Màn "Thử phiên âm" **vẫn còn**.
 - **Widget trình duyệt thu nhỏ** cao **38** = 2/3 chiều cao widget nghe truyện (56), `minWidth` 74, icon `safari`, cỡ chữ 14/12.
 - Chưa build được (máy Windows). `check_architecture.py` giữ **14** violation nền; `TTSDictionaryEditView.swift` **giảm** 705 → 702 dòng dù thêm badge.
-
-## [1.3.316] - 2026-09-02
-
-### Tối ưu NghiTTS và tiền xử lý text; chia sẻ cả bộ rule riêng; widget trình duyệt; ẩn nút tải từ điển
-
-Sửa **9** file Swift (vẫn **461**). Bốn khảo sát chạy bằng subagent song song; mỗi phát hiện đều được kiểm chứng lại trong code trước khi sửa.
-
-- **Cổng chặn theo chữ số ở tiền xử lý TTS.** ~24 lượt quét toàn văn bản (`formatNumbers`, ngày, giờ, tiền, phần trăm, điện thoại, thập phân, `processDigits`) đều **bắt buộc** có `\d` mới khớp được gì, nhưng vẫn chạy đủ trên đoạn văn xuôi không có chữ số nào. Hai bước cố ý **nằm ngoài** cổng: `processRomanNumerals` làm việc trên chữ — và vì nó *sinh ra* chữ số (`III` → `3`) nên cờ được tính lại ngay sau nó; `processUnits` có nhánh đọc số viết bằng chữ ("hai mươi km").
-- **`replaceMatches` cộng dồn một chiều vào một buffer** thay vì `replacingCharacters` cho từng match (mỗi lần copy lại cả chuỗi ⇒ O(M×N)). Đây là đường chung của hơn 30 điểm gọi nên chi phí nhân theo cả pipeline.
-- **`NghiAudioPlayerQueue.updateRate` có cửa no-op.** Kéo slider tốc độ bắn nhiều event cùng giá trị sau clamp; trước đây mỗi event đều `stop()` + `prepareToPlay()` + schedule lại `nextPlayer` **giữa lúc đang phát** — đúng loại việc gây giật ở biên đoạn.
-- **Payload im lặng được cache** theo `(sampleRate, số sample)`, tối đa 12 entry. Mọi sample đều là 0 nên `[Float]` và WAV là hằng; trước đây mỗi khoảng nghỉ đều cấp phát lại và encode WAV lại, một chương dài có hàng nghìn khoảng nghỉ. Cache chính xác tuyệt đối, không đổi hành vi.
-- **Log trên đường bàn giao đoạn được bọc `isLoggingEnabled`** (hàm bị gọi lại mỗi lần `prepareNext`/`resume`/`updateRate`, mà log mặc định đang tắt), và **xoá biến chết `nextData`** — nó giữ sống toàn bộ buffer WAV của đoạn kế tiếp mà không ai đọc.
-- **Chia sẻ cả bộ rule riêng có điểm vào ngang hàng với Xuất/Xoá**: nút trong menu `ellipsis.circle`. Trước đó chức năng đã tồn tại nhưng chỉ nằm trong menu của **từng hàng** rule nên gần như không tìm ra được, và mất hẳn khi bộ riêng chưa có rule nào. Mục cũ được giữ nhưng đổi nhãn cho rõ là **cả bộ**, kèm sửa `accessibilityLabel` vốn không hề nhắc tới nó.
-- **Widget trình duyệt thu nhỏ** cao 36 → **56** cho khớp widget nghe truyện, `minWidth` 90 → 110, icon `globe` → **`safari`**.
-- **Ẩn nút tải từ điển mặc định khi đã có VietPhrase.** Trước đây nút luôn hiện và chỉ đổi nhãn thành "Tải lại"; việc nạp lại đã có nút "Làm mới dữ liệu dịch" ngay dưới lo.
-- Chưa build được (máy Windows). `check_architecture.py` giữ **14** violation nền — `TextPreprocessor.swift` giữ đúng 1 121 dòng (bằng baseline) sau khi dọn các dòng log đã comment trong hàm pipeline.

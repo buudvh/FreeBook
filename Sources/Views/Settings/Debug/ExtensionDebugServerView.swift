@@ -8,10 +8,15 @@ import SwiftUI
 ///
 /// Công tắc là `@AppStorage` nên **rời màn hình này không tắt server**, và app mở lại sẽ tự bật lại
 /// (xem `MainTabView`).
+///
+/// Từ 1.3.349 có thêm công tắc "Không cần bấm xác nhận", **mặc định bật**: `draft.install` và
+/// `draft.rollback` chạy luôn. Khi nó bật thì `installSection` không bao giờ xuất hiện, vì
+/// `ExtensionDebugInstallGate` trả `.approved` mà không đặt `pending`.
 struct ExtensionDebugServerView: View {
     @Environment(\.modelContext) private var modelContext
     @StateObject private var reader = ExtensionDebugServerReader()
     @AppStorage(ExtensionDebugServerLauncher.enabledKey) private var isServerEnabled = false
+    @AppStorage(ExtensionDebugInstallGate.autoApproveDefaultsKey) private var autoApproveInstall = true
     @State private var isBusy = false
 
     var body: some View {
@@ -76,6 +81,14 @@ struct ExtensionDebugServerView: View {
             Text("Server")
         } footer: {
             Text("Máy tính cùng Wi-Fi nối thẳng vào địa chỉ trên — không cần ghép nối. Cổng được ghi nhớ nên lần sau mở lại đúng địa chỉ này nếu cổng còn rảnh. Rời màn hình này không tắt server; nhưng khi iOS treo app ở nền thì server ngừng nhận tới lúc bạn mở lại app.")
+        }
+
+        Section {
+            Toggle("Không cần bấm xác nhận", isOn: $autoApproveInstall)
+        } header: {
+            Text("Cài từ debug")
+        } footer: {
+            Text("Bật (mặc định): `draft.install` và `draft.rollback` chạy ngay, không hỏi gì — tiện khi sửa extension liên tục. Nhớ rằng server **không có ghép nối**, nên trong lúc nó bật, máy nào tới được địa chỉ trên cũng ghi được extension vào thư viện. Tắt công tắc này để mỗi lần cài lại phải bấm và thấy trước danh sách file sẽ đổi. Dù bật hay tắt, mọi lần cài đều được ghi vào app_logs.txt.")
         }
     }
 
