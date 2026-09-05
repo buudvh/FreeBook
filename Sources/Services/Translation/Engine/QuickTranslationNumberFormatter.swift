@@ -60,13 +60,29 @@ public enum QuickTranslationNumberFormatter {
         }
     }
 
-    /// `<m>`: một ký tự bậc → giá trị của nó. Ký tự lạ trả nguyên văn (không bao giờ xảy ra vì matcher
+    /// Đơn vị tiếng Việt của từng ký tự bậc — nguồn **duy nhất** cho `<m>`.
+    ///
+    /// Cố ý **không** dùng lại `smallMagnitudes`/`largeMagnitudes`: hai bảng đó là **giá trị số** dùng
+    /// để tính `<n>`, còn `<m>` trả **chữ đơn vị** để rule đọc thành câu Việt — `几<m>年 = mấy {0} năm`
+    /// phải ra "mấy mươi năm", không phải "mấy 10 năm". Trộn hai mục đích vào một bảng là mở đường cho
+    /// một chỗ sửa làm sai chỗ kia.
+    ///
+    /// `兆` đọc theo Hán-Việt là "triệu" dù giá trị số của nó là 10¹² — giữ theo lối đọc quen của bản
+    /// dịch truyện, không theo giá trị. Cần con số thì dùng `<n>`.
+    private static let magnitudeWords: [Character: String] = [
+        "十": "mươi",
+        "百": "trăm",
+        "千": "nghìn",
+        "万": "vạn", "萬": "vạn",
+        "亿": "ức", "億": "ức",
+        "兆": "triệu"
+    ]
+
+    /// `<m>`: một ký tự bậc → **chữ đơn vị** tiếng Việt. Ký tự lạ trả nguyên văn (không xảy ra vì matcher
     /// đã chốt theo `magnitudeUnits`, nhưng không được nuốt chữ nếu bảng và tập ký tự lệch nhau).
     public static func renderMagnitude(_ value: String) -> String {
         guard value.count == 1, let char = value.first else { return value }
-        if let small = smallMagnitudes[char] { return String(small) }
-        if let large = largeMagnitudes[char] { return String(large) }
-        return value
+        return magnitudeWords[char] ?? value
     }
 
     /// `<a>`: giữ đúng hoa/thường của bản gốc — `SSS级` phải ra `SSS`, không phải `sss`. Chỉ hạ full-width

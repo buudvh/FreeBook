@@ -119,7 +119,7 @@ struct QuickTranslationRuleTokenPaletteView: View {
         case .vietPhrase: return "VietPhrase"
         case .hanViet: return "một chữ HV"
         case .word: return "cụm từ điển"
-        case .magnitude: return "bậc 10/100…"
+        case .magnitude: return "mươi/trăm/vạn"
         case .latinLetters: return "chữ A-Z"
         }
     }

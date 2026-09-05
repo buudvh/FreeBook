@@ -58,7 +58,7 @@ public enum QuickTranslationRuleTokenSettings {
             case .vietPhrase: return "<vp> — VietPhrase"
             case .hanViet: return "<hv> — một chữ Hán-Việt"
             case .word: return "<w> — cụm từ điển"
-            case .magnitude: return "<m> — bậc số Hán (十 → 10, 百 → 100)"
+            case .magnitude: return "<m> — đơn vị bậc (十 → mươi, 百 → trăm)"
             case .latinLetters: return "<a> — chữ cái A-Z"
             }
         }

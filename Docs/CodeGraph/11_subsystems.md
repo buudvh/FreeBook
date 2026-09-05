@@ -15,6 +15,11 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## `<m>` là token **đơn vị**, không phải token số (1.3.342)
+
+* **Vai trò của `<m>` trong phân hệ rule chốt lại**: nó trả **chữ đơn vị** (`mươi`, `trăm`, `nghìn`, `vạn`, `ức`, `triệu`), còn phần trả **giá trị số** là việc của `<n>`. Hai token đứng cùng nhóm "lớp ký tự" nhưng khác mục đích, và mỗi cái có bảng render riêng — `magnitudeWords` cho chữ, `smallMagnitudes`/`largeMagnitudes` cho số.
+* **Nhãn token đổi ở cả ba màn** (công tắc chung, công tắc riêng theo truyện, dải nút chèn) vì cả ba đọc chung `Kind.label` từ 1.3.341 — sửa một chỗ là đủ.
+
 ## DSL rule lên 12 token; ba màn cấu hình tự có token mới (1.3.341)
 
 * **Phân hệ rule dịch thêm `<m>` (bậc Hán → số) và `<a>` (chữ A-Z, nguyên văn).** Cả hai là `NumeralKind` mới nên dùng lại toàn bộ bộ máy char-class — chỉ thêm hai lớp ký tự, hai hàm render và hai case ở parser.

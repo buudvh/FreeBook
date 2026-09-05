@@ -31,7 +31,7 @@ struct QuickTranslationRuleTokenSettingsView: View {
             } header: {
                 Text("Token lớp ký tự và nhãn")
             } footer: {
-                Text("<m> khớp đúng một ký tự bậc Hán và trả về số: 十 → 10, 百 → 100, 千 → 1000. Viết 几<m>年 = mấy {0} năm là một rule phủ cả mấy mươi / mấy trăm / mấy nghìn năm.\n\n<a> khớp chuỗi chữ cái A-Z và trả nguyên văn, giữ đúng hoa/thường: <a>级 = cấp {0} phủ A级, BB级, SSS级.")
+                Text("<m> khớp đúng một ký tự bậc Hán và trả về CHỮ ĐƠN VỊ tiếng Việt: 十 → mươi, 百 → trăm, 千 → nghìn, 万 → vạn, 亿 → ức, 兆 → triệu. Viết 几<m>年 = mấy {0} năm là một rule phủ cả mấy mươi / mấy trăm / mấy nghìn năm. Cần con số thì dùng <n>, nó đọc 十 thành 10.\n\n<a> khớp chuỗi chữ cái A-Z và trả nguyên văn, giữ đúng hoa/thường: <a>级 = cấp {0} phủ A级, BB级, SSS级.")
             }
 
             Section {

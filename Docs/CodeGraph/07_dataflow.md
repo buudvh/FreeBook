@@ -15,9 +15,16 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## `<m>` trả chữ đơn vị, không phải số (1.3.342)
+
+* **`renderMagnitude` đổi đầu ra**: `十` → `mươi`, `百` → `trăm`, `千` → `nghìn`, `万/萬` → `vạn`, `亿/億` → `ức`, `兆` → `triệu`. Bản 1.3.341 trả **giá trị số** (`10`, `100`, …) — sai mục đích của token: `几<m>年 = mấy {0} năm` phải đọc thành "mấy mươi năm", không phải "mấy 10 năm".
+* **Bảng chữ đơn vị là bảng riêng (`magnitudeWords`)**, cố ý **không** dùng lại `smallMagnitudes`/`largeMagnitudes`. Hai bảng kia là **giá trị số** để `<n>` tính toán; trộn hai mục đích vào một bảng là mở đường cho một lần sửa làm sai chỗ kia. Cần con số thì vẫn dùng `<n>` — nó đọc `十` thành `10`.
+* **`兆` đọc "triệu" theo Hán-Việt dù giá trị số là 10¹²** — theo lối đọc quen của bản dịch truyện, không theo giá trị. Ghi ra vì đây là chỗ dễ bị coi là bug.
+* Lớp ký tự `magnitudeUnits`, boundary guard, và việc parser ép `<m>` về đúng 1 ký tự **không đổi**.
+
 ## Hai token lớp ký tự mới: `<m>` bậc Hán và `<a>` chữ A-Z (1.3.341)
 
-* **`<m>` khớp đúng một ký tự bậc Hán** `十百千万萬亿億兆` và render ra số: `十` → `10`, `百` → `100`, `千` → `1000`, `万/萬` → `10000`, `亿/億` → `100000000`, `兆` → `1000000000000`. Parser **ép về đúng 1 ký tự** bất kể `:min-max`, giống `<L>`/`<hv>`: nối hai ký tự bậc không thành một bậc mới, nên thanh chỉnh độ dài bị ẩn cho token này. Mục đích là một rule phủ mọi bậc — `几<m>年 = mấy {0} năm` thay cho nhóm `(十|百|千)` viết tay.
+* **`<m>` khớp đúng một ký tự bậc Hán** `十百千万萬亿億兆`. Bản này render ra **số**; 1.3.342 đổi sang **chữ đơn vị** — xem mục trên. Parser **ép về đúng 1 ký tự** bất kể `:min-max`, giống `<L>`/`<hv>`: nối hai ký tự bậc không thành một bậc mới, nên thanh chỉnh độ dài bị ẩn cho token này. Mục đích là một rule phủ mọi bậc — `几<m>年 = mấy {0} năm` thay cho nhóm `(十|百|千)` viết tay.
 * **`<a>` khớp một dải chữ cái Latin** `A-Z`/`a-z` **kể cả full-width** `Ａ-Ｚ`/`ａ-ｚ`, trả **nguyên văn** và chỉ hạ full-width về ASCII (cùng chính sách `<d>`). Giữ đúng hoa/thường: `SSS级` ra `SSS`, không phải `sss`. `<a>` **có** range vì cấp bậc dài nhiều ký tự — `<a>级 = cấp {0}` phủ `A级`, `BB级`, `SSS级`.
 * **Cả hai đi qua đúng bộ máy char-class đang có**, không thêm nhánh nào ở matcher ngoài hai case render: chúng là phần tử `Kind.numeral` với `NumeralKind` mới, nên boundary guard hai đầu, thử độ dài dài → ngắn, `literalLength`, `wildcardCapacity`, `minimumWidth`/`maximumWidth` đều dùng lại nguyên vẹn.
 * **Boundary guard làm việc theo lớp ký tự của chính token**: `<a>` chặn ăn một phần của dải chữ dài hơn (start 1 của `SSS级` bị loại vì ký tự liền trước cũng là chữ cái), `<m>` chặn theo dải ký tự bậc.

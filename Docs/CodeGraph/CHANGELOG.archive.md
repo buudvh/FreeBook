@@ -2,6 +2,21 @@
 
 Lịch sử thay đổi cũ (version ≤ 1.3.300) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.304] - 2026-09-01
+
+### Debug server: Bonjour thành tuỳ chọn, kết nối thẳng ws://ip:port như một server API thường
+
+Sửa **3** file Swift, **1** README.
+
+- **Bật server báo `NWError -65555 (NoAuth)` rồi chết**: `NWListener.service` đòi Info.plist/entitlement được hệ thống cấp cho *chính bundle đang chạy*, mà app chạy qua LiveContainer nên đăng ký mDNS bị từ chối. Vì service gắn vào listener, thất bại đó kéo cả listener sang `.failed` — **server chết dù cổng TCP đã mở xong** (đúng như ảnh: có cổng 53351 nhưng trạng thái Lỗi).
+- **Bonjour hạ xuống tuỳ chọn, mặc định tắt** (`@AppStorage("extDebugAdvertiseBonjour")`). Đường kết nối chính là `ws://<ip>:<port>`: máy tính cùng Wi-Fi nối thẳng vào, không cần mDNS.
+- **Thất bại Bonjour không còn là lỗi chí mạng**: `handleListenerState` bắt `.failed` khi đang quảng bá rồi **dựng lại listener không Bonjour**, giữ nguyên token đang hiện trên QR, và báo bằng `bonjourNote` (ghi chú) thay vì `failureMessage`. `didFallbackFromBonjour` chặn vòng lặp — fallback đúng một lần.
+- **UI hiện địa chỉ kết nối** (`ExtensionDebugServerStatus.websocketEndpoint`) kèm nút sao chép; hàng Bonjour chỉ hiện khi listener **thật sự** đang quảng bá.
+
+Giao thức, pairing và cửa xác nhận **không đổi**: vẫn WebSocket `freebook-extdebug.v1`, token một lần + phải bấm đồng ý trên thiết bị. Bỏ Bonjour chỉ bỏ bước *tìm thấy nhau*, không bỏ bước *được phép*.
+
+`check_architecture.py` giữ **14** violation nền, không violation mới. CodeGraph: cập nhật `11`, `13`; `07` ghi nhận `--no-change-needed`. Chưa biên dịch tại chỗ (Windows) — dựa vào CI.
+
 ## [1.3.303] - 2026-09-01
 
 ### Debug extension Phase 2–4: server LAN có pairing, snapshot nháp, cài + rollback, và client VS Code

@@ -4,6 +4,18 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.300) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.342] - 2026-09-05
+
+### Token bậc trả chữ đơn vị mươi/trăm/vạn thay vì số
+
+Sửa **6** file Swift.
+
+- **`<m>` trả chữ đơn vị tiếng Việt, không phải giá trị số**: `十` → `mươi`, `百` → `trăm`, `千` → `nghìn`, `万/萬` → `vạn`, `亿/億` → `ức`, `兆` → `triệu`. Bản 1.3.341 trả `10`/`100`/`1000` — sai mục đích của token: `几<m>年 = mấy {0} năm` phải đọc thành "mấy mươi năm", không phải "mấy 10 năm".
+- **Bảng chữ đơn vị là bảng riêng `magnitudeWords`**, cố ý **không** dùng lại `smallMagnitudes`/`largeMagnitudes`: hai bảng kia là **giá trị số** để `<n>` tính toán, trộn hai mục đích vào một bảng là mở đường cho một lần sửa làm sai chỗ kia. Cần con số thì vẫn dùng `<n>`, nó đọc `十` thành `10`.
+- **`兆` đọc "triệu" theo Hán-Việt dù giá trị số của nó là 10¹²** — theo lối đọc quen của bản dịch truyện, không theo giá trị. Ghi rõ ở doc của bảng vì đây là chỗ dễ bị coi là bug.
+- Lớp ký tự `magnitudeUnits`, boundary guard, và việc parser ép `<m>` về đúng 1 ký tự **không đổi**. Nhãn token, chú thích ở màn công tắc chung và chú thích ở màn thêm/sửa rule đều cập nhật theo.
+- Gate: `check_architecture.py` giữ đúng **7 violation** cũ, tập y hệt. `validate_links.py` PASS. **Chưa biên dịch** — host là Windows; không thêm file Swift nên không cần `xcodegen generate`.
+
 ## [1.3.341] - 2026-09-05
 
 ### Thêm token bậc số Hán và token chữ A-Z cho rule dịch
@@ -484,18 +496,3 @@ Sửa **3** file Swift trong `Sources/Services/TTS/Preprocessing/`, không thêm
 Nhân tiện sửa bốn chỗ doc đã trôi so với code: `04` ghi `ー → nhân đôi nguyên âm` (sai từ 1.3.291) và ngưỡng phân loại `≥ 2` (thật là 4), `10` cũng ghi `japaneseThreshold = 2`, và `00`/`04`/`10` đều lấy "street" → `xơ-tơ-rít` làm ví dụ — sai ngay từ 1.3.291 vì `legalDoubleOnsets` vốn đã giữ `tr` liền.
 
 CodeGraph: cập nhật `00`, `04`, `10`, `14`; `11`, `13`, `rules` ghi nhận `--no-change-needed`. Validator **chưa PASS** vì `01`, `02`, `06`, `07`, `08`, `09` còn stale do phần debug server chưa commit trong cây (`ExtensionDebugServerLauncher.swift` chưa được tài liệu nào nhắc; `02`/`09` còn link tới `ExtensionDebugPairingAuthority.swift` và `ExtensionDebugPairingQRView.swift` đã xoá) — không thuộc lượt này.
-
-## [1.3.304] - 2026-09-01
-
-### Debug server: Bonjour thành tuỳ chọn, kết nối thẳng ws://ip:port như một server API thường
-
-Sửa **3** file Swift, **1** README.
-
-- **Bật server báo `NWError -65555 (NoAuth)` rồi chết**: `NWListener.service` đòi Info.plist/entitlement được hệ thống cấp cho *chính bundle đang chạy*, mà app chạy qua LiveContainer nên đăng ký mDNS bị từ chối. Vì service gắn vào listener, thất bại đó kéo cả listener sang `.failed` — **server chết dù cổng TCP đã mở xong** (đúng như ảnh: có cổng 53351 nhưng trạng thái Lỗi).
-- **Bonjour hạ xuống tuỳ chọn, mặc định tắt** (`@AppStorage("extDebugAdvertiseBonjour")`). Đường kết nối chính là `ws://<ip>:<port>`: máy tính cùng Wi-Fi nối thẳng vào, không cần mDNS.
-- **Thất bại Bonjour không còn là lỗi chí mạng**: `handleListenerState` bắt `.failed` khi đang quảng bá rồi **dựng lại listener không Bonjour**, giữ nguyên token đang hiện trên QR, và báo bằng `bonjourNote` (ghi chú) thay vì `failureMessage`. `didFallbackFromBonjour` chặn vòng lặp — fallback đúng một lần.
-- **UI hiện địa chỉ kết nối** (`ExtensionDebugServerStatus.websocketEndpoint`) kèm nút sao chép; hàng Bonjour chỉ hiện khi listener **thật sự** đang quảng bá.
-
-Giao thức, pairing và cửa xác nhận **không đổi**: vẫn WebSocket `freebook-extdebug.v1`, token một lần + phải bấm đồng ý trên thiết bị. Bỏ Bonjour chỉ bỏ bước *tìm thấy nhau*, không bỏ bước *được phép*.
-
-`check_architecture.py` giữ **14** violation nền, không violation mới. CodeGraph: cập nhật `11`, `13`; `07` ghi nhận `--no-change-needed`. Chưa biên dịch tại chỗ (Windows) — dựa vào CI.
