@@ -4,6 +4,22 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.300) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.345] - 2026-09-05
+
+### Payload sai shape thôi làm client debug treo tới hết timeout
+
+Sửa **2** file Swift.
+
+Vòng đo thứ hai trên máy iOS, lần này chạy trên bản đã cài 1.3.344.
+
+- **Xác nhận cả ba bản sửa 1.3.344 chạy đúng**: `run.get` và `run.cancel` với `runId` không tồn tại nay trả `UNKNOWN_RUN`, còn một run thật vẫn trả reply bình thường (5 event, không bị `UNKNOWN_RUN` oan).
+- **Envelope đúng header nhưng `payload` sai shape làm client treo tới hết timeout.** `handle(_:)` chỉ có **một** nhánh cho mọi lỗi decode và luôn trả `requestId: "-"`, nên client không ghép lỗi vào request nào được và cứ chờ. Đo được: `draft.stage` với `manifest` thiếu field ⇒ **không nhận reply nào trong 20 giây**, và trên dây chỉ có một envelope `requestId: "-"` trôi nổi. Đây là ca **hay gặp nhất** khi đang viết client — không phải JSON rác.
+- **Nay vớt `requestId` bằng một lượt decode tối thiểu** (`EnvelopeHeader`, chỉ `requestId` + `type`) trước khi báo lỗi, và câu lỗi gọi tên đúng lệnh có payload sai. JSON rác thật thì vẫn `"-"`, và đường đó đã được client 1.3.344 hiện thành event nên không còn im lặng.
+- **Câu lỗi của `draft.discard`/`draft.install` gọi sai tên field**: nói "Thiếu packageId hoặc revision" trong khi field trên dây là `sourceRevision` — người viết client đọc câu đó sẽ sửa sai chỗ (chính tôi đã bị). Đổi cho khớp giao thức. Client VSCode vốn gửi đúng `sourceRevision` nên đường thật không hỏng.
+- **Luồng staging `draft.*` đo lần đầu, không có lỗi**: chặn đúng path không khai trong manifest, `../../evil.js`, size/sha lệch, và `draft.finish` bắt đúng `plugin.json` thiếu mục `script`.
+- **Luật rút ra cho các lệnh thêm sau**: mọi đường trả lỗi phải giữ `requestId` của client nếu message có nó; `requestId: "-"` chỉ dành cho message không đọc nổi header.
+- Gate: `check_architecture.py` giữ đúng **7 violation** cũ, tập y hệt; `ExtensionDebugCommandRouter` 334 → **357**/400, `ExtensionDebugCommandRouter+Draft` giữ **297**/400. `validate_links.py` PASS. **Chưa biên dịch** — host là Windows. Bản sửa lượt này lại **chưa được kiểm chạy** vì máy đang chạy 1.3.344; phải cài IPA mới rồi đo lại đúng ca `draft.stage` với manifest sai field.
+
 ## [1.3.344] - 2026-09-05
 
 ### Debug server nói ra lý do ở ba ca đang im lặng
@@ -463,16 +479,3 @@ Thêm **2** file Swift (459 → **461**), sửa **7** file. Số phiên bản nh
 - **Hai rule dịch khớp liền kề không còn dính chữ.** `十年第一魂技` ra `10 nămHồn kỹ thứ 1` vì `assemble` nối hai bản dịch khi không còn ký tự gốc nào ở giữa, và tokenizer VietPhrase coi cả cụm Latin là **một** token nên chỗ dính sống tới output cuối. Chèn một khoảng trắng khi hai đầu đều là chữ/số, và tính nó vào `outputRange` của đoạn hiện tại để mảng segment vẫn phủ liền mạch — span dịch được dựng từ đó.
 - **Tiện ích import từ zip mất file thì xoá hẳn khỏi DB.** Trước đây gỡ tiện ích chỉ xoá `localPath` và giữ hàng để tải lại; đúng cho tiện ích của kho nhưng tiện ích import zip không thuộc kho nào và không có `downloadUrl`, nên hàng còn lại chỉ hiện một nút Tải về **báo lỗi**. `ExtensionInstallAudit` (file mới) đối chiếu DB với đĩa (`plugin.json` còn hay không) rồi: mất file + không có nguồn tải lại → xoá hàng; mất file nhưng thuộc kho → chỉ xoá `localPath`. Chạy lúc mở màn hình quản lý, trước khi làm mới kho; xoá thẳng và ghi `AppLogger`, không hỏi xác nhận. Gỡ tiện ích import zip cũng xoá hàng luôn thay vì để lại.
 - Chưa build được (máy Windows). `check_architecture.py` giữ **14** violation nền, không thêm cái nào — `TextPreprocessor.swift` giữ đúng 1 121 dòng (bằng baseline) bằng cách bỏ một dòng log đã comment, `TranslateUtils.swift` giữ đúng 1 023 dòng như trước lượt sửa.
-
-## [1.3.307] - 2026-09-01
-
-### Khám Phá giữ vị trí cuộn từng tab; khoảng độ dài token có thêm thanh kéo
-
-Thêm **1** file Swift (458 → **459**), sửa **2** file.
-
-- **Đổi tab ở Khám Phá rồi về tab cũ không còn nhảy về đầu.** Nguyên nhân không phải mất dữ liệu: `TabView(.page)` do `UIPageViewController` dựng nên trang rời vùng lân cận bị dỡ, và cửa sổ ±3 tab của `DiscoveryView` còn xoá hẳn tab xa hơn — cả hai đều làm `List` mất offset dù `PaginatedNovelLoader` vẫn còn dữ liệu. `DiscoveryScrollAnchorStore` (mới) ghi nhớ **`link` của truyện đang ở trên cùng** của từng tab; tab chốt neo lúc rời (`onDisappear` + `onChange(of: selectedCategoryId)`) và `scrollTo(anchor: .top)` lúc quay lại. Neo **không** dùng `CGFloat` offset (chiều cao hàng phụ thuộc bìa/tên nên offset không tái lập được sau một lượt dựng lại) và **không** dùng `ExtensionItemResult.id` — id đó là `UUID()` mới mỗi lần bóc tách, nên với tab xa (> ±3, loader bị xoá và dữ liệu nạp lại) neo theo id sẽ không bao giờ khớp. `link` là định danh nội dung nên khôi phục được cả trong ca đó.
-  - Chi phí được giữ ở mức thấp có chủ ý: từng hàng chỉ ghi `setVisible` vào một `Set` trong một `class` giữ ở `@State` (không `@Published`, đúng khuôn `ParagraphTracker`), nên cuộn **không** invalidate body; phép quét tìm hàng trên cùng chỉ chạy một lần mỗi lượt đổi tab.
-  - Khôi phục có hai nhịp vì dữ liệu có thể chưa nạp xong lúc tab xuất hiện: lúc `onAppear` (trễ 0.2 s cho `List` dựng xong) và lúc `novels.count` từ 0 lên. `pendingRestoreAnchor` bị xoá ngay sau lượt áp nên `loadMore` sau đó không kéo người dùng về chỗ cũ. Neo bị xoá sạch ở `loadDiscoveryData()`.
-- **Khoảng độ dài token ở màn thêm/sửa rule có thêm thanh kéo**, mỗi đầu một hàng `[−] thanh-kéo giá trị [+]`. Hai nút `+/−` **giữ nguyên** ở hai bên theo yêu cầu; `stepper` (VStack, hai cột cạnh nhau) đổi thành `lengthRow` (HStack full-width) vì thanh kéo cần chiều rộng. Thanh kéo và hai nút đi qua **cùng một** `adjust`, nên `TokenSpec.clamp()` vẫn là chỗ duy nhất quyết định vùng hợp lệ — kéo `Tối đa` xuống dưới `Tối thiểu` thì nó dừng ở `Tối thiểu`, không tạo ra khoảng ngược.
-
-`check_architecture.py` giữ **14** violation nền, không violation mới. CodeGraph: cập nhật `00`, `02`, `09`, `11`, `12`, `14`. Chưa biên dịch tại chỗ (Windows) — và hành vi cuộn phải thử tay trên máy thật vì nó phụ thuộc lúc nào `UIPageViewController` dỡ trang.

@@ -93,7 +93,7 @@ extension ExtensionDebugCommandRouter {
     private func handleDraftDiscard(_ envelope: ExtensionDebugProtocol.Envelope) async {
         guard let packageId = envelope.payload?.packageId,
               let revision = envelope.payload?.sourceRevision else {
-            replyError(to: envelope, code: .malformedMessage, message: "Thiếu packageId hoặc revision")
+            replyError(to: envelope, code: .malformedMessage, message: "Thiếu packageId hoặc sourceRevision")
             return
         }
         await ExtensionDraftStagingStore.shared.discard(packageId: packageId, revision: revision)
@@ -105,7 +105,7 @@ extension ExtensionDebugCommandRouter {
     private func handleDraftInstall(_ envelope: ExtensionDebugProtocol.Envelope) async {
         guard let packageId = envelope.payload?.packageId,
               let revision = envelope.payload?.sourceRevision else {
-            replyError(to: envelope, code: .malformedMessage, message: "Thiếu packageId hoặc revision")
+            replyError(to: envelope, code: .malformedMessage, message: "Thiếu packageId hoặc sourceRevision")
             return
         }
         guard await ExtensionDraftStagingStore.shared.hasDraft(packageId: packageId, revision: revision),

@@ -15,6 +15,14 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Payload sai shape thôi làm client treo; xác nhận 3 bản sửa 1.3.344 (1.3.345)
+
+* **Ba bản sửa của 1.3.344 đã đo lại trên máy iOS và đúng**: `run.get`/`run.cancel` với `runId` không tồn tại trả `UNKNOWN_RUN`, còn run thật vẫn trả reply bình thường (không bị `UNKNOWN_RUN` oan).
+* **Envelope đúng header nhưng `payload` sai shape làm client treo tới hết timeout.** `handle(_:)` chỉ có một nhánh cho mọi lỗi decode và luôn trả `requestId: "-"`, nên client không ghép lỗi vào request nào được và cứ chờ. Đo được: `draft.stage` với `manifest` thiếu field ⇒ **không nhận reply nào trong 20 giây**. Đây là ca **hay gặp nhất** khi đang viết client, không phải JSON rác.
+* **Nay vớt `requestId` bằng một lượt decode tối thiểu** (`EnvelopeHeader`: chỉ `requestId` + `type`) trước khi báo lỗi, và câu lỗi gọi tên đúng lệnh bị sai payload. JSON rác thật thì vẫn `"-"` — và đường đó đã được client 1.3.344 hiện ra thành event, không còn im lặng.
+* **Câu lỗi của `draft.discard`/`draft.install` gọi sai tên field**: nó nói "Thiếu packageId hoặc revision" trong khi field trên dây là `sourceRevision`. Người viết client đọc câu đó sẽ sửa sai chỗ. Đã đổi cho khớp giao thức.
+* **Luồng staging `draft.*` đo xong, không có lỗi**: path không khai trong manifest bị chặn, `../..` bị chặn, size/sha lệch bị chặn, và `draft.finish` bắt đúng `plugin.json` thiếu mục `script`.
+
 ## Debug server: ba ca im lặng nay nói ra lý do (1.3.344)
 
 Ba lỗi dưới đây **đo được bằng client thật** nối vào server trên máy iOS (`ws://<ip>:17772`), không phải suy từ code.

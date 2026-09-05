@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Debug extension: vòng đo thứ hai, trên bản đã sửa (1.3.345)
+
+* **Vòng đo thứ hai xác nhận cả ba bản sửa 1.3.344 chạy đúng trên máy thật**, và đi tiếp vào phần chưa từng test: toàn bộ luồng staging `draft.*`. Luồng đó **không có lỗi** — chặn đúng path không khai trong manifest, `../..`, size/sha lệch, và `draft.finish` bắt `plugin.json` thiếu mục `script`.
+* **Lỗi mới tìm được vẫn thuộc đúng lớp cũ**: "server biết mà client không dùng được". Lần này là decode lỗi luôn trả `requestId: "-"` nên client treo tới hết timeout thay vì fail ngay — mà envelope đúng header + payload sai shape là ca hay gặp nhất khi đang viết client.
+* **Luật rút ra, ghi lại cho các lệnh thêm sau**: mọi đường trả lỗi phải giữ được `requestId` của client nếu nó có trong message. `requestId: "-"` chỉ dành cho message **không đọc nổi header**, và ca đó phải có đường hiện ra ở client (đã làm ở 1.3.344).
+* **Câu lỗi phải gọi đúng tên field trên dây.** `draft.discard`/`draft.install` nói "revision" trong khi giao thức dùng `sourceRevision` — đúng loại chi tiết làm người viết client sửa sai chỗ.
+
 ## Phân hệ debug extension: sửa theo kết quả đo bằng client thật (1.3.344)
 
 * **Lần đầu phân hệ này được kiểm bằng một client thật** nối vào server trên máy iOS, không phải chỉ đọc code. 15 ca giao thức chạy qua: `hello`, `extensions.list` (25 extension), `events.subscribe`, `run.start` thật (chạy `search` của `ttkan.co`, nhận đủ chuỗi `runStarted → fetchStarted → fetchFinished → responseError → runFinished`), các ca lỗi, JSON rác, và message vượt trần. **13 pass / 2 fail** — hai fail là `run.get`/`run.cancel` với `runId` không tồn tại.

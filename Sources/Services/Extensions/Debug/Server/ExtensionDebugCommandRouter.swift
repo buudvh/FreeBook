@@ -45,11 +45,29 @@ public actor ExtensionDebugCommandRouter {
         send = nil
     }
 
+    /// Chỉ đủ để vớt `requestId` khi `Envelope` không decode được — xem `handle(_:)`.
+    private struct EnvelopeHeader: Decodable {
+        let requestId: String?
+        let type: String?
+    }
+
     /// Trả về tên client nếu message này khai báo tên (`hello`), để server hiện lên UI.
     @discardableResult
     public func handle(_ data: Data) async -> String? {
         guard let envelope = try? JSONDecoder().decode(ExtensionDebugProtocol.Envelope.self, from: data) else {
-            emit(ExtensionDebugProtocol.errorEnvelope(requestId: "-", code: .malformedMessage, message: "Không parse được message"))
+            // Ca hay gặp nhất **không** phải JSON rác mà là envelope đúng dạng với `payload` sai shape
+            // (client đang viết dở, ví dụ `manifest` thiếu field). Trước 1.3.345 chỗ này luôn trả
+            // `requestId: "-"`, nên client không ghép được lỗi vào request nào và cứ **treo tới hết
+            // timeout** — đo được: `draft.stage` với manifest sai field không nhận reply nào trong 20 s.
+            // Vớt lấy `requestId` bằng một lượt decode tối thiểu để client fail ngay và biết vì sao.
+            let header = try? JSONDecoder().decode(EnvelopeHeader.self, from: data)
+            let message = header?.type.map { "Payload của lệnh '\($0)' không đúng dạng" }
+                ?? "Không parse được message"
+            emit(ExtensionDebugProtocol.errorEnvelope(
+                requestId: header?.requestId ?? "-",
+                code: .malformedMessage,
+                message: message
+            ))
             return nil
         }
         guard envelope.version == ExtensionDebugProtocol.version else {
