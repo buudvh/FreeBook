@@ -15,6 +15,11 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Tách bộ phân giải entrypoint; vòng đo thứ tư không còn lỗi mới (1.3.347)
+
+* **Vòng đo thứ tư của debug server: 13/13 pass, không có lỗi mới.** Xác nhận `QUOTA_EXCEEDED` của 1.3.346 chạy đúng (300 file, file 2 MiB), và `size < 0` vẫn ra `DRAFT_INVALID` chứ không bị gộp vào quota. Sáu đường đo lần đầu đều đúng: `genre`/`home` chạy được, `sourceMode: "draft"` với revision lạ trả `DRAFT_MISSING`, `events.subscribe` gọi hai lần **không** nhân đôi event, hai run song song nhận hai `runId` khác nhau, `hello` gọi lại vẫn trả reply.
+* **Lỗi duy nhất tìm được là lỗi chẩn đoán**: `run.start` với `entrypoint` đúng tên nhưng **thiếu tham số** (`search` không kèm `keyword`) trả `UNKNOWN_ENTRYPOINT`, đẩy người viết client đi kiểm danh sách script trong khi lỗi nằm ở payload của họ. Nay tách thành hai ca: tên lạ ⇒ `UNKNOWN_ENTRYPOINT` kèm danh sách tên được phép; thiếu tham số ⇒ `MALFORMED_MESSAGE` gọi đúng tên field.
+* **`ExtensionDebugEntrypointResolver` là file mới** giữ toàn bộ việc phân giải đó, và router **ngắn đi** 14 dòng.
 ## Grid bộ sưu tập, tab icon, lịch sử theo ngày; và bốn chỗ đốt CPU trên đường dịch (1.3.339)
 
 * **Nguồn nóng máy khi sửa VP/rule trong Reader không phải bộ rule.** Bốn chỗ, tất cả độc lập với số rule: `postProcessText` biên dịch lại **4** `NSRegularExpression` mỗi lần gọi mà nó được gọi **cho từng token** khi dựng span (~24.000 lượt compile ICU cho một lần dựng lại chương); mỗi dòng bị `tokenize` **hai lần** (một lần dịch, một lần dựng span) và tokenize **không có cache** ở tầng nào; `TextDictionary.findAllPrefixMatches` dựng chuỗi tạm cho **mọi** độ dài từ `maxWordLength` xuống 1; và vòng dựng output của tokenizer dùng `first(where:)` bên trong `while` ⇒ O(n²).

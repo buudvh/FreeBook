@@ -15,6 +15,11 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vị trí tầng của bộ phân giải entrypoint (1.3.347)
+
+* `ExtensionDebugEntrypointResolver` nằm cùng thư mục `Debug/Server/` với router, chỉ `import Foundation`, không state, không actor — một `enum` với `static func`. Không `import SwiftUI`, không `ToastManager`.
+* Phụ thuộc một chiều: resolver biết `ExtensionDebugProtocol.Payload` và `ExtensionDebugEntrypoint`; **không** biết router, hub hay runner. Router gọi vào, không có chiều ngược.
+* `allowedNames` đặt cạnh chỗ phân giải để câu lỗi và bảng `switch` không thể lệch nhau — đây là lý do nó không nằm ở `ExtensionDebugEntrypoint`.
 ## Vị trí tầng của 7 file mới; một cạnh mới Engine → Utils (1.3.339)
 
 * **Hai file Service mới chỉ `import Foundation`**: `TranslationTextPostProcessor` (enum static thuần) và `TokenizeMemo` (final class singleton bọc `NSCache`). Không `import SwiftUI`, không `ToastManager` — `SERVICE_SWIFTUI_IMPORT` và `SERVICE_TOAST_COUPLING` giữ bằng thiết kế.

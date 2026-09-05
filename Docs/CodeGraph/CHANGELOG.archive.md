@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ (version ≤ 1.3.300) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.314] - 2026-09-02
+
+### Số Hán viết dính nhau đọc thành danh sách, gộp về một luật duy nhất
+
+Sửa **1** file Swift (vẫn **461**).
+
+- **Gộp `approximateRange` + `enumeratedDigits` thành một hàm `enumeratedNumbers`.** Trước đó dãy **hai** chữ số ra khoảng (`四五` → "4 đến 5") còn dãy **ba** chữ số trở lên ra danh sách — hai luật cho cùng một hiện tượng. Nay mọi dãy chữ số Hán trần liền nhau đều ra **danh sách ngăn bằng `, `**: `二三级` → `2, 3 cấp`, `一二三级` → `1, 2, 3 cấp`. Đổi hành vi so với 1.3.301: `四五` giờ là `4, 5` chứ không còn `4 đến 5`.
+- **Số nhiều chữ số tính đúng nhờ thay từng chữ số vào cả chuỗi** rồi đọc như một số thường, nên bậc đứng trước, đứng sau, hay cả hai phía đều ra đúng: `十三四岁` → `13, 14 tuổi`, `二三十` → `20, 30`, `三四百` → `300, 400`, `三百四五十` → `340, 350`.
+- **Số ghép thật vẫn chính xác**: `三百二十级` → `320 cấp` (không có dãy chữ số trần nào dài ≥ 2), `一百二十三` → `123`, `二零二五` → `2025` (chứa `零` nên là số đọc theo vị trí), `五三七` → `537` (không tăng liền bậc nên là mã số).
+- Chuỗi có **hai dãy rời** (`二三十四五`) vẫn đọc như một số, vì không suy được cách ghép bậc theo cụm nào — giữ nguyên hành vi cũ, có ghi trong doc comment.
+- Chưa build được (máy Windows); đã mô phỏng lại thuật toán ngoài Swift và đối chiếu 15 ca gồm mọi ca người dùng nêu. `check_architecture.py` giữ **14** violation nền.
+
 ## [1.3.313] - 2026-09-02
 
 ### Năm lỗi đọc/dịch/TTS: viết hoa sau gạch nối, số Hán liền nhau, số thứ tự, dính chữ giữa hai rule, ext mồ côi

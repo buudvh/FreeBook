@@ -133,8 +133,26 @@ public actor ExtensionDebugCommandRouter {
             emit(ExtensionDebugProtocol.errorEnvelope(requestId: envelope.requestId, code: .malformedMessage, message: "Thiếu packageId"))
             return
         }
-        guard let entrypoint = Self.entrypoint(from: envelope.payload) else {
-            emit(ExtensionDebugProtocol.errorEnvelope(requestId: envelope.requestId, code: .unknownEntrypoint, message: "Entrypoint không hợp lệ"))
+        // Ba ca tách rõ: tên lạ, thiếu tham số, và hợp lệ. Gộp hai ca đầu thành `UNKNOWN_ENTRYPOINT`
+        // như trước 1.3.347 đẩy người viết client đi kiểm danh sách script trong khi lỗi ở payload —
+        // đo được: `entrypoint: "search"` không kèm `keyword` báo `UNKNOWN_ENTRYPOINT`.
+        let entrypoint: ExtensionDebugEntrypoint
+        switch ExtensionDebugEntrypointResolver.resolve(from: envelope.payload) {
+        case .resolved(let resolved):
+            entrypoint = resolved
+        case .unknownName(let name):
+            emit(ExtensionDebugProtocol.errorEnvelope(
+                requestId: envelope.requestId,
+                code: .unknownEntrypoint,
+                message: "Entrypoint '\(name ?? "(thiếu)")' không có. Được phép: \(ExtensionDebugEntrypointResolver.allowedNames.joined(separator: ", "))"
+            ))
+            return
+        case .missingArgument(let name, let field):
+            emit(ExtensionDebugProtocol.errorEnvelope(
+                requestId: envelope.requestId,
+                code: .malformedMessage,
+                message: "Entrypoint '\(name)' thiếu tham số '\(field)'"
+            ))
             return
         }
         let installed = installedExtensions()
@@ -321,37 +339,5 @@ public actor ExtensionDebugCommandRouter {
         let ids = installed.map(\.packageId).sorted()
         let list = ids.isEmpty ? "(app chưa cài extension nào)" : ids.joined(separator: ", ")
         return "Không có extension '\(requested ?? "-")'. App đang có: \(list)"
-    }
-
-    private static func entrypoint(from payload: ExtensionDebugProtocol.Payload?) -> ExtensionDebugEntrypoint? {
-        guard let payload, let name = payload.entrypoint else { return nil }
-        switch name {
-        case "search":
-            guard let keyword = payload.keyword else { return nil }
-            return .search(keyword: keyword, page: payload.page ?? 1)
-        case "detail":
-            guard let url = payload.url else { return nil }
-            return .detail(url: url)
-        case "toc":
-            guard let url = payload.url else { return nil }
-            return .toc(url: url)
-        case "chap":
-            guard let url = payload.url else { return nil }
-            return .chap(url: url)
-        case "genre":
-            return .genre
-        case "home":
-            return .home
-        case "custom":
-            guard let fileName = payload.scriptFileName else { return nil }
-            return .custom(
-                fileName: fileName,
-                input: payload.input ?? "",
-                page: payload.page ?? 1,
-                pageUrl: payload.pageUrl
-            )
-        default:
-            return nil
-        }
     }
 }

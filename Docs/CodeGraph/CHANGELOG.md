@@ -4,6 +4,19 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.300) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.347] - 2026-09-05
+
+### Thiếu tham số entrypoint thôi bị báo là entrypoint lạ
+
+Thêm **1** file Swift, sửa **1** file. Vòng đo thứ tư trên máy iOS, chạy trên bản đã cài 1.3.346: **13/13 pass**.
+
+- **Bản sửa 1.3.346 đo lại: đúng.** Manifest khai 300 file ⇒ `QUOTA_EXCEEDED` message "quá 200 file"; manifest khai một file 2 MiB ⇒ `QUOTA_EXCEEDED` message gọi đúng file và con số; `size < 0` ⇒ vẫn `DRAFT_INVALID`, không bị gộp vào nhóm quota.
+- **`run.start` với entrypoint đúng tên nhưng thiếu tham số bị báo là "entrypoint lạ".** `entrypoint(from:)` gộp hai loại thất bại thành `nil` nên router trả `UNKNOWN_ENTRYPOINT` cho cả "tên không có trong allowlist" và "tên đúng, thiếu tham số bắt buộc". Đo được: `entrypoint: "search"` không kèm `keyword` trả `UNKNOWN_ENTRYPOINT` — câu đó đẩy người viết client đi kiểm danh sách script trong khi lỗi nằm ở payload của họ. Bốn entrypoint bị ảnh hưởng: `search` (thiếu `keyword`), `detail`/`toc`/`chap` (thiếu `url`), `custom` (thiếu `scriptFileName`).
+- **Tách thành `ExtensionDebugEntrypointResolver` với ba kết quả**: `resolved`; `unknownName` ⇒ `UNKNOWN_ENTRYPOINT` **kèm danh sách tên được phép** (`allowedNames` đặt cạnh bảng `switch` nên câu lỗi không thể lệch khỏi thứ engine thật nhận); `missingArgument` ⇒ `MALFORMED_MESSAGE` gọi đúng tên field còn thiếu. Router **ngắn đi 14 dòng** (357 → 343) dù trả về nhiều thông tin hơn.
+- **Sáu đường đo lần đầu, không có lỗi**: `genre`/`home` chạy được; `sourceMode: "draft"` với revision không tồn tại trả `DRAFT_MISSING`; `events.subscribe` gọi **hai lần** không nhân đôi event (5 event qua stream, 0 trùng, khớp đúng 5 event trong store); hai `run.start` song song nhận hai `runId` khác nhau; `hello` gọi lại vẫn trả reply bình thường.
+- **Tổng kết bốn vòng đo**: mọi lệnh trong `CommandType` trừ `draft.install`/`draft.rollback` đã được chạy thật ít nhất một lần. Năm lỗi tìm được qua bốn vòng **đều** thuộc một lớp — "server biết mà client không dùng được" — không một lỗi logic nào. `draft.install`/`draft.rollback` cố ý chưa test vì chúng ghi vào thư viện extension của người dùng và cần một cú bấm trên máy.
+- Gate: `check_architecture.py` giữ đúng **7 violation** cũ, tập y hệt; file mới **57**/400. `validate_links.py` PASS. **Chưa biên dịch** (host Windows); **có file Swift mới nên máy macOS phải `xcodegen generate`**. Bản sửa lượt này chưa được kiểm chạy — phải cài IPA mới rồi đo lại ca `search` thiếu `keyword`.
+
 ## [1.3.346] - 2026-09-05
 
 ### Trần dung lượng bản nháp trả QUOTA_EXCEEDED thay vì DRAFT_INVALID
@@ -470,15 +483,3 @@ Sửa **1** file Swift (vẫn **461**).
 - `submit()` tách thành `submit()` (quyết định có hỏi hay không) và `performSubmit(scope:)` (ghi thật). `saveToBook` vẫn được cập nhật theo lựa chọn trong popup để bản nháp khôi phục đúng.
 - **Không sửa gì cho hai yêu cầu "vế trái đã có thì đè vế phải, chưa có thì thêm mới"**: cả hai bộ đã làm đúng vậy từ trước qua `QuickTranslationRuleRecordStore.upsert` — trùng mẫu thì thay vế phải tại đúng vị trí dòng, không trùng thì thêm vào cuối; dùng chung cho `addOrOverwriteRule`, `updateRule` của cả bộ chung và bộ riêng.
 - Chưa build được (máy Windows). `check_architecture.py` giữ **14** violation nền.
-
-## [1.3.314] - 2026-09-02
-
-### Số Hán viết dính nhau đọc thành danh sách, gộp về một luật duy nhất
-
-Sửa **1** file Swift (vẫn **461**).
-
-- **Gộp `approximateRange` + `enumeratedDigits` thành một hàm `enumeratedNumbers`.** Trước đó dãy **hai** chữ số ra khoảng (`四五` → "4 đến 5") còn dãy **ba** chữ số trở lên ra danh sách — hai luật cho cùng một hiện tượng. Nay mọi dãy chữ số Hán trần liền nhau đều ra **danh sách ngăn bằng `, `**: `二三级` → `2, 3 cấp`, `一二三级` → `1, 2, 3 cấp`. Đổi hành vi so với 1.3.301: `四五` giờ là `4, 5` chứ không còn `4 đến 5`.
-- **Số nhiều chữ số tính đúng nhờ thay từng chữ số vào cả chuỗi** rồi đọc như một số thường, nên bậc đứng trước, đứng sau, hay cả hai phía đều ra đúng: `十三四岁` → `13, 14 tuổi`, `二三十` → `20, 30`, `三四百` → `300, 400`, `三百四五十` → `340, 350`.
-- **Số ghép thật vẫn chính xác**: `三百二十级` → `320 cấp` (không có dãy chữ số trần nào dài ≥ 2), `一百二十三` → `123`, `二零二五` → `2025` (chứa `零` nên là số đọc theo vị trí), `五三七` → `537` (không tăng liền bậc nên là mã số).
-- Chuỗi có **hai dãy rời** (`二三十四五`) vẫn đọc như một số, vì không suy được cách ghép bậc theo cụm nào — giữ nguyên hành vi cũ, có ghi trong doc comment.
-- Chưa build được (máy Windows); đã mô phỏng lại thuật toán ngoài Swift và đối chiếu 15 ca gồm mọi ca người dùng nêu. `check_architecture.py` giữ **14** violation nền.

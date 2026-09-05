@@ -15,6 +15,11 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Debug extension: vòng đo thứ tư, chỉ còn lỗi chẩn đoán (1.3.347)
+
+* **13/13 pass, không có lỗi hành vi nào.** Sau bốn vòng đo, mọi lệnh trong `CommandType` trừ `draft.install`/`draft.rollback` đã được chạy thật ít nhất một lần. Hai lệnh đó cố ý chưa test: chúng ghi vào thư viện extension của người dùng và cần một cú bấm trên máy.
+* **Lỗi cuối cùng của phân hệ này vẫn thuộc đúng lớp cũ**: mã lỗi đúng nhưng **chọn sai mã**, làm câu lỗi chỉ người dùng đi sửa sai chỗ. Bốn vòng đo cho ra năm lỗi, cả năm đều là "server biết mà client không dùng được" — không một lỗi logic nào. Đây là dấu hiệu phân hệ vững về hành vi và yếu về giao tiếp lỗi.
+* **`ExtensionDebugEntrypointResolver` tách khỏi router** vì việc phân giải payload là một việc có tên riêng, và vì `allowedNames` phải ở cạnh bảng `switch` để câu lỗi không lệch khỏi thứ engine thật chấp nhận.
 ## Debug extension: hết mã lỗi khai mà không phát (1.3.346)
 
 * **Bản audit "mã lỗi khai vs phát" đã đóng.** Đếm số chỗ phát từng mã trong `ErrorCode` cho thấy `QUOTA_EXCEEDED` là mã **cuối cùng** còn 0 lời gọi — sau `UNKNOWN_RUN` ở 1.3.344. Nay cả 10 mã đều có ít nhất một chỗ phát. Đây là cách kiểm rẻ nhất cho lớp lỗi của phân hệ này và nên chạy lại mỗi khi thêm mã mới.

@@ -15,6 +15,14 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +1 file ở phân hệ debug; router ngắn đi (1.3.347)
+
+| File | Vai trò | Dòng |
+| --- | --- | --- |
+| [`Services/Extensions/Debug/Server/ExtensionDebugEntrypointResolver.swift`](../../Sources/Services/Extensions/Debug/Server/ExtensionDebugEntrypointResolver.swift) | **mới** — phân giải `payload` của `run.start` thành entrypoint, tách "tên lạ" khỏi "thiếu tham số" | 57 |
+| [`Services/Extensions/Debug/Server/ExtensionDebugCommandRouter.swift`](../../Sources/Services/Extensions/Debug/Server/ExtensionDebugCommandRouter.swift) | bỏ `entrypoint(from:)` (31 dòng) sang file trên, thêm switch ba nhánh ở `handleRunStart` | 357 → **343** |
+
+Thêm file Swift mới ⇒ máy macOS phải `xcodegen generate` trước khi build.
 ## +7 file: hai tầng thuần trên đường dịch, năm khối UI Kệ sách (1.3.339)
 
 | File mới | Vai trò | Dòng |

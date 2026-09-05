@@ -15,6 +15,12 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Thiếu tham số entrypoint thôi bị báo là "entrypoint lạ" (1.3.347)
+
+* **Bản sửa 1.3.346 đo lại: đúng.** Manifest 300 file ⇒ `QUOTA_EXCEEDED` với message "quá 200 file"; manifest khai một file 2 MiB ⇒ `QUOTA_EXCEEDED` với message chỉ đúng file và con số; `size < 0` ⇒ vẫn `DRAFT_INVALID`, không bị gộp vào quota.
+* **`entrypoint(from:)` gộp hai loại thất bại thành `nil`** nên router báo `UNKNOWN_ENTRYPOINT` cho cả "tên lạ" và "tên đúng nhưng thiếu tham số". Đo được: `run.start` với `entrypoint: "search"` mà không kèm `keyword` trả `UNKNOWN_ENTRYPOINT` — câu đó đẩy người viết client đi kiểm danh sách script, trong khi lỗi nằm ở payload của họ. Bốn entrypoint bị ảnh hưởng: `search` (thiếu `keyword`), `detail`/`toc`/`chap` (thiếu `url`), `custom` (thiếu `scriptFileName`).
+* **Nay `ExtensionDebugEntrypointResolver.resolve(from:)` trả ba ca**: `resolved`, `unknownName` ⇒ `UNKNOWN_ENTRYPOINT` **kèm danh sách tên được phép**, `missingArgument` ⇒ `MALFORMED_MESSAGE` gọi đúng tên field còn thiếu.
+* **Sáu đường đo lần đầu, không có lỗi**: `genre`/`home` chạy được (không cần tham số); `sourceMode: "draft"` với revision không tồn tại trả `DRAFT_MISSING`; `events.subscribe` gọi hai lần **không** nhân đôi event (5 event stream, 0 trùng, khớp 5 event trong store); hai `run.start` song song nhận hai `runId` khác nhau; `hello` gọi lại vẫn trả reply.
 ## `QUOTA_EXCEEDED` lần đầu được phát; xác nhận bản sửa 1.3.345 (1.3.346)
 
 * **Bản sửa 1.3.345 đo lại: đúng.** Envelope đúng header với `payload` sai shape nay trả lỗi trong **13 ms** kèm `requestId` của client và câu "Payload của lệnh 'draft.stage' không đúng dạng" — trước đó treo hết 20 giây timeout.

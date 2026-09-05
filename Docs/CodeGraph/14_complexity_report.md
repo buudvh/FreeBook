@@ -15,6 +15,11 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +1 file 57 dòng, router giảm 14 dòng (1.3.347)
+
+* `ExtensionDebugEntrypointResolver.swift` **57**/400, một type top level.
+* `ExtensionDebugCommandRouter.swift` 357 → **343**/400: bỏ hẳn `entrypoint(from:)` 31 dòng, thêm 17 dòng switch có ba nhánh lỗi rõ ràng. Đây là kiểu đổi nên nhân rộng — file god-object giảm mà lượng thông tin trả cho client tăng.
+* `check_architecture.py` giữ đúng **7 violation** cũ, tập y hệt.
 ## Bảy file mới; `TranslateUtils` lần đầu **giảm** 34 dòng (1.3.339)
 
 * **7 file mới, tất cả dưới trần 400 và đúng 1 type top level**: `QuickTranslationRuleTokenPaletteView` không tính (file sửa); mới là `TranslationTextPostProcessor` **74**, `TokenizeMemo` **63**, `ShelfTabSelectorView` **87**, `HistoryDayGrouper` **67**, `CollectionCoverMosaicView` **83**, `CollectionGridCardView` **74**, `CollectionsReorderSheet` **55**.
