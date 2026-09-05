@@ -4,6 +4,19 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.300) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.343] - 2026-09-05
+
+### Sửa số Hán viết tắt đọc sai, thanh kéo độ dài token sinh rác, ô thử nói rõ phạm vi
+
+Sửa **5** file Swift.
+
+- **`八千三` ra `8003` thay vì `8300`, `一万二` ra `10002` thay vì `12000`.** `parseChineseNumeral` cộng thẳng chữ số cuối vào kết quả, trong khi tiếng Trung viết tắt: **một chữ số trần đứng cuối, ngay sau ký tự bậc, mang bậc thấp hơn một cấp**. Hệ số luôn là `bậc / 10` nên không cần bảng riêng: `八千三` = 8 nghìn + 3 **trăm**, `一万二` = 1 vạn + 2 **nghìn**, `三百五` = 350, `一亿二` = 120000000. Bậc `十` cho hệ số 1 nên `二十三` = 23 **không đổi** — đó là lý do lỗi này sống từ bản đầu mà không ai thấy: nó chỉ lộ ra từ bậc `百` trở lên.
+- **Hai cửa hẹp giữ đúng nghĩa các chuỗi khác**: ký tự liền trước chữ số đuôi **phải là bậc** — điều kiện này tự loại `一万零二`, vốn đúng nghĩa là `10002` vì liền trước `二` là `零`; và `零`/`〇` không tính là chữ số đuôi. Đường liệt kê nhiều số (`十三四` → "13, 14") không bị ảnh hưởng: các chuỗi nó dựng ra đi qua nhánh viết tắt với hệ số 1 nên kết quả giữ nguyên. **Đổi hành vi cần biết**: `三百五` từ `305` thành `350` — đó chính là phần sửa, `305` viết đúng là `三百零五` và vẫn ra `305`.
+- **Kéo thanh "Tối đa" ở màn thêm/sửa rule sinh rác `<n:1-8>1-9>`.** `Slider` bắn callback **nhiều lần trong một cú kéo**, còn bên ngoài định vị token bằng một `Segment` đã chụp lúc dựng body; giữa hai lần bắn SwiftUI chưa chắc dựng lại body nên lần sau dùng range cũ. Với mẫu `<n>` (3 ký tự): lần 1 ghi ra `<n:1-9>` (7 ký tự) đúng, lần 2 vẫn thay 3 ký tự đầu của chuỗi 7 ký tự nên `1-9>` còn nguyên ở đuôi — số ở đuôi khác nhau vì đó là giá trị cú kéo vừa đi qua. `replacing(range:in:with:)` chỉ kẹp về biên chuỗi nên range lệch bị cắt sai **im lặng**. Nút `+`/`−` gần như không bị vì hai lần bấm cách nhau đủ xa để body dựng lại.
+- **Sửa ở hai lớp cho cùng lớp lỗi đó**: (a) thanh kéo giữ giá trị đang kéo ở `@State` cục bộ và chỉ ghi ra ngoài **một lần** ở `onEditingChanged` khi nhả tay — nhãn số vẫn nhảy mượt; (b) `applyTokenSpec` nhận `tokenOrdinal` thay cho `Segment` và gọi `replacing(tokenOrdinal:in:with:)`, hàm **đã có sẵn từ trước mà chưa ai gọi**, tự định vị lại token trên mẫu hiện tại. Lớp (b) đóng cả những đường gọi khác có thể xuất hiện về sau. `TokenSpec.clamp()` vẫn là chỗ duy nhất kẹp biên và hai nút vẫn đi qua cùng `adjust`.
+- **Ô "Thử nhanh một câu" nay nói rõ nó chỉ áp bộ rule chung.** `preview(_:bookId:mode:)` được gọi với `bookId` mặc định `nil` vì màn này mở từ Cài đặt, không có truyện nào đang mở — nên bộ rule **riêng của truyện**, công tắc token riêng và thứ tự ưu tiên riêng đều không được tính. Mà nút `+` trong panel Dịch **mặc định lưu vào bộ riêng**, nên một rule vừa thêm sẽ "có trong Danh sách rule mà không ăn ở ô thử" — người dùng không có cách nào biết. Thêm một dòng chú thích chỉ sang panel Dịch trong Reader, là chỗ vốn đã chạy đúng `bookId`. Cố ý **không** thêm bộ chọn truyện vào màn Cài đặt: kéo `@Query` trên `Book` vào đây là mở một đường phụ thuộc mới cho việc đã có chỗ làm tốt hơn.
+- Gate: `check_architecture.py` giữ đúng **7 violation** cũ, tập y hệt; `QuickTranslationNumberFormatter` 287 → **339**/400, `QuickTranslationRuleTokenLengthBar` 145 → **172**/400, `QuickTranslationRuleEditorSheet` 377 → **378**/400, `QuickTranslationRuleTesterView` 113 → **125**/400. `validate_links.py` PASS sau khi cập nhật `07_dataflow`, `11_subsystems`. **Chưa biên dịch** — host là Windows; không thêm file Swift nên không cần `xcodegen generate`.
+
 ## [1.3.342] - 2026-09-05
 
 ### Token bậc trả chữ đơn vị mươi/trăm/vạn thay vì số
@@ -464,35 +477,3 @@ Xoá **2** file Swift, thêm **1** file (459 → **458**), sửa **8** file Swif
 - **Client VS Code**: `extension.ts`/`client.ts`/`protocol.ts` đã ở dạng không ghép nối từ trước (`parseTarget` nhận `ws://ip:port`, `ip:port`, và URI cũ — token nếu có thì bỏ qua); lượt này chỉ xoá hằng `SECRET_KEY` chết và sửa lại doc. **Chưa dọn** `transport.ts`/`webSocketTransport.ts`/`mockTransport.ts`/`sidebarView.ts` — chúng còn `pair()` và nút "Pair App" nhưng không nằm trên đường `extension.ts` đang dùng; package TypeScript không được CI biên dịch nên tôi không nửa-refactor 3.900 dòng không build được tại chỗ.
 
 `check_architecture.py` giữ **14** violation nền, không violation mới (mọi file debug ≤ 260 dòng). CodeGraph: cập nhật `02`, `06`, `07`, `08`, `09`, `11`, `13`; `01` ghi nhận `--no-change-needed`. Chưa biên dịch tại chỗ (Windows) — dựa vào CI; và **toàn bộ đường mạng phải xác minh trên máy thật**.
-
-## [1.3.305] - 2026-09-01
-
-### Phiên âm TTS: ép âm tiết tiếng Việt hợp lệ, `j`/`ya` đọc `d`, bỏ âm gió cuối
-
-Sửa **3** file Swift trong `Sources/Services/TTS/Preprocessing/`, không thêm/xoá file. Chưa biên dịch tại chỗ (Windows) — dựa vào CI.
-
-**Lỗi gốc là một chỗ thiếu kiểm tra, không phải mấy ca lẻ.** `IPAToVietnameseMapper.assemble` tra nucleus ở bảng nguyên âm và coda ở bảng coda **độc lập nhau**, nên nó ghép ra được rime không tồn tại trong tiếng Việt. Ba hệ quả đo được: `ơng` ("young" → `dơng`), `âyp` ("april" → `âyp-rơn`), và **mọi** âm tiết đóng bằng `p t c ch` đều không dấu (`trit`, `tat`, `det`) — tiếng Việt không có âm tiết nào vừa đóng bằng phụ âm tắc vừa không dấu. Đầu ra này lại được espeak giọng `vi` phiên âm tiếp cho Piper, nên chuỗi ngoài tiếng Việt bị đọc phẳng hoặc bỏ qua.
-
-- **Dấu thanh** (`stopCodas` + `acuteVowels`): coda ∈ `p t c ch` ⇒ dấu sắc. "street" → `xơ-trít`, "task" → `tát`, "back" → `bác`. Chỉ cần bảng **một ký tự** vì luật nguyên âm đôi bên dưới bảo đảm nucleus của âm tiết có coda luôn là nguyên âm đơn.
-- **Nguyên âm đôi không nhận phụ âm cuối** (`diphthongs` = `ây ai oi ao ia ua iu`): `split` đẩy **toàn bộ** cụm phụ âm sang âm tiết sau thay vì đúng một phụ âm, nên "april" ra `ây-pơ-rồ` và "hydro" ra `hai-đơ-rô`. Ở cuối từ (hết âm tiết để đẩy) thì bỏ coda: "email" → `i-mây`, mất `/l/`.
-- **`/əl/` ⇒ `ồ`, `/ən/` ⇒ `ình`** (`reducedRimes`, mang dấu huyền): "google" → `gu-gồ`, "colonel" → `cơ-nồ`, "station" → `xơ-tây-sình`. Khoá là **ký hiệu IPA** chứ không phải coda đã map, vì `l`, `ɫ`, `n` đều cho coda `"n"`. Áp cho *mọi* `/ən/` theo yêu cầu người dùng, kể cả ngoài đuôi `-tion`.
-- **`/ʌ/` đổi `ơ` → `â`**: `âng âp ât âc âm ân` đều hợp lệ, `ơng` thì không. "young" → `dâng`, "duck" → `đấc`. Nhánh `ă/â → ơ` khi coda rỗng trong `normalize` từ **code chết** thành cần thiết — `â` đứng một mình không phải âm tiết.
-- **Bỏ `trailingFiller`**: phụ âm thừa ở cuối bị bỏ chứ không đọc thành âm tiết đệm. "task" → `tát` (không phải `tat-cơ`), "text" → `téc` (không phải `tếc-xơ`). Đảo lại quyết định của 1.3.291 theo yêu cầu người dùng — đánh đổi: mất phụ âm cuối, đổi lấy nhịp đọc không có tiếng lạ.
-- **`/j/` ở phụ âm đầu ⇒ `d`** (hàng `j` của bảng **coda** vẫn là `i`, ở đó nó là bán nguyên âm của `ai`/`ây`). Cùng lựa chọn cho `ya/yi/yu/ye/yo` ⇒ `da/di/du/dê/dô` ở `JapaneseTransliterator`. Tiếng Việt không có chữ nào đọc /j/ ở phụ âm đầu; viết `i` thì espeak-vi đọc thành nguyên âm đôi /iə/ nên "yes" và "Yamato" tách thêm một âm tiết. `d` đọc /z/ ở giọng Bắc — sai một phụ âm nhẹ hơn sai số âm tiết.
-- **`normalize` xét nguyên âm trước/sau trên chữ đã bỏ dấu thanh.** So trực tiếp với `"iêe"` như bản cũ thì `ế`, `í` trượt luật `k`/`gh`/`ngh` ngay khi bắt đầu có dấu.
-
-**Tiếng Nhật:**
-
-- **Gộp trường âm phải xảy ra trước khi cắt âm tiết** (`collapseLongVowels` trong `normalizeRomaji`). `greedySegment` khớp dài nhất *tại từng vị trí*, nên ở "arigatou" nó ăn `to` rồi bỏ lại `u` thành một âm tiết `ư` thừa — khoá `"ou"`/`"uu"` mà 1.3.291 thêm vào `romajiToViSyllable` **không bao giờ có cơ hội khớp**. Trước lượt này "arigatou" ra `a-ri-ga-tô-ư`, "ryuu" ra `riu-ư`, "shoujo" ra `sô-ư-giô`, "sensei" ra `xên-xê-i`. 7 khoá trường âm đã bị xoá khỏi bảng đọc; `longVowelForms` cố ý **không** chứa `ai/oi/ui/au` vì đó là nguyên âm đôi thật.
-- **`i` sau nguyên âm nhập thành rime**: "senpai" → `xên-pai`, "aikido" → `ai-ki-đô`, "sui" → `xưi` (u Nhật là /ɯ/ nên `ưi`, không phải `ui`). Chỉ nhập vào âm tiết kết thúc bằng nguyên âm khác `i`/`y`.
-- **`findMergedIndex` bị thay bằng `mergedIndexOfSyllable`** dựng một lần trong vòng nhập. Vị trí sokuon tính trên mảng âm tiết *romaji* còn coda phải gắn vào ô của mảng *đã nhập*; hàm cũ tự suy lại ánh xạ và chỉ biết luật `"n"`, nên có luật nhập thứ hai là sokuon gắn lệch âm tiết.
-
-**Bộ ca kiểm** (`TransliterationGoldenSet`): thêm 7 ca Nhật (`ryuu`, `sensei`, `shoujo`, `senpai`, `aikido`, `kouhai`, `sui`), sửa kỳ vọng 13 ca theo các quyết định trên. Ba ca **để đỏ có chủ ý**, ghi rõ `ĐỎ` kèm lý do: `/w/` ở phụ âm đầu map thành `o` nên "one"/"wish" ra `oân`/`oích` (không phải tiếng Việt), và `/ð/` map thành `đ` nên "though" ra `đô` — chưa có quyết định về đích.
-
-**Chưa đối chiếu chuỗi IPA thật của espeak.** Mọi luật ở lượt này thiết kế trên IPA en-us chuẩn (`ˈeɪpɹəl`, `tæsk`, `stˈeɪʃən`). Hai luật nhạy cảm nhất với chuyện espeak viết gì là `/əl/` và `/ən/`: nếu espeak phát ra phụ âm âm tiết tính (`l̩`, `n̩`) thì `stressMarks` xoá dấu `̩` và cả hai luật trượt — "google" sẽ ra `gúc`. Màn **Thử phiên âm** là chỗ phát hiện ngay lượt chạy đầu.
-
-`check_architecture.py` giữ **14** violation nền, không violation mới; ba file sửa đều dưới trần 400 (`IPAToVietnameseMapper` 210 → 271, `JapaneseTransliterator` 311 → 341, `TransliterationGoldenSet` 117 → 128). Đầu ra của cả 12 ca Nhật và 22 ca Anh đã đối chiếu bằng mô phỏng thuật toán trên **chính** các bảng trong file (không gõ lại bảng), nhưng **chưa** nghe thử trên máy thật.
-
-Nhân tiện sửa bốn chỗ doc đã trôi so với code: `04` ghi `ー → nhân đôi nguyên âm` (sai từ 1.3.291) và ngưỡng phân loại `≥ 2` (thật là 4), `10` cũng ghi `japaneseThreshold = 2`, và `00`/`04`/`10` đều lấy "street" → `xơ-tơ-rít` làm ví dụ — sai ngay từ 1.3.291 vì `legalDoubleOnsets` vốn đã giữ `tr` liền.
-
-CodeGraph: cập nhật `00`, `04`, `10`, `14`; `11`, `13`, `rules` ghi nhận `--no-change-needed`. Validator **chưa PASS** vì `01`, `02`, `06`, `07`, `08`, `09` còn stale do phần debug server chưa commit trong cây (`ExtensionDebugServerLauncher.swift` chưa được tài liệu nào nhắc; `02`/`09` còn link tới `ExtensionDebugPairingAuthority.swift` và `ExtensionDebugPairingQRView.swift` đã xoá) — không thuộc lượt này.

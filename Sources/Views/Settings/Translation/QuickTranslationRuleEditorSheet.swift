@@ -275,9 +275,10 @@ struct QuickTranslationRuleEditorSheet: View {
             QuickTranslationRuleTokenPaletteView { insertIntoPattern($0) }
 
             if let segment = selectedTokenSegment(in: segments),
+               let ordinal = segment.tokenOrdinal,
                let spec = QuickTranslationRuleDraftAnalyzer.tokenSpec(of: segment.text) {
                 QuickTranslationRuleTokenLengthBar(spec: spec) { updated in
-                    applyTokenSpec(updated, to: segment)
+                    applyTokenSpec(updated, tokenOrdinal: ordinal)
                 }
             }
         } header: {

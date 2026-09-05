@@ -15,6 +15,15 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Chữ số trần ở cuối là bậc thấp hơn một cấp; thanh kéo ghi một lần (1.3.343)
+
+* **`parseChineseNumeral` xử dạng viết tắt trước.** Một chữ số trần đứng **cuối, ngay sau ký tự bậc** mang **bậc thấp hơn một cấp**, hệ số luôn là `bậc / 10`: `八千三` = 8300 (không phải 8003), `一万二` = 12000 (không phải 10002), `三百五` = 350, `一亿二` = 120000000. Bậc `十` cho hệ số 1 nên `二十三` = 23 **không đổi** — lỗi chỉ lộ ra từ bậc `百` trở lên.
+* **Hai cửa hẹp giữ đúng nghĩa các chuỗi khác**: ký tự liền trước chữ số đuôi **phải là bậc** (nên `一万零二` vẫn là 10002, vì liền trước `二` là `零`), và `零`/`〇` không tính là chữ số đuôi.
+* **Không đụng đường liệt kê**: `一万二`/`八千三` không có dãy ≥ 2 chữ số trần liền nhau nên `enumeratedNumbers` vẫn trả `nil` như trước. Ngược lại `十三四` (13, 14) vẫn đi đường liệt kê, và các chuỗi nó dựng ra (`十三`, `十四`) đi qua nhánh viết tắt với hệ số 1 nên kết quả giữ nguyên.
+* **Thanh kéo min–max ghi ra ngoài đúng một lần, lúc nhả tay.** Trước đó `Slider` gọi callback theo từng bước trong lúc kéo, mà bên ngoài định vị token bằng một `Segment` đã chụp — giữa hai lần gọi SwiftUI chưa chắc dựng lại body nên lần sau cắt sai chỗ và để rác ở đuôi mẫu (`<n:1-8>1-9>`). Giá trị đang kéo giữ ở `@State` cục bộ của thanh; `onEditingChanged` chốt một lần.
+* **`applyTokenSpec` nhận `tokenOrdinal` thay cho `Segment`** và gọi `replacing(tokenOrdinal:in:with:)` — hàm này đã có sẵn từ trước mà chưa ai gọi, nó tự định vị lại token trên **mẫu hiện tại**. Đây là lớp phòng thủ thứ hai cho cùng lớp lỗi: `replacing(range:)` chỉ kẹp về biên chuỗi nên range cũ bị cắt sai **im lặng**.
+* **Ô "Thử nhanh một câu" nói rõ nó chỉ áp bộ rule chung.** `preview(_:bookId:mode:)` được gọi với `bookId` mặc định `nil` vì màn này mở từ Cài đặt, không có truyện nào đang mở — nên bộ rule riêng của truyện, công tắc token riêng và thứ tự ưu tiên riêng đều **không** được tính. Nút `+` trong panel Dịch lại mặc định lưu vào **bộ riêng**, nên trước đây một rule vừa thêm "có trong Danh sách rule mà không ăn ở ô thử" — không giải thích được từ phía người dùng.
+
 ## `<m>` trả chữ đơn vị, không phải số (1.3.342)
 
 * **`renderMagnitude` đổi đầu ra**: `十` → `mươi`, `百` → `trăm`, `千` → `nghìn`, `万/萬` → `vạn`, `亿/億` → `ức`, `兆` → `triệu`. Bản 1.3.341 trả **giá trị số** (`10`, `100`, …) — sai mục đích của token: `几<m>年 = mấy {0} năm` phải đọc thành "mấy mươi năm", không phải "mấy 10 năm".

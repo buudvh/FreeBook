@@ -64,17 +64,25 @@ extension QuickTranslationRuleEditorSheet {
         setPattern(updated, caret: start + Array(text).count)
     }
 
+    /// Thay token thứ `tokenOrdinal` bằng cú pháp mới.
+    ///
+    /// Nhận **thứ tự token** chứ không nhận `Segment`: `Segment` mang `range` tính trên mẫu **lúc dựng
+    /// body**, mà `applyTokenSpec` có thể được gọi sau khi mẫu đã đổi. Range cũ + `replacing(range:)`
+    /// (chỉ kẹp về biên chuỗi) = cắt sai chỗ **im lặng**, để lại rác ở đuôi (`<n:1-8>1-9>`).
+    /// `replacing(tokenOrdinal:)` tự định vị lại token trên mẫu hiện tại.
     func applyTokenSpec(
         _ spec: QuickTranslationRuleDraftAnalyzer.TokenSpec,
-        to segment: QuickTranslationRuleDraftAnalyzer.Segment
+        tokenOrdinal: Int
     ) {
-        let syntax = spec.syntax
         let updated = QuickTranslationRuleDraftAnalyzer.replacing(
-            range: segment.range,
+            tokenOrdinal: tokenOrdinal,
             in: pattern,
-            with: syntax
+            with: spec
         )
-        setPattern(updated, caret: segment.start + Array(syntax).count)
+        // Không còn token thứ đó (mẫu đã bị sửa từ đường khác) ⇒ không đổi gì, không di con trỏ.
+        guard let segment = QuickTranslationRuleDraftAnalyzer.segments(of: updated)
+            .first(where: { $0.tokenOrdinal == tokenOrdinal }) else { return }
+        setPattern(updated, caret: segment.end)
     }
 
     /// Xoá vùng đang chọn; chỉ có con trỏ thì xoá **cả chip** liền trước (một token là một chip, không

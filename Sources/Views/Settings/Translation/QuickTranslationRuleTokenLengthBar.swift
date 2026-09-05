@@ -6,6 +6,11 @@ import SwiftUI
 /// Thanh kéo và hai nút `+/−` là **hai lối vào cùng một cửa** (`adjust`): nút cho một bước chính xác,
 /// thanh kéo cho lượt nhảy xa. Không lối nào tự kẹp biên — `TokenSpec.clamp()` làm việc đó.
 ///
+/// **Thanh kéo chỉ ghi ra ngoài MỘT lần, lúc nhả tay** (1.3.343). Trước đó `Slider` gọi `onChange`
+/// theo từng bước trong lúc kéo, mà bên ngoài dùng một `Segment` đã chụp để định vị token — giữa hai
+/// lần gọi SwiftUI chưa chắc dựng lại body nên lần sau cắt sai chỗ và để lại rác ở đuôi mẫu
+/// (`<n:1-8>1-9>`). Giá trị đang kéo giữ ở `@State` cục bộ nên nhãn số vẫn nhảy mượt.
+///
 /// Mọi biên đều lấy từ parser chứ không tự đặt: `min ≥ 1` là điều kiện cứng (sai thì
 /// `UNKNOWN_TOKEN_NAME`, lỗi hard), `max ≥ min`, và token không khai `:min-max` nghĩa là `1...12` —
 /// nên khi hai đầu về đúng mặc định, `TokenSpec.syntax` tự xuất lại token trần thay vì viết thừa
@@ -15,6 +20,13 @@ struct QuickTranslationRuleTokenLengthBar: View {
 
     let spec: TokenSpec
     let onChange: (TokenSpec) -> Void
+
+    /// Giá trị đang kéo, `nil` = không kéo (hiện giá trị đã chốt trong `spec`).
+    @State private var draggingMin: Int? = nil
+    @State private var draggingMax: Int? = nil
+
+    private var shownMin: Int { draggingMin ?? spec.minLength }
+    private var shownMax: Int { draggingMax ?? spec.maxLength }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -35,20 +47,30 @@ struct QuickTranslationRuleTokenLengthBar: View {
                 VStack(spacing: 6) {
                     lengthRow(
                         title: "Tối thiểu",
-                        value: spec.minLength,
-                        canDecrease: spec.minLength > 1,
-                        canIncrease: spec.minLength < TokenSpec.adjustableUpperBound,
+                        value: shownMin,
+                        canDecrease: shownMin > 1,
+                        canIncrease: shownMin < TokenSpec.adjustableUpperBound,
                         onStep: { delta in adjust { $0.minLength += delta } },
-                        onSlide: { newValue in adjust { $0.minLength = newValue } }
+                        onDrag: { draggingMin = $0 },
+                        onCommitDrag: {
+                            guard let value = draggingMin else { return }
+                            draggingMin = nil
+                            adjust { $0.minLength = value }
+                        }
                     )
 
                     lengthRow(
                         title: "Tối đa",
-                        value: spec.maxLength,
-                        canDecrease: spec.maxLength > spec.minLength,
-                        canIncrease: spec.maxLength < TokenSpec.adjustableUpperBound,
+                        value: shownMax,
+                        canDecrease: shownMax > shownMin,
+                        canIncrease: shownMax < TokenSpec.adjustableUpperBound,
                         onStep: { delta in adjust { $0.maxLength += delta } },
-                        onSlide: { newValue in adjust { $0.maxLength = newValue } }
+                        onDrag: { draggingMax = $0 },
+                        onCommitDrag: {
+                            guard let value = draggingMax else { return }
+                            draggingMax = nil
+                            adjust { $0.maxLength = value }
+                        }
                     )
                 }
 
@@ -84,16 +106,17 @@ struct QuickTranslationRuleTokenLengthBar: View {
         .accessibilityLabel(spec.isOptional ? "Bỏ dấu ? của token" : "Cho token vắng mặt vẫn khớp")
     }
 
-    /// `[−] ──o── giá trị [+]`. Thanh kéo và hai nút đi qua **cùng một** `adjust`, nên `clamp()` là chỗ
-    /// duy nhất quyết định vùng hợp lệ: kéo `Tối đa` xuống dưới `Tối thiểu` thì nó dừng ở `Tối thiểu`
-    /// thay vì tạo ra một khoảng ngược.
+    /// `[−] ──o── giá trị [+]`. Nút đi qua `adjust` ngay; thanh kéo chỉ cập nhật state cục bộ và ghi
+    /// một lần ở `onEditingChanged` khi nhả tay. `clamp()` vẫn là chỗ duy nhất quyết định vùng hợp lệ:
+    /// kéo `Tối đa` xuống dưới `Tối thiểu` thì nó dừng ở `Tối thiểu` thay vì tạo ra một khoảng ngược.
     private func lengthRow(
         title: String,
         value: Int,
         canDecrease: Bool,
         canIncrease: Bool,
         onStep: @escaping (Int) -> Void,
-        onSlide: @escaping (Int) -> Void
+        onDrag: @escaping (Int) -> Void,
+        onCommitDrag: @escaping () -> Void
     ) -> some View {
         HStack(spacing: 8) {
             Text(title)
@@ -106,10 +129,14 @@ struct QuickTranslationRuleTokenLengthBar: View {
             Slider(
                 value: Binding(
                     get: { Double(value) },
-                    set: { onSlide(Int($0.rounded())) }
+                    set: { onDrag(Int($0.rounded())) }
                 ),
                 in: 1...Double(TokenSpec.adjustableUpperBound),
-                step: 1
+                step: 1,
+                onEditingChanged: { isEditing in
+                    guard !isEditing else { return }
+                    onCommitDrag()
+                }
             )
 
             Text("\(value)")

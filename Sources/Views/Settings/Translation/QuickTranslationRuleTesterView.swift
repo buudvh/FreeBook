@@ -31,6 +31,14 @@ struct QuickTranslationRuleTesterView: View {
 
                 Button("Chạy thử") { run() }
                     .disabled(input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                // Màn này mở từ Cài đặt nên không có truyện nào đang mở ⇒ `preview` chạy với
+                // `bookId: nil`. Phải nói ra, không thì một rule lưu ở bộ riêng (nút `+` trong Reader
+                // mặc định lưu vào đó) sẽ "có trong Danh sách rule mà không ăn ở đây" — không giải
+                // thích được từ phía người dùng.
+                Text("Chỉ áp **bộ rule chung**. Rule riêng của truyện, công tắc token riêng và thứ tự ưu tiên riêng **không** được tính ở đây — muốn thử những thứ đó thì mở panel Dịch trong lúc đọc truyện đó.")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
             }
 
             Section("Chế độ token") {

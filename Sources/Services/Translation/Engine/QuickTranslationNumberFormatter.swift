@@ -198,9 +198,45 @@ public enum QuickTranslationNumberFormatter {
         return numbers
     }
 
+    /// Chữ số trần đứng **cuối, ngay sau một ký tự bậc** là cách viết tắt của "bậc **thấp hơn một
+    /// cấp**", không phải cộng thẳng. Hệ số luôn là `bậc / 10` nên không cần bảng riêng:
+    ///
+    /// * `八千三` = 8 nghìn + 3 **trăm** = `8300` (không phải `8003`)
+    /// * `一万二` = 1 vạn + 2 **nghìn** = `12000` (không phải `10002`)
+    /// * `三百五` = `350`; `一亿二` = `120000000`
+    /// * `二十三` = `23` — bậc `十` cho hệ số 1 nên dạng này **không đổi** so với trước
+    ///
+    /// Trả `nil` = không phải dạng viết tắt, đọc như cũ. Hai cửa hẹp bắt buộc:
+    ///
+    /// * **Ký tự liền trước chữ số đuôi phải là bậc.** Điều kiện này tự loại `一万零二`: liền trước `二`
+    ///   là `零`, nên chuỗi đó vẫn đúng nghĩa `10002`.
+    /// * **`零`/`〇` không tính là chữ số đuôi** — `八千零` không phải viết tắt.
+    private static func trailingShorthandMultiplier(_ value: String) -> Int? {
+        let chars = Array(value)
+        guard chars.count >= 2, let last = chars.last else { return nil }
+        guard bareHanDigits.contains(last), last != "零", last != "〇" else { return nil }
+
+        let previous = chars[chars.count - 2]
+        guard let magnitude = smallMagnitudes[previous] ?? largeMagnitudes[previous],
+              magnitude >= 10 else { return nil }
+        return magnitude / 10
+    }
+
     /// Đọc một chuỗi số Hán thành `Int`; `nil` khi tràn. Cộng dồn theo *section* nên `一万亿` ra
     /// `100010000` — giữ nguyên theo reference `ruleEngine.ts`.
     private static func parseChineseNumeral(_ value: String) -> Int? {
+        // Dạng viết tắt xử trước: đọc phần đầu rồi cộng `chữ số × bậc thấp hơn một cấp`. Không lo đệ
+        // quy vô hạn vì phần đầu luôn kết thúc bằng ký tự bậc ⇒ helper trả `nil` ngay.
+        if let multiplier = trailingShorthandMultiplier(value),
+           let last = value.last,
+           let digit = digitMap[last],
+           let head = parseChineseNumeral(String(value.dropLast())) {
+            let (scaled, scaleOverflow) = digit.multipliedReportingOverflow(by: multiplier)
+            guard !scaleOverflow else { return nil }
+            let (total, addOverflow) = head.addingReportingOverflow(scaled)
+            return addOverflow ? nil : total
+        }
+
         var total = 0
         var section = 0
         var current = 0

@@ -2,6 +2,38 @@
 
 Lịch sử thay đổi cũ (version ≤ 1.3.300) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.305] - 2026-09-01
+
+### Phiên âm TTS: ép âm tiết tiếng Việt hợp lệ, `j`/`ya` đọc `d`, bỏ âm gió cuối
+
+Sửa **3** file Swift trong `Sources/Services/TTS/Preprocessing/`, không thêm/xoá file. Chưa biên dịch tại chỗ (Windows) — dựa vào CI.
+
+**Lỗi gốc là một chỗ thiếu kiểm tra, không phải mấy ca lẻ.** `IPAToVietnameseMapper.assemble` tra nucleus ở bảng nguyên âm và coda ở bảng coda **độc lập nhau**, nên nó ghép ra được rime không tồn tại trong tiếng Việt. Ba hệ quả đo được: `ơng` ("young" → `dơng`), `âyp` ("april" → `âyp-rơn`), và **mọi** âm tiết đóng bằng `p t c ch` đều không dấu (`trit`, `tat`, `det`) — tiếng Việt không có âm tiết nào vừa đóng bằng phụ âm tắc vừa không dấu. Đầu ra này lại được espeak giọng `vi` phiên âm tiếp cho Piper, nên chuỗi ngoài tiếng Việt bị đọc phẳng hoặc bỏ qua.
+
+- **Dấu thanh** (`stopCodas` + `acuteVowels`): coda ∈ `p t c ch` ⇒ dấu sắc. "street" → `xơ-trít`, "task" → `tát`, "back" → `bác`. Chỉ cần bảng **một ký tự** vì luật nguyên âm đôi bên dưới bảo đảm nucleus của âm tiết có coda luôn là nguyên âm đơn.
+- **Nguyên âm đôi không nhận phụ âm cuối** (`diphthongs` = `ây ai oi ao ia ua iu`): `split` đẩy **toàn bộ** cụm phụ âm sang âm tiết sau thay vì đúng một phụ âm, nên "april" ra `ây-pơ-rồ` và "hydro" ra `hai-đơ-rô`. Ở cuối từ (hết âm tiết để đẩy) thì bỏ coda: "email" → `i-mây`, mất `/l/`.
+- **`/əl/` ⇒ `ồ`, `/ən/` ⇒ `ình`** (`reducedRimes`, mang dấu huyền): "google" → `gu-gồ`, "colonel" → `cơ-nồ`, "station" → `xơ-tây-sình`. Khoá là **ký hiệu IPA** chứ không phải coda đã map, vì `l`, `ɫ`, `n` đều cho coda `"n"`. Áp cho *mọi* `/ən/` theo yêu cầu người dùng, kể cả ngoài đuôi `-tion`.
+- **`/ʌ/` đổi `ơ` → `â`**: `âng âp ât âc âm ân` đều hợp lệ, `ơng` thì không. "young" → `dâng`, "duck" → `đấc`. Nhánh `ă/â → ơ` khi coda rỗng trong `normalize` từ **code chết** thành cần thiết — `â` đứng một mình không phải âm tiết.
+- **Bỏ `trailingFiller`**: phụ âm thừa ở cuối bị bỏ chứ không đọc thành âm tiết đệm. "task" → `tát` (không phải `tat-cơ`), "text" → `téc` (không phải `tếc-xơ`). Đảo lại quyết định của 1.3.291 theo yêu cầu người dùng — đánh đổi: mất phụ âm cuối, đổi lấy nhịp đọc không có tiếng lạ.
+- **`/j/` ở phụ âm đầu ⇒ `d`** (hàng `j` của bảng **coda** vẫn là `i`, ở đó nó là bán nguyên âm của `ai`/`ây`). Cùng lựa chọn cho `ya/yi/yu/ye/yo` ⇒ `da/di/du/dê/dô` ở `JapaneseTransliterator`. Tiếng Việt không có chữ nào đọc /j/ ở phụ âm đầu; viết `i` thì espeak-vi đọc thành nguyên âm đôi /iə/ nên "yes" và "Yamato" tách thêm một âm tiết. `d` đọc /z/ ở giọng Bắc — sai một phụ âm nhẹ hơn sai số âm tiết.
+- **`normalize` xét nguyên âm trước/sau trên chữ đã bỏ dấu thanh.** So trực tiếp với `"iêe"` như bản cũ thì `ế`, `í` trượt luật `k`/`gh`/`ngh` ngay khi bắt đầu có dấu.
+
+**Tiếng Nhật:**
+
+- **Gộp trường âm phải xảy ra trước khi cắt âm tiết** (`collapseLongVowels` trong `normalizeRomaji`). `greedySegment` khớp dài nhất *tại từng vị trí*, nên ở "arigatou" nó ăn `to` rồi bỏ lại `u` thành một âm tiết `ư` thừa — khoá `"ou"`/`"uu"` mà 1.3.291 thêm vào `romajiToViSyllable` **không bao giờ có cơ hội khớp**. Trước lượt này "arigatou" ra `a-ri-ga-tô-ư`, "ryuu" ra `riu-ư`, "shoujo" ra `sô-ư-giô`, "sensei" ra `xên-xê-i`. 7 khoá trường âm đã bị xoá khỏi bảng đọc; `longVowelForms` cố ý **không** chứa `ai/oi/ui/au` vì đó là nguyên âm đôi thật.
+- **`i` sau nguyên âm nhập thành rime**: "senpai" → `xên-pai`, "aikido" → `ai-ki-đô`, "sui" → `xưi` (u Nhật là /ɯ/ nên `ưi`, không phải `ui`). Chỉ nhập vào âm tiết kết thúc bằng nguyên âm khác `i`/`y`.
+- **`findMergedIndex` bị thay bằng `mergedIndexOfSyllable`** dựng một lần trong vòng nhập. Vị trí sokuon tính trên mảng âm tiết *romaji* còn coda phải gắn vào ô của mảng *đã nhập*; hàm cũ tự suy lại ánh xạ và chỉ biết luật `"n"`, nên có luật nhập thứ hai là sokuon gắn lệch âm tiết.
+
+**Bộ ca kiểm** (`TransliterationGoldenSet`): thêm 7 ca Nhật (`ryuu`, `sensei`, `shoujo`, `senpai`, `aikido`, `kouhai`, `sui`), sửa kỳ vọng 13 ca theo các quyết định trên. Ba ca **để đỏ có chủ ý**, ghi rõ `ĐỎ` kèm lý do: `/w/` ở phụ âm đầu map thành `o` nên "one"/"wish" ra `oân`/`oích` (không phải tiếng Việt), và `/ð/` map thành `đ` nên "though" ra `đô` — chưa có quyết định về đích.
+
+**Chưa đối chiếu chuỗi IPA thật của espeak.** Mọi luật ở lượt này thiết kế trên IPA en-us chuẩn (`ˈeɪpɹəl`, `tæsk`, `stˈeɪʃən`). Hai luật nhạy cảm nhất với chuyện espeak viết gì là `/əl/` và `/ən/`: nếu espeak phát ra phụ âm âm tiết tính (`l̩`, `n̩`) thì `stressMarks` xoá dấu `̩` và cả hai luật trượt — "google" sẽ ra `gúc`. Màn **Thử phiên âm** là chỗ phát hiện ngay lượt chạy đầu.
+
+`check_architecture.py` giữ **14** violation nền, không violation mới; ba file sửa đều dưới trần 400 (`IPAToVietnameseMapper` 210 → 271, `JapaneseTransliterator` 311 → 341, `TransliterationGoldenSet` 117 → 128). Đầu ra của cả 12 ca Nhật và 22 ca Anh đã đối chiếu bằng mô phỏng thuật toán trên **chính** các bảng trong file (không gõ lại bảng), nhưng **chưa** nghe thử trên máy thật.
+
+Nhân tiện sửa bốn chỗ doc đã trôi so với code: `04` ghi `ー → nhân đôi nguyên âm` (sai từ 1.3.291) và ngưỡng phân loại `≥ 2` (thật là 4), `10` cũng ghi `japaneseThreshold = 2`, và `00`/`04`/`10` đều lấy "street" → `xơ-tơ-rít` làm ví dụ — sai ngay từ 1.3.291 vì `legalDoubleOnsets` vốn đã giữ `tr` liền.
+
+CodeGraph: cập nhật `00`, `04`, `10`, `14`; `11`, `13`, `rules` ghi nhận `--no-change-needed`. Validator **chưa PASS** vì `01`, `02`, `06`, `07`, `08`, `09` còn stale do phần debug server chưa commit trong cây (`ExtensionDebugServerLauncher.swift` chưa được tài liệu nào nhắc; `02`/`09` còn link tới `ExtensionDebugPairingAuthority.swift` và `ExtensionDebugPairingQRView.swift` đã xoá) — không thuộc lượt này.
+
 ## [1.3.304] - 2026-09-01
 
 ### Debug server: Bonjour thành tuỳ chọn, kết nối thẳng ws://ip:port như một server API thường

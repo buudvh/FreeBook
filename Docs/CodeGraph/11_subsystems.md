@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ba chỗ chỉnh ở phân hệ rule sau khi 1.3.342 lên máy (1.3.343)
+
+* **Bộ đọc số Hán đúng dạng viết tắt**: chữ số trần ở cuối, ngay sau ký tự bậc, mang bậc thấp hơn một cấp (`八千三` = 8300, `一万二` = 12000). Đây là lỗi của `parseChineseNumeral` có từ bản đầu, chỉ lộ ra từ bậc `百` trở lên nên trước giờ không ai thấy.
+* **Màn thêm/sửa rule: thanh kéo min–max thôi ghi theo từng bước.** Sửa ở **hai lớp** cho cùng một lớp lỗi — thanh chỉ chốt một lần khi nhả tay, **và** `applyTokenSpec` định vị token theo `tokenOrdinal` trên mẫu hiện tại thay vì tin `Segment` đã chụp. Lớp thứ hai đóng cả những đường gọi khác có thể xuất hiện về sau.
+* **Ô thử nhanh nói rõ phạm vi nó thử.** Nó chỉ áp bộ rule **chung**; bộ riêng của truyện, công tắc token riêng và thứ tự ưu tiên riêng nằm ngoài. Chỗ thử đúng cho phần riêng là panel Dịch trong Reader, nơi vốn đã chạy với `bookId`. Không thêm bộ chọn truyện vào màn Cài đặt: việc đó đã có chỗ làm tốt hơn.
+
 ## `<m>` là token **đơn vị**, không phải token số (1.3.342)
 
 * **Vai trò của `<m>` trong phân hệ rule chốt lại**: nó trả **chữ đơn vị** (`mươi`, `trăm`, `nghìn`, `vạn`, `ức`, `triệu`), còn phần trả **giá trị số** là việc của `<n>`. Hai token đứng cùng nhóm "lớp ký tự" nhưng khác mục đích, và mỗi cái có bảng render riêng — `magnitudeWords` cho chữ, `smallMagnitudes`/`largeMagnitudes` cho số.
