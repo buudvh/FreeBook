@@ -2,6 +2,24 @@
 
 Lịch sử thay đổi cũ (version ≤ 1.3.300) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.306] - 2026-09-01
+
+### Debug server bỏ hẳn ghép nối: bật là lắng nghe, cổng được ghi nhớ, rời màn hình hay minimize không tắt
+
+Xoá **2** file Swift, thêm **1** file (459 → **458**), sửa **8** file Swift + **1** README.
+
+**Lỗi gốc:** `NWError -65555 (NoAuth)` khi bật server. `NWListener.service` đòi Bonjour được hệ thống cấp cho *chính bundle đang chạy*, mà app chạy qua LiveContainer nên đăng ký mDNS bị từ chối — và vì service gắn vào listener, thất bại đó kéo cả listener sang `.failed`. Bonjour đã bị **bỏ hoàn toàn** (kể cả `NSBonjourServices` trong `project.yml`); đường kết nối là `ws://<ip>:<port>` như một server API thường.
+
+- **Bỏ hẳn tầng ghép nối** theo yêu cầu ("kết nối quá phức tạp"): xoá `ExtensionDebugPairingAuthority` (token 256-bit một lần, hết hạn 3 phút, so sánh hằng thời gian) và `ExtensionDebugPairingQRView` (QR). Giao thức mất lệnh `pair` + 3 mã lỗi pairing; router mất cửa "chưa pair thì không được gì". Đổi lại: khi server bật, **bất kỳ** máy nào cùng Wi-Fi nối được và chạy được script — đã ghi rõ ở mục "Giới hạn đã biết" trên màn hình. Chốt còn lại là `ExtensionDebugInstallGate`: mọi lệnh ghi đè extension vẫn phải bấm trên thiết bị và người bấm thấy trước danh sách `+/~/-` từng file.
+- **Cổng cố định + ghi nhớ** (`extDebugServerPort`, mặc định 17772 — tránh 17771 của LocalTTS): lần bật sau mở lại đúng URL cũ nếu cổng còn rảnh. `allowLocalEndpointReuse = true` nên tắt rồi bật lại ngay không bị "address in use". Ba bậc xử lý khi mở thất bại, đúng thứ tự: cổng ghi nhớ đang bận → mở cổng bất kỳ (một lần) → thử lại cùng cổng (≤ 3 lần) → mới báo `.failed`.
+- **Vòng đời rời khỏi màn hình và `scenePhase`**: công tắc là `@AppStorage("extDebugServerEnabled")`, chủ sở hữu là `ExtensionDebugServerLauncher` (file mới, 22 dòng). `MainTabView.onChange(scenePhase)` **không** còn gọi `stop()`, và `onAppear` gọi `restoreIfEnabled(container:)` nên mở lại app là server bật lại theo lựa chọn cũ.
+- **Không có keep-alive.** Đã cân nhắc cách của `LocalTTS/Services/BackgroundKeepAlive.swift` (vòng lặp gần-im-lặng + `AVAudioSession`) rồi bỏ theo yêu cầu "đừng đụng tới TTS": nó buộc phải sửa đường audio của `TTSManager` (`stopPlayback` gọi `setActive(false)` sẽ tắt session của keep-alive). **Hệ quả phải chấp nhận**: rời màn hình hay minimize thì app không tắt server, nhưng khi iOS treo tiến trình ở nền thì socket ngừng nhận và nhận lại khi app trở lại foreground.
+- **Mô hình tham khảo là `LocalHTTPServer` của LocalTTS** (cổng cố định + reuse + tự thử lại), lệch một chỗ có chủ ý: LocalTTS ràng buộc `requiredLocalEndpoint` về `127.0.0.1` vì nó phục vụ app khác trên cùng máy; ở đây client là máy tính khác nên phải nghe trên mọi interface.
+- **UI gọn lại** (`ExtensionDebugServerView` 223 → 133 dòng): một `Toggle` bật/tắt, địa chỉ `ws://ip:port` kèm nút sao chép, tên client, và cửa xác nhận cài. Không còn QR, đếm ngược token, hay hàng Bonjour.
+- **Client VS Code**: `extension.ts`/`client.ts`/`protocol.ts` đã ở dạng không ghép nối từ trước (`parseTarget` nhận `ws://ip:port`, `ip:port`, và URI cũ — token nếu có thì bỏ qua); lượt này chỉ xoá hằng `SECRET_KEY` chết và sửa lại doc. **Chưa dọn** `transport.ts`/`webSocketTransport.ts`/`mockTransport.ts`/`sidebarView.ts` — chúng còn `pair()` và nút "Pair App" nhưng không nằm trên đường `extension.ts` đang dùng; package TypeScript không được CI biên dịch nên tôi không nửa-refactor 3.900 dòng không build được tại chỗ.
+
+`check_architecture.py` giữ **14** violation nền, không violation mới (mọi file debug ≤ 260 dòng). CodeGraph: cập nhật `02`, `06`, `07`, `08`, `09`, `11`, `13`; `01` ghi nhận `--no-change-needed`. Chưa biên dịch tại chỗ (Windows) — dựa vào CI; và **toàn bộ đường mạng phải xác minh trên máy thật**.
+
 ## [1.3.305] - 2026-09-01
 
 ### Phiên âm TTS: ép âm tiết tiếng Việt hợp lệ, `j`/`ya` đọc `d`, bỏ âm gió cuối

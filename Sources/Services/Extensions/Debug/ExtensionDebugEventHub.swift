@@ -82,6 +82,15 @@ public actor ExtensionDebugEventHub {
         droppedByRun[runId] ?? 0
     }
 
+    /// Hub có biết run này hay không — dùng để `run.get`/`run.cancel` trả `UNKNOWN_RUN` thay vì một
+    /// reply rỗng trông y như "run có thật nhưng chưa có event".
+    ///
+    /// Xét cả `droppedByRun`: một run bị đẩy hết event khỏi buffer vẫn là run **đã từng tồn tại**, và
+    /// `countByRun` bị trừ dần khi buffer tràn nên một mình nó sẽ nói sai.
+    public func hasRun(_ runId: UUID) -> Bool {
+        countByRun[runId] != nil || droppedByRun[runId] != nil
+    }
+
     /// Mỗi subscriber một stream riêng; huỷ stream tự gỡ continuation nên không rò.
     public func stream() -> AsyncStream<ExtensionDebugEvent> {
         let (stream, continuation) = AsyncStream<ExtensionDebugEvent>.makeStream()

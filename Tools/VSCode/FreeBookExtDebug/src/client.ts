@@ -126,6 +126,27 @@ export class ExtDebugClient {
     }
     const waiter = this.pending.get(envelope.requestId);
     if (!waiter) {
+      // Server có phát `error` **không thuộc request nào**: `requestId: '-'` cho message không parse
+      // được và cho message vượt trần 512 KiB (lượt sau là ngay trước khi nó đóng kết nối). Trước đây
+      // chỗ này `return` lặng, nên hai ca đó không để lại dấu vết nào ở phía người dùng — đo bằng
+      // client thật: chỉ thấy "Kết nối đã đóng". Đẩy vào dòng event để nó hiện ở panel đang mở.
+      if (envelope.type === 'error') {
+        const code = envelope.payload?.code ?? 'INTERNAL_ERROR';
+        const detail = envelope.payload?.message ?? 'Lỗi không rõ';
+        this.onEvent({
+          id: randomUUID(),
+          runId: '-',
+          sequence: -1,
+          timestamp: Date.now() / 1000,
+          packageId: '-',
+          script: '-',
+          sourceRevision: '-',
+          level: 'error',
+          category: 'exception',
+          message: `[${code}] ${detail}`,
+          details: { source: 'server' }
+        });
+      }
       return;
     }
     this.pending.delete(envelope.requestId);

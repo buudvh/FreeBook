@@ -15,6 +15,16 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Debug server: ba ca im lặng nay nói ra lý do (1.3.344)
+
+Ba lỗi dưới đây **đo được bằng client thật** nối vào server trên máy iOS (`ws://<ip>:17772`), không phải suy từ code.
+
+* **`run.get` với `runId` bịa ra trả reply thành công.** Guard cũ chỉ chặn chuỗi không phải UUID; một UUID hợp lệ nhưng không thuộc run nào đi qua và trả `events: []`, `droppedCount: 0` — **không phân biệt được** với "run có thật mà chưa có event". `ErrorCode.unknownRun` đã khai sẵn cho đúng ca này mà chưa chỗ nào phát. Nay `run.get` hỏi `runner.activeRunIds` và `hub.hasRun(_:)` trước, không thấy thì trả `UNKNOWN_RUN`.
+* **`run.cancel` với `runId` bịa ra cũng trả thành công.** Nay cùng cách kiểm. Khác một điểm có chủ ý: run **đã kết thúc** vẫn trả thành công — huỷ cái đã xong là no-op hợp lệ, không phải lỗi của client.
+* **`hub.hasRun(_:)` xét cả `droppedByRun`, không chỉ `countByRun`.** `countByRun` bị trừ dần khi buffer tràn và bị xoá khi về 0, nên một mình nó sẽ báo "không có run" cho một run đã từng chạy thật.
+* **Message vượt trần 512 KiB: nói lý do trước khi đóng.** Trước đây `close(reason:)` gọi `connection.cancel()` thẳng nên client chỉ thấy WebSocket close code **1006** (đóng bất thường, không có close frame) — server biết lý do mà không bao giờ nói. Nay gửi một envelope `error` rồi mới đóng, và đóng **trong** completion của lượt gửi (`sendThenClose`): `cancel()` có thể bỏ frame đang xếp hàng nên gửi-rồi-đóng-ngay sẽ mất đúng lời giải thích vừa thêm.
+* **Client VSCode thôi bỏ lặng `error` không thuộc request nào.** Server phát hai loại envelope kiểu đó — `requestId: "-"` cho message không parse được, và envelope vừa thêm ở trên. `handleMessage` cũ `return` lặng khi không tìm thấy waiter, nên cả hai ca không để lại dấu vết gì cho người dùng. Nay chúng thành một event `level: error, category: exception` đẩy vào panel đang mở.
+
 ## Chữ số trần ở cuối là bậc thấp hơn một cấp; thanh kéo ghi một lần (1.3.343)
 
 * **`parseChineseNumeral` xử dạng viết tắt trước.** Một chữ số trần đứng **cuối, ngay sau ký tự bậc** mang **bậc thấp hơn một cấp**, hệ số luôn là `bậc / 10`: `八千三` = 8300 (không phải 8003), `一万二` = 12000 (không phải 10002), `三百五` = 350, `一亿二` = 120000000. Bậc `十` cho hệ số 1 nên `二十三` = 23 **không đổi** — lỗi chỉ lộ ra từ bậc `百` trở lên.

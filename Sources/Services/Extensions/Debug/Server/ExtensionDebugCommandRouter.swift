@@ -189,18 +189,44 @@ public actor ExtensionDebugCommandRouter {
         reply(to: envelope, payload: payload)
     }
 
+    /// Huỷ một run. `UNKNOWN_RUN` khi id **chưa từng** là run nào — run đã kết thúc thì vẫn trả thành
+    /// công, vì "huỷ cái đã xong" là no-op hợp lệ, không phải lỗi của client.
     private func handleRunCancel(_ envelope: ExtensionDebugProtocol.Envelope) async {
         guard let raw = envelope.payload?.runId, let runId = UUID(uuidString: raw) else {
             emit(ExtensionDebugProtocol.errorEnvelope(requestId: envelope.requestId, code: .unknownRun, message: "runId không hợp lệ"))
+            return
+        }
+        let isActive = await runner.activeRunIds.contains(runId)
+        guard isActive || await hub.hasRun(runId) else {
+            emit(ExtensionDebugProtocol.errorEnvelope(
+                requestId: envelope.requestId,
+                code: .unknownRun,
+                message: "Không có run \(raw)"
+            ))
             return
         }
         await runner.cancel(runId: runId)
         reply(to: envelope, payload: ExtensionDebugProtocol.Payload())
     }
 
+    /// Lấy event của một run.
+    ///
+    /// Phải phân biệt **run không tồn tại** với **run có thật mà chưa có event**: trước 1.3.344 cả hai
+    /// đều trả `events: []`, `droppedCount: 0` nên client không có cách nào biết mình gửi sai id — đo
+    /// bằng client thật: một `runId` bịa ra cũng nhận reply thành công. `ErrorCode.unknownRun` đã khai
+    /// sẵn cho đúng ca này mà chưa chỗ nào phát.
     private func handleRunGet(_ envelope: ExtensionDebugProtocol.Envelope) async {
         guard let raw = envelope.payload?.runId, let runId = UUID(uuidString: raw) else {
             emit(ExtensionDebugProtocol.errorEnvelope(requestId: envelope.requestId, code: .unknownRun, message: "runId không hợp lệ"))
+            return
+        }
+        let isActive = await runner.activeRunIds.contains(runId)
+        guard isActive || await hub.hasRun(runId) else {
+            emit(ExtensionDebugProtocol.errorEnvelope(
+                requestId: envelope.requestId,
+                code: .unknownRun,
+                message: "Không có run \(raw) — có thể đã bị đẩy khỏi buffer event."
+            ))
             return
         }
         var payload = ExtensionDebugProtocol.Payload()

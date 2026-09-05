@@ -4,6 +4,23 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.300) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.344] - 2026-09-05
+
+### Debug server nói ra lý do ở ba ca đang im lặng
+
+Sửa **3** file Swift + **1** file TypeScript của client VSCode.
+
+Ba lỗi dưới đây **đo được bằng client thật** nối vào server trên máy iOS (`ws://<ip>:17772`), chạy 15 ca giao thức: `hello`, `extensions.list` (25 extension), `events.subscribe`, một `run.start` thật (`search` của `ttkan.co`, nhận đủ chuỗi `runStarted → fetchStarted → fetchFinished → responseError → runFinished`), các ca lỗi, JSON rác, và message vượt trần. **13 pass / 2 fail**.
+
+- **`run.get` với `runId` bịa ra trả reply thành công.** Guard cũ chỉ chặn chuỗi không phải UUID; một UUID hợp lệ nhưng không thuộc run nào đi qua và trả `events: []`, `droppedCount: 0` — **không phân biệt được** với "run có thật mà chưa có event". `ErrorCode.unknownRun` đã khai sẵn cho đúng ca này mà chưa chỗ nào phát. Nay hỏi `runner.activeRunIds` và `hub.hasRun(_:)` trước, không thấy thì trả `UNKNOWN_RUN`.
+- **`run.cancel` với `runId` bịa ra cũng trả thành công.** Nay cùng cách kiểm. Khác một điểm có chủ ý: run **đã kết thúc** vẫn trả thành công — huỷ cái đã xong là no-op hợp lệ, không phải lỗi của client.
+- **`hub.hasRun(_:)` xét cả `droppedByRun`, không chỉ `countByRun`**: `countByRun` bị trừ dần khi buffer tràn và bị xoá khi về 0, nên một mình nó sẽ báo "không có run" cho một run đã từng chạy thật.
+- **Message vượt trần 512 KiB đóng kết nối mà không nói gì.** `close(reason:)` gọi `connection.cancel()` thẳng nên client chỉ thấy WebSocket close code **1006** (đóng bất thường, không có close frame); server biết lý do mà chỉ ghi vào `AppLogger`. Nay gửi một envelope `error` rồi mới đóng, qua `sendThenClose(_:reason:)` — đóng **trong** completion của lượt gửi, vì `cancel()` có thể bỏ frame đang xếp hàng nên gửi-rồi-đóng-ngay sẽ mất đúng lời giải thích vừa thêm.
+- **Client VSCode bỏ lặng mọi `error` không thuộc request nào.** Server phát hai loại envelope kiểu đó — `requestId: "-"` cho message không parse được, và envelope vừa thêm ở trên. `handleMessage` cũ `return` lặng khi không tìm thấy waiter nên cả hai ca không để lại dấu vết gì cho người dùng. Nay chúng thành một event `level: error, category: exception` đẩy vào panel đang mở.
+- **Điểm chung của cả ba**: không phải lỗi logic — server tính đúng, chỉ không có đường đưa lý do sang client. Luật rút ra cho các lệnh thêm sau: **mọi mã lỗi đã khai phải có đúng một chỗ phát**.
+- **Không phải bug, đã kiểm rồi loại**: một run trên `qidian` chỉ có 2 event sau 6 giây trông như treo, nhưng chạy lại trên `ttkan.co` thì hoàn tất trong 5 giây với đủ 5 event — đó là fetch chậm ra site Trung Quốc, không phải server đứng.
+- Gate: `check_architecture.py` giữ đúng **7 violation** cũ, tập y hệt; `ExtensionDebugConnection` 148 → **185**/400, `ExtensionDebugCommandRouter` 308 → **334**/400, `ExtensionDebugEventHub` 103 → **114**/400. `npx tsc --noEmit` của client VSCode **pass**. `validate_links.py` PASS. **Phần Swift chưa được kiểm chạy**: máy iOS đang chạy bản cũ nên lượt đo trên chỉ chứng minh *lỗi có thật*, chưa chứng minh *bản sửa chạy đúng* — phải cài IPA mới rồi đo lại. Host là Windows nên cũng chưa biên dịch tại chỗ; không thêm file Swift nên không cần `xcodegen generate`.
+
 ## [1.3.343] - 2026-09-05
 
 ### Sửa số Hán viết tắt đọc sai, thanh kéo độ dài token sinh rác, ô thử nói rõ phạm vi
@@ -459,21 +476,3 @@ Thêm **1** file Swift (458 → **459**), sửa **2** file.
 - **Khoảng độ dài token ở màn thêm/sửa rule có thêm thanh kéo**, mỗi đầu một hàng `[−] thanh-kéo giá trị [+]`. Hai nút `+/−` **giữ nguyên** ở hai bên theo yêu cầu; `stepper` (VStack, hai cột cạnh nhau) đổi thành `lengthRow` (HStack full-width) vì thanh kéo cần chiều rộng. Thanh kéo và hai nút đi qua **cùng một** `adjust`, nên `TokenSpec.clamp()` vẫn là chỗ duy nhất quyết định vùng hợp lệ — kéo `Tối đa` xuống dưới `Tối thiểu` thì nó dừng ở `Tối thiểu`, không tạo ra khoảng ngược.
 
 `check_architecture.py` giữ **14** violation nền, không violation mới. CodeGraph: cập nhật `00`, `02`, `09`, `11`, `12`, `14`. Chưa biên dịch tại chỗ (Windows) — và hành vi cuộn phải thử tay trên máy thật vì nó phụ thuộc lúc nào `UIPageViewController` dỡ trang.
-
-## [1.3.306] - 2026-09-01
-
-### Debug server bỏ hẳn ghép nối: bật là lắng nghe, cổng được ghi nhớ, rời màn hình hay minimize không tắt
-
-Xoá **2** file Swift, thêm **1** file (459 → **458**), sửa **8** file Swift + **1** README.
-
-**Lỗi gốc:** `NWError -65555 (NoAuth)` khi bật server. `NWListener.service` đòi Bonjour được hệ thống cấp cho *chính bundle đang chạy*, mà app chạy qua LiveContainer nên đăng ký mDNS bị từ chối — và vì service gắn vào listener, thất bại đó kéo cả listener sang `.failed`. Bonjour đã bị **bỏ hoàn toàn** (kể cả `NSBonjourServices` trong `project.yml`); đường kết nối là `ws://<ip>:<port>` như một server API thường.
-
-- **Bỏ hẳn tầng ghép nối** theo yêu cầu ("kết nối quá phức tạp"): xoá `ExtensionDebugPairingAuthority` (token 256-bit một lần, hết hạn 3 phút, so sánh hằng thời gian) và `ExtensionDebugPairingQRView` (QR). Giao thức mất lệnh `pair` + 3 mã lỗi pairing; router mất cửa "chưa pair thì không được gì". Đổi lại: khi server bật, **bất kỳ** máy nào cùng Wi-Fi nối được và chạy được script — đã ghi rõ ở mục "Giới hạn đã biết" trên màn hình. Chốt còn lại là `ExtensionDebugInstallGate`: mọi lệnh ghi đè extension vẫn phải bấm trên thiết bị và người bấm thấy trước danh sách `+/~/-` từng file.
-- **Cổng cố định + ghi nhớ** (`extDebugServerPort`, mặc định 17772 — tránh 17771 của LocalTTS): lần bật sau mở lại đúng URL cũ nếu cổng còn rảnh. `allowLocalEndpointReuse = true` nên tắt rồi bật lại ngay không bị "address in use". Ba bậc xử lý khi mở thất bại, đúng thứ tự: cổng ghi nhớ đang bận → mở cổng bất kỳ (một lần) → thử lại cùng cổng (≤ 3 lần) → mới báo `.failed`.
-- **Vòng đời rời khỏi màn hình và `scenePhase`**: công tắc là `@AppStorage("extDebugServerEnabled")`, chủ sở hữu là `ExtensionDebugServerLauncher` (file mới, 22 dòng). `MainTabView.onChange(scenePhase)` **không** còn gọi `stop()`, và `onAppear` gọi `restoreIfEnabled(container:)` nên mở lại app là server bật lại theo lựa chọn cũ.
-- **Không có keep-alive.** Đã cân nhắc cách của `LocalTTS/Services/BackgroundKeepAlive.swift` (vòng lặp gần-im-lặng + `AVAudioSession`) rồi bỏ theo yêu cầu "đừng đụng tới TTS": nó buộc phải sửa đường audio của `TTSManager` (`stopPlayback` gọi `setActive(false)` sẽ tắt session của keep-alive). **Hệ quả phải chấp nhận**: rời màn hình hay minimize thì app không tắt server, nhưng khi iOS treo tiến trình ở nền thì socket ngừng nhận và nhận lại khi app trở lại foreground.
-- **Mô hình tham khảo là `LocalHTTPServer` của LocalTTS** (cổng cố định + reuse + tự thử lại), lệch một chỗ có chủ ý: LocalTTS ràng buộc `requiredLocalEndpoint` về `127.0.0.1` vì nó phục vụ app khác trên cùng máy; ở đây client là máy tính khác nên phải nghe trên mọi interface.
-- **UI gọn lại** (`ExtensionDebugServerView` 223 → 133 dòng): một `Toggle` bật/tắt, địa chỉ `ws://ip:port` kèm nút sao chép, tên client, và cửa xác nhận cài. Không còn QR, đếm ngược token, hay hàng Bonjour.
-- **Client VS Code**: `extension.ts`/`client.ts`/`protocol.ts` đã ở dạng không ghép nối từ trước (`parseTarget` nhận `ws://ip:port`, `ip:port`, và URI cũ — token nếu có thì bỏ qua); lượt này chỉ xoá hằng `SECRET_KEY` chết và sửa lại doc. **Chưa dọn** `transport.ts`/`webSocketTransport.ts`/`mockTransport.ts`/`sidebarView.ts` — chúng còn `pair()` và nút "Pair App" nhưng không nằm trên đường `extension.ts` đang dùng; package TypeScript không được CI biên dịch nên tôi không nửa-refactor 3.900 dòng không build được tại chỗ.
-
-`check_architecture.py` giữ **14** violation nền, không violation mới (mọi file debug ≤ 260 dòng). CodeGraph: cập nhật `02`, `06`, `07`, `08`, `09`, `11`, `13`; `01` ghi nhận `--no-change-needed`. Chưa biên dịch tại chỗ (Windows) — dựa vào CI; và **toàn bộ đường mạng phải xác minh trên máy thật**.

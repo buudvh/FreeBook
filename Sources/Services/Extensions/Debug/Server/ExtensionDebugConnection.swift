@@ -102,6 +102,32 @@ public final class ExtensionDebugConnection: @unchecked Sendable {
         )
     }
 
+    /// Gửi một envelope rồi **mới** đóng, và đóng **trong** completion của lượt gửi.
+    ///
+    /// Không dùng `send` rồi `close` liền: `close` gọi `connection.cancel()`, mà `cancel` có thể bỏ frame
+    /// đang xếp hàng nên lời giải thích không bao giờ tới client — đúng cái đang cần tránh.
+    /// `.contentProcessed` luôn được gọi (kể cả khi gửi lỗi) nên không cần hẹn giờ dự phòng.
+    public func sendThenClose(_ envelope: ExtensionDebugProtocol.Envelope, reason: String?) {
+        lock.lock()
+        let closed = isClosed
+        lock.unlock()
+        guard !closed, let data = try? encoder.encode(envelope) else {
+            close(reason: reason)
+            return
+        }
+
+        let metadata = NWProtocolWebSocket.Metadata(opcode: .text)
+        let context = NWConnection.ContentContext(identifier: "extdebug", metadata: [metadata])
+        connection.send(
+            content: data,
+            contentContext: context,
+            isComplete: true,
+            completion: .contentProcessed { [weak self] _ in
+                self?.close(reason: reason)
+            }
+        )
+    }
+
     public func close(reason: String?) {
         lock.lock()
         let alreadyClosed = isClosed
@@ -137,7 +163,18 @@ public final class ExtensionDebugConnection: @unchecked Sendable {
             }
             if let data {
                 if data.count > ExtensionDebugProtocol.maxIncomingMessageBytes {
-                    self.close(reason: "Message vượt trần \(ExtensionDebugProtocol.maxIncomingMessageBytes) byte")
+                    // Nói lý do **trước** khi đóng. Trước 1.3.344 chỗ này `cancel()` thẳng, nên phía
+                    // client chỉ thấy close code 1006 (đóng bất thường, không có close frame) và không
+                    // có cách nào biết vì sao — đo được bằng client thật: "Kết nối đã đóng", hết.
+                    let notice = ExtensionDebugProtocol.errorEnvelope(
+                        requestId: "-",
+                        code: .malformedMessage,
+                        message: "Message \(data.count) byte vượt trần \(ExtensionDebugProtocol.maxIncomingMessageBytes) byte — kết nối sẽ đóng."
+                    )
+                    self.sendThenClose(
+                        notice,
+                        reason: "Message vượt trần \(ExtensionDebugProtocol.maxIncomingMessageBytes) byte"
+                    )
                     return
                 }
                 self.onMessage(data)

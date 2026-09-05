@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ debug extension: sửa theo kết quả đo bằng client thật (1.3.344)
+
+* **Lần đầu phân hệ này được kiểm bằng một client thật** nối vào server trên máy iOS, không phải chỉ đọc code. 15 ca giao thức chạy qua: `hello`, `extensions.list` (25 extension), `events.subscribe`, `run.start` thật (chạy `search` của `ttkan.co`, nhận đủ chuỗi `runStarted → fetchStarted → fetchFinished → responseError → runFinished`), các ca lỗi, JSON rác, và message vượt trần. **13 pass / 2 fail** — hai fail là `run.get`/`run.cancel` với `runId` không tồn tại.
+* **Ranh giới "server biết mà không nói" là chỗ hỏng chung của cả ba lỗi.** Không phải lỗi logic — server tính đúng, chỉ không có đường đưa lý do sang client: `UNKNOWN_RUN` khai mà không phát, lý do đóng kết nối chỉ nằm trong `AppLogger`, và `error` không thuộc request nào bị client bỏ lặng. Đây là lớp lỗi cần nhớ cho các lệnh thêm sau: **mọi mã lỗi đã khai phải có đúng một chỗ phát**.
+* **`ExtensionDebugEventHub` có thêm một câu hỏi công khai**: `hasRun(_:)` — "hub có biết run này không". Trước đó hub chỉ trả *nội dung* (`events(for:)`, `droppedCount(for:)`), nên router không có cách nào phân biệt rỗng-vì-không-có với rỗng-vì-chưa-có.
+* **`ExtensionDebugConnection` có thêm `sendThenClose(_:reason:)`** — đường duy nhất được dùng khi cần nói lý do rồi đóng. Tách riêng khỏi `send` + `close` vì thứ tự ở đây là **ràng buộc đúng đắn**, không phải tiện tay: `cancel()` bỏ frame đang xếp hàng.
+* **Client VSCode và app là hai nửa của cùng một hợp đồng.** Sửa lượt này đụng cả hai: server phát envelope giải thích, client thôi bỏ lặng envelope không khớp `requestId`. Sửa một nửa là không thấy tác dụng.
+
 ## Ba chỗ chỉnh ở phân hệ rule sau khi 1.3.342 lên máy (1.3.343)
 
 * **Bộ đọc số Hán đúng dạng viết tắt**: chữ số trần ở cuối, ngay sau ký tự bậc, mang bậc thấp hơn một cấp (`八千三` = 8300, `一万二` = 12000). Đây là lỗi của `parseChineseNumeral` có từ bản đầu, chỉ lộ ra từ bậc `百` trở lên nên trước giờ không ai thấy.
