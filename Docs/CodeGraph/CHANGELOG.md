@@ -4,6 +4,22 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.300) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.346] - 2026-09-05
+
+### Trần dung lượng bản nháp trả QUOTA_EXCEEDED thay vì DRAFT_INVALID
+
+Sửa **2** file Swift.
+
+Vòng đo thứ ba trên máy iOS, chạy trên bản đã cài 1.3.345.
+
+- **Bản sửa 1.3.345 đo lại: đúng.** Envelope đúng header với `payload` sai shape nay trả lỗi trong **13 ms**, kèm `requestId` của client và câu "Payload của lệnh 'draft.stage' không đúng dạng". Trước đó treo hết 20 giây timeout.
+- **`QUOTA_EXCEEDED` khai trong giao thức từ đầu mà chưa chỗ nào phát.** Tìm ra bằng cách đếm số chỗ phát của từng mã trong `ErrorCode` — nó là mã **cuối cùng** còn 0 lời gọi, sau `UNKNOWN_RUN` ở 1.3.344. Đo trên máy để xác nhận: manifest khai 300 file ⇒ `DRAFT_INVALID`; manifest khai một file 2 MiB ⇒ `DRAFT_INVALID`. Client vì thế không phân biệt được "workspace quá to" (phải bớt file) với "manifest sai" (phải sửa manifest).
+- **`ExtensionDraftManifest.quotaIssues()` tách riêng ba trần** (200 file / 4 MiB tổng / 1 MiB mỗi file). `shapeIssues()` gọi nó **trước** phần hình dạng để `message` của reply gọi đúng cái đang chặn — trước đây "thiếu plugin.json" chen lên trước "quá 200 file". `handleDraftStage` phân loại mã bằng cách hỏi lại `quotaIssues()`, **không** dò chữ trong câu lỗi: dò chữ là buộc mã lỗi vào lời tiếng Việt.
+- **Chính sách khi lẫn hai loại vấn đề**: có **bất kỳ** vấn đề dung lượng ⇒ `QUOTA_EXCEEDED`, kể cả lúc manifest còn lỗi khác. Trần là thứ phải sửa trước, sửa manifest không cứu được workspace 10 MiB; mảng `issues` vẫn mang đủ mọi vấn đề nên client hiện được cả danh sách.
+- **`size < 0` chuyển từ nhóm dung lượng sang nhóm hình dạng.** Trước đây nó bị gộp một câu với "vượt trần" (`size ... không hợp lệ`), nhưng size âm là manifest sai chứ không phải workspace to.
+- **Ba đường đo lần đầu, không có lỗi**: `run.cancel` **giữa dòng** dừng run thật (chuỗi `runStarted → fetchStarted → cancelled → fetchFailed → cancelled`); client thứ hai bị chặn mà client thứ nhất không bị ảnh hưởng; luồng staging vẫn chặn đúng path lạ, traversal và sha/size lệch. Riêng việc chặn client thứ hai hiện ra ở phía client thành *handshake timeout* chứ không phải một lời từ chối rõ ràng — đúng như doc của `ExtensionDebugServer` đã tự ghi nhận, để lại làm việc riêng.
+- Gate: `check_architecture.py` giữ đúng **7 violation** cũ, tập y hệt; `ExtensionDraftManifest` 88 → **106**/400, `ExtensionDebugCommandRouter+Draft` 297 → **307**/400. `shapeIssues()` giữ nguyên chữ ký nên `ExtensionDraftStagingStore` — caller duy nhất — không phải sửa. `validate_links.py` PASS. **Chưa biên dịch** (host Windows) và bản sửa lượt này **chưa được kiểm chạy**: phải cài IPA mới rồi đo lại đúng hai ca manifest 300 file và file 2 MiB.
+
 ## [1.3.345] - 2026-09-05
 
 ### Payload sai shape thôi làm client debug treo tới hết timeout
@@ -466,16 +482,3 @@ Sửa **1** file Swift (vẫn **461**).
 - **Số ghép thật vẫn chính xác**: `三百二十级` → `320 cấp` (không có dãy chữ số trần nào dài ≥ 2), `一百二十三` → `123`, `二零二五` → `2025` (chứa `零` nên là số đọc theo vị trí), `五三七` → `537` (không tăng liền bậc nên là mã số).
 - Chuỗi có **hai dãy rời** (`二三十四五`) vẫn đọc như một số, vì không suy được cách ghép bậc theo cụm nào — giữ nguyên hành vi cũ, có ghi trong doc comment.
 - Chưa build được (máy Windows); đã mô phỏng lại thuật toán ngoài Swift và đối chiếu 15 ca gồm mọi ca người dùng nêu. `check_architecture.py` giữ **14** violation nền.
-
-## [1.3.313] - 2026-09-02
-
-### Năm lỗi đọc/dịch/TTS: viết hoa sau gạch nối, số Hán liền nhau, số thứ tự, dính chữ giữa hai rule, ext mồ côi
-
-Thêm **2** file Swift (459 → **461**), sửa **7** file. Số phiên bản nhảy từ 1.3.307 lên 1.3.313 để không đụng 1.3.308–312 đã dùng trên nhánh `legado_source`.
-
-- **Reader không còn viết hoa chữ sau dấu `-`.** Lớp ký tự "mở câu mới" của `TranslateUtils.postProcessText` có cả `-`, nên `bán-thần` thành `bán-Thần`. `-` là gạch nối từ ghép và gạch đầu dòng hội thoại, không phải dấu kết câu — đã bỏ khỏi lớp đó.
-- **`一二三级` giờ ra `1, 2, 3 cấp`** thay vì `123 cấp`. Dãy từ **ba** chữ số Hán trần tăng liền bậc là một **danh sách** số viết dính nhau, không phải số ghép: tiếng Trung viết 123 là `一百二十三`. Cùng tiền đề với khoảng xấp xỉ hai chữ số (`四五` → "4 đến 5") đã có từ 1.3.301. Ba cửa hẹp giữ hành vi cũ: phải toàn chữ số Hán trần (có bậc thì đọc thành một số), **không** chứa `零`/`〇` (nên `二零二五` vẫn là `2025`), và tăng **đúng một** mỗi bước (nên mã số `五三七` vẫn là `537`).
-- **`thứ 1` được NghiTTS đọc là "thứ nhất".** `VietnameseOrdinalSpeller` (file mới) chạy **trước** `processDigits` — sau bước đó mọi chữ số đã thành số đếm nên không còn dấu vết để nhận ra số thứ tự. Chỉ hai giá trị bất quy tắc (`1` → nhất, `4` → tư); `thứ 21` để nguyên cho số đếm để không sinh ra "thứ hai mươi nhất". Áp cho cả `hạng`.
-- **Hai rule dịch khớp liền kề không còn dính chữ.** `十年第一魂技` ra `10 nămHồn kỹ thứ 1` vì `assemble` nối hai bản dịch khi không còn ký tự gốc nào ở giữa, và tokenizer VietPhrase coi cả cụm Latin là **một** token nên chỗ dính sống tới output cuối. Chèn một khoảng trắng khi hai đầu đều là chữ/số, và tính nó vào `outputRange` của đoạn hiện tại để mảng segment vẫn phủ liền mạch — span dịch được dựng từ đó.
-- **Tiện ích import từ zip mất file thì xoá hẳn khỏi DB.** Trước đây gỡ tiện ích chỉ xoá `localPath` và giữ hàng để tải lại; đúng cho tiện ích của kho nhưng tiện ích import zip không thuộc kho nào và không có `downloadUrl`, nên hàng còn lại chỉ hiện một nút Tải về **báo lỗi**. `ExtensionInstallAudit` (file mới) đối chiếu DB với đĩa (`plugin.json` còn hay không) rồi: mất file + không có nguồn tải lại → xoá hàng; mất file nhưng thuộc kho → chỉ xoá `localPath`. Chạy lúc mở màn hình quản lý, trước khi làm mới kho; xoá thẳng và ghi `AppLogger`, không hỏi xác nhận. Gỡ tiện ích import zip cũng xoá hàng luôn thay vì để lại.
-- Chưa build được (máy Windows). `check_architecture.py` giữ **14** violation nền, không thêm cái nào — `TextPreprocessor.swift` giữ đúng 1 121 dòng (bằng baseline) bằng cách bỏ một dòng log đã comment, `TranslateUtils.swift` giữ đúng 1 023 dòng như trước lượt sửa.

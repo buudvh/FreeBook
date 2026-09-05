@@ -45,7 +45,17 @@ extension ExtensionDebugCommandRouter {
         // app. Ghi vào thư viện thì vẫn phải bấm trên thiết bị, ở `draft.install`.
         let issues = await ExtensionDraftStagingStore.shared.beginStage(manifest)
         guard issues.isEmpty else {
-            replyIssues(to: envelope, code: .draftInvalid, issues: issues)
+            // Vượt trần dung lượng là điều kiện chặn **khác hẳn** "manifest sai": một cái bắt người
+            // dùng bớt file, một cái bắt sửa manifest. `QUOTA_EXCEEDED` khai trong giao thức từ đầu mà
+            // chưa chỗ nào phát — đo bằng client thật: manifest 300 file trả `DRAFT_INVALID`.
+            //
+            // Có **bất kỳ** vấn đề dung lượng ⇒ `QUOTA_EXCEEDED`, kể cả khi manifest còn lỗi khác: trần
+            // là thứ phải sửa trước, sửa manifest không cứu được workspace 10 MiB. Mảng `issues` vẫn
+            // mang đủ mọi vấn đề nên client hiện được cả danh sách.
+            let code: ExtensionDebugProtocol.ErrorCode = manifest.quotaIssues().isEmpty
+                ? .draftInvalid
+                : .quotaExceeded
+            replyIssues(to: envelope, code: code, issues: issues)
             return
         }
         reply(to: envelope, payload: ExtensionDebugProtocol.Payload())

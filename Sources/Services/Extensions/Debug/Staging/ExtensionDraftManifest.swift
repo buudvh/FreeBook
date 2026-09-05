@@ -41,23 +41,40 @@ public struct ExtensionDraftManifest: Codable, Sendable, Equatable {
         entries.reduce(0) { $0 + $1.size }
     }
 
-    /// Kiểm tra hình dạng manifest **trước** khi nhận byte. Trả danh sách vấn đề; rỗng là hợp lệ.
-    public func shapeIssues() -> [String] {
+    /// Những vấn đề thuộc **trần dung lượng**, tách riêng khỏi phần còn lại của `shapeIssues()`.
+    ///
+    /// Vì sao phải tách: "workspace quá to" và "manifest sai" là hai việc người dùng phải làm khác
+    /// nhau — một cái bớt file, một cái sửa manifest. Giao thức khai `QUOTA_EXCEEDED` cho đúng ca đầu
+    /// từ đầu mà **chưa chỗ nào phát**; đo bằng client thật: manifest 300 file trả `DRAFT_INVALID`.
+    public func quotaIssues() -> [String] {
         var issues: [String] = []
-        if packageId.isEmpty { issues.append("packageId rỗng") }
-        if revision.isEmpty || revision.count > 64 { issues.append("revision rỗng hoặc quá dài") }
-        if entries.isEmpty { issues.append("manifest không có file nào") }
         if entries.count > Self.maxFileCount {
             issues.append("quá \(Self.maxFileCount) file")
         }
         if totalBytes > Self.maxTotalBytes {
             issues.append("tổng \(totalBytes) byte vượt trần \(Self.maxTotalBytes)")
         }
+        for entry in entries where entry.size > Self.maxFileBytes {
+            issues.append("\(entry.relativePath): \(entry.size) byte vượt trần \(Self.maxFileBytes) mỗi file")
+        }
+        return issues
+    }
+
+    /// Kiểm tra hình dạng manifest **trước** khi nhận byte. Trả danh sách vấn đề; rỗng là hợp lệ.
+    ///
+    /// Vấn đề dung lượng xếp **trước** để `message` của reply (lấy phần tử đầu) gọi đúng cái chặn
+    /// người dùng, thay vì một chi tiết manifest nhỏ đứng chen lên trước.
+    public func shapeIssues() -> [String] {
+        var issues: [String] = quotaIssues()
+        if packageId.isEmpty { issues.append("packageId rỗng") }
+        if revision.isEmpty || revision.count > 64 { issues.append("revision rỗng hoặc quá dài") }
+        if entries.isEmpty { issues.append("manifest không có file nào") }
         if !entries.contains(where: { $0.relativePath == "plugin.json" }) {
             issues.append("thiếu plugin.json ở gốc snapshot")
         }
         for entry in entries {
-            if entry.size < 0 || entry.size > Self.maxFileBytes {
+            // Size âm là manifest **sai**, không phải vượt trần — trần đã xét ở `quotaIssues()`.
+            if entry.size < 0 {
                 issues.append("\(entry.relativePath): size \(entry.size) không hợp lệ")
             }
             if entry.sha256.count != 64 {

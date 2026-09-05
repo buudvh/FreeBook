@@ -15,6 +15,14 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## `QUOTA_EXCEEDED` lần đầu được phát; xác nhận bản sửa 1.3.345 (1.3.346)
+
+* **Bản sửa 1.3.345 đo lại: đúng.** Envelope đúng header với `payload` sai shape nay trả lỗi trong **13 ms** kèm `requestId` của client và câu "Payload của lệnh 'draft.stage' không đúng dạng" — trước đó treo hết 20 giây timeout.
+* **`QUOTA_EXCEEDED` khai trong giao thức từ đầu mà chưa chỗ nào phát.** Mọi vi phạm trần dung lượng đều trả `DRAFT_INVALID` nên client không phân biệt được "workspace quá to" (phải bớt file) với "manifest sai" (phải sửa manifest). Đo được: manifest khai 300 file ⇒ `DRAFT_INVALID`; manifest khai một file 2 MiB ⇒ `DRAFT_INVALID`.
+* **`ExtensionDraftManifest.quotaIssues()` tách riêng ba trần** (200 file / 4 MiB tổng / 1 MiB mỗi file) khỏi phần còn lại của `shapeIssues()`, và `shapeIssues()` xếp chúng **lên trước** để `message` của reply gọi đúng cái đang chặn thay vì một chi tiết manifest nhỏ. `handleDraftStage` phát `.quotaExceeded` khi có **bất kỳ** vấn đề dung lượng, kể cả lúc manifest còn lỗi khác — trần là thứ phải sửa trước; mảng `issues` vẫn mang đủ mọi vấn đề.
+* **`size < 0` chuyển từ nhóm dung lượng sang nhóm hình dạng.** Trước đây nó bị gộp một câu với "vượt trần" (`size ... không hợp lệ`), nhưng size âm là manifest sai, không phải workspace to.
+* **Ba đường đo lần đầu, không có lỗi**: `run.cancel` **giữa dòng** dừng run thật (chuỗi `runStarted → fetchStarted → cancelled → fetchFailed → cancelled`); client thứ hai bị chặn và client thứ nhất không bị ảnh hưởng; luồng staging vẫn chặn đúng path lạ, traversal, sha/size lệch.
+
 ## Payload sai shape thôi làm client treo; xác nhận 3 bản sửa 1.3.344 (1.3.345)
 
 * **Ba bản sửa của 1.3.344 đã đo lại trên máy iOS và đúng**: `run.get`/`run.cancel` với `runId` không tồn tại trả `UNKNOWN_RUN`, còn run thật vẫn trả reply bình thường (không bị `UNKNOWN_RUN` oan).

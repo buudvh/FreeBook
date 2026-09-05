@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Debug extension: hết mã lỗi khai mà không phát (1.3.346)
+
+* **Bản audit "mã lỗi khai vs phát" đã đóng.** Đếm số chỗ phát từng mã trong `ErrorCode` cho thấy `QUOTA_EXCEEDED` là mã **cuối cùng** còn 0 lời gọi — sau `UNKNOWN_RUN` ở 1.3.344. Nay cả 10 mã đều có ít nhất một chỗ phát. Đây là cách kiểm rẻ nhất cho lớp lỗi của phân hệ này và nên chạy lại mỗi khi thêm mã mới.
+* **Trần dung lượng thành một nhóm có tên riêng.** `ExtensionDraftManifest.quotaIssues()` là nguồn duy nhất cho ba trần (200 file / 4 MiB tổng / 1 MiB mỗi file); `shapeIssues()` gọi nó rồi mới xét phần hình dạng. Router phân loại mã lỗi bằng cách hỏi lại `quotaIssues()`, **không** dò chữ trong câu lỗi — dò chữ là buộc mã lỗi vào lời tiếng Việt.
+* **Ba đường đo lần đầu và không có lỗi**: huỷ run giữa dòng, chặn client thứ hai, và toàn bộ chốt an toàn của staging. Riêng việc chặn client thứ hai hiện ra ở phía client thành *handshake timeout* chứ không phải một lời từ chối rõ ràng — đúng như doc của `ExtensionDebugServer` đã tự ghi nhận; muốn sửa thì phải hoàn tất handshake WebSocket trước khi từ chối, và đó là việc riêng.
+
 ## Debug extension: vòng đo thứ hai, trên bản đã sửa (1.3.345)
 
 * **Vòng đo thứ hai xác nhận cả ba bản sửa 1.3.344 chạy đúng trên máy thật**, và đi tiếp vào phần chưa từng test: toàn bộ luồng staging `draft.*`. Luồng đó **không có lỗi** — chặn đúng path không khai trong manifest, `../..`, size/sha lệch, và `draft.finish` bắt `plugin.json` thiếu mục `script`.
