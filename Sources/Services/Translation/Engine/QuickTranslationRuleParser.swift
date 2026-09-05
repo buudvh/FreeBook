@@ -242,7 +242,7 @@ public enum QuickTranslationRuleParser {
         let index = captureCount
         captureCount += 1
 
-        let numeralKinds: Set<String> = ["n", "y", "h", "d"]
+        let numeralKinds: Set<String> = ["n", "y", "h", "d", "m", "a"]
         if names.allSatisfy({ numeralKinds.contains($0) }) {
             // `<n|y>` (và các tổ hợp số khác) vẫn được chấp nhận để không phá rule cũ; ngữ nghĩa
             // render theo loại **đầu tiên** như hành vi trước 1.3.287 (names[0]).
@@ -252,7 +252,16 @@ public enum QuickTranslationRuleParser {
             case "y": kind = .digitwise
             case "h": kind = .hanDigits
             case "d": kind = .asciiDigits
+            case "m": kind = .magnitude
+            case "a": kind = .latinLetters
             default: throw ParseError(code: .unknownTokenName, message: "Token <\(names[0])> không được hỗ trợ")
+            }
+            // `<m>` là **một** ký tự bậc theo đặc tả, không nhận range: `十` là 10, `百` là 100 — nối hai
+            // ký tự bậc lại không thành một bậc mới. Ép về 1 giống `<L>`/`<hv>` để thanh min–max không
+            // hứa một việc không có hiệu lực. `<a>` thì **có** range, vì `SSS` là 3 ký tự.
+            if kind == .magnitude {
+                minLength = 1
+                maxLength = 1
             }
             return QuickTranslationRuleElement(
                 kind: .numeral(kind),

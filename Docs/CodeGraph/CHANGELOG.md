@@ -4,6 +4,22 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.300) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.341] - 2026-09-05
+
+### Thêm token bậc số Hán và token chữ A-Z cho rule dịch
+
+Sửa **10** file Swift. DSL rule lên **12** token.
+
+- **`<m>` — bậc số Hán.** Khớp **đúng một** ký tự trong `十百千万萬亿億兆` và render ra số: `十` → `10`, `百` → `100`, `千` → `1000`, `万/萬` → `10000`, `亿/億` → `100000000`, `兆` → `1000000000000`. Mục đích là một rule phủ mọi bậc thay cho nhóm `(十|百|千)` viết tay — `几<m>年 = mấy {0} năm` cho cả mấy mươi / mấy trăm / mấy nghìn năm, `几<m>次 = mấy {0} lần`. Parser **ép về 1 ký tự** bất kể `:min-max` (giống `<L>`/`<hv>`) nên thanh chỉnh độ dài bị ẩn: nối hai ký tự bậc không thành một bậc mới. Hệ quả cố ý: `几<m>年` **không** khớp `几万亿年` — dải bậc ở đó dài 2 ký tự, guard bên phải buộc nuốt hết nên rule trượt; ca đó thuộc `<n>`, vốn đọc `万亿` thành một số.
+- **`<a>` — chữ cái A-Z.** Khớp một dải chữ cái Latin hoa/thường, **kể cả full-width** `Ａ-Ｚ`/`ａ-ｚ`, trả **nguyên văn** và chỉ hạ full-width về ASCII (cùng chính sách `<d>`, để `ＳＳＳ` và `SSS` ra một kết quả). Giữ đúng hoa/thường — `SSS级` ra `SSS`, không phải `sss`. Có `:min-max` vì cấp bậc dài nhiều ký tự: `<a>级 = cấp {0}` phủ `A级`, `BB级`, `SSS级`. Không nhận chữ số, phần số đã có `<n>`/`<d>`.
+- **Cả hai dùng lại nguyên bộ máy char-class**, không thêm nhánh nào ở matcher ngoài hai case render: chúng là phần tử `Kind.numeral` với `NumeralKind` mới, nên boundary guard hai đầu, thử độ dài dài → ngắn, `literalLength`, `wildcardCapacity`, `minimumWidth`/`maximumWidth` đều không phải sửa. Guard làm việc theo lớp ký tự của chính token: `<a>` từ chối ăn một phần dải chữ dài hơn (start 1 của `SSS级` bị loại vì ký tự liền trước cũng là chữ cái).
+- **Tranh chấp với rule `<n>` sẵn có tự giải quyết ở tiêu chí 1 (vị trí)**: trên `几十年`, `几<m>年` khớp từ vị trí 0 còn `<n>年` chỉ từ vị trí 1, nên rule có literal `几` thắng và rule kia bị loại vì chồng lấn.
+- **Config và nhập nhanh đều có.** Công tắc chung (Cài đặt → Quản lý rule dịch → Cấu hình token rule) thêm 2 hàng; công tắc riêng theo truyện và dải nút chèn token trong màn thêm/sửa rule **tự có** vì cả hai dựng từ `Kind.allCases` + `Kind.isNumeralGroup`. Nhóm token đầu đổi tên "Token số và nhãn" → **"Token lớp ký tự và nhãn"** ở cả ba màn vì nó không còn chỉ chứa số. Chú thích trong màn thêm/sửa rule liệt kê đủ 12 token và nói rõ `<L>`, `<hv>`, `<m>` luôn đúng một ký tự nên không có thanh độ dài.
+- **Nhân đó bỏ một chỗ trùng lặp**: 12 `Toggle` của màn công tắc chung nay đọc `Kind.label` thay vì tự viết nhãn, nên nhãn token chỉ còn **một** nguồn cho cả ba màn.
+- **Token mới phải thêm vào cuối `Kind`**: `Configuration.signature` là chuỗi bit theo thứ tự `allCases` và nằm trong khoá cache dịch, nên chèn vào giữa làm mọi chữ ký cũ trượt một bit — đã ghi thành chú thích tại chỗ.
+- **Nợ tên đã ghi nhận, không che**: `NumeralKind` giờ chứa `.latinLetters`, tức tên hẹp hơn nghĩa (thật ra là "lớp ký tự"). Giữ nguyên tên vì đổi là sửa 14 chỗ `switch` trên phân hệ nóng mà không có compiler tại chỗ; đã ghi ở doc của enum, `11_subsystems` và `rules.md` để đổi khi có macOS.
+- Gate: `check_architecture.py` giữ đúng **7 violation** cũ, tập y hệt; `QuickTranslationNumberFormatter` 244 → **287**/400, `QuickTranslationRuleTokenSettings` 93 → **105**/400, `QuickTranslationRuleElement` 146 → **158**/400, `QuickTranslationRuleTokenSettingsView` 67 → **71**/400. `validate_links.py` PASS (16 doc, 500 file) sau khi cập nhật `04_call_graph`, `07_dataflow`, `11_subsystems` và ghi `no-change-needed` cho `13_resource_lifecycle`. **Chưa biên dịch** — host là Windows; lượt này không thêm file Swift nên không cần `xcodegen generate`.
+
 ## [1.3.340] - 2026-09-05
 
 ### Ô tạo bộ sưu tập không còn lệch hàng, nút thêm rule điền sẵn nghĩa
@@ -483,32 +499,3 @@ Sửa **3** file Swift, **1** README.
 Giao thức, pairing và cửa xác nhận **không đổi**: vẫn WebSocket `freebook-extdebug.v1`, token một lần + phải bấm đồng ý trên thiết bị. Bỏ Bonjour chỉ bỏ bước *tìm thấy nhau*, không bỏ bước *được phép*.
 
 `check_architecture.py` giữ **14** violation nền, không violation mới. CodeGraph: cập nhật `11`, `13`; `07` ghi nhận `--no-change-needed`. Chưa biên dịch tại chỗ (Windows) — dựa vào CI.
-
-## [1.3.303] - 2026-09-01
-
-### Debug extension Phase 2–4: server LAN có pairing, snapshot nháp, cài + rollback, và client VS Code
-
-Thêm **18** file Swift mới (441 → **459**), sửa **3** file, thêm **1** package VS Code (`Tools/VSCode/FreeBookExtDebug`, TypeScript — ngoài target iOS, **không** được CI biên dịch). Hoàn tất Phase 2, 3, 4 của `Docs/Plans/2026-08-23-plan-debug-ext-app-server.md`.
-
-**Phase 2 — app server trên LAN:**
-- `ExtensionDebugServer` (actor): `NWListener` + `NWProtocolWebSocket` + Bonjour `_freebook-extdebug._tcp`, **port ngẫu nhiên**, **tối đa một client**, bật/tắt bằng tay ở Cài Đặt → Nhà Phát Triển → Debug Server (LAN). `MainTabView` tắt hẳn khi app rời foreground.
-- `ExtensionDebugPairingAuthority`: token 256-bit **dùng một lần**, hết hạn 3 phút, so sánh hằng thời gian. Token đúng **chỉ mở cửa xin phép** — phải bấm "Cho phép kết nối" trên thiết bị mới có session.
-- `ExtensionDebugCommandRouter` (+`+Draft`): chỗ **duy nhất** cưỡng chế "chưa pair thì không được gì". Thực thi `hello`, `pair`, `extensions.list`, `run.start`, `run.cancel`, `run.get`, `events.subscribe`.
-- `ExtensionDebugProtocol`: envelope v1 + 13 `CommandType` + 13 `ErrorCode`, payload phẳng `Codable` (không `[String: Any]`).
-- UI: `ExtensionDebugServerView` (trạng thái, cổng, Bonjour, QR + chuỗi pairing, approve/reject, Stop), `ExtensionDebugServerReader`, `ExtensionDebugPairingQRView`.
-- `project.yml`: thêm `NSLocalNetworkUsageDescription` + `NSBonjourServices`.
-
-**Phase 3 — snapshot nháp:**
-- `draft.stage` (manifest khai trước path/size/sha256) → nhiều `draft.chunk` → `draft.finish` (đối chiếu checksum, rồi `ExtensionDraftValidator` kiểm `plugin.json`, containment script, `load(...)`, cú pháp). Chỉ revision đã qua `finish` mới chạy được với `sourceMode: "draft"`.
-- `ExtensionDraftStagingStore` (actor) sở hữu `applicationSupportDirectory/extension-drafts/` — **ngoài** `extensions/`, xoá sạch lúc khởi động app và lúc tắt server. Hai lớp kiểm path (`pathIssue` + containment sau `standardizedFileURL`); không giải nén archive nào nên không có symlink/zip bomb.
-- Storage/cookie/localStorage của bản nháp **tự** tách khỏi production: `JSExecutor` dùng tiền tố `vbook_ext_storage_<md5(localPath)>_`.
-
-**Phase 4 — cài bản staged và rollback:**
-- `draft.install`/`draft.rollback` **treo** ở `ExtensionDebugInstallGate` cho tới khi người dùng bấm trên thiết bị, và người bấm thấy trước danh sách `+/~/-` từng file (`ExtensionDraftInstaller.changeSummary`).
-- Bản cũ được copy sang `.backup/<packageId>/` **trước** khi thay; thay bằng `FileManager.replaceItemAt` (nguyên tử, cùng volume). Không auto-commit khi VS Code save.
-
-**Client VS Code**: 10 command, OutputChannel làm trace, `DiagnosticCollection` chỉ gắn khi `sourceRevision` còn khớp (không khớp thì ghi `(stale)`), token chỉ ở `SecretStorage`, `src/protocol.ts` là mirror của Swift.
-
-**Hai chỗ lệch chốt Phase 0, đã ghi rõ**: pairing URI **có thêm `host`** (IP nội bộ) để client chỉ cần một thư viện WebSocket thay vì dependency mDNS — IP không phải bí mật, token vẫn là thứ được bảo vệ; và unsaved-overlay của Phase 3 **chưa làm** (chỉ có saved snapshot).
-
-`check_architecture.py` giữ **14** violation nền, **không violation mới**: 18 file mới đều ≤ 400 dòng và một primary type (router phải tách `+Draft` để không chạm trần). CodeGraph: cập nhật `00`, `01`, `02`, `03`, `04`, `06`, `07`, `08`, `09`, `10`, `11`, `13`, `14`, `rules`. Chưa biên dịch tại chỗ (Windows) — dựa vào CI; và toàn bộ đường mạng/Bonjour/permission **phải xác minh trên máy thật**, simulator không đại diện.

@@ -15,6 +15,16 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Hai token lớp ký tự mới: `<m>` bậc Hán và `<a>` chữ A-Z (1.3.341)
+
+* **`<m>` khớp đúng một ký tự bậc Hán** `十百千万萬亿億兆` và render ra số: `十` → `10`, `百` → `100`, `千` → `1000`, `万/萬` → `10000`, `亿/億` → `100000000`, `兆` → `1000000000000`. Parser **ép về đúng 1 ký tự** bất kể `:min-max`, giống `<L>`/`<hv>`: nối hai ký tự bậc không thành một bậc mới, nên thanh chỉnh độ dài bị ẩn cho token này. Mục đích là một rule phủ mọi bậc — `几<m>年 = mấy {0} năm` thay cho nhóm `(十|百|千)` viết tay.
+* **`<a>` khớp một dải chữ cái Latin** `A-Z`/`a-z` **kể cả full-width** `Ａ-Ｚ`/`ａ-ｚ`, trả **nguyên văn** và chỉ hạ full-width về ASCII (cùng chính sách `<d>`). Giữ đúng hoa/thường: `SSS级` ra `SSS`, không phải `sss`. `<a>` **có** range vì cấp bậc dài nhiều ký tự — `<a>级 = cấp {0}` phủ `A级`, `BB级`, `SSS级`.
+* **Cả hai đi qua đúng bộ máy char-class đang có**, không thêm nhánh nào ở matcher ngoài hai case render: chúng là phần tử `Kind.numeral` với `NumeralKind` mới, nên boundary guard hai đầu, thử độ dài dài → ngắn, `literalLength`, `wildcardCapacity`, `minimumWidth`/`maximumWidth` đều dùng lại nguyên vẹn.
+* **Boundary guard làm việc theo lớp ký tự của chính token**: `<a>` chặn ăn một phần của dải chữ dài hơn (start 1 của `SSS级` bị loại vì ký tự liền trước cũng là chữ cái), `<m>` chặn theo dải ký tự bậc.
+* **Hệ quả cố ý của việc `<m>` cố định 1 ký tự**: `几<m>年` **không** khớp `几万亿年` (dải bậc ở đó dài 2 ký tự, guard bên phải buộc nuốt hết nên `upper > maxLength` và rule trượt). Trường hợp đó thuộc `<n>`, vốn đọc `万亿` thành một số.
+* **Tranh chấp với rule `<n>` sẵn có giải quyết ở tiêu chí 1 (vị trí)**: trên `几十年`, `几<m>年` khớp từ vị trí 0 còn `<n>年` chỉ khớp từ vị trí 1, nên rule có literal `几` thắng và `<n>年` bị loại vì chồng lấn.
+* **Chữ ký cache token thêm 2 bit ở cuối.** `Configuration.signature` là chuỗi bit theo thứ tự `Kind.allCases`, nên token mới **phải** thêm vào cuối enum; chèn vào giữa làm mọi chữ ký cũ trượt một bit.
+
 ## Đường dịch bỏ bốn chỗ làm việc lặp; lịch sử gom theo ngày (1.3.339)
 
 * **`tokenize` có memo.** `VietPhraseTokenizer.tokenize` nay là cửa vào đọc hai cờ runtime rồi tra `TokenizeMemo` (`NSCache` 512 entry); thân cũ thành `tokenizeUncached`. Khoá = `generation` của `TranslateUtils.translationGenerationToken(for:)` + `bookId` + hai cờ + `md5(text)`. Vì generation nằm trong khoá nên **không ai phải gọi `clear()`**: sửa từ điển/rule là đổi generation ⇒ khoá khác ⇒ entry cũ tự rụng.

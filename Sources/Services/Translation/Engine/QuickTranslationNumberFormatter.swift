@@ -18,6 +18,16 @@ public enum QuickTranslationNumberFormatter {
     public static let hanDigitsUnits: Set<UInt16> = makeUnits("〇零一二两兩三四五六七八九")
     /// `<d>`: chỉ digit 0-9 (ASCII `0123456789` + full-width `０１２３４５６７８９`).
     public static let asciiDigitsUnits: Set<UInt16> = makeUnits("0123456789０１２３４５６７８９")
+    /// `<m>`: **chỉ** ký tự bậc, không nhận chữ số. Parser ép token này về đúng 1 ký tự.
+    public static let magnitudeUnits: Set<UInt16> = makeUnits("十百千万萬亿億兆")
+    /// `<a>`: chữ cái Latin cơ bản, cả hoa và thường, **kể cả full-width** `Ａ-Ｚ`/`ａ-ｚ` vì văn bản
+    /// Trung hay viết cấp bậc bằng ký tự full-width. Không nhận chữ số — cấp bậc kiểu `A`, `SSS`, `BB`
+    /// là chữ, còn số đã có `<n>`/`<d>` lo.
+    public static let latinLetterUnits: Set<UInt16> = makeUnits(
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+            + "ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺ"
+            + "ａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ"
+    )
     /// `<L>`: nhãn chương.
     public static let chapterLabelUnits: Set<UInt16> = makeUnits("章卷集节節幕回折")
 
@@ -45,7 +55,40 @@ public enum QuickTranslationNumberFormatter {
         case .digitwise: return digitwiseUnits
         case .hanDigits: return hanDigitsUnits
         case .asciiDigits: return asciiDigitsUnits
+        case .magnitude: return magnitudeUnits
+        case .latinLetters: return latinLetterUnits
         }
+    }
+
+    /// `<m>`: một ký tự bậc → giá trị của nó. Ký tự lạ trả nguyên văn (không bao giờ xảy ra vì matcher
+    /// đã chốt theo `magnitudeUnits`, nhưng không được nuốt chữ nếu bảng và tập ký tự lệch nhau).
+    public static func renderMagnitude(_ value: String) -> String {
+        guard value.count == 1, let char = value.first else { return value }
+        if let small = smallMagnitudes[char] { return String(small) }
+        if let large = largeMagnitudes[char] { return String(large) }
+        return value
+    }
+
+    /// `<a>`: giữ đúng hoa/thường của bản gốc — `SSS级` phải ra `SSS`, không phải `sss`. Chỉ hạ full-width
+    /// về ASCII, cùng chính sách với `<d>`: `ＳＳＳ` và `SSS` đọc ra một kết quả.
+    public static func renderLatinLetters(_ value: String) -> String {
+        var output = ""
+        for char in value {
+            guard let scalar = char.unicodeScalars.first, char.unicodeScalars.count == 1 else {
+                output.append(char)
+                continue
+            }
+            // Hai dải tường minh, **không** dùng một dải FF21...FF5A: khoảng giữa hai dải là dấu câu
+            // full-width (`［＼］＾＿｀`), hạ chúng về ASCII ở đây là sai nếu lớp ký tự sau này mở rộng.
+            let isFullWidthUpper = scalar.value >= 0xFF21 && scalar.value <= 0xFF3A
+            let isFullWidthLower = scalar.value >= 0xFF41 && scalar.value <= 0xFF5A
+            if isFullWidthUpper || isFullWidthLower, let ascii = Unicode.Scalar(scalar.value - 0xFEE0) {
+                output.append(Character(ascii))
+            } else {
+                output.append(char)
+            }
+        }
+        return output
     }
 
     // MARK: - Render

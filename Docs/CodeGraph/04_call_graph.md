@@ -15,6 +15,12 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Hai nhánh render mới trong matcher; nhãn token về một nguồn (1.3.341)
+
+* **`QuickTranslationRuleMatcher.walkNumeral` thêm hai nhánh render**: `.magnitude` → `QuickTranslationNumberFormatter.renderMagnitude`, `.latinLetters` → `renderLatinLetters`. Không thêm nhánh nào ở `walk` — hai token mới là `Kind.numeral` nên đi đúng đường cũ.
+* **`QuickTranslationRuleParser.parseToken` mở rộng tập tên char-class** thành `["n","y","h","d","m","a"]` và thêm một nhánh ép `<m>` về `minLength = maxLength = 1`, cùng chỗ mà `<L>`/`<hv>` đã bị ép.
+* **`QuickTranslationRuleTokenSettingsView` thôi tự viết nhãn**: 12 `Toggle` nay đọc `Kind.label` — cùng nguồn với màn riêng theo truyện và với dải nút chèn token.
+
 ## Nút `+` của panel Dịch mang theo nghĩa; ô "tạo bộ mới" mượn vùng chữ của thẻ (1.3.340)
 
 * **`Mode.add` mang hai giá trị điền sẵn.** `ReaderView+DefinitionPanel.onAddRule` nay gọi `.add(prefilledPattern: selectedOriginalText(), prefilledReplacement: customMeaning...)` — `customMeaning` chính là ô nhập nghĩa của panel Dịch, nên nghĩa người dùng vừa sửa tay cũng đi theo. `QuickTranslationRuleListView` truyền hai chuỗi rỗng. `init` của sheet đổ `prefilledReplacement` vào `seedReplacement` thay cho `""`.

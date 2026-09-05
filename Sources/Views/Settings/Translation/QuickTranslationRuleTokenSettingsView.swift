@@ -15,27 +15,31 @@ struct QuickTranslationRuleTokenSettingsView: View {
     @AppStorage(QuickTranslationRuleTokenSettings.Kind.vietPhrase.userDefaultsKey) private var isVietPhraseEnabled = true
     @AppStorage(QuickTranslationRuleTokenSettings.Kind.hanViet.userDefaultsKey) private var isHanVietEnabled = true
     @AppStorage(QuickTranslationRuleTokenSettings.Kind.word.userDefaultsKey) private var isWordEnabled = true
+    @AppStorage(QuickTranslationRuleTokenSettings.Kind.magnitude.userDefaultsKey) private var isMagnitudeEnabled = true
+    @AppStorage(QuickTranslationRuleTokenSettings.Kind.latinLetters.userDefaultsKey) private var isLatinLettersEnabled = true
 
     var body: some View {
         Form {
             Section {
-                Toggle("<n> — số", isOn: invalidating($isNumeralEnabled))
-                Toggle("<y> — đọc từng chữ số", isOn: invalidating($isDigitwiseEnabled))
-                Toggle("<h> — chữ số Hán", isOn: invalidating($isHanDigitsEnabled))
-                Toggle("<d> — chữ số 0-9 (kể cả full-width)", isOn: invalidating($isAsciiDigitsEnabled))
-                Toggle("<L> — nhãn chương", isOn: invalidating($isChapterLabelEnabled))
+                Toggle(QuickTranslationRuleTokenSettings.Kind.numeral.label, isOn: invalidating($isNumeralEnabled))
+                Toggle(QuickTranslationRuleTokenSettings.Kind.digitwise.label, isOn: invalidating($isDigitwiseEnabled))
+                Toggle(QuickTranslationRuleTokenSettings.Kind.hanDigits.label, isOn: invalidating($isHanDigitsEnabled))
+                Toggle(QuickTranslationRuleTokenSettings.Kind.asciiDigits.label, isOn: invalidating($isAsciiDigitsEnabled))
+                Toggle(QuickTranslationRuleTokenSettings.Kind.magnitude.label, isOn: invalidating($isMagnitudeEnabled))
+                Toggle(QuickTranslationRuleTokenSettings.Kind.latinLetters.label, isOn: invalidating($isLatinLettersEnabled))
+                Toggle(QuickTranslationRuleTokenSettings.Kind.chapterLabel.label, isOn: invalidating($isChapterLabelEnabled))
             } header: {
-                Text("Token số và nhãn")
+                Text("Token lớp ký tự và nhãn")
             } footer: {
-                Text("Các token số và nhãn vẫn giữ nguyên cú pháp rule hiện có.")
+                Text("<m> khớp đúng một ký tự bậc Hán và trả về số: 十 → 10, 百 → 100, 千 → 1000. Viết 几<m>年 = mấy {0} năm là một rule phủ cả mấy mươi / mấy trăm / mấy nghìn năm.\n\n<a> khớp chuỗi chữ cái A-Z và trả nguyên văn, giữ đúng hoa/thường: <a>级 = cấp {0} phủ A级, BB级, SSS级.")
             }
 
             Section {
-                Toggle("<ne> — tên riêng", isOn: invalidating($isNameEnabled))
-                Toggle("<pn> — đại từ", isOn: invalidating($isPronounEnabled))
-                Toggle("<vp> — VietPhrase", isOn: invalidating($isVietPhraseEnabled))
-                Toggle("<hv> — một chữ Hán-Việt", isOn: invalidating($isHanVietEnabled))
-                Toggle("<w> — cụm từ điển", isOn: invalidating($isWordEnabled))
+                Toggle(QuickTranslationRuleTokenSettings.Kind.name.label, isOn: invalidating($isNameEnabled))
+                Toggle(QuickTranslationRuleTokenSettings.Kind.pronoun.label, isOn: invalidating($isPronounEnabled))
+                Toggle(QuickTranslationRuleTokenSettings.Kind.vietPhrase.label, isOn: invalidating($isVietPhraseEnabled))
+                Toggle(QuickTranslationRuleTokenSettings.Kind.hanViet.label, isOn: invalidating($isHanVietEnabled))
+                Toggle(QuickTranslationRuleTokenSettings.Kind.word.label, isOn: invalidating($isWordEnabled))
             } header: {
                 Text("Token từ điển")
             } footer: {

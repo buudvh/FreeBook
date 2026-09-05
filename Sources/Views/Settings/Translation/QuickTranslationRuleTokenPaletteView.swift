@@ -29,7 +29,7 @@ struct QuickTranslationRuleTokenPaletteView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            group(title: "Số & nhãn", kinds: Self.numeralKinds)
+            group(title: "Lớp ký tự & nhãn", kinds: Self.numeralKinds)
             group(title: "Từ điển", kinds: Self.dictionaryKinds)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -119,6 +119,8 @@ struct QuickTranslationRuleTokenPaletteView: View {
         case .vietPhrase: return "VietPhrase"
         case .hanViet: return "một chữ HV"
         case .word: return "cụm từ điển"
+        case .magnitude: return "bậc 10/100…"
+        case .latinLetters: return "chữ A-Z"
         }
     }
 

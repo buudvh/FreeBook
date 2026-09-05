@@ -178,6 +178,10 @@ public final class QuickTranslationRuleMatcher {
                 rendered = QuickTranslationNumberFormatter.renderHanDigits(value)
             case .asciiDigits:
                 rendered = QuickTranslationNumberFormatter.renderAsciiDigits(value)
+            case .magnitude:
+                rendered = QuickTranslationNumberFormatter.renderMagnitude(value)
+            case .latinLetters:
+                rendered = QuickTranslationNumberFormatter.renderLatinLetters(value)
             }
             store(
                 rendered,

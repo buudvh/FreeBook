@@ -33,7 +33,7 @@ struct ReaderBookTokenSettingsView: View {
             Section {
                 ForEach(Kind.allCases.filter(\.isNumeralGroup), id: \.self, content: row)
             } header: {
-                Text("Token số và nhãn")
+                Text("Token lớp ký tự và nhãn")
             }
 
             Section {

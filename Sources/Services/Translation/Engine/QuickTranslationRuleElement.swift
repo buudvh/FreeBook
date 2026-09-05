@@ -22,7 +22,7 @@ public struct QuickTranslationRuleElement: Sendable {
     public indirect enum Kind: Sendable {
         /// Chuỗi ký tự thường (đã gộp các ký tự liền nhau, đã bỏ dấu `\` escape).
         case literal([UInt16])
-        /// Token số: `<n>` (số Hán có bậc), `<y>` (digitwise rộng), `<h>` (chỉ chữ số Hán), `<d>` (chỉ digit 0-9/full-width).
+        /// Token lớp ký tự: `<n>` `<y>` `<h>` `<d>` `<m>` `<a>` — xem `NumeralKind`.
         case numeral(NumeralKind)
         /// `<L>` — đúng một nhãn chương, sinh tên nhãn tiếng Việt.
         case chapterLabel
@@ -32,7 +32,12 @@ public struct QuickTranslationRuleElement: Sendable {
         case group([[QuickTranslationRuleElement]])
     }
 
-    /// Loại số của token `<n>`, `<y>`, `<h>`, `<d>`.
+    /// Loại **lớp ký tự** của một token char-class: `<n>`, `<y>`, `<h>`, `<d>`, `<m>`, `<a>`.
+    ///
+    /// Tên `NumeralKind` giữ nguyên từ bản đầu vì đổi nó là sửa 14 chỗ `switch` trên một phân hệ nóng;
+    /// nhưng nghĩa thật của nó là "token khớp một dải ký tự thuộc cùng một lớp rồi render". `.latinLetters`
+    /// **không phải số** — nó dùng đúng bộ máy đó (boundary guard hai đầu, thử độ dài dài → ngắn, render
+    /// theo loại) nên đặt cùng chỗ là đúng về cơ chế, chỉ lệch về tên. Ghi lại ở `rules.md`.
     public enum NumeralKind: String, Sendable {
         /// `<n>`: số Hán tổng quát (có bậc 十百千万...) + ASCII + full-width; render về số Ả Rập.
         case chinese = "n"
@@ -42,6 +47,13 @@ public struct QuickTranslationRuleElement: Sendable {
         case hanDigits = "h"
         /// `<d>`: chỉ digit 0-9 (ASCII `0123456789` + full-width `０１２３４５６７８９`); render full-width về ASCII.
         case asciiDigits = "d"
+        /// `<m>`: **đúng một** ký tự bậc Hán `十百千万萬亿億兆` → `10`, `100`, `1000`, `10000`, `100000000`,
+        /// `1000000000000`. Dùng cho rule kiểu `几<m>年` (mấy mươi / mấy trăm năm) — một rule phủ mọi bậc
+        /// thay cho một nhóm `(十|百|千)` viết tay.
+        case magnitude = "m"
+        /// `<a>`: chuỗi chữ cái Latin `A-Z`/`a-z`, trả **nguyên văn** (không đổi hoa/thường). Dùng cho
+        /// rule kiểu `<a>级 = cấp {0}` phủ `A级`, `SSS级`, `BB级`.
+        case latinLetters = "a"
 
         public var rawToken: String { "<\(rawValue)>" }
     }

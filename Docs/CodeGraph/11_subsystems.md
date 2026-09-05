@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## DSL rule lên 12 token; ba màn cấu hình tự có token mới (1.3.341)
+
+* **Phân hệ rule dịch thêm `<m>` (bậc Hán → số) và `<a>` (chữ A-Z, nguyên văn).** Cả hai là `NumeralKind` mới nên dùng lại toàn bộ bộ máy char-class — chỉ thêm hai lớp ký tự, hai hàm render và hai case ở parser.
+* **Ba màn cấu hình không phải sửa tay từng token**: màn công tắc riêng theo truyện (`ReaderBookTokenSettingsView`) và dải nút chèn token (`QuickTranslationRuleTokenPaletteView`) đều dựng từ `Kind.allCases` + `Kind.isNumeralGroup`, nên hai token mới tự xuất hiện. Chỉ màn công tắc chung (`QuickTranslationRuleTokenSettingsView`) còn khai `@AppStorage` theo từng token — lượt này thêm 2 dòng, và nhân đó đổi các `Toggle` sang dùng `Kind.label` để nhãn chỉ còn **một** nguồn.
+* **Nhóm token đầu đổi tên thành "lớp ký tự"** ở cả ba màn: nó không còn chỉ chứa số kể từ khi có `<a>`.
+* **Nợ tên đã ghi nhận**: `NumeralKind` giờ chứa `.latinLetters`, tức tên hẹp hơn nghĩa. Giữ nguyên tên vì đổi nó là sửa 14 chỗ `switch` trên phân hệ nóng mà không có compiler tại chỗ; đã ghi rõ ở doc của chính enum và ở `rules.md` để lần sau có macOS thì đổi.
+
 ## Hai chỗ chỉnh sau khi 1.3.339 lên máy thật (1.3.340)
 
 * **Kệ sách: mọi ô trong grid bộ sưu tập nay cao bằng nhau.** `LazyVGrid` lấy chiều cao hàng theo ô cao nhất rồi **căn giữa** những ô thấp hơn — nên ô "tạo bộ mới" (không có nhãn) bị đẩy tụt xuống so với thẻ bên cạnh, và một tên dài 2 dòng cũng làm hàng lệch. `CollectionGridCardView.titleReserve` là một `Text` hai dòng **ẩn** làm sàn chiều cao; thẻ đặt nó dưới ZStack với tên, ô tạo mới dùng nó một mình. Chọn `Text` ẩn thay vì chiều cao pt cố định để còn đúng khi người dùng đổi cỡ chữ hệ thống.
