@@ -15,6 +15,18 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Hot-path invariants on the translation pipeline (1.3.339)
+
+* **Never compile an `NSRegularExpression` inside a function that runs per line or per token.** Literal patterns belong in `static let`. `postProcessText` violated this for four patterns while being called once per token during span building; that alone accounted for ~24,000 ICU pattern compiles per chapter rebuild.
+* **`TokenizeMemo` correctness depends on one thing only: every input that can change tokenization must be in the key.** Today that is `TranslateUtils.translationGenerationToken(for:)` (global / per-book / settings generations + `QuickTranslationRuleStore.cacheTag`), `bookId`, the pronoun and luật-nhân flags, and `md5(text)`. If you add a new data source to the tokenizer, either bump one of those generations or add it to the key — otherwise the memo serves stale tokens silently, with no error anywhere.
+* **Do not call `tokenize` while holding `TranslateUtils.cacheLock`.** The memo path reads `translationGenerationToken`, which takes that same non-recursive `NSLock`. All existing lock scopes wrap exactly one dictionary read or write; keep it that way.
+* **`TextDictionary` length bookkeeping is UTF-16, not `Character`.** Both lookup functions operate on `[UInt16]`, so key lengths must be counted with `key.utf16.count`. Only try lengths that actually exist as keys — iterating from the longest key in the whole file down to 1 makes one long user-added entry slow down every lookup position forever.
+* **`translationTokens` is a function of the paragraph, not of the selection.** Anything recomputed when only `selectedWordOffset`/`selectedWordLength` change must be cheap and per-word. Whole-paragraph work in that path is a defect.
+* **`updateCachedTranslatedContent` must read its `scope`.** A change scoped to a different book must not rebuild the open chapter. Note the notification usually carries `userInfo["bookId"] == nil`, so filtering at the View layer is not enough — the view model is the only place that knows `self.bookId`.
+* **`QuickTranslationRuleDiagnostics.diagnose` may run off the main actor** — same call graph as `performChapterTranslationOffMainActor`, and `QuickTranslationRuleTrace` is `Sendable`. Keep it debounced: it is re-run after every rule action, and it deliberately scans with `includesDisabled: true`, i.e. more rules than the real translate path.
+* **A token that no `{i}` references is valid, not an error.** It still matches and consumes input; that is how `第<n><L> = Chương {0}` swallows `章`. `UNUSED_CAPTURE` must stay a warning — making it `hard` drops whole valid rule lines silently.
+* **No lazy container inside a `List`/`Form` row.** Use `ScrollView` + `LazyVGrid` at top level, or `FlowLayout` (a non-lazy custom `Layout`) inside a row. This is the 1.3.269 crash, not a style preference.
+
 ## Rule-priority configuration: invariants (1.3.338)
 
 * **`QuickTranslationRuleEngine.select` remains the only implementation of match priority.** It now reads the middle four criteria from a `QuickTranslationRulePriorityConfiguration.Configuration`; do not reimplement the ordering anywhere else, and do not add a second comparator for the diagnostics screen — it must call the same `select` with the same configuration snapshot.

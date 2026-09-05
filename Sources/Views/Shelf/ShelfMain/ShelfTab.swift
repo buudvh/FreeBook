@@ -35,4 +35,18 @@ enum ShelfTab: Int, CaseIterable, Identifiable {
         case .history: return "Lịch Sử Đọc"
         }
     }
+
+    /// Tab hiện dưới dạng **nút icon** thay cho pill chữ; `nil` ⇒ hiện `pickerTitle`.
+    ///
+    /// Downloads và Bộ Sưu Tập thu về icon để nhường chiều ngang cho hai tab dùng nhiều nhất. Đây là
+    /// quyết định trình bày, **không** đụng `rawValue` — payload `userInfo["shelfTab"]` giữ nguyên.
+    var iconName: String? {
+        switch self {
+        case .downloads: return "arrow.down.circle"
+        case .collections: return "square.grid.2x2"
+        case .shelf, .history: return nil
+        }
+    }
+
+    var isIconOnly: Bool { iconName != nil }
 }

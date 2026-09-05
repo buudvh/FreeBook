@@ -133,6 +133,8 @@ struct ReaderView: View {
     @State internal var showingSearchEnginesConfigSheet = false
     @State var translationMode: String = "VP" // Dịch dạng: "VP" (Vietphrase) hoặc "HV" (Hán Việt)
     @State var translationTokens: [TranslationWordToken] = []
+    /// Đoạn văn mà `translationTokens` đang mô tả — xem `updateEditorFromSelection()`.
+    @State var translationTokensSource: String = ""
     @State var dictionaryMatches: [DictionaryMatchInfo] = []
     // Gợi ý nghĩa của từ đang chọn — tính trong `ReaderView+Suggestions.swift`, không phải computed property
     // (xem doc ở file đó: computed property khiến ~6 lần tra trie chạy lại mỗi lần body evaluate).
@@ -154,6 +156,8 @@ struct ReaderView: View {
     /// Panel copy nội dung gốc và màn check rule — state ở đây, hành vi ở `ReaderView+RuleTools`.
     @State var showingCopyOriginalSheet = false
     @State var ruleTraces: [QuickTranslationRuleTrace] = []
+    /// Lượt chẩn đoán rule đang bay — xem `refreshRuleTraces()`.
+    @State var ruleTracesTask: Task<Void, Never>? = nil
     @State var focusedRuleTraceID: String? = nil
     @State var ruleEditorMode: QuickTranslationRuleEditorSheet.Mode? = nil
     /// Có thao tác nào đổi dữ liệu rule trong lượt mở sheet này hay chưa — quyết định có dịch lại khi đóng.

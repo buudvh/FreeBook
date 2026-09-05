@@ -603,43 +603,9 @@ public final class TranslateUtils {
     }
     
     /// `internal` (không `private`) vì `TranslateUtils+QuickTranslationRules` dựng span ở file khác.
+    /// Thân hàm nằm ở `TranslationTextPostProcessor` từ 1.3.339 — xem lý do ở header file đó.
     internal static func postProcessText(_ input: String) -> String {
-        let lines = input.components(separatedBy: .newlines)
-        let trimmedLines = lines.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-        var result = trimmedLines.joined(separator: "\n")
-        
-        let trimSpacesBefore = try! NSRegularExpression(pattern: #" +([,.?!\}\]>”’\):】])"#, options: [])
-        result = trimSpacesBefore.stringByReplacingMatches(in: result, options: [], range: NSRange(result.startIndex..<result.endIndex, in: result), withTemplate: "$1")
-        
-        let trimSpacesAfter = try! NSRegularExpression(pattern: #"([\{\[\(“‘\(【]) +"#, options: [])
-        result = trimSpacesAfter.stringByReplacingMatches(in: result, options: [], range: NSRange(result.startIndex..<result.endIndex, in: result), withTemplate: "$1")
-        
-        var nsString = result as NSString
-        // Viết hoa đầu dòng hoặc sau dấu kết thúc câu / dấu hai chấm (`.`, `!`, `?`, `:`, `：`, kể cả khi có dấu đóng/mở ngoặc hoặc gạch đầu dòng bọc ngoài).
-        let capitalizeRegex = try! NSRegularExpression(pattern: #"(^\s*[“‘"'\(\[\{【\-—–]?\s*|[.!?:：]+[”’"'\)\]\}】]*\s*[“‘"'\(\[\{【\-—–]?\s*)(\p{Ll})"#, options: [.anchorsMatchLines])
-        let matches = capitalizeRegex.matches(in: result, options: [], range: NSRange(result.startIndex..<result.endIndex, in: result))
-        let offset = 0
-        for match in matches {
-            if match.numberOfRanges == 3 {
-                let range2 = match.range(at: 2)
-                let actualRange = NSRange(location: range2.location + offset, length: range2.length)
-                let char = nsString.substring(with: actualRange)
-                let upper = char.uppercased()
-                nsString = nsString.replacingCharacters(in: actualRange, with: upper) as NSString
-            }
-        }
-        result = nsString as String
-        
-        // Giữ nguyên các dấu ngoặc kép cong (curly quotes) theo yêu cầu người dùng
-        // result = result.replacingOccurrences(of: "“", with: "\"")
-        // result = result.replacingOccurrences(of: "”", with: "\"")
-        // result = result.replacingOccurrences(of: "‘", with: "\"")
-        // result = result.replacingOccurrences(of: "’", with: "\"")
-        
-        let multiSpaces = try! NSRegularExpression(pattern: #" +"#, options: [])
-        result = multiSpaces.stringByReplacingMatches(in: result, options: [], range: NSRange(result.startIndex..<result.endIndex, in: result), withTemplate: " ")
-        
-        return result.trimmingCharacters(in: .whitespacesAndNewlines)
+        TranslationTextPostProcessor.apply(to: input)
     }
     
     public static func invalidateTOCRulesCache() {

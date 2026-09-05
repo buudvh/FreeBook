@@ -15,6 +15,17 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ Dịch bớt bốn chỗ làm việc lặp; Kệ sách đổi ba mặt trình bày (1.3.339)
+
+* **Phân hệ Dịch có thêm hai đơn vị thuần có tên.** [`TranslationTextPostProcessor`](../../Sources/Services/Translation/Utils/TranslationTextPostProcessor.swift) nhận thân cũ của `postProcessText` cùng 4 regex nay là `static let`; [`TokenizeMemo`](../../Sources/Services/Translation/Utils/TokenizeMemo.swift) là tầng ghi nhớ đầu tiên của `tokenize`. Cùng khuôn `TranslationPunctuationMapper` (1.3.336): một việc, một type, `import Foundation`.
+* **Vai trò `tokenize` đổi**: nay là **cửa vào có memo**, thân cũ thành `tokenizeUncached`. Hai cờ runtime được đọc ở cửa vào để vào được khoá memo — nghĩa là muốn thêm nguồn dữ liệu nào ảnh hưởng tokenize thì phải đưa nó vào khoá, hoặc bảo đảm nó bump `translationGenerationToken`.
+* **`TextDictionary` (đường `.txt`) đổi chỉ số nội bộ** từ `maxWordLength` sang tập độ dài khoá có thật. Đây là từ điển custom + từ điển riêng của truyện, tức đúng phần người dùng sửa trong Reader — nên phân hệ nay không còn "càng sửa càng chậm".
+* **Panel Dịch của Reader**: chẩn đoán rule chạy off-main + debounce, và **chip rule đi theo vùng chọn** như doc đã hứa từ 1.3.334.
+* **Phân hệ rule dịch nới một luật hợp lệ**: token chỉ để khớp mà không xuất ra bản dịch nay là **warning**, không còn loại cả dòng. Kèm theo, màn thêm/sửa rule hiện đủ 10 token nhờ `FlowLayout` — trước đó 5 token cuối bị cắt khỏi màn hình.
+* **Kệ sách: tab Bộ sưu tập đổi từ danh sách sang grid.** Ba khối mới — [`CollectionCoverMosaicView`](../../Sources/Views/Shelf/Collections/CollectionCoverMosaicView.swift) (ảnh ghép bìa + badge), [`CollectionGridCardView`](../../Sources/Views/Shelf/Collections/CollectionGridCardView.swift) (thẻ + `previewBooks`), [`CollectionsReorderSheet`](../../Sources/Views/Shelf/Collections/CollectionsReorderSheet.swift) (nơi `onMove` chuyển tới, vì `LazyVGrid` không có). `CollectionsTabView` vẫn là chủ mọi thao tác ghi qua `BookCollectionCoordinator`.
+* **Kệ sách: thanh chọn tab rời khỏi `Picker`.** [`ShelfTabSelectorView`](../../Sources/Views/Shelf/ShelfMain/ShelfTabSelectorView.swift) là hàng nút rời; `ShelfTab` mang thêm `iconName`/`isIconOnly` nên "tab nào là icon" là dữ liệu của phân hệ, không phải điều kiện rải trong View.
+* **Kệ sách: tab Lịch sử có mốc ngày.** [`HistoryDayGrouper`](../../Sources/Views/Shelf/ShelfMain/HistoryDayGrouper.swift) gom nhóm, header dùng lại đúng `shelfSectionHeader` mà tab Kệ sách dùng cho "Đang ghim"/"Truyện khác" — một khuôn header cho cả phân hệ.
+
 ## Phân hệ Dịch: thứ tự ưu tiên rule thành cấu hình, có hai phạm vi (1.3.338)
 
 * **Phân hệ có thêm một trục cấu hình runtime thứ hai, song song với công tắc token.** Trước đây chỉ token bật/tắt được; nay **thứ tự phá tranh chấp** giữa hai rule chồng nhau cũng là dữ liệu. `QuickTranslationRulePriorityConfiguration` sở hữu 4 tiêu chí xếp lại được + 3 preset + 2 khoá UserDefaults (`quickTranslateRulePriorityOrder`, `quickTranslateRulePriorityDescending`, đều lower-camel-case nên đi theo luồng backup settings sẵn có).

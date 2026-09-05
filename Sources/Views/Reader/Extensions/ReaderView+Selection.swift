@@ -76,10 +76,27 @@ extension ReaderView {
             self.customMeaning = getHanViet(for: word)
         }
 
-        // Cập nhật các tokens phân tách và tra cứu từ điển đa tầng
-        self.translationTokens = TranslateUtils.getTranslationTokens(for: originalSentence, bookId: bookId)
+        // Cập nhật các tokens phân tách và tra cứu từ điển đa tầng.
+        //
+        // `translationTokens` chỉ phụ thuộc **đoạn văn** (và generation của từ điển/rule), không phụ
+        // thuộc vùng chọn — nên 4 nút nới/thu không được trả tiền một lượt tokenize cả đoạn. Trước
+        // 1.3.339 mỗi lần nhấn đều gọi lại `getTranslationTokens`, tức tokenize toàn đoạn + tra từ
+        // điển từng token, đồng bộ trên main thread. Generation nằm trong khoá nên sửa một mục VP là
+        // lượt sau tính lại thật, không hiện token cũ.
+        let tokensKey = "\(TranslateUtils.translationGenerationToken(for: bookId))|\(originalSentence)"
+        if translationTokensSource != tokensKey {
+            self.translationTokens = TranslateUtils.getTranslationTokens(for: originalSentence, bookId: bookId)
+            self.translationTokensSource = tokensKey
+        }
         self.dictionaryMatches = getDictionaryMatches(for: word)
         refreshSuggestionChips(for: word)
+
+        // Chip rule chiếu theo vùng chọn nên phải đi theo vùng chọn — bất biến ghi ở
+        // `ReaderView+DefinitionPanel` nhưng trước 1.3.339 không có đường nào thực hiện, nên chip nói
+        // sai sau khi nới/thu. Làm được từ nay vì `refreshRuleTraces` đã debounce + chạy off-main.
+        if showingDefinitionSheet {
+            refreshRuleTraces()
+        }
     }
 
     // MARK: - Tra cứu

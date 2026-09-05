@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Hai `@State` mới ở Reader; tab Bộ sưu tập đổi state điều khiển (1.3.339)
+
+* **`ReaderView.translationTokensSource: String`** — khoá `"\(generation)|\(originalSentence)"` của lần dựng `translationTokens` gần nhất. Đây là **state suy ra**, tồn tại để `updateEditorFromSelection()` biết khi nào được bỏ qua việc tokenize cả đoạn. Generation nằm trong khoá nên sửa một mục VP là lượt sau tính lại thật; nếu ai bỏ generation ra khỏi khoá thì panel Dịch sẽ hiện token cũ **im lặng**.
+* **`ReaderView.ruleTracesTask: Task<Void, Never>?`** — lượt chẩn đoán rule đang bay, dùng để `cancel()` lượt trước. Cùng khuôn `translationRefreshDebounceTask` đã có. `ruleTraces` vẫn là state hiển thị duy nhất của dải chip; nó nay được gán **bất đồng bộ** nên UI phải chịu được một nhịp `ruleTraces` còn rỗng khi vừa mở panel.
+* **`CollectionsTabView` bỏ `editMode: EditMode`, thêm `showingReorderSheet: Bool`.** Chế độ sửa của `List` không còn nghĩa gì với `LazyVGrid`; việc sắp xếp lại chuyển thành một sheet, và sheet đó tự `.environment(\.editMode, .constant(.active))` — không có state chia sẻ giữa hai màn.
+* **Bốn state CRUD của tab Bộ sưu tập giữ nguyên** (`showingCreateAlert`/`newName`, `showingRenameAlert`/`renameTargetId`/`renameText`, `showingDeleteConfirm`/`deleteTargetId`). Thẻ trong grid không giữ state riêng — nó nhận 2 closure và gọi `beginRename`/`beginDelete` để ghi vào đúng những state đó.
+* **`selectedTab` của `ShelfView` không đổi kiểu, không đổi chủ.** `ShelfTabSelectorView` chỉ nhận `Binding<ShelfTab>`; `TabView` vẫn bind cùng state đó, nên hai đường điều hướng ngoài (notification `sourceChangedNavigateToShelf`, `ShelfView+BookImport`) vẫn ghi thẳng vào `selectedTab` như trước.
+
 ## Sheet hành động bỏ hai hàng kệ sách; nút "Tìm" đọc state hiển thị thay vì state gốc (1.3.337)
 
 * **`BookActionSheet` không thêm `@State` nào**, nhưng bỏ cả `NavigationStack`: kéo theo mất tiêu đề "Tuỳ chọn truyện" và nút "Xong". Đường đóng sheet giờ **chỉ** còn vuốt xuống, nên `.presentationDragIndicator(.visible)` là bắt buộc, không phải trang trí. `@Environment(\.dismiss)` vẫn cần vì `emit(_:)` gọi `dismiss()` trước khi phát hành động.

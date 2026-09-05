@@ -15,6 +15,15 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Bảy type mới; một type đổi chỉ số nội bộ (1.3.339)
+
+* **Services**: `TranslationTextPostProcessor` (enum static thuần, 4 regex `static let`), `TokenizeMemo` (final class singleton bọc `NSCache<NSString, Entry>`, `Entry` là class lồng vì `NSCache` chỉ giữ được kiểu class).
+* **Views/Shelf**: `ShelfTabSelectorView`, `HistoryDayGrouper` (enum + struct lồng `Day: Identifiable`, `id: Int` theo **vị trí nhóm** chứ không theo ngày để hai nhóm trùng ngày vẫn khác `id`), `CollectionCoverMosaicView`, `CollectionGridCardView`, `CollectionsReorderSheet`.
+* **`ShelfTab` mở rộng shape**: `iconName: String?` + `isIconOnly: Bool`. `rawValue` **không đổi** — nó là hợp đồng liên màn qua `userInfo["shelfTab"]`.
+* **`TextDictionary` đổi chỉ số nội bộ**: `maxWordLength: Int` → `keyLengthsDescending: [Int]`. Không đổi API công khai (`TrieDictionary` giữ nguyên hai hàm tra), nên `DoubleArrayTrie` và mọi caller không bị ảnh hưởng.
+* **`VietPhraseTokenizer` tách thân**: `tokenize` (cửa vào có memo, đọc 2 cờ) và `tokenizeUncached` (thân cũ, nhận 2 cờ làm tham số) + `nextStartTable` helper.
+* **`QuickTranslationRuleIssue.Code.unusedCapture` đổi nhóm severity** từ `hard` sang `warning` — shape không đổi, chỉ đổi phân loại.
+
 ## Một enum mới ở Services, một View rời file chủ, hai type mở rộng shape (1.3.336)
 
 * **Type mới duy nhất ở Services: `TranslationPunctuationMapper`** — `public enum` không case, chỉ `private static let mapping: [Character: String]` + `public static func apply(to:)`. Bảng là `[Character: String]` (không phải `[Character: Character]`) vì một ký tự ra nhiều ký tự: `。` → `". "`. Nó **thay thế** `TranslateUtils.punctuationMapping` (đã xoá) — đừng dựng lại bảng thứ hai ở bất kỳ đâu.

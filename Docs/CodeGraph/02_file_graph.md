@@ -15,6 +15,35 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +7 file: hai tầng thuần trên đường dịch, năm khối UI Kệ sách (1.3.339)
+
+| File mới | Vai trò | Dòng |
+| --- | --- | --- |
+| [`Services/Translation/Utils/TranslationTextPostProcessor.swift`](../../Sources/Services/Translation/Utils/TranslationTextPostProcessor.swift) | thân cũ của `postProcessText`, 4 regex thành `static let` (biên dịch một lần thay vì mỗi token) | 74 |
+| [`Services/Translation/Utils/TokenizeMemo.swift`](../../Sources/Services/Translation/Utils/TokenizeMemo.swift) | `NSCache` 512 entry cho `VietPhraseTokenizer.tokenize`, khoá mang generation nên không cần ai `clear()` | 63 |
+| [`Views/Shelf/ShelfMain/ShelfTabSelectorView.swift`](../../Sources/Views/Shelf/ShelfMain/ShelfTabSelectorView.swift) | hàng nút rời: 2 nút icon 40×40 + 2 pill chữ, màu semantic | 87 |
+| [`Views/Shelf/ShelfMain/HistoryDayGrouper.swift`](../../Sources/Views/Shelf/ShelfMain/HistoryDayGrouper.swift) | gom `[Book]` thành từng ngày trong một pass, nhãn "Hôm nay"/"Hôm qua"/`dd/MM/yyyy` | 67 |
+| [`Views/Shelf/Collections/CollectionCoverMosaicView.swift`](../../Sources/Views/Shelf/Collections/CollectionCoverMosaicView.swift) | ảnh ghép bìa 0/1/2/≥3 quyển + badge "còn N truyện" | 83 |
+| [`Views/Shelf/Collections/CollectionGridCardView.swift`](../../Sources/Views/Shelf/Collections/CollectionGridCardView.swift) | một thẻ trong grid + `previewBooks` chọn 3 bìa bằng một pass | 74 |
+| [`Views/Shelf/Collections/CollectionsReorderSheet.swift`](../../Sources/Views/Shelf/Collections/CollectionsReorderSheet.swift) | sheet `List` + `onMove` cho việc sắp xếp lại | 55 |
+
+| File sửa | Nội dung | Dòng |
+| --- | --- | --- |
+| [`Services/Translation/Utils/TranslateUtils.swift`](../../Sources/Services/Translation/Utils/TranslateUtils.swift) | `postProcessText` còn một dòng forward; thân + 4 regex dời sang file mới | 968 → **934** |
+| [`Services/Translation/Engine/VietPhraseTokenizer.swift`](../../Sources/Services/Translation/Engine/VietPhraseTokenizer.swift) | `tokenize` thành cửa vào có memo, thân cũ thành `tokenizeUncached`; 2 vòng `first(where:)` → `nextStartTable` + 2 bảng theo chỉ số | 284 → **345** |
+| [`Models/Dictionaries/TextDictionary.swift`](../../Sources/Models/Dictionaries/TextDictionary.swift) | `maxWordLength` → `keyLengthsDescending` (chỉ thử độ dài khoá có thật), đếm theo UTF-16 | 185 → **191** |
+| [`Services/Translation/Engine/QuickTranslationRuleIssue.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleIssue.swift) | `unusedCapture`: `hard` → `warning` | 72 → **76** |
+| [`Services/Translation/Engine/QuickTranslationRuleCompiler.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleCompiler.swift) | đổi câu message của issue đó | 319 |
+| [`Views/Settings/Translation/QuickTranslationRuleTokenPaletteView.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRuleTokenPaletteView.swift) | `ScrollView` ngang → `FlowLayout`, chia 2 nhóm | 111 → **133** |
+| [`Views/Shelf/Collections/CollectionsTabView.swift`](../../Sources/Views/Shelf/Collections/CollectionsTabView.swift) | `List` → `ScrollView` + `LazyVGrid`; bỏ `listView`/`collectionRow`/`swipeActions`/`editMode`; thêm ô tạo mới + sheet sắp xếp | 220 → **243** |
+| [`Views/Shelf/ShelfMain/ShelfView.swift`](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift) | `Picker` → `ShelfTabSelectorView`; `historyTabView` nhóm theo ngày + tách `historyBookRow` | 842 → **856** |
+| [`Views/Shelf/ShelfMain/ShelfTab.swift`](../../Sources/Views/Shelf/ShelfMain/ShelfTab.swift) | `iconName`, `isIconOnly` | 38 → **52** |
+| [`Views/Reader/Extensions/ReaderView+RuleTools.swift`](../../Sources/Views/Reader/Extensions/ReaderView+RuleTools.swift) | `refreshRuleTraces` debounce 150 ms + `Task.detached` | 327 → **348** |
+| [`Views/Reader/Extensions/ReaderView+Selection.swift`](../../Sources/Views/Reader/Extensions/ReaderView+Selection.swift) | bỏ tokenize lại cả đoạn khi chỉ vùng chọn đổi; làm mới chip rule theo vùng chọn | 200 → **217** |
+| [`Views/Reader/Extensions/ReaderViewModel+Translation.swift`](../../Sources/Views/Reader/Extensions/ReaderViewModel+Translation.swift) | `scope` được đọc: bỏ qua thay đổi của truyện khác | 254 → **269** |
+| [`Views/Reader/ReaderView.swift`](../../Sources/Views/Reader/ReaderView.swift) | 2 `@State` mới (`ruleTracesTask`, `translationTokensSource`) | 1997 → **2001** |
+| [`Views/Reader/ReaderView+DefinitionPanel.swift`](../../Sources/Views/Reader/ReaderView+DefinitionPanel.swift) | cập nhật bất biến trong doc (nay được cài thật) | 110 → **112** |
+
 ## +6 file: cấu hình thứ tự ưu tiên rule và cấu hình engine riêng theo truyện (1.3.338)
 
 | File mới | Vai trò | Dòng |

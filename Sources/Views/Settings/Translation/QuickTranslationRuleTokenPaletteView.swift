@@ -7,9 +7,14 @@ import SwiftUI
 /// tự có nút, không phải sửa hai chỗ. Nút chỉ chèn token **trần** (`<n>`); khoảng độ dài và dấu `?`
 /// do `QuickTranslationRuleTokenLengthBar` chỉnh trên token đang chọn.
 ///
-/// Bẫy layout phải giữ: dùng `HStack` trong `ScrollView`, **không** `LazyHStack` — lazy container nằm
-/// trong một hàng `List`/`Form` làm layout tự vô hiệu giữa lượt cập nhật cell và trap `EXC_BREAKPOINT`
-/// (đã crash thật ở 1.3.269).
+/// **Xuống dòng, không cuộn ngang (1.3.339).** Trước đó 10 chip nằm trong một
+/// `ScrollView(.horizontal, showsIndicators: false)`, nên trên iPhone chỉ 5–6 chip đầu lọt màn hình và
+/// `<ne> <pn> <vp> <hv> <w>` bị cắt **mà không có dấu hiệu nào** báo là cuộn được — người dùng tưởng
+/// app thiếu token. Nay dùng `FlowLayout` để cả 10 chip hiện cùng lúc.
+///
+/// Bẫy layout phải giữ: `FlowLayout` là custom `Layout` **không lazy**. Tuyệt đối **không** dùng
+/// `LazyHStack`/`LazyVGrid` ở đây — lazy container nằm trong một hàng `List`/`Form` làm layout tự vô
+/// hiệu giữa lượt cập nhật cell và trap `EXC_BREAKPOINT` (đã crash thật ở 1.3.269).
 struct QuickTranslationRuleTokenPaletteView: View {
     /// Chuỗi cần chèn tại con trỏ / thay cho vùng đang chọn.
     let onInsert: (String) -> Void
@@ -17,26 +22,25 @@ struct QuickTranslationRuleTokenPaletteView: View {
     /// Cú pháp nhóm: `(a|b)` và `(a|b)?`. Nhóm không được đánh số nên không có `{i}` cho nó.
     private static let groupSyntax = ["(", "|", ")", ")?"]
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    ForEach(QuickTranslationRuleTokenSettings.Kind.allCases, id: \.self) { kind in
-                        tokenButton(kind)
-                    }
-                }
-                .padding(.vertical, 2)
-            }
+    /// Hai nhóm token theo đúng cách chia của màn Cấu hình token rule (`Kind.isNumeralGroup`), để hai
+    /// chỗ không phân nhóm khác nhau.
+    private static let numeralKinds = QuickTranslationRuleTokenSettings.Kind.allCases.filter(\.isNumeralGroup)
+    private static let dictionaryKinds = QuickTranslationRuleTokenSettings.Kind.allCases.filter { !$0.isNumeralGroup }
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            group(title: "Số & nhãn", kinds: Self.numeralKinds)
+            group(title: "Từ điển", kinds: Self.dictionaryKinds)
+
+            VStack(alignment: .leading, spacing: 4) {
+                caption("Nhóm")
+                FlowLayout(spacing: 6) {
                     ForEach(Self.groupSyntax, id: \.self) { syntax in
                         plainButton(syntax, caption: caption(forGroup: syntax)) {
                             onInsert(syntax)
                         }
                     }
                 }
-                .padding(.vertical, 2)
             }
 
             if hasDisabledToken {
@@ -45,6 +49,24 @@ struct QuickTranslationRuleTokenPaletteView: View {
                     .foregroundColor(.secondary)
             }
         }
+    }
+
+    @ViewBuilder
+    private func group(title: String, kinds: [QuickTranslationRuleTokenSettings.Kind]) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            caption(title)
+            FlowLayout(spacing: 6) {
+                ForEach(kinds, id: \.self) { kind in
+                    tokenButton(kind)
+                }
+            }
+        }
+    }
+
+    private func caption(_ text: String) -> some View {
+        Text(text.uppercased())
+            .font(.system(size: 9, weight: .semibold))
+            .foregroundColor(.secondary)
     }
 
     private var hasDisabledToken: Bool {

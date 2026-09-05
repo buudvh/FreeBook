@@ -1,15 +1,27 @@
 import SwiftUI
 import SwiftData
 
-/// Tab **Bộ sưu tập** của Kệ sách: danh sách các bộ do người dùng tạo, mở ra là danh sách truyện bên
-/// trong. Không đọc/ghi `Book` trực tiếp — quan hệ N-N do `BookCollectionCoordinator` giữ.
+/// Tab **Bộ sưu tập** của Kệ sách: grid thẻ ảnh ghép bìa, mở ra là danh sách truyện bên trong.
+/// Không đọc/ghi `Book` trực tiếp — quan hệ N-N do `BookCollectionCoordinator` giữ.
+///
+/// Từ 1.3.339 là `ScrollView` + `LazyVGrid` thay cho `List`: bộ sưu tập nhận ra được bằng bìa truyện
+/// chứ không phải một icon `folder` giống nhau ở mọi hàng.
+///
+/// Hai điều mất theo bản `List` và chỗ bù lại:
+/// - `swipeActions` Đổi tên / Xoá ⇒ nay ở `.contextMenu` của thẻ (nhấn giữ) và ở menu trong
+///   `CollectionDetailView`.
+/// - `onMove` ⇒ nay ở `CollectionsReorderSheet`, vì `LazyVGrid` không có `onMove`.
+///
+/// **`LazyVGrid` phải nằm trong `ScrollView`, tuyệt đối không lồng trong một hàng `List`** — lazy
+/// container trong cell của `List` làm layout tự vô hiệu giữa lượt cập nhật cell và trap
+/// `EXC_BREAKPOINT` (đã crash thật ở 1.3.269, xem `10_risk_report`).
 struct CollectionsTabView: View {
     @Environment(\.modelContext) private var modelContext
 
     @Query(sort: [SortDescriptor(\BookCollection.sortOrder), SortDescriptor(\BookCollection.createdAt)])
     private var collections: [BookCollection]
 
-    @State private var editMode: EditMode = .inactive
+    @State private var showingReorderSheet = false
     @State private var showingCreateAlert = false
     @State private var newName = ""
     @State private var showingRenameAlert = false
@@ -27,10 +39,14 @@ struct CollectionsTabView: View {
             if collections.isEmpty {
                 emptyState
             } else {
-                listView
+                gridView
             }
         }
-        .environment(\.editMode, $editMode)
+        .sheet(isPresented: $showingReorderSheet) {
+            CollectionsReorderSheet(collections: collections) { source, destination in
+                reorderMessage(from: source, to: destination)
+            }
+        }
         .alert("Bộ sưu tập mới", isPresented: $showingCreateAlert) {
             TextField("Tên bộ sưu tập", text: $newName)
                 .textInputAutocapitalization(.sentences)
@@ -55,92 +71,96 @@ struct CollectionsTabView: View {
         }
     }
 
-    // MARK: - Danh sách
+    // MARK: - Grid
+
+    private let horizontalPadding: CGFloat = 16
+    private let columnSpacing: CGFloat = 16
 
     @ViewBuilder
-    private var listView: some View {
-        List {
-            Section {
-                ForEach(collections) { collection in
-                    NavigationLink(destination: CollectionDetailView(collectionId: collection.collectionId)) {
-                        collectionRow(collection)
-                    }
-                    .swipeActions(edge: .trailing) {
-                        Button(role: .destructive) {
-                            deleteTargetId = collection.collectionId
-                            showingDeleteConfirm = true
-                        } label: {
-                            Label("Xoá", systemImage: "trash")
+    private var gridView: some View {
+        GeometryReader { geometry in
+            // Cột `.fixed` theo bề rộng đã tính, không `.flexible`: thẻ và ảnh ghép bìa phải rộng đúng
+            // bằng nhau, nếu để hệ thống tự chia thì `size` truyền cho mosaic lệch với cột.
+            let cardSize = max(
+                80,
+                ((geometry.size.width - horizontalPadding * 2 - columnSpacing) / 2).rounded(.down)
+            )
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    gridHeader
+
+                    LazyVGrid(
+                        columns: [
+                            GridItem(.fixed(cardSize), spacing: columnSpacing),
+                            GridItem(.fixed(cardSize), spacing: columnSpacing)
+                        ],
+                        alignment: .leading,
+                        spacing: 18
+                    ) {
+                        ForEach(collections) { collection in
+                            CollectionGridCardView(
+                                collection: collection,
+                                size: cardSize,
+                                onRename: { beginRename(collection) },
+                                onDelete: { beginDelete(collection) }
+                            )
                         }
 
-                        Button {
-                            renameTargetId = collection.collectionId
-                            renameText = collection.name
-                            showingRenameAlert = true
-                        } label: {
-                            Label("Đổi tên", systemImage: "pencil")
-                        }
-                        .tint(.orange)
-                    }
-                    // Swipe action một mình là quá kín: từ 1.3.336 nhấn giữ cũng ra đúng hai việc đó.
-                    .contextMenu {
-                        Button {
-                            renameTargetId = collection.collectionId
-                            renameText = collection.name
-                            showingRenameAlert = true
-                        } label: {
-                            Label("Đổi tên", systemImage: "pencil")
-                        }
-
-                        Button(role: .destructive) {
-                            deleteTargetId = collection.collectionId
-                            showingDeleteConfirm = true
-                        } label: {
-                            Label("Xoá bộ sưu tập", systemImage: "trash")
-                        }
+                        createTile(size: cardSize)
                     }
                 }
-                .onMove(perform: moveCollections)
-            } header: {
-                HStack {
-                    Text("\(collections.count) bộ sưu tập")
-                    Spacer()
-                    Button(editMode == .active ? "Xong" : "Sắp xếp lại") {
-                        editMode = editMode == .active ? .inactive : .active
-                    }
-                    .font(.caption)
-                    .textCase(nil)
-                }
-            }
-
-            Section {
-                Button {
-                    newName = ""
-                    showingCreateAlert = true
-                } label: {
-                    Label("Tạo bộ sưu tập mới", systemImage: "folder.badge.plus")
-                }
+                .padding(.horizontal, horizontalPadding)
+                .padding(.vertical, 12)
             }
         }
-        .listStyle(.insetGrouped)
     }
 
-    @ViewBuilder
-    private func collectionRow(_ collection: BookCollection) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: "folder.fill")
-                .foregroundColor(.accentColor)
-                .frame(width: 24)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(collection.name)
-                    .font(.system(size: 15, weight: .semibold))
-                    .lineLimit(1)
-                Text("\(collection.books.count) truyện")
+    private var gridHeader: some View {
+        HStack {
+            Text("\(collections.count) bộ sưu tập")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Spacer()
+            if collections.count > 1 {
+                Button("Sắp xếp lại") { showingReorderSheet = true }
                     .font(.caption)
-                    .foregroundColor(.secondary)
             }
         }
+    }
+
+    /// Ô cuối grid = tạo bộ mới. Cố ý **không** có nhãn chữ dưới ô để khớp bố cục thẻ.
+    private func createTile(size: CGFloat) -> some View {
+        Button {
+            newName = ""
+            showingCreateAlert = true
+        } label: {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(.secondarySystemBackground))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(Color.secondary.opacity(0.3), lineWidth: 1)
+                )
+                .overlay(
+                    Image(systemName: "folder.badge.plus")
+                        .font(.system(size: size * 0.24, weight: .light))
+                        .foregroundColor(.secondary)
+                )
+                .frame(width: size, height: size)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Tạo bộ sưu tập mới")
+    }
+
+    private func beginRename(_ collection: BookCollection) {
+        renameTargetId = collection.collectionId
+        renameText = collection.name
+        showingRenameAlert = true
+    }
+
+    private func beginDelete(_ collection: BookCollection) {
+        deleteTargetId = collection.collectionId
+        showingDeleteConfirm = true
     }
 
     @ViewBuilder
@@ -209,12 +229,15 @@ struct CollectionsTabView: View {
         }
     }
 
-    private func moveCollections(from source: IndexSet, to destination: Int) {
+    /// Trả `nil` khi thành công, hoặc câu lỗi — `CollectionsReorderSheet` tự phát toast, để tab này
+    /// vẫn là chỗ duy nhất gọi coordinator.
+    private func reorderMessage(from source: IndexSet, to destination: Int) -> String? {
         var ordered = collections.map { $0.collectionId }
         ordered.move(fromOffsets: source, toOffset: destination)
         let res = BookCollectionCoordinator.shared.reorderCollections(orderedIds: ordered, in: modelContext)
         if case .failure(let err) = res {
-            ToastManager.shared.show(message: err.localizedDescription, type: .error)
+            return err.localizedDescription
         }
+        return nil
     }
 }

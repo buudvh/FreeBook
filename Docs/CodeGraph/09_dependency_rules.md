@@ -15,6 +15,16 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vị trí tầng của 7 file mới; một cạnh mới Engine → Utils (1.3.339)
+
+* **Hai file Service mới chỉ `import Foundation`**: `TranslationTextPostProcessor` (enum static thuần) và `TokenizeMemo` (final class singleton bọc `NSCache`). Không `import SwiftUI`, không `ToastManager` — `SERVICE_SWIFTUI_IMPORT` và `SERVICE_TOAST_COUPLING` giữ bằng thiết kế.
+* **Cạnh mới trong Services: `Engine/VietPhraseTokenizer` → `Utils/TokenizeMemo` và → `Utils/TranslateUtils`** (để lấy `translationGenerationToken`). Không có vòng: `TokenizeMemo` không biết tokenizer, và `TranslateUtils.tokenize` chỉ là một dòng forward sang tokenizer.
+* **Đã kiểm không deadlock**: `translationGenerationToken` lấy `TranslateUtils.cacheLock`, nhưng `performTranslation` (đường gọi `tokenize`) chạy **ngoài** mọi vùng khoá — các `lock()/unlock()` của `TranslateUtils` đều bao đúng một lần đọc/ghi dictionary. `NSLock` không recursive nên điểm này phải giữ: **đừng** gọi `tokenize` từ trong vùng khoá.
+* **`NSCache` được chọn cho `TokenizeMemo` vì nó thread-safe** — bắt buộc, `tokenize` chạy off-main trong `performChapterTranslationOffMainActor`.
+* **`QuickTranslationRuleDiagnostics` nay được gọi từ `Task.detached`.** Hợp lệ vì cả `QuickTranslationRuleStore` và `QuickTranslationRuleDisableStore` chỉ đánh `@MainActor` lên các thuộc tính `@Published` của UI, còn `currentSnapshot`/`snapshot(bookId:)` là non-isolated và đã được đường dịch off-main dùng.
+* **Bốn View mới của Kệ sách không chạm `modelContext`**: `CollectionCoverMosaicView` và `CollectionGridCardView` chỉ đọc thuộc tính `Book`/`BookCollection`; `CollectionsReorderSheet` nhận closure trả `String?` để `CollectionsTabView` vẫn là chỗ duy nhất gọi `BookCollectionCoordinator`. `HistoryDayGrouper` là enum thuần, chỉ `import Foundation` dù nằm ở tầng Views.
+* **`ShelfTabSelectorView` chỉ nhận `Binding<ShelfTab>`** — không biết `TabView`, không biết notification. `ShelfTab.rawValue` giữ nguyên nên hợp đồng `userInfo["shelfTab"]` không đổi.
+
 ## Vị trí tầng của 6 file mới cho cấu hình engine rule (1.3.338)
 
 * **Hai file Service chỉ `import Foundation`.** `QuickTranslationRulePriorityConfiguration` là `enum` static thuần; `QuickTranslationBookEngineConfigStore` là `final class` singleton có `NSLock`. Không file nào `import SwiftUI` và không file nào gọi `ToastManager` — ghi lỗi trả bằng `Outcome`, View tự phát toast. `SERVICE_SWIFTUI_IMPORT` và `SERVICE_TOAST_COUPLING` giữ bằng thiết kế, không bằng ngoại lệ.

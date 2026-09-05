@@ -10,14 +10,42 @@ public enum VietPhraseTokenizer {
         let range: Range<Int>
         let length: Int
     }
+    /// Cửa vào duy nhất: đọc hai cờ runtime rồi tra `TokenizeMemo` trước khi làm việc thật.
+    ///
+    /// Hai cờ đọc **ở đây** chứ không trong thân hàm, để chúng vào được khoá memo. Xem `TokenizeMemo`
+    /// cho lý do phải có memo (mỗi dòng bị tokenize hai lần mỗi lần dựng lại chương).
     public static func tokenize(_ text: String, bookId: String?) -> [String] {
+        guard !text.isEmpty else { return [] }
+
+        let isPronounsEnabled = UserDefaults.standard.bool(forKey: "isTranslationPronounsEnabled")
+        let isLuatNhanEnabled = UserDefaults.standard.bool(forKey: "isTranslationLuatNhanEnabled")
+
+        return TokenizeMemo.shared.tokens(
+            text: text,
+            bookId: bookId,
+            isPronounsEnabled: isPronounsEnabled,
+            isLuatNhanEnabled: isLuatNhanEnabled,
+            generation: TranslateUtils.translationGenerationToken(for: bookId)
+        ) {
+            tokenizeUncached(
+                text,
+                bookId: bookId,
+                isPronounsEnabled: isPronounsEnabled,
+                isLuatNhanEnabled: isLuatNhanEnabled
+            )
+        }
+    }
+
+    private static func tokenizeUncached(
+        _ text: String,
+        bookId: String?,
+        isPronounsEnabled: Bool,
+        isLuatNhanEnabled: Bool
+    ) -> [String] {
         let chars = Array(text)
         let length = chars.count
         guard length > 0 else { return [] }
-        
-        let isPronounsEnabled = UserDefaults.standard.bool(forKey: "isTranslationPronounsEnabled")
-        let isLuatNhanEnabled = UserDefaults.standard.bool(forKey: "isTranslationLuatNhanEnabled")
-        
+
         let names = TranslationManager.shared.namesDict
         let customNames = TranslationManager.shared.customNamesDict
         let deletedNames = TranslationManager.shared.deletedNames
@@ -110,7 +138,14 @@ public enum VietPhraseTokenizer {
         }
         
         selectedNames.sort { $0.range.lowerBound < $1.range.lowerBound }
-        
+
+        // `first(where:)` bên trong vòng `while` là O(n²) trên đoạn dài. Bảng "mốc bắt đầu kế tiếp"
+        // dựng một lần, tra O(1) — xem `nextStartTable`.
+        let nextNameStartAfter = Self.nextStartTable(
+            starts: selectedNames.map { $0.range.lowerBound },
+            length: length
+        )
+
         var vpCandidates: [VPCandidate] = []
         var j = 0
         while j < length {
@@ -118,9 +153,8 @@ public enum VietPhraseTokenizer {
                 j += 1
                 continue
             }
-            
-            let nextNameStart = selectedNames.first(where: { $0.range.lowerBound > j })?.range.lowerBound ?? length
-            let maxLimit = nextNameStart - j
+
+            let maxLimit = nextNameStartAfter[j] - j
             let limit = min(maxLimit, 20)
             
             if limit >= 2 {
@@ -181,18 +215,29 @@ public enum VietPhraseTokenizer {
         }
         
         selectedVPs.sort { $0.range.lowerBound < $1.range.lowerBound }
-        
+
+        // Ba bảng tra O(1) cho vòng dựng output: hai bảng theo chỉ số bắt đầu, một bảng mốc kế tiếp
+        // trên **hợp** hai tập (chính là `min` của hai `first(where:)` cũ).
+        var nameByStart: [Int: NameCandidate] = [:]
+        for candidate in selectedNames { nameByStart[candidate.range.lowerBound] = candidate }
+        var vpByStart: [Int: VPCandidate] = [:]
+        for candidate in selectedVPs { vpByStart[candidate.range.lowerBound] = candidate }
+        let nextBoundaryAfter = Self.nextStartTable(
+            starts: selectedNames.map { $0.range.lowerBound } + selectedVPs.map { $0.range.lowerBound },
+            length: length
+        )
+
         var output: [String] = []
         var currentIndex = 0
-        
+
         while currentIndex < length {
-            if let activeName = selectedNames.first(where: { $0.range.lowerBound == currentIndex }) {
+            if let activeName = nameByStart[currentIndex] {
                 output.append(String(chars[activeName.range]))
                 currentIndex = activeName.range.upperBound
                 continue
             }
-            
-            if let activeVP = selectedVPs.first(where: { $0.range.lowerBound == currentIndex }) {
+
+            if let activeVP = vpByStart[currentIndex] {
                 output.append(String(chars[activeVP.range]))
                 currentIndex = activeVP.range.upperBound
                 continue
@@ -205,10 +250,7 @@ public enum VietPhraseTokenizer {
                 continue
             }
 
-            let nextBoundary = min(
-                selectedNames.first(where: { $0.range.lowerBound > currentIndex })?.range.lowerBound ?? length,
-                selectedVPs.first(where: { $0.range.lowerBound > currentIndex })?.range.lowerBound ?? length
-            )
+            let nextBoundary = nextBoundaryAfter[currentIndex]
 
             // 1. Chữ cái Latin & Chữ số ASCII (e.g. q92tT5, iPhone15, AK47, 14.8, ngày, tháng, năm...)
             if isLatinLetterOrNumber(char) {
@@ -254,6 +296,25 @@ public enum VietPhraseTokenizer {
         }
         
         return output
+    }
+
+    /// `table[i]` = mốc bắt đầu **nhỏ nhất lớn hơn `i`**, hoặc `length` khi không còn mốc nào.
+    ///
+    /// Thay cho `starts.first(where: { $0 > i })` gọi trong vòng lặp: dựng một pass ngược O(n), tra
+    /// O(1). Kết quả bằng đúng biểu thức cũ, kể cả khi `starts` rỗng (mọi phần tử là `length`).
+    private static func nextStartTable(starts: [Int], length: Int) -> [Int] {
+        var isStart = [Bool](repeating: false, count: length + 1)
+        for start in starts where start >= 0 && start < length {
+            isStart[start] = true
+        }
+
+        var table = [Int](repeating: length, count: length + 1)
+        var best = length
+        for index in stride(from: length - 1, through: 0, by: -1) {
+            table[index] = best
+            if isStart[index] { best = index }
+        }
+        return table
     }
 
     internal static func isASCIIDigit(_ char: Character) -> Bool {

@@ -34,12 +34,16 @@ public struct QuickTranslationRuleIssue: Identifiable, Hashable, Sendable {
         public var severity: Severity {
             switch self {
             case .unparseableRuleLine, .emptyPattern, .unknownTokenName,
-                 .unbalancedParens, .invalidRefIndex, .unusedCapture, .noLiteralAnchor:
+                 .unbalancedParens, .invalidRefIndex, .noLiteralAnchor:
                 return .hard
             case .dictTokenWithoutDictionary:
                 return .disabling
+            // `unusedCapture` là **warning** từ 1.3.339, không còn `hard`: token không được `{i}` nào
+            // tham chiếu vẫn **khớp và nuốt** ký tự ở vế trái, chỉ là không xuất ra bản dịch. Đó chính
+            // là cách viết `第<n><L> = Chương {0}` để ăn luôn chữ `章`. Coi nó là lỗi nặng nghĩa là bỏ
+            // âm thầm cả dòng rule hợp lệ.
             case .literalSpaceInPattern, .multipleConsecutiveWildcards,
-                 .duplicatePattern, .weakAnchor, .ruleTooComplex:
+                 .duplicatePattern, .weakAnchor, .ruleTooComplex, .unusedCapture:
                 return .warning
             }
         }

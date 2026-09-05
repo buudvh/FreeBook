@@ -15,6 +15,16 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Bốn đường gọi trên hot path đổi hình; hai đường UI mới (1.3.339)
+
+* **`tokenize` thêm một tầng**: `TranslateUtils.tokenize` → `VietPhraseTokenizer.tokenize` → `TokenizeMemo.tokens(...)` → (miss) `VietPhraseTokenizer.tokenizeUncached`. Cửa vào cũng gọi `TranslateUtils.translationGenerationToken(for:)` để dựng khoá — cạnh mới từ Engine sang Utils, không tạo vòng.
+* **`postProcessText` thành một dòng forward**: `TranslateUtils.postProcessText` → `TranslationTextPostProcessor.apply(to:)`. Hai caller (`translateContent`, `translatedCandidate(for:)`) **không** phải sửa.
+* **`refreshRuleTraces` thành async**: `ReaderView.refreshRuleTraces()` → `Task { @MainActor }` (sleep 150 ms) → `Task.detached { QuickTranslationRuleDiagnostics.diagnose }` → gán `ruleTraces` trên main. Lượt trước bị `cancel()`. `openDefinitionPanel()` vẫn gọi nó nhưng **không còn chờ** kết quả trước khi mở panel.
+* **`updateEditorFromSelection()` thêm một nhánh sớm** cho `getTranslationTokens` (chỉ gọi khi khoá `generation|originalSentence` đổi) và thêm **một lời gọi mới** `refreshRuleTraces()` ở cuối, có điều kiện `showingDefinitionSheet`.
+* **`updateCachedTranslatedContent(bookId:scope:)` thêm nhánh return sớm** theo `scope` trước khi tới `refreshParagraphItems()`.
+* **Đường mới ở Kệ sách**: `ShelfView.historyTabView` → `HistoryDayGrouper.group` → `Section` mỗi ngày → `historyBookRow(_:)` (helper mới, tách khỏi thân `ForEach`). `CollectionsTabView.gridView` → `CollectionGridCardView` → `CollectionCoverMosaicView` → `BookCoverView`; hai closure `onRename`/`onDelete` đi ngược về `beginRename`/`beginDelete` của tab.
+* **`onMove` đổi chủ**: `CollectionsTabView.moveCollections` (đã xoá) → `CollectionsReorderSheet.move` → closure `onReorder` → `CollectionsTabView.reorderMessage(from:to:)` → `BookCollectionCoordinator.reorderCollections`. Sheet phát toast, tab vẫn là chỗ duy nhất gọi coordinator.
+
 ## Nút "Tìm" đổi nguồn chuỗi; hai hàng kệ sách thành một nút; nhấn giữ có nhịp rung (1.3.337)
 
 ```

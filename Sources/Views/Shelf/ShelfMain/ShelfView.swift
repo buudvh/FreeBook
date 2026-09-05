@@ -138,15 +138,11 @@ struct ShelfView: View {
         NavigationStack {
             ZStack {
                 VStack(spacing: 0) {
-                // Segmented control to switch tabs. Thứ tự: Downloads → Bộ Sưu Tập → Kệ Sách → Lịch Sử.
-                Picker("Phân loại", selection: $selectedTab) {
-                    ForEach(ShelfTab.allCases) { tab in
-                        Text(tab.pickerTitle).tag(tab)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-                .padding(.vertical, 8)
+                // Hàng nút rời: Downloads + Bộ Sưu Tập thu về icon, Kệ Sách + Lịch Sử giữ pill chữ.
+                // Xem `ShelfTabSelectorView`; thứ tự vẫn theo `ShelfTab`.
+                ShelfTabSelectorView(selection: $selectedTab)
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
 
                 Divider()
 
@@ -713,23 +709,21 @@ struct ShelfView: View {
                 .frame(maxHeight: .infinity)
             } else {
                 List {
-                    ForEach(displayedHistoryBooks) { book in
-                        ShelfBookRowView(book: book, extensions: allExtensions)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                readerPresentationRoute = ShelfReaderRoute(
-                                    bookId: book.bookId,
-                                    extensionPackageId: book.extensionPackageId,
-                                    chapterIndex: book.currentChapterIndex,
-                                    paragraphIndex: nil,
-                                    detailUrl: book.detailUrl,
-                                    sourceName: book.sourceName
-                                )
+                    // Mỗi ngày một Section, header dùng lại đúng khuôn của tab Kệ sách
+                    // ("Đang ghim"/"Truyện khác") — xem `HistoryDayGrouper` cho phần gom nhóm.
+                    ForEach(HistoryDayGrouper.group(displayedHistoryBooks)) { day in
+                        Section {
+                            ForEach(day.books) { book in
+                                historyBookRow(book)
                             }
-                            .onLongPressGesture(minimumDuration: BookSheetAction.longPressMinimumDuration) {
-                                BookSheetAction.playLongPressFeedback()
-                                actionTarget = BookSheetAction.Target(book: book, mode: .history)
-                            }
+                        } header: {
+                            shelfSectionHeader(
+                                day.label,
+                                icon: "clock",
+                                color: .secondary,
+                                count: day.books.count
+                            )
+                        }
                     }
 
                     if historyBooks.count > historyLimit {
@@ -749,6 +743,26 @@ struct ShelfView: View {
                 .listStyle(.plain)
             }
         }
+    }
+
+    @ViewBuilder
+    private func historyBookRow(_ book: Book) -> some View {
+        ShelfBookRowView(book: book, extensions: allExtensions)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                readerPresentationRoute = ShelfReaderRoute(
+                    bookId: book.bookId,
+                    extensionPackageId: book.extensionPackageId,
+                    chapterIndex: book.currentChapterIndex,
+                    paragraphIndex: nil,
+                    detailUrl: book.detailUrl,
+                    sourceName: book.sourceName
+                )
+            }
+            .onLongPressGesture(minimumDuration: BookSheetAction.longPressMinimumDuration) {
+                BookSheetAction.playLongPressFeedback()
+                actionTarget = BookSheetAction.Target(book: book, mode: .history)
+            }
     }
 
     /// Thực thi mục người dùng chọn trong `BookActionSheet`. Thân của từng hành động nằm ở

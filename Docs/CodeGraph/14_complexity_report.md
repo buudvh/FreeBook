@@ -15,6 +15,15 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Bảy file mới; `TranslateUtils` lần đầu **giảm** 34 dòng (1.3.339)
+
+* **7 file mới, tất cả dưới trần 400 và đúng 1 type top level**: `QuickTranslationRuleTokenPaletteView` không tính (file sửa); mới là `TranslationTextPostProcessor` **74**, `TokenizeMemo` **63**, `ShelfTabSelectorView` **87**, `HistoryDayGrouper` **67**, `CollectionCoverMosaicView` **83**, `CollectionGridCardView` **74**, `CollectionsReorderSheet` **55**.
+* **`TranslateUtils.swift` 968 → 934.** Vẫn trên baseline 917 (violation cũ, không phải mới), nhưng lần đầu đi **xuống**: `postProcessText` chuyển thành một dòng forward, thân + 4 regex sang file riêng. Đây là cách đúng để bóc file quá khổ — bóc theo *một việc có tên*, không phải cắt theo số dòng.
+* **File sửa, đều dưới trần hoặc dưới baseline**: `VietPhraseTokenizer` 284 → **345**/400 (+61: cửa vào memo + `nextStartTable` + 2 bảng tra), `ReaderView+RuleTools` 327 → **348**/400, `CollectionsTabView` 220 → **243**/400, `QuickTranslationRuleTokenPaletteView` 111 → **133**/400, `ReaderView+Selection` 200 → **217**/400, `ReaderViewModel+Translation` 254 → **269**/400, `TextDictionary` 185 → **191**/400, `ShelfTab` 38 → **52**/400, `QuickTranslationRuleIssue` 72 → **76**/400, `ReaderView+DefinitionPanel` 110 → **112**/400.
+* **Hai file trong baseline đều còn khoảng trống**: `ShelfView` 842 → **856**/942, `ReaderView` 1997 → **2001**/2053.
+* **`check_architecture.py` giữ đúng 7 violation cũ**, tập y hệt, không phát sinh mới và không nới baseline nào.
+* **Độ phức tạp *thuật toán* giảm ở ba chỗ, đây mới là điểm chính của lượt này**: `postProcessText` từ "4 lần compile regex mỗi lần gọi" xuống 0; `tokenize` từ "mỗi dòng 2 lượt" xuống 1 lượt + 1 lần tra cache; tra `TextDictionary` từ `O(maxWordLength)` chuỗi tạm mỗi vị trí xuống `O(số độ dài khoá có thật)`; và hai vòng `first(where:)` trong tokenizer từ O(n²) xuống O(n).
+
 ## Sáu file mới, không xoá file nào; danh sách violation không đổi (1.3.338)
 
 * **6 file mới, tất cả dưới trần 400 và đúng 1 type top level**: `QuickTranslationRulePriorityConfiguration` **203**, `QuickTranslationBookEngineConfigStore` **240**, `QuickTranslationRulePriorityListView` **126**, `ReaderBookTokenSettingsView` **121**, `ReaderBookRulePriorityView` **57**, `QuickTranslationRulePrioritySettingsView` **33**. Hai file Service có nhiều type **lồng** (`Key`/`Preset`/`Configuration`; `TokenOverride`/`Overrides`/`Outcome`) — `MULTI_PRIMARY_TYPES` chỉ tính type ở top level nên không cần ngoại lệ nào.

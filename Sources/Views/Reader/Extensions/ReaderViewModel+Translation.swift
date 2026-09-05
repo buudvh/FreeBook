@@ -197,6 +197,21 @@ extension ReaderViewModel {
     func updateCachedTranslatedContent(bookId: String, scope: DictionaryInvalidationScope = .globalReload) {
         guard bookId == self.bookId else { return }
 
+        // `scope` trước 1.3.339 được nhận rồi **không đọc lần nào**, nên một thay đổi thuộc về truyện
+        // khác cũng kéo theo một lượt dựng lại cả chương ở đây. Thông báo đi qua `ReaderView` thường
+        // mang `userInfo["bookId"] == nil` (đường `.config` cố ý truyền `nil`) nên bộ lọc ở đó không
+        // chặn được; chỗ chặn đúng là ở đây, nơi biết `self.bookId`.
+        //
+        // `bookId == nil` trong scope = phạm vi chung ⇒ **phải** dựng lại, không được bỏ qua.
+        switch scope {
+        case .config(let scopedBookId):
+            if let scopedBookId, scopedBookId != self.bookId { return }
+        case .term(_, _, let scopedBookId):
+            if let scopedBookId, scopedBookId != self.bookId { return }
+        case .globalReload:
+            break
+        }
+
         let currentIndex = displayedChapterIndex
         for (idx, cached) in cache.cache {
             if idx != currentIndex {

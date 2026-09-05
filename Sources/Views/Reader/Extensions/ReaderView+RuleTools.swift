@@ -40,8 +40,9 @@ extension ReaderView {
 
     // MARK: - Check rule
 
-    /// Mở panel Dịch — nay là chỗ duy nhất có Check rule (1.3.334). Phải chẩn đoán rule **trước** khi
-    /// hiện, nếu không dải chip trống một nhịp rồi mới nhảy vào.
+    /// Mở panel Dịch — nay là chỗ duy nhất có Check rule (1.3.334). Panel mở **ngay**, dải chip rule
+    /// điền vào sau: từ 1.3.339 việc chẩn đoán chạy off-main và có debounce (xem `refreshRuleTraces`),
+    /// nên không còn chặn cú bấm mở panel.
     func openDefinitionPanel() {
         updateEditorFromSelection()
         closeOtherSelectionPanels(except: nil)
@@ -52,15 +53,35 @@ extension ReaderView {
     }
 
     /// Chẩn đoán lại **cả đoạn** rồi giữ lại focus nếu chip cũ còn tồn tại.
+    ///
+    /// Ba điểm của bản 1.3.339, đều vì hàm này được gọi lại sau **mỗi** hành động rule (bật/tắt, sửa,
+    /// xoá, chuyển phạm vi):
+    ///
+    /// 1. **Debounce 150 ms** — bấm liên tiếp không xếp hàng N lượt quét cả đoạn.
+    /// 2. **Chạy off-main** qua `Task.detached`. An toàn, không phải giả thiết: chính
+    ///    `QuickTranslationRuleEngine.rewrite` + `QuickTranslationDictionaryToken.resolve` đã chạy
+    ///    off-main mỗi lần dựng chương qua `performChapterTranslationOffMainActor`, và
+    ///    `QuickTranslationRuleTrace` là `Sendable`.
+    /// 3. **Cancel lượt trước** để kết quả cũ không ghi đè kết quả mới.
     func refreshRuleTraces() {
         let selection = NSRange(location: max(0, selectedWordOffset), length: max(0, selectedWordLength))
-        ruleTraces = QuickTranslationRuleDiagnostics.diagnose(
-            text: originalSentence,
-            bookId: bookId,
-            selection: selection
-        )
-        if let focusedRuleTraceID, !ruleTraces.contains(where: { $0.id == focusedRuleTraceID }) {
-            self.focusedRuleTraceID = nil
+        let text = originalSentence
+        let book = bookId
+
+        ruleTracesTask?.cancel()
+        ruleTracesTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            guard !Task.isCancelled else { return }
+
+            let traces = await Task.detached(priority: .userInitiated) {
+                QuickTranslationRuleDiagnostics.diagnose(text: text, bookId: book, selection: selection)
+            }.value
+            guard !Task.isCancelled else { return }
+
+            ruleTraces = traces
+            if let focusedRuleTraceID, !traces.contains(where: { $0.id == focusedRuleTraceID }) {
+                self.focusedRuleTraceID = nil
+            }
         }
     }
 

@@ -2,70 +2,76 @@ import Foundation
 
 public final class TextDictionary: TrieDictionary {
     private var entries: [String: String] = [:]
-    private var maxWordLength: Int = 1
+    /// Các độ dài khoá **thật sự có** trong từ điển, giảm dần.
+    ///
+    /// Trước 1.3.339 hai hàm tra quét `stride(from: maxWordLength, through: 1, by: -1)`, tức dựng một
+    /// chuỗi tạm cho **mọi** độ dài từ dài nhất xuống 1 — kể cả những độ dài không có khoá nào. Vì
+    /// `maxWordLength` là độ dài entry dài nhất của **cả file**, chỉ cần người dùng thêm một mục VP dài
+    /// là mọi lượt tokenize sau đó đắt thêm cho từng vị trí ký tự. Từ điển custom và từ điển riêng của
+    /// truyện đi đúng đường này, nên đây là chỗ trả giá khi sửa VP ngay trong Reader.
+    ///
+    /// Thứ tự giảm dần giữ **nguyên** ngữ nghĩa cũ: `findLongestMatch` vẫn trả khớp dài nhất trước, và
+    /// `findAllPrefixMatches` vẫn trả danh sách theo chiều dài giảm dần.
+    private var keyLengthsDescending: [Int] = []
     public private(set) var isLoaded = false
-    
+
     public var wordCount: Int {
         return entries.count
     }
-    
+
     public init() {}
-    
+
     public func load(from fileURL: URL) throws {
         let records = try DictionaryTextFileStore.parseRecords(from: fileURL)
         var tempEntries: [String: String] = [:]
-        var tempMax = 1
-        
+        var lengths = Set<Int>()
+
         for record in records where !record.isDeleted {
             if tempEntries[record.key] == nil {
                 tempEntries[record.key] = record.value
-                tempMax = max(tempMax, record.key.count)
+                // Đếm theo **UTF-16** vì hai hàm tra làm việc trên `[UInt16]`; đếm `Character` là lệch
+                // với khoá có ký tự ngoài BMP.
+                lengths.insert(record.key.utf16.count)
             }
         }
-        
+
         self.entries = tempEntries
-        self.maxWordLength = tempMax
+        self.keyLengthsDescending = lengths.sorted(by: >)
         self.isLoaded = true
     }
-    
+
     public func findLongestMatch(text: String, startIndex: Int) -> (length: Int, value: String)? {
         guard isLoaded else { return nil }
-        
+
         let utf16 = Array(text.utf16)
-        let textLen = utf16.count
-        guard startIndex < textLen else { return nil }
-        
-        let limit = min(textLen - startIndex, maxWordLength)
-        for len in stride(from: limit, through: 1, by: -1) {
-            let subRange = startIndex..<(startIndex + len)
-            let subUtf16 = Array(utf16[subRange])
-            let subStr = String(decoding: subUtf16, as: UTF16.self)
+        guard startIndex < utf16.count else { return nil }
+
+        let available = utf16.count - startIndex
+        for len in keyLengthsDescending where len <= available {
+            let subStr = String(decoding: utf16[startIndex..<(startIndex + len)], as: UTF16.self)
             if let matchedValue = entries[subStr] {
                 return (len, matchedValue)
             }
         }
-        
+
         return nil
     }
 
     public func findAllPrefixMatches(text: String, startIndex: Int) -> [(length: Int, value: String)] {
         guard isLoaded else { return [] }
-        
+
         let utf16 = Array(text.utf16)
-        let textLen = utf16.count
-        guard startIndex < textLen else { return [] }
-        
+        guard startIndex < utf16.count else { return [] }
+
         var matches: [(length: Int, value: String)] = []
-        let limit = min(textLen - startIndex, maxWordLength)
-        for len in stride(from: limit, through: 1, by: -1) {
-            let subRange = startIndex..<(startIndex + len)
-            let subUtf16 = Array(utf16[subRange])
-            let subStr = String(decoding: subUtf16, as: UTF16.self)
+        let available = utf16.count - startIndex
+        for len in keyLengthsDescending where len <= available {
+            let subStr = String(decoding: utf16[startIndex..<(startIndex + len)], as: UTF16.self)
             if let matchedValue = entries[subStr] {
                 matches.append((len, matchedValue))
             }
         }
-        
+
         return matches
     }
 }

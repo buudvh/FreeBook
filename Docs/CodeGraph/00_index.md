@@ -15,6 +15,17 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Grid bộ sưu tập, tab icon, lịch sử theo ngày; và bốn chỗ đốt CPU trên đường dịch (1.3.339)
+
+* **Nguồn nóng máy khi sửa VP/rule trong Reader không phải bộ rule.** Bốn chỗ, tất cả độc lập với số rule: `postProcessText` biên dịch lại **4** `NSRegularExpression` mỗi lần gọi mà nó được gọi **cho từng token** khi dựng span (~24.000 lượt compile ICU cho một lần dựng lại chương); mỗi dòng bị `tokenize` **hai lần** (một lần dịch, một lần dựng span) và tokenize **không có cache** ở tầng nào; `TextDictionary.findAllPrefixMatches` dựng chuỗi tạm cho **mọi** độ dài từ `maxWordLength` xuống 1; và vòng dựng output của tokenizer dùng `first(where:)` bên trong `while` ⇒ O(n²).
+* **Bốn chỗ đó đã sửa**: regex dời sang [`TranslationTextPostProcessor`](../../Sources/Services/Translation/Utils/TranslationTextPostProcessor.swift#L1) biên dịch một lần; [`TokenizeMemo`](../../Sources/Services/Translation/Utils/TokenizeMemo.swift#L1) ghi nhớ kết quả tokenize theo `(generation, bookId, 2 cờ, md5 text)`; `TextDictionary` chỉ thử những độ dài khoá **có thật**; tokenizer đổi hai vòng `first(where:)` sang bảng tra O(1).
+* **Nới/thu vùng chọn không tokenize lại cả đoạn nữa** — `translationTokens` chỉ phụ thuộc đoạn văn + generation, không phụ thuộc vùng chọn.
+* **`scope` của `updateCachedTranslatedContent` thôi làm tham số chết**: thay đổi thuộc phạm vi một truyện **khác** không còn kéo theo dựng lại cả chương của truyện đang đọc.
+* **Rule `第<n><L> = Chương {0}` nay hợp lệ.** `UNUSED_CAPTURE` hạ từ `hard` xuống `warning`: token không được `{i}` nào tham chiếu vẫn **khớp và nuốt** ký tự, chỉ không xuất ra bản dịch — đó chính là cách ăn luôn chữ `章`. Trước 1.3.339 cả dòng bị bỏ âm thầm.
+* **Dải nút chèn token hiện đủ 10 token**: `FlowLayout` xuống dòng thay cho `ScrollView` ngang, chia hai nhóm theo `Kind.isNumeralGroup`. Trước đó `<ne> <pn> <vp> <hv> <w>` bị cắt khỏi màn hình mà không có dấu hiệu cuộn được.
+* **Ba việc UI ở Kệ sách**: tab Bộ sưu tập thành grid thẻ ảnh ghép bìa (bìa lớn + 2 bìa nhỏ + badge "còn N truyện"); thanh chọn tab thành **hàng nút rời** (Downloads + Bộ Sưu Tập thu về icon 40×40, Kệ Sách + Lịch Sử giữ pill chữ); tab Lịch sử nhóm theo ngày, mỗi ngày một `Section` với nhãn "Hôm nay"/"Hôm qua"/`dd/MM/yyyy`.
+* **Đổi hành vi cần biết**: grid bộ sưu tập **mất swipe-to-delete/rename** — hai việc đó ở `.contextMenu` (nhấn giữ) và ở menu trong `CollectionDetailView`; sắp xếp lại chuyển sang sheet riêng vì `LazyVGrid` không có `onMove`.
+
 ## Thứ tự ưu tiên rule dịch cấu hình được, có phạm vi riêng theo truyện (1.3.338)
 
 * **Đổi mặc định của engine rule**: preset **Ưu tiên độ dài** (`chữ ghim ↓ → số chữ khớp ↓ → hạn mức ↑ → bộ riêng ↑`) thay cho ngữ nghĩa `executeRules` của reference. `三米五` nay ra "3 mét 5". Preset **Như engine gốc** là đường lùi.
