@@ -22,6 +22,7 @@ struct ExtensionDebugServerView: View {
     var body: some View {
         Form {
             stateSection
+            autoApproveSection
             if let pending = reader.pendingInstall {
                 installSection(pending: pending)
             }
@@ -82,7 +83,11 @@ struct ExtensionDebugServerView: View {
         } footer: {
             Text("Máy tính cùng Wi-Fi nối thẳng vào địa chỉ trên — không cần ghép nối. Cổng được ghi nhớ nên lần sau mở lại đúng địa chỉ này nếu cổng còn rảnh. Rời màn hình này không tắt server; nhưng khi iOS treo app ở nền thì server ngừng nhận tới lúc bạn mở lại app.")
         }
+    }
 
+    /// Section riêng, **không** nhồi vào `stateSection`: hai `Section` cạnh nhau trong một computed
+    /// property `some View` không có `@ViewBuilder` thì Swift không suy được kiểu trả về.
+    private var autoApproveSection: some View {
         Section {
             Toggle("Không cần bấm xác nhận", isOn: $autoApproveInstall)
         } header: {
