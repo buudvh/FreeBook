@@ -15,6 +15,12 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +1 file 55 dòng; hai file phân hệ debug tăng có kiểm soát (1.3.348)
+
+* `ExtensionDebugScriptScanner.swift` **55**/400, một type top level.
+* `ExtensionDebugCommandRouter+Draft.swift` 307 → **372**/400 (+65: nhánh rollback thứ hai + `deleteLibraryRow`). Còn 28 dòng dư — lần mở rộng tiếp theo của luồng draft nên tách file, không nhồi thêm vào đây.
+* `ExtensionDraftInstaller.swift` 205 → **250**/400.
+* `check_architecture.py` giữ đúng **7 violation** cũ, tập y hệt.
 ## +1 file 57 dòng, router giảm 14 dòng (1.3.347)
 
 * `ExtensionDebugEntrypointResolver.swift` **57**/400, một type top level.

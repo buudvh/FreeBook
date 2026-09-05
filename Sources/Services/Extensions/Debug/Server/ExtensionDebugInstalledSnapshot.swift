@@ -17,6 +17,12 @@ public struct ExtensionDebugInstalledSnapshot: Sendable, Equatable {
     public let configJson: String
     public let sourceUrl: String
     public let scriptKeys: [String]
+    /// Mọi `.js` ở gốc extension và `src/` **có hàm `execute`** — xem `ExtensionDebugScriptScanner`.
+    ///
+    /// Khác `scriptKeys`: đó là những gì extension **khai** ở mục `script` của `plugin.json`, còn đây là
+    /// những gì thật sự **chạy được**. Script phụ do `home`/`genre` trả về không nằm trong `script` nên
+    /// trước 1.3.348 client không có cách nào liệt kê chúng, phải tự gõ tên file vào đường `custom`.
+    public let executableScripts: [String]
 
     public init(extensionRow: Extension) {
         self.packageId = extensionRow.packageId
@@ -28,6 +34,7 @@ public struct ExtensionDebugInstalledSnapshot: Sendable, Equatable {
         self.configJson = extensionRow.configJson
         self.sourceUrl = extensionRow.sourceUrl
         self.scriptKeys = Self.readScriptKeys(localPath: extensionRow.localPath)
+        self.executableScripts = ExtensionDebugScriptScanner.executableScripts(at: extensionRow.localPath)
     }
 
     private static func readScriptKeys(localPath: String) -> [String] {

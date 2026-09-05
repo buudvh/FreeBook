@@ -577,11 +577,38 @@ async function runInteractive(mode: 'installed' | 'draft'): Promise<void> {
     vscode.window.showWarningMessage('Chưa stage bản nháp nào. Chạy “Stage Workspace Draft” trước.');
     return;
   }
+  // Script phụ (do `home`/`genre` trả về, hoặc đang viết dở) **không** nằm ở mục `script` của
+  // `plugin.json`, nên trước 1.3.348 muốn chạy chúng phải tự gõ tên file vào đường `custom`. App nay
+  // liệt kê mọi `.js` có hàm `execute` ở gốc và `src/` (`executableScripts`), nên đưa thẳng vào danh
+  // sách chọn. Bỏ những file trùng tên với sáu entrypoint chuẩn để không có hai lối vào cùng một script.
+  const discovered = appExtensions.find((e) => e.packageId === pkgId)?.executableScripts ?? [];
+  const extraScripts = discovered.filter((path) => {
+    const key = (path.split('/').pop() ?? path).replace(/\.js$/, '');
+    return !STANDARD_ENTRYPOINTS.includes(key);
+  });
+
   const entrypoint = await vscode.window.showQuickPick(
-    [...STANDARD_ENTRYPOINTS, 'custom'],
+    [...STANDARD_ENTRYPOINTS, 'custom', ...extraScripts],
     { title: `Entrypoint (${mode})` }
   );
   if (!entrypoint) {
+    return;
+  }
+
+  // Chọn một file cụ thể ⇒ chạy dạng `custom` với **tên file trần**: production resolve theo gốc rồi
+  // `src/`, nên gửi cả tiền tố `src/` là trượt.
+  if (entrypoint.endsWith('.js')) {
+    const input = await vscode.window.showInputBox({
+      title: `${entrypoint} · input (dùng {0} cho số trang)`
+    });
+    if (input === undefined) {
+      return;
+    }
+    await startRun('custom', mode, {
+      scriptFileName: entrypoint.split('/').pop() ?? entrypoint,
+      input,
+      page: String(defaultPage())
+    });
     return;
   }
 

@@ -15,6 +15,11 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vị trí tầng của bộ quét script và đường xoá hàng thư viện (1.3.348)
+
+* `ExtensionDebugScriptScanner` là `enum` static thuần ở `Debug/`, chỉ `import Foundation`. Không biết router, không biết SwiftData; nhận `localPath` và trả `[String]`.
+* **Ghi SwiftData vẫn chỉ qua coordinator.** `deleteLibraryRow` dựng `ModelContext` **mới** từ container (ghi từ tác vụ nền), hop sang `@MainActor` gọi `ExtensionTransactionCoordinator.deleteExtension`, và chỉ một `String?` băng qua ranh giới isolation — cùng khuôn `writeLibraryRow` đã có.
+* **Xoá file và xoá hàng DB tách hai tầng**: `ExtensionDraftInstaller.uninstallNewInstall` chỉ xoá thư mục extension và dấu; hàng `Extension` do router xoá. Installer không biết SwiftData, đúng chiều `Services → Models`.
 ## Vị trí tầng của bộ phân giải entrypoint (1.3.347)
 
 * `ExtensionDebugEntrypointResolver` nằm cùng thư mục `Debug/Server/` với router, chỉ `import Foundation`, không state, không actor — một `enum` với `static func`. Không `import SwiftUI`, không `ToastManager`.

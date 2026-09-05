@@ -15,6 +15,17 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +1 file quét script; ba file phân hệ debug mở rộng (1.3.348)
+
+| File | Nội dung | Dòng |
+| --- | --- | --- |
+| [`Services/Extensions/Debug/ExtensionDebugScriptScanner.swift`](../../Sources/Services/Extensions/Debug/ExtensionDebugScriptScanner.swift) | **mới** — quét gốc + `src/` tìm mọi `.js` có `execute`; đọc tối đa 256 KiB mỗi file | 55 |
+| [`Services/Extensions/Debug/Staging/ExtensionDraftInstaller.swift`](../../Sources/Services/Extensions/Debug/Staging/ExtensionDraftInstaller.swift) | `markNewInstall` / `isDebugNewInstall` / `uninstallNewInstall`; `installNew` đánh dấu ở nhánh tạo mới | 205 → **250** |
+| [`Services/Extensions/Debug/Server/ExtensionDebugCommandRouter+Draft.swift`](../../Sources/Services/Extensions/Debug/Server/ExtensionDebugCommandRouter+Draft.swift) | rollback hai nhánh + `deleteLibraryRow` | 307 → **372** |
+| [`Services/Extensions/Debug/Server/ExtensionDebugInstalledSnapshot.swift`](../../Sources/Services/Extensions/Debug/Server/ExtensionDebugInstalledSnapshot.swift) | thêm `executableScripts` | 43 → **51** |
+| [`Services/Extensions/Debug/Server/ExtensionDebugProtocol.swift`](../../Sources/Services/Extensions/Debug/Server/ExtensionDebugProtocol.swift) | `ExtensionInfo.executableScripts` (mặc định rỗng ⇒ không phá client cũ) | 123 → **136** |
+
+Client VSCode: `protocol.ts` khai `executableScripts?`, `extension.ts` đưa script quét được vào danh sách chọn Entrypoint. Thêm file Swift mới ⇒ máy macOS phải `xcodegen generate`.
 ## +1 file ở phân hệ debug; router ngắn đi (1.3.347)
 
 | File | Vai trò | Dòng |

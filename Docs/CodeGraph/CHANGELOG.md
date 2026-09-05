@@ -4,6 +4,25 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.300) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.348] - 2026-09-05
+
+### Rollback tháo được bản debug cài mới, Entrypoint quét theo hàm execute
+
+Thêm **1** file Swift, sửa **4** file Swift + **2** file TypeScript.
+
+**`draft.install` / `draft.rollback` đo lần đầu**, có người bấm xác nhận trên máy — hai lệnh cuối chưa từng chạy qua client thật.
+
+- **`draft.install` chạy đúng.** Cài mới `probe.debug.sandbox` ⇒ app trả `packageId: "probe_debug_sandbox"`: app tự chuẩn hoá id từ `plugin.json` của bản nháp, **không** lấy từ client, đúng như doc đã ghi. Hàng thư viện được ghi, extension hiện trong `extensions.list`, và `run.start` trên bản **đã cài** trả `runStarted → responseValidated → runFinished` với đúng kết quả script sinh ra.
+- **`draft.rollback` trả `DRAFT_MISSING` trong 40 ms, không hiện hộp xác nhận.** `draft.install` có **hai** đường vào (ghi đè / cài mới, đường thứ hai thêm ở 1.3.325) nhưng `draft.rollback` chỉ có nhánh "trả lại backup", mà đường cài mới không tạo backup. Hệ quả: giao thức **tạo được một hàng thư viện mà chính nó không tháo được** — extension nằm lại trong app, phải xoá tay.
+- **Nay rollback rẽ hai nhánh theo `hasBackup`**: có backup ⇒ trả lại bản cũ như trước; không có backup **và** có dấu debug-cài-mới ⇒ xoá thư mục extension rồi xoá hàng `Extension` qua `ExtensionTransactionCoordinator.deleteExtension`. Cả hai nhánh vẫn đi qua cửa xác nhận trên thiết bị, chỉ khác câu mô tả thay đổi.
+- **Điều kiện tháo là dấu do chính luồng debug ghi (`.newinstall/<packageId>`), không phải sự vắng mặt của backup.** Extension người dùng tự cài từ kho cũng không có backup; suy từ `hasBackup == false` là cho client debug xoá được chúng, tức biến một công cụ debug thành đường xoá dữ liệu người dùng. Dấu chỉ do `installNew` ghi ở **nhánh tạo mới**.
+- **Vòng đời của dấu bằng vòng đời `.backup`** (cùng nằm dưới vùng staging, bị xoá sạch khi tắt server hoặc mở lại app), nên rollback — cả hai nhánh — là khái niệm **trong một phiên debug**. Qua phiên khác thì vẫn phải xoá tay.
+- **Lớp lỗi này khác năm lỗi trước.** Năm lỗi đầu của phân hệ đều là "server biết mà client không dùng được"; lỗi này là **thiếu đối xứng của một cặp lệnh**. Bài học ghi vào `11_subsystems`: mỗi đường **tạo** phải có đúng một đường **tháo**.
+- **Entrypoint không còn giới hạn ở mục `script` của `plugin.json`.** `ExtensionDebugScriptScanner` (file mới) quét gốc extension và `src/`, trả path tương đối của mọi `.js` có hàm `execute` — nhận `function execute(`, `async function execute(`, `execute = function`/`execute: function`, `execute = (`/`execute = async (`. `extensions.list` mang thêm `executableScripts`; giá trị mặc định rỗng nên client cũ không vỡ, và phía TypeScript khai `optional` nên client mới vẫn chạy với app cũ.
+- **Vì sao chỉ quét gốc và `src/`**: production cũng chỉ resolve hai chỗ đó (`ExtensionDraftValidator.resolvedScriptPath`, `ExtensionManager.executeCustomScript`) — liệt kê file ngoài đó là hứa một việc runtime không chạy được. Đọc tối đa **256 KiB** mỗi file vì `execute` luôn khai ở top level, và một file JS bệnh lý vài MB không được làm `extensions.list` treo.
+- **Client VSCode**: danh sách chọn Entrypoint nay là *6 entrypoint chuẩn + custom + mọi script quét được*. Chọn một file `.js` thì chạy qua đường `custom` với **tên file trần** — production resolve gốc rồi `src/`, gửi cả tiền tố `src/` là trượt. File trùng tên với entrypoint chuẩn bị loại để không có hai lối vào cùng một script.
+- Gate: `check_architecture.py` giữ đúng **7 violation** cũ, tập y hệt; file mới **55**/400, `ExtensionDebugCommandRouter+Draft` 307 → **372**/400 (còn 28 dòng dư — lần mở rộng luồng draft tiếp theo nên tách file), `ExtensionDraftInstaller` 205 → **250**/400. `npx tsc --noEmit` của client **pass**. `validate_links.py` PASS. **Chưa biên dịch** (host Windows); **có file Swift mới nên máy macOS phải `xcodegen generate`**. Bản sửa rollback chưa được kiểm chạy — phải cài IPA mới rồi làm lại đúng chuỗi cài mới → rollback.
+
 ## [1.3.347] - 2026-09-05
 
 ### Thiếu tham số entrypoint thôi bị báo là entrypoint lạ

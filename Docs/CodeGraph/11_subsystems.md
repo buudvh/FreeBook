@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Debug extension: đóng nốt hai lệnh cuối, và bịt đường một chiều (1.3.348)
+
+* **Toàn bộ `CommandType` đã được chạy thật.** `draft.install`/`draft.rollback` là hai lệnh cuối, đo được nhờ người dùng bấm xác nhận trên máy. Sau năm vòng, phân hệ này không còn lệnh nào chưa từng chạy qua client thật.
+* **Lỗi tìm được lần này khác lớp với năm lỗi trước.** Năm lỗi đầu đều là "server biết mà client không dùng được"; lỗi này là **thiếu đối xứng của một cặp lệnh**: `draft.install` có hai đường vào mà `draft.rollback` chỉ có một, nên tạo được thứ không tháo được. Bài học cho các cặp lệnh thêm sau: mỗi đường **tạo** phải có đúng một đường **tháo**.
+* **Bộ quét script là đơn vị mới, thuần**: `ExtensionDebugScriptScanner` trả tập file *chạy được* thay cho tập file *được khai*. Hai khái niệm đó khác nhau và phân hệ nay phân biệt được — `scripts` cho cái khai, `executableScripts` cho cái chạy được.
+* **Client và app lại phải sửa cùng lượt**: app liệt kê `executableScripts`, client đưa chúng vào danh sách chọn Entrypoint và route qua `custom` với **tên file trần** (production resolve gốc rồi `src/`, gửi cả tiền tố `src/` là trượt).
 ## Debug extension: vòng đo thứ tư, chỉ còn lỗi chẩn đoán (1.3.347)
 
 * **13/13 pass, không có lỗi hành vi nào.** Sau bốn vòng đo, mọi lệnh trong `CommandType` trừ `draft.install`/`draft.rollback` đã được chạy thật ít nhất một lần. Hai lệnh đó cố ý chưa test: chúng ghi vào thư viện extension của người dùng và cần một cú bấm trên máy.

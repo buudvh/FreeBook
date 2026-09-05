@@ -15,6 +15,14 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## `draft.install` cài mới được mà rollback không tháo được (1.3.348)
+
+* **`draft.install` đo lần đầu, có người bấm xác nhận trên máy: chạy đúng.** Cài mới `probe.debug.sandbox` ⇒ app trả `packageId: "probe_debug_sandbox"` — app tự chuẩn hoá id từ `plugin.json` của bản nháp, **không** lấy từ client, đúng như doc của `handleDraftInstall` ghi. Hàng thư viện được ghi, và `run.start` trên bản **đã cài** trả `runStarted → responseValidated → runFinished` với đúng kết quả script sinh ra.
+* **`draft.rollback` trả `DRAFT_MISSING` trong 40 ms, không hiện hộp xác nhận.** Nguyên nhân: `draft.install` có hai đường vào (ghi đè / cài mới) nhưng rollback chỉ có nhánh "trả lại backup", mà đường cài mới không tạo backup. Hệ quả: giao thức tạo được một hàng thư viện mà chính nó **không có cách nào tháo ra** — extension nằm lại trong app, phải xoá tay.
+* **Nay rollback rẽ hai nhánh theo `hasBackup`**: có backup ⇒ trả lại bản cũ (như trước); không có backup **và** có dấu debug-cài-mới ⇒ xoá thư mục extension rồi xoá hàng `Extension`. Cả hai nhánh vẫn đi qua cửa xác nhận trên thiết bị, chỉ khác câu mô tả thay đổi.
+* **Điều kiện tháo là dấu, không phải sự vắng mặt của backup.** `.newinstall/<packageId>` chỉ do `installNew` ghi ở **nhánh tạo mới**. Suy từ `hasBackup == false` là cho client debug xoá được cả extension người dùng tự cài từ kho — biến công cụ debug thành đường xoá dữ liệu.
+* **Vòng đời của dấu bằng vòng đời `.backup`**: cùng nằm dưới vùng staging, bị xoá sạch khi tắt server hoặc mở lại app. Nên rollback — cả hai nhánh — là khái niệm **trong một phiên debug**; qua phiên khác thì phải xoá tay.
+* **`extensions.list` mang thêm `executableScripts`**: mọi `.js` ở gốc và `src/` có hàm `execute`. Khác `scripts` (khoá khai ở mục `script` của `plugin.json`) — script phụ do `home`/`genre` trả về không nằm trong đó nên trước đây client không liệt kê được, phải tự gõ tên file vào đường `custom`. Chỉ quét hai chỗ đó vì production cũng chỉ resolve gốc rồi `src/`; đọc tối đa 256 KiB mỗi file vì `execute` luôn khai ở top level.
 ## Thiếu tham số entrypoint thôi bị báo là "entrypoint lạ" (1.3.347)
 
 * **Bản sửa 1.3.346 đo lại: đúng.** Manifest 300 file ⇒ `QUOTA_EXCEEDED` với message "quá 200 file"; manifest khai một file 2 MiB ⇒ `QUOTA_EXCEEDED` với message chỉ đúng file và con số; `size < 0` ⇒ vẫn `DRAFT_INVALID`, không bị gộp vào quota.

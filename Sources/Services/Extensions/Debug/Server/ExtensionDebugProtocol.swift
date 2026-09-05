@@ -103,14 +103,27 @@ public enum ExtensionDebugProtocol {
         public let name: String
         public let version: Int
         public let type: String
+        /// Khoá khai ở mục `script` của `plugin.json`.
         public let scripts: [String]
+        /// Path tương đối của mọi `.js` **có hàm `execute`** ở gốc extension và `src/` — tập file thật
+        /// sự chạy được, kể cả script phụ không khai trong `script`. Thêm ở 1.3.348; client cũ bỏ qua
+        /// field này nên không phá tương thích.
+        public let executableScripts: [String]
 
-        public init(packageId: String, name: String, version: Int, type: String, scripts: [String]) {
+        public init(
+            packageId: String,
+            name: String,
+            version: Int,
+            type: String,
+            scripts: [String],
+            executableScripts: [String] = []
+        ) {
             self.packageId = packageId
             self.name = name
             self.version = version
             self.type = type
             self.scripts = scripts
+            self.executableScripts = executableScripts
         }
     }
 

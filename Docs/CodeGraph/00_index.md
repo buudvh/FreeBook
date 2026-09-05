@@ -15,6 +15,12 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Entrypoint quét theo `execute`; rollback tháo được bản debug cài mới (1.3.348)
+
+* **`draft.install` / `draft.rollback` đo lần đầu bằng client thật, có người bấm xác nhận trên máy.** Install chạy đúng: cài mới `probe_debug_sandbox` (app tự chuẩn hoá id từ `probe.debug.sandbox`), ghi hàng thư viện, và `run.start` trên bản đã cài trả `runStarted → responseValidated → runFinished`.
+* **Lỗi tìm được: rollback không tháo được bản cài mới.** `draft.install` có hai đường (ghi đè / cài mới) nhưng `draft.rollback` chỉ có nhánh "trả lại backup", nên bản cài mới trả `DRAFT_MISSING` và extension nằm lại trong thư viện, phải xoá tay. Giao thức tạo được một hàng mà chính nó không tháo được.
+* **Nay rollback có hai nhánh.** Điều kiện tháo là **dấu do chính luồng debug ghi** (`.newinstall/<packageId>` trong vùng staging), **không** suy từ `hasBackup == false`: extension người dùng tự cài từ kho cũng không có backup, suy như vậy là biến công cụ debug thành đường xoá dữ liệu người dùng. Vòng đời của dấu bằng vòng đời `.backup` — tức rollback là khái niệm trong một phiên debug.
+* **Entrypoint không còn giới hạn ở mục `script` của `plugin.json`.** `ExtensionDebugScriptScanner` quét gốc extension và `src/`, trả mọi `.js` có hàm `execute`; `extensions.list` mang thêm `executableScripts`, và danh sách chọn Entrypoint ở client VSCode nay là *6 entrypoint chuẩn + custom + mọi script quét được*. Script phụ do `home`/`genre` trả về trước đây phải tự gõ tên file.
 ## Tách bộ phân giải entrypoint; vòng đo thứ tư không còn lỗi mới (1.3.347)
 
 * **Vòng đo thứ tư của debug server: 13/13 pass, không có lỗi mới.** Xác nhận `QUOTA_EXCEEDED` của 1.3.346 chạy đúng (300 file, file 2 MiB), và `size < 0` vẫn ra `DRAFT_INVALID` chứ không bị gộp vào quota. Sáu đường đo lần đầu đều đúng: `genre`/`home` chạy được, `sourceMode: "draft"` với revision lạ trả `DRAFT_MISSING`, `events.subscribe` gọi hai lần **không** nhân đôi event, hai run song song nhận hai `runId` khác nhau, `hello` gọi lại vẫn trả reply.

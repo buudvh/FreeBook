@@ -247,25 +247,90 @@ extension ExtensionDebugCommandRouter {
             )
             return
         }
-        guard await ExtensionDraftInstaller.shared.hasBackup(packageId: packageId) else {
-            replyError(to: envelope, code: .draftMissing, message: "Không có bản sao lưu để rollback")
+        // Hai đường rollback, vì `draft.install` có hai đường vào:
+        // - **ghi đè** ⇒ có backup ⇒ rollback = trả lại bản cũ;
+        // - **cài mới** ⇒ không có backup ⇒ rollback = **tháo hẳn** hàng vừa cài.
+        //
+        // Trước 1.3.348 chỉ có nhánh đầu, nên `draft.install` (cài mới) tạo được một hàng thư viện mà
+        // giao thức **không có cách nào tháo ra** — đo bằng client thật: cài mới thành công rồi
+        // `draft.rollback` trả `DRAFT_MISSING`, extension nằm lại trong app phải xoá tay.
+        //
+        // Điều kiện tháo là **dấu do chính luồng debug ghi**, không phải "không có backup": extension
+        // người dùng tự cài từ kho cũng không có backup, suy như vậy là biến công cụ debug thành đường
+        // xoá dữ liệu người dùng.
+        let hasBackup = await ExtensionDraftInstaller.shared.hasBackup(packageId: packageId)
+        let isDebugNewInstall = await ExtensionDraftInstaller.shared.isDebugNewInstall(packageId: packageId)
+        guard hasBackup || isDebugNewInstall else {
+            replyError(
+                to: envelope,
+                code: .draftMissing,
+                message: "Không có bản sao lưu để rollback, và hàng này không do debug cài mới trong phiên hiện tại"
+            )
             return
         }
         let request = ExtensionDebugInstallGate.Request(
             kind: .rollback,
             packageId: packageId,
-            revision: "backup",
-            changes: ["↩ trả lại bản đã sao lưu trước lần cài gần nhất"]
+            revision: hasBackup ? "backup" : "uninstall",
+            changes: [
+                hasBackup
+                    ? "↩ trả lại bản đã sao lưu trước lần cài gần nhất"
+                    : "🗑 tháo hẳn bản debug vừa cài mới (xoá file + hàng thư viện)"
+            ]
         )
         guard await ExtensionDebugInstallGate.shared.requestApproval(request) == .approved else {
             replyError(to: envelope, code: .approvalRequired, message: "Người dùng không xác nhận trên thiết bị")
             return
         }
+
+        guard hasBackup else {
+            do {
+                try await ExtensionDraftInstaller.shared.uninstallNewInstall(packageId: packageId)
+            } catch {
+                replyError(to: envelope, code: .internalError, message: error.localizedDescription)
+                return
+            }
+            if let failure = await deleteLibraryRow(packageId: packageId) {
+                replyError(
+                    to: envelope,
+                    code: .internalError,
+                    message: "Đã xoá file nhưng không xoá được hàng thư viện: \(failure)"
+                )
+                return
+            }
+            var payload = ExtensionDebugProtocol.Payload()
+            payload.packageId = packageId
+            payload.message = "Đã tháo '\(packageId)' khỏi thư viện"
+            reply(to: envelope, payload: payload)
+            return
+        }
+
         do {
             try await ExtensionDraftInstaller.shared.rollback(installedPath: snapshot.localPath, packageId: packageId)
             reply(to: envelope, payload: ExtensionDebugProtocol.Payload())
         } catch {
             replyError(to: envelope, code: .internalError, message: error.localizedDescription)
+        }
+    }
+
+    /// Xoá hàng `Extension` của một bản do debug cài mới. Trả `nil` khi thành công.
+    ///
+    /// Cùng khuôn `writeLibraryRow`: `ModelContext` dựng mới từ container (ghi từ tác vụ nền), hop sang
+    /// `@MainActor` cho coordinator, và phát `"extensionDidUpdate"` để màn Khám Phá thấy ngay.
+    private func deleteLibraryRow(packageId: String) async -> String? {
+        let container = self.container
+        return await MainActor.run(resultType: String?.self) {
+            let result = ExtensionTransactionCoordinator.shared.deleteExtension(
+                packageId: packageId,
+                in: ModelContext(container)
+            )
+            switch result {
+            case .success:
+                NotificationCenter.default.post(name: Notification.Name("extensionDidUpdate"), object: nil)
+                return nil
+            case .failure(let error):
+                return error.localizedDescription
+            }
         }
     }
 

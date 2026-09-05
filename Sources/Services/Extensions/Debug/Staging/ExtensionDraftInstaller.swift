@@ -57,6 +57,52 @@ public actor ExtensionDraftInstaller {
         return FileManager.default.fileExists(atPath: directory.appendingPathComponent("plugin.json").path)
     }
 
+    /// Nơi ghi dấu "hàng này do `draft.install` **cài mới**", cùng gốc với `.backup` nên cùng vòng đời:
+    /// vùng staging bị xoá sạch khi tắt server hoặc mở lại app, tức rollback là khái niệm **trong một
+    /// phiên debug**, đúng như bản sao lưu.
+    private static var newInstallRoot: URL {
+        ExtensionDraftStagingStore.rootDirectory.appendingPathComponent(".newinstall", isDirectory: true)
+    }
+
+    private func newInstallMarker(packageId: String) -> URL? {
+        guard ExtensionDraftManifest.pathIssue(packageId) == nil else { return nil }
+        return Self.newInstallRoot.appendingPathComponent(packageId)
+    }
+
+    /// Đánh dấu một hàng vừa được cài mới bởi luồng debug.
+    ///
+    /// Đây là điều kiện **duy nhất** cho phép `draft.rollback` tháo hàng đó ra. Không được suy từ
+    /// `hasBackup == false`: extension người dùng tự cài từ kho cũng không có backup, và cho client
+    /// debug xoá được chúng là biến một công cụ debug thành đường xoá dữ liệu người dùng.
+    public func markNewInstall(packageId: String) {
+        guard let marker = newInstallMarker(packageId: packageId) else { return }
+        try? FileManager.default.createDirectory(at: Self.newInstallRoot, withIntermediateDirectories: true)
+        try? Data().write(to: marker)
+    }
+
+    public func isDebugNewInstall(packageId: String) -> Bool {
+        guard let marker = newInstallMarker(packageId: packageId) else { return false }
+        return FileManager.default.fileExists(atPath: marker.path)
+    }
+
+    /// Tháo hẳn một bản **do debug cài mới**: xoá thư mục extension rồi bỏ dấu. Hàng `Extension` trong
+    /// thư viện do router xoá (ghi SwiftData không thuộc tầng này).
+    public func uninstallNewInstall(packageId: String) throws {
+        guard ExtensionDraftManifest.pathIssue(packageId) == nil else { throw InstallError.unsafePackageId }
+        let target = ExtensionManager.shared.extensionsDirectory
+            .appendingPathComponent(packageId, isDirectory: true)
+        if FileManager.default.fileExists(atPath: target.path) {
+            do {
+                try FileManager.default.removeItem(at: target)
+            } catch {
+                throw InstallError.swapFailed(error.localizedDescription)
+            }
+        }
+        if let marker = newInstallMarker(packageId: packageId) {
+            try? FileManager.default.removeItem(at: marker)
+        }
+    }
+
     /// Danh sách file **khác nhau** giữa bản nháp và bản đang cài, để UI hiện trước khi xin xác nhận.
     /// So bằng SHA-256 nội dung; chỉ trả path tương đối.
     public func changeSummary(draftDirectory: URL, installedPath: String) -> [String] {
@@ -132,6 +178,9 @@ public actor ExtensionDraftInstaller {
         } catch {
             throw InstallError.swapFailed(error.localizedDescription)
         }
+        // Chỉ nhánh **tạo mới** mới đánh dấu: nhánh trên đã ghi đè một bản có sẵn nên nó có backup, và
+        // rollback của nó là *trả lại bản cũ*, không phải tháo ra.
+        markNewInstall(packageId: packageId)
         return destination.path
     }
 

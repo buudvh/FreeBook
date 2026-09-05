@@ -122,7 +122,8 @@ public actor ExtensionDebugCommandRouter {
                 name: snapshot.name,
                 version: snapshot.version,
                 type: snapshot.type,
-                scripts: snapshot.scriptKeys
+                scripts: snapshot.scriptKeys,
+                executableScripts: snapshot.executableScripts
             )
         }
         reply(to: envelope, payload: payload)

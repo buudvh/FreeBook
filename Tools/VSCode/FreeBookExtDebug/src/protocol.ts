@@ -68,7 +68,14 @@ export interface ExtensionInfo {
   name: string;
   version: number;
   type: string;
+  /** Khoá khai ở mục `script` của `plugin.json`. */
   scripts: string[];
+  /**
+   * Path tương đối của mọi `.js` **có hàm `execute`** ở gốc extension và `src/` — tập file thật sự chạy
+   * được, kể cả script phụ không khai trong `script`. App thêm ở 1.3.348; optional để client vẫn chạy
+   * với app cũ hơn.
+   */
+  executableScripts?: string[];
 }
 
 export interface DraftManifestEntry {
