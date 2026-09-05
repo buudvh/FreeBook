@@ -197,7 +197,11 @@ public actor ExtensionDebugCommandRouter {
             return
         }
         let isActive = await runner.activeRunIds.contains(runId)
-        guard isActive || await hub.hasRun(runId) else {
+        // Hai `await` phải nằm ở hai `let` riêng: Swift không cho `await` bên phải `||` (toán hạng thứ
+        // hai là autoclosure không hỗ trợ concurrency). Không short-circuit cũng không sao — cả hai
+        // đều là một lượt đọc actor.
+        let isKnown = await hub.hasRun(runId)
+        guard isActive || isKnown else {
             emit(ExtensionDebugProtocol.errorEnvelope(
                 requestId: envelope.requestId,
                 code: .unknownRun,
@@ -221,7 +225,8 @@ public actor ExtensionDebugCommandRouter {
             return
         }
         let isActive = await runner.activeRunIds.contains(runId)
-        guard isActive || await hub.hasRun(runId) else {
+        let isKnown = await hub.hasRun(runId)
+        guard isActive || isKnown else {
             emit(ExtensionDebugProtocol.errorEnvelope(
                 requestId: envelope.requestId,
                 code: .unknownRun,
