@@ -15,6 +15,16 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ Dịch: thứ tự ưu tiên rule thành cấu hình, có hai phạm vi (1.3.338)
+
+* **Phân hệ có thêm một trục cấu hình runtime thứ hai, song song với công tắc token.** Trước đây chỉ token bật/tắt được; nay **thứ tự phá tranh chấp** giữa hai rule chồng nhau cũng là dữ liệu. `QuickTranslationRulePriorityConfiguration` sở hữu 4 tiêu chí xếp lại được + 3 preset + 2 khoá UserDefaults (`quickTranslateRulePriorityOrder`, `quickTranslateRulePriorityDescending`, đều lower-camel-case nên đi theo luồng backup settings sẵn có).
+* **Mặc định của phân hệ đổi**: preset **Ưu tiên độ dài** thay cho hành vi của `executeRules` reference. Đây là đổi hành vi thấy được — mọi chương có tranh chấp rule dịch khác trước. Preset "Như engine gốc" là đường lùi, chọn ở màn cấu hình chứ không phải khoá ẩn.
+* **Hai công tắc token và thứ tự ưu tiên nay có phạm vi riêng theo truyện.** `QuickTranslationBookEngineConfigStore` là chủ mới của `translate/books/<bookId>/QuickTranslateEngineConfig.json` — file thứ **tư** trong thư mục riêng của truyện, sau `VietPhrase.txt`/`Names.txt`, `QuickTranslateRules.txt` và `QuickTranslateRulesDisabled.txt`. Cùng khuôn: một type sở hữu một file, cache RAM + `NSLock`, `Outcome` thay vì toast.
+* **Ngữ nghĩa là kế thừa, không phải bản copy** — khác `QuickTranslationRuleDisableStore` (nơi hai tập mẫu độc lập). Trường vắng = *theo cài đặt chung*, và token có ba trạng thái thay vì hai. Lý do: nếu là bản copy thì lần đầu mở màn cấu hình của một truyện là truyện đó đóng băng giá trị chung hiện tại, sau này sửa chung không lan tới nữa.
+* **Một cấu hình, hai người tiêu thụ.** Vì `TTSBackgroundProcessor` đã truyền `bookId` xuống `TranslateUtils` giống Reader, cấu hình riêng áp cho **cả** trình đọc và đọc thành tiếng mà không phải thêm đường dẫn dữ liệu nào qua tầng TTS. `QuickTranslationRuleDiagnostics` dùng cùng bản chụp nên panel rule ở Reader vẫn nói đúng kết quả thật.
+* **Màn quản lý rule có công cụ thứ tư**: Danh sách rule → Cấu hình token rule → **Thứ tự ưu tiên rule** → Thử nhanh một câu. Bảng cấu hình trình đọc có thêm hai hàng dẫn sang phạm vi truyện, kèm nhãn phụ nói rõ đang *theo cài đặt chung* hay *đang đặt riêng*.
+* **Mỗi tiêu chí và mỗi preset đều có câu mô tả trong app**, lấy từ `Key.explanation` / `Key.directionLabel(descending:)` / `Preset.explanation` ở tầng Service — một nguồn chữ, không viết lại ở View. Nhãn token cũng dồn về `Kind.label` để màn chung và màn riêng không mô tả khác nhau về cùng một token.
+
 ## Sheet hành động truyện gọn lại một tầng; ngưỡng nhấn giữ về một nguồn (1.3.337)
 
 * **`BookActionSheet` bỏ hẳn tầng `NavigationStack`.** Không còn thanh tiêu đề "Tuỳ chọn truyện" lẫn nút "Xong"; sheet là một `List` trần với `presentationDetents` + tay cầm vuốt. Hệ quả cần biết: **không** thêm được `.toolbar` hay `navigationDestination` vào sheet này nữa — hành động nào cần navigation vẫn phải phát `BookSheetAction` cho màn chủ, đúng như hợp đồng cũ.

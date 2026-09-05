@@ -15,6 +15,16 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Đổi mặc định thứ tự ưu tiên rule là rủi ro hành vi, chưa đo được (1.3.338)
+
+* **Đây là đổi hành vi thấy được cho mọi người dùng, không phải thêm tính năng ẩn.** Mặc định mới là preset **Ưu tiên độ dài**; máy chưa có khoá `quickTranslateRulePriorityOrder` (tức mọi bản đang dùng) sẽ dịch khác ở mọi chỗ có hai rule tranh nhau. Không có cờ nào giữ hành vi cũ tự động — muốn như trước phải vào chọn preset "Như engine gốc".
+* **Chưa đo được tác động và không thể đo trong repo.** Ba bộ rule (`rule-aio.txt`, `Rule_new.txt`, bộ chuẩn v21) **không nằm trong repo** — chúng do người dùng import vào `translate/` lúc chạy. Vì vậy không có cách nào chạy đối chiếu trước/sau trên 17.278 rule ở đây; xác minh phải làm bằng panel rule trong Reader trên máy thật.
+* **Chiều rủi ro đã biết của mặc định mới**: rule có token từ điển (`<w>`, `<vp>`) nay thắng ở những chỗ nó nuốt được nhiều chữ hơn một rule ngắn chính xác hơn. Rủi ro có giới hạn vì token từ điển bị ràng buộc bởi entry thật trong trie và token số bị `guardsLeft`/`guardsRight` chặn, nhưng nó **không bằng không** — rule neo yếu (`weakAnchorUnits`) là nơi đáng soi trước.
+* **Rủi ro đối xứng của mặc định cũ, chính là lý do đổi**: `wildcardCapacity` đếm **mức trần khai báo** nên nó cộng theo *số token*. Rule mô tả cấu trúc đầy đủ hơn luôn thua rule con của nó (`<n>米<n>` 24 thua `<n>米` 12) trước khi tiêu chí "độ dài match" được xét, và rule viết `:min-max` cẩn thận thắng rule viết trần dù hành xử y hệt trên cùng đoạn văn.
+* **Preset "Xuất hiện trước rồi dài hơn" mạnh tay hơn hai preset kia**: nó cho rule token giành cả chỗ của rule literal thuần viết tay khi với xa hơn một chữ (`五米三` → "5 mét 3" thay vì "năm mét"). Rule literal thuần chỉ còn thắng khi hai match **cùng độ dài**. Đừng đặt preset này làm mặc định cho người dùng khác.
+* **Cấu hình riêng của truyện không bị xoá khi xoá truyện** — giống hệt bộ rule riêng, file tắt riêng và từ điển riêng của truyện: `BookStorageManager` **không** chạm `translate/` một dòng nào. Đây là hành vi có sẵn từ trước, không phải do lượt này sinh ra; nhưng nó nghĩa là `translate/books/<bookId>/` tích tụ theo thời gian. Đừng "sửa" bằng cách xoá cả thư mục lúc xoá truyện — làm vậy sẽ xoá luôn từ điển riêng người dùng nhập tay.
+* **Chưa biên dịch**: viết trên Windows, không có `xcodebuild` lẫn `xcodegen`. Lượt này **thêm 6 file Swift** nên máy macOS phải `xcodegen generate` trước khi build. `check_architecture.py` giữ đúng **7 violation** (tập y hệt), `validate_links.py` PASS. Không dùng `Tests/` làm bằng chứng. CI xanh chỉ chứng minh *biên dịch được*.
+
 ## Ngân sách type-check của `ReaderView` là một rủi ro có thật, đã nổ một lần (1.3.335)
 
 * **Rủi ro đã hiện thực hoá.** Mục 1.3.334 ngay dưới nói "lượt này chưa được biên dịch — host là Windows"; CI sau đó **đỏ** với đúng một lỗi: `Sources/Views/Reader/ReaderView.swift:350:9: error: the compiler is unable to type-check this expression in reasonable time`. Nguyên nhân là thêm `definitionPanelOverlay(in: geometry)` vào một biểu thức đã dài **330 dòng** (`GeometryReader` + `ZStack` 7 con + 21 modifier). Không phải lỗi logic — nhưng là lỗi chặn toàn bộ build, và **không** gate local nào bắt được: `check_architecture.py` chỉ đếm dòng vật lý, `validate_links.py` chỉ so hash.

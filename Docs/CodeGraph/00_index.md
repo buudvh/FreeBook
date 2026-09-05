@@ -15,6 +15,15 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Thứ tự ưu tiên rule dịch cấu hình được, có phạm vi riêng theo truyện (1.3.338)
+
+* **Đổi mặc định của engine rule**: preset **Ưu tiên độ dài** (`chữ ghim ↓ → số chữ khớp ↓ → hạn mức ↑ → bộ riêng ↑`) thay cho ngữ nghĩa `executeRules` của reference. `三米五` nay ra "3 mét 5". Preset **Như engine gốc** là đường lùi.
+* **`select` đọc thứ tự từ dữ liệu.** [`QuickTranslationRuleEngine.select(from:priority:)`](../../Sources/Services/Translation/Engine/QuickTranslationRuleEngine.swift#L1) khoá `start` ở đầu và `sourceLine` ở cuối; bốn tiêu chí giữa lấy thứ tự + chiều từ [`QuickTranslationRulePriorityConfiguration`](../../Sources/Services/Translation/Engine/QuickTranslationRulePriorityConfiguration.swift#L1). Hai khoá đó bị cố định vì thuật toán (pass tuyến tính theo `cursor`; và `sourceLine` trùng nhau giữa hai bộ nên phải dưới `scopeRank`), không vì thận trọng.
+* **Hai phạm vi cấu hình**: chung ở `UserDefaults` (2 khoá lower-camel-case, tự vào backup settings), riêng ở `translate/books/<bookId>/QuickTranslateEngineConfig.json` do [`QuickTranslationBookEngineConfigStore`](../../Sources/Services/Translation/Engine/QuickTranslationBookEngineConfigStore.swift#L1) sở hữu. **Kế thừa thật**: trường vắng = theo cài đặt chung, nên sửa chung vẫn lan tới truyện chưa đặt riêng.
+* **Công tắc token cũng có phạm vi riêng**, ba trạng thái mỗi token (`Chung`/`Bật`/`Tắt`) thay vì bật/tắt. `inherit` không ghi vào file; file rỗng bị xoá thay vì ghi `{}`.
+* **Áp cho cả Reader và TTS bằng đường đã có**: `TTSBackgroundProcessor` vốn truyền `bookId` xuống `TranslateUtils` như Reader, nên không thêm tham số nào ở tầng TTS. `priority.signature` vào khoá memo của engine; `QuickTranslationRuleDiagnostics` dùng cùng bản chụp nên panel rule không nói khác bản dịch thật.
+* **Ba màn mới**: Cài đặt → Quản lý rule dịch → Công cụ → **Thứ tự ưu tiên rule** (chung); và Cài đặt trình đọc → **Thứ tự ưu tiên rule** / **Token rule của truyện** (riêng). Mỗi tiêu chí, mỗi chiều và mỗi preset đều có câu mô tả lấy từ tầng Service — một nguồn chữ, View không viết lại.
+
 ## Đợt 4: VP có dấu khớp lại, gợi ý phiên âm rời main thread, 4 việc UI (1.3.336)
 
 * **Bug thật, nguyên nhân ở vị trí trong chuỗi xử lý: mục từ điển có dấu trong khoá không bao giờ khớp.** `TranslateUtils.performTranslation` áp bảng dấu câu (`。．，、；：！？…～—　`) **trước** `tokenize`, nên tới lúc tra trie thì `弹指、遮天` đã thành `弹指, 遮天`. Bảng dời sang [`TranslationPunctuationMapper`](../../Sources/Services/Translation/Utils/TranslationPunctuationMapper.swift) và chạy **sau** khi tra từ điển, trước `postProcessText` (hàm đó cần `.!?:` để viết hoa). Dấu hiệu chẩn đoán đã dùng: panel Dịch (tokenize chuỗi gốc) hiện đúng nghĩa của mục đó trong khi đọc chương thì không áp — hai đường tokenize nay về cùng một hệ.

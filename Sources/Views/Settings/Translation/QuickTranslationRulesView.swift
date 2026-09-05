@@ -234,6 +234,10 @@ struct QuickTranslationRulesView: View {
                 Label("Cấu hình token rule", systemImage: "switch.2")
             }
 
+            NavigationLink(destination: QuickTranslationRulePrioritySettingsView()) {
+                Label("Thứ tự ưu tiên rule", systemImage: "arrow.up.arrow.down")
+            }
+
             NavigationLink(destination: QuickTranslationRuleTesterView()) {
                 Label("Thử nhanh một câu", systemImage: "text.magnifyingglass")
             }

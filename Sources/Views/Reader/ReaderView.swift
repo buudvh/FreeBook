@@ -489,7 +489,7 @@ struct ReaderView: View {
         readerOverlayStack
         .sheet(isPresented: $showingSettings) {
             ReaderSettingsView(
-                fontSize: $fontSize,
+                bookId: bookId, fontSize: $fontSize,
                 lineSpacing: $lineSpacing,
                 fontFamily: $fontFamily,
                 selectedTheme: $selectedTheme,

@@ -15,6 +15,26 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +6 file: cấu hình thứ tự ưu tiên rule và cấu hình engine riêng theo truyện (1.3.338)
+
+| File mới | Vai trò | Dòng |
+| --- | --- | --- |
+| [`Services/Translation/Engine/QuickTranslationRulePriorityConfiguration.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRulePriorityConfiguration.swift) | `Key` (4 tiêu chí xếp lại được) + `Preset` (3 bộ dựng sẵn) + `Configuration` bất biến có `signature` cho khoá cache; 2 khoá UserDefaults cho phạm vi chung | 203 |
+| [`Services/Translation/Engine/QuickTranslationBookEngineConfigStore.swift`](../../Sources/Services/Translation/Engine/QuickTranslationBookEngineConfigStore.swift) | chủ `translate/books/<bookId>/QuickTranslateEngineConfig.json`; phân giải thứ tự ưu tiên + 10 token theo `bookId` với ngữ nghĩa kế thừa; cache RAM + `NSLock` | 240 |
+| [`Views/Settings/Translation/QuickTranslationRulePriorityListView.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRulePriorityListView.swift) | các section dùng chung: 3 preset + 2 hàng khoá + 4 hàng kéo được (`onMove`), mỗi hàng bấm để đổi chiều | 126 |
+| [`Views/Settings/Translation/QuickTranslationRulePrioritySettingsView.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRulePrioritySettingsView.swift) | màn phạm vi **chung**, vào từ section Công cụ của `QuickTranslationRulesView` | 33 |
+| [`Views/Reader/ReaderBookRulePriorityView.swift`](../../Sources/Views/Reader/ReaderBookRulePriorityView.swift) | màn phạm vi **truyện**: công tắc "Đặt riêng" + cùng bộ section | 57 |
+| [`Views/Reader/ReaderBookTokenSettingsView.swift`](../../Sources/Views/Reader/ReaderBookTokenSettingsView.swift) | 10 token × 3 trạng thái (`Chung`/`Bật`/`Tắt`) cho riêng một truyện | 121 |
+
+| File sửa | Nội dung | Dòng |
+| --- | --- | --- |
+| [`Services/Translation/Engine/QuickTranslationRuleEngine.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleEngine.swift) | `Found.metric(for:)`; `select(from:priority:)`; `rewrite`/`preview` phân giải cấu hình theo `bookId` và ghép `priority.signature` vào khoá memo | 293 → **347** |
+| [`Services/Translation/Engine/QuickTranslationRuleTokenSettings.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleTokenSettings.swift) | `Kind.label` + `Kind.isNumeralGroup` để hai màn token dùng chung một danh sách nhãn | 68 → **93** |
+| [`Services/Translation/Engine/QuickTranslationRuleDiagnostics.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleDiagnostics.swift) | dùng cùng bản chụp `tokenConfiguration` + `priority` theo `bookId` khi gọi `select` | 219 → **223** |
+| [`Views/Reader/ReaderSettingsView.swift`](../../Sources/Views/Reader/ReaderSettingsView.swift) | nhận `bookId`; 2 hàng mới + 2 sheet lồng bọc `NavigationStack` | 182 → **257** |
+| [`Views/Settings/Translation/QuickTranslationRulesView.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRulesView.swift) | 1 `NavigationLink` mới ở section Công cụ | 322 → **326** |
+| [`Views/Reader/ReaderView.swift`](../../Sources/Views/Reader/ReaderView.swift) | truyền `bookId` vào `ReaderSettingsView` (giữ nguyên số dòng, file đang trong baseline) | 1997 |
+
 ## +4 file: bảng dấu câu, sheet phiên âm, khối quản lý bộ, khối hành động màn tìm kiếm (1.3.336)
 
 483 → **487** file Swift ⇒ phải `xcodegen generate` khi lên macOS.

@@ -15,6 +15,15 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vị trí tầng của 6 file mới cho cấu hình engine rule (1.3.338)
+
+* **Hai file Service chỉ `import Foundation`.** `QuickTranslationRulePriorityConfiguration` là `enum` static thuần; `QuickTranslationBookEngineConfigStore` là `final class` singleton có `NSLock`. Không file nào `import SwiftUI` và không file nào gọi `ToastManager` — ghi lỗi trả bằng `Outcome`, View tự phát toast. `SERVICE_SWIFTUI_IMPORT` và `SERVICE_TOAST_COUPLING` giữ bằng thiết kế, không bằng ngoại lệ.
+* **`QuickTranslationBookEngineConfigStore` cố ý *không* là `ObservableObject`.** Chỉ hai màn cấu hình sửa file này và chúng đọc lại state khi `body` chạy, nên thêm `@Published revision` là dựng một đường refresh không ai dùng — khác `QuickTranslationRuleDisableStore`/`QuickTranslationRuleBookStore`, nơi `revision` thật sự có subscriber.
+* **Chiều phụ thuộc mới, không có vòng**: `QuickTranslationRuleEngine` → `QuickTranslationBookEngineConfigStore` → { `QuickTranslationRulePriorityConfiguration`, `QuickTranslationRuleTokenSettings`, `TranslationManager.translateDirectory` }. Store **không** biết engine, nên không có cạnh ngược.
+* **View mới chia đúng hai tầng**: `QuickTranslationRulePriorityListView` (component dùng chung, chỉ nhận `Binding`) nằm ở `Views/Settings/Translation/` cạnh màn chung; hai màn phạm vi truyện nằm ở `Views/Reader/` cạnh `ReaderSettingsView` mở chúng. Không View nào chạm `modelContext`.
+* **`ReaderSettingsView` mở màn con bằng sheet lồng, không `NavigationLink`**: bảng cài đặt trình đọc là sheet trần không có `NavigationStack` nên link sẽ không đẩy màn. Dùng đúng cách `ReaderView` mở `BookDictionaryView` — `.sheet` + `NavigationStack` + nút Đóng.
+* **Ghi đĩa gọi từ `onChange` chứ không từ setter của `Binding`**: setter là closure escaping nên không chắc thừa hưởng isolation của `body`, mà `ToastManager` là `@MainActor`. Thân modifier `onChange` chạy cùng ngữ cảnh với `body` nên gọi được.
+
 ## Vị trí tầng của 4 file mới; bốn chỗ hạ `private` xuống `internal` (1.3.336)
 
 * **Bốn file mới nằm đúng tầng.** [`Services/Translation/Utils/TranslationPunctuationMapper.swift`](../../Sources/Services/Translation/Utils/TranslationPunctuationMapper.swift) ở Services, **chỉ** `import Foundation` — không `SwiftUI`, không `ToastManager`, không state. Ba file còn lại ở Views: [`Views/Settings/TTS/AddWordSheet.swift`](../../Sources/Views/Settings/TTS/AddWordSheet.swift), [`Views/Shelf/Collections/CollectionDetailView+Manage.swift`](../../Sources/Views/Shelf/Collections/CollectionDetailView+Manage.swift), [`Views/Shelf/ShelfMain/Extensions/ShelfSearchView+Actions.swift`](../../Sources/Views/Shelf/ShelfMain/Extensions/ShelfSearchView+Actions.swift). Không cạnh nào đi ngược chiều `Views → Services → Models`.

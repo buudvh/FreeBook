@@ -35,6 +35,31 @@ public enum QuickTranslationRuleTokenSettings {
         }
 
         public var syntax: String { "<\(rawValue)>" }
+
+        /// Nhãn hiển thị, dùng chung cho màn công tắc chung và màn đặt riêng theo truyện — hai chỗ
+        /// viết khác nhau về cùng một token là nguồn nhầm lẫn.
+        public var label: String {
+            switch self {
+            case .numeral: return "<n> — số"
+            case .digitwise: return "<y> — đọc từng chữ số"
+            case .hanDigits: return "<h> — chữ số Hán"
+            case .asciiDigits: return "<d> — chữ số 0-9 (kể cả full-width)"
+            case .chapterLabel: return "<L> — nhãn chương"
+            case .name: return "<ne> — tên riêng"
+            case .pronoun: return "<pn> — đại từ"
+            case .vietPhrase: return "<vp> — VietPhrase"
+            case .hanViet: return "<hv> — một chữ Hán-Việt"
+            case .word: return "<w> — cụm từ điển"
+            }
+        }
+
+        /// Token số và nhãn chương đứng chung một nhóm ở cả hai màn cấu hình.
+        public var isNumeralGroup: Bool {
+            switch self {
+            case .numeral, .digitwise, .hanDigits, .asciiDigits, .chapterLabel: return true
+            case .name, .pronoun, .vietPhrase, .hanViet, .word: return false
+            }
+        }
     }
 
     /// Bản chụp bất biến để một lượt rewrite không đọc `UserDefaults` theo từng rule.

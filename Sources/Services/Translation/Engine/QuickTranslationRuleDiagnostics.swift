@@ -25,7 +25,11 @@ public enum QuickTranslationRuleDiagnostics {
         guard globalSnapshot != nil || bookSnapshot != nil else { return [] }
 
         let nsText = text as NSString
-        let tokenConfiguration = QuickTranslationRuleTokenSettings.currentConfiguration()
+        // Cùng bản chụp cấu hình mà bản dịch thật đang dùng — kể cả phần đặt riêng của truyện.
+        let tokenConfiguration = QuickTranslationBookEngineConfigStore.shared
+            .tokenConfiguration(bookId: bookId)
+        let priority = QuickTranslationBookEngineConfigStore.shared
+            .priorityConfiguration(bookId: bookId)
         let disable = QuickTranslationRuleDisableStore.shared.snapshot(bookId: bookId)
         let matcher = QuickTranslationRuleMatcher(
             text: text,
@@ -75,7 +79,7 @@ public enum QuickTranslationRuleDiagnostics {
             guard rule.isEnabled(for: tokenConfiguration) else { return false }
             return !disable.isDisabled(pattern: rule.pattern, scopeRank: item.scopeRank)
         }
-        let winners = QuickTranslationRuleEngine.select(from: eligible)
+        let winners = QuickTranslationRuleEngine.select(from: eligible, priority: priority)
         let winnerKeys = Set(winners.map { "\($0.scopeRank)#\($0.sourceLine)#\($0.start)" })
 
         var traces: [QuickTranslationRuleTrace] = []

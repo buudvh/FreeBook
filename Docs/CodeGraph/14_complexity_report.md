@@ -15,6 +15,14 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Sáu file mới, không xoá file nào; danh sách violation không đổi (1.3.338)
+
+* **6 file mới, tất cả dưới trần 400 và đúng 1 type top level**: `QuickTranslationRulePriorityConfiguration` **203**, `QuickTranslationBookEngineConfigStore` **240**, `QuickTranslationRulePriorityListView` **126**, `ReaderBookTokenSettingsView` **121**, `ReaderBookRulePriorityView` **57**, `QuickTranslationRulePrioritySettingsView` **33**. Hai file Service có nhiều type **lồng** (`Key`/`Preset`/`Configuration`; `TokenOverride`/`Overrides`/`Outcome`) — `MULTI_PRIMARY_TYPES` chỉ tính type ở top level nên không cần ngoại lệ nào.
+* **File đã có, đều tăng dưới trần**: `QuickTranslationRuleEngine` 293 → **347** (+54: `metric(for:)`, `select(from:priority:)`, phân giải cấu hình ở `rewrite`/`preview`), `ReaderSettingsView` 182 → **257** (+75: 2 hàng + 2 sheet + helper), `QuickTranslationRuleTokenSettings` 68 → **93** (+25: `label`, `isNumeralGroup`), `QuickTranslationRuleDiagnostics` 219 → **223**, `QuickTranslationRulesView` 322 → **326**.
+* **`ReaderView.swift` giữ đúng 1997 dòng** (baseline 2053): tham số `bookId` được ghép vào dòng gọi có sẵn thay vì thêm dòng mới, nên file trong baseline không nhích lên.
+* **`check_architecture.py` giữ đúng 7 violation cũ**, tập y hệt trước lượt sửa, không phát sinh mới và không nới baseline nào.
+* **Nơi độ phức tạp thật sự tăng là comparator, không phải số dòng.** `select` đổi từ 5 phép `if` cố định sang một vòng theo `priority.order`; đây là điểm nóng chạy O(n log n) lần cho **mỗi dòng văn**, nên cấu hình phải là bản chụp truyền vào (`Configuration`), không được đọc `UserDefaults`/file trong comparator. Số tổ hợp hành vi mới là 4! × 2⁴ = **384**, mỗi tổ hợp vẫn là strict weak ordering hợp lệ vì cả bốn khoá là khoá tổng so theo cặp độc lập ngữ cảnh.
+
 ## Bốn file mới, không xoá file nào; một file nữa rời danh sách violation (1.3.336)
 
 * Tổng file Swift 483 → **487** (+4, −0). Cả bốn dưới trần 400 và đúng 1 type top level (ba file là `extension`, không tính là type) ⇒ **không** thêm entry `architecture_allowlist.json`: `AddWordSheet` 202, `ShelfSearchView+Actions` 118, `TranslationPunctuationMapper` 98, `CollectionDetailView+Manage` 68.

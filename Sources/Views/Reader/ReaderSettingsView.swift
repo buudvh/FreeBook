@@ -1,6 +1,9 @@
 import SwiftUI
 
 struct ReaderSettingsView: View {
+    /// Cần cho hai màn cấu hình engine riêng của truyện (thứ tự ưu tiên rule + token rule).
+    let bookId: String
+
     @Binding var fontSize: Double
     @Binding var lineSpacing: Double
     @Binding var fontFamily: ReaderFontFamily
@@ -17,6 +20,11 @@ struct ReaderSettingsView: View {
     /// sở hữu việc lưu theo `bookId` + dựng lại đoạn và nhận giá trị mới qua hai closure này.
     let onShowChapterTitleChanged: (Bool) -> Void
     let onRemoveDuplicatedTitleChanged: (Bool) -> Void
+
+    /// Sheet lồng chứ không `NavigationLink`: bảng cài đặt này là sheet trần, không có
+    /// `NavigationStack` nên link sẽ không đẩy màn. Cùng cách `ReaderView` mở `BookDictionaryView`.
+    @State private var showingRulePriority = false
+    @State private var showingTokenSettings = false
 
     var body: some View {
         ScrollView {
@@ -51,6 +59,7 @@ struct ReaderSettingsView: View {
 
                 if isTranslationEnabled {
                     translationOptions
+                    ruleEngineOptions
                 }
 
                 chapterTitleOptions
@@ -58,6 +67,79 @@ struct ReaderSettingsView: View {
             .padding()
         }
         .presentationDragIndicator(.visible)
+        .sheet(isPresented: $showingRulePriority) {
+            NavigationStack {
+                ReaderBookRulePriorityView(bookId: bookId)
+                    .navigationBarItems(trailing: Button("Đóng") {
+                        showingRulePriority = false
+                    })
+            }
+        }
+        .sheet(isPresented: $showingTokenSettings) {
+            NavigationStack {
+                ReaderBookTokenSettingsView(bookId: bookId)
+                    .navigationBarItems(trailing: Button("Đóng") {
+                        showingTokenSettings = false
+                    })
+            }
+        }
+    }
+
+    /// Hai màn cấu hình engine rule của **riêng truyện này**, áp cho cả trình đọc và đọc thành tiếng.
+    @ViewBuilder
+    private var ruleEngineOptions: some View {
+        let store = QuickTranslationBookEngineConfigStore.shared
+        let tokenCount = store.overriddenTokenCount(bookId: bookId)
+
+        VStack(spacing: 10) {
+            ruleEngineButton(
+                title: "Thứ tự ưu tiên rule",
+                detail: store.hasPriorityOverride(bookId: bookId)
+                    ? "Đang đặt riêng cho truyện này"
+                    : "Đang theo cài đặt chung",
+                systemImage: "arrow.up.arrow.down"
+            ) {
+                showingRulePriority = true
+            }
+
+            ruleEngineButton(
+                title: "Token rule của truyện",
+                detail: tokenCount == 0
+                    ? "Đang theo cài đặt chung"
+                    : "Đang đặt riêng \(tokenCount) token",
+                systemImage: "switch.2"
+            ) {
+                showingTokenSettings = true
+            }
+        }
+        .padding(.horizontal)
+        .padding(.leading, 12)
+    }
+
+    private func ruleEngineButton(
+        title: String,
+        detail: String,
+        systemImage: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: systemImage)
+                    .frame(width: 20)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.subheadline)
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Spacer(minLength: 4)
+                Image(systemName: "chevron.right")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     /// Nhãn của `Picker` kiểu `.menu` do hệ thống dựng nên không chắc nhận `lineLimit`; tên phông

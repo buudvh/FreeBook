@@ -15,6 +15,17 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rule-priority configuration: invariants (1.3.338)
+
+* **`QuickTranslationRuleEngine.select` remains the only implementation of match priority.** It now reads the middle four criteria from a `QuickTranslationRulePriorityConfiguration.Configuration`; do not reimplement the ordering anywhere else, and do not add a second comparator for the diagnostics screen — it must call the same `select` with the same configuration snapshot.
+* **`start` first, `sourceLine` last are structural, not preferences.** The selection loop is a single linear pass keyed on `start`; a different primary key breaks the `cursor` semantics. `sourceLine` must stay below `scopeRank` because line numbers restart at 1 in each rule set, so two rules from different scopes can tie on it.
+* **Only reorder or flip total keys.** Any permutation of the four movable criteria is a valid strict weak ordering. Do **not** add a pairwise-conditional rule ("compare length first only when both rules are numeral-only") — that breaks transitivity and makes `sorted(by:)` undefined. Express such a policy as a single total key instead.
+* **Configuration must be snapshotted before sorting.** The comparator runs O(n log n) times per line of text; reading `UserDefaults` or a JSON file inside it is a defect, not a style issue.
+* **Any new runtime configuration that affects rewrite output must enter the memo key.** `priority.signature` sits next to `tokenConfiguration.signature` in `QuickTranslationRuleEngine.rewrite`. Adding a config without its signature means the cache keeps serving results computed under the old config.
+* **Per-book configuration inherits; it never copies.** An absent field in `translate/books/<bookId>/QuickTranslateEngineConfig.json` means "follow the global setting". Per-book token state is three-valued for the same reason. A store that snapshots the global value into the book file the first time its screen opens is a defect.
+* **Per-book config files are read per line of text**, so the owning store must cache in memory behind a lock, and a corrupt or unreadable file must degrade to the global configuration — never to "this book cannot be translated".
+* **Persist from `onChange`, not from a `Binding` setter,** when the write path touches `@MainActor` APIs such as `ToastManager`: the setter is an escaping closure and does not reliably inherit the body's isolation.
+
 ## Punctuation normalisation position, espeak off the main thread, caret plumbing: invariants (1.3.336)
 
 1. **Chinese→Latin punctuation normalisation runs AFTER dictionary lookup and BEFORE `postProcessText`.** `TranslationPunctuationMapper.apply` sits between `translatedWords.joined(separator: " ")` and `postProcessText`. Moving it earlier (the pre-1.3.336 shape) silently breaks **every** dictionary entry whose key contains one of `。．，、；：！？…～—　` — `弹指、遮天` can never match, because the trie sees `弹指, 遮天`. Moving it later loses sentence capitalisation and space trimming, since `postProcessText` only recognises `.!?:：`.

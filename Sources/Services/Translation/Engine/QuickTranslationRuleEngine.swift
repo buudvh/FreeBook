@@ -7,9 +7,11 @@ import Foundation
 /// **một** lần trên tập hợp nhất — không dựng `literalIndex` gộp cho từng truyện, vì index của bộ
 /// 17k dòng là cấu trúc lớn còn bộ riêng chỉ vài chục rule.
 ///
-/// Thứ tự chọn match giữ đúng ngữ nghĩa `executeRules` của reference (index → literalLength →
-/// wildcardCapacity → độ dài match → **scopeRank** → dòng nguồn). `scopeRank` là tiêu chí **mới** và
-/// đứng ngay trước `sourceLine`; trong một bộ đơn lẻ nó là hằng số nên thứ tự cũ **không đổi**.
+/// Thứ tự chọn match: `start` **luôn** đầu, `sourceLine` **luôn** cuối, bốn tiêu chí giữa
+/// (`literalLength`, `wildcardCapacity`, độ dài match, `scopeRank`) lấy thứ tự và chiều từ
+/// `QuickTranslationRulePriorityConfiguration` — cấu hình được cho toàn app và riêng từng truyện.
+/// Mặc định từ 1.3.300 là preset **Ưu tiên độ dài**, không còn trùng `executeRules` của reference
+/// (preset "Như engine gốc" giữ hành vi cũ).
 ///
 /// Ba ràng buộc giữ nguyên theo reference: **không cascade** (chuỗi Việt vừa render không được đưa
 /// lại cho rule), **không exhaustive match** (mỗi rule chỉ phát match trái → phải), và **không**
@@ -39,6 +41,17 @@ public enum QuickTranslationRuleEngine {
         /// Index của rule trong `snapshot.rules` của **bộ tương ứng với `scopeRank`**.
         let ruleIndex: Int
         let captures: [QuickTranslationRuleMatcher.Capture]
+
+        /// Giá trị của một tiêu chí phá tranh chấp. `select` đọc qua đây để thứ tự tiêu chí là **dữ
+        /// liệu** (cấu hình) chứ không phải chuỗi `if` cứng.
+        func metric(for key: QuickTranslationRulePriorityConfiguration.Key) -> Int {
+            switch key {
+            case .literalLength: return literalLength
+            case .wildcardCapacity: return wildcardCapacity
+            case .matchLength: return length
+            case .scopeRank: return scopeRank
+            }
+        }
     }
 
     /// Memo nhỏ: pipeline gọi `rewrite` hai lần cho cùng một chuỗi (một lần để dịch, một lần để dựng
@@ -56,12 +69,16 @@ public enum QuickTranslationRuleEngine {
         let bookSnapshot = QuickTranslationRuleBookStore.shared.activeSnapshot(for: bookId)
         guard globalSnapshot != nil || bookSnapshot != nil else { return nil }
 
-        let tokenConfiguration = QuickTranslationRuleTokenSettings.currentConfiguration()
+        let tokenConfiguration = QuickTranslationBookEngineConfigStore.shared
+            .tokenConfiguration(bookId: bookId)
+        let priority = QuickTranslationBookEngineConfigStore.shared
+            .priorityConfiguration(bookId: bookId)
 
         // Khoá mang generation của **cả hai** bộ: hai truyện khác nhau đã khác `bookId`, nhưng cùng
-        // một truyện sau khi sửa bộ riêng phải là khoá khác.
+        // một truyện sau khi sửa bộ riêng phải là khoá khác. `priority.signature` cũng phải có mặt —
+        // đổi thứ tự ưu tiên mà không đổi khoá là cache cũ tiếp tục trả kết quả của thứ tự cũ.
         let key = "\(globalSnapshot?.generation ?? 0)|\(bookSnapshot?.generation ?? 0)"
-            + "|\(tokenConfiguration.signature)|\(bookId ?? "global")|\(text.md5())" as NSString
+            + "|\(tokenConfiguration.signature)|\(priority.signature)|\(bookId ?? "global")|\(text.md5())" as NSString
         if let cached = cache.object(forKey: key) { return cached.result }
 
         let result = execute(
@@ -69,7 +86,8 @@ public enum QuickTranslationRuleEngine {
             bookSnapshot: bookSnapshot,
             globalSnapshot: globalSnapshot,
             bookId: bookId,
-            tokenConfiguration: tokenConfiguration
+            tokenConfiguration: tokenConfiguration,
+            priority: priority
         )
         cache.setObject(CacheEntry(result), forKey: key)
         return result
@@ -94,7 +112,8 @@ public enum QuickTranslationRuleEngine {
         let tokenConfiguration: QuickTranslationRuleTokenSettings.Configuration
         switch mode {
         case .respectTokenConfiguration:
-            tokenConfiguration = QuickTranslationRuleTokenSettings.currentConfiguration()
+            tokenConfiguration = QuickTranslationBookEngineConfigStore.shared
+                .tokenConfiguration(bookId: bookId)
         case .ignoreTokenConfiguration:
             tokenConfiguration = .allEnabled
         }
@@ -103,7 +122,8 @@ public enum QuickTranslationRuleEngine {
             bookSnapshot: bookSnapshot,
             globalSnapshot: globalSnapshot,
             bookId: bookId,
-            tokenConfiguration: tokenConfiguration
+            tokenConfiguration: tokenConfiguration,
+            priority: QuickTranslationBookEngineConfigStore.shared.priorityConfiguration(bookId: bookId)
         )
     }
 
@@ -119,7 +139,8 @@ public enum QuickTranslationRuleEngine {
         bookSnapshot: QuickTranslationRuleSnapshot?,
         globalSnapshot: QuickTranslationRuleSnapshot?,
         bookId: String?,
-        tokenConfiguration: QuickTranslationRuleTokenSettings.Configuration
+        tokenConfiguration: QuickTranslationRuleTokenSettings.Configuration,
+        priority: QuickTranslationRulePriorityConfiguration.Configuration
     ) -> QuickTranslationRewriteResult {
         let nsText = text as NSString
         let matcher = QuickTranslationRuleMatcher(
@@ -151,7 +172,7 @@ public enum QuickTranslationRuleEngine {
         )
 
         guard !found.isEmpty else { return passthrough(text, length: nsText.length) }
-        return assemble(selected: select(from: found), text: text, nsText: nsText)
+        return assemble(selected: select(from: found, priority: priority), text: text, nsText: nsText)
     }
 
     /// Thu **mọi** match của một bộ rule. `includesDisabled == true` chỉ dùng cho màn chẩn đoán:
@@ -211,15 +232,23 @@ public enum QuickTranslationRuleEngine {
     /// Sort một lần rồi quét một pass tuyến tính. Reference gọi `matches.filter(...)` trong vòng
     /// `while` (bậc hai) nhưng kết quả giống hệt.
     ///
-    /// `scopeRank` là tiêu chí thứ **5**, đứng ngay trước `sourceLine`: rule của bộ riêng thắng rule
-    /// của bộ chung khi trùng mọi tiêu chí trước đó. Bốn tiêu chí đầu **không đổi**.
-    static func select(from found: [Found]) -> [Found] {
+    /// **Hai đầu bị khoá, giữa thì theo cấu hình.** `start` luôn là khoá chính vì vòng quét bên dưới
+    /// dựa vào nó (xem `QuickTranslationRulePriorityConfiguration`), và `sourceLine` luôn là khoá
+    /// cuối vì nó là thứ duy nhất bảo đảm kết quả xác định. Bốn tiêu chí ở giữa lấy thứ tự và chiều
+    /// từ `priority` — mọi hoán vị đều là strict weak ordering hợp lệ nên `sorted(by:)` an toàn.
+    static func select(
+        from found: [Found],
+        priority: QuickTranslationRulePriorityConfiguration.Configuration = .default
+    ) -> [Found] {
+        let keys = priority.order
         let sorted = found.sorted { lhs, rhs in
             if lhs.start != rhs.start { return lhs.start < rhs.start }
-            if lhs.literalLength != rhs.literalLength { return lhs.literalLength > rhs.literalLength }
-            if lhs.wildcardCapacity != rhs.wildcardCapacity { return lhs.wildcardCapacity < rhs.wildcardCapacity }
-            if lhs.length != rhs.length { return lhs.length > rhs.length }
-            if lhs.scopeRank != rhs.scopeRank { return lhs.scopeRank < rhs.scopeRank }
+            for key in keys {
+                let left = lhs.metric(for: key)
+                let right = rhs.metric(for: key)
+                guard left != right else { continue }
+                return priority.isDescending(key) ? left > right : left < right
+            }
             return lhs.sourceLine < rhs.sourceLine
         }
 
