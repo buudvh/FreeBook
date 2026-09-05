@@ -15,6 +15,11 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Hai chỗ chỉnh sau khi 1.3.339 lên máy thật (1.3.340)
+
+* **Kệ sách: mọi ô trong grid bộ sưu tập nay cao bằng nhau.** `LazyVGrid` lấy chiều cao hàng theo ô cao nhất rồi **căn giữa** những ô thấp hơn — nên ô "tạo bộ mới" (không có nhãn) bị đẩy tụt xuống so với thẻ bên cạnh, và một tên dài 2 dòng cũng làm hàng lệch. `CollectionGridCardView.titleReserve` là một `Text` hai dòng **ẩn** làm sàn chiều cao; thẻ đặt nó dưới ZStack với tên, ô tạo mới dùng nó một mình. Chọn `Text` ẩn thay vì chiều cao pt cố định để còn đúng khi người dùng đổi cỡ chữ hệ thống.
+* **Phân hệ rule dịch: nút `+` ở panel Dịch điền sẵn cả nghĩa.** Trước 1.3.340 chỉ mẫu được điền, ô Bản dịch để trống dù nghĩa đã nằm ngay trên màn hình. Nay `Mode.add` mang thêm `prefilledReplacement` lấy từ `customMeaning` — tức đúng chữ trong ô nhập nghĩa, kể cả nghĩa vừa sửa tay. Khoá bản nháp đổi theo, nên đổi nghĩa rồi bấm `+` không khôi phục nháp của lần trước.
+
 ## Phân hệ Dịch bớt bốn chỗ làm việc lặp; Kệ sách đổi ba mặt trình bày (1.3.339)
 
 * **Phân hệ Dịch có thêm hai đơn vị thuần có tên.** [`TranslationTextPostProcessor`](../../Sources/Services/Translation/Utils/TranslationTextPostProcessor.swift) nhận thân cũ của `postProcessText` cùng 4 regex nay là `static let`; [`TokenizeMemo`](../../Sources/Services/Translation/Utils/TokenizeMemo.swift) là tầng ghi nhớ đầu tiên của `tokenize`. Cùng khuôn `TranslationPunctuationMapper` (1.3.336): một việc, một type, `import Foundation`.

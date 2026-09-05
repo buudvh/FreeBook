@@ -128,7 +128,7 @@ struct QuickTranslationRuleListView: View {
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 Button {
-                    editorMode = .add(prefilledPattern: "")
+                    editorMode = .add(prefilledPattern: "", prefilledReplacement: "")
                 } label: {
                     Image(systemName: "plus")
                 }

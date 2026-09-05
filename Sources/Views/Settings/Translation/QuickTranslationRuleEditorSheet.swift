@@ -27,16 +27,23 @@ struct QuickTranslationRuleEditorSheet: View {
     /// `Identifiable` để màn danh sách mở sheet bằng `.sheet(item:)` — mở theo *dữ liệu* thì không có
     /// khoảng thời gian sheet đã hiện mà state còn rỗng như cách `isPresented` + biến phụ.
     enum Mode: Identifiable {
-        /// `prefilledPattern` khác rỗng khi mở từ màn Check rule: mẫu điền sẵn bằng cụm đang chọn.
+        /// `prefilledPattern` khác rỗng khi mở từ panel Dịch: mẫu điền sẵn bằng cụm đang chọn.
+        ///
+        /// `prefilledReplacement` là **nghĩa đang có trong ô nhập nghĩa của panel Dịch** (`customMeaning`),
+        /// kể cả nghĩa người dùng vừa sửa tay — mở nút `+` từ đó thì hai ô đã có sẵn cặp mẫu/nghĩa,
+        /// không phải gõ lại. Rỗng khi mở từ màn danh sách rule.
+        ///
         /// Không dùng giá trị mặc định cho tham số vì Swift không cho phép default argument trong
         /// khai báo case của enum — mọi call site truyền tường minh.
-        case add(prefilledPattern: String)
+        case add(prefilledPattern: String, prefilledReplacement: String)
         /// Sửa rule đang có. `pattern` là **key** dùng để định vị dòng trong file.
         case edit(pattern: String, replacement: String, sourceLine: Int, scope: QuickTranslationRuleScope)
 
+        /// Bản nháp lưu theo `id` này, nên `id` phải mang **cả** hai giá trị điền sẵn: đổi nghĩa ở panel
+        /// Dịch rồi bấm `+` là một điểm khởi đầu khác, không được khôi phục nháp của lần trước.
         var id: String {
             switch self {
-            case .add(let prefilled): return "add:\(prefilled)"
+            case .add(let prefilled, let replacement): return "add:\(prefilled)|\(replacement)"
             case .edit(let pattern, _, let sourceLine, let scope): return "edit:\(scope.label)#\(sourceLine):\(pattern)"
             }
         }
@@ -106,9 +113,9 @@ struct QuickTranslationRuleEditorSheet: View {
         let seedPattern: String
         let seedReplacement: String
         switch mode {
-        case .add(let prefilled):
+        case .add(let prefilled, let prefilledReplacement):
             seedPattern = prefilled
-            seedReplacement = ""
+            seedReplacement = prefilledReplacement
         case .edit(let pattern, let replacement, _, _):
             seedPattern = pattern
             seedReplacement = replacement

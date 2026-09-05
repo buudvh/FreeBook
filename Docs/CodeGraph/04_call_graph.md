@@ -15,6 +15,12 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Nút `+` của panel Dịch mang theo nghĩa; ô "tạo bộ mới" mượn vùng chữ của thẻ (1.3.340)
+
+* **`Mode.add` mang hai giá trị điền sẵn.** `ReaderView+DefinitionPanel.onAddRule` nay gọi `.add(prefilledPattern: selectedOriginalText(), prefilledReplacement: customMeaning...)` — `customMeaning` chính là ô nhập nghĩa của panel Dịch, nên nghĩa người dùng vừa sửa tay cũng đi theo. `QuickTranslationRuleListView` truyền hai chuỗi rỗng. `init` của sheet đổ `prefilledReplacement` vào `seedReplacement` thay cho `""`.
+* **`Mode.id` đổi hình** thành `"add:\(pattern)|\(replacement)"`, nên bản nháp của `QuickTranslationRuleDraftStore` được khoá theo **cặp** điền sẵn: đổi nghĩa ở panel Dịch rồi bấm `+` là điểm khởi đầu khác, không khôi phục nháp cũ.
+* **`CollectionsTabView.createTile` gọi sang `CollectionGridCardView.titleReserve`** — cạnh mới giữa hai View của cùng phân hệ, để một chỗ định nghĩa chiều cao vùng chữ.
+
 ## Bốn đường gọi trên hot path đổi hình; hai đường UI mới (1.3.339)
 
 * **`tokenize` thêm một tầng**: `TranslateUtils.tokenize` → `VietPhraseTokenizer.tokenize` → `TokenizeMemo.tokens(...)` → (miss) `VietPhraseTokenizer.tokenizeUncached`. Cửa vào cũng gọi `TranslateUtils.translationGenerationToken(for:)` để dựng khoá — cạnh mới từ Engine sang Utils, không tạo vòng.

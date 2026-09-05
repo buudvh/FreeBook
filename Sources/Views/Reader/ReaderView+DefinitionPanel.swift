@@ -85,7 +85,14 @@ extension ReaderView {
                     hasAnyRuleSet: QuickTranslationRuleStore.shared.currentSnapshot != nil
                         || QuickTranslationRuleBookStore.shared.snapshot(for: bookId) != nil,
                     onRuleAction: { trace, action in handleRuleAction(trace, action) },
-                    onAddRule: { ruleEditorMode = .add(prefilledPattern: selectedOriginalText()) }
+                    // Điền sẵn **cả hai** ô: mẫu = cụm gốc đang chọn, nghĩa = đúng chữ đang có trong ô
+                    // nhập nghĩa của panel này (kể cả nghĩa người dùng vừa sửa tay).
+                    onAddRule: {
+                        ruleEditorMode = .add(
+                            prefilledPattern: selectedOriginalText(),
+                            prefilledReplacement: customMeaning.trimmingCharacters(in: .whitespacesAndNewlines)
+                        )
+                    }
                 )
                 .padding([.horizontal, .bottom])
                 .background(

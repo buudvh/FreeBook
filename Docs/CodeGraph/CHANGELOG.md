@@ -4,6 +4,17 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.300) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.340] - 2026-09-05
+
+### Ô tạo bộ sưu tập không còn lệch hàng, nút thêm rule điền sẵn nghĩa
+
+Sửa **4** file Swift.
+
+- **Ô "tạo bộ mới" trong grid bộ sưu tập bị đẩy tụt xuống so với thẻ bên cạnh.** Nguyên nhân: `LazyVGrid` lấy chiều cao hàng theo ô **cao nhất** rồi **căn giữa** những ô thấp hơn. Thẻ thường là `[ảnh ghép + tên]`, còn ô tạo mới chỉ có `[ô vuông]`, nên nó thấp hơn đúng phần chữ và bị dịch xuống nửa khoảng đó. Cùng cơ chế đó, một tên bộ dài **2 dòng** cũng làm hàng cao hơn hàng khác. Sửa bằng `CollectionGridCardView.titleReserve` — một `Text("A\nA")` **ẩn** (`.hidden()` giữ layout, chỉ bỏ vẽ) làm sàn chiều cao đúng 2 dòng: thẻ đặt nó trong `ZStack(alignment: .topLeading)` cùng tên bộ nên tên 1 dòng hay 2 dòng đều cùng chiều cao và cùng căn trên, còn ô tạo mới dùng nó một mình. Cố ý **không** dùng chiều cao pt cố định để còn đúng khi người dùng đổi cỡ chữ hệ thống.
+- **Nút `+` ở panel Dịch nay điền sẵn cả ô Bản dịch.** Trước đây chỉ ô Mẫu được điền bằng cụm gốc đang chọn, ô Bản dịch để trống dù nghĩa đã nằm ngay trên màn hình. `Mode.add` mang thêm `prefilledReplacement`, lấy từ `customMeaning` — tức **đúng chữ trong ô nhập nghĩa của panel Dịch**, kể cả nghĩa người dùng vừa sửa tay, không phải nghĩa từ điển thô. Đường mở từ màn danh sách rule truyền chuỗi rỗng như cũ.
+- **Khoá bản nháp đổi theo**: `Mode.id` của chế độ thêm thành `"add:\(pattern)|\(replacement)"`. Cần thiết vì `QuickTranslationRuleDraftStore` khoá nháp theo `id` — nếu để `id` chỉ mang mẫu thì đổi nghĩa ở panel Dịch rồi bấm `+` sẽ khôi phục nháp của lần trước và ghi đè giá trị điền sẵn mới.
+- Gate: `check_architecture.py` giữ đúng **7 violation** cũ, tập y hệt; `QuickTranslationRuleEditorSheet.swift` 359 → **377**/400, `CollectionGridCardView` 74 → **93**/400, `CollectionsTabView` 243 → **249**/400, `ReaderView+DefinitionPanel` 112 → **119**/400. `validate_links.py` PASS (16 doc, 500 file) sau khi cập nhật `04_call_graph`, `11_subsystems` và ghi `no-change-needed` cho `13_resource_lifecycle`. **Chưa biên dịch** — host là Windows; lượt này không thêm file Swift nên không cần `xcodegen generate`.
+
 ## [1.3.339] - 2026-09-05
 
 ### Grid bộ sưu tập, tab icon, lịch sử theo ngày, và fix nóng máy khi sửa VP/rule
@@ -501,22 +512,3 @@ Thêm **18** file Swift mới (441 → **459**), sửa **3** file, thêm **1** p
 **Hai chỗ lệch chốt Phase 0, đã ghi rõ**: pairing URI **có thêm `host`** (IP nội bộ) để client chỉ cần một thư viện WebSocket thay vì dependency mDNS — IP không phải bí mật, token vẫn là thứ được bảo vệ; và unsaved-overlay của Phase 3 **chưa làm** (chỉ có saved snapshot).
 
 `check_architecture.py` giữ **14** violation nền, **không violation mới**: 18 file mới đều ≤ 400 dòng và một primary type (router phải tách `+Draft` để không chạm trần). CodeGraph: cập nhật `00`, `01`, `02`, `03`, `04`, `06`, `07`, `08`, `09`, `10`, `11`, `13`, `14`, `rules`. Chưa biên dịch tại chỗ (Windows) — dựa vào CI; và toàn bộ đường mạng/Bonjour/permission **phải xác minh trên máy thật**, simulator không đại diện.
-
-## [1.3.302] - 2026-09-01
-
-### Debug extension Phase 0–1: structured trace nội bộ và runner execute(...), chưa mở server
-
-Thêm **13** file Swift mới (428 → **441**), sửa **2** file hiện có. Triển khai Phase 0–1 của `Docs/Plans/2026-08-23-plan-debug-ext-app-server.md`; Phase 2–4 (NWListener, Bonjour, WebSocket, VS Code client, draft snapshot) **chưa làm**.
-
-**Phase 0 — đã chốt và ghi vào plan**: 7 entrypoint được phép (`search`/`detail`/`toc`/`chap`/`genre`/`home`/`custom`; `page` và TTS ngoài MVP), schema event v1, chính sách redact allowlist, quota 600 event/run + 2000/hub, command IDs + vị trí package VS Code, policy `ws` vs `wss`, và xác nhận Phase 1 **không** cần thêm khoá `Info.plist`/`project.yml`.
-
-**Phase 1 — tầng Services (9 file)**:
-- `ExtensionDebugEvent` (contract v1, `Codable`), `ExtensionDebugSourceLocation` (script path **tương đối** + line/column + revision), `ExtensionDebugEventSink` (protocol đồng bộ), `ExtensionDebugRedactor`, `ExtensionDebugEventHub` (actor: ring buffer + quota + `AsyncStream`), `ExtensionDebugSession` (sink của một run), `ExtensionDebugEntrypoint` (typed arguments), `ExtensionDebugRunner` (actor: chạy/huỷ), `JSExecutor+Debug` (5 điểm phát).
-- `JSExecutor` nhận `debugSink: ExtensionDebugEventSink?` mặc định `nil`; hook ở console, exception handler, compile fail, cancel, native fetch (start/finish/fail + status/duration/bytes). Mọi điểm phát `guard let sink else { return }` nên đường production chỉ trả thêm một phép so `nil`.
-- **`ExtensionManager.swift` không đổi một dòng nào**: runner gọi lại `getScriptPath` / `getCombinedConfigs` / `verifyJSResponse` / `compactRepresentation` (`internal`, cùng module). Summary kết quả dùng `compactRepresentation` chứ không `stringify` để nội dung chương không vào trace.
-
-**Phase 1 — tầng Views (4 file)**: `ExtensionDebugConsoleView` (chọn extension/entrypoint/input, chạy, huỷ, xem trace), `ExtensionDebugTraceReader` (projection reader đọc hub), `ExtensionDebugEventRow`, `DeveloperSettingsSection`. Vào từ **Cài Đặt → Nhà Phát Triển → Debug Extension**. Trace **không** phụ thuộc `AppLogger.isLoggingEnabled`.
-
-**Ba chỗ cố ý lệch plan** (ghi rõ trong plan + `11_subsystems`): `ExtensionDebugSession` là `final class` chứ không `actor` (sink bị gọi đồng bộ trong `@convention(block)` của JSC và callback `URLSession`); `ExtensionManager` không nhận tham số sink; `runStarted`/`runFinished` do runner phát chứ không phải executor.
-
-`check_architecture.py` giữ **14** violation nền, **không violation mới**: 13 file mới đều ≤ 400 dòng và một primary type; `JSExecutor.swift` 1516 → 1553 (violation cũ, không loại mới); `SettingsView.swift` 447 → 450 vẫn dưới baseline 453 nhờ tách `DeveloperSettingsSection.swift`. CodeGraph: cập nhật `00`, `02`, `07`, `09`, `10`, `11`, `13`, `14`, `rules`. Chưa biên dịch tại chỗ (Windows) — dựa vào CI.

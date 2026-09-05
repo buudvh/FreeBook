@@ -129,24 +129,30 @@ struct CollectionsTabView: View {
         }
     }
 
-    /// Ô cuối grid = tạo bộ mới. Cố ý **không** có nhãn chữ dưới ô để khớp bố cục thẻ.
+    /// Ô cuối grid = tạo bộ mới. Không có tên bộ, nhưng **vẫn phải chiếm đúng vùng chữ hai dòng** như
+    /// thẻ thường (`CollectionGridCardView.titleReserve`): `LazyVGrid` căn giữa những ô thấp hơn ô cao
+    /// nhất trong hàng, nên thiếu chỗ đó là ô này bị đẩy tụt xuống so với thẻ bên cạnh.
     private func createTile(size: CGFloat) -> some View {
         Button {
             newName = ""
             showingCreateAlert = true
         } label: {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(.secondarySystemBackground))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(Color.secondary.opacity(0.3), lineWidth: 1)
-                )
-                .overlay(
-                    Image(systemName: "folder.badge.plus")
-                        .font(.system(size: size * 0.24, weight: .light))
-                        .foregroundColor(.secondary)
-                )
-                .frame(width: size, height: size)
+            VStack(alignment: .leading, spacing: 8) {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color(.secondarySystemBackground))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(Color.secondary.opacity(0.3), lineWidth: 1)
+                    )
+                    .overlay(
+                        Image(systemName: "folder.badge.plus")
+                            .font(.system(size: size * 0.24, weight: .light))
+                            .foregroundColor(.secondary)
+                    )
+                    .frame(width: size, height: size)
+
+                CollectionGridCardView.titleReserve
+            }
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Tạo bộ sưu tập mới")

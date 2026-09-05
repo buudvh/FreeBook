@@ -13,6 +13,22 @@ struct CollectionGridCardView: View {
     let onRename: () -> Void
     let onDelete: () -> Void
 
+    static let titleFont: Font = .caption.weight(.semibold)
+
+    /// Vùng chữ dưới ảnh ghép luôn cao đúng **2 dòng**.
+    ///
+    /// `LazyVGrid` lấy chiều cao hàng theo ô cao nhất rồi **căn giữa** những ô thấp hơn, nên trước đây
+    /// ô "tạo bộ mới" (không có nhãn) bị đẩy tụt xuống so với thẻ bên cạnh, và tên dài 2 dòng làm hàng
+    /// cao lệch hàng khác. Đặt sàn bằng một `Text` hai dòng **ẩn** thay vì một chiều cao pt cố định để
+    /// còn đúng khi người dùng đổi cỡ chữ hệ thống.
+    static var titleReserve: some View {
+        Text("A\nA")
+            .font(titleFont)
+            .lineLimit(2)
+            .hidden()
+            .accessibilityHidden(true)
+    }
+
     var body: some View {
         NavigationLink(destination: CollectionDetailView(collectionId: collection.collectionId)) {
             VStack(alignment: .leading, spacing: 8) {
@@ -22,12 +38,15 @@ struct CollectionGridCardView: View {
                     size: size
                 )
 
-                Text(collection.name)
-                    .font(.caption.weight(.semibold))
-                    .textCase(.uppercase)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-                    .frame(width: size, alignment: .leading)
+                ZStack(alignment: .topLeading) {
+                    Self.titleReserve
+                    Text(collection.name)
+                        .font(Self.titleFont)
+                        .textCase(.uppercase)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                }
+                .frame(width: size, alignment: .topLeading)
             }
         }
         .buttonStyle(.plain)
