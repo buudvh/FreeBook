@@ -632,7 +632,7 @@ Triển khai Phase 0–1 của [plan debug ext qua app server](../Plans/2026-08-
 
 * Introduced `TTSQuickTimerSheet` (`Sources/Views/TTSWidget/TTSQuickTimerSheet.swift`) presented as a modern SwiftUI bottom sheet (`presentationDetents([.fraction(0.68), .large])`).
 * Replaced plain system `.confirmationDialog` and text field `.alert` in `TTSFloatingWidgetView`.
-* Features real-time countdown status banner with quick cancellation, 6 preset duration tiles (`15m`, `30m`, `45m`, `60m`, `90m`, and `Hết chương`), custom stepper/slider (5–180m), and quick settings shortcut.
+* Features real-time countdown status banner with quick cancellation, 6 preset duration tiles (`15m`, `30m`, `45m`, `60m`, `90m`, and `Hết chương`), custom stepper/slider (1–180m), and quick settings shortcut.
 
 ## Separate description and content fields in ExtensionItemResult and enhanced comment presentation (1.3.198)
 

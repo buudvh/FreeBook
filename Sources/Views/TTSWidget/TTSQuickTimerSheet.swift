@@ -248,7 +248,7 @@ struct TTSQuickTimerSheet: View {
                 HStack {
                     Button(action: {
                         triggerHaptic()
-                        customMinutes = max(5, customMinutes - 5)
+                        customMinutes = max(1, customMinutes - 1)
                     }) {
                         Image(systemName: "minus.circle.fill")
                             .font(.system(size: 26))
@@ -271,7 +271,7 @@ struct TTSQuickTimerSheet: View {
 
                     Button(action: {
                         triggerHaptic()
-                        customMinutes = min(180, customMinutes + 5)
+                        customMinutes = min(180, customMinutes + 1)
                     }) {
                         Image(systemName: "plus.circle.fill")
                             .font(.system(size: 26))
@@ -280,7 +280,7 @@ struct TTSQuickTimerSheet: View {
                 }
                 .padding(.horizontal, 8)
 
-                Slider(value: $customMinutes, in: 5...180, step: 5)
+                Slider(value: $customMinutes, in: 1...180, step: 1)
                     .tint(Color.orange)
 
                 Button(action: {
