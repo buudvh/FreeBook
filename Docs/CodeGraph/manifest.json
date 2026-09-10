@@ -3,9 +3,9 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-09-10T03:27:23Z",
-  "gitCommit": "2e1167893175a91be1b83eb0a4ebfaff2a133d2a",
-  "sourceFileCount": 502,
+  "generatedAt": "2026-09-10T07:50:13Z",
+  "gitCommit": "75005d54b04a0158699ff885a23f461949230255",
+  "sourceFileCount": 503,
   "documentCount": 16,
   "documents": [
     {
@@ -333,6 +333,7 @@
         "Sources/Views/BookDetail/Extensions/BookDetailView+Extensions.swift",
         "Sources/Views/BookDetail/Extensions/BookDetailView+ShelfPlacement.swift",
         "Sources/Views/BookDetail/Extensions/BookDetailView+TOCPreparation.swift",
+        "Sources/Views/BookDetail/Extensions/BookDetailView+TabBar.swift",
         "Sources/Views/BookDetail/SuggestRowView.swift",
         "Sources/Views/Common/BookCoverView.swift",
         "Sources/Views/Common/BookListItemStyle.swift",
@@ -519,13 +520,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "eb2ab05e01317af2fae77a2b5b0260c75c9b7933622c4439b5280fea1b6125c4",
-      "sourceHash": "fc7a3f1fbbfb1a4d566147ee32264e4a855d9aa89adf58f35b2b961a93497096",
+      "structureHash": "5bff49afce7e9539e06d5a67a5c0608ebb01fd4c99b493dce1b1fc7545ef403d",
+      "sourceHash": "ef56ed2eb81ceee60def27639ae421b17878c9a5bc68caea3a61982ee5c68f23",
       "generatedHash": "43212095561efdfb00d737ca84ad70f32b1b1056e3fd0a62f15ad4e91f22b98d",
-      "generatedAt": "2026-09-09T08:33:48Z",
-      "reviewedAt": "2026-09-09T08:33:48Z",
-      "reviewedCommit": "a806916aba4bcc2c75deb51091a9c0c18b743e3b",
-      "reviewMode": "accept"
+      "generatedAt": "2026-09-10T07:49:43Z",
+      "reviewedAt": "2026-09-10T07:49:43Z",
+      "reviewedCommit": "75005d54b04a0158699ff885a23f461949230255",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "01_project.md",
@@ -879,6 +880,7 @@
         "Sources/Views/BookDetail/Extensions/BookDetailView+Extensions.swift",
         "Sources/Views/BookDetail/Extensions/BookDetailView+ShelfPlacement.swift",
         "Sources/Views/BookDetail/Extensions/BookDetailView+TOCPreparation.swift",
+        "Sources/Views/BookDetail/Extensions/BookDetailView+TabBar.swift",
         "Sources/Views/BookDetail/SuggestRowView.swift",
         "Sources/Views/Common/BookCoverView.swift",
         "Sources/Views/Common/BookListItemStyle.swift",
@@ -1065,13 +1067,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "eb2ab05e01317af2fae77a2b5b0260c75c9b7933622c4439b5280fea1b6125c4",
-      "sourceHash": "5415b2351789db33497175fb85fe00b36c4d18b7c653d84890edcd3a66570068",
+      "structureHash": "5bff49afce7e9539e06d5a67a5c0608ebb01fd4c99b493dce1b1fc7545ef403d",
+      "sourceHash": "ef56ed2eb81ceee60def27639ae421b17878c9a5bc68caea3a61982ee5c68f23",
       "generatedHash": "ae88c3d6f21c3ac3c16ecf3fbc66e19fd6bcd63ece3b60b5d5d3d945657a2dba",
-      "generatedAt": "2026-09-05T15:11:38Z",
-      "reviewedAt": "2026-09-05T15:11:38Z",
-      "reviewedCommit": "e6ec943f485e61b238a75322b0b7ffd56faf0e63",
-      "reviewMode": "accept"
+      "generatedAt": "2026-09-10T07:49:51Z",
+      "reviewedAt": "2026-09-10T07:49:51Z",
+      "reviewedCommit": "75005d54b04a0158699ff885a23f461949230255",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "03_type_graph.md",
@@ -1916,6 +1918,7 @@
         "Sources/Views/BookDetail/Extensions/BookDetailView+Extensions.swift",
         "Sources/Views/BookDetail/Extensions/BookDetailView+ShelfPlacement.swift",
         "Sources/Views/BookDetail/Extensions/BookDetailView+TOCPreparation.swift",
+        "Sources/Views/BookDetail/Extensions/BookDetailView+TabBar.swift",
         "Sources/Views/BookDetail/SuggestRowView.swift",
         "Sources/Views/Common/BookCoverView.swift",
         "Sources/Views/Common/BookListItemStyle.swift",
@@ -2102,13 +2105,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "f864703156d7b51109849948de50844e7156b518558cee0100b71f8fb960ac41",
-      "sourceHash": "adf070c7225fad67a681769c63543dfa89748dd623726c4e9df747c45215d80e",
+      "structureHash": "a0c0770efc7cd7ab4c2ebbe0c6de415d71a1e7ca1341f1d021cfdafce052ba2c",
+      "sourceHash": "0bacd5b9fe6bbdc54975b0bb5481f65a6044a19be3522ce566035298f79390c0",
       "generatedHash": "4f477f6f16315daf8455deaf34ad350b33e3a9930f88313fc64ac2f96ef9c8ca",
-      "generatedAt": "2026-09-05T15:11:38Z",
-      "reviewedAt": "2026-09-05T15:11:38Z",
-      "reviewedCommit": "e6ec943f485e61b238a75322b0b7ffd56faf0e63",
-      "reviewMode": "accept"
+      "generatedAt": "2026-09-10T07:50:00Z",
+      "reviewedAt": "2026-09-10T07:50:00Z",
+      "reviewedCommit": "75005d54b04a0158699ff885a23f461949230255",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "10_risk_report.md",
@@ -2501,6 +2504,7 @@
         "Sources/Views/BookDetail/Extensions/BookDetailView+Extensions.swift",
         "Sources/Views/BookDetail/Extensions/BookDetailView+ShelfPlacement.swift",
         "Sources/Views/BookDetail/Extensions/BookDetailView+TOCPreparation.swift",
+        "Sources/Views/BookDetail/Extensions/BookDetailView+TabBar.swift",
         "Sources/Views/BookDetail/SuggestRowView.swift",
         "Sources/Views/Common/BookCoverView.swift",
         "Sources/Views/Common/BookListItemStyle.swift",
@@ -2687,12 +2691,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "d7563ec60f73787d3bd31d1dbd620965b9810b2e64e7dfe36d29e301f5293d6d",
-      "sourceHash": "38b7dcf3592cdd282dd5a5ab43b6bad1e932cde371ecc4e65fce9acc1b35cedf",
+      "structureHash": "4c4ba30bec268737ac1445fdb73b67ab0626fb16f342113001837ec1249cfa30",
+      "sourceHash": "bb8c74b081160fb5aae7e48c13d5035106931bdc05262b7a21643a230f55e05d",
       "generatedHash": "5646c9decdb681066bd10ee635c09212b6aa12a26edd2a42180fbf906c6fcacb",
-      "generatedAt": "2026-09-10T03:27:23Z",
-      "reviewedAt": "2026-09-10T03:27:23Z",
-      "reviewedCommit": "2e1167893175a91be1b83eb0a4ebfaff2a133d2a",
+      "generatedAt": "2026-09-10T07:50:13Z",
+      "reviewedAt": "2026-09-10T07:50:13Z",
+      "reviewedCommit": "75005d54b04a0158699ff885a23f461949230255",
       "reviewMode": "no-change-needed"
     },
     {
@@ -2726,12 +2730,12 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "b0d4d4d4bca7562eb71c38165e49eaf44434d87b57111fb5c46f1762529b0396",
-      "sourceHash": "550958769a161d82ab77f5d3e2e267c5bb4596e9191ef5664c64c86ef2f6c972",
+      "sourceHash": "17d989560507e7231293290291b881d7de730ae8966d2e7aca1ac95464522181",
       "generatedHash": "704246874d8866107941ad1660640f9e8dbf80e1280a91b11700d78d031b7512",
-      "generatedAt": "2026-09-10T03:25:20Z",
-      "reviewedAt": "2026-09-10T03:25:20Z",
-      "reviewedCommit": "2e1167893175a91be1b83eb0a4ebfaff2a133d2a",
-      "reviewMode": "accept"
+      "generatedAt": "2026-09-10T07:50:13Z",
+      "reviewedAt": "2026-09-10T07:50:13Z",
+      "reviewedCommit": "75005d54b04a0158699ff885a23f461949230255",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "13_resource_lifecycle.md",
@@ -3252,6 +3256,7 @@
         "Sources/Views/BookDetail/Extensions/BookDetailView+Extensions.swift",
         "Sources/Views/BookDetail/Extensions/BookDetailView+ShelfPlacement.swift",
         "Sources/Views/BookDetail/Extensions/BookDetailView+TOCPreparation.swift",
+        "Sources/Views/BookDetail/Extensions/BookDetailView+TabBar.swift",
         "Sources/Views/BookDetail/SuggestRowView.swift",
         "Sources/Views/Common/BookCoverView.swift",
         "Sources/Views/Common/BookListItemStyle.swift",
@@ -3438,13 +3443,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "eb2ab05e01317af2fae77a2b5b0260c75c9b7933622c4439b5280fea1b6125c4",
-      "sourceHash": "5415b2351789db33497175fb85fe00b36c4d18b7c653d84890edcd3a66570068",
+      "structureHash": "5bff49afce7e9539e06d5a67a5c0608ebb01fd4c99b493dce1b1fc7545ef403d",
+      "sourceHash": "ef56ed2eb81ceee60def27639ae421b17878c9a5bc68caea3a61982ee5c68f23",
       "generatedHash": "fd9c1ecd2050f0cf790a5be8578819348b2879467be84c21385f52a1658d007a",
-      "generatedAt": "2026-09-05T15:11:38Z",
-      "reviewedAt": "2026-09-05T15:11:38Z",
-      "reviewedCommit": "e6ec943f485e61b238a75322b0b7ffd56faf0e63",
-      "reviewMode": "accept"
+      "generatedAt": "2026-09-10T07:50:06Z",
+      "reviewedAt": "2026-09-10T07:50:06Z",
+      "reviewedCommit": "75005d54b04a0158699ff885a23f461949230255",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "rules.md",

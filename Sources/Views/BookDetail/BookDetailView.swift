@@ -53,8 +53,14 @@ struct BookDetailView: View {
     @State internal var host = ""
     @AppStorage("isTranslationEnabled") internal var isTranslationEnabled = false
 
+    @ObservedObject private var newChapters = NewChapterInboxManager.shared
+
+    var newChapterBadgeCount: Int {
+        newChapters.record(for: actualBookId)?.newChapterCount ?? 0
+    }
+
     // Cấu hình tab và FAB
-    @State private var selectedTab = 0
+    @State internal var selectedTab = 0
     @State private var isMenuExpanded = false
     @State internal var loadingTask: Task<Void, Never>? = nil
     /// Truyện vừa được đưa lên kệ, đang chờ người dùng chọn bộ sưu tập (chọn hay không đều được).
@@ -233,6 +239,13 @@ struct BookDetailView: View {
             syncChaptersList()
             updateFilteredLocalChapters()
             updateFilteredOnlineChapters()
+
+            if let book = localBook, let ext = ext, !book.isLocalBook {
+                let target = BookActionRunner.newChapterTarget(for: book, extensions: [ext])
+                if let target {
+                    Task { _ = await newChapters.check(target: target) }
+                }
+            }
         }
         .task(id: actualBookId) {
             // Transaction thuộc `BookTransactionCoordinator` — View không tự `modelContext.save()`.
@@ -351,48 +364,6 @@ struct BookDetailView: View {
         .frame(maxHeight: .infinity)
     }
 
-    @ViewBuilder
-    private var customTabBar: some View {
-        HStack(spacing: 0) {
-            Button(action: {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    selectedTab = 0
-                }
-            }) {
-                VStack(spacing: 8) {
-                    Text("Chi tiết")
-                        .font(.subheadline)
-                        .fontWeight(selectedTab == 0 ? .bold : .medium)
-                        .foregroundColor(selectedTab == 0 ? .accentColor : .secondary)
-
-                    Rectangle()
-                        .fill(selectedTab == 0 ? Color.accentColor : Color.clear)
-                        .frame(height: 3)
-                }
-            }
-            .frame(maxWidth: .infinity)
-
-            Button(action: {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    selectedTab = 1
-                }
-            }) {
-                VStack(spacing: 8) {
-                    Text("Mục lục")
-                        .font(.subheadline)
-                        .fontWeight(selectedTab == 1 ? .bold : .medium)
-                        .foregroundColor(selectedTab == 1 ? .accentColor : .secondary)
-
-                    Rectangle()
-                        .fill(selectedTab == 1 ? Color.accentColor : Color.clear)
-                        .frame(height: 3)
-                }
-            }
-            .frame(maxWidth: .infinity)
-        }
-        .background(Color(.systemBackground))
-        .padding(.top, 4)
-    }
 
     @ViewBuilder
     private var detailTab: some View {

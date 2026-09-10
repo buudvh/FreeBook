@@ -4,6 +4,16 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.352] - 2026-09-10
+
+### Thêm badge số chương mới trên tab Mục lục
+
+Sửa **2** file Swift (thêm 1, sửa 1) và cập nhật validator.
+
+- **Badge số chương mới hiển thị trên tab "Mục lục"** trong `BookDetailView`. `NewChapterBadgeView` kiểu Capsule nền đỏ, số tự động cập nhật qua `@ObservedObject NewChapterInboxManager.shared`; trigger `NewChapterProbe.check` một lần trong `.onAppear`. Badge không tự biến mất khi chuyển tab — giữ nguyên cho tới khi hệ thống cập nhật lại record.
+- **Rút `customTabBar` sang file riêng** (`BookDetailView+TabBar.swift`) để `BookDetailView.swift` giữ nguyên dưới baseline 1201 dòng (1225 → 1170). Đổi `selectedTab` và `newChapterBadgeCount` sang `internal` để extension truy cập.
+- Gate: `check_architecture.py` **7 → 7** violation (không vi phạm mới; `BookDetailView` thoát khỏi danh sách). `validate_links.py` PASS 16 doc, 503 file. **Chưa biên dịch** vì host Windows; có 1 file Swift mới nên **phải** `xcodegen generate` khi lên macOS.
+
 ## [1.3.351] - 2026-09-10
 
 ### Bật lại cuộn TTS từ widget, gắn badge debug và chạy script trong editor
