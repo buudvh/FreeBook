@@ -15,6 +15,13 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Không tài nguyên mới cho origin extension; Run editor dùng lại debug hub (1.3.351)
+
+* `installOrigin` chỉ là một `String` trong hàng SwiftData `Extension`. Nó không tạo file, cache, observer hay task mới; vòng đời đi cùng hàng extension và được xoá khi hàng bị xoá.
+* Badge `debug` không giữ state riêng. Mỗi lần `@Query` đẩy hàng extension mới xuống `RepositoryManagerView`, computed `showsDebugBadge` được đọc lại; không có invalidation thủ công.
+* Nút Run trong Script Editor không tạo executor sống lâu. Nó mở `ExtensionDebugConsoleView`, rồi `ExtensionDebugRunner` tạo `JSExecutor` mới cho từng run và thả sau khi kết thúc như màn Debug Extension. Trace vẫn nằm trong `ExtensionDebugEventHub` với quota sẵn có.
+* Bật lại auto-scroll từ widget không thêm timer/task. Nó chỉ đổi `isAutoScrollDisabled` và tăng `ttsAutoScrollGeneration` để closure scroll cũ tự rơi qua guard.
+
 ## `NSLock` của espeak là tài nguyên dùng chung; task gợi ý có đường huỷ (1.3.336)
 
 * **Tài nguyên bị tranh chấp ở đây là `EspeakPhonemizer.lock`, không phải CPU.** Một `NSLock` **static** che cả `phonemize` (tiếng Việt, đường tổng hợp NghiTTS) và `phonemizeEnglish` (IPA cho gợi ý phiên âm) — vì `libespeak-ng` không an toàn khi gọi song song. Trước 1.3.336 `AddWordSheet` gọi `phonemizeEnglish` **trong `body`**, tức main thread chờ lock: mở sheet lúc đang nghe TTS là đóng băng UI cho tới khi lượt tổng hợp hiện tại nhả lock, và mỗi lượt vẽ lặp lại đúng việc đó. Nay lượt chờ đó nằm trong `Task.detached`.

@@ -425,6 +425,16 @@ struct RepositoryManagerView: View {
                         .background(Color.green.opacity(0.1))
                         .foregroundColor(.green)
                         .cornerRadius(4)
+
+                    if ext.showsDebugBadge {
+                        Text("debug")
+                            .font(.system(size: 9, weight: .semibold))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.red.opacity(0.12))
+                            .foregroundColor(.red)
+                            .cornerRadius(4)
+                    }
                 }
                 
                 Text(ext.sourceUrl)
@@ -582,7 +592,7 @@ struct RepositoryManagerView: View {
                 let result = try await ExtensionManager.shared.installFromLocalZip(fileUrl: url)
                 
                 await MainActor.run {
-                    let cmd = UpsertExtensionCommand(packageId: result.packageId, name: result.name, author: result.author, version: result.version, remoteVersion: result.version, sourceUrl: result.sourceUrl, iconUrl: result.iconUrl, desc: result.desc, type: result.type, locale: result.locale, localPath: result.mainFolderPath, downloadUrl: "", configJson: nil, repositoryUrl: nil)
+                    let cmd = UpsertExtensionCommand(packageId: result.packageId, name: result.name, author: result.author, version: result.version, remoteVersion: result.version, sourceUrl: result.sourceUrl, iconUrl: result.iconUrl, desc: result.desc, type: result.type, locale: result.locale, localPath: result.mainFolderPath, downloadUrl: "", configJson: nil, repositoryUrl: nil, installOrigin: Extension.installOriginImportZip)
                     let res = ExtensionTransactionCoordinator.shared.upsertExtension(command: cmd, in: modelContext)
                     switch res {
                     case .success:

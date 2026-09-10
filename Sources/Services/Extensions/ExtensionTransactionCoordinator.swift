@@ -86,6 +86,7 @@ public final class ExtensionTransactionCoordinator {
             if !command.downloadUrl.isEmpty { existing.downloadUrl = command.downloadUrl }
             if let path = command.localPath { existing.localPath = path }
             if let cfg = command.configJson { existing.configJson = cfg }
+            if let origin = command.installOrigin { existing.installOrigin = origin }
             if let repo = repoEntity { existing.repository = repo }
         } else {
             let newExt = Extension(
@@ -103,10 +104,26 @@ public final class ExtensionTransactionCoordinator {
                 configJson: command.configJson ?? "{}",
                 downloadUrl: command.downloadUrl,
                 isPinned: false,
-                remoteVersion: command.remoteVersion
+                remoteVersion: command.remoteVersion,
+                installOrigin: command.installOrigin ?? Extension.installOriginRepository
             )
             if let repo = repoEntity { newExt.repository = repo }
             context.insert(newExt)
+        }
+    }
+
+    public func setInstallOrigin(packageId: String, origin: String, in context: ModelContext) -> Result<Void, ExtensionTransactionError> {
+        var descriptor = FetchDescriptor<Extension>(predicate: #Predicate { $0.packageId == packageId })
+        descriptor.fetchLimit = 1
+        guard let ext = try? context.fetch(descriptor).first else {
+            return .failure(ExtensionTransactionError.entityNotFound(packageId))
+        }
+        ext.installOrigin = origin
+        do {
+            try context.save()
+            return .success(())
+        } catch {
+            return .failure(ExtensionTransactionError.saveFailed(error.localizedDescription))
         }
     }
 

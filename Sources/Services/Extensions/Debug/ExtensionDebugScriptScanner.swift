@@ -44,12 +44,16 @@ public enum ExtensionDebugScriptScanner {
         return found.sorted()
     }
 
+    public static func containsExecute(in source: String) -> Bool {
+        let range = NSRange(source.startIndex..<source.endIndex, in: source)
+        return executeRegex.firstMatch(in: source, options: [], range: range) != nil
+    }
+
     private static func hasExecute(at fileUrl: URL) -> Bool {
         guard let handle = try? FileHandle(forReadingFrom: fileUrl) else { return false }
         defer { try? handle.close() }
         guard let data = try? handle.read(upToCount: maxBytesPerFile),
               let source = String(data: data, encoding: .utf8) else { return false }
-        let range = NSRange(source.startIndex..<source.endIndex, in: source)
-        return executeRegex.firstMatch(in: source, options: [], range: range) != nil
+        return containsExecute(in: source)
     }
 }

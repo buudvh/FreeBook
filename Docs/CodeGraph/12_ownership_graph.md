@@ -15,6 +15,22 @@ Tài liệu này mô tả mối quan hệ sở hữu đối tượng (Object Own
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ai sở hữu origin extension và lệnh Run từ editor (1.3.351)
+
+```text
+ExtensionTransactionCoordinator        <- chủ ghi mọi field bền của Extension, gồm installOrigin
+  |- upsertExtension / upsertExtensions
+  |- setInstallOrigin(packageId:origin:in:)   chỉ đổi origin cho debug ghi đè
+
+RepositoryManagerView                  <- chỉ phát intent import/cài và hiển thị badge
+ExtensionScriptEditorView              <- chỉ phát intent run file đang mở
+ExtensionDebugConsoleView/Runner       <- chủ runId, trace, cancel và JSExecutor debug
+```
+
+* **`installOrigin` không thuộc View.** Import zip và cài/cập nhật từ kho chỉ truyền origin qua command; debug server cài mới dùng command từ metadata; debug server ghi đè gọi coordinator. Không đường nào trong View gán trực tiếp `Extension.installOrigin`.
+* **Badge `debug` là dữ liệu trình bày phái sinh.** Chủ dữ liệu vẫn là hàng `Extension`; `showsDebugBadge` chỉ đọc origin và fallback cho hàng cũ. Không có store badge riêng và không có cache cần invalidation.
+* **Script Editor không sở hữu execution.** Nó lưu file nếu cần rồi mở Debug Console với entrypoint seed; runner/debug hub vẫn là chủ duy nhất của quá trình chạy `execute(...)`, sự kiện trace và hủy run.
+
 ## Ai sở hữu việc làm mới tên dịch, lượt gộp tiền tố, và trạng thái tải lẻ chương (1.3.334)
 
 ```

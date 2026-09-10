@@ -18,6 +18,7 @@ public final class Extension {
     public var downloadUrl: String = "" // Lưu đường dẫn tải file zip tiện ích
     public var isPinned: Bool = false
     public var remoteVersion: Int? = nil
+    public var installOrigin: String = "repository"
     
     public var repository: Repository?
     
@@ -25,8 +26,18 @@ public final class Extension {
         guard let remote = remoteVersion, !localPath.isEmpty else { return false }
         return remote > version
     }
+
+    public var showsDebugBadge: Bool {
+        installOrigin == Self.installOriginImportZip
+            || installOrigin == Self.installOriginDebugServer
+            || (repository == nil && downloadUrl.isEmpty && !localPath.isEmpty)
+    }
+
+    public static let installOriginRepository = "repository"
+    public static let installOriginImportZip = "importZip"
+    public static let installOriginDebugServer = "debugServer"
     
-    public init(packageId: String, name: String, author: String, version: Int, sourceUrl: String, iconUrl: String? = nil, desc: String? = nil, type: String, locale: String, localPath: String, isEnabled: Bool = true, configJson: String = "{}", downloadUrl: String = "", isPinned: Bool = false, remoteVersion: Int? = nil) {
+    public init(packageId: String, name: String, author: String, version: Int, sourceUrl: String, iconUrl: String? = nil, desc: String? = nil, type: String, locale: String, localPath: String, isEnabled: Bool = true, configJson: String = "{}", downloadUrl: String = "", isPinned: Bool = false, remoteVersion: Int? = nil, installOrigin: String = Extension.installOriginRepository) {
         self.packageId = packageId
         self.name = name
         self.author = author
@@ -42,5 +53,6 @@ public final class Extension {
         self.downloadUrl = downloadUrl
         self.isPinned = isPinned
         self.remoteVersion = remoteVersion
+        self.installOrigin = installOrigin
     }
 }

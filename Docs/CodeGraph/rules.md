@@ -15,6 +15,13 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Extension origin and editor-run invariants (1.3.351)
+
+* **`Extension.installOrigin` is the durable source of install provenance.** Views may display it but must not assign it directly; writes go through `UpsertExtensionCommand.installOrigin` or `ExtensionTransactionCoordinator.setInstallOrigin`. Repository installs must set `repository`, import zip must set `importZip`, and debug server installs/overwrites must set `debugServer`.
+* **The debug badge is presentation-only.** It is derived from `Extension.showsDebugBadge`; do not add a second persisted badge flag or a separate cache. The fallback heuristic exists only for rows created before `installOrigin` shipped.
+* **Script Editor Run must reuse the debug pipeline.** Detect executable scripts with `ExtensionDebugScriptScanner.containsExecute(in:)`, save dirty files before running, seed `ExtensionDebugConsoleView`, and let `ExtensionDebugRunner` own `JSExecutor`, trace, redaction, run IDs, and cancellation. Do not add a second editor-only JS execution path.
+* **A widget jump to the current TTS highlight is an explicit re-enable signal for Reader auto-scroll.** `ReaderView` may set `isAutoScrollDisabled = false` when handling `navigateReaderToPlayingChapter`; TTS widget and Shelf must not learn about that state.
+
 ## Hot-path invariants on the translation pipeline (1.3.339)
 
 * **Never compile an `NSRegularExpression` inside a function that runs per line or per token.** Literal patterns belong in `static let`. `postProcessText` violated this for four patterns while being called once per token during span building; that alone accounted for ~24,000 ICU pattern compiles per chapter rebuild.

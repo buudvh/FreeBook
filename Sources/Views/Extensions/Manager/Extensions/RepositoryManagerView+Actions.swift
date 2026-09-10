@@ -57,7 +57,8 @@ extension RepositoryManagerView {
                     localPath: localFolder,
                     downloadUrl: ext.downloadUrl,
                     configJson: ext.configJson,
-                    repositoryUrl: ext.repository?.url
+                    repositoryUrl: ext.repository?.url,
+                    installOrigin: Extension.installOriginRepository
                 )
                 let result = ExtensionTransactionCoordinator.shared.upsertExtension(command: cmd, in: modelContext)
                 if case .failure(let err) = result {

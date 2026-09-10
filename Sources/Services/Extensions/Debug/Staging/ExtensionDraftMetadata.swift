@@ -130,7 +130,8 @@ public struct ExtensionDraftMetadata: Sendable, Equatable {
             localPath: localPath,
             downloadUrl: "",
             configJson: nil,
-            repositoryUrl: nil
+            repositoryUrl: nil,
+            installOrigin: Extension.installOriginDebugServer
         )
     }
 }

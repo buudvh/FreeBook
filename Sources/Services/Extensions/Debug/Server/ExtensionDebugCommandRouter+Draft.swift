@@ -174,6 +174,14 @@ extension ExtensionDebugCommandRouter {
                 installedPath: snapshot.localPath,
                 packageId: snapshot.packageId
             )
+            if let failure = await markDebugInstallOrigin(packageId: snapshot.packageId) {
+                replyError(
+                    to: envelope,
+                    code: .internalError,
+                    message: "Đã copy file nhưng không ghi được nguồn cài đặt: \(failure)"
+                )
+                return
+            }
             var payload = ExtensionDebugProtocol.Payload()
             payload.packageId = snapshot.packageId
             payload.message = "Đã cài \(changes.count) thay đổi; bản cũ được giữ để rollback"
@@ -348,6 +356,24 @@ extension ExtensionDebugCommandRouter {
         return await MainActor.run(resultType: String?.self) {
             let result = ExtensionTransactionCoordinator.shared.upsertExtension(
                 command: command,
+                in: ModelContext(container)
+            )
+            switch result {
+            case .success:
+                NotificationCenter.default.post(name: Notification.Name("extensionDidUpdate"), object: nil)
+                return nil
+            case .failure(let error):
+                return error.localizedDescription
+            }
+        }
+    }
+
+    private func markDebugInstallOrigin(packageId: String) async -> String? {
+        let container = self.container
+        return await MainActor.run(resultType: String?.self) {
+            let result = ExtensionTransactionCoordinator.shared.setInstallOrigin(
+                packageId: packageId,
+                origin: Extension.installOriginDebugServer,
                 in: ModelContext(container)
             )
             switch result {

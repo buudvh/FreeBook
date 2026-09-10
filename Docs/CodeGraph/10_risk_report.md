@@ -15,6 +15,13 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rủi ro của origin extension, Run trong editor và auto-scroll widget (1.3.351)
+
+* **Đổi shape `@Model Extension` là rủi ro migration chính.** Field mới `installOrigin` có default `repository`, nên thuộc nhóm additive/lightweight; không đổi quan hệ, không thêm `@Model`, không cần migration plan. Rủi ro còn lại là dữ liệu cũ từ import zip/debug được migrate với default repository, nên `showsDebugBadge` giữ fallback heuristic để không mất badge.
+* **Nút Run trong editor thực thi JavaScript thật.** Nó dùng cùng `ExtensionDebugRunner` và cùng bootstrap với màn Debug Extension nên không mở sandbox mới, nhưng script vẫn có thể gọi `fetch`, đọc storage, hoặc trả payload lớn như mọi lần debug khác. Vì vậy chỉ hiện cho file có `execute`, yêu cầu lưu trước khi chạy, và để người dùng nhập input trong Debug Console thay vì tự đoán tham số.
+* **Bật lại auto-scroll từ widget là đổi hành vi có chủ ý.** Nếu người dùng vừa cố tình kéo ra chỗ khác rồi bấm widget, app hiểu đó là lệnh quay lại highlight đang nghe. Nếu họ chỉ muốn mở Reader nhưng vẫn giữ trang tự cuộn tắt, họ phải tắt lại bằng nút header.
+* **Chưa biên dịch/chưa kiểm máy thật tại chỗ**: host Windows không có `xcodebuild`. Không thêm file Swift nên không cần `xcodegen generate`; xác minh tại chỗ chỉ dựa vào đọc code, `check_architecture.py` và `validate_links.py`.
+
 ## Bốn chỗ đốt CPU đã sửa; hai chỗ nới lỏng cần theo dõi (1.3.339)
 
 * **Bài học đo lường: đừng đoán nguyên nhân theo tính năng mới nhất.** Người dùng báo nóng máy khi sửa VP/rule trong Reader, và lượt điều tra đầu tiên xếp `QuickTranslationRuleDiagnostics` là nguyên nhân chính — **sai**, vì bộ rule thực tế chỉ ~50 dòng. Bốn nguyên nhân thật đều **độc lập với số rule** và đều nằm trên đường dịch chung: regex biên dịch lại mỗi lần gọi trong `postProcessText`, tokenize hai lần mỗi dòng và không có cache, `TextDictionary` dựng chuỗi cho mọi độ dài, và hai vòng `first(where:)` O(n²) trong tokenizer. Lần sau: hỏi kích thước dữ liệu thật **trước** khi xếp hạng nguyên nhân.

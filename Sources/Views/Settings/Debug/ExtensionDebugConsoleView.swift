@@ -11,6 +11,9 @@ struct ExtensionDebugConsoleView: View {
     @Query(sort: \Extension.name) private var extensions: [Extension]
     @StateObject private var trace = ExtensionDebugTraceReader()
 
+    private let initialPackageId: String?
+    private let initialEntrypoint: ExtensionDebugEntrypoint?
+
     @State private var selectedPackageId: String = ""
     @State private var selectedKey: String = "search"
     @State private var keyword: String = ""
@@ -19,6 +22,12 @@ struct ExtensionDebugConsoleView: View {
     @State private var customFileName: String = ""
     @State private var customInput: String = ""
     @State private var customPageUrl: String = ""
+    @State private var didApplyInitialSelection = false
+
+    init(initialPackageId: String? = nil, initialEntrypoint: ExtensionDebugEntrypoint? = nil) {
+        self.initialPackageId = initialPackageId
+        self.initialEntrypoint = initialEntrypoint
+    }
 
     private var runnableExtensions: [Extension] {
         extensions.filter { !$0.localPath.isEmpty && $0.type != "tts" }
@@ -57,9 +66,7 @@ struct ExtensionDebugConsoleView: View {
         .navigationTitle("Debug Extension")
         .task {
             trace.attach()
-            if selectedPackageId.isEmpty {
-                selectedPackageId = runnableExtensions.first?.packageId ?? ""
-            }
+            applyInitialSelectionIfNeeded()
         }
     }
 
@@ -212,6 +219,38 @@ struct ExtensionDebugConsoleView: View {
                 pageUrl: customPageUrl.isEmpty ? nil : customPageUrl
             )
         default: return nil
+        }
+    }
+
+    private func applyInitialSelectionIfNeeded() {
+        guard !didApplyInitialSelection else { return }
+        didApplyInitialSelection = true
+        selectedPackageId = initialPackageId ?? runnableExtensions.first?.packageId ?? ""
+        guard let initialEntrypoint else { return }
+        switch initialEntrypoint {
+        case .search(let value, let initialPage):
+            selectedKey = "search"
+            keyword = value
+            page = initialPage
+        case .detail(let url):
+            selectedKey = "detail"
+            inputUrl = url
+        case .toc(let url):
+            selectedKey = "toc"
+            inputUrl = url
+        case .chap(let url):
+            selectedKey = "chap"
+            inputUrl = url
+        case .genre:
+            selectedKey = "genre"
+        case .home:
+            selectedKey = "home"
+        case .custom(let fileName, let input, let initialPage, let pageUrl):
+            selectedKey = "__custom__"
+            customFileName = fileName
+            customInput = input
+            page = initialPage
+            customPageUrl = pageUrl ?? ""
         }
     }
 }

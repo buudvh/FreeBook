@@ -15,6 +15,13 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Nguồn cài đặt extension đi qua command; editor Run dùng trace debug (1.3.351)
+
+* **Luồng dữ liệu origin**: import zip đọc `plugin.json` như cũ rồi tạo `UpsertExtensionCommand(installOrigin: importZip)`; đồng bộ/cài từ kho tạo command `installOrigin: repository`; debug server cài mới dùng `ExtensionDraftMetadata.upsertCommand(localPath:)` với `debugServer`; debug server ghi đè bản đã có gọi `setInstallOrigin` sau khi swap file thành công. UI chỉ đọc `Extension.showsDebugBadge`.
+* **Không thêm cache cho badge**: origin nằm trong SwiftData `Extension`; fallback nhận diện hàng cũ chỉ là computed property trên dữ liệu đang có. Khi origin đổi, `@Query` của màn quản lý extension nhận model mới và vẽ lại badge.
+* **Run từ editor không truyền source thô**: file đang mở được lưu xuống đĩa trước nếu có thay đổi, sau đó editor truyền `initialEntrypoint` vào `ExtensionDebugConsoleView`. Dòng chạy thật vẫn là `ExtensionDebugRunner` -> `JSExecutor(localPath:debugSink:)` -> `ExtensionDebugEventHub`, nên trace/fetch/exception/redaction dùng lại đúng đường debug hiện có.
+* **Detect `execute` dùng một regex duy nhất**: `ExtensionDebugScriptScanner.containsExecute(in:)` là API đọc chuỗi, còn `executableScripts(at:)` đọc file; cả hai dùng cùng `executeRegex`, tránh chuyện editor cho chạy một dạng khai báo mà debug server không liệt kê được.
+
 ## Cửa xác nhận cài mặc định mở sẵn; `executableScripts` đo được (1.3.349)
 
 * **`draft.install` / `draft.rollback` không còn đòi bấm trên thiết bị.** `ExtensionDebugInstallGate.requestApproval` trả `.approved` ngay khi `isAutoApproveEnabled` (mặc định **true**) và **không** đặt `pending`, nên màn Debug server không hiện hộp nào. Công tắc "Không cần bấm xác nhận" ở màn đó tắt được để quay lại đường bấm tay.

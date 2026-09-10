@@ -122,7 +122,8 @@ public struct ExtensionSyncCommandBuilder: Sendable {
             localPath: input.existingLocalPath.isEmpty ? nil : input.existingLocalPath,
             downloadUrl: input.path,
             configJson: nil,
-            repositoryUrl: repositoryUrl
+            repositoryUrl: repositoryUrl,
+            installOrigin: Extension.installOriginRepository
         )
     }
 

@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời Run từ Script Editor và auto-scroll widget (1.3.351)
+
+* `ExtensionScriptEditorView` chỉ mở sheet debug khi file hiện tại là `.js` và nội dung có `execute(...)`. Nếu có thay đổi chưa lưu, `saveCurrentScript()` chạy trước; save lỗi thì không mở sheet, tránh chạy bản cũ trên đĩa.
+* Sheet Run sống theo `showingDebugRun`. Bên trong, `ExtensionDebugConsoleView` giữ vòng đời trace như màn debug cũ: `trace.attach()` ở `.task`, run bắt đầu bằng `ExtensionDebugRunner.start`, huỷ bằng `ExtensionDebugRunner.cancel`. Đóng sheet chỉ đóng UI, không tạo kênh debug mới.
+* `ReaderView` nhận `navigateReaderToPlayingChapter` từ widget thì bật lại `isAutoScrollDisabled = false` trước khi đổi chương/cuộn. Đây là vòng đời runtime của phiên Reader hiện tại, không ghi `UserDefaults`, nên mở lại Reader vẫn theo giá trị bootstrap cũ.
+
 ## Thân `ReaderView` là chuỗi tầng thuộc tính, không phải một biểu thức (1.3.335)
 
 * **Chuỗi tầng hiện tại, từ ngoài vào trong**: `body` → `readerLifecycleView` (`.task(id:)` + `.onAppear` + `.onDisappear`) → `readerDataObservationView` → `readerPresentationView` → `readerPresentationNavigationLayer` (2 `sheet` + 2 `fullScreenCover` + `background` chứa hai `NavigationLink`) → `readerObserverLayer` (10 `onChange` + 1 `onReceive`) → `readerSheetLayer` (4 `sheet`) → `readerOverlayStack` (`GeometryReader` + `ZStack` + `.toolbar(.hidden, for: .navigationBar)`). Mỗi tầng là **một** thuộc tính `some View`; thứ tự áp modifier giữ **y nguyên** như trước khi tách, nên không mốc vòng đời nào dịch chuyển — chỉ vị trí khai báo đổi.

@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.318] - 2026-09-02
+
+### Điều chỉnh quy tắc viết hoa sau dấu câu trong TranslateUtils: bỏ tự viết hoa sau ngoặc, chỉ viết hoa khi có dấu kết thúc câu
+
+Sửa **1** file Swift (`TranslateUtils.swift`).
+
+- **Bỏ tự động viết hoa đơn lẻ sau dấu ngoặc kép/đơn cong và ngoặc vuông.** Trước đây pattern `[.!?“‘”’\[【]` tự động viết hoa ký tự tiếp theo sau bất kỳ dấu ngoặc nào, khiến các từ đặt trong ngoặc ở giữa câu khi kết thúc ngoặc đóng (`”`, `]`) bị viết hoa từ tiếp theo (`“từ này” không phải` $\rightarrow$ `“Từ này” Không phải`).
+- **Chỉ viết hoa sau dấu đóng ngoặc khi có dấu kết thúc câu đứng liền trước.** Biểu thức mới `(^\s*[“‘"'\(\[\{【]?\s*|[.!?]+[”’"'\)\]\}】]*\s*[“‘"'\(\[\{【]?\s*)(\p{Ll})` áp dụng viết hoa chuẩn xác cho đầu dòng/đầu đoạn, sau `.`, `!`, `?`, sau dấu đóng ngoặc có dấu kết thúc câu đi trước, và không viết hoa sau dấu đóng ngoặc giữa câu nếu không có dấu kết thúc câu đi trước.
+- Chưa build được (máy Windows). `check_architecture.py` giữ đúng **14** violation nền.
+
 ## [1.3.317] - 2026-09-02
 
 ### Gợi ý phiên âm đi đúng đường của pipeline, có badge JP/EN; bỏ chunk không có chữ; xoá dụng cụ đo IPA

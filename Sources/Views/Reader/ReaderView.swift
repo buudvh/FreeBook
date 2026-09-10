@@ -951,6 +951,7 @@ struct ReaderView: View {
                   let targetIndex = userInfo["chapterIndex"] as? Int else { return }
 
             let paragraphIndex = (userInfo["paragraphIndex"] as? Int).flatMap { $0 >= 0 ? $0 : nil } ?? 0
+            reenableTTSAutoScrollFromWidgetJump()
             if targetIndex != chapterIndex {
                 requestChapter(
                     at: targetIndex,

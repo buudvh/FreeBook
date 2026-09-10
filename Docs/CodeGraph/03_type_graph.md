@@ -15,6 +15,13 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Nguồn cài extension và entry Run trong Script Editor (1.3.351)
+
+* **`Extension` đổi shape additive**: thêm `installOrigin: String = "repository"` cùng ba hằng `installOriginRepository/importZip/debugServer`. Đây là field bền để UI biết bản cài từ kho, import zip hay debug server; vì có default nên lightweight migration đủ. Computed `showsDebugBadge` trả `true` cho `importZip`/`debugServer` và fallback cho hàng cũ không thuộc kho (`repository == nil`, `downloadUrl` rỗng, `localPath` có thật).
+* **`UpsertExtensionCommand` thêm `installOrigin: String?`**. `ExtensionTransactionCoordinator.apply` chỉ đổi origin khi command truyền giá trị, nên các lượt upsert không quan tâm không ghi đè nhầm; hàng mới mặc định là `repository`. Coordinator có thêm `setInstallOrigin(packageId:origin:in:)` để đường debug ghi đè bản có sẵn không phải dựng một command thiếu metadata.
+* **`ExtensionDebugScriptScanner` thêm `containsExecute(in:)`** dùng chung regex với quét file. Script Editor dùng hàm này để hiện Run cho nội dung đang mở, kể cả trước khi đóng picker; scanner vẫn chỉ quét gốc extension và `src/` khi liệt kê.
+* **`ExtensionDebugConsoleView` thêm init tùy chọn** `initialPackageId` + `initialEntrypoint`, còn init mặc định giữ nguyên cho màn Cài đặt. `ExtensionScriptEditorView` thêm state sheet (`showingDebugRun`, `debugRunEntrypoint`) và map file đang mở sang `ExtensionDebugEntrypoint` chuẩn hoặc `.custom(fileName: ...)`.
+
 ## Bảy type mới; một type đổi chỉ số nội bộ (1.3.339)
 
 * **Services**: `TranslationTextPostProcessor` (enum static thuần, 4 regex `static let`), `TokenizeMemo` (final class singleton bọc `NSCache<NSString, Entry>`, `Entry` là class lồng vì `NSCache` chỉ giữ được kiểu class).

@@ -248,4 +248,13 @@ extension ReaderView {
         }
         AppLogger.shared.log("[Reader] Người dùng tự cuộn khi TTS đang đọc — tắt cuộn theo highlight")
     }
+
+    /// Nhảy từ widget TTS là lệnh quay lại vệt đang nghe, nên bật lại cuộn theo highlight nếu phiên
+    /// Reader trước đó đã tắt do tìm kiếm hoặc người dùng tự kéo trang.
+    internal func reenableTTSAutoScrollFromWidgetJump() {
+        guard isAutoScrollDisabled else { return }
+        isAutoScrollDisabled = false
+        ttsAutoScrollGeneration += 1
+        AppLogger.shared.log("[Reader] Widget TTS yêu cầu nhảy tới highlight — bật lại cuộn theo highlight")
+    }
 }

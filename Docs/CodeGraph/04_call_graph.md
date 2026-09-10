@@ -15,6 +15,22 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Widget TTS bật lại auto-scroll; Script Editor chạy execute qua Debug Runner (1.3.351)
+
+```text
+TTSWidgetCapsuleView.openCurrentChapter
+  -> Notification "openCurrentlyPlayingReader"
+  -> ShelfView
+       nếu Reader đang mở đúng sách -> Notification "navigateReaderToPlayingChapter"
+  -> ReaderView.onReceive("navigateReaderToPlayingChapter")
+       -> reenableTTSAutoScrollFromWidgetJump()
+       -> requestChapter(... .ttsSync) hoặc scrollTarget = ScrollTarget(...)
+```
+
+* `reenableTTSAutoScrollFromWidgetJump` chỉ ghi khi `isAutoScrollDisabled == true`: đặt lại `false`, tăng `ttsAutoScrollGeneration` để vô hiệu closure cũ, rồi log. Nhờ vậy bấm widget là lệnh quay lại vệt TTS và các highlight kế tiếp lại tự cuộn, nhưng các đường người dùng tắt bằng tìm kiếm/cuộn tay vẫn giữ nguyên cho tới khi có lệnh widget hoặc nút header.
+* **Đường badge debug**: import zip -> `UpsertExtensionCommand(installOrigin: importZip)`; debug server cài mới -> `ExtensionDraftMetadata.upsertCommand(... installOrigin: debugServer)`; debug server ghi đè -> `ExtensionTransactionCoordinator.setInstallOrigin(... debugServer)`. Cài/cập nhật từ kho -> `installOrigin: repository`, nên badge mất khi người dùng thay bằng bản kho chính thức.
+* **Đường Run trong editor**: `ExtensionScriptEditorView` -> `ExtensionDebugScriptScanner.containsExecute(in:)` -> nút `Run` -> nếu file bẩn thì `saveCurrentScript()` -> map file qua `plugin.json` thành entrypoint chuẩn hoặc `.custom(fileName:)` -> mở `ExtensionDebugConsoleView(initialPackageId:initialEntrypoint:)` -> `ExtensionDebugRunner.start`. Không thêm runner JS thứ hai và không chạy code chưa lưu trên đĩa.
+
 ## Hai nhánh render mới trong matcher; nhãn token về một nguồn (1.3.341)
 
 * **`QuickTranslationRuleMatcher.walkNumeral` thêm hai nhánh render**: `.magnitude` → `QuickTranslationNumberFormatter.renderMagnitude`, `.latinLetters` → `renderLatinLetters`. Không thêm nhánh nào ở `walk` — hai token mới là `Kind.numeral` nên đi đúng đường cũ.

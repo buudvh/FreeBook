@@ -4,6 +4,17 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.351] - 2026-09-10
+
+### Bật lại cuộn TTS từ widget, gắn badge debug và chạy script trong editor
+
+Sửa **14** file Swift và cập nhật **10** doc CodeGraph.
+
+- **Bấm widget TTS để nhảy về highlight nay bật lại cuộn theo highlight.** `ReaderView` xử lý `navigateReaderToPlayingChapter` bằng cách gọi `reenableTTSAutoScrollFromWidgetJump()` trước khi đổi chương/cuộn. Cờ chỉ đổi trong phiên Reader hiện tại, không ghi `UserDefaults`.
+- **Extension import zip/debug server có badge `debug`.** `Extension.installOrigin` là field additive có default `repository`; import zip ghi `importZip`, debug server ghi `debugServer`, cài/cập nhật từ kho ghi lại `repository`. Hàng cũ vẫn được nhận diện bằng fallback `repository == nil && downloadUrl.isEmpty && localPath != ""`.
+- **Script Editor có nút Run cho file JS có `execute(...)`.** Editor dùng `ExtensionDebugScriptScanner.containsExecute(in:)`, lưu file bẩn trước khi chạy, map file đang mở về entrypoint chuẩn hoặc custom, rồi mở `ExtensionDebugConsoleView` seed sẵn extension/script. Việc chạy JS vẫn qua `ExtensionDebugRunner`, không thêm executor riêng.
+- Gate: `check_architecture.py` vẫn FAIL với **7** violation line-limit nền, cùng tập file không liên quan. `validate_links.py --explain` yêu cầu ghi nhận 10 doc đã cập nhật. **Chưa biên dịch** vì host Windows; không thêm/xoá/đổi tên file Swift nên không cần `xcodegen generate`.
+
 ## [1.3.350] - 2026-09-09
 
 ### Đổi bước hẹn giờ TTS thành 1 phút
@@ -469,17 +480,3 @@ Thêm **4** file Swift (460 → **464**), sửa **4** file.
 - **Đồng bộ hai danh sách quản lý** (thay thế ký tự TTS, lọc rác) với các list khác: thêm tìm kiếm và dòng đếm cho danh sách thay thế, chuẩn hoá câu chữ dòng đếm cho cả hai.
 - **Sửa một lỗi thật phát hiện khi làm việc đó**: cả hai danh sách render mảng **đã lọc** nhưng wire `onMove` vào `manager.moveRules`, mà `IndexSet` của `onMove` trỏ vào mảng đã lọc — kéo-thả trong lúc tìm kiếm sẽ đổi chỗ sai rule, và thứ tự ở hai danh sách này **chính là** thứ tự áp dụng. Nay trong lúc tìm: kéo-thả bị chặn, `EditButton` ẩn, xoá đổi sang theo `id`.
 - Chưa build được (máy Windows). `check_architecture.py` giữ **14** violation nền.
-
-## [1.3.318] - 2026-09-02
-
-### Điều chỉnh quy tắc viết hoa sau dấu câu trong TranslateUtils: bỏ tự viết hoa sau ngoặc, chỉ viết hoa khi có dấu kết thúc câu
-
-Sửa **1** file Swift (`TranslateUtils.swift`).
-
-- **Bỏ tự động viết hoa đơn lẻ sau dấu ngoặc kép/đơn cong và ngoặc vuông.** Trước đây pattern `[.!?“‘”’\[【]` tự động viết hoa ký tự tiếp theo sau bất kỳ dấu ngoặc nào, khiến các từ đặt trong ngoặc ở giữa câu khi kết thúc ngoặc đóng (`”`, `]`) bị viết hoa từ tiếp theo (`“từ này” không phải` $\rightarrow$ `“Từ này” Không phải`).
-- **Chỉ viết hoa sau dấu đóng ngoặc khi có dấu kết thúc câu đứng liền trước.** Biểu thức mới `(^\s*[“‘"'\(\[\{【]?\s*|[.!?]+[”’"'\)\]\}】]*\s*[“‘"'\(\[\{【]?\s*)(\p{Ll})` áp dụng viết hoa chuẩn xác cho:
-  - Đầu dòng / đầu đoạn (hỗ trợ cả trường hợp mở ngoặc ở đầu dòng như `“Hôm nay`, `[Chương 1`).
-  - Sau dấu kết thúc câu thông thường (`.`, `!`, `?`).
-  - Sau dấu đóng ngoặc có dấu kết thúc câu đi trước (`.” `, `!” `, `?” `, `.] `).
-  - Không viết hoa sau dấu đóng ngoặc giữa câu nếu không có dấu kết thúc câu đi trước (`“bán-thần” dùng...`, `[ghi chú] trong...`).
-- Chưa build được (máy Windows). `check_architecture.py` giữ đúng **14** violation nền.

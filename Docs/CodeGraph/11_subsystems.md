@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Extension origin, badge debug và Run trong Script Editor (1.3.351)
+
+* **Ranh giới ghi extension không đổi nhưng command giàu hơn.** `UpsertExtensionCommand.installOrigin` đi qua `ExtensionTransactionCoordinator`; View không gán trực tiếp `Extension.installOrigin`. Đường debug ghi đè dùng method coordinator riêng `setInstallOrigin` vì nó không có lý do cập nhật metadata thư viện khác.
+* **Badge `debug` thuộc màn quản lý extension.** `RepositoryManagerView.extensionRow` chỉ đọc `ext.showsDebugBadge`, không tự mở file hay parse `plugin.json`. Import zip và debug server đều hiện cùng chữ `debug` theo yêu cầu; bản cài từ kho hoặc được cập nhật lại từ kho chuyển về origin `repository`.
+* **Script Editor không trở thành phân hệ debug thứ hai.** Nó chỉ chọn file, lưu nếu cần, dựng `ExtensionDebugEntrypoint` rồi mở `ExtensionDebugConsoleView`; mọi chạy JS, trace, cancel và redaction vẫn thuộc `Services/Extensions/Debug`.
+* **Reader chỉ đổi một ranh giới nhỏ với widget TTS.** `navigateReaderToPlayingChapter` nay vừa là lệnh điều hướng vừa là lệnh bật lại auto-scroll của Reader hiện tại; `TTSWidget` và `ShelfView` không biết state `isAutoScrollDisabled`.
+
 ## Debug extension: bỏ ma sát xác nhận, giữ đường lùi (1.3.349)
 
 * **Chính sách của phân hệ đổi**: cửa xác nhận cài không còn là chốt bắt buộc mà là **tuỳ chọn mặc định tắt**. Đây là quyết định của chủ dự án cho một công cụ debug trên mạng nhà; phân hệ đổi lại bằng hai thứ: một công tắc bật lại được, và một dòng log cảnh báo cho **mỗi** lần ghi không có người xác nhận.

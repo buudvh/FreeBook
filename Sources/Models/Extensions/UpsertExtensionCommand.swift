@@ -15,6 +15,7 @@ public struct UpsertExtensionCommand: Sendable {
     public let downloadUrl: String
     public let configJson: String?
     public let repositoryUrl: String?
+    public let installOrigin: String?
 
     public init(
         packageId: String,
@@ -30,7 +31,8 @@ public struct UpsertExtensionCommand: Sendable {
         localPath: String? = nil,
         downloadUrl: String = "",
         configJson: String? = nil,
-        repositoryUrl: String? = nil
+        repositoryUrl: String? = nil,
+        installOrigin: String? = nil
     ) {
         self.packageId = packageId
         self.name = name
@@ -46,5 +48,6 @@ public struct UpsertExtensionCommand: Sendable {
         self.downloadUrl = downloadUrl
         self.configJson = configJson
         self.repositoryUrl = repositoryUrl
+        self.installOrigin = installOrigin
     }
 }
