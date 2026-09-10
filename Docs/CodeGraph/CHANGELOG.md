@@ -13,6 +13,7 @@ Thay thế badge số chương mới (từ `NewChapterInboxManager`) bằng badg
 - **Badge trên tab "Mục lục"** hiển thị tổng số chương (`totalChaptersCount`), phản ánh ngay khi dữ liệu mục lục cập nhật; **`N = 0` thì ẩn badge**. Số liệu dùng chung computed property với `tocTab` và `floatingActionButton` (cùng logic: `chapterSnapshots.count` → `localBook?.chapters.count` → `onlineChapters.count`).
 - **Xóa tích hợp `NewChapterInboxManager`** khỏi `BookDetailView`: bỏ `@ObservedObject`, computed `newChapterBadgeCount` và lượt `newChapters.check(target:)` trong `.onAppear`. Hệ thống kiểm tra chương mới tiếp tục chạy trên `ShelfView`; badge ở đây chỉ là tổng số chương của mục lục.
 - `customTabBar` đã được rút sang `BookDetailView+TabBar.swift` ở phiên bản trước; badge dùng `totalChaptersCount` và hiển thị đầy đủ số (không giới hạn `99+`).
+- **Badge đặt ngay bên cạnh chữ "Mục lục"** trong `customTabBar` thông qua `HStack`; bỏ `ZStack` + `offset(x:10, y:-10)` trước đó gây lệch ra mép.
 - Gate: `check_architecture.py` **7 → 7** violation (không vi phạm mới). `validate_links.py` PASS 16 doc, 503 file. **Chưa biên dịch** vì host Windows; `xcodegen generate` khi lên macOS.
 
 ## [1.3.351] - 2026-09-10

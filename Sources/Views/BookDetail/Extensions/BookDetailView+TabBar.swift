@@ -27,28 +27,27 @@ extension BookDetailView {
                     selectedTab = 1
                 }
             }) {
-                ZStack(alignment: .topTrailing) {
-                    VStack(spacing: 8) {
+                VStack(spacing: 8) {
+                    HStack(spacing: 6) {
                         Text("Mục lục")
                             .font(.subheadline)
                             .fontWeight(selectedTab == 1 ? .bold : .medium)
                             .foregroundColor(selectedTab == 1 ? .accentColor : .secondary)
 
-                        Rectangle()
-                            .fill(selectedTab == 1 ? Color.accentColor : Color.clear)
-                            .frame(height: 3)
+                        if totalChaptersCount > 0 {
+                            Text("\(totalChaptersCount)")
+                                .font(.caption2)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Capsule().fill(Color.red))
+                        }
                     }
 
-                    if totalChaptersCount > 0 {
-                        Text("\(totalChaptersCount)")
-                            .font(.caption2)
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Capsule().fill(Color.red))
-                            .offset(x: 10, y: -10)
-                    }
+                    Rectangle()
+                        .fill(selectedTab == 1 ? Color.accentColor : Color.clear)
+                        .frame(height: 3)
                 }
             }
             .frame(maxWidth: .infinity)
