@@ -39,8 +39,8 @@ extension BookDetailView {
                             .frame(height: 3)
                     }
 
-                    if newChapterBadgeCount > 0 {
-                        Text(newChapterBadgeCount > 99 ? "99+" : "\(newChapterBadgeCount)")
+                    if totalChaptersCount > 0 {
+                        Text("\(totalChaptersCount)")
                             .font(.caption2)
                             .fontWeight(.bold)
                             .foregroundColor(.white)

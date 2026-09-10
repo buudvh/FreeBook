@@ -53,10 +53,12 @@ struct BookDetailView: View {
     @State internal var host = ""
     @AppStorage("isTranslationEnabled") internal var isTranslationEnabled = false
 
-    @ObservedObject private var newChapters = NewChapterInboxManager.shared
-
-    var newChapterBadgeCount: Int {
-        newChapters.record(for: actualBookId)?.newChapterCount ?? 0
+    var totalChaptersCount: Int {
+        if chapterSnapshots.count > 0 { return chapterSnapshots.count }
+        if ChapterStoreConfiguration.enableSwiftDataTOCWrite {
+            return localBook?.chapters.count ?? onlineChapters.count
+        }
+        return onlineChapters.count
     }
 
     // Cấu hình tab và FAB
@@ -239,13 +241,6 @@ struct BookDetailView: View {
             syncChaptersList()
             updateFilteredLocalChapters()
             updateFilteredOnlineChapters()
-
-            if let book = localBook, let ext = ext, !book.isLocalBook {
-                let target = BookActionRunner.newChapterTarget(for: book, extensions: [ext])
-                if let target {
-                    Task { _ = await newChapters.check(target: target) }
-                }
-            }
         }
         .task(id: actualBookId) {
             // Transaction thuộc `BookTransactionCoordinator` — View không tự `modelContext.save()`.
