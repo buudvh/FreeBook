@@ -4,6 +4,16 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.358] - 2026-09-11
+
+### Sửa lỗi biên dịch chế độ E-Ink
+
+Sửa hai lỗi Swift compiler được CI phát hiện sau khi thêm chế độ E-Ink.
+
+- `ExtensionSelectorView` tự quan sát khoá E-Ink bằng `@AppStorage`, thay vì tham chiếu nhầm `isEInkEnabled` chỉ tồn tại trong `DiscoveryView`.
+- `EInkEffect.Selection` và `einkSelection` ràng buộc shape bằng `InsettableShape`, đúng yêu cầu của API `strokeBorder` đang được gọi trong modifier.
+- Gate kiến trúc trước sửa có 6 violation line-limit nền. Host Windows không có Swift/Xcode nên việc biên dịch được xác minh bằng CI macOS sau khi push. Không dùng `Tests/`.
+
 ## [1.3.357] - 2026-09-11
 
 ### Thêm chế độ E-Ink cho trình đọc và thiết lập trong Cài đặt

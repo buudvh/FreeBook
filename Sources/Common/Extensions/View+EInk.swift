@@ -45,7 +45,7 @@ struct EInkEffect: ViewModifier {
     ///
     /// Tách khỏi `Kind` vì cần một `Shape` cụ thể (`Capsule`, `RoundedRectangle`…) mà enum không mang
     /// được generic. Lồng trong `EInkEffect` nên vẫn không tính là type top level.
-    struct Selection<S: Shape>: ViewModifier {
+    struct Selection<S: InsettableShape>: ViewModifier {
         @AppStorage(EInkModeSettings.Key.enabled) private var isEnabled = false
 
         let isSelected: Bool
@@ -223,7 +223,7 @@ extension View {
     }
 
     /// Trạng thái "đang chọn" cho chip / pill / segment.
-    func einkSelection<S: Shape>(
+    func einkSelection<S: InsettableShape>(
         isSelected: Bool,
         in shape: S,
         selectedFill: Color,

@@ -767,6 +767,7 @@ struct DiscoveryCategoryTabView: View {
 
 struct ExtensionSelectorView: View {
     @Environment(\.dismiss) private var dismiss
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
     
     let activeExtensions: [Extension]
     @Binding var selectedExtensionId: String
