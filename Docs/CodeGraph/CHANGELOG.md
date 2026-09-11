@@ -4,6 +4,18 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.355] - 2026-09-11
+
+### Thêm sao lưu Telegram, chia file lớn và lịch tự động đa đích
+
+Thêm **6** file Swift, sửa **8** file Swift trong phân hệ Backup và UI cài đặt.
+
+- Bot Token lưu bằng Keychain, có file bảo vệ làm đường lùi cho LiveContainer; Chat ID ở UserDefaults. Màn cấu hình gọi `getMe` + `getChat`, không gửi tin nhắn khi kiểm tra.
+- Backup tối đa 49 MiB gửi một document. File lớn hơn chia streaming thành part, ghi SHA-256 từng part/toàn file, gửi manifest cuối; khôi phục chọn manifest + đủ part và xác minh toàn bộ trước khi nhập.
+- Backup local có action gửi Telegram; màn hub có tạo-và-gửi. Import Files hỗ trợ nhiều file và giữ security-scoped access suốt lượt ghép/copy.
+- Lịch tự động dùng chung scopes/cooldown, export một archive rồi gửi độc lập tới Drive/Telegram đã bật. Một đích lỗi không huỷ đích kia; chỉ dọn Drive khi upload Drive thành công.
+- Gate: `check_architecture.py` giữ **6** violation line-limit nền, không có violation mới; `git diff --check` sạch. Host Windows không có Swift/Xcode nên chưa compile hay gửi Telegram thật; thêm file Swift nên cần `xcodegen generate` + build trên macOS. Không dùng `Tests/`.
+
 ## [1.3.354] - 2026-09-11
 
 ### Tuần tự hoá cập nhật từ điển, snapshot dịch và loại cache Reader/TTS cũ

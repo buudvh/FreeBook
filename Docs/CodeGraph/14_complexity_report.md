@@ -15,6 +15,13 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +6 file nhỏ cho Telegram backup; không thêm violation (1.3.355)
+
+* File mới: `BackupMultipartArchive` **185**, `TelegramBackupUploader` **161**, `TelegramTokenStore` **93**, `TelegramBackupSettingsView` **69**, `TelegramBotClient` **65**, `TelegramConfiguration` **21**. Tất cả dưới 400 dòng và đúng một primary type top level.
+* File sửa lớn nhất trong phạm vi là `BackupCoordinator.swift` **361**/400; `BackupCoordinator+AutoDrive.swift` **205**/400. Chưa cần nới allowlist hay baseline.
+* Chia/ghép và multipart body đều streaming theo chunk 1 MiB, nên RAM không tăng theo kích thước archive. Chi phí là một lượt SHA-256 toàn file khi chia và một lượt khi ghép/xác minh.
+* `check_architecture.py` giữ đúng **6** violation line-limit nền, không có violation mới trong Backup/Views Backup.
+
 ## +14 file nhỏ, gate line-limit giảm 7 xuống 6 (1.3.354)
 
 * 14 file Swift mới tách theo vai trò snapshot/writer/memo/worker/presentation/TTS identity; tất cả dưới 400 dòng và đúng một primary type.

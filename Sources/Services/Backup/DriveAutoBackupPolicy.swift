@@ -1,13 +1,13 @@
 import Foundation
 
-/// Nguồn **duy nhất** cho câu hỏi "có được tự động sao lưu lên Google Drive lúc này không".
+/// Nguồn duy nhất cho lịch tự động dùng chung của Google Drive và Telegram.
 ///
 /// Cùng khuôn với [`NewChapterCheckPolicy`](../NewChapters/NewChapterCheckPolicy.swift): hai chế độ
 /// `.cooldown` / `.daily`, mốc lần chạy cuối nằm trong UserDefaults, và mọi hằng chặn tải khai ở đây
 /// chứ không nhân bản sang coordinator hay view.
 ///
-/// Lượt tự động chỉ chạy khi đã đăng nhập Drive — nên cờ mặc định bật: bản thân việc đăng nhập
-/// Drive đã là hành động cố ý của người dùng.
+/// Cờ Drive mặc định bật, nhưng lượt chỉ gửi tới đích đã sẵn sàng; Telegram mặc định tắt và cần
+/// cấu hình Bot trước khi bật.
 enum DriveAutoBackupPolicy {
     enum Mode: String, CaseIterable, Sendable {
         case cooldown
@@ -26,6 +26,7 @@ enum DriveAutoBackupPolicy {
     static let cooldownHoursKey = "driveAutoBackupCooldownHours"
     static let dailyHourKey = "driveAutoBackupDailyHour"
     static let scopesKey = "driveAutoBackupScopes"
+    static let telegramEnabledKey = "telegramAutoBackupEnabled"
     private static let lastRunKey = "driveAutoBackupLastRunAt"
     private static let lastLinkWarningKey = "driveAutoBackupLastLinkWarningAt"
 
@@ -49,6 +50,13 @@ enum DriveAutoBackupPolicy {
         get { UserDefaults.standard.object(forKey: enabledKey) as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: enabledKey) }
     }
+
+    static var isTelegramEnabled: Bool {
+        get { UserDefaults.standard.bool(forKey: telegramEnabledKey) }
+        set { UserDefaults.standard.set(newValue, forKey: telegramEnabledKey) }
+    }
+
+    static var hasEnabledDestination: Bool { isEnabled || isTelegramEnabled }
 
     static var mode: Mode {
         get {
@@ -97,9 +105,9 @@ enum DriveAutoBackupPolicy {
         set { UserDefaults.standard.set(newValue, forKey: lastRunKey) }
     }
 
-    /// Cửa mở cho lượt tự động. Bấm "sao lưu lên Drive ngay" **không** đi qua hàm này.
+    /// Cửa mở cho lượt tự động. Nút chạy ngay bỏ qua kết quả của hàm này.
     static func shouldRun(now: Date = Date()) -> Bool {
-        guard isEnabled else { return false }
+        guard hasEnabledDestination else { return false }
         guard let last = lastRunAt else { return true }
         switch mode {
         case .cooldown:

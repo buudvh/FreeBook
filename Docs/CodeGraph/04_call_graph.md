@@ -15,6 +15,30 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Call graph sao lưu Telegram và khôi phục multipart (1.3.355)
+
+```text
+BackupHubView / LocalBackupListView
+  -> BackupCoordinator.createAndSendToTelegram / uploadToTelegram
+  -> TelegramBackupUploader.upload
+       -> <=49 MiB: sendDocument
+       -> >49 MiB: BackupMultipartArchive.split
+            -> send part 1...N -> send manifest cuối -> cleanup temp
+
+DocumentPicker(multiple)
+  -> BackupCoordinator.importFromFiles
+       -> một .fbbackup: LocalBackupStore.importArchive
+       -> manifest + parts: BackupMultipartArchive.assemble
+            -> validate selection/name/index/size/SHA-256
+            -> LocalBackupStore.importArchive -> cleanup temp
+
+MainTabView.runAutomaticBackupIfDue
+  -> BackupCoordinator.runAutoDriveBackup
+       -> BackupExportWorker.export (một lần)
+       -> GoogleDriveUploader và/hoặc TelegramBackupUploader độc lập
+       -> prune Drive nếu Drive đã gửi; prune local; trả completed + failures
+```
+
 ## Call graph sửa VP/rule không chặn panel và không dùng cache cũ (1.3.354)
 
 ```text

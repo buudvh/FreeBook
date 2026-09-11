@@ -48,6 +48,33 @@ public final class BackupCoordinator: ObservableObject {
         isBusy = false
     }
 
+    public func createAndSendToTelegram(container: ModelContainer, scopes: Set<BackupScope>) async {
+        guard !isBusy else { return }
+        guard TelegramConfiguration.isConfigured else {
+            lastError = "Hãy cấu hình Telegram Bot trước"
+            return
+        }
+        isBusy = true
+        progress = BackupProgress(phase: .readingLibrary)
+        do {
+            let worker = BackupExportWorker(container: container, scopes: scopes, report: makeReporter())
+            let archive = try await worker.export()
+            refreshLocal()
+            progress = BackupProgress(phase: .uploading, detail: archive.fileURL.lastPathComponent)
+            let outcome = try await TelegramBackupUploader.shared.upload(
+                fileURL: archive.fileURL,
+                report: makeReporter()
+            )
+            lastMessage = outcome.wasSplit
+                ? "Đã tạo backup và gửi \(outcome.documentCount) file qua Telegram"
+                : "Đã tạo và gửi backup qua Telegram"
+        } catch {
+            progress = BackupProgress(phase: .failed, detail: error.localizedDescription)
+            lastError = "Tạo hoặc gửi backup thất bại: \(error.localizedDescription)"
+        }
+        isBusy = false
+    }
+
     public func deleteLocal(_ item: LocalBackupStore.Item) {
         do {
             try LocalBackupStore.delete(item)
@@ -66,10 +93,35 @@ public final class BackupCoordinator: ObservableObject {
         }
     }
 
-    /// Chép file người dùng chọn từ Files vào `backups/`.
-    public func importFromFiles(url: URL) {
+    /// Nhập một archive hoặc một manifest cùng toàn bộ part từ Files.
+    public func importFromFiles(urls: [URL]) async {
+        guard !isBusy, !urls.isEmpty else { return }
+        isBusy = true
+        progress = BackupProgress(phase: .extracting, detail: "Đang kiểm tra file")
+        var securityScopedURLs: [URL] = []
+        for url in urls where url.startAccessingSecurityScopedResource() {
+            securityScopedURLs.append(url)
+        }
+        defer {
+            securityScopedURLs.forEach { $0.stopAccessingSecurityScopedResource() }
+            progress = .idle
+            isBusy = false
+        }
         do {
-            _ = try LocalBackupStore.importArchive(from: url)
+            let source: URL
+            var temporaryRoot: URL?
+            if urls.count == 1, urls[0].pathExtension.lowercased() == BackupPaths.fileExtension {
+                source = urls[0]
+            } else {
+                source = try await Task.detached(priority: .userInitiated) {
+                    try BackupMultipartArchive.assemble(selectedURLs: urls)
+                }.value
+                temporaryRoot = source.deletingLastPathComponent()
+            }
+            defer { if let temporaryRoot { try? FileManager.default.removeItem(at: temporaryRoot) } }
+            _ = try await Task.detached(priority: .userInitiated) {
+                try LocalBackupStore.importArchive(from: source)
+            }.value
             refreshLocal()
             lastMessage = "Đã thêm bản sao lưu vào danh sách"
         } catch {
@@ -191,6 +243,22 @@ public final class BackupCoordinator: ObservableObject {
         } catch {
             progress = BackupProgress(phase: .failed, detail: error.localizedDescription)
             lastError = "Tải lên thất bại: \(error.localizedDescription)"
+        }
+        isBusy = false
+    }
+
+    public func uploadToTelegram(_ item: LocalBackupStore.Item) async {
+        guard !isBusy else { return }
+        isBusy = true
+        progress = BackupProgress(phase: .uploading, detail: item.name)
+        do {
+            let outcome = try await TelegramBackupUploader.shared.upload(fileURL: item.url, report: makeReporter())
+            lastMessage = outcome.wasSplit
+                ? "Đã gửi \(outcome.documentCount) file qua Telegram"
+                : "Đã gửi bản sao lưu qua Telegram"
+        } catch {
+            progress = BackupProgress(phase: .failed, detail: error.localizedDescription)
+            lastError = "Gửi Telegram thất bại: \(error.localizedDescription)"
         }
         isBusy = false
     }

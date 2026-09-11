@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Backup có hai đích và một envelope multipart ngoài archive (1.3.355)
+
+* **`.fbbackup` không đổi định dạng.** `BackupMultipartArchive` chỉ là lớp vận chuyển cho giới hạn document Telegram: chia file theo 49 MiB, ghi manifest schema 1 với byte count + SHA-256, và ghép về đúng archive trước khi `LocalBackupStore` nhận.
+* **Telegram có ba owner tách biệt**: `TelegramTokenStore` giữ bí mật; `TelegramConfiguration` giữ Chat ID; `TelegramBotClient` xác minh cấu hình. `TelegramBackupUploader` chỉ gửi file và retry tối đa 3 lượt cho 429/5xx/network.
+* **Tự động sao lưu là một lượt đa đích**: `DriveAutoBackupPolicy` giữ lịch/scopes chung và hai cờ đích; coordinator export đúng một lần rồi gửi tuần tự, ghi kết quả/failure từng đích. Dọn remote chỉ thuộc Drive, dọn local thuộc archive vừa tạo.
+* **Khôi phục multipart bắt đầu ở Files**: document picker cho chọn nhiều file, coordinator giữ security-scoped access qua cả lượt ghép/copy, assembler từ chối path component, index không liên tục, tên trùng/thừa/thiếu, byte count hoặc checksum sai.
+
 ## Translation/Reader/TTS dùng chung translation identity (1.3.354)
 
 * **Translation core**: `TranslationDictionaryState` publish trie bất biến; `TranslationDictionaryWriter` sở hữu runtime read-modify-write VP/Names; `TranslationReadContext` là snapshot theo lượt; `TranslationMemo` là cache budget dùng chung.

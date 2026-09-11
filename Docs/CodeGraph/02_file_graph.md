@@ -15,6 +15,20 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +6 file cho Telegram backup và multipart transport (1.3.355)
+
+| File mới | Vai trò | Dòng |
+| --- | --- | ---: |
+| `Services/Backup/BackupMultipartArchive.swift` | chia/ghép envelope ngoài `.fbbackup`, SHA-256 part + toàn bộ file | 185 |
+| `Services/Backup/Telegram/TelegramBackupUploader.swift` | multipart upload streaming, retry 429/5xx, manifest gửi cuối | 161 |
+| `Services/Backup/Telegram/TelegramBotClient.swift` | xác minh Bot Token + Chat ID bằng `getMe`/`getChat` | 65 |
+| `Services/Backup/Telegram/TelegramConfiguration.swift` | Chat ID và trạng thái cấu hình không bí mật | 21 |
+| `Services/Backup/Telegram/TelegramTokenStore.swift` | Keychain + file bảo vệ dự phòng cho token | 93 |
+| `Views/Settings/Backup/TelegramBackupSettingsView.swift` | nhập/xoá/xác minh cấu hình Telegram | 69 |
+
+* `BackupCoordinator` thêm tạo-và-gửi, gửi archive local và import nhiều file; `BackupCoordinator+AutoDrive` trở thành lượt đa đích dùng chung một archive.
+* `BackupHubView` nối màn Telegram, action gửi, và document picker nhiều file; `LocalBackupListView` thêm action Telegram. `DriveAutoBackupSettingsView` điều khiển hai đích trên cùng lịch.
+
 ## 14 file mới cho snapshot, writer, memo, Reader worker và TTS identity (1.3.354)
 
 | Nhóm | File mới | Vai trò |

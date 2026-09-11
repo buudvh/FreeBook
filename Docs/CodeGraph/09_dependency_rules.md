@@ -15,6 +15,13 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ranh giới phụ thuộc của Telegram backup (1.3.355)
+
+* Năm file Telegram + `BackupMultipartArchive` nằm ở `Services/Backup`, chỉ import Foundation/CryptoKit/Security; không import SwiftUI và không gọi `ToastManager`. Lỗi/progress đi qua `BackupCoordinator`, View mới quyết định toast.
+* `TelegramBackupSettingsView` chỉ gọi service/config; `BackupHubView` chỉ truyền `ModelContainer` và URL xuống coordinator. Không View nào ghi SwiftData trực tiếp.
+* Token bí mật có một owner là `TelegramTokenStore`; `BackupSettingsArchiver` loại khoá token cũ/phòng thủ và không archive file fallback. Chat ID là cấu hình không bí mật nên đi theo backup settings như UserDefaults khác.
+* `BackupMultipartArchive` là envelope vận chuyển ngoài định dạng `.fbbackup`; nó không đổi `BackupManifest`, `BackupScope` hay payload archive.
+
 ## Phụ thuộc mới của snapshot dịch vẫn một chiều (1.3.354)
 
 * Models cung cấp `FrozenTrieDictionary`; Services/Translation sở hữu state/writer/read-context/memo; Reader chỉ gọi API service và giữ state trình bày. Không Service mới nào import SwiftUI hoặc gọi Toast.

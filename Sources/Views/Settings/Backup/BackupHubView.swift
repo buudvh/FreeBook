@@ -26,6 +26,10 @@ struct BackupHubView: View {
         UTType(filenameExtension: BackupPaths.fileExtension) ?? .data
     }
 
+    private static var manifestType: UTType {
+        UTType(filenameExtension: BackupMultipartArchive.manifestExtension) ?? .data
+    }
+
     var body: some View {
         List {
             if coordinator.progress.isActive {
@@ -39,9 +43,11 @@ struct BackupHubView: View {
                 coordinator: coordinator,
                 isTTSPlaying: ttsState.snapshot.isPlaying,
                 canUploadToDrive: GoogleDriveConfiguration.isConfigured && coordinator.isDriveSignedIn,
+                canUploadToTelegram: TelegramConfiguration.isConfigured,
                 onRestore: startRestore,
                 onShare: { sharingItem = $0 },
-                onUpload: { item in Task { await coordinator.uploadToDrive(item) } }
+                onUpload: { item in Task { await coordinator.uploadToDrive(item) } },
+                onTelegram: { item in Task { await coordinator.uploadToTelegram(item) } }
             )
 
             driveSection
@@ -100,6 +106,17 @@ struct BackupHubView: View {
                 Label("Nhập file sao lưu từ Files", systemImage: "folder.badge.plus")
             }
             .disabled(coordinator.isBusy)
+
+            if TelegramConfiguration.isConfigured {
+                Button {
+                    let container = modelContext.container
+                    let selected = scopes
+                    Task { await coordinator.createAndSendToTelegram(container: container, scopes: selected) }
+                } label: {
+                    Label("Tạo và gửi qua Telegram", systemImage: "paperplane.fill")
+                }
+                .disabled(coordinator.isBusy)
+            }
         } footer: {
             Text(ttsState.snapshot.isPlaying
                  ? "Đang phát TTS — hãy dừng phát trước khi khôi phục. Việc tạo bản sao lưu vẫn được."
@@ -125,9 +142,21 @@ struct BackupHubView: View {
                 DriveAutoBackupSettingsView()
             } label: {
                 HStack {
-                    Label("Tự động sao lưu lên Drive", systemImage: "clock.arrow.circlepath")
+                    Label("Tự động sao lưu", systemImage: "clock.arrow.circlepath")
                     Spacer()
                     Text(autoBackupStateText)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            NavigationLink {
+                TelegramBackupSettingsView()
+            } label: {
+                HStack {
+                    Label("Telegram Bot", systemImage: "paperplane")
+                    Spacer()
+                    Text(TelegramConfiguration.isConfigured ? "Đã cấu hình" : "Chưa cấu hình")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -136,7 +165,7 @@ struct BackupHubView: View {
     }
 
     private var autoBackupStateText: String {
-        DriveAutoBackupPolicy.isEnabled ? "Đang bật" : "Đang tắt"
+        DriveAutoBackupPolicy.hasEnabledDestination ? "Đang bật" : "Đang tắt"
     }
 
     private var driveStateText: String {
@@ -148,13 +177,13 @@ struct BackupHubView: View {
 
     private var importer: some View {
         DocumentPicker(
-            allowedContentTypes: [Self.archiveType],
-            allowsMultipleSelection: false,
+            allowedContentTypes: [Self.archiveType, Self.manifestType, .data],
+            allowsMultipleSelection: true,
             onPick: { urls in
-                guard let url = urls.first else { return }
-                coordinator.importFromFiles(url: url)
+                showingImporter = false
+                Task { await coordinator.importFromFiles(urls: urls) }
             },
-            onCancel: nil
+            onCancel: { showingImporter = false }
         )
     }
 

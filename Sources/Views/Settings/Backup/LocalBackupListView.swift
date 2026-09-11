@@ -8,9 +8,11 @@ struct LocalBackupListView: View {
     @ObservedObject var coordinator: BackupCoordinator
     let isTTSPlaying: Bool
     let canUploadToDrive: Bool
+    let canUploadToTelegram: Bool
     let onRestore: (LocalBackupStore.Item) -> Void
     let onShare: (LocalBackupStore.Item) -> Void
     let onUpload: (LocalBackupStore.Item) -> Void
+    let onTelegram: (LocalBackupStore.Item) -> Void
 
     @State private var renamingItem: LocalBackupStore.Item?
     @State private var renameText = ""
@@ -94,6 +96,15 @@ struct LocalBackupListView: View {
                         onUpload(item)
                     } label: {
                         Label("Tải lên Google Drive", systemImage: "icloud.and.arrow.up")
+                    }
+                    .disabled(coordinator.isBusy)
+                }
+
+                if canUploadToTelegram {
+                    Button {
+                        onTelegram(item)
+                    } label: {
+                        Label("Gửi qua Telegram", systemImage: "paperplane")
                     }
                     .disabled(coordinator.isBusy)
                 }

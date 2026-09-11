@@ -34,8 +34,10 @@ public enum BackupSettingsArchiver {
     private static let deniedKeys: Set<String> = [
         "google_cloud_tts_custom_api_key",
         "googleDriveClientId",
+        "telegramBotToken",
         "ttsExtensionLocalPath",
         "driveAutoBackupLastRunAt",
+        "driveAutoBackupLastLinkWarningAt",
         "staleBookCleanupLastRunAt",
         "newChapterLastBatchAt",
         "failed_file_deletions_queue",

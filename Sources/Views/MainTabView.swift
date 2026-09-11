@@ -66,7 +66,7 @@ struct MainTabView: View {
             ExtensionDebugServerLauncher.restoreIfEnabled(container: modelContext.container)
         }
         .task {
-            await runAutoDriveBackupIfDue(container: modelContext.container)
+            await runAutomaticBackupIfDue(container: modelContext.container)
         }
         .task {
             await runStaleBookCleanupIfDue(container: modelContext.container)
@@ -91,10 +91,10 @@ struct MainTabView: View {
 }
 
 extension MainTabView {
-    /// Lượt **tự động** sao lưu lên Google Drive. Cửa mở/đóng thuộc `DriveAutoBackupPolicy`; ở đây
+    /// Lượt tự động sao lưu tới các đích đã bật. Cửa mở/đóng thuộc `DriveAutoBackupPolicy`; ở đây
     /// chỉ có việc hoãn cho qua lúc khởi động rồi hiện đúng một toast cho kết quả — service không
     /// được gọi `ToastManager`.
-    func runAutoDriveBackupIfDue(container: ModelContainer) async {
+    func runAutomaticBackupIfDue(container: ModelContainer) async {
         guard DriveAutoBackupPolicy.shouldRun() else { return }
         try? await Task.sleep(nanoseconds: DriveAutoBackupPolicy.startupDelayNanoseconds)
         guard !Task.isCancelled else { return }
@@ -107,10 +107,16 @@ extension MainTabView {
             // Tới kỳ mà chưa đăng nhập: im lặng thì lượt tự động không bao giờ chạy mà người dùng
             // không hề biết. Policy đã giới hạn nhịp nhắc nên đây không thành toast mỗi lần mở app.
             ToastManager.shared.show(message: "Tự động sao lưu đang bật nhưng chưa đăng nhập Google Drive", type: .error)
-        case .succeeded(_, let size, _, _, let pruneIncomplete):
+        case .skipped(.telegramNotConfigured):
+            ToastManager.shared.show(message: "Tự động sao lưu đang bật nhưng chưa cấu hình Telegram", type: .error)
+        case .completed(_, let size, let driveSent, let telegramSent, let failures, _, _, let pruneIncomplete):
+            let destinations = [driveSent ? "Drive" : nil, telegramSent ? "Telegram" : nil]
+                .compactMap { $0 }.joined(separator: " và ")
+            let failureNote = failures.isEmpty ? "" : " — " + failures.joined(separator: "; ")
             ToastManager.shared.show(
-                message: "Đã tự động sao lưu lên Google Drive (\(size))" + outcome.pruneNote,
-                type: pruneIncomplete ? .info : .success
+                message: "Đã tự động sao lưu (\(size))" + (destinations.isEmpty ? "" : " tới \(destinations)")
+                    + failureNote + outcome.pruneNote,
+                type: failures.isEmpty && !pruneIncomplete ? .success : .info
             )
         case .failed(let message):
             ToastManager.shared.show(message: "Tự động sao lưu thất bại: \(message)", type: .error)

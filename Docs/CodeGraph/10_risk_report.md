@@ -15,6 +15,14 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rủi ro của Telegram Bot và multipart transport (1.3.355)
+
+* **Bot Token cho phép gửi bằng danh tính bot.** Token không vào UserDefaults/backup/log; owner là Keychain, nhưng LiveContainer có đường lùi bằng file trong Application Support với `completeUntilFirstUserAuthentication`. Thiết bị đã mở khoá và process app vẫn đọc được file này; đó là đánh đổi để tính năng hoạt động khi Keychain unavailable.
+* **Telegram là kênh ngoài app, không phải kho backup có API danh sách/xoá.** App không tải ngược hoặc dọn phiên bản trên Telegram. Người dùng phải tải manifest + đủ part về Files để khôi phục; thiếu/trùng/thừa part hoặc checksum sai đều bị từ chối trước khi nhập.
+* **Manifest gửi cuối là tín hiệu hoàn tất, không phải transaction.** Mạng rớt giữa lượt có thể để lại vài part mồ côi trong chat; không có rollback Bot API. Ngược lại, có manifest nghĩa là mọi part trước đó đã được Telegram chấp nhận trong lượt ấy.
+* **Lịch đa đích ghi mốc lúc bắt đầu và cho phép thành công một phần.** Drive lỗi nhưng Telegram thành công (hoặc ngược lại) vẫn chờ tới kỳ sau; toast nêu lỗi từng đích. Đây giữ nguyên chính sách tránh nén/upload liên tục mỗi lần mở app.
+* **Chưa compile hoặc chạy với Telegram thật.** Host Windows không có Xcode; xác minh hiện tại là đọc code, gate kiến trúc và validator. Cần `xcodegen generate`, build macOS, rồi gửi một file nhỏ và một file >49 MiB trên thiết bị thật.
+
 ## Rủi ro còn lại sau snapshot/writer/memo (1.3.354)
 
 * **Không còn mixed-generation trong một lượt**: dictionary/rule/config được chụp một lần và cache chỉ nhận kết quả khi context còn current. Rủi ro chuyển thành chi phí retry nếu người dùng sửa liên tục trong lúc chương đang dựng.

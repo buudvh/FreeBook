@@ -1,8 +1,7 @@
 import Foundation
 import SwiftData
 
-/// Lượt **tự động** sao lưu lên Google Drive: dựng archive → tải lên → dọn bản cũ, giữ tối đa
-/// `DriveAutoBackupPolicy.maxVersions` bản.
+/// Lượt tự động dùng chung: dựng một archive rồi gửi độc lập tới Drive và Telegram đã bật.
 ///
 /// Cùng khuôn với lượt kiểm tra chương mới: cửa mở/đóng do
 /// [`DriveAutoBackupPolicy`](DriveAutoBackupPolicy.swift) quyết định, và hàm **trả về** kết quả cho
@@ -20,33 +19,50 @@ extension BackupCoordinator {
             /// Đã tới kỳ và cờ tự động đang bật, nhưng chưa đăng nhập Drive. Phải nhắc, nếu không
             /// lượt sao lưu im lặng không chạy mãi.
             case driveNotLinked
+            case telegramNotConfigured
         }
 
         case skipped(SkipReason)
-        case succeeded(fileName: String, size: String, prunedRemote: Int, prunedLocal: Int, pruneIncomplete: Bool)
+        case completed(
+            fileName: String,
+            size: String,
+            driveSent: Bool,
+            telegramSent: Bool,
+            failures: [String],
+            prunedRemote: Int,
+            prunedLocal: Int,
+            pruneIncomplete: Bool
+        )
         case failed(String)
 
         /// Hậu tố cho toast, nói về việc dọn bản cũ. Dùng chung cho cả hai đường (tự động và bấm tay)
         /// để câu chữ hai chỗ không trôi khỏi nhau; rỗng khi không có gì đáng nói.
         public var pruneNote: String {
-            guard case .succeeded(_, _, let prunedRemote, let prunedLocal, let pruneIncomplete) = self else { return "" }
+            guard case .completed(_, _, _, _, _, let prunedRemote, let prunedLocal, let pruneIncomplete) = self else {
+                return ""
+            }
             if pruneIncomplete { return " — chưa dọn hết bản cũ" }
             let pruned = prunedRemote + prunedLocal
             return pruned > 0 ? " — đã dọn \(pruned) bản cũ" : ""
         }
     }
 
-    /// `force == true` là đường bấm tay trong Cài đặt: bỏ qua cooldown và cả cờ bật/tắt, nhưng vẫn
-    /// cần đã đăng nhập Drive và không có việc khác đang chạy.
+    /// `force == true` là đường bấm tay trong Cài đặt: bỏ qua cooldown, nhưng chỉ gửi tới các đích
+    /// đang bật và vẫn dùng chung khoá với mọi việc sao lưu khác.
     @discardableResult
     public func runAutoDriveBackup(container: ModelContainer, force: Bool = false) async -> AutoDriveBackupOutcome {
-        guard GoogleDriveConfiguration.isConfigured else { return .skipped(.notDue) }
-        guard isDriveSignedIn else {
+        let wantsDrive = DriveAutoBackupPolicy.isEnabled
+        let wantsTelegram = DriveAutoBackupPolicy.isTelegramEnabled
+        guard wantsDrive || wantsTelegram else { return .skipped(.notDue) }
+        if wantsDrive && (!GoogleDriveConfiguration.isConfigured || !isDriveSignedIn) && !wantsTelegram {
             // Đường bấm tay luôn được trả lời ngay; lượt tự động thì nhắc theo nhịp của policy.
             guard !force else { return .skipped(.driveNotLinked) }
             guard DriveAutoBackupPolicy.shouldWarnDriveNotLinked() else { return .skipped(.notDue) }
             DriveAutoBackupPolicy.markDriveNotLinkedWarned()
             return .skipped(.driveNotLinked)
+        }
+        if wantsTelegram && !TelegramConfiguration.isConfigured && !wantsDrive {
+            return .skipped(.telegramNotConfigured)
         }
         guard !isBusy else { return .skipped(.notDue) }
         guard force || DriveAutoBackupPolicy.shouldRun() else { return .skipped(.notDue) }
@@ -65,24 +81,56 @@ extension BackupCoordinator {
             let worker = BackupExportWorker(container: container, scopes: scopes, report: autoReporter())
             let archive = try await worker.export(destination: destination)
 
-            setProgress(BackupProgress(phase: .uploading, detail: archive.fileURL.lastPathComponent))
-            _ = try await GoogleDriveUploader.shared.upload(fileURL: archive.fileURL, report: autoReporter())
+            var driveSent = false
+            var telegramSent = false
+            var failures: [String] = []
+            if wantsDrive {
+                if GoogleDriveConfiguration.isConfigured, isDriveSignedIn {
+                    do {
+                        setProgress(BackupProgress(phase: .uploading, detail: "Google Drive"))
+                        _ = try await GoogleDriveUploader.shared.upload(fileURL: archive.fileURL, report: autoReporter())
+                        driveSent = true
+                    } catch {
+                        failures.append("Drive: \(error.localizedDescription)")
+                    }
+                } else {
+                    failures.append("Drive: chưa đăng nhập")
+                }
+            }
+            if wantsTelegram {
+                if TelegramConfiguration.isConfigured {
+                    do {
+                        setProgress(BackupProgress(phase: .uploading, detail: "Telegram"))
+                        _ = try await TelegramBackupUploader.shared.upload(fileURL: archive.fileURL, report: autoReporter())
+                        telegramSent = true
+                    } catch {
+                        failures.append("Telegram: \(error.localizedDescription)")
+                    }
+                } else {
+                    failures.append("Telegram: chưa cấu hình")
+                }
+            }
 
-            let prunedRemote = await pruneRemoteAutoBackups()
+            let prunedRemote: (removed: Int, incomplete: Bool) = driveSent
+                ? await pruneRemoteAutoBackups()
+                : (removed: 0, incomplete: false)
             let prunedLocal = pruneLocalAutoBackups()
             refreshLocal()
-            await refreshDriveFiles()
+            if driveSent { await refreshDriveFiles() }
 
             let size = BackupSizeEstimator.format(BackupPaths.fileSize(at: archive.fileURL))
             setProgress(BackupProgress(phase: .finished, detail: size))
             AppLogger.shared.log(
-                "☁️ [AutoBackup] Đã tải lên \(archive.fileURL.lastPathComponent) — \(size);"
+                "☁️ [AutoBackup] Đã xử lý \(archive.fileURL.lastPathComponent) — \(size);"
                 + " dọn \(prunedRemote.removed) bản trên Drive, \(prunedLocal.removed) bản trong máy"
                 + (prunedRemote.incomplete || prunedLocal.incomplete ? "; còn bản cũ chưa dọn được" : "")
             )
-            return .succeeded(
+            return .completed(
                 fileName: archive.fileURL.lastPathComponent,
                 size: size,
+                driveSent: driveSent,
+                telegramSent: telegramSent,
+                failures: failures,
                 prunedRemote: prunedRemote.removed,
                 prunedLocal: prunedLocal.removed,
                 pruneIncomplete: prunedRemote.incomplete || prunedLocal.incomplete

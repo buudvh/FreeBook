@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// Cài đặt **tự động sao lưu lên Google Drive**: bật/tắt, nhịp chạy, nhóm nội dung và nút chạy ngay.
+/// Cài đặt lịch dùng chung cho Google Drive và Telegram.
 ///
 /// Cùng khuôn với [`NewChapterSettingsView`](../NewChapters/NewChapterSettingsView.swift): các
 /// `@AppStorage` bind đúng key mà [`DriveAutoBackupPolicy`](../../../Services/Backup/DriveAutoBackupPolicy.swift)
@@ -11,6 +11,7 @@ struct DriveAutoBackupSettingsView: View {
     @ObservedObject private var coordinator = BackupCoordinator.shared
 
     @AppStorage(DriveAutoBackupPolicy.enabledKey) private var isEnabled = true
+    @AppStorage(DriveAutoBackupPolicy.telegramEnabledKey) private var isTelegramEnabled = false
     @AppStorage(DriveAutoBackupPolicy.modeKey) private var modeRaw = DriveAutoBackupPolicy.Mode.cooldown.rawValue
     @AppStorage(DriveAutoBackupPolicy.cooldownHoursKey) private var cooldownHours = 24
     @AppStorage(DriveAutoBackupPolicy.dailyHourKey) private var dailyHour = 22
@@ -25,7 +26,7 @@ struct DriveAutoBackupSettingsView: View {
     var body: some View {
         Form {
             enableSection
-            if isEnabled {
+            if isEnabled || isTelegramEnabled {
                 scheduleSection
             }
             BackupScopeToggleList(selection: $scopes, header: "Nội dung sao lưu tự động")
@@ -48,11 +49,10 @@ struct DriveAutoBackupSettingsView: View {
     private var enableSection: some View {
         Section {
             Toggle("Tự động tải lên Google Drive", isOn: $isEnabled)
+            Toggle("Tự động gửi qua Telegram", isOn: $isTelegramEnabled)
+                .disabled(!TelegramConfiguration.isConfigured)
         } footer: {
-            Text("Chỉ chạy khi đã đăng nhập Google Drive, và chạy khoảng nửa phút sau khi mở app để"
-                 + " không tranh tài nguyên lúc khởi động. Trên Drive luôn giữ tối đa"
-                 + " \(DriveAutoBackupPolicy.maxVersions) bản tự động gần nhất — bản cũ hơn bị xoá,"
-                 + " bản bạn tự tạo hoặc tự tải lên không bị chạm tới.")
+            Text("Hai đích dùng chung lịch và nhóm nội dung, nhưng chạy độc lập. Mỗi kỳ chỉ tạo một archive. Telegram cần cấu hình Bot trước; Drive giữ tối đa \(DriveAutoBackupPolicy.maxVersions) bản tự động gần nhất.")
         }
     }
 
@@ -88,19 +88,18 @@ struct DriveAutoBackupSettingsView: View {
     private var statusSection: some View {
         Section {
             LabeledContent("Google Drive", value: driveStateText)
+            LabeledContent("Telegram", value: TelegramConfiguration.isConfigured ? "Đã cấu hình" : "Chưa cấu hình")
             LabeledContent("Lượt gần nhất", value: lastRunText)
             Button {
                 runNow()
             } label: {
-                Label("Sao lưu lên Drive ngay", systemImage: "arrow.up.doc")
+                Label("Sao lưu tới các đích ngay", systemImage: "arrow.up.doc")
             }
-            .disabled(coordinator.isBusy || !coordinator.isDriveSignedIn)
+            .disabled(coordinator.isBusy || !hasReadyDestination)
         } header: {
             Text("Trạng thái")
         } footer: {
-            Text(coordinator.isDriveSignedIn
-                 ? "Bấm chạy ngay là bỏ qua nhịp chờ, nhưng vẫn tính là lượt của kỳ này."
-                 : "Hãy đăng nhập Google Drive ở màn Sao Lưu & Khôi Phục trước.")
+            Text("Bấm chạy ngay là bỏ qua nhịp chờ, nhưng vẫn tính là lượt của kỳ này.")
         }
     }
 
@@ -114,12 +113,18 @@ struct DriveAutoBackupSettingsView: View {
             switch outcome {
             case .skipped(.driveNotLinked):
                 ToastManager.shared.show(message: "Chưa đăng nhập Google Drive", type: .error)
+            case .skipped(.telegramNotConfigured):
+                ToastManager.shared.show(message: "Chưa cấu hình Telegram", type: .error)
             case .skipped(.notDue):
                 ToastManager.shared.show(message: "Chưa chạy được lúc này, thử lại sau", type: .error)
-            case .succeeded(_, let size, _, _, let pruneIncomplete):
+            case .completed(_, let size, let driveSent, let telegramSent, let failures, _, _, let pruneIncomplete):
+                let destinations = [driveSent ? "Drive" : nil, telegramSent ? "Telegram" : nil]
+                    .compactMap { $0 }.joined(separator: " và ")
+                let failureNote = failures.isEmpty ? "" : " — " + failures.joined(separator: "; ")
                 ToastManager.shared.show(
-                    message: "Đã tải bản sao lưu \(size) lên Drive" + outcome.pruneNote,
-                    type: pruneIncomplete ? .info : .success
+                    message: "Đã tạo bản sao lưu \(size)" + (destinations.isEmpty ? "" : " và gửi tới \(destinations)")
+                        + failureNote + outcome.pruneNote,
+                    type: failures.isEmpty && !pruneIncomplete ? .success : .info
                 )
             case .failed(let message):
                 ToastManager.shared.show(message: "Sao lưu tự động thất bại: \(message)", type: .error)
@@ -132,6 +137,11 @@ struct DriveAutoBackupSettingsView: View {
     private var driveStateText: String {
         guard GoogleDriveConfiguration.isConfigured else { return "Chưa cấu hình" }
         return coordinator.isDriveSignedIn ? "Đã đăng nhập" : "Chưa đăng nhập"
+    }
+
+    private var hasReadyDestination: Bool {
+        (isEnabled && GoogleDriveConfiguration.isConfigured && coordinator.isDriveSignedIn)
+            || (isTelegramEnabled && TelegramConfiguration.isConfigured)
     }
 
     private var lastRunText: String {

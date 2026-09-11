@@ -15,6 +15,13 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Sao lưu Telegram, chia part và lịch đa đích (1.3.355)
+
+* Phân hệ Backup thêm Telegram Bot bên cạnh Google Drive: token nằm trong Keychain (file bảo vệ là đường lùi cho LiveContainer), Chat ID nằm trong UserDefaults, và màn cấu hình xác minh bằng `getMe` + `getChat` trước khi dùng.
+* Archive tới **49 MiB** gửi một document; file lớn hơn được chia streaming thành part, băm SHA-256 từng part và toàn bộ archive, rồi gửi manifest **cuối cùng**. Khôi phục chọn manifest + toàn bộ part trong Files; app ghép và kiểm checksum trước khi nhập `.fbbackup`.
+* Lịch tự động dùng chung archive/scopes/cooldown cho Drive và Telegram nhưng gửi độc lập: một đích lỗi không huỷ đích kia. Drive chỉ dọn bản remote khi upload Drive thành công; local vẫn giữ tối đa 5 bản tự động.
+* Thêm **6** file Swift (523 tổng trong cây làm việc); cần `xcodegen generate` và build trên macOS.
+
 ## Snapshot dịch bất biến, writer tuần tự và refresh latest-wins (1.3.354)
 
 * Mỗi lượt Reader/TTS/panel Dịch chụp một `TranslationReadContext`: generation, dictionary snapshot, rule snapshot, file tắt và cấu hình token/priority cùng đi qua một lượt tính. `FrozenTrieDictionary` thay loader mutable ở biên đọc.
