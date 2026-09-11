@@ -15,6 +15,12 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +14 file nhỏ, gate line-limit giảm 7 xuống 6 (1.3.354)
+
+* 14 file Swift mới tách theo vai trò snapshot/writer/memo/worker/presentation/TTS identity; tất cả dưới 400 dòng và đúng một primary type.
+* `TranslateUtils.swift` về đúng baseline **917**, không còn là violation. `TTSManager`, `DictionaryListView`, `ReaderViewModel` vẫn vượt baseline legacy dù tổng diff của các file này giảm; ba violation nền khác không liên quan giữ nguyên.
+* `check_architecture.py`: **6** line-limit violation, không có violation kiến trúc loại khác. Không nới allowlist/baseline.
+
 ## +1 file 55 dòng; hai file phân hệ debug tăng có kiểm soát (1.3.348)
 
 * `ExtensionDebugScriptScanner.swift` **55**/400, một type top level.

@@ -15,6 +15,18 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Một snapshot cho một lượt dịch; một writer cho mọi custom VP/Names (1.3.354)
+
+```text
+TXT/DAT loader -> frozen trie -> TranslationDictionaryState
+mutation -> TranslationDictionaryWriter(actor) -> read/modify/persist -> publish -> generation/notify
+caller -> TranslationReadContext.capture(bookId) -> translate/tokenize/rule diagnose -> bounded memo
+```
+
+* `TranslationMemo` thay các cache không ngân sách: giới hạn entry + cost, LRU và epoch chặn task đang bay chèn kết quả sau invalidation. `TokenizeMemo` key vẫn gồm generation, book, hai cờ và md5 text.
+* Reader dựng toàn chương như trước nhưng computation latest-wins và apply có thể hoãn; không dịch tăng dần theo dòng. Definition worker cache đúng một paragraph/traces gần nhất.
+* TTS ghi `translationToken` vào DTO và key prefetch; stale token rơi về fallback load/process cùng chương, không gọi đệ quy advance bằng cache stale.
+
 ## Nguồn cài đặt extension đi qua command; editor Run dùng trace debug (1.3.351)
 
 * **Luồng dữ liệu origin**: import zip đọc `plugin.json` như cũ rồi tạo `UpsertExtensionCommand(installOrigin: importZip)`; đồng bộ/cài từ kho tạo command `installOrigin: repository`; debug server cài mới dùng `ExtensionDraftMetadata.upsertCommand(localPath:)` với `debugServer`; debug server ghi đè bản đã có gọi `setInstallOrigin` sau khi swap file thành công. UI chỉ đọc `Extension.showsDebugBadge`.

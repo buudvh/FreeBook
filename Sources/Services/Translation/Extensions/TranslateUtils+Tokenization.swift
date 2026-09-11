@@ -2,6 +2,7 @@ import Foundation
 
 extension TranslateUtils {
     public static func getTranslationTokens(for sentence: String, bookId: String?) -> [TranslationWordToken] {
+        return TranslationReadContext.withSnapshot(bookId: bookId) {
         let tokens = tokenize(sentence, bookId: bookId)
         var wordTokens: [TranslationWordToken] = []
         let phienAm = TranslationManager.shared.phienAmMap
@@ -11,6 +12,7 @@ extension TranslateUtils {
         let totalUTF16Length = nsSentence.length
         
         for token in tokens {
+            if Task.isCancelled { return [] }
             let tokenUTF16Length = (token as NSString).length
             guard currentUTF16Offset + tokenUTF16Length <= totalUTF16Length else { break }
             let originalText = nsSentence.substring(with: NSRange(location: currentUTF16Offset, length: tokenUTF16Length))
@@ -31,6 +33,7 @@ extension TranslateUtils {
         }
         
         return wordTokens
+        }
     }
     
     public static func getSentenceRanges(in text: String) -> [SentenceRange] {

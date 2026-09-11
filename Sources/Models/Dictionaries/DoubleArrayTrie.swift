@@ -1,6 +1,7 @@
 import Foundation
 
 public protocol TrieDictionary {
+    func frozen() -> FrozenTrieDictionary
     func findLongestMatch(text: String, startIndex: Int) -> (length: Int, value: String)?
     func findAllPrefixMatches(text: String, startIndex: Int) -> [(length: Int, value: String)]
     var wordCount: Int { get }
@@ -39,6 +40,11 @@ public final class DoubleArrayTrie: TrieDictionary {
     }
     
     public init() {}
+
+    public func frozen() -> FrozenTrieDictionary {
+        FrozenTrieDictionary(dat: .init(base: base, check: check, charMap: fastCharMap,
+                                       data: data, poolOffset: stringPoolOffset, size: size))
+    }
     
     public func load(from fileURL: URL) throws {
         let fileData = try Data(contentsOf: fileURL, options: .mappedIfSafe)
@@ -114,97 +120,13 @@ public final class DoubleArrayTrie: TrieDictionary {
     }
     
     public func findLongestMatch(text: String, startIndex: Int) -> (length: Int, value: String)? {
-        guard isLoaded, startIndex < text.count else { return nil }
-        
-        let utf16 = Array(text.utf16)
-        
-        var currentState: Int32 = 1
-        var matchLen = -1
-        var matchStringPoolOffset: Int32 = -1
-        
-        var currentIndex = startIndex
-        let textLen = utf16.count
-        
-        while currentIndex < textLen {
-            let charVal = Int(utf16[currentIndex])
-            let charCode = charVal < 65536 ? fastCharMap[charVal] : 0
-            if charCode == 0 { break }
-            
-            let nextState = base[Int(currentState)] + charCode
-            if nextState < 0 || nextState >= baseLen || check[Int(nextState)] != currentState {
-                break
-            }
-            
-            let termState = base[Int(nextState)]
-            if termState >= 0 && termState < baseLen && check[Int(termState)] == nextState {
-                matchStringPoolOffset = base[Int(termState)]
-                matchLen = currentIndex - startIndex + 1
-            }
-            
-            currentState = nextState
-            currentIndex += 1
-        }
-        
-        if matchLen > 0 && matchStringPoolOffset >= 0 {
-            let absOffset = stringPoolOffset + Int(matchStringPoolOffset)
-            guard absOffset + 2 <= data.count else { return nil }
-            
-            let strLen = Int(data.readUInt16BE(at: absOffset))
-            guard absOffset + 2 + strLen <= data.count else { return nil }
-            
-            let strData = data.subdata(in: (absOffset + 2)..<(absOffset + 2 + strLen))
-            if let resultStr = String(data: strData, encoding: .utf8) {
-                return (matchLen, resultStr)
-            }
-        }
-        
-        return nil
+        guard isLoaded else { return nil }
+        return frozen().findLongestMatch(text: text, startIndex: startIndex)
     }
 
     public func findAllPrefixMatches(text: String, startIndex: Int) -> [(length: Int, value: String)] {
-        guard isLoaded, startIndex < text.count else { return [] }
-        
-        let utf16 = Array(text.utf16)
-        var currentState: Int32 = 1
-        var matches: [(length: Int, value: String)] = []
-        
-        var currentIndex = startIndex
-        let textLen = utf16.count
-        
-        while currentIndex < textLen {
-            let charVal = Int(utf16[currentIndex])
-            let charCode = charVal < 65536 ? fastCharMap[charVal] : 0
-            if charCode == 0 { break }
-            
-            let nextState = base[Int(currentState)] + charCode
-            if nextState < 0 || nextState >= baseLen || check[Int(nextState)] != currentState {
-                break
-            }
-            
-            let termState = base[Int(nextState)]
-            if termState >= 0 && termState < baseLen && check[Int(termState)] == nextState {
-                let matchStringPoolOffset = base[Int(termState)]
-                let matchLen = currentIndex - startIndex + 1
-                
-                if matchStringPoolOffset >= 0 {
-                    let absOffset = stringPoolOffset + Int(matchStringPoolOffset)
-                    if absOffset + 2 <= data.count {
-                        let strLen = Int(data.readUInt16BE(at: absOffset))
-                        if absOffset + 2 + strLen <= data.count {
-                            let strData = data.subdata(in: (absOffset + 2)..<(absOffset + 2 + strLen))
-                            if let resultStr = String(data: strData, encoding: .utf8) {
-                                matches.append((matchLen, resultStr))
-                            }
-                        }
-                    }
-                }
-            }
-            
-            currentState = nextState
-            currentIndex += 1
-        }
-        
-        return matches
+        guard isLoaded else { return [] }
+        return frozen().findAllPrefixMatches(text: text, startIndex: startIndex)
     }
     
 }

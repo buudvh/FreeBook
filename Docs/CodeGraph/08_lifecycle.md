@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời panel Dịch và refresh chương latest-wins (1.3.354)
+
+* Mở panel tạo identity mới và hiện UI ngay; worker nền tải token/meaning/matches/suggestions, còn trace debounce 150 ms. Đóng panel hoặc Reader huỷ hai handle và chặn kết quả cũ bằng identity.
+* Save VP/Names/rule đã vào actor writer/mutation thì không bị huỷ theo sheet; chỉ phần computation/loading lỗi thời bị huỷ. Save thành công hạ panel rồi notification kích refresh.
+* Reader gom refresh 500 ms. Khi selection, panel hoặc rule editor còn mở, computation có thể hoàn tất nhưng `Prepared` chỉ được apply sau khi overlay cuối cùng đóng và token/revision vẫn khớp.
+
 ## Vòng đời Run từ Script Editor và auto-scroll widget (1.3.351)
 
 * `ExtensionScriptEditorView` chỉ mở sheet debug khi file hiện tại là `.js` và nội dung có `execute(...)`. Nếu có thay đổi chưa lưu, `saveCurrentScript()` chạy trước; save lỗi thì không mở sheet, tránh chạy bản cũ trên đĩa.

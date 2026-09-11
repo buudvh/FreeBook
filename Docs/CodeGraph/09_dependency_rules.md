@@ -15,6 +15,12 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phụ thuộc mới của snapshot dịch vẫn một chiều (1.3.354)
+
+* Models cung cấp `FrozenTrieDictionary`; Services/Translation sở hữu state/writer/read-context/memo; Reader chỉ gọi API service và giữ state trình bày. Không Service mới nào import SwiftUI hoặc gọi Toast.
+* `TTSManager+TranslationIdentity` nằm trong Services/TTS và chỉ phụ thuộc model/config/translation token; Translation không phụ thuộc ngược vào TTS.
+* `ReaderDefinitionWorker` là actor ở tầng View nhưng computation thuần gọi Services; `ReaderDefinitionSession` là MainActor owner duy nhất của task/UI state.
+
 ## Vị trí tầng của bộ quét script và đường xoá hàng thư viện (1.3.348)
 
 * `ExtensionDebugScriptScanner` là `enum` static thuần ở `Debug/`, chỉ `import Foundation`. Không biết router, không biết SwiftData; nhận `localPath` và trả `[String]`.

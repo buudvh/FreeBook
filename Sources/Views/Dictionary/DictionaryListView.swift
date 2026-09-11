@@ -365,8 +365,14 @@ struct DictionaryListView: View {
 
     private func restoreDeletedWord(_ word: String) {
         let isName = type == .names
-        translationManager.removeDeletedWords([word], isName: isName)
-        ToastManager.shared.show(message: "Đã khôi phục: \(word)", type: .success)
+        Task {
+            do {
+                try await translationManager.removeDeletedWords([word], isName: isName)
+                ToastManager.shared.show(message: "Đã khôi phục: \(word)", type: .success)
+            } catch {
+                ToastManager.shared.show(message: "Lỗi: \(error.localizedDescription)", type: .error)
+            }
+        }
     }
 
     // MARK: - Data Operations
@@ -470,16 +476,7 @@ struct DictionaryListView: View {
                     try await cache.clearAllEntries(type: type)
                 } else {
                     guard let bid = bookId else { return }
-                    let translateDir = TranslationManager.shared.translateDirectory
-                    let bookDir = translateDir.appendingPathComponent("books").appendingPathComponent(bid)
-                    let txtUrl = bookDir.appendingPathComponent("\(type.fileName).txt")
-                    
-                    try? DictionaryTextFileStore.persist(records: [], to: txtUrl)
-                    
-                    TranslateUtils.clearCache()
-                    TranslationManager.shared.clearBookDictCache(for: bid)
-                    // Xoá cache chưa đủ: Reader chỉ dựng lại đoạn khi nhận notification này.
-                    TranslationManager.shared.notifyDictionariesDidUpdate(bookId: bid)
+                    try await TranslationDictionaryWriter.shared.mutate(isName: type == .names, bookId: bid) { $0.removeAll() }
 
                     let entries = await loadBookEntries()
                     bookEntries = entries
@@ -498,29 +495,7 @@ struct DictionaryListView: View {
                     try await cache.importEntries(from: url, type: type, isMerge: isMerge)
                 } else {
                     guard let bid = bookId else { return }
-                    let bookDir = TranslationManager.shared.translateDirectory
-                        .appendingPathComponent("books").appendingPathComponent(bid)
-                    try FileManager.default.createDirectory(at: bookDir, withIntermediateDirectories: true)
-                    let txtUrl = bookDir.appendingPathComponent("\(type.fileName).txt")
-                    let importedRecords = try DictionaryTextFileStore.parseRecords(from: url)
-
-                    let existing = isMerge
-                        ? ((try? DictionaryTextFileStore.parseRecords(from: txtUrl)) ?? [])
-                        : []
-                    let records = DictionaryTextFileStore.mergedRecords(
-                        imported: importedRecords,
-                        existing: existing,
-                        isMerge: isMerge
-                    )
-
-                    try await Task.detached(priority: .userInitiated) {
-                        try DictionaryTextFileStore.persist(records: records, to: txtUrl)
-                    }.value
-
-                    TranslateUtils.clearCache()
-                    TranslationManager.shared.clearBookDictCache(for: bid)
-                    // Xoá cache chưa đủ: Reader chỉ dựng lại đoạn khi nhận notification này.
-                    TranslationManager.shared.notifyDictionariesDidUpdate(bookId: bid)
+                    try await TranslationDictionaryWriter.shared.importEntries(from: url, isName: type == .names, bookId: bid, isMerge: isMerge)
                     let entries = await loadBookEntries()
                     bookEntries = entries
                 }
@@ -540,31 +515,14 @@ struct DictionaryListView: View {
                 let sourceURL = translateDir
                     .appendingPathComponent("books").appendingPathComponent(sourceBid)
                     .appendingPathComponent("\(type.fileName).txt")
-                let targetURL = translateDir
-                    .appendingPathComponent("books").appendingPathComponent(targetBook.bookId)
-                    .appendingPathComponent("\(type.fileName).txt")
-
                 let sourceRecords = (try? DictionaryTextFileStore.parseRecords(from: sourceURL)) ?? []
                 guard !sourceRecords.isEmpty else {
                     ToastManager.shared.show(message: "Từ điển này chưa có dữ liệu để chia sẻ.", type: .info)
                     return
                 }
 
-                let existing = isMerge
-                    ? ((try? DictionaryTextFileStore.parseRecords(from: targetURL)) ?? [])
-                    : []
-                let records = DictionaryTextFileStore.mergedRecords(
-                    imported: sourceRecords,
-                    existing: existing,
-                    isMerge: isMerge
-                )
-
-                try await Task.detached(priority: .userInitiated) {
-                    try DictionaryTextFileStore.persist(records: records, to: targetURL)
-                }.value
-
-                TranslateUtils.clearCache()
-                TranslationManager.shared.clearBookDictCache(for: targetBook.bookId)
+                try await TranslationDictionaryWriter.shared.importEntries(from: sourceURL, isName: type == .names,
+                    bookId: targetBook.bookId, isMerge: isMerge)
 
                 ToastManager.shared.show(message: "Đã chia sẻ \(type.displayName) sang truyện \(TranslateUtils.translateBookTitleIfNeeded(targetBook.title, bookId: targetBook.bookId))", type: .success)
             } catch {

@@ -19,20 +19,49 @@ public final class TranslationManager: ObservableObject {
     @Published public var downloadProgress: Double = 0.0
     @Published public var downloadMessage = ""
     
-    public private(set) var vietPhraseDict: TrieDictionary?
-    public private(set) var namesDict: TrieDictionary?
-    public private(set) var pronounsDict: TrieDictionary?
-    public private(set) var luatNhanDict: TrieDictionary?
-    public private(set) var phienAmMap: [String: String] = [:]
-    
-    @Published public private(set) var customVietPhraseDict: TrieDictionary?
-    @Published public private(set) var customNamesDict: TrieDictionary?
-    public private(set) var deletedVietPhrase: Set<String> = []
-    public private(set) var deletedNames: Set<String> = []
+    internal let dictionaryState = TranslationDictionaryState()
+    private var readState: TranslationDictionaryState.Global {
+        TranslationReadContext.current?.dictionaries ?? dictionaryState.read()
+    }
+    public private(set) var vietPhraseDict: TrieDictionary? {
+        get { readState.vietPhrase }
+        set { dictionaryState.update { $0.vietPhrase = newValue?.frozen() } }
+    }
+    public private(set) var namesDict: TrieDictionary? {
+        get { readState.names }
+        set { dictionaryState.update { $0.names = newValue?.frozen() } }
+    }
+    public private(set) var pronounsDict: TrieDictionary? {
+        get { readState.pronouns }
+        set { dictionaryState.update { $0.pronouns = newValue?.frozen() } }
+    }
+    public private(set) var luatNhanDict: TrieDictionary? {
+        get { readState.luatNhan }
+        set { dictionaryState.update { $0.luatNhan = newValue?.frozen() } }
+    }
+    public private(set) var phienAmMap: [String: String] {
+        get { readState.phienAm }
+        set { dictionaryState.update { $0.phienAm = newValue } }
+    }
+    public private(set) var customVietPhraseDict: TrieDictionary? {
+        get { readState.customVietPhrase }
+        set { dictionaryState.update { $0.customVietPhrase = newValue?.frozen() } }
+    }
+    public private(set) var customNamesDict: TrieDictionary? {
+        get { readState.customNames }
+        set { dictionaryState.update { $0.customNames = newValue?.frozen() } }
+    }
+    public private(set) var deletedVietPhrase: Set<String> {
+        get { readState.deletedVietPhrase }
+        set { dictionaryState.update { $0.deletedVietPhrase = newValue } }
+    }
+    public private(set) var deletedNames: Set<String> {
+        get { readState.deletedNames }
+        set { dictionaryState.update { $0.deletedNames = newValue } }
+    }
     @Published public private(set) var deletedVietPhraseList: [String] = []
     @Published public private(set) var deletedNamesList: [String] = []
     
-    private var bookDicts: [String: (vietPhrase: TrieDictionary?, names: TrieDictionary?)] = [:]
     private var txtWordCountsCache: [String: Int] = [:]
     
     private init() {
@@ -42,117 +71,46 @@ public final class TranslationManager: ObservableObject {
     }
     
     public func clearBookDictCache(for bookId: String? = nil) {
-        if let bid = bookId {
-            bookDicts.removeValue(forKey: bid)
-        } else {
-            bookDicts.removeAll()
-        }
+        dictionaryState.invalidate(bookId: bookId)
     }
     
     public func getBookDictionaries(for bookId: String) -> (vietPhrase: TrieDictionary?, names: TrieDictionary?) {
-        if let cached = bookDicts[bookId] {
-            return cached
+        if let context = TranslationReadContext.current, context.bookId == bookId {
+            return (context.bookDictionaries.vietPhrase, context.bookDictionaries.names)
         }
-        
-        let bookDir = translateDirectory.appendingPathComponent("books").appendingPathComponent(bookId)
-        let vpTxtUrl = bookDir.appendingPathComponent("VietPhrase.txt")
-        let namesTxtUrl = bookDir.appendingPathComponent("Names.txt")
-        
-        try? FileManager.default.createDirectory(at: bookDir, withIntermediateDirectories: true)
-        
-        var vp: TrieDictionary?
-        var names: TrieDictionary?
-        
-        // Load VietPhrase
-        if FileManager.default.fileExists(atPath: vpTxtUrl.path) {
-            let text = TextDictionary()
-            try? text.load(from: vpTxtUrl)
-            if text.isLoaded, text.wordCount > 0 { vp = text }
-        }
-        
-        // Load Names
-        if FileManager.default.fileExists(atPath: namesTxtUrl.path) {
-            let text = TextDictionary()
-            try? text.load(from: namesTxtUrl)
-            if text.isLoaded, text.wordCount > 0 { names = text }
-        }
-        
-        let result = (vietPhrase: vp, names: names)
-        bookDicts[bookId] = result
-        return result
+        let directory = translateDirectory.appendingPathComponent("books").appendingPathComponent(bookId)
+        let result = dictionaryState.book(bookId, directory: directory)
+        return (result.vietPhrase, result.names)
     }
 
     public func saveCustomEntry(word: String, meaning: String, isName: Bool, bookId: String?) async throws {
-        let fileUrl = customTextURL(isName: isName, bookId: bookId)
         let cleanWord = word.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanMeaning = DictionaryTextFileStore.normalizeMeaning(meaning)
         guard !cleanWord.isEmpty, !cleanMeaning.isEmpty else { return }
-        
-        // 1. Đọc danh sách custom/deleted theo đúng thứ tự file TXT.
-        var records = (try? DictionaryTextFileStore.parseRecords(from: fileUrl)) ?? []
-        
-        // 2. Cập nhật hoặc thêm từ mới, đưa entry mới sửa lên đầu danh sách.
-        records.removeAll { $0.key == cleanWord }
-        records.insert(DictionaryTextRecord(key: cleanWord, value: cleanMeaning), at: 0)
-        
-        // 3. Ghi TXT-only; helper tự xoá file .dat custom cũ cùng tên nếu còn.
-        try DictionaryTextFileStore.persist(records: records, to: fileUrl)
-        
-        // 4. Reset cache và nạp lại đúng phần bị ảnh hưởng (không đụng .dat / phiên âm)
-        if let bid = bookId {
-            // File TXT riêng của truyện đổi ⇒ chỉ cần bỏ cache; `getBookDictionaries` nạp lại lazy ở lần dịch sau.
-            bookDicts.removeValue(forKey: bid)
-        } else {
-            // Invalidate global dictionary cache
-            await MainActor.run {
-                DictionaryCache.shared.invalidate(type: isName ? .names : .vietPhrase)
-            }
-            await reloadCustomDictionary(isName: isName)
+        try await TranslationDictionaryWriter.shared.mutate(isName: isName, bookId: bookId,
+            scope: .term(word: cleanWord, isName: isName, bookId: bookId)) { records in
+            records.removeAll { $0.key == cleanWord }
+            records.insert(DictionaryTextRecord(key: cleanWord, value: cleanMeaning), at: 0)
         }
-        notifyDictionariesDidUpdate(bookId: bookId, scope: .term(word: cleanWord, isName: isName, bookId: bookId))
     }
 
     public func deleteCustomEntry(word: String, isName: Bool, bookId: String?) async throws {
-        let fileUrl = customTextURL(isName: isName, bookId: bookId)
         let cleanWord = word.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleanWord.isEmpty else { return }
-        
-        // 1. Xóa dòng custom/deleted cũ cùng key.
-        var records = (try? DictionaryTextFileStore.parseRecords(from: fileUrl)) ?? []
-        let initialRecords = records
-        records.removeAll { $0.key == cleanWord }
-        
-        // 2. Global delete của từ có trong base dictionary trở thành dòng blacklist `word=`.
-        if bookId == nil, existsInBaseDictionary(word: cleanWord, isName: isName) {
-            records.insert(DictionaryTextRecord(key: cleanWord, value: ""), at: 0)
-        }
-
-        if records != initialRecords {
-            try DictionaryTextFileStore.persist(records: records, to: fileUrl)
-        }
-        
-        // 3. Reset cache và nạp lại đúng phần bị ảnh hưởng (không đụng .dat / phiên âm)
-        if let bid = bookId {
-            bookDicts.removeValue(forKey: bid)
-        } else {
-            // Invalidate global dictionary cache
-            await MainActor.run {
-                DictionaryCache.shared.invalidate(type: isName ? .names : .vietPhrase)
+        try await TranslationDictionaryWriter.shared.mutate(isName: isName, bookId: bookId,
+            scope: .term(word: cleanWord, isName: isName, bookId: bookId)) { records in
+            records.removeAll { $0.key == cleanWord }
+            if bookId == nil, TranslationManager.shared.existsInBaseDictionary(word: cleanWord, isName: isName) {
+                records.insert(DictionaryTextRecord(key: cleanWord, value: ""), at: 0)
             }
-            await reloadCustomDictionary(isName: isName)
         }
-        notifyDictionariesDidUpdate(bookId: bookId, scope: .term(word: cleanWord, isName: isName, bookId: bookId))
     }
     
-    public func removeDeletedWords(_ words: [String], isName: Bool) {
-        let fileUrl = customTextURL(isName: isName, bookId: nil)
+    public func removeDeletedWords(_ words: [String], isName: Bool) async throws {
         let wordSet = Set(words.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) })
-        var records = (try? DictionaryTextFileStore.parseRecords(from: fileUrl)) ?? []
-        records.removeAll { $0.isDeleted && wordSet.contains($0.key) }
-
-        if (try? DictionaryTextFileStore.persist(records: records, to: fileUrl)) != nil {
-            updateDeletedState(from: records, isName: isName)
-            notifyDictionariesDidUpdate()
+        guard !wordSet.isEmpty else { return }
+        try await TranslationDictionaryWriter.shared.mutate(isName: isName, bookId: nil) { records in
+            records.removeAll { $0.isDeleted && wordSet.contains($0.key) }
         }
     }
 
@@ -164,32 +122,8 @@ public final class TranslationManager: ObservableObject {
     /// Cùng mẫu với `removeDeletedWords`: persist → cập nhật state hẹp → notify.
     public func reloadCustomDictionary(isName: Bool) async {
         let fileUrl = customTextURL(isName: isName, bookId: nil)
-        var records: [DictionaryTextRecord] = []
-        var reloaded: TrieDictionary? = nil
-
-        if FileManager.default.fileExists(atPath: fileUrl.path) {
-            records = (try? DictionaryTextFileStore.parseRecords(from: fileUrl)) ?? []
-            let text = TextDictionary()
-            try? text.load(from: fileUrl)
-            if text.isLoaded, text.wordCount > 0 { reloaded = text }
-        }
-
-        let loaded = reloaded != nil
-        if isName {
-            self.customNamesDict = reloaded
-        } else {
-            self.customVietPhraseDict = reloaded
-        }
-        // Dòng blacklist `word=` là cách biểu diễn "đã xoá", phải cập nhật cùng lúc với dict.
-        updateDeletedState(from: records, isName: isName)
-
-        await MainActor.run {
-            if isName {
-                self.isCustomNamesLoaded = loaded
-            } else {
-                self.isCustomVietPhraseLoaded = loaded
-            }
-        }
+        let records = (try? DictionaryTextFileStore.parseRecords(from: fileUrl)) ?? []
+        publishCustomRecords(records, isName: isName)
     }
 
     public func existsInBaseDictionary(word: String, isName: Bool) -> Bool {
@@ -199,7 +133,7 @@ public final class TranslationManager: ObservableObject {
         let loadedBaseDict = isName ? namesDict : vietPhraseDict
         if let loadedDict = loadedBaseDict,
            let match = loadedDict.findLongestMatch(text: cleanWord, startIndex: 0),
-           match.length == cleanWord.count {
+           match.length == cleanWord.utf16.count {
             return true
         }
 
@@ -213,10 +147,10 @@ public final class TranslationManager: ObservableObject {
               let match = dat.findLongestMatch(text: cleanWord, startIndex: 0) else {
             return false
         }
-        return match.length == cleanWord.count
+        return match.length == cleanWord.utf16.count
     }
 
-    private func customTextURL(isName: Bool, bookId: String?) -> URL {
+    internal func customTextURL(isName: Bool, bookId: String?) -> URL {
         let fileName: String
         if bookId != nil {
             fileName = isName ? "Names.txt" : "VietPhrase.txt"
@@ -236,11 +170,23 @@ public final class TranslationManager: ObservableObject {
     private func updateDeletedState(from records: [DictionaryTextRecord], isName: Bool) {
         let deletedList = records.filter { $0.isDeleted }.map { $0.key }
         if isName {
-            deletedNamesList = deletedList
             deletedNames = Set(deletedList)
+            dictionaryState.update { $0.deletedNamesList = deletedList }
         } else {
-            deletedVietPhraseList = deletedList
             deletedVietPhrase = Set(deletedList)
+            dictionaryState.update { $0.deletedVietPhraseList = deletedList }
+        }
+        Task { @MainActor in self.publishCustomUI(isName: isName) }
+    }
+
+    @MainActor internal func publishCustomUI(isName: Bool) {
+        let state = dictionaryState.read()
+        if isName {
+            deletedNamesList = state.deletedNamesList
+            isCustomNamesLoaded = state.customNames != nil
+        } else {
+            deletedVietPhraseList = state.deletedVietPhraseList
+            isCustomVietPhraseLoaded = state.customVietPhrase != nil
         }
     }
     
@@ -301,6 +247,7 @@ public final class TranslationManager: ObservableObject {
             if text.isLoaded, text.wordCount > 0 { tempCustomNames = text }
         }
         self.customNamesDict = tempCustomNames
+        publishCustomRecords(customNameRecords, isName: true)
         let customNamesLoaded = tempCustomNames != nil
         await MainActor.run { self.isCustomNamesLoaded = customNamesLoaded }
         
@@ -338,6 +285,7 @@ public final class TranslationManager: ObservableObject {
             if text.isLoaded, text.wordCount > 0 { tempCustomVP = text }
         }
         self.customVietPhraseDict = tempCustomVP
+        publishCustomRecords(customVPRecords, isName: false)
         let customVPLoaded = tempCustomVP != nil
         await MainActor.run { self.isCustomVietPhraseLoaded = customVPLoaded }
         

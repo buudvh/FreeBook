@@ -15,6 +15,13 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Cache có ngân sách; task Reader/TTS có owner và đường huỷ (1.3.354)
+
+* Ba `TranslationMemo` chính có trần entry/cost (dịch 8 MiB, title 1 MiB, tokenize 4 MiB; rule rewrite 2 MiB) và LRU dưới `NSLock`. Epoch tăng khi invalidation để kết quả đang bay không sống lại.
+* `ReaderDefinitionSession` giữ hai task; `CancellableTranslationWork` nối cancellation của task MainActor tới detached worker. Worker actor chỉ cache paragraph/trace gần nhất.
+* Reader giữ tối đa một prepared translation chờ apply. TTS update huỷ prepared task, claimed synthesis, prefetch DTO/audio và prefix cache cũ; không thêm file tạm hay observer name mới.
+* Writer actor giữ transaction file đến persist/publish/notify dù View đóng; không giữ `ModelContext` hoặc tài nguyên mạng.
+
 ## Không tài nguyên mới cho origin extension; Run editor dùng lại debug hub (1.3.351)
 
 * `installOrigin` chỉ là một `String` trong hàng SwiftData `Extension`. Nó không tạo file, cache, observer hay task mới; vòng đời đi cùng hàng extension và được xoá khi hàng bị xoá.

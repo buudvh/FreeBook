@@ -79,6 +79,7 @@ public final class QuickTranslationRuleMatcher {
     // MARK: - AST walk
 
     private func walk(_ stack: [Frame], _ position: Int) -> Int? {
+        if Task.isCancelled { return nil }
         steps += 1
         if steps > Self.stepCap {
             didExceedStepCap = true

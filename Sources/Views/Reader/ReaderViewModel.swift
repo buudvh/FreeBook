@@ -123,6 +123,7 @@ class ReaderViewModel: ObservableObject {
     /// `commitNavigation`. Bằng 0 nghĩa là log đang tắt (không đọc đồng hồ hệ thống).
     private var navigationStartUptime: TimeInterval = 0
     internal var translationRefreshTask: Task<Void, Never>? = nil
+    internal let translationPresentation = ReaderTranslationPresentation()
     private var queuedNavigation: ReaderNavigationRequest?
     private var navigationGeneration = 0
     private let bootstrapChapterIndex: Int
@@ -132,27 +133,6 @@ class ReaderViewModel: ObservableObject {
     private var cachedLocalBook: Book? = nil
     private var cachedExt: Extension? = nil
     var onChapterCached: ((Int) -> Void)?
-
-    func chapterTitle(at index: Int) -> String {
-        if let cached = cache.cache[index], !cached.title.isEmpty {
-            return cached.title
-        }
-        if onlineChapters.indices.contains(index) {
-            return onlineChapters[index].name
-        }
-        return "Chương \(index + 1)"
-    }
-
-    func originalChapterTitle(at index: Int) -> String? {
-        if let cached = cache.cache[index], !cached.originalTitle.isEmpty {
-            return cached.originalTitle
-        }
-        if onlineChapters.indices.contains(index) {
-            let title = onlineChapters[index].name
-            return title.isEmpty ? nil : title
-        }
-        return nil
-    }
 
     public func fetchChapterSnapshot(at index: Int) async -> StoredChapterSnapshot? {
         return try? await ChapterStore.shared.fetchChapter(bookId: bookId, index: index, url: "")
@@ -487,6 +467,11 @@ class ReaderViewModel: ObservableObject {
                     guard !Task.isCancelled,
                           let self,
                           request.generation == self.navigationGeneration else { return }
+                    guard cached.translationToken == TranslateUtils.translationGenerationToken(for: self.bookId) else {
+                        self.queuedNavigation = request
+                        self.startNavigationWorkerIfNeeded()
+                        return
+                    }
                     self.commitNavigation(request, origin: .memory)
                 }
                 return
@@ -763,6 +748,9 @@ class ReaderViewModel: ObservableObject {
     }
 
     func shutdown(saveProgress: Bool = true) async {
+        translationRefreshTask?.cancel()
+        translationRefreshTask = nil
+        translationPresentation.pending = nil
         dbSaveTask?.cancel()
         dbSaveTask = nil
         prefetchQueueTask?.cancel()
@@ -905,9 +893,6 @@ class ReaderViewModel: ObservableObject {
             }
         )
     }
-
-
-
     public func applyLocalTOCReconciliation(_ result: LocalTOCRefreshResult) {
         self.totalChaptersCount = result.totalCount
         guard !result.isTOCUnchanged else { return }

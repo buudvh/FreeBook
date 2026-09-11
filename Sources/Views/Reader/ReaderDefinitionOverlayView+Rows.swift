@@ -123,7 +123,7 @@ extension ReaderDefinitionOverlayView {
         }
         .buttonStyle(.borderedProminent)
         .controlSize(.small)
-        .disabled(customMeaning.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        .disabled(isSaving || customMeaning.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
 
     internal var quickLookupLinksView: some View {

@@ -1,6 +1,6 @@
 import Foundation
 
-public struct TranslationWordToken: Identifiable, Hashable {
+public struct TranslationWordToken: Identifiable, Hashable, Sendable {
     public var id = UUID()
     public let originalText: String
     public let translatedText: String

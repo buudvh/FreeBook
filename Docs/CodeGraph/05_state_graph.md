@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## State generation, request identity và deferred apply (1.3.354)
+
+* `TranslationDictionaryState.publicationRevision` tăng mỗi lần publish/invalidate; `translationGenerationToken` mang revision đó. `TranslationReadContext.isCurrent` kiểm cả token và revision trước khi cho cache/task publish.
+* `ReaderDefinitionSession` sở hữu `identity`, `requestID`, `meaningRevision`, hai task loading và các cờ loading/saving. Kết quả chỉ ghi UI khi cả request identity, panel state và generation còn khớp.
+* `ReaderTranslationPresentation` có `deferred` + tối đa một `pending`; Reader giữ `pendingTranslationScope`, debounce task 500 ms và cờ overlay deferral. Chương cache không hiện tại bị hạ token về 0.
+* `TTSPreparedNextChapterKey` và `ProcessedChapterDTO` mang `translationToken`; state prepared/DTO/audio mang token cũ không còn được consume.
+
 ## State origin extension, Run editor và bật lại auto-scroll từ widget (1.3.351)
 
 * `Extension.installOrigin` là state bền mới của hàng extension: `repository`, `importZip` hoặc `debugServer`. `RepositoryManagerView` không tự suy luận nguồn chính bằng path nữa, mà đọc `showsDebugBadge`; heuristic `repository == nil && downloadUrl.isEmpty && !localPath.isEmpty` chỉ còn để nhận diện hàng cũ được migrate với default.

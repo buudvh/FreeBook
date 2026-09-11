@@ -17,20 +17,8 @@ import Foundation
 final class TokenizeMemo {
     static let shared = TokenizeMemo()
 
-    /// `NSCache` chỉ giữ được kiểu class nên phải bọc mảng token.
-    private final class Entry {
-        let tokens: [String]
-        init(_ tokens: [String]) { self.tokens = tokens }
-    }
-
-    private let cache: NSCache<NSString, Entry>
-
-    private init() {
-        cache = NSCache<NSString, Entry>()
-        // Một chương dài cỡ 200–300 dòng; giữ rộng hơn một chương để lượt dựng span dùng lại được
-        // kết quả của lượt dịch, nhưng không giữ vô hạn.
-        cache.countLimit = 512
-    }
+    private let cache = TranslationMemo<[String]>(maxEntries: 512, maxCost: 4 * 1024 * 1024)
+    private init() {}
 
     /// `compute` chỉ chạy khi chưa có trong memo.
     ///
@@ -47,17 +35,18 @@ final class TokenizeMemo {
     ) -> [String] {
         guard !text.isEmpty else { return [] }
 
-        let key = "\(generation)|\(bookId ?? "global")|\(isPronounsEnabled ? 1 : 0)\(isLuatNhanEnabled ? 1 : 0)|\(text.md5())" as NSString
-        if let hit = cache.object(forKey: key) {
-            return hit.tokens
-        }
-
+        let key = "\(generation)|\(bookId ?? "global")|\(isPronounsEnabled ? 1 : 0)\(isLuatNhanEnabled ? 1 : 0)|\(text.md5())"
+        let lookup = cache.lookup(key)
+        if let hit = lookup.value { return hit }
         let value = compute()
-        cache.setObject(Entry(value), forKey: key)
+        if !Task.isCancelled, generation == TranslateUtils.translationGenerationToken(for: bookId) {
+            cache.insert(value, key: key, bookId: bookId,
+                         cost: value.reduce(0) { $0 + $1.utf16.count * 2 + 32 }, ticket: lookup.ticket)
+        }
         return value
     }
 
-    func clear() {
-        cache.removeAllObjects()
+    func clear(bookId: String? = nil) {
+        cache.invalidate(bookId: bookId)
     }
 }

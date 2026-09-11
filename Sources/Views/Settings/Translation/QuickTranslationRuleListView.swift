@@ -147,7 +147,12 @@ struct QuickTranslationRuleListView: View {
                 defaultScope: scope,
                 contextBookId: scope.isGlobal ? nil : scope.bookId
             ) { pattern, replacement, targetScope in
-                save(mode: mode, pattern: pattern, replacement: replacement, scope: targetScope)
+                let oldPattern: String?
+                if case .edit(let pattern, _, _, _) = mode { oldPattern = pattern } else { oldPattern = nil }
+                let result = await QuickTranslationRuleMutation.shared.perform(
+                    .upsert(oldPattern: oldPattern, pattern: pattern, replacement: replacement, scope: targetScope))
+                report(result, successMessage: "Đã lưu rule.")
+                return result
             }
         }
         .sheet(item: $shareSourceRule) { _ in
@@ -278,49 +283,6 @@ struct QuickTranslationRuleListView: View {
     }
 
     // MARK: - Thao tác
-
-    /// Ngữ nghĩa mượn nguyên của từ điển: thêm mà mẫu đã có ⇒ đè vế phải; đổi mẫu ⇒ như thêm mẫu mới
-    /// (rule cũ giữ nguyên); xoá ⇒ xoá hẳn dòng.
-    private func save(
-        mode: QuickTranslationRuleEditorSheet.Mode,
-        pattern: String,
-        replacement: String,
-        scope targetScope: QuickTranslationRuleScope
-    ) -> QuickTranslationRuleStore.LoadOutcome {
-        let outcome: QuickTranslationRuleStore.LoadOutcome
-        switch mode {
-        case .add:
-            outcome = QuickTranslationRuleTransfer.copy(
-                pattern: pattern,
-                replacement: replacement,
-                to: targetScope
-            )
-        case .edit(let oldPattern, _, _, _):
-            switch targetScope {
-            case .global:
-                outcome = QuickTranslationRuleStore.shared.updateRule(
-                    oldPattern: oldPattern,
-                    newPattern: pattern,
-                    replacement: replacement
-                )
-            case .book(let bookId):
-                outcome = QuickTranslationRuleBookStore.shared.updateRule(
-                    oldPattern: oldPattern,
-                    newPattern: pattern,
-                    replacement: replacement,
-                    bookId: bookId
-                )
-            }
-        }
-
-        if case .success(let ruleCount, _) = outcome {
-            ToastManager.shared.show(
-                message: "Đã lưu rule vào \(targetScope.longLabel.lowercased()). Bộ đó hiện có \(ruleCount) rule.",
-                type: .success
-            )
-        }
-        return outcome
-    }
 
     private func transfer(_ rule: QuickTranslationCompiledRule, to target: QuickTranslationRuleScope) {
         let outcome = QuickTranslationRuleTransfer.copy(

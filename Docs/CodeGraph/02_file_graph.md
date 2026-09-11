@@ -15,6 +15,18 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 14 file mới cho snapshot, writer, memo, Reader worker và TTS identity (1.3.354)
+
+| Nhóm | File mới | Vai trò |
+| --- | --- | --- |
+| Models | `FrozenTrieDictionary.swift` | snapshot trie TXT/DAT bất biến, lookup UTF-16 |
+| Translation | `TranslationDictionaryState`, `TranslationDictionaryWriter`, `TranslationReadContext`, `TranslationManager+Publication` | publish snapshot, serial write, TaskLocal context |
+| Cache/rule | `TranslationMemo`, `CancellableTranslationWork`, `QuickTranslationRuleMutation` | LRU budget, cancellation thật, mutation off-main tuần tự |
+| Reader | `ReaderDefinitionSession`, `ReaderDefinitionWorker`, `ReaderTranslationPresentation` và hai file extension | request identity, worker nền, apply/deferral latest-wins |
+| TTS | `TTSManager+TranslationIdentity` | dựng key chương kế có translation token |
+
+Tất cả file mới dưới 400 dòng và mỗi file có đúng một primary type.
+
 ## +1 file quét script; ba file phân hệ debug mở rộng (1.3.348)
 
 | File | Nội dung | Dòng |

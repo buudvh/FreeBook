@@ -15,6 +15,13 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Type snapshot/cancellation mới trên đường dịch (1.3.354)
+
+* `TrieDictionary` thêm `frozen() -> FrozenTrieDictionary`; `DoubleArrayTrie` và `TextDictionary` chỉ publish value bất biến. `DictionaryTextRecord`, `TranslationWordToken` và `DictionaryMatchInfo` là `Sendable` để qua worker nền.
+* `TranslationDictionaryState.Global/Book` giữ snapshot từ điển; `TranslationReadContext` là `Sendable` + `@TaskLocal`, mang cả dictionary revision và generation.
+* `TranslationMemo<Value: Sendable>` là LRU cost-bounded có epoch; `ProcessedChapterDTO` thêm `translationToken` để kết quả TTS tự chứng minh dữ liệu dịch dùng lúc dựng.
+* `ReaderDefinitionSession` là `@MainActor @Observable`; worker tương ứng là actor. `ReaderTranslationPresentation.Prepared` là payload chờ apply ở chương đang hiển thị.
+
 ## Nguồn cài extension và entry Run trong Script Editor (1.3.351)
 
 * **`Extension` đổi shape additive**: thêm `installOrigin: String = "repository"` cùng ba hằng `installOriginRepository/importZip/debugServer`. Đây là field bền để UI biết bản cài từ kho, import zip hay debug server; vì có default nên lightweight migration đủ. Computed `showsDebugBadge` trả `true` cho `importZip`/`debugServer` và fallback cho hàng cũ không thuộc kho (`repository == nil`, `downloadUrl` rỗng, `localPath` có thật).

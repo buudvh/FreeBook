@@ -119,6 +119,7 @@ struct ReaderView: View {
     @State var selectedTextForDefinition = "" // Từ/Câu đang được bôi đen chọn tra từ
     @State var showingDefinitionSheet = false // Hiện hộp thoại tra nghĩa từ điển
     @State var customMeaning = "" // Nghĩa tự định nghĩa của người dùng lưu lại
+    @State internal var definitionSession = ReaderDefinitionSession()
     @AppStorage("pinnedSaveToBookSpecific") var pinnedSaveToBookSpecific = true
     @AppStorage("pinnedSaveAsNameType") var pinnedSaveAsNameType = false
     @State var saveToBookSpecific = true
@@ -157,7 +158,6 @@ struct ReaderView: View {
     @State var showingCopyOriginalSheet = false
     @State var ruleTraces: [QuickTranslationRuleTrace] = []
     /// Lượt chẩn đoán rule đang bay — xem `refreshRuleTraces()`.
-    @State var ruleTracesTask: Task<Void, Never>? = nil
     @State var focusedRuleTraceID: String? = nil
     @State var ruleEditorMode: QuickTranslationRuleEditorSheet.Mode? = nil
     /// Có thao tác nào đổi dữ liệu rule trong lượt mở sheet này hay chưa — quyết định có dịch lại khi đóng.
@@ -561,6 +561,13 @@ struct ReaderView: View {
         .onChange(of: selectedWordOffset) { _, _ in
             if showingDefinitionSheet { refreshRuleTraces() }
         }
+        .onChange(of: isAnySelectionOrOverlayActive) { _, active in
+            viewModel?.setTranslationRefreshDeferred(active)
+            if !active { checkAndReleaseDeferredTranslationRefresh() }
+        }
+        .onChange(of: translationMode) { _, _ in
+            updateEditorFromSelection()
+        }
         .onChange(of: showingFloatingMenu) { _, newValue in
             if !newValue {
                 checkAndReleaseDeferredTranslationRefresh()
@@ -612,7 +619,11 @@ struct ReaderView: View {
             let targetBookId = notification.userInfo?["bookId"] as? String
             if targetBookId == nil || targetBookId == bookId {
                 let incomingScope = notification.userInfo?["scope"] as? DictionaryInvalidationScope ?? .globalReload
-                scheduleCoalescedTranslationRefresh(scope: incomingScope)
+                if incomingScope.affects(bookId: bookId) {
+                    viewModel?.cancelObsoleteTranslationRefresh()
+                    scheduleCoalescedTranslationRefresh(scope: incomingScope)
+                    loadDefinitionData(preservingMeaning: true)
+                }
             }
         }
     }
@@ -875,6 +886,8 @@ struct ReaderView: View {
             updateDisplayedBookTitleCache()
         }
         .onDisappear {
+            definitionSession.cancel()
+            translationRefreshDebounceTask?.cancel()
             ReaderEnergyDiagnostics.shared.flush(reason: "reader_disappear")
             viewModelRelay.observe(nil)
             metadataTask?.cancel()
@@ -1336,32 +1349,7 @@ struct ReaderView: View {
 
     func applyTranslation() {
         viewModel?.toggleTranslation(enabled: isTranslationEnabled)
-    }
-
-    internal func saveDefinition() {
-        let word = selectedTextForDefinition.trimmingCharacters(in: .whitespacesAndNewlines)
-        let meaning = customMeaning.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard !word.isEmpty && !meaning.isEmpty else { return }
-
-        let bid = saveToBookSpecific ? bookId : nil
-
-        Task {
-            do {
-                try await TranslationManager.shared.saveCustomEntry(word: word, meaning: meaning, isName: saveAsNameType, bookId: bid)
-                await MainActor.run {
-                    // Không tự dịch lại ở đây: `saveCustomEntry` đã post `.translationDictionariesDidUpdate`,
-                    // và `.onReceive` của view đã lo scope + debounce + deferral. Gọi thêm ở đây làm chương bị
-                    // dựng lại 2 lần cho một từ.
-                    showingDefinitionSheet = false
-                    applyTranslation()
-                    // Nếu notification tới trước khi overlay đóng thì nó đã bị defer — bung ra ở đây.
-                    checkAndReleaseDeferredTranslationRefresh()
-                }
-            } catch {
-                // AppLogger.shared.log("❌ Lỗi lưu định nghĩa từ: \(error.localizedDescription)")
-            }
-        }
+        scheduleCoalescedTranslationRefresh(scope: .config(bookId: bookId))
     }
 
     // MARK: - Flashcard Song ngữ & Tách Đoạn văn Helpers
@@ -1463,6 +1451,8 @@ struct ReaderView: View {
         chapterIndex: Int,
         paragraphItems: [ParagraphItem]
     ) {
+        // A panel owns its original paragraph while editing, including during TTS chapter advances.
+        if showingDefinitionSheet || ruleEditorMode != nil { return }
         if selectionRange.length == 0 || selectionRange.location == NSNotFound {
             self.showingFloatingMenu = false
             self.selectionMinY = nil
@@ -1481,12 +1471,17 @@ struct ReaderView: View {
             self.selectedDisplayedText = ""
         }
 
-        guard let originalRange = ReaderSelectionMapper.mapSelection(
-                selectionRange,
-                in: item,
-                isTranslationEnabled: isTranslationEnabled,
-                bookId: bookId
-              ) else { return }
+        let generation = TranslateUtils.translationGenerationToken(for: bookId)
+        let originalRange: NSRange
+        if let last = definitionSession.lastSelection, last.chapter == chapterIndex,
+           last.item == item, last.range == selectionRange, last.generation == generation {
+            originalRange = last.mapped
+        } else {
+            guard let mapped = ReaderSelectionMapper.mapSelection(selectionRange, in: item,
+                isTranslationEnabled: isTranslationEnabled, bookId: bookId) else { return }
+            originalRange = mapped
+            definitionSession.lastSelection = (chapterIndex, item, selectionRange, generation, mapped)
+        }
 
         self.editingParagraphIndex = paragraphID
         self.originalSentence = item.original
@@ -1689,37 +1684,42 @@ struct ReaderView: View {
 
     private var isAnySelectionOrOverlayActive: Bool {
         showingFloatingMenu || showingDefinitionSheet || showingAddNghiTTSPhonemeSheet || showingJunkDeleteSheet || showingAddTTSReplacementSheet
-            || showingCopyOriginalSheet
+            || showingCopyOriginalSheet || ruleEditorMode != nil || showingManageDefinitionsSheet
     }
 
     func checkAndReleaseDeferredTranslationRefresh() {
         if !isAnySelectionOrOverlayActive && isTranslationRefreshDeferred {
             isTranslationRefreshDeferred = false
-            scheduleCoalescedTranslationRefresh()
+            scheduleCoalescedTranslationRefresh(scope: pendingTranslationScope ?? .globalReload)
         }
     }
 
     private func scheduleCoalescedTranslationRefresh(scope: DictionaryInvalidationScope = .globalReload) {
         let mergedScope: DictionaryInvalidationScope = {
             guard let current = pendingTranslationScope else { return scope }
-            if current == .globalReload || scope == .globalReload { return .globalReload }
-            if case .config = current { return current }
-            if case .config = scope { return scope }
-            return current
+            return current == scope ? current : .globalReload
         }()
         pendingTranslationScope = mergedScope
 
         if isAnySelectionOrOverlayActive {
             isTranslationRefreshDeferred = true
+            translationRefreshDebounceTask?.cancel()
+            viewModel?.setTranslationRefreshDeferred(true)
             return
         }
 
         translationRefreshDebounceTask?.cancel()
         translationRefreshDebounceTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 150_000_000)
+            try? await Task.sleep(nanoseconds: 500_000_000)
             guard !Task.isCancelled else { return }
+            if isAnySelectionOrOverlayActive {
+                isTranslationRefreshDeferred = true
+                viewModel?.setTranslationRefreshDeferred(true)
+                return
+            }
             let finalScope = pendingTranslationScope ?? .globalReload
             pendingTranslationScope = nil
+            viewModel?.setTranslationRefreshDeferred(false)
             viewModel?.updateCachedTranslatedContent(bookId: bookId, scope: finalScope)
         }
     }

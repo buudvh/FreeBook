@@ -14,7 +14,8 @@ extension ReaderViewModel {
         try Task.checkCancellation()
         let normalizedText = ChapterTextNormalizer.normalize(originalContent)
         try Task.checkCancellation()
-        let buildResult = try await buildCancellable(
+        let context = TranslationReadContext.capture(bookId: bookId)
+        let buildResult = try TranslationReadContext.$current.withValue(context) { try buildCancellable(
             originalTitle: originalTitle,
             normalizedText: normalizedText,
             isTranslationEnabled: isTranslationEnabled,
@@ -22,7 +23,7 @@ extension ReaderViewModel {
             showTitle: showTitle,
             removeDuplicatedTitle: removeDuplicatedTitle,
             bookId: bookId
-        )
+        ) }
         try Task.checkCancellation()
         return (normalizedText.content, buildResult)
     }
@@ -35,7 +36,7 @@ extension ReaderViewModel {
         showTitle: Bool,
         removeDuplicatedTitle: Bool,
         bookId: String
-    ) async throws -> ReaderParagraphBuildResult {
+    ) throws -> ReaderParagraphBuildResult {
         try Task.checkCancellation()
 
         var buildLines = normalizedText.lines
@@ -113,7 +114,8 @@ extension ReaderViewModel {
         index: Int,
         originalTitle: String,
         originalContent: String,
-        revision: Int
+        revision: Int,
+        defersPresentation: Bool = false
     ) async {
         var targetRevision = revision
         while !Task.isCancelled {
@@ -152,29 +154,15 @@ extension ReaderViewModel {
                    self.isTranslationEnabled == isTranslationEnabled,
                    self.shouldConvertTraditionalToSimplified == shouldConvertTraditionalToSimplified,
                    TranslateUtils.translationGenerationToken(for: bookId) == currentToken {
-                    let cached = cache.cache[index] ?? cache.setPlaceholder(index)
-
-                    let isDisplayEqual = cached.originalTitle == originalTitle &&
-                        cached.originalContent == normContent &&
-                        cached.title == result.translatedTitle &&
-                        cached.content == result.translatedContent &&
-                        cached.paragraphItems == result.paragraphItems &&
-                        cached.isTranslationEnabled == isTranslationEnabled &&
-                        cached.shouldConvertTraditionalToSimplified == shouldConvertTraditionalToSimplified &&
-                        cached.state == .loaded
-
-                    if !isDisplayEqual {
-                        cached.originalTitle = originalTitle
-                        cached.originalContent = normContent
-                        cached.title = result.translatedTitle
-                        cached.content = result.translatedContent
-                        cached.paragraphItems = result.paragraphItems
-                        cached.isTranslationEnabled = isTranslationEnabled
-                        cached.shouldConvertTraditionalToSimplified = shouldConvertTraditionalToSimplified
-                        cached.state = .loaded
+                    let prepared = ReaderTranslationPresentation.Prepared(index: index,
+                        originalTitle: originalTitle, originalContent: normContent, result: result,
+                        revision: targetRevision, token: currentToken, translationEnabled: isTranslationEnabled,
+                        convertTraditional: shouldConvertTraditionalToSimplified)
+                    if defersPresentation && translationPresentation.deferred {
+                        if displayedChapterIndex == index { translationPresentation.pending = prepared }
+                    } else if !defersPresentation || displayedChapterIndex == index {
+                        applyPreparedTranslation(prepared)
                     }
-                    cached.revision = targetRevision
-                    cached.translationToken = currentToken
                     return
                 } else {
                     targetRevision = self.currentRevision
@@ -219,6 +207,10 @@ extension ReaderViewModel {
             }
         }
 
+        if let cached = cache.cache[currentIndex],
+           cached.translationToken == TranslateUtils.translationGenerationToken(for: bookId),
+           cached.isTranslationEnabled == isTranslationEnabled,
+           cached.shouldConvertTraditionalToSimplified == shouldConvertTraditionalToSimplified { return }
         refreshParagraphItems()
     }
 
@@ -235,7 +227,9 @@ extension ReaderViewModel {
     }
 
     func refreshParagraphItems() {
-        translationRefreshTask?.cancel()
+        let previous = translationRefreshTask
+        previous?.cancel()
+        translationPresentation.pending = nil
         currentRevision += 1
         let taskRevision = currentRevision
 
@@ -249,13 +243,16 @@ extension ReaderViewModel {
         let startUptime = isPerfLogging ? ProcessInfo.processInfo.systemUptime : 0
 
         translationRefreshTask = Task { [weak self] in
+            await previous?.value
+            guard !Task.isCancelled else { return }
             guard let self else { return }
 
             await self.processAndSaveChapter(
                 index: currentIndex,
                 originalTitle: originalTitle,
                 originalContent: originalContent,
-                revision: taskRevision
+                revision: taskRevision,
+                defersPresentation: true
             )
 
             if isPerfLogging {

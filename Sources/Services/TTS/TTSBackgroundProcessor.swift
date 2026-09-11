@@ -8,6 +8,7 @@ public struct ProcessedChapterDTO: Sendable {
     public let paragraphs: [TTSParagraph]
     public let sessionID: UUID
     public let generation: Int
+    public let translationToken: Int
 }
 
 public actor TTSBackgroundProcessor {
@@ -27,6 +28,15 @@ public actor TTSBackgroundProcessor {
         generation: Int,
         snapshot: TTSPretranslatedSnapshot? = nil
     ) throws -> ProcessedChapterDTO {
+        if TranslationReadContext.current == nil || TranslationReadContext.current?.bookId != bookId {
+            return try TranslationReadContext.withSnapshot(bookId: bookId) {
+                try processChapter(bookId: bookId, chapterIndex: chapterIndex, chapterTitle: chapterTitle,
+                    rawContent: rawContent, chunkLength: chunkLength, shouldTranslateRawContent: shouldTranslateRawContent,
+                    shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified,
+                    includeChapterTitle: includeChapterTitle, removeDuplicatedTitle: removeDuplicatedTitle,
+                    sessionID: sessionID, generation: generation, snapshot: snapshot)
+            }
+        }
         try Task.checkCancellation()
 
         // 1. Normalize raw content to get lines with IDs
@@ -48,7 +58,7 @@ public actor TTSBackgroundProcessor {
         let lineEntries: [TTSLineEntry]
         let simpleEntries: [(id: Int, text: String)]
 
-        let currentToken = TranslateUtils.translationGenerationToken(for: bookId)
+        let currentToken = TranslationReadContext.cacheGeneration(for: bookId)
         if let snapshot = snapshot,
            snapshot.isTranslationEnabled == shouldTranslateRawContent,
            snapshot.shouldConvertTraditionalToSimplified == shouldConvertTraditionalToSimplified,
@@ -58,7 +68,8 @@ public actor TTSBackgroundProcessor {
             lineEntries = snapshot.entries
             simpleEntries = snapshot.entries.map { (id: $0.lineId, text: $0.translatedText) }
         } else if shouldTranslateRawContent {
-            let mapped = lines.map { line -> (TTSLineEntry, (id: Int, text: String)) in
+            let mapped = try lines.map { line -> (TTSLineEntry, (id: Int, text: String)) in
+                try Task.checkCancellation()
                 if TranslateUtils.containsChinese(line.text) {
                     let result = TranslateUtils.translateContentWithMapping(
                         line.text,
@@ -120,7 +131,8 @@ public actor TTSBackgroundProcessor {
             normalizedContent: gapPreservedContent,
             paragraphs: paragraphs,
             sessionID: sessionID,
-            generation: generation
+            generation: generation,
+            translationToken: currentToken
         )
     }
 }

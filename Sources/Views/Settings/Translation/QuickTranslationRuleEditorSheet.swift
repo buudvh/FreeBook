@@ -59,7 +59,7 @@ struct QuickTranslationRuleEditorSheet: View {
         _ pattern: String,
         _ replacement: String,
         _ scope: QuickTranslationRuleScope
-    ) -> QuickTranslationRuleStore.LoadOutcome
+    ) async -> QuickTranslationRuleStore.LoadOutcome
 
     @Environment(\.dismiss) private var dismiss
 
@@ -80,6 +80,7 @@ struct QuickTranslationRuleEditorSheet: View {
     @State var replacementSelectionLength: Int
     /// Lỗi do store trả về lúc lưu (khác với lỗi cú pháp mà bản nháp tự chấm được).
     @State private var errorText: String? = nil
+    @State private var isSaving = false
     /// Bật khi bấm Lưu ở chế độ **thêm** và có truyện đang mở: phạm vi được chọn ngay lúc lưu thay vì
     /// bằng một ô chọn nằm sẵn trong form.
     @State private var showingScopeDialog = false
@@ -103,7 +104,7 @@ struct QuickTranslationRuleEditorSheet: View {
             _ pattern: String,
             _ replacement: String,
             _ scope: QuickTranslationRuleScope
-        ) -> QuickTranslationRuleStore.LoadOutcome
+        ) async -> QuickTranslationRuleStore.LoadOutcome
     ) {
         self.mode = mode
         self.defaultScope = defaultScope
@@ -197,7 +198,7 @@ struct QuickTranslationRuleEditorSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Lưu") { submit() }
-                        .disabled(!canSave)
+                        .disabled(!canSave || isSaving)
                 }
             }
             .confirmationDialog(
@@ -358,13 +359,20 @@ struct QuickTranslationRuleEditorSheet: View {
     /// "trùng mẫu thì báo lỗi" nào.
     private func performSubmit(scope: QuickTranslationRuleScope) {
         let key = pattern.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !key.isEmpty else { return }
-
-        switch onSubmit(key, replacement, scope) {
+        guard !key.isEmpty, !isSaving else { return }
+        let submitted = currentDraft
+        let value = replacement
+        isSaving = true
+        Task { @MainActor in
+        let outcome = await onSubmit(key, value, scope)
+        isSaving = false
+        switch outcome {
         case .success:
             errorText = nil
-            QuickTranslationRuleDraftStore.shared.clear(id: mode.id)
-            dismiss()
+            if currentDraft == submitted {
+                QuickTranslationRuleDraftStore.shared.clear(id: mode.id, matching: submitted)
+                dismiss()
+            }
         case .rejected(let issues):
             if let first = issues.first {
                 errorText = "Dòng \(first.sourceLine) — \(first.code.rawValue): \(first.message)"
@@ -373,6 +381,7 @@ struct QuickTranslationRuleEditorSheet: View {
             }
         case .failure(let message):
             errorText = message
+        }
         }
     }
 }

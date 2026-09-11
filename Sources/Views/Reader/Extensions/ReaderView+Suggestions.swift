@@ -14,7 +14,7 @@ extension ReaderView {
 
     /// Thứ tự ưu tiên giữ **y nguyên** bản computed property cũ: Names riêng → Names custom → Names chung →
     /// VietPhrase riêng → VietPhrase custom → VietPhrase chung → phiên âm Hán-Việt.
-    static func buildSuggestionChips(for rawWord: String, bookId: String) -> [SuggestionChip] {
+    nonisolated static func buildSuggestionChips(for rawWord: String, bookId: String) -> [SuggestionChip] {
         var chips: [SuggestionChip] = []
         let word = rawWord.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !word.isEmpty else { return [] }
@@ -41,7 +41,7 @@ extension ReaderView {
         // 1. Book Names
         if let bookNames = bookDicts.names,
            let match = bookNames.findLongestMatch(text: word, startIndex: 0),
-           match.length == word.count {
+           match.length == word.utf16.count {
             addTranslation(match.value, category: .name)
         }
 
@@ -49,7 +49,7 @@ extension ReaderView {
         var hasCustomName = false
         if let customNames = manager.customNamesDict,
            let match = customNames.findLongestMatch(text: word, startIndex: 0),
-           match.length == word.count {
+           match.length == word.utf16.count {
             addTranslation(match.value, category: .name)
             hasCustomName = true
         }
@@ -59,14 +59,14 @@ extension ReaderView {
            !manager.deletedNames.contains(word),
            let names = manager.namesDict,
            let match = names.findLongestMatch(text: word, startIndex: 0),
-           match.length == word.count {
+           match.length == word.utf16.count {
             addTranslation(match.value, category: .name)
         }
 
         // 3. Book VietPhrase
         if let bookVP = bookDicts.vietPhrase,
            let match = bookVP.findLongestMatch(text: word, startIndex: 0),
-           match.length == word.count {
+           match.length == word.utf16.count {
             addTranslation(match.value, category: .vietPhrase)
         }
 
@@ -74,7 +74,7 @@ extension ReaderView {
         var hasCustomVP = false
         if let customVP = manager.customVietPhraseDict,
            let match = customVP.findLongestMatch(text: word, startIndex: 0),
-           match.length == word.count {
+           match.length == word.utf16.count {
             addTranslation(match.value, category: .vietPhrase)
             hasCustomVP = true
         }
@@ -84,14 +84,14 @@ extension ReaderView {
            !manager.deletedVietPhrase.contains(word),
            let vp = manager.vietPhraseDict,
            let match = vp.findLongestMatch(text: word, startIndex: 0),
-           match.length == word.count {
+           match.length == word.utf16.count {
             if match.value.count < 100 {
                 addTranslation(match.value, category: .vietPhrase)
             }
         }
 
         // 5. Phiên âm Hán Việt — gọi thẳng coordinator vì `getHanViet` là private của ReaderView.
-        let hv = ReaderSelectionCoordinator.shared.getHanViet(for: word).lowercased()
+        let hv = ReaderSelectionCoordinator.hanViet(for: word).lowercased()
         if !hv.isEmpty {
             let isDuplicate = chips.contains { existing in
                 existing.text == hv

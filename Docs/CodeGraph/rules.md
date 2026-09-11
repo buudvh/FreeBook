@@ -15,6 +15,15 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Translation snapshot, mutation and refresh invariants (1.3.354)
+
+* **One synchronous translation pass uses one `TranslationReadContext`.** Dictionary tries, tombstones, per-book dictionaries, rule snapshots, disabled rules, token/priority configuration and generation must not be re-read independently midway through a pass.
+* **Published dictionaries are immutable.** Loader objects may mutate while loading, but only `FrozenTrieDictionary` values cross into `TranslationDictionaryState`. All lookup offsets and match lengths are UTF-16.
+* **Accepted VP/Names runtime writes are serial and non-cancellable.** Route custom global/per-book CRUD, import and tombstone restore through `TranslationDictionaryWriter`; persist first, then publish/invalidate, then notify. Presentation cancellation may cancel CPU lookup, never an accepted save.
+* **Translation caches require both budgets and stale-insert protection.** Every memo has entry/cost limits; invalidation advances an epoch so an in-flight old computation cannot insert afterward. Every tokenization input must remain in its key/generation.
+* **Reader refresh is latest-wins and presentation-aware.** Coalesce dictionary/rule notifications for 500 ms, invalidate non-current chapter tokens, and never apply rebuilt paragraph content while a selection/definition/rule overlay owns that paragraph. Pending apply must re-check chapter, revision, translation token and settings.
+* **TTS next-chapter identity includes `translationToken`.** Dictionary/rule updates affecting the playing book invalidate prepared current data, next DTO/audio, prefix audio and claimed synthesis. A stale DTO must reprocess the same chapter; it must not recursively advance using the stale cache.
+
 ## Extension origin and editor-run invariants (1.3.351)
 
 * **`Extension.installOrigin` is the durable source of install provenance.** Views may display it but must not assign it directly; writes go through `UpsertExtensionCommand.installOrigin` or `ExtensionTransactionCoordinator.setInstallOrigin`. Repository installs must set `repository`, import zip must set `importZip`, and debug server installs/overwrites must set `debugServer`.

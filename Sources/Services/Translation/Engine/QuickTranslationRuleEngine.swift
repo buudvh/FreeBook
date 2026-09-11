@@ -23,10 +23,6 @@ public enum QuickTranslationRuleEngine {
         case ignoreTokenConfiguration
     }
 
-    private final class CacheEntry {
-        let result: QuickTranslationRewriteResult
-        init(_ result: QuickTranslationRewriteResult) { self.result = result }
-    }
 
     /// `internal` chứ không `private`: `QuickTranslationRuleDiagnostics` phải dùng **đúng** hàm
     /// `select` này, không được cài lại 6 tiêu chí ưu tiên ở chỗ thứ hai.
@@ -56,45 +52,45 @@ public enum QuickTranslationRuleEngine {
 
     /// Memo nhỏ: pipeline gọi `rewrite` hai lần cho cùng một chuỗi (một lần để dịch, một lần để dựng
     /// span), không có memo là chạy engine hai lượt.
-    private static let cache: NSCache<NSString, CacheEntry> = {
-        let cache = NSCache<NSString, CacheEntry>()
-        cache.countLimit = 64
-        return cache
-    }()
+    private static let cache = TranslationMemo<QuickTranslationRewriteResult>(maxEntries: 64, maxCost: 2 * 1024 * 1024)
 
     /// `nil` khi công tắc tắt hoặc **cả hai** bộ đều không có rule — bên gọi giữ nguyên đường dịch cũ.
     public static func rewrite(_ text: String, bookId: String?) -> QuickTranslationRewriteResult? {
         guard !text.isEmpty else { return nil }
-        let globalSnapshot = QuickTranslationRuleStore.shared.activeSnapshot
-        let bookSnapshot = QuickTranslationRuleBookStore.shared.activeSnapshot(for: bookId)
+        let context = TranslationReadContext.current ?? TranslationReadContext.capture(bookId: bookId)
+        guard context.rulesEnabled else { return nil }
+        let globalSnapshot = nonEmpty(context.globalRules)
+        let bookSnapshot = nonEmpty(context.bookRules)
         guard globalSnapshot != nil || bookSnapshot != nil else { return nil }
 
-        let tokenConfiguration = QuickTranslationBookEngineConfigStore.shared
-            .tokenConfiguration(bookId: bookId)
-        let priority = QuickTranslationBookEngineConfigStore.shared
-            .priorityConfiguration(bookId: bookId)
+        let tokenConfiguration = context.tokens
+        let priority = context.priority
 
         // Khoá mang generation của **cả hai** bộ: hai truyện khác nhau đã khác `bookId`, nhưng cùng
         // một truyện sau khi sửa bộ riêng phải là khoá khác. `priority.signature` cũng phải có mặt —
         // đổi thứ tự ưu tiên mà không đổi khoá là cache cũ tiếp tục trả kết quả của thứ tự cũ.
-        let key = "\(globalSnapshot?.generation ?? 0)|\(bookSnapshot?.generation ?? 0)"
-            + "|\(tokenConfiguration.signature)|\(priority.signature)|\(bookId ?? "global")|\(text.md5())" as NSString
-        if let cached = cache.object(forKey: key) { return cached.result }
+        let key = "\(context.generation)|\(globalSnapshot?.generation ?? 0)|\(bookSnapshot?.generation ?? 0)"
+            + "|\(tokenConfiguration.signature)|\(priority.signature)|\(bookId ?? "global")|\(text.md5())"
+        let lookup = cache.lookup(key)
+        if let cached = lookup.value { return cached }
 
-        let result = execute(
+        let result = TranslationReadContext.$current.withValue(context) { execute(
             text,
             bookSnapshot: bookSnapshot,
             globalSnapshot: globalSnapshot,
             bookId: bookId,
             tokenConfiguration: tokenConfiguration,
             priority: priority
-        )
-        cache.setObject(CacheEntry(result), forKey: key)
+        ) }
+        if !Task.isCancelled, context.isCurrent {
+            cache.insert(result, key: key, bookId: bookId,
+                         cost: result.text.utf16.count * 4 + text.utf16.count * 64, ticket: lookup.ticket)
+        }
         return result
     }
 
-    public static func clearCache() {
-        cache.removeAllObjects()
+    public static func clearCache(bookId: String? = nil) {
+        cache.invalidate(bookId: bookId)
     }
 
     /// Dùng cho ô thử nhanh ở màn hình quản lý: luôn bỏ qua công tắc tổng và không dùng memo, nhưng
@@ -147,7 +143,7 @@ public enum QuickTranslationRuleEngine {
             text: text,
             dictionaries: QuickTranslationDictionaryToken.resolve(bookId: bookId)
         )
-        let disable = QuickTranslationRuleDisableStore.shared.snapshot(bookId: bookId)
+        let disable = TranslationReadContext.current?.disabledRules ?? QuickTranslationRuleDisableStore.shared.snapshot(bookId: bookId)
 
         var found: [Found] = []
         // Bộ riêng đi trước cho dễ đọc log; thứ tự thu match không ảnh hưởng kết quả vì `select`
@@ -195,6 +191,7 @@ public enum QuickTranslationRuleEngine {
 
         var found: [Found] = []
         for candidate in candidates {
+            if Task.isCancelled { return [] }
             let rule = snapshot.rules[candidate.ruleIndex]
             if !includesDisabled {
                 guard rule.isEnabled(for: tokenConfiguration) else { continue }
@@ -202,6 +199,7 @@ public enum QuickTranslationRuleEngine {
             }
             var cursor = 0
             for start in candidate.starts where start >= cursor {
+                if Task.isCancelled { return [] }
                 guard let match = matcher.match(rule, at: start) else {
                     if matcher.didExceedStepCap {
                         if notesComplexRules {

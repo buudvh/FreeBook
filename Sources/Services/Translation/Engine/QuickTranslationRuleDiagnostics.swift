@@ -20,17 +20,16 @@ public enum QuickTranslationRuleDiagnostics {
     ) -> [QuickTranslationRuleTrace] {
         guard !text.isEmpty else { return [] }
 
-        let globalSnapshot = QuickTranslationRuleStore.shared.currentSnapshot
-        let bookSnapshot = QuickTranslationRuleBookStore.shared.snapshot(for: bookId)
+        let context = TranslationReadContext.current ?? TranslationReadContext.capture(bookId: bookId)
+        let globalSnapshot = context.globalRules
+        let bookSnapshot = context.bookRules
         guard globalSnapshot != nil || bookSnapshot != nil else { return [] }
 
         let nsText = text as NSString
         // Cùng bản chụp cấu hình mà bản dịch thật đang dùng — kể cả phần đặt riêng của truyện.
-        let tokenConfiguration = QuickTranslationBookEngineConfigStore.shared
-            .tokenConfiguration(bookId: bookId)
-        let priority = QuickTranslationBookEngineConfigStore.shared
-            .priorityConfiguration(bookId: bookId)
-        let disable = QuickTranslationRuleDisableStore.shared.snapshot(bookId: bookId)
+        let tokenConfiguration = context.tokens
+        let priority = context.priority
+        let disable = context.disabledRules
         let matcher = QuickTranslationRuleMatcher(
             text: text,
             dictionaries: QuickTranslationDictionaryToken.resolve(bookId: bookId)
@@ -85,6 +84,7 @@ public enum QuickTranslationRuleDiagnostics {
         var traces: [QuickTranslationRuleTrace] = []
 
         for item in found {
+            if Task.isCancelled { return [] }
             guard let snapshot = snapshotForRank(item.scopeRank),
                   snapshot.rules.indices.contains(item.ruleIndex) else { continue }
             let rule = snapshot.rules[item.ruleIndex]
@@ -145,6 +145,15 @@ public enum QuickTranslationRuleDiagnostics {
     }
 
     // MARK: - Sắp xếp
+
+    public static func selecting(_ range: NSRange, in traces: [QuickTranslationRuleTrace]) -> [QuickTranslationRuleTrace] {
+        sorted(traces.map { trace in
+            QuickTranslationRuleTrace(scope: trace.scope, pattern: trace.pattern, replacement: trace.replacement,
+                sourceLine: trace.sourceLine, sourceRange: trace.sourceRange, matchedText: trace.matchedText,
+                rendered: trace.rendered, captures: trace.captures, status: trace.status,
+                isTouchingSelection: NSIntersectionRange(range, trace.sourceRange).length > 0)
+        })
+    }
 
     /// Thắng → tranh chấp → đang tắt / token tắt / quá phức tạp. Trong mỗi nhóm: cụm chạm vùng bôi
     /// đen lên trước, rồi theo vị trí xuất hiện, rồi theo số dòng để thứ tự luôn xác định.

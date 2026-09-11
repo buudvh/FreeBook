@@ -970,8 +970,19 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             .sink { [weak self] notification in
                 guard let self = self else { return }
                 let updatedBookId = notification.userInfo?["bookId"] as? String
-                if updatedBookId == nil || updatedBookId == self.playingBookId {
+                let scope = notification.userInfo?["scope"] as? DictionaryInvalidationScope ?? .globalReload
+                if (updatedBookId == nil || updatedBookId == self.playingBookId),
+                   scope.affects(bookId: self.playingBookId) {
+                    self.preparationGeneration &+= 1
+                    self.prepareSpeakingTask?.cancel()
+                    self.prepareSpeakingTask = nil
+                    self.preparedChapterKey = nil
+                    self.preparedChapter = nil
+                    self.claimedSynthesisTask?.cancel()
+                    self.claimedSynthesisTask = nil
+                    self.claimedSynthesisTaskKey = nil
                     self.nextChapterPrefetcher.cancel()
+                    self.resetNextChapterPrefixCache()
                     self.nowPlayingUpdateGeneration &+= 1
                     self.nowPlayingMetadataTask?.cancel()
                     self.nowPlayingMetadataTask = nil
@@ -1066,7 +1077,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         self.eqNode = audioEngineController.eqNode
     }
 
-    private func readRemoveDuplicatedTitle(for bookId: String) -> Bool {
+    internal func readRemoveDuplicatedTitle(for bookId: String) -> Bool {
         let key = "removeDuplicatedTitle_\(bookId)"
         return UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
     }
@@ -1842,40 +1853,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             .min()
     }
 
-    internal func makeNextChapterKey(for chapter: TTSChapterInfo) -> TTSPreparedNextChapterKey {
-        let key = "showChapterTitle_\(playingBookId)"
-        let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
-        let removeDuplicatedTitle = readRemoveDuplicatedTitle(for: playingBookId)
-        let extFingerprint: String?
-        if tool == "system" || tool == "nghitts" || tool == "google" {
-            extFingerprint = nil
-        } else {
-            extFingerprint = ExtensionManager.shared.getTTSRuntimeFingerprint(
-                localPath: extensionLocalPath,
-                configJson: extensionConfigJson
-            )
-        }
-        return TTSPreparedNextChapterKey(
-            bookId: playingBookId,
-            chapterIndex: chapter.index,
-            chapterUrl: chapter.url,
-            chapterHost: chapter.host,
-            chapterTitle: chapter.title,
-            tool: tool,
-            selectedVoice: selectedVoice,
-            googlePitch: tool == "google" ? pitch : nil,
-            chunkLength: chunkLength,
-            includeChapterTitle: showTitle,
-            removeDuplicatedTitle: removeDuplicatedTitle,
-            isTranslationEnabled: self.sessionTranslationEnabled,
-            shouldConvertTraditionalToSimplified: self.sessionShouldConvertTraditionalToSimplified,
-            translationToken: TranslateUtils.translationGenerationToken(for: playingBookId),
-            extensionLocalPath: extensionLocalPath,
-            extensionConfigJson: extensionConfigJson,
-            extensionFingerprint: extFingerprint
-        )
-    }
-
     private func advanceToNextChapter(nextIdx: Int) {
         guard let nextChapter = chaptersQueue.first(where: { $0.index == nextIdx }) else {
             if let followingIdx = nextChapterIndex(after: nextIdx) {
@@ -1927,6 +1904,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 title: processed.chapterTitle,
                 paragraphs: processed.paragraphs,
                 chapter: nextChapter,
+                translationToken: processed.translationToken,
                 firstAudioData: audioData
             )
 
@@ -2012,6 +1990,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     title: processed.chapterTitle,
                     paragraphs: processed.paragraphs,
                     chapter: nextChapter,
+                    translationToken: processed.translationToken,
                     firstAudioData: firstAudioData
                 )
             }
@@ -2038,6 +2017,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 title: processed.chapterTitle,
                 paragraphs: processed.paragraphs,
                 chapter: nextChapter,
+                translationToken: processed.translationToken,
                 firstAudioData: nil
             )
 
@@ -2266,7 +2246,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     processMs: processMs
                 )
             }
-            self.applyNextChapter(index: processed.chapterIndex, content: processed.normalizedContent, title: processed.chapterTitle, paragraphs: processed.paragraphs, chapter: nextChapter)
+            self.applyNextChapter(index: processed.chapterIndex, content: processed.normalizedContent, title: processed.chapterTitle, paragraphs: processed.paragraphs, chapter: nextChapter, translationToken: processed.translationToken)
         }
     }
 
@@ -2290,8 +2270,21 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         title: String,
         paragraphs: [TTSParagraph],
         chapter: TTSChapterInfo,
+        translationToken: Int,
         firstAudioData: Data? = nil
     ) {
+        guard translationToken == TranslateUtils.translationGenerationToken(for: playingBookId) else {
+            nextChapterPrefetcher.cancel()
+            resetNextChapterPrefixCache()
+            fallbackAdvanceToNextChapter(
+                nextChapter: chapter,
+                expectedSessionID: sessionID,
+                expectedGeneration: ttsProcessingGeneration,
+                expectedBookId: playingBookId,
+                expectedChapterURL: chapter.url
+            )
+            return
+        }
         let playbackParas = playbackParagraphs(from: paragraphs)
         guard !playbackParas.isEmpty else {
             AppLogger.shared.log("⚠️ [TTSManager] Chương \(index) không có nội dung đọc, tự động chuyển sang chương tiếp theo.")

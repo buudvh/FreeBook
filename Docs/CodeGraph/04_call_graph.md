@@ -15,6 +15,18 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Call graph sửa VP/rule không chặn panel và không dùng cache cũ (1.3.354)
+
+```text
+Reader action -> TranslationDictionaryWriter / QuickTranslationRuleMutation
+  -> persist canonical file -> publish immutable snapshot -> notifyDictionariesDidUpdate(scope)
+     -> ReaderView debounce 500 ms -> ReaderViewModel.processAndSaveChapter
+          -> TranslationReadContext.capture -> off-main build -> pending/apply latest token
+     -> TTSManager cancel prepared/next/prefix -> makeNextChapterKey(new token) -> process again
+```
+
+`ReaderDefinitionWorker` tokenize/tra nghĩa/chẩn đoán off-main; Copy panel chỉ yêu cầu token, không tra nghĩa/gợi ý/rule trace. Rule editor truyền `oldPattern` khi sửa nên đổi mẫu giữ rule cũ đúng contract hiện hành.
+
 ## Widget TTS bật lại auto-scroll; Script Editor chạy execute qua Debug Runner (1.3.351)
 
 ```text

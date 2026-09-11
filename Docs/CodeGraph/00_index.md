@@ -15,6 +15,13 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Snapshot dịch bất biến, writer tuần tự và refresh latest-wins (1.3.354)
+
+* Mỗi lượt Reader/TTS/panel Dịch chụp một `TranslationReadContext`: generation, dictionary snapshot, rule snapshot, file tắt và cấu hình token/priority cùng đi qua một lượt tính. `FrozenTrieDictionary` thay loader mutable ở biên đọc.
+* Mọi CRUD/import/khôi phục tombstone VP/Names custom đi qua `TranslationDictionaryWriter`; giao dịch đã nhận chạy tuần tự đến persist + publish + notify, không phụ thuộc vòng đời sheet.
+* Reader debounce notification 500 ms, tính nền và hoãn apply khi selection/overlay còn mở. TTS gắn `translationToken` vào DTO/key chương kế, huỷ DTO/audio/prefix cũ và dựng lại khi token đổi.
+* Memo dịch/token/rule có trần entry + cost và epoch chống task cũ chèn lại sau invalidation. Có 14 file Swift mới nên cần `xcodegen generate` trên macOS.
+
 ## Entrypoint quét theo `execute`; rollback tháo được bản debug cài mới (1.3.348)
 
 * **`draft.install` / `draft.rollback` đo lần đầu bằng client thật, có người bấm xác nhận trên máy.** Install chạy đúng: cài mới `probe_debug_sandbox` (app tự chuẩn hoá id từ `probe.debug.sandbox`), ghi hàng thư viện, và `run.start` trên bản đã cài trả `runStarted → responseValidated → runFinished`.

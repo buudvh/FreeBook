@@ -65,7 +65,9 @@ internal actor TTSChapterTextWorker {
                 removeDuplicatedTitle: key.removeDuplicatedTitle,
                 sessionID: sessionID,
                 generation: generation
-            ), !Task.isCancelled else {
+            ), !Task.isCancelled,
+               processed.translationToken == key.translationToken,
+               key.translationToken == TranslateUtils.translationGenerationToken(for: key.bookId) else {
                 return nil
             }
             let processEnd = ProcessInfo.processInfo.systemUptime

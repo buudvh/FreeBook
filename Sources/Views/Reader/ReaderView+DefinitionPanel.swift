@@ -35,7 +35,7 @@ extension ReaderView {
                     selectedWordOffset: $selectedWordOffset,
                     selectedWordLength: $selectedWordLength,
                     translationTokens: translationTokens,
-                    customMeaning: $customMeaning,
+                    customMeaning: definitionMeaningBinding,
                     saveAsNameType: $saveAsNameType,
                     saveToBookSpecific: $saveToBookSpecific,
                     pinnedSaveAsNameType: pinnedSaveAsNameType,
@@ -73,17 +73,16 @@ extension ReaderView {
                     },
                     // Overlay chỉ gọi closure này sau khi màn quản lý định nghĩa báo có thay đổi ⇒
                     // tính lại chip cùng lúc với `dictionaryMatches` để gợi ý không bị cũ.
-                    onGetDictionaryMatches: { word in
-                        refreshSuggestionChips(for: word)
-                        return getDictionaryMatches(for: word)
-                    },
+                    onGetDictionaryMatches: { _ in dictionaryMatches },
                     onGetHanViet: { getHanViet(for: $0) },
-                    onApplyTranslation: applyTranslation,
+                    onApplyTranslation: { loadDefinitionData() },
                     ruleTraces: ruleTraces,
                     focusedRuleTraceID: $focusedRuleTraceID,
-                    isRuleFeatureEnabled: QuickTranslationRuleStore.shared.isEnabled,
-                    hasAnyRuleSet: QuickTranslationRuleStore.shared.currentSnapshot != nil
-                        || QuickTranslationRuleBookStore.shared.snapshot(for: bookId) != nil,
+                    isRuleFeatureEnabled: definitionSession.rulesEnabled,
+                    hasAnyRuleSet: definitionSession.hasRules,
+                    isLoadingDefinition: definitionSession.loading,
+                    isLoadingRules: definitionSession.loading || definitionSession.loadingRules,
+                    isSaving: definitionSession.saving,
                     onRuleAction: { trace, action in handleRuleAction(trace, action) },
                     // Điền sẵn **cả hai** ô: mẫu = cụm gốc đang chọn, nghĩa = đúng chữ đang có trong ô
                     // nhập nghĩa của panel này (kể cả nghĩa người dùng vừa sửa tay).

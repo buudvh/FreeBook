@@ -67,4 +67,13 @@ final class QuickTranslationRuleDraftStore {
         }
         lock.unlock()
     }
+
+    func clear(id: String, matching draft: Draft) {
+        lock.lock()
+        defer { lock.unlock() }
+        if currentID == id, currentDraft == draft {
+            currentID = nil
+            currentDraft = nil
+        }
+    }
 }

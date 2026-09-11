@@ -17,15 +17,15 @@ public enum VietPhraseTokenizer {
     public static func tokenize(_ text: String, bookId: String?) -> [String] {
         guard !text.isEmpty else { return [] }
 
-        let isPronounsEnabled = UserDefaults.standard.bool(forKey: "isTranslationPronounsEnabled")
-        let isLuatNhanEnabled = UserDefaults.standard.bool(forKey: "isTranslationLuatNhanEnabled")
+        let isPronounsEnabled = TranslationReadContext.current?.pronounsEnabled ?? UserDefaults.standard.bool(forKey: "isTranslationPronounsEnabled")
+        let isLuatNhanEnabled = TranslationReadContext.current?.luatNhanEnabled ?? UserDefaults.standard.bool(forKey: "isTranslationLuatNhanEnabled")
 
         return TokenizeMemo.shared.tokens(
             text: text,
             bookId: bookId,
             isPronounsEnabled: isPronounsEnabled,
             isLuatNhanEnabled: isLuatNhanEnabled,
-            generation: TranslateUtils.translationGenerationToken(for: bookId)
+            generation: TranslationReadContext.cacheGeneration(for: bookId)
         ) {
             tokenizeUncached(
                 text,
@@ -66,6 +66,7 @@ public enum VietPhraseTokenizer {
         var candidates: [NameCandidate] = []
         var i = 0
         while i < length {
+            if Task.isCancelled { return [] }
             let limit = min(length - i, 20)
             let checkText = String(chars[i..<(i + limit)])
             
@@ -149,6 +150,7 @@ public enum VietPhraseTokenizer {
         var vpCandidates: [VPCandidate] = []
         var j = 0
         while j < length {
+            if Task.isCancelled { return [] }
             if occupiedIndices.contains(j) {
                 j += 1
                 continue

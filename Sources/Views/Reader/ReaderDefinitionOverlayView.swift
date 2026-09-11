@@ -73,6 +73,9 @@ struct ReaderDefinitionOverlayView: View {
     @Binding var focusedRuleTraceID: String?
     let isRuleFeatureEnabled: Bool
     let hasAnyRuleSet: Bool
+    var isLoadingDefinition = false
+    var isLoadingRules = false
+    var isSaving = false
     let onRuleAction: (QuickTranslationRuleTrace, ReaderRuleAction) -> Void
     let onAddRule: () -> Void
 
@@ -123,12 +126,6 @@ struct ReaderDefinitionOverlayView: View {
                 bookId: bookId,
                 matches: $dictionaryMatches,
                 onChanged: {
-                    self.dictionaryMatches = onGetDictionaryMatches(selectedTextForDefinition)
-                    if self.translationMode == "VP" {
-                        self.customMeaning = TranslateUtils.translateMeta(selectedTextForDefinition, bookId: bookId)
-                    } else {
-                        self.customMeaning = onGetHanViet(selectedTextForDefinition)
-                    }
                     onApplyTranslation?()
                 }
             )
@@ -156,7 +153,8 @@ struct ReaderDefinitionOverlayView: View {
     }
 
     private var originalSentenceRowView: some View {
-        HStack(spacing: 4) {
+        let ruleRange = focusedRuleRange
+        return HStack(spacing: 4) {
             HStack(spacing: 3) {
                 Button(action: onExpandSelectionLeft) {
                     Image(systemName: "chevron.left")
@@ -184,7 +182,7 @@ struct ReaderDefinitionOverlayView: View {
                             let isSelected = (index >= selectedWordOffset && index < selectedWordOffset + selectedWordLength)
                             // Nền nhạt = cụm của rule đang chọn ở dải chip. Lớp này **độc lập** với vùng
                             // chọn nên bấm chip không đổi cụm đang tra nghĩa.
-                            let inRuleSpan = focusedRuleRange.map { index >= $0.location && index < NSMaxRange($0) } ?? false
+                            let inRuleSpan = ruleRange.map { index >= $0.location && index < NSMaxRange($0) } ?? false
                             Text(char)
                                 .font(.body)
                                 .bold(isSelected)
@@ -295,6 +293,7 @@ struct ReaderDefinitionOverlayView: View {
 
     private var customMeaningInputView: some View {
         HStack {
+            if isLoadingDefinition { ProgressView().controlSize(.small) }
             TextField("Nhập nghĩa dịch...", text: $customMeaning)
                 .textInputAutocapitalization(.never)
 

@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Translation/Reader/TTS dùng chung translation identity (1.3.354)
+
+* **Translation core**: `TranslationDictionaryState` publish trie bất biến; `TranslationDictionaryWriter` sở hữu runtime read-modify-write VP/Names; `TranslationReadContext` là snapshot theo lượt; `TranslationMemo` là cache budget dùng chung.
+* **Reader**: definition session/worker tách MainActor khỏi CPU lookup; refresh chapter latest-wins, debounce 500 ms và pending apply khi overlay mở. Cache chương sau bị hạ token thay vì dựng lại hàng loạt.
+* **TTS**: translation token đi qua current prepared key, next-chapter key và DTO; dictionary update huỷ prepared/claimed/next/prefix cũ. Audio chương đang phát không bị thay giữa đoạn; chương kế tiếp bắt buộc xử lý bằng snapshot mới.
+* **Rule editing**: actor mutation nối tiếp thao tác off-main nhưng file owner vẫn là hai rule store. Sửa đổi mẫu tiếp tục là upsert mẫu mới, giữ mẫu cũ.
+
 ## Extension origin, badge debug và Run trong Script Editor (1.3.351)
 
 * **Ranh giới ghi extension không đổi nhưng command giàu hơn.** `UpsertExtensionCommand.installOrigin` đi qua `ExtensionTransactionCoordinator`; View không gán trực tiếp `Extension.installOrigin`. Đường debug ghi đè dùng method coordinator riêng `setInstallOrigin` vì nó không có lý do cập nhật metadata thư viện khác.

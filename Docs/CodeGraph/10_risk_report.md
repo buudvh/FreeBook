@@ -15,6 +15,13 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rủi ro còn lại sau snapshot/writer/memo (1.3.354)
+
+* **Không còn mixed-generation trong một lượt**: dictionary/rule/config được chụp một lần và cache chỉ nhận kết quả khi context còn current. Rủi ro chuyển thành chi phí retry nếu người dùng sửa liên tục trong lúc chương đang dựng.
+* **Writer là điểm tuần tự duy nhất cho runtime CRUD VP/Names**, nhưng restore backup vẫn ghi đồng bộ trước notification cuối lượt; hai luồng này không được chạy đồng thời trong UI hiện tại. Nếu về sau cho restore chạy cạnh editor, restore phải đi qua cùng writer.
+* **Vẫn dịch lại cả chương**, chỉ debounce/latest-wins/deferral và bỏ computation lặp. Không triển khai dịch tăng dần hoặc lazy layout trong lượt này.
+* Chưa compile trên host Windows; 14 file Swift mới bắt buộc `xcodegen generate` + build macOS. Hiệu quả nhiệt/CPU phải đo trên thiết bị thật.
+
 ## Rủi ro của origin extension, Run trong editor và auto-scroll widget (1.3.351)
 
 * **Đổi shape `@Model Extension` là rủi ro migration chính.** Field mới `installOrigin` có default `repository`, nên thuộc nhóm additive/lightweight; không đổi quan hệ, không thêm `@Model`, không cần migration plan. Rủi ro còn lại là dữ liệu cũ từ import zip/debug được migrate với default repository, nên `showsDebugBadge` giữ fallback heuristic để không mất badge.

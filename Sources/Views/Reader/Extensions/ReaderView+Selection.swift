@@ -65,38 +65,15 @@ extension ReaderView {
         let word = ns.substring(with: NSRange(location: selectedWordOffset, length: selectedWordLength))
         self.selectedTextForDefinition = word
         self.junkPatternInput = word
-
-        if translationMode == "VP" {
-            self.customMeaning = TranslateUtils.translateMeta(
-                word,
-                bookId: bookId,
-                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
-            )
-        } else {
-            self.customMeaning = getHanViet(for: word)
+        definitionSession.meaningRevision += 1
+        customMeaning = ""
+        dictionaryMatches = []
+        suggestionChips = []
+        if translationTokensSource != originalSentence {
+            translationTokens = []
+            translationTokensSource = originalSentence
         }
-
-        // Cập nhật các tokens phân tách và tra cứu từ điển đa tầng.
-        //
-        // `translationTokens` chỉ phụ thuộc **đoạn văn** (và generation của từ điển/rule), không phụ
-        // thuộc vùng chọn — nên 4 nút nới/thu không được trả tiền một lượt tokenize cả đoạn. Trước
-        // 1.3.339 mỗi lần nhấn đều gọi lại `getTranslationTokens`, tức tokenize toàn đoạn + tra từ
-        // điển từng token, đồng bộ trên main thread. Generation nằm trong khoá nên sửa một mục VP là
-        // lượt sau tính lại thật, không hiện token cũ.
-        let tokensKey = "\(TranslateUtils.translationGenerationToken(for: bookId))|\(originalSentence)"
-        if translationTokensSource != tokensKey {
-            self.translationTokens = TranslateUtils.getTranslationTokens(for: originalSentence, bookId: bookId)
-            self.translationTokensSource = tokensKey
-        }
-        self.dictionaryMatches = getDictionaryMatches(for: word)
-        refreshSuggestionChips(for: word)
-
-        // Chip rule chiếu theo vùng chọn nên phải đi theo vùng chọn — bất biến ghi ở
-        // `ReaderView+DefinitionPanel` nhưng trước 1.3.339 không có đường nào thực hiện, nên chip nói
-        // sai sau khi nới/thu. Làm được từ nay vì `refreshRuleTraces` đã debounce + chạy off-main.
-        if showingDefinitionSheet {
-            refreshRuleTraces()
-        }
+        loadDefinitionData()
     }
 
     // MARK: - Tra cứu
@@ -140,6 +117,10 @@ extension ReaderView {
     /// Tra một từ qua **7** tầng theo đúng thứ tự ưu tiên của pipeline dịch, để màn Dịch nói rõ
     /// nghĩa đang đến từ đâu. Thứ tự này là hợp đồng với UI — đổi thứ tự là đổi nghĩa hiển thị.
     func getDictionaryMatches(for word: String) -> [DictionaryMatchInfo] {
+        Self.dictionaryMatches(for: word, bookId: bookId)
+    }
+
+    nonisolated static func dictionaryMatches(for word: String, bookId: String) -> [DictionaryMatchInfo] {
         var matches: [DictionaryMatchInfo] = []
         guard !word.isEmpty else { return matches }
 
@@ -149,7 +130,7 @@ extension ReaderView {
         // 1. Book Names
         if let bookNames = bookDicts.names,
            let match = bookNames.findLongestMatch(text: word, startIndex: 0),
-           match.length == word.count {
+           match.length == word.utf16.count {
             matches.append(DictionaryMatchInfo(source: "Names (Riêng)", translation: match.value))
         }
 
@@ -157,12 +138,12 @@ extension ReaderView {
         var namesTranslation: String? = nil
         if let customNames = manager.customNamesDict,
            let match = customNames.findLongestMatch(text: word, startIndex: 0),
-           match.length == word.count {
+           match.length == word.utf16.count {
             namesTranslation = match.value
         } else if !manager.deletedNames.contains(word),
                   let names = manager.namesDict,
                   let match = names.findLongestMatch(text: word, startIndex: 0),
-                  match.length == word.count {
+                  match.length == word.utf16.count {
             namesTranslation = match.value
         }
         if let trans = namesTranslation {
@@ -172,21 +153,21 @@ extension ReaderView {
         // 3. Pronouns
         if let pronouns = manager.pronounsDict,
            let match = pronouns.findLongestMatch(text: word, startIndex: 0),
-           match.length == word.count {
+           match.length == word.utf16.count {
             matches.append(DictionaryMatchInfo(source: "Xưng hô (Pronouns)", translation: match.value))
         }
 
         // 4. LuatNhan
         if let luatNhan = manager.luatNhanDict,
            let match = luatNhan.findLongestMatch(text: word, startIndex: 0),
-           match.length == word.count {
+           match.length == word.utf16.count {
             matches.append(DictionaryMatchInfo(source: "Luật nhân (LuatNhan)", translation: match.value))
         }
 
         // 5. Book VietPhrase
         if let bookVP = bookDicts.vietPhrase,
            let match = bookVP.findLongestMatch(text: word, startIndex: 0),
-           match.length == word.count {
+           match.length == word.utf16.count {
             matches.append(DictionaryMatchInfo(source: "VietPhrase (Riêng)", translation: match.value))
         }
 
@@ -194,12 +175,12 @@ extension ReaderView {
         var vpTranslation: String? = nil
         if let customVP = manager.customVietPhraseDict,
            let match = customVP.findLongestMatch(text: word, startIndex: 0),
-           match.length == word.count {
+           match.length == word.utf16.count {
             vpTranslation = match.value
         } else if !manager.deletedVietPhrase.contains(word),
                   let vp = manager.vietPhraseDict,
                   let match = vp.findLongestMatch(text: word, startIndex: 0),
-                  match.length == word.count {
+                  match.length == word.utf16.count {
             vpTranslation = match.value
         }
         if let trans = vpTranslation {
@@ -207,7 +188,7 @@ extension ReaderView {
         }
 
         // 7. PhienAm
-        let phienAm = getHanViet(for: word)
+        let phienAm = ReaderSelectionCoordinator.hanViet(for: word)
         if !phienAm.isEmpty {
             matches.append(DictionaryMatchInfo(source: "Phiên âm", translation: phienAm))
         }

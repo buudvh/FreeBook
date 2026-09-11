@@ -2,14 +2,14 @@ import Foundation
 
 public final class TranslateUtils {
     
-    private static let translationCache = NSCache<NSString, NSString>()
+    private static let translationCache = TranslationMemo<String>(maxEntries: 1024, maxCost: 8 * 1024 * 1024)
     private static let traditionalToSimplifiedTransform = StringTransform("Traditional-Simplified")
     private static let cacheLock = NSLock()
     private static let tocRulesLock = NSLock()
     private static var globalGeneration: Int = 0
     private static var bookGenerations: [String: Int] = [:]
     private static var settingsGeneration: Int = 0
-    private static var chapterTitleCacheDict: [String: [String: String]] = [:]
+    private static let chapterTitleCache = TranslationMemo<String>(maxEntries: 1024, maxCost: 1024 * 1024)
     private static var cachedAllTOCRules: [TOCRule]? = nil
     private static var cachedTOCRules: [TOCRule]? = nil
     private static var cachedCompiledTOCRegexes: [NSRegularExpression]? = nil
@@ -21,6 +21,7 @@ public final class TranslateUtils {
         hasher.combine(globalGeneration)
         hasher.combine(bGen)
         hasher.combine(settingsGeneration)
+        hasher.combine(TranslationManager.shared.dictionaryState.revision())
         // Công tắc + generation của bộ rule dịch: đổi rule là đổi kết quả dịch, snapshot Reader/TTS
         // cũ phải bị loại đúng lúc.
         hasher.combine(QuickTranslationRuleStore.shared.cacheTag)
@@ -196,6 +197,7 @@ public final class TranslateUtils {
         bookId: String? = nil,
         shouldConvertTraditionalToSimplified: Bool = false
     ) -> TranslatedTextResult {
+        return TranslationReadContext.withSnapshot(bookId: bookId) {
         let original = text ?? ""
         let translationInput = textForTranslation(
             original,
@@ -208,6 +210,7 @@ public final class TranslateUtils {
                 ? translationSpansApplyingRules(source: translationInput, translated: translated, bookId: bookId)
                 : []
         )
+        }
     }
 
     public static func translateChapterTitleWithMapping(
@@ -215,6 +218,7 @@ public final class TranslateUtils {
         bookId: String? = nil,
         shouldConvertTraditionalToSimplified: Bool = false
     ) -> TranslatedTextResult {
+        return TranslationReadContext.withSnapshot(bookId: bookId) {
         let translationInput = textForTranslation(
             text,
             shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
@@ -226,6 +230,7 @@ public final class TranslateUtils {
                 ? translationSpansApplyingRules(source: translationInput, translated: translated, bookId: bookId)
                 : []
         )
+        }
     }
 
     private static func textForTranslation(
@@ -263,13 +268,10 @@ public final class TranslateUtils {
         let bid = bookId ?? "global"
         let cacheEntryKey = applyingQuickTranslationRules ? trimmed : "\u{1}norule|" + trimmed
         
-        cacheLock.lock()
-        let cached = chapterTitleCacheDict[bid]?[cacheEntryKey]
-        cacheLock.unlock()
-        
-        if let cached = cached {
-            return cached
-        }
+        let generation = TranslationReadContext.cacheGeneration(for: bookId)
+        let titleKey = "\(generation)|\(bid)|\(cacheEntryKey)"
+        let lookup = chapterTitleCache.lookup(titleKey)
+        if let cached = lookup.value { return cached }
         
         let translated: String
         let range = NSRange(trimmed.startIndex..<trimmed.endIndex, in: trimmed)
@@ -337,12 +339,10 @@ public final class TranslateUtils {
             translated = translateMeta(trimmed, bookId: bookId, applyingQuickTranslationRules: applyingQuickTranslationRules)
         }
         
-        cacheLock.lock()
-        if chapterTitleCacheDict[bid] == nil {
-            chapterTitleCacheDict[bid] = [:]
+        if !Task.isCancelled, generation == translationGenerationToken(for: bookId) {
+            chapterTitleCache.insert(translated, key: titleKey, bookId: bookId,
+                                     cost: translated.utf16.count * 2, ticket: lookup.ticket)
         }
-        chapterTitleCacheDict[bid]?[cacheEntryKey] = translated
-        cacheLock.unlock()
         
         return translated
     }
@@ -357,37 +357,27 @@ public final class TranslateUtils {
         guard containsChinese(text) else { return text }
 
         // Nếu từ điển chưa load xong, trả về văn bản gốc và không lưu cache dịch
-        guard TranslationManager.shared.isVietPhraseLoaded else {
+        guard TranslationManager.shared.vietPhraseDict != nil else {
             return text
         }
 
-        let md5 = text.md5()
-        let ruleTag = applyingQuickTranslationRules ? QuickTranslationRuleStore.shared.cacheTag : "off"
-        cacheLock.lock()
-        let bGen = bookId.flatMap { bookGenerations[$0] } ?? 0
-        let cacheKey = "translate|v4|g:\(globalGeneration)|b:\(bGen)|s:\(settingsGeneration)|q:\(ruleTag)|\(isMeta ? "meta" : "content")|\(bookId ?? "global")|\(md5)" as NSString
-        let cached = translationCache.object(forKey: cacheKey)
-        cacheLock.unlock()
-
-        if let cached = cached {
-            return cached as String
+        return TranslationReadContext.withSnapshot(bookId: bookId) {
+            let generation = TranslationReadContext.cacheGeneration(for: bookId)
+            let key = "\(generation)|\(isMeta)|\(applyingQuickTranslationRules)|\(bookId ?? "global")|\(text.md5())"
+            let lookup = translationCache.lookup(key)
+            if let cached = lookup.value { return cached }
+            let translated = performTranslation(text, bookId: bookId, applyingQuickTranslationRules: applyingQuickTranslationRules)
+            if !Task.isCancelled, generation == translationGenerationToken(for: bookId) {
+                translationCache.insert(translated, key: key, bookId: bookId,
+                                        cost: translated.utf16.count * 2, ticket: lookup.ticket)
+            }
+            return translated
         }
-
-        let translated = performTranslation(
-            text,
-            bookId: bookId,
-            applyingQuickTranslationRules: applyingQuickTranslationRules
-        )
-        cacheLock.lock()
-        translationCache.setObject(translated as NSString, forKey: cacheKey)
-        cacheLock.unlock()
-        return translated
     }
     
     private static func lookupRawTranslation(for token: String, bookId: String?) -> String? {
-        let isPronounsEnabled = UserDefaults.standard.bool(forKey: "isTranslationPronounsEnabled")
-        let isLuatNhanEnabled = UserDefaults.standard.bool(forKey: "isTranslationLuatNhanEnabled")
-        
+        let isPronounsEnabled = TranslationReadContext.current?.pronounsEnabled ?? UserDefaults.standard.bool(forKey: "isTranslationPronounsEnabled")
+        let isLuatNhanEnabled = TranslationReadContext.current?.luatNhanEnabled ?? UserDefaults.standard.bool(forKey: "isTranslationLuatNhanEnabled")
         let manager = TranslationManager.shared
         let names = manager.namesDict
         let customNames = manager.customNamesDict
@@ -397,7 +387,6 @@ public final class TranslateUtils {
         let vp = manager.vietPhraseDict
         let customVP = manager.customVietPhraseDict
         let deletedVP = manager.deletedVietPhrase
-        
         var bookVP: TrieDictionary? = nil
         var bookNames: TrieDictionary? = nil
         if let bid = bookId {
@@ -405,18 +394,17 @@ public final class TranslateUtils {
             bookVP = bookDicts.vietPhrase
             bookNames = bookDicts.names
         }
-        
         // 1. Book Names
         if let bookNames = bookNames,
            let match = bookNames.findLongestMatch(text: token, startIndex: 0),
-           match.length == token.count {
+           match.length == token.utf16.count {
             return match.value
         }
         
         // 2. Custom Names
         if let customNames = customNames,
            let match = customNames.findLongestMatch(text: token, startIndex: 0),
-           match.length == token.count {
+           match.length == token.utf16.count {
             return match.value
         }
         
@@ -424,35 +412,35 @@ public final class TranslateUtils {
         if !deletedNames.contains(token),
            let names = names,
            let match = names.findLongestMatch(text: token, startIndex: 0),
-           match.length == token.count {
+           match.length == token.utf16.count {
             return match.value
         }
         
         // 4. Pronouns
         if let pronouns = pronouns,
            let match = pronouns.findLongestMatch(text: token, startIndex: 0),
-           match.length == token.count {
+           match.length == token.utf16.count {
             return match.value
         }
         
         // 5. LuatNhan
         if let luatNhan = luatNhan,
            let match = luatNhan.findLongestMatch(text: token, startIndex: 0),
-           match.length == token.count {
+           match.length == token.utf16.count {
             return match.value
         }
         
         // 6. Book VietPhrase
         if let bookVP = bookVP,
            let match = bookVP.findLongestMatch(text: token, startIndex: 0),
-           match.length == token.count {
+           match.length == token.utf16.count {
             return match.value
         }
         
         // 7. Custom VietPhrase
         if let customVP = customVP,
            let match = customVP.findLongestMatch(text: token, startIndex: 0),
-           match.length == token.count {
+           match.length == token.utf16.count {
             return match.value
         }
         
@@ -460,7 +448,7 @@ public final class TranslateUtils {
         if !deletedVP.contains(token),
            let vp = vp,
            let match = vp.findLongestMatch(text: token, startIndex: 0),
-           match.length == token.count {
+           match.length == token.utf16.count {
             return match.value
         }
         
@@ -886,37 +874,31 @@ public final class TranslateUtils {
     }
 
     private static func clearChapterTitleCacheUnlocked() {
-        cacheLock.lock()
-        chapterTitleCacheDict.removeAll()
-        cacheLock.unlock()
+        chapterTitleCache.invalidate()
     }
     
     public static func clearChapterTitleCache(for bookId: String) {
-        cacheLock.lock()
-        chapterTitleCacheDict.removeValue(forKey: bookId)
-        cacheLock.unlock()
+        chapterTitleCache.invalidate(bookId: bookId)
     }
     
     public static func clearChapterTitleCache() {
-        cacheLock.lock()
-        chapterTitleCacheDict.removeAll()
-        cacheLock.unlock()
+        chapterTitleCache.invalidate()
     }
     
     public static func invalidateCache(bookId: String? = nil) {
-        QuickTranslationRuleEngine.clearCache()
         cacheLock.lock()
         if let bid = bookId {
             bookGenerations[bid] = (bookGenerations[bid] ?? 0) + 1
-            chapterTitleCacheDict.removeValue(forKey: bid)
-            cacheLock.unlock()
         } else {
             globalGeneration += 1
             settingsGeneration += 1
-            chapterTitleCacheDict.removeAll()
-            cacheLock.unlock()
-            invalidateTOCRulesCache()
         }
+        cacheLock.unlock()
+        translationCache.invalidate(bookId: bookId)
+        chapterTitleCache.invalidate(bookId: bookId)
+        TokenizeMemo.shared.clear(bookId: bookId)
+        QuickTranslationRuleEngine.clearCache(bookId: bookId)
+        if bookId == nil { invalidateTOCRulesCache() }
     }
 
     public static func clearCache() {
@@ -924,9 +906,10 @@ public final class TranslateUtils {
         globalGeneration += 1
         settingsGeneration += 1
         bookGenerations.removeAll()
-        translationCache.removeAllObjects()
-        chapterTitleCacheDict.removeAll()
         cacheLock.unlock()
+        translationCache.invalidate()
+        chapterTitleCache.invalidate()
+        TokenizeMemo.shared.clear()
         QuickTranslationRuleEngine.clearCache()
         invalidateTOCRulesCache()
     }

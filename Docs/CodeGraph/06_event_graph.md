@@ -15,6 +15,12 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Một notification cũ điều phối Reader và TTS theo scope (1.3.354)
+
+* Không thêm event name. Sau persist thành công, writer gọi `notifyDictionariesDidUpdate(bookId:scope:)`; `scope` là `.term`, `.config` hoặc `.globalReload` và có `affects(bookId:)` để Reader/TTS bỏ qua truyện khác.
+* Reader nhận event thì huỷ lượt refresh lỗi thời, gom event 500 ms và chỉ apply khi mọi selection/overlay đóng. Panel Dịch đóng vẫn là mốc bung deferred refresh.
+* TTS nhận event đúng sách thì huỷ prepared current chapter, claimed synthesis, next-chapter DTO/audio, prefix audio và metadata tĩnh; lần kế tiếp dựng key/token mới. Không phát notification riêng cho cache.
+
 ## Làm mới tên dịch không còn là sự kiện ghi ở tầng View (1.3.334)
 
 * **Sửa lại mục 1.3.190 bên dưới** ("Opening a book emits a refresh event… `modelContext.save()` runs when needed"): từ 1.3.334 `ReaderView.initializeReaderIfNeeded` và `BookDetailView.task(id: actualBookId)` **không** gọi `BookTitleTranslationMigrator.refreshTranslations(for:)` và **không** `save()`. Cả hai phát đúng một lệnh: `BookTransactionCoordinator.refreshTitleTranslations(bookId:in:)`. Coordinator gọi migrator để **gán**, rồi tự `save()` **chỉ khi** có field đổi (`.success(false)` ⇒ không mở transaction rỗng); lỗi thì hai View ghi log, không hiện toast. Sự kiện "mở truyện làm mới tên dịch" vẫn tồn tại và vẫn tức thời — chỉ đổi chủ transaction.

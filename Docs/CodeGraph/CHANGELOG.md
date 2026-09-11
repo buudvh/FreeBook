@@ -4,6 +4,20 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.354] - 2026-09-11
+
+### Tuần tự hoá cập nhật từ điển, snapshot dịch và loại cache Reader/TTS cũ
+
+Thêm **14** file Swift, sửa translation core, Reader, TTS và panel quản lý VP/rule.
+
+- Mỗi lượt dịch dùng một snapshot bất biến (`TranslationReadContext` + `FrozenTrieDictionary`); custom VP/Names runtime ghi tuần tự qua actor writer và chỉ notify sau persist/publish.
+- Cache dịch/token/rule có ngân sách LRU + epoch chống task cũ chèn lại. Lookup và so độ dài được thống nhất theo UTF-16.
+- Panel Dịch mở ngay, tokenize/tra nghĩa/chẩn đoán chạy nền có cancellation + request identity. Copy panel không còn làm phần tra nghĩa/rule không cần thiết.
+- Reader gom refresh 500 ms, hoãn apply khi selection/overlay mở, chỉ giữ kết quả latest-wins; chương cache tiếp theo bị hạ token để không dùng bản dịch cũ.
+- TTS gắn translation token vào prepared/next key và DTO, huỷ prepared/claimed/prefix/audio cũ khi từ điển đổi, stale DTO xử lý lại **cùng chương**.
+- Sửa rule giữ đúng ngữ nghĩa đổi mẫu = thêm mẫu mới, giữ mẫu cũ; restore tombstone cũng đi qua writer.
+- Gate: `check_architecture.py` **7 → 6** violation (TranslateUtils về baseline; 6 lỗi line-limit nền còn lại). Host Windows không có Swift/Xcode nên chưa compile; có file mới nên cần `xcodegen generate` và build trên macOS. Không dùng `Tests/`.
+
 ## [1.3.353] - 2026-09-10
 
 ### Đặt badge số chương lên tab Mục lục, dùng số đếm chung với danh sách chương

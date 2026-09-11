@@ -7,6 +7,10 @@ public final class ReaderSelectionCoordinator {
     private init() {}
 
     public func getHanViet(for word: String) -> String {
+        Self.hanViet(for: word)
+    }
+
+    nonisolated static func hanViet(for word: String) -> String {
         let phienAm = TranslationManager.shared.phienAmMap
         var list: [String] = []
         for char in word {

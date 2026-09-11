@@ -21,6 +21,10 @@ public final class TextDictionary: TrieDictionary {
 
     public init() {}
 
+    public func frozen() -> FrozenTrieDictionary {
+        FrozenTrieDictionary(entries: entries, lengths: keyLengthsDescending)
+    }
+
     public func load(from fileURL: URL) throws {
         let records = try DictionaryTextFileStore.parseRecords(from: fileURL)
         var tempEntries: [String: String] = [:]
@@ -42,41 +46,16 @@ public final class TextDictionary: TrieDictionary {
 
     public func findLongestMatch(text: String, startIndex: Int) -> (length: Int, value: String)? {
         guard isLoaded else { return nil }
-
-        let utf16 = Array(text.utf16)
-        guard startIndex < utf16.count else { return nil }
-
-        let available = utf16.count - startIndex
-        for len in keyLengthsDescending where len <= available {
-            let subStr = String(decoding: utf16[startIndex..<(startIndex + len)], as: UTF16.self)
-            if let matchedValue = entries[subStr] {
-                return (len, matchedValue)
-            }
-        }
-
-        return nil
+        return frozen().findLongestMatch(text: text, startIndex: startIndex)
     }
 
     public func findAllPrefixMatches(text: String, startIndex: Int) -> [(length: Int, value: String)] {
         guard isLoaded else { return [] }
-
-        let utf16 = Array(text.utf16)
-        guard startIndex < utf16.count else { return [] }
-
-        var matches: [(length: Int, value: String)] = []
-        let available = utf16.count - startIndex
-        for len in keyLengthsDescending where len <= available {
-            let subStr = String(decoding: utf16[startIndex..<(startIndex + len)], as: UTF16.self)
-            if let matchedValue = entries[subStr] {
-                matches.append((len, matchedValue))
-            }
-        }
-
-        return matches
+        return frozen().findAllPrefixMatches(text: text, startIndex: startIndex)
     }
 }
 
-struct DictionaryTextRecord: Hashable {
+struct DictionaryTextRecord: Hashable, Sendable {
     let key: String
     let value: String
 
