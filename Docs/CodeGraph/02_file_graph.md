@@ -15,6 +15,16 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +1 file cho dọn dẹp bản sao lưu local (1.3.356)
+
+| File mới | Vai trò | Dòng |
+| --- | --- | ---: |
+| `Services/Backup/BackupCoordinator+LocalCleanup.swift` | `deleteAllLocal()` + `removeLocalCopyAfterUpload(_:)`; tách khỏi coordinator vì file gốc đã chạm trần 400 | 50 |
+
+* `BackupCoordinator.swift` còn **361** dòng sau khi tách; `LocalBackupStore.swift` **132** (thêm `deleteAll()` và case `Failure.deleteAllPartial`); `LocalBackupListView.swift` **181** (thêm hàng xoá tất cả, gộp hai luồng xoá vào enum `DeleteTarget`).
+* `BackupCoordinator` → `LocalBackupStore` (đã có); `BackupCoordinator+LocalCleanup` chỉ đọc `isBusy`/`localBackups` và gọi `refreshLocal()` — **không** cần thêm cửa nội bộ như `+AutoDrive` (`setBusy`/`setProgress`).
+* `LocalBackupListView` vẫn chỉ gọi coordinator, không chạm `LocalBackupStore` trực tiếp.
+
 ## +6 file cho Telegram backup và multipart transport (1.3.355)
 
 | File mới | Vai trò | Dòng |

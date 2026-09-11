@@ -15,6 +15,13 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Extension dọn dẹp local không mở thêm cửa nội bộ (1.3.356)
+
+* `BackupCoordinator+LocalCleanup.swift` nằm ở `Services/Backup`, chỉ `import Foundation`; không import SwiftUI và không gọi `ToastManager` — lỗi/kết quả đi qua `lastMessage`/`lastError` như phần còn lại của phân hệ.
+* Khác `BackupCoordinator+AutoDrive`, extension này **không** cần cửa nội bộ: hai hàm chỉ đọc `isBusy`/`localBackups` (đều `private(set)` nhưng đọc được) rồi gọi `refreshLocal()`, không ghi `isBusy`/`progress`. Đừng nới access cho tiện.
+* `LocalBackupStore.deleteAll()` là API file-level mới cùng tầng với `delete`/`rename`/`importArchive`; nó **cố ý** không lọc tiền tố `freebook-auto-` — hàng rào đó thuộc phép dọn ngầm của lượt tự động, còn đây là hành động người dùng đã xác nhận.
+* `LocalBackupListView` vẫn chỉ gọi `BackupCoordinator`, không chạm `LocalBackupStore` trực tiếp; không có phụ thuộc mới giữa các tầng.
+
 ## Ranh giới phụ thuộc của Telegram backup (1.3.355)
 
 * Năm file Telegram + `BackupMultipartArchive` nằm ở `Services/Backup`, chỉ import Foundation/CryptoKit/Security; không import SwiftUI và không gọi `ToastManager`. Lỗi/progress đi qua `BackupCoordinator`, View mới quyết định toast.

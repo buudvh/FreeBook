@@ -15,6 +15,13 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Dọn dẹp bản sao lưu trong máy: xoá tất cả và dọn sau khi upload (1.3.356)
+
+* `LocalBackupListView` thêm hàng "Xoá tất cả bản sao lưu trong máy": `LocalBackupStore.deleteAll()` xoá mọi `.fbbackup` trong `backups/`, **duyệt từng file thay vì xoá thư mục** (thư mục còn chứa file tạm của worker đang chạy). Lỗi một phần vẫn đi tiếp rồi mới ném `Failure.deleteAllPartial(deleted:failed:)`.
+* `uploadToDrive`/`uploadToTelegram` xoá bản local **sau khi** đích tự xác nhận thành công; xoá hỏng thì `lastMessage` nói rõ thay vì im lặng. Hệ quả có chủ ý: đường bấm tay là một archive → một đích, muốn lên cả Drive lẫn Telegram thì đi lượt tự động.
+* Tách `BackupCoordinator+LocalCleanup.swift` (**50** dòng) vì `BackupCoordinator.swift` đã chạm trần 400 khi nhồi thêm hai hàm.
+* Thêm **1** file Swift (524 tổng trong cây làm việc); cần `xcodegen generate` và build trên macOS.
+
 ## Sao lưu Telegram, chia part và lịch đa đích (1.3.355)
 
 * Phân hệ Backup thêm Telegram Bot bên cạnh Google Drive: token nằm trong Keychain (file bảo vệ là đường lùi cho LiveContainer), Chat ID nằm trong UserDefaults, và màn cấu hình xác minh bằng `getMe` + `getChat` trước khi dùng.

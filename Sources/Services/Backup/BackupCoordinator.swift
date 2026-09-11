@@ -239,7 +239,7 @@ public final class BackupCoordinator: ObservableObject {
         do {
             _ = try await GoogleDriveUploader.shared.upload(fileURL: item.url, report: makeReporter())
             await refreshDriveFiles()
-            lastMessage = "Đã tải lên Google Drive"
+            lastMessage = "Đã tải lên Google Drive" + removeLocalCopyAfterUpload(item)
         } catch {
             progress = BackupProgress(phase: .failed, detail: error.localizedDescription)
             lastError = "Tải lên thất bại: \(error.localizedDescription)"
@@ -253,9 +253,9 @@ public final class BackupCoordinator: ObservableObject {
         progress = BackupProgress(phase: .uploading, detail: item.name)
         do {
             let outcome = try await TelegramBackupUploader.shared.upload(fileURL: item.url, report: makeReporter())
-            lastMessage = outcome.wasSplit
+            lastMessage = (outcome.wasSplit
                 ? "Đã gửi \(outcome.documentCount) file qua Telegram"
-                : "Đã gửi bản sao lưu qua Telegram"
+                : "Đã gửi bản sao lưu qua Telegram") + removeLocalCopyAfterUpload(item)
         } catch {
             progress = BackupProgress(phase: .failed, detail: error.localizedDescription)
             lastError = "Gửi Telegram thất bại: \(error.localizedDescription)"

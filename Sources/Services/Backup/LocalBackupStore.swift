@@ -48,6 +48,30 @@ public enum LocalBackupStore {
         try FileManager.default.removeItem(at: item.url)
     }
 
+    /// Xoá **toàn bộ** file `.fbbackup` trong `backups/`. Trả về số file đã xoá.
+    ///
+    /// Duyệt qua `list()` rồi xoá từng file thay vì xoá cả thư mục: `backups/` cũng là nơi worker
+    /// ghi file tạm trong lúc sao lưu/khôi phục, xoá thư mục sẽ phá lượt đang chạy. Vì vậy hàm này
+    /// chỉ nhắm đúng các file archive đã hoàn tất.
+    ///
+    /// Xoá được một phần vẫn tiếp tục phần còn lại rồi mới báo lỗi — người dùng bấm "dọn dẹp" mà
+    /// bỏ dở giữa chừng thì tệ hơn là xoá được bao nhiêu hay bấy nhiêu và biết rõ còn lại mấy bản.
+    @discardableResult
+    public static func deleteAll() throws -> Int {
+        var deleted = 0
+        var failed = 0
+        for item in list() {
+            do {
+                try FileManager.default.removeItem(at: item.url)
+                deleted += 1
+            } catch {
+                failed += 1
+            }
+        }
+        guard failed == 0 else { throw Failure.deleteAllPartial(deleted: deleted, failed: failed) }
+        return deleted
+    }
+
     /// Đổi tên trong cùng thư mục. Ném lỗi nếu tên mới đã tồn tại để không âm thầm mất file.
     public static func rename(_ item: Item, to newBaseName: String) throws -> Item {
         let sanitized = sanitize(newBaseName)
@@ -84,6 +108,7 @@ public enum LocalBackupStore {
     public enum Failure: LocalizedError {
         case invalidName
         case nameTaken(String)
+        case deleteAllPartial(deleted: Int, failed: Int)
 
         public var errorDescription: String? {
             switch self {
@@ -91,6 +116,8 @@ public enum LocalBackupStore {
                 return "Tên file không hợp lệ"
             case .nameTaken(let name):
                 return "Đã có bản sao lưu tên \"\(name)\""
+            case .deleteAllPartial(let deleted, let failed):
+                return "Đã xoá \(deleted) bản, còn \(failed) bản không xoá được"
             }
         }
     }

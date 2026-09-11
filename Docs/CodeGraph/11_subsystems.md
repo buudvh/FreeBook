@@ -15,6 +15,16 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Dọn dẹp bản sao lưu trong máy: nút "xoá tất cả" và dọn sau khi upload (1.3.356)
+
+* **"Xoá tất cả" cố ý bỏ qua hàng rào tiền tố tên file.** `LocalBackupStore.deleteAll()` xoá **mọi** file `.fbbackup` trong `backups/`, không lọc theo tiền tố. Đây là chủ ý, không phải sót: hàng rào ở mục 1.3.260 (`BackupPaths.isAutoBackupFileName`, chỉ lượt nền xoá được bản `freebook-auto-`) tồn tại để phép dọn **ngầm** không bao giờ ăn bản người dùng tự tạo/tự đổi tên. `deleteAll()` là hành động **hiện** do người dùng bấm và đã xác nhận, nên nó phải xoá đúng điều nút nói. Đừng "thống nhất" hai đường bằng cách thêm bộ lọc tiền tố vào `deleteAll()`; cũng đừng nới hàng rào tự động.
+* **Xoá từng file, không xoá thư mục.** `backups/` cũng là nơi worker ghi file tạm trong lúc export/restore, nên `deleteAll()` duyệt `list()` rồi `removeItem` từng archive đã hoàn tất — xoá cả thư mục sẽ phá lượt đang chạy.
+* **Lỗi một phần vẫn đi tiếp rồi mới báo.** Hàm đếm số xoá được, gom số lỗi và ném `Failure.deleteAllPartial(deleted:failed:)` thay vì dừng ở file hỏng đầu tiên. `BackupCoordinator.deleteAllLocal()` gọi `refreshLocal()` **trước khi** đặt `lastError` để UI khớp thực tế, và chặn bằng `isBusy` để không xoá file bên dưới worker đang chạy.
+* **Một trạng thái cho hai luồng xoá.** `LocalBackupListView` gộp "xoá một bản" và "xoá tất cả" vào enum `DeleteTarget` thay vì hai cờ song song (hộp thoại xác nhận chỉ được có một binding bật tại một thời điểm). Hộp thoại vẫn gắn vào **footer** — view lá — theo luật đã ghi ở đầu file: modifier đặt trên `Section` sẽ lan xuống từng hàng và bật nhiều lần cùng một binding.
+* **Bản trong máy là bản tạm, biến mất sau khi đích xác nhận.** `uploadToDrive`/`uploadToTelegram` gọi `removeLocalCopyAfterUpload(item)` **chỉ ở nhánh thành công** — upload lỗi mà xoá local là mất bản duy nhất. "Thành công" do đích tự xác nhận: `GoogleDriveUploader` ném lỗi nếu hết byte mà Drive chưa đóng phiên, `TelegramBackupUploader` có SHA-256 từng part và toàn file. Xoá hỏng thì `lastMessage` nói rõ *"(chưa xoá được bản trong máy)"* thay vì im lặng coi như đã dọn.
+* **Hệ quả có chủ ý: đường bấm tay là một archive → một đích.** Vì bản local bị dọn ngay khi upload xong, không còn gửi tiếp chính archive đó sang đích thứ hai. Muốn một bản lên cả Drive lẫn Telegram thì đi đường **tự động** (`BackupCoordinator+AutoDrive` export một lần rồi gửi tuần tự nhiều đích) — đừng "sửa" bằng cách bỏ bước dọn ở đường bấm tay.
+* **Hai hàm này nằm ở `BackupCoordinator+LocalCleanup.swift`, không nhồi vào file gốc.** Nhồi vào `BackupCoordinator.swift` đẩy file lên **402**/400 và sinh `NEW_FILE_TOO_LARGE`; tách extension là cách xử lý đã dùng một lần ở `+AutoDrive` (xem `14_complexity_report.md`). Khác `+AutoDrive`, extension này **không** cần mở cửa nội bộ `setBusy`/`setProgress` vì chỉ đọc trạng thái.
+
 ## Backup có hai đích và một envelope multipart ngoài archive (1.3.355)
 
 * **`.fbbackup` không đổi định dạng.** `BackupMultipartArchive` chỉ là lớp vận chuyển cho giới hạn document Telegram: chia file theo 49 MiB, ghi manifest schema 1 với byte count + SHA-256, và ghép về đúng archive trước khi `LocalBackupStore` nhận.

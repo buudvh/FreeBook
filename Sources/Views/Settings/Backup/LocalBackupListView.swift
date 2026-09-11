@@ -16,7 +16,14 @@ struct LocalBackupListView: View {
 
     @State private var renamingItem: LocalBackupStore.Item?
     @State private var renameText = ""
-    @State private var deletingItem: LocalBackupStore.Item?
+    /// Gộp "xoá một bản" và "xoá tất cả" vào **một** trạng thái: hộp thoại xác nhận chỉ được có một
+    /// binding bật tại một thời điểm, hai cờ song song sẽ tranh nhau trình bày.
+    @State private var deleteTarget: DeleteTarget?
+
+    private enum DeleteTarget: Equatable {
+        case one(LocalBackupStore.Item)
+        case all
+    }
 
     var body: some View {
         Section {
@@ -28,6 +35,13 @@ struct LocalBackupListView: View {
                 ForEach(coordinator.localBackups) { item in
                     row(for: item)
                 }
+
+                Button(role: .destructive) {
+                    deleteTarget = .all
+                } label: {
+                    Label("Xoá tất cả bản sao lưu trong máy", systemImage: "trash")
+                }
+                .disabled(coordinator.isBusy)
             }
         } header: {
             Text("Bản sao lưu trong máy")
@@ -51,17 +65,26 @@ struct LocalBackupListView: View {
                 }
             }
             .confirmationDialog(
-                "Xoá \(deletingItem?.name ?? "")?",
+                deleteDialogTitle,
                 isPresented: isDeleting,
                 titleVisibility: .visible
             ) {
-                Button("Xoá bản sao lưu", role: .destructive) {
-                    if let item = deletingItem {
+                Button(deleteDialogConfirmLabel, role: .destructive) {
+                    switch deleteTarget {
+                    case .one(let item):
                         coordinator.deleteLocal(item)
+                    case .all:
+                        coordinator.deleteAllLocal()
+                    case nil:
+                        break
                     }
-                    deletingItem = nil
+                    deleteTarget = nil
                 }
-                Button("Huỷ", role: .cancel) { deletingItem = nil }
+                Button("Huỷ", role: .cancel) { deleteTarget = nil }
+            } message: {
+                if deleteTarget == .all {
+                    Text("Toàn bộ \(coordinator.localBackups.count) bản trong máy sẽ bị xoá. Bản đã tải lên Google Drive hoặc Telegram không bị ảnh hưởng.")
+                }
             }
     }
 
@@ -117,7 +140,7 @@ struct LocalBackupListView: View {
                 }
 
                 Button(role: .destructive) {
-                    deletingItem = item
+                    deleteTarget = .one(item)
                 } label: {
                     Label("Xoá", systemImage: "trash")
                 }
@@ -133,7 +156,20 @@ struct LocalBackupListView: View {
     }
 
     private var isDeleting: Binding<Bool> {
-        Binding(get: { deletingItem != nil }, set: { if !$0 { deletingItem = nil } })
+        Binding(get: { deleteTarget != nil }, set: { if !$0 { deleteTarget = nil } })
+    }
+
+    private var deleteDialogTitle: String {
+        switch deleteTarget {
+        case .one(let item): return "Xoá \(item.name)?"
+        case .all: return "Xoá tất cả \(coordinator.localBackups.count) bản sao lưu trong máy?"
+        case nil: return ""
+        }
+    }
+
+    private var deleteDialogConfirmLabel: String {
+        if case .all = deleteTarget { return "Xoá tất cả" }
+        return "Xoá bản sao lưu"
     }
 
     private static func dateText(_ date: Date) -> String {

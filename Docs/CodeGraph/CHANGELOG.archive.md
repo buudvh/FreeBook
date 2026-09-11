@@ -2,6 +2,57 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.322] - 2026-09-02
+
+### Viết hoa sau dấu hai chấm và tiền tố thoại trong Reader
+
+Sửa **1** file Swift ([`TranslateUtils.swift`](../../Sources/Services/Translation/Utils/TranslateUtils.swift)).
+
+- **`TranslateUtils.postProcessText`:** Cập nhật `capitalizeRegex` mở rộng `[.!?:]+` (gồm `:` và `：`) và bổ sung các loại gạch ngang đầu dòng (`-`, `—`, `–`). Tự động viết hoa chữ cái đầu câu thoại/trích dẫn sau dấu hai chấm, kể cả khi có dấu ngoặc (`"`, `“`, `‘`, `(`, `[`, `{`, `【`) hoặc gạch đầu dòng bao bọc.
+- Kiểm thử: 18/18 test cases đạt 100% PASS.
+
+## [1.3.321] - 2026-09-02
+
+### Debug Extension: trả đầy đủ JSON Response.success/error và format Beautified JSON
+
+Sửa **5** file Swift, khôi phục và nâng cấp **VS Code Extension** (`Tools/VSCode/FreeBookExtDebug`).
+
+- **`ExtensionDebugRunner` trả JSON đầy đủ:** Đổi từ `manager.compactRepresentation(clean)` sang `manager.stringify(clean)` khi emit event `.responseValidated`. Không còn tóm tắt thành `[Array: N items]` hay `[Object: N keys]`.
+- **`ExtensionDebugRedactor` nâng trần payload phản hồi lên 128 KB:** Thêm hàm `responsePayload(_:)` giữ nguyên toàn bộ định dạng JSON và ngắt dòng, không bị `collapseWhitespace` hay cắt ở 600 ký tự như `message(_:)`. `ExtensionDebugSession` định tuyến `.responseValidated` và `.responseError` qua hàm này.
+- **VS Code Extension nâng cấp:**
+  - Khôi phục giao diện **Sidebar Webview Panel** (`src/sidebarView.ts`) trên Activity Bar với các tính năng: kết nối LAN `ws://ip:port`, chọn extension, stage bản nháp, cài đặt/rollback, điều khiển Run/Cancel, và Live Trace.
+  - Tự động parse và in Beautified JSON (`null, 2`) cho `Response.success` và `Response.error` trên cả Output Channel và Live Trace.
+
+## [1.3.320] - 2026-09-02
+
+### Sửa stall nạp trước NghiTTS, hủy thật inference, và bốn lượt tối ưu tiền xử lý
+
+Xoá **3** file (464 → **461**), sửa **6** file. Bốn việc chạy bằng subagent song song, mỗi diff được tôi đọc lại và kiểm chứng trước khi nhận.
+
+- **Nạp trước không còn tê liệt vì một đoạn rỗng.** `TTSManager.scheduleNghiRefill` gặp đoạn có text rỗng sau khi áp quy tắc thay thế thì `return` — không sinh tác vụ nào **và** không duyệt tiếp sang đoạn sau. Log thực tế của `Docs/Reports/2026-09-02-investigation-nghitts-underrun-stall.md`: 8 giây liền không có lần nạp trước nào, rồi `Underrun` liên tiếp ở 96/98/100. Nay đoạn rỗng được đánh dấu vào một `Set<Int>` riêng và vòng tìm bước qua nó (chặn trên 8 đoạn) để tới đoạn **sẽ thực sự được đọc**. Cố ý **không** dùng `preloadedData[i] = Data()` như tài liệu gợi ý: `prepareNextNghiAudioIfPossible` chỉ kiểm `!= nil` rồi đẩy vào `AVAudioPlayer(data:)`, mà data rỗng thì khởi tạo throw, catch xoá khỏi cache, index đó lại được xếp hàng lại ⇒ churn.
+- **Hủy giờ dừng thật tác vụ đang chạy.** `PiperSynthesisCoordinator` giữ handle `Task` của request đang chạy; khi hết waiter (hoặc `cancelAll`, hoặc đợt hủy reserve lúc tạm dừng) thì cancel handle đó ⇒ `try Task.checkCancellation()` giữa các chunk trong `ONNXPiperEngine.synthesizeInternal` ném lỗi, engine dừng ở chunk kế tiếp thay vì chạy hết đoạn chắc chắn bị bỏ. Trước đây vòng xử lý vẫn `await work()` tới hết, nên pause/skip vẫn tốn ONNX và vì vòng là tuần tự nên request `.demand` mới phải xếp sau ⇒ khựng tiếng. Vòng xử lý **vẫn chờ** task chết hẳn (cancel của Swift là hợp tác, `ORTSession.run` của chunk hiện tại luôn chạy xong) để giữ bất biến "chỉ một operation tổng hợp tại một thời điểm".
+- **`synthesisKey` có bản mặc định** nên dedup thật sự hoạt động. Đường stream được đánh dấu `allowsCoalescing: false` và bộ lọc dedup chặn **hai chiều**, vì `onChunkPayload` bị bắt trong closure của waiter đầu tiên nên mọi hình thức chia sẻ đều làm waiter thứ hai không được gọi callback.
+- **`processUnits`: 102 → 4 lượt quét toàn văn bản.** 51 đơn vị trước đây mỗi đơn vị một cặp regex; nay gộp thành hai alternation (nhóm nhiều ký tự, nhóm một ký tự) với nhánh dài xếp trước, giữ đúng hai hậu tố lookahead khác nhau của bản cũ. Nhánh "số viết bằng chữ" có tiền kiểm rẻ nên chỉ còn 2 lượt khi văn bản không có từ số đếm. Tương đương hành vi được kiểm bằng cách port cả hai bản sang Python rồi so từng ký tự: 95 ca chọn tay + 1 995 ca targeted + 12 000 câu văn xuôi → 0 khác biệt. Fuzz thô cho 0,53% khác biệt, tất cả thuộc một lớp duy nhất — token đơn vị dán liền nhau không dấu phân cách (`km3mg`) — là hệ quả không tránh được của "một lượt trái→phải" thay cho "51 lượt độc lập".
+- **`processCurrency` / `processPercentages` bỏ 7 vòng `while firstMatch`** vốn quét lại từ đầu chuỗi sau mỗi lần thay (O(k×N) mỗi vòng), giờ mỗi pattern một lượt `matches(in:)`. An toàn vì `VietnameseNumberSpeller.spell` không bao giờ trả về chữ số và cả 7 pattern đều bắt buộc có `\d`.
+- **`applyReplacements`: 95 → 6 lượt quét.** 91 trong 95 rule chỉ thay **một ký tự**, nên các dãy rule một ký tự liền nhau được gộp thành một bảng `[Character: String]` quét một lượt. Cố ý **không** dùng regex alternation cho nhóm nhiều ký tự: alternation đổi thứ tự ưu tiên từ "theo thứ tự rule" sang "theo vị trí trái nhất" (`[bc→Y, ab→X]` trên `abc`: cũ ra `aY`, alternation ra `Xc`), mà rule người dùng tự thêm rất dễ rơi vào đó. Cache bị dựng lại qua `didSet` của `rules` nên phủ mọi đường ghi.
+- **`replaceDictionaryWords` bỏ ~40 000 lời gọi regex mỗi chương.** Trường `WordToken.text` cấp phát một chuỗi `.lowercased()` cho **mọi** token rồi không bao giờ được đọc — xoá hẳn. Và `whitespaceCollapse` + `trimmingCharacters` (tới 4 lần mỗi token, nhân 2 lượt acronym/word) giờ chỉ chạy sau một vị từ duyệt `unicodeScalars` không cấp phát.
+- **Viết hoa sau dấu ngoặc** (thay đổi của người dùng, tôi review và đưa vào): bỏ `“‘”’[【` khỏi lớp ký tự mở câu nên `“từ này” không phải` không còn bị viết hoa chữ giữa câu, mà vẫn viết hoa đầu dòng và sau `.!?` kể cả khi có ngoặc bọc ngoài.
+- **Xoá hub từ điển tham chiếu** (phiên âm/đại từ/luật nhân) theo yêu cầu: 3 file cùng section và hàm đếm trong `DictionaryHubView`.
+- Chưa build được (máy Windows). `check_architecture.py` giữ **14** violation, không thêm cái nào: `TTSManager.swift` 4023 → **4022**, `TextPreprocessor.swift` giữ đúng **1121** = baseline (bù bằng cách xoá 17 dòng log đã comment-out).
+
+## [1.3.319] - 2026-09-02
+
+### Thử giọng đọc NghiTTS, hub từ điển tham chiếu, đồng bộ hai danh sách quản lý
+
+Thêm **4** file Swift (460 → **464**), sửa **4** file.
+
+- **Thử giọng đọc NghiTTS** (`NghiTTSTextToolView`): ô nhập chữ, chọn giọng từ danh sách model đã tải, thanh tốc độ 0.5–2.0×, nút phát thử và nút dừng, kèm số liệu (kích thước, thời gian tổng hợp, độ dài clip). Dùng lại **đúng** `PiperTTSService` của `TTSManager` chứ không tạo service riêng — một service mới nghĩa là một `ORTSession` thứ hai trong RAM và một đường tổng hợp không đi qua `PiperSynthesisCoordinator`, trái bất biến "chỉ một operation tổng hợp tại một thời điểm". Nút phát bị chặn khi TTS đang đọc truyện, và chốt lại một lần nữa ngay lúc bấm vì view không observe `TTSManager` theo luật repo.
+- **Hub từ điển tham chiếu** cho phiên âm / đại từ / luật nhân, vào từ màn Từ Điển. Danh sách có tìm kiếm, dòng đếm và tải thêm theo trang — cùng khuôn với `DictionaryListView`. **Không** nhồi ba bộ này vào `DictType`: chúng không có bản riêng theo truyện, không đi qua đường CRUD một-từ, và thêm case sẽ buộc **17** điểm `switch` trong module (kể cả token của rule dịch nhanh) xử lý hai case vô nghĩa.
+- **Không có thêm/sửa/xoá ở hub tham chiếu**, có lý do: `TranslationManager` không ghi vào các file `.dat` và `ChinesePhienAmWords.txt`, nên một nút Lưu ở đây sẽ không có tác dụng thật. Bộ nào chỉ có bản `.dat` thì hiện số mục đang hoạt động kèm lý do không liệt kê được (`DoubleArrayTrie` chỉ có `wordCount` + tra cứu, không liệt kê entry).
+- **Đồng bộ hai danh sách quản lý** (thay thế ký tự TTS, lọc rác) với các list khác: thêm tìm kiếm và dòng đếm cho danh sách thay thế, chuẩn hoá câu chữ dòng đếm cho cả hai.
+- **Sửa một lỗi thật phát hiện khi làm việc đó**: cả hai danh sách render mảng **đã lọc** nhưng wire `onMove` vào `manager.moveRules`, mà `IndexSet` của `onMove` trỏ vào mảng đã lọc — kéo-thả trong lúc tìm kiếm sẽ đổi chỗ sai rule, và thứ tự ở hai danh sách này **chính là** thứ tự áp dụng. Nay trong lúc tìm: kéo-thả bị chặn, `EditButton` ẩn, xoá đổi sang theo `id`.
+- Chưa build được (máy Windows). `check_architecture.py` giữ **14** violation nền.
+
 ## [1.3.318] - 2026-09-02
 
 ### Điều chỉnh quy tắc viết hoa sau dấu câu trong TranslateUtils: bỏ tự viết hoa sau ngoặc, chỉ viết hoa khi có dấu kết thúc câu

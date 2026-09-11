@@ -15,6 +15,13 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +1 file 50 dòng; coordinator về 361 sau khi tách (1.3.356)
+
+* File mới: `BackupCoordinator+LocalCleanup.swift` **50** dòng — chỉ có `extension`, nên không tính là primary type top level.
+* `BackupCoordinator.swift` 379 → **361** (tách `deleteAllLocal()` + `removeLocalCopyAfterUpload(_:)` sang extension); `LocalBackupStore.swift` 105 → **132**; `LocalBackupListView.swift` 145 → **181**.
+* Trong lúc làm, `BackupCoordinator.swift` từng chạm **402**/400 và sinh `NEW_FILE_TOO_LARGE` — đã tách extension thay vì nới baseline hay thêm entry allowlist. `check_architecture.py` về đúng **6** violation line-limit nền.
+* `removeLocalCopyAfterUpload` là một nhánh `do/catch` phẳng, không thêm độ sâu lồng; `deleteAll()` trong `LocalBackupStore` là vòng lặp đếm thành công/thất bại, không rẽ nhánh lồng.
+
 ## +6 file nhỏ cho Telegram backup; không thêm violation (1.3.355)
 
 * File mới: `BackupMultipartArchive` **185**, `TelegramBackupUploader` **161**, `TelegramTokenStore` **93**, `TelegramBackupSettingsView` **69**, `TelegramBotClient` **65**, `TelegramConfiguration` **21**. Tất cả dưới 400 dòng và đúng một primary type top level.
