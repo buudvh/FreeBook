@@ -57,11 +57,8 @@ extension ShelfSearchView {
                     .foregroundColor(.secondary)
             }
             .padding(20)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(.ultraThinMaterial)
-            )
-            .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 4)
+            .einkSurface(12)
+            .einkShadow(.black.opacity(0.2), radius: 10, y: 4)
         }
         .transition(.opacity)
     }

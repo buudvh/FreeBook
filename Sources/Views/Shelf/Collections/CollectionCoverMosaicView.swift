@@ -13,6 +13,9 @@ struct CollectionCoverMosaicView: View {
     let totalCount: Int
     let size: CGFloat
 
+    /// Đọc thẳng khoá `UserDefaults` để badge tự cập nhật khi đổi chế độ.
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
+
     private let gap: CGFloat = 2
 
     private var leadingWidth: CGFloat { (size * 0.62).rounded() }
@@ -76,7 +79,7 @@ struct CollectionCoverMosaicView: View {
                 .foregroundColor(.white)
                 .padding(.horizontal, 5)
                 .padding(.vertical, 2)
-                .background(Color.black.opacity(0.55), in: Capsule())
+                .background(isEInkEnabled ? EInkPalette.ink : Color.black.opacity(0.55), in: Capsule())
                 .padding(4)
         }
     }

@@ -194,4 +194,20 @@ extension RepositoryManagerView {
         }
         return "🌐"
     }
+
+    /// Mã chữ thay cho cờ emoji khi bật chế độ E-Ink.
+    ///
+    /// Cờ emoji là **glyph màu**: panel e-ink không render được nên sẽ ra ô đen hoặc ô trống — lỗi im
+    /// lặng vì build vẫn xanh. Giữ nguyên thứ tự nhánh của `getFlagEmoji` để hai hàm không lệch nhau.
+    internal func localeCode(_ locale: String) -> String {
+        let cleanLocale = locale.lowercased()
+        if cleanLocale.contains("vi") {
+            return "VI"
+        } else if cleanLocale.contains("zh") || cleanLocale.contains("cn") {
+            return "ZH"
+        } else if cleanLocale.contains("en") {
+            return "EN"
+        }
+        return "—"
+    }
 }

@@ -455,11 +455,8 @@ struct ShelfView: View {
                             .controlSize(.regular)
                     }
                     .padding(30)
-                    .background(
-                        RoundedRectangle(cornerRadius: 15)
-                            .fill(.ultraThinMaterial)
-                    )
-                    .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 4)
+                    .einkSurface(15)
+                    .einkShadow(.black.opacity(0.2), radius: 10, y: 4)
                 }
                 .transition(.opacity)
             }
@@ -494,11 +491,8 @@ struct ShelfView: View {
                             .multilineTextAlignment(.center)
                     }
                     .padding(30)
-                    .background(
-                        RoundedRectangle(cornerRadius: 15)
-                            .fill(.ultraThinMaterial)
-                    )
-                    .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 4)
+                    .einkSurface(15)
+                    .einkShadow(.black.opacity(0.2), radius: 10, y: 4)
                 }
                 .transition(.opacity)
             }
@@ -517,11 +511,8 @@ struct ShelfView: View {
                             .foregroundColor(.secondary)
                     }
                     .padding(20)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(.ultraThinMaterial)
-                    )
-                    .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 4)
+                    .einkSurface(12)
+                    .einkShadow(.black.opacity(0.2), radius: 10, y: 4)
                 }
                 .transition(.opacity)
             }

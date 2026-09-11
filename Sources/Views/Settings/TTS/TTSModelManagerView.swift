@@ -159,8 +159,7 @@ struct TTSModelManagerView: View {
                     .edgesIgnoringSafeArea(.all)
                 ProgressView(importModelMessage)
                     .padding(20)
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(12)
+                    .einkSurface(12)
             }
         }
     }

@@ -249,11 +249,8 @@ extension ReaderView {
 
             content()
                 .padding([.horizontal, .bottom])
-                .background(
-                    UnevenRoundedRectangle(topLeadingRadius: 16, topTrailingRadius: 16)
-                        .fill(selectedTheme == .dark ? Color(red: 0.12, green: 0.12, blue: 0.14) : Color.white)
-                )
-                .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: -4)
+                .background { selectedTheme.panelBackground() }
+                .einkShadow(radius: 10, y: -4)
                 .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? 0 : 8)
                 .gesture(
                     DragGesture()

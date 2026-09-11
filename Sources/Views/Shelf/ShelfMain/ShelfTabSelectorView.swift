@@ -13,6 +13,8 @@ import SwiftUI
 /// theo giao diện hệ thống, không phải dark-only.
 struct ShelfTabSelectorView: View {
     @Binding var selection: ShelfTab
+    /// Đọc thẳng khoá `UserDefaults` để thanh chọn tab tự cập nhật khi đổi chế độ.
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
 
     var body: some View {
         HStack(spacing: 8) {
@@ -72,16 +74,35 @@ struct ShelfTabSelectorView: View {
     private func background<S: InsettableShape>(for tab: ShelfTab, shape: S) -> some View {
         let isSelected = selection == tab
         return shape
-            .fill(isSelected ? Color.accentColor.opacity(0.15) : Color(.secondarySystemBackground))
+            .fill(fillColor(isSelected: isSelected))
             .overlay(
                 shape.strokeBorder(
-                    isSelected ? Color.accentColor : Color.secondary.opacity(0.25),
-                    lineWidth: isSelected ? 1.5 : 1
+                    borderColor(isSelected: isSelected),
+                    lineWidth: isSelected ? (isEInkEnabled ? EInkPalette.selectedBorderWidth : 1.5) : 1
                 )
             )
     }
 
+    /// E-Ink: nền `accentColor.opacity(0.15)` gần như trắng nên trạng thái "đang chọn" **mất hẳn tín
+    /// hiệu** — đây là ví dụ rõ nhất cho quy ước của `EInkPalette`. Đổi thành đảo ngược: nền đen, chữ
+    /// trắng. Nút chưa chọn thành nền trắng + viền đen, thay cho nền `secondarySystemBackground`.
+    private func fillColor(isSelected: Bool) -> Color {
+        guard !isEInkEnabled else {
+            return isSelected ? EInkPalette.selectedFill : EInkPalette.normalFill
+        }
+        return isSelected ? Color.accentColor.opacity(0.15) : Color(.secondarySystemBackground)
+    }
+
+    private func borderColor(isSelected: Bool) -> Color {
+        guard !isEInkEnabled else { return EInkPalette.ink }
+        return isSelected ? Color.accentColor : Color.secondary.opacity(0.25)
+    }
+
     private func foreground(for tab: ShelfTab) -> Color {
-        selection == tab ? .accentColor : .secondary
+        let isSelected = selection == tab
+        guard !isEInkEnabled else {
+            return isSelected ? EInkPalette.selectedContent : EInkPalette.ink
+        }
+        return isSelected ? .accentColor : .secondary
     }
 }

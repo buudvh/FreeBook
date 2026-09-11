@@ -91,7 +91,7 @@ extension ReaderDefinitionOverlayView {
                 if isPinned {
                     Image(systemName: "pin.fill")
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(selectedTheme == .dark ? Color(red: 1.0, green: 0.8, blue: 0.3) : Color.orange)
+                        .einkAccentForeground(selectedTheme == .dark ? Color(red: 1.0, green: 0.8, blue: 0.3) : Color.orange)
                 }
                 Text(title)
                     .font(.system(size: 13, weight: isSelected ? .bold : .medium))

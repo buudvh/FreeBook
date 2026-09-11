@@ -65,7 +65,7 @@ struct SuggestRowView: View {
                             HStack(alignment: .top, spacing: 10) {
                                 BookCoverView(bookId: novel.link, coverUrl: novel.cover, width: 48, height: 68)
                                     .cornerRadius(6)
-                                    .shadow(radius: 1)
+                                    .einkShadow(.black.opacity(0.33), radius: 1)
                                 
                                 let displayName = (isTranslationEnabled && TranslateUtils.containsChinese(novel.name)) ? TranslateUtils.translateMeta(novel.name) : novel.name
                                 Text(DisplayTextFormatter.titleCase(displayName))

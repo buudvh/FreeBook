@@ -6,14 +6,24 @@ public enum ReaderTheme: String, CaseIterable, Identifiable {
     case paper = "Sáng"
     case sepia = "Trầm ấm"
     case dark = "Tối"
+    /// Theme do **chế độ E-Ink ép**, không phải lựa chọn của người dùng.
+    ///
+    /// Cố ý **không** nằm trong `allCases` (xem bên dưới) nên không xuất hiện trong `Picker` ở
+    /// `ReaderSettingsView` và không thể bị chọn tay.
+    case eink = "E-Ink"
 
     public var id: String { self.rawValue }
+
+    /// Ba theme người dùng chọn được. `eink` bị loại để `Picker` không hiện nó — chọn tay theme này khi
+    /// chế độ đang tắt sẽ cho ra giao diện đen trắng "mồ côi" mà người dùng không có đường tắt.
+    public static var allCases: [ReaderTheme] { [.paper, .sepia, .dark] }
 
     var backgroundColor: Color {
         switch self {
         case .paper: return Color(red: 0.96, green: 0.95, blue: 0.90)
         case .sepia: return Color(red: 0.90, green: 0.83, blue: 0.72)
         case .dark: return Color(red: 0.08, green: 0.08, blue: 0.09)
+        case .eink: return EInkPalette.paper
         }
     }
 
@@ -22,6 +32,7 @@ public enum ReaderTheme: String, CaseIterable, Identifiable {
         case .paper: return Color(red: 0.15, green: 0.15, blue: 0.15)
         case .sepia: return Color(red: 0.25, green: 0.18, blue: 0.10)
         case .dark: return Color(red: 0.75, green: 0.75, blue: 0.75)
+        case .eink: return EInkPalette.ink
         }
     }
 
@@ -33,6 +44,10 @@ public enum ReaderTheme: String, CaseIterable, Identifiable {
             return UIColor(red: 0.92, green: 0.72, blue: 0.45, alpha: 0.45)
         case .dark:
             return UIColor(white: 1.0, alpha: 0.16)
+        case .eink:
+            // Đảo ngược thay vì tô vàng: trên e-ink vệt vàng 45% chỉ ra xám nhạt, còn nền đen đặc là
+            // thứ duy nhất đọc được chắc chắn.
+            return EInkPalette.inkUIColor
         }
     }
 
@@ -44,6 +59,8 @@ public enum ReaderTheme: String, CaseIterable, Identifiable {
             return UIColor(red: 0.13, green: 0.07, blue: 0.02, alpha: 1.0)
         case .dark:
             return UIColor.white
+        case .eink:
+            return EInkPalette.paperUIColor
         }
     }
 }
@@ -88,6 +105,11 @@ struct ReaderView: View {
     @Environment(\.dismiss) internal var dismiss // Hàm dùng để đóng màn hình hiện tại và quay về màn hình trước
     @Environment(\.scenePhase) internal var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Quan sát chế độ E-Ink để trình đọc **vẽ lại ngay** khi người dùng đổi chế độ trong sheet cài đặt
+    /// (sheet này nằm ngay trên trình đọc). Cần thiết vì `panelBackground`, `scrimColor` và
+    /// `readerEdgeButton` đọc cờ theo kiểu mệnh lệnh chứ không qua `@AppStorage`.
+    @ObservedObject private var eink = EInkModeSettings.shared
 
     // @Query: Tự động tải dữ liệu từ database SwiftData
     @Query private var allBooks: [Book] // Tất cả sách trong máy
@@ -170,7 +192,17 @@ struct ReaderView: View {
     @AppStorage("isTranslationPronounsEnabled") internal var isTranslationPronounsEnabled = false // Bật dịch đại từ
     @AppStorage("isTranslationLuatNhanEnabled") internal var isTranslationLuatNhanEnabled = false // Bật dịch luật nhân
     @State var shouldConvertTraditionalToSimplified = false
-    @AppStorage("readerSelectedTheme") internal var selectedTheme: ReaderTheme = .dark // Theme giao diện đọc (Sáng, Trầm ấm, Tối)
+    /// Lựa chọn theme **người dùng đã lưu** — đây mới là thứ `Picker` trong `ReaderSettingsView` ghi vào.
+    /// Khoá `UserDefaults` giữ nguyên `readerSelectedTheme` nên không mất lựa chọn cũ.
+    @AppStorage("readerSelectedTheme") internal var storedReaderTheme: ReaderTheme = .dark
+
+    /// Theme **thật sự dùng để vẽ**: `.eink` khi chế độ E-Ink bật, ngược lại là lựa chọn đã lưu.
+    ///
+    /// Cố ý giữ tên `selectedTheme` và để là computed property: mọi call site đang đọc `selectedTheme`
+    /// (kể cả các file extension/component khác) tự động nhận theme hiệu lực mà **không phải sửa dòng
+    /// nào**. Chỉ `ReaderSettingsView` phải bind vào `storedReaderTheme` — bind vào đây sẽ ghi `.eink`
+    /// đè lên lựa chọn thật của người dùng.
+    internal var selectedTheme: ReaderTheme { ReaderTheme.effective(stored: storedReaderTheme) }
     @AppStorage("readerFontFamily") internal var fontFamily: ReaderFontFamily = .georgia // Phông chữ đọc sách
     @AppStorage("hasOpenedReader") internal var hasOpenedReader = false
     @State internal var showingSettings = false // Hiện bảng cài đặt font chữ, màu nền
@@ -467,11 +499,8 @@ struct ReaderView: View {
                     }
                 )
                 .padding([.horizontal, .bottom])
-                .background(
-                    UnevenRoundedRectangle(topLeadingRadius: 16, topTrailingRadius: 16)
-                        .fill(selectedTheme == .dark ? Color(red: 0.12, green: 0.12, blue: 0.14) : Color.white)
-                )
-                .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: -4)
+                .background { selectedTheme.panelBackground() }
+                .einkShadow(radius: 10, y: -4)
                 .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? 0 : 8)
                 .gesture(
                     DragGesture()
@@ -496,7 +525,7 @@ struct ReaderView: View {
                 bookId: bookId, fontSize: $fontSize,
                 lineSpacing: $lineSpacing,
                 fontFamily: $fontFamily,
-                selectedTheme: $selectedTheme,
+                selectedTheme: $storedReaderTheme,
                 isTranslationEnabled: $isTranslationEnabled,
                 isPronounsEnabled: $isTranslationPronounsEnabled,
                 isLuatNhanEnabled: $isTranslationLuatNhanEnabled,
@@ -1006,7 +1035,14 @@ struct ReaderView: View {
 
                 ZStack(alignment: .bottomTrailing) {
                     readerContentView
-                    readerTTSControl(geometry: geometry)
+                    VStack(alignment: .trailing, spacing: 10) {
+                        // Nút làm mới chỉ có mặt khi chế độ E-Ink bật và công tắc phụ đang mở — người
+                        // dùng thường không cần nó, nhưng khi bị ghosting thì đây là đường thoát duy nhất.
+                        if eink.isEnabled && eink.showsRefreshButton {
+                            readerEInkRefreshControl
+                        }
+                        readerTTSControl(geometry: geometry)
+                    }
                 }
 
                 Spacer().frame(height: 52)

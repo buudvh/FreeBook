@@ -3,6 +3,7 @@ import SwiftData
 import UniformTypeIdentifiers
 
 struct RepositoryManagerView: View {
+    @AppStorage(EInkModeSettings.Key.enabled) internal var isEInkEnabled = false
     @Environment(\.modelContext) internal var modelContext
     @Query(sort: \Repository.name) internal var repositories: [Repository]
     @Query internal var allExtensions: [Extension]
@@ -395,6 +396,7 @@ struct RepositoryManagerView: View {
                             .background(Color.orange.opacity(0.15))
                             .foregroundColor(.orange)
                             .cornerRadius(4)
+                            .einkTag(.solid)
                     } else {
                         Text("v\(ext.version)")
                             .font(.caption2)
@@ -403,9 +405,10 @@ struct RepositoryManagerView: View {
                             .background(Color.blue.opacity(0.1))
                             .foregroundColor(.blue)
                             .cornerRadius(4)
+                            .einkTag(.outline)
                     }
                     
-                    Text(getFlagEmoji(ext.locale))
+                    Text(isEInkEnabled ? localeCode(ext.locale) : getFlagEmoji(ext.locale))
                         .font(.subheadline)
                 }
                 
@@ -417,6 +420,7 @@ struct RepositoryManagerView: View {
                         .background(ext.type == ExtensionType.tts ? Color.orange.opacity(0.12) : Color.purple.opacity(0.12))
                         .foregroundColor(ext.type == ExtensionType.tts ? .orange : .purple)
                         .cornerRadius(4)
+                        .einkTag(.outline)
                     
                     Text(ext.author)
                         .font(.system(size: 9))
@@ -425,6 +429,7 @@ struct RepositoryManagerView: View {
                         .background(Color.green.opacity(0.1))
                         .foregroundColor(.green)
                         .cornerRadius(4)
+                        .einkTag(.outline)
 
                     if ext.showsDebugBadge {
                         Text("debug")
@@ -434,6 +439,7 @@ struct RepositoryManagerView: View {
                             .background(Color.red.opacity(0.12))
                             .foregroundColor(.red)
                             .cornerRadius(4)
+                            .einkTag(.dashed)
                     }
                 }
                 

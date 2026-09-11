@@ -140,7 +140,7 @@ public struct FloatingSelectionMenu: View {
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .fill(Color(red: 0.1, green: 0.1, blue: 0.12).opacity(0.92))
-                .shadow(color: Color.black.opacity(0.24), radius: 6, x: 0, y: 3)
+                .einkShadow(Color.black.opacity(0.24), radius: 6, y: 3)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 8)

@@ -209,6 +209,7 @@ struct SettingsView: View {
                 
                 TTSSettingsSection()
 
+                EInkSettingsSection()
                 BrowserSettingsSection()
 
                 NewChapterSettingsSection()

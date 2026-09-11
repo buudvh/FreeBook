@@ -45,11 +45,26 @@ public struct ExtensionScriptEditorView: View {
 
     internal let quickSymbols = ["{", "}", "(", ")", "[", "]", "=", ";", ":", "\"", "'", "=>", ".", ",", "fetch", "function"]
     
-    // Hex Catppuccin Dark Editor Colors
-    internal let editorBg = Color(red: 24/255, green: 24/255, blue: 37/255)
-    internal let lineNumBg = Color(red: 30/255, green: 30/255, blue: 46/255)
-    internal let textFg = Color(red: 205/255, green: 214/255, blue: 244/255)
-    internal let lineNumFg = Color(red: 108/255, green: 112/255, blue: 134/255)
+    @ObservedObject private var eink = EInkModeSettings.shared
+
+    // Hex Catppuccin Dark Editor Colors — đảo sang nền sáng khi bật E-Ink (option C, §4b.5).
+    // 7 màu syntax vẫn nằm trong `HighlightingCodeEditor` và GIỮ NGUYÊN (nợ option-B đã ghi plan).
+    internal var editorBg: Color {
+        eink.isEnabled ? .white : Color(red: 24/255, green: 24/255, blue: 37/255)
+    }
+    internal var lineNumBg: Color {
+        eink.isEnabled
+            ? Color(red: 0.95, green: 0.95, blue: 0.95)
+            : Color(red: 30/255, green: 30/255, blue: 46/255)
+    }
+    internal var textFg: Color {
+        eink.isEnabled ? .black : Color(red: 205/255, green: 214/255, blue: 244/255)
+    }
+    internal var lineNumFg: Color {
+        eink.isEnabled
+            ? Color(white: 0.4)
+            : Color(red: 108/255, green: 112/255, blue: 134/255)
+    }
 
     public init(ext: Extension) {
         self.ext = ext

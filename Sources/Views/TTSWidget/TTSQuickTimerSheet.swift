@@ -123,7 +123,7 @@ struct TTSQuickTimerSheet: View {
                                 .stroke(Color.orange.opacity(0.35), lineWidth: 1.5)
                         )
                 )
-                .shadow(color: Color.orange.opacity(0.08), radius: 8, x: 0, y: 3)
+                .einkShadow(Color.orange.opacity(0.08), radius: 8, y: 3)
             } else {
                 HStack(spacing: 12) {
                     Image(systemName: "moon.stars.fill")
@@ -229,7 +229,7 @@ struct TTSQuickTimerSheet: View {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .stroke(isSelected ? Color.orange : Color.clear, lineWidth: 1.5)
             )
-            .shadow(color: isSelected ? Color.orange.opacity(0.3) : Color.black.opacity(0.04), radius: 5, x: 0, y: 2)
+            .einkShadow(isSelected ? Color.orange.opacity(0.3) : Color.black.opacity(0.04), radius: 5, y: 2)
         }
         .buttonStyle(.plain)
     }
@@ -299,7 +299,7 @@ struct TTSQuickTimerSheet: View {
                     .padding(.vertical, 12)
                     .foregroundStyle(.white)
                     .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.orange))
-                    .shadow(color: Color.orange.opacity(0.3), radius: 6, x: 0, y: 3)
+                    .einkShadow(Color.orange.opacity(0.3), radius: 6, y: 3)
                 }
             }
             .padding(16)

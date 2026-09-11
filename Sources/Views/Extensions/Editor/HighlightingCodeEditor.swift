@@ -27,6 +27,8 @@ public struct HighlightingCodeEditor: UIViewRepresentable {
     }
 
     public func updateUIView(_ uiView: CodeEditorTextView, context: Context) {
+        // Đổi nền theo e-ink mỗi lần re-render (option C, §4b.5) — 7 màu syntax GIỮ NGUYÊN.
+        uiView.applyEInkMode()
         let font = UIFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
         uiView.font = font
         uiView.lineNumberFont = UIFont.monospacedSystemFont(ofSize: max(9.0, fontSize - 2.0), weight: .regular)

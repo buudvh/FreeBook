@@ -15,6 +15,9 @@ public struct ReaderChapterRowView: View {
     /// `nil` = truyện này không tải lẻ được (TXT nội bộ, hoặc chưa có trong kệ) ⇒ không hiện nút.
     public let onDownload: (() -> Void)?
 
+    /// Đọc thẳng khoá `UserDefaults` (thay vì observe singleton) để hàng tự cập nhật khi đổi chế độ.
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
+
     public init(
         chapter: ReaderChapterRowState,
         isCurrent: Bool,
@@ -46,7 +49,7 @@ public struct ReaderChapterRowView: View {
             HStack(spacing: 0) {
                 Text(displayTitle)
                     .font(.body)
-                    .foregroundColor(isCurrent ? .blue : theme.textColor)
+                    .foregroundColor(currentTextColor)
                     .fontWeight(isCurrent ? .semibold : .regular)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
@@ -59,7 +62,21 @@ public struct ReaderChapterRowView: View {
                 .frame(width: 30, height: 30)
         }
         .padding(.vertical, 4)
-        .listRowBackground(isCurrent ? Color.blue.opacity(0.08) : theme.backgroundColor)
+        .listRowBackground(currentRowBackground)
+    }
+
+    /// Chương đang đọc trên e-ink được đánh dấu bằng **đảo ngược** (nền đen, chữ trắng) thay vì chữ xanh
+    /// trên nền xanh 8%. Nền 8% vốn đã gần như trắng, còn xanh thì mất hẳn khi đơn sắc hoá — nếu chỉ đổi
+    /// màu, chương hiện tại sẽ trùng với mọi chương khác. `.semibold` sẵn có vẫn giữ, nhưng một mình nó
+    /// không đủ để nhận ra ngay.
+    private var currentTextColor: Color {
+        guard isCurrent else { return theme.textColor }
+        return isEInkEnabled ? EInkPalette.paper : .blue
+    }
+
+    private var currentRowBackground: Color {
+        guard isCurrent else { return theme.backgroundColor }
+        return isEInkEnabled ? EInkPalette.ink : Color.blue.opacity(0.08)
     }
 
     /// Ba trạng thái dùng **cùng một** khung 30×30 để hàng không nhảy chiều cao khi đổi trạng thái.
@@ -68,19 +85,19 @@ public struct ReaderChapterRowView: View {
         if chapter.isCached {
             Image(systemName: "arrow.down.circle.fill")
                 .font(.caption)
-                .foregroundColor(.green)
+                .einkAccentForeground(.green)
                 .accessibilityLabel("Chương đã tải")
         } else if isDownloading {
             ProgressView()
                 .progressViewStyle(.circular)
-                .tint(theme.textColor.opacity(0.7))
+                .tint(isEInkEnabled ? EInkPalette.ink : theme.textColor.opacity(0.7))
                 .scaleEffect(0.7)
                 .accessibilityLabel("Đang tải chương")
         } else if let onDownload {
             Button(action: onDownload) {
                 Image(systemName: "arrow.down.circle")
                     .font(.body)
-                    .foregroundColor(theme.textColor.opacity(0.55))
+                    .einkAccentForeground(theme.textColor.opacity(0.55))
                     .frame(width: 30, height: 30)
                     .contentShape(Rectangle())
             }

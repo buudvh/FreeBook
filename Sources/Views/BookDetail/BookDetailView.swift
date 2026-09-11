@@ -7,6 +7,8 @@ struct ReaderRoute: Identifiable, Hashable {
 }
 
 struct BookDetailView: View {
+    /// Đọc thẳng khoá `UserDefaults` để nút hành động + badge tab tự cập nhật khi đổi chế độ.
+    @AppStorage(EInkModeSettings.Key.enabled) internal var isEInkEnabled = false
     @Environment(\.modelContext) internal var modelContext
     @Environment(\.dismiss) private var dismiss
     @Query private var allBooks: [Book]
@@ -626,10 +628,10 @@ struct BookDetailView: View {
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
-                                .background(Color.blue)
+                                .background(isEInkEnabled ? EInkPalette.ink : Color.blue)
                                 .foregroundColor(.white)
                                 .cornerRadius(20)
-                                .shadow(radius: 3)
+                                .einkShadow(.black.opacity(0.33), radius: 3)
                             }
                             .transition(.scale.combined(with: .opacity))
 
@@ -651,10 +653,10 @@ struct BookDetailView: View {
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
-                                .background(localBook?.isOnShelf == true ? Color.green : Color.accentColor)
+                                .background(isEInkEnabled ? EInkPalette.ink : (localBook?.isOnShelf == true ? Color.green : Color.accentColor))
                                 .foregroundColor(.white)
                                 .cornerRadius(20)
-                                .shadow(radius: 3)
+                                .einkShadow(.black.opacity(0.33), radius: 3)
                             }
                             .transition(.scale.combined(with: .opacity))
 
@@ -672,10 +674,10 @@ struct BookDetailView: View {
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
-                                .background(Color.green)
+                                .background(isEInkEnabled ? EInkPalette.ink : Color.green)
                                 .foregroundColor(.white)
                                 .cornerRadius(20)
-                                .shadow(radius: 3)
+                                .einkShadow(.black.opacity(0.33), radius: 3)
                             }
                             .transition(.scale.combined(with: .opacity))
 
@@ -693,10 +695,10 @@ struct BookDetailView: View {
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
-                                .background(Color.orange)
+                                .background(isEInkEnabled ? EInkPalette.ink : Color.orange)
                                 .foregroundColor(.white)
                                 .cornerRadius(20)
-                                .shadow(radius: 3)
+                                .einkShadow(.black.opacity(0.33), radius: 3)
                             }
                             .transition(.scale.combined(with: .opacity))
                         }
@@ -711,9 +713,9 @@ struct BookDetailView: View {
                                 .frame(width: 20, height: 20)
                                 .foregroundColor(.white)
                                 .padding(16)
-                                .background(Color.accentColor)
+                                .background(isEInkEnabled ? EInkPalette.ink : Color.accentColor)
                                 .clipShape(Circle())
-                                .shadow(radius: 5)
+                                .einkShadow(.black.opacity(0.33), radius: 5)
                                 .rotationEffect(.degrees(isMenuExpanded ? 135 : 0))
                         }
                     }

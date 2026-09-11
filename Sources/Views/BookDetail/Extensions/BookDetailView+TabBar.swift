@@ -41,7 +41,7 @@ extension BookDetailView {
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Capsule().fill(Color.red))
+                                .background(Capsule().fill(isEInkEnabled ? EInkPalette.ink : Color.red))
                         }
                     }
 

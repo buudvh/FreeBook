@@ -8,6 +8,7 @@ struct ExtensionItemResultWithExt: Identifiable {
 }
 
 struct SearchView: View {
+    @AppStorage(EInkModeSettings.Key.enabled) internal var isEInkEnabled = false
     let activeExtensions: [Extension]
     let selectedExtension: Extension?
     let initialSearchQuery: String
@@ -446,7 +447,7 @@ struct SearchView: View {
                                 .fontWeight(.semibold)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Color.accentColor.opacity(0.1))
+                                .background(isEInkEnabled ? EInkPalette.paper : Color.accentColor.opacity(0.1))
                                 .foregroundColor(.accentColor)
                                 .cornerRadius(4)
                         }
@@ -491,7 +492,7 @@ struct SearchView: View {
                                 .fontWeight(.semibold)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Color.accentColor.opacity(0.1))
+                                .background(isEInkEnabled ? EInkPalette.paper : Color.accentColor.opacity(0.1))
                                 .foregroundColor(.accentColor)
                                 .cornerRadius(4)
                         }

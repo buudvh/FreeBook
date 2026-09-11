@@ -4,6 +4,20 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.357] - 2026-09-11
+
+### Thêm chế độ E-Ink cho trình đọc và thiết lập trong Cài đặt
+
+Thêm **7** file Swift, sửa **40** file Swift trên toàn bộ 5 tầng (`App`, `Common`, `Models`, `Services`, `Views`). Mọi quyết định "đang bật e-ink" chạy qua chính sách render (chỉ đen/trắng, viền thay bóng, đảo ngược thay tô màu nhạt, bỏ hiệu ứng nền mờ) chứ không phải "thêm theme màu".
+
+- `EInkModeSettings` (singleton `ObservableObject`) là nguồn sự thật duy nhất: `isEnabled` + 4 công tắc phụ (`monochromeCovers`, `hideCovers`, `instantChapterTurn`, `showsRefreshButton`); khoá `UserDefaults` công khai để `View+EInk` bind `@AppStorage` **cùng khoá**, nhờ đó mọi màn tự cập nhật khi đổi chế độ mà không observe singleton ở từng chỗ.
+- `View+EInk.swift` gom toàn bộ logic e-ink vào một `ViewModifier` (`einkOutline`, `einkShadow`, `einkSurface`, `einkMonochrome`, `einkRule`, `einkAccentForeground`, `einkTag`, `einkSelection`): đảo ngược thay tint, dashed = cảnh báo, grayscale + contrast cho ảnh.
+- `EInkAppearance.apply()` đẩy nav/tab bar sang nền trắng đục + kẻ đen 1px (appearance proxy UIKit **không retroactive** nên gọi lại khi đổi chế độ); `EInkPalette` cung cấp `paper`/`ink` + độ rộng viền. `FreeBookApp.init()` và `AppLaunchRootView` áp màu sắc + `.preferredColorScheme(.light)` khi bật.
+- Reader: thêm case `.eink` vào `ReaderTheme` (loại khỏi `allCases` để Picker không hiện), `panelBackground()`/`scrimColor`/`effective(theme)` giữ nguyên 11 component dùng `selectedTheme` không đổi một dòng; `instantChapterTurn` chặn animation lật chương; `EInkRefreshOverlay.flash()` phủ cửa sổ đen→trắng xoá ghosting, gọi từ nút "Làm mới màn hình ngay" (chỉ hiện khi `showsRefreshButton`).
+- Editor (option C, §4b.5): chỉ đổi nền editor sang trắng khi bật e-ink, **giữ nguyên 7 màu syntax** Dark+ (nợ option-B — màn e-ink phải dither 7 màu, chữ có thể khó đọc trên nền sáng; ghi nợ đợt sau).
+- Settings: `EInkSettingsSection` mount bằng **đúng 1 dòng** trong `SettingsView.swift` (vẫn 453 dòng, không vượt ngân sách), công tắc chính + 4 công tắc phụ + nút làm mới, ghi qua singleton để cả luồng đọc singleton (`ReaderViewModel`, `ReaderView`) và `@AppStorage` (`BookCoverView`, `ExtensionIconView`) đồng bộ.
+- Gate: `check_architecture.py` giữ **6** violation line-limit nền, không có violation mới; `validate_links.py` PASS 16 doc. Host Windows không có Swift/Xcode nên **chưa compile**; có 7 file Swift mới nên cần `xcodegen generate` + build trên macOS. Không dùng `Tests/`.
+
 ## [1.3.356] - 2026-09-11
 
 ### Thêm nút dọn dẹp toàn bộ bản sao lưu trong máy và xoá bản local sau khi upload thành công

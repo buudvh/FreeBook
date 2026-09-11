@@ -1,18 +1,14 @@
 import SwiftUI
 import SwiftData
-import UIKit
 
 @main
 struct FreeBookApp: App {
     let container: ModelContainer
 
     init() {
-        let tabBarAppearance = UITabBarAppearance()
-        tabBarAppearance.configureWithDefaultBackground()
-        UITabBar.appearance().standardAppearance = tabBarAppearance
-        UITabBar.appearance().scrollEdgeAppearance = tabBarAppearance
-
-        NavigationBarAppearance.applyTitlelessBackButton()
+        // Diện mạo hai thanh: mặc định của app, hoặc bản **đục + kẻ đen** nếu người dùng đang bật chế độ
+        // E-Ink. Đọc thẳng từ UserDefaults nên áp đúng ngay lượt dựng đầu tiên, không cần chờ màn Cài đặt.
+        EInkAppearance.apply()
 
         do {
             let appSupportURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -44,6 +40,9 @@ struct FreeBookApp: App {
 struct AppLaunchRootView: View {
     @Environment(\.modelContext) private var modelContext
     @ObservedObject private var translationManager = TranslationManager.shared
+    /// Quan sát chế độ E-Ink ở **gốc** cây view: đổi chế độ làm `preferredColorScheme` đổi, kéo theo cả
+    /// cây được đánh giá lại — nhờ vậy không phải observe singleton ở từng màn.
+    @ObservedObject private var eink = EInkModeSettings.shared
     @StateObject private var ttsPresentation = TTSRootPresentationReader()
     @StateObject private var browserPresentation = VisibleBrowserPresentationReader()
 
@@ -60,6 +59,9 @@ struct AppLaunchRootView: View {
             }
             .animation(.easeInOut(duration: 0.5), value: translationManager.isInitialized)
         }
+        // E-Ink là môi trường giấy trắng: ép giao diện sáng để nền không bị lật sang đen theo hệ thống.
+        // `nil` = theo hệ thống, tức hành vi cũ khi chế độ tắt.
+        .preferredColorScheme(eink.isEnabled ? .light : nil)
         .onAppear {
             KeyboardDismissGesture.shared.activate()
             // Compile bộ rule dịch trước khi lần dịch đầu chạy: `AppLaunchRootView` chặn app tới khi

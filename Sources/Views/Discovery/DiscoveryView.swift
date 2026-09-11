@@ -18,6 +18,7 @@ private struct DiscoveryDetailRoute: Identifiable, Hashable {
 }
 
 struct DiscoveryView: View {
+    @AppStorage(EInkModeSettings.Key.enabled) internal var isEInkEnabled = false
     @Environment(\.modelContext) private var modelContext
     @Query private var allExtensions: [Extension]
     
@@ -232,9 +233,15 @@ struct DiscoveryView: View {
                                                         .fontWeight(isSelected ? .bold : .regular)
                                                         .padding(.horizontal, 14)
                                                         .padding(.vertical, 8)
-                                                        .background(isSelected ? Color.accentColor : Color.gray.opacity(0.1))
-                                                        .foregroundColor(isSelected ? .white : .primary)
+                                                        .background(isSelected ? (isEInkEnabled ? EInkPalette.ink : Color.accentColor) : (isEInkEnabled ? EInkPalette.paper : Color.gray.opacity(0.1)))
+                                                        .foregroundColor(isSelected ? (isEInkEnabled ? EInkPalette.selectedContent : .white) : .primary)
                                                         .cornerRadius(20)
+                                                        .overlay {
+                                                            if isEInkEnabled && !isSelected {
+                                                                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                                                    .strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth)
+                                                            }
+                                                        }
                                                 }
                                                 .id(item.id)
                                             }
@@ -272,7 +279,7 @@ struct DiscoveryView: View {
                                 VStack(spacing: 16) {
                                     Image(systemName: "exclamationmark.triangle.fill")
                                         .font(.system(size: 48))
-                                        .foregroundColor(.orange)
+                                        .einkAccentForeground(.orange)
                                     Text(discoveryError)
                                         .font(.headline)
                                         .foregroundColor(.secondary)
@@ -886,7 +893,7 @@ struct ExtensionSelectorView: View {
                         selectedExtensionId = ext.packageId
                         dismiss()
                     }
-                    .listRowBackground(isSelected ? Color.accentColor.opacity(0.08) : Color(.systemBackground))
+                    .listRowBackground(isSelected && isEInkEnabled ? EInkPalette.ink : (isSelected ? Color.accentColor.opacity(0.08) : Color(.systemBackground)))
                 }
                 .listStyle(.plain)
             }

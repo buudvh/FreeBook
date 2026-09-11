@@ -90,7 +90,7 @@ struct BookDetailHeaderView: View {
         HStack(alignment: .top, spacing: 16) {
             BookCoverView(bookId: actualBookId, coverUrl: coverUrl, width: 100, height: 140)
                 .cornerRadius(8)
-                .shadow(radius: 2)
+                .einkShadow(.black.opacity(0.33), radius: 2)
 
             VStack(alignment: .leading, spacing: 8) {
                 Text(DisplayTextFormatter.titleCase(onTranslateMetaIfNeeded(title)))

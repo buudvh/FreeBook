@@ -52,7 +52,7 @@ struct DownloadTrackerView: View {
             // like the same book wherever it is shown.
             BookCoverView(bookId: task.bookId, coverUrl: task.bookCoverUrl, width: 50, height: 70)
                 .cornerRadius(4)
-                .shadow(color: Color.black.opacity(0.08), radius: 2, x: 0, y: 1)
+                .einkShadow(Color.black.opacity(0.08), radius: 2, y: 1)
             
             VStack(alignment: .leading, spacing: 4) {
                 let rawTitle = isTranslationEnabled && TranslateUtils.containsChinese(task.bookTitle)
