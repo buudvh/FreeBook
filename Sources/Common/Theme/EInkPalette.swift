@@ -19,12 +19,31 @@ import UIKit
 public enum EInkPalette {
     // MARK: - Hai cực
 
-    /// Nền giấy — trắng tuyệt đối, cố ý **không** ngả vàng như `ReaderTheme.paper`.
-    public static let paper = Color.white
+    /// Nền giấy — **màu tuy chọn** (White / Gray / Warm), đọc từ `EInkModeSettings.shared.paperColor`.
+    ///
+    /// Là `var` tính toán chứ không phải hằng: đổi màu nền trong Cài đặt phải lập tức lan sang mọi
+    /// bề mặt e-ink (panel trình đọc, badge, thanh chọn tab, nav/tab bar qua `EInkAppearance`,
+    /// FlashView làm mới). Mặc định Gray #D8D8D2 — xám giấy, dịu mắt nhất. Cả ba tông đều là sáng,
+    /// nên `ink` (đen) luôn đọc được trên đó.
+    public static var paper: Color {
+        switch EInkModeSettings.shared.paperColor {
+        case .white: return Color(red: 0xF2 / 255, green: 0xF1 / 255, blue: 0xEC / 255)
+        case .gray:  return Color(red: 0xD8 / 255, green: 0xD8 / 255, blue: 0xD2 / 255)
+        case .warm:  return Color(red: 0xE5 / 255, green: 0xDE / 255, blue: 0xD0 / 255)
+        }
+    }
+
     /// Mực — đen tuyệt đối.
     public static let ink = Color.black
 
-    public static let paperUIColor = UIColor.white
+    public static var paperUIColor: UIColor {
+        switch EInkModeSettings.shared.paperColor {
+        case .white: return UIColor(red: 0xF2 / 255, green: 0xF1 / 255, blue: 0xEC / 255, alpha: 1)
+        case .gray:  return UIColor(red: 0xD8 / 255, green: 0xD8 / 255, blue: 0xD2 / 255, alpha: 1)
+        case .warm:  return UIColor(red: 0xE5 / 255, green: 0xDE / 255, blue: 0xD0 / 255, alpha: 1)
+        }
+    }
+
     public static let inkUIColor = UIColor.black
 
     // MARK: - Nét

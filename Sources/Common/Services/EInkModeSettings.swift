@@ -15,6 +15,28 @@ import Foundation
 public final class EInkModeSettings: ObservableObject {
     public static let shared = EInkModeSettings()
 
+    /// Màu nền giấy của chế độ E-Ink — người dùng chọn một trong ba tông, mặc định **Gray** (#D8D8D2).
+    ///
+    /// Enum nằm trong class (không phải type top level riêng) để file vẫn đúng **1 type top level**
+    /// (`MULTI_PRIMARY_TYPES`). Chỉ mang `rawValue: Int` + nhãn tiếng Việt — **không** import SwiftUI
+    /// (tầng `Services` cấm), nên việc đổi `Int` sang `Color`/`UIColor` nằm ở `EInkPalette`.
+    public enum EInkPaperColor: Int, CaseIterable {
+        /// Trắng ngà (#F2F1EC) — ít ngả vàng nhất.
+        case white = 0
+        /// Xám giấy (#D8D8D2) — dịu mắt nhất, **mặc định**.
+        case gray = 1
+        /// Vàng giấy (#E5DED0) — hơi ngả vàng như giấy sách.
+        case warm = 2
+
+        public var label: String {
+            switch self {
+            case .white: return "Trắng ngà"
+            case .gray: return "Xám giấy"
+            case .warm: return "Vàng giấy"
+            }
+        }
+    }
+
     /// Bật/tắt toàn bộ chế độ E-Ink.
     @Published public private(set) var isEnabled: Bool
     /// Bìa sách đổi sang thang xám. Bỏ qua khi `hideCovers` bật.
@@ -25,6 +47,8 @@ public final class EInkModeSettings: ObservableObject {
     @Published public private(set) var instantChapterTurn: Bool
     /// Hiện nút full-refresh trong trình đọc.
     @Published public private(set) var showsRefreshButton: Bool
+    /// Màu nền giấy được chọn (White / Gray / Warm).
+    @Published public private(set) var paperColor: EInkPaperColor
 
     /// Khoá `UserDefaults` — công khai để `View+EInk` bind `@AppStorage` **đúng cùng khoá**, nhờ đó màn
     /// tự cập nhật khi người dùng đổi chế độ mà không phải observe singleton ở từng chỗ.
@@ -36,6 +60,7 @@ public final class EInkModeSettings: ObservableObject {
         public static let hideCovers = "eInkHideCovers"
         public static let instantChapterTurn = "eInkInstantChapterTurn"
         public static let showsRefreshButton = "eInkShowsRefreshButton"
+        public static let paperColor = "eInkPaperColor"
     }
 
     private let defaults: UserDefaults
@@ -48,13 +73,15 @@ public final class EInkModeSettings: ObservableObject {
             Key.monochromeCovers: true,
             Key.hideCovers: false,
             Key.instantChapterTurn: true,
-            Key.showsRefreshButton: true
+            Key.showsRefreshButton: true,
+            Key.paperColor: EInkPaperColor.gray.rawValue
         ])
         isEnabled = defaults.bool(forKey: Key.enabled)
         monochromeCovers = defaults.bool(forKey: Key.monochromeCovers)
         hideCovers = defaults.bool(forKey: Key.hideCovers)
         instantChapterTurn = defaults.bool(forKey: Key.instantChapterTurn)
         showsRefreshButton = defaults.bool(forKey: Key.showsRefreshButton)
+        paperColor = EInkPaperColor(rawValue: defaults.integer(forKey: Key.paperColor)) ?? .gray
     }
 
     // MARK: - Ghi
@@ -87,5 +114,14 @@ public final class EInkModeSettings: ObservableObject {
     public func setShowsRefreshButton(_ value: Bool) {
         defaults.set(value, forKey: Key.showsRefreshButton)
         showsRefreshButton = value
+    }
+
+    public func setPaperColor(_ value: EInkPaperColor) {
+        guard value != paperColor else { return }
+        defaults.set(value.rawValue, forKey: Key.paperColor)
+        paperColor = value
+        // Appearance proxy của UIKit không retroactive — áp lại để thanh điều hướng/tab bar nhận
+        // đúng nền giấy mới ngay với màn chưa dựng, và màn mở sau tự động dùng màu mới.
+        EInkAppearance.apply()
     }
 }

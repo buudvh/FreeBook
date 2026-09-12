@@ -2,6 +2,51 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.325] - 2026-09-03
+
+### Cài mới extension từ VS Code, không chỉ ghi đè bản đã có
+
+Thêm **1** file Swift (461 → **462**), sửa **5** file Swift và **3** file của `Tools/VSCode/FreeBookExtDebug`.
+
+- **`draft.install` có hai nhánh, không thêm lệnh mới vào protocol.** Router tra thư viện bằng **cả hai** id (id client gửi và id app suy ra từ `plugin.json`): khớp ⇒ `installOverExisting` ghi đè file như trước; không khớp ⇒ `installAsNew` dựng `extensions/<packageId>/` từ thư mục staging rồi ghi hàng `Extension` qua `ExtensionTransactionCoordinator`. Đây là chỗ **duy nhất** trong phân hệ debug ghi SwiftData.
+- **File mới [`ExtensionDraftMetadata.swift`](../../Sources/Services/Extensions/Debug/Staging/ExtensionDraftMetadata.swift) (136 dòng)** đọc `plugin.json` của bản nháp theo **đúng** luật của `ExtensionManager.installFromLocalZip` (`metadata.packageId` thắng, thiếu thì `name.lowercased()` thay dấu cách bằng `_`) và dựng `UpsertExtensionCommand`. Cố ý **không** tin `packageId` của client: nhờ vậy client gửi `Truyen Full` khi app đang có `truyen_full` vẫn rơi vào nhánh *cập nhật*, không sinh hàng SwiftData thứ hai.
+- **Thứ tự file → bản ghi là bất biến an toàn, không phải chi tiết triển khai.** Bản ghi trỏ vào thư mục không tồn tại là lỗi im lặng ở mọi màn `@Query`; ngược lại chỉ là thư mục mồ côi mà `ExtensionInstallAudit` phát hiện được. Ghi bản ghi thất bại thì client nhận `INTERNAL_ERROR` nói rõ "đã copy file nhưng không ghi được thư viện".
+- **`writeLibraryRow` hop sang `MainActor` với `ModelContext(container)` riêng** (coordinator là `@MainActor`, còn luật repo cấm dùng chung context của MainActor cho tác vụ nền); chỉ một `String?` băng qua ranh giới isolation. Phát `"extensionDidUpdate"` cùng khuôn với `BackupRestoreWorker` để màn Khám Phá thấy extension mới mà không cần mở lại app.
+- **`installNew` copy chứ không move thư mục staging** — `run.start` với cùng revision phải còn chạy được sau khi cài, và vùng staging vẫn do `ExtensionDraftStagingStore` sở hữu. Thư mục đích đã tồn tại mà chưa có hàng nào trỏ tới (lần cài trước chết giữa đường) đi đúng đường của `install`: sao lưu `.backup/<packageId>/` rồi `replaceItemAt`. Đoạn sao lưu được tách thành `backup(installedUrl:packageId:)` dùng chung cho hai đường.
+- **`run.start` với `sourceMode: "draft"` không còn đòi extension đã cài** — cách thử một extension mới trước khi thêm vào thư viện. Thiếu bản đã cài thì `downloadUrl`/`configJson` rỗng và `host` lấy `metadata.source` của bản nháp; `getCombinedConfigs` vẫn nạp mặc định từ khoá `config` trong `plugin.json`. Hai nguồn cùng đi qua một hàm `startRun(...)` để không lệch nhau.
+- **`draft.stage` bỏ chốt "phải đã cài".** Chốt thật của vùng staging vốn là trần `ExtensionDraftManifest` (200 file / 1 MiB mỗi file / 4 MiB tổng), kiểm tra containment từng path, và việc staging bị xoá sạch khi tắt server hoặc mở lại app.
+- **Cửa xác nhận vật lý nói đúng việc sắp làm**: `ExtensionDebugInstallGate.Kind` thêm `.installNew`, `Request` mang `displayName` đọc từ `plugin.json`, `summary` ba nhánh. Màn Debug Server đổi nhãn "Đồng ý cài mới", header "Yêu cầu thêm extension mới", footer cảnh báo app sẽ tạo thư mục + bản ghi mới, và bullet "Giới hạn đã biết" tách riêng hai nhánh.
+- **Client**: `resolvePackageId({ allowNew })` cho phép stage/install/run-draft chạy với extension chưa có trên app (vẫn chặn `sourceMode: installed`); sau khi cài thì nạp lại `extensions.list` và nhận `packageId` thật từ reply. README cập nhật bảng lệnh + hai ranh giới mới.
+- Gate: `tsc -p ./` (`npm run compile`) **PASS**. `check_architecture.py` giữ đúng **14 violation** (cùng một tập; file mới 136 dòng ≤ 400 và đúng 1 type top level). **Chưa biên dịch Swift** — host là Windows, không có `xcodebuild`; có **1 file Swift mới** nên khi lên macOS **phải** chạy `xcodegen generate`.
+
+## [1.3.324] - 2026-09-03
+
+### Sửa lệch packageId giữa VS Code và app, Run Current File thiếu tham số
+
+Sửa **2** file Swift ([`ExtensionDebugCommandRouter.swift`](../../Sources/Services/Extensions/Debug/Server/ExtensionDebugCommandRouter.swift) 239 → **262**, [`+Draft.swift`](../../Sources/Services/Extensions/Debug/Server/ExtensionDebugCommandRouter+Draft.swift) 183 → **204**) và **2** file TypeScript của `Tools/VSCode/FreeBookExtDebug`.
+
+- **Nguyên nhân "cài bản nháp / test script đều lỗi": hai bên không cùng một luật sinh `packageId`.** Client lấy `metadata.packageId || json.packageId || metadata.name || json.name || folderName` **thô** từ `plugin.json`, còn app sinh id theo ba luật khác nhau tuỳ đường cài: repo sync dùng `ExtensionSyncCommandBuilder.packageId(forName:)` = `name.lowercased()` + thay dấu cách bằng `_`; import zip dùng `metadata.packageId` hoặc `name.lowercased()` **không** thay dấu cách; restore backup giữ nguyên id đã lưu. Một extension tên "Truyen Full" vì vậy là `truyen_full` trên app nhưng `Truyen Full` ở client ⇒ **mọi** lệnh có `packageId` (`run.start` cả hai `sourceMode`, `draft.stage`, `draft.install`, `draft.rollback`) bị trả `UNKNOWN_EXTENSION` kể cả khi extension đang có trên app.
+- **Sửa ở client, vì app là thẩm quyền cuối cùng về danh tính.** `resolvePackageId()` đối chiếu lựa chọn hiện tại với `extensions.list` theo bốn bước (id trùng khít → id trùng slug tên → slug tên trùng slug tên → tên rút gọn bỏ dấu trùng nhau) rồi mới gửi; không khớp thì báo rõ kèm danh sách id app đang có. `stagedRevisions` cũng khoá theo id đã resolve nên id lúc stage và lúc install luôn là một. Chưa kết nối thì giữ id đoán để hành vi offline không đổi.
+- **"Run Current File" gửi run trắng nên luôn lỗi.** Nó lấy tên file làm entrypoint mà **không** hỏi tham số, trong khi `ExtensionDebugCommandRouter.entrypoint(from:)` trả `nil` nếu `search` thiếu `keyword` hoặc `detail`/`toc`/`chap` thiếu `url` ⇒ `UNKNOWN_ENTRYPOINT`; chỉ `genre`/`home` chạy được. Nay `collectEntrypointParams` (dùng chung với Run Script/Run Profile) hỏi trước khi gửi.
+- **Điều kiện rẽ nhánh `custom` sai đối tượng**: cũ so tên file với khoá `script` trong `plugin.json` (tên script của extension), nay so với **sáu entrypoint chuẩn** của server — `list.js` khai trong `script` vẫn phải đi đường `custom` kèm `scriptFileName`.
+- **`getActiveFolderUri()` gói nhầm thư mục** khi người dùng chọn extension từ danh sách "Trên App": nó rơi thẳng về `workspaceFolders[0]`. Nay tìm thư mục workspace cùng danh tính trước.
+- **Phía app: lỗi `UNKNOWN_EXTENSION` nay nói ra id đang có** (`unknownExtensionMessage(requested:installed:)`, dùng chung cho bốn lệnh). Không lộ gì mới vì `extensions.list` vốn trả đúng tập id đó. Thiếu `packageId`/`sourceRevision` của `draft.install`/`draft.rollback` đổi sang `MALFORMED_MESSAGE` cho đúng bản chất; client chỉ in `[code] message` nên không phá tương thích.
+- **Giới hạn chưa đổi (chủ ý, không phải bug)**: `draft.stage`/`run.start`/`draft.install` vẫn bắt buộc extension **đã có** trên app — `ExtensionDraftInstaller` chỉ thay file trong `snapshot.localPath` và không ghi SwiftData, nên chưa có đường cài một extension hoàn toàn mới từ VS Code.
+- Gate: `tsc -p ./` (`npm run compile`) **PASS**, đây là lần đầu có bằng chứng biên dịch thật trong một lượt sửa phân hệ này. `check_architecture.py` giữ đúng **14 violation** (cùng một tập; hai file router 262/204 dòng đều ≤ 400). **Chưa biên dịch Swift** — host là Windows, không có `xcodebuild`; không file Swift nào được thêm/xoá nên **không** cần `xcodegen generate`.
+
+## [1.3.323] - 2026-09-03
+
+### Gỡ tap tắt bàn phím khi bàn phím đóng để không mất vùng bôi đen
+
+Sửa **1** file Swift ([`KeyboardDismissGesture.swift`](../../Sources/Common/Utils/KeyboardDismissGesture.swift), 112 → **149**).
+
+- **Nguyên nhân (người dùng xác nhận trên máy thật: chưa mở bàn phím thì không bao giờ bị).** `KeyboardDismissGesture` cài `UITapGestureRecognizer` lên `UIWindow` ở lần bàn phím hiện **đầu tiên** rồi để nằm đó suốt phiên. Handler gọi `endEditing(true)`, mà lệnh đó buộc **first responder bất kỳ** trong window resign — kể cả `ReaderUITextView` chỉ đọc đang giữ vùng bôi đen, hoặc `WKContentView` của web view tra cứu (công cụ tìm kiếm mở qua `ReaderLookupRoute`). Vì `cancelsTouchesInView = false` và recognizer nhận diện đồng thời, nó không chặn cú long-press chọn chữ — nó chỉ âm thầm xoá vùng chọn ở đúng nhịp thả tay, rồi `textViewDidChangeSelection` bắn `length == 0` và `ReaderView` tắt `FloatingSelectionMenu`.
+- **Vì sao vùng bôi ngắn hay bị nhất**: `UITapGestureRecognizer` fail khi ngón **di chuyển** quá ngưỡng, không phải khi giữ lâu. Kéo một vệt dài thì tap tự fail nên vùng chọn sống; chọn một từ thì ngón gần như không di chuyển nên tap nhận diện và xoá.
+- **Cách sửa**: recognizer chỉ sống trong quãng bàn phím đang hiện. `activate()` đăng ký thêm `keyboardWillHideNotification` → `keyboardWillHide()` → `uninstall()` gỡ recognizer khỏi **mọi** window theo `UIGestureRecognizer.name`. Cố ý **không lọc** `windowLevel == .normal && !isHidden` như `installIfNeeded()`: bộ lọc chỉ hợp lý khi chọn nơi cài, còn lúc gỡ mà lọc thì window đã bị ẩn giữa hai lần bàn phím sẽ giữ lại một recognizer mồ côi vẫn gọi `endEditing`.
+- **Hành vi "bấm ra ngoài ô nhập là tắt bàn phím" không đổi**: đúng lúc có bàn phím để tắt thì recognizer luôn có mặt. Ba thiết lập bắt buộc của recognizer (`cancelsTouchesInView = false`, `shouldRecognizeSimultaneouslyWith → true`, `shouldReceive` bỏ qua ô đang nhập được) giữ nguyên vì không cái nào là nguyên nhân. `Sources/Views/Reader/**` không bị chạm một dòng nào — kể cả overlay "bắt tap ra ngoài" của `FloatingSelectionMenu`, thứ từng là nghi phạm thứ hai nhưng bị loại vì không mở bàn phím thì không bao giờ mất vùng bôi.
+- **Khe hẹp cố ý để lại**: nếu bàn phím **đang** hiện đúng lúc người dùng bôi đen (ví dụ ô nhập trong trang web vẫn giữ tiêu điểm), cú tap đó vẫn vừa tắt bàn phím vừa xoá vùng chọn; recognizer biến mất ngay sau đó nên lần bôi kế tiếp bình thường.
+- Gate: `check_architecture.py` giữ đúng **14 violation** (cùng một tập; file 149 dòng vẫn ≤ 400 và đúng 1 type top level). **Chưa biên dịch** — host là Windows, không có `xcodebuild`; không file Swift nào được thêm/xoá/đổi tên nên **không** cần `xcodegen generate`.
+
 ## [1.3.322] - 2026-09-02
 
 ### Viết hoa sau dấu hai chấm và tiền tố thoại trong Reader

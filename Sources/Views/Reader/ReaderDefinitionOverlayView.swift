@@ -83,6 +83,9 @@ struct ReaderDefinitionOverlayView: View {
     @State internal var ruleActionTarget: QuickTranslationRuleTrace? = nil
     @State internal var showingRuleActions = false
 
+    /// Đọc thẳng khoá `UserDefaults` để panel Dịch tự cập nhật màu khi đổi chế độ E-Ink.
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
+
     var body: some View {
         VStack(spacing: 8) {
             // Gom thành hai `Group`: thân này đã có đúng 10 con trước 1.3.334, thêm hai hàng nữa là
@@ -160,18 +163,19 @@ struct ReaderDefinitionOverlayView: View {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 13, weight: .bold))
                         .frame(width: 28, height: 28)
-                        .background(Color.blue.opacity(0.1))
-                        .clipShape(Circle())
+                        .background(isEInkEnabled ? EInkPalette.paper : Color.blue.opacity(0.1), in: Circle())
+                        .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
                 }
                 Button(action: onShrinkSelectionLeft) {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 13, weight: .bold))
                         .frame(width: 28, height: 28)
-                        .background(Color.blue.opacity(0.1))
-                        .clipShape(Circle())
+                        .background(isEInkEnabled ? EInkPalette.paper : Color.blue.opacity(0.1), in: Circle())
+                        .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
                 }
             }
             .foregroundColor(.blue)
+            .einkAccentForeground(.blue)
 
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -186,10 +190,15 @@ struct ReaderDefinitionOverlayView: View {
                             Text(char)
                                 .font(.body)
                                 .bold(isSelected)
-                                .underline(isSelected)
-                                .foregroundColor(isSelected ? .blue : .primary)
+                                .underline(inRuleSpan && isEInkEnabled)
+                                .foregroundColor(isSelected ? (isEInkEnabled ? .white : .blue) : .primary)
                                 .padding(.horizontal, inRuleSpan ? 1 : 0)
-                                .background(inRuleSpan ? Color.green.opacity(0.22) : Color.clear)
+                                .background(
+                                    isSelected
+                                        ? (isEInkEnabled ? Color.black : Color.blue.opacity(0.1))
+                                        : (inRuleSpan ? (isEInkEnabled ? Color.clear : Color.green.opacity(0.22)) : Color.clear),
+                                    in: RoundedRectangle(cornerRadius: 3)
+                                )
                                 .cornerRadius(3)
                                 .id("orig-\(index)")
                                 .onTapGesture {
@@ -219,18 +228,19 @@ struct ReaderDefinitionOverlayView: View {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 13, weight: .bold))
                         .frame(width: 28, height: 28)
-                        .background(Color.blue.opacity(0.1))
-                        .clipShape(Circle())
+                        .background(isEInkEnabled ? EInkPalette.paper : Color.blue.opacity(0.1), in: Circle())
+                        .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
                 }
                 Button(action: onExpandSelectionRight) {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 13, weight: .bold))
                         .frame(width: 28, height: 28)
-                        .background(Color.blue.opacity(0.1))
-                        .clipShape(Circle())
+                        .background(isEInkEnabled ? EInkPalette.paper : Color.blue.opacity(0.1), in: Circle())
+                        .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
                 }
             }
             .foregroundColor(.blue)
+            .einkAccentForeground(.blue)
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 6)
@@ -250,10 +260,10 @@ struct ReaderDefinitionOverlayView: View {
                             .font(.subheadline)
                             .bold(isSelected)
                             .underline()
-                            .foregroundColor(isSelected ? .blue : .primary)
+                            .foregroundColor(isSelected ? (isEInkEnabled ? .white : .blue) : .primary)
                             .padding(.horizontal, 2)
                             .padding(.vertical, 2)
-                            .background(isSelected ? Color.blue.opacity(0.1) : Color.clear)
+                            .background(isSelected ? (isEInkEnabled ? Color.black : Color.blue.opacity(0.1)) : Color.clear)
                             .cornerRadius(4)
                             .id("trans-\(token.id)")
                             .onTapGesture {
@@ -316,9 +326,10 @@ struct ReaderDefinitionOverlayView: View {
                     .font(.body)
                     .fontWeight(.medium)
                     .foregroundColor(.blue)
+                    .einkAccentForeground(.blue)
                     .padding(8)
-                    .background(Color.blue.opacity(0.1))
-                    .clipShape(Circle())
+                    .background(isEInkEnabled ? EInkPalette.paper : Color.blue.opacity(0.1), in: Circle())
+                    .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
             }
 
             Button(action: pasteFromClipboard) {
@@ -326,9 +337,10 @@ struct ReaderDefinitionOverlayView: View {
                     .font(.body)
                     .fontWeight(.medium)
                     .foregroundColor(.blue)
+                    .einkAccentForeground(.blue)
                     .padding(8)
-                    .background(Color.blue.opacity(0.1))
-                    .clipShape(Circle())
+                    .background(isEInkEnabled ? EInkPalette.paper : Color.blue.opacity(0.1), in: Circle())
+                    .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
             }
             .accessibilityLabel("Dán từ clipboard")
             .accessibilityHint("Dán nội dung clipboard vào ô nhập nghĩa")
@@ -339,14 +351,14 @@ struct ReaderDefinitionOverlayView: View {
                         Button(action: { customMeaning = chip.text }) {
                             Text(chip.text)
                                 .font(.subheadline)
-                                .foregroundColor(chip.category.textColor)
+                                .foregroundColor(isEInkEnabled ? EInkPalette.ink : chip.category.textColor)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
-                                .background(Color(red: 0.12, green: 0.12, blue: 0.15))
+                                .background(isEInkEnabled ? EInkPalette.paper : Color(red: 0.12, green: 0.12, blue: 0.15))
                                 .cornerRadius(15)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 15)
-                                        .stroke(chip.category.borderColor, lineWidth: 1)
+                                        .stroke(isEInkEnabled ? EInkPalette.ink : chip.category.borderColor, lineWidth: 1)
                                 )
                         }
                     }

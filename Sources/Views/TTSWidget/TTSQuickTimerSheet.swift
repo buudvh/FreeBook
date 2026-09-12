@@ -6,6 +6,8 @@ struct TTSQuickTimerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var ttsManager = TTSManager.shared
     @State private var customMinutes: Double = 90.0
+    /// Đọc thẳng khoá `UserDefaults` để sheet Hẹn giờ tự cập nhật khi đổi chế độ E-Ink.
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
 
     private let presetMinutes = [15, 30, 45, 60, 90]
 
@@ -42,6 +44,7 @@ struct TTSQuickTimerSheet: View {
                         Image(systemName: "gearshape.fill")
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundStyle(.blue)
+                            .einkAccentForeground(.blue)
                     }
                     .accessibilityLabel("Cài đặt giọng đọc & Tốc độ")
                 }
@@ -73,11 +76,13 @@ struct TTSQuickTimerSheet: View {
                 HStack(spacing: 14) {
                     ZStack {
                         Circle()
-                            .fill(Color.orange.opacity(0.18))
+                            .fill(isEInkEnabled ? EInkPalette.paper : Color.orange.opacity(0.18))
                             .frame(width: 44, height: 44)
+                            .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
                         Image(systemName: "timer")
                             .font(.system(size: 20, weight: .bold))
                             .foregroundStyle(Color.orange)
+                            .einkAccentForeground(Color.orange)
                     }
 
                     VStack(alignment: .leading, spacing: 3) {
@@ -90,10 +95,12 @@ struct TTSQuickTimerSheet: View {
                             Text("Dừng khi hết chương")
                                 .font(.system(size: 17, weight: .bold))
                                 .foregroundStyle(Color.orange)
+                                .einkAccentForeground(Color.orange)
                         } else {
                             Text(ttsManager.sleepTimerBadgeText.isEmpty ? "\(Int(customMinutes)) phút" : ttsManager.sleepTimerBadgeText)
                                 .font(.system(size: 20, weight: .bold, design: .monospaced))
                                 .foregroundStyle(Color.orange)
+                                .einkAccentForeground(Color.orange)
                         }
                     }
 
@@ -109,9 +116,11 @@ struct TTSQuickTimerSheet: View {
                             .font(.subheadline)
                             .fontWeight(.semibold)
                             .foregroundStyle(.red)
+                            .einkAccentForeground(.red)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 7)
-                            .background(Capsule().fill(Color.red.opacity(0.12)))
+                            .background(Capsule().fill(isEInkEnabled ? EInkPalette.paper : Color.red.opacity(0.12)))
+                            .overlay { if isEInkEnabled { Capsule().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
                     }
                 }
                 .padding(14)
@@ -120,7 +129,7 @@ struct TTSQuickTimerSheet: View {
                         .fill(Color(uiColor: .secondarySystemGroupedBackground))
                         .overlay(
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(Color.orange.opacity(0.35), lineWidth: 1.5)
+                                .stroke(isEInkEnabled ? EInkPalette.ink : Color.orange.opacity(0.35), lineWidth: isEInkEnabled ? EInkPalette.borderWidth : 1.5)
                         )
                 )
                 .einkShadow(Color.orange.opacity(0.08), radius: 8, y: 3)
@@ -208,26 +217,31 @@ struct TTSQuickTimerSheet: View {
         isSelected: Bool,
         action: @escaping () -> Void
     ) -> some View {
+        let iconForeground: Color = isEInkEnabled ? (isSelected ? .white : EInkPalette.ink) : (isSelected ? .white : .orange)
+        let titleForeground: Color = isEInkEnabled ? (isSelected ? .white : EInkPalette.ink) : (isSelected ? .white : .primary)
+        let fill: Color = isEInkEnabled ? (isSelected ? .black : EInkPalette.paper) : (isSelected ? .orange : Color(uiColor: .secondarySystemGroupedBackground))
+        let stroke: Color = isEInkEnabled ? EInkPalette.ink : .orange
+        let strokeWidth: CGFloat = isEInkEnabled && isSelected ? EInkPalette.selectedBorderWidth : 1.5
         Button(action: action) {
             VStack(spacing: 6) {
                 Image(systemName: icon)
                     .font(.system(size: 16, weight: isSelected ? .bold : .regular))
-                    .foregroundStyle(isSelected ? Color.white : Color.orange)
+                    .foregroundStyle(iconForeground)
 
                 Text(title)
                     .font(.subheadline)
                     .fontWeight(isSelected ? .bold : .medium)
-                    .foregroundStyle(isSelected ? Color.white : Color.primary)
+                    .foregroundStyle(titleForeground)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(isSelected ? Color.orange : Color(uiColor: .secondarySystemGroupedBackground))
+                    .fill(fill)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(isSelected ? Color.orange : Color.clear, lineWidth: 1.5)
+                    .stroke(isSelected ? stroke : Color.clear, lineWidth: strokeWidth)
             )
             .einkShadow(isSelected ? Color.orange.opacity(0.3) : Color.black.opacity(0.04), radius: 5, y: 2)
         }
@@ -253,6 +267,7 @@ struct TTSQuickTimerSheet: View {
                         Image(systemName: "minus.circle.fill")
                             .font(.system(size: 26))
                             .foregroundStyle(Color.orange)
+                            .einkAccentForeground(Color.orange)
                     }
 
                     Spacer()
@@ -276,12 +291,13 @@ struct TTSQuickTimerSheet: View {
                         Image(systemName: "plus.circle.fill")
                             .font(.system(size: 26))
                             .foregroundStyle(Color.orange)
+                            .einkAccentForeground(Color.orange)
                     }
                 }
                 .padding(.horizontal, 8)
 
                 Slider(value: $customMinutes, in: 1...180, step: 1)
-                    .tint(Color.orange)
+                    .tint(isEInkEnabled ? .primary : .orange)
 
                 Button(action: {
                     triggerHaptic()
@@ -298,7 +314,7 @@ struct TTSQuickTimerSheet: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .foregroundStyle(.white)
-                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.orange))
+                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(isEInkEnabled ? Color.black : Color.orange))
                     .einkShadow(Color.orange.opacity(0.3), radius: 6, y: 3)
                 }
             }
@@ -321,11 +337,13 @@ struct TTSQuickTimerSheet: View {
             HStack(spacing: 12) {
                 ZStack {
                     Circle()
-                        .fill(Color.blue.opacity(0.12))
+                        .fill(isEInkEnabled ? EInkPalette.paper : Color.blue.opacity(0.12))
                         .frame(width: 36, height: 36)
+                        .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
                     Image(systemName: "gearshape.fill")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(.blue)
+                        .einkAccentForeground(.blue)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {

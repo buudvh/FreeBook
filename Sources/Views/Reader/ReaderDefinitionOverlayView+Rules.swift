@@ -31,16 +31,17 @@ extension ReaderDefinitionOverlayView {
             Text(notice)
                 .font(.caption)
                 .foregroundColor(.orange)
+                .einkAccentForeground(.orange)
                 .frame(maxWidth: .infinity, alignment: .leading)
         } else if let trace = focusedRuleTrace {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
-                    Text("Nghĩa rule")
-                        .font(.system(size: 9, weight: .bold))
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 1)
-                        .background(Color.secondary.opacity(0.18))
-                        .cornerRadius(3)
+                Text("Nghĩa rule")
+                    .font(.system(size: 9, weight: .bold))
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 1)
+                    .background(isEInkEnabled ? EInkPalette.paper : Color.secondary.opacity(0.18), in: RoundedRectangle(cornerRadius: 3))
+                    .overlay { if isEInkEnabled { RoundedRectangle(cornerRadius: 3).strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
 
                     Text(ReaderRuleChipStyle.label(for: trace.status))
                         .font(.caption2)
@@ -56,8 +57,8 @@ extension ReaderDefinitionOverlayView {
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.secondary.opacity(0.08))
-            .cornerRadius(8)
+            .background(isEInkEnabled ? EInkPalette.paper : Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+            .overlay { if isEInkEnabled { RoundedRectangle(cornerRadius: 8).strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
         }
     }
 
@@ -85,9 +86,10 @@ extension ReaderDefinitionOverlayView {
                     .font(.body)
                     .fontWeight(.medium)
                     .foregroundColor(.green)
+                    .einkAccentForeground(.green)
                     .padding(8)
-                    .background(Color.green.opacity(0.12))
-                    .clipShape(Circle())
+                    .background(isEInkEnabled ? EInkPalette.paper : Color.green.opacity(0.12), in: Circle())
+                    .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
             }
             .accessibilityLabel("Thêm rule cho cụm đang chọn")
 

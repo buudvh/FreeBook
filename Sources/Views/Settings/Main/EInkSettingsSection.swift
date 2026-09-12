@@ -45,6 +45,16 @@ struct EInkSettingsSection: View {
                     set: { EInkModeSettings.shared.setShowsRefreshButton($0) }
                 ))
 
+                Picker("Màu nền E-Ink", selection: Binding(
+                    get: { eink.paperColor },
+                    set: { EInkModeSettings.shared.setPaperColor($0) }
+                )) {
+                    ForEach(EInkModeSettings.EInkPaperColor.allCases, id: \.rawValue) { color in
+                        Text(color.label).tag(color)
+                    }
+                }
+                .pickerStyle(.segmented)
+
                 Button(action: { EInkRefreshOverlay.shared.flash() }) {
                     Label("Làm mới màn hình ngay", systemImage: "arrow.clockwise")
                 }

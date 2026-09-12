@@ -144,6 +144,7 @@ struct BookActionSheet: View {
                     Label("Đang ghim đầu kệ", systemImage: "pin.fill")
                         .font(.caption2)
                         .foregroundColor(.orange)
+                        .einkAccentForeground(.orange)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -173,9 +174,10 @@ struct BookActionSheet: View {
     private var headerTrailingColumn: some View {
         VStack(alignment: .trailing, spacing: 0) {
             if canOpenDetail {
-                Image(systemName: "info.circle")
-                    .foregroundColor(.accentColor)
-                    .accessibilityHidden(true)
+            Image(systemName: "info.circle")
+                .foregroundColor(.accentColor)
+                .einkAccentForeground(.accentColor)
+                .accessibilityHidden(true)
             }
 
             Spacer(minLength: 8)
@@ -195,6 +197,7 @@ struct BookActionSheet: View {
             Image(systemName: book.isOnShelf ? "bookmark.slash.fill" : "bookmark.fill")
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundColor(book.isOnShelf ? .red : .accentColor)
+                .einkAccentForeground(book.isOnShelf ? .red : .accentColor)
                 .frame(width: 40, height: 32)
                 .contentShape(Rectangle())
         }
@@ -223,6 +226,7 @@ struct BookActionSheet: View {
                 HStack {
                     Image(systemName: "folder")
                         .foregroundColor(.accentColor)
+                        .einkAccentForeground(.accentColor)
                     Text(collection.name)
                         .lineLimit(1)
                     Spacer()
@@ -231,6 +235,7 @@ struct BookActionSheet: View {
                     } label: {
                         Image(systemName: "minus.circle.fill")
                             .foregroundColor(.red)
+                            .einkAccentForeground(.red)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Bỏ khỏi \(collection.name)")
@@ -260,6 +265,7 @@ struct BookActionSheet: View {
             }
         } label: {
             Label("Thêm vào bộ sưu tập", systemImage: "plus.circle.fill")
+                .einkAccentForeground(.accentColor)
         }
     }
 
@@ -327,6 +333,7 @@ struct BookActionSheet: View {
             emit(action)
         } label: {
             Label(title, systemImage: icon)
+                .einkAccentForeground(.red)
         }
     }
 

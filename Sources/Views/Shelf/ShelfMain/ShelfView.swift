@@ -93,6 +93,8 @@ struct ShelfView: View {
     @State private var navigateToImportedBook = false
     @State private var openingBook: Book? = nil
     @AppStorage("readerSelectedTheme") private var selectedTheme: ReaderTheme = .dark
+    /// Đọc thẳng khoá `UserDefaults` để tiêu đề nhóm tự cập nhật khi đổi chế độ E-Ink.
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
 
     // Sheet nhấn-giữ một cuốn sách (thay cho context menu cũ) và đích "Xem chi tiết" phát từ sheet đó.
     @State private var actionTarget: BookSheetAction.Target? = nil
@@ -662,15 +664,22 @@ struct ShelfView: View {
             Image(systemName: icon)
                 .font(.caption2)
                 .foregroundColor(color)
+                .einkAccentForeground(color)
             Text(title)
                 .font(.caption.weight(.semibold))
                 .foregroundColor(color)
+                .einkAccentForeground(color)
             Text("\(count)")
                 .font(.caption2.weight(.semibold))
                 .foregroundColor(.secondary)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 1)
-                .background(Color.secondary.opacity(0.15), in: Capsule())
+                .background(isEInkEnabled ? EInkPalette.paper : Color.secondary.opacity(0.15), in: Capsule())
+                .overlay {
+                    if isEInkEnabled {
+                        Capsule().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth)
+                    }
+                }
             Spacer()
         }
         .textCase(nil)

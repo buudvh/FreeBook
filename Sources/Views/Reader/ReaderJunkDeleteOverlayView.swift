@@ -4,6 +4,9 @@ struct ReaderJunkDeleteOverlayView: View {
     @Binding var isPresented: Bool
     let selectedTheme: ReaderTheme
     let originalSentence: String
+
+    /// Đọc thẳng khoá `UserDefaults` để panel Xoá từ rác tự cập nhật khi đổi chế độ E-Ink.
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
     @Binding var selectedWordOffset: Int
     @Binding var selectedWordLength: Int
     let translationTokens: [TranslationWordToken]
@@ -65,18 +68,19 @@ struct ReaderJunkDeleteOverlayView: View {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 13, weight: .bold))
                         .frame(width: 28, height: 28)
-                        .background(Color.red.opacity(0.1))
-                        .clipShape(Circle())
+                        .background(isEInkEnabled ? EInkPalette.paper : Color.red.opacity(0.1), in: Circle())
+                        .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
                 }
                 Button(action: onShrinkSelectionLeft) {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 13, weight: .bold))
                         .frame(width: 28, height: 28)
-                        .background(Color.red.opacity(0.1))
-                        .clipShape(Circle())
+                        .background(isEInkEnabled ? EInkPalette.paper : Color.red.opacity(0.1), in: Circle())
+                        .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
                 }
             }
             .foregroundColor(.red)
+            .einkAccentForeground(.red)
 
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -89,7 +93,7 @@ struct ReaderJunkDeleteOverlayView: View {
                                 .font(.body)
                                 .bold(isSelected)
                                 .underline(isSelected)
-                                .foregroundColor(isSelected ? .red : .primary)
+                                .foregroundColor(isSelected ? (isEInkEnabled ? .white : .red) : .primary)
                                 .id("junk-orig-\(index)")
                                 .onTapGesture {
                                     selectedWordOffset = index
@@ -118,18 +122,19 @@ struct ReaderJunkDeleteOverlayView: View {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 13, weight: .bold))
                         .frame(width: 28, height: 28)
-                        .background(Color.red.opacity(0.1))
-                        .clipShape(Circle())
+                        .background(isEInkEnabled ? EInkPalette.paper : Color.red.opacity(0.1), in: Circle())
+                        .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
                 }
                 Button(action: onExpandSelectionRight) {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 13, weight: .bold))
                         .frame(width: 28, height: 28)
-                        .background(Color.red.opacity(0.1))
-                        .clipShape(Circle())
+                        .background(isEInkEnabled ? EInkPalette.paper : Color.red.opacity(0.1), in: Circle())
+                        .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
                 }
             }
             .foregroundColor(.red)
+            .einkAccentForeground(.red)
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 6)
@@ -149,10 +154,10 @@ struct ReaderJunkDeleteOverlayView: View {
                             .font(.subheadline)
                             .bold(isSelected)
                             .underline()
-                            .foregroundColor(isSelected ? .red : .primary)
+                            .foregroundColor(isSelected ? (isEInkEnabled ? .white : .red) : .primary)
                             .padding(.horizontal, 2)
                             .padding(.vertical, 2)
-                            .background(isSelected ? Color.red.opacity(0.1) : Color.clear)
+                            .background(isSelected ? (isEInkEnabled ? Color.black : Color.red.opacity(0.1)) : Color.clear)
                             .cornerRadius(4)
                             .id("junk-trans-\(token.id)")
                             .onTapGesture {
@@ -228,7 +233,11 @@ struct ReaderJunkDeleteOverlayView: View {
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
-                .background(junkPatternInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray : Color.red)
+                .background(
+                    isEInkEnabled
+                        ? (junkPatternInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray : Color.black)
+                        : (junkPatternInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray : Color.red)
+                )
                 .cornerRadius(10)
             }
             .disabled(junkPatternInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
