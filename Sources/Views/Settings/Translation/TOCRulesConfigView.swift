@@ -235,9 +235,11 @@ struct TOCRulesConfigView: View {
             Toggle("", isOn: Binding(
                 get: { rule.enabled },
                 set: { newValue in
-                    guard let idx = rules.firstIndex(where: { $0.id == rule.id }) else { return }
-                    rules[idx].enabled = newValue
-                    saveRules()
+                    var updated = rules
+                    if let idx = updated.firstIndex(where: { $0.id == rule.id }) {
+                        updated[idx].enabled = newValue
+                        onRulesChanged(updated)
+                    }
                 }
             ))
             .labelsHidden()
@@ -268,27 +270,22 @@ struct TOCRulesConfigView: View {
                                 .foregroundColor(.red)
                         }
                     }
-
                     VStack(alignment: .leading, spacing: 4) {
                         TextField("Mẫu Regex (Pattern)", text: $inputRule)
                             .font(.system(.body, design: .monospaced))
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
-
                         if let err = TranslateUtils.validateTOCRulePattern(inputRule), !trimmedRule.isEmpty {
                             Text("⚠️ \(err)")
                                 .font(.caption2)
                                 .foregroundColor(.red)
                         }
                     }
-
                     TextField("Ví dụ mẫu (không bắt buộc)", text: $inputExample)
                         .autocorrectionDisabled()
-
                     Toggle("Kích hoạt quy tắc", isOn: $inputEnabled)
                         .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
                 }
-
                 Section(footer: Text("Biểu thức chính quy Regex cần phù hợp với định dạng dòng tiêu đề chương trong file TXT.")) {
                     EmptyView()
                 }

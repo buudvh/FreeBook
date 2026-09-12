@@ -4,6 +4,15 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.368] - 2026-09-12
+
+### fix: sua loi scope onRulesChanged trong TOCRulesConfigView
+
+Sửa **1** file Swift: `TOCRulesConfigView.swift`.
+
+- Khôi phục hàm gọi `onRulesChanged(updated)` trong closure toggle của hàng quy tắc TOC, sửa lỗi biên dịch `cannot find 'saveRules' in scope`.
+- Gate: `check_architecture.py` không phát sinh lỗi mới; `validate_links.py` PASS 100%.
+
 ## [1.3.367] - 2026-09-12
 
 ### feat: sua loi nut primary sang frosted pill, doi cong tac gat sang xam dam va chuan hoa cai dat tts
