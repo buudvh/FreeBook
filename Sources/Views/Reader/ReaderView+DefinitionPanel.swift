@@ -84,7 +84,7 @@ extension ReaderView {
                     isLoadingRules: definitionSession.loading || definitionSession.loadingRules,
                     isSaving: definitionSession.saving,
                     isDefinitionCurrent: isDefinitionDataCurrent(),
-                    onRuleAction: { (trace: QuickTranslationRuleTrace, action: QuickTranslationRuleAction) in handleRuleAction(trace, action) },
+                    onRuleAction: { (trace: QuickTranslationRuleTrace, action: ReaderRuleAction) in handleRuleAction(trace, action) },
                     // Điền sẵn **cả hai** ô: mẫu = cụm gốc đang chọn, nghĩa = đúng chữ đang có trong ô
                     // nhập nghĩa của panel này (kể cả nghĩa người dùng vừa sửa tay).
                     onAddRule: {
