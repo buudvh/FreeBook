@@ -24,6 +24,8 @@ struct QuickTranslationRuleEntryRow: View {
     let onDelete: () -> Void
     let onMissingContext: () -> Void
 
+    @Environment(\.isEInkEnabled) private var isEInkEnabled
+
     private var transferTarget: QuickTranslationRuleScope? {
         QuickTranslationRuleTransfer.opposite(of: scope, contextBookId: contextBookId)
     }
@@ -52,7 +54,7 @@ struct QuickTranslationRuleEntryRow: View {
                     .font(.system(.footnote, design: .monospaced))
                 Text(rule.replacement)
                     .font(.footnote)
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(isEInkEnabled ? EInkPalette.ink : .accentColor)
             }
             .opacity(isDisabled ? 0.5 : 1)
 
@@ -69,7 +71,7 @@ struct QuickTranslationRuleEntryRow: View {
         HStack(spacing: 10) {
             Button(action: onEdit) {
                 Image(systemName: "pencil")
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(isEInkEnabled ? EInkPalette.ink : .accentColor)
                     .font(.subheadline)
             }
             .buttonStyle(.plain)
@@ -79,7 +81,7 @@ struct QuickTranslationRuleEntryRow: View {
 
             Button(action: onToggleDisabled) {
                 Image(systemName: isDisabled ? "play.circle" : "pause.circle")
-                    .foregroundColor(isDisabled ? .green : .orange)
+                    .foregroundColor(isEInkEnabled ? EInkPalette.ink : (isDisabled ? .green : .orange))
                     .font(.subheadline)
             }
             .buttonStyle(.plain)
@@ -87,7 +89,7 @@ struct QuickTranslationRuleEntryRow: View {
 
             Button(action: onDelete) {
                 Image(systemName: "trash")
-                    .foregroundColor(.red)
+                    .foregroundColor(isEInkEnabled ? EInkPalette.ink : .red)
                     .font(.subheadline)
             }
             .buttonStyle(.plain)
@@ -134,8 +136,9 @@ struct QuickTranslationRuleEntryRow: View {
     }
 
     private func transferIcon(color: Color) -> some View {
-        Image(systemName: "arrow.left.arrow.right")
-            .foregroundColor(color)
+        let displayColor = isEInkEnabled ? (color == .secondary ? .secondary : EInkPalette.ink) : color
+        return Image(systemName: "arrow.left.arrow.right")
+            .foregroundColor(displayColor)
             .font(.subheadline)
     }
 
@@ -144,8 +147,8 @@ struct QuickTranslationRuleEntryRow: View {
             .font(.caption2)
             .padding(.horizontal, 5)
             .padding(.vertical, 1)
-            .background(color.opacity(0.18))
-            .foregroundColor(color)
+            .background(isEInkEnabled ? EInkPalette.grayLight : color.opacity(0.18))
+            .foregroundColor(isEInkEnabled ? EInkPalette.ink : color)
             .cornerRadius(4)
     }
 

@@ -491,7 +491,7 @@ struct ShelfView: View {
                             ProgressView(value: importProgress)
                                 .progressViewStyle(.linear)
                                 .frame(width: 220)
-                                .tint(.blue)
+                                .tint(isEInkEnabled ? EInkPalette.ink : .blue)
                         }
 
                         Text(importStatusText)
@@ -671,15 +671,13 @@ struct ShelfView: View {
         HStack(spacing: 6) {
             Image(systemName: icon)
                 .font(.caption2)
-                .foregroundColor(color)
-                .einkAccentForeground(color)
+                .foregroundColor(isEInkEnabled ? EInkPalette.ink : color)
             Text(title)
                 .font(.caption.weight(.semibold))
-                .foregroundColor(color)
-                .einkAccentForeground(color)
+                .foregroundColor(isEInkEnabled ? EInkPalette.ink : color)
             Text("\(count)")
                 .font(.caption2.weight(.semibold))
-                .foregroundColor(.secondary)
+                .foregroundColor(isEInkEnabled ? EInkPalette.ink : .secondary)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 1)
                 .background(isEInkEnabled ? paper : Color.secondary.opacity(0.15), in: Capsule())

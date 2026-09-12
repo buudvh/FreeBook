@@ -9,6 +9,7 @@ struct TTSReplacementManagerView: View {
 
     @ObservedObject var manager = TTSReplacementManager.shared
     @Environment(\.dismiss) var dismiss
+    @Environment(\.isEInkEnabled) private var isEInkEnabled
     
     // Trạng thái cho sheet Thêm/Sửa quy tắc
     @State private var showingEditSheet = false
@@ -276,12 +277,13 @@ struct TTSReplacementManagerView: View {
                 prepareForEdit(rule)
             }) {
                 Image(systemName: "pencil")
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(isEInkEnabled ? EInkPalette.ink : .accentColor)
                     .padding(8)
             }
             .buttonStyle(.plain)
         }
         .contentShape(Rectangle())
+        .einkListRowBackground()
     }
     
     @ViewBuilder

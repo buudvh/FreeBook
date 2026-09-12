@@ -19,6 +19,7 @@ struct QuickTranslationRuleTesterView: View {
     @State private var hits: [Hit] = []
     @State private var didRun = false
     @State private var previewMode: QuickTranslationRuleEngine.PreviewMode = .respectTokenConfiguration
+    @Environment(\.isEInkEnabled) private var isEInkEnabled
 
     var body: some View {
         Form {
@@ -40,6 +41,7 @@ struct QuickTranslationRuleTesterView: View {
                     .font(.footnote)
                     .foregroundColor(.secondary)
             }
+            .einkListRowBackground()
 
             Section("Chế độ token") {
                 Picker("Áp dụng token", selection: $previewMode) {
@@ -54,6 +56,7 @@ struct QuickTranslationRuleTesterView: View {
                     .font(.footnote)
                     .foregroundColor(.secondary)
             }
+            .einkListRowBackground()
 
             if didRun {
                 Section(header: Text("Sau khi áp rule")) {
@@ -61,6 +64,7 @@ struct QuickTranslationRuleTesterView: View {
                         .font(.footnote)
                         .textSelection(.enabled)
                 }
+                .einkListRowBackground()
 
                 Section(header: Text("Rule đã khớp (\(hits.count))")) {
                     if hits.isEmpty {
@@ -77,13 +81,15 @@ struct QuickTranslationRuleTesterView: View {
                                 .font(.system(.caption, design: .monospaced))
                             Text("\(hit.source)  →  \(hit.rendered)")
                                 .font(.footnote)
-                                .foregroundColor(.accentColor)
+                                .foregroundColor(isEInkEnabled ? EInkPalette.ink : .accentColor)
                         }
                         .padding(.vertical, 2)
                     }
                 }
+                .einkListRowBackground()
             }
         }
+        .einkBackground()
         .navigationTitle("Thử nhanh rule")
         .navigationBarTitleDisplayMode(.inline)
         .onChange(of: previewMode) { _, _ in

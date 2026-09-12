@@ -15,24 +15,27 @@ import Foundation
 public final class EInkModeSettings: ObservableObject {
     public static let shared = EInkModeSettings()
 
-    /// Màu nền giấy của chế độ E-Ink — người dùng chọn một trong ba tông, mặc định **Gray** (#D8D8D2).
+    /// Màu nền giấy của chế độ E-Ink — người dùng chọn một trong 4 tông, mặc định **Xám thuần đậm** (#BCBCBC / #E4E4E4).
     ///
     /// Enum nằm trong class (không phải type top level riêng) để file vẫn đúng **1 type top level**
     /// (`MULTI_PRIMARY_TYPES`). Chỉ mang `rawValue: Int` + nhãn tiếng Việt — **không** import SwiftUI
     /// (tầng `Services` cấm), nên việc đổi `Int` sang `Color`/`UIColor` nằm ở `EInkPalette`.
     public enum EInkPaperColor: Int, CaseIterable {
-        /// Trắng ngà (#F2F1EC) — ít ngả vàng nhất.
-        case white = 0
-        /// Xám giấy (#D8D8D2) — dịu mắt nhất, **mặc định**.
-        case gray = 1
-        /// Vàng giấy (#E5DED0) — hơi ngả vàng như giấy sách.
-        case warm = 2
+        /// Kindle Paperwhite (Canvas #DCDEDF / Card #F2F4F5).
+        case kindlePaperwhite = 0
+        /// Kobo ComfortLight (Canvas #DED6C8 / Card #F2EBE0).
+        case koboComfortLight = 1
+        /// Xám thuần chuẩn (Canvas #D6D6D6 / Card #EEEEEE).
+        case pureBalanced = 2
+        /// Xám thuần đậm (Canvas #BCBCBC / Card #E4E4E4) — **mặc định**.
+        case pureDeep = 3
 
         public var label: String {
             switch self {
-            case .white: return "Trắng ngà"
-            case .gray: return "Xám giấy"
-            case .warm: return "Vàng giấy"
+            case .kindlePaperwhite: return "Kindle Paperwhite"
+            case .koboComfortLight: return "Kobo ComfortLight"
+            case .pureBalanced: return "Xám thuần chuẩn"
+            case .pureDeep: return "Xám thuần đậm"
             }
         }
     }
@@ -47,7 +50,7 @@ public final class EInkModeSettings: ObservableObject {
     @Published public private(set) var instantChapterTurn: Bool
     /// Hiện nút full-refresh trong trình đọc.
     @Published public private(set) var showsRefreshButton: Bool
-    /// Màu nền giấy được chọn (White / Gray / Warm).
+    /// Màu nền giấy được chọn (4 preset).
     @Published public private(set) var paperColor: EInkPaperColor
 
     /// Khoá `UserDefaults` — công khai để `View+EInk` bind `@AppStorage` **đúng cùng khoá**, nhờ đó màn
@@ -74,14 +77,14 @@ public final class EInkModeSettings: ObservableObject {
             Key.hideCovers: false,
             Key.instantChapterTurn: true,
             Key.showsRefreshButton: true,
-            Key.paperColor: EInkPaperColor.gray.rawValue
+            Key.paperColor: EInkPaperColor.pureDeep.rawValue
         ])
         isEnabled = defaults.bool(forKey: Key.enabled)
         monochromeCovers = defaults.bool(forKey: Key.monochromeCovers)
         hideCovers = defaults.bool(forKey: Key.hideCovers)
         instantChapterTurn = defaults.bool(forKey: Key.instantChapterTurn)
         showsRefreshButton = defaults.bool(forKey: Key.showsRefreshButton)
-        paperColor = EInkPaperColor(rawValue: defaults.integer(forKey: Key.paperColor)) ?? .gray
+        paperColor = EInkPaperColor(rawValue: defaults.integer(forKey: Key.paperColor)) ?? .pureDeep
     }
 
     // MARK: - Ghi

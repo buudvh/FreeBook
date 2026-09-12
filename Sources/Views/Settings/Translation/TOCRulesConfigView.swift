@@ -23,10 +23,8 @@ struct TOCRulesConfigView: View {
     // State cho Form Thêm/Sửa
     @State private var showingAddEditSheet = false
     @State private var editingRule: TOCRule? = nil
-    @State private var inputName = ""
-    @State private var inputRule = ""
-    @State private var inputExample = ""
-    @State private var inputEnabled = true
+    @State private var inputName = ""; @State private var inputRule = ""
+    @State private var inputExample = ""; @State private var inputEnabled = true
 
     // State cho Nhập/Xuất file JSON
     @State private var showingFileImporter = false
@@ -38,6 +36,7 @@ struct TOCRulesConfigView: View {
     // State cho Khôi phục mặc định & Thao tác
     @State private var showingResetConfirmation = false
     @State private var debounceSaveTask: Task<Void, Never>? = nil
+    @Environment(\.isEInkEnabled) private var isEInkEnabled
 
     private var defaultIDs: Set<String> {
         Set(TranslateUtils.getDefaultTOCRules().map(\.id))
@@ -78,7 +77,7 @@ struct TOCRulesConfigView: View {
                     }
                 }
                 .environment(\.editMode, isEditingMode ? .constant(.active) : .constant(.inactive))
-                .einkBackground(Color(.systemGroupedBackground))
+                .einkBackground()
             }
         }
         .navigationTitle("Quy tắc TOC (Chương TXT)")
@@ -206,8 +205,8 @@ struct TOCRulesConfigView: View {
                                 .font(.caption2)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Color.blue.opacity(0.12))
-                                .foregroundColor(.blue)
+                                .background(isEInkEnabled ? EInkPalette.grayLight : Color.blue.opacity(0.12))
+                                .foregroundColor(isEInkEnabled ? EInkPalette.ink : .blue)
                                 .cornerRadius(4)
                         }
                     }
@@ -246,6 +245,7 @@ struct TOCRulesConfigView: View {
             .accessibilityLabel("Kích hoạt quy tắc \(rule.name)")
             .accessibilityValue(rule.enabled ? "Đã bật" : "Đã tắt")
         }
+        .einkListRowBackground()
     }
 
     // MARK: - Add / Edit Sheet

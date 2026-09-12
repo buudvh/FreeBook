@@ -462,6 +462,7 @@ struct SearchView: View {
                     .padding(.vertical, 4)
                 }
                 .buttonStyle(.plain)
+                .einkListRowBackground()
             } else {
                 NavigationLink(destination: BookDetailView(
                     bookId: "\(item.ext.name.lowercased())_\(item.result.link)",
@@ -507,6 +508,7 @@ struct SearchView: View {
                     }
                     .padding(.vertical, 4)
                 }
+                .einkListRowBackground()
             }
         }
         .listStyle(.plain)

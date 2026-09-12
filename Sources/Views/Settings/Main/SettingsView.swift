@@ -412,10 +412,8 @@ struct SettingsView: View {
 // MARK: - Dictionary Status Card Subview
 
 struct DictionaryCard: View {
-    let title: String
-    let statusText: String
-    let isSet: Bool
-    let isLoading: Bool
+    @Environment(\.isEInkEnabled) private var isEInkEnabled
+    let title: String; let statusText: String; let isSet: Bool; let isLoading: Bool
     
     var body: some View {
         HStack {
@@ -428,7 +426,7 @@ struct DictionaryCard: View {
                 
                 Text(statusText)
                     .font(.caption)
-                    .foregroundColor(isLoading ? .blue : (isSet ? .secondary : .red))
+                    .foregroundColor(isEInkEnabled ? (isSet ? .secondary : EInkPalette.ink) : (isLoading ? .blue : (isSet ? .secondary : .red)))
                     .lineLimit(1)
             }
             

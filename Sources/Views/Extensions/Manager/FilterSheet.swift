@@ -56,6 +56,7 @@ public struct FilterSheet: View {
                     }
                 }
             }
+            .einkBackground(Color(.systemGroupedBackground))
             .navigationTitle("Bộ lọc tiện ích")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -76,6 +76,7 @@ struct AllCommentsView: View {
                             }
                         }
                         .padding(.vertical, 4)
+                        .einkListRowBackground()
                         .onAppear {
                             // Infinite Scroll: Khi cuộn tới phần tử cuối cùng và có trang tiếp theo
                             if comment.id == comments.last?.id && nextPageUrl != nil {
@@ -93,14 +94,17 @@ struct AllCommentsView: View {
                             Spacer()
                         }
                         .padding(.vertical, 8)
+                        .einkListRowBackground()
                     }
                 }
                 .listStyle(.plain)
+                .einkBackground()
                 .refreshable {
                     await loadComments(page: 1)
                 }
             }
         }
+        .einkBackground()
         .navigationTitle((isTranslationEnabled && TranslateUtils.containsChinese(category.title)) ? TranslateUtils.translateMeta(category.title) : category.title)
         .navigationBarTitleDisplayMode(.inline)
         .task {

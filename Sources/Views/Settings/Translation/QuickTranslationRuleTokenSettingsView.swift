@@ -51,7 +51,9 @@ struct QuickTranslationRuleTokenSettingsView: View {
                     .font(.footnote)
                     .foregroundColor(.secondary)
             }
+            .einkListRowBackground()
         }
+        .einkBackground()
         .navigationTitle("Cấu hình token rule")
         .navigationBarTitleDisplayMode(.inline)
     }

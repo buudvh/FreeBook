@@ -17,6 +17,7 @@ import SwiftData
 /// `EXC_BREAKPOINT` (đã crash thật ở 1.3.269, xem `10_risk_report`).
 struct CollectionsTabView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.isEInkEnabled) private var isEInkEnabled
 
     @Query(sort: [SortDescriptor(\BookCollection.sortOrder), SortDescriptor(\BookCollection.createdAt)])
     private var collections: [BookCollection]
@@ -140,15 +141,15 @@ struct CollectionsTabView: View {
         } label: {
             VStack(alignment: .leading, spacing: 8) {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(.secondarySystemBackground))
+                    .fill(isEInkEnabled ? EInkPalette.paperCard : Color(.secondarySystemBackground))
                     .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(Color.secondary.opacity(0.3), lineWidth: 1)
+                            .strokeBorder(isEInkEnabled ? EInkPalette.ink : Color.secondary.opacity(0.3), lineWidth: 1)
                     )
                     .overlay(
                         Image(systemName: "folder.badge.plus")
                             .font(.system(size: size * 0.24, weight: .light))
-                            .foregroundColor(.secondary)
+                            .foregroundColor(isEInkEnabled ? EInkPalette.ink : .secondary)
                     )
                     .frame(width: size, height: size)
 

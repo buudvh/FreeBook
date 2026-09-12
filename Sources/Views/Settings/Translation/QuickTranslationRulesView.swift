@@ -21,6 +21,7 @@ struct QuickTranslationRulesView: View {
     @ObservedObject private var store = QuickTranslationRuleStore.shared
     @ObservedObject private var disableStore = QuickTranslationRuleDisableStore.shared
     @AppStorage("isQuickTranslateRuleEnabled") private var isQuickTranslateRuleEnabled = true
+    @Environment(\.isEInkEnabled) private var isEInkEnabled
 
     /// Rule bị tắt **vẫn** nằm trong `snapshot.rules` (để bật lại được và giữ `sourceLine`), nên số
     /// "đã nạp" không đổi nghĩa — chỗ này chỉ nói thêm bao nhiêu trong số đó đang không chạy.
@@ -52,9 +53,13 @@ struct QuickTranslationRulesView: View {
     var body: some View {
         List {
             statusSection
+                .einkListRowBackground()
             actionSection
+                .einkListRowBackground()
             toolsSection
+                .einkListRowBackground()
         }
+        .einkBackground()
         .navigationTitle("Quản lý rule dịch")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {

@@ -9,6 +9,7 @@ struct QuickTranslationRulePriorityListView: View {
     typealias Priority = QuickTranslationRulePriorityConfiguration
 
     @Binding var configuration: Priority.Configuration
+    @Environment(\.isEInkEnabled) private var isEInkEnabled
 
     var body: some View {
         Group {
@@ -20,6 +21,7 @@ struct QuickTranslationRulePriorityListView: View {
                     systemImage: "text.alignleft",
                     detail: "Rule khớp gần đầu dòng hơn được xét trước. Không đổi được vì cách chọn rule dựa trên thứ tự này."
                 )
+                .einkListRowBackground()
             } header: {
                 Text("Luôn xét đầu tiên")
             }
@@ -39,6 +41,7 @@ struct QuickTranslationRulePriorityListView: View {
                     systemImage: "number",
                     detail: "Rule ở dòng sớm hơn thắng. Luôn ở cuối để kết quả không đổi giữa hai lần chạy."
                 )
+                .einkListRowBackground()
             } header: {
                 Text("Luôn xét cuối cùng")
             }
@@ -57,7 +60,7 @@ struct QuickTranslationRulePriorityListView: View {
                 } label: {
                     HStack(alignment: .top, spacing: 8) {
                         Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                            .foregroundColor(isSelected ? .accentColor : .secondary)
+                            .foregroundColor(isEInkEnabled ? EInkPalette.ink : (isSelected ? .accentColor : .secondary))
                         VStack(alignment: .leading, spacing: 3) {
                             Text(preset.title)
                                 .font(.subheadline.weight(.medium))
@@ -68,6 +71,7 @@ struct QuickTranslationRulePriorityListView: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .einkListRowBackground()
             }
         } header: {
             Text("Bộ dựng sẵn")
@@ -85,19 +89,20 @@ struct QuickTranslationRulePriorityListView: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Image(systemName: key.systemImage)
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(isEInkEnabled ? EInkPalette.ink : .accentColor)
                     Text(key.title)
                         .font(.subheadline.weight(.medium))
                 }
                 Text(key.directionLabel(descending: configuration.isDescending(key)))
                     .font(.caption.weight(.semibold))
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(isEInkEnabled ? EInkPalette.ink : .accentColor)
                 Text(key.explanation)
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
         }
         .buttonStyle(.plain)
+        .einkListRowBackground()
     }
 
     private func lockedRow(title: String, systemImage: String, detail: String) -> some View {

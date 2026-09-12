@@ -90,7 +90,7 @@ struct NotificationInboxView: View {
                     inboxList
                 }
             }
-            .einkBackground(Color(.systemGroupedBackground))
+            .einkBackground()
             .navigationTitle("Thông báo")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }
@@ -106,6 +106,7 @@ struct NotificationInboxView: View {
                 Section {
                     ForEach(group.items) { item in
                         row(for: item)
+                            .einkListRowBackground()
                     }
                 } header: {
                     Text(dayTitle(group.day))
@@ -113,7 +114,7 @@ struct NotificationInboxView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .einkBackground(Color(.systemGroupedBackground))
+        .einkBackground()
     }
 
     @ViewBuilder

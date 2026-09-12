@@ -18,6 +18,8 @@ struct DictionaryHubView: View {
                         subtitle: bookEntryCount(type: .vietPhrase)
                     )
                 }
+                .einkListRowBackground()
+
                 NavigationLink(destination: DictionaryListView(type: .names, bookId: bookId, bookName: bookName)) {
                     DictionaryNavRow(
                         title: "Names Riêng",
@@ -26,6 +28,7 @@ struct DictionaryHubView: View {
                         subtitle: bookEntryCount(type: .names)
                     )
                 }
+                .einkListRowBackground()
             }
 
             Section(header: Text("Từ Điển Chung (Toàn Cục)")) {
@@ -37,6 +40,8 @@ struct DictionaryHubView: View {
                         subtitle: globalStatusText(type: .vietPhrase)
                     )
                 }
+                .einkListRowBackground()
+
                 NavigationLink(destination: DictionaryListView(type: .names, bookId: nil, contextBookId: bookId)) {
                     DictionaryNavRow(
                         title: "Names Chung",
@@ -45,6 +50,7 @@ struct DictionaryHubView: View {
                         subtitle: globalStatusText(type: .names)
                     )
                 }
+                .einkListRowBackground()
             }
             Section(header: Text("Rule Dịch")) {
                 NavigationLink(destination: QuickTranslationRuleListView(scope: .book(bookId))) {
@@ -55,6 +61,8 @@ struct DictionaryHubView: View {
                         subtitle: ruleStatusText(scope: .book(bookId))
                     )
                 }
+                .einkListRowBackground()
+
                 NavigationLink(destination: QuickTranslationRuleListView(scope: .global, contextBookId: bookId)) {
                     DictionaryNavRow(
                         title: "Rule Chung (Toàn cục)",
@@ -63,8 +71,10 @@ struct DictionaryHubView: View {
                         subtitle: ruleStatusText(scope: .global)
                     )
                 }
+                .einkListRowBackground()
             }
         }
+        .einkBackground()
         .id(refreshToken)
         .navigationTitle("Từ Điển")
         .navigationBarTitleDisplayMode(.inline)
@@ -131,11 +141,13 @@ private struct DictionaryNavRow: View {
     let iconColor: Color
     let subtitle: String
 
+    @Environment(\.isEInkEnabled) private var isEInkEnabled
+
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.title3)
-                .foregroundColor(iconColor)
+                .foregroundColor(isEInkEnabled ? EInkPalette.ink : iconColor)
                 .frame(width: 28)
 
             VStack(alignment: .leading, spacing: 3) {

@@ -13,6 +13,8 @@ struct QuickTranslationRuleDraftIssuesView: View {
     /// Lỗi do store trả về lúc lưu — vẫn giữ vì nó nói được những chuyện file mà bản nháp không biết.
     let storeError: String?
 
+    @Environment(\.isEInkEnabled) private var isEInkEnabled
+
     var body: some View {
         // Đọc một lần: `hardIssues`/`warnings` là computed property lọc lại mảng mỗi lần truy cập.
         let hard = analysis.hardIssues
@@ -44,13 +46,13 @@ struct QuickTranslationRuleDraftIssuesView: View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: icon)
                 .font(.system(size: 12))
-                .foregroundColor(color)
+                .foregroundColor(isEInkEnabled ? EInkPalette.ink : color)
                 .padding(.top, 1)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(code)
                     .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                    .foregroundColor(color)
+                    .foregroundColor(isEInkEnabled ? EInkPalette.ink : color)
                 Text(message)
                     .font(.caption)
                     .foregroundColor(.primary)

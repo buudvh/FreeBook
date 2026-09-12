@@ -571,7 +571,7 @@ struct RepositoryManagerView: View {
                                     showingDeleteRepositoryAlert = true
                                 } label: {
                                     Image(systemName: "trash")
-                                        .foregroundColor(.red)
+                                        .foregroundColor(isEInkEnabled ? EInkPalette.ink : .red)
                                         .padding(8)
                                         .background(isEInkEnabled ? paper : Color.red.opacity(0.1)).clipShape(Circle())
                                         .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, style: StrokeStyle(lineWidth: 1, dash: [3, 2])) } }

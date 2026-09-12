@@ -30,6 +30,7 @@ struct BookActionSheet: View {
     @State private var showingCreateAlert = false
     @State private var newCollectionName = ""
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
 
     private var book: Book { target.book }
 
@@ -72,6 +73,8 @@ struct BookActionSheet: View {
             }
         }
         .listStyle(.insetGrouped)
+        .einkListRowBackground()
+        .einkBackground()
         .presentationDetents([.medium, .large])
         // Không còn nút "Xong" nên phải để lộ tay cầm: vuốt xuống là đường đóng duy nhất.
         .presentationDragIndicator(.visible)
@@ -111,8 +114,7 @@ struct BookActionSheet: View {
     }
 
     /// Phần đầu chia làm **hai vùng cạnh nhau, không lồng nhau**: khối bìa + tên nhận cử chỉ chạm/nhấn
-    /// giữ, cột phải chứa hai icon. Đặt nút kệ sách trong `overlay` lên trên vùng có cử chỉ là để hai
-    /// bên tranh nhau cùng một cú chạm, nên nó là *sibling*.
+    /// giữ, cột phải chứa các icon thao tác nhanh.
     @ViewBuilder
     private var header: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -143,8 +145,7 @@ struct BookActionSheet: View {
                 if book.isPinned {
                     Label("Đang ghim đầu kệ", systemImage: "pin.fill")
                         .font(.caption2)
-                        .foregroundColor(.orange)
-                        .einkAccentForeground(.orange)
+                        .foregroundColor(isEInkEnabled ? EInkPalette.ink : .orange)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -168,27 +169,45 @@ struct BookActionSheet: View {
     }
 
     /// `minHeight: 84` khớp chiều cao ảnh bìa nên nút luôn nằm đúng đáy panel ngay cả khi tên truyện
-    /// ngắn; `maxHeight: .infinity` để cột giãn theo hàng khi tên dài hơn ảnh bìa. Thiếu một trong hai
-    /// thì nút trôi lên giữa panel.
+    /// ngắn; `maxHeight: .infinity` để cột giãn theo hàng khi tên dài hơn ảnh bìa.
     @ViewBuilder
     private var headerTrailingColumn: some View {
         VStack(alignment: .trailing, spacing: 0) {
             if canOpenDetail {
-            Image(systemName: "info.circle")
-                .foregroundColor(.accentColor)
-                .einkAccentForeground(.accentColor)
-                .accessibilityHidden(true)
+                Image(systemName: "info.circle")
+                    .font(.system(size: 18, weight: .regular))
+                    .foregroundColor(isEInkEnabled ? EInkPalette.ink : .accentColor)
+                    .frame(width: 32, height: 32, alignment: .trailing)
+                    .accessibilityHidden(true)
             }
 
             Spacer(minLength: 8)
 
-            shelfToggleButton
+            HStack(spacing: 8) {
+                editInfoButton
+                shelfToggleButton
+            }
         }
         .frame(minHeight: 84, maxHeight: .infinity, alignment: .trailing)
     }
 
-    /// Hai hàng "Thêm vào kệ sách" / "Xoá khỏi kệ sách" cũ gộp thành **một** nút icon ở góc dưới phải
-    /// của phần đầu: trạng thái suy ra từ `book.isOnShelf` nên không bao giờ hiện cả hai.
+    /// Nút icon sửa thông tin đặt cạnh nút thêm kệ ở góc dưới phải.
+    @ViewBuilder
+    private var editInfoButton: some View {
+        Button {
+            emit(.editInfo)
+        } label: {
+            Image(systemName: "square.and.pencil")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(isEInkEnabled ? EInkPalette.ink : .accentColor)
+                .frame(width: 32, height: 32)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Sửa thông tin")
+    }
+
+    /// Nút icon thêm/xóa kệ sách ở góc dưới phải phần đầu.
     @ViewBuilder
     private var shelfToggleButton: some View {
         Button {
@@ -196,9 +215,8 @@ struct BookActionSheet: View {
         } label: {
             Image(systemName: book.isOnShelf ? "bookmark.slash.fill" : "bookmark.fill")
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(book.isOnShelf ? .red : .accentColor)
-                .einkAccentForeground(book.isOnShelf ? .red : .accentColor)
-                .frame(width: 40, height: 32)
+                .foregroundColor(isEInkEnabled ? EInkPalette.ink : (book.isOnShelf ? .red : .accentColor))
+                .frame(width: 32, height: 32)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -225,8 +243,7 @@ struct BookActionSheet: View {
             ForEach(memberCollections) { collection in
                 HStack {
                     Image(systemName: "folder")
-                        .foregroundColor(.accentColor)
-                        .einkAccentForeground(.accentColor)
+                        .foregroundColor(isEInkEnabled ? EInkPalette.ink : .accentColor)
                     Text(collection.name)
                         .lineLimit(1)
                     Spacer()
@@ -234,8 +251,7 @@ struct BookActionSheet: View {
                         BookActionRunner.removeFromCollection(book, collectionId: collection.collectionId, in: modelContext)
                     } label: {
                         Image(systemName: "minus.circle.fill")
-                            .foregroundColor(.red)
-                            .einkAccentForeground(.red)
+                            .foregroundColor(isEInkEnabled ? EInkPalette.ink : .red)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Bỏ khỏi \(collection.name)")
@@ -303,7 +319,6 @@ struct BookActionSheet: View {
             actionRow(.changeSource, "Đổi nguồn", "arrow.triangle.2.circlepath")
         }
 
-        actionRow(.editInfo, "Sửa thông tin", "square.and.pencil")
         actionRow(.download, "Tải truyện", "arrow.down.circle")
         actionRow(.exportEbook, "Xuất ebook", "square.and.arrow.up")
         actionRow(.retranslateChapterTitles, "Dịch lại tên chương", "arrow.clockwise.circle")
@@ -333,7 +348,7 @@ struct BookActionSheet: View {
             emit(action)
         } label: {
             Label(title, systemImage: icon)
-                .einkAccentForeground(.red)
+                .foregroundStyle(isEInkEnabled ? EInkPalette.ink : .red)
         }
     }
 

@@ -281,6 +281,7 @@ struct QuickTranslationRuleListView: View {
                 )
             }
         )
+        .einkListRowBackground()
     }
 
     // MARK: - Thao tác

@@ -23,6 +23,7 @@ struct DictionaryListView: View {
     var contextBookId: String? = nil
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.isEInkEnabled) private var isEInkEnabled
     @ObservedObject private var cache = DictionaryCache.shared
     @ObservedObject private var translationManager = TranslationManager.shared
     @State private var bookEntries: [DictEntry] = []
@@ -119,53 +120,28 @@ struct DictionaryListView: View {
                 }
             }
         }
+        .einkBackground()
         .navigationTitle(navTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button {
-                        showingAddSheet = true
-                    } label: {
-                        Label("Thêm từ mới", systemImage: "plus")
-                    }
-                    
-                    Button {
-                        showingFileImporter = true
-                    } label: {
-                        Label("Nhập từ điển (\(type.displayName))", systemImage: "square.and.arrow.down")
-                    }
-                    
+                    Button { showingAddSheet = true } label: { Label("Thêm từ mới", systemImage: "plus") }
+                    Button { showingFileImporter = true } label: { Label("Nhập từ điển (\(type.displayName))", systemImage: "square.and.arrow.down") }
                     if !isGlobal {
-                        Button {
-                            showingShareBookSheet = true
-                        } label: {
-                            Label("Chia sẻ sang truyện khác", systemImage: "square.and.arrow.up")
-                        }
+                        Button { showingShareBookSheet = true } label: { Label("Chia sẻ sang truyện khác", systemImage: "square.and.arrow.up") }
                     }
-                    
                     if !allEntries.isEmpty || (isGlobal && !deletedWordsList.isEmpty) {
-                        Button {
-                            exportDictionary()
-                        } label: {
-                            Label("Xuất từ điển (\(type.displayName))", systemImage: "square.and.arrow.up")
-                        }
+                        Button { exportDictionary() } label: { Label("Xuất từ điển (\(type.displayName))", systemImage: "square.and.arrow.up") }
                     }
-                    
-                    Button(role: .destructive) {
-                        showingDeleteAllAlert = true
-                    } label: {
-                        Label("Xóa tất cả", systemImage: "trash")
-                    }
+                    Button(role: .destructive) { showingDeleteAllAlert = true } label: { Label("Xóa tất cả", systemImage: "trash") }
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
             }
         }
         .alert("Xác nhận xóa tất cả", isPresented: $showingDeleteAllAlert) {
-            Button("Xóa tất cả", role: .destructive) {
-                deleteAllEntries()
-            }
+            Button("Xóa tất cả", role: .destructive) { deleteAllEntries() }
             Button("Hủy", role: .cancel) {}
         } message: {
             if isGlobal {
@@ -175,26 +151,18 @@ struct DictionaryListView: View {
             }
         }
         .sheet(isPresented: $showingAddSheet) {
-            DictEntrySheet(mode: .add) { key, value in
-                upsertEntry(key: key, value: value)
-            }
+            DictEntrySheet(mode: .add) { key, value in upsertEntry(key: key, value: value) }
         }
         .sheet(item: $editingEntry) { entry in
             DictEntrySheet(mode: .edit(key: entry.key, value: entry.value)) { newKey, newValue in
-                if newKey == entry.key {
-                    upsertEntry(key: newKey, value: newValue)
-                } else {
-                    updateKey(oldKey: entry.key, newKey: newKey, newValue: newValue)
-                }
+                if newKey == entry.key { upsertEntry(key: newKey, value: newValue) }
+                else { updateKey(oldKey: entry.key, newKey: newKey, newValue: newValue) }
             }
         }
         .sheet(item: $exportDocumentToShare) { doc in
             ShareSheet(activityItems: [doc.url]) { _, completed, _, error in
-                if completed {
-                    ToastManager.shared.show(message: "Xuất từ điển thành công!", type: .success)
-                } else if let error = error {
-                    ToastManager.shared.show(message: "Lỗi chia sẻ: \(error.localizedDescription)", type: .error)
-                }
+                if completed { ToastManager.shared.show(message: "Xuất từ điển thành công!", type: .success) }
+                else if let error = error { ToastManager.shared.show(message: "Lỗi chia sẻ: \(error.localizedDescription)", type: .error) }
             }
         }
         .sheet(isPresented: $showingShareBookSheet) {
@@ -261,6 +229,7 @@ struct DictionaryListView: View {
                     }
                 }
             }
+            .einkListRowBackground()
 
             // Entries
             Section {
@@ -274,6 +243,7 @@ struct DictionaryListView: View {
                         onCopy: { destType, target in copyEntry(entry, to: destType, target: target) },
                         onMissingContext: { reportMissingTransferContext() }
                     )
+                    .einkListRowBackground()
                     .onAppear {
                         if entry.id == displayedEntries.last?.id && visibleCount < matchedEntries.count {
                             visibleCount += 200
@@ -284,6 +254,7 @@ struct DictionaryListView: View {
                 Text("Từ vựng")
             }
         }
+        .einkBackground()
         .searchable(text: $searchText, prompt: "Tìm từ...")
         .onChange(of: searchText) { _, _ in
             visibleCount = 200
@@ -324,6 +295,7 @@ struct DictionaryListView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
+            .einkListRowBackground()
 
             Section {
                 ForEach(deletedWordsList, id: \.self) { word in
@@ -337,16 +309,18 @@ struct DictionaryListView: View {
                         } label: {
                             Image(systemName: "arrow.uturn.backward.circle")
                                 .font(.subheadline)
-                                .foregroundColor(.green)
+                                .foregroundColor(isEInkEnabled ? EInkPalette.ink : .green)
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Khôi phục")
                     }
+                    .einkListRowBackground()
                 }
             } header: {
                 Text("Danh sách từ đã xóa")
             }
         }
+        .einkBackground()
         .searchable(text: $searchText, prompt: "Tìm từ đã xóa...")
         .overlay {
             if deletedWordsList.isEmpty {

@@ -63,10 +63,10 @@ struct CollectionCoverMosaicView: View {
 
     private var placeholder: some View {
         ZStack {
-            Color(.secondarySystemBackground)
+            (isEInkEnabled ? EInkPalette.paperCard : Color(.secondarySystemBackground))
             Image(systemName: "folder")
                 .font(.system(size: size * 0.28, weight: .light))
-                .foregroundColor(.secondary.opacity(0.45))
+                .foregroundColor(isEInkEnabled ? EInkPalette.ink.opacity(0.45) : .secondary.opacity(0.45))
         }
     }
 

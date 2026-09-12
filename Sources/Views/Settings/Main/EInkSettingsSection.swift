@@ -49,11 +49,11 @@ struct EInkSettingsSection: View {
                     get: { eink.paperColor },
                     set: { EInkModeSettings.shared.setPaperColor($0) }
                 )) {
-                    ForEach(EInkModeSettings.EInkPaperColor.allCases, id: \.rawValue) { color in
+                    ForEach(EInkModeSettings.EInkPaperColor.allCases, id: \.self) { color in
                         Text(color.label).tag(color)
                     }
                 }
-                .pickerStyle(.segmented)
+                .pickerStyle(.menu)
 
                 Button(action: { EInkRefreshOverlay.shared.flash() }) {
                     Label("Làm mới màn hình ngay", systemImage: "arrow.clockwise")
@@ -64,5 +64,6 @@ struct EInkSettingsSection: View {
                     .foregroundColor(.secondary)
             }
         }
+        .einkListRowBackground()
     }
 }

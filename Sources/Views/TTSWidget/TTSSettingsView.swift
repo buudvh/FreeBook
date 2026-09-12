@@ -23,6 +23,7 @@ struct TTSSettingsView: View {
     @State private var selectedExtForConfig: Extension? = nil
     @State private var showingReplacementManagerSheet = false
     @AppStorage("google_cloud_tts_custom_api_key") private var customGoogleApiKey: String = ""
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
     @State private var showApiKey: Bool = false
     @State private var hasResumed = false
     
@@ -134,28 +135,25 @@ struct TTSSettingsView: View {
 
             // Section 3: Quản lý riêng của trình đọc
             Section("Quản lý riêng của trình đọc") {
-                if ttsManager.tool == "google" {
                     HStack {
                         Text("Trạng thái Key hệ thống:")
                         Spacer()
                         if GoogleTTSService.shared.hasApiKey {
                             HStack(spacing: 4) {
-                                Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
-                                Text("Đã sẵn sàng").font(.caption).foregroundColor(.green)
+                                Image(systemName: "checkmark.circle.fill").foregroundColor(isEInkEnabled ? EInkPalette.ink : .green)
+                                Text("Đã sẵn sàng").font(.caption).foregroundColor(isEInkEnabled ? EInkPalette.ink : .green)
                             }
                         } else {
                             HStack(spacing: 4) {
-                                Image(systemName: "xmark.circle.fill").foregroundColor(.red)
-                                Text("Chưa có Key").font(.caption).foregroundColor(.red)
+                                Image(systemName: "xmark.circle.fill").foregroundColor(isEInkEnabled ? EInkPalette.ink : .red)
+                                Text("Chưa có Key").font(.caption).foregroundColor(isEInkEnabled ? EInkPalette.ink : .red)
                             }
                         }
                     }
-                    
                     VStack(alignment: .leading, spacing: 6) {
                         Text("API Key cá nhân (Ghi đè key hệ thống):")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        
                         HStack {
                             if showApiKey {
                                 TextField("Nhập Google Cloud API Key...", text: $customGoogleApiKey)
@@ -166,7 +164,6 @@ struct TTSSettingsView: View {
                                 SecureField("Nhập Google Cloud API Key...", text: $customGoogleApiKey)
                                     .textFieldStyle(.roundedBorder)
                             }
-
                             Button(action: { showApiKey.toggle() }) {
                                 Image(systemName: showApiKey ? "eye.slash.fill" : "eye.fill")
                                     .foregroundColor(.secondary)
@@ -183,13 +180,13 @@ struct TTSSettingsView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             if hasNoModels {
                                 HStack {
-                                    Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
+                                    Image(systemName: "exclamationmark.triangle.fill").foregroundColor(isEInkEnabled ? EInkPalette.ink : .orange)
                                     Text("Chưa tải giọng đọc NghiTTS nào").font(.subheadline).foregroundColor(.secondary)
                                 }
                             }
                             if missingDict {
                                 HStack {
-                                    Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
+                                    Image(systemName: "exclamationmark.triangle.fill").foregroundColor(isEInkEnabled ? EInkPalette.ink : .orange)
                                     Text("Chưa tải thư viện phiên âm").font(.subheadline).foregroundColor(.secondary)
                                 }
                             }
@@ -501,6 +498,7 @@ struct TTSSettingsView: View {
                     }
             }
         }
+        .einkBackground(Color(.systemGroupedBackground))
     }
     
     private func isModelDownloaded(_ voice: Voice) -> Bool {

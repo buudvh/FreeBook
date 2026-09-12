@@ -659,6 +659,7 @@ struct DiscoveryCategoryTabView: View {
                                 BookListItemView(item: novel, style: .discovery)
                             }
                             .buttonStyle(.plain)
+                            .einkListRowBackground()
                             // Neo theo `link` chu khong phai `novel.id`: `ExtensionItemResult.id` la
                             // `UUID()` moi moi lan bocs tach, nen sau mot luot nap lai no khong con khop
                             // va neo se vo dung. `link` la dinh danh noi dung, on dinh qua nap lai.
@@ -679,6 +680,7 @@ struct DiscoveryCategoryTabView: View {
                                 Spacer()
                             }
                             .listRowSeparator(.hidden)
+                            .einkListRowBackground()
                         }
                     }
                     .listStyle(.plain)

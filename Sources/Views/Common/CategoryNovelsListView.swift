@@ -65,6 +65,7 @@ struct CategoryNovelsListView: View {
                                 .padding(.vertical, 4)
                         }
                         .buttonStyle(.plain)
+                        .einkListRowBackground()
                     }
 
                     if loader.canLoadMore {
@@ -74,6 +75,7 @@ struct CategoryNovelsListView: View {
                             Spacer()
                         }
                         .padding(.vertical, 8)
+                        .einkListRowBackground()
                         .onAppear {
                             Task {
                                 await loader.loadMore()

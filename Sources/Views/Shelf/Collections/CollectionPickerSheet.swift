@@ -11,6 +11,7 @@ struct CollectionPickerSheet: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.isEInkEnabled) private var isEInkEnabled
 
     @Query(sort: [SortDescriptor(\BookCollection.sortOrder), SortDescriptor(\BookCollection.createdAt)])
     private var collections: [BookCollection]
@@ -28,6 +29,7 @@ struct CollectionPickerSheet: View {
                         Text("Chưa có bộ sưu tập nào. Tạo một bộ để nhóm các truyện theo ý bạn.")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
+                            .einkListRowBackground()
                     }
                 } else {
                     Section {
@@ -37,17 +39,18 @@ struct CollectionPickerSheet: View {
                             } label: {
                                 HStack {
                                     Image(systemName: "folder")
-                                        .foregroundColor(.accentColor)
+                                        .foregroundColor(isEInkEnabled ? EInkPalette.ink : .accentColor)
                                     Text(collection.name)
                                         .foregroundColor(.primary)
                                         .lineLimit(1)
                                     Spacer()
                                     if selected.contains(collection.collectionId) {
                                         Image(systemName: "checkmark")
-                                            .foregroundColor(.accentColor)
+                                            .foregroundColor(isEInkEnabled ? EInkPalette.ink : .accentColor)
                                     }
                                 }
                             }
+                            .einkListRowBackground()
                         }
                     } footer: {
                         Text("Bỏ trống cũng được — truyện vẫn nằm trên kệ sách.")
@@ -61,9 +64,11 @@ struct CollectionPickerSheet: View {
                     } label: {
                         Label("Tạo bộ sưu tập mới", systemImage: "folder.badge.plus")
                     }
+                    .einkListRowBackground()
                 }
             }
             .listStyle(.insetGrouped)
+            .einkBackground()
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

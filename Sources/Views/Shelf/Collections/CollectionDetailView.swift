@@ -13,6 +13,7 @@ struct CollectionDetailView: View {
     /// tới: khối quản lý bộ nằm ở file khác, mà `private` của Swift là phạm vi **file**.
     @Environment(\.modelContext) var modelContext
     @Environment(\.dismiss) var dismiss
+    @Environment(\.isEInkEnabled) private var isEInkEnabled
 
     @Query private var allCollections: [BookCollection]
     @Query private var allExtensions: [Extension]
@@ -216,19 +217,20 @@ struct CollectionDetailView: View {
 
     /// `textCase(nil)` để tiêu đề giữ nguyên chữ thường — mặc định của `List` là in hoa hết.
     private func sectionHeader(_ title: String, icon: String, color: Color, count: Int) -> some View {
-        HStack(spacing: 6) {
+        let displayColor = isEInkEnabled ? EInkPalette.ink : color
+        return HStack(spacing: 6) {
             Image(systemName: icon)
                 .font(.caption2)
-                .foregroundColor(color)
+                .foregroundColor(displayColor)
             Text(title)
                 .font(.caption.weight(.semibold))
-                .foregroundColor(color)
+                .foregroundColor(displayColor)
             Text("\(count)")
                 .font(.caption2.weight(.semibold))
                 .foregroundColor(.secondary)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 1)
-                .background(Color.secondary.opacity(0.15), in: Capsule())
+                .background(isEInkEnabled ? EInkPalette.grayLight : Color.secondary.opacity(0.15), in: Capsule())
             Spacer()
         }
         .textCase(nil)

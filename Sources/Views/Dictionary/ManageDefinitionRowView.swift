@@ -12,6 +12,8 @@ struct ManageDefinitionRowView: View {
     let onInsertAbove: () -> Void
     let onToggleDeleted: () -> Void
 
+    @Environment(\.isEInkEnabled) private var isEInkEnabled
+
     var body: some View {
         HStack(spacing: 0) {
             TextField("Nghĩa...", text: $text)
@@ -24,7 +26,7 @@ struct ManageDefinitionRowView: View {
 
             iconButton(
                 "chevron.up",
-                color: canMoveUp ? .blue : .gray.opacity(0.35),
+                color: canMoveUp ? (isEInkEnabled ? EInkPalette.ink : .blue) : .gray.opacity(0.35),
                 label: "Đưa nghĩa lên trên",
                 action: onMoveUp
             )
@@ -32,7 +34,7 @@ struct ManageDefinitionRowView: View {
 
             iconButton(
                 "chevron.down",
-                color: canMoveDown ? .blue : .gray.opacity(0.35),
+                color: canMoveDown ? (isEInkEnabled ? EInkPalette.ink : .blue) : .gray.opacity(0.35),
                 label: "Đưa nghĩa xuống dưới",
                 action: onMoveDown
             )
@@ -41,13 +43,13 @@ struct ManageDefinitionRowView: View {
             if isDeleted {
                 iconButton(
                     "arrow.uturn.backward",
-                    color: .green,
+                    color: isEInkEnabled ? EInkPalette.ink : .green,
                     label: "Hoàn tác xoá nghĩa",
                     action: onToggleDeleted
                 )
             } else {
-                iconButton("plus", color: .blue, label: "Chèn ô trống phía trên", action: onInsertAbove)
-                iconButton("trash", color: .red, label: "Xoá nghĩa", action: onToggleDeleted)
+                iconButton("plus", color: isEInkEnabled ? EInkPalette.ink : .blue, label: "Chèn ô trống phía trên", action: onInsertAbove)
+                iconButton("trash", color: isEInkEnabled ? EInkPalette.ink : .red, label: "Xoá nghĩa", action: onToggleDeleted)
             }
         }
     }

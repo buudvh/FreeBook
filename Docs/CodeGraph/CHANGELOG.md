@@ -4,6 +4,19 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.364] - 2026-09-12
+
+### Hoàn thiện theme E-Ink 2 tầng nền, 4 preset giấy, sắc xám ngữ nghĩa và đơn sắc hoá icon
+
+Sửa **56** file Swift, không thêm/xoá file.
+
+- Áp dụng triệt để phân cấp 2 tầng nền E-Ink (`paperCanvas` cho nền toàn màn hình/khung nhìn và `paperCard` cho các card, list row, form row, popup, sheet) trên toàn bộ ứng dụng qua `einkListRowBackground()` và `einkBackground()`.
+- Cung cấp 4 preset nền giấy E-Ink chuyên dụng (`kindlePaperwhite`, `koboComfortLight`, `pureBalanced`, `pureDeep` [mặc định]).
+- Phân biệt sắc xám ngữ nghĩa (`grayDark`, `grayMedium`, `grayLight`) kết hợp nét đứt/liền cho chip từ điển, gợi ý phiên âm TTS, token quy tắc và trạng thái.
+- Đơn sắc hoá 100% icon, badge, nút bấm và cover vinyl TTS widget khi bật E-Ink.
+- Menu giữ truyện (`BookActionSheet`): Căn chỉnh icon thông tin (32x32), đưa nút sửa thông tin lên header, xoá hàng sửa thông tin ở danh sách, đơn sắc hoá các icon.
+- Gate: `check_architecture.py` chỉ có 5 violation line-limit nền, không có violation mới; `validate_links.py` PASS 100%.
+
 ## [1.3.363] - 2026-09-12
 
 ### Cố định độ cao panel dịch và áp dụng nền E-Ink cho các màn hình

@@ -129,10 +129,15 @@ struct TTSWidgetCapsuleView: View {
                     Text(ttsState.snapshot.sleepTimerBadgeText)
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
                 }
-                .foregroundStyle(.white)
+                .foregroundStyle(isEInkEnabled ? EInkPalette.selectedContent : .white)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 3)
-                .background(Capsule().fill(isEInkEnabled ? EInkPalette.ink : Color.orange))
+                .background(Capsule().fill(isEInkEnabled ? EInkPalette.selectedFill : Color.orange))
+                .overlay {
+                    if isEInkEnabled {
+                        Capsule().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth)
+                    }
+                }
                 .einkShadow(.orange.opacity(0.4), radius: 4, y: 2)
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
@@ -155,9 +160,20 @@ struct TTSWidgetCapsuleView: View {
                 }) {
                     Image(systemName: ttsState.snapshot.timerMode != .off ? "timer" : "gearshape.fill")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(ttsState.snapshot.timerMode != .off ? Color.orange : Color.primary)
+                        .foregroundStyle(isEInkEnabled ? EInkPalette.ink : (ttsState.snapshot.timerMode != .off ? Color.orange : Color.primary))
                         .frame(width: 30, height: 30)
-                        .background(Circle().fill(ttsState.snapshot.timerMode != .off ? Color.orange.opacity(0.18) : Color.primary.opacity(0.09)))
+                        .background(
+                            Circle().fill(
+                                isEInkEnabled
+                                    ? (ttsState.snapshot.timerMode != .off ? paper : Color.clear)
+                                    : (ttsState.snapshot.timerMode != .off ? Color.orange.opacity(0.18) : Color.primary.opacity(0.09))
+                            )
+                        )
+                        .overlay {
+                            if isEInkEnabled {
+                                Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth)
+                            }
+                        }
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Hẹn giờ và cài đặt")
@@ -301,7 +317,8 @@ struct TTSCoverView: View {
             .frame(width: size, height: size)
             .rotationEffect(.degrees(rotationAngle))
             .clipShape(Circle())
-            .overlay(Circle().stroke(Color.white.opacity(0.35), lineWidth: 1))
+            .overlay(Circle().stroke(isEInkEnabled ? EInkPalette.ink : Color.white.opacity(0.35), lineWidth: 1))
+            .einkMonochrome()
     }
 
     @ViewBuilder

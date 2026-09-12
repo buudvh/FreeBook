@@ -9,6 +9,7 @@ struct JunkFilterManagementView: View {
 
     @ObservedObject var manager = JunkFilterManager.shared
     @Environment(\.dismiss) var dismiss
+    @Environment(\.isEInkEnabled) private var isEInkEnabled
 
     @State private var searchText = ""
     @State private var showingEditSheet = false
@@ -57,6 +58,7 @@ struct JunkFilterManagementView: View {
                 Text("Các từ và biểu thức trong danh sách này sẽ bị tự động xoá khỏi văn bản gốc trước khi tiến hành chuẩn hoá và dịch chương.")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                    .einkListRowBackground()
             }
 
             if manager.rules.isEmpty {
@@ -74,6 +76,7 @@ struct JunkFilterManagementView: View {
                         Spacer()
                     }
                     .padding(.vertical, 24)
+                    .einkListRowBackground()
                 }
             } else {
                 Section(header: Text(listHeader)) {
@@ -101,7 +104,7 @@ struct JunkFilterManagementView: View {
                 }
             }
         }
-        .einkBackground(Color(.systemGroupedBackground))
+        .einkBackground()
         .searchable(text: $searchText, prompt: "Tìm từ lọc rác...")
         .environment(\.editMode, $editMode)
         .onChange(of: isSearching) { _, searching in
@@ -239,8 +242,8 @@ struct JunkFilterManagementView: View {
                             .font(.caption2)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Color.purple.opacity(0.12))
-                            .foregroundColor(.purple)
+                            .background(isEInkEnabled ? EInkPalette.grayLight : Color.purple.opacity(0.12))
+                            .foregroundColor(isEInkEnabled ? EInkPalette.ink : .purple)
                             .cornerRadius(4)
                     }
                 }
@@ -268,11 +271,12 @@ struct JunkFilterManagementView: View {
                 prepareForEdit(rule)
             }) {
                 Image(systemName: "pencil")
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(isEInkEnabled ? EInkPalette.ink : .accentColor)
                     .padding(8)
             }
             .buttonStyle(.plain)
         }
+        .einkListRowBackground()
         .contentShape(Rectangle())
     }
 
@@ -292,7 +296,9 @@ struct JunkFilterManagementView: View {
                     Toggle("Biểu thức chính quy (Regex)", isOn: $isRegexInput)
                     Toggle("Kích hoạt quy tắc", isOn: $isEnabledInput)
                 }
+                .einkListRowBackground()
             }
+            .einkBackground()
             .navigationTitle(selectedRule == nil ? "Thêm từ lọc rác" : "Sửa từ lọc rác")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

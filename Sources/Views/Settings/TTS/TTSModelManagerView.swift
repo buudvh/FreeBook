@@ -231,6 +231,7 @@ struct TTSModelManagerView: View {
             }
         }
         .padding(.vertical, 4)
+        .einkListRowBackground()
     }
     
     private func loadVoices() async {

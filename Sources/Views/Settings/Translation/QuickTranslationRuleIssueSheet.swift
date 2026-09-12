@@ -9,6 +9,7 @@ struct QuickTranslationRuleIssueSheet: View {
     let issues: [QuickTranslationRuleIssue]
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.isEInkEnabled) private var isEInkEnabled
 
     private var hardIssues: [QuickTranslationRuleIssue] { issues.filter { $0.severity == .hard } }
     private var disablingIssues: [QuickTranslationRuleIssue] { issues.filter { $0.severity == .disabling } }
@@ -41,8 +42,10 @@ struct QuickTranslationRuleIssueSheet: View {
                 if issues.isEmpty {
                     Text("Không có lỗi hay cảnh báo nào.")
                         .foregroundColor(.secondary)
+                        .einkListRowBackground()
                 }
             }
+            .einkBackground()
             .navigationTitle("Lỗi & cảnh báo")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -64,7 +67,7 @@ struct QuickTranslationRuleIssueSheet: View {
 
     @ViewBuilder
     private func section(title: String, color: Color, issues: [QuickTranslationRuleIssue]) -> some View {
-        Section(header: Text(title).foregroundColor(color)) {
+        Section(header: Text(title).foregroundColor(isEInkEnabled ? EInkPalette.ink : color)) {
             ForEach(issues) { issue in
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
@@ -75,8 +78,8 @@ struct QuickTranslationRuleIssueSheet: View {
                             .font(.caption2)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
-                            .background(color.opacity(0.15))
-                            .foregroundColor(color)
+                            .background(isEInkEnabled ? EInkPalette.grayLight : color.opacity(0.15))
+                            .foregroundColor(isEInkEnabled ? EInkPalette.ink : color)
                             .cornerRadius(4)
                     }
                     Text(issue.message)
@@ -86,6 +89,7 @@ struct QuickTranslationRuleIssueSheet: View {
                         .foregroundColor(.secondary)
                 }
                 .padding(.vertical, 2)
+                .einkListRowBackground()
             }
         }
     }

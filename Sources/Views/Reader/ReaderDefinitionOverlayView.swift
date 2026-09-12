@@ -343,17 +343,43 @@ struct ReaderDefinitionOverlayView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(suggestionChips) { chip in
+                        let bgFill: Color = {
+                            if isEInkEnabled {
+                                switch chip.category {
+                                case .name: return EInkPalette.grayDark
+                                case .vietPhrase: return EInkPalette.grayMedium
+                                case .hanViet: return EInkPalette.grayLight
+                                }
+                            }
+                            return Color(red: 0.12, green: 0.12, blue: 0.15)
+                        }()
+
+                        let textColor: Color = {
+                            if isEInkEnabled {
+                                switch chip.category {
+                                case .name: return EInkPalette.selectedContent
+                                case .vietPhrase: return EInkPalette.ink
+                                case .hanViet: return EInkPalette.ink
+                                }
+                            }
+                            return chip.category.textColor
+                        }()
+
                         Button(action: { customMeaning = chip.text }) {
                             Text(chip.text)
                                 .font(.subheadline)
-                                .foregroundColor(isEInkEnabled ? EInkPalette.ink : chip.category.textColor)
+                                .fontWeight(isEInkEnabled ? .medium : .regular)
+                                .foregroundColor(textColor)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
-                                .background(isEInkEnabled ? paper : Color(red: 0.12, green: 0.12, blue: 0.15))
+                                .background(bgFill)
                                 .cornerRadius(15)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 15)
-                                        .stroke(isEInkEnabled ? EInkPalette.ink : chip.category.borderColor, lineWidth: 1)
+                                        .stroke(
+                                            isEInkEnabled ? (chip.category == .hanViet ? EInkPalette.grayDark : EInkPalette.ink) : chip.category.borderColor,
+                                            style: (isEInkEnabled && chip.category == .hanViet) ? StrokeStyle(lineWidth: 1, dash: [3, 2]) : StrokeStyle(lineWidth: 1)
+                                        )
                                  )
                         }
                     }

@@ -15,6 +15,12 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Type E-Ink 2 tầng nền và phân cấp sắc xám (1.3.364)
+
+* [`EInkModeSettings`](../../Sources/Common/Services/EInkModeSettings.swift#L1): Mở rộng `EInkPaperColor` với 4 preset màn hình E-Ink chuyên dụng (`kindlePaperwhite`, `koboComfortLight`, `pureBalanced`, `pureDeep` [mặc định]) thay cho các màu cơ bản trước đây.
+* [`EInkPalette`](../../Sources/Common/Theme/EInkPalette.swift#L1): Bổ sung `paperCanvas` (nền nền tảng/canvas), `paperCard` (nền ô/thẻ nội dung), các sắc xám ngữ nghĩa `grayLight` (`#EEEEEE`), `grayMedium` (`#C8C8C8`), `grayDark` (`#9E9E9E`), `selectedFill` (`#000000`), `selectedContent` (`#FFFFFF`).
+* [`View+EInk`](../../Sources/Common/Extensions/View+EInk.swift#L1): Thêm `View.einkListRowBackground()` để dập tắt triệt để nền trắng mặc định của List/Form rows trong SwiftUI trên toàn app, chuyển sang `paperCard` đồng nhất.
+
 ## Type E-Ink appearance và nền giấy reactive (1.3.361)
 
 * [`EInkAppearance`](../../Sources/Common/Utils/EInkAppearance.swift#L1) là `enum` namespace UIKit-only, sở hữu `Configuration` lồng gồm 4 `UINavigationBarAppearance` slot và 1 `UITabBarAppearance`. `apply()` hop về main thread, dựng cấu hình theo `EInkModeSettings.shared.isEnabled`, cài proxy và duyệt window hiện có để cập nhật live bars.

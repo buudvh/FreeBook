@@ -272,6 +272,7 @@ struct ShelfSearchView: View {
             extensionLocalPath: ext?.localPath ?? "",
             extensionIconUrl: ext?.iconUrl
         )
+        .einkListRowBackground()
         .contentShape(Rectangle())
         .onTapGesture {
             newChapters.markSeen(bookId: book.bookId)

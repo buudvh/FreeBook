@@ -23,6 +23,8 @@ struct BookDetailHeaderView: View {
     let onTranslateMetaIfNeeded: (String) -> String
     let onLoadBookDetailOnly: () -> Void
 
+    @Environment(\.isEInkEnabled) private var isEInkEnabled
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             if isLoadingDetail && title.isEmpty {
@@ -166,9 +168,15 @@ struct BookDetailHeaderView: View {
                             .font(.caption2)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
-                            .background(Color.blue.opacity(0.1))
-                            .foregroundColor(.blue)
+                            .background(isEInkEnabled ? EInkPalette.paperCard : Color.blue.opacity(0.1))
+                            .foregroundColor(isEInkEnabled ? EInkPalette.ink : .blue)
                             .cornerRadius(8)
+                            .overlay {
+                                if isEInkEnabled {
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth)
+                                }
+                            }
                     }
                 }
             }

@@ -14,6 +14,7 @@ import SwiftUI
 /// phạm vi **file** nên các `@State` dưới đây phải là `internal`.
 struct BookImportConfirmationSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.isEInkEnabled) internal var isEInkEnabled
 
     internal enum PickerType: String, Identifiable {
         case decode
@@ -112,7 +113,7 @@ struct BookImportConfirmationSheet: View {
                         HStack(spacing: 14) {
                             Image(systemName: "square.and.arrow.down.fill")
                                 .font(.title2)
-                                .foregroundColor(.blue)
+                                .foregroundColor(isEInkEnabled ? EInkPalette.ink : .blue)
 
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(parsed.title)
@@ -141,7 +142,7 @@ struct BookImportConfirmationSheet: View {
                             if let splitReport {
                                 Text(splitReport)
                                     .font(.caption)
-                                    .foregroundColor(.orange)
+                                    .foregroundColor(isEInkEnabled ? EInkPalette.ink : .orange)
                                     .lineLimit(2)
                             }
                         }
@@ -172,7 +173,7 @@ struct BookImportConfirmationSheet: View {
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
-                    .tint(.red)
+                    .tint(isEInkEnabled ? .primary : .red)
                     .disabled(isReanalyzing)
 
                     Button(action: {
@@ -183,11 +184,12 @@ struct BookImportConfirmationSheet: View {
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(.blue)
+                    .tint(isEInkEnabled ? .primary : .blue)
                     .disabled(isReanalyzing || !canConfirm)
                 }
                 .padding(16)
             }
+            .einkBackground()
             .navigationTitle("Xác nhận nhập truyện")
             .navigationBarTitleDisplayMode(.inline)
             .sheet(item: $activePicker) { picker in
@@ -268,10 +270,10 @@ struct BookImportConfirmationSheet: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 8) {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundColor(.orange)
+                    .foregroundColor(isEInkEnabled ? EInkPalette.ink : .orange)
                 Text(warning)
                     .font(.caption)
-                    .foregroundColor(.orange)
+                    .foregroundColor(isEInkEnabled ? EInkPalette.ink : .orange)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
@@ -279,8 +281,14 @@ struct BookImportConfirmationSheet: View {
                 .font(.caption)
         }
         .padding(10)
-        .background(Color.orange.opacity(0.12))
+        .background(isEInkEnabled ? EInkPalette.paperCard : Color.orange.opacity(0.12))
         .cornerRadius(8)
+        .overlay {
+            if isEInkEnabled {
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(EInkPalette.ink, style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
+            }
+        }
     }
 
     private func pickerRowLabel(title: String, systemImage: String, value: String) -> some View {

@@ -15,6 +15,16 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## E-Ink 2 tầng nền (Canvas vs Card) và phân biệt sắc xám ngữ nghĩa (1.3.364)
+
+* **2 tầng nền E-Ink**: Áp dụng triệt để phân cấp 2 tầng nền (`paperCanvas` cho nền toàn màn hình/khung nhìn và `paperCard` cho các card, list row, form row, popup, sheet) trên toàn bộ ứng dụng (ngoại trừ Trình duyệt web và Trình chỉnh sửa script JS).
+* **Phân biệt sắc xám ngữ nghĩa**: Các thành phần biểu thị trạng thái, loại từ điển, chip gợi ý phiên âm được mã hóa bằng sắc xám khác nhau kết hợp kiểu viền:
+  - `grayDark` (`#9E9E9E`, chữ trắng `selectedContent`): Độ ưu tiên cao (Từ điển Tên riêng, nguồn Phiên âm thư viện, ghim).
+  - `grayMedium` (`#C8C8C8`, chữ đen `ink`): Độ ưu tiên trung bình (Từ điển VietPhrase, nguồn phiên âm tiếng Nhật, chip quy tắc đã dùng).
+  - `grayLight` (`#EEEEEE`, chữ đen `ink`): Độ ưu tiên thấp (Hán Việt, IPA/quy tắc tiếng Anh).
+  - Viền nét đứt `[3, 2]`: Hán Việt, token/capture tùy chọn. Viền nét liền: Lựa chọn pipeline chính hoặc đang được chọn.
+* **Đơn sắc hóa UI & Cover**: 100% icon, badge, nút bấm và cover vinyl TTS widget được chuyển sang đơn sắc đen trắng (`EInkPalette.ink` / grayscale) trên E-Ink.
+
 ## E-Ink là chính sách trình bày xuyên app, không là subsystem dữ liệu (1.3.362)
 
 * Ranh giới E-Ink vẫn nằm ở `Common` + root `App`: `EInkModeSettings` giữ state/UserDefaults, `EInkPalette` đổi state thành màu, `View+EInk` cung cấp modifier cho View, và `EInkAppearance` là adapter UIKit cho nav/tab bar. Không thêm Service, Model hay dependency mới.

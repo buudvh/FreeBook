@@ -14,6 +14,7 @@ import SwiftUI
 /// `check_architecture.py` và baseline chỉ được phép giảm.
 struct AddWordSheet: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.isEInkEnabled) private var isEInkEnabled
     @State private var key = ""
     @State private var value = ""
     @State private var validationError: String? = nil
@@ -58,27 +59,20 @@ struct AddWordSheet: View {
 
                 if let validationError = validationError {
                     Section {
-                        Text(validationError)
-                            .foregroundColor(.red)
-                            .font(.caption)
+                        Text(validationError).foregroundColor(.red).font(.caption)
                     }
                 }
             }
+            .einkBackground(Color(.systemGroupedBackground))
             .navigationTitle("Thêm từ mới")
             .navigationBarTitleDisplayMode(.inline)
-            .onAppear {
-                // Lượt đầu **không** chờ debounce: khoá đã có sẵn từ cụm bôi đen ở Reader.
-                scheduleSuggestionLoad(immediately: true)
-            }
+            .onAppear { scheduleSuggestionLoad(immediately: true) }
             .onDisappear {
-                suggestionLoadTask?.cancel()
-                suggestionLoadTask = nil
+                suggestionLoadTask?.cancel(); suggestionLoadTask = nil
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Hủy") {
-                        dismiss()
-                    }
+                    Button("Hủy") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Lưu") {
@@ -117,7 +111,27 @@ struct AddWordSheet: View {
     }
 
     private func suggestionChip(_ suggestion: TTSPhoneticSuggestion) -> some View {
-        Button(action: {
+        let badgeBg: Color = {
+            if isEInkEnabled {
+                switch suggestion.origin {
+                case .library: return EInkPalette.grayDark
+                case .japanese: return EInkPalette.grayMedium
+                case .englishIPA, .englishRule: return EInkPalette.grayLight
+                }
+            }
+            return suggestion.origin.tint.opacity(0.18)
+        }()
+        let badgeFg: Color = {
+            if isEInkEnabled {
+                switch suggestion.origin {
+                case .library: return EInkPalette.selectedContent
+                case .japanese, .englishIPA, .englishRule: return EInkPalette.ink
+                }
+            }
+            return suggestion.origin.tint
+        }()
+
+        return Button(action: {
             value = suggestion.text
         }) {
             HStack(spacing: 6) {
@@ -125,23 +139,25 @@ struct AddWordSheet: View {
                     .font(.caption2.weight(.bold))
                     .padding(.horizontal, 5)
                     .padding(.vertical, 2)
-                    .background(suggestion.origin.tint.opacity(0.18))
-                    .foregroundColor(suggestion.origin.tint)
+                    .background(badgeBg)
+                    .foregroundColor(badgeFg)
                     .clipShape(RoundedRectangle(cornerRadius: 4))
                 Text(suggestion.text)
                     .font(.subheadline)
-                    .foregroundColor(suggestion.isPipelineChoice ? .primary : .secondary)
+                    .foregroundColor(isEInkEnabled ? EInkPalette.ink : (suggestion.isPipelineChoice ? .primary : .secondary))
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(Color.secondary.opacity(0.1))
+            .background(isEInkEnabled ? EInkPalette.paperCard : Color.secondary.opacity(0.1))
             .clipShape(Capsule())
             .overlay(
                 Capsule().stroke(
-                    suggestion.isPipelineChoice
-                        ? suggestion.origin.tint.opacity(0.5)
-                        : Color.gray.opacity(0.3),
-                    lineWidth: suggestion.isPipelineChoice ? 1.5 : 1
+                    isEInkEnabled
+                        ? (suggestion.origin == .englishRule ? EInkPalette.grayDark : EInkPalette.ink)
+                        : (suggestion.isPipelineChoice ? suggestion.origin.tint.opacity(0.5) : Color.gray.opacity(0.3)),
+                    style: (isEInkEnabled && (!suggestion.isPipelineChoice || suggestion.origin == .englishRule))
+                        ? StrokeStyle(lineWidth: 1, dash: [3, 2])
+                        : StrokeStyle(lineWidth: suggestion.isPipelineChoice ? 1.5 : 1)
                 )
             )
         }
