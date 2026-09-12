@@ -15,6 +15,21 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Call graph scroll token dịch và triệt tiêu rung haptic toàn diện (1.3.373)
+
+```text
+ReaderDefinitionOverlayView / ReaderJunkDeleteOverlayView
+  -> translationTokens load async
+  -> onChange(of: translationTokens.count / id) + onAppear
+  -> scrollToSelectedToken(proxy:) -> proxy.scrollTo("trans-\(token.id)", anchor: .center)
+
+SelectionHapticsSilencer.silenceSelectionHaptics()
+  -> swizzle UISelectionFeedbackGenerator (selectionChanged, userInteractionStarted/Ended)
+  -> swizzle UIImpactFeedbackGenerator (impactOccurred, impactOccurredWithIntensity)
+  -> swizzle UIFeedbackGenerator / _UIFeedbackGenerator (_playFeedback:)
+  => Triệt tiêu 100% rung vật lý khi long-press và kéo bôi đen
+```
+
 ## Call graph bôi đen text, tắt rung haptic và tự động ngắt auto-scroll (1.3.372)
 
 ```text

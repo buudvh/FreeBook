@@ -4,6 +4,22 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.373] - 2026-09-12
+
+### feat: triet tieu 100% rung vat ly khi boi den va fix loi tu scroll token man hinh dich
+
+Sửa **3** file và cập nhật **1** file trong `Sources/Views/Reader/`.
+
+- **Triệt tiêu 100% rung vật lý Taptic Engine (`SelectionHapticsSilencer.swift`)**:
+  - Mở rộng swizzle toàn diện bằng `method_setImplementation`: vô hiệu hóa cả `UIImpactFeedbackGenerator.impactOccurred()`, `UIImpactFeedbackGenerator.impactOccurred(intensity:)`, `UISelectionFeedbackGenerator.selectionChanged()`, `UIFeedbackGenerator.prepare` và các lớp private `_UIFeedbackGenerator` / `_UISelectionFeedbackGenerator`.
+  - Triệt tiêu hoàn toàn phản hồi rung vật lý của máy cả khi ấn giữ (long-press) để bắt đầu chọn lẫn khi kéo thanh neo bôi đen text.
+- **Tự động scroll đến đúng token đã chọn trong màn hình Dịch (`ReaderDefinitionOverlayView.swift`, `ReaderJunkDeleteOverlayView.swift`)**:
+  - Khắc phục triệt để lỗi race condition "lúc cuộn được lúc không": bổ sung `.onChange(of: translationTokens.count)` và `.onChange(of: translationTokens.map(\.id))` để tự động cuộn đến đúng token ngay khi dữ liệu nạp bất đồng bộ hoàn tất.
+  - Tích hợp hàm `scrollToSelectedToken(proxy:)` với nhiều mốc retry trong `.onAppear`.
+- **Chặn Layout loop trong `AutoSizingTextView` (`ReaderTextView.swift`)**:
+  - Chặn `invalidateIntrinsicContentSize()` khi `selectedRange.length > 0`, ngăn việc đo lại kích thước thẻ liên tục gây rung giật hình ảnh khi bôi đen.
+- Gate: `check_architecture.py` không phát sinh vi phạm mới; `validate_links.py` PASS 100%.
+
 ## [1.3.372] - 2026-09-12
 
 ### feat: tat rung mac dinh khi boi den, tu dong tat auto-scroll tts va toi uu do muot boi den reader

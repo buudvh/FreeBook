@@ -164,18 +164,41 @@ struct ReaderJunkDeleteOverlayView: View {
                 }
             }
             .onChange(of: selectedWordOffset) { _, _ in
-                if let selectedToken = translationTokens.first(where: {
-                    $0.originalOffset < selectedWordOffset + selectedWordLength &&
-                    $0.originalOffset + $0.originalLength > selectedWordOffset
-                }) {
-                    withAnimation {
-                        proxy.scrollTo("junk-trans-\(selectedToken.id)", anchor: .center)
-                    }
+                scrollToSelectedToken(proxy: proxy, animated: true)
+            }
+            .onChange(of: translationTokens.count) { _, _ in
+                scrollToSelectedToken(proxy: proxy, animated: true)
+            }
+            .onChange(of: translationTokens.map(\.id)) { _, _ in
+                scrollToSelectedToken(proxy: proxy, animated: true)
+            }
+            .onAppear {
+                scrollToSelectedToken(proxy: proxy, animated: false)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    scrollToSelectedToken(proxy: proxy, animated: true)
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    scrollToSelectedToken(proxy: proxy, animated: true)
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 4)
+    }
+
+    private func scrollToSelectedToken(proxy: ScrollViewProxy, animated: Bool = true) {
+        guard let selectedToken = translationTokens.first(where: {
+            $0.originalOffset < selectedWordOffset + selectedWordLength &&
+            $0.originalOffset + $0.originalLength > selectedWordOffset
+        }) else { return }
+
+        if animated {
+            withAnimation {
+                proxy.scrollTo("junk-trans-\(selectedToken.id)", anchor: .center)
+            }
+        } else {
+            proxy.scrollTo("junk-trans-\(selectedToken.id)", anchor: .center)
+        }
     }
 
     private var junkInputView: some View {

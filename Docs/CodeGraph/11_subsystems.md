@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Triệt tiêu 100% rung Haptic Feedback và tự động cuộn token dịch (1.3.373)
+
+* **Vô hiệu hoá toàn diện Haptic Feedback**: `SelectionHapticsSilencer` swizzle toàn bộ `UISelectionFeedbackGenerator`, `UIImpactFeedbackGenerator` và `UIFeedbackGenerator` (cả `impactOccurred`, `selectionChanged`, `_playFeedback:`) sang no-op, triệt tiêu 100% rung Taptic Engine cả khi long-press ấn giữ lẫn khi kéo thanh chọn.
+* **Tự động cuộn token dịch khi nạp xong**: `ReaderDefinitionOverlayView` & `ReaderJunkDeleteOverlayView` lắng nghe `.onChange(of: translationTokens.count / id)` và retry trong `.onAppear`, giải quyết triệt để lỗi race condition "lúc cuộn được lúc không".
+* **Chặn layout loop**: `AutoSizingTextView` bỏ qua `invalidateIntrinsicContentSize()` khi `selectedRange.length > 0`, ngăn SwiftUI re-measure liên tục làm rung giật hình ảnh.
+
 ## Triệt tiêu rung Haptic Feedback và tối ưu luồng bôi đen Reader (1.3.372)
 
 * **Vô hiệu hoá Haptic Feedback**: `SelectionHapticsSilencer` swizzle `UISelectionFeedbackGenerator.selectionChanged()` để triệt tiêu toàn bộ lệnh rung Taptic Engine từ `UITextInteraction` khi kéo chọn chữ trong Reader. Thao tác bôi đen hoàn toàn êm ái.

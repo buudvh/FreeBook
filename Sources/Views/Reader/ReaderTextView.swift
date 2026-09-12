@@ -431,11 +431,12 @@ class ReaderUITextView: UITextView {
     }
 }
 
-
 class AutoSizingTextView: ReaderUITextView {
 
     override var contentSize: CGSize {
         didSet {
+            // Không bao giờ invalidate size khi đang có selection — ngăn layout feedback loop làm rung giật
+            guard selectedRange.length == 0 else { return }
             let widthChanged = abs(contentSize.width - oldValue.width) > 0.5
             let heightChanged = abs(contentSize.height - oldValue.height) > 0.5
             if widthChanged || heightChanged {
