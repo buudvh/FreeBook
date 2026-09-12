@@ -42,6 +42,7 @@ struct CollectionsTabView: View {
                 gridView
             }
         }
+        .einkBackground()
         .sheet(isPresented: $showingReorderSheet) {
             CollectionsReorderSheet(collections: collections) { source, destination in
                 reorderMessage(from: source, to: destination)

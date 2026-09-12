@@ -132,6 +132,7 @@ struct ShelfSearchView: View {
                 deletionOverlay
             }
         }
+        .einkBackground()
         .navigationTitle("Tìm trong Kệ sách & Lịch sử")
         .navigationBarTitleDisplayMode(.inline)
         .fullScreenCover(item: $readerRoute) { route in
@@ -258,6 +259,7 @@ struct ShelfSearchView: View {
                 }
             }
             .listStyle(.plain)
+            .einkBackground()
         }
     }
 

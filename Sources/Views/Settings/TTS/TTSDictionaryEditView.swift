@@ -132,6 +132,7 @@ struct TTSDictionaryEditView: View {
                             Text("Từ vựng (\(allWords.count) từ)")
                         }
                     }
+                    .einkBackground(Color(.systemGroupedBackground))
                     .searchable(text: $searchText, prompt: "Tìm từ...")
                     .onChange(of: searchText) { oldValue, newValue in
                         visibleCount = 100

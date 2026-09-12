@@ -102,6 +102,7 @@ struct TTSReplacementManagerView: View {
                 }
             }
         }
+        .einkBackground(Color(.systemGroupedBackground))
         .searchable(text: $searchText, prompt: "Tìm mẫu hoặc chuỗi thay thế...")
         .environment(\.editMode, $editMode)
         .onChange(of: isSearching) { _, searching in

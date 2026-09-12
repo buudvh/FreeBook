@@ -171,6 +171,7 @@ struct ShelfView: View {
                             .tag(ShelfTab.history)
                     }
                     .tabViewStyle(.page(indexDisplayMode: .never))
+                    .einkBackground()
             }
             .navigationTitle(selectedTab.navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
@@ -614,6 +615,7 @@ struct ShelfView: View {
                     }
                 }
                 .listStyle(.plain)
+                .einkBackground()
             }
         }
     }
@@ -747,6 +749,7 @@ struct ShelfView: View {
                     }
                 }
                 .listStyle(.plain)
+                .einkBackground()
             }
         }
     }

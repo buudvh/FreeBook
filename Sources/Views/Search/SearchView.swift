@@ -117,6 +117,7 @@ struct SearchView: View {
             }
             .navigationTitle("Tìm Kiếm")
             .navigationBarTitleDisplayMode(.inline)
+            .einkBackground()
             .onAppear {
                 if !initialSearchQuery.isEmpty && searchQuery.isEmpty {
                     searchQuery = initialSearchQuery
@@ -509,6 +510,7 @@ struct SearchView: View {
             }
         }
         .listStyle(.plain)
+        .einkBackground()
     }
     
     @ViewBuilder

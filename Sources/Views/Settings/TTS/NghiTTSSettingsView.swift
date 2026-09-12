@@ -70,6 +70,7 @@ struct NghiTTSSettingsView: View {
                     .foregroundColor(.secondary)
             }
         }
+        .einkBackground(Color(.systemGroupedBackground))
         .navigationTitle("Cấu hình NghiTTS")
         .navigationBarTitleDisplayMode(.inline)
     }

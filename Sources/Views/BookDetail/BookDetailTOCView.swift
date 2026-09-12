@@ -32,6 +32,7 @@ struct BookDetailTOCView: View {
             }
             tocListView
         }
+        .einkBackground()
     }
 
     private var searchBarView: some View {

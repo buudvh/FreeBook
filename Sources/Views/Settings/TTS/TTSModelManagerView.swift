@@ -12,7 +12,6 @@ struct TTSModelManagerView: View {
     @State private var isImportingModel = false
     @State private var importModelMessage = "Đang nhập model..."
     @State private var modelRefreshTrigger = 0
-
     
     private func isModelDownloaded(_ voice: Voice) -> Bool {
         let _ = modelRefreshTrigger
@@ -138,6 +137,7 @@ struct TTSModelManagerView: View {
                     }
                 }
             }
+            .einkBackground(Color(.systemGroupedBackground))
             .navigationTitle("Quản lý Model")
             .background {
                 DocumentPickerPresenter(

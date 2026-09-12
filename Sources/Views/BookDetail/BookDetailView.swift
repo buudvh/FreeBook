@@ -230,6 +230,7 @@ struct BookDetailView: View {
                 }
             }
         }
+        .einkBackground()
         .navigationTitle("Chi Tiết Truyện")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -498,6 +499,7 @@ struct BookDetailView: View {
         .refreshable {
             await reloadBookData()
         }
+        .einkBackground()
     }
 
     internal func refreshLocalTOCSnapshots() {

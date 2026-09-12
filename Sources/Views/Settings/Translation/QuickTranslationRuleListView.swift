@@ -122,6 +122,7 @@ struct QuickTranslationRuleListView: View {
             rulesSection
         }
         .listStyle(.plain)
+        .einkBackground()
         .searchable(text: $searchText, prompt: "Tìm mẫu, bản dịch hoặc số dòng...")
         .navigationTitle(scope.isGlobal ? "Rule chung" : "Rule riêng truyện")
         .navigationBarTitleDisplayMode(.inline)

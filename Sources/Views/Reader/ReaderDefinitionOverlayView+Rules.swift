@@ -27,15 +27,8 @@ extension ReaderDefinitionOverlayView {
 
     @ViewBuilder
     internal var ruleMeaningRowView: some View {
-        if let notice = ruleNoticeText {
-            Text(notice)
-                .font(.caption)
-                .foregroundColor(.orange)
-                .einkAccentForeground(.orange)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        } else if let trace = focusedRuleTrace {
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 6) {
                 Text("Nghĩa rule")
                     .font(.system(size: 9, weight: .bold))
                     .padding(.horizontal, 4)
@@ -43,43 +36,65 @@ extension ReaderDefinitionOverlayView {
                     .background(isEInkEnabled ? paper : Color.secondary.opacity(0.18), in: RoundedRectangle(cornerRadius: 3))
                     .overlay { if isEInkEnabled { RoundedRectangle(cornerRadius: 3).strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
 
+                if let trace = focusedRuleTrace {
                     Text(ReaderRuleChipStyle.label(for: trace.status))
                         .font(.caption2)
                         .foregroundColor(.secondary)
+                } else if let header = ruleNoticeHeader {
+                    Text(header)
+                        .font(.caption2)
+                        .foregroundColor(.orange)
+                        .einkAccentForeground(.orange)
                 }
 
-                Text(trace.rendered.isEmpty ? "(rule này không sinh chữ nào ở đây)" : trace.rendered)
-                    .font(.body)
-                    .foregroundColor(trace.status.isDisabled ? .secondary : .primary)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isEInkEnabled ? paper : Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
-            .overlay { if isEInkEnabled { RoundedRectangle(cornerRadius: 8).strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
-            .overlay(alignment: .topTrailing) {
+                Spacer()
+
                 if isLoadingRules {
                     ProgressView()
                         .controlSize(.mini)
-                        .padding(6)
                 }
             }
+
+            Group {
+                if let trace = focusedRuleTrace {
+                    Text(trace.rendered.isEmpty ? "(rule này không sinh chữ nào ở đây)" : trace.rendered)
+                        .font(.subheadline)
+                        .foregroundColor(trace.status.isDisabled ? .secondary : .primary)
+                } else {
+                    Text(ruleNoticeContent)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .lineLimit(1)
+            .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .frame(maxWidth: .infinity, minHeight: 48, maxHeight: 48, alignment: .leading)
+        .background(isEInkEnabled ? paper : Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+        .overlay { if isEInkEnabled { RoundedRectangle(cornerRadius: 8).strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
     }
 
-    private var ruleNoticeText: String? {
+    private var ruleNoticeHeader: String? {
+        if !hasAnyRuleSet { return "Chưa có rule" }
+        if !isRuleFeatureEnabled { return "Đang tắt" }
+        if ruleTraces.isEmpty { return isLoadingRules ? "Đang tải…" : "Không khớp" }
+        return nil
+    }
+
+    private var ruleNoticeContent: String {
         if !hasAnyRuleSet {
-            return "Máy chưa có bộ rule nào. Tải hoặc nhập ở Cài đặt → Quản lý rule dịch."
+            return "Máy chưa có bộ rule nào (Cài đặt → Quản lý rule dịch)."
         }
         if !isRuleFeatureEnabled {
-            return "Công tắc rule dịch đang TẮT trong Cài đặt — dải rule bên dưới chỉ là mô phỏng."
+            return "Công tắc rule dịch đang TẮT trong Cài đặt."
         }
         if ruleTraces.isEmpty {
             return isLoadingRules ? "Đang cập nhật rule cho đoạn này…" : "Không rule nào chạm đoạn này."
         }
-        return nil
+        return ""
     }
 
     // MARK: - Dải chip rule
@@ -103,6 +118,7 @@ extension ReaderDefinitionOverlayView {
                 Text(isLoadingRules ? "Đang cập nhật…" : "Chưa có rule nào khớp")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
@@ -121,7 +137,7 @@ extension ReaderDefinitionOverlayView {
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: 36, maxHeight: 36, alignment: .leading)
     }
 
     // MARK: - Popup thao tác trên một rule

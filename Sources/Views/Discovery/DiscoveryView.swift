@@ -350,6 +350,7 @@ struct DiscoveryView: View {
                     }
                 }
             }
+            .einkBackground()
             .toolbar(.hidden, for: .navigationBar)
             .onAppear {
                 // Tự động khôi phục nguồn cuối cùng đã xem
@@ -681,6 +682,7 @@ struct DiscoveryCategoryTabView: View {
                         }
                     }
                     .listStyle(.plain)
+                    .einkBackground()
                     .refreshable {
                         await loader.reload()
                     }

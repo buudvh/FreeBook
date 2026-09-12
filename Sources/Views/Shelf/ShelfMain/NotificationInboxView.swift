@@ -90,6 +90,7 @@ struct NotificationInboxView: View {
                     inboxList
                 }
             }
+            .einkBackground(Color(.systemGroupedBackground))
             .navigationTitle("Thông báo")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }
@@ -112,6 +113,7 @@ struct NotificationInboxView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .einkBackground(Color(.systemGroupedBackground))
     }
 
     @ViewBuilder

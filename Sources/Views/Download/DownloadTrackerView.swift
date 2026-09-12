@@ -43,8 +43,10 @@ struct DownloadTrackerView: View {
                     }
                 }
                 .listStyle(.plain)
+                .einkBackground()
             }
         }
+        .einkBackground()
         .sheet(item: $selectedBookForTask) { book in
             TaskOptionsSheet(book: book, taskType: selectedTaskType, defaultOnlyExportCached: defaultOnlyExportCached)
         }

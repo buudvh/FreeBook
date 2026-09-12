@@ -101,6 +101,7 @@ struct JunkFilterManagementView: View {
                 }
             }
         }
+        .einkBackground(Color(.systemGroupedBackground))
         .searchable(text: $searchText, prompt: "Tìm từ lọc rác...")
         .environment(\.editMode, $editMode)
         .onChange(of: isSearching) { _, searching in

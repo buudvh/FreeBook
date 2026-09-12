@@ -377,6 +377,7 @@ struct SettingsView: View {
                     onCancel: nil
                 )
             )
+            .einkBackground(Color(.systemGroupedBackground))
         }
     }
     
@@ -441,10 +442,7 @@ struct DictionaryCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.secondary.opacity(0.08))
         .cornerRadius(8)
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.secondary.opacity(0.12), lineWidth: 1)
-        )
+        .einkOutline(8)
     }
 }
 

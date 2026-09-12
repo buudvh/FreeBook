@@ -78,6 +78,7 @@ struct TOCRulesConfigView: View {
                     }
                 }
                 .environment(\.editMode, isEditingMode ? .constant(.active) : .constant(.inactive))
+                .einkBackground(Color(.systemGroupedBackground))
             }
         }
         .navigationTitle("Quy tắc TOC (Chương TXT)")
@@ -88,7 +89,6 @@ struct TOCRulesConfigView: View {
                     Button(action: prepareForAdd) {
                         Label("Thêm quy tắc mới", systemImage: "plus")
                     }
-                    
                     Button(action: {
                         withAnimation {
                             isEditingMode.toggle()

@@ -69,6 +69,7 @@ struct CollectionDetailView: View {
                 deletionOverlay
             }
         }
+        .einkBackground()
         .navigationTitle(collection?.name ?? "Bộ sưu tập")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -179,6 +180,7 @@ struct CollectionDetailView: View {
                 }
             }
             .listStyle(.plain)
+            .einkBackground()
         }
     }
 

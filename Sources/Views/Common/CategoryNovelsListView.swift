@@ -82,6 +82,7 @@ struct CategoryNovelsListView: View {
                     }
                 }
                 .listStyle(.plain)
+                .einkBackground()
                 .refreshable {
                     await loader.reload()
                 }
@@ -96,6 +97,7 @@ struct CategoryNovelsListView: View {
                 }
             }
         }
+        .einkBackground()
         .navigationTitle(translateIfNeeded(category.title))
         .navigationBarTitleDisplayMode(.inline)
         .task {

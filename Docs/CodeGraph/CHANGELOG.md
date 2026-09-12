@@ -4,6 +4,16 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.363] - 2026-09-12
+
+### Cố định độ cao panel dịch và áp dụng nền E-Ink cho các màn hình
+
+Sửa **28** file Swift, không thêm/xoá file.
+
+- Cố định độ cao từng thành phần trong panel dịch (`ReaderDefinitionOverlayView` & `ReaderDefinitionOverlayView+Rules`), loại bỏ khoảng trống thừa phía dưới và chống giật nhảy khi nạp dữ liệu.
+- Áp dụng nền giấy E-Ink theo cấu hình (`paperColor`) cho toàn bộ các màn hình Kệ sách, Chi tiết truyện, Khám phá, Tìm kiếm, Kho tiện ích và Cài đặt.
+- Gate: `check_architecture.py` giữ đúng 6 violation line-limit nền, không có violation mới; `validate_links.py` PASS 100%.
+
 ## [1.3.362] - 2026-09-12
 
 ### Ổn định panel Dịch và hoàn thiện nền E-Ink

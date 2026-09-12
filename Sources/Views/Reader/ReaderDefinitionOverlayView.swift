@@ -94,25 +94,22 @@ struct ReaderDefinitionOverlayView: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            dragIndicatorView
-            headerView
-
-            ScrollView(.vertical, showsIndicators: true) {
-                VStack(spacing: 8) {
-                    originalSentenceRowView
-                    translatedTokensRowView
-                    customMeaningInputView
-                    ruleMeaningRowView
-                    suggestionChipsView
-                    ruleChipRowView
-                    combinedFormattingAndPickersView
-                    updateButtonView
-                    Divider()
-                    quickLookupLinksView
-                }
-                .padding(.bottom, 4)
+            Group {
+                dragIndicatorView
+                headerView
+                originalSentenceRowView
+                translatedTokensRowView
+                customMeaningInputView
+                ruleMeaningRowView
             }
-            .scrollDismissesKeyboard(.interactively)
+            Group {
+                suggestionChipsView
+                ruleChipRowView
+                combinedFormattingAndPickersView
+                updateButtonView
+                Divider()
+                quickLookupLinksView
+            }
         }
         .padding(.horizontal)
         .padding(.top, 4)
@@ -245,7 +242,7 @@ struct ReaderDefinitionOverlayView: View {
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 6)
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, minHeight: 40, maxHeight: 40)
         .background(Color.secondary.opacity(0.08))
         .cornerRadius(8)
     }
@@ -294,7 +291,7 @@ struct ReaderDefinitionOverlayView: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: 32, maxHeight: 32, alignment: .leading)
         .padding(.horizontal, 4)
     }
 
@@ -312,6 +309,7 @@ struct ReaderDefinitionOverlayView: View {
             }
         }
         .padding(10)
+        .frame(maxWidth: .infinity, minHeight: 40, maxHeight: 40)
         .background(Color.secondary.opacity(0.1))
         .cornerRadius(8)
     }
@@ -356,13 +354,13 @@ struct ReaderDefinitionOverlayView: View {
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 15)
                                         .stroke(isEInkEnabled ? EInkPalette.ink : chip.category.borderColor, lineWidth: 1)
-                                )
+                                 )
                         }
                     }
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: 36, maxHeight: 36, alignment: .leading)
     }
 
     private func hideKeyboard() {

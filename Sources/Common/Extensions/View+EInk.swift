@@ -161,7 +161,9 @@ struct EInkEffect: ViewModifier {
             tagBody(content, tier: tier)
 
         case .background(let fallback):
-            content.background(isEnabled ? paper : fallback)
+            content
+                .scrollContentBackground(isEnabled ? .hidden : .automatic)
+                .background(isEnabled ? paper : fallback)
         }
     }
 

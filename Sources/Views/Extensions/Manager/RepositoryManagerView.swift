@@ -258,6 +258,7 @@ struct RepositoryManagerView: View {
                         extensionRow(ext)
                     }
                     .listStyle(.plain)
+                    .einkBackground()
                 }
             }
         }
@@ -585,6 +586,7 @@ struct RepositoryManagerView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .einkBackground(Color(.systemGroupedBackground))
     }
 
     internal func importExtensionFromZip(_ url: URL) {
