@@ -1,21 +1,21 @@
 import SwiftUI
 
 public enum SuggestionChipCategory: String, Sendable {
-    case name       // Từ điển Names -> Màu Đỏ
-    case vietPhrase // Từ điển VietPhrase -> Màu Xanh Dương
-    case hanViet    // Phiên âm Hán Việt -> Màu Xám
+    case name       // Từ điển Names -> Chữ trắng, viền đỏ nhạt
+    case vietPhrase // Từ điển VietPhrase -> Chữ trắng, viền xanh nhạt
+    case hanViet    // Phiên âm Hán Việt -> Giữ nguyên (chữ xám sáng, viền xám mờ)
 
     public var borderColor: Color {
         switch self {
-        case .name: return Color.red.opacity(0.45)
-        case .vietPhrase: return Color.white.opacity(0.45)
+        case .name: return Color.red.opacity(0.55)
+        case .vietPhrase: return Color(red: 0.45, green: 0.75, blue: 1.0).opacity(0.6)
         case .hanViet: return Color.gray.opacity(0.45)
         }
     }
 
     public var textColor: Color {
         switch self {
-        case .name: return Color(red: 1.0, green: 0.45, blue: 0.45)
+        case .name: return Color.white
         case .vietPhrase: return Color.white
         case .hanViet: return Color(red: 0.75, green: 0.75, blue: 0.75)
         }

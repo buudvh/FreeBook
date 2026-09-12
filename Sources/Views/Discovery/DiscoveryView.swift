@@ -63,8 +63,8 @@ struct DiscoveryView: View {
     // Route điều hướng chi tiết truyện từ Discovery
     @State private var selectedDetailRoute: DiscoveryDetailRoute? = nil
 
-    // Hiển thị danh mục thể loại dạng sheet trượt
-    @State private var showingGenresSheet = false
+    // Định danh tab Thể loại
+    private let genresTabId = "__genres__"
     
     // Sheet chọn nguồn "Phần mở rộng" nâng cao
     @State private var showingExtensionSelector = false
@@ -87,6 +87,7 @@ struct DiscoveryView: View {
     }
 
     private func shouldRenderCategoryTab(id: String) -> Bool {
+        if id == genresTabId { return true }
         guard let selectedIndex = homeItems.firstIndex(where: { $0.id == selectedCategoryId }),
               let itemIndex = homeItems.firstIndex(where: { $0.id == id }) else {
             return true
@@ -206,18 +207,28 @@ struct DiscoveryView: View {
                         DiscoveryMainSkeletonView()
                     } else {
                         // 3. Menu danh mục & Home tabs hiển thị khi có dữ liệu
-                        if !homeItems.isEmpty {
+                        if !homeItems.isEmpty || !genreItems.isEmpty {
                             HStack(spacing: 0) {
-                                Button(action: { showingGenresSheet = true }) {
-                                    Image(systemName: "square.grid.2x2")
-                                        .font(.system(size: 16, weight: .medium))
-                                        .foregroundColor(.white)
-                                        .frame(width: 38, height: 38)
-                                        .background(Color.white.opacity(0.12))
-                                        .clipShape(Circle())
-                                        .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
+                                if !genreItems.isEmpty {
+                                    let isGenresSelected = selectedCategoryId == genresTabId
+                                    Button(action: {
+                                        selectedCategoryId = genresTabId
+                                    }) {
+                                        Image(systemName: "square.grid.2x2")
+                                            .font(.system(size: 16, weight: .medium))
+                                            .foregroundColor(isGenresSelected ? .white : .secondary)
+                                            .frame(width: 38, height: 38)
+                                            .background(isGenresSelected ? Color.white.opacity(0.15) : Color(.secondarySystemBackground))
+                                            .clipShape(Circle())
+                                            .overlay(
+                                                Circle().strokeBorder(
+                                                    isGenresSelected ? Color.white.opacity(0.32) : Color.secondary.opacity(0.25),
+                                                    lineWidth: isGenresSelected ? 1.2 : 1
+                                                )
+                                            )
+                                    }
+                                    .padding(.leading)
                                 }
-                                .padding(.leading)
                                 
                                 ScrollViewReader { proxy in
                                     ScrollView(.horizontal, showsIndicators: false) {
@@ -232,12 +243,15 @@ struct DiscoveryView: View {
                                                         .fontWeight(isSelected ? .bold : .regular)
                                                         .padding(.horizontal, 14)
                                                         .padding(.vertical, 8)
-                                                        .background(isSelected ? Color.white.opacity(0.18) : Color.gray.opacity(0.1))
-                                                        .foregroundColor(isSelected ? .white : .primary)
+                                                        .background(isSelected ? Color.white.opacity(0.15) : Color(.secondarySystemBackground))
+                                                        .foregroundColor(isSelected ? .white : .secondary)
                                                         .cornerRadius(20)
                                                         .overlay(
                                                             RoundedRectangle(cornerRadius: 20)
-                                                                .stroke(isSelected ? Color.white.opacity(0.35) : Color.clear, lineWidth: 1)
+                                                                .stroke(
+                                                                    isSelected ? Color.white.opacity(0.32) : Color.secondary.opacity(0.25),
+                                                                    lineWidth: isSelected ? 1.2 : 1
+                                                                )
                                                         )
                                                 }
                                                 .id(item.id)
@@ -246,15 +260,17 @@ struct DiscoveryView: View {
                                         .padding(.horizontal, 8)
                                     }
                                     .onChange(of: selectedCategoryId) { _, newValue in
-                                        if !newValue.isEmpty {
+                                        if !newValue.isEmpty && newValue != genresTabId {
                                             withAnimation {
                                                 proxy.scrollTo(newValue, anchor: .center)
                                             }
                                             lastSelectedCategoryId = newValue
+                                        } else if newValue == genresTabId {
+                                            lastSelectedCategoryId = newValue
                                         }
                                     }
                                     .onAppear {
-                                        if !selectedCategoryId.isEmpty {
+                                        if !selectedCategoryId.isEmpty && selectedCategoryId != genresTabId {
                                             DispatchQueue.main.async {
                                                 withAnimation {
                                                     proxy.scrollTo(selectedCategoryId, anchor: .center)
@@ -285,34 +301,23 @@ struct DiscoveryView: View {
                                 }
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                                 .padding(.vertical, 80)
-                            } else if homeItems.isEmpty && !genreItems.isEmpty {
-                                // Chỉ có genres, gợi ý người dùng bấm nút thể loại
-                                VStack(spacing: 16) {
-                                    Image(systemName: "circle.grid.2x2")
-                                        .font(.system(size: 48))
-                                        .foregroundColor(.white)
-                                    Text("Nguồn truyện này chỉ hỗ trợ xem theo Thể loại.")
-                                        .font(.subheadline)
-                                        .foregroundColor(.secondary)
-                                    Button(action: { showingGenresSheet = true }) {
-                                        Text("Mở danh sách Thể loại")
-                                            .fontWeight(.semibold)
-                                            .padding(.horizontal, 20)
-                                            .padding(.vertical, 10)
-                                            .background(Color.white.opacity(0.16))
-                                            .foregroundColor(.white)
-                                            .cornerRadius(20)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 20)
-                                                    .stroke(Color.white.opacity(0.35), lineWidth: 1)
-                                            )
-                                    }
-                                }
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .padding(.vertical, 80)
                             } else {
                                 // TabView vuốt ngang trang gốc
                                 TabView(selection: $selectedCategoryId) {
+                                    if !genreItems.isEmpty {
+                                        DiscoveryGenresTabView(
+                                            genreItems: genreItems,
+                                            homeItems: homeItems,
+                                            isTranslationEnabled: isTranslationEnabled,
+                                            selectedCategoryId: $selectedCategoryId,
+                                            onSelectGenre: { item in
+                                                selectedGenre = item
+                                                navigateToGenre = true
+                                            }
+                                        )
+                                        .tag(genresTabId)
+                                    }
+
                                     ForEach(homeItems) { item in
                                         if let ext = selectedExtension {
                                             let extPackageId = ext.packageId
@@ -380,53 +385,6 @@ struct DiscoveryView: View {
                 if let packageId = notification.userInfo?["packageId"] as? String {
                     if packageId == selectedExtensionId {
                         needsReloadActiveExtension = true
-                    }
-                }
-            }
-            // Sheet hiển thị danh sách thể loại đầy đủ (Genres)
-            .sheet(isPresented: $showingGenresSheet) {
-                NavigationStack {
-                    ScrollView {
-                        if genreItems.isEmpty {
-                            Text("Nguồn truyện này không có danh sách thể loại cụ thể.")
-                                .foregroundColor(.gray)
-                                .padding(.top, 40)
-                        } else {
-                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                                ForEach(genreItems) { item in
-                                    Button(action: {
-                                        showingGenresSheet = false
-                                        if homeItems.contains(where: { $0.id == item.id }) {
-                                            selectedCategoryId = item.id
-                                        } else {
-                                            selectedGenre = item
-                                            navigateToGenre = true
-                                        }
-                                    }) {
-                                        Text(translateIfNeeded(item.title))
-                                            .font(.subheadline)
-                                            .fontWeight(.medium)
-                                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                            .padding(.horizontal, 4)
-                                            .frame(height: 50) // Chiều cao cố định đảm bảo bằng nhau tuyệt đối
-                                            .background(Color.white.opacity(0.12))
-                                            .foregroundColor(.white)
-                                            .cornerRadius(10)
-                                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.25), lineWidth: 1))
-                                    }
-                                }
-                            }
-                            .padding()
-                        }
-                    }
-                    .navigationTitle("Thể loại")
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .topBarTrailing) {
-                            Button("Đóng") {
-                                showingGenresSheet = false
-                            }
-                        }
                     }
                 }
             }
@@ -548,16 +506,23 @@ struct DiscoveryView: View {
                     self.discoveryError = ""
                 }
                 
-                if hasHome {
-                    // Khôi phục hoặc chọn Home tab đầu tiên nếu có
-                    if !lastSelectedCategoryId.isEmpty,
-                       let savedCat = loadedHome.first(where: { $0.id == lastSelectedCategoryId }) {
-                        selectedCategoryId = savedCat.id
+                if hasHome || hasGenre {
+                    if !lastSelectedCategoryId.isEmpty {
+                        if lastSelectedCategoryId == genresTabId && hasGenre {
+                            selectedCategoryId = genresTabId
+                        } else if let savedCat = loadedHome.first(where: { $0.id == lastSelectedCategoryId }) {
+                            selectedCategoryId = savedCat.id
+                        } else if let firstHome = loadedHome.first {
+                            selectedCategoryId = firstHome.id
+                        } else if hasGenre {
+                            selectedCategoryId = genresTabId
+                        }
                     } else if let firstHome = loadedHome.first {
                         selectedCategoryId = firstHome.id
+                    } else if hasGenre {
+                        selectedCategoryId = genresTabId
                     }
                 } else {
-                    // Không có home thì không tự chọn mục home
                     selectedCategoryId = ""
                 }
             }

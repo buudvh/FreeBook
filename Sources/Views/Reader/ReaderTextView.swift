@@ -87,6 +87,7 @@ struct ReaderTextView: UIViewRepresentable {
         }
         context.coordinator.parentTextView = textView
         
+        SelectionHapticsSilencer.silenceSelectionHaptics()
         textView.isEditable = false
         textView.isSelectable = true
         textView.isScrollEnabled = false
@@ -263,6 +264,7 @@ struct ReaderTextView: UIViewRepresentable {
         
         var lastSelectionRange: NSRange? = nil
         var offsetObservation: NSKeyValueObservation? = nil
+        private var selectionDebounceWorkItem: DispatchWorkItem? = nil
         /// Lần publish gần nhất — dùng để chặn onSelectionChange trùng lặp khi cuộn.
         private var lastPublishedSelection: (range: NSRange, minY: CGFloat?, maxY: CGFloat?)? = nil
 
@@ -271,6 +273,7 @@ struct ReaderTextView: UIViewRepresentable {
         }
         
         deinit {
+            selectionDebounceWorkItem?.cancel()
             offsetObservation?.invalidate()
         }
         
@@ -305,7 +308,7 @@ struct ReaderTextView: UIViewRepresentable {
             publishSelection(nsRange, minY, maxY)
         }
 
-        /// Bỏ qua publish khi range không đổi và vị trí lệch dưới 0.5 pt — chặn
+        /// Bỏ qua publish khi range không đổi và vị trí lệch dưới 1.0 pt — chặn
         /// onSelectionChangeInParagraph ghi @State của ReaderView mỗi frame cuộn.
         private func publishSelection(_ range: NSRange, _ minY: CGFloat?, _ maxY: CGFloat?, force: Bool = false) {
             if !force, let last = lastPublishedSelection,
@@ -321,7 +324,7 @@ struct ReaderTextView: UIViewRepresentable {
         private static func isSamePosition(_ lhs: CGFloat?, _ rhs: CGFloat?) -> Bool {
             switch (lhs, rhs) {
             case (nil, nil): return true
-            case let (left?, right?): return abs(left - right) < 0.5
+            case let (left?, right?): return abs(left - right) < 1.0
             default: return false
             }
         }
@@ -345,15 +348,11 @@ struct ReaderTextView: UIViewRepresentable {
         func textViewDidChangeSelection(_ textView: UITextView) {
             let nsRange = textView.selectedRange
             
-            // Ẩn menu hệ thống (UIMenuController) ngay khi selection thay đổi
-            // để nó không phủ lên FloatingSelectionMenu của chúng ta.
-            DispatchQueue.main.async {
-                UIMenuController.shared.hideMenu()
-            }
-            
-            // Khi length == 0 (deselect / tap ra ngoài), bỏ qua guard lastSelectionRange
-            // để sự kiện deselect luôn được gửi lên và tắt Floating Menu.
+            // Khi length == 0 (deselect / tap ra ngoài), hủy timer debounce và
+            // gửi sự kiện deselect ngay lập tức để tắt Floating Menu không trễ.
             if nsRange.length == 0 {
+                selectionDebounceWorkItem?.cancel()
+                selectionDebounceWorkItem = nil
                 lastSelectionRange = nsRange
                 teardownScrollObservation()
                 publishSelection(NSRange(location: NSNotFound, length: 0), nil, nil, force: true)
@@ -363,16 +362,26 @@ struct ReaderTextView: UIViewRepresentable {
             guard nsRange != lastSelectionRange else { return }
             lastSelectionRange = nsRange
 
-            if NSMaxRange(nsRange) <= textView.textStorage.length,
-               let textRange = textView.selectedTextRange {
-                // Có selection thật ⇒ giờ mới cần theo dõi contentOffset để menu bám theo chữ.
-                setupScrollObservation(for: textView)
-                let (minY, maxY) = selectionGlobalMinMaxY(textView: textView, textRange: textRange)
-                publishSelection(nsRange, minY, maxY, force: true)
-            } else {
-                teardownScrollObservation()
-                publishSelection(NSRange(location: NSNotFound, length: 0), nil, nil, force: true)
+            // Debounce nhẹ khi đang kéo chọn text: UIKit xử lý loupe và handles ở 60/120fps native.
+            // Khi ngón tay dừng lại (sau 120ms), mới publish lên SwiftUI để hiện Floating Menu.
+            selectionDebounceWorkItem?.cancel()
+            let workItem = DispatchWorkItem { [weak self, weak textView] in
+                guard let self = self, let textView = textView else { return }
+                let currentRange = textView.selectedRange
+                guard currentRange == nsRange, currentRange.length > 0 else { return }
+
+                if NSMaxRange(currentRange) <= textView.textStorage.length,
+                   let textRange = textView.selectedTextRange {
+                    self.setupScrollObservation(for: textView)
+                    let (minY, maxY) = self.selectionGlobalMinMaxY(textView: textView, textRange: textRange)
+                    self.publishSelection(currentRange, minY, maxY, force: true)
+                } else {
+                    self.teardownScrollObservation()
+                    self.publishSelection(NSRange(location: NSNotFound, length: 0), nil, nil, force: true)
+                }
             }
+            selectionDebounceWorkItem = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: workItem)
         }
         
         @available(iOS 16.0, *)
@@ -381,6 +390,8 @@ struct ReaderTextView: UIViewRepresentable {
         }
         
         func triggerCustomDefine() {
+            selectionDebounceWorkItem?.cancel()
+            selectionDebounceWorkItem = nil
             guard let textView = parentTextView else { return }
             let nsRange = textView.selectedRange
             guard nsRange.location != NSNotFound,

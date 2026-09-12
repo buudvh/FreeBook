@@ -15,6 +15,20 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Call graph bôi đen text, tắt rung haptic và tự động ngắt auto-scroll (1.3.372)
+
+```text
+ReaderTextView (UITextView selection)
+  -> textViewDidChangeSelection
+       -> length == 0: hủy debounce -> publishSelection(NSNotFound, 0, nil, nil) ngay lập tức
+       -> length > 0: debounce 120 ms -> publishSelection(nsRange, minY, maxY)
+  -> onSelectionChangeInParagraph
+       -> length > 0: !isAutoScrollDisabled -> isAutoScrollDisabled = true
+       -> mapSelection -> update 8 @State -> FloatingSelectionMenu hiển thị ổn định
+  -> makeUIView: SelectionHapticsSilencer.silenceSelectionHaptics()
+       -> swizzle UISelectionFeedbackGenerator.selectionChanged -> no-op (chặn rung Taptic Engine)
+```
+
 ## Call graph sao lưu Telegram và khôi phục multipart (1.3.355)
 
 ```text

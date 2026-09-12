@@ -15,6 +15,14 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +1 file cho vô hiệu hoá phản hồi rung (1.3.372)
+
+| File mới | Vai trò | Dòng |
+| --- | --- | ---: |
+| `Views/Reader/Components/SelectionHapticsSilencer.swift` | Swizzle `UISelectionFeedbackGenerator.selectionChanged()` thành no-op để chặn rung haptic khi bôi đen text | 35 |
+
+* `ReaderTextView.swift` gọi `SelectionHapticsSilencer.silenceSelectionHaptics()` trong `makeUIView`.
+
 ## +1 file cho dọn dẹp bản sao lưu local (1.3.356)
 
 | File mới | Vai trò | Dòng |

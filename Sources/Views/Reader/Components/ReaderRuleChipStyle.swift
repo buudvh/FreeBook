@@ -24,22 +24,30 @@ enum ReaderRuleChipStyle {
 
     var textColor: Color {
         switch self {
-        case .winner: return Color(red: 0.30, green: 0.92, blue: 0.56)
-        case .conflicting: return Color(red: 0.58, green: 0.85, blue: 0.66)
-        case .disabled: return Color(red: 0.56, green: 0.65, blue: 0.58)
+        case .winner: return Color.white
+        case .conflicting: return Color.white.opacity(0.65)
+        case .disabled: return Color(red: 0.75, green: 0.75, blue: 0.75)
+        }
+    }
+
+    var textWeight: Font.Weight {
+        switch self {
+        case .winner: return .bold
+        case .conflicting: return .regular
+        case .disabled: return .regular
         }
     }
 
     var borderColor: Color {
         switch self {
-        case .winner: return Color(red: 0.30, green: 0.92, blue: 0.56).opacity(0.95)
-        case .conflicting: return Color(red: 0.58, green: 0.85, blue: 0.66).opacity(0.45)
-        case .disabled: return Color(red: 0.56, green: 0.65, blue: 0.58).opacity(0.32)
+        case .winner: return Color.white.opacity(0.95)
+        case .conflicting: return Color.white.opacity(0.35)
+        case .disabled: return Color.gray.opacity(0.45)
         }
     }
 
     var borderWidth: CGFloat {
-        self == .winner ? 1.6 : 1
+        self == .winner ? 1.5 : 1.0
     }
 
     /// Dấu gắn **sau** chữ của chip. Chỉ rule thắng có dấu.

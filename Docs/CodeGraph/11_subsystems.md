@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Triệt tiêu rung Haptic Feedback và tối ưu luồng bôi đen Reader (1.3.372)
+
+* **Vô hiệu hoá Haptic Feedback**: `SelectionHapticsSilencer` swizzle `UISelectionFeedbackGenerator.selectionChanged()` để triệt tiêu toàn bộ lệnh rung Taptic Engine từ `UITextInteraction` khi kéo chọn chữ trong Reader. Thao tác bôi đen hoàn toàn êm ái.
+* **Debounce selection trong ReaderTextView**: `textViewDidChangeSelection` debounce 120 ms khi `length > 0`, giải phóng MainActor khỏi việc mutate liên tục 8 `@State` của `ReaderView` trên từng ký tự; UIKit xử lý kính lúp native ở 60/120fps mượt mà. Khi bỏ chọn (`length == 0`), tắt Floating Menu tức thì (0 ms).
+* **Tự động ngắt TTS auto-scroll khi bôi đen**: `onSelectionChangeInParagraph` gán `isAutoScrollDisabled = true` ngay khi `selectionRange.length > 0` để tránh TTS cuộn giật màn hình khi người dùng đang đọc/chọn chữ.
+
 ## Dọn dẹp bản sao lưu trong máy: nút "xoá tất cả" và dọn sau khi upload (1.3.356)
 
 * **"Xoá tất cả" cố ý bỏ qua hàng rào tiền tố tên file.** `LocalBackupStore.deleteAll()` xoá **mọi** file `.fbbackup` trong `backups/`, không lọc theo tiền tố. Đây là chủ ý, không phải sót: hàng rào ở mục 1.3.260 (`BackupPaths.isAutoBackupFileName`, chỉ lượt nền xoá được bản `freebook-auto-`) tồn tại để phép dọn **ngầm** không bao giờ ăn bản người dùng tự tạo/tự đổi tên. `deleteAll()` là hành động **hiện** do người dùng bấm và đã xác nhận, nên nó phải xoá đúng điều nút nói. Đừng "thống nhất" hai đường bằng cách thêm bộ lọc tiền tố vào `deleteAll()`; cũng đừng nới hàng rào tự động.

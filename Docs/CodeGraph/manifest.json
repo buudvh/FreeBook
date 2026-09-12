@@ -3,9 +3,9 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-09-12T13:33:17Z",
-  "gitCommit": "ffa4f303e8d442897cba93fe8187c22099174221",
-  "sourceFileCount": 524,
+  "generatedAt": "2026-09-12T14:18:08Z",
+  "gitCommit": "3724c250e60a01177edfe4b11bf8440412a07e08",
+  "sourceFileCount": 526,
   "documentCount": 16,
   "documents": [
     {
@@ -392,6 +392,7 @@
         "Sources/Views/Dictionary/ManageDefinitionRowView.swift",
         "Sources/Views/Dictionary/ManageDefinitionsDraft.swift",
         "Sources/Views/Dictionary/ManageDefinitionsView.swift",
+        "Sources/Views/Discovery/DiscoveryGenresTabView.swift",
         "Sources/Views/Discovery/DiscoveryScrollAnchorStore.swift",
         "Sources/Views/Discovery/DiscoveryView.swift",
         "Sources/Views/Download/DownloadTrackerView.swift",
@@ -418,6 +419,7 @@
         "Sources/Views/Reader/Components/ReaderRuleTraceChip.swift",
         "Sources/Views/Reader/Components/ReaderUserScrollDetector.swift",
         "Sources/Views/Reader/Components/ReaderViewModelInvalidationRelay.swift",
+        "Sources/Views/Reader/Components/SelectionHapticsSilencer.swift",
         "Sources/Views/Reader/Coordinators/ReaderScrollCoordinator.swift",
         "Sources/Views/Reader/Coordinators/ReaderSelectionCoordinator.swift",
         "Sources/Views/Reader/Extensions/ReaderChapterListView+Download.swift",
@@ -541,12 +543,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "442458f46b01869d81632dd6803b5d7325f9da257e65b0fc38300704937a5886",
-      "sourceHash": "cd5abc15a6a0614c9a091a9c5f9fd631c8429a220ef4613fa7564644465bde69",
-      "generatedHash": "f626504bad1650c805a418be177f3e29a8c5030a5ead429ee24dc2a2c42d3a9d",
-      "generatedAt": "2026-09-11T10:03:31Z",
-      "reviewedAt": "2026-09-11T10:03:31Z",
-      "reviewedCommit": "a6f7a47fd708d48259b3cac675ffb44c37423072",
+      "structureHash": "102a33c0fc8f608a95db3cfb40b512b2bb495fed67b783306e68278f1b530dad",
+      "sourceHash": "97200559e580341bb16f59ca0f010ae7673826a2922b460a846436668dd027c5",
+      "generatedHash": "899a2c5afc0b81d88a17d8beca7032dec538c175db437e0b3c4e0c9d82b12730",
+      "generatedAt": "2026-09-12T14:18:04Z",
+      "reviewedAt": "2026-09-12T14:18:04Z",
+      "reviewedCommit": "3724c250e60a01177edfe4b11bf8440412a07e08",
       "reviewMode": "accept"
     },
     {
@@ -960,6 +962,7 @@
         "Sources/Views/Dictionary/ManageDefinitionRowView.swift",
         "Sources/Views/Dictionary/ManageDefinitionsDraft.swift",
         "Sources/Views/Dictionary/ManageDefinitionsView.swift",
+        "Sources/Views/Discovery/DiscoveryGenresTabView.swift",
         "Sources/Views/Discovery/DiscoveryScrollAnchorStore.swift",
         "Sources/Views/Discovery/DiscoveryView.swift",
         "Sources/Views/Download/DownloadTrackerView.swift",
@@ -986,6 +989,7 @@
         "Sources/Views/Reader/Components/ReaderRuleTraceChip.swift",
         "Sources/Views/Reader/Components/ReaderUserScrollDetector.swift",
         "Sources/Views/Reader/Components/ReaderViewModelInvalidationRelay.swift",
+        "Sources/Views/Reader/Components/SelectionHapticsSilencer.swift",
         "Sources/Views/Reader/Coordinators/ReaderScrollCoordinator.swift",
         "Sources/Views/Reader/Coordinators/ReaderSelectionCoordinator.swift",
         "Sources/Views/Reader/Extensions/ReaderChapterListView+Download.swift",
@@ -1109,12 +1113,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "442458f46b01869d81632dd6803b5d7325f9da257e65b0fc38300704937a5886",
-      "sourceHash": "cd5abc15a6a0614c9a091a9c5f9fd631c8429a220ef4613fa7564644465bde69",
-      "generatedHash": "efc907210040f73cbfebdd17060a4576ccd7cfe21956902e05f65fbef964b132",
-      "generatedAt": "2026-09-11T10:03:31Z",
-      "reviewedAt": "2026-09-11T10:03:31Z",
-      "reviewedCommit": "a6f7a47fd708d48259b3cac675ffb44c37423072",
+      "structureHash": "102a33c0fc8f608a95db3cfb40b512b2bb495fed67b783306e68278f1b530dad",
+      "sourceHash": "97200559e580341bb16f59ca0f010ae7673826a2922b460a846436668dd027c5",
+      "generatedHash": "b32706d12c61fc9cbc629c2232f892239d6a9af70f4e5ef4b03e56baed1b9008",
+      "generatedAt": "2026-09-12T14:18:04Z",
+      "reviewedAt": "2026-09-12T14:18:04Z",
+      "reviewedCommit": "3724c250e60a01177edfe4b11bf8440412a07e08",
       "reviewMode": "accept"
     },
     {
@@ -1321,6 +1325,7 @@
         "Sources/Views/Reader/Components/ReaderRuleTraceChip.swift",
         "Sources/Views/Reader/Components/ReaderUserScrollDetector.swift",
         "Sources/Views/Reader/Components/ReaderViewModelInvalidationRelay.swift",
+        "Sources/Views/Reader/Components/SelectionHapticsSilencer.swift",
         "Sources/Views/Reader/Coordinators/ReaderScrollCoordinator.swift",
         "Sources/Views/Reader/Coordinators/ReaderSelectionCoordinator.swift",
         "Sources/Views/Reader/Extensions/ReaderChapterListView+Download.swift",
@@ -1358,13 +1363,13 @@
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "structureHash": "07c57d8ff2217ff954b0ae9ce7760f960ef64af573fda7b85b3bc5e9026c740f",
-      "sourceHash": "adf8baeaa6337ef11a0fe481c8591d16ea0634ac34875780d31198b1110630e0",
-      "generatedHash": "ace619a9aa87ff7afd1160e5c4125ba352eaaf6ef6c1e04a53647975b8511550",
-      "generatedAt": "2026-09-12T13:33:17Z",
-      "reviewedAt": "2026-09-12T13:33:17Z",
-      "reviewedCommit": "ffa4f303e8d442897cba93fe8187c22099174221",
-      "reviewMode": "no-change-needed"
+      "structureHash": "20a65106c6e58952f75dd9d72254b39cc198cbae692cb114214929b9aa6c7326",
+      "sourceHash": "99cb16185399522f2066f0b9ae6c7b71e619de29e7cb3153ebc372a19da99544",
+      "generatedHash": "cc2497943299fc1911ab206f18d7642a9d5a8e9e6389878f924cc5e92def6eaf",
+      "generatedAt": "2026-09-12T14:18:04Z",
+      "reviewedAt": "2026-09-12T14:18:04Z",
+      "reviewedCommit": "3724c250e60a01177edfe4b11bf8440412a07e08",
+      "reviewMode": "accept"
     },
     {
       "filename": "05_state_graph.md",
@@ -1642,11 +1647,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "acad37ecfe6bd6c367da5de500cdaf028298b3fb613e49e119afecb80611eb31",
-      "sourceHash": "14cf7ff6f9869756e3cef8e3e788a009a3044fa02aa75c6126956fd55b47ffbd",
+      "sourceHash": "a1e69988869bf30b0b4cc5886eb06efc9db26aa9c9e08a3f64b98ca83f20d2fa",
       "generatedHash": "0e017ed2ccf1dce1e028f277b75484b747b7fc5ce9b0086069cece6638b9ca36",
-      "generatedAt": "2026-09-12T12:33:18Z",
-      "reviewedAt": "2026-09-12T12:33:18Z",
-      "reviewedCommit": "10e9a84343a5ec3146d02906486c4152e7f2b131",
+      "generatedAt": "2026-09-12T14:18:08Z",
+      "reviewedAt": "2026-09-12T14:18:08Z",
+      "reviewedCommit": "3724c250e60a01177edfe4b11bf8440412a07e08",
       "reviewMode": "no-change-needed"
     },
     {
@@ -2037,6 +2042,7 @@
         "Sources/Views/Dictionary/ManageDefinitionRowView.swift",
         "Sources/Views/Dictionary/ManageDefinitionsDraft.swift",
         "Sources/Views/Dictionary/ManageDefinitionsView.swift",
+        "Sources/Views/Discovery/DiscoveryGenresTabView.swift",
         "Sources/Views/Discovery/DiscoveryScrollAnchorStore.swift",
         "Sources/Views/Discovery/DiscoveryView.swift",
         "Sources/Views/Download/DownloadTrackerView.swift",
@@ -2063,6 +2069,7 @@
         "Sources/Views/Reader/Components/ReaderRuleTraceChip.swift",
         "Sources/Views/Reader/Components/ReaderUserScrollDetector.swift",
         "Sources/Views/Reader/Components/ReaderViewModelInvalidationRelay.swift",
+        "Sources/Views/Reader/Components/SelectionHapticsSilencer.swift",
         "Sources/Views/Reader/Coordinators/ReaderScrollCoordinator.swift",
         "Sources/Views/Reader/Coordinators/ReaderSelectionCoordinator.swift",
         "Sources/Views/Reader/Extensions/ReaderChapterListView+Download.swift",
@@ -2186,13 +2193,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "acadfd691b33e40f4cea5071c9ed60b63d6fc0a3ea2d9f39c3e64deceb3eaa14",
-      "sourceHash": "985687b06091f421273a0056c4131e532c793dd7d13f4f245c9d5b757ea18b3e",
+      "structureHash": "ce88ff10786ba8825c8156e8a84fa050f32c77c6cbfa3f892978a0c9ef592631",
+      "sourceHash": "6a53d3c8c8c33458495d5989337bb951392634b765f390cf373f436708f642c2",
       "generatedHash": "01a1418950eb9e6d34241fc2006dc2609075165058659c3827e07767bc58cb67",
-      "generatedAt": "2026-09-11T10:03:31Z",
-      "reviewedAt": "2026-09-11T10:03:31Z",
-      "reviewedCommit": "a6f7a47fd708d48259b3cac675ffb44c37423072",
-      "reviewMode": "accept"
+      "generatedAt": "2026-09-12T14:18:08Z",
+      "reviewedAt": "2026-09-12T14:18:08Z",
+      "reviewedCommit": "3724c250e60a01177edfe4b11bf8440412a07e08",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "10_risk_report.md",
@@ -2304,11 +2311,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "832529caafdadcb677245786ba8f12f0f1a4afc921c564bd65494eaf2fd80ccb",
-      "sourceHash": "08269296cc4252d7d1ae1e34d16a77360668e8eff0306f21dbb04a7d80a744d9",
+      "sourceHash": "c66e713254aba0173af29d6d4dabfed815511cf0eaa40e4949a748f3bf95ffd7",
       "generatedHash": "da1ed3aa9b2a3d7ddc45c3706e592cdd2d9986e7124731a2f4175032a5388ed2",
-      "generatedAt": "2026-09-12T11:42:16Z",
-      "reviewedAt": "2026-09-12T11:42:16Z",
-      "reviewedCommit": "efa746d8ca25495db34df75127b915548f12e259",
+      "generatedAt": "2026-09-12T14:18:08Z",
+      "reviewedAt": "2026-09-12T14:18:08Z",
+      "reviewedCommit": "3724c250e60a01177edfe4b11bf8440412a07e08",
       "reviewMode": "no-change-needed"
     },
     {
@@ -2644,6 +2651,7 @@
         "Sources/Views/Dictionary/ManageDefinitionRowView.swift",
         "Sources/Views/Dictionary/ManageDefinitionsDraft.swift",
         "Sources/Views/Dictionary/ManageDefinitionsView.swift",
+        "Sources/Views/Discovery/DiscoveryGenresTabView.swift",
         "Sources/Views/Discovery/DiscoveryScrollAnchorStore.swift",
         "Sources/Views/Discovery/DiscoveryView.swift",
         "Sources/Views/Download/DownloadTrackerView.swift",
@@ -2670,6 +2678,7 @@
         "Sources/Views/Reader/Components/ReaderRuleTraceChip.swift",
         "Sources/Views/Reader/Components/ReaderUserScrollDetector.swift",
         "Sources/Views/Reader/Components/ReaderViewModelInvalidationRelay.swift",
+        "Sources/Views/Reader/Components/SelectionHapticsSilencer.swift",
         "Sources/Views/Reader/Coordinators/ReaderScrollCoordinator.swift",
         "Sources/Views/Reader/Coordinators/ReaderSelectionCoordinator.swift",
         "Sources/Views/Reader/Extensions/ReaderChapterListView+Download.swift",
@@ -2793,13 +2802,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "772fa547e3d398d5fd64f3842611a615ada6d919b12f73f43fef8f6c2f01cc39",
-      "sourceHash": "7d2486612e6488287eb24c37a6c75becd2dc6ad0ff367bb62a8c063d707bb83f",
-      "generatedHash": "0612fa5d427ced7fabb0a071afe1401f93e9e13d123650eb19c3ab69b91b64cc",
-      "generatedAt": "2026-09-12T13:33:17Z",
-      "reviewedAt": "2026-09-12T13:33:17Z",
-      "reviewedCommit": "ffa4f303e8d442897cba93fe8187c22099174221",
-      "reviewMode": "no-change-needed"
+      "structureHash": "a31dfc974cca597cbdc451650b0681954e30fb50cbeb07c14daf4c30c8b237e5",
+      "sourceHash": "d4ed85f8c374f0827f2aa19baaed291da96df28ca78404d7e263e83ccd0d554a",
+      "generatedHash": "ace5307bd46e9f2e07aeb1e972c238a9f723dd8cb8089d5943b8cf03beabd1d4",
+      "generatedAt": "2026-09-12T14:18:04Z",
+      "reviewedAt": "2026-09-12T14:18:04Z",
+      "reviewedCommit": "3724c250e60a01177edfe4b11bf8440412a07e08",
+      "reviewMode": "accept"
     },
     {
       "filename": "12_ownership_graph.md",
@@ -2832,11 +2841,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "b0d4d4d4bca7562eb71c38165e49eaf44434d87b57111fb5c46f1762529b0396",
-      "sourceHash": "475cffc71d2dfa7d30c2616f62adb79e330df4611e84d9fc83f501361ba80151",
+      "sourceHash": "a5ab3c09581d3220d289195c7bff10e72b17c9f15413775a52b3b3cb57d2a6a3",
       "generatedHash": "704246874d8866107941ad1660640f9e8dbf80e1280a91b11700d78d031b7512",
-      "generatedAt": "2026-09-12T13:33:17Z",
-      "reviewedAt": "2026-09-12T13:33:17Z",
-      "reviewedCommit": "ffa4f303e8d442897cba93fe8187c22099174221",
+      "generatedAt": "2026-09-12T13:51:05Z",
+      "reviewedAt": "2026-09-12T13:51:05Z",
+      "reviewedCommit": "3724c250e60a01177edfe4b11bf8440412a07e08",
       "reviewMode": "no-change-needed"
     },
     {
@@ -2994,6 +3003,7 @@
         "Sources/Views/Reader/Components/ReaderRuleTraceChip.swift",
         "Sources/Views/Reader/Components/ReaderUserScrollDetector.swift",
         "Sources/Views/Reader/Components/ReaderViewModelInvalidationRelay.swift",
+        "Sources/Views/Reader/Components/SelectionHapticsSilencer.swift",
         "Sources/Views/Reader/Coordinators/ReaderScrollCoordinator.swift",
         "Sources/Views/Reader/Coordinators/ReaderSelectionCoordinator.swift",
         "Sources/Views/Reader/Extensions/ReaderChapterListView+Download.swift",
@@ -3031,12 +3041,12 @@
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "structureHash": "ccd870140b9c31e5c950ea6ad79d67772abcc42e2027825a1a7e2cb1bef6fed1",
-      "sourceHash": "8c8bd005cd40e32f6672a925b586d659ecb22f6c7316b58d5d234b8d41d241be",
+      "structureHash": "5253e20662b8a49fa1efac62bc5501a363b76faf52e9676e5e5688e872a079ec",
+      "sourceHash": "2a115ef14ef53d7fee0ea0b82a6452e34b41d9961834a51a25d457ee607c8144",
       "generatedHash": "cc9df6e11ddf3042d2edff55df1915ebfce7dfa54871e6d71f90bd6accfa589b",
-      "generatedAt": "2026-09-12T13:33:17Z",
-      "reviewedAt": "2026-09-12T13:33:17Z",
-      "reviewedCommit": "ffa4f303e8d442897cba93fe8187c22099174221",
+      "generatedAt": "2026-09-12T14:18:08Z",
+      "reviewedAt": "2026-09-12T14:18:08Z",
+      "reviewedCommit": "3724c250e60a01177edfe4b11bf8440412a07e08",
       "reviewMode": "no-change-needed"
     },
     {
@@ -3423,6 +3433,7 @@
         "Sources/Views/Dictionary/ManageDefinitionRowView.swift",
         "Sources/Views/Dictionary/ManageDefinitionsDraft.swift",
         "Sources/Views/Dictionary/ManageDefinitionsView.swift",
+        "Sources/Views/Discovery/DiscoveryGenresTabView.swift",
         "Sources/Views/Discovery/DiscoveryScrollAnchorStore.swift",
         "Sources/Views/Discovery/DiscoveryView.swift",
         "Sources/Views/Download/DownloadTrackerView.swift",
@@ -3449,6 +3460,7 @@
         "Sources/Views/Reader/Components/ReaderRuleTraceChip.swift",
         "Sources/Views/Reader/Components/ReaderUserScrollDetector.swift",
         "Sources/Views/Reader/Components/ReaderViewModelInvalidationRelay.swift",
+        "Sources/Views/Reader/Components/SelectionHapticsSilencer.swift",
         "Sources/Views/Reader/Coordinators/ReaderScrollCoordinator.swift",
         "Sources/Views/Reader/Coordinators/ReaderSelectionCoordinator.swift",
         "Sources/Views/Reader/Extensions/ReaderChapterListView+Download.swift",
@@ -3572,13 +3584,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "442458f46b01869d81632dd6803b5d7325f9da257e65b0fc38300704937a5886",
-      "sourceHash": "cd5abc15a6a0614c9a091a9c5f9fd631c8429a220ef4613fa7564644465bde69",
+      "structureHash": "102a33c0fc8f608a95db3cfb40b512b2bb495fed67b783306e68278f1b530dad",
+      "sourceHash": "97200559e580341bb16f59ca0f010ae7673826a2922b460a846436668dd027c5",
       "generatedHash": "941e6babb8327364d4af2a168ee29be15fd5bfaf59ea37632b479a154299fed7",
-      "generatedAt": "2026-09-11T10:03:31Z",
-      "reviewedAt": "2026-09-11T10:03:31Z",
-      "reviewedCommit": "a6f7a47fd708d48259b3cac675ffb44c37423072",
-      "reviewMode": "accept"
+      "generatedAt": "2026-09-12T14:18:08Z",
+      "reviewedAt": "2026-09-12T14:18:08Z",
+      "reviewedCommit": "3724c250e60a01177edfe4b11bf8440412a07e08",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "rules.md",
@@ -3684,11 +3696,11 @@
         "Sources/Views/Reader/ReaderView.swift"
       ],
       "structureHash": "38084ca1c03279d58a78f77ae1612ddc7c8375514dd8240d232178ac7a1eeced",
-      "sourceHash": "0bfcc424bcc3ba95ed37b0abd39191af5a1cebd95eee93a39fc79e13a80a6763",
+      "sourceHash": "c68285500f11430f9f81dc2e5233767ddb5c529b685710b915b79f9e2298a9a6",
       "generatedHash": "19277b71e3396905700795ecc873a229efa838f5b92dbc4304dc382b6bcc1fef",
-      "generatedAt": "2026-09-12T11:42:16Z",
-      "reviewedAt": "2026-09-12T11:42:16Z",
-      "reviewedCommit": "efa746d8ca25495db34df75127b915548f12e259",
+      "generatedAt": "2026-09-12T14:18:08Z",
+      "reviewedAt": "2026-09-12T14:18:08Z",
+      "reviewedCommit": "3724c250e60a01177edfe4b11bf8440412a07e08",
       "reviewMode": "no-change-needed"
     }
   ]

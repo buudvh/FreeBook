@@ -1464,6 +1464,10 @@ struct ReaderView: View {
             return
         }
 
+        if !isAutoScrollDisabled {
+            isAutoScrollDisabled = true
+        }
+
         guard let item = paragraphItems.first(where: { $0.id == paragraphID }) else { return }
 
         let displayedText = isTranslationEnabled ? item.translated : item.original

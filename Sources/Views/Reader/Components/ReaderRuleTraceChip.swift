@@ -15,6 +15,22 @@ struct ReaderRuleTraceChip: View {
         ReaderRuleChipStyle(status: trace.status)
     }
 
+    private var effectiveTextColor: Color {
+        isSelected ? .white : style.textColor
+    }
+
+    private var effectiveFontWeight: Font.Weight {
+        isSelected ? .bold : style.textWeight
+    }
+
+    private var effectiveBorderColor: Color {
+        isSelected ? Color.white : style.borderColor
+    }
+
+    private var effectiveBorderWidth: CGFloat {
+        isSelected ? 1.6 : style.borderWidth
+    }
+
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 2) {
@@ -23,11 +39,11 @@ struct ReaderRuleTraceChip: View {
                         .font(.system(size: 9, weight: .bold))
                         .padding(.horizontal, 4)
                         .padding(.vertical, 1)
-                        .background(style.textColor.opacity(0.18))
+                        .background(effectiveTextColor.opacity(0.18))
                         .cornerRadius(3)
 
                     Text(trace.pattern)
-                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                        .font(.system(size: 13, weight: effectiveFontWeight, design: .monospaced))
                         .lineLimit(1)
 
                     if let mark = style.trailingMark {
@@ -37,22 +53,18 @@ struct ReaderRuleTraceChip: View {
                 }
 
                 Text(ReaderRuleChipStyle.label(for: trace.status))
-                    .font(.system(size: 9))
+                    .font(.system(size: 9, weight: isSelected ? .medium : .regular))
                     .lineLimit(1)
                     .opacity(0.85)
             }
-            .foregroundColor(style.textColor)
+            .foregroundColor(effectiveTextColor)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(Color(red: 0.12, green: 0.12, blue: 0.15))
             .cornerRadius(14)
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
-                    .stroke(style.borderColor, lineWidth: style.borderWidth)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .stroke(Color.white.opacity(isSelected ? 0.55 : 0), lineWidth: 1)
+                    .stroke(effectiveBorderColor, lineWidth: effectiveBorderWidth)
             )
         }
         .buttonStyle(.plain)

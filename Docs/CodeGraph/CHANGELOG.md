@@ -4,6 +4,46 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.372] - 2026-09-12
+
+### feat: tat rung mac dinh khi boi den, tu dong tat auto-scroll tts va toi uu do muot boi den reader
+
+Sửa **2** file và thêm **1** file Swift mới trong `Sources/Views/Reader/`.
+
+- **Triệt tiêu rung phản hồi xúc giác (Haptic Feedback) (`SelectionHapticsSilencer.swift`, `ReaderTextView.swift`)**:
+  - Tạo `SelectionHapticsSilencer` swizzle phương thức `UISelectionFeedbackGenerator.selectionChanged()` thành no-op để chặn hoàn toàn lệnh kích hoạt rung Taptic Engine từ UIKit khi người dùng bôi đen văn bản.
+  - Quá trình kéo thanh bôi đen chữ trên iPhone trở nên 100% êm ái, loại bỏ hoàn toàn cảm giác rung giật vật lý của máy.
+- **Tối ưu độ mượt bôi đen text (`ReaderTextView.swift`)**:
+  - Áp dụng debounce 120 ms cho `textViewDidChangeSelection` khi đang kéo chọn chữ (`length > 0`), cho phép UIKit render kính lúp loupe và các thanh neo ở 60/120fps native mà không bị giật lag do liên tục re-render SwiftUI.
+  - Xử lý bỏ chọn tức thì (0 ms delay) khi `length == 0`, tắt Floating Menu ngay lập tức khi chạm ra ngoài.
+  - Xóa lệnh dispatch async `UIMenuController.shared.hideMenu()` thừa thãi; tăng ngưỡng chống rung toạ độ `isSamePosition` lên 1.0 pt.
+- **Tự động tắt cuộn theo highlight TTS (`ReaderView.swift`)**:
+  - Trong `onSelectionChangeInParagraph`, tự động gán `isAutoScrollDisabled = true` khi phát hiện bắt đầu bôi đen (`selectionRange.length > 0`), ngăn TTS tự động cuộn trang tranh chấp với ngón tay người dùng.
+- Gate: `check_architecture.py` không phát sinh vi phạm mới; `validate_links.py` PASS 100%.
+
+## [1.3.371] - 2026-09-12
+
+### feat: chuyen sheet the loai thanh tab, dong bo mau chip man hinh dich va bo chu chuyen chuong reader
+
+Sửa **4** file và thêm **1** file Swift mới trong `Sources/Views/`.
+
+- **Màn hình Khám phá (`DiscoveryView.swift`, `DiscoveryGenresTabView.swift`)**:
+  - Chuyển modal sheet thể loại thành một Tab chính thức (`genresTabId = "__genres__"`) trên thanh tab và vùng nội dung `TabView`, cho phép vuốt chuyển qua lại mượt mà giữa lưới thể loại và các danh mục truyện khác.
+  - Nút Thể loại giữ nguyên dạng nút tròn `Circle()` 38x38 với icon `square.grid.2x2` ở đầu hàng tab.
+  - Đồng bộ hoàn toàn kiểu dáng màu sắc của các tab không được chọn giống với Kệ sách: nền `Color(.secondarySystemBackground)`, chữ & icon màu `Color.secondary` (trắng nhạt), viền `Color.secondary.opacity(0.25)`.
+  - Tách `DiscoveryGenresTabView.swift` giúp file `DiscoveryView.swift` giảm dòng và luôn nằm dưới giới hạn baseline (998 dòng).
+- **Điều hướng chương Reader (`ReaderHeaderFooterOverlayView.swift`)**:
+  - Bỏ chữ "Chương trước" và "Chương sau", chỉ hiển thị icon mũi tên `chevron.left` và `chevron.right` với vùng chạm rộng 50% mỗi bên màn hình.
+- **Màn hình Dịch (`ReaderDefinitionOverlayView.swift`, `ReaderRuleChipStyle.swift`, `ReaderRuleTraceChip.swift`)**:
+  - Chip gợi ý từ điển Names: chữ trắng, viền đỏ nhạt.
+  - Chip gợi ý từ điển VietPhrase: chữ trắng, viền xanh nhạt.
+  - Chip gợi ý phiên âm Hán Việt: giữ nguyên (chữ xám sáng, viền xám mờ).
+  - Chip Rule đang áp dụng: chữ trắng in đậm (bold), viền trắng đậm 1.5pt.
+  - Chip Rule tranh chấp / thua đè: chữ trắng nhạt, viền trắng nhạt 1.0pt.
+  - Chip Rule tắt: chữ xám sáng, viền xám mờ 1.0pt.
+  - Khi chip Rule được bấm chọn: chữ trắng đậm (bold), viền trắng đậm 1.6pt.
+- Gate: `check_architecture.py` không phát sinh vi phạm mới; `validate_links.py` PASS 100%.
+
 ## [1.3.370] - 2026-09-12
 
 ### feat: cap nhat nut chi tiet truyen xam dam dac, dieu huong chuong 50-50, icon the loai va co dinh chieu cao rule

@@ -15,6 +15,13 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Tắt rung mặc định iPhone khi bôi đen, tự động tắt auto-scroll và tối ưu độ mượt bôi đen (1.3.372)
+
+* [`SelectionHapticsSilencer`](../../Sources/Views/Reader/Components/SelectionHapticsSilencer.swift#L1) (file mới): Swizzle `UISelectionFeedbackGenerator.selectionChanged()` để triệt tiêu hoàn toàn phản hồi rung xúc giác (Haptic Feedback) mặc định của iOS khi người dùng kéo bôi đen văn bản trong Reader.
+* [`ReaderTextView`](../../Sources/Views/Reader/ReaderTextView.swift#L1): Áp dụng debounce 120 ms cho `textViewDidChangeSelection` khi kéo chọn text, loại bỏ re-render SwiftUI liên tục và làm mượt mà kính lúp native; hủy ngay tức thì khi bỏ chọn (0 ms delay); loại bỏ `UIMenuController.shared.hideMenu()` thừa thãi; tăng ngưỡng chống rung toạ độ `isSamePosition`.
+* [`ReaderView`](../../Sources/Views/Reader/ReaderView.swift#L1): Trong `onSelectionChangeInParagraph`, tự động gán `isAutoScrollDisabled = true` ngay khi có vùng bôi đen (`selectionRange.length > 0`) để ngăn TTS tự cuộn trang giật màn hình khi người dùng đang chọn chữ.
+* Thêm **1** file Swift (526 tổng trong cây làm việc); cần `xcodegen generate` và build trên macOS.
+
 ## Dọn dẹp bản sao lưu trong máy: xoá tất cả và dọn sau khi upload (1.3.356)
 
 * `LocalBackupListView` thêm hàng "Xoá tất cả bản sao lưu trong máy": `LocalBackupStore.deleteAll()` xoá mọi `.fbbackup` trong `backups/`, **duyệt từng file thay vì xoá thư mục** (thư mục còn chứa file tạm của worker đang chạy). Lỗi một phần vẫn đi tiếp rồi mới ném `Failure.deleteAllPartial(deleted:failed:)`.

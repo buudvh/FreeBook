@@ -164,15 +164,11 @@ struct ReaderHeaderFooterOverlayView: View {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     onPrevChapter()
                 }) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .semibold))
-                        Text("Chương trước")
-                            .font(.system(size: 13, weight: .medium))
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-                    .padding(.leading, 16)
-                    .contentShape(Rectangle())
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 17, weight: .semibold))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                        .padding(.leading, 20)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(ReaderNavPressButtonStyle(highlightColor: selectedTheme.textColor))
                 .disabled((pendingNavigationIndex ?? chapterIndex) <= 0)
@@ -201,15 +197,11 @@ struct ReaderHeaderFooterOverlayView: View {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     onNextChapter()
                 }) {
-                    HStack(spacing: 6) {
-                        Text("Chương sau")
-                            .font(.system(size: 13, weight: .medium))
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 16, weight: .semibold))
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
-                    .padding(.trailing, 16)
-                    .contentShape(Rectangle())
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 17, weight: .semibold))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+                        .padding(.trailing, 20)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(ReaderNavPressButtonStyle(highlightColor: selectedTheme.textColor))
                 .disabled((pendingNavigationIndex ?? chapterIndex) >= totalChaptersCount - 1)
