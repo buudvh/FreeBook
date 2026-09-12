@@ -16,6 +16,8 @@ extension ReaderView {
     @ViewBuilder
     internal func definitionPanelOverlay(in geometry: GeometryProxy) -> some View {
         if showingDefinitionSheet {
+            let availableHeight = max(320, geometry.size.height - geometry.safeAreaInsets.top - geometry.safeAreaInsets.bottom)
+            let panelHeight = min(660, availableHeight)
             VStack(spacing: 0) {
                 // Vùng trống phía trên bắt tap để đóng panel dịch
                 Color.clear
@@ -83,6 +85,7 @@ extension ReaderView {
                     isLoadingDefinition: definitionSession.loading,
                     isLoadingRules: definitionSession.loading || definitionSession.loadingRules,
                     isSaving: definitionSession.saving,
+                    isDefinitionCurrent: isDefinitionDataCurrent(),
                     onRuleAction: { trace, action in handleRuleAction(trace, action) },
                     // Điền sẵn **cả hai** ô: mẫu = cụm gốc đang chọn, nghĩa = đúng chữ đang có trong ô
                     // nhập nghĩa của panel này (kể cả nghĩa người dùng vừa sửa tay).
@@ -93,6 +96,7 @@ extension ReaderView {
                         )
                     }
                 )
+                .frame(height: panelHeight)
                 .padding([.horizontal, .bottom])
                 .background { selectedTheme.panelBackground() }
                 .einkShadow(radius: 10, y: -4)

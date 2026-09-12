@@ -66,13 +66,6 @@ extension ReaderView {
         self.selectedTextForDefinition = word
         self.junkPatternInput = word
         definitionSession.meaningRevision += 1
-        customMeaning = ""
-        dictionaryMatches = []
-        suggestionChips = []
-        if translationTokensSource != originalSentence {
-            translationTokens = []
-            translationTokensSource = originalSentence
-        }
         loadDefinitionData()
     }
 

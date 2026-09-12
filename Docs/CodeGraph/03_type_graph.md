@@ -21,12 +21,12 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 * [`EInkPalette`](../../Sources/Common/Theme/EInkPalette.swift#L1) tách helper `paperColor(for:)`/`paperUIColor(for:)` khỏi singleton để `View+EInk` dùng raw `@AppStorage` reactive. `normalFill` là computed `paper`, không còn hằng trắng.
 * [`EInkEffect`](../../Sources/Common/Extensions/View+EInk.swift#L1) thêm `Kind.background(Color)` và cửa `View.einkBackground(_:)`; cả modifier chính lẫn `Selection` đọc `paperColor` qua `@AppStorage` để đổi nền giấy ngay khi setting đổi.
 
-## Type snapshot/cancellation mới trên đường dịch (1.3.354)
+## Type snapshot/cancellation mới trên đường dịch (1.3.362)
 
 * `TrieDictionary` thêm `frozen() -> FrozenTrieDictionary`; `DoubleArrayTrie` và `TextDictionary` chỉ publish value bất biến. `DictionaryTextRecord`, `TranslationWordToken` và `DictionaryMatchInfo` là `Sendable` để qua worker nền.
 * `TranslationDictionaryState.Global/Book` giữ snapshot từ điển; `TranslationReadContext` là `Sendable` + `@TaskLocal`, mang cả dictionary revision và generation.
 * `TranslationMemo<Value: Sendable>` là LRU cost-bounded có epoch; `ProcessedChapterDTO` thêm `translationToken` để kết quả TTS tự chứng minh dữ liệu dịch dùng lúc dựng.
-* `ReaderDefinitionSession` là `@MainActor @Observable`; worker tương ứng là actor. `ReaderTranslationPresentation.Prepared` là payload chờ apply ở chương đang hiển thị.
+* `ReaderDefinitionSession` là `@MainActor @Observable`; worker tương ứng là actor. Session giữ thêm `SelectionSnapshot { sentence, word, range, mode, convertTraditional, generation }` cho cả lượt đang tải và dữ liệu đang hiển thị, nên panel Dịch biết kết quả nào còn khớp selection hiện tại. `ReaderTranslationPresentation.Prepared` là payload chờ apply ở chương đang hiển thị.
 
 ## Nguồn cài extension và entry Run trong Script Editor (1.3.351)
 

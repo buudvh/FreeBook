@@ -7,6 +7,10 @@ struct ExtensionIconView: View {
 
     @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
     @AppStorage(EInkModeSettings.Key.monochromeCovers) private var monochromeCovers = true
+    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
+    private var paper: Color {
+        EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray)
+    }
 
     var body: some View {
         content
@@ -46,7 +50,7 @@ struct ExtensionIconView: View {
             .aspectRatio(contentMode: .fit)
             .frame(width: size * 0.7, height: size * 0.7)
             .padding(size * 0.15)
-            .background(isEInkEnabled ? EInkPalette.paper : Color.accentColor.opacity(0.1))
+            .background(isEInkEnabled ? paper : Color.accentColor.opacity(0.1))
             .foregroundColor(isEInkEnabled ? EInkPalette.ink : .accentColor)
             .cornerRadius(size * 0.18)
             .overlay {

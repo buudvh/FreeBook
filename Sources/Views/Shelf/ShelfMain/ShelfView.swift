@@ -95,6 +95,11 @@ struct ShelfView: View {
     @AppStorage("readerSelectedTheme") private var selectedTheme: ReaderTheme = .dark
     /// Đọc thẳng khoá `UserDefaults` để tiêu đề nhóm tự cập nhật khi đổi chế độ E-Ink.
     @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
+    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
+
+    private var paper: Color {
+        EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray)
+    }
 
     // Sheet nhấn-giữ một cuốn sách (thay cho context menu cũ) và đích "Xem chi tiết" phát từ sheet đó.
     @State private var actionTarget: BookSheetAction.Target? = nil
@@ -184,10 +189,11 @@ struct ShelfView: View {
                                 if notificationBadgeCount > 0 {
                                     Text(notificationBadgeCount > 99 ? "99+" : "\(notificationBadgeCount)")
                                         .font(.system(size: 10, weight: .bold))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(isEInkEnabled ? EInkPalette.selectedContent : .white)
                                         .padding(.horizontal, 4)
                                         .padding(.vertical, 1)
-                                        .background(Color.red, in: Capsule())
+                                        .background(isEInkEnabled ? EInkPalette.ink : Color.red, in: Capsule())
+                                        .overlay { if isEInkEnabled { Capsule().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.selectedBorderWidth) } }
                                         .offset(x: 10, y: -8)
                                 }
                             }
@@ -674,7 +680,7 @@ struct ShelfView: View {
                 .foregroundColor(.secondary)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 1)
-                .background(isEInkEnabled ? EInkPalette.paper : Color.secondary.opacity(0.15), in: Capsule())
+                .background(isEInkEnabled ? paper : Color.secondary.opacity(0.15), in: Capsule())
                 .overlay {
                     if isEInkEnabled {
                         Capsule().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth)

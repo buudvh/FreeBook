@@ -170,6 +170,7 @@ extension ReaderView {
     /// người dùng không bao giờ thấy nút này, nhưng vẫn dùng chung `readerEdgeButton` để giữ style viền.
     @ViewBuilder
     internal var readerEInkRefreshControl: some View {
+        let paper = EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: eInkPaperColorRaw) ?? .gray)
         readerEdgeButton(
             icon: "arrow.clockwise",
             tint: selectedTheme.textColor.opacity(0.9),
@@ -179,7 +180,7 @@ extension ReaderView {
         .padding(8)
         .background {
             if EInkModeSettings.shared.isEnabled {
-                Circle().fill(EInkPalette.paper)
+                Circle().fill(paper)
             } else {
                 Circle().fill(.ultraThinMaterial)
             }
@@ -196,6 +197,7 @@ extension ReaderView {
 
     @ViewBuilder
     internal func readerTTSControl(geometry: GeometryProxy) -> some View {
+        let paper = EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: eInkPaperColorRaw) ?? .gray)
         readerEdgeButton(
             icon: "headphones",
             tint: selectedTheme.textColor.opacity(0.9),
@@ -226,7 +228,7 @@ extension ReaderView {
         .padding(8)
         .background {
             if EInkModeSettings.shared.isEnabled {
-                Circle().fill(EInkPalette.paper)
+                Circle().fill(paper)
             } else {
                 Circle().fill(.ultraThinMaterial)
             }
@@ -245,6 +247,7 @@ extension ReaderView {
         // Nút nổi trên nội dung. Trên e-ink nền đen 12% chỉ ra xám nhạt còn icon thì đen — thay bằng
         // **đĩa trắng viền đen** để nút vẫn tách khỏi chữ phía sau mà không cần mảng xám nào.
         let isEInk = EInkModeSettings.shared.isEnabled
+        let paper = EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: eInkPaperColorRaw) ?? .gray)
         return Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 17, weight: .semibold))
@@ -252,7 +255,7 @@ extension ReaderView {
                 .frame(width: 44, height: 44)
                 .background {
                     if isEInk {
-                        Circle().fill(EInkPalette.paper)
+                        Circle().fill(paper)
                     } else {
                         Circle().fill(Color.black.opacity(selectedTheme == .dark ? 0.34 : 0.12))
                     }

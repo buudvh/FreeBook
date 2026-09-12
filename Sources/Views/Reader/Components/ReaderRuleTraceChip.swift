@@ -13,6 +13,10 @@ struct ReaderRuleTraceChip: View {
 
     /// Đọc thẳng khoá `UserDefaults` để chip tự cập nhật khi đổi chế độ E-Ink.
     @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
+    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
+    private var paper: Color {
+        EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray)
+    }
 
     private var style: ReaderRuleChipStyle {
         ReaderRuleChipStyle(status: trace.status)
@@ -47,7 +51,7 @@ struct ReaderRuleTraceChip: View {
             .foregroundColor(isEInkEnabled ? EInkPalette.ink : style.textColor)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(isEInkEnabled ? EInkPalette.paper : Color(red: 0.12, green: 0.12, blue: 0.15))
+            .background(isEInkEnabled ? paper : Color(red: 0.12, green: 0.12, blue: 0.15))
             .cornerRadius(14)
             .overlay(
                 RoundedRectangle(cornerRadius: 14)

@@ -10,8 +10,12 @@ struct BookCoverView: View {
     @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
     @AppStorage(EInkModeSettings.Key.hideCovers) private var hideCovers = false
     @AppStorage(EInkModeSettings.Key.monochromeCovers) private var monochromeCovers = true
+    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
 
     @State private var localImage: UIImage? = nil
+    private var paper: Color {
+        EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray)
+    }
 
     var body: some View {
         Group {
@@ -69,7 +73,7 @@ struct BookCoverView: View {
     /// placeholder; nên giữ glyph sách như bản gốc, chỉ đổi nền xám mờ thành viền đen.
     private var einkCoverPlaceholder: some View {
         ZStack {
-            EInkPalette.paper
+            paper
             Image(systemName: "book.closed")
                 .foregroundColor(EInkPalette.ink)
                 .font(.system(size: min(width, height) * 0.35))

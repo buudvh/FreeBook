@@ -44,8 +44,13 @@ public struct ExtensionScriptEditorView: View {
     }
 
     internal let quickSymbols = ["{", "}", "(", ")", "[", "]", "=", ";", ":", "\"", "'", "=>", ".", ",", "fetch", "function"]
-    
-    @ObservedObject private var eink = EInkModeSettings.shared
+
+    @ObservedObject internal var eink = EInkModeSettings.shared
+    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
+
+    internal var paper: Color {
+        EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray)
+    }
 
     // Hex Catppuccin Dark Editor Colors — đảo sang nền sáng khi bật E-Ink (option C, §4b.5).
     // 7 màu syntax vẫn nằm trong `HighlightingCodeEditor` và GIỮ NGUYÊN (nợ option-B đã ghi plan).
@@ -118,16 +123,21 @@ public struct ExtensionScriptEditorView: View {
                         if let syntaxMsg = syntaxStatusMessage {
                             HStack {
                                 Image(systemName: isSyntaxValid ? "checkmark.circle.fill" : "xmark.octagon.fill")
-                                    .foregroundColor(isSyntaxValid ? .green : .red)
+                                    .foregroundColor(eink.isEnabled ? EInkPalette.ink : (isSyntaxValid ? .green : .red))
                                 Text(syntaxMsg)
                                     .font(.caption)
                                     .fontWeight(.medium)
-                                    .foregroundColor(isSyntaxValid ? .green : .red)
+                                    .foregroundColor(eink.isEnabled ? EInkPalette.ink : (isSyntaxValid ? .green : .red))
                                 Spacer()
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .background(isSyntaxValid ? Color.green.opacity(0.12) : Color.red.opacity(0.12))
+                            .background(eink.isEnabled ? paper : (isSyntaxValid ? Color.green.opacity(0.12) : Color.red.opacity(0.12)))
+                            .overlay(alignment: .bottom) {
+                                if eink.isEnabled {
+                                    Rectangle().fill(EInkPalette.separator).frame(height: EInkPalette.separatorWidth)
+                                }
+                            }
                         }
 
                         // IDE Code Canvas với Gutter số dòng tích hợp sẵn
@@ -260,7 +270,13 @@ public struct ExtensionScriptEditorView: View {
         .buttonStyle(.plain)
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(Color(uiColor: .systemBackground))
+            .background(eink.isEnabled ? paper : Color(uiColor: .systemBackground))
+            .overlay {
+                if eink.isEnabled {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth)
+                }
+            }
         .sheet(isPresented: $showingScriptPickerSheet) {
             scriptPickerSheetView
         }

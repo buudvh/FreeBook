@@ -195,6 +195,7 @@ struct ReaderView: View {
     /// Lựa chọn theme **người dùng đã lưu** — đây mới là thứ `Picker` trong `ReaderSettingsView` ghi vào.
     /// Khoá `UserDefaults` giữ nguyên `readerSelectedTheme` nên không mất lựa chọn cũ.
     @AppStorage("readerSelectedTheme") internal var storedReaderTheme: ReaderTheme = .dark
+    @AppStorage(EInkModeSettings.Key.paperColor) internal var eInkPaperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
 
     /// Theme **thật sự dùng để vẽ**: `.eink` khi chế độ E-Ink bật, ngược lại là lựa chọn đã lưu.
     ///
@@ -586,9 +587,6 @@ struct ReaderView: View {
             } else {
                 handleDefinitionPanelClosed()
             }
-        }
-        .onChange(of: selectedWordOffset) { _, _ in
-            if showingDefinitionSheet { refreshRuleTraces() }
         }
         .onChange(of: isAnySelectionOrOverlayActive) { _, active in
             viewModel?.setTranslationRefreshDeferred(active)

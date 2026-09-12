@@ -12,6 +12,7 @@ struct VisibleBrowserReopenButton: View {
     @ObservedObject private var pulseMonitor = VisibleBrowserPulseMonitor.shared
     /// Đọc thẳng khoá `UserDefaults` để pill tự cập nhật khi đổi chế độ.
     @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
+    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
 
     /// Pha của nhịp nháy: `true` = đỏ tươi, `false` = đỏ sẫm. Chỉ có nghĩa khi
     /// `pulseMonitor.isPulsing == true`.
@@ -53,6 +54,10 @@ struct VisibleBrowserReopenButton: View {
         )
     }
 
+    private var paper: Color {
+        EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray)
+    }
+
     private var pillContent: some View {
         HStack(spacing: 6) {
             // Icon Safari thay cho `globe`: nó là thứ người dùng nhận ra ngay là "trình duyệt".
@@ -70,7 +75,7 @@ struct VisibleBrowserReopenButton: View {
             if isEInkEnabled {
                 // Pill nổi trên nội dung: nền đục + viền đen, bỏ nhịp nháy đỏ (nháy là chuyển động, mà
                 // trên e-ink lại còn là mảng màu lớn gây ghosting).
-                Capsule(style: .continuous).fill(EInkPalette.paper)
+                Capsule(style: .continuous).fill(paper)
             } else {
                 Capsule(style: .continuous)
                     .fill(.ultraThinMaterial)

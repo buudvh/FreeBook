@@ -8,8 +8,12 @@ struct TTSQuickTimerSheet: View {
     @State private var customMinutes: Double = 90.0
     /// Đọc thẳng khoá `UserDefaults` để sheet Hẹn giờ tự cập nhật khi đổi chế độ E-Ink.
     @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
+    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
 
     private let presetMinutes = [15, 30, 45, 60, 90]
+    private var paper: Color {
+        EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray)
+    }
 
     var body: some View {
         NavigationStack {
@@ -30,7 +34,7 @@ struct TTSQuickTimerSheet: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
-            .background(Color(uiColor: .systemGroupedBackground))
+            .background(isEInkEnabled ? paper : Color(uiColor: .systemGroupedBackground))
             .navigationTitle("Hẹn giờ tắt")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -76,7 +80,7 @@ struct TTSQuickTimerSheet: View {
                 HStack(spacing: 14) {
                     ZStack {
                         Circle()
-                            .fill(isEInkEnabled ? EInkPalette.paper : Color.orange.opacity(0.18))
+                            .fill(isEInkEnabled ? paper : Color.orange.opacity(0.18))
                             .frame(width: 44, height: 44)
                             .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
                         Image(systemName: "timer")
@@ -119,14 +123,14 @@ struct TTSQuickTimerSheet: View {
                             .einkAccentForeground(.red)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 7)
-                            .background(Capsule().fill(isEInkEnabled ? EInkPalette.paper : Color.red.opacity(0.12)))
+                            .background(Capsule().fill(isEInkEnabled ? paper : Color.red.opacity(0.12)))
                             .overlay { if isEInkEnabled { Capsule().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
                     }
                 }
                 .padding(14)
                 .background(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color(uiColor: .secondarySystemGroupedBackground))
+                        .fill(isEInkEnabled ? paper : Color(uiColor: .secondarySystemGroupedBackground))
                         .overlay(
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
                                 .stroke(isEInkEnabled ? EInkPalette.ink : Color.orange.opacity(0.35), lineWidth: isEInkEnabled ? EInkPalette.borderWidth : 1.5)
@@ -147,7 +151,8 @@ struct TTSQuickTimerSheet: View {
                 .padding(.vertical, 12)
                 .background(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color(uiColor: .secondarySystemGroupedBackground))
+                        .fill(isEInkEnabled ? paper : Color(uiColor: .secondarySystemGroupedBackground))
+                        .overlay { if isEInkEnabled { RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
                 )
             }
         }
@@ -219,7 +224,7 @@ struct TTSQuickTimerSheet: View {
     ) -> some View {
         let iconForeground: Color = isEInkEnabled ? (isSelected ? .white : EInkPalette.ink) : (isSelected ? .white : .orange)
         let titleForeground: Color = isEInkEnabled ? (isSelected ? .white : EInkPalette.ink) : (isSelected ? .white : .primary)
-        let fill: Color = isEInkEnabled ? (isSelected ? .black : EInkPalette.paper) : (isSelected ? .orange : Color(uiColor: .secondarySystemGroupedBackground))
+        let fill: Color = isEInkEnabled ? (isSelected ? .black : paper) : (isSelected ? .orange : Color(uiColor: .secondarySystemGroupedBackground))
         let stroke: Color = isEInkEnabled ? EInkPalette.ink : .orange
         let strokeWidth: CGFloat = isEInkEnabled && isSelected ? EInkPalette.selectedBorderWidth : 1.5
         return Button(action: action) {
@@ -321,7 +326,8 @@ struct TTSQuickTimerSheet: View {
             .padding(16)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color(uiColor: .secondarySystemGroupedBackground))
+                    .fill(isEInkEnabled ? paper : Color(uiColor: .secondarySystemGroupedBackground))
+                    .overlay { if isEInkEnabled { RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
             )
         }
     }
@@ -337,7 +343,7 @@ struct TTSQuickTimerSheet: View {
             HStack(spacing: 12) {
                 ZStack {
                     Circle()
-                        .fill(isEInkEnabled ? EInkPalette.paper : Color.blue.opacity(0.12))
+                        .fill(isEInkEnabled ? paper : Color.blue.opacity(0.12))
                         .frame(width: 36, height: 36)
                         .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
                     Image(systemName: "gearshape.fill")
@@ -365,7 +371,8 @@ struct TTSQuickTimerSheet: View {
             .padding(14)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color(uiColor: .secondarySystemGroupedBackground))
+                    .fill(isEInkEnabled ? paper : Color(uiColor: .secondarySystemGroupedBackground))
+                    .overlay { if isEInkEnabled { RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
             )
         }
         .buttonStyle(.plain)

@@ -7,6 +7,11 @@ struct BookSearchBarView: View {
     @Binding var text: String
     var placeholder: String = "Tìm truyện hoặc tác giả..."
     var onCommit: (() -> Void)? = nil
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
+    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
+    private var paper: Color {
+        EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray)
+    }
 
     var body: some View {
         HStack(spacing: 8) {
@@ -31,11 +36,17 @@ struct BookSearchBarView: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(Color(.secondarySystemBackground))
+            .background(isEInkEnabled ? paper : Color(.secondarySystemBackground))
             .cornerRadius(10)
+            .overlay {
+                if isEInkEnabled {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth)
+                }
+            }
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
-        .background(Color(.systemBackground))
+        .einkBackground(Color(.systemBackground))
     }
 }

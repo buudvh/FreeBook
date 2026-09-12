@@ -28,6 +28,8 @@ struct BypassWebView: View {
     @State private var inputUrl = ""
     @State private var isEditingUrl = false
     @State private var showingSourcePicker = false
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
+    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
 
     private var activeExtensions: [Extension] {
         allExtensions.filter { !$0.localPath.isEmpty && $0.isEnabled }
@@ -55,6 +57,10 @@ struct BypassWebView: View {
         onImport != nil && !matchingExtensionInfos.isEmpty
     }
 
+    private var paper: Color {
+        EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray)
+    }
+
     private var navigationTitleText: String {
         guard let tab = store.activeTab else { return "Trình duyệt" }
         if store.tabs.count > 1 {
@@ -76,7 +82,7 @@ struct BypassWebView: View {
 
                     if tab.isLoading {
                         ProgressView(value: tab.progress, total: 1.0)
-                            .tint(.blue)
+                            .tint(isEInkEnabled ? EInkPalette.ink : .blue)
                             .progressViewStyle(LinearProgressViewStyle())
                             .frame(height: 3)
                     } else {
@@ -138,10 +144,10 @@ struct BypassWebView: View {
             } label: {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(tab.canGoBack ? .blue : .gray)
+                    .foregroundColor(browserButtonForeground(isEnabled: tab.canGoBack))
                     .frame(width: 36, height: 36)
-                    .background(Color(.systemGray6))
-                    .clipShape(Circle())
+                    .background(browserButtonBackground, in: Circle())
+                    .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
             }
             .disabled(!tab.canGoBack)
 
@@ -150,10 +156,10 @@ struct BypassWebView: View {
             } label: {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(tab.canGoForward ? .blue : .gray)
+                    .foregroundColor(browserButtonForeground(isEnabled: tab.canGoForward))
                     .frame(width: 36, height: 36)
-                    .background(Color(.systemGray6))
-                    .clipShape(Circle())
+                    .background(browserButtonBackground, in: Circle())
+                    .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
             }
             .disabled(!tab.canGoForward)
 
@@ -162,10 +168,10 @@ struct BypassWebView: View {
             } label: {
                 Image(systemName: "house.fill")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.blue)
+                    .foregroundColor(isEInkEnabled ? EInkPalette.ink : .blue)
                     .frame(width: 36, height: 36)
-                    .background(Color(.systemGray6))
-                    .clipShape(Circle())
+                    .background(browserButtonBackground, in: Circle())
+                    .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
             }
 
             urlField(for: tab)
@@ -183,7 +189,7 @@ struct BypassWebView: View {
             } label: {
                 Image(systemName: isShowingReloadIcon(for: tab) ? "arrow.clockwise" : "arrow.right.circle.fill")
                     .font(.system(size: 20))
-                    .foregroundColor(.blue)
+                    .foregroundColor(isEInkEnabled ? EInkPalette.ink : .blue)
                     .frame(width: 32, height: 36)
             }
 
@@ -193,17 +199,17 @@ struct BypassWebView: View {
                 Label("Import truyện", systemImage: "plus.circle.fill")
                     .font(.system(size: 13, weight: .semibold))
                     .labelStyle(.iconOnly)
-                    .foregroundColor(canImportCurrentPage ? .blue : .gray)
+                    .foregroundColor(browserButtonForeground(isEnabled: canImportCurrentPage))
                     .frame(width: 36, height: 36)
-                    .background(Color(.systemGray6))
-                    .clipShape(Circle())
+                    .background(browserButtonBackground, in: Circle())
+                    .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
             }
             .disabled(!canImportCurrentPage)
             .accessibilityLabel("Import truyện")
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
-        .background(Color(.systemBackground))
+        .einkBackground(Color(.systemBackground))
     }
 
     @ViewBuilder
@@ -232,8 +238,23 @@ struct BypassWebView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .background(Color(.systemGray6))
+        .background(isEInkEnabled ? paper : Color(.systemGray6))
         .cornerRadius(10)
+        .overlay {
+            if isEInkEnabled {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth)
+            }
+        }
+    }
+
+    private var browserButtonBackground: Color {
+        isEInkEnabled ? paper : Color(.systemGray6)
+    }
+
+    private func browserButtonForeground(isEnabled: Bool) -> Color {
+        guard isEnabled else { return .secondary }
+        return isEInkEnabled ? EInkPalette.ink : .blue
     }
 
     private func isShowingReloadIcon(for tab: BypassBrowserTab) -> Bool {

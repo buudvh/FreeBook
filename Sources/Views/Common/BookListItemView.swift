@@ -37,6 +37,10 @@ struct BookListItemView<Item: BookDisplayable>: View {
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     /// Đọc thẳng khoá `UserDefaults` để hàng tự cập nhật khi đổi chế độ.
     @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
+    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
+    private var paper: Color {
+        EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray)
+    }
 
     init(
         item: Item,
@@ -159,7 +163,7 @@ struct BookListItemView<Item: BookDisplayable>: View {
         .padding(.vertical, 2)
         // Nền xám 12% trên e-ink gần như vô hình ⇒ đổi thành nền trắng + viền đen để badge vẫn là một
         // khối tách khỏi dòng chữ.
-        .background(isEInkEnabled ? EInkPalette.paper : Color.secondary.opacity(0.12), in: Capsule())
+        .background(isEInkEnabled ? paper : Color.secondary.opacity(0.12), in: Capsule())
         .overlay {
             if isEInkEnabled {
                 Capsule().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth)

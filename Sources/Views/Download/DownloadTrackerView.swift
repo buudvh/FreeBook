@@ -9,6 +9,11 @@ struct DownloadTrackerView: View {
     @State private var selectedTaskType: TaskType = .download
     @State private var defaultOnlyExportCached = false
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
+    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
+    private var paper: Color {
+        EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray)
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -66,10 +71,10 @@ struct DownloadTrackerView: View {
                     Text(task.taskType.rawValue)
                         .font(.caption)
                         .fontWeight(.semibold)
-                        .foregroundColor(.white)
+                        .foregroundColor(isEInkEnabled ? EInkPalette.selectedContent : .white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(task.taskType == .download ? Color.green : Color.orange)
+                        .background(isEInkEnabled ? EInkPalette.ink : (task.taskType == .download ? Color.green : Color.orange))
                         .cornerRadius(4)
                     
                     statusBadge(task.status)
@@ -78,7 +83,7 @@ struct DownloadTrackerView: View {
                 if task.status == .running || task.status == .pending {
                     VStack(alignment: .leading, spacing: 2) {
                         ProgressView(value: Double(task.progressCount), total: Double(max(1, task.totalCount)))
-                            .tint(.blue)
+                            .tint(isEInkEnabled ? EInkPalette.ink : .blue)
                             .scaleEffect(x: 1, y: 0.8, anchor: .center)
 
                         Text("Tiến độ: \(task.progressCount)/\(task.totalCount) chương")
@@ -90,7 +95,7 @@ struct DownloadTrackerView: View {
                         if let stage = task.exportStage {
                             Text(stage.displayName)
                                 .font(.caption2)
-                                .foregroundColor(.orange)
+                                .foregroundColor(isEInkEnabled ? EInkPalette.ink : .orange)
                         }
                     }
                     .padding(.top, 2)
@@ -103,7 +108,7 @@ struct DownloadTrackerView: View {
                     if let summary = task.exportSummary {
                         Text(summary)
                             .font(.caption)
-                            .foregroundColor(.orange)
+                            .foregroundColor(isEInkEnabled ? EInkPalette.ink : .orange)
                     }
                 } else if task.status == .failed, let error = task.errorMessage {
                     Text("Lỗi: \(error)")
@@ -122,7 +127,7 @@ struct DownloadTrackerView: View {
                     Image(systemName: "xmark.circle.fill")
                         .resizable()
                         .frame(width: 22, height: 22)
-                        .foregroundColor(.red.opacity(0.8))
+                        .foregroundColor(isEInkEnabled ? EInkPalette.ink : .red.opacity(0.8))
                 }
                 .buttonStyle(.plain)
             } else if task.status == .completed, let path = task.exportFilePath, FileManager.default.fileExists(atPath: path) {
@@ -132,7 +137,7 @@ struct DownloadTrackerView: View {
                     Image(systemName: "square.and.arrow.up.fill")
                         .resizable()
                         .frame(width: 22, height: 22)
-                        .foregroundColor(.orange)
+                        .foregroundColor(isEInkEnabled ? EInkPalette.ink : .orange)
                 }
                 .buttonStyle(.plain)
             } else if task.status == .failed || task.status == .cancelled {
@@ -142,7 +147,7 @@ struct DownloadTrackerView: View {
                     Image(systemName: "arrow.clockwise.circle.fill")
                         .resizable()
                         .frame(width: 22, height: 22)
-                        .foregroundColor(.blue.opacity(0.8))
+                        .foregroundColor(isEInkEnabled ? EInkPalette.ink : .blue.opacity(0.8))
                 }
                 .buttonStyle(.plain)
             }
@@ -195,11 +200,17 @@ struct DownloadTrackerView: View {
         return Text(status.rawValue)
             .font(.caption2)
             .fontWeight(.medium)
-            .foregroundColor(color)
+            .foregroundColor(isEInkEnabled ? EInkPalette.ink : color)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .background(color.opacity(0.12))
+            .background(isEInkEnabled ? paper : color.opacity(0.12))
             .cornerRadius(4)
+            .overlay {
+                if isEInkEnabled {
+                    RoundedRectangle(cornerRadius: 4)
+                        .strokeBorder(EInkPalette.ink, style: status == .failed || status == .cancelled ? StrokeStyle(lineWidth: 1, dash: [3, 2]) : StrokeStyle(lineWidth: EInkPalette.borderWidth))
+                }
+            }
     }
     
     /// Mở sheet tuỳ chọn với "Chỉ xuất chương đã tải" bật sẵn.

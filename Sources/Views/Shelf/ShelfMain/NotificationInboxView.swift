@@ -17,6 +17,7 @@ struct NotificationInboxView: View {
     @ObservedObject private var newChapters = NewChapterInboxManager.shared
     @ObservedObject private var inbox = NotificationInboxManager.shared
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
 
     /// Một dòng trong danh sách: truyện có chương mới hoặc một toast đã hiện.
     private enum InboxItem: Identifiable {
@@ -148,7 +149,7 @@ struct NotificationInboxView: View {
         } label: {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: record.isAnnouncementRead ? "bell" : "bell.badge.fill")
-                    .foregroundColor(.orange)
+                    .foregroundColor(isEInkEnabled ? EInkPalette.ink : .orange)
                     .font(.title3)
                     .frame(width: 28)
                 VStack(alignment: .leading, spacing: 3) {
@@ -158,7 +159,7 @@ struct NotificationInboxView: View {
                         .lineLimit(2)
                     Text(newChapterSubtitle(record))
                         .font(.footnote.weight(.medium))
-                        .foregroundColor(.orange)
+                        .foregroundColor(isEInkEnabled ? EInkPalette.ink : .orange)
                     if !record.latestChapterTitle.isEmpty {
                         Text("Mới nhất: \(displayedChapterTitle(for: record))")
                             .font(.caption)
@@ -169,7 +170,7 @@ struct NotificationInboxView: View {
                 Spacer(minLength: 0)
                 if !record.isAnnouncementRead {
                     Circle()
-                        .fill(Color.accentColor)
+                        .fill(isEInkEnabled ? EInkPalette.ink : Color.accentColor)
                         .frame(width: 8, height: 8)
                         .padding(.top, 6)
                 }
@@ -202,7 +203,7 @@ struct NotificationInboxView: View {
                 Spacer(minLength: 0)
                 if !record.isRead {
                     Circle()
-                        .fill(Color.accentColor)
+                        .fill(isEInkEnabled ? EInkPalette.ink : Color.accentColor)
                         .frame(width: 8, height: 8)
                         .padding(.top, 6)
                 }
@@ -218,11 +219,11 @@ struct NotificationInboxView: View {
     private func toastIcon(_ type: ToastType) -> some View {
         switch type {
         case .success:
-            Image(systemName: "checkmark.circle.fill").foregroundColor(.green).font(.title3)
+            Image(systemName: "checkmark.circle.fill").foregroundColor(isEInkEnabled ? EInkPalette.ink : .green).font(.title3)
         case .error:
-            Image(systemName: "exclamationmark.circle.fill").foregroundColor(.red).font(.title3)
+            Image(systemName: "exclamationmark.circle.fill").foregroundColor(isEInkEnabled ? EInkPalette.ink : .red).font(.title3)
         case .info:
-            Image(systemName: "info.circle.fill").foregroundColor(.blue).font(.title3)
+            Image(systemName: "info.circle.fill").foregroundColor(isEInkEnabled ? EInkPalette.ink : .blue).font(.title3)
         }
     }
 

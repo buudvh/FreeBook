@@ -108,6 +108,7 @@ struct TTSWidgetContentView: View {
 /// Giao diện dạng capsule mở rộng (revealed mode).
 struct TTSWidgetCapsuleView: View {
     @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
+    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
     let coverImage: UIImage?
     let rotationAngle: Double
     @ObservedObject var viewModel: FloatingWidgetViewModel
@@ -115,6 +116,9 @@ struct TTSWidgetCapsuleView: View {
     private let ttsManager = TTSManager.shared
 
     @State private var showingQuickTimerSheet = false
+    private var paper: Color {
+        EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray)
+    }
 
     var body: some View {
         VStack(spacing: 4) {
@@ -192,7 +196,7 @@ struct TTSWidgetCapsuleView: View {
             .padding(.vertical, 8)
             .background {
                 if isEInkEnabled {
-                    Capsule().fill(EInkPalette.paper)
+                    Capsule().fill(paper)
                 } else {
                     Capsule().fill(.ultraThinMaterial)
                 }
@@ -244,8 +248,12 @@ struct TTSWidgetCapsuleView: View {
 /// Giao diện dạng đĩa tròn thu nhỏ (peeking mode).
 struct TTSWidgetPeekCircleView: View {
     @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
+    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
     let coverImage: UIImage?
     let rotationAngle: Double
+    private var paper: Color {
+        EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray)
+    }
 
     var body: some View {
         TTSCoverView(
@@ -257,7 +265,7 @@ struct TTSWidgetPeekCircleView: View {
         .frame(width: 52, height: 52)
         .background {
             if isEInkEnabled {
-                Circle().fill(EInkPalette.paper)
+                Circle().fill(paper)
             } else {
                 Circle().fill(.ultraThinMaterial)
             }
@@ -280,9 +288,13 @@ struct TTSWidgetPeekCircleView: View {
 /// View hiển thị ảnh bìa dạng tròn có hiệu ứng xoay đĩa than mượt mà.
 struct TTSCoverView: View {
     @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
+    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
     let image: UIImage?
     let size: CGFloat
     var rotationAngle: Double = 0.0
+    private var paper: Color {
+        EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray)
+    }
 
     var body: some View {
         coverImage
@@ -308,7 +320,7 @@ struct TTSCoverView: View {
             if isEInkEnabled {
                 // Gradient ba màu là thứ e-ink render tệ nhất — dải chuyển sắc thành vệt nhoè. Thay bằng
                 // nền trắng; khối bìa vẫn tách khỏi widget nhờ icon đen ở giữa.
-                EInkPalette.paper
+                paper
             } else {
                 LinearGradient(
                     colors: [.blue.opacity(0.7), .purple.opacity(0.6), .black.opacity(0.7)],

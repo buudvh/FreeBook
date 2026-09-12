@@ -15,6 +15,10 @@ struct ShelfTabSelectorView: View {
     @Binding var selection: ShelfTab
     /// Đọc thẳng khoá `UserDefaults` để thanh chọn tab tự cập nhật khi đổi chế độ.
     @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
+    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
+    private var paper: Color {
+        EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray)
+    }
 
     var body: some View {
         HStack(spacing: 8) {
@@ -88,7 +92,7 @@ struct ShelfTabSelectorView: View {
     /// trắng. Nút chưa chọn thành nền trắng + viền đen, thay cho nền `secondarySystemBackground`.
     private func fillColor(isSelected: Bool) -> Color {
         guard !isEInkEnabled else {
-            return isSelected ? EInkPalette.selectedFill : EInkPalette.normalFill
+            return isSelected ? EInkPalette.selectedFill : paper
         }
         return isSelected ? Color.accentColor.opacity(0.15) : Color(.secondarySystemBackground)
     }

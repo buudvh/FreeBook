@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 
 struct RepositoryManagerView: View {
     @AppStorage(EInkModeSettings.Key.enabled) internal var isEInkEnabled = false
+    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
     @Environment(\.modelContext) internal var modelContext
     @Query(sort: \Repository.name) internal var repositories: [Repository]
     @Query internal var allExtensions: [Extension]
@@ -41,6 +42,8 @@ struct RepositoryManagerView: View {
     internal var isFiltering: Bool {
         filterType != "all" || filterLocale != "all" || filterAuthor != "all"
     }
+
+    internal var paper: Color { EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray) }
 
     internal var isUninstallAllDisabled: Bool {
         allExtensions.filter { !$0.localPath.isEmpty }.isEmpty
@@ -91,7 +94,7 @@ struct RepositoryManagerView: View {
             .pickerStyle(.segmented)
             .padding(.horizontal)
             .padding(.vertical, 6)
-            .background(Color(.systemGroupedBackground))
+            .einkBackground(Color(.systemGroupedBackground))
             
             TabView(selection: $selectedTab) {
                 allExtensionsTab.tag(0)
@@ -258,7 +261,7 @@ struct RepositoryManagerView: View {
                 }
             }
         }
-        .background(Color(.systemGroupedBackground).opacity(0.3))
+        .einkBackground(Color(.systemGroupedBackground).opacity(0.3))
     }
 
     @ViewBuilder
@@ -285,7 +288,7 @@ struct RepositoryManagerView: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 6)
-        .background(Color(.systemBackground))
+            .einkBackground(Color(.systemBackground))
     }
 
     @ViewBuilder
@@ -306,16 +309,14 @@ struct RepositoryManagerView: View {
                 }
             }
             .padding(8)
-            .background(Color(.secondarySystemBackground))
-            .cornerRadius(10)
+            .background(isEInkEnabled ? paper : Color(.secondarySystemBackground)).cornerRadius(10).einkOutline(10)
             
             Button(action: { showingFilterSheet = true }) {
                 Image(systemName: isFiltering ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
                     .font(.title3)
-                    .foregroundColor(isFiltering ? .orange : .accentColor)
+                    .foregroundColor(isEInkEnabled ? EInkPalette.ink : (isFiltering ? .orange : .accentColor))
                     .padding(8)
-                    .background(Color(.secondarySystemBackground))
-                    .cornerRadius(10)
+                    .background(isEInkEnabled ? paper : Color(.secondarySystemBackground)).cornerRadius(10).einkOutline(10)
             }
         }
         .padding(.horizontal)
@@ -359,8 +360,9 @@ struct RepositoryManagerView: View {
                 .buttonStyle(.plain)
             }
             .padding(10)
-            .background(Color.orange.opacity(0.12))
+            .background(isEInkEnabled ? paper : Color.orange.opacity(0.12))
             .cornerRadius(10)
+            .overlay { if isEInkEnabled { RoundedRectangle(cornerRadius: 10).strokeBorder(EInkPalette.ink, style: StrokeStyle(lineWidth: 1, dash: [4, 3])) } }
             .padding(.horizontal)
         }
     }
@@ -378,9 +380,7 @@ struct RepositoryManagerView: View {
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 32, height: 32)
                     .padding(6)
-                    .background(Color.secondary.opacity(0.2))
-                    .foregroundColor(.accentColor)
-                    .cornerRadius(8)
+                    .background(isEInkEnabled ? paper : Color.secondary.opacity(0.2)).foregroundColor(isEInkEnabled ? EInkPalette.ink : .accentColor).cornerRadius(8).einkOutline(8)
             }
             
             VStack(alignment: .leading, spacing: 6) {
@@ -463,8 +463,7 @@ struct RepositoryManagerView: View {
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(.accentColor)
                             .frame(width: 34, height: 34)
-                            .background(Color.accentColor.opacity(0.1))
-                            .cornerRadius(8)
+                            .background(isEInkEnabled ? paper : Color.accentColor.opacity(0.1)).cornerRadius(8).einkOutline(8)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Cài đặt \(ext.name)")
@@ -480,8 +479,8 @@ struct RepositoryManagerView: View {
                                 }
                                 .padding(.horizontal, 8)
                                 .frame(height: 34)
-                                .background(Color.orange)
-                                .foregroundColor(.white)
+                                .background(isEInkEnabled ? EInkPalette.ink : Color.orange)
+                                .foregroundColor(isEInkEnabled ? EInkPalette.selectedContent : .white)
                                 .cornerRadius(8)
                             }
                             .buttonStyle(.plain)
@@ -493,10 +492,9 @@ struct RepositoryManagerView: View {
                         }) {
                             Image(systemName: "gearshape")
                                 .font(.system(size: 15, weight: .medium))
-                                .foregroundColor(.blue)
+                                .foregroundColor(isEInkEnabled ? EInkPalette.ink : .blue)
                                 .frame(width: 34, height: 34)
-                                .background(Color.blue.opacity(0.1))
-                                .cornerRadius(8)
+                                .background(isEInkEnabled ? paper : Color.blue.opacity(0.1)).cornerRadius(8).einkOutline(8)
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Cấu hình \(ext.name)")
@@ -506,10 +504,10 @@ struct RepositoryManagerView: View {
                         }) {
                             Image(systemName: "trash")
                                 .font(.system(size: 15, weight: .medium))
-                                .foregroundColor(.red)
+                                .foregroundColor(isEInkEnabled ? EInkPalette.ink : .red)
                                 .frame(width: 34, height: 34)
-                                .background(Color.red.opacity(0.1))
-                                .cornerRadius(8)
+                                .background(isEInkEnabled ? paper : Color.red.opacity(0.1)).cornerRadius(8)
+                                .overlay { if isEInkEnabled { RoundedRectangle(cornerRadius: 8).strokeBorder(EInkPalette.ink, style: StrokeStyle(lineWidth: 1, dash: [3, 2])) } }
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Gỡ cài đặt \(ext.name)")
@@ -574,8 +572,8 @@ struct RepositoryManagerView: View {
                                     Image(systemName: "trash")
                                         .foregroundColor(.red)
                                         .padding(8)
-                                        .background(Color.red.opacity(0.1))
-                                        .clipShape(Circle())
+                                        .background(isEInkEnabled ? paper : Color.red.opacity(0.1)).clipShape(Circle())
+                                        .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, style: StrokeStyle(lineWidth: 1, dash: [3, 2])) } }
                                 }
                                 .buttonStyle(.borderless)
                                 .disabled(isRefreshingAll)

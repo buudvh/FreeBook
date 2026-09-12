@@ -3,6 +3,15 @@ import Observation
 
 @MainActor @Observable
 final class ReaderDefinitionSession {
+    struct SelectionSnapshot: Equatable {
+        let sentence: String
+        let word: String
+        let range: NSRange
+        let mode: String
+        let convertTraditional: Bool
+        let generation: Int
+    }
+
     var identity = UUID()
     var requestID = UUID()
     var meaningRevision = 0
@@ -11,6 +20,8 @@ final class ReaderDefinitionSession {
     var hasRules = false
     var rulesEnabled = false
     var saving = false
+    var displayedSnapshot: SelectionSnapshot?
+    var loadingSnapshot: SelectionSnapshot?
     @ObservationIgnored let worker = ReaderDefinitionWorker()
     @ObservationIgnored var task: Task<Void, Never>?
     @ObservationIgnored var ruleTask: Task<Void, Never>?
@@ -22,6 +33,8 @@ final class ReaderDefinitionSession {
         meaningRevision = 0
         saving = false
         hasRules = false
+        displayedSnapshot = nil
+        loadingSnapshot = nil
     }
 
     func cancel() {
@@ -32,5 +45,6 @@ final class ReaderDefinitionSession {
         ruleTask = nil
         loading = false
         loadingRules = false
+        loadingSnapshot = nil
     }
 }

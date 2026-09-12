@@ -17,6 +17,10 @@ public struct ReaderChapterRowView: View {
 
     /// Đọc thẳng khoá `UserDefaults` (thay vì observe singleton) để hàng tự cập nhật khi đổi chế độ.
     @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
+    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
+    private var paper: Color {
+        EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray)
+    }
 
     public init(
         chapter: ReaderChapterRowState,
@@ -71,7 +75,7 @@ public struct ReaderChapterRowView: View {
     /// không đủ để nhận ra ngay.
     private var currentTextColor: Color {
         guard isCurrent else { return theme.textColor }
-        return isEInkEnabled ? EInkPalette.paper : .blue
+        return isEInkEnabled ? paper : .blue
     }
 
     private var currentRowBackground: Color {

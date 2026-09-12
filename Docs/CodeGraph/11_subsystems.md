@@ -15,10 +15,15 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## E-Ink là chính sách trình bày xuyên app, không là subsystem dữ liệu (1.3.361)
+## E-Ink là chính sách trình bày xuyên app, không là subsystem dữ liệu (1.3.362)
 
 * Ranh giới E-Ink vẫn nằm ở `Common` + root `App`: `EInkModeSettings` giữ state/UserDefaults, `EInkPalette` đổi state thành màu, `View+EInk` cung cấp modifier cho View, và `EInkAppearance` là adapter UIKit cho nav/tab bar. Không thêm Service, Model hay dependency mới.
-* `AppLaunchRootView` là nơi phủ nền giấy toàn app và là subscriber root của thay đổi E-Ink. Các màn không cần tự observe singleton chỉ để cập nhật nền giấy nếu dùng modifier `eink*` hoặc nằm dưới root scroll background.
+* `AppLaunchRootView` là nơi phủ nền giấy toàn app và là subscriber root của thay đổi E-Ink. Các màn không cần tự observe singleton chỉ để cập nhật nền giấy nếu dùng modifier `eink*` hoặc nằm dưới root scroll background; các surface dài hạn không đi qua modifier thì đọc `EInkModeSettings.Key.paperColor` bằng `@AppStorage` và gọi `EInkPalette.paperColor(for:)`.
+
+## Panel Dịch là subsystem UI latest-wins, không xoá trắng khi đổi selection (1.3.362)
+
+* `ReaderDefinitionSession` giữ `SelectionSnapshot` cho dữ liệu đang tải và đang hiển thị; `ReaderDefinitionWorker` vẫn là actor thực thi tokenize/lookup/rule trace. `ReaderView` là owner duy nhất quyết định snapshot hiện tại từ `originalSentence`, `selectedWordOffset/Length`, mode và generation.
+* `ReaderDefinitionOverlayView` chỉ vẽ dữ liệu được truyền vào và nhận `isDefinitionCurrent` để khoá nút `Cập nhật`. Nó không tự save khi snapshot lệch, không tự mở request, và không tự giữ bản sao dictionary/rule.
 
 ## Dọn dẹp bản sao lưu trong máy: nút "xoá tất cả" và dọn sau khi upload (1.3.356)
 

@@ -20,7 +20,7 @@ struct BypassBrowserTabBar: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
         }
-        .background(Color(.secondarySystemBackground))
+        .einkBackground(Color(.secondarySystemBackground))
     }
 
     private struct TabPill: View {
@@ -29,12 +29,18 @@ struct BypassBrowserTabBar: View {
         let canClose: Bool
         let onSelect: () -> Void
         let onClose: () -> Void
+        @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
+        @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
+
+        private var paper: Color {
+            EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray)
+        }
 
         var body: some View {
             HStack(spacing: 6) {
                 Text(tab.displayTitle)
                     .font(.system(size: 13, weight: isActive ? .semibold : .regular))
-                    .foregroundColor(isActive ? .white : .primary)
+                    .foregroundColor(isActive ? (isEInkEnabled ? EInkPalette.selectedContent : .white) : .primary)
                     .lineLimit(1)
                     .frame(maxWidth: 130, alignment: .leading)
 
@@ -42,7 +48,7 @@ struct BypassBrowserTabBar: View {
                     Button(action: onClose) {
                         Image(systemName: "xmark")
                             .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(isActive ? Color.white.opacity(0.85) : .secondary)
+                            .foregroundColor(isActive ? (isEInkEnabled ? EInkPalette.selectedContent : Color.white.opacity(0.85)) : .secondary)
                             .frame(width: 18, height: 18)
                     }
                     .buttonStyle(.plain)
@@ -52,8 +58,13 @@ struct BypassBrowserTabBar: View {
             .padding(.leading, 12)
             .padding(.trailing, canClose ? 4 : 12)
             .padding(.vertical, 7)
-            .background(isActive ? Color.blue : Color(.systemGray5))
+            .background(isEInkEnabled ? (isActive ? EInkPalette.ink : paper) : (isActive ? Color.blue : Color(.systemGray5)))
             .clipShape(Capsule())
+            .overlay {
+                if isEInkEnabled {
+                    Capsule().strokeBorder(EInkPalette.ink, lineWidth: isActive ? EInkPalette.selectedBorderWidth : EInkPalette.borderWidth)
+                }
+            }
             .contentShape(Capsule())
             .onTapGesture(perform: onSelect)
             .accessibilityAddTraits(isActive ? [.isSelected, .isButton] : .isButton)

@@ -9,6 +9,7 @@ struct ExtensionItemResultWithExt: Identifiable {
 
 struct SearchView: View {
     @AppStorage(EInkModeSettings.Key.enabled) internal var isEInkEnabled = false
+    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
     let activeExtensions: [Extension]
     let selectedExtension: Extension?
     let initialSearchQuery: String
@@ -69,6 +70,9 @@ struct SearchView: View {
     }
     
     @State private var sourceStates: [String: SourceSearchState] = [:]
+    private var paper: Color {
+        EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray)
+    }
     
     private var hasAnyResults: Bool {
         sourceStates.values.contains { state in
@@ -189,8 +193,9 @@ struct SearchView: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(Color(.secondarySystemBackground))
+            .background(isEInkEnabled ? paper : Color(.secondarySystemBackground))
             .cornerRadius(10)
+            .overlay { if isEInkEnabled { RoundedRectangle(cornerRadius: 10).strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
             
             Button(action: performSearch) {
                 Text("Tìm")
@@ -200,7 +205,7 @@ struct SearchView: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
-        .background(Color(.systemBackground))
+        .background(isEInkEnabled ? paper : Color(.systemBackground))
     }
     
     @ViewBuilder
@@ -224,7 +229,7 @@ struct SearchView: View {
                 .padding(.horizontal)
                 .padding(.vertical, 6)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(.secondarySystemBackground))
+                .background(isEInkEnabled ? paper : Color(.secondarySystemBackground))
         }
     }
     
@@ -447,9 +452,10 @@ struct SearchView: View {
                                 .fontWeight(.semibold)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(isEInkEnabled ? EInkPalette.paper : Color.accentColor.opacity(0.1))
-                                .foregroundColor(.accentColor)
+                                .background(isEInkEnabled ? paper : Color.accentColor.opacity(0.1))
+                                .foregroundColor(isEInkEnabled ? EInkPalette.ink : .accentColor)
                                 .cornerRadius(4)
+                                .overlay { if isEInkEnabled { RoundedRectangle(cornerRadius: 4).strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
                         }
                     }
                     .padding(.vertical, 4)
@@ -492,9 +498,10 @@ struct SearchView: View {
                                 .fontWeight(.semibold)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(isEInkEnabled ? EInkPalette.paper : Color.accentColor.opacity(0.1))
-                                .foregroundColor(.accentColor)
+                                .background(isEInkEnabled ? paper : Color.accentColor.opacity(0.1))
+                                .foregroundColor(isEInkEnabled ? EInkPalette.ink : .accentColor)
                                 .cornerRadius(4)
+                                .overlay { if isEInkEnabled { RoundedRectangle(cornerRadius: 4).strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
                         }
                     }
                     .padding(.vertical, 4)

@@ -40,7 +40,7 @@ extension ReaderDefinitionOverlayView {
                     .font(.system(size: 9, weight: .bold))
                     .padding(.horizontal, 4)
                     .padding(.vertical, 1)
-                    .background(isEInkEnabled ? EInkPalette.paper : Color.secondary.opacity(0.18), in: RoundedRectangle(cornerRadius: 3))
+                    .background(isEInkEnabled ? paper : Color.secondary.opacity(0.18), in: RoundedRectangle(cornerRadius: 3))
                     .overlay { if isEInkEnabled { RoundedRectangle(cornerRadius: 3).strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
 
                     Text(ReaderRuleChipStyle.label(for: trace.status))
@@ -57,13 +57,19 @@ extension ReaderDefinitionOverlayView {
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isEInkEnabled ? EInkPalette.paper : Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+            .background(isEInkEnabled ? paper : Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
             .overlay { if isEInkEnabled { RoundedRectangle(cornerRadius: 8).strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
+            .overlay(alignment: .topTrailing) {
+                if isLoadingRules {
+                    ProgressView()
+                        .controlSize(.mini)
+                        .padding(6)
+                }
+            }
         }
     }
 
     private var ruleNoticeText: String? {
-        if isLoadingRules { return "Đang cập nhật rule cho đoạn này…" }
         if !hasAnyRuleSet {
             return "Máy chưa có bộ rule nào. Tải hoặc nhập ở Cài đặt → Quản lý rule dịch."
         }
@@ -71,7 +77,7 @@ extension ReaderDefinitionOverlayView {
             return "Công tắc rule dịch đang TẮT trong Cài đặt — dải rule bên dưới chỉ là mô phỏng."
         }
         if ruleTraces.isEmpty {
-            return "Không rule nào chạm đoạn này."
+            return isLoadingRules ? "Đang cập nhật rule cho đoạn này…" : "Không rule nào chạm đoạn này."
         }
         return nil
     }
@@ -88,13 +94,13 @@ extension ReaderDefinitionOverlayView {
                     .foregroundColor(.green)
                     .einkAccentForeground(.green)
                     .padding(8)
-                    .background(isEInkEnabled ? EInkPalette.paper : Color.green.opacity(0.12), in: Circle())
+                    .background(isEInkEnabled ? paper : Color.green.opacity(0.12), in: Circle())
                     .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
             }
             .accessibilityLabel("Thêm rule cho cụm đang chọn")
 
             if ruleTraces.isEmpty {
-                Text("Chưa có rule nào khớp")
+                Text(isLoadingRules ? "Đang cập nhật…" : "Chưa có rule nào khớp")
                     .font(.caption)
                     .foregroundColor(.secondary)
             } else {
