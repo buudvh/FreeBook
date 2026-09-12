@@ -58,6 +58,7 @@ struct TTSModelManagerView: View {
                         isShowingFileImporter = true
                     }) {
                         Label("Nhập Model Ngoài...", systemImage: "square.and.arrow.down")
+                            .foregroundColor(.white)
                     }
                 }
                 Section(header: HStack {
@@ -137,6 +138,7 @@ struct TTSModelManagerView: View {
                     }
                 }
             }
+            .tint(.white)
             .navigationTitle("Quản lý Model")
             .background {
                 DocumentPickerPresenter(

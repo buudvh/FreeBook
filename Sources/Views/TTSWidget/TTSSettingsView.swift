@@ -4,20 +4,20 @@ import AVFoundation
 
 struct TTSSettingsView: View {
     let isPresentedAsSheet: Bool
-    
+
     @Environment(\.dismiss) var dismiss
     @Environment(\.presentationMode) var presentationMode
     @Environment(\.modelContext) private var modelContext
     @ObservedObject var ttsManager = TTSManager.shared
     @State private var availableVoices: [Voice] = []
     @State private var systemVoices: [AVSpeechSynthesisVoice] = []
-    
+
     @Query private var allExtensions: [Extension]
-    
+
     private var ttsExtensions: [Extension] {
         allExtensions.filter { $0.type == ExtensionType.tts && !$0.localPath.isEmpty && $0.isEnabled }
     }
-    
+
     @State private var extensionVoices: [[String: String]] = []
     @State private var isLoadingVoices = false
     @State private var selectedExtForConfig: Extension? = nil
@@ -25,7 +25,7 @@ struct TTSSettingsView: View {
     @AppStorage("google_cloud_tts_custom_api_key") private var customGoogleApiKey: String = ""
     @State private var showApiKey: Bool = false
     @State private var hasResumed = false
-    
+
     private var currentExtParams: (preloadSize: Int?, maxLength: Int?) {
         let path = allExtensions.first(where: { $0.packageId == ttsManager.tool })?.localPath ?? ttsManager.extensionLocalPath
         return ttsManager.parseExtensionConfigParams(jsonString: ttsManager.extensionConfigJson, localPath: path)
@@ -247,7 +247,6 @@ struct TTSSettingsView: View {
                         Image(systemName: "chevron.right").font(.caption).foregroundColor(.secondary)
                     }
                 }
-                
                 VStack(alignment: .leading, spacing: 6) {
                     Stepper(value: $ttsManager.speed, in: 0.5...5.0, step: 0.1) {
                         HStack {
@@ -258,8 +257,9 @@ struct TTSSettingsView: View {
                         }
                     }
                     Slider(value: $ttsManager.speed, in: 0.5...5.0, step: 0.1)
+                        .tint(.white)
                 }
-                
+
                 let isExtensionTool = ttsManager.tool != "system" && ttsManager.tool != "nghitts" && ttsManager.tool != "google"
                 let disablePitch = ttsManager.tool == "nghitts" || isExtensionTool
 
@@ -275,6 +275,7 @@ struct TTSSettingsView: View {
                     .disabled(disablePitch)
 
                     Slider(value: $ttsManager.pitch, in: 0.5...2.0, step: 0.1)
+                        .tint(.white)
                         .disabled(disablePitch)
                     if ttsManager.tool == "nghitts" {
                         Text("(*) NghiTTS không hỗ trợ chỉnh cao độ thời gian thực")
@@ -432,17 +433,15 @@ struct TTSSettingsView: View {
                 }
             }
         }
+        .tint(.white)
         .onAppear {
             self.hasResumed = false
             // Tạm dừng phát để cấu hình
             ttsManager.prepareForSettings()
-            
             self.systemVoices = AVSpeechSynthesisVoice.speechVoices().filter { $0.language.hasPrefix("vi") }
-            
             if ttsManager.tool == "system" && ttsManager.selectedVoice.isEmpty {
                 ttsManager.selectedVoice = systemVoices.first?.identifier ?? ""
             }
-            
             if ttsManager.tool != "system" && ttsManager.tool != "nghitts" && ttsManager.tool != "google" {
                 if let ext = allExtensions.first(where: { $0.packageId == ttsManager.tool }) {
                     if ttsManager.extensionLocalPath != ext.localPath {
@@ -454,7 +453,6 @@ struct TTSSettingsView: View {
                 }
                 loadExtensionVoices(packageId: ttsManager.tool)
             }
-            
             Task {
                 self.availableVoices = (try? await ttsManager.nghiTTSClient?.getAllVoices(forceRefresh: false)) ?? NghiTTSClient.fallbackVietnameseVoices
             }
@@ -469,7 +467,6 @@ struct TTSSettingsView: View {
                         ttsManager.extensionConfigJson = ext.configJson
                     }
                 }
-                
                 // 2. Tiếp tục phát truyện ngay tại đoạn dở dang với cấu hình mới
                 ttsManager.resumeAfterSettings()
             }
@@ -502,11 +499,11 @@ struct TTSSettingsView: View {
             }
         }
     }
-    
+
     private func isModelDownloaded(_ voice: Voice) -> Bool {
         return (try? ModelStore().modelExists(for: voice.id)) ?? false
     }
-    
+
     private func deleteModel(_ voice: Voice) {
         try? ModelStore().deleteModel(for: voice.id)
         if ttsManager.selectedVoice == voice.name {

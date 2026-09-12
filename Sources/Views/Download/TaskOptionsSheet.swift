@@ -215,6 +215,7 @@ struct TaskOptionsSheet: View {
                     in: customSliderRange,
                     step: 1
                 )
+                .tint(.white)
                 stepButton(systemName: "plus", delta: 1)
             }
         }

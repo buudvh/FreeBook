@@ -114,6 +114,7 @@ struct StaleBookCleanupSettingsView: View {
                         in: Double(StaleBookCleanupPolicy.inactiveDaysRange.lowerBound)...Double(StaleBookCleanupPolicy.inactiveDaysRange.upperBound),
                         step: 1
                     )
+                    .tint(.white)
                     HStack {
                         Text("\(StaleBookCleanupPolicy.inactiveDaysRange.lowerBound)")
                         Spacer()

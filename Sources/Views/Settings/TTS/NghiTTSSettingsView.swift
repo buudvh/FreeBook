@@ -29,6 +29,7 @@ struct NghiTTSSettingsView: View {
 
                 NavigationLink(destination: NghiTTSTextToolView()) {
                     Label("Thử giọng đọc", systemImage: "text.bubble")
+                        .foregroundColor(.white)
                 }
             }
             
@@ -70,6 +71,7 @@ struct NghiTTSSettingsView: View {
                     .foregroundColor(.secondary)
             }
         }
+        .tint(.white)
         .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .navigationTitle("Cấu hình NghiTTS")
         .navigationBarTitleDisplayMode(.inline)
@@ -144,6 +146,7 @@ struct PrecisionSliderView: View {
                     .foregroundColor(.secondary)
                 
                 Slider(value: $value, in: range, step: step)
+                    .tint(.white)
                 
                 Text(String(format: "%.1f", range.upperBound))
                     .font(.caption2)

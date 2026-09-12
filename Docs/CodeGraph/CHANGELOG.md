@@ -4,6 +4,28 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.369] - 2026-09-12
+
+### feat: cap nhat ui dich, icon shapes kham pha, thanh keo trang va nut copy paste rule editor
+
+Sửa **16** file Swift trong `Sources/Views/`.
+
+- **Màn hình Dịch (Reader Definition)**:
+  - Token được chọn: chữ trắng in đậm, có gạch chân (`.underline(true)`), các ký tự không chọn màu trắng nhạt `Color.white.opacity(0.45)`.
+  - Hàng nhập nghĩa: cố định 2 dòng (`lineLimit(2, reservesSpace: true)`), chặn phím Enter và tự động lọc bỏ ký tự xuống dòng `\n`, `\r` khi gõ và dán.
+  - Đổi màu biểu tượng ghim `pin.fill` sang màu trắng `.white`.
+  - Icon nút Dán là `Image(systemName: "doc.on.clipboard")`.
+  - Nút thêm rule: đổi icon sang `plus.circle` màu trắng trên nền kính mờ `Color.white.opacity(0.12)`.
+- **Màn hình Khám Phá (Discovery)**:
+  - Nút thể loại: đổi icon sang `Image(systemName: "shapes")` (tam giác, vuông, tròn) và đổi kiểu nút thành nút tròn `Circle()` kích thước 38x38 với viền kính mờ.
+- **Cài đặt TTS & Thanh kéo Sliders**:
+  - Thêm `.tint(.white)` cho `TTSSettingsSheet`, `TTSSettingsView`, `TTSModelManagerView`, `NghiTTSSettingsView`, `TTSDictionaryEditView`, `NghiTTSTextToolView`, `TaskOptionsSheet`, `QuickTranslationRuleTokenLengthBar`, `StaleBookCleanupSettingsView`.
+  - Đổi toàn bộ các nút back `<`, nút Xong, các giá trị lựa chọn trong menu Picker, icon điều hướng và thanh kéo Slider trên toàn app sang màu trắng sáng tinh tế.
+- **Màn hình Thêm/Sửa Rule**:
+  - `QuickTranslationRulePatternField`: Chặn ký tự xuống dòng `\n`, tự động ẩn bàn phím khi bấm Return, bật gợi ý từ (`autocorrectionType = .default`, `spellCheckingType = .default`).
+  - Bổ sung cụm nút Sao chép (`doc.on.doc`) và Dán (`doc.on.clipboard`) cạnh ô nhập Mẫu và ô nhập Bản dịch.
+- Gate: `check_architecture.py` không phát sinh lỗi mới (tất cả file mới/sửa đều ≤ 400 dòng hoặc dưới baseline); `validate_links.py` PASS 100%.
+
 ## [1.3.368] - 2026-09-12
 
 ### fix: sua loi scope onRulesChanged trong TOCRulesConfigView

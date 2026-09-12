@@ -81,13 +81,14 @@ extension ReaderDefinitionOverlayView {
     internal var ruleChipRowView: some View {
         HStack(spacing: 8) {
             Button(action: onAddRule) {
-                Image(systemName: "plus")
+                Image(systemName: "plus.circle")
                     .font(.body)
                     .fontWeight(.medium)
-                    .foregroundColor(.green)
+                    .foregroundColor(.white)
                     .padding(8)
-                    .background(Color.green.opacity(0.12))
+                    .background(Color.white.opacity(0.12))
                     .clipShape(Circle())
+                    .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
             }
             .accessibilityLabel("Thêm rule cho cụm đang chọn")
 

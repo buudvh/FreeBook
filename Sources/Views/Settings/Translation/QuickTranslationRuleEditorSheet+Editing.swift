@@ -131,4 +131,196 @@ extension QuickTranslationRuleEditorSheet {
             replacementSelectionLength = 0
         }
     }
+
+    // MARK: - Sao chép & Dán Clipboard
+
+    func copyPatternToClipboard() {
+        guard !pattern.isEmpty else { return }
+        UIPasteboard.general.string = pattern
+        ToastManager.shared.show(message: "Đã sao chép mẫu vào clipboard", type: .success)
+    }
+
+    func pastePatternFromClipboard() {
+        guard let pasted = UIPasteboard.general.string,
+              !pasted.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            ToastManager.shared.show(message: "Không có nội dung trong clipboard", type: .info)
+            return
+        }
+        let clean = pasted.replacingOccurrences(of: "\r", with: "").replacingOccurrences(of: "\n", with: "")
+        insertIntoPattern(clean)
+    }
+
+    func copyReplacementToClipboard() {
+        guard !replacement.isEmpty else { return }
+        UIPasteboard.general.string = replacement
+        ToastManager.shared.show(message: "Đã sao chép bản dịch vào clipboard", type: .success)
+    }
+
+    func pasteReplacementFromClipboard() {
+        guard let pasted = UIPasteboard.general.string,
+              !pasted.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            ToastManager.shared.show(message: "Không có nội dung trong clipboard", type: .info)
+            return
+        }
+        let clean = pasted.replacingOccurrences(of: "\r", with: "").replacingOccurrences(of: "\n", with: "")
+        insertIntoReplacement(clean)
+    }
+
+    // MARK: - Các Section ViewBuilder
+
+    @ViewBuilder
+    func patternSection(segments: [QuickTranslationRuleDraftAnalyzer.Segment]) -> some View {
+        Section {
+            HStack(alignment: .top, spacing: 8) {
+                ZStack(alignment: .topLeading) {
+                    if pattern.isEmpty {
+                        Text("第<n:1-6>章")
+                            .font(.system(.body, design: .monospaced))
+                            .foregroundColor(Color(uiColor: .placeholderText))
+                            .allowsHitTesting(false)
+                    }
+
+                    QuickTranslationRulePatternField(
+                        text: $pattern,
+                        selectionStart: $selectionStart,
+                        selectionLength: $selectionLength,
+                        autoFocus: restoredFocus == .pattern
+                    ) { focused in
+                        if focused {
+                            focusedField = .pattern
+                        } else if focusedField == .pattern {
+                            focusedField = nil
+                        }
+                    }
+                }
+
+                HStack(spacing: 4) {
+                    Button(action: copyPatternToClipboard) {
+                        Image(systemName: "doc.on.doc")
+                            .font(.system(size: 13))
+                            .foregroundColor(.white)
+                            .frame(width: 28, height: 28)
+                            .background(Color.white.opacity(0.12))
+                            .clipShape(Circle())
+                            .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(pattern.isEmpty)
+                    .opacity(pattern.isEmpty ? 0.4 : 1.0)
+                    .accessibilityLabel("Sao chép mẫu")
+
+                    Button(action: pastePatternFromClipboard) {
+                        Image(systemName: "doc.on.clipboard")
+                            .font(.system(size: 13))
+                            .foregroundColor(.white)
+                            .frame(width: 28, height: 28)
+                            .background(Color.white.opacity(0.12))
+                            .clipShape(Circle())
+                            .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel("Dán vào mẫu")
+                }
+            }
+
+            QuickTranslationRulePatternStripView(
+                segments: segments,
+                selectionStart: $selectionStart,
+                selectionLength: $selectionLength,
+                onDeleteBackward: deleteBackwardInPattern
+            )
+
+            QuickTranslationRuleTokenPaletteView { insertIntoPattern($0) }
+
+            if let segment = selectedTokenSegment(in: segments),
+               let ordinal = segment.tokenOrdinal,
+               let spec = QuickTranslationRuleDraftAnalyzer.tokenSpec(of: segment.text) {
+                QuickTranslationRuleTokenLengthBar(spec: spec) { updated in
+                    applyTokenSpec(updated, tokenOrdinal: ordinal)
+                }
+            }
+        } header: {
+            Text("Mẫu (vế trái dấu =)")
+        } footer: {
+            Text("Nút token chèn **tại con trỏ** của ô nhập, hoặc thay đoạn đang bôi đen. Chạm một chip token (ở dải trên hoặc trong ô nhập) để mở thanh chỉnh độ dài. Token: `<n>` số, `<y>` đọc từng chữ số, `<h>` chữ số Hán, `<d>` chữ số 0-9, `<m>` đơn vị bậc (十 → mươi, 百 → trăm), `<a>` chữ cái A-Z giữ nguyên văn, `<L>` nhãn chương, `<hv>` một chữ Hán-Việt, `<ne>/<pn>/<vp>/<w>` cụm trong từ điển. `<L>`, `<hv>` và `<m>` luôn đúng một ký tự nên không có thanh độ dài. Nhóm `(a|b)` và `(a|b)?` không được đánh số. Mỗi token chịu sự chi phối của Cấu hình token rule; tắt token không sửa file nhưng rule chứa token đó sẽ không chạy.")
+        }
+    }
+
+    @ViewBuilder
+    func replacementSection(analysis: QuickTranslationRuleDraftAnalyzer.Analysis) -> some View {
+        Section {
+            HStack(alignment: .top, spacing: 8) {
+                ZStack(alignment: .topLeading) {
+                    if replacement.isEmpty {
+                        Text("Chương {0}")
+                            .foregroundColor(Color(uiColor: .placeholderText))
+                            .allowsHitTesting(false)
+                    }
+
+                    QuickTranslationRulePatternField(
+                        text: $replacement,
+                        selectionStart: $replacementSelectionStart,
+                        selectionLength: $replacementSelectionLength,
+                        autoFocus: restoredFocus == .replacement,
+                        usesMonospacedFont: false
+                    ) { focused in
+                        if focused {
+                            focusedField = .replacement
+                        } else if focusedField == .replacement {
+                            focusedField = nil
+                        }
+                    }
+                }
+
+                HStack(spacing: 4) {
+                    Button(action: copyReplacementToClipboard) {
+                        Image(systemName: "doc.on.doc")
+                            .font(.system(size: 13))
+                            .foregroundColor(.white)
+                            .frame(width: 28, height: 28)
+                            .background(Color.white.opacity(0.12))
+                            .clipShape(Circle())
+                            .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(replacement.isEmpty)
+                    .opacity(replacement.isEmpty ? 0.4 : 1.0)
+                    .accessibilityLabel("Sao chép bản dịch")
+
+                    Button(action: pasteReplacementFromClipboard) {
+                        Image(systemName: "doc.on.clipboard")
+                            .font(.system(size: 13))
+                            .foregroundColor(.white)
+                            .frame(width: 28, height: 28)
+                            .background(Color.white.opacity(0.12))
+                            .clipShape(Circle())
+                            .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel("Dán vào bản dịch")
+                }
+            }
+
+            QuickTranslationRuleCaptureChipsView(analysis: analysis) { index in
+                insertIntoReplacement("{\(index)}")
+            }
+        } header: {
+            Text("Bản dịch (vế phải dấu =)")
+        } footer: {
+            Text("`{0}`, `{1}`… đánh số **token** theo thứ tự xuất hiện, không đánh số nhóm hay literal. Chip chèn **tại con trỏ** của ô nhập, hoặc thay đoạn đang bôi đen. Mọi token phải được dùng, và mẫu phải có ít nhất một ký tự thường làm neo.")
+        }
+    }
+
+    @ViewBuilder
+    var editInfoSection: some View {
+        if case .edit(_, _, let sourceLine, let scope) = mode {
+            Section {
+                LabeledContent("Phạm vi", value: scope.longLabel)
+                LabeledContent("Dòng trong file", value: "\(sourceLine)")
+                Text("Đổi mẫu sẽ **thêm rule mới** và giữ nguyên rule cũ — giống sửa key ở từ điển. Muốn bỏ rule cũ thì xoá nó ở danh sách.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
 }

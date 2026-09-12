@@ -249,6 +249,7 @@ struct TTSDictionaryEditView: View {
                 }
             }
         }
+        .tint(.white)
     }
 
     private func loadDictionary() async {

@@ -86,11 +86,11 @@ struct QuickTranslationRuleEditorSheet: View {
     @State private var showingScopeDialog = false
     /// Ô đang gõ, chỉ để ghi vào bản nháp. Cả hai ô nhập đều là `UIViewRepresentable` nên không dùng
     /// được `@FocusState`; mỗi ô tự báo lên qua `onFocusChange`.
-    @State private var focusedField: QuickTranslationRuleDraftStore.Field?
+    @State var focusedField: QuickTranslationRuleDraftStore.Field?
 
     /// Ô đang gõ lúc bản nháp được lưu. Khôi phục ở `onAppear` để một lượt dựng lại không làm tụt
     /// bàn phím giữa lúc gõ.
-    private let restoredFocus: QuickTranslationRuleDraftStore.Field?
+    let restoredFocus: QuickTranslationRuleDraftStore.Field?
     /// Đúng khi `init` này chạy trên một identity mới mà store đã có bản nháp — tức SwiftUI vừa dựng
     /// lại content của sheet. Log ở `onAppear` (không log trong `init`: `init` chạy lại theo **mỗi**
     /// lượt body của view chủ, còn `onAppear` chỉ nổ một lần cho mỗi identity).
@@ -235,104 +235,6 @@ struct QuickTranslationRuleEditorSheet: View {
             }
             .onChange(of: replacement) { _, newValue in
                 reconcileReplacementSelection(after: newValue)
-            }
-        }
-    }
-
-    // MARK: - Các section
-
-    @ViewBuilder
-    private func patternSection(segments: [QuickTranslationRuleDraftAnalyzer.Segment]) -> some View {
-        Section {
-            ZStack(alignment: .topLeading) {
-                if pattern.isEmpty {
-                    Text("第<n:1-6>章")
-                        .font(.system(.body, design: .monospaced))
-                        .foregroundColor(Color(uiColor: .placeholderText))
-                        .allowsHitTesting(false)
-                }
-
-                QuickTranslationRulePatternField(
-                    text: $pattern,
-                    selectionStart: $selectionStart,
-                    selectionLength: $selectionLength,
-                    autoFocus: restoredFocus == .pattern
-                ) { focused in
-                    if focused {
-                        focusedField = .pattern
-                    } else if focusedField == .pattern {
-                        focusedField = nil
-                    }
-                }
-            }
-
-            QuickTranslationRulePatternStripView(
-                segments: segments,
-                selectionStart: $selectionStart,
-                selectionLength: $selectionLength,
-                onDeleteBackward: deleteBackwardInPattern
-            )
-
-            QuickTranslationRuleTokenPaletteView { insertIntoPattern($0) }
-
-            if let segment = selectedTokenSegment(in: segments),
-               let ordinal = segment.tokenOrdinal,
-               let spec = QuickTranslationRuleDraftAnalyzer.tokenSpec(of: segment.text) {
-                QuickTranslationRuleTokenLengthBar(spec: spec) { updated in
-                    applyTokenSpec(updated, tokenOrdinal: ordinal)
-                }
-            }
-        } header: {
-            Text("Mẫu (vế trái dấu =)")
-        } footer: {
-            Text("Nút token chèn **tại con trỏ** của ô nhập, hoặc thay đoạn đang bôi đen. Chạm một chip token (ở dải trên hoặc trong ô nhập) để mở thanh chỉnh độ dài. Token: `<n>` số, `<y>` đọc từng chữ số, `<h>` chữ số Hán, `<d>` chữ số 0-9, `<m>` đơn vị bậc (十 → mươi, 百 → trăm), `<a>` chữ cái A-Z giữ nguyên văn, `<L>` nhãn chương, `<hv>` một chữ Hán-Việt, `<ne>/<pn>/<vp>/<w>` cụm trong từ điển. `<L>`, `<hv>` và `<m>` luôn đúng một ký tự nên không có thanh độ dài. Nhóm `(a|b)` và `(a|b)?` không được đánh số. Mỗi token chịu sự chi phối của Cấu hình token rule; tắt token không sửa file nhưng rule chứa token đó sẽ không chạy.")
-        }
-    }
-
-    @ViewBuilder
-    private func replacementSection(analysis: QuickTranslationRuleDraftAnalyzer.Analysis) -> some View {
-        Section {
-            ZStack(alignment: .topLeading) {
-                if replacement.isEmpty {
-                    Text("Chương {0}")
-                        .foregroundColor(Color(uiColor: .placeholderText))
-                        .allowsHitTesting(false)
-                }
-
-                QuickTranslationRulePatternField(
-                    text: $replacement,
-                    selectionStart: $replacementSelectionStart,
-                    selectionLength: $replacementSelectionLength,
-                    autoFocus: restoredFocus == .replacement,
-                    usesMonospacedFont: false
-                ) { focused in
-                    if focused {
-                        focusedField = .replacement
-                    } else if focusedField == .replacement {
-                        focusedField = nil
-                    }
-                }
-            }
-
-            QuickTranslationRuleCaptureChipsView(analysis: analysis) { index in
-                insertIntoReplacement("{\(index)}")
-            }
-        } header: {
-            Text("Bản dịch (vế phải dấu =)")
-        } footer: {
-            Text("`{0}`, `{1}`… đánh số **token** theo thứ tự xuất hiện, không đánh số nhóm hay literal. Chip chèn **tại con trỏ** của ô nhập, hoặc thay đoạn đang bôi đen. Mọi token phải được dùng, và mẫu phải có ít nhất một ký tự thường làm neo.")
-        }
-    }
-
-    @ViewBuilder
-    private var editInfoSection: some View {
-        if case .edit(_, _, let sourceLine, let scope) = mode {
-            Section {
-                LabeledContent("Phạm vi", value: scope.longLabel)
-                LabeledContent("Dòng trong file", value: "\(sourceLine)")
-                Text("Đổi mẫu sẽ **thêm rule mới** và giữ nguyên rule cũ — giống sửa key ở từ điển. Muốn bỏ rule cũ thì xoá nó ở danh sách.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
             }
         }
     }

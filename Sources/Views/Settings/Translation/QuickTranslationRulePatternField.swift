@@ -41,9 +41,9 @@ struct QuickTranslationRulePatternField: UIViewRepresentable {
             ? UIFont.monospacedSystemFont(ofSize: bodySize, weight: .regular)
             : UIFont.preferredFont(forTextStyle: .body)
         view.adjustsFontForContentSizeCategory = true
-        view.autocorrectionType = .no
+        view.autocorrectionType = .default
         view.autocapitalizationType = .none
-        view.spellCheckingType = .no
+        view.spellCheckingType = .default
         view.smartDashesType = .no
         view.smartQuotesType = .no
         view.smartInsertDeleteType = .no
@@ -119,6 +119,25 @@ struct QuickTranslationRulePatternField: UIViewRepresentable {
             isApplying = true
             view.selectedRange = selection
             isApplying = false
+        }
+
+        func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+            if text == "\n" {
+                textView.resignFirstResponder()
+                return false
+            }
+            if text.contains("\n") || text.contains("\r") {
+                let filtered = text.replacingOccurrences(of: "\r", with: "").replacingOccurrences(of: "\n", with: "")
+                if let currentText = textView.text, let textRange = Range(range, in: currentText) {
+                    let newText = currentText.replacingCharacters(in: textRange, with: filtered)
+                    textView.text = newText
+                    let newCursorOffset = range.location + filtered.utf16.count
+                    textView.selectedRange = NSRange(location: newCursorOffset, length: 0)
+                    textViewDidChange(textView)
+                }
+                return false
+            }
+            return true
         }
 
         func textViewDidChange(_ textView: UITextView) {

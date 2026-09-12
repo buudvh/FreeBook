@@ -189,7 +189,7 @@ struct ReaderDefinitionOverlayView: View {
                                 .font(.body)
                                 .bold(isSelected)
                                 .underline(isSelected)
-                                .foregroundColor(isSelected ? .white : .primary)
+                                .foregroundColor(isSelected ? .white : Color.white.opacity(0.45))
                                 .padding(.horizontal, inRuleSpan ? 1 : 0)
                                 .background(inRuleSpan ? Color.green.opacity(0.22) : Color.clear)
                                 .cornerRadius(3)
@@ -292,20 +292,28 @@ struct ReaderDefinitionOverlayView: View {
     }
 
     private var customMeaningInputView: some View {
-        HStack {
+        HStack(alignment: .top) {
             if isLoadingDefinition { ProgressView().controlSize(.small) }
-            TextField("Nhập nghĩa dịch...", text: $customMeaning)
+            TextField("Nhập nghĩa dịch...", text: $customMeaning, axis: .vertical)
+                .lineLimit(2, reservesSpace: true)
                 .textInputAutocapitalization(.never)
+                .autocorrectionDisabled(false)
+                .onChange(of: customMeaning) { _, newValue in
+                    if newValue.contains("\n") || newValue.contains("\r") {
+                        customMeaning = newValue.replacingOccurrences(of: "\r", with: "").replacingOccurrences(of: "\n", with: "")
+                    }
+                }
 
             if !customMeaning.isEmpty {
                 Button(action: { customMeaning = "" }) {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundColor(.secondary)
                 }
+                .padding(.top, 2)
             }
         }
-        .padding(10)
-        .frame(maxWidth: .infinity, minHeight: 40, maxHeight: 40)
+        .padding(8)
+        .frame(maxWidth: .infinity, minHeight: 52, maxHeight: 56)
         .background(Color.secondary.opacity(0.1))
         .cornerRadius(8)
     }
@@ -369,6 +377,6 @@ struct ReaderDefinitionOverlayView: View {
             ToastManager.shared.show(message: "Không có nội dung trong clipboard", type: .info)
             return
         }
-        customMeaning = pasted
+        customMeaning = pasted.replacingOccurrences(of: "\r", with: "").replacingOccurrences(of: "\n", with: "")
     }
 }

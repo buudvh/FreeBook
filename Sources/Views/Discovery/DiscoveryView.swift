@@ -209,14 +209,13 @@ struct DiscoveryView: View {
                         if !homeItems.isEmpty {
                             HStack(spacing: 0) {
                                 Button(action: { showingGenresSheet = true }) {
-                                    Image(systemName: "circle.grid.2x2.fill")
-                                        .font(.title3)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 10)
-                                        .background(Color.white.opacity(0.12))
+                                    Image(systemName: "shapes")
+                                        .font(.system(size: 16, weight: .medium))
                                         .foregroundColor(.white)
-                                        .cornerRadius(8)
-                                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.25), lineWidth: 1))
+                                        .frame(width: 38, height: 38)
+                                        .background(Color.white.opacity(0.12))
+                                        .clipShape(Circle())
+                                        .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
                                 }
                                 .padding(.leading)
                                 
