@@ -84,7 +84,7 @@ struct ReaderDefinitionOverlayView: View {
     @State internal var showingRuleActions = false
 
     /// Đọc thẳng khoá `UserDefaults` để panel Dịch tự cập nhật màu khi đổi chế độ E-Ink.
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
+    @AppStorage(EInkModeSettings.Key.enabled) var isEInkEnabled = false
 
     var body: some View {
         VStack(spacing: 8) {

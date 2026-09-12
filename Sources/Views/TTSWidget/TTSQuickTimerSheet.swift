@@ -222,7 +222,7 @@ struct TTSQuickTimerSheet: View {
         let fill: Color = isEInkEnabled ? (isSelected ? .black : EInkPalette.paper) : (isSelected ? .orange : Color(uiColor: .secondarySystemGroupedBackground))
         let stroke: Color = isEInkEnabled ? EInkPalette.ink : .orange
         let strokeWidth: CGFloat = isEInkEnabled && isSelected ? EInkPalette.selectedBorderWidth : 1.5
-        Button(action: action) {
+        return Button(action: action) {
             VStack(spacing: 6) {
                 Image(systemName: icon)
                     .font(.system(size: 16, weight: isSelected ? .bold : .regular))

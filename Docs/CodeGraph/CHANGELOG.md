@@ -4,6 +4,16 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.360] - 2026-09-12
+
+### Sửa lỗi biên dịch UI E-Ink còn sót
+
+Sửa **2** file Swift, không thêm/xoá file.
+
+- `ReaderDefinitionOverlayView.isEInkEnabled` bỏ `private` để `ReaderDefinitionOverlayView+Rules.swift` cùng type nhưng khác file truy cập được. Đây là sửa phạm vi truy cập, không đổi state hay luồng hiển thị.
+- `TTSQuickTimerSheet.presetButton(...)` thêm `return` sau các biến local để Swift suy ra đúng opaque return type `some View`.
+- Gate: `check_architecture.py` vẫn có **6 violation** line-limit nền, không nằm trong hai file sửa. Host Windows không có Swift/Xcode nên chưa compile local; lỗi gốc lấy từ CI macOS. Không dùng `Tests/`.
+
 ## [1.3.359] - 2026-09-11
 
 ### Sửa UI còn màu sang kiểu E-Ink và thêm tuỳ chọn màu nền
@@ -457,17 +467,3 @@ Sửa **2** file Swift ([`JunkFilterManagementView.swift`](../../Sources/Views/S
 - **Thêm một chốt mới đi kèm việc tự quản `editMode`**: `.onChange(of: isSearching)` đưa `editMode` về `.inactive` khi bắt đầu tìm kiếm. Mục sắp xếp vẫn bị ẩn khi đang lọc (như cũ, vì `onMove` chỉ gắn ở nhánh không lọc) — không có chốt này thì List kẹt ở edit mode trong khi mục thoát duy nhất đã bị ẩn khỏi menu.
 - Thứ tự trong menu theo quy ước iOS: hành động chính trước, hành động phá huỷ cuối và cách bằng `Divider`. Toàn bộ đường dữ liệu (`onDelete`/`onMove`/`swipeActions`, hai `confirmationDialog`, `DocumentPickerPresenter`, `ShareSheet`) không đổi.
 - Gate: `check_architecture.py` giữ đúng **14 violation** (cùng một tập). Lưu ý headroom: `TTSReplacementManagerView.swift` còn **10 dòng** là tới trần 400 — lần sửa sau ở file này nên tách bớt thay vì thêm. **Chưa biên dịch** — host là Windows, không có `xcodebuild`; không file Swift nào được thêm/xoá nên **không** cần `xcodegen generate`.
-
-## [1.3.326] - 2026-09-03
-
-### Dọn tài liệu ghép nối đã bị bỏ của VS Code extension
-
-Sửa **3** file của `Tools/VSCode/FreeBookExtDebug` (`README.md`, `src/protocol.ts`, `package.json`); **không** file Swift nào.
-
-- **README bỏ toàn bộ mục "Ghép nối"** — nó vẫn mô tả `FreeBook: Pair with App`, chuỗi `freebook-extdebug://pair?…&token=…`, bước bấm "Cho phép kết nối" và token lưu bằng `SecretStorage` hết hạn 3 phút. Pairing bị bỏ từ **1.3.305**; không còn lệnh, token hay `SecretStorage` nào trong code (đã grep `src/` và `package.json` để chắc — chỉ còn đúng comment trong Swift ghi nhận việc đã bỏ). Thay bằng mục "Kết nối" nói đúng ba bước hiện tại và nhấn rằng chốt an toàn duy nhất còn lại là bấm trên thiết bị cho `Install Staged Draft`/`Rollback`.
-- **Bảng lệnh khớp lại `package.json`**: bỏ dòng `Pair with App` (lệnh không tồn tại), thêm `Connect to App`, `Browse Extension Folder…`, `Refresh Workspace Extensions` — ba lệnh có thật mà README chưa hề liệt kê.
-- **`freebook.extdebug.cancelRun` được khai trong `contributes.commands`.** Nó vốn `registerCommand` trong `extension.ts` và có nút ở Sidebar, nhưng thiếu khai báo nên **không** hiện trong Command Palette; README thì vẫn liệt kê nó. Tiêu đề `installDraft` đổi thành "(overwrite or new install, needs device approval)" cho khớp hai nhánh của 1.3.325.
-- **`protocol.ts`**: comment của `Envelope.type` bỏ `paired` khỏi danh sách kiểu server trả về — server không còn phát kiểu đó. `parseTarget` **giữ nguyên** khả năng nhận chuỗi `freebook-extdebug://pair?host=…&port=…` kiểu cũ (bỏ qua `token`/`service`), và điều đó nay được ghi rõ trong README thay vì để người đọc tưởng pairing còn sống.
-- **README thêm mục "Chạy script mà không cần cài"** — trả lời đúng câu hỏi hay gặp: `Select Extension` → `Stage Workspace Draft` → `Run Saved Profile` (`sourceMode: "draft"`) chạy thẳng từ `extension-drafts/`, không chạm thư viện. Kèm hai giới hạn: `Run Script…` (source `installed`) vẫn đòi extension đã cài, và staging bị xoá sạch khi tắt server hoặc mở lại app.
-- Gate: `tsc -p ./` **PASS**. Không sửa `Sources/**` nên `validate_links.py` không doc nào stale (`Tools/**` ngoài phạm vi manifest) và `check_architecture.py` giữ nguyên **14 violation**.
-

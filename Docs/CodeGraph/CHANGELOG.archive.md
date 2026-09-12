@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.326] - 2026-09-03
+
+### Dọn tài liệu ghép nối đã bị bỏ của VS Code extension
+
+Sửa **3** file của `Tools/VSCode/FreeBookExtDebug` (`README.md`, `src/protocol.ts`, `package.json`); **không** file Swift nào.
+
+- **README bỏ toàn bộ mục "Ghép nối"** — nó vẫn mô tả `FreeBook: Pair with App`, chuỗi `freebook-extdebug://pair?…&token=…`, bước bấm "Cho phép kết nối" và token lưu bằng `SecretStorage` hết hạn 3 phút. Pairing bị bỏ từ **1.3.305**; không còn lệnh, token hay `SecretStorage` nào trong code (đã grep `src/` và `package.json` để chắc — chỉ còn đúng comment trong Swift ghi nhận việc đã bỏ). Thay bằng mục "Kết nối" nói đúng ba bước hiện tại và nhấn rằng chốt an toàn duy nhất còn lại là bấm trên thiết bị cho `Install Staged Draft`/`Rollback`.
+- **Bảng lệnh khớp lại `package.json`**: bỏ dòng `Pair with App` (lệnh không tồn tại), thêm `Connect to App`, `Browse Extension Folder…`, `Refresh Workspace Extensions` — ba lệnh có thật mà README chưa hề liệt kê.
+- **`freebook.extdebug.cancelRun` được khai trong `contributes.commands`.** Nó vốn `registerCommand` trong `extension.ts` và có nút ở Sidebar, nhưng thiếu khai báo nên **không** hiện trong Command Palette; README thì vẫn liệt kê nó. Tiêu đề `installDraft` đổi thành "(overwrite or new install, needs device approval)" cho khớp hai nhánh của 1.3.325.
+- **`protocol.ts`**: comment của `Envelope.type` bỏ `paired` khỏi danh sách kiểu server trả về — server không còn phát kiểu đó. `parseTarget` **giữ nguyên** khả năng nhận chuỗi `freebook-extdebug://pair?host=…&port=…` kiểu cũ (bỏ qua `token`/`service`), và điều đó nay được ghi rõ trong README thay vì để người đọc tưởng pairing còn sống.
+- **README thêm mục "Chạy script mà không cần cài"** — trả lời đúng câu hỏi hay gặp: `Select Extension` → `Stage Workspace Draft` → `Run Saved Profile` (`sourceMode: "draft"`) chạy thẳng từ `extension-drafts/`, không chạm thư viện. Kèm hai giới hạn: `Run Script…` (source `installed`) vẫn đòi extension đã cài, và staging bị xoá sạch khi tắt server hoặc mở lại app.
+- Gate: `tsc -p ./` **PASS**. Không sửa `Sources/**` nên `validate_links.py` không doc nào stale (`Tools/**` ngoài phạm vi manifest) và `check_architecture.py` giữ nguyên **14 violation**.
+
 ## [1.3.325] - 2026-09-03
 
 ### Cài mới extension từ VS Code, không chỉ ghi đè bản đã có
