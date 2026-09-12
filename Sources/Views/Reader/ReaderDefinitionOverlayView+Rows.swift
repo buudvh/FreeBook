@@ -91,7 +91,7 @@ extension ReaderDefinitionOverlayView {
                 if isPinned {
                     Image(systemName: "pin.fill")
                         .font(.system(size: 10, weight: .bold))
-                        .einkAccentForeground(selectedTheme == .dark ? Color(red: 1.0, green: 0.8, blue: 0.3) : Color.orange)
+                        .foregroundColor(selectedTheme == .dark ? Color(red: 1.0, green: 0.8, blue: 0.3) : Color.orange)
                 }
                 Text(title)
                     .font(.system(size: 13, weight: isSelected ? .bold : .medium))
@@ -123,7 +123,7 @@ extension ReaderDefinitionOverlayView {
         }
         .buttonStyle(.borderedProminent)
         .controlSize(.small)
-        .disabled(isSaving || !isDefinitionCurrent || customMeaning.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        .disabled(isSaving || customMeaning.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
 
     internal var quickLookupLinksView: some View {

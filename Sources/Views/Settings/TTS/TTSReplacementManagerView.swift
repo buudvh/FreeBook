@@ -9,7 +9,6 @@ struct TTSReplacementManagerView: View {
 
     @ObservedObject var manager = TTSReplacementManager.shared
     @Environment(\.dismiss) var dismiss
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
     
     // Trạng thái cho sheet Thêm/Sửa quy tắc
     @State private var showingEditSheet = false
@@ -103,7 +102,6 @@ struct TTSReplacementManagerView: View {
                 }
             }
         }
-        .einkBackground(Color(.systemGroupedBackground))
         .searchable(text: $searchText, prompt: "Tìm mẫu hoặc chuỗi thay thế...")
         .environment(\.editMode, $editMode)
         .onChange(of: isSearching) { _, searching in
@@ -277,13 +275,12 @@ struct TTSReplacementManagerView: View {
                 prepareForEdit(rule)
             }) {
                 Image(systemName: "pencil")
-                    .foregroundColor(isEInkEnabled ? EInkPalette.ink : .accentColor)
+                    .foregroundColor(.accentColor)
                     .padding(8)
             }
             .buttonStyle(.plain)
         }
         .contentShape(Rectangle())
-        .einkListRowBackground()
     }
     
     @ViewBuilder

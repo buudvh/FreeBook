@@ -93,13 +93,6 @@ struct ShelfView: View {
     @State private var navigateToImportedBook = false
     @State private var openingBook: Book? = nil
     @AppStorage("readerSelectedTheme") private var selectedTheme: ReaderTheme = .dark
-    /// Đọc thẳng khoá `UserDefaults` để tiêu đề nhóm tự cập nhật khi đổi chế độ E-Ink.
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
-    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
-
-    private var paper: Color {
-        EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray)
-    }
 
     // Sheet nhấn-giữ một cuốn sách (thay cho context menu cũ) và đích "Xem chi tiết" phát từ sheet đó.
     @State private var actionTarget: BookSheetAction.Target? = nil
@@ -171,7 +164,6 @@ struct ShelfView: View {
                             .tag(ShelfTab.history)
                     }
                     .tabViewStyle(.page(indexDisplayMode: .never))
-                    .einkBackground()
             }
             .navigationTitle(selectedTab.navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
@@ -190,11 +182,10 @@ struct ShelfView: View {
                                 if notificationBadgeCount > 0 {
                                     Text(notificationBadgeCount > 99 ? "99+" : "\(notificationBadgeCount)")
                                         .font(.system(size: 10, weight: .bold))
-                                        .foregroundColor(isEInkEnabled ? EInkPalette.selectedContent : .white)
+                                        .foregroundColor(.white)
                                         .padding(.horizontal, 4)
                                         .padding(.vertical, 1)
-                                        .background(isEInkEnabled ? EInkPalette.ink : Color.red, in: Capsule())
-                                        .overlay { if isEInkEnabled { Capsule().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.selectedBorderWidth) } }
+                                        .background(Color.red, in: Capsule())
                                         .offset(x: 10, y: -8)
                                 }
                             }
@@ -464,8 +455,11 @@ struct ShelfView: View {
                             .controlSize(.regular)
                     }
                     .padding(30)
-                    .einkSurface(15)
-                    .einkShadow(.black.opacity(0.2), radius: 10, y: 4)
+                    .background(
+                        RoundedRectangle(cornerRadius: 15)
+                            .fill(.ultraThinMaterial)
+                    )
+                    .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 4)
                 }
                 .transition(.opacity)
             }
@@ -491,7 +485,7 @@ struct ShelfView: View {
                             ProgressView(value: importProgress)
                                 .progressViewStyle(.linear)
                                 .frame(width: 220)
-                                .tint(isEInkEnabled ? EInkPalette.ink : .blue)
+                                .tint(.blue)
                         }
 
                         Text(importStatusText)
@@ -500,8 +494,11 @@ struct ShelfView: View {
                             .multilineTextAlignment(.center)
                     }
                     .padding(30)
-                    .einkSurface(15)
-                    .einkShadow(.black.opacity(0.2), radius: 10, y: 4)
+                    .background(
+                        RoundedRectangle(cornerRadius: 15)
+                            .fill(.ultraThinMaterial)
+                    )
+                    .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 4)
                 }
                 .transition(.opacity)
             }
@@ -520,8 +517,11 @@ struct ShelfView: View {
                             .foregroundColor(.secondary)
                     }
                     .padding(20)
-                    .einkSurface(12)
-                    .einkShadow(.black.opacity(0.2), radius: 10, y: 4)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(.ultraThinMaterial)
+                    )
+                    .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 4)
                 }
                 .transition(.opacity)
             }
@@ -615,7 +615,6 @@ struct ShelfView: View {
                     }
                 }
                 .listStyle(.plain)
-                .einkBackground()
             }
         }
     }
@@ -671,21 +670,16 @@ struct ShelfView: View {
         HStack(spacing: 6) {
             Image(systemName: icon)
                 .font(.caption2)
-                .foregroundColor(isEInkEnabled ? EInkPalette.ink : color)
+                .foregroundColor(color)
             Text(title)
                 .font(.caption.weight(.semibold))
-                .foregroundColor(isEInkEnabled ? EInkPalette.ink : color)
+                .foregroundColor(color)
             Text("\(count)")
                 .font(.caption2.weight(.semibold))
-                .foregroundColor(isEInkEnabled ? EInkPalette.ink : .secondary)
+                .foregroundColor(.secondary)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 1)
-                .background(isEInkEnabled ? paper : Color.secondary.opacity(0.15), in: Capsule())
-                .overlay {
-                    if isEInkEnabled {
-                        Capsule().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth)
-                    }
-                }
+                .background(Color.secondary.opacity(0.15), in: Capsule())
             Spacer()
         }
         .textCase(nil)
@@ -747,7 +741,6 @@ struct ShelfView: View {
                     }
                 }
                 .listStyle(.plain)
-                .einkBackground()
             }
         }
     }

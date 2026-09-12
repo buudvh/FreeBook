@@ -23,11 +23,10 @@ extension BookImportConfirmationSheet {
                             Spacer()
                             if decodeID == nil {
                                 Image(systemName: "checkmark")
-                                    .foregroundColor(isEInkEnabled ? EInkPalette.ink : .blue)
+                                    .foregroundColor(.blue)
                             }
                         }
                     }
-                    .einkListRowBackground()
                 }
 
                 Section("Bảng mã") {
@@ -43,26 +42,24 @@ extension BookImportConfirmationSheet {
                                     if autoDecodeID == option.rawValue {
                                         Text("Bảng mã đang hoạt động với file")
                                             .font(.caption2)
-                                            .foregroundColor(isEInkEnabled ? EInkPalette.ink : .orange)
+                                            .foregroundColor(.orange)
                                     }
                                 }
                                 Spacer()
                                 if autoDecodeID == option.rawValue {
                                     Image(systemName: "star.fill")
                                         .font(.caption)
-                                        .foregroundColor(isEInkEnabled ? EInkPalette.ink : .orange)
+                                        .foregroundColor(.orange)
                                 }
                                 if decodeID == option.rawValue {
                                     Image(systemName: "checkmark")
-                                        .foregroundColor(isEInkEnabled ? EInkPalette.ink : .blue)
+                                        .foregroundColor(.blue)
                                 }
                             }
                         }
-                        .einkListRowBackground()
                     }
                 }
             }
-            .einkBackground()
             .navigationTitle("Chọn bảng mã")
             .navigationBarTitleDisplayMode(.inline)
         }
@@ -85,11 +82,10 @@ extension BookImportConfirmationSheet {
                             Spacer()
                             if selectedRuleIDs.isEmpty {
                                 Image(systemName: "checkmark")
-                                    .foregroundColor(isEInkEnabled ? EInkPalette.ink : .blue)
+                                    .foregroundColor(.blue)
                             }
                         }
                     }
-                    .einkListRowBackground()
                 }
 
                 let allRules = TranslateUtils.getAllTOCRules()
@@ -105,7 +101,7 @@ extension BookImportConfirmationSheet {
                         } label: {
                             HStack(alignment: .top, spacing: 10) {
                                 Image(systemName: isSelected ? "checkmark.square.fill" : "square")
-                                    .foregroundColor(isEInkEnabled ? EInkPalette.ink : (isSelected ? .blue : .secondary))
+                                    .foregroundColor(isSelected ? .blue : .secondary)
                                     .padding(.top, 2)
 
                                 VStack(alignment: .leading, spacing: 2) {
@@ -125,11 +121,10 @@ extension BookImportConfirmationSheet {
                                 if matchedRuleIDs.contains(rule.id) {
                                     Image(systemName: "star.fill")
                                         .font(.caption)
-                                        .foregroundColor(isEInkEnabled ? EInkPalette.ink : .orange)
+                                        .foregroundColor(.orange)
                                 }
                             }
                         }
-                        .einkListRowBackground()
                     }
                 }
 
@@ -139,10 +134,8 @@ extension BookImportConfirmationSheet {
                     }
                     .frame(maxWidth: .infinity)
                     .disabled(isReanalyzing)
-                    .einkListRowBackground()
                 }
             }
-            .einkBackground()
             .navigationTitle("Chọn quy tắc TOC")
             .navigationBarTitleDisplayMode(.inline)
         }
@@ -176,11 +169,10 @@ extension BookImportConfirmationSheet {
 
                                 if selectedStructure == mode {
                                     Image(systemName: "checkmark")
-                                        .foregroundColor(isEInkEnabled ? EInkPalette.ink : .blue)
+                                        .foregroundColor(.blue)
                                 }
                             }
                         }
-                        .einkListRowBackground()
                     }
                 }
 
@@ -188,10 +180,8 @@ extension BookImportConfirmationSheet {
                     Text("Chỉ EPUB có mục lục và thứ tự file thật; TXT luôn tách bằng quy tắc TOC.")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                        .einkListRowBackground()
                 }
             }
-            .einkBackground()
             .navigationTitle("Chọn cấu trúc")
             .navigationBarTitleDisplayMode(.inline)
         }

@@ -13,8 +13,6 @@ struct QuickTranslationRuleCaptureChipsView: View {
     let analysis: QuickTranslationRuleDraftAnalyzer.Analysis
     let onInsert: (Int) -> Void
 
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
-
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             if analysis.captureCount == 0 {
@@ -33,13 +31,13 @@ struct QuickTranslationRuleCaptureChipsView: View {
 
                 Text(summary)
                     .font(.caption2)
-                    .foregroundColor(analysis.missing.isEmpty ? .secondary : (isEInkEnabled ? EInkPalette.ink : .red))
+                    .foregroundColor(analysis.missing.isEmpty ? .secondary : .red)
             }
 
             if !analysis.outOfRange.isEmpty {
                 Text("\(analysis.outOfRange.map { "{\($0)}" }.joined(separator: ", ")) vượt quá số token của mẫu — rule sẽ bị từ chối.")
                     .font(.caption2)
-                    .foregroundColor(isEInkEnabled ? EInkPalette.ink : .red)
+                    .foregroundColor(.red)
             }
         }
     }
@@ -55,18 +53,6 @@ struct QuickTranslationRuleCaptureChipsView: View {
     private func chip(_ index: Int) -> some View {
         let isUsed = analysis.referenced.contains(index)
 
-        let fgColor: Color = {
-            if isEInkEnabled { return EInkPalette.ink }
-            return isUsed ? .accentColor : .red
-        }()
-
-        let bgFill: Color = {
-            if isEInkEnabled {
-                return isUsed ? EInkPalette.grayMedium : EInkPalette.paperCard
-            }
-            return isUsed ? Color.accentColor.opacity(0.14) : Color.red.opacity(0.08)
-        }()
-
         return Button {
             onInsert(index)
         } label: {
@@ -76,30 +62,18 @@ struct QuickTranslationRuleCaptureChipsView: View {
                 if isUsed {
                     Image(systemName: "checkmark")
                         .font(.system(size: 8, weight: .bold))
-                } else if isEInkEnabled {
-                    Image(systemName: "exclamationmark")
-                        .font(.system(size: 8, weight: .bold))
                 }
             }
-            .foregroundColor(fgColor)
+            .foregroundColor(isUsed ? .accentColor : .red)
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(bgFill)
+                    .fill(isUsed ? Color.accentColor.opacity(0.14) : Color.red.opacity(0.08))
             )
             .overlay(
-                Group {
-                    if isEInkEnabled {
-                        if !isUsed {
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(EInkPalette.ink, style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
-                        }
-                    } else {
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(isUsed ? Color.clear : Color.red.opacity(0.6), lineWidth: 1)
-                    }
-                }
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(isUsed ? Color.clear : Color.red.opacity(0.6), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)

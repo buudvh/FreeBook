@@ -23,12 +23,7 @@ struct ReaderCopyOriginalOverlayView: View {
     /// Copy chuỗi đang chọn vào clipboard rồi đóng panel.
     let onCommit: () -> Void
 
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
-    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
     private var accent: Color { Color(red: 0.20, green: 0.72, blue: 0.55) }
-    private var paper: Color {
-        EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray)
-    }
 
     private var selectedOriginal: String {
         let ns = originalSentence as NSString
@@ -49,7 +44,7 @@ struct ReaderCopyOriginalOverlayView: View {
             copyButtonView
         }
         .padding()
-        .background(isEInkEnabled ? paper : Color(uiColor: .systemBackground))
+        .background(Color(uiColor: .systemBackground))
     }
 
     private var dragIndicatorView: some View {
@@ -97,10 +92,7 @@ struct ReaderCopyOriginalOverlayView: View {
                                 .font(.body)
                                 .bold(isSelected)
                                 .underline(isSelected)
-                                .foregroundColor(isSelected ? (isEInkEnabled ? EInkPalette.selectedContent : accent) : .primary)
-                                .padding(.horizontal, 1)
-                                .background(isSelected ? (isEInkEnabled ? EInkPalette.ink : accent.opacity(0.12)) : Color.clear)
-                                .cornerRadius(3)
+                                .foregroundColor(isSelected ? accent : .primary)
                                 .id("copy-orig-\(index)")
                                 .onTapGesture {
                                     selectedWordOffset = index
@@ -133,9 +125,8 @@ struct ReaderCopyOriginalOverlayView: View {
         .padding(.horizontal, 4)
         .padding(.vertical, 6)
         .frame(maxWidth: .infinity)
-        .background(isEInkEnabled ? paper : Color.secondary.opacity(0.08))
+        .background(Color.secondary.opacity(0.08))
         .cornerRadius(8)
-        .overlay { if isEInkEnabled { RoundedRectangle(cornerRadius: 8).strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
     }
 
     private func chevronButton(_ icon: String, action: @escaping () -> Void) -> some View {
@@ -143,9 +134,8 @@ struct ReaderCopyOriginalOverlayView: View {
             Image(systemName: icon)
                 .font(.system(size: 13, weight: .bold))
                 .frame(width: 28, height: 28)
-                .background(isEInkEnabled ? paper : accent.opacity(0.12))
+                .background(accent.opacity(0.12))
                 .clipShape(Circle())
-                .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
         }
     }
 
@@ -159,10 +149,10 @@ struct ReaderCopyOriginalOverlayView: View {
                         .font(.subheadline)
                         .bold(isSelected)
                         .underline()
-                        .foregroundColor(isSelected ? (isEInkEnabled ? EInkPalette.selectedContent : accent) : .primary)
+                        .foregroundColor(isSelected ? accent : .primary)
                         .padding(.horizontal, 2)
                         .padding(.vertical, 2)
-                        .background(isSelected ? (isEInkEnabled ? EInkPalette.ink : accent.opacity(0.12)) : Color.clear)
+                        .background(isSelected ? accent.opacity(0.12) : Color.clear)
                         .cornerRadius(4)
                         .onTapGesture {
                             selectedWordOffset = token.originalOffset
@@ -189,9 +179,8 @@ struct ReaderCopyOriginalOverlayView: View {
                 .foregroundColor(.secondary)
         }
         .padding(12)
-        .background(isEInkEnabled ? paper : Color.secondary.opacity(0.1))
+        .background(Color.secondary.opacity(0.1))
         .cornerRadius(8)
-        .overlay { if isEInkEnabled { RoundedRectangle(cornerRadius: 8).strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
     }
 
     private var copyButtonView: some View {
@@ -205,7 +194,7 @@ struct ReaderCopyOriginalOverlayView: View {
             .foregroundColor(.white)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
-            .background(isEInkEnabled ? (selectedOriginal.isEmpty ? Color.gray : EInkPalette.ink) : (selectedOriginal.isEmpty ? Color.gray : accent))
+            .background(selectedOriginal.isEmpty ? Color.gray : accent)
             .cornerRadius(10)
         }
         .disabled(selectedOriginal.isEmpty)

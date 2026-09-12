@@ -15,26 +15,6 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## E-Ink 2 tầng nền (Canvas vs Card) và phân biệt sắc xám ngữ nghĩa (1.3.364)
-
-* **2 tầng nền E-Ink**: Áp dụng triệt để phân cấp 2 tầng nền (`paperCanvas` cho nền toàn màn hình/khung nhìn và `paperCard` cho các card, list row, form row, popup, sheet) trên toàn bộ ứng dụng (ngoại trừ Trình duyệt web và Trình chỉnh sửa script JS).
-* **Phân biệt sắc xám ngữ nghĩa**: Các thành phần biểu thị trạng thái, loại từ điển, chip gợi ý phiên âm được mã hóa bằng sắc xám khác nhau kết hợp kiểu viền:
-  - `grayDark` (`#9E9E9E`, chữ trắng `selectedContent`): Độ ưu tiên cao (Từ điển Tên riêng, nguồn Phiên âm thư viện, ghim).
-  - `grayMedium` (`#C8C8C8`, chữ đen `ink`): Độ ưu tiên trung bình (Từ điển VietPhrase, nguồn phiên âm tiếng Nhật, chip quy tắc đã dùng).
-  - `grayLight` (`#EEEEEE`, chữ đen `ink`): Độ ưu tiên thấp (Hán Việt, IPA/quy tắc tiếng Anh).
-  - Viền nét đứt `[3, 2]`: Hán Việt, token/capture tùy chọn. Viền nét liền: Lựa chọn pipeline chính hoặc đang được chọn.
-* **Đơn sắc hóa UI & Cover**: 100% icon, badge, nút bấm và cover vinyl TTS widget được chuyển sang đơn sắc đen trắng (`EInkPalette.ink` / grayscale) trên E-Ink.
-
-## E-Ink là chính sách trình bày xuyên app, không là subsystem dữ liệu (1.3.362)
-
-* Ranh giới E-Ink vẫn nằm ở `Common` + root `App`: `EInkModeSettings` giữ state/UserDefaults, `EInkPalette` đổi state thành màu, `View+EInk` cung cấp modifier cho View, và `EInkAppearance` là adapter UIKit cho nav/tab bar. Không thêm Service, Model hay dependency mới.
-* `AppLaunchRootView` là nơi phủ nền giấy toàn app và là subscriber root của thay đổi E-Ink. Các màn không cần tự observe singleton chỉ để cập nhật nền giấy nếu dùng modifier `eink*` hoặc nằm dưới root scroll background; các surface dài hạn không đi qua modifier thì đọc `EInkModeSettings.Key.paperColor` bằng `@AppStorage` và gọi `EInkPalette.paperColor(for:)`.
-
-## Panel Dịch là subsystem UI latest-wins, không xoá trắng khi đổi selection (1.3.362)
-
-* `ReaderDefinitionSession` giữ `SelectionSnapshot` cho dữ liệu đang tải và đang hiển thị; `ReaderDefinitionWorker` vẫn là actor thực thi tokenize/lookup/rule trace. `ReaderView` là owner duy nhất quyết định snapshot hiện tại từ `originalSentence`, `selectedWordOffset/Length`, mode và generation.
-* `ReaderDefinitionOverlayView` chỉ vẽ dữ liệu được truyền vào và nhận `isDefinitionCurrent` để khoá nút `Cập nhật`. Nó không tự save khi snapshot lệch, không tự mở request, và không tự giữ bản sao dictionary/rule.
-
 ## Dọn dẹp bản sao lưu trong máy: nút "xoá tất cả" và dọn sau khi upload (1.3.356)
 
 * **"Xoá tất cả" cố ý bỏ qua hàng rào tiền tố tên file.** `LocalBackupStore.deleteAll()` xoá **mọi** file `.fbbackup` trong `backups/`, không lọc theo tiền tố. Đây là chủ ý, không phải sót: hàng rào ở mục 1.3.260 (`BackupPaths.isAutoBackupFileName`, chỉ lượt nền xoá được bản `freebook-auto-`) tồn tại để phép dọn **ngầm** không bao giờ ăn bản người dùng tự tạo/tự đổi tên. `deleteAll()` là hành động **hiện** do người dùng bấm và đã xác nhận, nên nó phải xoá đúng điều nút nói. Đừng "thống nhất" hai đường bằng cách thêm bộ lọc tiền tố vào `deleteAll()`; cũng đừng nới hàng rào tự động.
@@ -542,7 +522,7 @@ Phía View:
 * **Vẫn là hai phân hệ trình duyệt độc lập, cố ý không hợp nhất.** Trình duyệt của Engine (`Services/Extensions/Engine/` + `TabbedVisibleBrowserViewController` + `VisibleBrowserTabManager.shared`) là **singleton toàn app**, sống ngoài SwiftUI để bypass Cloudflare cho tác vụ bóc tách; trình duyệt bypass là **một phiên theo màn hình** (`@StateObject` chết theo view) cho người dùng tự duyệt và import. Điểm dùng chung duy nhất là hàm `isEngineDomainBlocked` — dùng chung *luật chặn*, không dùng chung *vòng đời*.
 * **Ranh giới sở hữu webview**: tất cả `WKWebView` của phiên duyệt do store tạo trong `makeTab` và chỉ bị tháo ở `closeTab`/`deinit` bằng `stopLoadingAndDetach()` (invalidate KVO → `nil` hai delegate → `stopLoading()` → `removeFromSuperview()`). View **không** được tự tạo webview; `BypassBrowserWebPane` chỉ nhận webview đã có.
 * **Phân hệ import truyện không đổi**: `handleImportTap` → `findMatchingExtensions` (regexp trong `plugin.json`, cache tĩnh theo `localPath`) → `onImport(detailUrl, packageId, sourceName)` rồi `dismiss()`. Nó nay đọc URL từ `store.activeTab?.urlString` nên **import theo đúng tab đang xem**, kể cả tab mở từ link ngoài.
-* **Hiệu ứng nút back không chữ vẫn không thuộc phân hệ dữ liệu nào**: `NavigationBarAppearance` ở `Common/Utils` chỉ giữ helper `backButtonAppearance`; `EInkAppearance` dùng helper đó khi dựng nav bar mặc định/E-Ink và cập nhật cả proxy lẫn live bars.
+* **Hiệu ứng nút back không chữ vẫn không thuộc phân hệ nào**: `NavigationBarAppearance` ở `Common/Utils`, gọi một lần trong `FreeBookApp.init()`; lượt này chỉ sửa cách dựng `UINavigationBarAppearance` để lệnh thật sự có hiệu lực, không đổi phạm vi ảnh hưởng (chỉ `backButtonAppearance`, không chạm nút hành động có chữ).
 
 ## Phân hệ Reader và phân hệ kho tiện ích cùng nhận một mảnh mới (1.3.261)
 
@@ -561,7 +541,7 @@ Phía View:
 * **Đường vào phân hệ tăng từ một lên hai**: trước 1.3.260 chỉ `Views/Settings/Backup/**` gọi coordinator, nay có thêm `MainTabView`. Cả hai chia **cùng một** khoá `isBusy`, nên lượt nền và lượt thủ công không bao giờ chồng nhau — nhưng cũng nghĩa là lượt nền đang chạy sẽ làm nút sao lưu/khôi phục trong Cài Đặt `disabled` một lúc. Đó là hành vi cố ý, không phải kẹt.
 * **Reader**: mục "Tìm trong chương" rời menu `ellipsis` của [`ReaderHeaderFooterOverlayView`](../../Sources/Views/Reader/ReaderHeaderFooterOverlayView.swift#L1) thành nút `magnifyingglass` đứng cạnh nút bật/tắt cuộn-theo-TTS trên header. Chỉ điểm phát đổi — closure `onOpenReaderSearch`, snapshot từ `vm.cache.cache`, `ReaderSearchMatcher` và `jumpToReaderSearchResult` **không đổi một dòng**, nên mô tả ranh giới ở mục 1.3.258 bên dưới vẫn đúng trừ câu về vị trí nút.
 * **Trung tâm thông báo**: [`NotificationInboxManager`](../../Sources/Common/Services/NotificationInboxManager.swift#L1) thêm `markRead(_:)` (chạm một hàng toast là đánh dấu đã đọc, `guard` bỏ qua nếu đã đọc nên không ghi đĩa vô ích) và đổi `clearAll()` → `deleteUnread()`. Mục toolbar nay là "Xoá thông báo chưa đọc" (`.disabled(!hasUnread)`) — giữ nguyên chữ "xoá tất cả" sẽ nói sai việc nó làm. Phần đã đọc chỉ mất qua swipe-to-delete từng dòng. **Cố ý không** hiện toast xác nhận sau khi xoá: `ToastManager.show` là choke point ghi vào chính hộp thư này nên toast sẽ tự sinh một thông báo chưa đọc mới.
-* **Nút back không chữ và E-Ink nav/tab bar là hiệu ứng toàn app, không thuộc phân hệ dữ liệu nào**: [`EInkAppearance`](../../Sources/Common/Utils/EInkAppearance.swift#L1) ở `Common/Utils` cài proxy và cập nhật live bars; [`NavigationBarAppearance`](../../Sources/Common/Utils/NavigationBarAppearance.swift#L1) chỉ cung cấp helper cho `backButtonAppearance`, không dùng `UIBarButtonItem.appearance()` nên không ảnh hưởng nút hành động có chữ ("Đóng"/"Xong"/"Huỷ").
+* **Nút back không chữ là hiệu ứng toàn app, không thuộc phân hệ nào**: [`NavigationBarAppearance`](../../Sources/Common/Utils/NavigationBarAppearance.swift#L1) ở `Common/Utils`, gọi một lần trong `FreeBookApp.init()`. Nó chỉ chạm `backButtonAppearance` của proxy nên **không** ảnh hưởng nút hành động có chữ ("Đóng"/"Xong"/"Huỷ") — đó là lý do không dùng `UIBarButtonItem.appearance()`.
 
 ## Gỡ phân hệ tìm toàn văn; thêm tìm-Reader + Trung tâm thông báo (1.3.258)
 

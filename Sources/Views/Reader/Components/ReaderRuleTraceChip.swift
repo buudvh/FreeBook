@@ -11,13 +11,6 @@ struct ReaderRuleTraceChip: View {
     let onTap: () -> Void
     let onLongPress: () -> Void
 
-    /// Đọc thẳng khoá `UserDefaults` để chip tự cập nhật khi đổi chế độ E-Ink.
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
-    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
-    private var paper: Color {
-        EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray)
-    }
-
     private var style: ReaderRuleChipStyle {
         ReaderRuleChipStyle(status: trace.status)
     }
@@ -48,18 +41,18 @@ struct ReaderRuleTraceChip: View {
                     .lineLimit(1)
                     .opacity(0.85)
             }
-            .foregroundColor(isEInkEnabled ? EInkPalette.ink : style.textColor)
+            .foregroundColor(style.textColor)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(isEInkEnabled ? paper : Color(red: 0.12, green: 0.12, blue: 0.15))
+            .background(Color(red: 0.12, green: 0.12, blue: 0.15))
             .cornerRadius(14)
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
-                    .stroke(isEInkEnabled ? EInkPalette.ink : style.borderColor, lineWidth: isEInkEnabled ? (isSelected ? EInkPalette.selectedBorderWidth : style.borderWidth) : style.borderWidth)
+                    .stroke(style.borderColor, lineWidth: style.borderWidth)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
-                    .stroke(isEInkEnabled ? EInkPalette.ink.opacity(isSelected ? 1 : 0) : Color.white.opacity(isSelected ? 0.55 : 0), lineWidth: 1)
+                    .stroke(Color.white.opacity(isSelected ? 0.55 : 0), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)

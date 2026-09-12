@@ -35,12 +35,6 @@ struct BookListItemView<Item: BookDisplayable>: View {
     var extensionIconUrl: String?
 
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
-    /// Đọc thẳng khoá `UserDefaults` để hàng tự cập nhật khi đổi chế độ.
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
-    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
-    private var paper: Color {
-        EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray)
-    }
 
     init(
         item: Item,
@@ -114,7 +108,7 @@ struct BookListItemView<Item: BookDisplayable>: View {
                     if !chapterTitle.isEmpty {
                         Text("Đang đọc: \(chapterTitle)")
                             .font(.caption2)
-                            .einkAccentForeground(.blue)
+                            .foregroundColor(.blue)
                             .lineLimit(1)
                     }
                 }
@@ -161,14 +155,7 @@ struct BookListItemView<Item: BookDisplayable>: View {
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 2)
-        // Nền xám 12% trên e-ink gần như vô hình ⇒ đổi thành nền trắng + viền đen để badge vẫn là một
-        // khối tách khỏi dòng chữ.
-        .background(isEInkEnabled ? paper : Color.secondary.opacity(0.12), in: Capsule())
-        .overlay {
-            if isEInkEnabled {
-                Capsule().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth)
-            }
-        }
+        .background(Color.secondary.opacity(0.12), in: Capsule())
     }
 }
 

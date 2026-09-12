@@ -51,12 +51,10 @@ struct BookShareTargetSheet: View {
                             extensionLocalPath: ext?.localPath ?? "",
                             extensionIconUrl: ext?.iconUrl
                         )
-                        .einkListRowBackground()
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }
-                .einkBackground()
                 .overlay {
                     if filteredBooks.isEmpty {
                         VStack(spacing: 8) {

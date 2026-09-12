@@ -10,7 +10,6 @@ struct ManageDefinitionsView: View {
     /// Toàn bộ thao tác sửa nằm trong bản nháp; đĩa chỉ được ghi một lần lúc đóng màn.
     @State private var draft: ManageDefinitionsDraft
     @State private var hasSaved = false
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
 
     init(word: String, bookId: String, matches: Binding<[DictionaryMatchInfo]>, onChanged: @escaping () -> Void) {
         self.word = word
@@ -37,20 +36,17 @@ struct ManageDefinitionsView: View {
                         .font(.title2)
                         .fontWeight(.bold)
                 }
-                .einkListRowBackground()
 
                 Section(header: Text("Phiên âm")) {
                     Text(getHanViet(for: word))
                         .font(.body)
                 }
-                .einkListRowBackground()
 
                 makeDictionarySection(title: "Name (Riêng)", source: "Names (Riêng)")
                 makeDictionarySection(title: "Name (Chung)", source: "Names (Chung)")
                 makeDictionarySection(title: "VietPhrase (Riêng)", source: "VietPhrase (Riêng)")
                 makeDictionarySection(title: "VietPhrase (Chung)", source: "VietPhrase (Chung)")
             }
-            .einkBackground()
             .navigationTitle("Quản lý nghĩa từ")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -75,7 +71,6 @@ struct ManageDefinitionsView: View {
                 Text("Chưa có định nghĩa nào")
                     .foregroundColor(.secondary)
                     .italic()
-                    .einkListRowBackground()
             } else {
                 ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
                     ManageDefinitionRowView(
@@ -88,7 +83,6 @@ struct ManageDefinitionsView: View {
                         onInsertAbove: { draft.insertEmptyRow(source: source, at: index) },
                         onToggleDeleted: { draft.setDeleted(!row.isDeleted, rowId: row.id, source: source) }
                     )
-                    .einkListRowBackground()
                 }
             }
 
@@ -96,10 +90,9 @@ struct ManageDefinitionsView: View {
                 draft.appendEmptyRow(source: source)
             } label: {
                 Label("Thêm nghĩa ở cuối", systemImage: "plus.circle.fill")
-                    .foregroundColor(isEInkEnabled ? EInkPalette.ink : .green)
+                    .foregroundColor(.green)
             }
             .buttonStyle(.borderless)
-            .einkListRowBackground()
         } header: {
             Text(title)
         }

@@ -185,10 +185,8 @@ struct QuickTranslationRuleEditorSheet: View {
                     } header: {
                         Text("Kiểm tra")
                     }
-                    .einkListRowBackground()
                 }
             }
-            .einkBackground()
             .navigationTitle(isEditing ? "Sửa rule" : "Thêm rule")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

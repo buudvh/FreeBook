@@ -80,9 +80,8 @@ extension ExtensionScriptEditorView {
                         .foregroundColor(textFg)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
-                        .background(eink.isEnabled ? paper : Color(uiColor: .tertiarySystemFill))
+                        .background(Color(uiColor: .tertiarySystemFill))
                         .cornerRadius(6)
-                        .overlay { if eink.isEnabled { RoundedRectangle(cornerRadius: 6).strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
                 }
 
                 ForEach(quickSymbols, id: \.self) { sym in
@@ -94,17 +93,15 @@ extension ExtensionScriptEditorView {
                             .foregroundColor(textFg)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
-                            .background(eink.isEnabled ? paper : Color(uiColor: .tertiarySystemFill))
+                            .background(Color(uiColor: .tertiarySystemFill))
                             .cornerRadius(6)
-                            .overlay { if eink.isEnabled { RoundedRectangle(cornerRadius: 6).strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
                     }
                 }
             }
             .padding(.horizontal)
             .padding(.vertical, 6)
         }
-        .background(eink.isEnabled ? paper : Color(uiColor: .secondarySystemBackground))
-        .overlay(alignment: .top) { if eink.isEnabled { Rectangle().fill(EInkPalette.separator).frame(height: EInkPalette.separatorWidth) } }
+        .background(Color(uiColor: .secondarySystemBackground))
     }
 
     internal var editorFooter: some View {
@@ -143,8 +140,7 @@ extension ExtensionScriptEditorView {
         }
         .padding(.horizontal)
         .padding(.vertical, 6)
-        .background(eink.isEnabled ? paper : Color(uiColor: .secondarySystemBackground))
-        .overlay(alignment: .top) { if eink.isEnabled { Rectangle().fill(EInkPalette.separator).frame(height: EInkPalette.separatorWidth) } }
+        .background(Color(uiColor: .secondarySystemBackground))
     }
 
     /// Nút chỉnh cỡ chữ A- / A+.
@@ -174,9 +170,8 @@ extension ExtensionScriptEditorView {
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 3)
-        .background(eink.isEnabled ? paper : Color(uiColor: .tertiarySystemFill))
+        .background(Color(uiColor: .tertiarySystemFill))
         .cornerRadius(6)
-        .overlay { if eink.isEnabled { RoundedRectangle(cornerRadius: 6).strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
     }
 
     /// Tắt bàn phím: gửi `resignFirstResponder` cho responder đang giữ tiêu điểm.

@@ -7,8 +7,6 @@ struct ReaderRoute: Identifiable, Hashable {
 }
 
 struct BookDetailView: View {
-    /// Đọc thẳng khoá `UserDefaults` để nút hành động + badge tab tự cập nhật khi đổi chế độ.
-    @AppStorage(EInkModeSettings.Key.enabled) internal var isEInkEnabled = false
     @Environment(\.modelContext) internal var modelContext
     @Environment(\.dismiss) private var dismiss
     @Query private var allBooks: [Book]
@@ -230,7 +228,6 @@ struct BookDetailView: View {
                 }
             }
         }
-        .einkBackground()
         .navigationTitle("Chi Tiết Truyện")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -499,7 +496,6 @@ struct BookDetailView: View {
         .refreshable {
             await reloadBookData()
         }
-        .einkBackground()
     }
 
     internal func refreshLocalTOCSnapshots() {
@@ -630,10 +626,10 @@ struct BookDetailView: View {
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
-                                .background(isEInkEnabled ? EInkPalette.ink : Color.blue)
+                                .background(Color.blue)
                                 .foregroundColor(.white)
                                 .cornerRadius(20)
-                                .einkShadow(.black.opacity(0.33), radius: 3)
+                                .shadow(radius: 3)
                             }
                             .transition(.scale.combined(with: .opacity))
 
@@ -655,10 +651,10 @@ struct BookDetailView: View {
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
-                                .background(isEInkEnabled ? EInkPalette.ink : (localBook?.isOnShelf == true ? Color.green : Color.accentColor))
+                                .background(localBook?.isOnShelf == true ? Color.green : Color.accentColor)
                                 .foregroundColor(.white)
                                 .cornerRadius(20)
-                                .einkShadow(.black.opacity(0.33), radius: 3)
+                                .shadow(radius: 3)
                             }
                             .transition(.scale.combined(with: .opacity))
 
@@ -676,10 +672,10 @@ struct BookDetailView: View {
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
-                                .background(isEInkEnabled ? EInkPalette.ink : Color.green)
+                                .background(Color.green)
                                 .foregroundColor(.white)
                                 .cornerRadius(20)
-                                .einkShadow(.black.opacity(0.33), radius: 3)
+                                .shadow(radius: 3)
                             }
                             .transition(.scale.combined(with: .opacity))
 
@@ -697,10 +693,10 @@ struct BookDetailView: View {
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
-                                .background(isEInkEnabled ? EInkPalette.ink : Color.orange)
+                                .background(Color.orange)
                                 .foregroundColor(.white)
                                 .cornerRadius(20)
-                                .einkShadow(.black.opacity(0.33), radius: 3)
+                                .shadow(radius: 3)
                             }
                             .transition(.scale.combined(with: .opacity))
                         }
@@ -715,9 +711,9 @@ struct BookDetailView: View {
                                 .frame(width: 20, height: 20)
                                 .foregroundColor(.white)
                                 .padding(16)
-                                .background(isEInkEnabled ? EInkPalette.ink : Color.accentColor)
+                                .background(Color.accentColor)
                                 .clipShape(Circle())
-                                .einkShadow(.black.opacity(0.33), radius: 5)
+                                .shadow(radius: 5)
                                 .rotationEffect(.degrees(isMenuExpanded ? 135 : 0))
                         }
                     }

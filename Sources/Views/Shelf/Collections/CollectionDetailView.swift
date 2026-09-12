@@ -13,7 +13,6 @@ struct CollectionDetailView: View {
     /// tới: khối quản lý bộ nằm ở file khác, mà `private` của Swift là phạm vi **file**.
     @Environment(\.modelContext) var modelContext
     @Environment(\.dismiss) var dismiss
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
 
     @Query private var allCollections: [BookCollection]
     @Query private var allExtensions: [Extension]
@@ -70,7 +69,6 @@ struct CollectionDetailView: View {
                 deletionOverlay
             }
         }
-        .einkBackground()
         .navigationTitle(collection?.name ?? "Bộ sưu tập")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -181,7 +179,6 @@ struct CollectionDetailView: View {
                 }
             }
             .listStyle(.plain)
-            .einkBackground()
         }
     }
 
@@ -217,20 +214,19 @@ struct CollectionDetailView: View {
 
     /// `textCase(nil)` để tiêu đề giữ nguyên chữ thường — mặc định của `List` là in hoa hết.
     private func sectionHeader(_ title: String, icon: String, color: Color, count: Int) -> some View {
-        let displayColor = isEInkEnabled ? EInkPalette.ink : color
-        return HStack(spacing: 6) {
+        HStack(spacing: 6) {
             Image(systemName: icon)
                 .font(.caption2)
-                .foregroundColor(displayColor)
+                .foregroundColor(color)
             Text(title)
                 .font(.caption.weight(.semibold))
-                .foregroundColor(displayColor)
+                .foregroundColor(color)
             Text("\(count)")
                 .font(.caption2.weight(.semibold))
                 .foregroundColor(.secondary)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 1)
-                .background(isEInkEnabled ? EInkPalette.grayLight : Color.secondary.opacity(0.15), in: Capsule())
+                .background(Color.secondary.opacity(0.15), in: Capsule())
             Spacer()
         }
         .textCase(nil)
@@ -272,8 +268,11 @@ struct CollectionDetailView: View {
                     .foregroundColor(.secondary)
             }
             .padding(20)
-            .einkSurface(12)
-            .einkShadow(.black.opacity(0.2), radius: 10, y: 4)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(.ultraThinMaterial)
+            )
+            .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 4)
         }
         .transition(.opacity)
     }

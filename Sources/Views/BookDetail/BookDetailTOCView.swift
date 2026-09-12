@@ -19,11 +19,6 @@ struct BookDetailTOCView: View {
     let onTranslateChapterTitleIfNeeded: (Chapter) -> String
     let onTranslateTitleIfNeeded: (String) -> String
     let onLoadMoreChapters: () -> Void
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
-    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
-    private var paper: Color {
-        EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray)
-    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -32,7 +27,6 @@ struct BookDetailTOCView: View {
             }
             tocListView
         }
-        .einkBackground()
     }
 
     private var searchBarView: some View {
@@ -52,7 +46,7 @@ struct BookDetailTOCView: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
-        .einkBackground(Color(.systemBackground))
+        .background(Color(.systemBackground))
     }
 
     private var filteredChapterSnapshots: [StoredChapterSnapshot] {
@@ -80,7 +74,6 @@ struct BookDetailTOCView: View {
                         Image(systemName: isTocAscending ? "arrow.down.circle" : "arrow.up.circle")
                             .font(.subheadline)
                             .foregroundColor(.accentColor)
-                            .einkAccentForeground(.accentColor)
                     }
                     .padding(.leading, 4)
 
@@ -93,7 +86,6 @@ struct BookDetailTOCView: View {
                             }
                             .font(.caption)
                             .foregroundColor(.red)
-                            .einkAccentForeground(.red)
                         }
                     }
                 }
@@ -138,7 +130,6 @@ struct BookDetailTOCView: View {
                                         let displayTitle = isTranslationEnabled ? onTranslateTitleIfNeeded(chap.titleTrans ?? chap.title) : chap.title
                                         Text(displayTitle)
                                             .foregroundColor((localBook?.currentChapterIndex ?? 0) == chap.index ? .accentColor : .primary)
-                                            .einkAccentForeground((localBook?.currentChapterIndex ?? 0) == chap.index ? .accentColor : .primary)
                                             .font(.subheadline)
                                             .lineLimit(2)
                                         Spacer()
@@ -146,7 +137,6 @@ struct BookDetailTOCView: View {
                                             Image(systemName: "arrow.down.circle.fill")
                                                 .font(.caption)
                                                 .foregroundColor(.green)
-                                                .einkAccentForeground(.green)
                                         }
                                     }
                                     .padding(.vertical, 12)
@@ -163,7 +153,6 @@ struct BookDetailTOCView: View {
                                     HStack {
                                         Text(onTranslateChapterTitleIfNeeded(chap))
                                             .foregroundColor(book.currentChapterIndex == chap.index ? .accentColor : .primary)
-                                            .einkAccentForeground(book.currentChapterIndex == chap.index ? .accentColor : .primary)
                                             .font(.subheadline)
                                             .lineLimit(2)
                                         Spacer()
@@ -171,7 +160,6 @@ struct BookDetailTOCView: View {
                                             Image(systemName: "arrow.down.circle.fill")
                                                 .font(.caption)
                                                 .foregroundColor(.green)
-                                                .einkAccentForeground(.green)
                                         }
                                     }
                                     .padding(.vertical, 12)
@@ -208,10 +196,9 @@ struct BookDetailTOCView: View {
                                     Spacer()
                                 }
                                 .padding()
-                                .background(isEInkEnabled ? paper : Color.blue.opacity(0.1))
-                                .foregroundColor(isEInkEnabled ? EInkPalette.ink : .blue)
+                                .background(Color.blue.opacity(0.1))
+                                .foregroundColor(.blue)
                                 .cornerRadius(8)
-                                .overlay { if isEInkEnabled { RoundedRectangle(cornerRadius: 8).strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
                                 .padding(.horizontal)
                                 .padding(.top, 10)
                             }

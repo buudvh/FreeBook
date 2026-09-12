@@ -20,8 +20,6 @@ struct DictionaryEntryRow: View {
     let onCopy: (DictType, DictionaryTransferTarget) -> Void
     let onMissingContext: () -> Void
 
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
-
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
@@ -38,7 +36,7 @@ struct DictionaryEntryRow: View {
                 onEdit()
             } label: {
                 Image(systemName: "pencil")
-                    .foregroundColor(isEInkEnabled ? EInkPalette.ink : .accentColor)
+                    .foregroundColor(.accentColor)
                     .font(.subheadline)
             }
             .buttonStyle(.plain)
@@ -50,7 +48,7 @@ struct DictionaryEntryRow: View {
                 onDelete()
             } label: {
                 Image(systemName: "trash")
-                    .foregroundColor(isEInkEnabled ? EInkPalette.ink : .red)
+                    .foregroundColor(.red)
                     .font(.subheadline)
             }
             .buttonStyle(.plain)
@@ -114,9 +112,8 @@ struct DictionaryEntryRow: View {
     }
 
     private func transferIcon(color: Color) -> some View {
-        let displayColor = isEInkEnabled ? (color == .secondary ? .secondary : EInkPalette.ink) : color
-        return Image(systemName: "arrow.left.arrow.right")
-            .foregroundColor(displayColor)
+        Image(systemName: "arrow.left.arrow.right")
+            .foregroundColor(color)
             .font(.subheadline)
     }
 }

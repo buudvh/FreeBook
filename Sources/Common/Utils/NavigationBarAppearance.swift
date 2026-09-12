@@ -43,10 +43,7 @@ enum NavigationBarAppearance {
     /// Màu trong suốt cho **cả bốn** trạng thái: bỏ sót trạng thái nào thì chữ hiện lại đúng lúc
     /// người dùng đang nhấn giữ nút. Kèm cỡ chữ 0.1pt để nhãn không còn chiếm chỗ, nếu không
     /// chevron sẽ lệch hẳn sang trái so với tiêu đề.
-    ///
-    /// `internal` (không `private`) vì `EInkAppearance` dựng appearance **mới** cho chế độ E-Ink và phải
-    /// áp lại đúng thiết lập này — dùng chung một chỗ thay vì chép lại bốn dòng.
-    static func hideBackButtonTitle(in appearance: UINavigationBarAppearance) {
+    private static func hideBackButtonTitle(in appearance: UINavigationBarAppearance) {
         let attributes: [NSAttributedString.Key: Any] = [
             .foregroundColor: UIColor.clear,
             .font: UIFont.systemFont(ofSize: 0.1)

@@ -52,7 +52,6 @@ struct BackupHubView: View {
 
             driveSection
         }
-        .einkBackground(Color(.systemGroupedBackground))
         .navigationTitle("Sao Lưu & Khôi Phục")
         .onAppear { coordinator.refreshLocal() }
         .sheet(isPresented: $showingImporter) { importer }

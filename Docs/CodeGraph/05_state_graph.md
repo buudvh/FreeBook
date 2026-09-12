@@ -15,10 +15,10 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## State generation, request identity và deferred apply (1.3.362)
+## State generation, request identity và deferred apply (1.3.354)
 
 * `TranslationDictionaryState.publicationRevision` tăng mỗi lần publish/invalidate; `translationGenerationToken` mang revision đó. `TranslationReadContext.isCurrent` kiểm cả token và revision trước khi cho cache/task publish.
-* `ReaderDefinitionSession` sở hữu `identity`, `requestID`, `meaningRevision`, hai task loading, các cờ loading/saving và hai snapshot: `loadingSnapshot` cho request đang bay, `displayedSnapshot` cho dữ liệu đang vẽ. Kết quả chỉ ghi UI khi request identity, panel state, selection snapshot và generation còn khớp; request mới không xoá nghĩa/chip cũ trước khi dữ liệu mới tới.
+* `ReaderDefinitionSession` sở hữu `identity`, `requestID`, `meaningRevision`, hai task loading và các cờ loading/saving. Kết quả chỉ ghi UI khi cả request identity, panel state và generation còn khớp.
 * `ReaderTranslationPresentation` có `deferred` + tối đa một `pending`; Reader giữ `pendingTranslationScope`, debounce task 500 ms và cờ overlay deferral. Chương cache không hiện tại bị hạ token về 0.
 * `TTSPreparedNextChapterKey` và `ProcessedChapterDTO` mang `translationToken`; state prepared/DTO/audio mang token cũ không còn được consume.
 
@@ -52,7 +52,7 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 * **`focusedRuleTrace` và `focusedRuleRange` là state *dẫn xuất*, không phải state mới**: chưa chọn chip nào thì `focusedRuleTrace` lấy `ruleTraces.first` (ô nghĩa rule không bao giờ trống trơn khi có rule), và `focusedRuleRange` chỉ là `trace.sourceRange`. Quan trọng: **vùng chọn của người dùng và vùng rule đang xem là hai state riêng** — bấm chip tô thêm một lớp chứ **không** snap vùng chọn như màn Check rule cũ, nên thứ quyết định tra từ điển không bị đổi sau lưng.
 * **`ruleActionTarget`/`showingRuleActions` buộc phải khai trong `struct ReaderDefinitionOverlayView` gốc**, không khai được ở `+Rules.swift`: `extension` của Swift không thêm được stored property. Đây là ràng buộc cơ học, không phải lựa chọn thiết kế.
 * **`didChangeRuleData` giữ nguyên vai "có cần dịch lại khi đóng panel"**, nhưng chỗ tiêu thụ nó chuyển sang `.onChange(of: showingDefinitionSheet)` → `handleDefinitionPanelClosed()`. Bắt buộc, vì nút ✕ và cú kéo xuống đóng panel qua binding `isPresented`, **không** đi qua `closeDefinitionPanel()`. `openDefinitionPanel()` reset cả `didChangeRuleData` và `focusedRuleTraceID`.
-* **`selectedWordOffset` đổi trong lúc panel mở ⇒ `updateEditorFromSelection()` mở request definition mới**, request đó latest-wins theo `SelectionSnapshot` rồi mới refresh rule trace. `refreshRuleTraces` tự **giữ focus nếu chip cũ còn tồn tại**, chỉ xoá `focusedRuleTraceID` khi rule đó biến mất khỏi kết quả. Không có ca "chip đã xoá mà ô nghĩa còn hiện nghĩa của nó".
+* **`selectedWordOffset` đổi trong lúc panel mở ⇒ `refreshRuleTraces()`**, và `refreshRuleTraces` tự **giữ focus nếu chip cũ còn tồn tại**, chỉ xoá `focusedRuleTraceID` khi rule đó biến mất khỏi kết quả. Không có ca "chip đã xoá mà ô nghĩa còn hiện nghĩa của nó".
 * **`downloadingChapterIndices: Set<Int>` của `ReaderChapterListView` là state *tạm của phiên*, không phải nguồn sự thật.** Nguồn sự thật "chương đã tải" vẫn là `isCached` do `store` cấp; `Set` chỉ quyết định hàng nào vẽ `ProgressView`. Nó được dọn bằng `defer` ngay trong `Task` nên mọi đường ra — thành công, lỗi, `CancellationError` — đều trả hàng về trạng thái tĩnh. `guard !downloadingChapterIndices.contains(index)` là thứ chặn bấm hai lần.
 
 ## Bộ đếm hẹn giờ tắt: `sleepTimerRemainingSeconds` là state của phiên, không phái sinh từ `timerMode` (1.3.300)

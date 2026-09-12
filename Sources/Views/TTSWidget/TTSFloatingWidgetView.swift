@@ -107,8 +107,6 @@ struct TTSWidgetContentView: View {
 
 /// Giao diện dạng capsule mở rộng (revealed mode).
 struct TTSWidgetCapsuleView: View {
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
-    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
     let coverImage: UIImage?
     let rotationAngle: Double
     @ObservedObject var viewModel: FloatingWidgetViewModel
@@ -116,9 +114,6 @@ struct TTSWidgetCapsuleView: View {
     private let ttsManager = TTSManager.shared
 
     @State private var showingQuickTimerSheet = false
-    private var paper: Color {
-        EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray)
-    }
 
     var body: some View {
         VStack(spacing: 4) {
@@ -129,16 +124,11 @@ struct TTSWidgetCapsuleView: View {
                     Text(ttsState.snapshot.sleepTimerBadgeText)
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
                 }
-                .foregroundStyle(isEInkEnabled ? EInkPalette.selectedContent : .white)
+                .foregroundStyle(.white)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 3)
-                .background(Capsule().fill(isEInkEnabled ? EInkPalette.selectedFill : Color.orange))
-                .overlay {
-                    if isEInkEnabled {
-                        Capsule().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth)
-                    }
-                }
-                .einkShadow(.orange.opacity(0.4), radius: 4, y: 2)
+                .background(Capsule().fill(Color.orange))
+                .shadow(color: .orange.opacity(0.4), radius: 4, x: 0, y: 2)
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
 
@@ -160,20 +150,9 @@ struct TTSWidgetCapsuleView: View {
                 }) {
                     Image(systemName: ttsState.snapshot.timerMode != .off ? "timer" : "gearshape.fill")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(isEInkEnabled ? EInkPalette.ink : (ttsState.snapshot.timerMode != .off ? Color.orange : Color.primary))
+                        .foregroundStyle(ttsState.snapshot.timerMode != .off ? Color.orange : Color.primary)
                         .frame(width: 30, height: 30)
-                        .background(
-                            Circle().fill(
-                                isEInkEnabled
-                                    ? (ttsState.snapshot.timerMode != .off ? paper : Color.clear)
-                                    : (ttsState.snapshot.timerMode != .off ? Color.orange.opacity(0.18) : Color.primary.opacity(0.09))
-                            )
-                        )
-                        .overlay {
-                            if isEInkEnabled {
-                                Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth)
-                            }
-                        }
+                        .background(Circle().fill(ttsState.snapshot.timerMode != .off ? Color.orange.opacity(0.18) : Color.primary.opacity(0.09)))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Hẹn giờ và cài đặt")
@@ -210,21 +189,9 @@ struct TTSWidgetCapsuleView: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 8)
-            .background {
-                if isEInkEnabled {
-                    Capsule().fill(paper)
-                } else {
-                    Capsule().fill(.ultraThinMaterial)
-                }
-            }
-            .overlay {
-                if isEInkEnabled {
-                    Capsule().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth)
-                } else {
-                    Capsule().stroke(Color.white.opacity(0.2), lineWidth: 1)
-                }
-            }
-            .einkShadow(.black.opacity(0.28), radius: 11, y: 5)
+            .background(Capsule().fill(.ultraThinMaterial))
+            .overlay(Capsule().stroke(Color.white.opacity(0.2), lineWidth: 1))
+            .shadow(color: .black.opacity(0.28), radius: 11, x: 0, y: 5)
         }
         .sheet(isPresented: $showingQuickTimerSheet, onDismiss: {
             viewModel.disableAutoHide = false
@@ -263,13 +230,8 @@ struct TTSWidgetCapsuleView: View {
 
 /// Giao diện dạng đĩa tròn thu nhỏ (peeking mode).
 struct TTSWidgetPeekCircleView: View {
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
-    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
     let coverImage: UIImage?
     let rotationAngle: Double
-    private var paper: Color {
-        EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray)
-    }
 
     var body: some View {
         TTSCoverView(
@@ -279,21 +241,9 @@ struct TTSWidgetPeekCircleView: View {
         )
         .padding(6)
         .frame(width: 52, height: 52)
-        .background {
-            if isEInkEnabled {
-                Circle().fill(paper)
-            } else {
-                Circle().fill(.ultraThinMaterial)
-            }
-        }
-        .overlay {
-            if isEInkEnabled {
-                Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth)
-            } else {
-                Circle().stroke(Color.white.opacity(0.2), lineWidth: 1)
-            }
-        }
-        .einkShadow(.black.opacity(0.28), radius: 11, y: 5)
+        .background(Circle().fill(.ultraThinMaterial))
+        .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1))
+        .shadow(color: .black.opacity(0.28), radius: 11, x: 0, y: 5)
         .contentShape(Circle())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Mở điều khiển TTS")
@@ -303,22 +253,16 @@ struct TTSWidgetPeekCircleView: View {
 
 /// View hiển thị ảnh bìa dạng tròn có hiệu ứng xoay đĩa than mượt mà.
 struct TTSCoverView: View {
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
-    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
     let image: UIImage?
     let size: CGFloat
     var rotationAngle: Double = 0.0
-    private var paper: Color {
-        EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray)
-    }
 
     var body: some View {
         coverImage
             .frame(width: size, height: size)
             .rotationEffect(.degrees(rotationAngle))
             .clipShape(Circle())
-            .overlay(Circle().stroke(isEInkEnabled ? EInkPalette.ink : Color.white.opacity(0.35), lineWidth: 1))
-            .einkMonochrome()
+            .overlay(Circle().stroke(Color.white.opacity(0.35), lineWidth: 1))
     }
 
     @ViewBuilder
@@ -334,20 +278,14 @@ struct TTSCoverView: View {
 
     private var fallback: some View {
         ZStack {
-            if isEInkEnabled {
-                // Gradient ba màu là thứ e-ink render tệ nhất — dải chuyển sắc thành vệt nhoè. Thay bằng
-                // nền trắng; khối bìa vẫn tách khỏi widget nhờ icon đen ở giữa.
-                paper
-            } else {
-                LinearGradient(
-                    colors: [.blue.opacity(0.7), .purple.opacity(0.6), .black.opacity(0.7)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            }
+            LinearGradient(
+                colors: [.blue.opacity(0.7), .purple.opacity(0.6), .black.opacity(0.7)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
             Image(systemName: "book.fill")
                 .font(.system(size: size * 0.36, weight: .semibold))
-                .foregroundStyle(isEInkEnabled ? EInkPalette.ink : .white.opacity(0.88))
+                .foregroundStyle(.white.opacity(0.88))
         }
     }
 }

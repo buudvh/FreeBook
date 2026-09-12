@@ -1,14 +1,14 @@
 import SwiftUI
 
 extension ReaderView {
-    private func currentDefinitionSnapshot() -> ReaderDefinitionSession.SelectionSnapshot? {
-        let range = NSRange(location: selectedWordOffset, length: selectedWordLength)
-        let ns = originalSentence as NSString
-        guard range.location >= 0, range.length > 0, NSMaxRange(range) <= ns.length else { return nil }
+    func currentDefinitionSnapshot() -> ReaderDefinitionSession.SelectionSnapshot? {
+        guard !originalSentence.isEmpty else { return nil }
+        let location = max(0, min(selectedWordOffset, originalSentence.utf16.count))
+        let length = max(0, min(selectedWordLength, originalSentence.utf16.count - location))
         return ReaderDefinitionSession.SelectionSnapshot(
             sentence: originalSentence,
             word: selectedTextForDefinition,
-            range: range,
+            range: NSRange(location: location, length: length),
             mode: translationMode,
             convertTraditional: shouldConvertTraditionalToSimplified,
             generation: TranslateUtils.translationGenerationToken(for: bookId)
@@ -16,14 +16,17 @@ extension ReaderView {
     }
 
     func isDefinitionDataCurrent() -> Bool {
-        guard let snapshot = currentDefinitionSnapshot() else { return false }
-        return definitionSession.displayedSnapshot == snapshot
+        guard let current = currentDefinitionSnapshot(),
+              let displayed = definitionSession.displayedSnapshot else {
+            return false
+        }
+        return current == displayed
     }
 
     func saveDefinition() {
         let word = selectedTextForDefinition.trimmingCharacters(in: .whitespacesAndNewlines)
         let meaning = customMeaning.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !word.isEmpty, !meaning.isEmpty, !definitionSession.saving, isDefinitionDataCurrent() else { return }
+        guard !word.isEmpty, !meaning.isEmpty, !definitionSession.saving else { return }
         let book = saveToBookSpecific ? bookId : nil
         let isName = saveAsNameType
         let session = definitionSession.identity

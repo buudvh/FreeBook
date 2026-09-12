@@ -27,74 +27,52 @@ extension ReaderDefinitionOverlayView {
 
     @ViewBuilder
     internal var ruleMeaningRowView: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack(spacing: 6) {
-                Text("Nghĩa rule")
-                    .font(.system(size: 9, weight: .bold))
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 1)
-                    .background(isEInkEnabled ? paper : Color.secondary.opacity(0.18), in: RoundedRectangle(cornerRadius: 3))
-                    .overlay { if isEInkEnabled { RoundedRectangle(cornerRadius: 3).strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
+        if let notice = ruleNoticeText {
+            Text(notice)
+                .font(.caption)
+                .foregroundColor(.orange)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } else if let trace = focusedRuleTrace {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text("Nghĩa rule")
+                        .font(.system(size: 9, weight: .bold))
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(Color.secondary.opacity(0.18))
+                        .cornerRadius(3)
 
-                if let trace = focusedRuleTrace {
                     Text(ReaderRuleChipStyle.label(for: trace.status))
                         .font(.caption2)
                         .foregroundColor(.secondary)
-                } else if let header = ruleNoticeHeader {
-                    Text(header)
-                        .font(.caption2)
-                        .foregroundColor(.orange)
-                        .einkAccentForeground(.orange)
                 }
 
-                Spacer()
-
-                if isLoadingRules {
-                    ProgressView()
-                        .controlSize(.mini)
-                }
+                Text(trace.rendered.isEmpty ? "(rule này không sinh chữ nào ở đây)" : trace.rendered)
+                    .font(.body)
+                    .foregroundColor(trace.status.isDisabled ? .secondary : .primary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-
-            Group {
-                if let trace = focusedRuleTrace {
-                    Text(trace.rendered.isEmpty ? "(rule này không sinh chữ nào ở đây)" : trace.rendered)
-                        .font(.subheadline)
-                        .foregroundColor(trace.status.isDisabled ? .secondary : .primary)
-                } else {
-                    Text(ruleNoticeContent)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-            }
-            .lineLimit(1)
-            .textSelection(.enabled)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.secondary.opacity(0.08))
+            .cornerRadius(8)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .frame(maxWidth: .infinity, minHeight: 48, maxHeight: 48, alignment: .leading)
-        .background(isEInkEnabled ? paper : Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
-        .overlay { if isEInkEnabled { RoundedRectangle(cornerRadius: 8).strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
     }
 
-    private var ruleNoticeHeader: String? {
-        if !hasAnyRuleSet { return "Chưa có rule" }
-        if !isRuleFeatureEnabled { return "Đang tắt" }
-        if ruleTraces.isEmpty { return isLoadingRules ? "Đang tải…" : "Không khớp" }
-        return nil
-    }
-
-    private var ruleNoticeContent: String {
+    private var ruleNoticeText: String? {
+        if isLoadingRules { return "Đang cập nhật rule cho đoạn này…" }
         if !hasAnyRuleSet {
-            return "Máy chưa có bộ rule nào (Cài đặt → Quản lý rule dịch)."
+            return "Máy chưa có bộ rule nào. Tải hoặc nhập ở Cài đặt → Quản lý rule dịch."
         }
         if !isRuleFeatureEnabled {
-            return "Công tắc rule dịch đang TẮT trong Cài đặt."
+            return "Công tắc rule dịch đang TẮT trong Cài đặt — dải rule bên dưới chỉ là mô phỏng."
         }
         if ruleTraces.isEmpty {
-            return isLoadingRules ? "Đang cập nhật rule cho đoạn này…" : "Không rule nào chạm đoạn này."
+            return "Không rule nào chạm đoạn này."
         }
-        return ""
+        return nil
     }
 
     // MARK: - Dải chip rule
@@ -107,18 +85,16 @@ extension ReaderDefinitionOverlayView {
                     .font(.body)
                     .fontWeight(.medium)
                     .foregroundColor(.green)
-                    .einkAccentForeground(.green)
                     .padding(8)
-                    .background(isEInkEnabled ? paper : Color.green.opacity(0.12), in: Circle())
-                    .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
+                    .background(Color.green.opacity(0.12))
+                    .clipShape(Circle())
             }
             .accessibilityLabel("Thêm rule cho cụm đang chọn")
 
             if ruleTraces.isEmpty {
-                Text(isLoadingRules ? "Đang cập nhật…" : "Chưa có rule nào khớp")
+                Text("Chưa có rule nào khớp")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
@@ -137,7 +113,7 @@ extension ReaderDefinitionOverlayView {
                 }
             }
         }
-        .frame(maxWidth: .infinity, minHeight: 36, maxHeight: 36, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: - Popup thao tác trên một rule

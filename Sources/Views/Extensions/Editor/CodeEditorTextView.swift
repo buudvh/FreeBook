@@ -29,7 +29,7 @@ public final class CodeEditorTextView: UITextView {
     }
 
     private func setupView() {
-        applyEInkMode()
+        backgroundColor = UIColor(red: 24/255, green: 24/255, blue: 37/255, alpha: 1.0)
         autocapitalizationType = .none
         autocorrectionType = .no
         smartQuotesType = .no
@@ -38,26 +38,6 @@ public final class CodeEditorTextView: UITextView {
         isScrollEnabled = true
         updateGutterInset()
         observeKeyboard()
-    }
-
-    /// Đổi nền editor theo chế độ E-Ink (option C, §4b.5): nền tối `#181825` bình thường, trắng khi
-    /// bật e-ink. 7 màu syntax nằm trong `HighlightingCodeEditor` **giữ nguyên** — đây là nợ option-B
-    /// đã ghi trong plan, màn e-ink sẽ phải dither 7 màu đó (xem báo cáo). Gọi lại từ `updateUIView`
-    /// mỗi khi SwiftUI re-render nên nút gạt đổi là editor tự đổi nền ngay.
-    internal func applyEInkMode() {
-        let isEInk = EInkModeSettings.shared.isEnabled
-        backgroundColor = isEInk
-            ? .white
-            : UIColor(red: 24/255, green: 24/255, blue: 37/255, alpha: 1.0)
-        gutterBgColor = isEInk
-            ? .white
-            : UIColor(red: 30/255, green: 30/255, blue: 46/255, alpha: 1.0)
-        lineNumberColor = isEInk
-            ? .black
-            : UIColor(red: 108/255, green: 112/255, blue: 134/255, alpha: 1.0)
-        dividerColor = isEInk
-            ? UIColor.black.withAlphaComponent(1.0)
-            : UIColor.white.withAlphaComponent(0.12)
     }
 
     // MARK: - Chừa chỗ cho bàn phím

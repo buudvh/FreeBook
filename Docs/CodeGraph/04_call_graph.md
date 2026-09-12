@@ -15,12 +15,6 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## Đường đổi E-Ink cập nhật nền và bar live (1.3.361)
-
-* **Bật/tắt hoặc đổi màu giấy**: `EInkSettingsSection` → `EInkModeSettings.setEnabled` / `setPaperColor` → ghi `UserDefaults` + publish `@Published` → `EInkAppearance.apply()`; song song, `AppLaunchRootView.onChange(of: eink.isEnabled/paperColor)` gọi lại `EInkAppearance.apply()` để root view đang mount đồng bộ nền/bar theo state mới. Lệnh idempotent: mỗi lượt dựng lại cấu hình và gán cùng proxy/live bars.
-* **Nền app**: `AppLaunchRootView.body` → `.preferredColorScheme(eink.isEnabled ? .light : nil)` + `.scrollContentBackground(.hidden/.automatic)` + `.background(EInkPalette.paper/systemBackground)`. Các surface dùng `View+EInk` hoặc `@AppStorage(EInkModeSettings.Key.paperColor)` → `EInkPalette.paperColor(for:)`, nên panel/tab/chip đang mount đổi màu giấy không cần mở lại màn.
-* **Thanh UIKit đang tồn tại**: `EInkAppearance.apply()` → `applyOnMainThread()` → `install(config)` → `applyToExistingBars(config)` → duyệt `connectedScenes.windows` đệ quy `subviews`; gặp `UINavigationBar` thì gán 4 appearance slot, gặp `UITabBar` thì gán `standard/scrollEdgeAppearance`, rồi `setNeedsLayout()`.
-
 ## Call graph sao lưu Telegram và khôi phục multipart (1.3.355)
 
 ```text
@@ -55,7 +49,7 @@ Reader action -> TranslationDictionaryWriter / QuickTranslationRuleMutation
      -> TTSManager cancel prepared/next/prefix -> makeNextChapterKey(new token) -> process again
 ```
 
-`ReaderDefinitionWorker` tokenize/tra nghĩa/chẩn đoán off-main; Copy panel chỉ yêu cầu token, không tra nghĩa/gợi ý/rule trace. Panel Dịch đóng dấu `SelectionSnapshot` trước khi gọi worker và chỉ publish nếu snapshot hiện tại còn khớp; request mới giữ UI cũ cho tới khi kết quả mới thắng. Rule editor truyền `oldPattern` khi sửa nên đổi mẫu giữ rule cũ đúng contract hiện hành.
+`ReaderDefinitionWorker` tokenize/tra nghĩa/chẩn đoán off-main; Copy panel chỉ yêu cầu token, không tra nghĩa/gợi ý/rule trace. Rule editor truyền `oldPattern` khi sửa nên đổi mẫu giữ rule cũ đúng contract hiện hành.
 
 ## Widget TTS bật lại auto-scroll; Script Editor chạy execute qua Debug Runner (1.3.351)
 
@@ -89,8 +83,8 @@ TTSWidgetCapsuleView.openCurrentChapter
 
 * **`tokenize` thêm một tầng**: `TranslateUtils.tokenize` → `VietPhraseTokenizer.tokenize` → `TokenizeMemo.tokens(...)` → (miss) `VietPhraseTokenizer.tokenizeUncached`. Cửa vào cũng gọi `TranslateUtils.translationGenerationToken(for:)` để dựng khoá — cạnh mới từ Engine sang Utils, không tạo vòng.
 * **`postProcessText` thành một dòng forward**: `TranslateUtils.postProcessText` → `TranslationTextPostProcessor.apply(to:)`. Hai caller (`translateContent`, `translatedCandidate(for:)`) **không** phải sửa.
-* **`refreshRuleTraces` thành alias của request rule trong definition session**: `ReaderView.refreshRuleTraces()` → `refreshDefinitionRules()` → sleep 150 ms → `ReaderDefinitionWorker.traces`. Lượt trước bị `cancel()` và kết quả chỉ ghi khi `SelectionSnapshot` + generation còn khớp.
-* **`updateEditorFromSelection()` không tự xoá UI panel cũ**: nó cập nhật `selectedTextForDefinition`/`junkPatternInput`, tăng `meaningRevision`, rồi gọi `loadDefinitionData()`. Request definition mới tự tokenize/tra nghĩa/gợi ý và gọi `refreshRuleTraces()` sau khi dữ liệu hiện tại được publish.
+* **`refreshRuleTraces` thành async**: `ReaderView.refreshRuleTraces()` → `Task { @MainActor }` (sleep 150 ms) → `Task.detached { QuickTranslationRuleDiagnostics.diagnose }` → gán `ruleTraces` trên main. Lượt trước bị `cancel()`. `openDefinitionPanel()` vẫn gọi nó nhưng **không còn chờ** kết quả trước khi mở panel.
+* **`updateEditorFromSelection()` thêm một nhánh sớm** cho `getTranslationTokens` (chỉ gọi khi khoá `generation|originalSentence` đổi) và thêm **một lời gọi mới** `refreshRuleTraces()` ở cuối, có điều kiện `showingDefinitionSheet`.
 * **`updateCachedTranslatedContent(bookId:scope:)` thêm nhánh return sớm** theo `scope` trước khi tới `refreshParagraphItems()`.
 * **Đường mới ở Kệ sách**: `ShelfView.historyTabView` → `HistoryDayGrouper.group` → `Section` mỗi ngày → `historyBookRow(_:)` (helper mới, tách khỏi thân `ForEach`). `CollectionsTabView.gridView` → `CollectionGridCardView` → `CollectionCoverMosaicView` → `BookCoverView`; hai closure `onRename`/`onDelete` đi ngược về `beginRename`/`beginDelete` của tab.
 * **`onMove` đổi chủ**: `CollectionsTabView.moveCollections` (đã xoá) → `CollectionsReorderSheet.move` → closure `onReorder` → `CollectionsTabView.reorderMessage(from:to:)` → `BookCollectionCoordinator.reorderCollections`. Sheet phát toast, tab vẫn là chỗ duy nhất gọi coordinator.
@@ -207,15 +201,11 @@ ReaderChapterRowView (nút mũi tên xuống)
 ReaderView: nút "Dịch" (hoặc menu bôi đen)
   └─ openDefinitionPanel()                       (ReaderView+RuleTools.swift:45)
        ├─ closeOtherSelectionPanels(except: nil)
-       ├─ showingDefinitionSheet = true
-       ├─ viewModel.setTranslationRefreshDeferred(true)
-       ├─ updateEditorFromSelection()
-       │    └─ loadDefinitionData() stamps SelectionSnapshot/requestID
-       │         └─ ReaderDefinitionWorker.load -> publish nếu snapshot còn khớp
-       │              └─ refreshRuleTraces() -> ReaderDefinitionWorker.traces
-       └─ definitionPanelOverlay(in:)        (ReaderView+DefinitionPanel.swift:15)
-            └─ ReaderDefinitionOverlayView(… ruleTraces, focusedRuleTraceID,
-                 isRuleFeatureEnabled, hasAnyRuleSet, onRuleAction, onAddRule)
+       ├─ refreshRuleTraces()        ← chạy TRƯỚC khi hiện, để dải chip không trống một frame
+       └─ showingDefinitionSheet = true
+            └─ definitionPanelOverlay(in:)        (ReaderView+DefinitionPanel.swift:15)
+                 └─ ReaderDefinitionOverlayView(… ruleTraces, focusedRuleTraceID,
+                      isRuleFeatureEnabled, hasAnyRuleSet, onRuleAction, onAddRule)
                       ├─ ruleMeaningRowView   (chỉ đọc; ruleNoticeText khi chưa có bộ/tắt/không khớp)
                       └─ ruleChipRowView      (nút + ở ĐẦU dải, rồi ScrollView chip)
                            └─ onRuleAction(trace, ReaderRuleAction) → handleRuleAction(_:_:)
@@ -223,7 +213,7 @@ ReaderView: nút "Dịch" (hoặc menu bôi đen)
        └─ .onChange(of: showingDefinitionSheet) → handleDefinitionPanelClosed()
 ```
 
-* **`selectedWordOffset` đổi trong lúc panel đang mở ⇒ `updateEditorFromSelection()` chạy request mới**, nên nghĩa/token/chip rule đi theo selection mới nhưng UI cũ không bị xoá trắng trong lúc chờ. Đây là chỗ thay cho việc mở lại màn Check rule.
+* **`selectedWordOffset` đổi trong lúc panel đang mở ⇒ `refreshRuleTraces()` chạy lại**, nên dời vùng chọn sang đoạn khác là dải chip đổi theo. Đây là chỗ thay cho việc mở lại màn Check rule.
 * **`ReaderView.initializeReaderIfNeeded` và `BookDetailView.task(id:)` không còn gọi `BookTitleTranslationMigrator` trực tiếp**: cả hai gọi `BookTransactionCoordinator.refreshTitleTranslations(bookId:in:)`, coordinator mới gọi `migrator.refreshTranslations(for:)` rồi tự `save()` khi `didChange`.
 
 ## Đường gọi nạp trước Google sau khi gộp request (1.3.332)
@@ -736,7 +726,7 @@ translateMeta / translateContent / translateChapterTitle
 * **Đường chạy tay từ màn cài đặt**: `DriveAutoBackupSettingsView.runNow()` → cùng `runAutoDriveBackup(container:force: true)` (bỏ qua cả cooldown lẫn cờ bật/tắt, nhưng vẫn cần đã đăng nhập Drive và `!isBusy`) → map outcome sang toast. Không có đường sao lưu tự động thứ hai.
 * **Reader**: cạnh `menu ellipsis → onOpenReaderSearch` của 1.3.258 **đổi điểm phát**, thành `nút magnifyingglass ở header → onOpenReaderSearch`; phần sau (`.sheet { ReaderSearchView }` → `ReaderSearchMatcher.search` → `onSelect`) không đổi.
 * **Trung tâm thông báo**: chạm một hàng toast → `NotificationInboxManager.markRead(record)` → `guard` bỏ qua nếu đã đọc → `Task { NotificationInboxStore.replace(with:) }` (không ghi đĩa khi không đổi gì). Mục menu huỷ → `deleteUnread()` → giữ lại phần `isRead` → `replace`. **Cố ý không có** cạnh `→ ToastManager.show` sau khi xoá: `show` lại gọi `NotificationInboxManager.record` nên sẽ sinh ngay một thông báo chưa đọc mới.
-* **Khởi động/đổi E-Ink**: `FreeBookApp.init()` → `EInkAppearance.apply()` để cài proxy nav/tab bar lần đầu. Sau khi app đã mount, `AppLaunchRootView.onChange(of: eink.isEnabled/paperColor)` và setter của `EInkModeSettings` gọi lại cùng hàm để bar đang mở đổi ngay; `NavigationBarAppearance.hideBackButtonTitle(in:)` chỉ còn là helper dùng lại cho mọi `UINavigationBarAppearance` mới.
+* **Khởi động**: `FreeBookApp.init()` → `NavigationBarAppearance.applyTitlelessBackButton()` (một lần, cạnh hai lời gọi `UITabBar.appearance()`). Không View nào gọi hàm này.
 
 ## Tìm trong Reader + choke point ghi thông báo (1.3.258)
 

@@ -15,21 +15,13 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## E-Ink presentation invariants (1.3.361)
-
-* **`EInkAppearance` is the only UIKit appearance mutator for E-Ink nav/tab bars.** It must install proxy appearances for future bars and update existing `UINavigationBar`/`UITabBar` instances on the main thread. Do not make individual SwiftUI screens call `UINavigationBar.appearance()` or `UITabBar.appearance()`.
-* **Back-button-title hiding is a shared helper, not a second owner.** `NavigationBarAppearance.hideBackButtonTitle(in:)` may be reused when a new `UINavigationBarAppearance` is constructed, but `EInkAppearance` owns the actual app-wide apply path.
-* **Paper color must be reactive.** SwiftUI E-Ink modifiers should read `EInkModeSettings.Key.paperColor` through `@AppStorage` (or observe `EInkModeSettings` at the root) and call `EInkPalette.paperColor(for:)`; do not rely on a one-time read of `EInkPalette.paper` for views that must update while mounted.
-
-## Translation snapshot, mutation and refresh invariants (1.3.362)
+## Translation snapshot, mutation and refresh invariants (1.3.354)
 
 * **One synchronous translation pass uses one `TranslationReadContext`.** Dictionary tries, tombstones, per-book dictionaries, rule snapshots, disabled rules, token/priority configuration and generation must not be re-read independently midway through a pass.
 * **Published dictionaries are immutable.** Loader objects may mutate while loading, but only `FrozenTrieDictionary` values cross into `TranslationDictionaryState`. All lookup offsets and match lengths are UTF-16.
 * **Accepted VP/Names runtime writes are serial and non-cancellable.** Route custom global/per-book CRUD, import and tombstone restore through `TranslationDictionaryWriter`; persist first, then publish/invalidate, then notify. Presentation cancellation may cancel CPU lookup, never an accepted save.
 * **Translation caches require both budgets and stale-insert protection.** Every memo has entry/cost limits; invalidation advances an epoch so an in-flight old computation cannot insert afterward. Every tokenization input must remain in its key/generation.
 * **Reader refresh is latest-wins and presentation-aware.** Coalesce dictionary/rule notifications for 500 ms, invalidate non-current chapter tokens, and never apply rebuilt paragraph content while a selection/definition/rule overlay owns that paragraph. Pending apply must re-check chapter, revision, translation token and settings.
-* **Reader definition data is keyed by `SelectionSnapshot`, not by whichever selection is current when a task finishes.** Snapshot sentence, word, UTF-16 range, translation mode, traditional-conversion flag and generation before calling `ReaderDefinitionWorker`; publish tokens/meaning/matches/rules only if the current snapshot still equals it. Starting a newer request must not clear the old UI first.
-* **Saving a custom definition requires displayed data to match current selection.** The `Cập nhật` button and `saveDefinition()` must both reject stale snapshots; otherwise a user edit during a pending request can write the meaning under the wrong VP/Names key.
 * **TTS next-chapter identity includes `translationToken`.** Dictionary/rule updates affecting the playing book invalidate prepared current data, next DTO/audio, prefix audio and claimed synthesis. A stale DTO must reprocess the same chapter; it must not recursively advance using the stale cache.
 
 ## Extension origin and editor-run invariants (1.3.351)
@@ -100,8 +92,7 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 12. **The download `Task` is not cancellable, on purpose.** Clean up only the UI flag (`defer { downloadingChapterIndices.remove(index) }`); the write must run to completion per the "content past the final cancel checkpoint must not be cancelled" rule. Expect toasts to appear after the chapter list closes.
 13. **Rule tracing lives in the Dịch panel and diagnoses the whole paragraph.** `focusedRuleRange` is `trace.sourceRange` — it must **not** be snapped to the user's selection; snapping loses the context the rule actually matched. The read-only rule-meaning box stays separate from the editable translation-meaning box, otherwise the two meanings fight over one field.
 14. **The panel-close side effects belong in `.onChange(of: showingDefinitionSheet)`, not in `closeDefinitionPanel()`.** Swipe-to-dismiss and tap-outside only lower the `isPresented` binding, so logic placed in the close function silently skips two of the three exit paths.
-15. **The Dịch panel is a custom overlay, not a SwiftUI sheet.** `.presentationDetents` on it does nothing. Height must be controlled by `definitionPanelOverlay(in:)`, with a fixed header and scrollable body for small screens.
-16. **Never reintroduce `ReaderRuleTraceOverlayView` / `ReaderRuleTraceGuideSheet` or a `?` guide button.** Both files were deleted at 1.3.334; the Dịch panel plus its three distinct notice strings ("Máy chưa có bộ rule nào…", "Công tắc rule dịch đang TẮT…", "Không rule nào chạm đoạn này.") replace them. Collapsing those three strings into one sends users hunting for a bug that is not there.
+15. **Never reintroduce `ReaderRuleTraceOverlayView` / `ReaderRuleTraceGuideSheet` or a `?` guide button.** Both files were deleted at 1.3.334; the Dịch panel plus its three distinct notice strings ("Máy chưa có bộ rule nào…", "Công tắc rule dịch đang TẮT…", "Không rule nào chạm đoạn này.") replace them. Collapsing those three strings into one sends users hunting for a bug that is not there.
 
 ## Batched Google TTS prefetch: invariants (1.3.332)
 

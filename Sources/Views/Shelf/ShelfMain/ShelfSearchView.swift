@@ -132,7 +132,6 @@ struct ShelfSearchView: View {
                 deletionOverlay
             }
         }
-        .einkBackground()
         .navigationTitle("Tìm trong Kệ sách & Lịch sử")
         .navigationBarTitleDisplayMode(.inline)
         .fullScreenCover(item: $readerRoute) { route in
@@ -142,10 +141,10 @@ struct ShelfSearchView: View {
                     extensionPackageId: route.extensionPackageId,
                     chapterIndex: route.chapterIndex,
                     onlineChapters: [],
-                    bookTitle: nil as String?,
-                    bookAuthor: nil as String?,
-                    bookCoverUrl: nil as String?,
-                    bookDesc: nil as String?,
+                    bookTitle: nil,
+                    bookAuthor: nil,
+                    bookCoverUrl: nil,
+                    bookDesc: nil,
                     bookDetailUrl: route.detailUrl,
                     bookSourceName: route.sourceName,
                     initialParagraphIndex: route.paragraphIndex
@@ -259,7 +258,6 @@ struct ShelfSearchView: View {
                 }
             }
             .listStyle(.plain)
-            .einkBackground()
         }
     }
 
@@ -272,7 +270,6 @@ struct ShelfSearchView: View {
             extensionLocalPath: ext?.localPath ?? "",
             extensionIconUrl: ext?.iconUrl
         )
-        .einkListRowBackground()
         .contentShape(Rectangle())
         .onTapGesture {
             newChapters.markSeen(bookId: book.bookId)

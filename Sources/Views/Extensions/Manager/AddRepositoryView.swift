@@ -22,7 +22,6 @@ public struct AddRepositoryView: View {
                         .textInputAutocapitalization(.none)
                 }
             }
-            .einkBackground(Color(.systemGroupedBackground))
             .navigationTitle("Nhập Kho Tiện Ích")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

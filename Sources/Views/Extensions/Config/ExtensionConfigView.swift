@@ -6,7 +6,6 @@ struct ExtensionConfigView: View {
     @Environment(\.modelContext) internal var modelContext
     
     var ext: Extension
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
     
     // Lưu các cấu hình định nghĩa trong plugin.json
     @State internal var configDefinitions: [String: ConfigItem] = [:]
@@ -102,14 +101,12 @@ struct ExtensionConfigView: View {
                                 showingScriptEditor = true
                             }) {
                                 Label("Chỉnh sửa mã nguồn Script", systemImage: "code.square")
-                                    .foregroundColor(isEInkEnabled ? EInkPalette.ink : .purple)
+                                    .foregroundColor(.purple)
                             }
                         }
                     }
-                    .einkBackground(Color(.systemGroupedBackground))
                 }
             }
-            .einkBackground(Color(.systemGroupedBackground))
             .navigationTitle("Cấu Hình: \(ext.name)")
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showingScriptEditor) {

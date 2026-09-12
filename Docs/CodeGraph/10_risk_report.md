@@ -15,13 +15,6 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## Rủi ro còn lại sau khi panel Dịch thành custom overlay latest-wins (1.3.362)
-
-* **Rủi ro stale UI được chặn bằng snapshot, không bằng xoá trắng.** `SelectionSnapshot` gồm câu gốc, từ, range UTF-16, mode, cờ convert và generation; kết quả definition/rule chỉ publish nếu snapshot hiện tại còn khớp. Nhờ vậy đổi vùng chọn liên tục không thể ghi kết quả cũ lên selection mới, còn UI cũ vẫn đứng yên thay vì nhấp nháy trống.
-* **Nút Cập nhật bị khoá khi dữ liệu hiển thị không còn khớp selection.** Đây là chốt bắt buộc vì người dùng vẫn có thể gõ nghĩa trong lúc request mới đang bay; lưu theo snapshot cũ sẽ ghi nhầm key VP/Names.
-* **Custom overlay tự giới hạn chiều cao thay cho `.presentationDetents`.** Detent không có tác dụng trên overlay trong `ZStack`, nên chiều cao nay là `min(660, availableHeight)` với header cố định và body cuộn. Rủi ro còn lại là thiết bị rất thấp/keyboard/accessibility vẫn cần kiểm máy thật, nhưng không còn phụ thuộc vào sheet detent vô hiệu.
-* **Chưa biên dịch tại chỗ.** Host Windows không có `xcodebuild`; xác minh hiện tại là đọc code, `git diff --check`, `check_architecture.py` giữ 6 violation baseline và `validate_links.py`. Không dùng `Tests/`.
-
 ## Rủi ro của Telegram Bot và multipart transport (1.3.355)
 
 * **Bot Token cho phép gửi bằng danh tính bot.** Token không vào UserDefaults/backup/log; owner là Keychain, nhưng LiveContainer có đường lùi bằng file trong Application Support với `completeUntilFirstUserAuthentication`. Thiết bị đã mở khoá và process app vẫn đọc được file này; đó là đánh đổi để tính năng hoạt động khi Keychain unavailable.
@@ -82,7 +75,7 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 * **Rủi ro đã biết — nút tải lẻ đi đường riêng, không dùng `ReaderViewModel.loadChapterContentFromExtension`.** Nó gọi thẳng `ChapterContentRepository.load(forceRefresh: false)` để **không** kéo theo bước dịch + dựng `[ParagraphItem]`. Đánh đổi: nếu sau này khâu nạp chương thêm một bước hậu xử lý ở `ReaderViewModel`, nút này sẽ **không** thừa hưởng. Header comment của `ReaderChapterListView+Download.swift` ghi rõ điều đó.
 * **Rủi ro đã biết — `host` của chương chưa có trong `ChapterStore`.** `downloadChapter` lấy `row?.host` và fallback về host của truyện. Nếu truyện có chương đến từ host khác mà hàng chưa được ghi, lượt tải sẽ hỏi sai host và thất bại (toast lỗi), **không** làm bẩn cache — repository chỉ ghi khi nạp được.
 * **Rủi ro đã biết — panel Dịch chẩn đoán đoạn, không chẩn đoán vùng bôi đen.** `focusedRuleRange` = `trace.sourceRange` của chip đang chọn, tức phạm vi *rule chạm được*, không phải phần người dùng bôi đen. Khác biệt duy nhất so với màn Check rule cũ, và là chỗ dễ bị báo là bug: bôi một từ nhưng chip lại tô cả cụm dài hơn. Không snap về selection là chủ ý — snap sẽ làm mất ngữ cảnh mà rule thực sự khớp.
-* **Rủi ro đã biết — panel Dịch cần chiều cao đo theo overlay, không theo sheet detent.** Trước 1.3.362, `.presentationDetents([.height(660), .large])` nằm trên custom overlay nên không điều khiển gì. Chiều cao nay được clamp trong `definitionPanelOverlay(in:)`; nếu sửa lại, nhớ đây không phải `sheet` thật.
+* **Rủi ro đã biết — `.presentationDetents([.height(660), .large])` là số cứng.** 660pt vừa đủ cho ô nghĩa dịch + ô nghĩa rule + dải chip trên máy thường; trên iPhone SE hoặc khi bật cỡ chữ trợ năng lớn, panel sẽ chạm trần và phải kéo lên `.large`. Không có phép đo động nào ở đây.
 * **Rủi ro trình bày — không rule nào chạm đoạn thì panel không được im lặng.** `ruleNoticeText` phân biệt ba nguyên nhân bằng ba câu khác nhau ("Máy chưa có bộ rule nào…", "Công tắc rule dịch đang TẮT…", "Không rule nào chạm đoạn này."). Gộp lại một câu là đẩy người dùng đi tìm bug ở chỗ không có bug.
 * **Không có gate tự động nào bắt được hồi quy của lượt này**, và **lượt này chưa được biên dịch** — host là Windows nên `xcodebuild` không chạy được. `check_architecture.py` (12 → 8) chỉ đếm dòng/regex, `validate_links.py` chỉ so hash, tầng `Tests/` bị coi như không tồn tại. CI xanh chỉ chứng minh **biên dịch được**.
 

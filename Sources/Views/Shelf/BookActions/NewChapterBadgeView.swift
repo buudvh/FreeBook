@@ -8,18 +8,16 @@ struct NewChapterBadgeView: View {
     let bookId: String
 
     @ObservedObject private var inbox = NewChapterInboxManager.shared
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
 
     var body: some View {
         if let record = inbox.record(for: bookId), record.hasNew {
             Text(record.badgeText)
                 .font(.caption2)
                 .fontWeight(.semibold)
-                .foregroundColor(isEInkEnabled ? EInkPalette.selectedContent : .white)
+                .foregroundColor(.white)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
-                .background(Capsule().fill(isEInkEnabled ? EInkPalette.ink : Color.red))
-                .overlay { if isEInkEnabled { Capsule().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.selectedBorderWidth) } }
+                .background(Capsule().fill(Color.red))
                 .accessibilityLabel(
                     record.isCountExact
                         ? "\(record.newChapterCount) chương mới"

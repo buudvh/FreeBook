@@ -67,7 +67,6 @@ struct StaleBookCleanupSettingsView: View {
             }
             statusSection
         }
-        .einkBackground(Color(.systemGroupedBackground))
         .navigationTitle("Dọn Truyện Cũ")
         .navigationBarTitleDisplayMode(.inline)
         .task {

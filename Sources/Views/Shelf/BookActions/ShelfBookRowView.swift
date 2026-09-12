@@ -5,7 +5,6 @@ import SwiftUI
 /// Ghim và badge chương mới nằm **cạnh** `BookListItemView` chứ không nhét vào trong: view đó dùng
 /// chung với Khám phá / chia sẻ truyện, sửa nó là đổi cả những màn không liên quan.
 struct ShelfBookRowView: View {
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
     let book: Book
     let extensions: [Extension]
 
@@ -21,12 +20,11 @@ struct ShelfBookRowView: View {
             if book.isPinned {
                 Image(systemName: "pin.fill")
                     .font(.caption)
-                    .foregroundColor(isEInkEnabled ? EInkPalette.ink : .orange)
+                    .foregroundColor(.orange)
                     .accessibilityLabel("Đang ghim đầu kệ")
             }
 
             NewChapterBadgeView(bookId: book.bookId)
         }
-        .einkListRowBackground()
     }
 }

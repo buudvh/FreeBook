@@ -636,9 +636,7 @@ class ReaderViewModel: ObservableObject {
             paragraphIndex: request.paragraphIndex,
             direction: request.direction,
             source: request.source,
-            // E-Ink: chuyển động cuộn là nguồn ghosting chính ⇒ tắt animation lật chương tại nguồn.
             animateContent: origin == .extensionFetch && request.source != .ttsSync
-                && !EInkModeSettings.shared.instantChapterTurn
         )
         scheduleSettledPrefetch(after: request.chapterIndex, within: [request.chapterIndex + 1])
 

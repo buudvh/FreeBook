@@ -45,10 +45,8 @@ struct BookInfoEditView: View {
                             .font(.footnote)
                             .foregroundColor(.red)
                     }
-                    .einkListRowBackground()
                 }
             }
-            .einkBackground()
             .navigationTitle("Sửa thông tin truyện")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -87,7 +85,6 @@ struct BookInfoEditView: View {
                 TextField("Tác giả", text: $author)
             }
         }
-        .einkListRowBackground()
     }
 
     @ViewBuilder
@@ -138,7 +135,6 @@ struct BookInfoEditView: View {
                     .foregroundColor(.secondary)
             }
         }
-        .einkListRowBackground()
     }
 
     @ViewBuilder

@@ -12,7 +12,6 @@ struct CollectionsReorderSheet: View {
     let onReorder: (IndexSet, Int) -> String?
 
     @Environment(\.dismiss) private var dismiss
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
 
     var body: some View {
         NavigationStack {
@@ -21,7 +20,7 @@ struct CollectionsReorderSheet: View {
                     ForEach(collections) { collection in
                         HStack(spacing: 10) {
                             Image(systemName: "folder.fill")
-                                .foregroundColor(isEInkEnabled ? EInkPalette.ink : .accentColor)
+                                .foregroundColor(.accentColor)
                             Text(collection.name)
                                 .font(.subheadline)
                                 .lineLimit(1)
@@ -30,14 +29,12 @@ struct CollectionsReorderSheet: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
-                        .einkListRowBackground()
                     }
                     .onMove(perform: move)
                 } footer: {
                     Text("Kéo tay nắm bên phải để đổi thứ tự. Thứ tự này là thứ tự hiện ở tab Bộ sưu tập.")
                 }
             }
-            .einkBackground()
             // Luôn ở chế độ sửa: màn này chỉ có một việc, không cần bấm thêm nút Sửa.
             .environment(\.editMode, .constant(.active))
             .navigationTitle("Sắp xếp lại")

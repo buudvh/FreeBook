@@ -6,17 +6,8 @@ struct TTSQuickTimerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var ttsManager = TTSManager.shared
     @State private var customMinutes: Double = 90.0
-    /// Đọc thẳng khoá `UserDefaults` để sheet Hẹn giờ tự cập nhật khi đổi chế độ E-Ink.
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
-    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
 
     private let presetMinutes = [15, 30, 45, 60, 90]
-    private var paperCanvas: Color {
-        EInkPalette.paperCanvasColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .pureDeep)
-    }
-    private var paperCard: Color {
-        EInkPalette.paperCardColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .pureDeep)
-    }
 
     var body: some View {
         NavigationStack {
@@ -37,7 +28,7 @@ struct TTSQuickTimerSheet: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
-            .background(isEInkEnabled ? paperCanvas : Color(uiColor: .systemGroupedBackground))
+            .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("Hẹn giờ tắt")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -50,7 +41,7 @@ struct TTSQuickTimerSheet: View {
                     }) {
                         Image(systemName: "gearshape.fill")
                             .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(isEInkEnabled ? EInkPalette.ink : .blue)
+                            .foregroundStyle(.blue)
                     }
                     .accessibilityLabel("Cài đặt giọng đọc & Tốc độ")
                 }
@@ -59,7 +50,7 @@ struct TTSQuickTimerSheet: View {
                     Button(action: { dismiss() }) {
                         Image(systemName: "xmark.circle.fill")
                             .font(.system(size: 20))
-                            .foregroundStyle(isEInkEnabled ? EInkPalette.ink : .secondary)
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
@@ -82,12 +73,11 @@ struct TTSQuickTimerSheet: View {
                 HStack(spacing: 14) {
                     ZStack {
                         Circle()
-                            .fill(isEInkEnabled ? paperCard : Color.orange.opacity(0.18))
+                            .fill(Color.orange.opacity(0.18))
                             .frame(width: 44, height: 44)
-                            .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
                         Image(systemName: "timer")
                             .font(.system(size: 20, weight: .bold))
-                            .foregroundStyle(isEInkEnabled ? EInkPalette.ink : Color.orange)
+                            .foregroundStyle(Color.orange)
                     }
 
                     VStack(alignment: .leading, spacing: 3) {
@@ -99,11 +89,11 @@ struct TTSQuickTimerSheet: View {
                         if case .endOfChapter = ttsManager.timerMode {
                             Text("Dừng khi hết chương")
                                 .font(.system(size: 17, weight: .bold))
-                                .foregroundStyle(isEInkEnabled ? EInkPalette.ink : Color.orange)
+                                .foregroundStyle(Color.orange)
                         } else {
                             Text(ttsManager.sleepTimerBadgeText.isEmpty ? "\(Int(customMinutes)) phút" : ttsManager.sleepTimerBadgeText)
                                 .font(.system(size: 20, weight: .bold, design: .monospaced))
-                                .foregroundStyle(isEInkEnabled ? EInkPalette.ink : Color.orange)
+                                .foregroundStyle(Color.orange)
                         }
                     }
 
@@ -118,39 +108,37 @@ struct TTSQuickTimerSheet: View {
                         Text("Hủy")
                             .font(.subheadline)
                             .fontWeight(.semibold)
-                            .foregroundStyle(isEInkEnabled ? EInkPalette.ink : .red)
+                            .foregroundStyle(.red)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 7)
-                            .background(Capsule().fill(isEInkEnabled ? paperCard : Color.red.opacity(0.12)))
-                            .overlay { if isEInkEnabled { Capsule().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
+                            .background(Capsule().fill(Color.red.opacity(0.12)))
                     }
                 }
                 .padding(14)
                 .background(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(isEInkEnabled ? paperCard : Color(uiColor: .secondarySystemGroupedBackground))
+                        .fill(Color(uiColor: .secondarySystemGroupedBackground))
                         .overlay(
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(isEInkEnabled ? EInkPalette.ink : Color.orange.opacity(0.35), lineWidth: isEInkEnabled ? EInkPalette.borderWidth : 1.5)
+                                .stroke(Color.orange.opacity(0.35), lineWidth: 1.5)
                         )
                 )
-                .einkShadow(Color.orange.opacity(0.08), radius: 8, y: 3)
+                .shadow(color: Color.orange.opacity(0.08), radius: 8, x: 0, y: 3)
             } else {
                 HStack(spacing: 12) {
                     Image(systemName: "moon.stars.fill")
                         .font(.system(size: 18))
-                        .foregroundStyle(isEInkEnabled ? EInkPalette.ink : .secondary)
+                        .foregroundStyle(.secondary)
                     Text("Chưa kích hoạt hẹn giờ tắt")
                         .font(.subheadline)
-                        .foregroundStyle(isEInkEnabled ? EInkPalette.ink : .secondary)
+                        .foregroundStyle(.secondary)
                     Spacer()
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
                 .background(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(isEInkEnabled ? paperCard : Color(uiColor: .secondarySystemGroupedBackground))
-                        .overlay { if isEInkEnabled { RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
+                        .fill(Color(uiColor: .secondarySystemGroupedBackground))
                 )
             }
         }
@@ -220,33 +208,28 @@ struct TTSQuickTimerSheet: View {
         isSelected: Bool,
         action: @escaping () -> Void
     ) -> some View {
-        let iconForeground: Color = isEInkEnabled ? (isSelected ? .white : EInkPalette.ink) : (isSelected ? .white : .orange)
-        let titleForeground: Color = isEInkEnabled ? (isSelected ? .white : EInkPalette.ink) : (isSelected ? .white : .primary)
-        let fill: Color = isEInkEnabled ? (isSelected ? .black : paperCard) : (isSelected ? .orange : Color(uiColor: .secondarySystemGroupedBackground))
-        let stroke: Color = isEInkEnabled ? EInkPalette.ink : .orange
-        let strokeWidth: CGFloat = isEInkEnabled && isSelected ? EInkPalette.selectedBorderWidth : 1.5
-        return Button(action: action) {
+        Button(action: action) {
             VStack(spacing: 6) {
                 Image(systemName: icon)
                     .font(.system(size: 16, weight: isSelected ? .bold : .regular))
-                    .foregroundStyle(iconForeground)
+                    .foregroundStyle(isSelected ? Color.white : Color.orange)
 
                 Text(title)
                     .font(.subheadline)
                     .fontWeight(isSelected ? .bold : .medium)
-                    .foregroundStyle(titleForeground)
+                    .foregroundStyle(isSelected ? Color.white : Color.primary)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(fill)
+                    .fill(isSelected ? Color.orange : Color(uiColor: .secondarySystemGroupedBackground))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(isSelected ? stroke : Color.clear, lineWidth: strokeWidth)
+                    .stroke(isSelected ? Color.orange : Color.clear, lineWidth: 1.5)
             )
-            .einkShadow(isSelected ? Color.orange.opacity(0.3) : Color.black.opacity(0.04), radius: 5, y: 2)
+            .shadow(color: isSelected ? Color.orange.opacity(0.3) : Color.black.opacity(0.04), radius: 5, x: 0, y: 2)
         }
         .buttonStyle(.plain)
     }
@@ -269,7 +252,7 @@ struct TTSQuickTimerSheet: View {
                     }) {
                         Image(systemName: "minus.circle.fill")
                             .font(.system(size: 26))
-                            .foregroundStyle(isEInkEnabled ? EInkPalette.ink : Color.orange)
+                            .foregroundStyle(Color.orange)
                     }
 
                     Spacer()
@@ -292,13 +275,13 @@ struct TTSQuickTimerSheet: View {
                     }) {
                         Image(systemName: "plus.circle.fill")
                             .font(.system(size: 26))
-                            .foregroundStyle(isEInkEnabled ? EInkPalette.ink : Color.orange)
+                            .foregroundStyle(Color.orange)
                     }
                 }
                 .padding(.horizontal, 8)
 
                 Slider(value: $customMinutes, in: 1...180, step: 1)
-                    .tint(isEInkEnabled ? .primary : .orange)
+                    .tint(Color.orange)
 
                 Button(action: {
                     triggerHaptic()
@@ -314,16 +297,15 @@ struct TTSQuickTimerSheet: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .foregroundStyle(isEInkEnabled ? EInkPalette.selectedContent : .white)
-                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(isEInkEnabled ? EInkPalette.selectedFill : Color.orange))
-                    .einkShadow(Color.orange.opacity(0.3), radius: 6, y: 3)
+                    .foregroundStyle(.white)
+                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.orange))
+                    .shadow(color: Color.orange.opacity(0.3), radius: 6, x: 0, y: 3)
                 }
             }
             .padding(16)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(isEInkEnabled ? paperCard : Color(uiColor: .secondarySystemGroupedBackground))
-                    .overlay { if isEInkEnabled { RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
+                    .fill(Color(uiColor: .secondarySystemGroupedBackground))
             )
         }
     }
@@ -339,12 +321,11 @@ struct TTSQuickTimerSheet: View {
             HStack(spacing: 12) {
                 ZStack {
                     Circle()
-                        .fill(isEInkEnabled ? paperCanvas : Color.blue.opacity(0.12))
+                        .fill(Color.blue.opacity(0.12))
                         .frame(width: 36, height: 36)
-                        .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
                     Image(systemName: "gearshape.fill")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(isEInkEnabled ? EInkPalette.ink : .blue)
+                        .foregroundStyle(.blue)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -366,8 +347,7 @@ struct TTSQuickTimerSheet: View {
             .padding(14)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(isEInkEnabled ? paperCard : Color(uiColor: .secondarySystemGroupedBackground))
-                    .overlay { if isEInkEnabled { RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
+                    .fill(Color(uiColor: .secondarySystemGroupedBackground))
             )
         }
         .buttonStyle(.plain)

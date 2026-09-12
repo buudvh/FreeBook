@@ -124,8 +124,6 @@ final class ToastUIWindow: UIWindow {
 
 public struct ToastOverlayView: View {
     @ObservedObject var toastManager: ToastManager
-    /// Đọc thẳng khoá `UserDefaults` để toast tự cập nhật khi đổi chế độ.
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
     
     public var body: some View {
         ZStack {
@@ -135,14 +133,11 @@ public struct ToastOverlayView: View {
                     HStack(spacing: 8) {
                         switch toastManager.toastType {
                         case .success:
-                            // Trên nền toast đen đặc của e-ink, icon phải **trắng** — giữ màu xanh/đỏ thì
-                            // icon chìm vào nền. Hai hình đã khác nhau (checkmark vs exclamation) nên
-                            // nghĩa không mất khi bỏ màu.
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(isEInkEnabled ? EInkPalette.paper : .green)
+                                .foregroundColor(.green)
                         case .error:
                             Image(systemName: "exclamationmark.circle.fill")
-                                .foregroundColor(isEInkEnabled ? EInkPalette.paper : .red)
+                                .foregroundColor(.red)
                         case .info:
                             EmptyView()
                         }
@@ -154,21 +149,11 @@ public struct ToastOverlayView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
-                    .background {
-                        if isEInkEnabled {
-                            // Đen **đặc** (bỏ mức 92% để panel khỏi phải dither) + viền trắng để tách
-                            // khỏi nền trang trắng; bỏ bóng vì bóng mờ chỉ ra vệt xám trên e-ink.
-                            Capsule()
-                                .fill(EInkPalette.ink)
-                                .overlay {
-                                    Capsule().strokeBorder(EInkPalette.paper, lineWidth: EInkPalette.borderWidth)
-                                }
-                        } else {
-                            Capsule()
-                                .fill(Color(red: 0.1, green: 0.1, blue: 0.1).opacity(0.92))
-                                .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 4)
-                        }
-                    }
+                    .background(
+                        Capsule()
+                            .fill(Color(red: 0.1, green: 0.1, blue: 0.1).opacity(0.92))
+                            .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 4)
+                    )
                     .padding(.bottom, 100)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }

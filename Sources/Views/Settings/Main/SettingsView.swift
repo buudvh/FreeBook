@@ -209,7 +209,6 @@ struct SettingsView: View {
                 
                 TTSSettingsSection()
 
-                EInkSettingsSection()
                 BrowserSettingsSection()
 
                 NewChapterSettingsSection()
@@ -377,7 +376,6 @@ struct SettingsView: View {
                     onCancel: nil
                 )
             )
-            .einkBackground(Color(.systemGroupedBackground))
         }
     }
     
@@ -412,8 +410,10 @@ struct SettingsView: View {
 // MARK: - Dictionary Status Card Subview
 
 struct DictionaryCard: View {
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
-    let title: String; let statusText: String; let isSet: Bool; let isLoading: Bool
+    let title: String
+    let statusText: String
+    let isSet: Bool
+    let isLoading: Bool
     
     var body: some View {
         HStack {
@@ -426,7 +426,7 @@ struct DictionaryCard: View {
                 
                 Text(statusText)
                     .font(.caption)
-                    .foregroundColor(isEInkEnabled ? (isSet ? .secondary : EInkPalette.ink) : (isLoading ? .blue : (isSet ? .secondary : .red)))
+                    .foregroundColor(isLoading ? .blue : (isSet ? .secondary : .red))
                     .lineLimit(1)
             }
             
@@ -440,7 +440,10 @@ struct DictionaryCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.secondary.opacity(0.08))
         .cornerRadius(8)
-        .einkOutline(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.secondary.opacity(0.12), lineWidth: 1)
+        )
     }
 }
 

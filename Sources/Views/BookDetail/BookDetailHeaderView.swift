@@ -23,8 +23,6 @@ struct BookDetailHeaderView: View {
     let onTranslateMetaIfNeeded: (String) -> String
     let onLoadBookDetailOnly: () -> Void
 
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
-
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             if isLoadingDetail && title.isEmpty {
@@ -92,7 +90,7 @@ struct BookDetailHeaderView: View {
         HStack(alignment: .top, spacing: 16) {
             BookCoverView(bookId: actualBookId, coverUrl: coverUrl, width: 100, height: 140)
                 .cornerRadius(8)
-                .einkShadow(.black.opacity(0.33), radius: 2)
+                .shadow(radius: 2)
 
             VStack(alignment: .leading, spacing: 8) {
                 Text(DisplayTextFormatter.titleCase(onTranslateMetaIfNeeded(title)))
@@ -168,15 +166,9 @@ struct BookDetailHeaderView: View {
                             .font(.caption2)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
-                            .background(isEInkEnabled ? EInkPalette.paperCard : Color.blue.opacity(0.1))
-                            .foregroundColor(isEInkEnabled ? EInkPalette.ink : .blue)
+                            .background(Color.blue.opacity(0.1))
+                            .foregroundColor(.blue)
                             .cornerRadius(8)
-                            .overlay {
-                                if isEInkEnabled {
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth)
-                                }
-                            }
                     }
                 }
             }

@@ -18,9 +18,7 @@ struct QuickTranslationRulePrioritySettingsView: View {
                     .font(.footnote)
                     .foregroundColor(.secondary)
             }
-            .einkListRowBackground()
         }
-        .einkBackground()
         .navigationTitle("Thứ tự ưu tiên rule")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { EditButton() }

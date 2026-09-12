@@ -70,7 +70,6 @@ struct NewChapterSettingsView: View {
                     .foregroundColor(.secondary)
             }
         }
-        .einkBackground(Color(.systemGroupedBackground))
         .navigationTitle("Kiểm tra chương mới")
         .navigationBarTitleDisplayMode(.inline)
     }

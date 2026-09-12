@@ -7,9 +7,6 @@ struct MainTabView: View {
     @State private var selectedTab = 0
     /// Số truyện có chương mới, hiện trên tab Kệ Sách.
     @ObservedObject private var newChapters = NewChapterInboxManager.shared
-    /// Accent là cần gạt rẻ nhất của cả app: mọi `.accentColor` bên dưới (Settings, Dictionary, Discovery,
-    /// Search, Extensions…) đổi theo `.tint` này, nên bật E-Ink chỉ cần trả về đen ở đây.
-    @ObservedObject private var eink = EInkModeSettings.shared
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -38,7 +35,7 @@ struct MainTabView: View {
                 }
                 .tag(3)
         }
-        .tint(eink.isEnabled ? EInkPalette.ink : .accentColor)
+        .tint(.accentColor)
         .toolbarBackground(.visible, for: .tabBar)
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openCurrentlyPlayingReader"))) { _ in
             selectedTab = 0

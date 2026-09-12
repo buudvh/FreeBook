@@ -2,8 +2,6 @@ import SwiftUI
 
 struct ReaderHeaderFooterOverlayView: View {
     let selectedTheme: ReaderTheme
-    /// Đọc thẳng khoá `UserDefaults` để thanh tự cập nhật khi đổi chế độ.
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
     @Binding var isTranslationEnabled: Bool
     @Binding var isAutoScrollDisabled: Bool
     @Binding var showingBookDictionary: Bool
@@ -34,19 +32,6 @@ struct ReaderHeaderFooterOverlayView: View {
         selectedTheme.backgroundColor
     }
 
-    /// Nền của hai nút toggle. Bản gốc là `textColor.opacity(0.07)` — trên e-ink mức 7% gần như vô hình,
-    /// nên đổi thành **viền đen 1px**: vẫn khoanh được vùng chạm mà không cần mảng xám nào.
-    @ViewBuilder
-    private func toggleBackground(cornerRadius: CGFloat) -> some View {
-        if isEInkEnabled {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth)
-        } else {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(selectedTheme.textColor.opacity(0.07))
-        }
-    }
-
     var body: some View {
         VStack {
             // Header View
@@ -75,9 +60,9 @@ struct ReaderHeaderFooterOverlayView: View {
                     Button(action: { isAutoScrollDisabled.toggle() }) {
                         Image(systemName: isAutoScrollDisabled ? "scroll" : "scroll.fill")
                             .font(.system(size: 18, weight: .semibold))
-                            .einkAccentForeground(isAutoScrollDisabled ? selectedTheme.textColor.opacity(0.85) : .blue)
+                            .foregroundColor(isAutoScrollDisabled ? selectedTheme.textColor.opacity(0.85) : .blue)
                             .frame(width: 44, height: 44)
-                            .background { toggleBackground(cornerRadius: 6) }
+                            .background(selectedTheme.textColor.opacity(0.07), in: RoundedRectangle(cornerRadius: 6))
                     }
                     .accessibilityLabel(isAutoScrollDisabled ? "Bật cuộn theo Highlight TTS" : "Tắt cuộn theo Highlight TTS")
 
@@ -132,9 +117,9 @@ struct ReaderHeaderFooterOverlayView: View {
                     Button(action: { isTranslationEnabled.toggle() }) {
                         Image(systemName: isTranslationEnabled ? "character.bubble.fill" : "character.bubble")
                             .font(.system(size: 19, weight: .semibold))
-                            .einkAccentForeground(isTranslationEnabled ? .blue : selectedTheme.textColor.opacity(0.85))
+                            .foregroundColor(isTranslationEnabled ? .blue : selectedTheme.textColor.opacity(0.85))
                             .frame(width: 44, height: 52)
-                            .background { toggleBackground(cornerRadius: 6) }
+                            .background(selectedTheme.textColor.opacity(0.07), in: RoundedRectangle(cornerRadius: 6))
                     }
                     .accessibilityLabel(isTranslationEnabled ? "Tắt dịch" : "Bật dịch")
 
@@ -170,9 +155,6 @@ struct ReaderHeaderFooterOverlayView: View {
             .padding(.top, 6)
             .padding(.bottom, 4)
             .background(readerChromeBackground.ignoresSafeArea(edges: .top))
-            // Chrome vốn trùng màu nền trang, không có đường kẻ nào. Trên e-ink phải thêm một hairline
-            // đen mới tách được vùng chữ khỏi thanh — đây là **bổ sung có chủ ý**, không phải giữ nguyên.
-            .einkRule()
 
             Spacer()
 
@@ -214,15 +196,6 @@ struct ReaderHeaderFooterOverlayView: View {
             .frame(height: 52)
             .padding(.horizontal, 12)
             .background(readerChromeBackground.ignoresSafeArea(edges: .bottom))
-            // Kẻ ở **mép trên** footer (không dùng `einkRule()` vì hàm đó gắn ở mép dưới, mà mép dưới
-            // của footer đã nằm ngoài màn hình).
-            .overlay(alignment: .top) {
-                if isEInkEnabled {
-                    Rectangle()
-                        .fill(EInkPalette.separator)
-                        .frame(height: EInkPalette.separatorWidth)
-                }
-            }
         }
     }
 }

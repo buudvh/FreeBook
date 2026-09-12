@@ -13,9 +13,6 @@ struct CollectionCoverMosaicView: View {
     let totalCount: Int
     let size: CGFloat
 
-    /// Đọc thẳng khoá `UserDefaults` để badge tự cập nhật khi đổi chế độ.
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
-
     private let gap: CGFloat = 2
 
     private var leadingWidth: CGFloat { (size * 0.62).rounded() }
@@ -63,10 +60,10 @@ struct CollectionCoverMosaicView: View {
 
     private var placeholder: some View {
         ZStack {
-            (isEInkEnabled ? EInkPalette.paperCard : Color(.secondarySystemBackground))
+            Color(.secondarySystemBackground)
             Image(systemName: "folder")
                 .font(.system(size: size * 0.28, weight: .light))
-                .foregroundColor(isEInkEnabled ? EInkPalette.ink.opacity(0.45) : .secondary.opacity(0.45))
+                .foregroundColor(.secondary.opacity(0.45))
         }
     }
 
@@ -79,7 +76,7 @@ struct CollectionCoverMosaicView: View {
                 .foregroundColor(.white)
                 .padding(.horizontal, 5)
                 .padding(.vertical, 2)
-                .background(isEInkEnabled ? EInkPalette.ink : Color.black.opacity(0.55), in: Capsule())
+                .background(Color.black.opacity(0.55), in: Capsule())
                 .padding(4)
         }
     }

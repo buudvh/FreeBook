@@ -18,8 +18,6 @@ private struct DiscoveryDetailRoute: Identifiable, Hashable {
 }
 
 struct DiscoveryView: View {
-    @AppStorage(EInkModeSettings.Key.enabled) internal var isEInkEnabled = false
-    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
     @Environment(\.modelContext) private var modelContext
     @Query private var allExtensions: [Extension]
     
@@ -88,8 +86,6 @@ struct DiscoveryView: View {
         activeExtensions.first(where: { $0.packageId == selectedExtensionId })
     }
 
-    private var paper: Color { EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray) }
-
     private func shouldRenderCategoryTab(id: String) -> Bool {
         guard let selectedIndex = homeItems.firstIndex(where: { $0.id == selectedCategoryId }),
               let itemIndex = homeItems.firstIndex(where: { $0.id == id }) else {
@@ -142,7 +138,8 @@ struct DiscoveryView: View {
                             .foregroundColor(.primary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
-                            .background(isEInkEnabled ? paper : Color(.secondarySystemBackground)).cornerRadius(18).einkOutline(18)
+                            .background(Color(.secondarySystemBackground))
+                            .cornerRadius(18)
                         }
                         .layoutPriority(1) // Đảm bảo nút chọn nguồn được hiển thị trọn vẹn nhất có thể
                         
@@ -157,8 +154,8 @@ struct DiscoveryView: View {
                                     .font(.title3)
                                     .foregroundColor(.primary)
                                     .padding(10)
-                                    .background(isEInkEnabled ? paper : Color(.secondarySystemBackground)).clipShape(Circle())
-                                    .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
+                                    .background(Color(.secondarySystemBackground))
+                                    .clipShape(Circle())
                             }
                         }
                         
@@ -170,8 +167,8 @@ struct DiscoveryView: View {
                                 .font(.title3)
                                 .foregroundColor(.primary)
                                 .padding(10)
-                                .background(isEInkEnabled ? paper : Color(.secondarySystemBackground)).clipShape(Circle())
-                                .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
+                                .background(Color(.secondarySystemBackground))
+                                .clipShape(Circle())
                         }
                         
                         // Nút Tìm Kiếm chuyển sang SearchView
@@ -183,13 +180,13 @@ struct DiscoveryView: View {
                                 .font(.title3)
                                 .foregroundColor(.primary)
                                 .padding(10)
-                                .background(isEInkEnabled ? paper : Color(.secondarySystemBackground)).clipShape(Circle())
-                                .overlay { if isEInkEnabled { Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth) } }
+                                .background(Color(.secondarySystemBackground))
+                                .clipShape(Circle())
                         }
                     }
                     .padding(.horizontal)
                     .padding(.vertical, 10)
-                    .background(isEInkEnabled ? paper : Color(.systemBackground))
+                    .background(Color(.systemBackground))
                     .onChange(of: selectedExtensionId) { _, newValue in
                         lastSelectedExtensionId = newValue
                         // Xóa sạch dữ liệu cũ khi đổi extension để tránh rác hiển thị
@@ -216,7 +213,9 @@ struct DiscoveryView: View {
                                         .font(.title3)
                                         .padding(.horizontal, 12)
                                         .padding(.vertical, 10)
-                                        .background(isEInkEnabled ? paper : Color.accentColor.opacity(0.1)).foregroundColor(isEInkEnabled ? EInkPalette.ink : .accentColor).cornerRadius(8).einkOutline(8)
+                                        .background(Color.accentColor.opacity(0.1))
+                                        .foregroundColor(.accentColor)
+                                        .cornerRadius(8)
                                 }
                                 .padding(.leading)
                                 
@@ -233,15 +232,9 @@ struct DiscoveryView: View {
                                                         .fontWeight(isSelected ? .bold : .regular)
                                                         .padding(.horizontal, 14)
                                                         .padding(.vertical, 8)
-                                                        .background(isSelected ? (isEInkEnabled ? EInkPalette.ink : Color.accentColor) : (isEInkEnabled ? paper : Color.gray.opacity(0.1)))
-                                                        .foregroundColor(isSelected ? (isEInkEnabled ? EInkPalette.selectedContent : .white) : .primary)
+                                                        .background(isSelected ? Color.accentColor : Color.gray.opacity(0.1))
+                                                        .foregroundColor(isSelected ? .white : .primary)
                                                         .cornerRadius(20)
-                                                        .overlay {
-                                                            if isEInkEnabled && !isSelected {
-                                                                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                                                    .strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth)
-                                                            }
-                                                        }
                                                 }
                                                 .id(item.id)
                                             }
@@ -268,7 +261,7 @@ struct DiscoveryView: View {
                                 }
                             }
                             .padding(.vertical, 10)
-                            .background(isEInkEnabled ? paper : Color(.systemBackground))
+                            .background(Color(.systemBackground))
                             
                             Divider()
                         }
@@ -279,7 +272,7 @@ struct DiscoveryView: View {
                                 VStack(spacing: 16) {
                                     Image(systemName: "exclamationmark.triangle.fill")
                                         .font(.system(size: 48))
-                                        .einkAccentForeground(.orange)
+                                        .foregroundColor(.orange)
                                     Text(discoveryError)
                                         .font(.headline)
                                         .foregroundColor(.secondary)
@@ -293,7 +286,7 @@ struct DiscoveryView: View {
                                 VStack(spacing: 16) {
                                     Image(systemName: "circle.grid.2x2")
                                         .font(.system(size: 48))
-                                        .foregroundColor(isEInkEnabled ? EInkPalette.ink : .accentColor)
+                                        .foregroundColor(.accentColor)
                                     Text("Nguồn truyện này chỉ hỗ trợ xem theo Thể loại.")
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
@@ -302,8 +295,8 @@ struct DiscoveryView: View {
                                             .fontWeight(.semibold)
                                             .padding(.horizontal, 20)
                                             .padding(.vertical, 10)
-                                            .background(isEInkEnabled ? EInkPalette.ink : Color.accentColor)
-                                            .foregroundColor(isEInkEnabled ? EInkPalette.selectedContent : .white)
+                                            .background(Color.accentColor)
+                                            .foregroundColor(.white)
                                             .cornerRadius(20)
                                     }
                                 }
@@ -350,7 +343,6 @@ struct DiscoveryView: View {
                     }
                 }
             }
-            .einkBackground()
             .toolbar(.hidden, for: .navigationBar)
             .onAppear {
                 // Tự động khôi phục nguồn cuối cùng đã xem
@@ -409,7 +401,9 @@ struct DiscoveryView: View {
                                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                                             .padding(.horizontal, 4)
                                             .frame(height: 50) // Chiều cao cố định đảm bảo bằng nhau tuyệt đối
-                                            .background(isEInkEnabled ? paper : Color.accentColor.opacity(0.1)).foregroundColor(isEInkEnabled ? EInkPalette.ink : .accentColor).cornerRadius(10).einkOutline(10)
+                                            .background(Color.accentColor.opacity(0.1))
+                                            .foregroundColor(.accentColor)
+                                            .cornerRadius(10)
                                     }
                                 }
                             }
@@ -659,7 +653,6 @@ struct DiscoveryCategoryTabView: View {
                                 BookListItemView(item: novel, style: .discovery)
                             }
                             .buttonStyle(.plain)
-                            .einkListRowBackground()
                             // Neo theo `link` chu khong phai `novel.id`: `ExtensionItemResult.id` la
                             // `UUID()` moi moi lan bocs tach, nen sau mot luot nap lai no khong con khop
                             // va neo se vo dung. `link` la dinh danh noi dung, on dinh qua nap lai.
@@ -680,11 +673,9 @@ struct DiscoveryCategoryTabView: View {
                                 Spacer()
                             }
                             .listRowSeparator(.hidden)
-                            .einkListRowBackground()
                         }
                     }
                     .listStyle(.plain)
-                    .einkBackground()
                     .refreshable {
                         await loader.reload()
                     }
@@ -769,8 +760,6 @@ struct DiscoveryCategoryTabView: View {
 
 struct ExtensionSelectorView: View {
     @Environment(\.dismiss) private var dismiss
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
-    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
     
     let activeExtensions: [Extension]
     @Binding var selectedExtensionId: String
@@ -780,7 +769,6 @@ struct ExtensionSelectorView: View {
     
     @State private var configExtension: Extension? = nil
     @State private var listBrowserTarget: ExtensionBrowserTarget? = nil
-    private var paper: Color { EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray) }
     
     private var filteredExtensions: [Extension] {
         let baseList: [Extension]
@@ -826,7 +814,8 @@ struct ExtensionSelectorView: View {
                     }
                 }
                 .padding(10)
-                .background(isEInkEnabled ? paper : Color(.secondarySystemBackground)).cornerRadius(10).einkOutline(10)
+                .background(Color(.secondarySystemBackground))
+                .cornerRadius(10)
                 .padding()
                 
                 Divider()
@@ -853,7 +842,7 @@ struct ExtensionSelectorView: View {
                         
                         if isSelected {
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(isEInkEnabled ? EInkPalette.selectedContent : .accentColor)
+                                .foregroundColor(.accentColor)
                                 .padding(.trailing, 4)
                         }
                         
@@ -887,7 +876,7 @@ struct ExtensionSelectorView: View {
                         }) {
                             Image(systemName: ext.isPinned ? "pin.fill" : "pin")
                                 .font(.body)
-                                .foregroundColor(isEInkEnabled && ext.isPinned ? EInkPalette.selectedContent : (ext.isPinned ? .accentColor : .secondary))
+                                .foregroundColor(ext.isPinned ? .accentColor : .secondary)
                                 .padding(8)
                         }
                         .buttonStyle(.plain)
@@ -897,8 +886,7 @@ struct ExtensionSelectorView: View {
                         selectedExtensionId = ext.packageId
                         dismiss()
                     }
-                    .foregroundColor(isSelected && isEInkEnabled ? EInkPalette.selectedContent : .primary)
-                    .listRowBackground(isSelected && isEInkEnabled ? EInkPalette.ink : (isSelected ? Color.accentColor.opacity(0.08) : (isEInkEnabled ? paper : Color(.systemBackground))))
+                    .listRowBackground(isSelected ? Color.accentColor.opacity(0.08) : Color(.systemBackground))
                 }
                 .listStyle(.plain)
             }

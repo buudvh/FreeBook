@@ -66,7 +66,6 @@ struct ReaderSettingsView: View {
             }
             .padding()
         }
-        .einkBackground()
         .presentationDragIndicator(.visible)
         .sheet(isPresented: $showingRulePriority) {
             NavigationStack {

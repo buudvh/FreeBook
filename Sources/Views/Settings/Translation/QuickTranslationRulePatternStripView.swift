@@ -17,8 +17,6 @@ struct QuickTranslationRulePatternStripView: View {
     @Binding var selectionLength: Int
     let onDeleteBackward: () -> Void
 
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
-
     private var characterCount: Int {
         segments.last?.end ?? 0
     }
@@ -53,9 +51,8 @@ struct QuickTranslationRulePatternStripView: View {
             Button(action: onDeleteBackward) {
                 Image(systemName: "delete.left")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(isEInkEnabled ? EInkPalette.ink : .primary)
                     .frame(width: 30, height: 30)
-                    .background(isEInkEnabled ? EInkPalette.paperCard : Color.secondary.opacity(0.14))
+                    .background(Color.secondary.opacity(0.14))
                     .clipShape(Circle())
             }
             .buttonStyle(.plain)
@@ -64,7 +61,7 @@ struct QuickTranslationRulePatternStripView: View {
         }
         .padding(.horizontal, 4)
         .frame(maxWidth: .infinity)
-        .background(isEInkEnabled ? EInkPalette.paperCard : Color.secondary.opacity(0.08))
+        .background(Color.secondary.opacity(0.08))
         .cornerRadius(8)
     }
 
@@ -73,34 +70,15 @@ struct QuickTranslationRulePatternStripView: View {
             && segment.start >= selectionStart
             && segment.end <= selectionStart + selectionLength
 
-        let textColor: Color = {
-            if isEInkEnabled {
-                return isSelected ? EInkPalette.paperCanvas : EInkPalette.ink
-            }
-            return color(for: segment.kind)
-        }()
-
-        let bgFill: Color = {
-            if isEInkEnabled {
-                if isSelected { return EInkPalette.ink }
-                switch segment.kind {
-                case .literal: return .clear
-                case .token: return EInkPalette.grayMedium
-                case .groupPunct: return EInkPalette.grayDark
-                }
-            }
-            return isSelected ? Color.accentColor.opacity(0.28) : background(for: segment.kind)
-        }()
-
         return Text(segment.text)
             .font(.system(size: 15, weight: segment.kind == .literal ? .regular : .semibold,
                           design: segment.kind == .literal ? .default : .monospaced))
-            .foregroundColor(textColor)
+            .foregroundColor(color(for: segment.kind))
             .padding(.horizontal, segment.kind == .literal ? 1 : 4)
             .padding(.vertical, 2)
             .background(
                 RoundedRectangle(cornerRadius: 5)
-                    .fill(bgFill)
+                    .fill(isSelected ? Color.accentColor.opacity(0.28) : background(for: segment.kind))
             )
             .id("pattern-seg-\(segment.id)")
             .onTapGesture {
@@ -114,7 +92,7 @@ struct QuickTranslationRulePatternStripView: View {
         let isActive = selectionLength == 0 && selectionStart == index
 
         return Rectangle()
-            .fill(isActive ? (isEInkEnabled ? EInkPalette.ink : Color.accentColor) : Color.clear)
+            .fill(isActive ? Color.accentColor : Color.clear)
             .frame(width: 2, height: 22)
             .padding(.horizontal, 3)
             .contentShape(Rectangle())

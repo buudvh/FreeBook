@@ -23,9 +23,6 @@ public struct FloatingSelectionMenu: View {
     public let onAddToTTSReplacement: () -> Void
     public let onSearchWeb: () -> Void
 
-    /// Đọc thẳng khoá `UserDefaults` để bong bóng chọn chữ tự cập nhật khi đổi chế độ E-Ink.
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
-
     private let gap: CGFloat = 24
     private let ngheWidth: CGFloat = 62
     private let buttonWidth: CGFloat = 52
@@ -132,8 +129,7 @@ public struct FloatingSelectionMenu: View {
 
                     Button(action: onDeleteJunk) {
                         menuItemContent(icon: "trash.fill", label: "Xoá")
-                            .foregroundColor(isEInkEnabled ? .white : .red)
-                            .underline(isEInkEnabled, pattern: .dash)
+                            .foregroundColor(.red)
                     }
                     .frame(width: buttonWidth, height: row2Height)
                 }
@@ -144,7 +140,7 @@ public struct FloatingSelectionMenu: View {
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .fill(Color(red: 0.1, green: 0.1, blue: 0.12).opacity(0.92))
-                .einkShadow(Color.black.opacity(0.24), radius: 6, y: 3)
+                .shadow(color: Color.black.opacity(0.24), radius: 6, x: 0, y: 3)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 8)

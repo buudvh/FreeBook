@@ -63,7 +63,6 @@ struct SearchEnginesConfigView: View {
                 .foregroundColor(.red)
             }
         }
-        .einkBackground(Color(.systemGroupedBackground))
         .navigationTitle("Công cụ tra cứu nhanh")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -92,7 +91,6 @@ struct SearchEnginesConfigView: View {
                             .textInputAutocapitalization(.never)
                     }
                 }
-                .einkBackground(Color(.systemGroupedBackground))
                 .navigationTitle(editingEngine == nil ? "Thêm công cụ" : "Sửa công cụ")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {

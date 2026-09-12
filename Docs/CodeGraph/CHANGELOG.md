@@ -4,6 +4,17 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.365] - 2026-09-12
+
+### Xoá bỏ hoàn toàn chế độ E-Ink và khôi phục giao diện CardView nguyên bản
+
+Xoá **7** file Swift, sửa các file View/Services/Common liên quan.
+
+- Xoá bỏ hoàn toàn 7 tệp chuyên trách E-Ink (`View+EInk.swift`, `EInkModeSettings.swift`, `EInkRefreshOverlay.swift`, `EInkPalette.swift`, `EInkAppearance.swift`, `ReaderTheme+EInk.swift`, `EInkSettingsSection.swift`) và tất cả các tham chiếu E-Ink (`isEInkEnabled`, `paperColorRaw`, các hàm mở rộng `.eink*`) trên toàn bộ ứng dụng.
+- Khôi phục tất cả CardView, RowView, Sheet, Badge và Chip về giao diện tiêu chuẩn (màu sắc, bo góc, nền chuẩn và drop shadow).
+- Giữ lại các cải tiến độc lập hợp lệ: nút sửa thông tin trên header `BookActionSheet.swift`, đồng bộ selection `SelectionSnapshot` trong `ReaderDefinitionSession.swift`, và cố định chiều cao hàng trong `ReaderDefinitionOverlayView.swift`.
+- Gate: `check_architecture.py` giữ 6 violation line-limit nền, không có violation mới; `validate_links.py` PASS 100%.
+
 ## [1.3.364] - 2026-09-12
 
 ### Hoàn thiện theme E-Ink 2 tầng nền, 4 preset giấy, sắc xám ngữ nghĩa và đơn sắc hoá icon

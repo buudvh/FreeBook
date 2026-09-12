@@ -13,10 +13,10 @@ extension BookDetailView {
                     Text("Chi tiết")
                         .font(.subheadline)
                         .fontWeight(selectedTab == 0 ? .bold : .medium)
-                        .foregroundColor(isEInkEnabled && selectedTab == 0 ? EInkPalette.ink : (selectedTab == 0 ? .accentColor : .secondary))
+                        .foregroundColor(selectedTab == 0 ? .accentColor : .secondary)
 
                     Rectangle()
-                        .fill(selectedTab == 0 ? (isEInkEnabled ? EInkPalette.ink : Color.accentColor) : Color.clear)
+                        .fill(selectedTab == 0 ? Color.accentColor : Color.clear)
                         .frame(height: 3)
                 }
             }
@@ -32,7 +32,7 @@ extension BookDetailView {
                         Text("Mục lục")
                             .font(.subheadline)
                             .fontWeight(selectedTab == 1 ? .bold : .medium)
-                            .foregroundColor(isEInkEnabled && selectedTab == 1 ? EInkPalette.ink : (selectedTab == 1 ? .accentColor : .secondary))
+                            .foregroundColor(selectedTab == 1 ? .accentColor : .secondary)
 
                         if totalChaptersCount > 0 {
                             Text("\(totalChaptersCount)")
@@ -41,19 +41,18 @@ extension BookDetailView {
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Capsule().fill(isEInkEnabled ? EInkPalette.ink : Color.red))
+                                .background(Capsule().fill(Color.red))
                         }
                     }
 
                     Rectangle()
-                        .fill(selectedTab == 1 ? (isEInkEnabled ? EInkPalette.ink : Color.accentColor) : Color.clear)
+                        .fill(selectedTab == 1 ? Color.accentColor : Color.clear)
                         .frame(height: 3)
                 }
             }
             .frame(maxWidth: .infinity)
         }
-        .einkBackground(Color(.systemBackground))
-        .einkRule()
+        .background(Color(.systemBackground))
         .padding(.top, 4)
     }
 }

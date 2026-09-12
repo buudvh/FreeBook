@@ -141,7 +141,7 @@ extension ReaderView {
     }
 
     internal var readerChromeBackground: Color {
-        selectedTheme.scrimColor
+        selectedTheme == .dark ? Color.black.opacity(0.78) : Color.white.opacity(0.72)
     }
 
     /// Áp cấu hình "hiện tên chương trong nội dung" cho truyện này. Cờ được lưu theo `bookId` vì
@@ -165,39 +165,8 @@ extension ReaderView {
         viewModel?.reloadDisplayedChapter()
     }
 
-    /// Nút "làm mới màn hình" riêng cho E-Ink. Chỉ hiện khi mode bật và công tắc phụ mở (xem ReaderView).
-    /// Gọi `EInkRefreshOverlay.flash()` — nháy đen/trắng toàn màn hình để xoá ghosting. Ngoài E-Ink,
-    /// người dùng không bao giờ thấy nút này, nhưng vẫn dùng chung `readerEdgeButton` để giữ style viền.
-    @ViewBuilder
-    internal var readerEInkRefreshControl: some View {
-        let paper = EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: eInkPaperColorRaw) ?? .gray)
-        readerEdgeButton(
-            icon: "arrow.clockwise",
-            tint: selectedTheme.textColor.opacity(0.9),
-            action: { EInkRefreshOverlay.shared.flash() }
-        )
-        .accessibilityLabel("Làm mới màn hình E-Ink")
-        .padding(8)
-        .background {
-            if EInkModeSettings.shared.isEnabled {
-                Circle().fill(paper)
-            } else {
-                Circle().fill(.ultraThinMaterial)
-            }
-        }
-        .overlay {
-            if EInkModeSettings.shared.isEnabled {
-                Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth)
-            }
-        }
-        .einkShadow(Color.black.opacity(0.18), radius: 12, y: 4)
-        .padding(.trailing, 8)
-        .padding(.bottom, 12)
-    }
-
     @ViewBuilder
     internal func readerTTSControl(geometry: GeometryProxy) -> some View {
-        let paper = EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: eInkPaperColorRaw) ?? .gray)
         readerEdgeButton(
             icon: "headphones",
             tint: selectedTheme.textColor.opacity(0.9),
@@ -226,45 +195,20 @@ extension ReaderView {
         )
         .accessibilityLabel(isTTSPlayingThisBook ? "Dừng đọc thành tiếng" : "Đọc thành tiếng")
         .padding(8)
-        .background {
-            if EInkModeSettings.shared.isEnabled {
-                Circle().fill(paper)
-            } else {
-                Circle().fill(.ultraThinMaterial)
-            }
-        }
-        .overlay {
-            if EInkModeSettings.shared.isEnabled {
-                Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth)
-            }
-        }
-        .einkShadow(Color.black.opacity(0.18), radius: 12, y: 4)
+        .background(.ultraThinMaterial, in: Circle())
+        .shadow(color: Color.black.opacity(0.18), radius: 12, x: 0, y: 4)
         .padding(.trailing, 8)
         .padding(.bottom, 12)
     }
 
     internal func readerEdgeButton(icon: String, tint: Color, action: @escaping () -> Void) -> some View {
-        // Nút nổi trên nội dung. Trên e-ink nền đen 12% chỉ ra xám nhạt còn icon thì đen — thay bằng
-        // **đĩa trắng viền đen** để nút vẫn tách khỏi chữ phía sau mà không cần mảng xám nào.
-        let isEInk = EInkModeSettings.shared.isEnabled
-        let paper = EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: eInkPaperColorRaw) ?? .gray)
-        return Button(action: action) {
+        Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundColor(isEInk ? EInkPalette.ink : tint)
+                .foregroundColor(tint)
                 .frame(width: 44, height: 44)
-                .background {
-                    if isEInk {
-                        Circle().fill(paper)
-                    } else {
-                        Circle().fill(Color.black.opacity(selectedTheme == .dark ? 0.34 : 0.12))
-                    }
-                }
-                .overlay {
-                    if isEInk {
-                        Circle().strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth)
-                    }
-                }
+                .background(Color.black.opacity(selectedTheme == .dark ? 0.34 : 0.12))
+                .clipShape(Circle())
         }
     }
 

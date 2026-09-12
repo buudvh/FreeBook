@@ -10,9 +10,6 @@ struct VisibleBrowserReopenButton: View {
     let tabCount: Int
 
     @ObservedObject private var pulseMonitor = VisibleBrowserPulseMonitor.shared
-    /// Đọc thẳng khoá `UserDefaults` để pill tự cập nhật khi đổi chế độ.
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
-    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
 
     /// Pha của nhịp nháy: `true` = đỏ tươi, `false` = đỏ sẫm. Chỉ có nghĩa khi
     /// `pulseMonitor.isPulsing == true`.
@@ -54,10 +51,6 @@ struct VisibleBrowserReopenButton: View {
         )
     }
 
-    private var paper: Color {
-        EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray)
-    }
-
     private var pillContent: some View {
         HStack(spacing: 6) {
             // Icon Safari thay cho `globe`: nó là thứ người dùng nhận ra ngay là "trình duyệt".
@@ -71,29 +64,17 @@ struct VisibleBrowserReopenButton: View {
         .padding(.horizontal, 11)
         // Bằng 2/3 chiều cao widget nghe truyện (56) — xem `BrowserFloatingWidgetContainerViewController`.
         .frame(height: 38)
-        .background {
-            if isEInkEnabled {
-                // Pill nổi trên nội dung: nền đục + viền đen, bỏ nhịp nháy đỏ (nháy là chuyển động, mà
-                // trên e-ink lại còn là mảng màu lớn gây ghosting).
-                Capsule(style: .continuous).fill(paper)
-            } else {
-                Capsule(style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay {
-                        if pulseMonitor.isPulsing {
-                            Capsule(style: .continuous).fill(pulseColor)
-                        }
+        .background(
+            Capsule(style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay {
+                    if pulseMonitor.isPulsing {
+                        Capsule(style: .continuous).fill(pulseColor)
                     }
-            }
-        }
-        .overlay {
-            if isEInkEnabled {
-                Capsule(style: .continuous).strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth)
-            } else {
-                Capsule(style: .continuous).stroke(Color.white.opacity(0.14), lineWidth: 1)
-            }
-        }
-        .einkShadow(.black.opacity(0.24), radius: 10, y: 4)
+                }
+        )
+        .overlay(Capsule(style: .continuous).stroke(Color.white.opacity(0.14), lineWidth: 1))
+        .shadow(color: .black.opacity(0.24), radius: 10, x: 0, y: 4)
         .contentShape(Capsule())
     }
 }

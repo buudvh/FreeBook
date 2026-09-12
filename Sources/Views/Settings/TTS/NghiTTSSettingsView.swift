@@ -70,14 +70,12 @@ struct NghiTTSSettingsView: View {
                     .foregroundColor(.secondary)
             }
         }
-        .einkBackground(Color(.systemGroupedBackground))
         .navigationTitle("Cấu hình NghiTTS")
         .navigationBarTitleDisplayMode(.inline)
     }
 }
 
 struct PrecisionSliderView: View {
-    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
     let title: String
     @Binding var value: Double
     let defaultValue: Double
@@ -99,7 +97,7 @@ struct PrecisionSliderView: View {
                 }) {
                     Image(systemName: "minus.circle")
                         .font(.title3)
-                        .foregroundColor(isEInkEnabled ? EInkPalette.ink : .accentColor)
+                        .foregroundColor(.accentColor)
                 }
                 .buttonStyle(.borderless)
                 .contentShape(Rectangle())
@@ -119,7 +117,7 @@ struct PrecisionSliderView: View {
                 }) {
                     Image(systemName: "plus.circle")
                         .font(.title3)
-                        .foregroundColor(isEInkEnabled ? EInkPalette.ink : .accentColor)
+                        .foregroundColor(.accentColor)
                 }
                 .buttonStyle(.borderless)
                 .contentShape(Rectangle())

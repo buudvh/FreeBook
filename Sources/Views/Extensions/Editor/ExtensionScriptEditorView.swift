@@ -44,32 +44,12 @@ public struct ExtensionScriptEditorView: View {
     }
 
     internal let quickSymbols = ["{", "}", "(", ")", "[", "]", "=", ";", ":", "\"", "'", "=>", ".", ",", "fetch", "function"]
-
-    @ObservedObject internal var eink = EInkModeSettings.shared
-    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
-
-    internal var paper: Color {
-        EInkPalette.paperColor(for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray)
-    }
-
-    // Hex Catppuccin Dark Editor Colors — đảo sang nền sáng khi bật E-Ink (option C, §4b.5).
-    // 7 màu syntax vẫn nằm trong `HighlightingCodeEditor` và GIỮ NGUYÊN (nợ option-B đã ghi plan).
-    internal var editorBg: Color {
-        eink.isEnabled ? .white : Color(red: 24/255, green: 24/255, blue: 37/255)
-    }
-    internal var lineNumBg: Color {
-        eink.isEnabled
-            ? Color(red: 0.95, green: 0.95, blue: 0.95)
-            : Color(red: 30/255, green: 30/255, blue: 46/255)
-    }
-    internal var textFg: Color {
-        eink.isEnabled ? .black : Color(red: 205/255, green: 214/255, blue: 244/255)
-    }
-    internal var lineNumFg: Color {
-        eink.isEnabled
-            ? Color(white: 0.4)
-            : Color(red: 108/255, green: 112/255, blue: 134/255)
-    }
+    
+    // Hex Catppuccin Dark Editor Colors
+    internal let editorBg = Color(red: 24/255, green: 24/255, blue: 37/255)
+    internal let lineNumBg = Color(red: 30/255, green: 30/255, blue: 46/255)
+    internal let textFg = Color(red: 205/255, green: 214/255, blue: 244/255)
+    internal let lineNumFg = Color(red: 108/255, green: 112/255, blue: 134/255)
 
     public init(ext: Extension) {
         self.ext = ext
@@ -123,21 +103,16 @@ public struct ExtensionScriptEditorView: View {
                         if let syntaxMsg = syntaxStatusMessage {
                             HStack {
                                 Image(systemName: isSyntaxValid ? "checkmark.circle.fill" : "xmark.octagon.fill")
-                                    .foregroundColor(eink.isEnabled ? EInkPalette.ink : (isSyntaxValid ? .green : .red))
+                                    .foregroundColor(isSyntaxValid ? .green : .red)
                                 Text(syntaxMsg)
                                     .font(.caption)
                                     .fontWeight(.medium)
-                                    .foregroundColor(eink.isEnabled ? EInkPalette.ink : (isSyntaxValid ? .green : .red))
+                                    .foregroundColor(isSyntaxValid ? .green : .red)
                                 Spacer()
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .background(eink.isEnabled ? paper : (isSyntaxValid ? Color.green.opacity(0.12) : Color.red.opacity(0.12)))
-                            .overlay(alignment: .bottom) {
-                                if eink.isEnabled {
-                                    Rectangle().fill(EInkPalette.separator).frame(height: EInkPalette.separatorWidth)
-                                }
-                            }
+                            .background(isSyntaxValid ? Color.green.opacity(0.12) : Color.red.opacity(0.12))
                         }
 
                         // IDE Code Canvas với Gutter số dòng tích hợp sẵn
@@ -270,13 +245,7 @@ public struct ExtensionScriptEditorView: View {
         .buttonStyle(.plain)
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-            .background(eink.isEnabled ? paper : Color(uiColor: .systemBackground))
-            .overlay {
-                if eink.isEnabled {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth)
-                }
-            }
+        .background(Color(uiColor: .systemBackground))
         .sheet(isPresented: $showingScriptPickerSheet) {
             scriptPickerSheetView
         }

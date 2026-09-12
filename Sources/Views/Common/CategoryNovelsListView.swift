@@ -65,7 +65,6 @@ struct CategoryNovelsListView: View {
                                 .padding(.vertical, 4)
                         }
                         .buttonStyle(.plain)
-                        .einkListRowBackground()
                     }
 
                     if loader.canLoadMore {
@@ -75,7 +74,6 @@ struct CategoryNovelsListView: View {
                             Spacer()
                         }
                         .padding(.vertical, 8)
-                        .einkListRowBackground()
                         .onAppear {
                             Task {
                                 await loader.loadMore()
@@ -84,7 +82,6 @@ struct CategoryNovelsListView: View {
                     }
                 }
                 .listStyle(.plain)
-                .einkBackground()
                 .refreshable {
                     await loader.reload()
                 }
@@ -99,7 +96,6 @@ struct CategoryNovelsListView: View {
                 }
             }
         }
-        .einkBackground()
         .navigationTitle(translateIfNeeded(category.title))
         .navigationBarTitleDisplayMode(.inline)
         .task {
