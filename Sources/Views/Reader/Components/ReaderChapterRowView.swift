@@ -46,7 +46,7 @@ public struct ReaderChapterRowView: View {
             HStack(spacing: 0) {
                 Text(displayTitle)
                     .font(.body)
-                    .foregroundColor(isCurrent ? .blue : theme.textColor)
+                    .foregroundColor(isCurrent ? .white : theme.textColor)
                     .fontWeight(isCurrent ? .semibold : .regular)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
@@ -59,7 +59,7 @@ public struct ReaderChapterRowView: View {
                 .frame(width: 30, height: 30)
         }
         .padding(.vertical, 4)
-        .listRowBackground(isCurrent ? Color.blue.opacity(0.08) : theme.backgroundColor)
+        .listRowBackground(isCurrent ? Color.white.opacity(0.1) : theme.backgroundColor)
     }
 
     /// Ba trạng thái dùng **cùng một** khung 30×30 để hàng không nhảy chiều cao khi đổi trạng thái.

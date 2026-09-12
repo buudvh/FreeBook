@@ -128,7 +128,7 @@ struct ReaderSearchView: View {
                     tag("Tiêu đề", color: .orange)
                 }
                 tag(hit.matchedInTranslated ? "Bản dịch" : "Gốc",
-                    color: hit.matchedInTranslated ? .blue : .secondary)
+                    color: hit.matchedInTranslated ? .white : .secondary)
                 Spacer(minLength: 0)
             }
             Text(highlightedSnippet(hit.snippet))
@@ -201,7 +201,7 @@ struct ReaderSearchView: View {
         if let range = snippet.range(of: needle, options: [.diacriticInsensitive, .caseInsensitive], range: nil, locale: .current),
            let attributedRange = Range(range, in: attributed) {
             attributed[attributedRange].font = .subheadline.weight(.bold)
-            attributed[attributedRange].foregroundColor = .accentColor
+            attributed[attributedRange].foregroundColor = .white
         }
         return attributed
     }

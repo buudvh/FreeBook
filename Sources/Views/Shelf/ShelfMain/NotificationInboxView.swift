@@ -169,7 +169,7 @@ struct NotificationInboxView: View {
                 Spacer(minLength: 0)
                 if !record.isAnnouncementRead {
                     Circle()
-                        .fill(Color.accentColor)
+                        .fill(Color.white)
                         .frame(width: 8, height: 8)
                         .padding(.top, 6)
                 }
@@ -202,7 +202,7 @@ struct NotificationInboxView: View {
                 Spacer(minLength: 0)
                 if !record.isRead {
                     Circle()
-                        .fill(Color.accentColor)
+                        .fill(Color.white)
                         .frame(width: 8, height: 8)
                         .padding(.top, 6)
                 }
@@ -222,7 +222,7 @@ struct NotificationInboxView: View {
         case .error:
             Image(systemName: "exclamationmark.circle.fill").foregroundColor(.red).font(.title3)
         case .info:
-            Image(systemName: "info.circle.fill").foregroundColor(.blue).font(.title3)
+            Image(systemName: "info.circle.fill").foregroundColor(.white).font(.title3)
         }
     }
 

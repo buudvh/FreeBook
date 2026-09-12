@@ -174,7 +174,7 @@ struct BookActionSheet: View {
             if canOpenDetail {
                 Image(systemName: "info.circle")
                     .font(.system(size: 18, weight: .regular))
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(.white)
                     .frame(width: 32, height: 32, alignment: .trailing)
                     .accessibilityHidden(true)
             }
@@ -197,7 +197,7 @@ struct BookActionSheet: View {
         } label: {
             Image(systemName: "square.and.pencil")
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(.accentColor)
+                .foregroundColor(.white)
                 .frame(width: 32, height: 32)
                 .contentShape(Rectangle())
         }
@@ -213,7 +213,7 @@ struct BookActionSheet: View {
         } label: {
             Image(systemName: book.isOnShelf ? "bookmark.slash.fill" : "bookmark.fill")
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(book.isOnShelf ? .red : .accentColor)
+                .foregroundColor(book.isOnShelf ? .red : .white)
                 .frame(width: 32, height: 32)
                 .contentShape(Rectangle())
         }
@@ -241,7 +241,7 @@ struct BookActionSheet: View {
             ForEach(memberCollections) { collection in
                 HStack {
                     Image(systemName: "folder")
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(.white)
                     Text(collection.name)
                         .lineLimit(1)
                     Spacer()
@@ -307,11 +307,6 @@ struct BookActionSheet: View {
     /// nút icon ở góc dưới phải phần đầu (xem `shelfToggleButton`).
     @ViewBuilder
     private var actionRows: some View {
-        if target.mode != .history, !book.isLocalBook {
-            actionRow(.checkNewChapters, "Kiểm tra chương mới", "bell.badge")
-                .disabled(isCheckingNewChapters)
-        }
-
         if !book.isLocalBook {
             actionRow(.changeSource, "Đổi nguồn", "arrow.triangle.2.circlepath")
         }

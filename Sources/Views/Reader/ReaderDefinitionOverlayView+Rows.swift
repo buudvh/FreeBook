@@ -117,13 +117,19 @@ extension ReaderDefinitionOverlayView {
                 Label("Cập nhật", systemImage: "tray.and.arrow.down.fill")
                     .font(.subheadline)
                     .fontWeight(.semibold)
+                    .foregroundColor(.white)
                 Spacer()
             }
             .padding(.vertical, 8)
+            .background(Color.white.opacity(0.16))
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.white.opacity(0.35), lineWidth: 1)
+            )
         }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.small)
         .disabled(isSaving || customMeaning.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        .opacity((isSaving || customMeaning.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) ? 0.5 : 1.0)
     }
 
     internal var quickLookupLinksView: some View {

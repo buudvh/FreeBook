@@ -125,7 +125,9 @@ public final class TabbedVisibleBrowserViewController: UIViewController {
         let pillView = UIView()
         pillView.layer.cornerRadius = 18
         pillView.clipsToBounds = true
-        pillView.backgroundColor = isActive ? UIColor.systemBlue : UIColor.systemGray6
+        pillView.backgroundColor = isActive ? UIColor(white: 1.0, alpha: 0.18) : UIColor.systemGray6
+        pillView.layer.borderColor = (isActive ? UIColor(white: 1.0, alpha: 0.35) : UIColor.clear).cgColor
+        pillView.layer.borderWidth = isActive ? 1.0 : 0.0
 
         let titleLabel = UILabel()
         titleLabel.text = tabItem.displayTitle

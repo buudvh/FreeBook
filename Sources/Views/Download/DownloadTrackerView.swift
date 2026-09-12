@@ -78,7 +78,7 @@ struct DownloadTrackerView: View {
                 if task.status == .running || task.status == .pending {
                     VStack(alignment: .leading, spacing: 2) {
                         ProgressView(value: Double(task.progressCount), total: Double(max(1, task.totalCount)))
-                            .tint(.blue)
+                            .tint(.white)
                             .scaleEffect(x: 1, y: 0.8, anchor: .center)
 
                         Text("Tiến độ: \(task.progressCount)/\(task.totalCount) chương")
@@ -142,7 +142,7 @@ struct DownloadTrackerView: View {
                     Image(systemName: "arrow.clockwise.circle.fill")
                         .resizable()
                         .frame(width: 22, height: 22)
-                        .foregroundColor(.blue.opacity(0.8))
+                        .foregroundColor(.white.opacity(0.8))
                 }
                 .buttonStyle(.plain)
             }
@@ -186,7 +186,7 @@ struct DownloadTrackerView: View {
         let color: Color
         switch status {
         case .pending: color = .gray
-        case .running: color = .blue
+        case .running: color = .white
         case .completed: color = .green
         case .failed: color = .red
         case .cancelled: color = .orange

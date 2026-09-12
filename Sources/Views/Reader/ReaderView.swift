@@ -596,6 +596,9 @@ struct ReaderView: View {
                 shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
             )
             scheduleCoalescedTranslationRefresh()
+            if let book = localBook {
+                BookActionRunner.retranslateChapterTitles(for: book)
+            }
         }
         .onChange(of: shouldConvertTraditionalToSimplified) { _, newValue in
             UserDefaults.standard.set(newValue, forKey: "convertTraditionalToSimplified_\(bookId)")

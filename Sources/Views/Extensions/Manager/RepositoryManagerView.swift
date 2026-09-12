@@ -311,7 +311,7 @@ struct RepositoryManagerView: View {
             Button(action: { showingFilterSheet = true }) {
                 Image(systemName: isFiltering ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
                     .font(.title3)
-                    .foregroundColor(isFiltering ? .orange : .accentColor)
+                    .foregroundColor(isFiltering ? .orange : .white)
                     .padding(8)
                     .background(Color(.secondarySystemBackground))
                     .cornerRadius(10)
@@ -378,7 +378,7 @@ struct RepositoryManagerView: View {
                     .frame(width: 32, height: 32)
                     .padding(6)
                     .background(Color.secondary.opacity(0.2))
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(.white)
                     .cornerRadius(8)
             }
             
@@ -400,8 +400,8 @@ struct RepositoryManagerView: View {
                             .font(.caption2)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Color.blue.opacity(0.1))
-                            .foregroundColor(.blue)
+                            .background(Color.white.opacity(0.12))
+                            .foregroundColor(.white)
                             .cornerRadius(4)
                     }
                     
@@ -455,10 +455,11 @@ struct RepositoryManagerView: View {
                     }) {
                         Image(systemName: "arrow.down.circle")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.accentColor)
+                            .foregroundColor(.white)
                             .frame(width: 34, height: 34)
-                            .background(Color.accentColor.opacity(0.1))
+                            .background(Color.white.opacity(0.12))
                             .cornerRadius(8)
+                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.25), lineWidth: 1))
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Cài đặt \(ext.name)")

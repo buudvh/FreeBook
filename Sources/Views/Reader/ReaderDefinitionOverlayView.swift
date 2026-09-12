@@ -8,7 +8,7 @@ public enum SuggestionChipCategory: String, Sendable {
     public var borderColor: Color {
         switch self {
         case .name: return Color.red.opacity(0.45)
-        case .vietPhrase: return Color.blue.opacity(0.45)
+        case .vietPhrase: return Color.white.opacity(0.45)
         case .hanViet: return Color.gray.opacity(0.45)
         }
     }
@@ -16,7 +16,7 @@ public enum SuggestionChipCategory: String, Sendable {
     public var textColor: Color {
         switch self {
         case .name: return Color(red: 1.0, green: 0.45, blue: 0.45)
-        case .vietPhrase: return Color(red: 0.45, green: 0.82, blue: 1.0)
+        case .vietPhrase: return Color.white
         case .hanViet: return Color(red: 0.75, green: 0.75, blue: 0.75)
         }
     }
@@ -160,18 +160,20 @@ struct ReaderDefinitionOverlayView: View {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 13, weight: .bold))
                         .frame(width: 28, height: 28)
-                        .background(Color.blue.opacity(0.1))
+                        .background(Color.white.opacity(0.12))
                         .clipShape(Circle())
+                        .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
                 }
                 Button(action: onShrinkSelectionLeft) {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 13, weight: .bold))
                         .frame(width: 28, height: 28)
-                        .background(Color.blue.opacity(0.1))
+                        .background(Color.white.opacity(0.12))
                         .clipShape(Circle())
+                        .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
                 }
             }
-            .foregroundColor(.blue)
+            .foregroundColor(.white)
 
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -187,7 +189,7 @@ struct ReaderDefinitionOverlayView: View {
                                 .font(.body)
                                 .bold(isSelected)
                                 .underline(isSelected)
-                                .foregroundColor(isSelected ? .blue : .primary)
+                                .foregroundColor(isSelected ? .white : .primary)
                                 .padding(.horizontal, inRuleSpan ? 1 : 0)
                                 .background(inRuleSpan ? Color.green.opacity(0.22) : Color.clear)
                                 .cornerRadius(3)
@@ -219,18 +221,20 @@ struct ReaderDefinitionOverlayView: View {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 13, weight: .bold))
                         .frame(width: 28, height: 28)
-                        .background(Color.blue.opacity(0.1))
+                        .background(Color.white.opacity(0.12))
                         .clipShape(Circle())
+                        .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
                 }
                 Button(action: onExpandSelectionRight) {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 13, weight: .bold))
                         .frame(width: 28, height: 28)
-                        .background(Color.blue.opacity(0.1))
+                        .background(Color.white.opacity(0.12))
                         .clipShape(Circle())
+                        .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
                 }
             }
-            .foregroundColor(.blue)
+            .foregroundColor(.white)
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 6)
@@ -250,10 +254,10 @@ struct ReaderDefinitionOverlayView: View {
                             .font(.subheadline)
                             .bold(isSelected)
                             .underline()
-                            .foregroundColor(isSelected ? .blue : .primary)
+                            .foregroundColor(isSelected ? .white : .primary)
                             .padding(.horizontal, 2)
                             .padding(.vertical, 2)
-                            .background(isSelected ? Color.blue.opacity(0.1) : Color.clear)
+                            .background(isSelected ? Color.white.opacity(0.15) : Color.clear)
                             .cornerRadius(4)
                             .id("trans-\(token.id)")
                             .onTapGesture {
@@ -312,20 +316,22 @@ struct ReaderDefinitionOverlayView: View {
                 Image(systemName: "slider.horizontal.3")
                     .font(.body)
                     .fontWeight(.medium)
-                    .foregroundColor(.blue)
+                    .foregroundColor(.white)
                     .padding(8)
-                    .background(Color.blue.opacity(0.1))
+                    .background(Color.white.opacity(0.12))
                     .clipShape(Circle())
+                    .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
             }
 
             Button(action: pasteFromClipboard) {
                 Image(systemName: "doc.on.clipboard")
                     .font(.body)
                     .fontWeight(.medium)
-                    .foregroundColor(.blue)
+                    .foregroundColor(.white)
                     .padding(8)
-                    .background(Color.blue.opacity(0.1))
+                    .background(Color.white.opacity(0.12))
                     .clipShape(Circle())
+                    .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
             }
             .accessibilityLabel("Dán từ clipboard")
             .accessibilityHint("Dán nội dung clipboard vào ô nhập nghĩa")

@@ -213,9 +213,10 @@ struct DiscoveryView: View {
                                         .font(.title3)
                                         .padding(.horizontal, 12)
                                         .padding(.vertical, 10)
-                                        .background(Color.accentColor.opacity(0.1))
-                                        .foregroundColor(.accentColor)
+                                        .background(Color.white.opacity(0.12))
+                                        .foregroundColor(.white)
                                         .cornerRadius(8)
+                                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.25), lineWidth: 1))
                                 }
                                 .padding(.leading)
                                 
@@ -232,9 +233,13 @@ struct DiscoveryView: View {
                                                         .fontWeight(isSelected ? .bold : .regular)
                                                         .padding(.horizontal, 14)
                                                         .padding(.vertical, 8)
-                                                        .background(isSelected ? Color.accentColor : Color.gray.opacity(0.1))
+                                                        .background(isSelected ? Color.white.opacity(0.18) : Color.gray.opacity(0.1))
                                                         .foregroundColor(isSelected ? .white : .primary)
                                                         .cornerRadius(20)
+                                                        .overlay(
+                                                            RoundedRectangle(cornerRadius: 20)
+                                                                .stroke(isSelected ? Color.white.opacity(0.35) : Color.clear, lineWidth: 1)
+                                                        )
                                                 }
                                                 .id(item.id)
                                             }
@@ -286,7 +291,7 @@ struct DiscoveryView: View {
                                 VStack(spacing: 16) {
                                     Image(systemName: "circle.grid.2x2")
                                         .font(.system(size: 48))
-                                        .foregroundColor(.accentColor)
+                                        .foregroundColor(.white)
                                     Text("Nguồn truyện này chỉ hỗ trợ xem theo Thể loại.")
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
@@ -295,9 +300,13 @@ struct DiscoveryView: View {
                                             .fontWeight(.semibold)
                                             .padding(.horizontal, 20)
                                             .padding(.vertical, 10)
-                                            .background(Color.accentColor)
+                                            .background(Color.white.opacity(0.16))
                                             .foregroundColor(.white)
                                             .cornerRadius(20)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 20)
+                                                    .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                                            )
                                     }
                                 }
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -401,9 +410,10 @@ struct DiscoveryView: View {
                                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                                             .padding(.horizontal, 4)
                                             .frame(height: 50) // Chiều cao cố định đảm bảo bằng nhau tuyệt đối
-                                            .background(Color.accentColor.opacity(0.1))
-                                            .foregroundColor(.accentColor)
+                                            .background(Color.white.opacity(0.12))
+                                            .foregroundColor(.white)
                                             .cornerRadius(10)
+                                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.25), lineWidth: 1))
                                     }
                                 }
                             }
@@ -842,7 +852,7 @@ struct ExtensionSelectorView: View {
                         
                         if isSelected {
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.accentColor)
+                                .foregroundColor(.white)
                                 .padding(.trailing, 4)
                         }
                         
@@ -876,7 +886,7 @@ struct ExtensionSelectorView: View {
                         }) {
                             Image(systemName: ext.isPinned ? "pin.fill" : "pin")
                                 .font(.body)
-                                .foregroundColor(ext.isPinned ? .accentColor : .secondary)
+                                .foregroundColor(ext.isPinned ? .white : .secondary)
                                 .padding(8)
                         }
                         .buttonStyle(.plain)
@@ -886,7 +896,7 @@ struct ExtensionSelectorView: View {
                         selectedExtensionId = ext.packageId
                         dismiss()
                     }
-                    .listRowBackground(isSelected ? Color.accentColor.opacity(0.08) : Color(.systemBackground))
+                    .listRowBackground(isSelected ? Color.white.opacity(0.1) : Color(.systemBackground))
                 }
                 .listStyle(.plain)
             }

@@ -76,7 +76,7 @@ struct BypassWebView: View {
 
                     if tab.isLoading {
                         ProgressView(value: tab.progress, total: 1.0)
-                            .tint(.blue)
+                            .tint(.white)
                             .progressViewStyle(LinearProgressViewStyle())
                             .frame(height: 3)
                     } else {
@@ -138,7 +138,7 @@ struct BypassWebView: View {
             } label: {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(tab.canGoBack ? .blue : .gray)
+                    .foregroundColor(tab.canGoBack ? .white : .gray)
                     .frame(width: 36, height: 36)
                     .background(Color(.systemGray6))
                     .clipShape(Circle())
@@ -150,7 +150,7 @@ struct BypassWebView: View {
             } label: {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(tab.canGoForward ? .blue : .gray)
+                    .foregroundColor(tab.canGoForward ? .white : .gray)
                     .frame(width: 36, height: 36)
                     .background(Color(.systemGray6))
                     .clipShape(Circle())
@@ -162,7 +162,7 @@ struct BypassWebView: View {
             } label: {
                 Image(systemName: "house.fill")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.blue)
+                    .foregroundColor(.white)
                     .frame(width: 36, height: 36)
                     .background(Color(.systemGray6))
                     .clipShape(Circle())
@@ -183,7 +183,7 @@ struct BypassWebView: View {
             } label: {
                 Image(systemName: isShowingReloadIcon(for: tab) ? "arrow.clockwise" : "arrow.right.circle.fill")
                     .font(.system(size: 20))
-                    .foregroundColor(.blue)
+                    .foregroundColor(.white)
                     .frame(width: 32, height: 36)
             }
 
@@ -193,7 +193,7 @@ struct BypassWebView: View {
                 Label("Import truyện", systemImage: "plus.circle.fill")
                     .font(.system(size: 13, weight: .semibold))
                     .labelStyle(.iconOnly)
-                    .foregroundColor(canImportCurrentPage ? .blue : .gray)
+                    .foregroundColor(canImportCurrentPage ? .white : .gray)
                     .frame(width: 36, height: 36)
                     .background(Color(.systemGray6))
                     .clipShape(Circle())

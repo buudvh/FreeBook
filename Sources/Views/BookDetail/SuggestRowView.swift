@@ -35,7 +35,7 @@ struct SuggestRowView: View {
                         }
                     }) {
                         Image(systemName: "arrow.clockwise.circle.fill")
-                            .foregroundColor(.blue)
+                            .foregroundColor(.white)
                             .font(.title3)
                     }
                 }

@@ -13,10 +13,10 @@ extension BookDetailView {
                     Text("Chi tiết")
                         .font(.subheadline)
                         .fontWeight(selectedTab == 0 ? .bold : .medium)
-                        .foregroundColor(selectedTab == 0 ? .accentColor : .secondary)
+                        .foregroundColor(selectedTab == 0 ? .white : .secondary)
 
                     Rectangle()
-                        .fill(selectedTab == 0 ? Color.accentColor : Color.clear)
+                        .fill(selectedTab == 0 ? Color.white : Color.clear)
                         .frame(height: 3)
                 }
             }
@@ -32,7 +32,7 @@ extension BookDetailView {
                         Text("Mục lục")
                             .font(.subheadline)
                             .fontWeight(selectedTab == 1 ? .bold : .medium)
-                            .foregroundColor(selectedTab == 1 ? .accentColor : .secondary)
+                            .foregroundColor(selectedTab == 1 ? .white : .secondary)
 
                         if totalChaptersCount > 0 {
                             Text("\(totalChaptersCount)")
@@ -46,7 +46,7 @@ extension BookDetailView {
                     }
 
                     Rectangle()
-                        .fill(selectedTab == 1 ? Color.accentColor : Color.clear)
+                        .fill(selectedTab == 1 ? Color.white : Color.clear)
                         .frame(height: 3)
                 }
             }

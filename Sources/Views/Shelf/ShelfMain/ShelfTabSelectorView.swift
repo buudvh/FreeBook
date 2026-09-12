@@ -72,16 +72,16 @@ struct ShelfTabSelectorView: View {
     private func background<S: InsettableShape>(for tab: ShelfTab, shape: S) -> some View {
         let isSelected = selection == tab
         return shape
-            .fill(isSelected ? Color.accentColor.opacity(0.15) : Color(.secondarySystemBackground))
+            .fill(isSelected ? Color.white.opacity(0.15) : Color(.secondarySystemBackground))
             .overlay(
                 shape.strokeBorder(
-                    isSelected ? Color.accentColor : Color.secondary.opacity(0.25),
-                    lineWidth: isSelected ? 1.5 : 1
+                    isSelected ? Color.white.opacity(0.32) : Color.secondary.opacity(0.25),
+                    lineWidth: isSelected ? 1.2 : 1
                 )
             )
     }
 
     private func foreground(for tab: ShelfTab) -> Color {
-        selection == tab ? .accentColor : .secondary
+        selection == tab ? .white : .secondary
     }
 }

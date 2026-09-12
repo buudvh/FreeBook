@@ -60,7 +60,7 @@ struct ReaderHeaderFooterOverlayView: View {
                     Button(action: { isAutoScrollDisabled.toggle() }) {
                         Image(systemName: isAutoScrollDisabled ? "scroll" : "scroll.fill")
                             .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(isAutoScrollDisabled ? selectedTheme.textColor.opacity(0.85) : .blue)
+                            .foregroundColor(isAutoScrollDisabled ? selectedTheme.textColor.opacity(0.85) : .white)
                             .frame(width: 44, height: 44)
                             .background(selectedTheme.textColor.opacity(0.07), in: RoundedRectangle(cornerRadius: 6))
                     }
@@ -117,7 +117,7 @@ struct ReaderHeaderFooterOverlayView: View {
                     Button(action: { isTranslationEnabled.toggle() }) {
                         Image(systemName: isTranslationEnabled ? "character.bubble.fill" : "character.bubble")
                             .font(.system(size: 19, weight: .semibold))
-                            .foregroundColor(isTranslationEnabled ? .blue : selectedTheme.textColor.opacity(0.85))
+                            .foregroundColor(isTranslationEnabled ? .white : selectedTheme.textColor.opacity(0.85))
                             .frame(width: 44, height: 52)
                             .background(selectedTheme.textColor.opacity(0.07), in: RoundedRectangle(cornerRadius: 6))
                     }

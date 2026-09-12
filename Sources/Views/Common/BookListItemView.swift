@@ -108,7 +108,7 @@ struct BookListItemView<Item: BookDisplayable>: View {
                     if !chapterTitle.isEmpty {
                         Text("Đang đọc: \(chapterTitle)")
                             .font(.caption2)
-                            .foregroundColor(.blue)
+                            .foregroundColor(.white)
                             .lineLimit(1)
                     }
                 }

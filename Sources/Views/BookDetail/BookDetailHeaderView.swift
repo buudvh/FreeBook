@@ -166,9 +166,13 @@ struct BookDetailHeaderView: View {
                             .font(.caption2)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
-                            .background(Color.blue.opacity(0.1))
-                            .foregroundColor(.blue)
+                            .background(Color.white.opacity(0.12))
+                            .foregroundColor(.white)
                             .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.white.opacity(0.25), lineWidth: 1)
+                            )
                     }
                 }
             }

@@ -23,7 +23,7 @@ extension BookImportConfirmationSheet {
                             Spacer()
                             if decodeID == nil {
                                 Image(systemName: "checkmark")
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(.white)
                             }
                         }
                     }
@@ -53,7 +53,7 @@ extension BookImportConfirmationSheet {
                                 }
                                 if decodeID == option.rawValue {
                                     Image(systemName: "checkmark")
-                                        .foregroundColor(.blue)
+                                        .foregroundColor(.white)
                                 }
                             }
                         }
@@ -82,7 +82,7 @@ extension BookImportConfirmationSheet {
                             Spacer()
                             if selectedRuleIDs.isEmpty {
                                 Image(systemName: "checkmark")
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(.white)
                             }
                         }
                     }
@@ -101,7 +101,7 @@ extension BookImportConfirmationSheet {
                         } label: {
                             HStack(alignment: .top, spacing: 10) {
                                 Image(systemName: isSelected ? "checkmark.square.fill" : "square")
-                                    .foregroundColor(isSelected ? .blue : .secondary)
+                                    .foregroundColor(isSelected ? .white : .secondary)
                                     .padding(.top, 2)
 
                                 VStack(alignment: .leading, spacing: 2) {
@@ -169,7 +169,7 @@ extension BookImportConfirmationSheet {
 
                                 if selectedStructure == mode {
                                     Image(systemName: "checkmark")
-                                        .foregroundColor(.blue)
+                                        .foregroundColor(.white)
                                 }
                             }
                         }

@@ -73,7 +73,7 @@ struct BookDetailTOCView: View {
                     }) {
                         Image(systemName: isTocAscending ? "arrow.down.circle" : "arrow.up.circle")
                             .font(.subheadline)
-                            .foregroundColor(.accentColor)
+                            .foregroundColor(.white)
                     }
                     .padding(.leading, 4)
 
@@ -129,7 +129,7 @@ struct BookDetailTOCView: View {
                                     HStack {
                                         let displayTitle = isTranslationEnabled ? onTranslateTitleIfNeeded(chap.titleTrans ?? chap.title) : chap.title
                                         Text(displayTitle)
-                                            .foregroundColor((localBook?.currentChapterIndex ?? 0) == chap.index ? .accentColor : .primary)
+                                            .foregroundColor((localBook?.currentChapterIndex ?? 0) == chap.index ? .white : .primary)
                                             .font(.subheadline)
                                             .lineLimit(2)
                                         Spacer()
@@ -152,7 +152,7 @@ struct BookDetailTOCView: View {
                                 }) {
                                     HStack {
                                         Text(onTranslateChapterTitleIfNeeded(chap))
-                                            .foregroundColor(book.currentChapterIndex == chap.index ? .accentColor : .primary)
+                                            .foregroundColor(book.currentChapterIndex == chap.index ? .white : .primary)
                                             .font(.subheadline)
                                             .lineLimit(2)
                                         Spacer()
@@ -196,9 +196,13 @@ struct BookDetailTOCView: View {
                                     Spacer()
                                 }
                                 .padding()
-                                .background(Color.blue.opacity(0.1))
-                                .foregroundColor(.blue)
+                                .background(Color.white.opacity(0.16))
+                                .foregroundColor(.white)
                                 .cornerRadius(8)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                                )
                                 .padding(.horizontal)
                                 .padding(.top, 10)
                             }

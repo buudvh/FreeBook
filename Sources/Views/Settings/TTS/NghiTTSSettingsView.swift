@@ -62,7 +62,7 @@ struct NghiTTSSettingsView: View {
                         Spacer()
                         Text("\(Int(ttsManager.nghittsSafeCachedTimeThreshold))s")
                             .font(.system(.body, design: .monospaced))
-                            .foregroundColor(.accentColor)
+                            .foregroundColor(.white)
                     }
                 }
                 Text("Tự động tổng hợp thêm âm thanh khi thời lượng đệm âm thanh liên tục còn lại giảm xuống dưới \(Int(ttsManager.nghittsSafeCachedTimeThreshold)) giây.")
@@ -97,7 +97,7 @@ struct PrecisionSliderView: View {
                 }) {
                     Image(systemName: "minus.circle")
                         .font(.title3)
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(.white)
                 }
                 .buttonStyle(.borderless)
                 .contentShape(Rectangle())
@@ -117,7 +117,7 @@ struct PrecisionSliderView: View {
                 }) {
                     Image(systemName: "plus.circle")
                         .font(.title3)
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(.white)
                 }
                 .buttonStyle(.borderless)
                 .contentShape(Rectangle())

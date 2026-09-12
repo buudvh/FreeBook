@@ -37,14 +37,14 @@ struct CollectionPickerSheet: View {
                             } label: {
                                 HStack {
                                     Image(systemName: "folder")
-                                        .foregroundColor(.accentColor)
+                                        .foregroundColor(.white)
                                     Text(collection.name)
                                         .foregroundColor(.primary)
                                         .lineLimit(1)
                                     Spacer()
                                     if selected.contains(collection.collectionId) {
                                         Image(systemName: "checkmark")
-                                            .foregroundColor(.accentColor)
+                                            .foregroundColor(.white)
                                     }
                                 }
                             }

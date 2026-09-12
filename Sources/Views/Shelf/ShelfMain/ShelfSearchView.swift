@@ -174,7 +174,7 @@ struct ShelfSearchView: View {
                     }) {
                         Text("Xóa tất cả")
                             .font(.subheadline)
-                            .foregroundColor(.accentColor)
+                            .foregroundColor(.white)
                     }
                 }
                 .padding(.horizontal)

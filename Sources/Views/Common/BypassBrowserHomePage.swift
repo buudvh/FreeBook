@@ -122,7 +122,7 @@ enum BypassBrowserHomePage {
                 .card-title {
                     font-size: 17px;
                     font-weight: 600;
-                    color: #007aff;
+                    color: #1c1c1e;
                     margin-bottom: 4px;
                 }
                 .card-subtitle {

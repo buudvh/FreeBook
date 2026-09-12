@@ -36,7 +36,7 @@ struct CommentSectionView: View {
                         }
                     }) {
                         Image(systemName: "arrow.clockwise.circle.fill")
-                            .foregroundColor(.blue)
+                            .foregroundColor(.white)
                             .font(.title3)
                     }
                 }
@@ -109,7 +109,7 @@ struct CommentSectionView: View {
                                 Text("Xem tất cả bình luận")
                                     .font(.subheadline)
                                     .fontWeight(.semibold)
-                                    .foregroundColor(.accentColor)
+                                    .foregroundColor(.white)
                                 Spacer()
                             }
                             .padding(.vertical, 8)

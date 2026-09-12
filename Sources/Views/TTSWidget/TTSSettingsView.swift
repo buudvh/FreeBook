@@ -209,8 +209,8 @@ struct TTSSettingsView: View {
                     if let ext = allExtensions.first(where: { $0.packageId == ttsManager.tool }) {
                         Button(action: { self.selectedExtForConfig = ext }) {
                             HStack {
-                                Image(systemName: "slider.horizontal.3").foregroundColor(.accentColor)
-                                Text("Cấu hình Extension (\(ext.name))").foregroundColor(.accentColor)
+                                Image(systemName: "slider.horizontal.3").foregroundColor(.white)
+                                Text("Cấu hình Extension (\(ext.name))").foregroundColor(.white)
                                 Spacer()
                                 Image(systemName: "chevron.right").font(.caption).foregroundColor(.secondary)
                             }
@@ -236,7 +236,7 @@ struct TTSSettingsView: View {
                         Text("Đặt lại")
                     }
                     .font(.caption)
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(.white)
                 }
             }) {
                 Button(action: { showingReplacementManagerSheet = true }) {
@@ -320,7 +320,7 @@ struct TTSSettingsView: View {
                         Text("Đặt lại")
                     }
                     .font(.caption)
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(.white)
                 }
             }) {
                 if ttsManager.tool == "google" {
@@ -357,7 +357,7 @@ struct TTSSettingsView: View {
                                 Spacer()
                                 Text("\(Int(ttsManager.nghittsSafeCachedTimeThreshold))s")
                                     .font(.system(.body, design: .monospaced))
-                                    .foregroundColor(.accentColor)
+                                    .foregroundColor(.white)
                             }
                         }
                         Text("Tự động tổng hợp thêm âm thanh khi thời lượng đệm âm thanh liên tục còn lại giảm xuống dưới \(Int(ttsManager.nghittsSafeCachedTimeThreshold)) giây.")

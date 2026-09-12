@@ -626,9 +626,10 @@ struct BookDetailView: View {
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
-                                .background(Color.blue)
+                                .background(Color.white.opacity(0.16))
                                 .foregroundColor(.white)
                                 .cornerRadius(20)
+                                .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.35), lineWidth: 1))
                                 .shadow(radius: 3)
                             }
                             .transition(.scale.combined(with: .opacity))
@@ -651,9 +652,10 @@ struct BookDetailView: View {
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
-                                .background(localBook?.isOnShelf == true ? Color.green : Color.accentColor)
+                                .background(localBook?.isOnShelf == true ? Color.green : Color.white.opacity(0.16))
                                 .foregroundColor(.white)
                                 .cornerRadius(20)
+                                .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.35), lineWidth: 1))
                                 .shadow(radius: 3)
                             }
                             .transition(.scale.combined(with: .opacity))
@@ -711,8 +713,9 @@ struct BookDetailView: View {
                                 .frame(width: 20, height: 20)
                                 .foregroundColor(.white)
                                 .padding(16)
-                                .background(Color.accentColor)
+                                .background(Color.white.opacity(0.18))
                                 .clipShape(Circle())
+                                .overlay(Circle().strokeBorder(Color.white.opacity(0.35), lineWidth: 1))
                                 .shadow(radius: 5)
                                 .rotationEffect(.degrees(isMenuExpanded ? 135 : 0))
                         }

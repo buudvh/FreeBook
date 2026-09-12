@@ -127,8 +127,9 @@ struct TTSWidgetCapsuleView: View {
                 .foregroundStyle(.white)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 3)
-                .background(Capsule().fill(Color.orange))
-                .shadow(color: .orange.opacity(0.4), radius: 4, x: 0, y: 2)
+                .background(Capsule().fill(Color.white.opacity(0.2)))
+                .overlay(Capsule().stroke(Color.white.opacity(0.35), lineWidth: 1))
+                .shadow(color: .black.opacity(0.25), radius: 4, x: 0, y: 2)
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
 
@@ -150,9 +151,9 @@ struct TTSWidgetCapsuleView: View {
                 }) {
                     Image(systemName: ttsState.snapshot.timerMode != .off ? "timer" : "gearshape.fill")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(ttsState.snapshot.timerMode != .off ? Color.orange : Color.primary)
+                        .foregroundStyle(ttsState.snapshot.timerMode != .off ? Color.white : Color.primary)
                         .frame(width: 30, height: 30)
-                        .background(Circle().fill(ttsState.snapshot.timerMode != .off ? Color.orange.opacity(0.18) : Color.primary.opacity(0.09)))
+                        .background(Circle().fill(ttsState.snapshot.timerMode != .off ? Color.white.opacity(0.18) : Color.primary.opacity(0.09)))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Hẹn giờ và cài đặt")
@@ -279,7 +280,7 @@ struct TTSCoverView: View {
     private var fallback: some View {
         ZStack {
             LinearGradient(
-                colors: [.blue.opacity(0.7), .purple.opacity(0.6), .black.opacity(0.7)],
+                colors: [Color.gray.opacity(0.5), Color.black.opacity(0.8)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )

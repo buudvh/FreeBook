@@ -20,7 +20,7 @@ struct CollectionsReorderSheet: View {
                     ForEach(collections) { collection in
                         HStack(spacing: 10) {
                             Image(systemName: "folder.fill")
-                                .foregroundColor(.accentColor)
+                                .foregroundColor(.white)
                             Text(collection.name)
                                 .font(.subheadline)
                                 .lineLimit(1)

@@ -112,7 +112,7 @@ struct BookImportConfirmationSheet: View {
                         HStack(spacing: 14) {
                             Image(systemName: "square.and.arrow.down.fill")
                                 .font(.title2)
-                                .foregroundColor(.blue)
+                                .foregroundColor(.white)
 
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(parsed.title)
@@ -180,10 +180,11 @@ struct BookImportConfirmationSheet: View {
                         dismiss()
                     }) {
                         Text("Nhập")
+                            .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(.blue)
+                    .tint(Color.white.opacity(0.18))
                     .disabled(isReanalyzing || !canConfirm)
                 }
                 .padding(16)

@@ -24,7 +24,7 @@ struct ManageDefinitionRowView: View {
 
             iconButton(
                 "chevron.up",
-                color: canMoveUp ? .blue : .gray.opacity(0.35),
+                color: canMoveUp ? .white : .gray.opacity(0.35),
                 label: "Đưa nghĩa lên trên",
                 action: onMoveUp
             )
@@ -32,7 +32,7 @@ struct ManageDefinitionRowView: View {
 
             iconButton(
                 "chevron.down",
-                color: canMoveDown ? .blue : .gray.opacity(0.35),
+                color: canMoveDown ? .white : .gray.opacity(0.35),
                 label: "Đưa nghĩa xuống dưới",
                 action: onMoveDown
             )
@@ -46,7 +46,7 @@ struct ManageDefinitionRowView: View {
                     action: onToggleDeleted
                 )
             } else {
-                iconButton("plus", color: .blue, label: "Chèn ô trống phía trên", action: onInsertAbove)
+                iconButton("plus", color: .white, label: "Chèn ô trống phía trên", action: onInsertAbove)
                 iconButton("trash", color: .red, label: "Xoá nghĩa", action: onToggleDeleted)
             }
         }

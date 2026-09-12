@@ -52,8 +52,11 @@ struct BypassBrowserTabBar: View {
             .padding(.leading, 12)
             .padding(.trailing, canClose ? 4 : 12)
             .padding(.vertical, 7)
-            .background(isActive ? Color.blue : Color(.systemGray5))
+            .background(isActive ? Color.white.opacity(0.18) : Color(.systemGray5))
             .clipShape(Capsule())
+            .overlay(
+                Capsule().strokeBorder(isActive ? Color.white.opacity(0.35) : Color.clear, lineWidth: 1)
+            )
             .contentShape(Capsule())
             .onTapGesture(perform: onSelect)
             .accessibilityAddTraits(isActive ? [.isSelected, .isButton] : .isButton)

@@ -301,9 +301,9 @@ struct SearchView: View {
                                                 )) {
                                                     HStack(spacing: 4) {
                                                         Text("Xem thêm")
-                                                            .foregroundColor(.accentColor)
+                                                            .foregroundColor(.white)
                                                         Image(systemName: "chevron.right")
-                                                            .foregroundColor(.accentColor)
+                                                            .foregroundColor(.white)
                                                     }
                                                     .font(.subheadline)
                                                 }

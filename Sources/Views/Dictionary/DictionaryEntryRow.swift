@@ -36,7 +36,7 @@ struct DictionaryEntryRow: View {
                 onEdit()
             } label: {
                 Image(systemName: "pencil")
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(.white)
                     .font(.subheadline)
             }
             .buttonStyle(.plain)
@@ -101,7 +101,7 @@ struct DictionaryEntryRow: View {
                     }
                 }
             } label: {
-                transferIcon(color: .accentColor)
+                transferIcon(color: .white)
             }
             .menuStyle(.borderlessButton)
             .padding(.leading, 8)

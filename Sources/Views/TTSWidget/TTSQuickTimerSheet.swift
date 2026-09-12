@@ -41,7 +41,7 @@ struct TTSQuickTimerSheet: View {
                     }) {
                         Image(systemName: "gearshape.fill")
                             .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(.white)
                     }
                     .accessibilityLabel("Cài đặt giọng đọc & Tốc độ")
                 }
@@ -73,11 +73,12 @@ struct TTSQuickTimerSheet: View {
                 HStack(spacing: 14) {
                     ZStack {
                         Circle()
-                            .fill(Color.orange.opacity(0.18))
+                            .fill(Color.white.opacity(0.12))
                             .frame(width: 44, height: 44)
+                            .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
                         Image(systemName: "timer")
                             .font(.system(size: 20, weight: .bold))
-                            .foregroundStyle(Color.orange)
+                            .foregroundStyle(Color.white)
                     }
 
                     VStack(alignment: .leading, spacing: 3) {
@@ -89,11 +90,11 @@ struct TTSQuickTimerSheet: View {
                         if case .endOfChapter = ttsManager.timerMode {
                             Text("Dừng khi hết chương")
                                 .font(.system(size: 17, weight: .bold))
-                                .foregroundStyle(Color.orange)
+                                .foregroundStyle(Color.white)
                         } else {
                             Text(ttsManager.sleepTimerBadgeText.isEmpty ? "\(Int(customMinutes)) phút" : ttsManager.sleepTimerBadgeText)
                                 .font(.system(size: 20, weight: .bold, design: .monospaced))
-                                .foregroundStyle(Color.orange)
+                                .foregroundStyle(Color.white)
                         }
                     }
 
@@ -120,10 +121,10 @@ struct TTSQuickTimerSheet: View {
                         .fill(Color(uiColor: .secondarySystemGroupedBackground))
                         .overlay(
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(Color.orange.opacity(0.35), lineWidth: 1.5)
+                                .stroke(Color.white.opacity(0.35), lineWidth: 1.5)
                         )
                 )
-                .shadow(color: Color.orange.opacity(0.08), radius: 8, x: 0, y: 3)
+                .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 3)
             } else {
                 HStack(spacing: 12) {
                     Image(systemName: "moon.stars.fill")
@@ -212,7 +213,7 @@ struct TTSQuickTimerSheet: View {
             VStack(spacing: 6) {
                 Image(systemName: icon)
                     .font(.system(size: 16, weight: isSelected ? .bold : .regular))
-                    .foregroundStyle(isSelected ? Color.white : Color.orange)
+                    .foregroundStyle(isSelected ? Color.white : Color.secondary)
 
                 Text(title)
                     .font(.subheadline)
@@ -223,13 +224,13 @@ struct TTSQuickTimerSheet: View {
             .padding(.vertical, 14)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(isSelected ? Color.orange : Color(uiColor: .secondarySystemGroupedBackground))
+                    .fill(isSelected ? Color.white.opacity(0.18) : Color(uiColor: .secondarySystemGroupedBackground))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(isSelected ? Color.orange : Color.clear, lineWidth: 1.5)
+                    .stroke(isSelected ? Color.white.opacity(0.35) : Color.clear, lineWidth: 1.5)
             )
-            .shadow(color: isSelected ? Color.orange.opacity(0.3) : Color.black.opacity(0.04), radius: 5, x: 0, y: 2)
+            .shadow(color: isSelected ? Color.white.opacity(0.1) : Color.black.opacity(0.04), radius: 5, x: 0, y: 2)
         }
         .buttonStyle(.plain)
     }
@@ -252,7 +253,7 @@ struct TTSQuickTimerSheet: View {
                     }) {
                         Image(systemName: "minus.circle.fill")
                             .font(.system(size: 26))
-                            .foregroundStyle(Color.orange)
+                            .foregroundStyle(Color.white)
                     }
 
                     Spacer()
@@ -275,13 +276,13 @@ struct TTSQuickTimerSheet: View {
                     }) {
                         Image(systemName: "plus.circle.fill")
                             .font(.system(size: 26))
-                            .foregroundStyle(Color.orange)
+                            .foregroundStyle(Color.white)
                     }
                 }
                 .padding(.horizontal, 8)
 
                 Slider(value: $customMinutes, in: 1...180, step: 1)
-                    .tint(Color.orange)
+                    .tint(Color.white)
 
                 Button(action: {
                     triggerHaptic()
@@ -298,8 +299,15 @@ struct TTSQuickTimerSheet: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .foregroundStyle(.white)
-                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.orange))
-                    .shadow(color: Color.orange.opacity(0.3), radius: 6, x: 0, y: 3)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.white.opacity(0.16))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                    )
+                    .shadow(color: Color.black.opacity(0.15), radius: 6, x: 0, y: 3)
                 }
             }
             .padding(16)
@@ -321,11 +329,12 @@ struct TTSQuickTimerSheet: View {
             HStack(spacing: 12) {
                 ZStack {
                     Circle()
-                        .fill(Color.blue.opacity(0.12))
+                        .fill(Color.white.opacity(0.12))
                         .frame(width: 36, height: 36)
+                        .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
                     Image(systemName: "gearshape.fill")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(.white)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {

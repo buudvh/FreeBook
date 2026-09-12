@@ -4,6 +4,18 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.366] - 2026-09-12
+
+### feat: cap nhat giao dien dark mode frosted pill, bo kiem tra chuong moi o context menu va tu dong dich lai muc luc o reader
+
+Sửa **37** file Swift trong Views/Models/Services.
+
+- Chuyển đổi toàn bộ màu chữ, icon và nút bấm màu xanh (primary) / cam trên toàn bộ ứng dụng sang tông màu trắng `.white` và phong cách pill kính mờ Dark Mode (`Color.white.opacity(0.12...0.18)` kèm viền `Color.white.opacity(0.25...0.35)`).
+- Loại bỏ tuỳ chọn "Kiểm tra chương mới" trong menu thao tác khi nhấn giữ truyện (`BookActionSheet.swift`).
+- Thêm cơ chế tự động dịch lại mục lục khi bật/tắt chế độ dịch ở Reader (`ReaderView.swift`).
+- Chuyển toàn bộ các thành phần màu cam trên màn hình hẹn giờ TTS (`TTSQuickTimerSheet.swift`, `TTSFloatingWidgetView.swift`) sang phong cách kính mờ trắng trong suốt thanh lịch.
+- Gate: `check_architecture.py` giữ 6 violation line-limit nền, không có violation mới; `validate_links.py` PASS 100%.
+
 ## [1.3.365] - 2026-09-12
 
 ### Xoá bỏ hoàn toàn chế độ E-Ink và khôi phục giao diện CardView nguyên bản
