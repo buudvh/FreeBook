@@ -59,7 +59,7 @@ struct EInkSettingsSection: View {
                     Label("Làm mới màn hình ngay", systemImage: "arrow.clockwise")
                 }
 
-                Text("Đổi chế độ có thể cần mở lại màn hình để thanh điều hướng/tab bar áp diện mạo mới (appearance proxy của UIKit không retroactive).")
+                Text("Màu nền áp dụng cho toàn bộ màn hình; thanh điều hướng/tab bar đang mở được cập nhật ngay khi đổi chế độ hoặc đổi màu.")
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }

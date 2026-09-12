@@ -26,7 +26,11 @@ public enum EInkPalette {
     /// FlashView làm mới). Mặc định Gray #D8D8D2 — xám giấy, dịu mắt nhất. Cả ba tông đều là sáng,
     /// nên `ink` (đen) luôn đọc được trên đó.
     public static var paper: Color {
-        switch EInkModeSettings.shared.paperColor {
+        paperColor(for: EInkModeSettings.shared.paperColor)
+    }
+
+    public static func paperColor(for selection: EInkModeSettings.EInkPaperColor) -> Color {
+        switch selection {
         case .white: return Color(red: 0xF2 / 255, green: 0xF1 / 255, blue: 0xEC / 255)
         case .gray:  return Color(red: 0xD8 / 255, green: 0xD8 / 255, blue: 0xD2 / 255)
         case .warm:  return Color(red: 0xE5 / 255, green: 0xDE / 255, blue: 0xD0 / 255)
@@ -37,7 +41,11 @@ public enum EInkPalette {
     public static let ink = Color.black
 
     public static var paperUIColor: UIColor {
-        switch EInkModeSettings.shared.paperColor {
+        paperUIColor(for: EInkModeSettings.shared.paperColor)
+    }
+
+    public static func paperUIColor(for selection: EInkModeSettings.EInkPaperColor) -> UIColor {
+        switch selection {
         case .white: return UIColor(red: 0xF2 / 255, green: 0xF1 / 255, blue: 0xEC / 255, alpha: 1)
         case .gray:  return UIColor(red: 0xD8 / 255, green: 0xD8 / 255, blue: 0xD2 / 255, alpha: 1)
         case .warm:  return UIColor(red: 0xE5 / 255, green: 0xDE / 255, blue: 0xD0 / 255, alpha: 1)
@@ -64,7 +72,7 @@ public enum EInkPalette {
     /// Chữ/icon trên nền đang chọn.
     public static let selectedContent = Color.white
     /// Nền của mục chưa chọn.
-    public static let normalFill = Color.white
+    public static var normalFill: Color { paper }
     /// Viền của mục chưa chọn.
     public static let normalBorder = Color.black
 }

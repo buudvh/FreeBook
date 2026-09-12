@@ -15,6 +15,12 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## E-Ink appearance không giữ tài nguyên mới (1.3.361)
+
+* `EInkAppearance.apply()` không tạo window, observer, task dài hạn, cache hay file. Mỗi lượt chỉ dựng các `UINavigationBarAppearance`/`UITabBarAppearance` value object ngắn hạn, gán vào proxy và live bars rồi thả.
+* Việc quét `connectedScenes.windows` là đồng bộ trên main thread và không lưu tham chiếu tới window/view, nên không thêm vòng đời thu hồi. `setNeedsLayout()` chỉ yêu cầu UIKit redraw thanh đã có.
+* Nền giấy root dùng `@ObservedObject EInkModeSettings.shared` và modifier `@AppStorage`; các state này đã tồn tại trong `UserDefaults`, không thêm khoá ngoài `paperColor` đã có từ 1.3.359.
+
 ## Cache có ngân sách; task Reader/TTS có owner và đường huỷ (1.3.354)
 
 * Ba `TranslationMemo` chính có trần entry/cost (dịch 8 MiB, title 1 MiB, tokenize 4 MiB; rule rewrite 2 MiB) và LRU dưới `NSLock`. Epoch tăng khi invalidation để kết quả đang bay không sống lại.

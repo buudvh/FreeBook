@@ -15,6 +15,11 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Đổi E-Ink dùng Combine/SwiftUI state, không thêm event bus (1.3.361)
+
+* Không thêm `NotificationCenter`, event center hay publisher mới. Đổi chế độ/màu giấy vẫn đi qua `EInkModeSettings` (`@Published` + `UserDefaults`), còn root view dùng `.onChange(of: eink.isEnabled)` và `.onChange(of: eink.paperColor)` để gọi `EInkAppearance.apply()`.
+* `EInkAppearance.apply()` là side effect idempotent trên main thread: cài lại proxy UIKit và cập nhật live `UINavigationBar`/`UITabBar`. Đây là phản ứng trình bày của root app, không phải kênh giao tiếp liên module.
+
 ## Một notification cũ điều phối Reader và TTS theo scope (1.3.354)
 
 * Không thêm event name. Sau persist thành công, writer gọi `notifyDictionariesDidUpdate(bookId:scope:)`; `scope` là `.term`, `.config` hoặc `.globalReload` và có `affects(bookId:)` để Reader/TTS bỏ qua truyện khác.

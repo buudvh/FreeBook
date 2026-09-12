@@ -15,6 +15,12 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Type E-Ink appearance và nền giấy reactive (1.3.361)
+
+* [`EInkAppearance`](../../Sources/Common/Utils/EInkAppearance.swift#L1) là `enum` namespace UIKit-only, sở hữu `Configuration` lồng gồm 4 `UINavigationBarAppearance` slot và 1 `UITabBarAppearance`. `apply()` hop về main thread, dựng cấu hình theo `EInkModeSettings.shared.isEnabled`, cài proxy và duyệt window hiện có để cập nhật live bars.
+* [`EInkPalette`](../../Sources/Common/Theme/EInkPalette.swift#L1) tách helper `paperColor(for:)`/`paperUIColor(for:)` khỏi singleton để `View+EInk` dùng raw `@AppStorage` reactive. `normalFill` là computed `paper`, không còn hằng trắng.
+* [`EInkEffect`](../../Sources/Common/Extensions/View+EInk.swift#L1) thêm `Kind.background(Color)` và cửa `View.einkBackground(_:)`; cả modifier chính lẫn `Selection` đọc `paperColor` qua `@AppStorage` để đổi nền giấy ngay khi setting đổi.
+
 ## Type snapshot/cancellation mới trên đường dịch (1.3.354)
 
 * `TrieDictionary` thêm `frozen() -> FrozenTrieDictionary`; `DoubleArrayTrie` và `TextDictionary` chỉ publish value bất biến. `DictionaryTextRecord`, `TranslationWordToken` và `DictionaryMatchInfo` là `Sendable` để qua worker nền.
@@ -163,7 +169,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 * [`URLBarTextField`](../../Sources/Views/Common/URLBarTextField.swift#L1) — `struct : UIViewRepresentable` với `Coordinator: NSObject, UITextFieldDelegate` (nest). Coordinator giữ `Binding<String>`/`Binding<Bool>` được **làm mới trong `updateUIView`** (binding cũ trỏ vào snapshot state cũ). Hai binding tách vai rõ: `text` là nội dung, `isEditing` là cửa chặn ghi đè từ observer URL.
 * [`BypassBrowserWebPane`](../../Sources/Views/Common/BypassBrowserWebPane.swift#L1) — `UIViewRepresentable` trả về `UIView` **container**, không trả trực tiếp `WKWebView`: kiểu trả về phải cố định trong khi webview đổi theo tab. [`BypassBrowserTabBar`](../../Sources/Views/Common/BypassBrowserTabBar.swift#L1) có `TabPill` nest (`@ObservedObject var tab` để pill tự cập nhật tiêu đề khi tab nền nạp xong). [`BypassBrowserHomePage`](../../Sources/Views/Common/BypassBrowserHomePage.swift#L1) là `enum` namespace thuần (`html(for:)` + `iconSource(for:)` + 2 hằng private).
 * [`BypassWebView`](../../Sources/Views/Common/BypassWebView.swift#L1) mất `WebViewStore` và `SwiftUIWebView`; `ExtensionMatch` (nest, `Identifiable` theo `packageId`) và `static var regexpCache: [String: String]` giữ nguyên. Toàn bộ trạng thái webview rời khỏi `@State` sang `@StateObject store` ⇒ không còn hai bản sự thật về URL/tiêu đề.
-* [`NavigationBarAppearance`](../../Sources/Common/Utils/NavigationBarAppearance.swift#L1) giữ đúng hình dạng cũ (enum namespace, `applyTitlelessBackButton()` + private `hideBackButtonTitle(in:)`) nhưng đảo cách dùng UIKit: **tạo mới** `UINavigationBarAppearance` cho cả 4 slot thay vì đọc từ proxy rồi sửa tại chỗ — appearance proxy chỉ bảo đảm hợp đồng cho setter.
+* [`NavigationBarAppearance`](../../Sources/Common/Utils/NavigationBarAppearance.swift#L1) giữ hình dạng `enum` namespace (`applyTitlelessBackButton()` + `hideBackButtonTitle(in:)`) nhưng helper ẩn title là `internal` để `EInkAppearance` dùng lại khi dựng appearance mới cho 4 slot nav bar. Appearance proxy chỉ bảo đảm hợp đồng cho setter, nên cả hai type đều dựng object mới thay vì đọc rồi sửa getter proxy.
 
 ## Type của vệt tô kết quả tìm, đầu dò cuộn tay và lệnh dọn kho (1.3.261)
 
@@ -183,7 +189,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 * `BackupCoordinator` **không đổi shape**, chỉ thêm hai thành viên `internal` `setBusy(_:)` / `setProgress(_:)`. Lý do kỹ thuật: `isBusy`/`progress` là `private(set)` và `private` của Swift là phạm vi **file**, nên extension ở file khác không ghi được. Hai hàm này là cửa duy nhất — không mở thêm và không gọi từ tầng View.
 * `BackupPaths` giữ nguyên vai trò namespace, thêm `autoBackupPrefix`/`makeAutoBackupFileName(at:)`/`isAutoBackupFileName(_:)` và rút tiền tố thủ công thành `private manualBackupPrefix`. `makeBackupFileName(at:)` giữ nguyên chữ ký và kết quả.
 * **Không thêm case cho `BackupScope`** — rawValue của nó đi thẳng vào `manifest.scopes` của file `.fbbackup`, thêm case là làm bản app cũ decode lỗi. Lượt tự động chỉ chọn tập con case sẵn có (`defaultScopes` cố ý bỏ `.content` và `.dictShared`).
-* [`NavigationBarAppearance`](../../Sources/Common/Utils/NavigationBarAppearance.swift#L1) là `enum` namespace thuần, chỉ `import UIKit`, một thành viên public `static func applyTitlelessBackButton()` + private `hideBackButtonTitle(in:)`. Nó **sửa tại chỗ** object `UINavigationBarAppearance` đang có của proxy (không tạo mới) để giữ nền translucent mặc định.
+* [`NavigationBarAppearance`](../../Sources/Common/Utils/NavigationBarAppearance.swift#L1) là `enum` namespace thuần, chỉ `import UIKit`, một thành viên `static func applyTitlelessBackButton()` + helper `hideBackButtonTitle(in:)`. Nó dựng `UINavigationBarAppearance` mới cho từng slot của proxy để giữ nền mặc định và chỉ đổi `backButtonAppearance`.
 * `NotificationInboxManager` đổi API: thêm `var hasUnread: Bool` + `func markRead(_:)`, **xoá `clearAll()`** và thay bằng `@discardableResult func deleteUnread() -> Int`. `NotificationInboxRecord`, `NotificationInboxStore` và `NotificationInboxView.InboxItem` không đổi shape (`isRead` đã là `var` từ 1.3.258). `NotificationInboxStore.clearAll()` vẫn còn nhưng nay không caller nào trong `Sources/` — giữ lại vì là primitive của store.
 * Không type nào bị xoá, đổi kế thừa hay đổi conformance. Không `@Model` nào đổi shape ⇒ không rủi ro lightweight migration.
 

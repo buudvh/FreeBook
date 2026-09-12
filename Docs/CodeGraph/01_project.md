@@ -15,6 +15,11 @@ Tài liệu này phác thảo kiến trúc tổng thể, sơ đồ thư mục, c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## E-Ink phủ nền toàn app và cập nhật bar đang mở (1.3.361)
+
+* `EInkAppearance.apply()` là điểm cấu hình appearance proxy UIKit toàn app: dựng nav/tab bar mặc định hoặc bản E-Ink theo `EInkModeSettings`, cài proxy cho thanh dựng sau, rồi quét `UIApplication.connectedScenes → windows` để cập nhật `UINavigationBar`/`UITabBar` đang tồn tại. `FreeBookApp.init()` vẫn là bootstrap đầu tiên, còn `AppLaunchRootView.onChange` gọi lại khi bật/tắt E-Ink hoặc đổi màu giấy.
+* `AppLaunchRootView` phủ nền giấy ở gốc cây, ẩn `scrollContentBackground` khi bật E-Ink và ép `.preferredColorScheme(.light)`. `View+EInk` đọc cả khoá `paperColor` bằng `@AppStorage`, nên surface/badge/selection đổi màu giấy reactive thay vì chỉ đọc singleton một lần.
+
 ## Luật "View không ghi SwiftData" đã sạch nợ ở hai View lớn cuối (1.3.334)
 
 * **Mục 2 của bản tổng kết v4.1/v5.0 bên dưới giờ mới đúng hoàn toàn.** Nó tuyên bố "SwiftUI Views không được gán thuộc tính `@Model`", nhưng tới trước 1.3.334 vẫn còn đúng hai chỗ vi phạm thật: `ReaderView.initializeReaderIfNeeded` và `BookDetailView.task(id:)` gọi `BookTitleTranslationMigrator.refreshTranslations(for:)` — hàm này gán `titleTrans`/`authorTrans` rồi View tự `try? modelContext.save()`. Cả hai nay đi qua `BookTransactionCoordinator.refreshTitleTranslations(bookId:in:)` và xử lý `Result`. Migrator chỉ còn gán và trả `Bool` didChange; **không** còn `save()` bên trong nó.
@@ -62,7 +67,7 @@ Dự án FreeBook đã hoàn tất tái cấu trúc kiến trúc v4.1/v5.0 với
    - Điểm nạp cấu hình bí mật thứ hai của app, cùng cơ chế với Google TTS: `GOOGLE_DRIVE_CLIENT_ID` (GitHub secret → build setting → Info.plist) với override `UserDefaults("googleDriveClientId")`; thiếu cấu hình thì chỉ tắt kênh Drive, không ảnh hưởng kênh backup local.
 6. **Lượt nền định kỳ và appearance toàn cục (1.3.260)**:
    - Lượt **tự động** sao lưu Drive dùng lại đúng khuôn của lượt kiểm tra chương mới: chính sách chạy nằm trong một `enum` UserDefaults (`DriveAutoBackupPolicy`), thân việc nằm ở extension của coordinator (`BackupCoordinator+AutoDrive`) và **trả về** outcome, còn `MainTabView` là nơi duy nhất hoãn qua lúc khởi động rồi hiện toast — Service vẫn không gọi `ToastManager`.
-   - `FreeBookApp.init()` là chỗ duy nhất cấu hình appearance proxy UIKit toàn app (`UITabBar`, và từ 1.3.260 thêm `NavigationBarAppearance.applyTitlelessBackButton()` để nút back mọi màn chỉ còn mũi tên). Đây là hiệu ứng toàn cục, không đặt trong View nào.
+   - `EInkAppearance.apply()` là chỗ cấu hình appearance proxy UIKit toàn app cho nav/tab bar, giữ luôn thiết lập nút back chỉ còn mũi tên qua `NavigationBarAppearance.hideBackButtonTitle(in:)`. `FreeBookApp.init()` gọi bootstrap lần đầu; `AppLaunchRootView` gọi lại khi trạng thái/màu E-Ink đổi để thanh đang mở cập nhật ngay.
 7. **Cầu UIKit mới cho Reader và lệnh dọn dữ liệu kho (1.3.261)**:
    - `Sources/Views/Reader/Components/` nhận cầu UIKit thứ ba (`ReaderUserScrollDetector`) bên cạnh `ReaderViewModelInvalidationRelay` và `ReaderEnergyDiagnostics`. Nó là `UIViewRepresentable` **không tiêu thụ touch**: gắn `UIPanGestureRecognizer` lên `UIScrollView` bao ngoài chỉ để *quan sát* ngón tay, nên `UITextView` (bôi đen chữ) và pan của chính scroll view giữ nguyên hành vi. Đây là cách duy nhất phân biệt "người cuộn" với cú `ScrollViewProxy.scrollTo` của TTS — quan sát `contentOffset` thì hai thứ đó không khác gì nhau.
    - Kho tiện ích có lệnh **xoá** đầu tiên đi qua Command DTO: `PruneRepositoryExtensionsCommand` + `ExtensionTransactionCoordinator.pruneRepositoryExtensions`. Giữ nguyên luật tầng View (`Sources/Views/**` không `modelContext.delete`) và giữ nguyên hình dạng "một `save()` cho một lượt đồng bộ" — prune là transaction thứ hai, chạy **sau** khi upsert `.success`.

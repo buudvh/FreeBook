@@ -15,6 +15,12 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Đường đổi E-Ink cập nhật nền và bar live (1.3.361)
+
+* **Bật/tắt hoặc đổi màu giấy**: `EInkSettingsSection` → `EInkModeSettings.setEnabled` / `setPaperColor` → ghi `UserDefaults` + publish `@Published` → `EInkAppearance.apply()`; song song, `AppLaunchRootView.onChange(of: eink.isEnabled/paperColor)` gọi lại `EInkAppearance.apply()` để root view đang mount đồng bộ nền/bar theo state mới. Lệnh idempotent: mỗi lượt dựng lại cấu hình và gán cùng proxy/live bars.
+* **Nền app**: `AppLaunchRootView.body` → `.preferredColorScheme(eink.isEnabled ? .light : nil)` + `.scrollContentBackground(.hidden/.automatic)` + `.background(EInkPalette.paper/systemBackground)`. Các surface dùng `View+EInk` đi qua `@AppStorage(EInkModeSettings.Key.paperColor)` → `EInkPalette.paperColor(for:)`, không cần observe singleton riêng.
+* **Thanh UIKit đang tồn tại**: `EInkAppearance.apply()` → `applyOnMainThread()` → `install(config)` → `applyToExistingBars(config)` → duyệt `connectedScenes.windows` đệ quy `subviews`; gặp `UINavigationBar` thì gán 4 appearance slot, gặp `UITabBar` thì gán `standard/scrollEdgeAppearance`, rồi `setNeedsLayout()`.
+
 ## Call graph sao lưu Telegram và khôi phục multipart (1.3.355)
 
 ```text
@@ -726,7 +732,7 @@ translateMeta / translateContent / translateChapterTitle
 * **Đường chạy tay từ màn cài đặt**: `DriveAutoBackupSettingsView.runNow()` → cùng `runAutoDriveBackup(container:force: true)` (bỏ qua cả cooldown lẫn cờ bật/tắt, nhưng vẫn cần đã đăng nhập Drive và `!isBusy`) → map outcome sang toast. Không có đường sao lưu tự động thứ hai.
 * **Reader**: cạnh `menu ellipsis → onOpenReaderSearch` của 1.3.258 **đổi điểm phát**, thành `nút magnifyingglass ở header → onOpenReaderSearch`; phần sau (`.sheet { ReaderSearchView }` → `ReaderSearchMatcher.search` → `onSelect`) không đổi.
 * **Trung tâm thông báo**: chạm một hàng toast → `NotificationInboxManager.markRead(record)` → `guard` bỏ qua nếu đã đọc → `Task { NotificationInboxStore.replace(with:) }` (không ghi đĩa khi không đổi gì). Mục menu huỷ → `deleteUnread()` → giữ lại phần `isRead` → `replace`. **Cố ý không có** cạnh `→ ToastManager.show` sau khi xoá: `show` lại gọi `NotificationInboxManager.record` nên sẽ sinh ngay một thông báo chưa đọc mới.
-* **Khởi động**: `FreeBookApp.init()` → `NavigationBarAppearance.applyTitlelessBackButton()` (một lần, cạnh hai lời gọi `UITabBar.appearance()`). Không View nào gọi hàm này.
+* **Khởi động/đổi E-Ink**: `FreeBookApp.init()` → `EInkAppearance.apply()` để cài proxy nav/tab bar lần đầu. Sau khi app đã mount, `AppLaunchRootView.onChange(of: eink.isEnabled/paperColor)` và setter của `EInkModeSettings` gọi lại cùng hàm để bar đang mở đổi ngay; `NavigationBarAppearance.hideBackButtonTitle(in:)` chỉ còn là helper dùng lại cho mọi `UINavigationBarAppearance` mới.
 
 ## Tìm trong Reader + choke point ghi thông báo (1.3.258)
 

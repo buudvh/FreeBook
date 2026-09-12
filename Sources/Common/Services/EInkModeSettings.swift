@@ -90,9 +90,8 @@ public final class EInkModeSettings: ObservableObject {
         guard value != isEnabled else { return }
         defaults.set(value, forKey: Key.enabled)
         isEnabled = value
-        // Appearance proxy của UIKit **không retroactive**: thanh điều hướng/tab đã dựng chỉ đổi diện
-        // mạo khi dựng lại. Áp lại ở đây để màn mở sau nhận đúng, và để lượt đổi này có tác dụng ngay
-        // với mọi thanh chưa dựng.
+        // Appearance proxy của UIKit **không retroactive**: `EInkAppearance` vừa cài proxy cho thanh dựng
+        // sau, vừa quét window hiện có để thanh đang mở đổi ngay.
         EInkAppearance.apply()
     }
 
@@ -120,8 +119,8 @@ public final class EInkModeSettings: ObservableObject {
         guard value != paperColor else { return }
         defaults.set(value.rawValue, forKey: Key.paperColor)
         paperColor = value
-        // Appearance proxy của UIKit không retroactive — áp lại để thanh điều hướng/tab bar nhận
-        // đúng nền giấy mới ngay với màn chưa dựng, và màn mở sau tự động dùng màu mới.
+        // Appearance proxy của UIKit không retroactive — áp lại proxy và các thanh đang mở để nhận nền
+        // giấy mới ngay.
         EInkAppearance.apply()
     }
 }

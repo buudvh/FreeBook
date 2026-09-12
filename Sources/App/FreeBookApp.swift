@@ -62,6 +62,14 @@ struct AppLaunchRootView: View {
         // E-Ink là môi trường giấy trắng: ép giao diện sáng để nền không bị lật sang đen theo hệ thống.
         // `nil` = theo hệ thống, tức hành vi cũ khi chế độ tắt.
         .preferredColorScheme(eink.isEnabled ? .light : nil)
+        .scrollContentBackground(eink.isEnabled ? .hidden : .automatic)
+        .background((eink.isEnabled ? EInkPalette.paper : Color(uiColor: .systemBackground)).ignoresSafeArea())
+        .onChange(of: eink.isEnabled) { _, _ in
+            EInkAppearance.apply()
+        }
+        .onChange(of: eink.paperColor) { _, _ in
+            EInkAppearance.apply()
+        }
         .onAppear {
             KeyboardDismissGesture.shared.activate()
             // Compile bộ rule dịch trước khi lần dịch đầu chạy: `AppLaunchRootView` chặn app tới khi

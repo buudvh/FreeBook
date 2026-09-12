@@ -15,6 +15,12 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## E-Ink presentation invariants (1.3.361)
+
+* **`EInkAppearance` is the only UIKit appearance mutator for E-Ink nav/tab bars.** It must install proxy appearances for future bars and update existing `UINavigationBar`/`UITabBar` instances on the main thread. Do not make individual SwiftUI screens call `UINavigationBar.appearance()` or `UITabBar.appearance()`.
+* **Back-button-title hiding is a shared helper, not a second owner.** `NavigationBarAppearance.hideBackButtonTitle(in:)` may be reused when a new `UINavigationBarAppearance` is constructed, but `EInkAppearance` owns the actual app-wide apply path.
+* **Paper color must be reactive.** SwiftUI E-Ink modifiers should read `EInkModeSettings.Key.paperColor` through `@AppStorage` (or observe `EInkModeSettings` at the root) and call `EInkPalette.paperColor(for:)`; do not rely on a one-time read of `EInkPalette.paper` for views that must update while mounted.
+
 ## Translation snapshot, mutation and refresh invariants (1.3.354)
 
 * **One synchronous translation pass uses one `TranslationReadContext`.** Dictionary tries, tombstones, per-book dictionaries, rule snapshots, disabled rules, token/priority configuration and generation must not be re-read independently midway through a pass.

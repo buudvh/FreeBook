@@ -4,6 +4,17 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.361] - 2026-09-12
+
+### Sửa nền E-Ink toàn app và cập nhật bar đang mở
+
+Sửa **6** file Swift, không thêm/xoá file.
+
+- `AppLaunchRootView` phủ nền giấy ở root khi bật E-Ink, ẩn `scrollContentBackground`, ép giao diện sáng như trước và gọi lại `EInkAppearance.apply()` khi `isEnabled` hoặc `paperColor` đổi.
+- `EInkAppearance.apply()` chuyển toàn bộ thao tác UIKit về main thread, dựng cấu hình mặc định/E-Ink, cài proxy cho bar dựng sau và quét window hiện có để cập nhật `UINavigationBar`/`UITabBar` đang mở ngay.
+- `EInkPalette` thêm helper `paperColor(for:)`/`paperUIColor(for:)`; `View+EInk` đọc `paperColor` qua `@AppStorage`, thêm `einkBackground(_:)`, và dùng màu giấy reactive cho surface/tag/selection.
+- Gate: `git diff --check` sạch; `check_architecture.py` vẫn có **6 violation** line-limit nền, không nằm trong file sửa. Host Windows không có Swift/Xcode nên chưa compile local. Không dùng `Tests/`.
+
 ## [1.3.360] - 2026-09-12
 
 ### Sửa lỗi biên dịch UI E-Ink còn sót

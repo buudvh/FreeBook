@@ -27,6 +27,8 @@ struct EInkEffect: ViewModifier {
         case accentForeground(Color)
         /// Badge ba tầng — thay cho việc phân biệt bằng màu.
         case tag(Tier)
+        /// Nền màn/hộp gốc đổi theo màu giấy khi bật E-Ink.
+        case background(Color)
     }
 
     /// Ba tầng badge thay cho bốn sắc màu. "Đổi màu sang xám" sẽ làm các badge giống hệt nhau và mất
@@ -47,6 +49,7 @@ struct EInkEffect: ViewModifier {
     /// được generic. Lồng trong `EInkEffect` nên vẫn không tính là type top level.
     struct Selection<S: InsettableShape>: ViewModifier {
         @AppStorage(EInkModeSettings.Key.enabled) private var isEnabled = false
+        @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
 
         let isSelected: Bool
         let shape: S
@@ -58,11 +61,17 @@ struct EInkEffect: ViewModifier {
         var normalBorder: Color? = nil
         var normalBorderWidth: CGFloat = 1
 
+        private var paper: Color {
+            EInkPalette.paperColor(
+                for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray
+            )
+        }
+
         func body(content: Content) -> some View {
             if isEnabled {
                 content
                     .foregroundStyle(isSelected ? EInkPalette.selectedContent : EInkPalette.ink)
-                    .background(isSelected ? EInkPalette.selectedFill : EInkPalette.paper, in: shape)
+                    .background(isSelected ? EInkPalette.selectedFill : paper, in: shape)
                     .overlay {
                         shape.strokeBorder(
                             EInkPalette.ink,
@@ -83,7 +92,14 @@ struct EInkEffect: ViewModifier {
     }
 
     @AppStorage(EInkModeSettings.Key.enabled) private var isEnabled = false
+    @AppStorage(EInkModeSettings.Key.paperColor) private var paperColorRaw = EInkModeSettings.EInkPaperColor.gray.rawValue
     let kind: Kind
+
+    private var paper: Color {
+        EInkPalette.paperColor(
+            for: EInkModeSettings.EInkPaperColor(rawValue: paperColorRaw) ?? .gray
+        )
+    }
 
     func body(content: Content) -> some View {
         switch kind {
@@ -108,7 +124,7 @@ struct EInkEffect: ViewModifier {
             if isEnabled {
                 content
                     .background(
-                        EInkPalette.paper,
+                        paper,
                         in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     )
                     .overlay {
@@ -143,6 +159,9 @@ struct EInkEffect: ViewModifier {
 
         case .tag(let tier):
             tagBody(content, tier: tier)
+
+        case .background(let fallback):
+            content.background(isEnabled ? paper : fallback)
         }
     }
 
@@ -160,7 +179,7 @@ struct EInkEffect: ViewModifier {
             case .outline:
                 content
                     .foregroundStyle(EInkPalette.ink)
-                    .background(EInkPalette.paper, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                    .background(paper, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
                     .overlay {
                         RoundedRectangle(cornerRadius: 4, style: .continuous)
                             .strokeBorder(EInkPalette.ink, lineWidth: EInkPalette.borderWidth)
@@ -169,7 +188,7 @@ struct EInkEffect: ViewModifier {
             case .dashed:
                 content
                     .foregroundStyle(EInkPalette.ink)
-                    .background(EInkPalette.paper, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                    .background(paper, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
                     .overlay {
                         RoundedRectangle(cornerRadius: 4, style: .continuous)
                             .strokeBorder(EInkPalette.ink, style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
@@ -220,6 +239,11 @@ extension View {
     /// Badge ba tầng — xem `EInkEffect.Tier`.
     func einkTag(_ tier: EInkEffect.Tier) -> some View {
         modifier(EInkEffect(kind: .tag(tier)))
+    }
+
+    /// Nền màn/hộp gốc đổi sang màu giấy khi bật E-Ink, trả về màu cũ khi tắt.
+    func einkBackground(_ fallback: Color = Color(uiColor: .systemBackground)) -> some View {
+        modifier(EInkEffect(kind: .background(fallback)))
     }
 
     /// Trạng thái "đang chọn" cho chip / pill / segment.

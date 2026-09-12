@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời nền E-Ink và live appearance (1.3.361)
+
+* `FreeBookApp.init()` gọi `EInkAppearance.apply()` trước khi dựng `ModelContainer`: lúc đó proxy UIKit được cài cho nav/tab bar sinh sau. Nếu chưa có window, phần quét live bars đơn giản không tìm thấy gì.
+* Sau khi `AppLaunchRootView` mount, `@ObservedObject EInkModeSettings.shared` làm root view vẽ lại khi `isEnabled` hoặc `paperColor` đổi. Hai `.onChange` gọi `EInkAppearance.apply()` để cập nhật thanh đang tồn tại; root `.background` và `.scrollContentBackground` đổi theo cùng lượt render.
+* `EInkAppearance.apply()` tự hop về main thread trước khi tạo/gán UIKit appearance và duyệt window, nên caller nền không chạm UIKit trực tiếp.
+
 ## Vòng đời panel Dịch và refresh chương latest-wins (1.3.354)
 
 * Mở panel tạo identity mới và hiện UI ngay; worker nền tải token/meaning/matches/suggestions, còn trace debounce 150 ms. Đóng panel hoặc Reader huỷ hai handle và chặn kết quả cũ bằng identity.
@@ -176,7 +182,7 @@ Lượt tự động sao lưu **không** nằm trong chuỗi khởi động ch�
 5. `setBusy(true)` + `defer { setBusy(false) }` bao trọn export → upload → dọn → `refreshLocal()`/`refreshDriveFiles()`. Vì `isBusy`/`progress` là `@Published`, màn Backup nếu đang mở sẽ thấy đúng tiến độ này; `defer` bảo đảm khoá được nhả cả trên nhánh `throw`.
 6. Vòng đời file: mỗi lượt sinh một `freebook-auto-<yyyyMMdd-HHmmss>.fbbackup` **trong máy** rồi tải lên Drive; dọn chạy **sau** khi upload xong nên số bản luôn ≥ 1 kể cả khi việc xoá lỗi. Xem `13_resource_lifecycle.md` cho trần 5 bản ở hai phía.
 
-Appearance nút back là hiệu ứng **một lần, toàn tiến trình**: `FreeBookApp.init()` gọi `NavigationBarAppearance.applyTitlelessBackButton()` cùng chỗ với hai lời gọi `UITabBar.appearance()`. Nó sửa **tại chỗ** object appearance đang có (không thay object mới) nên nền translucent mặc định của navigation bar giữ nguyên, và vì proxy UIKit chỉ ảnh hưởng view **được tạo sau đó**, chỗ gọi phải là `init()` của `App` — không View nào được gọi lại.
+Appearance nav/tab bar không còn là hiệu ứng một lần: `FreeBookApp.init()` gọi `EInkAppearance.apply()` để cài proxy bootstrap, còn `AppLaunchRootView.onChange` gọi lại khi E-Ink đổi để quét và cập nhật `UINavigationBar`/`UITabBar` đang mở. `NavigationBarAppearance` chỉ còn sở hữu helper ẩn chữ nút back, được `EInkAppearance` áp lại khi dựng từng `UINavigationBarAppearance` mới.
 
 ## Vòng đời preload Trung tâm thông báo + dọn chỉ mục cũ (1.3.258)
 

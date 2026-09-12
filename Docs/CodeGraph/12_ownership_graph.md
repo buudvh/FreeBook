@@ -15,6 +15,12 @@ Tài liệu này mô tả mối quan hệ sở hữu đối tượng (Object Own
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Chủ sở hữu appearance E-Ink live (1.3.361)
+
+* `EInkModeSettings` sở hữu state/UserDefaults của chế độ và màu giấy; `EInkPalette` chỉ chuyển state đó thành `Color`/`UIColor`.
+* `EInkAppearance` sở hữu toàn bộ mutation UIKit appearance cho nav/tab bar: cài proxy, dựng cấu hình mặc định/E-Ink, và cập nhật `UINavigationBar`/`UITabBar` đang tồn tại. `NavigationBarAppearance` không còn là owner bootstrap độc lập; nó chỉ sở hữu helper ẩn title nút back để `EInkAppearance` dùng lại.
+* `AppLaunchRootView` sở hữu nền giấy toàn app ở cây SwiftUI root và là nơi observe `EInkModeSettings` để gọi lại side effect trình bày. View con dùng modifier `View+EInk` thay vì tự ghi vào appearance proxy.
+
 ## Ai sở hữu origin extension và lệnh Run từ editor (1.3.351)
 
 ```text
@@ -131,7 +137,7 @@ DiscoveryView
 * **Khoá `isBusy` của `BackupCoordinator` vẫn do tầng entry point sở hữu, nhưng tập entry point nay có thêm một lượt nền.** `runAutoDriveBackup` tự `guard !isBusy` rồi `setBusy(true)` + `defer { setBusy(false) }` — cùng hợp đồng với `runRestore`/`restoreEverythingFromDrive`. Vì lượt nền dùng **cùng** khoá, nó không bao giờ chồng với lượt thủ công (và ngược lại: đang sao lưu tay thì lượt nền trả `.skipped`, chờ tới lượt sau). Luật kèm theo: `setBusy`/`setProgress` là hai cửa **duy nhất** cho phần ở file khác, và **không** được gọi từ tầng View — chúng `internal` chỉ vì `private(set)` của Swift là phạm vi file.
 * **`BackupProgress` vẫn một chủ (`@Published progress` của coordinator), nay có thêm người ghi và người đọc.** Người ghi mới là `autoReporter()` của lượt nền (hop về `@MainActor` rồi `setProgress`); người đọc thứ ba là `DriveAutoBackupSettingsView` (đọc `isBusy`, `isDriveSignedIn`, `lastError`). Không view nào giữ bản sao tiến độ riêng, và `DriveAutoBackupSettingsView` **xoá** `coordinator.lastError` sau khi đổ ra toast để lỗi không hiện lại lần sau.
 * **Chủ của "bản nào được xoá" là quy tắc tên file, không phải danh sách nào cả.** `BackupPaths.isAutoBackupFileName` (tiền tố `freebook-auto-`) là vị từ duy nhất mà `pruneRemoteAutoBackups`/`pruneLocalAutoBackups` dựa vào; `LocalBackupStore` vẫn giữ nguyên quyền sở hữu thư mục `backups/` (dọn local đi qua `LocalBackupStore.delete(_:)`, không `FileManager` trực tiếp), và `GoogleDriveClient` vẫn là chủ duy nhất của mọi lời gọi Drive REST.
-* **Appearance toàn app có đúng một chủ và một điểm gọi.** `FreeBookApp.init()` là nơi duy nhất cấu hình proxy UIKit: hai dòng `UITabBar.appearance()` sẵn có, nay thêm `NavigationBarAppearance.applyTitlelessBackButton()`. `NavigationBarAppearance` **sửa tại chỗ** object appearance đang có của `UINavigationBar.appearance()` (và chỉ chạm `compactAppearance`/`scrollEdgeAppearance`/`compactScrollEdgeAppearance` khi chúng khác `nil`) nên nó *thêm* thuộc tính chứ không **giành** quyền sở hữu nền navigation bar khỏi hệ thống. Không View nào được gọi lại hàm này.
+* **Appearance toàn app có đúng một chủ mutation UIKit.** `EInkAppearance.apply()` cấu hình proxy UIKit và cập nhật live nav/tab bar; `FreeBookApp.init()` gọi lần đầu, `AppLaunchRootView` gọi lại khi E-Ink đổi. `NavigationBarAppearance` chỉ còn helper ẩn chữ nút back, không tự sở hữu vòng đời cập nhật bar.
 * **Trạng thái đã-đọc của thông báo**: `NotificationInboxManager` là chủ duy nhất của `records`; `markRead(_:)`/`deleteUnread()` sửa RAM trước rồi bàn giao snapshot cho actor `NotificationInboxStore` (chủ duy nhất của `notifications.json`). `NotificationInboxView` không sở hữu bản sao nào — nó chỉ đọc và gọi hai hàm trên.
 
 ## Chủ sở hữu mốc đọc, khoá `isBusy` và tô màu trình soạn script (1.3.247)
