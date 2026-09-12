@@ -27,13 +27,23 @@ extension ReaderDefinitionOverlayView {
 
     @ViewBuilder
     internal var ruleMeaningRowView: some View {
-        if let notice = ruleNoticeText {
-            Text(notice)
-                .font(.caption)
-                .foregroundColor(.orange)
+        VStack(alignment: .leading, spacing: 3) {
+            if let notice = ruleNoticeText {
+                HStack(spacing: 6) {
+                    Text("Rule")
+                        .font(.system(size: 9, weight: .bold))
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(Color.secondary.opacity(0.18))
+                        .cornerRadius(3)
+
+                    Text(notice)
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                        .lineLimit(1)
+                }
                 .frame(maxWidth: .infinity, alignment: .leading)
-        } else if let trace = focusedRuleTrace {
-            VStack(alignment: .leading, spacing: 3) {
+            } else if let trace = focusedRuleTrace {
                 HStack(spacing: 6) {
                     Text("Nghĩa rule")
                         .font(.system(size: 9, weight: .bold))
@@ -51,14 +61,20 @@ extension ReaderDefinitionOverlayView {
                     .font(.body)
                     .foregroundColor(trace.status.isDisabled ? .secondary : .primary)
                     .textSelection(.enabled)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                Text("Không có thông tin rule")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.secondary.opacity(0.08))
-            .cornerRadius(8)
         }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, minHeight: 50, maxHeight: 50, alignment: .leading)
+        .background(Color.secondary.opacity(0.08))
+        .cornerRadius(8)
     }
 
     private var ruleNoticeText: String? {

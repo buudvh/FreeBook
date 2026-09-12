@@ -4,6 +4,24 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.370] - 2026-09-12
+
+### feat: cap nhat nut chi tiet truyen xam dam dac, dieu huong chuong 50-50, icon the loai va co dinh chieu cao rule
+
+Sửa **4** file Swift trong `Sources/Views/`.
+
+- **Màn hình Chi tiết truyện (`BookDetailView.swift`)**:
+  - Đổi màu nền của 5 nút nổi (`+`, `Đọc ngay / Đọc tiếp`, `Thêm vào kệ / Đã ở kệ`, `Tải truyện`, `Xuất ebook`) sang màu xám đậm đặc `Color(white: 0.22)` không trong suốt, viền trắng `Color.white.opacity(0.35)` và chữ/icon màu trắng nổi bật tương tự các tab được chọn ở màn hình Khám phá.
+- **Điều hướng chương Reader (`ReaderHeaderFooterOverlayView.swift`)**:
+  - Tái cấu trúc thanh footer điều hướng: mở rộng 2 nút "Chương trước" và "Chương sau" thành 2 nửa 50% chiều rộng thanh (nửa trái `onPrevChapter`, nửa phải `onNextChapter`).
+  - Giữ cụm thông tin tiến độ / loading ở giữa nhưng vô hiệu hóa cản trở chạm (`allowsHitTesting(false)`).
+  - Thêm hiệu ứng nhấn nảy `ReaderNavPressButtonStyle` (scale 0.96, opacity 0.7, highlight background) kèm phản hồi rung nhẹ `UIImpactFeedbackGenerator(style: .light)`.
+- **Màn hình Khám phá (`DiscoveryView.swift`)**:
+  - Sửa lỗi không hiển thị icon thể loại: đổi từ `Image(systemName: "shapes")` sang `Image(systemName: "square.grid.2x2")` dạng nút tròn 38x38 kính mờ.
+- **Màn hình Dịch (`ReaderDefinitionOverlayView+Rules.swift`)**:
+  - Cố định chiều cao hàng nghĩa rule `minHeight: 50, maxHeight: 50` và chuẩn hóa khung thẻ `background(Color.secondary.opacity(0.08)).cornerRadius(8)` cho mọi trạng thái (đang tải, thông báo, hoặc có rule), loại bỏ hiện tượng giật/nhấp nháy thay đổi chiều cao panel khi chuyển token.
+- Gate: `check_architecture.py` không phát sinh vi phạm mới; `validate_links.py` PASS 100%.
+
 ## [1.3.369] - 2026-09-12
 
 ### feat: cap nhat ui dich, icon shapes kham pha, thanh keo trang va nut copy paste rule editor

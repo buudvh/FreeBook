@@ -159,19 +159,30 @@ struct ReaderHeaderFooterOverlayView: View {
             Spacer()
 
             // Footer View
-            HStack(spacing: 8) {
-                Button(action: onPrevChapter) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 17, weight: .semibold))
-                        .frame(width: 44, height: 44)
+            HStack(spacing: 0) {
+                Button(action: {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    onPrevChapter()
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 16, weight: .semibold))
+                        Text("Chương trước")
+                            .font(.system(size: 13, weight: .medium))
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                    .padding(.leading, 16)
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(ReaderNavPressButtonStyle(highlightColor: selectedTheme.textColor))
                 .disabled((pendingNavigationIndex ?? chapterIndex) <= 0)
+                .opacity((pendingNavigationIndex ?? chapterIndex) <= 0 ? 0.35 : 1.0)
 
                 VStack(spacing: 2) {
                     if let target = pendingNavigationIndex, navigationFailureMessage == nil {
-                        HStack(spacing: 6) {
+                        HStack(spacing: 4) {
                             ProgressView().controlSize(.small)
-                            Text("Đang tải chương \(target + 1)")
+                            Text("Chương \(target + 1)")
                         }
                     } else {
                         Text(totalChaptersCount > 0 ? "\(readerPresentedChapterIndex + 1)/\(totalChaptersCount)" : "0/0")
@@ -183,19 +194,42 @@ struct ReaderHeaderFooterOverlayView: View {
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(selectedTheme.textColor)
                 .lineLimit(1)
-                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 8)
+                .allowsHitTesting(false)
 
-                Button(action: onNextChapter) {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 17, weight: .semibold))
-                        .frame(width: 44, height: 44)
+                Button(action: {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    onNextChapter()
+                }) {
+                    HStack(spacing: 6) {
+                        Text("Chương sau")
+                            .font(.system(size: 13, weight: .medium))
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 16, weight: .semibold))
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+                    .padding(.trailing, 16)
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(ReaderNavPressButtonStyle(highlightColor: selectedTheme.textColor))
                 .disabled((pendingNavigationIndex ?? chapterIndex) >= totalChaptersCount - 1)
+                .opacity((pendingNavigationIndex ?? chapterIndex) >= totalChaptersCount - 1 ? 0.35 : 1.0)
             }
             .foregroundColor(selectedTheme.textColor)
             .frame(height: 52)
-            .padding(.horizontal, 12)
             .background(readerChromeBackground.ignoresSafeArea(edges: .bottom))
+        }
+    }
+
+    private struct ReaderNavPressButtonStyle: ButtonStyle {
+        let highlightColor: Color
+
+        func makeBody(configuration: Configuration) -> some View {
+            configuration.label
+                .background(configuration.isPressed ? highlightColor.opacity(0.12) : Color.clear)
+                .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+                .opacity(configuration.isPressed ? 0.7 : 1.0)
+                .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
         }
     }
 }

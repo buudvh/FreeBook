@@ -626,7 +626,7 @@ struct BookDetailView: View {
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
-                                .background(Color.white.opacity(0.16))
+                                .background(Color(white: 0.22))
                                 .foregroundColor(.white)
                                 .cornerRadius(20)
                                 .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.35), lineWidth: 1))
@@ -652,7 +652,7 @@ struct BookDetailView: View {
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
-                                .background(localBook?.isOnShelf == true ? Color.green : Color.white.opacity(0.16))
+                                .background(localBook?.isOnShelf == true ? Color(red: 0.15, green: 0.45, blue: 0.25) : Color(white: 0.22))
                                 .foregroundColor(.white)
                                 .cornerRadius(20)
                                 .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.35), lineWidth: 1))
@@ -674,9 +674,10 @@ struct BookDetailView: View {
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
-                                .background(Color.green)
+                                .background(Color(white: 0.22))
                                 .foregroundColor(.white)
                                 .cornerRadius(20)
+                                .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.35), lineWidth: 1))
                                 .shadow(radius: 3)
                             }
                             .transition(.scale.combined(with: .opacity))
@@ -695,9 +696,10 @@ struct BookDetailView: View {
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
-                                .background(Color.orange)
+                                .background(Color(white: 0.22))
                                 .foregroundColor(.white)
                                 .cornerRadius(20)
+                                .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.35), lineWidth: 1))
                                 .shadow(radius: 3)
                             }
                             .transition(.scale.combined(with: .opacity))
@@ -713,7 +715,7 @@ struct BookDetailView: View {
                                 .frame(width: 20, height: 20)
                                 .foregroundColor(.white)
                                 .padding(16)
-                                .background(Color.white.opacity(0.18))
+                                .background(Color(white: 0.22))
                                 .clipShape(Circle())
                                 .overlay(Circle().strokeBorder(Color.white.opacity(0.35), lineWidth: 1))
                                 .shadow(radius: 5)

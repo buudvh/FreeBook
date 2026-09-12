@@ -209,7 +209,7 @@ struct DiscoveryView: View {
                         if !homeItems.isEmpty {
                             HStack(spacing: 0) {
                                 Button(action: { showingGenresSheet = true }) {
-                                    Image(systemName: "shapes")
+                                    Image(systemName: "square.grid.2x2")
                                         .font(.system(size: 16, weight: .medium))
                                         .foregroundColor(.white)
                                         .frame(width: 38, height: 38)
