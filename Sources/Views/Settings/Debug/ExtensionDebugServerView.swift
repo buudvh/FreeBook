@@ -28,6 +28,7 @@ struct ExtensionDebugServerView: View {
             }
             safetySection
         }
+        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .navigationTitle("Debug Server (LAN)")
         .task { reader.attach() }
     }

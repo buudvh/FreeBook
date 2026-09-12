@@ -70,6 +70,7 @@ struct NewChapterSettingsView: View {
                     .foregroundColor(.secondary)
             }
         }
+        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .navigationTitle("Kiểm tra chương mới")
         .navigationBarTitleDisplayMode(.inline)
     }

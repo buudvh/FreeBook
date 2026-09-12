@@ -78,7 +78,7 @@ struct QuickTranslationRulePatternStripView: View {
             .padding(.vertical, 2)
             .background(
                 RoundedRectangle(cornerRadius: 5)
-                    .fill(isSelected ? Color.accentColor.opacity(0.28) : background(for: segment.kind))
+                    .fill(isSelected ? Color.white.opacity(0.28) : background(for: segment.kind))
             )
             .id("pattern-seg-\(segment.id)")
             .onTapGesture {
@@ -92,7 +92,7 @@ struct QuickTranslationRulePatternStripView: View {
         let isActive = selectionLength == 0 && selectionStart == index
 
         return Rectangle()
-            .fill(isActive ? Color.accentColor : Color.clear)
+            .fill(isActive ? Color.white : Color.clear)
             .frame(width: 2, height: 22)
             .padding(.horizontal, 3)
             .contentShape(Rectangle())
@@ -106,7 +106,7 @@ struct QuickTranslationRulePatternStripView: View {
     private func color(for kind: QuickTranslationRuleDraftAnalyzer.Segment.Kind) -> Color {
         switch kind {
         case .literal: return .primary
-        case .token: return .accentColor
+        case .token: return .white
         case .groupPunct: return .orange
         }
     }
@@ -114,7 +114,7 @@ struct QuickTranslationRulePatternStripView: View {
     private func background(for kind: QuickTranslationRuleDraftAnalyzer.Segment.Kind) -> Color {
         switch kind {
         case .literal: return .clear
-        case .token: return Color.accentColor.opacity(0.12)
+        case .token: return Color.white.opacity(0.12)
         case .groupPunct: return Color.orange.opacity(0.12)
         }
     }

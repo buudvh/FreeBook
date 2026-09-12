@@ -193,8 +193,18 @@ struct CollectionsTabView: View {
                 showingCreateAlert = true
             } label: {
                 Label("Tạo bộ sưu tập", systemImage: "plus")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color.white.opacity(0.18))
+                    .overlay(
+                        Capsule()
+                            .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                    )
+                    .clipShape(Capsule())
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.plain)
         }
         .frame(maxHeight: .infinity)
     }

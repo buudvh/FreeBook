@@ -52,7 +52,7 @@ struct QuickTranslationRuleEntryRow: View {
                     .font(.system(.footnote, design: .monospaced))
                 Text(rule.replacement)
                     .font(.footnote)
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(.white)
             }
             .opacity(isDisabled ? 0.5 : 1)
 
@@ -69,7 +69,7 @@ struct QuickTranslationRuleEntryRow: View {
         HStack(spacing: 10) {
             Button(action: onEdit) {
                 Image(systemName: "pencil")
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(.white)
                     .font(.subheadline)
             }
             .buttonStyle(.plain)
@@ -116,7 +116,7 @@ struct QuickTranslationRuleEntryRow: View {
                     }
                 }
             } label: {
-                transferIcon(color: .accentColor)
+                transferIcon(color: .white)
             }
             .menuStyle(.borderlessButton)
             .accessibilityLabel(

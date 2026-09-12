@@ -206,8 +206,8 @@ struct TOCRulesConfigView: View {
                                 .font(.caption2)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Color.blue.opacity(0.12))
-                                .foregroundColor(.blue)
+                                .background(Color.white.opacity(0.12))
+                                .foregroundColor(.white)
                                 .cornerRadius(4)
                         }
                     }
@@ -235,14 +235,13 @@ struct TOCRulesConfigView: View {
             Toggle("", isOn: Binding(
                 get: { rule.enabled },
                 set: { newValue in
-                    var updatedRules = rules
-                    if let idx = updatedRules.firstIndex(where: { $0.id == rule.id }) {
-                        updatedRules[idx].enabled = newValue
-                        onRulesChanged(updatedRules)
-                    }
+                    guard let idx = rules.firstIndex(where: { $0.id == rule.id }) else { return }
+                    rules[idx].enabled = newValue
+                    saveRules()
                 }
             ))
             .labelsHidden()
+            .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
             .accessibilityLabel("Kích hoạt quy tắc \(rule.name)")
             .accessibilityValue(rule.enabled ? "Đã bật" : "Đã tắt")
         }
@@ -287,6 +286,7 @@ struct TOCRulesConfigView: View {
                         .autocorrectionDisabled()
 
                     Toggle("Kích hoạt quy tắc", isOn: $inputEnabled)
+                        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
                 }
 
                 Section(footer: Text("Biểu thức chính quy Regex cần phù hợp với định dạng dòng tiêu đề chương trong file TXT.")) {

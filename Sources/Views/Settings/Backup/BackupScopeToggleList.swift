@@ -65,6 +65,7 @@ struct BackupScopeToggleList: View {
                     .foregroundColor(.secondary)
             }
         }
+        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .disabled(scope.isMandatory)
     }
 

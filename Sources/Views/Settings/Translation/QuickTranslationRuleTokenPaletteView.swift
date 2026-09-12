@@ -99,7 +99,7 @@ struct QuickTranslationRuleTokenPaletteView: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
-            .background(Color.accentColor.opacity(isDimmed ? 0.05 : 0.14))
+            .background(Color.white.opacity(isDimmed ? 0.05 : 0.18))
             .cornerRadius(8)
             .opacity(isDimmed ? 0.5 : 1)
         }

@@ -67,6 +67,7 @@ struct StaleBookCleanupSettingsView: View {
             }
             statusSection
         }
+        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .navigationTitle("Dọn Truyện Cũ")
         .navigationBarTitleDisplayMode(.inline)
         .task {

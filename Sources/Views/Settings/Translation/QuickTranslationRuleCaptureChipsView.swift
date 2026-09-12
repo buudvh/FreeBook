@@ -64,16 +64,16 @@ struct QuickTranslationRuleCaptureChipsView: View {
                         .font(.system(size: 8, weight: .bold))
                 }
             }
-            .foregroundColor(isUsed ? .accentColor : .red)
+            .foregroundColor(isUsed ? .white : .red)
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(isUsed ? Color.accentColor.opacity(0.14) : Color.red.opacity(0.08))
+                    .fill(isUsed ? Color.white.opacity(0.18) : Color.red.opacity(0.08))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(isUsed ? Color.clear : Color.red.opacity(0.6), lineWidth: 1)
+                    .stroke(isUsed ? Color.white.opacity(0.35) : Color.red.opacity(0.6), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)

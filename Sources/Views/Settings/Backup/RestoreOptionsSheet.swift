@@ -65,6 +65,7 @@ struct RestoreOptionsSheet: View {
                     }
                 }
             }
+            .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
             .navigationTitle("Khôi phục")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

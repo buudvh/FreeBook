@@ -194,8 +194,17 @@ struct SearchView: View {
             Button(action: performSearch) {
                 Text("Tìm")
                     .bold()
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Color.white.opacity(0.18))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                    )
+                    .cornerRadius(10)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.plain)
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
@@ -209,7 +218,7 @@ struct SearchView: View {
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }
-        .toggleStyle(SwitchToggleStyle(tint: .accentColor))
+        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .padding(.horizontal)
         .padding(.vertical, 6)
     }
@@ -446,8 +455,8 @@ struct SearchView: View {
                                 .fontWeight(.semibold)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Color.accentColor.opacity(0.1))
-                                .foregroundColor(.accentColor)
+                                .background(Color.white.opacity(0.12))
+                                .foregroundColor(.white)
                                 .cornerRadius(4)
                         }
                     }
@@ -491,8 +500,8 @@ struct SearchView: View {
                                 .fontWeight(.semibold)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Color.accentColor.opacity(0.1))
-                                .foregroundColor(.accentColor)
+                                .background(Color.white.opacity(0.12))
+                                .foregroundColor(.white)
                                 .cornerRadius(4)
                         }
                     }
@@ -517,7 +526,7 @@ struct SearchView: View {
                     }) {
                         Text("Xóa tất cả")
                             .font(.subheadline)
-                            .foregroundColor(.accentColor)
+                            .foregroundColor(.white)
                     }
                 }
                 .padding(.horizontal)

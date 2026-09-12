@@ -178,7 +178,7 @@ public struct ExpandableTextView: View {
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                             .font(.caption)
                     }
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(.white)
                 }
                 .padding(.top, 2)
             }

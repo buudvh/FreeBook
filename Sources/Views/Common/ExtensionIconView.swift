@@ -32,8 +32,8 @@ struct ExtensionIconView: View {
             .aspectRatio(contentMode: .fit)
             .frame(width: size * 0.7, height: size * 0.7)
             .padding(size * 0.15)
-            .background(Color.accentColor.opacity(0.1))
-            .foregroundColor(.accentColor)
+            .background(Color.white.opacity(0.12))
+            .foregroundColor(.white)
             .cornerRadius(size * 0.18)
     }
 }

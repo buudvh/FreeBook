@@ -66,6 +66,7 @@ struct ReaderSettingsView: View {
             }
             .padding()
         }
+        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .presentationDragIndicator(.visible)
         .sheet(isPresented: $showingRulePriority) {
             NavigationStack {

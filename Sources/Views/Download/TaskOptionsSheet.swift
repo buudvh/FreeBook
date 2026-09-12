@@ -95,7 +95,7 @@ struct TaskOptionsSheet: View {
 
                 Section {
                     Toggle("Tải từ chương đang đọc", isOn: $startFromCurrentChapter)
-                        .toggleStyle(SwitchToggleStyle(tint: .accentColor))
+                        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
 
                     Picker("Số lượng chương", selection: $limitOption) {
                         ForEach(ChapterLimitOption.allCases, id: \.self) { option in
@@ -111,10 +111,10 @@ struct TaskOptionsSheet: View {
 
                     if isExport {
                         Toggle("Chỉ xuất chương đã tải", isOn: $onlyExportCached)
-                            .toggleStyle(SwitchToggleStyle(tint: .accentColor))
+                            .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
 
                         Toggle("Dịch nội dung", isOn: $translateContent)
-                            .toggleStyle(SwitchToggleStyle(tint: .accentColor))
+                            .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
 
                         if let cachedPreview {
                             Text(cachedPreview)
@@ -124,7 +124,7 @@ struct TaskOptionsSheet: View {
                     }
 
                     Toggle("Hiển thị trong Kệ sách", isOn: $displayInShelf)
-                        .toggleStyle(SwitchToggleStyle(tint: .accentColor))
+                        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
                 } header: {
                     Text("Tùy chọn tác vụ")
                 } footer: {

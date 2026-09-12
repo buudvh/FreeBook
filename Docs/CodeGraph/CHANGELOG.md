@@ -4,6 +4,17 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.367] - 2026-09-12
+
+### feat: sua loi nut primary sang frosted pill, doi cong tac gat sang xam dam va chuan hoa cai dat tts
+
+Sửa **41** file Swift trong Views và Models.
+
+- Thay thế toàn bộ các nút `.borderedProminent` và nút bấm primary bị lỗi nền trắng chữ trắng sang phong cách Frosted Glass Pill Dark Mode (`Color.white.opacity(0.18)` fill + viền `Color.white.opacity(0.35)` + chữ `.white`).
+- Đổi màu toàn bộ công tắc gạt (`Toggle`) sang màu xám đậm `Color(white: 0.35)` khi bật ở root `MainTabView` và tất cả các form / sheet cài đặt / reader / download, giúp nút tròn trắng nổi bật rõ ràng trên nền tối.
+- Chuẩn hoá toàn bộ các màn hình Cài đặt TTS, Quản lý Model, Từ điển phiên âm, Thay thế ký tự, Cấu hình quy tắc dịch nhanh sang tone trắng và frosted glass.
+- Gate: `check_architecture.py` không phát sinh lỗi mới; `validate_links.py` PASS 100%.
+
 ## [1.3.366] - 2026-09-12
 
 ### feat: cap nhat giao dien dark mode frosted pill, bo kiem tra chuong moi o context menu va tu dong dich lai muc luc o reader

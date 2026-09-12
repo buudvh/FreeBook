@@ -269,13 +269,14 @@ struct TTSReplacementManagerView: View {
                 }
             ))
             .labelsHidden()
+            .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
             
             // Nút nhấn để sửa
             Button(action: {
                 prepareForEdit(rule)
             }) {
                 Image(systemName: "pencil")
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(.white)
                     .padding(8)
             }
             .buttonStyle(.plain)
@@ -297,6 +298,7 @@ struct TTSReplacementManagerView: View {
                         .disableAutocorrection(true)
                     
                     Toggle("Kích hoạt quy tắc", isOn: $isEnabledInput)
+                        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
                 }
             }
             .navigationTitle(selectedRule == nil ? "Thêm quy tắc mới" : "Sửa quy tắc")

@@ -169,10 +169,18 @@ struct BookImportConfirmationSheet: View {
                         dismiss()
                     }) {
                         Text("Hủy")
+                            .font(.body.weight(.medium))
+                            .foregroundColor(.red)
                             .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.red.opacity(0.12))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(Color.red.opacity(0.25), lineWidth: 1)
+                            )
+                            .cornerRadius(10)
                     }
-                    .buttonStyle(.bordered)
-                    .tint(.red)
+                    .buttonStyle(.plain)
                     .disabled(isReanalyzing)
 
                     Button(action: {
@@ -180,12 +188,20 @@ struct BookImportConfirmationSheet: View {
                         dismiss()
                     }) {
                         Text("Nhập")
+                            .font(.body.weight(.semibold))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.white.opacity(0.18))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                            )
+                            .cornerRadius(10)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Color.white.opacity(0.18))
+                    .buttonStyle(.plain)
                     .disabled(isReanalyzing || !canConfirm)
+                    .opacity((isReanalyzing || !canConfirm) ? 0.5 : 1.0)
                 }
                 .padding(16)
             }
@@ -256,9 +272,18 @@ struct BookImportConfirmationSheet: View {
                     }
                     Text(isReanalyzing ? "Đang phân tích lại..." : "Phân tích lại")
                 }
+                .font(.subheadline.weight(.medium))
+                .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(Color.white.opacity(0.12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.white.opacity(0.25), lineWidth: 1)
+                )
+                .cornerRadius(8)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.plain)
             .disabled(isReanalyzing)
         }
     }
@@ -278,6 +303,7 @@ struct BookImportConfirmationSheet: View {
 
             Toggle("Tôi hiểu, chỉ nhập phần có văn bản", isOn: $acknowledgedWarning)
                 .font(.caption)
+                .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         }
         .padding(10)
         .background(Color.orange.opacity(0.12))

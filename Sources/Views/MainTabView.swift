@@ -36,6 +36,7 @@ struct MainTabView: View {
                 .tag(3)
         }
         .tint(.white)
+        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .toolbarBackground(.visible, for: .tabBar)
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openCurrentlyPlayingReader"))) { _ in
             selectedTab = 0

@@ -32,11 +32,20 @@ struct ExtensionConfigView: View {
                     VStack(spacing: 16) {
                         Text("Lỗi đọc cấu hình")
                             .font(.headline)
-                        Text(errorMessage)
-                            .font(.subheadline)
-                            .foregroundColor(.red)
-                        Button("Hủy") { dismiss() }
-                            .buttonStyle(.bordered)
+                        Button(action: { dismiss() }) {
+                            Text("Hủy")
+                                .font(.subheadline.weight(.medium))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 8)
+                                .background(Color.white.opacity(0.12))
+                                .overlay(
+                                    Capsule()
+                                        .stroke(Color.white.opacity(0.25), lineWidth: 1)
+                                )
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
                     }
                     .padding()
                 } else {
@@ -105,6 +114,7 @@ struct ExtensionConfigView: View {
                             }
                         }
                     }
+                    .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
                 }
             }
             .navigationTitle("Cấu Hình: \(ext.name)")

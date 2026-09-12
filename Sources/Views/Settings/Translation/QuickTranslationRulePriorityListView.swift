@@ -57,7 +57,7 @@ struct QuickTranslationRulePriorityListView: View {
                 } label: {
                     HStack(alignment: .top, spacing: 8) {
                         Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                            .foregroundColor(isSelected ? .accentColor : .secondary)
+                            .foregroundColor(isSelected ? .white : .secondary)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(preset.title)
                                 .font(.subheadline.weight(.medium))
@@ -85,13 +85,13 @@ struct QuickTranslationRulePriorityListView: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Image(systemName: key.systemImage)
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(.white)
                     Text(key.title)
                         .font(.subheadline.weight(.medium))
                 }
                 Text(key.directionLabel(descending: configuration.isDescending(key)))
                     .font(.caption.weight(.semibold))
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(.white)
                 Text(key.explanation)
                     .font(.caption)
                     .foregroundColor(.secondary)

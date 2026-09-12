@@ -77,7 +77,7 @@ extension ExtensionScriptEditorView {
                     HStack(spacing: 12) {
                         Image(systemName: file.isPluginJson ? "gearshape.doc.fill" : "curlybraces")
                             .font(.system(size: 16))
-                            .foregroundColor(file.isPluginJson ? .orange : (isSelected ? .accentColor : .secondary))
+                            .foregroundColor(file.isPluginJson ? .orange : (isSelected ? .white : .secondary))
                             .frame(width: 24)
 
                         VStack(alignment: .leading, spacing: 2) {
@@ -105,7 +105,7 @@ extension ExtensionScriptEditorView {
                         if isSelected {
                             Image(systemName: "checkmark")
                                 .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(.accentColor)
+                                .foregroundColor(.white)
                         }
                     }
                     .padding(.vertical, 4)

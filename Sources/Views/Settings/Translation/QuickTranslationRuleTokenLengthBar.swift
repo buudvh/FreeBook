@@ -35,7 +35,7 @@ struct QuickTranslationRuleTokenLengthBar: View {
                     .font(.system(size: 13, weight: .semibold, design: .monospaced))
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
-                    .background(Color.accentColor.opacity(0.16))
+                    .background(Color.white.opacity(0.18))
                     .cornerRadius(6)
 
                 Spacer(minLength: 0)
@@ -154,7 +154,7 @@ struct QuickTranslationRuleTokenLengthBar: View {
             Image(systemName: icon)
                 .font(.system(size: 11, weight: .bold))
                 .frame(width: 26, height: 26)
-                .background(Color.accentColor.opacity(isEnabled ? 0.14 : 0.05))
+                .background(Color.white.opacity(isEnabled ? 0.18 : 0.05))
                 .clipShape(Circle())
         }
         .buttonStyle(.plain)

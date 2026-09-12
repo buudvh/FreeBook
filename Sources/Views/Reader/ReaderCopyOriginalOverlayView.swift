@@ -23,7 +23,7 @@ struct ReaderCopyOriginalOverlayView: View {
     /// Copy chuỗi đang chọn vào clipboard rồi đóng panel.
     let onCommit: () -> Void
 
-    private var accent: Color { Color(red: 0.20, green: 0.72, blue: 0.55) }
+    private var accent: Color { .white }
 
     private var selectedOriginal: String {
         let ns = originalSentence as NSString
@@ -134,7 +134,8 @@ struct ReaderCopyOriginalOverlayView: View {
             Image(systemName: icon)
                 .font(.system(size: 13, weight: .bold))
                 .frame(width: 28, height: 28)
-                .background(accent.opacity(0.12))
+                .background(Color.white.opacity(0.12))
+                .overlay(Circle().stroke(Color.white.opacity(0.25), lineWidth: 1))
                 .clipShape(Circle())
         }
     }
@@ -152,7 +153,7 @@ struct ReaderCopyOriginalOverlayView: View {
                         .foregroundColor(isSelected ? accent : .primary)
                         .padding(.horizontal, 2)
                         .padding(.vertical, 2)
-                        .background(isSelected ? accent.opacity(0.12) : Color.clear)
+                        .background(isSelected ? Color.white.opacity(0.12) : Color.clear)
                         .cornerRadius(4)
                         .onTapGesture {
                             selectedWordOffset = token.originalOffset
@@ -194,9 +195,14 @@ struct ReaderCopyOriginalOverlayView: View {
             .foregroundColor(.white)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
-            .background(selectedOriginal.isEmpty ? Color.gray : accent)
+            .background(selectedOriginal.isEmpty ? Color.white.opacity(0.08) : Color.white.opacity(0.18))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(selectedOriginal.isEmpty ? Color.white.opacity(0.15) : Color.white.opacity(0.35), lineWidth: 1)
+            )
             .cornerRadius(10)
         }
+        .buttonStyle(.plain)
         .disabled(selectedOriginal.isEmpty)
     }
 }

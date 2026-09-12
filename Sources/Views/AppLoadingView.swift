@@ -16,7 +16,7 @@ struct AppLoadingView: View {
                 ZStack {
                     Circle()
                         .fill(LinearGradient(
-                            colors: [Color.blue.opacity(0.15), Color.purple.opacity(0.05)],
+                            colors: [Color.white.opacity(0.15), Color.white.opacity(0.05)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ))
@@ -33,12 +33,12 @@ struct AppLoadingView: View {
                         .frame(width: 100, height: 100)
                         .foregroundStyle(
                             LinearGradient(
-                                colors: [Color.blue, Color.purple],
+                                colors: [.white, Color(white: 0.7)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                         )
-                        .shadow(color: Color.blue.opacity(0.3), radius: 10, x: 0, y: 5)
+                        .shadow(color: Color.white.opacity(0.2), radius: 10, x: 0, y: 5)
                 }
                 .onAppear {
                     pulseEffect = true
@@ -59,7 +59,7 @@ struct AppLoadingView: View {
                 ProgressView()
                     .progressViewStyle(CircularProgressViewStyle())
                     .scaleEffect(1.2)
-                    .tint(.blue)
+                    .tint(.white)
                 
                 Spacer()
                 

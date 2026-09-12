@@ -305,6 +305,7 @@ struct SettingsView: View {
                     }
                 }
             }
+            .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
             .navigationTitle("Cài Đặt")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
@@ -426,7 +427,7 @@ struct DictionaryCard: View {
                 
                 Text(statusText)
                     .font(.caption)
-                    .foregroundColor(isLoading ? .blue : (isSet ? .secondary : .red))
+                    .foregroundColor(isLoading ? .white : (isSet ? .secondary : .red))
                     .lineLimit(1)
             }
             

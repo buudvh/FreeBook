@@ -483,22 +483,19 @@ struct RepositoryManagerView: View {
                             .accessibilityLabel("Cập nhật \(ext.name)")
                         }
                         
-                        Button(action: {
-                            selectedExtensionForConfig = ext
-                        }) {
+                        Button(action: { selectedExtensionForConfig = ext }) {
                             Image(systemName: "gearshape")
                                 .font(.system(size: 15, weight: .medium))
-                                .foregroundColor(.blue)
+                                .foregroundColor(.white)
                                 .frame(width: 34, height: 34)
-                                .background(Color.blue.opacity(0.1))
+                                .background(Color.white.opacity(0.12))
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.25), lineWidth: 1))
                                 .cornerRadius(8)
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Cấu hình \(ext.name)")
-                        
-                        Button(action: {
-                            uninstallExtension(ext)
-                        }) {
+
+                        Button(action: { uninstallExtension(ext) }) {
                             Image(systemName: "trash")
                                 .font(.system(size: 15, weight: .medium))
                                 .foregroundColor(.red)
@@ -523,28 +520,29 @@ struct RepositoryManagerView: View {
                     Section {
                         Text(statusMessage)
                             .font(.caption)
-                            .foregroundColor(.blue)
+                            .foregroundColor(.white)
                     }
                 }
-                
                 Section(header: Text("Danh sách kho tiện ích")) {
                     if repositories.isEmpty {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Chưa nhập kho tiện ích nào.")
-                                .font(.headline)
+                        VStack(spacing: 12) {
+                            Image(systemName: "square.stack.3d.up.slash")
+                                .font(.system(size: 40))
                                 .foregroundColor(.gray)
                             Text("Bạn có thể nhập link kho truyện VBook (định dạng plugin.json) để bắt đầu tải các nguồn bóc tách truyện.")
                                 .font(.subheadline)
                                 .foregroundColor(.gray)
-                            
-                            Button(action: {
-                                addSampleRepository()
-                            }) {
+                            Button(action: { addSampleRepository() }) {
                                 Text("Nhập kho tiện ích mặc định (buudvh)")
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 10)
+                                    .background(Color.white.opacity(0.18))
+                                    .overlay(Capsule().stroke(Color.white.opacity(0.35), lineWidth: 1))
+                                    .clipShape(Capsule())
                             }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(.plain)
                             .padding(.top, 5)
                         }
                         .padding(.vertical)

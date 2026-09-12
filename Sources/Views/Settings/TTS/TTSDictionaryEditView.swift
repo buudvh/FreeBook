@@ -52,7 +52,7 @@ struct TTSDictionaryEditView: View {
                                 }) {
                                     HStack {
                                         Image(systemName: "plus.circle.fill")
-                                            .foregroundColor(.green)
+                                            .foregroundColor(.white)
                                             .font(.title3)
                                         VStack(alignment: .leading, spacing: 4) {
                                             Text("Thêm mới phiên âm cho '\(searchText)'")
@@ -107,7 +107,7 @@ struct TTSDictionaryEditView: View {
                                     }
                                     Spacer()
                                     Image(systemName: "pencil")
-                                        .foregroundColor(.accentColor)
+                                        .foregroundColor(.white)
                                         .font(.subheadline)
                                 }
                                 .contentShape(Rectangle())

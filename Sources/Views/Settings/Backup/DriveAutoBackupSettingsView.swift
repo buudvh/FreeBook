@@ -32,6 +32,7 @@ struct DriveAutoBackupSettingsView: View {
             BackupScopeToggleList(selection: $scopes, header: "Nội dung sao lưu tự động")
             statusSection
         }
+        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .navigationTitle("Tự Động Sao Lưu")
         .navigationBarTitleDisplayMode(.inline)
         .onChange(of: scopes) { _, newValue in

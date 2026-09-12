@@ -262,12 +262,13 @@ struct JunkFilterManagementView: View {
                 }
             ))
             .labelsHidden()
+            .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
 
             Button(action: {
                 prepareForEdit(rule)
             }) {
                 Image(systemName: "pencil")
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(.white)
                     .padding(8)
             }
             .buttonStyle(.plain)
@@ -289,7 +290,9 @@ struct JunkFilterManagementView: View {
                         .disableAutocorrection(true)
 
                     Toggle("Biểu thức chính quy (Regex)", isOn: $isRegexInput)
+                        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
                     Toggle("Kích hoạt quy tắc", isOn: $isEnabledInput)
+                        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
                 }
             }
             .navigationTitle(selectedRule == nil ? "Thêm từ lọc rác" : "Sửa từ lọc rác")

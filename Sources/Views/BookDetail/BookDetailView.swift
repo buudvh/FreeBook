@@ -431,7 +431,7 @@ struct BookDetailView: View {
                                             Image(systemName: "chevron.right")
                                         }
                                         .font(.subheadline)
-                                        .foregroundColor(.accentColor)
+                                        .foregroundColor(.white)
                                     }
                                 }
                                 .padding(.horizontal)

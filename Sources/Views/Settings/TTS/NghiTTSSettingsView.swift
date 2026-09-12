@@ -70,6 +70,7 @@ struct NghiTTSSettingsView: View {
                     .foregroundColor(.secondary)
             }
         }
+        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .navigationTitle("Cấu hình NghiTTS")
         .navigationBarTitleDisplayMode(.inline)
     }

@@ -485,7 +485,7 @@ struct ShelfView: View {
                             ProgressView(value: importProgress)
                                 .progressViewStyle(.linear)
                                 .frame(width: 220)
-                                .tint(.blue)
+                                .tint(.white)
                         }
 
                         Text(importStatusText)

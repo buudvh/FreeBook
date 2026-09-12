@@ -31,6 +31,7 @@ struct ReaderBookRulePriorityView: View {
                 QuickTranslationRulePriorityListView(configuration: $configuration)
             }
         }
+        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .navigationTitle("Thứ tự ưu tiên rule")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { if isUsingBookConfiguration { EditButton() } }

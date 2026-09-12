@@ -80,8 +80,20 @@ public struct ExtensionScriptEditorView: View {
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
-                        Button("Đóng") { dismiss() }
-                            .buttonStyle(.borderedProminent)
+                        Button(action: { dismiss() }) {
+                            Text("Đóng")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 8)
+                                .background(Color.white.opacity(0.18))
+                                .overlay(
+                                    Capsule()
+                                        .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                                )
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
                     }
                     .padding()
                 } else if scriptFiles.isEmpty {
@@ -92,8 +104,20 @@ public struct ExtensionScriptEditorView: View {
                             .foregroundColor(.gray)
                         Text("Không tìm thấy file script nào trong tiện ích '\(ext.name)'.")
                             .font(.headline)
-                        Button("Đóng") { dismiss() }
-                            .buttonStyle(.borderedProminent)
+                        Button(action: { dismiss() }) {
+                            Text("Đóng")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 8)
+                                .background(Color.white.opacity(0.18))
+                                .overlay(
+                                    Capsule()
+                                        .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                                )
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
                     }
                     .padding()
                 } else {
@@ -202,7 +226,7 @@ public struct ExtensionScriptEditorView: View {
                 if let current = currentScriptFile {
                     Image(systemName: current.isPluginJson ? "gearshape.doc.fill" : "curlybraces")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(current.isPluginJson ? .orange : .accentColor)
+                        .foregroundColor(current.isPluginJson ? .orange : .white)
 
                     Text(current.displayName)
                         .font(.system(size: 14, weight: .semibold))

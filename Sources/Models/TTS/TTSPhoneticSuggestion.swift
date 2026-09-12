@@ -41,10 +41,7 @@ public struct TTSPhoneticSuggestion: Identifiable, Hashable, Sendable {
         /// vượt baseline dòng của `check_architecture.py` và chỉ được phép giảm.
         public var tint: Color {
             switch self {
-            case .library: return .white
-            case .japanese: return .pink
-            case .englishIPA: return .green
-            case .englishRule: return .orange
+            case .library, .japanese, .englishIPA, .englishRule: return .white
             }
         }
     }

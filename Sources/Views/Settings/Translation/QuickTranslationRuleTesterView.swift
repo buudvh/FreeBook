@@ -77,7 +77,7 @@ struct QuickTranslationRuleTesterView: View {
                                 .font(.system(.caption, design: .monospaced))
                             Text("\(hit.source)  →  \(hit.rendered)")
                                 .font(.footnote)
-                                .foregroundColor(.accentColor)
+                                .foregroundColor(.white)
                         }
                         .padding(.vertical, 2)
                     }

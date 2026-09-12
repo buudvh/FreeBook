@@ -49,7 +49,7 @@ struct TTSModelManagerView: View {
         }
         return unsorted.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
-    
+
     var body: some View {
         ZStack {
             List {
@@ -60,7 +60,6 @@ struct TTSModelManagerView: View {
                         Label("Nhập Model Ngoài...", systemImage: "square.and.arrow.down")
                     }
                 }
-                
                 Section(header: HStack {
                     Text("Giọng đọc đặc sắc")
                     Spacer()
@@ -71,7 +70,7 @@ struct TTSModelManagerView: View {
                         .buttonStyle(.borderless)
                         .textCase(.none)
                         .font(.caption)
-                        
+                        .foregroundColor(.white)
                         Button("Xóa tất cả", role: .destructive) {
                             deleteAll(in: topVoices)
                         }
@@ -85,7 +84,6 @@ struct TTSModelManagerView: View {
                         modelRow(for: voice)
                     }
                 }
-                
                 Section(header: HStack {
                     Text("Giọng đọc hệ thống")
                     Spacer()
@@ -96,6 +94,7 @@ struct TTSModelManagerView: View {
                         .buttonStyle(.borderless)
                         .textCase(.none)
                         .font(.caption)
+                        .foregroundColor(.white)
                         
                         Button("Xóa tất cả", role: .destructive) {
                             deleteAll(in: systemVoices)
@@ -207,31 +206,30 @@ struct TTSModelManagerView: View {
                 HStack(spacing: 8) {
                     if isDownloaded {
                         if !isCustom {
-                            Button("Tải lại") {
-                                Task {
-                                    await downloadSingleModel(voice: voice)
-                                }
-                            }
-                            .buttonStyle(.bordered)
+                            pillButton("Tải lại", color: .white) { Task { await downloadSingleModel(voice: voice) } }
                         }
-                        
-                        Button("Xóa", role: .destructive) {
-                            deleteSingleModel(voice: voice)
-                        }
-                        .buttonStyle(.bordered)
-                        .foregroundColor(.red)
+                        pillButton("Xóa", color: .red) { deleteSingleModel(voice: voice) }
                     } else {
-                        Button("Tải") {
-                            Task {
-                                await downloadSingleModel(voice: voice)
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
+                        pillButton("Tải", color: .white, isProminent: true) { Task { await downloadSingleModel(voice: voice) } }
                     }
                 }
             }
         }
         .padding(.vertical, 4)
+    }
+
+    private func pillButton(_ title: String, color: Color, isProminent: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.caption.weight(isProminent ? .semibold : .medium))
+                .foregroundColor(color)
+                .padding(.horizontal, isProminent ? 14 : 10)
+                .padding(.vertical, 5)
+                .background(color.opacity(isProminent ? 0.18 : 0.12))
+                .overlay(Capsule().stroke(color.opacity(isProminent ? 0.35 : 0.25), lineWidth: 1))
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
     
     private func loadVoices() async {
