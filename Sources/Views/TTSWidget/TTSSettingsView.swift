@@ -135,6 +135,7 @@ struct TTSSettingsView: View {
 
             // Section 3: Quản lý riêng của trình đọc
             Section("Quản lý riêng của trình đọc") {
+                if ttsManager.tool == "google" {
                     HStack {
                         Text("Trạng thái Key hệ thống:")
                         Spacer()

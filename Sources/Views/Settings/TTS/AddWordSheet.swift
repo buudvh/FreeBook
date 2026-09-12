@@ -14,7 +14,7 @@ import SwiftUI
 /// `check_architecture.py` và baseline chỉ được phép giảm.
 struct AddWordSheet: View {
     @Environment(\.dismiss) var dismiss
-    @Environment(\.isEInkEnabled) private var isEInkEnabled
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
     @State private var key = ""
     @State private var value = ""
     @State private var validationError: String? = nil

@@ -13,7 +13,7 @@ struct QuickTranslationRuleCaptureChipsView: View {
     let analysis: QuickTranslationRuleDraftAnalyzer.Analysis
     let onInsert: (Int) -> Void
 
-    @Environment(\.isEInkEnabled) private var isEInkEnabled
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {

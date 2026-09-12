@@ -9,7 +9,7 @@ struct JunkFilterManagementView: View {
 
     @ObservedObject var manager = JunkFilterManager.shared
     @Environment(\.dismiss) var dismiss
-    @Environment(\.isEInkEnabled) private var isEInkEnabled
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
 
     @State private var searchText = ""
     @State private var showingEditSheet = false

@@ -19,7 +19,7 @@ struct QuickTranslationRuleTesterView: View {
     @State private var hits: [Hit] = []
     @State private var didRun = false
     @State private var previewMode: QuickTranslationRuleEngine.PreviewMode = .respectTokenConfiguration
-    @Environment(\.isEInkEnabled) private var isEInkEnabled
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
 
     var body: some View {
         Form {

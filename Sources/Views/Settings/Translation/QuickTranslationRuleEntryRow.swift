@@ -24,7 +24,7 @@ struct QuickTranslationRuleEntryRow: View {
     let onDelete: () -> Void
     let onMissingContext: () -> Void
 
-    @Environment(\.isEInkEnabled) private var isEInkEnabled
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
 
     private var transferTarget: QuickTranslationRuleScope? {
         QuickTranslationRuleTransfer.opposite(of: scope, contextBookId: contextBookId)

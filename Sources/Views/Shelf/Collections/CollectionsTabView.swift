@@ -17,7 +17,7 @@ import SwiftData
 /// `EXC_BREAKPOINT` (đã crash thật ở 1.3.269, xem `10_risk_report`).
 struct CollectionsTabView: View {
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.isEInkEnabled) private var isEInkEnabled
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
 
     @Query(sort: [SortDescriptor(\BookCollection.sortOrder), SortDescriptor(\BookCollection.createdAt)])
     private var collections: [BookCollection]

@@ -12,7 +12,7 @@ struct ManageDefinitionRowView: View {
     let onInsertAbove: () -> Void
     let onToggleDeleted: () -> Void
 
-    @Environment(\.isEInkEnabled) private var isEInkEnabled
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
 
     var body: some View {
         HStack(spacing: 0) {

@@ -38,6 +38,12 @@ public final class EInkModeSettings: ObservableObject {
             case .pureDeep: return "Xám thuần đậm"
             }
         }
+
+        /// Bí danh tương thích ngược cho các call site cũ
+        public static let gray: EInkPaperColor = .pureDeep
+        public static let white: EInkPaperColor = .kindlePaperwhite
+        public static let cream: EInkPaperColor = .koboComfortLight
+        public static let warm: EInkPaperColor = .pureBalanced
     }
 
     /// Bật/tắt toàn bộ chế độ E-Ink.

@@ -17,7 +17,7 @@ struct QuickTranslationRulePatternStripView: View {
     @Binding var selectionLength: Int
     let onDeleteBackward: () -> Void
 
-    @Environment(\.isEInkEnabled) private var isEInkEnabled
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
 
     private var characterCount: Int {
         segments.last?.end ?? 0

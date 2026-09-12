@@ -36,7 +36,7 @@ struct TOCRulesConfigView: View {
     // State cho Khôi phục mặc định & Thao tác
     @State private var showingResetConfirmation = false
     @State private var debounceSaveTask: Task<Void, Never>? = nil
-    @Environment(\.isEInkEnabled) private var isEInkEnabled
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
 
     private var defaultIDs: Set<String> {
         Set(TranslateUtils.getDefaultTOCRules().map(\.id))

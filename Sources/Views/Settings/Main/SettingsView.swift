@@ -412,7 +412,7 @@ struct SettingsView: View {
 // MARK: - Dictionary Status Card Subview
 
 struct DictionaryCard: View {
-    @Environment(\.isEInkEnabled) private var isEInkEnabled
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
     let title: String; let statusText: String; let isSet: Bool; let isLoading: Bool
     
     var body: some View {

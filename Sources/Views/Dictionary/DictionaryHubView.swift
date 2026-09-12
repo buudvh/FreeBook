@@ -141,7 +141,7 @@ private struct DictionaryNavRow: View {
     let iconColor: Color
     let subtitle: String
 
-    @Environment(\.isEInkEnabled) private var isEInkEnabled
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
 
     var body: some View {
         HStack(spacing: 12) {

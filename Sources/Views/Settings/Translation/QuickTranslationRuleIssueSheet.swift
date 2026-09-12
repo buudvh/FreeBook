@@ -9,7 +9,7 @@ struct QuickTranslationRuleIssueSheet: View {
     let issues: [QuickTranslationRuleIssue]
 
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.isEInkEnabled) private var isEInkEnabled
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
 
     private var hardIssues: [QuickTranslationRuleIssue] { issues.filter { $0.severity == .hard } }
     private var disablingIssues: [QuickTranslationRuleIssue] { issues.filter { $0.severity == .disabling } }

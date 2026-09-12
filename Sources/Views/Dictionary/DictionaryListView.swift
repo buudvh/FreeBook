@@ -23,7 +23,7 @@ struct DictionaryListView: View {
     var contextBookId: String? = nil
 
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.isEInkEnabled) private var isEInkEnabled
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
     @ObservedObject private var cache = DictionaryCache.shared
     @ObservedObject private var translationManager = TranslationManager.shared
     @State private var bookEntries: [DictEntry] = []

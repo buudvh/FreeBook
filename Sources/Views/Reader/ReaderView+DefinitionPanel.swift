@@ -40,12 +40,12 @@ extension ReaderView {
                     saveToBookSpecific: $saveToBookSpecific,
                     pinnedSaveAsNameType: pinnedSaveAsNameType,
                     pinnedSaveToBookSpecific: pinnedSaveToBookSpecific,
-                    onPinNameType: { isName in
+                    onPinNameType: { (isName: Bool) in
                         pinnedSaveAsNameType = isName
                         saveAsNameType = isName
                         ToastManager.shared.show(message: "Đã ghim mặc định Loại: \(isName ? "Names" : "VP")", type: .success)
                     },
-                    onPinScope: { isBook in
+                    onPinScope: { (isBook: Bool) in
                         pinnedSaveToBookSpecific = isBook
                         saveToBookSpecific = isBook
                         ToastManager.shared.show(message: "Đã ghim mặc định Phạm vi: \(isBook ? "Riêng" : "Chung")", type: .success)
@@ -67,14 +67,14 @@ extension ReaderView {
                     // Bọc closure chứ **không** truyền thẳng `performQuickLookup`: hàm đó có tham số
                     // `query` mặc định, mà một function reference kèm default argument **không** tự
                     // chuyển sang `(SearchEngine) -> Void` — truyền thẳng là lỗi biên dịch.
-                    onPerformQuickLookup: { performQuickLookup(using: $0) },
+                    onPerformQuickLookup: { (engine: SearchEngine) in performQuickLookup(using: engine) },
                     onOpenSearchEngineConfig: {
                         showingSearchEnginesConfigSheet = true
                     },
                     // Overlay chỉ gọi closure này sau khi màn quản lý định nghĩa báo có thay đổi ⇒
                     // tính lại chip cùng lúc với `dictionaryMatches` để gợi ý không bị cũ.
-                    onGetDictionaryMatches: { _ in dictionaryMatches },
-                    onGetHanViet: { getHanViet(for: $0) },
+                    onGetDictionaryMatches: { (_: String) -> [DictionaryMatchInfo] in dictionaryMatches },
+                    onGetHanViet: { (text: String) -> String in getHanViet(for: text) },
                     onApplyTranslation: { loadDefinitionData() },
                     ruleTraces: ruleTraces,
                     focusedRuleTraceID: $focusedRuleTraceID,
@@ -84,7 +84,7 @@ extension ReaderView {
                     isLoadingRules: definitionSession.loading || definitionSession.loadingRules,
                     isSaving: definitionSession.saving,
                     isDefinitionCurrent: isDefinitionDataCurrent(),
-                    onRuleAction: { trace, action in handleRuleAction(trace, action) },
+                    onRuleAction: { (trace: QuickTranslationRuleTrace, action: QuickTranslationRuleAction) in handleRuleAction(trace, action) },
                     // Điền sẵn **cả hai** ô: mẫu = cụm gốc đang chọn, nghĩa = đúng chữ đang có trong ô
                     // nhập nghĩa của panel này (kể cả nghĩa người dùng vừa sửa tay).
                     onAddRule: {
@@ -94,7 +94,8 @@ extension ReaderView {
                         )
                     }
                 )
-                .padding([.horizontal, .bottom])
+                .padding(.horizontal)
+                .padding(.bottom)
                 .background { selectedTheme.panelBackground() }
                 .einkShadow(radius: 10, y: -4)
                 .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? 0 : 8)

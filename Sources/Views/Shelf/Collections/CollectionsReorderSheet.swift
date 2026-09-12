@@ -12,7 +12,7 @@ struct CollectionsReorderSheet: View {
     let onReorder: (IndexSet, Int) -> String?
 
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.isEInkEnabled) private var isEInkEnabled
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
 
     var body: some View {
         NavigationStack {

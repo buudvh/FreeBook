@@ -13,7 +13,7 @@ struct QuickTranslationRuleDraftIssuesView: View {
     /// Lỗi do store trả về lúc lưu — vẫn giữ vì nó nói được những chuyện file mà bản nháp không biết.
     let storeError: String?
 
-    @Environment(\.isEInkEnabled) private var isEInkEnabled
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
 
     var body: some View {
         // Đọc một lần: `hardIssues`/`warnings` là computed property lọc lại mảng mỗi lần truy cập.

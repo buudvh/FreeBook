@@ -9,7 +9,7 @@ struct TTSReplacementManagerView: View {
 
     @ObservedObject var manager = TTSReplacementManager.shared
     @Environment(\.dismiss) var dismiss
-    @Environment(\.isEInkEnabled) private var isEInkEnabled
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
     
     // Trạng thái cho sheet Thêm/Sửa quy tắc
     @State private var showingEditSheet = false

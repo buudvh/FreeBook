@@ -20,7 +20,7 @@ struct DictionaryEntryRow: View {
     let onCopy: (DictType, DictionaryTransferTarget) -> Void
     let onMissingContext: () -> Void
 
-    @Environment(\.isEInkEnabled) private var isEInkEnabled
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
 
     var body: some View {
         HStack {

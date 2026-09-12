@@ -23,7 +23,7 @@ struct BookDetailHeaderView: View {
     let onTranslateMetaIfNeeded: (String) -> String
     let onLoadBookDetailOnly: () -> Void
 
-    @Environment(\.isEInkEnabled) private var isEInkEnabled
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {

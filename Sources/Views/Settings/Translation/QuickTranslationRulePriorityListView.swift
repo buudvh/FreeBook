@@ -9,7 +9,7 @@ struct QuickTranslationRulePriorityListView: View {
     typealias Priority = QuickTranslationRulePriorityConfiguration
 
     @Binding var configuration: Priority.Configuration
-    @Environment(\.isEInkEnabled) private var isEInkEnabled
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
 
     var body: some View {
         Group {

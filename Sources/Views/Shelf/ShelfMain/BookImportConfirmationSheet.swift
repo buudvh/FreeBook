@@ -14,7 +14,7 @@ import SwiftUI
 /// phạm vi **file** nên các `@State` dưới đây phải là `internal`.
 struct BookImportConfirmationSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.isEInkEnabled) internal var isEInkEnabled
+    @AppStorage(EInkModeSettings.Key.enabled) internal var isEInkEnabled = false
 
     internal enum PickerType: String, Identifiable {
         case decode

@@ -10,7 +10,7 @@ struct ManageDefinitionsView: View {
     /// Toàn bộ thao tác sửa nằm trong bản nháp; đĩa chỉ được ghi một lần lúc đóng màn.
     @State private var draft: ManageDefinitionsDraft
     @State private var hasSaved = false
-    @Environment(\.isEInkEnabled) private var isEInkEnabled
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
 
     init(word: String, bookId: String, matches: Binding<[DictionaryMatchInfo]>, onChanged: @escaping () -> Void) {
         self.word = word

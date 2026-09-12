@@ -13,7 +13,7 @@ struct CollectionDetailView: View {
     /// tới: khối quản lý bộ nằm ở file khác, mà `private` của Swift là phạm vi **file**.
     @Environment(\.modelContext) var modelContext
     @Environment(\.dismiss) var dismiss
-    @Environment(\.isEInkEnabled) private var isEInkEnabled
+    @AppStorage(EInkModeSettings.Key.enabled) private var isEInkEnabled = false
 
     @Query private var allCollections: [BookCollection]
     @Query private var allExtensions: [Extension]
