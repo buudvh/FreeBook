@@ -202,4 +202,83 @@ extension TTSManager {
             }
         }
     }
+
+    // MARK: - Displayed Metadata for UI & Widgets
+
+    public var displayedBookTitle: String {
+        let title = bookTitle.isEmpty ? "FreeBook" : bookTitle
+        guard sessionTranslationEnabled && TranslateUtils.containsChinese(title) else { return title }
+        return TranslateUtils.translateMeta(title, bookId: playingBookId, shouldConvertTraditionalToSimplified: sessionShouldConvertTraditionalToSimplified)
+    }
+
+    public var displayedAuthor: String {
+        guard !playingAuthor.isEmpty else { return "" }
+        guard sessionTranslationEnabled && TranslateUtils.containsChinese(playingAuthor) else { return playingAuthor }
+        return TranslateUtils.translateMeta(playingAuthor, bookId: playingBookId, shouldConvertTraditionalToSimplified: sessionShouldConvertTraditionalToSimplified)
+    }
+
+    public var displayedChapterTitle: String {
+        let raw = chapterTitle.isEmpty ? (chaptersQueue.first(where: { $0.index == playingChapterIndex })?.title ?? "Chương hiện tại") : chapterTitle
+        guard sessionTranslationEnabled && TranslateUtils.containsChinese(raw) else { return raw }
+        return TranslateUtils.translateChapterTitle(raw, bookId: playingBookId, shouldConvertTraditionalToSimplified: sessionShouldConvertTraditionalToSimplified)
+    }
+
+    public func displayTitle(for chapter: TTSChapterInfo) -> String {
+        let raw = chapter.title
+        guard sessionTranslationEnabled && TranslateUtils.containsChinese(raw) else { return raw }
+        return TranslateUtils.translateChapterTitle(raw, bookId: playingBookId, shouldConvertTraditionalToSimplified: sessionShouldConvertTraditionalToSimplified)
+    }
+
+    // MARK: - Navigation Control
+
+    public func jumpToChapter(at targetIndex: Int) {
+        guard let targetChapter = chaptersQueue.first(where: { $0.index == targetIndex }) else { return }
+        let currentBookId = playingBookId
+        guard !currentBookId.isEmpty else { return }
+        let currentCover = playingCoverUrl
+        let currentBookTitle = bookTitle
+        let currentAuthor = playingAuthor
+        let currentDetailUrl = playingBookDetailUrl
+        let currentSourceName = playingBookSourceName
+        let currentExtInfo = extensionInfo
+        let queue = chaptersQueue
+
+        let targetTitle = displayTitle(for: targetChapter)
+        TTSPresentationEventCenter.shared.send(.showToast(message: "Đang chuyển sang \(targetTitle)...", type: .info))
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let request = ChapterContentRequest(
+                bookId: currentBookId,
+                chapterIndex: targetIndex,
+                title: targetChapter.title,
+                url: targetChapter.url,
+                host: targetChapter.host,
+                bookMetadata: nil,
+                extensionInfo: currentExtInfo,
+                forceRefresh: false
+            )
+            do {
+                let result = try await ChapterContentRepository.shared.load(request)
+                guard self.playingBookId == currentBookId else { return }
+                self.startSpeaking(
+                    bookId: currentBookId,
+                    chapters: queue,
+                    currentIndex: targetIndex,
+                    chapterContent: result.document.text.content,
+                    startParagraphIndex: 0,
+                    startTextOffset: 0,
+                    bookTitle: currentBookTitle,
+                    coverUrl: currentCover,
+                    bookDetailUrl: currentDetailUrl,
+                    bookSourceName: currentSourceName,
+                    extensionInfo: currentExtInfo,
+                    author: currentAuthor
+                )
+            } catch {
+                guard self.playingBookId == currentBookId else { return }
+                TTSPresentationEventCenter.shared.send(.showToast(message: "❌ Không thể tải chương: \(error.localizedDescription)", type: .error))
+            }
+        }
+    }
 }

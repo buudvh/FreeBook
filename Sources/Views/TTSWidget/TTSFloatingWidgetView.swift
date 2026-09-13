@@ -127,9 +127,9 @@ struct TTSWidgetCapsuleView: View {
                 .foregroundStyle(.white)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 3)
-                .background(Capsule().fill(Color.white.opacity(0.2)))
-                .overlay(Capsule().stroke(Color.white.opacity(0.35), lineWidth: 1))
-                .shadow(color: .black.opacity(0.25), radius: 4, x: 0, y: 2)
+                .background(Capsule().fill(Color(white: 0.22)))
+                .overlay(Capsule().stroke(Color.white.opacity(0.3), lineWidth: 1))
+                .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
 

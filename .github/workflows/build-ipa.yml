@@ -6,11 +6,13 @@ on:
     paths:
       - 'Sources/**'
       - 'project.yml'
+      - '.github/workflows/**'
   pull_request:
     branches: [ main ]
     paths:
       - 'Sources/**'
       - 'project.yml'
+      - '.github/workflows/**'
   workflow_dispatch:
 
 jobs:
@@ -84,7 +86,41 @@ jobs:
           PROVISIONING_PROFILE_SPECIFIER="" \
           DEVELOPMENT_TEAM="" \
           GOOGLE_CLOUD_TTS_API_KEY="${GOOGLE_CLOUD_TTS_API_KEY}" \
-          GOOGLE_DRIVE_CLIENT_ID="${GOOGLE_DRIVE_CLIENT_ID}"
+          GOOGLE_DRIVE_CLIENT_ID="${GOOGLE_DRIVE_CLIENT_ID}" 2>&1 | tee -a build_error.log
+
+    - name: Print Build Diagnostics on Failure
+      if: failure()
+      run: |
+        python3 -c '
+        import os, glob, subprocess, re
+        results = glob.glob("build_dd/Logs/Build/*.xcresult")
+        if results:
+            latest = max(results, key=os.path.getmtime)
+            print(f"=== XCRESULT: {latest} ===")
+            try:
+                res = subprocess.run(["xcrun", "xcresulttool", "get", "--path", latest, "--format", "json"], capture_output=True, text=True)
+                import json
+                data = json.loads(res.stdout)
+                issues = data.get("issues", {})
+                print("ISSUES:", json.dumps(issues, indent=2))
+            except Exception as e:
+                print(f"xcresulttool error: {e}")
+        
+        dia_files = glob.glob("build_dd/**/*.dia", recursive=True)
+        print(f"=== FOUND {len(dia_files)} DIA FILES ===")
+        for dia in dia_files:
+            try:
+                with open(dia, "rb") as f:
+                    content = f.read()
+                    strings = re.findall(b"[\x20-\x7e]{4,}", content)
+                    found = [s.decode("latin1", errors="ignore") for s in strings if any(w in s.decode("latin1", errors="ignore") for w in ["error:", "Error:", "cannot find", "no member", "type "])]
+                    if found:
+                        print(f"\n--- {dia} ---")
+                        for f_str in found:
+                            print(f"  {f_str}")
+            except Exception as e:
+                pass
+        '
 
     - name: Package IPA
       env:
@@ -182,6 +218,13 @@ jobs:
         zip -r FreeBook.ipa Payload
         echo "IPA packaged successfully at build/FreeBook.ipa"
 
+    - name: Upload IPA Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: FreeBook-unsigned-ipa
+        path: build/FreeBook.ipa
+        if-no-files-found: ignore
+
     - name: Send IPA to Telegram
       env:
         TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TO_TOKEN }}
@@ -212,22 +255,23 @@ jobs:
           # Dùng printf để định dạng chuỗi xuống dòng an toàn cho YAML
           CAPTION=$(printf "📦 FreeBook Build Thành Công! 🚀\n\n💬 Commit: %s" "$COMMIT_SUBJECT")
 
-          curl -F chat_id="${TELEGRAM_CHAT_ID}" \
+          curl --connect-timeout 30 --max-time 300 --retry 3 \
+               -F chat_id="${TELEGRAM_CHAT_ID}" \
                -F document=@"$IPA_PATH" \
                -F caption="$CAPTION" \
-               https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendDocument
+               https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendDocument || echo "Telegram upload failed or timed out, IPA is available in GitHub Artifacts"
         else
           echo "File size is over 50MB ($FILE_SIZE bytes). Uploading to transfer.sh..."
           # Tải lên transfer.sh làm link dự phòng
-          UPLOAD_URL=$(curl --upload-file "$IPA_PATH" "https://transfer.sh/FreeBook.ipa")
+          UPLOAD_URL=$(curl --connect-timeout 30 --max-time 300 --upload-file "$IPA_PATH" "https://transfer.sh/FreeBook.ipa" || echo "")
           echo "Uploaded to: $UPLOAD_URL"
           
           # Định dạng nội dung tin nhắn bằng printf
           TEXT=$(printf "📦 FreeBook Build Thành Công! (File vượt quá 50MB)\n\n💬 Commit Message:\n%s\n\nTải IPA tại đây: %s" "$COMMIT_MSG" "$UPLOAD_URL")
           
-          curl -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+          curl --connect-timeout 30 --max-time 60 -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
                --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
-               --data-urlencode "text=$TEXT"
+               --data-urlencode "text=$TEXT" || echo "Telegram notification failed"
         fi
 
     - name: Send Failure Notification to Telegram
@@ -241,6 +285,6 @@ jobs:
         # Định dạng tin nhắn lỗi bằng printf (bỏ chi tiết lỗi cụ thể)
         TEXT=$(printf "❌ FreeBook Build Thất Bại! 🛑\n\n💬 Commit Message:\n%s\n\n🔗 Xem toàn bộ log tại: https://github.com/%s/actions/runs/%s" "$COMMIT_MSG" "${{ github.repository }}" "${{ github.run_id }}")
         
-        curl -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+        curl --connect-timeout 30 --max-time 60 -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
              --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
-             --data-urlencode "text=$TEXT"
+             --data-urlencode "text=$TEXT" || echo "Telegram failure notification failed"

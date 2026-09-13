@@ -4,6 +4,36 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.374] - 2026-09-13
+
+### feat: tai thiet ke sheet hen gio va muc luc tts, nen xam widget dem nguoc va tab the loai kham pha
+
+Sửa **6** file trong `Sources/Services/TTS/`, `Sources/Views/Reader/`, `Sources/Views/TTSWidget/`, `Sources/Views/Discovery/` và `.github/workflows/build-ipa.yml`.
+
+- **Màn hình Sheet Điều khiển Hẹn giờ & Mục lục TTS (`TTSQuickTimerSheet.swift`)**:
+  - Bỏ navigation header "Hẹn giờ tắt" và bỏ card cài đặt giọng đọc ở dưới (truy cập cài đặt qua icon bánh răng ⚙️ trên toolbar).
+  - Tích hợp Card thông tin truyện đang phát:
+    - Bìa sách: Chạm vào bìa sách tự động đóng sheet và bắn notification `openCurrentlyPlayingReader` để mở Reader tại chương đang phát.
+    - Tên truyện: Hiển thị đầy đủ toàn bộ số hàng, kèm badge số chương bên cạnh.
+    - Tác giả: Hiển thị icon `person.fill` + tên tác giả (`displayedAuthor`). Nếu rỗng chỉ hiển thị biểu tượng tác giả và để trống text (tuyệt đối không điền "Không rõ").
+    - Slot bộ đếm giờ cố định 22pt: Hiển thị badge xám `Color(white: 0.22)` + nút "Hủy" khi có hẹn giờ hoặc text mờ khi không hẹn giờ, giữ layout 100% ổn định không bị nhảy/giật khi bật/tắt hẹn giờ.
+  - Hàng tên chương đang phát: Nằm giữa card thông tin và thanh tab con, hiển thị đúng 1 hàng kèm icon `waveform`.
+  - 2 Tab con chuẩn 1 hàng ngang với cử chỉ vuốt chuyển tab (`.tabViewStyle(.page(indexDisplayMode: .never))`):
+    - Tab 1 ("⏱️ Hẹn giờ tắt"): Lưới chọn nhanh mốc hẹn giờ + bộ tuỳ chỉnh thời gian với slider 1-180 phút.
+    - Tab 2 ("📑 Danh sách chương"): Danh sách toàn bộ chương của truyện đang phát, mỗi chương tối đa 2 hàng (`lineLimit(2)`), đánh dấu chương đang phát, tự động cuộn đến chương đang phát, chạm vào chương nào thì chuyển phát ngay chương đó qua `TTSManager.jumpToChapter(at:)`.
+  - Thiết lập `.presentationDetents([.fraction(0.78), .large])` giúp mở vừa vặn không thừa đáy.
+- **Widget TTS (`TTSFloatingWidgetView.swift`)**:
+  - Thêm nền xám `Color(white: 0.22)` cho badge đếm ngược thời gian tạm dừng/hẹn giờ ngủ trên widget capsule.
+- **Màn hình Khám phá (`DiscoveryView.swift`)**:
+  - Đưa tab Thể loại hình tròn `Circle()` vào bên trong `ScrollView` ngang như tab đầu tiên, cuộn mượt cùng hàng với các tab Home.
+- **TTS Core & Reader (`TTSManager.swift`, `TTSManager+Playback.swift`, `ReaderView.swift`)**:
+  - `TTSManager`: Thêm `playingAuthor`, public `@Published chaptersQueue`, nhận `author` trong `startSpeaking`.
+  - `TTSManager+Playback`: Bổ sung `displayedBookTitle`, `displayedAuthor`, `displayedChapterTitle`, `displayTitle(for:)` (tự động dịch VietPhrase nếu áp dụng) và `jumpToChapter(at:)` với Toast thông báo đã dịch.
+  - `ReaderView`: Truyền `author` khi gọi `ttsManager.startSpeaking`.
+- **CI Workflow (`build-ipa.yml`)**:
+  - Tối ưu bắt log lỗi và thêm filter trigger cho thư mục workflow.
+- Gate: `check_architecture.py` không phát sinh vi phạm mới; `validate_links.py` PASS 100%.
+
 ## [1.3.373] - 2026-09-12
 
 ### feat: triet tieu 100% rung vat ly khi boi den va fix loi tu scroll token man hinh dich

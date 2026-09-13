@@ -208,73 +208,69 @@ struct DiscoveryView: View {
                     } else {
                         // 3. Menu danh mục & Home tabs hiển thị khi có dữ liệu
                         if !homeItems.isEmpty || !genreItems.isEmpty {
-                            HStack(spacing: 0) {
-                                if !genreItems.isEmpty {
-                                    let isGenresSelected = selectedCategoryId == genresTabId
-                                    Button(action: {
-                                        selectedCategoryId = genresTabId
-                                    }) {
-                                        Image(systemName: "square.grid.2x2")
-                                            .font(.system(size: 16, weight: .medium))
-                                            .foregroundColor(isGenresSelected ? .white : .secondary)
-                                            .frame(width: 38, height: 38)
-                                            .background(isGenresSelected ? Color.white.opacity(0.15) : Color(.secondarySystemBackground))
-                                            .clipShape(Circle())
-                                            .overlay(
-                                                Circle().strokeBorder(
-                                                    isGenresSelected ? Color.white.opacity(0.32) : Color.secondary.opacity(0.25),
-                                                    lineWidth: isGenresSelected ? 1.2 : 1
-                                                )
-                                            )
-                                    }
-                                    .padding(.leading)
-                                }
-                                
-                                ScrollViewReader { proxy in
-                                    ScrollView(.horizontal, showsIndicators: false) {
-                                        HStack(spacing: 8) {
-                                            ForEach(homeItems) { item in
-                                                let isSelected = selectedCategoryId == item.id
-                                                Button(action: {
-                                                    selectedCategoryId = item.id
-                                                }) {
-                                                    Text(translateIfNeeded(item.title))
-                                                        .font(.subheadline)
-                                                        .fontWeight(isSelected ? .bold : .regular)
-                                                        .padding(.horizontal, 14)
-                                                        .padding(.vertical, 8)
-                                                        .background(isSelected ? Color.white.opacity(0.15) : Color(.secondarySystemBackground))
-                                                        .foregroundColor(isSelected ? .white : .secondary)
-                                                        .cornerRadius(20)
-                                                        .overlay(
-                                                            RoundedRectangle(cornerRadius: 20)
-                                                                .stroke(
-                                                                    isSelected ? Color.white.opacity(0.32) : Color.secondary.opacity(0.25),
-                                                                    lineWidth: isSelected ? 1.2 : 1
-                                                                )
+                            ScrollViewReader { proxy in
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 8) {
+                                        if !genreItems.isEmpty {
+                                            let isGenresSelected = selectedCategoryId == genresTabId
+                                            Button(action: {
+                                                selectedCategoryId = genresTabId
+                                            }) {
+                                                Image(systemName: "square.grid.2x2")
+                                                    .font(.system(size: 16, weight: .medium))
+                                                    .foregroundColor(isGenresSelected ? .white : .secondary)
+                                                    .frame(width: 36, height: 36)
+                                                    .background(isGenresSelected ? Color.white.opacity(0.15) : Color(.secondarySystemBackground))
+                                                    .clipShape(Circle())
+                                                    .overlay(
+                                                        Circle().strokeBorder(
+                                                            isGenresSelected ? Color.white.opacity(0.32) : Color.secondary.opacity(0.25),
+                                                            lineWidth: isGenresSelected ? 1.2 : 1
                                                         )
-                                                }
-                                                .id(item.id)
+                                                    )
                                             }
+                                            .id(genresTabId)
                                         }
-                                        .padding(.horizontal, 8)
+                                        
+                                        ForEach(homeItems) { item in
+                                            let isSelected = selectedCategoryId == item.id
+                                            Button(action: {
+                                                selectedCategoryId = item.id
+                                            }) {
+                                                Text(translateIfNeeded(item.title))
+                                                    .font(.subheadline)
+                                                    .fontWeight(isSelected ? .bold : .regular)
+                                                    .padding(.horizontal, 14)
+                                                    .padding(.vertical, 8)
+                                                    .background(isSelected ? Color.white.opacity(0.15) : Color(.secondarySystemBackground))
+                                                    .foregroundColor(isSelected ? .white : .secondary)
+                                                    .cornerRadius(20)
+                                                    .overlay(
+                                                        RoundedRectangle(cornerRadius: 20)
+                                                            .stroke(
+                                                                isSelected ? Color.white.opacity(0.32) : Color.secondary.opacity(0.25),
+                                                                lineWidth: isSelected ? 1.2 : 1
+                                                            )
+                                                    )
+                                            }
+                                            .id(item.id)
+                                        }
                                     }
-                                    .onChange(of: selectedCategoryId) { _, newValue in
-                                        if !newValue.isEmpty && newValue != genresTabId {
+                                    .padding(.horizontal, 16)
+                                }
+                                .onChange(of: selectedCategoryId) { _, newValue in
+                                    if !newValue.isEmpty {
+                                        withAnimation {
+                                            proxy.scrollTo(newValue, anchor: .center)
+                                        }
+                                        lastSelectedCategoryId = newValue
+                                    }
+                                }
+                                .onAppear {
+                                    if !selectedCategoryId.isEmpty {
+                                        DispatchQueue.main.async {
                                             withAnimation {
-                                                proxy.scrollTo(newValue, anchor: .center)
-                                            }
-                                            lastSelectedCategoryId = newValue
-                                        } else if newValue == genresTabId {
-                                            lastSelectedCategoryId = newValue
-                                        }
-                                    }
-                                    .onAppear {
-                                        if !selectedCategoryId.isEmpty && selectedCategoryId != genresTabId {
-                                            DispatchQueue.main.async {
-                                                withAnimation {
-                                                    proxy.scrollTo(selectedCategoryId, anchor: .center)
-                                                }
+                                                proxy.scrollTo(selectedCategoryId, anchor: .center)
                                             }
                                         }
                                     }

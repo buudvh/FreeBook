@@ -15,6 +15,17 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Tái thiết kế màn hình Hẹn giờ & Mục lục TTS, Widget đếm ngược và Tab Thể loại Khám phá (1.3.374)
+
+* **Sheet Điều khiển Hẹn giờ & Danh sách chương TTS (`TTSQuickTimerSheet`)**:
+  - Tích hợp Card thông tin truyện đang phát: hiển thị bìa truyện (chạm vào sẽ đóng sheet và gửi notification `openCurrentlyPlayingReader` để mở Reader tại chương đang phát), tên truyện đầy đủ không giới hạn số dòng kèm badge số chương, thông tin tác giả (nếu rỗng chỉ hiển thị biểu tượng tác giả và để trống text).
+  - Slot bộ đếm giờ cố định 22pt trong card thông tin: giữ chiều cao và bố cục sheet hoàn toàn ổn định 100% khi bật/hủy hẹn giờ tắt.
+  - Hàng tên chương đang phát dạng Marquee: hiển thị 1 hàng duy nhất giữa card thông tin và thanh tab con, tự động chạy qua lại nếu tên chương dài.
+  - 2 Tab con chuẩn 1 hàng: Tab 1 "Hẹn giờ tắt" (chọn nhanh mốc + slider tuỳ chỉnh), Tab 2 "Danh sách chương" (mỗi chương tối đa 2 dòng, tự động cuộn đến chương đang phát, chạm vào chuyển phát ngay qua `TTSManager.jumpToChapter(at:)`).
+* **Widget TTS (`TTSFloatingWidgetView`)**: Thêm nền xám `Color(white: 0.22)` cho badge đếm ngược thời gian tạm dừng/hẹn giờ ngủ trên capsule widget.
+* **Khám phá (`DiscoveryView`)**: Đưa tab Thể loại hình tròn vào bên trong thanh `ScrollView` ngang cuộn mượt cùng các tab Home.
+* **TTS Core (`TTSManager` & `TTSManager+Playback`)**: Thêm thuộc tính `playingAuthor`, public `@Published chaptersQueue`, các computed property `displayedBookTitle`, `displayedAuthor`, `displayedChapterTitle`, và phương thức điều hướng `jumpToChapter(at:)`.
+
 ## Triệt tiêu 100% rung Haptic Feedback và tự động cuộn token dịch (1.3.373)
 
 * **Vô hiệu hoá toàn diện Haptic Feedback**: `SelectionHapticsSilencer` swizzle toàn bộ `UISelectionFeedbackGenerator`, `UIImpactFeedbackGenerator` và `UIFeedbackGenerator` (cả `impactOccurred`, `selectionChanged`, `_playFeedback:`) sang no-op, triệt tiêu 100% rung Taptic Engine cả khi long-press ấn giữ lẫn khi kéo thanh chọn.

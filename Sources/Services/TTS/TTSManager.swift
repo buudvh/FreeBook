@@ -571,13 +571,14 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     // Thông tin phát nhạc độc lập toàn cục
     @Published public private(set) var playingBookId: String = ""
     @Published public private(set) var playingCoverUrl: String = ""
+    @Published public private(set) var playingAuthor: String = ""
     @Published public private(set) var playingChapterUrl: String = ""
     @Published public private(set) var playingChapterIndex: Int = -1
     @Published public private(set) var playingBookDetailUrl: String = ""
     @Published public private(set) var playingBookSourceName: String = ""
     @Published public private(set) var extensionInfo: TTSExtensionInfo? = nil
 
-    internal var chaptersQueue: [TTSChapterInfo] = []
+    @Published public private(set) var chaptersQueue: [TTSChapterInfo] = []
     internal var currentPlaybackId: String? = nil
     internal var wasPlayingBeforeSettings = false
     internal var savedParagraphIdentityBeforeSettings: Int = -1
@@ -1218,7 +1219,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         bookDetailUrl: String = "",
         bookSourceName: String = "",
         extensionInfo: TTSExtensionInfo?,
-        snapshot: TTSPretranslatedSnapshot? = nil
+        snapshot: TTSPretranslatedSnapshot? = nil,
+        author: String = ""
     ) {
         guard chapters.contains(where: { $0.index == currentIndex }) else { return }
         checkpointProgressAndRelease()
@@ -1246,6 +1248,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         self.sessionShouldConvertTraditionalToSimplified = shouldConvertTraditionalToSimplified
         self.playingBookId = bookId
         self.playingCoverUrl = coverUrl
+        self.playingAuthor = author
         self.chaptersQueue = chapters
         self.playingChapterIndex = currentIndex
         self.bookTitle = bookTitle
@@ -1559,6 +1562,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
         if !keepWidget {
             self.playingBookId = ""
+            self.playingAuthor = ""
             self.currentParagraphIndex = -1
             self.currentParentParagraphIndex = -1
             self.savedParagraphIdentityBeforeSettings = -1

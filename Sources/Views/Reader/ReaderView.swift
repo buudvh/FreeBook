@@ -1639,7 +1639,8 @@ struct ReaderView: View {
                 bookDetailUrl: localBook?.detailUrl ?? bookDetailUrl ?? "",
                 bookSourceName: localBook?.sourceName ?? bookSourceName ?? "",
                 extensionInfo: ttsExtensionInfo,
-                snapshot: snapshot
+                snapshot: snapshot,
+                author: localBook?.author ?? bookAuthor ?? ""
             )
             ttsManager.refreshChaptersQueueInBackground(
                 bookId: bookId,
