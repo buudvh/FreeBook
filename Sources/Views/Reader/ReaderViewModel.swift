@@ -781,6 +781,13 @@ class ReaderViewModel: ObservableObject {
             throw ReaderLoadError.invalidChapterIndex(index, total: totalChaptersCount)
         }
 
+        // Nội dung đã ở RAM và không bắt buộc làm mới ⇒ lý do duy nhất đi đường này là **bản dịch
+        // lỗi thời** (token đổi sau khi sửa từ điển/rule): bỏ vòng tải lại DB/extension, để
+        // `runNavigationWorker` dịch lại từ `cached.originalContent`. `.memory` đúng ngữ nghĩa
+        // (nội dung ở RAM ⇒ không animate). `forceRefresh` vẫn đi đường cũ.
+        if !forceRefresh, let cached = cache.cache[index],
+           cached.state == .loaded, !cached.originalContent.isEmpty { return .memory }
+
         let title: String
         let urlString: String
         let chapterHost: String?

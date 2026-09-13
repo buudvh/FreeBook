@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời một lượt chuyển chương khi chỉ bản dịch lỗi thời (1.3.375)
+
+* `loadChapterContentFromExtension` mở đầu bằng một nhánh thoát sớm: `!forceRefresh` **và** cache Reader đã có `state == .loaded` với `originalContent` khác rỗng ⇒ trả `.memory` ngay, **không** đi `ChapterContentRepository.load`. Tiền đề: khi đó lý do duy nhất phải qua hàm này là **token dịch đã đổi** (sửa từ điển/rule), còn nội dung chương không đổi — `runNavigationWorker` tự gọi `processAndSaveChapter(originalContent: cached.originalContent)` ngay sau đó. Trước 1.3.375 lượt này vẫn kéo theo một vòng I/O DB/extension rồi mới dịch lại.
+* `forceRefresh == true` **không** đi nhánh mới, nên "Cập nhật mục lục" và `reloadDisplayedChapter` giữ nguyên hành vi. `retryPendingNavigation` cũng không đổi vì chương lỗi có `state != .loaded`.
+* `.memory` là origin đúng ngữ nghĩa: nội dung đang ở RAM nên `commitNavigation` không animate.
+* Cùng lượt: `ReaderView.applyNavigationCommit` gọi `ChapterCache.queueReleaseAllNonVisible` với cửa sổ **±3** quanh chương vừa tới, cho cache chương một trần thật. Trước 1.3.375 `queueRelease*` là code chết — chỉ Memory Warning mới dọn, mà `handleMemoryWarning` chỉ giữ **đúng** chương đang đọc. `queueRelease` phải chạy `Task { @MainActor }`: `performRelease` gỡ khoá trong `cache` (`@Observable`) nên không được chạy nền.
+
 ## Vòng đời panel Dịch và refresh chương latest-wins (1.3.354)
 
 * Mở panel tạo identity mới và hiện UI ngay; worker nền tải token/meaning/matches/suggestions, còn trace debounce 150 ms. Đóng panel hoặc Reader huỷ hai handle và chặn kết quả cũ bằng identity.

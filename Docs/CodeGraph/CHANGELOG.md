@@ -4,6 +4,28 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.375] - 2026-09-13
+
+### fix: bo tai lai noi dung khi chi ban dich loi thoi, dat tran cache chuong va noi tran memo rule rewrite
+
+Sửa **4** file Swift trong `Sources/Views/Reader/` và `Sources/Services/Translation/Engine/`.
+
+- **Chuyển chương khi chỉ bản dịch lỗi thời không còn tải lại nội dung (`ReaderViewModel.swift`)**:
+  - `loadChapterContentFromExtension` thoát sớm trả `.memory` khi `forceRefresh == false` **và** cache Reader đã có `state == .loaded` với `originalContent` khác rỗng. Tiền đề: khi đó lý do duy nhất phải qua hàm này là token dịch đã đổi (sửa từ điển/rule), còn nội dung chương không đổi — `runNavigationWorker` tự gọi `processAndSaveChapter(originalContent: cached.originalContent)` ngay sau đó.
+  - Trước 1.3.375, mỗi lần lật trang sau khi sửa từ điển vẫn tốn thêm một vòng `ChapterContentRepository.load` (DB/extension) chỉ để lấy lại nội dung đã nằm trong RAM.
+  - `forceRefresh: true` **không** đi nhánh mới, nên "Cập nhật mục lục" và `reloadDisplayedChapter` giữ nguyên hành vi; `retryPendingNavigation` cũng vậy vì chương lỗi có `state != .loaded`.
+- **`ChapterCache` có trần thật, lần đầu được thi hành (`ReaderView.swift`, `ChapterCache.swift`)**:
+  - `queueReleaseAllNonVisible` là **code chết** từ trước tới nay (không có caller), nên cache chương chỉ được dọn khi Memory Warning — mà `handleMemoryWarning` chỉ giữ **đúng** chương đang đọc.
+  - `ReaderView.applyNavigationCommit` gọi nó sau mỗi commit với cửa sổ **±3** quanh chương vừa tới và ân hạn 5 s (`queueRelease` huỷ hẹn nếu `get()` chạm lại chương đó).
+  - `queueRelease` đổi sang `Task { @MainActor }`: `performRelease` gỡ khoá trong `cache` (`@Observable`) nên không được chạy nền. Lỗi này chưa từng lộ vì hàm chưa có caller.
+- **Memo rewrite của rule engine từ 64 lên 2048 entry (`QuickTranslationRuleEngine.swift`)**:
+  - Pipeline gọi `rewrite` hai lần cho cùng một chuỗi (một lần dịch, một lần dựng span) nên 64 entry **nhỏ hơn một chương** ⇒ memo thrash ngay trong một lượt dựng chương. Trần bộ nhớ thật vẫn là `maxCost` 2 MiB nên nâng `maxEntries` **không** nới bộ nhớ.
+- **Tài liệu CodeGraph**: cập nhật vùng GENERATED của `04_call_graph.md`, `05_state_graph.md`, `08_lifecycle.md`, `10_risk_report.md`, `11_subsystems.md`, `13_resource_lifecycle.md`, `rules.md` (`--accept`); `03_type_graph.md`, `07_dataflow.md`, `12_ownership_graph.md` ghi `--no-change-needed`.
+  - `05_state_graph.md` chứa một khẳng định **nay đã sai** và đã được sửa: mục 1.3.240 viết "`ChapterCache` thực tế không evict (`queueRelease*` không có caller)" — tiền đề đó không còn đúng từ 1.3.375.
+  - **Lưu ý về nợ tài liệu**: 10 doc này đã stale sẵn từ commit `fbbeef1` (phiên trước commit mà không `--accept`); `validate_links.py` khi đó vẫn báo PASS vì công cụ **short-circuit khi cây làm việc sạch**. Lượt này ghi nhận cả 10.
+- Gate: `check_architecture.py` không phát sinh vi phạm mới (vẫn đúng 6 vi phạm nền: `ChapterPersistenceStore`, `JSDom`, `JSExecutor`, `TTSManager`, `DictionaryListView`, `ReaderViewModel`); `validate_links.py` PASS 100%.
+- **Chưa kiểm chứng biên dịch tại chỗ**: workspace Windows, không chạy được `xcodegen`/`xcodebuild`/Instruments. Mọi số đo hiệu năng phải lấy lại trên máy thật.
+
 ## [1.3.374] - 2026-09-13
 
 ### feat: tai thiet ke sheet hen gio va muc luc tts, nen xam widget dem nguoc va tab the loai kham pha

@@ -15,6 +15,12 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Chapter cache ceiling and translation-only reload invariants (1.3.375)
+
+* **A stale translation token is not a reason to reload chapter content.** `loadChapterContentFromExtension` must return early (`.memory`) when `forceRefresh == false` **and** the reader cache already holds `state == .loaded` with non-empty `originalContent`. The only remaining work in that case is re-translating from the cached raw text, which `runNavigationWorker` already does. Explicit refresh paths (`forceRefresh: true` — "Cập nhật mục lục", `reloadDisplayedChapter`) must keep fetching.
+* **The chapter cache has a ceiling, and it is enforced on navigation.** `ChapterCache.queueReleaseAllNonVisible` is called from `ReaderView.applyNavigationCommit` with a ±3 window. Do not widen it back to "never evict": `handleMemoryWarning` keeps only the displayed chapter, so unbounded growth merely defers eviction to a moment the reader cannot predict. Any `queueRelease` task that removes entries must run on the main actor — `cache` is `@Observable`.
+* **A memo smaller than one chapter is not a memo.** `QuickTranslationRuleEngine`'s rewrite memo must hold more entries than a chapter has paragraphs: the pipeline calls `rewrite` twice per string (once to translate, once to build spans), so a 64-entry memo thrashes inside a single chapter build.
+
 ## Translation snapshot, mutation and refresh invariants (1.3.354)
 
 * **One synchronous translation pass uses one `TranslationReadContext`.** Dictionary tries, tombstones, per-book dictionaries, rule snapshots, disabled rules, token/priority configuration and generation must not be re-read independently midway through a pass.

@@ -1968,6 +1968,13 @@ struct ReaderView: View {
     ) {
         isRestoringReaderPosition = true
         paragraphTracker.removeAll()
+        // Trần bộ nhớ cho cache chương: trước đây `queueReleaseAllNonVisible` **không có nơi gọi**,
+        // nên cache chỉ được dọn khi Memory Warning — mà `handleMemoryWarning` chỉ giữ **đúng**
+        // chương đang đọc. Giữ cửa sổ ±3 quanh chương vừa tới: rộng hơn hẳn nhánh Memory Warning,
+        // vẫn có trần. `queueRelease` huỷ hẹn nếu người dùng quay lại trong 5 s.
+        viewModel?.cache.queueReleaseAllNonVisible(
+            keepIndexes: Set((commit.chapterIndex - 3)...(commit.chapterIndex + 3))
+        )
         let apply = {
             chapterIndex = commit.chapterIndex
             // Luôn hạ cánh đầu chương trước. Neo sâu "paragraph-N-P" buộc LazyVStack realize

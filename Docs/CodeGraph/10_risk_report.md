@@ -15,6 +15,12 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rủi ro của trần cache chương và nhánh thoát sớm khi chỉ bản dịch lỗi thời (1.3.375)
+
+* **Điều hướng lùi quá ±3 chương giờ có thể phải nạp lại.** Trước đây `ChapterCache` không bao giờ tự evict, nên quay lại chương cũ luôn là commit RAM. Từ 1.3.375 `applyNavigationCommit` giữ ±3 và `queueRelease` ân hạn 5 s: quay lại **trong 5 s** vẫn được `get()` huỷ hẹn, quá 5 s thì chương bị gỡ và lần tới phải nạp lại. Đây là đánh đổi có chủ ý — nhánh thay thế duy nhất hiện có là Memory Warning, vốn chỉ giữ **đúng** chương đang đọc. **Chưa đo trên máy thật** (workspace Windows không build được).
+* **Nhánh thoát sớm coi "token lệch" là lý do duy nhất cần `loadChapterContentFromExtension`.** Nếu một đường nào đó gọi hàm này với `forceRefresh == false` để **làm mới nội dung** chứ không phải để dịch lại, nó sẽ không còn làm mới. Đã rà các đường gọi: `runNavigationWorker` (chỉ cần dịch lại — đúng ý đồ), "Cập nhật mục lục" và `reloadDisplayedChapter` (đều `forceRefresh: true`), `retryPendingNavigation` (chương lỗi có `state != .loaded` nên không vào nhánh). Nút tải lẻ chương vốn đã đi đường riêng qua `ChapterContentRepository` (xem mục 1.3.334 ở trên) nên không bị ảnh hưởng.
+* **Nâng memo rewrite 64 → 2048 entry không nới bộ nhớ.** Trần thật là `maxCost` 2 MB của `TranslationMemo`; `maxEntries` chỉ là trần thứ hai. Rủi ro duy nhất là giữ entry lâu hơn ⇒ kết quả cũ sống lâu hơn, nhưng khoá memo đã gồm generation + signature cấu hình nên entry cũ không thể phục vụ cấu hình mới.
+
 ## Rủi ro của Telegram Bot và multipart transport (1.3.355)
 
 * **Bot Token cho phép gửi bằng danh tính bot.** Token không vào UserDefaults/backup/log; owner là Keychain, nhưng LiveContainer có đường lùi bằng file trong Application Support với `completeUntilFirstUserAuthentication`. Thiết bị đã mở khoá và process app vẫn đọc được file này; đó là đánh đổi để tính năng hoạt động khi Keychain unavailable.

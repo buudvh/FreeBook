@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Trần cache chương và lượt chuyển chương chỉ-dịch-lại (1.3.375)
+
+* **`ChapterCache` có trần thật, lần đầu được thi hành.** `queueReleaseAllNonVisible` là **code chết** từ trước tới nay (không có caller), nên cache chương chỉ được dọn khi Memory Warning — mà `handleMemoryWarning` chỉ giữ **đúng** chương đang đọc. Từ 1.3.375 `ReaderView.applyNavigationCommit` gọi nó sau mỗi commit với cửa sổ **±3** và ân hạn 5 s (`queueRelease` huỷ hẹn nếu `get()` chạm lại chương đó). `queueRelease` đổi sang `Task { @MainActor }` vì `performRelease` gỡ khoá trong `cache` — một `@Observable`.
+* **Chuyển chương khi chỉ bản dịch lỗi thời không còn tải lại nội dung.** `ReaderViewModel.loadChapterContentFromExtension` thoát sớm trả `.memory` khi `!forceRefresh` và cache đã có `state == .loaded` với `originalContent` khác rỗng; `runNavigationWorker` dịch lại từ chính `originalContent` đó. Trước 1.3.375 mỗi lần lật trang sau khi sửa từ điển vẫn tốn một vòng `ChapterContentRepository.load` (DB/extension) chỉ để lấy lại nội dung đã nằm trong RAM.
+* **Memo rewrite của rule engine từ 64 lên 2048 entry.** Pipeline gọi `rewrite` hai lần cho cùng một chuỗi (một lần dịch, một lần dựng span) nên 64 entry **nhỏ hơn một chương** ⇒ memo thrash ngay trong một lượt dựng chương. Trần bộ nhớ thật vẫn là `maxCost` 2 MB, nên nâng `maxEntries` không nới bộ nhớ.
+
 ## Tái thiết kế màn hình Hẹn giờ & Mục lục TTS, Widget đếm ngược và Tab Thể loại Khám phá (1.3.374)
 
 * **Sheet Điều khiển Hẹn giờ & Danh sách chương TTS (`TTSQuickTimerSheet`)**:

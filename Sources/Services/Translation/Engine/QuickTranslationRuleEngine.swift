@@ -52,7 +52,11 @@ public enum QuickTranslationRuleEngine {
 
     /// Memo nhỏ: pipeline gọi `rewrite` hai lần cho cùng một chuỗi (một lần để dịch, một lần để dựng
     /// span), không có memo là chạy engine hai lượt.
-    private static let cache = TranslationMemo<QuickTranslationRewriteResult>(maxEntries: 64, maxCost: 2 * 1024 * 1024)
+    ///
+    /// `maxEntries` phải **lớn hơn số đoạn của một chương** (chương dài vài trăm đoạn): để 64 thì memo
+    /// thrash ngay trong một lượt dựng chương, tức lượt gọi thứ hai luôn trượt. Trần bộ nhớ thật vẫn là
+    /// `maxCost` — nâng `maxEntries` không nới bộ nhớ.
+    private static let cache = TranslationMemo<QuickTranslationRewriteResult>(maxEntries: 2048, maxCost: 2 * 1024 * 1024)
 
     /// `nil` khi công tắc tắt hoặc **cả hai** bộ đều không có rule — bên gọi giữ nguyên đường dịch cũ.
     public static func rewrite(_ text: String, bookId: String?) -> QuickTranslationRewriteResult? {

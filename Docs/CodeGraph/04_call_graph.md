@@ -15,6 +15,28 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Call graph chuyển chương khi chỉ bản dịch lỗi thời, và trần cache chương (1.3.375)
+
+```text
+ReaderView.applyNavigationCommit(commit)
+  ├─ paragraphTracker.removeAll()
+  └─ viewModel.cache.queueReleaseAllNonVisible(keepIndexes: commit.chapterIndex ± 3)
+        └─ ChapterCache.queueRelease(index, delaySeconds: 5)      [Task { @MainActor }]
+              └─ ChapterCache.performRelease(index)   ← gỡ khoá khỏi `cache` (@Observable)
+
+ReaderViewModel.requestChapter(index:)                    [token lệch, !forceRefresh]
+  └─ startNavigationWorkerIfNeeded() → runNavigationWorker()
+        ├─ prefetcher.cancelAll()
+        ├─ loadChapterContentFromExtension(index, forceRefresh:)
+        │     └─ [MỚI 1.3.375] cache đã có state == .loaded + originalContent ≠ rỗng
+        │           ⇒ return .memory    (KHÔNG vào ChapterContentRepository.load)
+        └─ processAndSaveChapter(originalContent: cached.originalContent)
+```
+
+* Nhánh thoát sớm chỉ chạy khi `!forceRefresh`. "Cập nhật mục lục" và `reloadDisplayedChapter` truyền `true` nên vẫn đi `ChapterContentRepository.load`; `retryPendingNavigation` không vào nhánh vì chương lỗi có `state != .loaded`.
+* Trước 1.3.375, lượt chuyển chương sau khi sửa từ điển trả giá **cả** `ChapterContentRepository.load` **và** `processAndSaveChapter`; nay chỉ còn vế sau.
+* `QuickTranslationRuleEngine.rewrite` giữ nguyên đường gọi, chỉ đổi trần memo 64 → 2048 entry.
+
 ## Call graph scroll token dịch và triệt tiêu rung haptic toàn diện (1.3.373)
 
 ```text

@@ -120,10 +120,15 @@ public class ChapterCache {
     }
 
     // Giải phóng bộ nhớ trễ an toàn bằng Task.sleep
+    //
+    // `@MainActor` là **bắt buộc**, không phải trang trí: `performRelease` gỡ khoá trong `cache`,
+    // mà `cache` là `@Observable` — gỡ khoá từ thread nền là ghi state SwiftUI ngoài main. Hàm này
+    // trước đây chưa từng có caller nên lỗi đó chưa lộ; từ 1.3.375 nó được gọi sau mỗi lần commit
+    // navigation (`ReaderView.applyNavigationCommit`).
     func queueRelease(_ index: Int, delaySeconds: UInt64 = 10) {
         releaseTasks[index]?.cancel()
 
-        let task = Task {
+        let task = Task { @MainActor in
             do {
                 try await Task.sleep(nanoseconds: delaySeconds * 1_000_000_000)
                 guard !Task.isCancelled else { return }

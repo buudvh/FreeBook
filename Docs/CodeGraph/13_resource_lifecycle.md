@@ -15,6 +15,13 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Cache chương có trần thật; memo rule rewrite nới trần entry (1.3.375)
+
+* **`ChapterCache` lần đầu có đường giải phóng tài nguyên chạy thật.** `queueReleaseAllNonVisible` là code chết tới 1.3.375 — trước đó chỉ Memory Warning mới dọn, mà `handleMemoryWarning` chỉ giữ **đúng** chương đang đọc. Nay `ReaderView.applyNavigationCommit` gọi nó sau mỗi commit với cửa sổ **±3** và `queueRelease(delaySeconds: 5)`; `get(index)` vẫn là nơi huỷ hẹn khi người dùng quay lại trong 5 s.
+* **`queueRelease` phải chạy `Task { @MainActor }`.** `performRelease` gỡ khoá trong `cache`, và `cache` là `@Observable` — gỡ từ thread nền là ghi state SwiftUI ngoài main. Lỗi này chưa từng lộ vì hàm chưa có caller.
+* **Memo rule rewrite: trần entry 64 → 2048, trần cost giữ nguyên 2 MiB.** Trần bộ nhớ thật là `maxCost`, nên nâng `maxEntries` **không** nới bộ nhớ; lý do nâng là 64 entry nhỏ hơn số đoạn của một chương nên memo thrash trong một lượt dựng chương.
+* Nhánh thoát sớm ở `loadChapterContentFromExtension` **không** giữ tài nguyên mới: nó chỉ bỏ một lượt I/O.
+
 ## Cache có ngân sách; task Reader/TTS có owner và đường huỷ (1.3.354)
 
 * Ba `TranslationMemo` chính có trần entry/cost (dịch 8 MiB, title 1 MiB, tokenize 4 MiB; rule rewrite 2 MiB) và LRU dưới `NSLock`. Epoch tăng khi invalidation để kết quả đang bay không sống lại.
