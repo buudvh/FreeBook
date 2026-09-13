@@ -16,7 +16,6 @@ struct ManageDefinitionRowView: View {
         HStack(spacing: 0) {
             TextField("Nghĩa...", text: $text)
                 .font(.body)
-                .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
                 .strikethrough(isDeleted)
                 .foregroundColor(isDeleted ? .secondary : .primary)

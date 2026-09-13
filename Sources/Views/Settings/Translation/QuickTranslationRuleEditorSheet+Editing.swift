@@ -195,6 +195,20 @@ extension QuickTranslationRuleEditorSheet {
                 }
 
                 HStack(spacing: 4) {
+                    if !pattern.isEmpty {
+                        Button(action: { setPattern("", caret: 0) }) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(width: 28, height: 28)
+                                .background(Color.white.opacity(0.12))
+                                .clipShape(Circle())
+                                .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel("Xoá mẫu")
+                    }
+
                     Button(action: copyPatternToClipboard) {
                         Image(systemName: "doc.on.doc")
                             .font(.system(size: 13))
@@ -273,6 +287,24 @@ extension QuickTranslationRuleEditorSheet {
                 }
 
                 HStack(spacing: 4) {
+                    if !replacement.isEmpty {
+                        Button(action: {
+                            replacement = ""
+                            replacementSelectionStart = 0
+                            replacementSelectionLength = 0
+                        }) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(width: 28, height: 28)
+                                .background(Color.white.opacity(0.12))
+                                .clipShape(Circle())
+                                .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel("Xoá bản dịch")
+                    }
+
                     Button(action: copyReplacementToClipboard) {
                         Image(systemName: "doc.on.doc")
                             .font(.system(size: 13))

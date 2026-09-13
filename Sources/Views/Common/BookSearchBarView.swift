@@ -16,7 +16,6 @@ struct BookSearchBarView: View {
                 TextField(placeholder, text: $text, onCommit: {
                     onCommit?()
                 })
-                .autocorrectionDisabled()
                 .textInputAutocapitalization(.none)
 
                 if !text.isEmpty {

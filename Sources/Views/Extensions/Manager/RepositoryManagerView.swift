@@ -294,7 +294,6 @@ struct RepositoryManagerView: View {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(.secondary)
                 TextField("Tìm tên tiện ích hoặc URL...", text: $storeSearchQuery)
-                    .autocorrectionDisabled()
                     .textInputAutocapitalization(.none)
                 
                 if !storeSearchQuery.isEmpty {

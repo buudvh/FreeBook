@@ -77,7 +77,6 @@ struct ExtensionConfigView: View {
                                             ))
                                             .keyboardType(.numberPad)
                                             .textFieldStyle(.roundedBorder)
-                                            .autocorrectionDisabled()
                                             .textInputAutocapitalization(.none)
                                         } else {
                                             TextField(definition.default ?? "", text: Binding(
@@ -85,7 +84,6 @@ struct ExtensionConfigView: View {
                                                 set: { userValues[key] = $0 }
                                             ))
                                             .textFieldStyle(.roundedBorder)
-                                            .autocorrectionDisabled()
                                             .textInputAutocapitalization(.none)
                                         }
                                         

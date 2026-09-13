@@ -30,11 +30,9 @@ struct AddTTSReplacementSheet: View {
             Form {
                 Section("Chuỗi thay thế TTS") {
                     TextField("Chuỗi gốc (pattern)", text: $pattern)
-                        .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
 
                     TextField("Chuỗi thay thế (replacement)", text: $replacement)
-                        .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
                 }
 

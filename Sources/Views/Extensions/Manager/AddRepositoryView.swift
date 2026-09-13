@@ -18,7 +18,6 @@ public struct AddRepositoryView: View {
                     TextField("Tên kho truyện (Tùy chọn)", text: $name)
                     TextField("Link plugin.json của kho truyện", text: $url)
                         .keyboardType(.URL)
-                        .autocorrectionDisabled()
                         .textInputAutocapitalization(.none)
                 }
             }

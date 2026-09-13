@@ -161,7 +161,6 @@ struct TTSSettingsView: View {
                                 TextField("Nhập Google Cloud API Key...", text: $customGoogleApiKey)
                                     .textFieldStyle(.roundedBorder)
                                     .autocapitalization(.none)
-                                    .disableAutocorrection(true)
                             } else {
                                 SecureField("Nhập Google Cloud API Key...", text: $customGoogleApiKey)
                                     .textFieldStyle(.roundedBorder)

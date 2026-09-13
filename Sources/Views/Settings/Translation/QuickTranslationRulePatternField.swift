@@ -41,9 +41,9 @@ struct QuickTranslationRulePatternField: UIViewRepresentable {
             ? UIFont.monospacedSystemFont(ofSize: bodySize, weight: .regular)
             : UIFont.preferredFont(forTextStyle: .body)
         view.adjustsFontForContentSizeCategory = true
-        view.autocorrectionType = .default
+        view.autocorrectionType = .yes
         view.autocapitalizationType = .none
-        view.spellCheckingType = .default
+        view.spellCheckingType = .yes
         view.smartDashesType = .no
         view.smartQuotesType = .no
         view.smartInsertDeleteType = .no
@@ -57,6 +57,9 @@ struct QuickTranslationRulePatternField: UIViewRepresentable {
 
     func updateUIView(_ view: UITextView, context: Context) {
         context.coordinator.parent = self
+        if view.autocorrectionType != .yes { view.autocorrectionType = .yes }
+        if view.spellCheckingType != .yes { view.spellCheckingType = .yes }
+        if view.autocapitalizationType != .none { view.autocapitalizationType = .none }
         if view.text != text {
             context.coordinator.apply(text: text, to: view)
         }

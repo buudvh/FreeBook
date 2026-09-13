@@ -536,7 +536,6 @@ struct EditWordSheet: View {
                         .foregroundStyle(.secondary)
 
                     TextField("Phiên âm tiếng Việt", text: $value)
-                        .autocorrectionDisabled()
                 }
             }
             .navigationTitle("Sửa từ")

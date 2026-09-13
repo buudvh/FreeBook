@@ -671,11 +671,9 @@ struct DictEntrySheet: View {
             Form {
                 Section(isAdd ? "Thêm từ mới" : "Chỉnh sửa") {
                     TextField("Từ gốc (key)", text: $key)
-                        .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
 
                     TextField("Nghĩa dịch (value)", text: $value)
-                        .autocorrectionDisabled()
                 }
 
                 if !isAdd {

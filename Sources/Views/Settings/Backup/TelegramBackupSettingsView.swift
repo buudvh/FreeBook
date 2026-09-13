@@ -11,10 +11,8 @@ struct TelegramBackupSettingsView: View {
             Section {
                 SecureField(hasStoredToken ? "Bot Token đã lưu (để trống nếu giữ nguyên)" : "Bot Token", text: $token)
                     .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
                 TextField("Chat ID, ví dụ -100… hoặc @channel", text: $chatID)
                     .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
                 Button {
                     saveAndCheck()
                 } label: {

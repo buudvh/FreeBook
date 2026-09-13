@@ -4,6 +4,27 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.376] - 2026-09-13
+
+### fix: bao ton chu hoa thuong trong panel dich va rule, them nut x clear, bat goi y ban phim toan app
+
+Sửa **31** file Swift trong `Sources/Services/Translation/`, `Sources/Views/Reader/`, `Sources/Views/Settings/`, `Sources/Views/Dictionary/`, `Sources/Views/BookDetail/`, `Sources/Views/Search/`, `Sources/Views/Discovery/`, `Sources/Views/Common/`, `Sources/Views/Extensions/`, `Sources/Views/TTSWidget/`.
+
+- **Bảo tồn hoa/thường nghĩa từ điển trong Panel Dịch & Rule Editor (`TranslationTextPostProcessor.swift`, `TranslateUtils.swift`, `TranslateUtils+Tokenization.swift`)**:
+  - `TranslationTextPostProcessor.apply(to:capitalizeFirstLetter:)`, `TranslateUtils.postProcessText(_:capitalizeFirstLetter:)`, và `TranslateUtils.performTranslation(_:bookId:applyingQuickTranslationRules:capitalizeFirstLetter:)` hỗ trợ cờ `capitalizeFirstLetter: Bool = true`.
+  - Thêm `TranslateUtils.translateTerm(_:bookId:shouldConvertTraditionalToSimplified:)` (đặt trong `TranslateUtils+Tokenization.swift` để giữ `TranslateUtils.swift` nguyên baseline 917 dòng vật lý, tuân thủ `Scripts/check_architecture.py`) với `capitalizeFirstLetter: false`. Tuyệt đối không dùng `.lowercased()` hay ép thường vì sẽ làm hỏng tên riêng / danh từ viết hoa.
+  - `ReaderDefinitionWorker.swift`: Gọi `TranslateUtils.translateTerm` cho mode "VP", hiển thị nguyên vẹn chữ hoa/thường của nghĩa từ điển.
+  - `ReaderSelectionCoordinator.swift`: Bỏ `.capitalized` trong `hanViet(for:)`, trả về âm Hán-Việt nguyên bản.
+- **Thêm nút xoá (x) và cấu hình bàn phím trong màn hình Thêm / Sửa Rule (`QuickTranslationRuleEditorSheet+Editing.swift`, `QuickTranslationRulePatternField.swift`)**:
+  - Thêm nút `x` (clear) tròn 28pt cho cả ô Mẫu (`patternSection`) và ô Bản dịch (`replacementSection`).
+  - Trong `QuickTranslationRulePatternField.swift`, đặt `view.autocorrectionType = .yes`, `view.spellCheckingType = .yes` và giữ `view.autocapitalizationType = .none` ở cả `makeUIView` và `updateUIView`.
+- **Bật thanh gợi ý từ bàn phím (QuickType) toàn bộ ứng dụng (Lựa chọn C)**:
+  - Gỡ bỏ `.autocorrectionDisabled()` / `.disableAutocorrection(true)` tại 24 vị trí trong toàn bộ ứng dụng (Tìm kiếm, Từ điển, Thay thế TTS, Lọc rác, Cấu hình TOC...).
+  - Giữ nguyên tắt autocorrection cho các ô code/URL đặc thù: `URLBarTextField.swift`, `CodeEditorTextView.swift`, `ReaderTextView.swift`, `ExtensionDebugConsoleView.swift`.
+- **Tài liệu CodeGraph**: cập nhật `04_call_graph.md`, `07_dataflow.md`, `11_subsystems.md` (`--accept`); `03_type_graph.md`, `05_state_graph.md`, `12_ownership_graph.md`, `13_resource_lifecycle.md` ghi `--no-change-needed`.
+- Gate: `check_architecture.py` không phát sinh vi phạm mới (vẫn đúng 6 vi phạm nền, `DictionaryListView.swift` giảm dòng từ 710 xuống 708); `validate_links.py` PASS 100%.
+- **Chưa kiểm chứng biên dịch tại chỗ**: workspace Windows, không chạy được `xcodegen`/`xcodebuild`.
+
 ## [1.3.375] - 2026-09-13
 
 ### fix: bo tai lai noi dung khi chi ban dich loi thoi, dat tran cache chuong va noi tran memo rule rewrite

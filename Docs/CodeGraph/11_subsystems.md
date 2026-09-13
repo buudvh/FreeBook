@@ -15,6 +15,19 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Bảo tồn hoa/thường trong panel Dịch & Rule, nút Clear ô nhập và bật gợi ý bàn phím toàn app (1.3.376)
+
+* **Bảo tồn nguyên bản chữ hoa/thường của nghĩa từ điển**:
+  - `TranslationTextPostProcessor.apply(to:capitalizeFirstLetter:)`, `TranslateUtils.postProcessText(_:capitalizeFirstLetter:)`, và `TranslateUtils.performTranslation(_:bookId:applyingQuickTranslationRules:capitalizeFirstLetter:)` hỗ trợ cờ `capitalizeFirstLetter: Bool = true`.
+  - Thêm `TranslateUtils.translateTerm(_:bookId:shouldConvertTraditionalToSimplified:)` (đặt trong `TranslateUtils+Tokenization.swift` để giữ `TranslateUtils.swift` nguyên baseline 917 dòng) truyền `capitalizeFirstLetter: false`.
+  - `ReaderDefinitionWorker` gọi `TranslateUtils.translateTerm` cho mode "VP"; `ReaderSelectionCoordinator.hanViet` bỏ `.capitalized` trả về text âm Hán-Việt nguyên bản.
+* **Nút Clear (x) và cấu hình bàn phím trong màn hình Thêm / Sửa Rule**:
+  - `QuickTranslationRuleEditorSheet+Editing.swift`: Thêm nút xoá tròn `x` (28pt đồng bộ) cho cả ô Mẫu (`patternSection`) và ô Bản dịch (`replacementSection`).
+  - `QuickTranslationRulePatternField.swift`: Bật `autocorrectionType = .yes`, `spellCheckingType = .yes` và giữ `autocapitalizationType = .none` ở cả `makeUIView` và `updateUIView`.
+* **Bật thanh gợi ý từ bàn phím (QuickType) toàn bộ ứng dụng**:
+  - Gỡ bỏ `.autocorrectionDisabled()` / `.disableAutocorrection(true)` tại 24 vị trí (Tìm kiếm, Từ điển, Quy tắc thay thế TTS, Bộ lọc rác, Cấu hình TOC...).
+  - Giữ tắt gợi ý bàn phím tại các ô đặc thù: `URLBarTextField.swift` (URL), `CodeEditorTextView.swift` (Code editor), `ReaderTextView.swift` (Nội dung sách), `ExtensionDebugConsoleView.swift` (Debug log console).
+
 ## Trần cache chương và lượt chuyển chương chỉ-dịch-lại (1.3.375)
 
 * **`ChapterCache` có trần thật, lần đầu được thi hành.** `queueReleaseAllNonVisible` là **code chết** từ trước tới nay (không có caller), nên cache chương chỉ được dọn khi Memory Warning — mà `handleMemoryWarning` chỉ giữ **đúng** chương đang đọc. Từ 1.3.375 `ReaderView.applyNavigationCommit` gọi nó sau mỗi commit với cửa sổ **±3** và ân hạn 5 s (`queueRelease` huỷ hẹn nếu `get()` chạm lại chương đó). `queueRelease` đổi sang `Task { @MainActor }` vì `performRelease` gỡ khoá trong `cache` — một `@Observable`.

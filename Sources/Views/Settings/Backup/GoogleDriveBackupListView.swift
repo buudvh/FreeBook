@@ -61,7 +61,6 @@ struct GoogleDriveBackupListView: View {
         Section {
             TextField("xxxxx.apps.googleusercontent.com", text: $clientIdInput)
                 .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
                 .font(.footnote)
             Button("Lưu Client ID") {
                 GoogleDriveConfiguration.saveClientIdOverride(clientIdInput)

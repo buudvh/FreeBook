@@ -35,7 +35,6 @@ struct BookDetailTOCView: View {
                 .foregroundColor(.secondary)
             TextField("Tìm kiếm chương...", text: $chapterSearchQuery)
                 .textFieldStyle(.roundedBorder)
-                .autocorrectionDisabled()
                 .textInputAutocapitalization(.none)
             if !chapterSearchQuery.isEmpty {
                 Button(action: { chapterSearchQuery = "" }) {

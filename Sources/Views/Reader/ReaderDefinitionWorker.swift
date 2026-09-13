@@ -43,7 +43,7 @@ actor ReaderDefinitionWorker {
             let suggestions: [SuggestionChip]
             if includesDefinitionData {
                 meaning = request.mode == "VP"
-                    ? TranslateUtils.translateMeta(request.word, bookId: request.bookId,
+                    ? TranslateUtils.translateTerm(request.word, bookId: request.bookId,
                         shouldConvertTraditionalToSimplified: request.convertTraditional)
                     : ReaderSelectionCoordinator.hanViet(for: request.word)
                 matches = ReaderView.dictionaryMatches(for: request.word, bookId: request.bookId)

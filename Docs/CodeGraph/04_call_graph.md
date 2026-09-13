@@ -15,6 +15,20 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Call graph dịch từ đơn lẻ bảo tồn hoa/thường và tương tác panel dịch (1.3.376)
+
+```text
+ReaderDefinitionOverlayView
+  └─ ReaderDefinitionWorker.load(request)
+        ├─ mode == "VP": TranslateUtils.translateTerm(word, bookId:convertTraditional:)
+        │     └─ performTranslation(capitalizeFirstLetter: false)
+        │           └─ postProcessText(capitalizeFirstLetter: false)
+        │                 └─ TranslationTextPostProcessor.apply(capitalizeFirstLetter: false)
+        │                       (Bảo tồn nguyên bản chữ hoa/thường của nghĩa từ điển)
+        └─ mode == "HV": ReaderSelectionCoordinator.hanViet(word)
+              └─ list.joined(separator: " ") (Không gọi .capitalized)
+```
+
 ## Call graph chuyển chương khi chỉ bản dịch lỗi thời, và trần cache chương (1.3.375)
 
 ```text

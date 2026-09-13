@@ -16,7 +16,7 @@ public final class ReaderSelectionCoordinator {
         for char in word {
             list.append(phienAm[String(char)] ?? String(char))
         }
-        return list.joined(separator: " ").capitalized
+        return list.joined(separator: " ")
     }
 
     public func formatMeaning(_ input: String, style: String) -> String {

@@ -773,7 +773,6 @@ struct ExtensionSelectorView: View {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.secondary)
                     TextField("Tìm kiếm phần mở rộng", text: $extensionSearchQuery)
-                        .autocorrectionDisabled()
                         .textInputAutocapitalization(.none)
                     
                     if !extensionSearchQuery.isEmpty {

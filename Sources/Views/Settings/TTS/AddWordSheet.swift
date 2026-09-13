@@ -41,7 +41,6 @@ struct AddWordSheet: View {
             Form {
                 Section("Thông tin từ mới") {
                     TextField("Từ gốc (tiếng Anh/Nhật, e.g. apple)", text: $key)
-                        .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
                         .onChange(of: key) { _, newValue in
                             validateKey(newValue)
@@ -49,7 +48,6 @@ struct AddWordSheet: View {
                         }
 
                     TextField("Phiên âm tiếng Việt (e.g. ép pô)", text: $value)
-                        .autocorrectionDisabled()
                 }
 
                 if showSuggestions {

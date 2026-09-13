@@ -121,7 +121,6 @@ struct BookInfoEditView: View {
                 TextField("https://...", text: $coverUrl, axis: .vertical)
                     .lineLimit(1...3)
                     .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled(true)
                     .disabled(pickedData != nil)
             }
 

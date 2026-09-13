@@ -204,7 +204,6 @@ struct ReaderJunkDeleteOverlayView: View {
     private var junkInputView: some View {
         HStack {
             TextField("Nhập từ muốn xóa...", text: $junkPatternInput)
-                .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
                 .font(.body)
 

@@ -171,7 +171,6 @@ struct SearchView: View {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(.secondary)
                 TextField("Tìm truyện hoặc tác giả...", text: $searchQuery, onCommit: performSearch)
-                    .autocorrectionDisabled()
                     .textInputAutocapitalization(.none)
                 
                 if !searchQuery.isEmpty {

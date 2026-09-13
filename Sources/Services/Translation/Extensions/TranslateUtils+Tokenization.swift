@@ -86,4 +86,25 @@ extension TranslateUtils {
         
         return (selectionOffset, selectionLength)
     }
+
+    /// Dịch một từ hoặc cụm từ đơn lẻ giữ nguyên bản hoa/thường từ từ điển (không ép viết hoa chữ cái đầu).
+    public static func translateTerm(
+        _ text: String?,
+        bookId: String? = nil,
+        shouldConvertTraditionalToSimplified: Bool = false
+    ) -> String {
+        let translationInput = text.map {
+            textForTranslation(
+                $0,
+                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+            )
+        }
+        guard let text = translationInput, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return text ?? "" }
+        guard containsChinese(text) else { return text }
+        guard TranslationManager.shared.vietPhraseDict != nil else { return text }
+
+        return TranslationReadContext.withSnapshot(bookId: bookId) {
+            performTranslation(text, bookId: bookId, applyingQuickTranslationRules: true, capitalizeFirstLetter: false)
+        }
+    }
 }

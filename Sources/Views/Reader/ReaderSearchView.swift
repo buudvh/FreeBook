@@ -61,7 +61,6 @@ struct ReaderSearchView: View {
                 .foregroundColor(.secondary)
             TextField("Tìm chữ gốc hoặc chữ đã dịch…", text: $query)
                 .textInputAutocapitalization(.never)
-                .autocorrectionDisabled(true)
                 .submitLabel(.search)
                 .focused($isSearchFocused)
             if !query.isEmpty {

@@ -31,7 +31,7 @@ public enum TranslationTextPostProcessor {
     )
     private static let multiSpaces = try! NSRegularExpression(pattern: #" +"#, options: [])
 
-    public static func apply(to input: String) -> String {
+    public static func apply(to input: String, capitalizeFirstLetter: Bool = true) -> String {
         let lines = input.components(separatedBy: .newlines)
         let trimmedLines = lines.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
         var result = trimmedLines.joined(separator: "\n")
@@ -39,18 +39,20 @@ public enum TranslationTextPostProcessor {
         result = replacingAll(trimSpacesBefore, in: result, with: "$1")
         result = replacingAll(trimSpacesAfter, in: result, with: "$1")
 
-        var nsString = result as NSString
-        let matches = capitalize.matches(
-            in: result,
-            options: [],
-            range: NSRange(result.startIndex..<result.endIndex, in: result)
-        )
-        for match in matches where match.numberOfRanges == 3 {
-            let target = match.range(at: 2)
-            let char = nsString.substring(with: target)
-            nsString = nsString.replacingCharacters(in: target, with: char.uppercased()) as NSString
+        if capitalizeFirstLetter {
+            var nsString = result as NSString
+            let matches = capitalize.matches(
+                in: result,
+                options: [],
+                range: NSRange(result.startIndex..<result.endIndex, in: result)
+            )
+            for match in matches where match.numberOfRanges == 3 {
+                let target = match.range(at: 2)
+                let char = nsString.substring(with: target)
+                nsString = nsString.replacingCharacters(in: target, with: char.uppercased()) as NSString
+            }
+            result = nsString as String
         }
-        result = nsString as String
 
         // Giữ nguyên các dấu ngoặc kép cong (curly quotes) theo yêu cầu người dùng — cố ý **không**
         // đổi `“ ” ‘ ’` thành `"`.

@@ -291,11 +291,9 @@ struct TTSReplacementManagerView: View {
                 Section(header: Text("Thông tin quy tắc")) {
                     TextField("Ký tự / Chuỗi cần thay thế", text: $patternInput)
                         .textInputAutocapitalization(.never)
-                        .disableAutocorrection(true)
                     
                     TextField("Chuỗi thay thế (để trống nếu muốn xóa bỏ)", text: $replacementInput)
                         .textInputAutocapitalization(.never)
-                        .disableAutocorrection(true)
                     
                     Toggle("Kích hoạt quy tắc", isOn: $isEnabledInput)
                         .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))

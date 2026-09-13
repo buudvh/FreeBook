@@ -87,7 +87,6 @@ struct SearchEnginesConfigView: View {
                     Section(header: Text("Thông tin công cụ")) {
                         TextField("Tên công cụ (ví dụ: Google)", text: $inputName)
                         TextField("Mẫu URL chứa %s", text: $inputTemplate)
-                            .autocorrectionDisabled()
                             .textInputAutocapitalization(.never)
                     }
                 }

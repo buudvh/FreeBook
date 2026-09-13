@@ -15,6 +15,18 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Dòng dữ liệu dịch từ đơn lẻ bảo tồn dạng hoa/thường (1.3.376)
+
+```text
+Từ gốc (input) -> textForTranslation -> performTranslation(capitalizeFirstLetter: false)
+  -> tokenize -> resolveTokenMeaning -> TranslationPunctuationMapper.apply
+  -> postProcessText(capitalizeFirstLetter: false)
+  -> TranslationTextPostProcessor.apply(capitalizeFirstLetter: false)
+  -> Bản dịch giữ nguyên dạng hoa/thường của từ điển (không ép viết hoa chữ cái đầu)
+```
+
+* Tuyệt đối không dùng `.lowercased()` hay ép chữ thường lên kết quả dịch vì sẽ làm hỏng các danh từ riêng / tên riêng (như "Đường Tam", "Tiêu Viêm", "VIP"). Việc bảo tồn được giải quyết tại gốc bằng cách truyền `capitalizeFirstLetter: false` qua chuỗi `performTranslation` → `postProcessText` → `TranslationTextPostProcessor.apply`.
+
 ## Một snapshot cho một lượt dịch; một writer cho mọi custom VP/Names (1.3.354)
 
 ```text

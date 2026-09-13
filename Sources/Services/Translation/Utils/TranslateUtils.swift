@@ -233,7 +233,7 @@ public final class TranslateUtils {
         }
     }
 
-    private static func textForTranslation(
+    internal static func textForTranslation(
         _ text: String,
         shouldConvertTraditionalToSimplified: Bool
     ) -> String {
@@ -475,10 +475,10 @@ public final class TranslateUtils {
         return (translatedToken, false)
     }
 
-    private static func performTranslation(
+    internal static func performTranslation(
         _ text: String,
         bookId: String?,
-        applyingQuickTranslationRules: Bool = true
+        applyingQuickTranslationRules: Bool = true, capitalizeFirstLetter: Bool = true
     ) -> String {
         // Rule dịch chạy **sau** Phồn thể → Giản thể (đã làm ở `textForTranslation`) và **trước**
         // tokenize: LHS của rule có literal `．`, `.`, `,` và dấu ngoặc.
@@ -506,7 +506,7 @@ public final class TranslateUtils {
         // dấu không khớp, muộn hơn thì `postProcessText` mất dấu kết câu để viết hoa và để dọn khoảng
         // trắng (nó chỉ nhận `.!?:：`).
         let joined = TranslationPunctuationMapper.apply(to: translatedWords.joined(separator: " "))
-        return postProcessText(joined)
+        return postProcessText(joined, capitalizeFirstLetter: capitalizeFirstLetter)
     }
     
     private struct NameCandidate {
@@ -592,8 +592,8 @@ public final class TranslateUtils {
     
     /// `internal` (không `private`) vì `TranslateUtils+QuickTranslationRules` dựng span ở file khác.
     /// Thân hàm nằm ở `TranslationTextPostProcessor` từ 1.3.339 — xem lý do ở header file đó.
-    internal static func postProcessText(_ input: String) -> String {
-        TranslationTextPostProcessor.apply(to: input)
+    internal static func postProcessText(_ input: String, capitalizeFirstLetter: Bool = true) -> String {
+        TranslationTextPostProcessor.apply(to: input, capitalizeFirstLetter: capitalizeFirstLetter)
     }
     
     public static func invalidateTOCRulesCache() {

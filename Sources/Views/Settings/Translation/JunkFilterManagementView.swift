@@ -283,11 +283,9 @@ struct JunkFilterManagementView: View {
                 Section(header: Text("Thông tin quy tắc lọc rác")) {
                     TextField("Từ / Chuỗi cần xoá khỏi văn bản gốc", text: $patternInput)
                         .textInputAutocapitalization(.never)
-                        .disableAutocorrection(true)
 
                     TextField("Chuỗi thay thế (để trống để xoá hẳn)", text: $replacementInput)
                         .textInputAutocapitalization(.never)
-                        .disableAutocorrection(true)
 
                     Toggle("Biểu thức chính quy (Regex)", isOn: $isRegexInput)
                         .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))

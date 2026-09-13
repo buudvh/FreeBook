@@ -262,7 +262,6 @@ struct TOCRulesConfigView: View {
                 Section(header: Text("Thông tin quy tắc TOC")) {
                     VStack(alignment: .leading, spacing: 4) {
                         TextField("Tên quy tắc (ví dụ: Quyển x)", text: $inputName)
-                            .autocorrectionDisabled()
 
                         if trimmedName.count > 100 {
                             Text("⚠️ Tên quy tắc không được vượt quá 100 ký tự.")
@@ -274,7 +273,6 @@ struct TOCRulesConfigView: View {
                         TextField("Mẫu Regex (Pattern)", text: $inputRule)
                             .font(.system(.body, design: .monospaced))
                             .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
                         if let err = TranslateUtils.validateTOCRulePattern(inputRule), !trimmedRule.isEmpty {
                             Text("⚠️ \(err)")
                                 .font(.caption2)
@@ -282,7 +280,6 @@ struct TOCRulesConfigView: View {
                         }
                     }
                     TextField("Ví dụ mẫu (không bắt buộc)", text: $inputExample)
-                        .autocorrectionDisabled()
                     Toggle("Kích hoạt quy tắc", isOn: $inputEnabled)
                         .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
                 }

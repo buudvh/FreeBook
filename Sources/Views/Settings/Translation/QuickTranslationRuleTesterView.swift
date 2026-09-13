@@ -27,7 +27,6 @@ struct QuickTranslationRuleTesterView: View {
                     .frame(minHeight: 90)
                     .font(.system(.body, design: .monospaced))
                     .textInputAutocapitalization(.never)
-                    .disableAutocorrection(true)
 
                 Button("Chạy thử") { run() }
                     .disabled(input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)

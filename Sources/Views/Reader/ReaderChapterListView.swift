@@ -276,7 +276,6 @@ public struct ReaderChapterListView: View {
                 .foregroundColor(theme.textColor.opacity(0.6))
             TextField("Tìm kiếm chương...", text: $searchQuery)
                 .textFieldStyle(.plain)
-                .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
                 .foregroundColor(theme.textColor)
             if !searchQuery.isEmpty {
