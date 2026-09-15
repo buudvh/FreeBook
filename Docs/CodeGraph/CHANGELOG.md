@@ -4,6 +4,21 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.378] - 2026-09-15
+
+### fix: tach cac chu so han liet ke bang dau phay trong rule dich
+
+Sửa **1** file Swift trong `Sources/Services/Translation/Engine/`.
+
+- **Tách các chữ số Hán liệt kê bằng dấu phẩy trong rule dịch (`QuickTranslationNumberFormatter.swift`)**:
+  - Gỡ bỏ ràng buộc bắt buộc tăng liền kề đúng 1 đơn vị (`digit == last + 1`) và `parsed <= last` trong hàm `enumeratedNumbers`.
+  - Hỗ trợ đầy đủ các chuỗi số Hán trần 2-3 chữ số đứng liền nhau được liệt kê theo thứ tự bất kỳ (bao gồm tăng dần cách quãng như `二四` → `2, 4`, `三五` → `3, 5`, `二四六` → `2, 4, 6`; giảm dần hoặc ngẫu nhiên như `九五二` → `9, 5, 2`, `五三` → `5, 3`, `四二` → `4, 2`).
+  - Khắc phục triệt để lỗi `第二四个` bị dịch sai thành "cái thứ 24" nay chuyển thành "cái thứ 2, 4"; `第九五二个` nay chuyển thành "cái thứ 9, 5, 2".
+  - Bảo tồn nguyên vẹn các số chính thức có từ chỉ bậc (`二十四` = 24, `九百五十二` = 952, `八千三` = 8300, `一万二` = 12000), số năm/mã số chứa `零`/`〇` (`二零二五` = 2025), và số năm 4 chữ số trần (`一九九八` = 1998) qua guard `runLength >= 4`.
+- **Tài liệu CodeGraph**: cập nhật `11_subsystems.md` (`--accept`); `07_dataflow.md` ghi `--no-change-needed`.
+- Gate: `check_architecture.py` không phát sinh vi phạm mới (`QuickTranslationNumberFormatter.swift` 342 dòng $\le 400$ dòng); `validate_links.py` PASS 100%.
+- **Chưa kiểm chứng biên dịch tại chỗ**: workspace Windows, không chạy được `xcodegen`/`xcodebuild`.
+
 ## [1.3.377] - 2026-09-15
 
 ### fix: dieu chinh chieu cao ban dau cua context menu sach va man hinh hen gio tts

@@ -15,6 +15,15 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Hỗ trợ liệt kê chữ số Hán tùy ý ngăn bằng dấu phẩy (1.3.378)
+
+* **Bỏ ràng buộc tăng liền bậc trong `enumeratedNumbers` (`QuickTranslationNumberFormatter.swift`)**:
+  - Trước đây dãy chữ số Hán trần liền nhau bắt buộc phải tăng đúng 1 đơn vị (`digit == last + 1`), khiến `二四` (bước nhảy 2) hay `九五二` (giảm dần) bị từ chối rồi rơi xuống `renderDigitwise` ghép dính thành `"24"`, `"952"` (`第二四个` bị dịch thành "cái thứ 24").
+  - Nay mọi dãy 2-3 chữ số Hán trần đứng liền nhau không có chữ bậc đều được tách độc lập và ghép bằng `", "` (`第二四个` → "cái thứ 2, 4", `第九五二个` → "cái thứ 9, 5, 2", `三五` → `3, 5`, `五三` → `5, 3`, `二四六` → `2, 4, 6`).
+* **Cửa hẹp bảo tồn năm 4 chữ số và số chứa zero**:
+  - Chuỗi toàn chữ số Hán trần dài $\ge 4$ ký tự không có bậc (`一九九八`, `一九四九`) và chuỗi chứa `零`/`〇` (`二零二五`) vẫn trả `nil` để đọc theo từng chữ số qua `renderDigitwise`.
+  - Số chính thức có bậc (`二十四` = 24, `九百五十二` = 952, `八千三` = 8300, `一万二` = 12000) không có dãy chữ số trần $\ge 2$ nên giữ nguyên vẹn giá trị toán học.
+
 ## Điều chỉnh chiều cao ban đầu của Context Menu sách và Màn hình Hẹn giờ TTS (1.3.377)
 
 * **Context Menu Sách (`BookActionSheet.swift`)**:

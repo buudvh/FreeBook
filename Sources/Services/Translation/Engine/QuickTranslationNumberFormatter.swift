@@ -133,24 +133,28 @@ public enum QuickTranslationNumberFormatter {
 
     /// Nhận dạng **nhiều số viết dính nhau** và trả về từng số.
     ///
-    /// Điều kiện: chuỗi có đúng **một** dãy gồm **từ hai** chữ số Hán trần liền nhau, và các chữ số đó
-    /// tăng liền bậc (`d`, `d+1`, `d+2`…). Giá trị từng số tính bằng cách thay cả dãy đó lần lượt bằng
-    /// **một** chữ số rồi đọc chuỗi như một số thường — nhờ vậy bậc đứng trước hay sau đều đúng:
+    /// Điều kiện: chuỗi có đúng **một** dãy gồm **từ hai** chữ số Hán trần liền nhau. Trong tiếng Hán,
+    /// các chữ số Hán trần đứng cạnh nhau mà không có từ chỉ bậc (`十百千万…`) không thể ghép thành một số
+    /// chính thức (ví dụ 24 bắt buộc là `二十四`, 952 là `九百五十二`), nên chúng là các số ước lượng hoặc
+    /// số được liệt kê (cả tăng dần, giảm dần hay ngẫu nhiên: `二三`, `二四`, `九五二`, `三五`, `五三`…).
+    /// Giá trị từng số tính bằng cách thay cả dãy đó lần lượt bằng **một** chữ số rồi đọc chuỗi như một số
+    /// thường — nhờ vậy bậc đứng trước hay sau đều đúng:
     ///
-    /// * `二三` → 2, 3            (không có bậc)
-    /// * `一二三` → 1, 2, 3
+    /// * `二三` → 2, 3            (không có bậc, liền kề)
+    /// * `二四` → 2, 4            (không có bậc, cách quãng)
+    /// * `九五二` → 9, 5, 2       (không có bậc, giảm dần/ngẫu nhiên)
     /// * `十三四` → 13, 14        (bậc đứng trước: 十三四岁 = 13, 14 tuổi)
     /// * `三十四五` → 34, 35
     /// * `二三十` → 20, 30        (bậc đứng sau)
     /// * `三四百` → 300, 400
     /// * `三百四五十` → 340, 350  (bậc cả hai phía)
     ///
-    /// Trả `nil` — tức đọc như **một** số — cho mọi trường hợp còn lại. Ba cửa hẹp:
-    /// * Chỉ **một** dãy. `二三四五六七` kiểu mã số nhiều đoạn không rơi vào đây vì vẫn là một dãy, nhưng
-    ///   chuỗi có hai dãy rời (`二三十四五`) thì bỏ, vì không biết ghép theo cụm nào.
+    /// Trả `nil` — tức đọc như **một** số hoặc đọc từng chữ số — cho các trường hợp:
+    /// * Chỉ **một** dãy: chuỗi có hai dãy rời (`二三十四五`) thì bỏ, vì không biết ghép theo cụm nào.
     /// * **Không** chứa `零`/`〇`: `二零二五` là năm đọc theo từng chữ số (2025), không phải liệt kê.
-    /// * Phải tăng **đúng một** mỗi bước: `五三七` là mã số nên giữ `537`, và `三百二十` không có dãy nào
-    ///   dài ≥ 2 nên vẫn ra đúng `320`.
+    /// * Chuỗi toàn chữ số Hán trần không có bậc dài ≥ 4 ký tự (`一九九八`, `一九四九`): là năm 4 chữ số,
+    ///   giữ nguyên đọc từng chữ số qua `renderDigitwise`.
+    /// * `三百二十` không có dãy chữ số trần nào dài ≥ 2 nên vẫn ra đúng `320`.
     private static func enumeratedNumbers(_ value: String) -> [Int]? {
         let chars = Array(value)
         guard chars.count >= 2 else { return nil }
@@ -180,19 +184,18 @@ public enum QuickTranslationNumberFormatter {
 
         guard let start = runStart else { return nil }
 
-        var digits: [Int] = []
-        for offset in 0..<runLength {
-            guard let digit = digitMap[chars[start + offset]] else { return nil }
-            if let last = digits.last, digit != last + 1 { return nil }
-            digits.append(digit)
-        }
-
         let prefix = String(chars[0..<start])
         let suffix = String(chars[(start + runLength)...])
+
+        // Chuỗi toàn chữ số Hán trần (không có chữ bậc) có độ dài ≥ 4 (như năm 1998, 1949...)
+        // đọc theo từng chữ số, không phải liệt kê.
+        if prefix.isEmpty, suffix.isEmpty, runLength >= 4 {
+            return nil
+        }
+
         var numbers: [Int] = []
         for char in chars[start..<(start + runLength)] {
             guard let parsed = parseChineseNumeral(prefix + String(char) + suffix) else { return nil }
-            if let last = numbers.last, parsed <= last { return nil }
             numbers.append(parsed)
         }
         return numbers

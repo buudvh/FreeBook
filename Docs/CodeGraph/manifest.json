@@ -3,8 +3,8 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-09-15T03:48:28Z",
-  "gitCommit": "12d29f4ceb5c5dc5870b06b02b89235dcd8661bd",
+  "generatedAt": "2026-09-15T09:21:42Z",
+  "gitCommit": "2638163b755f909201505a3b4d8345f80fbda3ad",
   "sourceFileCount": 526,
   "documentCount": 16,
   "documents": [
@@ -1614,11 +1614,11 @@
         "Sources/Views/Reader/Extensions/ReaderViewModel+Translation.swift"
       ],
       "structureHash": "c8f39fc6592fc4762d75845ac5dd2f2750605138d64312b70ea24944fa2e8671",
-      "sourceHash": "07a1829aedbca01b32451a8f3a3cc9be0774fdad2349bf391fec75ae53541a1c",
+      "sourceHash": "17c8738a6875ff5bb43b076ddd0386ab52cf155d690ec5e8cbfd796c87db722d",
       "generatedHash": "6c63583dee7eb968068942ffaf3fc9e49cc1f717549fdb6edb563ad9d5b7c181",
-      "generatedAt": "2026-09-13T14:31:01Z",
-      "reviewedAt": "2026-09-13T14:31:01Z",
-      "reviewedCommit": "1dfad4f7dc464f610bf3a66b2cdb78cb8f8dea7b",
+      "generatedAt": "2026-09-15T09:21:42Z",
+      "reviewedAt": "2026-09-15T09:21:42Z",
+      "reviewedCommit": "2638163b755f909201505a3b4d8345f80fbda3ad",
       "reviewMode": "no-change-needed"
     },
     {
@@ -2803,11 +2803,11 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "a31dfc974cca597cbdc451650b0681954e30fb50cbeb07c14daf4c30c8b237e5",
-      "sourceHash": "53260f4c9eebce82ccebb21ee8fa16c246290b9587ab2e64cd2ff3f2b82019db",
-      "generatedHash": "86e46cdccdd1f994b9ee3a575ae6ccbadaab0f04b3e74a5207bb86d1c266165b",
-      "generatedAt": "2026-09-15T03:48:24Z",
-      "reviewedAt": "2026-09-15T03:48:24Z",
-      "reviewedCommit": "12d29f4ceb5c5dc5870b06b02b89235dcd8661bd",
+      "sourceHash": "bca303aa5c227ded02c33291b724732a154141764ca037b7f322500666714415",
+      "generatedHash": "256ac480c34d0054b86e9eaf5f521bf48c6e20443f2f3b2c4b2ac735b92e2bc6",
+      "generatedAt": "2026-09-15T09:21:08Z",
+      "reviewedAt": "2026-09-15T09:21:08Z",
+      "reviewedCommit": "2638163b755f909201505a3b4d8345f80fbda3ad",
       "reviewMode": "accept"
     },
     {
