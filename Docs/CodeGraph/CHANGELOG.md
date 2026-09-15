@@ -4,6 +4,22 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.377] - 2026-09-15
+
+### fix: dieu chinh chieu cao ban dau cua context menu sach va man hinh hen gio tts
+
+Sửa **2** file Swift trong `Sources/Views/Shelf/BookActions/` và `Sources/Views/TTSWidget/`.
+
+- **Điều chỉnh chiều cao ban đầu của Context Menu sách (`BookActionSheet.swift`)**:
+  - Nâng `presentationDetents` từ `[.medium, .large]` lên `[.fraction(0.85), .large]`.
+  - Giúp sheet mở ban đầu ở mức 85% chiều cao màn hình, hiển thị trọn vẹn toàn bộ các tuỳ chọn hành động ("Đổi nguồn", "Tải truyện", "Xuất ebook", "Dịch lại tên chương", "Bỏ khỏi bộ sưu tập", "Xoá"), khắc phục lỗi chỉ thấy đến "Đổi nguồn" khi mở ở mức `.medium`.
+- **Điều chỉnh chiều cao ban đầu của Màn hình Hẹn giờ TTS (`TTSQuickTimerSheet.swift`)**:
+  - Nâng `presentationDetents` từ `[.fraction(0.78), .large]` lên `[.fraction(0.88), .large]`.
+  - Mở ban đầu ở mức 88% chiều cao màn hình, bổ sung ~85–90 pt không gian, giúp nút "Hẹn giờ 90 phút" và khối card tuỳ chỉnh phía dưới hiển thị trọn vẹn, không còn bị cắt ở góc trên của nút.
+- **Tài liệu CodeGraph**: cập nhật `11_subsystems.md` (`--accept`); `03_type_graph.md`, `05_state_graph.md` ghi `--no-change-needed`.
+- Gate: `check_architecture.py` không phát sinh vi phạm mới (vẫn đúng 6 vi phạm nền); `validate_links.py` PASS 100%.
+- **Chưa kiểm chứng biên dịch tại chỗ**: workspace Windows, không chạy được `xcodegen`/`xcodebuild`.
+
 ## [1.3.376] - 2026-09-13
 
 ### fix: bao ton chu hoa thuong trong panel dich va rule, them nut x clear, bat goi y ban phim toan app

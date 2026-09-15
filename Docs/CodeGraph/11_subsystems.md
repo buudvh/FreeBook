@@ -15,6 +15,15 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Điều chỉnh chiều cao ban đầu của Context Menu sách và Màn hình Hẹn giờ TTS (1.3.377)
+
+* **Context Menu Sách (`BookActionSheet.swift`)**:
+  - Nâng `presentationDetents` từ `[.medium, .large]` lên `[.fraction(0.85), .large]`.
+  - Mở ban đầu ở mức 85% chiều cao màn hình, khắc phục triệt để tình trạng bị cắt ngang sau mục "Đổi nguồn" ở mức `.medium`, giúp người dùng nhìn thấy đầy đủ toàn bộ các tuỳ chọn hành động ("Đổi nguồn", "Tải truyện", "Xuất ebook", "Dịch lại tên chương", "Bỏ khỏi bộ sưu tập", "Xoá") ngay khi nhấn giữ mở sheet.
+* **Màn hình Hẹn giờ TTS (`TTSQuickTimerSheet.swift`)**:
+  - Nâng `presentationDetents` từ `[.fraction(0.78), .large]` lên `[.fraction(0.88), .large]`.
+  - Mở ban đầu ở mức 88% chiều cao màn hình, bổ sung ~85–90 pt không gian hiển thị, giúp nút "Hẹn giờ 90 phút" (`Text("Hẹn giờ \(Int(customMinutes)) phút")`) và viền card tuỳ chỉnh phía dưới hiển thị trọn vẹn, không còn bị cắt ở góc trên của nút.
+
 ## Bảo tồn hoa/thường trong panel Dịch & Rule, nút Clear ô nhập và bật gợi ý bàn phím toàn app (1.3.376)
 
 * **Bảo tồn nguyên bản chữ hoa/thường của nghĩa từ điển**:

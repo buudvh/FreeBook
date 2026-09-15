@@ -72,7 +72,7 @@ struct BookActionSheet: View {
             }
         }
         .listStyle(.insetGrouped)
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.fraction(0.85), .large])
         // Không còn nút "Xong" nên phải để lộ tay cầm: vuốt xuống là đường đóng duy nhất.
         .presentationDragIndicator(.visible)
         .alert("Bộ sưu tập mới", isPresented: $showingCreateAlert) {

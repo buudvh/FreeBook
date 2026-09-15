@@ -53,7 +53,7 @@ struct TTSQuickTimerSheet: View {
                 }
             }
         }
-        .presentationDetents([.fraction(0.78), .large])
+        .presentationDetents([.fraction(0.88), .large])
         .presentationDragIndicator(.visible)
         .onAppear {
             if case .minutes(let mins) = ttsManager.timerMode { customMinutes = Double(mins) }
