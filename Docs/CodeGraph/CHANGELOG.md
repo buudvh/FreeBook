@@ -4,6 +4,19 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.380] - 2026-09-17
+
+### fix: khong dung rule trace khi cap nhat name vp
+
+Sửa **1** file Swift trong `Sources/Views/Reader/Extensions/`.
+
+- **Panel Dịch không đụng task rule khi chỉ reload nghĩa/token (`ReaderView+DefinitionLoading.swift`)**:
+  - Bỏ `definitionSession.ruleTask?.cancel()` khỏi `loadDefinitionData()`.
+  - Khi người dùng cập nhật Name/VP, notification từ điển vẫn reload nghĩa/token qua `loadDefinitionData(preservingMeaning: true)` nhưng không hủy và không lấy lại rule trace của cả đoạn văn.
+  - Rule trace vẫn chỉ do luồng rule tự quản: `refreshDefinitionRules()` tự cancel lượt rule cũ khi thật sự cần refresh.
+- **Tài liệu CodeGraph**: ghi nhận các doc stale theo validator; không cần cập nhật nội dung mô tả hệ thống.
+- Gate: `validate_links.py` và `check_architecture.py` sẽ chạy sau khi ghi nhận doc; host Windows không build Xcode tại chỗ.
+
 ## [1.3.379] - 2026-09-17
 
 ### fix: tach signal rule khoi signal tu dien trong panel dich

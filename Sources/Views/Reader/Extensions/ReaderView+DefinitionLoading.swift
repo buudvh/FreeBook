@@ -59,7 +59,6 @@ extension ReaderView {
         guard showingDefinitionSheet || showingCopyOriginalSheet else { return }
         guard let snapshot = currentDefinitionSnapshot() else { return }
         definitionSession.task?.cancel()
-        definitionSession.ruleTask?.cancel()
         let requestID = UUID()
         definitionSession.requestID = requestID
         definitionSession.loadingSnapshot = snapshot
