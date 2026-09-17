@@ -65,7 +65,7 @@ struct QuickTranslationRuleTokenSettingsView: View {
                 guard binding.wrappedValue != value else { return }
                 binding.wrappedValue = value
                 TranslateUtils.clearCache()
-                TranslationManager.shared.notifyDictionariesDidUpdate()
+                TranslationManager.shared.notifyRulesDidUpdate()
             }
         )
     }

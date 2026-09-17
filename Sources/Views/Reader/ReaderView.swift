@@ -558,7 +558,7 @@ struct ReaderView: View {
                 handleDefinitionPanelClosed()
             }
         }
-        .onChange(of: selectedWordOffset) { _, _ in
+        .onChange(of: originalSentence) { _, _ in
             if showingDefinitionSheet { refreshRuleTraces() }
         }
         .onChange(of: isAnySelectionOrOverlayActive) { _, active in

@@ -34,7 +34,7 @@ struct QuickTranslateRuleSettingsRows: View {
                     // Đúng khuôn ba toggle dịch đang có: dọn cache rồi phát **một** thông báo để
                     // Reader/TTS dựng lại snapshot, không tạo đường refresh thứ hai.
                     TranslateUtils.clearCache()
-                    TranslationManager.shared.notifyDictionariesDidUpdate()
+                    TranslationManager.shared.notifyRulesDidUpdate()
                 }
             }
         }

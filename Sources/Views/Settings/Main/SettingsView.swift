@@ -35,6 +35,7 @@ struct SettingsView: View {
                     }
                     .onChange(of: isTranslationEnabled) { _, newValue in
                         TranslateUtils.clearCache()
+                        TranslationManager.shared.notifyRulesDidUpdate()
                     }
                     
                     NavigationLink(destination: TOCRulesConfigView()) {
@@ -60,6 +61,7 @@ struct SettingsView: View {
                         .padding(.leading, 16)
                         .onChange(of: isTranslationPronounsEnabled) { _, _ in
                             TranslateUtils.clearCache()
+                            TranslationManager.shared.notifyDictionariesDidUpdate()
                         }
                         
                         Toggle(isOn: $isTranslationLuatNhanEnabled) {
@@ -69,6 +71,7 @@ struct SettingsView: View {
                         .padding(.leading, 16)
                         .onChange(of: isTranslationLuatNhanEnabled) { _, _ in
                             TranslateUtils.clearCache()
+                            TranslationManager.shared.notifyDictionariesDidUpdate()
                         }
                     }
                 }

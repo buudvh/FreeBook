@@ -27,7 +27,7 @@ struct QuickTranslationRulePrioritySettingsView: View {
             // Đúng khuôn `QuickTranslationRuleTokenSettingsView`: dọn cache dịch rồi phát **một**
             // thông báo để Reader/TTS dựng lại, không tạo đường refresh thứ hai.
             TranslateUtils.clearCache()
-            TranslationManager.shared.notifyDictionariesDidUpdate()
+            TranslationManager.shared.notifyRulesDidUpdate()
         }
     }
 }

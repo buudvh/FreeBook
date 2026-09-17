@@ -134,7 +134,7 @@ public final class QuickTranslationRuleDisableStore: ObservableObject {
             "🔕 [QuickTranslateRule] \(disabled ? "Tắt" : "Bật") mẫu \(pattern) ở phạm vi"
             + " \(scope.label) — còn \(updated.count) mẫu đang tắt"
         )
-        notifyChange(scope: scope)
+        notifyRulesUpdated(scope: scope)
         return .success
     }
 
@@ -158,7 +158,7 @@ public final class QuickTranslationRuleDisableStore: ObservableObject {
     /// Nhập danh sách mẫu tắt cho một phạm vi.
     /// - `.replaceAll`: danh sách mới hoàn toàn thay thế danh sách cũ.
     /// - `.overwriteExisting` / `.keepExisting`: gộp (union) danh sách cũ và mới — tập mẫu không có "giá trị" nên hai mode này đồng nghĩa.
-    /// Luôn `notifyChange` để Reader/TTS cập nhật (khác `merge` vốn im lặng dùng cho backup).
+    /// Luôn `notifyRulesUpdated` để Reader/TTS cập nhật (khác `merge` vốn im lặng dùng cho backup).
     @discardableResult
     public func importPatterns(
         imported: [String],
@@ -181,10 +181,10 @@ public final class QuickTranslationRuleDisableStore: ObservableObject {
         lock.lock()
         store(updated, for: scope)
         lock.unlock()
-        notifyChange(scope: scope)
+        notifyRulesUpdated(scope: scope)
         return .success
     }
-
+    
     /// Xoá toàn bộ file tắt rule của một phạm vi (bật lại mọi rule đang tắt).
     /// Kết quả rỗng thì `write` tự xoá file trên đĩa.
     @discardableResult
@@ -198,7 +198,7 @@ public final class QuickTranslationRuleDisableStore: ObservableObject {
         lock.lock()
         store([], for: scope)
         lock.unlock()
-        notifyChange(scope: scope)
+        notifyRulesUpdated(scope: scope)
         return .success
     }
 
@@ -266,16 +266,12 @@ public final class QuickTranslationRuleDisableStore: ObservableObject {
         }
     }
 
-    /// Đúng **một** lời gọi cho mọi thứ còn lại: `notifyDictionariesDidUpdate` →
-    /// `TranslateUtils.invalidateCache(bookId:)` đã tự `QuickTranslationRuleEngine.clearCache()` ở
-    /// dòng đầu và bump generation, rồi post `.translationDictionariesDidUpdate` để Reader/TTS dựng
-    /// lại. Vì vậy ở đây **không** gọi thêm `clearCache()` và **không** thêm notification mới.
-    private func notifyChange(scope: QuickTranslationRuleScope) {
-        bumpRevision()
-        TranslationManager.shared.notifyDictionariesDidUpdate(
-            bookId: scope.bookId,
-            scope: .config(bookId: scope.bookId)
-        )
+    /// Đúng **một** lời gọi cho mọi thứ còn lại: `notifyRulesDidUpdate` →
+    /// `TranslateUtils.clearCache()` → `TranslationManager.shared.notifyRulesDidUpdate(bookId:)` để
+    /// Reader/TTS dựng lại. Generation được tăng ở `QuickTranslationRuleEngine.machineDisabled`.
+    private func notifyRulesUpdated(scope: QuickTranslationRuleScope) {
+        TranslateUtils.clearCache(bookId: scope.bookId)
+        TranslationManager.shared.notifyRulesDidUpdate(bookId: scope.bookId)
     }
 
     private func bumpRevision() {

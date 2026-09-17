@@ -40,11 +40,16 @@ public final class QuickTranslationRuleStore: ObservableObject {
         public var complexRuleLines: [Int] = []
     }
 
-    public enum LoadOutcome: Sendable {
+public enum LoadOutcome: Sendable {
         case success(ruleCount: Int, warningCount: Int)
         /// Legacy outcome để caller cũ vẫn xử lý được; luồng canonical hiện bỏ dòng hỏng thay vì reject cả file.
         case rejected(issues: [QuickTranslationRuleIssue])
         case failure(message: String)
+        
+        var isSuccess: Bool {
+            if case .success = self { return true }
+            return false
+        }
     }
 
     @MainActor @Published public private(set) var status = Status()
@@ -203,7 +208,7 @@ public final class QuickTranslationRuleStore: ObservableObject {
             return .failure(message: "File rule vượt 8 MB, gần như chắc chắn không phải bộ rule")
         }
 
-        if prepared.records.isEmpty {
+if prepared.records.isEmpty {
             try? FileManager.default.removeItem(at: ruleFileURL)
             lock.lock()
             generationCounter += 1
@@ -212,7 +217,7 @@ public final class QuickTranslationRuleStore: ObservableObject {
             lock.unlock()
             publish(Status())
             if notifiesObservers {
-                invalidateTranslationCaches()
+                invalidateRuleCaches()
             }
             return .success(ruleCount: 0, warningCount: 0)
         }
@@ -279,7 +284,7 @@ public final class QuickTranslationRuleStore: ObservableObject {
             lock.unlock()
 
             publish(Status())
-            invalidateTranslationCaches()
+            invalidateRuleCaches()
             AppLogger.shared.log("🗑️ [QuickTranslateRule] Đã xoá bộ rule dịch khỏi máy")
             return existed
         }
@@ -311,7 +316,7 @@ public final class QuickTranslationRuleStore: ObservableObject {
 
         publish(makeStatus(from: newSnapshot))
         if notifiesObservers {
-            invalidateTranslationCaches()
+            invalidateRuleCaches()
         }
         AppLogger.shared.log(
             "🔤 [QuickTranslateRule] Nạp \(newSnapshot.ruleCount) rule (\(source.label),"
@@ -392,9 +397,9 @@ public final class QuickTranslationRuleStore: ObservableObject {
         isDownloading = value
     }
 
-    /// Đổi bộ rule = đổi kết quả dịch: dọn cache dịch và phát **đúng một** thông báo cập nhật từ điển.
-    private func invalidateTranslationCaches() {
+/// Đổi bộ rule = đổi kết quả dịch: dọn cache dịch và phát **đúng một** thông báo rule đã cập nhật.
+    private func invalidateRuleCaches() {
         TranslateUtils.clearCache()
-        TranslationManager.shared.notifyDictionariesDidUpdate()
+        TranslationManager.shared.notifyRulesDidUpdate()
     }
 }

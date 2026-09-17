@@ -21,7 +21,11 @@ extension QuickTranslationRuleStore {
                 replacement: replacement,
                 in: QuickTranslationRuleRecordStore.parseRecords(from: currentSourceText() ?? "")
             )
-            return writeRecordsLocked(records, source: .edited)
+            let outcome = writeRecordsLocked(records, source: .edited)
+            if outcome.isSuccess {
+                TranslationManager.shared.notifyRulesDidUpdate()
+            }
+            return outcome
         }
     }
 
@@ -36,7 +40,11 @@ extension QuickTranslationRuleStore {
                 replacement: replacement,
                 in: QuickTranslationRuleRecordStore.parseRecords(from: currentSourceText() ?? "")
             )
-            return writeRecordsLocked(records, source: .edited)
+            let outcome = writeRecordsLocked(records, source: .edited)
+            if outcome.isSuccess {
+                TranslationManager.shared.notifyRulesDidUpdate()
+            }
+            return outcome
         }
     }
 
@@ -51,7 +59,11 @@ extension QuickTranslationRuleStore {
             guard updated.count != records.count else {
                 return .failure(message: "Không tìm thấy đúng rule đã chọn trong file")
             }
-            return writeRecordsLocked(updated, source: .edited)
+            let outcome = writeRecordsLocked(updated, source: .edited)
+            if outcome.isSuccess {
+                TranslationManager.shared.notifyRulesDidUpdate()
+            }
+            return outcome
         }
     }
 
@@ -63,7 +75,11 @@ extension QuickTranslationRuleStore {
             let current = currentSourceText() ?? ""
             let records = QuickTranslationRuleRecordStore.parseRecords(from: current)
             let updated = records.filter { !patterns.contains($0.pattern) }
-            return writeRecordsLocked(updated, source: .edited)
+            let outcome = writeRecordsLocked(updated, source: .edited)
+            if outcome.isSuccess {
+                TranslationManager.shared.notifyRulesDidUpdate()
+            }
+            return outcome
         }
     }
 }

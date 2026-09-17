@@ -109,7 +109,6 @@ extension ReaderView {
                     definitionSession.loadingSnapshot = nil
                     definitionSession.loading = false
                 }
-                if showingDefinitionSheet { refreshRuleTraces() }
             } catch is CancellationError {
                 // Yêu cầu mới/đóng panel sở hữu trạng thái loading tiếp theo.
             } catch {

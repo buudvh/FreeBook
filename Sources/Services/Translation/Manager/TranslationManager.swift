@@ -2,6 +2,7 @@ import Foundation
 
 extension Notification.Name {
     public static let translationDictionariesDidUpdate = Notification.Name("translationDictionariesDidUpdate")
+    public static let quickTranslationRulesDidUpdate = Notification.Name("quickTranslationRulesDidUpdate")
 }
 
 public final class TranslationManager: ObservableObject {
@@ -365,6 +366,18 @@ public final class TranslationManager: ObservableObject {
             userInfo["scope"] = scope
             NotificationCenter.default.post(
                 name: .translationDictionariesDidUpdate,
+                object: nil,
+                userInfo: userInfo
+            )
+        }
+    }
+    
+    public func notifyRulesDidUpdate(bookId: String? = nil) {
+        Task { @MainActor in
+            var userInfo: [AnyHashable: Any] = [:]
+            if let bookId { userInfo["bookId"] = bookId }
+            NotificationCenter.default.post(
+                name: .quickTranslationRulesDidUpdate,
                 object: nil,
                 userInfo: userInfo
             )
