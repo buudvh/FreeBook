@@ -996,33 +996,33 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             }
             .store(in: &cancellables)
 
-	NotificationCenter.default.publisher(for: NSNotification.Name("quickTranslationRulesDidUpdate"))
-		.receive(on: RunLoop.main)
-		.sink { [weak self] notification in
-			guard let self = self else { return }
-			let updatedBookId = notification.userInfo?["bookId"] as? String
-			if updatedBookId == nil || updatedBookId == self.playingBookId {
-				self.preparationGeneration &+= 1
-				self.prepareSpeakingTask?.cancel()
-				self.prepareSpeakingTask = nil
-				self.preparedChapterKey = nil
-				self.preparedChapter = nil
-				self.claimedSynthesisTask?.cancel()
-				self.claimedSynthesisTask = nil
-				self.claimedSynthesisTaskKey = nil
-				self.nextChapterPrefetcher.cancel()
-				self.resetNextChapterPrefixCache()
-				self.nowPlayingUpdateGeneration &+= 1
-				self.nowPlayingMetadataTask?.cancel()
-				self.nowPlayingMetadataTask = nil
-				self.nowPlayingMetadataTaskKey = nil
-				self.nowPlayingStaticMetadata = nil
-				if self.showFloatingWidget {
-					self.updateNowPlayingInfo()
-				}
-			}
-		}
-		.store(in: &cancellables)
+        NotificationCenter.default.publisher(for: .quickTranslationRulesDidUpdate)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] notification in
+                guard let self = self else { return }
+                let updatedBookId = notification.userInfo?["bookId"] as? String
+                if updatedBookId == nil || updatedBookId == self.playingBookId {
+                    self.preparationGeneration &+= 1
+                    self.prepareSpeakingTask?.cancel()
+                    self.prepareSpeakingTask = nil
+                    self.preparedChapterKey = nil
+                    self.preparedChapter = nil
+                    self.claimedSynthesisTask?.cancel()
+                    self.claimedSynthesisTask = nil
+                    self.claimedSynthesisTaskKey = nil
+                    self.nextChapterPrefetcher.cancel()
+                    self.resetNextChapterPrefixCache()
+                    self.nowPlayingUpdateGeneration &+= 1
+                    self.nowPlayingMetadataTask?.cancel()
+                    self.nowPlayingMetadataTask = nil
+                    self.nowPlayingMetadataTaskKey = nil
+                    self.nowPlayingStaticMetadata = nil
+                    if self.showFloatingWidget {
+                        self.updateNowPlayingInfo()
+                    }
+                }
+            }
+            .store(in: &cancellables)
     }
 
     private func loadParamsForCurrentTool() {

@@ -4,6 +4,26 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.379] - 2026-09-17
+
+### fix: tach signal rule khoi signal tu dien trong panel dich
+
+Sửa **11** file Swift trong `Sources/Services/TTS/`, `Sources/Services/Translation/` và `Sources/Views/Reader|Settings/`.
+
+- **Tách kênh event rule khỏi kênh từ điển (`TranslationManager.swift`)**:
+  - Thêm `.quickTranslationRulesDidUpdate` và `notifyRulesDidUpdate(bookId:)`.
+  - Rule/token/priority change phát rule signal; dictionary change giữ `notifyDictionariesDidUpdate(bookId:scope:)`.
+- **Giảm lag panel Dịch (`ReaderView.swift`, `ReaderView+DefinitionLoading.swift`)**:
+  - `refreshRuleTraces()` không còn chạy sau mỗi `loadDefinitionData()` hoặc mỗi lần `selectedWordOffset` đổi.
+  - Panel re-diagnose rule khi mở, khi `originalSentence` đổi hoặc khi nhận rule signal.
+- **Đồng bộ Reader/TTS theo signal mới (`TTSManager.swift`, các store rule/settings)**:
+  - `TTSManager` lắng nghe thêm `.quickTranslationRulesDidUpdate` để huỷ prepared chapter, claimed synthesis, next-chapter prefetch/prefix và metadata tĩnh.
+  - `QuickTranslationRuleStore`, `QuickTranslationRuleDisableStore`, token settings, priority settings và công tắc áp dụng rule phát rule signal đúng một lần sau khi cache/generation đã invalidated.
+  - Sửa lỗi compile đã làm CI fail: `QuickTranslationRuleDisableStore` dùng đúng `TranslateUtils.invalidateCache(bookId:)` thay vì `clearCache(bookId:)`; bỏ notify dư ở CRUD rule.
+- **Tài liệu CodeGraph**: cập nhật `00_index.md`, `02_file_graph.md`, `04_call_graph.md`, `05_state_graph.md`, `06_event_graph.md`, `07_dataflow.md`, `08_lifecycle.md`, `11_subsystems.md`, `rules.md` và `CHANGELOG.md`.
+- Gate: `validate_links.py` sẽ được chạy lại sau khi accept doc; `check_architecture.py` dự kiến vẫn đỏ bởi baseline legacy, không do lượt này mở luật mới.
+- **Chưa kiểm chứng biên dịch tại chỗ**: workspace Windows, không chạy được `xcodegen`/`xcodebuild`; CI GitHub là nguồn build.
+
 ## [1.3.378] - 2026-09-15
 
 ### fix: tach cac chu so han liet ke bang dau phay trong rule dich

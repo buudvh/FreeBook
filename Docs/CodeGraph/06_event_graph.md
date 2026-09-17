@@ -15,11 +15,12 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## Một notification cũ điều phối Reader và TTS theo scope (1.3.354)
+## Hai notification phân biệt từ điển và rule, cùng điều phối Reader/TTS (1.3.379)
 
-* Không thêm event name. Sau persist thành công, writer gọi `notifyDictionariesDidUpdate(bookId:scope:)`; `scope` là `.term`, `.config` hoặc `.globalReload` và có `affects(bookId:)` để Reader/TTS bỏ qua truyện khác.
+* **Từ điển** vẫn đi qua `.translationDictionariesDidUpdate` do `notifyDictionariesDidUpdate(bookId:scope:)` phát; `scope` là `.term`, `.config` hoặc `.globalReload` và có `affects(bookId:)` để Reader/TTS bỏ qua truyện khác.
+* **Rule/token/priority** đi qua notification mới `.quickTranslationRulesDidUpdate` do `notifyRulesDidUpdate(bookId:)` phát. Kênh này không yêu cầu Reader tra lại nghĩa từ đang chọn, nhưng vẫn làm mới bản dịch chương và rule trace nếu panel Dịch đang mở.
 * Reader nhận event thì huỷ lượt refresh lỗi thời, gom event 500 ms và chỉ apply khi mọi selection/overlay đóng. Panel Dịch đóng vẫn là mốc bung deferred refresh.
-* TTS nhận event đúng sách thì huỷ prepared current chapter, claimed synthesis, next-chapter DTO/audio, prefix audio và metadata tĩnh; lần kế tiếp dựng key/token mới. Không phát notification riêng cho cache.
+* TTS nhận **cả hai** event đúng sách thì huỷ prepared current chapter, claimed synthesis, next-chapter DTO/audio, prefix audio và metadata tĩnh; lần kế tiếp dựng key/token mới. Không phát notification riêng cho cache.
 
 ## Làm mới tên dịch không còn là sự kiện ghi ở tầng View (1.3.334)
 
@@ -110,8 +111,8 @@ resume() / speakCurrent() ─► restartSleepTimerIfNeeded ─► resumeTimerCou
 
 ## Rule dịch Quick Translate: engine, màn hình quản lý và công tắc (1.3.269)
 
-* **Không có tên notification mới.** Bộ rule dùng lại đúng kênh sẵn có `.translationDictionariesDidUpdate` (hằng có kiểu, phát trong `TranslationManager.notifyDictionariesDidUpdate`), nên hai subscriber duy nhất (`ReaderView`, `TTSManager`) không phải biết gì về rule.
-* **Hai emitter mới của kênh đó**: (1) `QuickTranslationRuleStore.apply` sau khi swap snapshot thành công — nhập file, về mặc định, khôi phục backup; (2) `QuickTranslateRuleSettingsRows.onChange(of: isQuickTranslateRuleEnabled)`. Cả hai đi kèm `TranslateUtils.clearCache()` **trước** khi phát, vì dọn cache mà không phát thì bản dịch cũ vẫn nằm trên màn cho tới khi đổi chương (hợp đồng 1.3.267).
+* **Bộ rule nay có kênh riêng `.quickTranslationRulesDidUpdate`** (hằng có kiểu, phát trong `TranslationManager.notifyRulesDidUpdate`). `ReaderView` và `TTSManager` đều lắng nghe thêm kênh này; `translationDictionariesDidUpdate` trở lại đúng nghĩa thay đổi từ điển.
+* **Emitter của kênh rule**: `QuickTranslationRuleStore.apply` sau khi swap snapshot thành công; `QuickTranslationRuleDisableStore` sau khi ghi file tắt; các Toggle `isQuickTranslateRuleEnabled`, token policy và priority policy. Tất cả đi kèm `TranslateUtils.clearCache()` hoặc `TranslateUtils.invalidateCache(bookId:)` trước khi phát, vì dọn cache mà không phát thì bản dịch cũ vẫn nằm trên màn cho tới khi đổi chương.
 * **Lượt nạp đầu lúc khởi động cố ý im lặng**: `prewarm()` gọi `load(notifiesObservers: false)`. Lúc đó chưa có cache dịch nào để dọn và chưa có Reader/TTS nào mở, phát ra chỉ bump `globalGeneration` vô ích. Không có race: entry cache tạo *trước* khi snapshot sẵn sàng mang `q:1:0`, entry sau mang `q:1:1` — khác khoá nên không bao giờ bị tái dùng sai.
 * **Kênh chẩn đoán một chiều, không phải event bus**: matcher chạm cap backtracking → `QuickTranslationRuleStore.noteComplexRule(sourceLine:)` → ghi `AppLogger` **một lần cho mỗi dòng** rồi cập nhật `status.complexRuleLines` trên MainActor để màn quản lý hiện được. Không phát notification, không toast từ Service.
 

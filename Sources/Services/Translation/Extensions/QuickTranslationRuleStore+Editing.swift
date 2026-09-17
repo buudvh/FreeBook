@@ -21,11 +21,7 @@ extension QuickTranslationRuleStore {
                 replacement: replacement,
                 in: QuickTranslationRuleRecordStore.parseRecords(from: currentSourceText() ?? "")
             )
-            let outcome = writeRecordsLocked(records, source: .edited)
-            if outcome.isSuccess {
-                TranslationManager.shared.notifyRulesDidUpdate()
-            }
-            return outcome
+            return writeRecordsLocked(records, source: .edited)
         }
     }
 
@@ -40,11 +36,7 @@ extension QuickTranslationRuleStore {
                 replacement: replacement,
                 in: QuickTranslationRuleRecordStore.parseRecords(from: currentSourceText() ?? "")
             )
-            let outcome = writeRecordsLocked(records, source: .edited)
-            if outcome.isSuccess {
-                TranslationManager.shared.notifyRulesDidUpdate()
-            }
-            return outcome
+            return writeRecordsLocked(records, source: .edited)
         }
     }
 
@@ -59,11 +51,7 @@ extension QuickTranslationRuleStore {
             guard updated.count != records.count else {
                 return .failure(message: "Không tìm thấy đúng rule đã chọn trong file")
             }
-            let outcome = writeRecordsLocked(updated, source: .edited)
-            if outcome.isSuccess {
-                TranslationManager.shared.notifyRulesDidUpdate()
-            }
-            return outcome
+            return writeRecordsLocked(updated, source: .edited)
         }
     }
 
@@ -75,11 +63,7 @@ extension QuickTranslationRuleStore {
             let current = currentSourceText() ?? ""
             let records = QuickTranslationRuleRecordStore.parseRecords(from: current)
             let updated = records.filter { !patterns.contains($0.pattern) }
-            let outcome = writeRecordsLocked(updated, source: .edited)
-            if outcome.isSuccess {
-                TranslationManager.shared.notifyRulesDidUpdate()
-            }
-            return outcome
+            return writeRecordsLocked(updated, source: .edited)
         }
     }
 }

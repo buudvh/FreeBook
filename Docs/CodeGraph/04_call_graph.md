@@ -108,13 +108,15 @@ MainTabView.runAutomaticBackupIfDue
 
 ```text
 Reader action -> TranslationDictionaryWriter / QuickTranslationRuleMutation
-  -> persist canonical file -> publish immutable snapshot -> notifyDictionariesDidUpdate(scope)
+  -> persist canonical file -> publish immutable snapshot
+      Dictionary change -> notifyDictionariesDidUpdate(scope)
+      Rule/token change -> notifyRulesDidUpdate(bookId?)
      -> ReaderView debounce 500 ms -> ReaderViewModel.processAndSaveChapter
           -> TranslationReadContext.capture -> off-main build -> pending/apply latest token
-     -> TTSManager cancel prepared/next/prefix -> makeNextChapterKey(new token) -> process again
+      -> TTSManager cancel prepared/next/prefix -> makeNextChapterKey(new token) -> process again
 ```
 
-`ReaderDefinitionWorker` tokenize/tra nghĩa/chẩn đoán off-main; Copy panel chỉ yêu cầu token, không tra nghĩa/gợi ý/rule trace. Rule editor truyền `oldPattern` khi sửa nên đổi mẫu giữ rule cũ đúng contract hiện hành.
+`ReaderDefinitionWorker` tokenize/tra nghĩa/chẩn đoán off-main; Copy panel chỉ yêu cầu token, không tra nghĩa/gợi ý/rule trace. Rule editor truyền `oldPattern` khi sửa nên đổi mẫu giữ rule cũ đúng contract hiện hành. Rule signal riêng làm Reader dịch lại chương và refresh rule trace khi panel đang mở, nhưng không ép tra lại nghĩa của từ đang chọn.
 
 ## Widget TTS bật lại auto-scroll; Script Editor chạy execute qua Debug Runner (1.3.351)
 
@@ -149,7 +151,7 @@ TTSWidgetCapsuleView.openCurrentChapter
 * **`tokenize` thêm một tầng**: `TranslateUtils.tokenize` → `VietPhraseTokenizer.tokenize` → `TokenizeMemo.tokens(...)` → (miss) `VietPhraseTokenizer.tokenizeUncached`. Cửa vào cũng gọi `TranslateUtils.translationGenerationToken(for:)` để dựng khoá — cạnh mới từ Engine sang Utils, không tạo vòng.
 * **`postProcessText` thành một dòng forward**: `TranslateUtils.postProcessText` → `TranslationTextPostProcessor.apply(to:)`. Hai caller (`translateContent`, `translatedCandidate(for:)`) **không** phải sửa.
 * **`refreshRuleTraces` thành async**: `ReaderView.refreshRuleTraces()` → `Task { @MainActor }` (sleep 150 ms) → `Task.detached { QuickTranslationRuleDiagnostics.diagnose }` → gán `ruleTraces` trên main. Lượt trước bị `cancel()`. `openDefinitionPanel()` vẫn gọi nó nhưng **không còn chờ** kết quả trước khi mở panel.
-* **`updateEditorFromSelection()` thêm một nhánh sớm** cho `getTranslationTokens` (chỉ gọi khi khoá `generation|originalSentence` đổi) và thêm **một lời gọi mới** `refreshRuleTraces()` ở cuối, có điều kiện `showingDefinitionSheet`.
+* **`updateEditorFromSelection()` thêm một nhánh sớm** cho `getTranslationTokens` (chỉ gọi khi khoá `generation|originalSentence` đổi). `refreshRuleTraces()` không còn chạy theo từng thay đổi `selectedWordOffset`; nó chạy khi mở panel, khi `originalSentence` đổi, hoặc khi rule signal tới.
 * **`updateCachedTranslatedContent(bookId:scope:)` thêm nhánh return sớm** theo `scope` trước khi tới `refreshParagraphItems()`.
 * **Đường mới ở Kệ sách**: `ShelfView.historyTabView` → `HistoryDayGrouper.group` → `Section` mỗi ngày → `historyBookRow(_:)` (helper mới, tách khỏi thân `ForEach`). `CollectionsTabView.gridView` → `CollectionGridCardView` → `CollectionCoverMosaicView` → `BookCoverView`; hai closure `onRename`/`onDelete` đi ngược về `beginRename`/`beginDelete` của tab.
 * **`onMove` đổi chủ**: `CollectionsTabView.moveCollections` (đã xoá) → `CollectionsReorderSheet.move` → closure `onReorder` → `CollectionsTabView.reorderMessage(from:to:)` → `BookCollectionCoordinator.reorderCollections`. Sheet phát toast, tab vẫn là chỗ duy nhất gọi coordinator.
@@ -278,7 +280,7 @@ ReaderView: nút "Dịch" (hoặc menu bôi đen)
        └─ .onChange(of: showingDefinitionSheet) → handleDefinitionPanelClosed()
 ```
 
-* **`selectedWordOffset` đổi trong lúc panel đang mở ⇒ `refreshRuleTraces()` chạy lại**, nên dời vùng chọn sang đoạn khác là dải chip đổi theo. Đây là chỗ thay cho việc mở lại màn Check rule.
+* **`selectedWordOffset` đổi trong lúc panel đang mở không còn tự chạy `refreshRuleTraces()`**, nên nới/thu vùng chọn không kéo theo chẩn đoán rule đắt tiền. Khi vùng chọn chuyển sang đoạn khác, `originalSentence` đổi ⇒ `refreshRuleTraces()` chạy lại để dải chip theo đoạn mới; rule/token change thì đi qua `.quickTranslationRulesDidUpdate`.
 * **`ReaderView.initializeReaderIfNeeded` và `BookDetailView.task(id:)` không còn gọi `BookTitleTranslationMigrator` trực tiếp**: cả hai gọi `BookTransactionCoordinator.refreshTitleTranslations(bookId:in:)`, coordinator mới gọi `migrator.refreshTranslations(for:)` rồi tự `save()` khi `didChange`.
 
 ## Đường gọi nạp trước Google sau khi gộp request (1.3.332)
@@ -753,8 +755,8 @@ translateMeta / translateContent / translateChapterTitle
 
 * **Đường span đổi nhánh, không đổi API ngoài**: `translateContentWithMapping` / `translateChapterTitleWithMapping` gọi `translationSpansApplyingRules(source:translated:bookId:)`; hàm này chỉ rẽ sang nhánh mới khi `rewrite(...)?.didRewrite == true`, ngược lại gọi đúng `buildTranslationSpans(original:translated:bookId:)` như trước. `JSExecutor` vẫn gọi `buildTranslationSpans` trực tiếp — Qt bridge không áp rule.
 * **Hai lượt `rewrite` cho cùng một chuỗi là có thật** (một lần để dịch, một lần để dựng span), nên engine memo kết quả trong `NSCache` 64 entry theo khoá `generation|bookId|md5`; lượt thứ hai là cache hit chứ không chạy lại matcher.
-* **Chuỗi vô hiệu hoá**: `QuickTranslationRuleStore.apply` → `TranslateUtils.clearCache()` (đã tự gọi `QuickTranslationRuleEngine.clearCache()`) + `TranslateUtils.clearChapterTitleCache()` + `TranslationManager.notifyDictionariesDidUpdate()` — đúng **một** notification, không tạo đường refresh Reader thứ hai.
-* **Điểm gọi mới ngoài phân hệ dịch**: `AppLaunchRootView.onAppear` → `Task.detached` → `QuickTranslationRuleStore.prewarm()`; `BackupConfigArchiver.restore` → `QuickTranslationRuleStore.importRules(text:)`; `QuickTranslateRuleSettingsRows.onChange` → `TranslateUtils.clearCache()` + `notifyDictionariesDidUpdate()`.
+* **Chuỗi vô hiệu hoá rule**: `QuickTranslationRuleStore.apply` → `TranslateUtils.clearCache()` (đã tự gọi `QuickTranslationRuleEngine.clearCache()`) → `TranslationManager.notifyRulesDidUpdate()` — đúng **một** rule notification, không bắn kênh từ điển.
+* **Điểm gọi mới ngoài phân hệ dịch**: `AppLaunchRootView.onAppear` → `Task.detached` → `QuickTranslationRuleStore.prewarm()`; `BackupConfigArchiver.restore` → `QuickTranslationRuleStore.importRules(text:)`; `QuickTranslateRuleSettingsRows.onChange` / token settings / priority settings → `TranslateUtils.clearCache()` + `notifyRulesDidUpdate()`.
 
 ## Nhánh nhắc "chưa đăng nhập Drive" và số truyện xoá thật (1.3.268)
 

@@ -267,10 +267,10 @@ public final class QuickTranslationRuleDisableStore: ObservableObject {
     }
 
     /// Đúng **một** lời gọi cho mọi thứ còn lại: `notifyRulesDidUpdate` →
-    /// `TranslateUtils.clearCache()` → `TranslationManager.shared.notifyRulesDidUpdate(bookId:)` để
-    /// Reader/TTS dựng lại. Generation được tăng ở `QuickTranslationRuleEngine.machineDisabled`.
+    /// `TranslateUtils.invalidateCache(bookId:)` → `TranslationManager.shared.notifyRulesDidUpdate(bookId:)` để
+    /// Reader/TTS dựng lại.
     private func notifyRulesUpdated(scope: QuickTranslationRuleScope) {
-        TranslateUtils.clearCache(bookId: scope.bookId)
+        TranslateUtils.invalidateCache(bookId: scope.bookId)
         TranslationManager.shared.notifyRulesDidUpdate(bookId: scope.bookId)
     }
 

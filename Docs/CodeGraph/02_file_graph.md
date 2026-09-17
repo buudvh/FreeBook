@@ -102,7 +102,7 @@ Thêm file Swift mới ⇒ máy macOS phải `xcodegen generate` trước khi bu
 | [`Views/Shelf/ShelfMain/ShelfView.swift`](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift) | `Picker` → `ShelfTabSelectorView`; `historyTabView` nhóm theo ngày + tách `historyBookRow` | 842 → **856** |
 | [`Views/Shelf/ShelfMain/ShelfTab.swift`](../../Sources/Views/Shelf/ShelfMain/ShelfTab.swift) | `iconName`, `isIconOnly` | 38 → **52** |
 | [`Views/Reader/Extensions/ReaderView+RuleTools.swift`](../../Sources/Views/Reader/Extensions/ReaderView+RuleTools.swift) | `refreshRuleTraces` debounce 150 ms + `Task.detached` | 327 → **348** |
-| [`Views/Reader/Extensions/ReaderView+Selection.swift`](../../Sources/Views/Reader/Extensions/ReaderView+Selection.swift) | bỏ tokenize lại cả đoạn khi chỉ vùng chọn đổi; làm mới chip rule theo vùng chọn | 200 → **217** |
+| [`Views/Reader/Extensions/ReaderView+Selection.swift`](../../Sources/Views/Reader/Extensions/ReaderView+Selection.swift) | bỏ tokenize lại cả đoạn khi chỉ vùng chọn đổi; chip rule không còn refresh theo từng offset | 200 → **217** |
 | [`Views/Reader/Extensions/ReaderViewModel+Translation.swift`](../../Sources/Views/Reader/Extensions/ReaderViewModel+Translation.swift) | `scope` được đọc: bỏ qua thay đổi của truyện khác | 254 → **269** |
 | [`Views/Reader/ReaderView.swift`](../../Sources/Views/Reader/ReaderView.swift) | 2 `@State` mới (`ruleTracesTask`, `translationTokensSource`) | 1997 → **2001** |
 | [`Views/Reader/ReaderView+DefinitionPanel.swift`](../../Sources/Views/Reader/ReaderView+DefinitionPanel.swift) | cập nhật bất biến trong doc (nay được cài thật) | 110 → **112** |
@@ -597,7 +597,7 @@ Mục "Nhà Phát Triển" phải ra file riêng vì `SettingsView.swift` chỉ 
 | [`Services/Translation/Extensions/QuickTranslationRuleStore+Editing.swift`](../../Sources/Services/Translation/Extensions/QuickTranslationRuleStore+Editing.swift) | CRUD Store giữ mutation lock rồi sửa records theo `pattern` và ghi canonical | 53 |
 | [`Views/Settings/Translation/QuickTranslationRuleIssueSheet.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRuleIssueSheet.swift) | sheet lỗi/cảnh báo theo dòng + copy toàn bộ | 98 |
 | [`Views/Settings/Translation/QuickTranslationRuleTesterView.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRuleTesterView.swift) | ô thử nhanh: text/hit sau rewrite với mode theo cấu hình token hoặc coi mọi token bật | 117 |
-| [`Views/Settings/Translation/QuickTranslationRuleTokenSettingsView.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRuleTokenSettingsView.swift) | 8 `@AppStorage` Toggle, mỗi đổi dọn cache + phát một notification; không sửa file rule | 59 |
+| [`Views/Settings/Translation/QuickTranslationRuleTokenSettingsView.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRuleTokenSettingsView.swift) | 12 `@AppStorage` Toggle, mỗi đổi dọn cache + phát rule signal; không sửa file rule | 59 |
 | [`Views/Settings/Main/QuickTranslateRuleSettingsRows.swift`](../../Sources/Views/Settings/Main/QuickTranslateRuleSettingsRows.swift) | hai dòng Settings (link + công tắc), bọc `Group` để thành hai row | 39 |
 
 | File sửa | Dòng | Thay đổi |
