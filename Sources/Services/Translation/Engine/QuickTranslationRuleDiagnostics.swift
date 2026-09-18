@@ -26,13 +26,15 @@ public enum QuickTranslationRuleDiagnostics {
         guard globalSnapshot != nil || bookSnapshot != nil else { return [] }
 
         let nsText = text as NSString
+        let (bookNameRanges, bookNameOccupiedIndices) = QuickTranslationRuleEngine.scanBookNameOccupiedIndices(text: text, bookId: bookId)
         // Cùng bản chụp cấu hình mà bản dịch thật đang dùng — kể cả phần đặt riêng của truyện.
         let tokenConfiguration = context.tokens
         let priority = context.priority
         let disable = context.disabledRules
         let matcher = QuickTranslationRuleMatcher(
             text: text,
-            dictionaries: QuickTranslationDictionaryToken.resolve(bookId: bookId)
+            dictionaries: QuickTranslationDictionaryToken.resolve(bookId: bookId),
+            bookNameOccupiedIndices: bookNameOccupiedIndices
         )
 
         var complexBook: [(ruleIndex: Int, start: Int)] = []
@@ -46,6 +48,8 @@ public enum QuickTranslationRuleDiagnostics {
             tokenConfiguration: tokenConfiguration,
             disable: disable,
             includesDisabled: true,
+            bookNameRanges: bookNameRanges,
+            bookNameOccupiedIndices: bookNameOccupiedIndices,
             notesComplexRules: false,
             onTooComplex: { index, start in complexBook.append((index, start)) }
         )
@@ -57,6 +61,8 @@ public enum QuickTranslationRuleDiagnostics {
             tokenConfiguration: tokenConfiguration,
             disable: disable,
             includesDisabled: true,
+            bookNameRanges: bookNameRanges,
+            bookNameOccupiedIndices: bookNameOccupiedIndices,
             notesComplexRules: false,
             onTooComplex: { index, start in complexGlobal.append((index, start)) }
         )
@@ -76,7 +82,19 @@ public enum QuickTranslationRuleDiagnostics {
                   snapshot.rules.indices.contains(item.ruleIndex) else { return false }
             let rule = snapshot.rules[item.ruleIndex]
             guard rule.isEnabled(for: tokenConfiguration) else { return false }
-            return !disable.isDisabled(pattern: rule.pattern, scopeRank: item.scopeRank)
+            guard !disable.isDisabled(pattern: rule.pattern, scopeRank: item.scopeRank) else { return false }
+            if bookNameOccupiedIndices.contains(item.start), !bookNameRanges.contains(where: { $0.location == item.start }) {
+                return false
+            }
+            if QuickTranslationRuleEngine.ruleMatchConflictsWithBookNames(
+                matchStart: item.start,
+                matchLength: item.length,
+                captures: item.captures,
+                bookNameRanges: bookNameRanges
+            ) {
+                return false
+            }
+            return true
         }
         let winners = QuickTranslationRuleEngine.select(from: eligible, priority: priority)
         let winnerKeys = Set(winners.map { "\($0.scopeRank)#\($0.sourceLine)#\($0.start)" })

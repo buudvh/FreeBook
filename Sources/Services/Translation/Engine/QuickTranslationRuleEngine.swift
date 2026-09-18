@@ -143,9 +143,11 @@ public enum QuickTranslationRuleEngine {
         priority: QuickTranslationRulePriorityConfiguration.Configuration
     ) -> QuickTranslationRewriteResult {
         let nsText = text as NSString
+        let (bookNameRanges, bookNameOccupiedIndices) = scanBookNameOccupiedIndices(text: text, bookId: bookId)
         let matcher = QuickTranslationRuleMatcher(
             text: text,
-            dictionaries: QuickTranslationDictionaryToken.resolve(bookId: bookId)
+            dictionaries: QuickTranslationDictionaryToken.resolve(bookId: bookId),
+            bookNameOccupiedIndices: bookNameOccupiedIndices
         )
         let disable = TranslationReadContext.current?.disabledRules ?? QuickTranslationRuleDisableStore.shared.snapshot(bookId: bookId)
 
@@ -159,7 +161,9 @@ public enum QuickTranslationRuleEngine {
             matcher: matcher,
             tokenConfiguration: tokenConfiguration,
             disable: disable,
-            includesDisabled: false
+            includesDisabled: false,
+            bookNameRanges: bookNameRanges,
+            bookNameOccupiedIndices: bookNameOccupiedIndices
         )
         found += collectFound(
             text: text,
@@ -168,7 +172,9 @@ public enum QuickTranslationRuleEngine {
             matcher: matcher,
             tokenConfiguration: tokenConfiguration,
             disable: disable,
-            includesDisabled: false
+            includesDisabled: false,
+            bookNameRanges: bookNameRanges,
+            bookNameOccupiedIndices: bookNameOccupiedIndices
         )
 
         guard !found.isEmpty else { return passthrough(text, length: nsText.length) }
@@ -185,6 +191,8 @@ public enum QuickTranslationRuleEngine {
         tokenConfiguration: QuickTranslationRuleTokenSettings.Configuration,
         disable: QuickTranslationRuleDisableStore.Snapshot,
         includesDisabled: Bool,
+        bookNameRanges: [NSRange] = [],
+        bookNameOccupiedIndices: Set<Int> = [],
         notesComplexRules: Bool = true,
         onTooComplex: ((Int, Int) -> Void)? = nil
     ) -> [Found] {
@@ -204,6 +212,10 @@ public enum QuickTranslationRuleEngine {
             var cursor = 0
             for start in candidate.starts where start >= cursor {
                 if Task.isCancelled { return [] }
+                // Không cho rule bắt đầu từ giữa chừng một Name riêng (trừ điểm bắt đầu của Name)
+                if !includesDisabled, bookNameOccupiedIndices.contains(start), !bookNameRanges.contains(where: { $0.location == start }) {
+                    continue
+                }
                 guard let match = matcher.match(rule, at: start) else {
                     if matcher.didExceedStepCap {
                         if notesComplexRules {
@@ -212,6 +224,16 @@ public enum QuickTranslationRuleEngine {
                         onTooComplex?(candidate.ruleIndex, start)
                         break
                     }
+                    continue
+                }
+                let hasConflict = ruleMatchConflictsWithBookNames(
+                    matchStart: match.start,
+                    matchLength: match.length,
+                    captures: match.captures,
+                    bookNameRanges: bookNameRanges
+                )
+                if !includesDisabled && hasConflict {
+                    // Match cắt vào Name riêng -> bỏ qua và không đẩy cursor để các start kế tiếp sau Name vẫn được thử
                     continue
                 }
                 found.append(Found(

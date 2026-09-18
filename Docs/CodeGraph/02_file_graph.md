@@ -15,6 +15,15 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +1 file cho bảo vệ Name riêng trước Rule dịch (1.3.383)
+
+| File mới | Vai trò | Dòng |
+| --- | --- | ---: |
+| `Services/Translation/Extensions/QuickTranslationRuleEngine+NameProtection.swift` | `scanBookNameOccupiedIndices` + `ruleMatchConflictsWithBookNames`; bảo vệ Name riêng khỏi rule dịch và giữ `QuickTranslationRuleEngine.swift` dưới trần 400 dòng | 50 |
+
+* `QuickTranslationRuleEngine.swift` giảm còn **372** dòng sau khi tách; `QuickTranslationRuleMatcher.swift` **261** dòng; `QuickTranslationRuleDiagnostics.swift` **245** dòng.
+* `QuickTranslationRuleMatcher` nhận `bookNameOccupiedIndices` để `walkNumeral` coi ranh giới Name riêng là ranh giới số hợp lệ.
+
 ## +1 file cho vô hiệu hoá phản hồi rung (1.3.372)
 
 | File mới | Vai trò | Dòng |

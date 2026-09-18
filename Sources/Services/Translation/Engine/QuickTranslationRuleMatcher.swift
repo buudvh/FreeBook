@@ -47,16 +47,22 @@ public final class QuickTranslationRuleMatcher {
     private let units: [UInt16]
     private let text: NSString
     private let dictionaries: QuickTranslationDictionaryToken
+    private let bookNameOccupiedIndices: Set<Int>
 
     private var captures: [Capture] = []
     private var steps = 0
     /// Rule vừa thử có chạm cap hay không — engine dùng để ghi cảnh báo `RULE_TOO_COMPLEX`.
     public private(set) var didExceedStepCap = false
 
-    public init(text: String, dictionaries: QuickTranslationDictionaryToken) {
+    public init(
+        text: String,
+        dictionaries: QuickTranslationDictionaryToken,
+        bookNameOccupiedIndices: Set<Int> = []
+    ) {
         self.units = Array(text.utf16)
         self.text = text as NSString
         self.dictionaries = dictionaries
+        self.bookNameOccupiedIndices = bookNameOccupiedIndices
     }
 
     public var length: Int { units.count }
@@ -147,13 +153,18 @@ public final class QuickTranslationRuleMatcher {
         let allowed = QuickTranslationNumberFormatter.units(for: kind)
 
         // Guard bên trái: ký tự ngay trước match thuộc cùng lớp số ⇒ token đang nuốt phần giữa của
-        // một chuỗi số dài hơn.
-        if element.guardsLeft, position > 0, allowed.contains(units[position - 1]) {
+        // một chuỗi số dài hơn. Ngoại lệ: nếu ký tự bên trái thuộc Name riêng thì nó là ranh giới tên chứ
+        // không phải phần tiếp nối của số.
+        if element.guardsLeft, position > 0,
+           !bookNameOccupiedIndices.contains(position - 1),
+           allowed.contains(units[position - 1]) {
             return skipOptional(element, advanced, position)
         }
 
         var run = 0
-        while position + run < units.count, allowed.contains(units[position + run]) {
+        while position + run < units.count,
+              !bookNameOccupiedIndices.contains(position + run),
+              allowed.contains(units[position + run]) {
             run += 1
         }
 

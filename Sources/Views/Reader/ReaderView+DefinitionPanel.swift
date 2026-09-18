@@ -80,7 +80,7 @@ extension ReaderView {
                     isRuleFeatureEnabled: definitionSession.rulesEnabled,
                     hasAnyRuleSet: definitionSession.hasRules,
                     isLoadingDefinition: definitionSession.loading,
-                    isLoadingRules: definitionSession.loading || definitionSession.loadingRules,
+                    isLoadingRules: definitionSession.loadingRules,
                     isSaving: definitionSession.saving,
                     onRuleAction: { trace, action in handleRuleAction(trace, action) },
                     // Điền sẵn **cả hai** ô: mẫu = cụm gốc đang chọn, nghĩa = đúng chữ đang có trong ô

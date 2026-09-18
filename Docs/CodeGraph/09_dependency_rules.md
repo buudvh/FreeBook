@@ -15,6 +15,12 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ranh giới phụ thuộc bảo vệ Name riêng trong Rule Engine (1.3.383)
+
+* `QuickTranslationRuleEngine+NameProtection.swift` nằm trong `Services/Translation/Extensions/`, chỉ `import Foundation`; không import SwiftUI và không gọi `ToastManager`.
+* `QuickTranslationRuleMatcher` chỉ nhận `bookNameOccupiedIndices: Set<Int>`, không phụ thuộc trực tiếp vào `TranslationManager` hay database.
+* Toàn bộ phụ thuộc giữ vững chiều đơn hướng `Views -> Services -> Models`.
+
 ## Extension dọn dẹp local không mở thêm cửa nội bộ (1.3.356)
 
 * `BackupCoordinator+LocalCleanup.swift` nằm ở `Services/Backup`, chỉ `import Foundation`; không import SwiftUI và không gọi `ToastManager` — lỗi/kết quả đi qua `lastMessage`/`lastError` như phần còn lại của phân hệ.

@@ -15,6 +15,13 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +1 file 50 dòng; QuickTranslationRuleEngine giữ dưới trần 400 dòng (1.3.383)
+
+* File mới: `QuickTranslationRuleEngine+NameProtection.swift` **50** dòng — chỉ chứa `extension QuickTranslationRuleEngine`, không có primary type top level mới.
+* `QuickTranslationRuleEngine.swift` giảm về **372**/400 dòng sau khi tách `scanBookNameOccupiedIndices` và `ruleMatchConflictsWithBookNames` sang file extension.
+* `QuickTranslationRuleMatcher.swift` **261**/400 dòng, `QuickTranslationRuleDiagnostics.swift` **245**/400 dòng.
+* `check_architecture.py` giữ nguyên **7** violation line-limit nền, không phát sinh bất kỳ vi phạm kiến trúc nào mới.
+
 ## +1 file 50 dòng; coordinator về 361 sau khi tách (1.3.356)
 
 * File mới: `BackupCoordinator+LocalCleanup.swift` **50** dòng — chỉ có `extension`, nên không tính là primary type top level.

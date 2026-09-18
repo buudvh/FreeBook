@@ -15,6 +15,14 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Cố định nghĩa rule panel Dịch và thuật toán bảo vệ Name riêng (1.3.383)
+
+* [`ReaderView+DefinitionPanel.swift`](../../Sources/Views/Reader/ReaderView+DefinitionPanel.swift#L83): `isLoadingRules` gán bằng `definitionSession.loadingRules` (bỏ `definitionSession.loading`), giữ nguyên ô nghĩa rule và không gây chớp giật khi nới/thu token.
+* [`QuickTranslationRuleMatcher.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleMatcher.swift#L50): Thêm `bookNameOccupiedIndices`; `walkNumeral` (guardsLeft/run) coi ranh giới Name riêng là ranh giới số hợp lệ, cho phép token số (`<n>`, `<y>`, `<h>`, `<d>`) khớp ngay sau/trước tên nhân vật.
+* [`QuickTranslationRuleEngine.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleEngine.swift) & [`QuickTranslationRuleEngine+NameProtection.swift`](../../Sources/Services/Translation/Extensions/QuickTranslationRuleEngine+NameProtection.swift): Quét `bookNameRanges` và `bookNameOccupiedIndices`; loại bỏ rule xâm phạm Name riêng; tách file extension giữ file chính dưới trần 400 dòng vật lý.
+* [`QuickTranslationRuleDiagnostics.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleDiagnostics.swift): Đồng bộ quét Name riêng và đánh dấu rule xâm phạm Name riêng ở trạng thái `.lostOverlap`.
+* Thêm **1** file Swift (527 tổng trong cây làm việc); cần `xcodegen generate` và build trên macOS.
+
 ## Cập nhật rule trace khi mở panel Dịch và lọc signal rule theo truyện (1.3.381)
 
 * [`ReaderView+RuleTools.swift`](../../Sources/Views/Reader/Extensions/ReaderView+RuleTools.swift#L46): `openDefinitionPanel()` và `ReaderView.showingDefinitionSheet` kích hoạt `refreshRuleTraces()` ngay khi mở để thanh chip rule nạp dữ liệu của đoạn văn gốc.

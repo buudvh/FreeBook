@@ -15,6 +15,15 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Cố định ô nghĩa rule panel Dịch và bảo vệ Name riêng trước Rule dịch (1.3.383)
+
+* **Cố định ô "Nghĩa rule" trong panel Dịch (`ReaderView+DefinitionPanel.swift`)**:
+  - `isLoadingRules` chỉ theo dõi `definitionSession.loadingRules` (bỏ `definitionSession.loading`), giữ nguyên nội dung nghĩa rule khi tra từ điển lúc nới/thu token, loại bỏ triệt để hiện tượng chớp giật.
+* **Bảo vệ Name riêng trong Rule Engine (`QuickTranslationRuleMatcher.swift`, `QuickTranslationRuleEngine.swift`, `QuickTranslationRuleEngine+NameProtection.swift`, `QuickTranslationRuleDiagnostics.swift`)**:
+  - `scanBookNameOccupiedIndices(text:bookId:)`: Quét cây Double Array Trie `bookNames` của truyện để tạo bản đồ `bookNameRanges` và tập hợp `bookNameOccupiedIndices`.
+  - `QuickTranslationRuleMatcher.walkNumeral`: Coi ranh giới Name riêng là ranh giới số hợp lệ (bỏ qua chặn `guardsLeft` nếu ký tự liền kề thuộc Name riêng), cho phép các token số (`<n>`, `<y>`, `<h>`, `<d>`) khớp độc lập ngay sát cạnh Name riêng (ví dụ `比唐三六个月` -> `唐三` giữ nguyên "Đường Tam", `六个月` khớp "6 tháng" -> "hơn Đường Tam 6 tháng").
+  - `ruleMatchConflictsWithBookNames`: Bất kỳ rule nào cắt ngang hoặc nuốt một phần Name riêng đều bị loại trừ khỏi danh sách trúng tuyển trong cả dịch thật lẫn chẩn đoán (`.lostOverlap`).
+
 ## Tự động cuộn và chọn token khi bấm chip rule trong panel Dịch (1.3.382)
 
 * **Tự động chọn token của rule (`ReaderDefinitionOverlayView+Rules.swift`)**:

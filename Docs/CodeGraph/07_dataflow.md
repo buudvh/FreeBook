@@ -15,6 +15,20 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Dòng dữ liệu bảo vệ Name riêng trong Rule Engine (1.3.383)
+
+```text
+Chuỗi tiếng Trung + bookId
+  -> QuickTranslationRuleEngine.scanBookNameOccupiedIndices(text, bookId)
+      ├─ Cây Double Array Trie quét bookNames -> [NSRange] + Set<Int> (vị trí ký tự Name riêng)
+  -> QuickTranslationRuleMatcher(bookNameOccupiedIndices)
+      ├─ walkNumeral: ranh giới Name riêng được coi là ranh giới số hợp lệ (bỏ qua chặn guardsLeft)
+  -> collectFound:
+      ├─ Bỏ qua rule bắt đầu từ giữa chừng Name riêng
+      ├─ ruleMatchConflictsWithBookNames: loại trừ rule cắt ngang / xâm phạm Name riêng (trừ khi có <ne> bao trọn)
+  -> assemble: ghép các đoạn passthrough (giữ nguyên Name riêng) và selected rule matches
+```
+
 ## Dòng dữ liệu chẩn đoán rule panel Dịch và điều phối signal rule (1.3.381)
 
 ```text

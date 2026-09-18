@@ -15,6 +15,21 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Call graph bảo vệ Name riêng trong Rule Engine (1.3.383)
+
+```text
+QuickTranslationRuleEngine.execute
+  ├─ scanBookNameOccupiedIndices(text: text, bookId: bookId)
+  │     └─ bookNames.findLongestMatch(text: text, startIndex: cursor)
+  ├─ QuickTranslationRuleMatcher(..., bookNameOccupiedIndices: bookNameOccupiedIndices)
+  │     └─ walkNumeral: ranh giới Name riêng bỏ qua chặn guardsLeft
+  ├─ collectFound(..., bookNameRanges: bookNameRanges, bookNameOccupiedIndices: bookNameOccupiedIndices)
+  │     ├─ guard !bookNameOccupiedIndices.contains(start) || bookNameRanges.contains(location == start)
+  │     └─ guard !ruleMatchConflictsWithBookNames(matchStart: match.start, matchLength: match.length, captures: match.captures, bookNameRanges: bookNameRanges)
+  └─ QuickTranslationRuleDiagnostics.diagnose
+        └─ eligible = found.filter { ... !ruleMatchConflictsWithBookNames(...) }
+```
+
 ## Call graph tự động cuộn và chọn token khi bấm chip rule trong panel Dịch (1.3.382)
 
 ```text
