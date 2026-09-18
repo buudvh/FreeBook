@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Đưa các Rule tranh chấp Name riêng lên thanh chip ở trạng thái thua (1.3.384)
+
+* **Nhận diện đầy đủ cụm khớp trong `QuickTranslationRuleMatcher` (`QuickTranslationRuleMatcher.swift`)**:
+  - `walkNumeral` đếm `run` số tự nhiên (không ngắt sớm tại ký tự Name riêng) để matcher thu thập được toàn bộ match (kể cả match quét qua Name riêng).
+* **Thu thập match tranh chấp Name riêng vào chẩn đoán (`QuickTranslationRuleEngine.swift`, `QuickTranslationRuleDiagnostics.swift`)**:
+  - `collectFound`: Khi `hasConflict == true` ở chế độ `includesDisabled: true`, match tranh chấp vẫn được đưa vào `found` và dịch `cursor = match.start + 1` để không bỏ sót các lượt thử hợp lệ tiếp theo (như `start = 3` ngay sau Name riêng).
+  - `QuickTranslationRuleDiagnostics.diagnose`: `eligible` loại trừ rule tranh chấp Name riêng khỏi `winners`, gán `status = .lostOverlap` và hiển thị trên thanh chip ở phong cách tranh chấp (chip mờ, viền mảnh).
+
 ## Cố định ô nghĩa rule panel Dịch và bảo vệ Name riêng trước Rule dịch (1.3.383)
 
 * **Cố định ô "Nghĩa rule" trong panel Dịch (`ReaderView+DefinitionPanel.swift`)**:

@@ -3,8 +3,8 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-09-18T03:22:38Z",
-  "gitCommit": "b9b2e063f62df6eea822ff7ee8035f00ef7f2003",
+  "generatedAt": "2026-09-18T03:58:06Z",
+  "gitCommit": "f01e8d490cf409c1f2fc8acd3462362ad1899c27",
   "sourceFileCount": 527,
   "documentCount": 16,
   "documents": [
@@ -1617,11 +1617,11 @@
         "Sources/Views/Reader/Extensions/ReaderViewModel+Translation.swift"
       ],
       "structureHash": "32c94e18a3456434d020171d1172764b2746bb617bcd603a7f8eaea2584112fb",
-      "sourceHash": "1356a8a07bf7a3061785a13b634f53e6d9f24d1e5c30411d99ea34658a566376",
-      "generatedHash": "9d4c304639785778ccfe0d8ffb1693fc1b623866c2a28f0d85f74408d146988f",
-      "generatedAt": "2026-09-18T03:22:29Z",
-      "reviewedAt": "2026-09-18T03:22:29Z",
-      "reviewedCommit": "b9b2e063f62df6eea822ff7ee8035f00ef7f2003",
+      "sourceHash": "8d8648db5ea9de8e4e27aee549705d12261392f44a1638f671294bc8e07ae251",
+      "generatedHash": "89f23cf7e0e3362fdab3a51fa128565612bcb1f39cef6a2d41ddeacb884ced67",
+      "generatedAt": "2026-09-18T03:58:06Z",
+      "reviewedAt": "2026-09-18T03:58:06Z",
+      "reviewedCommit": "f01e8d490cf409c1f2fc8acd3462362ad1899c27",
       "reviewMode": "accept"
     },
     {
@@ -2808,11 +2808,11 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "6aa2ffccefb54f327f4962009473114f7e90dc4c3aa2ddec46cde703ec05608c",
-      "sourceHash": "fac175451a9e516348ec8c82faa93a0c47a01cb4f42e55a5f6c1dfb4dcfed6e5",
-      "generatedHash": "0c95e5566fe036e50642494596f9660b676fb39c464833d0d8fe51a45354fd03",
-      "generatedAt": "2026-09-18T03:22:29Z",
-      "reviewedAt": "2026-09-18T03:22:29Z",
-      "reviewedCommit": "b9b2e063f62df6eea822ff7ee8035f00ef7f2003",
+      "sourceHash": "853b0d341106f6cbcb7cbf37b7bf9a56aa809becad77e29d2ff3e4a77ec5d725",
+      "generatedHash": "11d265f2f577afdaf084da26470a052234a6d1fda188ad994533201fbca91ba4",
+      "generatedAt": "2026-09-18T03:58:06Z",
+      "reviewedAt": "2026-09-18T03:58:06Z",
+      "reviewedCommit": "f01e8d490cf409c1f2fc8acd3462362ad1899c27",
       "reviewMode": "accept"
     },
     {

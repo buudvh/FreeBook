@@ -162,9 +162,7 @@ public final class QuickTranslationRuleMatcher {
         }
 
         var run = 0
-        while position + run < units.count,
-              !bookNameOccupiedIndices.contains(position + run),
-              allowed.contains(units[position + run]) {
+        while position + run < units.count, allowed.contains(units[position + run]) {
             run += 1
         }
 

@@ -4,6 +4,18 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.384] - 2026-09-18
+
+### feat: dua rule tranh chap name rieng len thanh chip o trang thai thua
+
+Sửa **2** file Swift trong `Sources/Services/Translation/Engine/`.
+
+- **Thu thập đầy đủ Rule tranh chấp Name riêng vào thanh chip (`QuickTranslationRuleMatcher.swift`, `QuickTranslationRuleEngine.swift`)**:
+  - `QuickTranslationRuleMatcher.walkNumeral`: Đếm `run` số tự nhiên (không ngắt sớm tại ký tự Name riêng) để matcher nhận diện được đầy đủ cụm khớp quét qua Name.
+  - `QuickTranslationRuleEngine.collectFound`: Khi `hasConflict == true` ở chế độ `includesDisabled: true`, match tranh chấp vẫn được đưa vào `found` và dịch `cursor = match.start + 1` để không bỏ sót các lượt thử hợp lệ tiếp theo (như `start = 3` ngay sau Name riêng).
+  - `QuickTranslationRuleDiagnostics.diagnose`: Match tranh chấp Name riêng không được vào `winners`, tự động nhận `status = .lostOverlap` và hiển thị trên thanh chip ở trạng thái tranh chấp thua (chip mờ).
+- **Tài liệu CodeGraph**: Cập nhật `07_dataflow.md`, `11_subsystems.md` và `CHANGELOG.md`.
+
 ## [1.3.383] - 2026-09-18
 
 ### feat: bao ve name rieng truoc rule dich va co dinh nghia rule panel dich

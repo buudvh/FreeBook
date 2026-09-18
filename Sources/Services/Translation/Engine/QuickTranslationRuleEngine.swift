@@ -247,7 +247,7 @@ public enum QuickTranslationRuleEngine {
                     ruleIndex: candidate.ruleIndex,
                     captures: match.captures
                 ))
-                cursor = match.start + max(1, match.length)
+                cursor = hasConflict ? (match.start + 1) : (match.start + max(1, match.length))
             }
         }
         return found

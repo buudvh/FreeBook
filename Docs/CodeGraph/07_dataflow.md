@@ -15,6 +15,21 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Dòng dữ liệu thu thập Rule tranh chấp Name riêng cho thanh chip (1.3.384)
+
+```text
+Chuỗi tiếng Trung + bookId
+  -> QuickTranslationRuleMatcher:
+      ├─ guardsLeft: ranh giới Name riêng bỏ qua chặn số
+      └─ walkNumeral: đếm run tự nhiên để nhận diện đầy đủ cụm match
+  -> QuickTranslationRuleEngine.collectFound:
+      ├─ !includesDisabled (dịch thật): bỏ qua rule cắt vào Name riêng -> Name riêng thắng
+      └─ includesDisabled (diagnostics): lưu match tranh chấp vào found, cursor = match.start + 1
+  -> QuickTranslationRuleDiagnostics.diagnose:
+      ├─ eligible: loại trừ rule tranh chấp Name riêng -> không vào danh sách winners
+      └─ traces: gán status = .lostOverlap cho rule tranh chấp Name riêng -> hiển thị trên thanh chip
+```
+
 ## Dòng dữ liệu bảo vệ Name riêng trong Rule Engine (1.3.383)
 
 ```text
