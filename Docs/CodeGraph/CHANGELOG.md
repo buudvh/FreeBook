@@ -4,6 +4,20 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.382] - 2026-09-18
+
+### feat: tu dong cuon va chon token khi bam chip rule trong panel dich
+
+Sửa **2** file Swift trong `Sources/Views/Reader/`.
+
+- **Tự động chọn token của rule (`ReaderDefinitionOverlayView+Rules.swift`)**:
+  - Khi người dùng bấm vào chip rule trên thanh chip rule, gán `selectedWordOffset` và `selectedWordLength` theo `trace.sourceRange`, đồng thời gọi `onUpdateEditorFromSelection()`.
+  - Tự động bôi chọn các ký tự câu gốc và token tương ứng, đồng thời nạp nghĩa từ điển và gợi ý cho cụm từ khớp với rule.
+- **Tự động cuộn đến vị trí token tương ứng (`ReaderDefinitionOverlayView.swift`)**:
+  - Bổ sung `@State internal var ruleScrollTrigger: Int = 0` được tăng mỗi lần bấm chip.
+  - Cả hàng ký tự gốc (`originalSentenceRowView`) và hàng token dịch (`translatedTokensRowView`) đều lắng nghe `ruleScrollTrigger` để kích hoạt cuộn mượt (animated) về vị trí ký tự / token tương ứng ở tâm màn hình.
+- **Tài liệu CodeGraph**: Cập nhật `04_call_graph.md`, `11_subsystems.md` và `CHANGELOG.md`.
+
 ## [1.3.381] - 2026-09-18
 
 ### fix: cap nhat rule trace khi mo panel dich va loc signal theo truyen

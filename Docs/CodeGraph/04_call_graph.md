@@ -15,6 +15,23 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Call graph tự động cuộn và chọn token khi bấm chip rule trong panel Dịch (1.3.382)
+
+```text
+ReaderDefinitionOverlayView+Rules (bấm chip rule)
+  └─ ReaderRuleTraceChip.onTap
+        ├─ focusedRuleTraceID = trace.id
+        ├─ if trace.sourceRange.length > 0:
+        │     ├─ selectedWordOffset = trace.sourceRange.location
+        │     ├─ selectedWordLength = trace.sourceRange.length
+        │     └─ onUpdateEditorFromSelection() -> loadDefinitionData() (tra nghĩa từ điển)
+        └─ ruleScrollTrigger += 1
+              ├─ originalSentenceRowView.onChange(of: ruleScrollTrigger)
+              │     └─ proxy.scrollTo("orig-\(selectedWordOffset)", anchor: .center)
+              └─ translatedTokensRowView.onChange(of: ruleScrollTrigger)
+                    └─ scrollToSelectedToken(proxy:) -> proxy.scrollTo("trans-\(token.id)", anchor: .center)
+```
+
 ## Call graph nạp rule traces trong panel Dịch và điều phối signal rule (1.3.381)
 
 ```text

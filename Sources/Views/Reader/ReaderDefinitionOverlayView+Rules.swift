@@ -119,7 +119,15 @@ extension ReaderDefinitionOverlayView {
                             ReaderRuleTraceChip(
                                 trace: trace,
                                 isSelected: focusedRuleTrace?.id == trace.id,
-                                onTap: { focusedRuleTraceID = trace.id },
+                                onTap: {
+                                    focusedRuleTraceID = trace.id
+                                    if trace.sourceRange.length > 0 {
+                                        selectedWordOffset = trace.sourceRange.location
+                                        selectedWordLength = trace.sourceRange.length
+                                        onUpdateEditorFromSelection()
+                                    }
+                                    ruleScrollTrigger += 1
+                                },
                                 onLongPress: {
                                     ruleActionTarget = trace
                                     showingRuleActions = true

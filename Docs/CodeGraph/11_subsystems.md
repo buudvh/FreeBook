@@ -15,6 +15,15 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Tự động cuộn và chọn token khi bấm chip rule trong panel Dịch (1.3.382)
+
+* **Tự động chọn token của rule (`ReaderDefinitionOverlayView+Rules.swift`)**:
+  - Khi người dùng bấm vào một chip rule trên thanh chip rule, `onTap` tự động gán `selectedWordOffset = trace.sourceRange.location` và `selectedWordLength = trace.sourceRange.length`, sau đó gọi `onUpdateEditorFromSelection()`.
+  - Giúp token tương ứng được bôi chọn ngay lập tức và nạp định nghĩa từ điển cho cụm từ khớp với rule.
+* **Tự động cuộn đồng thời hàng ký tự gốc và hàng token dịch (`ReaderDefinitionOverlayView.swift`)**:
+  - Thêm `@State internal var ruleScrollTrigger: Int = 0` được tăng mỗi lần người dùng bấm chip rule.
+  - Cả `originalSentenceRowView` và `translatedTokensRowView` đều lắng nghe `.onChange(of: ruleScrollTrigger)` để cuộn mượt (animated) về vị trí ký tự / token tương ứng ở tâm màn hình ngay cả khi vùng chọn không đổi.
+
 ## Cập nhật dữ liệu rule khi mở panel Dịch, chống reload khi nới/thu token và lọc signal rule (1.3.381)
 
 * **Nạp rule traces khi mở panel Dịch (`ReaderView+RuleTools.swift`, `ReaderView.swift`)**:

@@ -82,6 +82,7 @@ struct ReaderDefinitionOverlayView: View {
     /// `@State` phải khai trong struct chính: extension không thêm được stored property.
     @State internal var ruleActionTarget: QuickTranslationRuleTrace? = nil
     @State internal var showingRuleActions = false
+    @State internal var ruleScrollTrigger: Int = 0
 
     var body: some View {
         VStack(spacing: 8) {
@@ -207,6 +208,11 @@ struct ReaderDefinitionOverlayView: View {
                         proxy.scrollTo("orig-\(selectedWordOffset)", anchor: .center)
                     }
                 }
+                .onChange(of: ruleScrollTrigger) { _, _ in
+                    withAnimation {
+                        proxy.scrollTo("orig-\(selectedWordOffset)", anchor: .center)
+                    }
+                }
                 .onAppear {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         withAnimation {
@@ -269,6 +275,9 @@ struct ReaderDefinitionOverlayView: View {
                 }
             }
             .onChange(of: selectedWordOffset) { _, _ in
+                scrollToSelectedToken(proxy: proxy, animated: true)
+            }
+            .onChange(of: ruleScrollTrigger) { _, _ in
                 scrollToSelectedToken(proxy: proxy, animated: true)
             }
             .onChange(of: translationTokens.count) { _, _ in
