@@ -5,11 +5,10 @@ import SwiftUI
 /// Hai lý do: `ReaderView.swift` sát baseline dòng của `check_architecture.py` nên chỉ được giảm, và
 /// từ 1.3.334 panel này nhận thêm sáu tham số của Check rule (gộp vào đây, không còn panel riêng).
 ///
-/// Bất biến: `ruleTraces` được `refreshRuleTraces()` làm mới khi mở panel **và** mỗi lần vùng chọn đổi
-/// (từ 1.3.339 việc này thực sự được cài, ở cuối `updateEditorFromSelection()`; hàm chẩn đoán có
-/// debounce 150 ms và chạy off-main nên nới/thu liên tục không thành N lượt quét cả đoạn). Đóng panel
-/// mà `didChangeRuleData` bật thì phải `applyTranslation()` — xem `openDefinitionPanel()` /
-/// `closeDefinitionPanel()` ở `ReaderView+RuleTools.swift`.
+/// Bất biến: `ruleTraces` được `refreshRuleTraces()` làm mới khi mở panel **hoặc** khi dữ liệu rule
+/// (chung hoặc riêng của truyện đang đọc) thay đổi. Khi mở rộng / thu hẹp vùng chọn token, rule traces
+/// **không** load lại. Đóng panel mà `didChangeRuleData` bật thì phải `applyTranslation()` — xem
+/// `openDefinitionPanel()` / `closeDefinitionPanel()` ở `ReaderView+RuleTools.swift`.
 @MainActor
 extension ReaderView {
 

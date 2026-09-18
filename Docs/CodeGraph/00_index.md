@@ -15,6 +15,13 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Cập nhật rule trace khi mở panel Dịch và lọc signal rule theo truyện (1.3.381)
+
+* [`ReaderView+RuleTools.swift`](../../Sources/Views/Reader/Extensions/ReaderView+RuleTools.swift#L46): `openDefinitionPanel()` và `ReaderView.showingDefinitionSheet` kích hoạt `refreshRuleTraces()` ngay khi mở để thanh chip rule nạp dữ liệu của đoạn văn gốc.
+* [`ReaderView+DefinitionLoading.swift`](../../Sources/Views/Reader/Extensions/ReaderView+DefinitionLoading.swift#L122): `refreshDefinitionRules()` chuyển sang kiểm tra đoạn văn gốc `originalSentence == text` thay vì `currentDefinitionSnapshot() == snapshot`; khi người dùng mở rộng hoặc thu hẹp vùng chọn token trong câu, thanh chip rule không bị reload.
+* [`QuickTranslationRuleBookStore.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleBookStore.swift#L335): `notifyChange(bookId:)` phát thêm `notifyRulesDidUpdate(bookId: bookId)` để các tầng lắng nghe lọc chính xác theo truyện.
+* [`ReaderView.swift`](../../Sources/Views/Reader/ReaderView.swift#L622): Lắng nghe `.quickTranslationRulesDidUpdate`, chỉ reload bản dịch và thanh chip rule khi `targetBookId == nil` (rule chung) hoặc `targetBookId == bookId` (rule riêng của truyện đang đọc).
+
 ## Tắt rung mặc định iPhone khi bôi đen, tự động tắt auto-scroll và tối ưu độ mượt bôi đen (1.3.372)
 
 * [`SelectionHapticsSilencer`](../../Sources/Views/Reader/Components/SelectionHapticsSilencer.swift#L1) (file mới): Swizzle `UISelectionFeedbackGenerator.selectionChanged()` để triệt tiêu hoàn toàn phản hồi rung xúc giác (Haptic Feedback) mặc định của iOS khi người dùng kéo bôi đen văn bản trong Reader.
@@ -216,7 +223,7 @@ Sửa **3** file Swift trong `Services/TTS/Preprocessing/`, không thêm/xoá fi
 
 ## Debug extension Phase 1: structured trace nội bộ, chưa mở server (1.3.302)
 
-Triển khai Phase 0–1 của [plan debug ext qua app server](../Plans/2026-08-23-plan-debug-ext-app-server.md). **13 file mới** (428 → **441**), sửa **2** file hiện có.
+Triển khai Phase 0–1 của plan debug ext qua app server. **13 file mới** (428 → **441**), sửa **2** file hiện có.
 
 * **Đường mới, không phải nhánh của đường cũ.** `ExtensionDebugRunner` (actor) chạy đúng `execute(...)` của extension đã cài, dùng lại `getScriptPath` / `getCombinedConfigs` / `verifyJSResponse` / `compactRepresentation` của `ExtensionManager` — nên **`ExtensionManager.swift` không đổi một dòng nào** và 9 hàm public của nó giữ nguyên chữ ký.
 * **`JSExecutor` nhận `debugSink: ExtensionDebugEventSink?` (mặc định `nil`).** Mọi call site production truyền `nil`; các điểm phát đều `guard let sink = debugSink else { return }` nên đường đọc/tải chỉ trả thêm một phép kiểm tra `nil`. Hook ở console, exception handler, compile fail, cancel và native fetch.

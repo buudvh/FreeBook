@@ -52,6 +52,7 @@ extension ReaderView {
         showingDefinitionSheet = true
         viewModel?.setTranslationRefreshDeferred(true)
         updateEditorFromSelection()
+        refreshRuleTraces()
     }
 
     /// Chẩn đoán lại **cả đoạn** rồi giữ lại focus nếu chip cũ còn tồn tại.

@@ -15,6 +15,11 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Trạng thái nạp rule trace tách biệt khỏi snapshot token chọn lẻ (1.3.381)
+
+* `ReaderDefinitionSession`: `loadingRules` và `ruleTask` chuyển sang phụ thuộc vòng đời mở panel Dịch và nội dung câu gốc `originalSentence`, không gắn chặt với `currentDefinitionSnapshot()`.
+* Khi người dùng thay đổi vùng chọn token (`selectedWordOffset`/`selectedWordLength`): chỉ cập nhật state tra từ điển (`customMeaning`, `dictionaryMatches`, `suggestionChips`), `ruleTraces` giữ nguyên trạng thái hiển thị.
+
 ## State generation, request identity và deferred apply (1.3.354)
 
 * `TranslationDictionaryState.publicationRevision` tăng mỗi lần publish/invalidate; `translationGenerationToken` mang revision đó. `TranslationReadContext.isCurrent` kiểm cả token và revision trước khi cho cache/task publish.

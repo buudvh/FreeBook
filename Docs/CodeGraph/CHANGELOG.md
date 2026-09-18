@@ -4,6 +4,22 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.381] - 2026-09-18
+
+### fix: cap nhat rule trace khi mo panel dich va loc signal theo truyen
+
+Sửa **5** file Swift trong `Sources/Services/Translation/Engine/`, `Sources/Views/Reader/` và `Sources/Views/Reader/Extensions/`.
+
+- **Cập nhật rule traces khi mở panel Dịch (`ReaderView+RuleTools.swift`, `ReaderView.swift`)**:
+  - Gọi `refreshRuleTraces()` trong `openDefinitionPanel()` và trong `.onChange(of: showingDefinitionSheet)` (khi `newValue == true`) để thanh chip rule nạp dữ liệu chẩn đoán của cả đoạn văn ngay khi mở.
+- **Chống reload dải chip khi nới/thu token (`ReaderView+DefinitionLoading.swift`, `ReaderView+DefinitionPanel.swift`)**:
+  - `refreshDefinitionRules()` chuyển sang kiểm tra theo đoạn văn gốc `originalSentence == text` và `definitionSession.identity == sessionID`, bỏ phụ thuộc vào selection `range`/`word` của `currentDefinitionSnapshot()`.
+  - Khi mở rộng / thu hẹp vùng chọn token trong câu, editor chỉ gọi `loadDefinitionData()` để cập nhật nghĩa từ điển, thanh chip rule giữ nguyên trạng thái hiển thị.
+- **Phát và lọc sự kiện rule theo truyện (`QuickTranslationRuleBookStore.swift`, `ReaderView.swift`)**:
+  - `QuickTranslationRuleBookStore.notifyChange(bookId:)` gọi thêm `TranslationManager.shared.notifyRulesDidUpdate(bookId: bookId)`.
+  - `ReaderView` đăng ký nhận `.quickTranslationRulesDidUpdate` và chỉ reload bản dịch / thanh chip rule khi `targetBookId == nil` (rule chung) hoặc `targetBookId == bookId` (rule riêng đang đọc). Bỏ qua hoàn toàn nếu là thay đổi rule riêng của truyện khác.
+- **Tài liệu CodeGraph**: Cập nhật `00_index.md`, `04_call_graph.md`, `05_state_graph.md`, `06_event_graph.md`, `07_dataflow.md`, `11_subsystems.md`, `rules.md` và `CHANGELOG.md`.
+
 ## [1.3.380] - 2026-09-17
 
 ### fix: khong dung rule trace khi cap nhat name vp

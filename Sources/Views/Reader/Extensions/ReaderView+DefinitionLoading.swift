@@ -121,11 +121,10 @@ extension ReaderView {
 
     func refreshDefinitionRules() {
         guard showingDefinitionSheet else { return }
-        guard let snapshot = currentDefinitionSnapshot() else { return }
+        guard !originalSentence.isEmpty else { return }
         definitionSession.ruleTask?.cancel()
         let sessionID = definitionSession.identity
-        let selection = snapshot.range
-        let text = snapshot.sentence
+        let text = originalSentence
         let book = bookId
         let worker = definitionSession.worker
         definitionSession.loadingRules = true
@@ -133,14 +132,11 @@ extension ReaderView {
             do {
                 try await Task.sleep(nanoseconds: 150_000_000)
                 let result = try await CancellableTranslationWork.run {
-                    try await worker.traces(sentence: text, bookId: book, selection: selection)
+                    try await worker.traces(sentence: text, bookId: book, selection: NSRange(location: 0, length: 0))
                 }
                 guard showingDefinitionSheet,
-                      definitionSession.identity == sessionID else { return }
-                guard currentDefinitionSnapshot() == snapshot else {
-                    refreshDefinitionRules()
-                    return
-                }
+                      definitionSession.identity == sessionID,
+                      originalSentence == text else { return }
                 guard result.generation == TranslateUtils.translationGenerationToken(for: book) else {
                     refreshDefinitionRules()
                     return

@@ -15,6 +15,17 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Cập nhật dữ liệu rule khi mở panel Dịch, chống reload khi nới/thu token và lọc signal rule (1.3.381)
+
+* **Nạp rule traces khi mở panel Dịch (`ReaderView+RuleTools.swift`, `ReaderView.swift`)**:
+  - `openDefinitionPanel()` và `ReaderView.showingDefinitionSheet` kích hoạt `refreshRuleTraces()` ngay khi mở panel Dịch để thanh chip rule nạp dữ liệu của đoạn văn gốc thay vì bị rỗng.
+* **Chống reload dải chip khi nới/thu token (`ReaderView+DefinitionLoading.swift`)**:
+  - `refreshDefinitionRules()` chuyển sang kiểm tra đoạn văn gốc `originalSentence == text` thay vì snapshot token selection `currentDefinitionSnapshot() == snapshot`.
+  - Khi người dùng bấm mở rộng / thu hẹp vùng chọn token trong câu, editor chỉ gọi `loadDefinitionData()` để cập nhật nghĩa từ điển, thanh chip rule hoàn toàn không bị reload.
+* **Phát và lọc signal rule theo truyện (`QuickTranslationRuleBookStore.swift`, `ReaderView.swift`)**:
+  - `QuickTranslationRuleBookStore.notifyChange(bookId:)` gọi thêm `notifyRulesDidUpdate(bookId: bookId)` để phát `.quickTranslationRulesDidUpdate`.
+  - `ReaderView` đăng ký nhận `.quickTranslationRulesDidUpdate` và chỉ reload bản dịch / thanh chip rule khi thay đổi thuộc rule chung (`targetBookId == nil`) hoặc rule riêng của đúng cuốn sách đang đọc (`targetBookId == bookId`).
+
 ## Hỗ trợ liệt kê chữ số Hán tùy ý ngăn bằng dấu phẩy (1.3.378)
 
 * **Bỏ ràng buộc tăng liền bậc trong `enumeratedNumbers` (`QuickTranslationNumberFormatter.swift`)**:
@@ -407,7 +418,7 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 * **`ExtensionDebugSession` không phải actor dù plan đề nghị thế.** Sink bị gọi đồng bộ trong `@convention(block)` của JavaScriptCore và trong callback `URLSession`; actor sẽ buộc `await` ở đúng những chỗ không được phép, còn bọc `Task` tại call site thì mất thứ tự event. Nên: class + `NSLock` chỉ để cấp `sequence`, buffer/quota giữ trong actor `ExtensionDebugEventHub`.
 * **Bảy entrypoint, không phải chín.** `search`/`detail`/`toc`/`chap`/`genre`/`home`/`custom`. `page` và TTS ngoài MVP: `page` bị gọi lồng trong `toc`, TTS sinh audio, cả hai chưa chốt quota và cách huỷ.
 * **Ranh giới với `AppLogger`**: hai đường độc lập. Trace **không** đọc `isLoggingEnabled` và **không** tail `app_logs.txt` — `AppLogger.init` tự tắt log mỗi lần khởi chạy nên log file không dùng được làm giao thức debug. Đổi lại `AppLogger.log` ở các điểm phát vẫn giữ nguyên, không bị thay thế.
-* **Chưa có phần server.** Không `NWListener`, Bonjour, WebSocket hay đường nhận source từ ngoài; `Info.plist`/`project.yml` chưa cần khoá nào. Đó là Phase 2–3 của [plan](../Plans/2026-08-23-plan-debug-ext-app-server.md).
+* **Chưa có phần server.** Không `NWListener`, Bonjour, WebSocket hay đường nhận source từ ngoài; `Info.plist`/`project.yml` chưa cần khoá nào. Đó là Phase 2–3 của plan.
 
 ## Rule dịch: nhận dạng khoảng xấp xỉ thuộc formatter, không thuộc rule của người dùng (1.3.301)
 

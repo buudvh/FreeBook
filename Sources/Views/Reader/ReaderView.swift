@@ -554,6 +554,7 @@ struct ReaderView: View {
         .onChange(of: showingDefinitionSheet) { _, newValue in
             if newValue {
                 searchEngines = SearchEngine.loadEngines()
+                refreshRuleTraces()
             } else {
                 handleDefinitionPanelClosed()
             }
@@ -626,6 +627,17 @@ struct ReaderView: View {
                     viewModel?.cancelObsoleteTranslationRefresh()
                     scheduleCoalescedTranslationRefresh(scope: incomingScope)
                     loadDefinitionData(preservingMeaning: true)
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .quickTranslationRulesDidUpdate)) { notification in
+            let targetBookId = notification.userInfo?["bookId"] as? String
+            if targetBookId == nil || targetBookId == bookId {
+                viewModel?.cancelObsoleteTranslationRefresh()
+                scheduleCoalescedTranslationRefresh(scope: .globalReload)
+                loadDefinitionData(preservingMeaning: true)
+                if showingDefinitionSheet {
+                    refreshRuleTraces()
                 }
             }
         }

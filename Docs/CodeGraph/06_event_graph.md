@@ -15,6 +15,14 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Hoàn thiện phát và lọc sự kiện quickTranslationRulesDidUpdate theo truyện (1.3.381)
+
+* `QuickTranslationRuleBookStore.notifyChange(bookId:)` gọi thêm `TranslationManager.shared.notifyRulesDidUpdate(bookId: bookId)` để phát `.quickTranslationRulesDidUpdate` kèm `bookId` khi rule riêng thay đổi.
+* `ReaderView` đăng ký nhận `.quickTranslationRulesDidUpdate`:
+  - Lọc theo `targetBookId == nil || targetBookId == bookId`.
+  - Nếu là rule chung (`nil`) hoặc rule riêng của truyện đang đọc: lên lịch làm mới bản dịch, và nạp lại rule traces nếu panel Dịch đang mở (`showingDefinitionSheet`).
+  - Nếu là rule riêng của truyện khác: bỏ qua, không kích hoạt reload.
+
 ## Hai notification phân biệt từ điển và rule, cùng điều phối Reader/TTS (1.3.379)
 
 * **Từ điển** vẫn đi qua `.translationDictionariesDidUpdate` do `notifyDictionariesDidUpdate(bookId:scope:)` phát; `scope` là `.term`, `.config` hoặc `.globalReload` và có `affects(bookId:)` để Reader/TTS bỏ qua truyện khác.

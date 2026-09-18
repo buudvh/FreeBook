@@ -15,6 +15,11 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader definition overlay rule chip loading invariants (1.3.381)
+
+* **Rule traces are scoped to the paragraph, not the token selection.** `openDefinitionPanel()` and `showingDefinitionSheet` trigger `refreshRuleTraces()` so chips are populated on open. `refreshDefinitionRules()` validates paragraph identity (`originalSentence == text`), not `currentDefinitionSnapshot()`. Expanding or shrinking token selection does not reload rule traces.
+* **Rule updates only reload for global rules and the active book.** `QuickTranslationRuleBookStore.notifyChange(bookId:)` posts `.quickTranslationRulesDidUpdate`. Both `ReaderView` and `TTSManager` filter incoming rule notifications: reload only when `targetBookId == nil` (global) or matches the current book (`bookId` for reading, `playingBookId` for listening).
+
 ## Chapter cache ceiling and translation-only reload invariants (1.3.375)
 
 * **A stale translation token is not a reason to reload chapter content.** `loadChapterContentFromExtension` must return early (`.memory`) when `forceRefresh == false` **and** the reader cache already holds `state == .loaded` with non-empty `originalContent`. The only remaining work in that case is re-translating from the cached raw text, which `runNavigationWorker` already does. Explicit refresh paths (`forceRefresh: true` — "Cập nhật mục lục", `reloadDisplayedChapter`) must keep fetching.

@@ -15,6 +15,26 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Call graph nạp rule traces trong panel Dịch và điều phối signal rule (1.3.381)
+
+```text
+ReaderView
+  ├─ openDefinitionPanel() / onChange(of: showingDefinitionSheet)
+  │     └─ refreshRuleTraces()
+  │           └─ refreshDefinitionRules()
+  │                 └─ worker.traces(sentence: originalSentence, bookId: bookId)
+  │                       └─ QuickTranslationRuleDiagnostics.diagnose(text: sentence, bookId: bookId)
+  └─ onReceive(.quickTranslationRulesDidUpdate)
+        ├─ guard targetBookId == nil || targetBookId == bookId
+        ├─ scheduleCoalescedTranslationRefresh()
+        ├─ loadDefinitionData(preservingMeaning: true)
+        └─ if showingDefinitionSheet: refreshRuleTraces()
+
+ReaderDefinitionOverlayView (nới/thu token selection)
+  └─ updateEditorFromSelection()
+        └─ loadDefinitionData() (chỉ tra nghĩa từ điển, KHÔNG gọi refreshRuleTraces)
+```
+
 ## Call graph dịch từ đơn lẻ bảo tồn hoa/thường và tương tác panel dịch (1.3.376)
 
 ```text

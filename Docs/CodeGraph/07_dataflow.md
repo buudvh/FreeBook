@@ -15,6 +15,23 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Dòng dữ liệu chẩn đoán rule panel Dịch và điều phối signal rule (1.3.381)
+
+```text
+Mở panel Dịch -> openDefinitionPanel() / showingDefinitionSheet = true
+  -> refreshRuleTraces() -> refreshDefinitionRules()
+  -> worker.traces(sentence: originalSentence, bookId: bookId)
+  -> QuickTranslationRuleDiagnostics.diagnose
+  -> ruleTraces = result.values (Hiển thị dải chip rule của đoạn)
+
+Thay đổi rule (CRUD / disable)
+  -> QuickTranslationRuleStore / QuickTranslationRuleBookStore / QuickTranslationRuleDisableStore
+  -> TranslationManager.notifyRulesDidUpdate(bookId:)
+  -> Notification: .quickTranslationRulesDidUpdate(userInfo: ["bookId": bookId?])
+  ├─ ReaderView: targetBookId == nil || targetBookId == bookId -> applyTranslation() + refreshRuleTraces()
+  └─ TTSManager: targetBookId == nil || targetBookId == playingBookId -> reset preparation / synthesis
+```
+
 ## Dòng dữ liệu dịch từ đơn lẻ bảo tồn dạng hoa/thường (1.3.376)
 
 ```text

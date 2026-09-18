@@ -338,6 +338,7 @@ public final class QuickTranslationRuleBookStore: ObservableObject {
             bookId: bookId,
             scope: .config(bookId: bookId)
         )
+        TranslationManager.shared.notifyRulesDidUpdate(bookId: bookId)
     }
 
     private func bumpRevision() {
