@@ -55,7 +55,7 @@ public struct OpenAIChatRequest: Codable, Sendable {
     }
 
     /// Bọc giá trị Any cho JSON schema parameters.
-    public struct AnyCodable: Codable, Sendable, Equatable {
+    public struct OpenAIChatAnyCodable: Codable, Sendable, Equatable {
         public let value: String
 
         public init(_ value: String) {
@@ -72,6 +72,8 @@ public struct OpenAIChatRequest: Codable, Sendable {
             try container.encode(value)
         }
     }
+
+    public typealias AnyCodable = OpenAIChatAnyCodable
 
     public let model: String
     public let messages: [Message]

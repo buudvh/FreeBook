@@ -4,7 +4,17 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
-## [1.3.386] - 2026-09-23
+## [1.3.387] - 2026-09-23
+
+### fix: nang cap chan doan ci va tranh xung dot type trong ai harness
+
+Cải thiện workflow CI và refactor kiểu dữ liệu trong `Sources/Services/AI/`:
+
+- **Đổi tên kiểu AnyCodable (`OpenAITypes.swift`)**:
+  - Đổi tên `OpenAIChatRequest.AnyCodable` thành `OpenAIChatAnyCodable` và bổ sung typealias tương thích ngược nhằm phòng tránh xung đột định danh tiềm ẩn.
+- **Nâng cấp công cụ chẩn đoán lỗi CI (`.github/workflows/build-ipa.yml`)**:
+  - Bổ sung bước đọc trực tiếp `build_error.log` và trích xuất toàn bộ chuỗi thông báo lỗi/note từ các file serialized diagnostics (`.dia`) để hiển thị tường minh nguyên nhân thất bại trên GitHub Actions.
+
 
 ### fix: sua cac loi bien dich trong phan he ai harness
 

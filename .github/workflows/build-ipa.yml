@@ -93,6 +93,22 @@ jobs:
       run: |
         python3 -c '
         import os, glob, subprocess, re
+
+        if os.path.exists("build_error.log"):
+            print("=== TAIL OF BUILD_ERROR.LOG ===")
+            try:
+                with open("build_error.log", "r", errors="ignore") as f:
+                    lines = f.readlines()
+                    err_lines = [l for l in lines if any(w in l for w in ["error:", "Error:", "fatal error", "FAILED"])]
+                    print(f"--- Found {len(err_lines)} error lines in build_error.log ---")
+                    for l in err_lines[:50]:
+                        print("  ", l.strip())
+                    print("--- Last 100 lines of build_error.log ---")
+                    for l in lines[-100:]:
+                        print("  ", l.strip())
+            except Exception as e:
+                print(f"Error reading build_error.log: {e}")
+
         results = glob.glob("build_dd/Logs/Build/*.xcresult")
         if results:
             latest = max(results, key=os.path.getmtime)
@@ -112,12 +128,14 @@ jobs:
             try:
                 with open(dia, "rb") as f:
                     content = f.read()
-                    strings = re.findall(b"[\x20-\x7e]{4,}", content)
-                    found = [s.decode("latin1", errors="ignore") for s in strings if any(w in s.decode("latin1", errors="ignore") for w in ["error:", "Error:", "cannot find", "no member", "type "])]
-                    if found:
+                    raw_strings = [s.decode("latin1", errors="ignore") for s in re.findall(b"[\x20-\x7e]{3,}", content)]
+                    filtered = [s for s in raw_strings if not (s.startswith("-Xcc") or s.startswith("-fmodule-map") or s.startswith("/Applications") or s.startswith("/Users") or "IntermediateBuildFilesPath" in s or len(s) > 150)]
+                    has_err = any(w in s.lower() for s in filtered for w in ["error", "invalid", "cannot", "no member", "declared here", "redeclaration", "ambiguous"])
+                    if has_err:
                         print(f"\n--- {dia} ---")
-                        for f_str in found:
-                            print(f"  {f_str}")
+                        for s in filtered:
+                            if any(w in s.lower() for w in ["error", "invalid", "cannot", "no member", "declared here", "redeclaration", "ambiguous", "type", "note"]):
+                                print(f"  {s}")
             except Exception as e:
                 pass
         '
