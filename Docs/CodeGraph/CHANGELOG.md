@@ -16,10 +16,10 @@ Thêm **6** file Swift mới và sửa **8** file Swift trong `Sources/Models/AI
   - Cung cấp sheet `BookAIMemorySheet` để xem và chỉnh sửa nhanh trí nhớ truyện.
 - **Tự động compact ngữ cảnh phiên chat (`AIContextCompactor.swift`, `AIChatSession.swift`)**:
   - Tự động tóm tắt các tin nhắn cũ khi session vượt quá 12 tin nhắn thành `contextSummary`, chỉ gửi tóm tắt + 6 tin nhắn mới nhất để tối ưu token và chống tràn context window.
-- **Nâng cấp Lưu Từ điển Name riêng & VP riêng (`ReaderAINameReviewCardView.swift`, `AIHarnessService.swift`)**:
+- **Nâng cấp Lưu Từ điển Name riêng & VP riêng (`ReaderAINameReviewCardView.swift`, `AIHarnessService.swift`, `ReaderAIFullScreenView+Actions.swift`)**:
   - Bổ sung 2 nút bấm riêng biệt: `Lưu Name riêng` và `Lưu VP riêng`.
   - Hộp thoại xác nhận 2 chế độ: *Gộp (trùng từ thì thay mới)* và *Thay thế hoàn toàn*.
-  - Chuyển đổi nút Lưu thành banner xác nhận màu xanh sau khi lưu thành công, kèm Toast thông báo.
+  - Chuyển đổi nút Lưu thành banner xác nhận màu xanh sau khi lưu thành công, kèm Toast thông báo (sửa cú pháp `ToastManager.shared.show(message:type:)`).
   - Thêm nút xóa từng mục và sửa liên kết hai chiều (binding) bỏ chọn tên riêng trực tiếp vào session messages.
 - **Cải tiến giao diện & trải nghiệm AI (`AIMarkdownMessageView.swift`, `ReaderAIThinkingIndicatorView.swift`, `ReaderAIFullScreenView.swift`, `ReaderAIInputBarView.swift`)**:
   - Render phản hồi AI chuẩn Markdown với khối code monospaced có nút chép, tiêu đề và gạch đầu dòng.

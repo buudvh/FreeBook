@@ -3,8 +3,8 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-09-23T09:56:08Z",
-  "gitCommit": "67032d1a57c7337069b8e219838b33f9e5f21e38",
+  "generatedAt": "2026-09-23T10:03:12Z",
+  "gitCommit": "769eec347d7ce1b3c1b731e83accec89e9ecc72d",
   "sourceFileCount": 561,
   "documentCount": 16,
   "documents": [
@@ -1454,12 +1454,12 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "5e7d8c00ffd348b6f8f421976d58c213589d09fdadea6c7e6a6bccad94840c2c",
-      "sourceHash": "4cc4d59a8688c5d63a6d07693d139ef2584a097a19dd51c3a3a4f2de4398121e",
+      "sourceHash": "8bfcc40b6de9487802aaf52ab844f8f5e5318ecb6df0a5777e034be9eba41c34",
       "generatedHash": "bd01bef82edc99582b640519805048b0ab9b23cecd003311539bf3a58829ca2b",
-      "generatedAt": "2026-09-23T09:56:08Z",
-      "reviewedAt": "2026-09-23T09:56:08Z",
-      "reviewedCommit": "67032d1a57c7337069b8e219838b33f9e5f21e38",
-      "reviewMode": "bootstrap"
+      "generatedAt": "2026-09-23T10:03:12Z",
+      "reviewedAt": "2026-09-23T10:03:12Z",
+      "reviewedCommit": "769eec347d7ce1b3c1b731e83accec89e9ecc72d",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "05_state_graph.md",
@@ -2956,12 +2956,12 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "4236030908d79538ec38ded56cf311972b7e70ab45bc1b8258bdf49d82292f1f",
-      "sourceHash": "b1f6a212e553a8d76fb27cd3e18bec19ebd6dde7d31eb6e16fd3808dd2dc01b9",
+      "sourceHash": "3b191c15595b5aca360899095f6c4f0435b390a5dbfb9f777ab30dc6060ce173",
       "generatedHash": "514f6842afd47fab7eaaf6fccc90330f261456149a602ff8c775c8c5e9d3aedf",
-      "generatedAt": "2026-09-23T09:56:08Z",
-      "reviewedAt": "2026-09-23T09:56:08Z",
-      "reviewedCommit": "67032d1a57c7337069b8e219838b33f9e5f21e38",
-      "reviewMode": "bootstrap"
+      "generatedAt": "2026-09-23T10:03:12Z",
+      "reviewedAt": "2026-09-23T10:03:12Z",
+      "reviewedCommit": "769eec347d7ce1b3c1b731e83accec89e9ecc72d",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "12_ownership_graph.md",
@@ -3206,12 +3206,12 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "6c216961c689a6c2b67f90a6531d0ac25e732bf3e39c6bcda25b99c6be94cd3e",
-      "sourceHash": "a06f63aee5a41a8925ee2026088deb94a3568e405c19b550ac5a4c2b8cb029a8",
+      "sourceHash": "d1ee062bb832e9110bed9074dc9c4ac16be51562c178e05db19de45fcd4a0e22",
       "generatedHash": "177b376b68f8753540da71f7f6c2cff2eb66bec04b5ce7c76184ab2a87bfede5",
-      "generatedAt": "2026-09-23T09:56:08Z",
-      "reviewedAt": "2026-09-23T09:56:08Z",
-      "reviewedCommit": "67032d1a57c7337069b8e219838b33f9e5f21e38",
-      "reviewMode": "bootstrap"
+      "generatedAt": "2026-09-23T10:03:12Z",
+      "reviewedAt": "2026-09-23T10:03:12Z",
+      "reviewedCommit": "769eec347d7ce1b3c1b731e83accec89e9ecc72d",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "14_complexity_report.md",

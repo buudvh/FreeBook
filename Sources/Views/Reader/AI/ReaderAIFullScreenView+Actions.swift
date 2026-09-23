@@ -290,7 +290,7 @@ extension ReaderAIFullScreenView {
             let saved = await AIHarnessService.shared.saveExtractedEntries(items, bookId: bookId, isName: isName, isMerge: isMerge)
             await MainActor.run {
                 let targetTitle = isName ? "Name riêng" : "VP riêng"
-                ToastManager.shared.show("Đã lưu \(saved) mục vào \(targetTitle) của truyện")
+                ToastManager.shared.show(message: "Đã lưu \(saved) mục vào \(targetTitle) của truyện", type: .success)
             }
         }
     }
