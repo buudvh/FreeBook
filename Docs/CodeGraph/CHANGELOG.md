@@ -4,7 +4,15 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
-## [1.3.387] - 2026-09-23
+## [1.3.388] - 2026-09-23
+
+### fix: chuyen aibookdatainspector sang internal de fix loi bien dich
+
+Sửa access level trong `Sources/Services/AI/Harness/AIBookDataInspector.swift`:
+
+- **Khắc phục lỗi biên dịch dùng kiểu internal trong public API (`AIBookDataInspector.swift`)**:
+  - Chuyển `AIBookDataInspector` và các phương thức `fetchDownloadedChapters`, `readRawChapterContent` từ `public` sang `internal` nhằm tương thích với kiểu `StoredChapterSnapshot` (được định nghĩa `internal`).
+
 
 ### fix: nang cap chan doan ci va tranh xung dot type trong ai harness
 

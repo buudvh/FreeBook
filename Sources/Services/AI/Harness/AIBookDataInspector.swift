@@ -1,13 +1,13 @@
 import Foundation
 
 /// Cung cấp dữ liệu nội dung truyện và từ điển cho AI Agent Harness.
-public final class AIBookDataInspector: Sendable {
-    public static let shared = AIBookDataInspector()
+final class AIBookDataInspector: Sendable {
+    static let shared = AIBookDataInspector()
 
     private init() {}
 
     /// Lấy danh sách tất cả các chương đã tải về (isCached = true) của cuốn sách.
-    public func fetchDownloadedChapters(bookId: String) async -> [StoredChapterSnapshot] {
+    func fetchDownloadedChapters(bookId: String) async -> [StoredChapterSnapshot] {
         guard let toc = try? await ChapterStore.shared.fetchOrderedTOC(bookId: bookId) else {
             return []
         }
@@ -15,7 +15,7 @@ public final class AIBookDataInspector: Sendable {
     }
 
     /// Đọc nội dung raw (chưa dịch) từ file binary của một chương đã tải.
-    public func readRawChapterContent(bookId: String, snapshot: StoredChapterSnapshot) async -> String? {
+    func readRawChapterContent(bookId: String, snapshot: StoredChapterSnapshot) async -> String? {
         guard snapshot.isCached, snapshot.length > 0 else { return nil }
         do {
             let raw = try await BookBinManager.shared.readChapterContent(
@@ -31,7 +31,7 @@ public final class AIBookDataInspector: Sendable {
     }
 
     /// Đọc nội dung raw của một chương theo index.
-    public func readRawChapterContent(bookId: String, chapterIndex: Int) async -> String? {
+    func readRawChapterContent(bookId: String, chapterIndex: Int) async -> String? {
         guard let toc = try? await ChapterStore.shared.fetchOrderedTOC(bookId: bookId),
               let chapter = toc.first(where: { $0.index == chapterIndex }) else {
             return nil
@@ -40,7 +40,7 @@ public final class AIBookDataInspector: Sendable {
     }
 
     /// Lấy danh sách các từ/tên riêng đã có trong từ điển riêng của truyện.
-    public func fetchExistingNamesInBook(bookId: String) -> [String] {
+    func fetchExistingNamesInBook(bookId: String) -> [String] {
         let translateDir = TranslationManager.shared.translateDirectory
         let bookDir = translateDir.appendingPathComponent("books").appendingPathComponent(bookId)
         let txtUrl = bookDir.appendingPathComponent("Names.txt")
