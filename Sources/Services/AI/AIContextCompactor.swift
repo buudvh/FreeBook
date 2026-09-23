@@ -53,6 +53,7 @@ public final class AIContextCompactor: Sendable {
 
         do {
             let (summary, _) = try await OpenAIClient.shared.sendChat(config: config, messages: messages)
+            guard let summary else { return session.contextSummary }
             let trimmed = summary.trimmingCharacters(in: .whitespacesAndNewlines)
             return trimmed.isEmpty ? session.contextSummary : trimmed
         } catch {
