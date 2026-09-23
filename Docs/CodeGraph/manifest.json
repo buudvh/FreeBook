@@ -3,8 +3,8 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-09-23T10:16:31Z",
-  "gitCommit": "4d441e695c6aa460ac329d28f8d5786f04ef3565",
+  "generatedAt": "2026-09-23T13:23:38Z",
+  "gitCommit": "edbaac1f16908e08f7db7f50af6d79a4a3b8dcdf",
   "sourceFileCount": 561,
   "documentCount": 16,
   "documents": [
@@ -1288,12 +1288,12 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "996f27ccb24871e6c6a8eb821d40e3ea83b12aee18bb7743f4f12a2fd1ddac19",
-      "sourceHash": "644c63d131a93e619f9663fdd870c5a8d44a26741ef41dee7902a753beff13b6",
-      "generatedHash": "42d4ceebf4ba7068f6362838474c750b1285121c6d4a39b49a3a3bae7d91df7d",
-      "generatedAt": "2026-09-23T09:56:08Z",
-      "reviewedAt": "2026-09-23T09:56:08Z",
-      "reviewedCommit": "67032d1a57c7337069b8e219838b33f9e5f21e38",
-      "reviewMode": "bootstrap"
+      "sourceHash": "322ee35f49410ff385c58b41f08c38bcd265104ef25baefbbd09c0921fea257c",
+      "generatedHash": "045137038ba106c86a72da92ace48f96a904c0e2268c81d5ce30ae7f781fbbc6",
+      "generatedAt": "2026-09-23T13:23:38Z",
+      "reviewedAt": "2026-09-23T13:23:38Z",
+      "reviewedCommit": "edbaac1f16908e08f7db7f50af6d79a4a3b8dcdf",
+      "reviewMode": "accept"
     },
     {
       "filename": "04_call_graph.md",
@@ -2956,12 +2956,12 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "4236030908d79538ec38ded56cf311972b7e70ab45bc1b8258bdf49d82292f1f",
-      "sourceHash": "b5e84188a72c5f5d3b84389f1e8085f49d07d9453363ff213caa29914f8285e0",
-      "generatedHash": "514f6842afd47fab7eaaf6fccc90330f261456149a602ff8c775c8c5e9d3aedf",
-      "generatedAt": "2026-09-23T10:16:31Z",
-      "reviewedAt": "2026-09-23T10:16:31Z",
-      "reviewedCommit": "4d441e695c6aa460ac329d28f8d5786f04ef3565",
-      "reviewMode": "no-change-needed"
+      "sourceHash": "7642711ecbb2bda3b436cd7953ce5328efca51611325dd538d50ac539a679dce",
+      "generatedHash": "8c4f6e66e18974cc8e25f78015177dbb7c00a1e3a441b36d8ab56fff51c645da",
+      "generatedAt": "2026-09-23T13:23:38Z",
+      "reviewedAt": "2026-09-23T13:23:38Z",
+      "reviewedCommit": "edbaac1f16908e08f7db7f50af6d79a4a3b8dcdf",
+      "reviewMode": "accept"
     },
     {
       "filename": "12_ownership_graph.md",

@@ -15,6 +15,13 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Nâng cấp Resilient JSON Parser cho trích xuất tên riêng AI (1.3.391)
+
+* **Services/AI**:
+  - `AINameExtractionBatchProcessor`: Nâng cấp bộ bóc tách JSON đa tầng (`extractMarkdownBlock`, `cleanTrailingCommas`, `tryParseJSON`) hỗ trợ bóc tách markdown code blocks kèm text ngoài, tìm dải JSON substring array/object, multi-key fallback cho original (`original`, `name`, `word`, `hanzi`, `raw`, `chinese`, `text`) và meaning (`suggestedMeaning`, `meaning`, `translation`, `vietnamese`), làm sạch trailing commas và gộp trùng lặp.
+* **Models/AI**:
+  - `AIConfiguration`: Cập nhật `defaultNameExtractionPrompt` bổ sung trường mẫu `category`.
+
 ## Type cho quản lý Provider Profiles độc lập (1.3.389)
 
 * **Models/AI**:

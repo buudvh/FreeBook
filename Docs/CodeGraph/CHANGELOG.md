@@ -4,6 +4,21 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.391] - 2026-09-23
+
+### fix: sua loi parse json trich xuat ten rieng ai luon tra ve 0 ket qua
+
+Sửa **2** file Swift trong `Sources/Models/AI/` và `Sources/Services/AI/`:
+
+- **Nâng cấp Resilient JSON Parser trích xuất tên riêng (`AINameExtractionBatchProcessor.swift`)**:
+  - Khắc phục lỗi kiểm tra cứng trường `dict["meaning"]` trong khi cấu hình AI yêu cầu `suggestedMeaning` dẫn đến kết quả luôn bị bỏ qua thành rỗng.
+  - Bổ sung cơ chế bóc tách JSON đa tầng: bóc tách markdown code fence (`extractMarkdownBlock`) kể cả khi có văn bản phụ bao quanh; fallback cắt lát dải JSON substring mảng `[...]` hoặc object `{...}` qua chỉ số mở/đóng đầu tiên và cuối cùng.
+  - Hỗ trợ làm sạch dấu phẩy thừa (trailing commas trước `}` và `]`) thông qua Regex `cleanTrailingCommas`.
+  - Mở rộng hỗ trợ đa dạng tên trường (multi-key fallback): từ gốc Hán tự (`original`, `name`, `word`, `hanzi`, `raw`, `chinese`, `text`), nghĩa dịch Hán Việt (`suggestedMeaning`, `meaning`, `translation`, `vietnamese`, `hvdic`, `hanviet`, `viet`, `val`, `value`), phân loại (`category`, `type`, `tag`, `role`) và số lần xuất hiện (`occurrenceCount`, `count`, `occurrences`, `frequency`).
+  - Tự động khử trùng lặp và cộng dồn số lần xuất hiện theo từ gốc tiếng Trung.
+- **Chuẩn hóa Prompt trích xuất tên riêng (`AIConfiguration.swift`)**:
+  - Bổ sung trường mẫu `category` trong `defaultNameExtractionPrompt` để hỗ trợ AI phân loại chính xác các thực thể trích xuất.
+
 ## [1.3.390] - 2026-09-23
 
 ### feat: nang cap toan dien ai harness tri nho truyen compact va luu tu dien

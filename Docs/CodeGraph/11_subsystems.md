@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Nâng cấp Resilient JSON Parser cho Trích xuất Tên riêng AI (1.3.391)
+
+* **Phân hệ AI Services (`AINameExtractionBatchProcessor.swift`)**:
+  - Triển khai cơ chế bóc tách JSON đa tầng: Bóc tách markdown fenced code block (hỗ trợ văn bản bao quanh), fallback cắt lát mảng `[...]` hoặc object `{...}` qua chỉ số ký tự mở/đóng đầu tiên và cuối cùng.
+  - Làm sạch dấu phẩy thừa (trailing commas trước `}` và `]`) thông qua regex trước khi đưa vào `JSONSerialization`.
+  - Mở rộng hỗ trợ ánh xạ đa dạng tên trường (multi-key fallback): từ gốc tiếng Trung (`original`, `name`, `word`, `hanzi`, `raw`, `chinese`, `text`), nghĩa tiếng Việt (`suggestedMeaning`, `meaning`, `translation`, `vietnamese`, `hvdic`, `hanviet`), phân loại (`category`, `type`, `tag`, `role`) và tần suất (`occurrenceCount`, `count`).
+  - Tự động khử trùng lặp và cộng dồn số lần xuất hiện cho các tên riêng giống nhau trong cùng batch.
+
 ## Nâng cấp Quản lý Provider Profiles và Sheet Thêm Mới với Picker (1.3.389)
 
 * **Quản lý Provider Profile độc lập (`AIProviderProfile.swift`, `AIConfiguration.swift`, `AISettingsStore.swift`)**:

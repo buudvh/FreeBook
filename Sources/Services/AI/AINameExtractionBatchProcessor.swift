@@ -86,26 +86,165 @@ public final class AINameExtractionBatchProcessor: Sendable {
     }
 
     private func parseNamesFromJSONString(_ rawString: String) -> [AIExtractedName] {
-        var clean = rawString.trimmingCharacters(in: .whitespacesAndNewlines)
-        // Bỏ bọc ```json ... ``` nếu model trả về markdown
-        if clean.hasPrefix("```") {
-            clean = clean.replacingOccurrences(of: "```json", with: "").replacingOccurrences(of: "```", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = rawString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+
+        // 1. Thử trích xuất từ khối markdown code block ```json ... ``` hoặc ``` ... ```
+        if let block = extractMarkdownBlock(from: trimmed), let items = tryParseJSON(block) {
+            return items
         }
 
-        guard let data = clean.data(using: .utf8),
-              let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
-            return []
+        // 2. Thử parse trực tiếp chuỗi trimmed
+        if let items = tryParseJSON(trimmed) {
+            return items
         }
+
+        // 3. Nếu chưa parse được, tìm dải JSON substring bắt đầu bằng '[' đến ']' cuối cùng (mảng JSON)
+        if let firstBracket = trimmed.firstIndex(of: "["),
+           let lastBracket = trimmed.lastIndex(of: "]"),
+           firstBracket < lastBracket {
+            let slice = String(trimmed[firstBracket...lastBracket])
+            if let items = tryParseJSON(slice) {
+                return items
+            }
+        }
+
+        // 4. Tìm dải JSON object '{' đến '}' cuối cùng (đề phòng AI bọc {"names": [...]})
+        if let firstBrace = trimmed.firstIndex(of: "{"),
+           let lastBrace = trimmed.lastIndex(of: "}"),
+           firstBrace < lastBrace {
+            let slice = String(trimmed[firstBrace...lastBrace])
+            if let items = tryParseJSON(slice) {
+                return items
+            }
+        }
+
+        return []
+    }
+
+    private func extractMarkdownBlock(from text: String) -> String? {
+        guard let startRange = text.range(of: "```") else { return nil }
+        let afterStart = text[startRange.upperBound...]
+        var contentStart = afterStart.startIndex
+        if afterStart.hasPrefix("json") {
+            if let idx = afterStart.index(afterStart.startIndex, offsetBy: 4, limitedBy: afterStart.endIndex) {
+                contentStart = idx
+            }
+        }
+        let remaining = text[contentStart...]
+        guard let endRange = remaining.range(of: "```") else { return nil }
+        let extracted = String(remaining[..<endRange.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+        return extracted.isEmpty ? nil : extracted
+    }
+
+    private func cleanTrailingCommas(_ json: String) -> String {
+        guard let regex = try? NSRegularExpression(pattern: ",\\s*([}\\]])", options: []) else {
+            return json
+        }
+        let range = NSRange(location: 0, length: json.utf16.count)
+        return regex.stringByReplacingMatches(in: json, options: [], range: range, withTemplate: "$1")
+    }
+
+    private func tryParseJSON(_ jsonString: String) -> [AIExtractedName]? {
+        let cleaned = cleanTrailingCommas(jsonString.trimmingCharacters(in: .whitespacesAndNewlines))
+        guard let data = cleaned.data(using: .utf8),
+              let jsonObject = try? JSONSerialization.jsonObject(with: data) else {
+            return nil
+        }
+
+        var rawList: [[String: Any]] = []
+
+        if let array = jsonObject as? [[String: Any]] {
+            rawList = array
+        } else if let dict = jsonObject as? [String: Any] {
+            let potentialKeys = ["names", "entities", "data", "result", "list", "items", "extracted_names", "characters"]
+            for key in potentialKeys {
+                if let subArray = dict[key] as? [[String: Any]] {
+                    rawList = subArray
+                    break
+                }
+            }
+            if rawList.isEmpty {
+                for (_, value) in dict {
+                    if let subArray = value as? [[String: Any]] {
+                        rawList = subArray
+                        break
+                    }
+                }
+            }
+        }
+
+        guard !rawList.isEmpty else { return nil }
 
         var results: [AIExtractedName] = []
-        for dict in jsonArray {
-            guard let orig = dict["original"] as? String, !orig.isEmpty,
-                  let meaning = dict["meaning"] as? String, !meaning.isEmpty else {
-                continue
+        var seenOriginals: [String: Int] = [:]
+
+        for dict in rawList {
+            let originalCandidates: [Any?] = [
+                dict["original"], dict["name"], dict["word"], dict["hanzi"],
+                dict["raw"], dict["chinese"], dict["text"]
+            ]
+            var origStr = ""
+            for candidate in originalCandidates {
+                if let str = candidate as? String, !str.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    origStr = str.trimmingCharacters(in: .whitespacesAndNewlines)
+                    break
+                }
             }
-            let category = (dict["category"] as? String) ?? "Nhân vật"
-            results.append(AIExtractedName(original: orig, suggestedMeaning: meaning, category: category))
+            guard !origStr.isEmpty else { continue }
+
+            let meaningCandidates: [Any?] = [
+                dict["suggestedMeaning"], dict["meaning"], dict["translation"],
+                dict["vietnamese"], dict["hvdic"], dict["hanviet"],
+                dict["viet"], dict["val"], dict["value"]
+            ]
+            var meaningStr = ""
+            for candidate in meaningCandidates {
+                if let str = candidate as? String, !str.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    meaningStr = str.trimmingCharacters(in: .whitespacesAndNewlines)
+                    break
+                }
+            }
+            guard !meaningStr.isEmpty else { continue }
+
+            let categoryCandidates: [Any?] = [
+                dict["category"], dict["type"], dict["tag"], dict["role"], dict["label"]
+            ]
+            var catStr = "Nhân vật"
+            for candidate in categoryCandidates {
+                if let str = candidate as? String, !str.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    catStr = str.trimmingCharacters(in: .whitespacesAndNewlines)
+                    break
+                }
+            }
+
+            let countCandidates: [Any?] = [
+                dict["occurrenceCount"], dict["count"], dict["occurrences"], dict["frequency"]
+            ]
+            var countVal = 1
+            for candidate in countCandidates {
+                if let intVal = candidate as? Int, intVal > 0 {
+                    countVal = intVal
+                    break
+                } else if let strVal = candidate as? String, let parsed = Int(strVal), parsed > 0 {
+                    countVal = parsed
+                    break
+                }
+            }
+
+            if let existingIndex = seenOriginals[origStr] {
+                results[existingIndex].occurrenceCount += countVal
+            } else {
+                seenOriginals[origStr] = results.count
+                results.append(AIExtractedName(
+                    original: origStr,
+                    suggestedMeaning: meaningStr,
+                    category: catStr,
+                    occurrenceCount: countVal
+                ))
+            }
         }
-        return results
+
+        return results.isEmpty ? nil : results
     }
 }

@@ -147,7 +147,7 @@ public struct AIConfiguration: Codable, Sendable, Equatable {
     - Trả về JSON hợp lệ duy nhất, không thêm bất kỳ văn bản giải thích nào ngoài JSON.
     - Định dạng:
     [
-      {"original": "tên chữ Hán", "suggestedMeaning": "tên dịch Hán Việt hoặc nghĩa phù hợp"}
+      {"original": "tên chữ Hán", "suggestedMeaning": "tên dịch Hán Việt hoặc nghĩa phù hợp", "category": "Nhân vật/Địa danh/Tông môn/Công pháp/Khác"}
     ]
     """
 
