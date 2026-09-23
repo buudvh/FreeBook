@@ -3,9 +3,9 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-09-23T06:03:39Z",
-  "gitCommit": "27f24691ff6479184a6f4b7c478ba56e741c27b7",
-  "sourceFileCount": 551,
+  "generatedAt": "2026-09-23T08:25:46Z",
+  "gitCommit": "e21c08ce0f4d052a73013c424dcf435ac841d272",
+  "sourceFileCount": 553,
   "documentCount": 16,
   "documents": [
     {
@@ -44,6 +44,7 @@
         "Sources/Models/AI/AIHarnessAction.swift",
         "Sources/Models/AI/AIHarnessMode.swift",
         "Sources/Models/AI/AIProviderPreset.swift",
+        "Sources/Models/AI/AIProviderProfile.swift",
         "Sources/Models/Books/AddBookToShelfCommand.swift",
         "Sources/Models/Books/BookTransactionError.swift",
         "Sources/Models/Books/EditBookInfoCommand.swift",
@@ -481,6 +482,7 @@
         "Sources/Views/Reader/ReaderViewModel.swift",
         "Sources/Views/Search/SearchView.swift",
         "Sources/Views/Settings/AI/AISettingsView.swift",
+        "Sources/Views/Settings/AI/AddProviderProfileSheet.swift",
         "Sources/Views/Settings/Backup/BackupHubView.swift",
         "Sources/Views/Settings/Backup/BackupScopeToggleList.swift",
         "Sources/Views/Settings/Backup/DriveAutoBackupSettingsView.swift",
@@ -568,12 +570,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "e8b48d0b87090faa5df686c5249d2407f6055846783e5c022797d21969c66a00",
-      "sourceHash": "74229751ca3c40c88252a122b5beb29ed2ed8c3276ac8645670a0dfed4b05e71",
-      "generatedHash": "447e289c27ca3ad9eab7d64fb67c734c72103e414c6e71a689bcd5345cf3859f",
-      "generatedAt": "2026-09-23T05:02:43Z",
-      "reviewedAt": "2026-09-23T05:02:43Z",
-      "reviewedCommit": "dde319c83cd9cdc21341d1b0f7b68c68a295085e",
+      "structureHash": "f35dcf50ad4309c1cdac010e9821408c6f8e16ac948410a87f8ecd2d9125e91d",
+      "sourceHash": "2ed4b014ed0d5b04a9b837824f243869e92b14ce9ac9577b9997b2054323662d",
+      "generatedHash": "9330cdb3be83fffcf85351e8825877d907717b709f2654f199e34162da88ed30",
+      "generatedAt": "2026-09-23T08:25:36Z",
+      "reviewedAt": "2026-09-23T08:25:36Z",
+      "reviewedCommit": "e21c08ce0f4d052a73013c424dcf435ac841d272",
       "reviewMode": "accept"
     },
     {
@@ -639,6 +641,7 @@
         "Sources/Models/AI/AIHarnessAction.swift",
         "Sources/Models/AI/AIHarnessMode.swift",
         "Sources/Models/AI/AIProviderPreset.swift",
+        "Sources/Models/AI/AIProviderProfile.swift",
         "Sources/Models/Books/AddBookToShelfCommand.swift",
         "Sources/Models/Books/BookTransactionError.swift",
         "Sources/Models/Books/EditBookInfoCommand.swift",
@@ -1076,6 +1079,7 @@
         "Sources/Views/Reader/ReaderViewModel.swift",
         "Sources/Views/Search/SearchView.swift",
         "Sources/Views/Settings/AI/AISettingsView.swift",
+        "Sources/Views/Settings/AI/AddProviderProfileSheet.swift",
         "Sources/Views/Settings/Backup/BackupHubView.swift",
         "Sources/Views/Settings/Backup/BackupScopeToggleList.swift",
         "Sources/Views/Settings/Backup/DriveAutoBackupSettingsView.swift",
@@ -1163,12 +1167,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "e8b48d0b87090faa5df686c5249d2407f6055846783e5c022797d21969c66a00",
-      "sourceHash": "74229751ca3c40c88252a122b5beb29ed2ed8c3276ac8645670a0dfed4b05e71",
-      "generatedHash": "cfda93c8b829e0a512f4cbeb2558be96723c1b5336f47b06b1aeba7681bd7664",
-      "generatedAt": "2026-09-23T05:02:43Z",
-      "reviewedAt": "2026-09-23T05:02:43Z",
-      "reviewedCommit": "dde319c83cd9cdc21341d1b0f7b68c68a295085e",
+      "structureHash": "f35dcf50ad4309c1cdac010e9821408c6f8e16ac948410a87f8ecd2d9125e91d",
+      "sourceHash": "2ed4b014ed0d5b04a9b837824f243869e92b14ce9ac9577b9997b2054323662d",
+      "generatedHash": "11c2a1d7e67458f17b053fb900145a7a8822888ab9dba0be243e505eec633410",
+      "generatedAt": "2026-09-23T08:25:36Z",
+      "reviewedAt": "2026-09-23T08:25:36Z",
+      "reviewedCommit": "e21c08ce0f4d052a73013c424dcf435ac841d272",
       "reviewMode": "accept"
     },
     {
@@ -1211,6 +1215,7 @@
         "Sources/Models/AI/AIHarnessAction.swift",
         "Sources/Models/AI/AIHarnessMode.swift",
         "Sources/Models/AI/AIProviderPreset.swift",
+        "Sources/Models/AI/AIProviderProfile.swift",
         "Sources/Models/Books/AddBookToShelfCommand.swift",
         "Sources/Models/Books/BookTransactionError.swift",
         "Sources/Models/Books/EditBookInfoCommand.swift",
@@ -1265,12 +1270,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "7a7eb4abbc5c6d4c433643985cdbdc8fac1739d8f5c96fd5faf0a63985f24217",
-      "sourceHash": "5f1e428d70417229891a4dbff0a5b06de2d9f6b29c84ba7d6c632e672939a776",
-      "generatedHash": "65c6b8091a82aa7b1c733276e8394d441ad2a8b6ff0c9f5e86706bbde60a0f0d",
-      "generatedAt": "2026-09-23T05:02:43Z",
-      "reviewedAt": "2026-09-23T05:02:43Z",
-      "reviewedCommit": "dde319c83cd9cdc21341d1b0f7b68c68a295085e",
+      "structureHash": "497376f29262e7034441cbf171e02777b78e05062e224468be3ec0a28070f8e8",
+      "sourceHash": "aa868e8c79dab31aa42060925ff656ce4dd62718e65a3087db1b5b467ee5fcea",
+      "generatedHash": "42d4ceebf4ba7068f6362838474c750b1285121c6d4a39b49a3a3bae7d91df7d",
+      "generatedAt": "2026-09-23T08:25:36Z",
+      "reviewedAt": "2026-09-23T08:25:36Z",
+      "reviewedCommit": "e21c08ce0f4d052a73013c424dcf435ac841d272",
       "reviewMode": "accept"
     },
     {
@@ -1429,11 +1434,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "3e6add456c41050fea1ddf75f9335699cd43e9b97603f39d1ce6fd5c24638662",
-      "sourceHash": "88f6ebf33db7e429f9ae79b7196841862480b92bf9f58794f3e07809ba6afd3a",
+      "sourceHash": "8650ecf73123c766fd645a0aecde765c377c332b99e90fb361ca9809f48a26f6",
       "generatedHash": "bd01bef82edc99582b640519805048b0ab9b23cecd003311539bf3a58829ca2b",
-      "generatedAt": "2026-09-23T05:34:14Z",
-      "reviewedAt": "2026-09-23T05:34:14Z",
-      "reviewedCommit": "09b3439a25810c63e6f13d702c31fa84208972e9",
+      "generatedAt": "2026-09-23T08:25:46Z",
+      "reviewedAt": "2026-09-23T08:25:46Z",
+      "reviewedCommit": "e21c08ce0f4d052a73013c424dcf435ac841d272",
       "reviewMode": "no-change-needed"
     },
     {
@@ -1494,11 +1499,11 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "18401df0fe910f0baab7b9e86a25efddc5929886ca5e85703479775f7f74a051",
-      "sourceHash": "01f0a7212456f1f95ff37df3385198c6c683317774a575c85a906de521b38a40",
+      "sourceHash": "bfbe79d980fd1f6a59d5ef5effec806403c23b439180d2b70dd120861c370889",
       "generatedHash": "4c6fa6c611198b060c95bce010ee5c281b1edcb0631c3d30793603c56d07ea2e",
-      "generatedAt": "2026-09-23T05:34:14Z",
-      "reviewedAt": "2026-09-23T05:34:14Z",
-      "reviewedCommit": "09b3439a25810c63e6f13d702c31fa84208972e9",
+      "generatedAt": "2026-09-23T08:25:46Z",
+      "reviewedAt": "2026-09-23T08:25:46Z",
+      "reviewedCommit": "e21c08ce0f4d052a73013c424dcf435ac841d272",
       "reviewMode": "no-change-needed"
     },
     {
@@ -1714,12 +1719,12 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "acad37ecfe6bd6c367da5de500cdaf028298b3fb613e49e119afecb80611eb31",
-      "sourceHash": "fcfc63a4bdea71c011f4dcd156fd163d06e56cdc5205f8ce7347490ee8617f0e",
+      "sourceHash": "c4361a94d639cfad4c50207ff3a118246fd38331d0bbee007ed10186f25f4344",
       "generatedHash": "2dbe2bca59e5fcdb0567fb2622bc03716dfd50f4d4d8cc6909ed56125f813189",
-      "generatedAt": "2026-09-23T05:02:43Z",
-      "reviewedAt": "2026-09-23T05:02:43Z",
-      "reviewedCommit": "dde319c83cd9cdc21341d1b0f7b68c68a295085e",
-      "reviewMode": "accept"
+      "generatedAt": "2026-09-23T08:25:46Z",
+      "reviewedAt": "2026-09-23T08:25:46Z",
+      "reviewedCommit": "e21c08ce0f4d052a73013c424dcf435ac841d272",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "09_dependency_rules.md",
@@ -1761,6 +1766,7 @@
         "Sources/Models/AI/AIHarnessAction.swift",
         "Sources/Models/AI/AIHarnessMode.swift",
         "Sources/Models/AI/AIProviderPreset.swift",
+        "Sources/Models/AI/AIProviderProfile.swift",
         "Sources/Models/Books/AddBookToShelfCommand.swift",
         "Sources/Models/Books/BookTransactionError.swift",
         "Sources/Models/Books/EditBookInfoCommand.swift",
@@ -2198,6 +2204,7 @@
         "Sources/Views/Reader/ReaderViewModel.swift",
         "Sources/Views/Search/SearchView.swift",
         "Sources/Views/Settings/AI/AISettingsView.swift",
+        "Sources/Views/Settings/AI/AddProviderProfileSheet.swift",
         "Sources/Views/Settings/Backup/BackupHubView.swift",
         "Sources/Views/Settings/Backup/BackupScopeToggleList.swift",
         "Sources/Views/Settings/Backup/DriveAutoBackupSettingsView.swift",
@@ -2285,13 +2292,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "7a2eea9683c0b1f77c633d38b5c514c01ed1a3127b5e00844bdb497c1d05904a",
-      "sourceHash": "24d1e35dfaa5ddc92461f6e451126eb5ed33d5496c26a1cc22d88baea489010c",
+      "structureHash": "c4e03b456bf7e544e6f04f6530ecd05cbc875d282ff5053a1756c95983ab7f82",
+      "sourceHash": "2b7f83f7f0a0a6d4138712918c9415038e7f5575106e7494bf2a5db0e41cee61",
       "generatedHash": "2ac03515c34198f5f009553199007a1c3f6017a08f73649bc8843b4fed59e5ea",
-      "generatedAt": "2026-09-23T05:02:43Z",
-      "reviewedAt": "2026-09-23T05:02:43Z",
-      "reviewedCommit": "dde319c83cd9cdc21341d1b0f7b68c68a295085e",
-      "reviewMode": "accept"
+      "generatedAt": "2026-09-23T08:25:46Z",
+      "reviewedAt": "2026-09-23T08:25:46Z",
+      "reviewedCommit": "e21c08ce0f4d052a73013c424dcf435ac841d272",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "10_risk_report.md",
@@ -2403,12 +2410,12 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "832529caafdadcb677245786ba8f12f0f1a4afc921c564bd65494eaf2fd80ccb",
-      "sourceHash": "2d9926aa7734ed760f44a554e73caf9b9f251cfedd349f10f11e35be54379167",
+      "sourceHash": "518fa35b39502002321fc6c6e4955c1934df71dafc8a835f242cf49fae250283",
       "generatedHash": "59e910c3217a7af782ccfbd916af183eeca3a9b89d1ea8a60c56b5f787109b04",
-      "generatedAt": "2026-09-23T05:02:43Z",
-      "reviewedAt": "2026-09-23T05:02:43Z",
-      "reviewedCommit": "dde319c83cd9cdc21341d1b0f7b68c68a295085e",
-      "reviewMode": "accept"
+      "generatedAt": "2026-09-23T08:25:46Z",
+      "reviewedAt": "2026-09-23T08:25:46Z",
+      "reviewedCommit": "e21c08ce0f4d052a73013c424dcf435ac841d272",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "11_subsystems.md",
@@ -2825,6 +2832,7 @@
         "Sources/Views/Reader/ReaderViewModel.swift",
         "Sources/Views/Search/SearchView.swift",
         "Sources/Views/Settings/AI/AISettingsView.swift",
+        "Sources/Views/Settings/AI/AddProviderProfileSheet.swift",
         "Sources/Views/Settings/Backup/BackupHubView.swift",
         "Sources/Views/Settings/Backup/BackupScopeToggleList.swift",
         "Sources/Views/Settings/Backup/DriveAutoBackupSettingsView.swift",
@@ -2912,13 +2920,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "9337274a92c933990bb3066a4cfc5b0afe66510f2c64c444a005ff74c7464246",
-      "sourceHash": "55868c231b06bc8bcf89a67d6e278735e5c00c4518aea93001ef4970a6e05b72",
-      "generatedHash": "c201d1eadb44355d6d35e48fcf776e842cf6aa7d3e1cf605bce5cc97a0f3a0a7",
-      "generatedAt": "2026-09-23T06:03:39Z",
-      "reviewedAt": "2026-09-23T06:03:39Z",
-      "reviewedCommit": "27f24691ff6479184a6f4b7c478ba56e741c27b7",
-      "reviewMode": "no-change-needed"
+      "structureHash": "52e8ede14b80b5942edf40d0b3e160425e3bfaec70b68dc0133ec00ce8d4d946",
+      "sourceHash": "6ce163c82ff152a7147671624b7bb3d77e988d9f3c6834d889e55d488a26fdbb",
+      "generatedHash": "514f6842afd47fab7eaaf6fccc90330f261456149a602ff8c775c8c5e9d3aedf",
+      "generatedAt": "2026-09-23T08:25:36Z",
+      "reviewedAt": "2026-09-23T08:25:36Z",
+      "reviewedCommit": "e21c08ce0f4d052a73013c424dcf435ac841d272",
+      "reviewMode": "accept"
     },
     {
       "filename": "12_ownership_graph.md",
@@ -3160,11 +3168,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "fd6839e784b163c794b09904fc67dd224f10bd4409a2db6923f6080abf5f63fd",
-      "sourceHash": "a999f741c798dd1b0dbdf34a69ae30dc835e36e7cab8f32bd12d4946642f5088",
+      "sourceHash": "d2e800f26bdd719ca894461ecd84a261163c8f6e3afb579bbe24ada7442d3698",
       "generatedHash": "177b376b68f8753540da71f7f6c2cff2eb66bec04b5ce7c76184ab2a87bfede5",
-      "generatedAt": "2026-09-23T05:34:14Z",
-      "reviewedAt": "2026-09-23T05:34:14Z",
-      "reviewedCommit": "09b3439a25810c63e6f13d702c31fa84208972e9",
+      "generatedAt": "2026-09-23T08:25:46Z",
+      "reviewedAt": "2026-09-23T08:25:46Z",
+      "reviewedCommit": "e21c08ce0f4d052a73013c424dcf435ac841d272",
       "reviewMode": "no-change-needed"
     },
     {
@@ -3203,6 +3211,7 @@
         "Sources/Models/AI/AIHarnessAction.swift",
         "Sources/Models/AI/AIHarnessMode.swift",
         "Sources/Models/AI/AIProviderPreset.swift",
+        "Sources/Models/AI/AIProviderProfile.swift",
         "Sources/Models/Books/AddBookToShelfCommand.swift",
         "Sources/Models/Books/BookTransactionError.swift",
         "Sources/Models/Books/EditBookInfoCommand.swift",
@@ -3640,6 +3649,7 @@
         "Sources/Views/Reader/ReaderViewModel.swift",
         "Sources/Views/Search/SearchView.swift",
         "Sources/Views/Settings/AI/AISettingsView.swift",
+        "Sources/Views/Settings/AI/AddProviderProfileSheet.swift",
         "Sources/Views/Settings/Backup/BackupHubView.swift",
         "Sources/Views/Settings/Backup/BackupScopeToggleList.swift",
         "Sources/Views/Settings/Backup/DriveAutoBackupSettingsView.swift",
@@ -3727,13 +3737,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "e8b48d0b87090faa5df686c5249d2407f6055846783e5c022797d21969c66a00",
-      "sourceHash": "74229751ca3c40c88252a122b5beb29ed2ed8c3276ac8645670a0dfed4b05e71",
+      "structureHash": "f35dcf50ad4309c1cdac010e9821408c6f8e16ac948410a87f8ecd2d9125e91d",
+      "sourceHash": "2ed4b014ed0d5b04a9b837824f243869e92b14ce9ac9577b9997b2054323662d",
       "generatedHash": "ae4f24c5e9a6dfa9ff5291c1da3d6ce8720026e81c1e20044b3081d85aade58a",
-      "generatedAt": "2026-09-23T05:02:43Z",
-      "reviewedAt": "2026-09-23T05:02:43Z",
-      "reviewedCommit": "dde319c83cd9cdc21341d1b0f7b68c68a295085e",
-      "reviewMode": "accept"
+      "generatedAt": "2026-09-23T08:25:46Z",
+      "reviewedAt": "2026-09-23T08:25:46Z",
+      "reviewedCommit": "e21c08ce0f4d052a73013c424dcf435ac841d272",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "rules.md",
@@ -3839,12 +3849,12 @@
         "Sources/Views/Reader/ReaderView.swift"
       ],
       "structureHash": "38084ca1c03279d58a78f77ae1612ddc7c8375514dd8240d232178ac7a1eeced",
-      "sourceHash": "43b0771eceedf000d384834f290217b011ad0a0c5e397ffd333418d9004fafc8",
+      "sourceHash": "d48ecfbcb41e337a39b192e0d0e58a2e2d42501eec0aa559b206a3ba9e46a397",
       "generatedHash": "fc42ac90936887c802496d93326abf1ddc9d3e43212df822c4d5953a88311b84",
-      "generatedAt": "2026-09-23T05:02:43Z",
-      "reviewedAt": "2026-09-23T05:02:43Z",
-      "reviewedCommit": "dde319c83cd9cdc21341d1b0f7b68c68a295085e",
-      "reviewMode": "accept"
+      "generatedAt": "2026-09-23T08:25:46Z",
+      "reviewedAt": "2026-09-23T08:25:46Z",
+      "reviewedCommit": "e21c08ce0f4d052a73013c424dcf435ac841d272",
+      "reviewMode": "no-change-needed"
     }
   ]
 }

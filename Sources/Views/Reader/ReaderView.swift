@@ -374,7 +374,6 @@ struct ReaderView: View {
                 ruleToolsOverlay(in: geometry)
 
                 readerChapterListOverlay(in: geometry)
-                aiHarnessOverlay(in: geometry)
             }
         }
         .toolbar(.hidden, for: .navigationBar) // Ẩn navigation bar gốc
@@ -548,6 +547,9 @@ struct ReaderView: View {
                         }
                     }
             }
+        }
+        .fullScreenCover(isPresented: $showingAIFullScreen) {
+            aiFullScreenDestination
         }
     }
 

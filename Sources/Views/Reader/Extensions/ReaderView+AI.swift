@@ -3,17 +3,14 @@ import SwiftUI
 /// Mở rộng `ReaderView` tích hợp màn hình toàn màn hình AI Agent Harness.
 extension ReaderView {
     @ViewBuilder
-    internal func aiHarnessOverlay(in geometry: GeometryProxy) -> some View {
-        EmptyView()
-            .fullScreenCover(isPresented: $showingAIFullScreen) {
-                ReaderAIFullScreenView(
-                    bookId: bookId,
-                    bookTitle: readerBookDisplayTitle,
-                    chapterIndex: readerPresentedChapterIndex,
-                    chapterTitle: readerChapterDisplayTitle,
-                    currentChapterRawContent: currentChapterRawContentForAI
-                )
-            }
+    internal var aiFullScreenDestination: some View {
+        ReaderAIFullScreenView(
+            bookId: bookId,
+            bookTitle: readerBookDisplayTitle,
+            chapterIndex: readerPresentedChapterIndex,
+            chapterTitle: readerChapterDisplayTitle,
+            currentChapterRawContent: currentChapterRawContentForAI
+        )
     }
 
     /// Lấy toàn bộ nội dung raw (chưa dịch) của chương đang hiển thị.

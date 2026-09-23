@@ -15,6 +15,15 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +2 file cho quản lý Provider Profiles độc lập (1.3.389)
+
+| Nhóm | File mới | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Models | [`Models/AI/AIProviderProfile.swift`](../../Sources/Models/AI/AIProviderProfile.swift) | Struct cấu hình độc lập cho từng AI Provider | 95 |
+| Views/Settings | [`Views/Settings/AI/AddProviderProfileSheet.swift`](../../Sources/Views/Settings/AI/AddProviderProfileSheet.swift) | Sheet thêm Provider với Picker chọn Mẫu và load API models | 195 |
+
+* `AIConfiguration.swift` nâng cấp lưu trữ danh sách Profile; `AISettingsView.swift` tách Sheet riêng giữ dưới 400 dòng vật lý.
+
 ## +24 file cho phân hệ AI Assistant Harness ở Reader và Settings (1.3.385)
 
 | Nhóm | File mới | Vai trò | Dòng |

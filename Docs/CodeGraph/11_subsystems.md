@@ -15,6 +15,17 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Nâng cấp Quản lý Provider Profiles và Sheet Thêm Mới với Picker (1.3.389)
+
+* **Quản lý Provider Profile độc lập (`AIProviderProfile.swift`, `AIConfiguration.swift`, `AISettingsStore.swift`)**:
+  - Hỗ trợ lưu trữ nhiều Profile cấu hình độc lập không ghi đè lẫn nhau.
+  - Danh sách Profile hiển thị trực tiếp trong `AISettingsView`, chạm nạp chi tiết và đổi profile kích hoạt.
+* **Sheet Thêm Mới Provider với Picker mẫu (`AddProviderProfileSheet.swift`)**:
+  - Tích hợp Menu Picker phân nhóm Mẫu có sẵn (Gemini, OpenAI, DeepSeek, OpenRouter, Groq, Ollama) và Nhân bản từ Profile đã lưu.
+  - Nút "Load từ API" gọi `OpenAIClient.fetchAvailableModels` để tự động tải danh sách models từ endpoint.
+* **Sửa lỗi hiển thị toàn màn hình AI (`ReaderView.swift`, `ReaderView+AI.swift`)**:
+  - Di chuyển `.fullScreenCover` sang `readerSheetLayer` thay vì `EmptyView` trong ZStack.
+
 ## Phân hệ mới: AI Assistant Harness trong Reader và Settings (1.3.385)
 
 * **Mục tiêu**:

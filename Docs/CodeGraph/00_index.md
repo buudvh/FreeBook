@@ -15,6 +15,15 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Quản lý Provider Profile độc lập, Picker mẫu và sửa lỗi hiển thị AI (1.3.389)
+
+* [`ReaderView.swift`](../../Sources/Views/Reader/ReaderView.swift#L550) & [`ReaderView+AI.swift`](../../Sources/Views/Reader/Extensions/ReaderView+AI.swift#L6): Chuyển `.fullScreenCover` sang gắn trực tiếp trên `readerSheetLayer`, khắc phục hoàn toàn lỗi nhấn nút AI mà màn hình không hiển thị.
+* [`AIProviderProfile.swift`](../../Sources/Models/AI/AIProviderProfile.swift#L4): Struct đại diện cấu hình độc lập của từng AI Provider (`id`, `name`, `baseURL`, `apiKey`, `selectedModel`, `availableModels`, `temperature`, `isCustom`).
+* [`AIConfiguration.swift`](../../Sources/Models/AI/AIConfiguration.swift#L4): Nâng cấp lưu trữ mảng `profiles` và `activeProfileId`, tự động di trú dữ liệu legacy không mất cấu hình cũ.
+* [`AISettingsView.swift`](../../Sources/Views/Settings/AI/AISettingsView.swift#L4): Bổ sung Section danh sách Profile đã lưu (chạm nạp chi tiết), chỉ giữ 1 nút icon `+` duy nhất trên Navigation bar.
+* [`AddProviderProfileSheet.swift`](../../Sources/Views/Settings/AI/AddProviderProfileSheet.swift#L4): Sheet thêm Provider với Picker chọn Mẫu phân nhóm (Mẫu có sẵn, Profile đã lưu để nhân bản, Tuỳ chỉnh) và nút "Load danh sách models từ API".
+* Thêm **2** file Swift (553 tổng trong cây làm việc); cần `xcodegen generate` và build trên macOS.
+
 ## Chế độ AI Agent Harness toàn màn hình ở Reader với 3 mode Ask, Plan, Bypass (1.3.385)
 
 * [`ReaderView+AI.swift`](../../Sources/Views/Reader/Extensions/ReaderView+AI.swift#L1): Tích hợp `.fullScreenCover` mở màn hình AI qua modifier `aiHarnessOverlay(in:)`, kích hoạt từ nút icon `sparkles` trên Header và Action Menu của Reader.

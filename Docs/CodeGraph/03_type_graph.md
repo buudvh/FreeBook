@@ -15,6 +15,14 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Type cho quản lý Provider Profiles độc lập (1.3.389)
+
+* **Models/AI**:
+  - `AIProviderProfile`: `struct` (`id`, `name`, `baseURL`, `apiKey`, `selectedModel`, `availableModels`, `temperature`, `isCustom`) - `Codable, Sendable, Equatable, Identifiable`.
+  - `AIConfiguration`: cập nhật `profiles: [AIProviderProfile]`, `activeProfileId: String`, computed `activeProfile: AIProviderProfile`.
+* **Views/Settings/AI**:
+  - `AddProviderProfileSheet`: `struct` sheet modal thêm Provider với Picker mẫu và load models.
+
 ## Type mới cho phân hệ AI Assistant Harness ở Reader và Settings (1.3.385)
 
 * **Models/AI**:

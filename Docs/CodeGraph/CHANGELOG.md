@@ -4,6 +4,23 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.389] - 2026-09-23
+
+### feat: quan ly provider profiles doc lap, picker chon mau va sua loi hien thi ai
+
+Thêm **2** file Swift mới và sửa **5** file Swift trong `Sources/Models/AI/`, `Sources/Services/AI/`, `Sources/Views/Reader/`, `Sources/Views/Settings/AI/`:
+
+- **Quản lý Provider Profile độc lập (`AIProviderProfile.swift`, `AIConfiguration.swift`, `AISettingsStore.swift`)**:
+  - Tạo struct `AIProviderProfile` lưu trữ cấu hình riêng biệt của từng Provider (`id`, `name`, `baseURL`, `apiKey`, `selectedModel`, `availableModels`, `temperature`, `isCustom`).
+  - Nâng cấp `AIConfiguration` chứa mảng `profiles` và `activeProfileId`, tự động di trú dữ liệu legacy không mất cấu hình.
+  - Bổ sung các phương thức `saveProfile`, `deleteProfile`, `setActiveProfile` trong `AISettingsStore`.
+- **Sheet Thêm Mới Option Provider dạng Picker (`AddProviderProfileSheet.swift`, `AISettingsView.swift`)**:
+  - Thay thế thanh chọn nhanh bằng Menu Picker phân nhóm chuẩn iOS (`.pickerStyle(.menu)`) gồm Mẫu có sẵn (Gemini, OpenAI, DeepSeek, OpenRouter, Groq, Ollama), Nhân bản từ Profile đã lưu, và Tuỳ chỉnh trống.
+  - Tích hợp nút "⚡ Load từ API" gọi `OpenAIClient.fetchAvailableModels` để tự động tải danh sách models.
+  - Giữ duy nhất 1 nút icon `+` trên thanh Navigation bar của `AISettingsView` để thêm Profile mới.
+- **Sửa lỗi hiển thị toàn màn hình AI (`ReaderView.swift`, `ReaderView+AI.swift`)**:
+  - Chuyển `.fullScreenCover` sang gắn trực tiếp trên `readerSheetLayer` (neo vào UIHostingController chính) thay vì gắn vào `EmptyView` trong ZStack.
+
 ## [1.3.388] - 2026-09-23
 
 ### fix: chuyen aibookdatainspector sang internal de fix loi bien dich
