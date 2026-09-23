@@ -5,13 +5,11 @@ import CryptoKit
 public final class AIChatHistoryStore: Sendable {
     public static let shared = AIChatHistoryStore()
 
-    private let fileManager = FileManager.default
-
     private var storageDirectory: URL {
-        let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         let dir = appSupport.appendingPathComponent("ai_chats", isDirectory: true)
-        if !fileManager.fileExists(atPath: dir.path) {
-            try? fileManager.createDirectory(at: dir, withIntermediateDirectories: true)
+        if !FileManager.default.fileExists(atPath: dir.path) {
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         }
         return dir
     }
@@ -32,7 +30,7 @@ public final class AIChatHistoryStore: Sendable {
     /// Tải toàn bộ danh sách phiên chat của một cuốn sách.
     public func loadSessions(for bookId: String) -> [AIChatSession] {
         let url = fileURL(for: bookId)
-        guard fileManager.fileExists(atPath: url.path),
+        guard FileManager.default.fileExists(atPath: url.path),
               let data = try? Data(contentsOf: url),
               let sessions = try? JSONDecoder().decode([AIChatSession].self, from: data) else {
             return []
@@ -61,7 +59,7 @@ public final class AIChatHistoryStore: Sendable {
     /// Xóa toàn bộ lịch sử phiên chat của cuốn sách.
     public func clearAllSessions(for bookId: String) {
         let url = fileURL(for: bookId)
-        try? fileManager.removeItem(at: url)
+        try? FileManager.default.removeItem(at: url)
     }
 
     private func persistSessions(_ sessions: [AIChatSession], for bookId: String) {

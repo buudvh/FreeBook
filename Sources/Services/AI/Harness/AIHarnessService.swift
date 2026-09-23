@@ -33,7 +33,9 @@ public final class AIHarnessService: Sendable {
             guard !pattern.isEmpty else {
                 throw NSError(domain: "AIHarness", code: 400, userInfo: [NSLocalizedDescriptionKey: "Mẫu lọc rác không được để trống"])
             }
-            JunkFilterManager.shared.addPattern(pattern)
+            await MainActor.run {
+                JunkFilterManager.shared.addRule(pattern: pattern)
+            }
             updated.status = .executed
 
         case .deleteCustomEntry:

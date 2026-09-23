@@ -41,8 +41,9 @@ public final class AIBookDataInspector: Sendable {
 
     /// Lấy danh sách các từ/tên riêng đã có trong từ điển riêng của truyện.
     public func fetchExistingNamesInBook(bookId: String) -> [String] {
-        let bookDicts = TranslationManager.shared.getBookDictionaries(for: bookId)
-        guard let namesTrie = bookDicts.names else { return [] }
-        return namesTrie.allWords()
+        let translateDir = TranslationManager.shared.translateDirectory
+        let bookDir = translateDir.appendingPathComponent("books").appendingPathComponent(bookId)
+        let txtUrl = bookDir.appendingPathComponent("Names.txt")
+        return DictionaryTextFileStore.loadEntries(from: txtUrl).map { $0.key }
     }
 }

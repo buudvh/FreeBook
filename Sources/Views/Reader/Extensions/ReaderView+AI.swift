@@ -18,10 +18,13 @@ extension ReaderView {
 
     /// Lấy toàn bộ nội dung raw (chưa dịch) của chương đang hiển thị.
     internal var currentChapterRawContentForAI: String {
-        guard let vm = viewModel,
-              let cached = vm.cachedChapters.first(where: { $0.index == readerPresentedChapterIndex }) else {
+        guard let cached = viewModel?.cache.get(readerPresentedChapterIndex) else {
             return ""
         }
-        return cached.paragraphItems.map { $0.original }.joined(separator: "\n")
+        let contentItems = cached.paragraphItems.filter { !$0.isTitle }
+        if !contentItems.isEmpty {
+            return contentItems.map { $0.original }.joined(separator: "\n")
+        }
+        return cached.originalContent
     }
 }

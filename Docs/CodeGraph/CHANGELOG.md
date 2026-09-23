@@ -4,6 +4,21 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.386] - 2026-09-23
+
+### fix: sua cac loi bien dich trong phan he ai harness
+
+Sửa **4** file Swift trong `Sources/Services/AI/` và `Sources/Views/Reader/Extensions/`.
+
+- **Sửa API nạp tên riêng trong truyện (`AIBookDataInspector.swift`)**:
+  - Đọc danh sách từ/tên riêng từ `Names.txt` qua `DictionaryTextFileStore.loadEntries(from: txtUrl)` thay vì gọi `allWords()` không tồn tại trên `TrieDictionary`.
+- **Sửa gọi thêm quy tắc lọc rác (`AIHarnessService.swift`)**:
+  - Sử dụng `JunkFilterManager.shared.addRule(pattern:)` trên `MainActor` thay vì `addPattern`.
+- **Sửa nạp nội dung chương cho Reader AI (`ReaderView+AI.swift`)**:
+  - Truy xuất chương đang đọc qua `viewModel?.cache.get(readerPresentedChapterIndex)` thay vì `cachedChapters`.
+- **Loại bỏ non-sendable stored property (`AIChatHistoryStore.swift`)**:
+  - Dùng trực tiếp `FileManager.default` trong các hàm thay vì lưu trữ thuộc tính `private let fileManager`, tương thích hoàn toàn với chế độ Swift 6.
+
 ## [1.3.385] - 2026-09-23
 
 ### feat: them che do ai agent harness toan man hinh o reader voi 3 mode ask plan bypass
