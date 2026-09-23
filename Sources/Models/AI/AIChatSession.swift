@@ -10,6 +10,8 @@ public struct AIChatSession: Identifiable, Codable, Sendable, Equatable {
     public var messages: [AIChatMessage]
     public var mode: AIHarnessMode
     public var model: String
+    public var providerProfileId: String?
+    public var contextSummary: String?
 
     public init(
         id: UUID = UUID(),
@@ -19,7 +21,9 @@ public struct AIChatSession: Identifiable, Codable, Sendable, Equatable {
         updatedAt: Date = Date(),
         messages: [AIChatMessage] = [],
         mode: AIHarnessMode = .bypass,
-        model: String = "gemini-2.0-flash"
+        model: String = "gemini-2.0-flash",
+        providerProfileId: String? = nil,
+        contextSummary: String? = nil
     ) {
         self.id = id
         self.bookId = bookId
@@ -29,5 +33,7 @@ public struct AIChatSession: Identifiable, Codable, Sendable, Equatable {
         self.messages = messages
         self.mode = mode
         self.model = model
+        self.providerProfileId = providerProfileId
+        self.contextSummary = contextSummary
     }
 }

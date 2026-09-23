@@ -46,4 +46,59 @@ final class AIBookDataInspector: Sendable {
         let txtUrl = bookDir.appendingPathComponent("Names.txt")
         return DictionaryTextFileStore.loadEntries(from: txtUrl).map { $0.key }
     }
+
+    /// Nạp ngữ cảnh từ điển Name riêng và VietPhrase riêng của truyện (lọc ưu tiên theo nội dung chương hiện tại).
+    func fetchBookDictionaryContext(bookId: String, currentRawText: String = "") -> String {
+        let translateDir = TranslationManager.shared.translateDirectory
+        let bookDir = translateDir.appendingPathComponent("books").appendingPathComponent(bookId)
+        let namesUrl = bookDir.appendingPathComponent("Names.txt")
+        let vpUrl = bookDir.appendingPathComponent("VietPhrase.txt")
+
+        let names = DictionaryTextFileStore.loadEntries(from: namesUrl)
+        let vps = DictionaryTextFileStore.loadEntries(from: vpUrl)
+
+        guard !names.isEmpty || !vps.isEmpty else { return "" }
+
+        var result = ""
+
+        if !names.isEmpty {
+            let relevantNames = names.filter { !currentRawText.isEmpty && currentRawText.contains($0.key) }
+            let recentNames = Array(names.suffix(80))
+            var combinedSet = Set<String>()
+            var chosenNames: [(key: String, value: String)] = []
+
+            for item in (relevantNames + recentNames) {
+                if !combinedSet.contains(item.key) {
+                    combinedSet.insert(item.key)
+                    chosenNames.append(item)
+                }
+            }
+
+            result += "\n\n[Từ điển Name riêng đã có của truyện (\(names.count) mục)]:\n"
+            for item in chosenNames.prefix(100) {
+                result += "- \(item.key) = \(item.value)\n"
+            }
+        }
+
+        if !vps.isEmpty {
+            let relevantVps = vps.filter { !currentRawText.isEmpty && currentRawText.contains($0.key) }
+            let recentVps = Array(vps.suffix(80))
+            var combinedSet = Set<String>()
+            var chosenVps: [(key: String, value: String)] = []
+
+            for item in (relevantVps + recentVps) {
+                if !combinedSet.contains(item.key) {
+                    combinedSet.insert(item.key)
+                    chosenVps.append(item)
+                }
+            }
+
+            result += "\n[Từ điển VietPhrase riêng đã có của truyện (\(vps.count) mục)]:\n"
+            for item in chosenVps.prefix(100) {
+                result += "- \(item.key) = \(item.value)\n"
+            }
+        }
+
+        return result
+    }
 }

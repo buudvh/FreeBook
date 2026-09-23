@@ -91,7 +91,13 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
         isCustom: false
     )
 
-    public static var defaultProfiles: [AIProviderProfile] {
+    /// Các mẫu provider chuẩn định nghĩa sẵn để người dùng chọn khi thêm mới.
+    public static var standardTemplates: [AIProviderProfile] {
         [defaultGemini, defaultOpenAI, defaultDeepSeek, defaultClaudeOpenRouter, defaultGroq, defaultOllama]
+    }
+
+    /// Mặc định không lưu sẵn profile rỗng nào, chỉ lưu khi người dùng chủ động thêm.
+    public static var defaultProfiles: [AIProviderProfile] {
+        []
     }
 }

@@ -53,25 +53,37 @@ public final class AIHarnessService: Sendable {
         return updated
     }
 
-    /// Lưu hàng loạt danh sách tên riêng trích xuất vào từ điển truyện.
+    /// Lưu hàng loạt danh sách mục trích xuất vào từ điển riêng của truyện (Name riêng hoặc VP riêng).
+    public func saveExtractedEntries(
+        _ names: [AIExtractedName],
+        bookId: String,
+        isName: Bool,
+        isMerge: Bool
+    ) async -> Int {
+        let validItems = names.filter { $0.isSelected }
+            .map { (
+                orig: $0.original.trimmingCharacters(in: .whitespacesAndNewlines),
+                mean: $0.suggestedMeaning.trimmingCharacters(in: .whitespacesAndNewlines)
+            )}
+            .filter { !$0.orig.isEmpty && !$0.mean.isEmpty }
+
+        guard !validItems.isEmpty else { return 0 }
+
+        let newRecords = validItems.map { DictionaryTextRecord(key: $0.orig, value: $0.mean) }
+
+        do {
+            try await TranslationDictionaryWriter.shared.mutate(isName: isName, bookId: bookId) { existing in
+                existing = DictionaryTextFileStore.mergedRecords(imported: newRecords, existing: existing, isMerge: isMerge)
+            }
+            return validItems.count
+        } catch {
+            AppLogger.shared.log("Lỗi lưu từ điển AI vào sách \(bookId): \(error.localizedDescription)")
+            return 0
+        }
+    }
+
+    /// Lưu hàng loạt danh sách tên riêng trích xuất vào từ điển truyện (mặc định gộp).
     public func saveExtractedNames(_ names: [AIExtractedName], bookId: String) async -> Int {
-        var savedCount = 0
-        for item in names where item.isSelected {
-            let orig = item.original.trimmingCharacters(in: .whitespacesAndNewlines)
-            let mean = item.suggestedMeaning.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !orig.isEmpty, !mean.isEmpty else { continue }
-            do {
-                try await TranslationManager.shared.saveCustomEntry(word: orig, meaning: mean, isName: true, bookId: bookId)
-                savedCount += 1
-            } catch {
-                AppLogger.shared.log("Không thể lưu tên riêng \(orig): \(error.localizedDescription)")
-            }
-        }
-        if savedCount > 0 {
-            await MainActor.run {
-                TranslationManager.shared.notifyDictionariesDidUpdate()
-            }
-        }
-        return savedCount
+        await saveExtractedEntries(names, bookId: bookId, isName: true, isMerge: true)
     }
 }

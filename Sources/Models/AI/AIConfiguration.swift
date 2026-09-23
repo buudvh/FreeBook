@@ -5,15 +5,18 @@ public struct AIConfiguration: Codable, Sendable, Equatable {
     public var profiles: [AIProviderProfile]
     public var activeProfileId: String
     public var systemPrompt: String
+    public var nameExtractionPrompt: String
 
     public init(
-        profiles: [AIProviderProfile] = AIProviderProfile.defaultProfiles,
+        profiles: [AIProviderProfile] = [],
         activeProfileId: String = "gemini",
-        systemPrompt: String = AIConfiguration.defaultSystemPrompt
+        systemPrompt: String = AIConfiguration.defaultSystemPrompt,
+        nameExtractionPrompt: String = AIConfiguration.defaultNameExtractionPrompt
     ) {
-        self.profiles = profiles.isEmpty ? AIProviderProfile.defaultProfiles : profiles
+        self.profiles = profiles
         self.activeProfileId = activeProfileId
         self.systemPrompt = systemPrompt
+        self.nameExtractionPrompt = nameExtractionPrompt
     }
 
     public var activeProfile: AIProviderProfile {
@@ -41,7 +44,7 @@ public struct AIConfiguration: Codable, Sendable, Equatable {
     public mutating func deleteProfile(id: String) {
         profiles.removeAll(where: { $0.id == id })
         if activeProfileId == id {
-            activeProfileId = profiles.first?.id ?? "gemini"
+            activeProfileId = profiles.first?.id ?? ""
         }
     }
 
@@ -101,37 +104,23 @@ public struct AIConfiguration: Codable, Sendable, Equatable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case profiles, activeProfileId, systemPrompt
+        case profiles, activeProfileId, systemPrompt, nameExtractionPrompt
         case preset, baseURL, apiKey, selectedModel, availableModels, temperature
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.systemPrompt = try container.decodeIfPresent(String.self, forKey: .systemPrompt) ?? AIConfiguration.defaultSystemPrompt
+        self.nameExtractionPrompt = try container.decodeIfPresent(String.self, forKey: .nameExtractionPrompt) ?? AIConfiguration.defaultNameExtractionPrompt
 
-        if let decodedProfiles = try container.decodeIfPresent([AIProviderProfile].self, forKey: .profiles), !decodedProfiles.isEmpty {
-            self.profiles = decodedProfiles
-            self.activeProfileId = try container.decodeIfPresent(String.self, forKey: .activeProfileId) ?? decodedProfiles.first?.id ?? "gemini"
+        if let decodedProfiles = try container.decodeIfPresent([AIProviderProfile].self, forKey: .profiles) {
+            // Chỉ giữ lại những profile người dùng thêm hoặc đã cấu hình có API key
+            let valid = decodedProfiles.filter { $0.isCustom || !$0.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            self.profiles = valid
+            self.activeProfileId = try container.decodeIfPresent(String.self, forKey: .activeProfileId) ?? valid.first?.id ?? ""
         } else {
-            // Nạp tương thích ngược từ cấu hình V1 cũ
-            var defaultList = AIProviderProfile.defaultProfiles
-            let legacyPreset = try container.decodeIfPresent(AIProviderPreset.self, forKey: .preset) ?? .gemini
-            let legacyBaseURL = try container.decodeIfPresent(String.self, forKey: .baseURL) ?? legacyPreset.defaultBaseURL
-            let legacyApiKey = try container.decodeIfPresent(String.self, forKey: .apiKey) ?? ""
-            let legacySelectedModel = try container.decodeIfPresent(String.self, forKey: .selectedModel) ?? ""
-            let legacyModels = try container.decodeIfPresent([String].self, forKey: .availableModels) ?? legacyPreset.defaultModels
-            let legacyTemp = try container.decodeIfPresent(Double.self, forKey: .temperature) ?? 0.3
-
-            if let idx = defaultList.firstIndex(where: { $0.id == legacyPreset.rawValue }) {
-                defaultList[idx].baseURL = legacyBaseURL
-                defaultList[idx].apiKey = legacyApiKey
-                defaultList[idx].selectedModel = legacySelectedModel.isEmpty ? defaultList[idx].selectedModel : legacySelectedModel
-                defaultList[idx].availableModels = legacyModels
-                defaultList[idx].temperature = legacyTemp
-            }
-
-            self.profiles = defaultList
-            self.activeProfileId = legacyPreset.rawValue
+            self.profiles = []
+            self.activeProfileId = ""
         }
     }
 
@@ -140,6 +129,7 @@ public struct AIConfiguration: Codable, Sendable, Equatable {
         try container.encode(profiles, forKey: .profiles)
         try container.encode(activeProfileId, forKey: .activeProfileId)
         try container.encode(systemPrompt, forKey: .systemPrompt)
+        try container.encode(nameExtractionPrompt, forKey: .nameExtractionPrompt)
     }
 
     public static let defaultSystemPrompt: String = """
@@ -148,6 +138,17 @@ public struct AIConfiguration: Codable, Sendable, Equatable {
     - Trả lời, tóm tắt, giải thích bối cảnh, phân tích nhân vật và tình tiết truyện một cách chính xác, hấp dẫn.
     - Trích xuất tên riêng (Nhân vật, Địa danh, Tông môn, Công pháp...) từ văn bản raw tiếng Trung chưa dịch.
     - Tuân thủ chế độ quyền hạn của người dùng (Ask, Plan, Bypass) khi gọi các công cụ sửa đổi dữ liệu truyện.
+    """
+
+    public static let defaultNameExtractionPrompt: String = """
+    Bạn là chuyên gia dịch thuật và trích xuất thực thể tiếng Trung cho truyện chữ (tiên hiệp, kiếm hiệp, đô thị, huyền huyễn).
+    Nhiệm vụ: Tìm tất cả Tên riêng (nhân vật, địa danh, tông môn, công pháp, bảo vật...) xuất hiện trong văn bản raw tiếng Trung.
+    Yêu cầu:
+    - Trả về JSON hợp lệ duy nhất, không thêm bất kỳ văn bản giải thích nào ngoài JSON.
+    - Định dạng:
+    [
+      {"original": "tên chữ Hán", "suggestedMeaning": "tên dịch Hán Việt hoặc nghĩa phù hợp"}
+    ]
     """
 
     public static var `default`: AIConfiguration {

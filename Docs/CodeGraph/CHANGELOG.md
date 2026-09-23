@@ -4,6 +4,35 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.390] - 2026-09-23
+
+### feat: nang cap toan dien ai harness tri nho truyen compact va luu tu dien
+
+Thêm **6** file Swift mới và sửa **8** file Swift trong `Sources/Models/AI/`, `Sources/Services/AI/`, `Sources/Views/Reader/`, `Sources/Views/Settings/AI/`:
+
+- **Trí nhớ dài hạn theo truyện & Tự động nạp từ điển (`BookAIMemory.swift`, `BookAIMemoryStore.swift`, `AIBookDataInspector.swift`, `BookAIMemorySheet.swift`)**:
+  - Tạo model và store `BookAIMemory` lưu ghi chú bối cảnh, nhân vật của từng cuốn truyện tại `applicationSupportDirectory/ai_memory/`.
+  - Tự động nạp các mục từ điển `Names.txt` và `VietPhrase.txt` của cuốn truyện vào System Context, lọc thông minh theo nội dung raw chương hiện tại.
+  - Cung cấp sheet `BookAIMemorySheet` để xem và chỉnh sửa nhanh trí nhớ truyện.
+- **Tự động compact ngữ cảnh phiên chat (`AIContextCompactor.swift`, `AIChatSession.swift`)**:
+  - Tự động tóm tắt các tin nhắn cũ khi session vượt quá 12 tin nhắn thành `contextSummary`, chỉ gửi tóm tắt + 6 tin nhắn mới nhất để tối ưu token và chống tràn context window.
+- **Nâng cấp Lưu Từ điển Name riêng & VP riêng (`ReaderAINameReviewCardView.swift`, `AIHarnessService.swift`)**:
+  - Bổ sung 2 nút bấm riêng biệt: `Lưu Name riêng` và `Lưu VP riêng`.
+  - Hộp thoại xác nhận 2 chế độ: *Gộp (trùng từ thì thay mới)* và *Thay thế hoàn toàn*.
+  - Chuyển đổi nút Lưu thành banner xác nhận màu xanh sau khi lưu thành công, kèm Toast thông báo.
+  - Thêm nút xóa từng mục và sửa liên kết hai chiều (binding) bỏ chọn tên riêng trực tiếp vào session messages.
+- **Cải tiến giao diện & trải nghiệm AI (`AIMarkdownMessageView.swift`, `ReaderAIThinkingIndicatorView.swift`, `ReaderAIFullScreenView.swift`, `ReaderAIInputBarView.swift`)**:
+  - Render phản hồi AI chuẩn Markdown với khối code monospaced có nút chép, tiêu đề và gạch đầu dòng.
+  - Animation 3 chấm nảy phát sáng và con trỏ nhấp nháy khi AI đang suy nghĩ.
+  - Mốc neo cuộn `bottomScrollAnchor` và tương tác bàn phím chống lỗi cuộn đen màn hình.
+  - Menu ngữ cảnh sao chép tin nhắn khi bấm giữ.
+  - Tự động nhận diện câu lệnh lọc tên riêng khi người dùng tự gõ.
+  - Tự động đóng tab AI khi bấm nhảy chương từ widget TTS (`ReaderView.swift`).
+- **Màn hình Tùy chỉnh Prompt AI & Đồng bộ Profile (`AIPromptSettingsView.swift`, `AISettingsView.swift`, `AISettingsView+Actions.swift`, `AISettingsStore.swift`)**:
+  - Màn hình tùy chỉnh System Prompt chat và Name extraction prompt.
+  - Tinh gọn Profile: chỉ lưu các profile người dùng thực sự thêm hoặc đã nhập API key.
+  - Đồng bộ thời gian thực danh sách Profile giữa Cài đặt và Reader AI qua `didChangeNotification`.
+
 ## [1.3.389] - 2026-09-23
 
 ### feat: quan ly provider profiles doc lap, picker chon mau va sua loi hien thi ai

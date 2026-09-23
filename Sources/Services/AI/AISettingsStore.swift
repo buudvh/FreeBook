@@ -4,6 +4,8 @@ import Foundation
 public final class AISettingsStore: Sendable {
     public static let shared = AISettingsStore()
 
+    public static let didChangeNotification = Notification.Name("AISettingsStoreDidChangeNotification")
+
     private let userDefaultsKey = "FreeBook_AI_Configuration_V1"
 
     private init() {}
@@ -21,6 +23,9 @@ public final class AISettingsStore: Sendable {
     public func saveConfiguration(_ config: AIConfiguration) {
         if let data = try? JSONEncoder().encode(config) {
             UserDefaults.standard.set(data, forKey: userDefaultsKey)
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: AISettingsStore.didChangeNotification, object: nil)
+            }
         }
     }
 

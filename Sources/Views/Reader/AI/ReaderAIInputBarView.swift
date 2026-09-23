@@ -4,26 +4,35 @@ import SwiftUI
 public struct ReaderAIInputBarView: View {
     @Binding public var inputText: String
     @Binding public var selectedMode: AIHarnessMode
+    @Binding public var selectedProfileId: String
     @Binding public var selectedModel: String
+    public let availableProfiles: [AIProviderProfile]
     public let availableModels: [String]
     public let isStreaming: Bool
+    public let onProfileChanged: ((String) -> Void)?
     public let onSend: () -> Void
     public let onStop: () -> Void
 
     public init(
         inputText: Binding<String>,
         selectedMode: Binding<AIHarnessMode>,
+        selectedProfileId: Binding<String>,
         selectedModel: Binding<String>,
+        availableProfiles: [AIProviderProfile] = [],
         availableModels: [String],
         isStreaming: Bool,
+        onProfileChanged: ((String) -> Void)? = nil,
         onSend: @escaping () -> Void,
         onStop: @escaping () -> Void
     ) {
         self._inputText = inputText
         self._selectedMode = selectedMode
+        self._selectedProfileId = selectedProfileId
         self._selectedModel = selectedModel
+        self.availableProfiles = availableProfiles
         self.availableModels = availableModels
         self.isStreaming = isStreaming
+        self.onProfileChanged = onProfileChanged
         self.onSend = onSend
         self.onStop = onStop
     }
@@ -69,6 +78,40 @@ public struct ReaderAIInputBarView: View {
                 }
 
                 Spacer()
+
+                // Menu chọn Provider
+                if !availableProfiles.isEmpty {
+                    Menu {
+                        ForEach(availableProfiles) { profile in
+                            Button(action: {
+                                selectedProfileId = profile.id
+                                onProfileChanged?(profile.id)
+                            }) {
+                                HStack {
+                                    Text(profile.name)
+                                    if selectedProfileId == profile.id {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 3) {
+                            Image(systemName: "cpu")
+                                .font(.system(size: 9))
+                            Text(currentProfileName)
+                                .font(.system(size: 11, weight: .medium))
+                                .lineLimit(1)
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 8))
+                        }
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 5)
+                        .background(Color.secondary.opacity(0.1))
+                        .cornerRadius(8)
+                    }
+                }
 
                 // Menu chọn Model AI
                 Menu {
@@ -130,6 +173,10 @@ public struct ReaderAIInputBarView: View {
         )
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
+    }
+
+    private var currentProfileName: String {
+        availableProfiles.first(where: { $0.id == selectedProfileId })?.name ?? "Provider"
     }
 
     private var modeColor: Color {

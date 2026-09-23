@@ -14,16 +14,38 @@ extension ReaderAIFullScreenView {
 
     internal func reloadSettings() {
         let config = AISettingsStore.shared.loadConfiguration()
-        availableModels = config.availableModels
-        selectedModel = config.selectedModel
+        availableProfiles = config.profiles
+        selectedProfileId = config.activeProfileId
+        availableModels = config.activeProfile.availableModels
+        if selectedModel.isEmpty || !availableModels.contains(selectedModel) {
+            selectedModel = config.activeProfile.selectedModel
+        }
+    }
+
+    internal func handleProfileChanged(_ newProfileId: String) {
+        selectedProfileId = newProfileId
+        if let profile = availableProfiles.first(where: { $0.id == newProfileId }) {
+            availableModels = profile.availableModels
+            selectedModel = profile.selectedModel.isEmpty ? (profile.availableModels.first ?? "") : profile.selectedModel
+            currentSession.providerProfileId = newProfileId
+            currentSession.model = selectedModel
+            AIChatHistoryStore.shared.saveSession(currentSession, for: bookId)
+        }
     }
 
     internal func startNewChat() {
+        let config = AISettingsStore.shared.loadConfiguration()
+        availableProfiles = config.profiles
+        selectedProfileId = config.activeProfileId
+        availableModels = config.activeProfile.availableModels
+        selectedModel = config.activeProfile.selectedModel
+
         let newSession = AIChatSession(
             bookId: bookId,
             title: "Phiên chat mới",
             mode: selectedMode,
-            model: selectedModel
+            model: selectedModel,
+            providerProfileId: selectedProfileId
         )
         currentSession = newSession
         currentSessionId = newSession.id
@@ -35,12 +57,31 @@ extension ReaderAIFullScreenView {
         currentSession = session
         currentSessionId = session.id
         selectedMode = session.mode
+
+        let config = AISettingsStore.shared.loadConfiguration()
+        availableProfiles = config.profiles
+        let profileId = session.providerProfileId ?? config.activeProfileId
+        selectedProfileId = profileId
+
+        if let profile = availableProfiles.first(where: { $0.id == profileId }) {
+            availableModels = profile.availableModels
+        } else {
+            availableModels = config.activeProfile.availableModels
+        }
         selectedModel = session.model
     }
 
     internal func sendUserMessage(promptOverride: String? = nil) {
         let textToSend = (promptOverride ?? inputText).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !textToSend.isEmpty, !isStreaming else { return }
+
+        // Nhận diện ý định tự gõ lệnh lọc tên riêng
+        let lower = textToSend.lowercased()
+        if lower.contains("lọc tên riêng") || lower.contains("loc ten rieng") || lower.contains("trích xuất tên riêng") || lower.contains("trich xuat ten") {
+            inputText = ""
+            extractNamesCurrentChapter()
+            return
+        }
 
         inputText = ""
         let userMsg = AIChatMessage(role: .user, content: textToSend)
@@ -55,14 +96,42 @@ extension ReaderAIFullScreenView {
         currentSession.messages.append(placeholderMsg)
 
         var config = AISettingsStore.shared.loadConfiguration()
+        if let profile = config.profiles.first(where: { $0.id == selectedProfileId }) {
+            config.activeProfileId = profile.id
+        }
         config.selectedModel = selectedModel
 
-        let rawContext = currentChapterRawContent.isEmpty ? "" : "\n\nNội dung raw chương hiện tại:\n\(currentChapterRawContent.prefix(8000))"
+        // 1. Nạp từ điển Name riêng và VP riêng của truyện
+        let bookDictContext = AIBookDataInspector.shared.fetchBookDictionaryContext(
+            bookId: bookId,
+            currentRawText: currentChapterRawContent
+        )
+
+        // 2. Nạp Trí nhớ dài hạn của truyện
+        let bookMemory = BookAIMemoryStore.shared.loadMemory(for: bookId)
+        let memoryContext = bookMemory.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? ""
+            : "\n\n[Trí nhớ bối cảnh & nhân vật của truyện]:\n\(bookMemory.notes)"
+
+        // 3. Nạp Tóm tắt ngữ cảnh cũ của session nếu đã compact
+        let summaryContext = (currentSession.contextSummary?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false)
+            ? "\n\n[Tóm tắt ngữ cảnh các lượt trao đổi trước]:\n\(currentSession.contextSummary!)"
+            : ""
+
+        // 4. Nội dung raw của chương hiện tại
+        let rawContext = currentChapterRawContent.isEmpty
+            ? ""
+            : "\n\nNội dung raw chương hiện tại:\n\(currentChapterRawContent.prefix(8000))"
+
+        let systemInstruction = "\(config.systemPrompt)\nChế độ: \(selectedMode.title).\(bookDictContext)\(memoryContext)\(summaryContext)\(rawContext)"
         var chatMessages: [OpenAIChatRequest.Message] = [
-            OpenAIChatRequest.Message(role: "system", content: "\(config.systemPrompt)\nChế độ: \(selectedMode.title).\(rawContext)")
+            OpenAIChatRequest.Message(role: "system", content: systemInstruction)
         ]
 
-        for m in currentSession.messages where m.id != assistantMsgId {
+        // 5. Cửa sổ trượt tin nhắn hội thoại (nếu > 12 tin nhắn, gửi 6 tin nhắn gần nhất kèm summary)
+        let messagesToSend = currentSession.messages.filter { $0.id != assistantMsgId }
+        let recentMessages = messagesToSend.count > 6 ? Array(messagesToSend.suffix(6)) : messagesToSend
+        for m in recentMessages {
             chatMessages.append(OpenAIChatRequest.Message(role: m.role.rawValue, content: m.content))
         }
 
@@ -86,6 +155,20 @@ extension ReaderAIFullScreenView {
                     isStreaming = false
                     currentSession.updatedAt = Date()
                     AIChatHistoryStore.shared.saveSession(currentSession, for: bookId)
+                }
+
+                // Tự động kiểm tra và compact ngữ cảnh nền nếu vượt ngưỡng
+                let sessionSnapshot = currentSession
+                let configSnapshot = config
+                Task.detached {
+                    if let newSummary = await AIContextCompactor.shared.compactSessionIfNeeded(session: sessionSnapshot, config: configSnapshot) {
+                        await MainActor.run {
+                            if self.currentSession.id == sessionSnapshot.id {
+                                self.currentSession.contextSummary = newSummary
+                                AIChatHistoryStore.shared.saveSession(self.currentSession, for: self.bookId)
+                            }
+                        }
+                    }
                 }
             } catch {
                 await MainActor.run {
@@ -128,6 +211,9 @@ extension ReaderAIFullScreenView {
         currentSession.messages.append(userMsg)
 
         var config = AISettingsStore.shared.loadConfiguration()
+        if let profile = config.profiles.first(where: { $0.id == selectedProfileId }) {
+            config.activeProfileId = profile.id
+        }
         config.selectedModel = selectedModel
 
         let msgId = UUID()
@@ -165,6 +251,9 @@ extension ReaderAIFullScreenView {
         batchExtractedNames.removeAll()
 
         var config = AISettingsStore.shared.loadConfiguration()
+        if let profile = config.profiles.first(where: { $0.id == selectedProfileId }) {
+            config.activeProfileId = profile.id
+        }
         config.selectedModel = selectedModel
 
         batchExtractionTask = Task {
@@ -196,9 +285,13 @@ extension ReaderAIFullScreenView {
         isBatchExtracting = false
     }
 
-    internal func saveNamesToDictionary(_ items: [AIExtractedName]) {
+    internal func saveNamesToDictionary(_ items: [AIExtractedName], isName: Bool, isMerge: Bool) {
         Task {
-            _ = await AIHarnessService.shared.saveExtractedNames(items, bookId: bookId)
+            let saved = await AIHarnessService.shared.saveExtractedEntries(items, bookId: bookId, isName: isName, isMerge: isMerge)
+            await MainActor.run {
+                let targetTitle = isName ? "Name riêng" : "VP riêng"
+                ToastManager.shared.show("Đã lưu \(saved) mục vào \(targetTitle) của truyện")
+            }
         }
     }
 

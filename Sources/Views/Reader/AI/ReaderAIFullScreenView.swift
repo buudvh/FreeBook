@@ -22,6 +22,9 @@ public struct ReaderAIFullScreenView: View {
 
     @State internal var showingSettings: Bool = false
     @State internal var showingSessionList: Bool = false
+    @State internal var showingMemorySheet: Bool = false
+    @State internal var availableProfiles: [AIProviderProfile] = []
+    @State internal var selectedProfileId: String = ""
     @State internal var availableModels: [String] = []
     @State internal var selectedModel: String = ""
     @State internal var selectedMode: AIHarnessMode = .bypass
@@ -78,6 +81,21 @@ public struct ReaderAIFullScreenView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: 12) {
+                            // Badge nén ngữ cảnh nếu session đã compact
+                            if currentSession.contextSummary != nil {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "brain.head.profile")
+                                    Text("Đã tối ưu ngữ cảnh hội thoại cũ")
+                                }
+                                .font(.caption2.bold())
+                                .foregroundColor(.purple)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(Color.purple.opacity(0.1))
+                                .cornerRadius(12)
+                                .padding(.top, 4)
+                            }
+
                             ForEach(currentSession.messages) { message in
                                 messageRow(message)
                                     .id(message.id)
@@ -85,17 +103,31 @@ public struct ReaderAIFullScreenView: View {
 
                             // Bảng tên riêng từ Batch Extraction nếu có
                             if !batchExtractedNames.isEmpty && !isBatchExtracting {
-                                ReaderAINameReviewCardView(names: $batchExtractedNames) { itemsToSave in
-                                    saveNamesToDictionary(itemsToSave)
-                                }
+                                ReaderAINameReviewCardView(
+                                    names: $batchExtractedNames,
+                                    onSave: { itemsToSave, isName, isMerge in
+                                        saveNamesToDictionary(itemsToSave, isName: isName, isMerge: isMerge)
+                                    },
+                                    onDelete: { deletedId in
+                                        batchExtractedNames.removeAll(where: { $0.id == deletedId })
+                                    }
+                                )
                                 .padding(.horizontal, 12)
                             }
+
+                            // Mốc neo đáy để cuộn chính xác, chống giật/đen màn hình
+                            Color.clear
+                                .frame(height: 1)
+                                .id("bottomScrollAnchor")
                         }
                         .padding(.vertical, 12)
                     }
+                    .scrollDismissesKeyboard(.interactively)
                     .onChange(of: currentSession.messages.count) { _, _ in
-                        if let lastId = currentSession.messages.last?.id {
-                            withAnimation { proxy.scrollTo(lastId, anchor: .bottom) }
+                        DispatchQueue.main.async {
+                            withAnimation(.easeOut(duration: 0.25)) {
+                                proxy.scrollTo("bottomScrollAnchor", anchor: .bottom)
+                            }
                         }
                     }
                 }
@@ -107,13 +139,18 @@ public struct ReaderAIFullScreenView: View {
                     handleQuickAction(actionType)
                 }
 
-                // Khung nhập tin nhắn tích hợp Mode Menu & Model Picker
+                // Khung nhập tin nhắn tích hợp Mode Menu, Provider & Model Picker
                 ReaderAIInputBarView(
                     inputText: $inputText,
                     selectedMode: $selectedMode,
+                    selectedProfileId: $selectedProfileId,
                     selectedModel: $selectedModel,
+                    availableProfiles: availableProfiles,
                     availableModels: availableModels,
                     isStreaming: isStreaming,
+                    onProfileChanged: { newProfileId in
+                        handleProfileChanged(newProfileId)
+                    },
                     onSend: { sendUserMessage() },
                     onStop: { stopStreaming() }
                 )
@@ -146,6 +183,10 @@ public struct ReaderAIFullScreenView: View {
                             .font(.system(size: 12, weight: .semibold))
                         }
 
+                        Button(action: { showingMemorySheet = true }) {
+                            Image(systemName: "brain")
+                        }
+
                         Button(action: { showingSessionList = true }) {
                             Image(systemName: "clock.arrow.circlepath")
                         }
@@ -164,6 +205,9 @@ public struct ReaderAIFullScreenView: View {
                     reloadSettings()
                 }
             }
+            .sheet(isPresented: $showingMemorySheet) {
+                BookAIMemorySheet(bookId: bookId)
+            }
             .sheet(isPresented: $showingSessionList) {
                 ReaderAISessionListView(
                     bookId: bookId,
@@ -179,6 +223,9 @@ public struct ReaderAIFullScreenView: View {
             .onAppear {
                 initializeSession()
             }
+            .onReceive(NotificationCenter.default.publisher(for: AISettingsStore.didChangeNotification)) { _ in
+                reloadSettings()
+            }
         }
     }
 
@@ -187,13 +234,18 @@ public struct ReaderAIFullScreenView: View {
         HStack(alignment: .top, spacing: 8) {
             if message.role == .user {
                 Spacer(minLength: 32)
-                Text(message.content)
-                    .font(.system(size: 13))
+                AIMarkdownMessageView(content: message.content, isUser: true)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(Color.blue)
-                    .foregroundColor(.white)
                     .cornerRadius(16)
+                    .contextMenu {
+                        Button {
+                            UIPasteboard.general.string = message.content
+                        } label: {
+                            Label("Sao chép tin nhắn", systemImage: "doc.on.doc")
+                        }
+                    }
             } else {
                 Image(systemName: "sparkles")
                     .foregroundColor(.purple)
@@ -201,14 +253,21 @@ public struct ReaderAIFullScreenView: View {
                     .padding(.top, 4)
 
                 VStack(alignment: .leading, spacing: 8) {
-                    if !message.content.isEmpty {
-                        Text(message.content)
-                            .font(.system(size: 13))
-                            .foregroundColor(.primary)
+                    if message.isStreaming && message.content.isEmpty {
+                        ReaderAIThinkingIndicatorView()
+                    } else if !message.content.isEmpty {
+                        AIMarkdownMessageView(content: message.content, isUser: false)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
                             .background(Color(UIColor.secondarySystemBackground))
                             .cornerRadius(16)
+                            .contextMenu {
+                                Button {
+                                    UIPasteboard.general.string = message.content
+                                } label: {
+                                    Label("Sao chép tin nhắn", systemImage: "doc.on.doc")
+                                }
+                            }
                     }
 
                     if let actions = message.harnessActions, !actions.isEmpty {
@@ -221,13 +280,20 @@ public struct ReaderAIFullScreenView: View {
                         )
                     }
 
-                    if var extracted = message.extractedNames, !extracted.isEmpty {
-                        ReaderAINameReviewCardView(names: Binding(
-                            get: { extracted },
-                            set: { extracted = $0 }
-                        )) { itemsToSave in
-                            saveNamesToDictionary(itemsToSave)
-                        }
+                    if let msgIndex = currentSession.messages.firstIndex(where: { $0.id == message.id }),
+                       let extracted = currentSession.messages[msgIndex].extractedNames, !extracted.isEmpty {
+                        ReaderAINameReviewCardView(
+                            names: Binding(
+                                get: { currentSession.messages[msgIndex].extractedNames ?? [] },
+                                set: { currentSession.messages[msgIndex].extractedNames = $0 }
+                            ),
+                            onSave: { itemsToSave, isName, isMerge in
+                                saveNamesToDictionary(itemsToSave, isName: isName, isMerge: isMerge)
+                            },
+                            onDelete: { deletedId in
+                                currentSession.messages[msgIndex].extractedNames?.removeAll(where: { $0.id == deletedId })
+                            }
+                        )
                     }
                 }
                 Spacer(minLength: 32)

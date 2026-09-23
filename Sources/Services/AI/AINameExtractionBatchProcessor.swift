@@ -15,14 +15,9 @@ public final class AINameExtractionBatchProcessor: Sendable {
             return []
         }
 
-        let systemInstruction = """
-        Bạn là chuyên gia dịch thuật và phân tích tiểu thuyết tiếng Trung (tiên hiệp, kiếm hiệp, đô thị, huyền huyễn).
-        Nhiệm vụ: Trích xuất danh sách tất cả các tên riêng (Tên nhân vật, Địa danh, Tông môn / Thế lực, Công pháp võ học, Bảo vật) từ văn bản tiếng Trung thô được cung cấp.
-        YÊU CẦU BẮT BUỘC:
-        - Chỉ trả về duy nhất mảng JSON hợp lệ, không giải thích thêm, không bọc markdown triple backticks.
-        - Định dạng mỗi phần tử:
-        {"original": "tên chữ Hán gốc", "meaning": "nghĩa Hán-Việt chuẩn hoặc nghĩa dịch", "category": "Nhân vật/Địa danh/Tông môn/Công pháp/Khác"}
-        """
+        let systemInstruction = config.nameExtractionPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? AIConfiguration.defaultNameExtractionPrompt
+            : config.nameExtractionPrompt
 
         // Giới hạn độ dài text nếu quá dài
         let truncated = String(text.prefix(15000))
