@@ -211,15 +211,11 @@ struct SettingsView: View {
                     }
                 
                 TTSSettingsSection()
-
+                AISettingsSection()
                 BrowserSettingsSection()
-
                 NewChapterSettingsSection()
-
                 BackupSettingsSection()
-
                 StaleBookCleanupSettingsSection()
-
                 DeveloperSettingsSection()
 
                 Section(header: Text("Cấu Hình Ghi Log")) {

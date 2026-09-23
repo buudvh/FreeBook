@@ -15,6 +15,39 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Call graph phân hệ Reader AI Harness (1.3.385)
+
+```text
+ReaderView (bấm nút sparkles trên Header/Menu)
+  └─ showingAIFullScreen = true
+        └─ ReaderAIFullScreenView
+              ├─ onAppear:
+              │     ├─ AIChatHistoryStore.loadActiveSession(bookId:)
+              │     ├─ AIBookDataInspector.loadRawChapterContent(bookId:, chapterIndex:)
+              │     └─ AIBookDataInspector.loadOfflineChapters(bookId:)
+              ├─ Gửi tin nhắn chat thông thường (Streaming):
+              │     └─ ReaderAIFullScreenView+Actions.sendMessage()
+              │           ├─ OpenAIClient.sendChatStreaming(request:)
+              │           └─ AIChatHistoryStore.saveSession(session)
+              ├─ Tác vụ nhanh: Tóm tắt chương:
+              │     └─ handleQuickAction(.summarizeChapter)
+              │           └─ OpenAIClient.sendChatStreaming(prompt: "Tóm tắt ngắn gọn nội dung chương...")
+              ├─ Tác vụ nhanh: Lọc Name chương / Nhiều chương:
+              │     └─ handleQuickAction(.extractNamesCurrent / .extractNamesAll)
+              │           ├─ AINameExtractionBatchProcessor.processChapters(bookId:, chapters:)
+              │           │     └─ OpenAIClient.sendChat(prompt: systemPromptForNameExtraction) -> JSON
+              │           └─ Thẻ ReaderAINameReviewCardView hiển thị danh sách name
+              │                 └─ Bấm "Lưu vào từ điển truyện":
+              │                       └─ TranslationManager.shared.saveCustomEntry(key, value, isName: true, bookId:)
+              └─ AI Harness Plan / Action Execution:
+                    ├─ Mode .ask: Tạo ActionPlan với state .pending -> Người dùng bấm "Thực thi"
+                    ├─ Mode .plan: Tạo ActionPlan chi tiết các bước -> Người dùng bấm "Duyệt kế hoạch"
+                    ├─ Mode .bypass: Thực thi ngay lập tức không cần duyệt
+                    └─ AIHarnessService.executeAction(action)
+                          ├─ case .addName: TranslationManager.shared.saveCustomEntry(...)
+                          └─ case .addJunkFilter: JunkFilterManager.shared.addRule(...)
+```
+
 ## Call graph bảo vệ Name riêng trong Rule Engine (1.3.383)
 
 ```text

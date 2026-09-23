@@ -15,6 +15,17 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Chế độ AI Agent Harness toàn màn hình ở Reader với 3 mode Ask, Plan, Bypass (1.3.385)
+
+* [`ReaderView+AI.swift`](../../Sources/Views/Reader/Extensions/ReaderView+AI.swift#L1): Tích hợp `.fullScreenCover` mở màn hình AI qua modifier `aiHarnessOverlay(in:)`, kích hoạt từ nút icon `sparkles` trên Header và Action Menu của Reader.
+* [`ReaderAIFullScreenView.swift`](../../Sources/Views/Reader/AI/ReaderAIFullScreenView.swift#L1) & [`ReaderAIFullScreenView+Actions.swift`](../../Sources/Views/Reader/AI/ReaderAIFullScreenView+Actions.swift#L1): Màn hình AI Chat toàn màn hình, hỗ trợ streaming response từ OpenAI-compatible API, quản lý phiên chat (`AIChatSession`), tác vụ nhanh (Tóm tắt chương, Lọc name riêng) và chia tách file giữ dưới trần 400 dòng vật lý.
+* [`ReaderAIInputBarView.swift`](../../Sources/Views/Reader/AI/ReaderAIInputBarView.swift#L1): Khung nhập chat ở đáy màn hình với Mode Menu Pill (3 chế độ: `Ask`, `Plan`, `Bypass`) và Menu chọn Model trực tiếp (`[gemini-2.0-flash ▾]`).
+* [`AIBookDataInspector.swift`](../../Sources/Services/AI/Harness/AIBookDataInspector.swift#L1): Đọc nội dung thô (raw text Hán tự chưa dịch) từ `ChapterStore` và `BookBinManager` để cung cấp cho AI phân tích chính xác tên riêng, nhân vật, địa danh.
+* [`AIHarnessService.swift`](../../Sources/Services/AI/Harness/AIHarnessService.swift#L1): Điều phối thực thi hành động can thiệp dữ liệu truyện; lưu trực tiếp Name vào từ điển truyện (`TranslationManager.shared.saveCustomEntry(..., isName: true, bookId:)`), tự động hưởng cơ chế bảo vệ Name riêng trước Rule dịch.
+* [`AINameExtractionBatchProcessor.swift`](../../Sources/Services/AI/AINameExtractionBatchProcessor.swift#L1): Quét offline batching nhiều chương đã tải về (5 chương/batch) trích xuất JSON tên riêng kèm thanh tiến trình và nút Dừng.
+* [`AISettingsView.swift`](../../Sources/Views/Settings/AI/AISettingsView.swift#L1): Màn hình cấu hình AI trong Cài đặt, hỗ trợ preset các nhà cung cấp phổ biến (Gemini, OpenAI, Claude/OpenRouter, DeepSeek, Groq, Ollama, Custom), nút "Load danh sách từ API", và TextEditor nhập danh sách model thủ công.
+* Thêm **24** file Swift (551 tổng trong cây làm việc); cần `xcodegen generate` và build trên macOS.
+
 ## Cố định nghĩa rule panel Dịch và thuật toán bảo vệ Name riêng (1.3.383)
 
 * [`ReaderView+DefinitionPanel.swift`](../../Sources/Views/Reader/ReaderView+DefinitionPanel.swift#L83): `isLoadingRules` gán bằng `definitionSession.loadingRules` (bỏ `definitionSession.loading`), giữ nguyên ô nghĩa rule và không gây chớp giật khi nới/thu token.

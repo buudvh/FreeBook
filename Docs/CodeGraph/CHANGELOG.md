@@ -4,6 +4,34 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.385] - 2026-09-23
+
+### feat: them che do ai agent harness toan man hinh o reader voi 3 mode ask plan bypass
+
+Thêm **24** file Swift mới và sửa **3** file Swift trong `Sources/Views/Reader/` và `Sources/Views/Settings/`.
+
+- **Màn hình AI Agent Harness toàn màn hình (`ReaderAIFullScreenView.swift`, `ReaderView+AI.swift`)**:
+  - Mở dạng `.fullScreenCover` từ nút icon `sparkles` trên Header và Action Menu của Reader.
+  - Hỗ trợ streaming SSE phản hồi theo thời gian thực từ bất kỳ endpoint nào tương thích OpenAI API (Gemini, OpenAI, Claude/OpenRouter, DeepSeek, Groq, Ollama, Custom).
+  - Tách `ReaderAIFullScreenView+Actions.swift` giữ cả 2 file dưới trần 400 dòng vật lý.
+- **3 chế độ Harness ngay trên khung chat (`ReaderAIInputBarView.swift`, `AIHarnessMode.swift`)**:
+  - `Manual (Ask)`: Tạo ActionPlan và hỏi người dùng trước khi áp dụng thay đổi vào dữ liệu truyện.
+  - `Plan`: Lập kế hoạch chi tiết các bước, người dùng ấn "Duyệt kế hoạch" mới thực thi.
+  - `Bypass permissions`: Tự động thực thi ngay lập tức.
+  - Menu chuyển đổi mode dạng Pill Menu ngay trên Input Bar, kèm Model Picker Menu tức thì.
+- **Quản lý cấu hình & Model trong Cài đặt (`AISettingsView.swift`, `AISettingsStore.swift`)**:
+  - Hỗ trợ preset cho các nhà cung cấp phổ biến kèm cấu hình tùy chỉnh endpoint / API key / timeout.
+  - Nút "Load danh sách từ API" (`GET /models`) và TextEditor nhập danh sách model thủ công (mỗi model một dòng).
+  - `AISettingsSection.swift` giúp `SettingsView.swift` giảm dòng và loại bỏ khỏi baseline vi phạm kiến trúc.
+- **Phân tích raw chapter & Trích xuất tên riêng (`AIBookDataInspector.swift`, `AINameExtractionBatchProcessor.swift`)**:
+  - Sử dụng văn bản gốc Hán tự (raw text) từ `ChapterStore` / `BookBinManager` để LLM phân tích chính xác tên riêng, nhân vật, địa danh.
+  - Quét batch offline các chương đã tải theo lô 5 chương kèm thanh tiến trình và nút Dừng.
+  - Thẻ `ReaderAINameReviewCardView` cho phép duyệt, tick chọn, sửa nghĩa và lưu thẳng vào từ điển truyện (`TranslationManager.shared.saveCustomEntry(..., isName: true, bookId:)`), tự động kích hoạt bảo vệ Name riêng trước Rule dịch.
+- **Lưu trữ phiên trò chuyện (`AIChatHistoryStore.swift`, `ReaderAISessionListView.swift`)**:
+  - Tự động lưu session chat theo từng truyện dưới `Application Support/ai_chats/<sha256(bookId)>.json`.
+  - Hỗ trợ New Chat (`+ Mới`), xem danh sách session cũ và xóa từng session hoặc xóa tất cả.
+- **Tài liệu CodeGraph**: Cập nhật `00_index.md`, `02_file_graph.md`, `03_type_graph.md`, `04_call_graph.md`, `05_state_graph.md`, `08_lifecycle.md`, `09_dependency_rules.md`, `10_risk_report.md`, `11_subsystems.md`, `13_resource_lifecycle.md`, `14_complexity_report.md`, `rules.md` và `CHANGELOG.md`.
+
 ## [1.3.384] - 2026-09-18
 
 ### feat: dua rule tranh chap name rieng len thanh chip o trang thai thua

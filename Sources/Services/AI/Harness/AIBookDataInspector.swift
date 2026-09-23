@@ -1,0 +1,48 @@
+import Foundation
+
+/// Cung cấp dữ liệu nội dung truyện và từ điển cho AI Agent Harness.
+public final class AIBookDataInspector: Sendable {
+    public static let shared = AIBookDataInspector()
+
+    private init() {}
+
+    /// Lấy danh sách tất cả các chương đã tải về (isCached = true) của cuốn sách.
+    public func fetchDownloadedChapters(bookId: String) async -> [StoredChapterSnapshot] {
+        guard let toc = try? await ChapterStore.shared.fetchOrderedTOC(bookId: bookId) else {
+            return []
+        }
+        return toc.filter { $0.isCached && $0.length > 0 }
+    }
+
+    /// Đọc nội dung raw (chưa dịch) từ file binary của một chương đã tải.
+    public func readRawChapterContent(bookId: String, snapshot: StoredChapterSnapshot) async -> String? {
+        guard snapshot.isCached, snapshot.length > 0 else { return nil }
+        do {
+            let raw = try await BookBinManager.shared.readChapterContent(
+                bookId: bookId,
+                offset: snapshot.offset,
+                length: snapshot.length
+            )
+            return ChapterTextNormalizer.normalize(raw).content
+        } catch {
+            AppLogger.shared.log("Lỗi đọc nội dung raw chương \(snapshot.index): \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    /// Đọc nội dung raw của một chương theo index.
+    public func readRawChapterContent(bookId: String, chapterIndex: Int) async -> String? {
+        guard let toc = try? await ChapterStore.shared.fetchOrderedTOC(bookId: bookId),
+              let chapter = toc.first(where: { $0.index == chapterIndex }) else {
+            return nil
+        }
+        return await readRawChapterContent(bookId: bookId, snapshot: chapter)
+    }
+
+    /// Lấy danh sách các từ/tên riêng đã có trong từ điển riêng của truyện.
+    public func fetchExistingNamesInBook(bookId: String) -> [String] {
+        let bookDicts = TranslationManager.shared.getBookDictionaries(for: bookId)
+        guard let namesTrie = bookDicts.names else { return [] }
+        return namesTrie.allWords()
+    }
+}

@@ -15,6 +15,38 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +24 file cho phân hệ AI Assistant Harness ở Reader và Settings (1.3.385)
+
+| Nhóm | File mới | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Models | [`Models/AI/AIHarnessMode.swift`](../../Sources/Models/AI/AIHarnessMode.swift) | 3 mode làm việc: `.ask`, `.plan`, `.bypass` | 27 |
+| Models | [`Models/AI/AIProviderPreset.swift`](../../Sources/Models/AI/AIProviderPreset.swift) | Presets cho OpenAI, Gemini, Claude, DeepSeek, Groq, Ollama, Custom | 60 |
+| Models | [`Models/AI/AIConfiguration.swift`](../../Sources/Models/AI/AIConfiguration.swift) | Struct cấu hình API, key, endpoint, models list | 48 |
+| Models | [`Models/AI/AIExtractedName.swift`](../../Sources/Models/AI/AIExtractedName.swift) | Model tên riêng trích xuất từ văn bản raw | 25 |
+| Models | [`Models/AI/AIHarnessAction.swift`](../../Sources/Models/AI/AIHarnessAction.swift) | Model hành động can thiệp dữ liệu truyện | 38 |
+| Models | [`Models/AI/AIChatMessage.swift`](../../Sources/Models/AI/AIChatMessage.swift) | Struct tin nhắn chat với nested `AIChatMessage.Role` | 42 |
+| Models | [`Models/AI/AIChatSession.swift`](../../Sources/Models/AI/AIChatSession.swift) | Struct phiên trò chuyện lưu theo `bookId` | 38 |
+| Services | [`Services/AI/OpenAITypes.swift`](../../Sources/Services/AI/OpenAITypes.swift) | DTOs OpenAI API compatible (Request, Response, ToolCall, AnyCodable) | 125 |
+| Services | [`Services/AI/OpenAIClient.swift`](../../Sources/Services/AI/OpenAIClient.swift) | HTTP Client actor: fetch models, streaming chat, tool calling | 195 |
+| Services | [`Services/AI/AISettingsStore.swift`](../../Sources/Services/AI/AISettingsStore.swift) | Lưu/nạp cấu hình AI từ UserDefaults | 75 |
+| Services | [`Services/AI/AIChatHistoryStore.swift`](../../Sources/Services/AI/AIChatHistoryStore.swift) | Quản lý JSON session chat theo sha256(bookId) trong Application Support | 135 |
+| Services | [`Services/AI/Harness/AIBookDataInspector.swift`](../../Sources/Services/AI/Harness/AIBookDataInspector.swift) | Đọc raw text chương truyện, danh sách chương offline, tên riêng hiện có | 85 |
+| Services | [`Services/AI/Harness/AIHarnessService.swift`](../../Sources/Services/AI/Harness/AIHarnessService.swift) | Điều phối thực thi hành động với từ điển/lọc rác theo 3 mode | 110 |
+| Services | [`Services/AI/AINameExtractionBatchProcessor.swift`](../../Sources/Services/AI/AINameExtractionBatchProcessor.swift) | Quét offline batching nhiều chương trích xuất JSON tên riêng | 120 |
+| Views/Reader | [`Views/Reader/AI/ReaderAIFullScreenView.swift`](../../Sources/Views/Reader/AI/ReaderAIFullScreenView.swift) | Màn hình chat toàn màn hình chính | 225 |
+| Views/Reader | [`Views/Reader/AI/ReaderAIFullScreenView+Actions.swift`](../../Sources/Views/Reader/AI/ReaderAIFullScreenView+Actions.swift) | Xử lý streaming, gửi tin nhắn, gọi batch name extraction | 165 |
+| Views/Reader | [`Views/Reader/AI/ReaderAIInputBarView.swift`](../../Sources/Views/Reader/AI/ReaderAIInputBarView.swift) | Khung nhập chat kèm Mode menu pill và Model picker menu | 160 |
+| Views/Reader | [`Views/Reader/AI/ReaderAISessionListView.swift`](../../Sources/Views/Reader/AI/ReaderAISessionListView.swift) | Sheet quản lý danh sách session chat cũ, xóa session | 115 |
+| Views/Reader | [`Views/Reader/AI/ReaderAIActionPlanCardView.swift`](../../Sources/Views/Reader/AI/ReaderAIActionPlanCardView.swift) | Thẻ Kế hoạch / Phê duyệt hành động dạng tương tác | 95 |
+| Views/Reader | [`Views/Reader/AI/ReaderAINameReviewCardView.swift`](../../Sources/Views/Reader/AI/ReaderAINameReviewCardView.swift) | Thẻ duyệt và lưu tên riêng tương tác vào từ điển | 145 |
+| Views/Reader | [`Views/Reader/AI/ReaderAIQuickActionChipsView.swift`](../../Sources/Views/Reader/AI/ReaderAIQuickActionChipsView.swift) | Thanh chip tác vụ nhanh (Tóm tắt chương, Lọc name, v.v.) | 75 |
+| Views/Reader | [`Views/Reader/Extensions/ReaderView+AI.swift`](../../Sources/Views/Reader/Extensions/ReaderView+AI.swift) | Extension ReaderView tích hợp fullScreenCover AI | 40 |
+| Views/Settings | [`Views/Settings/AI/AISettingsView.swift`](../../Sources/Views/Settings/AI/AISettingsView.swift) | Màn hình cấu hình AI Provider, load model, nhập thủ công | 195 |
+| Views/Settings | [`Views/Settings/Main/AISettingsSection.swift`](../../Sources/Views/Settings/Main/AISettingsSection.swift) | Section điều hướng đến Cài đặt AI trong SettingsView | 35 |
+
+* Tất cả 24 file mới đều dưới trần 400 dòng vật lý và tuân thủ đúng 1 primary type top level.
+* `SettingsView.swift` giảm dòng về dưới baseline; `ReaderView.swift` giữ nguyên dưới trần baseline.
+
 ## +1 file cho bảo vệ Name riêng trước Rule dịch (1.3.383)
 
 | File mới | Vai trò | Dòng |

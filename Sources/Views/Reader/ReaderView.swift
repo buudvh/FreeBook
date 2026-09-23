@@ -162,6 +162,7 @@ struct ReaderView: View {
     @State var ruleEditorMode: QuickTranslationRuleEditorSheet.Mode? = nil
     /// Có thao tác nào đổi dữ liệu rule trong lượt mở sheet này hay chưa — quyết định có dịch lại khi đóng.
     @State var didChangeRuleData = false
+    @State internal var showingAIFullScreen = false
 
     // Cấu hình giao diện đọc (lưu trữ lâu dài qua UserDefaults nhờ @AppStorage)
     @AppStorage("readerFontSize") internal var fontSize: Double = 20.0 // Cỡ chữ của văn bản đọc
@@ -373,6 +374,7 @@ struct ReaderView: View {
                 ruleToolsOverlay(in: geometry)
 
                 readerChapterListOverlay(in: geometry)
+                aiHarnessOverlay(in: geometry)
             }
         }
         .toolbar(.hidden, for: .navigationBar) // Ẩn navigation bar gốc
@@ -1064,6 +1066,9 @@ struct ReaderView: View {
                     // phải đóng cover trước, rồi mới báo `MainTabView` nhảy sang tab Cài Đặt.
                     dismiss()
                     NotificationCenter.default.post(name: NSNotification.Name("navigateToSettingsTab"), object: nil)
+                },
+                onOpenAI: {
+                    showingAIFullScreen = true
                 }
             )
         }

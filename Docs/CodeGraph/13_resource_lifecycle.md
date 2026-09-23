@@ -15,6 +15,19 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời tài nguyên mạng, tác vụ streaming và file JSON phiên chat AI (1.3.385)
+
+* **Tài nguyên mạng HTTP & SSE Streaming (`OpenAIClient`)**:
+  - Dùng `URLSession.shared.bytes(for:)` để streaming phản hồi SSE (`data: {...}`). Task streaming được giữ trong `@State` hoặc async scope của view.
+  - Khi người dùng gửi tin mới hoặc đóng view, task cũ được cancel, `URLSession` ngắt kết nối mạng ngay lập tức, giải phóng socket và buffer mà không rò rỉ bộ nhớ.
+* **Lưu trữ phiên chat trên đĩa (`AIChatHistoryStore`)**:
+  - Các phiên trò chuyện được ghi bền vững thành file JSON dưới đường dẫn `Application Support/ai_chats/<sha256(bookId)>.json`.
+  - Giới hạn lưu trữ: Mỗi truyện giữ tối đa 30 session gần nhất (`maxSessionsPerBook = 30`), session cũ hơn tự động bị cắt tỉa khi lưu để tránh tiêu tốn dung lượng đĩa.
+  - Khi xoá sách: Có thể dọn dẹp file chat tương ứng theo mã băm SHA-256 an toàn (`validatePathSafety`).
+* **Không cấp phát tài nguyên nền rò rỉ**:
+  - Tác vụ batching quét nhiều chương kiểm tra `Task.isCancelled` ở mỗi vòng lặp chương, dừng ngay lập tức khi người dùng bấm "Dừng".
+  - Không khởi tạo background timer sống lâu, không tạo observer rò rỉ `NotificationCenter`.
+
 ## Cache chương có trần thật; memo rule rewrite nới trần entry (1.3.375)
 
 * **`ChapterCache` lần đầu có đường giải phóng tài nguyên chạy thật.** `queueReleaseAllNonVisible` là code chết tới 1.3.375 — trước đó chỉ Memory Warning mới dọn, mà `handleMemoryWarning` chỉ giữ **đúng** chương đang đọc. Nay `ReaderView.applyNavigationCommit` gọi nó sau mỗi commit với cửa sổ **±3** và `queueRelease(delaySeconds: 5)`; `get(index)` vẫn là nơi huỷ hẹn khi người dùng quay lại trong 5 s.

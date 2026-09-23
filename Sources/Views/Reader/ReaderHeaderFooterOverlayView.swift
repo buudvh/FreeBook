@@ -27,6 +27,7 @@ struct ReaderHeaderFooterOverlayView: View {
     let onPrevChapter: () -> Void
     let onNextChapter: () -> Void
     let onOpenAppSettings: () -> Void
+    let onOpenAI: () -> Void
 
     var readerChromeBackground: Color {
         selectedTheme.backgroundColor
@@ -76,6 +77,14 @@ struct ReaderHeaderFooterOverlayView: View {
                         .accessibilityLabel("Tải lại chương")
                     }
 
+                    Button(action: onOpenAI) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(selectedTheme.textColor)
+                            .frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel("Trợ lý AI")
+
                     Button(action: { showingSettings = true }) {
                         Image(systemName: "gearshape")
                             .font(.system(size: 18, weight: .semibold))
@@ -85,6 +94,10 @@ struct ReaderHeaderFooterOverlayView: View {
                     .accessibilityLabel("Cài đặt trình đọc")
 
                     Menu {
+                        Button(action: onOpenAI) {
+                            Label("Trợ lý AI (Harness)", systemImage: "sparkles")
+                        }
+
                         if hasLocalBook {
                             Button(action: { showingBookDictionary = true }) {
                                 Label("Từ điển truyện", systemImage: "book.closed")

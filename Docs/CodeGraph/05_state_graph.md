@@ -15,6 +15,18 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Trạng thái phiên chat, mode và hành động của phân hệ Reader AI Harness (1.3.385)
+
+* **`ReaderView`**: Thêm `@State internal var showingAIFullScreen: Bool = false` điều khiển hiển thị màn hình toàn màn hình qua modifier `aiHarnessOverlay(in:)`.
+* **`ReaderAIFullScreenView`**:
+  - `session: AIChatSession`: Quản lý danh sách `messages` và metadata phiên chat hiện tại.
+  - `selectedMode: AIHarnessMode`: Ba chế độ làm việc (`.ask`, `.plan`, `.bypass`), chuyển đổi tức thì từ Mode Menu Pill trong khung chat.
+  - `selectedModel: String` & `availableModels: [String]`: State lựa chọn model tức thì từ menu model trên input bar.
+  - `isProcessing: Bool`: Điều khiển trạng thái loading, vô hiệu hóa gửi trùng lặp và hiện con trỏ nhấp nháy khi streaming.
+  - `actionPlans: [String: AIHarnessAction]`: Quản lý các hành động can thiệp dữ liệu truyện theo ID, trạng thái chuyển từ `.pending` → `.executing` → `.succeeded` / `.failed`.
+  - `showingSessionList: Bool`: Điều khiển sheet danh sách lịch sử session chat cũ.
+  - `nameExtractionProgress: Double?`: State tiến trình quét batch các chương offline trích xuất tên riêng, cho phép người dùng bấm "Dừng" bất kỳ lúc nào.
+
 ## Trạng thái nạp rule trace tách biệt khỏi snapshot token chọn lẻ (1.3.381)
 
 * `ReaderDefinitionSession`: `loadingRules` và `ruleTask` chuyển sang phụ thuộc vòng đời mở panel Dịch và nội dung câu gốc `originalSentence`, không gắn chặt với `currentDefinitionSnapshot()`.

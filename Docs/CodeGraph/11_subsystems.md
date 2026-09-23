@@ -15,6 +15,23 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ mới: AI Assistant Harness trong Reader và Settings (1.3.385)
+
+* **Mục tiêu**:
+  - Tích hợp trợ lý AI toàn màn hình trực tiếp trong Reader, kết nối API tương thích OpenAI (Google Gemini, OpenAI, Claude qua OpenRouter, DeepSeek, Groq, Ollama, Custom).
+  - Hỗ trợ phân tích văn bản raw (chưa dịch) của chương truyện để tóm tắt nội dung và trích xuất tên riêng/nhân vật/địa danh với độ chính xác cao nhất.
+  - Cung cấp cơ chế Harness với 3 chế độ làm việc (`Ask`, `Plan`, `Bypass`) cho phép kiểm soát quyền can thiệp dữ liệu truyện.
+* **Các thành phần cốt lõi**:
+  - `Sources/Models/AI/`: Các mô hình dữ liệu (`AIHarnessMode`, `AIProviderPreset`, `AIConfiguration`, `AIExtractedName`, `AIHarnessAction`, `AIChatMessage`, `AIChatSession`).
+  - `Sources/Services/AI/OpenAIClient.swift`: Actor HTTP Client hỗ trợ Server-Sent Events (SSE) streaming và Tool Calling.
+  - `Sources/Services/AI/AIChatHistoryStore.swift`: Actor lưu trữ và quản lý lịch sử phiên chat theo file JSON `Application Support/ai_chats/<sha256(bookId)>.json`.
+  - `Sources/Services/AI/AISettingsStore.swift`: Actor quản lý nạp/lưu cấu hình AI từ `UserDefaults`.
+  - `Sources/Services/AI/Harness/AIBookDataInspector.swift`: Actor trích xuất nội dung raw chapter từ `ChapterStore` và `BookBinManager`, danh sách offline chapters và từ điển hiện có.
+  - `Sources/Services/AI/Harness/AIHarnessService.swift`: Điều phối thực thi hành động lưu tên riêng (`TranslationManager.shared.saveCustomEntry`) và luật lọc rác (`JunkFilterManager.shared.addRule`).
+  - `Sources/Services/AI/AINameExtractionBatchProcessor.swift`: Xử lý quét offline batching nhiều chương trích xuất tên riêng.
+  - `Sources/Views/Reader/AI/`: Toàn bộ giao diện chat toàn màn hình, thanh công cụ input bar, chip tác vụ nhanh, thẻ kế hoạch hành động và thẻ duyệt tên riêng.
+  - `Sources/Views/Settings/AI/`: Giao diện cấu hình API AI, chọn preset, load model từ API hoặc nhập thủ công.
+
 ## Đưa các Rule tranh chấp Name riêng lên thanh chip ở trạng thái thua (1.3.384)
 
 * **Nhận diện đầy đủ cụm khớp trong `QuickTranslationRuleMatcher` (`QuickTranslationRuleMatcher.swift`)**:

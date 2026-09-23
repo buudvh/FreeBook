@@ -15,6 +15,16 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ranh giới phụ thuộc phân hệ Reader AI Harness (1.3.385)
+
+* **Tầng Services/AI độc lập hoàn toàn với SwiftUI và Toast**:
+  - Cả 7 file trong `Sources/Services/AI/` (`OpenAITypes.swift`, `OpenAIClient.swift`, `AISettingsStore.swift`, `AIChatHistoryStore.swift`, `AIBookDataInspector.swift`, `AIHarnessService.swift`, `AINameExtractionBatchProcessor.swift`) chỉ `import Foundation`; tuyệt đối không `import SwiftUI` và không gọi `ToastManager.shared`.
+  - Giữ vững 100% hai luật cưỡng chế kiến trúc `SERVICE_SWIFTUI_IMPORT` và `SERVICE_TOAST_COUPLING`.
+* **Chiều phụ thuộc nghiêm ngặt đơn hướng**:
+  - `Views/Reader/AI/` và `Views/Settings/AI/` phụ thuộc vào `Services/AI/` và `Models/AI/`.
+  - `Services/AI/` chỉ phụ thuộc vào `Models/AI/`, `Services/ChapterText/`, `Services/Translation/` và `Services/Download/` mà không phụ thuộc ngược lại vào `Views`.
+  - `AIHarnessService` và `AIBookDataInspector` đóng vai trò ranh giới an toàn, đọc dữ liệu sách thông qua các service/repository hiện có mà không phá vỡ kiến trúc cô lập dữ liệu.
+
 ## Ranh giới phụ thuộc bảo vệ Name riêng trong Rule Engine (1.3.383)
 
 * `QuickTranslationRuleEngine+NameProtection.swift` nằm trong `Services/Translation/Extensions/`, chỉ `import Foundation`; không import SwiftUI và không gọi `ToastManager`.

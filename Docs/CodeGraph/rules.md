@@ -15,6 +15,13 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader AI Agent Harness invariants (1.3.385)
+
+* **Raw chapter content is the single source of truth for AI analysis.** Extraction of character names, locations, and glossary terms must use the raw Chinese chapter text via `AIBookDataInspector.loadRawChapterContent`, never the translated text. This prevents translation distortion from polluting the dictionary.
+* **Three harness modes dictate data mutation authority.** In `.ask` mode, all book data mutations (adding names, adding junk filter rules) must be queued into an action plan requiring user confirmation before execution. In `.plan` mode, multi-step actions require explicit approval. In `.bypass` mode, actions execute automatically.
+* **Custom Name dictionary writes must use `isName: true` and specify `bookId`.** Direct mutations of book names must call `TranslationManager.shared.saveCustomEntry(key, meaning, isName: true, bookId: bookId)` to benefit from Name protection in `QuickTranslationRuleMatcher`.
+* **AI Chat history is partitioned by book.** Chat sessions are stored as JSON files under `Application Support/ai_chats/<sha256(bookId)>.json`, keeping context isolated between different books.
+
 ## Reader definition overlay rule chip loading invariants (1.3.381)
 
 * **Rule traces are scoped to the paragraph, not the token selection.** `openDefinitionPanel()` and `showingDefinitionSheet` trigger `refreshRuleTraces()` so chips are populated on open. `refreshDefinitionRules()` validates paragraph identity (`originalSentence == text`), not `currentDefinitionSnapshot()`. Expanding or shrinking token selection does not reload rule traces.

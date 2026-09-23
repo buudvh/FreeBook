@@ -15,6 +15,28 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Type mới cho phân hệ AI Assistant Harness ở Reader và Settings (1.3.385)
+
+* **Models/AI**:
+  - `AIHarnessMode`: `enum` (`ask`, `plan`, `bypass`) - `String, Codable, CaseIterable, Identifiable`.
+  - `AIProviderPreset`: `enum` (`gemini`, `openai`, `claude`, `deepseek`, `groq`, `ollama`, `custom`) - `String, CaseIterable, Identifiable`.
+  - `AIConfiguration`: `struct` (`endpoint`, `apiKey`, `model`, `availableModels`, `providerPreset`, `systemPrompt`, `timeoutSeconds`) - `Codable, Equatable`.
+  - `AIExtractedName`: `struct` (`id`, `original`, `translated`, `occurrences`, `context`) - `Identifiable, Codable, Equatable`.
+  - `AIHarnessAction`: `struct` (`id`, `kind`, `title`, `description`, `targetBookId`, `payload`, `state`) với nested `Kind` (`addName`, `removeName`, `addJunkFilter`, `removeJunkFilter`) và nested `ExecutionState` (`pending`, `executing`, `succeeded`, `failed`) - `Identifiable, Codable, Equatable`.
+  - `AIChatMessage`: `struct` (`id`, `role`, `content`, `createdAt`, `actionPlan`, `extractedNames`, `isStreaming`) với nested `Role` (`system`, `user`, `assistant`, `tool`) - `Identifiable, Codable, Equatable`.
+  - `AIChatSession`: `struct` (`id`, `bookId`, `title`, `createdAt`, `updatedAt`, `messages`) - `Identifiable, Codable, Equatable`.
+* **Services/AI**:
+  - `OpenAITypes`: `OpenAIChatRequest` (với nested `Message`, `ToolCall`, `FunctionCall`), `OpenAIChatResponse`, `OpenAIModelListResponse`, `AnyCodable`.
+  - `OpenAIClient`: `actor` quản lý kết nối HTTP, streaming SSE, fetch models.
+  - `AISettingsStore`: `actor` quản lý nạp/lưu cấu hình AI từ `UserDefaults`.
+  - `AIChatHistoryStore`: `actor` quản lý lưu/nạp file JSON phiên chat theo `sha256(bookId)`.
+  - `AIBookDataInspector`: `actor` đọc raw chapter text và danh sách offline chapters.
+  - `AIHarnessService`: `class` điều phối thực thi các hành động can thiệp dữ liệu theo mode.
+  - `AINameExtractionBatchProcessor`: `class` quản lý batching quét offline chapters.
+* **Views/Reader/AI & Views/Settings/AI**:
+  - `ReaderAIFullScreenView`, `ReaderAIInputBarView`, `ReaderAISessionListView`, `ReaderAIActionPlanCardView`, `ReaderAINameReviewCardView`, `ReaderAIQuickActionChipsView`.
+  - `AISettingsView`, `AISettingsSection`.
+
 ## Type snapshot/cancellation mới trên đường dịch (1.3.354)
 
 * `TrieDictionary` thêm `frozen() -> FrozenTrieDictionary`; `DoubleArrayTrie` và `TextDictionary` chỉ publish value bất biến. `DictionaryTextRecord`, `TranslationWordToken` và `DictionaryMatchInfo` là `Sendable` để qua worker nền.

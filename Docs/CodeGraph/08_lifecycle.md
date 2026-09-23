@@ -15,6 +15,19 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời màn hình Reader AI FullScreen Cover và khởi tạo session (1.3.385)
+
+* **Khởi tạo khi mở (`onAppear` / `.task`)**:
+  - Khi người dùng bấm icon `sparkles`, `showingAIFullScreen` kích hoạt `.fullScreenCover` trình bày `ReaderAIFullScreenView`.
+  - Trong `.task`: Nạp cấu hình AI từ `AISettingsStore.shared.loadConfiguration()`, nạp active session từ `AIChatHistoryStore.shared.loadActiveSession(bookId:)` (nếu chưa có thì tạo session mới), nạp danh sách chương offline qua `AIBookDataInspector.shared.loadOfflineChapters(bookId:)` và nạp raw text của chương hiện tại.
+* **Vòng đời tin nhắn streaming**:
+  - Gửi tin nhắn tạo `AIChatMessage` tạm với cờ `isStreaming = true`. Mỗi chunk SSE stream trả về từ `OpenAIClient` được append trực tiếp vào nội dung tin nhắn trên `@MainActor`.
+  - Khi kết thúc luồng (hoặc lỗi), `isStreaming` đặt về `false` và phiên chat được lưu bền vững qua `AIChatHistoryStore.shared.saveSession(session)`.
+* **Vòng đời tác vụ batching trích xuất Name**:
+  - Batching chạy tuần tự theo lô 5 chương qua `AINameExtractionBatchProcessor`. Người dùng bấm "Dừng" sẽ kích hoạt cờ hủy nội bộ (`isCancelled = true`), tác vụ thoát an toàn sau khi hoàn thành lô hiện tại mà không làm hỏng dữ liệu đã thu thập.
+* **Đóng màn hình**:
+  - Người dùng bấm nút "Xong" hoặc kéo hạ sheet: Các tác vụ hiển thị được giải phóng, session đã được lưu đĩa an toàn, không có tài nguyên ngầm nào rò rỉ.
+
 ## Vòng đời một lượt chuyển chương khi chỉ bản dịch lỗi thời (1.3.375)
 
 * `loadChapterContentFromExtension` mở đầu bằng một nhánh thoát sớm: `!forceRefresh` **và** cache Reader đã có `state == .loaded` với `originalContent` khác rỗng ⇒ trả `.memory` ngay, **không** đi `ChapterContentRepository.load`. Tiền đề: khi đó lý do duy nhất phải qua hàm này là **token dịch đã đổi** (sửa từ điển/rule), còn nội dung chương không đổi — `runNavigationWorker` tự gọi `processAndSaveChapter(originalContent: cached.originalContent)` ngay sau đó. Trước 1.3.375 lượt này vẫn kéo theo một vòng I/O DB/extension rồi mới dịch lại.

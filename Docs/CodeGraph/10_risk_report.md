@@ -15,6 +15,21 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rủi ro kỹ thuật phân hệ AI Assistant Harness (1.3.385)
+
+* **Phụ thuộc API bên thứ ba & Độ trễ mạng**:
+  - Tốc độ phản hồi và giới hạn rate limit (429) hoàn toàn phụ thuộc vào endpoint/key của nhà cung cấp do người dùng cấu hình (Gemini, OpenAI, Claude, v.v.).
+  - Biện pháp khắc phục: Sử dụng streaming SSE cho chat thông thường để người dùng thấy text ngay lập tức thay vì chờ toàn bộ phản hồi; cho phép dừng stream; timeout cấu hình được mặc định 60s.
+* **Rủi ro phân tích cấu trúc JSON khi trích xuất tên riêng**:
+  - LLM có thể trả về JSON không chuẩn hoặc kèm giải thích thừa ngoài block markdown.
+  - Biện pháp khắc phục: `AINameExtractionBatchProcessor` áp dụng regex trích xuất block ```json ... ``` hoặc tìm cặp ngoặc vuông `[...]` hợp lệ trước khi `JSONDecoder` xử lý, fallback về mảng rỗng thay vì làm crash luồng.
+* **Chi phí token khi quét batch nhiều chương**:
+  - Quét hàng chục chương truyện một lúc có thể tốn lượng lớn context token nếu gộp toàn bộ nội dung.
+  - Biện pháp khắc phục: Chia batch cố định 5 chương/batch, trích xuất mẫu ngữ cảnh ngắn và cung cấp progress bar kèm nút "Dừng" tức thì để người dùng kiểm soát chi phí.
+* **Bảo toàn dữ liệu truyện khi AI can thiệp**:
+  - AI trong mode `Bypass` có thể lưu nhầm tên riêng không mong muốn.
+  - Biện pháp khắc phục: Khuyến khích sử dụng mode `Ask` hoặc `Plan` (hỏi trước khi thực hiện), và giao diện `ReaderAINameReviewCardView` cho phép người dùng tick chọn/bỏ chọn và sửa nghĩa thủ công trước khi bấm "Lưu vào từ điển".
+
 ## Rủi ro của trần cache chương và nhánh thoát sớm khi chỉ bản dịch lỗi thời (1.3.375)
 
 * **Điều hướng lùi quá ±3 chương giờ có thể phải nạp lại.** Trước đây `ChapterCache` không bao giờ tự evict, nên quay lại chương cũ luôn là commit RAM. Từ 1.3.375 `applyNavigationCommit` giữ ±3 và `queueRelease` ân hạn 5 s: quay lại **trong 5 s** vẫn được `get()` huỷ hẹn, quá 5 s thì chương bị gỡ và lần tới phải nạp lại. Đây là đánh đổi có chủ ý — nhánh thay thế duy nhất hiện có là Memory Warning, vốn chỉ giữ **đúng** chương đang đọc. **Chưa đo trên máy thật** (workspace Windows không build được).

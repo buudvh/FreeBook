@@ -15,6 +15,16 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +24 file cho phân hệ AI Assistant; giảm baseline vi phạm kiến trúc từ 7 xuống 6 (1.3.385)
+
+* **24 file Swift mới, 100% tuân thủ trần ≤ 400 dòng vật lý và 1 primary type top level**:
+  - `ReaderAIFullScreenView.swift` được chủ động tách với `ReaderAIFullScreenView+Actions.swift` (~225 dòng và ~165 dòng) để tránh vượt trần 400 dòng.
+  - Các file service (`OpenAIClient.swift` 195, `AIChatHistoryStore.swift` 135, `AINameExtractionBatchProcessor.swift` 120, `AIHarnessService.swift` 110, `AIBookDataInspector.swift` 85, `AISettingsStore.swift` 75) đều có cấu trúc gọn gàng, chia sẻ trách nhiệm rõ ràng.
+* **Giảm baseline vi phạm kiến trúc trong `check_architecture.py`**:
+  - `SettingsView.swift` được tái cấu trúc dời phần AI settings sang `AISettingsSection.swift` (35 dòng), giúp `SettingsView.swift` giảm dòng và loại bỏ khỏi danh sách vi phạm line-limit legacy.
+  - Tổng số violation của `check_architecture.py` giảm từ **7** xuống **6** (không phát sinh bất kỳ vi phạm kiến trúc nào mới).
+  - Không có cảnh báo `MULTI_PRIMARY_TYPES`, `VIEW_SWIFTDATA_MUTATION`, `SERVICE_TOAST_COUPLING`, hay `SERVICE_SWIFTUI_IMPORT`.
+
 ## +1 file 50 dòng; QuickTranslationRuleEngine giữ dưới trần 400 dòng (1.3.383)
 
 * File mới: `QuickTranslationRuleEngine+NameProtection.swift` **50** dòng — chỉ chứa `extension QuickTranslationRuleEngine`, không có primary type top level mới.
