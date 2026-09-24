@@ -16,6 +16,7 @@ public struct ReaderTranslationScopeMenuView: View {
     public let sourceName: String
     public let textColor: Color?
     public let showBackground: Bool
+    public let isChineseSourceHint: Bool?
 
     @State private var status: TranslationConfigStore.ResolvedStatus
     @State private var showingPopup = false
@@ -27,14 +28,16 @@ public struct ReaderTranslationScopeMenuView: View {
         packageId: String = "",
         sourceName: String = "",
         textColor: Color? = nil,
-        showBackground: Bool = true
+        showBackground: Bool = true,
+        isChineseSourceHint: Bool? = nil
     ) {
         self.bookId = bookId
         self.packageId = packageId
         self.sourceName = sourceName
         self.textColor = textColor
         self.showBackground = showBackground
-        _status = State(initialValue: TranslationConfigStore.shared.resolveStatus(bookId: bookId, packageId: packageId))
+        self.isChineseSourceHint = isChineseSourceHint
+        _status = State(initialValue: TranslationConfigStore.shared.resolveStatus(bookId: bookId, packageId: packageId, isChineseSourceHint: isChineseSourceHint))
     }
 
     private var displaySourceName: String {
@@ -80,6 +83,12 @@ public struct ReaderTranslationScopeMenuView: View {
                 .preferredColorScheme(.dark)
         }
         .onAppear {
+            refreshStatus()
+        }
+        .onChange(of: packageId) { _, _ in
+            refreshStatus()
+        }
+        .onChange(of: bookId) { _, _ in
             refreshStatus()
         }
         .onReceive(NotificationCenter.default.publisher(for: TranslationConfigStore.didChangeNotification)) { _ in
@@ -230,6 +239,6 @@ public struct ReaderTranslationScopeMenuView: View {
     }
 
     private func refreshStatus() {
-        status = TranslationConfigStore.shared.resolveStatus(bookId: bookId, packageId: packageId)
+        status = TranslationConfigStore.shared.resolveStatus(bookId: bookId, packageId: packageId, isChineseSourceHint: isChineseSourceHint)
     }
 }

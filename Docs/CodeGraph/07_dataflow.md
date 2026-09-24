@@ -32,7 +32,7 @@ Yêu cầu trạng thái dịch: isTranslationEnabled(bookId, packageId)
   │
   └─ 3. Kiểm tra globalEnabled (Toàn cục):
         ├─ Đã lưu cấu hình rõ ràng ──> TRẢ VỀ: Bool (Origin: .global)
-        └─ Chưa lưu / mặc định ──> Kiểm tra isChineseSource(packageId)
+        └─ Chưa lưu / mặc định ──> Kiểm tra isChineseSourceHint / sourceIsChineseMap / isChineseSource(packageId)
               ├─ Nguồn tiếng Trung (chinese_novel / zh / cn) ──> TRẢ VỀ: true
               └─ Nguồn khác ──> TRẢ VỀ: false
 

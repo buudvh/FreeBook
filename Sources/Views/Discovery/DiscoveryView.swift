@@ -166,8 +166,10 @@ struct DiscoveryView: View {
                             packageId: selectedExtensionId,
                             sourceName: selectedExtension?.name ?? "",
                             textColor: .white,
-                            showBackground: false
+                            showBackground: false,
+                            isChineseSourceHint: selectedExtension?.isChineseSource
                         )
+                        .id("discovery-translate-\(selectedExtensionId)")
                         .padding(4)
                         .background(Color(.secondarySystemBackground))
                         .clipShape(Circle())
@@ -190,7 +192,9 @@ struct DiscoveryView: View {
                     .background(Color(.systemBackground))
                     .onChange(of: selectedExtensionId) { _, newValue in
                         lastSelectedExtensionId = newValue
-                        isTranslationEnabled = TranslationConfigStore.shared.isTranslationEnabled(bookId: "", packageId: newValue)
+                        let isChinese = selectedExtension?.isChineseSource ?? false
+                        TranslationConfigStore.shared.registerSource(packageId: newValue, isChinese: isChinese)
+                        isTranslationEnabled = TranslationConfigStore.shared.isTranslationEnabled(bookId: "", packageId: newValue, isChineseSourceHint: isChinese)
                         // Xóa sạch dữ liệu cũ khi đổi extension để tránh rác hiển thị
                         homeItems.removeAll()
                         genreItems.removeAll()
@@ -366,7 +370,14 @@ struct DiscoveryView: View {
                         isLoading = false
                     }
                 }
-                isTranslationEnabled = TranslationConfigStore.shared.isTranslationEnabled(bookId: "", packageId: selectedExtensionId)
+                for ext in activeExtensions {
+                    TranslationConfigStore.shared.registerSource(packageId: ext.packageId, isChinese: ext.isChineseSource)
+                }
+                isTranslationEnabled = TranslationConfigStore.shared.isTranslationEnabled(
+                    bookId: "",
+                    packageId: selectedExtensionId,
+                    isChineseSourceHint: selectedExtension?.isChineseSource
+                )
                 
                 if needsReloadActiveExtension {
                     needsReloadActiveExtension = false
@@ -387,7 +398,11 @@ struct DiscoveryView: View {
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: TranslationConfigStore.didChangeNotification)) { _ in
-                let newState = TranslationConfigStore.shared.isTranslationEnabled(bookId: "", packageId: selectedExtensionId)
+                let newState = TranslationConfigStore.shared.isTranslationEnabled(
+                    bookId: "",
+                    packageId: selectedExtensionId,
+                    isChineseSourceHint: selectedExtension?.isChineseSource
+                )
                 if isTranslationEnabled != newState {
                     isTranslationEnabled = newState
                 }

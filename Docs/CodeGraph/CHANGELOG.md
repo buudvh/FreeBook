@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.395] - 2026-09-24
+
+### feat: sua loi nut dich kham pha khi chuyen nguon trung viet
+
+Sửa **4** file Swift trong `Sources/Services/Translation/Utils/`, `Sources/Views/Reader/`, `Sources/Views/Discovery/`, `Sources/Views/BookDetail/`:
+
+- **Khắc Phục Vòng Đời Nút Dịch Khám Phá (`ReaderTranslationScopeMenuView.swift`, `DiscoveryView.swift`, `BookDetailView.swift`)**:
+  - `ReaderTranslationScopeMenuView`: Bổ sung tham số `isChineseSourceHint: Bool?` và hai bộ lắng nghe `.onChange(of: packageId)`, `.onChange(of: bookId)` để kích hoạt `refreshStatus()` ngay khi nguồn hoặc truyện thay đổi.
+  - `DiscoveryView`: Gán `.id("discovery-translate-\(selectedExtensionId)")` cho nút dịch trên toolbar để SwiftUI tái khởi tạo view tương ứng với nguồn mới; truyền `isChineseSourceHint: selectedExtension?.isChineseSource`.
+  - `BookDetailView`: Đồng bộ truyền `isChineseSourceHint: ext?.isChineseSource` vào `ReaderTranslationScopeMenuView` và các lời gọi `isTranslationEnabled`.
+- **Nâng Cấp Cache & Cơ Chế Dò Nguồn Tiếng Trung (`TranslationConfigStore.swift`)**:
+  - Thêm bộ nhớ đệm `sourceIsChineseMap` cùng phương thức `registerSource(packageId:isChinese:)` giúp tra cứu trạng thái nguồn O(1).
+  - Tối ưu hàm `isChineseSource`: tìm kiếm đệ quy thư mục con cấp 1 trong thư mục extension khi file zip giải nén vào folder con lồng nhau; hỗ trợ trích xuất `type`, `locale`, `language` từ cả đối tượng `metadata` lẫn root `plugin.json`.
+- **Cập Nhật Tức Thì Trạng Thái Dịch Thẻ Truyện (`DiscoveryView.swift`)**:
+  - Cập nhật cờ `isTranslationEnabled` ngay khi đổi nguồn hoặc nhận thông báo cấu hình dịch thay đổi, giúp các thẻ truyện hiển thị tên dịch tức thì mà không cần tải lại mạng.
+
 ## [1.3.394] - 2026-09-24
 
 ### feat: dong bo popup dich mau trang, toi uu danh sach chuong va do mo chuong da doc

@@ -3,8 +3,8 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-09-24T14:12:54Z",
-  "gitCommit": "460b9e0c42e99dcc32642aaa086656dbba7efa60",
+  "generatedAt": "2026-09-24T14:44:26Z",
+  "gitCommit": "f81e0da74369fafc51e92ad1e6325044e4347135",
   "sourceFileCount": 564,
   "documentCount": 16,
   "documents": [
@@ -1461,11 +1461,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "6d456f396e35b74aa610f97efa8bad2097bb722ac38de1b3cbb71190ffd82cd6",
-      "sourceHash": "d9dc883b02c37574b6cfe6aea013aa0fd9ec77b364aa93ceb9983ea532267312",
+      "sourceHash": "0b0855cb54c25c3610c7a0755934ced5624979a7dccc96b708bef97a559b6979",
       "generatedHash": "bd01bef82edc99582b640519805048b0ab9b23cecd003311539bf3a58829ca2b",
-      "generatedAt": "2026-09-24T14:12:54Z",
-      "reviewedAt": "2026-09-24T14:12:54Z",
-      "reviewedCommit": "460b9e0c42e99dcc32642aaa086656dbba7efa60",
+      "generatedAt": "2026-09-24T14:44:26Z",
+      "reviewedAt": "2026-09-24T14:44:26Z",
+      "reviewedCommit": "f81e0da74369fafc51e92ad1e6325044e4347135",
       "reviewMode": "no-change-needed"
     },
     {
@@ -1714,11 +1714,11 @@
         "Sources/Views/Reader/Extensions/ReaderViewModel+Translation.swift"
       ],
       "structureHash": "5b98193310594449d3c11bf19f20bdf6164763f31fa3040d6a96678a46ac0228",
-      "sourceHash": "dae3c39bb8654978158f4c5424fc290fc801a1a3b5c35d1f7d82b81b55f58e95",
-      "generatedHash": "7083087083a33bffbe834188715bd37ae8f6ad54b3126c7aa2285749d994f4e3",
-      "generatedAt": "2026-09-24T14:03:31Z",
-      "reviewedAt": "2026-09-24T14:03:31Z",
-      "reviewedCommit": "b6a970b62dacbb709521a8c21d0c2c648ab89d38",
+      "sourceHash": "4b6d56150f65ab9f18ce75fc3a11bebc354deb7045d48dffd2eb6bd178837cff",
+      "generatedHash": "d61a434d572b894e7f75f0a493c90e28ebeac803e18afb4f47f12bea48d65c28",
+      "generatedAt": "2026-09-24T14:44:11Z",
+      "reviewedAt": "2026-09-24T14:44:11Z",
+      "reviewedCommit": "f81e0da74369fafc51e92ad1e6325044e4347135",
       "reviewMode": "accept"
     },
     {
@@ -2970,12 +2970,12 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "0716dc60407642f62d66df4919a359af4e62055021ea6c70c14db7bdb246adbd",
-      "sourceHash": "8ad0496fea599627e3fe47547a73758719d9143e0b2d40cf3e63198c7d71efbe",
-      "generatedHash": "7726cc25b466c3d6393b24ab73f9f9375a6d4672c9381d40a6a105e6d9a8d3a6",
-      "generatedAt": "2026-09-24T14:12:54Z",
-      "reviewedAt": "2026-09-24T14:12:54Z",
-      "reviewedCommit": "460b9e0c42e99dcc32642aaa086656dbba7efa60",
-      "reviewMode": "no-change-needed"
+      "sourceHash": "f40a2cc0942a1897642c88be151b7c47089a5ee0674fba3fe5282c0742602f76",
+      "generatedHash": "e0ef00b56cf828095c2ffefe769bd4eba1b71d10a97eafe1aceb2362f5efbd83",
+      "generatedAt": "2026-09-24T14:44:11Z",
+      "reviewedAt": "2026-09-24T14:44:11Z",
+      "reviewedCommit": "f81e0da74369fafc51e92ad1e6325044e4347135",
+      "reviewMode": "accept"
     },
     {
       "filename": "12_ownership_graph.md",
@@ -3008,11 +3008,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "b0d4d4d4bca7562eb71c38165e49eaf44434d87b57111fb5c46f1762529b0396",
-      "sourceHash": "56991742d9c09eb1e1eb965325c2e967f19933401ccef05b2007cf597db5afab",
+      "sourceHash": "11e21302a0c725aa47f5b25dbd16a9a01e24344e5e3d301551def10d70896f16",
       "generatedHash": "704246874d8866107941ad1660640f9e8dbf80e1280a91b11700d78d031b7512",
-      "generatedAt": "2026-09-24T14:03:52Z",
-      "reviewedAt": "2026-09-24T14:03:52Z",
-      "reviewedCommit": "b6a970b62dacbb709521a8c21d0c2c648ab89d38",
+      "generatedAt": "2026-09-24T14:44:26Z",
+      "reviewedAt": "2026-09-24T14:44:26Z",
+      "reviewedCommit": "f81e0da74369fafc51e92ad1e6325044e4347135",
       "reviewMode": "no-change-needed"
     },
     {
@@ -3221,11 +3221,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "2290191517d506d06ccd4fb67e9ffe5702de0b8ecfd8c285e0cd1e6162a85ac6",
-      "sourceHash": "76cc68992f2b39315ebde3d6919f53fe3a5b42788df480b41760bd6127bae5ad",
+      "sourceHash": "132b7b261b19ee570c3a98527bc93648a817107a0d19303f4bb0db7c0d79130c",
       "generatedHash": "177b376b68f8753540da71f7f6c2cff2eb66bec04b5ce7c76184ab2a87bfede5",
-      "generatedAt": "2026-09-24T14:12:54Z",
-      "reviewedAt": "2026-09-24T14:12:54Z",
-      "reviewedCommit": "460b9e0c42e99dcc32642aaa086656dbba7efa60",
+      "generatedAt": "2026-09-24T14:44:26Z",
+      "reviewedAt": "2026-09-24T14:44:26Z",
+      "reviewedCommit": "f81e0da74369fafc51e92ad1e6325044e4347135",
       "reviewMode": "no-change-needed"
     },
     {

@@ -15,6 +15,18 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Khắc Phục Lỗi Nút Dịch Khám Phá Khi Chuyển Đổi Nguồn Trung - Việt (1.3.395)
+
+* **Vòng đời & Phản ứng Tức thì của Nút Dịch (`ReaderTranslationScopeMenuView.swift`, `DiscoveryView.swift`, `BookDetailView.swift`)**:
+  - `ReaderTranslationScopeMenuView` bổ sung `isChineseSourceHint: Bool?` và 2 bộ lắng nghe `.onChange(of: packageId)`, `.onChange(of: bookId)` để tự động kích hoạt `refreshStatus()` khi thay đổi nguồn hoặc truyện được chọn.
+  - `DiscoveryView` gắn định danh `.id("discovery-translate-\(selectedExtensionId)")` cho nút dịch trên toolbar, đảm bảo SwiftUI tái khởi tạo hoàn toàn view khi chuyển nguồn.
+  - Truyền trực tiếp cờ `selectedExtension?.isChineseSource` vào nút dịch và hàm `isTranslationEnabled`.
+* **Cơ Chế Cache & Dò Nguồn Tiếng Trung Linh Hoạt (`TranslationConfigStore.swift`)**:
+  - `TranslationConfigStore` bổ sung bộ nhớ đệm `sourceIsChineseMap` cùng phương thức `registerSource(packageId:isChinese:)` giúp ghi nhận trạng thái nguồn O(1).
+  - Cải tiến hàm `isChineseSource`: tìm kiếm đệ quy thư mục con cấp 1 khi file zip giải nén vào folder lồng nhau; hỗ trợ đọc các khoá `type`, `locale`, `language` từ cả đối tượng `metadata` lẫn root `plugin.json`.
+* **Cập Nhật Tức Thì Danh Sách Truyện Khám Phá (`DiscoveryView.swift`)**:
+  - Khi đổi tiện ích trong sự kiện `.onChange(of: selectedExtensionId)` hoặc nhận thông báo thay đổi cấu hình, tự động cập nhật cờ `isTranslationEnabled` để các thẻ truyện hiển thị tên dịch tức thì mà không cần tải lại mạng.
+
 ## Đồng Bộ Popover Dịch Tone Trắng, Nút Dịch Lại Chương & Độ Mờ Chương Đã Đọc (1.3.394)
 
 * **Popover Cấu hình Dịch Thuật Đa Vị trí (`ReaderTranslationScopeMenuView.swift`, `DiscoveryView.swift`, `BookDetailView.swift`)**:

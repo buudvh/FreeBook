@@ -241,7 +241,8 @@ struct BookDetailView: View {
                         bookId: actualBookId,
                         packageId: extensionPackageId,
                         sourceName: sourceName,
-                        showBackground: false
+                        showBackground: false,
+                        isChineseSourceHint: ext?.isChineseSource
                     )
                     ellipsisMenu
                 }
@@ -249,14 +250,22 @@ struct BookDetailView: View {
         }
         .onAppear {
             renderedTab = selectedTab
-            isTranslationEnabled = TranslationConfigStore.shared.isTranslationEnabled(bookId: actualBookId, packageId: extensionPackageId)
+            isTranslationEnabled = TranslationConfigStore.shared.isTranslationEnabled(
+                bookId: actualBookId,
+                packageId: extensionPackageId,
+                isChineseSourceHint: ext?.isChineseSource
+            )
             loadBookData()
             syncChaptersList()
             updateFilteredLocalChapters()
             updateFilteredOnlineChapters()
         }
         .onReceive(NotificationCenter.default.publisher(for: TranslationConfigStore.didChangeNotification)) { _ in
-            let newState = TranslationConfigStore.shared.isTranslationEnabled(bookId: actualBookId, packageId: extensionPackageId)
+            let newState = TranslationConfigStore.shared.isTranslationEnabled(
+                bookId: actualBookId,
+                packageId: extensionPackageId,
+                isChineseSourceHint: ext?.isChineseSource
+            )
             if isTranslationEnabled != newState {
                 isTranslationEnabled = newState
             }

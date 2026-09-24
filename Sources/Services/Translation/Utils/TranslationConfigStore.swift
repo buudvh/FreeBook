@@ -40,8 +40,16 @@ public final class TranslationConfigStore: @unchecked Sendable {
     private let bookOverridesKey = "FreeBook_Translation_Book_Overrides_V1"
     private let sourceOverridesKey = "FreeBook_Translation_Source_Overrides_V1"
     private let globalKey = "isTranslationEnabled"
+    private var sourceIsChineseMap: [String: Bool] = [:]
 
     private init() {}
+
+    public func registerSource(packageId: String, isChinese: Bool) {
+        guard !packageId.isEmpty, packageId != "local" else { return }
+        lock.lock()
+        sourceIsChineseMap[packageId.lowercased()] = isChinese
+        lock.unlock()
+    }
 
     // MARK: - Global Scope
     public var globalEnabled: Bool {
@@ -105,28 +113,53 @@ public final class TranslationConfigStore: @unchecked Sendable {
     }
 
     // MARK: - Resolution
-    public func isTranslationEnabled(bookId: String?, packageId: String? = nil) -> Bool {
-        resolveStatus(bookId: bookId, packageId: packageId).isEnabled
+    public func isTranslationEnabled(bookId: String?, packageId: String? = nil, isChineseSourceHint: Bool? = nil) -> Bool {
+        resolveStatus(bookId: bookId, packageId: packageId, isChineseSourceHint: isChineseSourceHint).isEnabled
     }
 
     public func isChineseSource(packageId: String) -> Bool {
         guard !packageId.isEmpty, packageId != "local" else { return false }
+        lock.lock()
+        if let cached = sourceIsChineseMap[packageId.lowercased()] {
+            lock.unlock()
+            return cached
+        }
+        lock.unlock()
+
         let paths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
         guard let appSupport = paths.first else { return false }
-        let pluginJsonUrl = appSupport.appendingPathComponent("extensions", isDirectory: true)
+        let extDir = appSupport.appendingPathComponent("extensions", isDirectory: true)
             .appendingPathComponent(packageId, isDirectory: true)
-            .appendingPathComponent("plugin.json")
+
+        var pluginJsonUrl = extDir.appendingPathComponent("plugin.json")
+        if !FileManager.default.fileExists(atPath: pluginJsonUrl.path) {
+            if let contents = try? FileManager.default.contentsOfDirectory(at: extDir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) {
+                for item in contents {
+                    let sub = item.appendingPathComponent("plugin.json")
+                    if FileManager.default.fileExists(atPath: sub.path) {
+                        pluginJsonUrl = sub
+                        break
+                    }
+                }
+            }
+        }
+
         guard let data = try? Data(contentsOf: pluginJsonUrl),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let metadata = json["metadata"] as? [String: Any] else {
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return false
         }
-        let type = (metadata["type"] as? String ?? "").lowercased()
-        let locale = (metadata["locale"] as? String ?? "").lowercased()
-        return type == "chinese_novel" || locale.contains("zh") || locale.contains("cn")
+        let meta = json["metadata"] as? [String: Any] ?? json
+        let type = ((meta["type"] as? String) ?? (json["type"] as? String) ?? "").lowercased()
+        let locale = ((meta["locale"] as? String) ?? (meta["language"] as? String) ?? (json["locale"] as? String) ?? "").lowercased()
+        let isChinese = type == "chinese_novel" || locale.contains("zh") || locale.contains("cn")
+
+        lock.lock()
+        sourceIsChineseMap[packageId.lowercased()] = isChinese
+        lock.unlock()
+        return isChinese
     }
 
-    public func resolveStatus(bookId: String?, packageId: String? = nil) -> ResolvedStatus {
+    public func resolveStatus(bookId: String?, packageId: String? = nil, isChineseSourceHint: Bool? = nil) -> ResolvedStatus {
         let global = globalEnabled
         let bOverride = bookId.flatMap { getBookOverride(bookId: $0) } ?? .inherited
         let sOverride = packageId.flatMap { getSourceOverride(packageId: $0) } ?? .inherited
@@ -141,6 +174,11 @@ public final class TranslationConfigStore: @unchecked Sendable {
             return ResolvedStatus(isEnabled: true, origin: .source, bookOverride: bOverride, sourceOverride: sOverride, globalEnabled: global)
         } else if sOverride == .disabled {
             return ResolvedStatus(isEnabled: false, origin: .source, bookOverride: bOverride, sourceOverride: sOverride, globalEnabled: global)
+        }
+
+        if let hint = isChineseSourceHint, let pkgId = packageId, !pkgId.isEmpty {
+            registerSource(packageId: pkgId, isChinese: hint)
+            return ResolvedStatus(isEnabled: hint, origin: .source, bookOverride: bOverride, sourceOverride: sOverride, globalEnabled: global)
         }
 
         if let pkgId = packageId, !pkgId.isEmpty, pkgId != "local" {
