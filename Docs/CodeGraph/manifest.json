@@ -3,9 +3,9 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-09-24T14:44:26Z",
-  "gitCommit": "f81e0da74369fafc51e92ad1e6325044e4347135",
-  "sourceFileCount": 564,
+  "generatedAt": "2026-09-24T15:48:37Z",
+  "gitCommit": "5b0d52568665b44c61d7f2d7ab9f6b65febf5693",
+  "sourceFileCount": 569,
   "documentCount": 16,
   "documents": [
     {
@@ -429,7 +429,12 @@
         "Sources/Views/Extensions/Manager/FilterSheet.swift",
         "Sources/Views/Extensions/Manager/RepositoryManagerView.swift",
         "Sources/Views/MainTabView.swift",
+        "Sources/Views/Reader/AI/AIFloatingWidgetContainerViewController.swift",
+        "Sources/Views/Reader/AI/AIFloatingWidgetUIWindow.swift",
+        "Sources/Views/Reader/AI/AIFloatingWidgetView.swift",
+        "Sources/Views/Reader/AI/AIFloatingWidgetWindowManager.swift",
         "Sources/Views/Reader/AI/AIMarkdownMessageView.swift",
+        "Sources/Views/Reader/AI/AIRuntimeCoordinator.swift",
         "Sources/Views/Reader/AI/BookAIMemorySheet.swift",
         "Sources/Views/Reader/AI/ReaderAIActionPlanCardView.swift",
         "Sources/Views/Reader/AI/ReaderAIFullScreenView+Actions.swift",
@@ -581,12 +586,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "fa25f980af013e2b7170c0d8b75fea528d494a22900a7ad80bb6831061382ca3",
-      "sourceHash": "836c3200e222738bcb2f48692680f0e40e666112625adcc8e542aed888da03f3",
-      "generatedHash": "9c32b819ad5bc6c454c52e824cd3a86cab802a586a07c7d9b69a8db91a28f53f",
-      "generatedAt": "2026-09-24T09:28:06Z",
-      "reviewedAt": "2026-09-24T09:28:06Z",
-      "reviewedCommit": "d6647367306e07db59ca52eee8fe404a548d6564",
+      "structureHash": "a86f55030b40e099fcfc5858d0e59b45ef33b1a1b16725864befc6c40534e9f9",
+      "sourceHash": "9ce8c19954e5211e4a0aecc3401373e6d0f637539df9492ac289f337cf0c8a72",
+      "generatedHash": "a8595d26d443ee544bd9cfda6961ee95a0640880692739f8e12637c901791b61",
+      "generatedAt": "2026-09-24T15:34:33Z",
+      "reviewedAt": "2026-09-24T15:34:33Z",
+      "reviewedCommit": "4cf3e3f16970dd9ad3df906e2de7ceb44da35b18",
       "reviewMode": "accept"
     },
     {
@@ -609,12 +614,12 @@
         "project.yml"
       ],
       "structureHash": "8465fb28c38bb8230fbde3fc5fac9f8327ab95fbd971aa7a6077f5d6e76ec335",
-      "sourceHash": "a8e3fb036305ac4ff50cdee1e2acbc431ca896f443d35e946e70dd2ee04b4d0c",
+      "sourceHash": "f13c4bcf8c4b0a33194c16d8c09ff204ab103f1a9a7253635f253377e2d53fb9",
       "generatedHash": "6f8e55adf97be0be03ebc5892f6c917a8b60cc98cfae56bc6c9a985cff70507c",
-      "generatedAt": "2026-09-23T09:56:08Z",
-      "reviewedAt": "2026-09-23T09:56:08Z",
-      "reviewedCommit": "67032d1a57c7337069b8e219838b33f9e5f21e38",
-      "reviewMode": "bootstrap"
+      "generatedAt": "2026-09-24T15:34:45Z",
+      "reviewedAt": "2026-09-24T15:34:45Z",
+      "reviewedCommit": "4cf3e3f16970dd9ad3df906e2de7ceb44da35b18",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "02_file_graph.md",
@@ -1037,7 +1042,12 @@
         "Sources/Views/Extensions/Manager/FilterSheet.swift",
         "Sources/Views/Extensions/Manager/RepositoryManagerView.swift",
         "Sources/Views/MainTabView.swift",
+        "Sources/Views/Reader/AI/AIFloatingWidgetContainerViewController.swift",
+        "Sources/Views/Reader/AI/AIFloatingWidgetUIWindow.swift",
+        "Sources/Views/Reader/AI/AIFloatingWidgetView.swift",
+        "Sources/Views/Reader/AI/AIFloatingWidgetWindowManager.swift",
         "Sources/Views/Reader/AI/AIMarkdownMessageView.swift",
+        "Sources/Views/Reader/AI/AIRuntimeCoordinator.swift",
         "Sources/Views/Reader/AI/BookAIMemorySheet.swift",
         "Sources/Views/Reader/AI/ReaderAIActionPlanCardView.swift",
         "Sources/Views/Reader/AI/ReaderAIFullScreenView+Actions.swift",
@@ -1189,12 +1199,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "fa25f980af013e2b7170c0d8b75fea528d494a22900a7ad80bb6831061382ca3",
-      "sourceHash": "836c3200e222738bcb2f48692680f0e40e666112625adcc8e542aed888da03f3",
-      "generatedHash": "7a29d1e1bbc5cc88a4ee646c2449ee2e8eed2b11a1259bff07684c03801641ca",
-      "generatedAt": "2026-09-24T09:28:06Z",
-      "reviewedAt": "2026-09-24T09:28:06Z",
-      "reviewedCommit": "d6647367306e07db59ca52eee8fe404a548d6564",
+      "structureHash": "a86f55030b40e099fcfc5858d0e59b45ef33b1a1b16725864befc6c40534e9f9",
+      "sourceHash": "9ce8c19954e5211e4a0aecc3401373e6d0f637539df9492ac289f337cf0c8a72",
+      "generatedHash": "121e9c313a72e8ca746f3ee7900e6e124e65731c10c7034fa14377d0c88024cf",
+      "generatedAt": "2026-09-24T15:34:33Z",
+      "reviewedAt": "2026-09-24T15:34:33Z",
+      "reviewedCommit": "4cf3e3f16970dd9ad3df906e2de7ceb44da35b18",
       "reviewMode": "accept"
     },
     {
@@ -1400,7 +1410,12 @@
         "Sources/Services/TTS/TTSSynthesisIdentity.swift",
         "Sources/Services/TTS/WAVEncoder.swift",
         "Sources/Views/MainTabView.swift",
+        "Sources/Views/Reader/AI/AIFloatingWidgetContainerViewController.swift",
+        "Sources/Views/Reader/AI/AIFloatingWidgetUIWindow.swift",
+        "Sources/Views/Reader/AI/AIFloatingWidgetView.swift",
+        "Sources/Views/Reader/AI/AIFloatingWidgetWindowManager.swift",
         "Sources/Views/Reader/AI/AIMarkdownMessageView.swift",
+        "Sources/Views/Reader/AI/AIRuntimeCoordinator.swift",
         "Sources/Views/Reader/AI/BookAIMemorySheet.swift",
         "Sources/Views/Reader/AI/ReaderAIActionPlanCardView.swift",
         "Sources/Views/Reader/AI/ReaderAIFullScreenView+Actions.swift",
@@ -1460,12 +1475,12 @@
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "structureHash": "6d456f396e35b74aa610f97efa8bad2097bb722ac38de1b3cbb71190ffd82cd6",
-      "sourceHash": "0b0855cb54c25c3610c7a0755934ced5624979a7dccc96b708bef97a559b6979",
+      "structureHash": "a5c945301db3d9db924dee8b6730df997f071e811c35b4beb1b58baf831636bd",
+      "sourceHash": "9da0ed1481edd5b23ae927808e60df89c100dea869537de4813a5836f0f88e20",
       "generatedHash": "bd01bef82edc99582b640519805048b0ab9b23cecd003311539bf3a58829ca2b",
-      "generatedAt": "2026-09-24T14:44:26Z",
-      "reviewedAt": "2026-09-24T14:44:26Z",
-      "reviewedCommit": "f81e0da74369fafc51e92ad1e6325044e4347135",
+      "generatedAt": "2026-09-24T15:48:37Z",
+      "reviewedAt": "2026-09-24T15:48:37Z",
+      "reviewedCommit": "5b0d52568665b44c61d7f2d7ab9f6b65febf5693",
       "reviewMode": "no-change-needed"
     },
     {
@@ -1526,11 +1541,11 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "18401df0fe910f0baab7b9e86a25efddc5929886ca5e85703479775f7f74a051",
-      "sourceHash": "7493fc06e0f33bf427596f4552c1501a422c161370a9bcee8a1aa857273c052d",
+      "sourceHash": "1f1cd54e854a468005447eda92818bc6067ad2ae7f5ba67945dcbc1ddb50dd29",
       "generatedHash": "4c6fa6c611198b060c95bce010ee5c281b1edcb0631c3d30793603c56d07ea2e",
-      "generatedAt": "2026-09-24T14:03:52Z",
-      "reviewedAt": "2026-09-24T14:03:52Z",
-      "reviewedCommit": "b6a970b62dacbb709521a8c21d0c2c648ab89d38",
+      "generatedAt": "2026-09-24T15:34:45Z",
+      "reviewedAt": "2026-09-24T15:34:45Z",
+      "reviewedCommit": "4cf3e3f16970dd9ad3df906e2de7ceb44da35b18",
       "reviewMode": "no-change-needed"
     },
     {
@@ -1568,11 +1583,11 @@
         "Sources/Views/MainTabView.swift"
       ],
       "structureHash": "ffbf7b006867544c833a93f86bffc43487ffef6ad417a869af181a319652907f",
-      "sourceHash": "a2d781e3dd4ac6a08d2b78f100deb12bbea245a439dc37bb13051c0e62478061",
+      "sourceHash": "77f0a74d901bf394ed095b25096be1ddaaf852f14bc54f85af86569ebbd58955",
       "generatedHash": "be0650d2687730775919bb91046b3c80064a8e2bff168ffdcfbd06f2ab097eb2",
-      "generatedAt": "2026-09-24T09:28:27Z",
-      "reviewedAt": "2026-09-24T09:28:27Z",
-      "reviewedCommit": "d6647367306e07db59ca52eee8fe404a548d6564",
+      "generatedAt": "2026-09-24T15:34:45Z",
+      "reviewedAt": "2026-09-24T15:34:45Z",
+      "reviewedCommit": "4cf3e3f16970dd9ad3df906e2de7ceb44da35b18",
       "reviewMode": "no-change-needed"
     },
     {
@@ -1747,11 +1762,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "acad37ecfe6bd6c367da5de500cdaf028298b3fb613e49e119afecb80611eb31",
-      "sourceHash": "3a2a3a9623ece03ef5d9fc16d1b07452f3afe57ed391dba61fa7d5ac04a5d104",
+      "sourceHash": "526e753ccdbe4d9dd1db17d6864c2447a6275291ef3a93f17e84a6af579d0a9b",
       "generatedHash": "2dbe2bca59e5fcdb0567fb2622bc03716dfd50f4d4d8cc6909ed56125f813189",
-      "generatedAt": "2026-09-24T14:12:54Z",
-      "reviewedAt": "2026-09-24T14:12:54Z",
-      "reviewedCommit": "460b9e0c42e99dcc32642aaa086656dbba7efa60",
+      "generatedAt": "2026-09-24T15:34:45Z",
+      "reviewedAt": "2026-09-24T15:34:45Z",
+      "reviewedCommit": "4cf3e3f16970dd9ad3df906e2de7ceb44da35b18",
       "reviewMode": "no-change-needed"
     },
     {
@@ -2179,7 +2194,12 @@
         "Sources/Views/Extensions/Manager/FilterSheet.swift",
         "Sources/Views/Extensions/Manager/RepositoryManagerView.swift",
         "Sources/Views/MainTabView.swift",
+        "Sources/Views/Reader/AI/AIFloatingWidgetContainerViewController.swift",
+        "Sources/Views/Reader/AI/AIFloatingWidgetUIWindow.swift",
+        "Sources/Views/Reader/AI/AIFloatingWidgetView.swift",
+        "Sources/Views/Reader/AI/AIFloatingWidgetWindowManager.swift",
         "Sources/Views/Reader/AI/AIMarkdownMessageView.swift",
+        "Sources/Views/Reader/AI/AIRuntimeCoordinator.swift",
         "Sources/Views/Reader/AI/BookAIMemorySheet.swift",
         "Sources/Views/Reader/AI/ReaderAIActionPlanCardView.swift",
         "Sources/Views/Reader/AI/ReaderAIFullScreenView+Actions.swift",
@@ -2331,12 +2351,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "27bfea5544f4e658b7541444159119b32aac867228bfbcbda42708fea3020dff",
-      "sourceHash": "389afaf1823c47cfb86a1e53bc96ec5145bbf2db8e4c0909d6efb1b9f2bbfdea",
+      "structureHash": "cc3994dcd8fa35ccd5417342d1b00926103876f7f2315599fa4f172f88de52f0",
+      "sourceHash": "6e6e12e51bac181aeadda280954b45255c33a460ef2e6ddc780222876be08f94",
       "generatedHash": "2ac03515c34198f5f009553199007a1c3f6017a08f73649bc8843b4fed59e5ea",
-      "generatedAt": "2026-09-24T09:28:27Z",
-      "reviewedAt": "2026-09-24T09:28:27Z",
-      "reviewedCommit": "d6647367306e07db59ca52eee8fe404a548d6564",
+      "generatedAt": "2026-09-24T15:34:45Z",
+      "reviewedAt": "2026-09-24T15:34:45Z",
+      "reviewedCommit": "4cf3e3f16970dd9ad3df906e2de7ceb44da35b18",
       "reviewMode": "no-change-needed"
     },
     {
@@ -2449,11 +2469,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "832529caafdadcb677245786ba8f12f0f1a4afc921c564bd65494eaf2fd80ccb",
-      "sourceHash": "e2c67289071fceafd3f3c1b33270ecf5a64c1d8b7dcc10b319d1f0f1c852c729",
+      "sourceHash": "cd979283211edd07a130e24b29a06d1e82642fb459b325f28a029b28a860033b",
       "generatedHash": "59e910c3217a7af782ccfbd916af183eeca3a9b89d1ea8a60c56b5f787109b04",
-      "generatedAt": "2026-09-24T14:12:54Z",
-      "reviewedAt": "2026-09-24T14:12:54Z",
-      "reviewedCommit": "460b9e0c42e99dcc32642aaa086656dbba7efa60",
+      "generatedAt": "2026-09-24T15:34:45Z",
+      "reviewedAt": "2026-09-24T15:34:45Z",
+      "reviewedCommit": "4cf3e3f16970dd9ad3df906e2de7ceb44da35b18",
       "reviewMode": "no-change-needed"
     },
     {
@@ -2817,7 +2837,12 @@
         "Sources/Views/Extensions/Manager/FilterSheet.swift",
         "Sources/Views/Extensions/Manager/RepositoryManagerView.swift",
         "Sources/Views/MainTabView.swift",
+        "Sources/Views/Reader/AI/AIFloatingWidgetContainerViewController.swift",
+        "Sources/Views/Reader/AI/AIFloatingWidgetUIWindow.swift",
+        "Sources/Views/Reader/AI/AIFloatingWidgetView.swift",
+        "Sources/Views/Reader/AI/AIFloatingWidgetWindowManager.swift",
         "Sources/Views/Reader/AI/AIMarkdownMessageView.swift",
+        "Sources/Views/Reader/AI/AIRuntimeCoordinator.swift",
         "Sources/Views/Reader/AI/BookAIMemorySheet.swift",
         "Sources/Views/Reader/AI/ReaderAIActionPlanCardView.swift",
         "Sources/Views/Reader/AI/ReaderAIFullScreenView+Actions.swift",
@@ -2969,13 +2994,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "0716dc60407642f62d66df4919a359af4e62055021ea6c70c14db7bdb246adbd",
-      "sourceHash": "f40a2cc0942a1897642c88be151b7c47089a5ee0674fba3fe5282c0742602f76",
-      "generatedHash": "e0ef00b56cf828095c2ffefe769bd4eba1b71d10a97eafe1aceb2362f5efbd83",
-      "generatedAt": "2026-09-24T14:44:11Z",
-      "reviewedAt": "2026-09-24T14:44:11Z",
-      "reviewedCommit": "f81e0da74369fafc51e92ad1e6325044e4347135",
-      "reviewMode": "accept"
+      "structureHash": "d40916fe1b7e02e7fa5c5d3bc70007e0fae2c1dee944c9c12f4e88fe1f9ea632",
+      "sourceHash": "93938c071c7f11a204ad72cf4fb3146afdbccd71f2fd5cb1b2e090dea8dd2bc1",
+      "generatedHash": "884e000007a2446ed1a05fb99c22a7b7fed7b136637d91c078ba0dff2ec17c60",
+      "generatedAt": "2026-09-24T15:48:37Z",
+      "reviewedAt": "2026-09-24T15:48:37Z",
+      "reviewedCommit": "5b0d52568665b44c61d7f2d7ab9f6b65febf5693",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "12_ownership_graph.md",
@@ -3008,11 +3033,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "b0d4d4d4bca7562eb71c38165e49eaf44434d87b57111fb5c46f1762529b0396",
-      "sourceHash": "11e21302a0c725aa47f5b25dbd16a9a01e24344e5e3d301551def10d70896f16",
+      "sourceHash": "e8522a70332999d6d4ac260a009f2e1c7bebb3d92dc0776bec91d09eb0e1176a",
       "generatedHash": "704246874d8866107941ad1660640f9e8dbf80e1280a91b11700d78d031b7512",
-      "generatedAt": "2026-09-24T14:44:26Z",
-      "reviewedAt": "2026-09-24T14:44:26Z",
-      "reviewedCommit": "f81e0da74369fafc51e92ad1e6325044e4347135",
+      "generatedAt": "2026-09-24T15:34:45Z",
+      "reviewedAt": "2026-09-24T15:34:45Z",
+      "reviewedCommit": "4cf3e3f16970dd9ad3df906e2de7ceb44da35b18",
       "reviewMode": "no-change-needed"
     },
     {
@@ -3160,7 +3185,12 @@
         "Sources/Services/TTS/TTSParagraphBuilder.swift",
         "Sources/Services/TTS/TTSSynthesisIdentity.swift",
         "Sources/Services/TTS/WAVEncoder.swift",
+        "Sources/Views/Reader/AI/AIFloatingWidgetContainerViewController.swift",
+        "Sources/Views/Reader/AI/AIFloatingWidgetUIWindow.swift",
+        "Sources/Views/Reader/AI/AIFloatingWidgetView.swift",
+        "Sources/Views/Reader/AI/AIFloatingWidgetWindowManager.swift",
         "Sources/Views/Reader/AI/AIMarkdownMessageView.swift",
+        "Sources/Views/Reader/AI/AIRuntimeCoordinator.swift",
         "Sources/Views/Reader/AI/BookAIMemorySheet.swift",
         "Sources/Views/Reader/AI/ReaderAIActionPlanCardView.swift",
         "Sources/Views/Reader/AI/ReaderAIFullScreenView+Actions.swift",
@@ -3220,12 +3250,12 @@
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "structureHash": "2290191517d506d06ccd4fb67e9ffe5702de0b8ecfd8c285e0cd1e6162a85ac6",
-      "sourceHash": "132b7b261b19ee570c3a98527bc93648a817107a0d19303f4bb0db7c0d79130c",
+      "structureHash": "5fb021bec2e1be29f1a12682852853cab68eb1ec19c3c0359a189f8958c022bd",
+      "sourceHash": "a0a5622f6079b5f19dfe1a4f226c87337cd9dd6f5cb76a6e9aba9bb67d1bddeb",
       "generatedHash": "177b376b68f8753540da71f7f6c2cff2eb66bec04b5ce7c76184ab2a87bfede5",
-      "generatedAt": "2026-09-24T14:44:26Z",
-      "reviewedAt": "2026-09-24T14:44:26Z",
-      "reviewedCommit": "f81e0da74369fafc51e92ad1e6325044e4347135",
+      "generatedAt": "2026-09-24T15:48:37Z",
+      "reviewedAt": "2026-09-24T15:48:37Z",
+      "reviewedCommit": "5b0d52568665b44c61d7f2d7ab9f6b65febf5693",
       "reviewMode": "no-change-needed"
     },
     {
@@ -3649,7 +3679,12 @@
         "Sources/Views/Extensions/Manager/FilterSheet.swift",
         "Sources/Views/Extensions/Manager/RepositoryManagerView.swift",
         "Sources/Views/MainTabView.swift",
+        "Sources/Views/Reader/AI/AIFloatingWidgetContainerViewController.swift",
+        "Sources/Views/Reader/AI/AIFloatingWidgetUIWindow.swift",
+        "Sources/Views/Reader/AI/AIFloatingWidgetView.swift",
+        "Sources/Views/Reader/AI/AIFloatingWidgetWindowManager.swift",
         "Sources/Views/Reader/AI/AIMarkdownMessageView.swift",
+        "Sources/Views/Reader/AI/AIRuntimeCoordinator.swift",
         "Sources/Views/Reader/AI/BookAIMemorySheet.swift",
         "Sources/Views/Reader/AI/ReaderAIActionPlanCardView.swift",
         "Sources/Views/Reader/AI/ReaderAIFullScreenView+Actions.swift",
@@ -3801,12 +3836,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "fa25f980af013e2b7170c0d8b75fea528d494a22900a7ad80bb6831061382ca3",
-      "sourceHash": "836c3200e222738bcb2f48692680f0e40e666112625adcc8e542aed888da03f3",
+      "structureHash": "a86f55030b40e099fcfc5858d0e59b45ef33b1a1b16725864befc6c40534e9f9",
+      "sourceHash": "9ce8c19954e5211e4a0aecc3401373e6d0f637539df9492ac289f337cf0c8a72",
       "generatedHash": "ae4f24c5e9a6dfa9ff5291c1da3d6ce8720026e81c1e20044b3081d85aade58a",
-      "generatedAt": "2026-09-24T09:28:27Z",
-      "reviewedAt": "2026-09-24T09:28:27Z",
-      "reviewedCommit": "d6647367306e07db59ca52eee8fe404a548d6564",
+      "generatedAt": "2026-09-24T15:34:45Z",
+      "reviewedAt": "2026-09-24T15:34:45Z",
+      "reviewedCommit": "4cf3e3f16970dd9ad3df906e2de7ceb44da35b18",
       "reviewMode": "no-change-needed"
     },
     {
@@ -3913,11 +3948,11 @@
         "Sources/Views/Reader/ReaderView.swift"
       ],
       "structureHash": "38084ca1c03279d58a78f77ae1612ddc7c8375514dd8240d232178ac7a1eeced",
-      "sourceHash": "3c1c6f31907109d79c3273f79db5164b03651fb3140cc9e235d3d5a5e99c78d9",
+      "sourceHash": "b51648353543846d09c327b77f525824e9424b29f4f6ad069de2e15a3ad43458",
       "generatedHash": "fc42ac90936887c802496d93326abf1ddc9d3e43212df822c4d5953a88311b84",
-      "generatedAt": "2026-09-24T14:12:54Z",
-      "reviewedAt": "2026-09-24T14:12:54Z",
-      "reviewedCommit": "460b9e0c42e99dcc32642aaa086656dbba7efa60",
+      "generatedAt": "2026-09-24T15:34:45Z",
+      "reviewedAt": "2026-09-24T15:34:45Z",
+      "reviewedCommit": "4cf3e3f16970dd9ad3df906e2de7ceb44da35b18",
       "reviewMode": "no-change-needed"
     }
   ]

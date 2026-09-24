@@ -72,11 +72,13 @@ struct AppLaunchRootView: View {
             TTSFloatingWidgetWindowManager.shared.modelContainer = modelContext.container
             TTSFloatingWidgetWindowManager.shared.refreshState()
             BrowserFloatingWidgetWindowManager.shared.refreshState()
+            AIFloatingWidgetWindowManager.shared.refreshState()
         }
         .onChange(of: translationManager.isInitialized) { _, _ in
             TTSFloatingWidgetWindowManager.shared.modelContainer = modelContext.container
             TTSFloatingWidgetWindowManager.shared.refreshState()
             BrowserFloatingWidgetWindowManager.shared.refreshState()
+            AIFloatingWidgetWindowManager.shared.refreshState()
         }
         .onChange(of: browserPresentation.snapshot.showReopenButton) { _, _ in
             BrowserFloatingWidgetWindowManager.shared.refreshState()

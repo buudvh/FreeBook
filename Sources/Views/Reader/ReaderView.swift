@@ -161,7 +161,6 @@ struct ReaderView: View {
     @State var ruleEditorMode: QuickTranslationRuleEditorSheet.Mode? = nil
     /// Có thao tác nào đổi dữ liệu rule trong lượt mở sheet này hay chưa — quyết định có dịch lại khi đóng.
     @State var didChangeRuleData = false
-    @State internal var showingAIFullScreen = false
 
     // Cấu hình giao diện đọc (lưu trữ lâu dài qua UserDefaults nhờ @AppStorage)
     @AppStorage("readerFontSize") internal var fontSize: Double = 20.0 // Cỡ chữ của văn bản đọc
@@ -549,9 +548,6 @@ struct ReaderView: View {
                         }
                     }
             }
-        }
-        .fullScreenCover(isPresented: $showingAIFullScreen) {
-            aiFullScreenDestination
         }
     }
 
@@ -989,9 +985,7 @@ struct ReaderView: View {
                   let targetIndex = userInfo["chapterIndex"] as? Int else { return }
 
             let paragraphIndex = (userInfo["paragraphIndex"] as? Int).flatMap { $0 >= 0 ? $0 : nil } ?? 0
-            if showingAIFullScreen {
-                showingAIFullScreen = false
-            }
+            AIRuntimeCoordinator.shared.dismissFullScreen()
             reenableTTSAutoScrollFromWidgetJump()
             if targetIndex != chapterIndex {
                 requestChapter(
@@ -1082,7 +1076,7 @@ struct ReaderView: View {
                     NotificationCenter.default.post(name: NSNotification.Name("navigateToSettingsTab"), object: nil)
                 },
                 onOpenAI: {
-                    showingAIFullScreen = true
+                    openAIFromReader()
                 }
             )
         }

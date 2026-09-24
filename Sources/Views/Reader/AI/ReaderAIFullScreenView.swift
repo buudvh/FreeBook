@@ -221,10 +221,20 @@ public struct ReaderAIFullScreenView: View {
                 )
             }
             .onAppear {
+                AIRuntimeCoordinator.shared.isFullScreenPresented = true
                 initializeSession()
+            }
+            .onDisappear {
+                AIRuntimeCoordinator.shared.isFullScreenPresented = false
             }
             .onReceive(NotificationCenter.default.publisher(for: AISettingsStore.didChangeNotification)) { _ in
                 reloadSettings()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openCurrentlyPlayingReader"))) { _ in
+                dismiss()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("navigateReaderToPlayingChapter"))) { _ in
+                dismiss()
             }
         }
     }

@@ -15,6 +15,15 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Đồng bộ AI đang suy nghĩ, chạy ngầm toàn app và widget thu nhỏ (1.3.396)
+
+* [`AIRuntimeCoordinator.swift`](../../Sources/Views/Reader/AI/AIRuntimeCoordinator.swift#L4): Điều phối vòng đời tác vụ AI ngầm (streaming, lọc name, quét batch), phát Toast thông báo khi xong ngoài màn hình và hỗ trợ mở lại toàn màn hình từ bất kỳ đâu qua `findTopViewController()`.
+* [`AIFloatingWidgetWindowManager.swift`](../../Sources/Views/Reader/AI/AIFloatingWidgetWindowManager.swift#L4) & [`AIFloatingWidgetUIWindow.swift`](../../Sources/Views/Reader/AI/AIFloatingWidgetUIWindow.swift#L4): Quản lý `UIWindow` độc lập với level `alert - 3`, passthrough touch ngoài viên pill, cho phép widget thu nhỏ nổi toàn ứng dụng mà không chặn TTS (`alert - 1`) hay Browser (`alert - 2`).
+* [`AIFloatingWidgetContainerViewController.swift`](../../Sources/Views/Reader/AI/AIFloatingWidgetContainerViewController.swift#L4) & [`AIFloatingWidgetView.swift`](../../Sources/Views/Reader/AI/AIFloatingWidgetView.swift#L4): Giao diện widget thu nhỏ dạng pill hỗ trợ kéo thả snap vào mép màn hình, hiển thị icon sparkles tím động và chạm mở lại phiên chat.
+* [`ReaderAIFullScreenView.swift`](../../Sources/Views/Reader/AI/ReaderAIFullScreenView.swift#L220) & [`ReaderAIFullScreenView+Actions.swift`](../../Sources/Views/Reader/AI/ReaderAIFullScreenView+Actions.swift#L150): Khởi tạo tin nhắn phản hồi với nội dung rỗng và `isStreaming = true` cho mọi thao tác; hiển thị đồng nhất `ReaderAIThinkingIndicatorView` ("AI đang suy nghĩ"); tự động đóng an toàn khi nhận sự kiện điều hướng từ TTS widget.
+* [`ReaderView+AI.swift`](../../Sources/Views/Reader/Extensions/ReaderView+AI.swift#L15) & [`ReaderView.swift`](../../Sources/Views/Reader/ReaderView.swift#L1084): Chuyển thao tác mở AI sang `AIRuntimeCoordinator.shared.presentFullScreen`, loại bỏ modal cục bộ giúp giảm dòng code trong `ReaderView.swift`.
+* Thêm **5** file Swift; cần `xcodegen generate` và build trên macOS.
+
 ## Cấu hình phân cấp bật/tắt dịch theo Truyện, Nguồn và Toàn cục (1.3.393)
 
 * [`TranslationConfigStore.swift`](../../Sources/Services/Translation/Utils/TranslationConfigStore.swift#L4): Quản lý cấu hình dịch phân cấp 3 mức: Truyện (`bookOverrides`) > Nguồn (`sourceOverrides`) > Toàn cục (`globalEnabled`), lưu `UserDefaults` không sửa schema SwiftData `@Model`.

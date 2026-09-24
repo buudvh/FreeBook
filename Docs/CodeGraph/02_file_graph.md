@@ -15,6 +15,19 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +5 file cho AI chạy ngầm toàn app, Floating Widget thu nhỏ và Coordinator (1.3.396)
+
+| Nhóm | File mới | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Views/Reader | [`Views/Reader/AI/AIRuntimeCoordinator.swift`](../../Sources/Views/Reader/AI/AIRuntimeCoordinator.swift) | Điều phối vòng đời tác vụ AI ngầm, toast thông báo và presentation toàn app | 275 |
+| Views/Reader | [`Views/Reader/AI/AIFloatingWidgetView.swift`](../../Sources/Views/Reader/AI/AIFloatingWidgetView.swift) | Giao diện viên pill widget thu nhỏ của AI khi chạy ngầm | 55 |
+| Views/Reader | [`Views/Reader/AI/AIFloatingWidgetUIWindow.swift`](../../Sources/Views/Reader/AI/AIFloatingWidgetUIWindow.swift) | UIWindow riêng level alert - 3 passthrough touch ngoài pill | 28 |
+| Views/Reader | [`Views/Reader/AI/AIFloatingWidgetContainerViewController.swift`](../../Sources/Views/Reader/AI/AIFloatingWidgetContainerViewController.swift) | Container ViewController quản lý cử chỉ kéo thả, snap mép và tap mở lại | 225 |
+| Views/Reader | [`Views/Reader/AI/AIFloatingWidgetWindowManager.swift`](../../Sources/Views/Reader/AI/AIFloatingWidgetWindowManager.swift) | Window Manager điều phối hiển thị widget AI nổi toàn app | 135 |
+
+* Cả 5 file mới đều ≤ 400 dòng vật lý và tuân thủ đúng 1 primary type top level.
+* `ReaderView.swift` giảm 7 dòng code (còn 2042 dòng, dưới baseline 2053).
+
 ## +3 file cho cấu hình phân cấp bật/tắt dịch theo Truyện, Nguồn và Toàn cục (1.3.393)
 
 | Nhóm | File mới | Vai trò | Dòng |

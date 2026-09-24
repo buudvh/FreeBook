@@ -5,10 +5,22 @@ extension ReaderAIFullScreenView {
     internal func initializeSession() {
         reloadSettings()
         let sessions = AIChatHistoryStore.shared.loadSessions(for: bookId)
-        if let first = sessions.first {
+        if let activeId = AIRuntimeCoordinator.shared.activeSessionId,
+           let activeSession = sessions.first(where: { $0.id == activeId }) {
+            switchToSession(activeSession)
+        } else if let first = sessions.first {
             switchToSession(first)
         } else {
             startNewChat()
+        }
+
+        if AIRuntimeCoordinator.shared.isRunning {
+            isStreaming = true
+            if let progress = AIRuntimeCoordinator.shared.batchProgress {
+                isBatchExtracting = true
+                batchProgress = progress
+                batchExtractedNames = AIRuntimeCoordinator.shared.batchExtractedNames
+            }
         }
     }
 
@@ -136,55 +148,62 @@ extension ReaderAIFullScreenView {
         }
 
         isStreaming = true
-        streamingTask = Task {
-            do {
-                let stream = OpenAIClient.shared.sendChatStreaming(config: config, messages: chatMessages)
-                var accumulated = ""
-                for try await delta in stream {
-                    accumulated += delta
-                    await MainActor.run {
-                        if let idx = currentSession.messages.firstIndex(where: { $0.id == assistantMsgId }) {
-                            currentSession.messages[idx].content = accumulated
-                        }
-                    }
-                }
-                await MainActor.run {
-                    if let idx = currentSession.messages.firstIndex(where: { $0.id == assistantMsgId }) {
-                        currentSession.messages[idx].isStreaming = false
-                    }
-                    isStreaming = false
-                    currentSession.updatedAt = Date()
-                    AIChatHistoryStore.shared.saveSession(currentSession, for: bookId)
-                }
+        let sessionSnapshot = currentSession
+        let configSnapshot = config
 
-                // Tự động kiểm tra và compact ngữ cảnh nền nếu vượt ngưỡng
-                let sessionSnapshot = currentSession
-                let configSnapshot = config
-                Task.detached {
-                    if let newSummary = await AIContextCompactor.shared.compactSessionIfNeeded(session: sessionSnapshot, config: configSnapshot) {
-                        await MainActor.run {
-                            if self.currentSession.id == sessionSnapshot.id {
-                                self.currentSession.contextSummary = newSummary
-                                AIChatHistoryStore.shared.saveSession(self.currentSession, for: self.bookId)
+        AIRuntimeCoordinator.shared.startChatStreaming(
+            config: config,
+            messages: chatMessages,
+            session: currentSession,
+            bookId: bookId,
+            assistantMsgId: assistantMsgId,
+            onDelta: { [self] (delta: String) in
+                Task { @MainActor in
+                    if let idx = self.currentSession.messages.firstIndex(where: { $0.id == assistantMsgId }) {
+                        self.currentSession.messages[idx].content = delta
+                    }
+                }
+            },
+            onComplete: { [self] (finalContent: String) in
+                Task { @MainActor in
+                    if let idx = self.currentSession.messages.firstIndex(where: { $0.id == assistantMsgId }) {
+                        self.currentSession.messages[idx].content = finalContent
+                        self.currentSession.messages[idx].isStreaming = false
+                    }
+                    self.isStreaming = false
+                    self.currentSession.updatedAt = Date()
+                    AIChatHistoryStore.shared.saveSession(self.currentSession, for: self.bookId)
+
+                    // Tự động kiểm tra và compact ngữ cảnh nền nếu vượt ngưỡng
+                    Task.detached {
+                        if let newSummary = await AIContextCompactor.shared.compactSessionIfNeeded(
+                            session: sessionSnapshot,
+                            config: configSnapshot
+                        ) {
+                            await MainActor.run {
+                                if self.currentSession.id == sessionSnapshot.id {
+                                    self.currentSession.contextSummary = newSummary
+                                    AIChatHistoryStore.shared.saveSession(self.currentSession, for: self.bookId)
+                                }
                             }
                         }
                     }
                 }
-            } catch {
-                await MainActor.run {
-                    if let idx = currentSession.messages.firstIndex(where: { $0.id == assistantMsgId }) {
-                        currentSession.messages[idx].content = "Lỗi phản hồi: \(error.localizedDescription)"
-                        currentSession.messages[idx].isStreaming = false
+            },
+            onError: { [self] (errorDesc: String) in
+                Task { @MainActor in
+                    if let idx = self.currentSession.messages.firstIndex(where: { $0.id == assistantMsgId }) {
+                        self.currentSession.messages[idx].content = "Lỗi phản hồi: \(errorDesc)"
+                        self.currentSession.messages[idx].isStreaming = false
                     }
-                    isStreaming = false
+                    self.isStreaming = false
                 }
             }
-        }
+        )
     }
 
     internal func stopStreaming() {
-        streamingTask?.cancel()
-        streamingTask = nil
+        AIRuntimeCoordinator.shared.cancelActiveTask()
         isStreaming = false
         if let lastIdx = currentSession.messages.indices.last {
             currentSession.messages[lastIdx].isStreaming = false
@@ -217,32 +236,35 @@ extension ReaderAIFullScreenView {
         config.selectedModel = selectedModel
 
         let msgId = UUID()
-        currentSession.messages.append(AIChatMessage(id: msgId, role: .assistant, content: "Đang phân tích tên riêng từ nội dung raw chương...", isStreaming: true))
+        // Khởi tạo content rỗng để message.content.isEmpty && message.isStreaming hiển thị "AI đang suy nghĩ"
+        currentSession.messages.append(AIChatMessage(id: msgId, role: .assistant, content: "", isStreaming: true))
+        isStreaming = true
 
-        Task {
-            do {
-                let rawNames = try await AINameExtractionBatchProcessor.shared.extractNamesFromText(
-                    text: currentChapterRawContent,
-                    config: config
-                )
-                let names = AIBookDataInspector.shared.decorateExtractedNames(names: rawNames, bookId: bookId)
-                await MainActor.run {
-                    if let idx = currentSession.messages.firstIndex(where: { $0.id == msgId }) {
-                        currentSession.messages[idx].content = "Đã tìm thấy \(names.count) tên riêng trong chương này:"
-                        currentSession.messages[idx].extractedNames = names
-                        currentSession.messages[idx].isStreaming = false
+        AIRuntimeCoordinator.shared.startExtractNamesCurrentChapter(
+            bookId: bookId,
+            rawContent: currentChapterRawContent,
+            config: config,
+            onComplete: { [self] (names: [AIExtractedName]) in
+                Task { @MainActor in
+                    if let idx = self.currentSession.messages.firstIndex(where: { $0.id == msgId }) {
+                        self.currentSession.messages[idx].content = "Đã tìm thấy \(names.count) tên riêng trong chương này:"
+                        self.currentSession.messages[idx].extractedNames = names
+                        self.currentSession.messages[idx].isStreaming = false
                     }
-                    AIChatHistoryStore.shared.saveSession(currentSession, for: bookId)
+                    self.isStreaming = false
+                    AIChatHistoryStore.shared.saveSession(self.currentSession, for: self.bookId)
                 }
-            } catch {
-                await MainActor.run {
-                    if let idx = currentSession.messages.firstIndex(where: { $0.id == msgId }) {
-                        currentSession.messages[idx].content = "Lỗi lọc tên riêng: \(error.localizedDescription)"
-                        currentSession.messages[idx].isStreaming = false
+            },
+            onError: { [self] (errorDesc: String) in
+                Task { @MainActor in
+                    if let idx = self.currentSession.messages.firstIndex(where: { $0.id == msgId }) {
+                        self.currentSession.messages[idx].content = "Lỗi lọc tên riêng: \(errorDesc)"
+                        self.currentSession.messages[idx].isStreaming = false
                     }
+                    self.isStreaming = false
                 }
             }
-        }
+        )
     }
 
     internal func startBatchExtraction() {
@@ -251,41 +273,50 @@ extension ReaderAIFullScreenView {
         batchProgress = (0, 1)
         batchExtractedNames.removeAll()
 
+        let userMsg = AIChatMessage(role: .user, content: "Quét tên riêng toàn bộ chương đã tải")
+        currentSession.messages.append(userMsg)
+
+        let msgId = UUID()
+        // Khởi tạo content rỗng để hiển thị "AI đang suy nghĩ" trong timeline
+        currentSession.messages.append(AIChatMessage(id: msgId, role: .assistant, content: "", isStreaming: true))
+        isStreaming = true
+
         var config = AISettingsStore.shared.loadConfiguration()
         if let profile = config.profiles.first(where: { $0.id == selectedProfileId }) {
             config.activeProfileId = profile.id
         }
         config.selectedModel = selectedModel
 
-        batchExtractionTask = Task {
-            do {
-                let results = try await AINameExtractionBatchProcessor.shared.extractNamesFromDownloadedChapters(
-                    bookId: bookId,
-                    config: config
-                ) { current, total, partial in
-                    let decorated = AIBookDataInspector.shared.decorateExtractedNames(names: partial, bookId: bookId)
-                    Task { @MainActor in
-                        self.batchProgress = (current, total)
-                        self.batchExtractedNames = decorated
-                    }
+        AIRuntimeCoordinator.shared.startBatchExtraction(
+            bookId: bookId,
+            config: config,
+            onProgress: { [self] (current: Int, total: Int, partial: [AIExtractedName]) in
+                Task { @MainActor in
+                    self.batchProgress = (current, total)
+                    self.batchExtractedNames = partial
                 }
-                let finalResults = AIBookDataInspector.shared.decorateExtractedNames(names: results, bookId: bookId)
-                await MainActor.run {
+            },
+            onComplete: { [self] (finalResults: [AIExtractedName]) in
+                Task { @MainActor in
                     self.isBatchExtracting = false
+                    self.isStreaming = false
                     self.batchExtractedNames = finalResults
-                }
-            } catch {
-                await MainActor.run {
-                    self.isBatchExtracting = false
+                    if let idx = self.currentSession.messages.firstIndex(where: { $0.id == msgId }) {
+                        self.currentSession.messages[idx].content = "Đã quét xong \(finalResults.count) tên riêng từ các chương đã tải:"
+                        self.currentSession.messages[idx].extractedNames = finalResults
+                        self.currentSession.messages[idx].isStreaming = false
+                    }
+                    AIChatHistoryStore.shared.saveSession(self.currentSession, for: self.bookId)
                 }
             }
-        }
+        )
     }
 
     internal func cancelBatchExtraction() {
-        batchExtractionTask?.cancel()
-        batchExtractionTask = nil
+        AIRuntimeCoordinator.shared.cancelActiveTask()
         isBatchExtracting = false
+        isStreaming = false
+        batchProgress = nil
     }
 
     internal func saveNamesToDictionary(_ items: [AIExtractedName], isName: Bool, isMerge: Bool) {

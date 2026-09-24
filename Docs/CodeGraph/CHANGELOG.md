@@ -2,6 +2,26 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.396] - 2026-09-24
+
+### feat: dong bo ai dang suy nghi, chay ngam toan app va floating widget thu nho
+
+Thêm **5** file Swift mới, sửa **5** file Swift trong `Sources/Views/Reader/AI/`, `Sources/Views/Reader/Extensions/`, `Sources/Views/Reader/`, `Sources/App/`:
+
+- **Điều Phối Vòng Đời Tác Vụ Ngầm & Toast Hoàn Thành (`AIRuntimeCoordinator.swift`)**:
+  - Tạo `AIRuntimeCoordinator` quản lý `Task` chạy ngầm độc lập khỏi vòng đời View cho streaming chat, lọc name chương hiện tại và quét batch các chương đã tải.
+  - Tự động nạp/lưu phiên chat vào `AIChatHistoryStore` và phát thông báo Toast qua `ToastManager.shared.show(..., type: .success)` khi tác vụ hoàn tất ở trạng thái ngầm (khi màn hình AI đang đóng).
+  - Cung cấp cơ chế `presentFullScreen(context:)` thông qua việc tìm `findTopViewController()` ở tầng window `.normal`, cho phép mở lại màn hình AI toàn màn hình từ bất kỳ đâu (Shelf, Reader, BookDetail, Settings) mà không phụ thuộc vào `ReaderView` và không bị xung đột modal.
+- **Cửa Sổ & Widget Nổi Toàn Ứng Dụng (`AIFloatingWidgetWindowManager.swift`, `AIFloatingWidgetUIWindow.swift`, `AIFloatingWidgetContainerViewController.swift`, `AIFloatingWidgetView.swift`)**:
+  - `AIFloatingWidgetUIWindow`: `UIWindow` riêng biệt có windowLevel `alert - 3` (thấp hơn TTS `alert - 1` và Browser `alert - 2` một bậc để tránh tranh chấp hit-testing, đảm bảo chạm vào TTS widget luôn được ưu tiên).
+  - Passthrough touch chuẩn xác cho các điểm chạm ngoài viên pill để không chặn thao tác giao diện bên dưới.
+  - `AIFloatingWidgetContainerViewController`: Quản lý cử chỉ `UIPanGestureRecognizer` và `UITapGestureRecognizer`, snap mượt mà vào mép màn hình bằng `FloatingWidgetGeometry` và lưu vị trí người dùng kéo vào `UserDefaults`. Chạm vào widget kích hoạt mở lại toàn màn hình AI.
+  - `AIFloatingWidgetView`: Viên pill mờ (`.ultraThinMaterial`) với viền tím tinh tế, icon `sparkles` tím animated, text trạng thái tiến trình và nút tròn `xmark` huỷ tác vụ nhanh.
+- **Đồng Bộ Chỉ Báo "AI đang suy nghĩ" & Đóng An Toàn Khi TTS Điều Hướng (`ReaderAIFullScreenView.swift`, `ReaderAIFullScreenView+Actions.swift`, `ReaderView.swift`, `ReaderView+AI.swift`)**:
+  - Khởi tạo tin nhắn phản hồi với `content: ""` và `isStreaming: true` cho mọi thao tác (gõ tay, chip Tóm tắt, Bối cảnh, Dịch mượt, Lọc name chương, Lọc name cả bộ tải) -> luôn hiển thị động `ReaderAIThinkingIndicatorView` với text đồng nhất `"AI đang suy nghĩ"`.
+  - Lắng nghe sự kiện điều hướng từ TTS Widget (`openCurrentlyPlayingReader`, `navigateReaderToPlayingChapter`) để tự động đóng màn hình AI an toàn, nhường quyền điều hướng cho Reader mà không làm gián đoạn tác vụ AI đang chạy ngầm.
+  - Chuyển `onOpenAI` trong `ReaderView` sang `openAIFromReader()`, loại bỏ modal `.fullScreenCover` cục bộ giúp giảm dòng code trong `ReaderView.swift` (từ 2049 xuống 2042 dòng, dưới baseline 2053).
+
 ## [1.3.395] - 2026-09-24
 
 ### feat: sua loi nut dich kham pha khi chuyen nguon trung viet
