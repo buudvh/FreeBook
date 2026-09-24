@@ -51,7 +51,11 @@ struct BookDetailView: View {
     @State internal var chapterSnapshots: [StoredChapterSnapshot] = []
     @State internal var filteredOnlineChapters: [(offset: Int, element: ChapterResult)] = []
     @State internal var host = ""
-    @AppStorage("isTranslationEnabled") internal var isTranslationEnabled = false
+    @State internal var isTranslationEnabled = false
+
+    internal var translationStatus: TranslationConfigStore.ResolvedStatus {
+        TranslationConfigStore.shared.resolveStatus(bookId: actualBookId, packageId: extensionPackageId)
+    }
 
     var totalChaptersCount: Int {
         if chapterSnapshots.count > 0 { return chapterSnapshots.count }
@@ -232,15 +236,30 @@ struct BookDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                ellipsisMenu
+                HStack(spacing: 0) {
+                    ReaderTranslationScopeMenuView(
+                        bookId: actualBookId,
+                        packageId: extensionPackageId,
+                        sourceName: sourceName,
+                        showBackground: false
+                    )
+                    ellipsisMenu
+                }
             }
         }
         .onAppear {
             renderedTab = selectedTab
+            isTranslationEnabled = TranslationConfigStore.shared.isTranslationEnabled(bookId: actualBookId, packageId: extensionPackageId)
             loadBookData()
             syncChaptersList()
             updateFilteredLocalChapters()
             updateFilteredOnlineChapters()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: TranslationConfigStore.didChangeNotification)) { _ in
+            let newState = TranslationConfigStore.shared.isTranslationEnabled(bookId: actualBookId, packageId: extensionPackageId)
+            if isTranslationEnabled != newState {
+                isTranslationEnabled = newState
+            }
         }
         .task(id: actualBookId) {
             // Transaction thuộc `BookTransactionCoordinator` — View không tự `modelContext.save()`.

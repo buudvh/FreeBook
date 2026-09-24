@@ -3,9 +3,9 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-09-24T02:41:09Z",
-  "gitCommit": "63416ac70784070b1692288d4107adb53a9c35bd",
-  "sourceFileCount": 561,
+  "generatedAt": "2026-09-24T09:52:01Z",
+  "gitCommit": "d6131df5d2302603424c1489c265f6be1ab11a22",
+  "sourceFileCount": 564,
   "documentCount": 16,
   "documents": [
     {
@@ -353,6 +353,7 @@
         "Sources/Services/Translation/Utils/TOCRuleSaveCoordinator.swift",
         "Sources/Services/Translation/Utils/TokenizeMemo.swift",
         "Sources/Services/Translation/Utils/TranslateUtils.swift",
+        "Sources/Services/Translation/Utils/TranslationConfigStore.swift",
         "Sources/Services/Translation/Utils/TranslationMemo.swift",
         "Sources/Services/Translation/Utils/TranslationPunctuationMapper.swift",
         "Sources/Services/Translation/Utils/TranslationTextPostProcessor.swift",
@@ -483,6 +484,7 @@
         "Sources/Views/Reader/ReaderSettingsView.swift",
         "Sources/Views/Reader/ReaderTextView.swift",
         "Sources/Views/Reader/ReaderTranslationPresentation.swift",
+        "Sources/Views/Reader/ReaderTranslationScopeMenuView.swift",
         "Sources/Views/Reader/ReaderView+DefinitionPanel.swift",
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift",
@@ -543,6 +545,7 @@
         "Sources/Views/Settings/Translation/QuickTranslationRuleTokenSettingsView.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRulesView.swift",
         "Sources/Views/Settings/Translation/TOCRulesConfigView.swift",
+        "Sources/Views/Settings/Translation/TranslationScopeManagementView.swift",
         "Sources/Views/Shelf/BookActions/BookActionRunner.swift",
         "Sources/Views/Shelf/BookActions/BookActionSheet.swift",
         "Sources/Views/Shelf/BookActions/BookSheetAction.swift",
@@ -578,13 +581,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "b96dcd86a11ca753a3ae708a4d13a316fbe6d60f2cad8f145c2e66fbce750ffa",
-      "sourceHash": "34f58275d8836203bfca338e10fce506446bc0020e125f172aa22ad921eb7a6e",
-      "generatedHash": "9330cdb3be83fffcf85351e8825877d907717b709f2654f199e34162da88ed30",
-      "generatedAt": "2026-09-23T09:56:08Z",
-      "reviewedAt": "2026-09-23T09:56:08Z",
-      "reviewedCommit": "67032d1a57c7337069b8e219838b33f9e5f21e38",
-      "reviewMode": "bootstrap"
+      "structureHash": "fa25f980af013e2b7170c0d8b75fea528d494a22900a7ad80bb6831061382ca3",
+      "sourceHash": "836c3200e222738bcb2f48692680f0e40e666112625adcc8e542aed888da03f3",
+      "generatedHash": "9c32b819ad5bc6c454c52e824cd3a86cab802a586a07c7d9b69a8db91a28f53f",
+      "generatedAt": "2026-09-24T09:28:06Z",
+      "reviewedAt": "2026-09-24T09:28:06Z",
+      "reviewedCommit": "d6647367306e07db59ca52eee8fe404a548d6564",
+      "reviewMode": "accept"
     },
     {
       "filename": "01_project.md",
@@ -958,6 +961,7 @@
         "Sources/Services/Translation/Utils/TOCRuleSaveCoordinator.swift",
         "Sources/Services/Translation/Utils/TokenizeMemo.swift",
         "Sources/Services/Translation/Utils/TranslateUtils.swift",
+        "Sources/Services/Translation/Utils/TranslationConfigStore.swift",
         "Sources/Services/Translation/Utils/TranslationMemo.swift",
         "Sources/Services/Translation/Utils/TranslationPunctuationMapper.swift",
         "Sources/Services/Translation/Utils/TranslationTextPostProcessor.swift",
@@ -1088,6 +1092,7 @@
         "Sources/Views/Reader/ReaderSettingsView.swift",
         "Sources/Views/Reader/ReaderTextView.swift",
         "Sources/Views/Reader/ReaderTranslationPresentation.swift",
+        "Sources/Views/Reader/ReaderTranslationScopeMenuView.swift",
         "Sources/Views/Reader/ReaderView+DefinitionPanel.swift",
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift",
@@ -1148,6 +1153,7 @@
         "Sources/Views/Settings/Translation/QuickTranslationRuleTokenSettingsView.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRulesView.swift",
         "Sources/Views/Settings/Translation/TOCRulesConfigView.swift",
+        "Sources/Views/Settings/Translation/TranslationScopeManagementView.swift",
         "Sources/Views/Shelf/BookActions/BookActionRunner.swift",
         "Sources/Views/Shelf/BookActions/BookActionSheet.swift",
         "Sources/Views/Shelf/BookActions/BookSheetAction.swift",
@@ -1183,13 +1189,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "b96dcd86a11ca753a3ae708a4d13a316fbe6d60f2cad8f145c2e66fbce750ffa",
-      "sourceHash": "34f58275d8836203bfca338e10fce506446bc0020e125f172aa22ad921eb7a6e",
-      "generatedHash": "11c2a1d7e67458f17b053fb900145a7a8822888ab9dba0be243e505eec633410",
-      "generatedAt": "2026-09-23T09:56:08Z",
-      "reviewedAt": "2026-09-23T09:56:08Z",
-      "reviewedCommit": "67032d1a57c7337069b8e219838b33f9e5f21e38",
-      "reviewMode": "bootstrap"
+      "structureHash": "fa25f980af013e2b7170c0d8b75fea528d494a22900a7ad80bb6831061382ca3",
+      "sourceHash": "836c3200e222738bcb2f48692680f0e40e666112625adcc8e542aed888da03f3",
+      "generatedHash": "7a29d1e1bbc5cc88a4ee646c2449ee2e8eed2b11a1259bff07684c03801641ca",
+      "generatedAt": "2026-09-24T09:28:06Z",
+      "reviewedAt": "2026-09-24T09:28:06Z",
+      "reviewedCommit": "d6647367306e07db59ca52eee8fe404a548d6564",
+      "reviewMode": "accept"
     },
     {
       "filename": "03_type_graph.md",
@@ -1449,16 +1455,17 @@
         "Sources/Views/Reader/ReaderSettingsView.swift",
         "Sources/Views/Reader/ReaderTextView.swift",
         "Sources/Views/Reader/ReaderTranslationPresentation.swift",
+        "Sources/Views/Reader/ReaderTranslationScopeMenuView.swift",
         "Sources/Views/Reader/ReaderView+DefinitionPanel.swift",
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "structureHash": "5e7d8c00ffd348b6f8f421976d58c213589d09fdadea6c7e6a6bccad94840c2c",
-      "sourceHash": "d8133bd8bfd1a0225eddb9c802db2126fa271298988f1ff9cd1b68cb88941662",
+      "structureHash": "6d456f396e35b74aa610f97efa8bad2097bb722ac38de1b3cbb71190ffd82cd6",
+      "sourceHash": "ac811146bd38bd878b3a5e60033affd54eeba672eb0435b2463e1c87bbdf992b",
       "generatedHash": "bd01bef82edc99582b640519805048b0ab9b23cecd003311539bf3a58829ca2b",
-      "generatedAt": "2026-09-24T02:41:09Z",
-      "reviewedAt": "2026-09-24T02:41:09Z",
-      "reviewedCommit": "63416ac70784070b1692288d4107adb53a9c35bd",
+      "generatedAt": "2026-09-24T09:52:01Z",
+      "reviewedAt": "2026-09-24T09:52:01Z",
+      "reviewedCommit": "d6131df5d2302603424c1489c265f6be1ab11a22",
       "reviewMode": "no-change-needed"
     },
     {
@@ -1519,12 +1526,12 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "18401df0fe910f0baab7b9e86a25efddc5929886ca5e85703479775f7f74a051",
-      "sourceHash": "bfbe79d980fd1f6a59d5ef5effec806403c23b439180d2b70dd120861c370889",
+      "sourceHash": "a11a422a354a5a146bafbfb4ba1abfde6348352c32bf74858d33805bab252906",
       "generatedHash": "4c6fa6c611198b060c95bce010ee5c281b1edcb0631c3d30793603c56d07ea2e",
-      "generatedAt": "2026-09-23T09:56:08Z",
-      "reviewedAt": "2026-09-23T09:56:08Z",
-      "reviewedCommit": "67032d1a57c7337069b8e219838b33f9e5f21e38",
-      "reviewMode": "bootstrap"
+      "generatedAt": "2026-09-24T09:28:27Z",
+      "reviewedAt": "2026-09-24T09:28:27Z",
+      "reviewedCommit": "d6647367306e07db59ca52eee8fe404a548d6564",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "06_event_graph.md",
@@ -1561,12 +1568,12 @@
         "Sources/Views/MainTabView.swift"
       ],
       "structureHash": "ffbf7b006867544c833a93f86bffc43487ffef6ad417a869af181a319652907f",
-      "sourceHash": "0f1c9da55cda5573c4872695b9c06bd70b8551216de817ad94946870df0bc510",
+      "sourceHash": "a2d781e3dd4ac6a08d2b78f100deb12bbea245a439dc37bb13051c0e62478061",
       "generatedHash": "be0650d2687730775919bb91046b3c80064a8e2bff168ffdcfbd06f2ab097eb2",
-      "generatedAt": "2026-09-23T09:56:08Z",
-      "reviewedAt": "2026-09-23T09:56:08Z",
-      "reviewedCommit": "67032d1a57c7337069b8e219838b33f9e5f21e38",
-      "reviewMode": "bootstrap"
+      "generatedAt": "2026-09-24T09:28:27Z",
+      "reviewedAt": "2026-09-24T09:28:27Z",
+      "reviewedCommit": "d6647367306e07db59ca52eee8fe404a548d6564",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "07_dataflow.md",
@@ -1700,18 +1707,19 @@
         "Sources/Services/Translation/Utils/TOCRuleSaveCoordinator.swift",
         "Sources/Services/Translation/Utils/TokenizeMemo.swift",
         "Sources/Services/Translation/Utils/TranslateUtils.swift",
+        "Sources/Services/Translation/Utils/TranslationConfigStore.swift",
         "Sources/Services/Translation/Utils/TranslationMemo.swift",
         "Sources/Services/Translation/Utils/TranslationPunctuationMapper.swift",
         "Sources/Services/Translation/Utils/TranslationTextPostProcessor.swift",
         "Sources/Views/Reader/Extensions/ReaderViewModel+Translation.swift"
       ],
-      "structureHash": "32c94e18a3456434d020171d1172764b2746bb617bcd603a7f8eaea2584112fb",
-      "sourceHash": "8d8648db5ea9de8e4e27aee549705d12261392f44a1638f671294bc8e07ae251",
-      "generatedHash": "89f23cf7e0e3362fdab3a51fa128565612bcb1f39cef6a2d41ddeacb884ced67",
-      "generatedAt": "2026-09-23T09:56:08Z",
-      "reviewedAt": "2026-09-23T09:56:08Z",
-      "reviewedCommit": "67032d1a57c7337069b8e219838b33f9e5f21e38",
-      "reviewMode": "bootstrap"
+      "structureHash": "5b98193310594449d3c11bf19f20bdf6164763f31fa3040d6a96678a46ac0228",
+      "sourceHash": "28db54770467a615757f92ceb8b55aa1d862f8866f45a7761128ee9ea58ece3c",
+      "generatedHash": "f5a7cdcf359dd88139ffad1ec4a8153edaf786ca831915e719427e0cafda5d1c",
+      "generatedAt": "2026-09-24T09:28:06Z",
+      "reviewedAt": "2026-09-24T09:28:06Z",
+      "reviewedCommit": "d6647367306e07db59ca52eee8fe404a548d6564",
+      "reviewMode": "accept"
     },
     {
       "filename": "08_lifecycle.md",
@@ -1739,11 +1747,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "acad37ecfe6bd6c367da5de500cdaf028298b3fb613e49e119afecb80611eb31",
-      "sourceHash": "f88cdf6e10da07f852b2bbc3405c44b2e6bb36f79fc01cde5646a1988f06facd",
+      "sourceHash": "4d0ec74e7132c85bc52c2c8d848014a56768a51f421e31c6b3da2626b8b0e94b",
       "generatedHash": "2dbe2bca59e5fcdb0567fb2622bc03716dfd50f4d4d8cc6909ed56125f813189",
-      "generatedAt": "2026-09-24T02:41:09Z",
-      "reviewedAt": "2026-09-24T02:41:09Z",
-      "reviewedCommit": "63416ac70784070b1692288d4107adb53a9c35bd",
+      "generatedAt": "2026-09-24T09:52:01Z",
+      "reviewedAt": "2026-09-24T09:52:01Z",
+      "reviewedCommit": "d6131df5d2302603424c1489c265f6be1ab11a22",
       "reviewMode": "no-change-needed"
     },
     {
@@ -2095,6 +2103,7 @@
         "Sources/Services/Translation/Utils/TOCRuleSaveCoordinator.swift",
         "Sources/Services/Translation/Utils/TokenizeMemo.swift",
         "Sources/Services/Translation/Utils/TranslateUtils.swift",
+        "Sources/Services/Translation/Utils/TranslationConfigStore.swift",
         "Sources/Services/Translation/Utils/TranslationMemo.swift",
         "Sources/Services/Translation/Utils/TranslationPunctuationMapper.swift",
         "Sources/Services/Translation/Utils/TranslationTextPostProcessor.swift",
@@ -2225,6 +2234,7 @@
         "Sources/Views/Reader/ReaderSettingsView.swift",
         "Sources/Views/Reader/ReaderTextView.swift",
         "Sources/Views/Reader/ReaderTranslationPresentation.swift",
+        "Sources/Views/Reader/ReaderTranslationScopeMenuView.swift",
         "Sources/Views/Reader/ReaderView+DefinitionPanel.swift",
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift",
@@ -2285,6 +2295,7 @@
         "Sources/Views/Settings/Translation/QuickTranslationRuleTokenSettingsView.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRulesView.swift",
         "Sources/Views/Settings/Translation/TOCRulesConfigView.swift",
+        "Sources/Views/Settings/Translation/TranslationScopeManagementView.swift",
         "Sources/Views/Shelf/BookActions/BookActionRunner.swift",
         "Sources/Views/Shelf/BookActions/BookActionSheet.swift",
         "Sources/Views/Shelf/BookActions/BookSheetAction.swift",
@@ -2320,13 +2331,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "d3dcf27640bff6eed5201b7c7b5bec87502619c8dbf538ba48f90ca1e444cd8d",
-      "sourceHash": "b2c2c911801a4b9a6b93bacaaa7c7183d9c4b8dcfa3c84830a2520721de57a82",
+      "structureHash": "27bfea5544f4e658b7541444159119b32aac867228bfbcbda42708fea3020dff",
+      "sourceHash": "389afaf1823c47cfb86a1e53bc96ec5145bbf2db8e4c0909d6efb1b9f2bbfdea",
       "generatedHash": "2ac03515c34198f5f009553199007a1c3f6017a08f73649bc8843b4fed59e5ea",
-      "generatedAt": "2026-09-23T09:56:08Z",
-      "reviewedAt": "2026-09-23T09:56:08Z",
-      "reviewedCommit": "67032d1a57c7337069b8e219838b33f9e5f21e38",
-      "reviewMode": "bootstrap"
+      "generatedAt": "2026-09-24T09:28:27Z",
+      "reviewedAt": "2026-09-24T09:28:27Z",
+      "reviewedCommit": "d6647367306e07db59ca52eee8fe404a548d6564",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "10_risk_report.md",
@@ -2438,11 +2449,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "832529caafdadcb677245786ba8f12f0f1a4afc921c564bd65494eaf2fd80ccb",
-      "sourceHash": "afaa2d5e8bd5db604b9cbb15a604ccc329b2faf991d47c337264fd7c108c7d30",
+      "sourceHash": "78c379ebc179ce2a8f717dc7c3bf748e3b7f182aaaa6813b389578c6c61d4fcd",
       "generatedHash": "59e910c3217a7af782ccfbd916af183eeca3a9b89d1ea8a60c56b5f787109b04",
-      "generatedAt": "2026-09-24T02:41:09Z",
-      "reviewedAt": "2026-09-24T02:41:09Z",
-      "reviewedCommit": "63416ac70784070b1692288d4107adb53a9c35bd",
+      "generatedAt": "2026-09-24T09:52:01Z",
+      "reviewedAt": "2026-09-24T09:52:01Z",
+      "reviewedCommit": "d6131df5d2302603424c1489c265f6be1ab11a22",
       "reviewMode": "no-change-needed"
     },
     {
@@ -2730,6 +2741,7 @@
         "Sources/Services/Translation/Utils/TOCRuleSaveCoordinator.swift",
         "Sources/Services/Translation/Utils/TokenizeMemo.swift",
         "Sources/Services/Translation/Utils/TranslateUtils.swift",
+        "Sources/Services/Translation/Utils/TranslationConfigStore.swift",
         "Sources/Services/Translation/Utils/TranslationMemo.swift",
         "Sources/Services/Translation/Utils/TranslationPunctuationMapper.swift",
         "Sources/Services/Translation/Utils/TranslationTextPostProcessor.swift",
@@ -2860,6 +2872,7 @@
         "Sources/Views/Reader/ReaderSettingsView.swift",
         "Sources/Views/Reader/ReaderTextView.swift",
         "Sources/Views/Reader/ReaderTranslationPresentation.swift",
+        "Sources/Views/Reader/ReaderTranslationScopeMenuView.swift",
         "Sources/Views/Reader/ReaderView+DefinitionPanel.swift",
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift",
@@ -2920,6 +2933,7 @@
         "Sources/Views/Settings/Translation/QuickTranslationRuleTokenSettingsView.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRulesView.swift",
         "Sources/Views/Settings/Translation/TOCRulesConfigView.swift",
+        "Sources/Views/Settings/Translation/TranslationScopeManagementView.swift",
         "Sources/Views/Shelf/BookActions/BookActionRunner.swift",
         "Sources/Views/Shelf/BookActions/BookActionSheet.swift",
         "Sources/Views/Shelf/BookActions/BookSheetAction.swift",
@@ -2955,13 +2969,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "4236030908d79538ec38ded56cf311972b7e70ab45bc1b8258bdf49d82292f1f",
-      "sourceHash": "deff70aaf3e7e6e92ada573deebf420c3dc2051ffa67dcccdcf185b1d1f1b5cf",
-      "generatedHash": "e9146733a9bc76cc94d381ed25deef0e45f59de7539591813f56b3a94f44c229",
-      "generatedAt": "2026-09-24T02:40:48Z",
-      "reviewedAt": "2026-09-24T02:40:48Z",
-      "reviewedCommit": "63416ac70784070b1692288d4107adb53a9c35bd",
-      "reviewMode": "accept"
+      "structureHash": "0716dc60407642f62d66df4919a359af4e62055021ea6c70c14db7bdb246adbd",
+      "sourceHash": "bec119fce434f232ef792aa8bf08e80bf441b198a1c2b6bebb6afa7eb7fbb1bd",
+      "generatedHash": "42fbf978c59ea6eb0a92765d144d5d2c73ea6989f0575ff6d373fe10ce6b80f7",
+      "generatedAt": "2026-09-24T09:52:01Z",
+      "reviewedAt": "2026-09-24T09:52:01Z",
+      "reviewedCommit": "d6131df5d2302603424c1489c265f6be1ab11a22",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "12_ownership_graph.md",
@@ -2994,12 +3008,12 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "b0d4d4d4bca7562eb71c38165e49eaf44434d87b57111fb5c46f1762529b0396",
-      "sourceHash": "585e70aee3e82afb20c10bf7cc93f21807127cd53486e2e94edba43f918b9947",
+      "sourceHash": "5dfb5c84f7fcc206791a1656030220b66ae2604405e8565d27d4c6f71faf9a74",
       "generatedHash": "704246874d8866107941ad1660640f9e8dbf80e1280a91b11700d78d031b7512",
-      "generatedAt": "2026-09-23T09:56:08Z",
-      "reviewedAt": "2026-09-23T09:56:08Z",
-      "reviewedCommit": "67032d1a57c7337069b8e219838b33f9e5f21e38",
-      "reviewMode": "bootstrap"
+      "generatedAt": "2026-09-24T09:28:27Z",
+      "reviewedAt": "2026-09-24T09:28:27Z",
+      "reviewedCommit": "d6647367306e07db59ca52eee8fe404a548d6564",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "13_resource_lifecycle.md",
@@ -3201,16 +3215,17 @@
         "Sources/Views/Reader/ReaderSettingsView.swift",
         "Sources/Views/Reader/ReaderTextView.swift",
         "Sources/Views/Reader/ReaderTranslationPresentation.swift",
+        "Sources/Views/Reader/ReaderTranslationScopeMenuView.swift",
         "Sources/Views/Reader/ReaderView+DefinitionPanel.swift",
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "structureHash": "6c216961c689a6c2b67f90a6531d0ac25e732bf3e39c6bcda25b99c6be94cd3e",
-      "sourceHash": "44a2a88faed9b5ed95d3227dc60a7ba5183a3f95c0ea2eec6767366c928a3094",
+      "structureHash": "2290191517d506d06ccd4fb67e9ffe5702de0b8ecfd8c285e0cd1e6162a85ac6",
+      "sourceHash": "9758a56375d347737637a79f38c3b9bdd29dbeb74cfe458f4f048c588385fef4",
       "generatedHash": "177b376b68f8753540da71f7f6c2cff2eb66bec04b5ce7c76184ab2a87bfede5",
-      "generatedAt": "2026-09-24T02:41:09Z",
-      "reviewedAt": "2026-09-24T02:41:09Z",
-      "reviewedCommit": "63416ac70784070b1692288d4107adb53a9c35bd",
+      "generatedAt": "2026-09-24T09:52:01Z",
+      "reviewedAt": "2026-09-24T09:52:01Z",
+      "reviewedCommit": "d6131df5d2302603424c1489c265f6be1ab11a22",
       "reviewMode": "no-change-needed"
     },
     {
@@ -3558,6 +3573,7 @@
         "Sources/Services/Translation/Utils/TOCRuleSaveCoordinator.swift",
         "Sources/Services/Translation/Utils/TokenizeMemo.swift",
         "Sources/Services/Translation/Utils/TranslateUtils.swift",
+        "Sources/Services/Translation/Utils/TranslationConfigStore.swift",
         "Sources/Services/Translation/Utils/TranslationMemo.swift",
         "Sources/Services/Translation/Utils/TranslationPunctuationMapper.swift",
         "Sources/Services/Translation/Utils/TranslationTextPostProcessor.swift",
@@ -3688,6 +3704,7 @@
         "Sources/Views/Reader/ReaderSettingsView.swift",
         "Sources/Views/Reader/ReaderTextView.swift",
         "Sources/Views/Reader/ReaderTranslationPresentation.swift",
+        "Sources/Views/Reader/ReaderTranslationScopeMenuView.swift",
         "Sources/Views/Reader/ReaderView+DefinitionPanel.swift",
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift",
@@ -3748,6 +3765,7 @@
         "Sources/Views/Settings/Translation/QuickTranslationRuleTokenSettingsView.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRulesView.swift",
         "Sources/Views/Settings/Translation/TOCRulesConfigView.swift",
+        "Sources/Views/Settings/Translation/TranslationScopeManagementView.swift",
         "Sources/Views/Shelf/BookActions/BookActionRunner.swift",
         "Sources/Views/Shelf/BookActions/BookActionSheet.swift",
         "Sources/Views/Shelf/BookActions/BookSheetAction.swift",
@@ -3783,13 +3801,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "b96dcd86a11ca753a3ae708a4d13a316fbe6d60f2cad8f145c2e66fbce750ffa",
-      "sourceHash": "34f58275d8836203bfca338e10fce506446bc0020e125f172aa22ad921eb7a6e",
+      "structureHash": "fa25f980af013e2b7170c0d8b75fea528d494a22900a7ad80bb6831061382ca3",
+      "sourceHash": "836c3200e222738bcb2f48692680f0e40e666112625adcc8e542aed888da03f3",
       "generatedHash": "ae4f24c5e9a6dfa9ff5291c1da3d6ce8720026e81c1e20044b3081d85aade58a",
-      "generatedAt": "2026-09-23T09:56:08Z",
-      "reviewedAt": "2026-09-23T09:56:08Z",
-      "reviewedCommit": "67032d1a57c7337069b8e219838b33f9e5f21e38",
-      "reviewMode": "bootstrap"
+      "generatedAt": "2026-09-24T09:28:27Z",
+      "reviewedAt": "2026-09-24T09:28:27Z",
+      "reviewedCommit": "d6647367306e07db59ca52eee8fe404a548d6564",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "rules.md",
@@ -3895,11 +3913,11 @@
         "Sources/Views/Reader/ReaderView.swift"
       ],
       "structureHash": "38084ca1c03279d58a78f77ae1612ddc7c8375514dd8240d232178ac7a1eeced",
-      "sourceHash": "e37af1d8754c677140a69e1b4c3c847cc3025bd8e4011119536c40c36d8a6a32",
+      "sourceHash": "2a5fc88b9ccf633e180f26e2a1427df988328ad057982e94aa71e10309d53ff1",
       "generatedHash": "fc42ac90936887c802496d93326abf1ddc9d3e43212df822c4d5953a88311b84",
-      "generatedAt": "2026-09-24T02:41:09Z",
-      "reviewedAt": "2026-09-24T02:41:09Z",
-      "reviewedCommit": "63416ac70784070b1692288d4107adb53a9c35bd",
+      "generatedAt": "2026-09-24T09:52:01Z",
+      "reviewedAt": "2026-09-24T09:52:01Z",
+      "reviewedCommit": "d6131df5d2302603424c1489c265f6be1ab11a22",
       "reviewMode": "no-change-needed"
     }
   ]

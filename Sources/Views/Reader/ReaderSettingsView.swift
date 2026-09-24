@@ -15,6 +15,9 @@ struct ReaderSettingsView: View {
     @Binding var showChapterTitle: Bool
     @Binding var removeDuplicatedTitle: Bool
 
+    var packageId: String = ""
+    var sourceName: String = ""
+
     /// Hai công tắc tiêu đề chương không tự đủ: `ReaderViewModel` đọc cờ từ UserDefaults theo từng
     /// truyện lúc dựng `[ParagraphItem]`, nên đổi binding thôi thì màn hình không đổi gì. `ReaderView`
     /// sở hữu việc lưu theo `bookId` + dựng lại đoạn và nhận giá trị mới qua hai closure này.
@@ -25,6 +28,9 @@ struct ReaderSettingsView: View {
     /// `NavigationStack` nên link sẽ không đẩy màn. Cùng cách `ReaderView` mở `BookDictionaryView`.
     @State private var showingRulePriority = false
     @State private var showingTokenSettings = false
+    @State private var bookOverride: TranslationConfigStore.ScopeOverride = .inherited
+    @State private var sourceOverride: TranslationConfigStore.ScopeOverride = .inherited
+    @State private var globalEnabled: Bool = false
 
     var body: some View {
         ScrollView {
@@ -54,8 +60,60 @@ struct ReaderSettingsView: View {
                     }
                 }
 
-                Toggle("Bật dịch Quick Translate", isOn: $isTranslationEnabled)
-                    .padding(.horizontal)
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text("Dịch thuật Quick Translate")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Text(isTranslationEnabled ? "Đang Bật" : "Đang Tắt")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundColor(isTranslationEnabled ? .green : .secondary)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Truyện này:")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Picker("Truyện này", selection: $bookOverride) {
+                            Text("Theo nguồn").tag(TranslationConfigStore.ScopeOverride.inherited)
+                            Text("Bật").tag(TranslationConfigStore.ScopeOverride.enabled)
+                            Text("Tắt").tag(TranslationConfigStore.ScopeOverride.disabled)
+                        }
+                        .pickerStyle(.segmented)
+                        .onChange(of: bookOverride) { _, newMode in
+                            TranslationConfigStore.shared.setBookOverride(bookId: bookId, mode: newMode)
+                            isTranslationEnabled = TranslationConfigStore.shared.isTranslationEnabled(bookId: bookId, packageId: packageId)
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Nguồn (\(sourceName.isEmpty ? "Hiện tại" : sourceName)):")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Picker("Nguồn này", selection: $sourceOverride) {
+                            Text("Toàn cục").tag(TranslationConfigStore.ScopeOverride.inherited)
+                            Text("Bật").tag(TranslationConfigStore.ScopeOverride.enabled)
+                            Text("Tắt").tag(TranslationConfigStore.ScopeOverride.disabled)
+                        }
+                        .pickerStyle(.segmented)
+                        .onChange(of: sourceOverride) { _, newMode in
+                            TranslationConfigStore.shared.setSourceOverride(packageId: packageId, mode: newMode)
+                            isTranslationEnabled = TranslationConfigStore.shared.isTranslationEnabled(bookId: bookId, packageId: packageId)
+                        }
+                    }
+
+                    Toggle("Mặc định Toàn cục (Tất cả truyện)", isOn: $globalEnabled)
+                        .font(.footnote)
+                        .onChange(of: globalEnabled) { _, newValue in
+                            TranslationConfigStore.shared.globalEnabled = newValue
+                            isTranslationEnabled = TranslationConfigStore.shared.isTranslationEnabled(bookId: bookId, packageId: packageId)
+                        }
+                }
+                .padding(12)
+                .background(Color(UIColor.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
+                .padding(.horizontal)
 
                 if isTranslationEnabled {
                     translationOptions
@@ -84,6 +142,15 @@ struct ReaderSettingsView: View {
                     })
             }
         }
+        .onAppear {
+            loadTranslationScopes()
+        }
+    }
+
+    private func loadTranslationScopes() {
+        bookOverride = TranslationConfigStore.shared.getBookOverride(bookId: bookId)
+        sourceOverride = TranslationConfigStore.shared.getSourceOverride(packageId: packageId)
+        globalEnabled = TranslationConfigStore.shared.globalEnabled
     }
 
     /// Hai màn cấu hình engine rule của **riêng truyện này**, áp cho cả trình đọc và đọc thành tiếng.

@@ -10,6 +10,9 @@ struct ReaderHeaderFooterOverlayView: View {
     @Binding var showingChapterList: Bool
     let readerBookDisplayTitle: String
     let readerChapterDisplayTitle: String
+    let bookId: String
+    let packageId: String
+    let sourceName: String
     let hasLocalBook: Bool
     let isLocalTXTBook: Bool
     let chapterIndex: Int
@@ -127,14 +130,13 @@ struct ReaderHeaderFooterOverlayView: View {
                 }
 
                 HStack(alignment: .center, spacing: 8) {
-                    Button(action: { isTranslationEnabled.toggle() }) {
-                        Image(systemName: isTranslationEnabled ? "character.bubble.fill" : "character.bubble")
-                            .font(.system(size: 19, weight: .semibold))
-                            .foregroundColor(isTranslationEnabled ? .white : selectedTheme.textColor.opacity(0.85))
-                            .frame(width: 44, height: 52)
-                            .background(selectedTheme.textColor.opacity(0.07), in: RoundedRectangle(cornerRadius: 6))
-                    }
-                    .accessibilityLabel(isTranslationEnabled ? "Tắt dịch" : "Bật dịch")
+                    ReaderTranslationScopeMenuView(
+                        bookId: bookId,
+                        packageId: packageId,
+                        sourceName: sourceName,
+                        textColor: selectedTheme.textColor,
+                        showBackground: true
+                    )
 
                     Button(action: onOpenChapterList) {
                         VStack(alignment: .leading, spacing: 3) {

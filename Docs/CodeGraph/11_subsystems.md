@@ -15,6 +15,20 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ Cấu hình Dịch Thuật Phân Cấp: Truyện > Nguồn > Toàn cục (1.3.393)
+
+* **Phân hệ Lưu trữ & Điều phối Cấu hình (`TranslationConfigStore.swift`, `TranslateUtils.swift`)**:
+  - `TranslationConfigStore`: Quản lý 3 mức cấu hình dịch: `bookOverrides` (Truyện - ưu tiên cao nhất), `sourceOverrides` (Nguồn truyện qua `packageId`), `globalEnabled` (Toàn cục). Lưu trữ an toàn trong `UserDefaults`, không can thiệp schema SwiftData `@Model`.
+  - Cơ chế giải quyết phân cấp `resolveStatus(bookId:packageId:)`: Truyện đặt Bật/Tắt -> Dùng của Truyện; Truyện mặc định -> Dùng của Nguồn; Nguồn mặc định -> Dùng Toàn cục.
+  - Thông báo thay đổi reactive qua `TranslationConfigStore.didChangeNotification`.
+* **Phân hệ Reader & BookDetail View (`ReaderTranslationScopeMenuView.swift`, `ReaderHeaderFooterOverlayView.swift`, `ReaderView.swift`, `BookDetailView.swift`, `ReaderSettingsView.swift`)**:
+  - Nút Menu Dịch 1 chạm trên Header của Reader và Toolbar của `BookDetailView` hiển thị nguồn gốc phân giải trạng thái (`Truyện này`, `Nguồn này`, `Toàn cục`) kèm chấm tròn chỉ thị và cho phép chọn nhanh phạm vi.
+  - Bộ điều khiển 3 mức trong Sheet Cài đặt đọc (`ReaderSettingsView`): Picker Truyện, Picker Nguồn, Toggle Toàn cục.
+* **Phân hệ Quản lý Tập trung (`TranslationScopeManagementView.swift`, `SettingsView.swift`)**:
+  - Màn hình quản lý tập trung danh sách các Nguồn & Truyện đã đặt cấu hình riêng, hỗ trợ chuyển trạng thái, vuốt xoá từng mục hoặc đặt lại tất cả về mặc định.
+* **Phân hệ TTS (`TTSManager.swift`)**:
+  - Khi khởi chạy phiên đọc (`startWithContent` / `start`), tự động nạp trạng thái dịch chuẩn xác theo phân cấp của cuốn sách đang phát thông qua `TranslationConfigStore.shared.isTranslationEnabled(bookId:packageId:)`.
+
 ## Tắt Tự Động Sang Chương Của Reader Khi Tắt Scroll Highlight & Badge VP/NE AI (1.3.392)
 
 * **Phân hệ Reader View (`ReaderView.swift`)**:

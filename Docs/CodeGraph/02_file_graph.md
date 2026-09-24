@@ -15,6 +15,17 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +3 file cho cấu hình phân cấp bật/tắt dịch theo Truyện, Nguồn và Toàn cục (1.3.393)
+
+| Nhóm | File mới | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Services/Translation | [`Services/Translation/Utils/TranslationConfigStore.swift`](../../Sources/Services/Translation/Utils/TranslationConfigStore.swift) | Quản lý cấu hình dịch phân cấp 3 mức trong UserDefaults | 173 |
+| Views/Reader | [`Views/Reader/ReaderTranslationScopeMenuView.swift`](../../Sources/Views/Reader/ReaderTranslationScopeMenuView.swift) | Menu xổ xuống chọn phạm vi dịch nhanh ở Header Reader & BookDetail | 185 |
+| Views/Settings | [`Views/Settings/Translation/TranslationScopeManagementView.swift`](../../Sources/Views/Settings/Translation/TranslationScopeManagementView.swift) | Màn hình quản lý danh sách tập trung các nguồn & truyện đã override | 225 |
+
+* Tất cả 3 file mới đều dưới trần 400 dòng vật lý và tuân thủ đúng 1 primary type top level.
+* `SettingsView.swift` và `TranslateUtils.swift` giảm dòng về dưới baseline; `ReaderView.swift` giữ nguyên dưới trần baseline.
+
 ## +2 file cho quản lý Provider Profiles độc lập (1.3.389)
 
 | Nhóm | File mới | Vai trò | Dòng |

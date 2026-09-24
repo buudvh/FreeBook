@@ -15,6 +15,15 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Cấu hình phân cấp bật/tắt dịch theo Truyện, Nguồn và Toàn cục (1.3.393)
+
+* [`TranslationConfigStore.swift`](../../Sources/Services/Translation/Utils/TranslationConfigStore.swift#L4): Quản lý cấu hình dịch phân cấp 3 mức: Truyện (`bookOverrides`) > Nguồn (`sourceOverrides`) > Toàn cục (`globalEnabled`), lưu `UserDefaults` không sửa schema SwiftData `@Model`.
+* [`ReaderTranslationScopeMenuView.swift`](../../Sources/Views/Reader/ReaderTranslationScopeMenuView.swift#L4): Menu xổ xuống 1 chạm trên Header Reader và thanh công cụ `BookDetailView` hiển thị nguồn gốc quyết định và cho phép chọn nhanh phạm vi.
+* [`ReaderSettingsView.swift`](../../Sources/Views/Reader/ReaderSettingsView.swift#L1): Tích hợp cụm điều khiển phân cấp 3 mức trong Sheet Cài đặt đọc (Picker Truyện, Picker Nguồn, Toggle Toàn cục).
+* [`TranslationScopeManagementView.swift`](../../Sources/Views/Settings/Translation/TranslationScopeManagementView.swift#L4): Màn hình quản lý tập trung các cấu hình dịch theo Nguồn và Truyện trong Cài đặt (xoá từng mục hoặc đặt lại tất cả).
+* [`TTSManager.swift`](../../Sources/Services/TTS/TTSManager.swift#L1271): Tự động nạp cờ dịch theo phân cấp cuốn sách khi khởi chạy phiên phát TTS.
+* Thêm **3** file Swift (564 tổng trong cây làm việc); cần `xcodegen generate` và build trên macOS.
+
 ## Quản lý Provider Profile độc lập, Picker mẫu và sửa lỗi hiển thị AI (1.3.389)
 
 * [`ReaderView.swift`](../../Sources/Views/Reader/ReaderView.swift#L550) & [`ReaderView+AI.swift`](../../Sources/Views/Reader/Extensions/ReaderView+AI.swift#L6): Chuyển `.fullScreenCover` sang gắn trực tiếp trên `readerSheetLayer`, khắc phục hoàn toàn lỗi nhấn nút AI mà màn hình không hiển thị.

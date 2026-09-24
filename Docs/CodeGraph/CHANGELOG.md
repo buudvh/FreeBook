@@ -4,6 +4,27 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.393] - 2026-09-24
+
+### feat: cau hinh bat tat dich phan cap truyen nguon va toan cuc
+
+Thêm **3** file Swift mới và sửa **8** file Swift trong `Sources/Services/Translation/`, `Sources/Services/TTS/`, `Sources/Views/Reader/`, `Sources/Views/BookDetail/`, `Sources/Views/Settings/`:
+
+- **Quản lý cấu hình dịch phân cấp 3 mức (`TranslationConfigStore.swift`, `TranslateUtils.swift`)**:
+  - `TranslationConfigStore`: Quản lý phân cấp 3 tầng rõ ràng: Truyện (`bookOverrides`) > Nguồn truyện (`sourceOverrides`) > Toàn cục (`globalEnabled`). Lưu trữ an toàn trong `UserDefaults` bằng từ điển JSON, không can thiệp schema SwiftData `@Model`.
+  - Phân giải ưu tiên `resolveStatus(bookId:packageId:)`: Truyện đặt Bật/Tắt -> Áp dụng cấu hình Truyện; Truyện để Mặc định -> Áp dụng cấu hình Nguồn; Nguồn để Mặc định -> Áp dụng cấu hình Toàn cục.
+  - Hỗ trợ thông báo reactive qua `TranslationConfigStore.didChangeNotification`.
+- **Menu xổ xuống 1 chạm trên Header Reader & BookDetail (`ReaderTranslationScopeMenuView.swift`, `ReaderHeaderFooterOverlayView.swift`, `BookDetailView.swift`, `BookDetailView+Extensions.swift`)**:
+  - Nút Menu Dịch (`character.bubble`) trên Header Reader và Toolbar Chi tiết truyện hiển thị nguồn gốc quyết định (`Truyện này`, `Nguồn này`, `Toàn cục`) kèm chấm tròn chỉ thị màu khi có cấu hình riêng.
+  - Chạm mở ngay menu xổ xuống trực quan với 3 sections: Truyện này (Mặc định / Luôn Bật / Luôn Tắt), Nguồn này (Mặc định / Luôn Bật / Luôn Tắt), Toàn cục (Bật / Tắt).
+- **Bộ điều khiển 3 mức trong Sheet Cài đặt đọc (`ReaderSettingsView.swift`)**:
+  - Bổ sung nhóm điều khiển phân cấp trong mục Cấu hình Dịch Thuật: Picker cho Truyện này, Picker cho Nguồn này, Toggle Toàn cục.
+- **Màn hình Quản lý Tập trung cấu hình dịch riêng (`TranslationScopeManagementView.swift`, `SettingsView.swift`)**:
+  - Màn hình quản lý danh sách tập trung các nguồn và truyện đã override, cho phép chuyển đổi trạng thái, vuốt xoá từng mục hoặc đặt lại tất cả về mặc định.
+  - Tích hợp đường dẫn `NavigationLink` trong Section Dịch Thuật Quick Translate của `SettingsView`.
+- **Đồng bộ phân cấp Dịch sang TTS (`TTSManager.swift`)**:
+  - Tự động nạp cờ dịch theo phân cấp của cuốn sách đang phát khi khởi chạy phiên đọc (`startWithContent` / `start`) thông qua `TranslationConfigStore.shared.isTranslationEnabled(bookId:packageId:)`.
+
 ## [1.3.392] - 2026-09-24
 
 ### feat: badge vp ne tu dong bo chon ten da co tu dong luu ai va tat auto sang chuong reader

@@ -74,9 +74,8 @@ public final class TranslateUtils {
         "话": "Thoại"
     ]
     
-    public static var isTranslationEnabled: Bool {
-        UserDefaults.standard.bool(forKey: "isTranslationEnabled")
-    }
+    public static var isTranslationEnabled: Bool { TranslationConfigStore.shared.globalEnabled }
+    public static func isTranslationEnabled(for bookId: String?, packageId: String? = nil) -> Bool { TranslationConfigStore.shared.isTranslationEnabled(bookId: bookId, packageId: packageId) }
     
     public static func containsChinese(_ text: String) -> Bool {
         return text.contains { char in

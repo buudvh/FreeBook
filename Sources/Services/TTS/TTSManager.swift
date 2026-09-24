@@ -1151,7 +1151,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let key = "showChapterTitle_\(bookId)"
         let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
         let removeDuplicatedTitle = readRemoveDuplicatedTitle(for: bookId)
-        let isTransEnabled = TranslateUtils.isTranslationEnabled
+        let isTransEnabled = TranslationConfigStore.shared.isTranslationEnabled(bookId: bookId, packageId: extensionInfo?.packageId)
         let shouldConvertTraditionalToSimplified = UserDefaults.standard.bool(
             forKey: "convertTraditionalToSimplified_\(bookId)"
         )
@@ -1268,7 +1268,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
         self.configureAudioSession()
         self.setRemoteCommandsEnabled(true)
-        let isTransEnabled = TranslateUtils.isTranslationEnabled
+        let isTransEnabled = TranslationConfigStore.shared.isTranslationEnabled(bookId: bookId, packageId: extensionInfo?.packageId)
         self.sessionTranslationEnabled = isTransEnabled
         let shouldConvertTraditionalToSimplified = UserDefaults.standard.bool(
             forKey: "convertTraditionalToSimplified_\(bookId)"

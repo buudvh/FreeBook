@@ -1,7 +1,6 @@
 import SwiftUI
 import SwiftData
 import AVFoundation
-
 public enum ReaderTheme: String, CaseIterable, Identifiable {
     case paper = "Sáng"
     case sepia = "Trầm ấm"
@@ -167,7 +166,7 @@ struct ReaderView: View {
     // Cấu hình giao diện đọc (lưu trữ lâu dài qua UserDefaults nhờ @AppStorage)
     @AppStorage("readerFontSize") internal var fontSize: Double = 20.0 // Cỡ chữ của văn bản đọc
     @AppStorage("readerLineSpacing") internal var lineSpacing: Double = 10.0 // Khoảng cách giữa các dòng
-    @AppStorage("isTranslationEnabled") internal var isTranslationEnabled = false // Trạng thái bật/tắt tự động dịch thuật
+    @State internal var isTranslationEnabled = false // Trạng thái bật/tắt tự động dịch thuật (đồng bộ theo TranslationConfigStore)
     @AppStorage("isTranslationPronounsEnabled") internal var isTranslationPronounsEnabled = false // Bật dịch đại từ
     @AppStorage("isTranslationLuatNhanEnabled") internal var isTranslationLuatNhanEnabled = false // Bật dịch luật nhân
     @State var shouldConvertTraditionalToSimplified = false
@@ -494,7 +493,8 @@ struct ReaderView: View {
         readerOverlayStack
         .sheet(isPresented: $showingSettings) {
             ReaderSettingsView(
-                bookId: bookId, fontSize: $fontSize,
+                bookId: bookId,
+                fontSize: $fontSize,
                 lineSpacing: $lineSpacing,
                 fontFamily: $fontFamily,
                 selectedTheme: $selectedTheme,
@@ -504,6 +504,8 @@ struct ReaderView: View {
                 shouldConvertTraditionalToSimplified: $shouldConvertTraditionalToSimplified,
                 showChapterTitle: $showChapterTitle,
                 removeDuplicatedTitle: $removeDuplicatedTitle,
+                packageId: localBook?.extensionPackageId ?? "",
+                sourceName: localBook?.sourceName ?? bookSourceName ?? "",
                 onShowChapterTitleChanged: applyShowChapterTitle,
                 onRemoveDuplicatedTitleChanged: applyRemoveDuplicatedTitle
             )
@@ -975,6 +977,12 @@ struct ReaderView: View {
                 )
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: TranslationConfigStore.didChangeNotification)) { _ in
+            let newEnabled = TranslationConfigStore.shared.isTranslationEnabled(bookId: bookId, packageId: localBook?.extensionPackageId)
+            if isTranslationEnabled != newEnabled {
+                isTranslationEnabled = newEnabled
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)) { _ in
             ReaderEnergyDiagnostics.shared.flush(reason: "thermal_change")
         }
@@ -1046,6 +1054,9 @@ struct ReaderView: View {
                 showingChapterList: $showingChapterList,
                 readerBookDisplayTitle: readerBookDisplayTitle,
                 readerChapterDisplayTitle: readerChapterDisplayTitle,
+                bookId: bookId,
+                packageId: localBook?.extensionPackageId ?? "",
+                sourceName: localBook?.sourceName ?? bookSourceName ?? "",
                 hasLocalBook: localBook != nil,
                 isLocalTXTBook: isLocalTXTBook,
                 chapterIndex: chapterIndex,
@@ -1155,6 +1166,7 @@ struct ReaderView: View {
         isAutoScrollDisabled = UserDefaults.standard.bool(forKey: "disableAutoScroll_\(bookId)")
         searchEngines = SearchEngine.loadEngines()
         ReaderView.activeBookId = bookId
+        isTranslationEnabled = TranslationConfigStore.shared.isTranslationEnabled(bookId: bookId, packageId: localBook?.extensionPackageId)
 
         if localBookSnapshot == nil {
             var descriptor = FetchDescriptor<Book>(

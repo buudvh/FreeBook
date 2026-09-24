@@ -37,17 +37,18 @@ struct SettingsView: View {
                         TranslateUtils.clearCache()
                         TranslationManager.shared.notifyRulesDidUpdate()
                     }
-                    
                     NavigationLink(destination: TOCRulesConfigView()) {
                         Label("Quản lý quy tắc TOC", systemImage: "list.bullet.indent")
                     }
                     .disabled(!importingTypes.isEmpty)
-
                     NavigationLink(destination: JunkFilterManagementView()) {
                         Label("Quản lý lọc rác", systemImage: "trash.slash")
                     }
                     .disabled(!importingTypes.isEmpty)
-
+                    NavigationLink(destination: TranslationScopeManagementView()) {
+                        Label("Cấu hình dịch theo Nguồn & Truyện", systemImage: "slider.horizontal.3")
+                    }
+                    .disabled(!importingTypes.isEmpty)
                     QuickTranslateRuleSettingsRows(
                         isTranslationEnabled: isTranslationEnabled,
                         isBusy: !importingTypes.isEmpty

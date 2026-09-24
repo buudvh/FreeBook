@@ -15,6 +15,34 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Dòng dữ liệu Cấu hình Dịch Thuật Phân Cấp: Truyện > Nguồn > Toàn cục (1.3.393)
+
+```text
+Yêu cầu trạng thái dịch: isTranslationEnabled(bookId, packageId)
+  │
+  ├─ 1. Kiểm tra bookOverrides[bookId] (Truyện này):
+  │     ├─ .enabled  ──> TRẢ VỀ: true  (Origin: .book)
+  │     ├─ .disabled ──> TRẢ VỀ: false (Origin: .book)
+  │     └─ .inherited (Mặc định) ──> Tiếp tục xuống bước 2
+  │
+  ├─ 2. Kiểm tra sourceOverrides[packageId] (Nguồn này):
+  │     ├─ .enabled  ──> TRẢ VỀ: true  (Origin: .source)
+  │     ├─ .disabled ──> TRẢ VỀ: false (Origin: .source)
+  │     └─ .inherited (Mặc định) ──> Tiếp tục xuống bước 3
+  │
+  └─ 3. Kiểm tra globalEnabled (Toàn cục):
+        └─ UserDefaults("isTranslationEnabled") ──> TRẢ VỀ: Bool (Origin: .global)
+
+Thay đổi cấu hình từ Menu / Cài đặt:
+  -> TranslationConfigStore.setBookOverride / setSourceOverride / setGlobalEnabled
+  -> Ghi UserDefaults (key cô lập, an toàn cho thread qua NSLock)
+  -> Phát Notification: TranslationConfigStore.didChangeNotification
+  ├─ ReaderView: Cập nhật isTranslationEnabled -> Kích hoạt applyTranslation()
+  ├─ BookDetailView: Cập nhật isTranslationEnabled -> Cập nhật hiển thị tên chương
+  ├─ ReaderTranslationScopeMenuView: Refresh hiển thị trạng thái & chấm tròn chỉ thị
+  └─ TranslationScopeManagementView: Nạp lại danh sách override nguồn & truyện
+```
+
 ## Dòng dữ liệu thu thập Rule tranh chấp Name riêng cho thanh chip (1.3.384)
 
 ```text
