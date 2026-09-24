@@ -8,6 +8,7 @@ import SwiftUI
 public struct ReaderChapterRowView: View {
     public let chapter: ReaderChapterRowState
     public let isCurrent: Bool
+    public let isRead: Bool
     public let displayTitle: String
     public let theme: ReaderTheme
     public let isDownloading: Bool
@@ -18,6 +19,7 @@ public struct ReaderChapterRowView: View {
     public init(
         chapter: ReaderChapterRowState,
         isCurrent: Bool,
+        isRead: Bool = false,
         displayTitle: String,
         theme: ReaderTheme,
         isDownloading: Bool = false,
@@ -26,6 +28,7 @@ public struct ReaderChapterRowView: View {
     ) {
         self.chapter = chapter
         self.isCurrent = isCurrent
+        self.isRead = isRead
         self.displayTitle = displayTitle
         self.theme = theme
         self.isDownloading = isDownloading
@@ -46,7 +49,7 @@ public struct ReaderChapterRowView: View {
             HStack(spacing: 0) {
                 Text(displayTitle)
                     .font(.body)
-                    .foregroundColor(isCurrent ? .white : theme.textColor)
+                    .foregroundColor(isCurrent ? .white : (isRead ? theme.textColor.opacity(0.4) : theme.textColor))
                     .fontWeight(isCurrent ? .semibold : .regular)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)

@@ -598,14 +598,7 @@ struct ReaderView: View {
         }
         .onChange(of: isTranslationEnabled) { _, newValue in
             applyTranslation()
-            chapterListStore?.updateTranslation(
-                isTranslationEnabled: newValue,
-                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
-            )
-            scheduleCoalescedTranslationRefresh()
-            if let book = localBook {
-                BookActionRunner.retranslateChapterTitles(for: book)
-            }
+            chapterListStore?.updateTranslation(isTranslationEnabled: newValue, shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified)
         }
         .onChange(of: shouldConvertTraditionalToSimplified) { _, newValue in
             UserDefaults.standard.set(newValue, forKey: "convertTraditionalToSimplified_\(bookId)")
@@ -645,6 +638,12 @@ struct ReaderView: View {
                 if showingDefinitionSheet {
                     refreshRuleTraces()
                 }
+            }
+        .onReceive(NotificationCenter.default.publisher(for: TranslationConfigStore.didChangeNotification)) { _ in
+            let targetPkgId = localBook?.extensionPackageId ?? extensionPackageId
+            let newState = TranslationConfigStore.shared.isTranslationEnabled(bookId: bookId, packageId: targetPkgId)
+            if isTranslationEnabled != newState {
+                isTranslationEnabled = newState
             }
         }
     }
@@ -1388,7 +1387,6 @@ struct ReaderView: View {
 
     func applyTranslation() {
         viewModel?.toggleTranslation(enabled: isTranslationEnabled)
-        scheduleCoalescedTranslationRefresh(scope: .config(bookId: bookId))
     }
 
     // MARK: - Flashcard Song ngữ & Tách Đoạn văn Helpers

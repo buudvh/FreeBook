@@ -27,6 +27,12 @@ public final class Extension {
         return remote > version
     }
 
+    public var isChineseSource: Bool {
+        let loc = locale.lowercased()
+        let t = type.lowercased()
+        return loc.contains("zh") || loc.contains("cn") || t == "chinese_novel"
+    }
+
     public var showsDebugBadge: Bool {
         installOrigin == Self.installOriginImportZip
             || installOrigin == Self.installOriginDebugServer

@@ -2,7 +2,26 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-> Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+## [1.3.394] - 2026-09-24
+
+### feat: dong bo popup dich mau trang, toi uu danh sach chuong va do mo chuong da doc
+
+Sửa **9** file Swift trong `Sources/Models/Database/`, `Sources/Services/Translation/Utils/`, `Sources/Views/Reader/`, `Sources/Views/BookDetail/`, `Sources/Views/Discovery/`:
+
+- **Popover Cấu hình Dịch Thuật Tone Trắng Tối Giản (`ReaderTranslationScopeMenuView.swift`, `DiscoveryView.swift`, `BookDetailView.swift`)**:
+  - Viết lại nút dịch thành Popover nhỏ gọn với `.presentationCompactAdaptation(.popover)`, giao diện `.preferredColorScheme(.dark)`.
+  - Thay đổi toàn bộ nút điều khiển sang tone màu TRẮNG (`.white`), toggle switch sử dụng `.tint(.white)`, nút Lưu lại viền trắng tối giản thay cho màu xanh primary mặc định.
+  - Tích hợp đồng nhất Popover dịch tại thanh công cụ của Reader, Chi tiết truyện (`BookDetailView`) và màn hình Khám phá (`DiscoveryView`).
+- **Tối ưu Danh Sách Chương & Độ Mờ Chương Đã Đọc (`ReaderChapterListView.swift`, `ReaderChapterListView+List.swift`, `ReaderChapterRowView.swift`, `BookDetailTOCView.swift`)**:
+  - Tách huy hiệu nguồn/extension (`Local` / `Extension`) thành một hàng riêng biệt phía trên số chương trong danh sách chương Reader.
+  - Thêm nút icon chuyên dụng "Dịch lại chương" (`character.bubble` màu trắng) trên Header cạnh nút đảo chiều để dịch lại toàn bộ tiêu đề chương và xóa cache hiển thị khi người dùng yêu cầu.
+  - Làm mờ tiêu đề các chương đã đọc (`logicalIndex < currentChapterIndex` hoặc `chap.index < currentIdx`) với độ mờ `opacity: 0.40` ở cả danh sách chương Reader và Chi tiết truyện.
+- **Tối ưu Hiển Thị Khi Bật Tắt Dịch Trong Reader (`ReaderView.swift`)**:
+  - Bỏ việc kích hoạt `scheduleCoalescedTranslationRefresh` và `retranslateChapterTitles` trong sự kiện `.onChange(of: isTranslationEnabled)` giúp chuyển đổi hiển thị bản dịch tức thì 0ms, không gây reload hay chớp giật.
+  - Đồng bộ trạng thái dịch tự động thông qua `NotificationCenter` từ `TranslationConfigStore.didChangeNotification`.
+- **Mặc Định Bật Dịch Cho Nguồn Tiếng Trung (`Extension.swift`, `TranslationConfigStore.swift`)**:
+  - Thêm computed property `Extension.isChineseSource` nhận diện các nguồn truyện Trung Quốc (`chinese_novel` hoặc locale chứa `zh`/`cn`).
+  - `TranslationConfigStore.resolveStatus` tự động mặc định Bật dịch cho nguồn tiếng Trung khi chưa có cấu hình override, các nguồn khác mặc định Tắt dịch.
 
 ## [1.3.393] - 2026-09-24
 

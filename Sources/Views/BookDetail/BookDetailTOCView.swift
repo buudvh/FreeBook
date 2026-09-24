@@ -120,6 +120,7 @@ struct BookDetailTOCView: View {
                     }
                 } else {
                     LazyVStack(alignment: .leading, spacing: 0) {
+                        let currentIdx = localBook?.currentChapterIndex ?? -1
                         if !chapterSnapshots.isEmpty {
                             ForEach(filteredChapterSnapshots, id: \.id) { chap in
                                 Button(action: {
@@ -127,8 +128,10 @@ struct BookDetailTOCView: View {
                                 }) {
                                     HStack {
                                         let displayTitle = isTranslationEnabled ? onTranslateTitleIfNeeded(chap.titleTrans ?? chap.title) : chap.title
+                                        let isCurrent = currentIdx == chap.index
+                                        let isRead = currentIdx >= 0 && chap.index < currentIdx
                                         Text(displayTitle)
-                                            .foregroundColor((localBook?.currentChapterIndex ?? 0) == chap.index ? .white : .primary)
+                                            .foregroundColor(isCurrent ? .white : (isRead ? Color.primary.opacity(0.4) : .primary))
                                             .font(.subheadline)
                                             .lineLimit(2)
                                         Spacer()
@@ -150,8 +153,10 @@ struct BookDetailTOCView: View {
                                     onStartReading(chap.index)
                                 }) {
                                     HStack {
+                                        let isCurrent = book.currentChapterIndex == chap.index
+                                        let isRead = chap.index < book.currentChapterIndex
                                         Text(onTranslateChapterTitleIfNeeded(chap))
-                                            .foregroundColor(book.currentChapterIndex == chap.index ? .white : .primary)
+                                            .foregroundColor(isCurrent ? .white : (isRead ? Color.primary.opacity(0.4) : .primary))
                                             .font(.subheadline)
                                             .lineLimit(2)
                                         Spacer()
@@ -173,9 +178,11 @@ struct BookDetailTOCView: View {
                                     onStartReading(index)
                                 }) {
                                     VStack(alignment: .leading) {
+                                        let isCurrent = currentIdx == index
+                                        let isRead = currentIdx >= 0 && index < currentIdx
                                         Text(onTranslateTitleIfNeeded(chap.name))
                                             .font(.subheadline)
-                                            .foregroundColor(.primary)
+                                            .foregroundColor(isCurrent ? .white : (isRead ? Color.primary.opacity(0.4) : .primary))
                                             .lineLimit(2)
                                             .padding(.vertical, 12)
                                             .padding(.horizontal)

@@ -31,7 +31,10 @@ Yêu cầu trạng thái dịch: isTranslationEnabled(bookId, packageId)
   │     └─ .inherited (Mặc định) ──> Tiếp tục xuống bước 3
   │
   └─ 3. Kiểm tra globalEnabled (Toàn cục):
-        └─ UserDefaults("isTranslationEnabled") ──> TRẢ VỀ: Bool (Origin: .global)
+        ├─ Đã lưu cấu hình rõ ràng ──> TRẢ VỀ: Bool (Origin: .global)
+        └─ Chưa lưu / mặc định ──> Kiểm tra isChineseSource(packageId)
+              ├─ Nguồn tiếng Trung (chinese_novel / zh / cn) ──> TRẢ VỀ: true
+              └─ Nguồn khác ──> TRẢ VỀ: false
 
 Thay đổi cấu hình từ Menu / Cài đặt:
   -> TranslationConfigStore.setBookOverride / setSourceOverride / setGlobalEnabled
@@ -39,6 +42,7 @@ Thay đổi cấu hình từ Menu / Cài đặt:
   -> Phát Notification: TranslationConfigStore.didChangeNotification
   ├─ ReaderView: Cập nhật isTranslationEnabled -> Kích hoạt applyTranslation()
   ├─ BookDetailView: Cập nhật isTranslationEnabled -> Cập nhật hiển thị tên chương
+  ├─ DiscoveryView: Cập nhật isTranslationEnabled -> Đồng bộ trạng thái dịch nguồn
   ├─ ReaderTranslationScopeMenuView: Refresh hiển thị trạng thái & chấm tròn chỉ thị
   └─ TranslationScopeManagementView: Nạp lại danh sách override nguồn & truyện
 ```

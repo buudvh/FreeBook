@@ -69,7 +69,7 @@ struct DiscoveryView: View {
     // Sheet chọn nguồn "Phần mở rộng" nâng cao
     @State private var showingExtensionSelector = false
     @State private var extensionSearchQuery = ""
-    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
+    @State private var isTranslationEnabled = false
     
     // Import từ trình duyệt
     @State private var importedBookId: String = ""
@@ -160,17 +160,17 @@ struct DiscoveryView: View {
                             }
                         }
                         
-                        // Toggle dịch
-                        Button(action: {
-                            isTranslationEnabled.toggle()
-                        }) {
-                            Image(systemName: isTranslationEnabled ? "character.bubble.fill" : "character.bubble")
-                                .font(.title3)
-                                .foregroundColor(.primary)
-                                .padding(10)
-                                .background(Color(.secondarySystemBackground))
-                                .clipShape(Circle())
-                        }
+                        // Menu cấu hình dịch cho nguồn
+                        ReaderTranslationScopeMenuView(
+                            bookId: "",
+                            packageId: selectedExtensionId,
+                            sourceName: selectedExtension?.name ?? "",
+                            textColor: .white,
+                            showBackground: false
+                        )
+                        .padding(4)
+                        .background(Color(.secondarySystemBackground))
+                        .clipShape(Circle())
                         
                         // Nút Tìm Kiếm chuyển sang SearchView
                         NavigationLink(destination: SearchView(
@@ -190,6 +190,7 @@ struct DiscoveryView: View {
                     .background(Color(.systemBackground))
                     .onChange(of: selectedExtensionId) { _, newValue in
                         lastSelectedExtensionId = newValue
+                        isTranslationEnabled = TranslationConfigStore.shared.isTranslationEnabled(bookId: "", packageId: newValue)
                         // Xóa sạch dữ liệu cũ khi đổi extension để tránh rác hiển thị
                         homeItems.removeAll()
                         genreItems.removeAll()
@@ -365,6 +366,7 @@ struct DiscoveryView: View {
                         isLoading = false
                     }
                 }
+                isTranslationEnabled = TranslationConfigStore.shared.isTranslationEnabled(bookId: "", packageId: selectedExtensionId)
                 
                 if needsReloadActiveExtension {
                     needsReloadActiveExtension = false
@@ -382,6 +384,12 @@ struct DiscoveryView: View {
                     if packageId == selectedExtensionId {
                         needsReloadActiveExtension = true
                     }
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: TranslationConfigStore.didChangeNotification)) { _ in
+                let newState = TranslationConfigStore.shared.isTranslationEnabled(bookId: "", packageId: selectedExtensionId)
+                if isTranslationEnabled != newState {
+                    isTranslationEnabled = newState
                 }
             }
             .sheet(isPresented: $showingExtensionSelector) {

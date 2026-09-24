@@ -171,6 +171,35 @@ public struct ReaderChapterListView: View {
                             .lineLimit(1)
                     }
 
+                    if isLocalTXTBook {
+                        HStack(spacing: 4) {
+                            Image(systemName: "puzzlepiece.extension")
+                                .resizable()
+                                .frame(width: 12, height: 12)
+                                .foregroundColor(.secondary)
+                            Text("Local")
+                                .font(.caption2)
+                                .fontWeight(.medium)
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.secondary.opacity(0.12), in: Capsule())
+                    } else if let ext, !ext.name.isEmpty {
+                        HStack(spacing: 4) {
+                            ExtensionIconView(localPath: ext.localPath, iconUrl: ext.iconUrl ?? "", size: 14)
+                            Text(ext.name)
+                                .font(.caption2)
+                                .fontWeight(.medium)
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.secondary.opacity(0.12), in: Capsule())
+                    }
+
                     HStack(spacing: 6) {
                         Text("\(store.totalCount) chương")
                             .font(.caption.weight(.medium))
@@ -178,36 +207,14 @@ public struct ReaderChapterListView: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
 
-                        if isLocalTXTBook {
-                            HStack(spacing: 4) {
-                                Image(systemName: "puzzlepiece.extension")
-                                    .resizable()
-                                    .frame(width: 12, height: 12)
-                                    .foregroundColor(.secondary)
-                                Text("Local")
-                                    .font(.caption2)
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.secondary)
-                                    .lineLimit(1)
-                            }
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.secondary.opacity(0.12), in: Capsule())
-                        } else if let ext, !ext.name.isEmpty {
-                            HStack(spacing: 4) {
-                                ExtensionIconView(localPath: ext.localPath, iconUrl: ext.iconUrl ?? "", size: 14)
-                                Text(ext.name)
-                                    .font(.caption2)
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.secondary)
-                                    .lineLimit(1)
-                            }
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.secondary.opacity(0.12), in: Capsule())
-                        }
-
                         Spacer(minLength: 4)
+
+                        Button(action: retranslateChaptersAction) {
+                            Image(systemName: "character.bubble")
+                                .foregroundColor(.white)
+                                .frame(width: 44, height: 44)
+                        }
+                        .accessibilityLabel("Dịch lại chương và mục lục")
 
                         if !isLocalTXTBook {
                             if isUpdating {
@@ -290,5 +297,21 @@ public struct ReaderChapterListView: View {
         .cornerRadius(8)
         .padding(.horizontal)
         .padding(.vertical, 8)
+    }
+
+    private func retranslateChaptersAction() {
+        displayTitleCache.removeAll()
+        if let book = localBook {
+            BookActionRunner.retranslateChapterTitles(for: book)
+        }
+        store.updateTranslation(
+            isTranslationEnabled: isTranslationEnabled,
+            shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+        )
+        NotificationCenter.default.post(
+            name: .translationDictionariesDidUpdate,
+            object: nil,
+            userInfo: ["bookId": bookId, "scope": DictionaryInvalidationScope.globalReload]
+        )
     }
 }

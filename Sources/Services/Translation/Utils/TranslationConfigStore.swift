@@ -109,6 +109,23 @@ public final class TranslationConfigStore: @unchecked Sendable {
         resolveStatus(bookId: bookId, packageId: packageId).isEnabled
     }
 
+    public func isChineseSource(packageId: String) -> Bool {
+        guard !packageId.isEmpty, packageId != "local" else { return false }
+        let paths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
+        guard let appSupport = paths.first else { return false }
+        let pluginJsonUrl = appSupport.appendingPathComponent("extensions", isDirectory: true)
+            .appendingPathComponent(packageId, isDirectory: true)
+            .appendingPathComponent("plugin.json")
+        guard let data = try? Data(contentsOf: pluginJsonUrl),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let metadata = json["metadata"] as? [String: Any] else {
+            return false
+        }
+        let type = (metadata["type"] as? String ?? "").lowercased()
+        let locale = (metadata["locale"] as? String ?? "").lowercased()
+        return type == "chinese_novel" || locale.contains("zh") || locale.contains("cn")
+    }
+
     public func resolveStatus(bookId: String?, packageId: String? = nil) -> ResolvedStatus {
         let global = globalEnabled
         let bOverride = bookId.flatMap { getBookOverride(bookId: $0) } ?? .inherited
@@ -124,6 +141,11 @@ public final class TranslationConfigStore: @unchecked Sendable {
             return ResolvedStatus(isEnabled: true, origin: .source, bookOverride: bOverride, sourceOverride: sOverride, globalEnabled: global)
         } else if sOverride == .disabled {
             return ResolvedStatus(isEnabled: false, origin: .source, bookOverride: bOverride, sourceOverride: sOverride, globalEnabled: global)
+        }
+
+        if let pkgId = packageId, !pkgId.isEmpty, pkgId != "local" {
+            let isChinese = isChineseSource(packageId: pkgId)
+            return ResolvedStatus(isEnabled: isChinese, origin: .source, bookOverride: bOverride, sourceOverride: sOverride, globalEnabled: global)
         }
 
         return ResolvedStatus(isEnabled: global, origin: .global, bookOverride: bOverride, sourceOverride: sOverride, globalEnabled: global)

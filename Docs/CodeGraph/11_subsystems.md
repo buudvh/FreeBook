@@ -15,6 +15,22 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Đồng Bộ Popover Dịch Tone Trắng, Nút Dịch Lại Chương & Độ Mờ Chương Đã Đọc (1.3.394)
+
+* **Popover Cấu hình Dịch Thuật Đa Vị trí (`ReaderTranslationScopeMenuView.swift`, `DiscoveryView.swift`, `BookDetailView.swift`)**:
+  - Tái cấu trúc nút dịch thành Popover nhỏ gọn (`.presentationCompactAdaptation(.popover)`) tích hợp Toggle Bật/Tắt, Menu chọn phạm vi áp dụng (Truyện này, Nguồn này, Tất cả) và nút Lưu lại.
+  - Sử dụng giao diện dark popover (`.preferredColorScheme(.dark)`) với các nút điều khiển, switch (`.tint(.white)`) và icon tone màu TRẮNG (`.white`) thay thế cho màu xanh primary mặc định.
+  - Tích hợp đồng nhất tại Toolbar của Reader, Chi tiết truyện (`BookDetailView`) và Khám phá (`DiscoveryView`).
+* **Tối ưu Danh Sách Chương & Phân Biệt Chương Đã Đọc (`ReaderChapterListView.swift`, `ReaderChapterListView+List.swift`, `ReaderChapterRowView.swift`, `BookDetailTOCView.swift`)**:
+  - Tách huy hiệu nguồn/extension (`Local` / `Extension`) thành một hàng riêng biệt phía trên số chương trong danh sách chương Reader.
+  - Bổ sung nút icon chuyên dụng "Dịch lại chương" (`character.bubble` màu trắng) trên Header cạnh nút đảo chiều sắp xếp để kích hoạt dịch lại tiêu đề chương và phát thông báo vô hiệu hoá cache.
+  - Làm mờ tiêu đề các chương đã đọc (`logicalIndex < currentChapterIndex` hoặc `chap.index < currentIdx`) với độ mờ `opacity: 0.40` ở cả danh sách chương Reader và Chi tiết truyện.
+* **Tối ưu Luồng Chuyển Đổi Dịch trong Reader (`ReaderView.swift`)**:
+  - Loại bỏ các lệnh gọi dịch lại nặng (`scheduleCoalescedTranslationRefresh`, `retranslateChapterTitles`) trong sự kiện `.onChange(of: isTranslationEnabled)`. Chuyển cờ hiển thị tức thì, cập nhật reactive qua `NotificationCenter` từ `TranslationConfigStore.didChangeNotification`.
+* **Mặc Định Bật Dịch Cho Nguồn Tiếng Trung (`Extension.swift`, `TranslationConfigStore.swift`)**:
+  - `Extension.isChineseSource` nhận diện các nguồn tiểu thuyết Trung Quốc (`chinese_novel` hoặc locale chứa `zh`/`cn`).
+  - `TranslationConfigStore.resolveStatus` tự động mặc định bật dịch cho nguồn tiếng Trung khi chưa có cấu hình override riêng.
+
 ## Phân hệ Cấu hình Dịch Thuật Phân Cấp: Truyện > Nguồn > Toàn cục (1.3.393)
 
 * **Phân hệ Lưu trữ & Điều phối Cấu hình (`TranslationConfigStore.swift`, `TranslateUtils.swift`)**:

@@ -81,6 +81,7 @@ extension ReaderChapterListView {
         return ReaderChapterRowView(
             chapter: chapter,
             isCurrent: logicalIndex == currentChapterIndex,
+            isRead: logicalIndex < currentChapterIndex,
             displayTitle: displayTitle(for: chapter),
             theme: theme,
             isDownloading: downloadingChapterIndices.contains(logicalIndex),
