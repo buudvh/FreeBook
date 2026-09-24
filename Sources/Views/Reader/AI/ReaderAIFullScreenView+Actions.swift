@@ -221,10 +221,11 @@ extension ReaderAIFullScreenView {
 
         Task {
             do {
-                let names = try await AINameExtractionBatchProcessor.shared.extractNamesFromText(
+                let rawNames = try await AINameExtractionBatchProcessor.shared.extractNamesFromText(
                     text: currentChapterRawContent,
                     config: config
                 )
+                let names = AIBookDataInspector.shared.decorateExtractedNames(names: rawNames, bookId: bookId)
                 await MainActor.run {
                     if let idx = currentSession.messages.firstIndex(where: { $0.id == msgId }) {
                         currentSession.messages[idx].content = "Đã tìm thấy \(names.count) tên riêng trong chương này:"
@@ -262,14 +263,16 @@ extension ReaderAIFullScreenView {
                     bookId: bookId,
                     config: config
                 ) { current, total, partial in
+                    let decorated = AIBookDataInspector.shared.decorateExtractedNames(names: partial, bookId: bookId)
                     Task { @MainActor in
                         self.batchProgress = (current, total)
-                        self.batchExtractedNames = partial
+                        self.batchExtractedNames = decorated
                     }
                 }
+                let finalResults = AIBookDataInspector.shared.decorateExtractedNames(names: results, bookId: bookId)
                 await MainActor.run {
                     self.isBatchExtracting = false
-                    self.batchExtractedNames = results
+                    self.batchExtractedNames = finalResults
                 }
             } catch {
                 await MainActor.run {

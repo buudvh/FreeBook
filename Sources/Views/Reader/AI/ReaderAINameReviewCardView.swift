@@ -65,6 +65,26 @@ public struct ReaderAINameReviewCardView: View {
                                     .foregroundColor(.blue)
                                     .cornerRadius(4)
 
+                                if item.hasInBookNames {
+                                    Text("NE")
+                                        .font(.system(size: 9, weight: .bold))
+                                        .padding(.horizontal, 4)
+                                        .padding(.vertical, 1)
+                                        .background(Color.purple.opacity(0.15))
+                                        .foregroundColor(.purple)
+                                        .cornerRadius(4)
+                                }
+
+                                if item.hasInBookVP {
+                                    Text("VP")
+                                        .font(.system(size: 9, weight: .bold))
+                                        .padding(.horizontal, 4)
+                                        .padding(.vertical, 1)
+                                        .background(Color.orange.opacity(0.15))
+                                        .foregroundColor(.orange)
+                                        .cornerRadius(4)
+                                }
+
                                 if item.occurrenceCount > 1 {
                                     Text("\(item.occurrenceCount) lần")
                                         .font(.system(size: 9))

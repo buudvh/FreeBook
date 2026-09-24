@@ -274,16 +274,9 @@ public struct AISettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                HStack(spacing: 12) {
-                    Button(action: { showingAddProviderSheet = true }) {
-                        Image(systemName: "plus")
-                            .fontWeight(.semibold)
-                    }
-
-                    Button("Lưu") {
-                        saveAndDismiss()
-                    }
-                    .fontWeight(.bold)
+                Button(action: { showingAddProviderSheet = true }) {
+                    Image(systemName: "plus")
+                        .fontWeight(.semibold)
                 }
             }
         }
@@ -292,15 +285,29 @@ public struct AISettingsView: View {
                 config.updateActiveProfile(newProfile)
                 config.activeProfileId = newProfile.id
                 modelsText = newProfile.availableModels.joined(separator: "\n")
+                saveConfigSilently()
             }
         }
         .onAppear {
             config = AISettingsStore.shared.loadConfiguration()
             modelsText = config.activeProfile.availableModels.joined(separator: "\n")
         }
+        .onChange(of: config) { _, newConfig in
+            AISettingsStore.shared.saveConfiguration(newConfig)
+        }
+        .onChange(of: modelsText) { _, newText in
+            syncModelsFromText(newText)
+            AISettingsStore.shared.saveConfiguration(config)
+        }
+        .onDisappear {
+            saveConfigSilently()
+        }
         .onReceive(NotificationCenter.default.publisher(for: AISettingsStore.didChangeNotification)) { _ in
-            config = AISettingsStore.shared.loadConfiguration()
-            modelsText = config.activeProfile.availableModels.joined(separator: "\n")
+            let latest = AISettingsStore.shared.loadConfiguration()
+            if latest != config {
+                config = latest
+                modelsText = config.activeProfile.availableModels.joined(separator: "\n")
+            }
         }
     }
 

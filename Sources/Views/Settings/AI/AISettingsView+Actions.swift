@@ -6,6 +6,7 @@ extension AISettingsView {
         config.activeProfileId = id
         modelsText = config.activeProfile.availableModels.joined(separator: "\n")
         testResultMessage = nil
+        saveConfigSilently()
     }
 
     internal func deleteCurrentProfile() {
@@ -13,6 +14,7 @@ extension AISettingsView {
         config.deleteProfile(id: idToDelete)
         modelsText = config.activeProfile.availableModels.joined(separator: "\n")
         testResultMessage = nil
+        saveConfigSilently()
     }
 
     internal func syncModelsFromText(_ text: String) {
@@ -25,6 +27,11 @@ extension AISettingsView {
             p.selectedModel = lines.first ?? ""
         }
         config.updateActiveProfile(p)
+    }
+
+    internal func saveConfigSilently() {
+        syncModelsFromText(modelsText)
+        AISettingsStore.shared.saveConfiguration(config)
     }
 
     internal func fetchModelsFromAPI() {
@@ -85,11 +92,5 @@ extension AISettingsView {
                 }
             }
         }
-    }
-
-    internal func saveAndDismiss() {
-        syncModelsFromText(modelsText)
-        AISettingsStore.shared.saveConfiguration(config)
-        dismiss()
     }
 }

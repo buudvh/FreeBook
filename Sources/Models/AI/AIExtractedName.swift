@@ -13,6 +13,10 @@ public struct AIExtractedName: Identifiable, Codable, Sendable, Equatable {
     public var occurrenceCount: Int
     /// Trạng thái checkbox được chọn để lưu vào từ điển truyện
     public var isSelected: Bool
+    /// Đã tồn tại trong từ điển Name riêng (Names.txt) của truyện
+    public var hasInBookNames: Bool
+    /// Đã tồn tại trong từ điển VietPhrase riêng (VietPhrase.txt) của truyện
+    public var hasInBookVP: Bool
 
     public init(
         id: UUID = UUID(),
@@ -20,7 +24,9 @@ public struct AIExtractedName: Identifiable, Codable, Sendable, Equatable {
         suggestedMeaning: String,
         category: String = "Nhân vật",
         occurrenceCount: Int = 1,
-        isSelected: Bool = true
+        isSelected: Bool = true,
+        hasInBookNames: Bool = false,
+        hasInBookVP: Bool = false
     ) {
         self.id = id
         self.original = original
@@ -28,5 +34,36 @@ public struct AIExtractedName: Identifiable, Codable, Sendable, Equatable {
         self.category = category
         self.occurrenceCount = occurrenceCount
         self.isSelected = isSelected
+        self.hasInBookNames = hasInBookNames
+        self.hasInBookVP = hasInBookVP
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, original, suggestedMeaning, category, occurrenceCount, isSelected
+        case hasInBookNames, hasInBookVP
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        self.original = try container.decodeIfPresent(String.self, forKey: .original) ?? ""
+        self.suggestedMeaning = try container.decodeIfPresent(String.self, forKey: .suggestedMeaning) ?? ""
+        self.category = try container.decodeIfPresent(String.self, forKey: .category) ?? "Nhân vật"
+        self.occurrenceCount = try container.decodeIfPresent(Int.self, forKey: .occurrenceCount) ?? 1
+        self.isSelected = try container.decodeIfPresent(Bool.self, forKey: .isSelected) ?? true
+        self.hasInBookNames = try container.decodeIfPresent(Bool.self, forKey: .hasInBookNames) ?? false
+        self.hasInBookVP = try container.decodeIfPresent(Bool.self, forKey: .hasInBookVP) ?? false
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(original, forKey: .original)
+        try container.encode(suggestedMeaning, forKey: .suggestedMeaning)
+        try container.encode(category, forKey: .category)
+        try container.encode(occurrenceCount, forKey: .occurrenceCount)
+        try container.encode(isSelected, forKey: .isSelected)
+        try container.encode(hasInBookNames, forKey: .hasInBookNames)
+        try container.encode(hasInBookVP, forKey: .hasInBookVP)
     }
 }

@@ -15,6 +15,17 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Tắt Tự Động Sang Chương Của Reader Khi Tắt Scroll Highlight & Badge VP/NE AI (1.3.392)
+
+* **Phân hệ Reader View (`ReaderView.swift`)**:
+  - `ttsDidAdvanceToNextChapter`: Bổ sung kiểm tra `guard !isAutoScrollDisabled else { return }`. Khi người dùng tắt tính năng cuộn theo highlight của TTS, Reader sẽ giữ nguyên chương đang đọc thay vì tự động nhảy trang theo TTS.
+* **Phân hệ AI Harness & Review (`ReaderAINameReviewCardView.swift`, `AIBookDataInspector.swift`, `ReaderAIFullScreenView+Actions.swift`)**:
+  - Gắn badge `NE` và `VP` cho các tên riêng đã tồn tại trong từ điển `Names.txt` / `VietPhrase.txt` của truyện.
+  - Ban đầu tự động bỏ chọn (`isSelected = false`) các mục đã có trong từ điển truyện để tránh người dùng lưu lặp/đè.
+* **Phân hệ Cài đặt AI Tự Động Lưu (`AISettingsView.swift`, `AISettingsView+Actions.swift`, `AIPromptSettingsView.swift`)**:
+  - Bỏ nút "Lưu" thủ công trên toolbar của `AISettingsView` và `AIPromptSettingsView`.
+  - Tự động lưu cấu hình và prompt tức thì thông qua `.onChange` và `.onDisappear`.
+
 ## Nâng cấp Resilient JSON Parser cho Trích xuất Tên riêng AI (1.3.391)
 
 * **Phân hệ AI Services (`AINameExtractionBatchProcessor.swift`)**:

@@ -15,6 +15,13 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Type cho Badge VP/NE và Dictionary status trong trích xuất tên riêng (1.3.392)
+
+* **Models/AI**:
+  - `AIExtractedName`: Thêm hai thuộc tính `hasInBookNames: Bool` và `hasInBookVP: Bool` kèm `init(from decoder:)` / `encode(to encoder:)` tương thích ngược file lưu chat JSON cũ.
+* **Services/AI**:
+  - `AIBookDataInspector`: Thêm hàm `fetchBookDictionarySets(bookId:)` và `decorateExtractedNames(names:bookId:)` hỗ trợ gán cờ VP/NE và bỏ chọn ban đầu (`isSelected = false`).
+
 ## Nâng cấp Resilient JSON Parser cho trích xuất tên riêng AI (1.3.391)
 
 * **Services/AI**:

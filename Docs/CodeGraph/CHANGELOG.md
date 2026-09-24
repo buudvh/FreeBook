@@ -4,6 +4,24 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.392] - 2026-09-24
+
+### feat: badge vp ne tu dong bo chon ten da co tu dong luu ai va tat auto sang chuong reader
+
+Sửa **7** file Swift trong `Sources/Models/AI/`, `Sources/Services/AI/`, `Sources/Views/Reader/`, `Sources/Views/Settings/AI/`:
+
+- **Badge VP / NE & Bỏ chọn mặc định tên riêng đã có (`AIExtractedName.swift`, `AIBookDataInspector.swift`, `ReaderAINameReviewCardView.swift`, `ReaderAIFullScreenView+Actions.swift`, `AINameExtractionBatchProcessor.swift`)**:
+  - `AIExtractedName`: Thêm hai thuộc tính `hasInBookNames: Bool` và `hasInBookVP: Bool`, kèm bộ giải mã tùy biến an toàn tương thích ngược các file JSON chat cũ.
+  - `AIBookDataInspector`: Thêm hàm `fetchBookDictionarySets` và `decorateExtractedNames`, đối chiếu với `Names.txt` và `VietPhrase.txt` của cuốn truyện đang đọc để tự động gắn cờ và đặt `isSelected = false` (bỏ chọn mặc định) cho các tên riêng đã tồn tại.
+  - `ReaderAINameReviewCardView`: Hiển thị badge `NE` (tím) và `VP` (cam) trên từng hàng tên riêng để người dùng nhận diện trực quan từ nào đã có trong từ điển truyện.
+  - `AINameExtractionBatchProcessor`: Không loại bỏ các từ đã có trong từ điển ở tầng xử lý batch để toàn bộ tên trích xuất đều được gắn badge đầy đủ.
+- **Tự động lưu Cấu hình AI & Prompt (`AISettingsView.swift`, `AISettingsView+Actions.swift`, `AIPromptSettingsView.swift`)**:
+  - Bỏ nút "Lưu" thủ công trên toolbar của `AISettingsView` và `AIPromptSettingsView`.
+  - Tự động lưu cấu hình và prompt ngay lập tức khi thay đổi qua `.onChange`, khi đổi/thêm/xóa profile và khi thoát màn hình qua `.onDisappear`.
+- **Tắt tự động sang chương của Reader khi tắt cuộn theo Highlight (`ReaderView.swift`)**:
+  - Thêm điều kiện `guard !isAutoScrollDisabled else { return }` vào bộ nhận sự kiện `ttsDidAdvanceToNextChapter`.
+  - Khi người dùng đã tắt chức năng cuộn theo highlight của TTS, Reader sẽ giữ nguyên chương và vị trí đang đọc thay vì tự ý nhảy sang chương mới theo TTS.
+
 ## [1.3.391] - 2026-09-23
 
 ### fix: sua loi parse json trich xuat ten rieng ai luon tra ve 0 ket qua

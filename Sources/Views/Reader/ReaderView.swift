@@ -964,6 +964,8 @@ struct ReaderView: View {
                   let bid = userInfo["bookId"] as? String,
                   let nextIdx = userInfo["chapterIndex"] as? Int else { return }
 
+            guard !isAutoScrollDisabled else { return }
+
             if bid == bookId && nextIdx != chapterIndex {
                 requestChapter(
                     at: nextIdx,

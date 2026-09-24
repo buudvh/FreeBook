@@ -101,4 +101,34 @@ final class AIBookDataInspector: Sendable {
 
         return result
     }
+
+    /// Lấy tập hợp Name riêng và VP riêng của cuốn truyện dưới dạng Set để tra cứu nhanh O(1).
+    func fetchBookDictionarySets(bookId: String) -> (names: Set<String>, vps: Set<String>) {
+        let translateDir = TranslationManager.shared.translateDirectory
+        let bookDir = translateDir.appendingPathComponent("books").appendingPathComponent(bookId)
+        let namesUrl = bookDir.appendingPathComponent("Names.txt")
+        let vpUrl = bookDir.appendingPathComponent("VietPhrase.txt")
+
+        let names = DictionaryTextFileStore.loadEntries(from: namesUrl).map { $0.key }
+        let vps = DictionaryTextFileStore.loadEntries(from: vpUrl).map { $0.key }
+        return (Set(names), Set(vps))
+    }
+
+    /// Bổ sung trạng thái từ điển đã có cho danh sách tên riêng trích xuất được.
+    /// Nếu tên đã có trong VP hoặc Name riêng thì gắn cờ tương ứng và bỏ chọn ban đầu (isSelected = false).
+    func decorateExtractedNames(names: [AIExtractedName], bookId: String) -> [AIExtractedName] {
+        let (bookNames, bookVPs) = fetchBookDictionarySets(bookId: bookId)
+        return names.map { item in
+            var copy = item
+            let orig = item.original.trimmingCharacters(in: .whitespacesAndNewlines)
+            let inNames = bookNames.contains(orig)
+            let inVP = bookVPs.contains(orig)
+            copy.hasInBookNames = inNames
+            copy.hasInBookVP = inVP
+            if inNames || inVP {
+                copy.isSelected = false
+            }
+            return copy
+        }
+    }
 }

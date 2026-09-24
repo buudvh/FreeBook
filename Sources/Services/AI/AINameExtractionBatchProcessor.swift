@@ -50,7 +50,6 @@ public final class AINameExtractionBatchProcessor: Sendable {
         }
 
         var aggregatedNames: [String: AIExtractedName] = [:]
-        let existingNames = Set(AIBookDataInspector.shared.fetchExistingNamesInBook(bookId: bookId))
 
         for (index, batch) in batches.enumerated() {
             if Task.isCancelled { break }
@@ -67,7 +66,7 @@ public final class AINameExtractionBatchProcessor: Sendable {
                 if let batchResults = try? await extractNamesFromText(text: combinedText, config: config) {
                     for item in batchResults {
                         let orig = item.original.trimmingCharacters(in: .whitespacesAndNewlines)
-                        guard !orig.isEmpty, !existingNames.contains(orig) else { continue }
+                        guard !orig.isEmpty else { continue }
                         if var existing = aggregatedNames[orig] {
                             existing.occurrenceCount += item.occurrenceCount
                             aggregatedNames[orig] = existing

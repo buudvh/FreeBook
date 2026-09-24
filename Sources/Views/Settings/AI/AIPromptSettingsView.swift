@@ -6,7 +6,6 @@ public struct AIPromptSettingsView: View {
 
     @State private var systemPromptText: String = ""
     @State private var namePromptText: String = ""
-    @State private var showSavedAlert: Bool = false
 
     public init() {}
 
@@ -19,6 +18,7 @@ public struct AIPromptSettingsView: View {
 
                 Button("Khôi phục System Prompt mặc định") {
                     systemPromptText = AIConfiguration.defaultSystemPrompt
+                    savePrompts()
                 }
                 .font(.footnote)
                 .foregroundColor(.accentColor)
@@ -35,6 +35,7 @@ public struct AIPromptSettingsView: View {
 
                 Button("Khôi phục Prompt trích xuất mặc định") {
                     namePromptText = AIConfiguration.defaultNameExtractionPrompt
+                    savePrompts()
                 }
                 .font(.footnote)
                 .foregroundColor(.accentColor)
@@ -46,17 +47,17 @@ public struct AIPromptSettingsView: View {
         }
         .navigationTitle("Tùy chỉnh Prompt AI")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .confirmationAction) {
-                Button("Lưu") {
-                    savePrompts()
-                    dismiss()
-                }
-                .bold()
-            }
-        }
         .onAppear {
             loadPrompts()
+        }
+        .onChange(of: systemPromptText) { _, _ in
+            savePrompts()
+        }
+        .onChange(of: namePromptText) { _, _ in
+            savePrompts()
+        }
+        .onDisappear {
+            savePrompts()
         }
     }
 
