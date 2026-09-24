@@ -635,16 +635,13 @@ struct ReaderView: View {
                 viewModel?.cancelObsoleteTranslationRefresh()
                 scheduleCoalescedTranslationRefresh(scope: .globalReload)
                 loadDefinitionData(preservingMeaning: true)
-                if showingDefinitionSheet {
-                    refreshRuleTraces()
-                }
+                if showingDefinitionSheet { refreshRuleTraces() }
             }
+        }
         .onReceive(NotificationCenter.default.publisher(for: TranslationConfigStore.didChangeNotification)) { _ in
             let targetPkgId = localBook?.extensionPackageId ?? extensionPackageId
             let newState = TranslationConfigStore.shared.isTranslationEnabled(bookId: bookId, packageId: targetPkgId)
-            if isTranslationEnabled != newState {
-                isTranslationEnabled = newState
-            }
+            if isTranslationEnabled != newState { isTranslationEnabled = newState }
         }
     }
 
