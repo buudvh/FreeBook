@@ -15,6 +15,15 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Máy trạng thái Presenting & Đồng bộ Phiên Chat AI (1.3.397)
+
+* **Trạng thái Màn hình AI (`ReaderView`)**:
+  - `@State internal var showingAIFullScreen: Bool = false`: Điều khiển trình bày màn hình toàn màn hình AI thông qua `.fullScreenCover` native của SwiftUI thay vì UIKit present.
+* **Trạng thái Toàn cục (`AIRuntimeCoordinator.shared`)**:
+  - `activeSession: AIChatSession?`: Nguồn sự thật (Source of Truth) cho phiên chat AI đang chạy, lưu giữ đầy đủ messages realtime kể cả khi UI bị dismiss.
+  - `isReaderActive: Bool`: Đánh dấu ReaderView đang active để điều phối mở lại qua notification `reopenReaderAI` hoặc `modalPresentationStyle = .overFullScreen`.
+  - `isRunning: Bool`, `batchProgress: (current: Int, total: Int)?`, `batchExtractedNames: [AIExtractedName]`: Quản lý tiến trình tác vụ chạy ngầm toàn cục.
+
 ## Trạng thái phiên chat, mode và hành động của phân hệ Reader AI Harness (1.3.385)
 
 * **`ReaderView`**: Thêm `@State internal var showingAIFullScreen: Bool = false` điều khiển hiển thị màn hình toàn màn hình qua modifier `aiHarnessOverlay(in:)`.

@@ -36,8 +36,10 @@ public final class AIRuntimeCoordinator: ObservableObject {
     @Published public var isFullScreenPresented: Bool = false
     @Published public private(set) var activeContext: ActiveContext? = nil
     @Published public var activeSessionId: UUID? = nil
+    @Published public var activeSession: AIChatSession? = nil
     @Published public var batchProgress: (current: Int, total: Int)? = nil
     @Published public var batchExtractedNames: [AIExtractedName] = []
+    public var isReaderActive: Bool = false
 
     private var activeStreamingTask: Task<Void, Never>? = nil
     private var activeBatchTask: Task<Void, Never>? = nil
@@ -88,6 +90,7 @@ public final class AIRuntimeCoordinator: ObservableObject {
         isRunning = true
         activeTaskTitle = "AI đang suy nghĩ"
         activeSessionId = session.id
+        activeSession = session
 
         activeStreamingTask = Task { [weak self] in
             do {
@@ -96,6 +99,12 @@ public final class AIRuntimeCoordinator: ObservableObject {
                 for try await delta in stream {
                     guard !Task.isCancelled else { break }
                     accumulated += delta
+                    await MainActor.run {
+                        guard let self = self else { return }
+                        if let idx = self.activeSession?.messages.firstIndex(where: { $0.id == assistantMsgId }) {
+                            self.activeSession?.messages[idx].content = accumulated
+                        }
+                    }
                     onDelta(accumulated)
                 }
 
@@ -106,6 +115,11 @@ public final class AIRuntimeCoordinator: ObservableObject {
                     guard let self = self else { return }
                     self.isRunning = false
                     self.activeStreamingTask = nil
+                    if let idx = self.activeSession?.messages.firstIndex(where: { $0.id == assistantMsgId }) {
+                        self.activeSession?.messages[idx].content = accumulated
+                        self.activeSession?.messages[idx].isStreaming = false
+                    }
+                    if let s = self.activeSession { AIChatHistoryStore.shared.saveSession(s, for: bookId) }
                     if !self.isFullScreenPresented {
                         ToastManager.shared.show(message: "AI đã hoàn tất phản hồi!", type: .success)
                     }
@@ -117,6 +131,11 @@ public final class AIRuntimeCoordinator: ObservableObject {
                     guard let self = self else { return }
                     self.isRunning = false
                     self.activeStreamingTask = nil
+                    if let idx = self.activeSession?.messages.firstIndex(where: { $0.id == assistantMsgId }) {
+                        self.activeSession?.messages[idx].content = "Lỗi phản hồi: \(error.localizedDescription)"
+                        self.activeSession?.messages[idx].isStreaming = false
+                    }
+                    if let s = self.activeSession { AIChatHistoryStore.shared.saveSession(s, for: bookId) }
                     if !self.isFullScreenPresented {
                         ToastManager.shared.show(message: "AI phản hồi thất bại.", type: .error)
                     }
@@ -130,19 +149,22 @@ public final class AIRuntimeCoordinator: ObservableObject {
         bookId: String,
         rawContent: String,
         config: AIConfiguration,
+        session: AIChatSession? = nil,
+        assistantMsgId: UUID? = nil,
         onComplete: @escaping ([AIExtractedName]) -> Void,
         onError: @escaping (String) -> Void
     ) {
         cancelActiveTask()
         isRunning = true
         activeTaskTitle = "AI đang suy nghĩ"
+        if let s = session {
+            self.activeSession = s
+            self.activeSessionId = s.id
+        }
 
         activeSingleTask = Task { [weak self] in
             do {
-                let rawNames = try await AINameExtractionBatchProcessor.shared.extractNamesFromText(
-                    text: rawContent,
-                    config: config
-                )
+                let rawNames = try await AINameExtractionBatchProcessor.shared.extractNamesFromText(text: rawContent, config: config)
                 guard !Task.isCancelled else { return }
                 let names = AIBookDataInspector.shared.decorateExtractedNames(names: rawNames, bookId: bookId)
                 onComplete(names)
@@ -151,6 +173,12 @@ public final class AIRuntimeCoordinator: ObservableObject {
                     guard let self = self else { return }
                     self.isRunning = false
                     self.activeSingleTask = nil
+                    if let mid = assistantMsgId, let idx = self.activeSession?.messages.firstIndex(where: { $0.id == mid }) {
+                        self.activeSession?.messages[idx].content = "Đã tìm thấy \(names.count) tên riêng trong chương này:"
+                        self.activeSession?.messages[idx].extractedNames = names
+                        self.activeSession?.messages[idx].isStreaming = false
+                    }
+                    if let s = self.activeSession { AIChatHistoryStore.shared.saveSession(s, for: bookId) }
                     if !self.isFullScreenPresented {
                         ToastManager.shared.show(message: "Đã tìm thấy \(names.count) tên riêng!", type: .success)
                     }
@@ -162,6 +190,11 @@ public final class AIRuntimeCoordinator: ObservableObject {
                     guard let self = self else { return }
                     self.isRunning = false
                     self.activeSingleTask = nil
+                    if let mid = assistantMsgId, let idx = self.activeSession?.messages.firstIndex(where: { $0.id == mid }) {
+                        self.activeSession?.messages[idx].content = "Lỗi lọc tên riêng: \(error.localizedDescription)"
+                        self.activeSession?.messages[idx].isStreaming = false
+                    }
+                    if let s = self.activeSession { AIChatHistoryStore.shared.saveSession(s, for: bookId) }
                     if !self.isFullScreenPresented {
                         ToastManager.shared.show(message: "Lọc tên riêng thất bại.", type: .error)
                     }
@@ -174,6 +207,8 @@ public final class AIRuntimeCoordinator: ObservableObject {
     public func startBatchExtraction(
         bookId: String,
         config: AIConfiguration,
+        session: AIChatSession? = nil,
+        assistantMsgId: UUID? = nil,
         onProgress: @escaping (Int, Int, [AIExtractedName]) -> Void,
         onComplete: @escaping ([AIExtractedName]) -> Void
     ) {
@@ -182,6 +217,10 @@ public final class AIRuntimeCoordinator: ObservableObject {
         activeTaskTitle = "Đang quét tên riêng..."
         batchProgress = (0, 1)
         batchExtractedNames.removeAll()
+        if let s = session {
+            self.activeSession = s
+            self.activeSessionId = s.id
+        }
 
         activeBatchTask = Task { [weak self] in
             do {
@@ -206,6 +245,12 @@ public final class AIRuntimeCoordinator: ObservableObject {
                     self.isRunning = false
                     self.activeBatchTask = nil
                     self.batchExtractedNames = finalResults
+                    if let mid = assistantMsgId, let idx = self.activeSession?.messages.firstIndex(where: { $0.id == mid }) {
+                        self.activeSession?.messages[idx].content = "Đã quét xong \(finalResults.count) tên riêng từ các chương đã tải:"
+                        self.activeSession?.messages[idx].extractedNames = finalResults
+                        self.activeSession?.messages[idx].isStreaming = false
+                    }
+                    if let s = self.activeSession { AIChatHistoryStore.shared.saveSession(s, for: bookId) }
                     onComplete(finalResults)
                     if !self.isFullScreenPresented {
                         ToastManager.shared.show(message: "Đã quét xong \(finalResults.count) tên riêng!", type: .success)
@@ -216,6 +261,11 @@ public final class AIRuntimeCoordinator: ObservableObject {
                     guard let self = self else { return }
                     self.isRunning = false
                     self.activeBatchTask = nil
+                    if let mid = assistantMsgId, let idx = self.activeSession?.messages.firstIndex(where: { $0.id == mid }) {
+                        self.activeSession?.messages[idx].content = "Lỗi quét tên riêng: \(error.localizedDescription)"
+                        self.activeSession?.messages[idx].isStreaming = false
+                    }
+                    if let s = self.activeSession { AIChatHistoryStore.shared.saveSession(s, for: bookId) }
                     if !self.isFullScreenPresented {
                         ToastManager.shared.show(message: "Quét tên riêng bị gián đoạn.", type: .error)
                     }
@@ -246,6 +296,11 @@ public final class AIRuntimeCoordinator: ObservableObject {
         guard let ctx = self.activeContext else { return }
         guard !isFullScreenPresented else { return }
 
+        if isReaderActive {
+            NotificationCenter.default.post(name: NSNotification.Name("reopenReaderAI"), object: nil)
+            return
+        }
+
         guard let topVC = findTopViewController() else { return }
         if topVC.isBeingPresented || topVC.isBeingDismissed {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
@@ -263,7 +318,7 @@ public final class AIRuntimeCoordinator: ObservableObject {
         )
 
         let hosting = UIHostingController(rootView: aiView)
-        hosting.modalPresentationStyle = .fullScreen
+        hosting.modalPresentationStyle = .overFullScreen
         self.currentPresentedVC = hosting
         self.isFullScreenPresented = true
 

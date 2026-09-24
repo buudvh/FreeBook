@@ -15,6 +15,15 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rủi ro Modal Presentation & Lifecycle Khi Chạy Tác Vụ AI Ngầm (1.3.397)
+
+* **Rủi ro unmount ViewController khi present `.fullScreen` trong UIKit**:
+  - Modal `.fullScreen` khiến UIKit tháo bỏ root view của ReaderView khỏi view hierarchy (`viewDidDisappear`), làm đứt gãy luồng handshake skeleton loading (`isChapterSubtreeRenderable`) khi đóng lại.
+  - Khắc phục: ReaderView dùng `.fullScreenCover` native của SwiftUI; ngoài Reader dùng `.overFullScreen` để giữ ViewController bên dưới luôn gắn trong Window.
+* **Rủi ro mất dữ liệu chat khi tác vụ chạy ngầm bị huỷ hoặc ứng dụng thoát**:
+  - Nếu không lưu session vào đĩa ngay khi người dùng gửi tin nhắn, việc tắt app đột ngột sẽ làm mất lịch sử hội thoại.
+  - Khắc phục: Ghi đĩa tức thì `AIChatHistoryStore.shared.saveSession` ngay tại khoảnh khắc khởi tạo tin nhắn và sau mỗi lần nhận kết quả cuối từ LLM.
+
 ## Rủi ro kỹ thuật phân hệ AI Assistant Harness (1.3.385)
 
 * **Phụ thuộc API bên thứ ba & Độ trễ mạng**:

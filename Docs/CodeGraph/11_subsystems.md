@@ -15,6 +15,15 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Khắc Phục Lỗi Reader Kẹt Skeleton Loading Khi Đóng AI & Mất Tin Nhắn Khi Mở Lại Từ Widget (1.3.397)
+
+* **Khôi Phục Toàn Màn Hình Native Trong Reader (`ReaderView.swift`, `ReaderView+AI.swift`, `AIRuntimeCoordinator.swift`)**:
+  - Khôi phục `.fullScreenCover(isPresented: $showingAIFullScreen)` của SwiftUI ngay tại `ReaderView` thay cho modal UIKit `.fullScreen`. Nhờ đó cây view `ReaderView` không bị unmount khỏi Window, không bị trigger lại lifecycle, bảo toàn cổng handshake skeleton loading (`isChapterSubtreeRenderable`) $\rightarrow$ text hiển thị tức thì, không giật lag hay reload lại.
+  - Quản lý cờ `isReaderActive` trong `onAppear`/`onDisappear` của `ReaderView`. Khi người dùng ở trong Reader mà bấm mở lại từ Floating Widget thu nhỏ, `AIRuntimeCoordinator` phát notification `reopenReaderAI` để `ReaderView` mở lại qua `.fullScreenCover`. Khi mở từ ngoài Reader (Kệ sách, Khám phá), Coordinator dùng `modalPresentationStyle = .overFullScreen` để không làm mất ViewController bên dưới.
+* **Lưu Đĩa Tức Thì & Nguồn Sự Thật Duy Nhất Cho Chat AI (`AIRuntimeCoordinator.swift`, `ReaderAIFullScreenView.swift`, `ReaderAIFullScreenView+Actions.swift`)**:
+  - Ghi đĩa tức thì qua `AIChatHistoryStore.shared.saveSession` ngay tại khoảnh khắc khởi tạo tin nhắn người dùng và tin nhắn chờ của AI (áp dụng cho gõ tay, chip Tóm tắt, Bối cảnh, Dịch mượt, Lọc name chương, Quét batch).
+  - Quản lý `activeSession: AIChatSession?` làm Source of Truth trong `AIRuntimeCoordinator.shared`. Tích luỹ token stream và kết quả trích xuất vào `activeSession` xuyên suốt quá trình chạy ngầm.
+  - Khi mở lại AI từ widget, `initializeSession()` ưu tiên nạp ngay `activeSession` của Coordinator (nếu trùng `bookId`), đồng thời đồng bộ reactive các token delta và tiến trình batch qua Combine `$activeSession`, `$isRunning`, `$batchProgress`.
 ## Phân Hệ AI Agent Chạy Ngầm Toàn App, Floating Widget Thu Nhỏ & Đồng Bộ AI Đang Suy Nghĩ (1.3.396)
 
 * **Điều Phối Vòng Đời Tác Vụ Ngầm & Toast Hoàn Thành (`AIRuntimeCoordinator.swift`)**:

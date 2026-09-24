@@ -15,6 +15,16 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời ReaderView & Bảo Toàn Skeleton Handshake Khi Mở/Đóng Toàn Màn Hình AI (1.3.397)
+
+* **Bảo toàn trạng thái View Hierarchy**:
+  - `ReaderView` tích hợp trực tiếp `.fullScreenCover(isPresented: $showingAIFullScreen)` trong `readerSheetLayer`. Khi AI mở hoặc đóng, `ReaderView` không bị unmount khỏi cây view SwiftUI, `onAppear`/`onDisappear` của toàn Reader không bị kích hoạt lại sai lệch.
+  - Cổng bắt tay skeleton loading `isChapterSubtreeRenderable` không bị reset $\rightarrow$ Text chương và vị trí đọc được giữ nguyên tuyệt đối, không có hiện tượng chớp skeleton loading hay tải lại chương.
+* **Đồng bộ vòng đời phiên Reader với Coordinator**:
+  - `ReaderView.onAppear` bật `AIRuntimeCoordinator.shared.isReaderActive = true`.
+  - `ReaderView.onDisappear` tắt cờ `isReaderActive = false` (chỉ khi không phải đang mở `showingAIFullScreen`).
+  - Lắng nghe notification `reopenReaderAI` qua `onReceive` để kích hoạt lại fullScreenCover khi người dùng bấm Widget nổi từ bên trong Reader.
+
 ## Vòng đời màn hình Reader AI FullScreen Cover và khởi tạo session (1.3.385)
 
 * **Khởi tạo khi mở (`onAppear` / `.task`)**:

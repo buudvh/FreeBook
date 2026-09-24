@@ -15,6 +15,15 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Quản lý Session AI Chat Trên Đĩa & Task Nền Trong AIRuntimeCoordinator (1.3.397)
+
+* **Lưu đĩa tức thì ngăn ngừa mất dữ liệu**:
+  - `AIChatHistoryStore.shared.saveSession(session, for: bookId)` được gọi ngay khi tạo tin nhắn mới và khi kết thúc streaming/batch.
+  - Khi view đóng, Task chạy ngầm trong `AIRuntimeCoordinator.shared` vẫn nắm giữ tham chiếu an toàn đến `activeSession` và tự động lưu đĩa khi nhận toàn bộ payload từ OpenAI API.
+* **Tài nguyên bộ nhớ của AIRuntimeCoordinator**:
+  - `AIRuntimeCoordinator.shared` giải phóng `activeStreamingTask`, `activeSingleTask`, `activeBatchTask` ngay khi hoàn tất hoặc lỗi.
+  - Cờ `isFullScreenPresented` và weak reference `currentPresentedVC` tự động giải phóng khi view đóng, không gây leak ViewController hay UIWindow.
+
 ## Vòng đời tài nguyên mạng, tác vụ streaming và file JSON phiên chat AI (1.3.385)
 
 * **Tài nguyên mạng HTTP & SSE Streaming (`OpenAIClient`)**:

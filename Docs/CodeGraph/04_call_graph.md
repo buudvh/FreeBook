@@ -15,6 +15,36 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Call graph phân hệ Reader AI Background & FullScreen Restoration (1.3.397)
+
+```text
+Mở AI từ Reader:
+ReaderView (bấm nút sparkles trên Header/Menu)
+  └─ openAIFromReader()
+        ├─ AIRuntimeCoordinator.shared.updateContext(context)
+        └─ showingAIFullScreen = true (native .fullScreenCover)
+              └─ ReaderAIFullScreenView
+                    ├─ onAppear:
+                    │     └─ initializeSession()
+                    │           ├─ Ưu tiên nạp AIRuntimeCoordinator.shared.activeSession
+                    │           └─ Fallback: AIChatHistoryStore.shared.loadSessions(for: bookId)
+                    └─ Đóng AI (dismiss):
+                          └─ ReaderView KHÔNG bị unmount, không reload, text hiển thị tức thì 0ms
+
+Chạy ngầm & Mở lại từ Floating Widget:
+User gửi tin nhắn / lọc name / quét batch -> đóng AI
+  ├─ Ghi đĩa tức thì: AIChatHistoryStore.shared.saveSession
+  ├─ AIRuntimeCoordinator.shared.activeSession = currentSession
+  └─ Task ngầm tiếp tục:
+        ├─ Streaming: OpenAIClient.sendChatStreaming -> delta tích luỹ vào activeSession
+        ├─ Hoàn tất: Ghi đĩa finalSession + ToastManager.show("AI đã hoàn tất phản hồi!")
+        └─ Bấm Widget mở lại:
+              ├─ Trong Reader (isReaderActive == true):
+              │     └─ post Notification "reopenReaderAI" -> ReaderView bật showingAIFullScreen = true
+              └─ Ngoài Reader (Shelf, Discovery):
+                    └─ findTopViewController() -> present overFullScreen
+```
+
 ## Call graph phân hệ Reader AI Harness (1.3.385)
 
 ```text

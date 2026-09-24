@@ -4,14 +4,18 @@ import SwiftUI
 extension ReaderAIFullScreenView {
     internal func initializeSession() {
         reloadSettings()
-        let sessions = AIChatHistoryStore.shared.loadSessions(for: bookId)
-        if let activeId = AIRuntimeCoordinator.shared.activeSessionId,
-           let activeSession = sessions.first(where: { $0.id == activeId }) {
-            switchToSession(activeSession)
-        } else if let first = sessions.first {
-            switchToSession(first)
+        if let active = AIRuntimeCoordinator.shared.activeSession, active.bookId == bookId {
+            switchToSession(active)
         } else {
-            startNewChat()
+            let sessions = AIChatHistoryStore.shared.loadSessions(for: bookId)
+            if let activeId = AIRuntimeCoordinator.shared.activeSessionId,
+               let activeSession = sessions.first(where: { $0.id == activeId }) {
+                switchToSession(activeSession)
+            } else if let first = sessions.first {
+                switchToSession(first)
+            } else {
+                startNewChat()
+            }
         }
 
         if AIRuntimeCoordinator.shared.isRunning {
@@ -106,6 +110,8 @@ extension ReaderAIFullScreenView {
         let assistantMsgId = UUID()
         let placeholderMsg = AIChatMessage(id: assistantMsgId, role: .assistant, content: "", isStreaming: true)
         currentSession.messages.append(placeholderMsg)
+        AIChatHistoryStore.shared.saveSession(currentSession, for: bookId)
+        AIRuntimeCoordinator.shared.activeSession = currentSession
 
         var config = AISettingsStore.shared.loadConfiguration()
         if let profile = config.profiles.first(where: { $0.id == selectedProfileId }) {
@@ -238,12 +244,16 @@ extension ReaderAIFullScreenView {
         let msgId = UUID()
         // Khởi tạo content rỗng để message.content.isEmpty && message.isStreaming hiển thị "AI đang suy nghĩ"
         currentSession.messages.append(AIChatMessage(id: msgId, role: .assistant, content: "", isStreaming: true))
+        AIChatHistoryStore.shared.saveSession(currentSession, for: bookId)
+        AIRuntimeCoordinator.shared.activeSession = currentSession
         isStreaming = true
 
         AIRuntimeCoordinator.shared.startExtractNamesCurrentChapter(
             bookId: bookId,
             rawContent: currentChapterRawContent,
             config: config,
+            session: currentSession,
+            assistantMsgId: msgId,
             onComplete: { [self] (names: [AIExtractedName]) in
                 Task { @MainActor in
                     if let idx = self.currentSession.messages.firstIndex(where: { $0.id == msgId }) {
@@ -279,6 +289,8 @@ extension ReaderAIFullScreenView {
         let msgId = UUID()
         // Khởi tạo content rỗng để hiển thị "AI đang suy nghĩ" trong timeline
         currentSession.messages.append(AIChatMessage(id: msgId, role: .assistant, content: "", isStreaming: true))
+        AIChatHistoryStore.shared.saveSession(currentSession, for: bookId)
+        AIRuntimeCoordinator.shared.activeSession = currentSession
         isStreaming = true
 
         var config = AISettingsStore.shared.loadConfiguration()
@@ -290,6 +302,8 @@ extension ReaderAIFullScreenView {
         AIRuntimeCoordinator.shared.startBatchExtraction(
             bookId: bookId,
             config: config,
+            session: currentSession,
+            assistantMsgId: msgId,
             onProgress: { [self] (current: Int, total: Int, partial: [AIExtractedName]) in
                 Task { @MainActor in
                     self.batchProgress = (current, total)

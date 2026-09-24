@@ -15,6 +15,13 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader AI FullScreen & Background Session Invariants (1.3.397)
+
+* **ReaderView must present AI via native SwiftUI `.fullScreenCover`, never UIKit `.fullScreen`.** Presenting a UIKit modal with `.fullScreen` unmounts the reader's view hierarchy from the Window, breaking `isChapterSubtreeRenderable` handshake and causing infinite skeleton loading upon dismissal. SwiftUI `.fullScreenCover` preserves the view hierarchy, keeping text and reading position 100% intact.
+* **External AI presentations outside ReaderView must use `.overFullScreen`.** When reopening AI from Shelf or Discovery, `AIRuntimeCoordinator.presentFullScreen` must use `modalPresentationStyle = .overFullScreen` so the underlying ViewController is not detached.
+* **Immediate disk persistence for all AI actions and chat messages.** In `ReaderAIFullScreenView+Actions.swift`, calling `AIChatHistoryStore.shared.saveSession` must occur immediately when appending user and assistant messages (typing, quick chips, name extractions, batch scans). Never defer saving until stream completion.
+* **AIRuntimeCoordinator owns the live `activeSession`.** When the AI view is closed during streaming or batch execution, `AIRuntimeCoordinator.shared` must maintain and update the active session in memory, ensuring reopening from the widget restores the entire conversation state seamlessly.
+
 ## Reader AI Agent Harness invariants (1.3.385)
 
 * **Raw chapter content is the single source of truth for AI analysis.** Extraction of character names, locations, and glossary terms must use the raw Chinese chapter text via `AIBookDataInspector.loadRawChapterContent`, never the translated text. This prevents translation distortion from polluting the dictionary.

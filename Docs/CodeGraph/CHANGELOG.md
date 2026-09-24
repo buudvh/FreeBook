@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.397] - 2026-09-24
+
+### fix: sua loi reader load lai khi dong ai va mat tin nhan khi mo lai tu widget
+
+Sửa **5** file Swift trong `Sources/Views/Reader/AI/`, `Sources/Views/Reader/Extensions/`, `Sources/Views/Reader/`:
+
+- **Khôi Phục Toàn Màn Hình Native Trong Reader & Bảo Toàn Skeleton Handshake (`ReaderView.swift`, `ReaderView+AI.swift`, `AIRuntimeCoordinator.swift`)**:
+  - Khôi phục `.fullScreenCover(isPresented: $showingAIFullScreen)` của SwiftUI ngay tại `ReaderView` thay cho modal UIKit `.fullScreen`. Cây view `ReaderView` không bị unmount khỏi Window, không bị trigger lại lifecycle, bảo toàn cổng handshake skeleton loading (`isChapterSubtreeRenderable`) $\rightarrow$ text hiển thị tức thì, không kẹt skeleton loading hay reload lại khi đóng AI.
+  - Quản lý cờ `isReaderActive` trong `onAppear`/`onDisappear` của `ReaderView`. Khi người dùng ở trong Reader mà bấm mở lại từ Floating Widget thu nhỏ, `AIRuntimeCoordinator` phát notification `reopenReaderAI` để `ReaderView` mở lại qua `.fullScreenCover`. Khi mở từ ngoài Reader (Kệ sách, Khám phá), Coordinator dùng `modalPresentationStyle = .overFullScreen` để không làm mất ViewController bên dưới.
+- **Lưu Đĩa Tức Thì & Nguồn Sự Thật Duy Nhất Cho Chat AI (`AIRuntimeCoordinator.swift`, `ReaderAIFullScreenView.swift`, `ReaderAIFullScreenView+Actions.swift`)**:
+  - Ghi đĩa tức thì qua `AIChatHistoryStore.shared.saveSession` ngay tại khoảnh khắc khởi tạo tin nhắn người dùng và tin nhắn chờ của AI (áp dụng cho gõ tay, chip Tóm tắt, Bối cảnh, Dịch mượt, Lọc name chương, Quét batch).
+  - Quản lý `activeSession: AIChatSession?` làm Source of Truth trong `AIRuntimeCoordinator.shared`. Tích luỹ token stream và kết quả trích xuất vào `activeSession` xuyên suốt quá trình chạy ngầm.
+  - Khi mở lại AI từ widget, `initializeSession()` ưu tiên nạp ngay `activeSession` của Coordinator (nếu trùng `bookId`), đồng thời đồng bộ reactive các token delta và tiến trình batch qua Combine `$activeSession`, `$isRunning`, `$batchProgress`.
+
 ## [1.3.396] - 2026-09-24
 
 ### feat: dong bo ai dang suy nghi, chay ngam toan app va floating widget thu nho

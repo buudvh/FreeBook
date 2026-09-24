@@ -223,6 +223,7 @@ struct ReaderView: View {
     @State internal var paragraphTracker = ParagraphTracker()
 
     @State internal var showingChapterList = false
+    @State internal var showingAIFullScreen = false
     @State private var showingReaderSearch = false
     /// Kết quả tìm vừa được nhảy tới — dùng để tô vệt trên trang. `nil` = không tô gì.
     @State internal var searchHighlight: ReaderSearchMatcher.Highlight? = nil
@@ -535,20 +536,14 @@ struct ReaderView: View {
                 }
             )
         }
-        .sheet(isPresented: $showingSearchEnginesConfigSheet, onDismiss: {
-            searchEngines = SearchEngine.loadEngines()
-        }) {
+        .sheet(isPresented: $showingSearchEnginesConfigSheet, onDismiss: { searchEngines = SearchEngine.loadEngines() }) {
             NavigationStack {
-                SearchEnginesConfigView()
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Xong") {
-                                showingSearchEnginesConfigSheet = false
-                            }
-                        }
-                    }
+                SearchEnginesConfigView().toolbar {
+                    ToolbarItem(placement: .cancellationAction) { Button("Xong") { showingSearchEnginesConfigSheet = false } }
+                }
             }
         }
+        .fullScreenCover(isPresented: $showingAIFullScreen) { aiFullScreenDestination }
     }
 
     private var readerObserverLayer: some View {
@@ -638,6 +633,9 @@ struct ReaderView: View {
             let targetPkgId = localBook?.extensionPackageId ?? extensionPackageId
             let newState = TranslationConfigStore.shared.isTranslationEnabled(bookId: bookId, packageId: targetPkgId)
             if isTranslationEnabled != newState { isTranslationEnabled = newState }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("reopenReaderAI"))) { _ in
+            showingAIFullScreen = true
         }
     }
 
@@ -890,6 +888,7 @@ struct ReaderView: View {
             await initializeReaderIfNeeded()
         }
         .onAppear {
+            AIRuntimeCoordinator.shared.isReaderActive = true
             isSceneActive = (scenePhase == .active)
             ttsState.scope(to: bookId)
             ReaderEnergyDiagnostics.shared.beginReaderSession()
@@ -899,6 +898,7 @@ struct ReaderView: View {
             updateDisplayedBookTitleCache()
         }
         .onDisappear {
+            if !showingAIFullScreen { AIRuntimeCoordinator.shared.isReaderActive = false }
             definitionSession.cancel()
             translationRefreshDebounceTask?.cancel()
             ReaderEnergyDiagnostics.shared.flush(reason: "reader_disappear")

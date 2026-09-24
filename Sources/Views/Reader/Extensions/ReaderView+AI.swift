@@ -13,7 +13,7 @@ extension ReaderView {
         )
     }
 
-    /// Mở màn hình AI Agent thông qua AIRuntimeCoordinator toàn cục.
+    /// Mở màn hình AI Agent thông qua trạng thái fullScreenCover native của ReaderView.
     internal func openAIFromReader() {
         let context = AIRuntimeCoordinator.ActiveContext(
             bookId: bookId,
@@ -23,7 +23,7 @@ extension ReaderView {
             currentChapterRawContent: currentChapterRawContentForAI
         )
         AIRuntimeCoordinator.shared.updateContext(context)
-        AIRuntimeCoordinator.shared.presentFullScreen(context: context)
+        showingAIFullScreen = true
     }
 
     /// Lấy toàn bộ nội dung raw (chưa dịch) của chương đang hiển thị.
