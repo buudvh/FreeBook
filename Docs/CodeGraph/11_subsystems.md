@@ -15,6 +15,17 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Khắc Phục Lỗi Cuộn Đen Màn Hình AI & Tăng Tương Phản Thẻ Tên Riêng (1.3.399)
+
+* **Ổn Định Vùng Cuộn Tin Nhắn AI (`ReaderAIFullScreenView.swift`)**:
+  - Chuyển container tin nhắn từ `LazyVStack` sang `VStack` để tính toán chiều cao các bong bóng tin nhắn tất định, ngăn chặn hoàn toàn lỗi nhảy toạ độ lệch biên làm đen màn hình khi gửi tin nhắn mới.
+  - Bổ sung modifier `.defaultScrollAnchor(.bottom)` của iOS 17 và thêm delay 0.08s trước khi cuộn tới ID tin nhắn cuối cùng để chờ keyboard và bubble hoàn tất layout.
+* **Tăng Tương Phản Thẻ Tên Riêng Dark Mode (`ReaderAINameReviewCardView.swift`)**:
+  - Nút "Lưu Name riêng" và "Lưu VP riêng" đổi nền sang `#374357` với viền sáng `stroke(Color.white.opacity(0.18))` và chữ trắng đậm.
+  - Badge Category chuyển sang nền xám đậm `Color(white: 0.25)` chữ trắng.
+  - Badge NE và VP tăng độ mờ nền `opacity(0.25)`, chữ trắng kèm viền stroke đồng bộ với suggest chip của Reader.
+  - Checkbox và icon `tag.fill` đổi sang màu xanh sáng rõ nét `Color(red: 90/255.0, green: 170/255.0, blue: 255/255.0)`.
+
 ## Nâng Cấp Toàn Diện Giao Diện AI, Di Trú Đổi Nguồn & Tối Ưu Tương Tác (1.3.398)
 
 * **Di Trú Dữ Liệu Toàn Diện Khi Đổi Nguồn Sách (`BookSourceMigrator.swift`, `SearchView.swift`, `AIChatHistoryStore.swift`, `BookAIMemoryStore.swift`)**:

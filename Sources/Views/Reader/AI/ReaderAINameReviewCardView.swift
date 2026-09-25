@@ -26,7 +26,7 @@ public struct ReaderAINameReviewCardView: View {
             HStack {
                 HStack(spacing: 6) {
                     Image(systemName: "tag.fill")
-                        .foregroundColor(Color(red: 36/255.0, green: 44/255.0, blue: 56/255.0))
+                        .foregroundColor(Color(red: 90/255.0, green: 170/255.0, blue: 255/255.0))
                     Text("Tên riêng tìm thấy (\(names.count))")
                         .font(.system(size: 13, weight: .bold))
                 }
@@ -46,7 +46,7 @@ public struct ReaderAINameReviewCardView: View {
                             item.isSelected.toggle()
                         }) {
                             Image(systemName: item.isSelected ? "checkmark.square.fill" : "square")
-                                .foregroundColor(item.isSelected ? Color(red: 36/255.0, green: 44/255.0, blue: 56/255.0) : .secondary)
+                                .foregroundColor(item.isSelected ? Color(red: 90/255.0, green: 170/255.0, blue: 255/255.0) : .secondary)
                                 .font(.system(size: 16))
                         }
                         .buttonStyle(.plain)
@@ -59,29 +59,37 @@ public struct ReaderAINameReviewCardView: View {
 
                                 Text(item.category)
                                     .font(.system(size: 9, weight: .semibold))
-                                    .padding(.horizontal, 5)
-                                    .padding(.vertical, 1)
-                                    .background(Color(red: 36/255.0, green: 44/255.0, blue: 56/255.0).opacity(0.12))
-                                    .foregroundColor(Color(red: 36/255.0, green: 44/255.0, blue: 56/255.0))
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color(white: 0.25))
+                                    .foregroundColor(.white)
                                     .cornerRadius(4)
 
                                 if item.hasInBookNames {
                                     Text("NE")
                                         .font(.system(size: 9, weight: .bold))
-                                        .padding(.horizontal, 4)
-                                        .padding(.vertical, 1)
-                                        .background(Color.red.opacity(0.15))
-                                        .foregroundColor(.red)
+                                        .padding(.horizontal, 5)
+                                        .padding(.vertical, 1.5)
+                                        .background(Color.red.opacity(0.25))
+                                        .foregroundColor(.white)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 4)
+                                                .stroke(Color.red.opacity(0.8), lineWidth: 0.8)
+                                        )
                                         .cornerRadius(4)
                                 }
 
                                 if item.hasInBookVP {
                                     Text("VP")
                                         .font(.system(size: 9, weight: .bold))
-                                        .padding(.horizontal, 4)
-                                        .padding(.vertical, 1)
-                                        .background(Color(red: 0.45, green: 0.75, blue: 1.0).opacity(0.15))
-                                        .foregroundColor(Color(red: 0.45, green: 0.75, blue: 1.0))
+                                        .padding(.horizontal, 5)
+                                        .padding(.vertical, 1.5)
+                                        .background(Color(red: 0.3, green: 0.6, blue: 0.9).opacity(0.25))
+                                        .foregroundColor(.white)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 4)
+                                                .stroke(Color(red: 0.45, green: 0.75, blue: 1.0).opacity(0.8), lineWidth: 0.8)
+                                        )
                                         .cornerRadius(4)
                                 }
 
@@ -141,11 +149,16 @@ public struct ReaderAINameReviewCardView: View {
                         Text("Lưu Name riêng (\(selectedCount))")
                             .font(.system(size: 11, weight: .bold))
                             .lineLimit(1)
+                            .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(Color(red: 36/255.0, green: 44/255.0, blue: 56/255.0))
+                    .tint(Color(red: 55/255.0, green: 67/255.0, blue: 87/255.0))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                    )
                     .disabled(selectedCount == 0)
 
                     // Nút Lưu vào VP riêng
@@ -156,11 +169,16 @@ public struct ReaderAINameReviewCardView: View {
                         Text("Lưu VP riêng (\(selectedCount))")
                             .font(.system(size: 11, weight: .bold))
                             .lineLimit(1)
+                            .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(Color(red: 36/255.0, green: 44/255.0, blue: 56/255.0))
+                    .tint(Color(red: 55/255.0, green: 67/255.0, blue: 87/255.0))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                    )
                     .disabled(selectedCount == 0)
                 }
             }
@@ -170,7 +188,7 @@ public struct ReaderAINameReviewCardView: View {
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Color(red: 36/255.0, green: 44/255.0, blue: 56/255.0).opacity(0.3), lineWidth: 1)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
         )
         .confirmationDialog(
             "Lựa chọn chế độ lưu vào \(pendingIsName ? "Name riêng" : "VietPhrase riêng")",

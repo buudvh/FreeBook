@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.399] - 2026-09-25
+
+### feat: sua loi cuon den man hinh ai va tang tuong phan nut badge the ten rieng
+
+Sửa **2** file Swift trong `Sources/Views/Reader/AI/`:
+
+- **Khắc Phục Lỗi Cuộn Đen Màn Hình AI (`ReaderAIFullScreenView.swift`)**:
+  - Chuyển `LazyVStack` sang `VStack` để tính toán chiều cao tin nhắn tất định, loại bỏ lỗi vỡ toạ độ khi gửi tin nhắn mới.
+  - Bổ sung modifier `.defaultScrollAnchor(.bottom)` của iOS 17 và thêm delay 0.08s trước khi cuộn tới ID tin nhắn cuối cùng để chờ keyboard và bubble hoàn tất layout.
+- **Tăng Tương Phản Thẻ Tên Riêng Dark Mode (`ReaderAINameReviewCardView.swift`)**:
+  - Nút "Lưu Name riêng" và "Lưu VP riêng" đổi nền sang `#374357` (`Color(red: 55/255.0, green: 67/255.0, blue: 87/255.0)`) với viền sáng `stroke(Color.white.opacity(0.18))` và chữ trắng đậm.
+  - Badge Category chuyển sang nền xám đậm `Color(white: 0.25)` chữ trắng.
+  - Badge NE và VP tăng độ mờ nền `opacity(0.25)`, chữ trắng kèm viền stroke rõ nét đồng bộ với suggest chip của Reader.
+  - Checkbox chọn và icon `tag.fill` đổi sang màu xanh sáng rõ nét `Color(red: 90/255.0, green: 170/255.0, blue: 255/255.0)`.
+
 ## [1.3.398] - 2026-09-25
 
 ### feat: nang cap toan dien giao dien ai, giu chuong da tai va session khi doi nguon, ghim khong dong sheet va toi uu icon header

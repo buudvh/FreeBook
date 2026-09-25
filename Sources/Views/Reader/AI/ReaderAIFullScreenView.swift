@@ -80,7 +80,7 @@ public struct ReaderAIFullScreenView: View {
                 // Vùng nội dung tin nhắn chat
                 ScrollViewReader { proxy in
                     ScrollView {
-                        LazyVStack(spacing: 12) {
+                        VStack(spacing: 12) {
                             // Badge nén ngữ cảnh nếu session đã compact
                             if currentSession.contextSummary != nil {
                                 HStack(spacing: 6) {
@@ -122,11 +122,16 @@ public struct ReaderAIFullScreenView: View {
                         }
                         .padding(.vertical, 12)
                     }
+                    .defaultScrollAnchor(.bottom)
                     .scrollDismissesKeyboard(.interactively)
                     .onChange(of: currentSession.messages.count) { _, _ in
-                        DispatchQueue.main.async {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
                             withAnimation(.easeOut(duration: 0.25)) {
-                                proxy.scrollTo("bottomScrollAnchor", anchor: .bottom)
+                                if let lastId = currentSession.messages.last?.id {
+                                    proxy.scrollTo(lastId, anchor: .bottom)
+                                } else {
+                                    proxy.scrollTo("bottomScrollAnchor", anchor: .bottom)
+                                }
                             }
                         }
                     }
