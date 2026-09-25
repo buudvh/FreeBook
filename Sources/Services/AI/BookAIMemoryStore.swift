@@ -52,7 +52,7 @@ public final class BookAIMemoryStore: Sendable {
     }
 
     /// Tự động đồng bộ âm thầm dữ liệu truyện và từ điển vào trí nhớ của AI.
-    public func syncWithBookData(bookId: String, desc: String?) {
+    public func syncWithBookData(bookId: String, desc: String? = nil) {
         var memory = loadMemory(for: bookId)
         var changed = false
 
