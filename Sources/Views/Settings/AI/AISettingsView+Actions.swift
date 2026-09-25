@@ -90,6 +90,7 @@ extension AISettingsView {
                     isTestSuccess = false
                     testResultMessage = "Kết nối thất bại: \(error.localizedDescription)"
                 }
+            }
         }
     }
 }

@@ -3,8 +3,8 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-09-25T10:01:11Z",
-  "gitCommit": "9fa42e697851c2923e2fc53e94cea6b0635daec2",
+  "generatedAt": "2026-09-25T10:09:21Z",
+  "gitCommit": "5e20b4543ed490c594765fa04dc681f1864cfb1d",
   "sourceFileCount": 575,
   "documentCount": 16,
   "documents": [
@@ -3025,12 +3025,12 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "4e060026db65df076546f818a4832dca7e904ec3b0426ce180f6e4a6f5e6cecc",
-      "sourceHash": "b1e7ee9a524cfea29b202b035242dd06e79aea98bb814fed168e73d57daeae3d",
+      "sourceHash": "2c057d8c75cc943557a812c5994bc83ea2e8c66a34cc9d26bc163084a2ba9345",
       "generatedHash": "72efd78f3b6806579c04adcfccd5f2529bd877b371548d5219fa6bfcbaeef39c",
-      "generatedAt": "2026-09-25T10:00:51Z",
-      "reviewedAt": "2026-09-25T10:00:51Z",
-      "reviewedCommit": "9fa42e697851c2923e2fc53e94cea6b0635daec2",
-      "reviewMode": "accept"
+      "generatedAt": "2026-09-25T10:09:21Z",
+      "reviewedAt": "2026-09-25T10:09:21Z",
+      "reviewedCommit": "5e20b4543ed490c594765fa04dc681f1864cfb1d",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "12_ownership_graph.md",
