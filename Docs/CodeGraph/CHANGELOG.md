@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.401] - 2026-09-25
+
+### feat: tai va hien thi icon extension tren home trinh duyet bypass
+
+Sửa **1** file Swift trong `Sources/Views/Common/`:
+
+- **Hiển Thị Icon Extension Cục Bộ Trên Home Trình Duyệt Bypass (`BypassBrowserHomeView.swift`)**:
+  - Mở rộng struct `QuickShortcut` với `extLocalPath: String?` và `extIconUrl: String?`.
+  - Trong `allShortcuts`, truyền đường dẫn cài đặt cục bộ và URL ảnh trực tuyến cho từng extension đã cài đặt.
+  - Sử dụng [`ExtensionIconView`](../../Sources/Views/Common/ExtensionIconView.swift) size 30 đặt gọn trong ô card 50x50, đọc ảnh `icon.png` trực tiếp qua bộ nhớ đệm [`ExtensionIconImageCache`](../../Sources/Views/Common/ExtensionIconImageCache.swift), giữ nguyên fallback SF Symbol cho các phím tắt trang mặc định.
+
 ## [1.3.400] - 2026-09-25
 
 ### feat: tuy bien size nut dich va thu gon khoang cach icon danh sach chuong va header reader

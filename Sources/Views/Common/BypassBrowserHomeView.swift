@@ -27,6 +27,24 @@ public struct BypassBrowserHomeView: View {
         let url: String
         let iconName: String
         let isSystemIcon: Bool
+        let extLocalPath: String?
+        let extIconUrl: String?
+
+        init(
+            name: String,
+            url: String,
+            iconName: String,
+            isSystemIcon: Bool,
+            extLocalPath: String? = nil,
+            extIconUrl: String? = nil
+        ) {
+            self.name = name
+            self.url = url
+            self.iconName = iconName
+            self.isSystemIcon = isSystemIcon
+            self.extLocalPath = extLocalPath
+            self.extIconUrl = extIconUrl
+        }
     }
 
     private var allShortcuts: [QuickShortcut] {
@@ -39,7 +57,9 @@ public struct BypassBrowserHomeView: View {
                 name: ext.name,
                 url: src,
                 iconName: "puzzlepiece.extension.fill",
-                isSystemIcon: true
+                isSystemIcon: false,
+                extLocalPath: ext.localPath,
+                extIconUrl: ext.iconUrl
             ))
         }
 
@@ -107,9 +127,17 @@ public struct BypassBrowserHomeView: View {
                                                         .fill(Color(white: 0.14))
                                                         .frame(width: 50, height: 50)
 
-                                                    Image(systemName: item.iconName)
-                                                        .font(.system(size: 20))
-                                                        .foregroundColor(.white)
+                                                    if let localPath = item.extLocalPath, !localPath.isEmpty {
+                                                        ExtensionIconView(
+                                                            localPath: localPath,
+                                                            iconUrl: item.extIconUrl,
+                                                            size: 30
+                                                        )
+                                                    } else {
+                                                        Image(systemName: item.iconName)
+                                                            .font(.system(size: 20))
+                                                            .foregroundColor(.white)
+                                                    }
                                                 }
 
                                                 Text(item.name)

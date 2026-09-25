@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Tải và Hiển Thị Icon Extension Trên Home Trình Duyệt Bypass (1.3.401)
+
+* **Tải Icon Cục Bộ từ Thư Mục Extension (`BypassBrowserHomeView.swift`)**:
+  - `QuickShortcut`: Bổ sung hai thuộc tính `extLocalPath: String?` và `extIconUrl: String?` (mặc định `nil`) để lưu trữ đường dẫn cài đặt cục bộ và URL ảnh trực tuyến của extension.
+  - `allShortcuts`: Duyệt danh sách các extension đã cài đặt (`installedExtensions`), truyền trực tiếp `ext.localPath` và `ext.iconUrl` vào từng shortcut tương ứng thay vì gán icon tĩnh `puzzlepiece.extension.fill`.
+  - Tích hợp [`ExtensionIconView`](../../Sources/Views/Common/ExtensionIconView.swift) kích thước `size: 30` bên trong khung thẻ phím tắt `50x50` bo góc `14pt` khi `extLocalPath` tồn tại; tận dụng cơ chế cache ảnh hai tầng của [`ExtensionIconImageCache`](../../Sources/Views/Common/ExtensionIconImageCache.swift) để đọc và giải mã file `icon.png` mà không gây tắc nghẽn I/O. Giữ nguyên fallback sang SF Symbol cho các web mặc định.
+
 ## Tùy Biến Size Nút Dịch & Thu Gọn Khoảng Cách Icon Danh Sách Chương và Header Reader (1.3.400)
 
 * **Tùy Biến Kích Thước & Tối Ưu Chấm Trạng Thái Nút Dịch (`ReaderTranslationScopeMenuView.swift`, `BookDetailView.swift`)**:
