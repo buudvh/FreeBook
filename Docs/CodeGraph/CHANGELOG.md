@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.404] - 2026-09-25
+
+### fix: sua scope openai oauth, sua url fetch chatgpt web va tang size icon header len 16pt
+
+Sửa **5** file Swift trong `Sources/Services/AI/` và `Sources/Views/`:
+
+- **Chuẩn Hóa Scope Xác Thực OpenAI OAuth (`OpenAIOAuthManager.swift`)**:
+  - Loại bỏ scope `model.request` khỏi `defaultScopes` (chỉ gửi `openid profile email offline_access`), phù hợp với quyền hạn của client ID `app_EMoamEEZ73f0CkXaXp7hrann` của OpenAI, khắc phục lỗi "The OAuth 2.0 Client is not allowed to request scope 'model.request'".
+- **Khắc Phục Lỗi Gửi Tin Nhắn ChatGPT Web (`ChatGPTWebClient.swift`)**:
+  - Chuyển toàn bộ lời gọi `fetch` trong JavaScript sang URL tuyệt đối `https://chatgpt.com/api/auth/session` và `https://chatgpt.com/backend-api/conversation` kèm `credentials: 'include'`, tránh lỗi "URL is not valid or contains user credentials" khi webview chưa load xong origin.
+  - Tăng số lần thử chờ domain từ 10 lên 25 chu kỳ (5s).
+- **Tăng Kích Thước Icon Header Lên 16pt (`ReaderHeaderFooterOverlayView.swift`, `BookDetailView.swift`, `BookDetailView+Extensions.swift`)**:
+  - Reader Header: Tăng font size của các icon thao tác (`chevron.left`, `magnifyingglass`, `scroll`/`scroll.fill`, `arrow.clockwise`, `sparkles`, `gearshape`, `ellipsis.circle`) từ 13pt lên 16pt (`.font(.system(size: 16, weight: .semibold))`).
+  - BookDetail Toolbar: Tăng `iconSize` của `ReaderTranslationScopeMenuView` và font size icon của `ellipsisMenu` từ 13pt lên 16pt, đồng bộ kích thước cân đối trên thanh công cụ.
+
 ## [1.3.403] - 2026-09-25
 
 ### feat: chuyen theme picker sang thanh ngang, sua chatgpt web, tich hop chatgpt oauth, config cookie ext va sua loi dich so

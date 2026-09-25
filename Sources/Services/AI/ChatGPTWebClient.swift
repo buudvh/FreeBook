@@ -142,7 +142,7 @@ public final class ChatGPTWebClient: NSObject, @unchecked Sendable {
                         webView.load(URLRequest(url: url))
                     }
                     var waited = 0
-                    while (webView.url?.host?.contains("chatgpt.com") != true) && waited < 10 {
+                    while (webView.url?.host?.contains("chatgpt.com") != true) && waited < 25 {
                         try? await Task.sleep(nanoseconds: 200_000_000)
                         waited += 1
                     }
@@ -158,7 +158,9 @@ public final class ChatGPTWebClient: NSObject, @unchecked Sendable {
                     (async () => {
                         const reqId = "\(requestId)";
                         try {
-                            const sessionRes = await fetch('/api/auth/session');
+                            const sessionRes = await fetch('https://chatgpt.com/api/auth/session', {
+                                credentials: 'include'
+                            });
                             if (!sessionRes.ok) {
                                 window.webkit.messageHandlers.chatGPTWebStream.postMessage({
                                     requestId: reqId,
@@ -195,8 +197,9 @@ public final class ChatGPTWebClient: NSObject, @unchecked Sendable {
                                 history_and_training_disabled: true
                             };
 
-                            const convRes = await fetch('/backend-api/conversation', {
+                            const convRes = await fetch('https://chatgpt.com/backend-api/conversation', {
                                 method: 'POST',
+                                credentials: 'include',
                                 headers: {
                                     'Authorization': 'Bearer ' + token,
                                     'Content-Type': 'application/json',

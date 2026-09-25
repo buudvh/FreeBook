@@ -8,7 +8,7 @@ public actor OpenAIOAuthManager {
 
     public static let clientID = "app_EMoamEEZ73f0CkXaXp7hrann"
     public static let redirectURI = "http://localhost:1455/auth/callback"
-    public static let defaultScopes = "openid profile email offline_access model.request"
+    public static let defaultScopes = "openid profile email offline_access"
 
     private let tokenEndpoint = URL(string: "https://auth.openai.com/oauth/token")!
     private let session: URLSession

@@ -239,7 +239,7 @@ struct BookDetailView: View {
                         sourceName: sourceName,
                         showBackground: false,
                         isChineseSourceHint: ext?.isChineseSource,
-                        iconSize: 13,
+                        iconSize: 16,
                         frameWidth: 32,
                         frameHeight: 32
                     )

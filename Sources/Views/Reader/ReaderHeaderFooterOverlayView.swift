@@ -43,7 +43,7 @@ struct ReaderHeaderFooterOverlayView: View {
                 HStack(spacing: 0) {
                     Button(action: onDismiss) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(selectedTheme.textColor)
                             .frame(width: 36, height: 44)
                     }
@@ -55,7 +55,7 @@ struct ReaderHeaderFooterOverlayView: View {
                         // Tìm trong chương — để cạnh nút cuộn theo TTS thay vì nằm trong menu "..."
                         Button(action: onOpenReaderSearch) {
                             Image(systemName: "magnifyingglass")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(selectedTheme.textColor)
                                 .frame(width: 30, height: 36)
                         }
@@ -64,7 +64,7 @@ struct ReaderHeaderFooterOverlayView: View {
                         // Nút toggle tự động cuộn theo Highlight TTS - luôn hiển thị
                         Button(action: { isAutoScrollDisabled.toggle() }) {
                             Image(systemName: isAutoScrollDisabled ? "scroll" : "scroll.fill")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(isAutoScrollDisabled ? selectedTheme.textColor.opacity(0.85) : .white)
                                 .frame(width: 30, height: 30)
                                 .background(selectedTheme.textColor.opacity(0.07), in: RoundedRectangle(cornerRadius: 6))
@@ -74,7 +74,7 @@ struct ReaderHeaderFooterOverlayView: View {
                         if !isLocalTXTBook {
                             Button(action: onReloadChapter) {
                                 Image(systemName: "arrow.clockwise")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.system(size: 16, weight: .semibold))
                                     .foregroundColor(selectedTheme.textColor)
                                     .frame(width: 30, height: 36)
                             }
@@ -83,7 +83,7 @@ struct ReaderHeaderFooterOverlayView: View {
 
                         Button(action: onOpenAI) {
                             Image(systemName: "sparkles")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(selectedTheme.textColor)
                                 .frame(width: 30, height: 36)
                         }
@@ -91,7 +91,7 @@ struct ReaderHeaderFooterOverlayView: View {
 
                         Button(action: { showingSettings = true }) {
                             Image(systemName: "gearshape")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(selectedTheme.textColor)
                                 .frame(width: 30, height: 36)
                         }
@@ -123,7 +123,7 @@ struct ReaderHeaderFooterOverlayView: View {
                             }
                         } label: {
                             Image(systemName: "ellipsis.circle")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(selectedTheme.textColor)
                                 .frame(width: 30, height: 36)
                         }

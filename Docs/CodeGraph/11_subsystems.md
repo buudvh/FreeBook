@@ -15,6 +15,17 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Sửa Scope OpenAI OAuth, Khắc Phục URL Fetch ChatGPT Web và Tăng Size Icon Header Lên 16pt (1.3.404)
+
+* **Chuẩn Hóa Scope Xác Thực OpenAI OAuth (`OpenAIOAuthManager.swift`)**:
+  - Loại bỏ scope `model.request` khỏi `defaultScopes` (chỉ giữ `openid profile email offline_access`), tương thích hoàn toàn với client ID công khai `app_EMoamEEZ73f0CkXaXp7hrann` của OpenAI, khắc phục triệt để lỗi "The OAuth 2.0 Client is not allowed to request scope 'model.request'".
+* **Khắc Phục Lỗi Gửi Tin Nhắn ChatGPT Web (`ChatGPTWebClient.swift`)**:
+  - Sử dụng URL tuyệt đối `https://chatgpt.com/api/auth/session` và `https://chatgpt.com/backend-api/conversation` kèm cấu hình `credentials: 'include'` trong JavaScript fetch thay cho URL tương đối, ngăn chặn lỗi "URL is not valid or contains user credentials" khi webview chưa load xong origin.
+  - Tăng số chu kỳ chờ kiểm tra domain từ 10 lên 25 chu kỳ, đảm bảo webview sẵn sàng trước khi inject script.
+* **Tăng Kích Thước Icon Header Lên 16pt (`ReaderHeaderFooterOverlayView.swift`, `BookDetailView.swift`, `BookDetailView+Extensions.swift`)**:
+  - Reader Header: Tăng font size của toàn bộ icon hàng trên cùng (`chevron.left`, `magnifyingglass`, `scroll`/`scroll.fill`, `arrow.clockwise`, `sparkles`, `gearshape`, `ellipsis.circle`) từ 13pt lên 16pt (`.font(.system(size: 16, weight: .semibold))`).
+  - BookDetail Toolbar: Tăng `iconSize` của `ReaderTranslationScopeMenuView` và font size icon của `ellipsisMenu` từ 13pt lên 16pt, đồng bộ kích thước cân đối trên thanh công cụ.
+
 ## Tích hợp OpenAI ChatGPT OAuth PKCE, Cấu hình Cookie Extension và Sửa Lỗi Dịch Số (1.3.403)
 
 * **Xác thực OpenAI ChatGPT OAuth PKCE (`OpenAIOAuthManager.swift`, `OpenAIOAuthLoginSheet.swift`, `AISettingsView+OAuth.swift`)**:
