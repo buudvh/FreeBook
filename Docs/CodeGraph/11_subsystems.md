@@ -15,6 +15,25 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Nâng Cấp Toàn Diện Giao Diện AI, Di Trú Đổi Nguồn & Tối Ưu Tương Tác (1.3.398)
+
+* **Di Trú Dữ Liệu Toàn Diện Khi Đổi Nguồn Sách (`BookSourceMigrator.swift`, `SearchView.swift`, `AIChatHistoryStore.swift`, `BookAIMemoryStore.swift`)**:
+  - `BookSourceMigrator`: Đảm bảo khi đổi nguồn truyện, người dùng giữ lại toàn bộ các chương đã tải (`BookBinManager` + `ChapterStore`), toàn bộ lịch sử các phiên chat AI (`AIChatHistoryStore`), bộ nhớ truyện AI (`BookAIMemoryStore`) và cấu hình dịch thuật riêng (`QuickTranslateEngineConfig.json` + `TranslationConfigStore`).
+  - Xoá an toàn sách cũ và file `.bin` cũ nếu không có phiên phát TTS đang chạy.
+* **Giao Diện AI Hiện Đại & Màu Sắc Mới (`ReaderAIFullScreenView.swift`, `ReaderAIInputBarView.swift`, `ReaderAINameReviewCardView.swift`, `ReaderAISessionListView.swift`)**:
+  - Tái thiết kế Header: Nút đóng bo tròn `chevron.down`, tiêu đề hiển thị tên session 1 dòng bên dưới "Trợ lý AI", dropdown menu `ellipsis.circle` gom các nút chức năng.
+  - Chuyển toàn bộ màu xanh primary trong phân hệ AI sang tone slate navy `#242c38`.
+  - Bong bóng tin nhắn AI loại bỏ icon sparkles, text bắt đầu từ lề trái. Thanh nhập thu gọn hiển thị mode 1 hàng (`Manual`, `Plan`, `Bypass`) và phóng to nút gửi 36x36.
+  - Danh sách tên riêng kiểm tra chéo cả từ điển riêng và từ điển chung (`Names.dat`, `VietPhrase.dat`), tự động bỏ chọn mặc định nếu đã tồn tại, đồng bộ màu badge NE (đỏ) và VP (xanh nhạt) theo chip gợi ý dịch của Reader.
+* **Bộ Nhớ Truyện AI Độc Lập (`BookAIMemory.swift`, `BookAIMemoryStore.swift`, `BookAIMemorySheet.swift`)**:
+  - Mở rộng model lưu trữ nhân vật, tóm tắt cốt truyện, snapshot từ điển và ghi chú riêng. Tự động đồng bộ ngầm khi mở chat và tiêm vào context hệ thống.
+* **Trang Chủ Bypass WebView & Lịch Sử Duyệt Web (`BypassBrowserHomeView.swift`, `BrowserHistoryStore.swift`, `BrowserHistorySheetView.swift`)**:
+  - Thiết kế trang chủ dark theme native dạng lưới 4x3 phân trang cho các domain phổ biến, kèm danh sách 10 trang gần đây và sheet quản lý/tìm kiếm lịch sử.
+* **Kệ Sách & Danh Sách Chương Reader (`BookActionSheet.swift`, `BookActionRunner.swift`, `ReaderChapterListView.swift`, `ReaderChapterListStore.swift`)**:
+  - Ghim/bỏ ghim truyện không đóng context menu của Kệ sách.
+  - Tự động làm mới danh sách chương hiển thị trong Reader khi hoàn tất tác vụ dịch lại tên chương.
+  - Giảm kích thước icon header về 13pt (chỉ giảm hàng trên cùng ở Reader).
+
 ## Khắc Phục Lỗi Reader Kẹt Skeleton Loading Khi Đóng AI & Mất Tin Nhắn Khi Mở Lại Từ Widget (1.3.397)
 
 * **Khôi Phục Toàn Màn Hình Native Trong Reader (`ReaderView.swift`, `ReaderView+AI.swift`, `AIRuntimeCoordinator.swift`)**:

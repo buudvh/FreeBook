@@ -28,6 +28,7 @@ struct BypassWebView: View {
     @State private var inputUrl = ""
     @State private var isEditingUrl = false
     @State private var showingSourcePicker = false
+    @State private var showingAllHistorySheet = false
 
     private var activeExtensions: [Extension] {
         allExtensions.filter { !$0.localPath.isEmpty && $0.isEnabled }
@@ -72,7 +73,22 @@ struct BypassWebView: View {
                 }
 
                 if let tab = store.activeTab {
-                    BypassBrowserWebPane(webView: tab.webView)
+                    if isHomeTab(tab) {
+                        BypassBrowserHomeView(
+                            installedExtensions: bookExtensions,
+                            onSelectUrl: { url in
+                                if let target = URL(string: url) {
+                                    tab.load(target)
+                                    inputUrl = url
+                                }
+                            },
+                            onOpenAllHistory: {
+                                showingAllHistorySheet = true
+                            }
+                        )
+                    } else {
+                        BypassBrowserWebPane(webView: tab.webView)
+                    }
 
                     if tab.isLoading {
                         ProgressView(value: tab.progress, total: 1.0)
@@ -125,6 +141,14 @@ struct BypassWebView: View {
             }
             .onChange(of: store.activeTabId) { _, _ in
                 syncInputUrl(with: currentUrlString)
+            }
+            .sheet(isPresented: $showingAllHistorySheet) {
+                BrowserHistorySheetView { selectedUrl in
+                    if let tab = store.activeTab, let target = URL(string: selectedUrl) {
+                        tab.load(target)
+                        inputUrl = selectedUrl
+                    }
+                }
             }
         }
     }
@@ -261,11 +285,14 @@ struct BypassWebView: View {
     }
 
     private func loadHome(into tab: BypassBrowserTab) {
-        let html = BypassBrowserHomePage.html(for: bookExtensions)
-        tab.webView.loadHTMLString(html, baseURL: URL(string: "about:blank"))
+        tab.webView.load(URLRequest(url: URL(string: "about:blank")!))
         tab.title = "Home"
         tab.urlString = "about:blank"
         inputUrl = "Home"
+    }
+
+    private func isHomeTab(_ tab: BypassBrowserTab) -> Bool {
+        tab.urlString.isEmpty || tab.urlString == "about:blank" || tab.urlString == "Home"
     }
 
     private func loadEnteredUrl(into tab: BypassBrowserTab) {

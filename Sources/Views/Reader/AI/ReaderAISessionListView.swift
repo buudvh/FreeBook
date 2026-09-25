@@ -34,7 +34,7 @@ public struct ReaderAISessionListView: View {
                     }) {
                         HStack(spacing: 10) {
                             Image(systemName: "plus.circle.fill")
-                                .foregroundColor(.blue)
+                                .foregroundColor(Color(red: 36/255.0, green: 44/255.0, blue: 56/255.0))
                                 .font(.system(size: 20))
                             Text("Bắt đầu phiên chat mới")
                                 .fontWeight(.medium)
@@ -55,7 +55,7 @@ public struct ReaderAISessionListView: View {
                                         Text(session.title)
                                             .font(.subheadline)
                                             .fontWeight(session.id == currentSessionId ? .bold : .medium)
-                                            .foregroundColor(session.id == currentSessionId ? .blue : .primary)
+                                            .foregroundColor(session.id == currentSessionId ? Color(red: 36/255.0, green: 44/255.0, blue: 56/255.0) : .primary)
                                             .lineLimit(1)
 
                                         if session.id == currentSessionId {
@@ -63,8 +63,8 @@ public struct ReaderAISessionListView: View {
                                                 .font(.system(size: 9, weight: .bold))
                                                 .padding(.horizontal, 4)
                                                 .padding(.vertical, 1)
-                                                .background(Color.blue.opacity(0.15))
-                                                .foregroundColor(.blue)
+                                                .background(Color(red: 36/255.0, green: 44/255.0, blue: 56/255.0).opacity(0.15))
+                                                .foregroundColor(Color(red: 36/255.0, green: 44/255.0, blue: 56/255.0))
                                                 .cornerRadius(4)
                                         }
                                     }

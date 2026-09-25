@@ -158,42 +158,47 @@ public struct ReaderAIFullScreenView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Đóng") { dismiss() }
+                    Button(action: { dismiss() }) {
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(width: 34, height: 34)
+                            .background(Color(white: 0.18))
+                            .clipShape(Circle())
+                    }
                 }
 
                 ToolbarItem(placement: .principal) {
-                    VStack(spacing: 1) {
-                        Text(currentSession.title)
+                    VStack(spacing: 2) {
+                        Text("Trợ lý AI")
                             .font(.system(size: 14, weight: .bold))
-                            .lineLimit(1)
-                        Text("\(bookTitle) • Chương \(chapterIndex + 1)")
-                            .font(.system(size: 10))
+                            .foregroundColor(.white)
+                        Text(currentSession.title)
+                            .font(.system(size: 11))
                             .foregroundColor(.secondary)
                             .lineLimit(1)
                     }
                 }
 
                 ToolbarItem(placement: .primaryAction) {
-                    HStack(spacing: 8) {
+                    Menu {
                         Button(action: startNewChat) {
-                            HStack(spacing: 3) {
-                                Image(systemName: "plus")
-                                Text("Mới")
-                            }
-                            .font(.system(size: 12, weight: .semibold))
+                            Label("Tạo phiên mới", systemImage: "plus")
                         }
-
                         Button(action: { showingMemorySheet = true }) {
-                            Image(systemName: "brain")
+                            Label("Trí nhớ truyện", systemImage: "brain")
                         }
-
                         Button(action: { showingSessionList = true }) {
-                            Image(systemName: "clock.arrow.circlepath")
+                            Label("Lịch sử chat", systemImage: "clock.arrow.circlepath")
                         }
-
+                        Divider()
                         Button(action: { showingSettings = true }) {
-                            Image(systemName: "gearshape")
+                            Label("Cài đặt AI", systemImage: "gearshape")
                         }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.system(size: 20))
+                            .foregroundColor(.white)
                     }
                 }
             }
@@ -275,7 +280,7 @@ public struct ReaderAIFullScreenView: View {
                 AIMarkdownMessageView(content: message.content, isUser: true)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .background(Color.blue)
+                    .background(Color(red: 36/255.0, green: 44/255.0, blue: 56/255.0))
                     .cornerRadius(16)
                     .contextMenu {
                         Button {
@@ -285,11 +290,6 @@ public struct ReaderAIFullScreenView: View {
                         }
                     }
             } else {
-                Image(systemName: "sparkles")
-                    .foregroundColor(.purple)
-                    .font(.system(size: 14))
-                    .padding(.top, 4)
-
                 VStack(alignment: .leading, spacing: 8) {
                     if message.isStreaming && message.content.isEmpty {
                         ReaderAIThinkingIndicatorView()

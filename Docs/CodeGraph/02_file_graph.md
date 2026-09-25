@@ -15,6 +15,18 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +4 file cho di trú đổi nguồn, bộ nhớ AI và lịch sử duyệt web Bypass (1.3.398)
+
+| Nhóm | File mới | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Services/Download | [`Services/Download/BookSourceMigrator.swift`](../../Sources/Services/Download/BookSourceMigrator.swift) | Actor điều phối di chuyển dữ liệu (chương đã tải, phiên AI, bộ nhớ AI, cấu hình dịch) khi đổi nguồn | 100 |
+| Common/Utils | [`Common/Utils/BrowserHistoryStore.swift`](../../Sources/Common/Utils/BrowserHistoryStore.swift) | Quản lý lưu trữ/nạp lịch sử duyệt web của Bypass Browser trong UserDefaults | 90 |
+| Views/Common | [`Views/Common/BypassBrowserHomeView.swift`](../../Sources/Views/Common/BypassBrowserHomeView.swift) | Giao diện trang chủ native dark theme cho Bypass Browser với shortcut 4x3 và thẻ lịch sử | 250 |
+| Views/Common | [`Views/Common/BrowserHistorySheetView.swift`](../../Sources/Views/Common/BrowserHistorySheetView.swift) | Sheet xem, tìm kiếm và xoá toàn bộ lịch sử duyệt web | 120 |
+
+* Cả 4 file mới đều ≤ 400 dòng vật lý và tuân thủ đúng 1 primary type top level.
+* `SearchView.swift` giảm dòng từ 868 xuống 858 (dưới baseline 872); `ReaderView.swift` giữ nguyên dưới trần baseline.
+
 ## +5 file cho AI chạy ngầm toàn app, Floating Widget thu nhỏ và Coordinator (1.3.396)
 
 | Nhóm | File mới | Vai trò | Dòng |

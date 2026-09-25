@@ -4,6 +4,7 @@ import SwiftUI
 extension ReaderAIFullScreenView {
     internal func initializeSession() {
         reloadSettings()
+        BookAIMemoryStore.shared.syncWithBookData(bookId: bookId, desc: localBook?.desc)
         if let active = AIRuntimeCoordinator.shared.activeSession, active.bookId == bookId {
             switchToSession(active)
         } else {
@@ -127,9 +128,7 @@ extension ReaderAIFullScreenView {
 
         // 2. Nạp Trí nhớ dài hạn của truyện
         let bookMemory = BookAIMemoryStore.shared.loadMemory(for: bookId)
-        let memoryContext = bookMemory.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            ? ""
-            : "\n\n[Trí nhớ bối cảnh & nhân vật của truyện]:\n\(bookMemory.notes)"
+        let memoryContext = bookMemory.compiledContextText()
 
         // 3. Nạp Tóm tắt ngữ cảnh cũ của session nếu đã compact
         let summaryContext = (currentSession.contextSummary?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false)

@@ -62,6 +62,24 @@ public final class AIChatHistoryStore: Sendable {
         try? FileManager.default.removeItem(at: url)
     }
 
+    /// Chuyển toàn bộ phiên chat từ sách cũ sang sách mới khi đổi nguồn.
+    public func migrateSessions(from oldBookId: String, to newBookId: String) {
+        guard oldBookId != newBookId else { return }
+        let oldSessions = loadSessions(for: oldBookId)
+        guard !oldSessions.isEmpty else { return }
+
+        let newSessions = loadSessions(for: newBookId)
+        var merged = newSessions
+        for oldSession in oldSessions {
+            if !merged.contains(where: { $0.id == oldSession.id }) {
+                merged.append(oldSession)
+            }
+        }
+        merged.sort(by: { $0.updatedAt > $1.updatedAt })
+        persistSessions(merged, for: newBookId)
+        clearAllSessions(for: oldBookId)
+    }
+
     private func persistSessions(_ sessions: [AIChatSession], for bookId: String) {
         let url = fileURL(for: bookId)
         do {

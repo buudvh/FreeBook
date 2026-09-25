@@ -15,6 +15,30 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Call graph phân hệ Đổi nguồn truyện & Di trú dữ liệu (1.3.398)
+
+```text
+SearchView.executeSourceChange(to:ext:)
+  ├─ ExtensionManager.detail & ExtensionManager.toc -> Lấy TOC nguồn mới
+  ├─ ChapterContentRepository.saveChapterList(bookId: newBookId, ...) -> Khởi tạo TOC
+  ├─ BookSourceMigrator.shared.migrateCachedChapters(oldBookId:, newBookId:, newChapters:)
+  │     ├─ ChapterStore.fetchOrderedTOC(oldBookId:) -> Lấy danh sách chương đã cache
+  │     ├─ BookBinManager.readChapterContent(oldBookId:, offset:, length:) -> Đọc nội dung gốc
+  │     ├─ BookBinManager.writeChapterContent(newBookId:, content:) -> Ghi vào file .bin mới
+  │     └─ ChapterStore.updateCacheMetadata(newBookId:, index:, url:, isCached: true, ...)
+  ├─ BookSourceMigrator.shared.migrateTranslationFiles(oldBookId:, newBookId:, isPlayingTTS:)
+  │     ├─ Di chuyển các file từ điển và rule riêng (gồm QuickTranslateEngineConfig.json)
+  │     └─ Invalidate cache QuickTranslationRuleBookStore & QuickTranslationRuleDisableStore
+  ├─ BookSourceMigrator.shared.migrateMetadataAndSettings(oldBookId:, newBookId:, isPlayingTTS:)
+  │     ├─ AIChatHistoryStore.shared.migrateSessions(from: oldBookId, to: newBookId)
+  │     ├─ BookAIMemoryStore.shared.migrateMemory(from: oldBookId, to: newBookId)
+  │     └─ TranslationConfigStore.setBookOverride(newBookId:, mode:)
+  ├─ MainActor: BookTransactionCoordinator.deleteBook(oldBookId:) (nếu !isPlayingTTS)
+  └─ BookSourceMigrator.shared.cleanupOldBookStorage(oldBookId:)
+        ├─ ChapterStore.deleteBook(oldBookId:)
+        └─ BookBinManager.deleteBinFile(oldBookId:)
+```
+
 ## Call graph phân hệ Reader AI Background & FullScreen Restoration (1.3.397)
 
 ```text

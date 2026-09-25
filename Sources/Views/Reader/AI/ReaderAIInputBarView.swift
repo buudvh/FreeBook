@@ -63,17 +63,18 @@ public struct ReaderAIInputBarView: View {
                     }
                 } label: {
                     HStack(spacing: 4) {
-                        Image(systemName: selectedMode.systemIcon)
+                        Image(systemName: "bubble.left.and.bubble.right.fill")
                             .font(.system(size: 11, weight: .bold))
-                        Text(selectedMode.title)
+                        Text(selectedMode.shortDisplayTitle)
                             .font(.system(size: 11, weight: .semibold))
+                            .lineLimit(1)
                         Image(systemName: "chevron.down")
                             .font(.system(size: 8))
                     }
-                    .foregroundColor(modeColor)
+                    .foregroundColor(.purple)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 5)
-                    .background(modeColor.opacity(0.12))
+                    .background(Color.purple.opacity(0.12))
                     .cornerRadius(8)
                 }
 
@@ -140,23 +141,23 @@ public struct ReaderAIInputBarView: View {
                     .cornerRadius(8)
                 }
 
-                // Nút Gửi hoặc Dừng
+                // Nút Gửi hoặc Dừng (to 36x36 nổi bật)
                 if isStreaming {
                     Button(action: onStop) {
                         Image(systemName: "stop.fill")
-                            .font(.system(size: 12, weight: .bold))
+                            .font(.system(size: 14, weight: .bold))
                             .foregroundColor(.white)
-                            .frame(width: 28, height: 28)
+                            .frame(width: 36, height: 36)
                             .background(Color.red)
                             .clipShape(Circle())
                     }
                 } else {
                     Button(action: onSend) {
                         Image(systemName: "arrow.up")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.system(size: 15, weight: .bold))
                             .foregroundColor(.white)
-                            .frame(width: 28, height: 28)
-                            .background(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray.opacity(0.5) : Color.blue)
+                            .frame(width: 36, height: 36)
+                            .background(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray.opacity(0.5) : Color(red: 36/255.0, green: 44/255.0, blue: 56/255.0))
                             .clipShape(Circle())
                     }
                     .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)

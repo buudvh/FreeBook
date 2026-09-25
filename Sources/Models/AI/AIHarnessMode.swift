@@ -27,6 +27,14 @@ public enum AIHarnessMode: String, CaseIterable, Codable, Sendable, Identifiable
         }
     }
 
+    public var shortDisplayTitle: String {
+        switch self {
+        case .ask: return "Manual"
+        case .plan: return "Plan"
+        case .bypass: return "Bypass"
+        }
+    }
+
     public var description: String {
         switch self {
         case .ask: return "Always ask before making changes (Hỏi trước khi sửa dữ liệu)"

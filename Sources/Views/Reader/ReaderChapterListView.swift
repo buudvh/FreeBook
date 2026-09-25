@@ -124,6 +124,11 @@ public struct ReaderChapterListView: View {
         .accessibilityAction(.escape) {
             onClose()
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("chapterTitlesDidRetranslate"))) { notification in
+            guard let notifBookId = notification.userInfo?["bookId"] as? String, notifBookId == bookId else { return }
+            displayTitleCache.removeAll()
+            store.reloadAllPages()
+        }
     }
 
     private var header: some View {

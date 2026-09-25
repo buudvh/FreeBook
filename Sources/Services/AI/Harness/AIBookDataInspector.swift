@@ -114,15 +114,48 @@ final class AIBookDataInspector: Sendable {
         return (Set(names), Set(vps))
     }
 
+    /// Kiểm tra từ/tên riêng đã có trong từ điển Name (riêng, custom, hoặc chung).
+    func checkWordInNames(word: String, bookNames: Set<String>) -> Bool {
+        if bookNames.contains(word) { return true }
+        let tm = TranslationManager.shared
+        let utf16Len = word.utf16.count
+        if let customNames = tm.customNamesDict,
+           let match = customNames.findLongestMatch(text: word, startIndex: 0),
+           match.length == utf16Len {
+            return true
+        }
+        if !tm.deletedNames.contains(word), tm.existsInBaseDictionary(word: word, isName: true) {
+            return true
+        }
+        return false
+    }
+
+    /// Kiểm tra từ/tên riêng đã có trong từ điển VietPhrase (riêng, custom, hoặc chung).
+    func checkWordInVietPhrase(word: String, bookVPs: Set<String>) -> Bool {
+        if bookVPs.contains(word) { return true }
+        let tm = TranslationManager.shared
+        let utf16Len = word.utf16.count
+        if let customVP = tm.customVietPhraseDict,
+           let match = customVP.findLongestMatch(text: word, startIndex: 0),
+           match.length == utf16Len {
+            return true
+        }
+        if !tm.deletedVietPhrase.contains(word), tm.existsInBaseDictionary(word: word, isName: false) {
+            return true
+        }
+        return false
+    }
+
     /// Bổ sung trạng thái từ điển đã có cho danh sách tên riêng trích xuất được.
-    /// Nếu tên đã có trong VP hoặc Name riêng thì gắn cờ tương ứng và bỏ chọn ban đầu (isSelected = false).
+    /// Kiểm tra cả từ điển riêng và chung; nếu từ đã có trong Names hoặc VP thì gắn cờ tương ứng và tự bỏ chọn ban đầu.
     func decorateExtractedNames(names: [AIExtractedName], bookId: String) -> [AIExtractedName] {
         let (bookNames, bookVPs) = fetchBookDictionarySets(bookId: bookId)
         return names.map { item in
             var copy = item
             let orig = item.original.trimmingCharacters(in: .whitespacesAndNewlines)
-            let inNames = bookNames.contains(orig)
-            let inVP = bookVPs.contains(orig)
+            guard !orig.isEmpty else { return copy }
+            let inNames = checkWordInNames(word: orig, bookNames: bookNames)
+            let inVP = checkWordInVietPhrase(word: orig, bookVPs: bookVPs)
             copy.hasInBookNames = inNames
             copy.hasInBookVP = inVP
             if inNames || inVP {

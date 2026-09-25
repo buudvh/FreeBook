@@ -741,9 +741,7 @@ struct ReaderView: View {
                 changeSourceTargetBook: book,
                 onSourceChanged: {
                     navigateToChangeSource = false
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        dismiss()
-                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { dismiss() }
                 }
             )
         }
@@ -893,11 +891,19 @@ struct ReaderView: View {
             ttsState.scope(to: bookId)
             ReaderEnergyDiagnostics.shared.beginReaderSession()
             updateDisplayedBookTitleCache()
+            if ReaderView.activeBookId == nil { ReaderView.activeBookId = bookId }
+            if let vm = viewModel {
+                viewModelRelay.observe(vm)
+                if vm.cachedChapter(at: vm.displayedChapterIndex) == nil {
+                    Task { await vm.reloadDisplayedChapter() }
+                }
+            }
         }
         .onChange(of: isTranslationEnabled) { _, _ in
             updateDisplayedBookTitleCache()
         }
         .onDisappear {
+            if navigateToChangeSource || navigateToBookDetail { return }
             if !showingAIFullScreen { AIRuntimeCoordinator.shared.isReaderActive = false }
             definitionSession.cancel()
             translationRefreshDebounceTask?.cancel()

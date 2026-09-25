@@ -119,6 +119,15 @@ final class BypassBrowserTabStore: NSObject, ObservableObject, WKNavigationDeleg
         decisionHandler(.allow)
     }
 
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        if let url = webView.url?.absoluteString,
+           !url.isEmpty,
+           url != "about:blank" {
+            let title = webView.title ?? ""
+            BrowserHistoryStore.shared.add(title: title, urlString: url)
+        }
+    }
+
     // MARK: - WKUIDelegate
 
     /// Link `target="_blank"` / `window.open`: mở tab mới và trả webView cho

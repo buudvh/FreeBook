@@ -51,6 +51,54 @@ public final class BookAIMemoryStore: Sendable {
         }
     }
 
+    /// Tự động đồng bộ âm thầm dữ liệu truyện và từ điển vào trí nhớ của AI.
+    public func syncWithBookData(bookId: String, desc: String?) {
+        var memory = loadMemory(for: bookId)
+        var changed = false
+
+        if memory.characterContext.isEmpty, let descText = desc?.trimmingCharacters(in: .whitespacesAndNewlines), !descText.isEmpty {
+            memory.characterContext = descText
+            changed = true
+        }
+
+        let dictContext = AIBookDataInspector.shared.fetchBookDictionaryContext(bookId: bookId)
+        if !dictContext.isEmpty && dictContext != memory.customDictionarySnapshot {
+            memory.customDictionarySnapshot = dictContext
+            changed = true
+        }
+
+        if changed {
+            saveMemory(memory)
+        }
+    }
+
+    /// Di chuyển trí nhớ AI khi đổi nguồn truyện.
+    public func migrateMemory(from oldBookId: String, to newBookId: String) {
+        let oldUrl = fileURL(for: oldBookId)
+        let newUrl = fileURL(for: newBookId)
+        guard FileManager.default.fileExists(atPath: oldUrl.path) else { return }
+
+        try? FileManager.default.removeItem(at: newUrl)
+        do {
+            try FileManager.default.copyItem(at: oldUrl, to: newUrl)
+            try? FileManager.default.removeItem(at: oldUrl)
+            var mem = loadMemory(for: newBookId)
+            let updated = BookAIMemory(
+                id: mem.id,
+                bookId: newBookId,
+                characterContext: mem.characterContext,
+                plotSummary: mem.plotSummary,
+                customDictionarySnapshot: mem.customDictionarySnapshot,
+                notes: mem.notes,
+                updatedAt: Date()
+            )
+            saveMemory(updated)
+            AppLogger.shared.log("Đã di chuyển trí nhớ AI từ \(oldBookId) sang \(newBookId)")
+        } catch {
+            AppLogger.shared.log("Lỗi di chuyển trí nhớ AI: \(error.localizedDescription)")
+        }
+    }
+
     /// Xóa trí nhớ của cuốn truyện.
     public func clearMemory(for bookId: String) {
         let url = fileURL(for: bookId)

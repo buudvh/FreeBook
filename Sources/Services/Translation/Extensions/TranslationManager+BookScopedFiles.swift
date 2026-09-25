@@ -23,6 +23,6 @@ extension TranslationManager {
 
     /// Mọi file phải đi theo truyện khi **đổi nguồn** (bookId đổi).
     public static var bookScopedMigrationFiles: [String] {
-        bookScopedDictionaryBinaryFiles + bookScopedDictionaryTextFiles + bookScopedRuleFiles
+        bookScopedDictionaryBinaryFiles + bookScopedDictionaryTextFiles + bookScopedRuleFiles + [QuickTranslationBookEngineConfigStore.fileName]
     }
 }

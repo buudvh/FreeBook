@@ -677,35 +677,26 @@ struct SearchView: View {
                 mode: .replaceFullTOC
             )
 
+            // Giữ lại nội dung các chương đã tải từ nguồn cũ
+            await BookSourceMigrator.shared.migrateCachedChapters(
+                oldBookId: oldBookId,
+                newBookId: newBookId,
+                newChapters: chapterSnapshots
+            )
+
+            // Di chuyển từ điển riêng, rule riêng, session AI và cấu hình dịch
+            await BookSourceMigrator.shared.migrateTranslationFiles(
+                oldBookId: oldBookId,
+                newBookId: newBookId,
+                isPlayingTTS: isPlayingTTS
+            )
+            await BookSourceMigrator.shared.migrateMetadataAndSettings(
+                oldBookId: oldBookId,
+                newBookId: newBookId,
+                isPlayingTTS: isPlayingTTS
+            )
+
             await MainActor.run {
-                let translateDir = TranslationManager.shared.translateDirectory
-                let oldDir = translateDir.appendingPathComponent("books").appendingPathComponent(oldBookId)
-                let newDir = translateDir.appendingPathComponent("books").appendingPathComponent(newBookId)
-
-                if FileManager.default.fileExists(atPath: oldDir.path) {
-                    try? FileManager.default.createDirectory(at: newDir, withIntermediateDirectories: true)
-                    // Nguồn khai duy nhất: thêm file riêng truyện mới chỉ cần sửa `TranslationManager`,
-                    // không phải nhớ ra chỗ này. Gồm cả bộ rule riêng và danh sách rule đang tắt.
-                    let fileNames = TranslationManager.bookScopedMigrationFiles
-                    for name in fileNames {
-                        let oldFile = oldDir.appendingPathComponent(name)
-                        let newFile = newDir.appendingPathComponent(name)
-                        if FileManager.default.fileExists(atPath: oldFile.path) {
-                            try? FileManager.default.removeItem(at: newFile)
-                            try? FileManager.default.copyItem(at: oldFile, to: newFile)
-                        }
-                    }
-                    if !isPlayingTTS {
-                        try? FileManager.default.removeItem(at: oldDir)
-                    }
-                    // Snapshot bộ rule riêng và tập mẫu đang tắt được cache theo bookId ⇒ cả hai
-                    // bookId đều phải bị bỏ cache, nếu không truyện mới còn thấy dữ liệu cũ.
-                    QuickTranslationRuleBookStore.shared.invalidate(bookId: oldBookId)
-                    QuickTranslationRuleBookStore.shared.invalidate(bookId: newBookId)
-                    QuickTranslationRuleDisableStore.shared.invalidateCache(for: .book(oldBookId))
-                    QuickTranslationRuleDisableStore.shared.invalidateCache(for: .book(newBookId))
-                }
-
                 if !isPlayingTTS {
                     let delRes = BookTransactionCoordinator.shared.deleteBook(bookId: oldBookId, in: modelContext)
                     if case .failure(let err) = delRes {
@@ -734,7 +725,7 @@ struct SearchView: View {
             }
 
             if !isPlayingTTS {
-                try? await ChapterStore.shared.deleteBook(bookId: oldBookId)
+                await BookSourceMigrator.shared.cleanupOldBookStorage(oldBookId: oldBookId)
             }
         } catch {
             print("❌ Lỗi đổi nguồn truyện: \(error.localizedDescription)")

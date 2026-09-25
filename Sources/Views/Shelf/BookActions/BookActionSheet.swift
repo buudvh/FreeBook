@@ -348,6 +348,10 @@ struct BookActionSheet: View {
     /// đang đóng làm hai lớp trình bày chọi nhau và lớp mới không hiện — cùng lý do với
     /// `NotificationInboxView(onOpenBook:)` ở `ShelfView`.
     private func emit(_ action: BookSheetAction) {
+        if action == .togglePin {
+            onAction(action)
+            return
+        }
         dismiss()
         let handler = onAction
         DispatchQueue.main.async {

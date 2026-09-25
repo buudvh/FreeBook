@@ -110,6 +110,11 @@ public final class ReaderChapterListStore {
         reloadViewportAfterReset()
     }
 
+    public func reloadAllPages() {
+        setupPlaceholderRows()
+        reloadViewportAfterReset()
+    }
+
     private func reloadViewportAfterReset() {
         guard let page = lastViewportPage,
               page >= 0,

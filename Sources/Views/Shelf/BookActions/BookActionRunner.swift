@@ -114,6 +114,11 @@ struct BookActionRunner {
             }
 
             await MainActor.run {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("chapterTitlesDidRetranslate"),
+                    object: nil,
+                    userInfo: ["bookId": bookId]
+                )
                 ToastManager.shared.show(message: "Đã dịch lại xong tên chương cho: \(TranslateUtils.translateBookTitleIfNeeded(bookTitle, bookId: bookId))")
             }
         }
