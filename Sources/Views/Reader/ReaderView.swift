@@ -892,12 +892,7 @@ struct ReaderView: View {
             ReaderEnergyDiagnostics.shared.beginReaderSession()
             updateDisplayedBookTitleCache()
             if ReaderView.activeBookId == nil { ReaderView.activeBookId = bookId }
-            if let vm = viewModel {
-                viewModelRelay.observe(vm)
-                if vm.cachedChapter(at: vm.displayedChapterIndex) == nil {
-                    Task { await vm.reloadDisplayedChapter() }
-                }
-            }
+            if let vm = viewModel { viewModelRelay.observe(vm) }
         }
         .onChange(of: isTranslationEnabled) { _, _ in
             updateDisplayedBookTitleCache()

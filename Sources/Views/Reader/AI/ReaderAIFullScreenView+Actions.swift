@@ -4,7 +4,7 @@ import SwiftUI
 extension ReaderAIFullScreenView {
     internal func initializeSession() {
         reloadSettings()
-        BookAIMemoryStore.shared.syncWithBookData(bookId: bookId, desc: localBook?.desc)
+        BookAIMemoryStore.shared.syncWithBookData(bookId: bookId)
         if let active = AIRuntimeCoordinator.shared.activeSession, active.bookId == bookId {
             switchToSession(active)
         } else {

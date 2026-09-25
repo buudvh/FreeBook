@@ -7,7 +7,7 @@ public actor BookSourceMigrator {
     private init() {}
 
     /// Sao chép các chương đã tải từ nguồn cũ sang nguồn mới nếu chương tương ứng tồn tại theo thứ tự.
-    public func migrateCachedChapters(
+    func migrateCachedChapters(
         oldBookId: String,
         newBookId: String,
         newChapters: [ChapterMetadataSnapshot]
