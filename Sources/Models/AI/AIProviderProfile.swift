@@ -63,6 +63,14 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
         accountEmail = try container.decodeIfPresent(String.self, forKey: .accountEmail)
     }
 
+    /// Kiểm tra profile OAuth đã có access token hoặc refresh token hợp lệ hay chưa
+    public var isOAuthLoggedIn: Bool {
+        guard authType == "oauth" else { return false }
+        let hasToken = !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasRefresh = !(refreshToken ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return hasToken || hasRefresh
+    }
+
     public static let defaultGemini = AIProviderProfile(
         id: "gemini",
         name: "Google Gemini",

@@ -3,8 +3,8 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-09-25T08:33:07Z",
-  "gitCommit": "3c9816f6c9ebf680bc71162675b599856cf31be4",
+  "generatedAt": "2026-09-25T08:46:02Z",
+  "gitCommit": "28c81e8d3b365f9998da4f9a5b179504833eb392",
   "sourceFileCount": 578,
   "documentCount": 16,
   "documents": [
@@ -1323,12 +1323,12 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "e33da2b49b6dd92f33cf687b4f3b6768f3cb346358c0f568e310c7c4e06fd15c",
-      "sourceHash": "be7932c4e866df85d939632c966efa753dc9e567adbe670a096e35614abca841",
+      "sourceHash": "204f6c3a02713c892874cdb268568d23f7f429ac80d07671de6f76227a96883a",
       "generatedHash": "dad30d4acd2631913bc1407e9b87a7016769b73c06c6ba32ea634aa1264e9bdc",
-      "generatedAt": "2026-09-25T08:32:48Z",
-      "reviewedAt": "2026-09-25T08:32:48Z",
-      "reviewedCommit": "3c9816f6c9ebf680bc71162675b599856cf31be4",
-      "reviewMode": "accept"
+      "generatedAt": "2026-09-25T08:46:02Z",
+      "reviewedAt": "2026-09-25T08:46:02Z",
+      "reviewedCommit": "28c81e8d3b365f9998da4f9a5b179504833eb392",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "04_call_graph.md",
@@ -3033,12 +3033,12 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "ebb763aa7b5fc9218e2446047b37c04e4843152d8d8a206718b6810ac003f947",
-      "sourceHash": "d8a90063c0f6aa4e507420b8c69b05d3b71998ad933192e7402da68dce4354c2",
+      "sourceHash": "0d56205dd393160e268e0a37c9b4ff4c66549e560ae7fc746fcdca24513d85fa",
       "generatedHash": "409232b76a380dcc0a63f1af2fb48fdadad102852e038e96f19134a41bf8c1fe",
-      "generatedAt": "2026-09-25T08:32:48Z",
-      "reviewedAt": "2026-09-25T08:32:48Z",
-      "reviewedCommit": "3c9816f6c9ebf680bc71162675b599856cf31be4",
-      "reviewMode": "accept"
+      "generatedAt": "2026-09-25T08:46:02Z",
+      "reviewedAt": "2026-09-25T08:46:02Z",
+      "reviewedCommit": "28c81e8d3b365f9998da4f9a5b179504833eb392",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "12_ownership_graph.md",

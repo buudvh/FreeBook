@@ -12,8 +12,11 @@ public struct OpenAIOAuthLoginSheet: View {
     @State private var isProcessing: Bool = false
     @State private var statusMessage: String? = nil
     @State private var isSuccess: Bool = false
+    public var onLoginSuccess: (() -> Void)? = nil
 
-    public init() {}
+    public init(onLoginSuccess: (() -> Void)? = nil) {
+        self.onLoginSuccess = onLoginSuccess
+    }
 
     public var body: some View {
         NavigationView {
@@ -149,6 +152,7 @@ public struct OpenAIOAuthLoginSheet: View {
 
                 try? await Task.sleep(nanoseconds: 1_200_000_000)
                 await MainActor.run {
+                    onLoginSuccess?()
                     dismiss()
                 }
             } catch {
