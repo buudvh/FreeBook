@@ -15,6 +15,19 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Tùy Biến Size Nút Dịch & Thu Gọn Khoảng Cách Icon Danh Sách Chương và Header Reader (1.3.400)
+
+* **Tùy Biến Kích Thước & Tối Ưu Chấm Trạng Thái Nút Dịch (`ReaderTranslationScopeMenuView.swift`, `BookDetailView.swift`)**:
+  - `ReaderTranslationScopeMenuView`: Bổ sung tham số `iconSize: CGFloat = 19`, `frameWidth: CGFloat? = nil`, `frameHeight: CGFloat? = nil` với giá trị mặc định giữ nguyên hiện tại.
+  - Tối ưu vị trí dấu chấm chỉ thị trạng thái override: khi `showBackground == false`, gắn trực tiếp lên góc biểu tượng icon qua `.overlay(alignment: .topTrailing)` với kích thước 4.5pt thay vì neo theo mép ngoài của cả khung, ngăn tình trạng dấu chấm trôi lơ lửng khi không có khung nền.
+  - `BookDetailView`: Cấu hình nút dịch trên Toolbar Trailing với `iconSize: 13, frameWidth: 32, frameHeight: 32` đồng bộ hoàn hảo kích thước và khoảng cách với nút dropdown `ellipsisMenu` (13pt) bên cạnh. Loại bỏ sub-menu dịch trùng lặp bên trong `ellipsisMenu` (`BookDetailView+Extensions.swift`) và dọn dẹp computed property `translationStatus` thừa.
+* **Thu Nhỏ & Gần Nhau Cụm Nút Icon Danh Sách Chương (`ReaderChapterListView.swift`)**:
+  - Đưa 3 nút thao tác (`character.bubble` dịch lại, `arrow.clockwise` cập nhật, `arrow.up.arrow.down` sắp xếp) về font size 13pt (`.font(.system(size: 13, weight: .semibold))`).
+  - Giảm kích thước khung từ `44x44` xuống `30x30` và bọc trong `HStack(spacing: 2)` giúp các nút gom sát lại gần nhau, thanh thoát và gọn gàng.
+* **Thu Hẹp Khoảng Cách Cụm Icon Header Reader (`ReaderHeaderFooterOverlayView.swift`)**:
+  - Tách hàng nút trên cùng thành 2 cụm: Nút quay lại bên trái (`frame(width: 36, height: 44)`) và cụm các nút thao tác bên phải gom trong `HStack(spacing: 2)`.
+  - Giảm khung các nút thao tác bên phải (`magnifyingglass`, `scroll`, `arrow.clockwise`, `sparkles`, `gearshape`, `ellipsis.circle`) từ `44x44` về `30x36` (hoặc `30x30`), giảm khoảng cách giữa chúng xuống 2pt, giải phóng không gian màn hình và tạo diện mạo toolbar hiện đại, liền mạch.
+
 ## Khắc Phục Lỗi Cuộn Đen Màn Hình AI & Tăng Tương Phản Thẻ Tên Riêng (1.3.399)
 
 * **Ổn Định Vùng Cuộn Tin Nhắn AI (`ReaderAIFullScreenView.swift`)**:

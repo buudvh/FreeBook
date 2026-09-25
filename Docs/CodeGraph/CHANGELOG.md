@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.400] - 2026-09-25
+
+### feat: tuy bien size nut dich va thu gon khoang cach icon danh sach chuong va header reader
+
+Sửa **5** file Swift trong `Sources/Views/Reader/` và `Sources/Views/BookDetail/`:
+
+- **Tùy Biến Size Nút Dịch & Tối Ưu Chấm Trạng Thái (`ReaderTranslationScopeMenuView.swift`, `BookDetailView.swift`, `BookDetailView+Extensions.swift`)**:
+  - `ReaderTranslationScopeMenuView`: Bổ sung tùy chọn `iconSize`, `frameWidth`, `frameHeight` với giá trị mặc định là 19pt và khung 44x52/36; tối ưu hóa dấu chấm override khi không có khung nền gắn trực tiếp vào góc icon qua `.overlay(alignment: .topTrailing)`.
+  - `BookDetailView`: Đồng bộ nút dịch trên Toolbar Trailing sang `iconSize: 13, frameWidth: 32, frameHeight: 32` tương đồng chuẩn xác với nút dropdown `ellipsisMenu` bên cạnh. Loại bỏ sub-menu dịch trùng lặp trong `ellipsisMenu` (`BookDetailView+Extensions.swift`) và xóa computed property `translationStatus` thừa.
+- **Thu Nhỏ & Gom Gần Nút Icon Danh Sách Chương (`ReaderChapterListView.swift`)**:
+  - Đưa 3 nút icon (`character.bubble`, `arrow.clockwise`, `arrow.up.arrow.down`) về font size 13pt, giảm khung xuống 30x30 và gom trong `HStack(spacing: 2)`.
+- **Thu Hẹp Khoảng Cách Cụm Icon Header Reader (`ReaderHeaderFooterOverlayView.swift`)**:
+  - Gom các nút thao tác bên phải vào `HStack(spacing: 2)` với khung gọn 30x36 (hoặc 30x30), giảm khoảng cách giữa chúng, giúp thanh điều hướng thoáng đãng và liền mạch.
+
 ## [1.3.399] - 2026-09-25
 
 ### feat: sua loi cuon den man hinh ai va tang tuong phan nut badge the ten rieng

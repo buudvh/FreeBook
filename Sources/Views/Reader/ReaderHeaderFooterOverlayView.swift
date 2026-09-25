@@ -40,93 +40,95 @@ struct ReaderHeaderFooterOverlayView: View {
         VStack {
             // Header View
             VStack(spacing: 0) {
-                HStack(spacing: 8) {
+                HStack(spacing: 0) {
                     Button(action: onDismiss) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(selectedTheme.textColor)
-                            .frame(width: 44, height: 44)
+                            .frame(width: 36, height: 44)
                     }
                     .accessibilityLabel("Quay lại")
 
                     Spacer()
 
-                    // Tìm trong chương — để cạnh nút cuộn theo TTS thay vì nằm trong menu "..."
-                    Button(action: onOpenReaderSearch) {
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(selectedTheme.textColor)
-                            .frame(width: 44, height: 44)
-                    }
-                    .accessibilityLabel("Tìm trong chương")
-
-                    // Nút toggle tự động cuộn theo Highlight TTS - luôn hiển thị
-                    Button(action: { isAutoScrollDisabled.toggle() }) {
-                        Image(systemName: isAutoScrollDisabled ? "scroll" : "scroll.fill")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(isAutoScrollDisabled ? selectedTheme.textColor.opacity(0.85) : .white)
-                            .frame(width: 44, height: 44)
-                            .background(selectedTheme.textColor.opacity(0.07), in: RoundedRectangle(cornerRadius: 6))
-                    }
-                    .accessibilityLabel(isAutoScrollDisabled ? "Bật cuộn theo Highlight TTS" : "Tắt cuộn theo Highlight TTS")
-
-                    if !isLocalTXTBook {
-                        Button(action: onReloadChapter) {
-                            Image(systemName: "arrow.clockwise")
+                    HStack(spacing: 2) {
+                        // Tìm trong chương — để cạnh nút cuộn theo TTS thay vì nằm trong menu "..."
+                        Button(action: onOpenReaderSearch) {
+                            Image(systemName: "magnifyingglass")
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(selectedTheme.textColor)
-                                .frame(width: 44, height: 44)
+                                .frame(width: 30, height: 36)
                         }
-                        .accessibilityLabel("Tải lại chương")
-                    }
+                        .accessibilityLabel("Tìm trong chương")
 
-                    Button(action: onOpenAI) {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(selectedTheme.textColor)
-                            .frame(width: 44, height: 44)
-                    }
-                    .accessibilityLabel("Trợ lý AI")
-
-                    Button(action: { showingSettings = true }) {
-                        Image(systemName: "gearshape")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(selectedTheme.textColor)
-                            .frame(width: 44, height: 44)
-                    }
-                    .accessibilityLabel("Cài đặt trình đọc")
-
-                    Menu {
-                        Button(action: onOpenAI) {
-                            Label("Trợ lý AI", systemImage: "sparkles")
+                        // Nút toggle tự động cuộn theo Highlight TTS - luôn hiển thị
+                        Button(action: { isAutoScrollDisabled.toggle() }) {
+                            Image(systemName: isAutoScrollDisabled ? "scroll" : "scroll.fill")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(isAutoScrollDisabled ? selectedTheme.textColor.opacity(0.85) : .white)
+                                .frame(width: 30, height: 30)
+                                .background(selectedTheme.textColor.opacity(0.07), in: RoundedRectangle(cornerRadius: 6))
                         }
-
-                        if hasLocalBook {
-                            Button(action: { showingBookDictionary = true }) {
-                                Label("Từ điển truyện", systemImage: "book.closed")
-                            }
-                        }
-
-                        Button(action: { showingBypassBrowser = true }) {
-                            Label("Mở bằng trình duyệt", systemImage: "safari")
-                        }
+                        .accessibilityLabel(isAutoScrollDisabled ? "Bật cuộn theo Highlight TTS" : "Tắt cuộn theo Highlight TTS")
 
                         if !isLocalTXTBook {
-                            Button(action: onChangeSource) {
-                                Label("Đổi nguồn truyện", systemImage: "arrow.triangle.2.circlepath")
+                            Button(action: onReloadChapter) {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(selectedTheme.textColor)
+                                    .frame(width: 30, height: 36)
                             }
+                            .accessibilityLabel("Tải lại chương")
                         }
 
-                        Button(action: onOpenAppSettings) {
-                            Label("Mở Cài đặt", systemImage: "gearshape.fill")
+                        Button(action: onOpenAI) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(selectedTheme.textColor)
+                                .frame(width: 30, height: 36)
                         }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(selectedTheme.textColor)
-                            .frame(width: 44, height: 44)
+                        .accessibilityLabel("Trợ lý AI")
+
+                        Button(action: { showingSettings = true }) {
+                            Image(systemName: "gearshape")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(selectedTheme.textColor)
+                                .frame(width: 30, height: 36)
+                        }
+                        .accessibilityLabel("Cài đặt trình đọc")
+
+                        Menu {
+                            Button(action: onOpenAI) {
+                                Label("Trợ lý AI", systemImage: "sparkles")
+                            }
+
+                            if hasLocalBook {
+                                Button(action: { showingBookDictionary = true }) {
+                                    Label("Từ điển truyện", systemImage: "book.closed")
+                                }
+                            }
+
+                            Button(action: { showingBypassBrowser = true }) {
+                                Label("Mở bằng trình duyệt", systemImage: "safari")
+                            }
+
+                            if !isLocalTXTBook {
+                                Button(action: onChangeSource) {
+                                    Label("Đổi nguồn truyện", systemImage: "arrow.triangle.2.circlepath")
+                                }
+                            }
+
+                            Button(action: onOpenAppSettings) {
+                                Label("Mở Cài đặt", systemImage: "gearshape.fill")
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(selectedTheme.textColor)
+                                .frame(width: 30, height: 36)
+                        }
+                        .accessibilityLabel("Tùy chọn trình đọc")
                     }
-                    .accessibilityLabel("Tùy chọn trình đọc")
                 }
 
                 HStack(alignment: .center, spacing: 8) {

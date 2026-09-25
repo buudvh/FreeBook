@@ -214,39 +214,43 @@ public struct ReaderChapterListView: View {
 
                         Spacer(minLength: 4)
 
-                        Button(action: retranslateChaptersAction) {
-                            Image(systemName: "character.bubble")
-                                .foregroundColor(.white)
-                                .frame(width: 44, height: 44)
-                        }
-                        .accessibilityLabel("Dịch lại chương và mục lục")
-
-                        if !isLocalTXTBook {
-                            if isUpdating {
-                                ProgressView()
-                                    .tint(theme.textColor)
-                                    .frame(width: 44, height: 44)
-                                    .accessibilityLabel("Đang cập nhật mục lục")
-                            } else {
-                                Button(action: refreshChapters) {
-                                    Image(systemName: "arrow.clockwise")
-                                        .foregroundColor(theme.textColor)
-                                        .frame(width: 44, height: 44)
-                                }
-                                .accessibilityLabel("Cập nhật mục lục")
+                        HStack(spacing: 2) {
+                            Button(action: retranslateChaptersAction) {
+                                Image(systemName: "character.bubble")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .frame(width: 30, height: 30)
                             }
-                        }
+                            .accessibilityLabel("Dịch lại chương và mục lục")
 
-                        Button(action: {
-                            isAscending.toggle()
-                            store.updateSortOrder(isAscending: isAscending)
-                        }) {
-                            Image(systemName: "arrow.up.arrow.down")
-                                .font(.body.weight(.semibold))
-                                .foregroundColor(theme.textColor)
-                                .frame(width: 44, height: 44)
+                            if !isLocalTXTBook {
+                                if isUpdating {
+                                    ProgressView()
+                                        .tint(theme.textColor)
+                                        .frame(width: 30, height: 30)
+                                        .accessibilityLabel("Đang cập nhật mục lục")
+                                } else {
+                                    Button(action: refreshChapters) {
+                                        Image(systemName: "arrow.clockwise")
+                                            .font(.system(size: 13, weight: .semibold))
+                                            .foregroundColor(theme.textColor)
+                                            .frame(width: 30, height: 30)
+                                    }
+                                    .accessibilityLabel("Cập nhật mục lục")
+                                }
+                            }
+
+                            Button(action: {
+                                isAscending.toggle()
+                                store.updateSortOrder(isAscending: isAscending)
+                            }) {
+                                Image(systemName: "arrow.up.arrow.down")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(theme.textColor)
+                                    .frame(width: 30, height: 30)
+                            }
+                            .accessibilityLabel(isAscending ? "Sắp xếp chương giảm dần" : "Sắp xếp chương tăng dần")
                         }
-                        .accessibilityLabel(isAscending ? "Sắp xếp chương giảm dần" : "Sắp xếp chương tăng dần")
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .topLeading)

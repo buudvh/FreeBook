@@ -53,10 +53,6 @@ struct BookDetailView: View {
     @State internal var host = ""
     @State internal var isTranslationEnabled = false
 
-    internal var translationStatus: TranslationConfigStore.ResolvedStatus {
-        TranslationConfigStore.shared.resolveStatus(bookId: actualBookId, packageId: extensionPackageId)
-    }
-
     var totalChaptersCount: Int {
         if chapterSnapshots.count > 0 { return chapterSnapshots.count }
         if ChapterStoreConfiguration.enableSwiftDataTOCWrite {
@@ -242,7 +238,10 @@ struct BookDetailView: View {
                         packageId: extensionPackageId,
                         sourceName: sourceName,
                         showBackground: false,
-                        isChineseSourceHint: ext?.isChineseSource
+                        isChineseSourceHint: ext?.isChineseSource,
+                        iconSize: 13,
+                        frameWidth: 32,
+                        frameHeight: 32
                     )
                     ellipsisMenu
                 }

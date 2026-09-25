@@ -6,29 +6,6 @@ extension BookDetailView {
     @ViewBuilder
     internal var ellipsisMenu: some View {
         Menu {
-            Menu {
-                Button(action: {
-                    TranslationConfigStore.shared.setBookOverride(bookId: actualBookId, mode: .inherited)
-                }) {
-                    Label("Theo nguồn (Mặc định)", systemImage: translationStatus.bookOverride == .inherited ? "checkmark" : "")
-                }
-                Button(action: {
-                    TranslationConfigStore.shared.setBookOverride(bookId: actualBookId, mode: .enabled)
-                }) {
-                    Label("Luôn Bật cho truyện này", systemImage: translationStatus.bookOverride == .enabled ? "checkmark" : "")
-                }
-                Button(action: {
-                    TranslationConfigStore.shared.setBookOverride(bookId: actualBookId, mode: .disabled)
-                }) {
-                    Label("Luôn Tắt cho truyện này", systemImage: translationStatus.bookOverride == .disabled ? "checkmark" : "")
-                }
-            } label: {
-                Label(
-                    isTranslationEnabled ? "Dịch: Bật (\(translationStatus.origin.rawValue))" : "Dịch: Tắt (\(translationStatus.origin.rawValue))",
-                    systemImage: isTranslationEnabled ? "character.bubble.fill" : "character.bubble"
-                )
-            }
-
             if localBook != nil {
                 Button(action: {
                     navigateToDictionary = true
