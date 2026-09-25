@@ -15,6 +15,15 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Hỗ trợ Anthropic Claude Native API và Cập nhật Model Mới Nhất (1.3.406)
+
+* [`AnthropicClient.swift`](../../Sources/Services/AI/AnthropicClient.swift#L4): Singleton actor xử lý gọi Anthropic Messages API (`/v1/messages`) với header xác thực `x-api-key`, header phiên bản `anthropic-version: 2023-06-01`, bóc tách system prompt thành top-level parameter `system`, gộp và chuẩn hoá role xen kẽ user/assistant, hỗ trợ cả streaming SSE (`content_block_delta`) lẫn non-streaming.
+* [`AnthropicTypes.swift`](../../Sources/Services/AI/AnthropicTypes.swift#L4): DTO struct cho Anthropic API bao gồm `AnthropicMessageRequest`, `Response`, `StreamDelta` (được nest để tuân thủ 1 primary type).
+* [`AIProviderProfile.swift`](../../Sources/Models/AI/AIProviderProfile.swift#L10) & [`AIProviderPreset.swift`](../../Sources/Models/AI/AIProviderPreset.swift#L10): Bổ sung thuộc tính `apiFormat` ("openai" hoặc "anthropic"), thêm preset `defaultAnthropic` với các model chính thức mới nhất (`claude-3-7-sonnet-latest`, `claude-3-5-sonnet-latest`, `claude-3-5-haiku-latest`, `claude-3-7-sonnet-20250219`, `claude-3-5-sonnet-20241022`, `claude-3-opus-latest`), và cập nhật danh sách model OpenRouter Claude mới (`anthropic/claude-3.7-sonnet`, `anthropic/claude-3.7-sonnet:thinking`, ...).
+* [`AIRuntimeCoordinator.swift`](../../Sources/Views/Reader/AI/AIRuntimeCoordinator.swift#L97), [`AIContextCompactor.swift`](../../Sources/Services/AI/AIContextCompactor.swift#L55) & [`AINameExtractionBatchProcessor.swift`](../../Sources/Services/AI/AINameExtractionBatchProcessor.swift#L29): Tự động rẽ nhánh sang `AnthropicClient` khi cấu hình `apiFormat == "anthropic"`.
+* [`AISettingsView.swift`](../../Sources/Views/Settings/AI/AISettingsView.swift#L130), [`AISettingsView+Actions.swift`](../../Sources/Views/Settings/AI/AISettingsView+Actions.swift#L40) & [`AddProviderProfileSheet.swift`](../../Sources/Views/Settings/AI/AddProviderProfileSheet.swift#L30): Bổ sung Picker chọn định dạng API (OpenAI vs Anthropic Claude), mẫu template "Anthropic Claude (Chính thức)", và test kết nối / load models qua Anthropic API native.
+* Thêm **2** file Swift mới; cần `xcodegen generate` và build trên macOS.
+
 ## Xoá Provider ChatGPT Web & OpenAI OAuth, Tự động Cách Khoảng Trắng Token Rule và Tiền Xử Lý Số Rời Rạc (1.3.405)
 
 * [`TTSNumberSeparatorMode.swift`](../../Sources/Services/TTS/Preprocessing/TTSNumberSeparatorMode.swift#L1): Enum và bộ tiền xử lý số rời rạc (`all`, `smart`, `fourDigits`, `off`) dùng Regex phân tách an toàn các cặp số viết liền dấu cách/gạch nối như `10 1000` hoặc `10-1000` thành `10, 1000` giúp mọi engine TTS không đọc gộp số.

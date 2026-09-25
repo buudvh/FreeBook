@@ -15,6 +15,14 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +2 file cho Anthropic Messages API; 100% tuân thủ trần ≤ 400 dòng (1.3.406)
+
+* **2 file Swift mới, 1 primary type top level**:
+  - `AnthropicClient.swift`: **236**/400 dòng, actor singleton quản lý toàn diện kết nối streaming SSE và non-streaming với Anthropic Messages API.
+  - `AnthropicTypes.swift`: **85**/400 dòng, DTO structs với các kiểu lồng bên trong `AnthropicMessageRequest` đảm bảo đúng 1 primary type top level.
+* Các file sửa đổi (`AIRuntimeCoordinator.swift` 361/400, `AISettingsView.swift` 338/400, `AddProviderProfileSheet.swift` 291/400, `AINameExtractionBatchProcessor.swift` 256/400, `AISettingsView+Actions.swift` 112/400, `AIContextCompactor.swift` 71/400) đều nằm an toàn dưới trần 400 dòng.
+* `check_architecture.py` giữ nguyên **6** violation nền cũ, không phát sinh bất kỳ vi phạm kiến trúc nào mới.
+
 ## +2 file tiền xử lý TTS, xoá 5 file AI; 100% tuân thủ trần ≤ 400 dòng (1.3.405)
 
 * **2 file Swift mới, 1 primary type top level**:

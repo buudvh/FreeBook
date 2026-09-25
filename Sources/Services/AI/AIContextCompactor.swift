@@ -52,7 +52,14 @@ public final class AIContextCompactor: Sendable {
         ]
 
         do {
-            let (summary, _) = try await OpenAIClient.shared.sendChat(config: config, messages: messages)
+            let summary: String?
+            if config.activeProfile.apiFormat == "anthropic" {
+                let (res, _) = try await AnthropicClient.shared.sendChat(config: config, messages: messages)
+                summary = res
+            } else {
+                let (res, _) = try await OpenAIClient.shared.sendChat(config: config, messages: messages)
+                summary = res
+            }
             guard let summary else { return session.contextSummary }
             let trimmed = summary.trimmingCharacters(in: .whitespacesAndNewlines)
             return trimmed.isEmpty ? session.contextSummary : trimmed

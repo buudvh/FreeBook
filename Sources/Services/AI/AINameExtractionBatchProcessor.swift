@@ -26,7 +26,14 @@ public final class AINameExtractionBatchProcessor: Sendable {
             OpenAIChatRequest.Message(role: "user", content: "Văn bản raw chương truyện:\n\n\(truncated)")
         ]
 
-        let (content, _) = try await OpenAIClient.shared.sendChat(config: config, messages: messages)
+        let content: String?
+        if config.activeProfile.apiFormat == "anthropic" {
+            let (res, _) = try await AnthropicClient.shared.sendChat(config: config, messages: messages)
+            content = res
+        } else {
+            let (res, _) = try await OpenAIClient.shared.sendChat(config: config, messages: messages)
+            content = res
+        }
         guard let content = content else { return [] }
 
         return parseNamesFromJSONString(content)

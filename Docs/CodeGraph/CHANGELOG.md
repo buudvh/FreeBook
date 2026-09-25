@@ -2,6 +2,28 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.406] - 2026-09-25
+
+### feat: them dinh dang anthropic claude native api va cap nhat danh sach model
+
+Thêm **2** file Swift mới, sửa **8** file Swift trong `Sources/Models/`, `Sources/Services/`, `Sources/Views/`:
+
+- **Tích Hợp Anthropic Claude Messages API Native (`AnthropicClient.swift`, `AnthropicTypes.swift`)**:
+  - `AnthropicClient`: Triển khai singleton actor kết nối API native `/v1/messages` của Anthropic với header xác thực `x-api-key: <token>` và `anthropic-version: 2023-06-01`.
+  - Tự động tách `role == "system"` thành trường `system` cấp cao nhất của request JSON, gộp và chuẩn hóa role luân phiên `user`/`assistant`, hỗ trợ cả streaming SSE (`content_block_delta`) và non-streaming response.
+  - `AnthropicTypes`: DTO struct `AnthropicMessageRequest`, `Response`, `StreamDelta` lồng nhau đảm bảo đúng 1 primary type top level.
+- **Cập Nhật Danh Sách Model Mới Nhất & Cấu Hình Định Dạng API (`AIProviderProfile.swift`, `AIProviderPreset.swift`)**:
+  - Bổ sung trường `apiFormat: String` ("openai" hoặc "anthropic") trong `AIProviderProfile`, hỗ trợ giải mã tương thích ngược.
+  - Thêm preset `defaultAnthropic` với danh sách model chính thức mới nhất: `claude-3-7-sonnet-latest`, `claude-3-5-sonnet-latest`, `claude-3-5-haiku-latest`, `claude-3-7-sonnet-20250219`, `claude-3-5-sonnet-20241022`, `claude-3-opus-latest`.
+  - Cập nhật preset OpenRouter Claude với model mới: `anthropic/claude-3.7-sonnet`, `anthropic/claude-3.7-sonnet:thinking`, `anthropic/claude-3.5-sonnet`, `anthropic/claude-3.5-haiku`, `anthropic/claude-3-opus`.
+- **Rẽ Nhánh Điều Phối AI Client Trong Ứng Dụng (`AIRuntimeCoordinator.swift`, `AIContextCompactor.swift`, `AINameExtractionBatchProcessor.swift`)**:
+  - `AIRuntimeCoordinator`: Rẽ nhánh streaming gọi `AnthropicClient.shared.sendChatStreaming` khi `activeProfile.apiFormat == "anthropic"`.
+  - `AIContextCompactor` & `AINameExtractionBatchProcessor`: Rẽ nhánh gọi `AnthropicClient.shared.sendChat` khi `activeProfile.apiFormat == "anthropic"`.
+- **Giao Diện Cài Đặt AI (`AISettingsView.swift`, `AISettingsView+Actions.swift`, `AddProviderProfileSheet.swift`)**:
+  - Bổ sung Picker chọn "Định dạng API" (`OpenAI` vs `Anthropic Claude`).
+  - Thêm mẫu template "Anthropic Claude (Chính thức)" trong sheet thêm provider mới.
+  - Hỗ trợ tải danh sách model từ API và kiểm tra kết nối qua Anthropic Messages API.
+
 ## [1.3.405] - 2026-09-25
 
 ### fix: xoa provider chatgpt web va openai oauth, space token rule va tien xu ly so 10 1000

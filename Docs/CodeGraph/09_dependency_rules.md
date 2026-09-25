@@ -15,6 +15,14 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ranh giới phụ thuộc của Anthropic Claude Native API Client (1.3.406)
+
+* **Tầng Services/AI độc lập hoàn toàn với SwiftUI và ToastManager**:
+  - `AnthropicClient.swift` và `AnthropicTypes.swift` nằm trong `Services/AI/`, chỉ `import Foundation`. Tuyệt đối không `import SwiftUI`, không gọi `ToastManager.shared`, tuân thủ 100% các luật kiến trúc `SERVICE_SWIFTUI_IMPORT` và `SERVICE_TOAST_COUPLING`.
+* **Chiều phụ thuộc đơn hướng**:
+  - `Views/Reader/AI/` và `Views/Settings/AI/` gọi `AnthropicClient.shared` khi `apiFormat == "anthropic"`.
+  - Các service (`AIContextCompactor`, `AINameExtractionBatchProcessor`) gọi `AnthropicClient.shared` mà không phụ thuộc ngược lại View.
+
 ## Ranh giới phụ thuộc Tiền Xử Lý Số TTS & Phục Hồi AI Chuẩn (1.3.405)
 
 * **Services/TTS độc lập với UI**:

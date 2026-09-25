@@ -126,6 +126,24 @@ public struct AISettingsView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 4) {
+                        Text("Định dạng API")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Picker("Định dạng API", selection: Binding(
+                            get: { config.activeProfile.apiFormat },
+                            set: { newFormat in
+                                var p = config.activeProfile
+                                p.apiFormat = newFormat
+                                config.updateActiveProfile(p)
+                            }
+                        )) {
+                            Text("OpenAI").tag("openai")
+                            Text("Anthropic Claude").tag("anthropic")
+                        }
+                        .pickerStyle(.segmented)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
                         Text("API Base URL")
                             .font(.caption)
                             .foregroundColor(.secondary)

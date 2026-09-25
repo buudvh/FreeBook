@@ -15,6 +15,17 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Type mới cho Anthropic Claude Native API & Cập Nhật Model Mới (1.3.406)
+
+* **Services/AI**:
+  - `AnthropicClient`: `public actor AnthropicClient` singleton xử lý streaming/non-streaming và fetch available models với header `x-api-key` và `anthropic-version: 2023-06-01`.
+  - `AnthropicMessageRequest`: `public struct AnthropicMessageRequest: Codable, Sendable` (chứa nested `Message`, `Response`, `StreamDelta`).
+  - `AnthropicMessageResponse`: `public typealias AnthropicMessageResponse = AnthropicMessageRequest.Response`.
+  - `AnthropicStreamDelta`: `public typealias AnthropicStreamDelta = AnthropicMessageRequest.StreamDelta`.
+* **Models/AI**:
+  - `AIProviderProfile`: Bổ sung `public var apiFormat: String = "openai"` và preset mẫu `defaultAnthropic`.
+  - `AIProviderPreset`: Thêm case `.anthropic = "anthropic"` với baseURL `https://api.anthropic.com/v1` và danh sách model chính thức mới nhất.
+
 ## Type mới cho Tiền Xử Lý Số Rời Rạc TTS & Dọn Dẹp Provider AI (1.3.405)
 
 * **Services/TTS/Preprocessing**:

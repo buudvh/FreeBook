@@ -11,6 +11,7 @@ public struct AddProviderProfileSheet: View {
     @State private var name: String = "Google Gemini"
     @State private var baseURL: String = "https://generativelanguage.googleapis.com/v1beta/openai/"
     @State private var apiKey: String = ""
+    @State private var apiFormat: String = "openai"
     @State private var modelsText: String = "gemini-2.0-flash\ngemini-2.0-flash-lite\ngemini-1.5-flash\ngemini-1.5-pro"
     @State private var isFetchingModels: Bool = false
     @State private var fetchMessage: String? = nil
@@ -32,6 +33,7 @@ public struct AddProviderProfileSheet: View {
                         Section("Mẫu có sẵn (Built-in)") {
                             Text("Google Gemini").tag("gemini")
                             Text("OpenAI (API Key)").tag("openai")
+                            Text("Anthropic Claude (Chính thức)").tag("anthropic")
                             Text("DeepSeek").tag("deepseek")
                             Text("Anthropic Claude (OpenRouter)").tag("openrouter")
                             Text("Groq Fast").tag("groq")
@@ -62,6 +64,17 @@ public struct AddProviderProfileSheet: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                         TextField("VD: OpenRouter Cá Nhân, DeepSeek V3...", text: $name)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Định dạng API")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Picker("Định dạng API", selection: $apiFormat) {
+                            Text("OpenAI").tag("openai")
+                            Text("Anthropic Claude").tag("anthropic")
+                        }
+                        .pickerStyle(.segmented)
                     }
 
                     VStack(alignment: .leading, spacing: 4) {
@@ -152,6 +165,7 @@ public struct AddProviderProfileSheet: View {
                 name = "\(p.name) (Bản sao)"
                 baseURL = p.baseURL
                 apiKey = p.apiKey
+                apiFormat = p.apiFormat
                 modelsText = p.availableModels.joined(separator: "\n")
             }
         } else {
@@ -159,30 +173,55 @@ public struct AddProviderProfileSheet: View {
             case "gemini":
                 name = "Google Gemini"
                 baseURL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+                apiFormat = "openai"
                 modelsText = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-1.5-pro"].joined(separator: "\n")
             case "openai":
                 name = "OpenAI"
                 baseURL = "https://api.openai.com/v1"
+                apiFormat = "openai"
                 modelsText = ["gpt-4o-mini", "gpt-4o", "o3-mini", "o1"].joined(separator: "\n")
+            case "anthropic":
+                name = "Anthropic Claude"
+                baseURL = "https://api.anthropic.com/v1"
+                apiFormat = "anthropic"
+                modelsText = [
+                    "claude-3-7-sonnet-latest",
+                    "claude-3-5-sonnet-latest",
+                    "claude-3-5-haiku-latest",
+                    "claude-3-7-sonnet-20250219",
+                    "claude-3-5-sonnet-20241022",
+                    "claude-3-opus-latest"
+                ].joined(separator: "\n")
             case "deepseek":
                 name = "DeepSeek"
                 baseURL = "https://api.deepseek.com/v1"
+                apiFormat = "openai"
                 modelsText = ["deepseek-chat", "deepseek-reasoner"].joined(separator: "\n")
             case "openrouter":
                 name = "Anthropic Claude (OpenRouter)"
                 baseURL = "https://openrouter.ai/api/v1"
-                modelsText = ["anthropic/claude-3.5-sonnet", "anthropic/claude-3.5-haiku", "anthropic/claude-3-opus"].joined(separator: "\n")
+                apiFormat = "openai"
+                modelsText = [
+                    "anthropic/claude-3.7-sonnet",
+                    "anthropic/claude-3.7-sonnet:thinking",
+                    "anthropic/claude-3.5-sonnet",
+                    "anthropic/claude-3.5-haiku",
+                    "anthropic/claude-3-opus"
+                ].joined(separator: "\n")
             case "groq":
                 name = "Groq Fast"
                 baseURL = "https://api.groq.com/openai/v1"
+                apiFormat = "openai"
                 modelsText = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"].joined(separator: "\n")
             case "ollama":
                 name = "Ollama Local (Offline)"
                 baseURL = "http://localhost:11434/v1"
+                apiFormat = "openai"
                 modelsText = ["llama3.2", "qwen2.5", "deepseek-r1"].joined(separator: "\n")
             default:
                 name = ""
                 baseURL = ""
+                apiFormat = "openai"
                 modelsText = ""
             }
         }
@@ -193,10 +232,18 @@ public struct AddProviderProfileSheet: View {
         fetchMessage = nil
         Task {
             do {
-                let fetched = try await OpenAIClient.shared.fetchAvailableModels(
-                    baseURL: baseURL,
-                    apiKey: apiKey
-                )
+                let fetched: [String]
+                if apiFormat == "anthropic" {
+                    fetched = try await AnthropicClient.shared.fetchAvailableModels(
+                        baseURL: baseURL,
+                        apiKey: apiKey
+                    )
+                } else {
+                    fetched = try await OpenAIClient.shared.fetchAvailableModels(
+                        baseURL: baseURL,
+                        apiKey: apiKey
+                    )
+                }
                 await MainActor.run {
                     isFetchingModels = false
                     if !fetched.isEmpty {
@@ -234,7 +281,8 @@ public struct AddProviderProfileSheet: View {
             availableModels: models.isEmpty ? ["default-model"] : models,
             temperature: 0.3,
             isCustom: true,
-            authType: "apiKey"
+            authType: "apiKey",
+            apiFormat: apiFormat
         )
 
         onAddProfile(newProfile)

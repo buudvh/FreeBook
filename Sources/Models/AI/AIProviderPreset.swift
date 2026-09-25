@@ -4,6 +4,7 @@ import Foundation
 public enum AIProviderPreset: String, CaseIterable, Codable, Sendable, Identifiable {
     case gemini = "gemini"
     case openai = "openai"
+    case anthropic = "anthropic"
     case claudeOpenRouter = "claudeOpenRouter"
     case deepseek = "deepseek"
     case groq = "groq"
@@ -16,6 +17,7 @@ public enum AIProviderPreset: String, CaseIterable, Codable, Sendable, Identifia
         switch self {
         case .gemini: return "Google Gemini"
         case .openai: return "OpenAI"
+        case .anthropic: return "Anthropic Claude"
         case .claudeOpenRouter: return "Anthropic Claude (qua OpenRouter)"
         case .deepseek: return "DeepSeek"
         case .groq: return "Groq"
@@ -28,6 +30,7 @@ public enum AIProviderPreset: String, CaseIterable, Codable, Sendable, Identifia
         switch self {
         case .gemini: return "https://generativelanguage.googleapis.com/v1beta/openai/"
         case .openai: return "https://api.openai.com/v1"
+        case .anthropic: return "https://api.anthropic.com/v1"
         case .claudeOpenRouter: return "https://openrouter.ai/api/v1"
         case .deepseek: return "https://api.deepseek.com/v1"
         case .groq: return "https://api.groq.com/openai/v1"
@@ -42,8 +45,23 @@ public enum AIProviderPreset: String, CaseIterable, Codable, Sendable, Identifia
             return ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-1.5-pro"]
         case .openai:
             return ["gpt-4o-mini", "gpt-4o", "o3-mini", "o1"]
+        case .anthropic:
+            return [
+                "claude-3-7-sonnet-latest",
+                "claude-3-5-sonnet-latest",
+                "claude-3-5-haiku-latest",
+                "claude-3-7-sonnet-20250219",
+                "claude-3-5-sonnet-20241022",
+                "claude-3-opus-latest"
+            ]
         case .claudeOpenRouter:
-            return ["anthropic/claude-3.5-sonnet", "anthropic/claude-3.5-haiku", "anthropic/claude-3-opus"]
+            return [
+                "anthropic/claude-3.7-sonnet",
+                "anthropic/claude-3.7-sonnet:thinking",
+                "anthropic/claude-3.5-sonnet",
+                "anthropic/claude-3.5-haiku",
+                "anthropic/claude-3-opus"
+            ]
         case .deepseek:
             return ["deepseek-chat", "deepseek-reasoner"]
         case .groq:

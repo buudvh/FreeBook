@@ -11,6 +11,7 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
     public var temperature: Double
     public var isCustom: Bool
     public var authType: String
+    public var apiFormat: String
     public var refreshToken: String?
     public var tokenExpiresAt: Date?
     public var accountEmail: String?
@@ -25,6 +26,7 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
         temperature: Double = 0.3,
         isCustom: Bool = false,
         authType: String = "apiKey",
+        apiFormat: String = "openai",
         refreshToken: String? = nil,
         tokenExpiresAt: Date? = nil,
         accountEmail: String? = nil
@@ -38,13 +40,14 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
         self.temperature = temperature
         self.isCustom = isCustom
         self.authType = authType
+        self.apiFormat = apiFormat
         self.refreshToken = refreshToken
         self.tokenExpiresAt = tokenExpiresAt
         self.accountEmail = accountEmail
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, baseURL, apiKey, selectedModel, availableModels, temperature, isCustom, authType, refreshToken, tokenExpiresAt, accountEmail
+        case id, name, baseURL, apiKey, selectedModel, availableModels, temperature, isCustom, authType, apiFormat, refreshToken, tokenExpiresAt, accountEmail
     }
 
     public init(from decoder: Decoder) throws {
@@ -58,6 +61,7 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
         temperature = try container.decode(Double.self, forKey: .temperature)
         isCustom = try container.decode(Bool.self, forKey: .isCustom)
         authType = try container.decodeIfPresent(String.self, forKey: .authType) ?? "apiKey"
+        apiFormat = try container.decodeIfPresent(String.self, forKey: .apiFormat) ?? "openai"
         refreshToken = try container.decodeIfPresent(String.self, forKey: .refreshToken)
         tokenExpiresAt = try container.decodeIfPresent(Date.self, forKey: .tokenExpiresAt)
         accountEmail = try container.decodeIfPresent(String.self, forKey: .accountEmail)
@@ -94,14 +98,39 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
         isCustom: false
     )
 
+    public static let defaultAnthropic = AIProviderProfile(
+        id: "anthropic",
+        name: "Anthropic Claude",
+        baseURL: "https://api.anthropic.com/v1",
+        selectedModel: "claude-3-7-sonnet-latest",
+        availableModels: [
+            "claude-3-7-sonnet-latest",
+            "claude-3-5-sonnet-latest",
+            "claude-3-5-haiku-latest",
+            "claude-3-7-sonnet-20250219",
+            "claude-3-5-sonnet-20241022",
+            "claude-3-opus-latest"
+        ],
+        temperature: 0.3,
+        isCustom: false,
+        apiFormat: "anthropic"
+    )
+
     public static let defaultClaudeOpenRouter = AIProviderProfile(
         id: "claudeOpenRouter",
         name: "Anthropic Claude (OpenRouter)",
         baseURL: "https://openrouter.ai/api/v1",
-        selectedModel: "anthropic/claude-3.5-sonnet",
-        availableModels: ["anthropic/claude-3.5-sonnet", "anthropic/claude-3.5-haiku", "anthropic/claude-3-opus"],
+        selectedModel: "anthropic/claude-3.7-sonnet",
+        availableModels: [
+            "anthropic/claude-3.7-sonnet",
+            "anthropic/claude-3.7-sonnet:thinking",
+            "anthropic/claude-3.5-sonnet",
+            "anthropic/claude-3.5-haiku",
+            "anthropic/claude-3-opus"
+        ],
         temperature: 0.3,
-        isCustom: false
+        isCustom: false,
+        apiFormat: "openai"
     )
 
     public static let defaultGroq = AIProviderProfile(
@@ -126,7 +155,7 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
 
     /// Các mẫu provider chuẩn định nghĩa sẵn để người dùng chọn khi thêm mới.
     public static var standardTemplates: [AIProviderProfile] {
-        [defaultGemini, defaultOpenAI, defaultDeepSeek, defaultClaudeOpenRouter, defaultGroq, defaultOllama]
+        [defaultGemini, defaultOpenAI, defaultAnthropic, defaultDeepSeek, defaultClaudeOpenRouter, defaultGroq, defaultOllama]
     }
 
     /// Mặc định không lưu sẵn profile rỗng nào, chỉ lưu khi người dùng chủ động thêm.

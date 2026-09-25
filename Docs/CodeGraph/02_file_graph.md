@@ -15,6 +15,15 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +2 file cho Anthropic Messages API Client và DTO Types (1.3.406)
+
+| Nhóm | File mới | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Services/AI | [`Services/AI/AnthropicClient.swift`](../../Sources/Services/AI/AnthropicClient.swift) | Actor singleton điều phối gọi Anthropic Claude Messages API (streaming & non-streaming) | 236 |
+| Services/AI | [`Services/AI/AnthropicTypes.swift`](../../Sources/Services/AI/AnthropicTypes.swift) | DTO models cho request, response và streaming delta của Anthropic | 85 |
+
+* Cả 2 file mới đều ≤ 400 dòng vật lý và tuân thủ đúng 1 primary type top level.
+
 ## +2 file cho tiền xử lý số rời rạc TTS và tách extension view (1.3.405)
 
 | Nhóm | File mới | Vai trò | Dòng |

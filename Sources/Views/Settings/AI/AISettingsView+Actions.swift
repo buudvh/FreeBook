@@ -39,10 +39,18 @@ extension AISettingsView {
         testResultMessage = nil
         Task {
             do {
-                let fetched = try await OpenAIClient.shared.fetchAvailableModels(
-                    baseURL: config.activeProfile.baseURL,
-                    apiKey: config.activeProfile.apiKey
-                )
+                let fetched: [String]
+                if config.activeProfile.apiFormat == "anthropic" {
+                    fetched = try await AnthropicClient.shared.fetchAvailableModels(
+                        baseURL: config.activeProfile.baseURL,
+                        apiKey: config.activeProfile.apiKey
+                    )
+                } else {
+                    fetched = try await OpenAIClient.shared.fetchAvailableModels(
+                        baseURL: config.activeProfile.baseURL,
+                        apiKey: config.activeProfile.apiKey
+                    )
+                }
                 await MainActor.run {
                     isFetchingModels = false
                     if !fetched.isEmpty {
@@ -75,10 +83,18 @@ extension AISettingsView {
         testResultMessage = nil
         Task {
             do {
-                let models = try await OpenAIClient.shared.fetchAvailableModels(
-                    baseURL: config.activeProfile.baseURL,
-                    apiKey: config.activeProfile.apiKey
-                )
+                let models: [String]
+                if config.activeProfile.apiFormat == "anthropic" {
+                    models = try await AnthropicClient.shared.fetchAvailableModels(
+                        baseURL: config.activeProfile.baseURL,
+                        apiKey: config.activeProfile.apiKey
+                    )
+                } else {
+                    models = try await OpenAIClient.shared.fetchAvailableModels(
+                        baseURL: config.activeProfile.baseURL,
+                        apiKey: config.activeProfile.apiKey
+                    )
+                }
                 await MainActor.run {
                     isTestingConnection = false
                     isTestSuccess = true

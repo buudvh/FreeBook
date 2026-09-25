@@ -94,7 +94,12 @@ public final class AIRuntimeCoordinator: ObservableObject {
 
         activeStreamingTask = Task { [weak self] in
             do {
-                let stream = await OpenAIClient.shared.sendChatStreaming(config: config, messages: messages)
+                let stream: AsyncThrowingStream<String, Error>
+                if config.activeProfile.apiFormat == "anthropic" {
+                    stream = await AnthropicClient.shared.sendChatStreaming(config: config, messages: messages)
+                } else {
+                    stream = await OpenAIClient.shared.sendChatStreaming(config: config, messages: messages)
+                }
                 var accumulated = ""
                 for try await delta in stream {
                     guard !Task.isCancelled else { break }

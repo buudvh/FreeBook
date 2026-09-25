@@ -3,9 +3,9 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-09-25T10:09:21Z",
-  "gitCommit": "5e20b4543ed490c594765fa04dc681f1864cfb1d",
-  "sourceFileCount": 575,
+  "generatedAt": "2026-09-25T10:58:13Z",
+  "gitCommit": "00108c6fb167dc2e9764ee72cab27dad833bf2ad",
+  "sourceFileCount": 577,
   "documentCount": 16,
   "documents": [
     {
@@ -90,6 +90,8 @@
         "Sources/Services/AI/AIContextCompactor.swift",
         "Sources/Services/AI/AINameExtractionBatchProcessor.swift",
         "Sources/Services/AI/AISettingsStore.swift",
+        "Sources/Services/AI/AnthropicClient.swift",
+        "Sources/Services/AI/AnthropicTypes.swift",
         "Sources/Services/AI/BookAIMemoryStore.swift",
         "Sources/Services/AI/Harness/AIBookDataInspector.swift",
         "Sources/Services/AI/Harness/AIHarnessService.swift",
@@ -592,12 +594,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "5914a6b507663511f42a6c93fded46b9f1bee9b359727cbafe07fa30a1fd0860",
-      "sourceHash": "e94ba1bf5432793e509e99c34d4079278e868888b8778b9970b0d356b0ad2eea",
-      "generatedHash": "c5974c8e194bd22c88d5b4dc4b3986997ad9dd19c908efe51cba37d8c45a9b46",
-      "generatedAt": "2026-09-25T10:00:51Z",
-      "reviewedAt": "2026-09-25T10:00:51Z",
-      "reviewedCommit": "9fa42e697851c2923e2fc53e94cea6b0635daec2",
+      "structureHash": "e5fd702cb99bd5b377ae5f2ec63dc1037487ef5657d781faf253b464e0c2ec38",
+      "sourceHash": "f012594a3dc8d2176ec2eb0b86d11a47116ebb62e6d8ae8477bf6c56967a591b",
+      "generatedHash": "6b5e6beeeaebe4a7284ee3c06fb797c5ffee59f173c86021ec402ca445510f8b",
+      "generatedAt": "2026-09-25T10:58:05Z",
+      "reviewedAt": "2026-09-25T10:58:05Z",
+      "reviewedCommit": "00108c6fb167dc2e9764ee72cab27dad833bf2ad",
       "reviewMode": "accept"
     },
     {
@@ -709,6 +711,8 @@
         "Sources/Services/AI/AIContextCompactor.swift",
         "Sources/Services/AI/AINameExtractionBatchProcessor.swift",
         "Sources/Services/AI/AISettingsStore.swift",
+        "Sources/Services/AI/AnthropicClient.swift",
+        "Sources/Services/AI/AnthropicTypes.swift",
         "Sources/Services/AI/BookAIMemoryStore.swift",
         "Sources/Services/AI/Harness/AIBookDataInspector.swift",
         "Sources/Services/AI/Harness/AIHarnessService.swift",
@@ -1211,12 +1215,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "5914a6b507663511f42a6c93fded46b9f1bee9b359727cbafe07fa30a1fd0860",
-      "sourceHash": "e94ba1bf5432793e509e99c34d4079278e868888b8778b9970b0d356b0ad2eea",
-      "generatedHash": "dae65fd10f3eee23c75f5fa79b748cad878c66200e56492133b86aa969e33f61",
-      "generatedAt": "2026-09-25T10:00:51Z",
-      "reviewedAt": "2026-09-25T10:00:51Z",
-      "reviewedCommit": "9fa42e697851c2923e2fc53e94cea6b0635daec2",
+      "structureHash": "e5fd702cb99bd5b377ae5f2ec63dc1037487ef5657d781faf253b464e0c2ec38",
+      "sourceHash": "f012594a3dc8d2176ec2eb0b86d11a47116ebb62e6d8ae8477bf6c56967a591b",
+      "generatedHash": "674a96b3eeded0afcb3da9046f66e99abe254a25e24a230877cb6741f9a294a2",
+      "generatedAt": "2026-09-25T10:58:05Z",
+      "reviewedAt": "2026-09-25T10:58:05Z",
+      "reviewedCommit": "00108c6fb167dc2e9764ee72cab27dad833bf2ad",
       "reviewMode": "accept"
     },
     {
@@ -1318,11 +1322,11 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "f30d76e483a206eba147eb194c9b0188d536a9ac6d946d9ec7a30cf62eec5523",
-      "sourceHash": "bcbee21576bbc2279179cb87ad1df1a781c04e6a9aff4c03bcbedfa7bd398764",
-      "generatedHash": "36e3661312663b08a03eac4bfde7b4e8951efd3b313ac5d314b0ac6a94acfaf3",
-      "generatedAt": "2026-09-25T10:00:51Z",
-      "reviewedAt": "2026-09-25T10:00:51Z",
-      "reviewedCommit": "9fa42e697851c2923e2fc53e94cea6b0635daec2",
+      "sourceHash": "f40722285987405be5f48808fec199ec2d17ab8d61172a9463d09a518e1f8d94",
+      "generatedHash": "e6332dac9959860e975c3be5da5dc9f2179c7a9512c4d6b2ead8bb444110530b",
+      "generatedAt": "2026-09-25T10:58:05Z",
+      "reviewedAt": "2026-09-25T10:58:05Z",
+      "reviewedCommit": "00108c6fb167dc2e9764ee72cab27dad833bf2ad",
       "reviewMode": "accept"
     },
     {
@@ -1492,11 +1496,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "706fa29db56e41d3db40c081abd9d22106ab12e087a717aad9df2c890e09d6fc",
-      "sourceHash": "b592f25fb6099ec40652ade5a1cc3da2de4058d4f5e5860de0a1963008b42c79",
+      "sourceHash": "7bddaefaefc43a972a4d8ba49820be6875468e9f2b616e26adac9c1d0dd68232",
       "generatedHash": "8193172e88cc817191611610bde709b7a571cbe9ca45b319e8f1aaaed2d5fa4e",
-      "generatedAt": "2026-09-25T10:01:11Z",
-      "reviewedAt": "2026-09-25T10:01:11Z",
-      "reviewedCommit": "9fa42e697851c2923e2fc53e94cea6b0635daec2",
+      "generatedAt": "2026-09-25T10:58:13Z",
+      "reviewedAt": "2026-09-25T10:58:13Z",
+      "reviewedCommit": "00108c6fb167dc2e9764ee72cab27dad833bf2ad",
       "reviewMode": "no-change-needed"
     },
     {
@@ -1872,6 +1876,8 @@
         "Sources/Services/AI/AIContextCompactor.swift",
         "Sources/Services/AI/AINameExtractionBatchProcessor.swift",
         "Sources/Services/AI/AISettingsStore.swift",
+        "Sources/Services/AI/AnthropicClient.swift",
+        "Sources/Services/AI/AnthropicTypes.swift",
         "Sources/Services/AI/BookAIMemoryStore.swift",
         "Sources/Services/AI/Harness/AIBookDataInspector.swift",
         "Sources/Services/AI/Harness/AIHarnessService.swift",
@@ -2374,12 +2380,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "03ce0eff739c6d1a19b872cb1782a84a867af890e265072aa4aeef9befb10773",
-      "sourceHash": "889efcbc47568b579f6113bc23828671cf98b3025f7825222cc5e68b2cb19228",
-      "generatedHash": "e5e918569b4dd3f68eb6efb198706f6524953f021a1b7d6533138bdee863dfca",
-      "generatedAt": "2026-09-25T10:00:51Z",
-      "reviewedAt": "2026-09-25T10:00:51Z",
-      "reviewedCommit": "9fa42e697851c2923e2fc53e94cea6b0635daec2",
+      "structureHash": "48e0dd3f6aef6963dab6b2a31df97bd26bb058e9ebc0108dda8da6c75bbd8a61",
+      "sourceHash": "4efed1c78de6e4235c3f3f982ef08ef448c3b0858a00a4f6ed1b22837a7ecca3",
+      "generatedHash": "7549078e50d745e782d082826ad017a91a33622a872000f48ee7d19de336a7cf",
+      "generatedAt": "2026-09-25T10:58:05Z",
+      "reviewedAt": "2026-09-25T10:58:05Z",
+      "reviewedCommit": "00108c6fb167dc2e9764ee72cab27dad833bf2ad",
       "reviewMode": "accept"
     },
     {
@@ -2522,6 +2528,8 @@
         "Sources/Services/AI/AIContextCompactor.swift",
         "Sources/Services/AI/AINameExtractionBatchProcessor.swift",
         "Sources/Services/AI/AISettingsStore.swift",
+        "Sources/Services/AI/AnthropicClient.swift",
+        "Sources/Services/AI/AnthropicTypes.swift",
         "Sources/Services/AI/BookAIMemoryStore.swift",
         "Sources/Services/AI/Harness/AIBookDataInspector.swift",
         "Sources/Services/AI/Harness/AIHarnessService.swift",
@@ -3024,13 +3032,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "4e060026db65df076546f818a4832dca7e904ec3b0426ce180f6e4a6f5e6cecc",
-      "sourceHash": "2c057d8c75cc943557a812c5994bc83ea2e8c66a34cc9d26bc163084a2ba9345",
-      "generatedHash": "72efd78f3b6806579c04adcfccd5f2529bd877b371548d5219fa6bfcbaeef39c",
-      "generatedAt": "2026-09-25T10:09:21Z",
-      "reviewedAt": "2026-09-25T10:09:21Z",
-      "reviewedCommit": "5e20b4543ed490c594765fa04dc681f1864cfb1d",
-      "reviewMode": "no-change-needed"
+      "structureHash": "334ded28a1ccd97db1852c33eced829f3e349217d45c0559ef10002535f7c1eb",
+      "sourceHash": "663d2d733a0f344c88fed00d9f20c16b493a73e8bf84a82bbe5584d0ec9f2b95",
+      "generatedHash": "b6d0f63e83f66012d7995aac6de5e275c8ba058540572b7cc341a30409b96253",
+      "generatedAt": "2026-09-25T10:58:05Z",
+      "reviewedAt": "2026-09-25T10:58:05Z",
+      "reviewedCommit": "00108c6fb167dc2e9764ee72cab27dad833bf2ad",
+      "reviewMode": "accept"
     },
     {
       "filename": "12_ownership_graph.md",
@@ -3283,11 +3291,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "826a1da37a5fe2d62c08454fd57631c9f790f3248bcce013bf6cee3b4ad474db",
-      "sourceHash": "1eec7741cb31fdedb08eadce292ec933bf48044ff64a776b611c9a0d9912fa22",
+      "sourceHash": "322bf851b917736ebf68ab6a9a89aa54795670daf7f468140f771e4ef660bdec",
       "generatedHash": "b75f543fc69065da7a953263f7e674dfc6e9dba8c5d97f7541566d0efc6b624b",
-      "generatedAt": "2026-09-25T10:01:11Z",
-      "reviewedAt": "2026-09-25T10:01:11Z",
-      "reviewedCommit": "9fa42e697851c2923e2fc53e94cea6b0635daec2",
+      "generatedAt": "2026-09-25T10:58:13Z",
+      "reviewedAt": "2026-09-25T10:58:13Z",
+      "reviewedCommit": "00108c6fb167dc2e9764ee72cab27dad833bf2ad",
       "reviewMode": "no-change-needed"
     },
     {
@@ -3372,6 +3380,8 @@
         "Sources/Services/AI/AIContextCompactor.swift",
         "Sources/Services/AI/AINameExtractionBatchProcessor.swift",
         "Sources/Services/AI/AISettingsStore.swift",
+        "Sources/Services/AI/AnthropicClient.swift",
+        "Sources/Services/AI/AnthropicTypes.swift",
         "Sources/Services/AI/BookAIMemoryStore.swift",
         "Sources/Services/AI/Harness/AIBookDataInspector.swift",
         "Sources/Services/AI/Harness/AIHarnessService.swift",
@@ -3874,12 +3884,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "5914a6b507663511f42a6c93fded46b9f1bee9b359727cbafe07fa30a1fd0860",
-      "sourceHash": "e94ba1bf5432793e509e99c34d4079278e868888b8778b9970b0d356b0ad2eea",
-      "generatedHash": "515290250365514d2ccfc7b7cfa3a6f750e9c0e4aa73d65109aff128d8194eac",
-      "generatedAt": "2026-09-25T10:00:51Z",
-      "reviewedAt": "2026-09-25T10:00:51Z",
-      "reviewedCommit": "9fa42e697851c2923e2fc53e94cea6b0635daec2",
+      "structureHash": "e5fd702cb99bd5b377ae5f2ec63dc1037487ef5657d781faf253b464e0c2ec38",
+      "sourceHash": "f012594a3dc8d2176ec2eb0b86d11a47116ebb62e6d8ae8477bf6c56967a591b",
+      "generatedHash": "3ee917aac0cbc02e232965bb7a50e065e84493c8512e423955a2033a94de658a",
+      "generatedAt": "2026-09-25T10:58:05Z",
+      "reviewedAt": "2026-09-25T10:58:05Z",
+      "reviewedCommit": "00108c6fb167dc2e9764ee72cab27dad833bf2ad",
       "reviewMode": "accept"
     },
     {
