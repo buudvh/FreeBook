@@ -150,7 +150,24 @@ public final class QuickTranslationRuleMatcher {
         _ advanced: [Frame],
         _ position: Int
     ) -> Int? {
-        let allowed = QuickTranslationNumberFormatter.units(for: kind)
+        guard position < units.count else {
+            return skipOptional(element, advanced, position)
+        }
+        let baseAllowed = QuickTranslationNumberFormatter.units(for: kind)
+        guard baseAllowed.contains(units[position]) else {
+            return skipOptional(element, advanced, position)
+        }
+
+        let allowed: Set<UInt16>
+        if kind == .chinese || kind == .digitwise {
+            if QuickTranslationNumberFormatter.asciiDigitsUnits.contains(units[position]) {
+                allowed = baseAllowed.intersection(QuickTranslationNumberFormatter.asciiDigitsUnits)
+            } else {
+                allowed = baseAllowed.subtracting(QuickTranslationNumberFormatter.asciiDigitsUnits)
+            }
+        } else {
+            allowed = baseAllowed
+        }
 
         // Guard bên trái: ký tự ngay trước match thuộc cùng lớp số ⇒ token đang nuốt phần giữa của
         // một chuỗi số dài hơn. Ngoại lệ: nếu ký tự bên trái thuộc Name riêng thì nó là ranh giới tên chứ

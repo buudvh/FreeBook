@@ -15,6 +15,21 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Tích hợp OpenAI ChatGPT OAuth PKCE, Cấu hình Cookie Extension và Sửa Lỗi Dịch Số (1.3.403)
+
+* **Xác thực OpenAI ChatGPT OAuth PKCE (`OpenAIOAuthManager.swift`, `OpenAIOAuthLoginSheet.swift`, `AISettingsView+OAuth.swift`)**:
+  - `OpenAIOAuthManager`: Actor điều phối luồng OAuth 2.0 Authorization Code Flow kèm PKCE S256 chuẩn (client ID `app_EMoamEEZ73f0CkXaXp7hrann`, callback `http://localhost:1455/auth/callback`).
+  - Tự động làm mới access token khi hết hạn thông qua `refresh_token` tại `https://auth.openai.com/oauth/token`, giải mã payload JWT để lấy địa chỉ email người dùng hiển thị trên UI.
+  - `OpenAIClient`: Kiểm tra `authType == "oauth"`, tự động resolve access token hợp lệ qua `OpenAIOAuthManager.shared.getValidAccessToken` trước khi gửi request tới API chuẩn OpenAI.
+  - `OpenAIOAuthLoginSheet`: Sheet mở trang đăng nhập chính thức của OpenAI qua `WKWebView`, bắt redirect `http://localhost:1455/auth/callback`, kiểm tra CSRF state và lưu token vào profile.
+  - `AISettingsView+OAuth`: Tách thành phần giao diện card tài khoản OAuth và logic logout khỏi `AISettingsView.swift` để giữ giới hạn dưới 400 dòng vật lý.
+* **Cấu hình Xử lý Cookie Extension (`ExtensionConfigView.swift`, `JSExecutor.swift`)**:
+  - `ExtensionConfigView`: Thêm mục "Mạng & Cookie" cho phép người dùng bật/tắt `http_should_handle_cookies` cho từng extension (mặc định bật).
+  - `JSExecutor`: Đọc cấu hình `http_should_handle_cookies` từ `injectedConfigs`, gán trực tiếp vào `request.httpShouldHandleCookies` khi thực hiện `_nativeSyncFetch`. Khi tắt, `URLSession` không đính kèm cookie đăng nhập của hệ thống, giải quyết triệt để lỗi HTTP 400 cho các extension như Google TTS.
+* **Khắc Phục Lỗi Dịch Số Dính Liền (`QuickTranslationRuleMatcher.swift`, `QuickTranslationRuleEngine.swift`)**:
+  - `QuickTranslationRuleMatcher`: Trong `walkNumeral`, tách biệt hoàn toàn giữa chữ số ASCII/Full-width (`0-9`, `０-９`) và chữ số/ký tự bậc Hán (`〇-九`, `十百千万...`). Không cho phép chuyển tiếp giữa hai hệ số trong cùng một token số `<n>` / `<y>` và cập nhật `guardsLeft` chỉ guard khi ký tự trước đó thuộc cùng hệ số.
+  - `QuickTranslationRuleEngine`: Trong `appendPassthrough(upTo:)`, bổ sung kiểm tra `needsSeparator(between: output, and: piece)`, tự động chèn khoảng trắng phân tách giữa kết quả render của rule và đoạn passthrough kế tiếp (ví dụ: `"4 cái"` + `"0"` -> `"4 cái 0"`).
+
 ## Tích hợp Provider ChatGPT Web Không Giới Hạn Quota qua WKWebView Nội Bộ (1.3.402)
 
 * **Giao Tiếp ChatGPT Web Ngầm (`ChatGPTWebClient.swift`, `OpenAIClient.swift`)**:

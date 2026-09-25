@@ -15,6 +15,16 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Tích hợp ChatGPT OAuth PKCE, Cấu hình Cookie Extension, Sửa Lỗi Dịch Số và Chuyển Theme Picker (1.3.403)
+
+* [`OpenAIOAuthManager.swift`](../../Sources/Services/AI/OpenAIOAuthManager.swift#L1): Quản lý luồng xác thực OAuth 2.0 PKCE (`app_EMoamEEZ73f0CkXaXp7hrann`, port 1455 callback) của OpenAI, tự động làm mới access token qua refresh token và trích xuất email tài khoản từ JWT.
+* [`OpenAIOAuthLoginSheet.swift`](../../Sources/Views/Settings/AI/OpenAIOAuthLoginSheet.swift#L1): Sheet giao diện đăng nhập tài khoản OpenAI trực tiếp qua `WKWebView`, tự động bắt callback `http://localhost:1455/auth/callback` và lưu token vào cấu hình AI.
+* [`AISettingsView+OAuth.swift`](../../Sources/Views/Settings/AI/AISettingsView+OAuth.swift#L1): Quản trị phiên đăng nhập OAuth, hiển thị email tài khoản, trạng thái phiên và nút đăng xuất tài khoản.
+* [`ExtensionConfigView.swift`](../../Sources/Views/Extensions/Config/ExtensionConfigView.swift#L105) & [`JSExecutor.swift`](../../Sources/Services/Extensions/Engine/JSExecutor.swift#L600): Bổ sung tuỳ chọn bật/tắt `http_should_handle_cookies` cho từng extension (mặc định bật), giải quyết triệt để lỗi HTTP 400 do rò rỉ cookie đăng nhập Google.
+* [`QuickTranslationRuleMatcher.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleMatcher.swift#L150) & [`QuickTranslationRuleEngine.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleEngine.swift#L300): Khắc phục lỗi dịch số dính liền `1四个0` -> `1 4 cái 0` (ngăn trộn lẫn chữ số ASCII và Hán trong cùng token số và tự động chèn khoảng trắng phân tách sau rule match).
+* [`ReaderSettingsView.swift`](../../Sources/Views/Reader/ReaderSettingsView.swift#L100): Chuyển UI chọn theme đọc sách sang dạng thanh ngang `.pickerStyle(.segmented)` trực quan.
+* Thêm **3** file Swift mới; cần `xcodegen generate` và build trên macOS.
+
 ## Tích hợp Provider ChatGPT Web không giới hạn Quota qua WKWebView nội bộ (1.3.402)
 
 * [`ChatGPTWebClient.swift`](../../Sources/Services/AI/ChatGPTWebClient.swift#L10): Client điều phối giao tiếp trực tiếp với phiên web ChatGPT (`chatgpt.com`) sử dụng `WKWebView` chạy ngầm chia sẻ `WKWebsiteDataStore.default()`, gửi tin nhắn trong ngữ cảnh phiên duyệt web vượt Cloudflare Turnstile, hỗ trợ Temporary Chat (`history_and_training_disabled: true`) và streaming SSE tokens.

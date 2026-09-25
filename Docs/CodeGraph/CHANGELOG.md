@@ -2,6 +2,29 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.403] - 2026-09-25
+
+### feat: chuyen theme picker sang thanh ngang, sua chatgpt web, tich hop chatgpt oauth, config cookie ext va sua loi dich so
+
+Thêm **3** file Swift mới, sửa **9** file Swift trong `Sources/Models/`, `Sources/Services/`, `Sources/Views/`:
+
+- **Giao Diện Trình Đọc (`ReaderSettingsView.swift`)**:
+  - Chuyển Picker chọn giao diện nền đọc (Theme) từ dạng List/Menu dọc sang dạng thanh ngang `.pickerStyle(.segmented)` với 3 lựa chọn trực quan: Sáng, Trầm ấm, Tối.
+- **Sửa Lỗi ChatGPT Web (`ChatGPTWebClient.swift`)**:
+  - Khắc phục lỗi "đăng nhập rồi nhưng vẫn báo chưa hoàn tất đăng nhập" bằng cách đọc trực tiếp cookie `__Secure-next-auth.session-token` từ `WKWebsiteDataStore.default().httpCookieStore` và URL tuyệt đối.
+  - Sửa lỗi `JavaScript execution returned a result of an unsupported type` bằng cách bọc script async trong IIFE trả về primitive String (`(() => { (async () => { ... })(); return "started"; })()`).
+- **Tích Hợp OpenAI ChatGPT OAuth PKCE (`OpenAIOAuthManager.swift`, `OpenAIOAuthLoginSheet.swift`, `AISettingsView.swift`, `AISettingsView+OAuth.swift`, `AISettingsView+Actions.swift`, `AddProviderProfileSheet.swift`, `AIProviderPreset.swift`, `AIProviderProfile.swift`, `OpenAIClient.swift`)**:
+  - `OpenAIOAuthManager`: Triển khai chuẩn OAuth 2.0 PKCE với S256 (`code_verifier` và `code_challenge`), sinh URL xác thực với client ID `app_EMoamEEZ73f0CkXaXp7hrann`, trao đổi code lấy access token và refresh token tại `https://auth.openai.com/oauth/token`, tự động làm mới access token khi hết hạn và giải mã JWT payload để lấy email tài khoản.
+  - `OpenAIOAuthLoginSheet`: WebView đăng nhập tài khoản OpenAI, tự động chặn redirect `http://localhost:1455/auth/callback` và xác thực state bảo mật CSRF.
+  - `OpenAIClient`: Tự động gọi `OpenAIOAuthManager.shared.getValidAccessToken` để lấy token hợp lệ khi gọi API streaming và non-streaming với profile OAuth.
+  - `AISettingsView+OAuth`: Tách UI quản lý tài khoản OAuth và logic logout thành file extension riêng, giữ `AISettingsView.swift` dưới 400 dòng vật lý.
+- **Cấu Hình Cookie Cho Tiện Ích (`ExtensionConfigView.swift`, `JSExecutor.swift`)**:
+  - `ExtensionConfigView`: Bổ sung section "Mạng & Cookie" cho phép người dùng cấu hình bật/tắt `http_should_handle_cookies` cho từng extension (mặc định bật).
+  - `JSExecutor`: Đọc cấu hình `http_should_handle_cookies` và gán vào `request.httpShouldHandleCookies`. Khi tắt, `URLSession` không đính kèm cookie hệ thống, ngăn chặn triệt để lỗi HTTP 400 do dính Google Login Cookies.
+- **Khắc Phục Lỗi Dịch Số Dính Liền (`QuickTranslationRuleMatcher.swift`, `QuickTranslationRuleEngine.swift`)**:
+  - `QuickTranslationRuleMatcher`: Trong `walkNumeral`, phân tách hoàn toàn giữa chữ số ASCII/Full-width (`0-9`, `０-９`) và chữ số Hán (`〇-九`, `十百千万...`), ngăn việc gộp nhầm `1` và `四` thành `14` trong `<n>个`.
+  - `QuickTranslationRuleEngine`: Trong `appendPassthrough(upTo:)`, thêm kiểm tra `needsSeparator(between: output, and: piece)` để chèn dấu cách ngăn cách giữa kết quả dịch của rule và số/chữ passthrough kế tiếp (khắc phục lỗi dính liền `"4 cái"` và `"0"` thành `"4 cái0"`).
+
 ## [1.3.402] - 2026-09-25
 
 ### feat: tich hop provider chatgpt web khong gioi han quota qua wkwebview

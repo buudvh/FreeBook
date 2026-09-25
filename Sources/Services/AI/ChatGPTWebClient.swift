@@ -63,24 +63,47 @@ public final class ChatGPTWebClient: NSObject, @unchecked Sendable {
     /// Kiểm tra xem phiên duyệt web hiện tại đã đăng nhập vào `chatgpt.com` hay chưa.
     @MainActor
     public func checkLoginStatus() async -> Bool {
+        // 1. Kiểm tra cookie phiên đăng nhập trực tiếp từ CookieStore của WebKit
+        let cookieStore = WKWebsiteDataStore.default().httpCookieStore
+        let cookies = await withCheckedContinuation { continuation in
+            cookieStore.getAllCookies { cookies in
+                continuation.resume(returning: cookies)
+            }
+        }
+
+        let hasSessionCookie = cookies.contains { cookie in
+            (cookie.domain.contains("chatgpt.com") || cookie.domain.contains("openai.com")) &&
+            (cookie.name.contains("session-token") || cookie.name.contains("session_token") || cookie.name == "accessToken")
+        }
+
+        if hasSessionCookie {
+            return true
+        }
+
+        // 2. Fallback: gọi kiểm tra API session qua callAsyncJavaScript
         let webView = ensureWebView()
         let script = """
-        (async () => {
-            try {
-                const res = await fetch('/api/auth/session');
-                if (!res.ok) return false;
-                const data = await res.json();
-                return !!(data && data.accessToken);
-            } catch (e) {
-                return false;
-            }
-        })()
+        try {
+            const res = await fetch('https://chatgpt.com/api/auth/session');
+            if (!res.ok) return false;
+            const data = await res.json();
+            return !!(data && data.accessToken);
+        } catch (e) {
+            return false;
+        }
         """
 
-        guard let result = try? await webView.evaluateJavaScript(script) as? Bool else {
-            return false
+        let result = try? await webView.callAsyncJavaScript(
+            script,
+            arguments: [:],
+            in: nil,
+            contentWorld: .page
+        )
+        if let boolVal = result as? Bool {
+            return boolVal
         }
-        return result
+
+        return false
     }
 
     /// Gửi tin nhắn và nhận stream phản hồi từ ChatGPT Web.
@@ -112,121 +135,137 @@ public final class ChatGPTWebClient: NSObject, @unchecked Sendable {
 
             Task { @MainActor in
                 let webView = self.ensureWebView()
+
+                // Đảm bảo webView đã nạp xong context domain chatgpt.com
+                if webView.url?.host?.contains("chatgpt.com") != true {
+                    if webView.url == nil, let url = URL(string: "https://chatgpt.com") {
+                        webView.load(URLRequest(url: url))
+                    }
+                    var waited = 0
+                    while (webView.url?.host?.contains("chatgpt.com") != true) && waited < 10 {
+                        try? await Task.sleep(nanoseconds: 200_000_000)
+                        waited += 1
+                    }
+                }
+
                 let escapedPrompt = promptText
                     .replacingOccurrences(of: "\\", with: "\\\\")
                     .replacingOccurrences(of: "`", with: "\\`")
                     .replacingOccurrences(of: "$", with: "\\$")
 
                 let script = """
-                (async () => {
-                    const reqId = "\(requestId)";
-                    try {
-                        const sessionRes = await fetch('/api/auth/session');
-                        if (!sessionRes.ok) {
-                            window.webkit.messageHandlers.chatGPTWebStream.postMessage({
-                                requestId: reqId,
-                                type: "error",
-                                message: "Chưa đăng nhập ChatGPT Web hoặc phiên hết hạn (HTTP " + sessionRes.status + ")"
-                            });
-                            return;
-                        }
-                        const sessionData = await sessionRes.json();
-                        const token = sessionData?.accessToken;
-                        if (!token) {
-                            window.webkit.messageHandlers.chatGPTWebStream.postMessage({
-                                requestId: reqId,
-                                type: "error",
-                                message: "Không tìm thấy phiên đăng nhập ChatGPT hợp lệ"
-                            });
-                            return;
-                        }
+                (() => {
+                    (async () => {
+                        const reqId = "\(requestId)";
+                        try {
+                            const sessionRes = await fetch('/api/auth/session');
+                            if (!sessionRes.ok) {
+                                window.webkit.messageHandlers.chatGPTWebStream.postMessage({
+                                    requestId: reqId,
+                                    type: "error",
+                                    message: "Chưa đăng nhập ChatGPT Web hoặc phiên hết hạn (HTTP " + sessionRes.status + ")"
+                                });
+                                return;
+                            }
+                            const sessionData = await sessionRes.json();
+                            const token = sessionData?.accessToken;
+                            if (!token) {
+                                window.webkit.messageHandlers.chatGPTWebStream.postMessage({
+                                    requestId: reqId,
+                                    type: "error",
+                                    message: "Không tìm thấy phiên đăng nhập ChatGPT hợp lệ"
+                                });
+                                return;
+                            }
 
-                        const payload = {
-                            action: "next",
-                            messages: [
-                                {
-                                    id: crypto.randomUUID(),
-                                    author: { role: "user" },
-                                    content: {
-                                        content_type: "text",
-                                        parts: [`\(escapedPrompt)`]
-                                    }
-                                }
-                            ],
-                            parent_message_id: crypto.randomUUID(),
-                            model: "\(effectiveModel)",
-                            history_and_training_disabled: true
-                        };
-
-                        const convRes = await fetch('/backend-api/conversation', {
-                            method: 'POST',
-                            headers: {
-                                'Authorization': 'Bearer ' + token,
-                                'Content-Type': 'application/json',
-                                'Accept': 'text/event-stream'
-                            },
-                            body: JSON.stringify(payload)
-                        });
-
-                        if (!convRes.ok) {
-                            window.webkit.messageHandlers.chatGPTWebStream.postMessage({
-                                requestId: reqId,
-                                type: "error",
-                                message: "Lỗi ChatGPT Web HTTP " + convRes.status
-                            });
-                            return;
-                        }
-
-                        const reader = convRes.body.getReader();
-                        const decoder = new TextDecoder();
-                        let lastLength = 0;
-
-                        while (true) {
-                            const { done, value } = await reader.read();
-                            if (done) break;
-                            const chunkStr = decoder.decode(value, { stream: true });
-                            const lines = chunkStr.split('\\n');
-                            for (const line of lines) {
-                                const trimmed = line.trim();
-                                if (!trimmed.startsWith('data:')) continue;
-                                const jsonStr = trimmed.slice(5).trim();
-                                if (jsonStr === '[DONE]') {
-                                    window.webkit.messageHandlers.chatGPTWebStream.postMessage({
-                                        requestId: reqId,
-                                        type: "done"
-                                    });
-                                    return;
-                                }
-                                try {
-                                    const parsed = JSON.parse(jsonStr);
-                                    const parts = parsed?.message?.content?.parts;
-                                    if (parts && parts.length > 0) {
-                                        const fullText = parts[0];
-                                        if (fullText.length > lastLength) {
-                                            const delta = fullText.slice(lastLength);
-                                            lastLength = fullText.length;
-                                            window.webkit.messageHandlers.chatGPTWebStream.postMessage({
-                                                requestId: reqId,
-                                                type: "chunk",
-                                                text: delta
-                                            });
+                            const payload = {
+                                action: "next",
+                                messages: [
+                                    {
+                                        id: crypto.randomUUID(),
+                                        author: { role: "user" },
+                                        content: {
+                                            content_type: "text",
+                                            parts: [`\(escapedPrompt)`]
                                         }
                                     }
-                                } catch (e) {}
-                            }
-                        }
+                                ],
+                                parent_message_id: crypto.randomUUID(),
+                                model: "\(effectiveModel)",
+                                history_and_training_disabled: true
+                            };
 
-                        window.webkit.messageHandlers.chatGPTWebStream.postMessage({
-                            requestId: reqId,
-                            type: "done"
-                        });
-                    } catch (err) {
-                        window.webkit.messageHandlers.chatGPTWebStream.postMessage({
-                            requestId: reqId,
-                            type: "error",
-                            message: err.message || String(err)
-                        });
-                    }
+                            const convRes = await fetch('/backend-api/conversation', {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': 'Bearer ' + token,
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'text/event-stream'
+                                },
+                                body: JSON.stringify(payload)
+                            });
+
+                            if (!convRes.ok) {
+                                window.webkit.messageHandlers.chatGPTWebStream.postMessage({
+                                    requestId: reqId,
+                                    type: "error",
+                                    message: "Lỗi ChatGPT Web HTTP " + convRes.status
+                                });
+                                return;
+                            }
+
+                            const reader = convRes.body.getReader();
+                            const decoder = new TextDecoder();
+                            let lastLength = 0;
+
+                            while (true) {
+                                const { done, value } = await reader.read();
+                                if (done) break;
+                                const chunkStr = decoder.decode(value, { stream: true });
+                                const lines = chunkStr.split('\\n');
+                                for (const line of lines) {
+                                    const trimmed = line.trim();
+                                    if (!trimmed.startsWith('data:')) continue;
+                                    const jsonStr = trimmed.slice(5).trim();
+                                    if (jsonStr === '[DONE]') {
+                                        window.webkit.messageHandlers.chatGPTWebStream.postMessage({
+                                            requestId: reqId,
+                                            type: "done"
+                                        });
+                                        return;
+                                    }
+                                    try {
+                                        const parsed = JSON.parse(jsonStr);
+                                        const parts = parsed?.message?.content?.parts;
+                                        if (parts && parts.length > 0) {
+                                            const fullText = parts[0];
+                                            if (fullText.length > lastLength) {
+                                                const delta = fullText.slice(lastLength);
+                                                lastLength = fullText.length;
+                                                window.webkit.messageHandlers.chatGPTWebStream.postMessage({
+                                                    requestId: reqId,
+                                                    type: "chunk",
+                                                    text: delta
+                                                });
+                                            }
+                                        }
+                                    } catch (e) {}
+                                }
+                            }
+
+                            window.webkit.messageHandlers.chatGPTWebStream.postMessage({
+                                requestId: reqId,
+                                type: "done"
+                            });
+                        } catch (err) {
+                            window.webkit.messageHandlers.chatGPTWebStream.postMessage({
+                                requestId: reqId,
+                                type: "error",
+                                message: err.message || String(err)
+                            });
+                        }
+                    })();
+                    return "started";
                 })();
                 """
 

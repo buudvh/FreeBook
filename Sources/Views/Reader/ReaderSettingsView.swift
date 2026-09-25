@@ -54,10 +54,16 @@ struct ReaderSettingsView: View {
 
                 fontFamilyRow
 
-                Picker("Theme", selection: $selectedTheme) {
-                    ForEach(ReaderTheme.allCases) { theme in
-                        Text(theme.rawValue).tag(theme)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Giao diện nền đọc:")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Picker("Theme", selection: $selectedTheme) {
+                        ForEach(ReaderTheme.allCases) { theme in
+                            Text(theme.rawValue).tag(theme)
+                        }
                     }
+                    .pickerStyle(.segmented)
                 }
 
                 VStack(alignment: .leading, spacing: 10) {

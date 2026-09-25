@@ -32,6 +32,7 @@ public struct AddProviderProfileSheet: View {
                         Section("Mẫu có sẵn (Built-in)") {
                             Text("Google Gemini").tag("gemini")
                             Text("OpenAI (API Key)").tag("openai")
+                            Text("OpenAI (ChatGPT Đăng nhập OAuth)").tag("chatgpt_oauth")
                             Text("ChatGPT Web (Không lo hết quota)").tag("chatgpt_web")
                             Text("DeepSeek").tag("deepseek")
                             Text("Anthropic Claude (OpenRouter)").tag("openrouter")
@@ -165,6 +166,10 @@ public struct AddProviderProfileSheet: View {
                 name = "OpenAI"
                 baseURL = "https://api.openai.com/v1"
                 modelsText = ["gpt-4o-mini", "gpt-4o", "o3-mini", "o1"].joined(separator: "\n")
+            case "chatgpt_oauth":
+                name = "ChatGPT (OpenAI Đăng nhập)"
+                baseURL = "https://api.openai.com/v1"
+                modelsText = ["gpt-4o", "gpt-4o-mini", "o3-mini", "o1"].joined(separator: "\n")
             case "chatgpt_web":
                 name = "ChatGPT Web"
                 baseURL = "https://chatgpt.com"
@@ -230,7 +235,14 @@ public struct AddProviderProfileSheet: View {
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
 
-        let authType = (selectedTemplateKey == "chatgpt_web") ? "web" : "apiKey"
+        let authType: String
+        if selectedTemplateKey == "chatgpt_web" {
+            authType = "web"
+        } else if selectedTemplateKey == "chatgpt_oauth" {
+            authType = "oauth"
+        } else {
+            authType = "apiKey"
+        }
 
         let newProfile = AIProviderProfile(
             id: "custom_\(UUID().uuidString.prefix(8))",

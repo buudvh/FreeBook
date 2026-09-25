@@ -94,8 +94,14 @@ public actor OpenAIClient {
                     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
                     request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                     request.timeoutInterval = 60
-                    if !config.apiKey.isEmpty {
-                        request.setValue("Bearer \(config.apiKey)", forHTTPHeaderField: "Authorization")
+                    var effectiveToken = config.apiKey
+                    if config.activeProfile.authType == "oauth" {
+                        if let validToken = try? await OpenAIOAuthManager.shared.getValidAccessToken(for: config.activeProfile) {
+                            effectiveToken = validToken
+                        }
+                    }
+                    if !effectiveToken.isEmpty {
+                        request.setValue("Bearer \(effectiveToken)", forHTTPHeaderField: "Authorization")
                     }
 
                     let payload = OpenAIChatRequest(
@@ -166,8 +172,14 @@ public actor OpenAIClient {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 60
-        if !config.apiKey.isEmpty {
-            request.setValue("Bearer \(config.apiKey)", forHTTPHeaderField: "Authorization")
+        var effectiveToken = config.apiKey
+        if config.activeProfile.authType == "oauth" {
+            if let validToken = try? await OpenAIOAuthManager.shared.getValidAccessToken(for: config.activeProfile) {
+                effectiveToken = validToken
+            }
+        }
+        if !effectiveToken.isEmpty {
+            request.setValue("Bearer \(effectiveToken)", forHTTPHeaderField: "Authorization")
         }
 
         let payload = OpenAIChatRequest(

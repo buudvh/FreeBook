@@ -12,6 +12,7 @@ public struct AISettingsView: View {
     @State internal var isFetchingModels = false
     @State internal var showingAddProviderSheet = false
     @State internal var showingChatGPTWebLoginSheet = false
+    @State internal var showingOpenAIOAuthSheet = false
 
     public init() {}
 
@@ -164,6 +165,8 @@ public struct AISettingsView: View {
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                         }
+                    } else if config.activeProfile.authType == "oauth" {
+                        oauthAuthSection
                     } else {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("API Key")
@@ -314,6 +317,12 @@ public struct AISettingsView: View {
         }
         .sheet(isPresented: $showingChatGPTWebLoginSheet) {
             ChatGPTWebLoginSheet()
+        }
+        .sheet(isPresented: $showingOpenAIOAuthSheet) {
+            OpenAIOAuthLoginSheet {
+                config = AISettingsStore.shared.loadConfiguration()
+                modelsText = config.activeProfile.availableModels.joined(separator: "\n")
+            }
         }
         .onAppear {
             config = AISettingsStore.shared.loadConfiguration()

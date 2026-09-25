@@ -15,6 +15,16 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +3 file cho ChatGPT OAuth PKCE và tách extension view (1.3.403)
+
+| Nhóm | File mới | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Services/AI | [`Services/AI/OpenAIOAuthManager.swift`](../../Sources/Services/AI/OpenAIOAuthManager.swift) | Actor điều phối luồng OAuth 2.0 PKCE, token exchange, refresh token và trích xuất email JWT | 215 |
+| Views/Settings | [`Views/Settings/AI/OpenAIOAuthLoginSheet.swift`](../../Sources/Views/Settings/AI/OpenAIOAuthLoginSheet.swift) | Sheet đăng nhập tài khoản OpenAI bằng WKWebView, bắt callback localhost:1455 | 115 |
+| Views/Settings | [`Views/Settings/AI/AISettingsView+OAuth.swift`](../../Sources/Views/Settings/AI/AISettingsView+OAuth.swift) | Extension của AISettingsView hiển thị card thông tin tài khoản OAuth và logic logout | 67 |
+
+* Cả 3 file mới đều ≤ 400 dòng vật lý và tuân thủ đúng 1 primary type top level.
+
 ## +2 file cho Provider ChatGPT Web chạy ngầm qua WKWebView (1.3.402)
 
 | Nhóm | File mới | Vai trò | Dòng |

@@ -103,6 +103,16 @@ struct ExtensionConfigView: View {
                             }
                         }
                         
+                        Section(header: Text("Mạng & Cookie")) {
+                            Toggle("Xử lý cookie hệ thống", isOn: Binding(
+                                get: { (userValues["http_should_handle_cookies"] ?? "true") == "true" },
+                                set: { userValues["http_should_handle_cookies"] = $0 ? "true" : "false" }
+                            ))
+                            Text("Mặc định bật. Tắt tính năng này nếu tiện ích bị lỗi HTTP 400 do dính cookie đăng nhập Google/hệ thống (ví dụ: Google TTS).")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+
                         Section(header: Text("Mã Nguồn Script")) {
                             Button(action: {
                                 showingScriptEditor = true
@@ -121,22 +131,14 @@ struct ExtensionConfigView: View {
                 ExtensionScriptEditorView(ext: ext)
             }
             .toolbar {
-                if !configDefinitions.isEmpty {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Hủy") {
-                            dismiss()
-                        }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Hủy") {
+                        dismiss()
                     }
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Lưu") {
-                            saveConfig()
-                        }
-                    }
-                } else {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Đóng") {
-                            dismiss()
-                        }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Lưu") {
+                        saveConfig()
                     }
                 }
             }
@@ -218,6 +220,9 @@ struct ExtensionConfigView: View {
                     userValues[key] = definition.default ?? ""
                 }
             }
+            if userValues["http_should_handle_cookies"] == nil {
+                userValues["http_should_handle_cookies"] = "true"
+            }
             
             isLoading = false
         } catch {
@@ -231,6 +236,10 @@ struct ExtensionConfigView: View {
             var typedDict: [String: Any] = [:]
             for (key, strVal) in userValues {
                 guard !strVal.isEmpty else { continue }
+                if key == "http_should_handle_cookies" {
+                    typedDict[key] = (strVal.lowercased() == "true")
+                    continue
+                }
                 let fmt = configDefinitions[key]?.format
                 if fmt == "boolean" {
                     typedDict[key] = (strVal.lowercased() == "true")
@@ -245,6 +254,9 @@ struct ExtensionConfigView: View {
                 } else {
                     typedDict[key] = strVal
                 }
+            }
+            if typedDict["http_should_handle_cookies"] == nil {
+                typedDict["http_should_handle_cookies"] = (userValues["http_should_handle_cookies"]?.lowercased() != "false")
             }
             
             let data = try JSONSerialization.data(withJSONObject: typedDict, options: [])

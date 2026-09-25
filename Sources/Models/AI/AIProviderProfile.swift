@@ -11,6 +11,9 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
     public var temperature: Double
     public var isCustom: Bool
     public var authType: String
+    public var refreshToken: String?
+    public var tokenExpiresAt: Date?
+    public var accountEmail: String?
 
     public init(
         id: String,
@@ -21,7 +24,10 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
         availableModels: [String] = [],
         temperature: Double = 0.3,
         isCustom: Bool = false,
-        authType: String = "apiKey"
+        authType: String = "apiKey",
+        refreshToken: String? = nil,
+        tokenExpiresAt: Date? = nil,
+        accountEmail: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -32,10 +38,13 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
         self.temperature = temperature
         self.isCustom = isCustom
         self.authType = authType
+        self.refreshToken = refreshToken
+        self.tokenExpiresAt = tokenExpiresAt
+        self.accountEmail = accountEmail
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, baseURL, apiKey, selectedModel, availableModels, temperature, isCustom, authType
+        case id, name, baseURL, apiKey, selectedModel, availableModels, temperature, isCustom, authType, refreshToken, tokenExpiresAt, accountEmail
     }
 
     public init(from decoder: Decoder) throws {
@@ -49,6 +58,9 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
         temperature = try container.decode(Double.self, forKey: .temperature)
         isCustom = try container.decode(Bool.self, forKey: .isCustom)
         authType = try container.decodeIfPresent(String.self, forKey: .authType) ?? "apiKey"
+        refreshToken = try container.decodeIfPresent(String.self, forKey: .refreshToken)
+        tokenExpiresAt = try container.decodeIfPresent(Date.self, forKey: .tokenExpiresAt)
+        accountEmail = try container.decodeIfPresent(String.self, forKey: .accountEmail)
     }
 
     public static let defaultGemini = AIProviderProfile(
@@ -101,6 +113,17 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
         isCustom: false
     )
 
+    public static let defaultChatGPTOAuth = AIProviderProfile(
+        id: "chatgpt_oauth",
+        name: "ChatGPT (OAuth)",
+        baseURL: "https://api.openai.com/v1",
+        selectedModel: "gpt-4o",
+        availableModels: ["gpt-4o", "gpt-4o-mini", "o3-mini", "o1"],
+        temperature: 0.3,
+        isCustom: false,
+        authType: "oauth"
+    )
+
     public static let defaultChatGPTWeb = AIProviderProfile(
         id: "chatgpt_web",
         name: "ChatGPT Web",
@@ -124,7 +147,7 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
 
     /// Các mẫu provider chuẩn định nghĩa sẵn để người dùng chọn khi thêm mới.
     public static var standardTemplates: [AIProviderProfile] {
-        [defaultGemini, defaultOpenAI, defaultChatGPTWeb, defaultDeepSeek, defaultClaudeOpenRouter, defaultGroq, defaultOllama]
+        [defaultGemini, defaultOpenAI, defaultChatGPTOAuth, defaultChatGPTWeb, defaultDeepSeek, defaultClaudeOpenRouter, defaultGroq, defaultOllama]
     }
 
     /// Mặc định không lưu sẵn profile rỗng nào, chỉ lưu khi người dùng chủ động thêm.

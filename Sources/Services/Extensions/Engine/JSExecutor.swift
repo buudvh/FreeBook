@@ -12,6 +12,7 @@ public final class JSExecutor: @unchecked Sendable {
     internal var activeNetworkTasks: [Int: URLSessionDataTask] = [:]
     internal var nextNetworkTaskID = 0
     internal var executionCancelled = false
+    internal var injectedConfigs: [String: Any] = [:]
     /// Trace của lượt debug. Luồng đọc/tải production truyền `nil` và vì thế hành vi không đổi; xem
     /// `JSExecutor+Debug`. Cố ý **không** phải shared/singleton: mỗi run có sink riêng, đúng như mỗi
     /// run có một `JSExecutor` riêng.
@@ -598,6 +599,12 @@ public final class JSExecutor: @unchecked Sendable {
 
             var request = URLRequest(url: url)
             request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1", forHTTPHeaderField: "User-Agent")
+
+            if let handleCookies = self.injectedConfigs["http_should_handle_cookies"] as? Bool {
+                request.httpShouldHandleCookies = handleCookies
+            } else if let handleCookiesStr = self.injectedConfigs["http_should_handle_cookies"] as? String {
+                request.httpShouldHandleCookies = (handleCookiesStr.lowercased() == "true")
+            }
 
             if let options = optionsVal, options.isObject {
                 // Timeout
@@ -1450,6 +1457,7 @@ public final class JSExecutor: @unchecked Sendable {
 
     /// Inject các cấu hình dưới dạng biến toàn cục vào JSContext
     public func injectGlobals(_ globals: [String: Any]) {
+        self.injectedConfigs = globals
         for (key, value) in globals {
             context.setObject(value, forKeyedSubscript: key as NSCopying & NSObjectProtocol)
         }

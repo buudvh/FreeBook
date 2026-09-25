@@ -15,6 +15,16 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Type mới cho Provider ChatGPT OAuth PKCE (1.3.403)
+
+* **Models/AI**:
+  - `AIProviderPreset`: Bổ sung `case chatgptOAuth = "chatgpt_oauth"`.
+  - `AIProviderProfile`: Thêm các trường `refreshToken: String?`, `tokenExpiresAt: Date?`, `accountEmail: String?`, computed `isOAuthLoggedIn: Bool` và preset `defaultChatGPTOAuth`.
+* **Services/AI**:
+  - `OpenAIOAuthManager`: `actor OpenAIOAuthManager` - quản lý PKCE S256 (code_verifier / code_challenge), sinh auth URL với client ID `app_EMoamEEZ73f0CkXaXp7hrann`, trao đổi token tại `https://auth.openai.com/oauth/token`, tự động refresh token và decode JWT payload để lấy email.
+* **Views/Settings/AI**:
+  - `OpenAIOAuthLoginSheet`: `struct OpenAIOAuthLoginSheet: View` với nested `struct OAuthWKWebViewRepresentable: UIViewRepresentable` - WebView đăng nhập OpenAI và bắt redirect `http://localhost:1455/auth/callback`.
+
 ## Type mới cho Provider ChatGPT Web (1.3.402)
 
 * **Models/AI**:

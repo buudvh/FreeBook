@@ -298,7 +298,10 @@ public enum QuickTranslationRuleEngine {
         func appendPassthrough(upTo end: Int) {
             guard end > cursor else { return }
             let range = NSRange(location: cursor, length: end - cursor)
-            let piece = nsText.substring(with: range)
+            var piece = nsText.substring(with: range)
+            if needsSeparator(between: output, and: piece) {
+                piece = " " + piece
+            }
             output += piece
             let pieceLength = (piece as NSString).length
             segments.append(QuickTranslationRewriteResult.Segment(
