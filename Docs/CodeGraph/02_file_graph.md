@@ -15,6 +15,15 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +2 file cho Provider ChatGPT Web chạy ngầm qua WKWebView (1.3.402)
+
+| Nhóm | File mới | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Services/AI | [`Services/AI/ChatGPTWebClient.swift`](../../Sources/Services/AI/ChatGPTWebClient.swift) | Client điều phối WKWebView chạy ngầm giao tiếp với phiên web ChatGPT vượt Cloudflare Turnstile | 244 |
+| Views/Settings | [`Views/Settings/AI/ChatGPTWebLoginSheet.swift`](../../Sources/Views/Settings/AI/ChatGPTWebLoginSheet.swift) | Sheet đăng nhập tài khoản ChatGPT trên trang web chatgpt.com và lưu phiên | 85 |
+
+* Cả 2 file mới đều ≤ 400 dòng vật lý và tuân thủ đúng 1 primary type top level.
+
 ## +4 file cho di trú đổi nguồn, bộ nhớ AI và lịch sử duyệt web Bypass (1.3.398)
 
 | Nhóm | File mới | Vai trò | Dòng |

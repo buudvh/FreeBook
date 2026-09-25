@@ -15,6 +15,14 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +2 file cho Provider ChatGPT Web; 100% tuân thủ trần ≤ 400 dòng (1.3.402)
+
+* **2 file Swift mới, 1 primary type top level**:
+  - `ChatGPTWebClient.swift`: **244**/400 dòng, singleton quản lý background WKWebView và stream bridge.
+  - `ChatGPTWebLoginSheet.swift`: **85**/400 dòng, giao diện webview đăng nhập.
+* `AISettingsView.swift` (352/400) và `OpenAIClient.swift` (221/400) tăng có kiểm soát, nằm an toàn dưới trần 400 dòng.
+* `check_architecture.py` giữ nguyên **6** violation nền cũ, không phát sinh bất kỳ vi phạm kiến trúc nào mới.
+
 ## +24 file cho phân hệ AI Assistant; giảm baseline vi phạm kiến trúc từ 7 xuống 6 (1.3.385)
 
 * **24 file Swift mới, 100% tuân thủ trần ≤ 400 dòng vật lý và 1 primary type top level**:

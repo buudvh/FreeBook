@@ -15,6 +15,16 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Type mới cho Provider ChatGPT Web (1.3.402)
+
+* **Models/AI**:
+  - `AIProviderPreset`: Bổ sung `case chatgptWeb = "chatgpt_web"`.
+  - `AIProviderProfile`: Thêm thuộc tính `authType: String = "apiKey"` (`"apiKey"`, `"oauth"`, `"web"`), `defaultChatGPTWeb` và custom decoding fallback.
+* **Services/AI**:
+  - `ChatGPTWebClient`: `class ChatGPTWebClient: NSObject, @unchecked Sendable` với nested `class ScriptBridge: NSObject, WKScriptMessageHandler` - quản lý `WKWebView` chạy ngầm, gửi hội thoại qua `chatgpt.com/backend-api/conversation` và streaming kết quả.
+* **Views/Settings/AI**:
+  - `ChatGPTWebLoginSheet`: `struct ChatGPTWebLoginSheet: View` với nested `struct ChatGPTWebRepresentable: UIViewRepresentable` - giao diện web nạp `chatgpt.com` để đăng nhập và kiểm tra phiên.
+
 ## Type cho Badge VP/NE và Dictionary status trong trích xuất tên riêng (1.3.392)
 
 * **Models/AI**:

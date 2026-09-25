@@ -10,6 +10,7 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
     public var availableModels: [String]
     public var temperature: Double
     public var isCustom: Bool
+    public var authType: String
 
     public init(
         id: String,
@@ -19,7 +20,8 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
         selectedModel: String = "",
         availableModels: [String] = [],
         temperature: Double = 0.3,
-        isCustom: Bool = false
+        isCustom: Bool = false,
+        authType: String = "apiKey"
     ) {
         self.id = id
         self.name = name
@@ -29,6 +31,24 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
         self.availableModels = availableModels
         self.temperature = temperature
         self.isCustom = isCustom
+        self.authType = authType
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, baseURL, apiKey, selectedModel, availableModels, temperature, isCustom, authType
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        baseURL = try container.decode(String.self, forKey: .baseURL)
+        apiKey = try container.decode(String.self, forKey: .apiKey)
+        selectedModel = try container.decode(String.self, forKey: .selectedModel)
+        availableModels = try container.decode([String].self, forKey: .availableModels)
+        temperature = try container.decode(Double.self, forKey: .temperature)
+        isCustom = try container.decode(Bool.self, forKey: .isCustom)
+        authType = try container.decodeIfPresent(String.self, forKey: .authType) ?? "apiKey"
     }
 
     public static let defaultGemini = AIProviderProfile(
@@ -81,6 +101,17 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
         isCustom: false
     )
 
+    public static let defaultChatGPTWeb = AIProviderProfile(
+        id: "chatgpt_web",
+        name: "ChatGPT Web",
+        baseURL: "https://chatgpt.com",
+        selectedModel: "auto",
+        availableModels: ["auto", "gpt-4o", "gpt-4o-mini", "o3-mini"],
+        temperature: 0.3,
+        isCustom: false,
+        authType: "web"
+    )
+
     public static let defaultOllama = AIProviderProfile(
         id: "ollama",
         name: "Ollama Local (Offline)",
@@ -93,7 +124,7 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
 
     /// Các mẫu provider chuẩn định nghĩa sẵn để người dùng chọn khi thêm mới.
     public static var standardTemplates: [AIProviderProfile] {
-        [defaultGemini, defaultOpenAI, defaultDeepSeek, defaultClaudeOpenRouter, defaultGroq, defaultOllama]
+        [defaultGemini, defaultOpenAI, defaultChatGPTWeb, defaultDeepSeek, defaultClaudeOpenRouter, defaultGroq, defaultOllama]
     }
 
     /// Mặc định không lưu sẵn profile rỗng nào, chỉ lưu khi người dùng chủ động thêm.

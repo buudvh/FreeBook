@@ -2,6 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.402] - 2026-09-25
+
+### feat: tich hop provider chatgpt web khong gioi han quota qua wkwebview
+
+Thêm **2** file Swift mới, sửa **4** file Swift trong `Sources/Models/`, `Sources/Services/`, `Sources/Views/`:
+
+- **Giao Tiếp ChatGPT Web Ngầm (`ChatGPTWebClient.swift`, `OpenAIClient.swift`)**:
+  - `ChatGPTWebClient`: Singleton điều phối một `WKWebView` chạy ngầm chia sẻ `WKWebsiteDataStore.default()`, kiểm tra trạng thái phiên qua `/api/auth/session` và gửi request tới `/backend-api/conversation`.
+  - Tích hợp Temporary Chat (`history_and_training_disabled: true`), không lưu lại lịch sử hội thoại trên web của người dùng và không huấn luyện model.
+  - Streaming SSE: Bộ đọc stream trong JavaScript trích xuất nội dung delta và truyền qua `WKScriptMessageHandler` về Swift dạng `AsyncThrowingStream<String, Error>`.
+  - `OpenAIClient`: Kiểm tra `authType == "web"`, tự động điều hướng `sendChat` và `sendChatStreaming` sang `ChatGPTWebClient`.
+- **Giao Diện Đăng Nhập & Cài Đặt (`ChatGPTWebLoginSheet.swift`, `AISettingsView.swift`, `AddProviderProfileSheet.swift`, `AIProviderPreset.swift`, `AIProviderProfile.swift`)**:
+  - `ChatGPTWebLoginSheet`: Sheet mở trang web `https://chatgpt.com` để người dùng đăng nhập tài khoản, kiểm tra trạng thái phiên trực tiếp.
+  - `AISettingsView`: Hiển thị nút "Đăng nhập / Quản lý ChatGPT Web" thay cho trường API Key khi profile có `authType == "web"`. Nút "Kiểm tra kết nối" kiểm tra phiên đăng nhập web thay vì gọi `/models`.
+  - `AddProviderProfileSheet`: Bổ sung mẫu `ChatGPT Web (Không lo hết quota)` với danh sách model mặc định `auto`, `gpt-4o`, `gpt-4o-mini`, `o3-mini`.
+  - `AIProviderProfile`: Mở rộng thuộc tính `authType: String = "apiKey"` hỗ trợ tương thích ngược.
+
 ## [1.3.401] - 2026-09-25
 
 ### feat: tai va hien thi icon extension tren home trinh duyet bypass

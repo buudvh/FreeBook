@@ -35,6 +35,12 @@ extension AISettingsView {
     }
 
     internal func fetchModelsFromAPI() {
+        if config.activeProfile.authType == "web" {
+            testResultMessage = "ChatGPT Web hỗ trợ các model: auto, gpt-4o, gpt-4o-mini, o3-mini."
+            isTestSuccess = true
+            return
+        }
+
         isFetchingModels = true
         testResultMessage = nil
         Task {
@@ -74,6 +80,16 @@ extension AISettingsView {
         isTestingConnection = true
         testResultMessage = nil
         Task {
+            if config.activeProfile.authType == "web" {
+                let loggedIn = await ChatGPTWebClient.shared.checkLoginStatus()
+                await MainActor.run {
+                    isTestingConnection = false
+                    isTestSuccess = loggedIn
+                    testResultMessage = loggedIn ? "Đã kết nối thành công với phiên ChatGPT Web!" : "Chưa đăng nhập ChatGPT Web. Hãy bấm Đăng nhập ở trên."
+                }
+                return
+            }
+
             do {
                 let models = try await OpenAIClient.shared.fetchAvailableModels(
                     baseURL: config.activeProfile.baseURL,

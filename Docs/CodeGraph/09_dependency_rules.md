@@ -15,6 +15,15 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ranh giới phụ thuộc Provider ChatGPT Web (1.3.402)
+
+* **Services/AI không import SwiftUI**:
+  - `ChatGPTWebClient.swift` nằm trong `Services/AI/`, chỉ `import Foundation` và `import WebKit`. Tuyệt đối không `import SwiftUI`, không gọi `ToastManager.shared`, tuân thủ 100% hai luật kiến trúc `SERVICE_SWIFTUI_IMPORT` và `SERVICE_TOAST_COUPLING`.
+* **Chiều phụ thuộc Views -> Services -> Models**:
+  - `ChatGPTWebLoginSheet.swift` ở tầng Views gọi `ChatGPTWebClient.shared.checkLoginStatus()`.
+  - `OpenAIClient` ở tầng Services gọi `ChatGPTWebClient.shared` khi `authType == "web"`.
+  - Cả 2 file mới đều ≤ 400 dòng và đúng 1 primary type top level.
+
 ## Ranh giới phụ thuộc phân hệ Reader AI Harness (1.3.385)
 
 * **Tầng Services/AI độc lập hoàn toàn với SwiftUI và Toast**:

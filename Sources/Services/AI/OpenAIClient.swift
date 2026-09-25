@@ -68,7 +68,14 @@ public actor OpenAIClient {
         config: AIConfiguration,
         messages: [OpenAIChatRequest.Message]
     ) -> AsyncThrowingStream<String, Error> {
-        AsyncThrowingStream { continuation in
+        if config.activeProfile.authType == "web" {
+            return ChatGPTWebClient.shared.sendChatStreaming(
+                model: config.activeProfile.selectedModel,
+                messages: messages
+            )
+        }
+
+        return AsyncThrowingStream { continuation in
             Task {
                 do {
                     let cleanBase = config.baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -137,6 +144,14 @@ public actor OpenAIClient {
         messages: [OpenAIChatRequest.Message],
         tools: [OpenAIChatRequest.Tool]? = nil
     ) async throws -> (content: String?, toolCalls: [OpenAIChatRequest.ToolCall]?) {
+        if config.activeProfile.authType == "web" {
+            let text = try await ChatGPTWebClient.shared.sendChat(
+                model: config.activeProfile.selectedModel,
+                messages: messages
+            )
+            return (content: text, toolCalls: nil)
+        }
+
         let cleanBase = config.baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         var endpointStr = cleanBase
         if !endpointStr.hasSuffix("/chat/completions") {

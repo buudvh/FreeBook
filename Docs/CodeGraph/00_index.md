@@ -15,6 +15,12 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Tích hợp Provider ChatGPT Web không giới hạn Quota qua WKWebView nội bộ (1.3.402)
+
+* [`ChatGPTWebClient.swift`](../../Sources/Services/AI/ChatGPTWebClient.swift#L10): Client điều phối giao tiếp trực tiếp với phiên web ChatGPT (`chatgpt.com`) sử dụng `WKWebView` chạy ngầm chia sẻ `WKWebsiteDataStore.default()`, gửi tin nhắn trong ngữ cảnh phiên duyệt web vượt Cloudflare Turnstile, hỗ trợ Temporary Chat (`history_and_training_disabled: true`) và streaming SSE tokens.
+* [`ChatGPTWebLoginSheet.swift`](../../Sources/Views/Settings/AI/ChatGPTWebLoginSheet.swift#L5): Sheet mở giao diện web `chatgpt.com` cho người dùng đăng nhập tài khoản ChatGPT, lưu cookie phiên duyệt và kiểm tra trạng thái đăng nhập.
+* Thêm **2** file Swift mới; cần `xcodegen generate` và build trên macOS.
+
 ## Nâng cấp toàn diện AI UI, di trú dữ liệu khi đổi nguồn và tối ưu giao diện Reader/Kệ sách (1.3.398)
 
 * [`BookSourceMigrator.swift`](../../Sources/Services/Download/BookSourceMigrator.swift#L4): Actor điều phối di chuyển dữ liệu khi đổi nguồn sách (`SearchView`): sao chép toàn bộ chương đã tải (`BookBinManager` + `ChapterStore`), chuyển phiên chat AI (`AIChatHistoryStore.migrateSessions`), chuyển bộ nhớ AI (`BookAIMemoryStore.migrateMemory`), copy cấu hình dịch (`TranslationConfigStore`), và dọn dẹp an toàn file `.bin` cũ.

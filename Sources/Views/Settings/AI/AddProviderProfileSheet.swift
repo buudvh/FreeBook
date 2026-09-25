@@ -31,7 +31,8 @@ public struct AddProviderProfileSheet: View {
                     Picker("Mẫu Provider", selection: $selectedTemplateKey) {
                         Section("Mẫu có sẵn (Built-in)") {
                             Text("Google Gemini").tag("gemini")
-                            Text("OpenAI").tag("openai")
+                            Text("OpenAI (API Key)").tag("openai")
+                            Text("ChatGPT Web (Không lo hết quota)").tag("chatgpt_web")
                             Text("DeepSeek").tag("deepseek")
                             Text("Anthropic Claude (OpenRouter)").tag("openrouter")
                             Text("Groq Fast").tag("groq")
@@ -164,6 +165,10 @@ public struct AddProviderProfileSheet: View {
                 name = "OpenAI"
                 baseURL = "https://api.openai.com/v1"
                 modelsText = ["gpt-4o-mini", "gpt-4o", "o3-mini", "o1"].joined(separator: "\n")
+            case "chatgpt_web":
+                name = "ChatGPT Web"
+                baseURL = "https://chatgpt.com"
+                modelsText = ["auto", "gpt-4o", "gpt-4o-mini", "o3-mini"].joined(separator: "\n")
             case "deepseek":
                 name = "DeepSeek"
                 baseURL = "https://api.deepseek.com/v1"
@@ -225,6 +230,8 @@ public struct AddProviderProfileSheet: View {
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
 
+        let authType = (selectedTemplateKey == "chatgpt_web") ? "web" : "apiKey"
+
         let newProfile = AIProviderProfile(
             id: "custom_\(UUID().uuidString.prefix(8))",
             name: cleanName.isEmpty ? "Provider Tùy Chỉnh" : cleanName,
@@ -233,7 +240,8 @@ public struct AddProviderProfileSheet: View {
             selectedModel: models.first ?? "default-model",
             availableModels: models.isEmpty ? ["default-model"] : models,
             temperature: 0.3,
-            isCustom: true
+            isCustom: true,
+            authType: authType
         )
 
         onAddProfile(newProfile)
