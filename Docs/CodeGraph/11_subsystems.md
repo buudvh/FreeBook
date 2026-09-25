@@ -15,43 +15,33 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## Sửa Scope OpenAI OAuth, Khắc Phục URL Fetch ChatGPT Web và Tăng Size Icon Header Lên 16pt (1.3.404)
+## Xoá Provider ChatGPT Web & OpenAI OAuth, Tự động Cách Khoảng Trắng Token Rule và Tiền Xử Lý Số Rời Rạc (1.3.405)
 
-* **Chuẩn Hóa Scope Xác Thực OpenAI OAuth (`OpenAIOAuthManager.swift`)**:
-  - Loại bỏ scope `model.request` khỏi `defaultScopes` (chỉ giữ `openid profile email offline_access`), tương thích hoàn toàn với client ID công khai `app_EMoamEEZ73f0CkXaXp7hrann` của OpenAI, khắc phục triệt để lỗi "The OAuth 2.0 Client is not allowed to request scope 'model.request'".
-* **Khắc Phục Lỗi Gửi Tin Nhắn ChatGPT Web (`ChatGPTWebClient.swift`)**:
-  - Sử dụng URL tuyệt đối `https://chatgpt.com/api/auth/session` và `https://chatgpt.com/backend-api/conversation` kèm cấu hình `credentials: 'include'` trong JavaScript fetch thay cho URL tương đối, ngăn chặn lỗi "URL is not valid or contains user credentials" khi webview chưa load xong origin.
-  - Tăng số chu kỳ chờ kiểm tra domain từ 10 lên 25 chu kỳ, đảm bảo webview sẵn sàng trước khi inject script.
+* **Xoá Hoàn Toàn Provider ChatGPT Web & OpenAI OAuth**:
+  - Gỡ bỏ 5 file: `ChatGPTWebClient.swift`, `ChatGPTWebLoginSheet.swift`, `OpenAIOAuthManager.swift`, `OpenAIOAuthLoginSheet.swift`, `AISettingsView+OAuth.swift`.
+  - Khôi phục `OpenAIClient.swift`, `AISettingsView.swift`, `AISettingsView+Actions.swift`, `AddProviderProfileSheet.swift`, `AIProviderPreset.swift`, `AIProviderProfile.swift` về kết nối API Key thuần tuý, đơn giản hoá trải nghiệm người dùng và loại bỏ toàn bộ lỗi cookie/xác thực phức tạp.
+* **Tự Động Chèn Khoảng Trắng 2 Bên Token Rule Dịch (`QuickTranslationRuleEngine.swift`)**:
+  - Thêm logic `needsLeadingSeparator` và `needsTrailingSeparator` khi gán token rule vào văn bản kết quả (ví dụ: `我买了四个苹果` với rule `<n>个` -> `我买了 4 cái 苹果`).
+  - Gắn trực tiếp khoảng trắng vào chuỗi rule render thay vì passthrough segment, đảm bảo bảo toàn 100% ánh xạ offset 1:1 cho việc tra cứu từ điển và highlight văn bản.
+* **Tiền Xử Lý Số Rời Rạc TTS (`TTSNumberSeparatorMode.swift`, `TTSReplacementManager.swift`, `TTSSettingsView+NumberPreprocessing.swift`)**:
+  - `TTSNumberSeparatorMode`: Enum quản lý 4 chế độ (`all`, `smart`, `fourDigits`, `off`) dùng regex lookahead `(\d+)(?:\s*[-–—]\s*|\s+)(?=(\d+))` chèn dấu phẩy `, ` ngắt giữa 2 cụm số (`10 1000`, `10-1000` -> `10, 1000`), ngăn mọi engine TTS đọc gộp thành 1 số liền.
+  - `TTSReplacementManager`: Tích hợp `TTSNumberSeparatorMode.format(text:)` trong `applyReplacements(to:)`, đảm bảo mọi động cơ TTS (Piper/NghiTTS, Google, Siri, Extension) đều được áp dụng đồng nhất.
+  - `TTSSettingsView+NumberPreprocessing`: Thêm section Picker trong cài đặt TTS, tuân thủ baseline dòng của `TTSSettingsView.swift`.
+
+## Tăng Size Icon Header Lên 16pt (1.3.404)
+
 * **Tăng Kích Thước Icon Header Lên 16pt (`ReaderHeaderFooterOverlayView.swift`, `BookDetailView.swift`, `BookDetailView+Extensions.swift`)**:
   - Reader Header: Tăng font size của toàn bộ icon hàng trên cùng (`chevron.left`, `magnifyingglass`, `scroll`/`scroll.fill`, `arrow.clockwise`, `sparkles`, `gearshape`, `ellipsis.circle`) từ 13pt lên 16pt (`.font(.system(size: 16, weight: .semibold))`).
   - BookDetail Toolbar: Tăng `iconSize` của `ReaderTranslationScopeMenuView` và font size icon của `ellipsisMenu` từ 13pt lên 16pt, đồng bộ kích thước cân đối trên thanh công cụ.
 
-## Tích hợp OpenAI ChatGPT OAuth PKCE, Cấu hình Cookie Extension và Sửa Lỗi Dịch Số (1.3.403)
+## Cấu hình Cookie Extension và Sửa Lỗi Dịch Số (1.3.403)
 
-* **Xác thực OpenAI ChatGPT OAuth PKCE (`OpenAIOAuthManager.swift`, `OpenAIOAuthLoginSheet.swift`, `AISettingsView+OAuth.swift`)**:
-  - `OpenAIOAuthManager`: Actor điều phối luồng OAuth 2.0 Authorization Code Flow kèm PKCE S256 chuẩn (client ID `app_EMoamEEZ73f0CkXaXp7hrann`, callback `http://localhost:1455/auth/callback`).
-  - Tự động làm mới access token khi hết hạn thông qua `refresh_token` tại `https://auth.openai.com/oauth/token`, giải mã payload JWT để lấy địa chỉ email người dùng hiển thị trên UI.
-  - `OpenAIClient`: Kiểm tra `authType == "oauth"`, tự động resolve access token hợp lệ qua `OpenAIOAuthManager.shared.getValidAccessToken` trước khi gửi request tới API chuẩn OpenAI.
-  - `OpenAIOAuthLoginSheet`: Sheet mở trang đăng nhập chính thức của OpenAI qua `WKWebView`, bắt redirect `http://localhost:1455/auth/callback`, kiểm tra CSRF state và lưu token vào profile.
-  - `AISettingsView+OAuth`: Tách thành phần giao diện card tài khoản OAuth và logic logout khỏi `AISettingsView.swift` để giữ giới hạn dưới 400 dòng vật lý.
 * **Cấu hình Xử lý Cookie Extension (`ExtensionConfigView.swift`, `JSExecutor.swift`)**:
   - `ExtensionConfigView`: Thêm mục "Mạng & Cookie" cho phép người dùng bật/tắt `http_should_handle_cookies` cho từng extension (mặc định bật).
   - `JSExecutor`: Đọc cấu hình `http_should_handle_cookies` từ `injectedConfigs`, gán trực tiếp vào `request.httpShouldHandleCookies` khi thực hiện `_nativeSyncFetch`. Khi tắt, `URLSession` không đính kèm cookie đăng nhập của hệ thống, giải quyết triệt để lỗi HTTP 400 cho các extension như Google TTS.
 * **Khắc Phục Lỗi Dịch Số Dính Liền (`QuickTranslationRuleMatcher.swift`, `QuickTranslationRuleEngine.swift`)**:
   - `QuickTranslationRuleMatcher`: Trong `walkNumeral`, tách biệt hoàn toàn giữa chữ số ASCII/Full-width (`0-9`, `０-９`) và chữ số/ký tự bậc Hán (`〇-九`, `十百千万...`). Không cho phép chuyển tiếp giữa hai hệ số trong cùng một token số `<n>` / `<y>` và cập nhật `guardsLeft` chỉ guard khi ký tự trước đó thuộc cùng hệ số.
   - `QuickTranslationRuleEngine`: Trong `appendPassthrough(upTo:)`, bổ sung kiểm tra `needsSeparator(between: output, and: piece)`, tự động chèn khoảng trắng phân tách giữa kết quả render của rule và đoạn passthrough kế tiếp (ví dụ: `"4 cái"` + `"0"` -> `"4 cái 0"`).
-
-## Tích hợp Provider ChatGPT Web Không Giới Hạn Quota qua WKWebView Nội Bộ (1.3.402)
-
-* **Giao Tiếp ChatGPT Web Ngầm (`ChatGPTWebClient.swift`, `OpenAIClient.swift`)**:
-  - `ChatGPTWebClient`: Singleton điều phối một `WKWebView` chạy ngầm chia sẻ `WKWebsiteDataStore.default()`, kiểm tra trạng thái phiên qua `/api/auth/session` và gửi request tới `/backend-api/conversation`.
-  - Tích hợp Temporary Chat (`history_and_training_disabled: true`), không lưu lại lịch sử hội thoại trên web của người dùng và không huấn luyện model.
-  - Streaming SSE: Bộ đọc stream trong JavaScript trích xuất nội dung delta và truyền qua `WKScriptMessageHandler` về Swift dạng `AsyncThrowingStream<String, Error>`.
-  - `OpenAIClient`: Kiểm tra `authType == "web"`, tự động điều hướng `sendChat` và `sendChatStreaming` sang `ChatGPTWebClient`.
-* **Giao Diện Đăng Nhập & Cài Đặt (`ChatGPTWebLoginSheet.swift`, `AISettingsView.swift`, `AddProviderProfileSheet.swift`)**:
-  - `ChatGPTWebLoginSheet`: Sheet mở trang web `https://chatgpt.com` để người dùng đăng nhập tài khoản, kiểm tra trạng thái phiên trực tiếp.
-  - `AISettingsView`: Hiển thị nút "Đăng nhập / Quản lý ChatGPT Web" thay cho trường API Key khi profile có `authType == "web"`. Nút "Kiểm tra kết nối" kiểm tra phiên đăng nhập web thay vì gọi `/models`.
-  - `AddProviderProfileSheet`: Bổ sung mẫu `ChatGPT Web (Không lo hết quota)` với danh sách model mặc định `auto`, `gpt-4o`, `gpt-4o-mini`, `o3-mini`.
 
 ## Tải và Hiển Thị Icon Extension Trên Home Trình Duyệt Bypass (1.3.401)
 

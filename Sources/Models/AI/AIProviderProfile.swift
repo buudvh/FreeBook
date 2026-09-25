@@ -63,13 +63,6 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
         accountEmail = try container.decodeIfPresent(String.self, forKey: .accountEmail)
     }
 
-    /// Kiểm tra profile OAuth đã có access token hoặc refresh token hợp lệ hay chưa
-    public var isOAuthLoggedIn: Bool {
-        guard authType == "oauth" else { return false }
-        let hasToken = !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        let hasRefresh = !(refreshToken ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        return hasToken || hasRefresh
-    }
 
     public static let defaultGemini = AIProviderProfile(
         id: "gemini",
@@ -121,28 +114,6 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
         isCustom: false
     )
 
-    public static let defaultChatGPTOAuth = AIProviderProfile(
-        id: "chatgpt_oauth",
-        name: "ChatGPT (OAuth)",
-        baseURL: "https://api.openai.com/v1",
-        selectedModel: "gpt-4o",
-        availableModels: ["gpt-4o", "gpt-4o-mini", "o3-mini", "o1"],
-        temperature: 0.3,
-        isCustom: false,
-        authType: "oauth"
-    )
-
-    public static let defaultChatGPTWeb = AIProviderProfile(
-        id: "chatgpt_web",
-        name: "ChatGPT Web",
-        baseURL: "https://chatgpt.com",
-        selectedModel: "auto",
-        availableModels: ["auto", "gpt-4o", "gpt-4o-mini", "o3-mini"],
-        temperature: 0.3,
-        isCustom: false,
-        authType: "web"
-    )
-
     public static let defaultOllama = AIProviderProfile(
         id: "ollama",
         name: "Ollama Local (Offline)",
@@ -155,7 +126,7 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
 
     /// Các mẫu provider chuẩn định nghĩa sẵn để người dùng chọn khi thêm mới.
     public static var standardTemplates: [AIProviderProfile] {
-        [defaultGemini, defaultOpenAI, defaultChatGPTOAuth, defaultChatGPTWeb, defaultDeepSeek, defaultClaudeOpenRouter, defaultGroq, defaultOllama]
+        [defaultGemini, defaultOpenAI, defaultDeepSeek, defaultClaudeOpenRouter, defaultGroq, defaultOllama]
     }
 
     /// Mặc định không lưu sẵn profile rỗng nào, chỉ lưu khi người dùng chủ động thêm.

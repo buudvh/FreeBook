@@ -288,6 +288,8 @@ struct TTSSettingsView: View {
                 }
             }
 
+            numberPreprocessingSection
+
             // Section 5: Tải trước dữ liệu
             Section(header: HStack {
                 Text("Tải trước dữ liệu")

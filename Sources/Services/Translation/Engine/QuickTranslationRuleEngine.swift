@@ -298,10 +298,7 @@ public enum QuickTranslationRuleEngine {
         func appendPassthrough(upTo end: Int) {
             guard end > cursor else { return }
             let range = NSRange(location: cursor, length: end - cursor)
-            var piece = nsText.substring(with: range)
-            if needsSeparator(between: output, and: piece) {
-                piece = " " + piece
-            }
+            let piece = nsText.substring(with: range)
             output += piece
             let pieceLength = (piece as NSString).length
             segments.append(QuickTranslationRewriteResult.Segment(
@@ -313,17 +310,29 @@ public enum QuickTranslationRuleEngine {
             cursor = end
         }
 
-        for match in selected {
+        for (index, match) in selected.enumerated() {
             appendPassthrough(upTo: match.start)
             var rendered = match.rendered
-            // Hai rule khớp **liền kề** nhau (không còn ký tự gốc ở giữa) thì hai bản dịch bị dán vào
-            // nhau: `十年` + `第一魂技` ra `10 nămHồn kỹ thứ 1`. Tokenizer VietPhrase coi cả cụm Latin
-            // là **một** token nên chỗ dán này sống tới output cuối. Chèn một khoảng trắng khi hai đầu
-            // đều là chữ/số, và tính nó vào `outputRange` của đoạn này để mảng segment vẫn phủ liền
-            // mạch toàn bộ output — span dịch được dựng từ đó.
-            if needsSeparator(between: output, and: rendered) {
+
+            // 1. Tự động chèn khoảng trắng phía trước token rule nếu cần
+            if needsLeadingSeparator(output: output, rendered: rendered) {
                 rendered = " " + rendered
             }
+
+            // 2. Tự động chèn khoảng trắng phía sau token rule nếu cần
+            let nextChar: Character?
+            if index + 1 < selected.count, selected[index + 1].start == match.start + match.length {
+                nextChar = selected[index + 1].rendered.first
+            } else if match.start + match.length < nsText.length {
+                nextChar = (nsText.substring(from: match.start + match.length)).first
+            } else {
+                nextChar = nil
+            }
+
+            if needsTrailingSeparator(rendered: rendered, nextChar: nextChar) {
+                rendered = rendered + " "
+            }
+
             output += rendered
             let renderedLength = (rendered as NSString).length
             segments.append(QuickTranslationRewriteResult.Segment(
@@ -343,21 +352,30 @@ public enum QuickTranslationRuleEngine {
         )
     }
 
-    /// Có cần chèn khoảng trắng giữa phần đã ghép và bản dịch kế tiếp.
-    ///
-    /// Chỉ chèn khi **cả hai** đầu là chữ hoặc số: gạch nối, dấu câu và khoảng trắng đã tự ngăn cách,
-    /// và chữ Hán ở phần gốc thì tokenizer sẽ tự tách nên không cần thêm.
-    private static func needsSeparator(between output: String, and rendered: String) -> Bool {
-        guard let last = output.unicodeScalars.last, let first = rendered.unicodeScalars.first else {
+    private static func needsLeadingSeparator(output: String, rendered: String) -> Bool {
+        guard let lastChar = output.last, let firstChar = rendered.first else {
             return false
         }
-        return isWordScalar(last) && isWordScalar(first)
+        if lastChar.isWhitespace || firstChar.isWhitespace {
+            return false
+        }
+        let noSpaceAfter: Set<Character> = ["“", "‘", "\"", "'", "(", "[", "{", "《", "〈", "「", "『", "【"]
+        return !noSpaceAfter.contains(lastChar)
     }
 
-    private static func isWordScalar(_ scalar: Unicode.Scalar) -> Bool {
-        // Chữ Hán không tính là "chữ" ở đây: nó thuộc phần gốc chưa dịch và tokenizer tự tách.
-        if (0x4E00...0x9FFF).contains(scalar.value) { return false }
-        return CharacterSet.alphanumerics.contains(scalar)
+    private static func needsTrailingSeparator(rendered: String, nextChar: Character?) -> Bool {
+        guard let lastChar = rendered.last, let nextChar else {
+            return false
+        }
+        if lastChar.isWhitespace || nextChar.isWhitespace {
+            return false
+        }
+        let noSpaceBefore: Set<Character> = [
+            "”", "’", "\"", "'", ")", "]", "}", "》", "〉", "」", "』", "】",
+            "，", "。", "！", "？", "、", "；", "：",
+            ",", ".", "!", "?", ";", ":"
+        ]
+        return !noSpaceBefore.contains(nextChar)
     }
 
     private static func passthrough(_ text: String, length: Int) -> QuickTranslationRewriteResult {

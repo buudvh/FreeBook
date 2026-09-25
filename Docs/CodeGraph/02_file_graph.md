@@ -15,24 +15,14 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
-## +3 file cho ChatGPT OAuth PKCE và tách extension view (1.3.403)
+## +2 file cho tiền xử lý số rời rạc TTS và tách extension view (1.3.405)
 
 | Nhóm | File mới | Vai trò | Dòng |
 | --- | --- | --- | ---: |
-| Services/AI | [`Services/AI/OpenAIOAuthManager.swift`](../../Sources/Services/AI/OpenAIOAuthManager.swift) | Actor điều phối luồng OAuth 2.0 PKCE, token exchange, refresh token và trích xuất email JWT | 215 |
-| Views/Settings | [`Views/Settings/AI/OpenAIOAuthLoginSheet.swift`](../../Sources/Views/Settings/AI/OpenAIOAuthLoginSheet.swift) | Sheet đăng nhập tài khoản OpenAI bằng WKWebView, bắt callback localhost:1455 | 115 |
-| Views/Settings | [`Views/Settings/AI/AISettingsView+OAuth.swift`](../../Sources/Views/Settings/AI/AISettingsView+OAuth.swift) | Extension của AISettingsView hiển thị card thông tin tài khoản OAuth và logic logout | 67 |
+| Services/TTS | [`Services/TTS/Preprocessing/TTSNumberSeparatorMode.swift`](../../Sources/Services/TTS/Preprocessing/TTSNumberSeparatorMode.swift) | Enum chế độ tiền xử lý và thuật toán phân tách số `10 1000` / `10-1000` thành `10, 1000` | 98 |
+| Views/TTSWidget | [`Views/TTSWidget/TTSSettingsView+NumberPreprocessing.swift`](../../Sources/Views/TTSWidget/TTSSettingsView+NumberPreprocessing.swift) | Extension của TTSSettingsView bổ sung Picker chọn chế độ ngắt số | 22 |
 
-* Cả 3 file mới đều ≤ 400 dòng vật lý và tuân thủ đúng 1 primary type top level.
-
-## +2 file cho Provider ChatGPT Web chạy ngầm qua WKWebView (1.3.402)
-
-| Nhóm | File mới | Vai trò | Dòng |
-| --- | --- | --- | ---: |
-| Services/AI | [`Services/AI/ChatGPTWebClient.swift`](../../Sources/Services/AI/ChatGPTWebClient.swift) | Client điều phối WKWebView chạy ngầm giao tiếp với phiên web ChatGPT vượt Cloudflare Turnstile | 244 |
-| Views/Settings | [`Views/Settings/AI/ChatGPTWebLoginSheet.swift`](../../Sources/Views/Settings/AI/ChatGPTWebLoginSheet.swift) | Sheet đăng nhập tài khoản ChatGPT trên trang web chatgpt.com và lưu phiên | 85 |
-
-* Cả 2 file mới đều ≤ 400 dòng vật lý và tuân thủ đúng 1 primary type top level.
+* Cả 2 file mới đều ≤ 400 dòng vật lý và tuân thủ đúng 1 primary type top level. Đã xoá sạch 5 file cũ của ChatGPT Web & OAuth.
 
 ## +4 file cho di trú đổi nguồn, bộ nhớ AI và lịch sử duyệt web Bypass (1.3.398)
 

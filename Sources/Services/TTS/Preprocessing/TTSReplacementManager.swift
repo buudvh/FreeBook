@@ -257,7 +257,6 @@ public final class TTSReplacementManager: ObservableObject {
         planLock.lock()
         let plan = replacementPlan
         planLock.unlock()
-        guard !plan.isEmpty else { return text }
         var result = text
         for step in plan {
             switch step {
@@ -269,7 +268,7 @@ public final class TTSReplacementManager: ObservableObject {
                 }
             }
         }
-        return result
+        return TTSNumberSeparatorMode.format(text: result)
     }
 
     /// Biên dịch `rules` thành số lượt quét tối thiểu. Rule 1 ký tự **liền nhau** gộp thành một bảng tra

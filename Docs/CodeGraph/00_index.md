@@ -15,21 +15,18 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## Tích hợp ChatGPT OAuth PKCE, Cấu hình Cookie Extension, Sửa Lỗi Dịch Số và Chuyển Theme Picker (1.3.403)
+## Xoá Provider ChatGPT Web & OpenAI OAuth, Tự động Cách Khoảng Trắng Token Rule và Tiền Xử Lý Số Rời Rạc (1.3.405)
 
-* [`OpenAIOAuthManager.swift`](../../Sources/Services/AI/OpenAIOAuthManager.swift#L1): Quản lý luồng xác thực OAuth 2.0 PKCE (`app_EMoamEEZ73f0CkXaXp7hrann`, port 1455 callback) của OpenAI, tự động làm mới access token qua refresh token và trích xuất email tài khoản từ JWT.
-* [`OpenAIOAuthLoginSheet.swift`](../../Sources/Views/Settings/AI/OpenAIOAuthLoginSheet.swift#L1): Sheet giao diện đăng nhập tài khoản OpenAI trực tiếp qua `WKWebView`, tự động bắt callback `http://localhost:1455/auth/callback` và lưu token vào cấu hình AI.
-* [`AISettingsView+OAuth.swift`](../../Sources/Views/Settings/AI/AISettingsView+OAuth.swift#L1): Quản trị phiên đăng nhập OAuth, hiển thị email tài khoản, trạng thái phiên và nút đăng xuất tài khoản.
+* [`TTSNumberSeparatorMode.swift`](../../Sources/Services/TTS/Preprocessing/TTSNumberSeparatorMode.swift#L1): Enum và bộ tiền xử lý số rời rạc (`all`, `smart`, `fourDigits`, `off`) dùng Regex phân tách an toàn các cặp số viết liền dấu cách/gạch nối như `10 1000` hoặc `10-1000` thành `10, 1000` giúp mọi engine TTS không đọc gộp số.
+* [`TTSSettingsView+NumberPreprocessing.swift`](../../Sources/Views/TTSWidget/TTSSettingsView+NumberPreprocessing.swift#L1): Section cài đặt cấu hình chế độ ngắt số trong `TTSSettingsView`, giữ file chính dưới trần baseline.
+* [`QuickTranslationRuleEngine.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleEngine.swift#L290): Tự động chèn khoảng trắng 2 bên token rule dịch khi áp dụng rule, đồng thời bảo toàn tuyệt đối 1:1 offset mapping cho các đoạn passthrough.
+* Xoá sạch toàn bộ 5 file liên quan đến ChatGPT Web và OpenAI OAuth (`ChatGPTWebClient`, `ChatGPTWebLoginSheet`, `OpenAIOAuthManager`, `OpenAIOAuthLoginSheet`, `AISettingsView+OAuth`), khôi phục giao diện cấu hình AI tinh gọn và ổn định.
+
+## Cấu hình Cookie Extension, Sửa Lỗi Dịch Số và Chuyển Theme Picker (1.3.403)
+
 * [`ExtensionConfigView.swift`](../../Sources/Views/Extensions/Config/ExtensionConfigView.swift#L105) & [`JSExecutor.swift`](../../Sources/Services/Extensions/Engine/JSExecutor.swift#L600): Bổ sung tuỳ chọn bật/tắt `http_should_handle_cookies` cho từng extension (mặc định bật), giải quyết triệt để lỗi HTTP 400 do rò rỉ cookie đăng nhập Google.
 * [`QuickTranslationRuleMatcher.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleMatcher.swift#L150) & [`QuickTranslationRuleEngine.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleEngine.swift#L300): Khắc phục lỗi dịch số dính liền `1四个0` -> `1 4 cái 0` (ngăn trộn lẫn chữ số ASCII và Hán trong cùng token số và tự động chèn khoảng trắng phân tách sau rule match).
 * [`ReaderSettingsView.swift`](../../Sources/Views/Reader/ReaderSettingsView.swift#L100): Chuyển UI chọn theme đọc sách sang dạng thanh ngang `.pickerStyle(.segmented)` trực quan.
-* Thêm **3** file Swift mới; cần `xcodegen generate` và build trên macOS.
-
-## Tích hợp Provider ChatGPT Web không giới hạn Quota qua WKWebView nội bộ (1.3.402)
-
-* [`ChatGPTWebClient.swift`](../../Sources/Services/AI/ChatGPTWebClient.swift#L10): Client điều phối giao tiếp trực tiếp với phiên web ChatGPT (`chatgpt.com`) sử dụng `WKWebView` chạy ngầm chia sẻ `WKWebsiteDataStore.default()`, gửi tin nhắn trong ngữ cảnh phiên duyệt web vượt Cloudflare Turnstile, hỗ trợ Temporary Chat (`history_and_training_disabled: true`) và streaming SSE tokens.
-* [`ChatGPTWebLoginSheet.swift`](../../Sources/Views/Settings/AI/ChatGPTWebLoginSheet.swift#L5): Sheet mở giao diện web `chatgpt.com` cho người dùng đăng nhập tài khoản ChatGPT, lưu cookie phiên duyệt và kiểm tra trạng thái đăng nhập.
-* Thêm **2** file Swift mới; cần `xcodegen generate` và build trên macOS.
 
 ## Nâng cấp toàn diện AI UI, di trú dữ liệu khi đổi nguồn và tối ưu giao diện Reader/Kệ sách (1.3.398)
 

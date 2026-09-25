@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.405] - 2026-09-25
+
+### fix: xoa provider chatgpt web va openai oauth, space token rule va tien xu ly so 10 1000
+
+Thêm **2** file Swift mới, xoá **5** file Swift, sửa **7** file Swift trong `Sources/Models/`, `Sources/Services/`, `Sources/Views/`:
+
+- **Xoá Hoàn Toàn Provider ChatGPT Web & OpenAI OAuth**:
+  - Xoá 5 file: `ChatGPTWebClient.swift`, `ChatGPTWebLoginSheet.swift`, `OpenAIOAuthManager.swift`, `OpenAIOAuthLoginSheet.swift`, `AISettingsView+OAuth.swift`.
+  - Dọn sạch logic nhánh `authType == "web"` và `authType == "oauth"` trong `OpenAIClient.swift`, `AISettingsView.swift`, `AISettingsView+Actions.swift`, `AddProviderProfileSheet.swift`, `AIProviderPreset.swift`, `AIProviderProfile.swift`.
+  - Khôi phục cấu hình AI về chuẩn API Key thuần tuý, đơn giản hoá và ổn định.
+- **Tự Động Khoảng Trắng 2 Bên Token Rule Dịch (`QuickTranslationRuleEngine.swift`)**:
+  - Tự động chèn khoảng trắng 2 bên kết quả render của rule dịch (ví dụ câu `我买了四个苹果` với rule `<n>个` -> `我买了 4 cái 苹果`).
+  - Gắn khoảng trắng vào `rendered` của rule thay vì passthrough segment, bảo toàn tuyệt đối 1:1 mapping ký tự gốc cho việc tra cứu từ điển và highlight.
+- **Tiền Xử Lý Số Rời Rạc TTS (`TTSNumberSeparatorMode.swift`, `TTSReplacementManager.swift`, `TTSSettingsView+NumberPreprocessing.swift`, `TTSSettingsView.swift`)**:
+  - `TTSNumberSeparatorMode`: Enum 4 chế độ (`all`, `smart`, `fourDigits`, `off`) dùng regex lookahead `(\d+)(?:\s*[-–—]\s*|\s+)(?=(\d+))` thay thế khoảng cách giữa 2 cụm số (`10 1000`, `10-1000`) thành `, ` (`10, 1000`) giúp TTS không bị đọc gộp số.
+  - Tích hợp vào `TTSReplacementManager.applyReplacements(to:)` áp dụng chung cho mọi engine TTS (NghiTTS/Piper, Google TTS, Siri, Extension TTS).
+  - Thêm Picker chọn chế độ trong `TTSSettingsView`, giữ file chính an toàn trong baseline (518/519 dòng).
+
 ## [1.3.404] - 2026-09-25
 
 ### fix: sua scope openai oauth, sua url fetch chatgpt web va tang size icon header len 16pt

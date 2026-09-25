@@ -4,8 +4,6 @@ import Foundation
 public enum AIProviderPreset: String, CaseIterable, Codable, Sendable, Identifiable {
     case gemini = "gemini"
     case openai = "openai"
-    case chatgptOAuth = "chatgpt_oauth"
-    case chatgptWeb = "chatgpt_web"
     case claudeOpenRouter = "claudeOpenRouter"
     case deepseek = "deepseek"
     case groq = "groq"
@@ -18,8 +16,6 @@ public enum AIProviderPreset: String, CaseIterable, Codable, Sendable, Identifia
         switch self {
         case .gemini: return "Google Gemini"
         case .openai: return "OpenAI"
-        case .chatgptOAuth: return "ChatGPT (OAuth - Đăng nhập tài khoản)"
-        case .chatgptWeb: return "ChatGPT Web (Không giới hạn Quota)"
         case .claudeOpenRouter: return "Anthropic Claude (qua OpenRouter)"
         case .deepseek: return "DeepSeek"
         case .groq: return "Groq"
@@ -32,8 +28,6 @@ public enum AIProviderPreset: String, CaseIterable, Codable, Sendable, Identifia
         switch self {
         case .gemini: return "https://generativelanguage.googleapis.com/v1beta/openai/"
         case .openai: return "https://api.openai.com/v1"
-        case .chatgptOAuth: return "https://api.openai.com/v1"
-        case .chatgptWeb: return "https://chatgpt.com"
         case .claudeOpenRouter: return "https://openrouter.ai/api/v1"
         case .deepseek: return "https://api.deepseek.com/v1"
         case .groq: return "https://api.groq.com/openai/v1"
@@ -48,10 +42,6 @@ public enum AIProviderPreset: String, CaseIterable, Codable, Sendable, Identifia
             return ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-1.5-pro"]
         case .openai:
             return ["gpt-4o-mini", "gpt-4o", "o3-mini", "o1"]
-        case .chatgptOAuth:
-            return ["gpt-4o", "gpt-4o-mini", "o3-mini", "o1"]
-        case .chatgptWeb:
-            return ["auto", "gpt-4o", "gpt-4o-mini", "o3-mini"]
         case .claudeOpenRouter:
             return ["anthropic/claude-3.5-sonnet", "anthropic/claude-3.5-haiku", "anthropic/claude-3-opus"]
         case .deepseek:

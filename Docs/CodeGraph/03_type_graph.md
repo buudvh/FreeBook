@@ -15,25 +15,15 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
-## Type mới cho Provider ChatGPT OAuth PKCE (1.3.403)
+## Type mới cho Tiền Xử Lý Số Rời Rạc TTS & Dọn Dẹp Provider AI (1.3.405)
 
+* **Services/TTS/Preprocessing**:
+  - `TTSNumberSeparatorMode`: `public enum TTSNumberSeparatorMode: String, CaseIterable, Identifiable, Sendable` gồm các case `all`, `smart`, `fourDigits`, `off`, `current` đọc/ghi `UserDefaults` key `ttsNumberSeparatorMode`, và hàm tĩnh `format(text:mode:) -> String` dùng regex lookahead phân tách số `10 1000` / `10-1000` thành `10, 1000`.
 * **Models/AI**:
-  - `AIProviderPreset`: Bổ sung `case chatgptOAuth = "chatgpt_oauth"`.
-  - `AIProviderProfile`: Thêm các trường `refreshToken: String?`, `tokenExpiresAt: Date?`, `accountEmail: String?`, computed `isOAuthLoggedIn: Bool` và preset `defaultChatGPTOAuth`.
-* **Services/AI**:
-  - `OpenAIOAuthManager`: `actor OpenAIOAuthManager` - quản lý PKCE S256 (code_verifier / code_challenge), sinh auth URL với client ID `app_EMoamEEZ73f0CkXaXp7hrann`, trao đổi token tại `https://auth.openai.com/oauth/token`, tự động refresh token và decode JWT payload để lấy email.
-* **Views/Settings/AI**:
-  - `OpenAIOAuthLoginSheet`: `struct OpenAIOAuthLoginSheet: View` với nested `struct OAuthWKWebViewRepresentable: UIViewRepresentable` - WebView đăng nhập OpenAI và bắt redirect `http://localhost:1455/auth/callback`.
-
-## Type mới cho Provider ChatGPT Web (1.3.402)
-
-* **Models/AI**:
-  - `AIProviderPreset`: Bổ sung `case chatgptWeb = "chatgpt_web"`.
-  - `AIProviderProfile`: Thêm thuộc tính `authType: String = "apiKey"` (`"apiKey"`, `"oauth"`, `"web"`), `defaultChatGPTWeb` và custom decoding fallback.
-* **Services/AI**:
-  - `ChatGPTWebClient`: `class ChatGPTWebClient: NSObject, @unchecked Sendable` với nested `class ScriptBridge: NSObject, WKScriptMessageHandler` - quản lý `WKWebView` chạy ngầm, gửi hội thoại qua `chatgpt.com/backend-api/conversation` và streaming kết quả.
-* **Views/Settings/AI**:
-  - `ChatGPTWebLoginSheet`: `struct ChatGPTWebLoginSheet: View` với nested `struct ChatGPTWebRepresentable: UIViewRepresentable` - giao diện web nạp `chatgpt.com` để đăng nhập và kiểm tra phiên.
+  - `AIProviderPreset`: Đã loại bỏ các case `chatgptOAuth` và `chatgptWeb`.
+  - `AIProviderProfile`: Đã loại bỏ `refreshToken`, `tokenExpiresAt`, `accountEmail`, `isOAuthLoggedIn`, `defaultChatGPTOAuth`, `defaultChatGPTWeb`.
+* **Views/Settings/AI & Services/AI**:
+  - Đã xoá bỏ hoàn toàn các type: `OpenAIOAuthManager`, `OpenAIOAuthLoginSheet`, `ChatGPTWebClient`, `ChatGPTWebLoginSheet`.
 
 ## Type cho Badge VP/NE và Dictionary status trong trích xuất tên riêng (1.3.392)
 

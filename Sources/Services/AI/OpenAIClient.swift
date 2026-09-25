@@ -68,13 +68,6 @@ public actor OpenAIClient {
         config: AIConfiguration,
         messages: [OpenAIChatRequest.Message]
     ) -> AsyncThrowingStream<String, Error> {
-        if config.activeProfile.authType == "web" {
-            return ChatGPTWebClient.shared.sendChatStreaming(
-                model: config.activeProfile.selectedModel,
-                messages: messages
-            )
-        }
-
         return AsyncThrowingStream { continuation in
             Task {
                 do {
@@ -94,12 +87,7 @@ public actor OpenAIClient {
                     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
                     request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                     request.timeoutInterval = 60
-                    var effectiveToken = config.apiKey
-                    if config.activeProfile.authType == "oauth" {
-                        if let validToken = try? await OpenAIOAuthManager.shared.getValidAccessToken(for: config.activeProfile) {
-                            effectiveToken = validToken
-                        }
-                    }
+                    let effectiveToken = config.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
                     if !effectiveToken.isEmpty {
                         request.setValue("Bearer \(effectiveToken)", forHTTPHeaderField: "Authorization")
                     }
@@ -150,14 +138,6 @@ public actor OpenAIClient {
         messages: [OpenAIChatRequest.Message],
         tools: [OpenAIChatRequest.Tool]? = nil
     ) async throws -> (content: String?, toolCalls: [OpenAIChatRequest.ToolCall]?) {
-        if config.activeProfile.authType == "web" {
-            let text = try await ChatGPTWebClient.shared.sendChat(
-                model: config.activeProfile.selectedModel,
-                messages: messages
-            )
-            return (content: text, toolCalls: nil)
-        }
-
         let cleanBase = config.baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         var endpointStr = cleanBase
         if !endpointStr.hasSuffix("/chat/completions") {
@@ -172,12 +152,7 @@ public actor OpenAIClient {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 60
-        var effectiveToken = config.apiKey
-        if config.activeProfile.authType == "oauth" {
-            if let validToken = try? await OpenAIOAuthManager.shared.getValidAccessToken(for: config.activeProfile) {
-                effectiveToken = validToken
-            }
-        }
+        let effectiveToken = config.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         if !effectiveToken.isEmpty {
             request.setValue("Bearer \(effectiveToken)", forHTTPHeaderField: "Authorization")
         }

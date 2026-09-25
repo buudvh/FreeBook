@@ -11,8 +11,6 @@ public struct AISettingsView: View {
     @State internal var isTestSuccess = false
     @State internal var isFetchingModels = false
     @State internal var showingAddProviderSheet = false
-    @State internal var showingChatGPTWebLoginSheet = false
-    @State internal var showingOpenAIOAuthSheet = false
 
     public init() {}
 
@@ -144,46 +142,21 @@ public struct AISettingsView: View {
                         .textInputAutocapitalization(.never)
                     }
 
-                    if config.activeProfile.authType == "web" {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Xác thực ChatGPT Web")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Button(action: { showingChatGPTWebLoginSheet = true }) {
-                                HStack {
-                                    Image(systemName: "safari.fill")
-                                        .foregroundColor(.green)
-                                    Text("Đăng nhập / Quản lý ChatGPT Web")
-                                        .fontWeight(.medium)
-                                    Spacer()
-                                    Image(systemName: "arrow.up.right")
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
-                                }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("API Key")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        SecureField("Nhập API Key...", text: Binding(
+                            get: { config.activeProfile.apiKey },
+                            set: { newKey in
+                                var p = config.activeProfile
+                                p.apiKey = newKey
+                                config.updateActiveProfile(p)
                             }
-                            Text("Đăng nhập trên chatgpt.com để dùng hạn ngạch web miễn phí / Plus không giới hạn.")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
-                    } else if config.activeProfile.authType == "oauth" {
-                        oauthAuthSection
-                    } else {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("API Key")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            SecureField("Nhập API Key...", text: Binding(
-                                get: { config.activeProfile.apiKey },
-                                set: { newKey in
-                                    var p = config.activeProfile
-                                    p.apiKey = newKey
-                                    config.updateActiveProfile(p)
-                                }
-                            ))
-                            .font(.system(.body, design: .monospaced))
-                            .autocorrectionDisabled()
-                            .textInputAutocapitalization(.never)
-                        }
+                        ))
+                        .font(.system(.body, design: .monospaced))
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
                     }
 
                     // Quản lý model của profile
@@ -313,15 +286,6 @@ public struct AISettingsView: View {
                 config.activeProfileId = newProfile.id
                 modelsText = newProfile.availableModels.joined(separator: "\n")
                 saveConfigSilently()
-            }
-        }
-        .sheet(isPresented: $showingChatGPTWebLoginSheet) {
-            ChatGPTWebLoginSheet()
-        }
-        .sheet(isPresented: $showingOpenAIOAuthSheet) {
-            OpenAIOAuthLoginSheet {
-                config = AISettingsStore.shared.loadConfiguration()
-                modelsText = config.activeProfile.availableModels.joined(separator: "\n")
             }
         }
         .onAppear {

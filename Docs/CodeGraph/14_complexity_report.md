@@ -15,12 +15,13 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
-## +2 file cho Provider ChatGPT Web; 100% tuân thủ trần ≤ 400 dòng (1.3.402)
+## +2 file tiền xử lý TTS, xoá 5 file AI; 100% tuân thủ trần ≤ 400 dòng (1.3.405)
 
 * **2 file Swift mới, 1 primary type top level**:
-  - `ChatGPTWebClient.swift`: **244**/400 dòng, singleton quản lý background WKWebView và stream bridge.
-  - `ChatGPTWebLoginSheet.swift`: **85**/400 dòng, giao diện webview đăng nhập.
-* `AISettingsView.swift` (352/400) và `OpenAIClient.swift` (221/400) tăng có kiểm soát, nằm an toàn dưới trần 400 dòng.
+  - `TTSNumberSeparatorMode.swift`: **98**/400 dòng, enum quản lý chế độ và thuật toán regex format số rời rạc.
+  - `TTSSettingsView+NumberPreprocessing.swift`: **22**/400 dòng, extension UI tách rời giúp `TTSSettingsView.swift` giữ an toàn ở 518/519 dòng baseline.
+* `TTSReplacementManager.swift` (393/400) và `QuickTranslationRuleEngine.swift` (392/400) nằm dưới trần 400 dòng.
+* Đã xoá sạch 5 file cũ liên quan ChatGPT Web & OpenAI OAuth, giảm độ phức tạp của codebase.
 * `check_architecture.py` giữ nguyên **6** violation nền cũ, không phát sinh bất kỳ vi phạm kiến trúc nào mới.
 
 ## +24 file cho phân hệ AI Assistant; giảm baseline vi phạm kiến trúc từ 7 xuống 6 (1.3.385)

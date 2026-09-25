@@ -15,14 +15,14 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## Ranh giới phụ thuộc Provider ChatGPT Web (1.3.402)
+## Ranh giới phụ thuộc Tiền Xử Lý Số TTS & Phục Hồi AI Chuẩn (1.3.405)
 
-* **Services/AI không import SwiftUI**:
-  - `ChatGPTWebClient.swift` nằm trong `Services/AI/`, chỉ `import Foundation` và `import WebKit`. Tuyệt đối không `import SwiftUI`, không gọi `ToastManager.shared`, tuân thủ 100% hai luật kiến trúc `SERVICE_SWIFTUI_IMPORT` và `SERVICE_TOAST_COUPLING`.
-* **Chiều phụ thuộc Views -> Services -> Models**:
-  - `ChatGPTWebLoginSheet.swift` ở tầng Views gọi `ChatGPTWebClient.shared.checkLoginStatus()`.
-  - `OpenAIClient` ở tầng Services gọi `ChatGPTWebClient.shared` khi `authType == "web"`.
-  - Cả 2 file mới đều ≤ 400 dòng và đúng 1 primary type top level.
+* **Services/TTS độc lập với UI**:
+  - `TTSNumberSeparatorMode.swift` nằm trong `Services/TTS/Preprocessing/`, chỉ `import Foundation`. Tuyệt đối không `import SwiftUI`, không gọi `ToastManager.shared`, tuân thủ 100% luật kiến trúc.
+* **Tầng View mở rộng TTSSettingsView**:
+  - `TTSSettingsView+NumberPreprocessing.swift` nằm trong `Views/TTSWidget/` cung cấp section Picker đọc/ghi `TTSNumberSeparatorMode.current`.
+* **Loại bỏ phụ thuộc WebKit/OAuth trong AI**:
+  - `OpenAIClient.swift` quay về kết nối HTTP chuẩn qua API Key thuần, không còn gọi các client WebKit hay OAuth bên ngoài.
 
 ## Ranh giới phụ thuộc phân hệ Reader AI Harness (1.3.385)
 
