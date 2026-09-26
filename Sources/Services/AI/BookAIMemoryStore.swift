@@ -108,15 +108,24 @@ public final class BookAIMemoryStore: Sendable {
     // MARK: - Trí nhớ tổng (Global AI Memory)
 
     public static let defaultGlobalMemoryPrompt = """
-    # QUY TẮC PHÂN TÍCH VÀ TRÍCH XUẤT TÊN RIÊNG:
-    Khi người dùng yêu cầu trích xuất tên riêng, tìm danh từ riêng, lọc tên nhân vật hoặc kiểm tra từ điển từ đoạn văn bản/chương truyện:
-    1. Chỉ trích xuất các danh từ riêng thực sự (Tên nhân vật, địa danh, tông môn, công pháp, bảo vật đặc thù). Bỏ qua các danh từ chung thông thường (ví dụ: sư phụ, chưởng môn, đệ tử, thanh niên, thiếu nữ, hoàng đế,...).
-    2. Đối với mỗi tên riêng tìm thấy, hãy đối chiếu và chuyển ngữ sang tên Hán Việt chuẩn, tự nhiên nhất.
-    3. Trả về kết quả dưới dạng một mảng JSON thuần túy (không bọc trong markdown code block, hoặc đặt trong block json) theo định dạng:
+    Nếu tôi yêu cầu lọc name thì:
+
+    Đầu ra:
+
+    * Chỉ trả về một JSON array hợp lệ.
+    * Không sử dụng Markdown.
+    * Không đặt JSON trong code block.
+    * Không thêm bất kỳ nội dung nào trước hoặc sau JSON.
+    * Nếu không tìm thấy thực thể nào, trả về [].
+
+    Định dạng bắt buộc:
+
     [
-      {"original": "Tên gốc chữ Hán", "suggestedMeaning": "Tên Hán Việt đề xuất"}
+    {
+    "original": "Tên chữ Hán",
+    "suggestedMeaning": "Tên Hán Việt hoặc nghĩa tiếng Việt phù hợp"
+    }
     ]
-    Không kèm theo lời dẫn rườm rà nếu được yêu cầu lọc dữ liệu tự động.
     """
 
     private var globalMemoryURL: URL {

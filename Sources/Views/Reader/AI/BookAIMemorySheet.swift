@@ -159,17 +159,16 @@ public struct BookAIMemorySheet: View {
 
     @ViewBuilder
     private func clipboardToolbar(for text: Binding<String>) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Spacer()
             Button(action: {
                 text.wrappedValue = ""
             }) {
-                HStack(spacing: 3) {
-                    Image(systemName: "trash")
-                    Text("Xoá")
-                }
-                .font(.caption2)
-                .foregroundColor(.secondary)
+                Image(systemName: "trash")
+                    .font(.caption)
+                    .frame(width: 28, height: 26)
+                    .background(Color.secondary.opacity(0.12))
+                    .cornerRadius(5)
             }
             .buttonStyle(.borderless)
             .disabled(text.wrappedValue.isEmpty)
@@ -177,12 +176,11 @@ public struct BookAIMemorySheet: View {
             Button(action: {
                 UIPasteboard.general.string = text.wrappedValue
             }) {
-                HStack(spacing: 3) {
-                    Image(systemName: "doc.on.doc")
-                    Text("Copy")
-                }
-                .font(.caption2)
-                .foregroundColor(.secondary)
+                Image(systemName: "doc.on.doc")
+                    .font(.caption)
+                    .frame(width: 28, height: 26)
+                    .background(Color.secondary.opacity(0.12))
+                    .cornerRadius(5)
             }
             .buttonStyle(.borderless)
             .disabled(text.wrappedValue.isEmpty)
@@ -190,12 +188,12 @@ public struct BookAIMemorySheet: View {
             Button(action: {
                 appendFromClipboard(to: &text.wrappedValue)
             }) {
-                HStack(spacing: 3) {
-                    Image(systemName: "doc.on.clipboard")
-                    Text("Dán")
-                }
-                .font(.caption2.bold())
-                .foregroundColor(.blue)
+                Image(systemName: "doc.on.clipboard")
+                    .font(.caption)
+                    .frame(width: 28, height: 26)
+                    .background(Color.accentColor.opacity(0.15))
+                    .foregroundColor(.accentColor)
+                    .cornerRadius(5)
             }
             .buttonStyle(.borderless)
         }

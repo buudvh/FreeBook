@@ -108,7 +108,8 @@ ReaderView (bấm nút sparkles trên Header/Menu)
               │     └─ AIBookDataInspector.loadOfflineChapters(bookId:)
               ├─ Gửi tin nhắn chat thông thường (Streaming):
               │     └─ ReaderAIFullScreenView+Actions.sendMessage()
-              │           ├─ OpenAIClient.sendChatStreaming(request:)
+              │           ├─ OpenAIClient / AnthropicClient.sendChatStreaming(request:)
+              │           ├─ Tự động kiểm tra sau khi stream dừng: AINameExtractionBatchProcessor.parseNamesFromJSONString(accumulated) -> Tự động kích hoạt ReaderAINameReviewCardView nếu có mảng JSON tên riêng
               │           └─ AIChatHistoryStore.saveSession(session)
               ├─ Tác vụ nhanh: Tóm tắt chương:
               │     └─ handleQuickAction(.summarizeChapter)

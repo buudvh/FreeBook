@@ -295,11 +295,15 @@ public struct ReaderAIFullScreenView: View {
                         }
                     }
             } else {
+                let resolvedNames = resolveExtractedNames(for: message)
                 VStack(alignment: .leading, spacing: 8) {
                     if message.isStreaming && message.content.isEmpty {
                         ReaderAIThinkingIndicatorView()
                     } else if !message.content.isEmpty {
-                        AIMarkdownMessageView(content: message.content, isUser: false)
+                        let displayContent = (!resolvedNames.isEmpty && message.content.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("["))
+                            ? "Đã tìm thấy \(resolvedNames.count) tên riêng trong phản hồi:"
+                            : message.content
+                        AIMarkdownMessageView(content: displayContent, isUser: false)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
                             .background(Color(UIColor.secondarySystemBackground))
@@ -323,18 +327,33 @@ public struct ReaderAIFullScreenView: View {
                         )
                     }
 
-                    if let msgIndex = currentSession.messages.firstIndex(where: { $0.id == message.id }),
-                       let extracted = currentSession.messages[msgIndex].extractedNames, !extracted.isEmpty {
+                    if !resolvedNames.isEmpty {
                         ReaderAINameReviewCardView(
                             names: Binding(
-                                get: { currentSession.messages[msgIndex].extractedNames ?? [] },
-                                set: { currentSession.messages[msgIndex].extractedNames = $0 }
+                                get: {
+                                    if let idx = currentSession.messages.firstIndex(where: { $0.id == message.id }),
+                                       let list = currentSession.messages[idx].extractedNames, !list.isEmpty {
+                                        return list
+                                    }
+                                    return resolvedNames
+                                },
+                                set: { updated in
+                                    if let idx = currentSession.messages.firstIndex(where: { $0.id == message.id }) {
+                                        currentSession.messages[idx].extractedNames = updated
+                                        AIChatHistoryStore.shared.saveSession(currentSession, for: bookId)
+                                    }
+                                }
                             ),
                             onSave: { itemsToSave, isName, isMerge in
                                 saveNamesToDictionary(itemsToSave, isName: isName, isMerge: isMerge)
                             },
                             onDelete: { deletedId in
-                                currentSession.messages[msgIndex].extractedNames?.removeAll(where: { $0.id == deletedId })
+                                if let idx = currentSession.messages.firstIndex(where: { $0.id == message.id }) {
+                                    var current = currentSession.messages[idx].extractedNames ?? resolvedNames
+                                    current.removeAll(where: { $0.id == deletedId })
+                                    currentSession.messages[idx].extractedNames = current
+                                    AIChatHistoryStore.shared.saveSession(currentSession, for: bookId)
+                                }
                             }
                         )
                     }
@@ -343,5 +362,15 @@ public struct ReaderAIFullScreenView: View {
             }
         }
         .padding(.horizontal, 12)
+    }
+
+    private func resolveExtractedNames(for message: AIChatMessage) -> [AIExtractedName] {
+        if let names = message.extractedNames, !names.isEmpty {
+            return names
+        }
+        guard !message.isStreaming, message.role == .assistant else { return [] }
+        let parsed = AINameExtractionBatchProcessor.shared.parseNamesFromJSONString(message.content)
+        guard !parsed.isEmpty else { return [] }
+        return AIBookDataInspector.shared.decorateExtractedNames(names: parsed, bookId: bookId)
     }
 }

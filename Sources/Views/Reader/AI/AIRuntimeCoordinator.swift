@@ -114,6 +114,11 @@ public final class AIRuntimeCoordinator: ObservableObject {
                 }
 
                 guard !Task.isCancelled else { return }
+
+                // Tự động kiểm tra và bóc tách nếu phản hồi chứa mảng JSON tên riêng
+                let extracted = AINameExtractionBatchProcessor.shared.parseNamesFromJSONString(accumulated)
+                let decorated = extracted.isEmpty ? nil : AIBookDataInspector.shared.decorateExtractedNames(names: extracted, bookId: bookId)
+
                 onComplete(accumulated)
 
                 await MainActor.run {
@@ -121,7 +126,12 @@ public final class AIRuntimeCoordinator: ObservableObject {
                     self.isRunning = false
                     self.activeStreamingTask = nil
                     if let idx = self.activeSession?.messages.firstIndex(where: { $0.id == assistantMsgId }) {
-                        self.activeSession?.messages[idx].content = accumulated
+                        if let dec = decorated, !dec.isEmpty {
+                            self.activeSession?.messages[idx].content = "Đã tìm thấy \(dec.count) tên riêng trong phản hồi:"
+                            self.activeSession?.messages[idx].extractedNames = dec
+                        } else {
+                            self.activeSession?.messages[idx].content = accumulated
+                        }
                         self.activeSession?.messages[idx].isStreaming = false
                     }
                     if let s = self.activeSession { AIChatHistoryStore.shared.saveSession(s, for: bookId) }

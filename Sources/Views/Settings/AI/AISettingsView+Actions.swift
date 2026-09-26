@@ -132,30 +132,22 @@ extension AISettingsView {
                 text.wrappedValue = ""
                 onPaste?()
             } label: {
-                HStack(spacing: 3) {
-                    Image(systemName: "trash")
-                    Text("Xoá")
-                }
-                .font(.caption2)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 3)
-                .background(Color.secondary.opacity(0.12))
-                .cornerRadius(5)
+                Image(systemName: "trash")
+                    .font(.caption)
+                    .frame(width: 28, height: 26)
+                    .background(Color.secondary.opacity(0.12))
+                    .cornerRadius(5)
             }
             .buttonStyle(.plain)
 
             Button {
                 UIPasteboard.general.string = text.wrappedValue
             } label: {
-                HStack(spacing: 3) {
-                    Image(systemName: "doc.on.doc")
-                    Text("Sao chép")
-                }
-                .font(.caption2)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 3)
-                .background(Color.secondary.opacity(0.12))
-                .cornerRadius(5)
+                Image(systemName: "doc.on.doc")
+                    .font(.caption)
+                    .frame(width: 28, height: 26)
+                    .background(Color.secondary.opacity(0.12))
+                    .cornerRadius(5)
             }
             .buttonStyle(.plain)
             .disabled(text.wrappedValue.isEmpty)
@@ -164,16 +156,12 @@ extension AISettingsView {
                 appendClipboard(to: text)
                 onPaste?()
             } label: {
-                HStack(spacing: 3) {
-                    Image(systemName: "doc.on.clipboard")
-                    Text("Dán tiếp")
-                }
-                .font(.caption2)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 3)
-                .background(Color.accentColor.opacity(0.15))
-                .foregroundColor(.accentColor)
-                .cornerRadius(5)
+                Image(systemName: "doc.on.clipboard")
+                    .font(.caption)
+                    .frame(width: 28, height: 26)
+                    .background(Color.accentColor.opacity(0.15))
+                    .foregroundColor(.accentColor)
+                    .cornerRadius(5)
             }
             .buttonStyle(.plain)
         }

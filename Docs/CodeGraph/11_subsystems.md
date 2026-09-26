@@ -21,10 +21,10 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
   - `AIProviderProfile`: Thêm `apiKeys: [String]`, `anthropicAuthHeader: String` ("bearer" mặc định vs "x-api-key"), và hàm `allEffectiveApiKeys()` gộp danh sách các API key hợp lệ.
   - `AnthropicClient`: Sửa `resolveEndpoint` không chèn thừa `/v1`, hỗ trợ chọn Header (`Authorization: Bearer <token>` mặc định, `x-api-key`), tự động failover sang key tiếp theo khi gặp HTTP 401, 403, 429 hoặc quota error.
   - `OpenAIClient`: Bổ sung vòng lặp failover tự động qua danh sách API keys khi gặp HTTP 401, 403, 429 hoặc quota error, hàm `cleanToken`, và `testChatPing`.
-* **Trí Nhớ AI Toàn Cục & Tự Động Kích Hoạt Name Review Card (`BookAIMemoryStore.swift`, `ReaderAIFullScreenView+Actions.swift`, `ReaderAINameReviewCardView.swift`)**:
-  - `BookAIMemoryStore`: Quản lý `global_memory.txt` dưới `Application Support/ai_memory/` làm quy tắc lọc tên dùng chung toàn app, tiêm vào `systemInstruction` trước ngữ cảnh sách.
-  - `ReaderAIFullScreenView+Actions`: Khi trợ lý AI phản hồi JSON danh sách tên riêng, tự động bóc tách bằng `AINameExtractionBatchProcessor.parseNamesFromJSONString`, trang trí nhãn VP/NE và hiển thị ngay `ReaderAINameReviewCardView`.
-  - `ReaderAINameReviewCardView`: Thêm tuỳ chọn sắp xếp `selectedFirst` (mặc định) và `alphabetical`, nút sắp xếp lại bằng tay, không tự động đảo vị trí khi tick checkbox, chống tràn layout trên từ dài.
+* **Trí Nhớ AI Toàn Cục, Tự Động Kích Hoạt Name Review Card & Icon Clipboard Tinh Gọn (`BookAIMemoryStore.swift`, `AIRuntimeCoordinator.swift`, `ReaderAIFullScreenView.swift`, `AISettingsView+Actions.swift`)**:
+  - `BookAIMemoryStore`: Cập nhật `defaultGlobalMemoryPrompt` chuẩn hóa định dạng yêu cầu lọc name thuần JSON array.
+  - `AIRuntimeCoordinator` & `ReaderAIFullScreenView`: Tự động nhận diện response mảng JSON tên riêng ngay sau khi stream dừng hoặc khi nạp tin nhắn, bóc tách bằng `AINameExtractionBatchProcessor.parseNamesFromJSONString`, trang trí nhãn VP/NE và hiển thị ngay `ReaderAINameReviewCardView` (ẩn khối JSON thô).
+  - Giao diện nút Clipboard (Xoá, Copy, Dán): Tinh chỉnh thành icon SF Symbols gọn gàng $28 \times 26\text{ pt}$ bo góc nhẹ trong cài đặt và trí nhớ sách.
 * **Tích Hợp Sao Lưu & Khôi Phục Dữ Liệu AI (`BackupSettingsArchiver.swift`, `BackupPaths.swift`, `BackupConfigArchiver.swift`)**:
   - `BackupSettingsArchiver`: Đưa `"FreeBook_AI_Configuration_V1"` vào danh sách cho phép xuất của cài đặt.
   - `BackupPaths` & `BackupConfigArchiver`: Khai báo và sao lưu/khôi phục thư mục `ai_memory/` (chứa `global_memory.txt` và ghi chú từng sách) trong file `.fbbackup`.

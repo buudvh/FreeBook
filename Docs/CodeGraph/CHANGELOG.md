@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.408] - 2026-09-26
+
+### feat: tu dong nhan dien response json ten rieng kich hoat the duyet va tinh chinh icon clipboard
+
+Sửa **5** file Swift trong `Sources/Services/AI/`, `Sources/Views/Reader/AI/`, `Sources/Views/Settings/AI/`:
+
+- **Tự Động Nhận Diện Response JSON Tên Riêng & Kích Hoạt Thẻ Duyệt (`AIRuntimeCoordinator.swift`, `ReaderAIFullScreenView.swift`)**:
+  - `AIRuntimeCoordinator`: Sau khi AI hoàn tất streaming hội thoại (`accumulated`), tự động đưa qua `AINameExtractionBatchProcessor.parseNamesFromJSONString`. Nếu là mảng JSON tên riêng, tự động đối chiếu từ điển truyện để trang trí nhãn `VP`/`NE` qua `AIBookDataInspector.decorateExtractedNames`, gán `extractedNames = decorated`, thu gọn tiêu đề thành `"Đã tìm thấy \(decorated.count) tên riêng trong phản hồi:"` và lưu trực tiếp vào `activeSession` cũng như `AIChatHistoryStore`.
+  - `ReaderAIFullScreenView`: Bổ sung cơ chế fallback tự động bóc tách on-the-fly trong `messageRow` (`resolveExtractedNames`). Nếu tin nhắn trợ lý chưa có `extractedNames` nhưng nội dung là mảng JSON tên riêng hợp lệ, tự động trang trí nhãn VP/NE và hiển thị ngay `ReaderAINameReviewCardView` kèm tiêu đề tóm tắt (ẩn khối JSON thô dài dòng).
+- **Tinh Chỉnh Giao Diện Các Nút Thao Tác Clipboard Tinh Gọn (`AISettingsView+Actions.swift`, `BookAIMemorySheet.swift`)**:
+  - Loại bỏ hoàn toàn nhãn chữ (`Xoá`, `Sao chép`/`Copy`, `Dán tiếp`/`Dán`).
+  - Chuyển sang hiển thị icon SF Symbols tinh gọn (`trash`, `doc.on.doc`, `doc.on.clipboard`) với khung cố định $28 \times 26\text{ pt}$ có nền bo góc, chống triệt để tình trạng tràn layout hoặc rớt dòng chữ khi đặt cạnh tiêu đề dài.
+- **Quy Tắc & Chỉ Dẫn AI Dùng Chung Mặc Định Chuẩn Hoá (`BookAIMemoryStore.swift`)**:
+  - Cập nhật hằng số `defaultGlobalMemoryPrompt` theo đúng văn bản định dạng nghiêm ngặt của người dùng, yêu cầu chỉ trả về mảng JSON thuần tuý `[{"original": "...", "suggestedMeaning": "..."}]` không markdown, không code block.
+
 ## [1.3.407] - 2026-09-26
 
 ### feat: ho tro nhieu api key kem tu dong doi key loi, mac dinh bearer auth cho anthropic, sap xep ten rieng ai va sao luu ai
