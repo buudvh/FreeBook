@@ -105,15 +105,24 @@ extension DictionaryListView {
             }
         }
     }
+
     func importFile(from url: URL, isMerge: Bool) {
         Task {
             do {
-                if isGlobal {
-                    try await cache.importEntries(from: url, type: type, isMerge: isMerge)
-                } else {
-                    guard let bid = bookId else { return }
-                    try await TranslationDictionaryWriter.shared.importEntries(from: url, isName: type == .names, bookId: bid, isMerge: isMerge)
+                if let bid = bookId {
+                    try await TranslationDictionaryWriter.shared.importEntries(
+                        from: url,
+                        isName: type == .names,
+                        bookId: bid,
+                        isMerge: isMerge
+                    )
                     await loadData()
+                } else {
+                    try await DictionaryCache.shared.importEntries(
+                        from: url,
+                        type: type,
+                        isMerge: isMerge
+                    )
                 }
                 ToastManager.shared.show(message: "Import thành công!", type: .success)
             } catch {
