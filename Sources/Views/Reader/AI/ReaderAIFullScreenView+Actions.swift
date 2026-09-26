@@ -86,6 +86,7 @@ extension ReaderAIFullScreenView {
             availableModels = config.activeProfile.availableModels
         }
         selectedModel = session.model
+        migrateLegacyJSONMessagesIfNeeded()
     }
 
     internal func sendUserMessage(promptOverride: String? = nil) {
@@ -360,6 +361,37 @@ extension ReaderAIFullScreenView {
     internal func approveAllActions(_ actions: [AIHarnessAction]) {
         for action in actions where action.status == .pendingReview {
             approveAction(action)
+        }
+    }
+
+    internal func migrateLegacyJSONMessagesIfNeeded() {
+        let snapshot = currentSession
+        let bid = bookId
+        guard snapshot.messages.contains(where: {
+            $0.role == .assistant && !$0.isStreaming && ($0.extractedNames == nil || $0.extractedNames?.isEmpty == true)
+        }) else { return }
+
+        Task.detached(priority: .utility) {
+            var updated = snapshot.messages
+            var changed = false
+            for i in updated.indices {
+                let msg = updated[i]
+                if msg.role == .assistant, !msg.isStreaming, (msg.extractedNames == nil || msg.extractedNames?.isEmpty == true) {
+                    let parsed = AINameExtractionBatchProcessor.shared.parseNamesFromJSONString(msg.content)
+                    if !parsed.isEmpty {
+                        updated[i].extractedNames = AIBookDataInspector.shared.decorateExtractedNames(names: parsed, bookId: bid)
+                        changed = true
+                    }
+                }
+            }
+            if changed {
+                await MainActor.run {
+                    if self.currentSession.id == snapshot.id {
+                        self.currentSession.messages = updated
+                        AIChatHistoryStore.shared.saveSession(self.currentSession, for: bid)
+                    }
+                }
+            }
         }
     }
 }

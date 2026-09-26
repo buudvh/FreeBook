@@ -38,6 +38,7 @@ struct DictionaryListView: View {
     @State private var pendingImportURL: URL? = nil
     @State private var showingImportModeDialog = false
     @State private var showingShareBookSheet = false
+    @State private var showingImportBookSheet = false
 
     private var isGlobal: Bool { bookId == nil }
 
@@ -142,6 +143,11 @@ struct DictionaryListView: View {
                         } label: {
                             Label("Chia sẻ sang truyện khác", systemImage: "square.and.arrow.up")
                         }
+                        Button {
+                            showingImportBookSheet = true
+                        } label: {
+                            Label("Nhập từ truyện khác...", systemImage: "square.and.arrow.down")
+                        }
                     }
                     
                     if !allEntries.isEmpty || (isGlobal && !deletedWordsList.isEmpty) {
@@ -200,6 +206,11 @@ struct DictionaryListView: View {
         .sheet(isPresented: $showingShareBookSheet) {
             BookShareTargetSheet(excludedBookId: bookId) { targetBook, isMerge in
                 shareToBook(targetBook: targetBook, isMerge: isMerge)
+            }
+        }
+        .sheet(isPresented: $showingImportBookSheet) {
+            BookImportSourceSheet(excludedBookId: bookId) { sourceBook, isMerge in
+                importFromBook(sourceBook: sourceBook, isMerge: isMerge)
             }
         }
         .task {
@@ -377,7 +388,7 @@ struct DictionaryListView: View {
 
     // MARK: - Data Operations
 
-    private func loadData() async {
+    internal func loadData() async {
         if isGlobal {
             await cache.loadIfNeeded(type: type)
         } else {
@@ -488,48 +499,9 @@ struct DictionaryListView: View {
         }
     }
 
-    private func importFile(from url: URL, isMerge: Bool) {
-        Task {
-            do {
-                if isGlobal {
-                    try await cache.importEntries(from: url, type: type, isMerge: isMerge)
-                } else {
-                    guard let bid = bookId else { return }
-                    try await TranslationDictionaryWriter.shared.importEntries(from: url, isName: type == .names, bookId: bid, isMerge: isMerge)
-                    let entries = await loadBookEntries()
-                    bookEntries = entries
-                }
-                ToastManager.shared.show(message: "Import thành công!", type: .success)
-            } catch {
-                ToastManager.shared.show(message: "Lỗi import: \(error.localizedDescription)", type: .error)
-            }
-        }
-    }
 
-    private func shareToBook(targetBook: Book, isMerge: Bool) {
-        guard let sourceBid = bookId, targetBook.bookId != sourceBid else { return }
 
-        Task {
-            do {
-                let translateDir = TranslationManager.shared.translateDirectory
-                let sourceURL = translateDir
-                    .appendingPathComponent("books").appendingPathComponent(sourceBid)
-                    .appendingPathComponent("\(type.fileName).txt")
-                let sourceRecords = (try? DictionaryTextFileStore.parseRecords(from: sourceURL)) ?? []
-                guard !sourceRecords.isEmpty else {
-                    ToastManager.shared.show(message: "Từ điển này chưa có dữ liệu để chia sẻ.", type: .info)
-                    return
-                }
 
-                try await TranslationDictionaryWriter.shared.importEntries(from: sourceURL, isName: type == .names,
-                    bookId: targetBook.bookId, isMerge: isMerge)
-
-                ToastManager.shared.show(message: "Đã chia sẻ \(type.displayName) sang truyện \(TranslateUtils.translateBookTitleIfNeeded(targetBook.title, bookId: targetBook.bookId))", type: .success)
-            } catch {
-                ToastManager.shared.show(message: "Lỗi chia sẻ: \(error.localizedDescription)", type: .error)
-            }
-        }
-    }
 
     private func exportText() -> String {
         if let records = currentTextRecords(), !records.isEmpty {

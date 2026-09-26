@@ -15,6 +15,18 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Tối Ưu Màn Hình Dịch Reader, Khắc Phục Đơ UI AI Chat và Thêm Nhập Từ Điển Từ Truyện Khác (1.3.409)
+
+* **Tối Ưu Tra Cứu Base Dictionary & Quản Lý Từ Điển (`TranslationManager.swift`, `DictionaryHubView.swift`)**:
+  - `TranslationManager.existsInBaseDictionary`: Trả về kết quả ngay lập tức khi `loadedBaseDict` đã có trên RAM, ngăn ngừa trôi xuống nạp lại file `.dat` 30MB từ đĩa khi xoá từ tuỳ chỉnh trong `ManageDefinitionsView` hoặc gắn badge VP/NE.
+  - `DictionaryHubView`: Bỏ `loadAllDictionaries()` trong `.onAppear`, loại bỏ việc nạp lại từ điển khi mở hub.
+* **Khắc Phục Đơ UI / TTS & Tối Ưu AI Streaming (`ReaderAIFullScreenView.swift`, `ReaderAIFullScreenView+Actions.swift`, `AIRuntimeCoordinator.swift`)**:
+  - `ReaderAIFullScreenView`: Xoá bỏ việc gọi `resolveExtractedNames` trong body/`messageRow`, chuyển sang đọc thuộc tính tĩnh `message.extractedNames`, chấm dứt vòng lặp re-render liên tục gây lock Main Thread và làm gián đoạn TTS.
+  - `ReaderAIFullScreenView+Actions`: Thêm migration ngầm `migrateLegacyJSONMessagesIfNeeded()` trong background task khi nạp session.
+  - `AIRuntimeCoordinator`: Áp dụng throttle cập nhật streaming delta ở mức 20 FPS (50ms).
+* **Nhập Từ Điển Riêng Từ Truyện Khác (`BookImportSourceSheet.swift`, `DictionaryListView.swift`, `DictionaryListView+Transfer.swift`)**:
+  - `BookImportSourceSheet`: Tạo sheet chọn truyện nguồn với giao diện và thành phần đồng bộ 100% với `BookShareTargetSheet`, hỗ trợ 2 chế độ Gộp / Thay thế qua dialog xác nhận.
+  - `DictionaryListView+Transfer`: Tiếp nhận các hàm chuyển giao `shareToBook`, `importFromBook`, `importFile`, đưa `DictionaryListView.swift` về 681 dòng vật lý (dưới baseline 690).
 ## Nâng cấp Multi-API Key Failover, Header Auth Tuỳ Chọn & AI Memory (1.3.407)
 
 * **Cơ Chế Failover Nhiều API Key & Header Auth Tuỳ Chọn (`AnthropicClient.swift`, `OpenAIClient.swift`, `AIProviderProfile.swift`)**:

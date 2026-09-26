@@ -132,10 +132,8 @@ public final class TranslationManager: ObservableObject {
         guard !cleanWord.isEmpty else { return false }
 
         let loadedBaseDict = isName ? namesDict : vietPhraseDict
-        if let loadedDict = loadedBaseDict,
-           let match = loadedDict.findLongestMatch(text: cleanWord, startIndex: 0),
-           match.length == cleanWord.utf16.count {
-            return true
+        if let loadedDict = loadedBaseDict {
+            return loadedDict.findLongestMatch(text: cleanWord, startIndex: 0)?.length == cleanWord.utf16.count
         }
 
         let baseFile = isName ? "Names.dat" : "VietPhrase.dat"

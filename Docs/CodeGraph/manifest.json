@@ -3,9 +3,9 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-09-26T06:02:39Z",
-  "gitCommit": "180a8af7ee20f5b3eac5cf1c2c733633b30c5b24",
-  "sourceFileCount": 577,
+  "generatedAt": "2026-09-26T14:00:43Z",
+  "gitCommit": "16a042e71002341d3cccae76f32ded110df15819",
+  "sourceFileCount": 578,
   "documentCount": 16,
   "documents": [
     {
@@ -407,6 +407,7 @@
         "Sources/Views/Common/VisibleBrowserReopenView.swift",
         "Sources/Views/Common/VisibleBrowserReopenViewModel.swift",
         "Sources/Views/Dictionary/BookDictionaryView.swift",
+        "Sources/Views/Dictionary/BookImportSourceSheet.swift",
         "Sources/Views/Dictionary/BookShareTargetSheet.swift",
         "Sources/Views/Dictionary/DictionaryEntryRow.swift",
         "Sources/Views/Dictionary/DictionaryEntryTransferAction.swift",
@@ -594,12 +595,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "e5fd702cb99bd5b377ae5f2ec63dc1037487ef5657d781faf253b464e0c2ec38",
-      "sourceHash": "f012594a3dc8d2176ec2eb0b86d11a47116ebb62e6d8ae8477bf6c56967a591b",
-      "generatedHash": "6b5e6beeeaebe4a7284ee3c06fb797c5ffee59f173c86021ec402ca445510f8b",
-      "generatedAt": "2026-09-25T10:58:05Z",
-      "reviewedAt": "2026-09-25T10:58:05Z",
-      "reviewedCommit": "00108c6fb167dc2e9764ee72cab27dad833bf2ad",
+      "structureHash": "d498950951cb787b405a8dd1d40e825d38b0ce214aae178f3a0399be05c3f7af",
+      "sourceHash": "0a32d28dabdaa562ab59b24b41e1d9b2a4ff573cea6b3c1d7b5ecb0b724bc7c1",
+      "generatedHash": "f5617d141c2c75c6a81ec34961d151fe76b62f17aa6b66c2de869068b51408aa",
+      "generatedAt": "2026-09-26T14:00:28Z",
+      "reviewedAt": "2026-09-26T14:00:28Z",
+      "reviewedCommit": "16a042e71002341d3cccae76f32ded110df15819",
       "reviewMode": "accept"
     },
     {
@@ -1028,6 +1029,7 @@
         "Sources/Views/Common/VisibleBrowserReopenView.swift",
         "Sources/Views/Common/VisibleBrowserReopenViewModel.swift",
         "Sources/Views/Dictionary/BookDictionaryView.swift",
+        "Sources/Views/Dictionary/BookImportSourceSheet.swift",
         "Sources/Views/Dictionary/BookShareTargetSheet.swift",
         "Sources/Views/Dictionary/DictionaryEntryRow.swift",
         "Sources/Views/Dictionary/DictionaryEntryTransferAction.swift",
@@ -1215,12 +1217,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "e5fd702cb99bd5b377ae5f2ec63dc1037487ef5657d781faf253b464e0c2ec38",
-      "sourceHash": "f012594a3dc8d2176ec2eb0b86d11a47116ebb62e6d8ae8477bf6c56967a591b",
-      "generatedHash": "674a96b3eeded0afcb3da9046f66e99abe254a25e24a230877cb6741f9a294a2",
-      "generatedAt": "2026-09-25T10:58:05Z",
-      "reviewedAt": "2026-09-25T10:58:05Z",
-      "reviewedCommit": "00108c6fb167dc2e9764ee72cab27dad833bf2ad",
+      "structureHash": "d498950951cb787b405a8dd1d40e825d38b0ce214aae178f3a0399be05c3f7af",
+      "sourceHash": "0a32d28dabdaa562ab59b24b41e1d9b2a4ff573cea6b3c1d7b5ecb0b724bc7c1",
+      "generatedHash": "a65eda8794a8ea54203483cc8d12b1792a50929efa773ce20c8868d2b336fed0",
+      "generatedAt": "2026-09-26T14:00:28Z",
+      "reviewedAt": "2026-09-26T14:00:28Z",
+      "reviewedCommit": "16a042e71002341d3cccae76f32ded110df15819",
       "reviewMode": "accept"
     },
     {
@@ -1496,11 +1498,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "706fa29db56e41d3db40c081abd9d22106ab12e087a717aad9df2c890e09d6fc",
-      "sourceHash": "24e1ef5bddbfa468937730edd050366513f879cb8c37907b166c2c8712c0a4da",
-      "generatedHash": "c73b39be40f361824de19eaf73c4e40b7b396551e88ab9fe3a6b144a7a476e59",
-      "generatedAt": "2026-09-26T06:02:34Z",
-      "reviewedAt": "2026-09-26T06:02:34Z",
-      "reviewedCommit": "180a8af7ee20f5b3eac5cf1c2c733633b30c5b24",
+      "sourceHash": "b0d52f8dd4a8ce653d56643ebe6838cc8afa8ad7218cf143b036f860e09f66e7",
+      "generatedHash": "fb92e5d87755af11a5cf9dc4bad143eee8bc0c54c90097d39558f1852aa67f98",
+      "generatedAt": "2026-09-26T14:00:28Z",
+      "reviewedAt": "2026-09-26T14:00:28Z",
+      "reviewedCommit": "16a042e71002341d3cccae76f32ded110df15819",
       "reviewMode": "accept"
     },
     {
@@ -1604,11 +1606,11 @@
         "Sources/Views/MainTabView.swift"
       ],
       "structureHash": "ffbf7b006867544c833a93f86bffc43487ffef6ad417a869af181a319652907f",
-      "sourceHash": "77f0a74d901bf394ed095b25096be1ddaaf852f14bc54f85af86569ebbd58955",
+      "sourceHash": "871811a9684604cdd65071c94eca95e469ded3d7ee9ba4bbbfd7be70b54c9ca5",
       "generatedHash": "be0650d2687730775919bb91046b3c80064a8e2bff168ffdcfbd06f2ab097eb2",
-      "generatedAt": "2026-09-24T15:34:45Z",
-      "reviewedAt": "2026-09-24T15:34:45Z",
-      "reviewedCommit": "4cf3e3f16970dd9ad3df906e2de7ceb44da35b18",
+      "generatedAt": "2026-09-26T14:00:43Z",
+      "reviewedAt": "2026-09-26T14:00:43Z",
+      "reviewedCommit": "16a042e71002341d3cccae76f32ded110df15819",
       "reviewMode": "no-change-needed"
     },
     {
@@ -1750,11 +1752,11 @@
         "Sources/Views/Reader/Extensions/ReaderViewModel+Translation.swift"
       ],
       "structureHash": "5b98193310594449d3c11bf19f20bdf6164763f31fa3040d6a96678a46ac0228",
-      "sourceHash": "b6af32a641b2e105e503f28c110558f9026e2c48c203169c51d23be5c74e828a",
+      "sourceHash": "c41d51daa58cc2bc557007ac53d79c1901bdc4aa2591f52fc3d7b5536e72574f",
       "generatedHash": "d61a434d572b894e7f75f0a493c90e28ebeac803e18afb4f47f12bea48d65c28",
-      "generatedAt": "2026-09-25T10:01:11Z",
-      "reviewedAt": "2026-09-25T10:01:11Z",
-      "reviewedCommit": "9fa42e697851c2923e2fc53e94cea6b0635daec2",
+      "generatedAt": "2026-09-26T14:00:43Z",
+      "reviewedAt": "2026-09-26T14:00:43Z",
+      "reviewedCommit": "16a042e71002341d3cccae76f32ded110df15819",
       "reviewMode": "no-change-needed"
     },
     {
@@ -1783,11 +1785,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "acad37ecfe6bd6c367da5de500cdaf028298b3fb613e49e119afecb80611eb31",
-      "sourceHash": "e787e593d1a2e4d12f60938050a0c4cc1128eb414a14938a00467a49878b2767",
+      "sourceHash": "f14c03998b20b9c9ec5580101116118e04aedce2cfa54a45415307cd1e7805f8",
       "generatedHash": "098964b59ac962f6ce39489eeada1d225f3d19e45a015413097e3dbe4b9e47ce",
-      "generatedAt": "2026-09-25T04:32:29Z",
-      "reviewedAt": "2026-09-25T04:32:29Z",
-      "reviewedCommit": "0bee9c124987e1ea55ae5e054329912c9d1a518a",
+      "generatedAt": "2026-09-26T14:00:43Z",
+      "reviewedAt": "2026-09-26T14:00:43Z",
+      "reviewedCommit": "16a042e71002341d3cccae76f32ded110df15819",
       "reviewMode": "no-change-needed"
     },
     {
@@ -2193,6 +2195,7 @@
         "Sources/Views/Common/VisibleBrowserReopenView.swift",
         "Sources/Views/Common/VisibleBrowserReopenViewModel.swift",
         "Sources/Views/Dictionary/BookDictionaryView.swift",
+        "Sources/Views/Dictionary/BookImportSourceSheet.swift",
         "Sources/Views/Dictionary/BookShareTargetSheet.swift",
         "Sources/Views/Dictionary/DictionaryEntryRow.swift",
         "Sources/Views/Dictionary/DictionaryEntryTransferAction.swift",
@@ -2380,12 +2383,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "48e0dd3f6aef6963dab6b2a31df97bd26bb058e9ebc0108dda8da6c75bbd8a61",
-      "sourceHash": "4efed1c78de6e4235c3f3f982ef08ef448c3b0858a00a4f6ed1b22837a7ecca3",
-      "generatedHash": "7549078e50d745e782d082826ad017a91a33622a872000f48ee7d19de336a7cf",
-      "generatedAt": "2026-09-25T10:58:05Z",
-      "reviewedAt": "2026-09-25T10:58:05Z",
-      "reviewedCommit": "00108c6fb167dc2e9764ee72cab27dad833bf2ad",
+      "structureHash": "ec5a50f525b58b46644a846f7da42a1ef0736f02a4f2e0d37d0e02b79224d6a5",
+      "sourceHash": "b548f8e8e8e06d3e4ffad41c125925157f68c72f1b32d88a0d166837ff8ec010",
+      "generatedHash": "37914495d321add22d0907ad8374b198d3b36bd314d15150e23c00a8a87f0b66",
+      "generatedAt": "2026-09-26T14:00:28Z",
+      "reviewedAt": "2026-09-26T14:00:28Z",
+      "reviewedCommit": "16a042e71002341d3cccae76f32ded110df15819",
       "reviewMode": "accept"
     },
     {
@@ -2845,6 +2848,7 @@
         "Sources/Views/Common/VisibleBrowserReopenView.swift",
         "Sources/Views/Common/VisibleBrowserReopenViewModel.swift",
         "Sources/Views/Dictionary/BookDictionaryView.swift",
+        "Sources/Views/Dictionary/BookImportSourceSheet.swift",
         "Sources/Views/Dictionary/BookShareTargetSheet.swift",
         "Sources/Views/Dictionary/DictionaryEntryRow.swift",
         "Sources/Views/Dictionary/DictionaryEntryTransferAction.swift",
@@ -3032,12 +3036,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "334ded28a1ccd97db1852c33eced829f3e349217d45c0559ef10002535f7c1eb",
-      "sourceHash": "53aa27ba24d19d80a62be900867739254123d2fe51095075ab1d02d48b6b182d",
-      "generatedHash": "04d4b79ee17af5d716b01f714ca49d75762af65302362d4553765b7674e29b40",
-      "generatedAt": "2026-09-26T06:02:34Z",
-      "reviewedAt": "2026-09-26T06:02:34Z",
-      "reviewedCommit": "180a8af7ee20f5b3eac5cf1c2c733633b30c5b24",
+      "structureHash": "1b229edafd0fdbedbd8f35867f53625f19903265857cab804319a7fc1cf364bb",
+      "sourceHash": "98c94c814bc0e1e296b8594f80703d0243b42e991031f1e9468e30ceb220052c",
+      "generatedHash": "56f2d1e0ed77e819bfbc48ba48afec7fea6a31f0581ece4e7736938d650b0466",
+      "generatedAt": "2026-09-26T14:00:28Z",
+      "reviewedAt": "2026-09-26T14:00:28Z",
+      "reviewedCommit": "16a042e71002341d3cccae76f32ded110df15819",
       "reviewMode": "accept"
     },
     {
@@ -3291,11 +3295,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "826a1da37a5fe2d62c08454fd57631c9f790f3248bcce013bf6cee3b4ad474db",
-      "sourceHash": "ef26d81659b7ea04eb1588d36d757aadf379e55abfd480d76ca19a182341a148",
+      "sourceHash": "ac404416b2f0548727b2dfd43ec123ac001d787251a55f940a44197be64e7181",
       "generatedHash": "60e67e1d4f6b698fba8f5fce0fc4ed904339c11644fe1cbfc448f181f294170e",
-      "generatedAt": "2026-09-26T06:02:39Z",
-      "reviewedAt": "2026-09-26T06:02:39Z",
-      "reviewedCommit": "180a8af7ee20f5b3eac5cf1c2c733633b30c5b24",
+      "generatedAt": "2026-09-26T14:00:43Z",
+      "reviewedAt": "2026-09-26T14:00:43Z",
+      "reviewedCommit": "16a042e71002341d3cccae76f32ded110df15819",
       "reviewMode": "no-change-needed"
     },
     {
@@ -3697,6 +3701,7 @@
         "Sources/Views/Common/VisibleBrowserReopenView.swift",
         "Sources/Views/Common/VisibleBrowserReopenViewModel.swift",
         "Sources/Views/Dictionary/BookDictionaryView.swift",
+        "Sources/Views/Dictionary/BookImportSourceSheet.swift",
         "Sources/Views/Dictionary/BookShareTargetSheet.swift",
         "Sources/Views/Dictionary/DictionaryEntryRow.swift",
         "Sources/Views/Dictionary/DictionaryEntryTransferAction.swift",
@@ -3884,12 +3889,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "e5fd702cb99bd5b377ae5f2ec63dc1037487ef5657d781faf253b464e0c2ec38",
-      "sourceHash": "f012594a3dc8d2176ec2eb0b86d11a47116ebb62e6d8ae8477bf6c56967a591b",
-      "generatedHash": "3ee917aac0cbc02e232965bb7a50e065e84493c8512e423955a2033a94de658a",
-      "generatedAt": "2026-09-25T10:58:05Z",
-      "reviewedAt": "2026-09-25T10:58:05Z",
-      "reviewedCommit": "00108c6fb167dc2e9764ee72cab27dad833bf2ad",
+      "structureHash": "d498950951cb787b405a8dd1d40e825d38b0ce214aae178f3a0399be05c3f7af",
+      "sourceHash": "0a32d28dabdaa562ab59b24b41e1d9b2a4ff573cea6b3c1d7b5ecb0b724bc7c1",
+      "generatedHash": "4f67513fcde5a77ad568fd5a03eb2fdd8a63990ea52dee90f824c29d45cb9385",
+      "generatedAt": "2026-09-26T14:00:28Z",
+      "reviewedAt": "2026-09-26T14:00:28Z",
+      "reviewedCommit": "16a042e71002341d3cccae76f32ded110df15819",
       "reviewMode": "accept"
     },
     {

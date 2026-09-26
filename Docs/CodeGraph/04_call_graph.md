@@ -15,6 +15,40 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Call graph phân hệ Nhập từ điển từ truyện khác & Tối ưu AI (1.3.409)
+
+```text
+Nhập từ điển riêng từ truyện nguồn:
+DictionaryListView (menu toolbar)
+  └─ showingImportBookSheet = true
+        └─ BookImportSourceSheet
+              ├─ Lọc truyện nguồn qua ShelfBookSearchMatcher
+              ├─ Người dùng chọn truyện nguồn:
+              │     └─ dictionaryModeDialog (Thay thế vs Gộp)
+              └─ onConfirm(sourceBook, isMerge):
+                    └─ DictionaryListView+Transfer.importFromBook
+                          ├─ Đọc records từ sourceBook/<type.fileName>.txt
+                          ├─ TranslationDictionaryWriter.shared.importEntries(mode: isMerge ? .merge : .replace)
+                          ├─ await loadData() (cập nhật UI ngay lập tức)
+                          └─ ToastManager.shared.show("Đã nhập ...")
+
+Khắc phục đơ UI và tối ưu AI streaming:
+ReaderAIFullScreenView
+  ├─ messageRow: đọc trực tiếp message.extractedNames (O(1), không đọc đĩa, không sinh UUID)
+  └─ switchToSession / initializeSession:
+        └─ migrateLegacyJSONMessagesIfNeeded (chạy ngầm Task.detached)
+              ├─ Lọc tin nhắn assistant cũ chưa có extractedNames
+              ├─ AINameExtractionBatchProcessor.parseNamesFromJSONString
+              ├─ AIBookDataInspector.decorateExtractedNames
+              └─ Lưu session ngầm vào AIChatHistoryStore
+
+AIRuntimeCoordinator.startChatStreaming:
+  └─ for try await delta in stream:
+        ├─ accumulated += delta
+        └─ if now - lastUIUpdateTime >= 0.05:
+              ├─ await MainActor.run { activeSession.content = accumulated }
+              └─ onDelta(accumulated) (throttle 20 FPS)
+```
 ## Call graph phân hệ Multi-API Key Failover & Tự Động Trích Xuất Tên Riêng AI (1.3.407)
 
 ```text

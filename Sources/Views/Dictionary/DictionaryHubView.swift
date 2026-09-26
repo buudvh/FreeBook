@@ -70,12 +70,7 @@ struct DictionaryHubView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             translationManager.clearBookDictCache(for: bookId)
-            Task {
-                try? await translationManager.loadAllDictionaries()
-                await MainActor.run {
-                    refreshToken = UUID()
-                }
-            }
+            refreshToken = UUID()
         }
     }
 

@@ -15,6 +15,16 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Tối Ưu Màn Hình Dịch Reader, Khắc Phục Đơ UI AI Chat và Thêm Nhập Từ Điển Từ Truyện Khác (1.3.409)
+
+* [`TranslationManager.swift`](../../Sources/Services/Translation/Manager/TranslationManager.swift#L130): Sửa dứt điểm hàm `existsInBaseDictionary`: khi từ điển cơ sở (`loadedBaseDict`) đã có trên RAM, trả về kết quả tra cứu boolean ngay lập tức, ngăn ngừa hoàn toàn lỗi trôi logic xuống nạp lại file `.dat` 30MB từ đĩa (giải quyết triệt để vấn đề ở màn hình dịch `ReaderDefinitionOverlayView` và quản lý nghĩa `ManageDefinitionsView` khi xoá custom entry).
+* [`DictionaryHubView.swift`](../../Sources/Views/Dictionary/DictionaryHubView.swift#L70): Loại bỏ lệnh nạp toàn bộ từ điển thừa thãi `loadAllDictionaries()` trong `.onAppear`.
+* [`ReaderAIFullScreenView.swift`](../../Sources/Views/Reader/AI/ReaderAIFullScreenView.swift#L295): Xoá bỏ hoàn toàn hàm `resolveExtractedNames` trong SwiftUI `body`/`messageRow`, triệt tiêu triệt để vòng lặp re-render vô tận và Main Thread lock gây đơ UI và làm gián đoạn TTS khi mở AI chat session có sẵn tin nhắn.
+* [`ReaderAIFullScreenView+Actions.swift`](../../Sources/Views/Reader/AI/ReaderAIFullScreenView+Actions.swift#L86): Thêm `migrateLegacyJSONMessagesIfNeeded()` chạy ngầm (`Task.detached`) khi nạp session để nâng cấp tin nhắn JSON cũ một lần duy nhất mà không ảnh hưởng UI.
+* [`AIRuntimeCoordinator.swift`](../../Sources/Views/Reader/AI/AIRuntimeCoordinator.swift#L103): Throttle cập nhật streaming delta ở mức tối đa 20 FPS (50ms) thay vì dispatch MainActor trên từng token mạng, loại bỏ tình trạng drop frame và nghẽn RunLoop.
+* [`BookImportSourceSheet.swift`](../../Sources/Views/Dictionary/BookImportSourceSheet.swift#L6): Sheet chọn truyện nguồn để nhập từ điển riêng (Names / VietPhrase) từ truyện khác, đồng bộ 100% cấu trúc với `BookShareTargetSheet`, hỗ trợ tìm kiếm theo tên gốc/tên dịch và dialog xác nhận 2 chế độ Gộp / Thay thế.
+* [`DictionaryListView.swift`](../../Sources/Views/Dictionary/DictionaryListView.swift#L140) & [`DictionaryListView+Transfer.swift`](../../Sources/Views/Dictionary/DictionaryListView+Transfer.swift#L10): Thêm tuỳ chọn "Nhập từ truyện khác..." trong toolbar menu từ điển riêng; tách các hàm chuyển đổi/chia sẻ/nhập file sang file extension, giúp `DictionaryListView.swift` giảm xuống 681 dòng vật lý (vượt qua cổng kiểm tra kiến trúc ≤ 690).
+* Thêm **1** file Swift mới (`BookImportSourceSheet.swift`).
 ## Hỗ trợ Anthropic Claude Native API và Cập nhật Model Mới Nhất (1.3.406)
 
 * [`AnthropicClient.swift`](../../Sources/Services/AI/AnthropicClient.swift#L4): Singleton actor xử lý gọi Anthropic Messages API (`/v1/messages`) với header xác thực `x-api-key`, header phiên bản `anthropic-version: 2023-06-01`, bóc tách system prompt thành top-level parameter `system`, gộp và chuẩn hoá role xen kẽ user/assistant, hỗ trợ cả streaming SSE (`content_block_delta`) lẫn non-streaming.

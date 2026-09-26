@@ -38,4 +38,87 @@ extension DictionaryListView {
             type: .error
         )
     }
+
+    func shareToBook(targetBook: Book, isMerge: Bool) {
+        guard let sourceBid = bookId, targetBook.bookId != sourceBid else { return }
+
+        Task {
+            do {
+                let translateDir = TranslationManager.shared.translateDirectory
+                let sourceURL = translateDir
+                    .appendingPathComponent("books").appendingPathComponent(sourceBid)
+                    .appendingPathComponent("\(type.fileName).txt")
+                let sourceRecords = (try? DictionaryTextFileStore.parseRecords(from: sourceURL)) ?? []
+                guard !sourceRecords.isEmpty else {
+                    ToastManager.shared.show(message: "Từ điển này chưa có dữ liệu để chia sẻ.", type: .info)
+                    return
+                }
+
+                try await TranslationDictionaryWriter.shared.importEntries(
+                    from: sourceURL,
+                    isName: type == .names,
+                    bookId: targetBook.bookId,
+                    isMerge: isMerge
+                )
+
+                let targetTitle = TranslateUtils.translateBookTitleIfNeeded(targetBook.title, bookId: targetBook.bookId)
+                ToastManager.shared.show(
+                    message: "Đã chia sẻ \(type.displayName) sang truyện \(targetTitle)",
+                    type: .success
+                )
+            } catch {
+                ToastManager.shared.show(message: "Lỗi chia sẻ: \(error.localizedDescription)", type: .error)
+            }
+        }
+    }
+
+    func importFromBook(sourceBook: Book, isMerge: Bool) {
+        guard let targetBid = bookId, sourceBook.bookId != targetBid else { return }
+
+        Task {
+            do {
+                let translateDir = TranslationManager.shared.translateDirectory
+                let sourceURL = translateDir
+                    .appendingPathComponent("books").appendingPathComponent(sourceBook.bookId)
+                    .appendingPathComponent("\(type.fileName).txt")
+                let sourceRecords = (try? DictionaryTextFileStore.parseRecords(from: sourceURL)) ?? []
+                guard !sourceRecords.isEmpty else {
+                    ToastManager.shared.show(message: "Truyện nguồn chưa có dữ liệu từ điển để nhập.", type: .info)
+                    return
+                }
+
+                try await TranslationDictionaryWriter.shared.importEntries(
+                    from: sourceURL,
+                    isName: type == .names,
+                    bookId: targetBid,
+                    isMerge: isMerge
+                )
+
+                await loadData()
+                let sourceTitle = TranslateUtils.translateBookTitleIfNeeded(sourceBook.title, bookId: sourceBook.bookId)
+                ToastManager.shared.show(
+                    message: "Đã nhập \(type.displayName) từ truyện \(sourceTitle)",
+                    type: .success
+                )
+            } catch {
+                ToastManager.shared.show(message: "Lỗi nhập từ điển: \(error.localizedDescription)", type: .error)
+            }
+        }
+    }
+    func importFile(from url: URL, isMerge: Bool) {
+        Task {
+            do {
+                if isGlobal {
+                    try await cache.importEntries(from: url, type: type, isMerge: isMerge)
+                } else {
+                    guard let bid = bookId else { return }
+                    try await TranslationDictionaryWriter.shared.importEntries(from: url, isName: type == .names, bookId: bid, isMerge: isMerge)
+                    await loadData()
+                }
+                ToastManager.shared.show(message: "Import thành công!", type: .success)
+            } catch {
+                ToastManager.shared.show(message: "Lỗi import: \(error.localizedDescription)", type: .error)
+            }
+        }
+    }
 }

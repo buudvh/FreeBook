@@ -2,6 +2,176 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.380] - 2026-09-17
+
+### fix: khong dung rule trace khi cap nhat name vp
+
+Sửa **1** file Swift trong `Sources/Views/Reader/Extensions/`.
+
+- **Panel Dịch không đụng task rule khi chỉ reload nghĩa/token (`ReaderView+DefinitionLoading.swift`)**:
+  - Bỏ `definitionSession.ruleTask?.cancel()` khỏi `loadDefinitionData()`.
+  - Khi người dùng cập nhật Name/VP, notification từ điển vẫn reload nghĩa/token qua `loadDefinitionData(preservingMeaning: true)` nhưng không hủy và không lấy lại rule trace của cả đoạn văn.
+  - Rule trace vẫn chỉ do luồng rule tự quản: `refreshDefinitionRules()` tự cancel lượt rule cũ khi thật sự cần refresh.
+- **Tài liệu CodeGraph**: ghi nhận các doc stale theo validator; không cần cập nhật nội dung mô tả hệ thống.
+- Gate: `validate_links.py` và `check_architecture.py` sẽ chạy sau khi ghi nhận doc; host Windows không build Xcode tại chỗ.
+
+## [1.3.379] - 2026-09-17
+
+### fix: tach signal rule khoi signal tu dien trong panel dich
+
+Sửa **11** file Swift trong `Sources/Services/TTS/`, `Sources/Services/Translation/` và `Sources/Views/Reader|Settings/`.
+
+- **Tách kênh event rule khỏi kênh từ điển (`TranslationManager.swift`)**:
+  - Thêm `.quickTranslationRulesDidUpdate` và `notifyRulesDidUpdate(bookId:)`.
+  - Rule/token/priority change phát rule signal; dictionary change giữ `notifyDictionariesDidUpdate(bookId:scope:)`.
+- **Giảm lag panel Dịch (`ReaderView.swift`, `ReaderView+DefinitionLoading.swift`)**:
+  - `refreshRuleTraces()` không còn chạy sau mỗi `loadDefinitionData()` hoặc mỗi lần `selectedWordOffset` đổi.
+  - Panel re-diagnose rule khi mở, khi `originalSentence` đổi hoặc khi nhận rule signal.
+- **Đồng bộ Reader/TTS theo signal mới (`TTSManager.swift`, các store rule/settings)**:
+  - `TTSManager` lắng nghe thêm `.quickTranslationRulesDidUpdate` để huỷ prepared chapter, claimed synthesis, next-chapter prefetch/prefix và metadata tĩnh.
+  - `QuickTranslationRuleStore`, `QuickTranslationRuleDisableStore`, token settings, priority settings và công tắc áp dụng rule phát rule signal đúng một lần sau khi cache/generation đã invalidated.
+  - Sửa lỗi compile đã làm CI fail: `QuickTranslationRuleDisableStore` dùng đúng `TranslateUtils.invalidateCache(bookId:)` thay vì `clearCache(bookId:)`; bỏ notify dư ở CRUD rule.
+- **Tài liệu CodeGraph**: cập nhật `00_index.md`, `02_file_graph.md`, `04_call_graph.md`, `05_state_graph.md`, `06_event_graph.md`, `07_dataflow.md`, `08_lifecycle.md`, `11_subsystems.md`, `rules.md` và `CHANGELOG.md`.
+- Gate: `validate_links.py` sẽ được chạy lại sau khi accept doc; `check_architecture.py` dự kiến vẫn đỏ bởi baseline legacy, không do lượt này mở luật mới.
+- **Chưa kiểm chứng biên dịch tại chỗ**: workspace Windows, không chạy được `xcodegen`/`xcodebuild`; CI GitHub là nguồn build.
+
+## [1.3.378] - 2026-09-15
+
+### fix: tach cac chu so han liet ke bang dau phay trong rule dich
+
+Sửa **1** file Swift trong `Sources/Services/Translation/Engine/`.
+
+- **Tách các chữ số Hán liệt kê bằng dấu phẩy trong rule dịch (`QuickTranslationNumberFormatter.swift`)**:
+  - Gỡ bỏ ràng buộc bắt buộc tăng liền kề đúng 1 đơn vị (`digit == last + 1`) và `parsed <= last` trong hàm `enumeratedNumbers`.
+  - Hỗ trợ đầy đủ các chuỗi số Hán trần 2-3 chữ số đứng liền nhau được liệt kê theo thứ tự bất kỳ (bao gồm tăng dần cách quãng như `二四` → `2, 4`, `三五` → `3, 5`, `二四六` → `2, 4, 6`; giảm dần hoặc ngẫu nhiên như `九五二` → `9, 5, 2`, `五三` → `5, 3`, `四二` → `4, 2`).
+  - Khắc phục triệt để lỗi `第二四个` bị dịch sai thành "cái thứ 24" nay chuyển thành "cái thứ 2, 4"; `第九五二个` nay chuyển thành "cái thứ 9, 5, 2".
+  - Bảo tồn nguyên vẹn các số chính thức có từ chỉ bậc (`二十四` = 24, `九百五十二` = 952, `八千三` = 8300, `一万二` = 12000), số năm/mã số chứa `零`/`〇` (`二零二五` = 2025), và số năm 4 chữ số trần (`一九九八` = 1998) qua guard `runLength >= 4`.
+- **Tài liệu CodeGraph**: cập nhật `11_subsystems.md` (`--accept`); `07_dataflow.md` ghi `--no-change-needed`.
+- Gate: `check_architecture.py` không phát sinh vi phạm mới (`QuickTranslationNumberFormatter.swift` 342 dòng $\le 400$ dòng); `validate_links.py` PASS 100%.
+- **Chưa kiểm chứng biên dịch tại chỗ**: workspace Windows, không chạy được `xcodegen`/`xcodebuild`.
+
+## [1.3.377] - 2026-09-15
+
+### fix: dieu chinh chieu cao ban dau cua context menu sach va man hinh hen gio tts
+
+Sửa **2** file Swift trong `Sources/Views/Shelf/BookActions/` và `Sources/Views/TTSWidget/`.
+
+- **Điều chỉnh chiều cao ban đầu của Context Menu sách (`BookActionSheet.swift`)**:
+  - Nâng `presentationDetents` từ `[.medium, .large]` lên `[.fraction(0.85), .large]`.
+  - Giúp sheet mở ban đầu ở mức 85% chiều cao màn hình, hiển thị trọn vẹn toàn bộ các tuỳ chọn hành động ("Đổi nguồn", "Tải truyện", "Xuất ebook", "Dịch lại tên chương", "Bỏ khỏi bộ sưu tập", "Xoá"), khắc phục lỗi chỉ thấy đến "Đổi nguồn" khi mở ở mức `.medium`.
+- **Điều chỉnh chiều cao ban đầu của Màn hình Hẹn giờ TTS (`TTSQuickTimerSheet.swift`)**:
+  - Nâng `presentationDetents` từ `[.fraction(0.78), .large]` lên `[.fraction(0.88), .large]`.
+  - Mở ban đầu ở mức 88% chiều cao màn hình, bổ sung ~85–90 pt không gian, giúp nút "Hẹn giờ 90 phút" và khối card tuỳ chỉnh phía dưới hiển thị trọn vẹn, không còn bị cắt ở góc trên của nút.
+- **Tài liệu CodeGraph**: cập nhật `11_subsystems.md` (`--accept`); `03_type_graph.md`, `05_state_graph.md` ghi `--no-change-needed`.
+- Gate: `check_architecture.py` không phát sinh vi phạm mới (vẫn đúng 6 vi phạm nền); `validate_links.py` PASS 100%.
+- **Chưa kiểm chứng biên dịch tại chỗ**: workspace Windows, không chạy được `xcodegen`/`xcodebuild`.
+
+## [1.3.376] - 2026-09-13
+
+### fix: bao ton chu hoa thuong trong panel dich va rule, them nut x clear, bat goi y ban phim toan app
+
+Sửa **31** file Swift trong `Sources/Services/Translation/`, `Sources/Views/Reader/`, `Sources/Views/Settings/`, `Sources/Views/Dictionary/`, `Sources/Views/BookDetail/`, `Sources/Views/Search/`, `Sources/Views/Discovery/`, `Sources/Views/Common/`, `Sources/Views/Extensions/`, `Sources/Views/TTSWidget/`.
+
+- **Bảo tồn hoa/thường nghĩa từ điển trong Panel Dịch & Rule Editor (`TranslationTextPostProcessor.swift`, `TranslateUtils.swift`, `TranslateUtils+Tokenization.swift`)**:
+  - `TranslationTextPostProcessor.apply(to:capitalizeFirstLetter:)`, `TranslateUtils.postProcessText(_:capitalizeFirstLetter:)`, và `TranslateUtils.performTranslation(_:bookId:applyingQuickTranslationRules:capitalizeFirstLetter:)` hỗ trợ cờ `capitalizeFirstLetter: Bool = true`.
+  - Thêm `TranslateUtils.translateTerm(_:bookId:shouldConvertTraditionalToSimplified:)` (đặt trong `TranslateUtils+Tokenization.swift` để giữ `TranslateUtils.swift` nguyên baseline 917 dòng vật lý, tuân thủ `Scripts/check_architecture.py`) với `capitalizeFirstLetter: false`. Tuyệt đối không dùng `.lowercased()` hay ép thường vì sẽ làm hỏng tên riêng / danh từ viết hoa.
+  - `ReaderDefinitionWorker.swift`: Gọi `TranslateUtils.translateTerm` cho mode "VP", hiển thị nguyên vẹn chữ hoa/thường của nghĩa từ điển.
+  - `ReaderSelectionCoordinator.swift`: Bỏ `.capitalized` trong `hanViet(for:)`, trả về âm Hán-Việt nguyên bản.
+- **Thêm nút xoá (x) và cấu hình bàn phím trong màn hình Thêm / Sửa Rule (`QuickTranslationRuleEditorSheet+Editing.swift`, `QuickTranslationRulePatternField.swift`)**:
+  - Thêm nút `x` (clear) tròn 28pt cho cả ô Mẫu (`patternSection`) và ô Bản dịch (`replacementSection`).
+  - Trong `QuickTranslationRulePatternField.swift`, đặt `view.autocorrectionType = .yes`, `view.spellCheckingType = .yes` và giữ `view.autocapitalizationType = .none` ở cả `makeUIView` và `updateUIView`.
+- **Bật thanh gợi ý từ bàn phím (QuickType) toàn bộ ứng dụng (Lựa chọn C)**:
+  - Gỡ bỏ `.autocorrectionDisabled()` / `.disableAutocorrection(true)` tại 24 vị trí trong toàn bộ ứng dụng (Tìm kiếm, Từ điển, Thay thế TTS, Lọc rác, Cấu hình TOC...).
+  - Giữ nguyên tắt autocorrection cho các ô code/URL đặc thù: `URLBarTextField.swift`, `CodeEditorTextView.swift`, `ReaderTextView.swift`, `ExtensionDebugConsoleView.swift`.
+- **Tài liệu CodeGraph**: cập nhật `04_call_graph.md`, `07_dataflow.md`, `11_subsystems.md` (`--accept`); `03_type_graph.md`, `05_state_graph.md`, `12_ownership_graph.md`, `13_resource_lifecycle.md` ghi `--no-change-needed`.
+- Gate: `check_architecture.py` không phát sinh vi phạm mới (vẫn đúng 6 vi phạm nền, `DictionaryListView.swift` giảm dòng từ 710 xuống 708); `validate_links.py` PASS 100%.
+- **Chưa kiểm chứng biên dịch tại chỗ**: workspace Windows, không chạy được `xcodegen`/`xcodebuild`.
+
+## [1.3.375] - 2026-09-13
+
+### fix: bo tai lai noi dung khi chi ban dich loi thoi, dat tran cache chuong va noi tran memo rule rewrite
+
+Sửa **4** file Swift trong `Sources/Views/Reader/` và `Sources/Services/Translation/Engine/`.
+
+- **Chuyển chương khi chỉ bản dịch lỗi thời không còn tải lại nội dung (`ReaderViewModel.swift`)**:
+  - `loadChapterContentFromExtension` thoát sớm trả `.memory` khi `forceRefresh == false` **và** cache Reader đã có `state == .loaded` với `originalContent` khác rỗng. Tiền đề: khi đó lý do duy nhất phải qua hàm này là token dịch đã đổi (sửa từ điển/rule), còn nội dung chương không đổi — `runNavigationWorker` tự gọi `processAndSaveChapter(originalContent: cached.originalContent)` ngay sau đó.
+  - Trước 1.3.375, mỗi lần lật trang sau khi sửa từ điển vẫn tốn thêm một vòng `ChapterContentRepository.load` (DB/extension) chỉ để lấy lại nội dung đã nằm trong RAM.
+  - `forceRefresh: true` **không** đi nhánh mới, nên "Cập nhật mục lục" và `reloadDisplayedChapter` giữ nguyên hành vi; `retryPendingNavigation` cũng vậy vì chương lỗi có `state != .loaded`.
+- **`ChapterCache` có trần thật, lần đầu được thi hành (`ReaderView.swift`, `ChapterCache.swift`)**:
+  - `queueReleaseAllNonVisible` là **code chết** từ trước tới nay (không có caller), nên cache chương chỉ được dọn khi Memory Warning — mà `handleMemoryWarning` chỉ giữ **đúng** chương đang đọc.
+  - `ReaderView.applyNavigationCommit` gọi nó sau mỗi commit với cửa sổ **±3** quanh chương vừa tới và ân hạn 5 s (`queueRelease` huỷ hẹn nếu `get()` chạm lại chương đó).
+  - `queueRelease` đổi sang `Task { @MainActor }`: `performRelease` gỡ khoá trong `cache` (`@Observable`) nên không được chạy nền. Lỗi này chưa từng lộ vì hàm chưa có caller.
+- **Memo rewrite của rule engine từ 64 lên 2048 entry (`QuickTranslationRuleEngine.swift`)**:
+  - Pipeline gọi `rewrite` hai lần cho cùng một chuỗi (một lần dịch, một lần dựng span) nên 64 entry **nhỏ hơn một chương** ⇒ memo thrash ngay trong một lượt dựng chương. Trần bộ nhớ thật vẫn là `maxCost` 2 MiB nên nâng `maxEntries` **không** nới bộ nhớ.
+- **Tài liệu CodeGraph**: cập nhật vùng GENERATED của `04_call_graph.md`, `05_state_graph.md`, `08_lifecycle.md`, `10_risk_report.md`, `11_subsystems.md`, `13_resource_lifecycle.md`, `rules.md` (`--accept`); `03_type_graph.md`, `07_dataflow.md`, `12_ownership_graph.md` ghi `--no-change-needed`.
+  - `05_state_graph.md` chứa một khẳng định **nay đã sai** và đã được sửa: mục 1.3.240 viết "`ChapterCache` thực tế không evict (`queueRelease*` không có caller)" — tiền đề đó không còn đúng từ 1.3.375.
+  - **Lưu ý về nợ tài liệu**: 10 doc này đã stale sẵn từ commit `fbbeef1` (phiên trước commit mà không `--accept`); `validate_links.py` khi đó vẫn báo PASS vì công cụ **short-circuit khi cây làm việc sạch**. Lượt này ghi nhận cả 10.
+- Gate: `check_architecture.py` không phát sinh vi phạm mới (vẫn đúng 6 vi phạm nền: `ChapterPersistenceStore`, `JSDom`, `JSExecutor`, `TTSManager`, `DictionaryListView`, `ReaderViewModel`); `validate_links.py` PASS 100%.
+- **Chưa kiểm chứng biên dịch tại chỗ**: workspace Windows, không chạy được `xcodegen`/`xcodebuild`/Instruments. Mọi số đo hiệu năng phải lấy lại trên máy thật.
+
+## [1.3.374] - 2026-09-13
+
+### feat: tai thiet ke sheet hen gio va muc luc tts, nen xam widget dem nguoc va tab the loai kham pha
+
+Sửa **6** file trong `Sources/Services/TTS/`, `Sources/Views/Reader/`, `Sources/Views/TTSWidget/`, `Sources/Views/Discovery/` và `.github/workflows/build-ipa.yml`.
+
+- **Màn hình Sheet Điều khiển Hẹn giờ & Mục lục TTS (`TTSQuickTimerSheet.swift`)**:
+  - Bỏ navigation header "Hẹn giờ tắt" và bỏ card cài đặt giọng đọc ở dưới (truy cập cài đặt qua icon bánh răng ⚙️ trên toolbar).
+  - Tích hợp Card thông tin truyện đang phát:
+    - Bìa sách: Chạm vào bìa sách tự động đóng sheet và bắn notification `openCurrentlyPlayingReader` để mở Reader tại chương đang phát.
+    - Tên truyện: Hiển thị đầy đủ toàn bộ số hàng, kèm badge số chương bên cạnh.
+    - Tác giả: Hiển thị icon `person.fill` + tên tác giả (`displayedAuthor`). Nếu rỗng chỉ hiển thị biểu tượng tác giả và để trống text (tuyệt đối không điền "Không rõ").
+    - Slot bộ đếm giờ cố định 22pt: Hiển thị badge xám `Color(white: 0.22)` + nút "Hủy" khi có hẹn giờ hoặc text mờ khi không hẹn giờ, giữ layout 100% ổn định không bị nhảy/giật khi bật/tắt hẹn giờ.
+  - Hàng tên chương đang phát: Nằm giữa card thông tin và thanh tab con, hiển thị đúng 1 hàng kèm icon `waveform`.
+  - 2 Tab con chuẩn 1 hàng ngang với cử chỉ vuốt chuyển tab (`.tabViewStyle(.page(indexDisplayMode: .never))`):
+    - Tab 1 ("⏱️ Hẹn giờ tắt"): Lưới chọn nhanh mốc hẹn giờ + bộ tuỳ chỉnh thời gian với slider 1-180 phút.
+    - Tab 2 ("📑 Danh sách chương"): Danh sách toàn bộ chương của truyện đang phát, mỗi chương tối đa 2 hàng (`lineLimit(2)`), đánh dấu chương đang phát, tự động cuộn đến chương đang phát, chạm vào chương nào thì chuyển phát ngay chương đó qua `TTSManager.jumpToChapter(at:)`.
+  - Thiết lập `.presentationDetents([.fraction(0.78), .large])` giúp mở vừa vặn không thừa đáy.
+- **Widget TTS (`TTSFloatingWidgetView.swift`)**:
+  - Thêm nền xám `Color(white: 0.22)` cho badge đếm ngược thời gian tạm dừng/hẹn giờ ngủ trên widget capsule.
+- **Màn hình Khám phá (`DiscoveryView.swift`)**:
+  - Đưa tab Thể loại hình tròn `Circle()` vào bên trong `ScrollView` ngang như tab đầu tiên, cuộn mượt cùng hàng với các tab Home.
+- **TTS Core & Reader (`TTSManager.swift`, `TTSManager+Playback.swift`, `ReaderView.swift`)**:
+  - `TTSManager`: Thêm `playingAuthor`, public `@Published chaptersQueue`, nhận `author` trong `startSpeaking`.
+  - `TTSManager+Playback`: Bổ sung `displayedBookTitle`, `displayedAuthor`, `displayedChapterTitle`, `displayTitle(for:)` (tự động dịch VietPhrase nếu áp dụng) và `jumpToChapter(at:)` với Toast thông báo đã dịch.
+  - `ReaderView`: Truyền `author` khi gọi `ttsManager.startSpeaking`.
+- **CI Workflow (`build-ipa.yml`)**:
+  - Tối ưu bắt log lỗi và thêm filter trigger cho thư mục workflow.
+- Gate: `check_architecture.py` không phát sinh vi phạm mới; `validate_links.py` PASS 100%.
+
+## [1.3.373] - 2026-09-12
+
+### feat: triet tieu 100% rung vat ly khi boi den va fix loi tu scroll token man hinh dich
+
+Sửa **3** file và cập nhật **1** file trong `Sources/Views/Reader/`.
+
+- **Triệt tiêu 100% rung vật lý Taptic Engine (`SelectionHapticsSilencer.swift`)**:
+  - Mở rộng swizzle toàn diện bằng `method_setImplementation`: vô hiệu hóa cả `UIImpactFeedbackGenerator.impactOccurred()`, `UIImpactFeedbackGenerator.impactOccurred(intensity:)`, `UISelectionFeedbackGenerator.selectionChanged()`, `UIFeedbackGenerator.prepare` và các lớp private `_UIFeedbackGenerator` / `_UISelectionFeedbackGenerator`.
+  - Triệt tiêu hoàn toàn phản hồi rung vật lý của máy cả khi ấn giữ (long-press) để bắt đầu chọn lẫn khi kéo thanh neo bôi đen text.
+- **Tự động scroll đến đúng token đã chọn trong màn hình Dịch (`ReaderDefinitionOverlayView.swift`, `ReaderJunkDeleteOverlayView.swift`)**:
+  - Khắc phục triệt để lỗi race condition "lúc cuộn được lúc không": bổ sung `.onChange(of: translationTokens.count)` và `.onChange(of: translationTokens.map(\.id))` để tự động cuộn đến đúng token ngay khi dữ liệu nạp bất đồng bộ hoàn tất.
+  - Tích hợp hàm `scrollToSelectedToken(proxy:)` với nhiều mốc retry trong `.onAppear`.
+- **Chặn Layout loop trong `AutoSizingTextView` (`ReaderTextView.swift`)**:
+  - Chặn `invalidateIntrinsicContentSize()` khi `selectedRange.length > 0`, ngăn việc đo lại kích thước thẻ liên tục gây rung giật hình ảnh khi bôi đen.
+- Gate: `check_architecture.py` không phát sinh vi phạm mới; `validate_links.py` PASS 100%.
+
+## [1.3.372] - 2026-09-12
+
+### feat: tat rung mac dinh khi boi den, tu dong tat auto-scroll tts va toi uu do muot boi den reader
+
+Sửa **2** file và thêm **1** file Swift mới trong `Sources/Views/Reader/`.
+
+- **Triệt tiêu rung phản hồi xúc giác (Haptic Feedback) (`SelectionHapticsSilencer.swift`, `ReaderTextView.swift`)**:
+  - Tạo `SelectionHapticsSilencer` swizzle phương thức `UISelectionFeedbackGenerator.selectionChanged()` thành no-op để chặn hoàn toàn lệnh kích hoạt rung Taptic Engine từ UIKit khi người dùng bôi đen văn bản.
+  - Quá trình kéo thanh bôi đen chữ trên iPhone trở nên 100% êm ái, loại bỏ hoàn toàn cảm giác rung giật vật lý của máy.
+- **Tối ưu độ mượt bôi đen text (`ReaderTextView.swift`)**:
+  - Áp dụng debounce 120 ms cho `textViewDidChangeSelection` khi đang kéo chọn chữ (`length > 0`), cho phép UIKit render kính lúp loupe và các thanh neo ở 60/120fps native mà không bị giật lag do liên tục re-render SwiftUI.
+  - Xử lý bỏ chọn tức thì (0 ms delay) khi `length == 0`, tắt Floating Menu ngay lập tức khi chạm ra ngoài.
+  - Xóa lệnh dispatch async `UIMenuController.shared.hideMenu()` thừa thãi; tăng ngưỡng chống rung toạ độ `isSamePosition` lên 1.0 pt.
+- **Tự động tắt cuộn theo highlight TTS (`ReaderView.swift`)**:
+  - Trong `onSelectionChangeInParagraph`, tự động gán `isAutoScrollDisabled = true` khi phát hiện bắt đầu bôi đen (`selectionRange.length > 0`), ngăn TTS tự động cuộn trang tranh chấp với ngón tay người dùng.
+- Gate: `check_architecture.py` không phát sinh vi phạm mới; `validate_links.py` PASS 100%.
+
 ## [1.3.371] - 2026-09-12
 
 ### feat: chuyen sheet the loai thanh tab, dong bo mau chip man hinh dich va bo chu chuyen chuong reader

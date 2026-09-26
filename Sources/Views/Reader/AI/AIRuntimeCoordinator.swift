@@ -101,16 +101,21 @@ public final class AIRuntimeCoordinator: ObservableObject {
                     stream = await OpenAIClient.shared.sendChatStreaming(config: config, messages: messages)
                 }
                 var accumulated = ""
+                var lastUIUpdateTime: TimeInterval = 0
                 for try await delta in stream {
                     guard !Task.isCancelled else { break }
                     accumulated += delta
-                    await MainActor.run {
-                        guard let self = self else { return }
-                        if let idx = self.activeSession?.messages.firstIndex(where: { $0.id == assistantMsgId }) {
-                            self.activeSession?.messages[idx].content = accumulated
+                    let now = Date().timeIntervalSinceReferenceDate
+                    if now - lastUIUpdateTime >= 0.05 {
+                        lastUIUpdateTime = now
+                        await MainActor.run {
+                            guard let self = self else { return }
+                            if let idx = self.activeSession?.messages.firstIndex(where: { $0.id == assistantMsgId }) {
+                                self.activeSession?.messages[idx].content = accumulated
+                            }
                         }
+                        onDelta(accumulated)
                     }
-                    onDelta(accumulated)
                 }
 
                 guard !Task.isCancelled else { return }

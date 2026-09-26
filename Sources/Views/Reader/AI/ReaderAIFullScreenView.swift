@@ -295,7 +295,7 @@ public struct ReaderAIFullScreenView: View {
                         }
                     }
             } else {
-                let resolvedNames = resolveExtractedNames(for: message)
+                let resolvedNames = message.extractedNames ?? []
                 VStack(alignment: .leading, spacing: 8) {
                     if message.isStreaming && message.content.isEmpty {
                         ReaderAIThinkingIndicatorView()
@@ -364,13 +364,4 @@ public struct ReaderAIFullScreenView: View {
         .padding(.horizontal, 12)
     }
 
-    private func resolveExtractedNames(for message: AIChatMessage) -> [AIExtractedName] {
-        if let names = message.extractedNames, !names.isEmpty {
-            return names
-        }
-        guard !message.isStreaming, message.role == .assistant else { return [] }
-        let parsed = AINameExtractionBatchProcessor.shared.parseNamesFromJSONString(message.content)
-        guard !parsed.isEmpty else { return [] }
-        return AIBookDataInspector.shared.decorateExtractedNames(names: parsed, bookId: bookId)
-    }
 }

@@ -15,6 +15,14 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +1 file cho Sheet chọn truyện nguồn; giảm baseline vi phạm kiến trúc từ 6 xuống 5 (1.3.409)
+
+* **1 file Swift mới, 1 primary type top level**:
+  - `BookImportSourceSheet.swift`: **101**/400 dòng, giao diện chọn truyện nguồn nhập từ điển riêng đồng bộ với `BookShareTargetSheet`.
+* **Giảm baseline vi phạm kiến trúc trong `check_architecture.py` từ 6 xuống 5**:
+  - `DictionaryListView.swift` giảm từ 709 xuống **681** dòng vật lý (dưới trần baseline 690), chính thức rời khỏi danh sách vi phạm.
+  - Các hàm chuyển đổi được dời sang `DictionaryListView+Transfer.swift` (114/400 dòng).
+* Các file sửa đổi khác (`AIRuntimeCoordinator.swift` 375/400, `ReaderAIFullScreenView.swift` 368/400, `ReaderAIFullScreenView+Actions.swift` 354/400, `DictionaryHubView.swift` 148/400, `TranslationManager.swift` 591/642) đều tuân thủ nghiêm ngặt giới hạn dòng.
 ## +2 file cho Anthropic Messages API; 100% tuân thủ trần ≤ 400 dòng (1.3.406)
 
 * **2 file Swift mới, 1 primary type top level**:

@@ -15,6 +15,15 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +1 file cho Sheet chọn truyện nguồn nhập từ điển riêng (1.3.409)
+
+| Nhóm | File mới | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Views/Dictionary | [`Views/Dictionary/BookImportSourceSheet.swift`](../../Sources/Views/Dictionary/BookImportSourceSheet.swift) | Sheet chọn truyện nguồn để nhập từ điển riêng (Names / VietPhrase) từ truyện khác vào truyện hiện tại | 101 |
+
+* File mới ≤ 400 dòng vật lý và tuân thủ đúng 1 primary type top level.
+* `DictionaryListView.swift` giảm từ 709 xuống 681 dòng vật lý (vượt qua cổng kiểm tra kiến trúc dưới baseline 690).
+* `DictionaryListView+Transfer.swift` bổ sung `shareToBook`, `importFromBook` và `importFile` (114 dòng ≤ 400).
 ## +2 file cho Anthropic Messages API Client và DTO Types (1.3.406)
 
 | Nhóm | File mới | Vai trò | Dòng |

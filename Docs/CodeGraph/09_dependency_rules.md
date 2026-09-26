@@ -15,6 +15,12 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ranh giới phụ thuộc Sheet chọn truyện nguồn nhập từ điển (1.3.409)
+
+* **Tầng Views/Dictionary tuân thủ chiều phụ thuộc chuẩn**:
+  - `BookImportSourceSheet.swift` nằm trong `Sources/Views/Dictionary/`, tương tác với `ModelContext` để đọc danh sách sách (`@Query private var allExtensions`, `descriptor = FetchDescriptor<Book>`), sử dụng `ShelfBookSearchMatcher` để lọc sách, và callback `onConfirm(sourceBook, isMerge)` về `DictionaryListView`.
+  - Không có mutation trực tiếp lên SwiftData hay vi phạm `VIEW_SWIFTDATA_MUTATION`.
+  - Các thao tác nạp/ghi từ điển ủy quyền hoàn toàn cho `TranslationDictionaryWriter.shared` và `DictionaryTextFileStore`.
 ## Ranh giới phụ thuộc của Anthropic Claude Native API Client (1.3.406)
 
 * **Tầng Services/AI độc lập hoàn toàn với SwiftUI và ToastManager**:
