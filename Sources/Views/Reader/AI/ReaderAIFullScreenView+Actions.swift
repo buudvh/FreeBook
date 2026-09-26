@@ -179,7 +179,7 @@ extension ReaderAIFullScreenView {
                         // Tự động kiểm tra xem phản hồi có phải là mảng JSON tên riêng không
                         let extracted = AINameExtractionBatchProcessor.shared.parseNamesFromJSONString(finalContent)
                         if !extracted.isEmpty {
-                            let decorated = await AIBookDataInspector.shared.decorateExtractedNames(extracted, bookId: self.bookId)
+                            let decorated = AIBookDataInspector.shared.decorateExtractedNames(names: extracted, bookId: self.bookId)
                             self.currentSession.messages[idx].content = "Đã tìm thấy \(decorated.count) tên riêng trong phản hồi:"
                             self.currentSession.messages[idx].extractedNames = decorated
                         } else {

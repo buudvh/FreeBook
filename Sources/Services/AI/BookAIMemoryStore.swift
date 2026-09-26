@@ -143,7 +143,10 @@ public final class BookAIMemoryStore: Sendable {
     }
 
     /// Khôi phục Trí nhớ tổng về chỉ dẫn mặc định.
-    public func resetGlobalMemoryToDefault() {
-        saveGlobalMemory(Self.defaultGlobalMemoryPrompt)
+    @discardableResult
+    public func resetGlobalMemoryToDefault() -> String {
+        let defaultPrompt = Self.defaultGlobalMemoryPrompt
+        saveGlobalMemory(defaultPrompt)
+        return defaultPrompt
     }
 }
