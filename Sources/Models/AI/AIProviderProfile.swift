@@ -12,6 +12,8 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
     public var isCustom: Bool
     public var authType: String
     public var apiFormat: String
+    public var anthropicAuthHeader: String
+    public var apiKeys: [String]
     public var refreshToken: String?
     public var tokenExpiresAt: Date?
     public var accountEmail: String?
@@ -21,12 +23,14 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
         name: String,
         baseURL: String,
         apiKey: String = "",
+        apiKeys: [String] = [],
         selectedModel: String = "",
         availableModels: [String] = [],
         temperature: Double = 0.3,
         isCustom: Bool = false,
         authType: String = "apiKey",
         apiFormat: String = "openai",
+        anthropicAuthHeader: String = "bearer",
         refreshToken: String? = nil,
         tokenExpiresAt: Date? = nil,
         accountEmail: String? = nil
@@ -35,19 +39,21 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
         self.name = name
         self.baseURL = baseURL
         self.apiKey = apiKey
+        self.apiKeys = apiKeys
         self.selectedModel = selectedModel.isEmpty ? (availableModels.first ?? "") : selectedModel
         self.availableModels = availableModels
         self.temperature = temperature
         self.isCustom = isCustom
         self.authType = authType
         self.apiFormat = apiFormat
+        self.anthropicAuthHeader = anthropicAuthHeader
         self.refreshToken = refreshToken
         self.tokenExpiresAt = tokenExpiresAt
         self.accountEmail = accountEmail
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, baseURL, apiKey, selectedModel, availableModels, temperature, isCustom, authType, apiFormat, refreshToken, tokenExpiresAt, accountEmail
+        case id, name, baseURL, apiKey, apiKeys, selectedModel, availableModels, temperature, isCustom, authType, apiFormat, anthropicAuthHeader, refreshToken, tokenExpiresAt, accountEmail
     }
 
     public init(from decoder: Decoder) throws {
@@ -56,15 +62,29 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
         name = try container.decode(String.self, forKey: .name)
         baseURL = try container.decode(String.self, forKey: .baseURL)
         apiKey = try container.decode(String.self, forKey: .apiKey)
+        apiKeys = try container.decodeIfPresent([String].self, forKey: .apiKeys) ?? []
         selectedModel = try container.decode(String.self, forKey: .selectedModel)
         availableModels = try container.decode([String].self, forKey: .availableModels)
         temperature = try container.decode(Double.self, forKey: .temperature)
         isCustom = try container.decode(Bool.self, forKey: .isCustom)
         authType = try container.decodeIfPresent(String.self, forKey: .authType) ?? "apiKey"
         apiFormat = try container.decodeIfPresent(String.self, forKey: .apiFormat) ?? "openai"
+        anthropicAuthHeader = try container.decodeIfPresent(String.self, forKey: .anthropicAuthHeader) ?? "bearer"
         refreshToken = try container.decodeIfPresent(String.self, forKey: .refreshToken)
         tokenExpiresAt = try container.decodeIfPresent(Date.self, forKey: .tokenExpiresAt)
         accountEmail = try container.decodeIfPresent(String.self, forKey: .accountEmail)
+    }
+
+    /// Trả về tất cả các API key hợp lệ (loại bỏ dòng trống). Nếu `apiKeys` rỗng, fallback về `[apiKey]`.
+    public func allEffectiveApiKeys() -> [String] {
+        let filtered = apiKeys
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        if !filtered.isEmpty {
+            return filtered
+        }
+        let single = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        return single.isEmpty ? [] : [single]
     }
 
 

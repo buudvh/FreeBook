@@ -5,6 +5,7 @@ extension AISettingsView {
     internal func selectProfile(_ id: String) {
         config.activeProfileId = id
         modelsText = config.activeProfile.availableModels.joined(separator: "\n")
+        apiKeysText = config.activeProfile.allEffectiveApiKeys().joined(separator: "\n")
         testResultMessage = nil
         saveConfigSilently()
     }
@@ -13,6 +14,7 @@ extension AISettingsView {
         let idToDelete = config.activeProfileId
         config.deleteProfile(id: idToDelete)
         modelsText = config.activeProfile.availableModels.joined(separator: "\n")
+        apiKeysText = config.activeProfile.allEffectiveApiKeys().joined(separator: "\n")
         testResultMessage = nil
         saveConfigSilently()
     }
@@ -29,26 +31,42 @@ extension AISettingsView {
         config.updateActiveProfile(p)
     }
 
+    internal func syncApiKeysFromText(_ text: String) {
+        let lines = text.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        var p = config.activeProfile
+        p.apiKeys = lines
+        p.apiKey = lines.first ?? ""
+        config.updateActiveProfile(p)
+    }
+
     internal func saveConfigSilently() {
         syncModelsFromText(modelsText)
+        syncApiKeysFromText(apiKeysText)
         AISettingsStore.shared.saveConfiguration(config)
     }
 
     internal func fetchModelsFromAPI() {
         isFetchingModels = true
         testResultMessage = nil
+        saveConfigSilently()
+        let currentProfile = config.activeProfile
         Task {
             do {
                 let fetched: [String]
-                if config.activeProfile.apiFormat == "anthropic" {
+                if currentProfile.apiFormat == "anthropic" {
                     fetched = try await AnthropicClient.shared.fetchAvailableModels(
-                        baseURL: config.activeProfile.baseURL,
-                        apiKey: config.activeProfile.apiKey
+                        baseURL: currentProfile.baseURL,
+                        apiKey: currentProfile.apiKey,
+                        apiKeys: currentProfile.allEffectiveApiKeys(),
+                        authHeader: currentProfile.anthropicAuthHeader
                     )
                 } else {
                     fetched = try await OpenAIClient.shared.fetchAvailableModels(
-                        baseURL: config.activeProfile.baseURL,
-                        apiKey: config.activeProfile.apiKey
+                        baseURL: currentProfile.baseURL,
+                        apiKey: currentProfile.apiKey,
+                        apiKeys: currentProfile.allEffectiveApiKeys()
                     )
                 }
                 await MainActor.run {
@@ -81,24 +99,21 @@ extension AISettingsView {
     internal func testConnection() {
         isTestingConnection = true
         testResultMessage = nil
+        saveConfigSilently()
+        let currentConfig = config
         Task {
             do {
-                let models: [String]
-                if config.activeProfile.apiFormat == "anthropic" {
-                    models = try await AnthropicClient.shared.fetchAvailableModels(
-                        baseURL: config.activeProfile.baseURL,
-                        apiKey: config.activeProfile.apiKey
-                    )
+                let responseText: String
+                if currentConfig.activeProfile.apiFormat == "anthropic" {
+                    responseText = try await AnthropicClient.shared.testChatPing(config: currentConfig)
                 } else {
-                    models = try await OpenAIClient.shared.fetchAvailableModels(
-                        baseURL: config.activeProfile.baseURL,
-                        apiKey: config.activeProfile.apiKey
-                    )
+                    responseText = try await OpenAIClient.shared.testChatPing(config: currentConfig)
                 }
                 await MainActor.run {
                     isTestingConnection = false
                     isTestSuccess = true
-                    testResultMessage = "Kết nối thành công! Tìm thấy \(models.count) models."
+                    let preview = responseText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    testResultMessage = "Kết nối thành công! Phản hồi: \(preview.prefix(60))"
                 }
             } catch {
                 await MainActor.run {
@@ -107,6 +122,72 @@ extension AISettingsView {
                     testResultMessage = "Kết nối thất bại: \(error.localizedDescription)"
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    internal func clipboardToolbar(for text: Binding<String>, onPaste: (() -> Void)? = nil) -> some View {
+        HStack(spacing: 8) {
+            Button {
+                text.wrappedValue = ""
+                onPaste?()
+            } label: {
+                HStack(spacing: 3) {
+                    Image(systemName: "trash")
+                    Text("Xoá")
+                }
+                .font(.caption2)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(Color.secondary.opacity(0.12))
+                .cornerRadius(5)
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                UIPasteboard.general.string = text.wrappedValue
+            } label: {
+                HStack(spacing: 3) {
+                    Image(systemName: "doc.on.doc")
+                    Text("Sao chép")
+                }
+                .font(.caption2)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(Color.secondary.opacity(0.12))
+                .cornerRadius(5)
+            }
+            .buttonStyle(.plain)
+            .disabled(text.wrappedValue.isEmpty)
+
+            Button {
+                appendClipboard(to: text)
+                onPaste?()
+            } label: {
+                HStack(spacing: 3) {
+                    Image(systemName: "doc.on.clipboard")
+                    Text("Dán tiếp")
+                }
+                .font(.caption2)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(Color.accentColor.opacity(0.15))
+                .foregroundColor(.accentColor)
+                .cornerRadius(5)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    internal func appendClipboard(to text: Binding<String>) {
+        guard let clip = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines), !clip.isEmpty else {
+            return
+        }
+        let current = text.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        if current.isEmpty {
+            text.wrappedValue = clip
+        } else {
+            text.wrappedValue = current + "\n" + clip
         }
     }
 }

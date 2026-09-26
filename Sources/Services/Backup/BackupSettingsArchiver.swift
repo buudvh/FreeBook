@@ -62,9 +62,15 @@ public enum BackupSettingsArchiver {
     /// "chữ đầu phải là chữ thường" ở `isExportable`.
     private static let systemKeyPrefixes = ["com.apple.", "kCF"]
 
+    /// Danh sách khoá tường minh được phép sao lưu dù viết hoa chữ cái đầu.
+    private static let explicitAllowedKeys: Set<String> = [
+        "FreeBook_AI_Configuration_V1"
+    ]
+
     /// Khoá của app luôn là camelCase hoặc snake_case bắt đầu bằng chữ thường; đây là ranh giới rẻ
     /// nhất để không mang theo rác của hệ thống. Thêm khoá cài đặt mới thì tự động được sao lưu.
     static func isExportable(key: String) -> Bool {
+        if explicitAllowedKeys.contains(key) { return true }
         guard let first = key.first, first.isASCII, first.isLowercase else { return false }
         if deniedKeys.contains(key) { return false }
         if systemKeyPrefixes.contains(where: { key.hasPrefix($0) }) { return false }

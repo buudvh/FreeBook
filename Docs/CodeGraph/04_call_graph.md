@@ -15,6 +15,33 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Call graph phân hệ Multi-API Key Failover & Tự Động Trích Xuất Tên Riêng AI (1.3.407)
+
+```text
+Gửi yêu cầu AI và Failover API Key tự động:
+ReaderAIFullScreenView / AINameExtractionBatchProcessor
+  └─ AnthropicClient.sendChatStreaming / sendChat (hoặc OpenAIClient)
+        ├─ candidateKeys = config.activeProfile.allEffectiveApiKeys()
+        ├─ Lặp qua từng candidateKey:
+        │     ├─ Tạo URLRequest với Header tương ứng:
+        │     │     ├─ Anthropic: Authorization: Bearer <token> (hoặc x-api-key)
+        │     │     └─ OpenAI: Authorization: Bearer <token>
+        │     ├─ Thực hiện HTTP call (URLSession)
+        │     └─ Nếu gặp mã lỗi 401, 403, 429 hoặc quota:
+        │           └─ Thử tiếp key kế tiếp trong danh sách candidateKeys
+        └─ Nếu tất cả key thất bại: ném lỗi chi tiết
+
+Tự động nhận diện & mở Name Review Card khi AI phản hồi danh sách tên:
+ReaderAIFullScreenView+Actions.startChatStreaming
+  └─ onComplete (nhận toàn bộ chuỗi phản hồi assistant):
+        ├─ AINameExtractionBatchProcessor.parseNamesFromJSONString(fullContent)
+        └─ Nếu tìm thấy danh sách tên riêng:
+              ├─ AIBookDataInspector.shared.decorateExtractedNames(names, bookId)
+              ├─ session.messages[last].content = "Đã tìm thấy X tên riêng trong phản hồi:"
+              ├─ extractedNames = names
+              └─ showingNameReviewCard = true (hiển thị ReaderAINameReviewCardView)
+```
+
 ## Call graph phân hệ Đổi nguồn truyện & Di trú dữ liệu (1.3.398)
 
 ```text

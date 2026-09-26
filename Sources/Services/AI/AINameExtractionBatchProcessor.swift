@@ -91,7 +91,8 @@ public final class AINameExtractionBatchProcessor: Sendable {
         return Array(aggregatedNames.values).sorted(by: { $0.occurrenceCount > $1.occurrenceCount })
     }
 
-    private func parseNamesFromJSONString(_ rawString: String) -> [AIExtractedName] {
+    /// Bóc tách danh sách AIExtractedName từ chuỗi JSON (hỗ trợ markdown code blocks, bracket slice, đa dạng tên trường).
+    public func parseNamesFromJSONString(_ rawString: String) -> [AIExtractedName] {
         let trimmed = rawString.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
 

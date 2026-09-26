@@ -104,4 +104,46 @@ public final class BookAIMemoryStore: Sendable {
         let url = fileURL(for: bookId)
         try? FileManager.default.removeItem(at: url)
     }
+
+    // MARK: - Trí nhớ tổng (Global AI Memory)
+
+    public static let defaultGlobalMemoryPrompt = """
+    # QUY TẮC PHÂN TÍCH VÀ TRÍCH XUẤT TÊN RIÊNG:
+    Khi người dùng yêu cầu trích xuất tên riêng, tìm danh từ riêng, lọc tên nhân vật hoặc kiểm tra từ điển từ đoạn văn bản/chương truyện:
+    1. Chỉ trích xuất các danh từ riêng thực sự (Tên nhân vật, địa danh, tông môn, công pháp, bảo vật đặc thù). Bỏ qua các danh từ chung thông thường (ví dụ: sư phụ, chưởng môn, đệ tử, thanh niên, thiếu nữ, hoàng đế,...).
+    2. Đối với mỗi tên riêng tìm thấy, hãy đối chiếu và chuyển ngữ sang tên Hán Việt chuẩn, tự nhiên nhất.
+    3. Trả về kết quả dưới dạng một mảng JSON thuần túy (không bọc trong markdown code block, hoặc đặt trong block json) theo định dạng:
+    [
+      {"original": "Tên gốc chữ Hán", "suggestedMeaning": "Tên Hán Việt đề xuất"}
+    ]
+    Không kèm theo lời dẫn rườm rà nếu được yêu cầu lọc dữ liệu tự động.
+    """
+
+    private var globalMemoryURL: URL {
+        storageDirectory.appendingPathComponent("global_memory.txt")
+    }
+
+    /// Tải Trí nhớ tổng dùng chung cho mọi truyện. Nếu chưa có, tạo mặc định với quy tắc lọc name.
+    public func loadGlobalMemory() -> String {
+        let url = globalMemoryURL
+        if let data = try? Data(contentsOf: url),
+           let text = String(data: data, encoding: .utf8) {
+            return text
+        }
+        let defaultPrompt = Self.defaultGlobalMemoryPrompt
+        saveGlobalMemory(defaultPrompt)
+        return defaultPrompt
+    }
+
+    /// Lưu Trí nhớ tổng dùng chung cho mọi truyện.
+    public func saveGlobalMemory(_ text: String) {
+        let url = globalMemoryURL
+        let data = Data(text.utf8)
+        try? data.write(to: url, options: .atomic)
+    }
+
+    /// Khôi phục Trí nhớ tổng về chỉ dẫn mặc định.
+    public func resetGlobalMemoryToDefault() {
+        saveGlobalMemory(Self.defaultGlobalMemoryPrompt)
+    }
 }

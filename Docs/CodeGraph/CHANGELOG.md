@@ -2,6 +2,30 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.407] - 2026-09-26
+
+### feat: ho tro nhieu api key kem tu dong doi key loi, mac dinh bearer auth cho anthropic, sap xep ten rieng ai va sao luu ai
+
+Sửa **14** file Swift trong `Sources/Models/`, `Sources/Services/`, `Sources/Views/`:
+
+- **Quản Lý Nhiều API Key & Tự Động Failover (`AIProviderProfile.swift`, `AnthropicClient.swift`, `OpenAIClient.swift`)**:
+  - `AIProviderProfile`: Thêm `apiKeys: [String] = []`, `anthropicAuthHeader: String = "bearer"` ("bearer" mặc định vs "x-api-key"), và hàm `allEffectiveApiKeys()` gộp danh sách các API key hợp lệ từ mảng và trường đơn cũ.
+  - `AnthropicClient`: Sửa `resolveEndpoint` không chèn thừa `/v1`, hỗ trợ chọn Header (`Authorization: Bearer <token>` mặc định, `x-api-key`), tự động failover sang key tiếp theo trong danh sách candidate khi gặp lỗi HTTP 401, 403, 429 hoặc quota. Thêm `testChatPing`.
+  - `OpenAIClient`: Bổ sung cơ chế failover tự động qua danh sách API keys khi gặp HTTP 401, 403, 429 hoặc quota, hàm `cleanToken`, và `testChatPing`.
+- **Giao Diện Nhập API Keys Đa Dòng & Thanh Clipboard Tiện Ích (`AISettingsView.swift`, `AISettingsView+Actions.swift`)**:
+  - Hỗ trợ `TextEditor` nhập danh sách API keys (mỗi dòng 1 key), đếm số key hợp lệ.
+  - Bổ sung thanh công cụ clipboard (Xoá, Sao chép, Dán tiếp vào dòng mới không đè nội dung cũ) cho cả API Keys và danh sách Model.
+  - Thêm Picker chọn định dạng Header Auth cho Anthropic (`Authorization: Bearer <token>` mặc định).
+- **Trí Nhớ AI Toàn Cục & Tự Động Hiển Thị Thẻ Tên Riêng (`BookAIMemoryStore.swift`, `ReaderAIFullScreenView+Actions.swift`, `ReaderAINameReviewCardView.swift`, `BookAIMemorySheet.swift`, `AIPromptSettingsView.swift`)**:
+  - `BookAIMemoryStore`: Quản lý file `global_memory.txt` dưới `Application Support/ai_memory/` làm quy tắc lọc tên dùng chung toàn app, tự động tiêm vào `systemInstruction`.
+  - `ReaderAIFullScreenView+Actions`: Khi trợ lý AI phản hồi JSON danh sách tên riêng, tự động bóc tách bằng `AINameExtractionBatchProcessor.parseNamesFromJSONString`, trang trí nhãn VP/NE và hiển thị ngay `ReaderAINameReviewCardView`.
+  - `ReaderAINameReviewCardView`: Thêm tuỳ chọn sắp xếp `selectedFirst` (mặc định) và `alphabetical`, nút sắp xếp lại bằng tay, không tự động đảo vị trí khi tick checkbox, chống vỡ layout khi tên dài.
+  - `BookAIMemorySheet`: Bổ sung Segmented Picker 2 tab ("Truyện này" & "Trí nhớ tổng") kèm thanh clipboard dán nối tiếp dòng.
+  - `AIPromptSettingsView`: Bổ sung Section quản lý Trí nhớ AI toàn cục và khôi phục mặc định.
+- **Sao Lưu & Khôi Phục Dữ Liệu AI (`BackupSettingsArchiver.swift`, `BackupPaths.swift`, `BackupConfigArchiver.swift`)**:
+  - `BackupSettingsArchiver`: Đưa `"FreeBook_AI_Configuration_V1"` vào danh sách khoá được phép xuất trong cài đặt.
+  - `BackupPaths` & `BackupConfigArchiver`: Khai báo và sao lưu/khôi phục thư mục `ai_memory/` (chứa `global_memory.txt` và ghi chú từng sách) trong file backup `.fbbackup`.
+
 ## [1.3.406] - 2026-09-25
 
 ### feat: them dinh dang anthropic claude native api va cap nhat danh sach model

@@ -18,10 +18,12 @@ public enum BackupConfigArchiver {
         public var searchEngines = 0
         /// Số rule dịch đã nạp lại từ file rule trong archive (0 nếu archive không có).
         public var quickTranslateRules = 0
+        /// Số file trí nhớ AI (global memory, book memory) đã khôi phục.
+        public var aiMemoryFiles = 0
         public var errors: [String] = []
 
         public var restoredFiles: Int {
-            (tocRules > 0 ? 1 : 0) + (searchEngines > 0 ? 1 : 0) + (quickTranslateRules > 0 ? 1 : 0)
+            (tocRules > 0 ? 1 : 0) + (searchEngines > 0 ? 1 : 0) + (quickTranslateRules > 0 ? 1 : 0) + (aiMemoryFiles > 0 ? 1 : 0)
         }
 
         public init() {}
@@ -68,8 +70,19 @@ public enum BackupConfigArchiver {
             staged += 1
         }
 
+        // Sao lưu các file trí nhớ AI (global_memory.txt và memory theo bookId)
+        let aiMemDir = BackupPaths.aiMemoryDirectory
+        if FileManager.default.fileExists(atPath: aiMemDir.path),
+           let files = try? FileManager.default.contentsOfDirectory(at: aiMemDir, includingPropertiesForKeys: nil) {
+            for file in files where file.pathExtension == "txt" {
+                let entry = "\(BackupPaths.aiMemoryFolder)/\(file.lastPathComponent)"
+                try BackupZipArchive.stage(fileAt: file, entryName: entry, in: staging)
+                staged += 1
+            }
+        }
+
         if staged > 0 {
-            AppLogger.shared.log("💾 [Backup] Đã sao lưu \(staged) file cấu hình (quy tắc mục lục / công cụ tra cứu / rule dịch)")
+            AppLogger.shared.log("💾 [Backup] Đã sao lưu \(staged) file cấu hình (quy tắc mục lục / công cụ tra cứu / rule dịch / trí nhớ AI)")
         }
         return staged
     }
@@ -83,12 +96,14 @@ public enum BackupConfigArchiver {
         restoreSearchEngines(from: directory, into: &report)
         restoreQuickTranslateRules(from: directory, into: &report)
         restoreQuickTranslateDisabledRules(from: directory, into: &report)
+        restoreAIMemory(from: directory, into: &report)
 
         if report.restoredFiles > 0 {
             AppLogger.shared.log(
                 "♻️ [Restore] Cấu hình: \(report.tocRules) quy tắc mục lục,"
                 + " \(report.searchEngines) công cụ tra cứu mới,"
-                + " \(report.quickTranslateRules) rule dịch"
+                + " \(report.quickTranslateRules) rule dịch,"
+                + " \(report.aiMemoryFiles) file trí nhớ AI"
             )
         }
         return report
@@ -176,5 +191,31 @@ public enum BackupConfigArchiver {
             SearchEngine.saveEngines(merged)
             report.searchEngines = added
         }
+    }
+
+    /// Khôi phục các file trí nhớ AI từ bản sao lưu.
+    private static func restoreAIMemory(from directory: URL, into report: inout Report) {
+        let sourceDir = directory.appendingPathComponent(BackupPaths.aiMemoryFolder)
+        guard FileManager.default.fileExists(atPath: sourceDir.path),
+              let files = try? FileManager.default.contentsOfDirectory(at: sourceDir, includingPropertiesForKeys: nil) else { return }
+        let targetDir = BackupPaths.aiMemoryDirectory
+        try? FileManager.default.createDirectory(at: targetDir, withIntermediateDirectories: true)
+        var restoredCount = 0
+        for file in files where file.pathExtension == "txt" {
+            let dest = targetDir.appendingPathComponent(file.lastPathComponent)
+            if !FileManager.default.fileExists(atPath: dest.path) {
+                if (try? FileManager.default.copyItem(at: file, to: dest)) != nil {
+                    restoredCount += 1
+                }
+            } else if let sourceText = try? String(contentsOf: file, encoding: .utf8),
+                      !sourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                if let currentText = try? String(contentsOf: dest, encoding: .utf8),
+                   currentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    try? sourceText.write(to: dest, atomically: true, encoding: .utf8)
+                    restoredCount += 1
+                }
+            }
+        }
+        report.aiMemoryFiles = restoredCount
     }
 }

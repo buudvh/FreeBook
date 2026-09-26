@@ -6,6 +6,7 @@ public struct AISettingsView: View {
 
     @State internal var config: AIConfiguration = AISettingsStore.shared.loadConfiguration()
     @State internal var modelsText: String = ""
+    @State internal var apiKeysText: String = ""
     @State internal var isTestingConnection = false
     @State internal var testResultMessage: String? = nil
     @State internal var isTestSuccess = false
@@ -160,21 +161,52 @@ public struct AISettingsView: View {
                         .textInputAutocapitalization(.never)
                     }
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("API Key")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        SecureField("Nhập API Key...", text: Binding(
-                            get: { config.activeProfile.apiKey },
-                            set: { newKey in
-                                var p = config.activeProfile
-                                p.apiKey = newKey
-                                config.updateActiveProfile(p)
+                    // Quản lý API Keys
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text("API Keys (\(parsedKeysCount) keys):")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            clipboardToolbar(for: $apiKeysText) {
+                                syncApiKeysFromText(apiKeysText)
                             }
-                        ))
-                        .font(.system(.body, design: .monospaced))
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
+                        }
+                        TextEditor(text: $apiKeysText)
+                            .font(.system(.caption, design: .monospaced))
+                            .frame(minHeight: 70)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                            )
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                            .onChange(of: apiKeysText) { _, newText in
+                                syncApiKeysFromText(newText)
+                            }
+                        Text("Mỗi dòng 1 key. Tự động chuyển key tiếp theo khi gặp lỗi quota hoặc 401/403/429.")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                    }
+
+                    if config.activeProfile.apiFormat == "anthropic" {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Định dạng Header Auth (Anthropic)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Picker("Header Auth", selection: Binding(
+                                get: { config.activeProfile.anthropicAuthHeader },
+                                set: { newHeader in
+                                    var p = config.activeProfile
+                                    p.anthropicAuthHeader = newHeader
+                                    config.updateActiveProfile(p)
+                                }
+                            )) {
+                                Text("Authorization: Bearer <token>").tag("bearer")
+                                Text("x-api-key").tag("x-api-key")
+                            }
+                            .pickerStyle(.segmented)
+                        }
                     }
 
                     // Quản lý model của profile
@@ -206,17 +238,17 @@ public struct AISettingsView: View {
 
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
-                            Text("Danh sách Model (mỗi dòng 1 model):")
+                            Text("Danh sách Model (\(parsedModelsCount) models):")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                             Spacer()
-                            Text("\(parsedModelsCount) models")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
+                            clipboardToolbar(for: $modelsText) {
+                                syncModelsFromText(modelsText)
+                            }
                         }
                         TextEditor(text: $modelsText)
                             .font(.system(.caption, design: .monospaced))
-                            .frame(minHeight: 100)
+                            .frame(minHeight: 80)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 8)
                                     .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
@@ -303,18 +335,24 @@ public struct AISettingsView: View {
                 config.updateActiveProfile(newProfile)
                 config.activeProfileId = newProfile.id
                 modelsText = newProfile.availableModels.joined(separator: "\n")
+                apiKeysText = newProfile.allEffectiveApiKeys().joined(separator: "\n")
                 saveConfigSilently()
             }
         }
         .onAppear {
             config = AISettingsStore.shared.loadConfiguration()
             modelsText = config.activeProfile.availableModels.joined(separator: "\n")
+            apiKeysText = config.activeProfile.allEffectiveApiKeys().joined(separator: "\n")
         }
         .onChange(of: config) { _, newConfig in
             AISettingsStore.shared.saveConfiguration(newConfig)
         }
         .onChange(of: modelsText) { _, newText in
             syncModelsFromText(newText)
+            AISettingsStore.shared.saveConfiguration(config)
+        }
+        .onChange(of: apiKeysText) { _, newText in
+            syncApiKeysFromText(newText)
             AISettingsStore.shared.saveConfiguration(config)
         }
         .onDisappear {
@@ -325,8 +363,16 @@ public struct AISettingsView: View {
             if latest != config {
                 config = latest
                 modelsText = config.activeProfile.availableModels.joined(separator: "\n")
+                apiKeysText = config.activeProfile.allEffectiveApiKeys().joined(separator: "\n")
             }
         }
+    }
+
+    internal var parsedKeysCount: Int {
+        apiKeysText.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .count
     }
 
     internal var parsedModelsCount: Int {

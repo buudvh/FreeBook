@@ -87,6 +87,9 @@ public enum BackupPaths {
     /// lục đã tắt cũng phải sao lưu". Chiều khôi phục **hợp tập** mẫu, không ghi đè.
     public static let quickTranslateRulesDisabled = "config/QuickTranslateRulesDisabled.txt"
 
+    /// Thư mục chứa trí nhớ AI (global memory và memory theo sách).
+    public static let aiMemoryFolder = "config/ai_memory"
+
     // MARK: - Thư mục trên máy
 
     private static var applicationSupport: URL {
@@ -106,6 +109,11 @@ public enum BackupPaths {
     /// ký tự. Getter chỉ dựng đường dẫn, **không** tạo thư mục — phía phục hồi tự tạo khi cần.
     public static var ttsDictionaryDirectory: URL {
         applicationSupport.appendingPathComponent("FreeBook/TTS", isDirectory: true)
+    }
+
+    /// Nơi `BookAIMemoryStore` lưu trữ các file ghi chú trí nhớ của AI.
+    public static var aiMemoryDirectory: URL {
+        applicationSupport.appendingPathComponent("ai_memory", isDirectory: true)
     }
 
     /// Thư mục tạm dùng làm staging khi nén / giải nén. Người gọi chịu trách nhiệm xoá.

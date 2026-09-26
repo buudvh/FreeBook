@@ -6,6 +6,12 @@ public struct ReaderAINameReviewCardView: View {
     public let onSave: ([AIExtractedName], Bool, Bool) -> Void
     public var onDelete: ((UUID) -> Void)? = nil
 
+    public enum SortMode {
+        case selectedFirst
+        case alphabetical
+    }
+
+    @State private var sortMode: SortMode = .selectedFirst
     @State private var showingModeDialog: Bool = false
     @State private var pendingIsName: Bool = true
     @State private var savedConfirmationMessage: String? = nil
@@ -23,18 +29,69 @@ public struct ReaderAINameReviewCardView: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             // Header
-            HStack {
-                HStack(spacing: 6) {
+            HStack(spacing: 8) {
+                HStack(spacing: 5) {
                     Image(systemName: "tag.fill")
                         .foregroundColor(Color(red: 90/255.0, green: 170/255.0, blue: 255/255.0))
-                    Text("Tên riêng tìm thấy (\(names.count))")
+                    Text("Tên riêng (\(names.count))")
                         .font(.system(size: 13, weight: .bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 }
                 Spacer()
-                Button(allSelected ? "Bỏ chọn tất cả" : "Chọn tất cả") {
+
+                // Menu & Nút Sắp xếp
+                Menu {
+                    Button {
+                        sortMode = .selectedFirst
+                        applySorting()
+                    } label: {
+                        HStack {
+                            Text("Đã chọn trước")
+                            if sortMode == .selectedFirst {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+
+                    Button {
+                        sortMode = .alphabetical
+                        applySorting()
+                    } label: {
+                        HStack {
+                            Text("Từ A → Z (Hán Việt)")
+                            if sortMode == .alphabetical {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+
+                    Divider()
+
+                    Button {
+                        applySorting()
+                    } label: {
+                        Label("Sắp xếp lại ngay", systemImage: "arrow.up.arrow.down")
+                    }
+                } label: {
+                    HStack(spacing: 3) {
+                        Image(systemName: "arrow.up.arrow.down")
+                        Text(sortMode == .selectedFirst ? "Đã chọn" : "A-Z")
+                    }
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(Color(red: 90/255.0, green: 170/255.0, blue: 255/255.0))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Color.white.opacity(0.08))
+                    .cornerRadius(6)
+                }
+
+                Button(allSelected ? "Bỏ chọn" : "Chọn hết") {
                     toggleSelectAll()
                 }
                 .font(.system(size: 11))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
             }
             .padding(.bottom, 2)
 
@@ -51,11 +108,12 @@ public struct ReaderAINameReviewCardView: View {
                         }
                         .buttonStyle(.plain)
 
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: 3) {
                             HStack(spacing: 6) {
                                 Text(item.original)
                                     .font(.system(size: 13, weight: .bold))
                                     .foregroundColor(.primary)
+                                    .lineLimit(2)
 
                                 Text(item.category)
                                     .font(.system(size: 9, weight: .semibold))
@@ -64,6 +122,7 @@ public struct ReaderAINameReviewCardView: View {
                                     .background(Color(white: 0.25))
                                     .foregroundColor(.white)
                                     .cornerRadius(4)
+                                    .fixedSize(horizontal: true, vertical: false)
 
                                 if item.hasInBookNames {
                                     Text("NE")
@@ -77,6 +136,7 @@ public struct ReaderAINameReviewCardView: View {
                                                 .stroke(Color.red.opacity(0.8), lineWidth: 0.8)
                                         )
                                         .cornerRadius(4)
+                                        .fixedSize(horizontal: true, vertical: false)
                                 }
 
                                 if item.hasInBookVP {
@@ -91,12 +151,14 @@ public struct ReaderAINameReviewCardView: View {
                                                 .stroke(Color(red: 0.45, green: 0.75, blue: 1.0).opacity(0.8), lineWidth: 0.8)
                                         )
                                         .cornerRadius(4)
+                                        .fixedSize(horizontal: true, vertical: false)
                                 }
 
                                 if item.occurrenceCount > 1 {
                                     Text("\(item.occurrenceCount) lần")
                                         .font(.system(size: 9))
                                         .foregroundColor(.secondary)
+                                        .fixedSize(horizontal: true, vertical: false)
                                 }
                             }
 
@@ -106,7 +168,7 @@ public struct ReaderAINameReviewCardView: View {
                                 .foregroundColor(.secondary)
                         }
 
-                        Spacer()
+                        Spacer(minLength: 4)
 
                         // Nút xóa từng mục
                         Button(action: {
@@ -149,6 +211,7 @@ public struct ReaderAINameReviewCardView: View {
                         Text("Lưu Name riêng (\(selectedCount))")
                             .font(.system(size: 11, weight: .bold))
                             .lineLimit(1)
+                            .minimumScaleFactor(0.75)
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
@@ -169,6 +232,7 @@ public struct ReaderAINameReviewCardView: View {
                         Text("Lưu VP riêng (\(selectedCount))")
                             .font(.system(size: 11, weight: .bold))
                             .lineLimit(1)
+                            .minimumScaleFactor(0.75)
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
@@ -190,6 +254,9 @@ public struct ReaderAINameReviewCardView: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(Color.white.opacity(0.12), lineWidth: 1)
         )
+        .onAppear {
+            applySorting()
+        }
         .confirmationDialog(
             "Lựa chọn chế độ lưu vào \(pendingIsName ? "Name riêng" : "VietPhrase riêng")",
             isPresented: $showingModeDialog,
@@ -236,5 +303,25 @@ public struct ReaderAINameReviewCardView: View {
         onSave(chosen, isName, isMerge)
         let targetName = isName ? "Name riêng" : "VP riêng"
         savedConfirmationMessage = "Đã lưu \(chosen.count) mục vào \(targetName) của truyện"
+    }
+
+    private func applySorting() {
+        switch sortMode {
+        case .selectedFirst:
+            names.sort { (a, b) -> Bool in
+                if a.isSelected != b.isSelected {
+                    return a.isSelected && !b.isSelected
+                }
+                let aStr = a.suggestedMeaning.isEmpty ? a.original : a.suggestedMeaning
+                let bStr = b.suggestedMeaning.isEmpty ? b.original : b.suggestedMeaning
+                return aStr.localizedStandardCompare(bStr) == .orderedAscending
+            }
+        case .alphabetical:
+            names.sort { (a, b) -> Bool in
+                let aStr = a.suggestedMeaning.isEmpty ? a.original : a.suggestedMeaning
+                let bStr = b.suggestedMeaning.isEmpty ? b.original : b.suggestedMeaning
+                return aStr.localizedStandardCompare(bStr) == .orderedAscending
+            }
+        }
     }
 }

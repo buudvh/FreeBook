@@ -15,6 +15,16 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời Quản lý Nhiều API Key và Tệp Trí Nhớ AI Toàn Cục (1.3.407)
+
+* **Vòng đời Failover API Key (`AnthropicClient`, `OpenAIClient`)**:
+  - Khi một yêu cầu AI gặp mã lỗi 401, 403, 429 hoặc quota exceeded, Client tự động giải phóng kết nối lỗi và chuyển tiếp ngay sang key tiếp theo trong mảng `candidateKeys` trong cùng một Task ngữ cảnh.
+  - Không tạo thêm rò rỉ socket hoặc task mồ côi; vòng lặp dừng ngay lập tức khi một key thành công hoặc khi toàn bộ danh sách key đã cạn kiệt.
+* **Vòng đời Tệp Trí Nhớ Toàn Cục (`BookAIMemoryStore`, `BackupConfigArchiver`)**:
+  - Tệp `Application Support/ai_memory/global_memory.txt` được khởi tạo tự động theo lazy load khi được truy xuất lần đầu với prompt mặc định.
+  - Tệp được đồng bộ hóa tức thì xuống đĩa khi người dùng chỉnh sửa trong `AIPromptSettingsView` hoặc `BookAIMemorySheet`.
+  - Khi thực hiện sao lưu/khôi phục dữ liệu app, toàn bộ thư mục `ai_memory/` được đóng gói an toàn và khôi phục hợp tập, tránh mất mát dữ liệu tùy chỉnh của người dùng.
+
 ## Quản lý Session AI Chat Trên Đĩa & Task Nền Trong AIRuntimeCoordinator (1.3.397)
 
 * **Lưu đĩa tức thì ngăn ngừa mất dữ liệu**:

@@ -126,7 +126,9 @@ extension ReaderAIFullScreenView {
             currentRawText: currentChapterRawContent
         )
 
-        // 2. Nạp Trí nhớ dài hạn của truyện
+        // 2. Nạp Trí nhớ tổng & Trí nhớ dài hạn của truyện
+        let globalMem = BookAIMemoryStore.shared.loadGlobalMemory().trimmingCharacters(in: .whitespacesAndNewlines)
+        let globalContext = globalMem.isEmpty ? "" : "\n\n[Trí nhớ tổng / Quy tắc AI toàn cục]:\n\(globalMem)"
         let bookMemory = BookAIMemoryStore.shared.loadMemory(for: bookId)
         let memoryContext = bookMemory.compiledContextText()
 
@@ -140,7 +142,7 @@ extension ReaderAIFullScreenView {
             ? ""
             : "\n\nNội dung raw chương hiện tại:\n\(currentChapterRawContent.prefix(8000))"
 
-        let systemInstruction = "\(config.systemPrompt)\nChế độ: \(selectedMode.title).\(bookDictContext)\(memoryContext)\(summaryContext)\(rawContext)"
+        let systemInstruction = "\(config.systemPrompt)\nChế độ: \(selectedMode.title).\(globalContext)\(bookDictContext)\(memoryContext)\(summaryContext)\(rawContext)"
         var chatMessages: [OpenAIChatRequest.Message] = [
             OpenAIChatRequest.Message(role: "system", content: systemInstruction)
         ]
@@ -172,8 +174,17 @@ extension ReaderAIFullScreenView {
             onComplete: { [self] (finalContent: String) in
                 Task { @MainActor in
                     if let idx = self.currentSession.messages.firstIndex(where: { $0.id == assistantMsgId }) {
-                        self.currentSession.messages[idx].content = finalContent
                         self.currentSession.messages[idx].isStreaming = false
+
+                        // Tự động kiểm tra xem phản hồi có phải là mảng JSON tên riêng không
+                        let extracted = AINameExtractionBatchProcessor.shared.parseNamesFromJSONString(finalContent)
+                        if !extracted.isEmpty {
+                            let decorated = await AIBookDataInspector.shared.decorateExtractedNames(extracted, bookId: self.bookId)
+                            self.currentSession.messages[idx].content = "Đã tìm thấy \(decorated.count) tên riêng trong phản hồi:"
+                            self.currentSession.messages[idx].extractedNames = decorated
+                        } else {
+                            self.currentSession.messages[idx].content = finalContent
+                        }
                     }
                     self.isStreaming = false
                     self.currentSession.updatedAt = Date()

@@ -15,6 +15,23 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Nâng cấp Multi-API Key Failover, Header Auth Tuỳ Chọn & AI Memory (1.3.407)
+
+* **Models/AI**:
+  - `AIProviderProfile`: Bổ sung `anthropicAuthHeader: String = "bearer"` (hỗ trợ `"bearer"` và `"x-api-key"`), `apiKeys: [String] = []`, cùng hàm tiện ích `allEffectiveApiKeys() -> [String]` trả về danh sách các key hợp lệ kết hợp từ `apiKeys` và `apiKey` cũ.
+* **Services/AI**:
+  - `AnthropicClient`: Thêm hỗ trợ `authHeader` ("bearer" hoặc "x-api-key"), `testChatPing(config:)`, failover tự động qua danh sách `candidateKeys` khi gặp mã lỗi 401, 403, 429 hoặc quota. Endpoint URL không tự chèn `/v1`.
+  - `OpenAIClient`: Thêm hỗ trợ danh sách `candidateKeys` failover khi gặp lỗi 401, 403, 429 hoặc quota, hàm `cleanToken`, và `testChatPing(config:)`.
+  - `BookAIMemoryStore`: Quản lý trí nhớ AI toàn cục `global_memory.txt` với `loadGlobalMemory()`, `saveGlobalMemory(_:)`, `resetGlobalMemoryToDefault()`, và prompt mẫu `defaultGlobalMemoryPrompt`.
+* **Services/Backup**:
+  - `BackupPaths`: Khai báo `aiMemoryFolder = "config/ai_memory"` và thư mục `aiMemoryDirectory: URL`.
+  - `BackupSettingsArchiver`: Bổ sung `explicitAllowedKeys` chứa `"FreeBook_AI_Configuration_V1"` để sao lưu cấu hình AI của app.
+  - `BackupConfigArchiver`: Bổ sung `aiMemoryFiles` trong `Report`, sao lưu và khôi phục các file trí nhớ AI `.txt`.
+* **Views/Reader/AI & Views/Settings/AI**:
+  - `ReaderAINameReviewCardView`: Thêm enum `SortMode` (`selectedFirst`, `alphabetical`), nút đổi kiểu sắp xếp và nút sắp xếp lại (`arrow.up.arrow.down`), không tự động xếp lại khi bấm checkbox, chống vỡ layout trên văn bản dài.
+  - `BookAIMemorySheet`: Bổ sung segmented picker 2 tab ("Truyện này" & "Trí nhớ tổng") và clipboard toolbar hỗ trợ dán nối tiếp dòng (`appendFromClipboard`).
+  - `AISettingsView`: Hỗ trợ nhập danh sách API keys đa dòng (`TextEditor`), đếm số lượng key, clipboard toolbar (Xoá, Sao chép, Dán tiếp), và picker tuỳ chọn Header Auth Anthropic (`Authorization: Bearer <token>` mặc định vs `x-api-key`).
+
 ## Type mới cho Anthropic Claude Native API & Cập Nhật Model Mới (1.3.406)
 
 * **Services/AI**:
