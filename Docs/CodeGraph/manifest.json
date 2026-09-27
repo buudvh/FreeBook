@@ -3,8 +3,8 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-09-27T13:56:00Z",
-  "gitCommit": "3fbd2a6f843a9fd256d14fe4dcf014d57d3a9dc2",
+  "generatedAt": "2026-09-27T14:04:24Z",
+  "gitCommit": "cedcdcc35a6cda0234fd9218c01adc0ea4168182",
   "sourceFileCount": 586,
   "documentCount": 16,
   "documents": [
@@ -1773,11 +1773,11 @@
         "Sources/Views/Reader/Extensions/ReaderViewModel+Translation.swift"
       ],
       "structureHash": "dc33d7e651ff4a63b6cd629230e7995145be38916b052f95a3a4472770aff65d",
-      "sourceHash": "59c3edd6d8759ba37d3d244e8ec9b4ae529fe0525c391acf3ef7901894d9c767",
+      "sourceHash": "ddc5ad761397ca492ce8aadc81a9aee9d3e49a2da8cd7c8df742633574f6bbb1",
       "generatedHash": "d61a434d572b894e7f75f0a493c90e28ebeac803e18afb4f47f12bea48d65c28",
-      "generatedAt": "2026-09-27T13:56:00Z",
-      "reviewedAt": "2026-09-27T13:56:00Z",
-      "reviewedCommit": "3fbd2a6f843a9fd256d14fe4dcf014d57d3a9dc2",
+      "generatedAt": "2026-09-27T14:04:24Z",
+      "reviewedAt": "2026-09-27T14:04:24Z",
+      "reviewedCommit": "cedcdcc35a6cda0234fd9218c01adc0ea4168182",
       "reviewMode": "no-change-needed"
     },
     {
@@ -3073,12 +3073,12 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "6b79b9aede8e364010e4cda2c7cc584fe9a030cc88f49089598a183b1d75c4c4",
-      "sourceHash": "6b344a7d2ba95c363cb4cd122b0f9f25670da28b50f84b96b48a86bbfe12c370",
+      "sourceHash": "e8fce990a58d2af9157a723fd0980371e9aa80fea9ce3b5d37aff5566806a68e",
       "generatedHash": "dabef5d4ef2011e0b11ecf27dcdea0680e9c52f0fb14bcedb262013f63b253bd",
-      "generatedAt": "2026-09-27T13:55:53Z",
-      "reviewedAt": "2026-09-27T13:55:53Z",
-      "reviewedCommit": "3fbd2a6f843a9fd256d14fe4dcf014d57d3a9dc2",
-      "reviewMode": "accept"
+      "generatedAt": "2026-09-27T14:04:24Z",
+      "reviewedAt": "2026-09-27T14:04:24Z",
+      "reviewedCommit": "cedcdcc35a6cda0234fd9218c01adc0ea4168182",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "12_ownership_graph.md",

@@ -10,8 +10,8 @@ import Foundation
 /// - Bậc kép: `十万` -> `chục vạn`, `百万` -> `trăm vạn`, `千万` -> `nghìn vạn`, `二十万` -> `hai mươi vạn`...
 public enum QuickTranslationMagnitudeFormatter {
     /// Tập hợp ký tự UTF-16 cấu thành token `<m>`.
-    public static let magnitudeUnits: Set<UInt16> = QuickTranslationNumberFormatter.makeUnits(
-        "十百千万萬亿億兆廿卅卌一二两兩三四五六七八九"
+    public static let magnitudeUnits: Set<UInt16> = Set(
+        "十百千万萬亿億兆廿卅卌一二两兩三四五六七八九".utf16
     )
 
     /// Bảng ánh xạ chuẩn xác toàn bộ các cơ số 10 sang tiếng Việt.
