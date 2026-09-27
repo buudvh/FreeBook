@@ -719,6 +719,7 @@ Mục "Nhà Phát Triển" phải ra file riêng vì `SettingsView.swift` chỉ 
 | [`…/QuickTranslationCompiledRule.swift`](../../Sources/Services/Translation/Engine/QuickTranslationCompiledRule.swift) | dạng thi hành + chỉ số ưu tiên/prefilter, `requiredTokenKinds` và `isEnabled(configuration:)` | 93 |
 | [`…/QuickTranslationRuleCompiler.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleCompiler.swift) | validate + tính chỉ số ưu tiên + boundary guard + gộp token cả trong group | 310 |
 | [`…/QuickTranslationNumberFormatter.swift`](../../Sources/Services/Translation/Engine/QuickTranslationNumberFormatter.swift) | lớp ký tự `<n>/<y>/<L>` + `chineseNumber` cộng dồn section (parity reference) | 112 |
+| [`…/QuickTranslationMagnitudeFormatter.swift`](../../Sources/Services/Translation/Engine/QuickTranslationMagnitudeFormatter.swift) | định nghĩa tập ký tự và render toàn bộ các cơ số 10 mở rộng cho token `<m>` | 126 |
 | [`…/QuickTranslationDictionaryToken.swift`](../../Sources/Services/Translation/Engine/QuickTranslationDictionaryToken.swift) | ràng buộc từ điển qua `findAllPrefixMatches`; `<pn>` **không** phụ thuộc `isTranslationPronounsEnabled` | 131 |
 | [`…/QuickTranslationLiteralIndex.swift`](../../Sources/Services/Translation/Engine/QuickTranslationLiteralIndex.swift) | prefilter theo literal bắt buộc + suy tập vị trí bắt đầu | 98 |
 | [`…/QuickTranslationRuleMatcher.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleMatcher.swift) | AST-walk backtracking bằng stack frame + cap 4.000 bước | 200 |

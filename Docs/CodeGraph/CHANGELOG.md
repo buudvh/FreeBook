@@ -2,6 +2,27 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.415] - 2026-09-27
+
+### feat: mo rong token <m> thanh co so 10
+
+Sửa **6** file và thêm **1** file Swift mới (`QuickTranslationMagnitudeFormatter.swift`) trong `Sources/Services/Translation/Engine/`:
+
+- **Mở rộng tập hợp và ánh xạ cơ số 10 cho token `<m>` (`QuickTranslationMagnitudeFormatter.swift`, `QuickTranslationNumberFormatter.swift`)**:
+  - `QuickTranslationMagnitudeFormatter.swift`: File mới (126 dòng $\le 400$) quản lý tập ký tự `magnitudeUnits` ("十百千万萬亿億兆廿卅卌一二两兩三四五六七八九") và từ điển ánh xạ toàn diện các cơ số 10 trong tiếng Trung:
+    - Bậc cơ sở đơn thuần (không có "10/một" phía trước): `十` -> `mươi`, `百` -> `trăm`, `千` -> `nghìn`, `万` -> `vạn`, `亿` -> `ức`, `兆` -> `triệu`.
+    - Chữ số hàng chục cổ: `廿` -> `hai mươi`, `卅` -> `ba mươi`, `卌` -> `bốn mươi`.
+    - Hàng chục 20–90: `二十` -> `hai mươi`, `三十` -> `ba mươi` ... `九十` -> `chín mươi`.
+    - Hàng trăm/nghìn/vạn ghép số (2–9 / 两): `二百`/`两百` -> `hai trăm`, `二千` -> `hai nghìn`, `二万` -> `hai vạn`...
+    - Bậc kép cơ số và ghép số: `十万` -> `chục vạn`, `百万` -> `trăm vạn`, `千万` -> `nghìn vạn`, `二十万` -> `hai mươi vạn`, `两百万` -> `hai trăm vạn`...
+  - `QuickTranslationNumberFormatter.swift`: Uỷ quyền toàn bộ `magnitudeUnits` và `renderMagnitude` sang `QuickTranslationMagnitudeFormatter`, giảm file xuống 321 dòng (dưới trần 400 dòng).
+- **Nâng cấp Parser & Matcher khớp linh hoạt 1–4 ký tự (`QuickTranslationRuleParser.swift`, `QuickTranslationRuleMatcher.swift`)**:
+  - `QuickTranslationRuleParser.swift`: Mở rộng phạm vi độ dài của token `.magnitude` từ cố định 1 ký tự thành `minLength = 1, maxLength = 4` ký tự Hán.
+  - `QuickTranslationRuleMatcher.swift`: Kiểm tra `QuickTranslationMagnitudeFormatter.isMagnitudeCandidate(value)` trong vòng lặp candidate để bảo vệ ranh giới số, ngăn ngừa nuốt nửa chừng các số lẻ (như `二十五`).
+- **Đồng bộ giao diện cấu hình & tài liệu Token (`QuickTranslationRuleTokenSettings.swift`, `QuickTranslationRuleElement.swift`, `QuickTranslationRuleDraftAnalyzer.swift`)**:
+  - Cập nhật mô tả hiển thị của token `<m>` thành cơ số 10 trong cài đặt và engine AST.
+- **Tài liệu CodeGraph**: Cập nhật `00_index.md`, `02_file_graph.md`, `11_subsystems.md` (`--accept`); `07_dataflow.md`, `09_dependency_rules.md`, `14_complexity_report.md` (`--no-change-needed`).
+
 ## [1.3.414] - 2026-09-27
 
 ### feat: them toast thong bao sau khi luu name vp rieng o ai

@@ -155,8 +155,8 @@ public enum QuickTranslationRuleDraftAnalyzer {
         public var maxLength: Int
         public var isOptional: Bool
 
-        /// `<L>`, `<hv>` và `<m>` bị parser ép về đúng 1 ký tự bất kể `:min-max`, nên không cho điều
-        /// chỉnh: hiện thanh cho chúng là hứa một việc không có hiệu lực. `<a>` **có** range vì cấp bậc
+        /// `<L>` và `<hv>` bị parser ép về đúng 1 ký tự, `<m>` tự động nhận diện dải cơ số 1-4 ký tự, nên không
+        /// cho điều chỉnh: hiện thanh cho chúng là hứa một việc không có hiệu lực. `<a>` **có** range vì cấp bậc
         /// kiểu `SSS` dài 3 ký tự.
         public var supportsLengthRange: Bool {
             if names.allSatisfy({ $0 == "L" }) { return false }

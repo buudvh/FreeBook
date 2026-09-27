@@ -18,8 +18,8 @@ public enum QuickTranslationNumberFormatter {
     public static let hanDigitsUnits: Set<UInt16> = makeUnits("〇零一二两兩三四五六七八九")
     /// `<d>`: chỉ digit 0-9 (ASCII `0123456789` + full-width `０１２３４５６７８９`).
     public static let asciiDigitsUnits: Set<UInt16> = makeUnits("0123456789０１２３４５６７８９")
-    /// `<m>`: **chỉ** ký tự bậc, không nhận chữ số. Parser ép token này về đúng 1 ký tự.
-    public static let magnitudeUnits: Set<UInt16> = makeUnits("十百千万萬亿億兆")
+    /// `<m>`: token cơ số 10 (mươi, trăm, nghìn, hai mươi, chục vạn...).
+    public static var magnitudeUnits: Set<UInt16> { QuickTranslationMagnitudeFormatter.magnitudeUnits }
     /// `<a>`: chữ cái Latin cơ bản, cả hoa và thường, **kể cả full-width** `Ａ-Ｚ`/`ａ-ｚ` vì văn bản
     /// Trung hay viết cấp bậc bằng ký tự full-width. Không nhận chữ số — cấp bậc kiểu `A`, `SSS`, `BB`
     /// là chữ, còn số đã có `<n>`/`<d>` lo.
@@ -60,29 +60,9 @@ public enum QuickTranslationNumberFormatter {
         }
     }
 
-    /// Đơn vị tiếng Việt của từng ký tự bậc — nguồn **duy nhất** cho `<m>`.
-    ///
-    /// Cố ý **không** dùng lại `smallMagnitudes`/`largeMagnitudes`: hai bảng đó là **giá trị số** dùng
-    /// để tính `<n>`, còn `<m>` trả **chữ đơn vị** để rule đọc thành câu Việt — `几<m>年 = mấy {0} năm`
-    /// phải ra "mấy mươi năm", không phải "mấy 10 năm". Trộn hai mục đích vào một bảng là mở đường cho
-    /// một chỗ sửa làm sai chỗ kia.
-    ///
-    /// `兆` đọc theo Hán-Việt là "triệu" dù giá trị số của nó là 10¹² — giữ theo lối đọc quen của bản
-    /// dịch truyện, không theo giá trị. Cần con số thì dùng `<n>`.
-    private static let magnitudeWords: [Character: String] = [
-        "十": "mươi",
-        "百": "trăm",
-        "千": "nghìn",
-        "万": "vạn", "萬": "vạn",
-        "亿": "ức", "億": "ức",
-        "兆": "triệu"
-    ]
-
-    /// `<m>`: một ký tự bậc → **chữ đơn vị** tiếng Việt. Ký tự lạ trả nguyên văn (không xảy ra vì matcher
-    /// đã chốt theo `magnitudeUnits`, nhưng không được nuốt chữ nếu bảng và tập ký tự lệch nhau).
+    /// `<m>`: chuỗi cơ số 10 → **chữ đơn vị** tiếng Việt (uỷ quyền cho `QuickTranslationMagnitudeFormatter`).
     public static func renderMagnitude(_ value: String) -> String {
-        guard value.count == 1, let char = value.first else { return value }
-        return magnitudeWords[char] ?? value
+        QuickTranslationMagnitudeFormatter.renderMagnitude(value)
     }
 
     /// `<a>`: giữ đúng hoa/thường của bản gốc — `SSS级` phải ra `SSS`, không phải `sss`. Chỉ hạ full-width

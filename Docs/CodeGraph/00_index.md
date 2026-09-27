@@ -15,6 +15,15 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Mở Rộng Token `<m>` Thành Cơ Số 10 Toàn Diện Trong Quick Translation Rule Engine (1.3.415)
+
+* [`QuickTranslationMagnitudeFormatter.swift`](../../Sources/Services/Translation/Engine/QuickTranslationMagnitudeFormatter.swift#L1): File mới quản lý lớp ký tự và ánh xạ toàn diện các biểu diễn cơ số 10 trong tiếng Trung: bậc cơ sở (không có số 10/một phía trước: `十` -> "mươi", `百` -> "trăm", `千` -> "nghìn", `万` -> "vạn", `亿` -> "ức", `兆` -> "triệu"), chữ số hàng chục cổ (`廿` -> "hai mươi", `卅` -> "ba mươi", `卌` -> "bốn mươi"), hàng chục 20–90 (`二十`...`九十`), hàng trăm/nghìn/vạn ghép số (`二百`/`两百`...`九百`, `二千`...`九千`, `二万`...`九万`), và bậc kép (`十万` -> "chục vạn", `百万` -> "trăm vạn", `千万` -> "nghìn vạn", `二十万` -> "hai mươi vạn", `两百万` -> "hai trăm vạn"...).
+* [`QuickTranslationNumberFormatter.swift`](../../Sources/Services/Translation/Engine/QuickTranslationNumberFormatter.swift#L20): Uỷ quyền tập ký tự `magnitudeUnits` và hàm `renderMagnitude` sang `QuickTranslationMagnitudeFormatter`, giảm kích thước file xuống 321 dòng (dưới trần 400).
+* [`QuickTranslationRuleParser.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleParser.swift#L259): Cho phép độ dài token `<m>` linh hoạt từ 1 đến 4 ký tự Hán.
+* [`QuickTranslationRuleMatcher.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleMatcher.swift#L198): Bổ sung kiểm tra `QuickTranslationMagnitudeFormatter.isMagnitudeCandidate(value)` trong vòng lặp candidate để bảo vệ ranh giới số, không nuốt nửa chừng các số lẻ (như `二十五`).
+* [`QuickTranslationRuleTokenSettings.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleTokenSettings.swift#L61) & [`QuickTranslationRuleElement.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleElement.swift#L50): Cập nhật mô tả token `<m>` thành cơ số 10.
+* Thêm **1** file Swift mới; cần `xcodegen generate` và build trên macOS.
+
 ## Thêm Từ Điển Hàng Loạt 'Từ Gốc=Nghĩa' & Duyệt Tên Riêng Từ Tin Nhắn AI (1.3.412)
 
 * [`DictEntrySheet.swift`](../../Sources/Views/Dictionary/DictEntrySheet.swift#L1): Tách màn hình nhập từ điển ra file riêng: chế độ thêm mới hỗ trợ `TextEditor` nhiều dòng dạng `từ gốc=nghĩa` kèm thanh công cụ clipboard icon ($28 \times 26\text{ pt}$), chế độ sửa lẻ giữ 2 ô nhập trực quan.

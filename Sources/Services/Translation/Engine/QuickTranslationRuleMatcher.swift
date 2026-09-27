@@ -195,6 +195,10 @@ public final class QuickTranslationRuleMatcher {
         var candidate = upper
         while candidate >= lower {
             let value = text.substring(with: NSRange(location: position, length: candidate))
+            if kind == .magnitude, !QuickTranslationMagnitudeFormatter.isMagnitudeCandidate(value) {
+                candidate -= 1
+                continue
+            }
             let rendered: String
             switch kind {
             case .chinese:

@@ -15,6 +15,22 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Mở Rộng Token `<m>` Thành Cơ Số 10 Toàn Diện Trong Quick Translation Rule Engine (1.3.415)
+
+* **Mở Rộng Tập Hợp và Ánh Xạ Cơ Số 10 Cho Token `<m>` (`QuickTranslationMagnitudeFormatter.swift`, `QuickTranslationNumberFormatter.swift`)**:
+  - `QuickTranslationMagnitudeFormatter.swift`: Tạo file mới (126 dòng $\le 400$) quản lý tập ký tự `magnitudeUnits` ("十百千万萬亿億兆廿卅卌一二两兩三四五六七八九") và từ điển `magnitudeWordsMap` ánh xạ toàn diện:
+    - Bậc cơ sở đơn thuần (không kèm "một" phía trước): `十` -> `mươi`, `百` -> `trăm`, `千` -> `nghìn`, `万` -> `vạn`, `亿` -> `ức`, `兆` -> `triệu`.
+    - Chữ số hàng chục cổ: `廿` -> `hai mươi`, `卅` -> `ba mươi`, `卌` -> `bốn mươi`.
+    - Hàng chục 20–90: `二十` -> `hai mươi` ... `九十` -> `chín mươi`.
+    - Hàng trăm/nghìn/vạn ghép số (2–9 / 两): `二百`/`两百` -> `hai trăm`, `二千` -> `hai nghìn`, `二万` -> `hai vạn`...
+    - Bậc kép cơ số và ghép số: `十万` -> `chục vạn`, `百万` -> `trăm vạn`, `千万` -> `nghìn vạn`, `二十万` -> `hai mươi vạn`, `两百万` -> `hai trăm vạn`...
+  - `QuickTranslationNumberFormatter.swift`: Uỷ quyền toàn bộ `magnitudeUnits` và `renderMagnitude` sang `QuickTranslationMagnitudeFormatter`, giảm file xuống 321 dòng (dưới trần 400).
+* **Nâng Cấp Parser & Matcher Khớp Linh Hoạt 1–4 Ký Tự (`QuickTranslationRuleParser.swift`, `QuickTranslationRuleMatcher.swift`)**:
+  - `QuickTranslationRuleParser.swift`: Mở rộng phạm vi độ dài của token `.magnitude` từ cố định 1 ký tự thành `minLength = 1, maxLength = 4` ký tự Hán.
+  - `QuickTranslationRuleMatcher.swift`: Kiểm tra `QuickTranslationMagnitudeFormatter.isMagnitudeCandidate(value)` trong vòng lặp candidate để bảo vệ ranh giới số, ngăn ngừa nuốt nửa chừng các số lẻ (như `二十五`).
+* **Đồng Bộ Giao Diện Cấu Hình & Tài Liệu Token (`QuickTranslationRuleTokenSettings.swift`, `QuickTranslationRuleElement.swift`, `QuickTranslationRuleDraftAnalyzer.swift`)**:
+  - Cập nhật mô tả hiển thị của token `<m>` thành cơ số 10 trong cài đặt và engine AST.
+
 ## Thông Báo Toast Sau Khi Lưu Name / VietPhrase Riêng Ở AI (1.3.414)
 
 * **Phản Hồi Trực Quan Sau Khi Lưu Từ Điển Riêng (`ReaderAIFullScreenView+Actions.swift`)**:

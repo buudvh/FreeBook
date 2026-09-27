@@ -47,10 +47,10 @@ public struct QuickTranslationRuleElement: Sendable {
         case hanDigits = "h"
         /// `<d>`: chỉ digit 0-9 (ASCII `0123456789` + full-width `０１２３４５６７８９`); render full-width về ASCII.
         case asciiDigits = "d"
-        /// `<m>`: **đúng một** ký tự bậc Hán `十百千万萬亿億兆` → **chữ đơn vị** tiếng Việt: `mươi`, `trăm`,
-        /// `nghìn`, `vạn`, `ức`, `triệu`. Dùng cho rule kiểu `几<m>年 = mấy {0} năm` → "mấy mươi năm",
-        /// "mấy trăm năm" — một rule phủ mọi bậc thay cho nhóm `(十|百|千)` viết tay. Cần **con số** thì
-        /// dùng `<n>`, nó đọc `十` thành `10`.
+        /// `<m>`: biểu diễn cơ số 10 trong tiếng Hán (từ bậc đơn `十`, `百`, `千`, `万`... đến hàng chục
+        /// `二十`...`九十`, `廿`, `卅`, `卌`, hàng trăm/nghìn ghép số, và bậc kép `十万`, `百万`, `二十万`...)
+        /// → **chữ đơn vị** tiếng Việt: `mươi`, `trăm`, `nghìn`, `hai mươi`, `chục vạn`... Dùng cho rule
+        /// kiểu `几<m> = mấy {0}` hoặc `<m>几 = {0} mấy`. Cần con số thì dùng `<n>`.
         case magnitude = "m"
         /// `<a>`: chuỗi chữ cái Latin `A-Z`/`a-z`, trả **nguyên văn** (không đổi hoa/thường). Dùng cho
         /// rule kiểu `<a>级 = cấp {0}` phủ `A级`, `SSS级`, `BB级`.

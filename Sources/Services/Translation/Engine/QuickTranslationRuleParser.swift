@@ -256,12 +256,11 @@ public enum QuickTranslationRuleParser {
             case "a": kind = .latinLetters
             default: throw ParseError(code: .unknownTokenName, message: "Token <\(names[0])> không được hỗ trợ")
             }
-            // `<m>` là **một** ký tự bậc theo đặc tả, không nhận range: `十` là 10, `百` là 100 — nối hai
-            // ký tự bậc lại không thành một bậc mới. Ép về 1 giống `<L>`/`<hv>` để thanh min–max không
-            // hứa một việc không có hiệu lực. `<a>` thì **có** range, vì `SSS` là 3 ký tự.
+            // `<m>` là token cơ số 10 (từ bậc đơn 1 ký tự như 十, 百 đến bậc kép 4 ký tự như 两千万/两千亿).
+            // Cố định phạm vi 1 đến 4 ký tự để matcher nhận trọn vẹn cụm cơ số.
             if kind == .magnitude {
                 minLength = 1
-                maxLength = 1
+                maxLength = 4
             }
             return QuickTranslationRuleElement(
                 kind: .numeral(kind),
