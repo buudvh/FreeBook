@@ -126,6 +126,26 @@ public final class AINameExtractionBatchProcessor: Sendable {
             }
         }
 
+        // 5. Fallback: Parse các dòng dạng 'Tên gốc=Nghĩa'
+        let lines = trimmed.components(separatedBy: .newlines)
+        var fallbackList: [AIExtractedName] = []
+        for line in lines {
+            let clean = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let eqIdx = clean.firstIndex(of: "=") else { continue }
+            let orig = String(clean[..<eqIdx]).trimmingCharacters(in: .whitespacesAndNewlines)
+            let meaning = String(clean[clean.index(after: eqIdx)...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !orig.isEmpty, !meaning.isEmpty else { continue }
+            fallbackList.append(AIExtractedName(
+                original: orig,
+                suggestedMeaning: meaning,
+                category: "Tên riêng",
+                occurrenceCount: 1
+            ))
+        }
+        if !fallbackList.isEmpty {
+            return fallbackList
+        }
+
         return []
     }
 

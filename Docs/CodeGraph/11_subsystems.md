@@ -15,6 +15,22 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ Lọc Tên Riêng Lũy Tiến, Sửa Pop-up Duyệt Name/VP & Ổn Định Cuộn Chat AI (1.3.413)
+
+* **Sửa Lỗi Pop-up Bottom Sheet Duyệt Tên Riêng & Tối Ưu Skeleton View (`ReaderAINameReviewSheet.swift`, `ReaderAIFullScreenView.swift`)**:
+  - `ReaderAINameReviewSheet`: Khai báo lồng struct `Target: Identifiable, Sendable` và bổ sung delay tối thiểu 250ms trong `loadAndDecorateNames()` để Skeleton view shimmering mượt mà trước khi nạp xong dữ liệu.
+  - `ReaderAIFullScreenView`: Chuyển đổi cơ chế trình bày từ `.sheet(isPresented:)` sang `.sheet(item: $nameReviewTarget)` giúp giải quyết triệt để lỗi race condition state rỗng ở lần mở đầu tiên. Mọi context menu mở sheet nhận chính xác 100% nội dung ngay từ lần bấm đầu.
+* **Lọc Tên Riêng 1 Chương Trực Tiếp & Loại Bỏ Chặn Từ Khoá (`ReaderAIFullScreenView+Actions.swift`)**:
+  - Xoá bỏ khối chặn từ khoá `contains("lọc tên riêng")` trong `sendUserMessage`. Mọi câu lệnh người dùng nhập đều được gửi đến AI và streaming câu trả lời về bình thường.
+  - Chuyển tuỳ chọn nhanh `.extractNamesCurrentChapter` gọi trực tiếp `sendUserMessage(promptOverride: "Lọc tên riêng trong chương này")`, stream danh sách `Tên gốc=Nghĩa` trực tiếp lên màn hình. Xoá hàm `extractNamesCurrentChapter()` cũ.
+* **Lọc Tên Riêng Cả Bộ Tải Lũy Tiến Từng Batch (`ReaderAIFullScreenView+Actions.swift`, `AIRuntimeCoordinator.swift`, `AINameExtractionBatchProcessor.swift`, `ReaderAIFullScreenView.swift`)**:
+  - `ReaderAIFullScreenView+Actions` & `AIRuntimeCoordinator`: Mỗi khi hoàn thành 1 batch (5 chương), cập nhật ngay danh sách `Tên gốc=Nghĩa` vào tin nhắn Assistant. Các batch sau tự động gộp (merge/deduplicate) lũy tiến với danh sách trước.
+  - Người dùng có thể nhấn giữ tin nhắn Assistant bất kỳ lúc nào ngay sau batch 1 để mở menu *"Thêm vào VP / Name riêng"* và lưu ngay lập tức.
+  - `AINameExtractionBatchProcessor`: Bổ sung fallback bóc tách danh sách dạng dòng `Từ=Nghĩa` ngoài JSON.
+  - `ReaderAIFullScreenView`: Gỡ bỏ hoàn toàn việc render thẻ card inline ở đáy màn hình chat.
+* **Ổn Định Khung Cuộn Chat AI (`ReaderAIFullScreenView.swift`)**:
+  - Chuyển đổi từ `LazyVStack` sang `VStack` trong ScrollView chat, triệt tiêu hoàn toàn hiện tượng layout ảo hoá làm cuộn tự giật nảy lên xuống.
+
 ## Phân hệ Nhập Từ Điển Hàng Loạt & Pop-up Duyệt Tên Riêng Từ Tin Nhắn AI (1.3.412)
 
 * **Nhập Từ Điển Hàng Loạt Dạng `Từ gốc=Nghĩa` (`DictEntrySheet.swift`, `DictionaryListView.swift`)**:

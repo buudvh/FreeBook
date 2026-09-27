@@ -23,8 +23,7 @@ public struct ReaderAIFullScreenView: View {
     @State internal var showingSettings: Bool = false
     @State internal var showingSessionList: Bool = false
     @State internal var showingMemorySheet: Bool = false
-    @State internal var showingNameReviewSheet: Bool = false
-    @State internal var nameReviewContent: String = ""
+    @State private var nameReviewTarget: ReaderAINameReviewSheet.Target? = nil
     @State internal var availableProfiles: [AIProviderProfile] = []
     @State internal var selectedProfileId: String = ""
     @State internal var availableModels: [String] = []
@@ -96,7 +95,7 @@ public struct ReaderAIFullScreenView: View {
                 } else {
                     ScrollViewReader { proxy in
                         ScrollView {
-                            LazyVStack(spacing: 12) {
+                            VStack(spacing: 12) {
                                 if currentSession.messages.count > visibleMessageCount {
                                     Button(action: {
                                         withAnimation {
@@ -131,20 +130,6 @@ public struct ReaderAIFullScreenView: View {
                                 ForEach(displayedMessages) { message in
                                     messageRow(message)
                                         .id(message.id)
-                                }
-
-                                // Bảng tên riêng từ Batch Extraction nếu có
-                                if !batchExtractedNames.isEmpty && !isBatchExtracting {
-                                    ReaderAINameReviewCardView(
-                                        names: $batchExtractedNames,
-                                        onSave: { itemsToSave, isName, isMerge in
-                                            saveNamesToDictionary(itemsToSave, isName: isName, isMerge: isMerge)
-                                        },
-                                        onDelete: { deletedId in
-                                            batchExtractedNames.removeAll(where: { $0.id == deletedId })
-                                        }
-                                    )
-                                    .padding(.horizontal, 12)
                                 }
 
                                 // Mốc neo đáy để cuộn chính xác, chống giật/đen màn hình
@@ -260,9 +245,9 @@ public struct ReaderAIFullScreenView: View {
                     onNewSession: { startNewChat() }
                 )
             }
-            .sheet(isPresented: $showingNameReviewSheet) {
+            .sheet(item: $nameReviewTarget) { target in
                 ReaderAINameReviewSheet(
-                    content: nameReviewContent,
+                    content: target.content,
                     bookId: bookId,
                     onSave: { itemsToSave, isName, isMerge in
                         saveNamesToDictionary(itemsToSave, isName: isName, isMerge: isMerge)
@@ -335,8 +320,7 @@ public struct ReaderAIFullScreenView: View {
 
                         if ReaderAINameReviewSheet.hasDictionaryEntries(in: message.content) {
                             Button {
-                                nameReviewContent = message.content
-                                showingNameReviewSheet = true
+                                nameReviewTarget = ReaderAINameReviewSheet.Target(content: message.content)
                             } label: {
                                 Label("Thêm vào VP / Name riêng", systemImage: "tag")
                             }
@@ -361,8 +345,7 @@ public struct ReaderAIFullScreenView: View {
 
                                 if ReaderAINameReviewSheet.hasDictionaryEntries(in: message.content) {
                                     Button {
-                                        nameReviewContent = message.content
-                                        showingNameReviewSheet = true
+                                        nameReviewTarget = ReaderAINameReviewSheet.Target(content: message.content)
                                     } label: {
                                         Label("Thêm vào VP / Name riêng", systemImage: "tag")
                                     }

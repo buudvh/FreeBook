@@ -27,14 +27,6 @@ extension ReaderAIFullScreenView {
         let textToSend = (promptOverride ?? inputText).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !textToSend.isEmpty, !isStreaming else { return }
 
-        // Nhận diện ý định tự gõ lệnh lọc tên riêng
-        let lower = textToSend.lowercased()
-        if lower.contains("lọc tên riêng") || lower.contains("loc ten rieng") || lower.contains("trích xuất tên riêng") || lower.contains("trich xuat ten") {
-            inputText = ""
-            extractNamesCurrentChapter()
-            return
-        }
-
         inputText = ""
         let userMsg = AIChatMessage(role: .user, content: textToSend)
         currentSession.messages.append(userMsg)
@@ -158,7 +150,7 @@ extension ReaderAIFullScreenView {
         case .summarizeChapter:
             sendUserMessage(promptOverride: "Tóm tắt ngắn gọn các sự kiện và nhân vật chính trong chương này.")
         case .extractNamesCurrentChapter:
-            extractNamesCurrentChapter()
+            sendUserMessage(promptOverride: "Lọc tên riêng trong chương này")
         case .extractNamesAllDownloaded:
             startBatchExtraction()
         case .explainContextAndCharacters:
@@ -166,52 +158,6 @@ extension ReaderAIFullScreenView {
         case .translateSmoothly:
             sendUserMessage(promptOverride: "Dịch lại toàn bộ nội dung chương này theo văn phong mượt mà, thuần Việt, tự nhiên.")
         }
-    }
-
-    internal func extractNamesCurrentChapter() {
-        let userMsg = AIChatMessage(role: .user, content: "Lọc tên riêng trong chương này")
-        currentSession.messages.append(userMsg)
-
-        var config = AISettingsStore.shared.loadConfiguration()
-        if let profile = config.profiles.first(where: { $0.id == selectedProfileId }) {
-            config.activeProfileId = profile.id
-        }
-        config.selectedModel = selectedModel
-
-        let msgId = UUID()
-        // Khởi tạo content rỗng để message.content.isEmpty && message.isStreaming hiển thị "AI đang suy nghĩ"
-        currentSession.messages.append(AIChatMessage(id: msgId, role: .assistant, content: "", isStreaming: true))
-        AIChatHistoryStore.shared.saveSession(currentSession, for: bookId)
-        AIRuntimeCoordinator.shared.activeSession = currentSession
-        isStreaming = true
-
-        AIRuntimeCoordinator.shared.startExtractNamesCurrentChapter(
-            bookId: bookId,
-            rawContent: currentChapterRawContent,
-            config: config,
-            session: currentSession,
-            assistantMsgId: msgId,
-            onComplete: { [self] (names: [AIExtractedName]) in
-                Task { @MainActor in
-                    if let idx = self.currentSession.messages.firstIndex(where: { $0.id == msgId }) {
-                        self.currentSession.messages[idx].content = "Đã tìm thấy \(names.count) tên riêng trong chương này:"
-                        self.currentSession.messages[idx].extractedNames = names
-                        self.currentSession.messages[idx].isStreaming = false
-                    }
-                    self.isStreaming = false
-                    AIChatHistoryStore.shared.saveSession(self.currentSession, for: self.bookId)
-                }
-            },
-            onError: { [self] (errorDesc: String) in
-                Task { @MainActor in
-                    if let idx = self.currentSession.messages.firstIndex(where: { $0.id == msgId }) {
-                        self.currentSession.messages[idx].content = "Lỗi lọc tên riêng: \(errorDesc)"
-                        self.currentSession.messages[idx].isStreaming = false
-                    }
-                    self.isStreaming = false
-                }
-            }
-        )
     }
 
     internal func startBatchExtraction() {
@@ -245,6 +191,11 @@ extension ReaderAIFullScreenView {
                 Task { @MainActor in
                     self.batchProgress = (current, total)
                     self.batchExtractedNames = partial
+                    let text = partial.map { "\($0.original)=\($0.suggestedMeaning)" }.joined(separator: "\n")
+                    if let idx = self.currentSession.messages.firstIndex(where: { $0.id == msgId }) {
+                        self.currentSession.messages[idx].content = text
+                        self.currentSession.messages[idx].isStreaming = true
+                    }
                 }
             },
             onComplete: { [self] (finalResults: [AIExtractedName]) in
@@ -252,9 +203,9 @@ extension ReaderAIFullScreenView {
                     self.isBatchExtracting = false
                     self.isStreaming = false
                     self.batchExtractedNames = finalResults
+                    let text = finalResults.map { "\($0.original)=\($0.suggestedMeaning)" }.joined(separator: "\n")
                     if let idx = self.currentSession.messages.firstIndex(where: { $0.id == msgId }) {
-                        self.currentSession.messages[idx].content = "Đã quét xong \(finalResults.count) tên riêng từ các chương đã tải:"
-                        self.currentSession.messages[idx].extractedNames = finalResults
+                        self.currentSession.messages[idx].content = text.isEmpty ? "Không có name" : text
                         self.currentSession.messages[idx].isStreaming = false
                     }
                     AIChatHistoryStore.shared.saveSession(self.currentSession, for: self.bookId)

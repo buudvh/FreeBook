@@ -2,6 +2,27 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.413] - 2026-09-27
+
+### fix: sua loi popup luu name vp, loc name luy tien va on dinh cuon chat ai
+
+Sửa **5** file Swift trong `Sources/Views/Reader/AI/` và `Sources/Services/AI/`:
+
+- **Sửa lỗi Pop-up Bottom Sheet lưu Name/VP bị rỗng và hiển thị Skeleton View (`ReaderAINameReviewSheet.swift`, `ReaderAIFullScreenView.swift`)**:
+  - `ReaderAINameReviewSheet.swift`: Định nghĩa lồng `Target: Identifiable, Sendable` và bổ sung delay tối thiểu 250ms trong `loadAndDecorateNames()` để Skeleton view shimmering mượt mà trước khi chuyển sang danh sách thẻ.
+  - `ReaderAIFullScreenView.swift`: Chuyển đổi từ `.sheet(isPresented:)` sang `.sheet(item: $nameReviewTarget)` giúp giải quyết triệt để lỗi race condition state rỗng ở lần mở đầu tiên. Mọi context menu mở sheet nhận chính xác 100% nội dung ngay từ lần bấm đầu.
+- **Lọc tên riêng 1 chương trực tiếp & loại bỏ chặn từ khoá (`ReaderAIFullScreenView+Actions.swift`)**:
+  - Xoá bỏ khối chặn từ khoá `contains("lọc tên riêng")` trong `sendUserMessage`. Bất kể người dùng gõ câu lệnh gì, hệ thống đều gửi cho AI và streaming câu trả lời về bình thường.
+  - Sửa tuỳ chọn nhanh `.extractNamesCurrentChapter` gọi trực tiếp `sendUserMessage(promptOverride: "Lọc tên riêng trong chương này")`. Xoá hàm `extractNamesCurrentChapter()` cũ giúp giảm file xuống 255 dòng.
+- **Lọc tên riêng cả bộ tải lũy tiến từng batch & gỡ thẻ card inline (`ReaderAIFullScreenView+Actions.swift`, `AIRuntimeCoordinator.swift`, `AINameExtractionBatchProcessor.swift`, `ReaderAIFullScreenView.swift`)**:
+  - `ReaderAIFullScreenView+Actions` & `AIRuntimeCoordinator`: Mỗi khi quét xong 1 batch (5 chương), cập nhật ngay danh sách `Tên gốc=Nghĩa` vào tin nhắn Assistant. Các batch sau tự động gộp lũy tiến vào danh sách trước.
+  - Người dùng có thể nhấn giữ tin nhắn Assistant bất kỳ lúc nào ngay sau batch 1 để mở menu *"Thêm vào VP / Name riêng"* và lưu ngay lập tức.
+  - `AINameExtractionBatchProcessor`: Bổ sung fallback bóc tách danh sách dạng dòng `Từ=Nghĩa` ngoài JSON.
+  - `ReaderAIFullScreenView.swift`: Gỡ bỏ hoàn toàn việc render thẻ card inline ở đáy màn hình chat, giảm file xuống 372 dòng (dưới trần 400).
+- **Ổn định khung cuộn chat AI (`ReaderAIFullScreenView.swift`)**:
+  - Thay `LazyVStack` bằng `VStack` trong ScrollView chat, triệt tiêu hoàn toàn xung đột layout ảo hoá với `.defaultScrollAnchor(.bottom)`, cuộn êm ái và không bị nhảy giật lên xuống.
+- **Tài liệu CodeGraph**: Cập nhật `04_call_graph.md`, `11_subsystems.md` (`--accept`); `13_resource_lifecycle.md` (`--no-change-needed`).
+
 ## [1.3.412] - 2026-09-27
 
 ### feat: them tu dien hang loat tu goc=nghia va them vp name rieng tu ai

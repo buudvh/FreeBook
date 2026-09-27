@@ -2,6 +2,15 @@ import SwiftUI
 
 /// Bottom sheet hiển thị danh sách tên riêng trích xuất từ tin nhắn AI với hiệu ứng Skeleton bất đồng bộ.
 public struct ReaderAINameReviewSheet: View {
+    public struct Target: Identifiable, Sendable {
+        public let id = UUID()
+        public let content: String
+
+        public init(content: String) {
+            self.content = content
+        }
+    }
+
     @Environment(\.dismiss) private var dismiss
 
     public let content: String
@@ -88,6 +97,9 @@ public struct ReaderAINameReviewSheet: View {
             }
             return AIBookDataInspector.shared.decorateExtractedNames(names: rawNames, bookId: bid)
         }.value
+
+        // Hiển thị khung Skeleton tối thiểu 250ms để chuyển cảnh mượt mà
+        try? await Task.sleep(nanoseconds: 250_000_000)
 
         await MainActor.run {
             self.names = decorated

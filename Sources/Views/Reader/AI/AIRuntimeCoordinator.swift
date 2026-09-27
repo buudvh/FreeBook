@@ -245,6 +245,11 @@ public final class AIRuntimeCoordinator: ObservableObject {
                         self.batchProgress = (current, total)
                         self.batchExtractedNames = decorated
                         self.activeTaskTitle = "Đang quét: Batch \(current)/\(total)"
+                        let text = decorated.map { "\($0.original)=\($0.suggestedMeaning)" }.joined(separator: "\n")
+                        if let mid = assistantMsgId, let idx = self.activeSession?.messages.firstIndex(where: { $0.id == mid }) {
+                            self.activeSession?.messages[idx].content = text
+                            self.activeSession?.messages[idx].isStreaming = true
+                        }
                         onProgress(current, total, decorated)
                     }
                 }
@@ -256,9 +261,9 @@ public final class AIRuntimeCoordinator: ObservableObject {
                     self.isRunning = false
                     self.activeBatchTask = nil
                     self.batchExtractedNames = finalResults
+                    let text = finalResults.map { "\($0.original)=\($0.suggestedMeaning)" }.joined(separator: "\n")
                     if let mid = assistantMsgId, let idx = self.activeSession?.messages.firstIndex(where: { $0.id == mid }) {
-                        self.activeSession?.messages[idx].content = "Đã quét xong \(finalResults.count) tên riêng từ các chương đã tải:"
-                        self.activeSession?.messages[idx].extractedNames = finalResults
+                        self.activeSession?.messages[idx].content = text.isEmpty ? "Không có name" : text
                         self.activeSession?.messages[idx].isStreaming = false
                     }
                     if let s = self.activeSession { AIChatHistoryStore.shared.saveSession(s, for: bookId) }

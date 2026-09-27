@@ -15,6 +15,38 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Call graph Lọc tên riêng lũy tiến, sửa Pop-up duyệt Name/VP và ổn định Chat AI (1.3.413)
+
+```text
+Lọc tên riêng 1 chương & Nhập tin nhắn tự do:
+ReaderAIFullScreenView
+  ├─ Bấm chip "Lọc name chương này" / Gõ bất kỳ câu hỏi nào
+  │     └─ sendUserMessage(promptOverride:)
+  │           ├─ Không intercept từ khoá -> chuyển thẳng sang streaming chat thông thường
+  │           ├─ System Prompt nạp defaultGlobalMemoryPrompt (định dạng Tên gốc=Nghĩa)
+  │           └─ AIRuntimeCoordinator.startChatStreaming: stream trực tiếp từng dòng văn bản
+  │
+Lọc tên riêng cả bộ đã tải (Batch Extraction lũy tiến):
+ReaderAIFullScreenView
+  └─ Bấm chip "Lọc name cả bộ tải" -> startBatchExtraction()
+        └─ AIRuntimeCoordinator.startBatchExtraction
+              ├─ AINameExtractionBatchProcessor.extractNamesFromDownloadedChapters:
+              │     └─ Quét từng batch 5 chương -> onProgress(current, total, partial)
+              ├─ Sau mỗi batch hoàn thành:
+              │     ├─ text = partial.map { "$0.original=$0.suggestedMeaning" }.joined("\n")
+              │     └─ Cập nhật ngay Assistant message.content = text (hiển thị realtime)
+              └─ Người dùng có thể nhấn giữ tin nhắn Assistant bất kỳ lúc nào để mở sheet lưu ngay
+
+Pop-up duyệt và lưu Tên riêng / VietPhrase:
+ReaderAIFullScreenView
+  └─ Nhấn giữ tin nhắn Assistant / User có dạng "Từ=Nghĩa" -> "Thêm vào VP / Name riêng"
+        └─ nameReviewTarget = ReaderAINameReviewSheet.Target(content: message.content)
+              └─ .sheet(item: $nameReviewTarget) -> ReaderAINameReviewSheet(content: target.content)
+                    ├─ isLoading = true -> ReaderAISkeletonView (delay tối thiểu 250ms chuyển cảnh mượt)
+                    ├─ Task.detached: parseEntriesFromText -> decorateExtractedNames
+                    └─ Hiển thị ReaderAINameReviewCardView: người dùng duyệt và bấm Lưu vào Name/VP riêng
+```
+
 ## Call graph Nhập từ điển hàng loạt và Pop-up duyệt tên riêng từ tin nhắn AI (1.3.412)
 
 ```text
