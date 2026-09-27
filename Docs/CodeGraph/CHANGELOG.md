@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.412] - 2026-09-27
+
+### feat: them tu dien hang loat tu goc=nghia va them vp name rieng tu ai
+
+Sửa **5** file và thêm **2** file Swift mới (`DictEntrySheet.swift`, `ReaderAINameReviewSheet.swift`) trong `Sources/Views/Dictionary/`, `Sources/Views/Reader/AI/`, `Sources/Services/AI/`:
+
+- **Thêm từ điển hàng loạt dạng `Từ gốc 1=nghĩa 1\nTừ gốc 2=nghĩa 2` (`DictEntrySheet.swift`, `DictionaryListView.swift`)**:
+  - `DictEntrySheet.swift`: Tách Sheet thêm/sửa từ mới ra file riêng (212 dòng) hỗ trợ 2 chế độ `.single` và `.batch`. Chế độ `.batch` dùng `TextEditor` nhiều dòng kèm thanh toolbar clipboard 3 nút icon chuẩn: Xoá trắng (`trash`), Copy (`doc.on.doc`), Dán (`doc.on.clipboard`). Tự động parse từng dòng theo dấu `=`, trim khoảng trắng, bỏ qua dòng rỗng hoặc không đúng định dạng.
+  - `DictionaryListView.swift`: Thêm hàm `upsertBatchEntries` giao dịch an toàn qua `TranslationDictionaryWriter.shared.mutate`, cập nhật trực tiếp state RAM và hiển thị Toast thông báo chi tiết: thêm mới bao nhiêu từ, cập nhật nghĩa bao nhiêu từ. Giảm từ 682 xuống 669 dòng vật lý (dưới baseline 690).
+- **Pop-up Bottom Sheet duyệt và lưu tên riêng / VietPhrase từ tin nhắn AI (`ReaderAINameReviewSheet.swift`, `ReaderAIFullScreenView.swift`, `ReaderAIFullScreenView+Actions.swift`, `AIRuntimeCoordinator.swift`)**:
+  - `ReaderAINameReviewSheet.swift`: Pop-up Bottom Sheet chuyên dụng (131 dòng) hiển thị ngay lập tức với hiệu ứng `ReaderAISkeletonView` shimmering khi đang nạp ngầm, sau đó hiển thị thẻ `ReaderAINameReviewCardView` kèm nút Đóng. Task chạy ngầm nạp `[AIExtractedName]` và trang trí nhãn từ điển NE/VP qua `AIBookDataInspector.shared.decorateExtractedNames`.
+  - `ReaderAIFullScreenView.swift`: Thêm tuỳ chọn "Thêm vào VP / Name riêng" trong context menu của tin nhắn văn bản khi chứa dạng `Từ=Nghĩa`. Kết nối mở `ReaderAINameReviewSheet`. Loại bỏ logic render inline thẻ duyệt tên riêng cũ, giảm file từ 416 xuống 389 dòng (dưới trần 400 dòng).
+  - `AIRuntimeCoordinator.swift` & `ReaderAIFullScreenView+Actions.swift`: Bỏ tự động ép parse JSON array khi stream xong tin nhắn AI, nhận kết quả văn bản danh sách trực tiếp.
+- **Cập nhật mẫu nhắc nhở Trí nhớ chung AI (`BookAIMemoryStore.swift`)**:
+  - Cập nhật `defaultGlobalMemoryPrompt` theo mẫu lọc tên riêng trả về text trực tiếp dạng `Tên gốc=Nghĩa`, không Markdown, áp dụng quy tắc phiên âm Hán Việt cho tên Trung Quốc, phiên âm ngôn ngữ gốc cho ngoại quốc, và bảo toàn trật tự xưng hô tiếng Việt.
+  - Thêm logic tự động di trú prompt trong `loadGlobalMemory()` nếu file cũ vẫn chứa định dạng JSON array.
+- **Tài liệu CodeGraph**: Cập nhật `00_index.md`, `02_file_graph.md`, `04_call_graph.md`, `11_subsystems.md` (`--accept`); `09_dependency_rules.md`, `13_resource_lifecycle.md`, `14_complexity_report.md` (`--no-change-needed`).
+
 ## [1.3.411] - 2026-09-27
 
 ### feat: dong bo header icon 17pt, toggle thay the tts va fix scroll token copy xoa rac

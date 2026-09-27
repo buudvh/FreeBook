@@ -111,15 +111,7 @@ extension ReaderAIFullScreenView {
                     if let idx = self.currentSession.messages.firstIndex(where: { $0.id == assistantMsgId }) {
                         self.currentSession.messages[idx].isStreaming = false
 
-                        // Tự động kiểm tra xem phản hồi có phải là mảng JSON tên riêng không
-                        let extracted = AINameExtractionBatchProcessor.shared.parseNamesFromJSONString(finalContent)
-                        if !extracted.isEmpty {
-                            let decorated = AIBookDataInspector.shared.decorateExtractedNames(names: extracted, bookId: self.bookId)
-                            self.currentSession.messages[idx].content = "Đã tìm thấy \(decorated.count) tên riêng trong phản hồi:"
-                            self.currentSession.messages[idx].extractedNames = decorated
-                        } else {
-                            self.currentSession.messages[idx].content = finalContent
-                        }
+                        self.currentSession.messages[idx].content = finalContent
                     }
                     self.isStreaming = false
                     self.currentSession.updatedAt = Date()

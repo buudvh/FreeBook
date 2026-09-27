@@ -182,18 +182,18 @@ struct DictionaryListView: View {
             }
         }
         .sheet(isPresented: $showingAddSheet) {
-            DictEntrySheet(mode: .add) { key, value in
-                upsertEntry(key: key, value: value)
-            }
+            DictEntrySheet(mode: .add, onSaveBatch: { entries in
+                upsertBatchEntries(entries: entries)
+            })
         }
         .sheet(item: $editingEntry) { entry in
-            DictEntrySheet(mode: .edit(key: entry.key, value: entry.value)) { newKey, newValue in
+            DictEntrySheet(mode: .edit(key: entry.key, value: entry.value), onSaveSingle: { newKey, newValue in
                 if newKey == entry.key {
                     upsertEntry(key: newKey, value: newValue)
                 } else {
                     updateKey(oldKey: entry.key, newKey: newKey, newValue: newValue)
                 }
-            }
+            })
         }
         .sheet(item: $exportDocumentToShare) { doc in
             ShareSheet(activityItems: [doc.url]) { _, completed, _, error in
@@ -413,6 +413,75 @@ struct DictionaryListView: View {
         }.value
     }
 
+    private func upsertBatchEntries(entries: [(key: String, value: String)]) {
+        guard !entries.isEmpty else { return }
+        if entries.count == 1, let first = entries.first {
+            upsertEntry(key: first.key, value: first.value)
+            return
+        }
+
+        Task {
+            do {
+                var addedCount = 0
+                var updatedCount = 0
+
+                if isGlobal {
+                    try await TranslationDictionaryWriter.shared.mutate(isName: type == .names, bookId: nil) { records in
+                        var recordMap: [String: Int] = [:]
+                        for (i, r) in records.enumerated() {
+                            recordMap[r.key] = i
+                        }
+                        for entry in entries {
+                            if let idx = recordMap[entry.key] {
+                                if records[idx].isDeleted {
+                                    addedCount += 1
+                                } else {
+                                    updatedCount += 1
+                                }
+                                records[idx] = DictionaryTextRecord(key: entry.key, value: entry.value)
+                            } else {
+                                records.insert(DictionaryTextRecord(key: entry.key, value: entry.value), at: 0)
+                                recordMap[entry.key] = 0
+                                addedCount += 1
+                            }
+                        }
+                    }
+                    cache.refreshFromPublishedState(type: type)
+                } else {
+                    guard let bid = bookId else { return }
+                    try await TranslationDictionaryWriter.shared.mutate(isName: type == .names, bookId: bid) { records in
+                        var recordMap: [String: Int] = [:]
+                        for (i, r) in records.enumerated() {
+                            recordMap[r.key] = i
+                        }
+                        for entry in entries {
+                            if let idx = recordMap[entry.key] {
+                                records[idx] = DictionaryTextRecord(key: entry.key, value: entry.value)
+                                updatedCount += 1
+                            } else {
+                                records.insert(DictionaryTextRecord(key: entry.key, value: entry.value), at: 0)
+                                recordMap[entry.key] = 0
+                                addedCount += 1
+                            }
+                        }
+                    }
+                    let updated = await loadBookEntries()
+                    bookEntries = updated
+                }
+
+                if addedCount > 0 && updatedCount > 0 {
+                    ToastManager.shared.show(message: "Đã thêm \(addedCount) từ mới, cập nhật \(updatedCount) từ", type: .success)
+                } else if addedCount > 0 {
+                    ToastManager.shared.show(message: "Đã thêm \(addedCount) từ mới", type: .success)
+                } else if updatedCount > 0 {
+                    ToastManager.shared.show(message: "Đã cập nhật \(updatedCount) từ", type: .success)
+                }
+            } catch {
+                ToastManager.shared.show(message: "Lỗi: \(error.localizedDescription)", type: .error)
+            }
+        }
+    }
+
     private func upsertEntry(key: String, value: String) {
         Task {
             do {
@@ -598,84 +667,3 @@ struct DictionaryListView: View {
     }
 }
 
-// MARK: - Add/Edit Sheet
-
-enum DictSheetMode: Identifiable {
-    case add
-    case edit(key: String, value: String)
-
-    var id: String {
-        switch self {
-        case .add: return "add"
-        case .edit(let key, _): return "edit_\(key)"
-        }
-    }
-}
-
-struct DictEntrySheet: View {
-    @Environment(\.dismiss) private var dismiss
-
-    let mode: DictSheetMode
-    let onSave: (String, String) -> Void
-
-    @State private var key: String
-    @State private var value: String
-
-    init(mode: DictSheetMode, onSave: @escaping (String, String) -> Void) {
-        self.mode = mode
-        self.onSave = onSave
-        switch mode {
-        case .add:
-            _key = State(initialValue: "")
-            _value = State(initialValue: "")
-        case .edit(let k, let v):
-            _key = State(initialValue: k)
-            _value = State(initialValue: v)
-        }
-    }
-
-    private var isAdd: Bool {
-        if case .add = mode { return true }
-        return false
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section(isAdd ? "Thêm từ mới" : "Chỉnh sửa") {
-                    TextField("Từ gốc (key)", text: $key)
-                        .textInputAutocapitalization(.never)
-
-                    TextField("Nghĩa dịch (value)", text: $value)
-                }
-
-                if !isAdd {
-                    Section {
-                        Text("Nếu thay đổi từ gốc thành từ khác đã tồn tại, nghĩa của từ đó sẽ bị ghi đè.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-            .navigationTitle(isAdd ? "Thêm từ" : "Sửa từ")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Hủy") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Lưu") {
-                        let k = key.trimmingCharacters(in: .whitespacesAndNewlines)
-                        let v = value.trimmingCharacters(in: .whitespacesAndNewlines)
-                        onSave(k, v)
-                        dismiss()
-                    }
-                    .disabled(
-                        key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-                        value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    )
-                }
-            }
-        }
-    }
-}

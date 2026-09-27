@@ -15,6 +15,16 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Thêm Từ Điển Hàng Loạt 'Từ Gốc=Nghĩa' & Duyệt Tên Riêng Từ Tin Nhắn AI (1.3.412)
+
+* [`DictEntrySheet.swift`](../../Sources/Views/Dictionary/DictEntrySheet.swift#L1): Tách màn hình nhập từ điển ra file riêng: chế độ thêm mới hỗ trợ `TextEditor` nhiều dòng dạng `từ gốc=nghĩa` kèm thanh công cụ clipboard icon ($28 \times 26\text{ pt}$), chế độ sửa lẻ giữ 2 ô nhập trực quan.
+* [`DictionaryListView.swift`](../../Sources/Views/Dictionary/DictionaryListView.swift#L416): Thêm hàm `upsertBatchEntries` giao dịch nguyên tử qua `TranslationDictionaryWriter.shared.mutate` ghi đĩa 1 lần duy nhất, đối chiếu đếm số từ thêm mới/cập nhật và hiển thị Toast thống kê. Số dòng file giảm xuống 669 dòng (dưới baseline 690).
+* [`BookAIMemoryStore.swift`](../../Sources/Services/AI/BookAIMemoryStore.swift#L110): Cập nhật `defaultGlobalMemoryPrompt` và `global_memory.txt` sang định dạng danh sách mỗi dòng dạng `Tên gốc=Nghĩa`, không dùng JSON.
+* [`AIRuntimeCoordinator.swift`](../../Sources/Views/Reader/AI/AIRuntimeCoordinator.swift#L125) & [`ReaderAIFullScreenView+Actions.swift`](../../Sources/Views/Reader/AI/ReaderAIFullScreenView+Actions.swift#L110): Bỏ logic tự động parse JSON khi stream kết thúc; AI phản hồi trực tiếp văn bản thuần tuý không đơ lag.
+* [`ReaderAINameReviewSheet.swift`](../../Sources/Views/Reader/AI/ReaderAINameReviewSheet.swift#L4): Sheet pop-up duyệt tên riêng: mở tức thì với hiệu ứng Skeleton shimmering, xử lý bất đồng bộ ngầm nạp nhãn NE/VP và số lần xuất hiện trong truyện qua `AIBookDataInspector.decorateExtractedNames`.
+* [`ReaderAIFullScreenView.swift`](../../Sources/Views/Reader/AI/ReaderAIFullScreenView.swift#L330): Thêm tuỳ chọn "Thêm vào VP / Name riêng" trong Context Menu của tin nhắn có dạng `Từ=Nghĩa`, kết nối mở `ReaderAINameReviewSheet`. Số dòng file giảm xuống 389 dòng (dưới trần 400).
+* Thêm **2** file Swift mới; cần `xcodegen generate` và build trên macOS.
+
 ## Tối Ưu Mở Sheet Trợ Lý AI, Lưu Trữ Session Độc Lập và Đồng Bộ Màu Token Reader (1.3.410)
 
 * [`AIChatHistoryStore.swift`](../../Sources/Services/AI/AIChatHistoryStore.swift#L5): Tái cấu trúc lưu trữ: mỗi session là 1 file JSON riêng biệt (`ai_chats/<bookId>/<sessionId>.json`), quản lý mục lục siêu nhẹ qua `_index.json` (chỉ gồm metadata, không chứa tin nhắn, nạp < 0.1ms); tự động di trú dữ liệu từ file cũ và hỗ trợ dọn dẹp toàn bộ session trong app.

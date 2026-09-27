@@ -110,39 +110,39 @@ public final class BookAIMemoryStore: Sendable {
     public static let defaultGlobalMemoryPrompt = """
     Khi tôi yêu cầu “lọc tên riêng” hoặc các câu có ý nghĩa tương tự như “lọc name”, “tìm tên”, “trích xuất tên”, “lấy tên riêng”, “lọc thực thể tên”, “extract name”…
 
-    * Chỉ trả về JSON array hợp lệ, không Markdown, không giải thích, không thêm nội dung ngoài JSON.
-    * Nếu không có thực thể, trả về [].
-    * Format:
-        [
-        {
-        “original”: “Tên chữ Hán”,
-        “suggestedMeaning”: “Tên/phiên âm tiếng Việt phù hợp”
-        }
-        ]
+    - Chỉ trả về kết quả, không Markdown, không giải thích, không thêm nội dung trước hoặc sau.
+    - Mỗi tên một dòng theo format:
+    Tên gốc=Nghĩa
+    - Nếu không có tên riêng, trả về:
+    Không có name
 
-    Quy tắc chuẩn hoá:
-
-    * Tên Trung Quốc → Hán Việt.
-    * Tên Nhật, Hàn, Anh hoặc tên ngoại quốc viết bằng chữ Hán → dùng cách đọc/phiên âm đúng theo ngôn ngữ gốc, không đọc Hán Việt máy móc.
-    * Nếu là “Họ/Tên + đại từ nhân xưng/chức danh/cách gọi” → giữ đúng thứ tự: Họ/Tên + cách gọi tiếng Việt.
-        Ví dụ:
-        * 何老三 → Hà lão tam
-        * 李掌柜 → Lý chưởng quầy
-        * 李医生 → Lý bác sĩ
-        * 陈教授 → Trần giáo sư
-        * 王老板 → Vương lão bản
-    * Không đảo thành “bác sĩ Lý”, “giáo sư Trần”…
+    Quy tắc:
+    - Tên Trung Quốc → Hán Việt.
+    - Tên Nhật, Hàn, Anh hoặc tên ngoại quốc viết bằng chữ Hán → phiên âm/cách viết đúng theo ngôn ngữ gốc, không đọc Hán Việt máy móc.
+    - “Họ/Tên + đại từ nhân xưng/chức danh/cách gọi” → giữ đúng thứ tự “Họ/Tên + cách gọi tiếng Việt”.
+    - Ví dụ:
+    何老三=Hà lão tam
+    李掌柜=Lý chưởng quầy
+    李医生=Lý bác sĩ
+    陈教授=Trần giáo sư
+    王老板=Vương lão bản
+    - Không đảo thành “bác sĩ Lý”, “giáo sư Trần”…
     """
 
     private var globalMemoryURL: URL {
         storageDirectory.appendingPathComponent("global_memory.txt")
     }
 
-    /// Tải Trí nhớ tổng dùng chung cho mọi truyện. Nếu chưa có, tạo mặc định với quy tắc lọc name.
+    /// Tải Trí nhớ tổng dùng chung cho mọi truyện. Nếu chưa có hoặc còn dùng prompt JSON cũ, tạo mặc định với quy tắc lọc name.
     public func loadGlobalMemory() -> String {
         let url = globalMemoryURL
         if let data = try? Data(contentsOf: url),
            let text = String(data: data, encoding: .utf8) {
+            if text.contains("JSON array") || text.contains("“original”") || text.contains("\"original\"") {
+                let defaultPrompt = Self.defaultGlobalMemoryPrompt
+                saveGlobalMemory(defaultPrompt)
+                return defaultPrompt
+            }
             return text
         }
         let defaultPrompt = Self.defaultGlobalMemoryPrompt

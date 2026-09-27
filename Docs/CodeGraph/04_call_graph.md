@@ -15,6 +15,39 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Call graph Nhập từ điển hàng loạt và Pop-up duyệt tên riêng từ tin nhắn AI (1.3.412)
+
+```text
+Thêm/Sửa từ điển hàng loạt (DictEntrySheet -> DictionaryListView):
+DictionaryListView
+  └─ Bấm nút "+" (Thêm từ mới)
+        └─ showingAddSheet = true -> DictEntrySheet(target: target, bookId: bookId, onSaveBatch: ...)
+              ├─ Chế độ nhập hàng loạt (.batch):
+              │     ├─ TextEditor cho văn bản "Từ gốc 1=Nghĩa 1\nTừ gốc 2=Nghĩa 2"
+              │     └─ Toolbar: Nút Xoá trắng, Copy, Dán từ Clipboard
+              └─ onSaveBatch(entries):
+                    └─ DictionaryListView.upsertBatchEntries(entries):
+                          ├─ TranslationDictionaryWriter.shared.mutate(file:dictPath) { dict in
+                          │     entries.forEach { dict[$0.key] = $0.value }
+                          │  }
+                          ├─ Cập nhật bộ nhớ RAM (entries state)
+                          └─ ToastManager.shared.show("Đã thêm X từ mới, cập nhật Y từ có sẵn")
+
+Pop-up duyệt và lưu Tên riêng / VietPhrase từ tin nhắn AI:
+ReaderAIFullScreenView
+  └─ Nhấn giữ tin nhắn có format "Từ=Nghĩa" (Context Menu)
+        └─ Bấm "Thêm vào VP / Name riêng"
+              └─ selectedRawTextForReview = message.content
+                    └─ Sheet mở ReaderAINameReviewSheet(rawText:bookId:onDismiss:)
+                          ├─ Trạng thái nạp ngầm: isLoading = true -> ReaderAISkeletonView
+                          ├─ Task.detached:
+                          │     ├─ names = parseRawTextToNames(rawText)
+                          │     └─ decorated = AIBookDataInspector.shared.decorateExtractedNames(names, bookId: bookId)
+                          └─ Hiển thị ReaderAINameReviewCardView:
+                                ├─ Bấm "Lưu vào Name riêng": cập nhật từ điển Names riêng của truyện
+                                └─ Bấm "Lưu vào VP riêng": cập nhật từ điển VietPhrase riêng của truyện
+```
+
 ## Call graph phân hệ Toggle Thay thế TTS & Tự động Cuộn Token Reader (1.3.411)
 
 ```text

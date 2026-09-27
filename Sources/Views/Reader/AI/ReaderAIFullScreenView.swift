@@ -23,6 +23,8 @@ public struct ReaderAIFullScreenView: View {
     @State internal var showingSettings: Bool = false
     @State internal var showingSessionList: Bool = false
     @State internal var showingMemorySheet: Bool = false
+    @State internal var showingNameReviewSheet: Bool = false
+    @State internal var nameReviewContent: String = ""
     @State internal var availableProfiles: [AIProviderProfile] = []
     @State internal var selectedProfileId: String = ""
     @State internal var availableModels: [String] = []
@@ -258,6 +260,15 @@ public struct ReaderAIFullScreenView: View {
                     onNewSession: { startNewChat() }
                 )
             }
+            .sheet(isPresented: $showingNameReviewSheet) {
+                ReaderAINameReviewSheet(
+                    content: nameReviewContent,
+                    bookId: bookId,
+                    onSave: { itemsToSave, isName, isMerge in
+                        saveNamesToDictionary(itemsToSave, isName: isName, isMerge: isMerge)
+                    }
+                )
+            }
             .onAppear {
                 AIRuntimeCoordinator.shared.isFullScreenPresented = true
                 initializeSessionAsync()
@@ -321,17 +332,22 @@ public struct ReaderAIFullScreenView: View {
                         } label: {
                             Label("Sao chép tin nhắn", systemImage: "doc.on.doc")
                         }
+
+                        if ReaderAINameReviewSheet.hasDictionaryEntries(in: message.content) {
+                            Button {
+                                nameReviewContent = message.content
+                                showingNameReviewSheet = true
+                            } label: {
+                                Label("Thêm vào VP / Name riêng", systemImage: "tag")
+                            }
+                        }
                     }
             } else {
-                let resolvedNames = message.extractedNames ?? []
                 VStack(alignment: .leading, spacing: 8) {
                     if message.isStreaming && message.content.isEmpty {
                         ReaderAIThinkingIndicatorView()
                     } else if !message.content.isEmpty {
-                        let displayContent = (!resolvedNames.isEmpty && message.content.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("["))
-                            ? "Đã tìm thấy \(resolvedNames.count) tên riêng trong phản hồi:"
-                            : message.content
-                        AIMarkdownMessageView(content: displayContent, isUser: false)
+                        AIMarkdownMessageView(content: message.content, isUser: false)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
                             .background(Color(UIColor.secondarySystemBackground))
@@ -341,6 +357,15 @@ public struct ReaderAIFullScreenView: View {
                                     UIPasteboard.general.string = message.content
                                 } label: {
                                     Label("Sao chép tin nhắn", systemImage: "doc.on.doc")
+                                }
+
+                                if ReaderAINameReviewSheet.hasDictionaryEntries(in: message.content) {
+                                    Button {
+                                        nameReviewContent = message.content
+                                        showingNameReviewSheet = true
+                                    } label: {
+                                        Label("Thêm vào VP / Name riêng", systemImage: "tag")
+                                    }
                                 }
                             }
                     }
@@ -352,37 +377,6 @@ public struct ReaderAIFullScreenView: View {
                             onApprove: { action in approveAction(action) },
                             onReject: { action in rejectAction(action) },
                             onApproveAll: { approveAllActions(actions) }
-                        )
-                    }
-
-                    if !resolvedNames.isEmpty {
-                        ReaderAINameReviewCardView(
-                            names: Binding(
-                                get: {
-                                    if let idx = currentSession.messages.firstIndex(where: { $0.id == message.id }),
-                                       let list = currentSession.messages[idx].extractedNames, !list.isEmpty {
-                                        return list
-                                    }
-                                    return resolvedNames
-                                },
-                                set: { updated in
-                                    if let idx = currentSession.messages.firstIndex(where: { $0.id == message.id }) {
-                                        currentSession.messages[idx].extractedNames = updated
-                                        AIChatHistoryStore.shared.saveSession(currentSession, for: bookId)
-                                    }
-                                }
-                            ),
-                            onSave: { itemsToSave, isName, isMerge in
-                                saveNamesToDictionary(itemsToSave, isName: isName, isMerge: isMerge)
-                            },
-                            onDelete: { deletedId in
-                                if let idx = currentSession.messages.firstIndex(where: { $0.id == message.id }) {
-                                    var current = currentSession.messages[idx].extractedNames ?? resolvedNames
-                                    current.removeAll(where: { $0.id == deletedId })
-                                    currentSession.messages[idx].extractedNames = current
-                                    AIChatHistoryStore.shared.saveSession(currentSession, for: bookId)
-                                }
-                            }
                         )
                     }
                 }

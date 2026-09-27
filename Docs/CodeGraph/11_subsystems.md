@@ -15,6 +15,18 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ Nhập Từ Điển Hàng Loạt & Pop-up Duyệt Tên Riêng Từ Tin Nhắn AI (1.3.412)
+
+* **Nhập Từ Điển Hàng Loạt Dạng `Từ gốc=Nghĩa` (`DictEntrySheet.swift`, `DictionaryListView.swift`)**:
+  - `DictEntrySheet`: Tách thành view riêng biệt (212 dòng) hỗ trợ 2 chế độ `.single` (thêm/sửa một mục từ) và `.batch` (nhập hàng loạt). Chế độ nhập hàng loạt sử dụng `TextEditor` nhiều dòng cho phép dán danh sách dạng `Từ gốc 1=nghĩa 1\nTừ gốc 2=nghĩa 2`. Thanh công cụ clipboard gồm 3 nút icon (Xoá trắng `trash`, Copy `doc.on.doc`, Dán từ Clipboard `doc.on.clipboard`). Hỗ trợ parser tự động bỏ qua dòng trống hoặc sai định dạng.
+  - `DictionaryListView`: Thêm hàm `upsertBatchEntries` giao dịch an toàn qua `TranslationDictionaryWriter.shared.mutate`, cập nhật trực tiếp state RAM và hiển thị Toast thông báo chi tiết số lượng từ mới thêm và số lượng từ đã sửa nghĩa.
+* **Pop-up Bottom Sheet Duyệt Tên Riêng Từ Tin Nhắn AI (`ReaderAINameReviewSheet.swift`, `ReaderAIFullScreenView.swift`, `ReaderAIFullScreenView+Actions.swift`, `AIRuntimeCoordinator.swift`)**:
+  - `ReaderAINameReviewSheet`: Tạo sheet pop-up riêng (131 dòng) hiển thị ngay lập tức kèm hiệu ứng `ReaderAISkeletonView` shimmering trong lúc xử lý ngầm. Tác vụ ngầm nạp `[AIExtractedName]` từ văn bản raw và trang trí nhãn từ điển NE/VP qua `AIBookDataInspector.shared.decorateExtractedNames`. Khi nạp xong chuyển sang hiển thị thẻ `ReaderAINameReviewCardView` kèm nút Đóng.
+  - `ReaderAIFullScreenView`: Thêm tuỳ chọn "Thêm vào VP / Name riêng" trong `.contextMenu` của tin nhắn văn bản khi chứa định dạng `Từ=Nghĩa`. Kết nối mở `ReaderAINameReviewSheet`. Loại bỏ việc render inline thẻ card trong danh sách chat giúp giữ file dưới trần 400 dòng (389 dòng).
+  - `AIRuntimeCoordinator` & `ReaderAIFullScreenView+Actions`: Loại bỏ việc tự động ép parse JSON array khi stream xong tin nhắn AI, trả về văn bản dạng danh sách trực tiếp.
+* **Cập Nhật Mẫu Nhắc Nhớ Trí Nhớ Chung AI Cho Lọc Tên Riêng (`BookAIMemoryStore.swift`)**:
+  - Cập nhật `defaultGlobalMemoryPrompt` theo quy tắc định dạng `Tên gốc=Nghĩa`, trả về văn bản trực tiếp không Markdown, quy tắc phiên âm Hán Việt cho tên Trung Quốc, phiên âm ngôn ngữ gốc cho ngoại quốc, và bảo toàn trật tự xưng hô tiếng Việt. Tự động di trú prompt trong `loadGlobalMemory()` nếu file cũ vẫn chứa định dạng JSON array.
+
 ## Phân hệ Toggle Thay Thế TTS, Tự Động Cuộn Token & Đồng Bộ Header Bar (1.3.411)
 
 * **Bổ Sung Toggle Thay Thế TTS & Nhớ Trạng Thái Quy Tắc Sẵn Có (`AddTTSReplacementSheet.swift`, `ReaderView.swift`)**:

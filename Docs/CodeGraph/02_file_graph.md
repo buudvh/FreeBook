@@ -15,6 +15,17 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +2 file cho Thêm từ điển hàng loạt và Pop-up duyệt tên riêng AI (1.3.412)
+
+| Nhóm | File mới | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Views/Dictionary | [`Views/Dictionary/DictEntrySheet.swift`](../../Sources/Views/Dictionary/DictEntrySheet.swift) | Sheet thêm/sửa từ điển hỗ trợ nhập đơn lẻ và nhập hàng loạt nhiều dòng `Từ gốc=Nghĩa` kèm toolbar clipboard | 212 |
+| Views/Reader/AI | [`Views/Reader/AI/ReaderAINameReviewSheet.swift`](../../Sources/Views/Reader/AI/ReaderAINameReviewSheet.swift) | Sheet pop-up duyệt và lưu nhanh danh sách tên riêng/VietPhrase từ tin nhắn AI kèm hiệu ứng Skeleton nạp ngầm | 131 |
+
+* Cả 2 file mới đều ≤ 400 dòng vật lý và tuân thủ đúng 1 primary type top level.
+* `DictionaryListView.swift` giảm dòng từ 682 xuống 669 (dưới baseline 690).
+* `ReaderAIFullScreenView.swift` giảm dòng từ 416 xuống 389 (dưới trần 400).
+
 ## +5 file cho Tối ưu AI Session, Quản lý Session Cài đặt và Skeleton (1.3.410)
 
 | Nhóm | File mới | Vai trò | Dòng |
