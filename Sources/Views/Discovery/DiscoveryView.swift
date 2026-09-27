@@ -117,30 +117,30 @@ struct DiscoveryView: View {
                     }
                 } else {
                     // 1. Custom Header Bar (Nguồn bên trái có icon & tên, Tìm kiếm bên phải)
-                    HStack {
+                    HStack(spacing: 8) {
                         // Nút chọn nguồn tiện ích
                         Button(action: { showingExtensionSelector = true }) {
                             HStack(spacing: 6) {
                                 if let ext = selectedExtension {
-                                    ExtensionIconView(localPath: ext.localPath, iconUrl: ext.iconUrl, size: 24)
+                                    ExtensionIconView(localPath: ext.localPath, iconUrl: ext.iconUrl, size: 22)
                                     Text(ext.name)
                                         .fontWeight(.semibold)
                                         .lineLimit(1)
                                 } else {
                                     Image(systemName: "puzzlepiece.extension")
                                         .resizable()
-                                        .frame(width: 24, height: 24)
+                                        .frame(width: 22, height: 22)
                                     Text("Chọn Nguồn")
                                 }
                                 Image(systemName: "chevron.down")
-                                    .font(.system(size: 10, weight: .bold))
+                                    .font(.system(size: 11, weight: .bold))
                                     .foregroundColor(.secondary)
                             }
                             .foregroundColor(.primary)
                             .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
+                            .frame(height: 38)
                             .background(Color(.secondarySystemBackground))
-                            .cornerRadius(18)
+                            .cornerRadius(19)
                         }
                         .layoutPriority(1) // Đảm bảo nút chọn nguồn được hiển thị trọn vẹn nhất có thể
                         
@@ -152,9 +152,9 @@ struct DiscoveryView: View {
                                 headerBrowserTarget = ExtensionBrowserTarget(urlString: ext.sourceUrl)
                             }) {
                                 Image(systemName: "safari")
-                                    .font(.title3)
+                                    .font(.system(size: 17, weight: .semibold))
                                     .foregroundColor(.primary)
-                                    .padding(10)
+                                    .frame(width: 38, height: 38)
                                     .background(Color(.secondarySystemBackground))
                                     .clipShape(Circle())
                             }
@@ -167,10 +167,12 @@ struct DiscoveryView: View {
                             sourceName: selectedExtension?.name ?? "",
                             textColor: .white,
                             showBackground: false,
-                            isChineseSourceHint: selectedExtension?.isChineseSource
+                            isChineseSourceHint: selectedExtension?.isChineseSource,
+                            iconSize: 17,
+                            frameWidth: 38,
+                            frameHeight: 38
                         )
                         .id("discovery-translate-\(selectedExtensionId)")
-                        .padding(4)
                         .background(Color(.secondarySystemBackground))
                         .clipShape(Circle())
                         
@@ -180,9 +182,9 @@ struct DiscoveryView: View {
                             selectedExtension: selectedExtension
                         )) {
                             Image(systemName: "magnifyingglass")
-                                .font(.title3)
+                                .font(.system(size: 17, weight: .semibold))
                                 .foregroundColor(.primary)
-                                .padding(10)
+                                .frame(width: 38, height: 38)
                                 .background(Color(.secondarySystemBackground))
                                 .clipShape(Circle())
                         }

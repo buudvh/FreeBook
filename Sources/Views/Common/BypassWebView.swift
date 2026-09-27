@@ -112,6 +112,7 @@ struct BypassWebView: View {
                         openNewTab()
                     } label: {
                         Image(systemName: "plus.square.on.square")
+                            .font(.system(size: 17, weight: .semibold))
                     }
                     .disabled(!store.canOpenMoreTabs)
                     .accessibilityLabel("Tab mới")

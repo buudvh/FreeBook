@@ -69,6 +69,7 @@ public struct AIChatAllSessionsManagerView: View {
                         showingClearAllAlert = true
                     } label: {
                         Image(systemName: "trash")
+                            .font(.system(size: 17, weight: .semibold))
                             .foregroundColor(.red)
                     }
                     .accessibilityLabel("Dọn dẹp tất cả phiên chat")

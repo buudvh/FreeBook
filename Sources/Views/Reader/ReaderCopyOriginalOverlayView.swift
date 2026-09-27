@@ -141,30 +141,69 @@ struct ReaderCopyOriginalOverlayView: View {
     }
 
     private var translatedTokensRowView: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 2) {
-                ForEach(translationTokens) { token in
-                    let isSelected = (token.originalOffset < selectedWordOffset + selectedWordLength &&
-                                      token.originalOffset + token.originalLength > selectedWordOffset)
-                    Text(token.translatedText)
-                        .font(.subheadline)
-                        .bold(isSelected)
-                        .underline()
-                        .foregroundColor(isSelected ? .white : Color.white.opacity(0.45))
-                        .padding(.horizontal, 2)
-                        .padding(.vertical, 2)
-                        .background(isSelected ? Color.white.opacity(0.15) : Color.clear)
-                        .cornerRadius(4)
-                        .onTapGesture {
-                            selectedWordOffset = token.originalOffset
-                            selectedWordLength = token.originalLength
-                            onUpdateEditorFromSelection()
-                        }
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 2) {
+                    ForEach(translationTokens) { token in
+                        let isSelected = (token.originalOffset < selectedWordOffset + selectedWordLength &&
+                                          token.originalOffset + token.originalLength > selectedWordOffset)
+                        Text(token.translatedText)
+                            .font(.subheadline)
+                            .bold(isSelected)
+                            .underline()
+                            .foregroundColor(isSelected ? .white : Color.white.opacity(0.45))
+                            .padding(.horizontal, 2)
+                            .padding(.vertical, 2)
+                            .background(isSelected ? Color.white.opacity(0.15) : Color.clear)
+                            .cornerRadius(4)
+                            .id("copy-trans-\(token.id)")
+                            .onTapGesture {
+                                selectedWordOffset = token.originalOffset
+                                selectedWordLength = token.originalLength
+                                onUpdateEditorFromSelection()
+                            }
+                    }
+                }
+            }
+            .onChange(of: selectedWordOffset) { _, _ in
+                scrollToSelectedToken(proxy: proxy, animated: true)
+            }
+            .onChange(of: selectedWordLength) { _, _ in
+                scrollToSelectedToken(proxy: proxy, animated: true)
+            }
+            .onChange(of: translationTokens.count) { _, _ in
+                scrollToSelectedToken(proxy: proxy, animated: true)
+            }
+            .onChange(of: translationTokens.map(\.id)) { _, _ in
+                scrollToSelectedToken(proxy: proxy, animated: true)
+            }
+            .onAppear {
+                scrollToSelectedToken(proxy: proxy, animated: false)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    scrollToSelectedToken(proxy: proxy, animated: true)
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    scrollToSelectedToken(proxy: proxy, animated: true)
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: 32, maxHeight: 32, alignment: .leading)
         .padding(.horizontal, 4)
+    }
+
+    private func scrollToSelectedToken(proxy: ScrollViewProxy, animated: Bool = true) {
+        guard let selectedToken = translationTokens.first(where: {
+            $0.originalOffset < selectedWordOffset + selectedWordLength &&
+            $0.originalOffset + $0.originalLength > selectedWordOffset
+        }) else { return }
+
+        if animated {
+            withAnimation {
+                proxy.scrollTo("copy-trans-\(selectedToken.id)", anchor: .center)
+            }
+        } else {
+            proxy.scrollTo("copy-trans-\(selectedToken.id)", anchor: .center)
+        }
     }
 
     private var previewView: some View {

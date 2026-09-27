@@ -176,10 +176,11 @@ extension ReaderView {
     /// Ba panel dùng chung vùng chọn nên chỉ một cái được mở. `nil` = đóng hết (dùng khi mở panel Dịch).
     enum SelectionPanel {
         case copyOriginal
+        case junkDelete
     }
 
     func closeOtherSelectionPanels(except panel: SelectionPanel?) {
-        showingJunkDeleteSheet = false
+        if panel != .junkDelete { showingJunkDeleteSheet = false }
         if panel != .copyOriginal { showingCopyOriginalSheet = false }
         if panel != nil { showingDefinitionSheet = false }
     }

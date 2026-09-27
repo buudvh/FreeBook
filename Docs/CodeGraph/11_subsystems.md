@@ -15,6 +15,24 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ Toggle Thay Thế TTS, Tự Động Cuộn Token & Đồng Bộ Header Bar (1.3.411)
+
+* **Bổ Sung Toggle Thay Thế TTS & Nhớ Trạng Thái Quy Tắc Sẵn Có (`AddTTSReplacementSheet.swift`, `ReaderView.swift`)**:
+  - `AddTTSReplacementSheet`: Bổ sung `Toggle("Kích hoạt thay thế", isOn: $isEnabled)`. Khi mở từ từ điển/văn bản đang bôi đen, nạp trạng thái `isEnabled` và `replacement` sẵn có nếu từ đã nằm trong danh sách `existingRules` của `TTSReplacementManager`. Cập nhật closure `onAdd: (String, String, Bool) -> Void`.
+  - `ReaderView`: Tiếp nhận cờ `isEnabled`, khởi tạo `TTSReplacementRule` và hiển thị Toast thông báo trạng thái tương ứng `(Đã tắt)` nếu quy tắc bị vô hiệu hoá.
+* **Sửa Lỗi Tự Động Cuộn Thanh Token Nghĩa & Quản Lý Panel (`ReaderCopyOriginalOverlayView.swift`, `ReaderJunkDeleteOverlayView.swift`, `ReaderView.swift`, `ReaderView+DefinitionLoading.swift`, `ReaderView+RuleTools.swift`)**:
+  - `ReaderCopyOriginalOverlayView`: Bổ sung `ScrollViewReader`, định danh `.id("copy-trans-\(token.id)")`, hàm `scrollToSelectedToken(proxy:animated:)` và các trigger `.onChange(of: selectedWordOffset)`, `.onChange(of: selectedWordLength)`, `.onAppear` (delays 0.15s, 0.35s). Đặt frame cố định `minHeight: 32, maxHeight: 32`.
+  - `ReaderJunkDeleteOverlayView`: Chuẩn hoá frame `minHeight: 32, maxHeight: 32` và bổ sung trigger `.onChange(of: selectedWordLength)`.
+  - `ReaderView+DefinitionLoading.swift`: Bổ sung `showingJunkDeleteSheet` vào guard của `loadDefinitionData(preservingMeaning:)`, khắc phục triệt để lỗi không nạp token dịch khi mở trực tiếp màn Xoá từ rác.
+  - `ReaderView+RuleTools.swift`: Bổ sung case `.junkDelete` vào enum `SelectionPanel` và hàm `closeOtherSelectionPanels(except:)` để tránh xung đột overlay.
+* **Chuẩn Hoá Kích Thước Header Bar & Khoảng Cách Nút Bấm Toàn Ứng Dụng**:
+  - `ReaderHeaderFooterOverlayView`: Nút back mở rộng hitbox `38x44pt` icon `17pt semibold`; cụm nút phải tăng khoảng cách `spacing: 6pt`, khung hitbox chuẩn `36x38pt` icon `17pt semibold`; nút cuộn TTS có nền `34x34pt, r=8`.
+  - `DiscoveryView`: Nút chọn nguồn (pill) chuẩn chiều cao `38pt` r=19; 3 nút tròn bên phải (Safari, Dịch thuật, Tìm kiếm) chuẩn khung `38x38pt` icon `17pt semibold`, khoảng cách `spacing: 8pt`.
+  - `BookDetailView` & `BookDetailView+Extensions`: Chuẩn hoá icon Dịch và Menu 3 chấm về `17pt semibold`, frame `36x36pt`, spacing `6pt`.
+  - `ReaderAIFullScreenView`: Chuẩn hoá nút đóng và menu 3 chấm về `17pt semibold`, frame `36x36pt`.
+  - Đồng bộ `ShelfView`, `RepositoryManagerView`, `NotificationInboxView`, `CollectionDetailView+Manage`, `DictionaryListView`, `AISettingsView`, `AIChatAllSessionsManagerView`, `BypassWebView` về icon `17pt semibold`.
+  - `ReaderChapterListView`: Cụm nút mục lục chuẩn `14pt semibold`, frame `32x32pt`, spacing `4pt`.
+
 ## Phân hệ Lưu trữ Session Độc lập, Tối Ưu Mở AI và Đồng Bộ Token Reader (1.3.410)
 
 * **Lưu Trữ Từng Session Thành File Độc Lập (`AIChatHistoryStore.swift`, `AIChatSessionSummary.swift`)**:

@@ -178,6 +178,7 @@ struct ShelfView: View {
                         showingNotificationInbox = true
                     }) {
                         Image(systemName: notificationBadgeCount > 0 ? "bell.badge.fill" : "bell")
+                            .font(.system(size: 17, weight: .semibold))
                             .overlay(alignment: .topTrailing) {
                                 if notificationBadgeCount > 0 {
                                     Text(notificationBadgeCount > 99 ? "99+" : "\(notificationBadgeCount)")
@@ -198,6 +199,7 @@ struct ShelfView: View {
                             showingShelfSearch = true
                         }) {
                             Image(systemName: "magnifyingglass")
+                                .font(.system(size: 17, weight: .semibold))
                         }
                         .accessibilityLabel("Tìm truyện trong kệ sách và lịch sử")
                     }
@@ -251,6 +253,7 @@ struct ShelfView: View {
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")
+                            .font(.system(size: 17, weight: .semibold))
                     }
                 }
             }

@@ -15,6 +15,41 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Call graph phân hệ Toggle Thay thế TTS & Tự động Cuộn Token Reader (1.3.411)
+
+```text
+Thêm Quy tắc Thay thế TTS Từ Reader:
+ReaderView
+  └─ Bôi đen từ/cụm từ -> Floating Menu -> "Thay thế"
+        └─ showingAddTTSReplacementSheet = true
+              └─ AddTTSReplacementSheet:
+                    ├─ init: tra cứu existingRules theo pattern -> nạp isEnabled & replacement sẵn có
+                    ├─ Toggle("Kích hoạt thay thế", isOn: $isEnabled)
+                    ├─ onChange(of: pattern) -> đồng bộ lại nếu trùng rule có sẵn
+                    └─ onAdd(pattern, replacement, isEnabled):
+                          ├─ rule = TTSReplacementRule(pattern: pattern, replacement: replacement, isEnabled: isEnabled)
+                          ├─ TTSReplacementManager.shared.addRule(rule)
+                          └─ ToastManager.shared.show("Đã thêm/cập nhật thay thế TTS...")
+
+Tự động Cuộn Thanh Token Dịch Trong Copy Gốc & Xoá Rác:
+ReaderView
+  ├─ onDeleteJunk:
+  │     ├─ closeOtherSelectionPanels(except: .junkDelete)
+  │     ├─ showingJunkDeleteSheet = true
+  │     └─ updateEditorFromSelection()
+  └─ loadDefinitionData:
+        └─ guard showingDefinitionSheet || showingCopyOriginalSheet || showingJunkDeleteSheet
+
+ReaderCopyOriginalOverlayView / ReaderJunkDeleteOverlayView:
+  └─ ScrollViewReader (proxy):
+        ├─ id("copy-trans-\(token.id)") / id("junk-trans-\(token.id)")
+        ├─ scrollToSelectedToken(proxy:animated:):
+        │     └─ proxy.scrollTo(token.id, anchor: .center)
+        ├─ onChange(of: selectedWordOffset) -> scrollToSelectedToken
+        ├─ onChange(of: selectedWordLength) -> scrollToSelectedToken
+        └─ onAppear (delays 0.15s, 0.35s) -> scrollToSelectedToken
+```
+
 ## Call graph phân hệ Lưu trữ Session Độc lập, Tối ưu Mở AI & Đồng bộ Token Reader (1.3.410)
 
 ```text

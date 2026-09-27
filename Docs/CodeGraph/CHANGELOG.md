@@ -2,6 +2,30 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.411] - 2026-09-27
+
+### feat: dong bo header icon 17pt, toggle thay the tts va fix scroll token copy xoa rac
+
+Sửa **20** file Swift trong `Sources/Views/`:
+
+- **Chuẩn hoá kích thước Header, Toolbar Icon và khoảng cách nút bấm**:
+  - `ReaderHeaderFooterOverlayView.swift`: Nút quay lại (back) mở rộng hitbox `38x44pt` icon `17pt semibold`; cụm nút công cụ phải tăng khoảng cách `spacing: 6pt`, chuẩn hoá hitbox `36x38pt` icon `17pt semibold`; nút cuộn TTS có nền `34x34pt, r=8`.
+  - `DiscoveryView.swift`: Nút chọn nguồn (pill) chuẩn chiều cao `38pt` (`cornerRadius: 19`); 3 nút tròn bên phải (Safari, Dịch thuật, Tìm kiếm) chuẩn khung `38x38pt` icon `17pt semibold`, khoảng cách `spacing: 8pt`.
+  - `BookDetailView.swift` & `BookDetailView+Extensions.swift`: Nút Dịch và Menu 3 chấm chuẩn icon `17pt semibold`, frame `36x36pt`, `spacing: 6pt`.
+  - `ReaderAIFullScreenView.swift`: Nút đóng và menu 3 chấm chuẩn icon `17pt semibold`, frame `36x36pt`.
+  - Đồng bộ `ShelfView.swift`, `RepositoryManagerView.swift`, `NotificationInboxView.swift`, `CollectionDetailView+Manage.swift`, `DictionaryListView.swift`, `AISettingsView.swift`, `AIChatAllSessionsManagerView.swift`, `BypassWebView.swift` về icon `17pt semibold`.
+  - `ReaderChapterListView.swift`: Cụm 3 nút mục lục chuẩn icon `14pt semibold`, frame `32x32pt`, `spacing: 4pt`.
+  - Ban hành quy chuẩn kỹ thuật bắt buộc vào `Docs/CodeGraph/rules.md` (§5.4 SwiftUI Rules & §7 Checklist) và ánh xạ đồng bộ sang `AGENTS.md`, `CLAUDE.md`, `.agents/AGENTS.md`.
+- **Bổ sung Toggle bật/tắt ở màn hình Thêm thay thế TTS (`AddTTSReplacementSheet.swift`, `ReaderView.swift`)**:
+  - `AddTTSReplacementSheet.swift`: Thêm `Toggle("Kích hoạt thay thế", isOn: $isEnabled)`. Khi mở, tự động tra cứu danh sách quy tắc sẵn có `existingRules` để hiển thị đúng trạng thái `isEnabled` và `replacement` cũ nếu từ đã tồn tại. Tự động đồng bộ lại nếu người dùng nhập pattern trùng quy tắc có sẵn. Cập nhật closure `onAdd: (String, String, Bool) -> Void`.
+  - `ReaderView.swift`: Lưu đúng `isEnabled` vào `TTSReplacementRule`, gọi `TTSReplacementManager.shared.addRule(rule)` và thông báo Toast trạng thái `(Đã tắt)` nếu tắt.
+- **Sửa lỗi thanh token dịch không cuộn ở Copy nội dung gốc & Xoá từ rác (`ReaderCopyOriginalOverlayView.swift`, `ReaderJunkDeleteOverlayView.swift`, `ReaderView.swift`, `ReaderView+DefinitionLoading.swift`, `ReaderView+RuleTools.swift`)**:
+  - `ReaderCopyOriginalOverlayView.swift`: Bổ sung `ScrollViewReader`, định danh `.id("copy-trans-\(token.id)")`, hàm `scrollToSelectedToken(proxy:animated:)` và các trigger `.onChange(of: selectedWordOffset)`, `.onChange(of: selectedWordLength)`, `.onAppear` (delays 0.15s, 0.35s). Đặt frame cố định `minHeight: 32, maxHeight: 32`.
+  - `ReaderJunkDeleteOverlayView.swift`: Chuẩn hoá frame `minHeight: 32, maxHeight: 32` và thêm trigger `.onChange(of: selectedWordLength)`.
+  - `ReaderView+DefinitionLoading.swift`: Bổ sung `showingJunkDeleteSheet` vào guard của `loadDefinitionData(preservingMeaning:)`, khắc phục triệt để lỗi không nạp token dịch khi mở trực tiếp màn Xoá từ rác.
+  - `ReaderView+RuleTools.swift`: Bổ sung case `.junkDelete` vào enum `SelectionPanel` và hàm `closeOtherSelectionPanels(except:)` để tránh xung đột overlay.
+- **Tài liệu CodeGraph**: Cập nhật `rules.md`, `04_call_graph.md`, `11_subsystems.md` (`--accept`); `05_state_graph.md`, `08_lifecycle.md`, `10_risk_report.md`, `12_ownership_graph.md`, `13_resource_lifecycle.md` (`--no-change-needed`).
+
 ## [1.3.410] - 2026-09-27
 
 ### feat: toi uu mo AI chat luu session doc lap va dong bo token reader

@@ -170,6 +170,9 @@ struct ReaderJunkDeleteOverlayView: View {
             .onChange(of: selectedWordOffset) { _, _ in
                 scrollToSelectedToken(proxy: proxy, animated: true)
             }
+            .onChange(of: selectedWordLength) { _, _ in
+                scrollToSelectedToken(proxy: proxy, animated: true)
+            }
             .onChange(of: translationTokens.count) { _, _ in
                 scrollToSelectedToken(proxy: proxy, animated: true)
             }
@@ -186,7 +189,7 @@ struct ReaderJunkDeleteOverlayView: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: 32, maxHeight: 32, alignment: .leading)
         .padding(.horizontal, 4)
     }
 

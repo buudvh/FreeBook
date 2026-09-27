@@ -1,11 +1,11 @@
 ---
 name: push-ci-monitor
-description: "Duyệt plan (coi lệnh này/lời gọi này là sự chấp thuận implementation plan), thực thi sửa code theo plan, kiểm tra kiến trúc và CodeGraph, commit, push và theo dõi tiến độ CI chi tiết bằng lệnh gh run view. Nếu CI thất bại, tự động sửa lỗi và commit lại với đúng commit message cũ cho đến khi CI thành công."
+description: "Duyệt plan (coi lệnh này/lời gọi này là sự chấp thuận implementation plan), thực thi sửa code theo plan kèm rà soát checklist kỹ thuật từng bước, kiểm tra kiến trúc và CodeGraph, commit, push và theo dõi tiến độ CI chi tiết bằng lệnh gh run view. Nếu CI thất bại, tự động sửa lỗi và commit lại với đúng commit message cũ cho đến khi CI thành công."
 ---
 
 # Push & CI Monitor Skill
 
-Skill này đóng vai trò là hành động **Duyệt Plan (Implementation Plan Approval)** và tự động hóa toàn diện chu trình phát triển: thực thi sửa mã nguồn theo plan, kiểm tra chất lượng (Quality Gate), commit & push, theo dõi tiến độ chi tiết từng bước bằng GitHub CLI (`gh run view`), và tự động sửa lỗi commit lại bằng message cũ nếu CI gặp lỗi.
+Skill này đóng vai trò là hành động **Duyệt Plan (Implementation Plan Approval)** và tự động hóa toàn diện chu trình phát triển: thực thi sửa mã nguồn theo plan (kèm rà soát checklist kỹ thuật từng bước), kiểm tra chất lượng (Quality Gate), commit & push, theo dõi tiến độ chi tiết từng bước bằng GitHub CLI (`gh run view`), và tự động sửa lỗi commit lại bằng message cũ nếu CI gặp lỗi.
 
 ---
 
@@ -22,7 +22,7 @@ Sử dụng skill này khi người dùng yêu cầu:
 
 ```mermaid
 graph TD
-    1[1. Duyệt Plan & Thực thi sửa code] --> 2[2. Quality Gate: Architecture & CodeGraph]
+    1[1. Duyệt Plan & Thực thi sửa code theo Checklist] --> 2[2. Quality Gate: Architecture & CodeGraph]
     2 --> 3[3. Git Commit & Push]
     3 --> 4[4. Lấy GH_TOKEN & Run ID qua gh]
     4 --> 5[5. Theo dõi tiến độ chi tiết bằng gh run view]
@@ -41,9 +41,53 @@ graph TD
    - Khi nhận lệnh `/push-ci-monitor` hoặc câu lệnh chứa "duyệt", Agent xác nhận kế hoạch trong `implementation_plan.md` đã được người dùng thông qua.
    - Lập tức chuyển sang chế độ thực thi (Execution Phase).
 
-2. **Thực thi sửa code**:
+2. **Thực thi sửa code theo từng bước**:
    - Tiến hành chỉnh sửa, bổ sung các file mã nguồn Swift, cấu hình dự án hoặc UI theo đúng các hạng mục đã thỏa thuận trong plan.
+   - **Quy tắc theo dõi tiến độ**: Thực hiện tới bước nào thì đánh dấu check `[x]` vào checklist tương ứng (trong implementation plan hoặc thông báo tiến độ) để người dùng dễ dàng theo dõi.
    - Giữ gìn các quy chuẩn lập trình và tính toàn vẹn của mã nguồn hiện hữu.
+
+3. **Checklist Kỹ thuật Bắt buộc khi Sửa Code (Coding Rules Checklist)**:
+   Trước và trong quá trình viết code, Agent bắt buộc phải đối chiếu và tuân thủ các quy tắc sau:
+
+   - **Phạm vi & Tính toàn vẹn (Scope Preservation)**:
+     - [ ] Chỉ sửa đổi các file và logic nằm trong `implementation_plan.md` đã duyệt.
+     - [ ] Nếu phát hiện lỗi phát sinh ngoài phạm vi hoặc cần refactor thêm: **Dừng lại, thông báo cho người dùng và cập nhật plan** (tuân thủ Rule 5), không tự ý mở rộng phạm vi.
+
+   - **Kiến trúc & Cấu trúc File (Architecture & File Limits)**:
+     - [ ] Đặt file đúng tầng: `Sources/App`, `Sources/Common`, `Sources/Models`, `Sources/Services`, `Sources/Views`. Chiều phụ thuộc: Views $\rightarrow$ ViewModel/Coordinator $\rightarrow$ Services/Repositories $\rightarrow$ Models.
+     - [ ] File mới tối đa **$\le 400$ dòng vật lý**.
+     - [ ] File legacy chỉ được phép giảm hoặc giữ nguyên số dòng (ratchet down), không tăng vượt baseline. Tách file extension theo mẫu `X+Feature.swift` khi cần mở rộng.
+     - [ ] Đúng **1 primary type** (class/struct/enum/actor) ở top-level mỗi file.
+     - [ ] Không tạo lại thư mục hoặc target `Tests/` (tầng test đã bị xóa).
+
+   - **SwiftData & Tương tác Dữ liệu (SwiftData Invariants)**:
+     - [ ] `Sources/Views/**` TUYỆT ĐỐI KHÔNG gọi `modelContext.insert/delete/save` hay gán trực tiếp thuộc tính `@Model`. Mọi mutation phải đi qua Coordinator (`BookTransactionCoordinator`, `ExtensionTransactionCoordinator`) với Command DTO bất biến.
+     - [ ] Không viết predicate lọc chuỗi trong `@Query` (tránh lỗi bộ dịch SQLite iOS 17) — truy vấn toàn bộ và lọc trên RAM bằng computed property.
+     - [ ] Background tasks phải khởi tạo `ModelContext` riêng từ `ModelContainer`, không dùng chung context của `@MainActor`.
+     - [ ] `ChapterStoreConfiguration.enableSwiftDataTOCWrite = false`: mục lục chương lưu ở raw SQLite `chapters/chapter_store.sqlite` (`ChapterStore`), không nằm ở bảng SwiftData `Chapter`.
+
+   - **Tách biệt Service & UI (Service / UI Decoupling)**:
+     - [ ] `Sources/Services/**` TUYỆT ĐỐI KHÔNG `import SwiftUI` (ngoại lệ duy nhất: file kết thúc bằng `*WebViewLoader.swift`).
+     - [ ] `Sources/Services/**` TUYỆT ĐỐI KHÔNG gọi `ToastManager.shared`. Phải phát event qua AsyncStream (`TTSPresentationEventCenter`, `DownloadPresentationEventCenter`) hoặc trả về `Result`.
+
+   - **Chuẩn hoá Văn bản & Toạ độ (TextKit, Reader, TTS Invariants)**:
+     - [ ] Chỉ dùng `ChapterTextNormalizer` (`normalize` / `normalizeProcessedContent`) để chuẩn hoá text chương. Reader và TTS không tự tách/đánh số lại dòng.
+     - [ ] `ChapterTextLine.id` tính cả dòng trống $\rightarrow$ ID dòng là thưa (sparse), không phải index mảng, luôn tra cứu theo ID.
+     - [ ] Mọi toạ độ / offset trao đổi với UIKit/TextKit là UTF-16 `NSRange`, không dùng `String.Index` hay `Character`.
+     - [ ] `ReaderTextView` bắt buộc giữ TextKit 1 (`usingTextLayoutManager: false`).
+     - [ ] Highlight coordinate: `TTSParagraph.range` là offset UTF-16 trên chuỗi đang hiển thị (đã dịch nếu bật VietPhrase), tương đối với dòng cha. Không dùng mapper bọc highlight.
+
+   - **Concurrency, Threading & Bộ nhớ (Concurrency & Memory Rules)**:
+     - [ ] Không chặn Main Thread bằng `DispatchSemaphore` khi đợi `WKWebView` (dùng `withCheckedContinuation`).
+     - [ ] Không gọi `espeak` / `EspeakPhonemizer` từ SwiftUI `body`, computed property hoặc `@MainActor` (dùng `Task.detached` + `@State`).
+     - [ ] Mọi kiểu dữ liệu crossing `Task.detached` boundary phải conform `Sendable`.
+     - [ ] Không khởi tạo `NSRegularExpression` trong vòng lặp hay hàm chạy per-token / per-line (dùng `static let`).
+     - [ ] Dọn dẹp cache PCM `preloadedData`/`preloadedDurations` đúng cửa sổ trượt từng engine; callback ngầm dùng `[weak self]`.
+     - [ ] Không dùng shared `JSExecutor` cho các tác vụ bóc tách (mỗi tác vụ tạo mới và giải phóng, ngoại trừ `ExtTTSRuntime`).
+
+   - **Logging & An toàn Runtime**:
+     - [ ] Mọi log phải dùng `AppLogger.shared.log(...)`, KHÔNG gọi `print(...)` trực tiếp. Không log token/secret/payload chương.
+     - [ ] `CancellationError` không được ghi nhận là lỗi tổng hợp âm thanh hay failure state.
 
 ---
 

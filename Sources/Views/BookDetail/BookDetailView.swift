@@ -232,16 +232,16 @@ struct BookDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                HStack(spacing: 0) {
+                HStack(spacing: 6) {
                     ReaderTranslationScopeMenuView(
                         bookId: actualBookId,
                         packageId: extensionPackageId,
                         sourceName: sourceName,
                         showBackground: false,
                         isChineseSourceHint: ext?.isChineseSource,
-                        iconSize: 16,
-                        frameWidth: 32,
-                        frameHeight: 32
+                        iconSize: 17,
+                        frameWidth: 36,
+                        frameHeight: 36
                     )
                     ellipsisMenu
                 }

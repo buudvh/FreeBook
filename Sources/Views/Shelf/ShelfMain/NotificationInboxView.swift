@@ -266,6 +266,7 @@ struct NotificationInboxView: View {
                 .disabled(!inbox.hasRead && !newChapters.hasReadAnnouncement)
             } label: {
                 Image(systemName: "ellipsis.circle")
+                    .font(.system(size: 17, weight: .semibold))
             }
             .disabled(isEmpty)
         }

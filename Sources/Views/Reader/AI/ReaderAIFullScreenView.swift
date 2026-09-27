@@ -196,9 +196,9 @@ public struct ReaderAIFullScreenView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(action: { dismiss() }) {
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.system(size: 17, weight: .semibold))
                             .foregroundColor(.white)
-                            .frame(width: 34, height: 34)
+                            .frame(width: 36, height: 36)
                             .background(Color(white: 0.18))
                             .clipShape(Circle())
                     }
@@ -233,8 +233,9 @@ public struct ReaderAIFullScreenView: View {
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")
-                            .font(.system(size: 20))
+                            .font(.system(size: 17, weight: .semibold))
                             .foregroundColor(.white)
+                            .frame(width: 36, height: 36)
                     }
                 }
             }

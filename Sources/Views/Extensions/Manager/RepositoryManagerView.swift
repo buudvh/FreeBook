@@ -196,13 +196,14 @@ struct RepositoryManagerView: View {
                     .disabled(isUninstallAllDisabled)
                 } label: {
                     Image(systemName: "ellipsis.circle")
-                        .font(.title3)
+                        .font(.system(size: 17, weight: .semibold))
                 }
             }
         } else {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: { showingAddRepo = true }) {
                     Image(systemName: "plus")
+                        .font(.system(size: 17, weight: .semibold))
                 }
             }
             ToolbarItem(placement: .navigationBarLeading) {
@@ -211,6 +212,7 @@ struct RepositoryManagerView: View {
                         ProgressView()
                     } else {
                         Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 17, weight: .semibold))
                     }
                 }
                 .disabled(isRefreshingAll || repositories.isEmpty)

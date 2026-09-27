@@ -43,6 +43,10 @@ graph TD
 *   Không tạo mới, bổ sung hoặc chỉnh sửa unit test nếu người dùng chưa yêu cầu rõ ràng.
 *   Quy tắc này không cấm chạy các unit test hiện có hoặc thực hiện các bước kiểm tra tĩnh/validation không làm thay đổi test.
 
+### 2.2. Quy tắc Giao diện Header & Toolbar (UI Standard)
+
+*   Mọi thay đổi hoặc bổ sung màn hình/view mới bắt buộc tuân thủ chuẩn Header & Toolbar: Icon font `.system(size: 17, weight: .semibold)`, khoảng cách tối thiểu `6pt`, hitbox tối thiểu `36x36pt` (khuyến nghị `36x38pt`), nút tròn `38x38pt`, pill cao `38pt` (chi tiết tại `Docs/CodeGraph/rules.md` §5.4).
+
 ---
 
 ## 3. Thứ tự Ưu tiên Thẩm quyền (Priority of Authority / Source of Truth Hierarchy)

@@ -214,12 +214,12 @@ public struct ReaderChapterListView: View {
 
                         Spacer(minLength: 4)
 
-                        HStack(spacing: 2) {
+                        HStack(spacing: 4) {
                             Button(action: retranslateChaptersAction) {
                                 Image(systemName: "character.bubble")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.system(size: 14, weight: .semibold))
                                     .foregroundColor(.white)
-                                    .frame(width: 30, height: 30)
+                                    .frame(width: 32, height: 32)
                             }
                             .accessibilityLabel("Dịch lại chương và mục lục")
 
@@ -227,14 +227,14 @@ public struct ReaderChapterListView: View {
                                 if isUpdating {
                                     ProgressView()
                                         .tint(theme.textColor)
-                                        .frame(width: 30, height: 30)
+                                        .frame(width: 32, height: 32)
                                         .accessibilityLabel("Đang cập nhật mục lục")
                                 } else {
                                     Button(action: refreshChapters) {
                                         Image(systemName: "arrow.clockwise")
-                                            .font(.system(size: 13, weight: .semibold))
+                                            .font(.system(size: 14, weight: .semibold))
                                             .foregroundColor(theme.textColor)
-                                            .frame(width: 30, height: 30)
+                                            .frame(width: 32, height: 32)
                                     }
                                     .accessibilityLabel("Cập nhật mục lục")
                                 }
@@ -245,9 +245,9 @@ public struct ReaderChapterListView: View {
                                 store.updateSortOrder(isAscending: isAscending)
                             }) {
                                 Image(systemName: "arrow.up.arrow.down")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.system(size: 14, weight: .semibold))
                                     .foregroundColor(theme.textColor)
-                                    .frame(width: 30, height: 30)
+                                    .frame(width: 32, height: 32)
                             }
                             .accessibilityLabel(isAscending ? "Sắp xếp chương giảm dần" : "Sắp xếp chương tăng dần")
                         }

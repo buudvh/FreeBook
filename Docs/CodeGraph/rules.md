@@ -566,6 +566,44 @@ Dự án FreeBook được tổ chức theo cấu trúc phân tầng nghiêm ng�
         viewModel?.saveProgressImmediately()
     }
     ```
+*   **Tên**: Chuẩn hoá kích thước Header, Toolbar Icon và khoảng cách nút bấm
+*   **Loại quy tắc**: **Normative Rule**
+*   **Mô tả**:
+    *   **Kích thước Icon Header chuẩn**: Mọi icon trên Header, NavigationBar, Toolbar của toàn bộ các màn hình bắt buộc dùng font `.system(size: 17, weight: .semibold)` (tương đương chuẩn Apple SF Pro Header Action). Nghiêm cấm dùng icon tùy tiện (`.title3` 20pt, 13pt, 14pt hoặc default regular).
+    *   **Khung chạm (Hitbox) & Khoảng cách (Spacing)**:
+        *   Custom Header Bar / Toolbar: Khoảng cách giữa các nút liền kề tối thiểu **`6pt`**; khung chạm (hitbox) tối thiểu **`36 x 36pt`** (khuyến nghị **`36 x 38pt`**).
+        *   Nút tròn (Circle button): Kích thước chuẩn **`38 x 38pt`** (icon 17pt semibold).
+        *   Nút dạng viên thuốc (Pill/Capsule button) cùng hàng: Chiều cao chuẩn **`38pt`** (`frame(height: 38)`, `cornerRadius: 19`).
+        *   Nút Quay lại (Back button): Khung bấm mở rộng tối thiểu **`38 x 44pt`** để chạm dễ dàng.
+        *   Menu phụ / mục lục chương lồng bên trong: Kích thước icon chuẩn **`14pt semibold`**, frame tối thiểu **`32 x 32pt`**, spacing tối thiểu **`4pt`**.
+*   **Lý do**: Đảm bảo trải nghiệm thị giác đồng nhất, cân đối thẩm mỹ trên toàn app và ngăn chặn tình trạng nút bấm quá sát nhau hoặc icon lệch kích thước khi bổ sung màn hình mới.
+*   **Ví dụ đúng**:
+    ```swift
+    // Navigation Toolbar icon chuẩn
+    ToolbarItem(placement: .primaryAction) {
+        Button(action: showOptions) {
+            Image(systemName: "ellipsis.circle")
+                .font(.system(size: 17, weight: .semibold))
+        }
+    }
+
+    // Custom Header HStack
+    HStack(spacing: 6) {
+        Button(action: openSearch) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 17, weight: .semibold))
+                .frame(width: 36, height: 38)
+        }
+    }
+    ```
+*   **Ví dụ sai**:
+    ```swift
+    // Icon quá nhỏ, quá lớn hoặc thiếu semibold
+    Image(systemName: "ellipsis.circle")
+    Image(systemName: "gearshape")
+        .font(.title3) // 20pt, quá to
+    HStack(spacing: 2) { ... } // Dính sát, khó bấm
+    ```
 
 ### 5.5. Audio Rules
 *   **Tên**: Tránh chặn Main Thread bằng Semaphore khi tải WebView ngầm
@@ -788,5 +826,6 @@ Trước khi kết thúc lượt và thông báo hoàn thành, AI bắt buộc p
 - [ ] **Architecture**: Tái sử dụng components cũ tối đa, tránh tạo logic trùng lặp, giữ vững Clean Architecture?
 - [ ] **Extension**: Giữ nguyên tính tương thích ngược, không đổi API của tiện ích mở rộng nếu không được yêu cầu?
 - [ ] **TTS & Audio**: Dọn dẹp `preloadedData`/`preloadedDurations` đúng cửa sổ trượt của từng engine (Google/Ext `[N, N + count]`, NghiTTS `N` + `N+1` + tối đa 2 optional reserve), tránh retain cycle?
+- [ ] **UI & Header Standard**: Toàn bộ icon Header/Toolbar tuân thủ chuẩn font `.system(size: 17, weight: .semibold)`, hitbox tối thiểu 36x36pt (khuyến nghị 36x38pt), spacing tối thiểu 6pt?
 - [ ] **Validation**: Chạy `validate_links.py --explain`, xử lý mọi doc bị stale bằng `--accept` (đã sửa) hoặc `--no-change-needed` (đã xem, vẫn đúng), rồi chạy read-only PASS 100%; cập nhật `manifest.json` và `CHANGELOG.md` thành công?
 <!-- GENERATED END -->

@@ -165,6 +165,7 @@ struct DictionaryListView: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 17, weight: .semibold))
                 }
             }
         }

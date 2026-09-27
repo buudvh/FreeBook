@@ -199,6 +199,11 @@ Có skill riêng cho việc này: `.agents/skills/vbook_helper/SKILL.md` (mẫu 
 - **View không observe trực tiếp `TTSManager`** — dùng projection reader (`TTSWidgetStateReader`, `TTSRootPresentationReader`, `ReaderTTSStateReader`). `ReaderTTSStateReader.scope(to: bookId)` làm snapshot của sách khác thành inactive để Reader ngoài màn hình không redraw theo mỗi bước highlight.
 - **NotificationCenter vẫn là event bus liên module nhưng phần lớn tên là string literal trần** — đổi tên là vỡ ngầm, grep cả hai đầu: `"openCurrentlyPlayingReader"`, `"navigateReaderToPlayingChapter"`, `"ttsDidAdvanceToNextChapter"`, `"sourceChangedNavigateToShelf"`, `"extensionDidUpdate"`. Chỉ 2 tên có hằng số kiểu: `.translationDictionariesDidUpdate` và `VisibleBrowserTabManager.stateDidChangeNotification` — nhưng `TTSManager` vẫn observe tên thứ nhất bằng string trần. Signalling mới thì dùng `AsyncStream` event center, đừng thêm notification string mới.
 - Comment, chuỗi lỗi và log message viết **tiếng Việt**; tên type/member viết tiếng Anh. Comment kiến trúc mới thì tiếng Anh. Cả hai đều bình thường ở đây — giữ theo file đang sửa.
+- **Chuẩn Header & Toolbar UI (Bắt buộc cho mọi màn hình)**:
+  - Mọi icon trên Header, NavigationBar, Toolbar bắt buộc dùng font `.system(size: 17, weight: .semibold)` (Apple SF Pro Header Action). Tuyệt đối không dùng kích cỡ tuỳ tiện (`.title3`, 13pt, 14pt hay regular).
+  - Khoảng cách giữa các nút liền kề trên Header bar tối thiểu **`6pt`**; hitbox chạm tối thiểu **`36 x 36pt`** (khuyến nghị **`36 x 38pt`**).
+  - Nút tròn: **`38 x 38pt`**. Nút capsule/pill cùng hàng: chiều cao **`38pt`** (`cornerRadius: 19`).
+  - Nút Quay lại (Back): hitbox tối thiểu **`38 x 44pt`**. Cụm nút mục lục/menu phụ bên trong: icon **`14pt semibold`**, frame **`32 x 32pt`**, spacing **`4pt`**.
 
 ## Tests
 

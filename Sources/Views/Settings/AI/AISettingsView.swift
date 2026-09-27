@@ -280,7 +280,7 @@ public struct AISettingsView: View {
             ToolbarItem(placement: .primaryAction) {
                 Button(action: { showingAddProviderSheet = true }) {
                     Image(systemName: "plus")
-                        .fontWeight(.semibold)
+                        .font(.system(size: 17, weight: .semibold))
                 }
             }
         }

@@ -33,7 +33,8 @@ extension BookDetailView {
             }
         } label: {
             Image(systemName: "ellipsis.circle")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(size: 17, weight: .semibold))
+                .frame(width: 36, height: 36)
         }
     }
 

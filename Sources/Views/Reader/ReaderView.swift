@@ -417,9 +417,10 @@ struct ReaderView: View {
                 readSelectedText()
             },
             onDeleteJunk: {
+                closeOtherSelectionPanels(except: .junkDelete)
+                showingJunkDeleteSheet = true
                 updateEditorFromSelection()
                 junkPatternInput = selectedTextForDefinition.isEmpty ? selectedDisplayedText : selectedTextForDefinition
-                showingJunkDeleteSheet = true
             },
             onAddToTTSReplacement: {
                 pendingTTSReplacementPattern = selectedDisplayedText
@@ -654,11 +655,12 @@ struct ReaderView: View {
             AddTTSReplacementSheet(
                 initialPattern: pendingTTSReplacementPattern,
                 existingRules: TTSReplacementManager.shared.rules
-            ) { pattern, replacement in
-                let rule = TTSReplacementRule(pattern: pattern, replacement: replacement, isEnabled: true)
+            ) { pattern, replacement, isEnabled in
+                let rule = TTSReplacementRule(pattern: pattern, replacement: replacement, isEnabled: isEnabled)
                 let result = TTSReplacementManager.shared.addRule(rule)
                 let action = result == .replaced ? "Đã cập nhật" : "Đã thêm"
-                ToastManager.shared.show(message: "\(action) thay thế TTS: '\(pattern)' → '\(replacement)'", type: .success)
+                let statusSuffix = isEnabled ? "" : " (Đã tắt)"
+                ToastManager.shared.show(message: "\(action) thay thế TTS: '\(pattern)' → '\(replacement)'\(statusSuffix)", type: .success)
             }
         }
         .fullScreenCover(isPresented: $showingBypassBrowser) {

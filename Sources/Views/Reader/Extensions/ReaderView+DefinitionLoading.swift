@@ -56,7 +56,7 @@ extension ReaderView {
     }
 
     func loadDefinitionData(preservingMeaning: Bool = false) {
-        guard showingDefinitionSheet || showingCopyOriginalSheet else { return }
+        guard showingDefinitionSheet || showingCopyOriginalSheet || showingJunkDeleteSheet else { return }
         guard let snapshot = currentDefinitionSnapshot() else { return }
         definitionSession.task?.cancel()
         let requestID = UUID()
@@ -74,7 +74,7 @@ extension ReaderView {
                     try await worker.load(request, includesDefinitionData: includesDefinitionData)
                 }
                 guard definitionSession.requestID == requestID,
-                      showingDefinitionSheet || showingCopyOriginalSheet else { return }
+                      showingDefinitionSheet || showingCopyOriginalSheet || showingJunkDeleteSheet else { return }
                 guard currentDefinitionSnapshot() == snapshot else {
                     loadDefinitionData(preservingMeaning: preservingMeaning)
                     return

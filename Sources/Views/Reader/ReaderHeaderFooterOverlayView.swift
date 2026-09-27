@@ -43,57 +43,58 @@ struct ReaderHeaderFooterOverlayView: View {
                 HStack(spacing: 0) {
                     Button(action: onDismiss) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.system(size: 17, weight: .semibold))
                             .foregroundColor(selectedTheme.textColor)
-                            .frame(width: 36, height: 44)
+                            .frame(width: 38, height: 44)
                     }
                     .accessibilityLabel("Quay lại")
 
                     Spacer()
 
-                    HStack(spacing: 2) {
+                    HStack(spacing: 6) {
                         // Tìm trong chương — để cạnh nút cuộn theo TTS thay vì nằm trong menu "..."
                         Button(action: onOpenReaderSearch) {
                             Image(systemName: "magnifyingglass")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.system(size: 17, weight: .semibold))
                                 .foregroundColor(selectedTheme.textColor)
-                                .frame(width: 30, height: 36)
+                                .frame(width: 36, height: 38)
                         }
                         .accessibilityLabel("Tìm trong chương")
 
                         // Nút toggle tự động cuộn theo Highlight TTS - luôn hiển thị
                         Button(action: { isAutoScrollDisabled.toggle() }) {
                             Image(systemName: isAutoScrollDisabled ? "scroll" : "scroll.fill")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.system(size: 17, weight: .semibold))
                                 .foregroundColor(isAutoScrollDisabled ? selectedTheme.textColor.opacity(0.85) : .white)
-                                .frame(width: 30, height: 30)
-                                .background(selectedTheme.textColor.opacity(0.07), in: RoundedRectangle(cornerRadius: 6))
+                                .frame(width: 34, height: 34)
+                                .background(selectedTheme.textColor.opacity(0.07), in: RoundedRectangle(cornerRadius: 8))
+                                .frame(width: 36, height: 38)
                         }
                         .accessibilityLabel(isAutoScrollDisabled ? "Bật cuộn theo Highlight TTS" : "Tắt cuộn theo Highlight TTS")
 
                         if !isLocalTXTBook {
                             Button(action: onReloadChapter) {
                                 Image(systemName: "arrow.clockwise")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.system(size: 17, weight: .semibold))
                                     .foregroundColor(selectedTheme.textColor)
-                                    .frame(width: 30, height: 36)
+                                    .frame(width: 36, height: 38)
                             }
                             .accessibilityLabel("Tải lại chương")
                         }
 
                         Button(action: onOpenAI) {
                             Image(systemName: "sparkles")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.system(size: 17, weight: .semibold))
                                 .foregroundColor(selectedTheme.textColor)
-                                .frame(width: 30, height: 36)
+                                .frame(width: 36, height: 38)
                         }
                         .accessibilityLabel("Trợ lý AI")
 
                         Button(action: { showingSettings = true }) {
                             Image(systemName: "gearshape")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.system(size: 17, weight: .semibold))
                                 .foregroundColor(selectedTheme.textColor)
-                                .frame(width: 30, height: 36)
+                                .frame(width: 36, height: 38)
                         }
                         .accessibilityLabel("Cài đặt trình đọc")
 
@@ -123,9 +124,9 @@ struct ReaderHeaderFooterOverlayView: View {
                             }
                         } label: {
                             Image(systemName: "ellipsis.circle")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.system(size: 17, weight: .semibold))
                                 .foregroundColor(selectedTheme.textColor)
-                                .frame(width: 30, height: 36)
+                                .frame(width: 36, height: 38)
                         }
                         .accessibilityLabel("Tùy chọn trình đọc")
                     }
