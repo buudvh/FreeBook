@@ -45,6 +45,9 @@ ReaderAIFullScreenView
                     ├─ isLoading = true -> ReaderAISkeletonView (delay tối thiểu 250ms chuyển cảnh mượt)
                     ├─ Task.detached: parseEntriesFromText -> decorateExtractedNames
                     └─ Hiển thị ReaderAINameReviewCardView: người dùng duyệt và bấm Lưu vào Name/VP riêng
+                          └─ ReaderAIFullScreenView+Actions.saveNamesToDictionary(items, isName:, isMerge:)
+                                ├─ AIHarnessService.shared.saveExtractedEntries -> trả về savedCount
+                                └─ await MainActor.run: ToastManager.shared.show(success / error)
 ```
 
 ## Call graph Nhập từ điển hàng loạt và Pop-up duyệt tên riêng từ tin nhắn AI (1.3.412)

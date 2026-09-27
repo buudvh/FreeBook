@@ -2,6 +2,63 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.384] - 2026-09-18
+
+### feat: dua rule tranh chap name rieng len thanh chip o trang thai thua
+
+Sửa **2** file Swift trong `Sources/Services/Translation/Engine/`.
+
+- **Thu thập đầy đủ Rule tranh chấp Name riêng vào thanh chip (`QuickTranslationRuleMatcher.swift`, `QuickTranslationRuleEngine.swift`)**:
+  - `QuickTranslationRuleMatcher.walkNumeral`: Đếm `run` số tự nhiên (không ngắt sớm tại ký tự Name riêng) để matcher nhận diện được đầy đủ cụm khớp quét qua Name.
+  - `QuickTranslationRuleEngine.collectFound`: Khi `hasConflict == true` ở chế độ `includesDisabled: true`, match tranh chấp vẫn được đưa vào `found` và dịch `cursor = match.start + 1` để không bỏ sót các lượt thử hợp lệ tiếp theo (như `start = 3` ngay sau Name riêng).
+  - `QuickTranslationRuleDiagnostics.diagnose`: Match tranh chấp Name riêng không được vào `winners`, tự động nhận `status = .lostOverlap` và hiển thị trên thanh chip ở trạng thái tranh chấp thua (chip mờ).
+- **Tài liệu CodeGraph**: Cập nhật `07_dataflow.md`, `11_subsystems.md` và `CHANGELOG.md`.
+
+## [1.3.383] - 2026-09-18
+
+### feat: bao ve name rieng truoc rule dich va co dinh nghia rule panel dich
+
+Sửa **4** file Swift trong `Sources/Services/Translation/Engine/`, `Sources/Views/Reader/` và thêm **1** file Swift mới trong `Sources/Services/Translation/Extensions/`.
+
+- **Cố định ô "Nghĩa rule" trong panel Dịch (`ReaderView+DefinitionPanel.swift`)**:
+  - `isLoadingRules` chỉ theo dõi `definitionSession.loadingRules` (bỏ `definitionSession.loading`), giữ nguyên nội dung nghĩa rule khi tra từ điển lúc nới/thu token, loại bỏ triệt để hiện tượng chớp giật.
+- **Bảo vệ Name riêng trước Rule dịch (`QuickTranslationRuleMatcher.swift`, `QuickTranslationRuleEngine.swift`, `QuickTranslationRuleEngine+NameProtection.swift`, `QuickTranslationRuleDiagnostics.swift`)**:
+  - Thêm `scanBookNameOccupiedIndices(text:bookId:)` quét cây Double Array Trie `bookNames` của truyện để tạo bản đồ `bookNameRanges` và tập hợp `bookNameOccupiedIndices`.
+  - `QuickTranslationRuleMatcher.walkNumeral`: Coi ranh giới Name riêng là ranh giới số hợp lệ (bỏ qua chặn `guardsLeft` nếu ký tự liền kề thuộc Name riêng), cho phép các token số (`<n>`, `<y>`, `<h>`, `<d>`) khớp độc lập ngay sát cạnh Name riêng (ví dụ `比唐三六个月` -> `唐三` giữ nguyên "Đường Tam", `六个月` khớp "6 tháng" -> "hơn Đường Tam 6 tháng").
+  - `ruleMatchConflictsWithBookNames`: Bất kỳ rule nào cắt ngang hoặc nuốt một phần Name riêng đều bị loại trừ khỏi danh sách trúng tuyển trong cả dịch thật lẫn chẩn đoán (`.lostOverlap`).
+  - Tách `QuickTranslationRuleEngine+NameProtection.swift` (50 dòng) để `QuickTranslationRuleEngine.swift` giảm về 372 dòng (< 400 dòng trần kiến trúc).
+- **Tài liệu CodeGraph**: Cập nhật `00_index.md`, `02_file_graph.md`, `04_call_graph.md`, `07_dataflow.md`, `09_dependency_rules.md`, `11_subsystems.md`, `14_complexity_report.md` và `CHANGELOG.md`.
+
+## [1.3.382] - 2026-09-18
+
+### feat: tu dong cuon va chon token khi bam chip rule trong panel dich
+
+Sửa **2** file Swift trong `Sources/Views/Reader/`.
+
+- **Tự động chọn token của rule (`ReaderDefinitionOverlayView+Rules.swift`)**:
+  - Khi người dùng bấm vào chip rule trên thanh chip rule, gán `selectedWordOffset` và `selectedWordLength` theo `trace.sourceRange`, đồng thời gọi `onUpdateEditorFromSelection()`.
+  - Tự động bôi chọn các ký tự câu gốc và token tương ứng, đồng thời nạp nghĩa từ điển và gợi ý cho cụm từ khớp với rule.
+- **Tự động cuộn đến vị trí token tương ứng (`ReaderDefinitionOverlayView.swift`)**:
+  - Bổ sung `@State internal var ruleScrollTrigger: Int = 0` được tăng mỗi lần bấm chip.
+  - Cả hàng ký tự gốc (`originalSentenceRowView`) và hàng token dịch (`translatedTokensRowView`) đều lắng nghe `ruleScrollTrigger` để kích hoạt cuộn mượt (animated) về vị trí ký tự / token tương ứng ở tâm màn hình.
+- **Tài liệu CodeGraph**: Cập nhật `04_call_graph.md`, `11_subsystems.md` và `CHANGELOG.md`.
+
+## [1.3.381] - 2026-09-18
+
+### fix: cap nhat rule trace khi mo panel dich va loc signal theo truyen
+
+Sửa **5** file Swift trong `Sources/Services/Translation/Engine/`, `Sources/Views/Reader/` và `Sources/Views/Reader/Extensions/`.
+
+- **Cập nhật rule traces khi mở panel Dịch (`ReaderView+RuleTools.swift`, `ReaderView.swift`)**:
+  - Gọi `refreshRuleTraces()` trong `openDefinitionPanel()` và trong `.onChange(of: showingDefinitionSheet)` (khi `newValue == true`) để thanh chip rule nạp dữ liệu chẩn đoán của cả đoạn văn ngay khi mở.
+- **Chống reload dải chip khi nới/thu token (`ReaderView+DefinitionLoading.swift`, `ReaderView+DefinitionPanel.swift`)**:
+  - `refreshDefinitionRules()` chuyển sang kiểm tra theo đoạn văn gốc `originalSentence == text` và `definitionSession.identity == sessionID`, bỏ phụ thuộc vào selection `range`/`word` của `currentDefinitionSnapshot()`.
+  - Khi mở rộng / thu hẹp vùng chọn token trong câu, editor chỉ gọi `loadDefinitionData()` để cập nhật nghĩa từ điển, thanh chip rule giữ nguyên trạng thái hiển thị.
+- **Phát và lọc sự kiện rule theo truyện (`QuickTranslationRuleBookStore.swift`, `ReaderView.swift`)**:
+  - `QuickTranslationRuleBookStore.notifyChange(bookId:)` gọi thêm `TranslationManager.shared.notifyRulesDidUpdate(bookId: bookId)`.
+  - `ReaderView` đăng ký nhận `.quickTranslationRulesDidUpdate` và chỉ reload bản dịch / thanh chip rule khi `targetBookId == nil` (rule chung) hoặc `targetBookId == bookId` (rule riêng đang đọc). Bỏ qua hoàn toàn nếu là thay đổi rule riêng của truyện khác.
+- **Tài liệu CodeGraph**: Cập nhật `00_index.md`, `04_call_graph.md`, `05_state_graph.md`, `06_event_graph.md`, `07_dataflow.md`, `11_subsystems.md`, `rules.md` và `CHANGELOG.md`.
+
 ## [1.3.380] - 2026-09-17
 
 ### fix: khong dung rule trace khi cap nhat name vp

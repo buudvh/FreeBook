@@ -15,6 +15,15 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Thông Báo Toast Sau Khi Lưu Name / VietPhrase Riêng Ở AI (1.3.414)
+
+* **Phản Hồi Trực Quan Sau Khi Lưu Từ Điển Riêng (`ReaderAIFullScreenView+Actions.swift`)**:
+  - `saveNamesToDictionary`: Tiếp nhận kết quả `savedCount` từ `AIHarnessService.shared.saveExtractedEntries(...)`.
+  - Hiển thị Toast thông báo trên `@MainActor` qua `ToastManager.shared.show(message:type:)`:
+    - Thành công (`savedCount > 0`): `type: .success` với thông báo *"Đã lưu X mục vào Name riêng của truyện"* hoặc *"Đã lưu X mục vào VietPhrase riêng của truyện"*.
+    - Thất bại (`savedCount == 0`): `type: .error` với thông báo *"Lưu vào [tên mục tiêu] thất bại"*.
+  - Giữ vững quy chuẩn kiến trúc: `Sources/Views/**` gọi `ToastManager.shared.show` trực tiếp, số dòng vật lý của `ReaderAIFullScreenView+Actions.swift` đạt 264 dòng (dưới trần 400 dòng).
+
 ## Phân hệ Lọc Tên Riêng Lũy Tiến, Sửa Pop-up Duyệt Name/VP & Ổn Định Cuộn Chat AI (1.3.413)
 
 * **Sửa Lỗi Pop-up Bottom Sheet Duyệt Tên Riêng & Tối Ưu Skeleton View (`ReaderAINameReviewSheet.swift`, `ReaderAIFullScreenView.swift`)**:

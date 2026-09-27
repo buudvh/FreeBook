@@ -235,7 +235,15 @@ extension ReaderAIFullScreenView {
         AIChatHistoryStore.shared.saveSession(currentSession, for: bookId)
 
         Task {
-            _ = await AIHarnessService.shared.saveExtractedEntries(items, bookId: bookId, isName: isName, isMerge: isMerge)
+            let savedCount = await AIHarnessService.shared.saveExtractedEntries(items, bookId: bookId, isName: isName, isMerge: isMerge)
+            await MainActor.run {
+                let targetName = isName ? "Name riêng" : "VietPhrase riêng"
+                if savedCount > 0 {
+                    ToastManager.shared.show(message: "Đã lưu \(savedCount) mục vào \(targetName) của truyện", type: .success)
+                } else {
+                    ToastManager.shared.show(message: "Lưu vào \(targetName) thất bại", type: .error)
+                }
+            }
         }
     }
 
