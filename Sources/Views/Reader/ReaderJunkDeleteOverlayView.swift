@@ -65,18 +65,20 @@ struct ReaderJunkDeleteOverlayView: View {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 13, weight: .bold))
                         .frame(width: 28, height: 28)
-                        .background(Color.red.opacity(0.1))
+                        .background(Color.white.opacity(0.12))
                         .clipShape(Circle())
+                        .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
                 }
                 Button(action: onShrinkSelectionLeft) {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 13, weight: .bold))
                         .frame(width: 28, height: 28)
-                        .background(Color.red.opacity(0.1))
+                        .background(Color.white.opacity(0.12))
                         .clipShape(Circle())
+                        .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
                 }
             }
-            .foregroundColor(.red)
+            .foregroundColor(.white)
 
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -89,7 +91,7 @@ struct ReaderJunkDeleteOverlayView: View {
                                 .font(.body)
                                 .bold(isSelected)
                                 .underline(isSelected)
-                                .foregroundColor(isSelected ? .red : .primary)
+                                .foregroundColor(isSelected ? .white : Color.white.opacity(0.45))
                                 .id("junk-orig-\(index)")
                                 .onTapGesture {
                                     selectedWordOffset = index
@@ -118,18 +120,20 @@ struct ReaderJunkDeleteOverlayView: View {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 13, weight: .bold))
                         .frame(width: 28, height: 28)
-                        .background(Color.red.opacity(0.1))
+                        .background(Color.white.opacity(0.12))
                         .clipShape(Circle())
+                        .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
                 }
                 Button(action: onExpandSelectionRight) {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 13, weight: .bold))
                         .frame(width: 28, height: 28)
-                        .background(Color.red.opacity(0.1))
+                        .background(Color.white.opacity(0.12))
                         .clipShape(Circle())
+                        .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
                 }
             }
-            .foregroundColor(.red)
+            .foregroundColor(.white)
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 6)
@@ -149,10 +153,10 @@ struct ReaderJunkDeleteOverlayView: View {
                             .font(.subheadline)
                             .bold(isSelected)
                             .underline()
-                            .foregroundColor(isSelected ? .red : .primary)
+                            .foregroundColor(isSelected ? .white : Color.white.opacity(0.45))
                             .padding(.horizontal, 2)
                             .padding(.vertical, 2)
-                            .background(isSelected ? Color.red.opacity(0.1) : Color.clear)
+                            .background(isSelected ? Color.white.opacity(0.15) : Color.clear)
                             .cornerRadius(4)
                             .id("junk-trans-\(token.id)")
                             .onTapGesture {

@@ -15,6 +15,20 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +5 file cho Tối ưu AI Session, Quản lý Session Cài đặt và Skeleton (1.3.410)
+
+| Nhóm | File mới | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Models/AI | [`Models/AI/AIChatSessionSummary.swift`](../../Sources/Models/AI/AIChatSessionSummary.swift) | DTO tóm tắt siêu nhẹ cho mục lục và danh sách session AI | 42 |
+| Views/Reader/AI | [`Views/Reader/AI/ReaderAISkeletonView.swift`](../../Sources/Views/Reader/AI/ReaderAISkeletonView.swift) | Khung chờ (Skeleton) mượt mà hiển thị tức thì khi mở sheet AI | 60 |
+| Views/Reader/AI | [`Views/Reader/AI/ReaderAIFullScreenView+SessionLoading.swift`](../../Sources/Views/Reader/AI/ReaderAIFullScreenView+SessionLoading.swift) | Tải session ngầm, phân trang lazy loading và nén tên riêng thành text | 171 |
+| Views/Settings/AI | [`Views/Settings/AI/AIChatAllSessionsManagerView.swift`](../../Sources/Views/Settings/AI/AIChatAllSessionsManagerView.swift) | Màn hình xem danh sách và xóa từng session trên toàn app trong Cài đặt | 162 |
+| Views/Settings/AI | [`Views/Settings/AI/AISettingsProfileSectionView.swift`](../../Sources/Views/Settings/AI/AISettingsProfileSectionView.swift) | Section danh sách profile trích xuất từ AISettingsView | 96 |
+
+* Tất cả 5 file mới đều ≤ 400 dòng vật lý và tuân thủ đúng 1 primary type top level.
+* `ReaderAIFullScreenView+Actions.swift` giảm từ 398 xuống 311 dòng vật lý.
+* `AISettingsView.swift` giảm từ 385 xuống 347 dòng vật lý.
+
 ## +1 file cho Sheet chọn truyện nguồn nhập từ điển riêng (1.3.409)
 
 | Nhóm | File mới | Vai trò | Dòng |

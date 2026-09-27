@@ -92,7 +92,7 @@ struct ReaderCopyOriginalOverlayView: View {
                                 .font(.body)
                                 .bold(isSelected)
                                 .underline(isSelected)
-                                .foregroundColor(isSelected ? accent : .primary)
+                                .foregroundColor(isSelected ? .white : Color.white.opacity(0.45))
                                 .id("copy-orig-\(index)")
                                 .onTapGesture {
                                     selectedWordOffset = index
@@ -150,10 +150,10 @@ struct ReaderCopyOriginalOverlayView: View {
                         .font(.subheadline)
                         .bold(isSelected)
                         .underline()
-                        .foregroundColor(isSelected ? accent : .primary)
+                        .foregroundColor(isSelected ? .white : Color.white.opacity(0.45))
                         .padding(.horizontal, 2)
                         .padding(.vertical, 2)
-                        .background(isSelected ? Color.white.opacity(0.12) : Color.clear)
+                        .background(isSelected ? Color.white.opacity(0.15) : Color.clear)
                         .cornerRadius(4)
                         .onTapGesture {
                             selectedWordOffset = token.originalOffset

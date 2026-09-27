@@ -260,7 +260,7 @@ struct ReaderDefinitionOverlayView: View {
                             .font(.subheadline)
                             .bold(isSelected)
                             .underline()
-                            .foregroundColor(isSelected ? .white : .primary)
+                            .foregroundColor(isSelected ? .white : Color.white.opacity(0.45))
                             .padding(.horizontal, 2)
                             .padding(.vertical, 2)
                             .background(isSelected ? Color.white.opacity(0.15) : Color.clear)

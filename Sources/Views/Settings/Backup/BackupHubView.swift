@@ -139,24 +139,24 @@ struct BackupHubView: View {
             }
 
             NavigationLink {
-                DriveAutoBackupSettingsView()
-            } label: {
-                HStack {
-                    Label("Tự động sao lưu", systemImage: "clock.arrow.circlepath")
-                    Spacer()
-                    Text(autoBackupStateText)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-
-            NavigationLink {
                 TelegramBackupSettingsView()
             } label: {
                 HStack {
                     Label("Telegram Bot", systemImage: "paperplane")
                     Spacer()
                     Text(TelegramConfiguration.isConfigured ? "Đã cấu hình" : "Chưa cấu hình")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            NavigationLink {
+                DriveAutoBackupSettingsView()
+            } label: {
+                HStack {
+                    Label("Tự động sao lưu", systemImage: "clock.arrow.circlepath")
+                    Spacer()
+                    Text(autoBackupStateText)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }

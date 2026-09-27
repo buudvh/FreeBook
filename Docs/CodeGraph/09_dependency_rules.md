@@ -15,6 +15,16 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ranh giới phụ thuộc phân hệ Lưu trữ Session Độc lập & Quản lý AI Sessions (1.3.410)
+
+* **Tầng Services/AI độc lập hoàn toàn với SwiftUI và ToastManager**:
+  - `AIChatHistoryStore.swift` chỉ `import Foundation`, tuân thủ 100% hai luật kiến trúc `SERVICE_SWIFTUI_IMPORT` và `SERVICE_TOAST_COUPLING`. Không phụ thuộc ngược lại tầng Views.
+  - Cung cấp các API bất đồng bộ độc lập theo từng session file (`loadSession`, `saveSession`, `deleteSession`, `clearAllSessions`, `loadAllSessionSummaries`), cách ly hoàn toàn việc đọc/ghi đĩa khỏi Main Thread.
+* **Tầng Views tuân thủ chiều phụ thuộc chuẩn**:
+  - `AIChatAllSessionsManagerView.swift` và `AISettingsProfileSectionView.swift` nằm trong `Sources/Views/Settings/AI/`, gọi `AIChatHistoryStore.shared` để đọc/xoá session.
+  - `ReaderAISkeletonView.swift` và `ReaderAIFullScreenView+SessionLoading.swift` nằm trong `Sources/Views/Reader/AI/`, đảm nhiệm hiển thị UI shimmering và điều phối tải bất đồng bộ mà không vi phạm quy tắc kiến trúc.
+  - Không có thao tác mutation trực tiếp lên SwiftData từ View hoặc Service trong các thành phần này.
+
 ## Ranh giới phụ thuộc Sheet chọn truyện nguồn nhập từ điển (1.3.409)
 
 * **Tầng Views/Dictionary tuân thủ chiều phụ thuộc chuẩn**:

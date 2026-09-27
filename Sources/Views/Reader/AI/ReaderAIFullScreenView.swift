@@ -29,6 +29,16 @@ public struct ReaderAIFullScreenView: View {
     @State internal var selectedModel: String = ""
     @State internal var selectedMode: AIHarnessMode = .bypass
     @State internal var currentSessionId: UUID = UUID()
+    @State internal var isLoadingSession: Bool = true
+    @State internal var visibleMessageCount: Int = 20
+
+    internal var displayedMessages: [AIChatMessage] {
+        let all = currentSession.messages
+        if all.count <= visibleMessageCount {
+            return all
+        }
+        return Array(all.suffix(visibleMessageCount))
+    }
 
     public init(
         bookId: String,
@@ -78,59 +88,80 @@ public struct ReaderAIFullScreenView: View {
                 }
 
                 // Vùng nội dung tin nhắn chat
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(spacing: 12) {
-                            // Badge nén ngữ cảnh nếu session đã compact
-                            if currentSession.contextSummary != nil {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "brain.head.profile")
-                                    Text("Đã tối ưu ngữ cảnh hội thoại cũ")
-                                }
-                                .font(.caption2.bold())
-                                .foregroundColor(.purple)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 4)
-                                .background(Color.purple.opacity(0.1))
-                                .cornerRadius(12)
-                                .padding(.top, 4)
-                            }
-
-                            ForEach(currentSession.messages) { message in
-                                messageRow(message)
-                                    .id(message.id)
-                            }
-
-                            // Bảng tên riêng từ Batch Extraction nếu có
-                            if !batchExtractedNames.isEmpty && !isBatchExtracting {
-                                ReaderAINameReviewCardView(
-                                    names: $batchExtractedNames,
-                                    onSave: { itemsToSave, isName, isMerge in
-                                        saveNamesToDictionary(itemsToSave, isName: isName, isMerge: isMerge)
-                                    },
-                                    onDelete: { deletedId in
-                                        batchExtractedNames.removeAll(where: { $0.id == deletedId })
+                if isLoadingSession {
+                    ReaderAISkeletonView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            LazyVStack(spacing: 12) {
+                                if currentSession.messages.count > visibleMessageCount {
+                                    Button(action: {
+                                        withAnimation {
+                                            visibleMessageCount += 20
+                                        }
+                                    }) {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: "arrow.up.circle.fill")
+                                            Text("Tải thêm tin nhắn cũ hơn (\(currentSession.messages.count - visibleMessageCount) còn lại)")
+                                        }
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .padding(.vertical, 8)
                                     }
-                                )
-                                .padding(.horizontal, 12)
-                            }
+                                }
 
-                            // Mốc neo đáy để cuộn chính xác, chống giật/đen màn hình
-                            Color.clear
-                                .frame(height: 1)
-                                .id("bottomScrollAnchor")
+                                // Badge nén ngữ cảnh nếu session đã compact
+                                if currentSession.contextSummary != nil {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "brain.head.profile")
+                                        Text("Đã tối ưu ngữ cảnh hội thoại cũ")
+                                    }
+                                    .font(.caption2.bold())
+                                    .foregroundColor(.purple)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 4)
+                                    .background(Color.purple.opacity(0.1))
+                                    .cornerRadius(12)
+                                    .padding(.top, 4)
+                                }
+
+                                ForEach(displayedMessages) { message in
+                                    messageRow(message)
+                                        .id(message.id)
+                                }
+
+                                // Bảng tên riêng từ Batch Extraction nếu có
+                                if !batchExtractedNames.isEmpty && !isBatchExtracting {
+                                    ReaderAINameReviewCardView(
+                                        names: $batchExtractedNames,
+                                        onSave: { itemsToSave, isName, isMerge in
+                                            saveNamesToDictionary(itemsToSave, isName: isName, isMerge: isMerge)
+                                        },
+                                        onDelete: { deletedId in
+                                            batchExtractedNames.removeAll(where: { $0.id == deletedId })
+                                        }
+                                    )
+                                    .padding(.horizontal, 12)
+                                }
+
+                                // Mốc neo đáy để cuộn chính xác, chống giật/đen màn hình
+                                Color.clear
+                                    .frame(height: 1)
+                                    .id("bottomScrollAnchor")
+                            }
+                            .padding(.vertical, 12)
                         }
-                        .padding(.vertical, 12)
-                    }
-                    .defaultScrollAnchor(.bottom)
-                    .scrollDismissesKeyboard(.interactively)
-                    .onChange(of: currentSession.messages.count) { _, _ in
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-                            withAnimation(.easeOut(duration: 0.25)) {
-                                if let lastId = currentSession.messages.last?.id {
-                                    proxy.scrollTo(lastId, anchor: .bottom)
-                                } else {
-                                    proxy.scrollTo("bottomScrollAnchor", anchor: .bottom)
+                        .defaultScrollAnchor(.bottom)
+                        .scrollDismissesKeyboard(.interactively)
+                        .onChange(of: currentSession.messages.count) { _, _ in
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                                withAnimation(.easeOut(duration: 0.25)) {
+                                    if let lastId = currentSession.messages.last?.id {
+                                        proxy.scrollTo(lastId, anchor: .bottom)
+                                    } else {
+                                        proxy.scrollTo("bottomScrollAnchor", anchor: .bottom)
+                                    }
                                 }
                             }
                         }
@@ -222,17 +253,13 @@ public struct ReaderAIFullScreenView: View {
                 ReaderAISessionListView(
                     bookId: bookId,
                     currentSessionId: $currentSessionId,
-                    onSelectSession: { session in
-                        switchToSession(session)
-                    },
-                    onNewSession: {
-                        startNewChat()
-                    }
+                    onSelectSession: { session in switchToSession(session) },
+                    onNewSession: { startNewChat() }
                 )
             }
             .onAppear {
                 AIRuntimeCoordinator.shared.isFullScreenPresented = true
-                initializeSession()
+                initializeSessionAsync()
             }
             .onDisappear {
                 AIRuntimeCoordinator.shared.isFullScreenPresented = false

@@ -15,6 +15,54 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Call graph phân hệ Lưu trữ Session Độc lập, Tối ưu Mở AI & Đồng bộ Token Reader (1.3.410)
+
+```text
+Mở AI Sheet và Tối ưu Hiển thị Tức thì:
+ReaderView (bấm nút sparkles / phím tắt)
+  └─ showingAIFullScreen = true
+        └─ ReaderAIFullScreenView
+              ├─ onAppear:
+              │     ├─ isLoadingSession = true
+              │     └─ ReaderAISkeletonView hiển thị hiệu ứng shimmering tức thì
+              │     └─ Task.detached {
+              │           ├─ AIChatHistoryStore.loadActiveSession(bookId:) (đọc file <bookId>/<sessionId>.json)
+              │           ├─ condensesavedNamesToPlainText() (thu gọn mảng name cũ thành plain text)
+              │           └─ MainActor: gán session, isLoadingSession = false, visibleMessageCount = 20
+              │        }
+              ├─ Cuộn xem tin nhắn cũ:
+              │     └─ Bấm "Tải thêm tin nhắn cũ hơn...":
+              │           └─ visibleMessageCount = min(visibleMessageCount + 20, session.messages.count)
+              └─ Lưu Name vào từ điển:
+                    └─ ReaderAIFullScreenView+Actions.saveNamesToDictionary:
+                          ├─ Lưu từng mục vào TranslationManager.saveCustomEntry
+                          ├─ Biến đổi tin nhắn assistant chứa JSON name thành plain text:
+                          │     "Name gốc 1=nghĩa 1\nName gốc 2=nghĩa 2"
+                          ├─ message.extractedNames = nil
+                          └─ AIChatHistoryStore.saveSession(activeSession)
+
+Quản lý tất cả phiên chat AI (Cài đặt AI):
+AISettingsView (Mục "Lịch sử trò chuyện")
+  ├─ Nút "Dọn dẹp tất cả phiên chat":
+  │     └─ showingClearAllAlert = true -> AIChatHistoryStore.clearAllSessions()
+  └─ NavigationLink -> AIChatAllSessionsManagerView:
+        ├─ onAppear: AIChatHistoryStore.loadAllSessionSummaries()
+        ├─ Lọc theo từ khoá tìm kiếm / tên truyện
+        ├─ Xoá từng phiên (swipe-to-delete hoặc nút rác):
+        │     └─ AIChatHistoryStore.deleteSession(sessionId:in:bookId)
+        └─ Toolbar "Xoá tất cả":
+              └─ AIChatHistoryStore.clearAllSessions()
+
+Đồng bộ Màu & Phong cách Token Bar Trong Reader:
+ReaderDefinitionOverlayView / ReaderCopyOriginalOverlayView / ReaderJunkDeleteOverlayView:
+  ├─ Thanh token gốc:
+  │     ├─ Nút chevron trái/phải: màu trắng, viền tròn bo cong
+  │     └─ Token text: trắng khi được chọn, trắng mờ (opacity 0.45) khi không chọn
+  └─ Thanh token dịch:
+        ├─ Giữ kiểu gạch chân .underline() không đổi
+        └─ Đồng bộ màu chữ trắng khi được chọn (nền trắng mờ 0.15), trắng mờ (opacity 0.45) khi không chọn
+```
+
 ## Call graph phân hệ Nhập từ điển từ truyện khác & Tối ưu AI (1.3.409)
 
 ```text

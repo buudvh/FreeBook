@@ -2,6 +2,31 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.410] - 2026-09-27
+
+### feat: toi uu mo AI chat luu session doc lap va dong bo token reader
+
+Sửa **10** file và thêm **5** file Swift mới (`AIChatSessionSummary.swift`, `ReaderAISkeletonView.swift`, `AISettingsProfileSectionView.swift`, `AIChatAllSessionsManagerView.swift`, `ReaderAIFullScreenView+SessionLoading.swift`) trong `Sources/Models/AI/`, `Sources/Services/AI/`, `Sources/Views/Reader/` và `Sources/Views/Settings/AI/`.
+
+- **Tối ưu mở AI Chat hiển thị tức thì & loại bỏ khựng lag TTS (`ReaderAIFullScreenView.swift`, `ReaderAISkeletonView.swift`, `ReaderAIFullScreenView+SessionLoading.swift`)**:
+  - `ReaderAISkeletonView`: Tích hợp khung xương hiển thị hiệu ứng shimmering tức thì ngay khi mở sheet AI (`isLoadingSession == true`), giải phóng Main Thread và loại bỏ 100% hiện tượng khựng lag âm thanh TTS khi mở trợ lý AI.
+  - Chuyển toàn bộ tác vụ nạp phiên chat sang luồng nền (`Task.detached`), nạp xong mới chuyển đổi giao diện sang danh sách tin nhắn.
+  - Thu gọn (condense) các tin nhắn chứa danh sách tên riêng đã lưu thành tin nhắn văn bản thuần định dạng `Name gốc 1=nghĩa 1\nName gốc 2=nghĩa 2`, loại bỏ việc render thẻ phức tạp `ReaderAINameReviewCardView` cho các tin nhắn lịch sử.
+  - Phân trang lười (Lazy Pagination): Chỉ hiển thị 20 tin nhắn gần nhất (`visibleMessageCount = 20`) và cung cấp nút "Tải thêm tin nhắn cũ hơn..." khi người dùng cuộn lên trên.
+- **Lưu trữ phiên chat độc lập theo từng session (`AIChatHistoryStore.swift`, `AIChatSessionSummary.swift`)**:
+  - Chuyển đổi mô hình lưu trữ từ file gộp duy nhất sang mô hình file độc lập từng session: `ai_chats/<bookId>/<sessionId>.json`. Quản lý danh mục qua file chỉ mục nhẹ `_index.json` chỉ chứa metadata tóm tắt (`AIChatSessionSummary`), không chứa tin nhắn đầy đủ.
+  - Tự động di trú (auto-migration) các file session gộp cũ (`ai_chats/<bookId>.json`) sang cấu trúc thư mục mới ngay khi truy cập.
+  - Hỗ trợ tải lẻ từng session (`loadSession(sessionId:in:)`) với độ trễ cực thấp, không nạp toàn bộ lịch sử các session khác lên RAM.
+- **Quản lý phiên chat AI trong Cài đặt (`AIChatAllSessionsManagerView.swift`, `AISettingsView.swift`, `AISettingsProfileSectionView.swift`)**:
+  - `AIChatAllSessionsManagerView`: Màn hình chuyên dụng xem toàn bộ các phiên trò chuyện xuyên suốt mọi cuốn sách, hỗ trợ tìm kiếm theo tiêu đề/nội dung/tên sách, vuốt để xoá từng phiên và nút xoá toàn bộ.
+  - `AISettingsView`: Thêm section "Lịch sử trò chuyện" với nút "Dọn dẹp tất cả phiên chat" (kèm alert xác nhận) và liên kết mở màn hình quản lý tất cả phiên chat.
+  - Tách section danh sách profile sang `AISettingsProfileSectionView.swift` để giữ `AISettingsView.swift` dưới trần 400 dòng.
+- **Sửa tương phản màu & Đồng bộ Token Reader (`ReaderAISessionListView.swift`, `ReaderDefinitionOverlayView.swift`, `ReaderCopyOriginalOverlayView.swift`, `ReaderJunkDeleteOverlayView.swift`)**:
+  - `ReaderAISessionListView`: Sửa màu chữ tiêu đề phiên chat từ màu xanh tối `#242c38` sang `Color.blue` sáng rõ nét trên nền dark mode.
+  - Đồng bộ thanh token gốc ở cả 3 overlay ("Dịch", "Copy nội dung gốc", "Xoá từ rác"): nút chevron trắng có viền tròn, token chọn màu trắng, token không chọn màu trắng mờ (`white.opacity(0.45)`).
+  - Đồng bộ thanh token dịch: giữ nguyên kiểu gạch chân `.underline()`, chuyển màu chữ được chọn sang trắng (nền `white.opacity(0.15)`), không chọn màu trắng mờ (`white.opacity(0.45)`).
+- **Tài liệu CodeGraph**: Cập nhật `00_index.md`, `02_file_graph.md`, `03_type_graph.md`, `04_call_graph.md`, `09_dependency_rules.md`, `11_subsystems.md`, `13_resource_lifecycle.md`, `14_complexity_report.md` (`--accept`).
+
 ## [1.3.409] - 2026-09-26
 
 ### feat: toi uu man hinh dich reader, sua do ui ai chat va them nhap tu dien tu truyen khac

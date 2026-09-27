@@ -2,33 +2,6 @@ import SwiftUI
 
 /// Các hàm xử lý tác vụ và logic tương tác của ReaderAIFullScreenView.
 extension ReaderAIFullScreenView {
-    internal func initializeSession() {
-        reloadSettings()
-        BookAIMemoryStore.shared.syncWithBookData(bookId: bookId)
-        if let active = AIRuntimeCoordinator.shared.activeSession, active.bookId == bookId {
-            switchToSession(active)
-        } else {
-            let sessions = AIChatHistoryStore.shared.loadSessions(for: bookId)
-            if let activeId = AIRuntimeCoordinator.shared.activeSessionId,
-               let activeSession = sessions.first(where: { $0.id == activeId }) {
-                switchToSession(activeSession)
-            } else if let first = sessions.first {
-                switchToSession(first)
-            } else {
-                startNewChat()
-            }
-        }
-
-        if AIRuntimeCoordinator.shared.isRunning {
-            isStreaming = true
-            if let progress = AIRuntimeCoordinator.shared.batchProgress {
-                isBatchExtracting = true
-                batchProgress = progress
-                batchExtractedNames = AIRuntimeCoordinator.shared.batchExtractedNames
-            }
-        }
-    }
-
     internal func reloadSettings() {
         let config = AISettingsStore.shared.loadConfiguration()
         availableProfiles = config.profiles
@@ -48,45 +21,6 @@ extension ReaderAIFullScreenView {
             currentSession.model = selectedModel
             AIChatHistoryStore.shared.saveSession(currentSession, for: bookId)
         }
-    }
-
-    internal func startNewChat() {
-        let config = AISettingsStore.shared.loadConfiguration()
-        availableProfiles = config.profiles
-        selectedProfileId = config.activeProfileId
-        availableModels = config.activeProfile.availableModels
-        selectedModel = config.activeProfile.selectedModel
-
-        let newSession = AIChatSession(
-            bookId: bookId,
-            title: "Phiên chat mới",
-            mode: selectedMode,
-            model: selectedModel,
-            providerProfileId: selectedProfileId
-        )
-        currentSession = newSession
-        currentSessionId = newSession.id
-        batchExtractedNames.removeAll()
-        AIChatHistoryStore.shared.saveSession(newSession, for: bookId)
-    }
-
-    internal func switchToSession(_ session: AIChatSession) {
-        currentSession = session
-        currentSessionId = session.id
-        selectedMode = session.mode
-
-        let config = AISettingsStore.shared.loadConfiguration()
-        availableProfiles = config.profiles
-        let profileId = session.providerProfileId ?? config.activeProfileId
-        selectedProfileId = profileId
-
-        if let profile = availableProfiles.first(where: { $0.id == profileId }) {
-            availableModels = profile.availableModels
-        } else {
-            availableModels = config.activeProfile.availableModels
-        }
-        selectedModel = session.model
-        migrateLegacyJSONMessagesIfNeeded()
     }
 
     internal func sendUserMessage(promptOverride: String? = nil) {
@@ -345,6 +279,18 @@ extension ReaderAIFullScreenView {
     }
 
     internal func saveNamesToDictionary(_ items: [AIExtractedName], isName: Bool, isMerge: Bool) {
+        let header = "Đã lưu \(items.count) tên riêng vào từ điển \(isName ? "Name riêng" : "VietPhrase riêng"):"
+        let plainText = condenseExtractedNamesToText(names: items, title: header)
+
+        for i in currentSession.messages.indices {
+            if currentSession.messages[i].extractedNames != nil {
+                currentSession.messages[i].content = plainText
+                currentSession.messages[i].extractedNames = nil
+            }
+        }
+        batchExtractedNames.removeAll()
+        AIChatHistoryStore.shared.saveSession(currentSession, for: bookId)
+
         Task {
             _ = await AIHarnessService.shared.saveExtractedEntries(items, bookId: bookId, isName: isName, isMerge: isMerge)
         }
@@ -361,37 +307,6 @@ extension ReaderAIFullScreenView {
     internal func approveAllActions(_ actions: [AIHarnessAction]) {
         for action in actions where action.status == .pendingReview {
             approveAction(action)
-        }
-    }
-
-    internal func migrateLegacyJSONMessagesIfNeeded() {
-        let snapshot = currentSession
-        let bid = bookId
-        guard snapshot.messages.contains(where: {
-            $0.role == .assistant && !$0.isStreaming && ($0.extractedNames == nil || $0.extractedNames?.isEmpty == true)
-        }) else { return }
-
-        Task.detached(priority: .utility) {
-            var updated = snapshot.messages
-            var changed = false
-            for i in updated.indices {
-                let msg = updated[i]
-                if msg.role == .assistant, !msg.isStreaming, (msg.extractedNames == nil || msg.extractedNames?.isEmpty == true) {
-                    let parsed = AINameExtractionBatchProcessor.shared.parseNamesFromJSONString(msg.content)
-                    if !parsed.isEmpty {
-                        updated[i].extractedNames = AIBookDataInspector.shared.decorateExtractedNames(names: parsed, bookId: bid)
-                        changed = true
-                    }
-                }
-            }
-            if changed {
-                await MainActor.run {
-                    if self.currentSession.id == snapshot.id {
-                        self.currentSession.messages = updated
-                        AIChatHistoryStore.shared.saveSession(self.currentSession, for: bid)
-                    }
-                }
-            }
         }
     }
 }

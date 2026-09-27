@@ -108,24 +108,30 @@ public final class BookAIMemoryStore: Sendable {
     // MARK: - Trí nhớ tổng (Global AI Memory)
 
     public static let defaultGlobalMemoryPrompt = """
-    Nếu tôi yêu cầu lọc name thì:
+    Khi tôi yêu cầu “lọc tên riêng” hoặc các câu có ý nghĩa tương tự như “lọc name”, “tìm tên”, “trích xuất tên”, “lấy tên riêng”, “lọc thực thể tên”, “extract name”…
 
-    Đầu ra:
+    * Chỉ trả về JSON array hợp lệ, không Markdown, không giải thích, không thêm nội dung ngoài JSON.
+    * Nếu không có thực thể, trả về [].
+    * Format:
+        [
+        {
+        “original”: “Tên chữ Hán”,
+        “suggestedMeaning”: “Tên/phiên âm tiếng Việt phù hợp”
+        }
+        ]
 
-    * Chỉ trả về một JSON array hợp lệ.
-    * Không sử dụng Markdown.
-    * Không đặt JSON trong code block.
-    * Không thêm bất kỳ nội dung nào trước hoặc sau JSON.
-    * Nếu không tìm thấy thực thể nào, trả về [].
+    Quy tắc chuẩn hoá:
 
-    Định dạng bắt buộc:
-
-    [
-    {
-    "original": "Tên chữ Hán",
-    "suggestedMeaning": "Tên Hán Việt hoặc nghĩa tiếng Việt phù hợp"
-    }
-    ]
+    * Tên Trung Quốc → Hán Việt.
+    * Tên Nhật, Hàn, Anh hoặc tên ngoại quốc viết bằng chữ Hán → dùng cách đọc/phiên âm đúng theo ngôn ngữ gốc, không đọc Hán Việt máy móc.
+    * Nếu là “Họ/Tên + đại từ nhân xưng/chức danh/cách gọi” → giữ đúng thứ tự: Họ/Tên + cách gọi tiếng Việt.
+        Ví dụ:
+        * 何老三 → Hà lão tam
+        * 李掌柜 → Lý chưởng quầy
+        * 李医生 → Lý bác sĩ
+        * 陈教授 → Trần giáo sư
+        * 王老板 → Vương lão bản
+    * Không đảo thành “bác sĩ Lý”, “giáo sư Trần”…
     """
 
     private var globalMemoryURL: URL {

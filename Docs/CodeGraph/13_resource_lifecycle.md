@@ -15,6 +15,17 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời Lưu trữ Session AI Độc lập, Phân trang Tin nhắn và Dọn dẹp File (1.3.410)
+
+* **Vòng đời Tệp Session Độc Lập (`AIChatHistoryStore`)**:
+  - Mỗi session được cấp phát một file JSON riêng biệt `<bookId>/<sessionId>.json`. File chỉ mục `_index.json` được cập nhật tương ứng chỉ với các trường tóm tắt metadata.
+  - Khi một session bị xoá, file JSON tương ứng được xoá ngay lập tức khỏi đĩa và entry trong `_index.json` được gỡ bỏ; khi session cuối cùng của một truyện bị xoá, thư mục truyện tự động được thu hồi.
+  - Thao tác "Dọn dẹp tất cả phiên chat" xoá sạch toàn bộ thư mục `ai_chats/` và tạo lại thư mục rỗng, giải phóng toàn bộ dung lượng đĩa đã lưu.
+* **Vòng đời Bộ nhớ RAM và Hiệu ứng Skeleton Loading (`ReaderAIFullScreenView`, `ReaderAISkeletonView`)**:
+  - Khi mở giao diện AI, `isLoadingSession = true` hiển thị `ReaderAISkeletonView` với animation lặp vô tận nhưng không giữ tham chiếu mạnh.
+  - Tác vụ nạp session chạy trên luồng nền (`Task.detached`), khi hoàn tất chuyển giao session sang `@State private var currentSession` và tắt cờ loading.
+  - Giới hạn phân trang hiển thị: Chỉ tải vào DOM view 20 tin nhắn gần nhất (`visibleMessageCount = 20`), các tin nhắn cũ hơn chỉ được đưa vào cây View khi người dùng chủ động bấm "Tải thêm", ngăn tràn bộ nhớ và giật FPS trên các phiên chat dài hàng trăm tin nhắn.
+
 ## Vòng đời Quản lý Nhiều API Key và Tệp Trí Nhớ AI Toàn Cục (1.3.407)
 
 * **Vòng đời Failover API Key (`AnthropicClient`, `OpenAIClient`)**:

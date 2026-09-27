@@ -15,6 +15,25 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +5 file mới cho Session độc lập, Skeleton loading và Tách view cài đặt; 100% tuân thủ trần ≤ 400 dòng (1.3.410)
+
+* **5 file Swift mới, 100% tuân thủ trần ≤ 400 dòng và 1 primary type top level**:
+  - `AIChatSessionSummary.swift`: **42**/400 dòng, DTO gọn nhẹ đại diện cho bản tóm tắt phiên chat.
+  - `ReaderAISkeletonView.swift`: **60**/400 dòng, component giao diện shimmering khung xương khi mở sheet AI.
+  - `AISettingsProfileSectionView.swift`: **96**/400 dòng, component danh sách profile tách rời từ `AISettingsView.swift`.
+  - `AIChatAllSessionsManagerView.swift`: **162**/400 dòng, màn hình quản lý và tìm kiếm tất cả các phiên chat AI.
+  - `ReaderAIFullScreenView+SessionLoading.swift`: **171**/400 dòng, extension điều phối nạp session ngầm và thu gọn danh sách name.
+* **Các file sửa đổi lớn đều được kiểm soát nghiêm ngặt dưới trần**:
+  - `ReaderAIFullScreenView.swift`: **395**/400 dòng.
+  - `AISettingsView.swift`: **347**/400 dòng (sau khi tách profile section).
+  - `ReaderAIFullScreenView+Actions.swift`: **311**/400 dòng.
+  - `AIChatHistoryStore.swift`: **219**/400 dòng.
+  - `ReaderAISessionListView.swift`: **160**/400 dòng.
+  - `ReaderDefinitionOverlayView.swift`: **407** dòng (file legacy, giữ nguyên số dòng không tăng).
+  - `ReaderJunkDeleteOverlayView.swift`: **269**/400 dòng.
+  - `ReaderCopyOriginalOverlayView.swift`: **209**/400 dòng.
+* `check_architecture.py` giữ nguyên **5** violation nền cũ, không phát sinh bất kỳ vi phạm kiến trúc nào mới.
+
 ## +1 file cho Sheet chọn truyện nguồn; giảm baseline vi phạm kiến trúc từ 6 xuống 5 (1.3.409)
 
 * **1 file Swift mới, 1 primary type top level**:

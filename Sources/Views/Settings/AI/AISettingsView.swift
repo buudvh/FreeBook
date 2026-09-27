@@ -12,88 +12,19 @@ public struct AISettingsView: View {
     @State internal var isTestSuccess = false
     @State internal var isFetchingModels = false
     @State internal var showingAddProviderSheet = false
+    @State private var showingClearAllSessionsAlert = false
 
     public init() {}
 
     public var body: some View {
         Form {
             // SECTION 1: DANH SÁCH CÁC PROFILE ĐÃ LƯU
-            Section(header: Text("Danh Sách Profile Đã Lưu (\(config.profiles.count))")) {
-                if config.profiles.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "info.circle")
-                                .foregroundColor(.blue)
-                            Text("Chưa có cấu hình AI nào.")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                        }
-                        Text("Bấm nút dấu cộng (+) ở góc trên bên phải để thêm cấu hình AI (Gemini, OpenAI, DeepSeek, Claude...).")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-
-                        Button(action: { showingAddProviderSheet = true }) {
-                            HStack {
-                                Image(systemName: "plus.circle.fill")
-                                Text("Thêm Cấu Hình Mới")
-                            }
-                            .font(.footnote.bold())
-                        }
-                        .padding(.top, 4)
-                    }
-                    .padding(.vertical, 6)
-                } else {
-                    ForEach(config.profiles) { profile in
-                        Button(action: { selectProfile(profile.id) }) {
-                            HStack(alignment: .center, spacing: 10) {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    HStack(spacing: 6) {
-                                        Text(profile.name)
-                                            .font(.subheadline)
-                                            .fontWeight(.semibold)
-                                            .foregroundColor(.primary)
-
-                                        if profile.isCustom {
-                                            Text("Tự thêm")
-                                                .font(.system(size: 9, weight: .bold))
-                                                .padding(.horizontal, 5)
-                                                .padding(.vertical, 2)
-                                                .background(Color.blue.opacity(0.15))
-                                                .foregroundColor(.blue)
-                                                .cornerRadius(4)
-                                        }
-
-                                        if profile.id == config.activeProfileId {
-                                            Text("Đang chọn")
-                                                .font(.system(size: 9, weight: .bold))
-                                                .padding(.horizontal, 5)
-                                                .padding(.vertical, 2)
-                                                .background(Color.purple.opacity(0.2))
-                                                .foregroundColor(.purple)
-                                                .cornerRadius(4)
-                                        }
-                                    }
-
-                                    Text("\(profile.baseURL) • \(profile.selectedModel.isEmpty ? "Chưa có model" : profile.selectedModel)")
-                                        .font(.system(size: 11, design: .monospaced))
-                                        .foregroundColor(.secondary)
-                                        .lineLimit(1)
-                                }
-
-                                Spacer()
-
-                                if profile.id == config.activeProfileId {
-                                    Image(systemName: "checkmark")
-                                        .font(.system(size: 14, weight: .bold))
-                                        .foregroundColor(.purple)
-                                }
-                            }
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
+            AISettingsProfileSectionView(
+                profiles: config.profiles,
+                activeProfileId: config.activeProfileId,
+                onSelectProfile: { selectProfile($0) },
+                onAddProfile: { showingAddProviderSheet = true }
+            )
 
             // SECTION 2: TÙY CHỈNH PROMPT
             Section(header: Text("Tùy Chỉnh Prompt")) {
@@ -319,6 +250,29 @@ public struct AISettingsView: View {
                     }
                 }
             }
+
+            // SECTION 5: LỊCH SỬ CHAT AI
+            Section(header: Text("Lịch Sử Chat AI")) {
+                NavigationLink {
+                    AIChatAllSessionsManagerView()
+                } label: {
+                    HStack {
+                        Image(systemName: "bubble.left.and.bubble.right.fill")
+                            .foregroundColor(.blue)
+                        Text("Quản lý danh sách phiên chat")
+                            .font(.subheadline)
+                    }
+                }
+
+                Button(role: .destructive) {
+                    showingClearAllSessionsAlert = true
+                } label: {
+                    HStack {
+                        Image(systemName: "trash")
+                        Text("Dọn dẹp tất cả phiên chat")
+                    }
+                }
+            }
         }
         .navigationTitle("Cấu hình AI")
         .navigationBarTitleDisplayMode(.inline)
@@ -338,6 +292,14 @@ public struct AISettingsView: View {
                 apiKeysText = newProfile.allEffectiveApiKeys().joined(separator: "\n")
                 saveConfigSilently()
             }
+        }
+        .alert("Dọn dẹp tất cả phiên chat?", isPresented: $showingClearAllSessionsAlert) {
+            Button("Dọn dẹp tất cả", role: .destructive) {
+                AIChatHistoryStore.shared.clearAllSessionsAcrossAllBooks()
+            }
+            Button("Hủy", role: .cancel) {}
+        } message: {
+            Text("Hành động này sẽ xóa vĩnh viễn toàn bộ lịch sử trò chuyện AI của tất cả truyện và không thể hoàn tác.")
         }
         .onAppear {
             config = AISettingsStore.shared.loadConfiguration()

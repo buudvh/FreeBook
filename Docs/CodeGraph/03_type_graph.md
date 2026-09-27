@@ -15,6 +15,15 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## DTO AIChatSessionSummary & Nâng cấp Kiểu Dữ Liệu AI Session (1.3.410)
+
+* **Models/AI**:
+  - `AIChatSessionSummary`: `public struct AIChatSessionSummary: Identifiable, Codable, Sendable, Equatable` đại diện cho bản ghi metadata tóm tắt nhẹ của một phiên chat AI (`id`, `bookId`, `title`, `createdAt`, `updatedAt`, `mode`, `model`, `messageCount`, `providerProfileId`), không chứa mảng tin nhắn đầy đủ để tối ưu hóa nạp mục lục.
+* **Views/Settings/AI & Views/Reader/AI**:
+  - `AIChatAllSessionsManagerView`: `public struct AIChatAllSessionsManagerView: View` quản lý danh sách toàn bộ phiên chat và cho phép xoá từng session.
+  - `AISettingsProfileSectionView`: `public struct AISettingsProfileSectionView: View` Section hiển thị danh sách profile trong Cài đặt AI.
+  - `ReaderAISkeletonView`: `public struct ReaderAISkeletonView: View` khung chờ hiển thị tức thì khi mở sheet AI.
+
 ## Nâng cấp Multi-API Key Failover, Header Auth Tuỳ Chọn & AI Memory (1.3.407)
 
 * **Models/AI**:

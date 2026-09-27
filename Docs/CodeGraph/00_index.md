@@ -15,6 +15,19 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Tối Ưu Mở Sheet Trợ Lý AI, Lưu Trữ Session Độc Lập và Đồng Bộ Màu Token Reader (1.3.410)
+
+* [`AIChatHistoryStore.swift`](../../Sources/Services/AI/AIChatHistoryStore.swift#L5): Tái cấu trúc lưu trữ: mỗi session là 1 file JSON riêng biệt (`ai_chats/<bookId>/<sessionId>.json`), quản lý mục lục siêu nhẹ qua `_index.json` (chỉ gồm metadata, không chứa tin nhắn, nạp < 0.1ms); tự động di trú dữ liệu từ file cũ và hỗ trợ dọn dẹp toàn bộ session trong app.
+* [`AIChatSessionSummary.swift`](../../Sources/Models/AI/AIChatSessionSummary.swift#L4): Struct DTO tóm tắt thông tin nhẹ cho từng session AI.
+* [`AIChatAllSessionsManagerView.swift`](../../Sources/Views/Settings/AI/AIChatAllSessionsManagerView.swift#L4): Màn hình xem danh sách toàn bộ phiên chat trong Cài đặt AI, hỗ trợ tìm kiếm và vuốt/bấm nút để xóa từng session.
+* [`AISettingsProfileSectionView.swift`](../../Sources/Views/Settings/AI/AISettingsProfileSectionView.swift#L4): Trích xuất Section danh sách profile từ `AISettingsView`, giúp file chính duy trì dưới trần kiến trúc 400 dòng.
+* [`AISettingsView.swift`](../../Sources/Views/Settings/AI/AISettingsView.swift#L250): Bổ sung Section Lịch Sử Chat AI kết nối tới màn hình quản lý session và nút Dọn dẹp tất cả phiên chat kèm alert xác nhận.
+* [`ReaderAISkeletonView.swift`](../../Sources/Views/Reader/AI/ReaderAISkeletonView.swift#L4): Giao diện Skeleton hiển thị tức thì (<16ms, 120 FPS) khi mở Trợ lý AI, loại bỏ hiện tượng đơ Main Thread và bảo vệ TTS không bị giật tiếng.
+* [`ReaderAIFullScreenView.swift`](../../Sources/Views/Reader/AI/ReaderAIFullScreenView.swift#L80) & [`ReaderAIFullScreenView+SessionLoading.swift`](../../Sources/Views/Reader/AI/ReaderAIFullScreenView+SessionLoading.swift#L5): Áp dụng Lazy Load phân trang tin nhắn (20 tin nhắn mới nhất + nút tải thêm tin nhắn cũ) qua `LazyVStack` với anchor đáy; tự động cô đọng danh sách tên riêng đã hiển thị/đã lưu thành text thuần `Name gốc=nghĩa`, giải phóng hàng trăm view con của thẻ review.
+* [`ReaderAISessionListView.swift`](../../Sources/Views/Reader/AI/ReaderAISessionListView.swift#L37): Sửa lỗi màu chữ xanh tối sang `Color.blue` thích ứng dynamic light/dark mode với độ tương phản cao, sắc nét.
+* [`ReaderDefinitionOverlayView.swift`](../../Sources/Views/Reader/ReaderDefinitionOverlayView.swift#L263), [`ReaderCopyOriginalOverlayView.swift`](../../Sources/Views/Reader/ReaderCopyOriginalOverlayView.swift#L95) & [`ReaderJunkDeleteOverlayView.swift`](../../Sources/Views/Reader/ReaderJunkDeleteOverlayView.swift#L65): Đồng bộ hoàn toàn giao diện thanh token gốc và thanh token dịch trên cả 3 màn hình (nút chevron trắng viền mờ tròn; token gốc và token dịch khi chọn sáng trắng in đậm, khi không chọn mờ 0.45; giữ nguyên gạch chân cho token dịch).
+* Thêm **5** file Swift mới; cần `xcodegen generate` và build trên macOS.
+
 ## Tối Ưu Màn Hình Dịch Reader, Khắc Phục Đơ UI AI Chat và Thêm Nhập Từ Điển Từ Truyện Khác (1.3.409)
 
 * [`TranslationManager.swift`](../../Sources/Services/Translation/Manager/TranslationManager.swift#L130): Sửa dứt điểm hàm `existsInBaseDictionary`: khi từ điển cơ sở (`loadedBaseDict`) đã có trên RAM, trả về kết quả tra cứu boolean ngay lập tức, ngăn ngừa hoàn toàn lỗi trôi logic xuống nạp lại file `.dat` 30MB từ đĩa (giải quyết triệt để vấn đề ở màn hình dịch `ReaderDefinitionOverlayView` và quản lý nghĩa `ManageDefinitionsView` khi xoá custom entry).
