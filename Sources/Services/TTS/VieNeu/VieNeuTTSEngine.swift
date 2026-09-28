@@ -33,7 +33,7 @@ import OnnxRuntimeBindings
 final class VieNeuTTSEngine: @unchecked Sendable {
     /// Một graph đã nạp kèm tên output đầu tiên — bản tham chiếu lấy `run(...)[0]`, tức **output theo
     /// thứ tự khai báo**, không theo tên.
-    private struct Graph {
+    struct Graph {
         let session: ORTSession
         let outputName: String
     }
@@ -202,7 +202,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         var samples: [Float] = []
         for (index, chunk) in chunks.enumerated() {
             try Task.checkCancellation()
-            let phonemes = config.applyingEmotionTags(to: phonemizer.phonemizeTextWithEmotions(chunk))
+            let phonemes = config.applyingEmotionTags(to: phonemizer.phonemizeTextWithEmotions(text: chunk))
             let encoded = config.encode(phonemes: phonemes)
             noteDroppedScalars(encoded.droppedScalars, total: encoded.ids.count)
             let chunkSamples = try runChunk(
@@ -289,7 +289,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         Self.fillStandardNormal(&latent)
         let steps = max(1, tuning.steps)
         let grid = Self.timeGrid(steps: steps, sway: tuning.sway)
-        var timeValue = try floatValue(FloatTensor(shape: [1], values: [grid[0]]), keepAlive: &keepAlive)
+        var timeValue = try floatValue(FloatTensor(shape: [1], values: [Float(grid[0])]), keepAlive: &keepAlive)
         let latentShape: [NSNumber] = [1, NSNumber(value: config.latentChannels), NSNumber(value: frames)]
 
         guard let nullContext else { throw EngineError.badOutput("nhánh null") }
@@ -343,7 +343,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
             for index in latent.indices {
                 latent[index] += delta * velocityValues[index]
             }
-            timeValue = try floatValue(FloatTensor(shape: [1], values: [grid[step + 1]]), keepAlive: &keepAlive)
+            timeValue = try floatValue(FloatTensor(shape: [1], values: [Float(grid[step + 1])]), keepAlive: &keepAlive)
         }
 
         // 4. codec_decoder → PCM
