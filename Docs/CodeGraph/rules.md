@@ -15,6 +15,16 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## VieNeu-TTS ONNX Bridge Invariants (1.3.419)
+
+* **Never trust the ZIP local header's `compressed`/`uncompressed` size when reading `.npz`.** `np.savez` writes `0xFFFFFFFF` (ZIP64 sentinel) there and keeps the real size in the extra field / central directory. Reading it produced `4.294.967.295` and a bogus "vượt biên file" failure. `VieNeuNPZReader` therefore parses the **NPY** header instead (`\x93NUMPY` magic → `shape` + `descr`) and computes the byte count itself (`elementCount × elementSize`), which also makes the cursor land exactly past each entry — the condition for never matching a stray `PK\x03\x04` inside float payload.
+* **Never hardcode ONNX output tensor names.** The Python reference uses positional outputs (`run(None, {...})[0]`), so it cannot confirm names, while `OrtApi::Run` **requires** names. `VieNeuONNXBridge.m` asks the session itself (`SessionGetOutputName`) right after `CreateSession` and stores the result. Input names *are* confirmed by the reference (it passes them by name) and may stay hardcoded.
+* **`VieNeuTTSEngine.prepareLocked()` must build every component into locals and assign them all at once.** Assigning `runtime` first means a later failure (`config`/`catalog`/`phonemizer`) leaves a half-initialised engine: `isPrepared` lies, every subsequent attempt skips loading, and the real error is masked by a downstream guard. This is exactly how a `.npz` parse failure surfaced as "Graph runtime…".
+* **`ORT_API2_STATUS` does not prepend `const OrtApi*`.** Call through `api->Fn(...)`. `ORT_CLASS_RELEASE` functions return **`void`**, not `OrtStatus*` — never pass them to a status-checking helper.
+* **`CreateTensorWithDataAsOrtValue` does not copy.** The input `NSMutableData` (or C buffer) must outlive the `Run` call; `VieNeuONNXBridge.m` creates, uses and releases every tensor inside a single function to guarantee it.
+* **`ctx_mask` is `tensor(bool)` and cannot be produced by the Objective-C wrapper.** `ORTTensorElementDataType` has no `Bool` case in any usable ORT release (verified on 1.16.0, 1.20.0, 1.24.2 and the SPM package's `main`); only ORT core `main` has it. The C API is the only route, and it must be reached through a **C bridge** (`VieNeuONNXBridge.h/.m` + `SWIFT_OBJC_BRIDGING_HEADER`) because `import onnxruntime` does not resolve for the app target.
+* **`SeaG2P` needs the vocab as Unicode scalars, not Swift `Character`s.** Four combining marks (`̪ ̩ ̃ ʲ`) are separate vocab entries; iterating `Character`s merges `t` + `̪` into one and silently drops the phoneme.
+
 ## Reader AI FullScreen & Background Session Invariants (1.3.397)
 
 * **ReaderView must present AI via native SwiftUI `.fullScreenCover`, never UIKit `.fullScreen`.** Presenting a UIKit modal with `.fullScreen` unmounts the reader's view hierarchy from the Window, breaking `isChapterSubtreeRenderable` handshake and causing infinite skeleton loading upon dismissal. SwiftUI `.fullScreenCover` preserves the view hierarchy, keeping text and reading position 100% intact.

@@ -46,12 +46,19 @@ final class VieNeuTTSEngine: @unchecked Sendable {
 
     enum EngineError: LocalizedError {
         case modelMissing([String])
+        case notPrepared
         case badOutput(String)
 
         var errorDescription: String? {
             switch self {
-            case .modelMissing(let names): return "Thiếu file model VieNeu-TTS: \(names.joined(separator: ", "))"
-            case .badOutput(let name): return "Graph \(name) không trả về tensor mong đợi"
+            case .modelMissing(let names):
+                return "Thiếu file model VieNeu-TTS: \(names.joined(separator: ", "))"
+            case .notPrepared:
+                // Không nêu tên graph: thiếu cái nào cũng là "chưa nạp xong", và nói sai chỗ từng làm
+                // người dùng đi tìm lỗi ở tầng ONNX trong khi nguyên nhân nằm ở bước nạp.
+                return "Engine VieNeu chưa nạp xong. Thử lại; nếu vẫn lỗi thì model tải về chưa đủ."
+            case .badOutput(let name):
+                return "Graph \(name) không trả về tensor mong đợi"
             }
         }
     }
@@ -110,26 +117,42 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         let missing = store.missingNames
         guard missing.isEmpty else { throw EngineError.modelMissing(missing) }
 
-        runtime = try VieNeuONNXRuntime(modelStore: store, threadCount: VieNeuSynthesisPolicy.threadCount)
-        config = try VieNeuConfig.load(modelStore: store)
-        catalog = try VieNeuVoiceCatalog.load(modelStore: store)
-        phonemizer = try SeaG2P(binURL: store.url(for: "sea_g2p.bin"))
-        try prepareNullBranchLocked()
+        // Dựng **hết** vào biến cục bộ rồi mới gán. Gán từng cái như bản đầu là mở đường cho trạng thái
+        // nửa vời: `runtime` đã có mà `config` chưa ⇒ `isPrepared` nói dối, mọi lượt sau nhảy qua bước
+        // nạp, và lỗi thật bị che bởi một guard ở tầng dưới ("Graph runtime…"). Đúng chuyện đã xảy ra
+        // khi `NPZReader` còn đọc sai kích thước entry.
+        let newRuntime = try VieNeuONNXRuntime(modelStore: store, threadCount: VieNeuSynthesisPolicy.threadCount)
+        let newConfig = try VieNeuConfig.load(modelStore: store)
+        let newCatalog = try VieNeuVoiceCatalog.load(modelStore: store)
+        let newPhonemizer = try SeaG2P(binURL: store.url(for: "sea_g2p.bin"))
+        let nullBranch = try Self.makeNullBranch(runtime: newRuntime, config: newConfig)
 
-        AppLogger.shared.log("🎙️ [VieNeu] Nạp xong engine: \(catalog?.presets.count ?? 0) giọng, threads=\(VieNeuSynthesisPolicy.threadCount)")
+        runtime = newRuntime
+        config = newConfig
+        catalog = newCatalog
+        phonemizer = newPhonemizer
+        nullContext = nullBranch.context
+        nullMask = nullBranch.mask
+
+        AppLogger.shared.log("🎙️ [VieNeu] Nạp xong engine: \(newCatalog.presets.count) giọng, threads=\(VieNeuSynthesisPolicy.threadCount)")
     }
 
     /// Nhánh **vô điều kiện** của CFG: chạy `text_encoder` với đúng `[bos, eos]` và `null_style`.
-    private func prepareNullBranchLocked() throws {
-        guard let runtime, let config else { throw EngineError.badOutput("config") }
-        nullContext = try runtime.textEncoder(
+    ///
+    /// Là hàm `static` nhận tham số (thay vì method đọc trạng thái của `self`) để `prepareLocked` chỉ
+    /// phải gán trạng thái **sau khi** biết chắc mọi bước đều đã thành công.
+    private static func makeNullBranch(
+        runtime: VieNeuONNXRuntime,
+        config: VieNeuConfig
+    ) throws -> (context: [Float], mask: [UInt8]) {
+        let context = try runtime.textEncoder(
             ids: [config.bosID, config.eosID],
             style: config.constants.nullStyle,
             styleRows: config.nStyle,
             styleColumns: config.styleDim,
             dim: config.dim
         )
-        nullMask = [1, 1]
+        return (context, [1, 1])
     }
 
     // MARK: - Tổng hợp
@@ -141,7 +164,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         try prepareLocked()
 
         guard let runtime, let config, let catalog, let phonemizer else {
-            throw EngineError.badOutput("runtime")
+            throw EngineError.notPrepared
         }
         guard let preset = catalog.preset(named: voiceName) ?? catalog.defaultPreset else {
             throw EngineError.badOutput("voices_v3_nano.json")

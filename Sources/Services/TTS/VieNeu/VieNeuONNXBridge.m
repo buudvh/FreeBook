@@ -21,14 +21,27 @@
 #include <stdlib.h>
 #include <string.h>
 
+/// Chỉ số 4 graph, dùng để tra `outputNames` — khớp thứ tự trong `VieNeuORTCreate`.
+enum {
+    VieNeuGraphTextEncoder = 0,
+    VieNeuGraphDurationPredictor = 1,
+    VieNeuGraphVectorEstimator = 2,
+    VieNeuGraphCodecDecoder = 3,
+    VieNeuGraphCount = 4
+};
+
 struct VieNeuORT {
     const OrtApi *api;
     OrtEnv *env;
     OrtMemoryInfo *memoryInfo;
-    OrtSession *textEncoder;
-    OrtSession *durationPredictor;
-    OrtSession *vectorEstimator;
-    OrtSession *codecDecoder;
+    OrtAllocator *allocator;
+    OrtSession *sessions[VieNeuGraphCount];
+    /// Tên output **đọc từ chính session** (`SessionGetOutputName`), không hardcode.
+    ///
+    /// Bản tham chiếu Python lấy output theo **chỉ số** (`run(None, {...})[0]`) nên không xác nhận được
+    /// tên, mà `OrtApi::Run` của C API lại **bắt buộc** truyền tên. Đoán tên là mở đường cho một lỗi
+    /// runtime chỉ nổ trên máy người dùng — nên hỏi thẳng session.
+    char *outputNames[VieNeuGraphCount];
 };
 
 #pragma mark - Tiện ích
@@ -46,16 +59,35 @@ static int check(OrtStatus *status, const OrtApi *api, char **errorMessage) {
     return -1;
 }
 
+/// Nạp một graph và **hỏi thẳng session tên output của nó**.
+///
+/// `outputNames` là mảng trong `VieNeuORT`; tên do ORT cấp phát bằng allocator mặc định nên phải giải
+/// phóng bằng chính allocator đó (`VieNeuORTDestroy`).
 static OrtSession *createSession(const OrtApi *api,
                                  const OrtEnv *env,
                                  const OrtSessionOptions *options,
                                  const char *directory,
                                  const char *name,
+                                 int graphIndex,
+                                 VieNeuORT *context,
                                  char **errorMessage) {
     char path[4096];
     snprintf(path, sizeof(path), "%s/%s", directory, name);
     OrtSession *session = NULL;
     if (check(api->CreateSession(env, path, options, &session), api, errorMessage) != 0) return NULL;
+
+    size_t outputCount = 0;
+    if (check(api->SessionGetOutputCount(session, &outputCount), api, errorMessage) != 0 || outputCount == 0) {
+        setError(errorMessage, "graph không có output");
+        api->ReleaseSession(session);
+        return NULL;
+    }
+    char *outputName = NULL;
+    if (check(api->SessionGetOutputName(session, 0, context->allocator, &outputName), api, errorMessage) != 0) {
+        api->ReleaseSession(session);
+        return NULL;
+    }
+    context->outputNames[graphIndex] = outputName;
     return session;
 }
 
@@ -166,6 +198,11 @@ VieNeuORT *VieNeuORTCreate(const char *modelDirectory, int32_t threadCount, char
         return NULL;
     }
 
+    if (check(api->GetAllocatorWithDefaultOptions(&context->allocator), api, errorMessage) != 0) {
+        VieNeuORTDestroy(context);
+        return NULL;
+    }
+
     OrtSessionOptions *options = NULL;
     if (check(api->CreateSessionOptions(&options), api, errorMessage) != 0) {
         VieNeuORTDestroy(context);
@@ -174,16 +211,21 @@ VieNeuORT *VieNeuORTCreate(const char *modelDirectory, int32_t threadCount, char
     check(api->SetIntraOpNumThreads(options, threadCount), api, errorMessage);
     check(api->SetSessionGraphOptimizationLevel(options, ORT_ENABLE_ALL), api, errorMessage);
 
-    context->textEncoder = createSession(api, context->env, options, modelDirectory, "text_encoder.onnx", errorMessage);
-    context->durationPredictor = createSession(api, context->env, options, modelDirectory, "duration_predictor.onnx", errorMessage);
-    context->vectorEstimator = createSession(api, context->env, options, modelDirectory, "vector_estimator.onnx", errorMessage);
-    context->codecDecoder = createSession(api, context->env, options, modelDirectory, "codec_decoder.onnx", errorMessage);
+    context->sessions[VieNeuGraphTextEncoder] =
+        createSession(api, context->env, options, modelDirectory, "text_encoder.onnx", VieNeuGraphTextEncoder, context, errorMessage);
+    context->sessions[VieNeuGraphDurationPredictor] =
+        createSession(api, context->env, options, modelDirectory, "duration_predictor.onnx", VieNeuGraphDurationPredictor, context, errorMessage);
+    context->sessions[VieNeuGraphVectorEstimator] =
+        createSession(api, context->env, options, modelDirectory, "vector_estimator.onnx", VieNeuGraphVectorEstimator, context, errorMessage);
+    context->sessions[VieNeuGraphCodecDecoder] =
+        createSession(api, context->env, options, modelDirectory, "codec_decoder.onnx", VieNeuGraphCodecDecoder, context, errorMessage);
     api->ReleaseSessionOptions(options);
 
-    if (context->textEncoder == NULL || context->durationPredictor == NULL ||
-        context->vectorEstimator == NULL || context->codecDecoder == NULL) {
-        VieNeuORTDestroy(context);
-        return NULL;
+    for (int index = 0; index < VieNeuGraphCount; index++) {
+        if (context->sessions[index] == NULL) {
+            VieNeuORTDestroy(context);
+            return NULL;
+        }
     }
     return context;
 }
@@ -192,10 +234,17 @@ void VieNeuORTDestroy(VieNeuORT *context) {
     if (context == NULL) return;
     const OrtApi *api = context->api;
     if (api != NULL) {
-        if (context->textEncoder != NULL) api->ReleaseSession(context->textEncoder);
-        if (context->durationPredictor != NULL) api->ReleaseSession(context->durationPredictor);
-        if (context->vectorEstimator != NULL) api->ReleaseSession(context->vectorEstimator);
-        if (context->codecDecoder != NULL) api->ReleaseSession(context->codecDecoder);
+        for (int index = 0; index < VieNeuGraphCount; index++) {
+            if (context->sessions[index] != NULL) api->ReleaseSession(context->sessions[index]);
+        }
+        // Tên output do allocator mặc định của ORT cấp phát ⇒ phải trả lại bằng chính allocator đó.
+        if (context->allocator != NULL) {
+            for (int index = 0; index < VieNeuGraphCount; index++) {
+                if (context->outputNames[index] != NULL) {
+                    context->allocator->Free(context->allocator, context->outputNames[index]);
+                }
+            }
+        }
         if (context->memoryInfo != NULL) api->ReleaseMemoryInfo(context->memoryInfo);
         if (context->env != NULL) api->ReleaseEnv(context->env);
     }
@@ -234,7 +283,7 @@ float *VieNeuORTRunTextEncoder(VieNeuORT *context,
 
     const char *names[2] = {"ids", "style"};
     const OrtValue *inputs[2] = {idsValue, styleValue};
-    OrtValue *output = runSession(api, context->textEncoder, names, inputs, 2, "ctx", errorMessage);
+    OrtValue *output = runSession(api, context->sessions[VieNeuGraphTextEncoder], names, inputs, 2, context->outputNames[VieNeuGraphTextEncoder], errorMessage);
 
     api->ReleaseValue(idsValue);
     api->ReleaseValue(styleValue);
@@ -282,7 +331,7 @@ int32_t VieNeuORTRunDurationPredictor(VieNeuORT *context,
 
     const char *names[3] = {"ctx", "ctx_mask", "spk"};
     const OrtValue *inputs[3] = {contextValue, maskValue, speakerValue};
-    OrtValue *output = runSession(api, context->durationPredictor, names, inputs, 3, "out", errorMessage);
+    OrtValue *output = runSession(api, context->sessions[VieNeuGraphDurationPredictor], names, inputs, 3, context->outputNames[VieNeuGraphDurationPredictor], errorMessage);
 
     api->ReleaseValue(contextValue);
     api->ReleaseValue(maskValue);
@@ -354,7 +403,7 @@ float *VieNeuORTRunVectorEstimator(VieNeuORT *context,
 
     const char *names[6] = {"x", "t", "ctx", "ctx_mask", "spk", "style"};
     const OrtValue *inputs[6] = {latentValue, timeValue, contextValue, maskValue, speakerValue, styleValue};
-    OrtValue *output = runSession(api, context->vectorEstimator, names, inputs, 6, "out", errorMessage);
+    OrtValue *output = runSession(api, context->sessions[VieNeuGraphVectorEstimator], names, inputs, 6, context->outputNames[VieNeuGraphVectorEstimator], errorMessage);
 
     for (size_t index = 0; index < 6; index++) api->ReleaseValue(values[index]);
     if (output == NULL) return NULL;
@@ -381,7 +430,7 @@ float *VieNeuORTRunCodecDecoder(VieNeuORT *context,
 
     const char *names[1] = {"x"};
     const OrtValue *inputs[1] = {latentValue};
-    OrtValue *output = runSession(api, context->codecDecoder, names, inputs, 1, "out", errorMessage);
+    OrtValue *output = runSession(api, context->sessions[VieNeuGraphCodecDecoder], names, inputs, 1, context->outputNames[VieNeuGraphCodecDecoder], errorMessage);
 
     api->ReleaseValue(latentValue);
     if (output == NULL) return NULL;

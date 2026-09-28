@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Sửa Hai Lỗi Làm Engine VieNeu Không Chạy Được Trên Máy Thật (1.3.419)
+
+Người dùng cài IPA và bấm "Phát thử" → lỗi `Graph runtime không trả về tensor mong đợi`. Truy ra **ba** nguyên nhân, hai trong số đó là lỗi thật của lượt trước:
+
+* **`VieNeuNPZReader` đọc sai kích thước entry ⇒ `constants.npz` không nạp được.** `np.savez` ghi `0xFFFFFFFF` (sentinel ZIP64) vào trường `compressed`/`uncompressed size` của **ZIP local header**, để kích thước thật ở extra field / central directory. Bản đầu tin vào local header nên tính `entryEnd = 4.294.967.357` trên file 53.448 byte ⇒ ném `badNPZ("vượt biên file")`. Bản mới **không dùng kích thước của ZIP**: đọc magic `\x93NUMPY`, lấy `shape` + `descr` từ header NPY rồi tự tính `số phần tử × kích thước phần tử`. Đã mô phỏng lại trên `constants.npz` thật: 5 entry, kích thước khớp **chính xác** `zipfile` của Python (896 / 51.328 / 224 / 224 / 132).
+* **`VieNeuTTSEngine.prepareLocked()` không nguyên tử.** Bản đầu gán `runtime` **trước** khi nạp `config`/`catalog`/`phonemizer`, nên khi config ném lỗi thì engine kẹt ở trạng thái nửa vời: `isPrepared` trả `true`, mọi lượt sau nhảy qua bước nạp, và guard ở tầng dưới báo **sai chỗ** ("Graph runtime…") trong khi nguyên nhân thật nằm ở bộ đọc NPZ. Bản mới dựng hết vào biến cục bộ rồi gán một lần; nhánh null của CFG tách thành `static makeNullBranch(runtime:config:)` để không phải chạm trạng thái trước khi biết chắc mọi bước đã xong. Thông báo đổi từ `badOutput("runtime")` sang `notPrepared`.
+* **Tên output của 4 graph là tên TÔI ĐOÁN** (`"ctx"`, `"out"`). Bản tham chiếu Python lấy output theo **chỉ số** (`run(None, {...})[0]`) nên không xác nhận được tên, mà `OrtApi::Run` bắt buộc truyền tên ⇒ đoán sai là một lỗi runtime nữa. `VieNeuONNXBridge.m` nay hỏi thẳng session (`SessionGetOutputName` ngay sau `CreateSession`) và lưu tên thật vào `context->outputNames[4]`; tên do allocator mặc định của ORT cấp phát nên được trả lại bằng `allocator->Free` trong `VieNeuORTDestroy`. Tên **input** thì bản tham chiếu có xác nhận (nó truyền theo tên) nên giữ nguyên.
+
 ## Màn Thử Giọng VieNeu-TTS v3 Nano (1.3.418)
 
 * **`VieNeuTTSTestView` (346 dòng, `Views/Settings/TTS/`)** — vào từ Cấu hình NghiTTS → "Engine khác". Bốn việc: tải model (~343 MB, tiến độ theo file), xoá model, chọn 1 trong 11 giọng, và phát thử.

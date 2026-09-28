@@ -1,9 +1,21 @@
 import Foundation
 
-/// Bộ đọc NPZ tối thiểu: chỉ lấy mảng `float32`/`float16` của các entry `.npy` **không nén**.
+/// Bộ đọc NPZ tối thiểu: lấy mảng `float32`/`float16` của các entry `.npy` **không nén**.
 ///
 /// Không dùng `ZIPFoundation` dù app đã có dependency đó: `constants.npz` đã xác minh là ZIP_STORED
 /// nên đường đọc thẳng ngắn hơn hẳn, và tránh việc một thư viện ZIP đời mới tự "sửa" hành vi nén.
+///
+/// ## Bẫy đã trả giá bằng một lần hỏng thật: **đừng tin `uncompressedSize` của ZIP local header**
+/// `np.savez` ghi `0xFFFFFFFF` vào trường `compressed size`/`uncompressed size` của local header (sentinel
+/// ZIP64) và để kích thước thật ở **extra field** / **central directory**. Bản đầu của file này đọc
+/// thẳng trường đó nên ra `4.294.967.295`, rồi `throw` "vượt biên file"; và vì `VieNeuTTSEngine` khi đó
+/// gán `runtime` **trước** khi nạp config, người dùng chỉ thấy một thông báo sai chỗ ("Graph runtime…")
+/// trong khi nguyên nhân thật nằm ở đây.
+///
+/// Cách đọc bây giờ **không phụ thuộc kích thước của ZIP**: sau header local, kiểm magic `\x93NUMPY`, đọc
+/// header NPY để lấy `shape` và `descr`, rồi tự tính số byte cần (`số phần tử × kích thước phần tử`).
+/// Nhờ vậy con trỏ nhảy qua đúng vùng dữ liệu — cũng là điều kiện để không quét nhầm một chuỗi
+/// `PK\x03\x04` tình cờ nằm trong dữ liệu float.
 enum NPZReader {
     /// Cố ý **không** đặt tên là `Array`: một type lồng tên `Array` trong tầm nhìn sẽ làm mọi chỗ viết
     /// `Array(...)` trong file này phải suy luận xem đang trỏ vào `Swift.Array` hay vào type lồng.
@@ -25,9 +37,7 @@ enum NPZReader {
                 cursor += 1
                 continue
             }
-
             let compression = Int(data[cursor + 8]) | (Int(data[cursor + 9]) << 8)
-            let uncompressedSize = readUInt32(data, at: cursor + 22)
             let filenameLength = Int(data[cursor + 26]) | (Int(data[cursor + 27]) << 8)
             let extraLength = Int(data[cursor + 28]) | (Int(data[cursor + 29]) << 8)
             let nameStart = cursor + 30
@@ -36,82 +46,89 @@ enum NPZReader {
             let nameData = data.subdata(in: nameStart..<(nameStart + filenameLength))
             let name = String(decoding: nameData, as: UTF8.self)
             let entryStart = nameStart + filenameLength + extraLength
-            let entryEnd = entryStart + Int(uncompressedSize)
 
-            defer { cursor = max(entryStart, cursor + 1) }
-
-            guard name.hasSuffix(".npy"), entryStart < data.count else { continue }
+            guard name.hasSuffix(".npy"), entryStart < data.count else {
+                // Không phải entry NPY: nhảy qua header rồi quét tiếp. `entryStart >= cursor + 30` nên
+                // vòng lặp luôn tiến, không thể kẹt.
+                cursor = entryStart
+                continue
+            }
             guard compression == 0 else {
                 throw VieNeuConfig.LoadError.badNPZ("\(name) bị nén (compress_type=\(compression))")
             }
-            guard entryEnd <= data.count else {
-                throw VieNeuConfig.LoadError.badNPZ("\(name) vượt biên file")
-            }
 
-            let payload = data.subdata(in: entryStart..<entryEnd)
-            arrays[String(name.dropLast(4))] = try parseNPY(payload, name: name)
+            let parsed = try parseNPY(data, at: entryStart, name: name)
+            arrays[String(name.dropLast(4))] = parsed.array
+            cursor = entryStart + parsed.byteCount
         }
 
         return arrays
     }
 
-    private static func parseNPY(_ payload: Data, name: String) throws -> FloatArray {
-        guard payload.count > 12, matches(payload, at: 0, signature: npyMagic) else {
+    /// Đọc một khối NPY nằm ở `offset` trong `data`. Trả về mảng **và** số byte đã tiêu thụ để bên gọi
+    /// nhảy qua đúng vùng dữ liệu.
+    private static func parseNPY(_ data: Data, at offset: Int, name: String) throws -> (array: FloatArray, byteCount: Int) {
+        guard offset + 12 <= data.count, matches(data, at: offset, signature: npyMagic) else {
             throw VieNeuConfig.LoadError.badNPZ("\(name) không có magic NPY")
         }
-        let major = Int(payload[6])
+        let major = Int(data[offset + 6])
         let headerLength: Int
         let headerStart: Int
         if major == 2 {
-            guard payload.count > 16 else { throw VieNeuConfig.LoadError.badNPZ("\(name) header cụt") }
-            headerLength = Int(readUInt32(payload, at: 8))
-            headerStart = 12
+            guard offset + 16 <= data.count else { throw VieNeuConfig.LoadError.badNPZ("\(name) header cụt") }
+            headerLength = Int(readUInt32(data, at: offset + 8))
+            headerStart = offset + 12
         } else {
-            headerLength = Int(payload[8]) | (Int(payload[9]) << 8)
-            headerStart = 10
+            headerLength = Int(data[offset + 8]) | (Int(data[offset + 9]) << 8)
+            headerStart = offset + 10
         }
-        guard headerStart + headerLength <= payload.count else {
+        guard headerStart + headerLength <= data.count else {
             throw VieNeuConfig.LoadError.badNPZ("\(name) header vượt biên")
         }
 
-        let headerData = payload.subdata(in: headerStart..<(headerStart + headerLength))
+        let headerData = data.subdata(in: headerStart..<(headerStart + headerLength))
         let header = String(decoding: headerData, as: UTF8.self).replacingOccurrences(of: " ", with: "")
         let shape = parseShape(header)
-        let dataStart = headerStart + headerLength
-
         let elementCount = shape.isEmpty ? 1 : shape.reduce(1, *)
+
+        let elementSize: Int
+        if header.contains("<f4") || header.contains("|f4") {
+            elementSize = 4
+        } else if header.contains("<f2") || header.contains("|f2") {
+            elementSize = 2
+        } else {
+            throw VieNeuConfig.LoadError.badNPZ("\(name) dùng descr chưa hỗ trợ")
+        }
+
+        let payloadStart = headerStart + headerLength
+        let payloadBytes = elementCount * elementSize
+        guard payloadStart + payloadBytes <= data.count else {
+            throw VieNeuConfig.LoadError.badNPZ("\(name) thiếu dữ liệu")
+        }
+
         // Đọc **từng byte** chứ không `withMemoryRebound`: `Data` không bảo đảm căn chỉnh 4 byte, và
         // rebind một con trỏ lệch căn chỉnh là hành vi không xác định — repo cũ đã crash thật ở đúng
-        // dạng lỗi này (`c838327 Fix memory alignment load crashes`). Chi phí không đáng kể: hai mảng
-        // của `constants.npz` chỉ có 192 và 12.800 phần tử.
-        if header.contains("<f4") || header.contains("|f4") {
-            guard dataStart + elementCount * 4 <= payload.count else {
-                throw VieNeuConfig.LoadError.badNPZ("\(name) thiếu dữ liệu float32")
-            }
-            var values = [Float](repeating: 0, count: elementCount)
+        // dạng lỗi này (`c838327 Fix memory alignment load crashes`).
+        var values = [Float](repeating: 0, count: elementCount)
+        if elementSize == 4 {
             for index in 0..<elementCount {
-                let offset = dataStart + index * 4
-                let bits = UInt32(payload[offset])
-                    | (UInt32(payload[offset + 1]) << 8)
-                    | (UInt32(payload[offset + 2]) << 16)
-                    | (UInt32(payload[offset + 3]) << 24)
+                let at = payloadStart + index * 4
+                let bits = UInt32(data[at])
+                    | (UInt32(data[at + 1]) << 8)
+                    | (UInt32(data[at + 2]) << 16)
+                    | (UInt32(data[at + 3]) << 24)
                 values[index] = Float(bitPattern: bits)
             }
-            return FloatArray(shape: shape, values: values)
-        }
-        if header.contains("<f2") || header.contains("|f2") {
-            guard dataStart + elementCount * 2 <= payload.count else {
-                throw VieNeuConfig.LoadError.badNPZ("\(name) thiếu dữ liệu float16")
-            }
-            var values = [Float](repeating: 0, count: elementCount)
+        } else {
             for index in 0..<elementCount {
-                let offset = dataStart + index * 2
-                let bits = UInt16(payload[offset]) | (UInt16(payload[offset + 1]) << 8)
+                let at = payloadStart + index * 2
+                let bits = UInt16(data[at]) | (UInt16(data[at + 1]) << 8)
                 values[index] = Float(Float16(bitPattern: bits))
             }
-            return FloatArray(shape: shape, values: values)
         }
-        throw VieNeuConfig.LoadError.badNPZ("\(name) dùng descr chưa hỗ trợ")
+
+        let byteCount = (payloadStart + payloadBytes) - offset
+        return (FloatArray(shape: shape, values: values), byteCount)
     }
 
     private static func parseShape(_ header: String) -> [Int] {

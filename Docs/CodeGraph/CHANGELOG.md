@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.419] - 2026-09-28
+
+### fix: sua loi doc constants.npz va ten output ONNX cua engine VieNeu
+
+Người dùng cài IPA, bấm "Phát thử" và nhận lỗi `Graph runtime không trả về tensor mong đợi`. Truy ra **ba** nguyên nhân — hai là lỗi thật của lượt 1.3.417:
+
+- **`VieNeuNPZReader` đọc sai kích thước entry** ⇒ `constants.npz` không nạp được. `np.savez` ghi `0xFFFFFFFF` (sentinel ZIP64) vào trường `compressed`/`uncompressed size` của **ZIP local header** và để kích thước thật ở extra field / central directory. Bản đầu tin vào local header nên tính ra `entryEnd = 4.294.967.357` trên file 53.448 byte ⇒ ném `badNPZ("vượt biên file")`. Bản mới **không phụ thuộc kích thước của ZIP**: sau header local, kiểm magic `\x93NUMPY`, đọc header NPY để lấy `shape` + `descr` rồi tự tính `số phần tử × kích thước phần tử`. Đã mô phỏng lại trên `constants.npz` thật: 5 entry, kích thước khớp **chính xác** `zipfile` của Python (896 / 51.328 / 224 / 224 / 132).
+- **`VieNeuTTSEngine.prepareLocked()` không nguyên tử**: gán `runtime` trước khi nạp `config`/`catalog`/`phonemizer`, nên khi config ném lỗi thì engine kẹt ở trạng thái nửa vời — `isPrepared` trả `true`, mọi lượt sau nhảy qua bước nạp, và guard tầng dưới báo **sai chỗ** trong khi nguyên nhân thật nằm ở bộ đọc NPZ. Nay dựng hết vào biến cục bộ rồi gán một lần; nhánh null của CFG tách thành `static makeNullBranch(runtime:config:)`. Thông báo đổi từ `badOutput("runtime")` sang `notPrepared` (không nêu tên graph — thiếu cái nào cũng là "chưa nạp xong").
+- **Tên output của 4 graph là tên đoán** (`"ctx"`, `"out"`): bản tham chiếu Python lấy output theo **chỉ số** nên không xác nhận được tên, mà `OrtApi::Run` bắt buộc truyền tên ⇒ đoán sai là một lỗi runtime nữa chờ nổ. `VieNeuONNXBridge.m` nay hỏi thẳng session bằng `SessionGetOutputName` ngay sau `CreateSession` và lưu tên thật vào `context->outputNames[4]`; tên do allocator mặc định của ORT cấp phát nên được trả lại bằng `allocator->Free` trong `VieNeuORTDestroy`. Tên **input** giữ nguyên vì bản tham chiếu truyền theo tên (đã xác nhận).
+- **File sửa**: `VieNeuNPZReader.swift` 141 → **158**, `VieNeuTTSEngine.swift` 276 → **299**, `VieNeuONNXBridge.m` 327 → **441** (cầu nối C không thuộc trần 400 dòng của Swift).
+- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
+- **Tài liệu CodeGraph**: `rules.md` thêm mục **VieNeu-TTS ONNX Bridge Invariants** (7 luật kỹ thuật rút ra từ lượt này); `11_subsystems.md` thêm mục về ba lỗi; `04_call_graph.md`, `10_risk_report.md`, `13_resource_lifecycle.md` `--no-change-needed`.
+
 ## [1.3.418] - 2026-09-28
 
 ### feat: them man thu giong VieNeu-TTS v3 Nano
