@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.418] - 2026-09-28
+
+### feat: them man thu giong VieNeu-TTS v3 Nano
+
+Thêm **1** file View mới và sửa **4** file, **không đụng `TTSManager`**:
+
+- **`VieNeuTTSTestView.swift` (346 dòng, `Views/Settings/TTS/`)**: màn thử giọng VieNeu — tải model (tiến độ theo file), xoá model, chọn 1 trong 11 giọng, nhập chữ, chỉnh tốc độ, phát thử, và **hiện số đo hiệu năng**: RTF, chế độ chất lượng đang chạy, thời gian tổng hợp, thời gian chờ hàng đợi, độ dài audio.
+- **Vì sao làm màn riêng trước khi nối vào Picker**: engine chỉ dùng được nếu **RTF < 1 trên máy thật**, mà con số 0,11–0,22 của tác giả model là **CPU desktop 6 luồng**, không phải iPhone. Nối vào Reader trước khi đo là làm một việc lớn (hơn 40 điểm chạm `"nghitts"` trong `TTSManager` + `TTSSettingsView`) mà chưa biết có dùng được hay không. Màn này trả lời câu hỏi đó trước — đúng điều kiện tiên quyết đã ghi ở plan §7.
+- **`VieNeuTTSService`**: thêm `static let shared` **tạo lười** (dựng `VieNeuModelStore` và engine chỉ khi có người dùng thật; `nil` là trạng thái hợp lệ nếu không dựng được thư mục), cùng ba accessor `modelStore`/`currentMode`/`isPrepared`. Dùng chung **một** thực thể là bắt buộc: mỗi `VieNeuTTSEngine` giữ bốn `ORT` session riêng nên hai service là hai bộ session trong RAM và hai đường suy luận tranh CPU.
+- **`VieNeuTTSEngine`**: thêm `isPrepared`.
+- **`NghiTTSSettingsView`**: thêm mục "Engine khác" → `VieNeuTTSTestView`, đặt cạnh màn "Thử giọng đọc" sẵn có.
+- **Chưa thêm vào Picker "Trình đọc"**: thêm mục vào Picker mà chưa nối tầng tổng hợp thì `tool == "vieneu"` sẽ rơi vào nhánh "là extension tool" (`tool != "system" && tool != "nghitts" && tool != "google"`) và app đi tìm một extension tên `vieneu` rồi báo lỗi khó hiểu. Việc nối vào Reader là lượt riêng.
+- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
+- **Tài liệu CodeGraph**: cập nhật `00_index.md`, `02_file_graph.md`, `09_dependency_rules.md`, `11_subsystems.md`, `14_complexity_report.md` (`--accept`); `04_call_graph.md`, `10_risk_report.md`, `13_resource_lifecycle.md`, `rules.md` (`--no-change-needed` — màn thử giọng chưa được nối vào đường đọc truyện).
+
 ## [1.3.417] - 2026-09-28
 
 ### feat: them engine doc VieNeu-TTS v3 Nano (engine core)

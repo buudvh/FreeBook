@@ -15,6 +15,13 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +1 file cho màn thử giọng VieNeu; 0 vi phạm kiến trúc mới (1.3.418)
+
+* **1 file Swift mới**: `VieNeuTTSTestView.swift` **346**/400 dòng, 1 primary type top level.
+* **File sửa, đều dưới trần**: `VieNeuTTSService` 203 → **225**, `VieNeuTTSEngine` 269 → **276**, `NghiTTSSettingsView` 158 → **164**.
+* `TTSManager.swift` giữ nguyên **4026**/3470 — lượt này **không** đụng vào nó (đó là chủ ý: nối engine vào đường đọc truyện là lượt riêng).
+* `check_architecture.py` giữ nguyên **5** violation nền cũ, **0** mới.
+
 ## +13 file cho engine VieNeu-TTS v3 Nano; ba lần phải tách vì trần 400 dòng (1.3.417)
 
 * **13 file Swift mới, 2.228 dòng, 100% ≤ 400 dòng và đúng 1 primary type top level**:

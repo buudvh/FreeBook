@@ -15,6 +15,13 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ranh giới phụ thuộc của màn thử giọng VieNeu (1.3.418)
+
+* **Chiều Views → Services, không có cạnh ngược**: `Views/Settings/TTS/VieNeuTTSTestView.swift` gọi `VieNeuTTSService.shared` và `VieNeuModelClient` (đều thuộc `Services/TTS/VieNeu/`). Service **không** biết gì về View.
+* **`VieNeuTTSService.shared` là singleton tạo lười**: `VieNeuModelStore()` có thể throw nên kiểu là `VieNeuTTSService?`; engine chỉ được dựng khi có người dùng thật (không nạp 4 session ONNX + 62,8 MB `sea_g2p.bin` cho engine chưa được chọn). Dùng chung một thực thể là **bắt buộc**: hai service là hai bộ `OrtSession` trong RAM và hai đường suy luận tranh CPU — cùng lý do đã ghi ở `NghiTTSTextToolView` cho Piper.
+* **`TTSManager` không bị đụng**: màn này không đi qua `tool`, không đi qua `PiperSynthesisCoordinator` của tầng đọc truyện, nên chưa có nhánh nào của đường đọc bị thay đổi.
+* **Không nới luật kiến trúc**: `VieNeuTTSTestView` 346 dòng, 1 primary type top level; `import SwiftUI` hợp lệ vì nằm trong `Sources/Views/**`.
+
 ## Ranh giới phụ thuộc của engine VieNeu-TTS v3 Nano (1.3.417)
 
 * **Cả 13 file Swift mới chỉ `import Foundation`** — **không** file nào import ONNX Runtime. Tầng ONNX đi qua **cầu nối C** `VieNeuONNXBridge.h/.m` (C thuần, `#import <onnxruntime/onnxruntime_c_api.h>`), khai với Swift bằng `SWIFT_OBJC_BRIDGING_HEADER` trong `project.yml`. Đây là **thay đổi build-config duy nhất** của lượt này, và là đường duy nhất: `import onnxruntime` không hoạt động (product SPM chỉ trỏ tới target ObjC), còn lớp ObjC không tạo được tensor `bool`. Khác với `ONNXPiperEngine.swift:2` vẫn dùng `import OnnxRuntimeBindings` — **hai engine dùng hai tầng binding khác nhau, có chủ ý**. Lý do: `ctx_mask` là tensor **bool**, mà `ORTTensorElementDataType` của wrapper ObjC không có case `Bool` ở mọi bản còn dùng được. Không file nào `import SwiftUI` ⇒ giữ `SERVICE_SWIFTUI_IMPORT`; không file nào gọi `ToastManager.shared` ⇒ giữ `SERVICE_TOAST_COUPLING`.

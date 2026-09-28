@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Màn Thử Giọng VieNeu-TTS v3 Nano (1.3.418)
+
+* **`VieNeuTTSTestView` (346 dòng, `Views/Settings/TTS/`)** — vào từ Cấu hình NghiTTS → "Engine khác". Bốn việc: tải model (~343 MB, tiến độ theo file), xoá model, chọn 1 trong 11 giọng, và phát thử.
+* **Điểm quan trọng nhất của màn này là phần "Số đo hiệu năng"**: hiện **RTF**, chế độ chất lượng đang chạy (`high` 16 step / `fast` 8 step), thời gian tổng hợp, thời gian chờ hàng đợi, độ dài audio. Engine chỉ dùng được trong Reader nếu RTF < 1 trên máy thật — con số 0,11–0,22 của tác giả model là **CPU desktop 6 luồng**, không phải iPhone.
+* **Chưa nối vào Picker "Trình đọc"** và **chưa đụng `TTSManager`**: thêm mục vào Picker mà chưa nối tầng tổng hợp thì `tool == "vieneu"` rơi vào nhánh "là extension tool" (`tool != "system" && tool != "nghitts" && tool != "google"`) và app đi tìm một extension tên `vieneu` rồi báo lỗi khó hiểu.
+* **Không chạy lớp tiền xử lý của NghiTTS** (đọc số, phiên âm Anh/Nhật) — chỉ lớp thay thế ký tự dùng chung. Số và viết tắt do bộ G2P của model tự lo; đây là quyết định của chủ dự án, xem plan §2.
+* Nút phát bị chặn khi TTS đang đọc truyện: chung `AVAudioSession`, chạy song song chỉ tạo tranh chấp.
+
 ## Engine Đọc VieNeu-TTS v3 Nano — Engine Core Trong `Sources/Services/TTS/VieNeu/` (1.3.417)
 
 * **Đây là engine local thứ hai, cạnh Piper (`NghiTTS/`)**, và **khác Piper về bản chất**: Piper là VITS một-lượt (mỗi giọng một file `.onnx`), còn VieNeu v3 Nano là **flow-matching non-autoregressive** 48M tham số — 4 graph dùng chung cho cả 11 giọng, mỗi giọng chỉ là hai mảng số (`speaker_emb` 192-d + `style` 50×256).

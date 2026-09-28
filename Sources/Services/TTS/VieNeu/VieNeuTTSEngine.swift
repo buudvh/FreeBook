@@ -89,6 +89,13 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         return config?.sampleRate ?? 24_000
     }
 
+    /// `true` khi 4 session ONNX đã nạp xong. Màn thử giọng dùng nó để biết lượt phát đầu tiên phải chờ
+    /// nạp engine (~3 s đọc 4 graph + 62,8 MB `sea_g2p.bin`) hay không.
+    var isPrepared: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return runtime != nil
+    }
+
     // MARK: - Nạp
 
     /// Nạp 4 session + config + catalog + phonemizer. Idempotent: gọi lại khi đã nạp thì trả về ngay.

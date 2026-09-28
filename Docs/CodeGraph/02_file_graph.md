@@ -15,6 +15,16 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +1 file cho màn thử giọng VieNeu-TTS v3 Nano (1.3.418)
+
+| Nhóm | File mới | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Views/Settings/TTS | [`Views/Settings/TTS/VieNeuTTSTestView.swift`](../../Sources/Views/Settings/TTS/VieNeuTTSTestView.swift) | Tải/xoá model, chọn giọng, nhập chữ, phát thử, và **hiện RTF + chế độ chất lượng** để quyết định có nối vào Reader hay không | 346 |
+
+* File mới **346** dòng (≤ 400), đúng 1 primary type top level, `import SwiftUI` hợp lệ vì nằm trong `Sources/Views/**`.
+* **Không sửa `TTSManager`**: màn này gọi `VieNeuTTSService.shared` trực tiếp, nên đường đọc truyện chưa bị đụng.
+* Sửa nội dung: `VieNeuTTSService` 203 → **225** (thêm `static let shared` + 3 accessor), `VieNeuTTSEngine` 269 → **276** (`isPrepared`), `NghiTTSSettingsView` 158 → **164** (mục "Engine khác").
+
 ## +13 file cho engine VieNeu-TTS v3 Nano (engine core, chưa nối vào TTSManager) (1.3.417)
 
 | Nhóm | File mới | Vai trò | Dòng |

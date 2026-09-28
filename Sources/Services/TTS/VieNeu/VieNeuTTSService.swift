@@ -20,6 +20,18 @@ import Foundation
 /// tổng hợp xong" — muốn có thì phải đẩy vòng lặp chunk trong `VieNeuTTSEngine.synthesize` ra thành
 /// callback, là việc của lượt sau.
 final class VieNeuTTSService: @unchecked Sendable {
+    /// Singleton **tạo lười**: `VieNeuModelStore()` có thể throw (không dựng được thư mục model) nên
+    /// `nil` là trạng thái hợp lệ, và engine chỉ được dựng khi có người thật sự dùng — nạp 4 session ONNX
+    /// + `sea_g2p.bin` 62,8 MB cho một engine chưa được chọn là việc không ai muốn.
+    ///
+    /// Dùng chung một thực thể là **bắt buộc**, không phải tiện: mỗi `VieNeuTTSEngine` giữ bốn
+    /// `OrtSession` riêng, nên hai service là hai bộ session nằm trong RAM và hai đường suy luận tranh
+    /// CPU — cùng lý do đã ghi ở `NghiTTSTextToolView` cho Piper.
+    static let shared: VieNeuTTSService? = {
+        guard let store = try? VieNeuModelStore() else { return nil }
+        return VieNeuTTSService(store: store, engine: VieNeuTTSEngine(store: store))
+    }()
+
     private let store: VieNeuModelStore
     private let engine: VieNeuTTSEngine
     private let syncQueue = DispatchQueue(label: "VieNeuTTSService.sync")
@@ -32,6 +44,16 @@ final class VieNeuTTSService: @unchecked Sendable {
     var engineStatus: String {
         "VieNeu-TTS v3 Nano (ONNX, 24 kHz, CPU) — \(engine.currentMode.rawValue)"
     }
+
+    /// Kho model, để màn thử giọng hiện được "đã tải / còn thiếu file nào / tốn bao nhiêu".
+    var modelStore: VieNeuModelStore { store }
+
+    /// Chế độ chất lượng đang chạy. Cùng với RTF đo được, đây là **dữ liệu quyết định** có nối engine
+    /// vào Reader hay không — xem plan §7.
+    var currentMode: VieNeuSynthesisPolicy.Mode { engine.currentMode }
+
+    /// 4 session ONNX đã nạp xong chưa — màn thử giọng dùng để hiện "đang nạp engine…" ở lượt đầu.
+    var isPrepared: Bool { engine.isPrepared }
 
     init(store: VieNeuModelStore, engine: VieNeuTTSEngine) {
         self.store = store

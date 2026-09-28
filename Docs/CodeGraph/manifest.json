@@ -3,9 +3,9 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-09-28T15:14:36Z",
-  "gitCommit": "5ec84fbeb5a46d071a6d8250e2c6ca268d29fe1e",
-  "sourceFileCount": 600,
+  "generatedAt": "2026-09-28T15:50:10Z",
+  "gitCommit": "1e70d75781606c1e13cf45eeae085f93e8b39de8",
+  "sourceFileCount": 601,
   "documentCount": 16,
   "documents": [
     {
@@ -559,6 +559,7 @@
         "Sources/Views/Settings/TTS/TTSDictionaryEditView.swift",
         "Sources/Views/Settings/TTS/TTSModelManagerView.swift",
         "Sources/Views/Settings/TTS/TTSReplacementManagerView.swift",
+        "Sources/Views/Settings/TTS/VieNeuTTSTestView.swift",
         "Sources/Views/Settings/Translation/JunkFilterManagementView.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRuleCaptureChipsView.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRuleDraftIssuesView.swift",
@@ -617,12 +618,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "c04cd2bd412fab80f84a678ca48af3bb2d7123784120e4e3955fafe97b06b87b",
-      "sourceHash": "5aa93d73f55fe7041419514b034a896d467cc1a9f6dac8b73728b52d719d7665",
-      "generatedHash": "f77baf11e9dcf4634372bf2783b647c4eb8bb069bbf641a9ee5656f2ee1ebf98",
-      "generatedAt": "2026-09-28T14:54:06Z",
-      "reviewedAt": "2026-09-28T14:54:06Z",
-      "reviewedCommit": "0882bb657353e7abacf17413bcd9b1776300c5a8",
+      "structureHash": "533704af9a643b6f736f4f0fafb64475eca267db11100bdae90239052130cbfc",
+      "sourceHash": "4dd11c4839408cd70cd7222a8e324f066630895a1198c348afb2273defd73f7d",
+      "generatedHash": "cd3158ad49dea19816491ff6336893fd0e92560b7dc440336a1c9cbea2d41848",
+      "generatedAt": "2026-09-28T15:50:04Z",
+      "reviewedAt": "2026-09-28T15:50:04Z",
+      "reviewedCommit": "1e70d75781606c1e13cf45eeae085f93e8b39de8",
       "reviewMode": "accept"
     },
     {
@@ -1203,6 +1204,7 @@
         "Sources/Views/Settings/TTS/TTSDictionaryEditView.swift",
         "Sources/Views/Settings/TTS/TTSModelManagerView.swift",
         "Sources/Views/Settings/TTS/TTSReplacementManagerView.swift",
+        "Sources/Views/Settings/TTS/VieNeuTTSTestView.swift",
         "Sources/Views/Settings/Translation/JunkFilterManagementView.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRuleCaptureChipsView.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRuleDraftIssuesView.swift",
@@ -1261,12 +1263,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "c04cd2bd412fab80f84a678ca48af3bb2d7123784120e4e3955fafe97b06b87b",
-      "sourceHash": "5d1db3ac95fc01e7ac684b71d9671dc8fad319e6752850c1bf8ff7f086759c4c",
-      "generatedHash": "e3b24496fe9b1890063ccc7be76063d88e379c3604a2a88f83a72503b6cf9a6d",
-      "generatedAt": "2026-09-28T15:14:33Z",
-      "reviewedAt": "2026-09-28T15:14:33Z",
-      "reviewedCommit": "5ec84fbeb5a46d071a6d8250e2c6ca268d29fe1e",
+      "structureHash": "533704af9a643b6f736f4f0fafb64475eca267db11100bdae90239052130cbfc",
+      "sourceHash": "4dd11c4839408cd70cd7222a8e324f066630895a1198c348afb2273defd73f7d",
+      "generatedHash": "08277883adac19549ea06da9f2d7b753944eabdbe50828f3bbc66d45e0f247c9",
+      "generatedAt": "2026-09-28T15:50:04Z",
+      "reviewedAt": "2026-09-28T15:50:04Z",
+      "reviewedCommit": "1e70d75781606c1e13cf45eeae085f93e8b39de8",
       "reviewMode": "accept"
     },
     {
@@ -1559,11 +1561,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "c198ef3b3b1e1de3dec2b97435882551547045e4d6ae65d44cd515894b5ee5c5",
-      "sourceHash": "6343c57321fe6fc0b40708fdc5f696cdf7b65ffea3f90bdc9078c4c6e33930e5",
+      "sourceHash": "ce267589780dcef00a0ef707df058da56e8993a6fabec42dd9dc6123d2472fce",
       "generatedHash": "b36e32fc7ffedcf881ff66fa5a3caacc156cd88dbc0e07eda10844b3fed54be0",
-      "generatedAt": "2026-09-28T15:14:36Z",
-      "reviewedAt": "2026-09-28T15:14:36Z",
-      "reviewedCommit": "5ec84fbeb5a46d071a6d8250e2c6ca268d29fe1e",
+      "generatedAt": "2026-09-28T15:50:10Z",
+      "reviewedAt": "2026-09-28T15:50:10Z",
+      "reviewedCommit": "1e70d75781606c1e13cf45eeae085f93e8b39de8",
       "reviewMode": "no-change-needed"
     },
     {
@@ -2410,6 +2412,7 @@
         "Sources/Views/Settings/TTS/TTSDictionaryEditView.swift",
         "Sources/Views/Settings/TTS/TTSModelManagerView.swift",
         "Sources/Views/Settings/TTS/TTSReplacementManagerView.swift",
+        "Sources/Views/Settings/TTS/VieNeuTTSTestView.swift",
         "Sources/Views/Settings/Translation/JunkFilterManagementView.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRuleCaptureChipsView.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRuleDraftIssuesView.swift",
@@ -2468,12 +2471,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "0698aacb2adfb7fda3f6d78b2c23adb7422a740d4705b4001717fb98b8758ae5",
-      "sourceHash": "10b8debb2af76f92aa807ba54266dd8a9afbc94ed57f3bd48e3428f42883f1a1",
-      "generatedHash": "feb6e064daaafc72baaa5631087e66ac2056678c5355a6d8a99b725b81de3d84",
-      "generatedAt": "2026-09-28T15:14:33Z",
-      "reviewedAt": "2026-09-28T15:14:33Z",
-      "reviewedCommit": "5ec84fbeb5a46d071a6d8250e2c6ca268d29fe1e",
+      "structureHash": "6cb56ea24c78922a5370c182334e1ac2381ef983c9e1c0cc8e535b193defb541",
+      "sourceHash": "820b40e77fc0b8fbd84a6668150cfa3f681dd54740a8273b7c9493d1239c67e5",
+      "generatedHash": "c1c9c3e933307984ecb7c8494212f1ca9efbe8f99127aa45455ee622c997bf30",
+      "generatedAt": "2026-09-28T15:50:04Z",
+      "reviewedAt": "2026-09-28T15:50:04Z",
+      "reviewedCommit": "1e70d75781606c1e13cf45eeae085f93e8b39de8",
       "reviewMode": "accept"
     },
     {
@@ -2601,11 +2604,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "8dc2c6a91609d605a0771c0dff64b67b46229da6b9d1acdc0344ac66de578cef",
-      "sourceHash": "88148d021112f49f875eeeeb3d10a760de23aad74f95219954397bc46e80eda0",
+      "sourceHash": "ae0fa4c4a0a84ba57833b2043a1ea652b38b4fea993e3a533cbd5be82da86135",
       "generatedHash": "562295e05049eb18d67bbe3fb31919139a70fef08324b7e66f64ea7597d07e2b",
-      "generatedAt": "2026-09-28T15:14:36Z",
-      "reviewedAt": "2026-09-28T15:14:36Z",
-      "reviewedCommit": "5ec84fbeb5a46d071a6d8250e2c6ca268d29fe1e",
+      "generatedAt": "2026-09-28T15:50:10Z",
+      "reviewedAt": "2026-09-28T15:50:10Z",
+      "reviewedCommit": "1e70d75781606c1e13cf45eeae085f93e8b39de8",
       "reviewMode": "no-change-needed"
     },
     {
@@ -3097,6 +3100,7 @@
         "Sources/Views/Settings/TTS/TTSDictionaryEditView.swift",
         "Sources/Views/Settings/TTS/TTSModelManagerView.swift",
         "Sources/Views/Settings/TTS/TTSReplacementManagerView.swift",
+        "Sources/Views/Settings/TTS/VieNeuTTSTestView.swift",
         "Sources/Views/Settings/Translation/JunkFilterManagementView.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRuleCaptureChipsView.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRuleDraftIssuesView.swift",
@@ -3155,13 +3159,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "4fea65bb63cef4d92836a75c11070a2ad7ac80682cc4732401f73809b89dc528",
-      "sourceHash": "683dee4ad00364409aa6800313162cf980512f99d6d787da3d3e6e90326bf27c",
-      "generatedHash": "cd69cd2d6f473ed4d28c6320e3901a2c83edc165909e1450e406e09fb841ae1e",
-      "generatedAt": "2026-09-28T15:14:36Z",
-      "reviewedAt": "2026-09-28T15:14:36Z",
-      "reviewedCommit": "5ec84fbeb5a46d071a6d8250e2c6ca268d29fe1e",
-      "reviewMode": "no-change-needed"
+      "structureHash": "897a43c37d3582ce7491b3ffd9000a0991d84d1899cd457567a2830c10fb5a12",
+      "sourceHash": "d5c39967367e3a2543ab57cd1b661a25d3c8ec128382a961c3594b5ed2c427a7",
+      "generatedHash": "c6cb2d563ee2e3f16355b950d32ebc67b05ec0ce3cfc25037312b742ae9bd5d1",
+      "generatedAt": "2026-09-28T15:50:04Z",
+      "reviewedAt": "2026-09-28T15:50:04Z",
+      "reviewedCommit": "1e70d75781606c1e13cf45eeae085f93e8b39de8",
+      "reviewMode": "accept"
     },
     {
       "filename": "12_ownership_graph.md",
@@ -3430,11 +3434,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "29ad69349ba62d8e8e5603ee6c9cdd8042dbcce66537fbad546cc32f7af5610f",
-      "sourceHash": "d184fcf6456c0b6391a4b4cb9a3a38041ff33ea46771a450dd83a345384b9fad",
+      "sourceHash": "91c85c8ab28ada74e4d8bf6bcdaaf1468ec3b9d69da2350f855f42ec71086946",
       "generatedHash": "f452b2f830e04468d3f728a803b66fa6681154cb70dbbccb0baf180591d02015",
-      "generatedAt": "2026-09-28T15:14:36Z",
-      "reviewedAt": "2026-09-28T15:14:36Z",
-      "reviewedCommit": "5ec84fbeb5a46d071a6d8250e2c6ca268d29fe1e",
+      "generatedAt": "2026-09-28T15:50:10Z",
+      "reviewedAt": "2026-09-28T15:50:10Z",
+      "reviewedCommit": "1e70d75781606c1e13cf45eeae085f93e8b39de8",
       "reviewMode": "no-change-needed"
     },
     {
@@ -3988,6 +3992,7 @@
         "Sources/Views/Settings/TTS/TTSDictionaryEditView.swift",
         "Sources/Views/Settings/TTS/TTSModelManagerView.swift",
         "Sources/Views/Settings/TTS/TTSReplacementManagerView.swift",
+        "Sources/Views/Settings/TTS/VieNeuTTSTestView.swift",
         "Sources/Views/Settings/Translation/JunkFilterManagementView.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRuleCaptureChipsView.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRuleDraftIssuesView.swift",
@@ -4046,12 +4051,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "c04cd2bd412fab80f84a678ca48af3bb2d7123784120e4e3955fafe97b06b87b",
-      "sourceHash": "5aa93d73f55fe7041419514b034a896d467cc1a9f6dac8b73728b52d719d7665",
-      "generatedHash": "6c95167c13698f80eac8d34497f62bde6fe7b9a276b69df052b86f336486474f",
-      "generatedAt": "2026-09-28T14:54:06Z",
-      "reviewedAt": "2026-09-28T14:54:06Z",
-      "reviewedCommit": "0882bb657353e7abacf17413bcd9b1776300c5a8",
+      "structureHash": "533704af9a643b6f736f4f0fafb64475eca267db11100bdae90239052130cbfc",
+      "sourceHash": "4dd11c4839408cd70cd7222a8e324f066630895a1198c348afb2273defd73f7d",
+      "generatedHash": "b5b0b57cf4f99d802d83600093e60d7f8579f5df281a423fcad6d6f530dfd813",
+      "generatedAt": "2026-09-28T15:50:04Z",
+      "reviewedAt": "2026-09-28T15:50:04Z",
+      "reviewedCommit": "1e70d75781606c1e13cf45eeae085f93e8b39de8",
       "reviewMode": "accept"
     },
     {
@@ -4172,11 +4177,11 @@
         "Sources/Views/Reader/ReaderView.swift"
       ],
       "structureHash": "b1be7dc1300183a28b201fb956c7a0353fcb3398a5a3d408c1373d20e85d2229",
-      "sourceHash": "5c85974ec62340fc3656fb9e06f8581ad182923c8153fa013220daa6c4db1b0b",
+      "sourceHash": "c3d7a5ec72e139a128fc959bdb3a7f137704eb59612b3187e98fde3d9e994f05",
       "generatedHash": "cbdd255e768137977c3074359a1fe45d4a1088dee7ed95997836dcb58ef70c73",
-      "generatedAt": "2026-09-28T15:14:36Z",
-      "reviewedAt": "2026-09-28T15:14:36Z",
-      "reviewedCommit": "5ec84fbeb5a46d071a6d8250e2c6ca268d29fe1e",
+      "generatedAt": "2026-09-28T15:50:10Z",
+      "reviewedAt": "2026-09-28T15:50:10Z",
+      "reviewedCommit": "1e70d75781606c1e13cf45eeae085f93e8b39de8",
       "reviewMode": "no-change-needed"
     }
   ]

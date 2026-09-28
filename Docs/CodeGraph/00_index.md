@@ -15,6 +15,13 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Màn Thử Giọng VieNeu-TTS v3 Nano — Đo RTF Trước Khi Nối Vào Reader (1.3.418)
+
+* [`VieNeuTTSTestView.swift`](../../Sources/Views/Settings/TTS/VieNeuTTSTestView.swift#L1): tải/xoá model (~343 MB), chọn 1 trong 11 giọng, nhập chữ, phát thử, và **hiện RTF + chế độ chất lượng + thời gian tổng hợp**. Vào từ Cấu hình NghiTTS → mục "Engine khác".
+* [`VieNeuTTSService.swift`](../../Sources/Services/TTS/VieNeu/VieNeuTTSService.swift#L1): thêm `static let shared` **tạo lười** + `modelStore`/`currentMode`/`isPrepared`.
+* [`VieNeuTTSEngine.swift`](../../Sources/Services/TTS/VieNeu/VieNeuTTSEngine.swift#L1): thêm `isPrepared`.
+* **Chưa nối vào Picker "Trình đọc"**: thêm mục vào Picker mà chưa nối tầng tổng hợp thì `tool == "vieneu"` rơi vào nhánh "là extension tool" và app đi tìm extension tên `vieneu`. Việc nối Reader là lượt riêng, và **phải đo RTF trước** — xem plan §7.
+
 ## Engine Đọc VieNeu-TTS v3 Nano — Bước 0 & Engine Core (1.3.417)
 
 **Bước 0 (cổng cứng của plan) đã ĐẠT**: đối chiếu vocab `config.json` của Nano với `sea_g2p.bin` thật — cả **42** ký tự non-ASCII mà model cần đều có trong file nhị phân (8 ký tự còn lại là emotion tag `①`…`⑧`, đi qua `emotion_tags` chứ không qua phonemizer) ⇒ **không lệch**, `SeaG2P` dùng lại được.
