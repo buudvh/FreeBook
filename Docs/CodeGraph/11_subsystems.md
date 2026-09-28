@@ -15,6 +15,21 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Engine Đọc VieNeu-TTS v3 Nano — Engine Core Trong `Sources/Services/TTS/VieNeu/` (1.3.417)
+
+* **Đây là engine local thứ hai, cạnh Piper (`NghiTTS/`)**, và **khác Piper về bản chất**: Piper là VITS một-lượt (mỗi giọng một file `.onnx`), còn VieNeu v3 Nano là **flow-matching non-autoregressive** 48M tham số — 4 graph dùng chung cho cả 11 giọng, mỗi giọng chỉ là hai mảng số (`speaker_emb` 192-d + `style` 50×256).
+* **Pipeline (`VieNeuTTSEngine.swift`)**:
+  - `phoneme (sea-g2p)` → `ids` + `mask` (`ids != pad`) → `text_encoder` → `ctx [1,L,512]`.
+  - `duration_predictor(ctx, ctx_mask, spk)` → `log_s`; `secs = min(exp(log_s)/speed, 15)`, `T = max(2, round(secs × 15.625))`.
+  - `x = N(0,1)[1,144,T]`; lặp `steps` lần: `v` có điều kiện + `vu` vô điều kiện (null từ `constants.npz`), `v = vu + cfg×(v−vu)`, `x += (tg[i+1]−tg[i])×v`.
+  - `codec_decoder(x)` → PCM float32 24 kHz → `WAVEncoder.encodePCM16`.
+  - Bốn điểm bám sát bản tham chiếu và **không được đổi**: `t` là `tg[i]` (thời gian **đã warp**), lưới `tg = u + sway×(cos(π/2·u) − 1 + u)`, nhiễu khởi tạo **chuẩn tắc** (không đều), và `round()` kiểu Python (`rounded(.toNearestOrEven)`).
+* **Hai chế độ chất lượng (`VieNeuSynthesisPolicy.swift`)**: `high` = 16 step + `sway 0`; `fast` = 8 step + `sway −1` (cặp này **không được tách rời**). Luật đổi chế độ có **trễ**: cần 3 mẫu liên tiếp vượt `downshiftRTF = 0.85` mới hạ, và 3 mẫu liên tiếp dưới `upshiftRTF = 0.45` mới nâng lại — ngưỡng hai chiều lệch nhau để không lật qua lật lại ở đúng ranh giới.
+* **Tách văn bản (`+Audio.swift`)**: ≤140 ký tự, ưu tiên cắt sau dấu kết câu nhưng **không** cắt khi mẩu còn dưới 40 ký tự (nếu không, một đoạn nhiều dấu phẩy vỡ thành hàng chục chunk và mỗi chunk phải chạy trọn một vòng Euler). Đây là phần **thay thế có chủ ý** cho `normalize_to_chunks_v3_with_gaps`: hàm đó vừa chuẩn hoá văn bản vừa tách chunk, mà quyết định của chủ dự án là **không** chạy lớp tiền xử lý nào cho engine này.
+* **Không chạy `TextPreprocessor`** (chuẩn hoá số / từ điển / IPA espeak) — lớp đó chỉ nằm trong `PiperTTSService.swift:195, 341`. Lớp **thay thế ký tự dùng chung** `TTSReplacementManager.applyReplacements` thì vẫn áp dụng, vì nó chạy ở **call site tổng hợp** chứ không trong facade.
+* **Bước 0 đã xác minh bằng dữ liệu thật**: 42/42 ký tự non-ASCII trong vocab của Nano đều có trong `sea_g2p.bin`; `constants.npz` là ZIP_STORED, NPY v1.0 `<f4>` với `null_spk (192,)` + `null_style (50,256)`; `voices_v3_nano.json` 2,3 MB, 11 giọng, mặc định `Minh Quân`.
+* **Chưa nối vào `TTSManager`** — chưa có `tool == "vieneu"`, chưa có UI, chưa có màn tải model. Engine hiện là code chưa được gọi.
+
 ## Token `<hn>` Đọc Số Hán Theo Phiên Âm Hán-Việt & Thứ Hạng Cố Định Giữa Các Token Lớp Ký Tự (1.3.416)
 
 * **Token lớp ký tự thứ bảy cho DSL rule dịch (`QuickTranslationRuleElement.swift`, `QuickTranslationNumberFormatter.swift`, `QuickTranslationRuleParser.swift`)**:

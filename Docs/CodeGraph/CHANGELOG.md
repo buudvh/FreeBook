@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.417] - 2026-09-28
+
+### feat: them engine doc VieNeu-TTS v3 Nano (engine core)
+
+Thêm **12** file Swift mới (2.075 dòng) trong `Sources/Services/TTS/VieNeu/`. **Không sửa file cũ nào** — engine chưa được nối vào `TTSManager`.
+
+- **Bước 0 (cổng cứng của plan) — ĐẠT**: đối chiếu vocab `config.json` của Nano với `sea_g2p.bin` thật (tải 62.829.820 byte): cả **42** ký tự non-ASCII mà model cần đều có trong file nhị phân; 8 ký tự "thiếu" là emotion tag `①`…`⑧` và đi qua `emotion_tags` chứ không qua phonemizer ⇒ `SeaG2P` của repo cũ dùng lại được, **không lệch**. Đồng thời xác minh `constants.npz` là ZIP_STORED / NPY v1.0 `<f4>` (`null_spk (192,)`, `null_style (50,256)`) và `voices_v3_nano.json` (2,3 MB, 11 giọng, mặc định `Minh Quân`, mỗi giọng `speaker_emb` 192 + `style` 50×256).
+- **Pipeline flow-matching (`VieNeuTTSEngine.swift`, `+Tensors.swift`, `+Audio.swift`)**: `text_encoder` → `duration_predictor` → vòng Euler có CFG → `codec_decoder`, kèm tách văn bản ≤140 ký tự. Bốn điểm bám sát bản tham chiếu: `t` là `tg[i]` (**thời gian đã warp**, không phải `u[i]`), lưới `tg = u + sway×(cos(π/2·u) − 1 + u)`, nhiễu khởi tạo **chuẩn tắc** (không phải đều — đổi sang đều là tụt chất lượng mà không có lỗi nào báo), và `round()` kiểu Python (`rounded(.toNearestOrEven)`).
+- **DSP port nguyên hằng số**: `trim_and_fade`/`edge_silence` với `EDGE_THRESH_DB = −45`, giữ 0,04 s mỗi đầu, fade cosine 0,015 s, cửa sổ 10 ms.
+- **Chính sách chất lượng (`VieNeuSynthesisPolicy.swift`)**: `high` = 16 step + `sway 0`, `fast` = 8 step + `sway −1` (cặp không tách rời); đổi chế độ **có trễ** (3 mẫu liên tiếp vượt `0.85` mới hạ, 3 mẫu dưới `0.45` mới nâng); `threadCount = 2` (không 1 như Piper, không 6 như desktop).
+- **Cấu hình (`VieNeuConfig.swift`, `VieNeuNPZReader.swift`)**: vocab lưu theo **Unicode scalar** vì bốn dấu tổ hợp `̪ ̩ ̃ ʲ` là entry riêng — duyệt bằng `Character` của Swift sẽ gộp `t`+`̪` thành một ký tự và **nuốt im lặng** phoneme. `NPZReader` đọc thẳng vùng dữ liệu `.npy` (đã kiểm `compress_type = 0`) và đọc số **từng byte** để không rebind con trỏ lệch căn chỉnh — dạng lỗi repo cũ đã crash thật ở `c838327`.
+- **Tải model (`VieNeuModelStore.swift`, `VieNeuModelClient.swift`)**: kho riêng, **cố ý tách khỏi `ModelStore` của Piper** (nếu chung thư mục thì `getLocalVoiceIDs()` sẽ nhận 4 graph của Nano thành 4 "giọng Piper"). **Ghim sha cả ba nguồn**: HF `aba295eb96a6fa6003ebe417cc1f2802a7adc1dc`, GitHub `2e982ff857bbe23fffa0c314e0f60da2497e2f4b` (`voices_v3_nano.json`) và `e825173f235d08ea19315b2b279fb11153b44cea` (`sea_g2p.bin`). Resume ở **mức từng file** (file tạm → `moveItem` nguyên cùng thư mục), **không** resume theo byte — **điểm lệch plan**, lý do ghi trong file (API async của `URLSession` không đưa `resumeData`; `bytes(for:)` trả từng byte nên 280 MB là không dùng được).
+- **Facade (`VieNeuTTSService.swift`)**: song song `PiperTTSService`, dùng **chung** `PiperSynthesisCoordinator` (4 mức ưu tiên + coalescing + `promote`) và tái dùng `PiperTTSService.isUnspeakable`/`makeSilenceSpec`/`buildSilenceStreamingPayload` với `sampleRate: 24_000` (quên tham số này là mọi khoảng nghỉ ngắn hơn ~8 %). `synthesizeStream` phát **một** chunk cho cả đoạn — model không có streaming cấp frame; hạn chế này ghi rõ trong doc của type.
+- **Port G2P (`SeaG2P.swift`, `SeaG2P+Phonemize.swift`)**: mang nguyên từ `VieNeuTTS-Offline` (bản gốc 509 dòng ⇒ buộc tách 2 file theo trần 400 và hạ `private` → `internal` cho thành viên dùng chéo file).
+- **Hai lỗi kiến trúc do lượt này gây ra đã sửa trước khi commit**: `VieNeuConfig` bị `MULTI_PRIMARY_TYPES` (tách `NPZReader` ra file riêng — đặt `private` không giải quyết được vì bộ đếm tính type top-level bất kể mức truy cập) và `VieNeuTTSEngine` 472 > 400 (tách `+Tensors` và `+Audio`).
+- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `architecture_allowlist.json` không bị sửa. Không build được trên Windows.
+- **Tài liệu CodeGraph**: Cập nhật `00_index.md`, `02_file_graph.md`, `09_dependency_rules.md`, `11_subsystems.md`, `14_complexity_report.md` (`--accept`); `04_call_graph.md`, `10_risk_report.md`, `13_resource_lifecycle.md`, `rules.md` (`--no-change-needed` — engine chưa được gọi nên call graph/risk/lifecycle không đổi).
+
 ## [1.3.416] - 2026-09-28
 
 ### feat: them token <hn> doc so han thanh phien am han viet va thu hang token lop ky tu

@@ -15,6 +15,20 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Engine Đọc VieNeu-TTS v3 Nano — Bước 0 & Engine Core (1.3.417)
+
+**Bước 0 (cổng cứng của plan) đã ĐẠT**: đối chiếu vocab `config.json` của Nano với `sea_g2p.bin` thật — cả **42** ký tự non-ASCII mà model cần đều có trong file nhị phân (8 ký tự còn lại là emotion tag `①`…`⑧`, đi qua `emotion_tags` chứ không qua phonemizer) ⇒ **không lệch**, `SeaG2P` dùng lại được.
+
+* [`VieNeuModelStore.swift`](../../Sources/Services/TTS/VieNeu/VieNeuModelStore.swift#L1): Kho file riêng (`Application Support/FreeBook/TTS/VieNeu/{Models,Assets}`), **cố ý tách khỏi `ModelStore` của Piper**: `ModelStore.getLocalVoiceIDs()` quét **mọi** `.onnx` trong thư mục của nó, nên 4 graph của Nano nằm chung sẽ bị nhận thành 4 "giọng Piper" và hiện lên màn quản lý model.
+* [`VieNeuConfig.swift`](../../Sources/Services/TTS/VieNeu/VieNeuConfig.swift#L1) + [`VieNeuNPZReader.swift`](../../Sources/Services/TTS/VieNeu/VieNeuNPZReader.swift#L1): đọc `config.json` (vocab 81 entry, `flow_fps` 15.625, `latent_dim` 24 × `group` 6 = 144, `n_style` 50 × `style_dim` 256, `bos/eos/pad` 1/2/0, `emotion_tags`) và `constants.npz` (`null_spk` 192, `null_style` 50×256). Vocab lưu theo **Unicode scalar** vì bốn dấu tổ hợp `̪ ̩ ̃ ʲ` là entry riêng — duyệt bằng `Character` của Swift sẽ gộp `t`+`̪` thành **một** ký tự và **nuốt im lặng** phoneme.
+* [`VieNeuVoiceCatalog.swift`](../../Sources/Services/TTS/VieNeu/VieNeuVoiceCatalog.swift#L1): 11 giọng preset từ `voices_v3_nano.json` (mỗi giọng `speaker_emb` 192 + `style` 50×256), giọng mặc định `Minh Quân` xếp đầu; thứ tự còn lại theo alphabet vì JSON không giữ thứ tự khoá.
+* [`VieNeuModelClient.swift`](../../Sources/Services/TTS/VieNeu/VieNeuModelClient.swift#L1): tải 8 file, **ghim sha cả ba nguồn** (HF `aba295eb…`, GitHub `2e982ff8…`, `e825173f…`). Resume ở **mức từng file** (file tạm → `moveItem` nguyên tử), **không** resume theo byte — điểm lệch plan có ghi lý do trong file.
+* [`VieNeuTTSEngine.swift`](../../Sources/Services/TTS/VieNeu/VieNeuTTSEngine.swift#L1) + [`+Tensors.swift`](../../Sources/Services/TTS/VieNeu/VieNeuTTSEngine+Tensors.swift#L1) + [`+Audio.swift`](../../Sources/Services/TTS/VieNeu/VieNeuTTSEngine+Audio.swift#L1): pipeline flow-matching (`text_encoder` → `duration_predictor` → vòng Euler 16/8 step có CFG → `codec_decoder`), tách văn bản ≤140 ký tự, và `trim_and_fade`/`edge_silence` port nguyên hằng số của bản tham chiếu (−45 dB, giữ 0,04 s, fade 0,015 s, cửa sổ 10 ms).
+* [`VieNeuSynthesisPolicy.swift`](../../Sources/Services/TTS/VieNeu/VieNeuSynthesisPolicy.swift#L1): hai chế độ `high` (16 step, sway 0) / `fast` (8 step, sway −1) + luật đổi chế độ **có trễ**; 2 luồng ORT (không 1 như Piper, không 6 như desktop).
+* [`VieNeuTTSService.swift`](../../Sources/Services/TTS/VieNeu/VieNeuTTSService.swift#L1): facade song song `PiperTTSService`, dùng **chung** `PiperSynthesisCoordinator` (4 mức ưu tiên + coalescing) và tái dùng `PiperTTSService.isUnspeakable`/`makeSilenceSpec` với `sampleRate: 24_000`.
+* [`SeaG2P.swift`](../../Sources/Services/TTS/VieNeu/SeaG2P.swift#L1) + [`SeaG2P+Phonemize.swift`](../../Sources/Services/TTS/VieNeu/SeaG2P+Phonemize.swift#L1): port G2P thuần Swift (bản gốc 509 dòng ⇒ buộc tách 2 file theo trần 400), đọc `sea_g2p.bin` 62.829.820 byte.
+* Thêm **12** file Swift mới (2.075 dòng); cần `xcodegen generate` và build trên macOS.
+
 ## Token `<hn>` Đọc Số Hán Theo Phiên Âm Hán-Việt & Thứ Hạng Cố Định Giữa Các Token Lớp Ký Tự (1.3.416)
 
 * [`QuickTranslationRuleNumeralNarrowness.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleNumeralNarrowness.swift#L1): File mới — bảng hạng cố định của bảy token lớp ký tự (`<h>` 0, `<d>` 1, `<hn>` 2, `<m>` 3, `<y>` 4, `<n>` 5, `<a>` 6) và bộ so hai vector hạng theo thứ tự token. Đây là tiêu chí phá hoà **cuối cùng** của `select`, đứng ngay trước `sourceLine`, nên hai rule chỉ khác phần token (ví dụ `<d>天` gặp `<n>天`) không còn để số dòng quyết định.
