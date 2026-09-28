@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Sửa Shape `ctx` (Lỗi Thứ Tư Cùng Loại) + Dời Màn Thử Giọng Ra Tab Cài Đặt (1.3.420)
+
+* **Lỗi: `Got: 512 Expected: 256` ở input `ctx` của `duration_predictor`.** Bản trước tự dựng shape `ctx` là `[1, L, dim]` với `dim = 512` đọc từ `config.json`. Chiều thật của `ctx` là **`style_dim` = 256**; `dim` phục vụ chỗ khác của kiến trúc. Đây là **lần thứ ba** cùng một loại lỗi trong engine này (sau tên output ONNX và kích thước entry `.npz`) ⇒ luật đã ghi vào `rules.md`: **hỏi model, đừng đoán**.
+  * Cách sửa: `VieNeuORTRunTextEncoder` trả thêm `outShape`/`outRank` (lấy từ `GetDimensions`), `durationPredictor`/`vectorEstimator` **bắt buộc** nhận lại đúng shape đó và tự suy số token từ `contextShape[1]`. `VieNeuConfig.dim` **bị xoá** thay vì để lại một trường không dùng kèm doc nói sai.
+* **Màn thử giọng dời ra tab Cài đặt**: mục "Thử giọng VieNeu-TTS" nay nằm ở `Settings/Main/TTSSettingsSection.swift`, **ngang hàng** với "Cài đặt TTS"/"Quản lý Model" — không còn nằm trong `NghiTTSSettingsView`. Lý do: đây là **engine thứ hai**, không phải một tuỳ chọn của NghiTTS/Piper.
+* **Thêm nút "Sao chép kết quả"** trong màn thử giọng: gom thông báo lỗi + số đo RTF + trạng thái model + engine status thành một khối văn bản để dán vào chat, thay vì chụp màn hình (chụp màn hình làm mất chữ và mất luôn phần số đo).
+
 ## Sửa Hai Lỗi Làm Engine VieNeu Không Chạy Được Trên Máy Thật (1.3.419)
 
 Người dùng cài IPA và bấm "Phát thử" → lỗi `Graph runtime không trả về tensor mong đợi`. Truy ra **ba** nguyên nhân, hai trong số đó là lỗi thật của lượt trước:

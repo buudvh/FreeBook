@@ -8,16 +8,20 @@ import Foundation
 /// không có đường vá sang kiểu số). Nhưng `ORTTensorElementDataType` của wrapper ObjC **không có case
 /// `Bool`** ở **mọi** bản còn dùng được — đã kiểm `ort_enums.h` tại ORT v1.16.0, v1.20.0, v1.24.2 (bản
 /// gói SPM `from: 1.16.0` resolve tới) và cả `main` của gói SPM; chỉ `main` của **ORT core** mới có, và
-/// nó chưa phát hành. Hàm map `PublicToCAPITensorElementType` dùng bảng tra + throw nên
-/// `ORTTensorElementDataType(rawValue: 9)` cũng không lọt, và `ORTValue` không có init nào nhận con trỏ
-/// C `OrtValue*`.
+/// nó chưa phát hành.
 ///
 /// ## Vì sao phải qua file C trung gian
 /// `import onnxruntime` **không** hoạt động: product SPM `onnxruntime` chỉ trỏ tới target ObjC
 /// `OnnxRuntimeBindings`, còn binary target C là dependency **nội bộ** của target đó, và umbrella header
 /// `onnxruntime.h` không `#import` header C API ⇒ module C không nằm trong tầm import của target app.
-/// Nên phần C API nằm ở `VieNeuONNXBridge.m` (C thuần, mọi kiểu chắc chắn theo header), và Swift chỉ
-/// gọi bốn hàm typed đúng bằng bốn bước pipeline. Bridging header khai ở `project.yml`.
+/// Nên phần C API nằm ở `VieNeuONNXBridge.m`, và Swift thấy nó qua bridging header (khai ở `project.yml`).
+///
+/// ## Shape của `ctx` là dữ liệu, không phải hằng số
+/// `textEncoder` trả **cả shape thật** của tensor, và `durationPredictor`/`vectorEstimator` bắt buộc
+/// nhận lại đúng shape đó. Bản đầu tự dựng `[1, L, dim]` với `dim = 512` đọc từ `config.json`, nên
+/// `duration_predictor` báo `Got: 512 Expected: 256` — chiều thật của `ctx` là `style_dim` (256), còn
+/// `dim` là một chiều khác của kiến trúc. Đây là lần thứ ba trong engine này cùng một loại lỗi: **đoán
+/// thay vì hỏi model**.
 ///
 /// Mọi mảng C trả về là `malloc` ⇒ Swift phải `free` sau khi copy.
 final class VieNeuONNXRuntime {
@@ -30,6 +34,9 @@ final class VieNeuONNXRuntime {
             }
         }
     }
+
+    /// Số chiều tối đa nhận từ `GetDimensions` — mọi tensor của pipeline đều ≤ 3 chiều.
+    private static let maximumRank = 8
 
     private let handle: OpaquePointer
 
@@ -47,43 +54,56 @@ final class VieNeuONNXRuntime {
 
     // MARK: - Bốn bước của pipeline
 
-    /// `text_encoder(ids, style)` → `ctx` phẳng theo hàng, shape `[1, length, dim]`.
-    func textEncoder(ids: [Int64], style: [Float], styleRows: Int, styleColumns: Int, dim: Int) throws -> [Float] {
+    /// `text_encoder(ids, style)` → `ctx` kèm **shape thật** để hai bước sau dùng lại.
+    func textEncoder(
+        ids: [Int64],
+        style: [Float],
+        styleRows: Int,
+        styleColumns: Int
+    ) throws -> (values: [Float], shape: [Int64]) {
         var count: Int32 = 0
+        var rank: Int32 = 0
+        var shape = [Int64](repeating: 0, count: Self.maximumRank)
         var message: UnsafeMutablePointer<CChar>?
         let pointer = ids.withUnsafeBufferPointer { idsBuffer in
             style.withUnsafeBufferPointer { styleBuffer in
-                VieNeuORTRunTextEncoder(
-                    handle,
-                    idsBuffer.baseAddress, Int32(ids.count),
-                    styleBuffer.baseAddress, Int32(styleRows), Int32(styleColumns),
-                    &count, &message
-                )
+                shape.withUnsafeMutableBufferPointer { shapeBuffer in
+                    VieNeuORTRunTextEncoder(
+                        handle,
+                        idsBuffer.baseAddress, Int32(ids.count),
+                        styleBuffer.baseAddress, Int32(styleRows), Int32(styleColumns),
+                        &count,
+                        shapeBuffer.baseAddress, Int32(Self.maximumRank), &rank,
+                        &message
+                    )
+                }
             }
         }
-        return try Self.take(pointer, count: count, message: message)
+        let values = try Self.take(pointer, count: count, message: message)
+        return (values, Array(shape.prefix(Int(max(0, rank)))))
     }
 
     /// `duration_predictor(ctx, ctx_mask, spk)` → `log_s`.
     func durationPredictor(
         context: [Float],
-        length: Int,
+        contextShape: [Int64],
         mask: [UInt8],
-        speaker: [Float],
-        dim: Int
+        speaker: [Float]
     ) throws -> Float {
         var value: Float = 0
         var message: UnsafeMutablePointer<CChar>?
         let status = context.withUnsafeBufferPointer { contextBuffer in
-            mask.withUnsafeBufferPointer { maskBuffer in
-                speaker.withUnsafeBufferPointer { speakerBuffer in
-                    VieNeuORTRunDurationPredictor(
-                        handle,
-                        contextBuffer.baseAddress, Int32(length), Int32(dim),
-                        maskBuffer.baseAddress,
-                        speakerBuffer.baseAddress, Int32(speaker.count),
-                        &value, &message
-                    )
+            contextShape.withUnsafeBufferPointer { shapeBuffer in
+                mask.withUnsafeBufferPointer { maskBuffer in
+                    speaker.withUnsafeBufferPointer { speakerBuffer in
+                        VieNeuORTRunDurationPredictor(
+                            handle,
+                            contextBuffer.baseAddress, shapeBuffer.baseAddress, Int32(contextShape.count),
+                            maskBuffer.baseAddress,
+                            speakerBuffer.baseAddress, Int32(speaker.count),
+                            &value, &message
+                        )
+                    }
                 }
             }
         }
@@ -99,33 +119,34 @@ final class VieNeuONNXRuntime {
         latent: [Float],
         time: Float,
         context: [Float],
-        length: Int,
+        contextShape: [Int64],
         mask: [UInt8],
         speaker: [Float],
         style: [Float],
         styleRows: Int,
         styleColumns: Int,
         latentChannels: Int,
-        frames: Int,
-        dim: Int
+        frames: Int
     ) throws -> [Float] {
         var count: Int32 = 0
         var message: UnsafeMutablePointer<CChar>?
         let pointer = latent.withUnsafeBufferPointer { latentBuffer in
             context.withUnsafeBufferPointer { contextBuffer in
-                mask.withUnsafeBufferPointer { maskBuffer in
-                    speaker.withUnsafeBufferPointer { speakerBuffer in
-                        style.withUnsafeBufferPointer { styleBuffer in
-                            VieNeuORTRunVectorEstimator(
-                                handle,
-                                latentBuffer.baseAddress, Int32(latentChannels), Int32(frames),
-                                time,
-                                contextBuffer.baseAddress, Int32(length), Int32(dim),
-                                maskBuffer.baseAddress,
-                                speakerBuffer.baseAddress, Int32(speaker.count),
-                                styleBuffer.baseAddress, Int32(styleRows), Int32(styleColumns),
-                                &count, &message
-                            )
+                contextShape.withUnsafeBufferPointer { shapeBuffer in
+                    mask.withUnsafeBufferPointer { maskBuffer in
+                        speaker.withUnsafeBufferPointer { speakerBuffer in
+                            style.withUnsafeBufferPointer { styleBuffer in
+                                VieNeuORTRunVectorEstimator(
+                                    handle,
+                                    latentBuffer.baseAddress, Int32(latentChannels), Int32(frames),
+                                    time,
+                                    contextBuffer.baseAddress, shapeBuffer.baseAddress, Int32(contextShape.count),
+                                    maskBuffer.baseAddress,
+                                    speakerBuffer.baseAddress, Int32(speaker.count),
+                                    styleBuffer.baseAddress, Int32(styleRows), Int32(styleColumns),
+                                    &count, &message
+                                )
+                            }
                         }
                     }
                 }

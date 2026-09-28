@@ -33,13 +33,6 @@ struct NghiTTSSettingsView: View {
                 }
             }
             
-            Section("Engine khác") {
-                NavigationLink(destination: VieNeuTTSTestView()) {
-                    Label("VieNeu-TTS v3 Nano", systemImage: "waveform")
-                        .foregroundColor(.white)
-                }
-            }
-
             Section("Cấu hình khoảng ngắt (giây)") {
                 PrecisionSliderView(title: "Xuống dòng:", value: $newlinePause, defaultValue: 0.4)
                 PrecisionSliderView(title: "Cuối câu (. ! ?):", value: $sentencePause, defaultValue: 0.3)

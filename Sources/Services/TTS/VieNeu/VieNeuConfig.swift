@@ -17,10 +17,11 @@ import Foundation
 struct VieNeuConfig: Sendable {
     let sampleRate: Int
     let flowFPS: Double
-    /// `dim` của `config.json` = 512 — chiều ẩn của `ctx`. Cần để **suy ra shape tensor theo công thức**
-    /// thay vì hỏi ONNX Runtime: shape của `ctx` là `[1, số phoneme, dim]`, và biết trước thì không phải
-    /// gọi `tensorTypeAndShapeInfo()` (API dễ lệch giữa các bản ORT) trong đường nóng.
-    let dim: Int
+    // Cố ý **không** giữ `dim` (512) của `config.json`: bản đầu dùng nó để tự dựng shape `ctx` là
+    // `[1, L, dim]`, và `duration_predictor` báo `Got: 512 Expected: 256` — chiều thật của `ctx` là
+    // `style_dim` (256), còn `dim` phục vụ một chỗ khác của kiến trúc. Shape tensor nay **đọc từ model**
+    // (`VieNeuONNXRuntime.textEncoder`), nên `dim` không còn việc gì; giữ lại chỉ tạo một khoá decode
+    // có thể làm hỏng cả file nếu upstream đổi tên.
     let latentDim: Int
     let group: Int
     let nStyle: Int
@@ -95,7 +96,6 @@ struct VieNeuConfig: Sendable {
         return VieNeuConfig(
             sampleRate: raw.sample_rate,
             flowFPS: raw.flow_fps,
-            dim: raw.dim,
             latentDim: raw.latent_dim,
             group: raw.group,
             nStyle: raw.n_style,
@@ -116,7 +116,6 @@ struct VieNeuConfig: Sendable {
     private struct RawConfig: Decodable {
         let sample_rate: Int
         let flow_fps: Double
-        let dim: Int
         let latent_dim: Int
         let group: Int
         let n_style: Int

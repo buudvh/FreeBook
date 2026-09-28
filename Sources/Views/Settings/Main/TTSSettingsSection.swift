@@ -19,6 +19,11 @@ struct TTSSettingsSection: View {
             NavigationLink(destination: NghiTTSSettingsView()) {
                 Label("Cấu hình tiền xử lý & ngắt nghỉ", systemImage: "slider.horizontal.3")
             }
+            // Màn thử giọng VieNeu đứng **ngang hàng** với các mục TTS khác, không nằm trong
+            // `NghiTTSSettingsView`: nó là engine thứ hai, không phải một tuỳ chọn của NghiTTS/Piper.
+            NavigationLink(destination: VieNeuTTSTestView()) {
+                Label("Thử giọng VieNeu-TTS", systemImage: "waveform.badge.plus")
+            }
         }
     }
 }

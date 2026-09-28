@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import UIKit
 
 /// Màn thử giọng **VieNeu-TTS v3 Nano**: tải model, chọn giọng, nghe thử, và **đo RTF thật**.
 ///
@@ -28,6 +29,7 @@ struct VieNeuTTSTestView: View {
     @State private var lastReport = ""
     @State private var player: AVAudioPlayer?
     @State private var synthesisTask: Task<Void, Never>?
+    @State private var didCopy = false
 
     private var service: VieNeuTTSService? { VieNeuTTSService.shared }
 
@@ -70,6 +72,25 @@ struct VieNeuTTSTestView: View {
                         .font(.system(.footnote, design: .monospaced))
                         .foregroundStyle(.secondary)
                 }
+            }
+
+            // Nút này tồn tại vì một lý do cụ thể: khi engine lỗi, thứ cần thiết là **nguyên văn thông
+            // báo**, mà chụp màn hình thì mất chữ và mất luôn phần số đo. Sao chép ra một khối văn bản
+            // thì dán thẳng vào chat là đủ để chẩn đoán.
+            Section {
+                Button {
+                    UIPasteboard.general.string = diagnosticText
+                    didCopy = true
+                } label: {
+                    Label("Sao chép kết quả", systemImage: "doc.on.doc")
+                }
+                if didCopy {
+                    Text("Đã sao chép toàn bộ khối chẩn đoán vào bộ nhớ tạm.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } footer: {
+                Text("Sao chép cả thông báo lỗi, số đo RTF và trạng thái model — dán vào chat là đủ để tìm nguyên nhân, không cần chụp màn hình.")
             }
         }
         .tint(.white)
@@ -196,6 +217,31 @@ struct VieNeuTTSTestView: View {
     }
 
     // MARK: - Hành động
+
+    /// Toàn bộ thông tin chẩn đoán gom thành **một khối văn bản** để sao chép một lần.
+    ///
+    /// Cố ý gồm cả những thứ trông thừa (số ký tự, trạng thái model, engine status): khi báo lỗi, thông
+    /// tin thiếu thường đắt hơn thông tin thừa — và người dùng chỉ phải bấm một nút.
+    private var diagnosticText: String {
+        var lines: [String] = []
+        lines.append("VieNeu-TTS v3 Nano — báo cáo từ màn thử giọng")
+        // Tách chuỗi ra biến thay vì lồng string literal trong interpolation: cách đó từng là lỗi biên
+        // dịch ở các bản Swift cũ, và ở đây không có gì để đổi lấy rủi ro đó.
+        let modelState = isModelReady ? "đã tải đủ" : "còn thiếu \(store?.missingNames.count ?? 0) file"
+        lines.append("model: \(modelState)")
+        if let service {
+            lines.append("engine: \(service.engineStatus)")
+        } else {
+            lines.append("engine: không dựng được (kho model lỗi)")
+        }
+        let voiceName = selectedVoice.isEmpty ? "(chưa chọn)" : selectedVoice
+        lines.append("giọng: \(voiceName)")
+        lines.append("tốc độ: \(String(format: "%.2f", speed))×")
+        lines.append("chữ: \(text.count) ký tự")
+        if !statusMessage.isEmpty { lines.append("kết quả: \(statusMessage)") }
+        if !lastReport.isEmpty { lines.append(lastReport) }
+        return lines.joined(separator: "\n")
+    }
 
     private func loadVoices() {
         guard let service, isModelReady else { return }

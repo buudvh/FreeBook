@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.420] - 2026-09-29
+
+### fix: doc shape ctx tu model va them nut sao chep ket qua
+
+Người dùng báo `Got invalid dimensions for input: ctx ... Got: 512 Expected: 256`. Đây là **lỗi thứ tư cùng một loại** trong engine này: đoán thay vì hỏi model.
+
+- **Nguyên nhân**: bản trước tự dựng shape `ctx` là `[1, L, dim]` với `dim = 512` đọc từ `config.json`. Chiều thật của `ctx` là **`style_dim` = 256**; `dim` phục vụ một chỗ khác của kiến trúc. Ba lần trước cùng loại: tên output ONNX (1.3.419), kích thước entry `.npz` (1.3.419), và giờ là shape.
+- **Cách sửa**: `VieNeuORTRunTextEncoder` trả thêm `outShape`/`outRank` (điền từ `GetDimensions` trong `copyFloats`), và `VieNeuORTRunDurationPredictor`/`VieNeuORTRunVectorEstimator` **bắt buộc** nhận lại đúng shape đó — số token suy từ `contextShape[1]`, `mask` phải cùng số token. `VieNeuConfig.dim` **bị xoá** thay vì để lại trường không dùng kèm doc nói sai.
+- **Dời màn thử giọng ra tab Cài đặt**: mục "Thử giọng VieNeu-TTS" nay ở `Settings/Main/TTSSettingsSection.swift`, ngang hàng "Cài đặt TTS"/"Quản lý Model", không còn nằm trong `NghiTTSSettingsView` — đây là engine thứ hai, không phải tuỳ chọn của NghiTTS/Piper.
+- **Thêm nút "Sao chép kết quả"** trong màn thử giọng: gom thông báo lỗi + số đo RTF + trạng thái model + engine status thành một khối văn bản để dán vào chat thay vì chụp màn hình.
+- **File sửa**: `VieNeuONNXBridge.h/.m` (chữ ký shape), `VieNeuONNXRuntime.swift` 175 → **196**, `VieNeuTTSEngine.swift` 299 → **297**, `VieNeuConfig.swift` 163 → **162**, `VieNeuTTSTestView.swift` 346 → **392**, `NghiTTSSettingsView.swift` **158** (bỏ mục "Engine khác"), `TTSSettingsSection.swift` 25 → **30**.
+- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
+- **Tài liệu CodeGraph**: `rules.md` bổ sung luật "đừng suy shape từ `config.json`"; `11_subsystems.md` thêm mục về lỗi này.
+
 ## [1.3.419] - 2026-09-28
 
 ### fix: sua loi doc constants.npz va ten output ONNX cua engine VieNeu

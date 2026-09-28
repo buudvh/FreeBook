@@ -15,7 +15,10 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## VieNeu-TTS ONNX Bridge Invariants (1.3.419)
+## VieNeu-TTS ONNX Bridge Invariants (1.3.419, bổ sung 1.3.420)
+
+* **Never derive a tensor shape from `config.json` — read it from the model.** The first version built `ctx` as `[1, L, dim]` with `dim = 512` and `duration_predictor` answered `Got: 512 Expected: 256`: the real last dimension of `ctx` is `style_dim` (256), and `dim` serves a different part of the architecture. `VieNeuORTRunTextEncoder` now returns the shape it actually produced (`copyFloats` fills `outShape`/`outRank` from `GetDimensions`) and both downstream calls must consume exactly that. `VieNeuConfig.dim` was **removed** rather than left unused. Same failure mode as the hardcoded output names — the engine's rule is *ask the model, never guess*.
+
 
 * **Never trust the ZIP local header's `compressed`/`uncompressed` size when reading `.npz`.** `np.savez` writes `0xFFFFFFFF` (ZIP64 sentinel) there and keeps the real size in the extra field / central directory. Reading it produced `4.294.967.295` and a bogus "vượt biên file" failure. `VieNeuNPZReader` therefore parses the **NPY** header instead (`\x93NUMPY` magic → `shape` + `descr`) and computes the byte count itself (`elementCount × elementSize`), which also makes the cursor land exactly past each entry — the condition for never matching a stray `PK\x03\x04` inside float payload.
 * **Never hardcode ONNX output tensor names.** The Python reference uses positional outputs (`run(None, {...})[0]`), so it cannot confirm names, while `OrtApi::Run` **requires** names. `VieNeuONNXBridge.m` asks the session itself (`SessionGetOutputName`) right after `CreateSession` and stores the result. Input names *are* confirmed by the reference (it passes them by name) and may stay hardcoded.

@@ -71,7 +71,9 @@ final class VieNeuTTSEngine: @unchecked Sendable {
     private var catalog: VieNeuVoiceCatalog?
     private var phonemizer: SeaG2P?
     /// `ctx` của nhánh vô điều kiện (CFG) — không phụ thuộc giọng lẫn văn bản nên tính một lần.
+    /// Giữ **cả shape** vì shape đó do model quyết định, không suy được từ `config.json`.
     private var nullContext: [Float] = []
+    private var nullContextShape: [Int64] = []
     private var nullMask: [UInt8] = []
 
     // Trạng thái thích nghi — `+Adaptive` đọc/ghi, nên phải `internal` chứ không `private`.
@@ -132,6 +134,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         catalog = newCatalog
         phonemizer = newPhonemizer
         nullContext = nullBranch.context
+        nullContextShape = nullBranch.shape
         nullMask = nullBranch.mask
 
         AppLogger.shared.log("🎙️ [VieNeu] Nạp xong engine: \(newCatalog.presets.count) giọng, threads=\(VieNeuSynthesisPolicy.threadCount)")
@@ -144,15 +147,14 @@ final class VieNeuTTSEngine: @unchecked Sendable {
     private static func makeNullBranch(
         runtime: VieNeuONNXRuntime,
         config: VieNeuConfig
-    ) throws -> (context: [Float], mask: [UInt8]) {
+    ) throws -> (context: [Float], shape: [Int64], mask: [UInt8]) {
         let context = try runtime.textEncoder(
             ids: [config.bosID, config.eosID],
             style: config.constants.nullStyle,
             styleRows: config.nStyle,
-            styleColumns: config.styleDim,
-            dim: config.dim
+            styleColumns: config.styleDim
         )
-        return (context, [1, 1])
+        return (context.values, context.shape, [1, 1])
     }
 
     // MARK: - Tổng hợp
@@ -218,22 +220,20 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         let length = ids.count
         let mask = ids.map { $0 == config.padID ? UInt8(0) : UInt8(1) }
 
-        // 1. text_encoder → ctx
+        // 1. text_encoder → ctx, kèm **shape thật** để hai bước sau dùng lại
         let context = try runtime.textEncoder(
             ids: ids,
             style: preset.style,
             styleRows: config.nStyle,
-            styleColumns: config.styleDim,
-            dim: config.dim
+            styleColumns: config.styleDim
         )
 
         // 2. duration_predictor → số giây
         let logSeconds = try runtime.durationPredictor(
-            context: context,
-            length: length,
+            context: context.values,
+            contextShape: context.shape,
             mask: mask,
-            speaker: preset.speakerEmbedding,
-            dim: config.dim
+            speaker: preset.speakerEmbedding
         )
         let seconds = min(exp(Double(logSeconds)) / max(speed, 1e-3), VieNeuConfig.maxChunkSeconds)
         let frames = max(VieNeuConfig.minFrames, Int((seconds * config.flowFPS).rounded(.toNearestOrEven)))
@@ -249,16 +249,15 @@ final class VieNeuTTSEngine: @unchecked Sendable {
             let conditioned = try runtime.vectorEstimator(
                 latent: latent,
                 time: Float(grid[step]),
-                context: context,
-                length: length,
+                context: context.values,
+                contextShape: context.shape,
                 mask: mask,
                 speaker: preset.speakerEmbedding,
                 style: preset.style,
                 styleRows: config.nStyle,
                 styleColumns: config.styleDim,
                 latentChannels: config.latentChannels,
-                frames: frames,
-                dim: config.dim
+                frames: frames
             )
             var velocity = conditioned
             if tuning.cfg > 0 {
@@ -266,15 +265,14 @@ final class VieNeuTTSEngine: @unchecked Sendable {
                     latent: latent,
                     time: Float(grid[step]),
                     context: nullContext,
-                    length: 2,
+                    contextShape: nullContextShape,
                     mask: nullMask,
                     speaker: config.constants.nullSpeaker,
                     style: config.constants.nullStyle,
                     styleRows: config.nStyle,
                     styleColumns: config.styleDim,
                     latentChannels: config.latentChannels,
-                    frames: frames,
-                    dim: config.dim
+                    frames: frames
                 )
                 // v = vu + cfg × (v − vu)
                 for index in velocity.indices {
