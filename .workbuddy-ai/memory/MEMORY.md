@@ -36,6 +36,16 @@
 - **Hai hàng rào xoá khác nhau, đừng "thống nhất"**: `BackupPaths.isAutoBackupFileName` (tiền tố `freebook-auto-`) chặn phép dọn **ngầm**; `LocalBackupStore.deleteAll()` **cố ý** không lọc tiền tố.
 - `backups/` chứa cả file tạm của worker ⇒ **không bao giờ xoá cả thư mục**; duyệt `list()` rồi xoá từng archive.
 
+## Phân hệ TTS (dễ đoán sai)
+- Engine chọn bằng chuỗi `TTSManager.tool` ∈ {`system`, `nghitts` (Piper ONNX local), `google`, `<packageId extension>`} (`TTSManager.swift:92`; picker `Views/TTSWidget/TTSSettingsView.swift:73-76`). **121 chỗ** so chuỗi `"nghitts"` trên 11 file; `tool != "system" && tool != "nghitts" && tool != "google"` = "là extension tool" ⇒ thêm engine mới mà sót predicate là bị đối xử sai.
+- **`TTSManager.swift` 4026 dòng > baseline 3470** (violation nền) ⇒ ratchet-down: code mới **phải** vào `Sources/Services/TTS/Extensions/TTSManager+*.swift`.
+- `NghiAudioPlayerQueue` dùng `AVAudioPlayer(data:)` ⇒ sample-rate agnostic (24 kHz không cần sửa). `TTSAudioSynthesisWorker` đã generic theo `engine: String`.
+- Repo cũ `VieNeuTTS-Offline` gọi "v3 Nano" nhưng thực chất chạy **v3-Turbo AR** (KV cache + MOSS 48 kHz, trần `maxNewFrames` 80 = 6,4 s audio). Nano thật = flow-matching **non-AR**, 24 kHz, 48M params, không KV cache, không cần BPE tokenizer.
+- CoreML EP: repo cũ **đã bỏ có chủ ý** (KV cache zero-dim + external-data crash) ⇒ đừng thử lại cho kiến trúc AR.
+
+## Tài liệu local (gitignored)
+- `.gitignore:7-10` chặn `/Docs/Result`, `/Docs/Plans`, `/Docs/CheckList`, `/Docs/Reports` ⇒ plan/báo cáo là artifact **local**, không commit, và **không** làm `validate_links.py` stale. `Docs/Plan/` (số ít) thì **được track** (spec feature).
+
 ## CHANGELOG
 - Giữ **30** entry, vượt thì đẩy entry cũ nhất sang `CHANGELOG.archive.md` (mới nhất trước).
 - **2 vấn đề chưa sửa**: (a) drift lên 43 entry; (b) **thiếu hẳn 1.3.323–1.3.328** ở cả 2 file (archive dừng 1.3.322, CHANGELOG bắt đầu 1.3.329) trong khi doc vẫn tham chiếu ⇒ một lượt lưu trữ trước đây đã mất entry (lấy lại từ `git log`). **Đừng tự đẩy sang archive khi chưa kiểm chứng.**
