@@ -15,6 +15,24 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Token `<hn>` Đọc Số Hán Theo Phiên Âm Hán-Việt & Thứ Hạng Cố Định Giữa Các Token Lớp Ký Tự (1.3.416)
+
+* **Token lớp ký tự thứ bảy cho DSL rule dịch (`QuickTranslationRuleElement.swift`, `QuickTranslationNumberFormatter.swift`, `QuickTranslationRuleParser.swift`)**:
+  - `NumeralKind.hanNumeral = "hn"` với lớp ký tự `〇零一二两兩三四五六七八九十百千万萬亿億兆` (**21** ký tự) — **không** nhận `0-9`/`０-９`, nên `<hn>` là lớp **con** thật của `<n>` và là lớp **cha** của `<h>`.
+  - `QuickTranslationRuleParser` nhận `"hn"` trong `numeralKinds` và ánh xạ `names[0] == "hn"` sang `.hanNumeral`; giữ nguyên range `:min-max` mặc định `1-12` cùng thanh điều chỉnh độ dài như mọi token lớp ký tự khác.
+* **Render phiên âm Hán-Việt (`QuickTranslationDictionaryToken.swift`, `QuickTranslationRuleMatcher.swift`)**:
+  - `hanVietReading(for:)` tra `phienAm` **từng ký tự** rồi ghép bằng **dấu cách**: `三十` → `tam thập`, `万` → `vạn`. Ký tự thiếu trong bảng giữ nguyên ký tự gốc, cùng chính sách `<hv>`.
+  - `walkNumeral` coi `<hn>` là **không khớp** khi bảng phiên âm chưa nạp, thay vì render chuỗi rỗng.
+  - Ba token dễ lẫn, phân biệt bằng **đầu ra** trên cùng chuỗi `三十`: `<n>` → `30`, `<h>` → `30` (nhưng không nuốt được `十`), `<hn>` → `tam thập`.
+* **Thứ hạng cố định giữa các token lớp ký tự (`QuickTranslationRuleNumeralNarrowness.swift`, `QuickTranslationRuleEngine.swift`, `QuickTranslationRuleCompiler.swift`)**:
+  - Bảng hạng: `<h>` 0 < `<d>` 1 < `<hn>` 2 < `<m>` 3 < `<y>` 4 < `<n>` 5 < `<a>` 6; hạng **nhỏ** hơn = lớp **hẹp** hơn = thắng.
+  - Tiêu chí chỉ nổ **sau khi cả bốn tiêu chí cấu hình đều hoà** và **trước** `sourceLine`, nên cấu hình Ưu tiên của người dùng và quy tắc "bộ riêng truyện thắng" giữ nguyên hiệu lực.
+  - So **lần lượt từng token theo thứ tự xuất hiện** (như so từ trong từ điển); rule không có token lớp ký tự nào ra vector rỗng ⇒ hoà ⇒ rơi xuống `sourceLine` như trước 1.3.416.
+  - Bảng **viết tay** chứ không suy từ `units(for:).count`: nới lớp ký tự của một token (đúng việc đã xảy ra với `<m>` ở 1.3.415) sẽ làm thứ hạng đảo **ngầm** nếu suy tự động, và `switch` exhaustive bắt lỗi compile ngay khi thêm token mới mà quên khai hạng.
+* **Cấu hình runtime & UI (`QuickTranslationRuleTokenSettings.swift`, `QuickTranslationRuleTokenSettingsView.swift`, `QuickTranslationRuleTokenPaletteView.swift`)**:
+  - `Kind.hanNumeral` **nối vào cuối** `allCases` (sau `latinLetters`) để chữ ký cache của các token cũ không trượt bit; khoá `quickTranslateRuleTokenHanNumeralEnabled`, mặc định bật.
+  - Công tắc riêng ở màn Cấu hình token và chip chèn token tự xuất hiện (palette dựng từ `Kind.allCases` + `isNumeralGroup`), nhưng do luật chữ ký nên `<hn>` hiện **sau `<a>`** trong dải token.
+
 ## Mở Rộng Token `<m>` Thành Cơ Số 10 Toàn Diện Trong Quick Translation Rule Engine (1.3.415)
 
 * **Mở Rộng Tập Hợp và Ánh Xạ Cơ Số 10 Cho Token `<m>` (`QuickTranslationMagnitudeFormatter.swift`, `QuickTranslationNumberFormatter.swift`)**:

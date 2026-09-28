@@ -15,6 +15,14 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +1 file cho token `<hn>`; engine 398/400 nên comparator buộc phải ra file riêng (1.3.416)
+
+* **1 file Swift mới, 1 primary type top level**:
+  - `QuickTranslationRuleNumeralNarrowness.swift`: **61**/400 dòng, bảng hạng cố định của bảy token lớp ký tự + bộ so hai vector hạng.
+* **`QuickTranslationRuleEngine.swift` là chỗ nghẽn của lượt này**: 392 → **398**/400 dòng, chỉ còn **2** dòng headroom. Vì vậy toàn bộ bảng hạng và comparator phải nằm ở file mới; trong engine chỉ thêm 1 trường `numeralRanks` ở `Found`, 1 dòng truyền ở `collectFound` và 3 dòng ở `select`.
+* **File sửa, đều còn dưới trần 400**: `QuickTranslationRuleCompiler` 319 → **348** (+29: `numeralNarrownessRanks` + doc), `QuickTranslationDictionaryToken` 130 → **153** (+23: `hanVietReading(for:)` + doc), `QuickTranslationRuleMatcher` 279 → **287** (+8), `QuickTranslationCompiledRule` 99 → **107** (+8), `QuickTranslationRuleElement` 159 → **166** (+7), `QuickTranslationRuleTokenSettings` 105 → **111** (+6), `QuickTranslationNumberFormatter` 322 → **326** (+4), `QuickTranslationRuleTokenSettingsView` 70 → **74** (+4), `QuickTranslationRuleParser` 368 → **369** (+1), `QuickTranslationRuleTokenPaletteView` 135 → **136** (+1).
+* `check_architecture.py` giữ nguyên **5** violation nền cũ — đều ở `ChapterPersistenceStore`, `JSDom`, `JSExecutor`, `TTSManager`, `ReaderViewModel`, tức những file lượt này **không** đụng tới — và không phát sinh vi phạm mới. `architecture_allowlist.json` không bị sửa.
+
 ## +5 file mới cho Session độc lập, Skeleton loading và Tách view cài đặt; 100% tuân thủ trần ≤ 400 dòng (1.3.410)
 
 * **5 file Swift mới, 100% tuân thủ trần ≤ 400 dòng và 1 primary type top level**:

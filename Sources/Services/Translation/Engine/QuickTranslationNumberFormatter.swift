@@ -16,6 +16,9 @@ public enum QuickTranslationNumberFormatter {
     public static let digitwiseUnits: Set<UInt16> = makeUnits("〇零一二两兩三四五六七八九0123456789０１２３４５６７８９")
     /// `<h>`: chỉ chữ số Hán `〇零一二两兩三四五六七八九`; không nhận bậc, không nhận 0-9.
     public static let hanDigitsUnits: Set<UInt16> = makeUnits("〇零一二两兩三四五六七八九")
+    /// `<hn>`: số Hán đầy đủ — chữ số Hán **và** ký tự bậc. Khác `<n>` đúng ở chỗ không nhận
+    /// `0-9`/`０-９`, nên `<hn>` là **lớp con thật** của `<n>`; khác `<h>` ở chỗ nuốt được `十百千万`.
+    public static let hanNumeralUnits: Set<UInt16> = makeUnits("〇零一二两兩三四五六七八九十百千万萬亿億兆")
     /// `<d>`: chỉ digit 0-9 (ASCII `0123456789` + full-width `０１２３４５６７８９`).
     public static let asciiDigitsUnits: Set<UInt16> = makeUnits("0123456789０１２３４５６７８９")
     /// `<m>`: token cơ số 10 (mươi, trăm, nghìn, hai mươi, chục vạn...).
@@ -54,6 +57,7 @@ public enum QuickTranslationNumberFormatter {
         case .chinese: return numeralUnits
         case .digitwise: return digitwiseUnits
         case .hanDigits: return hanDigitsUnits
+        case .hanNumeral: return hanNumeralUnits
         case .asciiDigits: return asciiDigitsUnits
         case .magnitude: return magnitudeUnits
         case .latinLetters: return latinLetterUnits

@@ -74,6 +74,29 @@ public struct QuickTranslationDictionaryToken {
         }
     }
 
+    /// `<hn>`: chuỗi số Hán → phiên âm Hán-Việt, **mỗi ký tự một âm**, ghép bằng dấu cách.
+    ///
+    /// Token `<hn>` là token **lớp ký tự** (đi qua `walkNumeral` như `<n>`), không phải token từ điển,
+    /// nhưng nó cần bảng phiên âm — và đây là chỗ duy nhất trong engine giữ `phienAm`, nên phép render
+    /// nằm ở đây thay vì ở `QuickTranslationNumberFormatter` (nơi mọi hàm render khác đều thuần, không
+    /// chạm từ điển).
+    ///
+    /// Ghép bằng **dấu cách** chứ không dính liền: đó là cách `TranslateUtils.resolveTokenMeaning`
+    /// (`TranslateUtils.swift:470`) đọc một token nhiều chữ Hán, và âm Hán-Việt vốn đọc rời từng tiếng —
+    /// `三十` → `tam thập`, không phải `tamthập`.
+    ///
+    /// Ký tự không có trong bảng giữ **nguyên ký tự gốc**, đúng chính sách của `<hv>`: bảng thiếu một
+    /// biến thể (`两`/`兩`) thì thà hiện chữ Hán còn hơn hiện chuỗi rỗng.
+    public func hanVietReading(for value: String) -> String {
+        var readings: [String] = []
+        readings.reserveCapacity(value.count)
+        for char in value {
+            let key = String(char)
+            readings.append(phienAm[key] ?? key)
+        }
+        return readings.joined(separator: " ")
+    }
+
     /// Ứng viên tại một vị trí, **dài → ngắn**. Không dùng `findLongestMatch` một mình: nếu entry dài
     /// nhất làm phần literal phía sau không khớp thì matcher vẫn phải thử entry ngắn hơn.
     ///

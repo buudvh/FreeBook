@@ -15,6 +15,35 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Token `<hn>` & Tiêu Chí Thứ Hạng Token Trong Lượt Chọn Rule (1.3.416)
+
+```text
+rewrite(text, bookId)
+  └─ execute(...)
+       ├─ collectFound(bookSnapshot,   scopeRank 0)  ─┐
+       └─ collectFound(globalSnapshot, scopeRank 1)  ─┴─> [Found]
+                                                            │  mỗi Found mang thêm numeralRanks
+                                                            │  (vector hạng token lớp ký tự,
+                                                            │   tính sẵn lúc compile)
+       └─ select(from:priority:)
+            ├─ 1. start                                    (khoá đầu, cố định)
+            ├─ 2..5. literalLength / wildcardCapacity / matchLength / scopeRank  (theo cấu hình)
+            ├─ 6. QuickTranslationRuleNumeralNarrowness.verdict(lhs.numeralRanks, rhs.numeralRanks)
+            │      → token lớp ký tự HẸP hơn thắng (<d> thắng <n>); hoà thì đi tiếp
+            └─ 7. sourceLine                               (khoá cuối, cố định)
+
+Khớp một token `<hn>`:
+  QuickTranslationRuleMatcher.walkNumeral
+    ├─ lớp ký tự: QuickTranslationNumberFormatter.hanNumeralUnits
+    ├─ bảng phiên âm chưa nạp ⇒ coi như KHÔNG khớp (không render chuỗi rỗng)
+    └─ render: QuickTranslationDictionaryToken.hanVietReading(for:)
+         └─ phienAm[ký tự] ?? ký tự  →  ghép bằng dấu cách   (三十 → "tam thập")
+```
+
+* **`<hn>` đi đúng đường của một token lớp ký tự**, không đi qua `QuickTranslationDictionaryToken.candidates` như `<hv>`: matcher tự quyết định độ dài nuốt, boundary guard hai đầu dùng chính `hanNumeralUnits`, rồi mới nhờ từ điển phiên âm render.
+* **Vector hạng tính một lần lúc compile, không phải lúc so.** `QuickTranslationRuleCompiler.numeralNarrownessRanks` duyệt AST (kể cả token nằm trong group) và lưu vào `QuickTranslationCompiledRule`; `select` chỉ so hai mảng `Int`. Comparator chạy O(n log n) lần cho **mỗi dòng văn**, nên đi bộ AST bên trong nó là không dùng được.
+* **Không cần thêm gì vào khoá memo.** Bảng hạng là hằng số trong code, không phải cấu hình runtime, nên `priority.signature` và `tokenConfiguration.signature` giữ nguyên vai trò. Token `<hn>` vẫn vào `requiredTokenKinds`, nên công tắc của nó làm rule ngừng chạy và lượt đổi công tắc vẫn xoá cache qua `TranslateUtils.clearCache()`.
+
 ## Dòng dữ liệu Cấu hình Dịch Thuật Phân Cấp: Truyện > Nguồn > Toàn cục (1.3.393)
 
 ```text

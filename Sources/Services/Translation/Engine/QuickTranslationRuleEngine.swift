@@ -32,6 +32,8 @@ public enum QuickTranslationRuleEngine {
         let literalLength: Int
         let wildcardCapacity: Int
         let scopeRank: Int
+        /// Hạng độ hẹp từng token lớp ký tự — tiêu chí phá hoà ngay trước `sourceLine`.
+        let numeralRanks: [Int]
         let sourceLine: Int
         let rendered: String
         /// Index của rule trong `snapshot.rules` của **bộ tương ứng với `scopeRank`**.
@@ -242,6 +244,7 @@ public enum QuickTranslationRuleEngine {
                     literalLength: rule.literalLength,
                     wildcardCapacity: rule.wildcardCapacity,
                     scopeRank: scopeRank,
+                    numeralRanks: rule.numeralNarrownessRanks,
                     sourceLine: rule.sourceLine,
                     rendered: rule.render(captures: match.captureTexts),
                     ruleIndex: candidate.ruleIndex,
@@ -272,6 +275,9 @@ public enum QuickTranslationRuleEngine {
                 let right = rhs.metric(for: key)
                 guard left != right else { continue }
                 return priority.isDescending(key) ? left > right : left < right
+            }
+            if let verdict = QuickTranslationRuleNumeralNarrowness.verdict(lhs: lhs.numeralRanks, rhs: rhs.numeralRanks) {
+                return verdict == .orderedAscending
             }
             return lhs.sourceLine < rhs.sourceLine
         }

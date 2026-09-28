@@ -15,6 +15,14 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ranh giới phụ thuộc của token `<hn>` & bảng thứ hạng token lớp ký tự (1.3.416)
+
+* **File mới vẫn thuần `Foundation`**: `QuickTranslationRuleNumeralNarrowness.swift` nằm trong `Services/Translation/Engine/`, chỉ `import Foundation`, là `enum` static thuần — không `import SwiftUI`, không gọi `ToastManager.shared`, không giữ state. Không cần entry nào trong `architecture_allowlist.json`.
+* **Chiều phụ thuộc mới, không có vòng**: `QuickTranslationRuleCompiler` và `QuickTranslationRuleEngine` → `QuickTranslationRuleNumeralNarrowness` → `QuickTranslationRuleElement.NumeralKind`. Cả ba ở cùng tầng `Services/Translation/Engine/`; không có cạnh nào đi lên Views.
+* **`<hn>` không tạo cạnh mới từ Engine xuống từ điển.** `QuickTranslationDictionaryToken` **đã** là tham số của `QuickTranslationRuleMatcher` (nó giữ `phienAm` cho `<hv>`), nên `hanVietReading(for:)` chỉ là một method mới trên type đã có mặt — không thêm phụ thuộc, không thêm singleton, không chạm `TranslationManager` từ matcher.
+* **Tầng Views chỉ dùng API sẵn có của `Kind`.** Hai màn token đọc `Kind.hanNumeral.label` / `Kind.allCases` + `isNumeralGroup` như mọi token khác; không View nào biết tới bảng hạng hay tới engine. Màn đặt riêng theo truyện và `QuickTranslationBookEngineConfigStore` **không** phải sửa vì cả hai duyệt `TokenKind.allCases`.
+* **Không nới luật kiến trúc**: file mới 61 dòng, đúng 1 primary type top level; `QuickTranslationRuleEngine.swift` tăng lên 398/400 nhưng vẫn **dưới** trần nên không phải mở baseline nào.
+
 ## Ranh giới phụ thuộc phân hệ Lưu trữ Session Độc lập & Quản lý AI Sessions (1.3.410)
 
 * **Tầng Services/AI độc lập hoàn toàn với SwiftUI và ToastManager**:

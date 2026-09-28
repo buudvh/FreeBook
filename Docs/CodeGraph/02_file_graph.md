@@ -15,6 +15,17 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +1 file cho token `<hn>` và thứ hạng token lớp ký tự (1.3.416)
+
+| Nhóm | File mới | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Services/Translation/Engine | [`Services/Translation/Engine/QuickTranslationRuleNumeralNarrowness.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleNumeralNarrowness.swift) | Bảng hạng cố định của bảy token lớp ký tự + bộ so vector hạng, dùng làm tiêu chí phá hoà cuối cùng của `QuickTranslationRuleEngine.select` | 61 |
+
+* File mới **61** dòng vật lý (≤ 400) và đúng 1 primary type top level (`enum QuickTranslationRuleNumeralNarrowness`).
+* [`Services/Translation/Engine/QuickTranslationRuleEngine.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleEngine.swift) 392 → **398**/400 dòng: chỉ còn **2** dòng headroom, nên bảng hạng và comparator buộc phải nằm ở file riêng thay vì viết thẳng trong `select`.
+* **Không** xoá file nào. **11** file Swift còn lại chỉ sửa nội dung: `QuickTranslationRuleElement` 159 → **166**, `QuickTranslationDictionaryToken` 130 → **153**, `QuickTranslationNumberFormatter` 322 → **326**, `QuickTranslationRuleMatcher` 279 → **287**, `QuickTranslationRuleParser` 368 → **369**, `QuickTranslationRuleTokenSettings` 105 → **111**, `QuickTranslationRuleCompiler` 319 → **348**, `QuickTranslationCompiledRule` 99 → **107**, `QuickTranslationRuleTokenSettingsView` 70 → **74**, `QuickTranslationRuleTokenPaletteView` 135 → **136**.
+* Tổng số file Swift tăng 1; cần `xcodegen generate` và build trên macOS.
+
 ## +2 file cho Thêm từ điển hàng loạt và Pop-up duyệt tên riêng AI (1.3.412)
 
 | Nhóm | File mới | Vai trò | Dòng |

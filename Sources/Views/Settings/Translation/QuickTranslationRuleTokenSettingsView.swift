@@ -9,6 +9,7 @@ struct QuickTranslationRuleTokenSettingsView: View {
     @AppStorage(QuickTranslationRuleTokenSettings.Kind.digitwise.userDefaultsKey) private var isDigitwiseEnabled = true
     @AppStorage(QuickTranslationRuleTokenSettings.Kind.hanDigits.userDefaultsKey) private var isHanDigitsEnabled = true
     @AppStorage(QuickTranslationRuleTokenSettings.Kind.asciiDigits.userDefaultsKey) private var isAsciiDigitsEnabled = true
+    @AppStorage(QuickTranslationRuleTokenSettings.Kind.hanNumeral.userDefaultsKey) private var isHanNumeralEnabled = true
     @AppStorage(QuickTranslationRuleTokenSettings.Kind.chapterLabel.userDefaultsKey) private var isChapterLabelEnabled = true
     @AppStorage(QuickTranslationRuleTokenSettings.Kind.name.userDefaultsKey) private var isNameEnabled = true
     @AppStorage(QuickTranslationRuleTokenSettings.Kind.pronoun.userDefaultsKey) private var isPronounEnabled = true
@@ -25,13 +26,14 @@ struct QuickTranslationRuleTokenSettingsView: View {
                 Toggle(QuickTranslationRuleTokenSettings.Kind.digitwise.label, isOn: invalidating($isDigitwiseEnabled))
                 Toggle(QuickTranslationRuleTokenSettings.Kind.hanDigits.label, isOn: invalidating($isHanDigitsEnabled))
                 Toggle(QuickTranslationRuleTokenSettings.Kind.asciiDigits.label, isOn: invalidating($isAsciiDigitsEnabled))
+                Toggle(QuickTranslationRuleTokenSettings.Kind.hanNumeral.label, isOn: invalidating($isHanNumeralEnabled))
                 Toggle(QuickTranslationRuleTokenSettings.Kind.magnitude.label, isOn: invalidating($isMagnitudeEnabled))
                 Toggle(QuickTranslationRuleTokenSettings.Kind.latinLetters.label, isOn: invalidating($isLatinLettersEnabled))
                 Toggle(QuickTranslationRuleTokenSettings.Kind.chapterLabel.label, isOn: invalidating($isChapterLabelEnabled))
             } header: {
                 Text("Token lớp ký tự và nhãn")
             } footer: {
-                Text("<m> khớp đúng một ký tự bậc Hán và trả về CHỮ ĐƠN VỊ tiếng Việt: 十 → mươi, 百 → trăm, 千 → nghìn, 万 → vạn, 亿 → ức, 兆 → triệu. Viết 几<m>年 = mấy {0} năm là một rule phủ cả mấy mươi / mấy trăm / mấy nghìn năm. Cần con số thì dùng <n>, nó đọc 十 thành 10.\n\n<a> khớp chuỗi chữ cái A-Z và trả nguyên văn, giữ đúng hoa/thường: <a>级 = cấp {0} phủ A级, BB级, SSS级.")
+                Text("<m> khớp đúng một ký tự bậc Hán và trả về CHỮ ĐƠN VỊ tiếng Việt: 十 → mươi, 百 → trăm, 千 → nghìn, 万 → vạn, 亿 → ức, 兆 → triệu. Viết 几<m>年 = mấy {0} năm là một rule phủ cả mấy mươi / mấy trăm / mấy nghìn năm. Cần con số thì dùng <n>, nó đọc 十 thành 10.\n\n<a> khớp chuỗi chữ cái A-Z và trả nguyên văn, giữ đúng hoa/thường: <a>级 = cấp {0} phủ A级, BB级, SSS级.\n\n<hn> khớp số Hán kể cả ký tự bậc (KHÔNG nhận chữ số 0-9) rồi đọc thành phiên âm Hán-Việt, mỗi chữ một âm cách nhau bằng dấu cách: 三十 → tam thập, 九 → cửu, 万 → vạn. Dùng cho tên gọi, cấp bậc, chiêu thức cần đọc Hán-Việt thay vì ra số: <hn>重天 = {0} trọng thiên. Cần ra số thì dùng <n>, cần từng chữ số thì dùng <h>.")
             }
 
             Section {

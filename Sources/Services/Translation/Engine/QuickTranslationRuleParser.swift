@@ -242,7 +242,7 @@ public enum QuickTranslationRuleParser {
         let index = captureCount
         captureCount += 1
 
-        let numeralKinds: Set<String> = ["n", "y", "h", "d", "m", "a"]
+        let numeralKinds: Set<String> = ["n", "y", "h", "d", "m", "a", "hn"]
         if names.allSatisfy({ numeralKinds.contains($0) }) {
             // `<n|y>` (và các tổ hợp số khác) vẫn được chấp nhận để không phá rule cũ; ngữ nghĩa
             // render theo loại **đầu tiên** như hành vi trước 1.3.287 (names[0]).
@@ -254,6 +254,7 @@ public enum QuickTranslationRuleParser {
             case "d": kind = .asciiDigits
             case "m": kind = .magnitude
             case "a": kind = .latinLetters
+            case "hn": kind = .hanNumeral
             default: throw ParseError(code: .unknownTokenName, message: "Token <\(names[0])> không được hỗ trợ")
             }
             // `<m>` là token cơ số 10 (từ bậc đơn 1 ký tự như 十, 百 đến bậc kép 4 ký tự như 两千万/两千亿).

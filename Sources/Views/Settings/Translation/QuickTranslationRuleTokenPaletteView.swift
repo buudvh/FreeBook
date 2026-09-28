@@ -121,6 +121,7 @@ struct QuickTranslationRuleTokenPaletteView: View {
         case .word: return "cụm từ điển"
         case .magnitude: return "mươi/trăm/vạn"
         case .latinLetters: return "chữ A-Z"
+        case .hanNumeral: return "số Hán-Việt"
         }
     }
 

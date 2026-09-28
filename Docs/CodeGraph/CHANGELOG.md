@@ -2,6 +2,29 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.416] - 2026-09-28
+
+### feat: them token <hn> doc so han thanh phien am han viet va thu hang token lop ky tu
+
+Sửa **11** file và thêm **1** file Swift mới (`QuickTranslationRuleNumeralNarrowness.swift`) trong `Sources/Services/Translation/Engine/`:
+
+- **Token lớp ký tự mới `<hn>` — số Hán đọc Hán-Việt (`QuickTranslationRuleElement.swift`, `QuickTranslationNumberFormatter.swift`, `QuickTranslationRuleParser.swift`)**:
+  - `QuickTranslationRuleElement.swift`: Thêm `NumeralKind.hanNumeral = "hn"` với lớp ký tự `〇零一二两兩三四五六七八九十百千万萬亿億兆` (**21** ký tự). Khác `<n>` đúng ở chỗ **không** nhận chữ số `0-9`/`０-９` ⇒ `<hn>` là lớp con thật của `<n>` và là lớp cha của `<h>`.
+  - `QuickTranslationNumberFormatter.swift`: Thêm `hanNumeralUnits` và nhánh `units(for: .hanNumeral)`; tập này cũng là tập dùng cho boundary guard hai đầu của matcher.
+  - `QuickTranslationRuleParser.swift`: Nhận `"hn"` trong `numeralKinds` và ánh xạ `names[0] == "hn"` sang `.hanNumeral`; giữ nguyên range `:min-max` mặc định `1-12` và thanh điều chỉnh độ dài như mọi token lớp ký tự khác.
+- **Render phiên âm Hán-Việt (`QuickTranslationDictionaryToken.swift`, `QuickTranslationRuleMatcher.swift`)**:
+  - `QuickTranslationDictionaryToken.swift`: Thêm `hanVietReading(for:)` — tra `phienAm` **từng ký tự** rồi ghép bằng **dấu cách** (`三十` → `tam thập`, `万` → `vạn`); ký tự thiếu trong bảng giữ nguyên ký tự gốc, cùng chính sách của `<hv>`. Đặt ở đây vì đây là nơi duy nhất trong engine giữ `phienAm`, và vì `<hn>` đi qua `walkNumeral` chứ không qua `candidates`.
+  - `QuickTranslationRuleMatcher.swift`: `walkNumeral` render `<hn>` qua `dictionaries.hanVietReading(for:)`, và coi `<hn>` là **không khớp** khi bảng phiên âm chưa nạp (không render chuỗi rỗng).
+- **Thứ hạng cố định giữa các token lớp ký tự (`QuickTranslationRuleNumeralNarrowness.swift`, `QuickTranslationRuleCompiler.swift`, `QuickTranslationCompiledRule.swift`, `QuickTranslationRuleEngine.swift`)**:
+  - `QuickTranslationRuleNumeralNarrowness.swift` (file mới, 61 dòng): Bảng hạng `<h>` 0 < `<d>` 1 < `<hn>` 2 < `<m>` 3 < `<y>` 4 < `<n>` 5 < `<a>` 6 (hạng nhỏ = lớp hẹp = thắng) và bộ so hai vector hạng. Bảng **viết tay** chứ không suy từ `units(for:).count`: nới lớp ký tự của một token (việc đã xảy ra với `<m>` ở 1.3.415) sẽ làm thứ hạng đảo **ngầm** nếu suy tự động, còn `switch` exhaustive bắt lỗi compile ngay khi thêm token mới mà quên khai hạng.
+  - `QuickTranslationRuleCompiler.swift`: `numeralNarrownessRanks` duyệt AST (kể cả token trong group) và lưu vector vào `QuickTranslationCompiledRule` — tính một lần lúc compile chứ không đi bộ AST trong comparator chạy O(n log n) lần mỗi dòng văn.
+  - `QuickTranslationRuleEngine.swift`: `select` so vector hạng **sau** bốn tiêu chí cấu hình và **trước** `sourceLine`, nên cấu hình Ưu tiên của người dùng cùng quy tắc "bộ riêng truyện thắng" giữ nguyên hiệu lực; hai rule chỉ khác phần token (`<d>天` gặp `<n>天`) không còn để số dòng quyết định. So **lần lượt từng token theo thứ tự xuất hiện**; rule không có token lớp ký tự nào ra vector rỗng ⇒ hoà ⇒ rơi xuống `sourceLine` như trước.
+- **Cấu hình runtime & UI (`QuickTranslationRuleTokenSettings.swift`, `QuickTranslationRuleTokenSettingsView.swift`, `QuickTranslationRuleTokenPaletteView.swift`)**:
+  - `Kind.hanNumeral` **nối vào cuối** `allCases` (sau `latinLetters`) để chữ ký cache của các token cũ không trượt bit; khoá `quickTranslateRuleTokenHanNumeralEnabled`, mặc định bật, nhãn `<hn> — số Hán đọc Hán-Việt`, xếp vào nhóm lớp ký tự.
+  - Thêm công tắc ở màn Cấu hình token + footer giải thích; chip chèn token tự xuất hiện vì palette dựng từ `Kind.allCases` + `isNumeralGroup` (do luật chữ ký nên `<hn>` hiện sau `<a>` trong dải token). Màn đặt riêng theo truyện và `QuickTranslationBookEngineConfigStore` **không** phải sửa — cả hai duyệt `TokenKind.allCases`.
+- **Ràng buộc đã đo**: `QuickTranslationRuleEngine.swift` 392 → **398**/400 dòng nên bảng hạng buộc phải ra file riêng. `check_architecture.py` giữ nguyên **5** violation nền cũ (đều ở file lượt này không đụng) và không phát sinh vi phạm mới; `architecture_allowlist.json` không bị sửa. Không build được trên Windows.
+- **Tài liệu CodeGraph**: Cập nhật `00_index.md`, `02_file_graph.md`, `07_dataflow.md`, `09_dependency_rules.md`, `11_subsystems.md`, `14_complexity_report.md` (`--accept`).
+
 ## [1.3.415] - 2026-09-27
 
 ### feat: mo rong token <m> thanh co so 10

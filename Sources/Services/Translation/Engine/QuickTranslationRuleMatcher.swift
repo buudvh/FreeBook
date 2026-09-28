@@ -158,6 +158,12 @@ public final class QuickTranslationRuleMatcher {
             return skipOptional(element, advanced, position)
         }
 
+        // `<hn>` render bằng bảng phiên âm; bảng chưa nạp thì token không có gì để trả ⇒ coi như không
+        // khớp, đúng chính sách của `<hv>` (`QuickTranslationDictionaryToken.isUsable`).
+        if kind == .hanNumeral, !dictionaries.isUsable(.hanViet) {
+            return skipOptional(element, advanced, position)
+        }
+
         let allowed: Set<UInt16>
         if kind == .chinese || kind == .digitwise {
             if QuickTranslationNumberFormatter.asciiDigitsUnits.contains(units[position]) {
@@ -209,6 +215,8 @@ public final class QuickTranslationRuleMatcher {
                 rendered = QuickTranslationNumberFormatter.renderHanDigits(value)
             case .asciiDigits:
                 rendered = QuickTranslationNumberFormatter.renderAsciiDigits(value)
+            case .hanNumeral:
+                rendered = dictionaries.hanVietReading(for: value)
             case .magnitude:
                 rendered = QuickTranslationNumberFormatter.renderMagnitude(value)
             case .latinLetters:

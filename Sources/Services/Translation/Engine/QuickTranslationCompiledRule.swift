@@ -39,6 +39,12 @@ public struct QuickTranslationCompiledRule: Sendable {
     /// Các cú pháp token xuất hiện trong rule trước khi parser hạ `<w>` xuống các nhóm từ điển.
     /// Token tắt làm cả rule không chạy, kể cả token nằm trong group, optional hoặc danh sách `|`.
     public let requiredTokenKinds: Set<QuickTranslationRuleTokenSettings.Kind>
+    /// Hạng độ hẹp của **từng token lớp ký tự** theo thứ tự xuất hiện trong mẫu (xem
+    /// `QuickTranslationRuleNumeralNarrowness`). Rỗng khi rule không có token lớp ký tự nào.
+    ///
+    /// Tiêu chí phá hoà cuối cùng trước `sourceLine`: hai rule hoà mọi tiêu chí cấu hình thì rule có
+    /// token hẹp hơn thắng, thay cho việc để số dòng quyết định.
+    public let numeralNarrownessRanks: [Int]
     /// 0 = rule của **bộ riêng truyện**, 1 = rule của **bộ chung**. Tiêu chí ưu tiên thứ 5 trong
     /// `QuickTranslationRuleEngine.select`, đứng ngay trước `sourceLine`: trong một bộ đơn lẻ nó là
     /// hằng số nên thứ tự cũ **không đổi**; khi trộn hai bộ thì rule riêng thắng.
@@ -58,6 +64,7 @@ public struct QuickTranslationCompiledRule: Sendable {
         requiredLiteralPrefixMax: Int,
         requiredDictionaryKinds: [QuickTranslationRuleElement.DictionaryKind],
         requiredTokenKinds: Set<QuickTranslationRuleTokenSettings.Kind> = [],
+        numeralNarrownessRanks: [Int] = [],
         scopeRank: Int = 1
     ) {
         self.sourceLine = sourceLine
@@ -73,6 +80,7 @@ public struct QuickTranslationCompiledRule: Sendable {
         self.requiredLiteralPrefixMax = requiredLiteralPrefixMax
         self.requiredDictionaryKinds = requiredDictionaryKinds
         self.requiredTokenKinds = requiredTokenKinds
+        self.numeralNarrownessRanks = numeralNarrownessRanks
         self.scopeRank = scopeRank
     }
 

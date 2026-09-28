@@ -3,9 +3,9 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-09-27T14:04:24Z",
-  "gitCommit": "cedcdcc35a6cda0234fd9218c01adc0ea4168182",
-  "sourceFileCount": 586,
+  "generatedAt": "2026-09-28T13:38:47Z",
+  "gitCommit": "1f07f92496d490e1383696ee32b213c28921414b",
+  "sourceFileCount": 587,
   "documentCount": 16,
   "documents": [
     {
@@ -336,6 +336,7 @@
         "Sources/Services/Translation/Engine/QuickTranslationRuleIssue.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRuleMatcher.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRuleMutation.swift",
+        "Sources/Services/Translation/Engine/QuickTranslationRuleNumeralNarrowness.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRuleParser.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRulePriorityConfiguration.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRuleRecordStore.swift",
@@ -603,12 +604,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "c57f1bbddc778f2582f2421d06604d939dd4c91d507c15e5e4ff4e811efcb7d2",
-      "sourceHash": "99313db883cc4d8c6d6e2614b3b247867120243bcd64622a6dcf43fe5c125ec2",
-      "generatedHash": "d64a9deb48aa22d3dba05a969f1a7d1a8c0df8462293c878de5106d6a79e13e8",
-      "generatedAt": "2026-09-27T13:55:53Z",
-      "reviewedAt": "2026-09-27T13:55:53Z",
-      "reviewedCommit": "3fbd2a6f843a9fd256d14fe4dcf014d57d3a9dc2",
+      "structureHash": "ce7ae0298fc21ae574fdaa9cbe4e30b5ddaf0966490d214ab02c40d68833cc7d",
+      "sourceHash": "44f9514c46f17a9730fd2a45d138f04fe0a6a7d1b5d18b38687aef8600e16f27",
+      "generatedHash": "5e8cdd6afdcef07a6e4c50e32abfabc429016f3f8aebf26522a034df97f09146",
+      "generatedAt": "2026-09-28T13:38:47Z",
+      "reviewedAt": "2026-09-28T13:38:47Z",
+      "reviewedCommit": "1f07f92496d490e1383696ee32b213c28921414b",
       "reviewMode": "accept"
     },
     {
@@ -966,6 +967,7 @@
         "Sources/Services/Translation/Engine/QuickTranslationRuleIssue.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRuleMatcher.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRuleMutation.swift",
+        "Sources/Services/Translation/Engine/QuickTranslationRuleNumeralNarrowness.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRuleParser.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRulePriorityConfiguration.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRuleRecordStore.swift",
@@ -1233,12 +1235,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "c57f1bbddc778f2582f2421d06604d939dd4c91d507c15e5e4ff4e811efcb7d2",
-      "sourceHash": "99313db883cc4d8c6d6e2614b3b247867120243bcd64622a6dcf43fe5c125ec2",
-      "generatedHash": "957dd779f512b9b1dd37492dc9182164338f321583bffd5152b591af24fe8ef1",
-      "generatedAt": "2026-09-27T13:55:53Z",
-      "reviewedAt": "2026-09-27T13:55:53Z",
-      "reviewedCommit": "3fbd2a6f843a9fd256d14fe4dcf014d57d3a9dc2",
+      "structureHash": "ce7ae0298fc21ae574fdaa9cbe4e30b5ddaf0966490d214ab02c40d68833cc7d",
+      "sourceHash": "44f9514c46f17a9730fd2a45d138f04fe0a6a7d1b5d18b38687aef8600e16f27",
+      "generatedHash": "38cd9df6b5840bb36252e7c37515bb7dd3015d01e09fe24550c9494da11d69e1",
+      "generatedAt": "2026-09-28T13:38:47Z",
+      "reviewedAt": "2026-09-28T13:38:47Z",
+      "reviewedCommit": "1f07f92496d490e1383696ee32b213c28921414b",
       "reviewMode": "accept"
     },
     {
@@ -1742,6 +1744,7 @@
         "Sources/Services/Translation/Engine/QuickTranslationRuleIssue.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRuleMatcher.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRuleMutation.swift",
+        "Sources/Services/Translation/Engine/QuickTranslationRuleNumeralNarrowness.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRuleParser.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRulePriorityConfiguration.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRuleRecordStore.swift",
@@ -1772,13 +1775,13 @@
         "Sources/Services/Translation/Utils/TranslationTextPostProcessor.swift",
         "Sources/Views/Reader/Extensions/ReaderViewModel+Translation.swift"
       ],
-      "structureHash": "dc33d7e651ff4a63b6cd629230e7995145be38916b052f95a3a4472770aff65d",
-      "sourceHash": "ddc5ad761397ca492ce8aadc81a9aee9d3e49a2da8cd7c8df742633574f6bbb1",
-      "generatedHash": "d61a434d572b894e7f75f0a493c90e28ebeac803e18afb4f47f12bea48d65c28",
-      "generatedAt": "2026-09-27T14:04:24Z",
-      "reviewedAt": "2026-09-27T14:04:24Z",
-      "reviewedCommit": "cedcdcc35a6cda0234fd9218c01adc0ea4168182",
-      "reviewMode": "no-change-needed"
+      "structureHash": "f8c5cffd25f54e330a54392b7f423688d8201eb926d38315dbaf4e0e71be2098",
+      "sourceHash": "01096e9756a62526ea3a640986c36b737bd0cb199ba3da359a36aca69e85380b",
+      "generatedHash": "200d5fb745553afe3dd67fe5fcfa7aed0b974ca47a204cdadc57f75ab36cc61d",
+      "generatedAt": "2026-09-28T13:38:47Z",
+      "reviewedAt": "2026-09-28T13:38:47Z",
+      "reviewedCommit": "1f07f92496d490e1383696ee32b213c28921414b",
+      "reviewMode": "accept"
     },
     {
       "filename": "08_lifecycle.md",
@@ -2145,6 +2148,7 @@
         "Sources/Services/Translation/Engine/QuickTranslationRuleIssue.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRuleMatcher.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRuleMutation.swift",
+        "Sources/Services/Translation/Engine/QuickTranslationRuleNumeralNarrowness.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRuleParser.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRulePriorityConfiguration.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRuleRecordStore.swift",
@@ -2412,13 +2416,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "d326ee303214713c0458b475b997e25e1e168c11570877cb237d1070fb726552",
-      "sourceHash": "9060869c93a3d9a9f4bab8fdf43172285c3d584548eb2e02698bfbed68490174",
-      "generatedHash": "1775c6312bde7932faefbfc1d90ef6d46680bfa4530d6bdaeb6bf6664707f074",
-      "generatedAt": "2026-09-27T13:56:00Z",
-      "reviewedAt": "2026-09-27T13:56:00Z",
-      "reviewedCommit": "3fbd2a6f843a9fd256d14fe4dcf014d57d3a9dc2",
-      "reviewMode": "no-change-needed"
+      "structureHash": "c5d00cf9b427134701a11008bf51a70d450f45b4208c578f60d10729891c366d",
+      "sourceHash": "5caf84f01dfe06fcc38440d21bfbbf8696a55a4aab96c4cf756783b08e4f7a77",
+      "generatedHash": "457eb471ebd131f547ad91703ab2c3a6107b41b6574a78e1b2e22ebf17ac38b7",
+      "generatedAt": "2026-09-28T13:38:47Z",
+      "reviewedAt": "2026-09-28T13:38:47Z",
+      "reviewedCommit": "1f07f92496d490e1383696ee32b213c28921414b",
+      "reviewMode": "accept"
     },
     {
       "filename": "10_risk_report.md",
@@ -2805,6 +2809,7 @@
         "Sources/Services/Translation/Engine/QuickTranslationRuleIssue.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRuleMatcher.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRuleMutation.swift",
+        "Sources/Services/Translation/Engine/QuickTranslationRuleNumeralNarrowness.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRuleParser.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRulePriorityConfiguration.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRuleRecordStore.swift",
@@ -3072,13 +3077,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "6b79b9aede8e364010e4cda2c7cc584fe9a030cc88f49089598a183b1d75c4c4",
-      "sourceHash": "e8fce990a58d2af9157a723fd0980371e9aa80fea9ce3b5d37aff5566806a68e",
-      "generatedHash": "dabef5d4ef2011e0b11ecf27dcdea0680e9c52f0fb14bcedb262013f63b253bd",
-      "generatedAt": "2026-09-27T14:04:24Z",
-      "reviewedAt": "2026-09-27T14:04:24Z",
-      "reviewedCommit": "cedcdcc35a6cda0234fd9218c01adc0ea4168182",
-      "reviewMode": "no-change-needed"
+      "structureHash": "1ed7dfc5845a3f4633132953d768a78b9232bd7ce7c4c8340b292919fe6967d9",
+      "sourceHash": "2167009ecc885c922b926ee30b46e50b86b5eba319ef3b6952ac350c34db597c",
+      "generatedHash": "569515b6e965ed9c6523efe61a5b49b29dfe8db6430a49dd706326b98a0fd265",
+      "generatedAt": "2026-09-28T13:38:47Z",
+      "reviewedAt": "2026-09-28T13:38:47Z",
+      "reviewedCommit": "1f07f92496d490e1383696ee32b213c28921414b",
+      "reviewMode": "accept"
     },
     {
       "filename": "12_ownership_graph.md",
@@ -3669,6 +3674,7 @@
         "Sources/Services/Translation/Engine/QuickTranslationRuleIssue.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRuleMatcher.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRuleMutation.swift",
+        "Sources/Services/Translation/Engine/QuickTranslationRuleNumeralNarrowness.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRuleParser.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRulePriorityConfiguration.swift",
         "Sources/Services/Translation/Engine/QuickTranslationRuleRecordStore.swift",
@@ -3936,13 +3942,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "c57f1bbddc778f2582f2421d06604d939dd4c91d507c15e5e4ff4e811efcb7d2",
-      "sourceHash": "99313db883cc4d8c6d6e2614b3b247867120243bcd64622a6dcf43fe5c125ec2",
-      "generatedHash": "005fe5523c2b41b518deb7096a26f26906e6b7040bc74e10d2536ecf53d994ef",
-      "generatedAt": "2026-09-27T13:56:00Z",
-      "reviewedAt": "2026-09-27T13:56:00Z",
-      "reviewedCommit": "3fbd2a6f843a9fd256d14fe4dcf014d57d3a9dc2",
-      "reviewMode": "no-change-needed"
+      "structureHash": "ce7ae0298fc21ae574fdaa9cbe4e30b5ddaf0966490d214ab02c40d68833cc7d",
+      "sourceHash": "44f9514c46f17a9730fd2a45d138f04fe0a6a7d1b5d18b38687aef8600e16f27",
+      "generatedHash": "381ce5b3ff8afaf0d32f491ea35e94bc856ed8f05a89a4d943294563fba3cce3",
+      "generatedAt": "2026-09-28T13:38:47Z",
+      "reviewedAt": "2026-09-28T13:38:47Z",
+      "reviewedCommit": "1f07f92496d490e1383696ee32b213c28921414b",
+      "reviewMode": "accept"
     },
     {
       "filename": "rules.md",

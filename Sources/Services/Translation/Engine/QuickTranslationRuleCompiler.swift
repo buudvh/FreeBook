@@ -81,6 +81,7 @@ public enum QuickTranslationRuleCompiler {
 
             let dictionaryKinds = collectDictionaryKinds(elements)
             let tokenKinds = collectTokenKinds(elements)
+            let numeralRanks = numeralNarrownessRanks(elements)
             result.issues.append(contentsOf: issues)
 
             guard !issues.contains(where: { $0.severity == .hard }) else { continue }
@@ -99,6 +100,7 @@ public enum QuickTranslationRuleCompiler {
                 requiredLiteralPrefixMax: literal.prefixMax,
                 requiredDictionaryKinds: dictionaryKinds,
                 requiredTokenKinds: tokenKinds,
+                numeralNarrownessRanks: numeralRanks,
                 scopeRank: scopeRank
             ))
         }
@@ -258,6 +260,33 @@ public enum QuickTranslationRuleCompiler {
             }
         }
         return kinds
+    }
+
+    /// Hạng độ hẹp của **từng token lớp ký tự** theo thứ tự xuất hiện, kể cả token nằm trong group.
+    ///
+    /// Tính sẵn ở đây chứ không đi bộ AST bên trong comparator: `select` gọi comparator O(n log n) lần
+    /// cho **mỗi dòng văn**, còn lượt compile chỉ chạy một lần cho mỗi rule.
+    ///
+    /// Token không phải lớp ký tự (`<L>`, `<ne>`, `<pn>`, `<vp>`, `<hv>`, `<w>`) **không** vào vector:
+    /// so độ hẹp giữa một token số và một token từ điển là so hai thứ khác loại. Rule chỉ có token từ
+    /// điển vì thế ra vector rỗng ⇒ hoà ở tiêu chí này ⇒ rơi xuống `sourceLine` như trước 1.3.416.
+    private static func numeralNarrownessRanks(
+        _ elements: [QuickTranslationRuleElement]
+    ) -> [Int] {
+        var ranks: [Int] = []
+        for element in elements {
+            switch element.kind {
+            case .numeral(let kind):
+                ranks.append(QuickTranslationRuleNumeralNarrowness.rank(of: kind))
+            case .group(let alternatives):
+                for alternative in alternatives {
+                    ranks.append(contentsOf: numeralNarrownessRanks(alternative))
+                }
+            case .literal, .chapterLabel, .dictionary:
+                continue
+            }
+        }
+        return ranks
     }
 
     private static func collectTokenKinds(

@@ -22,7 +22,7 @@ public struct QuickTranslationRuleElement: Sendable {
     public indirect enum Kind: Sendable {
         /// Chuỗi ký tự thường (đã gộp các ký tự liền nhau, đã bỏ dấu `\` escape).
         case literal([UInt16])
-        /// Token lớp ký tự: `<n>` `<y>` `<h>` `<d>` `<m>` `<a>` — xem `NumeralKind`.
+        /// Token lớp ký tự: `<n>` `<y>` `<h>` `<d>` `<m>` `<a>` `<hn>` — xem `NumeralKind`.
         case numeral(NumeralKind)
         /// `<L>` — đúng một nhãn chương, sinh tên nhãn tiếng Việt.
         case chapterLabel
@@ -32,7 +32,7 @@ public struct QuickTranslationRuleElement: Sendable {
         case group([[QuickTranslationRuleElement]])
     }
 
-    /// Loại **lớp ký tự** của một token char-class: `<n>`, `<y>`, `<h>`, `<d>`, `<m>`, `<a>`.
+    /// Loại **lớp ký tự** của một token char-class: `<n>`, `<y>`, `<h>`, `<d>`, `<m>`, `<a>`, `<hn>`.
     ///
     /// Tên `NumeralKind` giữ nguyên từ bản đầu vì đổi nó là sửa 14 chỗ `switch` trên một phân hệ nóng;
     /// nhưng nghĩa thật của nó là "token khớp một dải ký tự thuộc cùng một lớp rồi render". `.latinLetters`
@@ -55,6 +55,13 @@ public struct QuickTranslationRuleElement: Sendable {
         /// `<a>`: chuỗi chữ cái Latin `A-Z`/`a-z`, trả **nguyên văn** (không đổi hoa/thường). Dùng cho
         /// rule kiểu `<a>级 = cấp {0}` phủ `A级`, `SSS级`, `BB级`.
         case latinLetters = "a"
+        /// `<hn>`: **số Hán** đầy đủ kể cả ký tự bậc `十百千万萬亿億兆`; **không** nhận chữ số `0-9`
+        /// ASCII/full-width (khác `<n>` ở đúng chỗ đó). Render từng ký tự thành **phiên âm Hán-Việt**
+        /// qua bảng `PhienAm` rồi ghép bằng dấu cách: `三十` → `tam thập`, `万` → `vạn`.
+        ///
+        /// Ba token dễ lẫn, phân biệt bằng **đầu ra** trên cùng chuỗi `三十`: `<n>` → `30`,
+        /// `<h>` → `30` (nhưng chỉ nuốt được chữ số, không nuốt `十`), `<hn>` → `tam thập`.
+        case hanNumeral = "hn"
 
         public var rawToken: String { "<\(rawValue)>" }
     }
