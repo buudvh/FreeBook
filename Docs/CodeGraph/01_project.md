@@ -15,6 +15,13 @@ Tài liệu này phác thảo kiến trúc tổng thể, sơ đồ thư mục, c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## `project.yml` có thêm `SWIFT_OBJC_BRIDGING_HEADER` cho cầu nối C của VieNeu-TTS (1.3.417)
+
+* **Thay đổi build-config đầu tiên của phân hệ VieNeu**: `settings.base.SWIFT_OBJC_BRIDGING_HEADER: Sources/Services/TTS/VieNeu/VieNeuONNXBridge.h`. Đây là bridging header **đầu tiên** của target — trước đó `Sources/` không có file `.h`/`.m`/`.mm` nào.
+* **Vì sao bắt buộc**: engine VieNeu phải tạo tensor **bool** (`ctx_mask` của `duration_predictor`/`vector_estimator` khai `elem_type = 9 = BOOL`; node duy nhất dùng nó là `Not`, mà `Not` của ONNX chỉ nhận bool), mà lớp ObjC của ONNX Runtime không có case `Bool`. C API có, nhưng `import onnxruntime` **không** hoạt động từ target app: product SPM `onnxruntime` chỉ trỏ tới target ObjC `OnnxRuntimeBindings`, còn binary target C là dependency nội bộ và umbrella header không `#import` header C API. Nên phần C API nằm ở `VieNeuONNXBridge.m` và Swift thấy nó qua bridging header.
+* **Rủi ro đã biết**: sai đường dẫn bridging header là **mọi** file Swift hỏng biên dịch, không riêng phân hệ VieNeu. Đường dẫn tính từ gốc project (`Sources/...`), đúng như `sources: - path: Sources`.
+* `sources: - path: Sources` vẫn khai theo thư mục nên `VieNeuONNXBridge.h/.m` tự vào target; chỉ cần `xcodegen generate` như thường lệ.
+
 ## Luật "View không ghi SwiftData" đã sạch nợ ở hai View lớn cuối (1.3.334)
 
 * **Mục 2 của bản tổng kết v4.1/v5.0 bên dưới giờ mới đúng hoàn toàn.** Nó tuyên bố "SwiftUI Views không được gán thuộc tính `@Model`", nhưng tới trước 1.3.334 vẫn còn đúng hai chỗ vi phạm thật: `ReaderView.initializeReaderIfNeeded` và `BookDetailView.task(id:)` gọi `BookTitleTranslationMigrator.refreshTranslations(for:)` — hàm này gán `titleTrans`/`authorTrans` rồi View tự `try? modelContext.save()`. Cả hai nay đi qua `BookTransactionCoordinator.refreshTitleTranslations(bookId:in:)` và xử lý `Result`. Migrator chỉ còn gán và trả `Bool` didChange; **không** còn `save()` bên trong nó.
