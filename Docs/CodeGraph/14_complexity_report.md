@@ -15,13 +15,13 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
-## +12 file cho engine VieNeu-TTS v3 Nano; hai file phải tách vì trần 400 dòng (1.3.417)
+## +13 file cho engine VieNeu-TTS v3 Nano; ba lần phải tách vì trần 400 dòng (1.3.417)
 
-* **12 file Swift mới, 2.075 dòng, 100% ≤ 400 dòng và đúng 1 primary type top level**:
-  - `VieNeuTTSEngine.swift` **364**, `SeaG2P+Phonemize.swift` **287**, `SeaG2P.swift` **253**, `VieNeuTTSService.swift` **203**, `VieNeuConfig.swift` **163**, `VieNeuNPZReader.swift` **141**, `VieNeuTTSEngine+Tensors.swift` **135**, `VieNeuModelClient.swift` **128**, `VieNeuTTSEngine+Audio.swift` **126**, `VieNeuVoiceCatalog.swift` **103**, `VieNeuModelStore.swift` **91**, `VieNeuSynthesisPolicy.swift` **81**.
+* **13 file Swift mới, 2.228 dòng, 100% ≤ 400 dòng và đúng 1 primary type top level**:
+  - `VieNeuONNXRuntime.swift` **337**, `SeaG2P+Phonemize.swift` **287**, `VieNeuTTSEngine.swift` **269**, `SeaG2P.swift` **253**, `VieNeuTTSService.swift` **203**, `VieNeuConfig.swift` **163**, `VieNeuNPZReader.swift` **141**, `VieNeuModelClient.swift` **128**, `VieNeuTTSEngine+Audio.swift` **126**, `VieNeuVoiceCatalog.swift` **103**, `VieNeuModelStore.swift` **91**, `VieNeuSynthesisPolicy.swift` **81**, `VieNeuTTSEngine+Adaptive.swift` **46**.
 * **Hai lần vượt trần, hai cách xử lý khác nhau**:
   - `SeaG2P` mang từ repo cũ sang dài **509** dòng ⇒ tách theo tầng (`SeaG2P` giữ tra cứu từ điển, `SeaG2P+Phonemize` giữ tầng chữ→phoneme) và hạ `private` → `internal` cho các thành viên dùng chéo file.
-  - `VieNeuTTSEngine` bản đầu **472** dòng ⇒ tách `+Tensors` (marshal `ORTValue` + đo RTF) và `+Audio` (lưới thời gian, nhiễu, tách chunk, trim/fade).
+  - `VieNeuTTSEngine` bản đầu **472** dòng ⇒ tách `+Audio` (lưới thời gian, nhiễu, tách chunk, trim/fade); sau khi chuyển sang C API thì phần đo RTF tách tiếp ra `+Adaptive`, và lớp tensor thành file riêng `VieNeuONNXRuntime`.
 * **`VieNeuConfig` từng bị `MULTI_PRIMARY_TYPES`** vì `NPZReader` là type top-level thứ hai trong cùng file ⇒ tách ra `VieNeuNPZReader.swift` (đặt `private` không giải quyết được: bộ đếm tính type top-level bất kể mức truy cập).
 * `check_architecture.py` giữ nguyên **5** violation nền cũ — `ChapterPersistenceStore`, `JSDom`, `JSExecutor`, `TTSManager`, `ReaderViewModel` — và **0** vi phạm mới sau khi sửa hai lỗi trên. `architecture_allowlist.json` không bị sửa.
 * Lượt này **không sửa file cũ nào**, nên không có baseline nào bị đụng; `TTSManager.swift` giữ nguyên **4026**/3470 (vượt baseline từ trước, và đây chính là lý do lượt nối engine vào sau sẽ phải dùng file extension).

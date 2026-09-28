@@ -15,12 +15,13 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
-## +12 file cho engine VieNeu-TTS v3 Nano (engine core, chưa nối vào TTSManager) (1.3.417)
+## +13 file cho engine VieNeu-TTS v3 Nano (engine core, chưa nối vào TTSManager) (1.3.417)
 
 | Nhóm | File mới | Vai trò | Dòng |
 | --- | --- | --- | ---: |
-| Services/TTS/VieNeu | [`VieNeuTTSEngine.swift`](../../Sources/Services/TTS/VieNeu/VieNeuTTSEngine.swift) | Pipeline flow-matching: 4 `ORTSession`, nạp config/catalog/phonemizer, vòng Euler + CFG, tách chunk, chế độ thích nghi | 364 |
-| Services/TTS/VieNeu | [`VieNeuTTSEngine+Tensors.swift`](../../Sources/Services/TTS/VieNeu/VieNeuTTSEngine+Tensors.swift) | Marshal `ORTValue` (int64/float/bool) + đọc output float32 + đổi chế độ theo RTF | 135 |
+| Services/TTS/VieNeu | [`VieNeuONNXRuntime.swift`](../../Sources/Services/TTS/VieNeu/VieNeuONNXRuntime.swift) | Bọc **C API** của ONNX Runtime: tạo tensor (kể cả **bool**), `Run`, đọc output. Thay hẳn lớp ObjC vì `ORTTensorElementDataType` không có case `Bool` ở mọi bản phát hành còn dùng được | 337 |
+| Services/TTS/VieNeu | [`VieNeuTTSEngine.swift`](../../Sources/Services/TTS/VieNeu/VieNeuTTSEngine.swift) | Pipeline flow-matching: nạp config/catalog/phonemizer, vòng Euler + CFG, tách chunk | 269 |
+| Services/TTS/VieNeu | [`VieNeuTTSEngine+Adaptive.swift`](../../Sources/Services/TTS/VieNeu/VieNeuTTSEngine+Adaptive.swift) | Đo RTF, đổi chế độ chất lượng có trễ, cảnh báo phoneme bị bỏ | 46 |
 | Services/TTS/VieNeu | [`VieNeuTTSEngine+Audio.swift`](../../Sources/Services/TTS/VieNeu/VieNeuTTSEngine+Audio.swift) | `timeGrid`, nhiễu chuẩn tắc, tách chunk ≤140 ký tự, `edgeSilence`/`trimAndFade` | 126 |
 | Services/TTS/VieNeu | [`VieNeuTTSService.swift`](../../Sources/Services/TTS/VieNeu/VieNeuTTSService.swift) | Facade song song `PiperTTSService`, đi qua `PiperSynthesisCoordinator` | 203 |
 | Services/TTS/VieNeu | [`VieNeuModelStore.swift`](../../Sources/Services/TTS/VieNeu/VieNeuModelStore.swift) | Kho file riêng (tách khỏi `ModelStore` của Piper) | 91 |
@@ -32,7 +33,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 | Services/TTS/VieNeu | [`SeaG2P.swift`](../../Sources/Services/TTS/VieNeu/SeaG2P.swift) | Port G2P: `init(binURL:)` + tra cứu từ điển + tách từ OOV | 253 |
 | Services/TTS/VieNeu | [`SeaG2P+Phonemize.swift`](../../Sources/Services/TTS/VieNeu/SeaG2P+Phonemize.swift) | Tầng chữ → token → phoneme, xử lý tag cảm xúc | 287 |
 
-* Tất cả 12 file ≤ **400** dòng vật lý và đúng **1** primary type top level. Hai file phải tách vì trần dòng: `SeaG2P` (bản gốc 509 dòng) và `VieNeuTTSEngine` (bản đầu 472 dòng ⇒ tách tensor + audio ra extension).
+* Tất cả **13** file ≤ **400** dòng vật lý và đúng **1** primary type top level. Ba lần phải tách vì trần dòng: `SeaG2P` (bản gốc 509 dòng ⇒ 2 file), `VieNeuTTSEngine` (bản đầu 472 dòng ⇒ tách `+Audio`), và lượt chuyển sang C API (tách `+Adaptive`, `VieNeuONNXRuntime` 337 dòng).
 * **Chưa nối vào `TTSManager`**: lượt này chỉ thêm engine core, chưa sửa file cũ nào ⇒ số file Swift của app tăng 12, không có file nào bị xoá.
 * Không sửa `project.yml` (nguồn khai theo thư mục `Sources` nên file mới tự vào target), nhưng vẫn cần `xcodegen generate` khi build.
 
