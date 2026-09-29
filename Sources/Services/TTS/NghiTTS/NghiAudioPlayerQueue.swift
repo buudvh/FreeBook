@@ -239,9 +239,13 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
         let effectiveRate = max(0.01, Double(currentPlayer.rate))
         let wallClockRemaining = mediaRemaining / effectiveRate
 
-        // Safe scheduling window: nếu thời gian còn lại giữa 5ms và 50ms, KHÔNG ép schedule bằng atTime.
-        // Giữ nextPlayer ở trạng thái prepared, để khi currentPlayer finish, promoteNextAfterCurrentFinished sẽ play() ngay lập tức.
-        guard wallClockRemaining > 0.050 else {
+        // Safe scheduling window: nếu thời gian còn lại ≤ 150ms, KHÔNG ép schedule bằng atTime mà giữ
+        // nextPlayer ở trạng thái prepared, để khi currentPlayer finish, promoteNextAfterCurrentFinished
+        // sẽ play() ngay lập tức. Lý do: `AVAudioPlayer.duration` có thể bị ước lượng ngắn hơn thực tế
+        // vài ms, nên một `startTime` tính ra sát đích rất dễ rơi **trước** khi đoạn hiện tại kết thúc ⇒
+        // hai đoạn phát song song (chồng tiếng). Nâng 50ms → 150ms đánh đổi một khoảng nghỉ cực nhỏ lấy
+        // việc chắc chắn không bao giờ schedule sớm.
+        guard wallClockRemaining > 0.150 else {
             // Dựng chuỗi log ngay trên đường bàn giao đoạn là chi phí đặt sai chỗ: hàm này bị gọi lại
             // mỗi lần `prepareNext`/`resume`/`updateRate`, và mặc định log đang tắt.
             if AppLogger.shared.isLoggingEnabled {

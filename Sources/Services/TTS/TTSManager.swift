@@ -636,9 +636,9 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     internal var remotePlaybackTaskGeneration: UInt64 = 0
     internal var nghiPlaybackTask: Task<Void, Never>?
     internal var nghiPlaybackTaskGeneration: UInt64 = 0
-    internal var nghiRefillTask: Task<Void, Never>? = nil
+    internal var nghiRefillTasks: [Int: Task<Void, Never>] = [:]
     internal var nghiRefillGeneration: UInt64 = 0
-    internal var nghiRefillInFlightIndex: Int? = nil
+    internal var nghiRefillInFlightIndices: Set<Int> = []
     internal var nghiWakeTask: Task<Void, Never>? = nil
 
     private struct TTSSettingsSnapshot: Equatable {
@@ -737,7 +737,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             if tool == "vieneu" { clearPrefetchCache() }
         }
     }
-    @Published public var vieneuSafeCachedTimeThreshold: Double = NghiSynthesisPolicy.defaultSafeCachedTimeThreshold
+    @Published public var vieneuSafeCachedTimeThreshold: Double = 12.0
     /// Ngưỡng nạp bộ đệm cho VieNeu — khoá `vieneu*` tách khỏi `nghitts*` vì VieNeu cần đệm sâu hơn Piper
     /// (`VieNeuSynthesisPolicy.bufferedSecondsTarget` = 12 s so với 8 s). Cùng khuôn `setNghiTTSSafeCachedTimeThreshold`.
     public func setVieNeuSafeCachedTimeThreshold(_ newValue: Double) {
@@ -2544,9 +2544,9 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
     internal func cancelNghiRefill() {
         nghiRefillGeneration &+= 1
-        nghiRefillTask?.cancel()
-        nghiRefillTask = nil
-        nghiRefillInFlightIndex = nil
+        for task in nghiRefillTasks.values { task.cancel() }
+        nghiRefillTasks.removeAll()
+        nghiRefillInFlightIndices.removeAll()
         clearNghiRefillFailureStates()
     }
 
@@ -2658,12 +2658,12 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
         let blockedIndices = nghiSkippedRefillIndices()
         let N = currentParagraphIndex
-        let nextIndex = N + 1
-        let isNextPrepared = nghiAudioPlayerQueue.nextItem?.paragraphIndex == nextIndex
-        if nextIndex < paragraphs.count && preloadedData[nextIndex] == nil && !isNextPrepared && !blockedIndices.contains(nextIndex) {
-            scheduleNghiRefill()
-            return
-        }
+
+        // Nạp trước đồng thời: lập lịch nhiều đoạn liền kề (tối đa `maxConcurrentNghiRefills`) thay vì
+        // chỉ 1. Cần thiết với VieNeu vì mỗi lần tổng hợp đắt (RTF ~0,3 + chi phí cố định theo chunk),
+        // nên nếu chỉ nạp tuần tự 1 đoạn, những đoạn ngắn sẽ không kịp tổng hợp trước khi đoạn đang
+        // phát kết thúc — đúng lỗi người dùng báo. NghiTTS (Piper) tổng hợp gần tức thì nên giữ 1.
+        fillNghiRefillUpToCapacity()
 
         nextChapterPrefetcher.promoteAudioIfNeeded(
             remainingParentCount: max(0, paragraphs.count - N),
@@ -2679,7 +2679,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         if cachedTime < threshold {
             cancelNghiWakeTask()
             // Trần optional reserve do `nghiRefillCandidate` tự áp, không kiểm tra lặp ở đây.
-            scheduleNghiRefill()
+            fillNghiRefillUpToCapacity()
         } else {
             let sleepSeconds = max(0.5, cachedTime - threshold)
             cancelNghiWakeTask()
@@ -2713,11 +2713,15 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let skipped = nghiSkippedRefillIndices(), essentialLimit = min(paragraphs.count, N + 2 + Self.maxNghiEmptyRefillSkips)
         var cursor = N + 1
         while cursor < essentialLimit && nghiEmptyParagraphIndices.contains(cursor) { cursor += 1 }
-        if cursor < essentialLimit && preloadedData[cursor] == nil && !skipped.contains(cursor) && nghiAudioPlayerQueue.nextItem?.paragraphIndex != cursor { return (cursor, true) }
+        if cursor < essentialLimit && preloadedData[cursor] == nil && !nghiRefillInFlightIndices.contains(cursor) && !skipped.contains(cursor) && nghiAudioPlayerQueue.nextItem?.paragraphIndex != cursor { return (cursor, true) }
+        // VieNeu tổng hợp đắt nên cho phép đệm sâu hơn (4 optional reserve) để hấp thụ đoạn ngắn;
+        // NghiTTS giữ nguyên 2.
+        let optionalCap = tool == "vieneu" ? 4 : NghiSynthesisPolicy.maxOptionalReserveItems
         guard calculateNghiCachedTime() < currentSafeCachedTimeThreshold,
-              preloadedData.keys.filter({ $0 >= N + 2 }).count < NghiSynthesisPolicy.maxOptionalReserveItems,
+              preloadedData.keys.filter({ $0 >= N + 2 }).count < optionalCap,
               let optionalIndex = Self.selectNghiOptionalRefillCandidate(currentParagraphIndex: N, paragraphsCount: paragraphs.count,
-                preloadedIndices: Set(preloadedData.keys), blockedIndices: skipped) else { return nil }
+                preloadedIndices: Set(preloadedData.keys), blockedIndices: skipped),
+              !nghiRefillInFlightIndices.contains(optionalIndex) else { return nil }
         return (optionalIndex, false)
     }
 
@@ -2788,24 +2792,17 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
-    nonisolated internal static func canScheduleNghiRefill(
-        hasRefillTask: Bool,
-        hasRetryTask: Bool
-    ) -> Bool {
-        !hasRefillTask && !hasRetryTask
-    }
-
     private static func logPrefetchFailure(chapter: Int, index: Int, attempt: Int, reason: String, action: String) {
         if AppLogger.shared.isLoggingEnabled {
             AppLogger.shared.log("[TTSPerf] PrefetchFailure chapter=\(chapter) index=\(index) engine=nghitts attempt=\(attempt) reason=\(reason) action=\(action)")
         }
     }
 
-    private func scheduleNghiRefill() {
+    internal func scheduleNghiRefill() -> Bool {
         guard isPlaying,
               TTSManager.isLocalEngine(tool),
-              Self.canScheduleNghiRefill(hasRefillTask: nghiRefillTask != nil, hasRetryTask: nghiRefillRetryTask != nil),
-              let service = localEngine else { return }
+              nghiRefillRetryTask == nil,
+              let service = localEngine else { return false }
 
         let N = currentParagraphIndex
         // Đoạn rỗng sau khi áp quy tắc thay thế không tổng hợp được: đánh dấu bỏ qua rồi tìm tiếp
@@ -2820,8 +2817,12 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             nghiEmptyParagraphIndices.insert(candidate.index)
             AppLogger.shared.log("⏭️ [TTSManager] Nạp trước bỏ qua đoạn rỗng index=\(candidate.index)")
         }
-        guard let target else { return }
+        guard let target else { return false }
         let (index, isEssentialNext, text) = target
+
+        guard !nghiRefillInFlightIndices.contains(index),
+              nghiRefillTasks.count < maxConcurrentNghiRefills else { return false }
+
         let paragraph = paragraphs[index]
         let synthesisPriority: SynthesisPriority = isEssentialNext ? .immediateSuccessor : .optionalReserve
 
@@ -2833,7 +2834,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let expectedGeneration = ttsProcessingGeneration
         nghiRefillGeneration &+= 1
         let refillGeneration = nghiRefillGeneration
-        nghiRefillInFlightIndex = index
+        nghiRefillInFlightIndices.insert(index)
 
         let synthesisKey = TTSSynthesisIdentity.computeKey(
             chapterURL: expectedChapterURL,
@@ -2846,14 +2847,14 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             extensionFingerprint: nil
         )
 
-        nghiRefillTask = Task { @MainActor [weak self] in
+        nghiRefillTasks[index] = Task { @MainActor [weak self] in
             guard let self else { return }
             var taskOutcome: RefillTaskOutcome = .cancelled
 
             defer {
                 if self.nghiRefillGeneration == refillGeneration {
-                    self.nghiRefillInFlightIndex = nil
-                    self.nghiRefillTask = nil
+                    self.nghiRefillInFlightIndices.remove(index)
+                    self.nghiRefillTasks[index] = nil
                     self.updateNghiBufferedDuration()
 
                     switch taskOutcome {
@@ -2975,6 +2976,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 }
             }
         }
+        return true
     }
 
     @MainActor
@@ -3593,14 +3595,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: tool, index: index, outcome: "miss")
         }
 
-        let reusableRefillIndex = nghiRefillInFlightIndex
-        let reusableRefillTask: Task<Void, Never>?
-        if let reusableRefillIndex, reusableRefillIndex == index {
-            reusableRefillTask = nghiRefillTask
-        } else {
-            reusableRefillTask = nil
-        }
-        let reusesCurrentSynthesis = reusableRefillIndex == index && reusableRefillTask != nil
+        let reusableRefillTask = nghiRefillTasks[index]
+        let reusesCurrentSynthesis = reusableRefillTask != nil
         if index > 0 && preloadedData[index] == nil {
             recordNghiUnderrun(index: index, reusedInFlight: reusesCurrentSynthesis)
             nghiAudioPlayerQueue.markWaitingForSynthesis(currentParentIndex: index)

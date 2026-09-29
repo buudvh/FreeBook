@@ -16,6 +16,13 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 
 <!-- GENERATED START -->
 
+## Nạp Trước Đồng Thời Cho VieNeu + Safe-Window 150 ms (1.3.438)
+
+* **Sửa đoạn ngắn VieNeu bị đứt**: `updateNghiPrefetchWindow` trước đây chỉ nạp **1** đoạn rồi `return` (`canScheduleNghiRefill` cấm lượt thứ hai bay cùng lúc). VieNeu tổng hợp đắt (RTF ~0,3 + chi phí cố định theo chunk; `VieNeuSynthesisPolicy.bufferedSecondsTarget = 12`) nên đoạn ngắn không kịp tổng hợp trước khi đoạn đang phát kết thúc. Đổi sang **pool đồng thời** (`nghiRefillTasks: [Int: Task]` + `nghiRefillInFlightIndices: Set<Int>`) và `fillNghiRefillUpToCapacity()`; `nghiRefillCandidate` bước qua index đang bay. NghiTTS giữ 1 luồng.
+* **`maxConcurrentNghiRefills`**: 3 cho `vieneu`, 1 cho `nghitts`. Code mới nằm ở `Sources/Services/TTS/TTSManager+NghiPrefetchConcurrency.swift` (ratchet-down).
+* **Ngưỡng đệm mặc định VieNeu 8 → 12 s**; optional reserve VieNeu **4** (NghiTTS giữ 2).
+* **Safe-window chồng tiếng 50 → 150 ms** (`NghiAudioPlayerQueue`): `AVAudioPlayer.duration` ước lượng ngắn hơn thực tế vài ms ⇒ `startTime` sát đích dễ rơi trước khi đoạn hiện tại kết thúc.
+
 ## Rủi Ro Khoảng Lặng Ranh Giới & Đo Lường Mù Ở Đường Reader (1.3.436)
 
 * **Rủi ro ĐÃ XẢY RA (mức cao) — engine bỏ qua `boundaryKind` ⇒ mất chữ.** VieNeu nhận `boundaryKind` nhưng không dùng, trong khi Piper nối khoảng lặng đuôi theo ranh giới. Vì `joinChunks` **không bao giờ** đệm chunk cuối và mỗi payload đã bị `trimAndFade` cắt còn ~40 ms, phoneme cuối utterance N dính vào đầu utterance N+1. Người dùng nghe là **"mất chữ"**. **Bài học: một tham số có trong chữ ký mà không được dùng là bẫy — nó khiến engine trông tương thích trong khi thiếu hẳn một hành vi.**

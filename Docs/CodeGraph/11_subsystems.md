@@ -16,6 +16,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 
 <!-- GENERATED START -->
 
+## Nạp Trước Đồng Thời Cho VieNeu + Safe-Window 150 ms (1.3.438)
+
+* **Sửa đoạn ngắn VieNeu bị đứt**: `updateNghiPrefetchWindow` trước đây chỉ nạp **1** đoạn rồi `return` (`canScheduleNghiRefill` cấm lượt thứ hai bay cùng lúc). VieNeu tổng hợp đắt (RTF ~0,3 + chi phí cố định theo chunk; `VieNeuSynthesisPolicy.bufferedSecondsTarget = 12`) nên đoạn ngắn không kịp tổng hợp trước khi đoạn đang phát kết thúc. Đổi sang **pool đồng thời** (`nghiRefillTasks: [Int: Task]` + `nghiRefillInFlightIndices: Set<Int>`) và `fillNghiRefillUpToCapacity()`; `nghiRefillCandidate` bước qua index đang bay. NghiTTS giữ 1 luồng.
+* **`maxConcurrentNghiRefills`**: 3 cho `vieneu`, 1 cho `nghitts`. Code mới nằm ở `Sources/Services/TTS/TTSManager+NghiPrefetchConcurrency.swift` (ratchet-down).
+* **Ngưỡng đệm mặc định VieNeu 8 → 12 s**; optional reserve VieNeu **4** (NghiTTS giữ 2).
+* **Safe-window chồng tiếng 50 → 150 ms** (`NghiAudioPlayerQueue`): `AVAudioPlayer.duration` ước lượng ngắn hơn thực tế vài ms ⇒ `startTime` sát đích dễ rơi trước khi đoạn hiện tại kết thúc.
+
 ## VieNeu Đã Ra Tiếng — Sửa 4 Lỗi Hậu Kiểm Định Trên Máy Thật (1.3.436)
 
 Sau khi cài IPA của 1.3.435, người dùng xác nhận **đã có âm thanh** (2 nguyên nhân gốc đã đúng) và báo tiếp 4 vấn đề.

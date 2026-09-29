@@ -103,7 +103,7 @@ extension TTSManager {
 
         let savedThreshold = defaults.object(forKey: VieNeuSettingsKey.safeCachedTimeThreshold) != nil
             ? defaults.double(forKey: VieNeuSettingsKey.safeCachedTimeThreshold)
-            : NghiSynthesisPolicy.defaultSafeCachedTimeThreshold
+            : VieNeuSynthesisPolicy.bufferedSecondsTarget
         let clamped = NghiSynthesisPolicy.clampSafeCachedTimeThreshold(savedThreshold)
         self.vieneuSafeCachedTimeThreshold = clamped
         defaults.set(clamped, forKey: VieNeuSettingsKey.safeCachedTimeThreshold)

@@ -24,6 +24,13 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 * **`VieNeuTTSService.makeDefaultSynthesisKey(text:voice:speed:boundaryKind:)`** — `boundaryKind` vào khoá cache.
 * **`TTSSettingsView.vieNeuSelectedMode: VieNeuSynthesisPolicy.Mode?`** — `@State` cho `Picker` chế độ chất lượng; **`vieNeuModeBinding` đã bị xoá**.
 
+## Nạp Trước Đồng Thời + Ngưỡng Đệm Sâu Hơn Cho VieNeu (1.3.438)
+
+* **`TTSManager.maxConcurrentNghiRefills: Int`** (computed, `TTSManager+NghiPrefetchConcurrency.swift`) — số lượt tổng hợp nạp trước chạy cùng lúc: **3** cho `vieneu`, **1** cho `nghitts` (giữ behaviour cũ). `VieNeuTTSEngine` khoá ONNX bằng `NSLock` nên các lượt thực tế vẫn nối tiếp ở phần ONNX; concurrency ở tầng này xoá khoảng trống điều phối và chồng được tiền xử lý (normalize/G2P) nằm ngoài khoá.
+* **`TTSManager.fillNghiRefillUpToCapacity()`** — vòng lặp thay thế chỗ nạp 1 đoạn rồi `return`: lập lịch `N+1, N+2, …` qua `scheduleNghiRefill()` cho tới đầy pool hoặc `nghiRefillCandidate` trả `nil`.
+* **Pool nạp trước**: `nghiRefillTasks: [Int: Task]` + `nghiRefillInFlightIndices: Set<Int>` thay cho `nghiRefillTask`/`nghiRefillInFlightIndex` đơn. `nghiRefillCandidate` bước qua các index đang bay.
+* **`vieneuSafeCachedTimeThreshold` mặc định 12.0** (khớp `VieNeuSynthesisPolicy.bufferedSecondsTarget`); optional reserve VieNeu **4** (NghiTTS giữ 2).
+
 ## Thành Viên Mới Cho Định Tuyến Engine Local (1.3.435)
 
 * **`TTSManager.currentSafeCachedTimeThreshold: Double`** (computed, `TTSManager+VieNeu.swift`) — ngưỡng nạp bộ đệm của **engine local đang chọn**. Là chỗ duy nhất để ngưỡng theo engine thực sự được đọc.

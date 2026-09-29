@@ -15,6 +15,13 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Nạp Trước Đồng Thời Cho VieNeu + Safe-Window 150 ms (1.3.438)
+
+* **Sửa đoạn ngắn VieNeu bị đứt**: `updateNghiPrefetchWindow` trước đây chỉ nạp **1** đoạn rồi `return` (`canScheduleNghiRefill` cấm lượt thứ hai bay cùng lúc). VieNeu tổng hợp đắt (RTF ~0,3 + chi phí cố định theo chunk; `VieNeuSynthesisPolicy.bufferedSecondsTarget = 12`) nên đoạn ngắn (audio ≤ 1 lần tổng hợp) không kịp tổng hợp trước khi đoạn đang phát kết thúc. Đổi sang **pool đồng thời** (`nghiRefillTasks: [Int: Task]` + `nghiRefillInFlightIndices: Set<Int>`) và `fillNghiRefillUpToCapacity()`; `nghiRefillCandidate` bước qua index đang bay để vòng lặp đi tiếp. NghiTTS giữ 1 luồng (tổng hợp gần tức thì).
+* **`maxConcurrentNghiRefills`**: 3 cho `vieneu`, 1 cho `nghitts`. Code mới nằm ở `Sources/Services/TTS/TTSManager+NghiPrefetchConcurrency.swift` (ratchet-down: `TTSManager.swift` đã 4024 dòng, vượt baseline 3470).
+* **Ngưỡng đệm mặc định VieNeu 8 → 12 s** (khớp `VieNeuSynthesisPolicy.bufferedSecondsTarget`); optional reserve VieNeu **4** (NghiTTS giữ 2) để đệm sâu hơn hấp thụ đoạn ngắn.
+* **Safe-window chồng tiếng 50 → 150 ms** (`NghiAudioPlayerQueue.scheduleNextIfPossible`): `AVAudioPlayer.duration` ước lượng ngắn hơn thực tế vài ms ⇒ một `startTime` sát đích dễ rơi trước khi đoạn hiện tại kết thúc ⇒ hai đoạn phát song song (chồng tiếng).
+
 ## Nối Engine VieNeu-TTS Vào Picker "Trình đọc" (1.3.432)
 
 * [`LocalTTSEngine.swift`](../../Sources/Services/TTS/LocalTTSEngine.swift#L1) — **file mới**: giao diện chung cho hai engine local (Piper + VieNeu). `PiperTTSService` và `VieNeuTTSService` cùng conform; VieNeu được thêm tham số `boundaryKind` cho khớp chữ ký nhưng **bỏ qua** nó (nó tự phân loại ranh giới theo dấu câu).

@@ -15,6 +15,14 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +1 file: nạp trước đồng thời cho VieNeu (1.3.438)
+
+| Nhóm | File | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Services/TTS | [`TTSManager+NghiPrefetchConcurrency.swift`](../../Sources/Services/TTS/TTSManager+NghiPrefetchConcurrency.swift) | **Mới** — extension: `maxConcurrentNghiRefills` + `fillNghiRefillUpToCapacity` (ratchet-down) | 46 |
+
+* Đổi nội dung: `TTSManager.swift` 4029 → **4024** (pool nạp trước đồng thời, bỏ `canScheduleNghiRefill` static), `TTSManager+VieNeu.swift` 233 (**ngưỡng mặc định 12 s**), `NghiAudioPlayerQueue.swift` 368 (**safe-window 150 ms**).
+
 ## +3 file: nối engine VieNeu vào đường đọc truyện (1.3.432)
 
 | Nhóm | File | Vai trò | Dòng |

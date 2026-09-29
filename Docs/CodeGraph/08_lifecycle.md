@@ -16,6 +16,13 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 
 <!-- GENERATED START -->
 
+## Nạp Trước Đồng Thời Cho VieNeu + Safe-Window 150 ms (1.3.438)
+
+* **Sửa đoạn ngắn VieNeu bị đứt**: `updateNghiPrefetchWindow` trước đây chỉ nạp **1** đoạn rồi `return` (`canScheduleNghiRefill` cấm lượt thứ hai bay cùng lúc). VieNeu tổng hợp đắt (RTF ~0,3 + chi phí cố định theo chunk; `VieNeuSynthesisPolicy.bufferedSecondsTarget = 12`) nên đoạn ngắn không kịp tổng hợp trước khi đoạn đang phát kết thúc. Đổi sang **pool đồng thời** (`nghiRefillTasks: [Int: Task]` + `nghiRefillInFlightIndices: Set<Int>`) và `fillNghiRefillUpToCapacity()`; `nghiRefillCandidate` bước qua index đang bay. NghiTTS giữ 1 luồng.
+* **`maxConcurrentNghiRefills`**: 3 cho `vieneu`, 1 cho `nghitts`. Code mới nằm ở `Sources/Services/TTS/TTSManager+NghiPrefetchConcurrency.swift` (ratchet-down).
+* **Ngưỡng đệm mặc định VieNeu 8 → 12 s**; optional reserve VieNeu **4** (NghiTTS giữ 2).
+* **Safe-window chồng tiếng 50 → 150 ms** (`NghiAudioPlayerQueue`): `AVAudioPlayer.duration` ước lượng ngắn hơn thực tế vài ms ⇒ `startTime` sát đích dễ rơi trước khi đoạn hiện tại kết thúc.
+
 ## Vòng Đời Payload VieNeu: Ranh Giới Quyết Định Khoảng Lặng Đuôi (1.3.436)
 
 * **Vòng đời một payload**: `text` → `normalizeVietnameseText` (tại `VieNeuTTSService`, trước khi vào engine) → `splitIntoChunks(limit: 140)` → mỗi chunk: phonemize → encode → `runChunk` → `joinChunks` (chèn khoảng lặng **giữa** các chunk theo dấu câu) → **nối khoảng lặng đuôi theo `boundaryKind`** → `Output`. Bước cuối là bước mới của 1.3.436; thiếu nó thì payload kết thúc **đúng ở phoneme cuối** và payload kế tiếp dính liền.

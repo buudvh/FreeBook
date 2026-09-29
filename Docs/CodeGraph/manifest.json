@@ -3,9 +3,9 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-09-29T12:20:31Z",
-  "gitCommit": "9b13db929aadbc546a2554e5bead6f032e91ce2b",
-  "sourceFileCount": 608,
+  "generatedAt": "2026-09-29T13:39:34Z",
+  "gitCommit": "75d46ecc27fc6d54beefbfff04dcf814b370d4c7",
+  "sourceFileCount": 609,
   "documentCount": 16,
   "documents": [
     {
@@ -308,6 +308,7 @@
         "Sources/Services/TTS/TTSCallObserver.swift",
         "Sources/Services/TTS/TTSChapterPrefetcher.swift",
         "Sources/Services/TTS/TTSChapterTextWorker.swift",
+        "Sources/Services/TTS/TTSManager+NghiPrefetchConcurrency.swift",
         "Sources/Services/TTS/TTSManager+VieNeu.swift",
         "Sources/Services/TTS/TTSManager.swift",
         "Sources/Services/TTS/TTSModels.swift",
@@ -625,12 +626,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "071b5c6b5a80c6823e4480c3f9440207be07fa8c5cba3d358f2e3ef1ab7d35d7",
-      "sourceHash": "138a937d975ec365076f0a9b4040a547372158f96320a43cd19cb839fac74df8",
-      "generatedHash": "a2c27f14a1ed674d8c69c99b28e71070a3a6e44b0332d0f35994e67a0d6b3d57",
-      "generatedAt": "2026-09-29T12:20:31Z",
-      "reviewedAt": "2026-09-29T12:20:31Z",
-      "reviewedCommit": "9b13db929aadbc546a2554e5bead6f032e91ce2b",
+      "structureHash": "9e672fbf56be33862cfcd1fcd3755c27da561a2ca8d97364f5b6dd880b1884b7",
+      "sourceHash": "c0bb779c00a79e616f26ba46b33a85fd3e04cded89e9d630c9cfca579ca35e85",
+      "generatedHash": "8f53e68c039471cf66c394e9e7d5bcb510addc63cf95fd56aa657b7f4b2478b5",
+      "generatedAt": "2026-09-29T13:39:34Z",
+      "reviewedAt": "2026-09-29T13:39:34Z",
+      "reviewedCommit": "75d46ecc27fc6d54beefbfff04dcf814b370d4c7",
       "reviewMode": "accept"
     },
     {
@@ -960,6 +961,7 @@
         "Sources/Services/TTS/TTSCallObserver.swift",
         "Sources/Services/TTS/TTSChapterPrefetcher.swift",
         "Sources/Services/TTS/TTSChapterTextWorker.swift",
+        "Sources/Services/TTS/TTSManager+NghiPrefetchConcurrency.swift",
         "Sources/Services/TTS/TTSManager+VieNeu.swift",
         "Sources/Services/TTS/TTSManager.swift",
         "Sources/Services/TTS/TTSModels.swift",
@@ -1277,12 +1279,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "071b5c6b5a80c6823e4480c3f9440207be07fa8c5cba3d358f2e3ef1ab7d35d7",
-      "sourceHash": "138a937d975ec365076f0a9b4040a547372158f96320a43cd19cb839fac74df8",
-      "generatedHash": "1c5d315a0719b5cbcc37de444ab5446d3f013bc0feb970acbf4b4595d5e1486c",
-      "generatedAt": "2026-09-29T12:20:31Z",
-      "reviewedAt": "2026-09-29T12:20:31Z",
-      "reviewedCommit": "9b13db929aadbc546a2554e5bead6f032e91ce2b",
+      "structureHash": "9e672fbf56be33862cfcd1fcd3755c27da561a2ca8d97364f5b6dd880b1884b7",
+      "sourceHash": "c0bb779c00a79e616f26ba46b33a85fd3e04cded89e9d630c9cfca579ca35e85",
+      "generatedHash": "68111b5e84470c99c20ec50538f9df49be378d03006b96794281f6483e634769",
+      "generatedAt": "2026-09-29T13:39:34Z",
+      "reviewedAt": "2026-09-29T13:39:34Z",
+      "reviewedCommit": "75d46ecc27fc6d54beefbfff04dcf814b370d4c7",
       "reviewMode": "accept"
     },
     {
@@ -1387,11 +1389,11 @@
       ],
       "structureHash": "3fa2065e394e854e3ce6dbdd7c873e62a3fd410781d476c8be3e174d19ab2958",
       "sourceHash": "467c6631b06efc80713818fbf5df5224a1201c7f7111b46decdd78299aa930ba",
-      "generatedHash": "cbb3749ca5b01b9666a523933088720776a2ef678b4ddecafa3f6910b955c789",
-      "generatedAt": "2026-09-29T10:06:39Z",
-      "reviewedAt": "2026-09-29T10:06:39Z",
-      "reviewedCommit": "3a08da9bd3e9457a28036ae02a744619dd118713",
-      "reviewMode": "no-change-needed"
+      "generatedHash": "a82aa2e7dd3c6c4762021a66d0663fb0b8905b8c491b214569ddb9274950fcf0",
+      "generatedAt": "2026-09-29T13:39:34Z",
+      "reviewedAt": "2026-09-29T13:39:34Z",
+      "reviewedCommit": "75d46ecc27fc6d54beefbfff04dcf814b370d4c7",
+      "reviewMode": "accept"
     },
     {
       "filename": "04_call_graph.md",
@@ -1486,6 +1488,7 @@
         "Sources/Services/TTS/TTSCallObserver.swift",
         "Sources/Services/TTS/TTSChapterPrefetcher.swift",
         "Sources/Services/TTS/TTSChapterTextWorker.swift",
+        "Sources/Services/TTS/TTSManager+NghiPrefetchConcurrency.swift",
         "Sources/Services/TTS/TTSManager+VieNeu.swift",
         "Sources/Services/TTS/TTSManager.swift",
         "Sources/Services/TTS/TTSModels.swift",
@@ -1579,13 +1582,13 @@
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "structureHash": "c6021e83d9551e778caf414314234c7d6cbd1defc70839e84baa874b8daf9f85",
-      "sourceHash": "42c0d22d35cace3bfe050d6db52b545962a7192fa325aca3887b1028154d7502",
-      "generatedHash": "49ef3201fd2ec3d53d73b0e8d4d6652e1bc3941195d25580637527a6f4ba1b09",
-      "generatedAt": "2026-09-29T12:19:48Z",
-      "reviewedAt": "2026-09-29T12:19:48Z",
-      "reviewedCommit": "9b13db929aadbc546a2554e5bead6f032e91ce2b",
-      "reviewMode": "no-change-needed"
+      "structureHash": "1d9d88b7734446d0842b7368ec7de71188d889d16b90301ad19178b1109f985f",
+      "sourceHash": "29549f485e84bbca30d8c87e457adafdb10ecafe27ef55e97f841d6bc50d4c6c",
+      "generatedHash": "6fddb2f9aac23b38f9aab5523525cee7ee86201a59a03a416e9b03397e4a741b",
+      "generatedAt": "2026-09-29T13:39:34Z",
+      "reviewedAt": "2026-09-29T13:39:34Z",
+      "reviewedCommit": "75d46ecc27fc6d54beefbfff04dcf814b370d4c7",
+      "reviewMode": "accept"
     },
     {
       "filename": "05_state_graph.md",
@@ -1647,12 +1650,12 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "69b40a9cac127f578e48470e60678aa5a25e318c5894764e1edda0a4397d0cd6",
-      "sourceHash": "2448d41532475d7b74bfa227bf156721f4c5048fd6e10d79b395b7c64b5b6c0f",
-      "generatedHash": "25494175e3e0d07e51f1a7a83d8e295e207e48d5c021214a16dd45b35751074e",
-      "generatedAt": "2026-09-29T10:06:43Z",
-      "reviewedAt": "2026-09-29T10:06:43Z",
-      "reviewedCommit": "3a08da9bd3e9457a28036ae02a744619dd118713",
-      "reviewMode": "no-change-needed"
+      "sourceHash": "3d9aab7e16f2dc05398c6b7c7faa8b07f45f377ba2906f480844c0cfea30f133",
+      "generatedHash": "e654cb573805ffe84f2dbe5be9bf3074f6bdc48aa5797e99dd31eba744982eb0",
+      "generatedAt": "2026-09-29T13:39:34Z",
+      "reviewedAt": "2026-09-29T13:39:34Z",
+      "reviewedCommit": "75d46ecc27fc6d54beefbfff04dcf814b370d4c7",
+      "reviewMode": "accept"
     },
     {
       "filename": "06_event_graph.md",
@@ -1689,12 +1692,12 @@
         "Sources/Views/MainTabView.swift"
       ],
       "structureHash": "ffbf7b006867544c833a93f86bffc43487ffef6ad417a869af181a319652907f",
-      "sourceHash": "e7562fc961fa4ad6ca39d5141dc8ed24282c0762ddcf4604c20cc165de88f588",
-      "generatedHash": "54ea47901783d775e4d3db3715bb051567658327d189c1de8731e522fd2cb76e",
-      "generatedAt": "2026-09-29T10:06:45Z",
-      "reviewedAt": "2026-09-29T10:06:45Z",
-      "reviewedCommit": "3a08da9bd3e9457a28036ae02a744619dd118713",
-      "reviewMode": "no-change-needed"
+      "sourceHash": "1fa63e5ee1122339ff47f0501707c32862dc8959d9f7a2ec173b04eb179ddd0a",
+      "generatedHash": "b17b6079c6ff4bd8d6334a38630967c053a543c05a439c54bd17fe9a98eef042",
+      "generatedAt": "2026-09-29T13:39:34Z",
+      "reviewedAt": "2026-09-29T13:39:34Z",
+      "reviewedCommit": "75d46ecc27fc6d54beefbfff04dcf814b370d4c7",
+      "reviewMode": "accept"
     },
     {
       "filename": "07_dataflow.md",
@@ -1870,11 +1873,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "acad37ecfe6bd6c367da5de500cdaf028298b3fb613e49e119afecb80611eb31",
-      "sourceHash": "df20e6be89b8f94deafa61061d51628db4252c4c501530e19d1691d57e5063ff",
-      "generatedHash": "9d35bd3da71e1042dc8bbe95243f2c5e9ca746685a8a48f4e571552e4201f614",
-      "generatedAt": "2026-09-29T12:20:31Z",
-      "reviewedAt": "2026-09-29T12:20:31Z",
-      "reviewedCommit": "9b13db929aadbc546a2554e5bead6f032e91ce2b",
+      "sourceHash": "fb24d65bb084da7c75f47057114641eb2ad7699a929066686da78ec7dbb26bb1",
+      "generatedHash": "0769ef8a18b9a904728ccac84e1500dce915d8c82b38433d5d4e1f71aec27ed4",
+      "generatedAt": "2026-09-29T13:39:34Z",
+      "reviewedAt": "2026-09-29T13:39:34Z",
+      "reviewedCommit": "75d46ecc27fc6d54beefbfff04dcf814b370d4c7",
       "reviewMode": "accept"
     },
     {
@@ -2181,6 +2184,7 @@
         "Sources/Services/TTS/TTSCallObserver.swift",
         "Sources/Services/TTS/TTSChapterPrefetcher.swift",
         "Sources/Services/TTS/TTSChapterTextWorker.swift",
+        "Sources/Services/TTS/TTSManager+NghiPrefetchConcurrency.swift",
         "Sources/Services/TTS/TTSManager+VieNeu.swift",
         "Sources/Services/TTS/TTSManager.swift",
         "Sources/Services/TTS/TTSModels.swift",
@@ -2498,13 +2502,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "9c222929b4930bb4ed2bda23854a4bbc8731cdd951745f2154cc5c71302d9b44",
-      "sourceHash": "ba7631f40a03bdf289a6a2a425cb6d7475e06e649074f496eafca679cee95082",
-      "generatedHash": "88f9a9be0977876aa3e34b76137686d0d01bb00bcae1d51771a3507953eac1ff",
-      "generatedAt": "2026-09-29T07:46:53Z",
-      "reviewedAt": "2026-09-29T07:46:53Z",
-      "reviewedCommit": "cb9c4295ca9a3af8b20036219b85a622dd701983",
-      "reviewMode": "no-change-needed"
+      "structureHash": "e0987b18aea7723bf6405d6586af0c115489120f457dea149291777e660bbf5d",
+      "sourceHash": "8e5692ac6a829015ffcc9352b4908e6aa1e33d21e8ac5739c1b41bdce9a11449",
+      "generatedHash": "6d3fcefa0f0cb8ecc77fda5f83e7de97eb803d578b8ae93d1125d6b313ba5214",
+      "generatedAt": "2026-09-29T13:39:34Z",
+      "reviewedAt": "2026-09-29T13:39:34Z",
+      "reviewedCommit": "75d46ecc27fc6d54beefbfff04dcf814b370d4c7",
+      "reviewMode": "accept"
     },
     {
       "filename": "10_risk_report.md",
@@ -2607,6 +2611,7 @@
         "Sources/Services/TTS/TTSCallObserver.swift",
         "Sources/Services/TTS/TTSChapterPrefetcher.swift",
         "Sources/Services/TTS/TTSChapterTextWorker.swift",
+        "Sources/Services/TTS/TTSManager+NghiPrefetchConcurrency.swift",
         "Sources/Services/TTS/TTSManager+VieNeu.swift",
         "Sources/Services/TTS/TTSManager.swift",
         "Sources/Services/TTS/TTSModels.swift",
@@ -2634,13 +2639,13 @@
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "structureHash": "2388e3cc230a83b4c42db6474ec9fa36cff559c03ac56d42929139005e35b3f5",
-      "sourceHash": "cac455580b05792fa0837029cc681c3f29f1f94b730544aa2b0ffab0a77996b0",
-      "generatedHash": "32f0c153000f17d078b201a648c638b793f2925e271f1b79f82633dcd1ce8d8a",
-      "generatedAt": "2026-09-29T12:19:48Z",
-      "reviewedAt": "2026-09-29T12:19:48Z",
-      "reviewedCommit": "9b13db929aadbc546a2554e5bead6f032e91ce2b",
-      "reviewMode": "no-change-needed"
+      "structureHash": "6aed014dad048b910f950a0a34e418fec1cb3fecfd9c3366ceb56299c589864b",
+      "sourceHash": "201c0191130a71b8863060fbef21ebd5041187681c15b48e3804a53a9fb86220",
+      "generatedHash": "607df064891fc6e84e10bb7c812afacd35410b5e5bfd98674ee5b33a95f72c17",
+      "generatedAt": "2026-09-29T13:39:34Z",
+      "reviewedAt": "2026-09-29T13:39:34Z",
+      "reviewedCommit": "75d46ecc27fc6d54beefbfff04dcf814b370d4c7",
+      "reviewMode": "accept"
     },
     {
       "filename": "11_subsystems.md",
@@ -2880,6 +2885,7 @@
         "Sources/Services/TTS/TTSCallObserver.swift",
         "Sources/Services/TTS/TTSChapterPrefetcher.swift",
         "Sources/Services/TTS/TTSChapterTextWorker.swift",
+        "Sources/Services/TTS/TTSManager+NghiPrefetchConcurrency.swift",
         "Sources/Services/TTS/TTSManager+VieNeu.swift",
         "Sources/Services/TTS/TTSManager.swift",
         "Sources/Services/TTS/TTSModels.swift",
@@ -3197,12 +3203,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "18577076c2805c103f7811812dc8c727441dbf51ccf21964960e5c6034e253a1",
-      "sourceHash": "a109fcd9f40f001a3c3c97af34cd8b7716a08b754d3351f08428e727b2af9694",
-      "generatedHash": "2b0c798ca0d1439c8f3b38b54a25f68fc2afc1dd7643ad3db99e5bf8307921ee",
-      "generatedAt": "2026-09-29T12:19:48Z",
-      "reviewedAt": "2026-09-29T12:19:48Z",
-      "reviewedCommit": "9b13db929aadbc546a2554e5bead6f032e91ce2b",
+      "structureHash": "c7ba8544066ec27a51406727f245bd600a11febfd4fc9819768f517adb9e6015",
+      "sourceHash": "bfa0baa661e89d472c59125811194a655d280af4e9294b4ae85f0ff5fbb455f0",
+      "generatedHash": "0de1d540e5d5109eb519cca3bf37718793c22018d694b36aaec8f14af74458ed",
+      "generatedAt": "2026-09-29T13:39:34Z",
+      "reviewedAt": "2026-09-29T13:39:34Z",
+      "reviewedCommit": "75d46ecc27fc6d54beefbfff04dcf814b370d4c7",
       "reviewMode": "accept"
     },
     {
@@ -3383,6 +3389,7 @@
         "Sources/Services/TTS/TTSCallObserver.swift",
         "Sources/Services/TTS/TTSChapterPrefetcher.swift",
         "Sources/Services/TTS/TTSChapterTextWorker.swift",
+        "Sources/Services/TTS/TTSManager+NghiPrefetchConcurrency.swift",
         "Sources/Services/TTS/TTSManager+VieNeu.swift",
         "Sources/Services/TTS/TTSManager.swift",
         "Sources/Services/TTS/TTSModels.swift",
@@ -3475,13 +3482,13 @@
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "structureHash": "5ec90a717ea9563c57e2d16bbaaa6a27de6c66d733c974fe8ec3a7fc47954949",
-      "sourceHash": "1eaaf09651035fd8f1d359b070d03251b81759dff89e164d21ace01eb8ce820d",
-      "generatedHash": "834d54bb626b8fe965dbedf8eb48b8a4e0bf79d86829dd3c6092642b4aa51070",
-      "generatedAt": "2026-09-29T12:19:48Z",
-      "reviewedAt": "2026-09-29T12:19:48Z",
-      "reviewedCommit": "9b13db929aadbc546a2554e5bead6f032e91ce2b",
-      "reviewMode": "no-change-needed"
+      "structureHash": "e50edcbef32b3720277f34b1b3bcb1cdf0a1d1e58b072b17c281295e3e37736b",
+      "sourceHash": "b5bc482b25a583adb5369d02a5868160d0440b8eebbeb4b827916955d9df0102",
+      "generatedHash": "2f4ef019d0fc7f2b10d351bd42555f774021c9fab64abd33be34ca0768861861",
+      "generatedAt": "2026-09-29T13:39:34Z",
+      "reviewedAt": "2026-09-29T13:39:34Z",
+      "reviewedCommit": "75d46ecc27fc6d54beefbfff04dcf814b370d4c7",
+      "reviewMode": "accept"
     },
     {
       "filename": "14_complexity_report.md",
@@ -3783,6 +3790,7 @@
         "Sources/Services/TTS/TTSCallObserver.swift",
         "Sources/Services/TTS/TTSChapterPrefetcher.swift",
         "Sources/Services/TTS/TTSChapterTextWorker.swift",
+        "Sources/Services/TTS/TTSManager+NghiPrefetchConcurrency.swift",
         "Sources/Services/TTS/TTSManager+VieNeu.swift",
         "Sources/Services/TTS/TTSManager.swift",
         "Sources/Services/TTS/TTSModels.swift",
@@ -4100,13 +4108,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "071b5c6b5a80c6823e4480c3f9440207be07fa8c5cba3d358f2e3ef1ab7d35d7",
-      "sourceHash": "e5d60cc77d62f3a60425b19347d793d8aa352e25fa5973344e2c7a34f30ba948",
-      "generatedHash": "176bd0e300f7904a98dcec023d018be5873bd94cd04f54ab5c85d6015c0e8ca1",
-      "generatedAt": "2026-09-29T07:46:53Z",
-      "reviewedAt": "2026-09-29T07:46:53Z",
-      "reviewedCommit": "cb9c4295ca9a3af8b20036219b85a622dd701983",
-      "reviewMode": "no-change-needed"
+      "structureHash": "9e672fbf56be33862cfcd1fcd3755c27da561a2ca8d97364f5b6dd880b1884b7",
+      "sourceHash": "c0bb779c00a79e616f26ba46b33a85fd3e04cded89e9d630c9cfca579ca35e85",
+      "generatedHash": "c442ce4c99580831a488b119d1e19d7e181b5c80d9db253213bf932d1457b443",
+      "generatedAt": "2026-09-29T13:39:34Z",
+      "reviewedAt": "2026-09-29T13:39:34Z",
+      "reviewedCommit": "75d46ecc27fc6d54beefbfff04dcf814b370d4c7",
+      "reviewMode": "accept"
     },
     {
       "filename": "rules.md",
@@ -4201,6 +4209,7 @@
         "Sources/Services/TTS/TTSCallObserver.swift",
         "Sources/Services/TTS/TTSChapterPrefetcher.swift",
         "Sources/Services/TTS/TTSChapterTextWorker.swift",
+        "Sources/Services/TTS/TTSManager+NghiPrefetchConcurrency.swift",
         "Sources/Services/TTS/TTSManager+VieNeu.swift",
         "Sources/Services/TTS/TTSManager.swift",
         "Sources/Services/TTS/TTSModels.swift",
@@ -4229,13 +4238,13 @@
         "Sources/Views/Reader/ReaderTextView.swift",
         "Sources/Views/Reader/ReaderView.swift"
       ],
-      "structureHash": "71e3811603320fc59299cd67391b0766248c30013385c64016fc4ae248c7a4aa",
-      "sourceHash": "1a40a986ade64bd0c5004de28d85fdf76566fade194b20b8cc8d64faa43c0709",
-      "generatedHash": "7398a209fb73fb5e02b98c1757e9aff7233028bd79434ee40af0b6038aa7709c",
-      "generatedAt": "2026-09-29T12:19:48Z",
-      "reviewedAt": "2026-09-29T12:19:48Z",
-      "reviewedCommit": "9b13db929aadbc546a2554e5bead6f032e91ce2b",
-      "reviewMode": "no-change-needed"
+      "structureHash": "af0107f1e2f4439d5f65167a414ce48ae0b4e2edaa92e689d49b3d3549a4319d",
+      "sourceHash": "5d2033c5cc946c9e818f917d353a40df7fe90733c204c4efca949ffbb56c31ad",
+      "generatedHash": "dd488c17b990c14b2468135918e36b596f6688d185c3e2a4b7fe64cda6cfb541",
+      "generatedAt": "2026-09-29T13:39:34Z",
+      "reviewedAt": "2026-09-29T13:39:34Z",
+      "reviewedCommit": "75d46ecc27fc6d54beefbfff04dcf814b370d4c7",
+      "reviewMode": "accept"
     }
   ]
 }
