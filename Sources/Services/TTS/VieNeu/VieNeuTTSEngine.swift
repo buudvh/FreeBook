@@ -56,6 +56,25 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         let phonemeSample: String
     }
 
+    /// Một mẩu văn bản kèm **loại ranh giới** sau nó.
+    ///
+    /// `Gap` là bản port của `_classify_gap` trong bản tham chiếu: ranh giới được phân loại theo **dấu câu
+    /// kết thúc chunk**, không theo độ dài chunk. Nhờ vậy khoảng nghỉ đặt đúng chỗ — hết câu nghỉ dài, ngắt
+    /// trong câu nghỉ ngắn — thay vì mọi khe đều một hằng số.
+    struct Chunk {
+        enum Gap {
+            /// Hai chunk khác **đoạn** (cách nhau bởi `\n`) — nghỉ dài nhất.
+            case paragraph
+            /// Hết câu (`.!?`) — nghỉ vừa.
+            case sentence
+            /// Ngắt trong câu (`,;:`) hoặc chỗ cắt cưỡng bức vì câu quá dài — nghỉ ngắn.
+            case minor
+        }
+
+        let text: String
+        let gap: Gap
+    }
+
     enum EngineError: LocalizedError {
         case modelMissing([String])
         case notPrepared
@@ -216,14 +235,14 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         var phonemeSample = ""
         for (index, chunk) in chunks.enumerated() {
             try Task.checkCancellation()
-            let phonemes = config.applyingEmotionTags(to: phonemizer.phonemizeTextWithEmotions(text: chunk))
+            let phonemes = config.applyingEmotionTags(to: phonemizer.phonemizeTextWithEmotions(text: chunk.text))
             if index == 0 { phonemeSample = String(phonemes.prefix(120)) }
             let encoded = config.encode(phonemes: phonemes)
             droppedScalars += encoded.droppedScalars
             noteDroppedScalars(encoded.droppedScalars, total: encoded.ids.count)
             if index > 0 {
-                // Khoảng nghỉ theo dấu câu của chunk TRƯỚC, không phải một hằng số cho mọi khe.
-                let pause = Self.pauseSeconds(afterChunk: chunks[index - 1])
+                // Khoảng nghỉ theo **loại ranh giới** của khe, không phải một hằng số cho mọi khe.
+                let pause = Self.pauseSeconds(for: chunks[index - 1].gap)
                 samples.append(contentsOf: [Float](repeating: 0, count: Int(pause * Double(config.sampleRate))))
             }
             samples.append(contentsOf: try runChunk(

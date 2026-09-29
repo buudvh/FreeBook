@@ -15,6 +15,17 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Tách Chunk Theo CÂU — Port `pack_sentences_into_chunks` (1.3.427)
+
+Người dùng báo **"vẫn còn tình trạng cắt chunk giữa đường gây ngắt nghỉ khó chịu"**. Đúng — và lần này tôi tìm ra vì sao mình cứ sửa sai: **tôi chưa hề đọc bộ tách chunk của bản tham chiếu, mà tự viết.**
+
+* **Bản tham chiếu gói theo CÂU, không theo từ**: `normalize_to_chunks_v3_with_gaps` → `pack_sentences_into_chunks(sentences, max_chars)`, với `RE_SENTENCE_FINDALL = r'[^.!?]+[.!?]*|[.!?]+'`. Ranh giới chunk vì thế **luôn** rơi vào ranh giới câu; chỉ khi một câu **đơn** dài hơn trần mới phải cắt phụ — **trước theo dấu ngắt trong câu** (`RE_MINOR_PUNCT`), sau cùng mới theo từ.
+* **Bản 1.3.424 của tôi gói theo từ** ⇒ hết chẻ đôi *từ* nhưng vẫn cắt **giữa câu**, nên chỗ nối nghe thành khoảng nghỉ giữa câu ✓ đúng lời người dùng.
+* **`_classify_gap` phân loại ranh giới theo dấu câu cuối chunk**: `.!?` → `"sentence"`, còn lại (`,;:` hoặc cắt cưỡng bức) → `"minor"`; `"para"` do caller gán cho ranh giới `\n`. Bản tham chiếu dùng `V3_GAP_SILENCE = {"para": 0.70, "sentence": 0.50, "minor": 0.30}`; FreeBook ánh xạ sang **khoá `UserDefaults` sẵn có** (`paragraphPauseDuration` 0.5 / `sentencePauseDuration` 0.3 / `phrasePauseDuration` 0.15) để một chỗ chỉnh là cả hai engine cùng đổi.
+* **`_fits` có "tail slack"**: câu vừa trần, **hoặc** ngắn hơn `min(15, max_chars/8)` và tổng vẫn trong `max_chars + slack`. Thiếu luật này thì sinh mảnh vụn kiểu `"phương."` đứng riêng rồi bị dán sang câu sau.
+* **Đã mô phỏng lại trên đúng đoạn 450 ký tự của người dùng**: 5 chunk, **mọi chỗ cắt đều ở dấu phẩy hoặc hết câu**, và nối lại **khớp từng ký tự** với văn bản gốc.
+* **Bài học lặp lại lần thứ bảy**: gặp hành vi lạ thì **đọc bản tham chiếu trước khi tự viết**. Suốt lượt này tôi đã tự viết bộ tách chunk hai lần mà không mở `pack_sentences_into_chunks` ra xem.
+
 ## Đọc Số Và Ngày Tháng Cho VieNeu — Đảo Quyết Định "Không Tiền Xử Lý" (1.3.426)
 
 Người dùng báo **"đọc số và thứ ngày tháng bị nuốt chữ"** với `phoneme bỏ: 10`, và gửi kèm dòng `phoneme:` — thứ tôi vừa thêm ở 1.3.425 và nó trả lời được ngay.

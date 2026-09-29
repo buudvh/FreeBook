@@ -37,92 +37,173 @@ extension VieNeuTTSEngine {
         }
     }
 
-    /// Ký tự dùng làm chỗ cắt ưu tiên. **Có cả dấu phẩy**: bản đầu thiếu nó nên dấu phẩy chỉ nằm *trong*
-    /// chunk, mà khoảng nghỉ chỉ được chèn **giữa** các chunk — nên mọi chỗ ngắt theo dấu phẩy đều mất.
-    private static let chunkBoundaryCharacters = Set("。！？!?.;\n…；：,，、")
-    /// Không cắt ở ranh giới câu nếu mẩu đang gom còn ngắn hơn ngưỡng này — nếu không thì một đoạn văn
-    /// nhiều dấu phẩy sẽ vỡ thành hàng chục chunk vài chữ, mỗi chunk phải chạy trọn một vòng Euler.
-    private static let softChunkMinimum = 40
+    /// `RE_SENTENCE_FINDALL` của bản tham chiếu: `[^.!?]+[.!?]*|[.!?]+`.
+    private static let sentenceRegex = try! NSRegularExpression(pattern: "[^.!?]+[.!?]*|[.!?]+", options: [])
+    /// `RE_MINOR_PUNCT` của bản tham chiếu: chỗ cắt phụ trong một câu quá dài.
+    private static let minorPunctuationRegex = try! NSRegularExpression(pattern: "(?<=[,;:\\-–—])[ \\t]+", options: [])
+    /// `CHUNK_TAIL_SLACK` — xem `fits(current:adding:limit:)`.
+    private static let tailSlack = 15
 
-    /// Tách văn bản thành các mẩu ≤ `limit` ký tự, ưu tiên cắt sau dấu kết câu.
+    /// Tách văn bản thành các chunk theo **CÂU**, đúng thuật toán của bản tham chiếu
+    /// (`normalize_to_chunks_v3_with_gaps` → `pack_sentences_into_chunks`): chia đoạn theo `\n`, chia câu
+    /// trong mỗi đoạn, rồi **gói nguyên câu** vào chunk ≤ `limit`. Ranh giới chunk vì thế **luôn** rơi vào
+    /// ranh giới câu; chỉ khi một câu **đơn** dài hơn trần mới phải cắt phụ — trước theo dấu ngắt trong
+    /// câu (`,;:-–—`), sau cùng mới theo từ.
     ///
-    /// Đây là phần **thay thế có chủ ý** cho `normalize_to_chunks_v3_with_gaps` của bản tham chiếu: hàm
-    /// đó vừa chuẩn hoá văn bản (đọc số, viết tắt) vừa tách chunk, mà quyết định của chủ dự án là
-    /// **không** chạy lớp tiền xử lý nào cho engine này (xem plan §2). Phần tách chunk thì vẫn phải có:
-    /// Nano chỉ được huấn luyện với clip ≤ 15 giây và bản tham chiếu cắt ở 140 ký tự.
-    static func splitIntoChunks(_ text: String, limit: Int) -> [String] {
+    /// Đây là bản sửa cho lỗi **"cắt chunk giữa đường"**: bản trước gói theo **từ**, nên một câu dài bị cắt
+    /// làm hai và chỗ nối nghe thành một khoảng nghỉ giữa câu. Bản tham chiếu không bao giờ làm vậy.
+    static func splitIntoChunks(_ text: String, limit: Int) -> [Chunk] {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
-        guard limit > 0 else { return [trimmed] }
+        guard limit > 0 else { return [Chunk(text: trimmed, gap: .sentence)] }
 
+        var chunks: [Chunk] = []
+        let paragraphs = trimmed
+            .components(separatedBy: .newlines)
+            .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+
+        for paragraph in paragraphs {
+            let packed = packSentences(sentences(of: paragraph), limit: limit)
+            guard !packed.isEmpty else { continue }
+            if !chunks.isEmpty {
+                // Ranh giới với ĐOẠN trước là ngắt đoạn, không phải ngắt câu — ghi đè lên chunk cuối của
+                // đoạn trước, đúng cách bản tham chiếu gán `"para"` cho `gaps[i-1]`.
+                let previous = chunks[chunks.count - 1]
+                chunks[chunks.count - 1] = Chunk(text: previous.text, gap: .paragraph)
+            }
+            for piece in packed {
+                chunks.append(Chunk(text: piece, gap: classifyGap(piece)))
+            }
+        }
+        return chunks.isEmpty ? [Chunk(text: trimmed, gap: .sentence)] : chunks
+    }
+
+    /// `_classify_gap`: hết câu (`.!?`) → `.sentence`; còn lại (`,;:` hoặc cắt cưỡng bức giữa câu) →
+    /// `.minor`.
+    private static func classifyGap(_ chunk: String) -> Chunk.Gap {
+        guard let last = chunk.trimmingCharacters(in: .whitespacesAndNewlines).last else { return .minor }
+        return ".!?…。！？".contains(last) ? .sentence : .minor
+    }
+
+    /// `RE_SENTENCE_FINDALL` — tách câu nhưng **giữ** dấu kết câu ở cuối mẩu.
+    private static func sentences(of paragraph: String) -> [String] {
+        let nsParagraph = paragraph as NSString
+        let matches = sentenceRegex.matches(
+            in: paragraph,
+            options: [],
+            range: NSRange(location: 0, length: nsParagraph.length)
+        )
+        return matches.map { nsParagraph.substring(with: $0.range) }
+    }
+
+    /// `pack_sentences_into_chunks`: gói nguyên câu, greedy, giữ thứ tự.
+    private static func packSentences(_ sentences: [String], limit: Int) -> [String] {
         var chunks: [String] = []
-        var current = ""
+        var buffer = ""
 
-        // Cắt theo **từ**, tuyệt đối không theo ký tự.
-        //
-        // Bản đầu cắt cứng ở đúng `limit` ký tự, nên một từ nằm vắt qua ranh giới bị chẻ đôi: "trở" thành
-        // "t" + "rở", "Potter" thành "Po" + "tter". Hai mảnh đó không có trong từ điển nên rơi vào đường
-        // **đánh vần từng ký tự** (`charFallback`) và bị đọc thành **tên chữ cái** — đúng cái người dùng
-        // nghe thấy: "trở" → "thê giở", "Potter" → "pô ti tờ". Lỗi chỉ hiện ở đúng những từ nằm ngay
-        // ranh giới chunk, nên rất khó đoán nếu không đếm vị trí.
-        for piece in trimmed.split(separator: " ", omittingEmptySubsequences: true) {
-            let word = String(piece)
-            if current.isEmpty {
-                current = word
-            } else if current.count + 1 + word.count <= limit {
-                current += " " + word
+        for sentence in sentences {
+            let piece = sentence.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !piece.isEmpty else { continue }
+
+            if piece.count > limit {
+                if !buffer.isEmpty { chunks.append(buffer); buffer = "" }
+                for part in splitLongPart(piece, limit: limit) {
+                    if fits(current: buffer.count, adding: part.count, limit: limit) {
+                        buffer = buffer.isEmpty ? part : buffer + " " + part
+                    } else {
+                        if !buffer.isEmpty { chunks.append(buffer) }
+                        buffer = part
+                    }
+                }
+            } else if fits(current: buffer.count, adding: piece.count, limit: limit) {
+                buffer = buffer.isEmpty ? piece : buffer + " " + piece
             } else {
-                chunks.append(current)
-                current = word
-            }
-
-            // Từ đơn dài hơn `limit` thì buộc phải cắt cứng — không còn ranh giới nào tốt hơn.
-            while current.count > limit {
-                chunks.append(String(current.prefix(limit)))
-                current = String(current.dropFirst(limit))
-            }
-
-            // Ưu tiên chốt chunk ở ranh giới câu để các chunk sau bám theo câu, không bám theo số ký tự.
-            if let last = current.last,
-               chunkBoundaryCharacters.contains(last),
-               current.count >= softChunkMinimum {
-                chunks.append(current)
-                current = ""
+                if !buffer.isEmpty { chunks.append(buffer) }
+                buffer = piece
             }
         }
-        if !current.isEmpty { chunks.append(current) }
-        return chunks.isEmpty ? [trimmed] : chunks
+        if !buffer.isEmpty { chunks.append(buffer) }
+        return chunks
     }
 
-    /// Khoảng nghỉ chèn **sau** một chunk, theo dấu câu kết thúc nó.
-    ///
-    /// Trước đây mọi khe đều là một hằng số 0,12 s, nên dấu phẩy và dấu chấm nghe y như nhau — đúng
-    /// điều người dùng phàn nàn là "ngừng nghỉ chưa hợp lý". Nay lấy từ **đúng khoá `UserDefaults`** mà
-    /// đường NghiTTS dùng (`sentencePauseDuration` / `phrasePauseDuration`), nên chỉnh trong Cấu hình
+    /// `_fits`: vừa trần, **hoặc** phần thêm đủ ngắn để hưởng `tailSlack`. Nhờ luật này mà không sinh ra
+    /// mảnh vụn kiểu `"phương."` đứng riêng rồi bị dán sang câu sau.
+    private static func fits(current: Int, adding: Int, limit: Int) -> Bool {
+        let total = current == 0 ? adding : current + 1 + adding
+        let slack = min(tailSlack, limit / 8)
+        return total <= limit || (adding <= slack && total <= limit + slack)
+    }
+
+    /// Câu dài hơn trần: cắt theo dấu ngắt trong câu trước, phần nào vẫn quá dài mới cắt theo từ.
+    private static func splitLongPart(_ sentence: String, limit: Int) -> [String] {
+        var result: [String] = []
+        for part in splitOnMinorPunctuation(sentence) {
+            if part.count <= limit {
+                result.append(part)
+            } else {
+                result.append(contentsOf: splitByWords(part, limit: limit))
+            }
+        }
+        return result
+    }
+
+    private static func splitOnMinorPunctuation(_ text: String) -> [String] {
+        let nsText = text as NSString
+        let matches = minorPunctuationRegex.matches(
+            in: text,
+            options: [],
+            range: NSRange(location: 0, length: nsText.length)
+        )
+        guard !matches.isEmpty else { return [text] }
+        var parts: [String] = []
+        var start = 0
+        for match in matches {
+            parts.append(nsText.substring(with: NSRange(location: start, length: match.range.location - start)))
+            start = match.range.location + match.range.length
+        }
+        parts.append(nsText.substring(from: start))
+        return parts
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    /// Cắt theo **từ** — chỉ dùng cho một từ/mẩu đơn dài hơn trần, nơi không còn ranh giới nào tốt hơn.
+    private static func splitByWords(_ text: String, limit: Int) -> [String] {
+        var pieces: [String] = []
+        var buffer = ""
+        for word in text.split(separator: " ", omittingEmptySubsequences: true) {
+            let piece = String(word)
+            if buffer.isEmpty {
+                buffer = piece
+            } else if buffer.count + 1 + piece.count <= limit {
+                buffer += " " + piece
+            } else {
+                pieces.append(buffer)
+                buffer = piece
+            }
+            while buffer.count > limit {
+                pieces.append(String(buffer.prefix(limit)))
+                buffer = String(buffer.dropFirst(limit))
+            }
+        }
+        if !buffer.isEmpty { pieces.append(buffer) }
+        return pieces
+    }
+
+    /// Khoảng nghỉ cho một loại ranh giới. Lấy từ **đúng khoá `UserDefaults`** mà đường NghiTTS dùng
+    /// (`paragraphPauseDuration` / `sentencePauseDuration` / `phrasePauseDuration`) ⇒ chỉnh trong Cấu hình
     /// NghiTTS là cả hai engine cùng đổi.
-    static func pauseSeconds(afterChunk chunk: String) -> Double {
+    static func pauseSeconds(for gap: Chunk.Gap) -> Double {
         let defaults = UserDefaults.standard
-        guard let last = chunk.last else { return 0 }
-        switch last {
-        case ".", "!", "?", "。", "！", "？", "…":
-            let value = defaults.double(forKey: "sentencePauseDuration")
-            return value > 0 ? value : 0.3
-        case ",", ";", ":", "，", "；", "：", "、":
-            let value = defaults.double(forKey: "phrasePauseDuration")
-            return value > 0 ? value : 0.15
-        default:
-            // Cắt vì hết chỗ, không vì dấu câu — giữ khe ngắn như cũ.
-            return Double(interChunkSilenceSamples(24_000)) / 24_000
+        func value(_ key: String, fallback: Double) -> Double {
+            let stored = defaults.double(forKey: key)
+            return stored > 0 ? stored : fallback
         }
-    }
-
-    /// Khoảng lặng chèn giữa hai chunk **nội bộ** của cùng một đoạn văn.
-    ///
-    /// Ngắn hơn hẳn các khoảng ngắt ở `NghiTTSSettingsView` (0,1–0,5 s) vì đây là vết nối kỹ thuật, không
-    /// phải ngắt câu do người dùng đặt: `trim_and_fade` đã fade hai mép để không click, còn khoảng nghỉ
-    /// theo dấu câu là việc của tầng trên.
-    static func interChunkSilenceSamples(_ sampleRate: Int) -> Int {
-        max(0, Int(0.12 * Double(sampleRate)))
+        switch gap {
+        case .paragraph: return value("paragraphPauseDuration", fallback: 0.5)
+        case .sentence: return value("sentencePauseDuration", fallback: 0.3)
+        case .minor: return value("phrasePauseDuration", fallback: 0.15)
+        }
     }
 
     /// `(lead, tail)` — số mẫu im lặng ở đầu và cuối, đo bằng envelope `mean|x|` trên cửa sổ 10 ms.

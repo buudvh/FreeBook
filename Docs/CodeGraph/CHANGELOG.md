@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.427] - 2026-09-29
+
+### fix: tach chunk theo cau nhu ban tham chieu de khong cat giua cau
+
+Người dùng báo **"vẫn còn tình trạng cắt chunk giữa đường gây ngắt nghỉ khó chịu"**. Nguyên nhân: **tôi chưa hề đọc bộ tách chunk của bản tham chiếu mà tự viết** — và đã viết sai hai lần.
+
+- **Bản tham chiếu gói theo CÂU**: `normalize_to_chunks_v3_with_gaps` → `pack_sentences_into_chunks(sentences, max_chars)`, tách câu bằng `RE_SENTENCE_FINDALL = r'[^.!?]+[.!?]*|[.!?]+'`, chia đoạn theo `\n`. Ranh giới chunk vì thế **luôn** rơi vào ranh giới câu; chỉ khi một câu **đơn** dài hơn trần mới phải cắt phụ — **trước theo dấu ngắt trong câu** (`RE_MINOR_PUNCT = r'(?<=[,;:\-–—])\s+'`), sau cùng mới theo từ.
+- **Bản 1.3.424 gói theo từ** ⇒ hết chẻ đôi *từ* nhưng vẫn cắt **giữa câu** ⇒ chỗ nối thành khoảng nghỉ giữa câu, đúng lời người dùng.
+- **`_classify_gap` phân loại ranh giới theo dấu câu cuối chunk**: `.!?` → `"sentence"`, còn lại (`,;:` hoặc cắt cưỡng bức) → `"minor"`; `"para"` cho ranh giới `\n`. Bản tham chiếu dùng `V3_GAP_SILENCE = {"para": 0.70, "sentence": 0.50, "minor": 0.30}`; FreeBook ánh xạ sang **khoá `UserDefaults` sẵn có** (`paragraphPauseDuration` 0.5 / `sentencePauseDuration` 0.3 / `phrasePauseDuration` 0.15) để một chỗ chỉnh là **cả hai engine** cùng đổi.
+- **`_fits` có "tail slack"**: câu vừa trần, **hoặc** ngắn hơn `min(15, max_chars/8)` và tổng vẫn trong `max_chars + slack` — thiếu luật này thì sinh mảnh vụn kiểu `"phương."` đứng riêng rồi bị dán sang câu sau.
+- **Đã mô phỏng lại trên đúng đoạn 450 ký tự của người dùng**: 5 chunk, **mọi chỗ cắt đều ở dấu phẩy hoặc hết câu**, nối lại **khớp từng ký tự** với văn bản gốc.
+- **Type mới**: `VieNeuTTSEngine.Chunk` + `Chunk.Gap` (`.paragraph` / `.sentence` / `.minor`) — bản port của `_classify_gap`.
+- **File sửa**: `VieNeuTTSEngine+Audio.swift` 171 → **252**, `VieNeuTTSEngine.swift` 344 → **363**.
+- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
+- **Tài liệu CodeGraph**: `rules.md` thêm 3 luật (gói theo câu; phân loại gap theo dấu câu; tail slack); `11_subsystems.md` thêm mục về lượt này.
+
 ## [1.3.426] - 2026-09-29
 
 ### fix: doc so va ngay thang cho engine VieNeu bang lop tien xu ly cua app
