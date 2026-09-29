@@ -59,6 +59,28 @@ final class VieNeuTTSService: @unchecked Sendable {
     /// Số phoneme bị bỏ ở lượt tổng hợp gần nhất. Màn thử giọng đọc để phát hiện text không đọc được.
     var lastDroppedScalars: Int { syncQueue.sync { _lastDroppedScalars } }
 
+    /// Khoá `UserDefaults` của chế độ chất lượng.
+    ///
+    /// Đặt ở tầng service (không phải ở View) để màn thử giọng và đường đọc truyện — khi được nối —
+    /// dùng **cùng một** giá trị, và để lựa chọn sống qua các lần mở app.
+    private static let preferredModeKey = "vieneuPreferredMode"
+
+    /// Chế độ người dùng chọn; `nil` = tự thích nghi theo tốc độ máy.
+    var preferredMode: VieNeuSynthesisPolicy.Mode? {
+        get {
+            guard let raw = UserDefaults.standard.string(forKey: Self.preferredModeKey) else { return nil }
+            return VieNeuSynthesisPolicy.Mode(rawValue: raw)
+        }
+        set {
+            if let newValue {
+                UserDefaults.standard.set(newValue.rawValue, forKey: Self.preferredModeKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: Self.preferredModeKey)
+            }
+            engine.setRequestedMode(newValue)
+        }
+    }
+
     init(store: VieNeuModelStore, engine: VieNeuTTSEngine) {
         self.store = store
         self.engine = engine
@@ -72,6 +94,8 @@ final class VieNeuTTSService: @unchecked Sendable {
         try await Task.detached(priority: .utility) { [engine] in
             try engine.prepare()
         }.value
+        // Áp lựa chọn đã lưu sau khi engine sẵn sàng — lần mở app sau vẫn giữ đúng chế độ người dùng đặt.
+        engine.setRequestedMode(preferredMode)
         syncQueue.sync { _currentVoice = voice }
     }
 

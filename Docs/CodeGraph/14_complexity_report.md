@@ -15,6 +15,13 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Màn thử giọng VieNeu chạm trần 397/400 nên phải tách thành 3 file (1.3.422)
+
+* **+2 file mới, 0 vi phạm kiến trúc mới**: `VieNeuTTSTestView+Sections.swift` **164**, `+Diagnostics.swift` **37**. File chính 397 → **255**.
+* **Đây là lần thứ tư một file của phân hệ VieNeu phải tách vì trần 400**: `SeaG2P` (509 → 2 file), `VieNeuTTSEngine` (472 → `+Audio`, rồi `+Adaptive`), và giờ là màn thử giọng. Bài học đã thành quy ước: **màn chẩn đoán cứ tách sẵn phần "khối UI" và "khối chữ" ra từ đầu**, đừng để tới lúc chạm trần mới tách — vì tách muộn thì phải hạ `@State private` → internal trên nhiều thuộc tính cùng lúc.
+* Sửa nội dung, đều dưới trần: `VieNeuSynthesisPolicy` 81 → **86**, `VieNeuTTSEngine` 302 → **324**, `VieNeuTTSService` 231 → **256**.
+* `check_architecture.py` giữ nguyên **5** violation nền cũ, **0** mới.
+
 ## +1 file cho màn thử giọng VieNeu; 0 vi phạm kiến trúc mới (1.3.418)
 
 * **1 file Swift mới**: `VieNeuTTSTestView.swift` **346**/400 dòng, 1 primary type top level.

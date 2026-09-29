@@ -11,12 +11,16 @@ import Foundation
 /// đó là gì".
 enum VieNeuSynthesisPolicy {
     /// Chế độ chất lượng. `rawValue` được ghi vào log để đọc lại được lịch sử đổi mode.
-    enum Mode: String, Sendable {
+    enum Mode: String, CaseIterable, Sendable {
         /// 16 Euler step, `sway = 0` — mặc định của model.
         case high
         /// 8 Euler step, `sway = -1` — bản tham chiếu ghi rõ cặp này nhanh gấp đôi và **phải đi cùng
         /// nhau**: hạ step mà giữ `sway = 0` làm chất lượng tụt nhiều hơn cần thiết.
         case fast
+        /// 8 Euler step + **tắt CFG**. Đây là chế độ **người dùng tự chọn**, không bao giờ do thích nghi
+        /// tự đặt: bỏ CFG halve compute (mỗi bước chỉ còn **một** lượt `vector_estimator` thay vì hai)
+        /// nhưng model card cảnh báo thẳng là **giảm độ rõ**. Chỉ dùng khi người dùng đã nghe và chấp nhận.
+        case turbo
     }
 
     /// Bộ tham số đưa thẳng vào vòng Euler.
@@ -30,6 +34,7 @@ enum VieNeuSynthesisPolicy {
         switch mode {
         case .high: return Tuning(steps: 16, sway: 0.0, cfg: 3.0)
         case .fast: return Tuning(steps: 8, sway: -1.0, cfg: 3.0)
+        case .turbo: return Tuning(steps: 8, sway: -1.0, cfg: 0)
         }
     }
 

@@ -15,6 +15,13 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ranh giới phụ thuộc của bộ chọn tốc độ VieNeu (1.3.422)
+
+* **Nhãn UI nằm ở tầng View, không ở policy**: `VieNeuSynthesisPolicy.Mode.displayName` là extension **trong file View**. `VieNeuSynthesisPolicy` giữ nguyên tính thuần (không chuỗi UI, không `UserDefaults`) — đúng khuôn `NghiSynthesisPolicy`.
+* **`UserDefaults` đặt ở tầng service, không ở View**: `VieNeuTTSService.preferredMode` đọc/ghi khoá `vieneuPreferredMode` và gọi `engine.setRequestedMode`. Để ở service thì màn thử giọng và đường đọc truyện (khi được nối) dùng **cùng một** giá trị; để ở View thì hai đường sẽ lệch nhau.
+* **Tách file extension buộc hạ `private` → `internal`**: `VieNeuTTSTestView` tách thành 3 file nên 15 `@State` và 5 computed/4 action phải mở lên internal. Đây là **cái giá của việc tách muộn** — nếu tách từ đầu thì chỉ cần mở đúng những gì khối UI dùng.
+* **Không có cạnh mới lên tầng trên**: bộ chọn tốc độ chỉ đi View → Service → Engine; engine không biết gì về UI.
+
 ## Ranh giới phụ thuộc của màn thử giọng VieNeu (1.3.418)
 
 * **Chiều Views → Services, không có cạnh ngược**: `Views/Settings/TTS/VieNeuTTSTestView.swift` gọi `VieNeuTTSService.shared` và `VieNeuModelClient` (đều thuộc `Services/TTS/VieNeu/`). Service **không** biết gì về View.

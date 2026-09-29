@@ -15,6 +15,17 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Tách màn thử giọng VieNeu thành 3 file + bộ chọn tốc độ (1.3.422)
+
+| Nhóm | File | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Views/Settings/TTS | [`VieNeuTTSTestView.swift`](../../Sources/Views/Settings/TTS/VieNeuTTSTestView.swift) | `@State` + `body` + hành động (tải/xoá model, tổng hợp, phát) | 255 |
+| Views/Settings/TTS | [`VieNeuTTSTestView+Sections.swift`](../../Sources/Views/Settings/TTS/VieNeuTTSTestView+Sections.swift) | **Mới** — các khối `Form` + bộ chọn tốc độ + nhãn `Mode.displayName` | 164 |
+| Views/Settings/TTS | [`VieNeuTTSTestView+Diagnostics.swift`](../../Sources/Views/Settings/TTS/VieNeuTTSTestView+Diagnostics.swift) | **Mới** — khối chẩn đoán để sao chép | 37 |
+
+* **Vì sao phải tách**: `VieNeuTTSTestView` đã **397/400** dòng, thêm bộ chọn tốc độ là vượt trần. Tách file extension buộc hạ `@State private` → `internal` (Swift giới hạn `private` theo file) — cùng khuôn `SeaG2P+Phonemize`, `VieNeuTTSEngine+Adaptive`.
+* Sửa nội dung: `VieNeuSynthesisPolicy` 81 → **86** (thêm mode `turbo` + `CaseIterable`), `VieNeuTTSEngine` 302 → **324** (`requestedMode` + `setRequestedMode`), `VieNeuTTSService` 231 → **256** (`preferredMode` đọc/ghi `UserDefaults`).
+
 ## +1 file cho màn thử giọng VieNeu-TTS v3 Nano (1.3.418)
 
 | Nhóm | File mới | Vai trò | Dòng |

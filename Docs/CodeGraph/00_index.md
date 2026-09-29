@@ -15,6 +15,13 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Bộ Chọn Tốc Độ Tạo Audio VieNeu + Tách Màn Thử Giọng (1.3.422)
+
+* **`VieNeuTTSTestView` tách thành 3 file** (màn này đã chạm **397/400** dòng, hết chỗ): [`VieNeuTTSTestView.swift`](../../Sources/Views/Settings/TTS/VieNeuTTSTestView.swift#L1) 255 (state + `body` + hành động), [`+Sections.swift`](../../Sources/Views/Settings/TTS/VieNeuTTSTestView+Sections.swift#L1) 164 (các khối `Form` + bộ chọn tốc độ), [`+Diagnostics.swift`](../../Sources/Views/Settings/TTS/VieNeuTTSTestView+Diagnostics.swift#L1) 37 (khối copy). Tách file extension buộc hạ `@State private` → internal (Swift giới hạn `private` theo file).
+* **Bộ chọn tốc độ tạo audio** — trả lời yêu cầu "cho nhanh hơn": `high` (16 bước) · `fast` (8 bước + sway −1) · `turbo` (8 bước, **tắt CFG**) · *Tự động*. Mỗi bước là một lượt `vector_estimator` và CFG chạy thêm một lượt nữa ⇒ 16 bước tốn **32 lượt/đoạn**, 8 bước tốn 16, và `turbo` chỉ còn **8**. Đây là **đòn bẩy duy nhất** vừa nhanh hơn vừa mát máy hơn.
+* **Lựa chọn của người dùng tắt hẳn cơ chế thích nghi**: `VieNeuTTSEngine.requestedMode != nil` ⇒ `updateMode` không chạy, nếu không bộ thích nghi sẽ tự nâng/hạ và ghi đè đúng thứ người dùng vừa đặt.
+* **Lưu trong `UserDefaults`** (`vieneuPreferredMode`), đặt ở tầng `VieNeuTTSService` để màn thử giọng và đường đọc truyện (khi được nối) dùng **cùng một** giá trị.
+
 ## Màn Thử Giọng VieNeu-TTS v3 Nano — Đo RTF Trước Khi Nối Vào Reader (1.3.418)
 
 * [`VieNeuTTSTestView.swift`](../../Sources/Views/Settings/TTS/VieNeuTTSTestView.swift#L1): tải/xoá model (~343 MB), chọn 1 trong 11 giọng, nhập chữ, phát thử, và **hiện RTF + chế độ chất lượng + thời gian tổng hợp**. Vào từ Cấu hình NghiTTS → mục "Engine khác".

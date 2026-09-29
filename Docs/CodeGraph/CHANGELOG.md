@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.422] - 2026-09-29
+
+### feat: them bo chon toc do tao audio cho engine VieNeu
+
+Người dùng xác nhận engine đã **đọc đúng tiếng Việt** (`phoneme bỏ: 0`, RTF **0.52**) và yêu cầu **nhanh hơn**, kèm ghi nhận máy **nóng** sau khi tạo xong.
+
+- **Bộ chọn tốc độ tạo audio** trong màn thử giọng: `high` (16 bước, CFG bật) · `fast` (8 bước + sway −1) · `turbo` (8 bước, **tắt CFG**) · *Tự động*. Mỗi Euler step là một lượt `vector_estimator` và CFG chạy **thêm một lượt cho mỗi step** ⇒ 16 bước = **32 lượt/đoạn**, 8 bước = 16, `turbo` = **8**. Đây là **đòn bẩy duy nhất** vừa nhanh hơn vừa mát máy hơn (tăng thread thì nhanh hơn nhưng nóng hơn — ngược yêu cầu).
+- **Lựa chọn của người dùng tắt hẳn cơ chế thích nghi**: `VieNeuTTSEngine.requestedMode != nil` ⇒ `updateMode` không chạy. Nếu không, bộ thích nghi sẽ tự nâng/hạ và ghi đè đúng thứ người dùng vừa đặt.
+- **`turbo` không bao giờ do thích nghi tự đặt**: `nextMode` chỉ đi giữa `high` ↔ `fast`; bỏ CFG halve compute nhưng model card cảnh báo thẳng là **giảm độ rõ**, nên nó chỉ dùng khi người dùng đã nghe và chấp nhận.
+- **Lưu lựa chọn trong `UserDefaults`** (`vieneuPreferredMode`), đặt ở tầng `VieNeuTTSService` để màn thử giọng và đường đọc truyện (khi được nối) dùng **cùng một** giá trị.
+- **Tách `VieNeuTTSTestView` thành 3 file** vì đã chạm **397/400** dòng: file chính 397 → **255**, thêm `+Sections.swift` **164** (các khối `Form` + bộ chọn tốc độ) và `+Diagnostics.swift` **37** (khối copy). Tách file extension buộc hạ `@State private` → `internal` — **cái giá của việc tách muộn**.
+- **Nhãn UI ở tầng View**: `VieNeuSynthesisPolicy.Mode.displayName` là extension trong file View, để policy giữ nguyên tính thuần (không chuỗi UI, không `UserDefaults`).
+- **File sửa**: `VieNeuSynthesisPolicy` 81 → **86**, `VieNeuTTSEngine` 302 → **324**, `VieNeuTTSService` 231 → **256**.
+- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
+- **Tài liệu CodeGraph**: `00_index.md`, `02_file_graph.md`, `09_dependency_rules.md`, `11_subsystems.md`, `14_complexity_report.md` (`--accept`); `04_call_graph.md`, `10_risk_report.md`, `13_resource_lifecycle.md`, `rules.md` (`--no-change-needed`).
+
 ## [1.3.421] - 2026-09-29
 
 ### fix: doc dung base 48 cua sea_g2p.bin va thu tu byte UTF-8

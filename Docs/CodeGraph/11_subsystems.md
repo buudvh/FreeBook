@@ -15,6 +15,16 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Bộ Chọn Tốc Độ Tạo Audio (1.3.422)
+
+Người dùng xác nhận engine đã **đọc đúng tiếng Việt**, `phoneme bỏ: 0`, RTF **0.52** (16,83 s audio trong 8,82 s cho 290 ký tự), và yêu cầu **nhanh hơn** — kèm ghi nhận máy **nóng** sau khi tạo xong.
+
+* **Đòn bẩy duy nhất là số lượt `vector_estimator`**: mỗi Euler step là một lượt, và CFG chạy **thêm một lượt nữa cho mỗi step**. Nên `high` (16 step) = **32 lượt/đoạn**, `fast` (8 step + sway −1) = 16, `turbo` (8 step, tắt CFG) = **8**. Giảm số lượt là cách **duy nhất** vừa nhanh hơn vừa mát máy hơn — tăng thread thì nhanh hơn nhưng **nóng hơn**, ngược yêu cầu.
+* **Ba chế độ + "Tự động"**, người dùng chọn trong màn thử giọng; lưu ở `UserDefaults` (`vieneuPreferredMode`) tại tầng service.
+* **Chọn tay thì tắt hẳn thích nghi**: `requestedMode != nil` ⇒ `updateMode` không chạy. Không làm vậy thì bộ thích nghi sẽ tự nâng/hạ và ghi đè lựa chọn, khiến ô chọn trong UI nói một đằng máy chạy một nẻo.
+* **`turbo` không bao giờ do thích nghi tự đặt**: `nextMode` chỉ đi giữa `high` ↔ `fast`. Bỏ CFG halve compute nhưng model card cảnh báo thẳng là **giảm độ rõ**, nên nó chỉ dùng khi người dùng đã nghe và chấp nhận.
+* **Màn thử giọng tách thành 3 file** vì đã chạm **397/400** dòng.
+
 ## Sửa Bộ Đọc `sea_g2p.bin`: Sai Base 16 Byte + Sai Thứ Tự So Sánh (1.3.421)
 
 Người dùng báo engine đã chạy (**RTF 0.50** ở chế độ `high`, độ dài audio hợp lý) nhưng **"âm thanh không phải tiếng Việt"**.

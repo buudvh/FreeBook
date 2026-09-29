@@ -85,6 +85,11 @@ final class VieNeuTTSEngine: @unchecked Sendable {
     // Trạng thái thích nghi — `+Adaptive` đọc/ghi, nên phải `internal` chứ không `private`.
     var droppedScalarWarningShown = false
     var mode: VieNeuSynthesisPolicy.Mode = .high
+    /// Chế độ **người dùng chọn**. `nil` = tự thích nghi theo RTF (mặc định).
+    ///
+    /// Khi có giá trị, `updateMode` bị bỏ qua hoàn toàn — nếu không, bộ thích nghi sẽ tự nâng/hạ và ghi
+    /// đè đúng cái người dùng vừa chọn, làm ô chọn trong UI nói một đằng máy chạy một nẻo.
+    private var requestedMode: VieNeuSynthesisPolicy.Mode?
     var consecutiveSlow = 0
     var consecutiveFast = 0
 
@@ -92,10 +97,19 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         self.store = store
     }
 
-    /// Chế độ đang dùng — `TTSManager` đọc để hiện trạng thái.
+    /// Chế độ đang **thực sự** chạy (đã tính cả lựa chọn của người dùng).
     var currentMode: VieNeuSynthesisPolicy.Mode {
         lock.lock(); defer { lock.unlock() }
-        return mode
+        return requestedMode ?? mode
+    }
+
+    /// Đặt chế độ cố định. Truyền `nil` để quay lại tự thích nghi theo RTF.
+    func setRequestedMode(_ requested: VieNeuSynthesisPolicy.Mode?) {
+        lock.lock(); defer { lock.unlock() }
+        requestedMode = requested
+        if let requested { mode = requested }
+        consecutiveSlow = 0
+        consecutiveFast = 0
     }
 
     /// 24 kHz theo `config.json`; trước khi nạp xong thì trả về giá trị mặc định của model.
@@ -178,7 +192,8 @@ final class VieNeuTTSEngine: @unchecked Sendable {
             throw EngineError.badOutput("voices_v3_nano.json")
         }
 
-        let tuning = VieNeuSynthesisPolicy.tuning(for: mode)
+        let activeMode = requestedMode ?? mode
+        let tuning = VieNeuSynthesisPolicy.tuning(for: activeMode)
         let chunks = Self.splitIntoChunks(text, limit: VieNeuConfig.maxChunkCharacters)
         let started = ProcessInfo.processInfo.systemUptime
 
@@ -205,14 +220,17 @@ final class VieNeuTTSEngine: @unchecked Sendable {
 
         let synthesisMs = (ProcessInfo.processInfo.systemUptime - started) * 1_000
         let pcmDuration = Double(samples.count) / Double(config.sampleRate)
-        updateMode(synthesisMs: synthesisMs, pcmDuration: pcmDuration)
+        // Chỉ thích nghi khi người dùng để "tự động"; xem doc của `requestedMode`.
+        if requestedMode == nil {
+            updateMode(synthesisMs: synthesisMs, pcmDuration: pcmDuration)
+        }
 
         return Output(
             data: WAVEncoder.encodePCM16(samples: samples, sampleRate: config.sampleRate, channels: 1),
             samples: samples,
             pcmDuration: pcmDuration,
             synthesisMs: synthesisMs,
-            mode: mode,
+            mode: activeMode,
             droppedScalars: droppedScalars
         )
     }
