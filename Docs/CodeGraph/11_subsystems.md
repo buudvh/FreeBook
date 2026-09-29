@@ -15,6 +15,15 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Khoảng Nghỉ Theo Dấu Câu + Chuẩn Hoá Dấu Câu Lạ (1.3.425)
+
+Người dùng báo hai điều sau lượt 1.3.424: **`phoneme bỏ: 1`** (một ký tự không nằm trong vocab) và **"ngừng nghỉ chưa hợp lý"**.
+
+* **`phoneme bỏ: 1` = dấu gạch ngang `–` (U+2013) trong câu người dùng.** Vocab `config.json` có `-` ASCII nhưng **không** có `–`/`—`/`“ ”`; `VieNeuConfig.encode` **bỏ im lặng** ký tự lạ (chỉ đếm). Nay `normalizingPunctuation` ánh xạ gạch ngang sang **dấu phẩy** (nó mang nghĩa ngắt ý, và dấu phẩy thì model biết đọc) và bỏ các dấu nháy trang trí — **cố ý không đụng `'`/`’`** vì tokenizer dùng chúng để ghép từ.
+* **"Ngừng nghỉ chưa hợp lý" — nguyên nhân: khoảng nghỉ là hằng số 0,12 s và dấu phẩy không phải ranh giới chunk.** Khoảng lặng chỉ được chèn **giữa** các chunk, nên dấu phẩy nằm *trong* chunk thì mọi chỗ ngắt theo dấu phẩy đều mất. Nay `pauseSeconds(afterChunk:)` đọc **đúng khoá `UserDefaults`** mà đường NghiTTS dùng (`sentencePauseDuration` 0,3 s / `phrasePauseDuration` 0,15 s) ⇒ chỉnh trong Cấu hình NghiTTS là **cả hai engine** cùng đổi; và `,` `，` `、` đã vào bộ ký tự ranh giới.
+* **Thêm "mẫu phoneme" vào khối chẩn đoán** (`phoneme: …`, 120 ký tự đầu): đây là **bằng chứng duy nhất** phân biệt "từ điển trả sai" với "phoneme đúng nhưng model đọc phoneme tiếng Anh bằng giọng Việt" — hai nguyên nhân nghe giống hệt nhau. Cần cho ca `Potter` còn treo.
+* **Thêm "nhanh hơn N× so với realtime"** vào báo cáo: RTF là **tỉ số**, nên bất cứ gì làm audio ngắn đi (trim/fade từng chunk, văn bản ngắn hơn) đều **đẩy RTF lên** mà engine không hề chậm đi. Người dùng so 0,26 với 0,30 nhưng hai lần chạy dùng **văn bản khác nhau** (290 vs 285 ký tự) và audio ngắn đi 11% trong khi thời gian tổng hợp chỉ đổi 4%.
+
 ## Từ Bị Chẻ Đôi Ở Ranh Giới Chunk + Sửa Picker Chế Độ + Nút Chia Sẻ Audio (1.3.424)
 
 Người dùng thử một đoạn khác và báo: **"trở" đọc thành "thê giở"**, **"Harry Potter" đọc thành "harry pô ti tờ"** — chỉ vài từ sai trong câu đúng.

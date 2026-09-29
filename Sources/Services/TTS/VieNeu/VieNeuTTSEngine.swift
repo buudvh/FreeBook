@@ -51,6 +51,9 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         /// Số chunk văn bản đã tách. Có mặt vì đúng lỗi vừa rồi (từ bị chẻ đôi ở ranh giới chunk) sẽ hiện
         /// ra ngay nếu biết số chunk — người dùng thấy "chunk: 3" cho một câu mà lẽ ra chỉ 2 là biết ngay.
         let chunkCount: Int
+        /// Phoneme của chunk đầu (cắt ngắn). Đây là **bằng chứng duy nhất** phân biệt được hai nguyên nhân
+        /// hay gặp của "đọc sai": từ điển trả phoneme sai, hay phoneme đúng mà model đọc bằng giọng Việt.
+        let phonemeSample: String
     }
 
     enum EngineError: LocalizedError {
@@ -202,14 +205,20 @@ final class VieNeuTTSEngine: @unchecked Sendable {
 
         var samples: [Float] = []
         var droppedScalars = 0
+        var phonemeSample = ""
         for (index, chunk) in chunks.enumerated() {
             try Task.checkCancellation()
-            let phonemes = config.applyingEmotionTags(to: phonemizer.phonemizeTextWithEmotions(text: chunk))
+            let phonemes = config.applyingEmotionTags(
+                to: phonemizer.phonemizeTextWithEmotions(text: Self.normalizingPunctuation(chunk))
+            )
+            if index == 0 { phonemeSample = String(phonemes.prefix(120)) }
             let encoded = config.encode(phonemes: phonemes)
             droppedScalars += encoded.droppedScalars
             noteDroppedScalars(encoded.droppedScalars, total: encoded.ids.count)
             if index > 0 {
-                samples.append(contentsOf: [Float](repeating: 0, count: Self.interChunkSilenceSamples(config.sampleRate)))
+                // Khoảng nghỉ theo dấu câu của chunk TRƯỚC, không phải một hằng số cho mọi khe.
+                let pause = Self.pauseSeconds(afterChunk: chunks[index - 1])
+                samples.append(contentsOf: [Float](repeating: 0, count: Int(pause * Double(config.sampleRate))))
             }
             samples.append(contentsOf: try runChunk(
                 ids: encoded.ids,
@@ -235,7 +244,8 @@ final class VieNeuTTSEngine: @unchecked Sendable {
             synthesisMs: synthesisMs,
             mode: activeMode,
             droppedScalars: droppedScalars,
-            chunkCount: chunks.count
+            chunkCount: chunks.count,
+            phonemeSample: phonemeSample
         )
     }
 

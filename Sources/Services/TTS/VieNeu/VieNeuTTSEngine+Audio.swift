@@ -37,8 +37,9 @@ extension VieNeuTTSEngine {
         }
     }
 
-    /// Ký tự kết câu dùng làm chỗ cắt ưu tiên.
-    private static let chunkBoundaryCharacters = Set("。！？!?.;\n…；：")
+    /// Ký tự dùng làm chỗ cắt ưu tiên. **Có cả dấu phẩy**: bản đầu thiếu nó nên dấu phẩy chỉ nằm *trong*
+    /// chunk, mà khoảng nghỉ chỉ được chèn **giữa** các chunk — nên mọi chỗ ngắt theo dấu phẩy đều mất.
+    private static let chunkBoundaryCharacters = Set("。！？!?.;\n…；：,，、")
     /// Không cắt ở ranh giới câu nếu mẩu đang gom còn ngắn hơn ngưỡng này — nếu không thì một đoạn văn
     /// nhiều dấu phẩy sẽ vỡ thành hàng chục chunk vài chữ, mỗi chunk phải chạy trọn một vòng Euler.
     private static let softChunkMinimum = 40
@@ -91,6 +92,47 @@ extension VieNeuTTSEngine {
         }
         if !current.isEmpty { chunks.append(current) }
         return chunks.isEmpty ? [trimmed] : chunks
+    }
+
+    /// Chuẩn hoá dấu câu về bộ ký tự mà vocab của model **có**.
+    ///
+    /// `config.json` có `,` `-` `.` `!` `?` `:` `;` nhưng **không** có `–` (U+2013), `—` (U+2014) hay
+    /// `“ ” « »`. Gặp ký tự lạ thì `VieNeuConfig.encode` **bỏ im lặng** (chỉ đếm vào `droppedScalars`) —
+    /// người dùng đã thấy đúng `phoneme bỏ: 1` vì câu có một dấu gạch ngang. Ở đây gạch ngang được ánh xạ
+    /// sang **dấu phẩy** chứ không xoá: nó mang nghĩa *ngắt ý*, và dấu phẩy thì model biết đọc.
+    ///
+    /// Cố ý **không** đụng `'` và `’` — tokenizer dùng chúng để ghép từ ("don’t"), xoá đi sẽ đổi cách tách.
+    static func normalizingPunctuation(_ text: String) -> String {
+        var result = text
+        for dash in ["–", "—", "―", "−"] {
+            result = result.replacingOccurrences(of: dash, with: ",")
+        }
+        for quote in ["“", "”", "«", "»", "「", "」", "『", "』", "【", "】"] {
+            result = result.replacingOccurrences(of: quote, with: "")
+        }
+        return result
+    }
+
+    /// Khoảng nghỉ chèn **sau** một chunk, theo dấu câu kết thúc nó.
+    ///
+    /// Trước đây mọi khe đều là một hằng số 0,12 s, nên dấu phẩy và dấu chấm nghe y như nhau — đúng
+    /// điều người dùng phàn nàn là "ngừng nghỉ chưa hợp lý". Nay lấy từ **đúng khoá `UserDefaults`** mà
+    /// đường NghiTTS dùng (`sentencePauseDuration` / `phrasePauseDuration`), nên chỉnh trong Cấu hình
+    /// NghiTTS là cả hai engine cùng đổi.
+    static func pauseSeconds(afterChunk chunk: String) -> Double {
+        let defaults = UserDefaults.standard
+        guard let last = chunk.last else { return 0 }
+        switch last {
+        case ".", "!", "?", "。", "！", "？", "…":
+            let value = defaults.double(forKey: "sentencePauseDuration")
+            return value > 0 ? value : 0.3
+        case ",", ";", ":", "，", "；", "：", "、":
+            let value = defaults.double(forKey: "phrasePauseDuration")
+            return value > 0 ? value : 0.15
+        default:
+            // Cắt vì hết chỗ, không vì dấu câu — giữ khe ngắn như cũ.
+            return Double(interChunkSilenceSamples(24_000)) / 24_000
+        }
     }
 
     /// Khoảng lặng chèn giữa hai chunk **nội bộ** của cùng một đoạn văn.

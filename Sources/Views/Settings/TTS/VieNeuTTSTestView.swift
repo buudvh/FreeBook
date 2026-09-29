@@ -234,6 +234,7 @@ struct VieNeuTTSTestView: View {
         )
         lastReport = """
         RTF          \(String(format: "%.2f", rtf))   (nhỏ hơn 1 là đọc realtime được)
+        nhanh hơn    \(String(format: "%.1f", 1 / max(rtf, 0.001)))× so với realtime
         chế độ       \(service?.currentMode.rawValue ?? "?")
         tổng hợp     \(String(format: "%.0f", result.synthesisMs)) ms
         chờ hàng đợi \(String(format: "%.0f", result.queueWaitMs)) ms

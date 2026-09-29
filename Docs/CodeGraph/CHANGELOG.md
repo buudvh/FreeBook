@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.425] - 2026-09-29
+
+### fix: khoang nghi theo dau cau va chuan hoa dau cau la
+
+Người dùng báo `phoneme bỏ: 1` và **"ngừng nghỉ chưa hợp lý"**, kèm lo ngại **"RTF tăng đáng kể so với ver trước"**.
+
+- **`phoneme bỏ: 1` = dấu gạch ngang `–` (U+2013).** Vocab `config.json` có `-` ASCII nhưng **không** có `–`/`—`/`“ ”`, và `VieNeuConfig.encode` **bỏ im lặng** ký tự lạ (chỉ đếm vào `droppedScalars`). Nay `normalizingPunctuation` ánh xạ gạch ngang sang **dấu phẩy** — nó mang nghĩa *ngắt ý*, và dấu phẩy thì model biết đọc — và bỏ các dấu nháy trang trí. **Cố ý không đụng `'`/`’`**: tokenizer dùng chúng để ghép từ.
+- **"Ngừng nghỉ chưa hợp lý"**: khoảng nghỉ là **hằng số 0,12 s** cho mọi khe, và **dấu phẩy không nằm trong bộ ký tự ranh giới chunk** — mà khoảng lặng chỉ được chèn **giữa** các chunk, nên dấu phẩy nằm *trong* chunk thì mọi chỗ ngắt theo dấu phẩy đều mất. Nay `pauseSeconds(afterChunk:)` đọc **đúng khoá `UserDefaults`** mà đường NghiTTS dùng (`sentencePauseDuration` 0,3 s / `phrasePauseDuration` 0,15 s) ⇒ chỉnh trong Cấu hình NghiTTS là **cả hai engine** cùng đổi. `,` `，` `、` đã vào `chunkBoundaryCharacters`.
+- **Về "RTF tăng": đó là artefact của phép đo, không phải engine chậm đi.** `RTF = synthesisMs / audioSeconds`, nên bất cứ gì làm **audio ngắn đi** đều đẩy RTF lên. Hai lần người dùng đo dùng **văn bản khác nhau** (290 vs 285 ký tự) và cho audio 16,88 s vs 15,08 s (−11%) trong khi thời gian tổng hợp chỉ đổi 4376 → 4554 ms (+4%, trong nhiễu nhiệt). Báo cáo nay in thêm **"nhanh hơn N× so với realtime"** (`1/RTF`) để con số đọc trực tiếp. Muốn so chuẩn thì phải **cùng một đoạn văn**.
+- **Thêm "mẫu phoneme" vào khối chẩn đoán** (`phoneme: …`, 120 ký tự đầu của chunk đầu): đây là **bằng chứng duy nhất** phân biệt được "từ điển trả phoneme sai" với "phoneme đúng nhưng model đọc phoneme tiếng Anh bằng giọng Việt" — hai nguyên nhân nghe giống hệt nhau. Cần cho ca `Potter` còn treo.
+- **File sửa**: `VieNeuTTSEngine+Audio.swift` 126 → **190**, `VieNeuTTSEngine.swift` 330 → **338**, `VieNeuTTSService.swift` 262 → **267**, `VieNeuTTSTestView.swift` 284 → **285**, `+Diagnostics.swift` 40 → **44**.
+- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
+- **Tài liệu CodeGraph**: `rules.md` thêm 3 luật (khoảng nghỉ theo dấu câu; chuẩn hoá dấu câu lạ; RTF là tỉ số nên phải so trên cùng văn bản); `11_subsystems.md` thêm mục về lượt này.
+
 ## [1.3.424] - 2026-09-29
 
 ### fix: khong che doi tu o ranh gioi chunk, sua picker che do, them nut chia se audio

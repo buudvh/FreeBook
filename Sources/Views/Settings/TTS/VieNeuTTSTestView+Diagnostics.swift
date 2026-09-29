@@ -28,6 +28,10 @@ extension VieNeuTTSTestView {
         // Số chunk là chỉ số bắt đúng lỗi "từ bị chẻ đôi ở ranh giới chunk": một câu ngắn mà ra 3 chunk
         // là dấu hiệu ngay.
         lines.append("chunk: \(service?.lastChunkCount ?? 0)")
+        // Phoneme của chunk đầu: đây là thứ phân biệt được "từ điển trả sai" với "phoneme đúng nhưng
+        // model đọc bằng giọng Việt" — hai nguyên nhân trông giống hệt nhau qua tai nghe.
+        let sample = service?.lastPhonemeSample ?? ""
+        if !sample.isEmpty { lines.append("phoneme: \(sample)") }
         if !statusMessage.isEmpty { lines.append("kết quả: \(statusMessage)") }
         if !lastReport.isEmpty { lines.append(lastReport) }
         return lines.joined(separator: "\n")
