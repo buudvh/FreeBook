@@ -88,13 +88,13 @@ enum PreprocessorRegex {
     static let dollarSuffix = try! NSRegularExpression(pattern: #"(\d+(?:,\d+)?)\s*(?:USD|\$)"#, options: [.caseInsensitive])
 
     static let percentageRange = try! NSRegularExpression(pattern: #"(\d+)\s*[-–—]\s*(\d+)\s*%"#, options: [])
-    static let percentageDecimal = try! NSRegularExpression(pattern: #"(\d+),(\d+)\s*%"#, options: [])
+    static let percentageDecimal = try! NSRegularExpression(pattern: #"(\d+)[.,](\d+)\s*%"#, options: [])
     static let percentageSingle = try! NSRegularExpression(pattern: #"(\d+)\s*%"#, options: [])
 
     static let phone0 = try! NSRegularExpression(pattern: #"0\d{9,10}"#, options: [])
     static let phone84 = try! NSRegularExpression(pattern: #"\+84\d{9,10}"#, options: [])
 
-    static let decimal = try! NSRegularExpression(pattern: #"(\d+),(\d+)(?=\s|$|[^\d,])"#, options: [])
+    static let decimal = try! NSRegularExpression(pattern: #"(\d+)[.,](\d+)(?=\s|$|[^\d.,])"#, options: [])
     static let digits = try! NSRegularExpression(pattern: #"\b\d+\b"#, options: [])
 
     static let wordTokens = try! NSRegularExpression(pattern: #"[a-zA-Z0-9_\u00C0-\u1EFF]+"#, options: [])
@@ -357,7 +357,8 @@ final actor TextPreprocessor {
     private static func formatNumbers(_ text: String) -> String {
         return replaceMatches(in: text, regex: PreprocessorRegex.thousandsSeparatedNumber) { match, ns in
             let val = ns.substring(with: match.range(at: 1))
-            return val.replacingOccurrences(of: ".", with: "")
+            // "0.xxx" (vd 0.001) là thập phân, không phải ngăn cách nghìn → giữ nguyên dấu chấm.
+            return val.split(separator: ".", maxSplits: 1).first.map(String.init) == "0" ? val : val.replacingOccurrences(of: ".", with: "")
         }
     }
 
@@ -708,8 +709,8 @@ final actor TextPreprocessor {
         e = replaceMatches(in: e, regex: PreprocessorRegex.percentageDecimal) { match, ns in
             let s = ns.substring(with: match.range(at: 1))
             let r = ns.substring(with: match.range(at: 2))
-            let cleanedR = r.replacingOccurrences(of: "^0+", with: "", options: .regularExpression)
-            return "\(VietnameseNumberSpeller.spell(s)) phẩy \(VietnameseNumberSpeller.spell(cleanedR.isEmpty ? "0" : cleanedR)) phần trăm"
+            // Phần thập phân đọc từng chữ số, giữ số 0 đầu.
+            return "\(VietnameseNumberSpeller.spell(s)) phẩy \(r.map { String($0) }.map { VietnameseNumberSpeller.spell(String($0)) }.joined(separator: " ")) phần trăm"
         }
 
         e = replaceMatches(in: e, regex: PreprocessorRegex.percentageSingle) { match, ns in
@@ -738,10 +739,8 @@ final actor TextPreprocessor {
         return replaceMatches(in: text, regex: PreprocessorRegex.decimal) { match, ns in
             let s = ns.substring(with: match.range(at: 1))
             let r = ns.substring(with: match.range(at: 2))
-            let leftSpelled = VietnameseNumberSpeller.spell(s)
-            let cleanedR = r.replacingOccurrences(of: "^0+", with: "", options: .regularExpression)
-            let rightSpelled = VietnameseNumberSpeller.spell(cleanedR.isEmpty ? "0" : cleanedR)
-            return "\(leftSpelled) phẩy \(rightSpelled)"
+            // Phần thập phân đọc từng chữ số, giữ số 0 đầu (vd "001" → "không không một").
+            return "\(VietnameseNumberSpeller.spell(s)) phẩy \(r.map { String($0) }.map { VietnameseNumberSpeller.spell(String($0)) }.joined(separator: " "))"
         }
     }
 
@@ -820,10 +819,10 @@ final actor TextPreprocessor {
     }
 
     private static func processDigits(_ text: String) -> String {
-
         return replaceMatches(in: text, regex: PreprocessorRegex.digits) { match, ns in
             let n = ns.substring(with: match.range)
-            return VietnameseNumberSpeller.spell(n)
+            // Số 0 đầu (vd "001") đọc từng chữ số; để ở đây, KHÔNG đụng `spell` (ngày/giờ giữ nguyên).
+            return n.count > 1 && n.hasPrefix("0") ? n.map { String($0) }.map { VietnameseNumberSpeller.spell(String($0)) }.joined(separator: " ") : VietnameseNumberSpeller.spell(n)
         }
     }
 

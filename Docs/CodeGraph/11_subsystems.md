@@ -16,6 +16,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 
 <!-- GENERATED START -->
 
+## Số Thập Phân/0 Đầu, Đệm Nóng Đầu Phát & Biên Chương, Speed Tách Khỏi Prefetch (1.3.439)
+
+* **Đệm nóng đầu phát / biên chương** (`TTSManager+NghiPrefetchConcurrency.swift`): thêm `warmNghiRefillForPlaybackStart()` gọi `fillNghiRefillUpToCapacity()`, chèn tại `continueStartSpeaking` (`TTSManager.swift`). Đoạn đầu phiên/chương thường lạnh; nạp trước `N+1..N+3` song song với đoạn hiện tại để 1→2→3 liền mạch — sửa lỗi "nghe xong đoạn 1 còn đợi mới nghe đoạn 2" và gap tên chương → đoạn đầu khi sang chương mới.
+* **`updatePlaybackParams` tách khỏi prefetch**: nhánh local chỉ còn `updateRate(speed)`; bỏ `cancelNghiWakeTask()` + `updateNghiPrefetchWindow()`. Điều tra **cả 4 engine**: **không engine nào tái tổng hợp audio đang phát khi đổi tốc độ** (nghitts/vieneu `updateRate` playback-only; system per-utterance; google tổng hợp `speed: 1.0`; extension key không chứa speed). Điểm thừa duy nhất là prefetch churn mỗi nấc slider — nay đã bỏ.
+* **Tiền xử lý số** (`TextPreprocessor.swift`, giữ 1120 ≤ baseline 1121): `formatNumbers`/`processDecimals`/`processPercentages`/`processDigits` + 2 regex; `processDigits` (không `spell`) chịu trách nhiệm đọc số 0 đầu để không hỏng ngày/giờ.
+* **Pitch local vẫn no-op** (quyết định grill #9): giữ nguyên `disablePitch` cho engine local, không thêm `AVAudioUnitTimePitch` vào `NghiAudioPlayerQueue`.
+
 ## Nạp Trước Đồng Thời Cho VieNeu + Safe-Window 150 ms (1.3.438)
 
 * **Sửa đoạn ngắn VieNeu bị đứt**: `updateNghiPrefetchWindow` trước đây chỉ nạp **1** đoạn rồi `return` (`canScheduleNghiRefill` cấm lượt thứ hai bay cùng lúc). VieNeu tổng hợp đắt (RTF ~0,3 + chi phí cố định theo chunk; `VieNeuSynthesisPolicy.bufferedSecondsTarget = 12`) nên đoạn ngắn không kịp tổng hợp trước khi đoạn đang phát kết thúc. Đổi sang **pool đồng thời** (`nghiRefillTasks: [Int: Task]` + `nghiRefillInFlightIndices: Set<Int>`) và `fillNghiRefillUpToCapacity()`; `nghiRefillCandidate` bước qua index đang bay. NghiTTS giữ 1 luồng.

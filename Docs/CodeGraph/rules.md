@@ -16,6 +16,13 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 
 <!-- GENERATED START -->
 
+## Rules Số, Đệm Nóng & Tốc Độ (1.3.439)
+
+* **Speed is a playback-only parameter — never let it drive synthesis.** On-device engines synthesise at `speed: 1.0` and apply the user's speed at playback (`nghiAudioPlayerQueue.updateRate`). So `speed.didSet → updatePlaybackParams()` must **not** call `updateNghiPrefetchWindow()` / `cancelNghiWakeTask()`: that re-triggers refill + next-chapter prefetch on every slider tick for nothing. Verified across all four engines — none re-synthesises current audio on a speed change (system = per-utterance; google hardcodes `speed: 1.0`; extension key excludes speed).
+* **Warm the first segments at every playback start, not just mid-chapter.** `continueStartSpeaking` is the single entry for both fresh start and chapter handoff — call `warmNghiRefillForPlaybackStart()` there so `N+1..N+3` synthesise in parallel with the current (cold) first segment. Otherwise the first transition(s) underrun and the chapter-title → first-paragraph boundary gaps.
+* **A leading-zero rule belongs in `processDigits`, never in `VietnameseNumberSpeller.spell`.** `processDates`/`processTime` call `spell("01")` for day/month; putting the "001 → không không một" rule in `spell` would read `"01/02"` as "không một tháng hai". Keep it on the standalone-number path.
+* **`TextPreprocessor.swift` sits exactly on its 1121-line baseline — never grow it.** The 1.3.439 number fix was written net-negative (1120) by collapsing `cleanedR`/`rightSpelled` into one line and using a one-line ternary. Always `wc -l` after editing a baselined file.
+
 ## Nạp Trước Đồng Thời Cho VieNeu + Safe-Window 150 ms (1.3.438)
 
 * **Sửa đoạn ngắn VieNeu bị đứt**: `updateNghiPrefetchWindow` trước đây chỉ nạp **1** đoạn rồi `return` (`canScheduleNghiRefill` cấm lượt thứ hai bay cùng lúc). VieNeu tổng hợp đắt (RTF ~0,3 + chi phí cố định theo chunk; `VieNeuSynthesisPolicy.bufferedSecondsTarget = 12`) nên đoạn ngắn không kịp tổng hợp trước khi đoạn đang phát kết thúc. Đổi sang **pool đồng thời** (`nghiRefillTasks: [Int: Task]` + `nghiRefillInFlightIndices: Set<Int>`) và `fillNghiRefillUpToCapacity()`; `nghiRefillCandidate` bước qua index đang bay. NghiTTS giữ 1 luồng.

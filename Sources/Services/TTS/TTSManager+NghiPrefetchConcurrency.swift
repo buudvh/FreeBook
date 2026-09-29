@@ -43,4 +43,16 @@ extension TTSManager {
             guard scheduleNghiRefill() else { break }
         }
     }
+
+    /// Đệm nóng đầu phát / biên chương: tổng hợp trước các đoạn kế (`N+1..N+3`) NGAY khi bắt đầu phát.
+    ///
+    /// Gọi từ `continueStartSpeaking` — điểm vào chung của cả **fresh start** (`startSpeaking`) lẫn
+    /// **sang chương mới** (`applyNextChapter`). Đoạn đầu của một phiên/chương thường lạnh; nếu chỉ nạp
+    /// tuần tự sau khi nó phát xong thì đoạn 1→2→3 sẽ hụt (đúng lỗi người dùng báo "nghe xong đoạn 1
+    /// còn đợi mới nghe đoạn 2"). Chạy nạp trước song song với việc tổng hợp+phát đoạn hiện tại để lấp
+    /// khoảng trống đó. Hàm tự bỏ qua đoạn đã có/đang bay nên gọi lại là vô hại.
+    internal func warmNghiRefillForPlaybackStart() {
+        guard TTSManager.isLocalEngine(tool) else { return }
+        fillNghiRefillUpToCapacity()
+    }
 }

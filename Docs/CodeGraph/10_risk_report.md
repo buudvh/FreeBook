@@ -16,6 +16,14 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 
 <!-- GENERATED START -->
 
+## Rủi Ro Số Thập Phân, Đệm Nóng Đầu Phát & Tốc Độ (1.3.439)
+
+* **Rủi ro ĐÃ SỬA — `0.001` đọc thành `1`.** `formatNumbers` xóa dấu chấm ngăn cách nghìn nên `"0.001"` → `"0001"` → "1". Nay chỉ xóa chấm khi phần nguyên ≠ 0; `"0.xxx"` rơi vào `processDecimals`. `processDecimals`/`processPercentages` đọc phần thập phân từng chữ số giữ số 0 (`"0,001"` → "không phẩy không không một"); `processDigits` đọc `"001"` → "không không một".
+* **Rủi ro CÒN LẠI — đặt luật số 0 đầu vào `VietnameseNumberSpeller.spell` sẽ hỏng ngày/giờ.** `processDates` gọi `spell("01")` cho ngày; nếu `spell` đọc lại số 0 đầu thì `"01/02"` thành "không một tháng hai". Vì vậy luật chỉ nằm ở `processDigits` (số đứng riêng).
+* **Rủi ro ĐÃ SỬA — đổi tốc độ kích tổng hợp thừa.** `updatePlaybackParams` mỗi nấc kéo slider gọi `updateNghiPrefetchWindow()` (tổng hợp đoạn kế + chương sau). Nay nhánh local chỉ `updateRate(speed)`. **Bài học: một tham số playback-only không được điều khiển công việc tổng hợp.**
+* **Rủi ro CÒN LẠI — đệm nóng thêm công tổng hợp sớm.** `warmNghiRefillForPlaybackStart()` tổng hợp trước `N+1..N+3` ngay khi bắt đầu phát ⇒ tốn CPU/đĩa sớm hơn (đánh đổi lấy 1→2→3 liền mạch). **Chưa kiểm chứng lúc chạy** — cần IPA trên máy thật để xác nhận không trùng tiếng và không hồi quy NghiTTS.
+* **`TTSManager.swift` giữ net 0 dòng** (4024/3470): call site warmup chỉ 1 dòng; logic nằm ở extension. Không tạo violation mới.
+
 ## Nạp Trước Đồng Thời Cho VieNeu + Safe-Window 150 ms (1.3.438)
 
 * **Sửa đoạn ngắn VieNeu bị đứt**: `updateNghiPrefetchWindow` trước đây chỉ nạp **1** đoạn rồi `return` (`canScheduleNghiRefill` cấm lượt thứ hai bay cùng lúc). VieNeu tổng hợp đắt (RTF ~0,3 + chi phí cố định theo chunk; `VieNeuSynthesisPolicy.bufferedSecondsTarget = 12`) nên đoạn ngắn không kịp tổng hợp trước khi đoạn đang phát kết thúc. Đổi sang **pool đồng thời** (`nghiRefillTasks: [Int: Task]` + `nghiRefillInFlightIndices: Set<Int>`) và `fillNghiRefillUpToCapacity()`; `nghiRefillCandidate` bước qua index đang bay. NghiTTS giữ 1 luồng.

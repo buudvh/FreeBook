@@ -16,6 +16,12 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 
 <!-- GENERATED START -->
 
+## Sửa Số Thập Phân/0 Đầu, Đệm Nóng Đầu Phát & Biên Chương, Tách Speed Khỏi Prefetch (1.3.439)
+
+* **`continueStartSpeaking` → `warmNghiRefillForPlaybackStart()` → `fillNghiRefillUpToCapacity()`**: `continueStartSpeaking` là điểm vào **chung** của fresh start (`startSpeaking`) lẫn sang chương mới (`applyNextChapter`), nên **một** call site phủ cả hai. Tổng hợp trước `N+1..N+3` chạy song song với việc tổng hợp+phát đoạn hiện tại (đoạn đầu thường lạnh) ⇒ hết chờ ở đầu phát và ở biên chương (tên chương → đoạn 1). `warmNghiRefillForPlaybackStart()` nằm trong `TTSManager+NghiPrefetchConcurrency.swift` (ratchet-down).
+* **`speed.didSet` → `updatePlaybackParams()` với engine local nay CHỈ còn `nghiAudioPlayerQueue.updateRate(_:)`** — **bỏ** `cancelNghiWakeTask()` + `updateNghiPrefetchWindow()` (khác mô tả ở mục 1.3.434 bên dưới). Tốc độ là tham số **playback-only**; mỗi nấc kéo slider trước đây kích tổng hợp đoạn kế + chương sau. Vòng `nghiWakeTask` tự hiệu chỉnh đệm theo tốc độ mới. `setVieNeuSafeCachedTimeThreshold(_:)` **vẫn** đi thẳng vào hai hàm cuối (đúng — ngưỡng đệm đổi thì phải re-eval).
+* **Đọc số** (`TextPreprocessor`): `formatNumbers` chỉ xóa dấu chấm ngăn cách nghìn khi phần nguyên ≠ 0 (giữ `"0.001"` cho `processDecimals`); regex `decimal`/`percentageDecimal` nhận `[.,]`; `processDecimals`/`processPercentages` đọc phần thập phân **từng chữ số giữ số 0**; `processDigits` đọc số 0 đầu (vd `"001"` → "không không một") — **cố ý không** đặt ở `VietnameseNumberSpeller.spell` để không phá phần số của ngày/giờ (`"01/02"` vẫn "một tháng hai").
+
 ## Nạp Trước Đồng Thời Cho VieNeu + Safe-Window 150 ms (1.3.438)
 
 * **Sửa đoạn ngắn VieNeu bị đứt**: `updateNghiPrefetchWindow` trước đây chỉ nạp **1** đoạn rồi `return` (`canScheduleNghiRefill` cấm lượt thứ hai bay cùng lúc). VieNeu tổng hợp đắt (RTF ~0,3 + chi phí cố định theo chunk; `VieNeuSynthesisPolicy.bufferedSecondsTarget = 12`) nên đoạn ngắn không kịp tổng hợp trước khi đoạn đang phát kết thúc. Đổi sang **pool đồng thời** (`nghiRefillTasks: [Int: Task]` + `nghiRefillInFlightIndices: Set<Int>`) và `fillNghiRefillUpToCapacity()`; `nghiRefillCandidate` bước qua index đang bay. NghiTTS giữ 1 luồng.

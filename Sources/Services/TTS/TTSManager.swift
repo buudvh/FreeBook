@@ -1124,9 +1124,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             if tool == "system" {
                 // AVSpeechSynthesizer
             } else if tool == "nghitts" || tool == "vieneu" {
+                // Tốc độ là playback-only (audio local tổng hợp x1.0) → chỉ updateRate, không đụng prefetch.
                 nghiAudioPlayerQueue.updateRate(speed)
-                cancelNghiWakeTask()
-                updateNghiPrefetchWindow()
             } else if let player = audioPlayer {
                 player.rate = Float(speed)
             }
@@ -1429,6 +1428,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         self.isPlaying = true
         setSystemNowPlayingPlaybackState(.playing)
         self.syncRemoteCommandState()
+        warmNghiRefillForPlaybackStart()
 
         speakCurrent()
     }
