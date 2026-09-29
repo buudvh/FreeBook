@@ -15,6 +15,16 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +1 file: tách phần tách chunk khỏi `+Audio` (1.3.431)
+
+| Nhóm | File | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Services/TTS/VieNeu | [`VieNeuTTSEngine+Chunking.swift`](../../Sources/Services/TTS/VieNeu/VieNeuTTSEngine+Chunking.swift) | **Mới** — port `pack_sentences_into_chunks` + hàng rào con số/từ nối + `Chunk`/`Gap` + `pauseSeconds(for:)` | 294 |
+| Services/TTS/VieNeu | [`VieNeuTTSEngine+Audio.swift`](../../Sources/Services/TTS/VieNeu/VieNeuTTSEngine+Audio.swift) | Còn lại phần DSP: `timeGrid`, nhiễu, `joinChunks` (+khớp âm lượng), `trimAndFade`, `edgeSilence` | 148 |
+
+* **Vì sao tách**: `+Audio` lên **432/400** dòng sau khi thêm khớp âm lượng ⇒ một violation mới. Ranh giới tự nhiên là *chữ* (tách chunk) vs *mẫu* (DSP).
+* Sửa nội dung: `VieNeuTTSEngine.swift` **370**, `VieNeuTTSTestView+Sections.swift` 210 → **217**, `VieNeuTTSTestView.swift` **291**.
+
 ## +1 file: lối vào hẹp cho phần đọc số của VieNeu (1.3.426)
 
 | Nhóm | File | Vai trò | Dòng |

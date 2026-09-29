@@ -46,8 +46,9 @@ enum VieNeuSynthesisPolicy {
     /// tổng hợp 10,15 s cho 28,13 s audio (RTF thật 0,37, trước là 0,26–0,30) nên nâng lên 4 — sau khi
     /// đã ở 8 bước + CFG thì **số luồng là đòn bẩy còn lại duy nhất**, đổi lại là máy nóng hơn.
     ///
-    /// `Output.timing` đo phần `vector_estimator` tách khỏi phần còn lại: nếu lần sau RTF không giảm và
-    /// `vector` vẫn chiếm gần hết thì con số này **không phải** nút thắt và phải trả về 2.
+    /// **Đã đo và giữ 4**: `Output.timing` cho `vector 7,60 s | khác 0,14 s` trên 28,01 s audio, và
+    /// `RTF thật` giảm 0,37 → **0,29** so với lúc còn 2 luồng. Vòng Euler chiếm **98%** thời gian nên đây
+    /// đúng là nút thắt, và chi phí cố định theo chunk (0,14 s) nhỏ tới mức **giảm số chunk không giúp gì**.
     static let threadCount: Int32 = 4
 
     // MARK: - Luật đổi chế độ

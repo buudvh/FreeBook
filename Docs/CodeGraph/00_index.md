@@ -15,6 +15,12 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Khớp Âm Lượng Giữa Chunk + Tách Phần Tách Chunk Ra File Riêng (1.3.431)
+
+* [`VieNeuTTSEngine+Chunking.swift`](../../Sources/Services/TTS/VieNeu/VieNeuTTSEngine+Chunking.swift#L1) — **file mới**, bản port `pack_sentences_into_chunks`: gói theo **câu**, chia **đều**, hàng rào chống xẻ đôi con số / cắt giữa cặp từ nối, phân loại `Gap`. Tách khỏi `+Audio` vì file đó lên **432/400** dòng.
+* [`VieNeuTTSEngine+Audio.swift`](../../Sources/Services/TTS/VieNeu/VieNeuTTSEngine+Audio.swift#L1) còn **148** dòng: `timeGrid`, nhiễu, `joinChunks`, `trimAndFade`, `edgeSilence`.
+* **`joinChunks` khớp âm lượng giữa các chunk** (kéo về trung vị RMS, kẹp ±4 dB) — **mở rộng có chủ ý** so với bản tham chiếu, vốn **không** chuẩn hoá gì (đã `grep` xác nhận). Xem `rules.md`.
+
 ## Đọc Số/Ngày Tháng Cho VieNeu Qua Lớp Tiền Xử Lý Của App (1.3.426)
 
 * [`TextPreprocessor+Numbers.swift`](../../Sources/Services/TTS/Preprocessing/TextPreprocessor+Numbers.swift#L1) — lối vào **hẹp** `normalizingForVieNeu`: chạy `processVietnameseText` (đọc số, ngày tháng, khoảng năm, thời gian, đơn vị, số La Mã, NFC, gạch ngang/nháy) mà **không** kéo theo `EnglishTransliterator`/`JapaneseTransliterator` — IPA của espeak là bảng ký hiệu khác và sẽ bị vocab của VieNeu bỏ im lặng.

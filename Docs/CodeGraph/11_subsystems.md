@@ -15,6 +15,28 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Khớp Âm Lượng Giữa Chunk + Gom Nút Phát/Dừng Vào Hàng Icon (1.3.431)
+
+Người dùng: **"chỗ đến năm giảm âm lượng đột ngột"**, **"đọc số năm bị lắp bắp"**, và **"đem nút phát, dừng lên chỗ bên phải thanh chứa sao chép, clear, paste (hiển thị icon thôi)"**.
+
+* **Tụt âm lượng ở ranh giới chunk — đã kiểm bản tham chiếu trước khi sửa** (đúng quy trình mới): `join_audio_chunks` giữ **nguyên** audio từng chunk rồi chỉ chèn zeros, và `grep` trong `core_utils.py` **không có** hàm `normalize`/`peak`/`rms`/`gain` nào ⇒ chênh mức giữa các chunk là hành vi **cố hữu của bản tham chiếu**, không phải lỗi port. Nhưng người dùng nghe ra lỗi, và nguyên nhân hợp lý: model sinh mỗi chunk độc lập nên chunk toàn số đọc đều đều **nhỏ hơn** chunk kể chuyện ⇒ một cú tụt âm lượng ngay ranh giới.
+  * **Cách xử lý (mở rộng có chủ ý, dè dặt)**: `joinChunks` kéo mỗi chunk về **trung vị** RMS, kẹp hệ số trong **[0,6 … 1,6]** (±4 dB). Kẹp để **không** san bằng những khác biệt có ý nghĩa (câu thì thầm, câu nhấn mạnh) — chỉ san chênh lệch do sinh rời rạc.
+  * Đã ghi rõ trong `rules.md` rằng đây là **mở rộng**, để sau này không ai "sửa" ngược về cho khớp bản tham chiếu.
+* **"Lắp bắp" khi đọc số năm**: phoneme của chunk đó **đúng** (`nˈam mˈo6t̪ ŋˈi2n tʃˈiɜn tʃˈam tʃˈiɜn mˈyəj,` = "năm một nghìn chín trăm chín mươi,") ⇒ đây là **hiện tượng của model** khi gặp chuỗi âm tiết lặp, không phải lỗi tầng chữ. Không sửa được ở tầng này; chỉ có thể đổi cách đọc số hoặc chấp nhận.
+* **UI**: nút **Phát / Dừng** chuyển lên **cùng hàng** với xoá–sao chép–dán ở ô nhập chữ, tất cả **chỉ icon**; khối dưới còn lại trạng thái + nút chia sẻ audio.
+* **Tách file**: `VieNeuTTSEngine+Audio.swift` lên **432/400** sau khi thêm phần khớp âm lượng ⇒ tách theo ranh giới *chữ* vs *mẫu*: phần tách chunk sang `VieNeuTTSEngine+Chunking.swift` (**294**), `+Audio` còn **148**.
+
+## Số Đo Chốt Được Nút Thắt + Mở Rộng Hàng Rào Con Số (1.3.430)
+
+Báo cáo của người dùng sau 1.3.429 trả lời gọn cả hai câu hỏi:
+
+* **`chậm ở đâu  vector 7,60 s | khác 0,14 s`** trên 28,01 s audio ⇒ **vòng Euler chiếm 98%**, chi phí cố định theo chunk chỉ 0,14 s ⇒ **giảm số chunk không giúp gì** (loại hẳn một hướng tối ưu tôi định thử).
+* **Nâng lên 4 luồng đã có tác dụng**: `RTF thật` 0,37 → **0,29** (−22%). Giữ 4 luồng; đã ghi kết quả đo vào doc của `threadCount` để lần sau không phải đo lại.
+* **Còn lại hai đòn bẩy, cả hai đã chạm sàn**: số bước (8 là mức thấp nhất còn dùng được) và CFG (tắt đi thì người dùng nghe "quá dở"). ⇒ **Engine đã gần mức sàn thực tế.**
+* **Phoneme mỗi chunk chỉ ra đúng một chỗ sai**: `[0] … tˈaːɜŋ.` rồi `[1] sˈaɜw nˈam …` ⇒ **"tháng sáu" bị chẻ đôi**. Hàng rào của bản tham chiếu chỉ chặn cắt giữa **hai từ số**, mà "tháng" không phải từ số ⇒ lọt. Nay thêm tập `numberIntroducers` (tháng ngày giờ phút giây tuổi khoảng độ số trang chương phần quyển tập mục điều quãng hồi chặng) chặn cắt **ngay sau** chúng khi từ kế là số.
+  * **Đã xác minh**: hàng rào cũ → `…từ khoảng tháng | nghìn chín trăm…`; hàng rào mới → `…từ khoảng | nghìn chín trăm…` ✓.
+  * Đây là **mở rộng** so với bản tham chiếu, nhưng chính nó ghi rằng chặn thừa một chút còn hơn xẻ đôi một năm ⇒ đúng tinh thần, không phải lệch.
+
 ## Đo Tách Nhóm Việc + In Phoneme Mọi Chunk + Nâng Lên 4 Luồng (1.3.429)
 
 Người dùng: **"Cả đoạn mà phoneme bạn in ra chỉ có 1 câu"** và **"thời gian tổng hợp quá dài: hơn 10s cho 28s audio, cũ là 4s… cần thiết sửa để tăng tốc độ"**.

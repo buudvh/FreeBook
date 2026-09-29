@@ -15,6 +15,12 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ranh giới chữ / mẫu trong phân hệ VieNeu (1.3.431)
+
+* **`+Chunking` = việc trên CHỮ, `+Audio` = việc trên MẪU ÂM THANH.** Đây là ranh giới tách file, và cũng là ranh giới trách nhiệm: `+Chunking` không biết gì về sample rate hay fade; `+Audio` không biết gì về câu, dấu câu hay từ số. `joinChunks` (bên `+Audio`) nhận `[Chunk.Gap]` — dữ liệu thuần, không phải logic tách.
+* **Khớp âm lượng là mở rộng có chủ ý**, không phải port: bản tham chiếu không chuẩn hoá. Đã ghi vào `rules.md` để không bị "sửa ngược".
+* **Cùng khuôn tách đã dùng 5 lần trong phân hệ này**: `SeaG2P+Phonemize`, `VieNeuTTSEngine+Adaptive`, `VieNeuTTSTestView+Sections`/`+Diagnostics`, `VieNeuTTSEngine+Chunking`.
+
 ## VieNeu dùng lại lớp tiền xử lý của NghiTTS (1.3.426)
 
 * **Cạnh mới, cùng tầng `Services`**: `Services/TTS/VieNeu/VieNeuTTSEngine` → `Services/TTS/Preprocessing/TextPreprocessor`. Đây là **Services → Services**, không phải cạnh lên tầng trên, và `TextPreprocessor` vốn đã được `PiperTTSService` dùng.

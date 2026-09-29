@@ -98,6 +98,28 @@ extension VieNeuTTSTestView {
                 }
                 .accessibilityLabel("Dán chữ")
                 .disabled(!UIPasteboard.general.hasStrings)
+
+                // Phát / Dừng nằm **cùng hàng** với xoá-sao chép-dán: tất cả chỉ là icon nên gom một chỗ
+                // thì thao tác không phải nhảy giữa hai khối.
+                Button {
+                    playSample()
+                } label: {
+                    if isSynthesizing || isPreparing {
+                        ProgressView()
+                    } else {
+                        Image(systemName: "play.circle.fill")
+                    }
+                }
+                .accessibilityLabel("Phát thử")
+                .disabled(!canPlay)
+
+                Button {
+                    stopPlayback()
+                } label: {
+                    Image(systemName: "play.slash")
+                }
+                .accessibilityLabel("Dừng")
+                .disabled(player == nil && synthesisTask == nil)
             }
             // `.borderless` là bắt buộc: trong một hàng của `Form`, mặc định cả hàng là **một** nút nên
             // mọi cú chạm đều rơi vào nút đầu tiên.
@@ -161,26 +183,11 @@ extension VieNeuTTSTestView {
     @ViewBuilder
     var playSection: some View {
         Section {
-            Button {
-                playSample()
-            } label: {
-                HStack(spacing: 8) {
-                    if isSynthesizing || isPreparing {
-                        ProgressView()
-                    } else {
-                        Image(systemName: "play.circle.fill")
-                    }
-                    Text(isPreparing ? "Đang nạp engine…" : (isSynthesizing ? "Đang tổng hợp…" : "Phát thử"))
-                }
-            }
-            .disabled(!canPlay)
-
-            Button(role: .destructive) {
-                stopPlayback()
-            } label: {
-                Label("Dừng", systemImage: "play.slash")
-            }
-            .disabled(player == nil && synthesisTask == nil)
+            // Trạng thái đang chạy vẫn cần chữ; nút Phát/Dừng đã chuyển lên hàng icon ở ô nhập chữ.
+            LabeledContent(
+                "Trạng thái",
+                value: isPreparing ? "Đang nạp engine…" : (isSynthesizing ? "Đang tổng hợp…" : "Sẵn sàng")
+            )
 
             // Chia sẻ file WAV vừa tạo — để gửi audio đi nghe lại ở nơi khác, không phải chụp màn hình
             // cũng không phải đoán qua mô tả.

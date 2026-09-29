@@ -15,6 +15,12 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Lần thứ năm phải tách file vì trần 400: `+Audio` lên 432 (1.3.431)
+
+* **+1 file**: `VieNeuTTSEngine+Chunking.swift` **294**; `VieNeuTTSEngine+Audio.swift` 368 → **148** (chỉ còn DSP).
+* **Đây là lần thứ năm** phân hệ VieNeu phải tách vì trần 400: `SeaG2P` (509), `VieNeuTTSEngine` (472 → `+Audio`, rồi `+Adaptive`), `VieNeuTTSTestView` (397 → 3 file), và giờ `+Audio` (432 → `+Chunking`). **Quy ước rút ra: khi một file của phân hệ này vượt ~300 dòng thì tách trước, đừng đợi chạm trần.**
+* `check_architecture.py` giữ nguyên **5** violation nền cũ, **0** mới.
+
 ## +1 file nhỏ; file legacy đúng baseline suýt bị vượt vì 2 dòng doc (1.3.426)
 
 * **1 file mới**: `TextPreprocessor+Numbers.swift` **35**/400 dòng, chỉ có extension.

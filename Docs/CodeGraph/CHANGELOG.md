@@ -2,6 +2,38 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.431] - 2026-09-29
+
+### fix: khop am luong giua chunk va gom nut phat dung vao hang icon
+
+Người dùng: **"chỗ đến năm giảm âm lượng đột ngột"**, **"đọc số năm bị lắp bắp"**, **"đem nút phát, dừng lên chỗ bên phải thanh chứa sao chép, clear, paste (hiển thị icon thôi)"**.
+
+- **Tụt âm lượng ở ranh giới chunk — đã kiểm bản tham chiếu trước khi sửa**: `join_audio_chunks` giữ **nguyên** audio từng chunk rồi chỉ chèn zeros, và `grep` trong `core_utils.py` **không có** hàm `normalize`/`peak`/`rms`/`gain` nào ⇒ chênh mức giữa các chunk là hành vi **cố hữu của bản tham chiếu**, không phải lỗi port. Nguyên nhân hợp lý: model sinh mỗi chunk độc lập nên chunk toàn số đọc đều đều **nhỏ hơn** chunk kể chuyện.
+  * **Cách xử lý (mở rộng có chủ ý, dè dặt)**: `joinChunks` kéo mỗi chunk về **trung vị** RMS, kẹp hệ số trong **[0,6 … 1,6]** (±4 dB) — kẹp để **không** san bằng khác biệt có ý nghĩa (câu thì thầm, câu nhấn mạnh).
+  * Đã ghi vào `rules.md` rằng đây là **mở rộng**, để sau này không ai "sửa" ngược về cho khớp bản tham chiếu.
+- **"Lắp bắp" khi đọc số năm**: phoneme của chunk đó **đúng** (`nˈam mˈo6t̪ ŋˈi2n tʃˈiɜn tʃˈam tʃˈiɜn mˈyəj,` = "năm một nghìn chín trăm chín mươi,") ⇒ đây là **hiện tượng của model** khi gặp chuỗi âm tiết lặp, không phải lỗi tầng chữ. Không sửa được ở tầng này.
+- **UI**: nút **Phát / Dừng** chuyển lên **cùng hàng** với xoá–sao chép–dán ở ô nhập chữ, tất cả **chỉ icon**; khối dưới còn trạng thái + nút chia sẻ audio.
+- **Tách file**: `VieNeuTTSEngine+Audio.swift` lên **432/400** sau khi thêm khớp âm lượng ⇒ tách theo ranh giới *chữ* vs *mẫu*: phần tách chunk sang `VieNeuTTSEngine+Chunking.swift` (**294**), `+Audio` còn **148**.
+- **File sửa**: `VieNeuTTSEngine.swift` **370**, `VieNeuTTSEngine+Chunking.swift` **294** (mới), `VieNeuTTSEngine+Audio.swift` 368 → **148**, `VieNeuTTSTestView+Sections.swift` 210 → **217**.
+- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
+- **Tài liệu CodeGraph**: `rules.md` thêm 2 luật (khớp âm lượng là mở rộng có chủ ý; tách `+Audio` theo ranh giới chữ/mẫu); `00_index`, `02_file_graph`, `09_dependency_rules`, `11_subsystems`, `14_complexity_report` cập nhật.
+
+## [1.3.430] - 2026-09-29
+
+### fix: mo rong hang rao con so theo tu dan so
+
+Báo cáo sau 1.3.429 trả lời gọn cả hai câu hỏi.
+
+- **`chậm ở đâu  vector 7,60 s | khác 0,14 s`** trên 28,01 s audio ⇒ **vòng Euler chiếm 98%** thời gian, chi phí cố định theo chunk chỉ 0,14 s ⇒ **giảm số chunk không giúp gì** — loại hẳn một hướng tối ưu tôi định thử.
+- **Nâng lên 4 luồng đã có tác dụng**: `RTF thật` 0,37 → **0,29** (−22%). Giữ 4 luồng; đã ghi **kết quả đo** vào doc của `threadCount` để lần sau không đo lại.
+- **Còn lại hai đòn bẩy, cả hai đã chạm sàn**: số bước (8 là mức thấp nhất còn dùng được) và CFG (tắt đi thì người dùng nghe "quá dở") ⇒ **engine đã gần mức sàn thực tế**.
+- **Lỗi còn lại: "tháng sáu" bị chẻ đôi.** Phoneme từng chunk chỉ ra đúng chỗ: `[0] … tˈaːɜŋ.` rồi `[1] sˈaɜw nˈam …`. Hàng rào của bản tham chiếu chỉ chặn cắt giữa **hai từ số**, mà "tháng" không phải từ số ⇒ lọt. Nay thêm `numberIntroducers` (tháng ngày giờ phút giây tuổi khoảng độ số trang chương phần quyển tập mục điều quãng hồi chặng) chặn cắt **ngay sau** chúng khi từ kế là số.
+  * **Đã xác minh**: hàng rào cũ → `…từ khoảng tháng | nghìn chín trăm…`; mới → `…từ khoảng | nghìn chín trăm…` ✓.
+  * Đây là **mở rộng** so với bản tham chiếu, nhưng chính nó ghi rằng chặn thừa một chút còn hơn xẻ đôi một năm ⇒ đúng tinh thần của nó.
+- **File sửa**: `VieNeuTTSEngine+Audio.swift` 355 → **368**, `VieNeuSynthesisPolicy.swift` **93** (chỉ đổi doc).
+- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
+- **Tài liệu CodeGraph**: `rules.md` thêm 2 luật (kết quả đo: Euler 98% ⇒ giảm chunk vô ích, 4 luồng có tác dụng; từ dẫn số cũng chặn cắt); `11_subsystems.md` thêm mục về lượt này.
+
 ## [1.3.429] - 2026-09-29
 
 ### perf: them so do thoi gian va in phoneme moi chunk

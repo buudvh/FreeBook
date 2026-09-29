@@ -217,9 +217,9 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         )
         let started = ProcessInfo.processInfo.systemUptime
 
-        var samples: [Float] = []
+        var waveforms: [[Float]] = []
+        var gaps: [Chunk.Gap] = []
         var droppedScalars = 0
-        var insertedPauseSeconds = 0.0
         var timing = Timing()
         var phonemeLines: [String] = []
         for (index, chunk) in chunks.enumerated() {
@@ -231,13 +231,8 @@ final class VieNeuTTSEngine: @unchecked Sendable {
             let encoded = config.encode(phonemes: phonemes)
             droppedScalars += encoded.droppedScalars
             noteDroppedScalars(encoded.droppedScalars, total: encoded.ids.count)
-            if index > 0 {
-                // Khoảng nghỉ theo **loại ranh giới** của khe, không phải một hằng số cho mọi khe.
-                let pause = Self.pauseSeconds(for: chunks[index - 1].gap)
-                insertedPauseSeconds += pause
-                samples.append(contentsOf: [Float](repeating: 0, count: Int(pause * Double(config.sampleRate))))
-            }
-            samples.append(contentsOf: try runChunk(
+            if index > 0 { gaps.append(chunks[index - 1].gap) }
+            waveforms.append(try runChunk(
                 ids: encoded.ids,
                 preset: preset,
                 tuning: tuning,
@@ -247,6 +242,11 @@ final class VieNeuTTSEngine: @unchecked Sendable {
                 timing: &timing
             ))
         }
+
+        // Ghép chunk **sau** khi đã có đủ waveform: khớp âm lượng cần biết mức của tất cả các chunk.
+        let joined = Self.joinChunks(waveforms, gaps: gaps, sampleRate: config.sampleRate)
+        let samples = joined.samples
+        let insertedPauseSeconds = joined.pauseSeconds
 
         let synthesisMs = (ProcessInfo.processInfo.systemUptime - started) * 1_000
         let pcmDuration = Double(samples.count) / Double(config.sampleRate)
