@@ -2,6 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.426] - 2026-09-29
+
+### fix: doc so va ngay thang cho engine VieNeu bang lop tien xu ly cua app
+
+Người dùng báo **"đọc số và thứ ngày tháng bị nuốt chữ"** kèm `phoneme bỏ: 10` và dòng `phoneme:` (thêm ở 1.3.425 — và nó trả lời được ngay trong một lượt).
+
+- **Nguyên nhân: `sea_g2p.bin` không có chữ số nào.** Tra thẳng từ điển: `8`, `1999`, `74`, `3`, `2002` đều **không có** ⇒ chúng rơi vào đường **đánh vần từng ký tự**, mà vocab của model chỉ có `1 2 4 5 6 7` ⇒ `0 3 8 9` bị nuốt. `8/1999` + `3/11/2002` mất đúng **10** ký tự (7 chữ số + 3 dấu `/`) — khớp chính xác `phoneme bỏ: 10`.
+- **Đảo quyết định plan §2** ("không chạy lớp tiền xử lý nào"): thực tế cho thấy bộ G2P của model **không tự lo được số và ngày tháng**. Nay engine gọi `TextPreprocessor.normalizingForVieNeu(text)` **một lần cho cả đoạn, trước khi tách chunk** — phần đọc số làm văn bản dài ra nên phải xong trước khi biết cắt ở đâu.
+- **Lớp dùng là `processVietnameseText`, KHÔNG phải `preprocess(_:)`**: hàm sau còn chạy `EnglishTransliterator`/`JapaneseTransliterator`, tức chèn **IPA của espeak** — một bảng ký hiệu khác sẽ bị `encode` bỏ im lặng. Dùng đúng `processVietnameseText` nên vẫn có toàn bộ logic sẵn có: đọc số, ngày tháng, khoảng năm, thời gian, đơn vị, số La Mã, chuẩn hoá NFC, gạch ngang/nháy/ellipsis.
+- **Cờ `preprocessorNumericNormalizationEnabled`** (mặc định `true`) được `processVietnameseText` tự kiểm ⇒ tắt "Chuẩn hóa cách đọc số" trong Cấu hình NghiTTS là **cả hai engine** cùng tắt.
+- **Bỏ `normalizingPunctuation` tự viết** ở 1.3.425: app đã có `normalizeQuotesAndDashes` làm đúng việc đó (gạch ngang → `-`, và `-` là vocab id 6). Một đường chuẩn hoá thay vì hai.
+- **Một thứ KHÔNG phải lỗi**: `sách → sˈe-ɜc`, `giành → zˈe-2ɲ`, `anh → ˈe-ɲ` có dấu `-` **trong chính từ điển**. Đó là dữ liệu upstream, không sửa.
+- **Ràng buộc ratchet-down suýt bị vi phạm**: thêm 2 dòng doc vào `TextPreprocessor.swift` (đúng baseline **1121**) đẩy lên 1123 ⇒ violation mới; đã gỡ. Hai khai báo (`PreprocessorRuntimeConfig`, `processVietnameseText`) hạ `private` → `internal` **tại chỗ, không đổi số dòng**; lối vào mới ở `TextPreprocessor+Numbers.swift` **35** dòng.
+- **File sửa**: `TextPreprocessor.swift` **1121 → 1121** (không đổi), `VieNeuTTSEngine.swift` 338 → **344**, `VieNeuTTSEngine+Audio.swift` 190 → **171** (bỏ hàm thừa).
+- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
+- **Tài liệu CodeGraph**: `rules.md` thêm 3 luật (đọc số trước khi phonemize; không thêm dòng vào `TextPreprocessor.swift`; `-` trong giá trị từ điển là đúng); `11_subsystems.md` thêm mục về lượt này.
+
 ## [1.3.425] - 2026-09-29
 
 ### fix: khoang nghi theo dau cau va chuan hoa dau cau la

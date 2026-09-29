@@ -15,6 +15,17 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Đọc Số Và Ngày Tháng Cho VieNeu — Đảo Quyết Định "Không Tiền Xử Lý" (1.3.426)
+
+Người dùng báo **"đọc số và thứ ngày tháng bị nuốt chữ"** với `phoneme bỏ: 10`, và gửi kèm dòng `phoneme:` — thứ tôi vừa thêm ở 1.3.425 và nó trả lời được ngay.
+
+* **Nguyên nhân: `sea_g2p.bin` không có chữ số nào.** Tra thẳng: `8`, `1999`, `74`, `3`, `2002` đều **không có** trong từ điển ⇒ chúng rơi vào đường **đánh vần từng ký tự**, mà vocab của model chỉ có `1 2 4 5 6 7` ⇒ `0 3 8 9` bị nuốt. `8/1999` + `3/11/2002` mất đúng **10** ký tự (7 chữ số + 3 dấu `/`) — khớp chính xác `phoneme bỏ: 10`.
+* **Đảo quyết định plan §2** ("không chạy lớp tiền xử lý nào"): thực tế cho thấy bộ G2P của model **không tự lo được số và ngày tháng**. Nay engine gọi `TextPreprocessor.normalizingForVieNeu(text)` **một lần cho cả đoạn, trước khi tách chunk** (phần đọc số làm văn bản dài ra nên phải xong trước khi biết cắt ở đâu).
+* **Lớp dùng là `processVietnameseText`, KHÔNG phải `preprocess(_:)`**: hàm sau còn chạy `EnglishTransliterator`/`JapaneseTransliterator`, tức chèn **IPA của espeak** — một bảng ký hiệu khác, sẽ bị `encode` bỏ im lặng. Nhờ dùng đúng `processVietnameseText` mà vẫn được toàn bộ logic sẵn có: đọc số, ngày tháng, khoảng năm, thời gian, đơn vị, số La Mã, chuẩn hoá NFC, gạch ngang/nháy/ellipsis.
+* **Cờ `preprocessorNumericNormalizationEnabled`** (mặc định `true`) được `processVietnameseText` tự kiểm ⇒ tắt "Chuẩn hóa cách đọc số" trong Cấu hình NghiTTS là **cả hai engine** cùng tắt.
+* **Ràng buộc ratchet-down đã suýt bị vi phạm**: thêm 2 dòng doc vào `TextPreprocessor.swift` (đang đúng baseline **1121**) đẩy nó lên 1123 ⇒ `LINE_LIMIT_EXCEEDED` mới. Đã gỡ; hai khai báo được hạ `private` → `internal` **tại chỗ, không đổi số dòng**, và lối vào mới nằm ở `TextPreprocessor+Numbers.swift` (35 dòng).
+* **Một thứ KHÔNG phải lỗi**: `sách → sˈe-ɜc`, `giành → zˈe-2ɲ`, `anh → ˈe-ɲ` có dấu `-` **trong chính từ điển**, và `-` là vocab id 6 nên encode bình thường. Đó là dữ liệu upstream, **không được "sửa"**.
+
 ## Khoảng Nghỉ Theo Dấu Câu + Chuẩn Hoá Dấu Câu Lạ (1.3.425)
 
 Người dùng báo hai điều sau lượt 1.3.424: **`phoneme bỏ: 1`** (một ký tự không nằm trong vocab) và **"ngừng nghỉ chưa hợp lý"**.

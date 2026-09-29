@@ -15,6 +15,16 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +1 file: lối vào hẹp cho phần đọc số của VieNeu (1.3.426)
+
+| Nhóm | File | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Services/TTS/Preprocessing | [`TextPreprocessor+Numbers.swift`](../../Sources/Services/TTS/Preprocessing/TextPreprocessor+Numbers.swift) | **Mới** — `TextPreprocessor.normalizingForVieNeu`: đọc số/ngày tháng cho engine VieNeu mà không kèm phiên âm espeak | 35 |
+
+* File mới **35** dòng, chỉ chứa extension (không có primary type mới) ⇒ không vi phạm `MULTI_PRIMARY_TYPES`.
+* `TextPreprocessor.swift` **giữ nguyên 1121/1121** dòng baseline: hai khai báo được hạ `private` → `internal` **tại chỗ**. Thêm 2 dòng doc vào đó đã đẩy lên 1123 và tạo violation mới — đã gỡ.
+* Sửa nội dung: `VieNeuTTSEngine.swift` 338 → **344**, `VieNeuTTSEngine+Audio.swift` 190 → **171** (bỏ `normalizingPunctuation` tự viết, app đã có `normalizeQuotesAndDashes`).
+
 ## Tách màn thử giọng VieNeu thành 3 file + bộ chọn tốc độ (1.3.422)
 
 | Nhóm | File | Vai trò | Dòng |

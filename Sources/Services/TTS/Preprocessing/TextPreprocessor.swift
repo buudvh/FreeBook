@@ -13,7 +13,7 @@ private enum PreprocessorConfig {
 }
 
 
-private struct PreprocessorRuntimeConfig {
+struct PreprocessorRuntimeConfig {
     let numericNormalizationEnabled: Bool
     let dictionaryReplacementEnabled: Bool
     let transliterationEnabled: Bool
@@ -827,7 +827,7 @@ final actor TextPreprocessor {
         }
     }
 
-    private static func processVietnameseText(_ text: String, config: PreprocessorRuntimeConfig, unlimitedRoman: Bool = false) -> String {
+    static func processVietnameseText(_ text: String, config: PreprocessorRuntimeConfig, unlimitedRoman: Bool = false) -> String {
         var e = text.precomposedStringWithCanonicalMapping
         e = cleanText(e)
         e = normalizeQuotesAndDashes(e)

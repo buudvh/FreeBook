@@ -200,7 +200,15 @@ final class VieNeuTTSEngine: @unchecked Sendable {
 
         let activeMode = requestedMode ?? mode
         let tuning = VieNeuSynthesisPolicy.tuning(for: activeMode)
-        let chunks = Self.splitIntoChunks(text, limit: VieNeuConfig.maxChunkCharacters)
+        // Chuẩn hoá phần "chữ" **một lần cho cả đoạn**, trước khi tách chunk: phần đọc số làm văn bản dài
+        // ra (`8/1999` → "tháng tám năm một nghìn…") nên phải xong trước khi biết cắt ở đâu.
+        // Đây là chỗ **đổi quyết định** so với plan §2 (plan chốt "không chạy tiền xử lý"): thực tế cho
+        // thấy từ điển `sea_g2p.bin` không có chữ số nào nên `8/1999` bị nuốt 10 ký tự. Lớp dùng ở đây là
+        // `processVietnameseText` — **không** gồm phiên âm espeak, nên không đụng vocab của VieNeu.
+        let chunks = Self.splitIntoChunks(
+            TextPreprocessor.normalizingForVieNeu(text),
+            limit: VieNeuConfig.maxChunkCharacters
+        )
         let started = ProcessInfo.processInfo.systemUptime
 
         var samples: [Float] = []
@@ -208,9 +216,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         var phonemeSample = ""
         for (index, chunk) in chunks.enumerated() {
             try Task.checkCancellation()
-            let phonemes = config.applyingEmotionTags(
-                to: phonemizer.phonemizeTextWithEmotions(text: Self.normalizingPunctuation(chunk))
-            )
+            let phonemes = config.applyingEmotionTags(to: phonemizer.phonemizeTextWithEmotions(text: chunk))
             if index == 0 { phonemeSample = String(phonemes.prefix(120)) }
             let encoded = config.encode(phonemes: phonemes)
             droppedScalars += encoded.droppedScalars

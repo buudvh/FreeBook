@@ -15,6 +15,12 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Đọc Số/Ngày Tháng Cho VieNeu Qua Lớp Tiền Xử Lý Của App (1.3.426)
+
+* [`TextPreprocessor+Numbers.swift`](../../Sources/Services/TTS/Preprocessing/TextPreprocessor+Numbers.swift#L1) — lối vào **hẹp** `normalizingForVieNeu`: chạy `processVietnameseText` (đọc số, ngày tháng, khoảng năm, thời gian, đơn vị, số La Mã, NFC, gạch ngang/nháy) mà **không** kéo theo `EnglishTransliterator`/`JapaneseTransliterator` — IPA của espeak là bảng ký hiệu khác và sẽ bị vocab của VieNeu bỏ im lặng.
+* **Vì sao cần**: `sea_g2p.bin` **không có chữ số nào** (`8`, `1999`, `2002`… đều không tra được) và vocab chỉ có `1 2 4 5 6 7` ⇒ `8/1999` mất 5 ký tự, `3/11/2002` mất 5 ⇒ đúng `phoneme bỏ: 10`.
+* **Hai khai báo trong `TextPreprocessor.swift` hạ `private` → `internal` tại chỗ** (`PreprocessorRuntimeConfig`, `processVietnameseText`) để file giữ nguyên **1121/1121** dòng baseline — luật ratchet-down.
+
 ## Bộ Chọn Tốc Độ Tạo Audio VieNeu + Tách Màn Thử Giọng (1.3.422)
 
 * **`VieNeuTTSTestView` tách thành 3 file** (màn này đã chạm **397/400** dòng, hết chỗ): [`VieNeuTTSTestView.swift`](../../Sources/Views/Settings/TTS/VieNeuTTSTestView.swift#L1) 255 (state + `body` + hành động), [`+Sections.swift`](../../Sources/Views/Settings/TTS/VieNeuTTSTestView+Sections.swift#L1) 164 (các khối `Form` + bộ chọn tốc độ), [`+Diagnostics.swift`](../../Sources/Views/Settings/TTS/VieNeuTTSTestView+Diagnostics.swift#L1) 37 (khối copy). Tách file extension buộc hạ `@State private` → internal (Swift giới hạn `private` theo file).

@@ -94,25 +94,6 @@ extension VieNeuTTSEngine {
         return chunks.isEmpty ? [trimmed] : chunks
     }
 
-    /// Chuẩn hoá dấu câu về bộ ký tự mà vocab của model **có**.
-    ///
-    /// `config.json` có `,` `-` `.` `!` `?` `:` `;` nhưng **không** có `–` (U+2013), `—` (U+2014) hay
-    /// `“ ” « »`. Gặp ký tự lạ thì `VieNeuConfig.encode` **bỏ im lặng** (chỉ đếm vào `droppedScalars`) —
-    /// người dùng đã thấy đúng `phoneme bỏ: 1` vì câu có một dấu gạch ngang. Ở đây gạch ngang được ánh xạ
-    /// sang **dấu phẩy** chứ không xoá: nó mang nghĩa *ngắt ý*, và dấu phẩy thì model biết đọc.
-    ///
-    /// Cố ý **không** đụng `'` và `’` — tokenizer dùng chúng để ghép từ ("don’t"), xoá đi sẽ đổi cách tách.
-    static func normalizingPunctuation(_ text: String) -> String {
-        var result = text
-        for dash in ["–", "—", "―", "−"] {
-            result = result.replacingOccurrences(of: dash, with: ",")
-        }
-        for quote in ["“", "”", "«", "»", "「", "」", "『", "』", "【", "】"] {
-            result = result.replacingOccurrences(of: quote, with: "")
-        }
-        return result
-    }
-
     /// Khoảng nghỉ chèn **sau** một chunk, theo dấu câu kết thúc nó.
     ///
     /// Trước đây mọi khe đều là một hằng số 0,12 s, nên dấu phẩy và dấu chấm nghe y như nhau — đúng

@@ -15,6 +15,13 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## VieNeu dùng lại lớp tiền xử lý của NghiTTS (1.3.426)
+
+* **Cạnh mới, cùng tầng `Services`**: `Services/TTS/VieNeu/VieNeuTTSEngine` → `Services/TTS/Preprocessing/TextPreprocessor`. Đây là **Services → Services**, không phải cạnh lên tầng trên, và `TextPreprocessor` vốn đã được `PiperTTSService` dùng.
+* **Chỉ dùng phần đọc số, không dùng phần phiên âm**: `TextPreprocessor+Numbers.swift` gọi `processVietnameseText`, **không** gọi `preprocess(_:)`. Lý do là bảng ký hiệu: IPA của espeak khác vocab của VieNeu nên sẽ bị `encode` bỏ im lặng — xem `rules.md`.
+* **Hạ `private` → `internal` trên file legacy phải giữ nguyên số dòng**: `PreprocessorRuntimeConfig` và `processVietnameseText` được sửa **tại chỗ** để `TextPreprocessor.swift` vẫn đúng 1121/1121. Đây là cùng khuôn đã dùng cho `SeaG2P`, `VieNeuTTSEngine`, `VieNeuTTSTestView` — nhưng lần này **không được phép thêm dòng nào**, khác các lần trước.
+* **Không có singleton mới, không có `UserDefaults` mới**: cờ `preprocessorNumericNormalizationEnabled` là khoá **sẵn có** của đường NghiTTS.
+
 ## Ranh giới phụ thuộc của bộ chọn tốc độ VieNeu (1.3.422)
 
 * **Nhãn UI nằm ở tầng View, không ở policy**: `VieNeuSynthesisPolicy.Mode.displayName` là extension **trong file View**. `VieNeuSynthesisPolicy` giữ nguyên tính thuần (không chuỗi UI, không `UserDefaults`) — đúng khuôn `NghiSynthesisPolicy`.

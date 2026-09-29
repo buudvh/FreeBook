@@ -15,6 +15,13 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +1 file nhỏ; file legacy đúng baseline suýt bị vượt vì 2 dòng doc (1.3.426)
+
+* **1 file mới**: `TextPreprocessor+Numbers.swift` **35**/400 dòng, chỉ có extension.
+* **`TextPreprocessor.swift` giữ nguyên 1121/1121** — đúng baseline. Việc hạ `private` → `internal` cho hai khai báo được làm **tại chỗ**. Thêm 2 dòng doc giải thích vào đó đã đẩy lên **1123** và sinh một `LINE_LIMIT_EXCEEDED` mới; đã gỡ và chuyển giải thích sang file extension. **Bài học: file legacy đúng baseline thì mọi lần sửa phải `wc -l` lại.**
+* `VieNeuTTSEngine.swift` 338 → **344**; `VieNeuTTSEngine+Audio.swift` 190 → **171** (xoá hàm thừa).
+* `check_architecture.py` giữ nguyên **5** violation nền cũ, **0** mới.
+
 ## Màn thử giọng VieNeu chạm trần 397/400 nên phải tách thành 3 file (1.3.422)
 
 * **+2 file mới, 0 vi phạm kiến trúc mới**: `VieNeuTTSTestView+Sections.swift` **164**, `+Diagnostics.swift` **37**. File chính 397 → **255**.
