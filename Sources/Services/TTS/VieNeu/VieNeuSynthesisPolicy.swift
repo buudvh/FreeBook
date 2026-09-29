@@ -71,6 +71,11 @@ enum VieNeuSynthesisPolicy {
             // vào vòng lật qua lật lại giữa hai chế độ trên một máy ở đúng ranh giới.
             guard consecutiveFast >= samplesBeforeSwitch, lastRTF <= upshiftRTF else { return nil }
             return .high
+        case .turbo:
+            // `turbo` chỉ do người dùng đặt, mà khi đó `updateMode` không chạy — nên nhánh này thực tế
+            // không bao giờ tới. Vẫn phải có để `switch` đủ case, và trả `nil` là đúng nghĩa "không đổi":
+            // bộ thích nghi không bao giờ được tự rời khỏi một chế độ người dùng đã chọn.
+            return nil
         }
     }
 

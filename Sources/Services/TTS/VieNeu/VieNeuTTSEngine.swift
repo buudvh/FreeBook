@@ -244,7 +244,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         runtime: VieNeuONNXRuntime,
         config: VieNeuConfig
     ) throws -> [Float] {
-        let length = ids.count
+        // Số token không cần biến riêng: `mask` lấy từ `ids`, còn shape của `ctx` đọc từ model.
         let mask = ids.map { $0 == config.padID ? UInt8(0) : UInt8(1) }
 
         // 1. text_encoder → ctx, kèm **shape thật** để hai bước sau dùng lại
