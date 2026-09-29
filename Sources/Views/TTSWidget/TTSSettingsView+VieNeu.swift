@@ -82,13 +82,19 @@ extension TTSSettingsView {
     /// (`vieneuRate`/`vieneuPitch` nhờ `persistSpeed`/`persistPitch`). Lặp lại sẽ tạo hai nguồn sự thật.
     @ViewBuilder
     var vieNeuReaderSection: some View {
-        Picker("Tốc độ tạo audio", selection: vieNeuModeBinding) {
+        Picker("Tốc độ tạo audio", selection: $vieNeuSelectedMode) {
             Text("Tự động (theo tốc độ máy)").tag(VieNeuSynthesisPolicy.Mode?.none)
             ForEach(VieNeuSynthesisPolicy.Mode.allCases, id: \.self) { mode in
                 Text(mode.displayName).tag(VieNeuSynthesisPolicy.Mode?.some(mode))
             }
         }
         .pickerStyle(.menu)
+        // Đẩy lựa chọn xuống service. Setter của `preferredMode` gọi `engine.setRequestedMode(...)` nên có
+        // hiệu lực **ngay**, không phải chờ `prepare()`. Nhưng UI vẫn phải giữ giá trị trong `@State` vì
+        // `VieNeuTTSService` là class thường (không `@Observable`) — SwiftUI không thấy nó đổi.
+        .onChange(of: vieNeuSelectedMode) { _, newValue in
+            VieNeuTTSService.shared?.preferredMode = newValue
+        }
     }
 
     /// Khối "Tải trước dữ liệu" của VieNeu (Section 5).
@@ -141,17 +147,5 @@ extension TTSSettingsView {
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
-    }
-
-    /// Cầu nối `Picker` ↔ `VieNeuTTSService.preferredMode`.
-    ///
-    /// Không dùng được `@AppStorage`: extension **không thêm được stored property**, mà `@AppStorage` là
-    /// stored. Đọc/ghi thẳng qua service lại có lợi: màn thử giọng và màn Cài đặt dùng chung khoá
-    /// `vieneuPreferredMode`, sửa bên nào bên kia cũng thấy.
-    var vieNeuModeBinding: Binding<VieNeuSynthesisPolicy.Mode?> {
-        Binding(
-            get: { VieNeuTTSService.shared?.preferredMode },
-            set: { VieNeuTTSService.shared?.preferredMode = $0 }
-        )
     }
 }

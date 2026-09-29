@@ -260,6 +260,35 @@ extension VieNeuTTSEngine {
     /// Khoảng nghỉ cho một loại ranh giới. Lấy từ **đúng khoá `UserDefaults`** mà đường NghiTTS dùng
     /// (`paragraphPauseDuration` / `sentencePauseDuration` / `phrasePauseDuration`) ⇒ chỉnh trong Cấu hình
     /// NghiTTS là cả hai engine cùng đổi.
+    /// Khoảng lặng **đuôi** theo loại ranh giới — bản sao ánh xạ của `ONNXPiperEngine.pauseDuration(for:)`,
+    /// đọc **cùng khoá `UserDefaults`** để một cài đặt điều khiển cả hai engine.
+    ///
+    /// ## Vì sao bắt buộc phải có
+    /// `joinChunks` chỉ chèn khoảng lặng **giữa các chunk nội bộ** của một lượt tổng hợp; nó **không bao
+    /// giờ** chèn cho chunk cuối. Ở tầng trên, Reader cắt một đoạn văn thành nhiều *utterance* và mỗi
+    /// utterance là **một payload riêng**, mỗi payload đã bị `trimAndFade` cắt còn ~40 ms đệm ở hai đầu.
+    /// Không có khoảng lặng đuôi thì phoneme cuối của utterance N dính thẳng vào phoneme đầu của
+    /// utterance N+1 — người dùng nghe đúng như **"mất chữ"**.
+    ///
+    /// ## Vì sao không lộ ra ở màn thử giọng
+    /// Màn thử giọng đưa **cả đoạn** vào một lượt gọi, nên `joinChunks` tự chèn khoảng lặng theo dấu câu
+    /// giữa các chunk của nó. Chỉ đường Reader (cắt trước rồi gọi từng mảnh) mới lộ.
+    static func pauseSeconds(for boundaryKind: TTSBoundaryKind) -> Double {
+        let defaults = UserDefaults.standard
+        func value(_ key: String, fallback: Double) -> Double {
+            let stored = defaults.double(forKey: key)
+            return stored > 0 ? stored : fallback
+        }
+        switch boundaryKind {
+        case .technicalChunk: return 0
+        case .phraseEnd: return value("phrasePauseDuration", fallback: 0.15)
+        case .bracketEnd: return value("bracketPauseDuration", fallback: 0.1)
+        case .newlineEnd: return value("newlinePauseDuration", fallback: 0.4)
+        case .sentenceEnd: return value("sentencePauseDuration", fallback: 0.3)
+        case .paragraphEnd, .chapterEnd: return value("paragraphPauseDuration", fallback: 0.5)
+        }
+    }
+
     static func pauseSeconds(for gap: Chunk.Gap) -> Double {
         let defaults = UserDefaults.standard
         func value(_ key: String, fallback: Double) -> Double {

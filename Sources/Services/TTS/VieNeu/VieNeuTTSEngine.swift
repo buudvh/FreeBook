@@ -192,7 +192,12 @@ final class VieNeuTTSEngine: @unchecked Sendable {
     // MARK: - Tổng hợp
 
     /// Tổng hợp **một đoạn văn** thành WAV 24 kHz. `text` ở đây đã đi qua lớp thay thế ký tự dùng chung.
-    func synthesize(text: String, voiceName: String, speed: Double) throws -> Output {
+    func synthesize(
+        text: String,
+        voiceName: String,
+        speed: Double,
+        boundaryKind: TTSBoundaryKind = .paragraphEnd
+    ) throws -> Output {
         lock.lock()
         defer { lock.unlock() }
         try prepareLocked()
@@ -245,11 +250,31 @@ final class VieNeuTTSEngine: @unchecked Sendable {
 
         // Ghép chunk **sau** khi đã có đủ waveform: khớp âm lượng cần biết mức của tất cả các chunk.
         let joined = Self.joinChunks(waveforms, gaps: gaps, sampleRate: config.sampleRate)
-        let samples = joined.samples
-        let insertedPauseSeconds = joined.pauseSeconds
+        // Khoảng lặng **đuôi** theo ranh giới. `joinChunks` không bao giờ chèn cho chunk cuối, mà tầng trên
+        // (Reader) cắt một đoạn văn thành nhiều utterance — mỗi utterance là một payload riêng đã bị
+        // `trimAndFade` cắt còn ~40 ms đệm. Thiếu khoảng lặng này thì utterance kế tiếp dính liền và người
+        // dùng nghe như **mất chữ**. Chia cho `speed` cho khớp `ONNXPiperEngine`.
+        let boundarySilenceSeconds = Self.pauseSeconds(for: boundaryKind) / max(0.1, speed)
+        var samples = joined.samples
+        if boundarySilenceSeconds > 0 {
+            samples.append(contentsOf: [Float](
+                repeating: 0,
+                count: Int(Double(config.sampleRate) * boundarySilenceSeconds)
+            ))
+        }
+        // Khoảng lặng chèn thêm **không phải** lời đọc ⇒ phải cộng vào `insertedPauseSeconds`, nếu không
+        // `speechDuration` (dùng để tính RTF theo lời nói) sẽ bị thổi lên.
+        let insertedPauseSeconds = joined.pauseSeconds + boundarySilenceSeconds
 
         let synthesisMs = (ProcessInfo.processInfo.systemUptime - started) * 1_000
         let pcmDuration = Double(samples.count) / Double(config.sampleRate)
+        // Số liệu **mỗi lượt tổng hợp** — xem doc của `logSynthesisPerf` ở `+Adaptive`.
+        logSynthesisPerf(
+            mode: activeMode, chunkCount: chunks.count, droppedScalars: droppedScalars,
+            characterCount: text.count, pcmDuration: pcmDuration,
+            speechDuration: max(0, pcmDuration - insertedPauseSeconds), synthesisMs: synthesisMs,
+            boundaryKind: boundaryKind
+        )
         // Chỉ thích nghi khi người dùng để "tự động"; xem doc của `requestedMode`.
         if requestedMode == nil {
             updateMode(synthesisMs: synthesisMs, pcmDuration: pcmDuration)

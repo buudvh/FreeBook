@@ -16,6 +16,16 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 
 <!-- GENERATED START -->
 
+## Call Graph Khoảng Lặng Ranh Giới & Log VieNeu (1.3.436)
+
+* **`VieNeuTTSService.synthesize` / `synthesizeWithDuration` / `synthesizeStream` → `executeInternalSynthesis(text:voice:speed:boundaryKind:)` → `VieNeuTTSEngine.synthesize(text:voiceName:speed:boundaryKind:)`.** `boundaryKind` trước 1.3.436 **dừng ở chữ ký service** và không bao giờ tới engine.
+* **`VieNeuTTSEngine.synthesize` → `pauseSeconds(for: boundaryKind)` → nối một mảng `Float` toàn số 0 (dài `sampleRate × giây`) vào cuối `samples`** — nối **sau** `joinChunks` vì `joinChunks` chỉ chèn khoảng lặng giữa các chunk nội bộ.
+* **`VieNeuTTSEngine.synthesize` → `logSynthesisPerf(...)`** — một dòng cho mỗi lượt, đủ để phân định "mode bị hạ xuống fast" hay "cắt hai tầng".
+* **`makeDefaultSynthesisKey` → `PiperSynthesisCoordinator.enqueuePayload(synthesisKey:)`** — khoá nay chứa `boundaryKind`, nên hai lượt cùng văn bản khác ranh giới **không** gộp.
+* **UI → service**: `Picker(selection: $vieNeuSelectedMode)` → `.onChange` → `VieNeuTTSService.preferredMode` setter → `UserDefaults["vieneuPreferredMode"]` **và** `VieNeuTTSEngine.setRequestedMode(...)`. Trước 1.3.436 `Picker` buộc vào `Binding` đọc thẳng service nên UI không cập nhật.
+* **`prepareNextNghiAudioIfPossible` → `nghiAudioPlayerQueue.prepareNext`**: nay có thêm điều kiện chặn `nghiAudioPlayerQueue.currentItem?.paragraphIndex == nextIndex` (chống nạp lại đoạn đang phát khi `currentParagraphIndex` chưa kịp nhảy).
+* **`NghiAudioPlayerQueue.scheduleNextIfPossible` → log `schedule next=… wallRemaining=…`** trước `onScheduleHandoff?`.
+
 ## Call Graph Định Tuyến Engine Local — Sau Khi Mở Gate (1.3.435)
 
 * **`speakCurrent()` → `playNghiTTS()`** cho `tool == "nghitts" || tool == "vieneu"`. Trong `playNghiTTS`, `service.synthesizeWithDuration(...)` (service = `localEngine`) → `guard isIdentityValid()` → `playAudioData(_:withId:)`. **Guard giữa hai bước này từng luôn `false` với engine thứ hai** nên `playAudioData` không bao giờ được gọi (nguyên nhân gốc A).

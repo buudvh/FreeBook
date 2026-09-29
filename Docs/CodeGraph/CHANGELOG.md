@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.436] - 2026-09-29
+
+### fix: VieNeu ton trong boundaryKind + sua 4 loi hau kiem dinh
+
+Người dùng cài IPA của 1.3.435 và xác nhận **đã có âm thanh** (hai nguyên nhân gốc đã đúng), rồi báo tiếp 4 vấn đề.
+
+- **"Chọn tốc độ tạo audio không đổi ngay" — lỗi UI, không phải engine.** `Picker` buộc vào một `Binding` đọc thẳng `VieNeuTTSService.preferredMode`; `VieNeuTTSService` là class thường (**không** `@Observable`) nên SwiftUI **không thấy** nó đổi. Setter của `preferredMode` **đã** gọi `engine.setRequestedMode(...)` từ trước, tức engine luôn đúng — chỉ UI stale. Đây là **lần thứ hai** đúng lỗi này (lần đầu ở `VieNeuTTSTestView`, đã ghi vào `rules.md` ở 1.3.421). Sửa theo khuôn đã ghi: `@State var vieNeuSelectedMode` khai ở `TTSSettingsView` (extension không thêm được stored property) + `.onChange` đẩy xuống service; xoá `vieNeuModeBinding`.
+- **"Âm thanh đọc dễ mất chữ" — VieNeu bỏ qua `boundaryKind`.** `ONNXPiperEngine` **có** `pauseDuration(for:)` và nối khoảng lặng đuôi vào cuối mỗi utterance (`:436`). `VieNeuTTSService` nhận `boundaryKind` trong chữ ký (`:137`, `:156`) nhưng **chưa bao giờ dùng**. Mà `joinChunks` chỉ chèn khoảng lặng **giữa các chunk nội bộ**, **không bao giờ** cho chunk cuối; mỗi payload lại đã bị `trimAndFade` cắt còn ~40 ms đệm ⇒ phoneme cuối utterance N dính thẳng vào phoneme đầu utterance N+1 ⇒ nghe như **mất chữ**.
+  * Thêm `VieNeuTTSEngine.pauseSeconds(for boundaryKind:)` — **bản sao ánh xạ của Piper, đọc cùng khoá `UserDefaults`** (`paragraphPauseDuration` / `sentencePauseDuration` / `phrasePauseDuration` / `bracketPauseDuration` / `newlinePauseDuration`) nên một cài đặt điều khiển cả hai engine.
+  * Khoảng lặng chèn thêm **không phải lời đọc** ⇒ cộng vào `insertedPauseSeconds`, nếu không `speechDuration` bị thổi lên và RTF theo lời nói sai.
+  * `boundaryKind` cũng vào `makeDefaultSynthesisKey`: nó đổi audio, nên hai lượt cùng văn bản khác ranh giới **không được** gộp (`PiperSynthesisCoordinator` coalesce theo khoá; Piper cũng đưa `boundary=` vào khoá).
+  * **Vì sao không lộ ở màn thử giọng**: màn đó đưa **cả đoạn** vào một lượt gọi nên `joinChunks` tự chèn khoảng lặng theo dấu câu. Chỉ đường Reader (cắt trước rồi gọi từng mảnh) mới lộ — đúng lý do người dùng thấy "chất lượng kém hơn hẳn".
+- **"Chất lượng kém hơn hẳn màn thử giọng" — nay có số để trả lời, trước đó thì không.** Màn thử giọng hiện mode/chunk/dropped **trên UI**; đường Reader **không có gì** — engine chỉ log **lúc đổi** chế độ và **một lần cho cả vòng đời** cho phoneme bị bỏ. Thêm `logSynthesisPerf` (`+Adaptive`, để `VieNeuTTSEngine.swift` không vượt trần 400) ghi **mỗi lượt**: `mode`, `chunks`, `dropped`, `chars`, `pcm`, `speech`, `synth`, `rtf`, `boundary`. Hai giả thuyết cần số này phân định: (a) bộ thích nghi **hạ xuống `fast`** vì đường Reader có nhiều payload nhỏ ⇒ RTF cao hơn; (b) **cắt hai tầng** — engine tự cắt ở `VieNeuConfig.maxChunkCharacters` = **140**, Reader cắt trước ở `vieneuChunk` (mặc định 200).
+- **"Đoạn này chưa đọc xong thì đoạn khác đã đọc song song" — thêm chẩn đoán, KHÔNG đoán bừa.** Cơ chế `play(atTime:)` + `deviceCurrentTime` của `NghiAudioPlayerQueue` rất nhạy thời điểm và **không thể suy ra nguyên nhân chỉ bằng đọc mã**. Lượt này cố ý không đổi hành vi: thêm log `[NghiAudioPlayerQueue] schedule next=… cur=… mediaRemaining=… rate=… wallRemaining=… duration=… currentTime=…` (đủ để thấy `wallRemaining` có bị tính nhỏ đi không ⇒ `nextPlayer` bắt đầu trước khi `currentPlayer` kết thúc), cộng **một chốt an toàn** trong `prepareNextNghiAudioIfPossible`: không nạp lại đoạn mà queue **đang phát** (`currentItem`), vì `currentParagraphIndex` có thể chưa kịp nhảy do bàn giao chạy nền ⇒ `nextIndex` trỏ vào chính đoạn đang phát ⇒ đoạn đó phát **lần thứ hai**.
+- **File**: `VieNeuTTSEngine.swift` 370 → **395**, `VieNeuTTSEngine+Chunking.swift` 294 → **323**, `VieNeuTTSEngine+Adaptive.swift` 56 → **84**, `VieNeuTTSService.swift` 282 → **319**, `NghiAudioPlayerQueue.swift` 351 → **364**, `TTSSettingsView.swift` 502 → **509**, `TTSSettingsView+VieNeu.swift` 157 → **151** (xoá `vieNeuModeBinding`), `TTSManager.swift` **4028** (net 0).
+- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
+- **Còn lại**: nguyên nhân **chồng tiếng** chưa xác định — cần log từ máy thật. `vieneuPitch` vẫn chưa nghe thấy (queue không có pitch).
+
 ## [1.3.435] - 2026-09-29
 
 ### fix: mo gate engine local + sua 2 nguyen nhan goc lam VieNeu khong ra tieng

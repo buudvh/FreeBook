@@ -16,6 +16,13 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 
 <!-- GENERATED START -->
 
+## Trạng Thái UI Chế Độ VieNeu Phải Nằm Trong `@State` (1.3.436)
+
+* **`TTSSettingsView.vieNeuSelectedMode: VieNeuSynthesisPolicy.Mode?`** — `@State` (không `private`, vì extension khác file cần đọc). Khởi tạo bằng `VieNeuTTSService.shared?.preferredMode` để mở màn khi đã chọn `vieneu` vẫn hiện đúng, và được làm mới trong `onChange(of: ttsManager.tool)`. **Đây là bản sao trạng thái có chủ ý**: `VieNeuTTSService` không `@Observable` nên SwiftUI không thấy `preferredMode` đổi; `@State` là nguồn cho UI, service là nguồn cho engine, và `.onChange` nối hai bên.
+* **Khoá `UserDefaults["vieneuPreferredMode"]`** vẫn là nguồn bền vững duy nhất (setter ghi khoá **và** gọi `engine.setRequestedMode(...)`). `nil` = "tự động" ⇒ `VieNeuTTSEngine` bật bộ thích nghi (`updateMode`), và **chỉ khi đó** `mode` mới tự đổi theo RTF. Chọn tay `fast`/`high` thì thích nghi bị tắt.
+* **`boundaryKind` của mỗi payload** nay là một phần trạng thái đầu vào của engine: nó quyết định khoảng lặng **đuôi** (`pauseSeconds(for:)`) và **nằm trong `makeDefaultSynthesisKey`**. Đổi `boundaryKind` cho cùng văn bản ⇒ audio khác ⇒ không được gộp request theo khoá.
+* **`insertedPauseSeconds`** nay gồm cả khoảng lặng ranh giới, nên `speechDuration = pcmDuration - insertedPauseSeconds` vẫn là "độ dài lời đọc thật" — cơ sở để tính RTF trung thực.
+
 ## Trạng Thái Đệm & Nạp Trước Của Engine Local Thứ Hai (1.3.435)
 
 * **`currentSafeCachedTimeThreshold` là trạng thái suy ra theo engine** (`TTSManager+VieNeu.swift`): trả `vieneuSafeCachedTimeThreshold` khi `tool == "vieneu"`, còn lại `nghittsSafeCachedTimeThreshold`. Trước 1.3.435 `vieneuSafeCachedTimeThreshold` **không có nơi đọc** — mọi nơi tiêu thụ đọc thẳng ngưỡng của NghiTTS. Nay nó được đọc ở `TTSManager.swift:2674` (quyết định `scheduleNghiRefill` hay hẹn wake), `:2714` (điều kiện optional reserve) và `TTSManager+NextChapterPrefix.swift:73` (prefix chương kế).

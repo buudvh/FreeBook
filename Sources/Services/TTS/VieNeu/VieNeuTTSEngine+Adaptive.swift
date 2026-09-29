@@ -44,6 +44,34 @@ extension VieNeuTTSEngine {
         AppLogger.shared.log("⚠️ [VieNeu] Bỏ qua \(dropped) phoneme không có trong vocab (tổng \(total) id)")
     }
 
+    /// Log **mỗi lượt tổng hợp**: chế độ, số chunk, số phoneme bị bỏ, độ dài, RTF, loại ranh giới.
+    ///
+    /// Đây là số liệu **duy nhất** cho biết đường Reader đang chạy ở chế độ nào và cắt bao nhiêu chunk. Màn
+    /// thử giọng hiện các con số này trên UI, còn đường Reader trước 1.3.436 **không** có cách nào thấy —
+    /// nên câu hỏi "vì sao chất lượng kém hơn hẳn màn thử giọng" không thể trả lời bằng số.
+    ///
+    /// Đặt ở file này (không phải file engine) vì `VieNeuTTSEngine.swift` đã ở **399/400** dòng sau khi
+    /// thêm khoảng lặng đuôi.
+    func logSynthesisPerf(
+        mode: VieNeuSynthesisPolicy.Mode,
+        chunkCount: Int,
+        droppedScalars: Int,
+        characterCount: Int,
+        pcmDuration: Double,
+        speechDuration: Double,
+        synthesisMs: Double,
+        boundaryKind: TTSBoundaryKind
+    ) {
+        AppLogger.shared.log(
+            "[VieNeuPerf] mode=\(mode.rawValue) chunks=\(chunkCount) dropped=\(droppedScalars)"
+                + " chars=\(characterCount) pcm=\(String(format: "%.2f", pcmDuration))s"
+                + " speech=\(String(format: "%.2f", speechDuration))s"
+                + " synth=\(String(format: "%.0f", synthesisMs))ms"
+                + " rtf=\(String(format: "%.2f", synthesisMs / 1_000 / max(0.01, pcmDuration)))"
+                + " boundary=\(boundaryKind.rawValue)"
+        )
+    }
+
     /// Thời gian tách theo **hai nhóm việc**, cộng dồn cho cả đoạn.
     ///
     /// Có mặt để trả lời "chậm ở đâu" bằng số đo thay vì phỏng đoán: nếu `vectorMs` chiếm gần hết thì

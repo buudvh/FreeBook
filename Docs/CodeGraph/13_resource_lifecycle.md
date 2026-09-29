@@ -16,6 +16,13 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 
 <!-- GENERATED START -->
 
+## Tài Nguyên Của Khoảng Lặng Ranh Giới & Log Mới (1.3.436)
+
+* **Khoảng lặng đuôi là tài nguyên đệm thật**: `Int(sampleRate × pauseSeconds / speed)` mẫu `Float` = 0 tại 24 kHz ⇒ ~0,5 s ≈ 12.000 mẫu ≈ 48 KB mỗi payload ở ranh giới đoạn văn. Nhỏ nhưng **không miễn phí**, và nó làm `pcmDuration` dài ra ⇒ phải cộng vào `insertedPauseSeconds` để `speechDuration` (và RTF theo lời nói) không bị sai.
+* **`boundaryKind` nằm trong khoá cache** ⇒ cùng văn bản nhưng khác ranh giới là **hai mục cache khác nhau**, không dùng chung payload. Đây là đánh đổi có chủ ý: gộp lại sẽ trả sai khoảng lặng, tệ hơn là tốn thêm một mục.
+* **`[VieNeuPerf]` là log theo từng lượt** ⇒ khi bật log, tần suất ghi tỉ lệ với số payload. Đây là lý do nó dùng `AppLogger.shared.log` (chỉ chạy khi người dùng bật) chứ không phải log vô điều kiện.
+* **`[NghiAudioPlayerQueue] schedule …`** cũng chỉ ghi khi `isLoggingEnabled`; nó nằm trên đường bàn giao nên **không** được dựng chuỗi log khi log tắt (đã bọc trong `if AppLogger.shared.isLoggingEnabled`).
+
 ## Vòng Đời Tài Nguyên Đệm Của Engine Local Thứ Hai (1.3.435)
 
 * **`preloadedData` / `preloadedDurations` là tài nguyên dùng chung** cho mọi engine local (khoá theo chỉ số đoạn văn). Các cửa sổ giữ/dọn (`updateNghiPrefetchWindow`, `handleNghiAudioFinished`, `handleNghiAudioTransition`) đều đã mở cho engine thứ hai; trước 1.3.435 chúng chỉ chạy với `nghitts` nên bộ đệm **không bao giờ được nạp tiếp** cho engine thứ hai.

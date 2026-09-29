@@ -25,6 +25,12 @@ struct TTSSettingsView: View {
     @AppStorage("google_cloud_tts_custom_api_key") private var customGoogleApiKey: String = ""
     @State private var showApiKey: Bool = false
     @State private var hasResumed = false
+    /// Chế độ chất lượng VieNeu. **Phải là `@State`** — không được đọc thẳng
+    /// `VieNeuTTSService.preferredMode` trong `Picker`: `VieNeuTTSService` là class thường (không
+    /// `@Observable`) nên SwiftUI **không thấy** nó đổi, và đó đúng là lỗi "chọn xong không đổi ngay" đã gặp
+    /// ở màn thử giọng (`VieNeuTTSTestView`). Khởi tạo bằng giá trị đang lưu để mở màn khi đã chọn `vieneu`
+    /// vẫn hiện đúng; `onChange(of: ttsManager.tool)` làm mới khi đổi engine.
+    @State var vieNeuSelectedMode: VieNeuSynthesisPolicy.Mode? = VieNeuTTSService.shared?.preferredMode
 
     private var currentExtParams: (preloadSize: Int?, maxLength: Int?) {
         let path = allExtensions.first(where: { $0.packageId == ttsManager.tool })?.localPath ?? ttsManager.extensionLocalPath
@@ -468,6 +474,7 @@ struct TTSSettingsView: View {
             } else {
                 ttsManager.extensionLocalPath = ""
                 ttsManager.extensionConfigJson = "{}"
+                vieNeuSelectedMode = VieNeuTTSService.shared?.preferredMode
                 Task { await loadVoicesForCurrentTool() }
             }
         }

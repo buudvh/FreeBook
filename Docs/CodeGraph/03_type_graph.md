@@ -16,6 +16,14 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 <!-- GENERATED START -->
 
+## Thành Viên Mới Cho Ranh Giới & Đo Lường VieNeu (1.3.436)
+
+* **`VieNeuTTSEngine.pauseSeconds(for boundaryKind: TTSBoundaryKind) -> Double`** (`+Chunking`) — ánh xạ ranh giới → khoảng lặng **đuôi**, đọc cùng khoá `UserDefaults` như `ONNXPiperEngine.pauseDuration(for:)`. Là bản sao có chủ ý (không gọi chéo được vì Piper nằm trong `ONNXPiperEngine`, một class).
+* **`VieNeuTTSEngine.logSynthesisPerf(mode:chunkCount:droppedScalars:characterCount:pcmDuration:speechDuration:synthesisMs:boundaryKind:)`** (`+Adaptive`) — log `[VieNeuPerf]` mỗi lượt tổng hợp. Đặt ở `+Adaptive` (không phải file engine) để `VieNeuTTSEngine.swift` không vượt trần 400.
+* **`VieNeuTTSEngine.synthesize(text:voiceName:speed:boundaryKind:)`** — thêm `boundaryKind` (mặc định `.paragraphEnd`) và nối khoảng lặng đuôi sau `joinChunks`.
+* **`VieNeuTTSService.makeDefaultSynthesisKey(text:voice:speed:boundaryKind:)`** — `boundaryKind` vào khoá cache.
+* **`TTSSettingsView.vieNeuSelectedMode: VieNeuSynthesisPolicy.Mode?`** — `@State` cho `Picker` chế độ chất lượng; **`vieNeuModeBinding` đã bị xoá**.
+
 ## Thành Viên Mới Cho Định Tuyến Engine Local (1.3.435)
 
 * **`TTSManager.currentSafeCachedTimeThreshold: Double`** (computed, `TTSManager+VieNeu.swift`) — ngưỡng nạp bộ đệm của **engine local đang chọn**. Là chỗ duy nhất để ngưỡng theo engine thực sự được đọc.

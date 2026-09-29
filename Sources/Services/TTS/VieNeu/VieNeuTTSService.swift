@@ -143,6 +143,7 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
             text: text,
             voice: voice,
             speed: speed,
+            boundaryKind: boundaryKind,
             priority: priority,
             requestID: requestID,
             synthesisKey: synthesisKey
@@ -158,14 +159,24 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         requestID: UUID = UUID(),
         synthesisKey: String? = nil
     ) async throws -> (data: Data, pcmDuration: Double, queueWaitMs: Double, synthesisMs: Double) {
-        let effectiveKey = synthesisKey ?? Self.makeDefaultSynthesisKey(text: text, voice: voice, speed: speed)
+        let effectiveKey = synthesisKey ?? Self.makeDefaultSynthesisKey(
+            text: text,
+            voice: voice,
+            speed: speed,
+            boundaryKind: boundaryKind
+        )
         let payload = try await PiperSynthesisCoordinator.shared.enqueuePayload(
             priority: priority,
             requestID: requestID,
             synthesisKey: effectiveKey
         ) { [weak self] in
             guard let self else { throw CancellationError() }
-            return try await self.executeInternalSynthesis(text: text, voice: voice, speed: speed)
+            return try await self.executeInternalSynthesis(
+                text: text,
+                voice: voice,
+                speed: speed,
+                boundaryKind: boundaryKind
+            )
         }
         return (
             data: payload.data,
@@ -187,7 +198,14 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         synthesisKey: String? = nil,
         onChunkPayload: @escaping @Sendable (TTSPCMChunkPayload) async throws -> Void
     ) async throws -> Data {
-        let effectiveKey = synthesisKey ?? Self.makeDefaultSynthesisKey(text: text, voice: voice, speed: speed)
+        // KHÔNG có tham số `boundaryKind` ở đây: protocol `LocalTTSEngine` (`:43-51`) đã bỏ nó khỏi
+        // `synthesizeStream`. Đường stream là "một chunk cho cả đoạn" nên `.paragraphEnd` đúng nghĩa.
+        let effectiveKey = synthesisKey ?? Self.makeDefaultSynthesisKey(
+            text: text,
+            voice: voice,
+            speed: speed,
+            boundaryKind: .paragraphEnd
+        )
         return try await PiperSynthesisCoordinator.shared.enqueue(
             priority: priority,
             requestID: requestID,
@@ -199,6 +217,7 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
                 text: text,
                 voice: voice,
                 speed: speed,
+                boundaryKind: .paragraphEnd,
                 onChunkPayload: onChunkPayload
             )
         }
@@ -209,13 +228,19 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
     private func executeInternalSynthesis(
         text: String,
         voice: String,
-        speed: Double
+        speed: Double,
+        boundaryKind: TTSBoundaryKind
     ) async throws -> PiperSynthesisPayload {
         if PiperTTSService.isUnspeakable(text) {
             return silencePayload(text: text, speed: speed)
         }
         let started = ProcessInfo.processInfo.systemUptime
-        let output = try engine.synthesize(text: text, voiceName: voice, speed: speed)
+        let output = try engine.synthesize(
+            text: text,
+            voiceName: voice,
+            speed: speed,
+            boundaryKind: boundaryKind
+        )
         syncQueue.sync {
             _currentVoice = voice
             _lastDroppedScalars = output.droppedScalars
@@ -239,6 +264,7 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         text: String,
         voice: String,
         speed: Double,
+        boundaryKind: TTSBoundaryKind,
         onChunkPayload: @escaping @Sendable (TTSPCMChunkPayload) async throws -> Void
     ) async throws -> Data {
         if PiperTTSService.isUnspeakable(text) {
@@ -250,7 +276,12 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
             try await onChunkPayload(silence.chunkPayload)
             return silence.wavData
         }
-        let output = try engine.synthesize(text: text, voiceName: voice, speed: speed)
+        let output = try engine.synthesize(
+            text: text,
+            voiceName: voice,
+            speed: speed,
+            boundaryKind: boundaryKind
+        )
         syncQueue.sync { _currentVoice = voice }
         try await onChunkPayload(TTSPCMChunkPayload(
             samples: output.samples,
@@ -271,8 +302,16 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
     /// Key mặc định khi caller bỏ trống — cùng khuôn `auto-<digest>` của `PiperTTSService`, nhưng gồm cả
     /// **tên giọng** (Piper suy giọng từ file model, còn ở đây 11 giọng dùng chung một bộ graph nên
     /// thiếu tên giọng là hai giọng khác nhau gộp chung một kết quả).
-    private static func makeDefaultSynthesisKey(text: String, voice: String, speed: Double) -> String {
-        let raw = "vieneu|\(voice)|\(speed)|\(text)"
+    /// `boundaryKind` **phải** nằm trong khoá: nó quyết định khoảng lặng đuôi, nên hai lượt gọi cùng văn
+    /// bản nhưng khác ranh giới là **hai audio khác nhau** — gộp chúng (coordinator coalesce theo khoá) sẽ
+    /// trả sai khoảng lặng cho một trong hai. Piper cũng đưa `boundary=` vào khoá của nó.
+    private static func makeDefaultSynthesisKey(
+        text: String,
+        voice: String,
+        speed: Double,
+        boundaryKind: TTSBoundaryKind
+    ) -> String {
+        let raw = "vieneu|\(voice)|\(speed)|\(boundaryKind.rawValue)|\(text)"
         var hash: UInt64 = 5381
         for byte in raw.utf8 {
             hash = ((hash << 5) &+ hash) &+ UInt64(byte)

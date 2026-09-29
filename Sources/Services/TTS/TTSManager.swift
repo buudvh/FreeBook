@@ -3263,12 +3263,12 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             return
         }
 
-        // Chỉ skip nếu nextItem đúng là đoạn tiếp theo cần prepare.
-        // Không dùng || currentParagraphIndex vì nextItem có thể vẫn giữ index của
-        // đoạn vừa được transition (chưa discard), khiến đoạn cuối chương không bao giờ được prepare.
-        if nghiAudioPlayerQueue.nextItem?.paragraphIndex == nextIndex {
-            return
-        }
+        // Chỉ skip khi `nextItem` đúng là đoạn kế — KHÔNG dùng `currentParagraphIndex` vì `nextItem` có
+        // thể còn giữ index đoạn vừa transition (chưa discard) ⇒ đoạn cuối chương không bao giờ được nạp.
+        // Thêm `currentItem`: `currentParagraphIndex` có thể **chưa kịp nhảy** do bàn giao chạy nền, khi đó
+        // `nextIndex` trỏ vào chính đoạn queue **đang phát** ⇒ nạp lại là đoạn đó phát **lần thứ hai**.
+        if nghiAudioPlayerQueue.nextItem?.paragraphIndex == nextIndex
+            || nghiAudioPlayerQueue.currentItem?.paragraphIndex == nextIndex { return }
 
         guard let data = preloadedData[nextIndex] else { return }
 

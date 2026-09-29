@@ -261,6 +261,19 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
         if nextIsScheduled {
             if let currentItem, let nextItem {
                 state = .scheduled(current: currentItem, next: nextItem, atDeviceTime: startTime)
+                if AppLogger.shared.isLoggingEnabled {
+                    // Số liệu để chẩn đoán **chồng tiếng**: nếu `wallRemaining` tính ra quá nhỏ thì
+                    // `nextPlayer` bắt đầu trước khi `currentPlayer` kết thúc ⇒ hai đoạn phát song song.
+                    AppLogger.shared.log(
+                        "🔊 [NghiAudioPlayerQueue] schedule next=\(nextItem.paragraphIndex)"
+                            + " cur=\(currentItem.paragraphIndex)"
+                            + " mediaRemaining=\(String(format: "%.3f", mediaRemaining))s"
+                            + " rate=\(String(format: "%.2f", effectiveRate))"
+                            + " wallRemaining=\(String(format: "%.3f", wallClockRemaining))s"
+                            + " duration=\(String(format: "%.3f", currentPlayer.duration))s"
+                            + " currentTime=\(String(format: "%.3f", currentPlayer.currentTime))s"
+                    )
+                }
                 onScheduleHandoff?(nextItem, startTime)
             }
         } else {
