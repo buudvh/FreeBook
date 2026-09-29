@@ -16,6 +16,13 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 
 <!-- GENERATED START -->
 
+## Vòng Đời Tài Nguyên Đệm Của Engine Local Thứ Hai (1.3.435)
+
+* **`preloadedData` / `preloadedDurations` là tài nguyên dùng chung** cho mọi engine local (khoá theo chỉ số đoạn văn). Các cửa sổ giữ/dọn (`updateNghiPrefetchWindow`, `handleNghiAudioFinished`, `handleNghiAudioTransition`) đều đã mở cho engine thứ hai; trước 1.3.435 chúng chỉ chạy với `nghitts` nên bộ đệm **không bao giờ được nạp tiếp** cho engine thứ hai.
+* **Trần payload giữ nguyên**: `NghiSynthesisPolicy.maxTotalAudioPayloads` = **5** và `maxOptionalReserveItems` không đổi. Việc mở gate chỉ làm các cửa sổ **hoạt động đúng**, không nới trần — nới trần không làm engine nhanh hơn, chỉ phình bộ nhớ.
+* **`nghiAudioPlayerQueue` là tài nguyên phần cứng dùng chung**: một `AVAudioPlayer` hiện tại + một chuẩn bị trước. `pause()`/`resume()`/`stop()` phải áp cho mọi engine local, nếu không engine thứ hai vẫn phát trong khi UI báo đã dừng (hoặc ngược lại — `handleNghiAudioTransition` từng gọi `stop()` sai nhánh và cắt tiếng).
+* **Khoá `UserDefaults` của VieNeu nay đều có hiệu lực**: `vieneuRate`, `vieneuVoice`, `vieneuChunk`, `vieneuPreferredMode` (đã có từ 1.3.434) cộng thêm `vieneuPrefetchCount` và `vieneuSafeCachedTimeThreshold` — hai khoá sau từ 1.3.435 mới có nơi đọc (`currentSafeCachedTimeThreshold`). Riêng `vieneuPitch` vẫn được lưu mà chưa nghe thấy: `NghiAudioPlayerQueue` chỉ có `updateRate(_:)`.
+
 ## Vòng Đời Khoá `UserDefaults` Của Engine VieNeu (1.3.434)
 
 * **Sáu khoá tham số, tách hẳn khỏi `nghitts*`**: `vieneuVoice`, `vieneuRate`, `vieneuPitch`, `vieneuChunk`, `vieneuPrefetchCount`, `vieneuSafeCachedTimeThreshold`; cộng `vieneuPreferredMode` do `VieNeuTTSService` quản lý. Việc tách khoá là **cố ý**: VieNeu có RTF và nhu cầu đệm khác Piper, dùng chung khoá thì chỉnh engine này ghi đè engine kia.

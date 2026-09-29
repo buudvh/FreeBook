@@ -73,8 +73,8 @@ struct TTSSettingsView: View {
                 Picker("Trình đọc", selection: $ttsManager.tool) {
                     Text("Siri (Hệ thống Apple)").tag("system")
                     Text("NghiTTS (Piper Offline)").tag("nghitts")
-                    Text("Google Cloud TTS (Online)").tag("google")
                     vieNeuPickerRows
+                    Text("Google Cloud TTS (Online)").tag("google")
                     ForEach(ttsExtensions) { ext in
                         Text(ext.name).tag(ext.packageId)
                     }
@@ -263,7 +263,9 @@ struct TTSSettingsView: View {
                 }
 
                 let isExtensionTool = TTSManager.isExtensionTool(ttsManager.tool)
-                let disablePitch = ttsManager.tool == "nghitts" || isExtensionTool
+                // Engine local (NghiTTS + VieNeu) phat qua `NghiAudioPlayerQueue`, ma queue nay chi co
+                // `updateRate(_:)` — khong co `AVAudioUnitTimePitch`. Nen pitch la **no-op** voi ca hai.
+                let disablePitch = TTSManager.isLocalEngine(ttsManager.tool) || isExtensionTool
 
                 VStack(alignment: .leading, spacing: 6) {
                     Stepper(value: $ttsManager.pitch, in: 0.5...2.0, step: 0.1) {
@@ -279,8 +281,8 @@ struct TTSSettingsView: View {
                     Slider(value: $ttsManager.pitch, in: 0.5...2.0, step: 0.1)
                         .tint(.white)
                         .disabled(disablePitch)
-                    if ttsManager.tool == "nghitts" {
-                        Text("(*) NghiTTS không hỗ trợ chỉnh cao độ thời gian thực")
+                    if TTSManager.isLocalEngine(ttsManager.tool) {
+                        Text("(*) Engine offline (NghiTTS/VieNeu) không hỗ trợ chỉnh cao độ thời gian thực")
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     } else if isExtensionTool {
@@ -297,29 +299,7 @@ struct TTSSettingsView: View {
             Section(header: HStack {
                 Text("Tải trước dữ liệu")
                 Spacer()
-                Button(action: {
-                    if ttsManager.tool == "google" {
-                        ttsManager.googlePrefetchCount = 2
-                        ttsManager.chunkLength = 100
-                        ttsManager.prefetchDelayMs = 350
-                    } else if ttsManager.tool == "nghitts" {
-                        ttsManager.chunkLength = 100
-                        ttsManager.prefetchDelayMs = 350
-                        ttsManager.setNghiTTSSafeCachedTimeThreshold(8.0)
-                    } else if ttsManager.tool == "system" {
-                        ttsManager.chunkLength = 100
-                        ttsManager.prefetchDelayMs = 350
-                    } else {
-                        let parsed = ttsManager.parseExtensionConfigParams(jsonString: ttsManager.extensionConfigJson, localPath: ttsManager.extensionLocalPath)
-                        if parsed.preloadSize == nil {
-                            ttsManager.extPrefetchCount = 2
-                        }
-                        if parsed.maxLength == nil {
-                            ttsManager.chunkLength = 100
-                        }
-                        ttsManager.prefetchDelayMs = 350
-                    }
-                }) {
+                Button(action: { ttsManager.resetPrefetchSettings() }) {
                     HStack(spacing: 3) {
                         Image(systemName: "arrow.counterclockwise")
                         Text("Đặt lại")
@@ -388,6 +368,8 @@ struct TTSSettingsView: View {
                                 .foregroundColor(.secondary)
                         }
                     }
+                } else if ttsManager.tool == "vieneu" {
+                    vieNeuPrefetchSection
                 } else {
                     if currentExtParams.preloadSize == nil {
                         Stepper(value: $ttsManager.extPrefetchCount, in: 2...10) {
@@ -413,7 +395,10 @@ struct TTSSettingsView: View {
                     }
                 }
 
-                if ttsManager.tool != "system" {
+                // `prefetchDelayMs` chi duoc tieu thu o duong worker (Google/extension) va
+                // `TTSNextChapterPrefixSynthesizer` cho nhanh remote — engine local di thang
+                // `localService.synthesize(...)` nen KHONG dung gia tri nay.
+                if ttsManager.tool == "google" || TTSManager.isExtensionTool(ttsManager.tool) {
                     Stepper(value: $ttsManager.prefetchDelayMs, in: 300...5000, step: 50) {
                         HStack {
                             Text("Thời gian dãn tiến trình nạp trước:")

@@ -71,10 +71,12 @@ extension TTSSettingsView {
         }
     }
 
-    /// Khối **quản lý riêng của trình đọc** cho VieNeu, hiện thẳng trong Section 3 của màn Cài đặt.
+    /// Khối **quản lý riêng của trình đọc** cho VieNeu — hiện thẳng trong Section 3 của màn Cài đặt.
     ///
-    /// Đặt inline (thay vì một màn con như `NghiTTSSettingsView`) vì đây đều là tham số **hay chỉnh trong
-    /// lúc đang nghe**; bắt đi thêm một tầng chỉ để đổi 8/16 bước là ma sát vô ích.
+    /// **Chỉ chứa thứ thật sự thuộc về engine**: chế độ chất lượng (`fast`/`high`/tự động). Các tham số
+    /// *hiệu năng* (số đoạn tải trước, độ dài phân đoạn, ngưỡng nạp bộ đệm) nằm ở Section 5
+    /// "Tải trước dữ liệu" — xem `vieNeuPrefetchSection`. Tách như vậy để **không có hai nguồn sự thật**:
+    /// trước lượt 1.3.435 số đoạn tải trước xuất hiện ở **cả** Section 3 **và** Section 5.
     ///
     /// **Tốc độ và cao độ không lặp lại ở đây**: chúng đã có slider ở Section 4, chỉ khác khoá lưu
     /// (`vieneuRate`/`vieneuPitch` nhờ `persistSpeed`/`persistPitch`). Lặp lại sẽ tạo hai nguồn sự thật.
@@ -87,30 +89,57 @@ extension TTSSettingsView {
             }
         }
         .pickerStyle(.menu)
+    }
 
+    /// Khối "Tải trước dữ liệu" của VieNeu (Section 5).
+    ///
+    /// **Vì sao phải có nhánh riêng**: Section 5 phân nhánh theo engine và **thiếu nhánh `vieneu`**, nên
+    /// VieNeu rơi vào nhánh `else` — nhánh **extension** — và hiện *"Số đoạn tải trước (Extension TTS)"*
+    /// trỏ vào `extPrefetchCount` cùng *"Độ dài đoạn văn (Extension TTS)"* trỏ vào `chunkLength`. Đó chính
+    /// là "2 chỗ config số đoạn tải trước" và nhãn sai. Khoá đúng là `vieneuPrefetchCount` / `vieneuChunk`.
+    ///
+    /// **Độ dài phân đoạn CÓ tác dụng với VieNeu** (không phải thừa): `TTSManager.playbackParagraphs`
+    /// (`:801-803`) cho `vieneu` đi qua `NghiUtteranceSegmenter.expand(baseParagraphs, maximumLength:
+    /// chunkLength)` giống Piper, nên nó quyết định cách chia đoạn để đọc.
+    @ViewBuilder
+    var vieNeuPrefetchSection: some View {
         Stepper(value: $ttsManager.vieneuPrefetchCount, in: 2...10) {
             HStack {
-                Text("Số đoạn tải trước")
+                Text("Số đoạn tải trước (VieNeu):")
                 Spacer()
-                Text("\(ttsManager.vieneuPrefetchCount)")
+                Text("\(ttsManager.vieneuPrefetchCount) đoạn")
                     .font(.system(.body, design: .monospaced))
+                    .foregroundColor(.secondary)
             }
         }
-
-        Stepper(
-            value: Binding(
-                get: { ttsManager.vieneuSafeCachedTimeThreshold },
-                set: { ttsManager.setVieNeuSafeCachedTimeThreshold($0) }
-            ),
-            in: 4...20,
-            step: 1
-        ) {
+        Stepper(value: $ttsManager.chunkLength, in: 50...500, step: 10) {
             HStack {
-                Text("Ngưỡng nạp bộ đệm")
+                Text("Độ dài phân đoạn (VieNeu):")
                 Spacer()
-                Text("\(Int(ttsManager.vieneuSafeCachedTimeThreshold))s")
+                Text("\(ttsManager.chunkLength) ký tự")
                     .font(.system(.body, design: .monospaced))
+                    .foregroundColor(.secondary)
             }
+        }
+        VStack(alignment: .leading, spacing: 6) {
+            Stepper(
+                value: Binding(
+                    get: { ttsManager.vieneuSafeCachedTimeThreshold },
+                    set: { ttsManager.setVieNeuSafeCachedTimeThreshold($0) }
+                ),
+                in: 4...20,
+                step: 1
+            ) {
+                HStack {
+                    Text("Ngưỡng nạp bộ đệm (VieNeu):")
+                    Spacer()
+                    Text("\(Int(ttsManager.vieneuSafeCachedTimeThreshold))s")
+                        .font(.system(.body, design: .monospaced))
+                }
+            }
+            Text("Tự động tổng hợp thêm âm thanh khi thời lượng đệm âm thanh liên tục còn lại giảm xuống dưới \(Int(ttsManager.vieneuSafeCachedTimeThreshold)) giây.")
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
     }
 

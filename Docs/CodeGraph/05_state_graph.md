@@ -16,6 +16,14 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 
 <!-- GENERATED START -->
 
+## Trạng Thái Đệm & Nạp Trước Của Engine Local Thứ Hai (1.3.435)
+
+* **`currentSafeCachedTimeThreshold` là trạng thái suy ra theo engine** (`TTSManager+VieNeu.swift`): trả `vieneuSafeCachedTimeThreshold` khi `tool == "vieneu"`, còn lại `nghittsSafeCachedTimeThreshold`. Trước 1.3.435 `vieneuSafeCachedTimeThreshold` **không có nơi đọc** — mọi nơi tiêu thụ đọc thẳng ngưỡng của NghiTTS. Nay nó được đọc ở `TTSManager.swift:2674` (quyết định `scheduleNghiRefill` hay hẹn wake), `:2714` (điều kiện optional reserve) và `TTSManager+NextChapterPrefix.swift:73` (prefix chương kế).
+* **Máy trạng thái nạp lại của NghiTTS giờ phục vụ mọi engine local**, không chỉ Piper: `calculateNghiCachedTime()` (`:2592`) trả số thật thay vì `0.0`; `updateNghiPrefetchWindow()` (`:2648`), `scheduleNghiRefill()` (`:2803`), `prepareNextNghiAudioIfPossible()` (`:3248`), `handleNghiAudioFinished()` (`:3358`) đều hoạt động với engine thứ hai.
+* **`updatePrefetchWindow()` (`:2491`) phân nhánh đúng**: engine local → cửa sổ Nghi; còn lại → `dispatchRemotePrefetch`. Trước đó engine local thứ hai bị đẩy sang **đường remote**.
+* **`pause()`/`resume()` (`:1448`/`:1481`/`:1525`) tác động đúng hàng đợi**: engine local gọi `nghiAudioPlayerQueue.pause()`/`resume()`; trước đó chỉ `nghitts` làm việc này nên nút dừng/tiếp không điều khiển được engine thứ hai.
+* **`vieneuPrefetchCount` / `vieneuSafeCachedTimeThreshold` / `vieneuChunk`** vẫn giữ khoá riêng khỏi `nghitts*`; điểm khác so với 1.3.434 là **cả ba nay đều có hiệu lực thật** (trước đó hai cái đầu chỉ được lưu).
+
 ## Trạng Thái Tham Số TTS Tách Theo Engine — VieNeu vs NghiTTS (1.3.434)
 
 * **Hai bộ trạng thái song song, không dùng chung khoá.** NghiTTS giữ `nghitts*` (`nghittsRate`, `nghittsPitch`, `nghittsVoice`, `nghittsPrefetchCount`, `nghittsSafeCachedTimeThreshold`, `nghittsPrefetchDelay`); VieNeu giữ `vieneu*` (`vieneuVoice`, `vieneuRate`, `vieneuPitch`, `vieneuPrefetchCount`, `vieneuSafeCachedTimeThreshold`, `vieneuPreferredMode`). Lý do là **hiệu năng**: VieNeu cần đệm sâu hơn (`VieNeuSynthesisPolicy.bufferedSecondsTarget` = 12 s so với 8 s của Piper) và có RTF khác hẳn, nên một ngưỡng dùng chung sẽ sai cho cả hai.

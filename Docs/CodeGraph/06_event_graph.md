@@ -16,6 +16,14 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 
 <!-- GENERATED START -->
 
+## Sự Kiện Nhận Biết Engine Thứ Hai Trong Máy Phát NghiTTS (1.3.435)
+
+* **Sự kiện đổi engine (`tool.didSet`) nay warm-up cho mọi engine local** (`:99` → `TTSManager.isLocalEngine(tool)`). Trước 1.3.435 nhánh `else` huỷ `nghiWarmUpTask` **trước khi** `scheduleNghiWarmUp()` kịp tự guard, nên engine thứ hai **không bao giờ** được warm-up.
+* **Sự kiện "đoạn kế đã sẵn sàng"**: `handleNghiAudioFinished` / `handleNghiAudioTransition` / `handleNghiScheduledHandoff` đều đã mở cho engine local. Đáng chú ý `handleNghiAudioTransition` có **tác dụng phụ phá hoại** khi guard sai: nó gọi `nghiAudioPlayerQueue.stop()`, tức không chỉ bỏ qua sự kiện mà còn **dừng phát**.
+* **Sự kiện wake theo ngưỡng đệm**: `updateNghiPrefetchWindow()` (`:2674`) đọc `currentSafeCachedTimeThreshold` — nay là ngưỡng **của engine đang chọn**, nên `vieneuSafeCachedTimeThreshold` thật sự điều khiển việc hẹn wake và `scheduleNghiRefill()`.
+* **Sự kiện `isContextValid`**: đòi `tool == context.engine`, nên **mọi** `makePlaybackContext(..., engine:)` phải truyền `tool`. Hai chỗ hardcode `engine: "nghitts"` (`:3191`, `:3348`) làm mọi handoff bị huỷ với engine thứ hai.
+* **Log `[TTSRoute]` là công cụ chẩn đoán chính cho lớp lỗi này**: khi "có tổng hợp nhưng không có tiếng", hãy so sánh sự hiện diện của `[NghiEnergy] Underrun` (đã vào `playNghiTTS`) với sự **vắng mặt** của `[TTSRoute] playAudioData` (audio bị vứt ở guard danh tính).
+
 ## Sự Kiện Định Tuyến Engine TTS — Log `[TTSRoute]` (1.3.434)
 
 * **`TTSManager.tool.didSet`** ghi log `[TTSRoute] doi engine=<tool> local=<Bool> extension=<Bool>`. Đây là dòng đầu tiên cần đọc khi người dùng báo "chọn engine X mà không ra tiếng": nó nói ngay engine mới được xếp vào nhánh nào.

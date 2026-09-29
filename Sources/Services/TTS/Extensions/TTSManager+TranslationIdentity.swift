@@ -5,7 +5,7 @@ extension TTSManager {
         let key = "showChapterTitle_\(playingBookId)"
         let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
         let extFingerprint: String?
-        if tool == "system" || tool == "nghitts" || tool == "google" {
+        if !TTSManager.isExtensionTool(tool) {
             extFingerprint = nil
         } else {
             extFingerprint = ExtensionManager.shared.getTTSRuntimeFingerprint(

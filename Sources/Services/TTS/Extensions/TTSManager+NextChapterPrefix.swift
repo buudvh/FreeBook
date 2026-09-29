@@ -21,7 +21,7 @@ extension TTSManager {
         }
 
         guard key.tool != "system" else { return nil }
-        if key.tool == "nghitts" {
+        if TTSManager.isLocalEngine(key.tool) {
             return (key, NghiUtteranceSegmenter.expand(processed.paragraphs, maximumLength: key.chunkLength))
         }
         return (key, processed.paragraphs)
@@ -45,7 +45,7 @@ extension TTSManager {
     /// hiện tại đã hết chunk. Trừ thêm 1 slot cho chunk 0 do `TTSChapterPrefetcher` giữ,
     /// nên tổng payload audio vẫn không vượt `count + 1` như lúc đang ở giữa chương.
     internal func requestRemoteNextChapterPrefixIfNeeded(windowCount: Int, inChapterTargetCount: Int) {
-        guard isPlaying, tool != "system", tool != "nghitts" else { return }
+        guard isPlaying, tool != "system", !TTSManager.isLocalEngine(tool) else { return }
         requestNextChapterPrefix(capacity: max(0, windowCount - inChapterTargetCount - 1))
     }
 
@@ -55,7 +55,7 @@ extension TTSManager {
     /// trần `NghiSynthesisPolicy.maxTotalAudioPayloads` còn trống, nên trần payload không
     /// bị nới ra. Đạt ngưỡng thì dừng nạp và **giữ** những chunk đã có (không thu hồi).
     internal func requestNghiNextChapterPrefixIfNeeded(currentIndex: Int, blockedIndices: Set<Int>) {
-        guard isPlaying, tool == "nghitts" else { return }
+        guard isPlaying, TTSManager.isLocalEngine(tool) else { return }
 
         let hasInChapterCandidate = TTSManager.selectNghiOptionalRefillCandidate(
             currentParagraphIndex: currentIndex,
@@ -70,7 +70,7 @@ extension TTSManager {
             return
         }
 
-        guard calculateNghiCachedTime() < nghittsSafeCachedTimeThreshold else { return }
+        guard calculateNghiCachedTime() < currentSafeCachedTimeThreshold else { return }
 
         let heldPayloads = preloadedData.count
             + (nghiAudioPlayerQueue.hasPreparedNext ? 1 : 0)

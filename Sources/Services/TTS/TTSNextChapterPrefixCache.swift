@@ -216,7 +216,7 @@ internal final class TTSNextChapterPrefixCache {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !textToSpeak.isEmpty else { return }
 
-        if key.tool == "nghitts" && localService == nil { return }
+        if TTSManager.isLocalEngine(key.tool) && localService == nil { return }
 
         let synthesisKey = TTSSynthesisIdentity.computeKey(
             chapterURL: key.chapterUrl,

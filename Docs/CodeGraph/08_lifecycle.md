@@ -16,6 +16,13 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 
 <!-- GENERATED START -->
 
+## Vòng Đời Phát Của Engine Local Thứ Hai (1.3.435)
+
+* **Vòng đời một đoạn audio (engine local)**: `speakCurrent()` → `playNghiTTS()` → `cancelNghiPlaybackTask()` → dò `preloadedData[index]` → (miss) `service.synthesizeWithDuration(...)` → `isIdentityValid()` → `playAudioData(_:withId:)` → `playNghiAudioData()` → `nghiAudioPlayerQueue.start(...)` → `prepareNextNghiAudioIfPossible()`. **Nút thắt từng nằm ở `isIdentityValid()`**: nó luôn `false` với engine thứ hai nên vòng đời **đứt ngay sau bước tổng hợp** — audio sinh ra rồi bị bỏ, `preloadedData` không được ghi, và `playAudioData` không chạy.
+* **Vòng đời tự làm đầy**: `handleNghiAudioFinished` → `scheduleNghiRefill` → `updateNghiPrefetchWindow` → `updateNghiBufferedDuration` + `calculateNghiCachedTime` + `requestNghiNextChapterPrefixIfNeeded` → (dưới ngưỡng) `scheduleNghiRefill` tiếp, (trên ngưỡng) hẹn `nghiWakeTask` ngủ `cachedTime - threshold` giây rồi gọi lại. Ngưỡng lấy từ `currentSafeCachedTimeThreshold` ⇒ **theo engine**.
+* **Vòng đời tham số lúc khởi động**: `TTSManager.init` chạy **trước `super.init()`** nên chỉ nạp được bằng `UserDefaults` trực tiếp, và chuỗi `if/else` ở đó **thiếu nhánh `vieneu`** ⇒ nạp nhầm khoá `ext*_vieneu`. `initialize(container:)` gọi `applyVieNeuParamsIfNeeded()` để sửa lại, chạy **trước mọi lượt đọc** vì `MainTabView.swift:57` gọi nó lúc dựng cây view.
+* **Vòng đời tạm dừng/tiếp**: `pause()`/`resume()` đi vào `nghiAudioPlayerQueue` cho **mọi** engine local; nếu chỉ `nghitts` thì nút dừng/tiếp không điều khiển được engine thứ hai dù nó đang phát chính hàng đợi đó.
+
 ## Vòng Đời Tham Số VieNeu: Ngưỡng Đệm & Số Đoạn Tải Trước (1.3.434)
 
 * **`vieneuSafeCachedTimeThreshold`** — vòng đời: `applyVieNeuParamsIfNeeded()` nạp lúc khởi tạo/đổi engine (clamp rồi **ghi lại** giá trị đã clamp) → người dùng kéo Stepper → `setVieNeuSafeCachedTimeThreshold(_:)` clamp + lưu `UserDefaults["vieneuSafeCachedTimeThreshold"]` → nếu đang phát và `tool == "vieneu"` thì huỷ wake task và gọi `updateNghiPrefetchWindow()` (không dừng audio).

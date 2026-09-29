@@ -16,6 +16,14 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 <!-- GENERATED START -->
 
+## Thành Viên Mới Cho Định Tuyến Engine Local (1.3.435)
+
+* **`TTSManager.currentSafeCachedTimeThreshold: Double`** (computed, `TTSManager+VieNeu.swift`) — ngưỡng nạp bộ đệm của **engine local đang chọn**. Là chỗ duy nhất để ngưỡng theo engine thực sự được đọc.
+* **`TTSManager.resetPrefetchSettings()`** — đặt lại tham số "Tải trước dữ liệu" theo engine đang chọn; gom từ chuỗi `if/else` trong header `Section` của `TTSSettingsView` (chuỗi đó thiếu nhánh `vieneu`).
+* **`TTSSettingsView.vieNeuPrefetchSection`** (`@ViewBuilder`, `TTSSettingsView+VieNeu.swift`) — khối "Tải trước dữ liệu" của VieNeu ở Section 5: số đoạn tải trước, độ dài phân đoạn, ngưỡng nạp bộ đệm.
+* **`TTSSettingsView.vieNeuReaderSection`** thu gọn còn **chế độ chất lượng** (`fast`/`high`/tự động) — các tham số hiệu năng đã chuyển sang `vieNeuPrefetchSection` để không còn hai nguồn sự thật.
+* **`VieNeuSettingsKey`** giữ 6 khoá (`voice`, `rate`, `pitch`, `chunk`, `prefetchCount`, `safeCachedTimeThreshold`); `chunk` (`vieneuChunk`) là khoá **có hiệu lực** vì `playbackParagraphs` dùng `chunkLength` cho cả engine local.
+
 ## Tách Trạng Thái Theo Engine + Nối VieNeu Vào Đường Phát Local (1.3.434)
 
 * **`TTSManager.isLocalEngine(_:)` (static, `TTSManager+VieNeu.swift`)** — `tool == "nghitts" || tool == "vieneu"`. Là **cặp sinh đôi** với `TTSManager.isExtensionTool(_:)` nhưng trả lời câu hỏi khác: *"engine này chạy trên máy và đi chung đường phát của NghiTTS không?"*. Thay **9** chỗ viết thẳng `tool == "nghitts"` trong `TTSManager.swift` và **2** chỗ trong `TTSChapterPrefetcher.swift`.

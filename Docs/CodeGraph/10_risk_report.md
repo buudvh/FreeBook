@@ -16,6 +16,16 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 
 <!-- GENERATED START -->
 
+## Rủi Ro "Guard Danh Tính" Vứt Bỏ Audio Đã Tổng Hợp (1.3.435)
+
+* **Rủi ro ĐÃ XẢY RA (mức CAO NHẤT) — guard danh tính sai làm mất audio mà không có tín hiệu nào.** `isIdentityValid()` trong `playNghiTTS` (`TTSManager.swift:3638`) kết bằng `self.tool == "nghitts"`. Với engine local thứ hai, `service.synthesizeWithDuration(...)` chạy xong (vài giây CPU, máy nóng) rồi `guard` trả `false` ⇒ **vứt bỏ kết quả**. Không log, không lỗi, không toast, không `playAudioData`. Người dùng chỉ có thể nói *"không tạo ra được wav"*. **Bài học: một guard `return` im lặng đặt sau bước tốn kém là loại lỗi tệ nhất — nó tiêu tài nguyên rồi bỏ kết quả, và để lại 0 dấu vết. Khi thêm engine, rà mọi `isIdentityValid`/`isContextValid`/`isValidSession` trước khi rà logic tổng hợp.**
+* **Rủi ro ĐÃ XẢY RA (mức cao) — `isContextValid` so `tool == context.engine` nhưng context dựng bằng literal.** Hai chỗ hardcode `engine: "nghitts"`. Phép so luôn `false` ⇒ mọi handoff bị huỷ.
+* **Rủi ro ĐÃ XẢY RA (mức cao) — `handleNghiAudioTransition` gọi `nghiAudioPlayerQueue.stop()` khi guard sai.** Đây là guard có **tác dụng phụ phá hoại**: không chỉ bỏ qua mà còn **dừng hàng đợi**.
+* **Rủi ro ĐÃ XẢY RA (mức trung bình) — chuỗi khởi tạo thiếu nhánh engine.** `TTSManager.init` nạp tham số trước `super.init()` và không có nhánh `vieneu`, nên khởi động app khi đang chọn VieNeu là nạp nhầm khoá `extRate_vieneu`/`extPitch_vieneu`/`extVoice_vieneu`; tham số sai cho tới khi người dùng đổi engine. Sửa bằng 1 dòng trong `initialize(container:)`.
+* **Rủi ro ĐÃ XẢY RA (mức trung bình) — "Đặt lại" ghi nhầm engine.** Chuỗi `if/else` của nút Đặt lại ở Section 5 thiếu nhánh `vieneu` ⇒ bấm khi đang chọn VieNeu sẽ ghi vào `extPrefetchCount` và `nghittsPrefetchDelay`. Nay gom vào `TTSManager.resetPrefetchSettings()`.
+* **Rủi ro CÒN LẠI (mức trung bình) — `TTSManager.swift` ở 4028 dòng, chỉ còn 1 dòng dự phòng so với mốc đầu phiên (4029).** Baseline allowlist là 3470 nên file **đã** vi phạm; lượt này giữ dưới mốc cũ nhưng **không còn chỗ**. Mọi thay đổi tiếp theo phải đưa ra extension, hoặc trả về bằng cách gom thêm chuỗi `if/else` (đã gom: `speed`/`pitch`/`selectedVoice`/`chunkLength` + nút Đặt lại).
+* **Rủi ro CÒN LẠI (mức trung bình) — chưa kiểm chứng lúc chạy.** CI xác nhận **biên dịch**, không xác nhận hành vi. Toàn bộ ~28 gate vừa mở dựa trên suy luận từ việc đọc `nghiAudioPlayerQueue`/`preloadedData` là tài nguyên dùng chung — cần cài IPA lên máy thật để xác nhận audio phát, tự chuyển đoạn, và không hồi quy NghiTTS.
+
 ## Rủi Ro Nhánh `else` "Nuốt" Engine Mới & Pitch Là No-Op (1.3.434)
 
 * **Rủi ro ĐÃ XẢY RA (mức cao) — nhánh `else` của `loadParamsForCurrentTool()` ghi đè helper của engine.** Nhánh cuối `} else {` là nhánh **extension**, và nó gọi `applyVieNeuParamsIfNeeded()` ở **dòng đầu** rồi lập tức ghi `self.speed`/`self.pitch`/`self.selectedVoice` bằng khoá `extRate_vieneu`/`extPitch_vieneu`/`extVoice_vieneu`. Hệ quả: **mọi** giá trị helper vừa nạp đều bị vứt bỏ, im lặng, không lỗi. Đây là dạng lỗi khó thấy nhất — code chạy, không crash, chỉ là cài đặt không bao giờ được nhớ. **Quy tắc rút ra: khi thêm một engine có nhánh riêng, phải đọc lại nhánh `else` cũ xem nó có vô tình bao trùm engine mới không, thay vì chỉ thêm `else if` ở nơi mình đang nhìn.**

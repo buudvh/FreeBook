@@ -2,6 +2,37 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.435] - 2026-09-29
+
+### fix: mo gate engine local + sua 2 nguyen nhan goc lam VieNeu khong ra tieng
+
+Người dùng báo *"VieNeu tts vẫn không tạo được âm thanh, tôi thấy nó hoàn toàn không tạo ra được wav"* kèm log `app_logs (54).txt`, và ba câu hỏi về UI (2 chỗ config số đoạn tải trước; thời gian dãn tiến trình nạp trước có dùng không; độ dài đoạn văn có dùng không / vì sao hiển thị ra đây).
+
+- **Log là bằng chứng quyết định**: có `[NghiEnergy] Underrun chapter=124 index=12` (chứng tỏ **đã vào** `playNghiTTS`) nhưng **không có** dòng `[TTSRoute] playAudioData …` nào ⇒ audio bị vứt bỏ **sau khi tổng hợp xong**, không lỗi, không toast.
+- **Nguyên nhân gốc A — guard danh tính sai.** `isIdentityValid()` trong `playNghiTTS` (`TTSManager.swift:3638`) kết bằng `self.tool == "nghitts"`. Với VieNeu, `service.synthesizeWithDuration(...)` chạy **thật** (vài giây CPU, máy nóng) rồi `guard isIdentityValid() else { return }` (`:3659`) trả `false` ⇒ **vứt bỏ audio vừa tổng hợp**. Sửa: `TTSManager.isLocalEngine(self.tool)`.
+- **Nguyên nhân gốc B — context so với literal.** `isContextValid` (`:3120`) đòi `tool == context.engine`, nhưng context dựng bằng `engine: "nghitts"` hardcode ở `:3191` và `:3348` ⇒ luôn `false` với VieNeu. Sửa: `engine: tool` ở cả hai chỗ, và `TTSManager.isLocalEngine(context.engine)` cho nhánh kiểm tra thành viên hàng đợi (`:3124`).
+- **Mở ~28 gate `tool == "nghitts"` còn lại sang `isLocalEngine`.** Đáng chú ý:
+  * `:99` (`tool.didSet`) — VieNeu **không bao giờ được warm-up** vì nhánh `else` huỷ task trước khi `scheduleNghiWarmUp()` kịp tự guard.
+  * `:1448` / `:1481` / `:1525` — `pause()`/`resume()` không tác động lên `nghiAudioPlayerQueue` mà VieNeu đang phát.
+  * `:1762` / `:1810` — `nextParagraph`/`previousParagraph` nhảy theo **đoạn văn cha** (`paragraphs[i].paragraphIndex`), không phải utterance; VieNeu cũng đi qua `NghiUtteranceSegmenter` nên cần đúng quy tắc này.
+  * `:2491` — `updatePrefetchWindow()` đẩy VieNeu sang **đường remote** (`dispatchRemotePrefetch`).
+  * `:3338` — `handleNghiAudioTransition` khi guard sai còn gọi `nghiAudioPlayerQueue.stop()` ⇒ **cắt tiếng giữa chừng** (guard có tác dụng phụ phá hoại).
+  * `:2592` `calculateNghiCachedTime`, `:2648` `updateNghiPrefetchWindow`, `:2731`/`:2803`/`:2860`/`:2865`/`:2963`/`:2987` (refill), `:3190` handoff, `:3248` `prepareNextNghiAudioIfPossible`, `:3358` `handleNghiAudioFinished`.
+- **Ngưỡng nạp bộ đệm theo engine nay CÓ nơi đọc.** Thêm computed `currentSafeCachedTimeThreshold`, dùng ở `:2674`, `:2714`, `TTSManager+NextChapterPrefix.swift:73`. ⇒ `vieneuSafeCachedTimeThreshold` **có hiệu lực thật** (trước 1.3.435 chỉ được lưu/hiển thị).
+- **Synthesis key hardcode `engine: "nghitts"`** ở `:2840` và `:3606` → `engine: tool`. Trước đó khoá tổng hợp của VieNeu và NghiTTS **giống hệt nhau** nếu cùng chương/đoạn/giọng, mà `PiperSynthesisCoordinator` gộp request theo khoá.
+- **`TTSManager+NextChapterPrefix.swift`**: `nextChapterPrefixContext()` phải cho **mọi** engine local đi qua `NghiUtteranceSegmenter.expand(..., maximumLength: chunkLength)` — trước đó VieNeu **không** expand nên **lệch chỉ số đoạn văn** giữa chương hiện tại và prefix chương kế; `requestRemoteNextChapterPrefixIfNeeded` phải **loại** engine local (VieNeu từng lọt vào đường remote); `requestNghiNextChapterPrefixIfNeeded` 1 gate. Thêm 1 gate ở `TTSNextChapterPrefixSynthesizer` và 1 ở `TTSNextChapterPrefixCache`.
+- **Tham số lúc khởi động**: `TTSManager.init` nạp tham số **trước `super.init()`** (`:953`) nên không gọi được instance method, và chuỗi `if/else` ở đó **thiếu nhánh `vieneu`** ⇒ khởi động app khi đang chọn VieNeu nạp nhầm `extRate_vieneu`/`extPitch_vieneu`/`extVoice_vieneu`. Sửa bằng **một dòng** `applyVieNeuParamsIfNeeded()` trong `initialize(container:)` (gọi từ `MainTabView.swift:57`, trước mọi lượt đọc) — dùng lại **một nguồn sự thật** thay vì chép danh sách khoá lần thứ ba.
+- **`TTSManager+TranslationIdentity.swift:8`**: `tool == "system" || tool == "nghitts" || tool == "google"` là **cùng loại bug "phủ định 3 nhánh"** như `isExtensionTool` — VieNeu bị tính `extFingerprint` từ extension rỗng. Sửa thành `!TTSManager.isExtensionTool(tool)`.
+- **UI — Picker**: VieNeu lên **vị trí thứ 3** (Siri → NghiTTS → **VieNeu** → Google → extension).
+- **UI — hết trùng lặp "số đoạn tải trước"**: Section 3 (`vieNeuReaderSection`) nay **chỉ còn chế độ chất lượng**; số đoạn tải trước / độ dài phân đoạn / ngưỡng nạp bộ đệm dồn về Section 5 qua `vieNeuPrefetchSection`. Trước đó số đoạn tải trước có ở **2 chỗ**, và chỗ ở Section 5 trỏ nhầm `extPrefetchCount` với nhãn *"(Extension TTS)"* vì VieNeu rơi vào nhánh `else` (nhánh extension).
+- **UI — trả lời "độ dài đoạn văn có dùng không"**: **CÓ**. `TTSManager.playbackParagraphs` cho `vieneu` đi qua `NghiUtteranceSegmenter.expand(baseParagraphs, maximumLength: chunkLength)` giống Piper; nay nhãn đúng *"Độ dài phân đoạn (VieNeu)"* và khoá `vieneuChunk`.
+- **UI — trả lời "thời gian dãn tiến trình nạp trước có dùng không"**: **KHÔNG** với engine local. `prefetchDelayMs` chỉ được tiêu thụ ở `TTSAudioSynthesisWorker` (đường Google/extension); `TTSNextChapterPrefixSynthesizer.one` trả sớm cho engine local bằng `localService.synthesize(...)` **không truyền** tham số này. Stepper nay **ẩn với engine local** (nó đã chết với NghiTTS từ trước).
+- **UI — pitch**: engine local phát qua `NghiAudioPlayerQueue` chỉ có `updateRate(_:)`, không có `AVAudioUnitTimePitch` ⇒ pitch là **no-op** với cả NghiTTS và VieNeu. `disablePitch` nay phủ cả VieNeu kèm dòng giải thích (trước đó VieNeu hiện slider bật nhưng bấm không có tác dụng và **không có** dòng giải thích nào).
+- **UI — nút "Đặt lại"**: chuỗi `if/else` cũ **thiếu nhánh `vieneu`** nên bấm khi đang chọn VieNeu sẽ ghi vào `extPrefetchCount` và `nghittsPrefetchDelay`. Gom thành `TTSManager.resetPrefetchSettings()`.
+- **File**: `TTSManager.swift` 4025 → **4028**, `TTSSettingsView.swift` 517 → **502**, `TTSManager+VieNeu.swift` 183 → **227**, `TTSSettingsView+VieNeu.swift` 128 → **157**, `TTSManager+NextChapterPrefix.swift` 130 (không đổi), `TTSNextChapterPrefixSynthesizer.swift` 113 (không đổi), `TTSNextChapterPrefixCache.swift` 339 (không đổi), `TTSManager+TranslationIdentity.swift` 26 (không đổi).
+- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows — CI sẽ xác nhận biên dịch.
+- **Hạn chế còn lại**: `vieneuPitch` vẫn chưa nghe thấy (queue không có pitch). **Chưa kiểm chứng hành vi lúc chạy** — toàn bộ ~28 gate vừa mở dựa trên suy luận từ việc đọc `nghiAudioPlayerQueue`/`preloadedData` là tài nguyên dùng chung; cần cài IPA lên máy thật để xác nhận audio phát, tự chuyển đoạn, và NghiTTS không hồi quy.
+
 ## [1.3.434] - 2026-09-29
 
 ### fix: noi VieNeu vao duong phat local + tach khoa tham so theo engine

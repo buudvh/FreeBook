@@ -16,6 +16,16 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 
 <!-- GENERATED START -->
 
+## Call Graph Định Tuyến Engine Local — Sau Khi Mở Gate (1.3.435)
+
+* **`speakCurrent()` → `playNghiTTS()`** cho `tool == "nghitts" || tool == "vieneu"`. Trong `playNghiTTS`, `service.synthesizeWithDuration(...)` (service = `localEngine`) → `guard isIdentityValid()` → `playAudioData(_:withId:)`. **Guard giữa hai bước này từng luôn `false` với engine thứ hai** nên `playAudioData` không bao giờ được gọi (nguyên nhân gốc A).
+* **`playNghiTTS` → `PiperSynthesisCoordinator.shared.promote(synthesisKey:)`** với `synthesisKey = TTSSynthesisIdentity.computeKey(engine: tool, …)`. Trước 1.3.435 khoá này hardcode `engine: "nghitts"` nên hai engine local có thể **trùng khoá** và bị gộp request.
+* **`handleNghiAudioFinished` / `handleNghiAudioTransition` → `prepareNextNghiAudioIfPossible()` → `scheduleNghiRefill()` → `updateNghiPrefetchWindow()`**: vòng tự làm đầy. Tất cả các cạnh trong vòng này trước 1.3.435 đều gate `nghitts` nên engine thứ hai **không bao giờ** được nạp đoạn kế; riêng `handleNghiAudioTransition` còn gọi `nghiAudioPlayerQueue.stop()` khi guard sai.
+* **`updatePrefetchWindow()` (`:2491`)** → `updateNghiPrefetchWindow()` (engine local) hoặc `dispatchRemotePrefetch()` + `requestRemoteNextChapterPrefixIfNeeded()`. Trước đây engine thứ hai đi nhánh thứ hai.
+* **`requestNghiNextChapterPrefixIfNeeded()` → `requestNextChapterPrefix()` → `TTSNextChapterPrefixCache.request(...)` → `TTSNextChapterPrefixSynthesizer.one(...)`**: cả bốn chặng đều đã mở cho mọi engine local; `nextChapterPrefixContext()` cũng phải `NghiUtteranceSegmenter.expand` cho engine local để chỉ số đoạn văn khớp `playbackParagraphs`.
+* **`TTSManager.init` → (không gọi được instance method trước `super.init()`) → `initialize(container:)` → `applyVieNeuParamsIfNeeded()`** — chặng sửa lại tham số mà `init` nạp sai khoá. `initialize(container:)` được gọi từ `MainTabView.swift:57`.
+* **`pause()` / `resume()` → `nghiAudioPlayerQueue.pause()` / `.resume()`** cho mọi engine local.
+
 ## Call graph Tách Trạng Thái Theo Engine + Nối VieNeu Vào Đường Phát Local (1.3.434)
 
 * **Định tuyến phát audio**: `TTSManager.playAudioData(_:withId:context:)` → `TTSManager.isLocalEngine(tool)` → `playNghiAudioData(_:playbackId:)` (engine local) **hoặc** nhánh `AVAudioPlayer` chung (system/extension). Đây là **điểm sửa lỗi mất tiếng** của VieNeu: trước lượt này nhánh chỉ là `tool == "nghitts"`, nên VieNeu rơi xuống `AVAudioPlayer` trong khi `updatePlaybackParams()` đặt `rate` lên `nghiAudioPlayerQueue` — hai bên lệch nhau nên không có tiếng.

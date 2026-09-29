@@ -63,8 +63,12 @@ extension TTSManager {
 
     /// Nạp tham số riêng của VieNeu.
     ///
-    /// Gọi từ nhánh **`else if tool == "vieneu"`** của `loadParamsForCurrentTool()` — **một dòng** duy
-    /// nhất phải thêm vào file legacy, phần thân nằm ở đây.
+    /// Gọi từ **hai** chỗ, cả hai đều là một dòng trong file legacy:
+    /// 1. nhánh `else if tool == "vieneu"` của `loadParamsForCurrentTool()` — khi Picker đổi engine;
+    /// 2. `initialize(container:)` — vì `TTSManager.init` nạp tham số **trước `super.init()`** nên không
+    ///    gọi được instance method, và chuỗi `if/else` ở đó **thiếu nhánh `vieneu`** ⇒ khởi động app khi
+    ///    đang chọn VieNeu sẽ nạp nhầm `extRate_vieneu`/`extPitch_vieneu`/`extVoice_vieneu`. Gọi lại ở đây
+    ///    sửa sai đó bằng **một nguồn sự thật** thay vì chép danh sách khoá lần thứ ba.
     ///
     /// **Đừng gọi hàm này từ nhánh `else` cuối**: nhánh đó là nhánh **extension**, và nó ghi đè ngay
     /// `speed`/`pitch`/`selectedVoice` bằng `extRate_vieneu`/`extPitch_vieneu`/`extVoice_vieneu`, tức mọi
@@ -110,6 +114,47 @@ extension TTSManager {
         self.prefetchDelayMs = 500
 
         AppLogger.shared.log("[TTSRoute] nap tham so VieNeu voice=\(self.selectedVoice) rate=\(self.speed) pitch=\(self.pitch) prefetch=\(self.vieneuPrefetchCount) nguongAnToan=\(clamped)")
+    }
+
+    /// Ngưỡng nạp bộ đệm của **engine local đang chọn**.
+    ///
+    /// Có hàm này thì `vieneuSafeCachedTimeThreshold` mới thực sự được **đọc** — trước lượt 1.3.435 nó
+    /// chỉ được lưu và hiển thị, còn mọi nơi tiêu thụ đều đọc thẳng `nghittsSafeCachedTimeThreshold`.
+    internal var currentSafeCachedTimeThreshold: Double {
+        tool == "vieneu" ? vieneuSafeCachedTimeThreshold : nghittsSafeCachedTimeThreshold
+    }
+
+    /// Đặt lại tham số "Tải trước dữ liệu" cho **engine đang chọn**.
+    ///
+    /// Gom về đây (thay vì để chuỗi `if/else` trong header của `Section` ở `TTSSettingsView`) vì hai lý do:
+    /// (1) file đó đang ở trần **519** dòng; (2) chuỗi cũ **thiếu nhánh `vieneu`** nên bấm "Đặt lại" khi
+    /// đang chọn VieNeu sẽ ghi vào `extPrefetchCount` / `nghittsPrefetchDelay` — tức đặt lại **nhầm engine**.
+    internal func resetPrefetchSettings() {
+        switch tool {
+        case "google":
+            googlePrefetchCount = 2
+            chunkLength = 100
+            prefetchDelayMs = 350
+        case "nghitts":
+            chunkLength = 100
+            prefetchDelayMs = 350
+            setNghiTTSSafeCachedTimeThreshold(8.0)
+        case "vieneu":
+            // Giá trị mặc định phải **trùng** với `applyVieNeuParamsIfNeeded()`: 3 đoạn, 200 ký tự,
+            // ngưỡng `NghiSynthesisPolicy.defaultSafeCachedTimeThreshold`, độ trễ 500 ms.
+            vieneuPrefetchCount = 3
+            chunkLength = 200
+            setVieNeuSafeCachedTimeThreshold(NghiSynthesisPolicy.defaultSafeCachedTimeThreshold)
+            prefetchDelayMs = 500
+        case "system":
+            chunkLength = 100
+            prefetchDelayMs = 350
+        default:
+            let parsed = parseExtensionConfigParams(jsonString: extensionConfigJson, localPath: extensionLocalPath)
+            if parsed.preloadSize == nil { extPrefetchCount = 2 }
+            if parsed.maxLength == nil { chunkLength = 100 }
+            prefetchDelayMs = 350
+        }
     }
 
     // MARK: - Lưu tham số theo từng engine

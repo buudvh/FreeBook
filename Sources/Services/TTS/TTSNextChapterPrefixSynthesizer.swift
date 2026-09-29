@@ -20,7 +20,7 @@ enum TTSNextChapterPrefixSynthesizer {
         extService: ExtTTSService,
         audioWorker: TTSAudioSynthesisWorker
     ) async throws -> Data {
-        if key.tool == "nghitts" {
+        if TTSManager.isLocalEngine(key.tool) {
             guard let localService else { throw CancellationError() }
             return try await localService.synthesize(
                 text: textToSpeak,

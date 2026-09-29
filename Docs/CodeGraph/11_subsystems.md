@@ -16,6 +16,27 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 
 <!-- GENERATED START -->
 
+## Sửa "VieNeu không ra tiếng": 2 Nguyên Nhân Gốc + Mở ~28 Gate Piper (1.3.435)
+
+Người dùng báo *"VieNeu tts vẫn không tạo được âm thanh, tôi thấy nó hoàn toàn không tạo ra được wav"* kèm log. Log là bằng chứng quyết định: có `[NghiEnergy] Underrun chapter=124 index=12` (chứng tỏ **đã vào** `playNghiTTS`) nhưng **không có** dòng `[TTSRoute] playAudioData …` nào — tức audio bị vứt bỏ **sau khi tổng hợp xong**.
+
+* **Nguyên nhân gốc A — `isIdentityValid()` kết bằng `self.tool == "nghitts"` (`TTSManager.swift:3638`).** Trong `playNghiTTS`, `service.synthesizeWithDuration(...)` chạy **thật** (tốn CPU, tốn vài giây), rồi `guard isIdentityValid() else { return }` (`:3659`) trả `false` vì `tool == "vieneu"` ⇒ **vứt bỏ audio vừa tổng hợp**, không log, không lỗi, không toast. Đây là lý do "không tạo ra được wav" mà không có dấu vết nào. Sửa: `TTSManager.isLocalEngine(self.tool)`.
+* **Nguyên nhân gốc B — `isContextValid()` đòi `tool == context.engine` (`:3120`) trong khi context dựng bằng `engine: "nghitts"` hardcode (`:3191`, `:3348`).** Với VieNeu phép so luôn `false` ⇒ mọi handoff bị huỷ. Sửa: `engine: tool` ở cả hai chỗ dựng context, và `if TTSManager.isLocalEngine(context.engine)` cho nhánh kiểm tra thành viên hàng đợi (`:3124`).
+* **~28 gate `tool == "nghitts"` còn lại đổi sang `isLocalEngine`.** Đáng chú ý:
+  * `:99` (`tool.didSet`) — VieNeu **không bao giờ được warm-up** vì `scheduleNghiWarmUp()` bị nhánh `else` huỷ trước khi hàm tự guard.
+  * `:1448` / `:1481` / `:1525` — `pause()`/`resume()` không tác động lên `nghiAudioPlayerQueue` mà VieNeu đang phát.
+  * `:1762` / `:1810` — `nextParagraph`/`previousParagraph` nhảy theo **đoạn văn cha** (`paragraphs[i].paragraphIndex`) chứ không phải utterance; VieNeu đi qua `NghiUtteranceSegmenter` nên cũng cần quy tắc này, nếu không nút chuyển đoạn nhảy sai.
+  * `:2491` — `updatePrefetchWindow()` đẩy VieNeu sang **đường remote** (`dispatchRemotePrefetch`).
+  * `:3338` — `handleNghiAudioTransition` guard `false` ⇒ gọi thẳng `nghiAudioPlayerQueue.stop()` ⇒ **mất tiếng giữa chừng**.
+  * `:3248` `prepareNextNghiAudioIfPossible`, `:3358` `handleNghiAudioFinished`, `:2592` `calculateNghiCachedTime`, `:2648` `updateNghiPrefetchWindow`, `:2731`/`:2803`/`:2860`/`:2865`/`:2963`/`:2987` (refill), `:3190` handoff.
+* **Ngưỡng nạp bộ đệm theo engine nay CÓ nơi đọc.** Thêm computed `currentSafeCachedTimeThreshold` (VieNeu ↔ NghiTTS) và dùng ở `:2674`, `:2714` và `TTSManager+NextChapterPrefix.swift:73`. Trước 1.3.435 `vieneuSafeCachedTimeThreshold` chỉ được lưu/hiển thị — **không ai đọc**.
+* **Synthesis key hardcode `engine: "nghitts"` (`:2840`, `:3606`) → `engine: tool`.** Trước đó khoá tổng hợp của VieNeu và NghiTTS **giống hệt nhau** nếu cùng chương/đoạn/giọng, và `PiperSynthesisCoordinator` gộp request theo khoá này.
+* **`TTSManager+NextChapterPrefix.swift`**: `nextChapterPrefixContext()` phải cho **mọi** engine local đi qua `NghiUtteranceSegmenter.expand(..., maximumLength: chunkLength)` — trước đó VieNeu **không** expand nên **lệch chỉ số đoạn văn** giữa chương hiện tại và prefix chương kế; `requestRemoteNextChapterPrefixIfNeeded` phải **loại** engine local (trước đó VieNeu lọt vào đường remote); `requestNghiNextChapterPrefixIfNeeded` và `TTSNextChapterPrefixSynthesizer.one` / `TTSNextChapterPrefixCache.startSynthesis` mỗi chỗ 1 gate.
+* **Tham số lúc khởi động**: `TTSManager.init` nạp tham số **trước `super.init()`** (`:953`) nên không gọi được instance method, và chuỗi `if/else` ở đó **thiếu nhánh `vieneu`** ⇒ khởi động app khi đang chọn VieNeu sẽ nạp `extRate_vieneu`/`extPitch_vieneu`/`extVoice_vieneu`. Sửa bằng **một dòng** `applyVieNeuParamsIfNeeded()` trong `initialize(container:)` (gọi từ `MainTabView.swift:57`, trước mọi lượt đọc) — dùng lại **một nguồn sự thật** thay vì chép danh sách khoá lần thứ ba.
+* **`TTSManager+TranslationIdentity.swift:8`**: `tool == "system" || tool == "nghitts" || tool == "google"` là **cùng loại bug "phủ định 3 nhánh"** như `isExtensionTool` — VieNeu bị tính `extFingerprint` từ extension rỗng. Sửa thành `!TTSManager.isExtensionTool(tool)`.
+* **UI**: Picker đưa VieNeu lên **thứ 3** (Siri → NghiTTS → **VieNeu** → Google → extension); Section 3 chỉ còn chế độ chất lượng, toàn bộ tham số hiệu năng dồn về Section 5 qua `vieNeuPrefetchSection` ⇒ **hết trùng lặp**; `chunkLength` của VieNeu nay có nhãn đúng "Độ dài phân đoạn (VieNeu)" (trước đó nằm ở nhánh extension với nhãn "… (Extension TTS)"); `prefetchDelayMs` **ẩn với engine local** vì chỉ Google/extension tiêu thụ; `disablePitch` phủ cả VieNeu + dòng giải thích; "Đặt lại" gom vào `TTSManager.resetPrefetchSettings()` vì chuỗi cũ **thiếu nhánh `vieneu`** nên đặt lại nhầm engine.
+* **File**: `TTSManager.swift` 4025 → **4028**, `TTSSettingsView.swift` 517 → **502**, `TTSManager+VieNeu.swift` 183 → **227**, `TTSSettingsView+VieNeu.swift` 128 → **157**.
+
 ## Nối VieNeu Vào Đường Phát Local + Tách Khoá Tham Số Theo Engine (1.3.434)
 
 Người dùng báo *"chọn VieNeu nhưng không tạo ra được âm thanh"* và *"phần quản lý riêng của trình đọc không có gì cả"*.
