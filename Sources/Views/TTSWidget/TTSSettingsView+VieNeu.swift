@@ -34,8 +34,34 @@ extension TTSSettingsView {
         }
     }
 
+    /// Danh sách giọng của VieNeu.
+    ///
+    /// **Không** lọc theo `isModelDownloaded` như NghiTTS: 11 giọng của VieNeu nằm chung trong
+    /// `voices_v3_nano.json` của bộ model, không phải file rời cho từng giọng — nên `isReady` đã bảo đảm
+    /// có đủ giọng rồi.
+    @ViewBuilder
+    var vieNeuVoicePicker: some View {
+        if availableVoices.isEmpty {
+            Text("Chưa đọc được danh sách giọng VieNeu")
+                .foregroundColor(.secondary)
+        } else {
+            Picker("Giọng đọc VieNeu", selection: $ttsManager.selectedVoice) {
+                ForEach(availableVoices, id: \.name) { voice in
+                    Text(voice.name).tag(voice.name)
+                }
+            }
+            .pickerStyle(.menu)
+        }
+    }
+
     /// Nạp giọng theo engine đang chọn. VieNeu lấy từ catalog riêng (`voices_v3_nano.json`), NghiTTS lấy
     /// qua `nghiTTSClient`.
+    ///
+    /// **Phải gọi lại mỗi khi `tool` đổi** — và đây là chỗ dễ sót nhất: `availableVoices` là **một** mảng
+    /// dùng chung cho hai engine có sẵn, nên nếu không nạp lại thì đổi từ VieNeu sang NghiTTS sẽ giữ
+    /// nguyên tên giọng của VieNeu, rồi nhánh NghiTTS lọc `isModelDownloaded` trên những tên đó ⇒ hiện
+    /// "Chưa tải giọng đọc NghiTTS nào" dù model đã có. Lỗi có sẵn từ trước nhưng chỉ lộ ra khi có engine
+    /// thứ hai cùng dùng mảng này.
     func loadVoicesForCurrentTool() async {
         if ttsManager.tool == "vieneu" {
             availableVoices = (try? VieNeuTTSService.shared?.availableVoices()) ?? []

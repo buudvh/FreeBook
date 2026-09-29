@@ -107,6 +107,8 @@ struct TTSSettingsView: View {
                         }
                         .pickerStyle(.menu)
                     }
+                } else if ttsManager.tool == "vieneu" {
+                    vieNeuVoicePicker
                 } else if ttsManager.tool == "google" {
                     Picker("Giọng đọc Google TTS", selection: $ttsManager.selectedVoice) {
                         ForEach(GoogleVoice.allVoices) { voice in
@@ -262,7 +264,7 @@ struct TTSSettingsView: View {
                         .tint(.white)
                 }
 
-                let isExtensionTool = ttsManager.tool != "system" && ttsManager.tool != "nghitts" && ttsManager.tool != "google"
+                let isExtensionTool = TTSManager.isExtensionTool(ttsManager.tool)
                 let disablePitch = ttsManager.tool == "nghitts" || isExtensionTool
 
                 VStack(alignment: .leading, spacing: 6) {
@@ -446,7 +448,7 @@ struct TTSSettingsView: View {
             if ttsManager.tool == "system" && ttsManager.selectedVoice.isEmpty {
                 ttsManager.selectedVoice = systemVoices.first?.identifier ?? ""
             }
-            if ttsManager.tool != "system" && ttsManager.tool != "nghitts" && ttsManager.tool != "google" {
+            if TTSManager.isExtensionTool(ttsManager.tool) {
                 if let ext = allExtensions.first(where: { $0.packageId == ttsManager.tool }) {
                     if ttsManager.extensionLocalPath != ext.localPath {
                         ttsManager.extensionLocalPath = ext.localPath
@@ -463,7 +465,7 @@ struct TTSSettingsView: View {
             if !hasResumed {
                 hasResumed = true
                 // 1. Tự động lưu cấu hình extension (nếu có thay đổi)
-                if ttsManager.tool != "system" && ttsManager.tool != "nghitts" && ttsManager.tool != "google" {
+                if TTSManager.isExtensionTool(ttsManager.tool) {
                     if let ext = allExtensions.first(where: { $0.packageId == ttsManager.tool }),
                        ttsManager.extensionConfigJson != ext.configJson {
                         ttsManager.extensionConfigJson = ext.configJson
@@ -474,7 +476,7 @@ struct TTSSettingsView: View {
             }
         }
         .onChange(of: ttsManager.tool) { _, newVal in
-            if newVal != "system" && newVal != "nghitts" && newVal != "google" {
+            if TTSManager.isExtensionTool(newVal) {
                 if let ext = allExtensions.first(where: { $0.packageId == newVal }) {
                     ttsManager.extensionLocalPath = ext.localPath
                     ttsManager.extensionConfigJson = ext.configJson
@@ -483,6 +485,7 @@ struct TTSSettingsView: View {
             } else {
                 ttsManager.extensionLocalPath = ""
                 ttsManager.extensionConfigJson = "{}"
+                Task { await loadVoicesForCurrentTool() }
             }
         }
         .sheet(item: $selectedExtForConfig) { ext in

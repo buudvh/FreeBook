@@ -184,7 +184,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     @Published public var extensionConfigJson: String {
         didSet {
             UserDefaults.standard.set(extensionConfigJson, forKey: "ttsExtensionConfigJson")
-            if tool != "system" && tool != "nghitts" && tool != "google" {
+            if TTSManager.isExtensionTool(tool) {
                 loadParamsForCurrentTool()
             }
             clearPrefetchCache()
@@ -224,7 +224,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     @Published public var extPrefetchCount: Int {
         didSet {
             guard !isInitializing else { return }
-            if tool != "system" && tool != "nghitts" && tool != "google" {
+            if TTSManager.isExtensionTool(tool) {
                 let clampedCount = max(2, min(10, extPrefetchCount))
                 UserDefaults.standard.set(clampedCount, forKey: "extPrefetchUser_\(tool)")
                 clearPrefetchCache()

@@ -15,6 +15,17 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+
+## Sửa: VieNeu Bị Xếp Nhầm Vào Nhánh Extension + Đổi Engine Không Nạp Lại Giọng (1.3.433)
+
+Người dùng cài IPA và báo **hai** lỗi liên quan, cùng gốc là "engine thứ hai dùng chung đường với NghiTTS".
+
+* **VieNeu bị xếp nhầm vào nhánh extension.** Predicate `tool != "system" && tool != "nghitts" && tool != "google"` nằm ở **6 chỗ** (**4** trong `TTSSettingsView`, **2** trong `TTSManager`). Thêm `vieneu` mà không sửa cả 6 ⇒ VieNeu rơi vào nhánh extension ⇒ mục Giọng đọc dùng `extensionVoices` (rỗng) thay vì `availableVoices`, và hiện dòng *"Extension TTS không hỗ trợ chỉnh cao độ"*.
+  * `loadExtensionVoices(packageId: "vieneu")` **thoát sớm** (không có extension trùng tên) nên nó không xoá `availableVoices` — lỗi ở **UI chọn nhánh**, không ở dữ liệu.
+  * Sửa: gom thành **một** `TTSManager.isExtensionTool(_:)` ⇒ net 0 dòng; thêm `vieNeuVoicePicker` trong `TTSSettingsView+VieNeu.swift` (giữ `TTSSettingsView.swift` đúng baseline **519**).
+* **Đổi từ VieNeu sang NghiTTS thì NghiTTS báo "chưa tải model".** `onChange(of: ttsManager.tool)` **không** nạp lại giọng cho engine có sẵn. Lỗi **có sẵn từ trước** nhưng chỉ lộ ra khi có engine thứ hai cùng dùng `availableVoices`: tên giọng của engine cũ còn nguyên, rồi NghiTTS lọc `isModelDownloaded` trên tên giọng của VieNeu ⇒ báo chưa tải dù model đã có. Sửa: `Task { await loadVoicesForCurrentTool() }` trong nhánh `else` của `onChange`.
+* **Bài học**: hai engine dùng chung một mảng trạng thái (`availableVoices`) thì **mọi lần đổi engine đều phải nạp lại**, và **mọi predicate phân loại tool đều phải được cập nhật cùng lúc** khi thêm engine mới.
+
 ## Khớp Âm Lượng Giữa Chunk + Gom Nút Phát/Dừng Vào Hàng Icon (1.3.431)
 
 Người dùng: **"chỗ đến năm giảm âm lượng đột ngột"**, **"đọc số năm bị lắp bắp"**, và **"đem nút phát, dừng lên chỗ bên phải thanh chứa sao chép, clear, paste (hiển thị icon thôi)"**.

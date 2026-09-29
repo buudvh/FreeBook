@@ -14,6 +14,18 @@ extension TTSManager {
         static let safeCachedTimeThreshold = "vieneuSafeCachedTimeThreshold"
     }
 
+    /// `true` khi `tool` là **extension của người dùng**, không phải engine có sẵn trong app.
+    ///
+    /// Bản cũ viết thẳng `tool != "system" && tool != "nghitts" && tool != "google"` ở **6 chỗ** (4 trong
+    /// `TTSSettingsView`, 2 trong `TTSManager`). Thêm `vieneu` mà không sửa cả 6 thì VieNeu bị xếp nhầm
+    /// vào nhánh extension: màn Cài đặt hiện danh sách giọng của extension (rỗng ⇒ "Không có giọng đọc
+    /// nào") và dòng "Extension TTS không hỗ trợ chỉnh cao độ". Đó đúng là lỗi người dùng báo.
+    ///
+    /// Là `static` để gọi được từ cả View mà không cần thực thể.
+    static func isExtensionTool(_ tool: String) -> Bool {
+        tool != "system" && tool != "nghitts" && tool != "google" && tool != "vieneu"
+    }
+
     /// Engine local đang chọn.
     ///
     /// **Tính chất an toàn của lượt nối này**: trả `nghiTTSService` cho **mọi** tool trừ `vieneu`, nên
