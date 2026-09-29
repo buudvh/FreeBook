@@ -234,9 +234,13 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         if PiperTTSService.isUnspeakable(text) {
             return silencePayload(text: text, speed: speed)
         }
+        // Mở rộng số/ngày/tháng trước khi đưa cho engine — `sea_g2p.bin` không có chữ số, nếu không
+        // `8/1999` bị nuốt 10 ký tự. Dùng entry chung `normalizeVietnameseText` (không espeak, vì vocab
+        // VieNeu không chứa IPA), đồng nhất với NghiTTS xử lý số ở service qua `preprocess`.
+        let normalizedText = TextPreprocessor.normalizeVietnameseText(text)
         let started = ProcessInfo.processInfo.systemUptime
         let output = try engine.synthesize(
-            text: text,
+            text: normalizedText,
             voiceName: voice,
             speed: speed,
             boundaryKind: boundaryKind
@@ -276,8 +280,11 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
             try await onChunkPayload(silence.chunkPayload)
             return silence.wavData
         }
+        // Mở rộng số/ngày/tháng (xem chú thích ở `executeInternalSynthesis`) — áp dụng luôn cho đường
+        // stream để thử giọng và nạp trước cũng đọc đúng số.
+        let normalizedText = TextPreprocessor.normalizeVietnameseText(text)
         let output = try engine.synthesize(
-            text: text,
+            text: normalizedText,
             voiceName: voice,
             speed: speed,
             boundaryKind: boundaryKind

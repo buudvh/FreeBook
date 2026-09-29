@@ -191,7 +191,9 @@ final class VieNeuTTSEngine: @unchecked Sendable {
 
     // MARK: - Tổng hợp
 
-    /// Tổng hợp **một đoạn văn** thành WAV 24 kHz. `text` ở đây đã đi qua lớp thay thế ký tự dùng chung.
+    /// Tổng hợp **một đoạn văn** thành WAV 24 kHz. `text` tới đây đã qua `applyReplacements` (thay thế
+    /// ký tự chung, mọi engine) và `normalizeVietnameseText` (mở rộng số/ngày, không espeak) — đều ở
+    /// tầng trên — nên engine chỉ tách chunk và tổng hợp, **không** tự tiền xử lý.
     func synthesize(
         text: String,
         voiceName: String,
@@ -211,13 +213,15 @@ final class VieNeuTTSEngine: @unchecked Sendable {
 
         let activeMode = requestedMode ?? mode
         let tuning = VieNeuSynthesisPolicy.tuning(for: activeMode)
-        // Chuẩn hoá phần "chữ" **một lần cho cả đoạn**, trước khi tách chunk: phần đọc số làm văn bản dài
-        // ra (`8/1999` → "tháng tám năm một nghìn…") nên phải xong trước khi biết cắt ở đâu.
-        // Đây là chỗ **đổi quyết định** so với plan §2 (plan chốt "không chạy tiền xử lý"): thực tế cho
-        // thấy từ điển `sea_g2p.bin` không có chữ số nào nên `8/1999` bị nuốt 10 ký tự. Lớp dùng ở đây là
-        // `processVietnameseText` — **không** gồm phiên âm espeak, nên không đụng vocab của VieNeu.
+        // Văn bản tới đây đã đi qua **hai** lớp tiền xử lý ở tầng trên:
+        // 1. `TTSReplacementManager.applyReplacements` (thay thế ký tự chung, mọi engine) — tại
+        //    `TTSManager.speakCurrent` / `scheduleNghiRefill`.
+        // 2. `TextPreprocessor.normalizeVietnameseText` (mở rộng số/ngày, không espeak) — tại
+        //    `VieNeuTTSService.executeInternalSynthesis` / `…Stream`. `sea_g2p.bin` không có chữ số nên
+        //    bước này bắt buộc, nếu không `8/1999` bị nuốt 10 ký tự.
+        // Engine KHÔNG tự tiền xử lý — nhận văn bản đã sẵn sàng để tách chunk.
         let chunks = Self.splitIntoChunks(
-            TextPreprocessor.normalizingForVieNeu(text),
+            text,
             limit: VieNeuConfig.maxChunkCharacters
         )
         let started = ProcessInfo.processInfo.systemUptime

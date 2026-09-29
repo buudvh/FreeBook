@@ -40,7 +40,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 | Nhóm | File | Vai trò | Dòng |
 | --- | --- | --- | ---: |
-| Services/TTS/Preprocessing | [`TextPreprocessor+Numbers.swift`](../../Sources/Services/TTS/Preprocessing/TextPreprocessor+Numbers.swift) | **Mới** — `TextPreprocessor.normalizingForVieNeu`: đọc số/ngày tháng cho engine VieNeu mà không kèm phiên âm espeak | 35 |
+| Services/TTS/Preprocessing | [`TextPreprocessor+Numbers.swift`](../../Sources/Services/TTS/Preprocessing/TextPreprocessor+Numbers.swift) | `TextPreprocessor.normalizeVietnameseText`: đọc số/ngày tháng cho VieNeu (gọi từ `VieNeuTTSService`, không kèm phiên âm espeak) | 35 |
 
 * File mới **35** dòng, chỉ chứa extension (không có primary type mới) ⇒ không vi phạm `MULTI_PRIMARY_TYPES`.
 * `TextPreprocessor.swift` **giữ nguyên 1121/1121** dòng baseline: hai khai báo được hạ `private` → `internal` **tại chỗ**. Thêm 2 dòng doc vào đó đã đẩy lên 1123 và tạo violation mới — đã gỡ.

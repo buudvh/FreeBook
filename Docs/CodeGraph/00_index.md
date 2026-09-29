@@ -30,7 +30,7 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 
 ## Đọc Số/Ngày Tháng Cho VieNeu Qua Lớp Tiền Xử Lý Của App (1.3.426)
 
-* [`TextPreprocessor+Numbers.swift`](../../Sources/Services/TTS/Preprocessing/TextPreprocessor+Numbers.swift#L1) — lối vào **hẹp** `normalizingForVieNeu`: chạy `processVietnameseText` (đọc số, ngày tháng, khoảng năm, thời gian, đơn vị, số La Mã, NFC, gạch ngang/nháy) mà **không** kéo theo `EnglishTransliterator`/`JapaneseTransliterator` — IPA của espeak là bảng ký hiệu khác và sẽ bị vocab của VieNeu bỏ im lặng.
+* [`TextPreprocessor+Numbers.swift`](../../Sources/Services/TTS/Preprocessing/TextPreprocessor+Numbers.swift#L1) — lối vào **hẹp** `normalizeVietnameseText`: chạy `processVietnameseText` (đọc số, ngày tháng, khoảng năm, thời gian, đơn vị, số La Mã, NFC, gạch ngang/nháy) mà **không** kéo theo `EnglishTransliterator`/`JapaneseTransliterator` — IPA của espeak là bảng ký hiệu khác và sẽ bị vocab của VieNeu bỏ im lặng.
 * **Vì sao cần**: `sea_g2p.bin` **không có chữ số nào** (`8`, `1999`, `2002`… đều không tra được) và vocab chỉ có `1 2 4 5 6 7` ⇒ `8/1999` mất 5 ký tự, `3/11/2002` mất 5 ⇒ đúng `phoneme bỏ: 10`.
 * **Hai khai báo trong `TextPreprocessor.swift` hạ `private` → `internal` tại chỗ** (`PreprocessorRuntimeConfig`, `processVietnameseText`) để file giữ nguyên **1121/1121** dòng baseline — luật ratchet-down.
 

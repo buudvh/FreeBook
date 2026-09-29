@@ -18,7 +18,7 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 
 ## Vòng Đời Payload VieNeu: Ranh Giới Quyết Định Khoảng Lặng Đuôi (1.3.436)
 
-* **Vòng đời một payload**: `text` → `normalizingForVieNeu` → `splitIntoChunks(limit: 140)` → mỗi chunk: phonemize → encode → `runChunk` → `joinChunks` (chèn khoảng lặng **giữa** các chunk theo dấu câu) → **nối khoảng lặng đuôi theo `boundaryKind`** → `Output`. Bước cuối là bước mới của 1.3.436; thiếu nó thì payload kết thúc **đúng ở phoneme cuối** và payload kế tiếp dính liền.
+* **Vòng đời một payload**: `text` → `normalizeVietnameseText` (tại `VieNeuTTSService`, trước khi vào engine) → `splitIntoChunks(limit: 140)` → mỗi chunk: phonemize → encode → `runChunk` → `joinChunks` (chèn khoảng lặng **giữa** các chunk theo dấu câu) → **nối khoảng lặng đuôi theo `boundaryKind`** → `Output`. Bước cuối là bước mới của 1.3.436; thiếu nó thì payload kết thúc **đúng ở phoneme cuối** và payload kế tiếp dính liền.
 * **Vòng đời ở tầng Reader**: một đoạn văn → `NghiUtteranceSegmenter.expand(..., maximumLength: chunkLength)` → mỗi utterance một payload riêng → `preloadedData[index]`. Vì mỗi utterance là **một file WAV riêng** đã bị `trimAndFade`, khoảng lặng đuôi là **thứ duy nhất** ngăn hai utterance dính nhau — `joinChunks` không giúp được gì ở đây.
 * **Vòng đời `speechDuration`**: `pcmDuration - insertedPauseSeconds`, và `insertedPauseSeconds` **phải** gồm khoảng lặng ranh giới vừa nối; nếu không thì RTF theo lời nói bị tính thấp đi một cách hệ thống.
 * **Vòng đời UI chế độ**: `@State vieNeuSelectedMode` (khởi tạo từ `preferredMode`) → người dùng chọn → `.onChange` → `preferredMode` setter → `UserDefaults` + `engine.setRequestedMode`. Đổi engine ⇒ `onChange(of: ttsManager.tool)` nạp lại state từ service.

@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.437] - 2026-09-29
+
+### refactor: gom tien xu ly so VieNeu len service chung
+
+Theo ý người dùng "chỉ dùng tiền xử lý chung (thay thế ký tự Tts)", chuyển mở rộng số/ngày/tháng của VieNeu từ engine lên tầng service để đồng nhất với NghiTTS (Piper).
+
+- **Phát hiện**: cả Piper và VieNeu đều xử lý số qua cùng hàm chung `TextPreprocessor.processVietnameseText`. Piper gọi nó bên trong `preprocess` (tại `PiperTTSService.synthesize`, :195/:341); VieNeu gọi bản mỏng `normalizingForVieNeu` (= `processVietnameseText`, bỏ espeak vì `sea_g2p.bin` không có IPA) ngay trong `VieNeuTTSEngine.synthesize`. `applyReplacements` (thay thế ký tự chung) không xử lý số.
+- **Đổi**: xoá lớp gọi riêng trong engine; gọi `TextPreprocessor.normalizeVietnameseText` (đổi tên trung lập, vẫn = `processVietnameseText` không espeak) tại `VieNeuTTSService.executeInternalSynthesis` và `…Stream`. Mọi đường (Reader, prefetch, next-chapter-prefix, thử giọng) đều qua `VieNeuTTSService.shared` nên bao phủ đủ.
+- **Tác dụng**: engine VieNeu không còn tự tiền xử lý, đồng nhất với Piper; số/ngày vẫn đọc đúng (bắt buộc vì vocab thiếu chữ số).
+- **File**: `TextPreprocessor+Numbers.swift` (đổi tên hàm), `VieNeuTTSEngine.swift` (xoá gọi, net ~-5 dòng, trần 400 an toàn), `VieNeuTTSService.swift` (thêm gọi 2 chỗ).
+
 ## [1.3.436] - 2026-09-29
 
 ### fix: VieNeu ton trong boundaryKind + sua 4 loi hau kiem dinh
