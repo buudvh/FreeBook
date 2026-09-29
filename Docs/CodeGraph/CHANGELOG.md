@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.423] - 2026-09-29
+
+### fix: bo che do turbo va chi doi toc do phat audio
+
+Người dùng đo trên máy thật: `fast` (8 bước) **RTF 0.26** (16,88 s audio trong 4,38 s), `high` (16 bước) **RTF 0.48** (8,06 s), giọng "khá ổn" ở cả hai — nhưng chế độ **tắt CFG "quá dở, đứt quãng, không rõ tiếng"**.
+
+- **Bỏ hẳn chế độ `turbo` (`cfg = 0`)**: model card cảnh báo thẳng "hurts intelligibility" và tai người dùng xác nhận. Giữ lại một lựa chọn đã bị từ chối chỉ tạo thêm một cái bẫy. Tương thích: `UserDefaults` còn giá trị `"turbo"` thì `Mode(rawValue:)` trả `nil` ⇒ tự rơi về "tự động", **không cần migrate**.
+- **Tách tốc độ phát khỏi tốc độ tạo**: engine `speed` chia `exp(log_s)` (`secs = min(exp(log_s)/speed, 15)`) — tức bắt model **sinh audio ngắn/dài hơn**, đẩy nó ra khỏi nhịp được huấn luyện và bắt tổng hợp lại mỗi lần đổi tốc độ. Nay màn thử giọng **luôn tổng hợp ở 1.0×** và áp tốc độ bằng `AVAudioPlayer.rate` (`enableRate = true` phải đặt **trước** `rate`, nếu không iOS bỏ qua). Mục "Tốc độ" đổi thành **"Tốc độ phát"** kèm giải thích.
+- **Hệ quả cần nhớ khi nối Reader (increment 2b)**: số RTF đo được **luôn ứng với 1.0×**, và đổi tốc độ **không được** kích hoạt tổng hợp lại.
+- **Chế độ còn lại**: `high` (16 bước, "Chất lượng cao") · `fast` (8 bước, "Nhanh") · *Tự động*.
+- **File sửa**: `VieNeuSynthesisPolicy` 86 → **87**, `VieNeuTTSTestView.swift` 255 → **260**, `VieNeuTTSTestView+Sections.swift` 164 → **167**.
+- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
+- **Tài liệu CodeGraph**: `rules.md` thêm 2 luật (tốc độ thuộc tầng phát; không có chế độ `cfg = 0`); `11_subsystems.md` thêm mục về lượt đo này.
+
 ## [1.3.422] - 2026-09-29
 
 ### feat: them bo chon toc do tao audio cho engine VieNeu

@@ -172,7 +172,6 @@ struct VieNeuTTSTestView: View {
         guard let service else { return }
         stopPlayback()
         let voice = selectedVoice
-        let rate = speed
         let content = text
         isSynthesizing = true
         isError = false
@@ -187,10 +186,13 @@ struct VieNeuTTSTestView: View {
                     try await service.prepare(voice: voice)
                     await MainActor.run { isPreparing = false }
                 }
+                // Tổng hợp **luôn ở 1.0×**: `speed` của engine đổi độ dài audio do model sinh ra, tức
+                // đẩy model ra khỏi tốc độ nó được huấn luyện và bắt tổng hợp lại mỗi lần đổi tốc độ.
+                // Tốc độ người dùng chọn được áp ở tầng **phát** (`AVAudioPlayer.rate`).
                 let result = try await service.synthesizeWithDuration(
                     text: content,
                     voice: voice,
-                    speed: rate,
+                    speed: 1.0,
                     priority: .demand
                 )
                 guard !Task.isCancelled else {
@@ -235,6 +237,9 @@ struct VieNeuTTSTestView: View {
         do {
             let newPlayer = try AVAudioPlayer(data: data)
             player = newPlayer
+            // `enableRate` phải bật **trước** khi đặt `rate`, nếu không iOS bỏ qua giá trị.
+            newPlayer.enableRate = true
+            newPlayer.rate = Float(speed)
             newPlayer.prepareToPlay()
             newPlayer.play()
         } catch {

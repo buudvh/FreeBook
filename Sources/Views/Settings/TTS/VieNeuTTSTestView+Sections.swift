@@ -78,7 +78,7 @@ extension VieNeuTTSTestView {
 
     @ViewBuilder
     var speedSection: some View {
-        Section("Tốc độ") {
+        Section {
             HStack {
                 Text("0.5×").font(.caption2).foregroundStyle(.secondary)
                 Slider(value: $speed, in: 0.5...2.0, step: 0.05)
@@ -86,6 +86,10 @@ extension VieNeuTTSTestView {
                 Text("2.0×").font(.caption2).foregroundStyle(.secondary)
             }
             LabeledContent("Đang chọn", value: String(format: "%.2f×", speed))
+        } header: {
+            Text("Tốc độ phát")
+        } footer: {
+            Text("Chỉ đổi tốc độ **phát**, không đổi tốc độ **tạo**: audio luôn được tổng hợp ở 1.0× rồi phát nhanh/chậm hơn. Nhờ vậy giọng luôn ở đúng tốc độ model được huấn luyện, đổi tốc độ là tức thì (không phải tổng hợp lại), và số RTF đo được luôn ứng với 1.0×.")
         }
     }
 
@@ -157,8 +161,7 @@ extension VieNeuSynthesisPolicy.Mode {
     var displayName: String {
         switch self {
         case .high: return "Chất lượng cao · 16 bước"
-        case .fast: return "Cân bằng · 8 bước"
-        case .turbo: return "Nhanh nhất · 8 bước, tắt CFG"
+        case .fast: return "Nhanh · 8 bước"
         }
     }
 }

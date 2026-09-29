@@ -17,10 +17,12 @@ enum VieNeuSynthesisPolicy {
         /// 8 Euler step, `sway = -1` — bản tham chiếu ghi rõ cặp này nhanh gấp đôi và **phải đi cùng
         /// nhau**: hạ step mà giữ `sway = 0` làm chất lượng tụt nhiều hơn cần thiết.
         case fast
-        /// 8 Euler step + **tắt CFG**. Đây là chế độ **người dùng tự chọn**, không bao giờ do thích nghi
-        /// tự đặt: bỏ CFG halve compute (mỗi bước chỉ còn **một** lượt `vector_estimator` thay vì hai)
-        /// nhưng model card cảnh báo thẳng là **giảm độ rõ**. Chỉ dùng khi người dùng đã nghe và chấp nhận.
-        case turbo
+        // KHÔNG có chế độ tắt CFG (`cfg = 0`). Đã thử và **bỏ**: bỏ CFG halve compute thật, nhưng model
+        // card cảnh báo "hurts intelligibility" và người dùng xác nhận nghe **đứt quãng, không rõ tiếng**.
+        // Giữ lại một chế độ mà tai người dùng từ chối chỉ tạo thêm lựa chọn tồi.
+        //
+        // Lưu ý tương thích: `UserDefaults` có thể còn giá trị `"turbo"` từ bản trước;
+        // `Mode(rawValue:)` trả `nil` nên nó tự rơi về "tự động" — không cần migrate.
     }
 
     /// Bộ tham số đưa thẳng vào vòng Euler.
@@ -34,7 +36,6 @@ enum VieNeuSynthesisPolicy {
         switch mode {
         case .high: return Tuning(steps: 16, sway: 0.0, cfg: 3.0)
         case .fast: return Tuning(steps: 8, sway: -1.0, cfg: 3.0)
-        case .turbo: return Tuning(steps: 8, sway: -1.0, cfg: 0)
         }
     }
 
@@ -71,11 +72,6 @@ enum VieNeuSynthesisPolicy {
             // vào vòng lật qua lật lại giữa hai chế độ trên một máy ở đúng ranh giới.
             guard consecutiveFast >= samplesBeforeSwitch, lastRTF <= upshiftRTF else { return nil }
             return .high
-        case .turbo:
-            // `turbo` chỉ do người dùng đặt, mà khi đó `updateMode` không chạy — nên nhánh này thực tế
-            // không bao giờ tới. Vẫn phải có để `switch` đủ case, và trả `nil` là đúng nghĩa "không đổi":
-            // bộ thích nghi không bao giờ được tự rời khỏi một chế độ người dùng đã chọn.
-            return nil
         }
     }
 

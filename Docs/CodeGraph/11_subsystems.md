@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Bỏ Chế Độ Tắt CFG + Tách Tốc Độ Phát Khỏi Tốc Độ Tạo (1.3.423)
+
+Người dùng đo hai chế độ trên máy thật: `fast` (8 bước) **RTF 0.26** — 16,88 s audio trong 4,38 s; `high` (16 bước) **RTF 0.48** — 8,06 s. Giọng "khá ổn" ở cả hai. Nhưng chế độ **tắt CFG thì "quá dở, đứt quãng, không rõ tiếng"**.
+
+* **Bỏ hẳn chế độ `turbo` (`cfg = 0`)**: model card cảnh báo "hurts intelligibility" và tai người dùng xác nhận. Giữ lại một lựa chọn mà người dùng đã từ chối chỉ tạo thêm một cái bẫy. `UserDefaults` còn giá trị `"turbo"` thì `Mode(rawValue:)` trả `nil` ⇒ tự rơi về "tự động", **không cần migrate**.
+* **Tốc độ tách hẳn khỏi tầng tạo**: engine `speed` chia `exp(log_s)` — tức bắt model **sinh audio ngắn/dài hơn**, đẩy nó ra khỏi nhịp được huấn luyện và bắt tổng hợp lại mỗi lần đổi tốc độ. Nay màn thử giọng **luôn tổng hợp ở 1.0×** và áp tốc độ bằng `AVAudioPlayer.rate` (`enableRate = true` phải đặt **trước** `rate`, nếu không iOS bỏ qua). Hệ quả cần nhớ khi nối Reader: **RTF đo được luôn ứng với 1.0×**, và đổi tốc độ không được kích hoạt tổng hợp lại.
+* Chế độ còn lại: `high` (16 bước, "Chất lượng cao") và `fast` (8 bước, "Nhanh") + *Tự động*.
+
 ## Bộ Chọn Tốc Độ Tạo Audio (1.3.422)
 
 Người dùng xác nhận engine đã **đọc đúng tiếng Việt**, `phoneme bỏ: 0`, RTF **0.52** (16,83 s audio trong 8,82 s cho 290 ký tự), và yêu cầu **nhanh hơn** — kèm ghi nhận máy **nóng** sau khi tạo xong.
