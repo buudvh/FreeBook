@@ -25,8 +25,10 @@ extension TTSManager {
     /// vào nhánh extension: màn Cài đặt hiện danh sách giọng của extension (rỗng ⇒ "Không có giọng đọc
     /// nào") và dòng "Extension TTS không hỗ trợ chỉnh cao độ". Đó đúng là lỗi người dùng báo.
     ///
-    /// Là `static` để gọi được từ cả View mà không cần thực thể.
-    static func isExtensionTool(_ tool: String) -> Bool {
+    /// Là `nonisolated static` vì `TTSManager` bị `@MainActor`: nếu để mặc định, hàm này cũng bị cô lập
+    /// actor và mọi nơi gọi nó ngoài `MainActor` (ví dụ `TTSNextChapterPrefixSynthesizer` — một `enum`
+    /// `nonisolated`) đều phải `await`. Đây là so sánh chuỗi thuần tuý nên **không** cần nhảy actor.
+    nonisolated static func isExtensionTool(_ tool: String) -> Bool {
         tool != "system" && tool != "nghitts" && tool != "google" && tool != "vieneu"
     }
 
@@ -49,7 +51,10 @@ extension TTSManager {
     /// `TTSManager.playbackParagraphs` cho `vieneu` đi qua `NghiUtteranceSegmenter.expand(…)` với
     /// `chunkLength` giống Piper, nên VieNeu **cần** cả hai. Trước khi thay một predicate bằng hàm này,
     /// hãy đọc **thân** nhánh xem nó ghi/đọc khoá của ai.
-    static func isLocalEngine(_ tool: String) -> Bool {
+    /// `nonisolated` vì cùng lý do như `isExtensionTool`: đây là so sánh chuỗi thuần tuý, và hàm này được
+    /// gọi từ cả `MainActor` (View, `TTSManager`) lẫn ngoài (`TTSNextChapterPrefixSynthesizer`,
+    /// `TTSNextChapterPrefixCache`).
+    nonisolated static func isLocalEngine(_ tool: String) -> Bool {
         tool == "nghitts" || tool == "vieneu"
     }
 
