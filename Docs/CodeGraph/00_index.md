@@ -15,6 +15,13 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Nối Engine VieNeu-TTS Vào Picker "Trình đọc" (1.3.432)
+
+* [`LocalTTSEngine.swift`](../../Sources/Services/TTS/LocalTTSEngine.swift#L1) — **file mới**: giao diện chung cho hai engine local (Piper + VieNeu). `PiperTTSService` và `VieNeuTTSService` cùng conform; VieNeu được thêm tham số `boundaryKind` cho khớp chữ ký nhưng **bỏ qua** nó (nó tự phân loại ranh giới theo dấu câu).
+* [`TTSManager+VieNeu.swift`](../../Sources/Services/TTS/TTSManager+VieNeu.swift#L1) — **file mới**: computed `localEngine` (trả `nghiTTSService` cho **mọi** tool trừ `vieneu` ⇒ đường NghiTTS không đổi) + `applyVieNeuParamsIfNeeded`.
+* [`TTSSettingsView+VieNeu.swift`](../../Sources/Views/TTSWidget/TTSSettingsView+VieNeu.swift#L1) — **file mới**: mục Picker của VieNeu (chỉ hiện khi model đã tải) + lối tải model + nạp giọng theo engine.
+* Đổi kiểu tham số prefetch `nghiService: PiperTTSService?` → `localService: (any LocalTTSEngine)?` ở **6 file** (plan chỉ liệt kê 3 — xem `rules.md`).
+
 ## Khớp Âm Lượng Giữa Chunk + Tách Phần Tách Chunk Ra File Riêng (1.3.431)
 
 * [`VieNeuTTSEngine+Chunking.swift`](../../Sources/Services/TTS/VieNeu/VieNeuTTSEngine+Chunking.swift#L1) — **file mới**, bản port `pack_sentences_into_chunks`: gói theo **câu**, chia **đều**, hàng rào chống xẻ đôi con số / cắt giữa cặp từ nối, phân loại `Gap`. Tách khỏi `+Audio` vì file đó lên **432/400** dòng.

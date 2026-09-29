@@ -19,7 +19,7 @@ import Foundation
 /// đoạn trong một lượt. Đường stream vì thế vẫn đúng chức năng nhưng mất lợi ích "nghe được trước khi
 /// tổng hợp xong" — muốn có thì phải đẩy vòng lặp chunk trong `VieNeuTTSEngine.synthesize` ra thành
 /// callback, là việc của lượt sau.
-final class VieNeuTTSService: @unchecked Sendable {
+final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
     /// Singleton **tạo lười**: `VieNeuModelStore()` có thể throw (không dựng được thư mục model) nên
     /// `nil` là trạng thái hợp lệ, và engine chỉ được dựng khi có người thật sự dùng — nạp 4 session ONNX
     /// + `sea_g2p.bin` 62,8 MB cho một engine chưa được chọn là việc không ai muốn.
@@ -134,6 +134,7 @@ final class VieNeuTTSService: @unchecked Sendable {
         text: String,
         voice: String,
         speed: Double,
+        boundaryKind: TTSBoundaryKind = .paragraphEnd,
         priority: SynthesisPriority = .demand,
         requestID: UUID = UUID(),
         synthesisKey: String? = nil
@@ -152,6 +153,7 @@ final class VieNeuTTSService: @unchecked Sendable {
         text: String,
         voice: String,
         speed: Double,
+        boundaryKind: TTSBoundaryKind = .paragraphEnd,
         priority: SynthesisPriority = .demand,
         requestID: UUID = UUID(),
         synthesisKey: String? = nil
@@ -180,6 +182,7 @@ final class VieNeuTTSService: @unchecked Sendable {
         text: String,
         voice: String,
         speed: Double,
+        boundaryKind: TTSBoundaryKind = .paragraphEnd,
         priority: SynthesisPriority = .demand,
         requestID: UUID = UUID(),
         synthesisKey: String? = nil,

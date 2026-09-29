@@ -15,6 +15,15 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+
+## `LocalTTSEngine` — giao diện chung cho engine TTS local (1.3.432)
+
+* **`LocalTTSEngine`** (`Sources/Services/TTS/LocalTTSEngine.swift`): protocol `AnyObject` với `engineStatus`, `prepare(voice:)`, `synthesize(…)`, `synthesizeWithDuration(…)`, `synthesizeStream(…)`.
+* **Conform**: `PiperTTSService` (`NghiTTS/PiperTTSService.swift`) và `VieNeuTTSService` (`VieNeu/VieNeuTTSService.swift`), cả hai đều `final class … : LocalTTSEngine, @unchecked Sendable`.
+* **Vì sao có**: `TTSManager` chọn engine bằng computed `localEngine: (any LocalTTSEngine)?` thay vì thêm nhánh `if tool == …` ở từng call site — cách duy nhất để nối engine mới mà không tăng dòng cho file legacy đang vượt baseline.
+* **Chữ ký lấy từ Piper** (đã có `boundaryKind`); VieNeu nhận tham số đó cho khớp nhưng **bỏ qua**, vì nó tự phân loại ranh giới theo **dấu câu**.
+* Type mới: `TTSManager.VieNeuSettingsKey` (enum, khoá `UserDefaults`) trong `TTSManager+VieNeu.swift`.
+
 ## DTO AIChatSessionSummary & Nâng cấp Kiểu Dữ Liệu AI Session (1.3.410)
 
 * **Models/AI**:

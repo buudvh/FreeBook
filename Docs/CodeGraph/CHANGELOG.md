@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.432] - 2026-09-29
+
+### feat: noi engine VieNeu-TTS vao Picker Trinh doc
+
+Thực thi plan 2b đã duyệt (phiên grill-me). **Phần lõi xong**; màn cấu hình riêng cho VieNeu còn lại.
+
+- **`LocalTTSEngine.swift` (mới, 52 dòng)** — protocol chung cho hai engine local. `PiperTTSService` và `VieNeuTTSService` cùng conform; VieNeu được thêm `boundaryKind` cho khớp chữ ký nhưng **bỏ qua** (nó tự phân loại ranh giới theo dấu câu).
+- **`TTSManager+VieNeu.swift` (mới, 60 dòng)** — computed `localEngine` trả `nghiTTSService` cho **mọi** tool trừ `vieneu` ⇒ **đường NghiTTS không đổi một bit nào**; cùng `applyVieNeuParamsIfNeeded` và khoá `vieneu*`.
+- **`TTSSettingsView+VieNeu.swift` (mới, 47 dòng)** — mục Picker của VieNeu **chỉ hiện khi model đã tải** (quyết định grill #2: chặn ở Picker), lối tải model khi còn thiếu, và nạp giọng theo engine.
+- **Sửa `TTSManager.swift`**: dispatch `:2453` và guard warm-up `:779` thêm `vieneu`; `playbackParagraphs:807` cũng thêm (quyết định grill #3 — chia nhỏ đơn vị đọc); `updatePlaybackParams:1133` thêm `vieneu` vào nhánh áp tốc độ tay; 5 call site đổi `nghiTTSService` → `localEngine`.
+- **Đổi kiểu tham số prefetch** `nghiService: PiperTTSService?` → `localService: (any LocalTTSEngine)?` ở **6 file** — plan chỉ liệt kê 3, thực tế còn `TTSNextChapterPrefixCache` (+ extension GoogleBatch) và `TTSManager+NextChapterPrefix`.
+- **Hai kết luận từ đọc code làm giảm công việc so với plan**: (1) `VieNeuTTSService` **đã** đi qua `PiperSynthesisCoordinator.shared` ⇒ rủi ro "tải trước chặn phát" trong plan §6 **không tồn tại**; (2) kiến trúc app **đã** làm "tổng hợp ở 1.0, tốc độ ở tầng phát" (cả hai call site NghiTTS truyền `speed: 1.0`) ⇒ không cần sửa khoá cache.
+- **Lệch so với plan**: `TTSManager.swift` **4026 → 4029** (+3), plan ghi "+1 dòng". Hai stored property cho thông số đệm bắt buộc ở file chính (extension không thêm được stored property); đã cắt hết comment để giảm từ +7 xuống +3. `check_architecture.py` vẫn **5** vi phạm nền, **0** mới.
+- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
+- **CÒN LẠI của 2b**: màn cấu hình riêng cho VieNeu (quyết định grill #4) và cho logic đệm đọc đúng khoá `vieneu*` theo tool.
+
 ## [1.3.431] - 2026-09-29
 
 ### fix: khop am luong giua chunk va gom nut phat dung vao hang icon

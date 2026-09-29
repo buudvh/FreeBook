@@ -15,6 +15,17 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +3 file: nối engine VieNeu vào đường đọc truyện (1.3.432)
+
+| Nhóm | File | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Services/TTS | [`LocalTTSEngine.swift`](../../Sources/Services/TTS/LocalTTSEngine.swift) | **Mới** — protocol chung cho engine TTS local | 52 |
+| Services/TTS | [`TTSManager+VieNeu.swift`](../../Sources/Services/TTS/TTSManager+VieNeu.swift) | **Mới** — `localEngine` + `applyVieNeuParamsIfNeeded` + khoá `vieneu*` | 60 |
+| Views/TTSWidget | [`TTSSettingsView+VieNeu.swift`](../../Sources/Views/TTSWidget/TTSSettingsView+VieNeu.swift) | **Mới** — mục Picker, lối tải model, nạp giọng theo engine | 47 |
+
+* **Vì sao tách `TTSSettingsView+VieNeu`**: `TTSSettingsView.swift` có baseline **519**; nhúng thẳng vào đẩy lên **540** ⇒ một vi phạm mới. Sau khi tách còn **516**.
+* Sửa nội dung: `TTSManager.swift` 4026 → **4029** (+3: 2 stored property cho thông số đệm + 1 dòng hook nạp tham số), `VieNeuTTSService.swift` 283 → **286**, `PiperTTSService.swift` **356**, `TTSSettingsView.swift` 517 → **516**, và 5 file prefetch (đổi kiểu tham số).
+
 ## +1 file: tách phần tách chunk khỏi `+Audio` (1.3.431)
 
 | Nhóm | File | Vai trò | Dòng |

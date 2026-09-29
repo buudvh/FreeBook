@@ -9,7 +9,7 @@ struct TTSSettingsView: View {
     @Environment(\.presentationMode) var presentationMode
     @Environment(\.modelContext) private var modelContext
     @ObservedObject var ttsManager = TTSManager.shared
-    @State private var availableVoices: [Voice] = []
+    @State var availableVoices: [Voice] = []
     @State private var systemVoices: [AVSpeechSynthesisVoice] = []
 
     @Query private var allExtensions: [Extension]
@@ -74,11 +74,14 @@ struct TTSSettingsView: View {
                     Text("Siri (Hệ thống Apple)").tag("system")
                     Text("NghiTTS (Piper Offline)").tag("nghitts")
                     Text("Google Cloud TTS (Online)").tag("google")
+                    vieNeuPickerRows
                     ForEach(ttsExtensions) { ext in
                         Text(ext.name).tag(ext.packageId)
                     }
                 }
                 .pickerStyle(.menu)
+
+                vieNeuDownloadRow
             }
             
             // Section 2: Chọn giọng đọc
@@ -454,9 +457,7 @@ struct TTSSettingsView: View {
                 }
                 loadExtensionVoices(packageId: ttsManager.tool)
             }
-            Task {
-                self.availableVoices = (try? await ttsManager.nghiTTSClient?.getAllVoices(forceRefresh: false)) ?? NghiTTSClient.fallbackVietnameseVoices
-            }
+            Task { await loadVoicesForCurrentTool() }
         }
         .onDisappear {
             if !hasResumed {
@@ -510,8 +511,6 @@ struct TTSSettingsView: View {
         if ttsManager.selectedVoice == voice.name {
             ttsManager.selectedVoice = ""
         }
-        Task {
-            self.availableVoices = (try? await ttsManager.nghiTTSClient?.getAllVoices(forceRefresh: false)) ?? NghiTTSClient.fallbackVietnameseVoices
-        }
+        Task { await loadVoicesForCurrentTool() }
     }
 }

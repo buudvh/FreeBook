@@ -15,6 +15,13 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Nối engine thứ hai vào đường đọc truyện (1.3.432)
+
+* **Không thêm nhánh `if tool == …` ở call site**: `TTSManager` chọn engine bằng computed `localEngine` (kiểu `any LocalTTSEngine`), nên các call site cũ (`nghiService` → `localService`) không phải biết tool nào. Đây là cách duy nhất giữ `TTSManager.swift` (4026/3470, ratchet-down) mà vẫn nối được engine mới.
+* **Tính chất an toàn**: `localEngine` trả `nghiTTSService` cho **mọi** tool trừ `vieneu` ⇒ nhánh NghiTTS đi y hệt code cũ. Giữ nguyên tính chất này khi sửa tiếp.
+* **Khoảng nghỉ dùng chung khoá `nghitts*`, thông số đệm tách khoá `vieneu*`** — có chủ ý: khoảng nghỉ là *nội dung* (chỉnh một lần cho cả hai engine), ngưỡng đệm là *hiệu năng* (mỗi engine một RTF khác nhau).
+* **VieNeu bỏ qua `boundaryKind`** dù protocol yêu cầu: nó tự phân loại ranh giới theo **dấu câu** (`Chunk.Gap`), không theo tầng gọi.
+
 ## Ranh giới chữ / mẫu trong phân hệ VieNeu (1.3.431)
 
 * **`+Chunking` = việc trên CHỮ, `+Audio` = việc trên MẪU ÂM THANH.** Đây là ranh giới tách file, và cũng là ranh giới trách nhiệm: `+Chunking` không biết gì về sample rate hay fade; `+Audio` không biết gì về câu, dấu câu hay từ số. `joinChunks` (bên `+Audio`) nhận `[Chunk.Gap]` — dữ liệu thuần, không phải logic tách.

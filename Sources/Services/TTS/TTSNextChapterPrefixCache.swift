@@ -87,7 +87,7 @@ internal final class TTSNextChapterPrefixCache {
         playbackParagraphs: [TTSParagraph],
         capacity: Int,
         prefetchDelayMs: Int,
-        nghiService: PiperTTSService?,
+        localService: (any LocalTTSEngine)?,
         googleService: GoogleTTSService,
         extService: ExtTTSService,
         audioWorker: TTSAudioSynthesisWorker
@@ -138,7 +138,7 @@ internal final class TTSNextChapterPrefixCache {
                 index: index,
                 paragraph: playbackParagraphs[index],
                 prefetchDelayMs: prefetchDelayMs,
-                nghiService: nghiService,
+                localService: localService,
                 googleService: googleService,
                 extService: extService,
                 audioWorker: audioWorker
@@ -207,7 +207,7 @@ internal final class TTSNextChapterPrefixCache {
         index: Int,
         paragraph: TTSParagraph,
         prefetchDelayMs: Int,
-        nghiService: PiperTTSService?,
+        localService: (any LocalTTSEngine)?,
         googleService: GoogleTTSService,
         extService: ExtTTSService,
         audioWorker: TTSAudioSynthesisWorker
@@ -216,7 +216,7 @@ internal final class TTSNextChapterPrefixCache {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !textToSpeak.isEmpty else { return }
 
-        if key.tool == "nghitts" && nghiService == nil { return }
+        if key.tool == "nghitts" && localService == nil { return }
 
         let synthesisKey = TTSSynthesisIdentity.computeKey(
             chapterURL: key.chapterUrl,
@@ -245,7 +245,7 @@ internal final class TTSNextChapterPrefixCache {
                     synthesisKey: synthesisKey,
                     offset: index,
                     prefetchDelayMs: prefetchDelayMs,
-                    nghiService: nghiService,
+                    localService: localService,
                     googleService: googleService,
                     extService: extService,
                     audioWorker: audioWorker

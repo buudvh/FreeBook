@@ -58,7 +58,7 @@ extension TTSNextChapterPrefixCache {
                     index: index,
                     paragraph: playbackParagraphs[index],
                     prefetchDelayMs: prefetchDelayMs,
-                    nghiService: nil,
+                    localService: nil,
                     googleService: googleService,
                     extService: extService,
                     audioWorker: audioWorker
@@ -148,7 +148,7 @@ extension TTSNextChapterPrefixCache {
                 index: index,
                 paragraph: playbackParagraphs[index],
                 prefetchDelayMs: prefetchDelayMs,
-                nghiService: nil,
+                localService: nil,
                 googleService: googleService,
                 extService: extService,
                 audioWorker: audioWorker

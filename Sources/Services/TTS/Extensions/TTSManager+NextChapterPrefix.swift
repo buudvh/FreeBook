@@ -34,7 +34,7 @@ extension TTSManager {
             playbackParagraphs: context.paragraphs,
             capacity: capacity,
             prefetchDelayMs: prefetchDelayMs,
-            nghiService: nghiTTSService,
+            localService: localEngine,
             googleService: googleService,
             extService: extService,
             audioWorker: audioSynthesisWorker

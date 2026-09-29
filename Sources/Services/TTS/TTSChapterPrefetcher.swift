@@ -109,7 +109,7 @@ internal final class TTSChapterPrefetcher {
 
     internal func promoteAudioIfNeeded(
         remainingParentCount: Int,
-        nghiService: PiperTTSService?,
+        localService: (any LocalTTSEngine)?,
         googleService: GoogleTTSService,
         extService: ExtTTSService
     ) {
@@ -121,7 +121,7 @@ internal final class TTSChapterPrefetcher {
             return
         }
 
-        startAudioSynthesis(key: key, gen: gen, processed: processed, loadMs: loadMs, processMs: processMs, nghiService: nghiService, googleService: googleService, extService: extService)
+        startAudioSynthesis(key: key, gen: gen, processed: processed, loadMs: loadMs, processMs: processMs, localService: localService, googleService: googleService, extService: extService)
     }
 
     private func startAudioSynthesis(
@@ -130,7 +130,7 @@ internal final class TTSChapterPrefetcher {
         processed: ProcessedChapterDTO,
         loadMs: Double,
         processMs: Double,
-        nghiService: PiperTTSService?,
+        localService: (any LocalTTSEngine)?,
         googleService: GoogleTTSService,
         extService: ExtTTSService
     ) {
@@ -155,7 +155,7 @@ internal final class TTSChapterPrefetcher {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !textToSpeak.isEmpty else { return }
 
-        if key.tool == "nghitts" && nghiService == nil {
+        if key.tool == "nghitts" && localService == nil {
             handleSynthesisFailure(
                 key: key,
                 gen: gen,
@@ -182,7 +182,7 @@ internal final class TTSChapterPrefetcher {
         let audioWorkerRef = self.audioWorker
 
         let task = Task<Data, Error> {
-            if key.tool == "nghitts", let service = nghiService {
+            if key.tool == "nghitts", let service = localService {
                 return try await service.synthesize(
                     text: textToSpeak,
                     voice: key.selectedVoice,

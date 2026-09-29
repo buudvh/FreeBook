@@ -15,14 +15,14 @@ enum TTSNextChapterPrefixSynthesizer {
         synthesisKey: String,
         offset: Int,
         prefetchDelayMs: Int,
-        nghiService: PiperTTSService?,
+        localService: (any LocalTTSEngine)?,
         googleService: GoogleTTSService,
         extService: ExtTTSService,
         audioWorker: TTSAudioSynthesisWorker
     ) async throws -> Data {
         if key.tool == "nghitts" {
-            guard let nghiService else { throw CancellationError() }
-            return try await nghiService.synthesize(
+            guard let localService else { throw CancellationError() }
+            return try await localService.synthesize(
                 text: textToSpeak,
                 voice: key.selectedVoice,
                 speed: 1.0,

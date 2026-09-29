@@ -15,6 +15,13 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## +3 file; `TTSSettingsView` suýt tạo violation mới vì baseline 519 (1.3.432)
+
+* **+3 file**: `LocalTTSEngine.swift` **52**, `TTSManager+VieNeu.swift` **60**, `TTSSettingsView+VieNeu.swift` **47** — đều ≤ 400 và đúng 1 primary type (2 file chỉ có extension).
+* **`TTSSettingsView.swift` có baseline 519**: nhúng phần VieNeu trực tiếp đẩy lên **540** ⇒ vi phạm mới. Tách ra extension ⇒ **516**.
+* `TTSManager.swift` **4026 → 4029** (+3). **Lệch so với plan** (plan ghi "+1 dòng"): 2 stored property cho thông số đệm là bắt buộc ở file chính vì extension không thêm được stored property. Đã cắt hết comment để giảm từ +7 xuống +3.
+* `check_architecture.py` giữ nguyên **5** violation nền cũ, **0** mới.
+
 ## Lần thứ năm phải tách file vì trần 400: `+Audio` lên 432 (1.3.431)
 
 * **+1 file**: `VieNeuTTSEngine+Chunking.swift` **294**; `VieNeuTTSEngine+Audio.swift` 368 → **148** (chỉ còn DSP).

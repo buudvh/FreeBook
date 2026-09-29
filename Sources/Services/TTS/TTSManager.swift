@@ -755,6 +755,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     internal let extService = ExtTTSService()
     internal let googleService = GoogleTTSService()
     internal var nghiTTSService: PiperTTSService?
+    @Published public var vieneuPrefetchCount: Int = 3
+    @Published public private(set) var vieneuSafeCachedTimeThreshold: Double = NghiSynthesisPolicy.defaultSafeCachedTimeThreshold
     public private(set) var nghiTTSClient: NghiTTSClient?
     private var modelStore: ModelStore?
     private var modelContainer: ModelContainer?
@@ -772,11 +774,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
     private func scheduleNghiWarmUp() {
         nghiWarmUpTask?.cancel()
-        guard tool == "nghitts" else {
+        guard tool == "nghitts" || tool == "vieneu" else {
             nghiWarmUpTask = nil
             return
         }
-        guard let service = nghiTTSService else { return }
+        guard let service = localEngine else { return }
         let voice = selectedVoice
         nghiWarmUpTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 500_000_000)
@@ -798,7 +800,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
 
     private func playbackParagraphs(from baseParagraphs: [TTSParagraph]) -> [TTSParagraph] {
-        guard tool == "nghitts" else { return baseParagraphs }
+        guard tool == "nghitts" || tool == "vieneu" else { return baseParagraphs }
         return NghiUtteranceSegmenter.expand(baseParagraphs, maximumLength: chunkLength)
     }
 
@@ -1061,6 +1063,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             let savedDelay = UserDefaults.standard.object(forKey: "googlePrefetchDelay") != nil ? UserDefaults.standard.integer(forKey: "googlePrefetchDelay") : 500
             self.prefetchDelayMs = max(300, savedDelay)
         } else {
+            applyVieNeuParamsIfNeeded()
             self.speed = UserDefaults.standard.double(forKey: "extRate_\(tool)") > 0 ? UserDefaults.standard.double(forKey: "extRate_\(tool)") : defaultRate
             self.pitch = UserDefaults.standard.double(forKey: "extPitch_\(tool)") > 0 ? UserDefaults.standard.double(forKey: "extPitch_\(tool)") : defaultPitch
             self.selectedVoice = UserDefaults.standard.string(forKey: "extVoice_\(tool)") ?? ""
@@ -1123,7 +1126,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         if isPlaying {
             if tool == "system" {
                 // AVSpeechSynthesizer
-            } else if tool == "nghitts" {
+            } else if tool == "nghitts" || tool == "vieneu" {
                 nghiAudioPlayerQueue.updateRate(speed)
                 cancelNghiWakeTask()
                 updateNghiPrefetchWindow()
@@ -2404,7 +2407,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
         nextChapterPrefetcher.promoteAudioIfNeeded(
             remainingParentCount: remainingParents.count,
-            nghiService: nghiTTSService,
+            localService: localEngine,
             googleService: googleService,
             extService: extService
         )
@@ -2443,7 +2446,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         // Điều hướng luồng phát âm thanh sang Engine tương ứng:
         if tool == "system" {
             playSystemTTS(textToSpeak) // Phát bằng Siri mặc định của iOS (không tốn dung lượng bộ nhớ)
-        } else if tool == "nghitts" {
+        } else if tool == "nghitts" || tool == "vieneu" {
             playNghiTTS(textToSpeak) // Phát bằng Piper TTS offline (giọng đọc chất lượng cao tự nhiên hơn)
         } else if tool == "google" {
             playGoogleTTS(textToSpeak) // Phát bằng Google Cloud TTS ReadAloud REST API
@@ -2667,7 +2670,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
         nextChapterPrefetcher.promoteAudioIfNeeded(
             remainingParentCount: max(0, paragraphs.count - N),
-            nghiService: nghiTTSService,
+            localService: localEngine,
             googleService: googleService,
             extService: extService
         )
@@ -2805,7 +2808,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         guard isPlaying,
               tool == "nghitts",
               Self.canScheduleNghiRefill(hasRefillTask: nghiRefillTask != nil, hasRetryTask: nghiRefillRetryTask != nil),
-              let service = nghiTTSService else { return }
+              let service = localEngine else { return }
 
         let N = currentParagraphIndex
         // Đoạn rỗng sau khi áp quy tắc thay thế không tổng hợp được: đánh dấu bỏ qua rồi tìm tiếp
@@ -3550,7 +3553,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
 
     private func playNghiTTS(_ text: String) {
-        guard let service = nghiTTSService else {
+        guard let service = localEngine else {
             if currentParagraphIndex == 0 && activeTTSAutoAdvancePerf?.chapterIndex == playingChapterIndex {
                 let synMs = currentParagraph0SynthesisMs()
                 finishTTSAutoAdvancePerf(
