@@ -39,10 +39,16 @@ enum VieNeuSynthesisPolicy {
         }
     }
 
-    /// Số luồng ORT. **Không** dùng 1 như `ONNXPiperEngine` (Piper là model nhỏ, 1 luồng đủ và ưu tiên
-    /// nhiệt), cũng không dùng 6 như bản tham chiếu desktop: Nano nặng hơn Piper ~một bậc nên 1 luồng
-    /// gần như chắc chắn không kịp, còn đẩy hết core là đúng thứ đã làm máy nóng ở lần làm trước.
-    static let threadCount: Int32 = 2
+    /// Số luồng ORT.
+    ///
+    /// **Không** dùng 1 như `ONNXPiperEngine` (Piper là model nhỏ, 1 luồng đủ và ưu tiên nhiệt), cũng
+    /// không dùng 6 như bản tham chiếu desktop (đó là CPU máy tính). Ban đầu đặt 2; người dùng báo
+    /// tổng hợp 10,15 s cho 28,13 s audio (RTF thật 0,37, trước là 0,26–0,30) nên nâng lên 4 — sau khi
+    /// đã ở 8 bước + CFG thì **số luồng là đòn bẩy còn lại duy nhất**, đổi lại là máy nóng hơn.
+    ///
+    /// `Output.timing` đo phần `vector_estimator` tách khỏi phần còn lại: nếu lần sau RTF không giảm và
+    /// `vector` vẫn chiếm gần hết thì con số này **không phải** nút thắt và phải trả về 2.
+    static let threadCount: Int32 = 4
 
     // MARK: - Luật đổi chế độ
 

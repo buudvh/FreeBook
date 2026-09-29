@@ -55,28 +55,11 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         /// phồng** bởi khoảng nghỉ (chúng không tốn thời gian suy luận), nên cần con số này để đọc đúng
         /// hiệu năng thật.
         let speechDuration: Double
+        /// Thời gian tách theo nhóm việc — xem doc của `Timing`.
+        let timing: Timing
         /// Phoneme của chunk đầu (cắt ngắn). Đây là **bằng chứng duy nhất** phân biệt được hai nguyên nhân
         /// hay gặp của "đọc sai": từ điển trả phoneme sai, hay phoneme đúng mà model đọc bằng giọng Việt.
         let phonemeSample: String
-    }
-
-    /// Một mẩu văn bản kèm **loại ranh giới** sau nó.
-    ///
-    /// `Gap` là bản port của `_classify_gap` trong bản tham chiếu: ranh giới được phân loại theo **dấu câu
-    /// kết thúc chunk**, không theo độ dài chunk. Nhờ vậy khoảng nghỉ đặt đúng chỗ — hết câu nghỉ dài, ngắt
-    /// trong câu nghỉ ngắn — thay vì mọi khe đều một hằng số.
-    struct Chunk {
-        enum Gap {
-            /// Hai chunk khác **đoạn** (cách nhau bởi `\n`) — nghỉ dài nhất.
-            case paragraph
-            /// Hết câu (`.!?`) — nghỉ vừa.
-            case sentence
-            /// Ngắt trong câu (`,;:`) hoặc chỗ cắt cưỡng bức vì câu quá dài — nghỉ ngắn.
-            case minor
-        }
-
-        let text: String
-        let gap: Gap
     }
 
     enum EngineError: LocalizedError {
@@ -236,14 +219,15 @@ final class VieNeuTTSEngine: @unchecked Sendable {
 
         var samples: [Float] = []
         var droppedScalars = 0
-        var phonemeSample = ""
         var insertedPauseSeconds = 0.0
+        var timing = Timing()
+        var phonemeLines: [String] = []
         for (index, chunk) in chunks.enumerated() {
             try Task.checkCancellation()
             let phonemes = config.applyingEmotionTags(to: phonemizer.phonemizeTextWithEmotions(text: chunk.text))
-            // In **đủ** phoneme của chunk đầu (trần 700 ký tự) — 120 ký tự không đủ để thấy chỗ sai ở
-            // giữa đoạn, mà đó lại là kiểu lỗi hay gặp nhất.
-            if index == 0 { phonemeSample = String(phonemes.prefix(700)) }
+            // **Mỗi chunk một dòng**: in phoneme của cả đoạn chứ không chỉ chunk đầu. Bản trước chỉ in
+            // chunk 0 nên người dùng không soi được chunk nào đọc sai — mà đó mới là thứ cần thấy.
+            phonemeLines.append("[\(index)] \(phonemes)")
             let encoded = config.encode(phonemes: phonemes)
             droppedScalars += encoded.droppedScalars
             noteDroppedScalars(encoded.droppedScalars, total: encoded.ids.count)
@@ -259,7 +243,8 @@ final class VieNeuTTSEngine: @unchecked Sendable {
                 tuning: tuning,
                 speed: speed,
                 runtime: runtime,
-                config: config
+                config: config,
+                timing: &timing
             ))
         }
 
@@ -279,7 +264,8 @@ final class VieNeuTTSEngine: @unchecked Sendable {
             droppedScalars: droppedScalars,
             chunkCount: chunks.count,
             speechDuration: max(0, pcmDuration - insertedPauseSeconds),
-            phonemeSample: phonemeSample
+            timing: timing,
+            phonemeSample: phonemeLines.joined(separator: "\n")
         )
     }
 
@@ -290,10 +276,13 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         tuning: VieNeuSynthesisPolicy.Tuning,
         speed: Double,
         runtime: VieNeuONNXRuntime,
-        config: VieNeuConfig
+        config: VieNeuConfig,
+        timing: inout Timing
     ) throws -> [Float] {
         // Số token không cần biến riêng: `mask` lấy từ `ids`, còn shape của `ctx` đọc từ model.
         let mask = ids.map { $0 == config.padID ? UInt8(0) : UInt8(1) }
+
+        let chunkStarted = ProcessInfo.processInfo.systemUptime
 
         // 1. text_encoder → ctx, kèm **shape thật** để hai bước sau dùng lại
         let context = try runtime.textEncoder(
@@ -318,6 +307,8 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         Self.fillStandardNormal(&latent)
         let steps = max(1, tuning.steps)
         let grid = Self.timeGrid(steps: steps, sway: tuning.sway)
+
+        let vectorStarted = ProcessInfo.processInfo.systemUptime
 
         for step in 0..<steps {
             try Task.checkCancellation()
@@ -367,6 +358,13 @@ final class VieNeuTTSEngine: @unchecked Sendable {
             latentChannels: config.latentChannels,
             frames: frames
         )
+        // `otherMs` = phần còn lại của chunk. Đo bằng `chunkMs - vectorMs` chứ **không** đo riêng phần
+        // text_encoder/codec rồi cộng: đo cả chunk mà không trừ là đếm phần vector hai lần.
+        let vectorMs = (ProcessInfo.processInfo.systemUptime - vectorStarted) * 1_000
+        let chunkMs = (ProcessInfo.processInfo.systemUptime - chunkStarted) * 1_000
+        timing.vectorMs += vectorMs
+        timing.otherMs += max(0, chunkMs - vectorMs)
+
         return Self.trimAndFade(waveform, sampleRate: config.sampleRate)
     }
 }

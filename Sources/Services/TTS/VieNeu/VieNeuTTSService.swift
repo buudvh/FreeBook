@@ -40,6 +40,8 @@ final class VieNeuTTSService: @unchecked Sendable {
     private var _lastChunkCount = 0
     private var _lastPhonemeSample = ""
     private var _lastSpeechDuration = 0.0
+    private var _lastVectorMs = 0.0
+    private var _lastOtherMs = 0.0
 
     var currentVoice: String? {
         syncQueue.sync { _currentVoice }
@@ -71,6 +73,10 @@ final class VieNeuTTSService: @unchecked Sendable {
 
     /// Độ dài audio trừ khoảng nghỉ đã chèn — mẫu số đúng để tính RTF thật.
     var lastSpeechDuration: Double { syncQueue.sync { _lastSpeechDuration } }
+
+    /// Thời gian `vector_estimator` và phần còn lại của lượt gần nhất (ms) — để biết chậm ở đâu.
+    var lastVectorMs: Double { syncQueue.sync { _lastVectorMs } }
+    var lastOtherMs: Double { syncQueue.sync { _lastOtherMs } }
 
     /// Khoá `UserDefaults` của chế độ chất lượng.
     ///
@@ -214,6 +220,8 @@ final class VieNeuTTSService: @unchecked Sendable {
             _lastChunkCount = output.chunkCount
             _lastPhonemeSample = output.phonemeSample
             _lastSpeechDuration = output.speechDuration
+            _lastVectorMs = output.timing.vectorMs
+            _lastOtherMs = output.timing.otherMs
         }
         // `synthesisMs` của engine đo bên trong (chỉ gồm ONNX), còn ở đây đo trọn lượt gọi — lấy số của
         // engine để RTF phản ánh đúng chi phí suy luận chứ không lẫn thời gian chờ khoá.

@@ -15,6 +15,17 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Đo Tách Nhóm Việc + In Phoneme Mọi Chunk + Nâng Lên 4 Luồng (1.3.429)
+
+Người dùng: **"Cả đoạn mà phoneme bạn in ra chỉ có 1 câu"** và **"thời gian tổng hợp quá dài: hơn 10s cho 28s audio, cũ là 4s… cần thiết sửa để tăng tốc độ"**.
+
+* **Phoneme in MỌI chunk, mỗi chunk một dòng** (`[0] …`, `[1] …`). Bản trước chỉ in chunk 0 nên không soi được chunk nào đọc sai — mà đó chính là thứ cần thấy.
+* **Số đo tách nhóm việc thay vì đoán**: `Timing.vectorMs` (vòng Euler) vs `otherMs` (phần còn lại của chunk). Báo cáo thêm dòng `chậm ở đâu vector X s | khác Y s`. Nếu `vector` chiếm gần hết thì đòn bẩy là số bước / CFG / số luồng; nếu `khác` đáng kể thì đó là **chi phí cố định theo chunk** và cách giảm là giảm số chunk.
+  * **Bẫy đã mắc và đã sửa**: bản đầu dùng hai `defer` — cái ngoài đo **cả chunk** (gồm cả vòng lặp) nên phần vector bị **đếm hai lần**. Sửa thành `otherMs += max(0, chunkMs - vectorMs)`. Số đo sai còn tệ hơn không đo vì nó đẩy lần sửa sau đi sai hướng.
+* **Nâng `threadCount` 2 → 4**: sau khi đã ở 8 bước + CFG thì **số luồng là đòn bẩy còn lại duy nhất**, đổi lại máy nóng hơn. Có ghi rõ trong code: nếu lần sau RTF không giảm mà `vector` vẫn chiếm gần hết thì phải **trả về 2**.
+* **Phân tích số của người dùng**: 10,15 s cho 28,13 s audio, `RTF thật` 0,37 so với 0,26–0,30 trước đó ⇒ **chậm đi thật ~25%**, không phải artefact. Nhưng phần lớn là do văn bản **dài ra thật** (số được đọc thành chữ: 20,71 → 28,13 s audio) cộng +20% số chunk; phần còn lại chờ `chậm ở đâu` để tách bạch.
+* **`VieNeuTTSEngine` chạm 399/400 dòng** khi thêm số đo ⇒ dời `Chunk`/`Gap` sang `+Audio.swift` và `Timing` sang `+Adaptive.swift` ⇒ engine còn **370**.
+
 ## Hàng Rào Chống Xẻ Đôi Con Số + Số Liệu RTF Trung Thực (1.3.428)
 
 Người dùng: **"ngắt nghỉ bất thường khi đang đọc số, thời gian"**, **"phoneme nên in đủ đoạn"**, **"xử lý thời gian tăng quá nhiều"**.

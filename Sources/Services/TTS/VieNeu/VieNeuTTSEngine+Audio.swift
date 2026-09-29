@@ -333,4 +333,23 @@ extension VieNeuTTSEngine {
         }
         return output
     }
+
+    /// Một mẩu văn bản kèm **loại ranh giới** sau nó.
+    ///
+    /// `Gap` là bản port của `_classify_gap` trong bản tham chiếu: ranh giới được phân loại theo **dấu câu
+    /// kết thúc chunk**, không theo độ dài chunk. Nhờ vậy khoảng nghỉ đặt đúng chỗ — hết câu nghỉ dài, ngắt
+    /// trong câu nghỉ ngắn — thay vì mọi khe đều một hằng số.
+    struct Chunk {
+        enum Gap {
+            /// Hai chunk khác **đoạn** (cách nhau bởi `\n`) — nghỉ dài nhất.
+            case paragraph
+            /// Hết câu (`.!?`) — nghỉ vừa.
+            case sentence
+            /// Ngắt trong câu (`,;:`) hoặc chỗ cắt cưỡng bức vì câu quá dài — nghỉ ngắn.
+            case minor
+        }
+
+        let text: String
+        let gap: Gap
+    }
 }

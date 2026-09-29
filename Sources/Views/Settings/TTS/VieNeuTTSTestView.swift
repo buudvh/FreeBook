@@ -240,6 +240,7 @@ struct VieNeuTTSTestView: View {
         RTF          \(String(format: "%.2f", rtf))   (nhỏ hơn 1 là đọc realtime được)
         nhanh hơn    \(String(format: "%.1f", 1 / max(rtf, 0.001)))× so với realtime
         RTF thật     \(String(format: "%.2f", speechRTF))   (trừ \(String(format: "%.2f", audioSeconds - speechSeconds)) s khoảng nghỉ)
+        chậm ở đâu   vector \(String(format: "%.2f", (service?.lastVectorMs ?? 0) / 1000)) s | khác \(String(format: "%.2f", (service?.lastOtherMs ?? 0) / 1000)) s
         chế độ       \(service?.currentMode.rawValue ?? "?")
         tổng hợp     \(String(format: "%.0f", result.synthesisMs)) ms
         chờ hàng đợi \(String(format: "%.0f", result.queueWaitMs)) ms

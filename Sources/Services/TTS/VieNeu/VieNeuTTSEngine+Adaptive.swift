@@ -43,4 +43,14 @@ extension VieNeuTTSEngine {
         droppedScalarWarningShown = true
         AppLogger.shared.log("⚠️ [VieNeu] Bỏ qua \(dropped) phoneme không có trong vocab (tổng \(total) id)")
     }
+
+    /// Thời gian tách theo **hai nhóm việc**, cộng dồn cho cả đoạn.
+    ///
+    /// Có mặt để trả lời "chậm ở đâu" bằng số đo thay vì phỏng đoán: nếu `vectorMs` chiếm gần hết thì
+    /// đòn bẩy là số bước / CFG / số luồng ORT; nếu `otherMs` đáng kể thì đó là **chi phí cố định theo
+    /// chunk** (text_encoder + duration_predictor + codec_decoder) và cách giảm là giảm số chunk.
+    struct Timing {
+        var vectorMs: Double = 0
+        var otherMs: Double = 0
+    }
 }
