@@ -16,6 +16,11 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 
 <!-- GENERATED START -->
 
+## Sửa Bug Vô Hiệu Hoá Task Nạp Trước Cùng Batch (1.3.440)
+
+* **`scheduleNghiRefill` KHÔNG còn bump `nghiRefillGeneration`.** Guard `isValidNghiRefillContext` đòi `nghiRefillGeneration == refillGeneration` (bằng **ĐÚNG**), nên bump mỗi lần schedule làm các task **CÙNG batch** vô hiệu hoá lẫn nhau — `fillNghiRefillUpToCapacity` lập `N+1`, `N+2`, `N+3` với gen `G+1/G+2/G+3` ⇒ chỉ task cuối (`G+3`) sống. Tệ hơn, `defer` chỉ dọn khi gen khớp nên hai task bị vô hiệu **rò rỉ** trong `nghiRefillTasks`/`nghiRefillInFlightIndices` ⇒ pool nạp trước **nghẽn dần rồi chết**. Bug lộ ra từ 1.3.438 (thêm pool đa luồng nhưng để lại bump per-schedule vốn vô hại khi chỉ có 1 refill). Nay chỉ `cancelNghiRefill()` (đổi chương/session/seek/engine) mới bump.
+* **Hệ quả**: đệm nóng đầu phát/biên chương (1.3.439) trước đây **không có tác dụng** vì pool không thực sự chạy; nay `N+1..N+3` được nạp song song thật ⇒ sửa gap 1→2→3 ở đầu phát và tên chương → đoạn 1 ở biên chương.
+
 ## Sửa Số Thập Phân/0 Đầu, Đệm Nóng Đầu Phát & Biên Chương, Tách Speed Khỏi Prefetch (1.3.439)
 
 * **`continueStartSpeaking` → `warmNghiRefillForPlaybackStart()` → `fillNghiRefillUpToCapacity()`**: `continueStartSpeaking` là điểm vào **chung** của fresh start (`startSpeaking`) lẫn sang chương mới (`applyNextChapter`), nên **một** call site phủ cả hai. Tổng hợp trước `N+1..N+3` chạy song song với việc tổng hợp+phát đoạn hiện tại (đoạn đầu thường lạnh) ⇒ hết chờ ở đầu phát và ở biên chương (tên chương → đoạn 1). `warmNghiRefillForPlaybackStart()` nằm trong `TTSManager+NghiPrefetchConcurrency.swift` (ratchet-down).

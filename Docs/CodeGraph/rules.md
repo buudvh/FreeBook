@@ -16,6 +16,11 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 
 <!-- GENERATED START -->
 
+## Rules Nạp Trước & Generation (1.3.440)
+
+* **A per-schedule generation bump breaks a concurrent pool.** `nghiRefillGeneration` must be bumped ONLY on context change (`cancelNghiRefill`), never inside `scheduleNghiRefill`. The guard `isValidNghiRefillContext` requires **exact** equality, so bumping per schedule invalidates every sibling task in the same `fillNghiRefillUpToCapacity` batch (only the last survives) AND leaks them (the `defer` only cleans when the generation matches), slowly wedging the pool. Introduced with the pool in 1.3.438, fixed in 1.3.440.
+* **Symptom to remember:** prefetch pool "works" but the buffer never builds at cold start → gaps at playback start and chapter boundaries. If a `fill...UpToCapacity` batch only ever warms 1 segment, suspect a generation/epoch guard invalidating siblings.
+
 ## Rules Số, Đệm Nóng & Tốc Độ (1.3.439)
 
 * **Speed is a playback-only parameter — never let it drive synthesis.** On-device engines synthesise at `speed: 1.0` and apply the user's speed at playback (`nghiAudioPlayerQueue.updateRate`). So `speed.didSet → updatePlaybackParams()` must **not** call `updateNghiPrefetchWindow()` / `cancelNghiWakeTask()`: that re-triggers refill + next-chapter prefetch on every slider tick for nothing. Verified across all four engines — none re-synthesises current audio on a speed change (system = per-utterance; google hardcodes `speed: 1.0`; extension key excludes speed).

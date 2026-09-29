@@ -16,6 +16,11 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 
 <!-- GENERATED START -->
 
+## Sửa Bug Vô Hiệu Hoá Task Nạp Trước Cùng Batch (1.3.440)
+
+* **`nghiRefillGeneration` bump mỗi lần `scheduleNghiRefill` ⇒ task cùng batch vô hiệu hoá lẫn nhau + rò rỉ.** Guard `isValidNghiRefillContext` (bằng ĐÚNG) khiến 2/3 task của `fillNghiRefillUpToCapacity` chết; `defer` không dọn (gen lệch) ⇒ `nghiRefillTasks`/`nghiRefillInFlightIndices` phình ⇒ pool nghẽn dần. **Đây là lý do "đệm nóng đầu phát/biên chương" (1.3.439) không có tác dụng: pool không chạy thật.** Nay bỏ bump trong `scheduleNghiRefill`, chỉ `cancelNghiRefill()` bump.
+* **Bug lộ ra từ 1.3.438** (thêm pool đa luồng nhưng để lại bump per-schedule, vốn vô hại khi chỉ có 1 refill). `TTSManager.swift` giữ net 0 dòng.
+
 ## Số Thập Phân/0 Đầu, Đệm Nóng Đầu Phát & Biên Chương, Speed Tách Khỏi Prefetch (1.3.439)
 
 * **Đệm nóng đầu phát / biên chương** (`TTSManager+NghiPrefetchConcurrency.swift`): thêm `warmNghiRefillForPlaybackStart()` gọi `fillNghiRefillUpToCapacity()`, chèn tại `continueStartSpeaking` (`TTSManager.swift`). Đoạn đầu phiên/chương thường lạnh; nạp trước `N+1..N+3` song song với đoạn hiện tại để 1→2→3 liền mạch — sửa lỗi "nghe xong đoạn 1 còn đợi mới nghe đoạn 2" và gap tên chương → đoạn đầu khi sang chương mới.

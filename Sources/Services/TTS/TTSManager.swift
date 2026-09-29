@@ -2832,7 +2832,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let expectedChapterURL = playingChapterUrl
         let expectedVoice = selectedVoice
         let expectedGeneration = ttsProcessingGeneration
-        nghiRefillGeneration &+= 1
+        // KHÔNG bump gen ở đây (vô hiệu hoá task cùng batch + rò rỉ defer) — chỉ `cancelNghiRefill()` bump.
         let refillGeneration = nghiRefillGeneration
         nghiRefillInFlightIndices.insert(index)
 

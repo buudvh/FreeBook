@@ -16,6 +16,11 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 
 <!-- GENERATED START -->
 
+## Rủi Ro Task Nạp Trước Cùng Batch Bị Vô Hiệu Hoá (1.3.440)
+
+* **Rủi ro ĐÃ SỬA (mức CAO) — pool nạp trước chết âm thầm do gen bump sai chỗ.** `scheduleNghiRefill` bump `nghiRefillGeneration` mỗi lần; guard đòi bằng đúng ⇒ `N+1`,`N+2` bị vô hiệu (chỉ `N+3` sống) và **rò rỉ** trong `nghiRefillTasks`/`nghiRefillInFlightIndices` (defer chỉ dọn khi gen khớp) ⇒ `fillNghiRefillUpToCapacity` dần hết chỗ ⇒ **prefetch gần như tắt**, mọi đoạn tổng hợp on-demand ⇒ đúng các gap người dùng báo (1→2→3 ở đầu phát, tên chương → đoạn 1 ở biên chương). Bug lộ ra từ 1.3.438. **Bài học: khi thêm đa luồng cho một cơ chế "generation-guard", phải kiểm lại semantics của generation — bump mỗi-lần-schedule vô hiệu hoá chính các sibling.**
+* **Rủi ro CÒN LẠI — chồng tiếng (2 đoạn phát song song).** Người dùng vẫn báo. Nếu còn sau 1.3.440 (đệm đủ hơn ⇒ bàn giao bình thường hơn), cần log `[NghiAudioPlayerQueue] schedule next=… wallRemaining=…` từ máy thật để phân định (lỗi phụ thuộc thời điểm, không suy ra được bằng đọc mã).
+
 ## Rủi Ro Số Thập Phân, Đệm Nóng Đầu Phát & Tốc Độ (1.3.439)
 
 * **Rủi ro ĐÃ SỬA — `0.001` đọc thành `1`.** `formatNumbers` xóa dấu chấm ngăn cách nghìn nên `"0.001"` → `"0001"` → "1". Nay chỉ xóa chấm khi phần nguyên ≠ 0; `"0.xxx"` rơi vào `processDecimals`. `processDecimals`/`processPercentages` đọc phần thập phân từng chữ số giữ số 0 (`"0,001"` → "không phẩy không không một"); `processDigits` đọc `"001"` → "không không một".
