@@ -36,6 +36,7 @@ final class VieNeuTTSService: @unchecked Sendable {
     private let engine: VieNeuTTSEngine
     private let syncQueue = DispatchQueue(label: "VieNeuTTSService.sync")
     private var _currentVoice: String?
+    private var _lastDroppedScalars = 0
 
     var currentVoice: String? {
         syncQueue.sync { _currentVoice }
@@ -54,6 +55,9 @@ final class VieNeuTTSService: @unchecked Sendable {
 
     /// 4 session ONNX đã nạp xong chưa — màn thử giọng dùng để hiện "đang nạp engine…" ở lượt đầu.
     var isPrepared: Bool { engine.isPrepared }
+
+    /// Số phoneme bị bỏ ở lượt tổng hợp gần nhất. Màn thử giọng đọc để phát hiện text không đọc được.
+    var lastDroppedScalars: Int { syncQueue.sync { _lastDroppedScalars } }
 
     init(store: VieNeuModelStore, engine: VieNeuTTSEngine) {
         self.store = store
@@ -167,7 +171,10 @@ final class VieNeuTTSService: @unchecked Sendable {
         }
         let started = ProcessInfo.processInfo.systemUptime
         let output = try engine.synthesize(text: text, voiceName: voice, speed: speed)
-        syncQueue.sync { _currentVoice = voice }
+        syncQueue.sync {
+            _currentVoice = voice
+            _lastDroppedScalars = output.droppedScalars
+        }
         // `synthesisMs` của engine đo bên trong (chỉ gồm ONNX), còn ở đây đo trọn lượt gọi — lấy số của
         // engine để RTF phản ánh đúng chi phí suy luận chứ không lẫn thời gian chờ khoá.
         _ = started

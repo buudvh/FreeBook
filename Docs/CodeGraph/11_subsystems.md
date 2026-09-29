@@ -15,6 +15,15 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Sửa Bộ Đọc `sea_g2p.bin`: Sai Base 16 Byte + Sai Thứ Tự So Sánh (1.3.421)
+
+Người dùng báo engine đã chạy (**RTF 0.50** ở chế độ `high`, độ dài audio hợp lý) nhưng **"âm thanh không phải tiếng Việt"**.
+
+* **Nguyên nhân gốc — `SeaG2P.getString` hardcode `32 + offset`**: `write_bin_v2` ghi header **48** byte (4 magic + 4 version + 12 count + 12 vị trí + 8 bảng section + 8 reserved) rồi mới tới blob chuỗi. Lệch 16 byte nghĩa là **mọi** chuỗi đọc ra đều là *đuôi chuỗi trước + đầu chuỗi sau* ⇒ phoneme rác. Vì shape/tensor/độ dài audio đều đúng, triệu chứng không phải lỗi mà là "nghe không ra tiếng Việt" — rất khó đoán nếu chỉ đọc log.
+  * Đã xác minh trên file thật (62.829.820 byte): base 48 cho `xin → sˈin`, `chào → tʃˈaː2w`, `việt → vˈiɛ6t̪`; base 32 **không tra được từ nào**. Nay `stringBase` đọc từ trường version (v2 → 48, v1 → 32).
+* **Lỗi thứ hai cùng file — sai thứ tự so sánh**: `write_bin_v2` sắp bảng theo **byte UTF-8**, còn `SeaG2P` tìm nhị phân bằng `String.<` (Unicode canonical ordering) ⇒ có thể trượt khoá **có** trong bảng. Nay dùng `utf8Less` (`lhs.utf8.lexicographicallyPrecedes(rhs.utf8)`).
+* **Thêm `droppedScalars` vào khối chẩn đoán**: `AppLogger` chỉ ghi khi người dùng bật, nên một bộ G2P trả ký tự ngoài vocab sẽ hỏng **im lặng**. `VieNeuTTSEngine.Output.droppedScalars` nay chảy tới màn thử giọng — chính chỉ số đã thiếu ở lượt này.
+
 ## Sửa Shape `ctx` (Lỗi Thứ Tư Cùng Loại) + Dời Màn Thử Giọng Ra Tab Cài Đặt (1.3.420)
 
 * **Lỗi: `Got: 512 Expected: 256` ở input `ctx` của `duration_predictor`.** Bản trước tự dựng shape `ctx` là `[1, L, dim]` với `dim = 512` đọc từ `config.json`. Chiều thật của `ctx` là **`style_dim` = 256**; `dim` phục vụ chỗ khác của kiến trúc. Đây là **lần thứ ba** cùng một loại lỗi trong engine này (sau tên output ONNX và kích thước entry `.npz`) ⇒ luật đã ghi vào `rules.md`: **hỏi model, đừng đoán**.

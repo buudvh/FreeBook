@@ -36,6 +36,14 @@ final class SeaG2P {
     private let stringOffsetsPos: Int
     private let mergedPos: Int
     private let commonPos: Int
+    /// Byte đầu của **blob chuỗi** (mọi offset trong bảng tính từ đây).
+    ///
+    /// Bản port đầu tiên hardcode `32 + offset`. Sai: `write_bin_v2` ghi header **48** byte cho định dạng
+    /// v2 (4 magic + 4 version + 12 count + 12 vị trí + 8 bảng section + 8 reserved) rồi mới tới blob.
+    /// Lệch 16 byte nghĩa là mọi chuỗi đọc ra đều là *đuôi của chuỗi trước + đầu của chuỗi sau* ⇒
+    /// phoneme rác ⇒ model đọc ra thứ không phải tiếng Việt, trong khi mọi thứ khác (shape, tensor, độ
+    /// dài audio) đều đúng nên rất khó đoán ra.
+    private let stringBase: Int
 
     // Cache — xem ghi chú "không an toàn đa luồng" ở doc của type.
     var mergedCache: [String: String] = [:]
@@ -73,6 +81,9 @@ final class SeaG2P {
         self.mergedCount = data.readUInt32Le(at: 12)
         self.commonCount = data.readUInt32Le(at: 16)
 
+        // V1 dùng header 32 byte; v2 thêm 8 byte bảng section + 8 byte reserved ⇒ 48.
+        let version = data.readUInt32Le(at: 4)
+        self.stringBase = version >= 2 ? 48 : 32
         self.stringOffsetsPos = Int(data.readUInt32Le(at: 20))
         self.mergedPos = Int(data.readUInt32Le(at: 24))
         self.commonPos = Int(data.readUInt32Le(at: 28))
@@ -82,7 +93,7 @@ final class SeaG2P {
         if id >= stringCount { return "" }
         let offPtr = stringOffsetsPos + Int(id) * 4
         let offset = Int(data.readUInt32Le(at: offPtr))
-        let start = 32 + offset
+        let start = stringBase + offset
 
         var end = start
         while end < data.count && data[end] != 0 {
@@ -90,6 +101,15 @@ final class SeaG2P {
         }
 
         return String(decoding: data[start..<end], as: UTF8.self)
+    }
+
+    /// So sánh theo **thứ tự byte UTF-8**.
+    ///
+    /// `write_bin_v2` sắp bảng bằng `sorted(..., key=lambda kv: kv[0].encode("utf-8"))`, tức thứ tự byte
+    /// UTF-8. `String.<` của Swift dùng Unicode canonical ordering — không bảo đảm trùng, nên tìm nhị
+    /// phân bằng `<` có thể trượt dù khoá **có** trong bảng. Dùng `utf8` tại chỗ, không cấp phát mảng.
+    private static func utf8Less(_ lhs: String, _ rhs: String) -> Bool {
+        lhs.utf8.lexicographicallyPrecedes(rhs.utf8)
     }
 
     private func lookupMerged(word: String) -> String? {
@@ -105,7 +125,7 @@ final class SeaG2P {
             if currentWord == word {
                 let pId = data.readUInt32Le(at: ptr + 4)
                 return getString(id: pId)
-            } else if currentWord < word {
+            } else if Self.utf8Less(currentWord, word) {
                 low = mid + 1
             } else {
                 high = mid - 1
@@ -128,7 +148,7 @@ final class SeaG2P {
                 let viId = data.readUInt32Le(at: ptr + 4)
                 let enId = data.readUInt32Le(at: ptr + 8)
                 return (getString(id: viId), getString(id: enId))
-            } else if currentWord < word {
+            } else if Self.utf8Less(currentWord, word) {
                 low = mid + 1
             } else {
                 high = mid - 1

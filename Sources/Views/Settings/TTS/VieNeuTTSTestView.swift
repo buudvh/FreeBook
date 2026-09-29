@@ -238,6 +238,11 @@ struct VieNeuTTSTestView: View {
         lines.append("giọng: \(voiceName)")
         lines.append("tốc độ: \(String(format: "%.2f", speed))×")
         lines.append("chữ: \(text.count) ký tự")
+        // Khác 0 nghĩa là có phoneme không nằm trong vocab của model — dấu hiệu text không đọc được,
+        // và cũng là dấu hiệu bộ G2P trả về ký tự lạ. Đây là chỉ số đã thiếu ở lượt "audio không phải
+        // tiếng Việt" nên phải hiện ngay ở đây.
+        let dropped = service?.lastDroppedScalars ?? 0
+        lines.append("phoneme bỏ: \(dropped)")
         if !statusMessage.isEmpty { lines.append("kết quả: \(statusMessage)") }
         if !lastReport.isEmpty { lines.append(lastReport) }
         return lines.joined(separator: "\n")

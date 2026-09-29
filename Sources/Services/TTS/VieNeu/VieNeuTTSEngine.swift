@@ -42,6 +42,12 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         let pcmDuration: Double
         let synthesisMs: Double
         let mode: VieNeuSynthesisPolicy.Mode
+        /// Số phoneme bị bỏ vì không có trong vocab.
+        ///
+        /// Khác 0 nghĩa là text đầu vào sinh ra ký tự mà model không đọc được. Đây đúng loại lỗi đã làm
+        /// audio ra "không phải tiếng Việt" mà mọi thứ khác vẫn đúng, nên nó phải **hiện ra ở màn thử
+        /// giọng**, không chỉ nằm trong log (log chỉ ghi khi người dùng bật `AppLogger`).
+        let droppedScalars: Int
     }
 
     enum EngineError: LocalizedError {
@@ -177,10 +183,12 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         let started = ProcessInfo.processInfo.systemUptime
 
         var samples: [Float] = []
+        var droppedScalars = 0
         for (index, chunk) in chunks.enumerated() {
             try Task.checkCancellation()
             let phonemes = config.applyingEmotionTags(to: phonemizer.phonemizeTextWithEmotions(text: chunk))
             let encoded = config.encode(phonemes: phonemes)
+            droppedScalars += encoded.droppedScalars
             noteDroppedScalars(encoded.droppedScalars, total: encoded.ids.count)
             if index > 0 {
                 samples.append(contentsOf: [Float](repeating: 0, count: Self.interChunkSilenceSamples(config.sampleRate)))
@@ -204,7 +212,8 @@ final class VieNeuTTSEngine: @unchecked Sendable {
             samples: samples,
             pcmDuration: pcmDuration,
             synthesisMs: synthesisMs,
-            mode: mode
+            mode: mode,
+            droppedScalars: droppedScalars
         )
     }
 

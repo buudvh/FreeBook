@@ -15,6 +15,13 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## `sea_g2p.bin` Format Invariants (1.3.421)
+
+* **The string blob starts at byte 48 (v2), not 32.** `write_bin_v2` writes `SEAP` + `u32 version` + 3 counts + 3 positions + `u32 sectionCount` + `u32 sectionsPos` + 8 reserved = **48 bytes** before the NUL-terminated string blob. The ported `SeaG2P.swift` hardcoded `32 + offset` (the v1 header size), so every string it read was the *tail of the previous string plus the head of the next* — the G2P returned garbage phonemes while shapes, tensors and audio length all looked correct, which is why the symptom was "the audio isn't Vietnamese" rather than an error. `stringBase` is now read from the version field (v2 → 48, v1 → 32). Verified against the real 62.829.820-byte file: base 48 resolves `xin → sˈin`, `chào → tʃˈaː2w`, `việt → vˈiɛ6t̪`; base 32 resolves **nothing**.
+* **Binary search over the tables must compare in UTF-8 byte order.** `write_bin_v2` sorts with `sorted(..., key=lambda kv: kv[0].encode("utf-8"))`, i.e. byte order. Swift's `String.<` uses Unicode canonical ordering, which is not guaranteed to agree, so a lookup can miss a key that *is* present. `SeaG2P.utf8Less` uses `lhs.utf8.lexicographicallyPrecedes(rhs.utf8)` (no allocation).
+* **The vocab is per Unicode scalar, and `SeaG2P` emits combining marks as separate scalars.** `việt` → `vˈiɛ6t̪` contains U+032A as its own scalar; encoding must iterate `unicodeScalars`, never Swift `Character`s.
+* **Diagnostics must surface dropped phonemes in the UI, not only in the log.** `AppLogger` only writes when the user enables it, so a G2P that returns characters outside the model's vocab fails silently. `VieNeuTTSEngine.Output.droppedScalars` now flows to the test screen's copyable report.
+
 ## VieNeu-TTS ONNX Bridge Invariants (1.3.419, bổ sung 1.3.420)
 
 * **Never derive a tensor shape from `config.json` — read it from the model.** The first version built `ctx` as `[1, L, dim]` with `dim = 512` and `duration_predictor` answered `Got: 512 Expected: 256`: the real last dimension of `ctx` is `style_dim` (256), and `dim` serves a different part of the architecture. `VieNeuORTRunTextEncoder` now returns the shape it actually produced (`copyFloats` fills `outShape`/`outRank` from `GetDimensions`) and both downstream calls must consume exactly that. `VieNeuConfig.dim` was **removed** rather than left unused. Same failure mode as the hardcoded output names — the engine's rule is *ask the model, never guess*.

@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.421] - 2026-09-29
+
+### fix: doc dung base 48 cua sea_g2p.bin va thu tu byte UTF-8
+
+Engine đã chạy (**RTF 0.50** ở chế độ `high`, độ dài audio hợp lý) nhưng người dùng báo **"âm thanh không phải tiếng Việt"**. Hai lỗi trong bộ đọc `sea_g2p.bin`:
+
+- **`SeaG2P.getString` hardcode `32 + offset`** — `write_bin_v2` ghi header **48** byte (4 magic + 4 version + 12 count + 12 vị trí + 8 bảng section + 8 reserved) rồi mới tới blob chuỗi. Lệch **16 byte** nghĩa là **mọi** chuỗi đọc ra đều là *đuôi của chuỗi trước + đầu của chuỗi sau* ⇒ phoneme rác ⇒ model đọc ra thứ không phải tiếng Việt, trong khi shape/tensor/độ dài audio đều đúng nên triệu chứng không phải một lỗi mà là "nghe sai tiếng".
+  * Đã xác minh trực tiếp trên file thật (62.829.820 byte): base 48 cho `xin → sˈin`, `chào → tʃˈaː2w`, `đây → ɗˈəɪ`, `việt → vˈiɛ6t̪`, `người → ŋˈyə2j`; base 32 **không tra được từ nào**. Nay `stringBase` đọc từ trường version (v2 → 48, v1 → 32) thay vì hardcode.
+- **Sai thứ tự so sánh khi tìm nhị phân**: `write_bin_v2` sắp bảng bằng `sorted(..., key=lambda kv: kv[0].encode("utf-8"))` (thứ tự **byte UTF-8**), còn `SeaG2P` dùng `String.<` của Swift (Unicode canonical ordering) ⇒ có thể trượt khoá **có** trong bảng. Nay dùng `utf8Less` với `lhs.utf8.lexicographicallyPrecedes(rhs.utf8)`.
+- **Thêm `droppedScalars` vào khối chẩn đoán của màn thử giọng**: `AppLogger` chỉ ghi khi người dùng bật `AppLogger.isLoggingEnabled`, nên một bộ G2P trả ký tự ngoài vocab sẽ hỏng **im lặng**. Đây chính là chỉ số đã thiếu ở lượt này.
+- **File sửa**: `SeaG2P.swift` 253 → **273**, `VieNeuTTSEngine.swift` 297 → **302**, `VieNeuTTSService.swift` 225 → **231**, `VieNeuTTSTestView.swift` 392 → **397** (sát trần 400 — mọi thay đổi UI tiếp theo ở màn này **phải** tách file trước).
+- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
+- **Tài liệu CodeGraph**: `rules.md` thêm mục **`sea_g2p.bin` Format Invariants** (4 luật); `11_subsystems.md` thêm mục về hai lỗi này.
+
 ## [1.3.420] - 2026-09-29
 
 ### fix: doc shape ctx tu model va them nut sao chep ket qua
