@@ -61,13 +61,15 @@ extension VieNeuTTSEngine {
 
         let gains = loudnessGains(for: waveforms)
         var samples: [Float] = []
-        var pauseSeconds = 0.0
+        // Cố ý KHÔNG đặt tên `pauseSeconds`: trùng tên sẽ **che** hàm `pauseSeconds(for:)` cùng type và
+        // lỗi biên dịch là "cannot call value of non-function type 'Double'".
+        var totalPauseSeconds = 0.0
 
         for (index, waveform) in waveforms.enumerated() {
             if index > 0 {
                 // Khoảng nghỉ theo **loại ranh giới** của khe, không phải một hằng số cho mọi khe.
-                let pause = pauseSeconds(for: gaps[index - 1])
-                pauseSeconds += pause
+                let pause = Self.pauseSeconds(for: gaps[index - 1])
+                totalPauseSeconds += pause
                 samples.append(contentsOf: [Float](repeating: 0, count: Int(pause * Double(sampleRate))))
             }
             let gain = gains[index]
@@ -77,7 +79,7 @@ extension VieNeuTTSEngine {
                 samples.append(contentsOf: waveform.map { $0 * gain })
             }
         }
-        return (samples, pauseSeconds)
+        return (samples, totalPauseSeconds)
     }
 
     /// Hệ số kéo mỗi chunk về **trung vị** RMS, kẹp trong [0,6 … 1,6] (±4 dB).
