@@ -34,9 +34,8 @@ extension TTSManager {
         let savedRate = defaults.double(forKey: VieNeuSettingsKey.rate)
         self.speed = savedRate > 0 ? savedRate : defaultRate
 
-        self.selectedVoice = defaults.string(forKey: VieNeuSettingsKey.voice)
-            ?? VieNeuTTSService.shared?.availableVoices().first?.name
-            ?? ""
+        let voices = (try? VieNeuTTSService.shared?.availableVoices()) ?? []
+        self.selectedVoice = defaults.string(forKey: VieNeuSettingsKey.voice) ?? voices.first?.name ?? ""
 
         let savedCount = defaults.object(forKey: VieNeuSettingsKey.prefetchCount) != nil
             ? defaults.integer(forKey: VieNeuSettingsKey.prefetchCount)

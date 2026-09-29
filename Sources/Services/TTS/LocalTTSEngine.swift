@@ -50,3 +50,32 @@ protocol LocalTTSEngine: AnyObject {
         onChunkPayload: @escaping @Sendable (TTSPCMChunkPayload) async throws -> Void
     ) async throws -> Data
 }
+
+extension LocalTTSEngine {
+    /// Overload **không có `requestID`** cho các call site cũ.
+    ///
+    /// Swift **cấm** default argument trong protocol requirement, nên gọi `synthesizeWithDuration(…)`
+    /// thiếu `requestID` qua `any LocalTTSEngine` sẽ lỗi "missing argument for parameter 'requestID'" —
+    /// dù hai service cụ thể đều có `requestID: UUID = UUID()`.
+    ///
+    /// Cách chữa ở đây là thêm overload thay vì sửa call site: `TTSManager.swift` đang **4026/3470** dòng
+    /// (luật ratchet-down), nên mọi dòng thêm vào đó đều phải cân nhắc. Overload giữ call site nguyên vẹn.
+    func synthesizeWithDuration(
+        text: String,
+        voice: String,
+        speed: Double,
+        boundaryKind: TTSBoundaryKind,
+        priority: SynthesisPriority,
+        synthesisKey: String?
+    ) async throws -> (data: Data, pcmDuration: Double, queueWaitMs: Double, synthesisMs: Double) {
+        try await synthesizeWithDuration(
+            text: text,
+            voice: voice,
+            speed: speed,
+            boundaryKind: boundaryKind,
+            priority: priority,
+            requestID: UUID(),
+            synthesisKey: synthesisKey
+        )
+    }
+}

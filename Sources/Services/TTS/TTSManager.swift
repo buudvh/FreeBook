@@ -756,7 +756,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     internal let googleService = GoogleTTSService()
     internal var nghiTTSService: PiperTTSService?
     @Published public var vieneuPrefetchCount: Int = 3
-    @Published public private(set) var vieneuSafeCachedTimeThreshold: Double = NghiSynthesisPolicy.defaultSafeCachedTimeThreshold
+    @Published public var vieneuSafeCachedTimeThreshold: Double = NghiSynthesisPolicy.defaultSafeCachedTimeThreshold
     public private(set) var nghiTTSClient: NghiTTSClient?
     private var modelStore: ModelStore?
     private var modelContainer: ModelContainer?

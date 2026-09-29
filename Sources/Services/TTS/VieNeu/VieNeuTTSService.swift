@@ -182,7 +182,6 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         text: String,
         voice: String,
         speed: Double,
-        boundaryKind: TTSBoundaryKind = .paragraphEnd,
         priority: SynthesisPriority = .demand,
         requestID: UUID = UUID(),
         synthesisKey: String? = nil,
