@@ -15,6 +15,18 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+
+## Call graph Tách Trạng Thái Theo Engine + Nối VieNeu Vào Đường Phát Local (1.3.434)
+
+* **Định tuyến phát audio**: `TTSManager.playAudioData(_:withId:context:)` → `TTSManager.isLocalEngine(tool)` → `playNghiAudioData(_:playbackId:)` (engine local) **hoặc** nhánh `AVAudioPlayer` chung (system/extension). Đây là **điểm sửa lỗi mất tiếng** của VieNeu: trước lượt này nhánh chỉ là `tool == "nghitts"`, nên VieNeu rơi xuống `AVAudioPlayer` trong khi `updatePlaybackParams()` đặt `rate` lên `nghiAudioPlayerQueue` — hai bên lệch nhau nên không có tiếng.
+* **Lưu tham số theo engine**: `TTSManager.speed.didSet` → `persistSpeed(_:)` → `UserDefaults.set(_:forKey:)`; tương tự `pitch.didSet` → `persistPitch(_:)` và `selectedVoice.didSet` → `persistVoice(_:)`. Cả ba là `internal func` trong `TTSManager+VieNeu.swift`.
+* **Nạp tham số theo engine**: `TTSManager.loadParamsForCurrentTool()` → nhánh `else if tool == "vieneu"` → `applyVieNeuParamsIfNeeded()` → `VieNeuTTSService.availableVoices()`. Trước lượt này VieNeu rơi vào nhánh `else` (extension) — nhánh đó gọi `applyVieNeuParamsIfNeeded()` rồi **ghi đè ngay** `speed`/`pitch`/`selectedVoice` bằng khoá `extRate_vieneu`/`extPitch_vieneu`/`extVoice_vieneu`, làm helper vô hiệu im lặng.
+* **Cửa sổ tải trước**: `TTSManager.speed.didSet` → `updatePlaybackParams()` → `nghiAudioPlayerQueue.updateRate(_:)` + `cancelNghiWakeTask()` + `updateNghiPrefetchWindow()` khi `isLocalEngine(tool)`. `setVieNeuSafeCachedTimeThreshold(_:)` đi thẳng vào hai hàm cuối khi `isPlaying`.
+  * **Nhưng `updateNghiPrefetchWindow()` (`:2652`) thoát ngay với VieNeu** vì `guard isPlaying, tool == "nghitts"`. Cùng nhóm gate còn có `prepareNextNghiAudioIfPossible` (`:3252`), `calculateNghiCachedTime` (`:2596`), `handleNghiAudioFinished` (`:3362`), `startPrefetchTask(for:)` (`:2991`), `handleNghiScheduledHandoff` (`:3194`). Vì `playNghiAudioData` gọi `prepareNextNghiAudioIfPossible()`, đường **nạp đoạn kế tiếp** của VieNeu hiện là no-op — cạnh gọi tồn tại nhưng không dẫn tới đâu.
+* **Lưu độ trễ**: `prefetchDelayMs.didSet` **giữ** `== "nghitts"` cho khoá `nghittsPrefetchDelay` (đây là khoá của Piper; VieNeu ghim 500 ms và không có UI). Đổi chỗ này sang `isLocalEngine` sẽ khiến chuyển sang VieNeu ghi đè độ trễ của NghiTTS.
+* **Prefetcher**: `TTSChapterPrefetcher` kiểm `TTSManager.isLocalEngine(key.tool)` ở **2** chỗ (guard DTO-ready và nhánh promote ưu tiên) thay cho `key.tool == "nghitts"`.
+* **UI → service**: `TTSSettingsView.vieNeuReaderSection` → `vieNeuModeBinding` → `VieNeuTTSService.preferredMode` (get/set `UserDefaults["vieneuPreferredMode"]`); Stepper ngưỡng → `TTSManager.setVieNeuSafeCachedTimeThreshold(_:)`; Stepper số đoạn → `$ttsManager.vieneuPrefetchCount` (didSet tự lưu).
+* **`chunkLength.didSet` → `persistChunkLength(_:)` → `UserDefaults["vieneuChunk"]` khi engine là `vieneu`** — và giá trị này **được tiêu thụ thật** qua `playbackParagraphs` → `NghiUtteranceSegmenter.expand(..., maximumLength: chunkLength)`.
 ## Call graph Lọc tên riêng lũy tiến, sửa Pop-up duyệt Name/VP và ổn định Chat AI (1.3.413)
 
 ```text

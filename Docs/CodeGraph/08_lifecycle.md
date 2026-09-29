@@ -15,6 +15,16 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+
+## Vòng Đời Tham Số VieNeu: Ngưỡng Đệm & Số Đoạn Tải Trước (1.3.434)
+
+* **`vieneuSafeCachedTimeThreshold`** — vòng đời: `applyVieNeuParamsIfNeeded()` nạp lúc khởi tạo/đổi engine (clamp rồi **ghi lại** giá trị đã clamp) → người dùng kéo Stepper → `setVieNeuSafeCachedTimeThreshold(_:)` clamp + lưu `UserDefaults["vieneuSafeCachedTimeThreshold"]` → nếu đang phát và `tool == "vieneu"` thì huỷ wake task và gọi `updateNghiPrefetchWindow()` (không dừng audio).
+  * **Nhưng vòng đời dừng ở đó**: `updateNghiPrefetchWindow()` thoát ngay vì `guard isPlaying, tool == "nghitts"` (`:2652`), và `calculateNghiCachedTime()` (`:2596`) trả **0.0** cho VieNeu. Nên giá trị này được lưu/nạp/ghi log đầy đủ mà **chưa từng được đọc để quyết định** — vòng đời *lưu trữ* đóng, vòng đời *hành vi* chưa mở.
+* **`vieneuPrefetchCount`** — vòng đời: nạp trong `applyVieNeuParamsIfNeeded()` (kẹp 2…10) → đổi qua Stepper → `didSet` lưu `UserDefaults["vieneuPrefetchCount"]` và `clearPrefetchCache()` khi `tool == "vieneu"`. `didSet` **bỏ qua khi `isInitializing`** để lần nạp đầu không ghi đè giá trị đã lưu.
+  * **Nơi tiêu thụ duy nhất là `currentPrefetchCount`**, mà `currentPrefetchCount` chỉ được đọc trong `updatePrefetchWindow()` (`:2488`) — đường **remote** (`dispatchRemotePrefetch`). Nên với VieNeu giá trị này cũng mới chỉ *được lưu*, chưa điều khiển gì.
+* **`chunkLength` của VieNeu** — vòng đời: nạp từ `vieneuChunk` trong `applyVieNeuParamsIfNeeded()` → `didSet` gọi `persistChunkLength(_:)` ghi `vieneuChunk`. Đây là tham số **có** tác dụng: `TTSManager.playbackParagraphs` cho `vieneu` đi qua `NghiUtteranceSegmenter.expand(baseParagraphs, maximumLength: chunkLength)` (`:801-803`).
+* **`VieNeuSynthesisPolicy.Mode?`** — vòng đời: `VieNeuTTSService.preferredMode` (get/set `UserDefaults["vieneuPreferredMode"]`; set `nil` **xoá** khoá) → `VieNeuTTSService` truyền vào engine qua `engine.setRequestedMode(preferredMode)`; có lựa chọn thì engine **tắt hẳn** bộ thích nghi (nếu không nó sẽ tự nâng/hạ và ghi đè đúng thứ người dùng vừa đặt).
+* **Ràng buộc dòng file**: `TTSManager.swift` đang ở **4029/3470** (vi phạm nền). Lượt này giữ **net 0 dòng** bằng cách đưa `persistSpeed`/`persistPitch`/`persistVoice` ra `TTSManager+VieNeu.swift`, nên có thêm 1 engine + 5 khoá mới mà file legacy không dài thêm.
 ## Vòng đời ReaderView & Bảo Toàn Skeleton Handshake Khi Mở/Đóng Toàn Màn Hình AI (1.3.397)
 
 * **Bảo toàn trạng thái View Hierarchy**:

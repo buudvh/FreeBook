@@ -15,6 +15,15 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+
+## Sự Kiện Định Tuyến Engine TTS — Log `[TTSRoute]` (1.3.434)
+
+* **`TTSManager.tool.didSet`** ghi log `[TTSRoute] doi engine=<tool> local=<Bool> extension=<Bool>`. Đây là dòng đầu tiên cần đọc khi người dùng báo "chọn engine X mà không ra tiếng": nó nói ngay engine mới được xếp vào nhánh nào.
+* **`TTSManager.playAudioData(_:withId:context:)`** ghi log ở **cả hai** nhánh: `[TTSRoute] playAudioData -> hang doi local engine=… id=… bytes=…` hoặc `-> AVAudioPlayer …`. Cặp log này là bằng chứng trực tiếp cho lỗi "VieNeu im lặng" (1.3.434) và sẽ lộ ngay nếu một engine local tương lai rơi nhầm nhánh.
+* **`applyVieNeuParamsIfNeeded()`** ghi `[TTSRoute] nap tham so VieNeu voice=… rate=… pitch=… prefetch=… nguongAnToan=…` — chứng minh tham số đã được nạp (thay vì bị nhánh `else` ghi đè như trước).
+* **Lưu ý về điều kiện bật log**: `AppLogger.isLoggingEnabled` mặc định **false** và bị `AppLogger.init` đặt lại false ở **mỗi lần khởi chạy app**, nên phải bật log **trước** khi thao tác cần đo. `persistSpeed`/`persistPitch`/`persistVoice`/`persistChunkLength` dùng `logTTSVerbose` (cần thêm `isTTSVerboseLoggingEnabled`) vì `speed`/`pitch` đổi theo từng nấc slider và sẽ làm ngập file log.
+* **`chunkLength.didSet`** đi qua `persistChunkLength(_:)` và ghi khoá **theo engine** — riêng `vieneu` ghi `vieneuChunk`. Đây là tham số **có** hiệu lực với VieNeu vì `TTSManager.playbackParagraphs` (`:801-803`) cho `vieneu` đi qua `NghiUtteranceSegmenter.expand(..., maximumLength: chunkLength)`.
+* **`prefetchDelayMs.didSet` là NGOẠI LỆ có chủ ý**: nó vẫn dùng `tool == "nghitts"` cho khoá `nghittsPrefetchDelay` chứ **không** dùng `isLocalEngine`. Đây là khoá của Piper; `applyVieNeuParamsIfNeeded()` luôn đặt `prefetchDelayMs = 500`, nên nếu VieNeu đi vào nhánh đó thì mỗi lần chuyển engine sẽ ghi đè độ trễ người dùng đã chỉnh cho NghiTTS. Khi mở thêm engine local, **đọc thân nhánh trước khi thay predicate**.
 ## Hoàn thiện phát và lọc sự kiện quickTranslationRulesDidUpdate theo truyện (1.3.381)
 
 * `QuickTranslationRuleBookStore.notifyChange(bookId:)` gọi thêm `TranslationManager.shared.notifyRulesDidUpdate(bookId: bookId)` để phát `.quickTranslationRulesDidUpdate` kèm `bookId` khi rule riêng thay đổi.
@@ -424,7 +433,8 @@ graph TD
 *   **Tap "Đọc truyện"** (`BookDetailView.swift`): Kích hoạt chuyển cảnh sang `ReaderView`, khởi tạo `ReaderViewModel` và nạp chương.
 *   **Tap nút "TTS Play"** (`ReaderView` / `TTSFloatingWidgetView`): Kích hoạt `TTSManager.shared.startSpeaking(...)`.
 *   **Swipe/Scroll vuốt dọc** (`ReaderView`): Kích hoạt sự kiện thay đổi dòng hiển thị, gửi index đoạn văn hiện tại đến `ReaderViewModel.updateProgress(...)`.
-*   **Thay đổi thông số TTS** (`TTSSettingsView` / `NghiTTSSettingsView`): Thay đổi `tool`, `speed`, `pitch`, `selectedVoice`. Sự kiện `didSet` của các thuộc tính này kích hoạt cập nhật thông số trực tiếp lên `AVAudioUnitTimePitch` và Now Playing Info.
+*   **Thay đổi thông số TTS** (`TTSSettingsView` / `NghiTTSSettingsView`): Thay đổi `tool`, `speed`, `pitch`, `selectedVoice`. Sự kiện `didSet` của `speed`/`pitch`/`selectedVoice` đi qua `persistSpeed(_:)`/`persistPitch(_:)`/`persistVoice(_:)` để chọn **khoá `UserDefaults` theo engine**, rồi `speed`/`pitch` mới gọi `updatePlaybackParams()`.
+    *   **`AVAudioUnitTimePitch` KHÔNG được cập nhật cho engine local.** Nó chỉ được cấu hình một lần trong `setupAudioEngine()` → `TTSAudioEngineController.configureEngine(speed:pitch:)`, phục vụ đường `AVAudioEngine` (system/extension). Engine local (`nghitts`, `vieneu`) chỉ nhận `nghiAudioPlayerQueue.updateRate(speed)` ⇒ **`pitch` là no-op với cả hai**. Đây là hiện trạng đã biết, không phải hồi quy của lượt 1.3.434.
 
 ### 2.2. Thông báo Hệ thống (Notification Center)
 *   **`AVAudioSession.interruptionNotification`**:

@@ -15,6 +15,14 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+
+## Vòng Đời Khoá `UserDefaults` Của Engine VieNeu (1.3.434)
+
+* **Sáu khoá tham số, tách hẳn khỏi `nghitts*`**: `vieneuVoice`, `vieneuRate`, `vieneuPitch`, `vieneuChunk`, `vieneuPrefetchCount`, `vieneuSafeCachedTimeThreshold`; cộng `vieneuPreferredMode` do `VieNeuTTSService` quản lý. Việc tách khoá là **cố ý**: VieNeu có RTF và nhu cầu đệm khác Piper, dùng chung khoá thì chỉnh engine này ghi đè engine kia.
+* **Chiều ghi**: `TTSManager.speed.didSet` → `persistSpeed(_:)`; `pitch.didSet` → `persistPitch(_:)`; `selectedVoice.didSet` → `persistVoice(_:)`; `vieneuPrefetchCount.didSet`; `setVieNeuSafeCachedTimeThreshold(_:)`; `VieNeuTTSService.preferredMode` setter (`nil` ⇒ **xoá** khoá). **Chiều đọc**: `applyVieNeuParamsIfNeeded()`. Hai chiều **phải** dùng cùng khoá — lệch nhau thì giá trị không bao giờ được nhớ (đã xảy ra với `vieneuVoice`, xem 1.3.434).
+* **Chi phí tài nguyên**: cả 7 khoá (`vieneuVoice`, `vieneuRate`, `vieneuPitch`, `vieneuChunk`, `vieneuPrefetchCount`, `vieneuSafeCachedTimeThreshold`, `vieneuPreferredMode`) đều là scalar nhỏ trong `UserDefaults`, không cấp phát file; `vieneuPreferredMode` set `nil` sẽ `removeObject` nên không để lại giá trị chết.
+* **Cảnh báo về hiệu lực**: khoá `vieneuPrefetchCount` và `vieneuSafeCachedTimeThreshold` được ghi/đọc đúng nhưng **chưa có nơi tiêu thụ** cho VieNeu (máy nạp lại còn gate `tool == "nghitts"`); `vieneuPitch` chưa có tác dụng vì queue chỉ áp `rate`. Chỉ `vieneuRate`, `vieneuVoice`, `vieneuChunk` và `vieneuPreferredMode` là có hiệu lực thật ở lượt 1.3.434.
+* **`vieneuPrefetchCount` / `vieneuSafeCachedTimeThreshold` điều khiển tài nguyên thật**: số đoạn tải trước (2…10) và số giây audio đệm sẵn (4…20). `VieNeuSynthesisPolicy.maxTotalAudioPayloads` = **5** giữ nguyên như Piper — nới trần này không làm engine nhanh hơn, chỉ làm bộ nhớ phình.
 ## Vòng đời Lưu trữ Session AI Độc lập, Phân trang Tin nhắn và Dọn dẹp File (1.3.410)
 
 * **Vòng đời Tệp Session Độc Lập (`AIChatHistoryStore`)**:

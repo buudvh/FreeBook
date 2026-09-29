@@ -70,4 +70,59 @@ extension TTSSettingsView {
                 ?? NghiTTSClient.fallbackVietnameseVoices
         }
     }
+
+    /// Khối **quản lý riêng của trình đọc** cho VieNeu, hiện thẳng trong Section 3 của màn Cài đặt.
+    ///
+    /// Đặt inline (thay vì một màn con như `NghiTTSSettingsView`) vì đây đều là tham số **hay chỉnh trong
+    /// lúc đang nghe**; bắt đi thêm một tầng chỉ để đổi 8/16 bước là ma sát vô ích.
+    ///
+    /// **Tốc độ và cao độ không lặp lại ở đây**: chúng đã có slider ở Section 4, chỉ khác khoá lưu
+    /// (`vieneuRate`/`vieneuPitch` nhờ `persistSpeed`/`persistPitch`). Lặp lại sẽ tạo hai nguồn sự thật.
+    @ViewBuilder
+    var vieNeuReaderSection: some View {
+        Picker("Tốc độ tạo audio", selection: vieNeuModeBinding) {
+            Text("Tự động (theo tốc độ máy)").tag(VieNeuSynthesisPolicy.Mode?.none)
+            ForEach(VieNeuSynthesisPolicy.Mode.allCases, id: \.self) { mode in
+                Text(mode.displayName).tag(VieNeuSynthesisPolicy.Mode?.some(mode))
+            }
+        }
+        .pickerStyle(.menu)
+
+        Stepper(value: $ttsManager.vieneuPrefetchCount, in: 2...10) {
+            HStack {
+                Text("Số đoạn tải trước")
+                Spacer()
+                Text("\(ttsManager.vieneuPrefetchCount)")
+                    .font(.system(.body, design: .monospaced))
+            }
+        }
+
+        Stepper(
+            value: Binding(
+                get: { ttsManager.vieneuSafeCachedTimeThreshold },
+                set: { ttsManager.setVieNeuSafeCachedTimeThreshold($0) }
+            ),
+            in: 4...20,
+            step: 1
+        ) {
+            HStack {
+                Text("Ngưỡng nạp bộ đệm")
+                Spacer()
+                Text("\(Int(ttsManager.vieneuSafeCachedTimeThreshold))s")
+                    .font(.system(.body, design: .monospaced))
+            }
+        }
+    }
+
+    /// Cầu nối `Picker` ↔ `VieNeuTTSService.preferredMode`.
+    ///
+    /// Không dùng được `@AppStorage`: extension **không thêm được stored property**, mà `@AppStorage` là
+    /// stored. Đọc/ghi thẳng qua service lại có lợi: màn thử giọng và màn Cài đặt dùng chung khoá
+    /// `vieneuPreferredMode`, sửa bên nào bên kia cũng thấy.
+    var vieNeuModeBinding: Binding<VieNeuSynthesisPolicy.Mode?> {
+        Binding(
+            get: { VieNeuTTSService.shared?.preferredMode },
+            set: { VieNeuTTSService.shared?.preferredMode = $0 }
+        )
+    }
 }

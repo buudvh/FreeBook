@@ -92,6 +92,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     @Published public var tool: String {
         didSet {
             UserDefaults.standard.set(tool, forKey: "ttsTool")
+            AppLogger.shared.log("[TTSRoute] doi engine=\(tool) local=\(TTSManager.isLocalEngine(tool)) extension=\(TTSManager.isExtensionTool(tool))")
             cancelChapterAdvanceTask()
             loadParamsForCurrentTool()
             clearPrefetchCache()
@@ -106,30 +107,14 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     @Published public var speed: Double {
         didSet {
             UserDefaults.standard.set(speed, forKey: "ttsRate")
-            if tool == "system" {
-                UserDefaults.standard.set(speed, forKey: "systemRate")
-            } else if tool == "nghitts" {
-                UserDefaults.standard.set(speed, forKey: "nghittsRate")
-            } else if tool == "google" {
-                UserDefaults.standard.set(speed, forKey: "googleRate")
-            } else {
-                UserDefaults.standard.set(speed, forKey: "extRate_\(tool)")
-            }
+            persistSpeed(speed)
             updatePlaybackParams()
         }
     }
     @Published public var pitch: Double {
         didSet {
             UserDefaults.standard.set(pitch, forKey: "ttsPitch")
-            if tool == "system" {
-                UserDefaults.standard.set(pitch, forKey: "systemPitch")
-            } else if tool == "nghitts" {
-                UserDefaults.standard.set(pitch, forKey: "nghittsPitch")
-            } else if tool == "google" {
-                UserDefaults.standard.set(pitch, forKey: "googlePitch")
-            } else {
-                UserDefaults.standard.set(pitch, forKey: "extPitch_\(tool)")
-            }
+            persistPitch(pitch)
             updatePlaybackParams()
             if !isInitializing && tool == "google" && oldValue != pitch {
                 cancelClaimedSynthesisTask()
@@ -144,15 +129,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
     @Published public var selectedVoice: String {
         didSet {
-            if tool == "system" {
-                UserDefaults.standard.set(selectedVoice, forKey: "systemVoice")
-            } else if tool == "nghitts" {
-                UserDefaults.standard.set(selectedVoice, forKey: "nghittsVoice")
-            } else if tool == "google" {
-                UserDefaults.standard.set(selectedVoice, forKey: "googleVoice")
-            } else {
-                UserDefaults.standard.set(selectedVoice, forKey: "extVoice_\(tool)")
-            }
+            persistVoice(selectedVoice)
             clearPrefetchCache()
         }
     }
@@ -162,15 +139,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         didSet {
             guard !isInitializing else { return }
             UserDefaults.standard.set(chunkLength, forKey: "ttsChunkLength")
-            if tool == "system" {
-                UserDefaults.standard.set(chunkLength, forKey: "systemChunk")
-            } else if tool == "nghitts" {
-                UserDefaults.standard.set(chunkLength, forKey: "nghittsChunk")
-            } else if tool == "google" {
-                UserDefaults.standard.set(chunkLength, forKey: "googleChunk")
-            } else {
-                UserDefaults.standard.set(chunkLength, forKey: "extChunkUser_\(tool)")
-            }
+            persistChunkLength(chunkLength)
             clearPrefetchCache()
         }
     }
@@ -215,7 +184,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         guard clamped != nghittsSafeCachedTimeThreshold else { return }
         nghittsSafeCachedTimeThreshold = clamped
         UserDefaults.standard.set(clamped, forKey: "nghittsSafeCachedTimeThreshold")
-        if tool == "nghitts" && isPlaying {
+        if TTSManager.isLocalEngine(tool) && isPlaying {
             cancelNghiWakeTask()
             updateNghiPrefetchWindow()
         }
@@ -235,9 +204,13 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     @Published public var prefetchDelayMs: Int {
         didSet {
             guard !isInitializing else { return }
-            let isRemoteTTS = (tool != "system" && tool != "nghitts")
+            let isRemoteTTS = (tool != "system" && !TTSManager.isLocalEngine(tool))
             let clampedValue = isRemoteTTS ? max(300, prefetchDelayMs) : prefetchDelayMs
             UserDefaults.standard.set(clampedValue, forKey: "ttsPrefetchDelayMs")
+            // CỐ Ý vẫn là `== "nghitts"`, không phải `isLocalEngine`: đây là khoá **của Piper**. VieNeu
+            // ghim độ trễ 500 ms trong `applyVieNeuParamsIfNeeded()` và chưa có UI riêng, nên nếu để
+            // VieNeu đi vào nhánh này thì mỗi lần chuyển sang VieNeu sẽ ghi đè `nghittsPrefetchDelay`
+            // bằng 500 — người dùng mất độ trễ đã chỉnh cho NghiTTS.
             if tool == "nghitts" {
                 UserDefaults.standard.set(clampedValue, forKey: "nghittsPrefetchDelay")
             } else if tool == "google" {
@@ -251,6 +224,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     public var currentPrefetchCount: Int {
         if tool == "google" {
             return googlePrefetchCount
+        } else if tool == "vieneu" {
+            return vieneuPrefetchCount
         } else if tool == "nghitts" {
             return nghittsPrefetchCount
         } else if tool == "system" {
@@ -755,8 +730,26 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     internal let extService = ExtTTSService()
     internal let googleService = GoogleTTSService()
     internal var nghiTTSService: PiperTTSService?
-    @Published public var vieneuPrefetchCount: Int = 3
+    @Published public var vieneuPrefetchCount: Int = 3 {
+        didSet {
+            guard !isInitializing else { return }
+            UserDefaults.standard.set(vieneuPrefetchCount, forKey: TTSManager.VieNeuSettingsKey.prefetchCount)
+            if tool == "vieneu" { clearPrefetchCache() }
+        }
+    }
     @Published public var vieneuSafeCachedTimeThreshold: Double = NghiSynthesisPolicy.defaultSafeCachedTimeThreshold
+    /// Ngưỡng nạp bộ đệm cho VieNeu — khoá `vieneu*` tách khỏi `nghitts*` vì VieNeu cần đệm sâu hơn Piper
+    /// (`VieNeuSynthesisPolicy.bufferedSecondsTarget` = 12 s so với 8 s). Cùng khuôn `setNghiTTSSafeCachedTimeThreshold`.
+    public func setVieNeuSafeCachedTimeThreshold(_ newValue: Double) {
+        let clamped = NghiSynthesisPolicy.clampSafeCachedTimeThreshold(newValue)
+        guard clamped != vieneuSafeCachedTimeThreshold else { return }
+        vieneuSafeCachedTimeThreshold = clamped
+        UserDefaults.standard.set(clamped, forKey: TTSManager.VieNeuSettingsKey.safeCachedTimeThreshold)
+        if tool == "vieneu" && isPlaying {
+            cancelNghiWakeTask()
+            updateNghiPrefetchWindow()
+        }
+    }
     public private(set) var nghiTTSClient: NghiTTSClient?
     private var modelStore: ModelStore?
     private var modelContainer: ModelContainer?
@@ -767,7 +760,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             await ReadingProgressStore.shared.configure(container: container)
             await ChapterContentRepository.shared.configure(container: container)
         }
-        if tool == "nghitts" {
+        if TTSManager.isLocalEngine(tool) {
             scheduleNghiWarmUp()
         }
     }
@@ -1062,8 +1055,9 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             self.chunkLength = UserDefaults.standard.object(forKey: "googleChunk") != nil ? UserDefaults.standard.integer(forKey: "googleChunk") : 200
             let savedDelay = UserDefaults.standard.object(forKey: "googlePrefetchDelay") != nil ? UserDefaults.standard.integer(forKey: "googlePrefetchDelay") : 500
             self.prefetchDelayMs = max(300, savedDelay)
-        } else {
+        } else if tool == "vieneu" {
             applyVieNeuParamsIfNeeded()
+        } else {
             self.speed = UserDefaults.standard.double(forKey: "extRate_\(tool)") > 0 ? UserDefaults.standard.double(forKey: "extRate_\(tool)") : defaultRate
             self.pitch = UserDefaults.standard.double(forKey: "extPitch_\(tool)") > 0 ? UserDefaults.standard.double(forKey: "extPitch_\(tool)") : defaultPitch
             self.selectedVoice = UserDefaults.standard.string(forKey: "extVoice_\(tool)") ?? ""
@@ -1079,7 +1073,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
     private func setupEngines() {
         nextChapterPrefetcher.onDTOReady = { [weak self] key in
-            guard let self, self.isPlaying, key.tool == "nghitts" else { return }
+            guard let self, self.isPlaying, TTSManager.isLocalEngine(key.tool) else { return }
             self.checkAndPromoteNextChapterAudioIfNeeded()
         }
         do {
@@ -1971,7 +1965,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     }
                 }
 
-                if requestedKey.tool == "nghitts" {
+                if TTSManager.isLocalEngine(requestedKey.tool) {
                     await PiperSynthesisCoordinator.shared.promote(synthesisKey: synthesisKey, to: .demand)
                 } else {
                     await RemoteTTSSynthesisCoordinator.shared.promote(key: synthesisKey, to: .current)
@@ -2008,7 +2002,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     if self.tool != requestedKey.tool { return false }
                     if self.selectedVoice != requestedKey.selectedVoice { return false }
                     if requestedKey.tool == "google" && self.pitch != requestedKey.googlePitch { return false }
-                    if requestedKey.tool != "system" && requestedKey.tool != "nghitts" && requestedKey.tool != "google" {
+                    if TTSManager.isExtensionTool(requestedKey.tool) {
                         if self.extensionLocalPath != requestedKey.extensionLocalPath { return false }
                         if self.extensionConfigJson != requestedKey.extensionConfigJson { return false }
                         let currentFingerprint = ExtensionManager.shared.getTTSRuntimeFingerprint(localPath: self.extensionLocalPath, configJson: self.extensionConfigJson)
@@ -2379,7 +2373,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
         let isPastHalfway = currentParagraphIndex >= paragraphs.count / 2
         let isNearEnd = remainingCount <= 3
-        let shouldPrefetch = (tool == "nghitts" ? isPlaying : (isPastHalfway || isNearEnd))
+        let shouldPrefetch = (TTSManager.isLocalEngine(tool) ? isPlaying : (isPastHalfway || isNearEnd))
 
         if shouldPrefetch {
             nextChapterPrefetcher.startPrefetch(
@@ -3456,10 +3450,12 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
         if let context, !isContextValid(context) { return }
 
-        if tool == "nghitts" {
+        if TTSManager.isLocalEngine(tool) {
+            AppLogger.shared.log("[TTSRoute] playAudioData -> hang doi local engine=\(tool) id=\(playbackId) bytes=\(audioData.count)")
             playNghiAudioData(audioData, playbackId: playbackId)
             return
         }
+        AppLogger.shared.log("[TTSRoute] playAudioData -> AVAudioPlayer engine=\(tool) id=\(playbackId) bytes=\(audioData.count)")
 
         stopCurrentHardwarePlayer()
 

@@ -144,15 +144,11 @@ struct TTSSettingsView: View {
                         Text("Trạng thái Key hệ thống:")
                         Spacer()
                         if GoogleTTSService.shared.hasApiKey {
-                            HStack(spacing: 4) {
-                                Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
-                                Text("Đã sẵn sàng").font(.caption).foregroundColor(.green)
-                            }
+                            Label("Đã sẵn sàng", systemImage: "checkmark.circle.fill")
+                                .font(.caption).foregroundColor(.green)
                         } else {
-                            HStack(spacing: 4) {
-                                Image(systemName: "xmark.circle.fill").foregroundColor(.red)
-                                Text("Chưa có Key").font(.caption).foregroundColor(.red)
-                            }
+                            Label("Chưa có Key", systemImage: "xmark.circle.fill")
+                                .font(.caption).foregroundColor(.red)
                         }
                     }
                     
@@ -209,12 +205,14 @@ struct TTSSettingsView: View {
                     NavigationLink(destination: TTSDictionaryEditView()) {
                         Label("Từ điển phiên âm cá nhân", systemImage: "character.book.closed")
                     }
+                } else if ttsManager.tool == "vieneu" {
+                    vieNeuReaderSection
                 } else if ttsManager.tool != "system" {
                     if let ext = allExtensions.first(where: { $0.packageId == ttsManager.tool }) {
                         Button(action: { self.selectedExtForConfig = ext }) {
                             HStack {
-                                Image(systemName: "slider.horizontal.3").foregroundColor(.white)
-                                Text("Cấu hình Extension (\(ext.name))").foregroundColor(.white)
+                                Label("Cấu hình Extension (\(ext.name))", systemImage: "slider.horizontal.3")
+                                    .foregroundColor(.white)
                                 Spacer()
                                 Image(systemName: "chevron.right").font(.caption).foregroundColor(.secondary)
                             }

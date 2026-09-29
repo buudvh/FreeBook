@@ -16,6 +16,21 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 
 <!-- GENERATED START -->
 
+## Nối VieNeu Vào Đường Phát Local + Tách Khoá Tham Số Theo Engine (1.3.434)
+
+Người dùng báo *"chọn VieNeu nhưng không tạo ra được âm thanh"* và *"phần quản lý riêng của trình đọc không có gì cả"*.
+
+* **Lỗi mất tiếng — định tuyến phát.** `TTSManager.playAudioData` chỉ định tuyến `tool == "nghitts"` sang `playNghiAudioData`; VieNeu rơi xuống nhánh `AVAudioPlayer` chung, trong khi `updatePlaybackParams()` đặt `rate` lên `nghiAudioPlayerQueue`. Hai bên lệch nhau ⇒ im lặng. Sửa: thêm `TTSManager.isLocalEngine(_:)` (`nghitts || vieneu`) và thay **9** predicate trong `TTSManager.swift` + **2** trong `TTSChapterPrefetcher.swift`. **Quy ước**: hỏi "engine local?" → `isLocalEngine`; hỏi "Piper?" (`chunkLength`, `NghiUtteranceSegmenter`) → giữ `== "nghitts"`.
+* **Lỗi tham số bị ghi đè.** `loadParamsForCurrentTool()` gọi `applyVieNeuParamsIfNeeded()` trong nhánh `else` rồi **ghi đè ngay** `speed`/`pitch`/`selectedVoice` bằng khoá `extRate_vieneu`/`extPitch_vieneu`/`extVoice_vieneu`. Sửa: nhánh `else if tool == "vieneu"` riêng.
+* **Lỗi giọng không nhớ.** `selectedVoice.didSet` ghi `extVoice_vieneu` nhưng loader đọc `vieneuVoice`. Sửa: `persistVoice(_:)` dùng **cùng** khoá mà loader đọc.
+* **Khoá `vieneu*` tách hẳn khỏi `nghitts*`**: `vieneuVoice`, `vieneuRate`, `vieneuPitch`, `vieneuChunk`, `vieneuPrefetchCount`, `vieneuSafeCachedTimeThreshold` (+ `vieneuPreferredMode` của engine). Riêng `vieneuChunk` **có** hiệu lực: `playbackParagraphs` cho `vieneu` đi qua `NghiUtteranceSegmenter.expand(..., maximumLength: chunkLength)`. `vieneuPrefetchCount`/`vieneuSafeCachedTimeThreshold` trước đây là `@Published` trần **không lưu gì** ⇒ nay có `didSet` / `setVieNeuSafeCachedTimeThreshold(_:)`.
+* **Giữ ratchet-down bằng cách gom `didSet`.** `TTSManager.swift` ở **4029/3470** nên không được dài thêm. Ba chuỗi `if/else` trong `didSet` của `speed`/`pitch`/`selectedVoice` được gom thành `persistSpeed`/`persistPitch`/`persistVoice` trong `TTSManager+VieNeu.swift` ⇒ thêm 1 engine + 5 khoá mới mà file legacy **net 0 dòng**.
+* **UI**: `vieNeuReaderSection` trong `TTSSettingsView+VieNeu.swift` (Picker chế độ `Tự động`/`Chất lượng cao · 16 bước`/`Nhanh · 8 bước`, Stepper số đoạn tải trước, Stepper ngưỡng nạp bộ đệm) + nhánh `else if ttsManager.tool == "vieneu"` trong Section 3. `TTSSettingsView.swift` **519 → 517** nhờ gộp hai khối `Image`+`Text` thành `Label`.
+* **Mức độ hiệu lực của từng điều khiển (đã kiểm bằng grep hai chiều, KHÔNG phải phỏng đoán)**: chế độ `fast`/`high` **có** tác dụng (đi thẳng vào `VieNeuTTSService.preferredMode` → engine); **hai Stepper thì chưa** — máy nạp lại/cửa sổ wake vẫn gate `tool == "nghitts"` ở ~15 chỗ, nên `calculateNghiCachedTime()` trả 0.0 cho VieNeu và `vieneuSafeCachedTimeThreshold` không có nơi đọc, còn `vieneuPrefetchCount` chỉ được đọc ở đường **remote**. Chúng lưu/nạp đúng nhưng chưa đổi hành vi.
+* **`chunkLength` của VieNeu**: comment cũ *"VieNeu không dùng chunkLength"* là **sai** — `playbackParagraphs` cho `vieneu` đi qua `NghiUtteranceSegmenter.expand(..., maximumLength: chunkLength)`. Nay có khoá `vieneuChunk` và được nạp trong `applyVieNeuParamsIfNeeded()`; trước đó VieNeu thừa hưởng giá trị sót lại của engine trước.
+* **`vieNeuModeBinding`** đọc/ghi thẳng `VieNeuTTSService.preferredMode` (không dùng `@AppStorage` được: extension không thêm được stored property). Dùng **chung** khoá `vieneuPreferredMode` với màn thử giọng nên sửa bên nào bên kia cũng thấy.
+* **Log `[TTSRoute]`**: đổi engine, nạp tham số VieNeu, và **đường phát được chọn** (hàng đợi local vs `AVAudioPlayer`). Đây là thứ lẽ ra đã chỉ ra lỗi mất tiếng ngay từ đầu.
+
 ## Sửa: VieNeu Bị Xếp Nhầm Vào Nhánh Extension + Đổi Engine Không Nạp Lại Giọng (1.3.433)
 
 Người dùng cài IPA và báo **hai** lỗi liên quan, cùng gốc là "engine thứ hai dùng chung đường với NghiTTS".

@@ -48,7 +48,7 @@ internal final class TTSChapterPrefetcher {
         switch currentState {
         case .synthesizingAudio(let key, _, _, _, _, _, _),
              .audioReady(let key, _, _, _, _, _, _):
-            return key.tool == "nghitts"
+            return TTSManager.isLocalEngine(key.tool)
         default:
             return false
         }
@@ -141,7 +141,7 @@ internal final class TTSChapterPrefetcher {
               currentKey == key else { return }
 
         let playbackParagraphs: [TTSParagraph]
-        if key.tool == "nghitts" {
+        if TTSManager.isLocalEngine(key.tool) {
             playbackParagraphs = NghiUtteranceSegmenter.expand(
                 processed.paragraphs,
                 maximumLength: key.chunkLength
@@ -155,7 +155,7 @@ internal final class TTSChapterPrefetcher {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !textToSpeak.isEmpty else { return }
 
-        if key.tool == "nghitts" && localService == nil {
+        if TTSManager.isLocalEngine(key.tool) && localService == nil {
             handleSynthesisFailure(
                 key: key,
                 gen: gen,
@@ -182,7 +182,7 @@ internal final class TTSChapterPrefetcher {
         let audioWorkerRef = self.audioWorker
 
         let task = Task<Data, Error> {
-            if key.tool == "nghitts", let service = localService {
+            if TTSManager.isLocalEngine(key.tool), let service = localService {
                 return try await service.synthesize(
                     text: textToSpeak,
                     voice: key.selectedVoice,

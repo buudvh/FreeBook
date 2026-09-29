@@ -16,6 +16,16 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 <!-- GENERATED START -->
 
+## Tách Trạng Thái Theo Engine + Nối VieNeu Vào Đường Phát Local (1.3.434)
+
+* **`TTSManager.isLocalEngine(_:)` (static, `TTSManager+VieNeu.swift`)** — `tool == "nghitts" || tool == "vieneu"`. Là **cặp sinh đôi** với `TTSManager.isExtensionTool(_:)` nhưng trả lời câu hỏi khác: *"engine này chạy trên máy và đi chung đường phát của NghiTTS không?"*. Thay **9** chỗ viết thẳng `tool == "nghitts"` trong `TTSManager.swift` và **2** chỗ trong `TTSChapterPrefetcher.swift`.
+* **`TTSManager.persistSpeed(_:)` / `persistPitch(_:)` / `persistVoice(_:)` / `persistChunkLength(_:)` (internal, `TTSManager+VieNeu.swift`)** — gom ba chuỗi `if/else` vốn nằm thẳng trong `didSet` của `speed`/`pitch`/`selectedVoice`. Mỗi hàm là một `switch tool` chọn khoá `UserDefaults`. Thêm engine mới tốn **1 dòng `case`** thay vì ~2 dòng trong file legacy.
+* **`TTSManager.setVieNeuSafeCachedTimeThreshold(_:)`** — khuôn sao chép của `setNghiTTSSafeCachedTimeThreshold`: clamp, lưu `vieneuSafeCachedTimeThreshold`, và nếu `tool == "vieneu" && isPlaying` thì huỷ wake task + dựng lại cửa sổ tải trước.
+* **`TTSManager.VieNeuSettingsKey`** nay đủ 5 khoá: `voice`, `rate`, `pitch`, `prefetchCount`, `safeCachedTimeThreshold` (thêm `pitch` ở lượt này).
+* **`TTSSettingsView.vieNeuReaderSection`** (`@ViewBuilder`, `TTSSettingsView+VieNeu.swift`) — khối "quản lý riêng của trình đọc" cho VieNeu: Picker chế độ `high`/`fast`/tự động, Stepper số đoạn tải trước, Stepper ngưỡng nạp bộ đệm.
+* **`TTSSettingsView.vieNeuModeBinding: Binding<VieNeuSynthesisPolicy.Mode?>`** — cầu nối Picker ↔ `VieNeuTTSService.preferredMode`. **Không** dùng `@AppStorage` được vì extension không thêm được stored property.
+* **`vieneuPrefetchCount` / `vieneuSafeCachedTimeThreshold`** đổi từ `@Published` trần (không lưu) sang có `didSet` / setter ghi `UserDefaults`.
+
 ## `LocalTTSEngine` — giao diện chung cho engine TTS local (1.3.432)
 
 * **`LocalTTSEngine`** (`Sources/Services/TTS/LocalTTSEngine.swift`): protocol `AnyObject` với `engineStatus`, `prepare(voice:)`, `synthesize(…)`, `synthesizeWithDuration(…)`, `synthesizeStream(…)`.
