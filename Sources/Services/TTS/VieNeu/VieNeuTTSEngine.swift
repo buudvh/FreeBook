@@ -51,6 +51,10 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         /// Số chunk văn bản đã tách. Có mặt vì đúng lỗi vừa rồi (từ bị chẻ đôi ở ranh giới chunk) sẽ hiện
         /// ra ngay nếu biết số chunk — người dùng thấy "chunk: 3" cho một câu mà lẽ ra chỉ 2 là biết ngay.
         let chunkCount: Int
+        /// Độ dài audio **trừ** các khoảng nghỉ do engine tự chèn. RTF tính trên tổng độ dài bị **thổi
+        /// phồng** bởi khoảng nghỉ (chúng không tốn thời gian suy luận), nên cần con số này để đọc đúng
+        /// hiệu năng thật.
+        let speechDuration: Double
         /// Phoneme của chunk đầu (cắt ngắn). Đây là **bằng chứng duy nhất** phân biệt được hai nguyên nhân
         /// hay gặp của "đọc sai": từ điển trả phoneme sai, hay phoneme đúng mà model đọc bằng giọng Việt.
         let phonemeSample: String
@@ -233,16 +237,20 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         var samples: [Float] = []
         var droppedScalars = 0
         var phonemeSample = ""
+        var insertedPauseSeconds = 0.0
         for (index, chunk) in chunks.enumerated() {
             try Task.checkCancellation()
             let phonemes = config.applyingEmotionTags(to: phonemizer.phonemizeTextWithEmotions(text: chunk.text))
-            if index == 0 { phonemeSample = String(phonemes.prefix(120)) }
+            // In **đủ** phoneme của chunk đầu (trần 700 ký tự) — 120 ký tự không đủ để thấy chỗ sai ở
+            // giữa đoạn, mà đó lại là kiểu lỗi hay gặp nhất.
+            if index == 0 { phonemeSample = String(phonemes.prefix(700)) }
             let encoded = config.encode(phonemes: phonemes)
             droppedScalars += encoded.droppedScalars
             noteDroppedScalars(encoded.droppedScalars, total: encoded.ids.count)
             if index > 0 {
                 // Khoảng nghỉ theo **loại ranh giới** của khe, không phải một hằng số cho mọi khe.
                 let pause = Self.pauseSeconds(for: chunks[index - 1].gap)
+                insertedPauseSeconds += pause
                 samples.append(contentsOf: [Float](repeating: 0, count: Int(pause * Double(config.sampleRate))))
             }
             samples.append(contentsOf: try runChunk(
@@ -270,6 +278,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
             mode: activeMode,
             droppedScalars: droppedScalars,
             chunkCount: chunks.count,
+            speechDuration: max(0, pcmDuration - insertedPauseSeconds),
             phonemeSample: phonemeSample
         )
     }

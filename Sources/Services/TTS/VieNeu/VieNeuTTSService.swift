@@ -39,6 +39,7 @@ final class VieNeuTTSService: @unchecked Sendable {
     private var _lastDroppedScalars = 0
     private var _lastChunkCount = 0
     private var _lastPhonemeSample = ""
+    private var _lastSpeechDuration = 0.0
 
     var currentVoice: String? {
         syncQueue.sync { _currentVoice }
@@ -67,6 +68,9 @@ final class VieNeuTTSService: @unchecked Sendable {
     /// Phoneme của chunk đầu ở lượt gần nhất — bằng chứng để phân biệt "từ điển sai" với "model đọc
     /// phoneme tiếng Anh bằng giọng Việt".
     var lastPhonemeSample: String { syncQueue.sync { _lastPhonemeSample } }
+
+    /// Độ dài audio trừ khoảng nghỉ đã chèn — mẫu số đúng để tính RTF thật.
+    var lastSpeechDuration: Double { syncQueue.sync { _lastSpeechDuration } }
 
     /// Khoá `UserDefaults` của chế độ chất lượng.
     ///
@@ -209,6 +213,7 @@ final class VieNeuTTSService: @unchecked Sendable {
             _lastDroppedScalars = output.droppedScalars
             _lastChunkCount = output.chunkCount
             _lastPhonemeSample = output.phonemeSample
+            _lastSpeechDuration = output.speechDuration
         }
         // `synthesisMs` của engine đo bên trong (chỉ gồm ONNX), còn ở đây đo trọn lượt gọi — lấy số của
         // engine để RTF phản ánh đúng chi phí suy luận chứ không lẫn thời gian chờ khoá.

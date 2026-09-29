@@ -228,6 +228,10 @@ struct VieNeuTTSTestView: View {
     private func presentReport(result: (data: Data, pcmDuration: Double, queueWaitMs: Double, synthesisMs: Double)) {
         let audioSeconds = max(result.pcmDuration, 0.001)
         let rtf = (result.synthesisMs / 1_000) / audioSeconds
+        // RTF trên **audio thật** (trừ khoảng nghỉ engine tự chèn). Khoảng nghỉ không tốn thời gian suy
+        // luận nên nếu tính vào tổng độ dài thì RTF bị **thấp giả** — và càng nhiều chunk càng thấp giả.
+        let speechSeconds = max(service?.lastSpeechDuration ?? audioSeconds, 0.001)
+        let speechRTF = (result.synthesisMs / 1_000) / speechSeconds
         statusMessage = String(
             format: "Xong: %.2f giây audio, tổng hợp %.2f giây.",
             audioSeconds, result.synthesisMs / 1_000
@@ -235,6 +239,7 @@ struct VieNeuTTSTestView: View {
         lastReport = """
         RTF          \(String(format: "%.2f", rtf))   (nhỏ hơn 1 là đọc realtime được)
         nhanh hơn    \(String(format: "%.1f", 1 / max(rtf, 0.001)))× so với realtime
+        RTF thật     \(String(format: "%.2f", speechRTF))   (trừ \(String(format: "%.2f", audioSeconds - speechSeconds)) s khoảng nghỉ)
         chế độ       \(service?.currentMode.rawValue ?? "?")
         tổng hợp     \(String(format: "%.0f", result.synthesisMs)) ms
         chờ hàng đợi \(String(format: "%.0f", result.queueWaitMs)) ms

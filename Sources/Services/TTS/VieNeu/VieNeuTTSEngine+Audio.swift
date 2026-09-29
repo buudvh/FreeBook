@@ -141,7 +141,7 @@ extension VieNeuTTSEngine {
             if part.count <= limit {
                 result.append(part)
             } else {
-                result.append(contentsOf: splitByWords(part, limit: limit))
+                result.append(contentsOf: splitLongWords(part, limit: limit))
             }
         }
         return result
@@ -167,26 +167,110 @@ extension VieNeuTTSEngine {
             .filter { !$0.isEmpty }
     }
 
-    /// Cắt theo **từ** — chỉ dùng cho một từ/mẩu đơn dài hơn trần, nơi không còn ranh giới nào tốt hơn.
-    private static func splitByWords(_ text: String, limit: Int) -> [String] {
-        var pieces: [String] = []
-        var buffer = ""
-        for word in text.split(separator: " ", omittingEmptySubsequences: true) {
-            let piece = String(word)
-            if buffer.isEmpty {
-                buffer = piece
-            } else if buffer.count + 1 + piece.count <= limit {
-                buffer += " " + piece
-            } else {
-                pieces.append(buffer)
-                buffer = piece
+    /// Từ nối: cắt **trước** chúng thì mệnh đề còn nguyên (`_CONN_WORDS`).
+    private static let connectorWords: Set<String> = [
+        "và", "nhưng", "hoặc", "song", "rồi", "nên", "vì", "nếu", "khi", "để", "do", "bởi"
+    ]
+    /// Cặp hai từ là **một** từ nối — cắt trước cả cặp, và **không** cắt lọt vào giữa cặp (`_CONN_PAIRS`).
+    private static let connectorPairs: Set<String> = [
+        "sau khi", "trước khi", "trong khi", "mỗi khi", "đến khi", "tới khi",
+        "cho nên", "cho đến", "bởi vì", "nếu như", "tuy nhiên", "thế nhưng",
+        "vì vậy", "vì thế", "do đó", "sau đó"
+    ]
+    /// Ký tự bị gọt ở hai đầu token trước khi so khớp (`_CONN_STRIP`).
+    private static let connectorStrip = CharacterSet(charactersIn: "\"'“”‘’()[]«»…")
+    /// Từ mà lớp đọc số sinh ra. Cắt giữa hai từ này là **xẻ đôi một con số**
+    /// ("…hai nghìn | không trăm ba mươi mốt") — người dùng nghe thành "ngắt nghỉ bất thường khi đang đọc số".
+    private static let numberWords: Set<String> = [
+        "không", "một", "mốt", "hai", "ba", "bốn", "tư", "năm", "lăm", "sáu", "bảy", "tám", "chín",
+        "mười", "mươi", "trăm", "nghìn", "ngàn", "triệu", "tỷ", "tỉ", "linh", "lẻ", "phẩy", "chấm"
+    ]
+
+    private static func connectorKey(_ token: String) -> String {
+        token.trimmingCharacters(in: connectorStrip).lowercased()
+    }
+
+    private static func isNumberWord(_ token: String) -> Bool {
+        let key = connectorKey(token)
+        return numberWords.contains(key) || (!key.isEmpty && key.allSatisfy { $0.isNumber })
+    }
+
+    /// Độ dài của `words[start..<end]` khi nối bằng dấu cách (`_span_len`).
+    private static func spanLength(_ words: [String], _ start: Int, _ end: Int) -> Int {
+        guard end > start else { return 0 }
+        var total = 0
+        for index in start..<end { total += words[index].count }
+        return total + (end - start - 1)
+    }
+
+    /// `_balanced_cut`: chọn điểm cắt ≤ trần và **gần đích** nhất — ưu tiên cắt trước một từ nối (mảnh
+    /// trái đủ dài), không lọt vào giữa cặp từ nối, và **không bao giờ xẻ đôi một con số**.
+    private static func balancedCut(_ words: [String], start: Int, target: Double, limit: Int, minLeft: Int) -> Int {
+        var bestNatural: (distance: Double, index: Int)?
+        var bestPlain: (distance: Double, index: Int)?
+        var endCap = start + 1
+
+        var index = start + 1
+        while index < words.count {
+            let left = spanLength(words, start, index)
+            if left > limit { break }
+            endCap = index
+
+            let key = connectorKey(words[index])
+            let previous = connectorKey(words[index - 1])
+            let next = index + 1 < words.count ? connectorKey(words[index + 1]) : ""
+            let distance = abs(Double(left) - target)
+            let insidePair = connectorPairs.contains("\(previous) \(key)")
+            let natural = (connectorWords.contains(key) || connectorPairs.contains("\(key) \(next)"))
+                && !connectorWords.contains(previous)
+
+            if natural, !insidePair, left >= minLeft, bestNatural == nil || distance < bestNatural!.distance {
+                bestNatural = (distance, index)
             }
-            while buffer.count > limit {
-                pieces.append(String(buffer.prefix(limit)))
-                buffer = String(buffer.dropFirst(limit))
+            let plainOK = !insidePair && !(isNumberWord(words[index - 1]) && isNumberWord(words[index]))
+            if plainOK, bestPlain == nil || distance < bestPlain!.distance {
+                bestPlain = (distance, index)
             }
+            index += 1
         }
-        if !buffer.isEmpty { pieces.append(buffer) }
+
+        if let bestNatural { return bestNatural.index }
+        if let bestPlain { return bestPlain.index }
+        // Hết chỗ hợp lệ (token khổng lồ, chuỗi cặp chồng lấn): cắt sát trần, lùi khỏi cặp.
+        var end = endCap
+        while end > start + 1, connectorPairs.contains("\(connectorKey(words[end - 1])) \(connectorKey(words[end]))") {
+            end -= 1
+        }
+        return end
+    }
+
+    /// `_split_long_part`: chia **đều** thành `ceil(rest / limit)` mảnh, không greedy. Bản greedy cũ để
+    /// lại mảnh vụn ở cuối và điểm cắt "gần trần" thường trúng chỗ tệ — chính là chỗ xẻ đôi một con số.
+    private static func splitLongWords(_ text: String, limit: Int) -> [String] {
+        let words = text.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+        guard words.count > 1 else { return [text] }
+        let minLeft = limit / 3
+
+        var pieces: [String] = []
+        var start = 0
+        while start < words.count {
+            let rest = spanLength(words, start, words.count)
+            if rest <= limit {
+                pieces.append(words[start...].joined(separator: " "))
+                break
+            }
+            // Trần **tương đối**: phần dư sau chỗ đầy trần mà chỉ là một mẩu thì gộp luôn.
+            var full = start + 1
+            while full < words.count, spanLength(words, start, full + 1) <= limit { full += 1 }
+            if fits(current: spanLength(words, start, full), adding: spanLength(words, full, words.count), limit: limit) {
+                pieces.append(words[start...].joined(separator: " "))
+                break
+            }
+            let pieceCount = Int(ceil(Double(rest) / Double(limit)))
+            let end = balancedCut(words, start: start, target: Double(rest) / Double(pieceCount), limit: limit, minLeft: minLeft)
+            pieces.append(words[start..<end].joined(separator: " "))
+            start = end
+        }
         return pieces
     }
 

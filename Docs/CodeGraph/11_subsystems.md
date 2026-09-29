@@ -15,6 +15,16 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Hàng Rào Chống Xẻ Đôi Con Số + Số Liệu RTF Trung Thực (1.3.428)
+
+Người dùng: **"ngắt nghỉ bất thường khi đang đọc số, thời gian"**, **"phoneme nên in đủ đoạn"**, **"xử lý thời gian tăng quá nhiều"**.
+
+* **Lỗi thật: cắt chunk xẻ đôi một con số.** Sau khi bật lớp đọc số, `1990` thành "một nghìn chín trăm chín mươi" — một chuỗi nhiều từ — và bộ cắt theo từ của tôi **cắt ngay giữa chuỗi đó** ⇒ nghe thành khoảng nghỉ giữa con số ✓ đúng lời người dùng. Bản tham chiếu có sẵn ba bảng cho việc này: `_NUMBER_WORDS`, `_CONN_WORDS`, `_CONN_PAIRS`; `_balanced_cut` chỉ nhận điểm cắt khi **không** lọt giữa cặp từ nối và **không** nằm giữa hai từ số.
+  * Đã port và **xác minh**: văn bản 262 ký tự → 3 mảnh **85/90/85** (chia **đều**, không greedy), **0** chỗ xẻ đôi số, **0** chỗ cắt giữa cặp, nối lại khớp gốc.
+* **`_split_long_part` chia ĐỀU**: `k = ceil(rest/max_chars)` mảnh, mỗi mảnh nhắm `rest/k`. Bản tham chiếu ghi rõ vì sao bỏ greedy: nó để 304 ký tự thành 251 + 53 và điểm cắt "gần trần" trúng chỗ tệ.
+* **"RTF tăng quá nhiều" — một nửa là artefact**: khoảng nghỉ chèn **không tốn** thời gian suy luận nhưng lại **thổi phồng** `pcmDuration`, nên `synthesisMs/pcmDuration` **thấp giả**, và càng nhiều chunk càng thấp giả. Thêm `Output.speechDuration` (audio trừ khoảng nghỉ) và báo cáo hiện **cả hai** RTF. Hmm — lượt này audio dài 20,71 → 28,50 s và tổng hợp 5,48 → 9,68 s; phần lớn là do văn bản **dài ra thật** vì số được đọc thành chữ, phần còn lại cần `RTF thật` để tách bạch.
+* **Mẫu phoneme in đủ 700 ký tự** (trước 120): 120 không đủ thấy chỗ sai ở giữa đoạn, mà đó lại là kiểu lỗi hay gặp nhất.
+
 ## Tách Chunk Theo CÂU — Port `pack_sentences_into_chunks` (1.3.427)
 
 Người dùng báo **"vẫn còn tình trạng cắt chunk giữa đường gây ngắt nghỉ khó chịu"**. Đúng — và lần này tôi tìm ra vì sao mình cứ sửa sai: **tôi chưa hề đọc bộ tách chunk của bản tham chiếu, mà tự viết.**
