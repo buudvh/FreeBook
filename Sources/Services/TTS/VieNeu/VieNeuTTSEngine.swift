@@ -48,6 +48,9 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         /// audio ra "không phải tiếng Việt" mà mọi thứ khác vẫn đúng, nên nó phải **hiện ra ở màn thử
         /// giọng**, không chỉ nằm trong log (log chỉ ghi khi người dùng bật `AppLogger`).
         let droppedScalars: Int
+        /// Số chunk văn bản đã tách. Có mặt vì đúng lỗi vừa rồi (từ bị chẻ đôi ở ranh giới chunk) sẽ hiện
+        /// ra ngay nếu biết số chunk — người dùng thấy "chunk: 3" cho một câu mà lẽ ra chỉ 2 là biết ngay.
+        let chunkCount: Int
     }
 
     enum EngineError: LocalizedError {
@@ -231,7 +234,8 @@ final class VieNeuTTSEngine: @unchecked Sendable {
             pcmDuration: pcmDuration,
             synthesisMs: synthesisMs,
             mode: activeMode,
-            droppedScalars: droppedScalars
+            droppedScalars: droppedScalars,
+            chunkCount: chunks.count
         )
     }
 

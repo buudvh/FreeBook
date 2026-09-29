@@ -56,18 +56,40 @@ extension VieNeuTTSEngine {
 
         var chunks: [String] = []
         var current = ""
-        for character in trimmed {
-            current.append(character)
-            let longEnough = current.count >= limit
-            let atBoundary = chunkBoundaryCharacters.contains(character) && current.count >= softChunkMinimum
-            if longEnough || atBoundary {
-                let piece = current.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !piece.isEmpty { chunks.append(piece) }
+
+        // Cắt theo **từ**, tuyệt đối không theo ký tự.
+        //
+        // Bản đầu cắt cứng ở đúng `limit` ký tự, nên một từ nằm vắt qua ranh giới bị chẻ đôi: "trở" thành
+        // "t" + "rở", "Potter" thành "Po" + "tter". Hai mảnh đó không có trong từ điển nên rơi vào đường
+        // **đánh vần từng ký tự** (`charFallback`) và bị đọc thành **tên chữ cái** — đúng cái người dùng
+        // nghe thấy: "trở" → "thê giở", "Potter" → "pô ti tờ". Lỗi chỉ hiện ở đúng những từ nằm ngay
+        // ranh giới chunk, nên rất khó đoán nếu không đếm vị trí.
+        for piece in trimmed.split(separator: " ", omittingEmptySubsequences: true) {
+            let word = String(piece)
+            if current.isEmpty {
+                current = word
+            } else if current.count + 1 + word.count <= limit {
+                current += " " + word
+            } else {
+                chunks.append(current)
+                current = word
+            }
+
+            // Từ đơn dài hơn `limit` thì buộc phải cắt cứng — không còn ranh giới nào tốt hơn.
+            while current.count > limit {
+                chunks.append(String(current.prefix(limit)))
+                current = String(current.dropFirst(limit))
+            }
+
+            // Ưu tiên chốt chunk ở ranh giới câu để các chunk sau bám theo câu, không bám theo số ký tự.
+            if let last = current.last,
+               chunkBoundaryCharacters.contains(last),
+               current.count >= softChunkMinimum {
+                chunks.append(current)
                 current = ""
             }
         }
-        let tail = current.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !tail.isEmpty { chunks.append(tail) }
+        if !current.isEmpty { chunks.append(current) }
         return chunks.isEmpty ? [trimmed] : chunks
     }
 

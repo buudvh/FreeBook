@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Các khối `Form` của `VieNeuTTSTestView`.
 ///
@@ -69,10 +70,40 @@ extension VieNeuTTSTestView {
 
     @ViewBuilder
     var textSection: some View {
-        Section("Chữ cần đọc") {
+        Section {
             TextEditor(text: $text)
                 .frame(minHeight: 110)
                 .font(.body)
+            HStack(spacing: 28) {
+                Button {
+                    text = ""
+                } label: {
+                    Image(systemName: "xmark.circle")
+                }
+                .accessibilityLabel("Xoá hết chữ")
+                .disabled(text.isEmpty)
+
+                Button {
+                    UIPasteboard.general.string = text
+                } label: {
+                    Image(systemName: "doc.on.doc")
+                }
+                .accessibilityLabel("Sao chép chữ")
+                .disabled(text.isEmpty)
+
+                Button {
+                    if let pasted = UIPasteboard.general.string { text = pasted }
+                } label: {
+                    Image(systemName: "doc.on.clipboard")
+                }
+                .accessibilityLabel("Dán chữ")
+                .disabled(!UIPasteboard.general.hasStrings)
+            }
+            // `.borderless` là bắt buộc: trong một hàng của `Form`, mặc định cả hàng là **một** nút nên
+            // mọi cú chạm đều rơi vào nút đầu tiên.
+            .buttonStyle(.borderless)
+        } header: {
+            Text("Chữ cần đọc")
         }
     }
 
@@ -101,13 +132,19 @@ extension VieNeuTTSTestView {
     @ViewBuilder
     var qualitySection: some View {
         Section {
-            Picker("Chế độ", selection: modeSelection) {
+            Picker("Chế độ", selection: $selectedMode) {
                 Text("Tự động (theo tốc độ máy)").tag(VieNeuSynthesisPolicy.Mode?.none)
                 ForEach(VieNeuSynthesisPolicy.Mode.allCases, id: \.self) { mode in
                     Text(mode.displayName).tag(VieNeuSynthesisPolicy.Mode?.some(mode))
                 }
             }
-            LabeledContent("Đang chạy", value: service?.currentMode.displayName ?? "—")
+            .onChange(of: selectedMode) { _, newValue in
+                service?.preferredMode = newValue
+            }
+            // Nhãn đọc `selectedMode` (@State) trước, rồi mới tới `service.currentMode`. Đọc thẳng service
+            // thì SwiftUI không biết nó đổi (class thường, không `@Observable`) và nhãn chỉ nhảy khi có
+            // state khác đổi — đúng triệu chứng "chọn xong không đổi, bấm Phát mới đổi".
+            LabeledContent("Đang chạy", value: activeModeName)
         } header: {
             Text("Tốc độ tạo audio")
         } footer: {
@@ -115,12 +152,10 @@ extension VieNeuTTSTestView {
         }
     }
 
-    /// `nil` = tự động. Picker cần `Binding<Mode?>` nên gói thủ công.
-    var modeSelection: Binding<VieNeuSynthesisPolicy.Mode?> {
-        Binding(
-            get: { service?.preferredMode },
-            set: { service?.preferredMode = $0 }
-        )
+    /// Tên chế độ đang chạy. Ưu tiên lựa chọn của người dùng (state, cập nhật tức thì); khi ở "Tự động"
+    /// thì hiện chế độ mà bộ thích nghi đang dùng.
+    var activeModeName: String {
+        selectedMode?.displayName ?? service?.currentMode.displayName ?? "—"
     }
 
     @ViewBuilder
@@ -146,6 +181,14 @@ extension VieNeuTTSTestView {
                 Label("Dừng", systemImage: "play.slash")
             }
             .disabled(player == nil && synthesisTask == nil)
+
+            // Chia sẻ file WAV vừa tạo — để gửi audio đi nghe lại ở nơi khác, không phải chụp màn hình
+            // cũng không phải đoán qua mô tả.
+            if let shareURL {
+                ShareLink(item: shareURL) {
+                    Label("Chia sẻ audio", systemImage: "square.and.arrow.up")
+                }
+            }
         } footer: {
             if isBlockedByPlayback {
                 Text("Đang đọc truyện — hãy dừng TTS trước khi thử, vì hai bên dùng chung phiên âm thanh.")

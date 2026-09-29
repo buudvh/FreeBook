@@ -30,6 +30,12 @@ struct VieNeuTTSTestView: View {
     @State var player: AVAudioPlayer?
     @State var synthesisTask: Task<Void, Never>?
     @State var didCopy = false
+    /// Lựa chọn chế độ **giữ ở tầng View**. Phải là `@State` để SwiftUI vẽ lại ngay khi đổi: `service` là
+    /// class thường (không `@Observable`), nên nếu chỉ đọc `service.preferredMode` thì nhãn "Đang chạy"
+    /// chỉ cập nhật khi có state KHÁC đổi — đúng triệu chứng "chọn xong không thấy đổi, bấm Phát mới đổi".
+    @State var selectedMode: VieNeuSynthesisPolicy.Mode?
+    /// File WAV tạm của lượt tổng hợp gần nhất, để `ShareLink` chia sẻ.
+    @State var shareURL: URL?
 
     var service: VieNeuTTSService? { VieNeuTTSService.shared }
 
@@ -113,6 +119,8 @@ struct VieNeuTTSTestView: View {
 
     private func loadVoices() {
         guard let service, isModelReady else { return }
+        // Nạp lựa chọn đã lưu vào `@State` — nguồn sự thật để vẽ UI là state, không phải service.
+        selectedMode = service.preferredMode
         if let catalog = try? service.availableVoices() {
             voices = catalog
         }
@@ -233,7 +241,23 @@ struct VieNeuTTSTestView: View {
         """
     }
 
+    /// Ghi WAV ra thư mục tạm để `ShareLink` có URL mà chia sẻ. Xoá file của lượt trước trước khi ghi
+    /// file mới — mỗi lượt phát sinh một file và thư mục tạm không tự dọn trong một phiên dài.
+    func writeTemporaryAudio(_ data: Data, replacing previous: URL?) -> URL? {
+        let fileManager = FileManager.default
+        if let previous { try? fileManager.removeItem(at: previous) }
+        let url = fileManager.temporaryDirectory
+            .appendingPathComponent("vieneu-\(Int(Date().timeIntervalSince1970)).wav")
+        do {
+            try data.write(to: url, options: .atomic)
+            return url
+        } catch {
+            return nil
+        }
+    }
+
     private func play(_ data: Data) {
+        shareURL = writeTemporaryAudio(data, replacing: shareURL)
         do {
             let newPlayer = try AVAudioPlayer(data: data)
             player = newPlayer

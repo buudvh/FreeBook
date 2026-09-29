@@ -25,6 +25,9 @@ extension VieNeuTTSTestView {
         // tiếng Việt" nên phải hiện ngay ở đây.
         let dropped = service?.lastDroppedScalars ?? 0
         lines.append("phoneme bỏ: \(dropped)")
+        // Số chunk là chỉ số bắt đúng lỗi "từ bị chẻ đôi ở ranh giới chunk": một câu ngắn mà ra 3 chunk
+        // là dấu hiệu ngay.
+        lines.append("chunk: \(service?.lastChunkCount ?? 0)")
         if !statusMessage.isEmpty { lines.append("kết quả: \(statusMessage)") }
         if !lastReport.isEmpty { lines.append(lastReport) }
         return lines.joined(separator: "\n")

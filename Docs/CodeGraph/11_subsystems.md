@@ -15,6 +15,16 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Từ Bị Chẻ Đôi Ở Ranh Giới Chunk + Sửa Picker Chế Độ + Nút Chia Sẻ Audio (1.3.424)
+
+Người dùng thử một đoạn khác và báo: **"trở" đọc thành "thê giở"**, **"Harry Potter" đọc thành "harry pô ti tờ"** — chỉ vài từ sai trong câu đúng.
+
+* **Nguyên nhân: `splitIntoChunks` cắt cứng ở đúng `limit` ký tự nên chẻ đôi từ.** Đếm vị trí trên đúng câu người dùng gửi: `trở` ở ký tự **[139..141]** mà ranh giới chunk là **140** ⇒ "t" vào chunk 0, "rở" vào chunk 1; `Potter` vắt qua ranh giới 280 ⇒ "Po" + "tter". Hai mảnh không có trong từ điển nên rơi vào **`charFallback` — đánh vần từng ký tự** ⇒ đọc thành **tên chữ cái**: "thê giở", "pô ti tờ". Đã kiểm bằng bộ đọc Python trên `sea_g2p.bin` thật: **cả `trở` (`tʃˈəː4`) lẫn `potter` (`<en>pˈɑːɾɚ`) đều CÓ trong từ điển** — nên lỗi không phải từ điển mà là ranh giới chunk.
+  * Sửa: `splitIntoChunks` gói theo **từ** (`split(separator: " ")`), chỉ cắt cứng khi một từ đơn dài hơn `limit`. Đã mô phỏng lại: `trở` nằm trọn trong một chunk, văn bản nối lại khớp gốc từng ký tự.
+  * Thêm `Output.chunkCount` → khối chẩn đoán (`chunk: N`) để lần sau thấy ngay.
+* **Picker chế độ không đổi ngay**: `service` là class thường (**không** `@Observable`), nên `Binding` đọc `service.preferredMode` và nhãn đọc `service.currentMode` đều không làm SwiftUI vẽ lại — nhãn chỉ nhảy khi state khác đổi (bấm Phát). Sửa: lựa chọn giữ ở `@State selectedMode`, đẩy xuống service trong `.onChange`, nhãn đọc state trước.
+* **Thêm nút chia sẻ audio** (`ShareLink` với file WAV ghi ra thư mục tạm, xoá file lượt trước) và **3 nút icon xoá/sao chép/dán** ở ô nhập chữ (`.buttonStyle(.borderless)` là bắt buộc — trong một hàng `Form`, mặc định cả hàng là **một** nút).
+
 ## Bỏ Chế Độ Tắt CFG + Tách Tốc Độ Phát Khỏi Tốc Độ Tạo (1.3.423)
 
 Người dùng đo hai chế độ trên máy thật: `fast` (8 bước) **RTF 0.26** — 16,88 s audio trong 4,38 s; `high` (16 bước) **RTF 0.48** — 8,06 s. Giọng "khá ổn" ở cả hai. Nhưng chế độ **tắt CFG thì "quá dở, đứt quãng, không rõ tiếng"**.
