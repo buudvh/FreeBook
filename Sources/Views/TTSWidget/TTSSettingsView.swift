@@ -31,6 +31,10 @@ struct TTSSettingsView: View {
     /// ở màn thử giọng (`VieNeuTTSTestView`). Khởi tạo bằng giá trị đang lưu để mở màn khi đã chọn `vieneu`
     /// vẫn hiện đúng; `onChange(of: ttsManager.tool)` làm mới khi đổi engine.
     @State var vieNeuSelectedMode: VieNeuSynthesisPolicy.Mode? = VieNeuTTSService.shared?.preferredMode
+    /// "Tiết kiệm pin" + số luồng ORT (VieNeu). `@State` vì `VieNeuTTSService` không `@Observable`
+    /// (cùng lý do như `vieNeuSelectedMode`); khởi tạo bằng giá trị đang lưu.
+    @State var vieNeuPowerSaving: Bool = VieNeuTTSService.shared?.powerSaving ?? false
+    @State var vieNeuThreadCount: Int = VieNeuTTSService.shared?.threadCount ?? 4
 
     private var currentExtParams: (preloadSize: Int?, maxLength: Int?) {
         let path = allExtensions.first(where: { $0.packageId == ttsManager.tool })?.localPath ?? ttsManager.extensionLocalPath

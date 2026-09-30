@@ -49,7 +49,24 @@ enum VieNeuSynthesisPolicy {
     /// **Đã đo và giữ 4**: `Output.timing` cho `vector 7,60 s | khác 0,14 s` trên 28,01 s audio, và
     /// `RTF thật` giảm 0,37 → **0,29** so với lúc còn 2 luồng. Vòng Euler chiếm **98%** thời gian nên đây
     /// đúng là nút thắt, và chi phí cố định theo chunk (0,14 s) nhỏ tới mức **giảm số chunk không giúp gì**.
-    static let threadCount: Int32 = 4
+    static let defaultThreadCount: Int32 = 4
+
+    // MARK: - Cài đặt "Tiết kiệm pin" & số luồng (1.3.441)
+
+    /// Khoá `UserDefaults` cho chế độ "Tiết kiệm pin" và số luồng ORT.
+    static let powerSavingKey = "vieneuPowerSaving"
+    static let threadCountKey = "vieneuThreadCount"
+
+    /// Số luồng ORT đã chọn (2...4), mặc định 4. **Hàm thuần** — nhận `defaults` từ caller (type này
+    /// không tự đọc `UserDefaults`). Áp dụng khi **nạp lại engine** (session ORT dựng với số luồng này).
+    static func threadCount(from defaults: UserDefaults) -> Int32 {
+        Int32(max(2, min(4, defaults.object(forKey: threadCountKey) as? Int ?? Int(defaultThreadCount))))
+    }
+
+    /// "Tiết kiệm pin" (opt-in): ép `fast` + 2 luồng. **Hàm thuần** — nhận `defaults` từ caller.
+    static func isPowerSaving(_ defaults: UserDefaults) -> Bool {
+        defaults.bool(forKey: powerSavingKey)
+    }
 
     // MARK: - Luật đổi chế độ
 
@@ -57,7 +74,10 @@ enum VieNeuSynthesisPolicy {
     /// `TTSManager.recordNghiSynthesis` (`TTSManager+NghiEnergy.swift:19`).
     static let downshiftRTF: Double = 0.85
     /// RTF ≤ ngưỡng này coi là "thoải mái" ⇒ có thể quay lại `.high`.
-    static let upshiftRTF: Double = 0.45
+    ///
+    /// **1.3.441 — ưu tiên `fast`**: hạ 0.45 → 0.30 để khó quay lại `.high` hơn (giảm ~2× tính toán ⇒
+    /// mát máy/tốn ít pin hơn, đổi lại chất lượng thấp hơn). Máy rất khoẻ mới lên lại `.high`.
+    static let upshiftRTF: Double = 0.30
     /// Số mẫu liên tiếp phải vượt ngưỡng trước khi đổi. Đoạn đầu tiên luôn chậm hơn (session vừa nạp,
     /// cache còn nguội) nên đổi ngay sau một mẫu là tự hạ chất lượng vô cớ.
     static let samplesBeforeSwitch = 3

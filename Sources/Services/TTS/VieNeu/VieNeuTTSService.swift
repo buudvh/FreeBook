@@ -100,6 +100,22 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         }
     }
 
+    /// "Tiết kiệm pin" (opt-in): ép `fast` + 2 luồng ORT. Ép `fast` **ngay** (không chờ `prepare()`); tắt
+    /// thì trả về lựa chọn người dùng (`preferredMode`) hoặc để tự thích nghi.
+    var powerSaving: Bool {
+        get { VieNeuSynthesisPolicy.isPowerSaving(.standard) }
+        set {
+            UserDefaults.standard.set(newValue, forKey: VieNeuSynthesisPolicy.powerSavingKey)
+            engine.setRequestedMode(newValue ? .fast : preferredMode)
+        }
+    }
+
+    /// Số luồng ORT (2...4). Chỉ có hiệu lực khi **nạp lại engine** (session ORT dựng với số luồng này).
+    var threadCount: Int {
+        get { Int(VieNeuSynthesisPolicy.threadCount(from: .standard)) }
+        set { UserDefaults.standard.set(max(2, min(4, newValue)), forKey: VieNeuSynthesisPolicy.threadCountKey) }
+    }
+
     init(store: VieNeuModelStore, engine: VieNeuTTSEngine) {
         self.store = store
         self.engine = engine
@@ -114,7 +130,8 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
             try engine.prepare()
         }.value
         // Áp lựa chọn đã lưu sau khi engine sẵn sàng — lần mở app sau vẫn giữ đúng chế độ người dùng đặt.
-        engine.setRequestedMode(preferredMode)
+        // "Tiết kiệm pin" thắng: khi bật thì ép `fast` bất kể `preferredMode`.
+        engine.setRequestedMode(powerSaving ? .fast : preferredMode)
         syncQueue.sync { _currentVoice = voice }
     }
 

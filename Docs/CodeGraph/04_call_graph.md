@@ -16,6 +16,13 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 
 <!-- GENERATED START -->
 
+## Bỏ Pre-schedule, Log Chẩn Đoán Nói Lắp & Chế Độ Tiết Kiệm Pin (1.3.441)
+
+* **Bỏ pre-schedule `play(atTime:)`**: `NghiAudioPlayerQueue.scheduleNextIfPossible` nay **rỗng** — giữ `nextPlayer` ở `prepareToPlay()`, bàn giao do `audioPlayerDidFinishPlaying` → `promoteNextAfterCurrentFinished` → `play()`. Hết chồng tiếng + nói lắp ở biên đoạn (vd "chân" | "tướng"). Cụm `.scheduled`/`onScheduleHandoff`/`handleNghiScheduledHandoff` thành dead code (gỡ ở lượt "B", chưa làm).
+* **Log chẩn đoán**: `handleNghiAudioTransition` log `[TTSPerf] NghiHandoff prevTail=… nextHead=…` (text ở biên); `VieNeuTTSEngine.synthesize` → `logChunkPhonemes` (ở `+Adaptive`) log `[VieNeuChunk] i=… text=… phonemes=…` (đường Reader trước đây không log phoneme).
+* **Ưu tiên `fast`**: `VieNeuTTSEngine.mode` mặc định `.high` → `.fast`; `VieNeuSynthesisPolicy.upshiftRTF` 0.45 → 0.30.
+* **"Tiết kiệm pin" + số luồng**: `VieNeuTTSService.powerSaving` (UserDefaults `vieneuPowerSaving`) → `engine.setRequestedMode(.fast)`; `threadCount` (UserDefaults `vieneuThreadCount`, 2…4) đọc ở `prepareLocked` qua `VieNeuSynthesisPolicy.threadCount(from:)`. UI ở `vieNeuReaderSection`.
+
 ## Sửa Bug Vô Hiệu Hoá Task Nạp Trước Cùng Batch (1.3.440)
 
 * **`scheduleNghiRefill` KHÔNG còn bump `nghiRefillGeneration`.** Guard `isValidNghiRefillContext` đòi `nghiRefillGeneration == refillGeneration` (bằng **ĐÚNG**), nên bump mỗi lần schedule làm các task **CÙNG batch** vô hiệu hoá lẫn nhau — `fillNghiRefillUpToCapacity` lập `N+1`, `N+2`, `N+3` với gen `G+1/G+2/G+3` ⇒ chỉ task cuối (`G+3`) sống. Tệ hơn, `defer` chỉ dọn khi gen khớp nên hai task bị vô hiệu **rò rỉ** trong `nghiRefillTasks`/`nghiRefillInFlightIndices` ⇒ pool nạp trước **nghẽn dần rồi chết**. Bug lộ ra từ 1.3.438 (thêm pool đa luồng nhưng để lại bump per-schedule vốn vô hại khi chỉ có 1 refill). Nay chỉ `cancelNghiRefill()` (đổi chương/session/seek/engine) mới bump.

@@ -81,4 +81,14 @@ extension VieNeuTTSEngine {
         var vectorMs: Double = 0
         var otherMs: Double = 0
     }
+
+    /// Log phoneme **từng chunk** của một lượt tổng hợp — để điều tra nói lắp ở tầng model.
+    ///
+    /// Mỗi dòng `[VieNeuChunk] i=… chars=… text=… phonemes=…` để đối chiếu biên cắt (vd "…chân" |
+    /// "tướng…") với phoneme thực tế ⇒ phân định **chồng tiếng** (phoneme đúng, lỗi ở tầng phát) vs
+    /// **artifact model** (phoneme sai/lặp ở tầng tổng hợp). Chỉ ghi khi bật log.
+    func logChunkPhonemes(index: Int, text: String, phonemes: String) {
+        guard AppLogger.shared.isLoggingEnabled else { return }
+        AppLogger.shared.log("[VieNeuChunk] i=\(index) chars=\(text.count) text=«\(text)» phonemes=«\(phonemes)»")
+    }
 }

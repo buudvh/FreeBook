@@ -16,6 +16,12 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 
 <!-- GENERATED START -->
 
+## Rủi Ro Chồng Tiếng/Nói Lắp, Pin & Đệm Nóng (1.3.441)
+
+* **ĐÃ SỬA — chồng tiếng + nói lắp ở biên đoạn**: pre-schedule `play(atTime:)` dùng `duration`/`deviceCurrentTime` ước lượng lệch ⇒ đoạn kế chạy sớm, đuôi âm tiết cuối chồng lên đầu đoạn kế (vd "chân"|"tướng" → "chân chân tướng"). Bỏ pre-schedule, bàn giao qua delegate. **Chưa kiểm chứng máy thật** — cần IPA xác nhận hết chồng tiếng + gap không đáng kể.
+* **ĐÃ ĐỔI — ưu tiên `fast` + "Tiết kiệm pin"**: giảm ~2× tính toán (mát/pin hơn), đổi lại **chất lượng giọng thấp hơn**. `threadCount` 2/4 chỉ áp dụng **sau khi nạp lại engine**.
+* **CÒN LẠI — "B" chưa gỡ**: cụm `.scheduled`/`onScheduleHandoff`/`handleNghiScheduledHandoff`/`nghiScheduledHandoffTask` là dead code; gỡ khi A xác nhận ổn.
+
 ## Rủi Ro Task Nạp Trước Cùng Batch Bị Vô Hiệu Hoá (1.3.440)
 
 * **Rủi ro ĐÃ SỬA (mức CAO) — pool nạp trước chết âm thầm do gen bump sai chỗ.** `scheduleNghiRefill` bump `nghiRefillGeneration` mỗi lần; guard đòi bằng đúng ⇒ `N+1`,`N+2` bị vô hiệu (chỉ `N+3` sống) và **rò rỉ** trong `nghiRefillTasks`/`nghiRefillInFlightIndices` (defer chỉ dọn khi gen khớp) ⇒ `fillNghiRefillUpToCapacity` dần hết chỗ ⇒ **prefetch gần như tắt**, mọi đoạn tổng hợp on-demand ⇒ đúng các gap người dùng báo (1→2→3 ở đầu phát, tên chương → đoạn 1 ở biên chương). Bug lộ ra từ 1.3.438. **Bài học: khi thêm đa luồng cho một cơ chế "generation-guard", phải kiểm lại semantics của generation — bump mỗi-lần-schedule vô hiệu hoá chính các sibling.**

@@ -1,105 +1,59 @@
 # FreeBook — ghi chú dài hạn (đã nén)
 
 ## Quy ước với người dùng
-- Trả lời **tiếng Việt**, giữ thuật ngữ kỹ thuật tiếng Anh inline.
-- **Không đoán UI.** Đọc code view thật; mọi khẳng định cấu trúc phải dẫn `file:line`. Repo không có ảnh chụp màn hình, môi trường **Windows** (không có Simulator) ⇒ mockup chỉ là **wireframe đúng cấu trúc**, phải nói rõ giới hạn. Đã sai 2 lần do grep đoạn đầu file rồi kết luận cả file (vd `SettingsView.swift:308` mới có `navigationTitle`).
-- Kế hoạch → `Docs/Plans/YYYY-MM-DD-plan-<slug>.md`; báo cáo → `Docs/Reports/YYYY-MM-DD-<topic>.md`. **Không** ghi vào `Docs/CodeGraph/`.
+- Trả lời **tiếng Việt**, thuật ngữ kỹ thuật tiếng Anh inline. Không đoán UI: đọc code view thật, mọi khẳng định cấu trúc dẫn `file:line` (đã sai 2 lần do grep đầu file rồi kết luận cả file).
+- Plan → `Docs/Plans/YYYY-MM-DD-plan-<slug>.md`; báo cáo → `Docs/Reports/YYYY-MM-DD-<topic>.md`. **Không** ghi vào `Docs/CodeGraph/`.
+- `grill-me`: hỏi từng câu, tự đọc code trước, **KHÔNG code** tới khi user "duyệt"; tự ghi plan. Có **3 bản** (`.claude/`, `.workbuddy/`, `~/.workbuddy-ai/`) — sửa 1 phải copy 2 bản kia.
 
-## Quy trình bắt buộc sau khi sửa code
-Đọc `AGENTS.md` + `.agents/AGENTS.md`. Rồi: (1) `validate_links.py --explain`; (2) sửa **chỉ trong** `<!-- GENERATED START -->…<!-- GENERATED END -->`; (3) `--accept <n>` / `--no-change-needed <n>`; (4) thêm `CHANGELOG.md` `[1.3.NNN] - YYYY-MM-DD`, tiêu đề **trùng subject commit**; (5) validator read-only PASS 100%; (6) kết thúc bằng `"CodeGraph updated."` hoặc `"No CodeGraph update required."`
+## Quy trình bắt buộc sau khi sửa code (push-ci-monitor)
+Đọc `AGENTS.md` + `.agents/AGENTS.md`. Rồi: (1) `validate_links.py --explain`; (2) sửa **chỉ trong** `<!-- GENERATED START/END -->`; (3) `--accept <doc>` (**1 doc/lần, phải loop**) / `--no-change-needed <doc>`; (4) `CHANGELOG.md` `[1.3.NNN] - YYYY-MM-DD`, tiêu đề **trùng subject commit**; (5) validator read-only **PASS 100%**; (6) kết thúc `"CodeGraph updated."` / `"No CodeGraph update required."`.
 
 ## Bẫy môi trường & công cụ
-- **Không build được trên Windows** ⇒ không bao giờ nói "đã kiểm chứng biên dịch".
-- `Scripts/check_architecture.py` **đỏ sẵn** (~30 violation, baseline trôi): so trước/sau, chỉ chịu trách nhiệm violation mới.
-- `[PASS]` của script **không phải bằng chứng**: `strip_comments_and_strings` (`check_architecture.py:53-60`) ăn nhầm code thật khi gặp string interpolation ⇒ `ShelfView.swift:757`, `BookDetailView.swift:239` có `try? modelContext.save()` thật mà script không thấy.
-- Grep phải **scope `Sources/`** (`Tools/` >4000 file → timeout). `00_index.md` quá lớn → `offset`/`limit`.
-- **`validate_links.py` short-circuit khi cây sạch**: PASS dù doc stale ⇒ phải chạy `--explain` **khi cây đã có thay đổi**; phân định nợ cũ/mới: `git stash push -- Sources/ Docs/` → chạy → `git stash pop`.
+- **Không build trên Windows** ⇒ không bao giờ nói "đã kiểm chứng biên dịch" (CI xác nhận).
+- `Scripts/check_architecture.py` **đỏ sẵn** (5 violation nền: `TTSManager`, `ReaderViewModel`, `JSExecutor`, `JSDom`, `ChapterPersistenceStore`): so trước/sau, chỉ chịu violation **MỚI**. `[PASS]` của script **không phải bằng chứng** (`strip_comments_and_strings` ăn nhầm code thật khi gặp string interpolation).
+- Grep scope `Sources/` (`Tools/` >4000 file → timeout). `00_index.md` lớn → dùng `offset`/`limit`.
+- **`validate_links.py` short-circuit khi cây sạch** ⇒ phải chạy `--explain` khi cây ĐÃ có thay đổi.
+- **Bẫy doc**: cú pháp có `](` (vd `[Float](repeating:)` hay regex `[.,](\d+)`) bị hiểu là markdown link ⇒ `broken link`. Viết lại bằng chữ.
 
 ## Ràng buộc kiến trúc
-- `Sources/Services/**` **không** `import SwiftUI` ⇒ singleton hướng-SwiftUI phải ở `Sources/Common/**` (tiền lệ `ToastManager`).
+- `Sources/Services/**` **không** `import SwiftUI`, **không** `ToastManager` (dùng event AsyncStream / `Result`). Singleton hướng-SwiftUI ở `Sources/Common/**`.
 - File Swift mới ≤ **400 dòng**, **1 type chính** top level. `Sources/Views/**` không `modelContext.insert/delete/save`.
-- Trần dòng legacy: `SettingsView.swift` **452/453 — còn 1 dòng**; `ReaderView.swift` 2002/2053; `ReaderViewModel.swift` **918/830 — đang vượt**. `DeveloperSettingsSection.swift:4` tự ghi: mọi mục mới của Settings phải ra file riêng.
-- `BackupCoordinator.swift` trần 400 là ràng buộc thật ⇒ tính năng mới phải ra file extension; extension **không** ghi được `isBusy`/`progress` (`private(set)`) trừ khi mở `setBusy`/`setProgress` như `+AutoDrive`.
-- Gốc skill: `.agents/skills/` = **Antigravity đọc** (hiện có `antigravity`, `claude-cli`, `push-ci-monitor`, `vbook_helper`); `.claude/skills/` = chỉ Claude Code. `.claude/` **bị gitignore**, `.agents/` và `.workbuddy-ai/` được track.
-- **WorkBuddy đọc skill ở**: `~/.workbuddy-ai/skills/` (user-level) và `<workspace>/.workbuddy/skills/` (project-level). `<workspace>/.workbuddy-ai/skills/` **KHÔNG** được quét — dễ nhầm nhất.
-- `grill-me` có **3 bản** (`.claude/`, `.workbuddy/`, `~/.workbuddy-ai/`) — sửa 1 bản phải copy sang 2 bản còn lại. Hết phiên grill nó tự ghi plan vào `Docs/Plans/YYYY-MM-DD-plan-<slug>.md` — chính là artifact cho bước "Duyệt" của `push-ci-monitor`.
+- **Ratchet-down** (không được TĂNG dòng): `TTSManager.swift` 4024/3470 (code mới → `TTSManager+*.swift`); `TextPreprocessor.swift` **đúng 1121** (mọi edit phải net ≤0 — từng vượt 1123 và bị revert); `TTSSettingsView.swift` ~502/519; `SettingsView.swift` 452/453; `BackupCoordinator.swift` 400 (extension không ghi được `private(set)` `isBusy`/`progress` trừ khi mở setter); `VieNeuTTSEngine.swift` 395/400.
+- Gốc skill: `.agents/skills/` = Antigravity đọc; `.claude/skills/` = Claude Code (`.claude/` gitignored). **WorkBuddy đọc**: `~/.workbuddy-ai/skills/` (user) + `<ws>/.workbuddy/skills/` (project). `<ws>/.workbuddy-ai/skills/` **KHÔNG** được quét.
 
-## Điều hướng app (dễ đoán sai)
-- **4 tab**: Kệ Sách / Khám Phá / Tiện Ích / Cài Đặt (`MainTabView.swift:12-37`). **Không có tab Tìm kiếm** (tìm kiếm nằm trong `ShelfSearchView` và `ReaderSearchView`).
-- `.tint(.accentColor)` duy nhất ở `MainTabView.swift:38`. **Khám Phá ẩn nav bar** (`DiscoveryView.swift:346`) ⇒ header tự dựng.
-- Chi tiết truyện: thanh tab `Chi tiết`/`Mục lục` **ngay dưới nav bar**; bìa/tên/giới thiệu nằm **trong** tab `Chi tiết` (`BookDetailView.swift:206-232`, header `:368`).
-- BookDetail / RepositoryManager / Shelf / Discovery dùng `TabView(.page)` + cổng `renderedTab` + `asyncAfter(0.15s)`. **Không đụng cơ chế này khi sửa UI.**
-- Thanh chọn tab có 2 kiểu: Kệ sách = nút rời (`ShelfTabSelectorView`); Tiện Ích = `Picker(.segmented)`.
+## Điều hướng app
+- **4 tab**: Kệ Sách / Khám Phá / Tiện Ích / Cài Đặt (`MainTabView.swift:12-37`). Không có tab Tìm kiếm.
+- Khám Phá ẩn nav bar (`DiscoveryView.swift:346`). BookDetail/RepositoryManager/Shelf/Discovery dùng `TabView(.page)` + cổng `renderedTab` + `asyncAfter(0.15s)` — **không đụng** khi sửa UI.
 
 ## Phân hệ Backup
-- Bản sao lưu trong máy là bản **tạm**: upload xoá file local **sau khi** đích tự xác nhận (`removeLocalCopyAfterUpload`). Cố ý: bấm tay = **1 archive → 1 đích**; muốn cả Drive + Telegram thì dùng `+AutoDrive`.
-- **Hai hàng rào xoá khác nhau, đừng "thống nhất"**: `BackupPaths.isAutoBackupFileName` (tiền tố `freebook-auto-`) chặn phép dọn **ngầm**; `LocalBackupStore.deleteAll()` **cố ý** không lọc tiền tố.
-- `backups/` chứa cả file tạm của worker ⇒ **không bao giờ xoá cả thư mục**; duyệt `list()` rồi xoá từng archive.
+- Bản sao lưu local là bản **tạm**: upload xoá local sau khi đích xác nhận. Bấm tay = 1 archive → 1 đích (muốn cả Drive+Telegram dùng `+AutoDrive`).
+- Hai hàng rào xoá khác nhau, đừng "thống nhất": `BackupPaths.isAutoBackupFileName` chặn dọn ngầm; `LocalBackupStore.deleteAll()` cố ý không lọc. `backups/` chứa file tạm worker ⇒ **không xoá cả thư mục**.
 
-## Phân hệ TTS (dễ đoán sai)
-- Engine chọn bằng chuỗi `TTSManager.tool` ∈ {`system`, `nghitts` (Piper ONNX local), `google`, `<packageId extension>`} (`TTSManager.swift:92`; picker `Views/TTSWidget/TTSSettingsView.swift:73-76`). **121 chỗ** so chuỗi `"nghitts"` trên 11 file; `tool != "system" && tool != "nghitts" && tool != "google"` = "là extension tool" ⇒ thêm engine mới mà sót predicate là bị đối xử sai.
-- **`TTSManager.swift` 4026 dòng > baseline 3470** (violation nền) ⇒ ratchet-down: code mới **phải** vào `Sources/Services/TTS/Extensions/TTSManager+*.swift`.
-- `NghiAudioPlayerQueue` dùng `AVAudioPlayer(data:)` ⇒ sample-rate agnostic (24 kHz không cần sửa). `TTSAudioSynthesisWorker` đã generic theo `engine: String`.
-- Repo cũ `VieNeuTTS-Offline` gọi "v3 Nano" nhưng thực chất chạy **v3-Turbo AR** (KV cache + MOSS 48 kHz, trần `maxNewFrames` 80 = 6,4 s audio). Nano thật = flow-matching **non-AR**, 24 kHz, 48M params, không KV cache, không cần BPE tokenizer.
-- CoreML EP: repo cũ **đã bỏ có chủ ý** (KV cache zero-dim + external-data crash) ⇒ đừng thử lại cho kiến trúc AR.
+## Phân hệ TTS
+- Engine = chuỗi `TTSManager.tool` ∈ {`system`, `nghitts` (Piper), `vieneu` (VieNeu Nano), `google`, `<pkg extension>`}.
+- **`isLocalEngine` vs `isExtensionTool` khác câu hỏi, đừng gộp**: local = `nghitts || vieneu`; extension = user cài. Quên `isLocalEngine` ⇒ **im lặng**; quên `isExtensionTool` ⇒ **UI kiểu extension**. Bug "phủ định 3 nhánh" đã xuất hiện ≥3 lần ⇒ thêm engine phải grep MỌI danh sách tên engine (gồm `loadParamsForCurrentTool`, `TTSManager.init`, `TTSManager+TranslationIdentity`).
+- `playAudioData` **bắt buộc** route engine local → `playNghiAudioData`; đi nhầm nhánh `AVAudioPlayer` ⇒ **không tiếng, không lỗi**.
+- Guard danh tính (`isIdentityValid`/`isContextValid`) đặt SAU tổng hợp là bẫy tệ nhất: trả tiền CPU rồi vứt kết quả. `makePlaybackContext(engine:)` phải truyền `tool` (không literal). Synthesis key không hardcode engine.
+- `chunkLength` CÓ dùng cho mọi engine local (`playbackParagraphs` → `NghiUtteranceSegmenter.expand`); `prefetchDelayMs` remote-only. `nghittsPrefetchDelay` là Piper-only (đổi sang `isLocalEngine` gây hồi quy).
+- **Pitch = no-op với mọi engine local** (task #9, cố ý bỏ): `NghiAudioPlayerQueue` chỉ `updateRate(_:)`; `AVAudioUnitTimePitch` chỉ ở đường `AVAudioEngine`. `disablePitch` phủ engine local.
+- **Speed là playback-only** (tổng hợp x1.0): `speed.didSet → updatePlaybackParams` chỉ `updateRate(speed)`, **không** `updateNghiPrefetchWindow`/`cancelNghiWakeTask` (1.3.439 — kéo slider trước đây kích tổng hợp đoạn kế + chương sau).
+- **Đệm nóng**: `continueStartSpeaking` (điểm chung fresh start + `applyNextChapter`) → `warmNghiRefillForPlaybackStart()` → `fillNghiRefillUpToCapacity()`; nạp `N+1..N+3` song song đoạn hiện tại.
+- **Prefetch pool cần generation đúng (1.3.440)**: `nghiRefillGeneration` CHỈ bump ở `cancelNghiRefill` (đổi ngữ cảnh), **KHÔNG** bump trong `scheduleNghiRefill` — guard `isValidNghiRefillContext` đòi bằng ĐÚNG nên bump mỗi lần làm task cùng batch vô hiệu hoá nhau + rò rỉ (`defer` chỉ dọn khi gen khớp) ⇒ pool chết âm thầm ⇒ gap ở đầu phát/biên chương. Triệu chứng: pool "có vẻ chạy" mà đệm không bao giờ đầy lúc cold start.
+- **AVAudioEngine ĐÃ BỊ BỎ — đừng quay lại (tra git 2026-09-30)**: trước 1.3.59 app phát bằng `AVAudioEngine` + `AVAudioPlayerNode.scheduleBuffer`; bỏ ở commit **`423787c`** vì chất âm qua tai nghe Bluetooth + `AVAudioSession OSStatus -50` (mất điều khiển màn hình khoá/Control Center — `9befe9e`/`efbe555`) + rè âm (`bd887df`/`77a3004`). Hiện MỌI engine phát qua `AVAudioPlayer` (`NghiAudioPlayerQueue`). Chồng tiếng hiện do pre-schedule `play(atTime:)` (duration/deviceCurrentTime lệch) — fix = bỏ pre-schedule, KHÔNG quay lại AVAudioEngine.
+- **TTS chồng tiếng/nói lắp — plan CHƯA code (1.3.441)**: `Docs/Plans/2026-09-30-plan-tts-stutter-overlap-battery.md`. `play(atTime:)` + máy móc `.scheduled` là **offline-only** (`NghiAudioPlayerQueue`). **A** (làm trước) = bỏ `play(atTime:)` trong `scheduleNextIfPossible`, **giữ** máy móc. **B** (làm sau khi A ổn) = gỡ `.scheduled`/`getScheduledStatus`/`ScheduledStatus`/`onScheduleHandoff`/`handleNghiScheduledHandoff`/`nghiScheduledHandoffTask`. **NHẮC USER VỀ B.**
+- Đường nạp lại/wake còn gate `tool == "nghitts"` ~15 chỗ (1.3.435 đã mở phần lớn qua `currentSafeCachedTimeThreshold`). Extension không thêm được stored property.
 
-## Tài liệu local (gitignored)
-- `.gitignore:7-10` chặn `/Docs/Result`, `/Docs/Plans`, `/Docs/CheckList`, `/Docs/Reports` ⇒ plan/báo cáo là artifact **local**, không commit, và **không** làm `validate_links.py` stale. `Docs/Plan/` (số ít) thì **được track** (spec feature).
+## Tiền xử lý số (`TextPreprocessor`, 1.3.439)
+- `formatNumbers` chỉ xóa dấu chấm ngăn cách nghìn khi phần nguyên ≠ 0 (giữ `"0.001"`). Regex `decimal`/`percentageDecimal` nhận `[.,]`. `processDecimals`/`processPercentages` đọc phần thập phân **từng chữ số giữ số 0**. `processDigits` đọc số 0 đầu (`"001"`→"không không một") — **KHÔNG** đặt ở `VietnameseNumberSpeller.spell` (sẽ hỏng ngày `"01/02"`).
+- `TextPreprocessor+Numbers.swift` = entry `normalizeVietnameseText` cho engine local.
 
-## CHANGELOG
-- Giữ **30** entry, vượt thì đẩy entry cũ nhất sang `CHANGELOG.archive.md` (mới nhất trước).
-- **2 vấn đề chưa sửa**: (a) drift lên 43 entry; (b) **thiếu hẳn 1.3.323–1.3.328** ở cả 2 file (archive dừng 1.3.322, CHANGELOG bắt đầu 1.3.329) trong khi doc vẫn tham chiếu ⇒ một lượt lưu trữ trước đây đã mất entry (lấy lại từ `git log`). **Đừng tự đẩy sang archive khi chưa kiểm chứng.**
-- Thêm file Swift mới ⇒ `00_index`, `02_file_graph`, `09_dependency_rules`, `14_complexity_report` + `11_subsystems` cùng stale (sửa cả 5 vùng GENERATED rồi `--accept`); sửa `Sources/Common/**` thì `03_type_graph` cũng stale.
+## Hiệu năng Reader (bẫy đã xác minh)
+- Đọc `Docs/Reports/` trước (bài cũ đã trôi). `ChapterCache` không trần, chỉ dọn khi Memory Warning. `TranslationWordToken.id` = `UUID()` trong `init` ⇒ `ForEach` không diff được.
+- `ReaderEnergyDiagnostics.isEnabled` chốt 1 lần trong `beginReaderSession()` ⇒ bật `AppLogger.isLoggingEnabled` TRƯỚC khi mở Reader.
+- `originalSentence` (panel Dịch) là MỘT ĐOẠN VĂN (9–173 ký tự), không phải cả chương ⇒ đo N thật trước khi "sửa O(N) view".
+- `FrozenTrieDictionary`: `dat == nil` (customNames/VietPhrase/bookVP/bookNames sau lần lưu đầu) duyệt `lengths` + cấp phát `Array(text.utf16)` mỗi vị trí ⇒ nguồn đốt CPU lớn nhất của pipeline dịch.
 
-## Hiệu năng Reader — bẫy đã xác minh (2026-09-13)
-- **Đọc `Docs/Reports/` trước**: `2026-09-10-reader-tts-perf-review.md` đã trôi — RC-5 **đã sửa**, RC-9 và P-2 **đã sai**.
-- Nút "Cập nhật" ở panel Dịch mặc định lưu phạm vi **"R" (Riêng)** (`ReaderView.swift:123`) ⇒ chỉ bump `bookGenerations[bookId]`, **không** phải `globalGeneration`.
-- **`ChapterCache` không có trần**; chỉ dọn khi Memory Warning (`ReaderViewModel.swift:678`). Từ 1.3.375 `applyNavigationCommit` gọi `queueRelease` thật (cửa sổ ±3); `queueRelease` **phải** là `Task { @MainActor }` vì `performRelease` gỡ khoá trong `cache` (`@Observable`). Bài học: đánh thức code chết phải rà an toàn luồng trước.
-- `ReaderDefinitionOverlayView` dựng 1 `Text` cho **mỗi đơn vị UTF-16** của cả đoạn (`:182-202`, `HStack` không lazy); cùng mẫu ở `ReaderJunkDeleteOverlayView` và `ReaderCopyOriginalOverlayView` ⇒ mọi thay đổi UI ở 3 panel này phải tính chi phí N view.
-- `TranslationWordToken.id` là `UUID()` sinh trong `init` (`TranslationWordToken.swift:4`) ⇒ `ForEach` mất khả năng diff **mọi** lượt nạp, `.onChange(of: translationTokens.map(\.id))` luôn nổ.
-- `ReaderEnergyDiagnostics.isEnabled` chốt một lần trong `beginReaderSession()` ⇒ phải bật `AppLogger.isLoggingEnabled` **trước khi mở Reader**.
-- `originalSentence` (panel Dịch) là **MỘT ĐOẠN VĂN**, không phải cả chương (`ReaderView.swift:1494` ← `item.original`); đoạn thật 9–173 ký tự (TB ~28) ⇒ **đo N thật** trước khi "sửa O(N) view". Rủi ro chỉ thành thật với nguồn trả cả chương thành 1 dòng, vì `ChapterTextNormalizer.normalizeInternal` (`:24-52`) **chỉ tách theo `\n`**.
-
-## `FrozenTrieDictionary` — hai đường tra cứu (2026-09-13)
-- `dat != nil` = nhanh, dừng sớm; `dat == nil` = duyệt `lengths` + `String(decoding:)` **mỗi độ dài**. `trieMatches` vẫn cấp phát `Array(text.utf16)` mỗi lần gọi.
-- `dat == nil`: `customNamesDict`, `customVietPhraseDict`, **và `bookVP`/`bookNames`** (qua `TextDictionary.frozen()`). Từ điển `.dat` đi `DoubleArrayTrie.frozen()` ⇒ nhanh.
-- Sau lần lưu từ điển đầu tiên chúng khác `nil` **vĩnh viễn** ⇒ mỗi vị trí ký tự × mỗi dòng × mỗi lượt dựng chương đều cấp phát thêm — nguồn đốt CPU (→ throttle) lớn nhất đã biết của pipeline dịch.
-- Bẫy tối ưu: `VietPhraseTokenizer` truyền `checkText` + `startIndex: 0` **cố ý** để biên `limit`/`maxLimit` giới hạn vùng quét. Muốn truyền chuỗi gốc + `startIndex` thì chữ ký tra cứu **bắt buộc** thêm `maxLength`, nếu không kết quả dịch đổi.
-- Phép thử "từ điển bật lên" vs "cache nguội": ghi `[ReaderPerf] TranslationRefresh totalMs` → Cập nhật 1 từ → ghi lại (tăng vọt, không hồi) → xoá từ điển riêng truyện → ghi lại (hồi nền = từ điển; không hồi = cache).
-
-## Định tuyến engine TTS — `isLocalEngine` vs `isExtensionTool` (2026-09-29, 1.3.434)
-- Hai hàm **khác câu hỏi**, đừng gộp: `TTSManager.isExtensionTool(_:)` = "extension do người dùng cài?"; `TTSManager.isLocalEngine(_:)` = "engine chạy trên máy + đi chung đường phát NghiTTS?" (`nghitts || vieneu`). Quên `isLocalEngine` ⇒ **im lặng** (không lỗi); quên `isExtensionTool` ⇒ **UI kiểu extension**.
-- **`playAudioData` bắt buộc** định tuyến engine local sang `playNghiAudioData`; `updatePlaybackParams` chỉ đặt `rate` trên `nghiAudioPlayerQueue` ⇒ engine local đi nhầm nhánh `AVAudioPlayer` sẽ **không có tiếng và không ném lỗi**.
-- **`NghiUtteranceSegmenter` KHÔNG phải Piper-only**: `playbackParagraphs` (`:801-803`) cho `vieneu` đi qua nó với `chunkLength` ⇒ VieNeu **cần** nạp `chunkLength` (khoá `vieneuChunk`).
-- **Piper-only thật**: khoá `nghittsPrefetchDelay` trong `prefetchDelayMs.didSet`. Đổi sang `isLocalEngine` gây hồi quy (VieNeu ghim 500 ms ⇒ ghi đè độ trễ NghiTTS).
-- **Nhánh `else` của `loadParamsForCurrentTool()` là bẫy**: nó là nhánh extension, gọi helper của engine rồi **ghi đè ngay** `speed`/`pitch`/`selectedVoice`. Engine mới **phải** có `else if` riêng.
-- ⚠️ **Máy nạp lại/wake của NghiTTS còn gate `tool == "nghitts"` ở ~15 chỗ** (`updateNghiPrefetchWindow:2652`, `prepareNextNghiAudioIfPossible:3252`, `calculateNghiCachedTime:2596`, `handleNghiAudioFinished:3362`, `startPrefetchTask:2991`, `handleNghiScheduledHandoff:3194`) ⇒ `calculateNghiCachedTime()` trả **0.0** cho VieNeu, `vieneuSafeCachedTimeThreshold` **không có nơi đọc**, `vieneuPrefetchCount` chỉ đọc ở đường **remote**. **Đây là việc 2b còn lại.**
-- **Cách phát hiện "điều khiển chết" không cần chạy app**: grep hai chiều tên property trong `Sources/`, tự hỏi *"ngoài khai báo/ghi/UI, ai **đọc để quyết định**?"*. Chỉ thấy setter + view ⇒ chết.
-- `NghiAudioPlayerQueue` chỉ có `updateRate(_:)` (0.5…2.0) — **không** pitch. `AVAudioUnitTimePitch` chỉ nằm trên đường `AVAudioEngine` (`setupAudioEngine()`), nên `pitch` là no-op với **mọi** engine local.
-- **Ratchet-down `TTSManager.swift` (4025/3470)**: gom chuỗi `if/else` trong `didSet` thành `persistSpeed`/`persistPitch`/`persistVoice`/`persistChunkLength` ở `TTSManager+VieNeu.swift` ⇒ thêm engine/khoá mà file legacy **ngắn hơn**. Extension **không** thêm được stored property (nên `@AppStorage` trong extension là bất khả; dùng `Binding` đọc/ghi thẳng service như `vieNeuModeBinding`).
-- **`validate_links.py --accept` chỉ nhận 1 doc mỗi lần chạy** ⇒ phải loop từng file. `--accept` báo "vùng GENERATED không đổi" nếu doc đã accept rồi.
-
-## Máy phát NghiTTS phục vụ MỌI engine local (2026-09-29, 1.3.435)
-- **Guard danh tính đặt SAU bước tổng hợp là loại lỗi tệ nhất**: `isIdentityValid()` (`TTSManager.swift:3638`) từng kết bằng `self.tool == "nghitts"` ⇒ engine thứ hai trả tiền CPU tổng hợp rồi **vứt kết quả**, không log/lỗi/toast. Rà `isIdentityValid`/`isContextValid`/`isValidSession` **trước** khi rà logic tổng hợp.
-- **Công thức chẩn đoán "có tổng hợp mà không có tiếng"**: log có `[NghiEnergy] Underrun` (đã vào `playNghiTTS`) + **vắng** `[TTSRoute] playAudioData` ⇒ lỗi ở guard giữa 2 bước.
-- **`makePlaybackContext(..., engine:)` phải truyền `tool`**, không literal: `isContextValid` so `tool == context.engine`. Hai chỗ hardcode `engine: "nghitts"` (`:3191`, `:3348`) từng làm mọi handoff bị huỷ.
-- **`handleNghiAudioTransition` (`:3338`) có tác dụng phụ phá hoại**: guard sai ⇒ gọi `nghiAudioPlayerQueue.stop()` (cắt tiếng), không chỉ bỏ qua.
-- **`prefetchDelayMs` ("Thời gian dãn tiến trình nạp trước") là remote-only** — chỉ `TTSAudioSynthesisWorker` (Google/extension) tiêu thụ; nhánh local của `TTSNextChapterPrefixSynthesizer.one` gọi `localService.synthesize(...)` thẳng. Đã chết với NghiTTS từ lâu; nay ẩn với engine local.
-- **`chunkLength` ("Độ dài đoạn văn") CÓ dùng cho mọi engine local** qua `playbackParagraphs:801-803` → `NghiUtteranceSegmenter.expand(..., maximumLength: chunkLength)`. Mọi nơi dựng lại cùng danh sách đoạn **phải expand y hệt** (`nextChapterPrefixContext` đã phải sửa), nếu không lệch chỉ số đoạn văn.
-- **Bug "phủ định 3 nhánh" đã xuất hiện 3 lần** (`!= "system" && != "nghitts" && != "google"`; `== "system" || == "nghitts" || == "google"` ở `TTSManager+TranslationIdentity.swift:8`; và nhánh `else` của `loadParamsForCurrentTool`/`TTSManager.init`). **Khi thêm engine: grep MỌI danh sách tên engine.**
-- **`TTSManager.init` nạp tham số TRƯỚC `super.init()` (`:953`)** ⇒ không gọi được instance method. Chuỗi `if/else` ở đó thiếu nhánh `vieneu`. Sửa bằng 1 dòng `applyVieNeuParamsIfNeeded()` trong `initialize(container:)` (gọi từ `MainTabView.swift:57`) — một nguồn sự thật.
-- **Synthesis key**: không bao giờ hardcode engine — `TTSSynthesisIdentity.computeKey(engine:)` nhận `"nghitts"` ở `:2840`/`:3606` làm 2 engine local **trùng khoá** (PiperSynthesisCoordinator gộp request theo khoá). Luôn truyền `tool`.
-- **Ngưỡng đệm theo engine**: `TTSManager.currentSafeCachedTimeThreshold` là chỗ duy nhất để `vieneuSafeCachedTimeThreshold` được **đọc** (`:2674`, `:2714`, `NextChapterPrefix:73`).
-- **`TTSManager.swift` ở 4028 dòng — chỉ còn 1 dòng dự phòng so với mốc 4029.** Mọi thay đổi tiếp theo phải ra extension hoặc gom tiếp chuỗi `if/else` (đã gom `speed`/`pitch`/`selectedVoice`/`chunkLength` + nút Đặt lại).
-- **`TTSSettingsView.swift` nay 502/519** (nhờ gom nút "Đặt lại" thành `TTSManager.resetPrefetchSettings()`).
-- **UI đã sửa**: Picker đưa VieNeu lên **thứ 3**; Section 3 chỉ còn chế độ chất lượng, tham số hiệu năng ở Section 5 `vieNeuPrefetchSection`; pitch **disable cho mọi engine local** + dòng giải thích (queue chỉ có `updateRate`).
-
-## VieNeu hậu kiểm định trên máy thật (2026-09-29, 1.3.436)
-- **✅ VieNeu đã ra tiếng** sau 1.3.435 (2 nguyên nhân gốc đúng). Các lỗi còn lại là **chất lượng**, không phải "không có tiếng".
-- **Engine PHẢI tôn trọng `boundaryKind`.** Piper nối khoảng lặng **đuôi** theo ranh giới (`ONNXPiperEngine.pauseDuration(for:)`, dùng ở `:436`); VieNeu nhận tham số rồi **bỏ** ⇒ phoneme cuối utterance dính vào đầu utterance kế ⇒ **"mất chữ"**. `joinChunks` **không bao giờ** đệm chunk cuối ⇒ khoảng lặng đuôi **không thể** đến từ chunker. Nay `VieNeuTTSEngine.pauseSeconds(for boundaryKind:)` đọc **cùng khoá `UserDefaults`** như Piper. Khoảng lặng chèn thêm phải cộng vào `insertedPauseSeconds` (không thì `speechDuration`/RTF sai). `boundaryKind` phải nằm trong synthesis key.
-- **`Picker`/điều khiển UI buộc vào service thường (không `@Observable`) sẽ KHÔNG cập nhật.** Lỗi này đã xảy ra **2 lần** (`VieNeuTTSTestView` 1.3.421, `TTSSettingsView` 1.3.436) ⇒ luôn dùng `@State` + `.onChange` đẩy xuống service. `preferredMode` setter **đã** gọi `engine.setRequestedMode(...)` nên engine không bao giờ là vấn đề.
-- **Cắt hai tầng (nghi phạm chất lượng)**: engine tự cắt ở `VieNeuConfig.maxChunkCharacters` = **140** và pack cả câu; Reader cắt **trước** ở `vieneuChunk` (mặc định 200) qua `NghiUtteranceSegmenter`. Màn thử giọng đưa **cả đoạn** vào 1 lượt ⇒ `joinChunks` tự chèn khoảng lặng theo dấu câu ⇒ **khác hẳn** đường Reader. **Mọi khác biệt chất lượng giữa màn thử giọng và Reader: nghĩ tới lớp cắt thừa + chế độ `fast` do RTF cao.**
-- **Đường Reader trước 1.3.436 không có instrumentation** ⇒ câu hỏi về chất lượng không trả lời được. Nay `logSynthesisPerf` (`VieNeuTTSEngine+Adaptive`) ghi mỗi lượt: `mode chunks dropped chars pcm speech synth rtf boundary`.
-- **Lỗi phụ thuộc thời điểm thì ĐỪNG đoán** (`play(atTime:)` + `deviceCurrentTime` trong `NghiAudioPlayerQueue`): thêm log `[NghiAudioPlayerQueue] schedule next=… wallRemaining=… duration=… currentTime=…` rồi xin log, thay vì sửa mò.
-- **Trần 400**: `VieNeuTTSEngine.swift` **395/400** ⇒ log/tiện ích mới **phải** vào `+Adaptive`/`+Chunking`.
-- **Bẫy `validate_links.py`**: cú pháp Swift có `](` trong doc (vd `[Float](repeating:…)`) bị hiểu là **markdown link** ⇒ `broken link`. Viết lại bằng chữ.
+## Tài liệu & CHANGELOG
+- `.gitignore` chặn `/Docs/Result`, `/Docs/Plans`, `/Docs/CheckList`, `/Docs/Reports` (artifact local, không commit). `Docs/Plan/` (số ít) được track.
+- CHANGELOG giữ ~30 entry (đang drift 43+); **thiếu hẳn 1.3.323–1.3.328** ở cả 2 file — **đừng tự đẩy sang archive khi chưa kiểm chứng**.
+- Thêm file Swift mới ⇒ `00_index`, `02_file_graph`, `09_dependency_rules`, `14_complexity_report`, `11_subsystems` cùng stale; sửa `Sources/Common/**` ⇒ `03_type_graph` stale.

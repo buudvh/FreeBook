@@ -16,6 +16,12 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 
 <!-- GENERATED START -->
 
+## Rules Pre-schedule, Pin & Log (1.3.441)
+
+* **Never pre-schedule the next local segment with `AVAudioPlayer.play(atTime:)`.** `duration`/`deviceCurrentTime` are estimates; an early `startTime` overlaps the tail of the current segment → chồng tiếng + "nói lắp" at chunk boundaries (e.g. "chân" | "tướng" → "chân chân tướng"). Hand off via the `audioPlayerDidFinishPlaying` delegate instead. `NghiAudioPlayerQueue` 368 → 324 lines.
+* **VieNeu defaults now bias to `fast`** (16 → 8 Euler steps, ~2× less compute ⇒ cooler/less battery, lower quality): engine `mode` starts at `.fast`, `upshiftRTF` 0.30. The opt-in "Tiết kiệm pin" toggle forces `fast` + 2 ORT threads. `threadCount` only takes effect on the **next engine load**.
+* **`VieNeuSynthesisPolicy` stays pure** — settings helpers take `UserDefaults` as a parameter (`threadCount(from:)`), never read the global directly.
+
 ## Rules Nạp Trước & Generation (1.3.440)
 
 * **A per-schedule generation bump breaks a concurrent pool.** `nghiRefillGeneration` must be bumped ONLY on context change (`cancelNghiRefill`), never inside `scheduleNghiRefill`. The guard `isValidNghiRefillContext` requires **exact** equality, so bumping per schedule invalidates every sibling task in the same `fillNghiRefillUpToCapacity` batch (only the last survives) AND leaks them (the `defer` only cleans when the generation matches), slowly wedging the pool. Introduced with the pool in 1.3.438, fixed in 1.3.440.

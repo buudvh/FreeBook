@@ -16,6 +16,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 
 <!-- GENERATED START -->
 
+## Bỏ Pre-schedule, Log Chẩn Đoán & Tiết Kiệm Pin (1.3.441)
+
+* **`NghiAudioPlayerQueue.scheduleNextIfPossible` → rỗng** (bỏ pre-schedule `play(atTime:)`). `NghiAudioPlayerQueue` **368 → 324** dòng.
+* **Log**: `[TTSPerf] NghiHandoff` (text ở biên) + `[VieNeuChunk]` (phoneme từng chunk, helper `logChunkPhonemes` ở `VieNeuTTSEngine+Adaptive`).
+* **VieNeu pin**: `mode` mặc định `.fast`; `upshiftRTF` 0.30; `VieNeuTTSService.powerSaving`/`threadCount`; UI toggle + Picker ở `vieNeuReaderSection`; `VieNeuSynthesisPolicy.threadCount(from:)` (giữ type thuần — nhận `UserDefaults` từ caller).
+* **Đã loại trừ tầng chữ**: mô phỏng lại `NghiUtteranceSegmenter.split` — biên rơi giữa "chân"|"tướng" nhưng **không** nhân đôi text ⇒ lỗi ở tầng phát audio.
+
 ## Sửa Bug Vô Hiệu Hoá Task Nạp Trước Cùng Batch (1.3.440)
 
 * **`nghiRefillGeneration` bump mỗi lần `scheduleNghiRefill` ⇒ task cùng batch vô hiệu hoá lẫn nhau + rò rỉ.** Guard `isValidNghiRefillContext` (bằng ĐÚNG) khiến 2/3 task của `fillNghiRefillUpToCapacity` chết; `defer` không dọn (gen lệch) ⇒ `nghiRefillTasks`/`nghiRefillInFlightIndices` phình ⇒ pool nghẽn dần. **Đây là lý do "đệm nóng đầu phát/biên chương" (1.3.439) không có tác dụng: pool không chạy thật.** Nay bỏ bump trong `scheduleNghiRefill`, chỉ `cancelNghiRefill()` bump.

@@ -227,63 +227,19 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
         return player
     }
 
-    private func scheduleNextIfPossible() {
-        guard !nextIsScheduled,
-              let currentPlayer,
-              currentPlayer.isPlaying,
-              let nextPlayer else {
-            return
-        }
-
-        let mediaRemaining = max(0, currentPlayer.duration - currentPlayer.currentTime)
-        let effectiveRate = max(0.01, Double(currentPlayer.rate))
-        let wallClockRemaining = mediaRemaining / effectiveRate
-
-        // Safe scheduling window: nếu thời gian còn lại ≤ 150ms, KHÔNG ép schedule bằng atTime mà giữ
-        // nextPlayer ở trạng thái prepared, để khi currentPlayer finish, promoteNextAfterCurrentFinished
-        // sẽ play() ngay lập tức. Lý do: `AVAudioPlayer.duration` có thể bị ước lượng ngắn hơn thực tế
-        // vài ms, nên một `startTime` tính ra sát đích rất dễ rơi **trước** khi đoạn hiện tại kết thúc ⇒
-        // hai đoạn phát song song (chồng tiếng). Nâng 50ms → 150ms đánh đổi một khoảng nghỉ cực nhỏ lấy
-        // việc chắc chắn không bao giờ schedule sớm.
-        guard wallClockRemaining > 0.150 else {
-            // Dựng chuỗi log ngay trên đường bàn giao đoạn là chi phí đặt sai chỗ: hàm này bị gọi lại
-            // mỗi lần `prepareNext`/`resume`/`updateRate`, và mặc định log đang tắt.
-            if AppLogger.shared.isLoggingEnabled {
-                if wallClockRemaining <= 0.005 {
-                    AppLogger.shared.log("ℹ️ [NghiAudioPlayerQueue] Audio effectively over (wallClockRemaining <= 5ms); skipping atTime schedule for immediate delegate handoff")
-                } else {
-                    AppLogger.shared.log("ℹ️ [NghiAudioPlayerQueue] Remaining time (\(String(format: "%.3f", wallClockRemaining))s) <= 50ms safe window; keeping nextPlayer prepared for immediate finish handoff")
-                }
-            }
-            return
-        }
-
-        let startTime = currentPlayer.deviceCurrentTime + wallClockRemaining
-        nextPlayer.rate = playbackRate
-        nextIsScheduled = nextPlayer.play(atTime: startTime)
-
-        if nextIsScheduled {
-            if let currentItem, let nextItem {
-                state = .scheduled(current: currentItem, next: nextItem, atDeviceTime: startTime)
-                if AppLogger.shared.isLoggingEnabled {
-                    // Số liệu để chẩn đoán **chồng tiếng**: nếu `wallRemaining` tính ra quá nhỏ thì
-                    // `nextPlayer` bắt đầu trước khi `currentPlayer` kết thúc ⇒ hai đoạn phát song song.
-                    AppLogger.shared.log(
-                        "🔊 [NghiAudioPlayerQueue] schedule next=\(nextItem.paragraphIndex)"
-                            + " cur=\(currentItem.paragraphIndex)"
-                            + " mediaRemaining=\(String(format: "%.3f", mediaRemaining))s"
-                            + " rate=\(String(format: "%.2f", effectiveRate))"
-                            + " wallRemaining=\(String(format: "%.3f", wallClockRemaining))s"
-                            + " duration=\(String(format: "%.3f", currentPlayer.duration))s"
-                            + " currentTime=\(String(format: "%.3f", currentPlayer.currentTime))s"
-                    )
-                }
-                onScheduleHandoff?(nextItem, startTime)
-            }
-        } else {
-            AppLogger.shared.log("⚠️ [NghiAudioPlayerQueue] Không thể schedule AVAudioPlayer tiếp theo bằng device clock; sẽ fallback khi đoạn hiện tại kết thúc")
-        }
-    }
+    /// KHÔNG còn pre-schedule đoạn kế bằng `play(atTime:)` (1.3.441) — xem CHANGELOG.
+    ///
+    /// Lý do: `AVAudioPlayer.duration` / `currentTime` / `deviceCurrentTime` ước lượng lệch nên
+    /// `startTime` tính ra có thể rơi **trước** khi đoạn hiện tại kết thúc ⇒ hai đoạn phát song song
+    /// (chồng tiếng); ở biên cắt giữa cụm từ (vd "chân tướng" → "…chân" | "tướng…") đuôi âm tiết cuối
+    /// bị nghe **chồng** lên đầu đoạn kế (người dùng nghe thành nói lắp "chân chân tướng"). Thay vào đó
+    /// giữ `nextPlayer` ở `prepareToPlay()`; bàn giao do `audioPlayerDidFinishPlaying`
+    /// → `promoteNextAfterCurrentFinished` → `play()` đảm nhiệm (gap chỉ bằng độ trễ delegate, thường
+    /// bị che bởi khoảng lặng ranh giới).
+    ///
+    /// Giữ hàm (rỗng) + các call site để thay đổi tối thiểu; cụm máy móc `.scheduled`/`onScheduleHandoff`
+    /// nay không bao giờ kích hoạt (sẽ gỡ ở lượt sau — "B").
+    private func scheduleNextIfPossible() {}
 
     private func discardNext(force: Bool = false) {
         if !force && (nextIsScheduled || nextPlayer?.isPlaying == true) {

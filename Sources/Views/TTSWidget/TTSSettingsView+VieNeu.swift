@@ -95,6 +95,22 @@ extension TTSSettingsView {
         .onChange(of: vieNeuSelectedMode) { _, newValue in
             VieNeuTTSService.shared?.preferredMode = newValue
         }
+        // "Tiết kiệm pin": ép `fast` (giảm ~2× tính toán) + 2 luồng ⇒ mát máy/pin hơn, chất lượng thấp hơn.
+        Toggle("Tiết kiệm pin (giọng nhanh hơn, mát máy hơn)", isOn: Binding(
+            get: { vieNeuPowerSaving },
+            set: { vieNeuPowerSaving = $0; VieNeuTTSService.shared?.powerSaving = $0 }
+        ))
+        Picker("Số luồng tổng hợp", selection: Binding(
+            get: { vieNeuThreadCount },
+            set: { vieNeuThreadCount = $0; VieNeuTTSService.shared?.threadCount = $0 }
+        )) {
+            Text("2 luồng (mát máy hơn)").tag(2)
+            Text("4 luồng (nhanh hơn)").tag(4)
+        }
+        .pickerStyle(.menu)
+        Text("Số luồng áp dụng sau khi nạp lại engine (mở lại app hoặc đổi engine). Nhiều luồng = tổng hợp nhanh hơn nhưng nóng máy/tốn pin hơn; ít luồng thì mát hơn, chậm hơn.")
+            .font(.caption)
+            .foregroundColor(.secondary)
     }
 
     /// Khối "Tải trước dữ liệu" của VieNeu (Section 5).

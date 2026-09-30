@@ -96,7 +96,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
 
     // Trạng thái thích nghi — `+Adaptive` đọc/ghi, nên phải `internal` chứ không `private`.
     var droppedScalarWarningShown = false
-    var mode: VieNeuSynthesisPolicy.Mode = .high
+    var mode: VieNeuSynthesisPolicy.Mode = .fast
     /// Chế độ **người dùng chọn**. `nil` = tự thích nghi theo RTF (mặc định).
     ///
     /// Khi có giá trị, `updateMode` bị bỏ qua hoàn toàn — nếu không, bộ thích nghi sẽ tự nâng/hạ và ghi
@@ -155,7 +155,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         // nửa vời: `runtime` đã có mà `config` chưa ⇒ `isPrepared` nói dối, mọi lượt sau nhảy qua bước
         // nạp, và lỗi thật bị che bởi một guard ở tầng dưới ("Graph runtime…"). Đúng chuyện đã xảy ra
         // khi `NPZReader` còn đọc sai kích thước entry.
-        let newRuntime = try VieNeuONNXRuntime(modelStore: store, threadCount: VieNeuSynthesisPolicy.threadCount)
+        let newRuntime = try VieNeuONNXRuntime(modelStore: store, threadCount: VieNeuSynthesisPolicy.threadCount(from: .standard))
         let newConfig = try VieNeuConfig.load(modelStore: store)
         let newCatalog = try VieNeuVoiceCatalog.load(modelStore: store)
         let newPhonemizer = try SeaG2P(binURL: store.url(for: "sea_g2p.bin"))
@@ -169,7 +169,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         nullContextShape = nullBranch.shape
         nullMask = nullBranch.mask
 
-        AppLogger.shared.log("🎙️ [VieNeu] Nạp xong engine: \(newCatalog.presets.count) giọng, threads=\(VieNeuSynthesisPolicy.threadCount)")
+        AppLogger.shared.log("🎙️ [VieNeu] Nạp xong engine: \(newCatalog.presets.count) giọng, threads=\(VieNeuSynthesisPolicy.threadCount(from: .standard))")
     }
 
     /// Nhánh **vô điều kiện** của CFG: chạy `text_encoder` với đúng `[bos, eos]` và `null_style`.
@@ -237,6 +237,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
             // **Mỗi chunk một dòng**: in phoneme của cả đoạn chứ không chỉ chunk đầu. Bản trước chỉ in
             // chunk 0 nên người dùng không soi được chunk nào đọc sai — mà đó mới là thứ cần thấy.
             phonemeLines.append("[\(index)] \(phonemes)")
+            logChunkPhonemes(index: index, text: chunk.text, phonemes: phonemes)
             let encoded = config.encode(phonemes: phonemes)
             droppedScalars += encoded.droppedScalars
             noteDroppedScalars(encoded.droppedScalars, total: encoded.ids.count)
