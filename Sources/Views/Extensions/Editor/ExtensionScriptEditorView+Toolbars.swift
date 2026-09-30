@@ -4,44 +4,6 @@ import UIKit
 /// Hai thanh dưới cùng của trình soạn script (phím ký tự nhanh + footer công cụ) và tiện ích tắt
 /// bàn phím. Tách khỏi `ExtensionScriptEditorView` để file gốc chỉ giảm dòng.
 extension ExtensionScriptEditorView {
-    internal var canRunCurrentScript: Bool {
-        guard ext.type != ExtensionType.tts else { return false }
-        guard let current = currentScriptFile, !current.isPluginJson else { return false }
-        guard current.fileUrl.pathExtension.lowercased() == "js" else { return false }
-        return ExtensionDebugScriptScanner.containsExecute(in: scriptContent)
-    }
-
-    @ViewBuilder
-    internal var debugRunSheet: some View {
-        NavigationStack {
-            if let entrypoint = debugRunEntrypoint {
-                ExtensionDebugConsoleView(initialPackageId: ext.packageId, initialEntrypoint: entrypoint)
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Đóng") { showingDebugRun = false }
-                        }
-                    }
-            } else {
-                Text("Không xác định được script để chạy.")
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    internal func startDebugRunFromEditor() {
-        guard canRunCurrentScript else { return }
-        if hasUnsavedChanges && !saveCurrentScript() { return }
-        guard let entrypoint = debugEntrypointForCurrentScript() else { return }
-        debugRunEntrypoint = entrypoint
-        showingDebugRun = true
-    }
-
-    private func debugEntrypointForCurrentScript() -> ExtensionDebugEntrypoint? {
-        guard let current = currentScriptFile, !current.isPluginJson else { return nil }
-        if let standard = standardEntrypoint(for: current) { return standard }
-        return .custom(fileName: current.fileName, input: "", page: 1, pageUrl: nil)
-    }
-
     private func standardEntrypoint(for file: ScriptFileInfo) -> ExtensionDebugEntrypoint? {
         guard let root = extensionRootURL else { return nil }
         let currentPath = file.fileUrl.standardizedFileURL.path

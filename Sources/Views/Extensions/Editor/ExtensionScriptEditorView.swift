@@ -35,8 +35,8 @@ public struct ExtensionScriptEditorView: View {
     @State internal var isSyntaxValid: Bool = true
     @State internal var showingDiscardAlert = false
     @State internal var showingScriptPickerSheet = false
-    @State internal var showingDebugRun = false
-    @State internal var debugRunEntrypoint: ExtensionDebugEntrypoint? = nil
+    // (đã gỡ debug-run: `showingDebugRun`/`debugRunEntrypoint` — tính năng Run dùng
+    //  `ExtensionDebugConsoleView` đã bị xoá ở 1.3.443)
     @State internal var scriptSearchText = ""
     @AppStorage("scriptEditorFontSize") internal var scriptEditorFontSize: Double = 11.0
     internal var fontSize: CGFloat {
@@ -166,11 +166,6 @@ public struct ExtensionScriptEditorView: View {
                 }
 
                 ToolbarItem(placement: .primaryAction) {
-                    Button("Run", systemImage: "play.fill", action: startDebugRunFromEditor)
-                        .disabled(!canRunCurrentScript)
-                }
-
-                ToolbarItem(placement: .primaryAction) {
                     Button(action: { _ = saveCurrentScript() }) {
                         HStack(spacing: 4) {
                             Image(systemName: "square.and.arrow.down")
@@ -191,9 +186,6 @@ public struct ExtensionScriptEditorView: View {
                 Button("Tiếp tục chỉnh sửa", role: .cancel) {}
             } message: {
                 Text("Bạn có những chỉnh sửa chưa lưu trong script. Bạn có chắc chắn muốn thoát không?")
-            }
-            .sheet(isPresented: $showingDebugRun) {
-                debugRunSheet
             }
         }
     }

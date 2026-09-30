@@ -20,6 +20,7 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 
 * **Đổi tên**: nav row ở tab Cài đặt (`TTSSettingsSection.swift`) "Thử giọng VieNeu-TTS" → **"Cài đặt VieNeu TTS"**; `navigationTitle` của `VieNeuTTSTestView` cũng → **"Cài đặt VieNeu TTS"**.
 * **Xoá màn Debug Extension**: gỡ nav row ở `DeveloperSettingsSection.swift`; xoá **3 file** `ExtensionDebugConsoleView.swift` + `ExtensionDebugEventRow.swift` + `ExtensionDebugTraceReader.swift` (chỉ console dùng). **Giữ** `ExtensionDebugServerView` (row riêng) + `ExtensionDebugEventHub`/`ExtensionDebugEvent` (còn dùng bởi `JSExecutor` + editor toolbar).
+* **Gỡ luôn tính năng Run trong editor extension** (cũng dùng console): nút `Run` + `.sheet` + `startDebugRunFromEditor`/`debugRunSheet`/`canRunCurrentScript`/`debugEntrypointForCurrentScript` + 2 `@State` (`showingDebugRun`/`debugRunEntrypoint`) ở `ExtensionScriptEditorView(.+Toolbars)`.
 
 ## Gỡ Máy Móc Pre-schedule + UI Pin/Mặc Định VieNeu (1.3.442)
 
