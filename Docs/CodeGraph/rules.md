@@ -16,6 +16,13 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 
 <!-- GENERATED START -->
 
+## Rules UI Pin & Mặc Định VieNeu (1.3.442)
+
+* **"Tiết kiệm pin" là một overlay, không ghi đè lựa chọn người dùng.** Default = **BẬT**. ON ⇒ `engine.setRequestedMode(.fast)` + `effectiveThreadCount` = 2 (khoá 2 picker); OFF ⇒ `setRequestedMode(nil)` ("Tự động"). Dùng `VieNeuSynthesisPolicy.effectiveThreadCount(from:)`, đừng nhân đôi logic ở UI.
+* **Số luồng ORT chỉ có hiệu lực sau khi NẠP LẠI engine** (session dựng một lần) — UI phải ghi rõ điều này.
+* **Nhãn mode** (`VieNeuTTSTestView+Sections.swift` `displayName`): **Tự động / Chất lượng cao / Cân bằng** — đổi ở một chỗ, cả màn Cài đặt lẫn màn thử giọng theo.
+* **Pre-schedule machinery đã gỡ hẳn** (1.3.442): đừng thêm lại `play(atTime:)`/`.scheduled` cho đường local.
+
 ## Rules Pre-schedule, Pin & Log (1.3.441)
 
 * **Never pre-schedule the next local segment with `AVAudioPlayer.play(atTime:)`.** `duration`/`deviceCurrentTime` are estimates; an early `startTime` overlaps the tail of the current segment → chồng tiếng + "nói lắp" at chunk boundaries (e.g. "chân" | "tướng" → "chân chân tướng"). Hand off via the `audioPlayerDidFinishPlaying` delegate instead. `NghiAudioPlayerQueue` 368 → 324 lines.

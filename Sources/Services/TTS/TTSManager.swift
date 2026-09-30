@@ -3097,12 +3097,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         nghiAudioPlayerQueue.onFinished = { [weak self] item, success in
             self?.handleNghiAudioFinished(item, successfully: success)
         }
-        nghiAudioPlayerQueue.onScheduleHandoff = { [weak self] item, startTime in
-            self?.handleNghiScheduledHandoff(item: item, startTime: startTime)
-        }
     }
-
-    private var nghiScheduledHandoffTask: Task<Void, Never>?
 
     internal func makePlaybackContext(paragraphIndex: Int, playbackId: String, engine: String) -> TTSPlaybackContext {
         TTSPlaybackContext(
@@ -3191,64 +3186,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
-    private func handleNghiScheduledHandoff(item: NghiAudioPlayerQueue.Item, startTime: TimeInterval) {
-        guard isPlaying, TTSManager.isLocalEngine(tool) else { return }
-        let context = makePlaybackContext(paragraphIndex: item.paragraphIndex, playbackId: item.playbackId, engine: tool)
-        nghiScheduledHandoffTask?.cancel()
-
-        let initialClockLag = max(0.001, startTime - (nghiAudioPlayerQueue.currentPlayer?.deviceCurrentTime ?? startTime))
-
-        nghiScheduledHandoffTask = Task { @MainActor [weak self] in
-            do {
-                try await Task.sleep(nanoseconds: UInt64(initialClockLag * 1_000_000_000))
-            } catch {
-                return
-            }
-            guard let self, self.isContextValid(context) else { return }
-
-            var recheckCount = 0
-            while !Task.isCancelled {
-                guard let status = self.nghiAudioPlayerQueue.getScheduledStatus(for: item) else { return }
-                let currentTime = status.currentDeviceTime
-                let targetStart = status.scheduledStartTime ?? startTime
-
-                if currentTime < targetStart - 0.005 {
-                    let remaining = max(0.001, targetStart - currentTime)
-                    do {
-                        try await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
-                    } catch {
-                        return
-                    }
-                    guard self.isContextValid(context) else { return }
-                } else {
-                    if status.isCurrentItem {
-                        if status.isCurrentPlaying {
-                            self.commitAudibleParagraphState(index: item.paragraphIndex, playbackId: item.playbackId, context: context)
-                        }
-                        return
-                    } else if status.isNextItem {
-                        if status.isNextPlaying {
-                            self.commitAudibleParagraphState(index: item.paragraphIndex, playbackId: item.playbackId, context: context)
-                            return
-                        } else if recheckCount < 5 {
-                            recheckCount += 1
-                            do {
-                                try await Task.sleep(nanoseconds: 5_000_000)
-                            } catch {
-                                return
-                            }
-                            guard self.isContextValid(context) else { return }
-                        } else {
-                            return
-                        }
-                    } else {
-                        return
-                    }
-                }
-            }
-        }
-    }
-
     private func prepareNextNghiAudioIfPossible() {
         guard TTSManager.isLocalEngine(tool),
               isPlaying,
@@ -3293,8 +3230,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
     internal func invalidateAudibleHandoffGeneration() {
         audibleHandoffGeneration &+= 1
-        nghiScheduledHandoffTask?.cancel()
-        nghiScheduledHandoffTask = nil
     }
 
     internal func commitAudibleParagraphState(index: Int, playbackId: String, context: TTSPlaybackContext? = nil) {
@@ -3337,8 +3272,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
 
     private func handleNghiAudioTransition(_ item: NghiAudioPlayerQueue.Item) {
-        nghiScheduledHandoffTask?.cancel()
-        nghiScheduledHandoffTask = nil
         guard isPlaying,
               TTSManager.isLocalEngine(tool),
               (item.paragraphIndex == currentParagraphIndex || item.paragraphIndex == currentParagraphIndex + 1),

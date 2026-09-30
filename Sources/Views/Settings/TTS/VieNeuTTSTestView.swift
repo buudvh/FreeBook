@@ -101,7 +101,7 @@ struct VieNeuTTSTestView: View {
             }
         }
         .tint(.white)
-        .navigationTitle("Thử giọng VieNeu")
+        .navigationTitle("Cài đặt VieNeu")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear(perform: loadVoices)
         .onDisappear(perform: stopPlayback)

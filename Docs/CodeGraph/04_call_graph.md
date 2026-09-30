@@ -16,6 +16,13 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 
 <!-- GENERATED START -->
 
+## Gỡ Máy Móc Pre-schedule + UI Pin/Mặc Định VieNeu (1.3.442)
+
+* **Gỡ "B"**: xoá hẳn `.scheduled`/`getScheduledStatus`/`ScheduledStatus`/`onScheduleHandoff` (queue) + `handleNghiScheduledHandoff`/`nghiScheduledHandoffTask`/wiring (TTSManager). `TTSManager` 4024→**3957**; `NghiAudioPlayerQueue` 324→**288**.
+* **Mặc định mới**: `VieNeuSynthesisPolicy.bufferedSecondsTarget` 12→**10**; `defaultThreadCount` 4→**2**; `chunkLength` mặc định 200→**100** (`TTSManager+VieNeu.applyVieNeuParamsIfNeeded` + `resetPrefetchSettings`).
+* **"Tiết kiệm pin" mặc định BẬT**; ON ⇒ `fast` + 2 luồng (**disable** 2 picker); OFF ⇒ `setRequestedMode(nil)` ("Tự động"). Thêm `VieNeuSynthesisPolicy.effectiveThreadCount(from:)`.
+* **Đổi tên mode**: Tự động / Chất lượng cao / Cân bằng; nhãn picker "Chế độ tạo audio"; picker luồng 2/3/4 (không ngoặc); dòng giải thích luôn hiển thị.
+
 ## Bỏ Pre-schedule, Log Chẩn Đoán Nói Lắp & Chế Độ Tiết Kiệm Pin (1.3.441)
 
 * **Bỏ pre-schedule `play(atTime:)`**: `NghiAudioPlayerQueue.scheduleNextIfPossible` nay **rỗng** — giữ `nextPlayer` ở `prepareToPlay()`, bàn giao do `audioPlayerDidFinishPlaying` → `promoteNextAfterCurrentFinished` → `play()`. Hết chồng tiếng + nói lắp ở biên đoạn (vd "chân" | "tướng"). Cụm `.scheduled`/`onScheduleHandoff`/`handleNghiScheduledHandoff` thành dead code (gỡ ở lượt "B", chưa làm).

@@ -82,33 +82,45 @@ extension TTSSettingsView {
     /// (`vieneuRate`/`vieneuPitch` nhờ `persistSpeed`/`persistPitch`). Lặp lại sẽ tạo hai nguồn sự thật.
     @ViewBuilder
     var vieNeuReaderSection: some View {
-        Picker("Tốc độ tạo audio", selection: $vieNeuSelectedMode) {
-            Text("Tự động (theo tốc độ máy)").tag(VieNeuSynthesisPolicy.Mode?.none)
+        // 1. Tiết kiệm pin (LÊN TRÊN): bật ⇒ ghim "Cân bằng" + 2 luồng, khoá 2 picker bên dưới.
+        Toggle("Tiết kiệm pin", isOn: Binding(
+            get: { vieNeuPowerSaving },
+            set: { newValue in
+                vieNeuPowerSaving = newValue
+                VieNeuTTSService.shared?.powerSaving = newValue
+                if !newValue { vieNeuSelectedMode = nil }   // tắt ⇒ về "Tự động"
+            }
+        ))
+        // 2. Chế độ tạo audio
+        Picker("Chế độ tạo audio", selection: Binding(
+            get: { vieNeuPowerSaving ? VieNeuSynthesisPolicy.Mode?.some(.fast) : vieNeuSelectedMode },
+            set: { vieNeuSelectedMode = $0 }
+        )) {
+            Text("Tự động").tag(VieNeuSynthesisPolicy.Mode?.none)
             ForEach(VieNeuSynthesisPolicy.Mode.allCases, id: \.self) { mode in
                 Text(mode.displayName).tag(VieNeuSynthesisPolicy.Mode?.some(mode))
             }
         }
         .pickerStyle(.menu)
+        .disabled(vieNeuPowerSaving)
         // Đẩy lựa chọn xuống service. Setter của `preferredMode` gọi `engine.setRequestedMode(...)` nên có
-        // hiệu lực **ngay**, không phải chờ `prepare()`. Nhưng UI vẫn phải giữ giá trị trong `@State` vì
-        // `VieNeuTTSService` là class thường (không `@Observable`) — SwiftUI không thấy nó đổi.
+        // hiệu lực **ngay**. UI giữ giá trị trong `@State` vì `VieNeuTTSService` không `@Observable`.
         .onChange(of: vieNeuSelectedMode) { _, newValue in
             VieNeuTTSService.shared?.preferredMode = newValue
         }
-        // "Tiết kiệm pin": ép `fast` (giảm ~2× tính toán) + 2 luồng ⇒ mát máy/pin hơn, chất lượng thấp hơn.
-        Toggle("Tiết kiệm pin (giọng nhanh hơn, mát máy hơn)", isOn: Binding(
-            get: { vieNeuPowerSaving },
-            set: { vieNeuPowerSaving = $0; VieNeuTTSService.shared?.powerSaving = $0 }
-        ))
+        // 3. Số luồng tổng hợp (2/3/4, KHÔNG kèm ngoặc bổ nghĩa).
         Picker("Số luồng tổng hợp", selection: Binding(
-            get: { vieNeuThreadCount },
+            get: { vieNeuPowerSaving ? 2 : vieNeuThreadCount },
             set: { vieNeuThreadCount = $0; VieNeuTTSService.shared?.threadCount = $0 }
         )) {
-            Text("2 luồng (mát máy hơn)").tag(2)
-            Text("4 luồng (nhanh hơn)").tag(4)
+            ForEach([2, 3, 4], id: \.self) { count in
+                Text("\(count) luồng").tag(count)
+            }
         }
         .pickerStyle(.menu)
-        Text("Số luồng áp dụng sau khi nạp lại engine (mở lại app hoặc đổi engine). Nhiều luồng = tổng hợp nhanh hơn nhưng nóng máy/tốn pin hơn; ít luồng thì mát hơn, chậm hơn.")
+        .disabled(vieNeuPowerSaving)
+        // 4. Giải thích — LUÔN hiển thị (nối thuyết minh khi bật Tiết kiệm pin).
+        Text("Số luồng càng nhiều càng khó gây ra trường hợp phải chờ đợi giữa hai đoạn nghe nhưng dễ nóng máy và hết pin nhanh. Số luồng áp dụng sau khi nạp lại engine (mở lại app hoặc đổi engine)." + (vieNeuPowerSaving ? " Đang bật Tiết kiệm pin: cố định chế độ Cân bằng + 2 luồng để máy mát và ít tốn pin; chất lượng giọng thấp hơn." : ""))
             .font(.caption)
             .foregroundColor(.secondary)
     }

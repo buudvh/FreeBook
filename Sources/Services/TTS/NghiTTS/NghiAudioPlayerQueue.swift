@@ -12,7 +12,6 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
         case idle
         case playing(current: Item)
         case prepared(current: Item, next: Item)
-        case scheduled(current: Item, next: Item, atDeviceTime: TimeInterval)
         case paused(current: Item, next: Item?, wasScheduled: Bool)
         case waitingForSynthesis(currentParentIndex: Int)
     }
@@ -33,7 +32,6 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
 
     var onTransition: ((Item) -> Void)?
     var onFinished: ((Item, Bool) -> Void)?
-    var onScheduleHandoff: ((Item, TimeInterval) -> Void)?
 
 
     private(set) var currentItem: Item?
@@ -44,40 +42,6 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
     private var nextPlayer: AVAudioPlayer?
     private var nextIsScheduled = false
     private var playbackRate: Float = 1.0
-
-    struct ScheduledStatus: Equatable, Sendable {
-        let isCurrentItem: Bool
-        let isNextItem: Bool
-        let isCurrentPlaying: Bool
-        let isNextPlaying: Bool
-        let currentDeviceTime: TimeInterval
-        let scheduledStartTime: TimeInterval?
-    }
-
-    func getScheduledStatus(for item: Item) -> ScheduledStatus? {
-        guard let current = currentPlayer else { return nil }
-        if nextItem == item {
-            guard case let .scheduled(_, _, atDeviceTime) = state else { return nil }
-            return ScheduledStatus(
-                isCurrentItem: false,
-                isNextItem: true,
-                isCurrentPlaying: current.isPlaying,
-                isNextPlaying: nextPlayer?.isPlaying ?? false,
-                currentDeviceTime: current.deviceCurrentTime,
-                scheduledStartTime: atDeviceTime
-            )
-        } else if currentItem == item {
-            return ScheduledStatus(
-                isCurrentItem: true,
-                isNextItem: false,
-                isCurrentPlaying: current.isPlaying,
-                isNextPlaying: false,
-                currentDeviceTime: current.deviceCurrentTime,
-                scheduledStartTime: nil
-            )
-        }
-        return nil
-    }
 
     var isPlaying: Bool {
         currentPlayer?.isPlaying == true

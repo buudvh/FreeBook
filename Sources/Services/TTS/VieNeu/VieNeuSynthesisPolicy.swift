@@ -49,7 +49,7 @@ enum VieNeuSynthesisPolicy {
     /// **Đã đo và giữ 4**: `Output.timing` cho `vector 7,60 s | khác 0,14 s` trên 28,01 s audio, và
     /// `RTF thật` giảm 0,37 → **0,29** so với lúc còn 2 luồng. Vòng Euler chiếm **98%** thời gian nên đây
     /// đúng là nút thắt, và chi phí cố định theo chunk (0,14 s) nhỏ tới mức **giảm số chunk không giúp gì**.
-    static let defaultThreadCount: Int32 = 4
+    static let defaultThreadCount: Int32 = 2
 
     // MARK: - Cài đặt "Tiết kiệm pin" & số luồng (1.3.441)
 
@@ -63,9 +63,15 @@ enum VieNeuSynthesisPolicy {
         Int32(max(2, min(4, defaults.object(forKey: threadCountKey) as? Int ?? Int(defaultThreadCount))))
     }
 
-    /// "Tiết kiệm pin" (opt-in): ép `fast` + 2 luồng. **Hàm thuần** — nhận `defaults` từ caller.
+    /// "Tiết kiệm pin": ép `fast` + 2 luồng. **Mặc định BẬT** khi chưa có khoá (user chốt 2026-09-30).
+    /// **Hàm thuần** — nhận `defaults` từ caller.
     static func isPowerSaving(_ defaults: UserDefaults) -> Bool {
-        defaults.bool(forKey: powerSavingKey)
+        defaults.object(forKey: powerSavingKey) == nil ? true : defaults.bool(forKey: powerSavingKey)
+    }
+
+    /// Số luồng ORT **hiệu dụng**: "Tiết kiệm pin" ghim 2 luồng, ngược lại dùng giá trị đã chọn.
+    static func effectiveThreadCount(from defaults: UserDefaults) -> Int32 {
+        isPowerSaving(defaults) ? 2 : threadCount(from: defaults)
     }
 
     // MARK: - Luật đổi chế độ
@@ -106,7 +112,7 @@ enum VieNeuSynthesisPolicy {
 
     /// Số giây audio tối thiểu nên có sẵn trước khi phát. Sâu hơn Piper (mặc định 8 s —
     /// `NghiSynthesisPolicy.defaultSafeCachedTimeThreshold`) vì mỗi lần tổng hợp ở đây đắt hơn nhiều.
-    static let bufferedSecondsTarget: Double = 12.0
+    static let bufferedSecondsTarget: Double = 10.0
 
     /// Trần số payload audio giữ đồng thời. Giữ nguyên 5 như Piper: nới trần này không làm engine nhanh
     /// hơn, chỉ làm bộ nhớ phình — bài học đã ghi ở `NghiSynthesisPolicy`.

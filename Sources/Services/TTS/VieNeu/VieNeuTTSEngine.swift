@@ -155,7 +155,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         // nửa vời: `runtime` đã có mà `config` chưa ⇒ `isPrepared` nói dối, mọi lượt sau nhảy qua bước
         // nạp, và lỗi thật bị che bởi một guard ở tầng dưới ("Graph runtime…"). Đúng chuyện đã xảy ra
         // khi `NPZReader` còn đọc sai kích thước entry.
-        let newRuntime = try VieNeuONNXRuntime(modelStore: store, threadCount: VieNeuSynthesisPolicy.threadCount(from: .standard))
+        let newRuntime = try VieNeuONNXRuntime(modelStore: store, threadCount: VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard))
         let newConfig = try VieNeuConfig.load(modelStore: store)
         let newCatalog = try VieNeuVoiceCatalog.load(modelStore: store)
         let newPhonemizer = try SeaG2P(binURL: store.url(for: "sea_g2p.bin"))
@@ -169,7 +169,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         nullContextShape = nullBranch.shape
         nullMask = nullBranch.mask
 
-        AppLogger.shared.log("🎙️ [VieNeu] Nạp xong engine: \(newCatalog.presets.count) giọng, threads=\(VieNeuSynthesisPolicy.threadCount(from: .standard))")
+        AppLogger.shared.log("🎙️ [VieNeu] Nạp xong engine: \(newCatalog.presets.count) giọng, threads=\(VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard))")
     }
 
     /// Nhánh **vô điều kiện** của CFG: chạy `text_encoder` với đúng `[bos, eos]` và `null_style`.

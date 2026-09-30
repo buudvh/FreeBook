@@ -16,6 +16,11 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 
 <!-- GENERATED START -->
 
+## Gỡ Máy Móc Pre-schedule + UI Pin/Mặc Định VieNeu (1.3.442)
+
+* **Gỡ "B"**: `.scheduled`/`getScheduledStatus`/`ScheduledStatus`/`onScheduleHandoff` (queue) + `handleNghiScheduledHandoff`/`nghiScheduledHandoffTask`/wiring (TTSManager). `TTSManager` **3957**; `NghiAudioPlayerQueue` **288**.
+* **Mặc định VieNeu**: ngưỡng đệm **10s**, số luồng **2**, phân đoạn **100 ký tự**; "Tiết kiệm pin" **mặc định BẬT** (ON ⇒ `fast` + 2 luồng, khoá 2 picker; OFF ⇒ Tự động). Mode đổi tên **Tự động / Chất lượng cao / Cân bằng**; nhãn **"Chế độ tạo audio"**. Màn thử giọng `VieNeuTTSTestView` đổi tiêu đề thành **"Cài đặt VieNeu"**.
+
 ## Bỏ Pre-schedule, Log Chẩn Đoán & Tiết Kiệm Pin (1.3.441)
 
 * **`NghiAudioPlayerQueue.scheduleNextIfPossible` → rỗng** (bỏ pre-schedule `play(atTime:)`). `NghiAudioPlayerQueue` **368 → 324** dòng.

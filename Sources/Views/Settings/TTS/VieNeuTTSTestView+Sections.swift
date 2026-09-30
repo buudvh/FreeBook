@@ -210,8 +210,8 @@ extension VieNeuSynthesisPolicy.Mode {
     /// Nhãn hiển thị. Ở tầng View để policy không chứa chuỗi UI.
     var displayName: String {
         switch self {
-        case .high: return "Chất lượng cao · 16 bước"
-        case .fast: return "Nhanh · 8 bước"
+        case .high: return "Chất lượng cao"
+        case .fast: return "Cân bằng"
         }
     }
 }

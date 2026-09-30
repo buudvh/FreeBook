@@ -114,8 +114,8 @@ extension TTSManager {
         // trước đó — đúng loại lỗi "hai khoá cho một giá trị" mà lượt này đang dẹp.
         let savedChunk = defaults.object(forKey: VieNeuSettingsKey.chunk) != nil
             ? defaults.integer(forKey: VieNeuSettingsKey.chunk)
-            : 200
-        self.chunkLength = savedChunk > 0 ? savedChunk : 200
+            : 100
+        self.chunkLength = savedChunk > 0 ? savedChunk : 100
         self.prefetchDelayMs = 500
 
         AppLogger.shared.log("[TTSRoute] nap tham so VieNeu voice=\(self.selectedVoice) rate=\(self.speed) pitch=\(self.pitch) prefetch=\(self.vieneuPrefetchCount) nguongAnToan=\(clamped)")
@@ -148,8 +148,8 @@ extension TTSManager {
             // Giá trị mặc định phải **trùng** với `applyVieNeuParamsIfNeeded()`: 3 đoạn, 200 ký tự,
             // ngưỡng `NghiSynthesisPolicy.defaultSafeCachedTimeThreshold`, độ trễ 500 ms.
             vieneuPrefetchCount = 3
-            chunkLength = 200
-            setVieNeuSafeCachedTimeThreshold(NghiSynthesisPolicy.defaultSafeCachedTimeThreshold)
+            chunkLength = 100
+            setVieNeuSafeCachedTimeThreshold(VieNeuSynthesisPolicy.bufferedSecondsTarget)
             prefetchDelayMs = 500
         case "system":
             chunkLength = 100

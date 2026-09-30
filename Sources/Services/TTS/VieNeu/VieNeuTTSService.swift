@@ -106,7 +106,11 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         get { VieNeuSynthesisPolicy.isPowerSaving(.standard) }
         set {
             UserDefaults.standard.set(newValue, forKey: VieNeuSynthesisPolicy.powerSavingKey)
-            engine.setRequestedMode(newValue ? .fast : preferredMode)
+            if newValue {
+                engine.setRequestedMode(.fast)
+            } else {
+                preferredMode = nil   // tắt Tiết kiệm pin ⇒ về "Tự động"
+            }
         }
     }
 

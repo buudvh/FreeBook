@@ -16,6 +16,12 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 
 <!-- GENERATED START -->
 
+## Rủi Ro UI Pin/Mặc Định VieNeu (1.3.442)
+
+* **Mặc định mới đổi trải nghiệm**: "Tiết kiệm pin" BẬT sẵn ⇒ máy mới mở chạy `fast` + 2 luồng (mát/pin hơn, chất lượng thấp hơn); phân đoạn 100 ký tự (nhiều chunk hơn), ngưỡng đệm 10s. Người dùng cũ giữ giá trị đã lưu.
+* **Đã gỡ "B"**: cụm `.scheduled` hết tồn tại; `TTSManager` 4024→3957, `NghiAudioPlayerQueue` 324→288. **Chưa kiểm chứng máy thật** cho các đổi UI/mặc định — cần IPA xác nhận.
+* **Còn sót nhỏ**: cờ `nextIsScheduled` trong `NghiAudioPlayerQueue` (luôn `false`, các nhánh chết) — dọn ở lượt sau nếu cần.
+
 ## Rủi Ro Chồng Tiếng/Nói Lắp, Pin & Đệm Nóng (1.3.441)
 
 * **ĐÃ SỬA — chồng tiếng + nói lắp ở biên đoạn**: pre-schedule `play(atTime:)` dùng `duration`/`deviceCurrentTime` ước lượng lệch ⇒ đoạn kế chạy sớm, đuôi âm tiết cuối chồng lên đầu đoạn kế (vd "chân"|"tướng" → "chân chân tướng"). Bỏ pre-schedule, bàn giao qua delegate. **Chưa kiểm chứng máy thật** — cần IPA xác nhận hết chồng tiếng + gap không đáng kể.
