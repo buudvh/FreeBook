@@ -37,7 +37,10 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 
 * **"Tiết kiệm pin" là một overlay, không ghi đè lựa chọn người dùng.** Default = **BẬT**. ON ⇒ `engine.setRequestedMode(.fast)` + `effectiveThreadCount` = 2 (khoá 2 picker); OFF ⇒ `setRequestedMode(nil)` ("Tự động"). Dùng `VieNeuSynthesisPolicy.effectiveThreadCount(from:)`, đừng nhân đôi logic ở UI.
 * **Số luồng ORT chỉ có hiệu lực sau khi NẠP LẠI engine** (session dựng một lần) — UI phải ghi rõ điều này.
-* **Nhãn mode** (`VieNeuTTSTestView+Sections.swift` `displayName`): **Tự động / Chất lượng cao / Cân bằng** — đổi ở một chỗ, cả màn Cài đặt lẫn màn thử giọng theo.
+* **Nhãn mode** (`VieNeuTTSTestView+Sections.swift` `displayName`): **Tự động / Chất lượng cao / Cân bằng / Thấp** — đổi ở một chỗ, cả màn Cài đặt lẫn màn thử giọng theo.
+* **Nhiệt là bài toán SỐ BƯỚC, không phải độ lớn CFG (1.3.449).** `runChunk` hỏi `if tuning.cfg > 0` — điều kiện **nhị phân**, nên `cfg = 3.0 → 1.5` tiết kiệm **0%**; chỉ số bước mới đổi chi phí. Mỗi bước gọi `vector_estimator` **2 lần** khi có CFG: `.high` 32 lượt/đoạn, `.fast` 16, `.low` **8**. Đừng đề xuất "giảm CFG một phần" — đã kiểm và nó vô ích.
+* **`.low` là lựa chọn TAY, không phải default** (người dùng chốt "8 bước đang tốt"). Toggle "Tiết kiệm pin" **giữ nguyên** `.fast`; `.low` là case thứ ba độc lập, chọn trong Picker. `nextMode` phải có nhánh `case .low: return nil` — giữ hợp đồng "switch không có `default`" và chặn bộ thích nghi tự nâng lên.
+* **Thêm case vào `Mode` gần như miễn phí ở UI, nhưng có 2 chỗ `switch` buộc sửa.** Hai Picker dùng `ForEach(Mode.allCases)` nên tự có dòng mới; nhưng `tuning(for:)` **và** `nextMode(current:…)` trong policy đều không có `default` ⇒ trình biên dịch bắt lỗi nếu quên. Cộng thêm `displayName` ở tầng View. `VieNeuTTSEngine.swift` **không cần đụng** (đang đúng trần 400/400).
 * **Pre-schedule machinery đã gỡ hẳn** (1.3.442): đừng thêm lại `play(atTime:)`/`.scheduled` cho đường local.
 
 ## Rules Pre-schedule, Pin & Log (1.3.441)

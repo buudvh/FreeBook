@@ -739,7 +739,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
     @Published public var vieneuSafeCachedTimeThreshold: Double = 12.0
     /// Ngưỡng nạp bộ đệm cho VieNeu — khoá `vieneu*` tách khỏi `nghitts*` vì VieNeu cần đệm sâu hơn Piper
-    /// (`VieNeuSynthesisPolicy.bufferedSecondsTarget` = 12 s so với 8 s). Cùng khuôn `setNghiTTSSafeCachedTimeThreshold`.
+    /// (`VieNeuSynthesisPolicy.bufferedSecondsTarget` = 10 s so với 8 s). Cùng khuôn `setNghiTTSSafeCachedTimeThreshold`.
     public func setVieNeuSafeCachedTimeThreshold(_ newValue: Double) {
         let clamped = NghiSynthesisPolicy.clampSafeCachedTimeThreshold(newValue)
         guard clamped != vieneuSafeCachedTimeThreshold else { return }

@@ -27,6 +27,16 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 * Đồng bộ tài liệu cho commit "Tiết kiệm pin" trước đó: `TTSSettingsView.vieNeuPowerSaving` + `vieNeuThreadCount` (`@State`) và `VieNeuTTSService.powerSaving` / `threadCount`.
 
 
+## Mode "Thấp" (4 bước) Cho VieNeu — Giảm Nhiệt (1.3.449)
+
+* **`VieNeuSynthesisPolicy.Mode` thêm case `low`** (thứ ba sau `high`/`fast`) — chế độ **giảm nhiệt** do người dùng chọn tay, độc lập với toggle "Tiết kiệm pin" (toggle đó vẫn ép `.fast`). `tuning(for:)` trả `Tuning(steps: 4, sway: -1.0, cfg: 3.0)`: vòng Euler còn **8 lượt `vector_estimator`**/chunk (4 bước × 2 nhánh CFG) = một nửa `.fast`, một phần tư `.high`.
+* **Vì sao `sway = -1` chứ không `0`**: bản tham chiếu ghi rõ cặp *hạ step + `sway = -1`* phải đi cùng nhau; hạ step mà giữ `sway = 0` tụt chất lượng nhiều hơn cần thiết.
+* **Vì sao vẫn giữ CFG**: `cfg > 0` ở `runChunk` là **điều kiện nhị phân**, không theo tỉ lệ ⇒ giảm độ lớn CFG tiết kiệm **0%**; chỉ số bước mới là đòn bẩy. (Khác lần thử `cfg = 0` đã bị loại vì giọng đứt quãng — lần đó mất hẳn nhánh vô điều kiện.)
+* **`VieNeuSynthesisPolicy.nextMode` thêm nhánh `case .low: return nil`** — `.low` là lựa chọn thủ công nên bộ thích nghi **không** được tự nâng lên; nhánh trả `nil` giữ hợp đồng "switch không có `default`" để mode mới sau này lộ ra ngay khi biên dịch.
+* **`VieNeuSynthesisPolicy.Mode.displayName` thêm `case .low: return "Thấp"`** (tầng View, `VieNeuTTSTestView+Sections.swift`) — policy vẫn không chứa chuỗi UI.
+* **`TTSSettingsView.vieNeuReaderSection`**: dòng giải thích thêm một câu về chế độ "Thấp" (giảm một nửa tính toán/đoạn, máy mát hơn, giọng kém rõ hơn). Picker "Chế độ tạo audio" **không sửa vòng lặp** — `ForEach(Mode.allCases)` tự có case mới.
+* **Không đụng `VieNeuTTSEngine.swift`** (đang đúng trần 400/400 dòng) — mode mới đi hoàn toàn qua policy + View.
+
 ## Thành Viên Mới Cho Ranh Giới & Đo Lường VieNeu (1.3.436)
 
 * **`VieNeuTTSEngine.pauseSeconds(for boundaryKind: TTSBoundaryKind) -> Double`** (`+Chunking`) — ánh xạ ranh giới → khoảng lặng **đuôi**, đọc cùng khoá `UserDefaults` như `ONNXPiperEngine.pauseDuration(for:)`. Là bản sao có chủ ý (không gọi chéo được vì Piper nằm trong `ONNXPiperEngine`, một class).

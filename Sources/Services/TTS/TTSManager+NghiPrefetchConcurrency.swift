@@ -12,7 +12,7 @@ extension TTSManager {
     /// - NghiTTS (Piper): tổng hợp gần tức thì (tens of ms), 1 luồng đã đủ và ưu tiên nhiệt, giữ
     ///   nguyên behaviour cũ.
     /// - VieNeu: mỗi lần tổng hợp đắt (RTF ~0,3 + chi phí cố định theo chunk; `VieNeuSynthesisPolicy`
-    ///   ghi rõ `bufferedSecondsTarget = 12` vì "mỗi lần tổng hợp đắt hơn nhiều"). Nếu chỉ nạp tuần
+    ///   ghi rõ `bufferedSecondsTarget = 10` vì "mỗi lần tổng hợp đắt hơn nhiều"). Nếu chỉ nạp tuần
     ///   tự 1 đoạn, những đoạn ngắn (thời lượng audio ≤ 1 lần tổng hợp) sẽ không kịp tổng hợp trước
     ///   khi đoạn đang phát kết thúc ⇒ phải chờ — đúng lỗi người dùng báo. Cho phép 3 luồng chạy song
     ///   song để đường nạp trước đi trước kịp một đoạn đệm sâu, hấp thụ được cả tổng hợp lạnh

@@ -37,6 +37,7 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 * **`[VieNeuPerf]` là sự kiện log mới, mỗi lượt tổng hợp**: `mode`, `chunks`, `dropped`, `chars`, `pcm`, `speech`, `synth`, `rtf`, `boundary`. Đây là thứ duy nhất cho biết đường Reader đang chạy chế độ nào — engine trước 1.3.436 chỉ log **lúc đổi** chế độ và **một lần** cho phoneme bị bỏ.
 * **`[NghiAudioPlayerQueue] schedule next=… cur=… mediaRemaining=… rate=… wallRemaining=… duration=… currentTime=…`** — sự kiện lịch bàn giao. Nếu `wallRemaining` tính ra quá nhỏ thì `nextPlayer` bắt đầu trước khi `currentPlayer` kết thúc ⇒ **hai đoạn phát song song**, đúng triệu chứng người dùng báo.
 * **Sự kiện chọn chế độ chất lượng**: `Picker` → `.onChange(of: vieNeuSelectedMode)` → service. Trước 1.3.436 `Picker` buộc vào `Binding` đọc service (không `@Observable`) nên **UI không đổi ngay** dù engine đã nhận giá trị mới.
+* **Sự kiện chọn mode "Thấp" (1.3.449)**: cùng đường `Picker` → `.onChange` → `preferredMode` → `engine.setRequestedMode(.low)`. **Không thêm sự kiện mới** — `ForEach(Mode.allCases)` tự sinh dòng chọn. Ở `VieNeuTTSEngine`, `.low` chỉ khác `.fast`/`.high` ở số bước vòng Euler (4 vs 8 vs 16), nên log `[VieNeuPerf] mode=low …` là thứ duy nhất phân biệt được lúc chạy thật.
 * **Điều kiện bật log** vẫn như cũ: `AppLogger.isLoggingEnabled` mặc định `false` và bị đặt lại `false` mỗi lần khởi động app ⇒ phải bật **trước** khi mở Reader.
 
 ## Sự Kiện Nhận Biết Engine Thứ Hai Trong Máy Phát NghiTTS (1.3.435)
