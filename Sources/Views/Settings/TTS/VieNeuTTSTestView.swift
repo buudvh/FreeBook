@@ -27,6 +27,11 @@ struct VieNeuTTSTestView: View {
     @State var statusMessage = ""
     @State var isError = false
     @State var lastReport = ""
+    /// Số **đoạn** mà `NghiUtteranceSegmenter` cắt ra ở lượt gần nhất — đúng con số Reader dùng, khác
+    /// `service.lastChunkCount` (số chunk *bên trong* engine cho một đoạn).
+    @State var lastSegmentCount = 0
+    /// Tổng `service.lastChunkCount` qua các đoạn — chỉ số bắt lỗi "một câu ngắn mà ra nhiều chunk".
+    @State var lastEngineChunkCount = 0
     @State var player: AVAudioPlayer?
     @State var synthesisTask: Task<Void, Never>?
     @State var didCopy = false
@@ -176,15 +181,45 @@ struct VieNeuTTSTestView: View {
         }
     }
 
+    /// Tổng hợp **đúng đường Reader** (plan §2.2).
+    ///
+    /// Ba bước phải trùng với `TTSManager` thì số đo ở đây mới nói được điều gì về lúc đọc truyện:
+    /// 1. thay thế ký tự — `TTSReplacementManager.applyReplacements`, đúng như `speakCurrent` (`:2422`);
+    /// 2. cắt đoạn — `NghiUtteranceSegmenter.expand(…, maximumLength: chunkLength)`, đúng như
+    ///    `playbackParagraphs` (`:798-801`);
+    /// 3. tổng hợp **từng đoạn** với `boundaryKind` của chính nó, không phải `boundaryKind` mặc định.
+    ///
+    /// Lớp đọc số/ngày (`TextPreprocessor.normalizeVietnameseText`) **không** lặp ở đây: tầng service đã
+    /// gọi (`VieNeuTTSService.executeInternalSynthesis` `:261`), gọi lại là xử lý hai lượt.
     func playSample() {
         guard let service else { return }
         stopPlayback()
         let voice = selectedVoice
-        let content = text
+
+        let processed = TTSReplacementManager.shared.applyReplacements(to: text)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !processed.isEmpty else {
+            isError = true
+            statusMessage = "Không còn chữ để đọc sau khi áp quy tắc thay thế ký tự."
+            return
+        }
+
+        let paragraphs = NghiUtteranceSegmenter.expand(
+            [TTSParagraph(
+                text: processed,
+                range: NSRange(location: 0, length: processed.utf16.count),
+                paragraphIndex: 0
+            )],
+            maximumLength: TTSManager.vieNeuChunkLength
+        )
+        guard !paragraphs.isEmpty else { return }
+
         isSynthesizing = true
         isError = false
         statusMessage = ""
         lastReport = ""
+        lastSegmentCount = paragraphs.count
+        lastEngineChunkCount = 0
 
         synthesisTask = Task {
             do {
@@ -194,23 +229,62 @@ struct VieNeuTTSTestView: View {
                     try await service.prepare(voice: voice)
                     await MainActor.run { isPreparing = false }
                 }
-                // Tổng hợp **luôn ở 1.0×**: `speed` của engine đổi độ dài audio do model sinh ra, tức
-                // đẩy model ra khỏi tốc độ nó được huấn luyện và bắt tổng hợp lại mỗi lần đổi tốc độ.
-                // Tốc độ người dùng chọn được áp ở tầng **phát** (`AVAudioPlayer.rate`).
-                let result = try await service.synthesizeWithDuration(
-                    text: content,
-                    voice: voice,
-                    speed: 1.0,
-                    priority: .demand
-                )
-                guard !Task.isCancelled else {
-                    await MainActor.run { isSynthesizing = false }
+
+                var parts: [Data] = []
+                var engineChunks = 0
+                var audioSeconds = 0.0
+                var speechSeconds = 0.0
+                var synthesisMs = 0.0
+                var queueWaitMs = 0.0
+                var vectorMs = 0.0
+                var otherMs = 0.0
+
+                for paragraph in paragraphs {
+                    // Tổng hợp **luôn ở 1.0×**: `speed` của engine đổi độ dài audio do model sinh ra, tức
+                    // đẩy model ra khỏi tốc độ nó được huấn luyện và bắt tổng hợp lại mỗi lần đổi tốc độ.
+                    // Tốc độ người dùng chọn được áp ở tầng **phát** (`AVAudioPlayer.rate`).
+                    let result = try await service.synthesizeWithDuration(
+                        text: paragraph.text,
+                        voice: voice,
+                        speed: 1.0,
+                        boundaryKind: paragraph.boundaryKind,
+                        priority: .demand
+                    )
+                    guard !Task.isCancelled else {
+                        await MainActor.run { isSynthesizing = false }
+                        return
+                    }
+                    parts.append(result.data)
+                    engineChunks += service.lastChunkCount
+                    audioSeconds += result.pcmDuration
+                    speechSeconds += service.lastSpeechDuration
+                    synthesisMs += result.synthesisMs
+                    queueWaitMs += result.queueWaitMs
+                    vectorMs += service.lastVectorMs
+                    otherMs += service.lastOtherMs
+                }
+
+                guard let merged = WAVConcatenator.concatenate(parts) else {
+                    await MainActor.run {
+                        isSynthesizing = false
+                        isError = true
+                        statusMessage = "Ghép audio thất bại: WAV của engine không đúng khuôn 44 byte."
+                    }
                     return
                 }
+
                 await MainActor.run {
                     isSynthesizing = false
-                    presentReport(result: result)
-                    play(result.data)
+                    lastEngineChunkCount = engineChunks
+                    presentReport(
+                        audioSeconds: audioSeconds,
+                        speechSeconds: speechSeconds,
+                        synthesisMs: synthesisMs,
+                        queueWaitMs: queueWaitMs,
+                        vectorMs: vectorMs,
+                        otherMs: otherMs
+                    )
+                    play(merged)
                 }
             } catch is CancellationError {
                 await MainActor.run { isSynthesizing = false; isPreparing = false }
@@ -225,26 +299,38 @@ struct VieNeuTTSTestView: View {
         }
     }
 
-    private func presentReport(result: (data: Data, pcmDuration: Double, queueWaitMs: Double, synthesisMs: Double)) {
-        let audioSeconds = max(result.pcmDuration, 0.001)
-        let rtf = (result.synthesisMs / 1_000) / audioSeconds
+    /// Báo cáo RTF cho **cả lượt thử**, cộng dồn qua các đoạn.
+    ///
+    /// Cộng dồn chứ không lấy số của đoạn cuối: số đo của một đoạn đơn lẻ không nói được gì về chi phí
+    /// thật khi đọc một chương dài, mà đó chính là câu hỏi màn thử này tồn tại để trả lời.
+    private func presentReport(
+        audioSeconds: Double,
+        speechSeconds: Double,
+        synthesisMs: Double,
+        queueWaitMs: Double,
+        vectorMs: Double,
+        otherMs: Double
+    ) {
+        let audio = max(audioSeconds, 0.001)
+        let rtf = (synthesisMs / 1_000) / audio
         // RTF trên **audio thật** (trừ khoảng nghỉ engine tự chèn). Khoảng nghỉ không tốn thời gian suy
         // luận nên nếu tính vào tổng độ dài thì RTF bị **thấp giả** — và càng nhiều chunk càng thấp giả.
-        let speechSeconds = max(service?.lastSpeechDuration ?? audioSeconds, 0.001)
-        let speechRTF = (result.synthesisMs / 1_000) / speechSeconds
+        let speech = max(speechSeconds, 0.001)
+        let speechRTF = (synthesisMs / 1_000) / speech
         statusMessage = String(
             format: "Xong: %.2f giây audio, tổng hợp %.2f giây.",
-            audioSeconds, result.synthesisMs / 1_000
+            audio, synthesisMs / 1_000
         )
         lastReport = """
+        đoạn         \(lastSegmentCount)   (cắt bằng `NghiUtteranceSegmenter` như Reader)
         RTF          \(String(format: "%.2f", rtf))   (nhỏ hơn 1 là đọc realtime được)
         nhanh hơn    \(String(format: "%.1f", 1 / max(rtf, 0.001)))× so với realtime
-        RTF thật     \(String(format: "%.2f", speechRTF))   (trừ \(String(format: "%.2f", audioSeconds - speechSeconds)) s khoảng nghỉ)
-        chậm ở đâu   vector \(String(format: "%.2f", (service?.lastVectorMs ?? 0) / 1000)) s | khác \(String(format: "%.2f", (service?.lastOtherMs ?? 0) / 1000)) s
+        RTF thật     \(String(format: "%.2f", speechRTF))   (trừ \(String(format: "%.2f", audio - speech)) s khoảng nghỉ)
+        chậm ở đâu   vector \(String(format: "%.2f", vectorMs / 1000)) s | khác \(String(format: "%.2f", otherMs / 1000)) s
         chế độ       \(service?.currentMode.rawValue ?? "?")
-        tổng hợp     \(String(format: "%.0f", result.synthesisMs)) ms
-        chờ hàng đợi \(String(format: "%.0f", result.queueWaitMs)) ms
-        audio        \(String(format: "%.2f", audioSeconds)) s
+        tổng hợp     \(String(format: "%.0f", synthesisMs)) ms
+        chờ hàng đợi \(String(format: "%.0f", queueWaitMs)) ms
+        audio        \(String(format: "%.2f", audio)) s
         """
     }
 

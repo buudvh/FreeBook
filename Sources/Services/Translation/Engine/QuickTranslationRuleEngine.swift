@@ -319,13 +319,14 @@ public enum QuickTranslationRuleEngine {
         for (index, match) in selected.enumerated() {
             appendPassthrough(upTo: match.start)
             var rendered = match.rendered
+            let isHanOnly = !rendered.isEmpty && rendered.allSatisfy(VietPhraseTokenizer.isChineseCharacter)
 
-            // 1. Tự động chèn khoảng trắng phía trước token rule nếu cần
-            if needsLeadingSeparator(output: output, rendered: rendered) {
+            // 1. Chèn space phía trước token rule nếu cần — miễn khi hán tự thuần (`唐三=唐三`).
+            if !isHanOnly, needsLeadingSeparator(output: output, rendered: rendered) {
                 rendered = " " + rendered
             }
 
-            // 2. Tự động chèn khoảng trắng phía sau token rule nếu cần
+            // 2. Tự động chèn khoảng trắng phía sau token rule nếu cần — miễn khi hán tự thuần
             let nextChar: Character?
             if index + 1 < selected.count, selected[index + 1].start == match.start + match.length {
                 nextChar = selected[index + 1].rendered.first
@@ -335,7 +336,7 @@ public enum QuickTranslationRuleEngine {
                 nextChar = nil
             }
 
-            if needsTrailingSeparator(rendered: rendered, nextChar: nextChar) {
+            if !isHanOnly, needsTrailingSeparator(rendered: rendered, nextChar: nextChar) {
                 rendered = rendered + " "
             }
 

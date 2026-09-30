@@ -16,6 +16,14 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 
 <!-- GENERATED START -->
 
+## 1.3.444 — rủi ro mới / đã xử lý
+
+* [`WAVConcatenator`](../../Sources/Services/TTS/WAVConcatenator.swift) ghép WAV bằng cách cắt **cố định** 44 byte header của `WAVEncoder`. Rủi ro: engine đổi khuôn WAV ⇒ phải sửa cả hai nơi. Giảm thiểu: hàm kiểm 4 mốc `RIFF`/`WAVE`/`fmt `/`data` của **từng** phần và trả `nil` khi lệch, caller báo lỗi thay vì phát audio hỏng.
+* `QuickTranslationRuleEngine.swift` chỉ còn **1 dòng** headroom tới trần 400 ⇒ lượt sửa sau rất dễ tạo `NEW_FILE_TOO_LARGE`. Giảm thiểu: đã ghi cảnh báo ở `14_complexity_report.md`; helper mới phải đặt ở file `+Extension`.
+* Màn thử VieNeu giờ tổng hợp **N đoạn** thay vì 1 lượt ⇒ thời gian chờ tăng theo số đoạn với văn bản dài. Đây là **chủ ý**: màn thử phải phản ánh đúng chi phí của Reader.
+* Rủi ro đã đóng: trước lượt này màn thử **không** áp `applyReplacements`, nên số đo RTF không ứng với văn bản mà Reader thực sự đưa cho engine.
+
+
 ## Rủi Ro UI Pin/Mặc Định VieNeu (1.3.442)
 
 * **Mặc định mới đổi trải nghiệm**: "Tiết kiệm pin" BẬT sẵn ⇒ máy mới mở chạy `fast` + 2 luồng (mát/pin hơn, chất lượng thấp hơn); phân đoạn 100 ký tự (nhiều chunk hơn), ngưỡng đệm 10s. Người dùng cũ giữ giá trị đã lưu.

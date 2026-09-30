@@ -129,6 +129,20 @@ extension TTSManager {
         tool == "vieneu" ? vieneuSafeCachedTimeThreshold : nghittsSafeCachedTimeThreshold
     }
 
+    /// `chunkLength` mà **Reader** dùng cho VieNeu — đọc thẳng khoá `vieneuChunk` với mặc định 100, đúng
+    /// như `applyVieNeuParamsIfNeeded()` nạp.
+    ///
+    /// **Không** dùng `TTSManager.shared.chunkLength`: giá trị đó thuộc **engine đang chọn**, nên khi
+    /// Picker đang ở NghiTTS thì màn thử VieNeu sẽ cắt đoạn theo con số của Piper — lệch đúng thứ màn thử
+    /// cần tái hiện (plan §2.2). `nonisolated` cùng lý do như `isExtensionTool`: đọc `UserDefaults` thuần,
+    /// không cần nhảy actor.
+    nonisolated static var vieNeuChunkLength: Int {
+        let saved = UserDefaults.standard.object(forKey: VieNeuSettingsKey.chunk) != nil
+            ? UserDefaults.standard.integer(forKey: VieNeuSettingsKey.chunk)
+            : 100
+        return saved > 0 ? saved : 100
+    }
+
     /// Đặt lại tham số "Tải trước dữ liệu" cho **engine đang chọn**.
     ///
     /// Gom về đây (thay vì để chuỗi `if/else` trong header của `Section` ở `TTSSettingsView`) vì hai lý do:

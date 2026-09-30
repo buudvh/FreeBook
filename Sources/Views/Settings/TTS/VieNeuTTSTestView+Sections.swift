@@ -201,7 +201,7 @@ extension VieNeuTTSTestView {
             if isBlockedByPlayback {
                 Text("Đang đọc truyện — hãy dừng TTS trước khi thử, vì hai bên dùng chung phiên âm thanh.")
             } else {
-                Text("Engine này **không** chạy lớp tiền xử lý của NghiTTS (đọc số, phiên âm Anh/Nhật) — chỉ lớp thay thế ký tự dùng chung. Số và viết tắt do bộ G2P của model tự lo.")
+                Text("Màn này đi **cùng đường** với Reader: thay thế ký tự (`TTSReplacementManager`) → cắt đoạn bằng `NghiUtteranceSegmenter` theo `chunkLength` của VieNeu → tổng hợp từng đoạn với `boundaryKind` riêng rồi ghép lại. Lớp đọc số/ngày do tầng engine lo; VieNeu **không** dùng lớp phiên âm Anh/Nhật của NghiTTS — số và viết tắt do bộ G2P của model tự xử.")
             }
         }
     }

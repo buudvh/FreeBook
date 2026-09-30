@@ -15,6 +15,15 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+
+## 1.3.444 — màn thử VieNeu đi cùng đường Reader + rule dịch không tự gắn space cho hán tự
+
+* [`WAVConcatenator.swift`](../../Sources/Services/TTS/WAVConcatenator.swift) — **file mới**: nối nhiều WAV PCM16 cùng định dạng (cắt 44 byte header, nối payload, dựng lại header). Cố ý **không** decode rồi encode lại vì `WAVEncoder.encodePCM16` nhận `[Float]`; đường vòng `Int16 → Float → Int16` chỉ thêm một chỗ có thể sai làm mất mẫu.
+* [`VieNeuTTSTestView.swift`](../../Sources/Views/Settings/TTS/VieNeuTTSTestView.swift) **377** dòng: `playSample()` đi đúng ba bước của Reader — `TTSReplacementManager.applyReplacements` → `NghiUtteranceSegmenter.expand(…, maximumLength: TTSManager.vieNeuChunkLength)` → `synthesizeWithDuration(boundaryKind:)` cho **từng** đoạn. Báo cáo RTF **cộng dồn** qua các đoạn thay vì lấy số của đoạn cuối.
+* [`TTSManager+VieNeu.swift`](../../Sources/Services/TTS/TTSManager+VieNeu.swift) **247**: thêm `nonisolated static var vieNeuChunkLength` (đọc khoá `vieneuChunk`, mặc định 100) — cố ý **không** dùng `TTSManager.shared.chunkLength` vì giá trị đó thuộc **engine đang chọn**.
+* [`QuickTranslationRuleEngine.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleEngine.swift) **399**: `assemble` miễn auto-space 2 bên khi `rendered` là **hán tự thuần** (`allSatisfy(VietPhraseTokenizer.isChineseCharacter)`) — tiếng Trung không ngăn từ bằng khoảng trắng.
+* Đồng bộ tài liệu cho commit UI TTS trước đó (`AISettingsSection.swift`, `TTSSettingsSection.swift`) mà CodeGraph chưa accept.
+
 ## Nạp Trước Đồng Thời Cho VieNeu + Safe-Window 150 ms (1.3.438)
 
 * **Sửa đoạn ngắn VieNeu bị đứt**: `updateNghiPrefetchWindow` trước đây chỉ nạp **1** đoạn rồi `return` (`canScheduleNghiRefill` cấm lượt thứ hai bay cùng lúc). VieNeu tổng hợp đắt (RTF ~0,3 + chi phí cố định theo chunk; `VieNeuSynthesisPolicy.bufferedSecondsTarget = 12`) nên đoạn ngắn (audio ≤ 1 lần tổng hợp) không kịp tổng hợp trước khi đoạn đang phát kết thúc. Đổi sang **pool đồng thời** (`nghiRefillTasks: [Int: Task]` + `nghiRefillInFlightIndices: Set<Int>`) và `fillNghiRefillUpToCapacity()`; `nghiRefillCandidate` bước qua index đang bay để vòng lặp đi tiếp. NghiTTS giữ 1 luồng (tổng hợp gần tức thì).

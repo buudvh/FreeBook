@@ -16,6 +16,14 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 
 <!-- GENERATED START -->
 
+## 1.3.444 — quy chuẩn rút ra
+
+* **Trần dòng là ràng buộc thật**: `QuickTranslationRuleEngine.swift` ở **399/400** và **không** có trong `architecture_allowlist.json` ⇒ thêm một `private static func` là tạo violation mới. Helper mới phải đặt ở file `+Extension`.
+* **Màn thử phải đi cùng đường với đường thật**: một màn test tự dựng pipeline riêng sẽ đo một thứ khác với thứ người dùng chạy. Ba bước phải trùng: thay thế ký tự (`applyReplacements`), cắt đoạn (`NghiUtteranceSegmenter` + `chunkLength`), và `boundaryKind` của từng đoạn.
+* **Đọc đúng khoá của engine**: `TTSManager.shared.chunkLength` thuộc **engine đang chọn**; muốn con số của một engine cụ thể thì đọc khoá `vieneu*`/`nghitts*` tương ứng (đã áp ở `vieNeuChunkLength`).
+* **Ghép file nhị phân phải kiểm khuôn trước khi ghép**: `WAVConcatenator` trả `nil` thay vì ghép mù.
+
+
 ## Rules UI Pin & Mặc Định VieNeu (1.3.442)
 
 * **"Tiết kiệm pin" là một overlay, không ghi đè lựa chọn người dùng.** Default = **BẬT**. ON ⇒ `engine.setRequestedMode(.fast)` + `effectiveThreadCount` = 2 (khoá 2 picker); OFF ⇒ `setRequestedMode(nil)` ("Tự động"). Dùng `VieNeuSynthesisPolicy.effectiveThreadCount(from:)`, đừng nhân đôi logic ở UI.

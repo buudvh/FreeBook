@@ -16,6 +16,14 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 
 <!-- GENERATED START -->
 
+## 1.3.444 — phân hệ TTS/Translation: đồng bộ màn thử với Reader
+
+* **Màn thử VieNeu** ([`VieNeuTTSTestView.swift`](../../Sources/Views/Settings/TTS/VieNeuTTSTestView.swift)) từ lượt này đi **cùng đường** với Reader: `applyReplacements` → `NghiUtteranceSegmenter.expand(maximumLength: TTSManager.vieNeuChunkLength)` → `synthesizeWithDuration(boundaryKind:)` cho từng đoạn → `WAVConcatenator` → một `AVAudioPlayer`. Footer của `playSection` đã sửa lại cho khớp mô tả này.
+* **Chẩn đoán** ([`VieNeuTTSTestView+Diagnostics.swift`](../../Sources/Views/Settings/TTS/VieNeuTTSTestView+Diagnostics.swift)) tách 2 con số: `đoạn` (số đoạn do `NghiUtteranceSegmenter` cắt) và `chunk engine` (tổng `lastChunkCount` qua các đoạn).
+* **Rule dịch** ([`QuickTranslationRuleEngine.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleEngine.swift)): `rendered` là hán tự thuần ⇒ **không** tự chèn khoảng trắng 2 bên. Đây là ngoại lệ của feature "Tự Động Khoảng Trắng 2 Bên Token Rule Dịch" (1.3.405).
+* Đồng bộ tài liệu cho thay đổi UI TTS của commit trước: [`AISettingsSection.swift`](../../Sources/Views/Settings/Main/AISettingsSection.swift) (chevron trắng) và [`TTSSettingsSection.swift`](../../Sources/Views/Settings/Main/TTSSettingsSection.swift) (3 nhóm con Chung/NghiTTS/VieNeu + nav row "Cài đặt VieNeu TTS").
+
+
 ## Đổi Tên "Cài đặt VieNeu TTS" + Xoá Màn Debug Extension (1.3.443)
 
 * **Đổi tên**: nav row ở tab Cài đặt (`TTSSettingsSection.swift`) "Thử giọng VieNeu-TTS" → **"Cài đặt VieNeu TTS"**; `navigationTitle` của `VieNeuTTSTestView` cũng → **"Cài đặt VieNeu TTS"**.

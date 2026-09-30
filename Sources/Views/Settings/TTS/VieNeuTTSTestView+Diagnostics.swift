@@ -25,9 +25,13 @@ extension VieNeuTTSTestView {
         // tiếng Việt" nên phải hiện ngay ở đây.
         let dropped = service?.lastDroppedScalars ?? 0
         lines.append("phoneme bỏ: \(dropped)")
+        // Số đoạn là con số **Reader** dùng (`NghiUtteranceSegmenter` + `chunkLength`), còn số chunk là
+        // con số *bên trong* engine cho mỗi đoạn. Hiện cả hai để phân biệt "màn thử cắt khác Reader" với
+        // "engine tự chẻ một đoạn ra nhiều chunk".
+        lines.append("đoạn: \(lastSegmentCount) (NghiUtteranceSegmenter)")
         // Số chunk là chỉ số bắt đúng lỗi "từ bị chẻ đôi ở ranh giới chunk": một câu ngắn mà ra 3 chunk
         // là dấu hiệu ngay.
-        lines.append("chunk: \(service?.lastChunkCount ?? 0)")
+        lines.append("chunk engine: \(lastEngineChunkCount)")
         // Phoneme của chunk đầu: đây là thứ phân biệt được "từ điển trả sai" với "phoneme đúng nhưng
         // model đọc bằng giọng Việt" — hai nguyên nhân trông giống hệt nhau qua tai nghe.
         let sample = service?.lastPhonemeSample ?? ""

@@ -3,9 +3,9 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-09-30T03:45:00Z",
-  "gitCommit": "ecae76cf456978f11b9b017164f45c694e896af4",
-  "sourceFileCount": 606,
+  "generatedAt": "2026-09-30T05:16:02Z",
+  "gitCommit": "888d4a730db7ee7f097723d6ebf974ed9223b8e9",
+  "sourceFileCount": 607,
   "documentCount": 16,
   "documents": [
     {
@@ -332,6 +332,7 @@
         "Sources/Services/TTS/VieNeu/VieNeuTTSEngine.swift",
         "Sources/Services/TTS/VieNeu/VieNeuTTSService.swift",
         "Sources/Services/TTS/VieNeu/VieNeuVoiceCatalog.swift",
+        "Sources/Services/TTS/WAVConcatenator.swift",
         "Sources/Services/TTS/WAVEncoder.swift",
         "Sources/Services/Translation/BookTitleTranslationBackfill.swift",
         "Sources/Services/Translation/BookTitleTranslationMigrator.swift",
@@ -623,13 +624,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "f7fdba7fe14add174c984572c78504b7513c08b401f0ccc34fcb8ca47e7fcf62",
-      "sourceHash": "28345b0160441092977a62ef7fac9803dddf6a4f7075baa5cfdb76e1dd109609",
-      "generatedHash": "8f53e68c039471cf66c394e9e7d5bcb510addc63cf95fd56aa657b7f4b2478b5",
-      "generatedAt": "2026-09-30T03:23:09Z",
-      "reviewedAt": "2026-09-30T03:23:09Z",
-      "reviewedCommit": "8b4bfbd8d830e6fc2875b39315156d5a588be1d9",
-      "reviewMode": "no-change-needed"
+      "structureHash": "ddb45d72c4ecd164c482101cd79b6c38d7cc8b66c9691cd5e21fb85af72a7d10",
+      "sourceHash": "11571b287afbaed091958155491bcc7bf4e6609224071d19ecc4eab9480fe1d3",
+      "generatedHash": "a92cd2841488c465a1543198a33d8ab7f62d8e509a246611b15f2fb3bd068f4e",
+      "generatedAt": "2026-09-30T05:16:02Z",
+      "reviewedAt": "2026-09-30T05:16:02Z",
+      "reviewedCommit": "888d4a730db7ee7f097723d6ebf974ed9223b8e9",
+      "reviewMode": "accept"
     },
     {
       "filename": "01_project.md",
@@ -982,6 +983,7 @@
         "Sources/Services/TTS/VieNeu/VieNeuTTSEngine.swift",
         "Sources/Services/TTS/VieNeu/VieNeuTTSService.swift",
         "Sources/Services/TTS/VieNeu/VieNeuVoiceCatalog.swift",
+        "Sources/Services/TTS/WAVConcatenator.swift",
         "Sources/Services/TTS/WAVEncoder.swift",
         "Sources/Services/Translation/BookTitleTranslationBackfill.swift",
         "Sources/Services/Translation/BookTitleTranslationMigrator.swift",
@@ -1273,12 +1275,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "f7fdba7fe14add174c984572c78504b7513c08b401f0ccc34fcb8ca47e7fcf62",
-      "sourceHash": "28345b0160441092977a62ef7fac9803dddf6a4f7075baa5cfdb76e1dd109609",
-      "generatedHash": "eaa62bc393560352c0927442e8c2fb15e91a529d2ba8434d333aac397e4285b5",
-      "generatedAt": "2026-09-30T03:23:55Z",
-      "reviewedAt": "2026-09-30T03:23:55Z",
-      "reviewedCommit": "8b4bfbd8d830e6fc2875b39315156d5a588be1d9",
+      "structureHash": "ddb45d72c4ecd164c482101cd79b6c38d7cc8b66c9691cd5e21fb85af72a7d10",
+      "sourceHash": "11571b287afbaed091958155491bcc7bf4e6609224071d19ecc4eab9480fe1d3",
+      "generatedHash": "72c9235c83cededa193d30325566029e020909ce8504a1690c782ddedc3cd19c",
+      "generatedAt": "2026-09-30T05:16:02Z",
+      "reviewedAt": "2026-09-30T05:16:02Z",
+      "reviewedCommit": "888d4a730db7ee7f097723d6ebf974ed9223b8e9",
       "reviewMode": "accept"
     },
     {
@@ -1506,6 +1508,7 @@
         "Sources/Services/TTS/VieNeu/VieNeuTTSEngine.swift",
         "Sources/Services/TTS/VieNeu/VieNeuTTSService.swift",
         "Sources/Services/TTS/VieNeu/VieNeuVoiceCatalog.swift",
+        "Sources/Services/TTS/WAVConcatenator.swift",
         "Sources/Services/TTS/WAVEncoder.swift",
         "Sources/Views/MainTabView.swift",
         "Sources/Views/Reader/AI/AIFloatingWidgetContainerViewController.swift",
@@ -1576,12 +1579,12 @@
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "structureHash": "1d9d88b7734446d0842b7368ec7de71188d889d16b90301ad19178b1109f985f",
-      "sourceHash": "f48c50f4a3962a897ecac8c8f46d3b14a455eb3b981fd075ace20252854f8716",
-      "generatedHash": "fbad1d5f5a2c4f0cf7b21a7c46da5bf55ef0b2071bfbe8df26c30f7cdca1625d",
-      "generatedAt": "2026-09-30T02:46:47Z",
-      "reviewedAt": "2026-09-30T02:46:47Z",
-      "reviewedCommit": "3488ba2007c23af4068600fbbd659f40e632eb38",
+      "structureHash": "98d4f3195a6101ec864af32f92fe81badb32deb26f632f9fa1e26ef7ff887dd7",
+      "sourceHash": "133b35c703613b1954ad31fa6946bd6348f44e02d557ffbb4baebdfb2d2f17a0",
+      "generatedHash": "90b5168721e2a7372de94158768a52b5b401b26abc8ec12e849096bba250411e",
+      "generatedAt": "2026-09-30T05:16:02Z",
+      "reviewedAt": "2026-09-30T05:16:02Z",
+      "reviewedCommit": "888d4a730db7ee7f097723d6ebf974ed9223b8e9",
       "reviewMode": "accept"
     },
     {
@@ -1834,11 +1837,11 @@
         "Sources/Views/Reader/Extensions/ReaderViewModel+Translation.swift"
       ],
       "structureHash": "f8c5cffd25f54e330a54392b7f423688d8201eb926d38315dbaf4e0e71be2098",
-      "sourceHash": "01096e9756a62526ea3a640986c36b737bd0cb199ba3da359a36aca69e85380b",
-      "generatedHash": "200d5fb745553afe3dd67fe5fcfa7aed0b974ca47a204cdadc57f75ab36cc61d",
-      "generatedAt": "2026-09-28T13:38:47Z",
-      "reviewedAt": "2026-09-28T13:38:47Z",
-      "reviewedCommit": "1f07f92496d490e1383696ee32b213c28921414b",
+      "sourceHash": "232eabd8ce95c8476cbafa0147c45d158645cee526e385ebcd123da6d507cca5",
+      "generatedHash": "1366043b92c8c5b34209a09eccefcfc2c5da7cb3ce8c778e86131ba8d8584b2c",
+      "generatedAt": "2026-09-30T05:16:02Z",
+      "reviewedAt": "2026-09-30T05:16:02Z",
+      "reviewedCommit": "888d4a730db7ee7f097723d6ebf974ed9223b8e9",
       "reviewMode": "accept"
     },
     {
@@ -2202,6 +2205,7 @@
         "Sources/Services/TTS/VieNeu/VieNeuTTSEngine.swift",
         "Sources/Services/TTS/VieNeu/VieNeuTTSService.swift",
         "Sources/Services/TTS/VieNeu/VieNeuVoiceCatalog.swift",
+        "Sources/Services/TTS/WAVConcatenator.swift",
         "Sources/Services/TTS/WAVEncoder.swift",
         "Sources/Services/Translation/BookTitleTranslationBackfill.swift",
         "Sources/Services/Translation/BookTitleTranslationMigrator.swift",
@@ -2493,13 +2497,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "7bf6987bd230911c445bbdedfe94818efc74df98e24f789f443d5aabbb7cf28f",
-      "sourceHash": "fab2723c439d9d984fade9fd6b5b2faa7164a098b2574b025a033b8cfaa07ffc",
-      "generatedHash": "6d3fcefa0f0cb8ecc77fda5f83e7de97eb803d578b8ae93d1125d6b313ba5214",
-      "generatedAt": "2026-09-30T03:23:09Z",
-      "reviewedAt": "2026-09-30T03:23:09Z",
-      "reviewedCommit": "8b4bfbd8d830e6fc2875b39315156d5a588be1d9",
-      "reviewMode": "no-change-needed"
+      "structureHash": "6230c987db80522bea059e8da362b56c16b544f975d8b44ea84d9dc552d907ba",
+      "sourceHash": "6085ea2c48fe9aee6b25787b90571533a3a201366d1b03784d1c01728cddde40",
+      "generatedHash": "623f73c59010afe213f13dcb7ea3e94fbf4268a4b97e140febc436ca9ee0cd1d",
+      "generatedAt": "2026-09-30T05:16:02Z",
+      "reviewedAt": "2026-09-30T05:16:02Z",
+      "reviewedCommit": "888d4a730db7ee7f097723d6ebf974ed9223b8e9",
+      "reviewMode": "accept"
     },
     {
       "filename": "10_risk_report.md",
@@ -2626,16 +2630,17 @@
         "Sources/Services/TTS/VieNeu/VieNeuTTSEngine.swift",
         "Sources/Services/TTS/VieNeu/VieNeuTTSService.swift",
         "Sources/Services/TTS/VieNeu/VieNeuVoiceCatalog.swift",
+        "Sources/Services/TTS/WAVConcatenator.swift",
         "Sources/Services/TTS/WAVEncoder.swift",
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "structureHash": "6aed014dad048b910f950a0a34e418fec1cb3fecfd9c3366ceb56299c589864b",
-      "sourceHash": "12550e1ce2a5c8c529728742dcfd5e4bf45d3687e63bde7cff6410d56ebfc80e",
-      "generatedHash": "bf148547318d40fa9abb81b15bea3d70ad92b732bff8b40932876a9d0340b2f8",
-      "generatedAt": "2026-09-30T02:46:47Z",
-      "reviewedAt": "2026-09-30T02:46:47Z",
-      "reviewedCommit": "3488ba2007c23af4068600fbbd659f40e632eb38",
+      "structureHash": "f531195a11f4a0745130ba12f3f628d1a19c56c32389ff67dae3bb74d7de0360",
+      "sourceHash": "f136a1cd9dfc622815fb79b7aa7205fe1962cbd67f129c6a07ef9f6c44e7be50",
+      "generatedHash": "d3982bfc74ca902f35c84ebdc061f809d633c8e6717f3016dc5fae125188da2a",
+      "generatedAt": "2026-09-30T05:16:02Z",
+      "reviewedAt": "2026-09-30T05:16:02Z",
+      "reviewedCommit": "888d4a730db7ee7f097723d6ebf974ed9223b8e9",
       "reviewMode": "accept"
     },
     {
@@ -2900,6 +2905,7 @@
         "Sources/Services/TTS/VieNeu/VieNeuTTSEngine.swift",
         "Sources/Services/TTS/VieNeu/VieNeuTTSService.swift",
         "Sources/Services/TTS/VieNeu/VieNeuVoiceCatalog.swift",
+        "Sources/Services/TTS/WAVConcatenator.swift",
         "Sources/Services/TTS/WAVEncoder.swift",
         "Sources/Services/Translation/BookTitleTranslationBackfill.swift",
         "Sources/Services/Translation/BookTitleTranslationMigrator.swift",
@@ -3191,12 +3197,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "6b1c320508d83e586dd19510a6f6a65fdc05edb895cc5933eebeeab969bbb332",
-      "sourceHash": "f2ff0e2df4a6136171760ada8c7ba58e71afe5b443041be5ed50f8b963b75a62",
-      "generatedHash": "c54d67c1b8f9b0bbdb29cd0154df69e4c88cd04bf92b82e20865cb3b46d4efdf",
-      "generatedAt": "2026-09-30T03:45:00Z",
-      "reviewedAt": "2026-09-30T03:45:00Z",
-      "reviewedCommit": "ecae76cf456978f11b9b017164f45c694e896af4",
+      "structureHash": "bb2730b0f7bccc3b3720420b6c8ce5f7060d0d5112463744dd66187a4334a0fa",
+      "sourceHash": "872e25a226c195714ebce2ac2c5b82ccc97bd8ec524cecc9e5fed4f3a16921b0",
+      "generatedHash": "b74e2f990dcc88bfe4b29ec3b81e98338591c74a0f420237a0aa3d617bac95bf",
+      "generatedAt": "2026-09-30T05:16:02Z",
+      "reviewedAt": "2026-09-30T05:16:02Z",
+      "reviewedCommit": "888d4a730db7ee7f097723d6ebf974ed9223b8e9",
       "reviewMode": "accept"
     },
     {
@@ -3401,6 +3407,7 @@
         "Sources/Services/TTS/VieNeu/VieNeuTTSEngine.swift",
         "Sources/Services/TTS/VieNeu/VieNeuTTSService.swift",
         "Sources/Services/TTS/VieNeu/VieNeuVoiceCatalog.swift",
+        "Sources/Services/TTS/WAVConcatenator.swift",
         "Sources/Services/TTS/WAVEncoder.swift",
         "Sources/Views/Reader/AI/AIFloatingWidgetContainerViewController.swift",
         "Sources/Views/Reader/AI/AIFloatingWidgetUIWindow.swift",
@@ -3470,13 +3477,13 @@
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "structureHash": "e50edcbef32b3720277f34b1b3bcb1cdf0a1d1e58b072b17c281295e3e37736b",
-      "sourceHash": "3323cf04c62f0e7f730e12ca5584bd0af34c542518ecbe3f56917c884904136b",
-      "generatedHash": "2f4ef019d0fc7f2b10d351bd42555f774021c9fab64abd33be34ca0768861861",
-      "generatedAt": "2026-09-30T02:46:51Z",
-      "reviewedAt": "2026-09-30T02:46:51Z",
-      "reviewedCommit": "3488ba2007c23af4068600fbbd659f40e632eb38",
-      "reviewMode": "no-change-needed"
+      "structureHash": "4805d37043b4df5455fe8b6aac7e57c0b92b03bc993423e8faccc1405aa00f2b",
+      "sourceHash": "9d2902697074edfe063166826e3f0b79f93f86608563b08a6c3122137cbdc956",
+      "generatedHash": "8066e5e9f6d6b2025907da2214c0fd270376e4de50f104329797df49bfac9337",
+      "generatedAt": "2026-09-30T05:16:02Z",
+      "reviewedAt": "2026-09-30T05:16:02Z",
+      "reviewedCommit": "888d4a730db7ee7f097723d6ebf974ed9223b8e9",
+      "reviewMode": "accept"
     },
     {
       "filename": "14_complexity_report.md",
@@ -3802,6 +3809,7 @@
         "Sources/Services/TTS/VieNeu/VieNeuTTSEngine.swift",
         "Sources/Services/TTS/VieNeu/VieNeuTTSService.swift",
         "Sources/Services/TTS/VieNeu/VieNeuVoiceCatalog.swift",
+        "Sources/Services/TTS/WAVConcatenator.swift",
         "Sources/Services/TTS/WAVEncoder.swift",
         "Sources/Services/Translation/BookTitleTranslationBackfill.swift",
         "Sources/Services/Translation/BookTitleTranslationMigrator.swift",
@@ -4093,13 +4101,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "f7fdba7fe14add174c984572c78504b7513c08b401f0ccc34fcb8ca47e7fcf62",
-      "sourceHash": "28345b0160441092977a62ef7fac9803dddf6a4f7075baa5cfdb76e1dd109609",
-      "generatedHash": "c442ce4c99580831a488b119d1e19d7e181b5c80d9db253213bf932d1457b443",
-      "generatedAt": "2026-09-30T03:23:09Z",
-      "reviewedAt": "2026-09-30T03:23:09Z",
-      "reviewedCommit": "8b4bfbd8d830e6fc2875b39315156d5a588be1d9",
-      "reviewMode": "no-change-needed"
+      "structureHash": "ddb45d72c4ecd164c482101cd79b6c38d7cc8b66c9691cd5e21fb85af72a7d10",
+      "sourceHash": "11571b287afbaed091958155491bcc7bf4e6609224071d19ecc4eab9480fe1d3",
+      "generatedHash": "12d707be46d20c41ae6453e81559b4c6e3b35641a15ebd819ba89a92649a0fa4",
+      "generatedAt": "2026-09-30T05:16:02Z",
+      "reviewedAt": "2026-09-30T05:16:02Z",
+      "reviewedCommit": "888d4a730db7ee7f097723d6ebf974ed9223b8e9",
+      "reviewMode": "accept"
     },
     {
       "filename": "rules.md",
@@ -4218,17 +4226,18 @@
         "Sources/Services/TTS/VieNeu/VieNeuTTSEngine.swift",
         "Sources/Services/TTS/VieNeu/VieNeuTTSService.swift",
         "Sources/Services/TTS/VieNeu/VieNeuVoiceCatalog.swift",
+        "Sources/Services/TTS/WAVConcatenator.swift",
         "Sources/Services/TTS/WAVEncoder.swift",
         "Sources/Views/Reader/ReaderSelectionMapper.swift",
         "Sources/Views/Reader/ReaderTextView.swift",
         "Sources/Views/Reader/ReaderView.swift"
       ],
-      "structureHash": "af0107f1e2f4439d5f65167a414ce48ae0b4e2edaa92e689d49b3d3549a4319d",
-      "sourceHash": "5282ab219d55603171cfabed20439a76150a3462aa0c791302dfa6c0186a06aa",
-      "generatedHash": "6145d3746ce5e8b4ef20ab9ebd45eb93c8a24a58695dbb675d678214f5af17e7",
-      "generatedAt": "2026-09-30T02:46:47Z",
-      "reviewedAt": "2026-09-30T02:46:47Z",
-      "reviewedCommit": "3488ba2007c23af4068600fbbd659f40e632eb38",
+      "structureHash": "f13904c5ac7eacc3f1b32c7e66b9db163762686589a08bbba83e5e351b91a505",
+      "sourceHash": "50ae584ec0551d45c6fad81a3eb54c701644a5cb1c7648b4920a6ee40fe2ce72",
+      "generatedHash": "67a4ddb191819ab2331a0b8aa3d05d3d3d97096057d4b41a6d3e7e34f992f876",
+      "generatedAt": "2026-09-30T05:16:02Z",
+      "reviewedAt": "2026-09-30T05:16:02Z",
+      "reviewedCommit": "888d4a730db7ee7f097723d6ebf974ed9223b8e9",
       "reviewMode": "accept"
     }
   ]

@@ -15,6 +15,13 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+
+## 1.3.444 — dòng chảy giá trị rule dịch: ngoại lệ hán tự thuần
+
+* Trong `QuickTranslationRuleEngine.assemble`, `match.rendered` đi qua 2 bước biến đổi (chèn space trước, chèn space sau). Từ lượt này cả hai bước **bị bỏ qua** khi `rendered` là **hán tự thuần** (`!rendered.isEmpty && rendered.allSatisfy(VietPhraseTokenizer.isChineseCharacter)`). Hán tự lẫn dấu câu/space/số/latin ⇒ vẫn chèn như cũ.
+* Hệ quả **có chủ ý**: giá trị rule trả về hán tự vẫn đi tiếp qua `performTranslation` → tokenize → `resolveTokenMeaning` (`TranslateUtils.swift:462-464`, `phienAm[token] ?? token`), tức kết quả cuối vẫn có thể thành phiên âm Hán-Việt. Lượt này **chỉ** bỏ auto-space, không bảo vệ hán tự khỏi bước sau.
+* Dòng dữ liệu của màn thử VieNeu: `text` (ô nhập) → `applyReplacements` → `NghiUtteranceSegmenter.expand` → N đoạn → N file WAV → `WAVConcatenator` → **1** file WAV. Lớp `normalizeVietnameseText` nằm trong `VieNeuTTSService.executeInternalSynthesis` (`:261`) nên **không** lặp ở tầng View.
+
 ## Token `<hn>` & Tiêu Chí Thứ Hạng Token Trong Lượt Chọn Rule (1.3.416)
 
 ```text

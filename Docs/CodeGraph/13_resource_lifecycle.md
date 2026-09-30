@@ -16,6 +16,13 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 
 <!-- GENERATED START -->
 
+## 1.3.444 — vòng đời tài nguyên của màn thử VieNeu
+
+* Màn thử sinh **N** file WAV tạm (một cho mỗi đoạn) rồi ghép thành **một** `Data`; chỉ file ghép được ghi ra `temporaryDirectory` (`writeTemporaryAudio`). Các `Data` trung gian nằm trong mảng `parts` cục bộ của `Task` và được giải phóng khi hàm kết thúc.
+* `stopPlayback()` vẫn là điểm dọn duy nhất: huỷ `synthesisTask`, dừng `player`, đặt lại cờ. Vòng lặp tổng hợp kiểm `Task.isCancelled` sau **mỗi** đoạn ⇒ huỷ giữa chừng không để lại `AVAudioPlayer` đang chạy.
+* `WAVConcatenator` chỉ cấp phát `Data` mới (payload + header) — không giữ tham chiếu tới file hay tài nguyên hệ thống nào, nên không có gì phải giải phóng.
+
+
 ## Nạp Trước Đồng Thời Cho VieNeu + Safe-Window 150 ms (1.3.438)
 
 * **Sửa đoạn ngắn VieNeu bị đứt**: `updateNghiPrefetchWindow` trước đây chỉ nạp **1** đoạn rồi `return` (`canScheduleNghiRefill` cấm lượt thứ hai bay cùng lúc). VieNeu tổng hợp đắt (RTF ~0,3 + chi phí cố định theo chunk; `VieNeuSynthesisPolicy.bufferedSecondsTarget = 12`) nên đoạn ngắn không kịp tổng hợp trước khi đoạn đang phát kết thúc. Đổi sang **pool đồng thời** (`nghiRefillTasks: [Int: Task]` + `nghiRefillInFlightIndices: Set<Int>`) và `fillNghiRefillUpToCapacity()`; `nghiRefillCandidate` bước qua index đang bay. NghiTTS giữ 1 luồng.

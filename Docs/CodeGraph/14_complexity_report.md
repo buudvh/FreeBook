@@ -15,6 +15,14 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+
+## 1.3.444 — độ phức tạp file
+
+* [`WAVConcatenator.swift`](../../Sources/Services/TTS/WAVConcatenator.swift): **56** dòng vật lý, 1 primary type (`enum WAVConcatenator`) + 1 `private extension Data`. `concatenate` là O(tổng byte) — một lượt copy payload cho mỗi phần, không lặp lại trên cùng dữ liệu.
+* [`QuickTranslationRuleEngine.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleEngine.swift): **399/400** dòng vật lý (trần cứng 400 vì file **không** nằm trong `architecture_allowlist.json`). Chỉ còn **1 dòng** headroom ⇒ mọi thay đổi sau phải đưa helper sang file `+Extension`.
+* [`VieNeuTTSTestView.swift`](../../Sources/Views/Settings/TTS/VieNeuTTSTestView.swift): **377/400** dòng. Vòng tổng hợp theo đoạn là O(số đoạn) lượt gọi engine **tuần tự** (không lồng nhau), mỗi lượt một `synthesizeWithDuration`.
+* [`TTSManager+VieNeu.swift`](../../Sources/Services/TTS/TTSManager+VieNeu.swift) **247** dòng — dưới trần 400, không có baseline ratchet-down.
+
 ## Nạp Trước Đồng Thời Cho VieNeu + Safe-Window 150 ms (1.3.438)
 
 * **Sửa đoạn ngắn VieNeu bị đứt**: `updateNghiPrefetchWindow` trước đây chỉ nạp **1** đoạn rồi `return` (`canScheduleNghiRefill` cấm lượt thứ hai bay cùng lúc). VieNeu tổng hợp đắt (RTF ~0,3 + chi phí cố định theo chunk; `VieNeuSynthesisPolicy.bufferedSecondsTarget = 12`) nên đoạn ngắn không kịp tổng hợp trước khi đoạn đang phát kết thúc. Đổi sang **pool đồng thời** (`nghiRefillTasks: [Int: Task]` + `nghiRefillInFlightIndices: Set<Int>`) và `fillNghiRefillUpToCapacity()`; `nghiRefillCandidate` bước qua index đang bay. NghiTTS giữ 1 luồng.

@@ -15,6 +15,14 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+
+## 1.3.444 — phụ thuộc mới của màn thử VieNeu + `WAVConcatenator`
+
+* [`WAVConcatenator.swift`](../../Sources/Services/TTS/WAVConcatenator.swift) (Services/TTS) chỉ phụ thuộc `Foundation` — không chạm UIKit/SwiftUI, không chạm `TTSManager`, nên gọi được từ cả tầng Service lẫn tầng View.
+* [`VieNeuTTSTestView.swift`](../../Sources/Views/Settings/TTS/VieNeuTTSTestView.swift) (Views) nay dùng thêm 4 phụ thuộc tầng Service: `TTSReplacementManager` (thay thế ký tự), `NghiUtteranceSegmenter` + `TTSParagraph` (cắt đoạn), `WAVConcatenator` (nối WAV) và `TTSManager.vieNeuChunkLength`. Chiều **Views → Services** vẫn đúng; không phát sinh phụ thuộc ngược.
+* `TTSManager.vieNeuChunkLength` là `nonisolated static` nên đọc được từ ngoài `MainActor` — cùng lý do đã áp cho `isExtensionTool`/`isLocalEngine`.
+* [`QuickTranslationRuleEngine.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleEngine.swift) dùng thêm `VietPhraseTokenizer.isChineseCharacter`; cả hai đều nằm trong `Sources/Services/Translation/`, cùng module, không tạo phụ thuộc tầng mới.
+
 ## Nạp Trước Đồng Thời Cho VieNeu + Safe-Window 150 ms (1.3.438)
 
 * **Sửa đoạn ngắn VieNeu bị đứt**: `updateNghiPrefetchWindow` trước đây chỉ nạp **1** đoạn rồi `return` (`canScheduleNghiRefill` cấm lượt thứ hai bay cùng lúc). VieNeu tổng hợp đắt (RTF ~0,3 + chi phí cố định theo chunk; `VieNeuSynthesisPolicy.bufferedSecondsTarget = 12`) nên đoạn ngắn không kịp tổng hợp trước khi đoạn đang phát kết thúc. Đổi sang **pool đồng thời** (`nghiRefillTasks: [Int: Task]` + `nghiRefillInFlightIndices: Set<Int>`) và `fillNghiRefillUpToCapacity()`; `nghiRefillCandidate` bước qua index đang bay. NghiTTS giữ 1 luồng.

@@ -16,6 +16,14 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 
 <!-- GENERATED START -->
 
+## 1.3.444 — nhánh gọi mới của màn thử VieNeu + ngoại lệ auto-space
+
+* `VieNeuTTSTestView.playSample()` gọi **tuần tự**: `TTSReplacementManager.shared.applyReplacements(to:)` → `NghiUtteranceSegmenter.expand(_:maximumLength:)` → `VieNeuTTSService.synthesizeWithDuration(text:voice:speed:boundaryKind:priority:)` **cho từng đoạn** → `WAVConcatenator.concatenate(_:)` → `AVAudioPlayer.play()`. Trước lượt này màn thử gọi thẳng `synthesizeWithDuration` **một lần** cho cả ô chữ với `boundaryKind` mặc định.
+* `TTSManager.vieNeuChunkLength` là **nguồn duy nhất** cho `maximumLength` ở màn thử — không đọc `TTSManager.shared.chunkLength` (giá trị đó thuộc engine đang chọn).
+* `QuickTranslationRuleEngine.assemble` vẫn gọi `needsLeadingSeparator`/`needsTrailingSeparator` như cũ, nhưng có **thêm** guard `isHanOnly` tính bằng `VietPhraseTokenizer.isChineseCharacter`; nhánh mới không gọi thêm hàm nào khác.
+* Đường Reader (`TTSManager.playNghiTTS` → `service.synthesizeWithDuration(… boundaryKind: paragraph.boundaryKind …)`) **không đổi** lượt này.
+
+
 ## Gỡ Máy Móc Pre-schedule + UI Pin/Mặc Định VieNeu (1.3.442)
 
 * **Gỡ "B"**: xoá hẳn `.scheduled`/`getScheduledStatus`/`ScheduledStatus`/`onScheduleHandoff` (queue) + `handleNghiScheduledHandoff`/`nghiScheduledHandoffTask`/wiring (TTSManager). `TTSManager` 4024→**3957**; `NghiAudioPlayerQueue` 324→**288**.

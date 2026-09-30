@@ -15,6 +15,18 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+
+## +1 file: ghép WAV cho màn thử VieNeu + đồng bộ màn thử với Reader (1.3.444)
+
+| Nhóm | File | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Services/TTS | [`WAVConcatenator.swift`](../../Sources/Services/TTS/WAVConcatenator.swift) | **Mới** — nối nhiều WAV PCM16 cùng định dạng thành một file | 56 |
+
+* File mới **56** dòng (≤ 400), đúng 1 primary type top level (`enum WAVConcatenator`; `private extension Data` không tính là primary type).
+* Sửa nội dung: `TTSManager+VieNeu.swift` 233 → **247** (`nonisolated static var vieNeuChunkLength`), `VieNeuTTSTestView.swift` 291 → **377** (tổng hợp theo từng đoạn + báo cáo cộng dồn), `VieNeuTTSTestView+Sections.swift` 217 → **218**, `VieNeuTTSTestView+Diagnostics.swift` 37 → **48** (thêm số đoạn + số chunk engine), `QuickTranslationRuleEngine.swift` 398 → **399** (miễn auto-space cho hán tự thuần).
+* **Vì sao cần `WAVConcatenator`**: màn thử giờ cắt đoạn bằng `NghiUtteranceSegmenter` rồi tổng hợp **từng đoạn** (mỗi đoạn mang `boundaryKind` của chính nó, đúng như `TTSManager.playbackParagraphs`), nên phải nối lại thành **một** khối cho `AVAudioPlayer` phát một lần.
+* Ghi chú đồng bộ: lượt này cũng ghi nhận thay đổi UI TTS của commit trước (`AISettingsSection.swift`, `TTSSettingsSection.swift`) mà CodeGraph chưa accept.
+
 ## +1 file: nạp trước đồng thời cho VieNeu (1.3.438)
 
 | Nhóm | File | Vai trò | Dòng |
