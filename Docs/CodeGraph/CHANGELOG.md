@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.448] - 2026-09-30
+
+### fix: gộp VietPhrase ghi số liệu ra file meta kèm theo, không đọc lại file gộp
+
+Sửa **3** file Swift:
+
+- **Nguyên nhân**: mục gộp ở màn Thông báo đọc `DictionaryMergeTask.resultRecordCount` + `displayDate` **trực tiếp trong `body`**. Sau restart (`lastOutcome` chỉ sống trong RAM), `resultRecordCount` rơi xuống `DictionaryTextFileStore.loadCount(from:)` → `parseRecords` — **đọc cả `VietPhraseMerged.txt` (~1,4 triệu dòng) thành `String`, cắt mảng, dựng `Set<String>`** chỉ để lấy `.count`, **trên main thread** ⇒ đơ app, nghẽn luôn TTS (TTS cần main thread cập nhật highlight). `DictionaryMergeTask.init()` → `refreshFromDisk()` chặn main **ngay lúc mở app**.
+- **`DictionaryMergeService`** (123 → **210**): thêm `Meta` (`Codable`, `version` + 4 số + `createdAt`), `mergedMetaFileName` (dẫn xuất từ `mergedFileName`), `mergedMetaURL()`, `writeMeta(_:)` / `loadMeta()` / `deleteMeta()`. `merge(progress:)` ghi meta **sau** khi ghi `.txt`, cùng khuôn nguyên tử `tmp` + `replaceItemAt`. `loadMeta` trả `nil` khi thiếu file / decode lỗi / `version` lạ.
+- **`DictionaryMergeTask`** (236 → **216**): thêm `@Published private(set) var meta` + `isMetaMissing`. `summaryCounts`/`resultRecordCount`/`displayDate` nay **thuần RAM** (bỏ hẳn `loadCount` và `attributesOfItem`). `refreshFromDisk` chỉ `loadMeta()` ⇒ chạy thẳng trên `MainActor` an toàn. `finish` đọc lại meta. `applyToVietPhrase` + `discardResult` gọi `deleteMeta()` cùng lượt. **Xoá** `MergeSummary`, `summaryKey`, `persistSummary`, `clearSummary` (bản 1.3.446) + dọn khoá `UserDefaults` cũ trong `init`.
+- **`NotificationInboxView+Merge`** (186 → **188**): thêm nhánh `isMetaMissing` hiện *"Số liệu chưa có — gộp lại để cập nhật."* khi có file `.txt` nhưng không có meta (file sinh từ bản app cũ) — **không** parse bù.
+- **Cố ý không làm**: cache `hasResult` khỏi `fileExists` — chỉ là syscall `stat` cỡ µs, không phải nguyên nhân, mà cache đòi tự cập nhật ở 5 nơi.
+- Cổng: `check_architecture.py` **5 violation nền/0 mới**; `validate_links.py` **PASS 100% (16 doc, 614 file Swift)**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
+
+---
+
 ## [1.3.447] - 2026-09-30
 
 ### fix: nút "Nhập vào VietPhrase" mất chữ ở dark mode

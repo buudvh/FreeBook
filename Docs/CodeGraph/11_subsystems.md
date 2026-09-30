@@ -16,6 +16,17 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 
 <!-- GENERATED START -->
 
+## 1.3.447 — phân hệ Từ điển: số liệu gộp VietPhrase đi theo **file meta kèm theo**
+
+* **Vấn đề**: mục gộp ở màn Thông báo đọc `DictionaryMergeTask.resultRecordCount` và `displayDate` **trực tiếp trong `body`**. Sau khi khởi động lại app (`lastOutcome` chỉ sống trong RAM), `resultRecordCount` rơi xuống `DictionaryTextFileStore.loadCount(from:)` → `parseRecords` — **đọc cả `VietPhraseMerged.txt` (~1,4 triệu dòng) thành `String`, cắt mảng, dựng `Set<String>`** chỉ để lấy `.count`, **trên main thread** ⇒ đơ app và nghẽn cả TTS (TTS cần main thread để cập nhật highlight). `DictionaryMergeTask.init()` gọi `refreshFromDisk()` nên chặn main **ngay lúc mở app**.
+* **Cách sửa**: `DictionaryMergeService.merge` đã biết chính xác mọi con số trong `Outcome` **ngay lúc ghi file** — nên ghi thẳng ra **`VietPhraseMerged.meta.json`** (`DictionaryMergeService.Meta`: `version` + `baseCount`/`customCount`/`deletedCount`/`totalCount` + `createdAt`) thay vì suy lại từ nội dung file.
+* **Thứ tự ghi bắt buộc**: file `.txt` **trước**, meta **sau**; hỏng meta ⇒ tệ nhất là "có file, thiếu meta" (UI lùi nhánh chậm), không bao giờ "có meta, thiếu file".
+* **Vòng đời**: meta xoá **cùng lượt** với `.txt` ở cả `applyToVietPhrase` lẫn `discardResult` — không để meta mồ côi. Meta **không** nằm trong backup lẫn đổi-nguồn (giống chính file `.txt`, vốn là file tạm một lần).
+* **Bỏ `UserDefaults`**: `MergeSummary` + khoá `vietPhraseMergeSummary` (bản 1.3.446) đã bị xoá — trước đây chúng **không** được nối vào `resultRecordCount` nên nhánh đọc-parse vẫn còn. Nay `meta` là nguồn sự thật duy nhất; `init` dọn khoá cũ.
+* **`refreshFromDisk` chạy thẳng trên `MainActor`** là an toàn (đọc vài trăm byte thay vì parse vài chục MB) — giải quyết luôn chỗ chặn main trong `init`. Không cần `Task.detached` nào.
+* **Nhánh lùi**: `.txt` sinh từ bản cũ chưa có meta ⇒ `isMetaMissing == true`, view hiện *"Số liệu chưa có — gộp lại để cập nhật."*; **không** parse file để bù. Gộp lần sau tự khỏi.
+* **Cố ý KHÔNG làm**: cache `hasResult` khỏi `fileExists` — chỉ là syscall `stat` cỡ µs, **không** phải nguyên nhân gây đơ, mà cache đòi tự cập nhật ở 5 nơi.
+
 ## 1.3.446 — phân hệ TTS: rule thay thế có tầng riêng theo truyện
 
 * **Hai tầng**: chung (`FreeBook/TTS/character_replacements.json`) và riêng truyện (`translate/books/<bookId>/character_replacements.json`). Lúc đọc, rule riêng **đè** rule chung theo `pattern` và đứng trước; rule riêng **tắt** vẫn **chặn** rule chung cùng `pattern`.

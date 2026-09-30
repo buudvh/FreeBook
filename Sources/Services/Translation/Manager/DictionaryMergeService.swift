@@ -15,8 +15,48 @@ enum DictionaryMergeService {
     /// Tên file kết quả, nằm cùng thư mục `translate/` với các từ điển khác.
     static let mergedFileName = "VietPhraseMerged.txt"
 
+    /// Tên file meta kèm theo, **dẫn xuất** từ `mergedFileName` để không lệch tên nếu sau này đổi tên file gộp.
+    static var mergedMetaFileName: String {
+        (mergedFileName as NSString).deletingPathExtension + ".meta.json"
+    }
+
     /// Tên file sao lưu `.dat` cũ, tạo **trước** khi nhập file gộp vào từ điển gốc.
     static let backupFileName = "VietPhrase.dat.bak-merge"
+
+    /// Bản ghi số liệu của một lượt gộp, ghi **kèm** file kết quả.
+    ///
+    /// Vì sao tồn tại: `Outcome` đã biết chính xác mọi con số **ngay lúc ghi file**. Trước đây màn Thông báo
+    /// suy lại chúng bằng cách đọc và parse toàn bộ `VietPhraseMerged.txt` (~1,4 triệu dòng) **trên main
+    /// thread** mỗi lần render ⇒ đơ app và nghẽn luôn TTS. Ghi meta ra file riêng để lần sau chỉ cần
+    /// `JSONDecoder` trên vài trăm byte.
+    struct Meta: Codable, Equatable, Sendable {
+        /// Phiên bản lược đồ. Gặp giá trị lạ ⇒ coi như **không có meta** (lùi về nhánh chậm), không crash.
+        static let currentVersion = 1
+
+        let version: Int
+        let baseCount: Int
+        let customCount: Int
+        let deletedCount: Int
+        let totalCount: Int
+        /// Thời điểm sinh file — thay cho `attributesOfItem` khi cần ngày hiển thị.
+        let createdAt: Date
+
+        init(
+            version: Int = Meta.currentVersion,
+            baseCount: Int,
+            customCount: Int,
+            deletedCount: Int,
+            totalCount: Int,
+            createdAt: Date = Date()
+        ) {
+            self.version = version
+            self.baseCount = baseCount
+            self.customCount = customCount
+            self.deletedCount = deletedCount
+            self.totalCount = totalCount
+            self.createdAt = createdAt
+        }
+    }
 
     struct Outcome: Equatable, Sendable {
         let fileURL: URL
@@ -50,6 +90,43 @@ enum DictionaryMergeService {
 
     static func mergedFileURL() -> URL {
         TranslationManager.shared.translateDirectory.appendingPathComponent(mergedFileName)
+    }
+
+    static func mergedMetaURL() -> URL {
+        TranslationManager.shared.translateDirectory.appendingPathComponent(mergedMetaFileName)
+    }
+
+    /// Ghi meta atomically (`tmp` + `replaceItemAt`), cùng khuôn với file kết quả.
+    ///
+    /// **Luôn gọi SAU khi file `.txt` đã ghi xong**: nếu meta hỏng thì trạng thái tệ nhất là "có file, thiếu
+    /// meta" (UI lùi về nhánh chậm), chứ không bao giờ thành "có meta, thiếu file" (UI hiện mục mà không có
+    /// gì để nhập).
+    static func writeMeta(_ meta: Meta) {
+        guard let data = try? JSONEncoder().encode(meta) else { return }
+        let destination = mergedMetaURL()
+        let temporary = destination.deletingPathExtension().appendingPathExtension("tmp")
+        guard (try? data.write(to: temporary, options: .atomic)) != nil else { return }
+        if FileManager.default.fileExists(atPath: destination.path) {
+            _ = try? FileManager.default.replaceItemAt(destination, withItemAt: temporary)
+        } else {
+            try? FileManager.default.moveItem(at: temporary, to: destination)
+        }
+    }
+
+    /// Đọc meta kèm theo. File không tồn tại / decode lỗi / `version` lạ ⇒ `nil` (lùi về nhánh chậm),
+    /// **không** parse `VietPhraseMerged.txt` để bù — đó chính là thứ từng gây đơ.
+    static func loadMeta() -> Meta? {
+        guard let data = try? Data(contentsOf: mergedMetaURL()),
+              let meta = try? JSONDecoder().decode(Meta.self, from: data),
+              meta.version == Meta.currentVersion else {
+            return nil
+        }
+        return meta
+    }
+
+    /// Xoá meta — **luôn** gọi cùng lượt với xoá `VietPhraseMerged.txt` để không để lại meta mồ côi.
+    static func deleteMeta() {
+        try? FileManager.default.removeItem(at: mergedMetaURL())
     }
 
     /// Đọc từ điển gốc + custom, áp tombstone, ghi file kết quả. Chạy được ngoài `MainActor`.
@@ -112,12 +189,22 @@ enum DictionaryMergeService {
         }
         progress(1.0)
 
-        return Outcome(
+        let outcome = Outcome(
             fileURL: destination,
             baseCount: baseEntries.count,
             customCount: overrides.count,
             deletedCount: tombstones.count,
             totalCount: merged.count
         )
+        // Meta ghi **sau** file kết quả: hỏng meta ⇒ chỉ lùi về nhánh chậm, không mất dữ liệu.
+        writeMeta(
+            Meta(
+                baseCount: outcome.baseCount,
+                customCount: outcome.customCount,
+                deletedCount: outcome.deletedCount,
+                totalCount: outcome.totalCount
+            )
+        )
+        return outcome
     }
 }

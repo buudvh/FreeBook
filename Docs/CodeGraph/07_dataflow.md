@@ -23,14 +23,14 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 * **Backup ghi**: `.dictBooks` stage `bookTTSFiles` vào `dict/books/<slug>/` — **vòng riêng**, không nằm trong `bookDictionaryFiles` (vòng khôi phục nhóm đó parse `key=value` ⇒ phá JSON).
 * **Backup khôi phục**: `restoreBookTTSFiles` gọi `mergeReplacementRules` (hàm gộp JSON dùng chung với file TTS toàn cục) rồi nạp lại cache đúng truyện.
 * **Đổi nguồn**: file đi theo truyện vì nằm trong `TranslationManager.bookScopedMigrationFiles`.
-* Mục gộp VietPhrase: số liệu `baseCount/customCount/deletedCount` đi từ `DictionaryMergeService.Outcome` → `DictionaryMergeTask.persistSummary` → `UserDefaults` → `summaryCounts` → 3 chip ở `NotificationInboxView+Merge`.
+* Mục gộp VietPhrase: số liệu `baseCount/customCount/deletedCount` đi từ `DictionaryMergeService.Outcome` → `DictionaryMergeService.writeMeta` → **file meta kèm theo** `VietPhraseMerged.meta.json` → `DictionaryMergeTask.meta` → `summaryCounts` → 3 chip ở `NotificationInboxView+Merge`. Sau restart, `refreshFromDisk` chỉ `JSONDecoder` file meta vài trăm byte — **không** đọc lại `VietPhraseMerged.txt`.
 
 
 ## 1.3.445 — dòng dữ liệu gộp từ điển (không chạm từ điển gốc)
 
 * **Đọc**: `TranslationManager.vietPhraseDict.allEntries()` (duyệt ngược `.dat`) + `CustomVietPhrase.txt` (`DictionaryTextFileStore.parseRecords`) → tách thành `overrides` (value khác rỗng) và `tombstones` (value rỗng).
 * **Trộn**: entry gốc bị tombstone ⇒ **bỏ**; bị override ⇒ **thay nghĩa**; còn lại giữ nguyên **thứ tự gốc**. Từ chỉnh sửa chưa có trong gốc nối vào **cuối** — nhờ vậy file kết quả khác file gốc đúng ở những dòng thực sự đổi.
-* **Ghi**: `VietPhraseMerged.txt` qua file `.tmp` rồi `replaceItemAt` (nguyên tử) — lần gộp sau không bao giờ đọc phải file viết dở. **Không** ghi vào `VietPhrase.dat`.
+* **Ghi**: `VietPhraseMerged.txt` qua file `.tmp` rồi `replaceItemAt` (nguyên tử) — lần gộp sau không bao giờ đọc phải file viết dở. **Không** ghi vào `VietPhrase.dat`. Ngay sau đó ghi **`VietPhraseMerged.meta.json`** cùng khuôn nguyên tử (`version` + 4 số + `createdAt`); thứ tự **file `.txt` trước, meta sau** để hỏng meta không bao giờ thành "có meta, thiếu file". Meta bị xoá **cùng lượt** với `.txt` ở cả hai nhánh `applyToVietPhrase` / `discardResult`.
 * **Chốt chặn**: `allEntries().count != wordCount` ⇒ `enumerationMismatch`, dừng trước khi ghi. Đây là phép tự kiểm của thuật toán duyệt cây, vì `.dat` không có API duyệt nào khác để đối chiếu.
 * **Áp** (do người dùng chọn): `importDictionary(from:type:"vietphrase")` → `DoubleArrayTrieBuilder.build(fromTxtFile:toDatFile:)` ghi lại `VietPhrase.dat` → `loadAllDictionaries()` → `persist(records: [])` xoá `CustomVietPhrase.txt` → `reloadCustomDictionary` → `notifyDictionariesDidUpdate()`. `.dat` cũ được sao lưu thành `VietPhrase.dat.bak-merge` **trước** bước này.
 

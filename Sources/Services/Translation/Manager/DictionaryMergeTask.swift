@@ -14,19 +14,10 @@ import Foundation
 final class DictionaryMergeTask: ObservableObject {
     static let shared = DictionaryMergeTask()
 
-    /// Bản tóm tắt lượt gộp gần nhất, để dựng chip `gốc / sửa / xoá` sau khi **khởi động lại app**.
-    ///
-    /// Mục thông báo sống theo **file trên đĩa** nên vẫn hiện sau restart, còn `lastOutcome` chỉ sống
-    /// trong RAM — không lưu ra `UserDefaults` thì chip biến mất sau mỗi lần mở lại app.
-    private struct MergeSummary: Codable {
-        let baseCount: Int
-        let customCount: Int
-        let deletedCount: Int
-        let totalCount: Int
-    }
-
-    private static let summaryKey = "vietPhraseMergeSummary"
-
+    /// Bản tóm tắt lượt gộp gần nhất nay nằm ở **file meta kèm theo** (`VietPhraseMerged.meta.json`) —
+    /// xem `DictionaryMergeService.Meta`. Trước đây nó ở `UserDefaults` nhưng lại **không** được nối vào
+    /// `resultRecordCount`, nên nhánh đọc-parse `VietPhraseMerged.txt` vẫn còn và làm đơ app sau restart.
+    /// File meta là nguồn sự thật duy nhất, đúng tinh thần "nguồn sự thật là file trên đĩa" của type này.
     enum Phase: Equatable {
         case idle
         case running(progress: Double)
@@ -38,31 +29,36 @@ final class DictionaryMergeTask: ObservableObject {
     @Published private(set) var lastOutcome: DictionaryMergeService.Outcome?
     /// Thời điểm bắt đầu lượt gộp gần nhất — dùng để xếp mục thông báo vào đúng ngày khi chưa có file.
     @Published private(set) var startedAt: Date?
+    /// Số liệu đọc từ file meta kèm theo. `nil` = chưa có meta (file `.txt` từ bản cũ, hoặc chưa gộp lần nào).
+    @Published private(set) var meta: DictionaryMergeService.Meta?
 
     private init() {
+        // Dọn khoá `UserDefaults` của bản cũ (số liệu nay nằm ở file meta kèm theo).
+        UserDefaults.standard.removeObject(forKey: "vietPhraseMergeSummary")
         refreshFromDisk()
     }
 
     var mergedFileURL: URL { DictionaryMergeService.mergedFileURL() }
 
-    /// Số liệu để vẽ chip: ưu tiên `lastOutcome` (vừa gộp xong trong phiên này), rồi tới bản lưu trong
-    /// `UserDefaults`, cuối cùng là `nil` — View tự lùi về tổng số từ của file kết quả.
+    /// Số liệu để vẽ chip: ưu tiên `lastOutcome` (vừa gộp xong trong phiên này ⇒ chip hiện **ngay**, không
+    /// phải chờ đọc lại file), rồi tới file meta. Cả hai đều **thuần RAM** sau lượt `refreshFromDisk`.
     var summaryCounts: (base: Int, custom: Int, deleted: Int)? {
         if let lastOutcome {
             return (lastOutcome.baseCount, lastOutcome.customCount, lastOutcome.deletedCount)
         }
-        guard let data = UserDefaults.standard.data(forKey: Self.summaryKey),
-              let summary = try? JSONDecoder().decode(MergeSummary.self, from: data) else {
-            return nil
-        }
-        return (summary.baseCount, summary.customCount, summary.deletedCount)
+        guard let meta else { return nil }
+        return (meta.baseCount, meta.customCount, meta.deletedCount)
     }
 
-    /// Tổng số dòng của file kết quả — dùng khi không có số liệu chi tiết.
+    /// Tổng số dòng của file kết quả — **không** đọc `VietPhraseMerged.txt` (xem doc `Meta`).
     var resultRecordCount: Int {
         if let lastOutcome { return lastOutcome.totalCount }
-        return DictionaryTextFileStore.loadCount(from: mergedFileURL)
+        return meta?.totalCount ?? 0
     }
+
+    /// `true` khi có file kết quả nhưng **không** đọc được meta (file `.txt` sinh từ bản app cũ).
+    /// View dùng cờ này để hiện dòng phụ "Số liệu chưa có — gộp lại để cập nhật".
+    var isMetaMissing: Bool { hasResult && meta == nil }
 
     var hasResult: Bool { FileManager.default.fileExists(atPath: mergedFileURL.path) }
 
@@ -83,13 +79,10 @@ final class DictionaryMergeTask: ObservableObject {
         return false
     }
 
-    /// Thời điểm dùng để nhóm theo ngày ở màn Thông báo.
+    /// Thời điểm dùng để nhóm theo ngày ở màn Thông báo — đọc từ meta (`createdAt`), **không** gọi
+    /// `attributesOfItem` mỗi lần render như trước.
     var displayDate: Date {
-        if let attributes = try? FileManager.default.attributesOfItem(atPath: mergedFileURL.path),
-           let modified = attributes[.modificationDate] as? Date {
-            return modified
-        }
-        return startedAt ?? Date()
+        meta?.createdAt ?? startedAt ?? Date()
     }
 
     /// Tiến độ 0…1 khi đang gộp, `nil` khi không chạy — để View vẽ `ProgressView` mà không phải
@@ -115,16 +108,16 @@ final class DictionaryMergeTask: ObservableObject {
     // MARK: - Đọc lại từ đĩa
 
     /// Đọc lại trạng thái từ **đĩa**. Gọi ở `init` và sau mỗi thao tác đổi file.
+    ///
+    /// Nay chỉ đọc **file meta vài trăm byte** (thay vì parse cả `VietPhraseMerged.txt`) nên chạy thẳng trên
+    /// `MainActor` là an toàn — kể cả trong `init` của singleton, chỗ từng chặn main lúc mở app.
     func refreshFromDisk() {
+        meta = DictionaryMergeService.loadMeta()
         guard hasResult else {
             if case .ready = phase { phase = .idle }
             return
         }
-        if let lastOutcome {
-            phase = .ready(recordCount: lastOutcome.totalCount)
-        } else {
-            phase = .ready(recordCount: DictionaryTextFileStore.loadCount(from: mergedFileURL))
-        }
+        phase = .ready(recordCount: resultRecordCount)
     }
 
     // MARK: - Gộp
@@ -164,28 +157,12 @@ final class DictionaryMergeTask: ObservableObject {
     fileprivate func finish(outcome: DictionaryMergeService.Outcome?, failureMessage: String?) {
         if let outcome {
             lastOutcome = outcome
-            persistSummary(outcome)
+            // Meta đã được `DictionaryMergeService.merge` ghi cùng lượt; đọc lại để state khớp đĩa.
+            meta = DictionaryMergeService.loadMeta()
             phase = .ready(recordCount: outcome.totalCount)
         } else {
             phase = .failed(message: failureMessage ?? "Gộp thất bại.")
         }
-    }
-
-    /// Ghi số liệu lượt gộp ra `UserDefaults` — xem doc ở `MergeSummary`.
-    private func persistSummary(_ outcome: DictionaryMergeService.Outcome) {
-        let summary = MergeSummary(
-            baseCount: outcome.baseCount,
-            customCount: outcome.customCount,
-            deletedCount: outcome.deletedCount,
-            totalCount: outcome.totalCount
-        )
-        guard let data = try? JSONEncoder().encode(summary) else { return }
-        UserDefaults.standard.set(data, forKey: Self.summaryKey)
-    }
-
-    /// Xoá số liệu đã lưu — gọi khi file kết quả không còn (đã nhập hoặc bỏ qua).
-    private func clearSummary() {
-        UserDefaults.standard.removeObject(forKey: Self.summaryKey)
     }
 
     // MARK: - Hậu gộp
@@ -211,8 +188,10 @@ final class DictionaryMergeTask: ObservableObject {
         manager.notifyDictionariesDidUpdate()
 
         try? FileManager.default.removeItem(at: url)
+        // Xoá meta **cùng lượt** với file kết quả — không để meta mồ côi.
+        DictionaryMergeService.deleteMeta()
         lastOutcome = nil
-        clearSummary()
+        meta = nil
         phase = .idle
     }
 
@@ -229,8 +208,9 @@ final class DictionaryMergeTask: ObservableObject {
     /// Bỏ file kết quả (không đụng từ điển gốc lẫn custom).
     func discardResult() {
         try? FileManager.default.removeItem(at: mergedFileURL)
+        DictionaryMergeService.deleteMeta()
         lastOutcome = nil
-        clearSummary()
+        meta = nil
         phase = .idle
     }
 }

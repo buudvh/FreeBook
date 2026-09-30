@@ -84,6 +84,12 @@ extension NotificationInboxView {
                 mergeCountChip("sửa", counts.custom)
                 mergeCountChip("xoá", counts.deleted)
             }
+        } else if mergeTask.isMetaMissing {
+            // File `VietPhraseMerged.txt` sinh từ bản app cũ nên chưa có meta kèm theo. **Không** đọc lại
+            // file để đếm (chính là thứ từng làm đơ app) — nói rõ cho người dùng biết đường gộp lại.
+            Text("Số liệu chưa có — gộp lại để cập nhật.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         } else {
             Text("\(mergeTask.resultRecordCount) từ")
                 .font(.caption)
