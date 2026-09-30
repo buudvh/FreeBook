@@ -16,7 +16,9 @@ struct NotificationInboxView: View {
     @Query(sort: \Book.lastReadDate, order: .reverse) private var allBooks: [Book]
     @ObservedObject private var newChapters = NewChapterInboxManager.shared
     @ObservedObject private var inbox = NotificationInboxManager.shared
-    @ObservedObject private var mergeTask = DictionaryMergeTask.shared
+    /// **Không** `private`: khối "Gộp VietPhrase" nằm ở `NotificationInboxView+Merge.swift` và `private` của
+    /// Swift giới hạn theo file — để `private` thì file đó không đọc được (CI 1.3.445 đã đỏ đúng vì lỗi này).
+    @ObservedObject var mergeTask = DictionaryMergeTask.shared
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
 
     /// Trạng thái cục bộ của khối "Gộp VietPhrase". Phải khai ở **file chính**: Swift không cho `@State`

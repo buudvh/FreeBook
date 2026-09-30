@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 
 /// Trạng thái + hành động hậu-gộp cho mục "Gộp VietPhrase" ở màn **Thông báo**.
