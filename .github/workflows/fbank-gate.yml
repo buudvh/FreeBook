@@ -1,15 +1,21 @@
 name: Fbank Gate
 
-# One-off numeric gate for the VieNeu voice-clone front-end.
+# Numeric gate for the VieNeu voice-clone front-end.
 #
 # `VieNeuFbank.swift` reproduces Kaldi's 80-mel fbank in pure Swift (no Accelerate), so it can
 # be compiled by `swiftc` and diffed against an independent numpy implementation. This is the
 # only place the Swift actually RUNS -- the dev machine is Windows with no Swift toolchain, so
 # the local "gate B" harness can only exercise a Python transliteration of the same algorithm.
 #
-# Manual trigger only: this is a verification harness, not a build gate.
+# Triggers on any change to the fbank or this harness, so it doubles as a regression gate.
+# (`workflow_dispatch` also works once this file is on the default branch.)
 
 on:
+  push:
+    paths:
+      - 'Scripts/FbankGate/**'
+      - 'Sources/Services/TTS/VieNeu/VieNeuFbank.swift'
+      - '.github/workflows/fbank-gate.yml'
   workflow_dispatch:
 
 jobs:
