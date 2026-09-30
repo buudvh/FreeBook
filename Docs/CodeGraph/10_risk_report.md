@@ -16,6 +16,15 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 
 <!-- GENERATED START -->
 
+## 1.3.450 — rủi ro mới / đã xử lý
+
+* **Đệm `OrtValue` phá bất biến "tensor sống trong một hàm" của `VieNeuONNXBridge.m`.** `CreateTensorWithDataAsOrtValue` **không copy**, nên nếu đệm 4 tensor vô điều kiện mà buffer nguồn chết sớm thì `Run` đọc vùng nhớ đã giải phóng. Giảm thiểu (đã kiểm): 4 buffer `nullContext`/`nullMask`/`nullSpeaker`/`nullStyle` là **bất biến suốt vòng đời engine** vì `VieNeuTTSEngine` **không có `unload`** và chúng được gán một lần trong `prepareLocked`; `VieNeuORTDestroy` giải phóng cache cùng runtime. Comment bất biến ở `VieNeuONNXBridge.m:11-12` đã được sửa để nêu ngoại lệ có kiểm soát này.
+* **`.low` (4 bước) bị gỡ** ⇒ xác nhận sàn `steps` là **8**: giảm nữa làm sai số tích phân vòng Euler quá lớn, người dùng nghe báo "âm thanh quá kém". Ghi thành **bài học bắt buộc** ngay trong `enum Mode` để không ai thử 5/6/7. Giá trị `"low"` cũ trong `UserDefaults` rơi về "tự động" (không cần migrate).
+* **Bộ đếm churn và log chẩn đoán là code phụ trợ, không được phép đổi kết quả tổng hợp.** `resetChurnCounters`/`churnSnapshot` chỉ đọc/ghi 3 `int64_t` trong `struct VieNeuORT`; `recordNghiSynthesis` phát `NotificationCenter` (không gọi thẳng singleton UI, giữ luật `Sources/Services/**` không phụ thuộc View). Cần IPA mới xác nhận log thực tế chạy đúng tầng.
+* **Rủi ro CÒN LẠI (mức trung bình) — `TTSManager.swift` ở 3970 dòng** (baseline allowlist 3470, đã vi phạm nền). Lượt này thêm 2 trường vào `NghiEnergyAccumulator` và 2 điểm gán `lastPlaybackSubmitAt` ⇒ file dài thêm 13 dòng, **không** tạo loại vi phạm mới nhưng làm nợ kỹ thuật sâu hơn. Mọi thay đổi tiếp theo phải đưa ra extension.
+* **Rủi ro CÒN LẠI (mức thấp) — `VieNeuTTSEngine.swift` đúng 400/400**: lượt này phải nén comment và gộp tham số để không vượt trần. Không còn headroom.
+* **`[ReaderEnergy] Summary` `lastLocalSynthAgoMs` chỉ có nghĩa khi observer đã đăng ký** (trong `beginReaderSession`). Nếu cửa sổ bắt đầu giữa lúc engine đang tổng hợp, `-1.0` là giá trị "chưa có dữ liệu", không phải lỗi.
+
 ## 1.3.446 — rủi ro mới / đã xử lý
 
 * **Quên `bookId` ở một call site** ⇒ rule riêng không áp ở nhánh đó (nạp trước, chương sau) mà **không** có lỗi nào. Giảm thiểu: `bookId` có default `nil` nên code cũ vẫn biên dịch im lặng ⇒ đã grep lại **toàn bộ** `applyReplacements(to:` và xác nhận **8/8** đã truyền; chỉ `VieNeuTTSTestView` cố ý để `nil`.

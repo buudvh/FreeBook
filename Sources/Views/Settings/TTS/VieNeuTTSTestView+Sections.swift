@@ -171,7 +171,7 @@ extension VieNeuTTSTestView {
         } header: {
             Text("Tốc độ tạo audio")
         } footer: {
-            Text("Mỗi bước là một lượt `vector_estimator`, và CFG chạy thêm **một lượt nữa cho mỗi bước** — nên mỗi đoạn tốn: “Chất lượng cao” 32 lượt (16 bước), “Cân bằng” 16 lượt (8 bước), “Thấp” 8 lượt (4 bước). Giảm số bước là cách duy nhất vừa nhanh hơn vừa **mát máy hơn**; đổi lại chất lượng giọng giảm. Bản tham chiếu của model khuyến nghị cặp 8 bước + sway −1. Việc giảm **độ lớn** CFG không tiết kiệm gì: engine chỉ hỏi `cfg > 0` rồi chạy đủ hai nhánh, không theo tỉ lệ.")
+            Text("Mỗi bước là một lượt `vector_estimator`, và CFG chạy thêm **một lượt nữa cho mỗi bước** — nên mỗi đoạn tốn: “Chất lượng cao” 32 lượt (16 bước), “Cân bằng” 16 lượt (8 bước). Giảm số bước là cách duy nhất vừa nhanh hơn vừa **mát máy hơn**; đổi lại chất lượng giọng giảm. Bản tham chiếu của model khuyến nghị cặp 8 bước + sway −1. Việc giảm **độ lớn** CFG không tiết kiệm gì: engine chỉ hỏi `cfg > 0` rồi chạy đủ hai nhánh, không theo tỉ lệ.")
         }
     }
 
@@ -209,14 +209,10 @@ extension VieNeuTTSTestView {
 
 extension VieNeuSynthesisPolicy.Mode {
     /// Nhãn hiển thị. Ở tầng View để policy không chứa chuỗi UI.
-    ///
-    /// "Thấp" là mode **giảm nhiệt**, độc lập với toggle "Tiết kiệm pin" (toggle đó vẫn ép `.fast`) —
-    /// đừng gộp hai khái niệm này.
     var displayName: String {
         switch self {
         case .high: return "Chất lượng cao"
         case .fast: return "Cân bằng"
-        case .low: return "Thấp"
         }
     }
 }

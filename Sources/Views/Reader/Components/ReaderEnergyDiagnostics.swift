@@ -46,6 +46,12 @@ final class ReaderEnergyDiagnostics {
     /// "chương load lâu nhưng UI vẫn phản hồi" (Skeleton ~0 ms, Present muộn).
     private var navigationTapUptime: TimeInterval = 0
     private var navigationTapIndex = -1
+    /// Mốc `uptime` lần cuối engine local tổng hợp xong. Ghi từ `nghiLocalSynthesisDidComplete` (phát ở
+    /// tầng Service — xem `TTSManager+NghiEnergy`). Dùng để in `lastLocalSynthAgoMs=` cùng dòng
+    /// `[ReaderEnergy]`: nếu gần `0 ms` liên tục nghĩa là CPU không có khe nghỉ, còn lớn dần nghĩa là
+    /// tổng hợp đã im — hai tình huống cần hai hướng tối ưu khác nhau.
+    private var lastLocalSynthesisUptime: TimeInterval = 0
+    private var localSynthesisObserver: NSObjectProtocol?
 
     private init() {}
 
@@ -56,11 +62,28 @@ final class ReaderEnergyDiagnostics {
         lastNavigationIndex = -1
         navigationTapUptime = 0
         navigationTapIndex = -1
+        lastLocalSynthesisUptime = 0
+        observeLocalSynthesisIfNeeded()
         guard isEnabled else {
             window = nil
             return
         }
         window = Window(startedAt: ProcessInfo.processInfo.systemUptime)
+    }
+
+    /// Đăng ký nghe mốc tổng hợp local **một lần** cho cả vòng đời app. Notification phát từ luồng nền
+    /// nên hop về main trước khi ghi (lớp này `@MainActor`).
+    private func observeLocalSynthesisIfNeeded() {
+        guard localSynthesisObserver == nil else { return }
+        localSynthesisObserver = NotificationCenter.default.addObserver(
+            forName: .nghiLocalSynthesisDidComplete,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.lastLocalSynthesisUptime = ProcessInfo.processInfo.systemUptime
+            }
+        }
     }
 
     func recordParagraphRealized() {
@@ -239,8 +262,11 @@ final class ReaderEnergyDiagnostics {
             frameUpdateRPM: frameUpdateRPM
         )
 
+        let lastLocalSynthAgoMs = lastLocalSynthesisUptime > 0
+            ? (now - lastLocalSynthesisUptime) * 1_000
+            : -1.0
         let message = String(
-            format: "[ReaderEnergy] Summary reason=%@ state=%@ elapsedSec=%.1f updateUIView=%d updateRPM=%.1f repeatUpdateRPM=%.1f uniqueViews=%d highlight=%d highlightRPM=%.1f geometry=%d repeatGeometry=%d theme=%d explicitSizeInvalidation=%d contentSizeInvalidation=%d sizeInvalidationRPM=%.1f ttsScrollTarget=%d scrollRPM=%.1f scrollSkippedVisible=%d scrollExecuted=%d executedScrollRPM=%.1f frameUpdate=%d frameUpdateRPM=%.1f frameUpdateSkipped=%d paragraphRealized=%d thermal=%@ prediction=%@",
+            format: "[ReaderEnergy] Summary reason=%@ state=%@ elapsedSec=%.1f updateUIView=%d updateRPM=%.1f repeatUpdateRPM=%.1f uniqueViews=%d highlight=%d highlightRPM=%.1f geometry=%d repeatGeometry=%d theme=%d explicitSizeInvalidation=%d contentSizeInvalidation=%d sizeInvalidationRPM=%.1f ttsScrollTarget=%d scrollRPM=%.1f scrollSkippedVisible=%d scrollExecuted=%d executedScrollRPM=%.1f frameUpdate=%d frameUpdateRPM=%.1f frameUpdateSkipped=%d paragraphRealized=%d lastLocalSynthAgoMs=%.1f thermal=%@ prediction=%@",
             reason,
             Self.applicationStateName(),
             elapsedSeconds,
@@ -265,6 +291,7 @@ final class ReaderEnergyDiagnostics {
             frameUpdateRPM,
             snapshot.frameUpdatesSkipped,
             snapshot.paragraphsRealized,
+            lastLocalSynthAgoMs,
             Self.thermalStateName(thermal),
             prediction
         )

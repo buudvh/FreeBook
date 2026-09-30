@@ -2,6 +2,25 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.450] - 2026-09-30
+
+### feat: bo mode Thap, giam churn ONNX va them log chan doan tang nhiet
+
+Sửa **12** file (9 Swift + 2 C/header bridge + 1 doc-mirror):
+
+- **Bỏ hẳn mode "Thấp" (`.low`, 4 bước)**: người dùng nghe và chốt *"low tạo âm thanh quá kém, không rõ tiếng"*. `VieNeuSynthesisPolicy.Mode` quay lại **hai** chế độ `high`/`fast`; `tuning(for:)` bỏ `Tuning(steps: 4, …)`; `nextMode` bỏ nhánh `case .low: return nil`. Sàn `steps` là **8** — ghi thành **bài học bắt buộc** trong `enum Mode` để không ai thử 5/6/7 (giữ CFG không bù được sai số tích phân vòng Euler). Giá trị `"low"`/`"turbo"` cũ trong `UserDefaults` tự rơi về "tự động" vì `Mode(rawValue:)` trả `nil` — **không cần migrate**.
+- **UI theo sau**: `displayName` bỏ `case .low` (còn Tự động / Chất lượng cao / Cân bằng); footer `VieNeuTTSTestView+Sections` còn hai mức; `TTSSettingsView+VieNeu` bỏ câu mô tả chế độ "Thấp". Cả hai Picker dùng `ForEach(Mode.allCases)` nên **không sửa vòng lặp**.
+- **A2a — gỡ một tầng copy**: `VieNeuORTRunVectorEstimatorInto` (C) ghi thẳng vào buffer Swift cấp (`float *outBuffer, int32_t outCapacity`, trả `-1` nếu buffer nhỏ thay vì tràn) — Swift dùng một mảng `Float` zeroed bằng `repeating: 0, count: capacity` + `withUnsafeMutableBufferPointer`, bỏ `malloc`+`memcpy` phía C **và** `Array(UnsafeBufferPointer)` phía Swift. Hàm cũ `VieNeuORTRunVectorEstimator` giữ làm wrapper mỏng cho tương thích.
+- **A2b — đệm `OrtValue` nhánh vô điều kiện**: `VieNeuORTRunVectorEstimatorUnconditionedInto` cache 4 tensor bất biến (`nullContext`/`nullMask`/`nullSpeaker`/`nullStyle`) **dựng từ buffer null thật** (không phải buffer `x`) và tái dùng suốt vòng lặp Euler, thay vì `makeTensor` lại mỗi bước. An toàn vì `VieNeuTTSEngine` **không có `unload`** ⇒ 4 buffer nguồn bất biến suốt vòng đời engine. Thêm `VieNeuORTResetVectorCache`; `VieNeuORTDestroy` giải phóng cache trước khi huỷ runtime. Comment bất biến ở `VieNeuONNXBridge.m:11-12` sửa để nêu ngoại lệ có kiểm soát.
+- **L2 — đo churn**: `struct VieNeuORT` thêm `tensorCreates`/`tensorReleases`/`copiedBytes` + `makeTensorCounted`; mặt C `VieNeuORTChurnSnapshot`/`VieNeuORTResetChurnCounters`; `VieNeuONNXRuntime` thêm `churnSnapshot` (tuple 3 phần tử)/`resetChurnCounters`/`resetVectorCache`; `VieNeuTTSEngine.Timing` thêm 3 trường; `[VieNeuPerf]` in `churn=creates/releases/copiedBytes`.
+- **L1 — đo busy/preload**: `NghiEnergyAccumulator` thêm `maxPreloadGapMs`/`lastPlaybackSubmitAt`; `[NghiEnergy] Summary` in thêm `busyPct=`/`preloadGapMs=`.
+- **L3 — cầu Service → View**: `TTSManager.recordNghiSynthesis` phát `Notification.Name.nghiLocalSynthesisDidComplete` (không gọi thẳng singleton UI) ⇒ `ReaderEnergyDiagnostics` đọc `lastLocalSynthAgoMs` in trong `[ReaderEnergy] Summary`. **Đây là nguyên nhân gốc của việc thiếu `[TTSEnergy] Summary` cho đường local**: `RemoteTTSSynthesisCoordinator` chỉ phục vụ engine **remote**, engine local (vieneu/nghitts) đi qua `PiperSynthesisCoordinator` ⇒ không Summary nào chạy.
+- **Cố ý không làm (GĐ2 huỷ)**: **không** cắt `maxConcurrentNghiRefills` 3→1–2, **không** cắt `optionalCap` 4→2, **không** đổi cửa sổ 12s — chờ log IPA mới để quyết, tránh mở lại lỗi đứt đoạn ngắn đã sửa ở 1.3.438.
+- **Giới hạn dòng**: `VieNeuTTSEngine.swift` giữ **đúng 400/400** (nén comment + gộp tham số); `TTSManager.swift` **3957 → 3970** (baseline 3470 — vi phạm nền, không loại mới).
+- Cổng: `check_architecture.py` **5 violation nền / 0 mới**; `validate_links.py` **PASS 100% (16 doc, 614 file Swift)**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
+
+---
+
 ## [1.3.449] - 2026-09-30
 
 ### feat: VieNeu thêm chế độ "Thấp" (4 bước) giảm nhiệt
@@ -551,17 +570,3 @@ Engine đã chạy (**RTF 0.50** ở chế độ `high`, độ dài audio hợp 
 - **File sửa**: `SeaG2P.swift` 253 → **273**, `VieNeuTTSEngine.swift` 297 → **302**, `VieNeuTTSService.swift` 225 → **231**, `VieNeuTTSTestView.swift` 392 → **397** (sát trần 400 — mọi thay đổi UI tiếp theo ở màn này **phải** tách file trước).
 - **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
 - **Tài liệu CodeGraph**: `rules.md` thêm mục **`sea_g2p.bin` Format Invariants** (4 luật); `11_subsystems.md` thêm mục về hai lỗi này.
-
-## [1.3.420] - 2026-09-29
-
-### fix: doc shape ctx tu model va them nut sao chep ket qua
-
-Người dùng báo `Got invalid dimensions for input: ctx ... Got: 512 Expected: 256`. Đây là **lỗi thứ tư cùng một loại** trong engine này: đoán thay vì hỏi model.
-
-- **Nguyên nhân**: bản trước tự dựng shape `ctx` là `[1, L, dim]` với `dim = 512` đọc từ `config.json`. Chiều thật của `ctx` là **`style_dim` = 256**; `dim` phục vụ một chỗ khác của kiến trúc. Ba lần trước cùng loại: tên output ONNX (1.3.419), kích thước entry `.npz` (1.3.419), và giờ là shape.
-- **Cách sửa**: `VieNeuORTRunTextEncoder` trả thêm `outShape`/`outRank` (điền từ `GetDimensions` trong `copyFloats`), và `VieNeuORTRunDurationPredictor`/`VieNeuORTRunVectorEstimator` **bắt buộc** nhận lại đúng shape đó — số token suy từ `contextShape[1]`, `mask` phải cùng số token. `VieNeuConfig.dim` **bị xoá** thay vì để lại trường không dùng kèm doc nói sai.
-- **Dời màn thử giọng ra tab Cài đặt**: mục "Thử giọng VieNeu-TTS" nay ở `Settings/Main/TTSSettingsSection.swift`, ngang hàng "Cài đặt TTS"/"Quản lý Model", không còn nằm trong `NghiTTSSettingsView` — đây là engine thứ hai, không phải tuỳ chọn của NghiTTS/Piper.
-- **Thêm nút "Sao chép kết quả"** trong màn thử giọng: gom thông báo lỗi + số đo RTF + trạng thái model + engine status thành một khối văn bản để dán vào chat thay vì chụp màn hình.
-- **File sửa**: `VieNeuONNXBridge.h/.m` (chữ ký shape), `VieNeuONNXRuntime.swift` 175 → **196**, `VieNeuTTSEngine.swift` 299 → **297**, `VieNeuConfig.swift` 163 → **162**, `VieNeuTTSTestView.swift` 346 → **392**, `NghiTTSSettingsView.swift` **158** (bỏ mục "Engine khác"), `TTSSettingsSection.swift` 25 → **30**.
-- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
-- **Tài liệu CodeGraph**: `rules.md` bổ sung luật "đừng suy shape từ `config.json`"; `11_subsystems.md` thêm mục về lỗi này.

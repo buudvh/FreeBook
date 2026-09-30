@@ -67,6 +67,49 @@ float *VieNeuORTRunVectorEstimator(VieNeuORT *context,
                                    const float *style, int32_t styleRows, int32_t styleColumns,
                                    int32_t *outCount, char **errorMessage);
 
+/// Như `VieNeuORTRunVectorEstimator` nhưng ghi kết quả vào **buffer do bên gọi cấp** ⇒ bỏ `malloc` và
+/// một tầng `memcpy`. Đây là hình dạng mà đường Reader dùng (16 lượt/chunk — chỗ phát sinh churn).
+///
+/// `outCapacity` là số **phần tử `float`** buffer chứa được (thường `latentChannels × frames`); trả `-1`
+/// nếu buffer không đủ. Trả `0` khi thành công, `-1` khi lỗi.
+int32_t VieNeuORTRunVectorEstimatorInto(VieNeuORT *context,
+                                        const float *latent, int32_t latentChannels, int32_t frames,
+                                        float time,
+                                        const float *context_, const int64_t *contextShape, int32_t contextRank,
+                                        const uint8_t *mask,
+                                        const float *speaker, int32_t speakerCount,
+                                        const float *style, int32_t styleRows, int32_t styleColumns,
+                                        float *outBuffer, int32_t outCapacity,
+                                        int32_t *outCount, char **errorMessage);
+
+/// Nhánh **vô điều kiện** của CFG: bốn tensor `ctx`/`ctx_mask`/`spk`/`style` là loop-invariant nên
+/// **cache** trong `VieNeuORT` — dựng một lần cho nhiều bước Euler thay vì mỗi bước.
+///
+/// **Vòng đời buffer là trách nhiệm của bên gọi**: `CreateTensorWithDataAsOrtValue` không copy nên
+/// `nullContext_`/`nullMask`/`nullSpeaker`/`nullStyle` phải sống tới khi gọi `VieNeuORTResetVectorCache`
+/// (engine gọi ngay khi `prepareLocked` thay các mảng đó). `VieNeuORTDestroy` cũng giải phóng cache.
+int32_t VieNeuORTRunVectorEstimatorUnconditionedInto(VieNeuORT *context,
+                                                     const float *latent, int32_t latentChannels, int32_t frames,
+                                                     float time,
+                                                     const float *nullContext_, int64_t ctxElementCount,
+                                                     const int64_t *ctxShape, int32_t ctxRank,
+                                                     const uint8_t *nullMask, int32_t maskLength,
+                                                     const float *nullSpeaker, int32_t speakerCount,
+                                                     const float *nullStyle, int32_t styleRows, int32_t styleColumns,
+                                                     float *outBuffer, int32_t outCapacity,
+                                                     int32_t *outCount, char **errorMessage);
+
+/// Huỷ tensor cache của nhánh vô điều kiện. **Bắt buộc** gọi khi buffer nguồn (mảng null của engine)
+/// sắp bị thay hoặc giải phóng, nếu không tensor cache sẽ trỏ vào bộ nhớ đã chết.
+void VieNeuORTResetVectorCache(VieNeuORT *context);
+
+/// Đọc bộ đếm churn tích luỹ (số `OrtValue` tạo/giải phóng, số byte output đã copy). Chỉ để chẩn đoán.
+/// Bất kỳ tham số nào `NULL` thì bỏ qua.
+void VieNeuORTChurnSnapshot(VieNeuORT *context, int64_t *outCreates, int64_t *outReleases, int64_t *outCopiedBytes);
+
+/// Đưa bộ đếm churn về 0 — gọi đầu mỗi lượt tổng hợp để con số ứng với đúng lượt đó.
+void VieNeuORTResetChurnCounters(VieNeuORT *context);
+
 /// `codec_decoder(x)` → PCM float32. Số mẫu **không** suy được từ công thức nên đọc từ shape thật.
 float *VieNeuORTRunCodecDecoder(VieNeuORT *context,
                                 const float *latent, int32_t latentChannels, int32_t frames,

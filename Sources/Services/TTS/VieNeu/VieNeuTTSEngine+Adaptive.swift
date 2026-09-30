@@ -44,14 +44,15 @@ extension VieNeuTTSEngine {
         AppLogger.shared.log("⚠️ [VieNeu] Bỏ qua \(dropped) phoneme không có trong vocab (tổng \(total) id)")
     }
 
-    /// Log **mỗi lượt tổng hợp**: chế độ, số chunk, số phoneme bị bỏ, độ dài, RTF, loại ranh giới.
+    /// Log **mỗi lượt tổng hợp**: chế độ, số chunk, số phoneme bị bỏ, độ dài, RTF, loại ranh giới,
+    /// và công việc phụ trợ ở tầng ONNX (`churn=`).
     ///
     /// Đây là số liệu **duy nhất** cho biết đường Reader đang chạy ở chế độ nào và cắt bao nhiêu chunk. Màn
     /// thử giọng hiện các con số này trên UI, còn đường Reader trước 1.3.436 **không** có cách nào thấy —
     /// nên câu hỏi "vì sao chất lượng kém hơn hẳn màn thử giọng" không thể trả lời bằng số.
     ///
-    /// Đặt ở file này (không phải file engine) vì `VieNeuTTSEngine.swift` đã ở **399/400** dòng sau khi
-    /// thêm khoảng lặng đuôi.
+    /// `churn=create/release/bytes` là **số đo duy nhất** chứng minh một lượt giảm churn bộ nhớ có tác
+    /// dụng: `rtf` gần như không đổi vì `Run` chiếm 98% thời gian. Xem doc của `Timing`.
     func logSynthesisPerf(
         mode: VieNeuSynthesisPolicy.Mode,
         chunkCount: Int,
@@ -60,7 +61,8 @@ extension VieNeuTTSEngine {
         pcmDuration: Double,
         speechDuration: Double,
         synthesisMs: Double,
-        boundaryKind: TTSBoundaryKind
+        boundaryKind: TTSBoundaryKind,
+        timing: Timing
     ) {
         AppLogger.shared.log(
             "[VieNeuPerf] mode=\(mode.rawValue) chunks=\(chunkCount) dropped=\(droppedScalars)"
@@ -68,6 +70,8 @@ extension VieNeuTTSEngine {
                 + " speech=\(String(format: "%.2f", speechDuration))s"
                 + " synth=\(String(format: "%.0f", synthesisMs))ms"
                 + " rtf=\(String(format: "%.2f", synthesisMs / 1_000 / max(0.01, pcmDuration)))"
+                + " vectorMs=\(String(format: "%.0f", timing.vectorMs)) otherMs=\(String(format: "%.0f", timing.otherMs))"
+                + " churn=\(timing.tensorCreates)/\(timing.tensorReleases)/\(timing.copiedBytes)"
                 + " boundary=\(boundaryKind.rawValue)"
         )
     }
@@ -80,6 +84,15 @@ extension VieNeuTTSEngine {
     struct Timing {
         var vectorMs: Double = 0
         var otherMs: Double = 0
+        /// Số `OrtValue` tạo / giải phóng và số byte output đã copy ở tầng bridge C, **cộng dồn cả đoạn**.
+        ///
+        /// Đây là số đo **công việc phụ trợ** mà `Run` không phản ánh: mỗi bước Euler tạo 6 `OrtValue`
+        /// và copy output hai lần, nhưng `Run` chiếm ~98% thời gian nên tối ưu cấp phát/copy **không** làm
+        /// RTF đổi. Muốn biết một lượt giảm churn có tác dụng thật hay không thì phải đọc ba con số này,
+        /// không thể suy từ RTF.
+        var tensorCreates: Int64 = 0
+        var tensorReleases: Int64 = 0
+        var copiedBytes: Int64 = 0
     }
 
     /// Log phoneme **từng chunk** của một lượt tổng hợp — để điều tra nói lắp ở tầng model.

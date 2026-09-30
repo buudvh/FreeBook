@@ -154,7 +154,10 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         // Dựng **hết** vào biến cục bộ rồi mới gán. Gán từng cái như bản đầu là mở đường cho trạng thái
         // nửa vời: `runtime` đã có mà `config` chưa ⇒ `isPrepared` nói dối, mọi lượt sau nhảy qua bước
         // nạp, và lỗi thật bị che bởi một guard ở tầng dưới ("Graph runtime…"). Đúng chuyện đã xảy ra
-        // khi `NPZReader` còn đọc sai kích thước entry.
+        // khi `NPZReader` còn đọc sai kích thước entry. `nullContext`/`nullMask`/`nullSpeaker`/`nullStyle`
+        // là **bất biến suốt vòng đời engine** (chỉ gán đúng một lần ở đây; engine không có `unload`) ⇒
+        // tensor cache của A2b an toàn: buffer nguồn sống lâu hơn tensor, và `VieNeuORTDestroy` giải
+        // phóng cache cùng lúc với runtime.
         let newRuntime = try VieNeuONNXRuntime(modelStore: store, threadCount: VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard))
         let newConfig = try VieNeuConfig.load(modelStore: store)
         let newCatalog = try VieNeuVoiceCatalog.load(modelStore: store)
@@ -166,8 +169,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         catalog = newCatalog
         phonemizer = newPhonemizer
         nullContext = nullBranch.context
-        nullContextShape = nullBranch.shape
-        nullMask = nullBranch.mask
+        nullContextShape = nullBranch.shape        nullMask = nullBranch.mask
 
         AppLogger.shared.log("🎙️ [VieNeu] Nạp xong engine: \(newCatalog.presets.count) giọng, threads=\(VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard))")
     }
@@ -225,6 +227,8 @@ final class VieNeuTTSEngine: @unchecked Sendable {
             limit: VieNeuConfig.maxChunkCharacters
         )
         let started = ProcessInfo.processInfo.systemUptime
+        // Bộ đếm churn tính từ đầu lượt này (không tích luỹ qua các lượt) để con số ứng đúng đoạn đang đọc.
+        runtime.resetChurnCounters()
 
         var waveforms: [[Float]] = []
         var gaps: [Chunk.Gap] = []
@@ -278,7 +282,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
             mode: activeMode, chunkCount: chunks.count, droppedScalars: droppedScalars,
             characterCount: text.count, pcmDuration: pcmDuration,
             speechDuration: max(0, pcmDuration - insertedPauseSeconds), synthesisMs: synthesisMs,
-            boundaryKind: boundaryKind
+            boundaryKind: boundaryKind, timing: timing
         )
         // Chỉ thích nghi khi người dùng để "tự động"; xem doc của `requestedMode`.
         if requestedMode == nil {
@@ -357,18 +361,12 @@ final class VieNeuTTSEngine: @unchecked Sendable {
             )
             var velocity = conditioned
             if tuning.cfg > 0 {
-                let unconditioned = try runtime.vectorEstimator(
-                    latent: latent,
-                    time: Float(grid[step]),
-                    context: nullContext,
-                    contextShape: nullContextShape,
-                    mask: nullMask,
-                    speaker: config.constants.nullSpeaker,
-                    style: config.constants.nullStyle,
-                    styleRows: config.nStyle,
-                    styleColumns: config.styleDim,
-                    latentChannels: config.latentChannels,
-                    frames: frames
+                let unconditioned = try runtime.vectorEstimatorUnconditioned(
+                    latent: latent, time: Float(grid[step]), nullContext: nullContext,
+                    nullContextShape: nullContextShape, nullMask: nullMask,
+                    nullSpeaker: config.constants.nullSpeaker, nullStyle: config.constants.nullStyle,
+                    styleRows: config.nStyle, styleColumns: config.styleDim,
+                    latentChannels: config.latentChannels, frames: frames
                 )
                 // v = vu + cfg × (v − vu)
                 for index in velocity.indices {
@@ -388,12 +386,14 @@ final class VieNeuTTSEngine: @unchecked Sendable {
             latentChannels: config.latentChannels,
             frames: frames
         )
-        // `otherMs` = phần còn lại của chunk. Đo bằng `chunkMs - vectorMs` chứ **không** đo riêng phần
-        // text_encoder/codec rồi cộng: đo cả chunk mà không trừ là đếm phần vector hai lần.
+        // `otherMs` = phần còn lại của chunk, đo bằng `chunkMs - vectorMs` chứ **không** đo riêng
+        // text_encoder/codec rồi cộng (đo cả chunk mà không trừ là đếm phần vector hai lần).
         let vectorMs = (ProcessInfo.processInfo.systemUptime - vectorStarted) * 1_000
         let chunkMs = (ProcessInfo.processInfo.systemUptime - chunkStarted) * 1_000
         timing.vectorMs += vectorMs
         timing.otherMs += max(0, chunkMs - vectorMs)
+        // Phụ trợ ở bridge C, cộng dồn cả đoạn (RTF không phản ánh phần này — xem doc `Timing`).
+        (timing.tensorCreates, timing.tensorReleases, timing.copiedBytes) = runtime.churnSnapshot
 
         return Self.trimAndFade(waveform, sampleRate: config.sampleRate)
     }

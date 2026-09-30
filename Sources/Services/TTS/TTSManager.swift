@@ -697,6 +697,13 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         var totalSynthesisMs = 0.0
         var totalPCMSeconds = 0.0
         var maxRTF = 0.0
+        /// Chặng chờ **giữa hai đoạn liền kề** (đoạn cũ phát xong → đoạn mới sẵn sàng), đơn vị ms.
+        /// Khác `avgQueueWaitMs` (chờ *trong* coordinator): đây là chờ ở tầng phát, đúng thứ người dùng
+        /// nghe ra. Chỉ cập nhật ở `recordNghiUnderrun` nên không thêm phép đo trên hot path.
+        var maxPreloadGapMs = 0.0
+        /// Mốc `uptime` lần cuối một đoạn được đưa lên hàng đợi phát. Dùng để tính `maxPreloadGapMs`:
+        /// hụt xảy ra ⇒ khoảng từ mốc này tới lúc hụt chính là chặng chờ người dùng nghe ra.
+        var lastPlaybackSubmitAt: TimeInterval?
     }
 
     internal var nghiEnergy = NghiEnergyAccumulator()
@@ -2531,6 +2538,10 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         if reusedInFlight {
             nghiEnergy.reusedInFlightCount += 1
         }
+        // Chặng chờ thật: từ lúc đoạn trước được đưa lên hàng đợi phát tới lúc hụt đoạn này.
+        if let submittedAt = nghiEnergy.lastPlaybackSubmitAt {
+            nghiEnergy.maxPreloadGapMs = max(nghiEnergy.maxPreloadGapMs, (now - submittedAt) * 1_000)
+        }
         AppLogger.shared.log(
             "[NghiEnergy] Underrun chapter=\(playingChapterIndex) index=\(index) reusedInFlight=\(reusedInFlight) thermal=\(Self.nghiThermalStateName(currentThermalState))"
         )
@@ -3521,6 +3532,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: tool, index: index, outcome: "hit")
             let currentDuration = preloadedDurations[index] ?? WAVEncoder.duration(of: cachedData)
             preloadedDurations[index] = currentDuration
+            nghiEnergy.lastPlaybackSubmitAt = ProcessInfo.processInfo.systemUptime
             self.playAudioData(cachedData, withId: playbackId)
             updatePrefetchWindow()
             return
@@ -3602,6 +3614,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 }
 
                 guard isIdentityValid(), self.isPlaying else { return }
+                self.nghiEnergy.lastPlaybackSubmitAt = ProcessInfo.processInfo.systemUptime
                 self.playAudioData(currentData, withId: playbackId)
                 self.updatePrefetchWindow()
             } catch is CancellationError {

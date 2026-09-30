@@ -120,7 +120,7 @@ extension TTSSettingsView {
         .pickerStyle(.menu)
         .disabled(vieNeuPowerSaving)
         // 4. Giải thích — LUÔN hiển thị (nối thuyết minh khi bật Tiết kiệm pin).
-        Text("Số luồng càng nhiều càng khó gây ra trường hợp phải chờ đợi giữa hai đoạn nghe nhưng dễ nóng máy và hết pin nhanh. Số luồng áp dụng sau khi nạp lại engine (mở lại app hoặc đổi engine). Chế độ “Thấp” (4 bước) giảm một nửa tính toán mỗi đoạn so với “Cân bằng” nên máy mát hơn, đổi lại giọng kém rõ hơn." + (vieNeuPowerSaving ? " Đang bật Tiết kiệm pin: cố định chế độ Cân bằng + 2 luồng để máy mát và ít tốn pin; chất lượng giọng thấp hơn." : ""))
+        Text("Số luồng càng nhiều càng khó gây ra trường hợp phải chờ đợi giữa hai đoạn nghe nhưng dễ nóng máy và hết pin nhanh. Số luồng áp dụng sau khi nạp lại engine (mở lại app hoặc đổi engine)." + (vieNeuPowerSaving ? " Đang bật Tiết kiệm pin: cố định chế độ Cân bằng + 2 luồng để máy mát và ít tốn pin; chất lượng giọng thấp hơn." : ""))
             .font(.caption)
             .foregroundColor(.secondary)
     }

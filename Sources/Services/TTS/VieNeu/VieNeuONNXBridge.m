@@ -9,7 +9,11 @@
 //  - Các hàm `Release*` sinh bằng `ORT_CLASS_RELEASE` trả **`void`**, không phải `OrtStatus*` ⇒ không
 //    được đưa vào `check(...)`.
 //  - `CreateTensorWithDataAsOrtValue` **không copy** dữ liệu ⇒ buffer của bên gọi phải sống tới hết
-//    lượt `Run`. Ở đây mọi tensor được tạo, dùng và giải phóng trong cùng một hàm nên bảo đảm được.
+//    lượt `Run`. Với tensor **input**, hàm nào tạo tensor trong chính nó thì bảo đảm được (tạo → `Run`
+//    → giải phóng trong cùng một hàm). **Ngoại lệ có kiểm soát duy nhất**: tensor cache của nhánh vô
+//    điều kiện trong `VieNeuORTRunVectorEstimatorUnconditioned` — sống lâu hơn một hàm, nên ai tạo
+//    cache (`VieNeuORTResetVectorCache`) phải bảo đảm buffer nguồn còn sống và ai huỷ ngữ cảnh
+//    (`VieNeuORTDestroy`) phải giải phóng tensor cache. Xem doc của hai hàm đó.
 //  - Dữ liệu output do ORT cấp phát nên căn chỉnh chuẩn ⇒ `memcpy` thẳng vào mảng float là an toàn.
 //
 
@@ -42,6 +46,30 @@ struct VieNeuORT {
     /// tên, mà `OrtApi::Run` của C API lại **bắt buộc** truyền tên. Đoán tên là mở đường cho một lỗi
     /// runtime chỉ nổ trên máy người dùng — nên hỏi thẳng session.
     char *outputNames[VieNeuGraphCount];
+
+    // MARK: - Bộ đếm churn (chỉ để chẩn đoán, không ảnh hưởng kết quả số học)
+    //
+    // Đo "công việc phụ trợ" mà vòng Euler `vector_estimator` sinh ra mỗi chunk: số `OrtValue` tạo/giải
+    // phóng và số byte output bị copy. Cố ý **không** suy từ RTF: `Run` chiếm ~98% thời gian nên một
+    // lượt tối ưu cấp phát/copy có thể **không** làm RTF đổi chút nào, mà vẫn là đòn bẩy nhiệt thật.
+    // Chỉ đọc khi bật log (`VieNeuORTChurnSnapshot`).
+    int64_t tensorCreates;
+    int64_t tensorReleases;
+    int64_t copiedBytes;
+
+    /// Tensor cache cho nhánh **vô điều kiện** của CFG (`ctx`/`ctx_mask`/`spk`/`style`).
+    ///
+    /// Bốn tensor này **loop-invariant**: cùng giá trị cho mọi bước Euler của mọi chunk (chúng đến từ
+    /// `null_spk`/`null_style`/nhánh null, không phụ thuộc giọng hay văn bản). Tạo lại 4 tensor × 8 bước
+    /// mỗi chunk là bookkeeping ORT thuần tuý. Cache lại ⇒ bỏ ~32/96 `makeTensor` mỗi chunk.
+    ///
+    /// **Vòng đời là trách nhiệm của bên gọi**: `CreateTensorWithDataAsOrtValue` không copy, nên buffer
+    /// nguồn phải sống ≥ vòng đời tensor. `VieNeuORTResetVectorCache` huỷ cache khi buffer đổi;
+    /// `VieNeuORTDestroy` giải phóng nốt.
+    OrtValue *cachedNullContext;
+    OrtValue *cachedNullMask;
+    OrtValue *cachedNullSpeaker;
+    OrtValue *cachedNullStyle;
 };
 
 #pragma mark - Tiện ích
@@ -106,6 +134,21 @@ static OrtValue *makeTensor(const OrtApi *api,
               api, errorMessage) != 0) {
         return NULL;
     }
+    return value;
+}
+
+/// `makeTensor` có đếm churn — dùng cho đường `vector_estimator` (16 lượt/chunk). Đường khác gọi thẳng
+/// `makeTensor` vì chạy 1 lần/chunk nên không phải chỗ churn (và đếm chúng chỉ làm nhiễu con số).
+static OrtValue *makeTensorCounted(const OrtApi *api,
+                                   VieNeuORT *context,
+                                   const void *data,
+                                   size_t byteCount,
+                                   const int64_t *shape,
+                                   size_t rank,
+                                   ONNXTensorElementDataType type,
+                                   char **errorMessage) {
+    OrtValue *value = makeTensor(api, context->memoryInfo, data, byteCount, shape, rank, type, errorMessage);
+    if (value != NULL) context->tensorCreates += 1;
     return value;
 }
 
@@ -174,6 +217,54 @@ static float *copyFloats(const OrtApi *api,
     memcpy(result, raw, count * sizeof(float));
     if (outCount != NULL) *outCount = (int32_t)count;
     return result;
+}
+
+/// Như `copyFloats` nhưng **ghi thẳng vào buffer do bên gọi cấp** ⇒ bỏ được `malloc` + một tầng `memcpy`.
+///
+/// Dùng cho `vector_estimator` (16 lượt/chunk — chỗ churn thật). Bên gọi **phải** biết trước số phần tử
+/// (ở đây là `latentChannels × frames`, khớp shape output vì velocity cùng shape với `x`); nếu buffer
+/// nhỏ hơn số thật thì trả lỗi chứ **không** ghi tràn.
+///
+/// Trả `0` khi thành công, `-1` khi lỗi. `copiedBytes` cộng dồn để đo churn.
+static int32_t copyFloatsInto(const OrtApi *api,
+                              OrtValue *value,
+                              float *outBuffer,
+                              int32_t capacity,
+                              int64_t *outCount,
+                              VieNeuORT *context,
+                              char **errorMessage) {
+    OrtTensorTypeAndShapeInfo *info = NULL;
+    if (check(api->GetTensorTypeAndShape(value, &info), api, errorMessage) != 0) return -1;
+
+    size_t rank = 0;
+    if (check(api->GetDimensionsCount(info, &rank), api, errorMessage) != 0) {
+        api->ReleaseTensorTypeAndShapeInfo(info);
+        return -1;
+    }
+    if (rank > 8) rank = 8;
+    int64_t dimensions[8] = {0};
+    if (rank > 0 && check(api->GetDimensions(info, dimensions, rank), api, errorMessage) != 0) {
+        api->ReleaseTensorTypeAndShapeInfo(info);
+        return -1;
+    }
+    api->ReleaseTensorTypeAndShapeInfo(info);
+
+    size_t count = 1;
+    for (size_t index = 0; index < rank; index++) {
+        count *= (size_t)(dimensions[index] > 0 ? dimensions[index] : 1);
+    }
+    if ((int64_t)count > (int64_t)capacity) {
+        setError(errorMessage, "buffer ra quá nhỏ cho output của graph");
+        return -1;
+    }
+
+    void *raw = NULL;
+    if (check(api->GetTensorMutableData(value, &raw), api, errorMessage) != 0) return -1;
+
+    memcpy(outBuffer, raw, count * sizeof(float));
+    if (context != NULL) context->copiedBytes += (int64_t)(count * sizeof(float));
+    if (outCount != NULL) *outCount = (int32_t)count;
+    return 0;
 }
 
 #pragma mark - Vòng đời
@@ -248,6 +339,9 @@ void VieNeuORTDestroy(VieNeuORT *context) {
     if (context == NULL) return;
     const OrtApi *api = context->api;
     if (api != NULL) {
+        // Tensor cache của nhánh vô điều kiện sống lâu hơn một hàm ⇒ phải giải phóng ở đây, không như
+        // tensor tạo-trong-hàm (những cái đó đã tự `ReleaseValue` trước khi hàm trả về).
+        VieNeuORTResetVectorCache(context);
         for (int index = 0; index < VieNeuGraphCount; index++) {
             if (context->sessions[index] != NULL) api->ReleaseSession(context->sessions[index]);
         }
@@ -263,6 +357,30 @@ void VieNeuORTDestroy(VieNeuORT *context) {
         if (context->env != NULL) api->ReleaseEnv(context->env);
     }
     free(context);
+}
+
+void VieNeuORTResetVectorCache(VieNeuORT *context) {
+    if (context == NULL) return;
+    const OrtApi *api = context->api;
+    if (api == NULL) return;
+    if (context->cachedNullContext != NULL) { api->ReleaseValue(context->cachedNullContext); context->cachedNullContext = NULL; }
+    if (context->cachedNullMask != NULL)    { api->ReleaseValue(context->cachedNullMask);    context->cachedNullMask = NULL; }
+    if (context->cachedNullSpeaker != NULL) { api->ReleaseValue(context->cachedNullSpeaker); context->cachedNullSpeaker = NULL; }
+    if (context->cachedNullStyle != NULL)   { api->ReleaseValue(context->cachedNullStyle);   context->cachedNullStyle = NULL; }
+}
+
+void VieNeuORTChurnSnapshot(VieNeuORT *context, int64_t *outCreates, int64_t *outReleases, int64_t *outCopiedBytes) {
+    if (context == NULL) return;
+    if (outCreates != NULL) *outCreates = context->tensorCreates;
+    if (outReleases != NULL) *outReleases = context->tensorReleases;
+    if (outCopiedBytes != NULL) *outCopiedBytes = context->copiedBytes;
+}
+
+void VieNeuORTResetChurnCounters(VieNeuORT *context) {
+    if (context == NULL) return;
+    context->tensorCreates = 0;
+    context->tensorReleases = 0;
+    context->copiedBytes = 0;
 }
 
 void VieNeuORTFreeErrorMessage(char *errorMessage) {
@@ -376,21 +494,26 @@ int32_t VieNeuORTRunDurationPredictor(VieNeuORT *context,
     return 0;
 }
 
-float *VieNeuORTRunVectorEstimator(VieNeuORT *context,
-                                   const float *latent, int32_t latentChannels, int32_t frames,
-                                   float time,
-                                   const float *context_, const int64_t *contextShape, int32_t contextRank,
-                                   const uint8_t *mask,
-                                   const float *speaker, int32_t speakerCount,
-                                   const float *style, int32_t styleRows, int32_t styleColumns,
-                                   int32_t *outCount, char **errorMessage) {
+int32_t VieNeuORTRunVectorEstimatorInto(VieNeuORT *context,
+                                        const float *latent, int32_t latentChannels, int32_t frames,
+                                        float time,
+                                        const float *context_, const int64_t *contextShape, int32_t contextRank,
+                                        const uint8_t *mask,
+                                        const float *speaker, int32_t speakerCount,
+                                        const float *style, int32_t styleRows, int32_t styleColumns,
+                                        float *outBuffer, int32_t outCapacity,
+                                        int32_t *outCount, char **errorMessage) {
     if (context == NULL) {
         setError(errorMessage, "context is NULL");
-        return NULL;
+        return -1;
+    }
+    if (outBuffer == NULL) {
+        setError(errorMessage, "outBuffer is NULL");
+        return -1;
     }
     if (contextShape == NULL || contextRank < 2) {
         setError(errorMessage, "ctx shape không hợp lệ");
-        return NULL;
+        return -1;
     }
     const OrtApi *api = context->api;
     const int32_t length = (int32_t)contextShape[1];
@@ -402,33 +525,33 @@ float *VieNeuORTRunVectorEstimator(VieNeuORT *context,
     const int64_t speakerShape[2] = {1, speakerCount};
     const int64_t styleShape[3] = {1, styleRows, styleColumns};
 
-    OrtValue *latentValue = makeTensor(api, context->memoryInfo, latent,
-                                       (size_t)(latentChannels * frames) * sizeof(float), latentShape, 3,
-                                       ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, errorMessage);
-    if (latentValue == NULL) return NULL;
-    OrtValue *timeValue = makeTensor(api, context->memoryInfo, &time, sizeof(float), timeShape, 1,
-                                     ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, errorMessage);
-    OrtValue *contextValue = makeTensor(api, context->memoryInfo, context_,
-                                        (size_t)contextElementCount * sizeof(float),
-                                        contextShape, (size_t)contextRank,
-                                        ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, errorMessage);
-    OrtValue *maskValue = makeTensor(api, context->memoryInfo, mask,
-                                     (size_t)length * sizeof(uint8_t), maskShape, 2,
-                                     ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL, errorMessage);
-    OrtValue *speakerValue = makeTensor(api, context->memoryInfo, speaker,
-                                        (size_t)speakerCount * sizeof(float), speakerShape, 2,
-                                        ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, errorMessage);
-    OrtValue *styleValue = makeTensor(api, context->memoryInfo, style,
-                                      (size_t)(styleRows * styleColumns) * sizeof(float), styleShape, 3,
-                                      ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, errorMessage);
+    OrtValue *latentValue = makeTensorCounted(api, context, latent,
+                                              (size_t)(latentChannels * frames) * sizeof(float), latentShape, 3,
+                                              ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, errorMessage);
+    if (latentValue == NULL) return -1;
+    OrtValue *timeValue = makeTensorCounted(api, context, &time, sizeof(float), timeShape, 1,
+                                            ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, errorMessage);
+    OrtValue *contextValue = makeTensorCounted(api, context, context_,
+                                               (size_t)contextElementCount * sizeof(float),
+                                               contextShape, (size_t)contextRank,
+                                               ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, errorMessage);
+    OrtValue *maskValue = makeTensorCounted(api, context, mask,
+                                            (size_t)length * sizeof(uint8_t), maskShape, 2,
+                                            ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL, errorMessage);
+    OrtValue *speakerValue = makeTensorCounted(api, context, speaker,
+                                               (size_t)speakerCount * sizeof(float), speakerShape, 2,
+                                               ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, errorMessage);
+    OrtValue *styleValue = makeTensorCounted(api, context, style,
+                                             (size_t)(styleRows * styleColumns) * sizeof(float), styleShape, 3,
+                                             ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, errorMessage);
 
     OrtValue *values[6] = {latentValue, timeValue, contextValue, maskValue, speakerValue, styleValue};
     for (size_t index = 0; index < 6; index++) {
         if (values[index] == NULL) {
             for (size_t inner = 0; inner < 6; inner++) {
-                if (values[inner] != NULL) api->ReleaseValue(values[inner]);
+                if (values[inner] != NULL) { api->ReleaseValue(values[inner]); context->tensorReleases += 1; }
             }
-            return NULL;
+            return -1;
         }
     }
 
@@ -436,13 +559,144 @@ float *VieNeuORTRunVectorEstimator(VieNeuORT *context,
     const OrtValue *inputs[6] = {latentValue, timeValue, contextValue, maskValue, speakerValue, styleValue};
     OrtValue *output = runSession(api, context->sessions[VieNeuGraphVectorEstimator], names, inputs, 6, context->outputNames[VieNeuGraphVectorEstimator], errorMessage);
 
-    for (size_t index = 0; index < 6; index++) api->ReleaseValue(values[index]);
-    if (output == NULL) return NULL;
+    for (size_t index = 0; index < 6; index++) { api->ReleaseValue(values[index]); context->tensorReleases += 1; }
+    if (output == NULL) return -1;
 
-    float *result = copyFloats(api, output, outCount, NULL, 0, NULL, errorMessage);
+    int32_t status = copyFloatsInto(api, output, outBuffer, outCapacity, outCount, context, errorMessage);
     api->ReleaseValue(output);
+    return status;
+}
+
+int32_t VieNeuORTRunVectorEstimatorUnconditionedInto(VieNeuORT *context,
+                                                     const float *latent, int32_t latentChannels, int32_t frames,
+                                                     float time,
+                                                     const float *nullContext_, int64_t ctxElementCount,
+                                                     const int64_t *ctxShape, int32_t ctxRank,
+                                                     const uint8_t *nullMask, int32_t maskLength,
+                                                     const float *nullSpeaker, int32_t speakerCount,
+                                                     const float *nullStyle, int32_t styleRows, int32_t styleColumns,
+                                                     float *outBuffer, int32_t outCapacity,
+                                                     int32_t *outCount, char **errorMessage) {
+    if (context == NULL) {
+        setError(errorMessage, "context is NULL");
+        return -1;
+    }
+    if (outBuffer == NULL) {
+        setError(errorMessage, "outBuffer is NULL");
+        return -1;
+    }
+    if (ctxShape == NULL || ctxRank < 2) {
+        setError(errorMessage, "ctx shape không hợp lệ");
+        return -1;
+    }
+    const OrtApi *api = context->api;
+    const int64_t latentShape[3] = {1, latentChannels, frames};
+    const int64_t timeShape[1] = {1};
+    const int64_t maskShape[2] = {1, maskLength};
+    const int64_t speakerShape[2] = {1, speakerCount};
+    const int64_t styleShape[3] = {1, styleRows, styleColumns};
+
+    // Hai tensor **đổi mỗi bước** phải tạo mới; bốn tensor còn lại là loop-invariant ⇒ dựng cache một lần.
+    OrtValue *latentValue = makeTensorCounted(api, context, latent,
+                                              (size_t)(latentChannels * frames) * sizeof(float), latentShape, 3,
+                                              ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, errorMessage);
+    if (latentValue == NULL) return -1;
+    OrtValue *timeValue = makeTensorCounted(api, context, &time, sizeof(float), timeShape, 1,
+                                            ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, errorMessage);
+    if (timeValue == NULL) {
+        api->ReleaseValue(latentValue); context->tensorReleases += 1;
+        return -1;
+    }
+
+    // Cache dựng từ **buffer thật của nhánh null** (không phải `x`). `CreateTensorWithDataAsOrtValue`
+    // không copy ⇒ buffer đó (`nullContext`/`nullMask`/`nullSpeaker`/`nullStyle`) phải sống tới
+    // `VieNeuORTResetVectorCache`; engine gọi reset ngay khi `prepareLocked` thay mảng.
+    if (context->cachedNullContext == NULL) {
+        context->cachedNullContext = makeTensorCounted(api, context, nullContext_,
+                                                       (size_t)ctxElementCount * sizeof(float),
+                                                       ctxShape, (size_t)ctxRank,
+                                                       ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, errorMessage);
+    }
+    if (context->cachedNullMask == NULL) {
+        context->cachedNullMask = makeTensorCounted(api, context, nullMask,
+                                                    (size_t)maskLength * sizeof(uint8_t), maskShape, 2,
+                                                    ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL, errorMessage);
+    }
+    if (context->cachedNullSpeaker == NULL) {
+        context->cachedNullSpeaker = makeTensorCounted(api, context, nullSpeaker,
+                                                       (size_t)speakerCount * sizeof(float), speakerShape, 2,
+                                                       ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, errorMessage);
+    }
+    if (context->cachedNullStyle == NULL) {
+        context->cachedNullStyle = makeTensorCounted(api, context, nullStyle,
+                                                     (size_t)(styleRows * styleColumns) * sizeof(float), styleShape, 3,
+                                                     ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, errorMessage);
+    }
+
+    if (context->cachedNullContext == NULL || context->cachedNullMask == NULL
+        || context->cachedNullSpeaker == NULL || context->cachedNullStyle == NULL) {
+        api->ReleaseValue(latentValue); context->tensorReleases += 1;
+        api->ReleaseValue(timeValue); context->tensorReleases += 1;
+        return -1;
+    }
+
+    const char *names[6] = {"x", "t", "ctx", "ctx_mask", "spk", "style"};
+    const OrtValue *inputs[6] = {
+        latentValue, timeValue,
+        context->cachedNullContext, context->cachedNullMask,
+        context->cachedNullSpeaker, context->cachedNullStyle
+    };
+    OrtValue *output = runSession(api, context->sessions[VieNeuGraphVectorEstimator], names, inputs, 6, context->outputNames[VieNeuGraphVectorEstimator], errorMessage);
+
+    api->ReleaseValue(latentValue); context->tensorReleases += 1;
+    api->ReleaseValue(timeValue); context->tensorReleases += 1;
+    if (output == NULL) return -1;
+
+    int32_t status = copyFloatsInto(api, output, outBuffer, outCapacity, outCount, context, errorMessage);
+    api->ReleaseValue(output);
+    return status;
+}
+
+float *VieNeuORTRunVectorEstimator(VieNeuORT *context,
+                                   const float *latent, int32_t latentChannels, int32_t frames,
+                                   float time,
+                                   const float *context_, const int64_t *contextShape, int32_t contextRank,
+                                   const uint8_t *mask,
+                                   const float *speaker, int32_t speakerCount,
+                                   const float *style, int32_t styleRows, int32_t styleColumns,
+                                   int32_t *outCount, char **errorMessage) {
+    // Vỏ giữ hợp đồng cũ cho bên gọi chưa chuyển sang biến thể ghi-vào-buffer. Đường Reader dùng bản
+    // `…Into` để bỏ được `malloc` + một tầng `memcpy`.
+    if (context == NULL) {
+        setError(errorMessage, "context is NULL");
+        return NULL;
+    }
+    if (contextShape == NULL || contextRank < 2) {
+        setError(errorMessage, "ctx shape không hợp lệ");
+        return NULL;
+    }
+    int64_t total = (int64_t)latentChannels * (int64_t)frames;
+    if (total <= 0) {
+        setError(errorMessage, "kích thước latent không hợp lệ");
+        return NULL;
+    }
+    float *result = malloc((size_t)total * sizeof(float));
+    if (result == NULL) {
+        setError(errorMessage, "malloc failed");
+        return NULL;
+    }
+    int32_t count = 0;
+    if (VieNeuORTRunVectorEstimatorInto(context, latent, latentChannels, frames, time,
+                                        context_, contextShape, contextRank, mask,
+                                        speaker, speakerCount, style, styleRows, styleColumns,
+                                        result, (int32_t)total, &count, errorMessage) != 0) {
+        free(result);
+        return NULL;
+    }
+    if (outCount != NULL) *outCount = count;
     return result;
 }
+
 
 float *VieNeuORTRunCodecDecoder(VieNeuORT *context,
                                 const float *latent, int32_t latentChannels, int32_t frames,

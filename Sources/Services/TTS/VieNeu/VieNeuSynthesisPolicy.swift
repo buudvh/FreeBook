@@ -3,7 +3,7 @@ import Foundation
 /// Chính sách chất lượng ↔ tốc độ của engine **VieNeu-TTS v3 Nano**.
 ///
 /// Quyết định của chủ dự án cho engine này là **ưu tiên liền mạch**: giữ RTF < 1 bằng mọi giá, thà hạ
-/// chất lượng còn hơn để Reader giật và máy nóng. Vì vậy policy có **ba chế độ** và một luật đổi chế
+/// chất lượng còn hơn để Reader giật và máy nóng. Vì vậy policy có **hai chế độ** và một luật đổi chế
 /// độ có trễ (hysteresis) — không đổi qua lại mỗi đoạn.
 ///
 /// Đây là type **thuần**: không giữ trạng thái, không đọc `UserDefaults`. Bộ đếm thích nghi nằm ở
@@ -17,21 +17,17 @@ enum VieNeuSynthesisPolicy {
         /// 8 Euler step, `sway = -1` — bản tham chiếu ghi rõ cặp này nhanh gấp đôi và **phải đi cùng
         /// nhau**: hạ step mà giữ `sway = 0` làm chất lượng tụt nhiều hơn cần thiết.
         case fast
-        /// 4 Euler step, `sway = -1`, CFG giữ nguyên 3.0 — chế độ **giảm nhiệt** (người dùng chọn tay).
-        ///
-        /// Vòng Euler còn **8 lượt `vector_estimator`** mỗi chunk (4 bước × 2 nhánh CFG), tức **một nửa**
-        /// `.fast` và **một phần tư** `.high`. Đây là đòn bẩy nhiệt đúng: `vector` chiếm ~98% thời gian
-        /// (xem `defaultThreadCount`), còn giảm CFG thì vô ích vì `runChunk` chỉ hỏi `cfg > 0` chứ không
-        /// theo tỉ lệ (không có tỉ lệ nào để giảm).
-        ///
-        /// Giữ CFG (khác lần thử `cfg = 0` đã hỏng — xem comment dưới): lần đó mất hẳn nhánh vô điều kiện
-        /// nên giọng đứt quãng; ở đây chỉ giảm số bước lấy mẫu, nhánh CFG vẫn nguyên.
-        case low
+        // KHÔNG có chế độ 4 bước. Đã thử và **bỏ**: giảm còn 4 bước (8 lượt `vector_estimator`/chunk,
+        // một nửa `.fast`) làm sai số tích phân vòng Euler quá lớn — người dùng nghe và báo "âm thanh
+        // quá kém, không rõ tiếng". Giữ CFG **không bù được** sai số tích phân (CFG là neo để bám
+        // điều kiện, không phải độ chính xác của phép lấy tích phân). Sàn thực nghiệm của `steps` là
+        // **8**. Đừng thử 5/6/7.
+        //
         // KHÔNG có chế độ tắt CFG (`cfg = 0`). Đã thử và **bỏ**: bỏ CFG halve compute thật, nhưng model
         // card cảnh báo "hurts intelligibility" và người dùng xác nhận nghe **đứt quãng, không rõ tiếng**.
         // Giữ lại một chế độ mà tai người dùng từ chối chỉ tạo thêm lựa chọn tồi.
         //
-        // Lưu ý tương thích: `UserDefaults` có thể còn giá trị `"turbo"` từ bản trước;
+        // Lưu ý tương thích: `UserDefaults` có thể còn giá trị `"turbo"` hoặc `"low"` từ bản trước;
         // `Mode(rawValue:)` trả `nil` nên nó tự rơi về "tự động" — không cần migrate.
     }
 
@@ -46,7 +42,6 @@ enum VieNeuSynthesisPolicy {
         switch mode {
         case .high: return Tuning(steps: 16, sway: 0.0, cfg: 3.0)
         case .fast: return Tuning(steps: 8, sway: -1.0, cfg: 3.0)
-        case .low: return Tuning(steps: 4, sway: -1.0, cfg: 3.0)
         }
     }
 
@@ -116,12 +111,6 @@ enum VieNeuSynthesisPolicy {
             // vào vòng lật qua lật lại giữa hai chế độ trên một máy ở đúng ranh giới.
             guard consecutiveFast >= samplesBeforeSwitch, lastRTF <= upshiftRTF else { return nil }
             return .high
-        case .low:
-            // `.low` là lựa chọn **thủ công của người dùng** để giảm nhiệt. Bộ thích nghi **không** được
-            // tự nâng lên: `updateMode` chỉ chạy khi `requestedMode == nil`, nên trên thực tế hàm này
-            // không bao giờ thấy `.low`. Giữ nhánh trả `nil` để hợp đồng "không có `default`" vẫn nguyên
-            // (thêm mode mới sẽ lộ ra ngay ở đây thay vì bị che).
-            return nil
         }
     }
 

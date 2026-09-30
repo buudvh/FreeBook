@@ -25,6 +25,13 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 * `WAVConcatenator` (1.3.444) không giữ tài nguyên hệ thống nào — chỉ cấp phát `Data` mới rồi trả về.
 
 
+## 1.3.450 — vòng đời tài nguyên ONNX của VieNeu: cache tensor + đo churn
+
+* **Vòng đời `OrtValue` đệm (nhánh vô điều kiện)**: 4 tensor `nullContext`/`nullMask`/`nullSpeaker`/`nullStyle` được dựng ở lượt gọi `vectorEstimatorUnconditioned` **đầu tiên** và sống trong `struct VieNeuORT` tới khi `VieNeuORTResetVectorCache` (từ `VieNeuORTDestroy`) giải phóng. Nguồn là 4 buffer null **bất biến suốt vòng đời engine** (`VieNeuTTSEngine` **không có `unload`**, buffer gán một lần trong `prepareLocked`) — đây là điều kiện khiến việc đệm an toàn dù `CreateTensorWithDataAsOrtValue` không copy.
+* **Vòng đời bộ đếm churn**: `tensorCreates`/`tensorReleases`/`copiedBytes` trong `struct VieNeuORT`; `synthesize` reset ở đầu lượt (`resetChurnCounters`), `runChunk` đọc `churnSnapshot` vào `Timing`, `logSynthesisPerf` in ra rồi giá trị bị reset ở lượt kế. Ba bộ đếm chỉ để chẩn đoán, không đổi kết quả tổng hợp.
+* **Gỡ một tầng copy**: `VieNeuORTRunVectorEstimatorInto` ghi vào buffer Swift cấp (`withUnsafeMutableBufferPointer`) ⇒ bỏ `malloc`+`memcpy` phía C lẫn `Array(UnsafeBufferPointer)` phía Swift. Buffer Swift phải sống qua lượt `Run` — điều kiện này giữ được vì `withUnsafeMutableBufferPointer` bao quanh đúng lời gọi C.
+* **`Notification.Name.nghiLocalSynthesisDidComplete`** là tài nguyên sự kiện dùng chung: engine local tổng hợp xong ⇒ `TTSManager+NghiEnergy` phát, `ReaderEnergyDiagnostics` quan sát (`queue: .main`) để đo `lastLocalSynthAgoMs`.
+
 ## 1.3.444 — vòng đời tài nguyên của màn thử VieNeu
 
 * Màn thử sinh **N** file WAV tạm (một cho mỗi đoạn) rồi ghép thành **một** `Data`; chỉ file ghép được ghi ra `temporaryDirectory` (`writeTemporaryAudio`). Các `Data` trung gian nằm trong mảng `parts` cục bộ của `Task` và được giải phóng khi hàm kết thúc.

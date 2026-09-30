@@ -27,6 +27,15 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 * **Nhánh lùi**: `.txt` sinh từ bản cũ chưa có meta ⇒ `isMetaMissing == true`, view hiện *"Số liệu chưa có — gộp lại để cập nhật."*; **không** parse file để bù. Gộp lần sau tự khỏi.
 * **Cố ý KHÔNG làm**: cache `hasResult` khỏi `fileExists` — chỉ là syscall `stat` cỡ µs, **không** phải nguyên nhân gây đơ, mà cache đòi tự cập nhật ở 5 nơi.
 
+## 1.3.450 — phân hệ VieNeu: bỏ mode "Thấp" + gỡ một tầng copy + log chẩn đoán tầng nhiệt
+
+* **Bỏ hẳn mode `.low` (4 bước)**: người dùng nghe và chốt "âm thanh quá kém, không rõ tiếng" ⇒ `VieNeuSynthesisPolicy` quay lại **hai** chế độ `high`/`fast`. Sàn `steps` là **8** (bài học ghi ngay trong `enum Mode`). Giá trị `"low"`/`"turbo"` cũ trong `UserDefaults` rơi về "tự động".
+* **A2a — gỡ một tầng copy**: `VieNeuORTRunVectorEstimatorInto` (C) ghi thẳng vào buffer Swift cấp (một mảng `Float` zeroed bằng `repeating: 0, count: capacity` + `withUnsafeMutableBufferPointer`), thay vì C `malloc`+`memcpy` rồi Swift `Array(UnsafeBufferPointer)` copy lần hai. Hàm cũ giữ làm wrapper mỏng.
+* **A2b — đệm `OrtValue` nhánh vô điều kiện**: 4 tensor `null*` (bất biến suốt vòng lặp Euler) dựng một lần rồi tái dùng; `VieNeuORTRunVectorEstimatorUnconditionedInto` nhận buffer null thật để dựng cache. An toàn vì engine **không có `unload`**; `VieNeuORTDestroy` giải phóng cache.
+* **Log chẩn đoán (L1/L2/L3)**: `[NghiEnergy] Summary` thêm `busyPct=`/`preloadGapMs=`; `[VieNeuPerf]` thêm `churn=creates/releases/copiedBytes`; `recordNghiSynthesis` phát `Notification.Name.nghiLocalSynthesisDidComplete` ⇒ `[ReaderEnergy] Summary` in `lastLocalSynthAgoMs=`. Mục đích: định vị tầng nhiệt (ONNX vs render) vì đường local trước đây **không** có Summary (chỉ `RemoteTTSSynthesisCoordinator` mới in, mà nó chỉ phục vụ engine remote).
+* **Giới hạn dòng**: `VieNeuTTSEngine.swift` giữ đúng **400/400** (nén comment, gộp tham số); `TTSManager.swift` nằm ở **3970**/baseline 3470 (vi phạm nền, không loại mới).
+
+
 ## 1.3.446 — phân hệ TTS: rule thay thế có tầng riêng theo truyện
 
 * **Hai tầng**: chung (`FreeBook/TTS/character_replacements.json`) và riêng truyện (`translate/books/<bookId>/character_replacements.json`). Lúc đọc, rule riêng **đè** rule chung theo `pattern` và đứng trước; rule riêng **tắt** vẫn **chặn** rule chung cùng `pattern`.

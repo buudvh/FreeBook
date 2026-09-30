@@ -27,15 +27,16 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 * Đồng bộ tài liệu cho commit "Tiết kiệm pin" trước đó: `TTSSettingsView.vieNeuPowerSaving` + `vieNeuThreadCount` (`@State`) và `VieNeuTTSService.powerSaving` / `threadCount`.
 
 
-## Mode "Thấp" (4 bước) Cho VieNeu — Giảm Nhiệt (1.3.449)
+## Bỏ Mode "Thấp" (4 bước) + Kiểu Chẩn Đoán Churn (1.3.450)
 
-* **`VieNeuSynthesisPolicy.Mode` thêm case `low`** (thứ ba sau `high`/`fast`) — chế độ **giảm nhiệt** do người dùng chọn tay, độc lập với toggle "Tiết kiệm pin" (toggle đó vẫn ép `.fast`). `tuning(for:)` trả `Tuning(steps: 4, sway: -1.0, cfg: 3.0)`: vòng Euler còn **8 lượt `vector_estimator`**/chunk (4 bước × 2 nhánh CFG) = một nửa `.fast`, một phần tư `.high`.
-* **Vì sao `sway = -1` chứ không `0`**: bản tham chiếu ghi rõ cặp *hạ step + `sway = -1`* phải đi cùng nhau; hạ step mà giữ `sway = 0` tụt chất lượng nhiều hơn cần thiết.
-* **Vì sao vẫn giữ CFG**: `cfg > 0` ở `runChunk` là **điều kiện nhị phân**, không theo tỉ lệ ⇒ giảm độ lớn CFG tiết kiệm **0%**; chỉ số bước mới là đòn bẩy. (Khác lần thử `cfg = 0` đã bị loại vì giọng đứt quãng — lần đó mất hẳn nhánh vô điều kiện.)
-* **`VieNeuSynthesisPolicy.nextMode` thêm nhánh `case .low: return nil`** — `.low` là lựa chọn thủ công nên bộ thích nghi **không** được tự nâng lên; nhánh trả `nil` giữ hợp đồng "switch không có `default`" để mode mới sau này lộ ra ngay khi biên dịch.
-* **`VieNeuSynthesisPolicy.Mode.displayName` thêm `case .low: return "Thấp"`** (tầng View, `VieNeuTTSTestView+Sections.swift`) — policy vẫn không chứa chuỗi UI.
-* **`TTSSettingsView.vieNeuReaderSection`**: dòng giải thích thêm một câu về chế độ "Thấp" (giảm một nửa tính toán/đoạn, máy mát hơn, giọng kém rõ hơn). Picker "Chế độ tạo audio" **không sửa vòng lặp** — `ForEach(Mode.allCases)` tự có case mới.
-* **Không đụng `VieNeuTTSEngine.swift`** (đang đúng trần 400/400 dòng) — mode mới đi hoàn toàn qua policy + View.
+* **`VieNeuSynthesisPolicy.Mode` bỏ case `low`** — quay lại **hai** chế độ `high`/`fast`. Mode 4 bước đã thử và **bị loại**: sai số tích phân vòng Euler quá lớn so với `.fast` ⇒ người dùng nghe báo "âm thanh quá kém, không rõ tiếng". `tuning(for:)` và `nextMode` bỏ hai nhánh `.low`; hợp đồng "switch không có `default`" giữ nguyên nên mọi case thêm sau này vẫn lộ ra lúc biên dịch. Sàn thực nghiệm của `steps` là **8**.
+* **`VieNeuSynthesisPolicy.Mode.displayName` bỏ `case .low`** (tầng View, `VieNeuTTSTestView+Sections.swift`) — chỉ còn Tự động / Chất lượng cao / Cân bằng.
+* **`VieNeuORTChurnSnapshot` / `VieNeuORTResetChurnCounters` / `VieNeuORTResetVectorCache`** (hàm C trong `VieNeuONNXBridge.h`) — mặt chẩn đoán mới: đọc/reset ba bộ đếm `tensorCreates`/`tensorReleases`/`copiedBytes` (thêm vào `struct VieNeuORT`) và giải phóng 4 `OrtValue` đệm của nhánh vô điều kiện.
+* **`VieNeuORT` giữ 4 `OrtValue` đệm** (`cachedNullContext`/`cachedNullMask`/`cachedNullSpeaker`/`cachedNullStyle`) — bất biến suốt vòng lặp Euler (và suốt vòng đời engine, vì `VieNeuTTSEngine` **không có `unload`**). `VieNeuORTDestroy` giải phóng cache trước khi huỷ runtime.
+* **`VieNeuONNXRuntime.churnSnapshot: (Int64, Int64, Int64)`** (tuple 3 phần tử) + `resetChurnCounters()` + `resetVectorCache()` — cầu nối Swift sang ba hàm C trên; `VieNeuTTSEngine.Timing` thêm ba trường `tensorCreates`/`tensorReleases`/`copiedBytes`.
+* **`VieNeuONNXRuntime.vectorEstimatorUnconditioned(…)`** — nhánh vô điều kiện của CFG nay đi qua đây để dùng tensor đệm thay vì tạo lại mỗi bước.
+* **`Notification.Name.nghiLocalSynthesisDidComplete`** (`TTSManager+NghiEnergy.swift`) — cầu Service → View cho chẩn đoán `lastLocalSynthAgoMs`; `ReaderEnergyDiagnostics` đăng ký observer `queue: .main`.
+* **Không đụng trần dòng `VieNeuTTSEngine.swift` (đúng 400/400)** — mọi thành viên mới nằm ở bridge C, `VieNeuONNXRuntime.swift`, `+Adaptive.swift` và file extension của `TTSManager`.
 
 ## Thành Viên Mới Cho Ranh Giới & Đo Lường VieNeu (1.3.436)
 

@@ -33,13 +33,15 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 * Đường Reader (`TTSManager.playNghiTTS` → `service.synthesizeWithDuration(… boundaryKind: paragraph.boundaryKind …)`) **không đổi** lượt này.
 
 
-## Mode "Thấp" (4 bước) Cho VieNeu — Giảm Nhiệt (1.3.449)
+## Mode "Thấp" (4 bước) Bị Gỡ + Nhánh Vô Điều Kiện Dùng Tensor Đệm (1.3.450)
 
-* **Luồng UI → engine cho mode mới**: `VieNeuTTSTestView.qualitySection` Picker (`ForEach(Mode.allCases)`) → `service.preferredMode` → `UserDefaults["vieneuPreferredMode"]` + `engine.setRequestedMode(.low)`. `TTSSettingsView.vieNeuReaderSection` Picker "Chế độ tạo audio" đi cùng đường. Cả hai **không sửa vòng lặp** — `allCases` tự có `low`.
-* **`setRequestedMode(.low)` tắt hẳn bộ thích nghi**: `VieNeuTTSEngine.updateMode` chỉ chạy khi `requestedMode == nil` (`:284`), nên `nextMode` không bao giờ thấy `.low` trên thực tế.
-* **Chi phí mỗi chunk**: `.low` = 4 bước × 2 nhánh CFG = **8 lượt `vector_estimator`**, so với 16 (`.fast`) và 32 (`.high`). Vòng Euler chiếm ~98% thời gian (`vector 7,60 s | khác 0,14 s` trên 28,01 s audio).
-* **Sửa footer UI lỗi thời** (`VieNeuTTSTestView+Sections.swift`): nêu đủ ba mức (32/16/8 lượt) và **bỏ** câu về mục "Nhanh nhất" — mode đó đã bị gỡ từ lâu (`VieNeuSynthesisPolicy.swift:20-25`).
-* **Sửa 3 comment sai `12 → 10`** (không đổi hành vi): `TTSManager.swift:742`, `TTSManager+NghiPrefetchConcurrency.swift:15`, `Docs/Plans/2026-09-30-plan-tts-stutter-overlap-battery.md:47`. Giá trị 12 chỉ là **placeholder khởi tạo**, bị `applyVieNeuParamsIfNeeded` ghi đè bằng `VieNeuSynthesisPolicy.bufferedSecondsTarget` = **10.0** khi khởi động.
+* **Mode `.low` (4 bước) bị bỏ hẳn.** Người dùng chốt "low tạo âm thanh quá kém, không rõ tiếng" ⇒ `VieNeuSynthesisPolicy.tuning(for:)` không còn trả số bước 4; sàn là **8**. Luồng UI → engine (`Picker` → `preferredMode` → `UserDefaults["vieneuPreferredMode"]` → `engine.setRequestedMode(…)`) **không đổi** — chỉ còn hai đích `high`/`fast`. Giá trị `"low"`/`"turbo"` cũ còn trong `UserDefaults` tự rơi về `nil` ("tự động") vì `Mode(rawValue:)` trả `nil`.
+* **`setRequestedMode(.low)` không còn tồn tại** ⇒ `nextMode` chỉ đi giữa `high` ↔ `fast` như trước 1.3.449.
+* **Chi phí mỗi chunk**: `.fast` = 8 bước × 2 nhánh CFG = **16 lượt `vector_estimator`**, `.high` = 32. Vòng Euler chiếm ~98% thời gian.
+* **Nhánh vô điều kiện (null branch) của CFG nay gọi `runtime.vectorEstimatorUnconditioned(…)`**: 4 tensor bất biến (`nullContext`/`nullMask`/`nullSpeaker`/`nullStyle`) được dựng **một lần** ở lượt gọi đầu rồi đệm trong `struct VieNeuORT`, thay vì `makeTensor` lại mỗi bước. Nguồn là 4 buffer null thật (`nullContext`/`nullMask`/`nullSpeaker`/`nullStyle`), **không** phải buffer `x`.
+* **`vectorEstimator(…)` gọi `VieNeuORTRunVectorEstimatorInto`**: C ghi thẳng vào buffer Swift cấp (một mảng `Float` zeroed bằng `repeating: 0, count: capacity` + `withUnsafeMutableBufferPointer`) ⇒ bỏ một tầng copy (`malloc`+`memcpy` → `Array(UnsafeBufferPointer)`). Hàm C cũ `VieNeuORTRunVectorEstimator` vẫn giữ làm wrapper mỏng cho tương thích.
+* **Đo churn mỗi lượt tổng hợp**: `VieNeuTTSEngine.synthesize` gọi `runtime.resetChurnCounters()` lúc bắt đầu; `runChunk` lấy `runtime.churnSnapshot` vào `Timing`; `logSynthesisPerf` in `[VieNeuPerf] … churn=creates/releases/copiedBytes`.
+* **`recordNghiSynthesis` phát `NotificationCenter` `.nghiLocalSynthesisDidComplete`** trước `flushNghiEnergySummary` ⇒ `ReaderEnergyDiagnostics` (tầng View) đọc `lastLocalSynthAgoMs` mà **không** buộc `Sources/Services/**` phải gọi thẳng singleton UI. `flushNghiEnergySummary` thêm `busyPct` + `preloadGapMs` vào dòng `[NghiEnergy] Summary`.
 
 ## Gỡ Máy Móc Pre-schedule + UI Pin/Mặc Định VieNeu (1.3.442)
 

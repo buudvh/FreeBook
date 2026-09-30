@@ -115,6 +115,10 @@ final class VieNeuONNXRuntime {
     }
 
     /// `vector_estimator(x, t, ctx, ctx_mask, spk, style)` → velocity cùng shape với `x`.
+    ///
+    /// Ghi thẳng vào buffer do Swift cấp (`withUnsafeMutableBufferPointer`) ⇒ bỏ `malloc` ở phía C và bỏ
+    /// một tầng `memcpy` so với hợp đồng `float*` cũ. Số phần tử đã biết trước (`latentChannels × frames`)
+    /// vì velocity **cùng shape** với `x`.
     func vectorEstimator(
         latent: [Float],
         time: Float,
@@ -128,31 +132,120 @@ final class VieNeuONNXRuntime {
         latentChannels: Int,
         frames: Int
     ) throws -> [Float] {
-        var count: Int32 = 0
         var message: UnsafeMutablePointer<CChar>?
-        let pointer = latent.withUnsafeBufferPointer { latentBuffer in
-            context.withUnsafeBufferPointer { contextBuffer in
-                contextShape.withUnsafeBufferPointer { shapeBuffer in
-                    mask.withUnsafeBufferPointer { maskBuffer in
-                        speaker.withUnsafeBufferPointer { speakerBuffer in
-                            style.withUnsafeBufferPointer { styleBuffer in
-                                VieNeuORTRunVectorEstimator(
-                                    handle,
-                                    latentBuffer.baseAddress, Int32(latentChannels), Int32(frames),
-                                    time,
-                                    contextBuffer.baseAddress, shapeBuffer.baseAddress, Int32(contextShape.count),
-                                    maskBuffer.baseAddress,
-                                    speakerBuffer.baseAddress, Int32(speaker.count),
-                                    styleBuffer.baseAddress, Int32(styleRows), Int32(styleColumns),
-                                    &count, &message
-                                )
+        var count: Int32 = 0
+        let capacity = max(0, latentChannels * frames)
+        var output = [Float](repeating: 0, count: capacity)
+        let status = output.withUnsafeMutableBufferPointer { outBuffer in
+            latent.withUnsafeBufferPointer { latentBuffer in
+                context.withUnsafeBufferPointer { contextBuffer in
+                    contextShape.withUnsafeBufferPointer { shapeBuffer in
+                        mask.withUnsafeBufferPointer { maskBuffer in
+                            speaker.withUnsafeBufferPointer { speakerBuffer in
+                                style.withUnsafeBufferPointer { styleBuffer in
+                                    VieNeuORTRunVectorEstimatorInto(
+                                        handle,
+                                        latentBuffer.baseAddress, Int32(latentChannels), Int32(frames),
+                                        time,
+                                        contextBuffer.baseAddress, shapeBuffer.baseAddress, Int32(contextShape.count),
+                                        maskBuffer.baseAddress,
+                                        speakerBuffer.baseAddress, Int32(speaker.count),
+                                        styleBuffer.baseAddress, Int32(styleRows), Int32(styleColumns),
+                                        outBuffer.baseAddress, Int32(capacity),
+                                        &count, &message
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
         }
-        return try Self.take(pointer, count: count, message: message)
+        guard status == 0 else {
+            throw RuntimeError.failure(Self.consume(message, fallback: "vector_estimator thất bại"))
+        }
+        if let message { VieNeuORTFreeErrorMessage(message) }
+        if count < capacity { output.removeLast(capacity - Int(max(0, count))) }
+        return output
+    }
+
+    /// Nhánh **vô điều kiện** của CFG — dùng tensor cache cho `ctx`/`ctx_mask`/`spk`/`style`.
+    ///
+    /// Bốn tensor đó là loop-invariant (đến từ `null_spk`/`null_style`, không phụ thuộc giọng hay văn bản)
+    /// nên dựng một lần cho cả 8 bước Euler. **Buffer truyền vào phải sống tới `resetVectorCache()`** —
+    /// đây là bất biến của `CreateTensorWithDataAsOrtValue` (không copy), nên engine có trách nhiệm gọi
+    /// `resetVectorCache()` ngay khi thay `nullContext`/`nullMask`/`nullSpeaker`/`nullStyle`.
+    func vectorEstimatorUnconditioned(
+        latent: [Float],
+        time: Float,
+        nullContext: [Float],
+        nullContextShape: [Int64],
+        nullMask: [UInt8],
+        nullSpeaker: [Float],
+        nullStyle: [Float],
+        styleRows: Int,
+        styleColumns: Int,
+        latentChannels: Int,
+        frames: Int
+    ) throws -> [Float] {
+        var message: UnsafeMutablePointer<CChar>?
+        var count: Int32 = 0
+        let capacity = max(0, latentChannels * frames)
+        var output = [Float](repeating: 0, count: capacity)
+        var elementCount: Int64 = 1
+        for dimension in nullContextShape { elementCount *= dimension }
+        let status = output.withUnsafeMutableBufferPointer { outBuffer in
+            latent.withUnsafeBufferPointer { latentBuffer in
+                nullContext.withUnsafeBufferPointer { contextBuffer in
+                    nullContextShape.withUnsafeBufferPointer { shapeBuffer in
+                        nullMask.withUnsafeBufferPointer { maskBuffer in
+                            nullSpeaker.withUnsafeBufferPointer { speakerBuffer in
+                                nullStyle.withUnsafeBufferPointer { styleBuffer in
+                                    VieNeuORTRunVectorEstimatorUnconditionedInto(
+                                        handle,
+                                        latentBuffer.baseAddress, Int32(latentChannels), Int32(frames),
+                                        time,
+                                        contextBuffer.baseAddress, elementCount,
+                                        shapeBuffer.baseAddress, Int32(nullContextShape.count),
+                                        maskBuffer.baseAddress, Int32(nullMask.count),
+                                        speakerBuffer.baseAddress, Int32(nullSpeaker.count),
+                                        styleBuffer.baseAddress, Int32(styleRows), Int32(styleColumns),
+                                        outBuffer.baseAddress, Int32(capacity),
+                                        &count, &message
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        guard status == 0 else {
+            throw RuntimeError.failure(Self.consume(message, fallback: "vector_estimator (null) thất bại"))
+        }
+        if let message { VieNeuORTFreeErrorMessage(message) }
+        if count < capacity { output.removeLast(capacity - Int(max(0, count))) }
+        return output
+    }
+
+    /// Huỷ tensor cache nhánh vô điều kiện — **bắt buộc** trước khi thay các mảng null của engine.
+    func resetVectorCache() {
+        VieNeuORTResetVectorCache(handle)
+    }
+
+    /// Số `OrtValue` tạo/giải phóng và số byte output đã copy tích luỹ. Chỉ dùng để ghi log chẩn đoán.
+    /// Trả **tuple 3 phần tử** để bên gọi gán thẳng vào `Timing` mà không cần biến trung gian.
+    var churnSnapshot: (Int64, Int64, Int64) {
+        var creates: Int64 = 0
+        var releases: Int64 = 0
+        var bytes: Int64 = 0
+        VieNeuORTChurnSnapshot(handle, &creates, &releases, &bytes)
+        return (creates, releases, bytes)
+    }
+
+    /// Đưa bộ đếm churn về 0 — gọi đầu mỗi lượt tổng hợp.
+    func resetChurnCounters() {
+        VieNeuORTResetChurnCounters(handle)
     }
 
     /// `codec_decoder(x)` → PCM float32. Số mẫu đọc từ shape thật ở phía C.
