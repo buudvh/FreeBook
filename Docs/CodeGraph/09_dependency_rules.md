@@ -16,6 +16,13 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 
 <!-- GENERATED START -->
 
+## 1.3.455 — phụ thuộc bổ sung
+
+* `VieNeuTTSEngine+Catalog.swift` (Services/TTS/VieNeu) → `VieNeuTTSEngine` (cùng type, file khác) + `VieNeuVoiceCatalog`. Vẫn **không** `import SwiftUI`, **không** `ToastManager.shared`.
+* **`private` theo file**: để extension ở file khác chạm được `store` / `lock` / `catalog`, ba thuộc tính đó **phải** hạ xuống `internal`. Đây là cái giá của trần 400 dòng — ghi lại để lần sau không phải suy luận lại từ đầu.
+* `VieNeuVoiceCreatorView` (Views/Settings/TTS) → `DocumentPickerPresenter` (Views/Common) — View → View, không vi phạm chiều phụ thuộc.
+* `VieNeuVoiceCloner.Stage` là `enum Sendable` **không** mang chữ hiển thị: nhãn tiếng Việt nằm ở `VieNeuVoiceLibraryView+Sections.stageLabel`, giữ đúng luật tách Service/UI.
+
 ## 1.3.453 — phụ thuộc của phân hệ nhân bản giọng
 
 * [`VieNeuVoiceCloner.swift`](../../Sources/Services/TTS/VieNeu/VieNeuVoiceCloner.swift) (Services/TTS/VieNeu) → `VieNeuAudioResampler` + `VieNeuFbank` + `VieNeuONNXRuntime` + `VieNeuConfig` + `VieNeuModelStore` — **cùng thư mục**, không `import SwiftUI`, không `ToastManager`. Là `enum` không trạng thái nên gọi được từ `Task.detached`.

@@ -16,6 +16,15 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 
 <!-- GENERATED START -->
 
+## 1.3.455 — rủi ro đã xử lý / còn lại (sửa luồng nhân bản giọng)
+
+* **Đã xử lý — giọng mới rơi im lặng về `defaultPreset` (nặng nhất)**: `catalog` chỉ được nạp một lần trong `prepareLocked`, mà `synthesize` dùng `preset(named:) ?? defaultPreset` nên **không** có lỗi nào nổi lên. Đã xác nhận trên máy thật: tạo giọng xong đọc ra **giọng mặc định**, **tắt app mở lại thì đúng âm sắc**. Giảm thiểu: `refreshVoiceCatalog()` sau mọi thay đổi của kho giọng.
+* **Đã xử lý — `.fileImporter` xung đột trong LiveContainer**: picker mở ra nhưng **không** trả kết quả ⇒ không có file, cũng không có lỗi, nút Lưu xám im lặng. Giảm thiểu: dùng `DocumentPickerPresenter` của repo.
+* **Đã xử lý — `discardSample` có thể xoá file gốc của người dùng**: `removeItem` thẳng lên URL người dùng, **không** guard. Giảm thiểu: guard `temporaryDirectory` + `asCopy: true` khiến URL luôn là bản copy trong thư mục tạm.
+* **Đã xử lý — nút Lưu xám mà không nói lý do**: `saveBlockReason` nói đúng đang thiếu gì; `canSave` suy thẳng từ nó nên không thể lệch.
+* **Còn lại — `DocumentPickerPresenter` không có callback lỗi**: mất thông báo "Không mở được file". Chấp nhận vì API không có nhánh lỗi.
+* **Còn lại — `refreshVoiceCatalog` đọc lại JSON ~2,3 MB**: chỉ chạy khi kho giọng đổi, **không** nằm trên đường tổng hợp.
+
 ## 1.3.453 — rủi ro mới / đã xử lý (nhân bản giọng)
 
 * **Đã xử lý — `groupLatent` sai bố cục vẫn ra đúng shape**: `out[c*g + slot][block] = zpad[c][block*g + slot]`. Concat kênh liền kề cho `(50,256)` hợp lệ nhưng **giọng khác** và **không** lỗi. Giảm thiểu: hai vòng lặp tường minh + doc cảnh báo + kiểm chứng bit-exact với numpy.

@@ -16,6 +16,18 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 <!-- GENERATED START -->
 
+## +1 file mới, 6 file sửa: sửa luồng nhân bản giọng (1.3.455)
+
+| Nhóm | File | Vai trò | Dòng |
+| --- | --- | --- | --- |
+| **Mới** | `Sources/Services/TTS/VieNeu/VieNeuTTSEngine+Catalog.swift` | `refreshVoiceCatalog()` — nạp lại catalog giọng của engine; file chính đã đúng trần 400 nên logic phải nằm ở đây | 34 |
+| Sửa | `Sources/Services/TTS/VieNeu/VieNeuTTSEngine.swift` | hạ `store` / `lock` / `catalog` từ `private` xuống `internal` (Swift giới hạn `private` theo file); **vẫn đúng 400 dòng** | 400 |
+| Sửa | `Sources/Services/TTS/VieNeu/VieNeuTTSService.swift` | `enrollVoice(sampleURL:onStage:)` + `refreshVoiceCatalog()` | 394 |
+| Sửa | `Sources/Services/TTS/VieNeu/VieNeuVoiceCloner.swift` | thêm `enum Stage` + tham số `onStage` (default `nil`) | 294 |
+| Sửa | `Sources/Views/Settings/TTS/VieNeuVoiceCreatorView.swift` | `.fileImporter` → `DocumentPickerPresenter`; `saveBlockReason`; guard `temporaryDirectory` | 365 |
+| Sửa | `Sources/Views/Settings/TTS/VieNeuVoiceLibraryView.swift` | bỏ `prepare()` thừa; gọi `refreshVoiceCatalog()`; hộp tiến trình | 372 |
+| Sửa | `Sources/Views/Settings/TTS/VieNeuVoiceLibraryView+Sections.swift` | `EnrollProgress` + nhãn bước tiếng Việt | 201 |
+
 ## +9 file: nhân bản giọng VieNeu (voice cloning) + fbank 80-mel (1.3.451 / 1.3.453)
 
 | Nhóm | File | Vai trò | Dòng |

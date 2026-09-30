@@ -16,6 +16,13 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 
 <!-- GENERATED START -->
 
+## 1.3.455 — nhánh gọi sửa lại: chọn file, làm mới catalog, tiến trình
+
+* **Chọn file**: `VieNeuVoiceCreatorView.fileSection` → `showingFileImporter = true` → `DocumentPickerPresenter` (`Sources/Views/Common/DocumentPicker.swift`) → `onPick([URL])` → `acceptFile(url)`. **Không** còn `.fileImporter`.
+* **Tạo giọng**: `enroll(name:sampleURL:replacing:)` → `VieNeuTTSService.enrollVoice(sampleURL:onStage:)` → `VieNeuVoiceCloner.enroll(…, onStage:)` → `onStage?(.decoding / .features / .loadingGraphs / .speaker / .codec / .style)`. **Đã bỏ** nhánh `service.prepare(voice:)` khỏi `enroll`.
+* **Làm mới catalog**: `enroll` / `delete` / `commitRename` → `VieNeuVoiceLibraryView.refreshVoiceCatalog()` → `VieNeuTTSService.refreshVoiceCatalog()` → `VieNeuTTSEngine.refreshVoiceCatalog()` → `VieNeuVoiceCatalog.load(modelStore:)`.
+* **Tiến trình**: closure `@Sendable` → `Task { @MainActor }` → `VieNeuVoiceLibraryView.EnrollProgress.stage` → `workingText` → `creationSection`.
+
 ## 1.3.453 — nhánh gọi của luồng nhân bản giọng
 
 * **Lối vào UI**: `VieNeuVoiceLibraryView.creationSection` → `.sheet` → `VieNeuVoiceCreatorView` → `onSave(name, sampleURL)` → `VieNeuVoiceLibraryView.enroll(name:sampleURL:replacing:)`.

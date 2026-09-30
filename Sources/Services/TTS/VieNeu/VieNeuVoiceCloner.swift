@@ -78,6 +78,19 @@ enum VieNeuVoiceCloner {
         }
     }
 
+    /// Bước của quá trình nhân bản — để UI hiện tiến trình thật thay vì một vòng xoay vô định.
+    ///
+    /// Nhãn tiếng Việt nằm ở tầng View, **không** ở đây: `Sources/Services/**` không được biết chữ nào
+    /// hiển thị cho người dùng.
+    enum Stage: Sendable {
+        case decoding
+        case features
+        case loadingGraphs
+        case speaker
+        case codec
+        case style
+    }
+
     /// `_REF_SECONDS` của upstream — style token lấy từ **5 giây đầu**.
     static let refSeconds = 5.0
     /// `_MAX_REF_SECONDS` của upstream — x-vector chỉ thấy tối đa 30 giây.
@@ -89,10 +102,14 @@ enum VieNeuVoiceCloner {
     static let recommendedSampleSeconds = 8.0
 
     /// Nhân bản một audio mẫu. **Nặng và đồng bộ** — bên gọi phải chạy trong `Task.detached`.
+    ///
+    /// `onStage` có default `nil` nên call site cũ không phải sửa; nó chỉ **báo bước**, không mang dữ liệu
+    /// người dùng, và phải `@Sendable` vì được gọi từ trong `Task.detached`.
     static func enroll(
         sampleURL: URL,
         modelStore: VieNeuModelStore,
-        threadCount: Int32
+        threadCount: Int32,
+        onStage: (@Sendable (Stage) -> Void)? = nil
     ) throws -> Enrollment {
         let config = try VieNeuConfig.load(modelStore: modelStore)
         guard let latentMean = config.constants.latentMean,
@@ -101,6 +118,7 @@ enum VieNeuVoiceCloner {
             throw CloneError.missingLatentConstants
         }
 
+        onStage?(.decoding)
         let decoded = try VieNeuAudioResampler.loadMono(url: sampleURL)
         guard decoded.duration >= minimumSampleSeconds else {
             throw CloneError.audioTooShort(decoded.duration)
@@ -118,6 +136,7 @@ enum VieNeuVoiceCloner {
             from: decoded.sampleRate,
             to: Double(VieNeuFbank.targetSampleRate)
         )
+        onStage?(.features)
         let features = try VieNeuFbank.melSpectrogram(
             samples: pcm16,
             sampleRate: VieNeuFbank.targetSampleRate
@@ -133,14 +152,18 @@ enum VieNeuVoiceCloner {
         let refSampleCount = min(pcm24.count, Int(Double(config.sampleRate) * refSeconds))
         guard refSampleCount > 0 else { throw CloneError.audioTooShort(decoded.duration) }
 
+        // Đây là bước **lâu nhất** trong 3 lượt ORT: đọc 3 graph (~91 MB) từ đĩa rồi dựng session.
+        onStage?(.loadingGraphs)
         let runtime = try VieNeuONNXRuntime(cloneOnlyModelStore: modelStore, threadCount: threadCount)
 
+        onStage?(.speaker)
         let speaker = try runtime.speakerEncoder(
             fbank: normalized,
             frames: features.frames,
             melBins: features.bins
         )
 
+        onStage?(.codec)
         let codec = try runtime.codecEncoder(pcm: Array(pcm24.prefix(refSampleCount)))
         guard codec.shape.count == 3 else {
             throw CloneError.unexpectedShape("codec_encoder trả rank \(codec.shape.count), cần 3")
@@ -182,6 +205,7 @@ enum VieNeuVoiceCloner {
             to: styleFrames
         )
 
+        onStage?(.style)
         let style = try runtime.referenceEncoder(
             latent: cropped,
             channels: grouped.channels,

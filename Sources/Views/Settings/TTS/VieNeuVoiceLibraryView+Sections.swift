@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 /// Các khối `Form` của `VieNeuVoiceLibraryView`.
@@ -6,6 +7,35 @@ import SwiftUI
 /// `@State` của view vẫn dùng được; các thành viên dùng chéo file buộc phải để ở mức `internal` (Swift
 /// giới hạn `private` theo file) — cùng khuôn `VieNeuTTSTestView+Sections`.
 extension VieNeuVoiceLibraryView {
+    /// Hộp nhận **bước** của lượt nhân bản từ luồng nền.
+    ///
+    /// Phải là một class riêng chứ không ghi thẳng `@State`: closure tiến trình truyền xuống
+    /// `VieNeuVoiceCloner` là `@Sendable` (nó chạy trong `Task.detached`), nên nó **không được** capture
+    /// `self` của View — bẫy đã ghi rõ ở `DictionaryMergeTask.swift:130`. Ở đây closure chỉ capture hộp
+    /// này, và hộp tự đẩy mọi cập nhật về `MainActor` trước khi ghi.
+    ///
+    /// `@unchecked Sendable` vì `stage` **chỉ** được ghi sau khi đã nhảy về `MainActor`.
+    final class EnrollProgress: ObservableObject, @unchecked Sendable {
+        @Published var stage: VieNeuVoiceCloner.Stage?
+    }
+
+    /// Chữ hiện khi đang tạo giọng: **bước cụ thể** nếu đã có, không thì câu chờ chung.
+    var workingText: String {
+        Self.stageLabel(enrollProgress.stage) ?? workingMessage
+    }
+
+    /// Nhãn tiếng Việt cho từng bước. Đặt ở tầng View, **không** đặt ở Service — xem `VieNeuVoiceCloner.Stage`.
+    static func stageLabel(_ stage: VieNeuVoiceCloner.Stage?) -> String? {
+        switch stage {
+        case .some(.decoding): return "Đang đọc file audio mẫu…"
+        case .some(.features): return "Đang trích fbank 80-mel…"
+        case .some(.loadingGraphs): return "Đang nạp 3 graph nhân bản (~91 MB)…"
+        case .some(.speaker): return "Đang tạo x-vector (192 số)…"
+        case .some(.codec): return "Đang mã hoá latent 24 kHz…"
+        case .some(.style): return "Đang tạo style (50×256)…"
+        case .none: return nil
+        }
+    }
     /// Dung lượng gói graph **khi tải đủ** — hằng số vì lúc chưa tải thì không đo được gì, mà nhãn nút
     /// vẫn phải nói trước sẽ tốn bao nhiêu.
     static var clonePackageBytes: Int64 { VieNeuModelStore.cloneApproximateBytes }
@@ -136,7 +166,7 @@ extension VieNeuVoiceLibraryView {
         Section {
             if isWorking {
                 ProgressView {
-                    Text(workingMessage).font(.caption)
+                    Text(workingText).font(.caption)
                 }
             } else {
                 Button {

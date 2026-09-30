@@ -168,12 +168,30 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
     ///
     /// Mỗi lượt gọi mở một ngữ cảnh ORT riêng **chỉ 3 graph clone** rồi nhả khi xong — xem doc của
     /// `VieNeuVoiceCloner` để biết vì sao không dùng chung ngữ cảnh với engine.
-    func enrollVoice(sampleURL: URL) async throws -> VieNeuVoiceCloner.Enrollment {
+    func enrollVoice(
+        sampleURL: URL,
+        onStage: (@Sendable (VieNeuVoiceCloner.Stage) -> Void)? = nil
+    ) async throws -> VieNeuVoiceCloner.Enrollment {
         let store = self.store
         let threads = VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard)
         return try await Task.detached(priority: .utility) {
-            try VieNeuVoiceCloner.enroll(sampleURL: sampleURL, modelStore: store, threadCount: threads)
+            try VieNeuVoiceCloner.enroll(
+                sampleURL: sampleURL,
+                modelStore: store,
+                threadCount: threads,
+                onStage: onStage
+            )
         }.value
+    }
+
+    /// Nạp lại catalog giọng của engine. **Bắt buộc** gọi sau khi kho giọng user đổi (tạo / tạo lại /
+    /// đổi tên / xoá).
+    ///
+    /// `prepareLocked` chỉ nạp catalog **một lần** trong vòng đời engine (`VieNeuTTSEngine.swift:150`) và
+    /// engine sống suốt vòng đời app, nên thiếu bước này thì giọng vừa tạo bị `synthesize` rơi **im lặng**
+    /// về giọng mặc định cho tới khi mở lại app. Xem `VieNeuTTSEngine+Catalog.swift`.
+    func refreshVoiceCatalog() throws {
+        try engine.refreshVoiceCatalog()
     }
 
     // MARK: - Tổng hợp

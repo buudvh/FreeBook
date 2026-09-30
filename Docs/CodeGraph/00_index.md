@@ -16,6 +16,14 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 
 <!-- GENERATED START -->
 
+## 1.3.455 — sửa luồng nhân bản giọng: chọn file, giọng mới tới được engine, tiến trình
+
+* **Nối tiếp `1.3.453`** — ba lỗi chỉ lộ ra khi chạy trên máy thật, **không** lộ khi đọc code.
+* **Lỗi nặng nhất — giọng mới không tới được engine, im lặng**: `VieNeuTTSEngine.prepareLocked` chỉ nạp `catalog` **một lần** (`guard runtime == nil`) mà engine sống suốt vòng đời app ⇒ `synthesize` rơi về `defaultPreset`. Người dùng nghe **sai giọng** mà UI vẫn báo thành công; **mở lại app mới đúng**. Xử lý: `VieNeuTTSEngine+Catalog.swift` (`refreshVoiceCatalog()`), gọi sau **mọi** thay đổi của kho giọng.
+* **Chọn file**: `VieNeuVoiceCreatorView` bỏ `.fileImporter` (xung đột file picker khi app chạy trong **LiveContainer**) → dùng `DocumentPickerPresenter` của repo, mở picker với `asCopy: true` nên URL trả về **đã nằm trong sandbox**.
+* **Tốc độ**: `enroll` **bỏ** bước `prepare()` thừa (4 graph + 62,8 MB `sea_g2p.bin`) — `enrollVoice` chỉ cần `store` + `VieNeuVoiceCloner`.
+* **Tiến trình**: `VieNeuVoiceCloner.Stage` + callback `@Sendable` → UI hiện từng bước thay vì một vòng xoay vô định.
+
 ## 1.3.453 — nhân bản giọng VieNeu-TTS từ audio mẫu (voice cloning), kèm fbank 80-mel (1.3.451)
 
 * **Một "giọng" chỉ là 2 mảng float**: `speakerEmbedding` (192) + `style` (50×256). Không có model riêng cho từng giọng, không fine-tune — nhân bản = chạy **3 graph clone** để sinh 2 mảng đó từ audio mẫu 3–8 s.

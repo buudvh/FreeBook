@@ -40,8 +40,19 @@ struct VieNeuVoiceCreatorView: View {
 
     private let ticker = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
 
-    private var canSave: Bool {
-        sampleURL != nil && !name.trimmed.isEmpty && !isRecording && !isProbing
+    /// `true` khi bấm "Lưu" được. Suy thẳng từ `saveBlockReason` để nút và dòng giải thích **không thể**
+    /// lệch nhau (trước đây nút xám mà không có dòng nào nói thiếu gì).
+    private var canSave: Bool { saveBlockReason == nil }
+
+    /// Lý do nút "Lưu" đang bị khoá; `nil` = bấm được. Xét theo đúng thứ tự người dùng gặp.
+    private var saveBlockReason: String? {
+        if isProbing { return "Đang đọc file audio…" }
+        if isRecording { return "Đang thu âm — bấm “Dừng thu” trước." }
+        if sampleURL == nil {
+            return source == .record ? "Chưa có bản thu nào." : "Chưa chọn file audio nào."
+        }
+        if name.trimmed.isEmpty { return "Nhập tên giọng để bật nút Lưu." }
+        return nil
     }
 
     var body: some View {
@@ -74,6 +85,16 @@ struct VieNeuVoiceCreatorView: View {
                     Text("Tên này hiện trong danh sách chọn giọng đọc, và phải khác các giọng đang có.")
                 }
 
+                // Nút "Lưu" bị khoá thì phải nói **vì sao**. Trước đây chỉ có nút xám: người dùng chọn
+                // file xong, không thấy lỗi nào, mà cũng không bấm được Lưu.
+                if let saveBlockReason {
+                    Section {
+                        Text(saveBlockReason)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 if !message.isEmpty {
                     Section {
                         Text(message)
@@ -96,19 +117,23 @@ struct VieNeuVoiceCreatorView: View {
             }
             .onReceive(ticker) { _ in tick() }
             .onDisappear(perform: stopPlayer)
-            .fileImporter(
-                isPresented: $showingFileImporter,
-                allowedContentTypes: [.audio],
-                allowsMultipleSelection: false
-            ) { result in
-                switch result {
-                case .success(let urls):
-                    if let url = urls.first { acceptFile(url) }
-                case .failure(let error):
-                    isError = true
-                    message = "Không mở được file: \(error.localizedDescription)"
-                }
-            }
+            // Dùng `DocumentPickerPresenter` của repo, **không** `.fileImporter`: bản SwiftUI xung đột
+            // khi app chạy trong LiveContainer — picker mở ra, chọn file xong **không** có kết quả trả về
+            // (không file, cũng không lỗi) nên nút Lưu cứ xám mà không ai giải thích được vì sao.
+            // Presenter mở picker với `asCopy: true` (`DocumentPicker.swift:36`) nên URL trả về **đã nằm
+            // trong thư mục tạm của app** — các bước sau (nghe thử, copy vào kho) không cần security-scope.
+            .background(
+                DocumentPickerPresenter(
+                    isPresented: $showingFileImporter,
+                    allowedContentTypes: [.audio],
+                    allowsMultipleSelection: false,
+                    onPick: { urls in
+                        guard let url = urls.first else { return }
+                        acceptFile(url)
+                    },
+                    onCancel: nil
+                )
+            )
         }
     }
 
@@ -264,6 +289,9 @@ struct VieNeuVoiceCreatorView: View {
 
                 stopPlayer()
                 discardSample()
+                // URL này tới từ `DocumentPickerPresenter` (`asCopy: true`) nên **đã** là bản copy trong
+                // `temporaryDirectory`: nghe thử và `VieNeuCustomVoiceStore.copySample` đọc được mà không
+                // cần security-scope, và `discardSample` xoá nó là an toàn.
                 sampleURL = url
                 isError = false
                 message = duration > VieNeuVoiceCloner.recommendedSampleSeconds
@@ -302,10 +330,18 @@ struct VieNeuVoiceCreatorView: View {
         isPlaying = false
     }
 
+    /// Dọn audio mẫu **trong thư mục tạm**.
+    ///
+    /// URL tới từ `DocumentPickerPresenter` với `asCopy: true` nên **đang** nằm trong `temporaryDirectory`
+    /// (bản thu cũng vậy). Guard này chặn trường hợp sau này có ai gán URL ngoài sandbox — xoá nhầm là mất
+    /// file gốc của người dùng, mà `try?` thì **không** báo gì. `VieNeuVoiceLibraryView.discardTemporarySample`
+    /// đã có đúng guard này; hai chỗ phải khớp nhau.
     private func discardSample() {
         guard let url = sampleURL else { return }
         stopPlayer()
-        try? FileManager.default.removeItem(at: url)
+        if url.path.hasPrefix(FileManager.default.temporaryDirectory.path) {
+            try? FileManager.default.removeItem(at: url)
+        }
         sampleURL = nil
     }
 

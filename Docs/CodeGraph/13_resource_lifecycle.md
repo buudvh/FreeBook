@@ -16,6 +16,13 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 
 <!-- GENERATED START -->
 
+## 1.3.455 — vòng đời tài nguyên (sửa lại)
+
+* **File audio mẫu**: `DocumentPickerPresenter` với `asCopy: true` ⇒ iOS copy vào `temporaryDirectory`; đó chính là `sampleURL`. Xoá ở `discardSample` (đường Huỷ / chọn file khác) — nay **có** guard `temporaryDirectory`; và ở `VieNeuVoiceLibraryView.discardTemporarySample` sau khi `store.add` đã copy sang `CustomVoices/samples/`.
+* **Ngữ cảnh ORT clone**: vẫn mở mới cho mỗi lượt tạo giọng trong `VieNeuVoiceCloner.enroll` và nhả khi hàm kết thúc. **Chưa** cache lại (xem mục "việc chưa quyết" của plan).
+* **Catalog**: `VieNeuVoiceCatalog` là struct giá trị; `refreshVoiceCatalog()` dựng bản mới rồi gán dưới `lock` ⇒ lượt `synthesize` đang chạy không đọc phải bản nửa vời.
+* **Hộp tiến trình**: `EnrollProgress` là `@StateObject` của `VieNeuVoiceLibraryView`, sống theo View; `stage` được đặt lại `nil` ở đầu mỗi lượt tạo giọng.
+
 ## 1.3.453 — vòng đời tài nguyên của luồng nhân bản giọng
 
 * **Ngữ cảnh ORT clone-only**: tạo trong `VieNeuONNXRuntime.init(cloneOnlyModelStore:threadCount:)` → `VieNeuORTCreateCloneOnly`; giữ trong `VieNeuVoiceLibraryView`; giải phóng ở `deinit` của runtime (huỷ 3 session + tên input 2 chiều + `OrtEnv`). **Không** chia sẻ với ngữ cảnh engine chính.

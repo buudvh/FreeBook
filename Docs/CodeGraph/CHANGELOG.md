@@ -2,6 +2,26 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.455] - 2026-09-30
+
+### fix: sua luong nhan ban giong VieNeu (chon file, giong moi toi engine, tien do)
+
+Người dùng thử trên máy thật (IPA cài qua **LiveContainer**) và báo **ba** lỗi mà đọc code **không** thấy: không chọn được file audio, bấm "Tạo giọng" **chờ lâu**, và — nặng nhất — **giọng mới đọc ra y như giọng mặc định `minh quân`**, tắt app mở lại mới đúng âm sắc.
+
+- **Lỗi nặng nhất — giọng mới không bao giờ tới được engine, và im lặng.** `VieNeuTTSEngine.prepareLocked` có `guard runtime == nil else { return }` (`VieNeuTTSEngine.swift:150`) nên `catalog` chỉ được nạp **một lần**; engine sống suốt vòng đời app. `synthesize` chọn giọng bằng `catalog.preset(named:) ?? catalog.defaultPreset` (`:212`) ⇒ tên giọng chưa có trong catalog **rơi về giọng mặc định — không lỗi, không log**. Triệu chứng *"tắt máy mở lại thì đúng âm sắc"* là **chữ ký chính xác** của cơ chế này: mở lại app ⇒ `prepareLocked` nạp lại catalog ⇒ thấy giọng mới.
+- **Sửa**: [`VieNeuTTSEngine+Catalog.swift`](../../Sources/Services/TTS/VieNeu/VieNeuTTSEngine+Catalog.swift) (**34**) — `refreshVoiceCatalog()` nạp lại catalog dưới `lock`; `VieNeuTTSService.refreshVoiceCatalog()` uỷ quyền; `VieNeuVoiceLibraryView` gọi sau **mọi** thay đổi kho giọng (`enroll`, `delete`, `commitRename`, và ngay sau `reload()`). Đặt ở **file mới** vì `VieNeuTTSEngine.swift` đã ở **đúng 400/400** — chỉ hạ `store`/`lock`/`catalog` từ `private` → `internal` **tại chỗ, không đổi số dòng**.
+- **Chọn file**: `VieNeuVoiceCreatorView` bỏ `.fileImporter` (picker **mở** nhưng completion **không bao giờ chạy** khi app chạy trong LiveContainer) → dùng `DocumentPickerPresenter` của repo ([`DocumentPicker.swift`](../../Sources/Views/Common/DocumentPicker.swift) `:80-133`), mở với `asCopy: true` (`:36`) nên URL trả về **đã nằm trong sandbox app**, không cần security-scope.
+- **`discardSample` có thể xoá file gốc của người dùng**: nay chỉ xoá khi URL nằm trong `FileManager.default.temporaryDirectory` (trước đây xoá vô điều kiện).
+- **Tốc độ**: `enroll` **bỏ** bước `service.prepare()` thừa — nó nạp 4 graph chính + `sea_g2p.bin` (62,8 MB) trong khi `enrollVoice` chỉ cần `store` + `VieNeuVoiceCloner`. Cũng bỏ việc đặt `_currentVoice` ở đường tạo giọng.
+- **Tiến trình**: thêm `enum VieNeuVoiceCloner.Stage` + callback `@Sendable` (`decoding` → `features` → `loadingGraphs` → `speaker` → `codec` → `style`); `VieNeuVoiceLibraryView+Sections` hiện nhãn từng bước (`EnrollProgress` box + `Task { @MainActor }`) thay vì một `ProgressView` xoay vô định. `.loadingGraphs` đặt ngay trước `VieNeuONNXRuntime(cloneOnlyModelStore:)` — bước chậm nhất.
+- **Nút Lưu khoá mà không nói vì sao**: `saveBlockReason` trả lý do cụ thể (đang dò file / đang thu / chưa có mẫu / chưa nhập tên), render thành một mục trong Form; `canSave = saveBlockReason == nil`.
+- **File mới**: `VieNeuTTSEngine+Catalog.swift` **34**. **File sửa**: `VieNeuTTSEngine.swift` **400 → 400** (không đổi), `VieNeuTTSService.swift` 376 → **394**, `VieNeuVoiceCloner.swift` 270 → **294**, `VieNeuVoiceCreatorView.swift` 329 → **365**, `VieNeuVoiceLibraryView.swift` 346 → **372**, `VieNeuVoiceLibraryView+Sections.swift` 171 → **201**.
+- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` **PASS 100%**. **Không build trên Windows** ⇒ CI (`Build Unsigned IPA`) là nơi xác nhận biên dịch.
+- **Tài liệu CodeGraph**: cập nhật **9** doc (`00_index`, `02_file_graph`, `04_call_graph`, `09_dependency_rules`, `10_risk_report`, `11_subsystems`, `13_resource_lifecycle`, `14_complexity_report`, `rules.md`) — 8 doc stale do **thêm file mới** (đổi *cấu trúc*), 4 trong đó còn stale do **đổi nội dung**.
+- **Chưa kiểm chứng trên máy thật**: bước 4 của plan — nghe **đúng** giọng vừa tạo **trong cùng phiên** — là phép thử bắt buộc và **chỉ** chạy được trên thiết bị.
+
+---
+
 ## [1.3.454] - 2026-09-30
 
 ### feat: nhan ban giong VieNeu tu audio mau (voice cloning)
@@ -561,17 +581,3 @@ Người dùng báo **"đọc số và thứ ngày tháng bị nuốt chữ"** k
 - **File sửa**: `TextPreprocessor.swift` **1121 → 1121** (không đổi), `VieNeuTTSEngine.swift` 338 → **344**, `VieNeuTTSEngine+Audio.swift` 190 → **171** (bỏ hàm thừa).
 - **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
 - **Tài liệu CodeGraph**: `rules.md` thêm 3 luật (đọc số trước khi phonemize; không thêm dòng vào `TextPreprocessor.swift`; `-` trong giá trị từ điển là đúng); `11_subsystems.md` thêm mục về lượt này.
-
-## [1.3.425] - 2026-09-29
-
-### fix: khoang nghi theo dau cau va chuan hoa dau cau la
-
-Người dùng báo `phoneme bỏ: 1` và **"ngừng nghỉ chưa hợp lý"**, kèm lo ngại **"RTF tăng đáng kể so với ver trước"**.
-
-- **`phoneme bỏ: 1` = dấu gạch ngang `–` (U+2013).** Vocab `config.json` có `-` ASCII nhưng **không** có `–`/`—`/`“ ”`, và `VieNeuConfig.encode` **bỏ im lặng** ký tự lạ (chỉ đếm vào `droppedScalars`). Nay `normalizingPunctuation` ánh xạ gạch ngang sang **dấu phẩy** — nó mang nghĩa *ngắt ý*, và dấu phẩy thì model biết đọc — và bỏ các dấu nháy trang trí. **Cố ý không đụng `'`/`’`**: tokenizer dùng chúng để ghép từ.
-- **"Ngừng nghỉ chưa hợp lý"**: khoảng nghỉ là **hằng số 0,12 s** cho mọi khe, và **dấu phẩy không nằm trong bộ ký tự ranh giới chunk** — mà khoảng lặng chỉ được chèn **giữa** các chunk, nên dấu phẩy nằm *trong* chunk thì mọi chỗ ngắt theo dấu phẩy đều mất. Nay `pauseSeconds(afterChunk:)` đọc **đúng khoá `UserDefaults`** mà đường NghiTTS dùng (`sentencePauseDuration` 0,3 s / `phrasePauseDuration` 0,15 s) ⇒ chỉnh trong Cấu hình NghiTTS là **cả hai engine** cùng đổi. `,` `，` `、` đã vào `chunkBoundaryCharacters`.
-- **Về "RTF tăng": đó là artefact của phép đo, không phải engine chậm đi.** `RTF = synthesisMs / audioSeconds`, nên bất cứ gì làm **audio ngắn đi** đều đẩy RTF lên. Hai lần người dùng đo dùng **văn bản khác nhau** (290 vs 285 ký tự) và cho audio 16,88 s vs 15,08 s (−11%) trong khi thời gian tổng hợp chỉ đổi 4376 → 4554 ms (+4%, trong nhiễu nhiệt). Báo cáo nay in thêm **"nhanh hơn N× so với realtime"** (`1/RTF`) để con số đọc trực tiếp. Muốn so chuẩn thì phải **cùng một đoạn văn**.
-- **Thêm "mẫu phoneme" vào khối chẩn đoán** (`phoneme: …`, 120 ký tự đầu của chunk đầu): đây là **bằng chứng duy nhất** phân biệt được "từ điển trả phoneme sai" với "phoneme đúng nhưng model đọc phoneme tiếng Anh bằng giọng Việt" — hai nguyên nhân nghe giống hệt nhau. Cần cho ca `Potter` còn treo.
-- **File sửa**: `VieNeuTTSEngine+Audio.swift` 126 → **190**, `VieNeuTTSEngine.swift` 330 → **338**, `VieNeuTTSService.swift` 262 → **267**, `VieNeuTTSTestView.swift` 284 → **285**, `+Diagnostics.swift` 40 → **44**.
-- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
-- **Tài liệu CodeGraph**: `rules.md` thêm 3 luật (khoảng nghỉ theo dấu câu; chuẩn hoá dấu câu lạ; RTF là tỉ số nên phải so trên cùng văn bản); `11_subsystems.md` thêm mục về lượt này.

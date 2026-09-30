@@ -35,6 +35,8 @@ struct VieNeuVoiceLibraryView: View {
     @State var renameText = ""
     @State var pendingDeletion: VieNeuCustomVoiceStore.Record?
     @State var workTask: Task<Void, Never>?
+    /// Bước hiện tại của lượt nhân bản. Xem `EnrollProgress` ở file `+Sections`.
+    @StateObject var enrollProgress = EnrollProgress()
 
     var service: VieNeuTTSService? { VieNeuTTSService.shared }
     var store: VieNeuCustomVoiceStore? { service?.customVoiceStore }
@@ -175,17 +177,22 @@ struct VieNeuVoiceLibraryView: View {
         isWorking = true
         isError = false
         workingMessage = "Đang phân tích audio mẫu…"
+        enrollProgress.stage = nil
         statusMessage = ""
 
         workTask = Task {
             do {
-                // Lượt đầu phải nạp engine (4 graph + 62,8 MB sea_g2p) trước khi tổng hợp được giọng mới.
-                if !service.isPrepared {
-                    workingMessage = "Đang nạp engine VieNeu…"
-                    try await service.prepare(voice: name)
-                }
+                // **Không** nạp engine chính ở đây. `enrollVoice` chỉ dùng `modelStore` + `VieNeuVoiceCloner`
+                // (nó mở ngữ cảnh ORT riêng cho 3 graph clone), nên nạp thêm 4 graph + 62,8 MB `sea_g2p.bin`
+                // là chi phí **thừa** — đây chính là phần "bấm Tạo giọng chờ lâu". Engine chính được nạp ở
+                // `playPreview` khi người dùng thực sự cần nghe.
                 workingMessage = "Đang nhân bản giọng…"
-                let enrollment = try await service.enrollVoice(sampleURL: sampleURL)
+                // Closure này là `@Sendable` (chạy trong `Task.detached` của `enrollVoice`) nên **không**
+                // được capture `self` — chỉ capture hộp `progress`, xem `EnrollProgress`.
+                let progress = enrollProgress
+                let enrollment = try await service.enrollVoice(sampleURL: sampleURL) { stage in
+                    Task { @MainActor in progress.stage = stage }
+                }
                 guard !Task.isCancelled else { return }
 
                 let store = service.customVoiceStore
@@ -211,6 +218,7 @@ struct VieNeuVoiceLibraryView: View {
                     ? "Đã tạo giọng “\(name)” từ \(String(format: "%.1f", enrollment.sampleSeconds)) giây audio."
                     : "Đã tạo lại embedding cho “\(name)”."
                 reload()
+                refreshVoiceCatalog()
             } catch is CancellationError {
                 isWorking = false
             } catch {
@@ -218,6 +226,22 @@ struct VieNeuVoiceLibraryView: View {
                 isError = true
                 statusMessage = "Tạo giọng thất bại: \(error.localizedDescription)"
             }
+        }
+    }
+
+    /// Nạp lại catalog giọng của engine sau khi kho giọng đổi (tạo / tạo lại / đổi tên / xoá).
+    ///
+    /// **Bắt buộc**: `VieNeuTTSEngine.prepareLocked` chỉ nạp catalog **một lần** trong vòng đời engine
+    /// (`VieNeuTTSEngine.swift:150`), mà engine sống suốt vòng đời app. Thiếu bước này thì giọng vừa tạo bị
+    /// `synthesize` rơi **im lặng** về giọng mặc định cho tới khi mở lại app — đã xảy ra thật: tạo giọng
+    /// xong đọc truyện nghe y giọng mặc định, tắt app mở lại mới đúng âm sắc.
+    ///
+    /// Lỗi ở đây **không** được làm hỏng kết quả đã đạt được (giọng đã lưu xong), nên chỉ ghi chú thêm.
+    func refreshVoiceCatalog() {
+        do {
+            try service?.refreshVoiceCatalog()
+        } catch {
+            statusMessage += " (Chưa nạp lại được danh sách giọng: \(error.localizedDescription))"
         }
     }
 
@@ -229,6 +253,7 @@ struct VieNeuVoiceLibraryView: View {
             isError = false
             statusMessage = "Đã xoá giọng “\(record.name)”."
             reload()
+            refreshVoiceCatalog()
         } catch {
             isError = true
             statusMessage = "Xoá thất bại: \(error.localizedDescription)"
@@ -244,6 +269,7 @@ struct VieNeuVoiceLibraryView: View {
             isError = false
             statusMessage = "Đã đổi tên giọng thành “\(name.trimmed)”."
             reload()
+            refreshVoiceCatalog()
         } catch {
             isError = true
             statusMessage = "Đổi tên thất bại: \(error.localizedDescription)"

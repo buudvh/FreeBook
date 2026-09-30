@@ -16,6 +16,12 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 
 <!-- GENERATED START -->
 
+## 1.3.455 — độ phức tạp (sửa luồng nhân bản giọng)
+
+* `VieNeuTTSEngine+Catalog.swift` **34**, 1 extension (không thêm type mới). `refreshVoiceCatalog()` là O(số giọng) để parse JSON ~2,3 MB — **không** nằm trên đường tổng hợp, chỉ chạy khi kho giọng đổi.
+* Trần dòng: `VieNeuTTSEngine.swift` **vẫn 400/400** (chỉ đổi access modifier trên dòng đang có). `VieNeuVoiceCreatorView` **365**, `VieNeuVoiceLibraryView` **372**, `VieNeuVoiceLibraryView+Sections` **201**, `VieNeuTTSService` **394**, `VieNeuVoiceCloner` **294** — tất cả dưới 400.
+* `enroll` bỏ một lượt nạp engine ⇒ **giảm** đáng kể thời gian bấm "Tạo giọng"; chi phí đó **chuyển** sang lần đầu bấm "Nghe thử".
+
 ## 1.3.453 — độ phức tạp của phân hệ nhân bản giọng
 
 * [`VieNeuVoiceCloner.swift`](../../Sources/Services/TTS/VieNeu/VieNeuVoiceCloner.swift) **270**, 1 primary type (`enum VieNeuVoiceCloner`). Chi phí **một lần cho mỗi lần tạo giọng** (không nằm trên đường đọc truyện): 3 lượt `Run` ONNX trên ≤30 s audio. `groupLatent` là O(channels × frames) với hai vòng lặp tường minh — cố ý viết rõ thay vì `flatMap` để công thức chỉ số nằm một chỗ.

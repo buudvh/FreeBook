@@ -16,6 +16,12 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 
 <!-- GENERATED START -->
 
+## 1.3.455 — phân hệ nhân bản giọng: vòng đời giọng trong engine
+
+* **Trạng thái giọng của engine là ảnh chụp một lần**: `VieNeuTTSEngine.catalog` được nạp trong `prepareLocked` và **không** tự làm mới. Từ 1.3.455, mọi thay đổi của kho giọng user **phải** đi kèm `refreshVoiceCatalog()`.
+* **Đường vào file audio**: `DocumentPickerPresenter` (`asCopy: true`) ⇒ URL người dùng chọn **luôn** là bản copy trong `temporaryDirectory`; `VieNeuCustomVoiceStore.copySample` copy lần nữa vào `CustomVoices/samples/`.
+* **Chi phí tạo giọng** giảm còn 3 graph clone (~91 MB) + 3 lượt `Run` — **không** còn kèm 4 graph chính + 62,8 MB `sea_g2p.bin`.
+
 ## 1.3.453 — phân hệ mới: nhân bản giọng VieNeu (voice cloning)
 
 * **Vị trí**: nhánh phụ của phân hệ TTS/VieNeu, **không** nằm trên đường đọc truyện — chỉ chạy khi người dùng bấm tạo giọng.

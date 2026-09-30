@@ -16,6 +16,14 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 
 <!-- GENERATED START -->
 
+## 1.3.455 — quy chuẩn rút ra (sửa luồng nhân bản giọng)
+
+* **Luật 10 — trạng thái nạp một lần là nguồn của lỗi im lặng.** `VieNeuTTSEngine.catalog` chỉ được nạp trong `prepareLocked` (`guard runtime == nil`), mà engine sống suốt vòng đời app ⇒ mọi thứ suy ra từ catalog (danh sách giọng, `preset(named:)`) **đóng băng** từ lượt nạp đầu. Thêm dữ liệu mới vào catalog thì **bắt buộc** thêm đường làm mới. Tệ hơn: `preset(named:) ?? defaultPreset` **không** ném lỗi ⇒ người dùng nghe sai giọng mà UI vẫn báo thành công.
+* **Luật 11 — closure tiến trình qua `Task.detached` phải `@Sendable` và KHÔNG capture `self`.** Nếu nó capture `self` của một SwiftUI View thì đó là cảnh báo Sendable (lỗi ở Swift 6). Cách đúng, đã dùng ở `DictionaryMergeTask` và ở đây: capture một hộp `ObservableObject` `@unchecked Sendable` rồi `Task { @MainActor in … }`.
+* **Luật 12 — trần 400 dòng đẩy sang bẫy `private` theo file.** Muốn thêm hàm cho một type ở file đã đúng trần thì phải đặt hàm ở `X+Feature.swift`, và hạ mọi thành viên nó dùng từ `private` xuống `internal`. Sửa access modifier **trên dòng đang có** thì không tăng số dòng — đây là cách duy nhất vừa giữ trần vừa thêm được hành vi.
+* **Luật 13 — app cài qua LiveContainer: chọn file bằng `DocumentPickerPresenter`, đừng dùng `.fileImporter`.** `.fileImporter` của SwiftUI mở được picker nhưng **không** trả kết quả ⇒ không file, không lỗi, nút bị khoá im lặng. `DocumentPickerPresenter` (`asCopy: true`) vừa hợp môi trường đó vừa cho URL nằm sẵn trong sandbox.
+* **Luật 14 — nút bị khoá phải nói vì sao.** `canSave` suy thẳng từ `saveBlockReason` để nút và dòng giải thích không thể lệch nhau.
+
 ## 1.3.453 — quy chuẩn rút ra (nhân bản giọng VieNeu)
 
 * **Luật 1 — `groupLatent` là phép hoán vị kênh, không phải concat.** `out[c*g + slot][block] = zpad[c][block*g + slot]` với `g = 6`. Cách viết đúng là gộp nhóm rồi `transpose` rồi duỗi; cách viết **sai** (duỗi thẳng kênh liền kề) vẫn cho shape `(50, 256)` hợp lệ nên **không** có lỗi nào nổi lên — chỉ giọng khác đi. Mọi thay đổi ở đây **phải** chạy lại kiểm chứng numpy.

@@ -81,12 +81,12 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         }
     }
 
-    private let store: VieNeuModelStore
-    private let lock = NSLock()
+    let store: VieNeuModelStore
+    let lock = NSLock()
 
     private var runtime: VieNeuONNXRuntime?
     private var config: VieNeuConfig?
-    private var catalog: VieNeuVoiceCatalog?
+    var catalog: VieNeuVoiceCatalog?
     private var phonemizer: SeaG2P?
     /// `ctx` của nhánh vô điều kiện (CFG) — không phụ thuộc giọng lẫn văn bản nên tính một lần.
     /// Giữ **cả shape** vì shape đó do model quyết định, không suy được từ `config.json`.
