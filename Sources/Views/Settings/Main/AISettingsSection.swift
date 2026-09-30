@@ -9,7 +9,7 @@ public struct AISettingsSection: View {
             NavigationLink(destination: AISettingsView()) {
                 HStack(spacing: 12) {
                     Image(systemName: "sparkles")
-                        .foregroundColor(.purple)
+                        .foregroundColor(.white)
                         .font(.system(size: 18))
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Cấu hình API & Model AI")

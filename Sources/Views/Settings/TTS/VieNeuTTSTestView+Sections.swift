@@ -99,8 +99,9 @@ extension VieNeuTTSTestView {
                 .accessibilityLabel("Dán chữ")
                 .disabled(!UIPasteboard.general.hasStrings)
 
-                // Phát / Dừng nằm **cùng hàng** với xoá-sao chép-dán: tất cả chỉ là icon nên gom một chỗ
-                // thì thao tác không phải nhảy giữa hai khối.
+                // Phát / Dừng căn **sang phải** (user 2026-09-30), tách khỏi nhóm xoá-sao chép-dán.
+                Spacer()
+
                 Button {
                     playSample()
                 } label: {
