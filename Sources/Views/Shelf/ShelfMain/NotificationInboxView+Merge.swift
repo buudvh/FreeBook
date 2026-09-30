@@ -120,8 +120,10 @@ extension NotificationInboxView {
                     }
                 }
                 .frame(maxWidth: .infinity)
+                .foregroundColor(.white)
             }
             .buttonStyle(.borderedProminent)
+            .tint(Color(red: 0.204, green: 0.780, blue: 0.349))
             .disabled(isApplyingMerge)
 
             HStack(spacing: 8) {

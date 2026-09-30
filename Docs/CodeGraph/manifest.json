@@ -3,8 +3,8 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-09-30T07:31:29Z",
-  "gitCommit": "e85b0b45464b761ffd721c2834d377d315d1603e",
+  "generatedAt": "2026-09-30T08:36:22Z",
+  "gitCommit": "4c76df0025800fa74fa610dca792729126dab46c",
   "sourceFileCount": 614,
   "documentCount": 16,
   "documents": [
@@ -3234,11 +3234,11 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "3cc0d0d43234af1ac0b2ebf0ea9d4874e68cfe5c04e74fd32c18f51d16bd66ca",
-      "sourceHash": "1d5938068c162454e66306097dea02e95d5f008c4f01bc091a3ef7de5929f3cd",
-      "generatedHash": "8d135d2962c7b3221c2d7330397da453fbbcbf581b24a5cdc04fc45d64e67c0c",
-      "generatedAt": "2026-09-30T07:31:29Z",
-      "reviewedAt": "2026-09-30T07:31:29Z",
-      "reviewedCommit": "e85b0b45464b761ffd721c2834d377d315d1603e",
+      "sourceHash": "88c8c0d422155ad8b6fd38fbc617fff843fc9ef1f66e18ef0652f1f9b698cad3",
+      "generatedHash": "91fbf155ac3e02a5c039033bbe099be7961371a510faecf157315a77b879519c",
+      "generatedAt": "2026-09-30T08:33:20Z",
+      "reviewedAt": "2026-09-30T08:33:20Z",
+      "reviewedCommit": "4c76df0025800fa74fa610dca792729126dab46c",
       "reviewMode": "accept"
     },
     {
