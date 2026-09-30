@@ -2418,8 +2418,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
         let paragraph = paragraphs[currentParagraphIndex]
 
-        // Áp dụng các quy tắc thay thế ký tự trước khi đọc
-        let textToSpeak = TTSReplacementManager.shared.applyReplacements(to: paragraph.text)
+        // Áp dụng các quy tắc thay thế ký tự trước khi đọc (rule riêng của truyện đè rule chung theo pattern)
+        let textToSpeak = TTSReplacementManager.shared.applyReplacements(to: paragraph.text, bookId: playingBookId)
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !textToSpeak.isEmpty else {
@@ -2811,7 +2811,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         var target: (index: Int, isEssential: Bool, text: String)?
         for _ in 0..<Self.maxNghiEmptyRefillSkips {
             guard let candidate = nghiRefillCandidate(currentIndex: N) else { break }
-            let candidateText = TTSReplacementManager.shared.applyReplacements(to: paragraphs[candidate.index].text)
+            let candidateText = TTSReplacementManager.shared.applyReplacements(to: paragraphs[candidate.index].text, bookId: playingBookId)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             if !candidateText.isEmpty { target = (candidate.index, candidate.isEssential, candidateText); break }
             nghiEmptyParagraphIndices.insert(candidate.index)
@@ -2995,7 +2995,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
         guard index >= 0 && index < paragraphs.count else { return }
         let rawText = paragraphs[index].text
-        let text = TTSReplacementManager.shared.applyReplacements(to: rawText)
+        let text = TTSReplacementManager.shared.applyReplacements(to: rawText, bookId: playingBookId)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         let voice = selectedVoice

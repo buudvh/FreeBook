@@ -45,6 +45,10 @@ public enum BackupPaths {
     /// mất comment và mất thứ tự dòng, mà thứ tự dòng là tie-break cuối của priority).
     public static let bookRuleFiles = TranslationManager.bookScopedRuleFiles
 
+    /// Rule **thay thế ký tự TTS** riêng của truyện (JSON). Cũng **không** gộp vào `bookDictionaryFiles` —
+    /// cùng lý do như `bookRuleFiles`: vòng khôi phục nhóm đó parse `key=value` và sẽ **phá JSON**.
+    public static let bookTTSFiles = TranslationManager.bookScopedTTSFiles
+
     /// Từ điển chung dạng nhị phân. Chỉ lấy `<Name>.txt` khi **không** có `.dat` cùng tên
     /// để tránh nhân đôi vài chục MB.
     public static let sharedDictionaryDatFiles = ["VietPhrase.dat", "Names.dat", "Pronouns.dat", "LuatNhan.dat"]

@@ -16,6 +16,16 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 
 <!-- GENERATED START -->
 
+## 1.3.446 — trạng thái của tầng rule thay thế riêng theo truyện
+
+* **Hai cache mới** ở `TTSReplacementManager+BookScope.swift` (biến cấp file, có lock):
+  - `bookRulesCache: [String: [TTSReplacementRule]]` — rule riêng đã đọc đĩa, bảo vệ bằng `bookCacheLock`;
+  - `bookPlansCache: [String: [ReplacementStep]]` — kế hoạch đã biên dịch theo truyện, bảo vệ bằng **`planLock` của file chính** (một lock cho mọi trạng thái kế hoạch, tránh hai lock lồng nhau).
+* **Nguồn sự thật là file trên đĩa**: cache chỉ là bản đọc nhanh; `loadRules(bookId:)` nạp lại từ file (dùng sau khi import/khôi phục backup ghi thẳng vào file).
+* **Bất biến**: mỗi tầng tối đa **một** rule cho một `pattern` — `addRule` xoá hết rule cùng `pattern` rồi mới thêm; `merge` khi import chỉ nối rule có `pattern` **chưa** tồn tại.
+* `DictionaryMergeTask` thêm trạng thái `UserDefaults` (`vietPhraseMergeSummary`): mục thông báo sống theo file trên đĩa nên vẫn hiện sau restart, còn `lastOutcome` chỉ sống trong RAM ⇒ số liệu chip phải lưu ra ngoài.
+
+
 ## Nạp Trước Đồng Thời Cho VieNeu + Safe-Window 150 ms (1.3.438)
 
 * **Sửa đoạn ngắn VieNeu bị đứt**: `updateNghiPrefetchWindow` trước đây chỉ nạp **1** đoạn rồi `return` (`canScheduleNghiRefill` cấm lượt thứ hai bay cùng lúc). VieNeu tổng hợp đắt (RTF ~0,3 + chi phí cố định theo chunk; `VieNeuSynthesisPolicy.bufferedSecondsTarget = 12`) nên đoạn ngắn không kịp tổng hợp trước khi đoạn đang phát kết thúc. Đổi sang **pool đồng thời** (`nghiRefillTasks: [Int: Task]` + `nghiRefillInFlightIndices: Set<Int>`) và `fillNghiRefillUpToCapacity()`; `nghiRefillCandidate` bước qua index đang bay. NghiTTS giữ 1 luồng.

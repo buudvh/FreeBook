@@ -16,6 +16,15 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 
 <!-- GENERATED START -->
 
+## 1.3.446 — vòng đời tài nguyên của tầng rule riêng theo truyện
+
+* **File**: `translate/books/<bookId>/character_replacements.json` — ghi `.atomic`; danh sách rỗng ⇒ **xoá file** thay vì để lại `[]`.
+* **Bộ nhớ**: `bookRulesCache` + `bookPlansCache` là cache trong RAM, mất khi app thoát. Truyện **không** có rule riêng chỉ tốn 1 entry rỗng (hoặc không có entry nào nếu chưa từng hỏi).
+* **Lock**: `bookCacheLock` cho rule, `planLock` (file chính) cho kế hoạch; dựng kế hoạch xảy ra **ngoài** lock vì đọc file là I/O — hai luồng cùng dựng một truyện cho cùng kết quả nên vô hại.
+* **Đọc trên đường nóng**: `applyReplacements` chỉ tra cache, không chạm đĩa sau lần đầu của mỗi truyện.
+* `WAVConcatenator` (1.3.444) không giữ tài nguyên hệ thống nào — chỉ cấp phát `Data` mới rồi trả về.
+
+
 ## 1.3.444 — vòng đời tài nguyên của màn thử VieNeu
 
 * Màn thử sinh **N** file WAV tạm (một cho mỗi đoạn) rồi ghép thành **một** `Data`; chỉ file ghép được ghi ra `temporaryDirectory` (`writeTemporaryAudio`). Các `Data` trung gian nằm trong mảng `parts` cục bộ của `Task` và được giải phóng khi hàm kết thúc.

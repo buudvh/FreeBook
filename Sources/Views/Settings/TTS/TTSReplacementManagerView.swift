@@ -1,11 +1,23 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+/// Màn quản lý rule thay thế TTS, dùng cho **cả hai tầng**:
+///
+/// - `bookId == nil` ⇒ tầng **chung** (`FreeBook/TTS/character_replacements.json`), mở từ tab Cài đặt.
+/// - `bookId != nil` ⇒ tầng **riêng của truyện** (`translate/books/<bookId>/character_replacements.json`),
+///   mở từ hub theo truyện.
+///
+/// Phần hai tầng (định tuyến lời gọi manager, nút chuyển rule, `ruleRow`) nằm ở
+/// `TTSReplacementManagerView+Layer.swift` vì file này ở **390/400** dòng.
 struct TTSReplacementManagerView: View {
     struct ExportDocument: Identifiable {
         var id: String { url.absoluteString }
         let url: URL
     }
+
+    /// `nil` = tầng chung; có giá trị = tầng riêng của truyện đó.
+    var bookId: String? = nil
+    var bookName: String = ""
 
     @ObservedObject var manager = TTSReplacementManager.shared
     @Environment(\.dismiss) var dismiss
@@ -25,8 +37,9 @@ struct TTSReplacementManagerView: View {
     @State private var exportDocumentToShare: ExportDocument? = nil
     
     // Trạng thái thông báo lỗi/thành công
-    @State private var alertMessage = ""
-    @State private var showingAlert = false
+    /// **Không** `private`: extension `+Layer` dùng chéo file (Swift giới hạn `private` theo file).
+    @State var alertMessage = ""
+    @State var showingAlert = false
     @State private var searchText = ""
 
     /// Tự giữ `editMode` thay vì dùng `EditButton()`: nút đó không đặt được trong `Menu` với nhãn tiếng
@@ -41,8 +54,8 @@ struct TTSReplacementManagerView: View {
 
     private var visibleRules: [TTSReplacementRule] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !query.isEmpty else { return manager.rules }
-        return manager.rules.filter {
+        guard !query.isEmpty else { return currentRules }
+        return currentRules.filter {
             $0.pattern.lowercased().contains(query) || $0.replacement.lowercased().contains(query)
         }
     }
@@ -55,7 +68,7 @@ struct TTSReplacementManagerView: View {
                     .foregroundColor(.secondary)
             }
             
-            if manager.rules.isEmpty {
+            if currentRules.isEmpty {
                 Section {
                     HStack {
                         Spacer()
@@ -81,19 +94,19 @@ struct TTSReplacementManagerView: View {
                 Section {
                     if isSearching {
                         // Danh sach da bi loc: `IndexSet` cua `onDelete`/`onMove` tro vao mang **da loc**
-                        // nen ap len `manager.rules` se xoa/di chuyen sai rule. Xoa theo `id` thay vi vi tri.
+                        // nen ap len `currentRules` se xoa/di chuyen sai rule. Xoa theo `id` thay vi vi tri.
                         ForEach(visibleRules) { rule in
                             ruleRow(for: rule)
                                 .swipeActions(edge: .trailing) {
                                     Button(role: .destructive) {
-                                        manager.deleteRule(id: rule.id)
+                                        deleteRuleLayer(rule.id)
                                     } label: {
                                         Label("Xoá", systemImage: "trash")
                                     }
                                 }
                         }
                     } else {
-                        ForEach(manager.rules) { rule in
+                        ForEach(currentRules) { rule in
                             ruleRow(for: rule)
                         }
                         .onDelete(perform: deleteRules)
@@ -101,6 +114,9 @@ struct TTSReplacementManagerView: View {
                     }
                 }
             }
+
+            // Chỉ có nội dung ở màn tầng riêng: danh sách rule chung để "Lấy vào riêng".
+            globalRulesSection
         }
         .searchable(text: $searchText, prompt: "Tìm mẫu hoặc chuỗi thay thế...")
         .environment(\.editMode, $editMode)
@@ -109,7 +125,7 @@ struct TTSReplacementManagerView: View {
             // sắp xếp, nếu không List kẹt ở edit mode mà mục thoát trong menu đã bị ẩn.
             if searching { editMode = .inactive }
         }
-        .navigationTitle("Thay thế ký tự TTS")
+        .navigationTitle(layerTitle)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
@@ -136,10 +152,13 @@ struct TTSReplacementManagerView: View {
                         Label("Xuất cấu hình (JSON)", systemImage: "square.and.arrow.up")
                     }
 
-                    Divider()
+                    // Tầng riêng không có bộ mặc định (bộ mặc định là của tầng chung) nên ẩn hẳn mục này.
+                    if !isBookLayer {
+                        Divider()
 
-                    Button(action: { showingResetOptions = true }) {
-                        Label("Khôi phục mặc định", systemImage: "arrow.triangle.2.circlepath")
+                        Button(action: { showingResetOptions = true }) {
+                            Label("Khôi phục mặc định", systemImage: "arrow.triangle.2.circlepath")
+                        }
                     }
                 } label: {
                     Label("Tùy chọn", systemImage: "ellipsis.circle")
@@ -181,13 +200,13 @@ struct TTSReplacementManagerView: View {
         // Chọn phương thức khôi phục mặc định
         .confirmationDialog("Khôi phục quy tắc mặc định", isPresented: $showingResetOptions, titleVisibility: .visible) {
             Button("Gộp với quy tắc hiện tại") {
-                manager.resetToDefaults(mode: .merge)
+                resetToDefaultsLayer(mode: .merge)
                 self.alertMessage = "Đã gộp các quy tắc mặc định thành công!"
                 self.showingAlert = true
             }
             
             Button("Khôi phục hoàn toàn (Ghi đè)", role: .destructive) {
-                manager.resetToDefaults(mode: .overwrite)
+                resetToDefaultsLayer(mode: .overwrite)
                 self.alertMessage = "Đã khôi phục danh sách mặc định thành công!"
                 self.showingAlert = true
             }
@@ -199,7 +218,7 @@ struct TTSReplacementManagerView: View {
         // Chọn phương thức nhập (Gộp hoặc Ghi đè)
         .confirmationDialog("Chọn phương thức nhập cấu hình", isPresented: $showingImportOptions, titleVisibility: .visible) {
             Button("Gộp với dữ liệu hiện có") {
-                let success = manager.importRules(fromJSONString: pendingImportJSON, mode: .merge)
+                let success = importRulesLayer(pendingImportJSON, mode: .merge)
                 if success {
                     self.alertMessage = "Đã gộp cấu hình thành công!"
                 } else {
@@ -209,7 +228,7 @@ struct TTSReplacementManagerView: View {
             }
             
             Button("Ghi đè toàn bộ (Xóa cũ)", role: .destructive) {
-                let success = manager.importRules(fromJSONString: pendingImportJSON, mode: .overwrite)
+                let success = importRulesLayer(pendingImportJSON, mode: .overwrite)
                 if success {
                     self.alertMessage = "Đã ghi đè cấu hình thành công!"
                 } else {
@@ -236,52 +255,6 @@ struct TTSReplacementManagerView: View {
                 }
             }
         }
-    }
-    
-    @ViewBuilder
-    private func ruleRow(for rule: TTSReplacementRule) -> some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text("\"\(rule.pattern)\"")
-                        .font(.system(.body, design: .monospaced))
-                        .fontWeight(.semibold)
-                        .foregroundColor(rule.isEnabled ? .primary : .secondary)
-                    
-                    Image(systemName: "arrow.right")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    Text(rule.replacement.isEmpty ? "(rỗng)" : "\"\(rule.replacement)\"")
-                        .font(.system(.body, design: .monospaced))
-                        .foregroundColor(rule.replacement.isEmpty ? .secondary : (rule.isEnabled ? .primary : .secondary))
-                }
-            }
-            
-            Spacer()
-            
-            Toggle("", isOn: Binding(
-                get: { rule.isEnabled },
-                set: { newValue in
-                    var updated = rule
-                    updated.isEnabled = newValue
-                    manager.updateRule(updated)
-                }
-            ))
-            .labelsHidden()
-            .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
-            
-            // Nút nhấn để sửa
-            Button(action: {
-                prepareForEdit(rule)
-            }) {
-                Image(systemName: "pencil")
-                    .foregroundColor(.white)
-                    .padding(8)
-            }
-            .buttonStyle(.plain)
-        }
-        .contentShape(Rectangle())
     }
     
     @ViewBuilder
@@ -321,19 +294,18 @@ struct TTSReplacementManagerView: View {
     // Sửa/Xóa/Di chuyển
     private var countText: String {
         isSearching
-            ? "\(visibleRules.count)/\(manager.rules.count) quy tắc khớp. Thứ tự áp dụng chỉ đúng khi không tìm kiếm."
-            : "\(manager.rules.count) quy tắc, áp dụng từ trên xuống."
+            ? "\(visibleRules.count)/\(currentRules.count) quy tắc khớp. Thứ tự áp dụng chỉ đúng khi không tìm kiếm."
+            : "\(currentRules.count) quy tắc, áp dụng từ trên xuống."
     }
 
     private func deleteRules(at offsets: IndexSet) {
         for index in offsets {
-            let rule = manager.rules[index]
-            manager.deleteRule(id: rule.id)
+            deleteRuleLayer(currentRules[index].id)
         }
     }
     
     private func moveRules(from source: IndexSet, to destination: Int) {
-        manager.moveRules(from: source, to: destination)
+        moveRulesLayer(from: source, to: destination)
     }
 
     private func toggleReordering() {
@@ -349,8 +321,8 @@ struct TTSReplacementManagerView: View {
         showingEditSheet = true
     }
     
-    // Chuẩn bị form Sửa
-    private func prepareForEdit(_ rule: TTSReplacementRule) {
+    // Chuẩn bị form Sửa. **Không** `private`: `ruleRow` ở file `+Layer` gọi.
+    func prepareForEdit(_ rule: TTSReplacementRule) {
         selectedRule = rule
         patternInput = rule.pattern
         replacementInput = rule.replacement
@@ -365,17 +337,17 @@ struct TTSReplacementManagerView: View {
             updated.pattern = patternInput
             updated.replacement = replacementInput
             updated.isEnabled = isEnabledInput
-            manager.updateRule(updated)
+            manager.updateRule(updated, bookId: bookId)
         } else {
             let newRule = TTSReplacementRule(pattern: patternInput, replacement: replacementInput, isEnabled: isEnabledInput)
-            manager.addRule(newRule)
+            manager.addRule(newRule, bookId: bookId)
         }
         showingEditSheet = false
     }
     
     // Xuất file JSON
     private func exportRules() {
-        guard let jsonString = manager.exportRulesToJSON() else {
+        guard let jsonString = exportRulesLayer() else {
             ToastManager.shared.show(message: "Không có cấu hình để xuất.", type: .error)
             return
         }

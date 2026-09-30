@@ -16,6 +16,15 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 
 <!-- GENERATED START -->
 
+## 1.3.446 — phụ thuộc mới của tầng rule thay thế theo truyện
+
+* [`TTSReplacementScope.swift`](../../Sources/Services/TTS/TTSReplacementScope.swift) chỉ `import Foundation`, không phụ thuộc gì khác — dùng được từ cả tầng Service lẫn tầng View.
+* [`TTSReplacementManager+BookScope.swift`](../../Sources/Services/TTS/Preprocessing/TTSReplacementManager+BookScope.swift) (Services) phụ thuộc `TranslationManager` (lấy `translateDirectory`), `AppLogger`, và các thành viên **đã hạ `private` → `internal`** ở file chính: `ReplacementStep`, `planLock`, `compile(_:)`. **Không** `import SwiftUI`, **không** `ToastManager`.
+* [`TTSReplacementManager+PlanCompile.swift`](../../Sources/Services/TTS/Preprocessing/TTSReplacementManager+PlanCompile.swift) chỉ `Foundation` + `ReplacementStep`.
+* [`TTSReplacementManagerView+Layer.swift`](../../Sources/Views/Settings/TTS/TTSReplacementManagerView+Layer.swift) (Views) → Services: `TTSReplacementManager`. Chiều Views → Services giữ nguyên; không có phụ thuộc ngược.
+* `TranslationManager.bookScopedTTSFiles` trỏ tới `TTSReplacementManager.bookRulesFileName` ⇒ tầng Translation **biết** một hằng số của tầng TTS (chỉ là chuỗi tên file, không phải gọi hàm). Đây là chỗ duy nhất có mũi tên đó; nếu sau này TTS đổi tên file thì `bookScopedMigrationFiles` và `BackupPaths.bookTTSFiles` đi theo tự động.
+
+
 ## 1.3.445 — phụ thuộc của phần gộp từ điển
 
 * [`DictionaryMergeService.swift`](../../Sources/Services/Translation/Manager/DictionaryMergeService.swift) (Services/Translation) chỉ phụ thuộc `Foundation` + `TranslationManager` + `DictionaryTextFileStore` — cùng tầng, không `import SwiftUI`, không `ToastManager`.

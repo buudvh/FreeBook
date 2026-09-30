@@ -16,6 +16,20 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 <!-- GENERATED START -->
 
+## +4 file: tầng rule thay thế TTS riêng theo truyện (1.3.446)
+
+| Nhóm | File | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Services/TTS | [`TTSReplacementScope.swift`](../../Sources/Services/TTS/TTSReplacementScope.swift) | **Mới** — enum `book(String)` / `global` | 15 |
+| Services/TTS/Preprocessing | [`TTSReplacementManager+PlanCompile.swift`](../../Sources/Services/TTS/Preprocessing/TTSReplacementManager+PlanCompile.swift) | **Mới** — `compile(_:)` + `compileCharacterRun` (tách khỏi file chính) | 65 |
+| Services/TTS/Preprocessing | [`TTSReplacementManager+BookScope.swift`](../../Sources/Services/TTS/Preprocessing/TTSReplacementManager+BookScope.swift) | **Mới** — tầng riêng: đọc/ghi `translate/books/<bookId>/character_replacements.json`, `mergedRules`, `plan(forBookId:)`, CRUD theo tầng, chuyển rule | 230 |
+| Views/Settings/TTS | [`TTSReplacementManagerView+Layer.swift`](../../Sources/Views/Settings/TTS/TTSReplacementManagerView+Layer.swift) | **Mới** — định tuyến theo tầng + `ruleRow` + nút chuyển rule giữa 2 tầng | 162 |
+
+* Sửa nội dung: `TTSReplacementManager.swift` 391 → **352** (tách 2 file trên), `TTSReplacementManagerView.swift` 390 → **362** (nhận `bookId`/`bookName`, mọi lời gọi manager theo tầng), `AddTTSReplacementSheet.swift` 79 → **184**, `ReaderView+RuleTools.swift` 271 → **304** (`handleAddTTSReplacement`), `DictionaryHubView.swift` 173 → **198** (section "Thay thế từ (TTS)"), `BackupDictionaryRestorer.swift` 302 → **336**, `BackupDictionaryArchiver.swift` 146 → **158**, `BackupPaths.swift` 173 → **177**, `TranslationManager+BookScopedFiles.swift` 28 → **36**.
+* `ReaderView.swift` **2042** — **giảm** so với baseline 2053 (closure của sheet rút sang `ReaderView+RuleTools.swift` để không tạo violation mới).
+* **Vì sao tách 3 file cho một tính năng**: `TTSReplacementManager.swift` ở **391/400** và `TTSReplacementManagerView.swift` ở **390/400** — nhúng thẳng là vượt trần. Đây là lần thứ ba trong repo phải hạ `private` → `internal` để extension khác file dùng được.
+
+
 ## +3 file: gộp VietPhrase ra file text mới + mục thông báo (1.3.445)
 
 | Nhóm | File | Vai trò | Dòng |

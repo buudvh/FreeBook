@@ -16,6 +16,14 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 
 <!-- GENERATED START -->
 
+## 1.3.446 — sự kiện quanh tầng rule thay thế riêng theo truyện
+
+* **Không thêm event/notification mới**: rule riêng áp ngay ở lượt tổng hợp kế tiếp vì `applyReplacements` đọc kế hoạch theo `bookId` tại thời điểm gọi (không có cache cấp phiên đọc).
+* Đổi rule **chung** (`rules.didSet` → `rebuildReplacementPlan`) **có** hiệu ứng lan: `invalidateBookPlans()` xoá kế hoạch mọi truyện ⇒ lượt đọc kế tiếp dựng lại từ `bookRulesCache` (không đọc đĩa).
+* Khôi phục backup rule riêng: `BackupDictionaryRestorer.restoreBookTTSFiles` ghi file rồi `Task { @MainActor in TTSReplacementManager.shared.loadRules(bookId:) }` để cache khớp đĩa — thiếu bước này thì lượt đọc kế tiếp vẫn dùng bản cũ đọc lúc khởi động.
+* Đổi nguồn truyện (`BookSourceMigrator`) **không** phát event mới: file `character_replacements.json` đi theo truyện qua `TranslationManager.bookScopedMigrationFiles`.
+
+
 ## Nạp Trước Đồng Thời Cho VieNeu + Safe-Window 150 ms (1.3.438)
 
 * **Sửa đoạn ngắn VieNeu bị đứt**: `updateNghiPrefetchWindow` trước đây chỉ nạp **1** đoạn rồi `return` (`canScheduleNghiRefill` cấm lượt thứ hai bay cùng lúc). VieNeu tổng hợp đắt (RTF ~0,3 + chi phí cố định theo chunk; `VieNeuSynthesisPolicy.bufferedSecondsTarget = 12`) nên đoạn ngắn không kịp tổng hợp trước khi đoạn đang phát kết thúc. Đổi sang **pool đồng thời** (`nghiRefillTasks: [Int: Task]` + `nghiRefillInFlightIndices: Set<Int>`) và `fillNghiRefillUpToCapacity()`; `nghiRefillCandidate` bước qua index đang bay. NghiTTS giữ 1 luồng.

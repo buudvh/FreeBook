@@ -14,6 +14,19 @@ import Foundation
 final class DictionaryMergeTask: ObservableObject {
     static let shared = DictionaryMergeTask()
 
+    /// Bản tóm tắt lượt gộp gần nhất, để dựng chip `gốc / sửa / xoá` sau khi **khởi động lại app**.
+    ///
+    /// Mục thông báo sống theo **file trên đĩa** nên vẫn hiện sau restart, còn `lastOutcome` chỉ sống
+    /// trong RAM — không lưu ra `UserDefaults` thì chip biến mất sau mỗi lần mở lại app.
+    private struct MergeSummary: Codable {
+        let baseCount: Int
+        let customCount: Int
+        let deletedCount: Int
+        let totalCount: Int
+    }
+
+    private static let summaryKey = "vietPhraseMergeSummary"
+
     enum Phase: Equatable {
         case idle
         case running(progress: Double)
@@ -31,6 +44,25 @@ final class DictionaryMergeTask: ObservableObject {
     }
 
     var mergedFileURL: URL { DictionaryMergeService.mergedFileURL() }
+
+    /// Số liệu để vẽ chip: ưu tiên `lastOutcome` (vừa gộp xong trong phiên này), rồi tới bản lưu trong
+    /// `UserDefaults`, cuối cùng là `nil` — View tự lùi về tổng số từ của file kết quả.
+    var summaryCounts: (base: Int, custom: Int, deleted: Int)? {
+        if let lastOutcome {
+            return (lastOutcome.baseCount, lastOutcome.customCount, lastOutcome.deletedCount)
+        }
+        guard let data = UserDefaults.standard.data(forKey: Self.summaryKey),
+              let summary = try? JSONDecoder().decode(MergeSummary.self, from: data) else {
+            return nil
+        }
+        return (summary.baseCount, summary.customCount, summary.deletedCount)
+    }
+
+    /// Tổng số dòng của file kết quả — dùng khi không có số liệu chi tiết.
+    var resultRecordCount: Int {
+        if let lastOutcome { return lastOutcome.totalCount }
+        return DictionaryTextFileStore.loadCount(from: mergedFileURL)
+    }
 
     var hasResult: Bool { FileManager.default.fileExists(atPath: mergedFileURL.path) }
 
@@ -132,10 +164,28 @@ final class DictionaryMergeTask: ObservableObject {
     fileprivate func finish(outcome: DictionaryMergeService.Outcome?, failureMessage: String?) {
         if let outcome {
             lastOutcome = outcome
+            persistSummary(outcome)
             phase = .ready(recordCount: outcome.totalCount)
         } else {
             phase = .failed(message: failureMessage ?? "Gộp thất bại.")
         }
+    }
+
+    /// Ghi số liệu lượt gộp ra `UserDefaults` — xem doc ở `MergeSummary`.
+    private func persistSummary(_ outcome: DictionaryMergeService.Outcome) {
+        let summary = MergeSummary(
+            baseCount: outcome.baseCount,
+            customCount: outcome.customCount,
+            deletedCount: outcome.deletedCount,
+            totalCount: outcome.totalCount
+        )
+        guard let data = try? JSONEncoder().encode(summary) else { return }
+        UserDefaults.standard.set(data, forKey: Self.summaryKey)
+    }
+
+    /// Xoá số liệu đã lưu — gọi khi file kết quả không còn (đã nhập hoặc bỏ qua).
+    private func clearSummary() {
+        UserDefaults.standard.removeObject(forKey: Self.summaryKey)
     }
 
     // MARK: - Hậu gộp
@@ -162,6 +212,7 @@ final class DictionaryMergeTask: ObservableObject {
 
         try? FileManager.default.removeItem(at: url)
         lastOutcome = nil
+        clearSummary()
         phase = .idle
     }
 
@@ -179,6 +230,7 @@ final class DictionaryMergeTask: ObservableObject {
     func discardResult() {
         try? FileManager.default.removeItem(at: mergedFileURL)
         lastOutcome = nil
+        clearSummary()
         phase = .idle
     }
 }

@@ -151,8 +151,11 @@ internal final class TTSChapterPrefetcher {
         }
 
         guard let firstParagraph = playbackParagraphs.first else { return }
-        let textToSpeak = TTSReplacementManager.shared.applyReplacements(to: firstParagraph.text)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let textToSpeak = TTSReplacementManager.shared.applyReplacements(
+            to: firstParagraph.text,
+            bookId: key.bookId
+        )
+        .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !textToSpeak.isEmpty else { return }
 
         if TTSManager.isLocalEngine(key.tool) && localService == nil {

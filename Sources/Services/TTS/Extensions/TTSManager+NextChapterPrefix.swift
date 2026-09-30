@@ -104,7 +104,7 @@ extension TTSManager {
         for (index, chunk) in prefix where index > 0 && index < paragraphs.count {
             guard preloadedData[index] == nil else { continue }
             let expectedText = TTSReplacementManager.shared
-                .applyReplacements(to: paragraphs[index].text)
+                .applyReplacements(to: paragraphs[index].text, bookId: playingBookId)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             guard expectedText == chunk.finalText else {
                 mismatched += 1

@@ -69,7 +69,7 @@ extension TTSManager {
 
         for index in indices {
             guard index >= 0, index < paragraphs.count else { continue }
-            let text = TTSReplacementManager.shared.applyReplacements(to: paragraphs[index].text)
+            let text = TTSReplacementManager.shared.applyReplacements(to: paragraphs[index].text, bookId: playingBookId)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             guard !text.isEmpty else { continue }
 

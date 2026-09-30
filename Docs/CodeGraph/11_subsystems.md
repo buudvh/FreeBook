@@ -16,6 +16,15 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 
 <!-- GENERATED START -->
 
+## 1.3.446 — phân hệ TTS: rule thay thế có tầng riêng theo truyện
+
+* **Hai tầng**: chung (`FreeBook/TTS/character_replacements.json`) và riêng truyện (`translate/books/<bookId>/character_replacements.json`). Lúc đọc, rule riêng **đè** rule chung theo `pattern` và đứng trước; rule riêng **tắt** vẫn **chặn** rule chung cùng `pattern`.
+* **Màn quản lý dùng chung**: [`TTSReplacementManagerView`](../../Sources/Views/Settings/TTS/TTSReplacementManagerView.swift) nhận `bookId: String?` — `nil` = chung (mở từ tab Cài đặt), có giá trị = riêng (mở từ hub theo truyện). Tầng riêng **ẩn** "Khôi phục mặc định" (bộ mặc định là của tầng chung) và có thêm section **"Rule chung — lấy vào riêng"** + vuốt trái "Sang chung".
+* **Hub theo truyện** ([`DictionaryHubView`](../../Sources/Views/Dictionary/DictionaryHubView.swift)) thêm section **"Thay thế từ (TTS)"**; mở được từ BookDetail và từ Reader.
+* **Sheet bôi đen** ([`AddTTSReplacementSheet`](../../Sources/Views/Reader/AddTTSReplacementSheet.swift)): ô chuỗi thay thế **luôn rỗng** khi mở; chip gợi ý cho đúng chuỗi gốc, badge **R/C**, chip **mờ** khi rule đang tắt; **Lưu** = menu 2 mục (riêng/chung).
+* **Mục gộp VietPhrase** ở màn Thông báo ([`NotificationInboxView+Merge`](../../Sources/Views/Shelf/ShelfMain/NotificationInboxView+Merge.swift)) làm lại theo mockup: nút **Nhập vào VietPhrase** full-width nổi bật, **Xuất file** / **Bỏ qua** ngang hàng, **3 chip** `gốc/sửa/xoá`, giờ ở góc phải, chú thích dài gộp 1 dòng.
+
+
 ## 1.3.445 — phân hệ Từ điển: gộp VietPhrase
 
 * **Nút gộp** ở [`DictionaryHubView.swift`](../../Sources/Views/Dictionary/DictionaryHubView.swift) (Section "Từ Điển Chung"): "Gộp vào Từ Điển Chung" → `DictionaryMergeTask.startMerge()`, kèm `ProgressView` và footer nói rõ kết quả là **file text mới**, không phải ghi vào gốc.

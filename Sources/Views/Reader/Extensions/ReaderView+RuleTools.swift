@@ -268,4 +268,37 @@ extension ReaderView {
         }
         .transition(.move(edge: .bottom).combined(with: .opacity))
     }
+
+    // MARK: - Lưu thay thế TTS từ sheet bôi đen
+
+    /// Nhận kết quả từ `AddTTSReplacementSheet` và ghi vào **đúng tầng** người dùng chọn.
+    ///
+    /// Đặt ở file này (không phải `ReaderView.swift`) vì file đó **đã ở đúng baseline** `2053` dòng — thêm
+    /// một dòng là tạo violation mới. Trùng `pattern` ở tầng đích thì `addRule` **đè** bản cũ, nên chỉ cần
+    /// đổi nhãn toast giữa "Đã thêm" và "Đã cập nhật".
+    func handleAddTTSReplacement(
+        pattern: String,
+        replacement: String,
+        isEnabled: Bool,
+        scope: TTSReplacementScope
+    ) {
+        let rule = TTSReplacementRule(pattern: pattern, replacement: replacement, isEnabled: isEnabled)
+        let target: String?
+        let layerName: String
+        switch scope {
+        case .book(let id):
+            target = id
+            layerName = "riêng của truyện"
+        case .global:
+            target = nil
+            layerName = "chung"
+        }
+        let result = TTSReplacementManager.shared.addRule(rule, bookId: target)
+        let action = result == .replaced ? "Đã cập nhật" : "Đã thêm"
+        let statusSuffix = isEnabled ? "" : " (Đã tắt)"
+        ToastManager.shared.show(
+            message: "\(action) thay thế TTS (\(layerName)): '\(pattern)' → '\(replacement)'\(statusSuffix)",
+            type: .success
+        )
+    }
 }

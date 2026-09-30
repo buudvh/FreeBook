@@ -654,14 +654,11 @@ struct ReaderView: View {
         .sheet(isPresented: $showingAddTTSReplacementSheet) {
             AddTTSReplacementSheet(
                 initialPattern: pendingTTSReplacementPattern,
-                existingRules: TTSReplacementManager.shared.rules
-            ) { pattern, replacement, isEnabled in
-                let rule = TTSReplacementRule(pattern: pattern, replacement: replacement, isEnabled: isEnabled)
-                let result = TTSReplacementManager.shared.addRule(rule)
-                let action = result == .replaced ? "Đã cập nhật" : "Đã thêm"
-                let statusSuffix = isEnabled ? "" : " (Đã tắt)"
-                ToastManager.shared.show(message: "\(action) thay thế TTS: '\(pattern)' → '\(replacement)'\(statusSuffix)", type: .success)
-            }
+                existingRules: TTSReplacementManager.shared.rules,
+                bookRules: TTSReplacementManager.shared.rules(bookId: bookId),
+                bookId: bookId,
+                onSave: handleAddTTSReplacement
+            )
         }
         .fullScreenCover(isPresented: $showingBypassBrowser) {
             let browserUrl: String = {

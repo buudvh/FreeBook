@@ -21,8 +21,16 @@ extension TranslationManager {
         QuickTranslationRuleDisableStore.fileName
     ]
 
+    /// Rule **thay thế ký tự TTS** riêng của truyện (`translate/books/<bookId>/character_replacements.json`).
+    ///
+    /// Danh sách **riêng**, không gộp vào `bookScopedDictionaryTextFiles`: vòng khôi phục của nhóm đó gộp
+    /// bằng `DictionaryTextFileStore.parseRecords` (dạng `key=value`) nên sẽ **phá JSON** — cùng lý do đã
+    /// ghi cho `BackupPaths.bookRuleFiles`.
+    public static let bookScopedTTSFiles = [TTSReplacementManager.bookRulesFileName]
+
     /// Mọi file phải đi theo truyện khi **đổi nguồn** (bookId đổi).
     public static var bookScopedMigrationFiles: [String] {
-        bookScopedDictionaryBinaryFiles + bookScopedDictionaryTextFiles + bookScopedRuleFiles + [QuickTranslationBookEngineConfigStore.fileName]
+        bookScopedDictionaryBinaryFiles + bookScopedDictionaryTextFiles + bookScopedRuleFiles
+            + bookScopedTTSFiles + [QuickTranslationBookEngineConfigStore.fileName]
     }
 }

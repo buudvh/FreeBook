@@ -16,6 +16,16 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 
 <!-- GENERATED START -->
 
+## 1.3.446 — dòng dữ liệu của rule thay thế TTS theo tầng
+
+* **Lúc đọc**: `text` → `applyReplacements(to:bookId:)` → `plan(forBookId:)` → nếu truyện có rule riêng thì kế hoạch = `compile(rules riêng + rules chung chưa bị đè)` → `TTSNumberSeparatorMode.format`. Truyện **không** có rule riêng ⇒ kế hoạch **y hệt** trước lượt này (an toàn mặc định).
+* **Lưu**: rule riêng ghi `translate/books/<bookId>/character_replacements.json` (JSON, ghi `.atomic`); danh sách rỗng ⇒ **xoá file** để thư mục truyện không còn rác.
+* **Backup ghi**: `.dictBooks` stage `bookTTSFiles` vào `dict/books/<slug>/` — **vòng riêng**, không nằm trong `bookDictionaryFiles` (vòng khôi phục nhóm đó parse `key=value` ⇒ phá JSON).
+* **Backup khôi phục**: `restoreBookTTSFiles` gọi `mergeReplacementRules` (hàm gộp JSON dùng chung với file TTS toàn cục) rồi nạp lại cache đúng truyện.
+* **Đổi nguồn**: file đi theo truyện vì nằm trong `TranslationManager.bookScopedMigrationFiles`.
+* Mục gộp VietPhrase: số liệu `baseCount/customCount/deletedCount` đi từ `DictionaryMergeService.Outcome` → `DictionaryMergeTask.persistSummary` → `UserDefaults` → `summaryCounts` → 3 chip ở `NotificationInboxView+Merge`.
+
+
 ## 1.3.445 — dòng dữ liệu gộp từ điển (không chạm từ điển gốc)
 
 * **Đọc**: `TranslationManager.vietPhraseDict.allEntries()` (duyệt ngược `.dat`) + `CustomVietPhrase.txt` (`DictionaryTextFileStore.parseRecords`) → tách thành `overrides` (value khác rỗng) và `tombstones` (value rỗng).

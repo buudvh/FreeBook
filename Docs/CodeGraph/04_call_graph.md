@@ -16,6 +16,15 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 
 <!-- GENERATED START -->
 
+## 1.3.446 — nhánh gọi của tầng rule thay thế riêng theo truyện
+
+* `applyReplacements(to:bookId:)` gọi `plan(forBookId:)`: `nil`/rỗng ⇒ trả `replacementPlan` (kế hoạch chung); có truyện ⇒ tra `bookPlansCache`, chưa có thì `Self.compile(mergedRules(bookId:))` **ngoài lock** rồi cache.
+* `mergedRules(bookId:)` = `rules(bookId:)` (riêng, giữ thứ tự, **gồm rule tắt**) + `rules` (chung) **đã lọc** bỏ `pattern` nào có ở tầng riêng ⇒ rule riêng tắt vẫn chặn rule chung.
+* `rebuildReplacementPlan()` → `invalidateBookPlans()`: đổi rule **chung** thì kế hoạch **mọi** truyện cũng đổi nên xoá cả cache theo truyện (rule riêng vẫn còn trong `bookRulesCache` ⇒ không đọc đĩa lại).
+* **8 call site** đã truyền `bookId`: `TTSManager.speakCurrent` / `nghiRefillCandidate` / `startPrefetchTask` → `playingBookId`; `TTSChapterPrefetcher.startAudioSynthesis`, `TTSNextChapterPrefixCache.startSynthesis`, `+GoogleBatch.startGoogleBatchSynthesis` → `key.bookId`; `TTSManager+NextChapterPrefix`, `+RemoteBatchPrefetch` → `playingBookId`.
+* Sheet bôi đen: `AddTTSReplacementSheet.onSave(pattern:replacement:isEnabled:scope:)` → `ReaderView.handleAddTTSReplacement` → `TTSReplacementManager.addRule(_:bookId:)` với `target = nil` (chung) hoặc `id` (riêng).
+
+
 ## 1.3.444 — nhánh gọi mới của màn thử VieNeu + ngoại lệ auto-space
 
 * `VieNeuTTSTestView.playSample()` gọi **tuần tự**: `TTSReplacementManager.shared.applyReplacements(to:)` → `NghiUtteranceSegmenter.expand(_:maximumLength:)` → `VieNeuTTSService.synthesizeWithDuration(text:voice:speed:boundaryKind:priority:)` **cho từng đoạn** → `WAVConcatenator.concatenate(_:)` → `AVAudioPlayer.play()`. Trước lượt này màn thử gọi thẳng `synthesizeWithDuration` **một lần** cho cả ô chữ với `boundaryKind` mặc định.

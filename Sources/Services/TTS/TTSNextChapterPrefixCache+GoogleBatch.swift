@@ -32,7 +32,7 @@ extension TTSNextChapterPrefixCache {
 
         for index in indices {
             guard index < playbackParagraphs.count else { continue }
-            let text = TTSReplacementManager.shared.applyReplacements(to: playbackParagraphs[index].text)
+            let text = TTSReplacementManager.shared.applyReplacements(to: playbackParagraphs[index].text, bookId: key.bookId)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             guard !text.isEmpty else { continue }
             batchIndices.append(index)

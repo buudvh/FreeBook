@@ -16,6 +16,15 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 
 <!-- GENERATED START -->
 
+## 1.3.446 — quy chuẩn rút ra
+
+* **`private` là theo FILE, không theo type** — đã cắn lần thứ ba (1.3.445: `mergeTask`; 1.3.446: `ReplacementStep`/`planLock`/`compile`, `ruleRow`, `alertMessage`, `prepareToEdit`). Khi tách `X+Feature.swift`, phải rà **mọi** thành viên mà file mới dùng và hạ `private` → `internal`, kèm comment nêu lý do.
+* **Tham số mới nên có default** khi thêm vào hàm đang có nhiều call site: `applyReplacements(to:bookId: String? = nil)` giữ 8 call site biên dịch được ngay, nhưng **default đó là bẫy** — code cũ biên dịch im lặng mà thiếu tầng riêng. Bù lại bằng cách grep lại **toàn bộ** call site sau khi sửa.
+* **File ở sát trần thì mọi tính năng mới đều phải tách file** — 3 file mới trong lượt này tồn tại chỉ vì `TTSReplacementManager.swift` 391/400 và `TTSReplacementManagerView.swift` 390/400. `ReaderView.swift` ở **đúng** baseline ⇒ closure phải nằm ở `ReaderView+RuleTools.swift`; đây là lần `check_architecture.py` bắt được một violation mới (`2060 > 2053`) ngay sau khi thêm closure.
+* **Danh sách file riêng truyện phải khai theo kiểu nội dung**: TXT (`key=value`) đi một danh sách, JSON đi danh sách khác — gộp chung là vòng khôi phục ghi đè sai định dạng và phá dữ liệu (`BackupPaths.swift:42-45`).
+* **Nguồn sự thật là file trên đĩa**: mọi lối ghi thẳng vào file (khôi phục backup, đổi nguồn) **bắt buộc** gọi `loadRules(bookId:)` sau đó, nếu không cache RAM cũ vẫn thắng và không có gì báo.
+
+
 ## 1.3.444 — quy chuẩn rút ra
 
 * **Trần dòng là ràng buộc thật**: `QuickTranslationRuleEngine.swift` ở **399/400** và **không** có trong `architecture_allowlist.json` ⇒ thêm một `private static func` là tạo violation mới. Helper mới phải đặt ở file `+Extension`.

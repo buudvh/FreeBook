@@ -16,6 +16,15 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 
 <!-- GENERATED START -->
 
+## 1.3.446 — vòng đời rule thay thế TTS theo tầng
+
+* **Nạp**: `TTSReplacementManager.init` nạp tầng chung như cũ; tầng riêng nạp **lười** ở lần `rules(bookId:)` đầu tiên (đọc file nhỏ, cache lại). Không nạp trước cho mọi truyện — số truyện không giới hạn.
+* **Sống qua phiên**: cache theo truyện nằm trong RAM, mất khi app thoát; file trên đĩa là nguồn sự thật.
+* **Đổi**: mọi thao tác CRUD đi qua `store(_:bookId:)` = cập nhật cache → `invalidateBookPlans()` → `saveRules(bookId:)` (ghi atomic hoặc xoá file nếu rỗng).
+* **Khôi phục backup / đổi nguồn**: ghi thẳng vào file ⇒ **bắt buộc** `loadRules(bookId:)` sau đó, nếu không cache cũ vẫn thắng.
+* `DictionaryMergeTask` giữ thêm khoá `UserDefaults` `vietPhraseMergeSummary`, xoá trong `discardResult()` và `applyToVietPhrase()` (file kết quả không còn thì số liệu cũng phải đi).
+
+
 ## Nạp Trước Đồng Thời Cho VieNeu + Safe-Window 150 ms (1.3.438)
 
 * **Sửa đoạn ngắn VieNeu bị đứt**: `updateNghiPrefetchWindow` trước đây chỉ nạp **1** đoạn rồi `return` (`canScheduleNghiRefill` cấm lượt thứ hai bay cùng lúc). VieNeu tổng hợp đắt (RTF ~0,3 + chi phí cố định theo chunk; `VieNeuSynthesisPolicy.bufferedSecondsTarget = 12`) nên đoạn ngắn không kịp tổng hợp trước khi đoạn đang phát kết thúc. Đổi sang **pool đồng thời** (`nghiRefillTasks: [Int: Task]` + `nghiRefillInFlightIndices: Set<Int>`) và `fillNghiRefillUpToCapacity()`; `nghiRefillCandidate` bước qua index đang bay. NghiTTS giữ 1 luồng.

@@ -16,6 +16,19 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 
 <!-- GENERATED START -->
 
+## 1.3.446 — TTS thay thế từ có tầng riêng theo truyện + làm lại UI mục gộp
+
+* **Tầng riêng theo truyện** cho rule thay thế TTS: `translate/books/<bookId>/character_replacements.json` — cùng gốc `translate/` với từ điển riêng truyện nên dùng lại được cả backup lẫn luồng đổi nguồn.
+* **Luật gộp**: rule riêng **đè** rule chung theo `pattern` và đứng trước; rule riêng **tắt** vẫn **chặn** rule chung cùng `pattern` (tombstone). Tập `pattern` để chặn tính trên **toàn bộ** rule riêng — kể cả rule tắt — còn `compile` vẫn lọc `isEnabled`.
+* [`TTSReplacementManager.swift`](../../Sources/Services/TTS/Preprocessing/TTSReplacementManager.swift) 391 → **352**: tách `compile(_:)` + `compileCharacterRun` sang [`+PlanCompile.swift`](../../Sources/Services/TTS/Preprocessing/TTSReplacementManager+PlanCompile.swift) (65) và tầng riêng sang [`+BookScope.swift`](../../Sources/Services/TTS/Preprocessing/TTSReplacementManager+BookScope.swift) (230), vì file chính đã ở 391/400.
+* `applyReplacements(to:bookId:)` — `bookId` có **default `nil`** nên 8 call site cũ vẫn biên dịch; đã truyền `bookId` thật ở **cả 8** (`playingBookId` cho `TTSManager*`, `key.bookId` cho prefetcher/prefix cache). `VieNeuTTSTestView` cố ý để `nil` (màn thử không có ngữ cảnh truyện).
+* [`TTSReplacementScope.swift`](../../Sources/Services/TTS/TTSReplacementScope.swift) (15) — enum `book(String)`/`global`; tách file riêng vì `MULTI_PRIMARY_TYPES`.
+* Màn rule dùng chung 2 tầng: [`TTSReplacementManagerView.swift`](../../Sources/Views/Settings/TTS/TTSReplacementManagerView.swift) **362** + [`+Layer.swift`](../../Sources/Views/Settings/TTS/TTSReplacementManagerView+Layer.swift) **162** (định tuyến theo tầng + `ruleRow` + lối chuyển rule giữa 2 tầng).
+* Backup: `BackupPaths.bookTTSFiles` đi cùng nhóm `dict/books/<slug>/`; khôi phục **tái dùng** `mergeReplacementRules` (hàm gộp JSON đã có cho file chung) ⇒ không có logic gộp mới.
+* [`AddTTSReplacementSheet.swift`](../../Sources/Views/Reader/AddTTSReplacementSheet.swift) **184**: ô chuỗi thay thế **luôn rỗng** khi mở (bỏ auto-fill ở `init` **và** `onChange`), **chip gợi ý** badge R/C (chip **mờ** nếu rule đang tắt), **Lưu = menu 2 mục** riêng/chung.
+* Mục gộp ở màn Thông báo làm lại: nút **Nhập vào VietPhrase** full-width nổi bật + **Xuất file**/**Bỏ qua** ngang hàng + **3 chip** `gốc/sửa/xoá` + giờ ở góc phải; số liệu lưu `UserDefaults` để chip còn sau khi khởi động lại.
+
+
 ## 1.3.445 — gộp VietPhrase ra file text mới (không đụng từ điển gốc)
 
 * **Luồng chốt với user**: `VietPhrase.dat` + `CustomVietPhrase.txt` (đã áp tombstone) → **`VietPhraseMerged.txt`**; sau đó người dùng chọn **Nhập vào VietPhrase** (đi qua `TranslationManager.importDictionary` → `DoubleArrayTrieBuilder`, đường đã có) hoặc **Xuất file**. Bước gộp **không** sửa từ điển gốc nên một lỗi ở đây chỉ tạo ra file sai mà vẫn xem được trước khi áp.

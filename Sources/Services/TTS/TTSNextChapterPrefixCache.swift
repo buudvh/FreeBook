@@ -212,7 +212,7 @@ internal final class TTSNextChapterPrefixCache {
         extService: ExtTTSService,
         audioWorker: TTSAudioSynthesisWorker
     ) {
-        let textToSpeak = TTSReplacementManager.shared.applyReplacements(to: paragraph.text)
+        let textToSpeak = TTSReplacementManager.shared.applyReplacements(to: paragraph.text, bookId: key.bookId)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !textToSpeak.isEmpty else { return }
 

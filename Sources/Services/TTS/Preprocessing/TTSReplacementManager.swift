@@ -30,7 +30,10 @@ public final class TTSReplacementManager: ObservableObject {
 
     /// Một bước trong kế hoạch thay thế đã biên dịch. Thứ tự các bước **giữ nguyên** thứ tự rule trong
     /// `rules`, nên hành vi phụ thuộc thứ tự (rule sau tác động lên kết quả rule trước) không đổi.
-    private enum ReplacementStep {
+    ///
+    /// **Không** `private`: tầng rule riêng theo truyện ở `TTSReplacementManager+BookScope.swift` cũng dựng
+    /// kế hoạch bằng chính kiểu này (Swift giới hạn `private` theo file).
+    enum ReplacementStep {
         /// Gộp một dãy rule liền nhau có pattern dài đúng 1 ký tự thành **một lượt quét** duy nhất.
         case characterMap([Character: String])
         /// Giữ nguyên đường cũ `replacingOccurrences`: pattern nhiều ký tự, hoặc dãy 1 ký tự có nối tầng.
@@ -39,8 +42,11 @@ public final class TTSReplacementManager: ObservableObject {
 
     /// Kế hoạch đã biên dịch. `applyReplacements` chạy trên thread nền (tổng hợp TTS, `scheduleNghiRefill`)
     /// nên đọc/ghi phải qua lock — cùng mô hình với `JunkFilterManager.activeRulesCache`.
-    private let planLock = NSLock()
-    private nonisolated(unsafe) var replacementPlan: [ReplacementStep] = []
+    ///
+    /// `planLock` **không** `private`: `TTSReplacementManager+BookScope.swift` dùng chung lock này để bảo vệ
+    /// cache kế hoạch theo truyện.
+    let planLock = NSLock()
+    nonisolated(unsafe) var replacementPlan: [ReplacementStep] = []
     
     private let fileManager = FileManager.default
     
@@ -252,11 +258,11 @@ public final class TTSReplacementManager: ObservableObject {
     /// Áp dụng luật thay thế lên một đoạn. Đây là đường nóng: gọi cho **từng đoạn** khi tổng hợp và trong
     /// `scheduleNghiRefill`. Trước đây mỗi rule là một lượt `replacingOccurrences` riêng (~130 lượt quét
     /// toàn văn bản + 130 chuỗi mới mỗi đoạn); giờ chạy theo kế hoạch đã biên dịch sẵn.
-    public func applyReplacements(to text: String) -> String {
+    public func applyReplacements(to text: String, bookId: String? = nil) -> String {
         guard !text.isEmpty else { return text }
-        planLock.lock()
-        let plan = replacementPlan
-        planLock.unlock()
+        // `bookId` nil/rỗng ⇒ chỉ tầng chung; có truyện ⇒ kế hoạch **đã gộp** (rule riêng đè chung theo
+        // `pattern`, rule riêng đang tắt vẫn chặn rule chung cùng `pattern`). Xem `+BookScope`.
+        let plan = plan(forBookId: bookId)
         var result = text
         for step in plan {
             switch step {
@@ -271,59 +277,14 @@ public final class TTSReplacementManager: ObservableObject {
         return TTSNumberSeparatorMode.format(text: result)
     }
 
-    /// Biên dịch `rules` thành số lượt quét tối thiểu. Rule 1 ký tự **liền nhau** gộp thành một bảng tra
-    /// `[Character: String]`; rule nhiều ký tự giữ nguyên `replacingOccurrences` theo đúng thứ tự cũ, nên
-    /// hành vi nối tầng vẫn y nguyên (ví dụ `...` chạy trước `....` nên `....` vẫn ra `…` rồi `.`).
     private func rebuildReplacementPlan() {
-        var steps: [ReplacementStep] = []
-        var pendingCharacters: [TTSReplacementRule] = []
-        var pendingScans: [TTSReplacementRule] = []
-        func flushCharacters() {
-            guard !pendingCharacters.isEmpty else { return }
-            steps.append(Self.compileCharacterRun(pendingCharacters))
-            pendingCharacters.removeAll(keepingCapacity: true)
-        }
-        func flushScans() {
-            guard !pendingScans.isEmpty else { return }
-            steps.append(.scan(pendingScans))
-            pendingScans.removeAll(keepingCapacity: true)
-        }
-        for rule in rules where rule.isEnabled && !rule.pattern.isEmpty {
-            if rule.pattern.count == 1 {
-                flushScans()
-                pendingCharacters.append(rule)
-            } else {
-                flushCharacters()
-                pendingScans.append(rule)
-            }
-        }
-        flushCharacters()
-        flushScans()
+        let steps = Self.compile(rules)
         planLock.lock()
         replacementPlan = steps
         planLock.unlock()
-    }
-
-    /// Dựng bảng tra cho một dãy rule 1 ký tự. Trùng `pattern` thì rule **đầu tiên** thắng, giống đường cũ
-    /// (rule sau quét lại thì ký tự đó đã bị thay xong nên không còn gì để khớp). Nếu dãy có **nối tầng** —
-    /// chuỗi thay thế của một rule chứa lại pattern của rule khác trong dãy — thì không gộp được, vì một
-    /// lượt quét không xử lý lại phần vừa sinh ra; lúc đó giữ nguyên đường cũ cho cả dãy.
-    private static func compileCharacterRun(_ run: [TTSReplacementRule]) -> ReplacementStep {
-        var map: [Character: String] = [:]
-        map.reserveCapacity(run.count)
-        var patterns: Set<Character> = []
-        for rule in run {
-            guard let character = rule.pattern.first else { continue }
-            patterns.insert(character)
-            if map[character] == nil {
-                map[character] = rule.replacement
-            }
-        }
-        let hasCascade = run.contains { rule in
-            rule.replacement.contains { patterns.contains($0) }
-        }
-        guard !hasCascade else { return .scan(run) }
-        return .characterMap(map)
+        // Đổi rule chung ⇒ kế hoạch của **mọi** truyện cũng đổi (rule chung nằm trong đó). Xoá cache theo
+        // truyện để lần đọc kế tiếp dựng lại; rule riêng vẫn còn trong cache riêng nên **không** đọc đĩa lại.
+        invalidateBookPlans()
     }
 
     /// Một lượt quét duy nhất: ký tự nào có trong bảng thì nối chuỗi thay thế, còn lại giữ nguyên.

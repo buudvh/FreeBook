@@ -57,6 +57,13 @@ public enum BackupDictionaryRestorer {
                     booksRoot: booksRoot,
                     into: &report
                 )
+                restoreBookTTSFiles(
+                    slug: slug,
+                    bookId: bookId,
+                    from: extractedDirectory,
+                    booksRoot: booksRoot,
+                    into: &report
+                )
             }
         }
 
@@ -195,6 +202,33 @@ public enum BackupDictionaryRestorer {
         }
         if restoredRules {
             Task { @MainActor in TTSReplacementManager.shared.loadRules() }
+        }
+    }
+
+    /// Khôi phục rule **thay thế ký tự TTS riêng của truyện**.
+    ///
+    /// Tái dùng `mergeReplacementRules` — hàm gộp **đúng kiểu JSON** đã dùng cho file chung, nên không có
+    /// logic gộp mới nào ở đây. Sau khi ghi phải nạp lại cache của `TTSReplacementManager` cho **đúng
+    /// truyện**, nếu không lượt đọc kế tiếp vẫn dùng bản đọc lúc khởi động.
+    private static func restoreBookTTSFiles(
+        slug: String,
+        bookId: String,
+        from extractedDirectory: URL,
+        booksRoot: URL,
+        into report: inout Report
+    ) {
+        let folder = BackupPaths.bookDictionaryFolder(slug: slug)
+        for name in BackupPaths.bookTTSFiles {
+            let entry = "\(folder)/\(name)"
+            guard let source = BackupZipArchive.stagedURL(entryName: entry, in: extractedDirectory) else { continue }
+            let directory = booksRoot.appendingPathComponent(bookId, isDirectory: true)
+            try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let target = directory.appendingPathComponent(name)
+            guard mergeReplacementRules(source: source, target: target, label: "\(bookId)/\(name)", into: &report) else {
+                continue
+            }
+            report.bookFiles += 1
+            Task { @MainActor in TTSReplacementManager.shared.loadRules(bookId: bookId) }
         }
     }
 

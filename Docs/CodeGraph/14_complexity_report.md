@@ -16,6 +16,15 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 
 <!-- GENERATED START -->
 
+## 1.3.446 — độ phức tạp của tầng rule riêng theo truyện
+
+* [`TTSReplacementManager+BookScope.swift`](../../Sources/Services/TTS/Preprocessing/TTSReplacementManager+BookScope.swift) **230**, 1 extension (không primary type). `mergedRules` là O(số rule riêng + số rule chung) với 1 `Set` cho tập `pattern` bị chặn; `plan(forBookId:)` cache kết quả nên chỉ biên dịch một lần cho mỗi truyện.
+* [`TTSReplacementManager+PlanCompile.swift`](../../Sources/Services/TTS/Preprocessing/TTSReplacementManager+PlanCompile.swift) **65** — chuyển nguyên `compile`/`compileCharacterRun` khỏi file chính, không đổi thuật toán.
+* [`TTSReplacementManagerView+Layer.swift`](../../Sources/Views/Settings/TTS/TTSReplacementManagerView+Layer.swift) **162** — chứa cả `ruleRow` (45 dòng) chuyển từ file chính để file đó xuống **362/400**.
+* [`AddTTSReplacementSheet.swift`](../../Sources/Views/Reader/AddTTSReplacementSheet.swift) **184** — `chips` là computed property nên tính lại theo từng lần gõ `pattern`; O(số rule 2 tầng) mỗi lần vẽ, chấp nhận được vì rule thay thế thường dưới 200 mục.
+* Trần dòng đã chạm: `TTSReplacementManager.swift` **352/400** (trước lượt: 391 — sát trần), `TTSReplacementManagerView.swift` **362/400**, `DictionaryHubView.swift` **198/400**, `NotificationInboxView.swift` **368/400**, `AddTTSReplacementSheet.swift` **184/400**, `ReaderView+RuleTools.swift` **304/400**. `ReaderView.swift` **2042** — **giảm** so với baseline 2053.
+
+
 ## 1.3.445 — độ phức tạp của phần gộp từ điển
 
 * [`DictionaryMergeService.swift`](../../Sources/Services/Translation/Manager/DictionaryMergeService.swift) **123** dòng, 1 primary type (`enum DictionaryMergeService`). `merge` là **O(số entry gốc)** với 1 lượt `Set` cho tombstone và 1 `Dictionary` cho custom ⇒ tuyến tính, không lồng vòng.

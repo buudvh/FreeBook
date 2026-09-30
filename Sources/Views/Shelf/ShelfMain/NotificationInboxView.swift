@@ -345,7 +345,10 @@ struct NotificationInboxView: View {
         return Self.dayFormatter.string(from: day)
     }
 
-    private func timeLabel(_ date: Date) -> String {
+    /// **Không** `private`: khối "Gộp VietPhrase" ở `NotificationInboxView+Merge.swift` cũng cần định dạng
+    /// giờ này (giờ hiện ở góc phải dòng gộp). `private` của Swift giới hạn theo file nên để `private` thì
+    /// file đó không gọi được.
+    func timeLabel(_ date: Date) -> String {
         Self.timeFormatter.string(from: date)
     }
 

@@ -16,6 +16,16 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 
 <!-- GENERATED START -->
 
+## 1.3.446 — rủi ro mới / đã xử lý
+
+* **Quên `bookId` ở một call site** ⇒ rule riêng không áp ở nhánh đó (nạp trước, chương sau) mà **không** có lỗi nào. Giảm thiểu: `bookId` có default `nil` nên code cũ vẫn biên dịch im lặng ⇒ đã grep lại **toàn bộ** `applyReplacements(to:` và xác nhận **8/8** đã truyền; chỉ `VieNeuTTSTestView` cố ý để `nil`.
+* **Rule riêng bị "tắt" nhưng vẫn chặn rule chung** là hành vi **cố ý** (user chốt) nhưng dễ bị đọc thành bug. Giảm thiểu: ghi rõ trong doc của `mergedRules` và trong footer section ở `DictionaryHubView`.
+* **JSON bị phá khi khôi phục**: nếu thêm `character_replacements.json` vào `bookDictionaryFiles`, vòng khôi phục `key=value` sẽ ghi lại file thành text ⇒ mất rule. Giảm thiểu: danh sách riêng `bookTTSFiles` + `restoreBookTTSFiles` dùng `mergeReplacementRules` (đúng kiểu JSON).
+* **Kế hoạch theo truyện bị stale**: đổi rule **chung** mà không xoá cache theo truyện ⇒ truyện vẫn dùng kế hoạch cũ. Giảm thiểu: `rebuildReplacementPlan()` gọi `invalidateBookPlans()`.
+* **Trần dòng**: `TTSReplacementManager.swift` 391/400 và `TTSReplacementManagerView.swift` 390/400 là **lý do** phải tách 3 file mới; `ReaderView.swift` ở đúng baseline **2053** nên closure của sheet bắt buộc nằm ở `ReaderView+RuleTools.swift` (đã bị `check_architecture.py` bắt một lần trong lượt này).
+* Rủi ro đã đóng (từ 1.3.445): `DictionaryMergeTask` lưu số liệu ra `UserDefaults` nên chip không mất sau khi khởi động lại; và mục gộp ở màn Thông báo đã bỏ kiểu 5 dòng chữ + 3 nút `borderless` khó đọc.
+
+
 ## 1.3.444 — rủi ro mới / đã xử lý
 
 * [`WAVConcatenator`](../../Sources/Services/TTS/WAVConcatenator.swift) ghép WAV bằng cách cắt **cố định** 44 byte header của `WAVEncoder`. Rủi ro: engine đổi khuôn WAV ⇒ phải sửa cả hai nơi. Giảm thiểu: hàm kiểm 4 mốc `RIFF`/`WAVE`/`fmt `/`data` của **từng** phần và trả `nil` khi lệch, caller báo lỗi thay vì phát audio hỏng.
