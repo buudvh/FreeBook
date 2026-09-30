@@ -651,9 +651,6 @@ Package VS Code o `Tools/VSCode/FreeBookExtDebug/`: `package.json`, `tsconfig.js
 | [`.../ExtensionDebugEntrypoint.swift`](../../Sources/Services/Extensions/Debug/ExtensionDebugEntrypoint.swift) | Services | 7 entrypoint + typed arguments khớp production | 105 |
 | [`.../ExtensionDebugRunner.swift`](../../Sources/Services/Extensions/Debug/ExtensionDebugRunner.swift) | Services | `actor`: chạy/huỷ run, phát `runStarted`…`runFinished` | 206 |
 | [`Services/Extensions/Engine/JSExecutor+Debug.swift`](../../Sources/Services/Extensions/Engine/JSExecutor+Debug.swift) | Services | 5 điểm phát của executor | 77 |
-| [`Views/Settings/Debug/ExtensionDebugConsoleView.swift`](../../Sources/Views/Settings/Debug/ExtensionDebugConsoleView.swift) | Views | Màn chọn extension/entrypoint/input, chạy, huỷ | 217 |
-| [`.../ExtensionDebugTraceReader.swift`](../../Sources/Views/Settings/Debug/ExtensionDebugTraceReader.swift) | Views | Projection reader đọc hub | 73 |
-| [`.../ExtensionDebugEventRow.swift`](../../Sources/Views/Settings/Debug/ExtensionDebugEventRow.swift) | Views | Một dòng trace | 53 |
 | [`Views/Settings/Main/DeveloperSettingsSection.swift`](../../Sources/Views/Settings/Main/DeveloperSettingsSection.swift) | Views | Mục "Nhà Phát Triển" trong Cài Đặt | 17 |
 
 File sửa: `JSExecutor.swift` 1516 → **1553** (thêm `debugSink`, tham số init, 6 điểm phát một dòng); `SettingsView.swift` 447 → **450** (một dòng gọi `DeveloperSettingsSection`, vẫn dưới baseline 453). `ExtensionManager.swift` **không đổi**.

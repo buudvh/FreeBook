@@ -22,7 +22,7 @@ struct TTSSettingsSection: View {
             // Màn thử giọng VieNeu đứng **ngang hàng** với các mục TTS khác, không nằm trong
             // `NghiTTSSettingsView`: nó là engine thứ hai, không phải một tuỳ chọn của NghiTTS/Piper.
             NavigationLink(destination: VieNeuTTSTestView()) {
-                Label("Thử giọng VieNeu-TTS", systemImage: "waveform.badge.plus")
+                Label("Cài đặt VieNeu TTS", systemImage: "waveform.badge.plus")
             }
         }
     }

@@ -1,6 +1,7 @@
 # FreeBook — ghi chú dài hạn (đã nén)
 
 ## Quy ước với người dùng
+- **LUẬT CỨNG (user chốt 2026-09-30, "từ nay về sau")**: **mọi yêu cầu thêm / sửa / xoá chức năng PHẢI lập plan trước, chờ user "duyệt" rồi mới sửa code** (dùng `grill-me` → ghi `Docs/Plans/YYYY-MM-DD-plan-<slug>.md`). **Ngoại lệ duy nhất**: yêu cầu **"điều tra"** thuần (chỉ đọc/phân tích, không đổi hành vi) thì được làm ngay. Không tự code khi chưa duyệt.
 - Trả lời **tiếng Việt**, thuật ngữ kỹ thuật tiếng Anh inline. Không đoán UI: đọc code view thật, mọi khẳng định cấu trúc dẫn `file:line` (đã sai 2 lần do grep đầu file rồi kết luận cả file).
 - Plan → `Docs/Plans/YYYY-MM-DD-plan-<slug>.md`; báo cáo → `Docs/Reports/YYYY-MM-DD-<topic>.md`. **Không** ghi vào `Docs/CodeGraph/`.
 - `grill-me`: hỏi từng câu, tự đọc code trước, **KHÔNG code** tới khi user "duyệt"; tự ghi plan. Có **3 bản** (`.claude/`, `.workbuddy/`, `~/.workbuddy-ai/`) — sửa 1 phải copy 2 bản kia.
