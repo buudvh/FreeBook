@@ -156,8 +156,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         // nạp, và lỗi thật bị che bởi một guard ở tầng dưới ("Graph runtime…"). Đúng chuyện đã xảy ra
         // khi `NPZReader` còn đọc sai kích thước entry. `nullContext`/`nullMask`/`nullSpeaker`/`nullStyle`
         // là **bất biến suốt vòng đời engine** (chỉ gán đúng một lần ở đây; engine không có `unload`) ⇒
-        // tensor cache của A2b an toàn: buffer nguồn sống lâu hơn tensor, và `VieNeuORTDestroy` giải
-        // phóng cache cùng lúc với runtime.
+        // tensor cache của A2b an toàn (buffer nguồn sống lâu hơn tensor; `VieNeuORTDestroy` giải phóng cache).
         let newRuntime = try VieNeuONNXRuntime(modelStore: store, threadCount: VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard))
         let newConfig = try VieNeuConfig.load(modelStore: store)
         let newCatalog = try VieNeuVoiceCatalog.load(modelStore: store)
@@ -169,7 +168,8 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         catalog = newCatalog
         phonemizer = newPhonemizer
         nullContext = nullBranch.context
-        nullContextShape = nullBranch.shape        nullMask = nullBranch.mask
+        nullContextShape = nullBranch.shape
+        nullMask = nullBranch.mask
 
         AppLogger.shared.log("🎙️ [VieNeu] Nạp xong engine: \(newCatalog.presets.count) giọng, threads=\(VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard))")
     }
