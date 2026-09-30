@@ -1,0 +1,63 @@
+name: Fbank Gate
+
+# One-off numeric gate for the VieNeu voice-clone front-end.
+#
+# `VieNeuFbank.swift` reproduces Kaldi's 80-mel fbank in pure Swift (no Accelerate), so it can
+# be compiled by `swiftc` and diffed against an independent numpy implementation. This is the
+# only place the Swift actually RUNS -- the dev machine is Windows with no Swift toolchain, so
+# the local "gate B" harness can only exercise a Python transliteration of the same algorithm.
+#
+# Manual trigger only: this is a verification harness, not a build gate.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fbank-gate:
+    name: VieNeuFbank vs numpy reference
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install numpy
+        run: python -m pip install --quiet --disable-pip-version-check numpy
+
+      - name: Show Swift version
+        run: swift --version
+
+      - name: Generate deterministic probe WAV
+        run: python Scripts/FbankGate/gate.py probe probe.wav
+
+      - name: Compute golden fbank (numpy, independent implementation)
+        run: python Scripts/FbankGate/gate.py golden probe.wav golden.csv
+
+      - name: Compile the real VieNeuFbank.swift
+        run: |
+          swiftc -O \
+            Sources/Services/TTS/VieNeu/VieNeuFbank.swift \
+            Scripts/FbankGate/main.swift \
+            -o fbank_gate
+
+      - name: Run Swift fbank
+        run: ./fbank_gate probe.wav swift.csv swift_norm.csv
+
+      - name: Compare Swift vs numpy
+        run: python Scripts/FbankGate/gate.py compare golden.csv swift.csv
+
+      - name: Upload gate outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fbank-gate-outputs
+          path: |
+            probe.wav
+            golden.csv
+            swift.csv
+          if-no-files-found: warn
