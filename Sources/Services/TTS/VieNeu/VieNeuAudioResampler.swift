@@ -118,7 +118,9 @@ enum VieNeuAudioResampler {
             throw AudioError.converterUnavailable
         }
         converter.sampleRateConverterQuality = AVAudioQuality.max.rawValue
-        converter.sampleRateConverterAlgorithm = AVSampleRateConverterAlgorithm.mastering
+        // Hằng `AVSampleRateConverterAlgorithm_*` là **biến toàn cục kiểu `String`**, không phải case của enum:
+        // `AVSampleRateConverterAlgorithm` **không tồn tại** trong Swift ⇒ viết `.mastering` là lỗi biên dịch.
+        converter.sampleRateConverterAlgorithm = AVSampleRateConverterAlgorithm_Mastering
 
         // Cấp dư 1024 frame: `convert(to:error:withInputFrom:)` **không** cho tiếp tục một lượt đã dừng
         // giữa đường (buffer vào chỉ được cấp một lần), nên output phải đủ chỗ cho trọn input trong một

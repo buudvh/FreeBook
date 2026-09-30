@@ -2,6 +2,23 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.424] - 2026-09-29
+
+### fix: khong che doi tu o ranh gioi chunk, sua picker che do, them nut chia se audio
+
+Người dùng thử đoạn khác và báo **"trở" đọc thành "thê giở"**, **"Harry Potter" đọc thành "harry pô ti tờ"** — vài từ sai lẻ trong câu đúng.
+
+- **Nguyên nhân gốc: `splitIntoChunks` cắt cứng ở đúng `limit` ký tự nên chẻ đôi từ.** Đếm vị trí trên đúng câu người dùng gửi: `trở` ở ký tự **[139..141]** còn ranh giới chunk là **140** ⇒ "t" vào chunk 0, "rở" vào chunk 1; `Potter` vắt qua ranh giới 280 ⇒ "Po" + "tter". Hai mảnh không có trong từ điển nên rơi vào **`charFallback` (đánh vần từng ký tự)** và bị đọc thành **tên chữ cái**.
+  * Đã kiểm bằng bộ đọc Python trên `sea_g2p.bin` thật: **cả `trở` (`tʃˈəː4`) lẫn `potter` (`<en>pˈɑːɾɚ`) đều CÓ trong từ điển** ⇒ lỗi không phải từ điển mà là ranh giới chunk. (Đây là lần thứ sáu trong engine này lỗi nằm ở chỗ tôi tự tính thay vì hỏi nguồn.)
+  * Sửa: `splitIntoChunks` gói theo **từ**, chỉ cắt cứng khi một từ đơn dài hơn `limit`. Đã mô phỏng lại: `trở` nằm trọn trong một chunk, văn bản nối lại khớp gốc từng ký tự.
+- **Picker chế độ không đổi ngay khi chọn**: `VieNeuTTSService` là class thường (**không** `@Observable`), nên `Binding` đọc `service.preferredMode` và nhãn đọc `service.currentMode` đều không làm SwiftUI vẽ lại — nhãn chỉ nhảy khi state khác đổi (bấm Phát). Sửa: lựa chọn giữ ở `@State selectedMode`, đẩy xuống service trong `.onChange`, nhãn đọc state trước.
+- **Thêm nút "Chia sẻ audio"** (`ShareLink` với file WAV ghi ra thư mục tạm; xoá file của lượt trước để không tích tụ).
+- **Thêm 3 nút icon xoá / sao chép / dán** ở ô nhập chữ, kèm `accessibilityLabel`. `.buttonStyle(.borderless)` là bắt buộc: trong một hàng `Form`, mặc định cả hàng là **một** nút nên mọi cú chạm rơi vào nút đầu.
+- **Thêm `chunkCount` vào khối chẩn đoán** (`chunk: N`) — chỉ số bắt đúng lỗi ranh giới chunk.
+- **File sửa**: `VieNeuTTSEngine+Audio.swift` (viết lại `splitIntoChunks`), `VieNeuTTSEngine` 324 → **330**, `VieNeuTTSService` 256 → **262**, `VieNeuTTSTestView.swift` 260 → **284**, `+Sections.swift` 167 → **210**, `+Diagnostics.swift` 37 → **40**.
+- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
+- **Tài liệu CodeGraph**: `rules.md` thêm 2 luật (không chẻ từ ở ranh giới chunk; UI state phải nằm ở `@State` khi service không observable); `11_subsystems.md` thêm mục về lượt này.
+
 ## [1.3.423] - 2026-09-29
 
 ### fix: bo che do turbo va chi doi toc do phat audio

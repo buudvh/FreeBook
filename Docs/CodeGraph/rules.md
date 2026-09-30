@@ -26,6 +26,7 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 * **Luật 6 — màn thư viện giọng dùng `Button` trần + `Label`, không `.borderedProminent`.** `MainTabView` đặt `.tint(.white)` toàn cục ⇒ `.borderedProminent` không tự đảo màu chữ ⇒ nút rỗng (bài học 1.3.447).
 * **Luật 7 — `VieNeuCustomVoiceStore.init` không được chạm đĩa.** Nó được gọi trên **đường đọc** (`VieNeuVoiceCatalog.load` ← `VieNeuTTSEngine.prepareLocked`); tạo thư mục trong `init` nghĩa là ghi đĩa mỗi lượt tổng hợp.
 * **Luật 8 — không route file của người dùng qua `VieNeuModelStore.url(for:)`.** Kho model là không gian của gói tải về; audio mẫu có vòng đời và quyền truy cập riêng (`CustomVoices/samples/`).
+* **Luật 9 — hằng `NS_TYPED_ENUM` của AVFoundation là biến toàn cục kiểu `String`, KHÔNG phải case enum.** `AVAudioConverter.sampleRateConverterAlgorithm` có kiểu `String?`, còn tên `AVSampleRateConverterAlgorithm` **không tồn tại** trong Swift — nên `AVSampleRateConverterAlgorithm.mastering` là lỗi biên dịch `cannot find 'AVSampleRateConverterAlgorithm' in scope`. Viết đúng: `AVSampleRateConverterAlgorithm_Mastering`. Đã cắn một vòng CI (1.3.454). Máy Windows không có SDK để đối chiếu ⇒ **tra Apple docs JSON** (`developer.apple.com/tutorials/data/documentation/…json`, trường `fragments`) trước khi dùng API AVFoundation chưa có tiền lệ trong repo, đừng suy từ tên kiểu.
 
 
 ## 1.3.446 — quy chuẩn rút ra

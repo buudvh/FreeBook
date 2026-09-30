@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.454] - 2026-09-30
+
+### feat: nhan ban giong VieNeu tu audio mau (voice cloning)
+
+Sửa lỗi biên dịch CI của lượt `[1.3.453]` — **giữ nguyên commit subject cho lần push sửa CI**.
+
+- **Lỗi thật duy nhất trong log CI** (`Build and Archive App (Unsigned)`, exit 65): `VieNeuAudioResampler.swift:121:50: error: cannot find 'AVSampleRateConverterAlgorithm' in scope`.
+- **Nguyên nhân**: `AVAudioConverter.sampleRateConverterAlgorithm` có kiểu `String?`, còn các hằng thuật toán là **biến toàn cục kiểu `String`** (`AVSampleRateConverterAlgorithm_Mastering`) — tên `AVSampleRateConverterAlgorithm` **không tồn tại** trong Swift, nên `.mastering` là sai. Không phải case của một enum nào.
+- **Sửa**: dùng `AVSampleRateConverterAlgorithm_Mastering` + 2 dòng comment tại chỗ nêu rõ lý do, để không ai viết lại `.mastering`.
+- **Xác minh API**: tra Apple docs JSON — `avaudioconverter/samplerateconverteralgorithm.json` cho `var sampleRateConverterAlgorithm: String?`; `avsamplerateconverteralgorithm_mastering.json` cho `let AVSampleRateConverterAlgorithm_Mastering: String`, `roleHeading = Global Variable`. Máy Windows **không** có SDK nên đây là nguồn đối chiếu duy nhất.
+- **File sửa**: `VieNeuAudioResampler.swift` 192 → **194**, `rules.md` (+ **Luật 9**).
+- **Ràng buộc đã đo**: `check_architecture.py` **5** violation nền cũ / **0** vi phạm mới; `validate_links.py` **PASS 100%** (16 doc, 623 file Swift).
+- **Tài liệu CodeGraph**: `rules.md` **accept** (thêm Luật 9 về hằng `NS_TYPED_ENUM`); `04_call_graph`, `10_risk_report`, `11_subsystems`, `13_resource_lifecycle` **no-change-needed** — sửa cơ học, mô tả trong doc vẫn đúng.
+
+---
+
 ## [1.3.453] - 2026-09-30
 
 ### feat: nhan ban giong VieNeu tu audio mau (voice cloning)
@@ -559,20 +575,3 @@ Người dùng báo `phoneme bỏ: 1` và **"ngừng nghỉ chưa hợp lý"**, 
 - **File sửa**: `VieNeuTTSEngine+Audio.swift` 126 → **190**, `VieNeuTTSEngine.swift` 330 → **338**, `VieNeuTTSService.swift` 262 → **267**, `VieNeuTTSTestView.swift` 284 → **285**, `+Diagnostics.swift` 40 → **44**.
 - **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
 - **Tài liệu CodeGraph**: `rules.md` thêm 3 luật (khoảng nghỉ theo dấu câu; chuẩn hoá dấu câu lạ; RTF là tỉ số nên phải so trên cùng văn bản); `11_subsystems.md` thêm mục về lượt này.
-
-## [1.3.424] - 2026-09-29
-
-### fix: khong che doi tu o ranh gioi chunk, sua picker che do, them nut chia se audio
-
-Người dùng thử đoạn khác và báo **"trở" đọc thành "thê giở"**, **"Harry Potter" đọc thành "harry pô ti tờ"** — vài từ sai lẻ trong câu đúng.
-
-- **Nguyên nhân gốc: `splitIntoChunks` cắt cứng ở đúng `limit` ký tự nên chẻ đôi từ.** Đếm vị trí trên đúng câu người dùng gửi: `trở` ở ký tự **[139..141]** còn ranh giới chunk là **140** ⇒ "t" vào chunk 0, "rở" vào chunk 1; `Potter` vắt qua ranh giới 280 ⇒ "Po" + "tter". Hai mảnh không có trong từ điển nên rơi vào **`charFallback` (đánh vần từng ký tự)** và bị đọc thành **tên chữ cái**.
-  * Đã kiểm bằng bộ đọc Python trên `sea_g2p.bin` thật: **cả `trở` (`tʃˈəː4`) lẫn `potter` (`<en>pˈɑːɾɚ`) đều CÓ trong từ điển** ⇒ lỗi không phải từ điển mà là ranh giới chunk. (Đây là lần thứ sáu trong engine này lỗi nằm ở chỗ tôi tự tính thay vì hỏi nguồn.)
-  * Sửa: `splitIntoChunks` gói theo **từ**, chỉ cắt cứng khi một từ đơn dài hơn `limit`. Đã mô phỏng lại: `trở` nằm trọn trong một chunk, văn bản nối lại khớp gốc từng ký tự.
-- **Picker chế độ không đổi ngay khi chọn**: `VieNeuTTSService` là class thường (**không** `@Observable`), nên `Binding` đọc `service.preferredMode` và nhãn đọc `service.currentMode` đều không làm SwiftUI vẽ lại — nhãn chỉ nhảy khi state khác đổi (bấm Phát). Sửa: lựa chọn giữ ở `@State selectedMode`, đẩy xuống service trong `.onChange`, nhãn đọc state trước.
-- **Thêm nút "Chia sẻ audio"** (`ShareLink` với file WAV ghi ra thư mục tạm; xoá file của lượt trước để không tích tụ).
-- **Thêm 3 nút icon xoá / sao chép / dán** ở ô nhập chữ, kèm `accessibilityLabel`. `.buttonStyle(.borderless)` là bắt buộc: trong một hàng `Form`, mặc định cả hàng là **một** nút nên mọi cú chạm rơi vào nút đầu.
-- **Thêm `chunkCount` vào khối chẩn đoán** (`chunk: N`) — chỉ số bắt đúng lỗi ranh giới chunk.
-- **File sửa**: `VieNeuTTSEngine+Audio.swift` (viết lại `splitIntoChunks`), `VieNeuTTSEngine` 324 → **330**, `VieNeuTTSService` 256 → **262**, `VieNeuTTSTestView.swift` 260 → **284**, `+Sections.swift` 167 → **210**, `+Diagnostics.swift` 37 → **40**.
-- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
-- **Tài liệu CodeGraph**: `rules.md` thêm 2 luật (không chẻ từ ở ranh giới chunk; UI state phải nằm ở `@State` khi service không observable); `11_subsystems.md` thêm mục về lượt này.
