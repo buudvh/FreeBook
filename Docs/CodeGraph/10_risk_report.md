@@ -16,6 +16,18 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 
 <!-- GENERATED START -->
 
+## 1.3.453 — rủi ro mới / đã xử lý (nhân bản giọng)
+
+* **Đã xử lý — `groupLatent` sai bố cục vẫn ra đúng shape**: `out[c*g + slot][block] = zpad[c][block*g + slot]`. Concat kênh liền kề cho `(50,256)` hợp lệ nhưng **giọng khác** và **không** lỗi. Giảm thiểu: hai vòng lặp tường minh + doc cảnh báo + kiểm chứng bit-exact với numpy.
+* **Đã xử lý — `speaker_encoder` nhận fbank, không nhận waveform**: đưa PCM thô sẽ ra embedding 192 số vô nghĩa mà không báo lỗi. Giảm thiểu: `VieNeuVoiceCloner` chỉ có **một** đường gọi fbank, và fbank được kiểm bằng cổng số CI (RAW MAE = 0).
+* **Đã xử lý — `.playback` không thu được**: `VieNeuVoiceRecorder` đổi sang `.playAndRecord` rồi khôi phục bằng chính `TTSAudioSessionController.configureAudioSession()`. Quên khôi phục ⇒ TTS mất tiếng ở **mọi** lượt phát sau — lỗi nằm khác chỗ với nguyên nhân.
+* **Đã xử lý — thiếu `NSMicrophoneUsageDescription` là iOS *kill app***, không phải trả `false`. Đã thêm vào `project.yml`.
+* **Đã xử lý — ngốn RAM**: ngữ cảnh ORT clone-only nạp **3** graph (~91 MB) thay vì dùng lại ngữ cảnh engine chính (sẽ phải nạp thêm ~280 MB graph chính). Giải phóng ở `deinit` của `VieNeuONNXRuntime`.
+* **Đã xử lý — ghi đĩa trên đường đọc**: `VieNeuCustomVoiceStore.init` **không** tạo thư mục, vì `VieNeuVoiceCatalog.load` được gọi từ `VieNeuTTSEngine.prepareLocked`. Thư mục chỉ tạo trong `add`/`save`.
+* **Còn lại — chất lượng phụ thuộc mẫu**: mẫu nhiễu hoặc quá ngắn cho giọng kém; UI chỉ **khuyến nghị** 3–30 s và cảnh báo, không chặn. Bản Nano vốn cho chất lượng nhân bản thấp hơn bản Turbo — đã ghi ở footer màn thư viện.
+* **Còn lại — luồng UI không có test tự động**: chỉ cổng số fbank là kiểm chứng tự động; luồng thu/ghép/ghi file phải thử tay trên máy thật. Máy phát triển là Windows, **không** build được.
+
+
 ## 1.3.450 — rủi ro mới / đã xử lý
 
 * **Đệm `OrtValue` phá bất biến "tensor sống trong một hàm" của `VieNeuONNXBridge.m`.** `CreateTensorWithDataAsOrtValue` **không copy**, nên nếu đệm 4 tensor vô điều kiện mà buffer nguồn chết sớm thì `Run` đọc vùng nhớ đã giải phóng. Giảm thiểu (đã kiểm): 4 buffer `nullContext`/`nullMask`/`nullSpeaker`/`nullStyle` là **bất biến suốt vòng đời engine** vì `VieNeuTTSEngine` **không có `unload`** và chúng được gán một lần trong `prepareLocked`; `VieNeuORTDestroy` giải phóng cache cùng runtime. Comment bất biến ở `VieNeuONNXBridge.m:11-12` đã được sửa để nêu ngoại lệ có kiểm soát này.

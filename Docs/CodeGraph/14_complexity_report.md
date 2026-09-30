@@ -16,6 +16,17 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 
 <!-- GENERATED START -->
 
+## 1.3.453 — độ phức tạp của phân hệ nhân bản giọng
+
+* [`VieNeuVoiceCloner.swift`](../../Sources/Services/TTS/VieNeu/VieNeuVoiceCloner.swift) **270**, 1 primary type (`enum VieNeuVoiceCloner`). Chi phí **một lần cho mỗi lần tạo giọng** (không nằm trên đường đọc truyện): 3 lượt `Run` ONNX trên ≤30 s audio. `groupLatent` là O(channels × frames) với hai vòng lặp tường minh — cố ý viết rõ thay vì `flatMap` để công thức chỉ số nằm một chỗ.
+* [`VieNeuFbank.swift`](../../Sources/Services/TTS/VieNeu/VieNeuFbank.swift) **293**, 1 primary type (`enum VieNeuFbank`). `melSpectrogram` là O(số frame × 512-point FFT); **không** dùng `Accelerate` nên chậm hơn vDSP nhưng biên dịch được bằng `swiftc` trần — đánh đổi có chủ ý để cổng CI chạy được.
+* [`VieNeuAudioResampler.swift`](../../Sources/Services/TTS/VieNeu/VieNeuAudioResampler.swift) **192** — cấp phát đầu ra **một lần** với dung lượng rộng (`ceil(n × ratio) + 1024`) vì `AVAudioConverter.convert(to:error:withInputFrom:)` **không** tiếp tục được giữa dòng.
+* [`VieNeuCustomVoiceStore.swift`](../../Sources/Services/TTS/VieNeu/VieNeuCustomVoiceStore.swift) **226** — `index.json` đọc/ghi **toàn bộ** mỗi lần thay đổi (O(số giọng)); chấp nhận được vì số giọng người dùng ở mức chục, và đổi lại là ghi nguyên tử.
+* [`VieNeuVoiceRecorder.swift`](../../Sources/Services/TTS/VieNeu/VieNeuVoiceRecorder.swift) **148** — `refreshLevel()` đọc `averagePower` theo nhịp UI (0,1 s), không cấp phát.
+* Trần dòng đã chạm: `VieNeuONNXBridge.m` **1155** (không bị kiểm vì `.m`), `VieNeuTTSService.swift` **376/400**, `VieNeuVoiceLibraryView.swift` **346/400**, `VieNeuVoiceCreatorView.swift` **329/400**, `VieNeuONNXRuntime.swift` **316/400**. `VieNeuTTSEngine.swift` **400/400** — **không đổi**.
+* `check_architecture.py`: **5 violation nền / 0 mới** (đều là `LINE_LIMIT_EXCEEDED` có từ trước: `ChapterPersistenceStore`, `JSDom`, `JSExecutor`, `TTSManager`, `ReaderViewModel`).
+
+
 ## 1.3.446 — độ phức tạp của tầng rule riêng theo truyện
 
 * [`TTSReplacementManager+BookScope.swift`](../../Sources/Services/TTS/Preprocessing/TTSReplacementManager+BookScope.swift) **230**, 1 extension (không primary type). `mergedRules` là O(số rule riêng + số rule chung) với 1 `Set` cho tập `pattern` bị chặn; `plan(forBookId:)` cache kết quả nên chỉ biên dịch một lần cho mỗi truyện.

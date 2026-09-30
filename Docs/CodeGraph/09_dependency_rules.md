@@ -16,6 +16,18 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 
 <!-- GENERATED START -->
 
+## 1.3.453 — phụ thuộc của phân hệ nhân bản giọng
+
+* [`VieNeuVoiceCloner.swift`](../../Sources/Services/TTS/VieNeu/VieNeuVoiceCloner.swift) (Services/TTS/VieNeu) → `VieNeuAudioResampler` + `VieNeuFbank` + `VieNeuONNXRuntime` + `VieNeuConfig` + `VieNeuModelStore` — **cùng thư mục**, không `import SwiftUI`, không `ToastManager`. Là `enum` không trạng thái nên gọi được từ `Task.detached`.
+* [`VieNeuAudioResampler.swift`](../../Sources/Services/TTS/VieNeu/VieNeuAudioResampler.swift) chỉ `AVFoundation` + `Foundation`; [`VieNeuFbank.swift`](../../Sources/Services/TTS/VieNeu/VieNeuFbank.swift) **chỉ `Foundation`** (cố ý không Accelerate/vDSP để `swiftc` biên dịch được một mình trong cổng CI).
+* [`VieNeuCustomVoiceStore.swift`](../../Sources/Services/TTS/VieNeu/VieNeuCustomVoiceStore.swift) chỉ `Foundation`. **Không** phụ thuộc `VieNeuModelStore` — file người dùng đi đường riêng, không qua `VieNeuModelStore.url(for:)`.
+* [`VieNeuVoiceCatalog.swift`](../../Sources/Services/TTS/VieNeu/VieNeuVoiceCatalog.swift) **đọc** `VieNeuCustomVoiceStore` (Services → Services) rồi hợp nhất vào `presets`. Chiều này là **một chiều**: store không biết catalog.
+* [`VieNeuVoiceRecorder.swift`](../../Sources/Services/TTS/VieNeu/VieNeuVoiceRecorder.swift) → `AVFoundation` + `TTSAudioSessionController` (Services/TTS) — dùng chung nguồn sự thật cấu hình phiên âm thanh, **không** tự `setCategory` lại.
+* [`VieNeuVoiceLibraryView.swift`](../../Sources/Views/Settings/TTS/VieNeuVoiceLibraryView.swift) (Views) → Services: `VieNeuTTSService` + `VieNeuCustomVoiceStore` + `VieNeuVoiceCloner.Enrollment`. Chiều Views → Services giữ nguyên; không có phụ thuộc ngược.
+* **Ngoại lệ có kiểm soát**: `VieNeuONNXBridge.m` gọi `OrtGetApiBase` **hai lần** (một cho ngữ cảnh engine chính, một cho ngữ cảnh clone-only) — hai `OrtEnv` độc lập, mỗi cái tự `VieNeuORTDestroy`. Không có trạng thái toàn cục dùng chung.
+* `Scripts/FbankGate/main.swift` đọc `VieNeuFbank.swift` bằng cách **biên dịch kèm** (`swiftc VieNeuFbank.swift main.swift`) — không thêm phụ thuộc vào target app.
+
+
 ## 1.3.446 — phụ thuộc mới của tầng rule thay thế theo truyện
 
 * [`TTSReplacementScope.swift`](../../Sources/Services/TTS/TTSReplacementScope.swift) chỉ `import Foundation`, không phụ thuộc gì khác — dùng được từ cả tầng Service lẫn tầng View.

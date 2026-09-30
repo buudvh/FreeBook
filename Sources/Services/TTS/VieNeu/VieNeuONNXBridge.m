@@ -34,11 +34,27 @@ enum {
     VieNeuGraphCount = 4
 };
 
+/// Chỉ số 3 graph **clone giọng** — nạp rời bằng `VieNeuORTLoadCloneGraphs`, không nằm trong
+/// `VieNeuGraphCount` (xem doc ở header).
+enum {
+    VieNeuCloneGraphSpeakerEncoder = 0,
+    VieNeuCloneGraphCodecEncoder = 1,
+    VieNeuCloneGraphReferenceEncoder = 2,
+    VieNeuCloneGraphCount = 3
+};
+
+/// Số input tối đa của một graph clone. Hiện chỉ `reference_encoder` cần 2 (`ref` + `ref_mask`);
+/// `speaker_encoder`/`codec_encoder` mỗi graph 1 input. Khai thành hằng để vòng lặp nạp/giải phóng
+/// không phải hardcode con số 2 ở nhiều chỗ.
+#define VieNeuCloneMaxInputs 2
+
 struct VieNeuORT {
     const OrtApi *api;
     OrtEnv *env;
     OrtMemoryInfo *memoryInfo;
     OrtAllocator *allocator;
+    /// Số luồng intra-op đã dùng cho 4 graph chính; giữ lại để graph clone dùng **cùng** cấu hình.
+    int32_t threadCount;
     OrtSession *sessions[VieNeuGraphCount];
     /// Tên output **đọc từ chính session** (`SessionGetOutputName`), không hardcode.
     ///
@@ -46,6 +62,25 @@ struct VieNeuORT {
     /// tên, mà `OrtApi::Run` của C API lại **bắt buộc** truyền tên. Đoán tên là mở đường cho một lỗi
     /// runtime chỉ nổ trên máy người dùng — nên hỏi thẳng session.
     char *outputNames[VieNeuGraphCount];
+
+    /// 3 graph clone — **`NULL` cho tới khi `VieNeuORTLoadCloneGraphs` thành công**.
+    ///
+    /// Khai riêng thay vì nới `VieNeuGraphCount` lên 7: `VieNeuORTCreate` tạo session **eager** cho cả
+    /// `VieNeuGraphCount` file, nên nới con số đó biến gói clone thành điều kiện sống còn của engine.
+    OrtSession *cloneSessions[VieNeuCloneGraphCount];
+    /// Tên output của graph clone, đọc từ chính session (`SessionGetOutputName`) — cùng lý do như
+    /// `outputNames`: tên input/output của graph clone **khác** 4 graph cũ và không được đoán.
+    char *cloneOutputNames[VieNeuCloneGraphCount];
+    /// Tên input của graph clone, đọc từ session (`SessionGetInputName`) lúc nạp — **theo đúng thứ tự
+    /// chỉ số của graph**.
+    ///
+    /// `speaker_encoder` nhận `"input"`, `codec_encoder` nhận `"wav"`, `reference_encoder` nhận
+    /// `"ref"` + `"ref_mask"` — ba tên khác nhau và số input khác nhau, nên hardcode là mở đường cho
+    /// lỗi chỉ nổ trên máy người dùng. Chiều thứ hai là chỉ số input (tối đa `VieNeuCloneMaxInputs`),
+    /// phần tử thừa để `NULL`.
+    char *cloneInputNames[VieNeuCloneGraphCount][VieNeuCloneMaxInputs];
+    /// Số input mỗi graph clone khai (dùng để phát hiện graph lạ cần nhiều input hơn dự kiến).
+    int32_t cloneInputCounts[VieNeuCloneGraphCount];
 
     // MARK: - Bộ đếm churn (chỉ để chẩn đoán, không ảnh hưởng kết quả số học)
     //
@@ -117,6 +152,79 @@ static OrtSession *createSession(const OrtApi *api,
     }
     context->outputNames[graphIndex] = outputName;
     return session;
+}
+
+/// Trả một chuỗi do allocator mặc định của ORT cấp phát về cho chính allocator đó.
+static void freeSessionString(VieNeuORT *context, char *name) {
+    if (name != NULL && context->allocator != NULL) {
+        context->allocator->Free(context->allocator, name);
+    }
+}
+
+/// Như `createSession` nhưng cho **graph clone**: đọc **cả** tên output **và mọi tên input** từ session.
+///
+/// Khác `createSession` ở hai điểm, cả hai đều bắt nguồn từ C4 ("hỏi model, đừng đoán"):
+/// - Ghi vào `cloneSessions`/`cloneOutputNames`/`cloneInputNames` thay vì mảng 4 graph chính.
+/// - Đọc tên input: `speaker_encoder` nhận `"input"`, `codec_encoder` nhận `"wav"`,
+///   `reference_encoder` nhận `"ref"` + `"ref_mask"` — ba tên và hai số lượng input khác nhau.
+///
+/// **Chỉ gán vào `context` khi đã lấy đủ** tên: nếu lỗi giữa đường thì mọi chuỗi đã lấy được trả lại
+/// ngay, `context` không giữ trạng thái dở dang ⇒ `VieNeuORTLoadCloneGraphs` gọi lại được sạch sẽ.
+static OrtSession *createCloneSession(const OrtApi *api,
+                                      const OrtEnv *env,
+                                      const OrtSessionOptions *options,
+                                      const char *directory,
+                                      const char *name,
+                                      int graphIndex,
+                                      VieNeuORT *context,
+                                      char **errorMessage) {
+    char path[4096];
+    snprintf(path, sizeof(path), "%s/%s", directory, name);
+    OrtSession *session = NULL;
+    if (check(api->CreateSession(env, path, options, &session), api, errorMessage) != 0) return NULL;
+
+    char *outputName = NULL;
+    char *inputNames[VieNeuCloneMaxInputs] = {NULL};
+    size_t inputCount = 0;
+
+    size_t outputCount = 0;
+    if (check(api->SessionGetOutputCount(session, &outputCount), api, errorMessage) != 0 || outputCount == 0) {
+        setError(errorMessage, "graph clone không có output");
+        goto fail;
+    }
+    if (check(api->SessionGetOutputName(session, 0, context->allocator, &outputName), api, errorMessage) != 0) {
+        goto fail;
+    }
+
+    if (check(api->SessionGetInputCount(session, &inputCount), api, errorMessage) != 0 || inputCount == 0) {
+        setError(errorMessage, "graph clone không có input");
+        goto fail;
+    }
+    if (inputCount > VieNeuCloneMaxInputs) {
+        setError(errorMessage, "graph clone khai nhiều input hơn dự kiến");
+        goto fail;
+    }
+    for (size_t index = 0; index < inputCount; index++) {
+        if (check(api->SessionGetInputName(session, index, context->allocator, &inputNames[index]),
+                  api, errorMessage) != 0) {
+            goto fail;
+        }
+    }
+
+    context->cloneOutputNames[graphIndex] = outputName;
+    for (size_t index = 0; index < VieNeuCloneMaxInputs; index++) {
+        context->cloneInputNames[graphIndex][index] = inputNames[index];
+    }
+    context->cloneInputCounts[graphIndex] = (int32_t)inputCount;
+    return session;
+
+fail:
+    freeSessionString(context, outputName);
+    for (size_t index = 0; index < VieNeuCloneMaxInputs; index++) {
+        freeSessionString(context, inputNames[index]);
+    }
+    api->ReleaseSession(session);
+    return NULL;
 }
 
 static OrtValue *makeTensor(const OrtApi *api,
@@ -226,11 +334,17 @@ static float *copyFloats(const OrtApi *api,
 /// nhỏ hơn số thật thì trả lỗi chứ **không** ghi tràn.
 ///
 /// Trả `0` khi thành công, `-1` khi lỗi. `copiedBytes` cộng dồn để đo churn.
+///
+/// `outShape`/`shapeCapacity`/`outRank` là **tuỳ chọn** (truyền `NULL`/`0`/`NULL` khi bên gọi đã biết
+/// shape) — `codec_encoder` cần chúng vì số kênh và số frame của latent **không** suy được từ công thức.
 static int32_t copyFloatsInto(const OrtApi *api,
                               OrtValue *value,
                               float *outBuffer,
                               int32_t capacity,
-                              int64_t *outCount,
+                              int32_t *outCount,
+                              int64_t *outShape,
+                              int32_t shapeCapacity,
+                              int32_t *outRank,
                               VieNeuORT *context,
                               char **errorMessage) {
     OrtTensorTypeAndShapeInfo *info = NULL;
@@ -248,6 +362,14 @@ static int32_t copyFloatsInto(const OrtApi *api,
         return -1;
     }
     api->ReleaseTensorTypeAndShapeInfo(info);
+
+    if (outRank != NULL) *outRank = (int32_t)rank;
+    if (outShape != NULL) {
+        int32_t copied = 0;
+        for (size_t index = 0; index < rank && copied < shapeCapacity; index++) {
+            outShape[copied++] = dimensions[index];
+        }
+    }
 
     size_t count = 1;
     for (size_t index = 0; index < rank; index++) {
@@ -269,11 +391,25 @@ static int32_t copyFloatsInto(const OrtApi *api,
 
 #pragma mark - Vòng đời
 
-VieNeuORT *VieNeuORTCreate(const char *modelDirectory, int32_t threadCount, char **errorMessage) {
-    if (modelDirectory == NULL) {
-        setError(errorMessage, "modelDirectory is NULL");
-        return NULL;
-    }
+/// Nạp 3 graph clone bằng một `OrtSessionOptions` **đã có**.
+///
+/// Tách khỏi `VieNeuORTLoadCloneGraphs` (hàm tự dựng options) để `VieNeuORTCreateCloneOnly` dùng lại
+/// đúng bộ options của khung ngữ cảnh thay vì tạo bộ thứ hai.
+static int32_t loadCloneGraphsWithOptions(VieNeuORT *context, const char *modelDirectory,
+                                          const OrtSessionOptions *options, char **errorMessage);
+
+/// Dựng phần **khung** của ngữ cảnh: `OrtEnv`, `OrtMemoryInfo`, `OrtAllocator` và một
+/// `OrtSessionOptions` đã đặt số luồng + mức tối ưu. **Chưa** mở session nào.
+///
+/// Tách ra vì có **hai** kiểu ngữ cảnh dùng chung phần khung này:
+/// - `VieNeuORTCreate` — đủ 4 graph chính (đường tổng hợp).
+/// - `VieNeuORTCreateCloneOnly` — chỉ 3 graph clone (đường tạo giọng).
+///
+/// `*outOptions` thuộc bên gọi: giải phóng bằng `ReleaseSessionOptions` sau khi mở xong session. Truyền
+/// `NULL` được nếu bên gọi tự lo options (khi đó options dựng ở đây bị giải phóng luôn).
+static VieNeuORT *createBaseContext(int32_t threadCount,
+                                    OrtSessionOptions **outOptions,
+                                    char **errorMessage) {
     const OrtApiBase *base = OrtGetApiBase();
     if (base == NULL) {
         setError(errorMessage, "OrtGetApiBase returned NULL");
@@ -315,6 +451,25 @@ VieNeuORT *VieNeuORTCreate(const char *modelDirectory, int32_t threadCount, char
     }
     check(api->SetIntraOpNumThreads(options, threadCount), api, errorMessage);
     check(api->SetSessionGraphOptimizationLevel(options, ORT_ENABLE_ALL), api, errorMessage);
+    context->threadCount = threadCount;
+
+    if (outOptions != NULL) {
+        *outOptions = options;
+    } else {
+        api->ReleaseSessionOptions(options);
+    }
+    return context;
+}
+
+VieNeuORT *VieNeuORTCreate(const char *modelDirectory, int32_t threadCount, char **errorMessage) {
+    if (modelDirectory == NULL) {
+        setError(errorMessage, "modelDirectory is NULL");
+        return NULL;
+    }
+    OrtSessionOptions *options = NULL;
+    VieNeuORT *context = createBaseContext(threadCount, &options, errorMessage);
+    if (context == NULL) return NULL;
+    const OrtApi *api = context->api;
 
     context->sessions[VieNeuGraphTextEncoder] =
         createSession(api, context->env, options, modelDirectory, "text_encoder.onnx", VieNeuGraphTextEncoder, context, errorMessage);
@@ -335,6 +490,26 @@ VieNeuORT *VieNeuORTCreate(const char *modelDirectory, int32_t threadCount, char
     return context;
 }
 
+VieNeuORT *VieNeuORTCreateCloneOnly(const char *modelDirectory, int32_t threadCount, char **errorMessage) {
+    if (modelDirectory == NULL) {
+        setError(errorMessage, "modelDirectory is NULL");
+        return NULL;
+    }
+    OrtSessionOptions *options = NULL;
+    VieNeuORT *context = createBaseContext(threadCount, &options, errorMessage);
+    if (context == NULL) return NULL;
+
+    // Dùng **cùng** options với khung (số luồng + mức tối ưu) thay vì để `VieNeuORTLoadCloneGraphs` dựng
+    // bộ thứ hai — cùng cấu hình nên không có lý do gì để tạo hai lần.
+    int32_t status = loadCloneGraphsWithOptions(context, modelDirectory, options, errorMessage);
+    context->api->ReleaseSessionOptions(options);
+    if (status != 0) {
+        VieNeuORTDestroy(context);
+        return NULL;
+    }
+    return context;
+}
+
 void VieNeuORTDestroy(VieNeuORT *context) {
     if (context == NULL) return;
     const OrtApi *api = context->api;
@@ -345,11 +520,26 @@ void VieNeuORTDestroy(VieNeuORT *context) {
         for (int index = 0; index < VieNeuGraphCount; index++) {
             if (context->sessions[index] != NULL) api->ReleaseSession(context->sessions[index]);
         }
+        // Vòng lặp **riêng** cho graph clone: chúng có thể chưa từng được nạp (`NULL`), và nới
+        // `VieNeuGraphCount` để gộp chung sẽ làm `VieNeuORTCreate` đòi đủ 7 file.
+        for (int index = 0; index < VieNeuCloneGraphCount; index++) {
+            if (context->cloneSessions[index] != NULL) api->ReleaseSession(context->cloneSessions[index]);
+        }
         // Tên output do allocator mặc định của ORT cấp phát ⇒ phải trả lại bằng chính allocator đó.
         if (context->allocator != NULL) {
             for (int index = 0; index < VieNeuGraphCount; index++) {
                 if (context->outputNames[index] != NULL) {
                     context->allocator->Free(context->allocator, context->outputNames[index]);
+                }
+            }
+            for (int index = 0; index < VieNeuCloneGraphCount; index++) {
+                if (context->cloneOutputNames[index] != NULL) {
+                    context->allocator->Free(context->allocator, context->cloneOutputNames[index]);
+                }
+                for (int slot = 0; slot < VieNeuCloneMaxInputs; slot++) {
+                    if (context->cloneInputNames[index][slot] != NULL) {
+                        context->allocator->Free(context->allocator, context->cloneInputNames[index][slot]);
+                    }
                 }
             }
         }
@@ -562,7 +752,8 @@ int32_t VieNeuORTRunVectorEstimatorInto(VieNeuORT *context,
     for (size_t index = 0; index < 6; index++) { api->ReleaseValue(values[index]); context->tensorReleases += 1; }
     if (output == NULL) return -1;
 
-    int32_t status = copyFloatsInto(api, output, outBuffer, outCapacity, outCount, context, errorMessage);
+    int32_t status = copyFloatsInto(api, output, outBuffer, outCapacity, outCount,
+                                    NULL, 0, NULL, context, errorMessage);
     api->ReleaseValue(output);
     return status;
 }
@@ -652,7 +843,8 @@ int32_t VieNeuORTRunVectorEstimatorUnconditionedInto(VieNeuORT *context,
     api->ReleaseValue(timeValue); context->tensorReleases += 1;
     if (output == NULL) return -1;
 
-    int32_t status = copyFloatsInto(api, output, outBuffer, outCapacity, outCount, context, errorMessage);
+    int32_t status = copyFloatsInto(api, output, outBuffer, outCapacity, outCount,
+                                    NULL, 0, NULL, context, errorMessage);
     api->ReleaseValue(output);
     return status;
 }
@@ -723,4 +915,241 @@ float *VieNeuORTRunCodecDecoder(VieNeuORT *context,
     float *result = copyFloats(api, output, outCount, NULL, 0, NULL, errorMessage);
     api->ReleaseValue(output);
     return result;
+}
+
+#pragma mark - Graph clone giọng
+
+int32_t VieNeuORTLoadCloneGraphs(VieNeuORT *context, const char *modelDirectory, char **errorMessage) {
+    if (context == NULL) {
+        setError(errorMessage, "context is NULL");
+        return -1;
+    }
+    if (modelDirectory == NULL) {
+        setError(errorMessage, "modelDirectory is NULL");
+        return -1;
+    }
+    // Gọi lại lần hai là no-op: nếu đã đủ 3 graph thì không mở session trùng.
+    if (VieNeuORTHasCloneGraphs(context)) return 0;
+
+    const OrtApi *api = context->api;
+    // Dùng **cùng** cấu hình luồng/tối ưu với 4 graph chính (`context->threadCount` đã lưu ở
+    // `VieNeuORTCreate`) — gói clone không được tự ý chạy khác số luồng.
+    OrtSessionOptions *options = NULL;
+    if (check(api->CreateSessionOptions(&options), api, errorMessage) != 0) return -1;
+    check(api->SetIntraOpNumThreads(options, context->threadCount), api, errorMessage);
+    check(api->SetSessionGraphOptimizationLevel(options, ORT_ENABLE_ALL), api, errorMessage);
+
+    int32_t status = loadCloneGraphsWithOptions(context, modelDirectory, options, errorMessage);
+    api->ReleaseSessionOptions(options);
+    return status;
+}
+
+static int32_t loadCloneGraphsWithOptions(VieNeuORT *context, const char *modelDirectory,
+                                          const OrtSessionOptions *options, char **errorMessage) {
+    const OrtApi *api = context->api;
+    static const char *fileNames[VieNeuCloneGraphCount] = {
+        "speaker_encoder.onnx", "codec_encoder.onnx", "reference_encoder.onnx"
+    };
+
+    for (int index = 0; index < VieNeuCloneGraphCount; index++) {
+        context->cloneSessions[index] =
+            createCloneSession(api, context->env, options, modelDirectory, fileNames[index], index,
+                               context, errorMessage);
+        if (context->cloneSessions[index] != NULL) continue;
+
+        // Hợp đồng ở header: lỗi ⇒ **không** giữ session nào, để gọi lại được sau khi người dùng tải
+        // nốt gói. Giải phóng cả những graph đã nạp thành công ở các vòng trước (kể cả tên đã đọc).
+        for (int inner = 0; inner < VieNeuCloneGraphCount; inner++) {
+            if (context->cloneSessions[inner] != NULL) {
+                api->ReleaseSession(context->cloneSessions[inner]);
+                context->cloneSessions[inner] = NULL;
+            }
+            freeSessionString(context, context->cloneOutputNames[inner]);
+            context->cloneOutputNames[inner] = NULL;
+            for (int slot = 0; slot < VieNeuCloneMaxInputs; slot++) {
+                freeSessionString(context, context->cloneInputNames[inner][slot]);
+                context->cloneInputNames[inner][slot] = NULL;
+            }
+            context->cloneInputCounts[inner] = 0;
+        }
+        return -1;
+    }
+    return 0;
+}
+
+int32_t VieNeuORTHasCloneGraphs(const VieNeuORT *context) {
+    if (context == NULL) return 0;
+    for (int index = 0; index < VieNeuCloneGraphCount; index++) {
+        if (context->cloneSessions[index] == NULL) return 0;
+    }
+    return 1;
+}
+
+int32_t VieNeuORTRunSpeakerEncoder(VieNeuORT *context,
+                                   const float *fbank, int32_t frames, int32_t melBins,
+                                   float *outBuffer, int32_t outCapacity, int32_t *outCount,
+                                   char **errorMessage) {
+    if (context == NULL) {
+        setError(errorMessage, "context is NULL");
+        return -1;
+    }
+    if (!VieNeuORTHasCloneGraphs(context)) {
+        setError(errorMessage, "chưa nạp gói graph clone");
+        return -1;
+    }
+    if (outBuffer == NULL) {
+        setError(errorMessage, "outBuffer is NULL");
+        return -1;
+    }
+    if (frames <= 0 || melBins <= 0) {
+        setError(errorMessage, "kích thước fbank không hợp lệ");
+        return -1;
+    }
+    const OrtApi *api = context->api;
+    const int graph = VieNeuCloneGraphSpeakerEncoder;
+    // Input `[batch, sequence_length, 80]` — bên gọi đã trừ trung bình theo bin trước khi vào đây.
+    const int64_t shape[3] = {1, frames, melBins};
+
+    OrtValue *input = makeTensor(api, context->memoryInfo, fbank,
+                                 (size_t)(frames * melBins) * sizeof(float), shape, 3,
+                                 ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, errorMessage);
+    if (input == NULL) return -1;
+
+    const char *names[1] = {context->cloneInputNames[graph][0]};
+    const OrtValue *inputs[1] = {input};
+    OrtValue *output = runSession(api, context->cloneSessions[graph], names, inputs, 1,
+                                  context->cloneOutputNames[graph], errorMessage);
+    api->ReleaseValue(input);
+    if (output == NULL) return -1;
+
+    // Số phần tử thật (192) đọc từ shape graph, không hardcode `EMBED_DIM`.
+    int32_t count = 0;
+    int32_t status = copyFloatsInto(api, output, outBuffer, outCapacity, &count,
+                                    NULL, 0, NULL, context, errorMessage);
+    api->ReleaseValue(output);
+    if (status == 0 && outCount != NULL) *outCount = count;
+    return status;
+}
+
+int32_t VieNeuORTRunCodecEncoder(VieNeuORT *context,
+                                 const float *pcm, int32_t sampleCount,
+                                 float *outBuffer, int32_t outCapacity,
+                                 int64_t *outShape, int32_t shapeCapacity, int32_t *outRank,
+                                 int32_t *outCount, char **errorMessage) {
+    if (context == NULL) {
+        setError(errorMessage, "context is NULL");
+        return -1;
+    }
+    if (!VieNeuORTHasCloneGraphs(context)) {
+        setError(errorMessage, "chưa nạp gói graph clone");
+        return -1;
+    }
+    if (outBuffer == NULL) {
+        setError(errorMessage, "outBuffer is NULL");
+        return -1;
+    }
+    if (sampleCount <= 0) {
+        setError(errorMessage, "độ dài waveform không hợp lệ");
+        return -1;
+    }
+    const OrtApi *api = context->api;
+    const int graph = VieNeuCloneGraphCodecEncoder;
+    // `wav` là `[1, 1, N]` — waveform mono 24 kHz.
+    const int64_t shape[3] = {1, 1, sampleCount};
+
+    OrtValue *input = makeTensor(api, context->memoryInfo, pcm,
+                                 (size_t)sampleCount * sizeof(float), shape, 3,
+                                 ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, errorMessage);
+    if (input == NULL) return -1;
+
+    const char *names[1] = {context->cloneInputNames[graph][0]};
+    const OrtValue *inputs[1] = {input};
+    OrtValue *output = runSession(api, context->cloneSessions[graph], names, inputs, 1,
+                                  context->cloneOutputNames[graph], errorMessage);
+    api->ReleaseValue(input);
+    if (output == NULL) return -1;
+
+    // Số kênh (24) và số frame của latent **không** suy được từ công thức ⇒ bắt buộc trả shape thật
+    // cho bên gọi (`outShape`/`outRank`), đúng hợp đồng ở header.
+    int32_t count = 0;
+    int32_t status = copyFloatsInto(api, output, outBuffer, outCapacity, &count,
+                                    outShape, shapeCapacity, outRank, context, errorMessage);
+    api->ReleaseValue(output);
+    if (status == 0 && outCount != NULL) *outCount = count;
+    return status;
+}
+
+int32_t VieNeuORTRunReferenceEncoder(VieNeuORT *context,
+                                     const float *latent, int32_t channels, int32_t frames,
+                                     float *outBuffer, int32_t outCapacity, int32_t *outCount,
+                                     char **errorMessage) {
+    if (context == NULL) {
+        setError(errorMessage, "context is NULL");
+        return -1;
+    }
+    if (!VieNeuORTHasCloneGraphs(context)) {
+        setError(errorMessage, "chưa nạp gói graph clone");
+        return -1;
+    }
+    if (outBuffer == NULL) {
+        setError(errorMessage, "outBuffer is NULL");
+        return -1;
+    }
+    if (channels <= 0 || frames <= 0) {
+        setError(errorMessage, "kích thước latent không hợp lệ");
+        return -1;
+    }
+    const OrtApi *api = context->api;
+    const int graph = VieNeuCloneGraphReferenceEncoder;
+    // `reference_encoder` là graph clone **duy nhất** cần 2 input; thiếu `ref_mask` thì `Run` sẽ báo
+    // lỗi khó hiểu, nên chặn sớm bằng thông báo rõ.
+    if (context->cloneInputCounts[graph] < 2) {
+        setError(errorMessage, "reference_encoder thiếu input ref_mask");
+        return -1;
+    }
+    const int64_t refShape[3] = {1, channels, frames};
+    const int64_t maskShape[2] = {1, frames};
+
+    // `ref_mask = np.ones((1, T), bool)` của upstream: mọi phần tử `true`. Tự dựng ở đây thay vì bắt
+    // bên gọi truyền vào — không có tham số nào để hoá trị, vì nó luôn toàn `1`.
+    uint8_t *mask = malloc((size_t)frames);
+    if (mask == NULL) {
+        setError(errorMessage, "malloc failed");
+        return -1;
+    }
+    memset(mask, 1, (size_t)frames);
+
+    OrtValue *refValue = makeTensor(api, context->memoryInfo, latent,
+                                    (size_t)(channels * frames) * sizeof(float), refShape, 3,
+                                    ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, errorMessage);
+    if (refValue == NULL) {
+        free(mask);
+        return -1;
+    }
+    OrtValue *maskValue = makeTensor(api, context->memoryInfo, mask,
+                                     (size_t)frames * sizeof(uint8_t), maskShape, 2,
+                                     ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL, errorMessage);
+    if (maskValue == NULL) {
+        api->ReleaseValue(refValue);
+        free(mask);
+        return -1;
+    }
+
+    const char *names[2] = {context->cloneInputNames[graph][0], context->cloneInputNames[graph][1]};
+    const OrtValue *inputs[2] = {refValue, maskValue};
+    OrtValue *output = runSession(api, context->cloneSessions[graph], names, inputs, 2,
+                                  context->cloneOutputNames[graph], errorMessage);
+
+    // `CreateTensorWithDataAsOrtValue` không copy ⇒ `mask` chỉ được giải phóng **sau** `Run`.
+    api->ReleaseValue(refValue);
+    api->ReleaseValue(maskValue);
+    free(mask);
+    if (output == NULL) return -1;
+
+    int32_t count = 0;
+    int32_t status = copyFloatsInto(api, output, outBuffer, outCapacity, &count,
+                                    NULL, 0, NULL, context, errorMessage);
+    api->ReleaseValue(output);
+    if (status == 0 && outCount != NULL) *outCount = count;
+    return status;
 }

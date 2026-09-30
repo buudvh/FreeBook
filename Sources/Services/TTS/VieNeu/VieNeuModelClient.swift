@@ -1,6 +1,7 @@
 import Foundation
 
-/// Tải 8 file của **VieNeu-TTS v3 Nano** về `VieNeuModelStore`.
+/// Tải 8 file lõi của **VieNeu-TTS v3 Nano** về `VieNeuModelStore` (và, khi được yêu cầu riêng, cả 3
+/// graph clone giọng — xem `prefetchCloneGraphs`).
 ///
 /// ## Ghim sha, không lấy `main`
 /// Model card của tác giả cảnh báo thẳng là "weights, voices and defaults may change between
@@ -23,6 +24,20 @@ final class VieNeuModelClient {
     static let voicesRevision = "2e982ff857bbe23fffa0c314e0f60da2497e2f4b"
     /// Sha của `pnnbao97/sea-g2p` (chứa `python/sea_g2p/sea_g2p.bin`, 62.829.820 byte).
     static let g2pRevision = "e825173f235d08ea19315b2b279fb11153b44cea"
+
+    /// Gốc của repo model — **đã ghim sha**. Cả 4 graph chính lẫn 3 graph clone đều nằm ở đây, nên khai
+    /// một chỗ và dùng cho cả `sources()` lẫn `cloneSources()`.
+    private static var modelBase: String {
+        "https://huggingface.co/pnnbao-ump/VieNeu-TTS-v3-Nano/resolve/\(modelRevision)"
+    }
+
+    private static var voicesURL: String {
+        "https://raw.githubusercontent.com/pnnbao97/VieNeu-TTS/\(voicesRevision)/src/vieneu/assets/voices_v3_nano.json"
+    }
+
+    private static var g2pURL: String {
+        "https://raw.githubusercontent.com/pnnbao97/sea-g2p/\(g2pRevision)/python/sea_g2p/sea_g2p.bin"
+    }
 
     struct Source: Sendable {
         let name: String
@@ -53,10 +68,6 @@ final class VieNeuModelClient {
 
     /// Tám nguồn, theo thứ tự tải: graph trước (nặng nhất), rồi cấu hình, rồi asset.
     static func sources() throws -> [Source] {
-        let modelBase = "https://huggingface.co/pnnbao-ump/VieNeu-TTS-v3-Nano/resolve/\(modelRevision)"
-        let voicesURL = "https://raw.githubusercontent.com/pnnbao97/VieNeu-TTS/\(voicesRevision)/src/vieneu/assets/voices_v3_nano.json"
-        let g2pURL = "https://raw.githubusercontent.com/pnnbao97/sea-g2p/\(g2pRevision)/python/sea_g2p/sea_g2p.bin"
-
         var list: [Source] = []
         for name in VieNeuModelStore.graphNames + VieNeuModelStore.configNames {
             list.append(try source(name: name, urlString: "\(modelBase)/\(name)"))
@@ -64,6 +75,16 @@ final class VieNeuModelClient {
         list.append(try source(name: "voices_v3_nano.json", urlString: voicesURL))
         list.append(try source(name: "sea_g2p.bin", urlString: g2pURL))
         return list
+    }
+
+    /// Ba nguồn của **gói graph clone** (~91 MB), cùng repo và cùng sha với 4 graph chính.
+    ///
+    /// Tải **riêng** khỏi `sources()`: gói này là tuỳ chọn (chỉ cần khi tạo giọng mới) nên không được
+    /// nằm trong `VieNeuModelStore.requiredNames` — xem doc của `cloneGraphNames`.
+    static func cloneSources() throws -> [Source] {
+        try VieNeuModelStore.cloneGraphNames.map {
+            try source(name: $0, urlString: "\(modelBase)/\($0)")
+        }
     }
 
     private static func source(name: String, urlString: String) throws -> Source {
@@ -77,10 +98,22 @@ final class VieNeuModelClient {
     /// khuôn `NghiTTSClient.prefetchModels`.
     @discardableResult
     func prefetch(progressHandler: ((String, Double) -> Void)? = nil) async throws -> Int {
+        try await downloadAll(try Self.sources(), progressHandler: progressHandler)
+    }
+
+    /// Tải **gói graph clone** (3 file, ~91 MB). Cùng khuôn tiến độ với `prefetch`.
+    @discardableResult
+    func prefetchCloneGraphs(progressHandler: ((String, Double) -> Void)? = nil) async throws -> Int {
+        try await downloadAll(try Self.cloneSources(), progressHandler: progressHandler)
+    }
+
+    private func downloadAll(
+        _ all: [Source],
+        progressHandler: ((String, Double) -> Void)?
+    ) async throws -> Int {
         let background = BackgroundTaskSession.begin(name: "FreeBook-VieNeuModel")
         defer { background.end() }
 
-        let all = try Self.sources()
         var downloaded = 0
         for (index, source) in all.enumerated() {
             let fraction = Double(index) / Double(all.count)
@@ -121,7 +154,8 @@ final class VieNeuModelClient {
         try fileManager.moveItem(at: staging, to: destination)
     }
 
-    /// Xoá cả 8 file. Xem `VieNeuModelStore.deleteAll` để biết vì sao xoá từng file chứ không xoá cây.
+    /// Xoá 8 file lõi **và** gói graph clone (nếu có). Xem `VieNeuModelStore.deleteAll` để biết vì sao
+    /// xoá từng file chứ không xoá cây, và vì sao giọng user **không** bị đụng.
     func deleteAll() throws {
         try store.deleteAll()
     }

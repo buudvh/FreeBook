@@ -31,6 +31,12 @@ struct VieNeuConfig: Sendable {
     let padID: Int64
     let defaultSteps: Int
     let defaultCFG: Float
+    /// `ref_max_frames` = **140** — trần số frame latent **sau khi gộp nhóm** đưa vào `reference_encoder`.
+    ///
+    /// Cắt thật là `min(int(ref_seconds × flowFPS), refMaxFrames)`; với `ref_seconds = 5,0` và
+    /// `flowFPS = 15,625` thì `int(78,125) = 78` < 140 ⇒ trần này chưa bao giờ chạm ở mặc định, nhưng
+    /// vẫn phải đọc vì đó là tham số upstream dùng.
+    let refMaxFrames: Int
     /// `<|emotion_1|>` → `①` … Nano chỉ có 3 tag này.
     let emotionMap: [String: String]
     /// Giá trị scalar → id. Xem bẫy 1 ở doc của type.
@@ -39,6 +45,14 @@ struct VieNeuConfig: Sendable {
 
     /// Chiều dài latent của một frame: `latentDim * group` = 24 × 6 = **144** (shape của `x`).
     var latentChannels: Int { latentDim * group }
+
+    /// Số frame latent **sau khi gộp nhóm** đưa vào `reference_encoder`:
+    /// `min(int(refSeconds × flowFPS), refMaxFrames)` — đúng `v3nano.py:220`.
+    ///
+    /// Với mặc định (`refSeconds = 5,0`, `flowFPS = 15,625`, `refMaxFrames = 140`) ⇒ `min(78, 140) = 78`.
+    func referenceFrameCount(refSeconds: Double) -> Int {
+        min(Int(refSeconds * flowFPS), refMaxFrames)
+    }
 
     /// Số frame tối thiểu — dưới ngưỡng này `vector_estimator` nhận shape suy biến.
     static let minFrames = 2
@@ -54,6 +68,20 @@ struct VieNeuConfig: Sendable {
         let nullSpeaker: [Float]
         /// `null_style.npy` — shape (50, 256), đã làm phẳng theo hàng.
         let nullStyle: [Float]
+
+        /// `latent_mean.npy` — shape (24,). Dùng **chỉ** ở đường clone: chuẩn hoá latent của audio mẫu
+        /// trước khi gộp nhóm và đưa vào `reference_encoder`.
+        ///
+        /// Để **optional** cho đúng hành vi upstream (`if "latent_mean" in c.files else None`): một gói
+        /// model thiếu ba hằng số này vẫn dùng được 11 giọng preset, chỉ đường clone báo lỗi rõ ràng
+        /// (`VieNeuVoiceCloner`). Bắt buộc ngay ở đây sẽ làm hỏng cả engine vì một tính năng phụ.
+        let latentMean: [Float]?
+        /// `latent_std.npy` — shape (24,).
+        let latentStd: [Float]?
+        /// `latent_scale.npy` — mảng **0 chiều** (`shape = ()`), giá trị 0.25.
+        ///
+        /// `NPZReader` đọc đúng mảng 0 chiều (`shape.isEmpty ? 1` ⇒ một phần tử), nên lấy `.first`.
+        let latentScale: Float?
     }
 
     // MARK: - Đọc
@@ -92,6 +120,10 @@ struct VieNeuConfig: Sendable {
         guard let nullStyle = arrays["null_style"]?.values else {
             throw LoadError.badNPZ("thiếu null_style.npy")
         }
+        // Ba hằng số latent **không** bắt buộc (xem doc của `Constants`): thiếu thì chỉ đường clone hỏng.
+        let latentMean = arrays["latent_mean"]?.values
+        let latentStd = arrays["latent_std"]?.values
+        let latentScale = arrays["latent_scale"]?.values.first
 
         return VieNeuConfig(
             sampleRate: raw.sample_rate,
@@ -105,9 +137,14 @@ struct VieNeuConfig: Sendable {
             padID: raw.pad_id,
             defaultSteps: raw.steps_default,
             defaultCFG: raw.cfg_default,
+            refMaxFrames: raw.ref_max_frames,
             emotionMap: raw.emotion_tags,
             vocab: vocab,
-            constants: Constants(nullSpeaker: nullSpeaker, nullStyle: nullStyle)
+            constants: Constants(nullSpeaker: nullSpeaker,
+                                 nullStyle: nullStyle,
+                                 latentMean: latentMean,
+                                 latentStd: latentStd,
+                                 latentScale: latentScale)
         )
     }
 
@@ -125,6 +162,7 @@ struct VieNeuConfig: Sendable {
         let pad_id: Int64
         let steps_default: Int
         let cfg_default: Float
+        let ref_max_frames: Int
         let vocab: [String: Int64]
         let emotion_tags: [String: String]
     }

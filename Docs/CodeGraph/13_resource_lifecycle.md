@@ -16,6 +16,16 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 
 <!-- GENERATED START -->
 
+## 1.3.453 — vòng đời tài nguyên của luồng nhân bản giọng
+
+* **Ngữ cảnh ORT clone-only**: tạo trong `VieNeuONNXRuntime.init(cloneOnlyModelStore:threadCount:)` → `VieNeuORTCreateCloneOnly`; giữ trong `VieNeuVoiceLibraryView`; giải phóng ở `deinit` của runtime (huỷ 3 session + tên input 2 chiều + `OrtEnv`). **Không** chia sẻ với ngữ cảnh engine chính.
+* **`ref_mask` trong `VieNeuORTRunReferenceEncoder`**: `malloc` + `memset` toàn 1, **chỉ** `free` **sau** `Run` — vì `CreateTensorWithDataAsOrtValue` **không** copy dữ liệu (bất biến ở `VieNeuONNXBridge.m:11-12`).
+* **Phiên âm thanh**: `.playback` (mặc định app) → `.playAndRecord` khi `start()` thu → **khôi phục** `.playback` + `.spokenAudio` trong `stop()` / `discard()` **và** trên cả hai nhánh lỗi của `start()` (`AVAudioRecorder.init` ném, `record()` trả `false`).
+* **File tạm**: bản thu vào `FileManager.temporaryDirectory` (`vieneu-sample-<uuid>.m4a`); xoá ở `discard()` hoặc `discardTemporarySample(_:)` — hàm này **chỉ** xoá file nằm trong `temporaryDirectory`, không đụng file người dùng chọn.
+* **Audio mẫu người dùng chọn**: copy vào `CustomVoices/samples/` trong lúc còn `startAccessingSecurityScopedResource()`; nếu `save` thất bại thì bản copy bị xoá lại (không để rác).
+* **`AVAudioPlayer` xem trước**: một instance tại một thời điểm (`playingVoiceID`); `teardown()` dừng và giải phóng khi rời màn.
+
+
 ## 1.3.446 — vòng đời tài nguyên của tầng rule riêng theo truyện
 
 * **File**: `translate/books/<bookId>/character_replacements.json` — ghi `.atomic`; danh sách rỗng ⇒ **xoá file** thay vì để lại `[]`.

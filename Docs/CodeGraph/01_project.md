@@ -15,6 +15,16 @@ Tài liệu này phác thảo kiến trúc tổng thể, sơ đồ thư mục, c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+
+## `project.yml` thêm `NSMicrophoneUsageDescription` + cổng CI `fbank-gate` (1.3.451 / 1.3.453)
+
+* **Quyền micro là điều kiện sống còn, không phải "cho chắc"**: thiếu `NSMicrophoneUsageDescription` trong `Info.plist` thì iOS **kill app** ngay khi phiên âm thanh chạm tới input — không phải trả `false` rồi thôi. Chuỗi thêm vào `info.properties`:
+  `"FreeBook dùng micro để thu 3–8 giây giọng nói làm mẫu, từ đó tạo giọng đọc riêng cho phần đọc truyện. Bản thu chỉ nằm trên máy bạn."`
+* **Workflow thứ hai**: [`.github/workflows/fbank-gate.yml`](../../.github/workflows/fbank-gate.yml) — cổng số cho `VieNeuFbank.swift`. Khác `build-ipa.yml` ở chỗ nó **chạy thật** Swift (`swiftc -O VieNeuFbank.swift Scripts/FbankGate/main.swift`) rồi so với một bản numpy độc lập; `runs-on: macos-15`. Kích hoạt bằng `push` theo `paths` (`Scripts/FbankGate/**`, `VieNeuFbank.swift`, chính nó) nên là cổng **chống hồi quy**, không chỉ chạy tay.
+* **Vì sao cần cổng riêng**: máy phát triển là Windows **không có Swift toolchain**, nên tại chỗ chỉ chạy được bản dịch Python của cùng thuật toán. Đây là chỗ **duy nhất** mã Swift thật được thi hành trong CI ngoài `build-ipa.yml`.
+* `sources: - path: Sources` không đổi; `Scripts/` **không** thuộc target app nên `FbankGate` không vào bản build.
+* `Sources/App/FreeBookApp.swift` **không đổi**.
+
 ## `project.yml` có thêm `SWIFT_OBJC_BRIDGING_HEADER` cho cầu nối C của VieNeu-TTS (1.3.417)
 
 * **Thay đổi build-config đầu tiên của phân hệ VieNeu**: `settings.base.SWIFT_OBJC_BRIDGING_HEADER: Sources/Services/TTS/VieNeu/VieNeuONNXBridge.h`. Đây là bridging header **đầu tiên** của target — trước đó `Sources/` không có file `.h`/`.m`/`.mm` nào.

@@ -2,6 +2,50 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.423] - 2026-09-29
+
+### fix: bo che do turbo va chi doi toc do phat audio
+
+Người dùng đo trên máy thật: `fast` (8 bước) **RTF 0.26** (16,88 s audio trong 4,38 s), `high` (16 bước) **RTF 0.48** (8,06 s), giọng "khá ổn" ở cả hai — nhưng chế độ **tắt CFG "quá dở, đứt quãng, không rõ tiếng"**.
+
+- **Bỏ hẳn chế độ `turbo` (`cfg = 0`)**: model card cảnh báo thẳng "hurts intelligibility" và tai người dùng xác nhận. Giữ lại một lựa chọn đã bị từ chối chỉ tạo thêm một cái bẫy. Tương thích: `UserDefaults` còn giá trị `"turbo"` thì `Mode(rawValue:)` trả `nil` ⇒ tự rơi về "tự động", **không cần migrate**.
+- **Tách tốc độ phát khỏi tốc độ tạo**: engine `speed` chia `exp(log_s)` (`secs = min(exp(log_s)/speed, 15)`) — tức bắt model **sinh audio ngắn/dài hơn**, đẩy nó ra khỏi nhịp được huấn luyện và bắt tổng hợp lại mỗi lần đổi tốc độ. Nay màn thử giọng **luôn tổng hợp ở 1.0×** và áp tốc độ bằng `AVAudioPlayer.rate` (`enableRate = true` phải đặt **trước** `rate`, nếu không iOS bỏ qua). Mục "Tốc độ" đổi thành **"Tốc độ phát"** kèm giải thích.
+- **Hệ quả cần nhớ khi nối Reader (increment 2b)**: số RTF đo được **luôn ứng với 1.0×**, và đổi tốc độ **không được** kích hoạt tổng hợp lại.
+- **Chế độ còn lại**: `high` (16 bước, "Chất lượng cao") · `fast` (8 bước, "Nhanh") · *Tự động*.
+- **File sửa**: `VieNeuSynthesisPolicy` 86 → **87**, `VieNeuTTSTestView.swift` 255 → **260**, `VieNeuTTSTestView+Sections.swift` 164 → **167**.
+- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
+- **Tài liệu CodeGraph**: `rules.md` thêm 2 luật (tốc độ thuộc tầng phát; không có chế độ `cfg = 0`); `11_subsystems.md` thêm mục về lượt đo này.
+
+## [1.3.422] - 2026-09-29
+
+### feat: them bo chon toc do tao audio cho engine VieNeu
+
+Người dùng xác nhận engine đã **đọc đúng tiếng Việt** (`phoneme bỏ: 0`, RTF **0.52**) và yêu cầu **nhanh hơn**, kèm ghi nhận máy **nóng** sau khi tạo xong.
+
+- **Bộ chọn tốc độ tạo audio** trong màn thử giọng: `high` (16 bước, CFG bật) · `fast` (8 bước + sway −1) · `turbo` (8 bước, **tắt CFG**) · *Tự động*. Mỗi Euler step là một lượt `vector_estimator` và CFG chạy **thêm một lượt cho mỗi step** ⇒ 16 bước = **32 lượt/đoạn**, 8 bước = 16, `turbo` = **8**. Đây là **đòn bẩy duy nhất** vừa nhanh hơn vừa mát máy hơn (tăng thread thì nhanh hơn nhưng nóng hơn — ngược yêu cầu).
+- **Lựa chọn của người dùng tắt hẳn cơ chế thích nghi**: `VieNeuTTSEngine.requestedMode != nil` ⇒ `updateMode` không chạy. Nếu không, bộ thích nghi sẽ tự nâng/hạ và ghi đè đúng thứ người dùng vừa đặt.
+- **`turbo` không bao giờ do thích nghi tự đặt**: `nextMode` chỉ đi giữa `high` ↔ `fast`; bỏ CFG halve compute nhưng model card cảnh báo thẳng là **giảm độ rõ**, nên nó chỉ dùng khi người dùng đã nghe và chấp nhận.
+- **Lưu lựa chọn trong `UserDefaults`** (`vieneuPreferredMode`), đặt ở tầng `VieNeuTTSService` để màn thử giọng và đường đọc truyện (khi được nối) dùng **cùng một** giá trị.
+- **Tách `VieNeuTTSTestView` thành 3 file** vì đã chạm **397/400** dòng: file chính 397 → **255**, thêm `+Sections.swift` **164** (các khối `Form` + bộ chọn tốc độ) và `+Diagnostics.swift` **37** (khối copy). Tách file extension buộc hạ `@State private` → `internal` — **cái giá của việc tách muộn**.
+- **Nhãn UI ở tầng View**: `VieNeuSynthesisPolicy.Mode.displayName` là extension trong file View, để policy giữ nguyên tính thuần (không chuỗi UI, không `UserDefaults`).
+- **File sửa**: `VieNeuSynthesisPolicy` 81 → **86**, `VieNeuTTSEngine` 302 → **324**, `VieNeuTTSService` 231 → **256**.
+- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
+- **Tài liệu CodeGraph**: `00_index.md`, `02_file_graph.md`, `09_dependency_rules.md`, `11_subsystems.md`, `14_complexity_report.md` (`--accept`); `04_call_graph.md`, `10_risk_report.md`, `13_resource_lifecycle.md`, `rules.md` (`--no-change-needed`).
+
+## [1.3.421] - 2026-09-29
+
+### fix: doc dung base 48 cua sea_g2p.bin va thu tu byte UTF-8
+
+Engine đã chạy (**RTF 0.50** ở chế độ `high`, độ dài audio hợp lý) nhưng người dùng báo **"âm thanh không phải tiếng Việt"**. Hai lỗi trong bộ đọc `sea_g2p.bin`:
+
+- **`SeaG2P.getString` hardcode `32 + offset`** — `write_bin_v2` ghi header **48** byte (4 magic + 4 version + 12 count + 12 vị trí + 8 bảng section + 8 reserved) rồi mới tới blob chuỗi. Lệch **16 byte** nghĩa là **mọi** chuỗi đọc ra đều là *đuôi của chuỗi trước + đầu của chuỗi sau* ⇒ phoneme rác ⇒ model đọc ra thứ không phải tiếng Việt, trong khi shape/tensor/độ dài audio đều đúng nên triệu chứng không phải một lỗi mà là "nghe sai tiếng".
+  * Đã xác minh trực tiếp trên file thật (62.829.820 byte): base 48 cho `xin → sˈin`, `chào → tʃˈaː2w`, `đây → ɗˈəɪ`, `việt → vˈiɛ6t̪`, `người → ŋˈyə2j`; base 32 **không tra được từ nào**. Nay `stringBase` đọc từ trường version (v2 → 48, v1 → 32) thay vì hardcode.
+- **Sai thứ tự so sánh khi tìm nhị phân**: `write_bin_v2` sắp bảng bằng `sorted(..., key=lambda kv: kv[0].encode("utf-8"))` (thứ tự **byte UTF-8**), còn `SeaG2P` dùng `String.<` của Swift (Unicode canonical ordering) ⇒ có thể trượt khoá **có** trong bảng. Nay dùng `utf8Less` với `lhs.utf8.lexicographicallyPrecedes(rhs.utf8)`.
+- **Thêm `droppedScalars` vào khối chẩn đoán của màn thử giọng**: `AppLogger` chỉ ghi khi người dùng bật `AppLogger.isLoggingEnabled`, nên một bộ G2P trả ký tự ngoài vocab sẽ hỏng **im lặng**. Đây chính là chỉ số đã thiếu ở lượt này.
+- **File sửa**: `SeaG2P.swift` 253 → **273**, `VieNeuTTSEngine.swift` 297 → **302**, `VieNeuTTSService.swift` 225 → **231**, `VieNeuTTSTestView.swift` 392 → **397** (sát trần 400 — mọi thay đổi UI tiếp theo ở màn này **phải** tách file trước).
+- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
+- **Tài liệu CodeGraph**: `rules.md` thêm mục **`sea_g2p.bin` Format Invariants** (4 luật); `11_subsystems.md` thêm mục về hai lỗi này.
+
 ## [1.3.420] - 2026-09-29
 
 ### fix: doc shape ctx tu model va them nut sao chep ket qua

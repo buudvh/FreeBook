@@ -1,14 +1,21 @@
 import Foundation
 
-/// Danh sách giọng preset của **VieNeu-TTS v3 Nano**, đọc từ `voices_v3_nano.json`.
+/// Danh sách giọng của **VieNeu-TTS v3 Nano**: 11 giọng preset đọc từ `voices_v3_nano.json` **cộng**
+/// các giọng do người dùng tạo (nhân bản) đọc từ `VieNeuCustomVoiceStore`.
 ///
 /// Mỗi giọng chỉ là **hai mảng số** — không có file model riêng: `speaker_emb` (192-d x-vector) và
 /// `style` (50 × 256 style token). Vì vậy "tải model" của engine này là tải **một** bộ graph dùng chung
 /// cho cả 11 giọng, khác hẳn Piper (mỗi giọng một file `.onnx`).
 ///
-/// **Thứ tự hiển thị không giữ được như file gốc.** `presets` là một object JSON; `JSONDecoder` trả về
-/// `Dictionary` nên thứ tự khoá mất. Thay vì để thứ tự ngẫu nhiên theo hash, catalog xếp **giọng mặc
-/// định lên đầu**, phần còn lại theo alphabet — xác định giữa các lần chạy.
+/// **Gộp ở đây, không ở engine.** `VieNeuTTSEngine.prepareLocked()` chỉ gọi
+/// `VieNeuVoiceCatalog.load(modelStore:)` rồi tra `preset(named:)`, còn `VieNeuTTSService.availableVoices()`
+/// cũng chỉ gọi `load(...).presets.map(\.voice)`. Nên chỉ cần `load` trả về danh sách đã gộp là **cả hai
+/// đường** thấy giọng user mà **không phải sửa một dòng nào** ở engine — đúng plan C2
+/// (`VieNeuTTSEngine.swift` đúng 400 dòng, hết chỗ).
+///
+/// **Thứ tự hiển thị**: giọng user (theo tên) → giọng mặc định → còn lại (theo alphabet). `presets` là
+/// một object JSON; `JSONDecoder` trả về `Dictionary` nên thứ tự khoá mất, vì vậy phần preset phải tự
+/// xếp thay vì để thứ tự ngẫu nhiên theo hash.
 struct VieNeuVoiceCatalog: Sendable {
     struct Preset: Sendable {
         let voice: Voice
@@ -29,8 +36,14 @@ struct VieNeuVoiceCatalog: Sendable {
     static let styleColumns = 256
     static var styleCount: Int { styleRows * styleColumns }
 
+    /// Nhãn cho giọng do người dùng tạo. Hằng số để UI và catalog không lệch nhau khi so `gender`.
+    static let customGender = "custom"
+    static let customSummary = "Giọng nhân bản"
+
     var defaultPreset: Preset? {
-        presets.first { $0.voice.name == defaultVoiceName } ?? presets.first
+        presets.first { $0.voice.name == defaultVoiceName }
+            ?? presets.first { $0.gender != Self.customGender }
+            ?? presets.first
     }
 
     func preset(named name: String) -> Preset? {
@@ -55,7 +68,12 @@ struct VieNeuVoiceCatalog: Sendable {
         }
     }
 
-    static func load(modelStore: VieNeuModelStore) throws -> VieNeuVoiceCatalog {
+    /// `customStore` mặc định `nil` ⇒ tự dựng từ `modelStore.rootURL`. Truyền vào khi bên gọi đã có sẵn
+    /// thực thể (UI) để không phải dựng lại thư mục.
+    static func load(
+        modelStore: VieNeuModelStore,
+        customStore: VieNeuCustomVoiceStore? = nil
+    ) throws -> VieNeuVoiceCatalog {
         guard let data = try? Data(contentsOf: modelStore.url(for: "voices_v3_nano.json")) else {
             throw LoadError.unreadable
         }
@@ -86,7 +104,34 @@ struct VieNeuVoiceCatalog: Sendable {
             return lhs.voice.name.localizedStandardCompare(rhs.voice.name) == .orderedAscending
         }
 
-        return VieNeuVoiceCatalog(presets: presets, defaultVoiceName: raw.default_voice)
+        // Giọng user xếp **lên đầu** (quyết định đã chốt #2): họ vừa tạo nó nên đó là thứ họ muốn thấy
+        // trước. `VieNeuCustomVoiceStore.init` **không** chạm đĩa nên gọi ở đây (đường đọc, và cả
+        // `prepareLocked` qua đó) là an toàn.
+        let store = customStore ?? VieNeuCustomVoiceStore(rootURL: modelStore.rootURL)
+        return VieNeuVoiceCatalog(
+            presets: customPresets(from: store) + presets,
+            defaultVoiceName: raw.default_voice
+        )
+    }
+
+    /// Đổi `Record` của kho giọng user thành `Preset` để dùng **chung một đường** với 11 giọng preset —
+    /// nhờ vậy `VieNeuTTSEngine.runChunk` không cần biết giọng đến từ đâu.
+    ///
+    /// Bản ghi **hỏng** (sai số phần tử) bị **bỏ qua** chứ không ném lỗi: một giọng user lỗi không được
+    /// phép làm cả danh sách giọng — kể cả 11 giọng preset — không dùng được.
+    private static func customPresets(from store: VieNeuCustomVoiceStore) -> [Preset] {
+        store.loadLeniently()
+            .filter { $0.speakerEmbedding.count == speakerEmbeddingCount && $0.style.count == styleCount }
+            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            .map { record in
+                Preset(
+                    voice: Voice(id: "custom-\(record.id)", name: record.name),
+                    gender: customGender,
+                    summary: customSummary,
+                    speakerEmbedding: record.speakerEmbedding,
+                    style: record.style
+                )
+            }
     }
 
     private struct RawCatalog: Decodable {

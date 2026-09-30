@@ -16,6 +16,25 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 <!-- GENERATED START -->
 
+## +9 file: nhân bản giọng VieNeu (voice cloning) + fbank 80-mel (1.3.451 / 1.3.453)
+
+| Nhóm | File | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Services/TTS/VieNeu | [`VieNeuFbank.swift`](../../Sources/Services/TTS/VieNeu/VieNeuFbank.swift) | **Mới** (1.3.451) — fbank 80-mel Kaldi thuần Swift, `snip_edges = true` | 293 |
+| Services/TTS/VieNeu | [`VieNeuAudioResampler.swift`](../../Sources/Services/TTS/VieNeu/VieNeuAudioResampler.swift) | **Mới** — `loadMono` (mean kênh) + `resample` qua `AVAudioConverter` | 192 |
+| Services/TTS/VieNeu | [`VieNeuVoiceCloner.swift`](../../Sources/Services/TTS/VieNeu/VieNeuVoiceCloner.swift) | **Mới** — 3 graph clone → `speakerEmbedding` 192 + `style` 50×256 | 270 |
+| Services/TTS/VieNeu | [`VieNeuCustomVoiceStore.swift`](../../Sources/Services/TTS/VieNeu/VieNeuCustomVoiceStore.swift) | **Mới** — `CustomVoices/index.json` + `samples/`, ghi nguyên tử | 226 |
+| Services/TTS/VieNeu | [`VieNeuVoiceRecorder.swift`](../../Sources/Services/TTS/VieNeu/VieNeuVoiceRecorder.swift) | **Mới** — thu `.m4a` mẫu, đổi/khôi phục phiên âm thanh | 148 |
+| Services/TTS/VieNeu | [`VieNeuONNXRuntime+Clone.swift`](../../Sources/Services/TTS/VieNeu/VieNeuONNXRuntime+Clone.swift) | **Mới** — extension: 3 wrapper graph clone | 141 |
+| Views/Settings/TTS | [`VieNeuVoiceLibraryView.swift`](../../Sources/Views/Settings/TTS/VieNeuVoiceLibraryView.swift) | **Mới** — màn "Giọng của tôi" | 346 |
+| Views/Settings/TTS | [`VieNeuVoiceLibraryView+Sections.swift`](../../Sources/Views/Settings/TTS/VieNeuVoiceLibraryView+Sections.swift) | **Mới** — các khối `Form` + `voiceRow` | 171 |
+| Views/Settings/TTS | [`VieNeuVoiceCreatorView.swift`](../../Sources/Views/Settings/TTS/VieNeuVoiceCreatorView.swift) | **Mới** — thu/chọn mẫu + đặt tên | 329 |
+
+* Sửa nội dung: `VieNeuONNXBridge.h` 121 → **181** + `VieNeuONNXBridge.m` 726 → **1155** (`VieNeuORTCreateCloneOnly` + `VieNeuORTLoadCloneGraphs` + 3 hàm `Run*` + `createCloneSession` đọc **mọi** tên input theo kiểu all-or-nothing), `VieNeuONNXRuntime.swift` 289 → **316** (`init(cloneOnlyModelStore:threadCount:)`), `VieNeuModelStore.swift` 91 → **149** (`cloneGraphNames` **không** nằm trong `requiredNames`), `VieNeuModelClient.swift` 128 → **162** (`cloneSources` / `prefetchCloneGraphs`), `VieNeuVoiceCatalog.swift` 103 → **148** (giọng custom xếp **trước** preset), `VieNeuTTSService.swift` 349 → **376** (`enrollVoice`), `VieNeuConfig.swift` → **200** (`latentMean`/`latentStd`/`latentScale`), `TTSSettingsView+VieNeu.swift` 179 → **189**, `VieNeuTTSTestView+Sections.swift` 218 → **224**.
+* **Không** sửa `VieNeuTTSEngine.swift` (đúng **400/400**) — giọng custom vào engine qua `VieNeuVoiceCatalog.load(modelStore:customStore:)` hợp nhất custom **trước** preset.
+* Ngoài `Sources/`: [`Scripts/FbankGate/main.swift`](../../Scripts/FbankGate/main.swift) **115**, [`Scripts/FbankGate/gate.py`](../../Scripts/FbankGate/gate.py) **210**, [`.github/workflows/fbank-gate.yml`](../../.github/workflows/fbank-gate.yml) (cổng số, không thuộc `Sources/` nên không vào bảng trên).
+
+
 ## +4 file: tầng rule thay thế TTS riêng theo truyện (1.3.446)
 
 | Nhóm | File | Vai trò | Dòng |

@@ -16,6 +16,16 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 
 <!-- GENERATED START -->
 
+## 1.3.453 — trạng thái của luồng nhân bản giọng
+
+* **`VieNeuVoiceLibraryView`** giữ: `records` (đã nạp), `isDownloading` + `downloadProgress` + `downloadMessage`, `isWorking` + `workingMessage`, `showingCreator`, `player` + `playingVoiceID`, `renamingID` + `renameText`, `pendingDeletion`, `workTask`. Nguồn sự thật là **file trên đĩa** (`CustomVoices/index.json`) — `reload()` đọc lại sau mỗi thao tác ghi.
+* **`VieNeuVoiceCreatorView`** là máy trạng thái ba nhánh: chưa có mẫu → `recordSection` (đang thu: `isRecording` + `elapsed` + mức tín hiệu theo nhịp 0,1 s) **hoặc** `fileSection`; đã có mẫu → `previewSection` + ô tên + Lưu. `enum Source { record, file }` quyết định nhánh nào đang bật.
+* **Tự dừng khi đủ dài**: `stopRecording()` tự gọi khi `elapsed` chạm `recommendedSampleSeconds` (8 s) — người dùng không phải bấm dừng đúng lúc.
+* **`TTSSettingsView+VieNeu`** thêm một `NavigationLink` tới `VieNeuVoiceLibraryView`, **chỉ hiện khi model chính đã sẵn sàng** — cố ý **không** phụ thuộc gói clone, vì màn đích có nút tải riêng.
+* **Bất biến**: `playingVoiceID` chỉ khác `nil` ở **một** giá trị tại một thời điểm ⇒ không bao giờ có hai bản xem trước phát chồng.
+* **Trạng thái dùng chung với đường đọc**: `VieNeuTTSService` vẫn là facade `static let shared` tạo lười; `enrollVoice` là `async throws` và **không** đụng `currentMode`/`isPrepared` của đường đọc.
+
+
 ## 1.3.446 — trạng thái của tầng rule thay thế riêng theo truyện
 
 * **Hai cache mới** ở `TTSReplacementManager+BookScope.swift` (biến cấp file, có lock):

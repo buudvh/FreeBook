@@ -20,7 +20,7 @@ extension VieNeuTTSTestView {
                 LabeledContent("Dung lượng", value: formattedBytes(store?.totalBytes ?? 0))
             } else {
                 LabeledContent("Còn thiếu", value: "\(store?.missingNames.count ?? 0) file")
-                Text("Cần tải khoảng 343 MB: 4 graph ONNX + `config.json` + `constants.npz` từ HuggingFace, `voices_v3_nano.json` và `sea_g2p.bin` từ GitHub. Cả ba nguồn đều **ghim sha** nên tác giả đổi file cũng không làm app hỏng.")
+                Text("Cần tải khoảng 343 MB: 4 graph ONNX + `config.json` + `constants.npz` từ HuggingFace, `voices_v3_nano.json` và `sea_g2p.bin` từ GitHub. Cả ba nguồn đều **ghim sha** nên tác giả đổi file cũng không làm app hỏng. Gói graph **nhân bản giọng** (~91 MB) là tuỳ chọn, tải riêng ở “Giọng của tôi”.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -47,7 +47,7 @@ extension VieNeuTTSTestView {
         } header: {
             Text("Model")
         } footer: {
-            Text("Engine local, chạy hoàn toàn trên máy. Giọng đọc không nằm trong file model mà là hai mảng số trong `voices_v3_nano.json`, nên 11 giọng dùng chung một bộ graph.")
+            Text("Engine local, chạy hoàn toàn trên máy. Giọng đọc không nằm trong file model mà là hai mảng số trong `voices_v3_nano.json`, nên 11 giọng dùng chung một bộ graph. Gói graph **nhân bản giọng** (~91 MB, 3 file) là **tuỳ chọn**: chỉ cần khi bạn muốn tạo giọng mới từ audio mẫu — vào “Giọng của tôi” để tải riêng.")
         }
     }
 
@@ -63,6 +63,12 @@ extension VieNeuTTSTestView {
                     ForEach(voices) { voice in
                         Text(voice.name).tag(voice.name)
                     }
+                }
+            }
+            // Lối vào giọng nhân bản. Điều kiện **không** gồm gói graph clone: màn đó tự có nút tải gói ấy.
+            if isModelReady {
+                NavigationLink(destination: VieNeuVoiceLibraryView()) {
+                    Label("Giọng của tôi (nhân bản từ audio mẫu)", systemImage: "person.wave.2")
                 }
             }
         }

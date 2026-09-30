@@ -16,6 +16,22 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 <!-- GENERATED START -->
 
+## Thành Viên Mới Cho Nhân Bản Giọng (1.3.453)
+
+* **`VieNeuVoiceCloner.Enrollment`** (`struct`, `Sendable`) — `speakerEmbedding: [Float]` (192) / `style: [Float]` (12 800) / `sampleSeconds` / `fbankFrames` / `codecChannels` / `codecFrames` / `styleFrames`. Có sẵn số đo để UI nói được *vì sao* một mẫu bị từ chối.
+* **`VieNeuVoiceCloner.CloneError`** (`LocalizedError`) — `sampleTooShort` / `sampleUnreadable` / `unexpectedSpeakerSize` / `unexpectedStyleSize` / `nonFiniteValues`.
+* **`VieNeuCustomVoiceStore.Record`** (`struct`, `Codable`, `Sendable`, `Identifiable`) — `id` (UUID) / `name` / `createdAt` / `sampleFileName: String?` / `speakerEmbedding` / `style`.
+* **`VieNeuCustomVoiceStore.StoreError`** (`LocalizedError`) — `emptyName` / `duplicateName` / `unreadableIndex`.
+* **`VieNeuAudioResampler.Decoded`** (`struct`) — `samples: [Float]` / `sampleRate: Double` / `duration: TimeInterval`; kèm **`AudioError`** (`LocalizedError`).
+* **`VieNeuVoiceRecorder`** (`@MainActor final class`) — `isRecording`, `elapsed`, `refreshLevel()`, `start()`, `stop()`, `discard()`, `static requestPermission()`; **`RecorderError`** — `permissionDenied` / `sessionUnavailable` / `cannotStart` / `emptyRecording`.
+* **`VieNeuFbank.Features`** (`struct`) — `frames` / `bins` / `values: [Float]`; kèm **`FbankError`**.
+* **`VieNeuModelStore`** thêm `cloneGraphNames: [String]`, `cloneApproximateBytes: Int64`, `hasCloneGraphs`, `missingCloneGraphNames`, `cloneTotalBytes`.
+* **`VieNeuVoiceCatalog`** thêm `customGender = "custom"`, `customSummary = "Giọng nhân bản"`, và `load(modelStore:customStore:)`.
+* **`VieNeuTTSService`** thêm `customVoiceStore`, `hasCloneGraphs`, `enrollVoice(sampleURL:)`.
+* **View mới**: `VieNeuVoiceLibraryView` (+ extension `+Sections`), `VieNeuVoiceCreatorView` với `enum Source { record, file }`.
+* **Hạ `private` → `internal`** (bẫy lặp lại lần thứ tư trong repo): `VieNeuONNXRuntime.handle`, `.maximumRank`, `.consume(_:fallback:)` — dùng từ `VieNeuONNXRuntime+Clone.swift`; `@State` vẫn buộc khai ở file chính.
+
+
 ## Thành Viên Mới Cho Gộp Từ Điển (1.3.445)
 
 * **`TrieDictionary.allEntries() -> [(key: String, value: String)]`** (protocol, `Models/Dictionaries/DoubleArrayTrie.swift`) — duyệt toàn bộ entry. Khai ở **cả 3** conformer: `DoubleArrayTrie` (uỷ quyền `frozen()`), `FrozenTrieDictionary` (DFS ngược cây `.dat`), `TextDictionary` (map thẳng `entries`).

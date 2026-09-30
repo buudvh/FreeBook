@@ -118,4 +118,64 @@ float *VieNeuORTRunCodecDecoder(VieNeuORT *context,
 /// Giải phóng chuỗi lỗi do các hàm trên cấp phát.
 void VieNeuORTFreeErrorMessage(char *errorMessage);
 
+#pragma mark - Graph clone giọng (tuỳ chọn, ~100 MB)
+
+/// Tạo ngữ cảnh **chỉ có 3 graph clone**, **không** nạp 4 graph chính.
+///
+/// Vì sao cần một hàm tạo riêng thay vì `VieNeuORTCreate` + `VieNeuORTLoadCloneGraphs`: luồng tạo giọng
+/// không có quyền đụng vào engine đang chạy (`VieNeuTTSEngine` giữ ngữ cảnh của nó ở mức `private`, và
+/// plan C2 cấm sửa file đó), nên nó phải tự mở ngữ cảnh. Dùng `VieNeuORTCreate` thì ngữ cảnh đó nạp
+/// thêm cả 4 graph chính (~280 MB) trong khi chỉ cần 3 graph clone (~91 MB) — đỉnh bộ nhớ lúc tạo giọng
+/// sẽ gấp đôi vô ích.
+///
+/// Ngữ cảnh trả về **không dùng được** cho `VieNeuORTRunTextEncoder` và các hàm 4 bước khác (session
+/// `NULL` ⇒ `Run` lỗi). Nó chỉ phục vụ `VieNeuORTHasCloneGraphs` và ba hàm `…RunSpeakerEncoder` /
+/// `…RunCodecEncoder` / `…RunReferenceEncoder`.
+///
+/// Trả `NULL` khi lỗi; `*errorMessage` (nếu khác NULL) nhận chuỗi do `malloc` cấp phát.
+VieNeuORT *VieNeuORTCreateCloneOnly(const char *modelDirectory, int32_t threadCount, char **errorMessage);
+
+/// Nạp **3 graph clone** (`speaker_encoder` / `codec_encoder` / `reference_encoder`) từ `modelDirectory`.
+///
+/// Cố ý **không** gọi trong `VieNeuORTCreate`: 4 graph chính được tạo **eager**, thiếu một file là
+/// `VieNeuORTCreate` trả `NULL` ⇒ engine chết cho cả người chỉ dùng giọng preset. Gói clone chỉ cần khi
+/// người dùng thực sự tạo giọng, nên nó phải nạp rời và **không** ảnh hưởng `isReady`/`missingNames`.
+///
+/// Gọi lại được nhiều lần (lần thứ hai là no-op). Trả `0` khi đủ 3 graph, `-1` khi thiếu file hoặc lỗi
+/// (khi đó không session nào bị giữ lại — gọi lại được sau khi tải xong).
+int32_t VieNeuORTLoadCloneGraphs(VieNeuORT *context, const char *modelDirectory, char **errorMessage);
+
+/// `1` nếu cả 3 graph clone đã nạp.
+int32_t VieNeuORTHasCloneGraphs(const VieNeuORT *context);
+
+/// `speaker_encoder(input)` → x-vector.
+///
+/// `fbank` là ma trận **row-major** `frames × melBins` **đã trừ trung bình theo bin** (mean-norm) — đúng
+/// thứ tự phần tử của input `[1, frames, melBins]`. Số phần tử thật của output đọc từ shape graph (192).
+/// Trả `0` khi thành công, `-1` khi lỗi hoặc buffer không đủ.
+int32_t VieNeuORTRunSpeakerEncoder(VieNeuORT *context,
+                                   const float *fbank, int32_t frames, int32_t melBins,
+                                   float *outBuffer, int32_t outCapacity, int32_t *outCount,
+                                   char **errorMessage);
+
+/// `codec_encoder(wav)` → latent **chưa gộp nhóm** (`latentDim` = 24 kênh).
+///
+/// `pcm` là waveform mono float ở 24 kHz (`sampleCount` mẫu). Shape output thật trả ra
+/// `outShape`/`outRank` — bên gọi **phải** dùng nó để biết số kênh và số frame, không đoán.
+int32_t VieNeuORTRunCodecEncoder(VieNeuORT *context,
+                                 const float *pcm, int32_t sampleCount,
+                                 float *outBuffer, int32_t outCapacity,
+                                 int64_t *outShape, int32_t shapeCapacity, int32_t *outRank,
+                                 int32_t *outCount, char **errorMessage);
+
+/// `reference_encoder(ref, ref_mask)` → style tokens.
+///
+/// `latent` là latent **đã gộp nhóm** (`channels` = `latentDim × group` = 144), `frames` là số frame
+/// **sau khi cắt**. `ref_mask` do hàm này tự dựng toàn `true` — đúng `ref_mask = np.ones((1, T), bool)`
+/// của upstream, và vì mọi phần tử đều `true` nên không cần tham số hoá.
+int32_t VieNeuORTRunReferenceEncoder(VieNeuORT *context,
+                                     const float *latent, int32_t channels, int32_t frames,
+                                     float *outBuffer, int32_t outCapacity, int32_t *outCount,
+                                     char **errorMessage);
+
 #endif /* VieNeuONNXBridge_h */

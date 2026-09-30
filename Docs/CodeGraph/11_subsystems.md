@@ -16,6 +16,16 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 
 <!-- GENERATED START -->
 
+## 1.3.453 — phân hệ mới: nhân bản giọng VieNeu (voice cloning)
+
+* **Vị trí**: nhánh phụ của phân hệ TTS/VieNeu, **không** nằm trên đường đọc truyện — chỉ chạy khi người dùng bấm tạo giọng.
+* **Sản phẩm**: 2 mảng float (`speakerEmbedding` 192 + `style` 50×256) lưu trong `CustomVoices/index.json`; audio mẫu lưu ở `CustomVoices/samples/`. **Không** sinh model, **không** fine-tune.
+* **Ba graph clone** (tuỳ chọn, ~91 MB, 3 file): `speaker_encoder` · `codec_encoder` · `reference_encoder`. **Không** nằm trong `requiredNames` của `VieNeuModelStore` — thiếu chúng thì engine chính vẫn chạy, chỉ màn nhân bản báo thiếu (điều kiện `store.missingNames.isEmpty` ở `VieNeuTTSEngine.swift:151` **không** bị đụng).
+* **Hợp nhất vào danh sách giọng**: `VieNeuVoiceCatalog.load(modelStore:customStore:)` trả custom **trước** preset; mỗi giọng custom có `id = "custom-<uuid>"`, `gender = "custom"`, `summary = "Giọng nhân bản"`.
+* **Đầu vào duy nhất cần waveform**: `speaker_encoder` ăn fbank 80-mel 16 kHz; `codec_encoder` ăn PCM 24 kHz. Hai tốc độ lấy mẫu khác nhau trong cùng một pipeline là điểm dễ nhầm nhất.
+* **Bản đồ file**: xem `02_file_graph.md` §"+9 file: nhân bản giọng VieNeu".
+
+
 ## 1.3.447 — phân hệ Từ điển: số liệu gộp VietPhrase đi theo **file meta kèm theo**
 
 * **Vấn đề**: mục gộp ở màn Thông báo đọc `DictionaryMergeTask.resultRecordCount` và `displayDate` **trực tiếp trong `body`**. Sau khi khởi động lại app (`lastOutcome` chỉ sống trong RAM), `resultRecordCount` rơi xuống `DictionaryTextFileStore.loadCount(from:)` → `parseRecords` — **đọc cả `VietPhraseMerged.txt` (~1,4 triệu dòng) thành `String`, cắt mảng, dựng `Set<String>`** chỉ để lấy `.count`, **trên main thread** ⇒ đơ app và nghẽn cả TTS (TTS cần main thread để cập nhật highlight). `DictionaryMergeTask.init()` gọi `refreshFromDisk()` nên chặn main **ngay lúc mở app**.

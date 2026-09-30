@@ -16,6 +16,18 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 
 <!-- GENERATED START -->
 
+## 1.3.453 — nhánh gọi của luồng nhân bản giọng
+
+* **Lối vào UI**: `VieNeuVoiceLibraryView.creationSection` → `.sheet` → `VieNeuVoiceCreatorView` → `onSave(name, sampleURL)` → `VieNeuVoiceLibraryView.enroll(name:sampleURL:replacing:)`.
+* **Qua service**: `VieNeuTTSService.enrollVoice(sampleURL:)` → `Task.detached(priority: .utility)` → `VieNeuVoiceCloner.enroll(sampleURL:modelStore:threadCount:)`. Chạy ngoài main vì 3 lượt `Run` ONNX mất vài giây.
+* **Trong cloner**: `VieNeuAudioResampler.loadMono` → `VieNeuFbank.melSpectrogram` → `VieNeuFbank.meanNormalized` → `VieNeuONNXRuntime.speakerEncoder` → `VieNeuAudioResampler.resample` (24 kHz) → `codecEncoder` → `VieNeuConfig` (chuẩn hoá latent) → `groupLatent` → `cropFrames` → `referenceEncoder`.
+* **Ghi lại**: `VieNeuCustomVoiceStore.add` / `update` → `save` (nguyên tử `tmp` + `replaceItemAt`). Bản thu tạm bị xoá bởi `discardTemporarySample` **chỉ khi** nằm trong `FileManager.temporaryDirectory`.
+* **Đường đọc truyện KHÔNG đổi**: `VieNeuTTSEngine.prepareLocked` → `VieNeuVoiceCatalog.load(modelStore:customStore:)` → `presets` (custom trước). Engine chỉ thấy một danh sách `Voice` phẳng ⇒ `VieNeuTTSEngine.swift` **không** phải sửa.
+* **Nhánh tải gói clone**: `VieNeuVoiceLibraryView.downloadCloneGraphs` → `VieNeuModelClient.prefetchCloneGraphs` → 3 file trong `VieNeuModelStore.cloneGraphNames`.
+* **Nhánh cầu C**: `VieNeuONNXRuntime.init(cloneOnlyModelStore:threadCount:)` → `VieNeuORTCreateCloneOnly` → `createBaseContext` + `loadCloneGraphsWithOptions` → `createCloneSession` (đọc **mọi** tên input bằng `SessionGetInputName`, gán all-or-nothing để không để lại tên rác khi lỗi giữa chừng).
+* **Sửa lỗi biên dịch do cầu C**: `copyFloatsInto` giữ tham số `int32_t *outCount` (không đổi sang `int64_t *`) — đổi kiểu sẽ khiến hai caller cũ ghi **8 byte vào ô 4 byte**, hỏng heap mà `check_architecture.py` không thấy.
+
+
 ## 1.3.446 — nhánh gọi của tầng rule thay thế riêng theo truyện
 
 * `applyReplacements(to:bookId:)` gọi `plan(forBookId:)`: `nil`/rỗng ⇒ trả `replacementPlan` (kế hoạch chung); có truyện ⇒ tra `bookPlansCache`, chưa có thì `Self.compile(mergedRules(bookId:))` **ngoài lock** rồi cache.

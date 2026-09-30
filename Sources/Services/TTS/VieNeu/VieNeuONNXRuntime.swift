@@ -36,14 +36,38 @@ final class VieNeuONNXRuntime {
     }
 
     /// Số chiều tối đa nhận từ `GetDimensions` — mọi tensor của pipeline đều ≤ 3 chiều.
-    private static let maximumRank = 8
+    ///
+    /// `internal` (không `private`) vì `VieNeuONNXRuntime+Clone` — file khác — cũng dùng để cấp buffer
+    /// shape cho `codec_encoder`. Swift giới hạn `private` theo file.
+    static let maximumRank = 8
 
-    private let handle: OpaquePointer
+    /// Handle ngữ cảnh ORT.
+    ///
+    /// `internal` (không `private`) vì `VieNeuONNXRuntime+Clone` — file khác — gọi thẳng cầu nối C cho 3
+    /// graph clone. Cùng lý do và cùng khuôn với `VieNeuTTSEngine+Adaptive`: Swift giới hạn `private`
+    /// theo file, nên tách file là phải hạ quyền truy cập của đúng những thành viên dùng chéo file.
+    let handle: OpaquePointer
 
     init(modelStore: VieNeuModelStore, threadCount: Int32) throws {
         var message: UnsafeMutablePointer<CChar>?
         guard let handle = VieNeuORTCreate(modelStore.modelsURL.path, threadCount, &message) else {
             throw RuntimeError.failure(Self.consume(message, fallback: "không tạo được ngữ cảnh ORT"))
+        }
+        self.handle = handle
+    }
+
+    /// Ngữ cảnh **chỉ 3 graph clone** — dùng cho luồng tạo giọng.
+    ///
+    /// Cố ý **không** dùng `init(modelStore:threadCount:)`: ngữ cảnh đó nạp thêm 4 graph chính (~280 MB)
+    /// mà luồng tạo giọng không cần, còn chia sẻ ngữ cảnh của `VieNeuTTSEngine` thì không được — engine
+    /// giữ nó ở mức `private` và plan C2 cấm sửa file đó. Nhờ vậy đỉnh bộ nhớ lúc tạo giọng chỉ +~91 MB
+    /// thay vì +~371 MB, và **nhả hết** khi xong (`deinit`).
+    ///
+    /// Ngữ cảnh này **không** dùng được cho `textEncoder`/`durationPredictor`/… (session 4 bước là `NULL`).
+    init(cloneOnlyModelStore modelStore: VieNeuModelStore, threadCount: Int32) throws {
+        var message: UnsafeMutablePointer<CChar>?
+        guard let handle = VieNeuORTCreateCloneOnly(modelStore.modelsURL.path, threadCount, &message) else {
+            throw RuntimeError.failure(Self.consume(message, fallback: "không nạp được gói graph clone"))
         }
         self.handle = handle
     }
@@ -262,6 +286,7 @@ final class VieNeuONNXRuntime {
         return try Self.take(pointer, count: count, message: message)
     }
 
+
     // MARK: - Chuyển kết quả C sang Swift
 
     /// Copy mảng `malloc` của C sang Swift rồi `free`. `count` là số phần tử do phía C ghi ra.
@@ -280,7 +305,9 @@ final class VieNeuONNXRuntime {
     }
 
     /// Đọc chuỗi lỗi C rồi giải phóng nó — bên gọi **không** được dùng `message` sau hàm này.
-    private static func consume(_ message: UnsafeMutablePointer<CChar>?, fallback: String) -> String {
+    ///
+    /// `internal` (không `private`) vì `VieNeuONNXRuntime+Clone` cũng dùng — cùng lý do như `handle`.
+    static func consume(_ message: UnsafeMutablePointer<CChar>?, fallback: String) -> String {
         guard let message else { return fallback }
         let text = String(cString: message)
         VieNeuORTFreeErrorMessage(message)

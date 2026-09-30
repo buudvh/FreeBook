@@ -2,6 +2,55 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.453] - 2026-09-30
+
+### feat: nhan ban giong VieNeu tu audio mau (voice cloning)
+
+Người dùng yêu cầu tạo **giọng đọc riêng** từ audio mẫu. Chốt nguyên lý **trước** khi viết code: một "giọng" trong VieNeu-TTS v3 Nano **chỉ là 2 mảng float** — `speakerEmbedding` (192) + `style` (50×256) — không có model riêng cho từng giọng và **không** fine-tune. Nhân bản = chạy **3 graph clone** để sinh 2 mảng đó.
+
+- **Pipeline** (port `prepare_reference` của bản tham chiếu): cắt ≤30 s → fbank 80-mel 16 kHz → mean-normalize → `speaker_encoder`; resample 24 kHz lấy 5 s đầu → `codec_encoder` → chuẩn hoá `(mu − latent_mean) / latent_std × latent_scale` → `groupLatent` (24 kênh × 6 = **144**, 468 → **78** frame) → `reference_encoder` (kèm `ref_mask` toàn 1) → `style`. Đầu ra được kiểm `spk.count == 192`, `style.count == 12 800`, và mọi giá trị hữu hạn.
+- **Bẫy lớn nhất — `groupLatent` không phải concat kênh liền kề**: `out[c*g + slot][block] = zpad[c][block*g + slot]`. Viết sai (duỗi thẳng kênh liền kề) vẫn ra **đúng shape (50, 256)** nên **không** có lỗi nào nổi lên — chỉ giọng khác đi. Đã chứng minh bit-exact với biểu thức numpy (`max|d| = 0.000e+00`).
+- **`speaker_encoder` ăn fbank, không ăn waveform** — truyền PCM thô sẽ ra embedding 192 số vô nghĩa mà **không** báo lỗi. Vì vậy `VieNeuVoiceCloner` chỉ có **một** đường gọi fbank.
+- **Cầu C mở ngữ cảnh ORT riêng, chỉ 3 graph clone**: `VieNeuORTCreateCloneOnly` (+ `createBaseContext` tách ra từ `VieNeuORTCreate`, `loadCloneGraphsWithOptions`, `createCloneSession` đọc **mọi** tên input bằng `SessionGetInputName` theo kiểu all-or-nothing). Lý do: engine chính không được sửa, mà dùng lại ngữ cảnh của nó thì phải nạp thêm **~280 MB** graph chính — trong khi gói clone chỉ **95 500 985 B** (~91 MiB).
+- **Sửa một lỗi biên dịch thật do chính lượt này**: đổi `copyFloatsInto`'s `outCount` sang `int64_t *` khiến hai caller cũ ghi **8 byte vào ô 4 byte** (hỏng heap, `check_architecture.py` **không** thấy). Đã trả về `int32_t *`.
+- **Gói clone là tuỳ chọn**: `VieNeuModelStore.cloneGraphNames` **không** nằm trong `requiredNames` — điều kiện `store.missingNames.isEmpty` ở `VieNeuTTSEngine.swift:151` không bị đụng, nên người dùng chưa tải gói clone vẫn đọc truyện bình thường.
+- **`VieNeuTTSEngine.swift` giữ đúng 400/400** (không sửa): giọng custom hoà vào danh sách giọng qua `VieNeuVoiceCatalog.load(modelStore:customStore:)`, custom xếp **trước** preset.
+- **`VieNeuCustomVoiceStore.init` không chạm đĩa** — nó được gọi trên đường **đọc** (`VieNeuVoiceCatalog.load` ← `VieNeuTTSEngine.prepareLocked`); tạo thư mục trong `init` là ghi đĩa mỗi lượt tổng hợp. Thư mục chỉ tạo trong `add`/`save`.
+- **Thu âm**: `VieNeuVoiceRecorder` đổi phiên âm thanh `.playback` → `.playAndRecord` rồi **khôi phục** qua `TTSAudioSessionController` — quên khôi phục thì TTS mất tiếng ở **mọi** lượt phát sau, một lỗi nằm khác chỗ với nguyên nhân. Thêm `NSMicrophoneUsageDescription` vào `project.yml`: thiếu nó thì iOS **kill app** ngay khi phiên âm thanh chạm tới input, không phải trả `false`.
+- **File mới**: `VieNeuVoiceCloner.swift` **270**, `VieNeuCustomVoiceStore.swift` **226**, `VieNeuAudioResampler.swift` **192**, `VieNeuVoiceRecorder.swift` **148**, `VieNeuONNXRuntime+Clone.swift` **141**, `VieNeuVoiceLibraryView.swift` **346** + `+Sections.swift` **171**, `VieNeuVoiceCreatorView.swift` **329**.
+- **File sửa**: `VieNeuONNXBridge.h` 121 → **181**, `VieNeuONNXBridge.m` 726 → **1155**, `VieNeuONNXRuntime.swift` 289 → **316**, `VieNeuModelStore.swift` 91 → **149**, `VieNeuModelClient.swift` 128 → **162**, `VieNeuVoiceCatalog.swift` 103 → **148**, `VieNeuTTSService.swift` 349 → **376**, `VieNeuConfig.swift` → **200**, `TTSSettingsView+VieNeu.swift` 179 → **189**, `VieNeuTTSTestView+Sections.swift` 218 → **224**, `project.yml`.
+- **Hạ `private` → `internal`** (bẫy lặp lại lần thứ tư trong repo): `VieNeuONNXRuntime.handle` / `.maximumRank` / `.consume(_:fallback:)` — Swift giới hạn `private` theo file.
+- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` **PASS 100% (16 doc, 623 file Swift)**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
+- **Tài liệu CodeGraph**: cập nhật **12** doc (`00_index`, `01_project`, `02_file_graph`, `03_type_graph`, `04_call_graph`, `05_state_graph`, `09_dependency_rules`, `10_risk_report`, `11_subsystems`, `13_resource_lifecycle`, `14_complexity_report`, `rules.md`) — trong đó có cả nợ tài liệu của `[1.3.451]`/`[1.3.452]`.
+
+---
+
+## [1.3.452] - 2026-09-30
+
+### ci: fbank-gate kich hoat bang push theo path thay vi chi workflow_dispatch
+
+- **Trước**: cổng số chỉ chạy tay (`workflow_dispatch`) — mà `workflow_dispatch` chỉ hiện khi file đã có trên nhánh mặc định, nên trên nhánh làm việc thì **không bấm được**. Thêm `on.push.paths`: `Scripts/FbankGate/**`, `Sources/Services/TTS/VieNeu/VieNeuFbank.swift`, `.github/workflows/fbank-gate.yml`.
+- **Hệ quả**: cổng trở thành **chống hồi quy** thật — sửa fbank là CI chạy lại và so với numpy ngay.
+- **File sửa**: `.github/workflows/fbank-gate.yml` (+8/−2).
+- **Tài liệu CodeGraph**: ghi nhận ở lượt `[1.3.453]`.
+
+---
+
+## [1.3.451] - 2026-09-30
+
+### feat: VieNeuFbank fbank 80-mel Kaldi thuan Swift va cong kiem chung so
+
+Tiền đề của nhân bản giọng: `speaker_encoder` cần **fbank 80-mel kiểu Kaldi**, không phải waveform. Viết thuần Swift rồi kiểm bằng **số** trước khi ghép vào pipeline.
+
+- **`VieNeuFbank.swift`** **293** — `melSpectrogram(samples:sampleRate:)` + `meanNormalized(_:)`, 16 kHz, 80 bin, `snip_edges = true` (không đệm đầu/cuối). Cố ý **không** dùng Accelerate/vDSP để file biên dịch được bằng `swiftc` trần.
+- **Cổng kiểm chứng số** — `Scripts/FbankGate/main.swift` **115** + `Scripts/FbankGate/gate.py` **210**: `gate.py probe` sinh WAV tất định, `gate.py golden` tính fbank bằng **numpy độc lập**, `swiftc -O VieNeuFbank.swift main.swift` biên dịch **chính file production**, rồi `gate.py compare` so từng ô. Kết quả: **RAW MAE = 0.000e+00** (bit-exact).
+- **Vì sao cần cổng này**: máy phát triển là Windows **không có Swift toolchain**, nên tại chỗ chỉ chạy được bản **dịch Python** của cùng thuật toán — tự kiểm bằng bản dịch là lập luận vòng tròn. Đây là chỗ **duy nhất** mã Swift thật được thi hành trong CI ngoài `build-ipa.yml`.
+- **File mới**: `VieNeuFbank.swift` **293**, `Scripts/FbankGate/main.swift` **115**, `Scripts/FbankGate/gate.py` **210**, `.github/workflows/fbank-gate.yml`.
+- **Ràng buộc đã đo**: `check_architecture.py` **5** violation nền / **0** mới. **Không build trên Windows**.
+- **Tài liệu CodeGraph**: ghi nhận ở lượt `[1.3.453]`.
+
+---
+
 ## [1.3.450] - 2026-09-30
 
 ### feat: bo mode Thap, giam churn ONNX va them log chan doan tang nhiet
@@ -527,47 +576,3 @@ Người dùng thử đoạn khác và báo **"trở" đọc thành "thê giở"
 - **File sửa**: `VieNeuTTSEngine+Audio.swift` (viết lại `splitIntoChunks`), `VieNeuTTSEngine` 324 → **330**, `VieNeuTTSService` 256 → **262**, `VieNeuTTSTestView.swift` 260 → **284**, `+Sections.swift` 167 → **210**, `+Diagnostics.swift` 37 → **40**.
 - **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
 - **Tài liệu CodeGraph**: `rules.md` thêm 2 luật (không chẻ từ ở ranh giới chunk; UI state phải nằm ở `@State` khi service không observable); `11_subsystems.md` thêm mục về lượt này.
-
-## [1.3.423] - 2026-09-29
-
-### fix: bo che do turbo va chi doi toc do phat audio
-
-Người dùng đo trên máy thật: `fast` (8 bước) **RTF 0.26** (16,88 s audio trong 4,38 s), `high` (16 bước) **RTF 0.48** (8,06 s), giọng "khá ổn" ở cả hai — nhưng chế độ **tắt CFG "quá dở, đứt quãng, không rõ tiếng"**.
-
-- **Bỏ hẳn chế độ `turbo` (`cfg = 0`)**: model card cảnh báo thẳng "hurts intelligibility" và tai người dùng xác nhận. Giữ lại một lựa chọn đã bị từ chối chỉ tạo thêm một cái bẫy. Tương thích: `UserDefaults` còn giá trị `"turbo"` thì `Mode(rawValue:)` trả `nil` ⇒ tự rơi về "tự động", **không cần migrate**.
-- **Tách tốc độ phát khỏi tốc độ tạo**: engine `speed` chia `exp(log_s)` (`secs = min(exp(log_s)/speed, 15)`) — tức bắt model **sinh audio ngắn/dài hơn**, đẩy nó ra khỏi nhịp được huấn luyện và bắt tổng hợp lại mỗi lần đổi tốc độ. Nay màn thử giọng **luôn tổng hợp ở 1.0×** và áp tốc độ bằng `AVAudioPlayer.rate` (`enableRate = true` phải đặt **trước** `rate`, nếu không iOS bỏ qua). Mục "Tốc độ" đổi thành **"Tốc độ phát"** kèm giải thích.
-- **Hệ quả cần nhớ khi nối Reader (increment 2b)**: số RTF đo được **luôn ứng với 1.0×**, và đổi tốc độ **không được** kích hoạt tổng hợp lại.
-- **Chế độ còn lại**: `high` (16 bước, "Chất lượng cao") · `fast` (8 bước, "Nhanh") · *Tự động*.
-- **File sửa**: `VieNeuSynthesisPolicy` 86 → **87**, `VieNeuTTSTestView.swift` 255 → **260**, `VieNeuTTSTestView+Sections.swift` 164 → **167**.
-- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
-- **Tài liệu CodeGraph**: `rules.md` thêm 2 luật (tốc độ thuộc tầng phát; không có chế độ `cfg = 0`); `11_subsystems.md` thêm mục về lượt đo này.
-
-## [1.3.422] - 2026-09-29
-
-### feat: them bo chon toc do tao audio cho engine VieNeu
-
-Người dùng xác nhận engine đã **đọc đúng tiếng Việt** (`phoneme bỏ: 0`, RTF **0.52**) và yêu cầu **nhanh hơn**, kèm ghi nhận máy **nóng** sau khi tạo xong.
-
-- **Bộ chọn tốc độ tạo audio** trong màn thử giọng: `high` (16 bước, CFG bật) · `fast` (8 bước + sway −1) · `turbo` (8 bước, **tắt CFG**) · *Tự động*. Mỗi Euler step là một lượt `vector_estimator` và CFG chạy **thêm một lượt cho mỗi step** ⇒ 16 bước = **32 lượt/đoạn**, 8 bước = 16, `turbo` = **8**. Đây là **đòn bẩy duy nhất** vừa nhanh hơn vừa mát máy hơn (tăng thread thì nhanh hơn nhưng nóng hơn — ngược yêu cầu).
-- **Lựa chọn của người dùng tắt hẳn cơ chế thích nghi**: `VieNeuTTSEngine.requestedMode != nil` ⇒ `updateMode` không chạy. Nếu không, bộ thích nghi sẽ tự nâng/hạ và ghi đè đúng thứ người dùng vừa đặt.
-- **`turbo` không bao giờ do thích nghi tự đặt**: `nextMode` chỉ đi giữa `high` ↔ `fast`; bỏ CFG halve compute nhưng model card cảnh báo thẳng là **giảm độ rõ**, nên nó chỉ dùng khi người dùng đã nghe và chấp nhận.
-- **Lưu lựa chọn trong `UserDefaults`** (`vieneuPreferredMode`), đặt ở tầng `VieNeuTTSService` để màn thử giọng và đường đọc truyện (khi được nối) dùng **cùng một** giá trị.
-- **Tách `VieNeuTTSTestView` thành 3 file** vì đã chạm **397/400** dòng: file chính 397 → **255**, thêm `+Sections.swift` **164** (các khối `Form` + bộ chọn tốc độ) và `+Diagnostics.swift` **37** (khối copy). Tách file extension buộc hạ `@State private` → `internal` — **cái giá của việc tách muộn**.
-- **Nhãn UI ở tầng View**: `VieNeuSynthesisPolicy.Mode.displayName` là extension trong file View, để policy giữ nguyên tính thuần (không chuỗi UI, không `UserDefaults`).
-- **File sửa**: `VieNeuSynthesisPolicy` 81 → **86**, `VieNeuTTSEngine` 302 → **324**, `VieNeuTTSService` 231 → **256**.
-- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
-- **Tài liệu CodeGraph**: `00_index.md`, `02_file_graph.md`, `09_dependency_rules.md`, `11_subsystems.md`, `14_complexity_report.md` (`--accept`); `04_call_graph.md`, `10_risk_report.md`, `13_resource_lifecycle.md`, `rules.md` (`--no-change-needed`).
-
-## [1.3.421] - 2026-09-29
-
-### fix: doc dung base 48 cua sea_g2p.bin va thu tu byte UTF-8
-
-Engine đã chạy (**RTF 0.50** ở chế độ `high`, độ dài audio hợp lý) nhưng người dùng báo **"âm thanh không phải tiếng Việt"**. Hai lỗi trong bộ đọc `sea_g2p.bin`:
-
-- **`SeaG2P.getString` hardcode `32 + offset`** — `write_bin_v2` ghi header **48** byte (4 magic + 4 version + 12 count + 12 vị trí + 8 bảng section + 8 reserved) rồi mới tới blob chuỗi. Lệch **16 byte** nghĩa là **mọi** chuỗi đọc ra đều là *đuôi của chuỗi trước + đầu của chuỗi sau* ⇒ phoneme rác ⇒ model đọc ra thứ không phải tiếng Việt, trong khi shape/tensor/độ dài audio đều đúng nên triệu chứng không phải một lỗi mà là "nghe sai tiếng".
-  * Đã xác minh trực tiếp trên file thật (62.829.820 byte): base 48 cho `xin → sˈin`, `chào → tʃˈaː2w`, `đây → ɗˈəɪ`, `việt → vˈiɛ6t̪`, `người → ŋˈyə2j`; base 32 **không tra được từ nào**. Nay `stringBase` đọc từ trường version (v2 → 48, v1 → 32) thay vì hardcode.
-- **Sai thứ tự so sánh khi tìm nhị phân**: `write_bin_v2` sắp bảng bằng `sorted(..., key=lambda kv: kv[0].encode("utf-8"))` (thứ tự **byte UTF-8**), còn `SeaG2P` dùng `String.<` của Swift (Unicode canonical ordering) ⇒ có thể trượt khoá **có** trong bảng. Nay dùng `utf8Less` với `lhs.utf8.lexicographicallyPrecedes(rhs.utf8)`.
-- **Thêm `droppedScalars` vào khối chẩn đoán của màn thử giọng**: `AppLogger` chỉ ghi khi người dùng bật `AppLogger.isLoggingEnabled`, nên một bộ G2P trả ký tự ngoài vocab sẽ hỏng **im lặng**. Đây chính là chỉ số đã thiếu ở lượt này.
-- **File sửa**: `SeaG2P.swift` 253 → **273**, `VieNeuTTSEngine.swift` 297 → **302**, `VieNeuTTSService.swift` 225 → **231**, `VieNeuTTSTestView.swift` 392 → **397** (sát trần 400 — mọi thay đổi UI tiếp theo ở màn này **phải** tách file trước).
-- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
-- **Tài liệu CodeGraph**: `rules.md` thêm mục **`sea_g2p.bin` Format Invariants** (4 luật); `11_subsystems.md` thêm mục về hai lỗi này.

@@ -16,6 +16,20 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 
 <!-- GENERATED START -->
 
+## 1.3.453 — nhân bản giọng VieNeu-TTS từ audio mẫu (voice cloning), kèm fbank 80-mel (1.3.451)
+
+* **Một "giọng" chỉ là 2 mảng float**: `speakerEmbedding` (192) + `style` (50×256). Không có model riêng cho từng giọng, không fine-tune — nhân bản = chạy **3 graph clone** để sinh 2 mảng đó từ audio mẫu 3–8 s.
+* [`VieNeuVoiceCloner.swift`](../../Sources/Services/TTS/VieNeu/VieNeuVoiceCloner.swift) **270** — port `prepare_reference` của bản tham chiếu: cắt ≤30 s → fbank 80-mel 16 kHz → `speaker_encoder`; resample 24 kHz lấy 5 s đầu → `codec_encoder` → chuẩn hoá `(mu − mean) / std × scale` → `groupLatent` (24 kênh × 6 = **144**, 468 → **78** frame) → `reference_encoder` (kèm `ref_mask` toàn 1) → `style`.
+* **Bẫy `groupLatent`**: `out[c*g + slot][block] = zpad[c][block*g + slot]` — **không** phải concat kênh liền kề. Làm sai vẫn ra **đúng shape (50×256)** nhưng **sai giọng và không báo lỗi**; đã chứng minh bit-exact với numpy.
+* [`VieNeuFbank.swift`](../../Sources/Services/TTS/VieNeu/VieNeuFbank.swift) **293** — fbank 80-mel kiểu Kaldi thuần Swift (`snip_edges = true`), đầu vào duy nhất của `speaker_encoder`.
+* [`VieNeuAudioResampler.swift`](../../Sources/Services/TTS/VieNeu/VieNeuAudioResampler.swift) **192** — mono = **mean các kênh** (khớp `soundfile` + `wav.mean(axis=1)`), resample qua `AVAudioConverter` (`mastering`).
+* [`VieNeuCustomVoiceStore.swift`](../../Sources/Services/TTS/VieNeu/VieNeuCustomVoiceStore.swift) **226** — `CustomVoices/index.json` + `samples/`; `init` **không** chạm đĩa (được gọi trên đường đọc, kể cả `prepareLocked`); ghi nguyên tử `tmp` + `replaceItemAt`.
+* [`VieNeuVoiceRecorder.swift`](../../Sources/Services/TTS/VieNeu/VieNeuVoiceRecorder.swift) **148** — thu `.m4a` vào thư mục tạm; đổi phiên âm thanh `.playback` → `.playAndRecord` rồi **khôi phục** qua `TTSAudioSessionController` (quên khôi phục ⇒ TTS mất tiếng ở **mọi** lượt sau).
+* Màn hình: [`VieNeuVoiceLibraryView.swift`](../../Sources/Views/Settings/TTS/VieNeuVoiceLibraryView.swift) **346** + [`+Sections.swift`](../../Sources/Views/Settings/TTS/VieNeuVoiceLibraryView+Sections.swift) **171** ("Giọng của tôi") và [`VieNeuVoiceCreatorView.swift`](../../Sources/Views/Settings/TTS/VieNeuVoiceCreatorView.swift) **329** (thu trực tiếp / chọn file).
+* [`VieNeuONNXRuntime+Clone.swift`](../../Sources/Services/TTS/VieNeu/VieNeuONNXRuntime+Clone.swift) **141** — 3 wrapper `speakerEncoder`/`codecEncoder`/`referenceEncoder`; `handle`/`maximumRank`/`consume` ở file chính hạ `private` → `internal` (Swift giới hạn `private` theo file) — lần thứ tư trong repo.
+* **Cổng kiểm chứng số** (1.3.451/1.3.452): [`Scripts/FbankGate/main.swift`](../../Scripts/FbankGate/main.swift) **115** + [`gate.py`](../../Scripts/FbankGate/gate.py) **210** + [`.github/workflows/fbank-gate.yml`](../../.github/workflows/fbank-gate.yml) — `swiftc` biên dịch **chính** `VieNeuFbank.swift` rồi so với một bản numpy độc lập (RAW MAE = 0); kích hoạt bằng `push` theo path.
+
+
 ## 1.3.446 — TTS thay thế từ có tầng riêng theo truyện + làm lại UI mục gộp
 
 * **Tầng riêng theo truyện** cho rule thay thế TTS: `translate/books/<bookId>/character_replacements.json` — cùng gốc `translate/` với từ điển riêng truyện nên dùng lại được cả backup lẫn luồng đổi nguồn.

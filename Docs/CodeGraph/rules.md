@@ -16,6 +16,18 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 
 <!-- GENERATED START -->
 
+## 1.3.453 — quy chuẩn rút ra (nhân bản giọng VieNeu)
+
+* **Luật 1 — `groupLatent` là phép hoán vị kênh, không phải concat.** `out[c*g + slot][block] = zpad[c][block*g + slot]` với `g = 6`. Cách viết đúng là gộp nhóm rồi `transpose` rồi duỗi; cách viết **sai** (duỗi thẳng kênh liền kề) vẫn cho shape `(50, 256)` hợp lệ nên **không** có lỗi nào nổi lên — chỉ giọng khác đi. Mọi thay đổi ở đây **phải** chạy lại kiểm chứng numpy.
+* **Luật 2 — ba graph clone KHÔNG được vào `requiredNames`.** `VieNeuTTSEngine.swift:151` chặn engine khi `store.missingNames` khác rỗng; thêm graph tuỳ chọn vào đó sẽ khoá luôn engine chính với người dùng chưa tải gói clone.
+* **Luật 3 — `.m` / `.h` không bị `check_architecture.py` kiểm.** Cầu C vượt trần 400 dòng một cách hợp lệ, nhưng đổi lại **không** có cổng tự động nào phủ nó: phải tự kiểm bằng `cl.exe` (MSVC BuildTools 18 + Windows SDK có sẵn trên máy Windows). Đừng suy ra "biên dịch được" từ việc script kiến trúc xanh.
+* **Luật 4 — đổi kiểu con trỏ trong cầu C là thay đổi phá vỡ âm thầm.** `copyFloatsInto` giữ `int32_t *outCount`; đổi sang `int64_t *` khiến hai caller cũ ghi **8 byte vào ô 4 byte**. Trình biên dịch **có** bắt (`warning C4133`), nhưng chỉ khi thực sự build — mà trên Windows thì không build được.
+* **Luật 5 — mọi đường chạm `AVAudioSession` phải trả về `.playback`.** `TTSAudioSessionController.configureAudioSession()` là **nguồn sự thật duy nhất**; không tự `setCategory` lại ở chỗ khác, kể cả trong nhánh lỗi.
+* **Luật 6 — màn thư viện giọng dùng `Button` trần + `Label`, không `.borderedProminent`.** `MainTabView` đặt `.tint(.white)` toàn cục ⇒ `.borderedProminent` không tự đảo màu chữ ⇒ nút rỗng (bài học 1.3.447).
+* **Luật 7 — `VieNeuCustomVoiceStore.init` không được chạm đĩa.** Nó được gọi trên **đường đọc** (`VieNeuVoiceCatalog.load` ← `VieNeuTTSEngine.prepareLocked`); tạo thư mục trong `init` nghĩa là ghi đĩa mỗi lượt tổng hợp.
+* **Luật 8 — không route file của người dùng qua `VieNeuModelStore.url(for:)`.** Kho model là không gian của gói tải về; audio mẫu có vòng đời và quyền truy cập riêng (`CustomVoices/samples/`).
+
+
 ## 1.3.446 — quy chuẩn rút ra
 
 * **`private` là theo FILE, không theo type** — đã cắn lần thứ ba (1.3.445: `mergeTask`; 1.3.446: `ReplacementStep`/`planLock`/`compile`, `ruleRow`, `alertMessage`, `prepareToEdit`). Khi tách `X+Feature.swift`, phải rà **mọi** thành viên mà file mới dùng và hạ `private` → `internal`, kèm comment nêu lý do.

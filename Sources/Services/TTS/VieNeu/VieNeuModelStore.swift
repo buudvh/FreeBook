@@ -28,6 +28,25 @@ final class VieNeuModelStore {
     /// Hai asset tải từ nguồn khác HuggingFace.
     static let assetNames = ["voices_v3_nano.json", "sea_g2p.bin"]
 
+    /// Ba graph **clone giọng** — **tuỳ chọn**, chỉ tải khi người dùng muốn tạo giọng mới (~91 MB).
+    ///
+    /// Cố ý **KHÔNG** nằm trong `requiredNames`: `VieNeuTTSEngine.prepareLocked()` guard
+    /// `store.missingNames.isEmpty` (plan C1), nên thêm chúng vào đó là biến một tính năng tuỳ chọn thành
+    /// điều kiện sống còn — người chỉ dùng 11 giọng preset sẽ **không dùng được engine** cho tới khi tải
+    /// thêm gần 100 MB. Dung lượng đo trên file thật: `speaker_encoder` 28,3 MB + `codec_encoder` 56,4 MB
+    /// + `reference_encoder` 10,8 MB.
+    static let cloneGraphNames = [
+        "speaker_encoder.onnx",
+        "codec_encoder.onnx",
+        "reference_encoder.onnx"
+    ]
+
+    /// Dung lượng gói clone **khi tải đủ**, đo trên file thật: 28.303.423 + 56.419.417 + 10.778.145 byte.
+    ///
+    /// Là hằng số chứ không phải `cloneTotalBytes` vì nhãn nút tải phải nói trước sẽ tốn bao nhiêu —
+    /// lúc đó chưa có file nào để đo, nên `cloneTotalBytes` trả 0.
+    static let cloneApproximateBytes: Int64 = 95_500_985
+
     /// Toàn bộ file bắt buộc phải có trước khi engine chạy được.
     static var requiredNames: [String] { graphNames + configNames + assetNames }
 
@@ -60,8 +79,10 @@ final class VieNeuModelStore {
         FileManager.default.fileExists(atPath: url(for: name).path)
     }
 
-    /// `true` khi đủ **cả 10** file. Không có trạng thái "thiếu một nửa chạy được": pipeline Nano cần
+    /// `true` khi đủ **cả 8** file (4 graph + `config.json` + `constants.npz` + 2 asset). Không có trạng thái "thiếu một nửa chạy được": pipeline Nano cần
     /// đủ 4 graph, và thiếu `sea_g2p.bin` thì không có phoneme để đưa vào `text_encoder`.
+    ///
+    /// **Không** tính 3 graph clone — xem doc của `cloneGraphNames`.
     var isReady: Bool {
         Self.requiredNames.allSatisfy { exists($0) }
     }
@@ -70,9 +91,33 @@ final class VieNeuModelStore {
         Self.requiredNames.filter { !exists($0) }
     }
 
+    // MARK: - Gói graph clone (tuỳ chọn)
+
+    /// `true` khi đã có đủ **3 graph clone** trên đĩa (chưa chắc đã nạp vào ORT — việc nạp là của
+    /// `VieNeuVoiceCloner`).
+    var hasCloneGraphs: Bool {
+        Self.cloneGraphNames.allSatisfy { exists($0) }
+    }
+
+    var missingCloneGraphNames: [String] {
+        Self.cloneGraphNames.filter { !exists($0) }
+    }
+
+    /// Dung lượng 3 graph clone đã chiếm — UI dùng để nói rõ sẽ tốn thêm bao nhiêu trước khi tải.
+    var cloneTotalBytes: Int64 {
+        byteCount(of: Self.cloneGraphNames)
+    }
+
     /// Dung lượng đã chiếm — dùng cho nhãn ở màn quản lý model.
+    ///
+    /// **Chỉ tính 8 file lõi**, không tính gói clone: nhãn "Dung lượng" ở màn thử giọng gắn với trạng
+    /// thái "Đã tải đủ 8 file", nên cộng thêm 91 MB tuỳ chọn vào đó là nói sai về thứ vừa tải.
     var totalBytes: Int64 {
-        Self.requiredNames.reduce(Int64(0)) { partial, name in
+        byteCount(of: Self.requiredNames)
+    }
+
+    private func byteCount(of names: [String]) -> Int64 {
+        names.reduce(Int64(0)) { partial, name in
             let size = ((try? url(for: name).resourceValues(forKeys: [.fileSizeKey]))?.fileSize) ?? 0
             return partial + Int64(size)
         }
@@ -82,9 +127,22 @@ final class VieNeuModelStore {
 
     /// Xoá **từng file đã biết**, không xoá cả thư mục: `modelsURL`/`assetsURL` còn có thể chứa file
     /// tạm của lượt tải đang dở, và xoá cả cây là cách chắc chắn nhất để một lượt tải song song hỏng.
+    ///
+    /// Gồm **cả 3 graph clone**: người dùng bấm "Xoá model" là muốn lấy lại dung lượng, mà để lại ~91 MB
+    /// graph mồ côi thì lần sau tải lại cũng vô ích. **Không** đụng giọng user — chúng nằm ở thư mục riêng
+    /// `CustomVoices/` (xem `VieNeuCustomVoiceStore`), không phải `Models/`/`Assets/`.
     func deleteAll() throws {
+        try delete(names: Self.requiredNames + Self.cloneGraphNames)
+    }
+
+    /// Xoá **chỉ 3 graph clone** — dùng khi người dùng muốn thu hồi riêng gói tuỳ chọn này.
+    func deleteCloneGraphs() throws {
+        try delete(names: Self.cloneGraphNames)
+    }
+
+    private func delete(names: [String]) throws {
         let fileManager = FileManager.default
-        for name in Self.requiredNames where exists(name) {
+        for name in names where exists(name) {
             try fileManager.removeItem(at: url(for: name))
         }
     }

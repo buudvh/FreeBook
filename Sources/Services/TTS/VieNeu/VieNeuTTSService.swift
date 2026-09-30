@@ -139,14 +139,41 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         syncQueue.sync { _currentVoice = voice }
     }
 
-    /// 11 giọng preset. Cần `voices_v3_nano.json` đã tải; chưa tải thì ném lỗi để màn cấu hình hiện
-    /// "chưa có model" thay vì danh sách rỗng khó hiểu.
+    /// Giọng đọc cho Picker: **giọng user (nếu có) rồi 11 giọng preset**. Cần `voices_v3_nano.json` đã
+    /// tải; chưa tải thì ném lỗi để màn cấu hình hiện "chưa có model" thay vì danh sách rỗng khó hiểu.
+    ///
+    /// Việc gộp nằm ở `VieNeuVoiceCatalog.load` nên **cả đường này lẫn `VieNeuTTSEngine.prepareLocked`
+    /// thấy cùng một danh sách** mà không phải sửa gì ở engine (plan C2).
     func availableVoices() throws -> [Voice] {
         try VieNeuVoiceCatalog.load(modelStore: store).presets.map(\.voice)
     }
 
     var defaultVoiceName: String? {
         try? VieNeuVoiceCatalog.load(modelStore: store).defaultVoiceName
+    }
+
+    // MARK: - Giọng nhân bản (tuỳ chọn)
+
+    /// Kho giọng do người dùng tạo. Thư mục riêng `CustomVoices/` nên `deleteAll()` của model store
+    /// **không** đụng tới — xem doc của `VieNeuCustomVoiceStore`.
+    var customVoiceStore: VieNeuCustomVoiceStore {
+        VieNeuCustomVoiceStore(rootURL: store.rootURL)
+    }
+
+    /// `true` khi 3 graph clone đã có trên đĩa. `false` ⇒ UI phải mời tải gói ~91 MB trước.
+    var hasCloneGraphs: Bool { store.hasCloneGraphs }
+
+    /// Nhân bản một audio mẫu thành hai mảng số của một giọng. **Nặng và đồng bộ** ⇒ chạy ở
+    /// `Task.detached` như `prepare`, cùng lý do và cùng mức ưu tiên.
+    ///
+    /// Mỗi lượt gọi mở một ngữ cảnh ORT riêng **chỉ 3 graph clone** rồi nhả khi xong — xem doc của
+    /// `VieNeuVoiceCloner` để biết vì sao không dùng chung ngữ cảnh với engine.
+    func enrollVoice(sampleURL: URL) async throws -> VieNeuVoiceCloner.Enrollment {
+        let store = self.store
+        let threads = VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard)
+        return try await Task.detached(priority: .utility) {
+            try VieNeuVoiceCloner.enroll(sampleURL: sampleURL, modelStore: store, threadCount: threads)
+        }.value
     }
 
     // MARK: - Tổng hợp

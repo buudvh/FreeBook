@@ -123,6 +123,16 @@ extension TTSSettingsView {
         Text("Số luồng càng nhiều càng khó gây ra trường hợp phải chờ đợi giữa hai đoạn nghe nhưng dễ nóng máy và hết pin nhanh. Số luồng áp dụng sau khi nạp lại engine (mở lại app hoặc đổi engine)." + (vieNeuPowerSaving ? " Đang bật Tiết kiệm pin: cố định chế độ Cân bằng + 2 luồng để máy mát và ít tốn pin; chất lượng giọng thấp hơn." : ""))
             .font(.caption)
             .foregroundColor(.secondary)
+        // 5. Lối vào **giọng nhân bản**.
+        //
+        // Chỉ hiện khi đã có `voices_v3_nano.json`: màn đó đọc catalog để dựng danh sách, mà thiếu file
+        // ấy thì nó chỉ hiện được một câu báo lỗi — vào được cũng không làm gì. Điều kiện **không** gồm
+        // gói graph clone: màn đó tự có nút tải gói ấy, nên chặn ở đây là chặn đúng đường tải.
+        if vieNeuModelReady {
+            NavigationLink(destination: VieNeuVoiceLibraryView()) {
+                Label("Giọng của tôi (nhân bản từ audio mẫu)", systemImage: "person.wave.2")
+            }
+        }
     }
 
     /// Khối "Tải trước dữ liệu" của VieNeu (Section 5).
