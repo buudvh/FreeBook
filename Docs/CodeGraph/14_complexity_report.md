@@ -16,6 +16,15 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 
 <!-- GENERATED START -->
 
+## 1.3.445 — độ phức tạp của phần gộp từ điển
+
+* [`DictionaryMergeService.swift`](../../Sources/Services/Translation/Manager/DictionaryMergeService.swift) **123** dòng, 1 primary type (`enum DictionaryMergeService`). `merge` là **O(số entry gốc)** với 1 lượt `Set` cho tombstone và 1 `Dictionary` cho custom ⇒ tuyến tính, không lồng vòng.
+* [`FrozenTrieDictionary.allEntries()`](../../Sources/Models/Dictionaries/FrozenTrieDictionary.swift#L69) — dựng chỉ mục con **một lượt** O(số slot) rồi DFS O(số nút). Nếu quét `charMap` cho từng nút thì là O(số nút × số ký tự) — không khả thi với từ điển thật. Bộ nhớ phụ: 2 mảng `Int32` cỡ `check.count` + 1 mảng `childSlots` cỡ số cạnh (đã dùng lại `childCount` làm con trỏ điền để bớt 1 mảng).
+* [`DictionaryMergeTask.swift`](../../Sources/Services/Translation/Manager/DictionaryMergeTask.swift) **183** dòng, 1 primary type; mọi việc nặng chạy trong `Task.detached(priority: .utility)`, state chỉ cập nhật trên `MainActor`.
+* [`NotificationInboxView+Merge.swift`](../../Sources/Views/Shelf/ShelfMain/NotificationInboxView+Merge.swift) **127** dòng — extension, không primary type. [`NotificationInboxView.swift`](../../Sources/Views/Shelf/ShelfMain/NotificationInboxView.swift) **363/400**: còn 37 dòng headroom.
+* [`DictionaryMergeService.swift`](../../Sources/Services/Translation/Manager/DictionaryMergeService.swift) đọc **toàn bộ** từ điển gốc vào RAM một lượt (`allEntries()`), rồi mảng kết quả — đỉnh bộ nhớ ~2 bản từ điển. Chấp nhận được vì là thao tác người dùng chủ động, chạy nền, có tiến độ.
+
+
 ## 1.3.444 — độ phức tạp file
 
 * [`WAVConcatenator.swift`](../../Sources/Services/TTS/WAVConcatenator.swift): **56** dòng vật lý, 1 primary type (`enum WAVConcatenator`) + 1 `private extension Data`. `concatenate` là O(tổng byte) — một lượt copy payload cho mỗi phần, không lặp lại trên cùng dữ liệu.

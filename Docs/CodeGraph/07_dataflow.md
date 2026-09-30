@@ -16,6 +16,15 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 
 <!-- GENERATED START -->
 
+## 1.3.445 — dòng dữ liệu gộp từ điển (không chạm từ điển gốc)
+
+* **Đọc**: `TranslationManager.vietPhraseDict.allEntries()` (duyệt ngược `.dat`) + `CustomVietPhrase.txt` (`DictionaryTextFileStore.parseRecords`) → tách thành `overrides` (value khác rỗng) và `tombstones` (value rỗng).
+* **Trộn**: entry gốc bị tombstone ⇒ **bỏ**; bị override ⇒ **thay nghĩa**; còn lại giữ nguyên **thứ tự gốc**. Từ chỉnh sửa chưa có trong gốc nối vào **cuối** — nhờ vậy file kết quả khác file gốc đúng ở những dòng thực sự đổi.
+* **Ghi**: `VietPhraseMerged.txt` qua file `.tmp` rồi `replaceItemAt` (nguyên tử) — lần gộp sau không bao giờ đọc phải file viết dở. **Không** ghi vào `VietPhrase.dat`.
+* **Chốt chặn**: `allEntries().count != wordCount` ⇒ `enumerationMismatch`, dừng trước khi ghi. Đây là phép tự kiểm của thuật toán duyệt cây, vì `.dat` không có API duyệt nào khác để đối chiếu.
+* **Áp** (do người dùng chọn): `importDictionary(from:type:"vietphrase")` → `DoubleArrayTrieBuilder.build(fromTxtFile:toDatFile:)` ghi lại `VietPhrase.dat` → `loadAllDictionaries()` → `persist(records: [])` xoá `CustomVietPhrase.txt` → `reloadCustomDictionary` → `notifyDictionariesDidUpdate()`. `.dat` cũ được sao lưu thành `VietPhrase.dat.bak-merge` **trước** bước này.
+
+
 ## 1.3.444 — dòng chảy giá trị rule dịch: ngoại lệ hán tự thuần
 
 * Trong `QuickTranslationRuleEngine.assemble`, `match.rendered` đi qua 2 bước biến đổi (chèn space trước, chèn space sau). Từ lượt này cả hai bước **bị bỏ qua** khi `rendered` là **hán tự thuần** (`!rendered.isEmpty && rendered.allSatisfy(VietPhraseTokenizer.isChineseCharacter)`). Hán tự lẫn dấu câu/space/số/latin ⇒ vẫn chèn như cũ.

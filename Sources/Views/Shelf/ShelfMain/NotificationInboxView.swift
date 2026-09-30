@@ -16,17 +16,31 @@ struct NotificationInboxView: View {
     @Query(sort: \Book.lastReadDate, order: .reverse) private var allBooks: [Book]
     @ObservedObject private var newChapters = NewChapterInboxManager.shared
     @ObservedObject private var inbox = NotificationInboxManager.shared
+    @ObservedObject private var mergeTask = DictionaryMergeTask.shared
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
 
-    /// Một dòng trong danh sách: truyện có chương mới hoặc một toast đã hiện.
-    private enum InboxItem: Identifiable {
+    /// Trạng thái cục bộ của khối "Gộp VietPhrase". Phải khai ở **file chính**: Swift không cho `@State`
+    /// trong extension khác file, mà khối đó nằm ở `NotificationInboxView+Merge.swift` vì trần 400 dòng.
+    @State var isApplyingMerge = false
+    @State var mergeErrorMessage = ""
+
+    /// Một dòng trong danh sách: truyện có chương mới, một toast đã hiện, hoặc mục **Gộp VietPhrase**.
+    ///
+    /// Không còn `private` vì `mergeTaskRow()` nằm ở file `NotificationInboxView+Merge.swift` (trần 400
+    /// dòng); `private` của Swift giới hạn theo file nên extension khác file sẽ không thấy được.
+    enum InboxItem: Identifiable {
         case newChapter(NewChapterRecord)
         case toast(NotificationInboxRecord)
+        /// Mục "Gộp VietPhrase" — không thuộc hai store trên, trạng thái do `DictionaryMergeTask` giữ.
+        /// Mang sẵn `date` để enum này **không** phải chạm vào singleton `@MainActor` từ thuộc tính
+        /// không cô lập.
+        case mergeTask(date: Date)
 
         var id: String {
             switch self {
             case .newChapter(let record): return "new-\(record.bookId)"
             case .toast(let record): return "toast-\(record.id.uuidString)"
+            case .mergeTask: return "merge-vietphrase"
             }
         }
 
@@ -37,12 +51,16 @@ struct NotificationInboxView: View {
                 return record.announcedAt ?? record.firstFoundAt ?? record.lastCheckedAt ?? .distantPast
             case .toast(let record):
                 return record.date
+            case .mergeTask(let date):
+                return date
             }
         }
 
-        /// Chương mới xếp trước toast trong cùng một ngày.
+        /// Mục gộp ghim lên đầu (xếp trước cả chương mới), vì nó là việc **đang chờ người dùng quyết định**;
+        /// chương mới xếp trước toast.
         var sortRank: Int {
             switch self {
+            case .mergeTask: return -1
             case .newChapter: return 0
             case .toast: return 1
             }
@@ -62,9 +80,15 @@ struct NotificationInboxView: View {
         inbox.records.map { InboxItem.toast($0) }
     }
 
+    /// Mục "Gộp VietPhrase" chỉ có mặt khi đang chạy, đã có file kết quả, hoặc vừa lỗi.
+    private var mergeTaskItems: [InboxItem] {
+        guard mergeTask.isVisible else { return [] }
+        return [InboxItem.mergeTask(date: mergeTask.displayDate)]
+    }
+
     /// Gộp rồi nhóm theo ngày; ngày mới nhất trước, trong ngày thì chương mới trước, còn lại theo giờ giảm dần.
     private var groupedByDay: [(day: Date, items: [InboxItem])] {
-        let all = newChapterItems + toastItems
+        let all = mergeTaskItems + newChapterItems + toastItems
         let calendar = Calendar.current
         let grouped = Dictionary(grouping: all) { calendar.startOfDay(for: $0.date) }
         return grouped.keys.sorted(by: >).map { day in
@@ -77,7 +101,7 @@ struct NotificationInboxView: View {
     }
 
     private var isEmpty: Bool {
-        newChapterItems.isEmpty && toastItems.isEmpty
+        newChapterItems.isEmpty && toastItems.isEmpty && mergeTaskItems.isEmpty
     }
 
     var body: some View {
@@ -116,6 +140,10 @@ struct NotificationInboxView: View {
     @ViewBuilder
     private func row(for item: InboxItem) -> some View {
         switch item {
+        case .mergeTask:
+            // Không có `swipeActions`: mục này chỉ biến mất bằng hành động tường minh (nhập / bỏ qua),
+            // để một cú vuốt không xoá mất file kết quả mà người dùng chưa kịp xuất.
+            mergeTaskRow()
         case .newChapter(let record):
             newChapterRow(record)
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {

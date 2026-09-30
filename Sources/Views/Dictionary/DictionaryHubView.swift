@@ -5,6 +5,7 @@ struct DictionaryHubView: View {
     var bookName: String = ""
 
     @ObservedObject private var translationManager = TranslationManager.shared
+    @ObservedObject private var mergeTask = DictionaryMergeTask.shared
     @State private var refreshToken = UUID()
 
     var body: some View {
@@ -28,7 +29,7 @@ struct DictionaryHubView: View {
                 }
             }
 
-            Section(header: Text("Từ Điển Chung (Toàn Cục)")) {
+            Section {
                 NavigationLink(destination: DictionaryListView(type: .vietPhrase, bookId: nil, contextBookId: bookId)) {
                     DictionaryNavRow(
                         title: "VietPhrase Chung",
@@ -45,6 +46,30 @@ struct DictionaryHubView: View {
                         subtitle: globalStatusText(type: .names)
                     )
                 }
+
+                // Gộp = **sinh file text mới**, không ghi vào từ điển gốc. Người dùng chọn nhập/xuất ở màn
+                // Thông báo, nên một lỗi ở bước gộp chỉ tạo ra file sai mà vẫn xem được trước khi áp.
+                Button {
+                    mergeTask.startMerge()
+                } label: {
+                    DictionaryNavRow(
+                        title: "Gộp vào Từ Điển Chung",
+                        icon: "arrow.triangle.merge",
+                        iconColor: .teal,
+                        subtitle: mergeTask.statusText
+                    )
+                }
+                .disabled(mergeTask.isRunning || mergeTask.hasResult)
+
+                if let progress = mergeTask.runningProgress {
+                    ProgressView(value: progress) {
+                        Text("Đang gộp VietPhrase…").font(.caption)
+                    }
+                }
+            } header: {
+                Text("Từ Điển Chung (Toàn Cục)")
+            } footer: {
+                Text("Gộp từ chỉnh sửa + từ đã xoá vào **một file text mới** (`VietPhraseMerged.txt`), không đụng từ điển gốc. Sau đó mở màn **Thông báo** để chọn nhập vào VietPhrase hoặc xuất file.")
             }
             Section(header: Text("Rule Dịch")) {
                 NavigationLink(destination: QuickTranslationRuleListView(scope: .book(bookId))) {
@@ -70,6 +95,7 @@ struct DictionaryHubView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             translationManager.clearBookDictCache(for: bookId)
+            mergeTask.refreshFromDisk()
             refreshToken = UUID()
         }
     }

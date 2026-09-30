@@ -12,7 +12,7 @@
 ## Bẫy môi trường & công cụ
 - **Không build trên Windows** ⇒ không bao giờ nói "đã kiểm chứng biên dịch" (CI xác nhận).
 - `Scripts/check_architecture.py` **đỏ sẵn** (baseline 30 violation): so trước/sau, chỉ chịu violation **MỚI**. `[PASS]` của script **không phải bằng chứng** (`strip_comments_and_strings` ăn nhầm code thật khi gặp string interpolation — bỏ sót `try? modelContext.save()` thật ở `ShelfView.swift:757`, `BookDetailView.swift:239`).
-- **Giới hạn dòng**: file không có trong `architecture_allowlist.json` ⇒ FAIL nếu > **400** dòng vật lý (`check_architecture.py:129`). File đang sát trần: `QuickTranslationRuleEngine.swift` **398/400** (chỉ thêm được ≤2 dòng) — nên đặt helper ở file `+Extension` khác hoặc inline.
+- **Giới hạn dòng**: file không có trong `architecture_allowlist.json` ⇒ FAIL nếu > **400** dòng vật lý (`check_architecture.py:129`). File đang sát trần: `QuickTranslationRuleEngine.swift` **399/400** (chỉ còn **1 dòng** — đừng thêm `private static func`, đưa helper sang file `+Extension`).
 - Grep scope `Sources/` (`Tools/` >4000 file → timeout). `00_index.md` lớn → dùng `offset`/`limit`.
 - **`validate_links.py` short-circuit khi cây sạch** ⇒ phải chạy `--explain` khi cây ĐÃ có thay đổi.
 - **Bẫy doc**: cú pháp chứa `](` (vd `[Float](repeating:)`, regex `[.,](\d+)`) bị hiểu là markdown link ⇒ `broken link`. Viết lại bằng chữ.
@@ -20,7 +20,7 @@
 ## Ràng buộc kiến trúc
 - `Sources/Services/**` **không** `import SwiftUI`, **không** `ToastManager` (dùng event AsyncStream / `Result`). Singleton hướng-SwiftUI ở `Sources/Common/**`.
 - File Swift mới ≤ **400 dòng**, **1 type chính** top level (extension không tính là type chính). `Sources/Views/**` không `modelContext.insert/delete/save`.
-- **Ratchet-down** (không được TĂNG dòng): `TTSManager.swift` 4024/3470 (code mới → `TTSManager+*.swift`); `TextPreprocessor.swift` **đúng 1121** (mọi edit net ≤0); `TTSSettingsView.swift` ~502/519; `SettingsView.swift` 452/453; `BackupCoordinator.swift` 400; `VieNeuTTSEngine.swift` 395/400; `QuickTranslationRuleEngine.swift` 398/400.
+- **Ratchet-down** (không được TĂNG dòng): `TTSManager.swift` 4024/3470 (code mới → `TTSManager+*.swift`); `TextPreprocessor.swift` **đúng 1121** (mọi edit net ≤0); `TTSSettingsView.swift` ~502/519; `SettingsView.swift` 452/453; `BackupCoordinator.swift` 400; `VieNeuTTSEngine.swift` 395/400; `QuickTranslationRuleEngine.swift` 399/400.
 - Gốc skill: `.agents/skills/` = Antigravity; `.claude/skills/` = Claude Code (gitignored). **WorkBuddy đọc**: `~/.workbuddy-ai/skills/` (user) + `<ws>/.workbuddy/skills/` (project). `<ws>/.workbuddy-ai/skills/` **KHÔNG** được quét.
 
 ## Điều hướng app
@@ -46,14 +46,16 @@
 
 ## Plan đang mở (CHƯA code)
 - `Docs/Plans/2026-09-30-plan-tts-stutter-overlap-battery.md`: **A** (bỏ `play(atTime:)`) đã làm; **B** (gỡ `.scheduled`/`getScheduledStatus`/`ScheduledStatus`/`onScheduleHandoff`/`handleNghiScheduledHandoff`/`nghiScheduledHandoffTask`) **chưa làm — nhắc user**.
-- `Docs/Plans/2026-09-30-plan-dict-merge-tts-ui.md`: §2.3b gộp VietPhrase + §6 rename/xoá Debug Extension + **§7 rule dịch trả về hán tự thuần ⇒ không tự gắn space** (`assemble` `:323-340`, chỉ +1 dòng, không tạo file mới).
-- **Kiến trúc từ điển**: từ điển CHÍNH (Chung) = `VietPhrase.dat` (**DoubleArrayTrie đã biên dịch**); custom = `CustomVietPhrase.txt` + tombstone `deletedVietPhrase`; ghi/merge qua `TranslationDictionaryWriter.mutate(isName:bookId:)` + `DictionaryTextFileStore.mergedRecords` (`Models/Dictionaries/TextDictionary.swift:65`). ⇒ Gộp = hợp nhất records rồi **tái biên dịch `.dat`** — **BẮT BUỘC backup + atomic**, dễ mất từ điển nếu sai. **Còn phải đọc** `TranslationDictionaryWriter.mutate` + `publishCustomRecords`. Tiến độ: `NotificationInboxManager`/`NewChapterInboxManager` + `NotificationInboxView` (thêm `InboxItem` case, nhấp nháy, cờ `isPinned` bỏ qua "Xoá tất cả").
+- `Docs/Plans/2026-09-30-plan-dict-merge-tts-ui.md`: §2.1 + §2.2-căn-nút + §6 đã xong (commit `888d4a7`/`ecae76c`); **§7 + §2.2-đồng-bộ đã xong** (commit `a738baa`, CI `36672708993` SUCCESS, CHANGELOG `[1.3.444]`).
+- **§2.3 GỘP TỪ ĐIỂN — ⛔ CHẶN, CHƯA CODE** (xem plan §2.3c). Chặn thật: `VietPhrase.dat` là **DoubleArrayTrie nhị phân**, API công khai **không** có hàm duyệt entry (`base`/`check`/`fastCharMap`/`data` đều `private` — `Models/Dictionaries/DoubleArrayTrie.swift`), và `TranslationManager.loadAllDictionaries` **xoá** `VietPhrase.txt` ngay sau lần biên dịch đầu (`:262-270`); repo không ship `.dat`, từ điển tải `.txt` từ HuggingFace (`:441-446`) rồi biên dịch + xoá. ⇒ 3 hướng chờ user chốt: **A** thêm `FrozenTrieDictionary.forEachEntry` (DFS ngược `trieMatches` `FrozenTrieDictionary.swift:56-84` + chỉ mục con theo `check[slot] > 0`, vì quét `charMap` mỗi nút là O(nút × ký tự) — không khả thi), **B** không đụng `.dat` (không phải "gộp" đúng nghĩa), **C** giữ `.txt` làm nguồn.
+- **Kiến trúc từ điển**: từ điển CHÍNH (Chung) = `VietPhrase.dat`; custom = `CustomVietPhrase.txt` + tombstone `deletedVietPhrase`; ghi/merge qua `TranslationDictionaryWriter.mutate(isName:bookId:)` + `DictionaryTextFileStore.mergedRecords` (`Models/Dictionaries/TextDictionary.swift:65`). **Biên dịch text → `.dat`**: `DoubleArrayTrieBuilder.build(fromEntries:toDatFile:)`. Tiến độ: `NotificationInboxManager`/`NewChapterInboxManager` + `NotificationInboxView` (335 dòng, `InboxItem` **private** 2 case `newChapter`/`toast`; toolbar "Xoá thông báo đã đọc" không phải "Xoá tất cả").
+- **Màn thử VieNeu giờ đi cùng đường Reader** (`VieNeuTTSTestView.playSample()`): `applyReplacements` → `NghiUtteranceSegmenter.expand(maximumLength: TTSManager.vieNeuChunkLength)` → `synthesizeWithDuration(boundaryKind:)` từng đoạn → `WAVConcatenator.concatenate` → 1 `AVAudioPlayer`. `TTSManager.vieNeuChunkLength` = `nonisolated static` đọc khoá `vieneuChunk` (mặc định 100) — **đừng** dùng `shared.chunkLength` (giá trị đó thuộc engine đang chọn).
 
 ## Pipeline dịch (rule + tokenize)
 - `performTranslation` (`TranslateUtils.swift:477-509`): rewrite rule → **tokenize lại** → tra từng token → `TranslationPunctuationMapper` → `postProcessText`.
 - `VietPhraseTokenizer.swift:248-253`: mỗi chữ Hán không khớp Name/VP = **1 token riêng** ⇒ `joined(separator: " ")` cho ra `唐 三` (không gộp). `TranslationTextPostProcessor` chỉ gộp space lặp, KHÔNG gộp 2 hán tự.
 - `resolveTokenMeaning` (`:457-470`): hán tự đơn không khớp từ điển → `phienAm[token] ?? token` (phiên âm Hán-Việt).
-- Rule engine auto-space 2 bên `rendered` (`QuickTranslationRuleEngine.swift:323-340`; `needs*Separator` `:361-385` chỉ biết whitespace + dấu câu, **không** biết hán tự). Feature này do Antigravity làm ở CHANGELOG `[1.3.405]` / commit `00108c6`. `needsSeparator(between:and:)` (nhắc ở 1.3.403) **không còn tồn tại**.
+- Rule engine auto-space 2 bên `rendered` (`QuickTranslationRuleEngine.swift:323-341`; `needs*Separator` `:362-386` chỉ biết whitespace + dấu câu, **không** biết hán tự). Feature này do Antigravity làm ở CHANGELOG `[1.3.405]` / commit `00108c6`. **Từ 1.3.444** có ngoại lệ: `rendered` là **hán tự thuần** (`allSatisfy(VietPhraseTokenizer.isChineseCharacter)`) ⇒ **không** chèn space 2 bên (guard `isHanOnly`). `needsSeparator(between:and:)` (nhắc ở 1.3.403) **không còn tồn tại**.
 - Hàm nhận diện hán tự: `VietPhraseTokenizer.isChineseCharacter(_:)` (`:341-346`) và `TranslateUtils.containsChinese` (`:80-85`).
 
 ## Tiền xử lý số (`TextPreprocessor`, 1.3.439)
@@ -67,6 +69,8 @@
 - `FrozenTrieDictionary`: `dat == nil` (customNames/VietPhrase/bookVP/bookNames sau lần lưu đầu) duyệt `lengths` + cấp phát `Array(text.utf16)` mỗi vị trí ⇒ nguồn đốt CPU lớn nhất của pipeline dịch.
 
 ## Tài liệu & CHANGELOG
+- **CodeGraph dễ bị bỏ quên**: commit `888d4a7` (UI TTS) đã để **10 doc stale** và **thiếu hẳn CHANGELOG entry** — đã dọn ở `a738baa`. Mỗi lượt sửa code phải chạy `validate_links.py --explain` **rồi** `--update-hashes` (accept mọi doc có GENERATED đã đổi) + kiểm `validate_links.py` PASS.
 - `.gitignore` chặn `/Docs/Result`, `/Docs/Plans`, `/Docs/CheckList`, `/Docs/Reports` (artifact local, không commit). `Docs/Plan/` (số ít) được track.
-- CHANGELOG giữ ~30 entry (đang drift 43+); **thiếu hẳn 1.3.323–1.3.328** ở cả 2 file — **đừng tự đẩy sang archive khi chưa kiểm chứng**.
+- CHANGELOG giữ ~30 entry (đang drift); **thiếu hẳn 1.3.323–1.3.328** ở cả 2 file — **đừng tự đẩy sang archive khi chưa kiểm chứng**.
 - Thêm file Swift mới ⇒ `00_index`, `02_file_graph`, `09_dependency_rules`, `14_complexity_report`, `11_subsystems` cùng stale; sửa `Sources/Common/**` ⇒ `03_type_graph` stale.
+- `test/` (3 file WAV ~2,8 MB) là artifact test, **untracked** — đừng `git add -A` (sẽ commit nhầm).

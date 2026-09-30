@@ -16,6 +16,17 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 <!-- GENERATED START -->
 
+## Thành Viên Mới Cho Gộp Từ Điển (1.3.445)
+
+* **`TrieDictionary.allEntries() -> [(key: String, value: String)]`** (protocol, `Models/Dictionaries/DoubleArrayTrie.swift`) — duyệt toàn bộ entry. Khai ở **cả 3** conformer: `DoubleArrayTrie` (uỷ quyền `frozen()`), `FrozenTrieDictionary` (DFS ngược cây `.dat`), `TextDictionary` (map thẳng `entries`).
+* **`DictionaryMergeService.Outcome`** (`Equatable, Sendable`) — `fileURL` / `baseCount` / `customCount` / `deletedCount` / `totalCount`.
+* **`DictionaryMergeService.MergeError`** (`LocalizedError`) — `baseMissing` / `enumerationMismatch(expected:actual:)` / `emptyResult`.
+* **`DictionaryMergeTask.Phase`** — `idle` / `running(progress:)` / `ready(recordCount:)` / `failed(message:)`, kèm `runningProgress: Double?`, `isRunning`, `isFailed`, `isVisible`, `hasResult`, `displayDate`, `statusText`.
+* **`NotificationInboxView.InboxItem`** — thêm case `mergeTask(date: Date)` và **bỏ `private`**: Swift giới hạn `private` theo file, mà `mergeTaskRow()` nằm ở `NotificationInboxView+Merge.swift`.
+* **`NotificationInboxView.isApplyingMerge` / `mergeErrorMessage`** — `@State` **không** `private`, buộc khai ở file chính vì Swift không cho `@State` trong extension khác file.
+* Đồng bộ tài liệu cho commit "Tiết kiệm pin" trước đó: `TTSSettingsView.vieNeuPowerSaving` + `vieNeuThreadCount` (`@State`) và `VieNeuTTSService.powerSaving` / `threadCount`.
+
+
 ## Thành Viên Mới Cho Ranh Giới & Đo Lường VieNeu (1.3.436)
 
 * **`VieNeuTTSEngine.pauseSeconds(for boundaryKind: TTSBoundaryKind) -> Double`** (`+Chunking`) — ánh xạ ranh giới → khoảng lặng **đuôi**, đọc cùng khoá `UserDefaults` như `ONNXPiperEngine.pauseDuration(for:)`. Là bản sao có chủ ý (không gọi chéo được vì Piper nằm trong `ONNXPiperEngine`, một class).

@@ -53,6 +53,104 @@ public struct FrozenTrieDictionary: TrieDictionary, Sendable {
         return result
     }
 
+    /// Duyệt **toàn bộ** entry (xem doc ở `TrieDictionary.allEntries`).
+    ///
+    /// Với kho `.dat`: cây được duyệt theo **đúng** phép tính chỉ số của `trieMatches` nhưng chiều ngược —
+    /// cạnh `state → next` tồn tại khi `next = base[state] + code` và `check[next] == state`; nút kết thúc
+    /// của `next` là `base[next]` khi `check[base[next]] == next` và `base[base[next]] >= 0`, giá trị nằm ở
+    /// `poolOffset + base[base[next]]` (2 byte độ dài big-endian + UTF-8).
+    ///
+    /// Chỉ mục con dựng **một lượt** trước khi duyệt (gom slot theo `check[slot] > 0`): quét `charMap` cho
+    /// từng nút là O(số nút × số ký tự) — không khả thi với từ điển thật. Mỗi nút chỉ giữ
+    /// `(trạng thái, cha, mã nén)` và khoá được dựng bằng cách đi ngược lên cha, nên chỉ tốn O(độ sâu) cho
+    /// mỗi **entry** thay vì copy mảng khoá ở mọi cạnh.
+    ///
+    /// **Tự kiểm**: caller phải so `allEntries().count` với `wordCount`; lệch nghĩa là phép duyệt sai.
+    public func allEntries() -> [(key: String, value: String)] {
+        guard let dat else {
+            return entries.map { (key: $0.key, value: $0.value) }
+        }
+
+        // Slot chưa dùng giữ `check == 0`, nên `check[slot] > 0` chính là "slot này là con của trạng thái
+        // `check[slot]`" (trạng thái 0 và 1 được đánh dấu `-1` nên không lọt vào đây).
+        var childCount = [Int32](repeating: 0, count: dat.check.count)
+        var totalChildren = 0
+        for slot in 0..<dat.check.count where dat.check[slot] > 0 {
+            childCount[Int(dat.check[slot])] += 1
+            totalChildren += 1
+        }
+        var childOffset = [Int32](repeating: 0, count: dat.check.count + 1)
+        var running = 0
+        for state in 0..<childCount.count {
+            childOffset[state] = Int32(running)
+            running += Int(childCount[state])
+        }
+        childOffset[childCount.count] = Int32(running)
+        var childSlots = [Int32](repeating: 0, count: totalChildren)
+        // `childCount` đã hết việc ⇒ dùng lại nó làm **con trỏ điền** thay vì cấp thêm mảng thứ ba:
+        // `base`/`check` của từ điển thật có thể tới hàng triệu slot, mỗi mảng bớt được là đáng.
+        for state in 0..<childCount.count { childCount[state] = childOffset[state] }
+        for slot in 0..<dat.check.count where dat.check[slot] > 0 {
+            let parent = Int(dat.check[slot])
+            childSlots[Int(childCount[parent])] = Int32(slot)
+            childCount[parent] += 1
+        }
+
+        // Đảo `fastCharMap`: lúc tra chỉ cần mã điểm → mã nén, duyệt cây cần chiều ngược lại.
+        let maxCode = Int(dat.charMap.max() ?? 0)
+        var codePointByCode = [Int32](repeating: -1, count: maxCode + 1)
+        for codePoint in 0..<dat.charMap.count where dat.charMap[codePoint] != 0 {
+            codePointByCode[Int(dat.charMap[codePoint])] = Int32(codePoint)
+        }
+
+        var nodeState: [Int] = [1]
+        var nodeParent: [Int] = [-1]
+        var nodeCodePoint: [Int32] = [0]
+        var stack: [Int] = [0]
+        var results: [(key: String, value: String)] = []
+        results.reserveCapacity(dat.size)
+
+        while let nodeIndex = stack.popLast() {
+            let state = nodeState[nodeIndex]
+            for index in Int(childOffset[state])..<Int(childOffset[state + 1]) {
+                let next = Int(childSlots[index])
+                let code = next - Int(dat.base[state])
+                guard code >= 0, code < codePointByCode.count else { continue }
+                let codePoint = codePointByCode[code]
+                guard codePoint >= 0 else { continue }
+
+                let childIndex = nodeState.count
+                nodeState.append(next)
+                nodeParent.append(nodeIndex)
+                nodeCodePoint.append(codePoint)
+
+                let terminal = Int(dat.base[next])
+                if dat.base.indices.contains(terminal),
+                   dat.check[terminal] == Int32(next),
+                   dat.base[terminal] >= 0 {
+                    let offset = dat.poolOffset + Int(dat.base[terminal])
+                    let length = Int(dat.data.readUInt16BE(at: offset))
+                    if offset + 2 + length <= dat.data.count,
+                       let value = String(
+                           data: dat.data.subdata(in: (offset + 2)..<(offset + 2 + length)),
+                           encoding: .utf8
+                       ) {
+                        // Node 0 là gốc (không có ký tự) nên vòng lặp dừng ở `cursor > 0`.
+                        var units: [UInt16] = []
+                        var cursor = childIndex
+                        while cursor > 0 {
+                            units.append(UInt16(nodeCodePoint[cursor]))
+                            cursor = nodeParent[cursor]
+                        }
+                        results.append((String(decoding: units.reversed(), as: UTF16.self), value))
+                    }
+                }
+                stack.append(childIndex)
+            }
+        }
+        return results
+    }
+
     private func trieMatches(
         _ text: String, at start: Int, dat: DAT, longestOnly: Bool
     ) -> [(length: Int, value: String)] {

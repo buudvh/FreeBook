@@ -16,6 +16,14 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 
 <!-- GENERATED START -->
 
+## 1.3.445 — phân hệ Từ điển: gộp VietPhrase
+
+* **Nút gộp** ở [`DictionaryHubView.swift`](../../Sources/Views/Dictionary/DictionaryHubView.swift) (Section "Từ Điển Chung"): "Gộp vào Từ Điển Chung" → `DictionaryMergeTask.startMerge()`, kèm `ProgressView` và footer nói rõ kết quả là **file text mới**, không phải ghi vào gốc.
+* **Mục thông báo** ở [`NotificationInboxView+Merge.swift`](../../Sources/Views/Shelf/ShelfMain/NotificationInboxView+Merge.swift): `sortRank = -1` (ghim trên cùng), **không** có `swipeActions` (chỉ biến mất bằng hành động tường minh), icon `symbolEffect(.pulse, options: .repeating)` khi đang chạy, 3 hành động khi xong — **Nhập vào VietPhrase** / **Xuất file** (`ShareLink`) / **Bỏ qua**.
+* **Hai hành động toolbar** ("Đánh dấu đã đọc hết" / "Xoá thông báo đã đọc") **không** đụng mục gộp: nó không nằm trong `NotificationInboxManager` lẫn `NewChapterInboxManager`.
+* [`FrozenTrieDictionary.allEntries()`](../../Sources/Models/Dictionaries/FrozenTrieDictionary.swift#L69) là API duyệt **mới** của tầng từ điển — dùng chung cho cả gộp lẫn (sau này) xuất file text.
+
+
 ## 1.3.444 — phân hệ TTS/Translation: đồng bộ màn thử với Reader
 
 * **Màn thử VieNeu** ([`VieNeuTTSTestView.swift`](../../Sources/Views/Settings/TTS/VieNeuTTSTestView.swift)) từ lượt này đi **cùng đường** với Reader: `applyReplacements` → `NghiUtteranceSegmenter.expand(maximumLength: TTSManager.vieNeuChunkLength)` → `synthesizeWithDuration(boundaryKind:)` cho từng đoạn → `WAVConcatenator` → một `AVAudioPlayer`. Footer của `playSection` đã sửa lại cho khớp mô tả này.

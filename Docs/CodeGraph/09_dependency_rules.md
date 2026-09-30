@@ -16,6 +16,14 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 
 <!-- GENERATED START -->
 
+## 1.3.445 — phụ thuộc của phần gộp từ điển
+
+* [`DictionaryMergeService.swift`](../../Sources/Services/Translation/Manager/DictionaryMergeService.swift) (Services/Translation) chỉ phụ thuộc `Foundation` + `TranslationManager` + `DictionaryTextFileStore` — cùng tầng, không `import SwiftUI`, không `ToastManager`.
+* [`DictionaryMergeTask.swift`](../../Sources/Services/Translation/Manager/DictionaryMergeTask.swift) (Services/Translation) là `@MainActor` + `ObservableObject` — cùng khuôn `NewChapterInboxManager` (`Sources/Services/NewChapters/`), nên tầng View quan sát được mà Service vẫn **không** `import SwiftUI`.
+* [`NotificationInboxView+Merge.swift`](../../Sources/Views/Shelf/ShelfMain/NotificationInboxView+Merge.swift) (Views) → Services: `DictionaryMergeTask`. Chiều phụ thuộc Views → Services giữ nguyên.
+* `TrieDictionary` (protocol, `Sources/Models/Dictionaries/`) thêm `allEntries()` ⇒ cả 3 conformer (`DoubleArrayTrie`, `FrozenTrieDictionary`, `TextDictionary`) phải khai báo. Đây là **thay đổi API nội bộ module**, không có conformer nào ngoài `Sources/`.
+
+
 ## 1.3.444 — phụ thuộc mới của màn thử VieNeu + `WAVConcatenator`
 
 * [`WAVConcatenator.swift`](../../Sources/Services/TTS/WAVConcatenator.swift) (Services/TTS) chỉ phụ thuộc `Foundation` — không chạm UIKit/SwiftUI, không chạm `TTSManager`, nên gọi được từ cả tầng Service lẫn tầng View.

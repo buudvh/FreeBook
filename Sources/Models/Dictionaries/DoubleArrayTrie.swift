@@ -5,6 +5,12 @@ public protocol TrieDictionary {
     func findLongestMatch(text: String, startIndex: Int) -> (length: Int, value: String)?
     func findAllPrefixMatches(text: String, startIndex: Int) -> [(length: Int, value: String)]
     var wordCount: Int { get }
+    /// Duyệt **toàn bộ** entry (khoá + nghĩa), không phụ thuộc kho đang giữ text hay `.dat` nhị phân.
+    ///
+    /// Cần cho việc gộp từ điển: kho gốc `VietPhrase.dat` không có nguồn text sau lần biên dịch đầu
+    /// (`TranslationManager.loadAllDictionaries` xoá `VietPhrase.txt`), nên chỉ còn cách duyệt ngược cây.
+    /// Caller **phải** tự so `allEntries().count` với `wordCount` trước khi dùng kết quả để ghi đè.
+    func allEntries() -> [(key: String, value: String)]
 }
 
 extension Data {
@@ -127,6 +133,12 @@ public final class DoubleArrayTrie: TrieDictionary {
     public func findAllPrefixMatches(text: String, startIndex: Int) -> [(length: Int, value: String)] {
         guard isLoaded else { return [] }
         return frozen().findAllPrefixMatches(text: text, startIndex: startIndex)
+    }
+
+    /// Uỷ quyền cho `FrozenTrieDictionary` — nơi giữ phần duyệt cây (xem doc ở protocol).
+    public func allEntries() -> [(key: String, value: String)] {
+        guard isLoaded else { return [] }
+        return frozen().allEntries()
     }
     
 }

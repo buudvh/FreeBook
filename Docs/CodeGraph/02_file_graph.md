@@ -16,6 +16,19 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 <!-- GENERATED START -->
 
+## +3 file: gộp VietPhrase ra file text mới + mục thông báo (1.3.445)
+
+| Nhóm | File | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Services/Translation/Manager | [`DictionaryMergeService.swift`](../../Sources/Services/Translation/Manager/DictionaryMergeService.swift) | **Mới** — gộp gốc + custom − tombstone ra `VietPhraseMerged.txt` | 123 |
+| Services/Translation/Manager | [`DictionaryMergeTask.swift`](../../Sources/Services/Translation/Manager/DictionaryMergeTask.swift) | **Mới** — state `idle/running/ready/failed` + nhập vào VietPhrase + bỏ qua | 183 |
+| Views/Shelf/ShelfMain | [`NotificationInboxView+Merge.swift`](../../Sources/Views/Shelf/ShelfMain/NotificationInboxView+Merge.swift) | **Mới** — khối "Gộp vào Từ Điển Chung" trong màn Thông báo | 127 |
+
+* Cả 3 file mới đều ≤ 400 dòng; `DictionaryMergeService`/`DictionaryMergeTask` không `import SwiftUI` (đúng luật tầng Service), `NotificationInboxView+Merge` là extension cùng file type nên không tính primary type mới.
+* Sửa nội dung: `FrozenTrieDictionary.swift` 86 → **183** (`allEntries()` duyệt ngược cây `.dat`), `DoubleArrayTrie.swift` 132 → **144** (uỷ quyền `allEntries()`), `TextDictionary.swift` 170 → **175** (`allEntries()` trên kho `[String: String]`), `DictionaryHubView.swift` 148 → **173** (nút "Gộp vào Từ Điển Chung" + thanh tiến độ + footer), `NotificationInboxView.swift` 335 → **363** (`InboxItem` thêm case `mergeTask`, bỏ `private` để extension khác file dùng được).
+* **Vì sao phải tách `NotificationInboxView+Merge`**: file chính ở **363** dòng, nhúng thẳng khối gộp (icon nhấp nháy + 3 hành động + chú thích) là vượt trần 400.
+
+
 ## +1 file: ghép WAV cho màn thử VieNeu + đồng bộ màn thử với Reader (1.3.444)
 
 | Nhóm | File | Vai trò | Dòng |

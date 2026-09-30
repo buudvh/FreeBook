@@ -53,6 +53,11 @@ public final class TextDictionary: TrieDictionary {
         guard isLoaded else { return [] }
         return frozen().findAllPrefixMatches(text: text, startIndex: startIndex)
     }
+
+    /// Kho này giữ sẵn `[String: String]` nên duyệt là việc tầm thường — không cần dựng cây.
+    public func allEntries() -> [(key: String, value: String)] {
+        entries.map { (key: $0.key, value: $0.value) }
+    }
 }
 
 struct DictionaryTextRecord: Hashable, Sendable {

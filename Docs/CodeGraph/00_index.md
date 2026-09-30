@@ -16,6 +16,15 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 
 <!-- GENERATED START -->
 
+## 1.3.445 — gộp VietPhrase ra file text mới (không đụng từ điển gốc)
+
+* **Luồng chốt với user**: `VietPhrase.dat` + `CustomVietPhrase.txt` (đã áp tombstone) → **`VietPhraseMerged.txt`**; sau đó người dùng chọn **Nhập vào VietPhrase** (đi qua `TranslationManager.importDictionary` → `DoubleArrayTrieBuilder`, đường đã có) hoặc **Xuất file**. Bước gộp **không** sửa từ điển gốc nên một lỗi ở đây chỉ tạo ra file sai mà vẫn xem được trước khi áp.
+* [`FrozenTrieDictionary.allEntries()`](../../Sources/Models/Dictionaries/FrozenTrieDictionary.swift#L69) — **API mới**, thêm vào protocol `TrieDictionary` + cả 3 conformer. Lý do: `VietPhrase.dat` là DoubleArrayTrie nhị phân và `TranslationManager.loadAllDictionaries` **xoá** `VietPhrase.txt` sau lần biên dịch đầu, nên không còn nguồn text nào để đọc từ điển gốc.
+* [`DictionaryMergeService.swift`](../../Sources/Services/Translation/Manager/DictionaryMergeService.swift) — gộp, **tự kiểm** `allEntries().count == wordCount` trước khi ghi; lệch ⇒ `enumerationMismatch` và **không** tạo file.
+* [`DictionaryMergeTask.swift`](../../Sources/Services/Translation/Manager/DictionaryMergeTask.swift) — state cho mục thông báo; nguồn sự thật là **file trên đĩa** nên mục còn nguyên sau khi tắt app. `applyToVietPhrase()` sao lưu `.dat` cũ thành `VietPhrase.dat.bak-merge` **trước** khi nhập (vì `importDictionary` xoá file đích rồi biên dịch lại).
+* [`NotificationInboxView+Merge.swift`](../../Sources/Views/Shelf/ShelfMain/NotificationInboxView+Merge.swift) — mục **ghim** (không thuộc 2 store của hộp thư nên hai hành động toolbar không xoá được), icon `symbolEffect(.pulse, options: .repeating)` khi đang gộp.
+
+
 ## 1.3.444 — màn thử VieNeu đi cùng đường Reader + rule dịch không tự gắn space cho hán tự
 
 * [`WAVConcatenator.swift`](../../Sources/Services/TTS/WAVConcatenator.swift) — **file mới**: nối nhiều WAV PCM16 cùng định dạng (cắt 44 byte header, nối payload, dựng lại header). Cố ý **không** decode rồi encode lại vì `WAVEncoder.encodePCM16` nhận `[Float]`; đường vòng `Int16 → Float → Int16` chỉ thêm một chỗ có thể sai làm mất mẫu.
