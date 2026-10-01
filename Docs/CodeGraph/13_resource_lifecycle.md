@@ -16,6 +16,13 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 
 <!-- GENERATED START -->
 
+## 1.3.464 — vòng đời của bước áp (hai nhánh) và của màn chọn mục trùng
+
+* Cả hai nhánh áp (*Trộn* / *Thay thế toàn bộ*) đi qua **một** `RephoneticizeTask.write(_:)`: sao lưu `.bak-rephoneticize` **trước** khi ghi, rồi xoá file kết quả + meta và đặt `phase = .idle` ⇒ không có đường nào ghi đè mà không sao lưu.
+* `DictionaryImportConflictView` **tự đọc** từ điển đang dùng trong `Task.detached` lúc mở ⇒ không giữ ảnh chụp; `Huỷ` = không ghi gì (bảng chỉ giao cho caller **sau khi** `dismiss()`).
+* File kết quả `phien-am-lai-*.plist` nằm trong thư mục app ⇒ **không** cần security scope; quyền security-scoped chỉ còn ở đường nhập file (`importDictionary(from:hasAccess:)`, giữ tới khi parse xong trong `defer` của `Task`).
+* **Gỡ** file sao lưu `.bak-import`: đường nhập file đã revert về bản không sao lưu theo yêu cầu người dùng. Còn lại `.bak-rephoneticize` cho cả hai từ điển.
+
 ## 1.3.462 — vòng đời tài nguyên của phiên âm lại và luồng nhập file
 
 * `RephoneticizeTask.start()` chạy trong `Task.detached(priority: .utility)`; closure tiến độ `@Sendable` **không** capture `self` mà đi qua `RephoneticizeTask.instance(for:)` ⇒ mọi cập nhật state nằm trên `MainActor`. Không `DispatchSemaphore`, không chặn main.

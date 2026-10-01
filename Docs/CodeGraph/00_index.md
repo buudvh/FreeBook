@@ -16,6 +16,14 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 
 <!-- GENERATED START -->
 
+## 1.3.464 — hộp thoại Trộn/Thay thế chuyển sang bước áp phiên âm lại; revert đường nhập file
+
+* Thêm **1** file Swift (`Views/Settings/TTS/RephoneticizeApplyButton.swift`) và **xoá 1** (`Views/Settings/TTS/DictionaryImportFlowModifier.swift`) ⇒ validator vẫn đếm **638** file, bộ tài liệu vẫn **16** doc.
+* **Sửa hiểu nhầm của 1.3.462**: hộp thoại *Trộn / Thay thế toàn bộ* thuộc nút **"Nhập vào từ điển"** ở **bước áp kết quả phiên âm lại** (card màn Thông báo + banner màn từ điển), **không** thuộc đường nhập từ file.
+* **Revert 100% đường nhập file** về code trước 1.3.462: VieNeu = **trộn** (bản nhập thắng), NghiTTS = **ghi đè toàn bộ** (ghi plist trực tiếp + `loadResources()`, **không** backup, có lại `parseCSV` riêng).
+* `RephoneticizeTask.applyMerged(_:)` là đường áp kiểu **trộn**; `apply()` và nó cùng đi qua một helper `write(_:)` nên không thể lệch bước sao lưu `.bak-rephoneticize`.
+* Màn `DictionaryImportConflictView` vẽ lại theo hướng C: mỗi dòng `khoá` rồi `cách đọc hiện tại → cách đọc mới` trên **cùng một dòng**, chạm **cả dòng** để chọn (bỏ `Toggle`), chip tóm tắt `N trùng · M thêm mới · K giữ nguyên`.
+
 ## 1.3.463 — sửa hai lỗi luồng nhập file + banner tiến độ trên màn từ điển
 
 * Thêm **2** file Swift ⇒ validator đếm 636 → **638** file. **Số lượng doc vẫn là 16**, không đổi cấu trúc bộ tài liệu.

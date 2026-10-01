@@ -17,11 +17,8 @@ struct RephoneticizeProgressBanner: ViewModifier {
     /// Gọi sau khi **áp** hoặc **bỏ** kết quả để màn nạp lại danh sách từ điển.
     let onChanged: () -> Void
 
-    @State private var isApplying = false
-    @State private var errorMessage = ""
-
-    /// Khai `init` tường minh: hai `@State` trên là `private` nên `init` memberwise do compiler sinh sẽ mang
-    /// mức truy cập `private`, không gọi được từ `extension View` bên dưới.
+    /// Khai `init` tường minh: giữ thói quen của repo — `@ObservedObject` cần bọc tay, và `extension View`
+    /// bên dưới phải gọi được `init` này từ file khác.
     init(task: RephoneticizeTask, onChanged: @escaping () -> Void) {
         self._task = ObservedObject(wrappedValue: task)
         self.onChanged = onChanged
@@ -61,35 +58,16 @@ struct RephoneticizeProgressBanner: ViewModifier {
                     .buttonStyle(.bordered)
                     .font(.footnote)
             }
-
-            if !errorMessage.isEmpty {
-                Text(errorMessage)
-                    .font(.caption)
-                    .foregroundStyle(Color.red)
-            }
         }
     }
 
     /// Cùng hai hành động như card ở màn Thông báo: áp kết quả, hoặc bỏ. Nút **Xuất file** chỉ có ở Thông
     /// báo — ở đây banner phải gọn để không che danh sách từ điển.
+    ///
+    /// Nút áp đi qua `RephoneticizeApplyButton` để hai chỗ cùng một định nghĩa *Trộn* / *Thay thế toàn bộ*.
     private var resultActions: some View {
         HStack(spacing: 8) {
-            Button {
-                applyResult()
-            } label: {
-                Group {
-                    if isApplying {
-                        ProgressView()
-                    } else {
-                        Text("Nhập vào từ điển")
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                .foregroundColor(.white)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(Color(red: 0.204, green: 0.780, blue: 0.349))
-            .disabled(isApplying)
+            RephoneticizeApplyButton(task: task) { onChanged() }
 
             Button(role: .destructive) {
                 task.discardResult()
@@ -100,22 +78,6 @@ struct RephoneticizeProgressBanner: ViewModifier {
             .buttonStyle(.bordered)
         }
         .font(.footnote)
-    }
-
-    private func applyResult() {
-        guard !isApplying else { return }
-        isApplying = true
-        errorMessage = ""
-        Task {
-            do {
-                try await task.apply()
-            } catch {
-                errorMessage = (error as? LocalizedError)?.errorDescription
-                    ?? "Nhập thất bại: \(error.localizedDescription)"
-            }
-            isApplying = false
-            onChanged()
-        }
     }
 }
 

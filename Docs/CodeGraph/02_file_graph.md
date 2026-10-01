@@ -16,6 +16,14 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 <!-- GENERATED START -->
 
+## 1.3.464 — 1 file mới, 1 file bị xoá; hai màn từ điển phục hồi code nhập cũ
+
+* File mới (dưới trần 400): `RephoneticizeApplyButton` **122**.
+* File **bị xoá**: `DictionaryImportFlowModifier.swift` (158).
+* Tăng: `TTSDictionaryEditView.swift` 532 → **584** (baseline 641 — khôi phục `parseCSV` + `importDictionary` nguyên văn) · `DictionaryImportConflictView` 234 → **313** (vẽ lại UI) · `RephoneticizeTask` 236 → **263** · `RephoneticizeService` 309 → **315**.
+* Giảm: `VieNeuJapaneseDictionaryView.swift` 374 → **353** · `NotificationInboxView+Rephoneticize` 226 → **185** · `RephoneticizeProgressBanner` 127 → **89**.
+* `RephoneticizeApplyButton` sinh ra để **hai** chỗ (card màn Thông báo + banner màn từ điển) cùng một định nghĩa *Trộn* / *Thay thế toàn bộ* — chép ra hai bản thì một bên dễ quên bước sao lưu.
+
 ## 1.3.463 — 2 file mới (sửa lỗi luồng nhập + banner tiến độ)
 
 * File mới: `RephoneticizeProgressBanner` **127** · `VieNeuJapaneseDictionaryView+Status` **36** — đều dưới trần 400.

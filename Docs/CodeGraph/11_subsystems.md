@@ -16,6 +16,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 
 <!-- GENERATED START -->
 
+## 1.3.464 — bước áp phiên âm lại có hai nhánh; màn chọn mục trùng vẽ lại
+
+* **Hộp thoại *Trộn / Thay thế toàn bộ*** nay thuộc nút **"Nhập vào từ điển"** — một nút `RephoneticizeApplyButton` dùng chung cho card màn Thông báo và banner màn từ điển, để hai chỗ không lệch định nghĩa.
+* **Thay thế toàn bộ** = hành vi cũ (ghi đè bằng file kết quả, có `.bak-rephoneticize`). **Trộn** = mở màn `DictionaryImportConflictView` so file kết quả với từ điển **đang dùng**: người dùng tích từng mục muốn thay, **khoá mới tự thêm**, khoá chỉ có trên máy giữ nguyên. Cả hai đi qua một helper `write(_:)` ⇒ không thể sót bước sao lưu.
+* **Màn chọn mục trùng vẽ lại (hướng C)**: mỗi dòng hai tầng — `khoá` đậm, rồi `cách đọc hiện tại → cách đọc mới` trên **cùng một dòng**; **chạm cả dòng** để chọn/bỏ (bỏ `Toggle`); chip `N trùng · M thêm mới · K giữ nguyên`; ô tìm kiếm + `Chọn hết` / `Bỏ chọn hết`. Vẫn `List` lazy + `Task.detached` vì từ điển NghiTTS ~30k mục.
+* **Đường nhập từ file revert 100%**: VieNeu **trộn** (bản nhập thắng), NghiTTS **ghi đè toàn bộ** (ghi plist trực tiếp + `loadResources()`, **không** backup) — đúng như trước 1.3.462, không còn hộp thoại nào.
+
 ## 1.3.463 — sửa hai lỗi của luồng nhập file + banner tiến độ ngay trên màn từ điển
 
 * **Hộp thoại *Trộn / Thay thế toàn bộ* không hiện (lỗi 1.3.462).** Bản đó mở hộp thoại bằng `.onChange(of: fileURL)`, tức bật cờ **ngay trong `onPick`** — mà `onPick` của `DocumentPicker` chạy trong **completion của lượt dismiss** sheet chọn file ⇒ presentation bắt đầu giữa lượt dismiss modal bị UIKit/SwiftUI **nuốt im lặng**. Tệ hơn: `fileURL` vẫn còn giá trị nên `.onChange` không thấy đổi ⇒ chọn lại **đúng file đó** cũng không kích hoạt lại. Nay cờ `isModeDialogPresented` do **View gọi sở hữu** và bật trong `onDismiss` của sheet chọn file — hook này chỉ chạy **sau khi** animation đóng xong.

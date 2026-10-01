@@ -16,6 +16,14 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 
 <!-- GENERATED START -->
 
+## 1.3.464 — độ phức tạp: 1 file mới, 1 file xoá, hai màn từ điển đổi chiều
+
+* Theo cách đếm của tài liệu này **232 → 232** file Swift (validator: 638 → **638**).
+* File mới `RephoneticizeApplyButton` **122** — 1 primary type, dưới trần 400.
+* Tăng: `TTSDictionaryEditView.swift` **584** (baseline **641**) · `DictionaryImportConflictView` **313** · `RephoneticizeTask` **263** · `RephoneticizeService` **315**.
+* Giảm: `VieNeuJapaneseDictionaryView.swift` **353** · `NotificationInboxView+Rephoneticize` **185** · `RephoneticizeProgressBanner` **89**.
+* `check_architecture.py`: **5 violation nền / 0 mới** (đều là `LINE_LIMIT_EXCEEDED` có từ trước: `ChapterPersistenceStore`, `JSDom`, `JSExecutor`, `TTSManager`, `ReaderViewModel`).
+
 ## 1.3.463 — độ phức tạp: 2 file mới, một file được tách để lấy lại biên
 
 * Theo cách đếm của tài liệu này **230 → 232** file Swift (validator: 636 → **638**).

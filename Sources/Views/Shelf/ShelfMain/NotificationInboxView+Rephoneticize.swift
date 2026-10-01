@@ -46,11 +46,7 @@ extension NotificationInboxView {
         /// chép lại `DateFormatter` ở đây.
         let timeText: String
 
-        @State private var isApplying = false
-        @State private var errorMessage = ""
-
-        /// Khai `init` tường minh: hai `@State` trên là `private` nên `init` memberwise do compiler sinh sẽ
-        /// mang mức truy cập `private`.
+        /// Khai `init` tường minh: `@ObservedObject` phải bọc tay và `init` này được gọi từ file chính.
         init(task: RephoneticizeTask, timeText: String) {
             self._task = ObservedObject(wrappedValue: task)
             self.timeText = timeText
@@ -155,22 +151,8 @@ extension NotificationInboxView {
 
         private var actions: some View {
             VStack(alignment: .leading, spacing: 8) {
-                Button {
-                    applyResult()
-                } label: {
-                    Group {
-                        if isApplying {
-                            ProgressView()
-                        } else {
-                            Text("Nhập vào từ điển")
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .foregroundColor(.white)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Color(red: 0.204, green: 0.780, blue: 0.349))
-                .disabled(isApplying)
+                // Cùng nút với banner màn từ điển ⇒ cùng một định nghĩa *Trộn* / *Thay thế toàn bộ*.
+                RephoneticizeApplyButton(task: task) {}
 
                 HStack(spacing: 8) {
                     if let url = task.resultFileURL {
@@ -187,12 +169,6 @@ extension NotificationInboxView {
                     }
                     .buttonStyle(.bordered)
                 }
-
-                if !errorMessage.isEmpty {
-                    Text(errorMessage)
-                        .font(.caption)
-                        .foregroundStyle(Color.red)
-                }
             }
         }
 
@@ -204,23 +180,6 @@ extension NotificationInboxView {
                     .buttonStyle(.bordered)
             }
             .font(.footnote)
-        }
-
-        /// Áp file kết quả vào từ điển đang dùng. Lỗi hiện **ngay trong card** (không dùng toast:
-        /// `ToastManager` ghi vào chính hộp thư đang mở).
-        private func applyResult() {
-            guard !isApplying else { return }
-            isApplying = true
-            errorMessage = ""
-            Task {
-                do {
-                    try await task.apply()
-                } catch {
-                    errorMessage = (error as? LocalizedError)?.errorDescription
-                        ?? "Nhập thất bại: \(error.localizedDescription)"
-                }
-                isApplying = false
-            }
         }
     }
 }

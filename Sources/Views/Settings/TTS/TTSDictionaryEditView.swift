@@ -18,13 +18,6 @@ struct TTSDictionaryEditView: View {
     @State private var errorMessage: String? = nil
     @State private var isLoading = false
     @State private var showingFileImporter = false
-    /// File người dùng vừa chọn, **chưa** đọc. Luồng `dictionaryImportFlow` nhận URL này rồi mới hỏi
-    /// *Trộn* / *Thay thế toàn bộ* — nhờ vậy màn chọn mục trùng mở được **ngay** còn việc parse chạy ngầm.
-    @State private var pendingImportURL: URL? = nil
-    /// Cờ mở hộp thoại *Trộn / Thay thế toàn bộ*. **Phải** bật từ `onDismiss` của sheet chọn file, không
-    /// bật trong `onPick` — bật giữa lượt dismiss modal sẽ bị nuốt im lặng (xem doc
-    /// `DictionaryImportFlowModifier`).
-    @State private var showingImportModeDialog = false
     @State private var showingRephoneticizeConfirmation = false
     @State private var showingDownloadConfirmation = false
     @State private var showingDeleteAllConfirmation = false
@@ -221,10 +214,7 @@ struct TTSDictionaryEditView: View {
                     addWord(key: key, value: val)
                 }
             }
-            .sheet(isPresented: $showingFileImporter, onDismiss: {
-                // `onDismiss` chạy **sau khi** animation đóng xong ⇒ đây mới là chỗ an toàn để mở modal kế.
-                if pendingImportURL != nil { showingImportModeDialog = true }
-            }) {
+            .sheet(isPresented: $showingFileImporter) {
                 DocumentPicker(
                     allowedContentTypes: [.propertyList, .json, .commaSeparatedText, .plainText],
                     allowsMultipleSelection: false,
@@ -236,22 +226,8 @@ struct TTSDictionaryEditView: View {
                             ToastManager.shared.show(message: "Vui lòng chọn tệp từ điển (.plist, .json, hoặc .csv/.txt).", type: .error)
                             return
                         }
-                        // Hai kiểm tra **rẻ** ngay tại đây rồi mới giao URL cho luồng nhập: đọc + parse + so
-                        // khớp chạy ngầm phía sau màn chọn mục trùng. Phải mở security scope **quanh** lượt
-                        // đọc metadata: file từ provider (iCloud/Files) mà đọc ngoài scope thì `resourceValues`
-                        // ném lỗi ⇒ `fileSize` ra 0 ⇒ chặn nhầm file hợp lệ.
                         let hasAccess = selectedURL.startAccessingSecurityScopedResource()
-                        let fileSize = (try? selectedURL.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
-                        if hasAccess { selectedURL.stopAccessingSecurityScopedResource() }
-                        if fileSize <= 0 {
-                            ToastManager.shared.show(message: "Tệp tin từ điển trống hoặc không hợp lệ.", type: .error)
-                            return
-                        }
-                        if fileSize > 5_242_880 {
-                            ToastManager.shared.show(message: "Kích thước tệp tin từ điển vượt quá giới hạn 5MB.", type: .error)
-                            return
-                        }
-                        pendingImportURL = selectedURL
+                        importDictionary(from: selectedURL, hasAccess: hasAccess)
                     },
                     onCancel: {
                         showingFileImporter = false
@@ -269,15 +245,6 @@ struct TTSDictionaryEditView: View {
             } message: {
                 Text("Chạy **ngầm** và **không** ghi gì lên từ điển: kết quả ghi ra file riêng, bạn theo dõi ở **Thông báo** rồi mới chọn \"Nhập vào từ điển\". Nên tránh chạy khi đang nghe đọc — đường tiếng Anh dùng chung một khoá với TTS.")
             }
-            .dictionaryImportFlow(
-                fileURL: $pendingImportURL,
-                isModeDialogPresented: $showingImportModeDialog,
-                title: "Nhập từ điển — chọn mục trùng khoá",
-                normalizedKey: Self.importKey,
-                current: allWords,
-                onReplace: replaceImport,
-                onApplyMerged: applyMergedImport
-            )
             // Banner tiến độ "Phiên âm lại" — cùng nội dung với card ở màn Thông báo, nhưng ngay tại đây.
             .rephoneticizeProgress(task: RephoneticizeTask.nghiTTS) { Task { await loadDictionary() } }
             .sheet(item: Binding(
@@ -391,56 +358,141 @@ struct TTSDictionaryEditView: View {
         return csvContent
     }
 
-    /// Chuẩn hoá khoá khi **nhập file**, giống hệt lúc **tra cứu**: `TextPreprocessor.swift:982` gấp dấu phụ
-    /// rồi hạ chữ thường. `updateWord` chỉ `lowercased()`, nên khoá còn macron/dấu là **mục chết** — gấp ở
-    /// đây để vá luôn. `nonisolated` để truyền được vào luồng nhập như một closure `@Sendable`.
-    nonisolated static func importKey(_ raw: String) -> String {
-        raw
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .folding(options: .diacriticInsensitive, locale: Locale(identifier: "en_US"))
-            .lowercased()
+    private func parseCSV(data: Data) throws -> [String: String] {
+        guard let content = String(data: data, encoding: .utf8) else {
+            throw NSError(domain: "CSVParser", code: 1, userInfo: [NSLocalizedDescriptionKey: "Không thể đọc tệp CSV dưới dạng UTF-8."])
+        }
+
+        var dict: [String: String] = [:]
+        let lines = content.components(separatedBy: .newlines)
+
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty { continue }
+
+            var fields: [String] = []
+            var currentField = ""
+            var insideQuotes = false
+
+            let chars = Array(trimmed)
+            var idx = 0
+            while idx < chars.count {
+                let char = chars[idx]
+
+                if char == "\"" {
+                    if insideQuotes && idx + 1 < chars.count && chars[idx + 1] == "\"" {
+                        currentField.append("\"")
+                        idx += 2
+                        continue
+                    } else {
+                        insideQuotes.toggle()
+                    }
+                } else if char == "," && !insideQuotes {
+                    fields.append(currentField.trimmingCharacters(in: .whitespacesAndNewlines))
+                    currentField = ""
+                } else {
+                    currentField.append(char)
+                }
+                idx += 1
+            }
+            fields.append(currentField.trimmingCharacters(in: .whitespacesAndNewlines))
+
+            if fields.count >= 2 {
+                let key = fields[0]
+                let val = fields[1]
+
+                if (key == "Từ gốc" || key.lowercased() == "key" || key.lowercased() == "original") &&
+                   (val == "Thay thế" || val.lowercased() == "value" || val.lowercased() == "replacement") {
+                    continue
+                }
+
+                if !key.isEmpty {
+                    dict[key.lowercased()] = val
+                }
+            }
+        }
+
+        if dict.isEmpty {
+            throw NSError(domain: "CSVParser", code: 2, userInfo: [NSLocalizedDescriptionKey: "Tệp CSV không chứa dữ liệu từ điển hợp lệ hoặc sai cấu trúc."])
+        }
+        return dict
     }
 
-    /// Nhánh **Trộn**: màn chọn mục trùng đã dựng bảng cuối (giữ bản cũ cho mục bị bỏ chọn, ghi bản mới cho
-    /// mục được chọn, thêm mục chưa từng có) ⇒ ở đây chỉ ghi một lần qua `replaceAllWords`.
-    private func applyMergedImport(_ words: [String: String]) {
+    /// Nhập từ điển từ file: **ghi đè toàn bộ** từ điển NghiTTS (không trộn, không sao lưu, không hỏi gì).
+    ///
+    /// Đây là hành vi gốc trước 1.3.462 — người dùng chốt "revert lại ver cũ". Quyền security-scoped được
+    /// giữ **tới khi đọc + parse xong** rồi mới nhả trong `defer` của `Task`.
+    private func importDictionary(from url: URL, hasAccess: Bool) {
+        isLoading = true
         Task {
+            defer {
+                if hasAccess {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+
             do {
-                try await TextPreprocessor.shared.replaceAllWords(words)
+                let resourceValues = try url.resourceValues(forKeys: [.fileSizeKey])
+                let fileSize = resourceValues.fileSize ?? 0
+                if fileSize <= 0 {
+                    throw NSError(domain: "DictionaryEditView", code: 400, userInfo: [NSLocalizedDescriptionKey: "Tệp tin từ điển trống hoặc không hợp lệ."])
+                }
+                if fileSize > 5_242_880 {
+                    throw NSError(domain: "DictionaryEditView", code: 413, userInfo: [NSLocalizedDescriptionKey: "Kích thước tệp tin từ điển vượt quá giới hạn 5MB."])
+                }
+
+                let data = try Data(contentsOf: url)
+                let ext = url.pathExtension.lowercased()
+
+                var importedWords: [String: String] = [:]
+
+                if ext == "plist" {
+                    guard let dict = try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: String] else {
+                        throw NSError(domain: "DictionaryEditView", code: 400, userInfo: [NSLocalizedDescriptionKey: "Tệp .plist không hợp lệ. Vui lòng chọn tệp chứa định dạng [String: String]."])
+                    }
+                    importedWords = dict
+                } else if ext == "json" {
+                    let jsonObject = try JSONSerialization.jsonObject(with: data, options: [])
+                    if let dict = jsonObject as? [String: String] {
+                        importedWords = dict
+                    } else if let dictAny = jsonObject as? [String: Any] {
+                        for (key, value) in dictAny {
+                            if let stringValue = value as? String {
+                                importedWords[key] = stringValue
+                            } else if let numberValue = value as? NSNumber {
+                                importedWords[key] = numberValue.stringValue
+                            } else if let boolValue = value as? Bool {
+                                importedWords[key] = String(boolValue)
+                            }
+                        }
+                        if importedWords.isEmpty {
+                            throw NSError(domain: "DictionaryEditView", code: 400, userInfo: [NSLocalizedDescriptionKey: "Tệp .json không hợp lệ. Vui lòng chọn tệp chứa dạng cặp khóa-giá trị phẳng [String: String]."])
+                        }
+                    } else {
+                        throw NSError(domain: "DictionaryEditView", code: 400, userInfo: [NSLocalizedDescriptionKey: "Tệp .json không hợp lệ. Vui lòng chọn tệp chứa dạng cặp khóa-giá trị phẳng [String: String]."])
+                    }
+                } else if ext == "csv" || ext == "txt" {
+                    importedWords = try parseCSV(data: data)
+                } else {
+                    throw NSError(domain: "DictionaryEditView", code: 400, userInfo: [NSLocalizedDescriptionKey: "Định dạng tệp không được hỗ trợ."])
+                }
+
+                guard let localWordsURL = TextPreprocessor.getWordsURL() else {
+                    throw NSError(domain: "DictionaryEditView", code: 500, userInfo: [NSLocalizedDescriptionKey: "Không thể định vị đường dẫn lưu từ điển."])
+                }
+
+                let plistData = try PropertyListSerialization.data(fromPropertyList: importedWords, format: .xml, options: 0)
+                try plistData.write(to: localWordsURL, options: .atomic)
+
+                await TextPreprocessor.shared.loadResources()
                 await loadDictionary()
-                ToastManager.shared.show(message: "Đã nhập \(words.count) mục.", type: .success)
+
+                ToastManager.shared.show(message: "Nhập từ điển thành công! Đã cập nhật \(importedWords.count) từ.", type: .success)
             } catch {
                 ToastManager.shared.show(message: "Lỗi nhập từ điển: \(error.localizedDescription)", type: .error)
             }
+            isLoading = false
         }
-    }
-
-    /// Nhánh **Thay thế toàn bộ**: sao lưu rồi ghi đè — đây là đường **không** có lùi nào khác.
-    ///
-    /// Đi qua `replaceAllWords` (chứ không ghi plist trực tiếp như trước) để có **backup** và để **xoá
-    /// `transliterationCache`** — đường cũ gọi `loadResources()` mà hàm đó không xoá cache, nên từ vừa nhập
-    /// có thể chưa có tác dụng ngay.
-    private func replaceImport(_ imported: [String: String]) {
-        var words: [String: String] = [:]
-        words.reserveCapacity(imported.count)
-        for (rawKey, rawValue) in imported {
-            let key = Self.importKey(rawKey)
-            let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !key.isEmpty, !value.isEmpty else { continue }
-            words[key] = value
-        }
-        backUpBeforeImport()
-        applyMergedImport(words)
-    }
-
-    /// Copy file từ điển đang dùng sang `<tên>.bak-import` (cùng thư mục `FreeBook/TTS/`).
-    private func backUpBeforeImport() {
-        guard let root = try? ModelStore(),
-              let live = TextPreprocessor.getWordsURL(),
-              FileManager.default.fileExists(atPath: live.path) else { return }
-        let backup = root.rootURL.appendingPathComponent("non-vietnamese-words.plist.bak-import")
-        try? FileManager.default.removeItem(at: backup)
-        try? FileManager.default.copyItem(at: live, to: backup)
     }
 
     private func addWord(key: String, value: String) {

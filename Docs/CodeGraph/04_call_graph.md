@@ -16,6 +16,14 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 
 <!-- GENERATED START -->
 
+## 1.3.464 — cạnh gọi mới ở bước áp phiên âm lại; cạnh của luồng nhập file bị gỡ
+
+* `RephoneticizeApplyButton` → `confirmationDialog` → hai nhánh: *Trộn* ⇒ `.sheet` mở `DictionaryImportConflictView`; *Thay thế toàn bộ* ⇒ `RephoneticizeTask.apply()`.
+* `RephoneticizeTask.applyMerged(_:)` và `apply()` cùng đi qua `write(_:)` → `backUpLiveDictionary(for:)` → `TextPreprocessor.replaceAllWords` / `VieNeuJapaneseDictionary.replaceAll` → xoá file kết quả + meta → `phase = .idle`.
+* `DictionaryImportConflictView.loadDiff` → `currentProvider()` (đọc từ điển **đang dùng**) + `DictionaryImportParser.parse` + `DictionaryImportDiff.diff` trong `Task.detached`; `apply()` → `DictionaryImportDiff.merged` → `onApply`.
+* `RephoneticizeTask.normalizedKey` / `currentWordsProvider` → `RephoneticizeService.normalizedKey(_:target:)` / `currentWords(for:)` — hai hàm này hạ `private` → `internal`.
+* **Gỡ**: `DictionaryImportFlowModifier.replaceAll` → `DictionaryImportParser.parse` → `onReplace` (file đã xoá). Hai màn từ điển gọi thẳng `importDictionary(from:hasAccess:)` như trước 1.3.462.
+
 ## 1.3.462 — cạnh gọi mới: phiên âm lại, luồng nhập file, chip hai từ điển
 
 * `AddWordSheet.libraryHits(for:)` gọi **cả hai** store (`TextPreprocessor.lookupWord` + `VieNeuJapaneseDictionary.lookup`) mỗi lượt dựng gợi ý; `suggestionChip` → `TextPreprocessor.deleteWord` / `VieNeuJapaneseDictionary.delete` khi nhấn giữ chip `NGI`/`VIE`.

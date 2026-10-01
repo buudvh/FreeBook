@@ -29,13 +29,6 @@ struct VieNeuJapaneseDictionaryView: View {
     @State private var isLoading = false
     @State private var showingAddSheet = false
     @State private var showingFileImporter = false
-    /// File người dùng vừa chọn, **chưa** đọc. Luồng `dictionaryImportFlow` nhận URL này rồi mới hỏi
-    /// *Trộn* / *Thay thế toàn bộ* — nhờ vậy màn chọn mục trùng mở được **ngay** còn việc parse chạy ngầm.
-    @State private var pendingImportURL: URL? = nil
-    /// Cờ mở hộp thoại *Trộn / Thay thế toàn bộ*. **Phải** bật từ `onDismiss` của sheet chọn file, không
-    /// bật trong `onPick` — bật giữa lượt dismiss modal sẽ bị nuốt im lặng (xem doc
-    /// `DictionaryImportFlowModifier`).
-    @State private var showingImportModeDialog = false
     @State private var showingRephoneticizeConfirmation = false
     @State private var showingDeleteAllConfirmation = false
     @State private var showingDownloadConfirmation = false
@@ -114,10 +107,7 @@ struct VieNeuJapaneseDictionaryView: View {
                 addWord(key: key, value: val)
             }
         }
-        .sheet(isPresented: $showingFileImporter, onDismiss: {
-            // `onDismiss` chạy **sau khi** animation đóng xong ⇒ đây mới là chỗ an toàn để mở modal kế.
-            if pendingImportURL != nil { showingImportModeDialog = true }
-        }) {
+        .sheet(isPresented: $showingFileImporter) {
             DocumentPicker(
                 allowedContentTypes: [.propertyList, .json, .plainText],
                 allowsMultipleSelection: false,
@@ -129,8 +119,8 @@ struct VieNeuJapaneseDictionaryView: View {
                         ToastManager.shared.show(message: "Vui lòng chọn tệp từ điển (.plist hoặc .json).", type: .error)
                         return
                     }
-                    // Chỉ **ghi nhận** URL: đọc + parse + so khớp do luồng nhập lo, ngoài main thread.
-                    pendingImportURL = selectedURL
+                    let hasAccess = selectedURL.startAccessingSecurityScopedResource()
+                    importDictionary(from: selectedURL, hasAccess: hasAccess)
                 },
                 onCancel: { showingFileImporter = false }
             )
@@ -183,15 +173,6 @@ struct VieNeuJapaneseDictionaryView: View {
         } message: {
             Text("Chạy **ngầm** và **không** ghi gì lên từ điển: kết quả ghi ra file riêng, bạn theo dõi ở **Thông báo** rồi mới chọn \"Nhập vào từ điển\".")
         }
-        .dictionaryImportFlow(
-            fileURL: $pendingImportURL,
-            isModeDialogPresented: $showingImportModeDialog,
-            title: "Nhập từ điển — chọn mục trùng khoá",
-            normalizedKey: VieNeuJapaneseDictionary.normalizedKey,
-            current: allWords,
-            onReplace: replaceImport,
-            onApplyMerged: applyMergedImport
-        )
         // Banner tiến độ "Phiên âm lại" — cùng nội dung với card ở màn Thông báo, nhưng ngay tại đây.
         .rephoneticizeProgress(task: RephoneticizeTask.vieNeu) { Task { await loadDictionary() } }
     }
@@ -342,33 +323,31 @@ struct VieNeuJapaneseDictionaryView: View {
         }
     }
 
-    /// Nhánh **Trộn**: màn chọn mục trùng đã dựng bảng cuối (giữ bản cũ cho mục bị bỏ chọn, ghi bản mới cho
-    /// mục được chọn, thêm mục chưa từng có) ⇒ ở đây chỉ ghi một lần.
-    private func applyMergedImport(_ words: [String: String]) {
-        persist(words, successMessage: "Đã nhập \(words.count) mục.")
-    }
-
-    /// Nhánh **Thay thế toàn bộ**: sao lưu rồi ghi đè — đây là đường **không** có lùi nào khác.
-    private func replaceImport(_ imported: [String: String]) {
-        var words: [String: String] = [:]
-        words.reserveCapacity(imported.count)
+    /// Nhập từ điển từ file: **trộn** vào bản đang có — mục trùng khoá lấy bản vừa nhập, mục cũ không có
+    /// trong file giữ nguyên. Đường này **không** hỏi *Trộn / Thay thế toàn bộ* và **không** sao lưu.
+    private func importDictionary(from url: URL, hasAccess: Bool) {
+        defer { if hasAccess { url.stopAccessingSecurityScopedResource() } }
+        guard let data = try? Data(contentsOf: url) else {
+            ToastManager.shared.show(message: "Không đọc được file.", type: .error)
+            return
+        }
+        let parsed: [String: String]?
+        if url.pathExtension.lowercased() == "plist" {
+            parsed = (try? PropertyListSerialization.propertyList(from: data, options: [], format: nil)) as? [String: String]
+        } else {
+            parsed = (try? JSONSerialization.jsonObject(with: data)) as? [String: String]
+        }
+        guard let imported = parsed, !imported.isEmpty else {
+            ToastManager.shared.show(message: "File không phải từ điển .plist/.json hợp lệ.", type: .error)
+            return
+        }
+        var words = allWords
         for (rawKey, rawValue) in imported {
             let key = VieNeuJapaneseDictionary.normalizedKey(rawKey)
             let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !key.isEmpty, !value.isEmpty else { continue }
             words[key] = value
         }
-        backUpBeforeImport()
-        persist(words, successMessage: "Đã thay thế từ điển: \(words.count) mục.")
-    }
-
-    /// Copy file từ điển đang dùng sang `<tên>.bak-import` (cùng thư mục `FreeBook/TTS/`).
-    private func backUpBeforeImport() {
-        guard let root = try? ModelStore(),
-              let live = VieNeuJapaneseDictionary.fileURL(),
-              FileManager.default.fileExists(atPath: live.path) else { return }
-        let backup = root.rootURL.appendingPathComponent(VieNeuJapaneseDictionary.fileName + ".bak-import")
-        try? FileManager.default.removeItem(at: backup)
-        try? FileManager.default.copyItem(at: live, to: backup)
+        persist(words, successMessage: "Đã nhập \(imported.count) mục (tổng \(words.count)).")
     }
 }

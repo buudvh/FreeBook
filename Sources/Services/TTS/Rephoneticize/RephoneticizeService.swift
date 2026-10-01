@@ -256,7 +256,10 @@ enum RephoneticizeService {
     }
 
     /// Bảng từ điển **đang dùng** của đích — đi qua actor nên an toàn ngoài main.
-    private static func currentWords(for target: Target) async -> [String: String] {
+    ///
+    /// Để `internal` vì màn chọn mục trùng cần tự đọc lại đúng bảng này **lúc mở**, thay vì nhận ảnh chụp
+    /// từ caller (ảnh chụp có thể cũ ở thời điểm người dùng bấm Áp dụng).
+    static func currentWords(for target: Target) async -> [String: String] {
         switch target {
         case .nghiTTS: return await TextPreprocessor.shared.getWordMap()
         case .vieNeu: return await VieNeuJapaneseDictionary.shared.all()
@@ -268,7 +271,10 @@ enum RephoneticizeService {
     /// NghiTTS: `updateWord` chỉ `lowercased()` (`TextPreprocessor.swift:179`) nhưng lúc đọc lại tra bằng
     /// khoá **đã gấp dấu** (`:982`) ⇒ mục còn macron/dấu là **mục chết**; gấp ở đây để vá luôn.
     /// VieNeu: đã có sẵn `normalizedKey`.
-    private static func normalizedKey(_ raw: String, target: Target) -> String {
+    ///
+    /// Để `internal` vì màn chọn mục trùng phải chuẩn hoá khoá **đúng bằng** cách file kết quả được tạo —
+    /// hai chỗ lệch nhau sẽ sinh ra mục trùng giả hoặc sót mục thật.
+    static func normalizedKey(_ raw: String, target: Target) -> String {
         switch target {
         case .nghiTTS:
             return raw

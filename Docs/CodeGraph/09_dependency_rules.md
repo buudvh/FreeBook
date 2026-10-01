@@ -16,6 +16,13 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 
 <!-- GENERATED START -->
 
+## 1.3.464 — nút áp dùng chung; luồng nhập file không còn modifier
+
+* `RephoneticizeApplyButton` (Views/Settings/TTS) → `RephoneticizeTask` (Services/TTS/Rephoneticize) + `DictionaryImportConflictView` (View): View → Services/View, đúng chiều phụ thuộc.
+* Hai hàm của `RephoneticizeService` hạ `private` → `internal` (`normalizedKey(_:target:)`, `currentWords(for:)`) vì màn chọn mục trùng phải chuẩn hoá khoá **đúng bằng** cách file kết quả được tạo. Services **vẫn không** `import SwiftUI`, **không** gọi `ToastManager.shared`.
+* **Xoá** `DictionaryImportFlowModifier` ⇒ không còn View nào giữ `@State` của luồng nhập; hai màn từ điển tự giữ `@State` như trước 1.3.462.
+* `Sources/Common/**` không đổi ⇒ `03_type_graph` không stale.
+
 ## 1.3.463 — phụ thuộc của banner tiến độ và cờ hộp thoại nhập
 
 * `RephoneticizeProgressBanner` (View) chỉ phụ thuộc `RephoneticizeTask` (Services) và chỉ đọc `@Published` trong RAM — **không** cạnh gọi đọc đĩa, không thêm phụ thuộc tầng.

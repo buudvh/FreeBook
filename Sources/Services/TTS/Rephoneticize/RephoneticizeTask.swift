@@ -182,6 +182,20 @@ final class RephoneticizeTask: ObservableObject {
 
     // MARK: - Hậu phiên âm lại
 
+    /// Closure chuẩn hoá khoá của **đúng từ điển này** — đi qua `RephoneticizeService` để file kết quả và
+    /// màn chọn mục trùng dùng **một** định nghĩa (lệch nhau ⇒ sinh mục trùng giả hoặc sót mục thật).
+    var normalizedKey: @Sendable (String) -> String {
+        let resolved = target
+        return { RephoneticizeService.normalizedKey($0, target: resolved) }
+    }
+
+    /// Đọc từ điển **đang dùng** — truyền cho màn chọn mục trùng để màn tự đọc **lúc mở**, không nhận ảnh
+    /// chụp từ caller (ảnh chụp có thể cũ ở thời điểm người dùng bấm Áp dụng).
+    var currentWordsProvider: @Sendable () async -> [String: String] {
+        let resolved = target
+        return { await RephoneticizeService.currentWords(for: resolved) }
+    }
+
     /// Áp file kết quả vào **từ điển đang dùng**, sau khi **sao lưu** bản hiện có.
     ///
     /// Sao lưu là bắt buộc: đây là lượt ghi đè **toàn bộ** từ điển (NghiTTS ~30k mục), không có đường lùi
@@ -200,6 +214,19 @@ final class RephoneticizeTask: ObservableObject {
             )
         }
 
+        try await write(words)
+    }
+
+    /// Nhánh **Trộn**: ghi một bảng đã người dùng chọn từng mục. Hành vi y hệt `apply()` chỉ khác ở chỗ
+    /// bảng đến từ màn chọn mục trùng thay vì đọc thẳng từ file kết quả.
+    func applyMerged(_ words: [String: String]) async throws {
+        guard !words.isEmpty else { return }
+        try await write(words)
+    }
+
+    /// Đường ghi **duy nhất** — cả hai nhánh đều đi qua đây để không bao giờ lệch nhau ở bước **sao lưu**
+    /// hay bước dọn file kết quả.
+    private func write(_ words: [String: String]) async throws {
         try Self.backUpLiveDictionary(for: target)
 
         switch target {
@@ -209,7 +236,7 @@ final class RephoneticizeTask: ObservableObject {
             try await VieNeuJapaneseDictionary.shared.replaceAll(words)
         }
 
-        try? FileManager.default.removeItem(at: resultURL)
+        if let url = resultFileURL { try? FileManager.default.removeItem(at: url) }
         RephoneticizeService.deleteMeta(for: target)
         lastOutcome = nil
         meta = nil

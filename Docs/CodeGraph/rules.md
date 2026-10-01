@@ -16,11 +16,16 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 
 <!-- GENERATED START -->
 
+## 1.3.464 — hai quy chuẩn rút ra
+
+* **Luật 18 — một hành động có hai nhánh ghi thì phải có đúng một đường ghi chung.** `RephoneticizeTask.apply()` (thay thế toàn bộ) và `applyMerged(_:)` (trộn) cùng đi qua `write(_:)`. Chép thành hai bản thì một bên sẽ quên bước **sao lưu** — mà đây là lượt ghi đè toàn bộ từ điển (NghiTTS ~30k mục), không có đường lùi.
+* **Luật 19 — màn so khớp phải tự đọc nguồn sự thật lúc mở, đừng nhận ảnh chụp.** `DictionaryImportConflictView` nhận `currentProvider: @Sendable () async -> [String: String]` thay vì bảng chụp sẵn: bảng "cũ" của ảnh chụp có thể lỗi thời ở thời điểm người dùng bấm Áp dụng ⇒ mục bị **bỏ chọn** lại bị ghi đè bằng một giá trị cũ.
+
 ## 1.3.462 — quy chuẩn rút ra (từ điển phiên âm: hai nguồn, phiên âm lại, luồng nhập)
 
 * **Luật 13 — `private @State` trong struct làm `init` memberwise thành `private`.** View / `ViewModifier` nào có `@State private` **và** tham số **không** có giá trị mặc định thì **phải** khai `init` tường minh, nếu không sẽ không gọi được từ file khác (hoặc từ `extension View` — vốn là type khác — trong cùng file). Trong `init`, `@Binding` gán dạng `_x = binding`; `@ObservedObject` gán dạng `_x = ObservedObject(wrappedValue:)`.
 * **Luật 14 — số liệu hiện ở màn Thông báo phải nằm ở file meta JSON kèm theo, không suy lại từ file dữ liệu.** Bài học 1.3.448 (`VietPhraseMerged.txt`) lặp lại với plist từ điển: parse file lớn trên main mỗi lần render ⇒ đơ app + nghẽn TTS. Meta phải **nhỏ** (chỉ số đếm + `createdAt` + `version`), ghi atomic, ghi **sau** file dữ liệu, `loadMeta` nil-safe và **không** parse file dữ liệu để bù.
-* **Luật 15 — ghi đè toàn bộ một store thì bắt buộc sao lưu trước.** Cả *Thay thế toàn bộ* (nhập file) lẫn *Nhập vào từ điển* (phiên âm lại) đều là ghi đè không có lùi. Kèm theo: `loadResources()` **không** xoá `transliterationCache` (`TextPreprocessor.swift:241-245`) nên đường ghi phải xoá cache cùng lượt — dùng `replaceAllWords`, đừng ghi plist trực tiếp.
+* **Luật 15 — ghi đè toàn bộ một store thì bắt buộc sao lưu trước.** Cả *Thay thế toàn bộ* (nhập file) lẫn *Nhập vào từ điển* (phiên âm lại) đều là ghi đè không có lùi. Kèm theo: `loadResources()` **không** xoá `transliterationCache` (`TextPreprocessor.swift:241-245`) nên đường ghi phải xoá cache cùng lượt — dùng `replaceAllWords`, đừng ghi plist trực tiếp. *(1.3.464: đường **nhập file** đã revert về bản gốc theo yêu cầu người dùng ⇒ **không** còn nhánh "Thay thế toàn bộ" và **không** sao lưu; luật này nay chỉ ràng buộc bước **áp kết quả phiên âm lại**, xem Luật 18.)*
 * **Luật 16 — `startAccessingSecurityScopedResource()` phải sống tới khi công việc ngầm đọc file xong.** `defer` trong hàm đồng bộ sẽ nhả quyền trước khi `Task.detached` chạy.
 * **Luật 17 — dedupe phải gồm NGUỒN, không chỉ giá trị.** Hai từ điển độc lập có thể cùng cách đọc; gộp theo `text` sẽ nuốt mất chip của nguồn kia. Khoá dedupe đúng là `origin.rawValue + "|" + text`.
 

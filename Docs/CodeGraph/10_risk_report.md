@@ -16,6 +16,14 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 
 <!-- GENERATED START -->
 
+## 1.3.464 — rủi ro đã xử lý / mới
+
+* **Đã xử lý — hộp thoại đặt sai chỗ (1.3.462/463).** Hộp thoại *Trộn / Thay thế toàn bộ* từng gắn vào **đường nhập từ file**; ý người dùng là nó thuộc **bước áp kết quả phiên âm lại**. Nay chỉ hiện khi bấm nút **"Nhập vào từ điển"** ở card Thông báo hoặc banner màn từ điển.
+* **Đã xử lý — màn trộn nhận ảnh chụp từ điển có thể cũ.** `DictionaryImportConflictView` nay tự đọc từ điển **đang dùng** trong `Task.detached` qua `currentProvider`, không nhận bảng `[String: String]` chụp sẵn ⇒ mục bị bỏ chọn không bị ghi đè bằng giá trị cũ của một bản chụp đã lỗi thời.
+* **Mới — `parseCSV` tồn tại hai bản** sau revert (`TTSDictionaryEditView.parseCSV` private + `DictionaryImportParser.parseCSV`). Người dùng chốt "revert 100%" nên chấp nhận; có thể gom lại ở lượt sau.
+* **Mới — nhánh "Trộn" tự thêm khoá mới** có thể thêm nhiều khoá đã chuẩn hoá mà người dùng không ngờ. Giảm thiểu: chip `M thêm mới` + footer ghi rõ.
+* **Mới — đường nhập file của NghiTTS không còn sao lưu** (theo đúng bản gốc trước 1.3.462). Sao lưu `.bak-rephoneticize` vẫn bắt buộc ở **bước áp phiên âm lại**.
+
 ## 1.3.462 — rủi ro mới / đã xử lý
 
 * **Đã xử lý — card màn Thông báo parse plist để lấy số liệu.** Đúng lỗi 1.3.448 với `VietPhraseMerged.txt`. Nay số liệu nằm ở `<kết quả>.meta.json` vài trăm byte; `loadMeta` trả `nil` khi version lạ / decode lỗi và **không** parse plist để bù; `body` không chạm đĩa. Cổng kiểm: `grep 'Data(contentsOf:'` trong `NotificationInboxView*.swift` + `Services/TTS/Rephoneticize/` phải rỗng.
