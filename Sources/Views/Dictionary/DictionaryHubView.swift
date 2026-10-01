@@ -71,22 +71,6 @@ struct DictionaryHubView: View {
             } footer: {
                 Text("Gộp từ chỉnh sửa + từ đã xoá vào **một file text mới** (`VietPhraseMerged.txt`), không đụng từ điển gốc. Sau đó mở màn **Thông báo** để chọn nhập vào VietPhrase hoặc xuất file.")
             }
-            Section {
-                NavigationLink(
-                    destination: TTSReplacementManagerView(bookId: bookId, bookName: bookName)
-                ) {
-                    DictionaryNavRow(
-                        title: "Thay thế từ TTS riêng",
-                        icon: "textformat.alt",
-                        iconColor: .brown,
-                        subtitle: ttsReplacementStatusText
-                    )
-                }
-            } header: {
-                Text("Thay thế từ (TTS)")
-            } footer: {
-                Text("Rule thay thế ký tự **chỉ áp cho truyện này**; khi đọc, rule riêng **đè** rule chung theo chuỗi gốc. Rule riêng đang **tắt** vẫn **chặn** rule chung cùng chuỗi gốc.")
-            }
 
             Section(header: Text("Rule Dịch")) {
                 NavigationLink(destination: QuickTranslationRuleListView(scope: .book(bookId))) {
@@ -105,6 +89,23 @@ struct DictionaryHubView: View {
                         subtitle: ruleStatusText(scope: .global)
                     )
                 }
+            }
+
+            Section {
+                NavigationLink(
+                    destination: TTSReplacementManagerView(bookId: bookId, bookName: bookName)
+                ) {
+                    DictionaryNavRow(
+                        title: "Thay thế từ TTS riêng",
+                        icon: "textformat.alt",
+                        iconColor: .brown,
+                        subtitle: ttsReplacementStatusText
+                    )
+                }
+            } header: {
+                Text("Thay thế từ (TTS)")
+            } footer: {
+                Text("Rule thay thế ký tự **chỉ áp cho truyện này**; khi đọc, rule riêng **đè** rule chung theo chuỗi gốc. Rule riêng đang **tắt** vẫn **chặn** rule chung cùng chuỗi gốc.")
             }
         }
         .id(refreshToken)

@@ -2,6 +2,22 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.428] - 2026-09-29
+
+### fix: khong cat giua con so va bao cao rtf tru khoang nghi
+
+Người dùng: **"ngắt nghỉ bất thường khi đang đọc số, thời gian"**, **"phoneme nên in đủ đoạn mới thấy được"**, **"xử lý thời gian tăng quá nhiều"**.
+
+- **Lỗi thật: cắt chunk xẻ đôi một con số.** Sau khi bật lớp đọc số (1.3.426), `1990` thành "một nghìn chín trăm chín mươi" — một chuỗi nhiều từ — và bộ cắt theo từ **cắt ngay giữa chuỗi đó** ⇒ nghe thành khoảng nghỉ giữa con số. Bản tham chiếu có sẵn ba bảng: `_NUMBER_WORDS`, `_CONN_WORDS`, `_CONN_PAIRS`; `_balanced_cut` chỉ nhận điểm cắt khi **không** lọt giữa cặp từ nối và **không** nằm giữa hai từ số.
+  * Đã port và **xác minh**: văn bản 262 ký tự → 3 mảnh **85/90/85**, **0** chỗ xẻ đôi số, **0** chỗ cắt giữa cặp, nối lại khớp gốc từng ký tự.
+- **`_split_long_part` chia ĐỀU** (`k = ceil(rest/max_chars)`, mỗi mảnh nhắm `rest/k`), không greedy — bản tham chiếu ghi rõ greedy để 304 ký tự thành 251 + 53 và điểm cắt "gần trần" trúng chỗ tệ. Thêm `min_left = max_chars // 3` để điểm cắt ở từ nối vẫn phải để lại một mệnh đề thật.
+- **"RTF tăng quá nhiều" — một nửa là artefact**: khoảng nghỉ chèn **không tốn** thời gian suy luận nhưng **thổi phồng** `pcmDuration`, nên `synthesisMs/pcmDuration` **thấp giả**, càng nhiều chunk càng thấp giả. Thêm `Output.speechDuration` (audio trừ khoảng nghỉ); báo cáo hiện **cả hai** RTF để tách bạch "engine chậm đi" với "văn bản dài ra".
+- **Mẫu phoneme in đủ 700 ký tự** (trước 120) — 120 không đủ thấy chỗ sai ở giữa đoạn.
+- **Ghi nhận**: `phoneme bỏ: 3` ở báo cáo người dùng là `[`, `]` (chú thích `[a]`) và `"` — không phải chữ, vô hại; phần chữ số đã hết bị bỏ (trước là 11).
+- **File sửa**: `VieNeuTTSEngine+Audio.swift` 252 → **336**, `VieNeuTTSEngine.swift` 363 → **372**, `VieNeuTTSService.swift` 267 → **272**, `VieNeuTTSTestView.swift` 285 → **290**.
+- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
+- **Tài liệu CodeGraph**: `rules.md` thêm 3 luật (không xẻ đôi số / không cắt giữa cặp từ nối; chia đều không greedy; RTF phải tính trên audio thật); `11_subsystems.md` thêm mục về lượt này.
+
 ## [1.3.427] - 2026-09-29
 
 ### fix: tach chunk theo cau nhu ban tham chieu de khong cat giua cau

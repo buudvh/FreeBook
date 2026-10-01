@@ -115,8 +115,11 @@ extension VieNeuVoiceLibraryView {
             // `.borderless` là bắt buộc: trong một hàng của `Form`, mặc định cả hàng là **một** nút nên
             // mọi cú chạm đều rơi vào nút đầu tiên.
             Button {
+                // Dừng bản nghe thử của chính mình luôn được phép — kể cả khi TTS đang phát.
                 if playingVoiceID == record.id {
                     stopPlayback()
+                } else if let reason = playbackBlockReason(action: "nghe thử") {
+                    ToastManager.shared.show(message: reason, type: .info)
                 } else {
                     playPreview(record)
                 }
@@ -124,7 +127,7 @@ extension VieNeuVoiceLibraryView {
                 Image(systemName: playingVoiceID == record.id ? "stop.circle.fill" : "play.circle.fill")
             }
             .buttonStyle(.borderless)
-            .disabled(isWorking || isBlockedByPlayback)
+            .disabled(isWorking)
             .accessibilityLabel("Nghe thử \(record.name)")
 
             Menu {
@@ -170,11 +173,15 @@ extension VieNeuVoiceLibraryView {
                 }
             } else {
                 Button {
+                    if let reason = playbackBlockReason() {
+                        ToastManager.shared.show(message: reason, type: .info)
+                        return
+                    }
                     showingCreator = true
                 } label: {
                     Label("Tạo giọng mới", systemImage: "plus.circle")
                 }
-                .disabled(!isModelReady || !hasCloneGraphs || isBlockedByPlayback)
+                .disabled(!isModelReady || !hasCloneGraphs)
             }
         } footer: {
             if !isModelReady {

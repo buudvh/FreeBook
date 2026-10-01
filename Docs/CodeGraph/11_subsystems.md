@@ -16,6 +16,15 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 
 <!-- GENERATED START -->
 
+## 1.3.458 — nút "Tạo giọng mới" hết khoá im lặng khi đang phát: báo bằng toast
+
+* **Triệu chứng**: TTS đang phát ⇒ bấm **"Tạo giọng mới"** (`VieNeuVoiceLibraryView+Sections.swift`, `creationSection`) **không phản hồi**; nút trông bình thường vì `.tint(.white)` toàn cục làm trạng thái disabled không đổi màu chữ, và footer **không có** nhánh cho điều kiện này nên vẫn hiện câu hướng dẫn thường.
+* **Nguyên nhân**: `.disabled(!isModelReady || !hasCloneGraphs || isBlockedByPlayback)`, mà `isBlockedByPlayback` = `TTSManager.shared.isPlaying || TTSManager.shared.showFloatingWidget` — gộp **hai** nguyên nhân khác nhau vào một cờ.
+* **Sửa**: bỏ `isBlockedByPlayback` khỏi `.disabled` của **hai** nút ("Tạo giọng mới" và nút nghe thử ở `voiceRow`) — nút `.disabled` **không** phát sinh sự kiện nên không thể toast — rồi kiểm `playbackBlockReason(action:)` ở đầu action và gọi `ToastManager.shared.show(message:type: .info)` (hợp lệ ở tầng View; luật cấm `ToastManager.shared` chỉ áp cho `Sources/Services/**`).
+* **Câu thông báo tách theo nguyên nhân**: `isPlaying` ⇒ *"Đang phát truyện…"*; chỉ `showFloatingWidget` (trình phát hiện nhưng có thể đã tạm dừng) ⇒ *"Đang mở trình phát TTS…"*. Nút nghe thử vẫn cho **dừng** bản nghe thử của chính nó kể cả khi TTS đang phát.
+* **Không đổi**: `isBlockedByPlayback` giữ nguyên định nghĩa và vẫn là cổng phòng-thủ-hai-lớp trong `enroll`/`playPreview`; không đụng `TTSManager`/`VieNeuTTSService`/`VieNeuTTSEngine`; sheet `showingCreator` không đổi.
+* **Giới hạn dòng**: `VieNeuVoiceLibraryView.swift` 372 → **385**, `VieNeuVoiceLibraryView+Sections.swift` 201 → **208** (cả hai < 400).
+
 ## 1.3.456 — giọng nhân bản luôn tổng hợp ở `.high`; sửa màn Cài đặt luôn hiện mặc định
 
 * **Giọng clone ÉP `.high`** (16 bước / `sway = 0` / `cfg = 3,0`) **bất kể cài đặt** — `VieNeuSynthesisPolicy.effectiveMode`, gọi ở `VieNeuTTSEngine.swift:216`. Vòng Euler là nơi áp dụng toàn bộ điều kiện hoá (x-vector + `style`); ở 8 bước (`.fast`) sai số tích phân đẩy latent lệch khỏi nghiệm ⇒ **âm sắc không bám mẫu**. `.high` chính là **mặc định của model** (`config.json`: `steps_default = 16`, `cfg_default = 3,0`). Đánh đổi: gấp đôi tính toán ⇒ máy nóng hơn — có chủ ý và **chỉ** áp cho giọng clone (`VieNeuVoiceCatalog.Preset.isCloned`).

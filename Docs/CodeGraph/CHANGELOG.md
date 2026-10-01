@@ -2,6 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.458] - 2026-10-01
+
+### fix: bao toast khi nut tao giong bi chan boi phat lai, sap xep lai muc Tu Dien
+
+Sửa lỗi UX người dùng báo: *"bấm vào nút tạo giọng nói nó không hoạt động, không mở ra được màn hình tạo giọng nói"*. Đã xác nhận bằng thực nghiệm — **dừng phát truyện thì bấm được** ⇒ thủ phạm là cổng `isBlockedByPlayback`, không phải lỗi điều hướng/sheet.
+
+- **Nguyên nhân**: `creationSection` khoá nút bằng `.disabled(!isModelReady || !hasCloneGraphs || isBlockedByPlayback)` nhưng footer **chỉ có nhánh cho 2 điều kiện đầu** ⇒ khi bị khoá vì đang phát, footer rơi vào `else` và hiện câu hướng dẫn bình thường. Thêm nữa `.tint(.white)` toàn cục làm nút disabled trông y hệt nút thường ⇒ "nút bình thường, bấm không phản hồi".
+- **Ràng buộc kỹ thuật quyết định cách sửa**: nút `.disabled` **không** phát sinh sự kiện ⇒ muốn báo bằng toast thì buộc phải **bỏ `isBlockedByPlayback` khỏi `.disabled`** rồi kiểm trong action.
+- **Sửa**: thêm `playbackBlockReason(action:)` (`VieNeuVoiceLibraryView.swift`) tách **đúng nguyên nhân** (`isPlaying` = đang đọc truyện; chỉ `showFloatingWidget` = trình phát hiện nhưng có thể đã tạm dừng — nói "đang phát truyện" khi chỉ mở trình phát là sai). Hai nút bỏ cổng khỏi `.disabled`, toast `ToastManager.shared.show(message:type: .info)` thay vì mở sheet. Áp cho cả **"Tạo giọng mới"** lẫn nút **nghe thử** ở `voiceRow` (cùng lớp lỗi, `+Sections.swift:127`); nút nghe thử vẫn cho **dừng** bản nghe thử của chính nó.
+- **Không đổi**: `isBlockedByPlayback` giữ nguyên định nghĩa và vẫn là cổng trong `enroll`/`playPreview`; không đụng `TTSManager`/`VieNeuTTSService`/`VieNeuTTSEngine`; không đổi `.sheet`.
+- **Kèm theo (thay đổi có sẵn trong cây làm việc)**: `DictionaryHubView.swift` — dời mục **"Thay thế từ (TTS)"** xuống **cuối** danh sách (sau nhóm "Rule Dịch"), không đổi nội dung/đích điều hướng; `ttsReplacementStatusText` giữ nguyên.
+- **File sửa**: `VieNeuVoiceLibraryView.swift` 372 → **385**; `VieNeuVoiceLibraryView+Sections.swift` 201 → **208** (cả hai < 400); `DictionaryHubView.swift` **199 → 199** (chỉ đổi thứ tự khối).
+- **Ràng buộc đã đo**: `check_architecture.py` **5 violation nền / 0 mới**; `validate_links.py` **PASS 100%**.
+- **Tài liệu CodeGraph**: `11_subsystems.md` **accept** (thêm mục 1.3.458).
+
+---
+
 ## [1.3.457] - 2026-10-01
 
 ### fix: ep che do cao cho giong clone va sua cai dat TTS luon hien mac dinh
@@ -563,19 +580,3 @@ Người dùng: **"Cả đoạn mà phoneme bạn in ra chỉ có 1 câu"** và 
 - **File sửa**: `VieNeuTTSEngine.swift` 372 → **370**, `VieNeuTTSEngine+Audio.swift` 336 → **355**, `VieNeuTTSEngine+Adaptive.swift` 46 → **56**, `VieNeuTTSService.swift` 272 → **279**, `VieNeuSynthesisPolicy.swift` 87 → **93**, `VieNeuTTSTestView.swift` 290 → **291**.
 - **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
 - **Tài liệu CodeGraph**: `rules.md` thêm 3 luật (đo trước khi tối ưu và đừng để số đo đếm hai lần; chẩn đoán phải in mọi đơn vị chứ không chỉ cái đầu; nested type nên nằm ở file extension khi file chính chật); `11_subsystems.md` thêm mục về lượt này.
-
-## [1.3.428] - 2026-09-29
-
-### fix: khong cat giua con so va bao cao rtf tru khoang nghi
-
-Người dùng: **"ngắt nghỉ bất thường khi đang đọc số, thời gian"**, **"phoneme nên in đủ đoạn mới thấy được"**, **"xử lý thời gian tăng quá nhiều"**.
-
-- **Lỗi thật: cắt chunk xẻ đôi một con số.** Sau khi bật lớp đọc số (1.3.426), `1990` thành "một nghìn chín trăm chín mươi" — một chuỗi nhiều từ — và bộ cắt theo từ **cắt ngay giữa chuỗi đó** ⇒ nghe thành khoảng nghỉ giữa con số. Bản tham chiếu có sẵn ba bảng: `_NUMBER_WORDS`, `_CONN_WORDS`, `_CONN_PAIRS`; `_balanced_cut` chỉ nhận điểm cắt khi **không** lọt giữa cặp từ nối và **không** nằm giữa hai từ số.
-  * Đã port và **xác minh**: văn bản 262 ký tự → 3 mảnh **85/90/85**, **0** chỗ xẻ đôi số, **0** chỗ cắt giữa cặp, nối lại khớp gốc từng ký tự.
-- **`_split_long_part` chia ĐỀU** (`k = ceil(rest/max_chars)`, mỗi mảnh nhắm `rest/k`), không greedy — bản tham chiếu ghi rõ greedy để 304 ký tự thành 251 + 53 và điểm cắt "gần trần" trúng chỗ tệ. Thêm `min_left = max_chars // 3` để điểm cắt ở từ nối vẫn phải để lại một mệnh đề thật.
-- **"RTF tăng quá nhiều" — một nửa là artefact**: khoảng nghỉ chèn **không tốn** thời gian suy luận nhưng **thổi phồng** `pcmDuration`, nên `synthesisMs/pcmDuration` **thấp giả**, càng nhiều chunk càng thấp giả. Thêm `Output.speechDuration` (audio trừ khoảng nghỉ); báo cáo hiện **cả hai** RTF để tách bạch "engine chậm đi" với "văn bản dài ra".
-- **Mẫu phoneme in đủ 700 ký tự** (trước 120) — 120 không đủ thấy chỗ sai ở giữa đoạn.
-- **Ghi nhận**: `phoneme bỏ: 3` ở báo cáo người dùng là `[`, `]` (chú thích `[a]`) và `"` — không phải chữ, vô hại; phần chữ số đã hết bị bỏ (trước là 11).
-- **File sửa**: `VieNeuTTSEngine+Audio.swift` 252 → **336**, `VieNeuTTSEngine.swift` 363 → **372**, `VieNeuTTSService.swift` 267 → **272**, `VieNeuTTSTestView.swift` 285 → **290**.
-- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
-- **Tài liệu CodeGraph**: `rules.md` thêm 3 luật (không xẻ đôi số / không cắt giữa cặp từ nối; chia đều không greedy; RTF phải tính trên audio thật); `11_subsystems.md` thêm mục về lượt này.

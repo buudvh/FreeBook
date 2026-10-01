@@ -48,6 +48,19 @@ struct VieNeuVoiceLibraryView: View {
         TTSManager.shared.isPlaying || TTSManager.shared.showFloatingWidget
     }
 
+    /// Lý do chặn do **đang phát lại**; `nil` = không chặn. Tách khỏi `isBlockedByPlayback` vì hai
+    /// nguyên nhân cần **hai câu thông báo khác nhau**: `isPlaying` là đang đọc truyện, còn
+    /// `showFloatingWidget` là trình phát đang hiện nhưng có thể đã tạm dừng.
+    ///
+    /// `action` là việc người dùng đang muốn làm ("tạo giọng" / "nghe thử") để câu thông báo khớp.
+    /// Nút bị `.disabled` **không** phát sinh sự kiện, nên hai nút dưới đây đã bỏ cổng này khỏi
+    /// `.disabled` và kiểm ở đầu action để báo được bằng toast.
+    func playbackBlockReason(action: String = "tạo giọng") -> String? {
+        if TTSManager.shared.isPlaying { return "Đang phát truyện. Dừng phát rồi \(action)." }
+        if TTSManager.shared.showFloatingWidget { return "Đang mở trình phát TTS. Đóng trình phát rồi \(action)." }
+        return nil
+    }
+
     var body: some View {
         Form {
             clonePackageSection
