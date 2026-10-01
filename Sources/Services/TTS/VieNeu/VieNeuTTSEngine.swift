@@ -213,7 +213,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
             throw EngineError.badOutput("voices_v3_nano.json")
         }
 
-        let activeMode = VieNeuSynthesisPolicy.effectiveMode(requested: requestedMode, current: mode, isClonedVoice: preset.isCloned)
+        let activeMode = VieNeuSynthesisPolicy.effectiveMode(requested: requestedMode, current: mode)
         let tuning = VieNeuSynthesisPolicy.tuning(for: activeMode)
         // Văn bản tới đây đã đi qua **hai** lớp tiền xử lý ở tầng trên:
         // 1. `TTSReplacementManager.applyReplacements` (thay thế ký tự chung, mọi engine) — tại

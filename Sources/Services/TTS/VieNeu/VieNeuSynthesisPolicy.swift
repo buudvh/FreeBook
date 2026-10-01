@@ -45,15 +45,26 @@ enum VieNeuSynthesisPolicy {
         }
     }
 
-    /// Chế độ **thật sự** dùng cho một lượt tổng hợp.
+    /// Chế độ **thật sự** dùng cho một lượt tổng hợp: **luôn** theo cài đặt TTS.
     ///
-    /// Giọng nhân bản (clone) luôn chạy `.high` (**16** bước) **bất kể cài đặt** — yêu cầu rõ ràng của
-    /// người dùng (1.3.456). Lý do kỹ thuật: vòng Euler là nơi áp dụng **toàn bộ điều kiện hoá**, gồm
-    /// x-vector + `style` của giọng clone. Ở 8 bước (`.fast`) sai số tích phân đẩy latent lệch khỏi nghiệm
-    /// ⇒ **âm sắc không bám mẫu**; người dùng đã thử 16 bước và xác nhận "khá hơn". Đánh đổi: gấp đôi
-    /// tính toán ⇒ máy nóng hơn — đánh đổi này là **có chủ ý** và chỉ áp cho giọng clone.
-    static func effectiveMode(requested: Mode?, current: Mode, isClonedVoice: Bool) -> Mode {
-        isClonedVoice ? .high : (requested ?? current)
+    /// ## Vì sao **không** phụ thuộc loại giọng (sửa ở 1.3.461)
+    /// Từ 1.3.456 hàm này nhận thêm `isClonedVoice` và **ép `.high` cho mọi lượt tổng hợp bằng giọng nhân
+    /// bản**. Đó là **hiểu sai phạm vi** của yêu cầu gốc: "chất lượng cao" là chuyện của **bước clone giọng**
+    /// (chọn audio gốc + bấm Lưu) — mà bước đó chạy 3 graph clone (`speaker_encoder`/`codec_encoder`/
+    /// `reference_encoder`) chứ **không** chạy vòng Euler, nên **không có `steps`** để đặt.
+    /// Hệ quả của việc ép sai chỗ rất thật: bật **"Tiết kiệm pin"** mà bấm **nghe truyện** bằng giọng clone
+    /// vẫn chạy 16 bước ⇒ gấp đôi tính toán ⇒ `rtf` ~0,86, `busyPct` ~97 %, **`underrun`** ⇒ audio giật,
+    /// máy nóng — trong khi màn Cài đặt hiện "Cân bằng" và **không** có gì tiết lộ sự lệch đó.
+    ///
+    /// Người dùng chốt 2026-10-01: *"khi tôi bấm nghe truyện (dù tôi chọn giọng clone trong giọng đọc) thì
+    /// phải theo cài đặt tts"*. Muốn 16 bước khi đọc thì **tắt "Tiết kiệm pin" + đặt "Chất lượng cao"** —
+    /// hai công tắc đã có sẵn.
+    ///
+    /// Ghi chú kỹ thuật vẫn đúng: vòng Euler là nơi áp **toàn bộ** điều kiện hoá (x-vector + `style`), nên
+    /// ở 8 bước âm sắc **bám mẫu kém hơn** 16 bước. Đó là **đánh đổi của cài đặt**, không phải lý do để
+    /// ghi đè cài đặt của người dùng.
+    static func effectiveMode(requested: Mode?, current: Mode) -> Mode {
+        requested ?? current
     }
 
     /// Số luồng ORT.

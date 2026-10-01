@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.461] - 2026-10-01
+
+### fix: bo ep che do cao theo loai giong, doc truyen theo dung cai dat TTS
+
+Người dùng: *"tôi bật fast mà sao lại log high nhỉ"* → *"chỉ high khi đang thực hiện clone giọng, khi đọc tts thì theo đúng cài đặt tts, cài đặt tts là tiết kiệm thì phải tiết kiệm"*.
+
+- **Sửa lỗi phạm vi của 1.3.456.** Lượt đó thêm `isClonedVoice` vào `VieNeuSynthesisPolicy.effectiveMode` và **ép `.high` (16 bước) cho MỌI lượt tổng hợp bằng giọng nhân bản**, kể cả đường đọc truyện. Đó là **hiểu sai yêu cầu gốc**: "chất lượng cao" thuộc **bước clone giọng** (chọn audio gốc + bấm Lưu) — mà bước đó chạy **3 graph clone** (`speaker_encoder`/`codec_encoder`/`reference_encoder`), **không** chạy vòng Euler ⇒ **không có `steps`** để đặt. Nay `effectiveMode(requested:current:)` = `requested ?? current`: **chỉ theo cài đặt**, cho cả giọng preset lẫn giọng clone.
+- **Triệu chứng thật, đo từ log người dùng gửi** (`app_logs (58).txt`): "Tiết kiệm pin" BẬT + giọng clone ⇒ `mode=high`, `rtf` 0,75–1,08, `busyPct` **97,2 %**, **`underrun` 4**, `thermal=serious` ⇒ **audio giật, máy nóng**. Màn Cài đặt vẫn hiện "Cân bằng" (vì "Tiết kiệm pin" khoá ô chọn) và **không có gì tiết lộ sự lệch** ⇒ người dùng tưởng lỗi ở chỗ khác.
+- **Cách chẩn đoán** (đáng nhớ): log `[VieNeuPerf] mode=` in **đúng** `activeMode` (`VieNeuTTSEngine.swift:282`). "Tiết kiệm pin" BẬT ⇒ `requestedMode = .fast` (`VieNeuTTSService.swift:105` setter, `:133` trong `prepare`) ⇒ nếu giọng là **preset** thì `activeMode` **phải** là `.fast`; log ghi `high` ⇒ nhánh duy nhất còn lại là `isClonedVoice == true` ⇒ giọng đang chọn ở Reader **là giọng nhân bản** (danh sách giọng xếp giọng user **lên đầu** nên rất dễ được chọn sẵn).
+- **Loại trừ được nghi vấn sai**: tính năng **từ điển tiếng Nhật (1.3.459) KHÔNG liên quan** — trong log, `Danzo`/`Sharingan`/`Shisui` đi tới engine nguyên vẹn (không có trong từ điển và `ForeignScriptClassifier` không nhận là tiếng Nhật), và lớp tiền xử lý còn chạy ở **tầng service trước khi gọi engine** nên không nằm trong `vectorMs`/`otherMs`.
+- **Hệ quả có chủ ý**: đọc truyện bằng giọng clone khi "Tiết kiệm pin" BẬT nay chạy **8 bước** ⇒ RTF ~0,45, hết `underrun`, máy mát hơn; đổi lại **âm sắc khi đọc bám mẫu kém hơn** 16 bước. Muốn 16 bước khi đọc thì **tắt "Tiết kiệm pin" + đặt "Chất lượng cao"** — hai công tắc đã có sẵn, không thêm gì.
+- **`Preset.isCloned` nay không còn caller** — giữ lại (vị từ miền "giọng này do user tạo" mà UI sẽ cần khi muốn đánh dấu giọng nhân bản trong danh sách), doc đã sửa để **không** còn nói nó đổi chế độ chất lượng.
+- **File sửa**: `VieNeuSynthesisPolicy.swift` (doc viết lại + bỏ tham số `isClonedVoice`), `VieNeuTTSEngine.swift:216` (1 dòng, giữ **400/400**), `VieNeuVoiceCatalog.swift` (doc `isCloned`).
+- **Ràng buộc đã đo**: `check_architecture.py` **5 violation nền / 0 mới**; `validate_links.py` **PASS 100% (16 doc, 629 file Swift)**.
+- **Tài liệu CodeGraph**: `11_subsystems.md` thêm mục 1.3.461 + `rules.md` thêm luật **"đừng ghi đè cài đặt người dùng vì lý do chất lượng"** — **accept**; `04_call_graph`, `10_risk_report`, `13_resource_lifecycle` **no-change-needed**.
+
+---
+
 ## [1.3.460] - 2026-10-01
 
 ### feat: tu dien phien am tieng Nhat rieng cho VieNeu-TTS va hub Cai dat NghiTTS
@@ -569,19 +587,3 @@ Thực thi plan 2b đã duyệt (phiên grill-me). **Phần lõi xong**; màn c�
 - **Lệch so với plan**: `TTSManager.swift` **4026 → 4029** (+3), plan ghi "+1 dòng". Hai stored property cho thông số đệm bắt buộc ở file chính (extension không thêm được stored property); đã cắt hết comment để giảm từ +7 xuống +3. `check_architecture.py` vẫn **5** vi phạm nền, **0** mới.
 - **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
 - **CÒN LẠI của 2b**: màn cấu hình riêng cho VieNeu (quyết định grill #4) và cho logic đệm đọc đúng khoá `vieneu*` theo tool.
-
-## [1.3.431] - 2026-09-29
-
-### fix: khop am luong giua chunk va gom nut phat dung vao hang icon
-
-Người dùng: **"chỗ đến năm giảm âm lượng đột ngột"**, **"đọc số năm bị lắp bắp"**, **"đem nút phát, dừng lên chỗ bên phải thanh chứa sao chép, clear, paste (hiển thị icon thôi)"**.
-
-- **Tụt âm lượng ở ranh giới chunk — đã kiểm bản tham chiếu trước khi sửa**: `join_audio_chunks` giữ **nguyên** audio từng chunk rồi chỉ chèn zeros, và `grep` trong `core_utils.py` **không có** hàm `normalize`/`peak`/`rms`/`gain` nào ⇒ chênh mức giữa các chunk là hành vi **cố hữu của bản tham chiếu**, không phải lỗi port. Nguyên nhân hợp lý: model sinh mỗi chunk độc lập nên chunk toàn số đọc đều đều **nhỏ hơn** chunk kể chuyện.
-  * **Cách xử lý (mở rộng có chủ ý, dè dặt)**: `joinChunks` kéo mỗi chunk về **trung vị** RMS, kẹp hệ số trong **[0,6 … 1,6]** (±4 dB) — kẹp để **không** san bằng khác biệt có ý nghĩa (câu thì thầm, câu nhấn mạnh).
-  * Đã ghi vào `rules.md` rằng đây là **mở rộng**, để sau này không ai "sửa" ngược về cho khớp bản tham chiếu.
-- **"Lắp bắp" khi đọc số năm**: phoneme của chunk đó **đúng** (`nˈam mˈo6t̪ ŋˈi2n tʃˈiɜn tʃˈam tʃˈiɜn mˈyəj,` = "năm một nghìn chín trăm chín mươi,") ⇒ đây là **hiện tượng của model** khi gặp chuỗi âm tiết lặp, không phải lỗi tầng chữ. Không sửa được ở tầng này.
-- **UI**: nút **Phát / Dừng** chuyển lên **cùng hàng** với xoá–sao chép–dán ở ô nhập chữ, tất cả **chỉ icon**; khối dưới còn trạng thái + nút chia sẻ audio.
-- **Tách file**: `VieNeuTTSEngine+Audio.swift` lên **432/400** sau khi thêm khớp âm lượng ⇒ tách theo ranh giới *chữ* vs *mẫu*: phần tách chunk sang `VieNeuTTSEngine+Chunking.swift` (**294**), `+Audio` còn **148**.
-- **File sửa**: `VieNeuTTSEngine.swift` **370**, `VieNeuTTSEngine+Chunking.swift` **294** (mới), `VieNeuTTSEngine+Audio.swift` 368 → **148**, `VieNeuTTSTestView+Sections.swift` 210 → **217**.
-- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
-- **Tài liệu CodeGraph**: `rules.md` thêm 2 luật (khớp âm lượng là mở rộng có chủ ý; tách `+Audio` theo ranh giới chữ/mẫu); `00_index`, `02_file_graph`, `09_dependency_rules`, `11_subsystems`, `14_complexity_report` cập nhật.

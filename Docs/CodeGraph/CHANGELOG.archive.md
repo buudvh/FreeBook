@@ -2,6 +2,22 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.431] - 2026-09-29
+
+### fix: khop am luong giua chunk va gom nut phat dung vao hang icon
+
+Người dùng: **"chỗ đến năm giảm âm lượng đột ngột"**, **"đọc số năm bị lắp bắp"**, **"đem nút phát, dừng lên chỗ bên phải thanh chứa sao chép, clear, paste (hiển thị icon thôi)"**.
+
+- **Tụt âm lượng ở ranh giới chunk — đã kiểm bản tham chiếu trước khi sửa**: `join_audio_chunks` giữ **nguyên** audio từng chunk rồi chỉ chèn zeros, và `grep` trong `core_utils.py` **không có** hàm `normalize`/`peak`/`rms`/`gain` nào ⇒ chênh mức giữa các chunk là hành vi **cố hữu của bản tham chiếu**, không phải lỗi port. Nguyên nhân hợp lý: model sinh mỗi chunk độc lập nên chunk toàn số đọc đều đều **nhỏ hơn** chunk kể chuyện.
+  * **Cách xử lý (mở rộng có chủ ý, dè dặt)**: `joinChunks` kéo mỗi chunk về **trung vị** RMS, kẹp hệ số trong **[0,6 … 1,6]** (±4 dB) — kẹp để **không** san bằng khác biệt có ý nghĩa (câu thì thầm, câu nhấn mạnh).
+  * Đã ghi vào `rules.md` rằng đây là **mở rộng**, để sau này không ai "sửa" ngược về cho khớp bản tham chiếu.
+- **"Lắp bắp" khi đọc số năm**: phoneme của chunk đó **đúng** (`nˈam mˈo6t̪ ŋˈi2n tʃˈiɜn tʃˈam tʃˈiɜn mˈyəj,` = "năm một nghìn chín trăm chín mươi,") ⇒ đây là **hiện tượng của model** khi gặp chuỗi âm tiết lặp, không phải lỗi tầng chữ. Không sửa được ở tầng này.
+- **UI**: nút **Phát / Dừng** chuyển lên **cùng hàng** với xoá–sao chép–dán ở ô nhập chữ, tất cả **chỉ icon**; khối dưới còn trạng thái + nút chia sẻ audio.
+- **Tách file**: `VieNeuTTSEngine+Audio.swift` lên **432/400** sau khi thêm khớp âm lượng ⇒ tách theo ranh giới *chữ* vs *mẫu*: phần tách chunk sang `VieNeuTTSEngine+Chunking.swift` (**294**), `+Audio` còn **148**.
+- **File sửa**: `VieNeuTTSEngine.swift` **370**, `VieNeuTTSEngine+Chunking.swift` **294** (mới), `VieNeuTTSEngine+Audio.swift` 368 → **148**, `VieNeuTTSTestView+Sections.swift` 210 → **217**.
+- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
+- **Tài liệu CodeGraph**: `rules.md` thêm 2 luật (khớp âm lượng là mở rộng có chủ ý; tách `+Audio` theo ranh giới chữ/mẫu); `00_index`, `02_file_graph`, `09_dependency_rules`, `11_subsystems`, `14_complexity_report` cập nhật.
+
 ## [1.3.430] - 2026-09-29
 
 ### fix: mo rong hang rao con so theo tu dan so

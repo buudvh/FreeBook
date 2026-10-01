@@ -16,6 +16,15 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 
 <!-- GENERATED START -->
 
+## 1.3.461 — bỏ việc ép `.high` theo **loại giọng**: đọc truyện luôn theo cài đặt TTS
+
+* **Sửa lỗi phạm vi của 1.3.456.** Lượt đó thêm `isClonedVoice` vào `VieNeuSynthesisPolicy.effectiveMode` và **ép `.high` cho mọi lượt tổng hợp bằng giọng nhân bản**. Đó là **hiểu sai yêu cầu gốc**: "chất lượng cao" là chuyện của **bước clone giọng** (chọn audio gốc + bấm Lưu) — mà bước đó chạy **3 graph clone** (`speaker_encoder`/`codec_encoder`/`reference_encoder`) chứ **không** chạy vòng Euler, nên **không có `steps`** để đặt. Nay `effectiveMode(requested:current:)` = `requested ?? current` — **chỉ theo cài đặt**, cho cả giọng preset lẫn giọng clone.
+* **Triệu chứng thật đã đo được** (`app_logs (58).txt`): "Tiết kiệm pin" BẬT + giọng clone ⇒ `mode=high`, `rtf` 0,75–1,08, `busyPct` 97,2 %, **`underrun` 4**, `thermal=serious` ⇒ **audio giật**. Trong khi màn Cài đặt hiện "Cân bằng" (vì "Tiết kiệm pin" khoá ô chọn) và **không có gì tiết lộ sự lệch đó**.
+* **Cách tìm ra**: log `[VieNeuPerf] mode=` in **đúng** `activeMode` (`VieNeuTTSEngine.swift:282`); "Tiết kiệm pin" BẬT ⇒ `requestedMode = .fast` (`VieNeuTTSService.swift:105`/`:133`) ⇒ nếu giọng là preset thì `activeMode` **phải** là `.fast` ⇒ `high` chỉ còn một nhánh: `isClonedVoice == true`.
+* **Hệ quả có chủ ý**: đọc truyện bằng giọng clone khi "Tiết kiệm pin" BẬT nay chạy **8 bước** ⇒ RTF ~0,45, hết `underrun`, máy mát hơn; đổi lại âm sắc khi **đọc** bám mẫu kém hơn 16 bước. Muốn 16 bước khi đọc thì **tắt "Tiết kiệm pin" + đặt "Chất lượng cao"** — hai công tắc đã có sẵn, không thêm gì.
+* **`Preset.isCloned` nay không còn caller** (giữ lại vì là vị từ miền "giọng này do user tạo" mà UI sẽ cần khi muốn đánh dấu giọng nhân bản trong danh sách); doc của nó đã sửa để **không** còn nói nó đổi chế độ chất lượng.
+* **File sửa**: `VieNeuSynthesisPolicy.swift` (doc + chữ ký `effectiveMode`), `VieNeuTTSEngine.swift:216` (1 dòng, giữ **400/400**), `VieNeuVoiceCatalog.swift` (doc `isCloned`).
+
 ## 1.3.459 — phân hệ mới: từ điển phiên âm tiếng Nhật **riêng cho VieNeu-TTS**
 
 * **Vì sao cần**: người dùng báo *"VieNeu-TTS đọc tiếng Nhật nhiều từ chưa chính xác lắm"*. Gốc rễ **không** phải từ điển sai mà là **VieNeu chưa từng có đường tra nào**: `TextPreprocessor.preprocess` (nơi tra từ điển ở `:990`) **chỉ** được gọi bởi NghiTTS (`PiperTTSService.swift:195`, `:341`); VieNeu chỉ gọi `TextPreprocessor.normalizeVietnameseText` (số/ngày, không espeak) ở `VieNeuTTSService.swift:301`/`:346`.

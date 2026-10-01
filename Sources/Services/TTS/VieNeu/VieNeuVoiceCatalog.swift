@@ -27,8 +27,12 @@ struct VieNeuVoiceCatalog: Sendable {
         let style: [Float]
 
         /// `true` khi đây là giọng do người dùng **nhân bản**. Nhận diện qua `gender` — cùng hằng số mà
-        /// UI và catalog dùng (`customGender`) để hai bên không thể lệch nhau. Dùng để ép chế độ
-        /// chất lượng `.high` (xem `VieNeuSynthesisPolicy.effectiveMode`).
+        /// UI và catalog dùng (`customGender`) để hai bên không thể lệch nhau.
+        ///
+        /// **Không** dùng để đổi chế độ chất lượng: từ 1.3.461 `effectiveMode` chỉ theo cài đặt TTS, cho cả
+        /// giọng preset lẫn giọng clone (trước đó nó ép `.high` cho giọng clone — xem doc ở
+        /// `VieNeuSynthesisPolicy.effectiveMode`). Hiện chưa có caller; giữ lại vì đây là vị từ miền
+        /// ("giọng này do user tạo") mà UI sẽ cần khi muốn đánh dấu giọng nhân bản trong danh sách.
         var isCloned: Bool { gender == VieNeuVoiceCatalog.customGender }
     }
 
