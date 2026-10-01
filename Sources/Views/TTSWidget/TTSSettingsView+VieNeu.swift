@@ -62,6 +62,22 @@ extension TTSSettingsView {
     /// nguyên tên giọng của VieNeu, rồi nhánh NghiTTS lọc `isModelDownloaded` trên những tên đó ⇒ hiện
     /// "Chưa tải giọng đọc NghiTTS nào" dù model đã có. Lỗi có sẵn từ trước nhưng chỉ lộ ra khi có engine
     /// thứ hai cùng dùng mảng này.
+    /// Đọc lại ba thiết lập VieNeu **thẳng từ `UserDefaults`** mỗi lần mở màn Cài đặt.
+    ///
+    /// **Vì sao cần** (lỗi 1.3.456 — *"vào cài đặt TTS từ tab setting thì luôn hiển thị giá trị mặc định
+    /// (bật tiết kiệm pin) dù đã thay đổi cài đặt rồi"*): ba giá trị này là `@State` của
+    /// `TTSSettingsView`, nên chỉ được khởi tạo **một lần** lúc View dựng — mà lúc đó
+    /// `VieNeuTTSService.shared` có thể chưa tồn tại ⇒ `?? true` rơi về mặc định "Tiết kiệm pin: BẬT".
+    /// Trước đây chỉ `vieNeuSelectedMode` được làm mới (trong `.onChange(of: ttsManager.tool)`), còn
+    /// `vieNeuPowerSaving` / `vieNeuThreadCount` **không bao giờ** được làm mới ⇒ mở lại màn là thấy sai.
+    ///
+    /// Đọc thẳng `UserDefaults` (không qua service) nên kết quả đúng bất kể service đã dựng chưa.
+    func refreshVieNeuSettings() {
+        vieNeuPowerSaving = VieNeuSynthesisPolicy.isPowerSaving(.standard)
+        vieNeuThreadCount = Int(VieNeuSynthesisPolicy.threadCount(from: .standard))
+        vieNeuSelectedMode = VieNeuSynthesisPolicy.preferredMode(from: .standard)
+    }
+
     func loadVoicesForCurrentTool() async {
         if ttsManager.tool == "vieneu" {
             availableVoices = (try? VieNeuTTSService.shared?.availableVoices()) ?? []

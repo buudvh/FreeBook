@@ -45,6 +45,17 @@ enum VieNeuSynthesisPolicy {
         }
     }
 
+    /// Chế độ **thật sự** dùng cho một lượt tổng hợp.
+    ///
+    /// Giọng nhân bản (clone) luôn chạy `.high` (**16** bước) **bất kể cài đặt** — yêu cầu rõ ràng của
+    /// người dùng (1.3.456). Lý do kỹ thuật: vòng Euler là nơi áp dụng **toàn bộ điều kiện hoá**, gồm
+    /// x-vector + `style` của giọng clone. Ở 8 bước (`.fast`) sai số tích phân đẩy latent lệch khỏi nghiệm
+    /// ⇒ **âm sắc không bám mẫu**; người dùng đã thử 16 bước và xác nhận "khá hơn". Đánh đổi: gấp đôi
+    /// tính toán ⇒ máy nóng hơn — đánh đổi này là **có chủ ý** và chỉ áp cho giọng clone.
+    static func effectiveMode(requested: Mode?, current: Mode, isClonedVoice: Bool) -> Mode {
+        isClonedVoice ? .high : (requested ?? current)
+    }
+
     /// Số luồng ORT.
     ///
     /// **Không** dùng 1 như `ONNXPiperEngine` (Piper là model nhỏ, 1 luồng đủ và ưu tiên nhiệt), cũng
@@ -62,6 +73,18 @@ enum VieNeuSynthesisPolicy {
     /// Khoá `UserDefaults` cho chế độ "Tiết kiệm pin" và số luồng ORT.
     static let powerSavingKey = "vieneuPowerSaving"
     static let threadCountKey = "vieneuThreadCount"
+
+    /// Khoá `UserDefaults` của chế độ chất lượng. Nằm ở đây — **cùng chỗ** với hai khoá trên — thay vì
+    /// giấu trong `VieNeuTTSService`: màn Cài đặt phải đọc được nó ngay cả khi `VieNeuTTSService.shared`
+    /// **chưa** được tạo, nếu không `@State` rơi về mặc định và không bao giờ được làm mới (lỗi
+    /// 1.3.456: mở màn Cài đặt TTS luôn hiện "Tiết kiệm pin: bật" dù người dùng đã tắt).
+    static let preferredModeKey = "vieneuPreferredMode"
+
+    /// Đọc chế độ đã lưu **thẳng từ `UserDefaults`** — không cần `VieNeuTTSService` đã dựng.
+    static func preferredMode(from defaults: UserDefaults) -> Mode? {
+        guard let raw = defaults.string(forKey: preferredModeKey) else { return nil }
+        return Mode(rawValue: raw)
+    }
 
     /// Số luồng ORT đã chọn (2...4), mặc định 4. **Hàm thuần** — nhận `defaults` từ caller (type này
     /// không tự đọc `UserDefaults`). Áp dụng khi **nạp lại engine** (session ORT dựng với số luồng này).

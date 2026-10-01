@@ -435,6 +435,9 @@ struct TTSSettingsView: View {
         .tint(.white)
         .onAppear {
             self.hasResumed = false
+            // Phải đọc lại mỗi lần mở màn: `@State` chỉ khởi tạo một lần lúc View dựng ⇒ mở lại từ tab
+            // Cài đặt hiện giá trị mặc định thay vì giá trị đã lưu (lỗi 1.3.456).
+            refreshVieNeuSettings()
             // Tạm dừng phát để cấu hình
             ttsManager.prepareForSettings()
             self.systemVoices = AVSpeechSynthesisVoice.speechVoices().filter { $0.language.hasPrefix("vi") }

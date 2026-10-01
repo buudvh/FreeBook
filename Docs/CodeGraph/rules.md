@@ -16,6 +16,13 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 
 <!-- GENERATED START -->
 
+## 1.3.456 — ba luật mới
+
+* **Luật 10 — Giọng nhân bản luôn chạy `.high`, bất kể cài đặt người dùng.** `VieNeuSynthesisPolicy.effectiveMode(requested:current:isClonedVoice:)` trả `.high` khi `preset.isCloned`. Vòng Euler là nơi áp dụng toàn bộ điều kiện hoá (x-vector + `style`); 8 bước (`.fast`) làm âm sắc giọng clone **không bám mẫu** dù dữ liệu đưa vào đúng. Đừng "tối ưu" chỗ này.
+* **Luật 11 — `@State` khởi tạo từ giá trị đã lưu PHẢI được làm mới ở `.onAppear`.** `@State` chỉ chạy default-expression **một lần** lúc View dựng; nếu nguồn là singleton chưa sẵn sàng thì rơi về mặc định và **không bao giờ** tự sửa (lỗi thật: mở màn Cài đặt TTS luôn hiện "Tiết kiệm pin: bật"). Đọc thẳng `UserDefaults` trong một hàm refresh gọi từ `.onAppear`, đừng đọc qua singleton.
+* **Luật 12 — Hằng số mặc định của model phải đối chiếu tệp `config.json` thật và mã nguồn upstream, không tin comment.** Đã lấy `config.json` ở revision đã ghim: `steps_default = 16`, `cfg_default = 3,0`, `ref_max_frames = 140`, `latent_scale = 0,25`, `flow_fps = 15,625`. Cả pipeline nhân bản lẫn vòng tổng hợp của app đã đối chiếu **nguyên văn** với `v3nano.py` của upstream ⇒ **khớp hoàn toàn**; không còn chỗ lệch nào để "tinh chỉnh".
+
+
 ## 1.3.455 — quy chuẩn rút ra (sửa luồng nhân bản giọng)
 
 * **Luật 10 — trạng thái nạp một lần là nguồn của lỗi im lặng.** `VieNeuTTSEngine.catalog` chỉ được nạp trong `prepareLocked` (`guard runtime == nil`), mà engine sống suốt vòng đời app ⇒ mọi thứ suy ra từ catalog (danh sách giọng, `preset(named:)`) **đóng băng** từ lượt nạp đầu. Thêm dữ liệu mới vào catalog thì **bắt buộc** thêm đường làm mới. Tệ hơn: `preset(named:) ?? defaultPreset` **không** ném lỗi ⇒ người dùng nghe sai giọng mà UI vẫn báo thành công.

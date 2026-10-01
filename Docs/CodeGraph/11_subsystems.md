@@ -16,6 +16,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 
 <!-- GENERATED START -->
 
+## 1.3.456 — giọng nhân bản luôn tổng hợp ở `.high`; sửa màn Cài đặt luôn hiện mặc định
+
+* **Giọng clone ÉP `.high`** (16 bước / `sway = 0` / `cfg = 3,0`) **bất kể cài đặt** — `VieNeuSynthesisPolicy.effectiveMode`, gọi ở `VieNeuTTSEngine.swift:216`. Vòng Euler là nơi áp dụng toàn bộ điều kiện hoá (x-vector + `style`); ở 8 bước (`.fast`) sai số tích phân đẩy latent lệch khỏi nghiệm ⇒ **âm sắc không bám mẫu**. `.high` chính là **mặc định của model** (`config.json`: `steps_default = 16`, `cfg_default = 3,0`). Đánh đổi: gấp đôi tính toán ⇒ máy nóng hơn — có chủ ý và **chỉ** áp cho giọng clone (`VieNeuVoiceCatalog.Preset.isCloned`).
+* **Lỗi màn Cài đặt luôn hiện mặc định**: `TTSSettingsView` giữ `vieNeuPowerSaving` / `vieNeuThreadCount` trong `@State` khởi tạo **một lần** lúc View dựng, mà lúc đó `VieNeuTTSService.shared` có thể chưa tồn tại ⇒ rơi về `true`; và **không bao giờ** được làm mới (trước đây chỉ `vieNeuSelectedMode` được làm mới trong `.onChange(of: ttsManager.tool)`). Sửa: `refreshVieNeuSettings()` (`TTSSettingsView+VieNeu.swift`) đọc thẳng từ `UserDefaults` trong `.onAppear`.
+* Khoá `vieneuPreferredMode` chuyển từ `VieNeuTTSService` sang `VieNeuSynthesisPolicy` (cùng chỗ với `powerSavingKey` / `threadCountKey`) để màn Cài đặt đọc được **không cần service**.
+* Đã đối chiếu **nguyên văn** với mã nguồn upstream ở revision đã ghim (`v3nano.py`, `fbank.py`, `onnx_extractor.py`, `audio_utils.py`) và `config.json` thật: pipeline nhân bản **khớp hoàn toàn** (`_load_mono` mean-kênh, fbank 80-mel 16 kHz mean-norm, `_group_latent`, cắt `min(int(5×15,625), 140)`) ⇒ phần âm sắc còn thiếu **không** do sai pipeline, mà do 8 bước Euler — đã sửa bằng điểm trên.
+
 ## 1.3.455 — phân hệ nhân bản giọng: vòng đời giọng trong engine
 
 * **Trạng thái giọng của engine là ảnh chụp một lần**: `VieNeuTTSEngine.catalog` được nạp trong `prepareLocked` và **không** tự làm mới. Từ 1.3.455, mọi thay đổi của kho giọng user **phải** đi kèm `refreshVoiceCatalog()`.

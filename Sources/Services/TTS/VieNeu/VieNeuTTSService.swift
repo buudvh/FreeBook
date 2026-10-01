@@ -78,18 +78,13 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
     var lastVectorMs: Double { syncQueue.sync { _lastVectorMs } }
     var lastOtherMs: Double { syncQueue.sync { _lastOtherMs } }
 
-    /// Khoá `UserDefaults` của chế độ chất lượng.
-    ///
-    /// Đặt ở tầng service (không phải ở View) để màn thử giọng và đường đọc truyện — khi được nối —
-    /// dùng **cùng một** giá trị, và để lựa chọn sống qua các lần mở app.
-    private static let preferredModeKey = "vieneuPreferredMode"
+    /// Khoá `UserDefaults` của chế độ chất lượng — lấy từ `VieNeuSynthesisPolicy` (cùng chỗ với hai khoá
+    /// kia) để màn Cài đặt đọc được ngay cả khi service chưa dựng; xem lỗi 1.3.456.
+    private static let preferredModeKey = VieNeuSynthesisPolicy.preferredModeKey
 
     /// Chế độ người dùng chọn; `nil` = tự thích nghi theo tốc độ máy.
     var preferredMode: VieNeuSynthesisPolicy.Mode? {
-        get {
-            guard let raw = UserDefaults.standard.string(forKey: Self.preferredModeKey) else { return nil }
-            return VieNeuSynthesisPolicy.Mode(rawValue: raw)
-        }
+        get { VieNeuSynthesisPolicy.preferredMode(from: .standard) }
         set {
             if let newValue {
                 UserDefaults.standard.set(newValue.rawValue, forKey: Self.preferredModeKey)
