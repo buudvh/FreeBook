@@ -16,6 +16,15 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 <!-- GENERATED START -->
 
+## 1.3.462 — type mới, một enum bị tách, một case `InboxItem` mới
+
+* `TTSPhoneticSuggestion.Origin`: **4 → 5** case — `.library` tách thành `.nghiTTSLibrary` + `.vieNeuLibrary`; thêm `isDictionaryEntry` (chỉ chip từ điển mới nhấn-giữ-để-xoá được).
+* Type mới: `RephoneticizeService` (lồng `Target` / `Meta: Codable` / `Outcome` / `RephoneticizeError`), `RephoneticizeTask` (`@MainActor final class : ObservableObject`, hai instance `nghiTTS` / `vieNeu`), `DictionaryImportParser` (+`ParseError`), `DictionaryImportDiff` (+`Conflict` / `Summary`), `DictionaryImportConflictView` (+`Phase`), `DictionaryImportFlowModifier`, `NotificationInboxView.RephoneticizeCard`.
+* `NotificationInboxView.InboxItem` thêm **một** case `.rephoneticize(date:)` cho **cả hai** từ điển — hai case riêng sẽ đẩy file vượt trần 400 dòng.
+* `AddWordSheet` thêm type lồng `PendingDeletion`; bỏ `libraryHit(for:target:)`, thay bằng `libraryHits(for:)` trả **cả hai** store.
+* `TTSDictionaryEditView` thêm `nonisolated static func importKey(_:)` — chuẩn hoá khoá khi nhập, truyền được như closure `@Sendable`.
+* `TextPreprocessor` thêm method `replaceAllWords(_:)` ở file `+Bulk` (không thêm dòng vào file gốc đang đúng 1121).
+
 ## Thành Viên Mới Cho Nhân Bản Giọng (1.3.453)
 
 * **`VieNeuVoiceCloner.Enrollment`** (`struct`, `Sendable`) — `speakerEmbedding: [Float]` (192) / `style: [Float]` (12 800) / `sampleSeconds` / `fbankFrames` / `codecChannels` / `codecFrames` / `styleFrames`. Có sẵn số đo để UI nói được *vì sao* một mẫu bị từ chối.

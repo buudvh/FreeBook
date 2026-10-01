@@ -16,6 +16,16 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 
 <!-- GENERATED START -->
 
+## 1.3.462 — cạnh gọi mới: phiên âm lại, luồng nhập file, chip hai từ điển
+
+* `AddWordSheet.libraryHits(for:)` gọi **cả hai** store (`TextPreprocessor.lookupWord` + `VieNeuJapaneseDictionary.lookup`) mỗi lượt dựng gợi ý; `suggestionChip` → `TextPreprocessor.deleteWord` / `VieNeuJapaneseDictionary.delete` khi nhấn giữ chip `NGI`/`VIE`.
+* `RephoneticizeTask.start()` → `RephoneticizeService.run(target:progress:)` trong `Task.detached(priority: .utility)`; closure tiến độ `@Sendable` quay về `MainActor` qua `RephoneticizeTask.instance(for:)`.
+* `RephoneticizeService.run` → `TextPreprocessor.getWordMap` / `VieNeuJapaneseDictionary.all` (đọc), rồi `JapaneseTransliterator.transliterateRomaji` hoặc `EnglishPhonemeTransliterator.detailed`; ghi plist kết quả rồi `writeMeta`.
+* `RephoneticizeTask.apply()` → `backUpLiveDictionary` → `TextPreprocessor.replaceAllWords` / `VieNeuJapaneseDictionary.replaceAll`.
+* `DictionaryImportConflictView.loadDiff` → `DictionaryImportParser.parse` + `DictionaryImportDiff.diff` trong `Task.detached`; `apply()` → `DictionaryImportDiff.merged` → `onApply`.
+* `DictionaryImportFlowModifier.replaceAll` → `DictionaryImportParser.parse` → `onReplace`.
+* `NotificationInboxView.row(for:)` → `rephoneticizeRow()` → `RephoneticizeCard`, **không** có cạnh gọi đọc đĩa nào (chỉ đọc `@Published` đã nằm trong RAM).
+
 ## 1.3.455 — nhánh gọi sửa lại: chọn file, làm mới catalog, tiến trình
 
 * **Chọn file**: `VieNeuVoiceCreatorView.fileSection` → `showingFileImporter = true` → `DocumentPickerPresenter` (`Sources/Views/Common/DocumentPicker.swift`) → `onPick([URL])` → `acceptFile(url)`. **Không** còn `.fileImporter`.

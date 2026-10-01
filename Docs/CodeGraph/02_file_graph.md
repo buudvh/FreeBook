@@ -16,6 +16,13 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 <!-- GENERATED START -->
 
+## 1.3.462 — 7 file mới, 8 file sửa; `TTSDictionaryEditView` **giảm** 41 dòng
+
+* File mới (tất cả dưới trần 400): `RephoneticizeService` **309** · `RephoneticizeTask` **236** · `NotificationInboxView+Rephoneticize` **219** · `DictionaryImportConflictView` **234** · `DictionaryImportFlowModifier` **144** · `DictionaryImportParser` **128** · `DictionaryImportDiff` **94**.
+* `TTSDictionaryEditView.swift` **559 → 518** (giảm 41): bỏ `parseCSV` sang `DictionaryImportParser` dùng chung và bỏ đường ghi plist trực tiếp trong `importDictionary`. Vẫn dưới baseline 641.
+* Tăng: `AddWordSheet` 253 → **344**, `VieNeuJapaneseDictionaryView` 358 → **389**, `NotificationInboxView` 368 → **393**, `TTSPhoneticSuggestion` 61 → **82**, `TTSPhoneticSuggestionBuilder` 81 → **91**, `JapaneseTransliterator` 347 → **350**, `TextPreprocessor+Bulk` 30 → **47**.
+* Hai file mới sinh ra **vì trần dòng**: `DictionaryImportConflictView` + `DictionaryImportFlowModifier` để hai màn từ điển chỉ thêm **1 dòng** gọi modifier; `NotificationInboxView+Rephoneticize` vì file chính đã 393/400.
+
 ## +1 file mới, 6 file sửa: sửa luồng nhân bản giọng (1.3.455)
 
 | Nhóm | File | Vai trò | Dòng |

@@ -16,6 +16,15 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 
 <!-- GENERATED START -->
 
+## 1.3.462 — vòng đời tài nguyên của phiên âm lại và luồng nhập file
+
+* `RephoneticizeTask.start()` chạy trong `Task.detached(priority: .utility)`; closure tiến độ `@Sendable` **không** capture `self` mà đi qua `RephoneticizeTask.instance(for:)` ⇒ mọi cập nhật state nằm trên `MainActor`. Không `DispatchSemaphore`, không chặn main.
+* `RephoneticizeService.writeMeta` ghi **atomic** (`tmp` + `replaceItemAt`) và **luôn sau** khi plist kết quả đã ghi xong ⇒ trạng thái xấu nhất là "có file, thiếu meta", không bao giờ "có meta, thiếu file". `deleteMeta` luôn đi cùng lượt xoá file kết quả.
+* `RephoneticizeTask.init` chỉ `refreshFromDisk()` đọc meta vài trăm byte trên `MainActor` — cùng khuôn `DictionaryMergeTask`, **không** parse plist.
+* **Security-scoped URL**: trong `DictionaryImportConflictView.loadDiff` và `DictionaryImportFlowModifier.replaceAll`, `startAccessingSecurityScopedResource()` được giữ tới **cuối** closure ngầm rồi mới nhả — không dùng `defer` trong hàm đồng bộ (nhả sớm là mất quyền trước khi `Task.detached` chạy).
+* Ba file sao lưu mới trong `FreeBook/TTS/`: `non-vietnamese-words.plist.bak-import`, `non-vietnamese-words.plist.bak-rephoneticize`, `phien-am-tieng-nhat.plist.bak-rephoneticize` — tạo **trước** mỗi lượt ghi đè.
+* Không có vòng đời mới cho `AVAudioEngine` / `ModelContext` / `WKWebView`.
+
 ## 1.3.455 — vòng đời tài nguyên (sửa lại)
 
 * **File audio mẫu**: `DocumentPickerPresenter` với `asCopy: true` ⇒ iOS copy vào `temporaryDirectory`; đó chính là `sampleURL`. Xoá ở `discardSample` (đường Huỷ / chọn file khác) — nay **có** guard `temporaryDirectory`; và ở `VieNeuVoiceLibraryView.discardTemporarySample` sau khi `store.add` đã copy sang `CustomVoices/samples/`.

@@ -16,6 +16,15 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 
 <!-- GENERATED START -->
 
+## 1.3.462 — chip NGI/VIE, xoá từ bằng nhấn giữ, `tsu`→"su", "Phiên âm lại từ điển", luồng nhập file có màn chọn mục trùng
+
+* Thêm **7** file Swift ⇒ validator đếm 629 → **636** file. **Số lượng doc vẫn là 16**, không đổi cấu trúc bộ tài liệu.
+* File mới: `Services/TTS/Rephoneticize/RephoneticizeService.swift` · `Services/TTS/Rephoneticize/RephoneticizeTask.swift` · `Services/TTS/Import/DictionaryImportParser.swift` · `Services/TTS/Import/DictionaryImportDiff.swift` · `Views/Settings/TTS/DictionaryImportConflictView.swift` · `Views/Settings/TTS/DictionaryImportFlowModifier.swift` · `Views/Shelf/ShelfMain/NotificationInboxView+Rephoneticize.swift`.
+* `TTSPhoneticSuggestion.Origin` **tách** `.library` (badge `TĐ`) thành `.nghiTTSLibrary` (`NGI`) + `.vieNeuLibrary` (`VIE`). `AddWordSheet` tra **cả hai** từ điển mỗi lượt và nhấn giữ chip `NGI`/`VIE` để xoá mục khỏi đúng từ điển đó.
+* `JapaneseTransliterator.romajiToViSyllable` sửa `"tsu": "chu"` → `"su"`; bảng này dùng **chung** cho NghiTTS, VieNeu và chip JP nên cả hai engine đổi theo.
+* Nút **Phiên âm lại từ điển** ở hai màn từ điển → chạy ngầm, sinh file kết quả + **meta JSON**; card ở màn **Thông báo** chỉ đọc meta (bài học 1.3.448).
+* Luồng **nhập file** gom vào một `ViewModifier` dùng chung: hỏi *Trộn* / *Thay thế toàn bộ*; chọn *Trộn* mở màn danh sách mục trùng khoá (skeleton → chọn/bỏ chọn từng mục).
+
 ## 1.3.455 — sửa luồng nhân bản giọng: chọn file, giọng mới tới được engine, tiến trình
 
 * **Nối tiếp `1.3.453`** — ba lỗi chỉ lộ ra khi chạy trên máy thật, **không** lộ khi đọc code.

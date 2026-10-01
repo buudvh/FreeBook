@@ -127,12 +127,15 @@ final class JapaneseTransliterator {
     // Hàng `u` (ku, su, tsu, nu, fu, mu, ru, gu, zu, bu, pu, và `u` trơ) viết bằng **"u"**, không phải
     // "ư". /u/ tiếng Nhật là nguyên âm tròn môi không căng; "u" tiếng Việt là /u/ — sai rất ít. "ư" là
     // /ɨ/ không tròn môi, espeak-vi đọc ra một âm khác hẳn, làm "Naruto" nghe thành "na-rư-tô" và
-    // "sushi" thành "xư-si". Hệ quả biết trước: `tsu`/`tu` cùng ra "chu" như `chu`, và `zu` ra "du"
+    // "sushi" thành "xư-si". Hệ quả biết trước: `tu` ra "chu" như `chu`, và `zu` ra "du"
     // trùng `yu` — chỉ **khoá** của dictionary literal cần khác nhau, trùng giá trị thì vô hại.
     private static let romajiToViSyllable: [String: String] = [
         "sha": "sa", "shi": "si", "shu": "su", "she": "sê", "sho": "sô",
         "cha": "cha", "chi": "chi", "chu": "chu", "che": "chê", "cho": "chô",
-        "tsu": "chu",
+        // `tsu` (つ) đọc **"su"**, không phải "chu" như bản trước (người dùng chốt 2026-10-01). Bản cũ
+        // cho `tsu` ra "chu", trùng hoàn toàn với `chu` (ちゅ) nên hai âm khác hẳn nghe như một; "su" tách
+        // được chúng ra và vẫn đúng phụ âm /s/. Khác `su`→"xu" (す) ở hàng `sa` bên dưới — cố ý.
+        "tsu": "su",
         "kya": "kia", "kyu": "kiu", "kyo": "kiô",
         "nya": "nia", "nyu": "niu", "nyo": "niô",
         "hya": "hia", "hyu": "hiu", "hyo": "hiô",

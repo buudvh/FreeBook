@@ -16,6 +16,15 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 
 <!-- GENERATED START -->
 
+## 1.3.462 — rủi ro mới / đã xử lý
+
+* **Đã xử lý — card màn Thông báo parse plist để lấy số liệu.** Đúng lỗi 1.3.448 với `VietPhraseMerged.txt`. Nay số liệu nằm ở `<kết quả>.meta.json` vài trăm byte; `loadMeta` trả `nil` khi version lạ / decode lỗi và **không** parse plist để bù; `body` không chạm đĩa. Cổng kiểm: `grep 'Data(contentsOf:'` trong `NotificationInboxView*.swift` + `Services/TTS/Rephoneticize/` phải rỗng.
+* **Mới — tranh `NSLock` của espeak.** Phiên âm lại từ điển NghiTTS (~30k mục) chạy `Task.detached(priority: .utility)` nhưng nhánh tiếng Anh dùng chung `EspeakPhonemizer` với đường tổng hợp ⇒ chạy lúc đang đọc có thể giật audio. Giảm thiểu: hạ ưu tiên + ghi rõ trong `confirmationDialog`. **Chưa chốt** có nên chặn khi TTS đang đọc.
+* **Mới — security-scoped URL nhả sớm.** `startAccessingSecurityScopedResource()` phải sống tới khi parse ngầm xong; `defer` trong hàm đồng bộ là mất quyền trước khi `Task.detached` chạy. Cả hai chỗ parse đều giữ trong closure ngầm.
+* **Mới — ghi đè toàn bộ từ điển.** Cả *Thay thế toàn bộ* (nhập file) và *Nhập vào từ điển* (phiên âm lại) đều ghi đè không có lùi; nay **bắt buộc** sao lưu `.bak-import` / `.bak-rephoneticize`. Đường nhập cũ của NghiTTS ghi đè **không** backup — đã vá.
+* **Đã xử lý — `loadResources()` không xoá `transliterationCache`.** `TextPreprocessor.swift:241-245` không xoá cache nên từ vừa nhập có thể chưa có tác dụng ngay. `replaceAllWords` xoá cache cùng lượt.
+* **Đã xử lý — `private @State` làm `init` memberwise thành `private`.** Ba chỗ (`DictionaryImportConflictView`, `DictionaryImportFlowModifier`, `RephoneticizeCard`) phải khai `init` tường minh mới gọi được từ file khác.
+
 ## 1.3.455 — rủi ro đã xử lý / còn lại (sửa luồng nhân bản giọng)
 
 * **Đã xử lý — giọng mới rơi im lặng về `defaultPreset` (nặng nhất)**: `catalog` chỉ được nạp một lần trong `prepareLocked`, mà `synthesize` dùng `preset(named:) ?? defaultPreset` nên **không** có lỗi nào nổi lên. Đã xác nhận trên máy thật: tạo giọng xong đọc ra **giọng mặc định**, **tắt app mở lại thì đúng âm sắc**. Giảm thiểu: `refreshVoiceCatalog()` sau mọi thay đổi của kho giọng.

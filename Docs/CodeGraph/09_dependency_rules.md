@@ -16,6 +16,13 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 
 <!-- GENERATED START -->
 
+## 1.3.462 — phụ thuộc của phiên âm lại và luồng nhập file
+
+* Tầng đi đúng chiều: `Views/Settings/TTS` + `Views/Shelf/ShelfMain` → `Services/TTS/Rephoneticize` + `Services/TTS/Import` → `Services/TTS/Preprocessing` + hai store từ điển.
+* `Services/TTS/Rephoneticize/**` và `Services/TTS/Import/**` **không** `import SwiftUI` và **không** gọi `ToastManager.shared` — `RephoneticizeTask` dùng `Combine` + `Foundation`, đúng khuôn `DictionaryMergeTask`.
+* `DictionaryImportFlowModifier` (View) là nơi **duy nhất** giữ `@State` của luồng nhập ⇒ hai màn từ điển không chép dialog/sheet, và `TTSDictionaryEditView` vẫn **giảm** dòng.
+* Không có phụ thuộc mới từ `Sources/Common/**`; `Sources/Models/TTS/TTSPhoneticSuggestion.swift` vẫn chỉ phụ thuộc `SwiftUI`.
+
 ## 1.3.455 — phụ thuộc bổ sung
 
 * `VieNeuTTSEngine+Catalog.swift` (Services/TTS/VieNeu) → `VieNeuTTSEngine` (cùng type, file khác) + `VieNeuVoiceCatalog`. Vẫn **không** `import SwiftUI`, **không** `ToastManager.shared`.

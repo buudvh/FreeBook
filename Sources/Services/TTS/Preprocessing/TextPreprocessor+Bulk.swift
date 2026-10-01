@@ -27,4 +27,21 @@ extension TextPreprocessor {
         AppLogger.shared.log("🗣️ [TextPreprocessor] Đã xoá toàn bộ \(removed) mục phiên âm theo yêu cầu người dùng")
         return removed
     }
+
+    /// Thay **cả bảng** phiên âm rồi ghi một lần. Dùng cho nhập kiểu **"Thay thế toàn bộ"** và cho lượt áp
+    /// kết quả **"Phiên âm lại từ điển"**.
+    ///
+    /// Vì sao cần type này: đường nhập cũ ghi thẳng plist rồi gọi `loadResources()`, mà hàm đó **không**
+    /// xoá `transliterationCache` (`TextPreprocessor.swift:241-245`) ⇒ bản dịch cũ còn nằm trong cache và
+    /// từ vừa nhập có thể **chưa** có tác dụng ngay. Ở đây xoá cache cùng lượt, đúng như `deleteAllWords`
+    /// và `updateWord` đang làm.
+    func replaceAllWords(_ newWords: [String: String]) throws {
+        wordMap = newWords
+        try saveWordMapToDisk()
+
+        transliterationCache.removeAll()
+        transliterationCacheOrder.removeAll()
+
+        AppLogger.shared.log("🗣️ [TextPreprocessor] Thay toàn bộ từ điển phiên âm: \(newWords.count) mục")
+    }
 }

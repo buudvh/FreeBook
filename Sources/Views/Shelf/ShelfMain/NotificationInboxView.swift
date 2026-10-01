@@ -19,6 +19,14 @@ struct NotificationInboxView: View {
     /// **Không** `private`: khối "Gộp VietPhrase" nằm ở `NotificationInboxView+Merge.swift` và `private` của
     /// Swift giới hạn theo file — để `private` thì file đó không đọc được (CI 1.3.445 đã đỏ đúng vì lỗi này).
     @ObservedObject var mergeTask = DictionaryMergeTask.shared
+    /// Hai task "Phiên âm lại từ điển" — **không** `private`: khối card nằm ở
+    /// `NotificationInboxView+Rephoneticize.swift`, và `private` của Swift giới hạn theo file (bẫy đã trả giá
+    /// ở 1.3.445 với chính khối gộp VietPhrase).
+    ///
+    /// Cả hai chỉ đọc **JSON meta vài trăm byte** ở `init`/`refreshFromDisk`; `body` **không** chạm đĩa. Đây
+    /// là điều kiện để mở màn Thông báo sau khi khởi động lại không bị đơ (bài học 1.3.448).
+    @ObservedObject var rephoneticizeNghi = RephoneticizeTask.nghiTTS
+    @ObservedObject var rephoneticizeVieNeu = RephoneticizeTask.vieNeu
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
 
     /// Trạng thái cục bộ của khối "Gộp VietPhrase". Phải khai ở **file chính**: Swift không cho `@State`
@@ -37,12 +45,16 @@ struct NotificationInboxView: View {
         /// Mang sẵn `date` để enum này **không** phải chạm vào singleton `@MainActor` từ thuộc tính
         /// không cô lập.
         case mergeTask(date: Date)
+        /// Mục "Phiên âm lại từ điển" — **một** case cho **cả hai** từ điển: màn Thông báo đang sát trần 400
+        /// dòng nên hai case riêng là nguy cơ vượt trần. Card của từng từ điển do file extension vẽ.
+        case rephoneticize(date: Date)
 
         var id: String {
             switch self {
             case .newChapter(let record): return "new-\(record.bookId)"
             case .toast(let record): return "toast-\(record.id.uuidString)"
             case .mergeTask: return "merge-vietphrase"
+            case .rephoneticize: return "rephoneticize-dictionaries"
             }
         }
 
@@ -55,14 +67,16 @@ struct NotificationInboxView: View {
                 return record.date
             case .mergeTask(let date):
                 return date
+            case .rephoneticize(let date):
+                return date
             }
         }
 
         /// Mục gộp ghim lên đầu (xếp trước cả chương mới), vì nó là việc **đang chờ người dùng quyết định**;
-        /// chương mới xếp trước toast.
+        /// chương mới xếp trước toast. "Phiên âm lại" cùng mức ghim vì cũng đang chờ quyết định.
         var sortRank: Int {
             switch self {
-            case .mergeTask: return -1
+            case .mergeTask, .rephoneticize: return -1
             case .newChapter: return 0
             case .toast: return 1
             }
@@ -88,9 +102,17 @@ struct NotificationInboxView: View {
         return [InboxItem.mergeTask(date: mergeTask.displayDate)]
     }
 
+    /// Mục "Phiên âm lại" — **một** dòng cho cả hai từ điển, chỉ có mặt khi ít nhất một task đang chạy / có
+    /// file kết quả / vừa lỗi. Ngày lấy từ task hiện diện mới nhất; đọc `meta` đã nằm trong RAM.
+    private var rephoneticizeItems: [InboxItem] {
+        let visible = [rephoneticizeNghi, rephoneticizeVieNeu].filter { $0.isVisible }
+        guard !visible.isEmpty else { return [] }
+        return [InboxItem.rephoneticize(date: visible.map(\.displayDate).max() ?? Date())]
+    }
+
     /// Gộp rồi nhóm theo ngày; ngày mới nhất trước, trong ngày thì chương mới trước, còn lại theo giờ giảm dần.
     private var groupedByDay: [(day: Date, items: [InboxItem])] {
-        let all = mergeTaskItems + newChapterItems + toastItems
+        let all = mergeTaskItems + rephoneticizeItems + newChapterItems + toastItems
         let calendar = Calendar.current
         let grouped = Dictionary(grouping: all) { calendar.startOfDay(for: $0.date) }
         return grouped.keys.sorted(by: >).map { day in
@@ -103,7 +125,7 @@ struct NotificationInboxView: View {
     }
 
     private var isEmpty: Bool {
-        newChapterItems.isEmpty && toastItems.isEmpty && mergeTaskItems.isEmpty
+        newChapterItems.isEmpty && toastItems.isEmpty && mergeTaskItems.isEmpty && rephoneticizeItems.isEmpty
     }
 
     var body: some View {
@@ -146,6 +168,9 @@ struct NotificationInboxView: View {
             // Không có `swipeActions`: mục này chỉ biến mất bằng hành động tường minh (nhập / bỏ qua),
             // để một cú vuốt không xoá mất file kết quả mà người dùng chưa kịp xuất.
             mergeTaskRow()
+        case .rephoneticize:
+            // Cùng lý do: file kết quả chỉ mất khi người dùng chọn "Nhập vào từ điển" hoặc "Bỏ qua".
+            rephoneticizeRow()
         case .newChapter(let record):
             newChapterRow(record)
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {

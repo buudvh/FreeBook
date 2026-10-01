@@ -16,6 +16,14 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 
 <!-- GENERATED START -->
 
+## 1.3.462 — quy chuẩn rút ra (từ điển phiên âm: hai nguồn, phiên âm lại, luồng nhập)
+
+* **Luật 13 — `private @State` trong struct làm `init` memberwise thành `private`.** View / `ViewModifier` nào có `@State private` **và** tham số **không** có giá trị mặc định thì **phải** khai `init` tường minh, nếu không sẽ không gọi được từ file khác (hoặc từ `extension View` — vốn là type khác — trong cùng file). Trong `init`, `@Binding` gán dạng `_x = binding`; `@ObservedObject` gán dạng `_x = ObservedObject(wrappedValue:)`.
+* **Luật 14 — số liệu hiện ở màn Thông báo phải nằm ở file meta JSON kèm theo, không suy lại từ file dữ liệu.** Bài học 1.3.448 (`VietPhraseMerged.txt`) lặp lại với plist từ điển: parse file lớn trên main mỗi lần render ⇒ đơ app + nghẽn TTS. Meta phải **nhỏ** (chỉ số đếm + `createdAt` + `version`), ghi atomic, ghi **sau** file dữ liệu, `loadMeta` nil-safe và **không** parse file dữ liệu để bù.
+* **Luật 15 — ghi đè toàn bộ một store thì bắt buộc sao lưu trước.** Cả *Thay thế toàn bộ* (nhập file) lẫn *Nhập vào từ điển* (phiên âm lại) đều là ghi đè không có lùi. Kèm theo: `loadResources()` **không** xoá `transliterationCache` (`TextPreprocessor.swift:241-245`) nên đường ghi phải xoá cache cùng lượt — dùng `replaceAllWords`, đừng ghi plist trực tiếp.
+* **Luật 16 — `startAccessingSecurityScopedResource()` phải sống tới khi công việc ngầm đọc file xong.** `defer` trong hàm đồng bộ sẽ nhả quyền trước khi `Task.detached` chạy.
+* **Luật 17 — dedupe phải gồm NGUỒN, không chỉ giá trị.** Hai từ điển độc lập có thể cùng cách đọc; gộp theo `text` sẽ nuốt mất chip của nguồn kia. Khoá dedupe đúng là `origin.rawValue + "|" + text`.
+
 ## 1.3.456 — ba luật mới
 
 * **Luật 10 — Giọng nhân bản luôn chạy `.high`, bất kể cài đặt người dùng.** `VieNeuSynthesisPolicy.effectiveMode(requested:current:isClonedVoice:)` trả `.high` khi `preset.isCloned`. Vòng Euler là nơi áp dụng toàn bộ điều kiện hoá (x-vector + `style`); 8 bước (`.fast`) làm âm sắc giọng clone **không bám mẫu** dù dữ liệu đưa vào đúng. Đừng "tối ưu" chỗ này.

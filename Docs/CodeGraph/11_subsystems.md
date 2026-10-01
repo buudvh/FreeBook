@@ -16,6 +16,16 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 
 <!-- GENERATED START -->
 
+## 1.3.462 — phân hệ Từ điển phiên âm: chip hai nguồn, xoá từ, phiên âm lại, luồng nhập có màn chọn
+
+* **Chip gợi ý có hai nguồn.** `TTSPhoneticSuggestion.Origin` tách `.library` thành `.nghiTTSLibrary` (`NGI`) và `.vieNeuLibrary` (`VIE`). `AddWordSheet` tra **cả hai** store mỗi lượt và **không** gộp chip trùng chữ giữa hai nguồn — dedupe đổi từ khoá `text` sang `origin.rawValue + "|" + text` (trước đây chip của từ điển kia bị nuốt mất). Cả hai chip từ điển đều `isPipelineChoice = true`; chip `JP`/`EN` vẫn mờ khi đã có từ điển khớp.
+* **Nhấn giữ để xoá.** Chip `NGI`/`VIE` có `contextMenu` → `confirmationDialog` → `TextPreprocessor.deleteWord` hoặc `VieNeuJapaneseDictionary.delete`. Chip `JP`/`EN` **không** có menu vì không nằm trong từ điển nào. Chip được gỡ **sau khi** xoá thành công (xoá lỗi mà chip đã mất thì người dùng tưởng đã xong).
+* **`tsu` → "su".** `JapaneseTransliterator.romajiToViSyllable` sửa `"tsu": "chu"` thành `"su"`; bảng dùng chung cho NghiTTS, VieNeu và chip JP nên **cả hai engine** đổi theo. `tu` vẫn ra `"chu"` (chỉ `tsu` đổi). Khi cắt hụt âm tiết thì **không** rơi xuống đường tiếng Anh — pipeline cũng không rơi (`TextPreprocessor.swift:992-993`).
+* **Phiên âm lại từ điển.** `RephoneticizeService.run` chuẩn hoá khoá (gấp dấu phụ — vá luôn **mục chết** của NghiTTS), gộp mục trùng khoá, và với mục engine **không** phiên âm được thì **giữ giá trị cũ** (`keptCount`). NghiTTS đi đúng thứ tự `transliterateToken` (Nhật trước, Anh sau); VieNeu chỉ có nhánh Nhật. Kết quả ghi ra `phien-am-lai-nghi.plist` / `phien-am-lai-vieneu.plist` + meta JSON; **không** ghi thẳng vào từ điển.
+* **Hai card ở màn Thông báo.** `RephoneticizeTask.nghiTTS` / `.vieNeu` là hai `@MainActor ObservableObject` độc lập; `init` chỉ đọc meta JSON; `apply()` sao lưu `.bak-rephoneticize` rồi `replaceAllWords` / `replaceAll`. Một case `InboxItem.rephoneticize` vẽ **cả hai** card.
+* **Luồng nhập file.** `DictionaryImportFlowModifier` hỏi *Trộn* / *Thay thế toàn bộ*; chọn *Trộn* mở `DictionaryImportConflictView` — màn mở **ngay** với skeleton, parse + `diff` chạy trong `Task.detached`, mặc định **tích hết**, có ô tìm kiếm + Chọn hết/Bỏ chọn hết. **Huỷ = không ghi gì** (all-or-nothing). `DictionaryImportParser` dùng chung plist/json/csv/txt và **không** tự chuẩn hoá khoá — việc đó thuộc từng từ điển.
+* **Bất đối xứng đã sửa**: nhập của NghiTTS trước đây **ghi đè toàn bộ** còn VieNeu **trộn**; nay cả hai có đủ hai nhánh và nhánh ghi đè có sao lưu.
+
 ## 1.3.461 — bỏ việc ép `.high` theo **loại giọng**: đọc truyện luôn theo cài đặt TTS
 
 * **Sửa lỗi phạm vi của 1.3.456.** Lượt đó thêm `isClonedVoice` vào `VieNeuSynthesisPolicy.effectiveMode` và **ép `.high` cho mọi lượt tổng hợp bằng giọng nhân bản**. Đó là **hiểu sai yêu cầu gốc**: "chất lượng cao" là chuyện của **bước clone giọng** (chọn audio gốc + bấm Lưu) — mà bước đó chạy **3 graph clone** (`speaker_encoder`/`codec_encoder`/`reference_encoder`) chứ **không** chạy vòng Euler, nên **không có `steps`** để đặt. Nay `effectiveMode(requested:current:)` = `requested ?? current` — **chỉ theo cài đặt**, cho cả giọng preset lẫn giọng clone.

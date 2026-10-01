@@ -10,6 +10,10 @@ import SwiftUI
 /// quả: mở sheet lúc đang nghe TTS là đóng băng UI cho tới khi lượt đọc hiện tại nhả lock, và mỗi lượt
 /// vẽ lại lặp đúng việc đó. Nay việc nặng nằm trong `Task.detached`, `body` chỉ đọc `@State`.
 ///
+/// Từ 1.3.462 sheet tra **cả hai** từ điển phiên âm (NghiTTS + VieNeu) chứ không chỉ từ điển của đích, và
+/// cho **nhấn giữ chip NGI/VIE để xoá mục** khỏi đúng từ điển đó. Hai từ điển độc lập nên cùng một cách
+/// đọc vẫn hiện **hai** chip để người dùng biết mục nằm ở đâu.
+///
 /// Tách khỏi `TTSDictionaryEditView.swift` cùng lượt: file đó đang **vượt** baseline dòng của
 /// `check_architecture.py` và baseline chỉ được phép giảm.
 struct AddWordSheet: View {
@@ -24,6 +28,16 @@ struct AddWordSheet: View {
         case chooseAtSave
     }
 
+    /// Mục đang chờ xác nhận xoá — nhấn giữ chip `NGI`/`VIE` rồi chọn "Xoá".
+    ///
+    /// Giữ cả `text` (cách đọc) để gỡ **đúng** chip khỏi danh sách sau khi xoá, và `lookupKey` để gọi đúng
+    /// API xoá của store (khoá **đã chuẩn hoá**, không phải chuỗi người dùng gõ).
+    private struct PendingDeletion: Equatable {
+        let origin: TTSPhoneticSuggestion.Origin
+        let text: String
+        let lookupKey: String
+    }
+
     @Environment(\.dismiss) var dismiss
     @State private var key = ""
     @State private var value = ""
@@ -32,6 +46,7 @@ struct AddWordSheet: View {
     @State private var suggestions: [TTSPhoneticSuggestion] = []
     @State private var isBuildingSuggestions = false
     @State private var suggestionLoadTask: Task<Void, Never>? = nil
+    @State private var pendingDeletion: PendingDeletion? = nil
 
     let onAdd: (String, String, Target) -> Void
     let showSuggestions: Bool
@@ -94,6 +109,23 @@ struct AddWordSheet: View {
                 suggestionLoadTask?.cancel()
                 suggestionLoadTask = nil
             }
+            .confirmationDialog(
+                "Xoá khỏi từ điển phiên âm?",
+                isPresented: Binding(
+                    get: { pendingDeletion != nil },
+                    set: { if !$0 { pendingDeletion = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                if let pending = pendingDeletion {
+                    Button("Xoá \"\(pending.lookupKey)\" khỏi \(dictionaryName(pending.origin))", role: .destructive) {
+                        deleteEntry(pending)
+                    }
+                }
+                Button("Huỷ", role: .cancel) { pendingDeletion = nil }
+            } message: {
+                Text("Mục sẽ bị xoá khỏi từ điển phiên âm và **không** khôi phục được.")
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Hủy") {
@@ -142,8 +174,9 @@ struct AddWordSheet: View {
         }
     }
 
+    @ViewBuilder
     private func suggestionChip(_ suggestion: TTSPhoneticSuggestion) -> some View {
-        Button(action: {
+        let chip = Button(action: {
             value = suggestion.text
         }) {
             HStack(spacing: 6) {
@@ -173,6 +206,24 @@ struct AddWordSheet: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(suggestion.text). \(suggestion.origin.explanation)")
+
+        // Nhấn giữ chỉ có tác dụng với chip **có trong từ điển**. Chip JP/EN là kết quả phiên âm tự động,
+        // không nằm trong từ điển nào nên không có gì để xoá — gắn menu vào chúng chỉ gây hiểu nhầm.
+        if suggestion.origin.isDictionaryEntry {
+            chip.contextMenu {
+                Button(role: .destructive) {
+                    pendingDeletion = PendingDeletion(
+                        origin: suggestion.origin,
+                        text: suggestion.text,
+                        lookupKey: TTSPhoneticSuggestionBuilder.normalizedKey(trimmedKey)
+                    )
+                } label: {
+                    Label("Xoá khỏi \(dictionaryName(suggestion.origin))", systemImage: "trash")
+                }
+            }
+        } else {
+            chip
+        }
     }
 
     private func validateKey(_ text: String) {
@@ -211,15 +262,22 @@ struct AddWordSheet: View {
             guard !Task.isCancelled else { return }
 
             let lookupKey = TTSPhoneticSuggestionBuilder.normalizedKey(word)
-            let libraryHit = await Self.libraryHit(for: lookupKey, target: target)
+            let hits = await Self.libraryHits(for: lookupKey)
             guard !Task.isCancelled else { return }
+
+            // Tách thành hai `String?` rời thay vì truyền cả tuple: closure của `Task.detached` là
+            // `@Sendable`, và hai `String?` là kiểu Sendable chắc chắn — không phụ thuộc việc compiler có
+            // chấp nhận tuple ở vị trí capture hay không.
+            let nghiTTSHit = hits.nghiTTS
+            let vieNeuHit = hits.vieNeu
 
             // Đích VieNeu **không** có nhánh tiếng Anh/IPA ⇒ bỏ hẳn chip EN (và bỏ luôn lượt espeak).
             let includeEnglish = target != .vieNeu
             let built = await Task.detached(priority: .userInitiated) {
                 TTSPhoneticSuggestionBuilder.suggestions(
                     for: word,
-                    libraryHit: libraryHit,
+                    nghiTTSHit: nghiTTSHit,
+                    vieNeuHit: vieNeuHit,
                     includeEnglish: includeEnglish
                 )
             }.value
@@ -235,19 +293,52 @@ struct AddWordSheet: View {
         dismiss()
     }
 
-    /// Tra từ điển của **đích**. Đích cố định thì tra đúng từ điển đó; `chooseAtSave` thì tra VieNeu trước
-    /// rồi tới NghiTTS — hai từ điển **độc lập** nên một khoá thường chỉ có ở một bên, tra cả hai chỉ để
-    /// chip gợi ý hiện được dù người dùng chưa chọn đích.
-    private static func libraryHit(for lookupKey: String, target: Target) async -> String? {
-        guard !lookupKey.isEmpty else { return nil }
-        switch target {
-        case .nghiTTS:
-            return await TextPreprocessor.shared.lookupWord(lookupKey)
-        case .vieNeu:
-            return await VieNeuJapaneseDictionary.shared.lookup(lookupKey)
-        case .chooseAtSave:
-            if let hit = await VieNeuJapaneseDictionary.shared.lookup(lookupKey) { return hit }
-            return await TextPreprocessor.shared.lookupWord(lookupKey)
+    /// Tra **cả hai** từ điển phiên âm, **không** phụ thuộc `target`.
+    ///
+    /// Từ 1.3.462 chip gợi ý hiện cả `NGI` lẫn `VIE` để người dùng thấy mục đã có ở đâu — hai từ điển độc
+    /// lập, cùng một cách đọc vẫn là hai chip (chốt 2026-10-01). Trước đây chỉ tra từ điển của đích nên mở
+    /// từ màn NghiTTS thì không bao giờ thấy mục đã có bên VieNeu (và ngược lại).
+    private static func libraryHits(for lookupKey: String) async -> (nghiTTS: String?, vieNeu: String?) {
+        guard !lookupKey.isEmpty else { return (nil, nil) }
+        let nghiTTS = await TextPreprocessor.shared.lookupWord(lookupKey)
+        let vieNeu = await VieNeuJapaneseDictionary.shared.lookup(lookupKey)
+        return (nghiTTS, vieNeu)
+    }
+
+    /// Xoá mục khỏi **đúng** từ điển mà chip trỏ tới, rồi gỡ chip đó khỏi danh sách.
+    ///
+    /// Gỡ chip **sau khi** xoá thành công: xoá lỗi mà chip đã biến mất thì người dùng tưởng đã xong.
+    /// Không dựng lại cả danh sách gợi ý sau khi xoá — phần còn lại không đổi, dựng lại chỉ tốn thêm một
+    /// lượt `EspeakPhonemizer` (hàm C giữ `NSLock` dùng chung với đường tổng hợp).
+    private func deleteEntry(_ pending: PendingDeletion) {
+        pendingDeletion = nil
+        Task {
+            do {
+                switch pending.origin {
+                case .nghiTTSLibrary:
+                    try await TextPreprocessor.shared.deleteWord(key: pending.lookupKey)
+                case .vieNeuLibrary:
+                    try await VieNeuJapaneseDictionary.shared.delete(key: pending.lookupKey)
+                case .japanese, .englishIPA, .englishRule:
+                    return
+                }
+                suggestions.removeAll { $0.origin == pending.origin && $0.text == pending.text }
+                ToastManager.shared.show(
+                    message: "Đã xoá \"\(pending.lookupKey)\" khỏi \(dictionaryName(pending.origin))",
+                    type: .success
+                )
+            } catch {
+                ToastManager.shared.show(message: "Xoá thất bại: \(error.localizedDescription)", type: .error)
+            }
+        }
+    }
+
+    /// Tên hiển thị của từ điển theo nguồn chip — dùng cho nhãn menu xoá và toast.
+    private func dictionaryName(_ origin: TTSPhoneticSuggestion.Origin) -> String {
+        switch origin {
+        case .nghiTTSLibrary: return "từ điển NghiTTS"
+        case .vieNeuLibrary: return "từ điển VieNeu-TTS"
+        case .japanese, .englishIPA, .englishRule: return "từ điển"
         }
     }
 }

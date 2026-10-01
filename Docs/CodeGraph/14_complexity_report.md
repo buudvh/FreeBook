@@ -16,6 +16,13 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 
 <!-- GENERATED START -->
 
+## 1.3.462 — độ phức tạp: 7 file mới, `TTSDictionaryEditView` **giảm**
+
+* Theo cách đếm của tài liệu này **223 → 230** file Swift (validator: 629 → **636**). File mới đều **nhỏ**: `RephoneticizeService` **309**, `RephoneticizeTask` **236**, `DictionaryImportConflictView` **234**, `NotificationInboxView+Rephoneticize` **219**, `DictionaryImportFlowModifier` **144**, `DictionaryImportParser` **128**, `DictionaryImportDiff` **94** — tất cả dưới trần 400.
+* `TTSDictionaryEditView.swift` **559 → 518** (giảm 41) nhờ bỏ `parseCSV` sang parser dùng chung và bỏ đường ghi plist trực tiếp trong `importDictionary`.
+* Hai file **sát trần 400**: `VieNeuJapaneseDictionaryView` **389**, `NotificationInboxView` **393** — lượt sửa tới phải tách file trước khi thêm.
+* Không file nào vào top-10 complexity hiện có; `TTSDictionaryEditView` vẫn ở hạng 5 về độ lồng khối.
+
 ## 1.3.455 — độ phức tạp (sửa luồng nhân bản giọng)
 
 * `VieNeuTTSEngine+Catalog.swift` **34**, 1 extension (không thêm type mới). `refreshVoiceCatalog()` là O(số giọng) để parse JSON ~2,3 MB — **không** nằm trên đường tổng hợp, chỉ chạy khi kho giọng đổi.
