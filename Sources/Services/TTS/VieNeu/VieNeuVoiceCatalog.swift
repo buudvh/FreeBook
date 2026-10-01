@@ -29,7 +29,7 @@ struct VieNeuVoiceCatalog: Sendable {
         /// `true` khi đây là giọng do người dùng **nhân bản**. Nhận diện qua `gender` — cùng hằng số mà
         /// UI và catalog dùng (`customGender`) để hai bên không thể lệch nhau. Dùng để ép chế độ
         /// chất lượng `.high` (xem `VieNeuSynthesisPolicy.effectiveMode`).
-        var isCloned: Bool { gender == Self.customGender }
+        var isCloned: Bool { gender == VieNeuVoiceCatalog.customGender }
     }
 
     let presets: [Preset]
