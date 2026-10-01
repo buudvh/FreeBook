@@ -21,11 +21,15 @@ struct NghiTTSSettingsView: View {
     
     var body: some View {
         Form {
-            Section("Tiền xử lý text") {
+            // Phải là `Section { } header: { } footer: { }` — `Section("…") { } footer: { }` KHÔNG tồn tại
+            // (`Section(_:content:)` không có tham số `footer`), và đó đúng là lỗi CI đã mắc ở lượt 1.3.459.
+            Section {
                 Toggle("Chuẩn hóa cách đọc số", isOn: $preprocessorNumericNormalizationEnabled)
                 Toggle("Áp dụng thay thế từ điển", isOn: $preprocessorDictionaryReplacementEnabled)
                 Toggle("Phiên âm tiếng Anh/Nhật", isOn: $preprocessorTransliterationEnabled)
                 Toggle("Dùng IPA của espeak cho tiếng Anh", isOn: $useEspeakIPAForEnglish)
+            } header: {
+                Text("Tiền xử lý text")
             } footer: {
                 Text("Thử giọng đọc đã chuyển vào màn **Cài đặt NghiTTS** (tab Cài đặt → Nghe Truyện (TTS) · NghiTTS) — cùng chỗ với các lối vào quản lý.")
             }

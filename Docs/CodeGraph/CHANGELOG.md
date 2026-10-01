@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.460] - 2026-10-01
+
+### feat: tu dien phien am tieng Nhat rieng cho VieNeu-TTS va hub Cai dat NghiTTS
+
+Sửa lỗi biên dịch CI của lượt `[1.3.459]` — **giữ nguyên commit subject cho lần push sửa CI**.
+
+- **Đúng một lỗi thật trong log CI** (`Build and Archive App (Unsigned)`, exit 65): `NghiTTSSettingsView.swift:24:13: error: generic parameter 'Content' could not be inferred` (+2 chẩn đoán cùng gốc `missing argument label 'content:'` / `cannot convert value of type 'String' to expected argument type '() -> Content'`).
+- **Nguyên nhân**: lượt trước đổi `Section("Tiền xử lý text") { … }` thành `Section("Tiền xử lý text") { … } footer: { … }` để thêm footer. Nhưng **`Section(_:content:)` không có tham số `footer`** — chỉ tồn tại `Section(content:header:footer:)`. Đây **đúng cái bẫy đã ghi trong bộ nhớ dự án** (*"`Section(header:…) { } footer: { }` SAI — phải `Section { } header: { } footer: { }`"*) và tôi đã vấp lại.
+- **Sửa**: đổi sang `Section { … } header: { Text("Tiền xử lý text") } footer: { … }`, kèm một dòng comment ngay trên để lần sau không lặp lại. `NghiTTSSettingsView.swift` 155 → **159** dòng.
+- **Rà soát lại toàn bộ code mới** tìm cùng bẫy: mọi `Section("…") { … }` còn lại (`Giọng đọc`, `Tốc độ`, `Kết quả`, `Cấu hình khoảng ngắt`, `Tải trước & Bộ đệm`) đều **không** kèm `footer`/`header` ⇒ hợp lệ; các section có header/footer đều đã ở dạng `Section { } header: { } footer: { }`.
+- **Ràng buộc đã đo**: `check_architecture.py` **5 violation nền / 0 mới**; `validate_links.py` **PASS 100% (16 doc, 629 file Swift)**. `11_subsystems.md` chuyển `accept` → **no-change-needed** (sửa cú pháp Swift không đổi hành vi nào đã mô tả).
+
+---
+
 ## [1.3.459] - 2026-10-01
 
 ### feat: tu dien phien am tieng Nhat rieng cho VieNeu-TTS va hub Cai dat NghiTTS
@@ -571,19 +585,3 @@ Người dùng: **"chỗ đến năm giảm âm lượng đột ngột"**, **"đ
 - **File sửa**: `VieNeuTTSEngine.swift` **370**, `VieNeuTTSEngine+Chunking.swift` **294** (mới), `VieNeuTTSEngine+Audio.swift` 368 → **148**, `VieNeuTTSTestView+Sections.swift` 210 → **217**.
 - **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
 - **Tài liệu CodeGraph**: `rules.md` thêm 2 luật (khớp âm lượng là mở rộng có chủ ý; tách `+Audio` theo ranh giới chữ/mẫu); `00_index`, `02_file_graph`, `09_dependency_rules`, `11_subsystems`, `14_complexity_report` cập nhật.
-
-## [1.3.430] - 2026-09-29
-
-### fix: mo rong hang rao con so theo tu dan so
-
-Báo cáo sau 1.3.429 trả lời gọn cả hai câu hỏi.
-
-- **`chậm ở đâu  vector 7,60 s | khác 0,14 s`** trên 28,01 s audio ⇒ **vòng Euler chiếm 98%** thời gian, chi phí cố định theo chunk chỉ 0,14 s ⇒ **giảm số chunk không giúp gì** — loại hẳn một hướng tối ưu tôi định thử.
-- **Nâng lên 4 luồng đã có tác dụng**: `RTF thật` 0,37 → **0,29** (−22%). Giữ 4 luồng; đã ghi **kết quả đo** vào doc của `threadCount` để lần sau không đo lại.
-- **Còn lại hai đòn bẩy, cả hai đã chạm sàn**: số bước (8 là mức thấp nhất còn dùng được) và CFG (tắt đi thì người dùng nghe "quá dở") ⇒ **engine đã gần mức sàn thực tế**.
-- **Lỗi còn lại: "tháng sáu" bị chẻ đôi.** Phoneme từng chunk chỉ ra đúng chỗ: `[0] … tˈaːɜŋ.` rồi `[1] sˈaɜw nˈam …`. Hàng rào của bản tham chiếu chỉ chặn cắt giữa **hai từ số**, mà "tháng" không phải từ số ⇒ lọt. Nay thêm `numberIntroducers` (tháng ngày giờ phút giây tuổi khoảng độ số trang chương phần quyển tập mục điều quãng hồi chặng) chặn cắt **ngay sau** chúng khi từ kế là số.
-  * **Đã xác minh**: hàng rào cũ → `…từ khoảng tháng | nghìn chín trăm…`; mới → `…từ khoảng | nghìn chín trăm…` ✓.
-  * Đây là **mở rộng** so với bản tham chiếu, nhưng chính nó ghi rằng chặn thừa một chút còn hơn xẻ đôi một năm ⇒ đúng tinh thần của nó.
-- **File sửa**: `VieNeuTTSEngine+Audio.swift` 355 → **368**, `VieNeuSynthesisPolicy.swift` **93** (chỉ đổi doc).
-- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
-- **Tài liệu CodeGraph**: `rules.md` thêm 2 luật (kết quả đo: Euler 98% ⇒ giảm chunk vô ích, 4 luồng có tác dụng; từ dẫn số cũng chặn cắt); `11_subsystems.md` thêm mục về lượt này.
