@@ -278,4 +278,11 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
    - Lỗi tạm thời lần đầu -> `retryScheduled(attempt: 1)`: khóa scheduler, chờ 1 giây, xác thực session/chapter/generation rồi thử lại.
    - Lỗi tạm thời lần hai hoặc lỗi không retry -> `blocked`: bỏ qua paragraph index đó trong các lần chọn prefetch tiếp theo.
    - `CancellationError`, stop, đổi session hoặc chuyển chương -> `cancelled/reset`: hủy retry task và xóa toàn bộ state liên quan, không ghi lại state từ task cũ.
+## 1.3.459 — state mới: hai cờ tiếng Nhật của VieNeu
+
+* `TTSSettingsView` thêm **`@StateObject var vieNeuJapaneseFlags = VieNeuJapaneseFlags()`** (1 dòng; trần 519 nên **không** dùng 2 `@AppStorage` + 1 `@State`). Ba giá trị bên trong: `dictionaryEnabled`, `transliterationEnabled` (ghi thẳng `UserDefaults` trong `didSet`) và `dictionaryDownloaded` (đọc từ đĩa).
+* Làm mới trong `refreshVieNeuSettings()` — hàm đã được `.onAppear` gọi, nên tránh đúng lỗi **1.3.456** (`@State` khởi tạo một lần ⇒ mở lại màn thấy giá trị mặc định).
+* `VieNeuTTSTestView` thêm `@State japaneseDictDownloaded` + `@State isDownloadingJapaneseDict`, đọc lại từ đĩa trong `.onAppear` (từ điển có thể vừa được tải ở màn khác).
+* Nguồn sự thật của **cách đọc** không nằm ở state View mà ở `UserDefaults` + file plist: View chỉ hiển thị và ghi xuống.
+
 <!-- GENERATED END -->

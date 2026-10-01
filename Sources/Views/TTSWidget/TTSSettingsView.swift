@@ -35,6 +35,9 @@ struct TTSSettingsView: View {
     /// (cùng lý do như `vieNeuSelectedMode`); khởi tạo bằng giá trị đang lưu.
     @State var vieNeuPowerSaving: Bool = VieNeuTTSService.shared?.powerSaving ?? true
     @State var vieNeuThreadCount: Int = VieNeuTTSService.shared?.threadCount ?? 2
+    /// Hai cờ tiếng Nhật của VieNeu + trạng thái "đã tải từ điển". Gom vào **một** `ObservableObject` vì
+    /// file này chỉ còn **3 dòng** tới trần 519 của `check_architecture.py` — xem `VieNeuJapaneseFlags`.
+    @StateObject var vieNeuJapaneseFlags = VieNeuJapaneseFlags()
 
     private var currentExtParams: (preloadSize: Int?, maxLength: Int?) {
         let path = allExtensions.first(where: { $0.packageId == ttsManager.tool })?.localPath ?? ttsManager.extensionLocalPath

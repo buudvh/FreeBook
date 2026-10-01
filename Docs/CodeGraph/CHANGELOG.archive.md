@@ -2,6 +2,22 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.429] - 2026-09-29
+
+### perf: them so do thoi gian va in phoneme moi chunk
+
+Người dùng: **"Cả đoạn mà phoneme bạn in ra chỉ có 1 câu"** và **"thời gian tổng hợp quá dài: hơn 10s cho 28s audio, cũ là 4s… cần thiết sửa để tăng tốc độ"**.
+
+- **Phoneme in MỌI chunk, mỗi chunk một dòng** (`[0] …`, `[1] …`). Bản trước chỉ in 700 ký tự của chunk 0 — mà chunk 0 chỉ là một câu, nên không soi được chunk nào đọc sai.
+- **Số đo tách nhóm việc thay vì đoán**: `VieNeuTTSEngine.Timing` cộng dồn `vectorMs` (vòng Euler) và `otherMs` (phần còn lại của chunk); báo cáo thêm dòng `chậm ở đâu vector X s | khác Y s`. Đây là bước **đo trước khi sửa** — nếu `vector` chiếm gần hết thì đòn bẩy là số bước / CFG / số luồng; nếu `khác` đáng kể thì đó là chi phí cố định theo chunk và cách giảm là giảm số chunk.
+  * **Bẫy đã mắc và đã sửa**: bản đầu dùng hai `defer` — cái ngoài đo **cả chunk** (gồm cả vòng lặp) nên phần vector bị **đếm hai lần**. Sửa thành `otherMs += max(0, chunkMs - vectorMs)`. **Số đo sai còn tệ hơn không đo** vì nó đẩy lần sửa sau đi sai hướng.
+- **Nâng `threadCount` 2 → 4**: sau khi đã ở 8 bước + CFG thì số luồng là **đòn bẩy còn lại duy nhất**, đổi lại máy nóng hơn. Ghi rõ trong code: nếu lần sau RTF không giảm mà `vector` vẫn chiếm gần hết thì **trả về 2**.
+- **Phân tích số của người dùng**: 10,15 s cho 28,13 s audio; `RTF thật` 0,37 so với 0,26–0,30 trước đó ⇒ **chậm đi thật ~25%**, không phải artefact. Phần lớn là do văn bản **dài ra thật** (số được đọc thành chữ: 20,71 → 28,13 s audio) cộng +20% số chunk.
+- **`VieNeuTTSEngine` chạm 399/400 dòng** khi thêm số đo ⇒ dời `Chunk`/`Gap` sang `+Audio.swift`, `Timing` sang `+Adaptive.swift` ⇒ engine còn **370**.
+- **File sửa**: `VieNeuTTSEngine.swift` 372 → **370**, `VieNeuTTSEngine+Audio.swift` 336 → **355**, `VieNeuTTSEngine+Adaptive.swift` 46 → **56**, `VieNeuTTSService.swift` 272 → **279**, `VieNeuSynthesisPolicy.swift` 87 → **93**, `VieNeuTTSTestView.swift` 290 → **291**.
+- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
+- **Tài liệu CodeGraph**: `rules.md` thêm 3 luật (đo trước khi tối ưu và đừng để số đo đếm hai lần; chẩn đoán phải in mọi đơn vị chứ không chỉ cái đầu; nested type nên nằm ở file extension khi file chính chật); `11_subsystems.md` thêm mục về lượt này.
+
 ## [1.3.428] - 2026-09-29
 
 ### fix: khong cat giua con so va bao cao rtf tru khoang nghi

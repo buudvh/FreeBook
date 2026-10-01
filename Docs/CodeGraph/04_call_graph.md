@@ -1422,4 +1422,13 @@ translateMeta / translateContent / translateChapterTitle
      └── Rỗng/chỉ dấu câu -> `PiperTTSService.makeSilenceSpec(...)` -> `WAVEncoder.encodePCM16(...)`
    - Lỗi prefetch tạm thời -> `evaluateRefillError(...)` -> retry backoff 1 giây (`Task.sleep`, tối đa 2 lần) -> `updateNghiPrefetchWindow()`.
    - Lỗi không retry hoặc đủ hai attempt -> đánh dấu index bị block -> chọn ứng viên prefetch khác.
+## 1.3.459 — cạnh gọi mới: tiền xử lý tiếng Nhật của VieNeu
+
+* `VieNeuTTSService.executeInternalSynthesis` và `executeInternalSynthesisStream` → **`VieNeuJapanesePreprocessor.applyUsingStoredFlags(text:)`** (bọc quanh `TextPreprocessor.normalizeVietnameseText`). Đặt ở **tầng service** nên **cả Reader lẫn màn "Nghe thử"** đi cùng một đường.
+* `VieNeuJapanesePreprocessor.apply` → `VieNeuJapaneseDictionary.all()` (một lượt nhảy actor cho cả đoạn, không phải mỗi token) → `ForeignScriptClassifier.isJapaneseRomaji` → `JapaneseTransliterator.transliterateRomaji`.
+* **Không** có cạnh nào tới `EnglishPhonemeTransliterator` / `EspeakPhonemizer` / `PreprocessorRuntimeConfig` — ràng buộc cứng của tính năng (VieNeu chỉ làm tiếng Nhật).
+* `AddWordSheet` → `TTSPhoneticSuggestionBuilder.suggestions(for:libraryHit:includeEnglish:)`; `AddWordSheet.libraryHit(for:target:)` → `VieNeuJapaneseDictionary.lookup` **hoặc** `TextPreprocessor.lookupWord` tuỳ đích.
+* `ReaderView` (sheet "Phiên âm") → `VieNeuJapaneseDictionary.update` hoặc `TextPreprocessor.updateWord` theo mục người dùng chọn trong `Menu("Lưu")`.
+* `VieNeuJapaneseDictionaryView` → `VieNeuJapaneseDictionary.downloadInitialDictionary()` → `URLSession` (HuggingFace).
+
 <!-- GENERATED END -->

@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 /// Phần **VieNeu-TTS** của màn Cài đặt TTS.
@@ -76,6 +77,8 @@ extension TTSSettingsView {
         vieNeuPowerSaving = VieNeuSynthesisPolicy.isPowerSaving(.standard)
         vieNeuThreadCount = Int(VieNeuSynthesisPolicy.threadCount(from: .standard))
         vieNeuSelectedMode = VieNeuSynthesisPolicy.preferredMode(from: .standard)
+        // Hai cờ tiếng Nhật + trạng thái "đã tải từ điển" đọc thẳng kho, cùng lý do như ba giá trị trên.
+        vieNeuJapaneseFlags.refresh()
     }
 
     func loadVoicesForCurrentTool() async {
@@ -139,7 +142,31 @@ extension TTSSettingsView {
         Text("Số luồng càng nhiều càng khó gây ra trường hợp phải chờ đợi giữa hai đoạn nghe nhưng dễ nóng máy và hết pin nhanh. Số luồng áp dụng sau khi nạp lại engine (mở lại app hoặc đổi engine)." + (vieNeuPowerSaving ? " Đang bật Tiết kiệm pin: cố định chế độ Cân bằng + 2 luồng để máy mát và ít tốn pin; chất lượng giọng thấp hơn." : ""))
             .font(.caption)
             .foregroundColor(.secondary)
-        // 5. Lối vào **giọng nhân bản**.
+        // 5. Hai công tắc **riêng của VieNeu** cho tiền xử lý tiếng Nhật. Cả hai mặc định **TẮT** nên mặc
+        //    định VieNeu đọc y như trước — chỉ khác đúng một thứ luôn chạy: gấp macron về ASCII
+        //    (`danzō` → `danzo`), xem `VieNeuJapanesePreprocessor`.
+        Toggle("Áp dụng từ điển phiên âm VieNeu", isOn: $vieNeuJapaneseFlags.dictionaryEnabled)
+        Toggle("Tự động phiên âm tiếng Nhật", isOn: $vieNeuJapaneseFlags.transliterationEnabled)
+
+        // 6. Từ điển tiếng Nhật: **đã tải ⇒ lối vào; chưa tải ⇒ cảnh báo + nút tải** — mở một màn trống thì
+        //    người dùng không biết phải làm gì.
+        if vieNeuJapaneseFlags.dictionaryDownloaded {
+            NavigationLink(destination: VieNeuJapaneseDictionaryView()) {
+                Label("Từ điển phiên âm tiếng Nhật", systemImage: "character.book.closed")
+            }
+        } else {
+            HStack {
+                Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
+                Text("Chưa tải từ điển tiếng Nhật").font(.subheadline).foregroundColor(.secondary)
+            }
+            Button {
+                downloadJapaneseDictionary()
+            } label: {
+                Label("Tải từ điển tiếng Nhật", systemImage: "arrow.down.circle")
+            }
+        }
+
+        // 7. Lối vào **giọng nhân bản**.
         //
         // Chỉ hiện khi đã có `voices_v3_nano.json`: màn đó đọc catalog để dựng danh sách, mà thiếu file
         // ấy thì nó chỉ hiện được một câu báo lỗi — vào được cũng không làm gì. Điều kiện **không** gồm
@@ -201,5 +228,50 @@ extension TTSSettingsView {
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
+    }
+
+    /// Tải từ điển tiếng Nhật rồi làm mới cờ "đã tải" ⇒ hàng **cảnh báo + nút tải** đổi thành **lối vào**
+    /// ngay, không phải thoát màn rồi mở lại.
+    func downloadJapaneseDictionary() {
+        Task {
+            do {
+                try await VieNeuJapaneseDictionary.shared.downloadInitialDictionary()
+                vieNeuJapaneseFlags.refresh()
+                ToastManager.shared.show(message: "Tải từ điển tiếng Nhật thành công!", type: .success)
+            } catch {
+                ToastManager.shared.show(message: "Không thể tải từ điển: \(error.localizedDescription)", type: .error)
+            }
+        }
+    }
+}
+
+/// Ba trạng thái của phần **tiếng Nhật** cho VieNeu.
+///
+/// **Vì sao không dùng `@AppStorage`**: `TTSSettingsView.swift` chỉ còn **3 dòng** tới trần 519 của
+/// `check_architecture.py`, mà hai `@AppStorage` cộng một `@State` là vừa đúng 3 dòng. Gom vào một
+/// `ObservableObject` tốn **một** dòng ở file chính và vẫn còn chỗ cho lần sau.
+///
+/// **Vì sao `refresh()` đọc thẳng `UserDefaults`**: đây là bài học lỗi **1.3.456** — *"vào Cài đặt TTS từ
+/// tab Cài đặt thì luôn hiển thị giá trị mặc định dù đã thay đổi cài đặt rồi"*: `@State` chỉ khởi tạo
+/// **một lần** lúc View dựng, nên phải làm mới trong `.onAppear` (đi qua `refreshVieNeuSettings()`).
+final class VieNeuJapaneseFlags: ObservableObject, @unchecked Sendable {
+    /// "Áp dụng từ điển phiên âm VieNeu" — mặc định **TẮT**.
+    @Published var dictionaryEnabled: Bool = false {
+        didSet { UserDefaults.standard.set(dictionaryEnabled, forKey: VieNeuJapanesePreprocessor.dictionaryEnabledKey) }
+    }
+
+    /// "Tự động phiên âm tiếng Nhật" — mặc định **TẮT**.
+    @Published var transliterationEnabled: Bool = false {
+        didSet { UserDefaults.standard.set(transliterationEnabled, forKey: VieNeuJapanesePreprocessor.japaneseTransliterationEnabledKey) }
+    }
+
+    /// Từ điển đã có dưới máy chưa — quyết định hiện lối vào hay hiện cảnh báo + nút tải.
+    @Published var dictionaryDownloaded: Bool = false
+
+    func refresh() {
+        let defaults = UserDefaults.standard
+        dictionaryEnabled = defaults.bool(forKey: VieNeuJapanesePreprocessor.dictionaryEnabledKey)
+        transliterationEnabled = defaults.bool(forKey: VieNeuJapanesePreprocessor.japaneseTransliterationEnabledKey)
+        dictionaryDownloaded = VieNeuJapaneseDictionary.existsOnDisk()
     }
 }

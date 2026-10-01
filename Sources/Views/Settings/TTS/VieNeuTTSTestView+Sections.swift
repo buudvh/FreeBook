@@ -74,6 +74,52 @@ extension VieNeuTTSTestView {
         }
     }
 
+    /// Lối vào **từ điển tiếng Nhật** của VieNeu: đã tải ⇒ `NavigationLink`; chưa tải ⇒ cảnh báo + nút tải.
+    ///
+    /// Hai **công tắc** áp dụng (`Áp dụng từ điển phiên âm VieNeu`, `Tự động phiên âm tiếng Nhật`) **không**
+    /// ở đây — chúng chỉ có ở *Cài đặt TTS → Quản lý riêng của trình đọc* (người dùng chốt 2026-10-01), nên
+    /// màn này chỉ mở lối vào và nói rõ điều đó ở footer.
+    @ViewBuilder
+    var japaneseDictionarySection: some View {
+        Section {
+            if japaneseDictDownloaded {
+                NavigationLink(destination: VieNeuJapaneseDictionaryView()) {
+                    Label("Từ điển phiên âm tiếng Nhật", systemImage: "character.book.closed")
+                }
+            } else {
+                HStack {
+                    Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
+                    Text("Chưa tải từ điển tiếng Nhật").font(.subheadline).foregroundColor(.secondary)
+                }
+                Button {
+                    downloadJapaneseDictionary()
+                } label: {
+                    Label("Tải từ điển tiếng Nhật", systemImage: "arrow.down.circle")
+                }
+                .disabled(isDownloadingJapaneseDict)
+            }
+        } header: {
+            Text("Tiếng Nhật")
+        } footer: {
+            Text("Từ điển **riêng của VieNeu**, độc lập với từ điển của NghiTTS. Bật/tắt áp dụng ở **Cài đặt TTS → Quản lý riêng của trình đọc**; cả hai công tắc ở đó mặc định **tắt**.")
+        }
+    }
+
+    /// Tải từ điển tiếng Nhật rồi cập nhật cờ "đã tải" ⇒ hàng cảnh báo đổi thành lối vào ngay.
+    func downloadJapaneseDictionary() {
+        isDownloadingJapaneseDict = true
+        Task {
+            do {
+                try await VieNeuJapaneseDictionary.shared.downloadInitialDictionary()
+                japaneseDictDownloaded = VieNeuJapaneseDictionary.existsOnDisk()
+                ToastManager.shared.show(message: "Tải từ điển tiếng Nhật thành công!", type: .success)
+            } catch {
+                ToastManager.shared.show(message: "Không thể tải từ điển: \(error.localizedDescription)", type: .error)
+            }
+            isDownloadingJapaneseDict = false
+        }
+    }
+
     @ViewBuilder
     var textSection: some View {
         Section {

@@ -152,7 +152,7 @@ Trước khi commit bất kỳ thay đổi nào, bắt buộc phải vượt qua
 
 ### Bước 4: Lấy quyền xác thực & Tra cứu CI Run qua `gh`
 
-Nếu môi trường chưa cấu hình `gh auth login`, tự động trích xuất token xác thực từ Git Credential Manager mà không làm phiền người dùng:
+Kiểm tra trước bằng `gh auth status` — **nếu đã xanh thì bỏ qua toàn bộ mục này** (máy này đã đăng nhập sẵn, không cần `GH_TOKEN`). Nếu chưa cấu hình `gh auth login`, tự động trích xuất token xác thực từ Git Credential Manager mà không làm phiền người dùng:
 
 - **Trên Windows PowerShell**:
   ```powershell
@@ -174,7 +174,7 @@ Xác định **Run ID** mới nhất được kích hoạt bởi commit vừa pu
 ### Bước 5: Theo dõi tiến độ chi tiết bằng `gh run view` (Non-blocking)
 
 > [!IMPORTANT]
-> **Không bao giờ chạy polling loop liên tục** làm lãng phí tài nguyên và làm nghẽn context. Hãy sử dụng công cụ `schedule` với chế độ một lần (`DurationSeconds`) để chờ thông báo phản hồi giữa các lần kiểm tra.
+> **Không bao giờ chạy polling loop liên tục** làm lãng phí tài nguyên và làm nghẽn context. Cách **đã kiểm chứng trên WorkBuddy**: chạy `gh run watch <run_id> --exit-status --interval 30` với `run_in_background=true`, rồi `TaskOutput` `block=true` — lệnh tự thoát khi run kết thúc và trả về exit code. (Công cụ `schedule` / `DurationSeconds` là của Antigravity, **không** tồn tại trên WorkBuddy.)
 
 1. **Lệnh theo dõi tiến độ chi tiết**:
    Sử dụng lệnh `gh run view` để kiểm tra trực tiếp tiến trình từng step trong workflow:
@@ -194,10 +194,10 @@ Xác định **Run ID** mới nhất được kích hoạt bởi commit vừa pu
    - `* Upload IPA Artifact`
    - `* Send IPA to Telegram`
 
-2. **Chu kỳ kiểm tra khuyến nghị**:
-   - Sau khi push: đặt hẹn giờ **60 giây** để kiểm tra trạng thái khởi động của runner.
-   - Khi job bước vào bước `Build and Archive App (Unsigned)`: đặt hẹn giờ **120 giây** mỗi lượt kiểm tra (bước này thường mất khoảng 4–8 phút trên macOS runner).
-   - Mỗi lần timer kích hoạt, chạy lệnh `gh run view` và cập nhật ngắn gọn các bước đang thực hiện cho người dùng.
+2. **Cách chờ đã kiểm chứng (WorkBuddy)**:
+   - Một lệnh duy nhất, chạy nền: `gh run watch <run_id> --exit-status --interval 30` (`run_in_background=true`).
+   - Chờ kết quả: `TaskOutput` với `block=true` + `timeout` dài (run này mất **~7–9 phút** trên macOS runner) ⇒ lệnh trả về ngay khi CI xong.
+   - Muốn xem cây step giữa chừng: `gh run view <run_id>` (đọc nhanh, không chặn).
 
 ---
 

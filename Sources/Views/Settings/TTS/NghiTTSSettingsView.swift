@@ -26,11 +26,8 @@ struct NghiTTSSettingsView: View {
                 Toggle("Áp dụng thay thế từ điển", isOn: $preprocessorDictionaryReplacementEnabled)
                 Toggle("Phiên âm tiếng Anh/Nhật", isOn: $preprocessorTransliterationEnabled)
                 Toggle("Dùng IPA của espeak cho tiếng Anh", isOn: $useEspeakIPAForEnglish)
-
-                NavigationLink(destination: NghiTTSTextToolView()) {
-                    Label("Thử giọng đọc", systemImage: "text.bubble")
-                        .foregroundColor(.white)
-                }
+            } footer: {
+                Text("Thử giọng đọc đã chuyển vào màn **Cài đặt NghiTTS** (tab Cài đặt → Nghe Truyện (TTS) · NghiTTS) — cùng chỗ với các lối vào quản lý.")
             }
             
             Section("Cấu hình khoảng ngắt (giây)") {

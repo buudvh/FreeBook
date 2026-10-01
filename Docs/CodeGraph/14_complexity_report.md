@@ -700,4 +700,10 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 
 - `RemoteTTSSynthesisCoordinator.swift` and `ExtTTSRuntime.swift` add bounded actors that extract queue/runtime state from the already-large `TTSManager.swift` and `ExtensionManager.swift`; neither new file enters the existing top-complexity set.
 
+## 1.3.459 — độ phức tạp: 6 file mới, 1 file xoá
+
+* Theo cách đếm của tài liệu này **218 → 223** file Swift (validator: 624 → **629**). File mới đều **nhỏ**: `VieNeuJapaneseDictionary` **110**, `+Download` **50**, `VieNeuJapanesePreprocessor` **106**, `VieNeuJapaneseDictionaryView` **358**, `NghiTTSSettingsHubView` **57**, `+Sections` **186** — tất cả dưới trần 400.
+* Điểm đáng chú ý: `TTSSettingsView.swift` **516 → 519**, chạm đúng trần allowlist ⇒ **không còn dòng trống nào**; mọi thứ mới của màn Cài đặt TTS phải nằm ở `TTSSettingsView+VieNeu.swift` (206 → **277**). `VieNeuTTSService.swift` 389 → **398** (còn 2 dòng). `ReaderView.swift` 2042 → **2049** (trần 2053).
+* Xoá `NghiTTSTextToolView.swift` (**189** dòng) nhưng nội dung chuyển sang `NghiTTSSettingsHubView+Sections.swift` ⇒ tổng dòng của phân hệ tăng, không giảm.
+
 <!-- GENERATED END -->

@@ -202,7 +202,7 @@ struct TTSDictionaryEditView: View {
                 }
             }
             .sheet(isPresented: $showingAddSheet) {
-                AddWordSheet(initialKey: searchText) { key, val in
+                AddWordSheet(initialKey: searchText, target: .nghiTTS) { key, val, _ in
                     addWord(key: key, value: val)
                 }
             }

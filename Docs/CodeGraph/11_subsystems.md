@@ -16,6 +16,17 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 
 <!-- GENERATED START -->
 
+## 1.3.459 — phân hệ mới: từ điển phiên âm tiếng Nhật **riêng cho VieNeu-TTS**
+
+* **Vì sao cần**: người dùng báo *"VieNeu-TTS đọc tiếng Nhật nhiều từ chưa chính xác lắm"*. Gốc rễ **không** phải từ điển sai mà là **VieNeu chưa từng có đường tra nào**: `TextPreprocessor.preprocess` (nơi tra từ điển ở `:990`) **chỉ** được gọi bởi NghiTTS (`PiperTTSService.swift:195`, `:341`); VieNeu chỉ gọi `TextPreprocessor.normalizeVietnameseText` (số/ngày, không espeak) ở `VieNeuTTSService.swift:301`/`:346`.
+* **Ba mảnh**:
+  1. `VieNeuJapaneseDictionary` (actor) — từ điển **độc lập hoàn toàn** với của NghiTTS, file `FreeBook/TTS/phien-am-tieng-nhat.plist`. Không nằm trong `TextPreprocessor` vì file đó ở **1120/1121 dòng** (trần cứng) và vì hai từ điển phải độc lập (user chốt).
+  2. `VieNeuJapanesePreprocessor` — **gấp macron LUÔN** (`ā ī ū ē ō` → ASCII; an toàn tuyệt đối vì 5 ký tự này không có trong bảng chữ tiếng Việt, nên **không cần cổng chặn**) rồi, khi cờ bật, tra từ điển và/hoặc phiên âm romaji Nhật. **Không** có nhánh tiếng Anh/IPA — không đọc `PreprocessorRuntimeConfig`, không gọi espeak.
+  3. UI: màn `VieNeuJapaneseDictionaryView`, nút "Lưu" 2 mục ở Reader (`Menu`, khuôn `AddTTSReplacementSheet`), 2 công tắc + nav ở Cài đặt TTS (nhánh VieNeu) và nav ở "Cài đặt VieNeu TTS".
+* **Hai cờ mặc định TẮT** (`vieneuDictionaryEnabled`, `vieneuJapaneseTransliterationEnabled`) ⇒ mặc định VieNeu đọc y như trước, chỉ khác macron. Đặt **chỉ** ở Cài đặt TTS → Quản lý riêng của trình đọc, dùng khoá **riêng** (không dùng `PreprocessorSettingKey` của NghiTTS).
+* **Dữ liệu ban đầu**: `phien-am-tieng-nhat.plist` trên `raikiri1498/nghitts` được dựng lại bằng `Scripts/rebuild_vieneu_japanese_dictionary.py`: **gấp macron ở khoá** (30.565 → 30.377) → lọc `ForeignScriptClassifier` (→ 412) → phiên âm lại `transliterateRomaji` (→ 405) → 4 mục đặt tay + xoá 3 ⇒ **409 mục**. Gấp macron ở khoá là **bắt buộc**: app tra bằng khoá đã gấp dấu nên khoá còn macron là mục chết, và classifier đòi toàn ASCII nên **571 từ Nhật** sẽ bị loại oan.
+* **Tái tổ chức điều hướng**: 3 nav NghiTTS ở tab Cài đặt gom thành **1 nav "Cài đặt NghiTTS"** → hub mới, và hub **nhúng thẳng phần thử giọng** (trước đây là nav riêng trong "Cấu hình NghiTTS") ⇒ **xoá** `NghiTTSTextToolView.swift`. Lý do kỹ thuật: view cũ bọc cả một `Form`, mà `Form` **không lồng được trong `Form`** — nội dung phải chuyển thành các `Section` rời.
+
 ## 1.3.458 — nút "Tạo giọng mới" hết khoá im lặng khi đang phát: báo bằng toast
 
 * **Triệu chứng**: TTS đang phát ⇒ bấm **"Tạo giọng mới"** (`VieNeuVoiceLibraryView+Sections.swift`, `creationSection`) **không phản hồi**; nút trông bình thường vì `.tint(.white)` toàn cục làm trạng thái disabled không đổi màu chữ, và footer **không có** nhánh cho điều kiện này nên vẫn hiện câu hướng dẫn thường.

@@ -35,9 +35,13 @@ public enum TTSPhoneticSuggestionBuilder {
     }
 
     /// `libraryHit` là kết quả tra từ điển phiên âm (caller lo vì nó là `actor`).
+    ///
+    /// `includeEnglish = false` dùng cho **đích VieNeu**: engine đó **không** có nhánh tiếng Anh/IPA (ràng
+    /// buộc cứng của tính năng từ điển tiếng Nhật), nên chip EN vừa vô nghĩa vừa tốn một lượt espeak.
     public static func suggestions(
         for word: String,
-        libraryHit: String?
+        libraryHit: String?,
+        includeEnglish: Bool = true
     ) -> [TTSPhoneticSuggestion] {
         let key = normalizedKey(word)
         guard !key.isEmpty else { return [] }
@@ -66,9 +70,11 @@ public enum TTSPhoneticSuggestionBuilder {
             append(japanese, .japanese, isChoice: !hasLibrary && isJapanese)
         }
 
-        let english = EnglishPhonemeTransliterator.detailed(key)
-        let origin: TTSPhoneticSuggestion.Origin = english.source == .espeak ? .englishIPA : .englishRule
-        append(english.text, origin, isChoice: !hasLibrary && !isJapanese)
+        if includeEnglish {
+            let english = EnglishPhonemeTransliterator.detailed(key)
+            let origin: TTSPhoneticSuggestion.Origin = english.source == .espeak ? .englishIPA : .englishRule
+            append(english.text, origin, isChoice: !hasLibrary && !isJapanese)
+        }
 
         return result
     }

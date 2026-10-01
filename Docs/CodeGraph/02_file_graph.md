@@ -627,7 +627,7 @@ Khong them file nao: ca bon luot toi uu deu nam trong file san co, va hai file b
 
 460 -> **464** file Swift. Khong file nao cham tran 400.
 
-* [`Sources/Views/Settings/TTS/NghiTTSTextToolView.swift`](../../Sources/Views/Settings/TTS/NghiTTSTextToolView.swift) — **180** dong.
+* `Sources/Views/Settings/TTS/NghiTTSTextToolView.swift` — **180** dong (da xoa o 1.3.459; noi dung chuyen sang `NghiTTSSettingsHubView`).
 * `Sources/Services/Translation/Utils/ReferenceDictionaryReader.swift` — **96** dong (da xoa o 1.3.320).
 * `Sources/Views/Dictionary/ReferenceDictionaryHubView.swift` — **43** dong (da xoa o 1.3.320).
 * `Sources/Views/Dictionary/ReferenceDictionaryListView.swift` — **125** dong (da xoa o 1.3.320).
@@ -1430,4 +1430,15 @@ Sơ đồ liên kết file của toàn bộ dự án FreeBook sau refactor:
   - `Views/Search/`: `SearchView.swift`.
   - `Views/Discovery/`: `DiscoveryView.swift`.
   - `Views/Common/`: `VisibleBrowserReopenView.swift`.
+## 1.3.459 — file mới/xoá: từ điển phiên âm tiếng Nhật cho VieNeu-TTS
+
+* **Thêm 6 file** ⇒ theo cách đếm của tài liệu này **218 → 223** file (validator: 624 → **629** file Swift).
+  * `Sources/Services/TTS/VieNeu/VieNeuJapaneseDictionary.swift` — `actor` giữ `[String: String]`, file `FreeBook/TTS/phien-am-tieng-nhat.plist`. **Không** nằm trong `TextPreprocessor` (file đó ở 1120/1121 dòng) và **độc lập** với từ điển NghiTTS.
+  * `…/VieNeuJapaneseDictionary+Download.swift` — tải bản ban đầu từ `raikiri1498/nghitts`, **trộn local-thắng** (khuôn `NghiTTSClient.swift:86-98`).
+  * `…/VieNeuJapanesePreprocessor.swift` — `enum` thuần: gấp macron (luôn) → từ điển → romaji Nhật. **Không** đọc `PreprocessorRuntimeConfig`, **không** espeak.
+  * `Sources/Views/Settings/TTS/VieNeuJapaneseDictionaryView.swift` — màn từ điển (danh sách/tìm/CRUD/tải/nhập-xuất).
+  * `Sources/Views/Settings/TTS/NghiTTSSettingsHubView.swift` + `…+Sections.swift` — hub "Cài đặt NghiTTS", **nhúng thẳng** phần thử giọng (nội dung chuyển từ `NghiTTSTextToolView`).
+* **Xoá 1 file**: `Sources/Views/Settings/TTS/NghiTTSTextToolView.swift` (nó bọc cả một `Form` nên **không** nhúng được vào `Form` của hub).
+* Sửa nội dung: `VieNeuTTSService.swift` 389 → **398** (2 điểm gọi preprocessor), `TTSSettingsView.swift` 516 → **519** (trần 519), `TTSSettingsView+VieNeu.swift` 206 → **277** (2 công tắc + nav + `VieNeuJapaneseFlags`), `VieNeuTTSTestView.swift` 377 → **385**, `VieNeuTTSTestView+Sections.swift` 224 → **270**, `AddWordSheet.swift` 200 → **253** (`Target` + `Menu`), `NghiTTSSettingsView.swift` 158 → **155**, `TTSSettingsSection.swift` 36 → **28**, `ReaderView.swift` 2042 → **2049**, `BackupPaths.swift`, `TTSDictionaryEditView.swift`, `TTSPhoneticSuggestionBuilder.swift`.
+
 <!-- GENERATED END -->

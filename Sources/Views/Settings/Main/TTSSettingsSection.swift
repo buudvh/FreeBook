@@ -12,18 +12,10 @@ struct TTSSettingsSection: View {
             }
         }
         Section(header: Text("Nghe Truyện (TTS) · NghiTTS")) {
-            NavigationLink(destination: TTSModelManagerView()) {
-                Label {
-                    Text("Quản lý Model")
-                } icon: {
-                    Image(systemName: "waveform.and.mic").foregroundColor(.white)
-                }
-            }
-            NavigationLink(destination: TTSDictionaryEditView()) {
-                Label("Từ điển phiên âm cá nhân", systemImage: "character.book.closed")
-            }
-            NavigationLink(destination: NghiTTSSettingsView()) {
-                Label("Cấu hình tiền xử lý & ngắt nghỉ", systemImage: "slider.horizontal.3")
+            // Một lối vào duy nhất: hub gom cả 3 mục quản lý **và** phần thử giọng (trước đây 3 nav rời ở
+            // đây cộng thêm 1 nav nữa nằm sâu trong "Cấu hình NghiTTS").
+            NavigationLink(destination: NghiTTSSettingsHubView()) {
+                Label("Cài đặt NghiTTS", systemImage: "waveform.and.mic")
             }
         }
         // Màn VieNeu đứng riêng: nó là engine thứ hai, không phải tuỳ chọn của NghiTTS/Piper.

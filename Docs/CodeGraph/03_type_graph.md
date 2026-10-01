@@ -470,4 +470,12 @@ Các kiểu dữ liệu chính và mối quan hệ sau refactor:
 4. **Presentation Event Stream Types**:
    - `TTSPresentationEvent`, `DownloadPresentationEvent` (Value enums).
    - `TTSPresentationEventCenter`, `DownloadPresentationEventCenter` (`AsyncStream` publishers).
+## 1.3.459 — type mới: từ điển phiên âm tiếng Nhật cho VieNeu-TTS
+
+* `actor VieNeuJapaneseDictionary` (`Services/TTS/VieNeu/`) — giữ `[String: String]`; API `lookup` / `all` / `update` / `delete` / `deleteAll` / `replaceAll` / `loadResources` + `static fileName` / `fileURL()` / `existsOnDisk()` / `normalizedKey(_:)`. **Độc lập** với `TextPreprocessor.wordMap` (chủ ý: user chốt 2026-10-01, và `TextPreprocessor` đã hết chỗ dòng).
+* `enum VieNeuJapanesePreprocessor` — `static foldMacrons(_:)`, `apply(text:dictionaryEnabled:japaneseTransliterationEnabled:)`, `applyUsingStoredFlags(text:)`, cộng 2 hằng khoá `UserDefaults` **riêng của VieNeu** (`vieneuDictionaryEnabled`, `vieneuJapaneseTransliterationEnabled`). Cố ý **không** dùng `PreprocessorSettingKey` của NghiTTS.
+* `final class VieNeuJapaneseFlags: ObservableObject` (khai ở `Views/TTSWidget/TTSSettingsView+VieNeu.swift`) — 3 `@Published` (2 cờ + `dictionaryDownloaded`) + `refresh()` đọc thẳng `UserDefaults`/đĩa. Gom vào một object vì `TTSSettingsView.swift` chỉ còn 3 dòng tới trần 519.
+* `struct VieNeuJapaneseDictionaryView` + `struct NghiTTSSettingsHubView` (+ `+Sections`) — View mới. `AddWordSheet.Target` (enum lồng) quyết định nút "Lưu" là `Button` hay `Menu` 2 mục.
+* `TTSPhoneticSuggestionBuilder.suggestions` thêm tham số `includeEnglish: Bool = true` — `false` cho đích VieNeu (engine đó **không** có nhánh IPA tiếng Anh).
+
 <!-- GENERATED END -->

@@ -13,6 +13,17 @@ import SwiftUI
 /// Tách khỏi `TTSDictionaryEditView.swift` cùng lượt: file đó đang **vượt** baseline dòng của
 /// `check_architecture.py` và baseline chỉ được phép giảm.
 struct AddWordSheet: View {
+    /// Đích lưu của sheet.
+    ///
+    /// `chooseAtSave` = mở từ **Reader**: nút "Lưu" là `Menu` **2 mục** (đúng khuôn
+    /// `AddTTSReplacementSheet.swift:108-115`). Hai case còn lại là **đích cố định** — màn sửa từ điển của
+    /// từng engine — nên nút Lưu vẫn là `Button` như cũ.
+    enum Target: Equatable {
+        case nghiTTS
+        case vieNeu
+        case chooseAtSave
+    }
+
     @Environment(\.dismiss) var dismiss
     @State private var key = ""
     @State private var value = ""
@@ -22,18 +33,29 @@ struct AddWordSheet: View {
     @State private var isBuildingSuggestions = false
     @State private var suggestionLoadTask: Task<Void, Never>? = nil
 
-    let onAdd: (String, String) -> Void
+    let onAdd: (String, String, Target) -> Void
     let showSuggestions: Bool
+    let target: Target
 
-    init(initialKey: String = "", showSuggestions: Bool = false, onAdd: @escaping (String, String) -> Void) {
+    init(
+        initialKey: String = "",
+        showSuggestions: Bool = false,
+        target: Target = .nghiTTS,
+        onAdd: @escaping (String, String, Target) -> Void
+    ) {
         self.onAdd = onAdd
         self.showSuggestions = showSuggestions
+        self.target = target
         _key = State(initialValue: initialKey)
         _value = State(initialValue: "")
     }
 
     private var trimmedKey: String {
         key.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var canSave: Bool {
+        !trimmedKey.isEmpty && !value.trimmed.isEmpty && validationError == nil
     }
 
     var body: some View {
@@ -79,11 +101,17 @@ struct AddWordSheet: View {
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Lưu") {
-                        onAdd(key, value)
-                        dismiss()
+                    if target == .chooseAtSave {
+                        // Menu 2 mục, đúng khuôn `AddTTSReplacementSheet` ("Lưu riêng" / "Lưu chung").
+                        Menu("Lưu") {
+                            Button("Lưu vào NghiTTS") { save(.nghiTTS) }
+                            Button("Lưu vào VieNeu-TTS") { save(.vieNeu) }
+                        }
+                        .disabled(!canSave)
+                    } else {
+                        Button("Lưu") { save(target) }
+                            .disabled(!canSave)
                     }
-                    .disabled(key.trimmed.isEmpty || value.trimmed.isEmpty || validationError != nil)
                 }
             }
         }
@@ -183,18 +211,43 @@ struct AddWordSheet: View {
             guard !Task.isCancelled else { return }
 
             let lookupKey = TTSPhoneticSuggestionBuilder.normalizedKey(word)
-            let libraryHit: String? = lookupKey.isEmpty
-                ? nil
-                : await TextPreprocessor.shared.lookupWord(lookupKey)
+            let libraryHit = await Self.libraryHit(for: lookupKey, target: target)
             guard !Task.isCancelled else { return }
 
+            // Đích VieNeu **không** có nhánh tiếng Anh/IPA ⇒ bỏ hẳn chip EN (và bỏ luôn lượt espeak).
+            let includeEnglish = target != .vieNeu
             let built = await Task.detached(priority: .userInitiated) {
-                TTSPhoneticSuggestionBuilder.suggestions(for: word, libraryHit: libraryHit)
+                TTSPhoneticSuggestionBuilder.suggestions(
+                    for: word,
+                    libraryHit: libraryHit,
+                    includeEnglish: includeEnglish
+                )
             }.value
             guard !Task.isCancelled else { return }
 
             suggestions = built
             isBuildingSuggestions = false
+        }
+    }
+
+    private func save(_ destination: Target) {
+        onAdd(key, value, destination)
+        dismiss()
+    }
+
+    /// Tra từ điển của **đích**. Đích cố định thì tra đúng từ điển đó; `chooseAtSave` thì tra VieNeu trước
+    /// rồi tới NghiTTS — hai từ điển **độc lập** nên một khoá thường chỉ có ở một bên, tra cả hai chỉ để
+    /// chip gợi ý hiện được dù người dùng chưa chọn đích.
+    private static func libraryHit(for lookupKey: String, target: Target) async -> String? {
+        guard !lookupKey.isEmpty else { return nil }
+        switch target {
+        case .nghiTTS:
+            return await TextPreprocessor.shared.lookupWord(lookupKey)
+        case .vieNeu:
+            return await VieNeuJapaneseDictionary.shared.lookup(lookupKey)
+        case .chooseAtSave:
+            if let hit = await VieNeuJapaneseDictionary.shared.lookup(lookupKey) { return hit }
+            return await TextPreprocessor.shared.lookupWord(lookupKey)
         }
     }
 }

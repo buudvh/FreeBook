@@ -26,7 +26,7 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
     ///
     /// Dùng chung một thực thể là **bắt buộc**, không phải tiện: mỗi `VieNeuTTSEngine` giữ bốn
     /// `OrtSession` riêng, nên hai service là hai bộ session nằm trong RAM và hai đường suy luận tranh
-    /// CPU — cùng lý do đã ghi ở `NghiTTSTextToolView` cho Piper.
+    /// CPU — cùng lý do đã ghi ở `NghiTTSSettingsHubView` cho Piper.
     static let shared: VieNeuTTSService? = {
         guard let store = try? VieNeuModelStore() else { return nil }
         return VieNeuTTSService(store: store, engine: VieNeuTTSEngine(store: store))
@@ -298,7 +298,13 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         // Mở rộng số/ngày/tháng trước khi đưa cho engine — `sea_g2p.bin` không có chữ số, nếu không
         // `8/1999` bị nuốt 10 ký tự. Dùng entry chung `normalizeVietnameseText` (không espeak, vì vocab
         // VieNeu không chứa IPA), đồng nhất với NghiTTS xử lý số ở service qua `preprocess`.
-        let normalizedText = TextPreprocessor.normalizeVietnameseText(text)
+        //
+        // Rồi mới tới **tiền xử lý riêng của VieNeu** (`VieNeuJapanesePreprocessor`): gấp macron luôn, cộng
+        // từ điển tiếng Nhật + phiên âm romaji khi 2 cờ riêng của VieNeu được bật. Đặt ở tầng service nên
+        // **cả Reader lẫn màn "Nghe thử"** đi cùng một đường. **Không** có nhánh tiếng Anh/IPA.
+        let normalizedText = await VieNeuJapanesePreprocessor.applyUsingStoredFlags(
+            text: TextPreprocessor.normalizeVietnameseText(text)
+        )
         let started = ProcessInfo.processInfo.systemUptime
         let output = try engine.synthesize(
             text: normalizedText,
@@ -342,8 +348,11 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
             return silence.wavData
         }
         // Mở rộng số/ngày/tháng (xem chú thích ở `executeInternalSynthesis`) — áp dụng luôn cho đường
-        // stream để thử giọng và nạp trước cũng đọc đúng số.
-        let normalizedText = TextPreprocessor.normalizeVietnameseText(text)
+        // stream để thử giọng và nạp trước cũng đọc đúng số. Cộng thêm tiền xử lý riêng của VieNeu —
+        // xem chú thích ở `executeInternalSynthesis`.
+        let normalizedText = await VieNeuJapanesePreprocessor.applyUsingStoredFlags(
+            text: TextPreprocessor.normalizeVietnameseText(text)
+        )
         let output = try engine.synthesize(
             text: normalizedText,
             voiceName: voice,

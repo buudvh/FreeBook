@@ -415,7 +415,7 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 
 ## Thu giong doc, hub tu dien tham chieu, va hai danh sach quan ly duoc dong bo (1.3.318)
 
-* **Thu giong doc NghiTTS**: [NghiTTSTextToolView](../../Sources/Views/Settings/TTS/NghiTTSTextToolView.swift#L1) (moi) — nhap chu, chon giong, keo toc do, bam phat. Dung lai **dung** `PiperTTSService` cua `TTSManager` (khong tao service thu hai, tranh mot `ORTSession` nua trong RAM) va bi chan khi TTS dang doc truyen.
+* **Thu giong doc NghiTTS**: `NghiTTSTextToolView` (moi; da xoa o 1.3.459 — noi dung chuyen sang `NghiTTSSettingsHubView`) — nhap chu, chon giong, keo toc do, bam phat. Dung lai **dung** `PiperTTSService` cua `TTSManager` (khong tao service thu hai, tranh mot `ORTSession` nua trong RAM) va bi chan khi TTS dang doc truyen.
 * **Hub tu dien tham chieu**: `ReferenceDictionaryHubView` + `ReferenceDictionaryListView` (moi) cho phien am, dai tu, luat nhan — co tim kiem, dem, tai them theo trang nhu cac danh sach khac. Tach khoi `DictType` co y: nhoi ba bo nay vao do se buoc **17** diem `switch` trong module xu ly hai case vo nghia.
 * **Hai danh sach quan ly duoc dong bo** voi cac list khac (tim kiem + dong dem): thay the ky tu TTS va loc rac. Kem **mot loi that** duoc sua: khi dang tim, `onMove` nhan `IndexSet` tro vao mang **da loc** roi ap len `manager.rules` nen keo-tha se doi cho sai rule — gio keo-tha bi chan trong luc tim.
 * **4 file Swift moi** (460 → **464**), sua **4** file.
@@ -1089,5 +1089,11 @@ graph TD
 - Google/Ext giữ cửa sổ cache `[N, N + count]` (`count = max(1, min(10, currentPrefetchCount))`) và tổng hợp qua một `RemoteTTSSynthesisCoordinator`; chỉ một operation chạy tại một thời điểm, ưu tiên chunk hiện tại. Thermal state chỉ là telemetry — không dừng hay thu hẹp prefetch theo `.serious/.critical`.
 - Ext TTS dùng `ExtTTSRuntime` actor để tái sử dụng một `JSExecutor` theo script/config, trong khi các script bóc tách nội dung vẫn dùng executor ngắn hạn.
 - NghiTTS dùng `NghiSynthesisPolicy` để giới hạn ONNX/XNNPACK ở một worker và `PiperSynthesisCoordinator` xếp hàng theo 4 mức ưu tiên; cửa sổ prefetch giữ đoạn hiện tại `N`, đoạn kế `N+1`, tối đa 2 optional reserve (`maxOptionalReserveItems`) từ `N+2`, theo watermark cached-time (`defaultSafeCachedTimeThreshold = 8.0`s). Thermal state là diagnostic-only, không gating refill/prefetch.
+
+### 1.3.459 — từ điển phiên âm tiếng Nhật riêng cho VieNeu-TTS
+
+* Thêm **6** file Swift, xoá **1** (`Views/Settings/TTS/NghiTTSTextToolView.swift`) ⇒ theo cách đếm của tài liệu này **218 → 223** file (validator đếm 624 → **629** file Swift). **Số lượng doc vẫn là 16**, không đổi cấu trúc bộ tài liệu.
+* File mới: `Services/TTS/VieNeu/VieNeuJapaneseDictionary.swift` · `VieNeuJapaneseDictionary+Download.swift` · `VieNeuJapanesePreprocessor.swift` · `Views/Settings/TTS/VieNeuJapaneseDictionaryView.swift` · `NghiTTSSettingsHubView.swift` · `NghiTTSSettingsHubView+Sections.swift`.
+* Kèm 1 script dữ liệu (không phải Swift, không tính vào ô phủ doc): `Scripts/rebuild_vieneu_japanese_dictionary.py`.
 
 <!-- GENERATED END -->

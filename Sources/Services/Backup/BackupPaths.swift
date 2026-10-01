@@ -64,7 +64,11 @@ public enum BackupPaths {
     public static let ttsDictionaryFiles = [
         "non-vietnamese-words.plist",
         "acronyms.plist",
-        "character_replacements.json"
+        "character_replacements.json",
+        // Từ điển phiên âm **riêng của VieNeu** (tiếng Nhật) — cùng thư mục `FreeBook/TTS/`, nên đi kèm
+        // nhóm `.dictCustom` như ba file trên; `BackupDictionaryArchiver`/`Restorer` đã lặp theo danh sách
+        // này nên không phải sửa gì thêm.
+        VieNeuJapaneseDictionary.fileName
     ]
 
     /// Cài đặt & cấu hình của app (`UserDefaults`), dạng plist nhị phân. **Không** thuộc nhóm nào:

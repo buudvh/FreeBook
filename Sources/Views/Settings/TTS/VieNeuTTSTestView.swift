@@ -12,7 +12,7 @@ import UIKit
 /// Dùng **đúng** `VieNeuTTSService.shared` mà tầng Reader sẽ dùng, không tạo thực thể thứ hai: mỗi
 /// `VieNeuTTSEngine` giữ bốn `ORT` session riêng nên hai service là hai bộ session trong RAM.
 ///
-/// Nút phát bị chặn khi TTS đang đọc truyện — cùng lý do đã ghi ở `NghiTTSTextToolView`: chung engine và
+/// Nút phát bị chặn khi TTS đang đọc truyện — cùng lý do đã ghi ở `NghiTTSSettingsHubView`: chung engine và
 /// chung `AVAudioSession`.
 struct VieNeuTTSTestView: View {
     @State var text = "Xin chào, đây là bản thử giọng đọc VieNeu-TTS."
@@ -41,6 +41,9 @@ struct VieNeuTTSTestView: View {
     @State var selectedMode: VieNeuSynthesisPolicy.Mode?
     /// File WAV tạm của lượt tổng hợp gần nhất, để `ShareLink` chia sẻ.
     @State var shareURL: URL?
+    /// Từ điển tiếng Nhật của VieNeu: đã có dưới máy chưa, và đang tải hay không.
+    @State var japaneseDictDownloaded = VieNeuJapaneseDictionary.existsOnDisk()
+    @State var isDownloadingJapaneseDict = false
 
     var service: VieNeuTTSService? { VieNeuTTSService.shared }
 
@@ -65,6 +68,7 @@ struct VieNeuTTSTestView: View {
         Form {
             modelSection
             voiceSection
+            japaneseDictionarySection
             textSection
             speedSection
             qualitySection
@@ -108,7 +112,11 @@ struct VieNeuTTSTestView: View {
         .tint(.white)
         .navigationTitle("Cài đặt VieNeu TTS")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear(perform: loadVoices)
+        .onAppear {
+            loadVoices()
+            // Từ điển có thể vừa được tải ở màn khác (Cài đặt TTS) ⇒ đọc lại từ đĩa mỗi lần mở màn.
+            japaneseDictDownloaded = VieNeuJapaneseDictionary.existsOnDisk()
+        }
         .onDisappear(perform: stopPlayback)
     }
 
