@@ -21,6 +21,10 @@ struct TTSDictionaryEditView: View {
     /// File người dùng vừa chọn, **chưa** đọc. Luồng `dictionaryImportFlow` nhận URL này rồi mới hỏi
     /// *Trộn* / *Thay thế toàn bộ* — nhờ vậy màn chọn mục trùng mở được **ngay** còn việc parse chạy ngầm.
     @State private var pendingImportURL: URL? = nil
+    /// Cờ mở hộp thoại *Trộn / Thay thế toàn bộ*. **Phải** bật từ `onDismiss` của sheet chọn file, không
+    /// bật trong `onPick` — bật giữa lượt dismiss modal sẽ bị nuốt im lặng (xem doc
+    /// `DictionaryImportFlowModifier`).
+    @State private var showingImportModeDialog = false
     @State private var showingRephoneticizeConfirmation = false
     @State private var showingDownloadConfirmation = false
     @State private var showingDeleteAllConfirmation = false
@@ -217,7 +221,10 @@ struct TTSDictionaryEditView: View {
                     addWord(key: key, value: val)
                 }
             }
-            .sheet(isPresented: $showingFileImporter) {
+            .sheet(isPresented: $showingFileImporter, onDismiss: {
+                // `onDismiss` chạy **sau khi** animation đóng xong ⇒ đây mới là chỗ an toàn để mở modal kế.
+                if pendingImportURL != nil { showingImportModeDialog = true }
+            }) {
                 DocumentPicker(
                     allowedContentTypes: [.propertyList, .json, .commaSeparatedText, .plainText],
                     allowsMultipleSelection: false,
@@ -230,8 +237,12 @@ struct TTSDictionaryEditView: View {
                             return
                         }
                         // Hai kiểm tra **rẻ** ngay tại đây rồi mới giao URL cho luồng nhập: đọc + parse + so
-                        // khớp chạy ngầm phía sau màn chọn mục trùng.
+                        // khớp chạy ngầm phía sau màn chọn mục trùng. Phải mở security scope **quanh** lượt
+                        // đọc metadata: file từ provider (iCloud/Files) mà đọc ngoài scope thì `resourceValues`
+                        // ném lỗi ⇒ `fileSize` ra 0 ⇒ chặn nhầm file hợp lệ.
+                        let hasAccess = selectedURL.startAccessingSecurityScopedResource()
                         let fileSize = (try? selectedURL.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
+                        if hasAccess { selectedURL.stopAccessingSecurityScopedResource() }
                         if fileSize <= 0 {
                             ToastManager.shared.show(message: "Tệp tin từ điển trống hoặc không hợp lệ.", type: .error)
                             return
@@ -260,12 +271,15 @@ struct TTSDictionaryEditView: View {
             }
             .dictionaryImportFlow(
                 fileURL: $pendingImportURL,
+                isModeDialogPresented: $showingImportModeDialog,
                 title: "Nhập từ điển — chọn mục trùng khoá",
                 normalizedKey: Self.importKey,
                 current: allWords,
                 onReplace: replaceImport,
                 onApplyMerged: applyMergedImport
             )
+            // Banner tiến độ "Phiên âm lại" — cùng nội dung với card ở màn Thông báo, nhưng ngay tại đây.
+            .rephoneticizeProgress(task: RephoneticizeTask.nghiTTS) { Task { await loadDictionary() } }
             .sheet(item: Binding(
                 get: { editingKey.map { EditingEntry(key: $0, value: editingValue) } },
                 set: { editingKey = $0?.key; editingValue = $0?.value ?? "" }

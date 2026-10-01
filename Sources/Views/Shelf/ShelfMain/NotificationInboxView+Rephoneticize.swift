@@ -18,11 +18,18 @@ import SwiftUI
 /// **Xuất file** / **Bỏ qua**.
 extension NotificationInboxView {
 
+    /// Chỉ vẽ card của từ điển **thật sự** đang chạy / có kết quả / vừa lỗi (`isVisible`). Từ điển chưa
+    /// phiên âm lại thì không có gì để báo ⇒ **không** hiện card, tránh một dòng "Chưa phiên âm lại" vô
+    /// nghĩa chiếm chỗ ở màn Thông báo.
     @ViewBuilder
     func rephoneticizeRow() -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            RephoneticizeCard(task: rephoneticizeNghi, timeText: timeLabel(rephoneticizeNghi.displayDate))
-            RephoneticizeCard(task: rephoneticizeVieNeu, timeText: timeLabel(rephoneticizeVieNeu.displayDate))
+            if rephoneticizeNghi.isVisible {
+                RephoneticizeCard(task: rephoneticizeNghi, timeText: timeLabel(rephoneticizeNghi.displayDate))
+            }
+            if rephoneticizeVieNeu.isVisible {
+                RephoneticizeCard(task: rephoneticizeVieNeu, timeText: timeLabel(rephoneticizeVieNeu.displayDate))
+            }
         }
         .padding(.vertical, 4)
     }

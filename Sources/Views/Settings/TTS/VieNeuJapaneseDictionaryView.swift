@@ -32,6 +32,10 @@ struct VieNeuJapaneseDictionaryView: View {
     /// File người dùng vừa chọn, **chưa** đọc. Luồng `dictionaryImportFlow` nhận URL này rồi mới hỏi
     /// *Trộn* / *Thay thế toàn bộ* — nhờ vậy màn chọn mục trùng mở được **ngay** còn việc parse chạy ngầm.
     @State private var pendingImportURL: URL? = nil
+    /// Cờ mở hộp thoại *Trộn / Thay thế toàn bộ*. **Phải** bật từ `onDismiss` của sheet chọn file, không
+    /// bật trong `onPick` — bật giữa lượt dismiss modal sẽ bị nuốt im lặng (xem doc
+    /// `DictionaryImportFlowModifier`).
+    @State private var showingImportModeDialog = false
     @State private var showingRephoneticizeConfirmation = false
     @State private var showingDeleteAllConfirmation = false
     @State private var showingDownloadConfirmation = false
@@ -110,7 +114,10 @@ struct VieNeuJapaneseDictionaryView: View {
                 addWord(key: key, value: val)
             }
         }
-        .sheet(isPresented: $showingFileImporter) {
+        .sheet(isPresented: $showingFileImporter, onDismiss: {
+            // `onDismiss` chạy **sau khi** animation đóng xong ⇒ đây mới là chỗ an toàn để mở modal kế.
+            if pendingImportURL != nil { showingImportModeDialog = true }
+        }) {
             DocumentPicker(
                 allowedContentTypes: [.propertyList, .json, .plainText],
                 allowsMultipleSelection: false,
@@ -178,12 +185,15 @@ struct VieNeuJapaneseDictionaryView: View {
         }
         .dictionaryImportFlow(
             fileURL: $pendingImportURL,
+            isModeDialogPresented: $showingImportModeDialog,
             title: "Nhập từ điển — chọn mục trùng khoá",
             normalizedKey: VieNeuJapaneseDictionary.normalizedKey,
             current: allWords,
             onReplace: replaceImport,
             onApplyMerged: applyMergedImport
         )
+        // Banner tiến độ "Phiên âm lại" — cùng nội dung với card ở màn Thông báo, nhưng ngay tại đây.
+        .rephoneticizeProgress(task: RephoneticizeTask.vieNeu) { Task { await loadDictionary() } }
     }
 
     /// Bọc khoá + giá trị cho `sheet(item:)`.
@@ -254,31 +264,6 @@ struct VieNeuJapaneseDictionaryView: View {
             } label: {
                 Label("Xoá", systemImage: "trash")
             }
-        }
-    }
-
-    /// Dòng trạng thái 2 công tắc — **chỉ đọc**, không có công tắc ở màn này (chúng ở Cài đặt TTS).
-    @ViewBuilder
-    private var statusSection: some View {
-        Section {
-            LabeledContent("Áp dụng từ điển", value: JapaneseFlags.dictionaryEnabled ? "Đang bật" : "Đang tắt")
-            LabeledContent("Tự động phiên âm tiếng Nhật", value: JapaneseFlags.transliterationEnabled ? "Đang bật" : "Đang tắt")
-        } footer: {
-            if JapaneseFlags.dictionaryEnabled {
-                Text("Từ khớp trong bảng này được đọc theo đúng cột phải.")
-            } else {
-                Text("Đang **tắt** áp dụng ⇒ thêm từ ở đây vẫn **chưa** nghe thấy khác. Bật ở **Cài đặt TTS → Quản lý riêng của trình đọc**.")
-            }
-        }
-    }
-
-    /// Đọc thẳng `UserDefaults` mỗi lần vẽ — hai cờ này do màn Cài đặt TTS ghi, không phải `@State` ở đây.
-    private enum JapaneseFlags {
-        static var dictionaryEnabled: Bool {
-            UserDefaults.standard.bool(forKey: VieNeuJapanesePreprocessor.dictionaryEnabledKey)
-        }
-        static var transliterationEnabled: Bool {
-            UserDefaults.standard.bool(forKey: VieNeuJapanesePreprocessor.japaneseTransliterationEnabledKey)
         }
     }
 

@@ -16,6 +16,12 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 <!-- GENERATED START -->
 
+## 1.3.463 — 2 file mới (sửa lỗi luồng nhập + banner tiến độ)
+
+* File mới: `RephoneticizeProgressBanner` **127** · `VieNeuJapaneseDictionaryView+Status` **36** — đều dưới trần 400.
+* `VieNeuJapaneseDictionaryView.swift` 389 → **399** rồi **374** sau khi tách `statusSection` + `JapaneseFlags` ra file `+Status` — nó từng chỉ còn **1** dòng biên so với trần 400.
+* Tăng: `TTSDictionaryEditView.swift` 518 → **532** (baseline 641) · `NotificationInboxView+Rephoneticize.swift` 219 → **226** · `DictionaryImportFlowModifier.swift` 144 → **158**.
+
 ## 1.3.462 — 7 file mới, 8 file sửa; `TTSDictionaryEditView` **giảm** 41 dòng
 
 * File mới (tất cả dưới trần 400): `RephoneticizeService` **309** · `RephoneticizeTask` **236** · `NotificationInboxView+Rephoneticize` **219** · `DictionaryImportConflictView` **234** · `DictionaryImportFlowModifier` **144** · `DictionaryImportParser` **128** · `DictionaryImportDiff` **94**.

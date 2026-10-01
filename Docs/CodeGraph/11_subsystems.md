@@ -16,6 +16,14 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 
 <!-- GENERATED START -->
 
+## 1.3.463 — sửa hai lỗi của luồng nhập file + banner tiến độ ngay trên màn từ điển
+
+* **Hộp thoại *Trộn / Thay thế toàn bộ* không hiện (lỗi 1.3.462).** Bản đó mở hộp thoại bằng `.onChange(of: fileURL)`, tức bật cờ **ngay trong `onPick`** — mà `onPick` của `DocumentPicker` chạy trong **completion của lượt dismiss** sheet chọn file ⇒ presentation bắt đầu giữa lượt dismiss modal bị UIKit/SwiftUI **nuốt im lặng**. Tệ hơn: `fileURL` vẫn còn giá trị nên `.onChange` không thấy đổi ⇒ chọn lại **đúng file đó** cũng không kích hoạt lại. Nay cờ `isModeDialogPresented` do **View gọi sở hữu** và bật trong `onDismiss` của sheet chọn file — hook này chỉ chạy **sau khi** animation đóng xong.
+* **Chỉ hiện card của từ điển đã phiên âm lại.** `rephoneticizeRow()` trước đây vẽ **cả hai** card vô điều kiện ⇒ từ điển chưa chạy vẫn hiện một dòng "Chưa phiên âm lại" vô nghĩa. Nay mỗi card chỉ vẽ khi `task.isVisible`.
+* **Chặn nhầm file hợp lệ ở màn NghiTTS.** Kiểm tra `resourceValues(forKeys: [.fileSizeKey])` đọc **ngoài** security scope ⇒ file từ provider (iCloud/Files) ném lỗi, `fileSize` ra 0. Nay bọc trong `startAccessingSecurityScopedResource()` / `stopAccessing`.
+* **Banner tiến độ trên màn từ điển.** `RephoneticizeProgressBanner` là `ViewModifier` gắn qua `.safeAreaInset(edge: .top)`: tiêu đề + `statusText`, `ProgressView(value:)` khi chạy, và khi có kết quả thì **Nhập vào từ điển** / **Bỏ qua**. Cùng nguồn dữ liệu với card ở màn Thông báo (`@Published` trong RAM, **không** chạm đĩa). Là modifier để hai màn chỉ thêm **một dòng**.
+* **File mới của lượt này**: `RephoneticizeProgressBanner.swift` (**127**) · `VieNeuJapaneseDictionaryView+Status.swift` (**36** — tách `statusSection` + `JapaneseFlags` khỏi file chính khi nó chỉ còn 1 dòng biên so với trần 400).
+
 ## 1.3.462 — phân hệ Từ điển phiên âm: chip hai nguồn, xoá từ, phiên âm lại, luồng nhập có màn chọn
 
 * **Chip gợi ý có hai nguồn.** `TTSPhoneticSuggestion.Origin` tách `.library` thành `.nghiTTSLibrary` (`NGI`) và `.vieNeuLibrary` (`VIE`). `AddWordSheet` tra **cả hai** store mỗi lượt và **không** gộp chip trùng chữ giữa hai nguồn — dedupe đổi từ khoá `text` sang `origin.rawValue + "|" + text` (trước đây chip của từ điển kia bị nuốt mất). Cả hai chip từ điển đều `isPipelineChoice = true`; chip `JP`/`EN` vẫn mờ khi đã có từ điển khớp.

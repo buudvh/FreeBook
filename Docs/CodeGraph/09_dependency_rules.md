@@ -16,6 +16,12 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 
 <!-- GENERATED START -->
 
+## 1.3.463 — phụ thuộc của banner tiến độ và cờ hộp thoại nhập
+
+* `RephoneticizeProgressBanner` (View) chỉ phụ thuộc `RephoneticizeTask` (Services) và chỉ đọc `@Published` trong RAM — **không** cạnh gọi đọc đĩa, không thêm phụ thuộc tầng.
+* `VieNeuJapaneseDictionaryView+Status` là extension **cùng file type**, chỉ đọc `UserDefaults` + hằng khoá của `VieNeuJapanesePreprocessor` — không phụ thuộc mới.
+* `DictionaryImportFlowModifier` nay nhận `@Binding isModeDialogPresented` do **View gọi** sở hữu (bỏ `.onChange`) ⇒ hợp đồng gọi đổi: View gọi phải truyền binding và bật nó trong `onDismiss` của sheet chọn file.
+
 ## 1.3.462 — phụ thuộc của phiên âm lại và luồng nhập file
 
 * Tầng đi đúng chiều: `Views/Settings/TTS` + `Views/Shelf/ShelfMain` → `Services/TTS/Rephoneticize` + `Services/TTS/Import` → `Services/TTS/Preprocessing` + hai store từ điển.

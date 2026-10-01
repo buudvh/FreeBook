@@ -16,6 +16,13 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 
 <!-- GENERATED START -->
 
+## 1.3.463 — độ phức tạp: 2 file mới, một file được tách để lấy lại biên
+
+* Theo cách đếm của tài liệu này **230 → 232** file Swift (validator: 636 → **638**).
+* `RephoneticizeProgressBanner` **127** · `VieNeuJapaneseDictionaryView+Status` **36** — dưới trần 400.
+* `VieNeuJapaneseDictionaryView.swift` **374** sau khi tách `statusSection` + `JapaneseFlags`; trước khi tách nó ở **399/400** (chỉ còn **1** dòng biên) vì banner của 1.3.463.
+* `TTSDictionaryEditView.swift` **532** (baseline 641) · `NotificationInboxView+Rephoneticize` **226** · `DictionaryImportFlowModifier` **158**.
+
 ## 1.3.462 — độ phức tạp: 7 file mới, `TTSDictionaryEditView` **giảm**
 
 * Theo cách đếm của tài liệu này **223 → 230** file Swift (validator: 629 → **636**). File mới đều **nhỏ**: `RephoneticizeService` **309**, `RephoneticizeTask` **236**, `DictionaryImportConflictView` **234**, `NotificationInboxView+Rephoneticize` **219**, `DictionaryImportFlowModifier` **144**, `DictionaryImportParser` **128**, `DictionaryImportDiff` **94** — tất cả dưới trần 400.

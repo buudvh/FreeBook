@@ -2,6 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.463] - 2026-10-01
+
+### fix: hop thoai Tron/Thay the toan bo khong hien, chi hien card da phien am lai va banner tien do o man tu dien
+
+Người dùng: *"vì sao nhập từ điển không có 2 option Trộn / Thay thế toàn bộ; bạn đang hiểu nhầm gì không đấy"* + *"ở thông báo từ điển nào phiên âm lại mới hiển thị ra, từ điển không phiên âm hiển thị làm gì"*.
+
+- **Hộp thoại *Trộn / Thay thế toàn bộ* không hiện — lỗi presentation.** 1.3.462 mở hộp thoại bằng `.onChange(of: fileURL)`, tức bật cờ **ngay trong `onPick`**; mà `onPick` của `DocumentPicker` chạy trong **completion của lượt dismiss** sheet chọn file ⇒ presentation bắt đầu giữa lượt dismiss modal bị UIKit/SwiftUI **nuốt im lặng**. Tệ hơn: `fileURL` vẫn còn giá trị nên `.onChange` không thấy đổi ⇒ chọn lại **đúng file đó** cũng không kích hoạt lại. Nay cờ `isModeDialogPresented` do **View gọi sở hữu** và bật trong `onDismiss` của sheet chọn file — hook này chỉ chạy **sau khi** animation đóng xong.
+- **Chỉ hiện card của từ điển đã phiên âm lại.** `rephoneticizeRow()` vẽ **cả hai** card vô điều kiện ⇒ từ điển chưa chạy vẫn hiện một dòng "Chưa phiên âm lại" vô nghĩa. Nay mỗi card chỉ vẽ khi `task.isVisible`.
+- **Chặn nhầm file hợp lệ ở màn NghiTTS.** Kiểm tra kích thước `resourceValues(forKeys: [.fileSizeKey])` thêm ở 1.3.462 nhưng đọc **ngoài** security scope ⇒ file từ provider (iCloud/Files) ném lỗi, `fileSize` ra 0, chặn nhầm file hợp lệ. Nay bọc trong `startAccessingSecurityScopedResource()` / `stopAccessing`.
+- **Banner tiến độ ngay trên màn từ điển.** User: *"hiển thị cả tiến độ phiên âm lại ở màn hình từ điển phiên âm nữa, tương tự màn hình thông báo"*. Thêm `RephoneticizeProgressBanner` — `ViewModifier` gắn qua `.safeAreaInset(edge: .top)`: tiêu đề + `statusText`, `ProgressView(value:)` khi đang chạy, và khi có kết quả thì nút **Nhập vào từ điển** / **Bỏ qua** (nút **Xuất file** để ở màn Thông báo cho banner khỏi che danh sách). Là modifier chứ không viết thẳng vì `VieNeuJapaneseDictionaryView.swift` đang **397/400**; mỗi màn chỉ thêm **một dòng**.
+- **File mới**: `Views/Settings/TTS/RephoneticizeProgressBanner.swift` (**127**) · `Views/Settings/TTS/VieNeuJapaneseDictionaryView+Status.swift` (**36** — tách `statusSection` + `JapaneseFlags` khỏi file chính khi nó chỉ còn **1** dòng biên so với trần 400).
+- **File sửa**: `DictionaryImportFlowModifier.swift` 144 → **158** (bỏ `.onChange`, `@State showingModeDialog` → `@Binding isModeDialogPresented`), `TTSDictionaryEditView.swift` 518 → **532**, `VieNeuJapaneseDictionaryView.swift` 389 → **374** sau khi tách, `NotificationInboxView+Rephoneticize.swift` 219 → **226**.
+- **Ràng buộc đã đo**: `check_architecture.py` **5 violation nền / 0 mới**; `validate_links.py` **PASS 100% (16 doc, 636 file Swift)**. Không build được trên Windows.
+- **Tài liệu CodeGraph**: `11_subsystems.md` thêm mục 1.3.463 — **accept**.
+
+---
+
 ## [1.3.462] - 2026-10-01
 
 ### feat: chip NGI/VIE, xoa tu bang nhan giu, tsu thanh su, phien am lai tu dien va man chon trung khi nhap
@@ -578,19 +595,3 @@ Người dùng báo *"ipa mới chọn vieneu nhưng nó không hoạt động, 
 - **Hạn chế đã biết (chưa sửa)**: `NghiAudioPlayerQueue` chỉ có `updateRate(_:)`, **không** có pitch; `AVAudioUnitTimePitch` chỉ nằm trên đường `AVAudioEngine`. Nên `vieneuPitch` **được lưu/nạp nhưng chưa nghe thấy được** — muốn có pitch thật phải thêm xử lý pitch vào queue (việc riêng).
 - **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới (so trước/sau bằng `git stash`); `validate_links.py` PASS (16 documents, 608 Swift files). Không build được trên Windows.
 - **Tài liệu CodeGraph**: `rules.md` thêm mục **TTS Engine Routing Invariants** (9 luật); `11_subsystems.md`, `03_type_graph.md`, `04_call_graph.md`, `05_state_graph.md`, `06_event_graph.md`, `08_lifecycle.md`, `10_risk_report.md`, `13_resource_lifecycle.md` mỗi file thêm mục 1.3.434; sửa một khẳng định **sai** trong `06_event_graph.md` (tài liệu cũ nói `didSet` của `speed`/`pitch` cập nhật `AVAudioUnitTimePitch`, nhưng engine local không đi đường đó).
-
-## [1.3.433] - 2026-09-29
-
-### fix: hien danh sach giong dung theo engine dang chon
-
-Người dùng cài IPA và báo **hai** lỗi liên quan, cùng một gốc là "engine thứ hai dùng chung đường với NghiTTS".
-
-- **Lỗi 1 — VieNeu bị xếp nhầm vào nhánh extension.** Picker đã có mục "VieNeu-TTS v3 Nano (Offline)" ✓ nhưng mục **GIỌNG ĐỌC** hiện "Không có giọng đọc nào" ✗, kèm dòng *"Extension TTS không hỗ trợ chỉnh cao độ"*.
-  * Predicate nhận diện extension — `tool != "system" && tool != "nghitts" && tool != "google"` — nằm ở **6 chỗ** (**4** trong `TTSSettingsView`, **2** trong `TTSManager`). Thêm `vieneu` mà không sửa cả 6 ⇒ VieNeu rơi vào nhánh **extension** ⇒ màn Cài đặt dùng `extensionVoices` (rỗng) thay vì `availableVoices`.
-  * `loadExtensionVoices(packageId: "vieneu")` **thoát sớm** vì không có extension trùng tên, nên nó không xoá `availableVoices` — lỗi nằm ở **UI chọn nhánh**, không phải ở dữ liệu.
-  * Sửa: gom thành **một** `TTSManager.isExtensionTool(_:)` (static) và thay cả 6 chỗ ⇒ **net 0 dòng**. Thêm nhánh `vieNeuVoicePicker` (đặt trong `TTSSettingsView+VieNeu.swift` để không vượt baseline **519**).
-  * Nhánh giọng của VieNeu **cố ý không lọc `isModelDownloaded`** như NghiTTS: 11 giọng nằm chung trong `voices_v3_nano.json`, không phải file rời từng giọng.
-- **Lỗi 2 — đổi từ VieNeu sang NghiTTS thì NghiTTS báo "chưa tải model".** Gốc: `onChange(of: ttsManager.tool)` **không** nạp lại giọng cho engine có sẵn. Lỗi **có sẵn từ trước** nhưng chỉ lộ ra khi có engine thứ hai cùng dùng `availableVoices`: đổi engine giữ nguyên tên giọng của engine cũ, rồi nhánh NghiTTS lọc `isModelDownloaded` trên **tên giọng của VieNeu** ⇒ "Chưa tải giọng đọc NghiTTS nào" dù model đã có. Sửa: `Task { await loadVoicesForCurrentTool() }` trong nhánh `else` của `onChange` (**+1 dòng**).
-- **File sửa**: `TTSSettingsView.swift` **519** (đúng baseline), `TTSSettingsView+VieNeu.swift` 47 → **77**, `TTSManager+VieNeu.swift` 55 → **67**, `TTSManager.swift` **4029** (không đổi).
-- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
-- **Tài liệu CodeGraph**: `rules.md` thêm 2 luật (predicate `isExtensionTool` ở 6 chỗ; engine có sẵn cần nhánh giọng riêng); `11_subsystems.md` thêm mục về hai lỗi này.

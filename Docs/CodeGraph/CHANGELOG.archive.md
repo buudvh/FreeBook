@@ -2,6 +2,22 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.433] - 2026-09-29
+
+### fix: hien danh sach giong dung theo engine dang chon
+
+Người dùng cài IPA và báo **hai** lỗi liên quan, cùng một gốc là "engine thứ hai dùng chung đường với NghiTTS".
+
+- **Lỗi 1 — VieNeu bị xếp nhầm vào nhánh extension.** Picker đã có mục "VieNeu-TTS v3 Nano (Offline)" ✓ nhưng mục **GIỌNG ĐỌC** hiện "Không có giọng đọc nào" ✗, kèm dòng *"Extension TTS không hỗ trợ chỉnh cao độ"*.
+  * Predicate nhận diện extension — `tool != "system" && tool != "nghitts" && tool != "google"` — nằm ở **6 chỗ** (**4** trong `TTSSettingsView`, **2** trong `TTSManager`). Thêm `vieneu` mà không sửa cả 6 ⇒ VieNeu rơi vào nhánh **extension** ⇒ màn Cài đặt dùng `extensionVoices` (rỗng) thay vì `availableVoices`.
+  * `loadExtensionVoices(packageId: "vieneu")` **thoát sớm** vì không có extension trùng tên, nên nó không xoá `availableVoices` — lỗi nằm ở **UI chọn nhánh**, không phải ở dữ liệu.
+  * Sửa: gom thành **một** `TTSManager.isExtensionTool(_:)` (static) và thay cả 6 chỗ ⇒ **net 0 dòng**. Thêm nhánh `vieNeuVoicePicker` (đặt trong `TTSSettingsView+VieNeu.swift` để không vượt baseline **519**).
+  * Nhánh giọng của VieNeu **cố ý không lọc `isModelDownloaded`** như NghiTTS: 11 giọng nằm chung trong `voices_v3_nano.json`, không phải file rời từng giọng.
+- **Lỗi 2 — đổi từ VieNeu sang NghiTTS thì NghiTTS báo "chưa tải model".** Gốc: `onChange(of: ttsManager.tool)` **không** nạp lại giọng cho engine có sẵn. Lỗi **có sẵn từ trước** nhưng chỉ lộ ra khi có engine thứ hai cùng dùng `availableVoices`: đổi engine giữ nguyên tên giọng của engine cũ, rồi nhánh NghiTTS lọc `isModelDownloaded` trên **tên giọng của VieNeu** ⇒ "Chưa tải giọng đọc NghiTTS nào" dù model đã có. Sửa: `Task { await loadVoicesForCurrentTool() }` trong nhánh `else` của `onChange` (**+1 dòng**).
+- **File sửa**: `TTSSettingsView.swift` **519** (đúng baseline), `TTSSettingsView+VieNeu.swift` 47 → **77**, `TTSManager+VieNeu.swift` 55 → **67**, `TTSManager.swift` **4029** (không đổi).
+- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
+- **Tài liệu CodeGraph**: `rules.md` thêm 2 luật (predicate `isExtensionTool` ở 6 chỗ; engine có sẵn cần nhánh giọng riêng); `11_subsystems.md` thêm mục về hai lỗi này.
+
 ## [1.3.432] - 2026-09-29
 
 ### feat: noi engine VieNeu-TTS vao Picker Trinh doc

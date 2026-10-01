@@ -16,6 +16,13 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 
 <!-- GENERATED START -->
 
+## 1.3.463 — sửa hai lỗi luồng nhập file + banner tiến độ trên màn từ điển
+
+* Thêm **2** file Swift ⇒ validator đếm 636 → **638** file. **Số lượng doc vẫn là 16**, không đổi cấu trúc bộ tài liệu.
+* File mới: `Views/Settings/TTS/RephoneticizeProgressBanner.swift` · `Views/Settings/TTS/VieNeuJapaneseDictionaryView+Status.swift`.
+* **Sửa lỗi 1.3.462**: hộp thoại *Trộn / Thay thế toàn bộ* **không hiện** (presentation bị nuốt khi mở giữa lượt dismiss sheet chọn file) — nay bật cờ từ `onDismiss`; card ở màn Thông báo hiện **cả hai** từ điển dù một cái chưa chạy — nay chỉ hiện cái `isVisible`; kiểm tra kích thước file đọc ngoài security scope ⇒ chặn nhầm file hợp lệ.
+* **Banner tiến độ** `RephoneticizeProgressBanner` gắn ở cả hai màn từ điển qua `.safeAreaInset(edge: .top)`.
+
 ## 1.3.462 — chip NGI/VIE, xoá từ bằng nhấn giữ, `tsu`→"su", "Phiên âm lại từ điển", luồng nhập file có màn chọn mục trùng
 
 * Thêm **7** file Swift ⇒ validator đếm 629 → **636** file. **Số lượng doc vẫn là 16**, không đổi cấu trúc bộ tài liệu.

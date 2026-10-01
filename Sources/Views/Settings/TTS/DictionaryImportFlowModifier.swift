@@ -8,9 +8,21 @@ import SwiftUI
 ///
 /// Nhận **URL** chứ không nhận bảng đã parse: màn chọn mục trùng phải mở **ngay** khi bấm, còn việc đọc +
 /// parse file (tới ~30k mục) chạy ngầm phía sau skeleton.
+///
+/// ## ⚠️ Vì sao cờ `isModeDialogPresented` do **caller** sở hữu, không phải `@State` ở đây
+/// Bản đầu tiên dùng `.onChange(of: fileURL)` để mở hộp thoại, và **nó không hiện**. Nguyên nhân: `onPick`
+/// của `DocumentPicker` chạy trong **completion của lượt dismiss** sheet chọn file, nên cờ được bật **đúng
+/// lúc** sheet đang chạy animation đóng — UIKit/SwiftUI **nuốt im lặng** một presentation bắt đầu giữa lượt
+/// dismiss của modal khác. Hệ quả: không hộp thoại nào hiện, mà `fileURL` vẫn còn giá trị nên chọn lại đúng
+/// file đó cũng **không** kích hoạt lại (`.onChange` thấy giá trị không đổi).
+///
+/// Cách chữa: bật cờ từ `onDismiss` của sheet chọn file — hook này chỉ chạy **sau khi** animation đóng xong.
+/// Vì hook đó nằm ở View gọi, cờ phải do View gọi sở hữu và truyền vào đây.
 @MainActor
 struct DictionaryImportFlowModifier: ViewModifier {
     @Binding var fileURL: URL?
+    /// Xem doc ở đầu type. View gọi bật cờ này trong `onDismiss` của sheet chọn file.
+    @Binding var isModeDialogPresented: Bool
     let title: String
     /// Phải `@Sendable`: nó được capture trong `Task.detached` của `replaceAll()`.
     let normalizedKey: @Sendable (String) -> String
@@ -20,7 +32,6 @@ struct DictionaryImportFlowModifier: ViewModifier {
     /// Nhánh **Trộn** — caller ghi bảng đã trộn.
     let onApplyMerged: ([String: String]) -> Void
 
-    @State private var showingModeDialog = false
     @State private var showingConflictSheet = false
     @State private var isReplacing = false
     @State private var errorMessage: String?
@@ -29,6 +40,7 @@ struct DictionaryImportFlowModifier: ViewModifier {
     /// sẽ mang mức truy cập `private` và **không** gọi được từ `extension View` bên dưới.
     init(
         fileURL: Binding<URL?>,
+        isModeDialogPresented: Binding<Bool>,
         title: String,
         normalizedKey: @escaping @Sendable (String) -> String,
         current: [String: String],
@@ -36,6 +48,7 @@ struct DictionaryImportFlowModifier: ViewModifier {
         onApplyMerged: @escaping ([String: String]) -> Void
     ) {
         self._fileURL = fileURL
+        self._isModeDialogPresented = isModeDialogPresented
         self.title = title
         self.normalizedKey = normalizedKey
         self.current = current
@@ -45,13 +58,9 @@ struct DictionaryImportFlowModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .onChange(of: fileURL) { _, newValue in
-                guard newValue != nil else { return }
-                showingModeDialog = true
-            }
             .confirmationDialog(
                 "Nhập từ điển bằng cách nào?",
-                isPresented: $showingModeDialog,
+                isPresented: $isModeDialogPresented,
                 titleVisibility: .visible
             ) {
                 Button("Trộn — chọn từng mục trùng") { showingConflictSheet = true }
@@ -124,8 +133,12 @@ struct DictionaryImportFlowModifier: ViewModifier {
 
 extension View {
     /// Gắn luồng nhập từ điển vào một màn. Xem `DictionaryImportFlowModifier`.
+    ///
+    /// - Important: View gọi **phải** bật `isModeDialogPresented` trong `onDismiss` của sheet chọn file —
+    ///   bật ngay trong `onPick` sẽ bị nuốt (xem doc ở đầu `DictionaryImportFlowModifier`).
     func dictionaryImportFlow(
         fileURL: Binding<URL?>,
+        isModeDialogPresented: Binding<Bool>,
         title: String,
         normalizedKey: @escaping @Sendable (String) -> String,
         current: [String: String],
@@ -134,6 +147,7 @@ extension View {
     ) -> some View {
         modifier(DictionaryImportFlowModifier(
             fileURL: fileURL,
+            isModeDialogPresented: isModeDialogPresented,
             title: title,
             normalizedKey: normalizedKey,
             current: current,
