@@ -337,6 +337,25 @@ def stage_parity(model_dir: str, workdir: str, converted: dict, reports: str) ->
     except Exception as error:  # noqa: BLE001
         result["codec_decoder-typical"] = {"error": f"{type(error).__name__}: {error}"}
         log("G3", f"vocoder: LỖI {type(error).__name__}: {error}")
+    # Ước lượng **một chunk** = 16 lượt `vector_estimator` + 1 lượt `codec_decoder` (98,6 % thời gian).
+    try:
+        vec = result.get("vector_estimator-typical", {})
+        voc = result.get("codec_decoder-typical", {})
+        if isinstance(vec.get("ort_ms"), (int, float)) and isinstance(voc.get("ort_ms"), (int, float)):
+            ort_total = 16 * vec["ort_ms"] + voc["ort_ms"]
+            cml_vec = vec.get("all", {}).get("coreml_ms")
+            cml_voc = voc.get("coreml_ms")
+            if cml_vec and cml_voc:
+                cml_total = 16 * cml_vec + cml_voc
+                result["chunk_estimate"] = {
+                    "ort_ms": round(ort_total, 1), "coreml_ms": round(cml_total, 1),
+                    "speed_ratio": round(ort_total / cml_total, 2),
+                }
+                log("G3", f"ƯỚC LƯỢNG 1 chunk: ORT {ort_total:.0f} ms → Core ML {cml_total:.0f} ms "
+                          f"({ort_total / cml_total:.2f}×)")
+    except Exception as error:  # noqa: BLE001
+        log("G3", f"ước lượng chunk lỗi: {error}")
+
     with open(os.path.join(reports, "parity.json"), "w", encoding="utf-8") as handle:
         json.dump(result, handle, ensure_ascii=False, indent=2)
     return result
@@ -346,13 +365,12 @@ def _predict_any_variant(model, feeds):
     """Core ML khai `ctx_mask` là FLOAT32 (ONNX là bool) ⇒ thử lần lượt cho tới khi `predict` chạy."""
     import numpy as np
 
-    variants = [
-        ("as-is", {name: np.asarray(value) for name, value in feeds.items()}),
-        ("mask-int32", {**{k: np.asarray(v) for k, v in feeds.items()},
-                        "ctx_mask": np.asarray(feeds["ctx_mask"], dtype=np.int32)}),
-        ("mask-float32", {**{k: np.asarray(v) for k, v in feeds.items()},
-                          "ctx_mask": np.asarray(feeds["ctx_mask"], dtype=np.float32)}),
-    ]
+    base = {name: np.asarray(value) for name, value in feeds.items()}
+    variants = [("as-is", base)]
+    # Chỉ graph có `ctx_mask` mới cần ép kiểu (ONNX khai bool, Core ML khai FLOAT32).
+    if "ctx_mask" in feeds:
+        variants.append(("mask-int32", {**base, "ctx_mask": np.asarray(feeds["ctx_mask"], dtype=np.int32)}))
+        variants.append(("mask-float32", {**base, "ctx_mask": np.asarray(feeds["ctx_mask"], dtype=np.float32)}))
     last_error = None
     for name, candidate in variants:
         try:
