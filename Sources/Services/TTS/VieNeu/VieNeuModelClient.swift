@@ -21,7 +21,7 @@ import CryptoKit
 ///
 /// ## Core ML (Phases 3–5)
 /// 8 gói Core ML nằm ở repo riêng `raikiri1498/VieNeu-TTS-v3-Nano-CoreML` (publish qua Trusted
-/// Publishers OIDC ở Phase 2, commit `68af081`). Mỗi gói là một thư mục `.mlpackage` nhiều file; app
+/// Publishers OIDC ở Phase 2). Mỗi gói là một thư mục `.mlpackage` nhiều file; app
 /// tải từng file theo danh sách trong `manifest.json` (có `sha256` + `bytes` từng file) rồi biên dịch
 /// `.mlpackage` → `.mlmodelc` (xem `VieNeuCoreMLCompiler`). Việc kiểm SHA lấy thẳng từ `manifest.json`
 /// nên **không** cần hardcode — nếu upstream đổi gói, manifest mới sẽ mang SHA mới.
@@ -33,10 +33,11 @@ final class VieNeuModelClient {
     /// Sha của `pnnbao97/sea-g2p` (chứa `python/sea_g2p/sea_g2p.bin`, 62.829.820 byte).
     static let g2pRevision = "e825173f235d08ea19315b2b279fb11153b44cea"
 
-    /// Sha của repo Core ML (`raikiri1498/VieNeu-TTS-v3-Nano-CoreML`) tại thời điểm publish sạch
-    /// (Phase 2, commit `68af081`, run `37019841164`). Repo chỉ chứa 8 `.mlpackage` + `manifest.json`
-    /// + 3 `golden/*.npz`, tổng 397,8 MB.
-    static let coreMLRevision = "68af081"
+    /// Revision **của repo HuggingFace** Core ML (`raikiri1498/VieNeu-TTS-v3-Nano-CoreML`) tại thời điểm
+    /// publish sạch (Phase 2, run GitHub `37019841164`). ⚠️ HF có git sha **riêng** — **không** dùng sha
+    /// commit GitHub (dùng nhầm `68af081` từng gây **404** mọi file Core ML; sửa 2026-10-03). Repo chỉ chứa
+    /// 8 `.mlpackage` + `manifest.json` + 3 `golden/*.npz`, tổng 397,8 MB.
+    static let coreMLRevision = "5dec42607c10252b7f412db01eba45bd86c6bbe3"
 
     /// Gốc của repo model — **đã ghim sha**. Cả 4 graph chính lẫn 3 graph clone đều nằm ở đây, nên khai
     /// một chỗ và dùng cho cả `sources()` lẫn `cloneSources()`.
@@ -44,7 +45,7 @@ final class VieNeuModelClient {
         "https://huggingface.co/pnnbao-ump/VieNeu-TTS-v3-Nano/resolve/\(modelRevision)"
     }
 
-    /// Gốc của repo Core ML — **đã ghim sha** (commit `68af081`).
+    /// Gốc của repo Core ML — **đã ghim sha** (revision HF `5dec426…`).
     private static var coreMLBase: String {
         "https://huggingface.co/raikiri1498/VieNeu-TTS-v3-Nano-CoreML/resolve/\(coreMLRevision)"
     }

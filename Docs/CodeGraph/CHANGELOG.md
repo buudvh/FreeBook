@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.490] - 2026-10-03
+
+### fix: sua coreMLRevision sang revision HF that (het 404 tai Core ML)
+
+Người dùng báo *"lỗi tải manifest.json thất bại 404"* khi bật Core ML.
+
+- **Nguyên nhân**: `VieNeuModelClient.swift:39` ghim `coreMLRevision = "68af081"` — đó là **sha commit của repo GitHub FreeBook** (lượt CI publish Phase 2), **không phải** revision của repo HuggingFace. HF có git sha **riêng** (`5dec42607c10252b7f412db01eba45bd86c6bbe3`) ⇒ `…/resolve/68af081/manifest.json` trả **404**. Repo **public** (`private:false, gated:false`) — 404 là do revision sai, **không** phải quyền.
+- **Phạm vi**: `coreMLBase` (`:48-50`) dùng chung revision ⇒ **mọi** file Core ML (8 gói × 3 file + 3 `golden/*.npz`) đều 404, không riêng manifest — Core ML không tải về được.
+- **Sửa**: `coreMLRevision = "5dec42607c10252b7f412db01eba45bd86c6bbe3"` (kiểm chứng **200** cho cả file gốc lẫn file lồng trong `.mlpackage`: manifest 10 974 B · golden 727 958 B · weight.bin 77 737 952 B). Cập nhật comment `:23-24`/`:36-38`/`:47` cho khỏi nhầm sha GitHub với revision HF.
+- **Bài học**: repo HF có **git sha riêng** — KHÔNG dùng sha commit GitHub làm revision. Muốn pin thì lấy `sha` từ `GET /api/models/<repo>`.
+- Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%** (`--no-change-needed` 5 doc — sửa cơ học, mô tả vẫn đúng).
+
+---
+
 ## [1.3.489] - 2026-10-02
 
 ### feat: tich hop Core ML bucket tinh vao engine VieNeu-TTS (Phase 3-5)
@@ -456,17 +470,3 @@ Người dùng: *"tôi bật fast mà sao lại log high nhỉ"* → *"chỉ hig
 - **File sửa**: `VieNeuSynthesisPolicy.swift` (doc viết lại + bỏ tham số `isClonedVoice`), `VieNeuTTSEngine.swift:216` (1 dòng, giữ **400/400**), `VieNeuVoiceCatalog.swift` (doc `isCloned`).
 - **Ràng buộc đã đo**: `check_architecture.py` **5 violation nền / 0 mới**; `validate_links.py` **PASS 100% (16 doc, 629 file Swift)**.
 - **Tài liệu CodeGraph**: `11_subsystems.md` thêm mục 1.3.461 + `rules.md` thêm luật **"đừng ghi đè cài đặt người dùng vì lý do chất lượng"** — **accept**; `04_call_graph`, `10_risk_report`, `13_resource_lifecycle` **no-change-needed**.
-
----
-
-## [1.3.460] - 2026-10-01
-
-### feat: tu dien phien am tieng Nhat rieng cho VieNeu-TTS va hub Cai dat NghiTTS
-
-Sửa lỗi biên dịch CI của lượt `[1.3.459]` — **giữ nguyên commit subject cho lần push sửa CI**.
-
-- **Đúng một lỗi thật trong log CI** (`Build and Archive App (Unsigned)`, exit 65): `NghiTTSSettingsView.swift:24:13: error: generic parameter 'Content' could not be inferred` (+2 chẩn đoán cùng gốc `missing argument label 'content:'` / `cannot convert value of type 'String' to expected argument type '() -> Content'`).
-- **Nguyên nhân**: lượt trước đổi `Section("Tiền xử lý text") { … }` thành `Section("Tiền xử lý text") { … } footer: { … }` để thêm footer. Nhưng **`Section(_:content:)` không có tham số `footer`** — chỉ tồn tại `Section(content:header:footer:)`. Đây **đúng cái bẫy đã ghi trong bộ nhớ dự án** (*"`Section(header:…) { } footer: { }` SAI — phải `Section { } header: { } footer: { }`"*) và tôi đã vấp lại.
-- **Sửa**: đổi sang `Section { … } header: { Text("Tiền xử lý text") } footer: { … }`, kèm một dòng comment ngay trên để lần sau không lặp lại. `NghiTTSSettingsView.swift` 155 → **159** dòng.
-- **Rà soát lại toàn bộ code mới** tìm cùng bẫy: mọi `Section("…") { … }` còn lại (`Giọng đọc`, `Tốc độ`, `Kết quả`, `Cấu hình khoảng ngắt`, `Tải trước & Bộ đệm`) đều **không** kèm `footer`/`header` ⇒ hợp lệ; các section có header/footer đều đã ở dạng `Section { } header: { } footer: { }`.
-- **Ràng buộc đã đo**: `check_architecture.py` **5 violation nền / 0 mới**; `validate_links.py` **PASS 100% (16 doc, 629 file Swift)**. `11_subsystems.md` chuyển `accept` → **no-change-needed** (sửa cú pháp Swift không đổi hành vi nào đã mô tả).
