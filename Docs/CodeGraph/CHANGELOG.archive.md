@@ -6218,3 +6218,15 @@ Tiền đề của nhân bản giọng: `speaker_encoder` cần **fbank 80-mel k
 - **File mới**: `VieNeuFbank.swift` **293**, `Scripts/FbankGate/main.swift` **115**, `Scripts/FbankGate/gate.py` **210**, `.github/workflows/fbank-gate.yml`.
 - **Ràng buộc đã đo**: `check_architecture.py` **5** violation nền / **0** mới. **Không build trên Windows**.
 - **Tài liệu CodeGraph**: ghi nhận ở lượt `[1.3.453]`.
+
+
+---
+
+## [1.3.452] - 2026-09-30
+
+### ci: fbank-gate kich hoat bang push theo path thay vi chi workflow_dispatch
+
+- **Trước**: cổng số chỉ chạy tay (`workflow_dispatch`) — mà `workflow_dispatch` chỉ hiện khi file đã có trên nhánh mặc định, nên trên nhánh làm việc thì **không bấm được**. Thêm `on.push.paths`: `Scripts/FbankGate/**`, `Sources/Services/TTS/VieNeu/VieNeuFbank.swift`, `.github/workflows/fbank-gate.yml`.
+- **Hệ quả**: cổng trở thành **chống hồi quy** thật — sửa fbank là CI chạy lại và so với numpy ngay.
+- **File sửa**: `.github/workflows/fbank-gate.yml` (+8/−2).
+- **Tài liệu CodeGraph**: ghi nhận ở lượt `[1.3.453]`.

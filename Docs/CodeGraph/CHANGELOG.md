@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.482] - 2026-10-02
+
+### docs: R1 da giai quyet - gia tri huong A ha xuong ~1,5x
+
+Chỉ tài liệu — lượt này **không** đổi mã, chốt R1 sau lượt quét `L` (`37014485074`). Không lượt CI nào chạy.
+
+- **Quét `L` cho kết quả quyết định**: `vector_estimator` và `codec_decoder` **gần như KHÔNG phụ thuộc `L`** (`T=96`: `L=32` → 111,3 ms · `L=91` → 123,6 · `L=128` → 121,4 · `L=200` → 101,8 · `L=256` → 109,1 — không xu hướng, chỉ nhiễu ±15 %). Chỉ `text_encoder` tăng theo `L` (9,1 → 113,2 ms) nhưng chiếm **~1,4 %** thời gian.
+- ⇒ **Nhiễu `L` không đáng kể** ⇒ hệ số máy-thật/CI đo được (**1,05×**) **đứng vững**, và **giả định 1,28× bị bác bỏ bằng đo**. Hợp lý: runner CI chỉ có **3 core** nên 4 luồng không nhanh hơn 2 luồng trên iPhone (6 core) là bao.
+- ⭐ **Giá trị hướng A hạ xuống ~1,5×** cho lưới `{64,96,234}` (397 MB) — **không phải 1,86×** như báo cáo trước đó (1,86× dựa trên giả định 1,28× nay đã bị bác bỏ).
+- ⚠️ **Nhiễu giữa các lượt chạy ~±20 %**: cùng một cấu hình, hai giai đoạn trong **cùng một lượt** đã lệch 20 % (`bucket_fallback` T96 `vector_estimator` 123,6 ms vs `ort_l_sweep` T96/L200 101,8 ms) ⇒ **đừng tin chữ số thứ hai** của bất kỳ số timing nào từ runner.
+- ⚠️ **ANE trên runner là giả lập** (`Apple M1 (Virtual)`) ⇒ ANE thật của iPhone **có thể tốt hơn** ⇒ 1,5× là ước lượng **thiên thấp**, không phải trần.
+- **Cách chốt con số**: so `rtf` trước/sau khi bật Core ML, với **mốc nền đo hôm nay = `rtf` trung vị 0,420** (p10 0,380 · p90 0,480) — phép so sạch nhất, không cần giả định.
+- **Không đụng `Sources/`** — `Sources/**/*.swift` vẫn 639 file. Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%**.
+
 ## [1.3.481] - 2026-10-02
 
 ### chore: them quet L cho ORT (D7) de go nhieu khi so rtf may that voi so CI
@@ -447,14 +461,3 @@ Người dùng yêu cầu tạo **giọng đọc riêng** từ audio mẫu. Ch�
 - **Hạ `private` → `internal`** (bẫy lặp lại lần thứ tư trong repo): `VieNeuONNXRuntime.handle` / `.maximumRank` / `.consume(_:fallback:)` — Swift giới hạn `private` theo file.
 - **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` **PASS 100% (16 doc, 623 file Swift)**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
 - **Tài liệu CodeGraph**: cập nhật **12** doc (`00_index`, `01_project`, `02_file_graph`, `03_type_graph`, `04_call_graph`, `05_state_graph`, `09_dependency_rules`, `10_risk_report`, `11_subsystems`, `13_resource_lifecycle`, `14_complexity_report`, `rules.md`) — trong đó có cả nợ tài liệu của `[1.3.451]`/`[1.3.452]`.
-
----
-
-## [1.3.452] - 2026-09-30
-
-### ci: fbank-gate kich hoat bang push theo path thay vi chi workflow_dispatch
-
-- **Trước**: cổng số chỉ chạy tay (`workflow_dispatch`) — mà `workflow_dispatch` chỉ hiện khi file đã có trên nhánh mặc định, nên trên nhánh làm việc thì **không bấm được**. Thêm `on.push.paths`: `Scripts/FbankGate/**`, `Sources/Services/TTS/VieNeu/VieNeuFbank.swift`, `.github/workflows/fbank-gate.yml`.
-- **Hệ quả**: cổng trở thành **chống hồi quy** thật — sửa fbank là CI chạy lại và so với numpy ngay.
-- **File sửa**: `.github/workflows/fbank-gate.yml` (+8/−2).
-- **Tài liệu CodeGraph**: ghi nhận ở lượt `[1.3.453]`.
