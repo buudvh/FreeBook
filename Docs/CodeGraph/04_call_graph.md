@@ -15,6 +15,11 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.467 — sửa cấu hình EP sau khi đo trên máy (không đổi cạnh gọi)
+
+* `VieNeuONNXRuntime.prepareCoreMLCacheDirectory` đổi thư mục cache sang `CoreMLCache-staticShapes` và **dọn** `CoreMLCache` cũ ⇒ cạnh gọi mới: hàm này → `FileManager.removeItem` (một lần, cho cache của cấu hình đã hỏng).
+* `appendCoreMLProvider` đổi giá trị `RequireStaticInputShapes` 0 → **1** (cùng số khoá, không thêm cạnh).
+
 ## 1.3.466 — cạnh gọi của đường nạp lại engine
 
 * `TTSSettingsView+VieNeu.applyCoreMLEP(_:)` → `VieNeuTTSService.reloadEngine(useCoreML:)` → `VieNeuTTSEngine.unload()` → `engine.prepare()` → `VieNeuONNXRuntime.init(coreML:)` → `VieNeuORTCreateWithRunOptions` → `SessionOptionsAppendExecutionProvider("CoreML", …)`.

@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.467 — CoreML EP: ép shape tĩnh sau khi lượt đầu làm im tiếng
+
+* **Đo trên máy thật (`app_logs (61).txt`)**: với `RequireStaticInputShapes=0`, CoreML EP chia `vector_estimator` thành **33+ partition**, mỗi cái biên dịch riêng và **sinh thêm mỗi lượt chạy**; trong 25 giây đọc **không có `[VieNeuPerf]` nào** ⇒ không có tiếng, chỉ `[NghiEnergy] Underrun`.
+* **Sửa**: `RequireStaticInputShapes=1` (EP chỉ nhận node shape tĩnh). `L`/`T` của model này đổi mỗi đoạn nên EP sẽ nhận **rất ít** node ⇒ kỳ vọng lợi ích ~0, nhưng hết bão biên dịch. Đây là bước kiểm chứng **trước khi quyết định bỏ hẳn EP**.
+* Thư mục cache đổi thành `CoreMLCache-staticShapes` (khoá cache của EP chỉ là hash model, **không** gồm tuỳ chọn EP) và thư mục `CoreMLCache` cũ của 1.3.466 bị **dọn một lần**.
+* Công tắc vẫn **mặc định TẮT**; cách khôi phục nếu vẫn im tiếng: gạt công tắc về TẮT (engine tự nạp lại bằng CPU).
+
 ## 1.3.466 — công tắc thí nghiệm CoreML/ANE: đẩy 2 graph nặng khỏi CPU
 
 * Bật công tắc ⇒ đăng ký **CoreML EP** cho `vector_estimator` (**83,1 %** thời gian chunk) và `codec_decoder` (**15,5 %**) với `ModelFormat=MLProgram`, `MLComputeUnits=CPUAndNeuralEngine`, `ModelCacheDirectory` (bắt buộc) và `ProfileComputePlan=1` (ghi ra từng op chạy trên ANE/GPU/CPU).

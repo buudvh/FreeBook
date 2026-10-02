@@ -15,6 +15,11 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.467 — luật mới (cache của execution provider)
+
+* **Luật 22 — cache của execution provider phải tách theo cấu hình EP.** Khoá cache của CoreML EP **chỉ** là hash của model, **không** gồm các tuỳ chọn EP (`RequireStaticInputShapes`, `ModelFormat`, `MLComputeUnits`…). Giữ nguyên thư mục cache khi đổi tuỳ chọn ⇒ partition của cấu hình cũ bị tái dùng lẫn với cấu hình mới. Cách xử lý: **tên thư mục mang hậu tố cấu hình**, và đổi hậu tố mỗi khi đổi bộ tuỳ chọn.
+* **Cảnh báo kèm theo (đo được ở 1.3.466)**: với model nhiều node và shape động, CoreML EP **phân mảnh + biên dịch lại** tới mức **không kịp sinh audio** (33+ partition, không có `[VieNeuPerf]` nào trong 25 giây) — hậu quả là **im tiếng**, không phải "chậm". Trước khi bật một EP mới cho đường phát, phải có **cách tắt nhanh** và **tiêu chí đo**.
+
 ## 1.3.466 — hai luật mới (vòng đời ngữ cảnh & đổi cấu hình session)
 
 * **Luật 20 — nhả ngữ cảnh ORT phải theo thứ tự.** `runtime = nil` **trước**, rồi mới xoá các mảng buffer nguồn (`nullContext`/`nullMask`/`nullSpeaker`/`nullStyle`), vì tensor cache của nhánh vô điều kiện **không copy** và trỏ thẳng vào chúng. Đảo thứ tự ⇒ cache trỏ vào bộ nhớ đã chết, không có lỗi nào báo. Chỉ được nhả khi đang giữ `lock` của engine (chờ lượt `Run` hiện tại xong).

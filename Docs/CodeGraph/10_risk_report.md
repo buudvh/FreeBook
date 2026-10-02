@@ -15,6 +15,13 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.467 — rủi ro của CoreML EP ĐÃ THÀNH HIỆN THỰC (đo trên máy thật)
+
+* **Phân mảnh + bão biên dịch — đúng như dự đoán ở mục 1.3.466.** Log `app_logs (61).txt`: CoreML EP chia `vector_estimator` thành **33+ partition**, mỗi partition là một `.mlmodel` riêng (`CoreMLCache/<hash>/3_dynamic_mlprogram` … `33_dynamic_mlprogram`), và **sinh thêm partition ở mỗi lượt chạy** (lượt trước đã có 3–26, lượt này ghi thêm 27–33).
+* **Hệ quả nặng**: trong 25 giây đọc **không có một dòng `[VieNeuPerf]` nào** — chưa lượt tổng hợp nào xong; chỉ có `[NghiEnergy] Underrun chapter=116 index=174/177` ⇒ **hoàn toàn không phát ra tiếng**. Người dùng báo *"hoàn toàn không phát ra tiếng"*.
+* **Giảm thiểu ở 1.3.467**: ép `RequireStaticInputShapes=1` (EP chỉ nhận node shape tĩnh ⇒ hết bão biên dịch, đổi lại EP gần như không nhận được node nào vì `L`/`T` đều động) + đổi tên thư mục cache theo cấu hình + dọn cache cũ.
+* **Bài học**: rủi ro "phân mảnh graph" không phải giả thuyết — với model 1578 node và 93 % là elementwise/reshape thì nó **xảy ra ngay lượt đầu**, và hậu quả không phải "chậm" mà là **im tiếng**.
+
 ## 1.3.466 — rủi ro của thí nghiệm CoreML EP
 
 * **Phân mảnh graph**: `vector_estimator` 1578 node với 93 % là elementwise/reshape ⇒ EP có thể chỉ nhận một phần, mỗi ranh giới tốn copy CPU↔ANE; có tiền lệ **chậm hơn CPU** (lượng tử hoá int8 chậm 2,7× — xem `Docs/Reports/research-2026-10-02-vieneu-nhom-C.md`).

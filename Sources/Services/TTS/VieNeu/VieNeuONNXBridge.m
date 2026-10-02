@@ -169,8 +169,15 @@ static int32_t appendCoreMLProvider(const OrtApi *api, OrtSessionOptions *option
     keys[count] = "ModelCacheDirectory";  values[count++] = runOptions->coreMLCacheDirectory;
     // Bảng phân bổ ANE/GPU/CPU theo từng toán tử — nguồn sự thật duy nhất cho câu hỏi "EP có ăn không".
     keys[count] = "ProfileComputePlan";   values[count++] = "1";
-    // Giữ shape động (L, T đổi mỗi đoạn). Đặt 0 vì bật 1 sẽ khiến EP bỏ qua gần hết graph.
-    keys[count] = "RequireStaticInputShapes"; values[count++] = "0";
+    // ⚠️ **BẮT BUỘC = 1** (sửa ở 1.3.467, đo trên máy thật): để `0` (cho phép shape động) thì CoreML EP
+    // **chia `vector_estimator` thành 33+ partition**, mỗi partition là một `.mlmodel` biên dịch riêng
+    // (`CoreMLCache/<hash>/3_dynamic_mlprogram` … `33_dynamic_mlprogram`), và **sinh thêm partition mới ở
+    // mỗi lượt chạy**. Hệ quả đo được: trong 25 giây đọc không có **một** dòng `[VieNeuPerf]` nào, chỉ có
+    // `[NghiEnergy] Underrun` ⇒ **hoàn toàn không phát ra tiếng**.
+    // Đặt `1` ⇒ EP chỉ nhận node có shape tĩnh; `L` (độ dài phoneme) và `T` (số frame) của model này đổi
+    // mỗi đoạn nên EP sẽ nhận **rất ít** node — lợi ích gần như bằng 0, nhưng **không còn bão biên dịch**.
+    // Đây là bước kiểm chứng trước khi quyết định bỏ hẳn EP (xem `Docs/Reports/walkthrough-1.3.467.md`).
+    keys[count] = "RequireStaticInputShapes"; values[count++] = "1";
 
     if (check(api->SessionOptionsAppendExecutionProvider(options, "CoreML", keys, values, count),
               api, errorMessage) != 0) {

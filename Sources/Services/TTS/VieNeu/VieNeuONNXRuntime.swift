@@ -99,10 +99,20 @@ final class VieNeuONNXRuntime {
     /// Thư mục cache của CoreML EP — **bắt buộc** khi bật EP: không có cache thì Core ML **biên dịch
     /// lại** subgraph mỗi lần mở session (hàng chục giây cho mỗi lượt nạp engine).
     ///
-    /// Nằm cạnh model trong Application Support. Là **cache** — xoá được bất cứ lúc nào, và không được
-    /// đưa vào backup.
+    /// **Tên thư mục mang hậu tố cấu hình** (1.3.467) vì khoá cache của CoreML EP **chỉ** là hash model,
+    /// **không** gồm tuỳ chọn EP ⇒ đổi tuỳ chọn mà giữ tên cũ là partition của cấu hình cũ bị tái dùng.
+    /// **Đổi bộ tuỳ chọn trong `appendCoreMLProvider` thì phải đổi hậu tố ở đây.**
+    ///
+    /// Thư mục `CoreMLCache` (tên 1.3.466, không hậu tố) được dọn một lần: nó chứa 33+ partition của cấu
+    /// hình `RequireStaticInputShapes=0` — cấu hình đã chứng minh làm im tiếng.
     static func prepareCoreMLCacheDirectory(modelStore: VieNeuModelStore) throws -> String {
-        let directory = modelStore.rootURL.appendingPathComponent("CoreMLCache", isDirectory: true)
+        let root = modelStore.rootURL
+        let legacy = root.appendingPathComponent("CoreMLCache", isDirectory: true)
+        if FileManager.default.fileExists(atPath: legacy.path) {
+            try? FileManager.default.removeItem(at: legacy)
+            AppLogger.shared.log("🧹 [VieNeu] Dọn cache CoreML cũ (cấu hình shape động gây bão biên dịch)")
+        }
+        let directory = root.appendingPathComponent("CoreMLCache-staticShapes", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return directory.path
     }

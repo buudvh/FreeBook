@@ -15,6 +15,12 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.467 — cache CoreML: tách theo cấu hình EP và dọn cache cũ
+
+* **Khoá cache của CoreML EP chỉ là hash model** (metadata/URL/graph IO) — **không** gồm tuỳ chọn EP ⇒ đổi tuỳ chọn mà giữ nguyên thư mục là partition của cấu hình cũ bị tái dùng. Vì vậy thư mục nay là `CoreMLCache-staticShapes`, và **đổi bộ tuỳ chọn trong `appendCoreMLProvider` thì phải đổi hậu tố**.
+* Thư mục `CoreMLCache` (tên 1.3.466) bị **dọn một lần** trong `prepareCoreMLCacheDirectory`: nó chứa 33+ partition của cấu hình `RequireStaticInputShapes=0` — cấu hình đã chứng minh làm im tiếng.
+* Vẫn là **cache**: xoá được bất cứ lúc nào, **không** đưa vào backup.
+
 ## 1.3.466 — vòng đời ngữ cảnh ORT khi nạp lại, và cache CoreML
 
 * `VieNeuTTSEngine.unload()` nhả theo thứ tự **bắt buộc**: `runtime = nil` trước (⇒ `VieNeuONNXRuntime.deinit` → `VieNeuORTDestroy` giải phóng tensor cache), rồi mới xoá `nullContext`/`nullContextShape`/`nullMask` — buffer nguồn của cache. Đảo thứ tự là cache trỏ vào bộ nhớ đã chết.

@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.467] - 2026-10-02
+
+### fix: CoreML EP chia vector_estimator thanh 33 partition lam im tieng - ep shape tinh
+
+Người dùng: *"hoàn toàn không phát ra tiếng"* sau khi bật công tắc CoreML/ANE (log `app_logs (61).txt`).
+
+- **Nguyên nhân (đúng rủi ro đã ghi ở plan 1.3.466 §7)**: với `RequireStaticInputShapes=0`, CoreML EP chia `vector_estimator` thành **33+ partition**, mỗi partition là một `.mlmodel` được **biên dịch riêng** (`CoreMLCache/<hash>/3_dynamic_mlprogram` … `33_dynamic_mlprogram`) và **sinh thêm partition ở mỗi lượt chạy**. Trong 25 giây đọc **không có một dòng `[VieNeuPerf]` nào** — chưa lượt tổng hợp nào hoàn tất, chỉ có `[NghiEnergy] Underrun chapter=116 index=174/177` ⇒ im tiếng.
+- **Sửa**: `RequireStaticInputShapes=1` (EP chỉ nhận node có shape tĩnh). `L` và `T` của model này đổi mỗi đoạn nên EP sẽ nhận **rất ít** node — kỳ vọng lợi ích ~0, nhưng **hết bão biên dịch**. Đây là bước kiểm chứng trước khi quyết định bỏ hẳn EP.
+- **Tách cache theo cấu hình EP**: khoá cache của CoreML EP **chỉ** là hash model, **không** gồm tuỳ chọn EP ⇒ đổi tuỳ chọn mà giữ thư mục cũ là partition của cấu hình cũ bị tái dùng. Thư mục nay là `CoreMLCache-staticShapes`; thư mục `CoreMLCache` của 1.3.466 (chứa 33+ partition của cấu hình hỏng) được **dọn một lần**.
+- **Luật 22** (`rules.md`): cache của execution provider phải tách theo cấu hình EP.
+- Công tắc vẫn **mặc định TẮT**; khôi phục nếu vẫn im tiếng: gạt công tắc về TẮT (engine tự nạp lại bằng CPU).
+- **Trần dòng**: `VieNeuONNXRuntime.swift` 390 → **400** (chạm trần — lần sau phải tách file trước) · `VieNeuONNXBridge.m` 1245 → **1252**.
+
 ## [1.3.466] - 2026-10-02
 
 ### feat: them cong tac thi nghiem CoreML/ANE cho VieNeu-TTS de giam tai CPU
@@ -552,14 +565,3 @@ Cổng: `check_architecture.py` **5 violation nền, 0 mới** (`TTSManager` gi�
 **Còn lại (treo):** `vieneuPitch` vẫn no-op — `NghiAudioPlayerQueue` chỉ có `updateRate`, chưa có `AVAudioUnitTimePitch` (task #9); clone giọng (overlay `VieNeuVoiceCatalog` + script Python trích `speaker_encoder/codec_encoder/reference_encoder`, task #10/#11).
 
 ---
-
-## [1.3.437] - 2026-09-29
-
-### refactor: gom tien xu ly so VieNeu len service chung
-
-Theo ý người dùng "chỉ dùng tiền xử lý chung (thay thế ký tự Tts)", chuyển mở rộng số/ngày/tháng của VieNeu từ engine lên tầng service để đồng nhất với NghiTTS (Piper).
-
-- **Phát hiện**: cả Piper và VieNeu đều xử lý số qua cùng hàm chung `TextPreprocessor.processVietnameseText`. Piper gọi nó bên trong `preprocess` (tại `PiperTTSService.synthesize`, :195/:341); VieNeu gọi bản mỏng `normalizingForVieNeu` (= `processVietnameseText`, bỏ espeak vì `sea_g2p.bin` không có IPA) ngay trong `VieNeuTTSEngine.synthesize`. `applyReplacements` (thay thế ký tự chung) không xử lý số.
-- **Đổi**: xoá lớp gọi riêng trong engine; gọi `TextPreprocessor.normalizeVietnameseText` (đổi tên trung lập, vẫn = `processVietnameseText` không espeak) tại `VieNeuTTSService.executeInternalSynthesis` và `…Stream`. Mọi đường (Reader, prefetch, next-chapter-prefix, thử giọng) đều qua `VieNeuTTSService.shared` nên bao phủ đủ.
-- **Tác dụng**: engine VieNeu không còn tự tiền xử lý, đồng nhất với Piper; số/ngày vẫn đọc đúng (bắt buộc vì vocab thiếu chữ số).
-- **File**: `TextPreprocessor+Numbers.swift` (đổi tên hàm), `VieNeuTTSEngine.swift` (xoá gọi, net ~-5 dòng, trần 400 an toàn), `VieNeuTTSService.swift` (thêm gọi 2 chỗ).
