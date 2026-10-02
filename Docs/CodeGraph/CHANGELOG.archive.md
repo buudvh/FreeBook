@@ -6181,3 +6181,24 @@ Sửa **5** file (4 Swift + 1 plan):
 - **Sửa 3 comment sai `12 → 10`** (việc sửa tài liệu, **không** đổi hành vi): `TTSManager.swift:742`, `TTSManager+NghiPrefetchConcurrency.swift:15`, `Docs/Plans/2026-09-30-plan-tts-stutter-overlap-battery.md:47`. Giá trị 12 chỉ là **placeholder khởi tạo**, bị `applyVieNeuParamsIfNeeded` ghi đè bằng `bufferedSecondsTarget` = **10.0** khi khởi động.
 - **Cố ý không làm**: **không** cắt `maxConcurrentNghiRefills` 3→1–2, **không** cắt `optionalCap` 4→2 (hai số này sinh từ chính báo cáo lỗi "đoạn 1→2→3 phải chờ" của người dùng ở `[1.3.438]` — cắt là mở lại lỗi cũ); **không** đụng `VieNeuTTSEngine.swift` (đang đúng trần **400/400**). Toggle "Tiết kiệm pin" giữ nguyên (vẫn ép `.fast`).
 - Cổng: `check_architecture.py` **5 violation nền/0 mới**; `validate_links.py` **PASS 100% (16 doc, 614 file Swift)**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
+
+
+---
+
+## [1.3.450] - 2026-09-30
+
+### feat: bo mode Thap, giam churn ONNX va them log chan doan tang nhiet
+
+Sửa **12** file (9 Swift + 2 C/header bridge + 1 doc-mirror):
+
+- **Bỏ hẳn mode "Thấp" (`.low`, 4 bước)**: người dùng nghe và chốt *"low tạo âm thanh quá kém, không rõ tiếng"*. `VieNeuSynthesisPolicy.Mode` quay lại **hai** chế độ `high`/`fast`; `tuning(for:)` bỏ `Tuning(steps: 4, …)`; `nextMode` bỏ nhánh `case .low: return nil`. Sàn `steps` là **8** — ghi thành **bài học bắt buộc** trong `enum Mode` để không ai thử 5/6/7 (giữ CFG không bù được sai số tích phân vòng Euler). Giá trị `"low"`/`"turbo"` cũ trong `UserDefaults` tự rơi về "tự động" vì `Mode(rawValue:)` trả `nil` — **không cần migrate**.
+- **UI theo sau**: `displayName` bỏ `case .low` (còn Tự động / Chất lượng cao / Cân bằng); footer `VieNeuTTSTestView+Sections` còn hai mức; `TTSSettingsView+VieNeu` bỏ câu mô tả chế độ "Thấp". Cả hai Picker dùng `ForEach(Mode.allCases)` nên **không sửa vòng lặp**.
+- **A2a — gỡ một tầng copy**: `VieNeuORTRunVectorEstimatorInto` (C) ghi thẳng vào buffer Swift cấp (`float *outBuffer, int32_t outCapacity`, trả `-1` nếu buffer nhỏ thay vì tràn) — Swift dùng một mảng `Float` zeroed bằng `repeating: 0, count: capacity` + `withUnsafeMutableBufferPointer`, bỏ `malloc`+`memcpy` phía C **và** `Array(UnsafeBufferPointer)` phía Swift. Hàm cũ `VieNeuORTRunVectorEstimator` giữ làm wrapper mỏng cho tương thích.
+- **A2b — đệm `OrtValue` nhánh vô điều kiện**: `VieNeuORTRunVectorEstimatorUnconditionedInto` cache 4 tensor bất biến (`nullContext`/`nullMask`/`nullSpeaker`/`nullStyle`) **dựng từ buffer null thật** (không phải buffer `x`) và tái dùng suốt vòng lặp Euler, thay vì `makeTensor` lại mỗi bước. An toàn vì `VieNeuTTSEngine` **không có `unload`** ⇒ 4 buffer nguồn bất biến suốt vòng đời engine. Thêm `VieNeuORTResetVectorCache`; `VieNeuORTDestroy` giải phóng cache trước khi huỷ runtime. Comment bất biến ở `VieNeuONNXBridge.m:11-12` sửa để nêu ngoại lệ có kiểm soát.
+- **L2 — đo churn**: `struct VieNeuORT` thêm `tensorCreates`/`tensorReleases`/`copiedBytes` + `makeTensorCounted`; mặt C `VieNeuORTChurnSnapshot`/`VieNeuORTResetChurnCounters`; `VieNeuONNXRuntime` thêm `churnSnapshot` (tuple 3 phần tử)/`resetChurnCounters`/`resetVectorCache`; `VieNeuTTSEngine.Timing` thêm 3 trường; `[VieNeuPerf]` in `churn=creates/releases/copiedBytes`.
+- **L1 — đo busy/preload**: `NghiEnergyAccumulator` thêm `maxPreloadGapMs`/`lastPlaybackSubmitAt`; `[NghiEnergy] Summary` in thêm `busyPct=`/`preloadGapMs=`.
+- **L3 — cầu Service → View**: `TTSManager.recordNghiSynthesis` phát `Notification.Name.nghiLocalSynthesisDidComplete` (không gọi thẳng singleton UI) ⇒ `ReaderEnergyDiagnostics` đọc `lastLocalSynthAgoMs` in trong `[ReaderEnergy] Summary`. **Đây là nguyên nhân gốc của việc thiếu `[TTSEnergy] Summary` cho đường local**: `RemoteTTSSynthesisCoordinator` chỉ phục vụ engine **remote**, engine local (vieneu/nghitts) đi qua `PiperSynthesisCoordinator` ⇒ không Summary nào chạy.
+- **Cố ý không làm (GĐ2 huỷ)**: **không** cắt `maxConcurrentNghiRefills` 3→1–2, **không** cắt `optionalCap` 4→2, **không** đổi cửa sổ 12s — chờ log IPA mới để quyết, tránh mở lại lỗi đứt đoạn ngắn đã sửa ở 1.3.438.
+- **Giới hạn dòng**: `VieNeuTTSEngine.swift` giữ **đúng 400/400** (nén comment + gộp tham số); `TTSManager.swift` **3957 → 3970** (baseline 3470 — vi phạm nền, không loại mới).
+- **Sửa lỗi biên dịch đầu tiên (CI run `36722575609`)**: khi nén comment để giữ trần 400, một dòng trong `prepareLocked` bị mất ký tự xuống dòng ⇒ `VieNeuTTSEngine.swift:172:44: error: consecutive statements on a line must be separated by ';'` (`nullContextShape = nullBranch.shape        nullMask = nullBranch.mask`). Tách lại thành hai dòng và bù bằng cách gộp hai dòng comment liền kề ⇒ vẫn **đúng 400**. Không có lỗi nào khác (bridge C `.m` biên dịch sạch).
+- Cổng: `check_architecture.py` **5 violation nền / 0 mới**; `validate_links.py` **PASS 100% (16 doc, 614 file Swift)**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
