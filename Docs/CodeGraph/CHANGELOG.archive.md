@@ -6148,3 +6148,19 @@ Sửa **1** file Swift (`Sources/Views/Shelf/ShelfMain/NotificationInboxView+Mer
 - **Nguyên nhân**: lượt `1.3.446` để nút ở `.buttonStyle(.borderedProminent)` + `.tint(Color.primary)`. `borderedProminent` **không** tự đảo màu chữ theo tint — nó lấy nền từ tint và luôn đặt chữ theo một sắc sáng cố định (giả định tint là màu đậm/bão hoà). `Color.primary` ở **dark mode** = trắng ⇒ nền trắng + chữ sáng ⇒ **nút rỗng** (ảnh user gửi). `.foregroundStyle(Color(uiColor: .systemBackground))` đặt *bên trong* label không cứu được vì `.buttonStyle` ở ngoài ghi đè.
 - **Không thể** chỉ gỡ `.tint(Color.primary)`: `MainTabView` đặt `.tint(.white)` toàn cục nên tint mặc định cũng là trắng, vẫn trắng-trên-trắng.
 - **Cách sửa**: bỏ cả hai modifier sai, dùng `.tint` **xanh lá đậm literal** (`Color(red: 0.204, green: 0.780, blue: 0.349)`) + chữ `.foregroundColor(.white)` — theo khuôn tint đậm có sẵn trong repo (`ReaderAINameReviewCardView.swift`), đọc được ở mọi theme, không phụ thuộc tint hệ thống.
+
+
+---
+
+## [1.3.448] - 2026-09-30
+
+### fix: gộp VietPhrase ghi số liệu ra file meta kèm theo, không đọc lại file gộp
+
+Sửa **3** file Swift:
+
+- **Nguyên nhân**: mục gộp ở màn Thông báo đọc `DictionaryMergeTask.resultRecordCount` + `displayDate` **trực tiếp trong `body`**. Sau restart (`lastOutcome` chỉ sống trong RAM), `resultRecordCount` rơi xuống `DictionaryTextFileStore.loadCount(from:)` → `parseRecords` — **đọc cả `VietPhraseMerged.txt` (~1,4 triệu dòng) thành `String`, cắt mảng, dựng `Set<String>`** chỉ để lấy `.count`, **trên main thread** ⇒ đơ app, nghẽn luôn TTS (TTS cần main thread cập nhật highlight). `DictionaryMergeTask.init()` → `refreshFromDisk()` chặn main **ngay lúc mở app**.
+- **`DictionaryMergeService`** (123 → **210**): thêm `Meta` (`Codable`, `version` + 4 số + `createdAt`), `mergedMetaFileName` (dẫn xuất từ `mergedFileName`), `mergedMetaURL()`, `writeMeta(_:)` / `loadMeta()` / `deleteMeta()`. `merge(progress:)` ghi meta **sau** khi ghi `.txt`, cùng khuôn nguyên tử `tmp` + `replaceItemAt`. `loadMeta` trả `nil` khi thiếu file / decode lỗi / `version` lạ.
+- **`DictionaryMergeTask`** (236 → **216**): thêm `@Published private(set) var meta` + `isMetaMissing`. `summaryCounts`/`resultRecordCount`/`displayDate` nay **thuần RAM** (bỏ hẳn `loadCount` và `attributesOfItem`). `refreshFromDisk` chỉ `loadMeta()` ⇒ chạy thẳng trên `MainActor` an toàn. `finish` đọc lại meta. `applyToVietPhrase` + `discardResult` gọi `deleteMeta()` cùng lượt. **Xoá** `MergeSummary`, `summaryKey`, `persistSummary`, `clearSummary` (bản 1.3.446) + dọn khoá `UserDefaults` cũ trong `init`.
+- **`NotificationInboxView+Merge`** (186 → **188**): thêm nhánh `isMetaMissing` hiện *"Số liệu chưa có — gộp lại để cập nhật."* khi có file `.txt` nhưng không có meta (file sinh từ bản app cũ) — **không** parse bù.
+- **Cố ý không làm**: cache `hasResult` khỏi `fileExists` — chỉ là syscall `stat` cỡ µs, không phải nguyên nhân, mà cache đòi tự cập nhật ở 5 nơi.
+- Cổng: `check_architecture.py` **5 violation nền/0 mới**; `validate_links.py` **PASS 100% (16 doc, 614 file Swift)**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.

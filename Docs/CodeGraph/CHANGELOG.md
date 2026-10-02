@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.478] - 2026-10-02
+
+### docs: ghi so do cuoi cua Phase 0 CoreML (FAIL) vao CHANGELOG
+
+Chỉ tài liệu — lượt này **không** đổi mã, chỉ chốt lại bằng chứng cuối của Phase 0 vào nhật ký. Không lượt CI nào chạy (không đụng `Sources/**`, `project.yml`, `Scripts/*.py` hay file workflow).
+
+- **Xác nhận độc lập thứ hai cho `FAIL`** (lượt CI #6, `36999867586`): sau khi sửa bẫy dtype của `ids`, `golden` chạy được tới tận runtime và Core ML trả về nguyên văn `NSLocalizedDescription = "Error in dynamically resizing for sequence length (error: -7)."` ⇒ Core ML **từ chối đổi chiều dài chuỗi** dù gói đã khai `RangeDim`. Một bằng chứng từ phép thử `trace_shapes`, một từ runtime thật — hai đường đo độc lập, cùng kết luận.
+- **Và ngay ở shape chạy được, gói torch vẫn chậm hơn gói tĩnh** (`L=160, T=96`): `text_encoder` **0,70×** (chậm hơn) · `vector_estimator` **1,68×** (baseline tĩnh: **2,12×**) · `codec_decoder` **0,53×** (chậm gấp ~2; baseline tĩnh: **1,28×**). Ước lượng một chunk: ORT 2977 ms → Core ML 2075 ms = **1,44×**, so với **1,98×** của đường tĩnh.
+- ⇒ Đường torch hỏng vì **hai** lý do độc lập: (1) **không shape động**; (2) **chất lượng gói kém hơn**. Điều này làm hướng "viết lại converter `Reshape` của `onnx2torch`" **khó hơn** so với lúc viết plan: sửa được shape động vẫn còn phải sửa cả chất lượng gói.
+- **Báo cáo đầy đủ**: `Docs/Reports/research-2026-10-02-vieneu-coreml-shape-dong.md` (gitignored).
+- **Trạng thái**: Phase 0 đã đóng với `FAIL`; theo quyết định #6 của plan, **dừng và chờ quyết định** giữa ba hướng (bucket 384–512 MB · viết lại converter onnx2torch · bỏ Core ML).
+
 ## [1.3.477] - 2026-10-02
 
 ### fix: sua golden stage CoreML dung bien the dtype (ids int32)
@@ -454,19 +466,4 @@ Sửa **5** file (4 Swift + 1 plan):
 - **`TTSSettingsView+VieNeu`** (179): dòng giải thích thêm một câu về chế độ "Thấp". Picker "Chế độ tạo audio" **không sửa vòng lặp** — `ForEach(Mode.allCases)` tự có case mới.
 - **Sửa 3 comment sai `12 → 10`** (việc sửa tài liệu, **không** đổi hành vi): `TTSManager.swift:742`, `TTSManager+NghiPrefetchConcurrency.swift:15`, `Docs/Plans/2026-09-30-plan-tts-stutter-overlap-battery.md:47`. Giá trị 12 chỉ là **placeholder khởi tạo**, bị `applyVieNeuParamsIfNeeded` ghi đè bằng `bufferedSecondsTarget` = **10.0** khi khởi động.
 - **Cố ý không làm**: **không** cắt `maxConcurrentNghiRefills` 3→1–2, **không** cắt `optionalCap` 4→2 (hai số này sinh từ chính báo cáo lỗi "đoạn 1→2→3 phải chờ" của người dùng ở `[1.3.438]` — cắt là mở lại lỗi cũ); **không** đụng `VieNeuTTSEngine.swift` (đang đúng trần **400/400**). Toggle "Tiết kiệm pin" giữ nguyên (vẫn ép `.fast`).
-- Cổng: `check_architecture.py` **5 violation nền/0 mới**; `validate_links.py` **PASS 100% (16 doc, 614 file Swift)**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
-
----
-
-## [1.3.448] - 2026-09-30
-
-### fix: gộp VietPhrase ghi số liệu ra file meta kèm theo, không đọc lại file gộp
-
-Sửa **3** file Swift:
-
-- **Nguyên nhân**: mục gộp ở màn Thông báo đọc `DictionaryMergeTask.resultRecordCount` + `displayDate` **trực tiếp trong `body`**. Sau restart (`lastOutcome` chỉ sống trong RAM), `resultRecordCount` rơi xuống `DictionaryTextFileStore.loadCount(from:)` → `parseRecords` — **đọc cả `VietPhraseMerged.txt` (~1,4 triệu dòng) thành `String`, cắt mảng, dựng `Set<String>`** chỉ để lấy `.count`, **trên main thread** ⇒ đơ app, nghẽn luôn TTS (TTS cần main thread cập nhật highlight). `DictionaryMergeTask.init()` → `refreshFromDisk()` chặn main **ngay lúc mở app**.
-- **`DictionaryMergeService`** (123 → **210**): thêm `Meta` (`Codable`, `version` + 4 số + `createdAt`), `mergedMetaFileName` (dẫn xuất từ `mergedFileName`), `mergedMetaURL()`, `writeMeta(_:)` / `loadMeta()` / `deleteMeta()`. `merge(progress:)` ghi meta **sau** khi ghi `.txt`, cùng khuôn nguyên tử `tmp` + `replaceItemAt`. `loadMeta` trả `nil` khi thiếu file / decode lỗi / `version` lạ.
-- **`DictionaryMergeTask`** (236 → **216**): thêm `@Published private(set) var meta` + `isMetaMissing`. `summaryCounts`/`resultRecordCount`/`displayDate` nay **thuần RAM** (bỏ hẳn `loadCount` và `attributesOfItem`). `refreshFromDisk` chỉ `loadMeta()` ⇒ chạy thẳng trên `MainActor` an toàn. `finish` đọc lại meta. `applyToVietPhrase` + `discardResult` gọi `deleteMeta()` cùng lượt. **Xoá** `MergeSummary`, `summaryKey`, `persistSummary`, `clearSummary` (bản 1.3.446) + dọn khoá `UserDefaults` cũ trong `init`.
-- **`NotificationInboxView+Merge`** (186 → **188**): thêm nhánh `isMetaMissing` hiện *"Số liệu chưa có — gộp lại để cập nhật."* khi có file `.txt` nhưng không có meta (file sinh từ bản app cũ) — **không** parse bù.
-- **Cố ý không làm**: cache `hasResult` khỏi `fileExists` — chỉ là syscall `stat` cỡ µs, không phải nguyên nhân, mà cache đòi tự cập nhật ở 5 nơi.
 - Cổng: `check_architecture.py` **5 violation nền/0 mới**; `validate_links.py` **PASS 100% (16 doc, 614 file Swift)**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
