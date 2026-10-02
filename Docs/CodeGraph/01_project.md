@@ -20,6 +20,8 @@ Tài liệu này phác thảo kiến trúc tổng thể, sơ đồ thư mục, c
 * Thêm `.github/workflows/convert-coreml.yml` — **workflow riêng**, chỉ chạy khi `workflow_dispatch` hoặc khi chính file đó đổi. Runner `macos-15` (Apple Silicon ⇒ **có ANE**), Python 3.12 vì `onnx2coreml` yêu cầu `>=3.11,<3.14`.
 * Thêm `Scripts/coreml_convert_experiment.py` — tải model ghim revision, `analyze` 4 graph, chốt shape tĩnh rồi convert `vector_estimator` (2 bucket) + `codec_decoder` (1 bucket), và **so số + đo tốc độ Core ML fp16 vs ORT fp32 trên cùng một máy**; mọi giai đoạn bọc `try/except` để lỗi ở đâu cũng là kết quả thu được.
 * **Không** sửa `Sources/`, **không** sửa `build-ipa.yml`. Lưu ý: `build-ipa.yml` có `paths: '.github/workflows/**'` nên push file này **cũng** kích hoạt một lượt build IPA (không ảnh hưởng kết quả, chỉ tốn thời gian runner).
+* Trigger `push` gồm **cả** `Scripts/coreml_convert_experiment.py` (sửa script là tự chạy lại); `workflow_dispatch` để chạy tay. Thư mục làm việc **không** được bắt đầu bằng dấu chấm (`upload-artifact` bỏ qua thư mục ẩn ⇒ mất `.mlpackage`).
+* **Kết quả lượt chạy `36990902528`** (chi tiết ở `Docs/Reports/research-2026-10-02-vieneu-xnnpack-va-turbo.md` §7): convert được `vector_estimator` **78,1 MB** + `codec_decoder` **49,7 MB** (op chặn `Range` giải bằng `ORT_ENABLE_BASIC` constant folding — **không** dùng `ORT_ENABLE_ALL`); fp16 SNR **49,0 dB**; Core ML nhanh hơn ORT CPU **~2×** (`vector_estimator` 120,6 → 56,8 ms; ước lượng 1 chunk 2180 → 1103 ms) **kể cả `CPU_ONLY`** ⇒ lợi ích đến từ runtime CPU + fp16 của Core ML, không phải ANE.
 
 
 ## `project.yml` thêm `NSMicrophoneUsageDescription` + cổng CI `fbank-gate` (1.3.451 / 1.3.453)
