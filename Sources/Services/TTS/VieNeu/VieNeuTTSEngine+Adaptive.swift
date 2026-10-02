@@ -62,10 +62,15 @@ extension VieNeuTTSEngine {
         speechDuration: Double,
         synthesisMs: Double,
         boundaryKind: TTSBoundaryKind,
-        timing: Timing
+        timing: Timing,
+        /// Tốc độ **tổng hợp** (1.3.465). Có mặt vì đây là số liệu duy nhất nói ra "lượt này model đang
+        /// nói ở tốc độ nào" — thiếu nó thì không phân biệt được RTF tốt do máy khoẻ hay do đang tổng
+        /// hợp ở 1,8× (bài học 1.3.461: log từng thiếu đúng trường cần ⇒ phải hỏi người dùng nhiều lượt).
+        synthesisSpeed: Double
     ) {
         AppLogger.shared.log(
             "[VieNeuPerf] mode=\(mode.rawValue) chunks=\(chunkCount) dropped=\(droppedScalars)"
+                + " synthSpeed=\(String(format: "%.2f", synthesisSpeed))x"
                 + " chars=\(characterCount) pcm=\(String(format: "%.2f", pcmDuration))s"
                 + " speech=\(String(format: "%.2f", speechDuration))s"
                 + " synth=\(String(format: "%.0f", synthesisMs))ms"

@@ -15,6 +15,11 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.465 — thanh "Tốc độ tổng hợp" cho VieNeu; Section 4 của màn Cài đặt TTS tách file
+
+* Thêm **1** file Swift (`Views/TTSWidget/TTSSettingsView+Voice.swift`, **90** dòng) ⇒ validator đếm **639** file, bộ tài liệu vẫn **16** doc.
+* `TTSSettingsView.swift` **519 → 458** (chuyển nguyên Section 4 "Cấu hình giọng nói" ra extension) — lần đầu file này lùi khỏi trần allowlist 519 kể từ 1.3.459.
+
 
 ## 1.3.464 — hộp thoại Trộn/Thay thế chuyển sang bước áp phiên âm lại; revert đường nhập file
 

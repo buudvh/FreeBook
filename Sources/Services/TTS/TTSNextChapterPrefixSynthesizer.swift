@@ -25,7 +25,8 @@ enum TTSNextChapterPrefixSynthesizer {
             return try await localService.synthesize(
                 text: textToSpeak,
                 voice: key.selectedVoice,
-                speed: 1.0,
+                // VieNeu tổng hợp ở **tốc độ tổng hợp** đã cài đặt; các engine local khác giữ 1,0.
+                speed: TTSManager.localSynthesisSpeed(forTool: key.tool),
                 boundaryKind: boundaryKind,
                 priority: .optionalReserve,
                 requestID: UUID(),

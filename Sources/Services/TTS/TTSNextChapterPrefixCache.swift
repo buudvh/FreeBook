@@ -226,7 +226,8 @@ internal final class TTSNextChapterPrefixCache {
             engine: key.tool,
             voice: key.selectedVoice,
             googlePitch: key.googlePitch,
-            extensionFingerprint: key.extensionFingerprint
+            extensionFingerprint: key.extensionFingerprint,
+            synthesisSpeed: TTSManager.localSynthesisSpeed(forTool: key.tool)
         )
 
         let expectedGeneration = generation

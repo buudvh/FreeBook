@@ -15,6 +15,11 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.465 — một sự kiện nội bộ mới: đổi tốc độ tổng hợp khi đang phát
+
+* `vieneuSynthesisSpeedRow.onChange` / `resetVieNeuSynthesisSpeed()` ⇒ `TTSManager.invalidateVieNeuSynthesisSpeed()`: huỷ nạp trước, lọc đệm, `clearPreparedNext()`, nạp lại từ đoạn kế. Không có sự kiện hướng ra UI (không toast).
+* `[VieNeuPerf]` có thêm trường `synthSpeed=` để log tự nói ra tốc độ tổng hợp của lượt đó.
+
 
 ## 1.3.446 — sự kiện quanh tầng rule thay thế riêng theo truyện
 

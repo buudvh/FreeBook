@@ -15,6 +15,11 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.465 — hai luật mới (tốc độ tổng hợp & khoá cache)
+
+* **Luật 18 — khoá cache phải mang mọi tham số làm đổi audio.** `TTSSynthesisIdentity.computeKey` là khoá của cả nạp trước lẫn cache prefix liên chương. Bất kỳ tham số nào làm audio khác đi (giọng, văn bản, ranh giới, **và tốc độ tổng hợp**) phải nằm trong khoá; thiếu thì audio cũ được trả cho yêu cầu mới — nghe sai mà **không có lỗi nào**. Thêm tham số mới thì truyền tường minh ở mọi caller, đừng tin vào default.
+* **Luật 19 — `speed` của engine local là tốc độ tổng hợp, không phải tốc độ phát.** Có **4** điểm gọi local phải cùng một nguồn giá trị: `TTSManager.scheduleNghiRefill`, đường phát on-demand, `TTSNextChapterPrefixSynthesizer`, `TTSChapterPrefetcher` — sửa một chỗ mà quên ba chỗ kia là audio lẫn hai tốc độ. Hai thứ này **nhân** nhau thành tốc độ nghe. Muốn đổi hành vi thì đổi đúng chỗ: tốc độ tổng hợp = tham số truyền vào `synthesize*`; tốc độ phát = `NghiAudioPlayerQueue.updateRate`. Đổi tốc độ tổng hợp lúc đang đọc phải vô hiệu phần đệm đã tổng hợp (`invalidateVieNeuSynthesisSpeed()`), nếu không nghe lẫn hai tốc độ.
+
 
 ## 1.3.464 — hai quy chuẩn rút ra
 

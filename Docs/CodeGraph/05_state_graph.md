@@ -15,6 +15,11 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.465 — một khoá `UserDefaults` mới; đệm audio bị vô hiệu khi đổi nó
+
+* Khoá `vieneuSynthesisSpeed` (dải 1,0...2,0, mặc định 1,0) do `VieNeuSynthesisPolicy.synthesisSpeed(from:)` đọc; `TTSSettingsView` mirror qua `@State vieNeuSynthesisSpeed` và làm mới trong `refreshVieNeuSettings()` (bài học 1.3.456).
+* Đổi giá trị ⇒ `preloadedData` / `preloadedDurations` bị lọc còn các đoạn ≤ `currentParagraphIndex`, `nextChapterPrefetcher.cancel()`, đoạn đang phát giữ nguyên (không khựng).
+
 
 ## 1.3.453 — trạng thái của luồng nhân bản giọng
 

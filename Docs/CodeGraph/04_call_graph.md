@@ -15,6 +15,12 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.465 — tốc độ tổng hợp đi vào ba điểm gọi và vào khoá cache
+
+* `TTSManager.scheduleNghiRefill` (`:2903`) và đường phát on-demand (`:3596`) truyền `TTSManager.localSynthesisSpeed(forTool:)` thay vì hằng `1.0`; `TTSNextChapterPrefixSynthesizer.one` (`:28`) và `TTSChapterPrefetcher` (`:192`, nhánh local) cũng vậy ⇒ **4** điểm gọi local, rà bằng `grep "localService.synthesize|service.synthesizeWithDuration"`.
+* Khoá cache: `TTSSynthesisIdentity.computeKey` được truyền thêm `synthesisSpeed` từ `TTSManager.swift:2857`/`:3556` và `TTSNextChapterPrefixCache.startSynthesis` — thiếu thì hai audio khác tốc độ trùng khoá.
+* `vieneuSynthesisSpeedRow` → `TTSManager.invalidateVieNeuSynthesisSpeed()` → `cancelNghiRefill()` + `NghiAudioPlayerQueue.clearPreparedNext()` + `updateNghiPrefetchWindow()`.
+
 
 ## 1.3.464 — cạnh gọi mới ở bước áp phiên âm lại; cạnh của luồng nhập file bị gỡ
 

@@ -15,6 +15,12 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.465 — vòng đời đệm audio khi đổi tốc độ tổng hợp
+
+* `TTSManager.invalidateVieNeuSynthesisSpeed()` giải phóng **có chọn lọc**: `cancelNghiRefill()` (huỷ task đang bay + xoá `nghiRefillInFlightIndices`), lọc `preloadedData`/`preloadedDurations` còn các đoạn ≤ `currentParagraphIndex`, `nextChapterPrefetcher.cancel()`, `NghiAudioPlayerQueue.clearPreparedNext()` (bỏ `AVAudioPlayer` của đoạn N+1 đã `prepareToPlay`).
+* Đoạn đang phát **không** bị đụng ⇒ không mất tiếng giữa đoạn; nạp lại chỉ bắt đầu khi `isPlaying`.
+* 4 điểm gọi tổng hợp local dùng chung `TTSManager.localSynthesisSpeed(forTool:)` nên đệm nạp trước và bản phát theo cùng một tốc độ.
+
 
 ## 1.3.464 — vòng đời của bước áp (hai nhánh) và của màn chọn mục trùng
 

@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.465 — VieNeu có thanh "Tốc độ tổng hợp": giảm tính toán thay vì làm chậm tổng hợp
+
+* Tốc độ nay có **hai** thanh: *Tốc độ* (phát, `AVAudioPlayer.rate`) và *Tốc độ tổng hợp (VieNeu)* (đưa vào model qua `secs = exp(log_s)/speed`, `VieNeuTTSEngine.swift:336`). Tốc độ nghe = **tích** hai thanh, nên màn hình hiện luôn tích đó.
+* Vì sao: lượng tính toán tỷ lệ thuận với thời lượng audio sinh ra. Ở 1,8×, tổng hợp theo tốc độ giảm ~45 % tính toán (duty cycle 79 % → ~44 %) — khác với hạ luồng / hạ QoS / tự động theo nhiệt, vốn đều là **làm chậm** tổng hợp ⇒ sinh đứt đoạn.
+* Đổi thanh này lúc đang đọc: phát nốt đoạn hiện tại, bỏ đệm các đoạn sau rồi nạp lại; màn "Nghe thử" cũng dùng chung cài đặt.
+
 
 ## 1.3.464 — bước áp phiên âm lại có hai nhánh; màn chọn mục trùng vẽ lại
 

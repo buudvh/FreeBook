@@ -15,6 +15,11 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.465 — độ phức tạp: Section 4 tách file, `TTSSettingsView.swift` lùi khỏi trần
+
+* Validator: **638 → 639** file Swift.
+* `TTSSettingsView.swift` **519 → 458** (trần allowlist 519, trước đó kẹt đúng 519 từ 1.3.459) — khối 68 dòng chuyển sang `TTSSettingsView+Voice.swift` **90**/400; `TTSSettingsView+VieNeu.swift` 277 → **332**/400; `VieNeuSynthesisPolicy.swift` 160 → **186**/400; `TTSManager.swift` giữ **3970** (gộp hai dòng tham số để bù dòng mới).
+
 
 ## 1.3.464 — độ phức tạp: 1 file mới, 1 file xoá, hai màn từ điển đổi chiều
 

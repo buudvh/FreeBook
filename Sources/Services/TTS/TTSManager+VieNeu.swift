@@ -143,6 +143,45 @@ extension TTSManager {
         return saved > 0 ? saved : 100
     }
 
+    /// Tốc độ **tổng hợp** của VieNeu — đưa thẳng vào model (`secs = exp(log_s)/speed`), mặc định 1,0.
+    ///
+    /// `nonisolated` cùng lý do với `isExtensionTool` và `vieNeuChunkLength`: đọc `UserDefaults` thuần,
+    /// được gọi từ cả `MainActor` lẫn nơi `nonisolated` (`TTSNextChapterPrefixCache`).
+    ///
+    /// **Không** nhầm với `speed` (tốc độ phát): hai thứ này **nhân** với nhau thành tốc độ nghe.
+    nonisolated static var vieNeuSynthesisSpeed: Double {
+        VieNeuSynthesisPolicy.synthesisSpeed(from: .standard)
+    }
+
+    /// Tốc độ truyền vào engine cho một lượt tổng hợp local: VieNeu dùng **tốc độ tổng hợp**, các
+    /// engine local khác giữ 1,0 như cũ.
+    nonisolated static func localSynthesisSpeed(forTool tool: String) -> Double {
+        tool == "vieneu" ? vieNeuSynthesisSpeed : 1.0
+    }
+
+    /// Đổi "Tốc độ tổng hợp" **giữa lúc đang đọc**: phát nốt đoạn hiện tại, nạp lại phần còn lại.
+    ///
+    /// Ba việc phải làm, thiếu một là nghe sai tốc độ mà không có lỗi gì:
+    /// 1. `cancelNghiRefill()` — huỷ các lượt đang bay (chúng đang tổng hợp ở tốc độ cũ).
+    /// 2. Bỏ `preloadedData` từ đoạn **sau** đoạn hiện tại — giữ lại đoạn hiện tại để không mất audio
+    ///    đang phát.
+    /// 3. `clearPreparedNext()` — đoạn N+1 đã `prepareToPlay()` vẫn phát ở tốc độ cũ nếu không bỏ.
+    ///
+    /// **Không** đụng `nghiAudioPlayerQueue` của đoạn đang phát ⇒ không khựng (đúng quyết định đã chốt:
+    /// "đợi hết đoạn đang phát, áp từ đoạn kế").
+    internal func invalidateVieNeuSynthesisSpeed() {
+        guard tool == "vieneu" else { return }
+        AppLogger.shared.log("[TTSRoute] doi toc do tong hop = \(Self.vieNeuSynthesisSpeed)x (giu doan \(currentParagraphIndex), nap lai tu doan \(currentParagraphIndex + 1))")
+        cancelNghiRefill()
+        let keepUpTo = currentParagraphIndex
+        preloadedData = preloadedData.filter { $0.key <= keepUpTo }
+        preloadedDurations = preloadedDurations.filter { $0.key <= keepUpTo }
+        nghiAudioPlayerQueue.clearPreparedNext()
+        nextChapterPrefetcher.cancel()
+        guard isPlaying else { return }
+        updateNghiPrefetchWindow()
+    }
+
     /// Đặt lại tham số "Tải trước dữ liệu" cho **engine đang chọn**.
     ///
     /// Gom về đây (thay vì để chuỗi `if/else` trong header của `Section` ở `TTSSettingsView`) vì hai lý do:

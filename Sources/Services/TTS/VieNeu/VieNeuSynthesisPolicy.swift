@@ -114,6 +114,32 @@ enum VieNeuSynthesisPolicy {
         isPowerSaving(defaults) ? 2 : threadCount(from: defaults)
     }
 
+    // MARK: - Tốc độ tổng hợp (1.3.465)
+
+    /// Khoá `UserDefaults` của **tốc độ tổng hợp** — tốc độ đưa thẳng vào model, **khác** tốc độ phát
+    /// (`ttsRate` / `vieneuRate` vẫn điều khiển `AVAudioPlayer.rate`).
+    static let synthesisSpeedKey = "vieneuSynthesisSpeed"
+
+    /// Dải cho phép. Dưới 1,0 không có lý do để dùng (chậm hơn mặc định làm bằng tốc độ phát được rồi);
+    /// trên 2,0 model Nano bắt đầu nói không rõ.
+    static let synthesisSpeedRange: ClosedRange<Double> = 1.0...2.0
+
+    /// Tốc độ tổng hợp đã lưu. **Hàm thuần** — nhận `defaults` từ caller (type này không tự đọc
+    /// `UserDefaults`). Mặc định **1,0** = đúng hành vi trước 1.3.465: tổng hợp ở tốc độ gốc của model
+    /// rồi tăng tốc bằng phát.
+    ///
+    /// ## Vì sao có cài đặt này
+    /// Vòng Euler chạy trên `frames = round(secs × fps)` với `secs = exp(log_s) / speed`
+    /// (`VieNeuTTSEngine.swift:336-337`) ⇒ **lượng tính toán tỷ lệ thuận với thời lượng audio sinh ra**.
+    /// Tổng hợp ở 1,8× rồi phát ở 1,0× cho cùng một tốc độ nghe như tổng hợp 1,0× rồi phát 1,8×, nhưng
+    /// tốn **ít hơn ~45 %** tính toán. Đây là cách duy nhất giảm nhiệt mà **không** làm chậm tổng hợp
+    /// (hạ số luồng / hạ QoS đều là làm chậm ⇒ sinh đứt đoạn).
+    static func synthesisSpeed(from defaults: UserDefaults) -> Double {
+        let raw = defaults.double(forKey: synthesisSpeedKey)
+        guard raw > 0 else { return 1.0 }
+        return max(synthesisSpeedRange.lowerBound, min(synthesisSpeedRange.upperBound, raw))
+    }
+
     // MARK: - Luật đổi chế độ
 
     /// RTF ≥ ngưỡng này coi là "đuối". Đo bằng `synthSeconds / audioSeconds`, cùng định nghĩa với

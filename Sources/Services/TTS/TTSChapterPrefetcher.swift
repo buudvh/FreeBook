@@ -178,7 +178,8 @@ internal final class TTSChapterPrefetcher {
             engine: key.tool,
             voice: key.selectedVoice,
             googlePitch: key.googlePitch,
-            extensionFingerprint: key.extensionFingerprint
+            extensionFingerprint: key.extensionFingerprint,
+            synthesisSpeed: TTSManager.localSynthesisSpeed(forTool: key.tool)
         )
 
         let reqID = UUID()
@@ -189,7 +190,7 @@ internal final class TTSChapterPrefetcher {
                 return try await service.synthesize(
                     text: textToSpeak,
                     voice: key.selectedVoice,
-                    speed: 1.0,
+                    speed: TTSManager.localSynthesisSpeed(forTool: key.tool),
                     boundaryKind: firstParagraph.boundaryKind,
                     priority: .nextChapterMandatory,
                     requestID: reqID,

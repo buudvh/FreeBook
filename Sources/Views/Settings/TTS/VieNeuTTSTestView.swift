@@ -248,13 +248,13 @@ struct VieNeuTTSTestView: View {
                 var otherMs = 0.0
 
                 for paragraph in paragraphs {
-                    // Tổng hợp **luôn ở 1.0×**: `speed` của engine đổi độ dài audio do model sinh ra, tức
-                    // đẩy model ra khỏi tốc độ nó được huấn luyện và bắt tổng hợp lại mỗi lần đổi tốc độ.
-                    // Tốc độ người dùng chọn được áp ở tầng **phát** (`AVAudioPlayer.rate`).
+                    // Tổng hợp ở **tốc độ tổng hợp** đã cài đặt (1.3.465), không còn cố định 1.0×: đây là
+                    // cách màn thử nghe đúng thứ sẽ áp dụng khi đọc truyện. Mặc định 1,0× = hành vi cũ.
+                    // Phần còn lại của tốc độ người dùng chọn vẫn áp ở tầng **phát** (`AVAudioPlayer.rate`).
                     let result = try await service.synthesizeWithDuration(
                         text: paragraph.text,
                         voice: voice,
-                        speed: 1.0,
+                        speed: VieNeuSynthesisPolicy.synthesisSpeed(from: .standard),
                         boundaryKind: paragraph.boundaryKind,
                         priority: .demand
                     )

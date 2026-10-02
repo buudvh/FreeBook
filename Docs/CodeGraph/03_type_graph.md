@@ -15,6 +15,13 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.465 — API mới cho tốc độ tổng hợp
+
+* `VieNeuSynthesisPolicy`: + `synthesisSpeedKey`, `synthesisSpeedRange` (1,0...2,0), `synthesisSpeed(from:)` — hàm thuần nhận `UserDefaults`, mặc định **1,0**.
+* `TTSManager+VieNeu`: + `nonisolated static vieNeuSynthesisSpeed`, `nonisolated static localSynthesisSpeed(forTool:)`, `invalidateVieNeuSynthesisSpeed()`.
+* `TTSSynthesisIdentity.computeKey`: + tham số `synthesisSpeed: Double = 1.0` (có default ⇒ không phá caller khác).
+* `TTSSettingsView`: + `@State vieNeuSynthesisSpeed`; `TTSSettingsView+VieNeu`: + `vieneuSynthesisSpeedRow` + `resetVieNeuSynthesisSpeed()`; `TTSSettingsView+Voice`: + `voiceSection`.
+
 
 ## 1.3.462 — type mới, một enum bị tách, một case `InboxItem` mới
 

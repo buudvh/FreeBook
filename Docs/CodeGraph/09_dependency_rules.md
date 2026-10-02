@@ -15,6 +15,11 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.465 — Section 4 ra file riêng; hạ mức truy cập để nối được
+
+* `TTSSettingsView+Voice` (Views/TTSWidget) → `TTSSettingsView+VieNeu.vieneuSynthesisSpeedRow` → `TTSManager.invalidateVieNeuSynthesisSpeed()` (Services/TTS): View → Services, đúng chiều phụ thuộc.
+* Hạ mức truy cập để nối qua file: `updateNghiPrefetchWindow` `private` → `internal` (gọi từ `TTSManager+VieNeu.swift`), `showingReplacementManagerSheet` `private` → `internal` (đọc từ `TTSSettingsView+Voice.swift`).
+
 
 ## 1.3.464 — nút áp dùng chung; luồng nhập file không còn modifier
 

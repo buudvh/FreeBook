@@ -2657,7 +2657,9 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
-    private func updateNghiPrefetchWindow() {
+    /// `internal` (không còn `private`): `TTSManager+VieNeu.invalidateVieNeuSynthesisSpeed()` ở file
+    /// khác phải gọi lại sau khi đổi tốc độ tổng hợp.
+    internal func updateNghiPrefetchWindow() {
         updateNghiBufferedDuration()
         guard isPlaying, TTSManager.isLocalEngine(tool) else {
             cancelNghiWakeTask()
@@ -2854,8 +2856,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             finalText: text,
             engine: tool,
             voice: expectedVoice,
-            googlePitch: nil,
-            extensionFingerprint: nil
+            googlePitch: nil, extensionFingerprint: nil, synthesisSpeed: Self.localSynthesisSpeed(forTool: tool)
         )
 
         nghiRefillTasks[index] = Task { @MainActor [weak self] in
@@ -2901,7 +2902,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 let synthesized = try await service.synthesizeWithDuration(
                     text: text,
                     voice: expectedVoice,
-                    speed: 1.0,
+                    speed: Self.localSynthesisSpeed(forTool: self.tool),
                     boundaryKind: paragraph.boundaryKind,
                     priority: synthesisPriority,
                     synthesisKey: synthesisKey
@@ -3554,8 +3555,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             finalText: text,
             engine: tool,
             voice: expectedVoice,
-            googlePitch: nil,
-            extensionFingerprint: nil
+            googlePitch: nil, extensionFingerprint: nil, synthesisSpeed: Self.localSynthesisSpeed(forTool: tool)
         )
         Task {
             await PiperSynthesisCoordinator.shared.promote(synthesisKey: synthesisKey, to: .demand)
@@ -3595,7 +3595,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     let synthesized = try await service.synthesizeWithDuration(
                         text: text,
                         voice: expectedVoice,
-                        speed: 1.0,
+                        speed: Self.localSynthesisSpeed(forTool: self.tool),
                         boundaryKind: boundaryKind,
                         priority: .demand,
                         synthesisKey: synthesisKey

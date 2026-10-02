@@ -77,8 +77,63 @@ extension TTSSettingsView {
         vieNeuPowerSaving = VieNeuSynthesisPolicy.isPowerSaving(.standard)
         vieNeuThreadCount = Int(VieNeuSynthesisPolicy.threadCount(from: .standard))
         vieNeuSelectedMode = VieNeuSynthesisPolicy.preferredMode(from: .standard)
+        // Tốc độ tổng hợp (1.3.465) — cùng lý do: đọc thẳng `UserDefaults`, không qua service.
+        vieNeuSynthesisSpeed = VieNeuSynthesisPolicy.synthesisSpeed(from: .standard)
         // Hai cờ tiếng Nhật + trạng thái "đã tải từ điển" đọc thẳng kho, cùng lý do như ba giá trị trên.
         vieNeuJapaneseFlags.refresh()
+    }
+
+    // MARK: - Tốc độ tổng hợp (1.3.465)
+
+    /// Hàng **"Tốc độ tổng hợp (VieNeu)"** — đặt cạnh thanh Tốc độ trong Section 4.
+    ///
+    /// Khác thanh Tốc độ ở chỗ: giá trị này **đưa vào model** (`secs = exp(log_s)/speed`), không phải
+    /// tăng tốc lúc phát. Tốc độ nghe = **tích** hai thanh, nên bắt buộc phải hiện tích đó — nếu không,
+    /// kéo thanh này lên 1,8× trong khi thanh Tốc độ đang 1,8× sẽ thành **3,24×** mà người dùng không
+    /// hề hay biết (đây là lý do dòng tóm tắt đổi màu khi vượt 2,0×).
+    @ViewBuilder
+    var vieneuSynthesisSpeedRow: some View {
+        let effective = vieNeuSynthesisSpeed * ttsManager.speed
+        VStack(alignment: .leading, spacing: 6) {
+            Stepper(value: $vieNeuSynthesisSpeed, in: VieNeuSynthesisPolicy.synthesisSpeedRange, step: 0.1) {
+                HStack {
+                    Text("Tốc độ tổng hợp (VieNeu):")
+                    Spacer()
+                    Text(String(format: "%.2fx", vieNeuSynthesisSpeed))
+                        .font(.system(.body, design: .monospaced))
+                }
+            }
+            Slider(value: $vieNeuSynthesisSpeed, in: VieNeuSynthesisPolicy.synthesisSpeedRange, step: 0.1)
+                // `.tint` tường minh vì `TTSSettingsView` đặt `.tint(.white)` toàn cục.
+                .tint(.white)
+            HStack(spacing: 4) {
+                Text("Tốc độ nghe thực tế:")
+                Text(String(format: "%.2fx", effective))
+                    .font(.system(.body, design: .monospaced))
+                    // `.orange` là màu literal có chủ ý: không dùng `Color.accentColor` vì tint toàn cục
+                    // là trắng (cùng bẫy đã ghi ở màn trộn từ điển).
+                    .foregroundColor(effective > 2.0 ? .orange : .primary)
+            }
+            .font(.caption)
+            .foregroundColor(.secondary)
+            Text("1.00x = như cũ. Tăng để model tự nói nhanh: ít tính toán hơn, máy mát hơn, không đổi cao độ. Chỉ dùng cho VieNeu-TTS.")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+        .onChange(of: vieNeuSynthesisSpeed) { _, newValue in
+            UserDefaults.standard.set(newValue, forKey: VieNeuSynthesisPolicy.synthesisSpeedKey)
+            // Phần đệm đã tổng hợp ở tốc độ cũ phải bị bỏ: đoạn đang phát được giữ nguyên, các đoạn sau
+            // nạp lại. Không gọi là nghe sai tốc độ mà không có lỗi gì.
+            ttsManager.invalidateVieNeuSynthesisSpeed()
+        }
+    }
+
+    /// Đưa tốc độ tổng hợp về 1,0× — dùng cho nút "Đặt lại" của Section 4.
+    func resetVieNeuSynthesisSpeed() {
+        guard ttsManager.tool == "vieneu" else { return }
+        vieNeuSynthesisSpeed = 1.0
+        UserDefaults.standard.set(1.0, forKey: VieNeuSynthesisPolicy.synthesisSpeedKey)
+        ttsManager.invalidateVieNeuSynthesisSpeed()
     }
 
     func loadVoicesForCurrentTool() async {

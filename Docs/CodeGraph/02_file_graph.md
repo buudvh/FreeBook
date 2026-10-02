@@ -15,6 +15,11 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.465 — Section 4 của màn Cài đặt TTS thành file riêng
+
+* File mới (dưới trần 400): `TTSSettingsView+Voice` **90** — chứa `voiceSection` (Tốc độ / Tốc độ tổng hợp / Cao độ) chuyển nguyên từ `TTSSettingsView.swift`.
+* `TTSSettingsView.swift` **519 → 458**; `TTSSettingsView+VieNeu.swift` 277 → **332** (hàng mới + `resetVieNeuSynthesisSpeed()`); `VieNeuSynthesisPolicy.swift` 160 → **186**.
+
 
 ## 1.3.464 — 1 file mới, 1 file bị xoá; hai màn từ điển phục hồi code nhập cũ
 

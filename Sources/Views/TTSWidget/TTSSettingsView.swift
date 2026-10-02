@@ -21,7 +21,8 @@ struct TTSSettingsView: View {
     @State private var extensionVoices: [[String: String]] = []
     @State private var isLoadingVoices = false
     @State private var selectedExtForConfig: Extension? = nil
-    @State private var showingReplacementManagerSheet = false
+    /// `internal` (không còn `private`): được đọc/ghi từ `TTSSettingsView+Voice.swift`.
+    @State var showingReplacementManagerSheet = false
     @AppStorage("google_cloud_tts_custom_api_key") private var customGoogleApiKey: String = ""
     @State private var showApiKey: Bool = false
     @State private var hasResumed = false
@@ -35,6 +36,10 @@ struct TTSSettingsView: View {
     /// (cùng lý do như `vieNeuSelectedMode`); khởi tạo bằng giá trị đang lưu.
     @State var vieNeuPowerSaving: Bool = VieNeuTTSService.shared?.powerSaving ?? true
     @State var vieNeuThreadCount: Int = VieNeuTTSService.shared?.threadCount ?? 2
+    /// Tốc độ **tổng hợp** của VieNeu (1.3.465) — đưa thẳng vào model, **nhân** với `ttsManager.speed`
+    /// thành tốc độ nghe. `@State` vì thanh trượt cần một giá trị quan sát được; giá trị thật nằm ở
+    /// `UserDefaults` và được làm mới trong `refreshVieNeuSettings()` (bài học 1.3.456).
+    @State var vieNeuSynthesisSpeed: Double = VieNeuSynthesisPolicy.synthesisSpeed(from: .standard)
     /// Hai cờ tiếng Nhật của VieNeu + trạng thái "đã tải từ điển". Gom vào **một** `ObservableObject` vì
     /// file này chỉ còn **3 dòng** tới trần 519 của `check_architecture.py` — xem `VieNeuJapaneseFlags`.
     @StateObject var vieNeuJapaneseFlags = VieNeuJapaneseFlags()
@@ -238,73 +243,7 @@ struct TTSSettingsView: View {
                 }
             }
 
-            // Section 4: Cấu hình giọng nói
-            Section(header: HStack {
-                Text("Cấu hình giọng nói")
-                Spacer()
-                Button(action: {
-                    ttsManager.speed = 1.0
-                    ttsManager.pitch = 1.0
-                }) {
-                    HStack(spacing: 3) {
-                        Image(systemName: "arrow.counterclockwise")
-                        Text("Đặt lại")
-                    }
-                    .font(.caption)
-                    .foregroundColor(.white)
-                }
-            }) {
-                Button(action: { showingReplacementManagerSheet = true }) {
-                    HStack {
-                        Label("Quản lý thay thế ký tự", systemImage: "pencil.and.outline")
-                            .foregroundColor(.primary)
-                        Spacer()
-                        Image(systemName: "chevron.right").font(.caption).foregroundColor(.secondary)
-                    }
-                }
-                VStack(alignment: .leading, spacing: 6) {
-                    Stepper(value: $ttsManager.speed, in: 0.5...5.0, step: 0.1) {
-                        HStack {
-                            Text("Tốc độ:")
-                            Spacer()
-                            Text(String(format: "%.1fx", ttsManager.speed))
-                                .font(.system(.body, design: .monospaced))
-                        }
-                    }
-                    Slider(value: $ttsManager.speed, in: 0.5...5.0, step: 0.1)
-                        .tint(.white)
-                }
-
-                let isExtensionTool = TTSManager.isExtensionTool(ttsManager.tool)
-                // Engine local (NghiTTS + VieNeu) phat qua `NghiAudioPlayerQueue`, ma queue nay chi co
-                // `updateRate(_:)` — khong co `AVAudioUnitTimePitch`. Nen pitch la **no-op** voi ca hai.
-                let disablePitch = TTSManager.isLocalEngine(ttsManager.tool) || isExtensionTool
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Stepper(value: $ttsManager.pitch, in: 0.5...2.0, step: 0.1) {
-                        HStack {
-                            Text("Cao độ (Pitch):")
-                            Spacer()
-                            Text(String(format: "%.1fx", ttsManager.pitch))
-                                .font(.system(.body, design: .monospaced))
-                        }
-                    }
-                    .disabled(disablePitch)
-
-                    Slider(value: $ttsManager.pitch, in: 0.5...2.0, step: 0.1)
-                        .tint(.white)
-                        .disabled(disablePitch)
-                    if TTSManager.isLocalEngine(ttsManager.tool) {
-                        Text("(*) Engine offline (NghiTTS/VieNeu) không hỗ trợ chỉnh cao độ thời gian thực")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    } else if isExtensionTool {
-                        Text("(*) Extension TTS không hỗ trợ chỉnh cao độ")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
+            voiceSection
 
             numberPreprocessingSection
 

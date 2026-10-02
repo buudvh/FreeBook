@@ -18,7 +18,12 @@ extension VieNeuTTSTestView {
         }
         let voiceName = selectedVoice.isEmpty ? "(chưa chọn)" : selectedVoice
         lines.append("giọng: \(voiceName)")
-        lines.append("tốc độ: \(String(format: "%.2f", speed))×")
+        // 1.3.465: tốc độ nghe = **tích** tốc độ tổng hợp (vào model) và tốc độ phát (varispeed). Phải
+        // hiện cả ba con số, nếu không không biết audio ngắn đi là do tổng hợp hay do phát.
+        let synthSpeed = VieNeuSynthesisPolicy.synthesisSpeed(from: .standard)
+        lines.append("tốc độ phát: \(String(format: "%.2f", speed))×")
+        lines.append("tốc độ tổng hợp: \(String(format: "%.2f", synthSpeed))×")
+        lines.append("tốc độ nghe: \(String(format: "%.2f", speed * synthSpeed))×")
         lines.append("chữ: \(text.count) ký tự")
         // Khác 0 nghĩa là có phoneme không nằm trong vocab của model — dấu hiệu text không đọc được,
         // và cũng là dấu hiệu bộ G2P trả về ký tự lạ. Đây là chỉ số đã thiếu ở lượt "audio không phải
