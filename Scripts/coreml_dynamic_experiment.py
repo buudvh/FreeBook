@@ -10,14 +10,23 @@ Trọng số chiếm gần hết dung lượng gói, **không** phải activatio
 shape `L=160,T=96` **và** 78,5 MB ở `L=200,T=234`. Nghĩa là bucket hoá tốn **127,8 MB cho MỖI mức** ⇒ 4
 mức đã 512 MB, gấp rưỡi 347 MB hiện tại. Một gói shape động phủ mọi câu thì tổng chỉ ~141,6 MB.
 
-## Bốn đường được thử (mỗi đường bọc `try/except`, lỗi là KẾT QUẢ)
+## Năm đường được thử (mỗi đường bọc `try/except`, lỗi là KẾT QUẢ)
 
-| Đường | Cách làm | Vì sao thử |
+Thiết kế theo kiểu **mỗi đường trả lời đúng một câu hỏi**, để bảng kết quả là một bảng chẩn đoán chứ
+không phải một danh sách "hỏng/hỏng/hỏng":
+
+| Đường | Nguồn | Câu hỏi nó trả lời |
 |---|---|---|
-| `o2c_dynamic` | `onnx2coreml` trên graph **chưa** đóng băng | PyPI ghi *"Fixed input shapes"* nhưng phải đo mới tin — biết đâu pipeline giữ được `dim_param` |
-| `torch_dynamic` | `onnx2torch` → `ct.convert` + `RangeDim` | Đường chính: `onnx2coreml` không nhận shape động, còn frontend torch của `coremltools` thì có |
-| `torch_surgery` | như trên, trên graph **đã phẫu thuật `Range`** | Nếu `Range` chặn thì phẫu thuật mở đường |
-| `torch_enum_T` | `EnumeratedShapes` cho `T`, `RangeDim` cho `L` | ANE thường cần shape tĩnh; enumerate chặn số bản đặc biệt hoá ở 5 thay vì mở |
+| `o2c_original` | graph gốc | `onnx2coreml` chặn vì **op** nào? |
+| `o2c_surgery` | đã phẫu thuật | gỡ op rồi thì `onnx2coreml` còn chặn vì gì? (kỳ vọng: **chiều động**) |
+| `torch_original` | graph gốc | `onnx2torch` chặn vì **op** nào? |
+| `torch_surgery` | đã phẫu thuật | gỡ op rồi thì `torch.jit.trace` có **giữ chiều động** không? |
+| `torch_enum_T` | đã phẫu thuật | nếu trace giữ được, `EnumeratedShapes` cho `T` có dựng được gói không? |
+
+`torch_surgery`/`torch_enum_T` trả thêm `trace_shapes`: chạy lại graph **đã trace** ở 3 shape khác. Đây
+là phép kiểm quyết định — `torch.jit.trace` chỉ ghi lại op, nhưng op nào không trace được (ví dụ
+`torch.Size(...)` trong `onnx2torch/node_converters/reshape.py:23`) thì torch.jit **tính ngay lúc trace
+rồi nướng kết quả thành hằng** ⇒ graph đã trace chỉ đúng ở đúng shape đã trace.
 
 ## Bốn thứ luôn được thu, kể cả khi mọi đường đều hỏng
 
@@ -183,17 +192,26 @@ def dynamic_spec(graph: str, config: dict, use_enumerated_T: bool):
     return ["x"], [dim_T()]
 
 
-# ─────────────────────────── Bốn đường convert ───────────────────────────
-def route_o2c_dynamic(graph: str, source: str, package: str, config: dict, enumerated_T: bool) -> None:
-    """`onnx2coreml` trên graph **chưa** đóng băng — đo xem nó có thật sự đòi shape tĩnh không."""
+# ─────────────────────────── Năm đường convert ───────────────────────────
+def route_o2c(graph: str, source: str, package: str, context: dict) -> dict:
+    """`onnx2coreml` — đường đã chạy được ở lượt baseline, nhưng **chỉ khi shape đã đóng băng**."""
     import onnx2coreml as o2c
 
     mlmodel = o2c.convert(source, format="mlpackage", minimum_deployment_target="iOS17")
     mlmodel.save(package)
+    return {}
 
 
-def route_torch(graph: str, source: str, package: str, config: dict, enumerated_T: bool) -> None:
-    """`onnx2torch` → `ct.convert` với `RangeDim`/`EnumeratedShapes`."""
+def _torch_pipeline(graph: str, source: str, package: str, context: dict, enumerated_T: bool) -> dict:
+    """`onnx2torch` → `torch.jit.trace` → `ct.convert` + `RangeDim`/`EnumeratedShapes`.
+
+    Trả thêm `trace_shapes`: chạy lại graph **đã trace** ở 3 shape khác để **đo** xem trace có giữ được
+    chiều động không. `torch.jit.trace` chỉ ghi lại op, nhưng op nào không trace được (ví dụ
+    `torch.Size(...)` trong `onnx2torch/node_converters/reshape.py:23`) thì torch.jit **tính ngay lúc
+    trace rồi nướng kết quả thành hằng** ⇒ graph đã trace chỉ đúng ở đúng shape đã trace. Đây là bằng
+    chứng trực tiếp cho kết luận, không phải suy đoán — và nó rẻ hơn nhiều so với việc đi đoán qua
+    thông báo lỗi của `ct.convert`.
+    """
     import coremltools as ct
     import onnx2torch
     import torch
@@ -201,18 +219,33 @@ def route_torch(graph: str, source: str, package: str, config: dict, enumerated_
     torch_model = onnx2torch.convert(source)
     torch_model.eval()
 
-    names, shapes = dynamic_spec(graph, config, enumerated_T)
-    feeds = make_feeds(os.path.dirname(source), os.path.dirname(source), 160, 96)
-    example = []
+    names, shapes = dynamic_spec(graph, context["config"], enumerated_T)
+    example = make_feeds(context["model_dir"], context["workdir"], 160, 96)
+    args = []
     for name in names:
-        array = feeds[name]
-        dtype = torch.bool if array.dtype == bool else torch.float32
-        if array.dtype.kind == "i":
+        array = example[name]
+        if array.dtype == bool:
+            dtype = torch.bool
+        elif array.dtype.kind == "i":
             dtype = torch.int64
-        example.append(torch.as_tensor(array, dtype=dtype))
-    traced = torch.jit.trace(torch_model, tuple(example), strict=False)
+        else:
+            dtype = torch.float32
+        args.append(torch.as_tensor(array, dtype=dtype))
+    traced = torch.jit.trace(torch_model, tuple(args), strict=False)
 
-    inputs = [ct.TensorType(name=name, shape=ct.Shape(shape=shape)) for name, shape in zip(names, shapes)]
+    probe: dict = {}
+    for shape_name, shape in SHAPES.items():
+        feeds = make_feeds(context["model_dir"], context["workdir"], shape["L"], shape["T"])
+        try:
+            out = traced(*[torch.as_tensor(feeds[name]) for name in names])
+            tensor = out[0] if isinstance(out, (tuple, list)) else out
+            probe[shape_name] = {"ok": True, "shape": list(tensor.shape)}
+        except Exception as error:  # noqa: BLE001 — kết quả cần ghi
+            probe[shape_name] = {"ok": False,
+                                 "error": f"{type(error).__name__}: {str(error).splitlines()[0][:200]}"}
+
+    inputs = [ct.TensorType(name=name, shape=ct.Shape(shape=spec))
+              for name, spec in zip(names, shapes)]
     mlmodel = ct.convert(
         traced,
         inputs=inputs,
@@ -221,19 +254,38 @@ def route_torch(graph: str, source: str, package: str, config: dict, enumerated_
         compute_precision=ct.precision.FLOAT16,
     )
     mlmodel.save(package)
+    return {"trace_shapes": probe}
 
 
+def route_torch(graph: str, source: str, package: str, context: dict) -> dict:
+    return _torch_pipeline(graph, source, package, context, enumerated_T=False)
+
+
+def route_torch_enum(graph: str, source: str, package: str, context: dict) -> dict:
+    return _torch_pipeline(graph, source, package, context, enumerated_T=True)
+
+
+# Mỗi đường trả lời **một** câu hỏi riêng; gộp lại thành bảng chẩn đoán đầy đủ:
+#   `o2c_original`  — `onnx2coreml` chặn vì op nào? (graph gốc)
+#   `o2c_surgery`   — gỡ op rồi thì `onnx2coreml` còn chặn vì gì? (kỳ vọng: chiều động)
+#   `torch_original`— `onnx2torch` chặn vì op nào? (graph gốc)
+#   `torch_surgery` — gỡ op rồi thì `torch.jit.trace` có giữ chiều động không?
+#   `torch_enum_T`  — nếu trace giữ được, `EnumeratedShapes` cho `T` có dựng được gói không?
 ROUTES = {
-    "o2c_dynamic": route_o2c_dynamic,
-    "torch_dynamic": route_torch,
+    "o2c_original": route_o2c,
+    "o2c_surgery": route_o2c,
+    "torch_original": route_torch,
     "torch_surgery": route_torch,
-    "torch_enum_T": route_torch,
+    "torch_enum_T": route_torch_enum,
 }
+
+# Đường dùng graph gốc (chưa phẫu thuật); còn lại dùng graph đã phẫu thuật + đã vá `Clip`.
+_ORIGINAL_ROUTES = {"o2c_original", "torch_original"}
 
 
 def stage_routes(model_dir: str, workdir: str, reports: str, surgery_dir: str) -> dict:
-    """Thử mọi đường cho mọi graph. Trả `{graph: {route: {ok, package|error, seconds}}}`."""
-    config = load_config(model_dir)
+    """Thử mọi đường cho mọi graph. Trả `{graph: {route: {ok, package|error, seconds, trace_shapes}}}`."""
+    context = {"config": load_config(model_dir), "model_dir": model_dir, "workdir": workdir}
     result: dict = {}
 
     for graph in GRAPHS:
@@ -243,23 +295,28 @@ def stage_routes(model_dir: str, workdir: str, reports: str, surgery_dir: str) -
         for route in ROUTES:
             key = f"{graph.replace('.onnx', '')}__{route}"
             package = os.path.join(workdir, f"{key}.mlpackage")
-            if route in ("torch_surgery", "torch_enum_T") and not os.path.exists(surgered):
+            use_original = route in _ORIGINAL_ROUTES
+            source = original if use_original else surgered
+            if not os.path.exists(source):
                 entry[route] = {"ok": False, "error": "chưa có graph đã phẫu thuật"}
                 continue
-            source = surgered if route in ("torch_surgery", "torch_enum_T") else original
-            enumerated = route == "torch_enum_T"
             try:
                 started = time.time()
-                ROUTES[route](graph, source, package, config, enumerated)
+                extra = ROUTES[route](graph, source, package, context)
                 seconds = round(time.time() - started, 1)
                 size = sum(os.path.getsize(os.path.join(root, name))
                            for root, _, files in os.walk(package) for name in files)
-                entry[route] = {"ok": True, "package": package, "seconds": seconds, "bytes": size}
+                entry[route] = {"ok": True, "package": package, "seconds": seconds,
+                                "bytes": size, "source": os.path.basename(source), **extra}
                 log("ROUTE", f"{graph} [{route}]: OK — {size / 1e6:.1f} MB, {seconds}s")
             except Exception as error:  # noqa: BLE001 — lỗi ở đây là KẾT QUẢ cần ghi
                 entry[route] = {"ok": False, "error": f"{type(error).__name__}: {error}",
                                 "traceback": traceback.format_exc()[-1200:]}
                 log("ROUTE", f"{graph} [{route}]: LỖI {type(error).__name__}: {str(error).splitlines()[0]}")
+            probe = entry[route].get("trace_shapes")
+            if probe:
+                ok = sum(1 for item in probe.values() if item.get("ok"))
+                log("ROUTE", f"{graph} [{route}]: trace chạy lại được ở {ok}/{len(probe)} shape")
         result[graph] = entry
 
     with open(os.path.join(reports, "dynamic.json"), "w", encoding="utf-8") as handle:
@@ -385,15 +442,21 @@ def ort_session(model_dir: str, graph: str):
     return ort.InferenceSession(os.path.join(model_dir, graph), options, providers=["CPUExecutionProvider"])
 
 
-def bench_graph(model_dir: str, workdir: str, graph: str, package: str, label: str) -> dict:
-    """Độ trễ + SNR ở **3 shape**, cho `ALL` và `CPU_ONLY`; kèm thời gian `MLModel` biên dịch."""
+def bench_graph(model_dir: str, workdir: str, graph: str, package: str, label: str,
+                shapes: dict | None = None) -> dict:
+    """Độ trễ + SNR ở các shape, cho `ALL` và `CPU_ONLY`; kèm thời gian `MLModel` biên dịch.
+
+    `shapes` mặc định là `SHAPES` (3 shape đại diện) — đúng cho gói **shape động**. Gói **đã đóng băng**
+    thì **phải** truyền đúng shape của nó: model tĩnh chỉ chạy ở đúng shape đã chốt, nên đo bằng shape
+    khác sẽ ra `predict` lỗi và trông như Core ML hỏng trong khi thật ra là đo sai.
+    """
     import coremltools as ct
     import numpy as np
 
     session = ort_session(model_dir, graph)
     result: dict = {"shapes": {}}
 
-    for shape_name, shape in SHAPES.items():
+    for shape_name, shape in (shapes or SHAPES).items():
         feeds = feeds_for(graph, make_feeds(model_dir, workdir, shape["L"], shape["T"]))
         session.run(None, feeds)
         timings = []
@@ -441,7 +504,7 @@ def bench_graph(model_dir: str, workdir: str, graph: str, package: str, label: s
 
 def stage_bench(model_dir: str, workdir: str, routes: dict, reports: str) -> dict:
     """Đo **đường đầu tiên chạy được** của từng graph (ưu tiên shape động thuần)."""
-    priority = ["torch_surgery", "torch_dynamic", "torch_enum_T", "o2c_dynamic"]
+    priority = ["torch_surgery", "torch_enum_T", "o2c_surgery", "o2c_original"]
     result: dict = {}
     for graph in GRAPHS:
         entry = routes.get(graph, {})
@@ -477,7 +540,7 @@ def stage_golden(model_dir: str, workdir: str, routes: dict, reports: str) -> di
     chosen = {}
     for graph in GRAPHS:
         entry = routes.get(graph, {})
-        route = next((name for name in ["torch_surgery", "torch_dynamic", "torch_enum_T", "o2c_dynamic"]
+        route = next((name for name in ["torch_surgery", "torch_enum_T", "o2c_surgery", "o2c_original"]
                       if entry.get(name, {}).get("ok")), None)
         if route is None:
             log("GOLDEN", f"{graph}: chưa convert được ⇒ bỏ qua golden")
@@ -610,7 +673,7 @@ def stage_bucket_fallback(model_dir: str, workdir: str, reports: str) -> dict:
 
                 size = sum(os.path.getsize(os.path.join(root, name))
                            for root, _, files in os.walk(package) for name in files)
-                bench = bench_graph(model_dir, workdir, graph, package, key)
+                bench = bench_graph(model_dir, workdir, graph, package, key, {bucket_name: shape})
                 entry[bucket_name] = {"shape": shape, "bytes": size, "bench": bench}
                 result["total_bytes"] += size
                 log("BUCKET", f"{key}: {size / 1e6:.1f} MB")

@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.473] - 2026-10-02
+
+### chore: them Phase 0 tham do shape dong cho mlpackage CoreML (khong dung Sources/)
+
+Vòng sửa sau lượt CI đầu. Job `dynamic` **xanh nhưng `verdict = FAIL`**, và bảng kết quả có 3/4 đường hỏng vì **bug của chính script** ⇒ không dùng để ra quyết định được. Vòng này sửa bug và **đổi thiết kế bảng đường** để lần chạy sau cho ra **bảng chẩn đoán** thay vì danh sách "hỏng/hỏng/hỏng".
+
+- **Sửa bug truyền nhầm thư mục**: `route_torch` gọi `make_feeds(os.path.dirname(source), os.path.dirname(source), …)` ⇒ tìm `voices_v3_nano.json`/`config.json` trong thư mục model thay vì workdir ⇒ `FileNotFoundError` cho **mọi** graph, nên `torch_surgery`/`torch_enum_T` **chưa từng thực sự chạy**. Nay truyền `context = {config, model_dir, workdir}`.
+- **Sửa `bench_graph` cho gói đã đóng băng**: hàm luôn đo bằng 3 shape đại diện, mà model tĩnh chỉ chạy ở **đúng** shape đã chốt ⇒ bucket `t64`/`t128` báo `mọi cách ép kiểu đều lỗi` (trông như Core ML hỏng, thật ra là đo sai shape). Nay nhận tham số `shapes`; bucket đo bằng chính shape của nó.
+- **`normalize_clip` (mới, trong `coreml_shape_surgery.py`)**: cấp `max = +inf` tường minh cho `Clip` đang bỏ trống input thứ ba. Ba node `Clip` của bộ model đều ở dạng `[data, min, '']`, mà `onnx2torch/node_converters/clip.py:60` gọi `get_const_value('')` → `KeyError` → `NotImplementedError` ⇒ `text_encoder`/`vector_estimator` chết **trước cả** bước Core ML. Tương đương ngữ nghĩa (`min(x, +inf)` = `x`). Đã kiểm cục bộ: vá xong `onnx2torch.convert` **nhận cả 4 graph**.
+- **Đổi 4 đường cũ thành 5 đường, mỗi đường trả lời một câu hỏi**: `o2c_original` (op nào chặn `onnx2coreml`) · `o2c_surgery` (gỡ op rồi còn chặn vì gì) · `torch_original` (op nào chặn `onnx2torch`) · `torch_surgery` (trace có giữ chiều động) · `torch_enum_T`.
+- **Thêm `trace_shapes`**: chạy lại graph **đã trace** ở 3 shape khác. Đây là phép kiểm quyết định — `torch.jit.trace` **nướng shape** vào graph.
+- **Lặp tại chỗ bằng `torch` + `onnx2torch`** (không cần `coremltools`, nên làm được trên Windows): `torch.jit.trace` ở `(L=160,T=96)` xong chạy lại ở `(64,32)`/`(200,234)` đều `RuntimeError` (trừ `duration_predictor`). Gốc: `onnx2torch/node_converters/reshape.py:23` dùng `torch.reshape(input, torch.Size(shape))` — `torch.Size` **không trace được** nên torch.jit tính ngay lúc trace rồi nướng thành hằng. Vá một dòng **không cứu được**: `torch.reshape(x, tensor_shape)` → `TypeError: argument 'shape' must be tuple of ints, not Tensor`; `shape.tolist()` vẫn hỏng vì còn op khác cũng bị nướng.
+- **Số liệu bucket dự phòng lượt trước (giữ nguyên, vẫn đúng)**: 3 mức × 2 graph = **384,0 MB**; tại bucket `t234`: `vector_estimator` **2,87×** (383,3 → 133,6 ms, SNR 45,4 dB), `codec_decoder` **1,23×** (916,1 → 746,3 ms, SNR 49,3 dB).
+- **Không đụng `Sources/`** — `Sources/**/*.swift` vẫn 639 file. Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%**.
+- **Chưa build được trên Windows** ⇒ không khẳng định đã kiểm chứng biên dịch; lượt này không đổi mã Swift.
+
 ## [1.3.472] - 2026-10-02
 
 ### chore: them Phase 0 tham do shape dong cho mlpackage CoreML (khong dung Sources/)
@@ -477,14 +493,3 @@ Thêm **1** file Swift mới, sửa **5** file Swift trong `Sources/Services/` v
 - **Ghép WAV (`WAVConcatenator.swift`, file mới 56 dòng)**: nối N file WAV PCM16 cùng định dạng thành một file — cắt 44 byte header, nối payload, dựng lại header; kiểm 4 mốc `RIFF`/`WAVE`/`fmt `/`data` và trả `nil` khi lệch khuôn.
 - Cổng: `check_architecture.py` **5 violation nền/0 mới**; `validate_links.py` **PASS**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
 - Đồng bộ tài liệu cho thay đổi UI TTS của commit trước (`AISettingsSection.swift`, `TTSSettingsSection.swift`) mà CodeGraph chưa accept.
-
----
-
-## [1.3.443] - 2026-09-30
-
-### feat: đổi tên "Cài đặt VieNeu TTS" + xoá màn Debug Extension
-
-- **Đổi tên**: nav row ở tab Cài đặt (`TTSSettingsSection.swift`) "Thử giọng VieNeu-TTS" → **"Cài đặt VieNeu TTS"**; `navigationTitle` của `VieNeuTTSTestView` cũng → **"Cài đặt VieNeu TTS"**.
-- **Xoá màn Debug Extension**: gỡ nav row (`DeveloperSettingsSection.swift`); xoá **3 file** `ExtensionDebugConsoleView.swift` + `ExtensionDebugEventRow.swift` + `ExtensionDebugTraceReader.swift` (chỉ console dùng). **Giữ** `ExtensionDebugServerView` (row riêng) + `ExtensionDebugEventHub`/`ExtensionDebugEvent` (còn dùng bởi `JSExecutor` + editor toolbar).
-- Cập nhật footer Section "Nhà Phát Triển" (bỏ tham chiếu console).
-- Cổng: `check_architecture.py` **5 violation nền/0 mới**; `validate_links.py` **PASS**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.

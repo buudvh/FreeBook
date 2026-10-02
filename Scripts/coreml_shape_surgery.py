@@ -185,6 +185,43 @@ def investigate(model_path: str, overrides: dict | None = None) -> list:
     return report
 
 
+# ─────────────────────────── Chuẩn hoá input tuỳ chọn ───────────────────────────
+def normalize_clip(model) -> int:
+    """Cấp `max = +inf` tường minh cho mọi node `Clip` đang bỏ trống input thứ ba.
+
+    ## Vì sao cần (đo được, không suy đoán)
+    ONNX `Clip` (opset 11+) có input tuỳ chọn `input, min?, max?`; khi bỏ `max` thì tên input là
+    **chuỗi rỗng** `''`. Ba node `Clip` của bộ model này đều ở dạng `[data, min, '']`.
+
+    `onnx2torch` **không chịu được** dạng đó: `onnx2torch/node_converters/clip.py:60` gọi
+    `get_const_value('')` → `KeyError: 'Tensor "" is not found in constant values'` → ném
+    `NotImplementedError('Dynamic value of min/max is not implemented')`. Đo trên CI: `text_encoder` và
+    `vector_estimator` chết ngay ở `onnx2torch.convert`, **trước cả** khi tới bước convert Core ML.
+
+    Cấp `max = +inf` là **tương đương ngữ nghĩa** (Clip không có `max` chính là `min(x, +inf)`) nhưng
+    biến input rỗng thành hằng số mà `onnx2torch` đọc được. Dtype lấy theo `min` để `Clip` hợp lệ.
+    """
+    import numpy as np
+    from onnx import numpy_helper
+
+    values = {item.name: numpy_helper.to_array(item) for item in model.graph.initializer}
+    added = 0
+    for node in model.graph.node:
+        if node.op_type != "Clip":
+            continue
+        while len(node.input) < 3:
+            node.input.append("")
+        if node.input[2] == "":
+            minimum = values.get(node.input[1])
+            dtype = minimum.dtype if minimum is not None else np.float32
+            name = f"{node.name or node.output[0]}__clip_max"
+            model.graph.initializer.append(
+                numpy_helper.from_array(np.asarray(np.inf, dtype=dtype), name=name))
+            node.input[2] = name
+            added += 1
+    return added
+
+
 # ─────────────────────────── Phẫu thuật ───────────────────────────
 def _vector_input(node_input: str, values: dict, sink_nodes: list, sink_inits: list, tag: str, np):
     """Trả tên một tensor **1 chiều** biểu diễn `node_input` — `Slice` đòi `starts/ends/steps` là vector.
@@ -266,6 +303,12 @@ def apply(src: str, dst: str, overrides: dict | None = None) -> dict:
     graph.node.extend(new_nodes)
     graph.initializer.extend(new_initializers)
 
+    # Chuẩn hoá `Clip` thiếu `max` — xem `normalize_clip`. Làm ở đây để đầu ra phẫu thuật dùng được cho
+    # **cả** hai đường convert (`onnx2coreml` không quan tâm, nhưng `onnx2torch` thì chết nếu thiếu).
+    clip_fixed = normalize_clip(model)
+    if clip_fixed:
+        log("SURGERY", f"cấp max=+inf cho {clip_fixed} node Clip")
+
     # `value_info` cũ mô tả shape đã chốt của lượt trước ⇒ bỏ rồi suy lại. Suy lỗi thì vẫn ghi file:
     # `value_info` không bắt buộc, và mất nó chỉ làm mất thông tin chẩn đoán.
     del graph.value_info[:]
@@ -275,7 +318,7 @@ def apply(src: str, dst: str, overrides: dict | None = None) -> dict:
         log("SURGERY", f"infer_shapes lỗi (bỏ qua): {type(error).__name__}: {error}")
 
     onnx.save(model, dst)
-    return {"file": os.path.basename(dst), "replaced": replaced}
+    return {"file": os.path.basename(dst), "replaced": replaced, "clip_normalized": clip_fixed}
 
 
 def main() -> int:

@@ -6055,3 +6055,15 @@ Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.
 **Còn sót nhỏ**: cờ `nextIsScheduled` trong `NghiAudioPlayerQueue` (luôn `false`) — dọn ở lượt sau nếu cần.
 
 ---
+
+
+---
+
+## [1.3.443] - 2026-09-30
+
+### feat: đổi tên "Cài đặt VieNeu TTS" + xoá màn Debug Extension
+
+- **Đổi tên**: nav row ở tab Cài đặt (`TTSSettingsSection.swift`) "Thử giọng VieNeu-TTS" → **"Cài đặt VieNeu TTS"**; `navigationTitle` của `VieNeuTTSTestView` cũng → **"Cài đặt VieNeu TTS"**.
+- **Xoá màn Debug Extension**: gỡ nav row (`DeveloperSettingsSection.swift`); xoá **3 file** `ExtensionDebugConsoleView.swift` + `ExtensionDebugEventRow.swift` + `ExtensionDebugTraceReader.swift` (chỉ console dùng). **Giữ** `ExtensionDebugServerView` (row riêng) + `ExtensionDebugEventHub`/`ExtensionDebugEvent` (còn dùng bởi `JSExecutor` + editor toolbar).
+- Cập nhật footer Section "Nhà Phát Triển" (bỏ tham chiếu console).
+- Cổng: `check_architecture.py` **5 violation nền/0 mới**; `validate_links.py` **PASS**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
