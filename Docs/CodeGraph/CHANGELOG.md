@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.484] - 2026-10-02
+
+### feat: sinh 7 goi CoreML bucket tinh va publish len HuggingFace bang OIDC
+
+Vòng sửa sau lượt CI đầu của Phase 2 (`37016482886`). ⚠️ **Lượt đó xanh nhưng publish ra nội dung trống rỗng.**
+
+- **Lỗi**: `convert_graph` ghi gói vào `workdir` (`coreml-bucket-work`), trong khi `hf upload` chỉ mang `outdir` (`coreml-bucket`) ⇒ repo HF nhận được **đúng 3,7 MB** (`manifest.json` + `summary.json` + 3 `golden/*.npz`) và **không có gói nào**. CI **vẫn xanh** — đúng loại lỗi "xanh mà không làm gì", cùng họ với phép kiểm rỗng nghĩa ở Phase 0. Đã xác minh bằng `GET /api/models/raikiri1498/VieNeu-TTS-v3-Nano-CoreML/tree/main?recursive=true` ⇒ 11 mục, 3,7 MB.
+- **Sửa**: gói ghi vào **`outdir/mlpackage/`**. Thêm **hai lớp bắt** để không lặp lại: (a) script đếm số file `weight.bin`/`.mlmodel` **thật sự có mặt** trong `outdir` rồi mới cho `verdict = PASS`; (b) workflow `exit 1` nếu `find coreml-bucket -name 'weight.bin'` ra 0.
+- **Sửa số lượng**: tôi đếm sai ở bản trước — `2 + 3 × 2 = **8 gói**`, không phải 7. Tổng dung lượng đo được **397,8 MB** (`vector_estimator` 78,1/78,1/78,5 · `codec_decoder` 49,7 ×3 · `text_encoder` 13,5 · `duration_predictor` 0,4) ⇒ **khớp mục tiêu 397 MB** của plan.
+- **Điều đã chạy đúng ở lượt đầu** (giữ nguyên): 8/8 gói convert được bằng đường `onnx2coreml` (`freeze_shapes` → `optimize_with_ort` **BASIC** → `fold_range`, thử nhiều ứng viên; tất cả convert bằng ứng viên `basic-folded`). 3 golden sinh đủ: `T64` 728 KB · `T96` 961 KB · `T234` 1 968 KB.
+- **Publish bằng Trusted Publishers (OIDC)** chạy thành công ở lượt đầu — `permissions: id-token: write` + `HF_OIDC_RESOURCE`, **không có secret nào**. Lượt này chỉ sửa chỗ ghi file để gói đi cùng.
+- **Không đụng `Sources/`** — `Sources/**/*.swift` vẫn 639 file. Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%** (`--accept 01_project.md`).
+- **Chưa build được trên Windows** ⇒ không khẳng định đã kiểm chứng biên dịch; lượt này không đổi mã Swift.
+
 ## [1.3.483] - 2026-10-02
 
 ### feat: sinh 7 goi CoreML bucket tinh va publish len HuggingFace bang OIDC
@@ -435,19 +449,3 @@ Người dùng thử trên máy thật (IPA cài qua **LiveContainer**) và báo
 - **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` **PASS 100%**. **Không build trên Windows** ⇒ CI (`Build Unsigned IPA`) là nơi xác nhận biên dịch.
 - **Tài liệu CodeGraph**: cập nhật **9** doc (`00_index`, `02_file_graph`, `04_call_graph`, `09_dependency_rules`, `10_risk_report`, `11_subsystems`, `13_resource_lifecycle`, `14_complexity_report`, `rules.md`) — 8 doc stale do **thêm file mới** (đổi *cấu trúc*), 4 trong đó còn stale do **đổi nội dung**.
 - **Chưa kiểm chứng trên máy thật**: bước 4 của plan — nghe **đúng** giọng vừa tạo **trong cùng phiên** — là phép thử bắt buộc và **chỉ** chạy được trên thiết bị.
-
----
-
-## [1.3.454] - 2026-09-30
-
-### feat: nhan ban giong VieNeu tu audio mau (voice cloning)
-
-Sửa lỗi biên dịch CI của lượt `[1.3.453]` — **giữ nguyên commit subject cho lần push sửa CI**.
-
-- **Lỗi thật duy nhất trong log CI** (`Build and Archive App (Unsigned)`, exit 65): `VieNeuAudioResampler.swift:121:50: error: cannot find 'AVSampleRateConverterAlgorithm' in scope`.
-- **Nguyên nhân**: `AVAudioConverter.sampleRateConverterAlgorithm` có kiểu `String?`, còn các hằng thuật toán là **biến toàn cục kiểu `String`** (`AVSampleRateConverterAlgorithm_Mastering`) — tên `AVSampleRateConverterAlgorithm` **không tồn tại** trong Swift, nên `.mastering` là sai. Không phải case của một enum nào.
-- **Sửa**: dùng `AVSampleRateConverterAlgorithm_Mastering` + 2 dòng comment tại chỗ nêu rõ lý do, để không ai viết lại `.mastering`.
-- **Xác minh API**: tra Apple docs JSON — `avaudioconverter/samplerateconverteralgorithm.json` cho `var sampleRateConverterAlgorithm: String?`; `avsamplerateconverteralgorithm_mastering.json` cho `let AVSampleRateConverterAlgorithm_Mastering: String`, `roleHeading = Global Variable`. Máy Windows **không** có SDK nên đây là nguồn đối chiếu duy nhất.
-- **File sửa**: `VieNeuAudioResampler.swift` 192 → **194**, `rules.md` (+ **Luật 9**).
-- **Ràng buộc đã đo**: `check_architecture.py` **5** violation nền cũ / **0** vi phạm mới; `validate_links.py` **PASS 100%** (16 doc, 623 file Swift).
-- **Tài liệu CodeGraph**: `rules.md` **accept** (thêm Luật 9 về hằng `NS_TYPED_ENUM`); `04_call_graph`, `10_risk_report`, `11_subsystems`, `13_resource_lifecycle` **no-change-needed** — sửa cơ học, mô tả trong doc vẫn đúng.

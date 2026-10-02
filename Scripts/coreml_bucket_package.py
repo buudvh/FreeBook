@@ -10,7 +10,7 @@
   * `T = 128` **không sinh** — Phase 1 đo được: thêm 127,8 MB mà tỉ lệ **không đổi**.
 * `text_encoder` + `duration_predictor` mỗi cái **1 gói** (chiều động duy nhất của chúng là `L`, đã cố định).
 
-Số gói: 2 + 3 × 2 = **7**.
+Số gói: 2 + 3 × 2 = **8**.
 
 Chạy: `python Scripts/coreml_bucket_package.py --out coreml-bucket --workdir coreml-bucket-work`
 """
@@ -65,23 +65,28 @@ def shapes_for(graph: str, config: dict, frames: int) -> dict:
     return table[graph]
 
 
-def convert_graph(source: str, outdir: str, name: str, config: dict, frames: int) -> dict:
-    """Đóng băng shape rồi convert bằng `onnx2coreml` — đúng đường đã chạy ở lượt baseline."""
+def convert_graph(source: str, pkgdir: str, name: str, config: dict, frames: int) -> dict:
+    """Đóng băng shape rồi convert bằng `onnx2coreml` — đúng đường đã chạy ở lượt baseline.
+
+    ⚠️ `pkgdir` **phải** nằm trong thư mục phát hành. Lượt đầu ghi gói vào `workdir` trong khi publish chỉ
+    upload `outdir` ⇒ repo HF nhận được **mỗi** `manifest.json` + `golden/` (3,7 MB) và **không có gói nào**
+    — mà CI vẫn **xanh**. Đúng loại lỗi "xanh mà không làm gì": publish thành công, nội dung trống rỗng.
+    """
     import onnx2coreml as o2c
 
     shapes = shapes_for(os.path.basename(source), config, frames)
-    frozen = os.path.join(outdir, f"{name}.frozen.onnx")
+    frozen = os.path.join(pkgdir, f"{name}.frozen.onnx")
     freeze_shapes(source, frozen, shapes)
 
     # Thử **nhiều ứng viên** như lượt baseline: một bản tối ưu hỏng không được làm mất bản gốc.
     candidates = []
-    optimized = os.path.join(outdir, f"{name}.opt.onnx")
+    optimized = os.path.join(pkgdir, f"{name}.opt.onnx")
     if optimize_with_ort(frozen, optimized):
         fold_range(optimized, optimized)
         candidates.append(("basic-folded", optimized))
     candidates.append(("frozen", frozen))
 
-    package = os.path.join(outdir, f"{name}.mlpackage")
+    package = os.path.join(pkgdir, f"{name}.mlpackage")
     errors = []
     for label, candidate in candidates:
         try:
@@ -166,8 +171,9 @@ def build_golden(model_dir: str, outdir: str, config: dict, frames: int) -> dict
     return meta
 
 
-def write_manifest(outdir: str, config: dict, packages: dict, goldens: list) -> dict:
-    """`manifest.json` — sha256 + size từng file. App kiểm size lúc tải (hiện tại chỉ kiểm `size > 0`)."""
+def manifest_files(outdir: str) -> list:
+    """Đi `outdir` và trả `{path, bytes, sha256}` từng file. Dùng cho `manifest.json` **và** để kiểm gói
+    thật sự nằm trong thư mục phát hành (điều mà lượt đầu đã không làm)."""
     entries = []
     for root, _, files in os.walk(outdir):
         for name in sorted(files):
@@ -179,7 +185,12 @@ def write_manifest(outdir: str, config: dict, packages: dict, goldens: list) -> 
                     digest.update(chunk)
             entries.append({"path": relative, "bytes": os.path.getsize(full),
                             "sha256": digest.hexdigest()})
+    return entries
 
+
+def write_manifest(outdir: str, config: dict, packages: dict, goldens: list) -> dict:
+    """`manifest.json` — sha256 + size từng file. App kiểm size lúc tải (hiện tại chỉ kiểm `size > 0`)."""
+    entries = manifest_files(outdir)
     manifest = {
         "generatedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "modelRevision": REVISION,
@@ -218,12 +229,16 @@ def main() -> int:
 
     config = json.load(open(os.path.join(model_dir, "config.json"), encoding="utf-8"))
 
-    # ── 1. Sinh 7 gói ──────────────────────────────────────────────────────────
+    # Gói phải nằm trong `outdir` thì `hf upload` mới mang theo được (xem `convert_graph`).
+    pkgdir = os.path.join(outdir, "mlpackage")
+    os.makedirs(pkgdir, exist_ok=True)
+
+    # ── 1. Sinh 8 gói ──────────────────────────────────────────────────────────
     packages: dict = {}
     for graph in LENGTH_ONLY_GRAPHS:
         name = graph.replace(".onnx", "")
         try:
-            result = convert_graph(os.path.join(model_dir, graph), workdir, name, config, 0)
+            result = convert_graph(os.path.join(model_dir, graph), pkgdir, name, config, 0)
         except Exception as error:  # noqa: BLE001
             result = {"ok": False, "error": f"{type(error).__name__}: {error}",
                       "traceback": traceback.format_exc()[-1000:]}
@@ -234,7 +249,7 @@ def main() -> int:
         for graph in FRAME_GRAPHS:
             name = f"{graph.replace('.onnx', '')}-T{frames}"
             try:
-                result = convert_graph(os.path.join(model_dir, graph), workdir, name, config, frames)
+                result = convert_graph(os.path.join(model_dir, graph), pkgdir, name, config, frames)
             except Exception as error:  # noqa: BLE001
                 result = {"ok": False, "error": f"{type(error).__name__}: {error}",
                           "traceback": traceback.format_exc()[-1000:]}
@@ -257,9 +272,15 @@ def main() -> int:
         summary["manifest_error"] = f"{type(error).__name__}: {error}"
         log("MANIFEST", f"LỖI: {error}")
 
+    expected = len(LENGTH_ONLY_GRAPHS) + len(FRAME_GRAPHS) * len(BUCKET_FRAMES)
     ok = sum(1 for item in packages.values() if item.get("ok"))
-    summary["packages_ok"] = f"{ok}/{len(packages)}"
-    summary["verdict"] = "PASS" if ok == 2 + 2 * len(BUCKET_FRAMES) else "FAIL"
+    summary["packages_ok"] = f"{ok}/{expected}"
+    # Đếm theo số file **thật sự có mặt** trong `outdir`, không chỉ theo kết quả convert — để một gói sinh
+    # ra ở chỗ sai (không nằm trong `outdir`) thì vẫn bị bắt, chứ không "PASS" với nội dung trống rỗng.
+    published = [item for item in manifest_files(outdir)
+                 if item["path"].endswith(".mlmodel") or item["path"].endswith("weight.bin")]
+    summary["package_files_in_outdir"] = len(published)
+    summary["verdict"] = "PASS" if ok == expected and len(published) > 0 else "FAIL"
     log("XONG", f"{summary['packages_ok']} gói · verdict {summary['verdict']} · ở {outdir}")
     _dump(outdir, summary)
     return 0 if summary["verdict"] == "PASS" else 1

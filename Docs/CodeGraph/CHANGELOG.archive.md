@@ -6254,3 +6254,20 @@ Người dùng yêu cầu tạo **giọng đọc riêng** từ audio mẫu. Ch�
 - **Hạ `private` → `internal`** (bẫy lặp lại lần thứ tư trong repo): `VieNeuONNXRuntime.handle` / `.maximumRank` / `.consume(_:fallback:)` — Swift giới hạn `private` theo file.
 - **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` **PASS 100% (16 doc, 623 file Swift)**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
 - **Tài liệu CodeGraph**: cập nhật **12** doc (`00_index`, `01_project`, `02_file_graph`, `03_type_graph`, `04_call_graph`, `05_state_graph`, `09_dependency_rules`, `10_risk_report`, `11_subsystems`, `13_resource_lifecycle`, `14_complexity_report`, `rules.md`) — trong đó có cả nợ tài liệu của `[1.3.451]`/`[1.3.452]`.
+
+
+---
+
+## [1.3.454] - 2026-09-30
+
+### feat: nhan ban giong VieNeu tu audio mau (voice cloning)
+
+Sửa lỗi biên dịch CI của lượt `[1.3.453]` — **giữ nguyên commit subject cho lần push sửa CI**.
+
+- **Lỗi thật duy nhất trong log CI** (`Build and Archive App (Unsigned)`, exit 65): `VieNeuAudioResampler.swift:121:50: error: cannot find 'AVSampleRateConverterAlgorithm' in scope`.
+- **Nguyên nhân**: `AVAudioConverter.sampleRateConverterAlgorithm` có kiểu `String?`, còn các hằng thuật toán là **biến toàn cục kiểu `String`** (`AVSampleRateConverterAlgorithm_Mastering`) — tên `AVSampleRateConverterAlgorithm` **không tồn tại** trong Swift, nên `.mastering` là sai. Không phải case của một enum nào.
+- **Sửa**: dùng `AVSampleRateConverterAlgorithm_Mastering` + 2 dòng comment tại chỗ nêu rõ lý do, để không ai viết lại `.mastering`.
+- **Xác minh API**: tra Apple docs JSON — `avaudioconverter/samplerateconverteralgorithm.json` cho `var sampleRateConverterAlgorithm: String?`; `avsamplerateconverteralgorithm_mastering.json` cho `let AVSampleRateConverterAlgorithm_Mastering: String`, `roleHeading = Global Variable`. Máy Windows **không** có SDK nên đây là nguồn đối chiếu duy nhất.
+- **File sửa**: `VieNeuAudioResampler.swift` 192 → **194**, `rules.md` (+ **Luật 9**).
+- **Ràng buộc đã đo**: `check_architecture.py` **5** violation nền cũ / **0** vi phạm mới; `validate_links.py` **PASS 100%** (16 doc, 623 file Swift).
+- **Tài liệu CodeGraph**: `rules.md` **accept** (thêm Luật 9 về hằng `NS_TYPED_ENUM`); `04_call_graph`, `10_risk_report`, `11_subsystems`, `13_resource_lifecycle` **no-change-needed** — sửa cơ học, mô tả trong doc vẫn đúng.

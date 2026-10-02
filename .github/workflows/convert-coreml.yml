@@ -126,12 +126,21 @@ jobs:
         # Chỉ publish khi sinh đủ 7 gói. Thiếu một gói thì phát hành ra một bộ không dùng được còn tệ hơn
         # không phát hành: app sẽ tải về rồi mới phát hiện thiếu.
         verdict=$(python -c "import json; print(json.load(open('coreml-bucket/summary.json')).get('verdict'))")
-        echo "verdict: $verdict"
+        echo "verdict: $verdict  (goi: $(python -c "import json; print(json.load(open('coreml-bucket/summary.json')).get('packages_ok'))"))"
         if [ "$verdict" != "PASS" ]; then
           echo "KHÔNG publish vì chưa sinh đủ gói."
           exit 0
         fi
-        ls -R coreml-bucket | head -40
+        # Bắt thêm một lớp: gói phải **thật sự có mặt** trong thư mục phát hành. Lượt đầu convert đủ 8 gói
+        # nhưng ghi ra ngoài `outdir` ⇒ publish xanh mà repo chỉ nhận được 3,7 MB manifest+golden.
+        found=$(find coreml-bucket -name 'weight.bin' | wc -l)
+        echo "so weight.bin trong thu muc phat hanh: $found"
+        if [ "$found" -eq 0 ]; then
+          echo "LOI: khong co goi nao trong thu muc phat hanh => khong publish."
+          exit 1
+        fi
+        du -sh coreml-bucket
+        ls coreml-bucket/mlpackage
         hf upload raikiri1498/VieNeu-TTS-v3-Nano-CoreML ./coreml-bucket . \
           --commit-message "CoreML buckets T64/T96/T234 (L=200) from ${GITHUB_SHA::7}"
         echo "ĐÃ publish."
