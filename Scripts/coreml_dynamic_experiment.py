@@ -574,11 +574,12 @@ def stage_golden(model_dir: str, workdir: str, routes: dict, reports: str) -> di
             return {"ok": False, "reason": f"{graph} chưa convert được"}
         chosen[graph] = entry[route]["package"]
 
-    feeds = make_feeds(model_dir, workdir, 0, 0)  # chỉ để lấy ids/style/spk/config
-    config = feeds["config"]
+    # Lấy `config` thẳng, **không** qua `make_feeds(…, 0, 0)`: từ khi có `_fit_ids`, truyền `length = 0`
+    # sẽ cắt `ids` về 0 phần tử ⇒ `text_encoder` chết với `Invalid input shape: {0}`.
+    config = load_config(model_dir)
     # `L` lấy đúng độ dài phoneme thật (không đệm) — đây cũng là phép thử `RangeDim` ở một giá trị
     # KHÔNG trùng shape nào đã dùng khi convert.
-    length = int(feeds["ids"].shape[1])
+    length = int(real_ids(config).shape[1])
     frames = 96
     latent_channels = config["latent_dim"] * config["group"]
     feeds = make_feeds(model_dir, workdir, length, frames)

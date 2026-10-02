@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.476] - 2026-10-02
+
+### chore: sua golden stage CoreML + bo .github/workflows/** khoi paths cua build-ipa
+
+Vòng dọn sau khi Phase 0 đã chốt `FAIL` (1.3.475). Hai việc độc lập, gộp một lượt.
+
+- **Sửa `stage_golden`** — hỏng do chính bản vá `_fit_ids` ở 1.3.474: `stage_golden` gọi `make_feeds(model_dir, workdir, 0, 0)` chỉ để lấy `config`, mà `_fit_ids` cắt `ids` về `length = 0` ⇒ `text_encoder` chết với `Invalid input shape: {0}` ⇒ golden không sinh được ở lượt CI #4. Nay lấy `config = load_config(model_dir)` trực tiếp và `length = real_ids(config).shape[1]`. Đây là bài học nhỏ nhưng đúng loại lỗi đã gặp: **một hàm tiện ích đổi ngữ nghĩa (`length` giờ có tác dụng) làm hỏng một caller cũ dùng `length` như tham số giả**.
+- **`.github/workflows/build-ipa.yml`: bỏ `.github/workflows/**` khỏi `paths`** (cả `push` lẫn `pull_request`) — người dùng chốt. Trước đó, sửa **bất kỳ** file workflow nào (kể cả `convert-coreml.yml` không liên quan gì tới build IPA) cũng kéo theo một lượt build IPA đầy đủ: đo được ở 1.3.472 (push `96052673`) và 1.3.474 (push `278122f5`) — cả hai đều sinh `Build Unsigned IPA`. Từ nay sửa `convert-coreml.yml` chỉ chạy job CoreML.
+- **`01_project.md` cập nhật theo**: hai chỗ ghi *"`build-ipa.yml` có `paths: '.github/workflows/**'` nên push file này cũng kích hoạt build IPA"* nay đã hết hiệu lực, sửa thành ghi chú lịch sử có mốc ngày. Ghi rõ thêm: `01_project.md` vẫn khai `.github/workflows/*.yml` trong `sourcePatterns`, nên thay đổi file workflow **vẫn** làm doc này stale — đó là chủ ý của validator, không phải hệ quả của `build-ipa.yml`.
+- **Không đụng `Sources/`** — `Sources/**/*.swift` vẫn 639 file. Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%**.
+- **Chưa build được trên Windows** ⇒ không khẳng định đã kiểm chứng biên dịch; lượt này không đổi mã Swift.
+
 ## [1.3.475] - 2026-10-02
 
 ### chore: them Phase 0 tham do shape dong cho mlpackage CoreML (khong dung Sources/)
@@ -458,26 +470,3 @@ Sửa **1** file Swift (`Sources/Views/Shelf/ShelfMain/NotificationInboxView+Mer
 - **Nguyên nhân**: lượt `1.3.446` để nút ở `.buttonStyle(.borderedProminent)` + `.tint(Color.primary)`. `borderedProminent` **không** tự đảo màu chữ theo tint — nó lấy nền từ tint và luôn đặt chữ theo một sắc sáng cố định (giả định tint là màu đậm/bão hoà). `Color.primary` ở **dark mode** = trắng ⇒ nền trắng + chữ sáng ⇒ **nút rỗng** (ảnh user gửi). `.foregroundStyle(Color(uiColor: .systemBackground))` đặt *bên trong* label không cứu được vì `.buttonStyle` ở ngoài ghi đè.
 - **Không thể** chỉ gỡ `.tint(Color.primary)`: `MainTabView` đặt `.tint(.white)` toàn cục nên tint mặc định cũng là trắng, vẫn trắng-trên-trắng.
 - **Cách sửa**: bỏ cả hai modifier sai, dùng `.tint` **xanh lá đậm literal** (`Color(red: 0.204, green: 0.780, blue: 0.349)`) + chữ `.foregroundColor(.white)` — theo khuôn tint đậm có sẵn trong repo (`ReaderAINameReviewCardView.swift`), đọc được ở mọi theme, không phụ thuộc tint hệ thống.
-
----
-
-## [1.3.446] - 2026-09-30
-
-### feat: TTS thay thế từ có tầng riêng theo truyện + làm lại UI mục gộp VietPhrase
-
-Thêm **4** file Swift mới, sửa **17** file Swift trong `Sources/Services/` và `Sources/Views/`:
-
-- **Tầng rule thay thế TTS riêng theo truyện** (`translate/books/<bookId>/character_replacements.json`):
-  - **Luật gộp**: rule riêng **đè** rule chung theo `pattern` và đứng trước; rule riêng đang **tắt** vẫn **chặn** rule chung cùng `pattern` (kiểu tombstone) ⇒ tập `pattern` để chặn tính trên **toàn bộ** rule riêng, còn `compile` vẫn lọc `isEnabled`.
-  - `applyReplacements(to:bookId:)` — `bookId` có default `nil` nên 8 call site cũ vẫn biên dịch; đã truyền `bookId` thật ở **cả 8** (`playingBookId` cho `TTSManager*`, `key.bookId` cho `TTSChapterPrefetcher` / `TTSNextChapterPrefixCache` / `+GoogleBatch`). `VieNeuTTSTestView` cố ý để `nil` (màn thử không có ngữ cảnh truyện).
-  - **Tách file vì trần dòng**: `TTSReplacementManager.swift` 391 → **352** (đưa `compile`/`compileCharacterRun` sang `+PlanCompile.swift`, tầng riêng sang `+BookScope.swift`); `TTSReplacementManagerView.swift` 390 → **362** (đưa định tuyến theo tầng + `ruleRow` sang `+Layer.swift`). Hạ `private` → `internal` cho `ReplacementStep`, `planLock`, `compile`, `ruleRow`, `alertMessage`, `prepareForEdit`.
-  - **Cache**: `bookRulesCache` (lock riêng) + `bookPlansCache` (dùng chung `planLock`); đổi rule **chung** ⇒ `rebuildReplacementPlan` gọi `invalidateBookPlans()` để mọi kế hoạch theo truyện dựng lại.
-  - **UI**: `TTSReplacementManagerView` nhận `bookId`/`bookName`, tầng riêng **ẩn** "Khôi phục mặc định", thêm section **"Rule chung — lấy vào riêng"** + vuốt "Sang chung"; hub theo truyện thêm section **"Thay thế từ (TTS)"** (mở từ BookDetail và Reader).
-  - **Backup/đổi nguồn**: `bookScopedTTSFiles` vào `bookScopedMigrationFiles` (đi theo truyện khi đổi nguồn); `BackupPaths.bookTTSFiles` đi cùng nhóm `dict/books/<slug>/`; khôi phục **tái dùng** `mergeReplacementRules` (hàm gộp JSON đã có). **Không** thêm `BackupScope`.
-- **Sheet "Thêm thay thế TTS" khi bôi đen** (`AddTTSReplacementSheet.swift` 79 → **184**):
-  - Ô **chuỗi thay thế luôn rỗng** khi mở — bỏ auto-fill ở `init` **và** `onChange(of: pattern)` (đổi hành vi cũ: trước đây điền sẵn từ rule trùng).
-  - **Chip gợi ý** cho đúng chuỗi gốc, lấy từ **cả 2 tầng**, badge **R**/**C**, tầng riêng trước; bấm chip ⇒ nhập chuỗi thay thế + đặt công tắc theo rule đó; rule đang **tắt** ⇒ chip **mờ**.
-  - **Lưu** = menu **2 mục** (riêng truyện / chung). Closure xử lý đặt ở `ReaderView+RuleTools.swift` vì `ReaderView.swift` ở đúng baseline **2053**.
-- **Mục gộp VietPhrase ở màn Thông báo** làm lại theo mockup: nút **Nhập vào VietPhrase** full-width nổi bật, **Xuất file** / **Bỏ qua** ngang hàng, **3 chip** `gốc/sửa/xoá`, giờ ở góc phải, chú thích dài gộp còn 1 dòng; số liệu lưu `UserDefaults` (`vietPhraseMergeSummary`) để chip còn sau khi khởi động lại. `timeLabel` ở `NotificationInboxView` hạ `private` → `internal`.
-- Cổng: `check_architecture.py` **5 violation nền/0 mới** (đã bắt 1 violation mới ở `ReaderView.swift` và sửa bằng cách rút closure ra extension); `validate_links.py` **PASS**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
-- Đồng bộ tài liệu cho commit `e85b0b4` trước đó (`DictionaryMergeTask.swift`, `NotificationInboxView.swift`) mà CodeGraph chưa accept.
