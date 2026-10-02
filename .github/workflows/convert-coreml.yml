@@ -142,4 +142,8 @@ jobs:
         bucket = data.get("bucket_fallback") or {}
         if bucket:
             print(f"  bucket du phong: {bucket.get('total_bytes', 0) / 1e6:.1f} MB")
+        sweep = (data.get("ort_l_sweep") or {}).get("ort_ms") or {}
+        for graph, rows in sweep.items():
+            for frames, row in rows.items():
+                print(f"  {graph} {frames}: " + " ".join(f"L{k}={v}" for k, v in row.items()))
         PY

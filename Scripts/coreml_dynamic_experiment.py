@@ -28,15 +28,15 @@ là phép kiểm quyết định — `torch.jit.trace` chỉ ghi lại op, nhưn
 `torch.Size(...)` trong `onnx2torch/node_converters/reshape.py:23`) thì torch.jit **tính ngay lúc trace
 rồi nướng kết quả thành hằng** ⇒ graph đã trace chỉ đúng ở đúng shape đã trace.
 
-## Bốn thứ luôn được thu, kể cả khi mọi đường đều hỏng
+## Năm thứ luôn được thu, kể cả khi mọi đường đều hỏng
 
 1. `range_report.json` — từng node `Range` phụ thuộc chiều nào, cần `MAX` bao nhiêu.
 2. `surgery_parity.json` — ORT chạy graph **gốc** vs graph **đã phẫu thuật** ở 3 shape: kỳ vọng
    `max|Δ| = 0`. Đây là phép kiểm **tách hẳn** "phẫu thuật `Range` sai" khỏi "convert sai" — không có nó
    thì hai loại lỗi trông giống hệt nhau và ta sẽ đi sửa nhầm chỗ.
 3. `dynamic.json` — kết quả từng đường, **nguyên văn** thông báo lỗi.
-4. `bucket_fallback.json` — số đo của phương án bucket (độ trễ từng mức + tổng dung lượng), để nếu
-   shape động thất bại thì người dùng có số liệu mà quyết định thay vì quyết theo cảm giác.
+4. `bucket_fallback.json` — số đo từng mức bucket (độ trễ + dung lượng), và `ort_l_sweep.json` (D7) đo
+   ORT theo `L` để **gỡ nhiễu `L`** khi so `rtf` máy thật với số CI.
 
 Chạy: `python Scripts/coreml_dynamic_experiment.py --out reports-dynamic --workdir coreml-dynamic`
 """
@@ -736,6 +736,50 @@ def stage_bucket_fallback(model_dir: str, workdir: str, reports: str) -> dict:
     return result
 
 
+# ─────────────────────────── D7: quét `L` cho ORT ───────────────────────────
+# `91` = trung vị `L` **thật** đo từ log (`[VieNeuChunk]` → `vocab`); `200` = mốc CI đang dùng cho bucket.
+L_SWEEP = (32, 64, 91, 128, 160, 200, 256)
+L_SWEEP_FRAMES = (64, 96, 234)
+
+
+def stage_ort_l_sweep(model_dir: str, workdir: str, reports: str) -> dict:
+    """Đo ORT theo `L` ở `T` cố định — để **gỡ nhiễu `L`** khi so `rtf` máy thật với số CI.
+
+    ## Vì sao cần
+    Phép so `rtf` đo trên iPhone (dòng `[VieNeuPerf]`) với thời gian CI dự đoán bị lệch **một chiều**:
+    CI đo ORT ở `L = 200` **đóng băng** (vì bucket đóng băng shape), còn máy chạy `L` **thật**
+    (trung vị ~91). Máy làm **ít việc hơn** nên đáng lẽ phải **nhanh hơn** — vậy nếu đo ra máy *chậm*
+    hơn thì không tách được "máy chậm hơn CI" khỏi "máy làm ít việc hơn". Bảng này cho hệ số bù.
+
+    ## Vì sao phải chạy trên CI, không phải máy phát triển
+    Máy Windows **không đo được thời gian**: thử đúng phép đo này tại chỗ ra số **không đơn điệu**
+    (`L=91` → 371 ms nhưng `L=128` → 108 ms, `L=160` → 238 ms). Mọi số timing phải lấy từ runner.
+    """
+    import numpy as np
+
+    result: dict = {"L": list(L_SWEEP), "frames": list(L_SWEEP_FRAMES), "ort_ms": {}}
+    for graph in ("vector_estimator.onnx", "text_encoder.onnx", "codec_decoder.onnx"):
+        session = ort_session(model_dir, graph)
+        entry: dict = {}
+        for frames in L_SWEEP_FRAMES:
+            row: dict = {}
+            for length in L_SWEEP:
+                feeds = feeds_for(graph, make_feeds(model_dir, workdir, length, frames))
+                session.run(None, feeds)  # warm-up
+                timings = []
+                for _ in range(5):
+                    started = time.perf_counter()
+                    session.run(None, feeds)
+                    timings.append((time.perf_counter() - started) * 1000)
+                row[str(length)] = round(float(np.median(timings)), 1)
+            entry[f"T{frames}"] = row
+            log("D7", f"{graph} T={frames}: " + " ".join(f"L{k}={v}" for k, v in row.items()))
+        result["ort_ms"][graph] = entry
+    with open(os.path.join(reports, "ort_l_sweep.json"), "w", encoding="utf-8") as handle:
+        json.dump(result, handle, ensure_ascii=False, indent=2)
+    return result
+
+
 # ─────────────────────────── main ───────────────────────────
 def main() -> int:
     parser = argparse.ArgumentParser()
@@ -840,6 +884,13 @@ def main() -> int:
         except Exception as error:  # noqa: BLE001
             summary["bucket_error"] = f"{type(error).__name__}: {error}"
             log("D6", f"LỖI: {error}")
+
+    # D7 — quét `L` cho ORT (gỡ nhiễu `L` khi so `rtf` máy thật ↔ số CI).
+    try:
+        summary["ort_l_sweep"] = stage_ort_l_sweep(model_dir, workdir, reports)
+    except Exception as error:  # noqa: BLE001
+        summary["ort_l_sweep_error"] = f"{type(error).__name__}: {error}"
+        log("D7", f"LỖI: {error}")
 
     # Kết luận chỉ tính đường **shape động** (`torch_*`). `o2c_original`/`o2c_surgery` chạy được cũng
     # KHÔNG tính: chúng chỉ sống khi shape đã đóng băng, mà shape động chính là thứ plan cần.

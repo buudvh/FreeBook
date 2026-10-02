@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.481] - 2026-10-02
+
+### chore: them quet L cho ORT (D7) de go nhieu khi so rtf may that voi so CI
+
+Bước 1 của hướng A. **Không đụng `Sources/`.**
+
+- **Vì sao cần**: phép so `rtf` đo trên iPhone (`[VieNeuPerf]`) với thời gian CI dự đoán bị lệch **một chiều** — CI đo ORT ở `L = 200` **đóng băng** (vì bucket đóng băng shape), còn máy chạy `L` **thật** (trung vị ~91 đo từ `[VieNeuChunk]`). Máy làm **ít việc hơn** nên đáng lẽ phải nhanh hơn; đo ra máy *chậm* hơn thì **không tách được** "máy chậm hơn CI" khỏi "máy làm ít việc hơn".
+- **Số đã đo trước đó**: `rtf` máy thật trung vị **0,420** (p10 0,380 · p90 0,480); tỉ lệ máy/CI = **1,05×** (p25 0,96× · p75 1,11×) — **không phải 1,28×** như tài liệu gợi ý. Nhưng vì nhiễu `L` nên chưa chốt được; hướng A nằm trong khoảng **1,53× … 1,86×**.
+- **Thêm `stage_ort_l_sweep` (D7)** vào `Scripts/coreml_dynamic_experiment.py` (806 → 939 dòng): đo ORT theo `L ∈ {32, 64, 91, 128, 160, 200, 256}` ở `T ∈ {64, 96, 234}` cho `vector_estimator` · `text_encoder` · `codec_decoder`, ghi `ort_l_sweep.json`. `91` là trung vị `L` thật; `200` là mốc CI đang dùng cho bucket ⇒ hiệu hai mốc chính là **hệ số bù** cần tìm.
+- ⚠️ **Bài học: máy phát triển Windows KHÔNG đo được thời gian.** Thử đúng phép đo này tại chỗ ra số **không đơn điệu** (`L=91` → 371 ms nhưng `L=128` → 108 ms, `L=160` → 238 ms) — sandbox + tải nền. **Mọi số timing phải lấy từ runner CI**; đừng lặp lại việc đo timing trên Windows.
+- **`.github/workflows/convert-coreml.yml`** (141 → 148 dòng): bước `Verdict` in thêm bảng quét `L`.
+- **Không đụng `Sources/`** — `Sources/**/*.swift` vẫn 639 file. Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%** (`--accept 01_project.md`).
+- **Chưa build được trên Windows** ⇒ không khẳng định đã kiểm chứng biên dịch; lượt này không đổi mã Swift.
+
 ## [1.3.480] - 2026-10-02
 
 ### docs: chot luoi bucket 64/96/234 (397 MB, 1,86x) cho huong A
@@ -443,19 +457,4 @@ Người dùng yêu cầu tạo **giọng đọc riêng** từ audio mẫu. Ch�
 - **Trước**: cổng số chỉ chạy tay (`workflow_dispatch`) — mà `workflow_dispatch` chỉ hiện khi file đã có trên nhánh mặc định, nên trên nhánh làm việc thì **không bấm được**. Thêm `on.push.paths`: `Scripts/FbankGate/**`, `Sources/Services/TTS/VieNeu/VieNeuFbank.swift`, `.github/workflows/fbank-gate.yml`.
 - **Hệ quả**: cổng trở thành **chống hồi quy** thật — sửa fbank là CI chạy lại và so với numpy ngay.
 - **File sửa**: `.github/workflows/fbank-gate.yml` (+8/−2).
-- **Tài liệu CodeGraph**: ghi nhận ở lượt `[1.3.453]`.
-
----
-
-## [1.3.451] - 2026-09-30
-
-### feat: VieNeuFbank fbank 80-mel Kaldi thuan Swift va cong kiem chung so
-
-Tiền đề của nhân bản giọng: `speaker_encoder` cần **fbank 80-mel kiểu Kaldi**, không phải waveform. Viết thuần Swift rồi kiểm bằng **số** trước khi ghép vào pipeline.
-
-- **`VieNeuFbank.swift`** **293** — `melSpectrogram(samples:sampleRate:)` + `meanNormalized(_:)`, 16 kHz, 80 bin, `snip_edges = true` (không đệm đầu/cuối). Cố ý **không** dùng Accelerate/vDSP để file biên dịch được bằng `swiftc` trần.
-- **Cổng kiểm chứng số** — `Scripts/FbankGate/main.swift` **115** + `Scripts/FbankGate/gate.py` **210**: `gate.py probe` sinh WAV tất định, `gate.py golden` tính fbank bằng **numpy độc lập**, `swiftc -O VieNeuFbank.swift main.swift` biên dịch **chính file production**, rồi `gate.py compare` so từng ô. Kết quả: **RAW MAE = 0.000e+00** (bit-exact).
-- **Vì sao cần cổng này**: máy phát triển là Windows **không có Swift toolchain**, nên tại chỗ chỉ chạy được bản **dịch Python** của cùng thuật toán — tự kiểm bằng bản dịch là lập luận vòng tròn. Đây là chỗ **duy nhất** mã Swift thật được thi hành trong CI ngoài `build-ipa.yml`.
-- **File mới**: `VieNeuFbank.swift` **293**, `Scripts/FbankGate/main.swift` **115**, `Scripts/FbankGate/gate.py` **210**, `.github/workflows/fbank-gate.yml`.
-- **Ràng buộc đã đo**: `check_architecture.py` **5** violation nền / **0** mới. **Không build trên Windows**.
 - **Tài liệu CodeGraph**: ghi nhận ở lượt `[1.3.453]`.

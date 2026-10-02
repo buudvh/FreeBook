@@ -6202,3 +6202,19 @@ Sửa **12** file (9 Swift + 2 C/header bridge + 1 doc-mirror):
 - **Giới hạn dòng**: `VieNeuTTSEngine.swift` giữ **đúng 400/400** (nén comment + gộp tham số); `TTSManager.swift` **3957 → 3970** (baseline 3470 — vi phạm nền, không loại mới).
 - **Sửa lỗi biên dịch đầu tiên (CI run `36722575609`)**: khi nén comment để giữ trần 400, một dòng trong `prepareLocked` bị mất ký tự xuống dòng ⇒ `VieNeuTTSEngine.swift:172:44: error: consecutive statements on a line must be separated by ';'` (`nullContextShape = nullBranch.shape        nullMask = nullBranch.mask`). Tách lại thành hai dòng và bù bằng cách gộp hai dòng comment liền kề ⇒ vẫn **đúng 400**. Không có lỗi nào khác (bridge C `.m` biên dịch sạch).
 - Cổng: `check_architecture.py` **5 violation nền / 0 mới**; `validate_links.py` **PASS 100% (16 doc, 614 file Swift)**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
+
+
+---
+
+## [1.3.451] - 2026-09-30
+
+### feat: VieNeuFbank fbank 80-mel Kaldi thuan Swift va cong kiem chung so
+
+Tiền đề của nhân bản giọng: `speaker_encoder` cần **fbank 80-mel kiểu Kaldi**, không phải waveform. Viết thuần Swift rồi kiểm bằng **số** trước khi ghép vào pipeline.
+
+- **`VieNeuFbank.swift`** **293** — `melSpectrogram(samples:sampleRate:)` + `meanNormalized(_:)`, 16 kHz, 80 bin, `snip_edges = true` (không đệm đầu/cuối). Cố ý **không** dùng Accelerate/vDSP để file biên dịch được bằng `swiftc` trần.
+- **Cổng kiểm chứng số** — `Scripts/FbankGate/main.swift` **115** + `Scripts/FbankGate/gate.py` **210**: `gate.py probe` sinh WAV tất định, `gate.py golden` tính fbank bằng **numpy độc lập**, `swiftc -O VieNeuFbank.swift main.swift` biên dịch **chính file production**, rồi `gate.py compare` so từng ô. Kết quả: **RAW MAE = 0.000e+00** (bit-exact).
+- **Vì sao cần cổng này**: máy phát triển là Windows **không có Swift toolchain**, nên tại chỗ chỉ chạy được bản **dịch Python** của cùng thuật toán — tự kiểm bằng bản dịch là lập luận vòng tròn. Đây là chỗ **duy nhất** mã Swift thật được thi hành trong CI ngoài `build-ipa.yml`.
+- **File mới**: `VieNeuFbank.swift` **293**, `Scripts/FbankGate/main.swift` **115**, `Scripts/FbankGate/gate.py` **210**, `.github/workflows/fbank-gate.yml`.
+- **Ràng buộc đã đo**: `check_architecture.py` **5** violation nền / **0** mới. **Không build trên Windows**.
+- **Tài liệu CodeGraph**: ghi nhận ở lượt `[1.3.453]`.
