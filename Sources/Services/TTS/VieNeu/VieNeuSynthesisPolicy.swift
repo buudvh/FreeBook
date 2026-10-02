@@ -140,18 +140,6 @@ enum VieNeuSynthesisPolicy {
         return max(synthesisSpeedRange.lowerBound, min(synthesisSpeedRange.upperBound, raw))
     }
 
-    // MARK: - CoreML EP (1.3.466, thí nghiệm)
-
-    /// Khoá `UserDefaults` của công tắc **"Dùng CoreML/ANE (thử nghiệm)"**.
-    static let coreMLEPKey = "vieneuCoreMLEP"
-
-    /// Công tắc CoreML EP. **Mặc định TẮT** — đây là thí nghiệm, không đẩy rủi ro cho người dùng.
-    ///
-    /// Bật lên chỉ có nghĩa "hãy thử đăng ký EP"; EP có thật sự vào được hay không do
-    /// `VieNeuONNXRuntime.coreMLActive` quyết định (và log `[VieNeuPerf] coreML=` đọc từ đó).
-    static func isCoreMLEPEnabled(_ defaults: UserDefaults) -> Bool {
-        defaults.bool(forKey: coreMLEPKey)
-    }
 
     // MARK: - Luật đổi chế độ
 

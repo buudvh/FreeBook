@@ -29,26 +29,10 @@
 /// Ngữ cảnh ORT: giữ `OrtEnv`, `OrtMemoryInfo`, `OrtAllocator` và 4 `OrtSession`.
 typedef struct VieNeuORT VieNeuORT;
 
-/// Tuỳ chọn khi dựng ngữ cảnh — dùng cho **thí nghiệm CoreML EP** (1.3.466).
-///
-/// Truyền `NULL` cho `VieNeuORTCreateWithRunOptions` = hành vi cũ (CPU, log mức WARNING).
-typedef struct VieNeuORTRunOptions {
-    /// `1` ⇒ đăng ký CoreML EP cho **cả 4** session. Lỗi đăng ký ⇒ hàm tạo trả `NULL` (bên gọi tự
-    /// quay về CPU) — cố ý **không** im lặng chạy tiếp trên CPU, vì như vậy số đo thí nghiệm vô nghĩa.
-    int32_t useCoreML;
-    /// `1` ⇒ `ORT_LOGGING_LEVEL_VERBOSE`. Cần cho `ProfileComputePlan` của CoreML EP (ORT ghi ra từng
-    /// toán tử chạy trên ANE/GPU/CPU kèm thời gian ước lượng).
-    int32_t verboseLog;
-    /// Thư mục cache của CoreML EP. **Bắt buộc** khi `useCoreML`: không có cache thì CoreML **biên dịch
-    /// lại** subgraph mỗi lần mở session. Bên gọi phải bảo đảm thư mục tồn tại.
-    const char *coreMLCacheDirectory;
-} VieNeuORTRunOptions;
-
 /// Callback nhận log của ONNX Runtime (thay vì để ORT ghi thẳng ra stderr như mặc định).
 ///
 /// Cần thiết vì `[VieNeuPerf]` **không** thấy được log bên trong ORT: cảnh báo "node không hỗ trợ",
-/// lý do CoreML EP từ chối một toán tử, và bảng phân bổ ANE/GPU/CPU của `ProfileComputePlan` đều đi
-/// qua logger của ORT.
+/// lý do một EP từ chối toán tử, và các cảnh báo của graph optimizer đều đi qua logger của ORT.
 ///
 /// Dùng **con trỏ hàm C** (không phải block ObjC) để không phụ thuộc việc target bật ARC hay không —
 /// Swift truyền được hàm toàn cục không capture vào đây.
@@ -59,13 +43,6 @@ typedef void (*VieNeuORTLogCallback)(int32_t severity, const char *message, void
 /// `context` được trả nguyên lại cho callback. ORT gọi callback **từ luồng đang chạy `Run`** nên bên
 /// nhận phải rẻ và không được ném ngoại lệ.
 void VieNeuORTSetLogCallback(VieNeuORTLogCallback callback, void *context);
-
-/// Như `VieNeuORTCreate` nhưng có tuỳ chọn EP/log. `runOptions == NULL` ⇒ giống hệt `VieNeuORTCreate`.
-///
-/// Tách hàm thay vì đổi chữ ký `VieNeuORTCreate`: giữ nguyên mọi caller cũ, và làm rõ rằng đường
-/// thí nghiệm là **tuỳ chọn**.
-VieNeuORT *VieNeuORTCreateWithRunOptions(const char *modelDirectory, int32_t threadCount,
-                                         const VieNeuORTRunOptions *runOptions, char **errorMessage);
 
 /// Tạo ngữ cảnh và nạp 4 graph từ `modelDirectory`.
 /// Trả `NULL` khi lỗi; `*errorMessage` (nếu khác NULL) nhận chuỗi do `malloc` cấp phát.

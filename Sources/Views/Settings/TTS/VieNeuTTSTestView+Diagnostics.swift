@@ -13,9 +13,6 @@ extension VieNeuTTSTestView {
         lines.append("model: \(modelState)")
         if let service {
             lines.append("engine: \(service.engineStatus)")
-            // Trạng thái **thật** của CoreML EP (1.3.466) — cờ trong Cài đặt chỉ là ý định, còn đây là
-            // EP có đăng ký được hay `VieNeuONNXRuntime.init` đã tự quay về CPU.
-            lines.append("CoreML/ANE: \(service.isCoreMLActive ? "đang bật" : "tắt (CPU)")")
         } else {
             lines.append("engine: không dựng được (kho model lỗi)")
         }

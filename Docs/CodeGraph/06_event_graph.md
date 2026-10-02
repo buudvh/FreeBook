@@ -15,6 +15,11 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.469 — sự kiện CoreML bị gỡ; đổi số luồng nay phát sự kiện nạp lại
+
+* **Gỡ**: `vieNeuCoreMLRow` → `applyCoreMLEP` → toast (bật/tắt EP, quay về CPU).
+* **Thêm**: Picker *Số luồng tổng hợp* → `reloadVieNeuEngine` → nạp lại engine tại chỗ + `invalidateVieNeuPrefetch`; lỗi ⇒ toast. Dòng trạng thái "Đang nạp lại engine…" hiện trong lúc chờ.
+
 ## 1.3.466 — sự kiện mới: gạt công tắc CoreML ⇒ nạp lại engine
 
 * `vieNeuCoreMLRow` → `applyCoreMLEP` → `reloadEngine` → toast kết quả (thành công / "không dùng được CoreML — đã quay về CPU" / lỗi nạp lại).

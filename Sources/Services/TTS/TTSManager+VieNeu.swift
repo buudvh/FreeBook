@@ -160,7 +160,7 @@ extension TTSManager {
     }
 
     /// Vô hiệu phần đệm đã tổng hợp khi **engine đổi cấu hình** — đổi tốc độ tổng hợp (1.3.465) hoặc nạp
-    /// lại engine vì CoreML EP (1.3.466).
+    /// lại engine vì cài đặt session đổi (số luồng tổng hợp, 1.3.469).
     ///
     /// Ba việc phải làm, thiếu một là nghe sai mà không có lỗi gì:
     /// 1. `cancelNghiRefill()` — huỷ các lượt đang bay (chúng đang tổng hợp theo cấu hình cũ).

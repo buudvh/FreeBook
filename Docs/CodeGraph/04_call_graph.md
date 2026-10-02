@@ -15,6 +15,12 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.469 — cạnh gọi của đường nạp lại engine chuyển sang ô "Số luồng tổng hợp"
+
+* `TTSSettingsView+VieNeu` (Picker **Số luồng tổng hợp**) → `reloadVieNeuEngine(reason:)` → `VieNeuTTSService.reloadEngine(reason:)` → `VieNeuTTSEngine.unload()` → `prepare()` → `TTSManager.invalidateVieNeuPrefetch(reason:)`.
+* **Cạnh đã gỡ**: `applyCoreMLEP` → `reloadEngine` (công tắc CoreML), `VieNeuONNXRuntime.init(coreML:)` → `VieNeuORTCreateWithRunOptions` → `SessionOptionsAppendExecutionProvider("CoreML", …)`.
+* `VieNeuONNXRuntime.init` luôn gọi `installLogBridge()` ⇒ log ORT vào `AppLogger` trên mọi đường.
+
 ## 1.3.468 — chẩn đoán: `MLComputeUnits=CPUOnly` (không đổi cạnh gọi)
 
 * `appendCoreMLProvider` đổi giá trị `MLComputeUnits` → `CPUOnly`; `prepareCoreMLCacheDirectory` dọn **hai** thư mục cache cũ thay vì một (vòng lặp tên).

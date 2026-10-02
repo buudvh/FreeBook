@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.469 — LOẠI CoreML EP; đường nạp lại engine nay phục vụ "Số luồng tổng hợp"
+
+* **CoreML EP bị xoá hoàn toàn** (đăng ký EP, công tắc trong Cài đặt, `coreMLActive`). Kết luận từ 3 lượt đo trên máy: shape động ⇒ **im tiếng** (33+ partition); shape tĩnh ⇒ **nhiễu** (14 partition, `rtf` 0,64–0,93); shape tĩnh + `CPUOnly` (fp32, không mất độ chính xác) ⇒ **vẫn nhiễu** ⇒ thủ phạm là **semantics của EP** với graph này, không phải fp16/ANE. Xem `Docs/Reports/walkthrough-1.3.467.md` / `-1.3.468.md`.
+* **Giữ lại hạ tầng có giá trị**: log ORT vào `AppLogger` (nay **luôn** bật ở mức WARNING — `CreateEnvWithCustomLogger` thay `CreateEnv`), và đường **nạp lại engine tại chỗ** (`VieNeuTTSEngine.unload()` + `VieNeuTTSService.reloadEngine(reason:)`).
+* **Đường nạp lại nay có người dùng thật**: ô **"Số luồng tổng hợp"** áp dụng **ngay** (nạp lại engine ~2 s + dòng trạng thái) thay vì bắt "mở lại app hoặc đổi engine" như trước. Trước đây số luồng chỉ có hiệu lực lúc tạo session ORT nên đổi xong phải khởi động lại app.
+* `invalidateVieNeuPrefetch(reason:)` phục vụ cả hai nguyên nhân (đổi tốc độ tổng hợp / nạp lại engine).
+
 ## 1.3.468 — chẩn đoán CoreML: đổi sang `MLComputeUnits=CPUOnly`
 
 * **Kết quả 1.3.467 đo trên máy** (`app_logs (62).txt`): 14 partition, `rtf` **0,64–0,93** (CPU thường: 0,26–0,44) và audio là **tiếng nhiễu, không có tiếng Việt** ⇒ EP tính sai giá trị, đồng thời chậm gấp ~2×.

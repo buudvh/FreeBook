@@ -15,6 +15,12 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.469 — gỡ API của CoreML EP, đổi chữ ký `reloadEngine`
+
+* **Xoá**: `VieNeuORTRunOptions`, `VieNeuORTCreateWithRunOptions`, `VieNeuONNXRuntime.coreMLActive`, `prepareCoreMLCacheDirectory(modelStore:)`, `VieNeuSynthesisPolicy.coreMLEPKey` + `isCoreMLEPEnabled(_:)`, `VieNeuTTSService.isCoreMLActive`, `VieNeuTTSEngine.coreMLActive`.
+* **Đổi chữ ký**: `VieNeuTTSService.reloadEngine(useCoreML:)` → **`reloadEngine(reason: String)`**; `VieNeuONNXRuntime.init(modelStore:threadCount:coreML:verboseORTLog:)` → **`init(modelStore:threadCount:)`**.
+* **Giữ**: `VieNeuORTSetLogCallback` + trampoline log; `VieNeuTTSEngine.unload()`; `TTSManager.invalidateVieNeuPrefetch(reason:)`.
+
 ## 1.3.466 — API mới của đường CoreML EP
 
 * `VieNeuONNXBridge.h`: + `VieNeuORTRunOptions` (useCoreML/verboseLog/coreMLCacheDirectory) · + `VieNeuORTSetLogCallback` · + `VieNeuORTCreateWithRunOptions`.

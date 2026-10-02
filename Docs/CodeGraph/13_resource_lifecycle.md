@@ -15,6 +15,12 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.469 — cache CoreML bị xoá cùng EP
+
+* `prepareCoreMLCacheDirectory` **đã xoá** cùng đường CoreML EP ⇒ không còn thư mục cache nào được tạo trong Application Support.
+* **Cache cũ trên máy người dùng vẫn còn** (`CoreMLCache-staticShapes-cpuOnly`, và có thể `CoreMLCache`, `CoreMLCache-staticShapes` nếu chưa từng bật bản mới): đó là cache chết, chỉ tốn dung lượng, **không** ảnh hưởng chức năng (không code nào đọc nữa). Có thể xoá bằng cách gỡ app nếu muốn dọn.
+* Vòng đời ngữ cảnh ORT khi nạp lại không đổi so với 1.3.466 (Luật 20: `runtime = nil` **trước** khi xoá các mảng `null*`).
+
 ## 1.3.468 — cache CoreML: dọn hai thế hệ cũ
 
 * Hậu tố cache đổi theo cấu hình EP mới: `CoreMLCache-staticShapes-cpuOnly`. **Cả hai** thư mục cũ bị dọn một lần trong `prepareCoreMLCacheDirectory`: `CoreMLCache` (1.3.466) và `CoreMLCache-staticShapes` (1.3.467) — cả hai đều là cache của cấu hình đã đo được là hỏng (im tiếng / nhiễu).

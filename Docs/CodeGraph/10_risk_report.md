@@ -15,6 +15,12 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.469 — CoreML EP đã bị loại; rủi ro còn lại của đường nạp lại
+
+* **Kết luận cuối về CoreML EP**: cả ba cấu hình đều hỏng (im tiếng / nhiễu / nhiễu + chậm 2×) ⇒ đã **xoá** khỏi code. Ghi lại để **không thử lại vô cớ** trên model Nano + ORT 1.24.2.
+* Rủi ro còn lại của `unload()`/`reloadEngine`: chỉ an toàn nhờ `lock` của engine (chờ lượt tổng hợp xong) và chỉ gọi khi **không đang phát**. Nay nó gắn vào ô "Số luồng tổng hợp" — màn Cài đặt vốn đã `prepareForSettings()` tạm dừng phát nên đúng điều kiện.
+* Nếu `reloadEngine` lỗi (model thiếu file), UI báo toast và **engine vẫn ở trạng thái chưa nạp** ⇒ lần phát kế tiếp sẽ nạp lại từ đầu. Không có nhánh nào nuốt lỗi im lặng.
+
 ## 1.3.468 — cấu hình shape tĩnh vẫn hỏng: **tiếng nhiễu**, và chậm gấp 2×
 
 * Log `app_logs (62).txt` với `RequireStaticInputShapes=1`: **14 partition** (giảm từ 33+) nhưng `rtf` **0,64–0,93** — so với **0,26–0,44** của CPU thường ⇒ EP **chậm gấp ~2×**; 3 `Underrun`.

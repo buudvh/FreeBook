@@ -15,6 +15,11 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.469 — luật bổ sung (kết luận về EP)
+
+* **Luật 23 — đừng thử lại CoreML EP cho model Nano.** Đã đo ba cấu hình: shape động ⇒ **im tiếng** (33+ partition); shape tĩnh + ANE ⇒ **nhiễu** (14 partition, `rtf` 0,64–0,93 so với 0,26–0,44 của CPU); shape tĩnh + `CPUOnly` (fp32, không mất độ chính xác) ⇒ **vẫn nhiễu** ⇒ lỗi ở **semantics của EP** với graph này (nghi đường `ctx_mask` bool + phân mảnh với chiều động). Kể cả khi đúng thì EP vẫn **chậm gấp ~2×**.
+* **Bài học chung khi thử một backend/EP mới cho đường phát**: bắt buộc có (a) **công tắc tắt được**, (b) **tiêu chí đo chốt trước**, (c) **log của backend vào được `AppLogger`**. Ba thứ này là thứ duy nhất giúp 3 lượt hỏng liên tiếp vẫn xác định được nguyên nhân thay vì đoán.
+
 ## 1.3.467 — luật mới (cache của execution provider)
 
 * **Luật 22 — cache của execution provider phải tách theo cấu hình EP.** Khoá cache của CoreML EP **chỉ** là hash của model, **không** gồm các tuỳ chọn EP (`RequireStaticInputShapes`, `ModelFormat`, `MLComputeUnits`…). Giữ nguyên thư mục cache khi đổi tuỳ chọn ⇒ partition của cấu hình cũ bị tái dùng lẫn với cấu hình mới. Cách xử lý: **tên thư mục mang hậu tố cấu hình**, và đổi hậu tố mỗi khi đổi bộ tuỳ chọn.

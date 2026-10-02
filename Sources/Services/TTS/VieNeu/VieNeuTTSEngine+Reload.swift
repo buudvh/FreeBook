@@ -1,13 +1,13 @@
 import Foundation
 
-/// Đường **nhả ngữ cảnh** của engine VieNeu, phục vụ nạp lại tại chỗ — dùng cho thí nghiệm
-/// **CoreML EP** (1.3.466).
+/// Đường **nhả ngữ cảnh** của engine VieNeu, phục vụ nạp lại tại chỗ (1.3.466) — nay dùng cho các cài
+/// đặt **chỉ có hiệu lực lúc tạo session ORT** (số luồng tổng hợp).
 ///
 /// ## Vì sao phải có đường nhả
 /// `prepareLocked` chỉ chạy **một lần** trong vòng đời engine (`guard runtime == nil`) và engine sống
 /// suốt vòng đời app ⇒ đổi EP mà không nhả thì cấu hình mới **không bao giờ** có hiệu lực. Trước
 /// 1.3.466 điều đó không thành vấn đề vì mọi thay đổi đều nói rõ "cần mở lại app"; nay màn Cài đặt gọi
-/// `VieNeuTTSService.reloadEngine(useCoreML:)` nên phải có đường nhả thật.
+/// `VieNeuTTSService.reloadEngine(reason:)` nên phải có đường nhả thật.
 ///
 /// ## Vì sao tách file
 /// `VieNeuTTSEngine.swift` đang ở **đúng 400 dòng** (trần của `check_architecture.py`) ⇒ không thêm được
@@ -40,16 +40,5 @@ extension VieNeuTTSEngine {
         nullMask = []
         droppedScalarWarningShown = false
         AppLogger.shared.log("🎙️ [VieNeu] Đã nhả ngữ cảnh ORT (chờ nạp lại)")
-    }
-
-    /// `true` khi ngữ cảnh **đang dùng** đã đăng ký được CoreML EP.
-    ///
-    /// Đây là **nguồn sự thật** cho UI và cho log — khác hẳn cờ `UserDefaults` (chỉ là *ý định* của người
-    /// dùng). Đọc dưới `lock` để không đọc phải ngữ cảnh đang bị nhả giữa lúc nạp lại; trên thực tế chỉ
-    /// được gọi khi màn Cài đặt đang mở, tức đã tạm dừng phát nên không có tranh chấp.
-    var coreMLActive: Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return runtime?.coreMLActive ?? false
     }
 }

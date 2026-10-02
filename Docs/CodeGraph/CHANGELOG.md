@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.469] - 2026-10-02
+
+### fix: loai bo CoreML EP va noi duong nap lai engine vao o So luong tong hop
+
+Tiếp sau 3 lượt đo CoreML EP trên máy thật (1.3.466 → 1.3.468): **cả ba cấu hình đều hỏng**.
+
+- **Bằng chứng quyết định** (log `app_logs (63).txt`): với `MLComputeUnits=CPUOnly` — đường CoreML chạy trên CPU, **không mất độ chính xác** — audio **vẫn nhiễu**. ⇒ Thủ phạm là **semantics của CoreML EP** với graph này (nghi `ctx_mask` bool + phân mảnh với chiều động), **không phải fp16/ANE**. Kể cả trường hợp tốt nhất (2 partition) `rtf` vẫn 0,67–0,87 so với **0,26–0,44** của ORT CPU ⇒ chậm gấp ~2×.
+- **Đã xoá**: đăng ký CoreML EP (`appendCoreMLProvider`, `VieNeuORTRunOptions`, `VieNeuORTCreateWithRunOptions`), công tắc trong Cài đặt + `@State vieNeuCoreMLEnabled`, `coreMLActive`, `prepareCoreMLCacheDirectory`, khoá `vieneuCoreMLEP`.
+- **Giữ lại hạ tầng có giá trị**: log ORT → `AppLogger` (nay **luôn** bật ở mức WARNING, `CreateEnvWithCustomLogger` thay `CreateEnv`) và **đường nạp lại engine tại chỗ**.
+- **Đường nạp lại nay có người dùng thật**: ô **"Số luồng tổng hợp"** áp dụng **ngay** (nạp lại engine ~2 s + dòng trạng thái) thay vì bắt *"mở lại app hoặc đổi engine"* như trước — số luồng chỉ có hiệu lực lúc tạo session ORT.
+- `reloadEngine(useCoreML:)` → **`reloadEngine(reason:)`**.
+- **Luật 23** (`rules.md`): đừng thử lại CoreML EP cho model Nano, kèm bài học chung khi thử một EP mới cho đường phát (công tắc tắt được + tiêu chí đo chốt trước + log của backend vào được `AppLogger`).
+- **Trần dòng lùi mạnh**: `VieNeuONNXRuntime.swift` 400 → **341** · `VieNeuONNXBridge.m` 1257 → **1187** · `VieNeuONNXBridge.h` 219 → **196** · `VieNeuSynthesisPolicy.swift` 199 → **187** · `TTSSettingsView+VieNeu.swift` 398 → **361**; còn **2** file chạm trần 400 (`VieNeuTTSEngine.swift`, `VieNeuTTSService.swift`).
+
 ## [1.3.468] - 2026-10-02
 
 ### fix: CoreML EP ep shape tinh van ra tieng nhieu - chuyen MLComputeUnits sang CPUOnly de chan doan
@@ -512,36 +526,5 @@ Bỏ `nghiRefillGeneration &+= 1` khỏi `scheduleNghiRefill()`. Chỉ `cancelNg
 Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS** (04/10/11/rules `--accept`, 05/06/08/13 `--no-change-needed`). **Không build được trên Windows** ⇒ CI xác nhận biên dịch.
 
 **Cần kiểm chứng lúc chạy:** đầu phát 1→2→3 liền mạch; biên chương tên chương → đoạn 1 liền mạch; chồng tiếng (nếu còn → cần log `[NghiAudioPlayerQueue] schedule` từ máy thật).
-
----
-
-## [1.3.439] - 2026-09-29
-
-### fix: đọc số thập phân/0 đầu, đệm nóng đầu phát & biên chương, tách speed khỏi prefetch
-
-Bốn lỗi TTS người dùng báo, đã grill-me chốt phương án trước khi code: (A) `0.001` đọc thành `1`, `001` cần đọc `không không một`, `0, 001` (có space) ≠ `0,001`; (B) bắt đầu nghe / giữa đoạn 1→2→3 bị chờ; (C) sang chương mới tên chương đọc ngay nhưng gap trước đoạn đầu; (D) đổi tốc độ phát lại "tạo âm thanh lại".
-
-### 1) Đọc số thập phân & số có số 0 đầu (`TextPreprocessor.swift`)
-- **Root cause `0.001` → `1`**: `formatNumbers` dùng `thousandsSeparatedNumber = (\d{1,3}(?:\.\d{3})+)` để xóa dấu chấm (ngăn cách nghìn) ⇒ `"0.001"` khớp → `"0001"` → `spell` → `"1"`. Nay **chỉ xóa chấm khi phần nguyên trước chấm đầu ≠ `0`**; `"0.xxx"` giữ nguyên để rơi vào `processDecimals`.
-- Regex `decimal` và `percentageDecimal`: thay dấu phẩy cố định bằng lớp ký tự chấm-hoặc-phẩy để nhận **cả chấm và phẩy**; vẫn space-sensitive ⇒ `"0, 001"` không khớp (giữ thành danh sách).
-- `processDecimals` / `processPercentages`: bỏ cắt `^0+` ở phần thập phân, đọc **từng chữ số giữ số 0** ⇒ `"0,001"` → "không phẩy không không một".
-- `processDigits`: số có số 0 đầu (vd `"001"`) đọc từng chữ số → "không không một". **Cố ý KHÔNG đặt ở `VietnameseNumberSpeller.spell`** vì `processDates` gọi `spell("01")` cho ngày ⇒ `"01/02"` sẽ thành "không một tháng hai".
-
-### 2) Đệm nóng đầu phát & biên chương
-- Thêm `warmNghiRefillForPlaybackStart()` (`TTSManager+NghiPrefetchConcurrency.swift`, ratchet-down) gọi `fillNghiRefillUpToCapacity()`; chèn 1 dòng tại `continueStartSpeaking` (`TTSManager.swift`).
-- `continueStartSpeaking` là điểm vào **chung** của fresh start (`startSpeaking`) lẫn sang chương mới (`applyNextChapter`) ⇒ một call site phủ cả hai: tổng hợp trước `N+1..N+3` song song với đoạn hiện tại (đoạn đầu thường lạnh) ⇒ 1→2→3 liền mạch, hết gap ở đầu phát và ở biên chương.
-
-### 3) Tách tốc độ khỏi nạp trước
-- Điều tra **cả 4 engine**: **không engine nào tái tổng hợp audio đang phát khi đổi tốc độ** — nghitts/vieneu `updateRate` playback-only (tổng hợp x1.0); system per-utterance; google tổng hợp `speed: 1.0` (`TTSManager+Playback.swift:58`); extension synthesisKey không chứa speed.
-- Điểm thừa duy nhất: `updatePlaybackParams` (`:1122`) mỗi nấc kéo slider còn gọi `cancelNghiWakeTask()` + `updateNghiPrefetchWindow()` ⇒ kích tổng hợp đoạn kế + chương sau. Nay nhánh local **chỉ** `nghiAudioPlayerQueue.updateRate(speed)`; vòng `nghiWakeTask` tự hiệu chỉnh đệm theo tốc độ mới.
-
-### 4) Pitch local (task #9) — bỏ
-Quyết định grill: giữ **no-op** cho engine local (không thêm `AVAudioUnitTimePitch` vào `NghiAudioPlayerQueue`), giữ `disablePitch` trong UI. Không code.
-
-### Số dòng & cổng
-`TextPreprocessor.swift` **1121 → 1120** (net −1: viết lại 4 hàm gọn + ternary 1 dòng để không vượt baseline 1121); `TTSManager.swift` **4024 → 4024** (net 0: +1 call site warmup, −1 dòng ở `updatePlaybackParams`); `TTSManager+NghiPrefetchConcurrency.swift` 46 → 58 (thêm `warmNghiRefillForPlaybackStart`).
-Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS** (04/10/11/rules `--accept`, 05/06/08/13 `--no-change-needed`). **Không build được trên Windows** ⇒ CI xác nhận biên dịch.
-
-**Cần kiểm chứng lúc chạy (IPA máy thật):** đệm nóng D/F thực sự liền mạch và không trùng tiếng; đổi tốc độ không kích tổng hợp.
 
 ---

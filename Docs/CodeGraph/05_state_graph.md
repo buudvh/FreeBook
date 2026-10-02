@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.469 — trạng thái CoreML bị gỡ; `vieNeuEngineReloading` đổi mục đích
+
+* **Gỡ**: khoá `UserDefaults` `vieneuCoreMLEP`, `@State vieNeuCoreMLEnabled`.
+* **Giữ**: `@State vieNeuEngineReloading` — nay là trạng thái của ô **Số luồng tổng hợp** (hiện dòng "Đang nạp lại engine…" và khoá Picker khi đang nạp).
+* Trạng thái engine vẫn là `VieNeuTTSEngine.isPrepared`; không còn cờ `coreMLActive` nào.
+
 ## 1.3.466 — khoá cài đặt mới + trạng thái nạp lại engine
 
 * Khoá `vieneuCoreMLEP` (**mặc định TẮT**), đọc bởi `VieNeuSynthesisPolicy.isCoreMLEPEnabled(_:)`; `TTSSettingsView` mirror qua `@State vieNeuCoreMLEnabled` + `@State vieNeuEngineReloading`, làm mới trong `refreshVieNeuSettings()`.

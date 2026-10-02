@@ -18,7 +18,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 ## 1.3.466 — đường nạp lại engine tách thành 2 file `+Reload`
 
 * File mới: `VieNeuTTSEngine+Reload` **55** (nhả ngữ cảnh ORT) · `VieNeuTTSService+Reload` **43** (`reloadEngine(useCoreML:)`).
-* Sửa: `VieNeuONNXRuntime.swift` 316 → **400** (EP + cache + cầu nối log) · `VieNeuSynthesisPolicy.swift` 186 → **199** (khoá `vieneuCoreMLEP`) · `VieNeuTTSService.swift` → **400** · `VieNeuTTSEngine.swift` **400** (không đổi) · `TTSSettingsView+VieNeu.swift` 332 → **398** · `VieNeuONNXBridge.h` 181 → **219**, `VieNeuONNXBridge.m` 1155 → **1257**.
+* Sửa: `VieNeuONNXRuntime.swift` 316 → **341** (sau khi gỡ CoreML EP ở 1.3.469) (EP + cache + cầu nối log) · `VieNeuSynthesisPolicy.swift` 186 → **199** (khoá `vieneuCoreMLEP`) · `VieNeuTTSService.swift` → **400** · `VieNeuTTSEngine.swift` **400** (không đổi) · `TTSSettingsView+VieNeu.swift` 332 → **398** · `VieNeuONNXBridge.h` 181 → **196** (sau khi gỡ CoreML EP ở 1.3.469), `VieNeuONNXBridge.m` 1155 → **1187** (sau khi gỡ CoreML EP ở 1.3.469).
 
 ## 1.3.465 — Section 4 của màn Cài đặt TTS thành file riêng
 

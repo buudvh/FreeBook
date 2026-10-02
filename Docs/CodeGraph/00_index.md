@@ -18,7 +18,7 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 ## 1.3.466 — thí nghiệm CoreML/ANE cho VieNeu; 2 file mới ở tầng nạp lại
 
 * Thêm **2** file Swift (`Services/TTS/VieNeu/VieNeuTTSEngine+Reload.swift` **55** dòng, `Services/TTS/VieNeu/VieNeuTTSService+Reload.swift` **43**) ⇒ validator đếm **641** file, bộ tài liệu vẫn **16** doc.
-* `VieNeuTTSEngine.swift` giữ **đúng 400/400** (chỉ đổi `private`→`internal` và thêm tham số vào dòng đã có) · `VieNeuTTSService.swift` 398 → **400** (chạm trần) · `VieNeuONNXBridge.m` 1155 → **1257** (không bị luật 400 vì không phải `.swift`).
+* `VieNeuTTSEngine.swift` giữ **đúng 400/400** (chỉ đổi `private`→`internal` và thêm tham số vào dòng đã có) · `VieNeuTTSService.swift` 398 → **400** (chạm trần) · `VieNeuONNXBridge.m` 1155 → **1187** (sau khi gỡ CoreML EP ở 1.3.469) (không bị luật 400 vì không phải `.swift`).
 
 ## 1.3.465 — thanh "Tốc độ tổng hợp" cho VieNeu; Section 4 của màn Cài đặt TTS tách file
 

@@ -145,52 +145,6 @@ void VieNeuORTSetLogCallback(VieNeuORTLogCallback callback, void *context) {
     vieNeuLogContext = context;
 }
 
-#pragma mark - CoreML EP (1.3.466)
-
-/// Đăng ký CoreML EP cho `options` theo `runOptions`.
-///
-/// Dùng `SessionOptionsAppendExecutionProvider` (API key/value, **có từ ORT 1.12**) chứ **không** dùng
-/// `OrtSessionOptionsAppendExecutionProvider_CoreML` (chỉ nhận cờ): API cũ **không** đặt được
-/// `ModelCacheDirectory` lẫn `ProfileComputePlan`, mà thiếu cache thì CoreML **biên dịch lại subgraph
-/// mỗi lần mở session**, còn thiếu profile thì không biết toán tử nào chạy trên thiết bị nào.
-///
-/// Trả `-1` khi lỗi (bên gọi phải coi là thất bại, **không** im lặng chạy tiếp trên CPU).
-static int32_t appendCoreMLProvider(const OrtApi *api, OrtSessionOptions *options,
-                                    const VieNeuORTRunOptions *runOptions, char **errorMessage) {
-    const char *keys[5];
-    const char *values[5];
-    size_t count = 0;
-
-    // MLProgram (Core ML 5+, iOS 15+): bắt buộc cho các op hiện đại của graph này
-    // (LayerNormalization / Gelu / Erf / ReduceMean) mà định dạng NeuralNetwork không có.
-    keys[count] = "ModelFormat";          values[count++] = "MLProgram";
-    // ⚠️ **CHẨN ĐOÁN (1.3.468)** — tạm đổi sang `CPUOnly` để tách nguyên nhân tiếng nhiễu:
-    // CoreML chạy trên CPU là đường **không mất độ chính xác** (fp32), nên:
-    //   * audio **đúng** ⇒ thủ phạm là fp16/ANE (CoreML trên ANE/GPU tính fp16 ⇒ latent lệch ⇒ nhiễu);
-    //   * audio **vẫn nhiễu** ⇒ lỗi ở semantics/phân mảnh của EP, không liên quan độ chính xác.
-    // Giá trị cũ là `CPUAndNeuralEngine` (1.3.466–1.3.467) — đo được **tiếng nhiễu** với `rtf` 0,64–0,93
-    // trong khi CPU thường (ORT) chỉ 0,26–0,44. Đổi tuỳ chọn ⇒ **phải đổi hậu tố thư mục cache** (Luật 22).
-    keys[count] = "MLComputeUnits";       values[count++] = "CPUOnly";
-    keys[count] = "ModelCacheDirectory";  values[count++] = runOptions->coreMLCacheDirectory;
-    // Bảng phân bổ ANE/GPU/CPU theo từng toán tử — nguồn sự thật duy nhất cho câu hỏi "EP có ăn không".
-    keys[count] = "ProfileComputePlan";   values[count++] = "1";
-    // ⚠️ **BẮT BUỘC = 1** (sửa ở 1.3.467, đo trên máy thật): để `0` (cho phép shape động) thì CoreML EP
-    // **chia `vector_estimator` thành 33+ partition**, mỗi partition là một `.mlmodel` biên dịch riêng
-    // (`CoreMLCache/<hash>/3_dynamic_mlprogram` … `33_dynamic_mlprogram`), và **sinh thêm partition mới ở
-    // mỗi lượt chạy**. Hệ quả đo được: trong 25 giây đọc không có **một** dòng `[VieNeuPerf]` nào, chỉ có
-    // `[NghiEnergy] Underrun` ⇒ **hoàn toàn không phát ra tiếng**.
-    // Đặt `1` ⇒ EP chỉ nhận node có shape tĩnh; `L` (độ dài phoneme) và `T` (số frame) của model này đổi
-    // mỗi đoạn nên EP sẽ nhận **rất ít** node — lợi ích gần như bằng 0, nhưng **không còn bão biên dịch**.
-    // Đây là bước kiểm chứng trước khi quyết định bỏ hẳn EP (xem `Docs/Reports/walkthrough-1.3.467.md`).
-    keys[count] = "RequireStaticInputShapes"; values[count++] = "1";
-
-    if (check(api->SessionOptionsAppendExecutionProvider(options, "CoreML", keys, values, count),
-              api, errorMessage) != 0) {
-        return -1;
-    }
-    return 0;
-}
-
 /// Nạp một graph và **hỏi thẳng session tên output của nó**.
 ///
 /// `outputNames` là mảng trong `VieNeuORT`; tên do ORT cấp phát bằng allocator mặc định nên phải giải
@@ -468,19 +422,15 @@ static int32_t loadCloneGraphsWithOptions(VieNeuORT *context, const char *modelD
                                           const OrtSessionOptions *options, char **errorMessage);
 
 /// Dựng phần **khung** của ngữ cảnh: `OrtEnv`, `OrtMemoryInfo`, `OrtAllocator` và một
-/// `OrtSessionOptions` đã đặt số luồng + mức tối ưu (**và CoreML EP nếu `runOptions->useCoreML`**).
-/// **Chưa** mở session nào.
+/// `OrtSessionOptions` đã đặt số luồng + mức tối ưu. **Chưa** mở session nào.
 ///
 /// Tách ra vì có **hai** kiểu ngữ cảnh dùng chung phần khung này:
-/// - `VieNeuORTCreate` / `VieNeuORTCreateWithRunOptions` — đủ 4 graph chính (đường tổng hợp).
+/// - `VieNeuORTCreate` — đủ 4 graph chính (đường tổng hợp).
 /// - `VieNeuORTCreateCloneOnly` — chỉ 3 graph clone (đường tạo giọng).
-///
-/// `runOptions == NULL` ⇒ CPU + log mặc định, đúng hành vi trước 1.3.466.
 ///
 /// `*outOptions` thuộc bên gọi: giải phóng bằng `ReleaseSessionOptions` sau khi mở xong session. Truyền
 /// `NULL` được nếu bên gọi tự lo options (khi đó options dựng ở đây bị giải phóng luôn).
 static VieNeuORT *createBaseContext(int32_t threadCount,
-                                    const VieNeuORTRunOptions *runOptions,
                                     OrtSessionOptions **outOptions,
                                     char **errorMessage) {
     const OrtApiBase *base = OrtGetApiBase();
@@ -501,15 +451,12 @@ static VieNeuORT *createBaseContext(int32_t threadCount,
     }
     context->api = api;
 
-    // Đường thí nghiệm CoreML bật logger tuỳ biến để tầng Swift thấy được log của ORT; mọi đường khác
-    // giữ nguyên `CreateEnv` (ghi ra stderr) như trước 1.3.466.
-    const int32_t wantsLog = (runOptions != NULL) && (runOptions->verboseLog || runOptions->useCoreML);
-    const OrtLoggingLevel level = (runOptions != NULL && runOptions->verboseLog)
-        ? ORT_LOGGING_LEVEL_VERBOSE : ORT_LOGGING_LEVEL_WARNING;
-    OrtStatus *envStatus = wantsLog
-        ? api->CreateEnvWithCustomLogger(vieNeuORTLogTrampoline, NULL, level, "FreeBookVieNeu", &context->env)
-        : api->CreateEnv(level, "FreeBookVieNeu", &context->env);
-    if (check(envStatus, api, errorMessage) != 0) {
+    // Luôn dùng logger tuỳ biến ở mức WARNING để **cảnh báo của ORT vào được `AppLogger`** — trước 1.3.466
+    // ORT ghi thẳng ra stderr nên log ứng dụng không thấy gì. (1.3.466–1.3.468 từng bật VERBOSE cho thí
+    // nghiệm CoreML EP; EP đó đã bị loại nên chỉ còn WARNING.)
+    if (check(api->CreateEnvWithCustomLogger(vieNeuORTLogTrampoline, NULL, ORT_LOGGING_LEVEL_WARNING,
+                                             "FreeBookVieNeu", &context->env),
+              api, errorMessage) != 0) {
         VieNeuORTDestroy(context);
         return NULL;
     }
@@ -533,15 +480,6 @@ static VieNeuORT *createBaseContext(int32_t threadCount,
     check(api->SetSessionGraphOptimizationLevel(options, ORT_ENABLE_ALL), api, errorMessage);
     context->threadCount = threadCount;
 
-    if (runOptions != NULL && runOptions->useCoreML) {
-        if (appendCoreMLProvider(api, options, runOptions, errorMessage) != 0) {
-            // Cố ý KHÔNG im lặng chạy tiếp trên CPU: như vậy số đo thí nghiệm sẽ vô nghĩa vì người dùng
-            // tưởng đang chạy ANE. Bên gọi (Swift) tự quyết định quay về CPU.
-            VieNeuORTDestroy(context);
-            return NULL;
-        }
-    }
-
     if (outOptions != NULL) {
         *outOptions = options;
     } else {
@@ -550,15 +488,14 @@ static VieNeuORT *createBaseContext(int32_t threadCount,
     return context;
 }
 
-/// Dựng ngữ cảnh **đủ 4 graph chính**. `runOptions == NULL` ⇒ CPU, log mặc định (đường cũ).
-static VieNeuORT *createMainContext(const char *modelDirectory, int32_t threadCount,
-                                    const VieNeuORTRunOptions *runOptions, char **errorMessage) {
+/// Dựng ngữ cảnh **đủ 4 graph chính**.
+static VieNeuORT *createMainContext(const char *modelDirectory, int32_t threadCount, char **errorMessage) {
     if (modelDirectory == NULL) {
         setError(errorMessage, "modelDirectory is NULL");
         return NULL;
     }
     OrtSessionOptions *options = NULL;
-    VieNeuORT *context = createBaseContext(threadCount, runOptions, &options, errorMessage);
+    VieNeuORT *context = createBaseContext(threadCount, &options, errorMessage);
     if (context == NULL) return NULL;
     const OrtApi *api = context->api;
 
@@ -582,12 +519,7 @@ static VieNeuORT *createMainContext(const char *modelDirectory, int32_t threadCo
 }
 
 VieNeuORT *VieNeuORTCreate(const char *modelDirectory, int32_t threadCount, char **errorMessage) {
-    return createMainContext(modelDirectory, threadCount, NULL, errorMessage);
-}
-
-VieNeuORT *VieNeuORTCreateWithRunOptions(const char *modelDirectory, int32_t threadCount,
-                                         const VieNeuORTRunOptions *runOptions, char **errorMessage) {
-    return createMainContext(modelDirectory, threadCount, runOptions, errorMessage);
+    return createMainContext(modelDirectory, threadCount, errorMessage);
 }
 
 VieNeuORT *VieNeuORTCreateCloneOnly(const char *modelDirectory, int32_t threadCount, char **errorMessage) {
@@ -596,9 +528,7 @@ VieNeuORT *VieNeuORTCreateCloneOnly(const char *modelDirectory, int32_t threadCo
         return NULL;
     }
     OrtSessionOptions *options = NULL;
-    // `NULL` runOptions: đường nhân bản giọng **không** dùng CoreML EP — 3 graph clone không nằm trên
-    // đường nóng (xem plan 1.3.466), và nạp thêm EP ở đây chỉ tăng rủi ro cho luồng tạo giọng.
-    VieNeuORT *context = createBaseContext(threadCount, NULL, &options, errorMessage);
+    VieNeuORT *context = createBaseContext(threadCount, &options, errorMessage);
     if (context == NULL) return NULL;
 
     // Dùng **cùng** options với khung (số luồng + mức tối ưu) thay vì để `VieNeuORTLoadCloneGraphs` dựng

@@ -48,76 +48,19 @@ final class VieNeuONNXRuntime {
     /// theo file, nên tách file là phải hạ quyền truy cập của đúng những thành viên dùng chéo file.
     let handle: OpaquePointer
 
-    /// `true` khi **CoreML EP đã đăng ký thành công** cho 4 session (1.3.466).
-    ///
-    /// Đây là **sự thật**, không phải ý định: cờ trong `UserDefaults` chỉ nói người dùng muốn bật, còn
-    /// giá trị này nói EP thật sự vào được. Log `[VieNeuPerf] coreML=` đọc từ đây để không bao giờ báo
-    /// "đang chạy ANE" trong khi thực tế vẫn CPU.
-    let coreMLActive: Bool
-
-    init(modelStore: VieNeuModelStore, threadCount: Int32,
-         coreML: Bool = false, verboseORTLog: Bool = false) throws {
-        var active = coreML
+    init(modelStore: VieNeuModelStore, threadCount: Int32) throws {
+        // Cài cầu nối log **luôn**: từ 1.3.469 cảnh báo của ORT (mức WARNING) vào `AppLogger`, thay vì
+        // rơi vào stderr như trước.
+        Self.installLogBridge()
         var message: UnsafeMutablePointer<CChar>?
-        var options = VieNeuORTRunOptions(useCoreML: coreML ? 1 : 0,
-                                          // Bật EP ⇒ **buộc** log verbose: `ProfileComputePlan` ghi ở mức
-                                          // INFO, để mức WARNING là mất luôn bảng phân bổ ANE/GPU/CPU — tức
-                                          // mất đúng thứ thí nghiệm cần đọc.
-                                          verboseLog: (verboseORTLog || coreML) ? 1 : 0,
-                                          coreMLCacheDirectory: nil)
-        var created: OpaquePointer?
-
-        if coreML {
-            // Chỉ cài cầu nối log khi thật sự cần: đường CPU giữ nguyên hành vi cũ (log ra stderr).
-            Self.installLogBridge()
-            let cacheDirectory = try Self.prepareCoreMLCacheDirectory(modelStore: modelStore)
-            // `strdup` để lấy con trỏ C sống qua lời gọi; giải phóng ngay sau khi hàm tạo trả về.
-            let cPath: UnsafeMutablePointer<CChar>? = strdup(cacheDirectory)
-            options.coreMLCacheDirectory = cPath.map { UnsafePointer($0) }
-            created = VieNeuORTCreateWithRunOptions(modelStore.modelsURL.path, threadCount, &options, &message)
-            free(cPath)
-        } else {
-            created = VieNeuORTCreateWithRunOptions(modelStore.modelsURL.path, threadCount, nil, &message)
-        }
-
-        if created == nil && coreML {
-            // EP không dùng được (thiết bị, model, hoặc cache) ⇒ tự quay về CPU và **nói ra lý do**.
-            // Không im lặng chạy tiếp trên CPU với cờ bật: như vậy số đo thí nghiệm sẽ vô nghĩa.
-            let reason = Self.consume(message, fallback: "không rõ")
-            AppLogger.shared.log("⚠️ [VieNeu] CoreML EP không đăng ký được, quay về CPU: \(reason)")
-            message = nil
-            active = false
-            created = VieNeuORTCreateWithRunOptions(modelStore.modelsURL.path, threadCount, nil, &message)
-        }
-        guard let created else {
+        guard let handle = VieNeuORTCreate(modelStore.modelsURL.path, threadCount, &message) else {
             throw RuntimeError.failure(Self.consume(message, fallback: "không tạo được ngữ cảnh ORT"))
         }
-        self.handle = created
-        self.coreMLActive = active
+        self.handle = handle
     }
 
-    /// Thư mục cache của CoreML EP — **bắt buộc** khi bật EP: không cache thì Core ML **biên dịch lại**
-    /// subgraph mỗi lần mở session. Tên thư mục **mang hậu tố cấu hình** vì khoá cache của EP chỉ là hash
-    /// model, **không** gồm tuỳ chọn EP ⇒ đổi tuỳ chọn mà giữ tên cũ là partition cũ bị tái dùng (Luật 22:
-    /// đổi bộ tuỳ chọn trong `appendCoreMLProvider` thì phải đổi hậu tố ở đây).
-    ///
-    /// Hai thư mục cũ bị dọn một lần: `CoreMLCache` (1.3.466 — 33+ partition, **im tiếng**) và
-    /// `CoreMLCache-staticShapes` (1.3.467 — 14 partition, **tiếng nhiễu**, `rtf` 0,64–0,93).
-    static func prepareCoreMLCacheDirectory(modelStore: VieNeuModelStore) throws -> String {
-        let root = modelStore.rootURL
-        for stale in ["CoreMLCache", "CoreMLCache-staticShapes"] {
-            let url = root.appendingPathComponent(stale, isDirectory: true)
-            if FileManager.default.fileExists(atPath: url.path) {
-                try? FileManager.default.removeItem(at: url)
-                AppLogger.shared.log("🧹 [VieNeu] Dọn cache CoreML cũ: \(stale)")
-            }
-        }
-        let directory = root.appendingPathComponent("CoreMLCache-staticShapes-cpuOnly", isDirectory: true)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        return directory.path
-    }
-
-    /// Cài cầu nối log ORT → `AppLogger` (idempotent).
+    /// Cài cầu nối log ORT → `AppLogger` (idempotent). Gọi từ `init` để cảnh báo của ORT luôn vào được
+    /// log ứng dụng.
     private static var logBridgeInstalled = false
 
     private static func installLogBridge() {
@@ -140,8 +83,6 @@ final class VieNeuONNXRuntime {
             throw RuntimeError.failure(Self.consume(message, fallback: "không nạp được gói graph clone"))
         }
         self.handle = handle
-        // Ngữ cảnh clone **không** dùng CoreML EP (xem doc `VieNeuORTCreateCloneOnly`) ⇒ cờ luôn `false`.
-        self.coreMLActive = false
     }
 
     deinit {
