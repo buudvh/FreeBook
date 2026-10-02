@@ -1,22 +1,27 @@
 name: CoreML Convert Experiment
 
-# Thí nghiệm MỘT LẦN: convert 4 graph ONNX của VieNeu-TTS v3 Nano sang `.mlpackage` (Core ML)
-# và đo 3 thứ trên runner macOS (Apple Silicon ⇒ có ANE):
-#   1. convert được graph nào (độ phủ op của `onnx2coreml`)
-#   2. Core ML fp16 có khớp số với ONNX Runtime fp32 không (SNR thật, thay cho proxy)
-#   3. Core ML có nhanh hơn ORT CPU trên CÙNG một máy không
+# Hai job độc lập, cố ý không đụng nhau:
 #
-# Không đụng `Sources/`, không đụng `build-ipa.yml`. Chạy khi push chính file này, hoặc bấm tay.
+#   `convert`  — lượt BASELINE (đã chạy): shape **đóng băng**, trả lời "convert được graph nào" và
+#                "Core ML có nhanh hơn ORT CPU không". Giữ nguyên làm mốc so sánh.
+#   `dynamic`  — **Phase 0**: thử `.mlpackage` **shape động**. Đây là cổng của plan
+#                `Docs/Plans/2026-10-02-plan-vieneu-coreml-engine-trong-app.md`: đạt thì mới làm engine
+#                Core ML trong app. Vì sao cần shape động: trọng số chiếm gần hết gói (78,1 MB ở
+#                `T=96` **và** 78,5 MB ở `T=234`) ⇒ bucket hoá tốn 127,8 MB cho MỖI mức.
+#
+# Không job nào đụng `Sources/`, không đụng `build-ipa.yml`. Chạy khi push chính các file này, hoặc bấm tay.
 on:
   workflow_dispatch:
   push:
     paths:
       - '.github/workflows/convert-coreml.yml'
       - 'Scripts/coreml_convert_experiment.py'
+      - 'Scripts/coreml_dynamic_experiment.py'
+      - 'Scripts/coreml_shape_surgery.py'
 
 jobs:
   convert:
-    name: Convert ONNX to mlpackage
+    name: Convert ONNX to mlpackage (baseline, static shapes)
     runs-on: macos-15
     timeout-minutes: 60
 
@@ -68,3 +73,69 @@ jobs:
       run: |
         echo "=== summary.json ==="
         cat reports/summary.json 2>/dev/null || echo "(không có summary.json)"
+
+  dynamic:
+    name: Phase 0 - dynamic shape probe
+    runs-on: macos-15
+    timeout-minutes: 120
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    # `torch` + `onnx2torch`: đường shape động bắt buộc đi qua frontend torch của `coremltools` vì
+    # `onnx2coreml` ghi thẳng trong *Known limitations* là **"Fixed input shapes"**. `torch` nặng
+    # ~200 MB nên bước này chậm hơn job baseline vài phút — đổi lại nó là thứ quyết định cả plan.
+    - name: Install converters (with torch)
+      run: |
+        python -m pip install --upgrade pip
+        pip install coremltools onnx2coreml onnxruntime huggingface_hub numpy onnx torch onnx2torch
+        python -c "import coremltools, onnx, torch, onnx2torch, onnx2coreml; print('coremltools', coremltools.__version__, '| torch', torch.__version__)"
+
+    - name: Probe dynamic shapes
+      run: |
+        set -o pipefail
+        python Scripts/coreml_dynamic_experiment.py --out reports-dynamic --workdir coreml-dynamic 2>&1 | tee coreml-dynamic.log
+
+    # Chỉ upload **báo cáo** (JSON + `golden.npz`), cố ý **không** upload `.mlpackage`: 4 graph × 4 đường
+    # là tới ~1,2 GB, mà Phase 1 sẽ chạy lại conversion (mỗi graph ~7 s) nên gói cũ là rác.
+    - name: Upload reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: coreml-dynamic-reports
+        path: |
+          reports-dynamic/**
+          coreml-dynamic.log
+        if-no-files-found: warn
+        retention-days: 30
+
+    - name: Verdict
+      if: always()
+      run: |
+        echo "=== range_report.json ==="
+        cat reports-dynamic/range_report.json 2>/dev/null || echo "(không có range_report.json)"
+        echo
+        echo "=== verdict ==="
+        python - <<'PY'
+        import json, os
+        path = "reports-dynamic/summary.json"
+        if not os.path.exists(path):
+            print("(không có summary.json)")
+            raise SystemExit(0)
+        data = json.load(open(path, encoding="utf-8"))
+        print("verdict:", data.get("verdict"))
+        for graph, entry in (data.get("routes") or {}).items():
+            ok = [route for route, info in entry.items() if info.get("ok")]
+            print(f"  {graph}: {'OK ' + ','.join(ok) if ok else 'KHÔNG đường nào chạy được'}")
+        golden = data.get("golden") or {}
+        print("  golden:", golden.get("snr_db") if golden.get("ok") else golden.get("reason"))
+        bucket = data.get("bucket_fallback") or {}
+        if bucket:
+            print(f"  bucket dự phòng: {bucket.get('total_bytes', 0) / 1e6:.1f} MB")
+        PY

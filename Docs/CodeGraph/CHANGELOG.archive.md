@@ -6019,3 +6019,39 @@ Thêm **24** file Swift mới và sửa **3** file Swift trong `Sources/Views/Re
   - Tự động lưu session chat theo từng truyện dưới `Application Support/ai_chats/<sha256(bookId)>.json`.
   - Hỗ trợ New Chat (`+ Mới`), xem danh sách session cũ và xóa từng session hoặc xóa tất cả.
 - **Tài liệu CodeGraph**: Cập nhật `00_index.md`, `02_file_graph.md`, `03_type_graph.md`, `04_call_graph.md`, `05_state_graph.md`, `08_lifecycle.md`, `09_dependency_rules.md`, `10_risk_report.md`, `11_subsystems.md`, `13_resource_lifecycle.md`, `14_complexity_report.md`, `rules.md` và `CHANGELOG.md`.
+
+
+---
+
+## [1.3.442] - 2026-09-30
+
+### feat: mặc định Tiết kiệm pin + đổi tên mode/nhãn UI + gỡ máy móc pre-schedule (B)
+
+Theo yêu cầu user (config hiện tại làm mặc định + sửa UI + làm "B").
+
+### 1) Mặc định mới cho VieNeu
+- Ngưỡng nạp bộ đệm **12 → 10 s** (`VieNeuSynthesisPolicy.bufferedSecondsTarget`).
+- Số luồng ORT **4 → 2** (`VieNeuSynthesisPolicy.defaultThreadCount`).
+- Độ dài phân đoạn **200 → 100 ký tự** (`applyVieNeuParamsIfNeeded` + `resetPrefetchSettings`).
+- Số đoạn tải trước giữ 3; chế độ mặc định `.fast`.
+
+### 2) "Tiết kiệm pin" thành overlay + mặc định BẬT
+- `VieNeuSynthesisPolicy.isPowerSaving` mặc định **true** khi chưa có khoá; thêm `effectiveThreadCount(from:)` (ON ⇒ 2 luồng).
+- ON ⇒ `engine.setRequestedMode(.fast)` + khoá 2 picker; OFF ⇒ `setRequestedMode(nil)` ("Tự động"). Không ghi đè `vieneuPreferredMode`/`vieneuThreadCount`.
+- UI `vieNeuReaderSection`: Toggle **lên trên** → Picker **"Chế độ tạo audio"** → Picker **"Số luồng tổng hợp" (2/3/4, không ngoặc)** → dòng giải thích **luôn hiển thị** (kèm thuyết minh khi bật).
+
+### 3) Đổi tên mode
+`VieNeuTTSTestView+Sections.swift` `displayName`: **Tự động / Chất lượng cao / Cân bằng** (bỏ "· 16/8 bước").
+
+### 4) Làm "B" — gỡ cụm máy móc pre-schedule
+- Queue: xoá `.scheduled`, `getScheduledStatus`, `ScheduledStatus`, `onScheduleHandoff`.
+- `TTSManager`: xoá wiring `onScheduleHandoff`, `handleNghiScheduledHandoff`, `nghiScheduledHandoffTask`.
+- `TTSManager.swift` **4024 → 3957**; `NghiAudioPlayerQueue.swift` **324 → 288**.
+
+### Số dòng & cổng
+`TTSManager.swift` 3957; `NghiAudioPlayerQueue.swift` 288; `VieNeuTTSEngine.swift` 400/400; `TTSSettingsView.swift` 513/519; `VieNeuSynthesisPolicy.swift` ~118.
+Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS** (04/10/11/rules `--accept`; 03/05/06/08/13 `--no-change-needed`). **Không build trên Windows** ⇒ CI xác nhận biên dịch.
+
+**Còn sót nhỏ**: cờ `nextIsScheduled` trong `NghiAudioPlayerQueue` (luôn `false`) — dọn ở lượt sau nếu cần.
+
+---

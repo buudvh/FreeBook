@@ -2,6 +2,25 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.472] - 2026-10-02
+
+### chore: them Phase 0 tham do shape dong cho mlpackage CoreML (khong dung Sources/)
+
+Cổng của plan `Docs/Plans/2026-10-02-plan-vieneu-coreml-engine-trong-app.md`: **chỉ khi Phase 0 đạt mới làm engine Core ML trong app**; không đạt thì dừng và báo cáo số đo, không tự chuyển sang phương án bucket.
+
+- **Vì sao phải là shape động**: trọng số chiếm gần hết gói, **không** phải activation — `vector_estimator` fp16 nặng **78,1 MB ở `L=160,T=96`** và **78,5 MB ở `L=200,T=234`**. Nghĩa là bucket hoá tốn **127,8 MB cho MỖI mức** (4 mức = 512 MB, gấp rưỡi 347 MB hiện tại). Một gói shape động phủ mọi câu: tổng ~141,6 MB.
+- **`Scripts/coreml_shape_surgery.py` (mới, 333 dòng)** — `investigate()` truy vết từng node `Range` ngược lên `Shape(...)` để trả lời nó **phụ thuộc chiều nào** (`x`/`ctx`/`ctx_mask`, dim nào) kèm hệ số nhân/cộng và `MAX` cần bao nhiêu; không truy được thì ghi `UNKNOWN`, **không đoán**. `apply()` thay `Range(start, limit, delta)` bằng `Slice(arange(0, MAX), starts=[start], ends=[limit], axes=[0], steps=[delta])` — tương đương ngữ nghĩa nhưng **giữ nguyên chiều động** vì `limit` vẫn là tensor suy từ `Shape`. **Raise** nếu có `Range` không truy vết được: `MAX` quá nhỏ làm `Slice` **cắt cụt im lặng** (không exception) — đúng loại lỗi tệ nhất trong engine này.
+- **`Scripts/coreml_dynamic_experiment.py` (mới, 743 dòng, 7 giai đoạn D0–D6 + D2b)** — thử **4 đường** cho **cả 4 graph**: `o2c_dynamic` (kiểm chứng lại tài liệu *"Fixed input shapes"* của `onnx2coreml` bằng đo chứ không bằng niềm tin) · `torch_dynamic` (`onnx2torch` → `ct.convert` + `RangeDim` cho `L` và `T`) · `torch_surgery` (trên graph đã phẫu thuật) · `torch_enum_T` (`EnumeratedShapes` cho `T` = 32/64/96/160/234 + `RangeDim` cho `L`, vì ANE thường cần shape tĩnh). Mỗi đường bọc `try/except`, ghi **nguyên văn** thông báo lỗi — "lỗi ở đâu, vì sao" cũng là kết quả.
+- **D2b — chứng minh phẫu thuật KHÔNG đổi số**: ORT chạy graph gốc vs graph đã phẫu thuật ở 3 shape. Kỳ vọng **bit-exact**; khác `0` nghĩa là phẫu thuật sai chứ không phải sai số dấu chấm động. Phép kiểm này **tách hẳn** "phẫu thuật `Range` sai" khỏi "convert sai" — không có nó thì hai loại lỗi trông giống hệt nhau và ta sẽ đi sửa nhầm chỗ.
+- **Đã kiểm chứng cục bộ trên Windows trước khi tốn lượt CI** (`onnx 1.23.1` + `onnxruntime 1.30.0` trong venv cách ly): chỉ **2/4 graph có `Range`** — `text_encoder` 1 node (`/text/Range`, phụ thuộc `L`) và `vector_estimator` 6 node (5 node phụ thuộc **`T`**, 1 node phụ thuộc `ctx[1]` = `L`); `duration_predictor` và `codec_decoder` **không có node nào**. Cả 7 node truy vết được và phẫu thuật sạch, `max|Δ| = 0.000e+00` ở **cả 6 điểm thử** — kể cả shape chưa từng dùng khi phẫu thuật (`L=300`, `T=234`) ⇒ phép thay thế giữ đúng tính shape động.
+- **Đo ở 3 shape** (`L=64/T=32` · `L=160/T=96` · `L=200/T=234`): parity SNR so với ORT fp32 · độ trễ · **thời gian `MLModel(...)` biên dịch** (chi phí một lần mà người dùng phải chờ trên máy thật) — cho cả `ComputeUnit.ALL` và `CPU_ONLY`.
+- **`golden.npz` thay cho WAV** (đổi so với bản plan đầu): để có WAV phải dựng lại **cả** vòng Euler **và** bộ phonemizer trong Python, mà hai thứ đó **không hề đổi** ở lượt này. Golden = đầu vào cố định (`ids` thật từ `app_logs (60).txt` + preset giọng thật + `latent` theo seed + `t=0,5`) cộng đầu ra tham chiếu của **cả 4 graph** ⇒ chạm đủ 4 graph đã chuyển, tất định, và bắt đúng 3 kiểu hỏng đã gặp (im lặng · NaN · nhiễu), ~0,8 MB. Không kiểm được: bộ phonemizer (`sea_g2p.bin`, không đổi) và chất lượng tiếng Việt (phải nghe trên máy thật).
+- **`bucket_fallback.json`** — dù shape động đạt hay không, script **vẫn** đo phương án bucket (3 mức `T` × 2 graph nặng): dung lượng thật từng mức + độ trễ từng mức. Không có nó thì nếu Phase 0 thất bại, quyết định tiếp theo sẽ phải dựa trên cảm giác.
+- **Job `dynamic` mới trong `.github/workflows/convert-coreml.yml`** (141 dòng), cố ý **không** đụng job `convert` baseline — job cũ giữ nguyên làm mốc so sánh. Cài thêm `torch` + `onnx2torch` (~200 MB). **Cố ý không upload `.mlpackage`**: 4 graph × 4 đường ≈ 1,2 GB, mà Phase 1 sẽ chạy lại conversion (~7 s/graph) nên gói cũ chỉ là rác; artifact chỉ giữ JSON báo cáo + `golden.npz`.
+- **Publish lên HuggingFace chốt bằng Trusted Publishers (OIDC)** — **không** token tĩnh, **không** secret. Claim khớp **chính xác** (không regex): `repository equals buudvh/FreeBook` + `workflow_ref starts with buudvh/FreeBook/.github/workflows/convert-coreml.yml@`. Token sinh ra chỉ ghi được **một** repo và sống **60 phút**.
+- **Không đụng `Sources/`** — `Sources/**/*.swift` vẫn 639 file. Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%**.
+- **Chưa build được trên Windows** (không có Swift toolchain) ⇒ không có khẳng định "đã kiểm chứng biên dịch"; lượt này cũng không đổi mã Swift nên không cần.
+
 ## [1.3.471] - 2026-10-02
 
 ### chore: them workflow thi nghiem convert ONNX sang mlpackage (CoreML) tren runner macOS
@@ -469,38 +488,3 @@ Thêm **1** file Swift mới, sửa **5** file Swift trong `Sources/Services/` v
 - **Xoá màn Debug Extension**: gỡ nav row (`DeveloperSettingsSection.swift`); xoá **3 file** `ExtensionDebugConsoleView.swift` + `ExtensionDebugEventRow.swift` + `ExtensionDebugTraceReader.swift` (chỉ console dùng). **Giữ** `ExtensionDebugServerView` (row riêng) + `ExtensionDebugEventHub`/`ExtensionDebugEvent` (còn dùng bởi `JSExecutor` + editor toolbar).
 - Cập nhật footer Section "Nhà Phát Triển" (bỏ tham chiếu console).
 - Cổng: `check_architecture.py` **5 violation nền/0 mới**; `validate_links.py` **PASS**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
-
----
-
-## [1.3.442] - 2026-09-30
-
-### feat: mặc định Tiết kiệm pin + đổi tên mode/nhãn UI + gỡ máy móc pre-schedule (B)
-
-Theo yêu cầu user (config hiện tại làm mặc định + sửa UI + làm "B").
-
-### 1) Mặc định mới cho VieNeu
-- Ngưỡng nạp bộ đệm **12 → 10 s** (`VieNeuSynthesisPolicy.bufferedSecondsTarget`).
-- Số luồng ORT **4 → 2** (`VieNeuSynthesisPolicy.defaultThreadCount`).
-- Độ dài phân đoạn **200 → 100 ký tự** (`applyVieNeuParamsIfNeeded` + `resetPrefetchSettings`).
-- Số đoạn tải trước giữ 3; chế độ mặc định `.fast`.
-
-### 2) "Tiết kiệm pin" thành overlay + mặc định BẬT
-- `VieNeuSynthesisPolicy.isPowerSaving` mặc định **true** khi chưa có khoá; thêm `effectiveThreadCount(from:)` (ON ⇒ 2 luồng).
-- ON ⇒ `engine.setRequestedMode(.fast)` + khoá 2 picker; OFF ⇒ `setRequestedMode(nil)` ("Tự động"). Không ghi đè `vieneuPreferredMode`/`vieneuThreadCount`.
-- UI `vieNeuReaderSection`: Toggle **lên trên** → Picker **"Chế độ tạo audio"** → Picker **"Số luồng tổng hợp" (2/3/4, không ngoặc)** → dòng giải thích **luôn hiển thị** (kèm thuyết minh khi bật).
-
-### 3) Đổi tên mode
-`VieNeuTTSTestView+Sections.swift` `displayName`: **Tự động / Chất lượng cao / Cân bằng** (bỏ "· 16/8 bước").
-
-### 4) Làm "B" — gỡ cụm máy móc pre-schedule
-- Queue: xoá `.scheduled`, `getScheduledStatus`, `ScheduledStatus`, `onScheduleHandoff`.
-- `TTSManager`: xoá wiring `onScheduleHandoff`, `handleNghiScheduledHandoff`, `nghiScheduledHandoffTask`.
-- `TTSManager.swift` **4024 → 3957**; `NghiAudioPlayerQueue.swift` **324 → 288**.
-
-### Số dòng & cổng
-`TTSManager.swift` 3957; `NghiAudioPlayerQueue.swift` 288; `VieNeuTTSEngine.swift` 400/400; `TTSSettingsView.swift` 513/519; `VieNeuSynthesisPolicy.swift` ~118.
-Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS** (04/10/11/rules `--accept`; 03/05/06/08/13 `--no-change-needed`). **Không build trên Windows** ⇒ CI xác nhận biên dịch.
-
-**Còn sót nhỏ**: cờ `nextIsScheduled` trong `NghiAudioPlayerQueue` (luôn `false`) — dọn ở lượt sau nếu cần.
-
----
