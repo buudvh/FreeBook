@@ -137,19 +137,25 @@ def freeze_shapes(src: str, dst: str, shapes: dict) -> None:
     onnx.save(model, dst)
 
 
-def optimize_with_ort(src: str, dst: str) -> None:
-    """Cho **ORT tự tối ưu** rồi lưu graph đã tối ưu ra `dst`.
+def optimize_with_ort(src: str, dst: str) -> bool:
+    """Cho ORT **gấp hằng số** rồi lưu graph ra `dst`. Trả `True` nếu file được ghi.
 
-    Đây là cách rẻ nhất để gấp hằng số: sau khi chốt shape tĩnh, các chuỗi `Shape`→`Gather`→`Range`
-    trở thành hằng, và bộ `ConstantFolding` của ORT sẽ thay chúng bằng initializer. `Range` chính là op
-    mà `onnx2coreml` báo thiếu lowering (6 node ở `vector_estimator`, 1 ở `text_encoder`).
+    ⚠️ **Phải dùng `ORT_ENABLE_BASIC`, KHÔNG dùng `ORT_ENABLE_ALL`**: mức ALL/EXTENDED **fusion** ra các
+    op `com.microsoft.*` (FusedMatMul, SkipLayerNormalization…) mà `onnx2coreml` không có lowering —
+    đo được: bật ALL làm `codec_decoder` **từ convert được thành không** (lượt 3 so với lượt 2).
+    Mức BASIC chỉ gấp hằng số, đủ để biến chuỗi `Shape`→`Gather`→`Range` (sau khi chốt shape) thành hằng.
     """
     import onnxruntime as ort
 
     options = ort.SessionOptions()
-    options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+    options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_BASIC
     options.optimized_model_filepath = dst
-    ort.InferenceSession(src, options, providers=["CPUExecutionProvider"])
+    try:
+        ort.InferenceSession(src, options, providers=["CPUExecutionProvider"])
+    except Exception as error:  # noqa: BLE001
+        log("G2", f"ORT tối ưu lỗi (bỏ qua): {type(error).__name__}: {error}")
+        return False
+    return os.path.exists(dst)
 
 
 def fold_range(src: str, dst: str) -> int:
@@ -222,18 +228,35 @@ def stage_convert(model_dir: str, workdir: str) -> dict:
             freeze_shapes(os.path.join(model_dir, name), frozen, shapes)
             log("G2", f"{key}: đã chốt shape {shapes}")
 
-            # Chốt shape trước ⇒ các chuỗi `Shape`→`Gather`→`Range` thành hằng ⇒ gấp được.
+            # Chốt shape trước ⇒ chuỗi `Shape`→`Gather`→`Range` thành hằng ⇒ gấp được.
+            # Thử **nhiều ứng viên** theo thứ tự, dừng ở cái convert được đầu tiên — để một bản tối ưu
+            # hỏng không làm mất kết quả của bản gốc (bài học lượt 3).
+            candidates = []
             optimized = os.path.join(workdir, f"{key}.opt.onnx")
-            optimize_with_ort(frozen, optimized)
-            if os.path.exists(optimized):
-                folded = fold_range(optimized, optimized)
-                log("G2", f"{key}: ORT tối ưu xong, gấp thêm {folded} node Range")
-                frozen = optimized
+            if optimize_with_ort(frozen, optimized):
+                fold_range(optimized, optimized)
+                candidates.append(("basic-folded", optimized))
+            candidates.append(("frozen", frozen))
 
-            started = time.time()
-            mlmodel = o2c.convert(frozen, format="mlpackage", minimum_deployment_target="iOS17")
-            package = os.path.join(workdir, f"{key}.mlpackage")
-            mlmodel.save(package)
+            package = None
+            converted_with = None
+            errors = []
+            for label, candidate in candidates:
+                try:
+                    started = time.time()
+                    mlmodel = o2c.convert(candidate, format="mlpackage", minimum_deployment_target="iOS17")
+                    package = os.path.join(workdir, f"{key}.mlpackage")
+                    mlmodel.save(package)
+                    converted_with = label
+                    log("G2", f"{key}: convert OK bằng ứng viên `{label}`")
+                    break
+                except Exception as error:  # noqa: BLE001
+                    errors.append(f"{label}: {type(error).__name__}: {str(error).splitlines()[0]}")
+                    log("G2", f"{key}: ứng viên `{label}` lỗi — {type(error).__name__}")
+            entry["candidates"] = errors
+            if package is None:
+                raise RuntimeError("; ".join(errors) if errors else "không có ứng viên nào")
+            entry["converted_with"] = converted_with
             entry["ok"] = True
             entry["package"] = package
             entry["seconds"] = round(time.time() - started, 1)
