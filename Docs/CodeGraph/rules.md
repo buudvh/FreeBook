@@ -15,6 +15,11 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.466 — hai luật mới (vòng đời ngữ cảnh & đổi cấu hình session)
+
+* **Luật 20 — nhả ngữ cảnh ORT phải theo thứ tự.** `runtime = nil` **trước**, rồi mới xoá các mảng buffer nguồn (`nullContext`/`nullMask`/`nullSpeaker`/`nullStyle`), vì tensor cache của nhánh vô điều kiện **không copy** và trỏ thẳng vào chúng. Đảo thứ tự ⇒ cache trỏ vào bộ nhớ đã chết, không có lỗi nào báo. Chỉ được nhả khi đang giữ `lock` của engine (chờ lượt `Run` hiện tại xong).
+* **Luật 21 — đổi cấu hình session ORT bắt buộc có đường nạp lại.** Số luồng, EP, mức tối ưu… chỉ áp lúc **tạo session**; `prepareLocked` lại chỉ chạy một lần trong vòng đời engine ⇒ thêm một cấu hình session mới mà không thêm đường nhả thì cấu hình đó **không bao giờ** có hiệu lực (và UI sẽ nói dối). Nguồn sự thật để hiển thị phải là trạng thái **thật** của ngữ cảnh (ví dụ `coreMLActive`), không phải cờ `UserDefaults`.
+
 ## 1.3.465 — hai luật mới (tốc độ tổng hợp & khoá cache)
 
 * **Luật 18 — khoá cache phải mang mọi tham số làm đổi audio.** `TTSSynthesisIdentity.computeKey` là khoá của cả nạp trước lẫn cache prefix liên chương. Bất kỳ tham số nào làm audio khác đi (giọng, văn bản, ranh giới, **và tốc độ tổng hợp**) phải nằm trong khoá; thiếu thì audio cũ được trả cho yêu cầu mới — nghe sai mà **không có lỗi nào**. Thêm tham số mới thì truyền tường minh ở mọi caller, đừng tin vào default.

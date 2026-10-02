@@ -79,6 +79,8 @@ extension TTSSettingsView {
         vieNeuSelectedMode = VieNeuSynthesisPolicy.preferredMode(from: .standard)
         // Tốc độ tổng hợp (1.3.465) — cùng lý do: đọc thẳng `UserDefaults`, không qua service.
         vieNeuSynthesisSpeed = VieNeuSynthesisPolicy.synthesisSpeed(from: .standard)
+        // Công tắc CoreML EP (1.3.466) — cùng lý do.
+        vieNeuCoreMLEnabled = VieNeuSynthesisPolicy.isCoreMLEPEnabled(.standard)
         // Hai cờ tiếng Nhật + trạng thái "đã tải từ điển" đọc thẳng kho, cùng lý do như ba giá trị trên.
         vieNeuJapaneseFlags.refresh()
     }
@@ -124,7 +126,7 @@ extension TTSSettingsView {
             UserDefaults.standard.set(newValue, forKey: VieNeuSynthesisPolicy.synthesisSpeedKey)
             // Phần đệm đã tổng hợp ở tốc độ cũ phải bị bỏ: đoạn đang phát được giữ nguyên, các đoạn sau
             // nạp lại. Không gọi là nghe sai tốc độ mà không có lỗi gì.
-            ttsManager.invalidateVieNeuSynthesisSpeed()
+            ttsManager.invalidateVieNeuPrefetch(reason: "toc-do-tong-hop")
         }
     }
 
@@ -133,7 +135,68 @@ extension TTSSettingsView {
         guard ttsManager.tool == "vieneu" else { return }
         vieNeuSynthesisSpeed = 1.0
         UserDefaults.standard.set(1.0, forKey: VieNeuSynthesisPolicy.synthesisSpeedKey)
-        ttsManager.invalidateVieNeuSynthesisSpeed()
+        ttsManager.invalidateVieNeuPrefetch(reason: "dat-lai-toc-do")
+    }
+
+    // MARK: - CoreML EP (1.3.466, thí nghiệm)
+
+    /// Hàng **"Dùng CoreML/ANE (thử nghiệm)"** — đẩy 2 graph nặng sang CoreML EP.
+    ///
+    /// Bật/tắt **bắt buộc** phải nạp lại engine: `prepareLocked` chỉ chạy một lần trong vòng đời engine
+    /// (`guard runtime == nil`) nên nếu không nhả thì cấu hình EP mới không bao giờ có hiệu lực. Đây là
+    /// lý do tồn tại của `VieNeuTTSService.reloadEngine(useCoreML:)`.
+    ///
+    /// Công tắc **khoá trong lúc nạp lại** để không gạt liên tục giữa lúc đang dựng session.
+    @ViewBuilder
+    var vieNeuCoreMLRow: some View {
+        Toggle("Dùng CoreML/ANE (thử nghiệm)", isOn: Binding(
+            get: { vieNeuCoreMLEnabled },
+            set: { newValue in Task { await applyCoreMLEP(newValue) } }
+        ))
+        .disabled(vieNeuEngineReloading)
+        VStack(alignment: .leading, spacing: 6) {
+            if vieNeuEngineReloading {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Đang nạp lại engine… (màn Cài đặt đang tạm dừng phát)")
+                }
+                .font(.caption)
+                .foregroundColor(.secondary)
+            }
+            Text("Đẩy vòng Euler (83 %) và vocoder (15,5 %) sang chip Neural Engine để giảm tải CPU. Bấm là nạp lại engine ngay (~2 s), không cần mở lại app. Lỗi thì tự quay về CPU.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    /// Áp dụng công tắc: ghi cài đặt → nạp lại engine → vô hiệu đệm → báo kết quả thật.
+    ///
+    /// **Không** tin vào cờ cài đặt: nguồn sự thật là `isCoreMLActive` (EP có thật sự đăng ký được hay
+    /// không). Nếu bật mà EP không vào được, `VieNeuONNXRuntime.init` đã tự nạp lại bằng CPU — ở đây chỉ
+    /// còn việc gạt công tắc về TẮT và nói rõ lý do, thay vì để UI nói dối là đang chạy ANE.
+    private func applyCoreMLEP(_ enabled: Bool) async {
+        guard let service = VieNeuTTSService.shared else { return }
+        vieNeuEngineReloading = true
+        defer { vieNeuEngineReloading = false }
+        do {
+            try await service.reloadEngine(useCoreML: enabled)
+            ttsManager.invalidateVieNeuPrefetch(reason: enabled ? "coreml-on" : "coreml-off")
+            if enabled && !service.isCoreMLActive {
+                vieNeuCoreMLEnabled = false
+                UserDefaults.standard.set(false, forKey: VieNeuSynthesisPolicy.coreMLEPKey)
+                ToastManager.shared.show(message: "Thiết bị hoặc model không dùng được CoreML — đã quay về CPU.", type: .error)
+            } else {
+                vieNeuCoreMLEnabled = enabled
+                ToastManager.shared.show(
+                    message: enabled ? "Đã bật CoreML/ANE. Đọc thử rồi so log [VieNeuPerf] rtf= và [NghiEnergy] busyPct=." : "Đã tắt CoreML/ANE, quay về CPU.",
+                    type: .success
+                )
+            }
+        } catch {
+            vieNeuCoreMLEnabled = false
+            UserDefaults.standard.set(false, forKey: VieNeuSynthesisPolicy.coreMLEPKey)
+            ToastManager.shared.show(message: "Không nạp lại được engine: \(error.localizedDescription)", type: .error)
+        }
     }
 
     func loadVoicesForCurrentTool() async {
@@ -197,6 +260,9 @@ extension TTSSettingsView {
         Text("Số luồng càng nhiều càng khó gây ra trường hợp phải chờ đợi giữa hai đoạn nghe nhưng dễ nóng máy và hết pin nhanh. Số luồng áp dụng sau khi nạp lại engine (mở lại app hoặc đổi engine)." + (vieNeuPowerSaving ? " Đang bật Tiết kiệm pin: cố định chế độ Cân bằng + 2 luồng để máy mát và ít tốn pin; chất lượng giọng thấp hơn." : ""))
             .font(.caption)
             .foregroundColor(.secondary)
+        // 4b. Công tắc **thí nghiệm CoreML/ANE** (1.3.466). Đặt ngay sau nhóm cấu hình engine và **trước**
+        //     phần tiếng Nhật, vì đây là cấu hình engine chứ không phải tính năng nội dung.
+        vieNeuCoreMLRow
         // 5. Hai công tắc **riêng của VieNeu** cho tiền xử lý tiếng Nhật. Cả hai mặc định **TẮT** nên mặc
         //    định VieNeu đọc y như trước — chỉ khác đúng một thứ luôn chạy: gấp macron về ASCII
         //    (`danzō` → `danzo`), xem `VieNeuJapanesePreprocessor`.

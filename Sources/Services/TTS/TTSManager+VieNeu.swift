@@ -159,19 +159,22 @@ extension TTSManager {
         tool == "vieneu" ? vieNeuSynthesisSpeed : 1.0
     }
 
-    /// Đổi "Tốc độ tổng hợp" **giữa lúc đang đọc**: phát nốt đoạn hiện tại, nạp lại phần còn lại.
+    /// Vô hiệu phần đệm đã tổng hợp khi **engine đổi cấu hình** — đổi tốc độ tổng hợp (1.3.465) hoặc nạp
+    /// lại engine vì CoreML EP (1.3.466).
     ///
-    /// Ba việc phải làm, thiếu một là nghe sai tốc độ mà không có lỗi gì:
-    /// 1. `cancelNghiRefill()` — huỷ các lượt đang bay (chúng đang tổng hợp ở tốc độ cũ).
+    /// Ba việc phải làm, thiếu một là nghe sai mà không có lỗi gì:
+    /// 1. `cancelNghiRefill()` — huỷ các lượt đang bay (chúng đang tổng hợp theo cấu hình cũ).
     /// 2. Bỏ `preloadedData` từ đoạn **sau** đoạn hiện tại — giữ lại đoạn hiện tại để không mất audio
     ///    đang phát.
-    /// 3. `clearPreparedNext()` — đoạn N+1 đã `prepareToPlay()` vẫn phát ở tốc độ cũ nếu không bỏ.
+    /// 3. `clearPreparedNext()` — đoạn N+1 đã `prepareToPlay()` vẫn phát theo cấu hình cũ nếu không bỏ.
     ///
     /// **Không** đụng `nghiAudioPlayerQueue` của đoạn đang phát ⇒ không khựng (đúng quyết định đã chốt:
     /// "đợi hết đoạn đang phát, áp từ đoạn kế").
-    internal func invalidateVieNeuSynthesisSpeed() {
+    ///
+    /// `reason` chỉ để đọc log — phân biệt hai nguyên nhân khi chẩn đoán.
+    internal func invalidateVieNeuPrefetch(reason: String) {
         guard tool == "vieneu" else { return }
-        AppLogger.shared.log("[TTSRoute] doi toc do tong hop = \(Self.vieNeuSynthesisSpeed)x (giu doan \(currentParagraphIndex), nap lai tu doan \(currentParagraphIndex + 1))")
+        AppLogger.shared.log("[TTSRoute] vo hieu dem VieNeu reason=\(reason) (giu doan \(currentParagraphIndex), nap lai tu doan \(currentParagraphIndex + 1))")
         cancelNghiRefill()
         let keepUpTo = currentParagraphIndex
         preloadedData = preloadedData.filter { $0.key <= keepUpTo }

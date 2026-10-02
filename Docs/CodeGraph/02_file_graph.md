@@ -15,6 +15,11 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.466 — đường nạp lại engine tách thành 2 file `+Reload`
+
+* File mới: `VieNeuTTSEngine+Reload` **55** (nhả ngữ cảnh ORT) · `VieNeuTTSService+Reload` **43** (`reloadEngine(useCoreML:)`).
+* Sửa: `VieNeuONNXRuntime.swift` 316 → **385** (EP + cache + cầu nối log) · `VieNeuSynthesisPolicy.swift` 186 → **199** (khoá `vieneuCoreMLEP`) · `VieNeuTTSService.swift` → **400** · `VieNeuTTSEngine.swift` **400** (không đổi) · `TTSSettingsView+VieNeu.swift` 332 → **398** · `VieNeuONNXBridge.h` 181 → **219**, `VieNeuONNXBridge.m` 1155 → **1245**.
+
 ## 1.3.465 — Section 4 của màn Cài đặt TTS thành file riêng
 
 * File mới (dưới trần 400): `TTSSettingsView+Voice` **90** — chứa `voiceSection` (Tốc độ / Tốc độ tổng hợp / Cao độ) chuyển nguyên từ `TTSSettingsView.swift`.

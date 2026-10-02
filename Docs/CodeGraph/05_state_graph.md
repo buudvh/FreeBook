@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.466 — khoá cài đặt mới + trạng thái nạp lại engine
+
+* Khoá `vieneuCoreMLEP` (**mặc định TẮT**), đọc bởi `VieNeuSynthesisPolicy.isCoreMLEPEnabled(_:)`; `TTSSettingsView` mirror qua `@State vieNeuCoreMLEnabled` + `@State vieNeuEngineReloading`, làm mới trong `refreshVieNeuSettings()`.
+* Trạng thái **thật** của EP nằm ở `VieNeuONNXRuntime.coreMLActive` → `VieNeuTTSEngine.coreMLActive` → `VieNeuTTSService.isCoreMLActive`; cờ `UserDefaults` chỉ là *ý định*.
+* Nhả ngữ cảnh theo thứ tự bắt buộc: `runtime = nil` **trước** khi xoá `nullContext`/`nullContextShape`/`nullMask` (tensor cache của nhánh vô điều kiện trỏ vào buffer của chúng).
+
 ## 1.3.465 — một khoá `UserDefaults` mới; đệm audio bị vô hiệu khi đổi nó
 
 * Khoá `vieneuSynthesisSpeed` (dải 1,0...2,0, mặc định 1,0) do `VieNeuSynthesisPolicy.synthesisSpeed(from:)` đọc; `TTSSettingsView` mirror qua `@State vieNeuSynthesisSpeed` và làm mới trong `refreshVieNeuSettings()` (bài học 1.3.456).

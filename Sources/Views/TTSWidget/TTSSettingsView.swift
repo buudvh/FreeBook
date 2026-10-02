@@ -40,6 +40,10 @@ struct TTSSettingsView: View {
     /// thành tốc độ nghe. `@State` vì thanh trượt cần một giá trị quan sát được; giá trị thật nằm ở
     /// `UserDefaults` và được làm mới trong `refreshVieNeuSettings()` (bài học 1.3.456).
     @State var vieNeuSynthesisSpeed: Double = VieNeuSynthesisPolicy.synthesisSpeed(from: .standard)
+    /// Công tắc thí nghiệm **CoreML/ANE** + trạng thái đang nạp lại engine (1.3.466). Cả hai là `@State`
+    /// vì `VieNeuTTSService` không `@Observable` (cùng lý do như `vieNeuPowerSaving`).
+    @State var vieNeuCoreMLEnabled: Bool = VieNeuSynthesisPolicy.isCoreMLEPEnabled(.standard)
+    @State var vieNeuEngineReloading: Bool = false
     /// Hai cờ tiếng Nhật của VieNeu + trạng thái "đã tải từ điển". Gom vào **một** `ObservableObject` vì
     /// file này chỉ còn **3 dòng** tới trần 519 của `check_architecture.py` — xem `VieNeuJapaneseFlags`.
     @StateObject var vieNeuJapaneseFlags = VieNeuJapaneseFlags()

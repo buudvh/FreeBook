@@ -15,6 +15,12 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.466 — hai file `+Reload` và 2 lần hạ mức truy cập nữa
+
+* `VieNeuTTSEngine+Reload` / `VieNeuTTSService+Reload` (Services) đọc/ghi thành viên của chính type mình ⇒ phải hạ `private` → `internal`: 7 thành viên của engine (`runtime`, `config`, `catalog`, `phonemizer`, 3 mảng `null*`) và `engine` của service.
+* `TTSSettingsView+VieNeu` (Views) → `VieNeuTTSService.reloadEngine` (Services): View → Services, đúng chiều.
+* `VieNeuONNXRuntime.init` nhận thêm 2 tham số **có default** ⇒ không phá caller cũ.
+
 ## 1.3.465 — Section 4 ra file riêng; hạ mức truy cập để nối được
 
 * `TTSSettingsView+Voice` (Views/TTSWidget) → `TTSSettingsView+VieNeu.vieneuSynthesisSpeedRow` → `TTSManager.invalidateVieNeuSynthesisSpeed()` (Services/TTS): View → Services, đúng chiều phụ thuộc.

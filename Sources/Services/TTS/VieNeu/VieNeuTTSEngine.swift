@@ -84,15 +84,15 @@ final class VieNeuTTSEngine: @unchecked Sendable {
     let store: VieNeuModelStore
     let lock = NSLock()
 
-    private var runtime: VieNeuONNXRuntime?
-    private var config: VieNeuConfig?
+    // 6 thành viên này `internal` (không `private`) từ 1.3.466 — lý do ở `VieNeuTTSEngine+Reload.swift`.
+    var runtime: VieNeuONNXRuntime?
+    var config: VieNeuConfig?
     var catalog: VieNeuVoiceCatalog?
-    private var phonemizer: SeaG2P?
-    /// `ctx` của nhánh vô điều kiện (CFG) — không phụ thuộc giọng lẫn văn bản nên tính một lần.
-    /// Giữ **cả shape** vì shape đó do model quyết định, không suy được từ `config.json`.
-    private var nullContext: [Float] = []
-    private var nullContextShape: [Int64] = []
-    private var nullMask: [UInt8] = []
+    var phonemizer: SeaG2P?
+    /// `ctx` của nhánh vô điều kiện (CFG) — không phụ thuộc giọng/văn bản nên tính một lần; giữ **cả shape** vì shape do model quyết định, không suy được từ `config.json`.
+    var nullContext: [Float] = []
+    var nullContextShape: [Int64] = []
+    var nullMask: [UInt8] = []
 
     // Trạng thái thích nghi — `+Adaptive` đọc/ghi, nên phải `internal` chứ không `private`.
     var droppedScalarWarningShown = false
@@ -157,7 +157,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         // khi `NPZReader` còn đọc sai kích thước entry. `nullContext`/`nullMask`/`nullSpeaker`/`nullStyle`
         // là **bất biến suốt vòng đời engine** (chỉ gán đúng một lần ở đây; engine không có `unload`) ⇒
         // tensor cache của A2b an toàn (buffer nguồn sống lâu hơn tensor; `VieNeuORTDestroy` giải phóng cache).
-        let newRuntime = try VieNeuONNXRuntime(modelStore: store, threadCount: VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard))
+        let newRuntime = try VieNeuONNXRuntime(modelStore: store, threadCount: VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard), coreML: VieNeuSynthesisPolicy.isCoreMLEPEnabled(.standard))
         let newConfig = try VieNeuConfig.load(modelStore: store)
         let newCatalog = try VieNeuVoiceCatalog.load(modelStore: store)
         let newPhonemizer = try SeaG2P(binURL: store.url(for: "sea_g2p.bin"))
@@ -171,7 +171,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         nullContextShape = nullBranch.shape
         nullMask = nullBranch.mask
 
-        AppLogger.shared.log("🎙️ [VieNeu] Nạp xong engine: \(newCatalog.presets.count) giọng, threads=\(VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard))")
+        AppLogger.shared.log("🎙️ [VieNeu] Nạp xong engine: \(newCatalog.presets.count) giọng, threads=\(VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard)), coreML=\(newRuntime.coreMLActive ? "on" : "off")")
     }
 
     /// Nhánh **vô điều kiện** của CFG: chạy `text_encoder` với đúng `[bos, eos]` và `null_style`.

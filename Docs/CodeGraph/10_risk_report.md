@@ -15,6 +15,13 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.466 — rủi ro của thí nghiệm CoreML EP
+
+* **Phân mảnh graph**: `vector_estimator` 1578 node với 93 % là elementwise/reshape ⇒ EP có thể chỉ nhận một phần, mỗi ranh giới tốn copy CPU↔ANE; có tiền lệ **chậm hơn CPU** (lượng tử hoá int8 chậm 2,7× — xem `Docs/Reports/research-2026-10-02-vieneu-nhom-C.md`).
+* **`ctx_mask` là `tensor(bool)`** — tài liệu CoreML EP không nói có hỗ trợ ⇒ node dùng nó có thể rớt về CPU.
+* **Biên dịch CoreML lần đầu**: không có `ModelCacheDirectory` thì biên dịch lại **mỗi lần mở session** ⇒ lượt đo đầu tiên phải bị loại khỏi số liệu.
+* **Vòng đời nạp lại**: `unload()` chỉ an toàn nhờ `lock` của engine (chờ lượt tổng hợp xong) — gọi từ ngoài `lock` sẽ giải phóng tensor cache khi buffer nguồn còn đang được `Run` dùng.
+
 
 ## 1.3.464 — rủi ro đã xử lý / mới
 

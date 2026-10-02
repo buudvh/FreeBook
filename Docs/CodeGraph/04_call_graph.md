@@ -15,6 +15,12 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.466 — cạnh gọi của đường nạp lại engine
+
+* `TTSSettingsView+VieNeu.applyCoreMLEP(_:)` → `VieNeuTTSService.reloadEngine(useCoreML:)` → `VieNeuTTSEngine.unload()` → `engine.prepare()` → `VieNeuONNXRuntime.init(coreML:)` → `VieNeuORTCreateWithRunOptions` → `SessionOptionsAppendExecutionProvider("CoreML", …)`.
+* Sau khi nạp xong: `applyCoreMLEP` đọc `service.isCoreMLActive` (nguồn sự thật) rồi gọi `TTSManager.invalidateVieNeuPrefetch(reason:)`.
+* Log ORT đi theo đường: `OrtLoggingFunction` (bridge) → `vieNeuORTLogTrampoline` (Swift, toàn cục không capture) → `AppLogger`.
+
 ## 1.3.465 — tốc độ tổng hợp đi vào ba điểm gọi và vào khoá cache
 
 * `TTSManager.scheduleNghiRefill` (`:2903`) và đường phát on-demand (`:3596`) truyền `TTSManager.localSynthesisSpeed(forTool:)` thay vì hằng `1.0`; `TTSNextChapterPrefixSynthesizer.one` (`:28`) và `TTSChapterPrefetcher` (`:192`, nhánh local) cũng vậy ⇒ **4** điểm gọi local, rà bằng `grep "localService.synthesize|service.synthesizeWithDuration"`.

@@ -71,6 +71,9 @@ extension VieNeuTTSEngine {
         AppLogger.shared.log(
             "[VieNeuPerf] mode=\(mode.rawValue) chunks=\(chunkCount) dropped=\(droppedScalars)"
                 + " synthSpeed=\(String(format: "%.2f", synthesisSpeed))x"
+                // Trạng thái **thật** của EP (không phải cờ cài đặt): cần để đọc số liệu thí nghiệm mà
+                // biết lượt này có thật sự chạy CoreML/ANE hay không.
+                + " coreML=\(runtime?.coreMLActive == true ? "on" : "off")"
                 + " chars=\(characterCount) pcm=\(String(format: "%.2f", pcmDuration))s"
                 + " speech=\(String(format: "%.2f", speechDuration))s"
                 + " synth=\(String(format: "%.0f", synthesisMs))ms"

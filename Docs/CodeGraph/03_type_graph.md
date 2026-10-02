@@ -15,6 +15,15 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.466 — API mới của đường CoreML EP
+
+* `VieNeuONNXBridge.h`: + `VieNeuORTRunOptions` (useCoreML/verboseLog/coreMLCacheDirectory) · + `VieNeuORTSetLogCallback` · + `VieNeuORTCreateWithRunOptions`.
+* `VieNeuONNXRuntime`: + `let coreMLActive` (sự thật, không phải ý định) · `init(modelStore:threadCount:coreML:verboseORTLog:)` (2 tham số cuối có default) · + `prepareCoreMLCacheDirectory(modelStore:)`.
+* `VieNeuTTSEngine+Reload`: + `unload()` + `var coreMLActive` (đọc dưới `lock`).
+* `VieNeuTTSService+Reload`: + `reloadEngine(useCoreML:)` + `var isCoreMLActive`.
+* `VieNeuSynthesisPolicy`: + `coreMLEPKey` + `isCoreMLEPEnabled(_:)` (mặc định TẮT).
+* `TTSManager+VieNeu`: `invalidateVieNeuSynthesisSpeed()` **đổi tên** thành `invalidateVieNeuPrefetch(reason:)` (phục vụ cả 2 nguyên nhân).
+
 ## 1.3.465 — API mới cho tốc độ tổng hợp
 
 * `VieNeuSynthesisPolicy`: + `synthesisSpeedKey`, `synthesisSpeedRange` (1,0...2,0), `synthesisSpeed(from:)` — hàm thuần nhận `UserDefaults`, mặc định **1,0**.

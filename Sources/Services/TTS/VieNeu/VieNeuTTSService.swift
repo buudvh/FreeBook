@@ -33,7 +33,9 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
     }()
 
     private let store: VieNeuModelStore
-    private let engine: VieNeuTTSEngine
+    // `internal` (không `private`) từ 1.3.466: `VieNeuTTSService+Reload` — file khác — cần nhả và nạp lại
+    // ngữ cảnh khi đổi CoreML EP. Swift giới hạn `private` theo file.
+    let engine: VieNeuTTSEngine
     private let syncQueue = DispatchQueue(label: "VieNeuTTSService.sync")
     private var _currentVoice: String?
     private var _lastDroppedScalars = 0

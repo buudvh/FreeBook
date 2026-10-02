@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.466 — công tắc thí nghiệm CoreML/ANE: đẩy 2 graph nặng khỏi CPU
+
+* Bật công tắc ⇒ đăng ký **CoreML EP** cho `vector_estimator` (**83,1 %** thời gian chunk) và `codec_decoder` (**15,5 %**) với `ModelFormat=MLProgram`, `MLComputeUnits=CPUAndNeuralEngine`, `ModelCacheDirectory` (bắt buộc) và `ProfileComputePlan=1` (ghi ra từng op chạy trên ANE/GPU/CPU).
+* Đổi EP **phải** nạp lại engine (`prepareLocked` chỉ chạy một lần trong vòng đời engine) ⇒ có `VieNeuTTSEngine.unload()` + `VieNeuTTSService.reloadEngine(useCoreML:)`, chạy ở `Task.detached`, và vô hiệu đệm audio qua `TTSManager.invalidateVieNeuPrefetch(reason:)`.
+* EP lỗi ⇒ `VieNeuONNXRuntime.init` **tự nạp lại bằng CPU** và ghi log lý do; UI đọc `isCoreMLActive` (không đọc cờ cài đặt) nên không bao giờ nói dối là đang chạy ANE.
+* Mặc định **TẮT**; thí nghiệm chưa kết luận (tiêu chí: `rtf` giảm ≥ 20 % và audio không lệch tai nghe).
+
 ## 1.3.465 — VieNeu có thanh "Tốc độ tổng hợp": giảm tính toán thay vì làm chậm tổng hợp
 
 * Tốc độ nay có **hai** thanh: *Tốc độ* (phát, `AVAudioPlayer.rate`) và *Tốc độ tổng hợp (VieNeu)* (đưa vào model qua `secs = exp(log_s)/speed`, `VieNeuTTSEngine.swift:336`). Tốc độ nghe = **tích** hai thanh, nên màn hình hiện luôn tích đó.

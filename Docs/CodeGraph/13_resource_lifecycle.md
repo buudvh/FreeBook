@@ -15,6 +15,13 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.466 — vòng đời ngữ cảnh ORT khi nạp lại, và cache CoreML
+
+* `VieNeuTTSEngine.unload()` nhả theo thứ tự **bắt buộc**: `runtime = nil` trước (⇒ `VieNeuONNXRuntime.deinit` → `VieNeuORTDestroy` giải phóng tensor cache), rồi mới xoá `nullContext`/`nullContextShape`/`nullMask` — buffer nguồn của cache. Đảo thứ tự là cache trỏ vào bộ nhớ đã chết.
+* An toàn nhờ `lock`: `synthesize` giữ `lock` suốt lượt ⇒ `unload()` luôn chờ lượt đang chạy xong.
+* **Cache CoreML** ở `Application Support/FreeBook/TTS/VieNeu/CoreMLCache` — là cache, xoá được, **không** đưa vào backup.
+* Callback log ORT là con trỏ hàm C toàn cục (không capture) ⇒ không có vòng đời block; sống suốt tiến trình, gỡ bằng `VieNeuORTSetLogCallback(nil, nil)`.
+
 ## 1.3.465 — vòng đời đệm audio khi đổi tốc độ tổng hợp
 
 * `TTSManager.invalidateVieNeuSynthesisSpeed()` giải phóng **có chọn lọc**: `cancelNghiRefill()` (huỷ task đang bay + xoá `nghiRefillInFlightIndices`), lọc `preloadedData`/`preloadedDurations` còn các đoạn ≤ `currentParagraphIndex`, `nextChapterPrefetcher.cancel()`, `NghiAudioPlayerQueue.clearPreparedNext()` (bỏ `AVAudioPlayer` của đoạn N+1 đã `prepareToPlay`).

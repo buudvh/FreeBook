@@ -48,12 +48,69 @@ final class VieNeuONNXRuntime {
     /// theo file, nên tách file là phải hạ quyền truy cập của đúng những thành viên dùng chéo file.
     let handle: OpaquePointer
 
-    init(modelStore: VieNeuModelStore, threadCount: Int32) throws {
+    /// `true` khi **CoreML EP đã đăng ký thành công** cho 4 session (1.3.466).
+    ///
+    /// Đây là **sự thật**, không phải ý định: cờ trong `UserDefaults` chỉ nói người dùng muốn bật, còn
+    /// giá trị này nói EP thật sự vào được. Log `[VieNeuPerf] coreML=` đọc từ đây để không bao giờ báo
+    /// "đang chạy ANE" trong khi thực tế vẫn CPU.
+    let coreMLActive: Bool
+
+    init(modelStore: VieNeuModelStore, threadCount: Int32,
+         coreML: Bool = false, verboseORTLog: Bool = false) throws {
+        var active = coreML
         var message: UnsafeMutablePointer<CChar>?
-        guard let handle = VieNeuORTCreate(modelStore.modelsURL.path, threadCount, &message) else {
+        var options = VieNeuORTRunOptions(useCoreML: coreML ? 1 : 0,
+                                          verboseLog: verboseORTLog ? 1 : 0,
+                                          coreMLCacheDirectory: nil)
+        var created: OpaquePointer?
+
+        if coreML {
+            // Chỉ cài cầu nối log khi thật sự cần: đường CPU giữ nguyên hành vi cũ (log ra stderr).
+            Self.installLogBridge()
+            let cacheDirectory = try Self.prepareCoreMLCacheDirectory(modelStore: modelStore)
+            // `strdup` để lấy con trỏ C sống qua lời gọi; giải phóng ngay sau khi hàm tạo trả về.
+            let cPath: UnsafeMutablePointer<CChar>? = strdup(cacheDirectory)
+            options.coreMLCacheDirectory = cPath.map { UnsafePointer($0) }
+            created = VieNeuORTCreateWithRunOptions(modelStore.modelsURL.path, threadCount, &options, &message)
+            free(cPath)
+        } else {
+            created = VieNeuORTCreateWithRunOptions(modelStore.modelsURL.path, threadCount, nil, &message)
+        }
+
+        if created == nil && coreML {
+            // EP không dùng được (thiết bị, model, hoặc cache) ⇒ tự quay về CPU và **nói ra lý do**.
+            // Không im lặng chạy tiếp trên CPU với cờ bật: như vậy số đo thí nghiệm sẽ vô nghĩa.
+            let reason = Self.consume(message, fallback: "không rõ")
+            AppLogger.shared.log("⚠️ [VieNeu] CoreML EP không đăng ký được, quay về CPU: \(reason)")
+            message = nil
+            active = false
+            created = VieNeuORTCreateWithRunOptions(modelStore.modelsURL.path, threadCount, nil, &message)
+        }
+        guard let created else {
             throw RuntimeError.failure(Self.consume(message, fallback: "không tạo được ngữ cảnh ORT"))
         }
-        self.handle = handle
+        self.handle = created
+        self.coreMLActive = active
+    }
+
+    /// Thư mục cache của CoreML EP — **bắt buộc** khi bật EP: không có cache thì Core ML **biên dịch
+    /// lại** subgraph mỗi lần mở session (hàng chục giây cho mỗi lượt nạp engine).
+    ///
+    /// Nằm cạnh model trong Application Support. Là **cache** — xoá được bất cứ lúc nào, và không được
+    /// đưa vào backup.
+    static func prepareCoreMLCacheDirectory(modelStore: VieNeuModelStore) throws -> String {
+        let directory = modelStore.rootURL.appendingPathComponent("CoreMLCache", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory.path
+    }
+
+    /// Cài cầu nối log ORT → `AppLogger` (idempotent).
+    private static var logBridgeInstalled = false
+
+    private static func installLogBridge() {
+        guard !logBridgeInstalled else { return }
+        logBridgeInstalled = true
+        VieNeuORTSetLogCallback(vieNeuORTLogTrampoline, nil)
     }
 
     /// Ngữ cảnh **chỉ 3 graph clone** — dùng cho luồng tạo giọng.
@@ -313,4 +370,16 @@ final class VieNeuONNXRuntime {
         VieNeuORTFreeErrorMessage(message)
         return text
     }
+}
+
+/// Cầu nối log của ONNX Runtime → `AppLogger` (1.3.466).
+///
+/// Phải là hàm **toàn cục, không capture** vì nó được chuyển thành **con trỏ hàm C** để đăng ký với
+/// bridge. ORT gọi nó **từ luồng đang chạy `Run`** ⇒ chỉ làm việc rẻ, và tôn trọng cổng
+/// `AppLogger.isLoggingEnabled` để bản thường không bị ngập log (mức VERBOSE có thể ra hàng nghìn dòng).
+private func vieNeuORTLogTrampoline(severity: Int32,
+                                    message: UnsafePointer<CChar>?,
+                                    context: UnsafeMutableRawPointer?) {
+    guard AppLogger.shared.isLoggingEnabled, let message else { return }
+    AppLogger.shared.log("[ORT] \(String(cString: message))")
 }
