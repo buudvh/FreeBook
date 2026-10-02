@@ -65,22 +65,26 @@ def shapes_for(graph: str, config: dict, frames: int) -> dict:
     return table[graph]
 
 
-def convert_graph(source: str, pkgdir: str, name: str, config: dict, frames: int) -> dict:
+def convert_graph(source: str, pkgdir: str, scratchdir: str, name: str, config: dict, frames: int) -> dict:
     """Đóng băng shape rồi convert bằng `onnx2coreml` — đúng đường đã chạy ở lượt baseline.
 
-    ⚠️ `pkgdir` **phải** nằm trong thư mục phát hành. Lượt đầu ghi gói vào `workdir` trong khi publish chỉ
-    upload `outdir` ⇒ repo HF nhận được **mỗi** `manifest.json` + `golden/` (3,7 MB) và **không có gói nào**
-    — mà CI vẫn **xanh**. Đúng loại lỗi "xanh mà không làm gì": publish thành công, nội dung trống rỗng.
+    ⚠️ **Hai bẫy đã trả giá ở Phase 2, cả hai đều về chỗ ghi file:**
+    1. *Lượt đầu*: gói ghi vào `workdir` trong khi publish chỉ mang `outdir` ⇒ repo nhận **mỗi**
+       `manifest.json` + `golden/` (3,7 MB), **không có gói nào** — mà CI vẫn **xanh**. Đúng loại lỗi
+       "xanh mà không làm gì". ⇒ Gói **phải** nằm trong `pkgdir` (bên trong `outdir`).
+    2. *Lượt hai*: `.frozen.onnx` / `.opt.onnx` cũng nằm trong `pkgdir` ⇒ bị đẩy lên theo
+       ⇒ repo phình từ ~400 MB lên **1984,5 MB** (mỗi `vector_estimator` có 155 MB trung gian ×2 ×3 mức).
+       App chỉ cần `.mlpackage`. ⇒ Mọi file trung gian phải nằm ở `scratchdir` (bên ngoài `outdir`).
     """
     import onnx2coreml as o2c
 
     shapes = shapes_for(os.path.basename(source), config, frames)
-    frozen = os.path.join(pkgdir, f"{name}.frozen.onnx")
+    frozen = os.path.join(scratchdir, f"{name}.frozen.onnx")
     freeze_shapes(source, frozen, shapes)
 
     # Thử **nhiều ứng viên** như lượt baseline: một bản tối ưu hỏng không được làm mất bản gốc.
     candidates = []
-    optimized = os.path.join(pkgdir, f"{name}.opt.onnx")
+    optimized = os.path.join(scratchdir, f"{name}.opt.onnx")
     if optimize_with_ort(frozen, optimized):
         fold_range(optimized, optimized)
         candidates.append(("basic-folded", optimized))
@@ -238,7 +242,7 @@ def main() -> int:
     for graph in LENGTH_ONLY_GRAPHS:
         name = graph.replace(".onnx", "")
         try:
-            result = convert_graph(os.path.join(model_dir, graph), pkgdir, name, config, 0)
+            result = convert_graph(os.path.join(model_dir, graph), pkgdir, workdir, name, config, 0)
         except Exception as error:  # noqa: BLE001
             result = {"ok": False, "error": f"{type(error).__name__}: {error}",
                       "traceback": traceback.format_exc()[-1000:]}
@@ -249,7 +253,7 @@ def main() -> int:
         for graph in FRAME_GRAPHS:
             name = f"{graph.replace('.onnx', '')}-T{frames}"
             try:
-                result = convert_graph(os.path.join(model_dir, graph), pkgdir, name, config, frames)
+                result = convert_graph(os.path.join(model_dir, graph), pkgdir, workdir, name, config, frames)
             except Exception as error:  # noqa: BLE001
                 result = {"ok": False, "error": f"{type(error).__name__}: {error}",
                           "traceback": traceback.format_exc()[-1000:]}

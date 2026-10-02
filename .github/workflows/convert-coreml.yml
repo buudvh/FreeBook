@@ -145,6 +145,30 @@ jobs:
           --commit-message "CoreML buckets T64/T96/T234 (L=200) from ${GITHUB_SHA::7}"
         echo "ĐÃ publish."
 
+    - name: Dọn file trung gian trên HF
+      if: always()
+      env:
+        HF_OIDC_RESOURCE: raikiri1498/VieNeu-TTS-v3-Nano-CoreML
+      run: |
+        # Lượt trước lỡ đẩy cả `.frozen.onnx` / `.opt.onnx` lên (repo phình 400 MB -> 1984,5 MB).
+        # Script đã sửa để trung gian nằm ngoài thư mục phát hành; bước này dọn phần đã lỡ có trên repo.
+        export HF_TOKEN=$(hf auth token)
+        python - <<'PY'
+        import os
+        from huggingface_hub import HfApi
+        repo = "raikiri1498/VieNeu-TTS-v3-Nano-CoreML"
+        token = os.environ["HF_TOKEN"]
+        files = HfApi(token=token).list_repo_files(repo_id=repo, repo_type="model")
+        junk = [f for f in files if f.startswith("mlpackage/") and f.endswith(".onnx")]
+        print("file trung gian tren repo:", len(junk))
+        for f in junk:
+            print("  ", f)
+        if junk:
+            HfApi(token=token).delete_files(repo_id=repo, repo_type="model", files=junk,
+                                            commit_message="remove intermediate ONNX (app chi can .mlpackage)")
+            print("da xoa", len(junk), "file")
+        PY
+
     - name: Summary
       if: always()
       run: |
