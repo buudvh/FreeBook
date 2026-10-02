@@ -202,12 +202,15 @@ def stage_convert(model_dir: str, workdir: str) -> dict:
 
     result: dict = {}
     plans = [
-        ("vector_estimator.onnx", "typical"),
-        ("vector_estimator.onnx", "max"),
-        ("codec_decoder.onnx", "typical"),
+        ("vector_estimator.onnx", "typical", None),
+        ("vector_estimator.onnx", "max", None),
+        ("codec_decoder.onnx", "typical", None),
+        # Bản **tường minh độ chính xác** — để tách "nhanh nhờ fp16" khỏi "nhanh nhờ kernel Core ML".
+        ("vector_estimator.onnx", "typical", "fp16"),
+        ("vector_estimator.onnx", "typical", "fp32"),
     ]
-    for name, bucket in plans:
-        key = f"{name.replace('.onnx', '')}-{bucket}"
+    for name, bucket, precision in plans:
+        key = f"{name.replace('.onnx', '')}-{bucket}" + (f"-{precision}" if precision else "")
         entry: dict = {"bucket": BUCKETS[bucket]}
         try:
             cfg = json.load(open(os.path.join(model_dir, "config.json"), encoding="utf-8"))
@@ -244,7 +247,9 @@ def stage_convert(model_dir: str, workdir: str) -> dict:
             for label, candidate in candidates:
                 try:
                     started = time.time()
-                    mlmodel = o2c.convert(candidate, format="mlpackage", minimum_deployment_target="iOS17")
+                    extra = {"compute_precision": precision} if precision else {}
+                    mlmodel = o2c.convert(candidate, format="mlpackage",
+                                          minimum_deployment_target="iOS17", **extra)
                     package = os.path.join(workdir, f"{key}.mlpackage")
                     mlmodel.save(package)
                     converted_with = label
@@ -317,95 +322,131 @@ def stage_parity(model_dir: str, workdir: str, converted: dict, reports: str) ->
     import numpy as np
     import onnxruntime as ort
 
-    key = "vector_estimator-typical"
-    if not converted.get(key, {}).get("ok"):
-        log("G3", f"bỏ qua: {key} chưa convert được")
-        return {"skipped": f"{key} not converted"}
-
     result: dict = {}
-    try:
-        feeds = build_inputs(model_dir, workdir, "typical")
-        options = ort.SessionOptions()
-        options.intra_op_num_threads = 4
-        session = ort.InferenceSession(os.path.join(model_dir, "vector_estimator.onnx"), options,
-                                       providers=["CPUExecutionProvider"])
-
-        def run_ort():
-            return session.run(None, feeds)[0]
-
-        run_ort()  # warm-up
-        timings = []
-        for _ in range(5):
-            started = time.perf_counter()
-            out_ort = run_ort()
-            timings.append((time.perf_counter() - started) * 1000)
-        ort_ms = float(np.median(timings))
-        log("G3", f"ORT fp32: {ort_ms:.1f} ms/lượt")
-
-        import coremltools as ct
-
-        package = converted[key]["package"]
-        units = {"all": ct.ComputeUnit.ALL, "cpuAndNeuralEngine": ct.ComputeUnit.CPU_AND_NE,
-                 "cpuOnly": ct.ComputeUnit.CPU_ONLY}
-        for unit_name, unit in units.items():
+    for variant in ("vector_estimator-typical", "vector_estimator-typical-fp16",
+                    "vector_estimator-typical-fp32", "vector_estimator-max"):
+        if converted.get(variant, {}).get("ok"):
             try:
-                model = ct.models.MLModel(package, compute_units=unit)
-                # **Hỏi model** kiểu input thay vì đoán — `ctx_mask` là bool trong ONNX nhưng Core ML có
-                # thể khai `int32`/`float32`; đoán sai thì `predict` ném "value type not convertible".
-                description = {name: str(model.get_spec().description.input[i].type)
-                               for i, name in enumerate(
-                                   item.name for item in model.get_spec().description.input)}
-                log("G3", f"input description: {description}")
-                # Thử lần lượt các cách ép kiểu cho mask cho tới khi `predict` chạy được.
-                variants = [
-                    ("as-is", {name: np.asarray(value) for name, value in feeds.items()}),
-                    ("mask-int32", {**{k: np.asarray(v) for k, v in feeds.items()},
-                                    "ctx_mask": np.asarray(feeds["ctx_mask"], dtype=np.int32)}),
-                    ("mask-float32", {**{k: np.asarray(v) for k, v in feeds.items()},
-                                      "ctx_mask": np.asarray(feeds["ctx_mask"], dtype=np.float32)}),
-                ]
-                inputs = None
-                used_variant = None
-                last_error = None
-                for variant_name, candidate in variants:
-                    try:
-                        model.predict(candidate)
-                        inputs, used_variant = candidate, variant_name
-                        break
-                    except Exception as error:  # noqa: BLE001
-                        last_error = error
-                if inputs is None:
-                    raise RuntimeError(f"mọi cách ép kiểu đều lỗi: {last_error}")
-                log("G3", f"Core ML[{unit_name}]: dùng biến thể input `{used_variant}`")
-                timings = []
-                for _ in range(5):
-                    started = time.perf_counter()
-                    out_cml = list(model.predict(inputs).values())[0]
-                    timings.append((time.perf_counter() - started) * 1000)
-                cml_ms = float(np.median(timings))
-                diff = np.abs(np.asarray(out_ort, dtype=np.float32) - np.asarray(out_cml, dtype=np.float32))
-                rms = float(np.sqrt(np.mean(np.asarray(out_ort, dtype=np.float32) ** 2)))
-                snr = 20 * float(np.log10(rms / max(float(np.std(diff)), 1e-12)))
-                result[unit_name] = {
-                    "input_variant": used_variant,
-                    "coreml_ms": round(cml_ms, 1),
-                    "ort_ms": round(ort_ms, 1),
-                    "speed_ratio": round(ort_ms / cml_ms, 2),
-                    "snr_db": round(snr, 1),
-                    "max_abs_diff": float(diff.max()),
-                }
-                log("G3", f"Core ML[{unit_name}]: {cml_ms:.1f} ms/lượt · tỉ lệ ORT/CoreML={ort_ms / cml_ms:.2f}× · SNR={snr:.1f} dB")
+                bucket = "max" if variant.endswith("-max") else "typical"
+                result[variant] = bench_vector(model_dir, workdir, converted[variant]["package"], bucket, variant)
             except Exception as error:  # noqa: BLE001
-                result[unit_name] = {"error": f"{type(error).__name__}: {error}"}
-                log("G3", f"Core ML[{unit_name}]: LỖI {type(error).__name__}: {error}")
+                result[variant] = {"error": f"{type(error).__name__}: {error}"}
+                log("G3", f"{variant}: LỖI {type(error).__name__}: {error}")
+    try:
+        result["codec_decoder-typical"] = bench_vocoder(model_dir, workdir, converted)
     except Exception as error:  # noqa: BLE001
-        result["error"] = f"{type(error).__name__}: {error}"
-        result["traceback"] = traceback.format_exc()[-1500:]
-        log("G3", f"LỖI {type(error).__name__}: {error}")
-
+        result["codec_decoder-typical"] = {"error": f"{type(error).__name__}: {error}"}
+        log("G3", f"vocoder: LỖI {type(error).__name__}: {error}")
     with open(os.path.join(reports, "parity.json"), "w", encoding="utf-8") as handle:
         json.dump(result, handle, ensure_ascii=False, indent=2)
     return result
+
+
+def _predict_any_variant(model, feeds):
+    """Core ML khai `ctx_mask` là FLOAT32 (ONNX là bool) ⇒ thử lần lượt cho tới khi `predict` chạy."""
+    import numpy as np
+
+    variants = [
+        ("as-is", {name: np.asarray(value) for name, value in feeds.items()}),
+        ("mask-int32", {**{k: np.asarray(v) for k, v in feeds.items()},
+                        "ctx_mask": np.asarray(feeds["ctx_mask"], dtype=np.int32)}),
+        ("mask-float32", {**{k: np.asarray(v) for k, v in feeds.items()},
+                          "ctx_mask": np.asarray(feeds["ctx_mask"], dtype=np.float32)}),
+    ]
+    last_error = None
+    for name, candidate in variants:
+        try:
+            model.predict(candidate)
+            return name, candidate
+        except Exception as error:  # noqa: BLE001
+            last_error = error
+    raise RuntimeError(f"mọi cách ép kiểu đều lỗi: {last_error}")
+
+
+def bench_vector(model_dir: str, workdir: str, package: str, bucket: str, label: str) -> dict:
+    """So `vector_estimator` giữa ORT fp32 và Core ML trên **cùng một máy** (SNR + ms/lượt)."""
+    import numpy as np
+    import onnxruntime as ort
+    import coremltools as ct
+
+    feeds = build_inputs(model_dir, workdir, bucket)
+    options = ort.SessionOptions()
+    options.intra_op_num_threads = 4
+    session = ort.InferenceSession(os.path.join(model_dir, "vector_estimator.onnx"), options,
+                                   providers=["CPUExecutionProvider"])
+    session.run(None, feeds)  # warm-up
+    timings = []
+    for _ in range(5):
+        started = time.perf_counter()
+        out_ort = session.run(None, feeds)[0]
+        timings.append((time.perf_counter() - started) * 1000)
+    ort_ms = float(np.median(timings))
+
+    entry: dict = {"bucket": bucket, "ort_ms": round(ort_ms, 1)}
+    for unit_name, unit in (("all", ct.ComputeUnit.ALL), ("cpuOnly", ct.ComputeUnit.CPU_ONLY)):
+        try:
+            model = ct.models.MLModel(package, compute_units=unit)
+            used_variant, inputs = _predict_any_variant(model, feeds)
+            timings = []
+            for _ in range(5):
+                started = time.perf_counter()
+                out_cml = list(model.predict(inputs).values())[0]
+                timings.append((time.perf_counter() - started) * 1000)
+            cml_ms = float(np.median(timings))
+            diff = np.abs(np.asarray(out_ort, dtype=np.float32) - np.asarray(out_cml, dtype=np.float32))
+            rms = float(np.sqrt(np.mean(np.asarray(out_ort, dtype=np.float32) ** 2)))
+            snr = 20 * float(np.log10(rms / max(float(np.std(diff)), 1e-12)))
+            entry[unit_name] = {"coreml_ms": round(cml_ms, 1), "speed_ratio": round(ort_ms / cml_ms, 2),
+                                "snr_db": round(snr, 1), "input_variant": used_variant}
+            log("G3", f"{label}[{unit_name}]: ORT {ort_ms:.1f} → CoreML {cml_ms:.1f} ms "
+                      f"({ort_ms / cml_ms:.2f}×) · SNR {snr:.1f} dB")
+        except Exception as error:  # noqa: BLE001
+            entry[unit_name] = {"error": f"{type(error).__name__}: {error}"}
+            log("G3", f"{label}[{unit_name}]: LỖI {type(error).__name__}: {error}")
+    return entry
+
+
+def bench_vocoder(model_dir: str, workdir: str, converted: dict) -> dict:
+    """So `codec_decoder` (15,5 % thời gian) giữa ORT fp32 và Core ML."""
+    import numpy as np
+    import onnxruntime as ort
+    import coremltools as ct
+
+    key = "codec_decoder-typical"
+    if not converted.get(key, {}).get("ok"):
+        return {"skipped": key}
+    cfg = json.load(open(os.path.join(model_dir, "config.json"), encoding="utf-8"))
+    latent_channels = cfg["latent_dim"] * cfg["group"]
+    frames = BUCKETS["typical"]["T"]
+    feeds = {"x": np.random.default_rng(7).standard_normal((1, latent_channels, frames)).astype(np.float32)}
+    options = ort.SessionOptions()
+    options.intra_op_num_threads = 4
+    session = ort.InferenceSession(os.path.join(model_dir, "codec_decoder.onnx"), options,
+                                   providers=["CPUExecutionProvider"])
+    session.run(None, feeds)
+    timings = []
+    for _ in range(3):
+        started = time.perf_counter()
+        out_ort = session.run(None, feeds)[0]
+        timings.append((time.perf_counter() - started) * 1000)
+    ort_ms = float(np.median(timings))
+    model = ct.models.MLModel(converted[key]["package"], compute_units=ct.ComputeUnit.ALL)
+    used_variant, inputs = _predict_any_variant(model, feeds)
+    timings = []
+    for _ in range(3):
+        started = time.perf_counter()
+        out_cml = list(model.predict(inputs).values())[0]
+        timings.append((time.perf_counter() - started) * 1000)
+    cml_ms = float(np.median(timings))
+    a = np.asarray(out_ort, dtype=np.float32).reshape(-1)
+    b = np.asarray(out_cml, dtype=np.float32).reshape(-1)
+    n = min(a.size, b.size)
+    diff = np.abs(a[:n] - b[:n])
+    rms = float(np.sqrt(np.mean(a[:n] ** 2)))
+    snr = 20 * float(np.log10(rms / max(float(np.std(diff)), 1e-12)))
+    log("G3", f"vocoder: ORT {ort_ms:.1f} → CoreML {cml_ms:.1f} ms ({ort_ms / cml_ms:.2f}×) · SNR {snr:.1f} dB")
+    return {"ort_ms": round(ort_ms, 1), "coreml_ms": round(cml_ms, 1),
+            "speed_ratio": round(ort_ms / cml_ms, 2), "snr_db": round(snr, 1), "input_variant": used_variant}
 
 
 def main() -> int:
