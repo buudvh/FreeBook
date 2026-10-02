@@ -15,6 +15,15 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.487 — Phase 3–5: cạnh gọi mới (backend Core ML + fallback ORT)
+
+* `VieNeuTTSEngine.prepareLocked` → `VieNeuBackendFactory.make(...)` ⇒ `BackendChoice`; dựng ORT làm `fallbackRuntime` khi Core ML được chọn.
+* `VieNeuTTSEngine.runChunk` → `backend.runChunk(...)` trong `try/catch`; Core ML ném ⇒ log `[VieNeuFallback]` → `fallbackRuntime.runChunk(...)` **cho chunk đó**.
+* `VieNeuTTSService.enableCoreML` → `VieNeuModelClient.prefetchCoreML` → `VieNeuCoreMLCompiler.compileAll` → `VieNeuBackendSelfTest.run` (fail ⇒ `reset()`).
+* `VieNeuTTSService.useCoreML.set` → `engine.setRequestedCoreML(...)` + `TTSManager.shared.invalidateVieNeuBackend()`.
+* `VieNeuModelManagerView` (`coreMLBinding`) → `service.enableCoreML()` rồi **toast ở tầng View** (`ToastManager.shared` — Service không gọi, luật `SERVICE_TOAST_COUPLING`).
+* `VieNeuCoreMLRuntime` → `VieNeuBucketSelector` (chọn bucket) · `VieNeuGoldenNPZ` → `VieNeuNPZReader`.
+
 ## 1.3.470 — revert: gỡ mọi cạnh gọi của đợt CoreML
 
 * Gỡ: ô "Số luồng" → `reloadVieNeuEngine` → `reloadEngine` → `unload()`/`prepare()` → `invalidateVieNeuPrefetch`.

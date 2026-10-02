@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.487 — Phase 3–5: phân hệ VieNeu-TTS có thêm tầng backend
+
+* `VieNeuTTSEngine` không còn gắn cứng `VieNeuONNXRuntime`: nay `backend: VieNeuInferenceBackend?` (chọn bởi `VieNeuBackendFactory`) + `fallbackRuntime` ORT luôn trú.
+* Đường suy luận một chunk: `VieNeuBucketSelector` chọn bucket `T ∈ {64,96,234}` → `VieNeuCoreMLRuntime.runChunk`; lỗi ⇒ ORT chunk đó.
+* Vòng đời gói: `VieNeuModelClient.prefetchCoreML` (tải, ghim sha) → `VieNeuCoreMLCompiler.compileAll` → `VieNeuBackendSelfTest` (golden SNR) → `VieNeuModelStore.coreMLReady`.
+* UI: màn `Model VieNeu` là **một nguồn sự thật** cho toggle + 8 gói + tự test; Section 3 Cài đặt TTS chỉ link.
+
 ## 1.3.470 — REVERT TOÀN BỘ: phân hệ VieNeu trở về đúng 1.3.465
 
 * Toàn bộ đợt thí nghiệm backend (1.3.466 → 1.3.469) đã bị **gỡ sạch**: không còn đăng ký EP, không còn công tắc, không còn cầu nối log ORT, không còn đường nạp lại engine.

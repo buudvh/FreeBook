@@ -9,49 +9,6 @@ import UIKit
 /// `VieNeuTTSEngine+Adaptive`.
 extension VieNeuTTSTestView {
     @ViewBuilder
-    var modelSection: some View {
-        Section {
-            if service == nil {
-                Text("Không dựng được kho model VieNeu (thư mục Application Support không ghi được).")
-                    .font(.footnote)
-                    .foregroundStyle(Color.red)
-            } else if isModelReady {
-                LabeledContent("Trạng thái", value: "Đã tải đủ 8 file")
-                LabeledContent("Dung lượng", value: formattedBytes(store?.totalBytes ?? 0))
-            } else {
-                LabeledContent("Còn thiếu", value: "\(store?.missingNames.count ?? 0) file")
-                Text("Cần tải khoảng 343 MB: 4 graph ONNX + `config.json` + `constants.npz` từ HuggingFace, `voices_v3_nano.json` và `sea_g2p.bin` từ GitHub. Cả ba nguồn đều **ghim sha** nên tác giả đổi file cũng không làm app hỏng. Gói graph **nhân bản giọng** (~91 MB) là tuỳ chọn, tải riêng ở “Giọng của tôi”.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            if isDownloading {
-                ProgressView(value: downloadProgress) {
-                    Text(downloadMessage)
-                        .font(.caption)
-                }
-            } else if !isModelReady {
-                Button {
-                    download()
-                } label: {
-                    Label("Tải model VieNeu", systemImage: "arrow.down.circle")
-                }
-                .disabled(service == nil)
-            } else {
-                Button(role: .destructive) {
-                    deleteModel()
-                } label: {
-                    Label("Xoá model", systemImage: "trash")
-                }
-            }
-        } header: {
-            Text("Model")
-        } footer: {
-            Text("Engine local, chạy hoàn toàn trên máy. Giọng đọc không nằm trong file model mà là hai mảng số trong `voices_v3_nano.json`, nên 11 giọng dùng chung một bộ graph. Gói graph **nhân bản giọng** (~91 MB, 3 file) là **tuỳ chọn**: chỉ cần khi bạn muốn tạo giọng mới từ audio mẫu — vào “Giọng của tôi” để tải riêng.")
-        }
-    }
-
-    @ViewBuilder
     var voiceSection: some View {
         Section("Giọng đọc") {
             if voices.isEmpty {

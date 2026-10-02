@@ -9,12 +9,16 @@ import SwiftUI
 /// Vì tách file, `availableVoices` của view chính phải hạ từ `private` xuống `internal` (Swift giới hạn
 /// `private` theo file).
 extension TTSSettingsView {
-    /// Model VieNeu đã tải đủ chưa — quyết định có cho chọn `vieneu` trong Picker hay không.
+    /// Model VieNeu đã sẵn sàng chưa — quyết định có cho chọn `vieneu` trong Picker hay không.
     ///
     /// Quyết định grill #2: **chặn ở Picker**. Chọn rồi mới biết không dùng được là trải nghiệm tệ, mà
     /// model thì 343 MB nên không thể tải ngầm.
+    ///
+    /// **Phases 3–5**: thêm `|| coreMLReady` (plan §5.6) — nếu user chỉ tải Core ML (không ONNX) thì UI
+    /// không bị khoá ở Picker lẫn lối vào giọng nhân bản.
     var vieNeuModelReady: Bool {
-        VieNeuTTSService.shared?.modelStore.isReady ?? false
+        let store = VieNeuTTSService.shared?.modelStore
+        (store?.isReady ?? false) || (store?.coreMLReady ?? false)
     }
 
     /// Dòng Picker cho VieNeu + lối tải model khi còn thiếu.
@@ -25,14 +29,27 @@ extension TTSSettingsView {
         }
     }
 
-    /// Lối tải model, hiện ngay dưới Picker khi chưa có model.
+    /// Lối vào màn **Model VieNeu** (toggle Core ML + 8 gói + tự test). Luôn hiện (phương án C,
+    /// plan §3): Section 3 **không** đặt toggle, chỉ là link. Sublabel động theo trạng thái bộ máy.
     @ViewBuilder
     var vieNeuDownloadRow: some View {
-        if !vieNeuModelReady {
-            NavigationLink(destination: VieNeuTTSTestView()) {
-                Label("Tải model VieNeu-TTS (343 MB)", systemImage: "arrow.down.circle")
+        NavigationLink(destination: VieNeuModelManagerView()) {
+            VStack(alignment: .leading, spacing: 4) {
+                Label("Model VieNeu", systemImage: "cpu")
+                Text(vieNeuModelManagerSublabel)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
+    }
+
+    /// Sublabel động của link `Model VieNeu ›`: cho biết bộ máy nào đang hiệu lực.
+    private var vieNeuModelManagerSublabel: String {
+        let store = VieNeuTTSService.shared?.modelStore
+        if VieNeuTTSService.shared?.useCoreML == true {
+            return (store?.coreMLReady ?? false) ? "Core ML · ONNX" : "Core ML · đang tải…"
+        }
+        return "ONNX (mặc định)"
     }
 
     /// Danh sách giọng của VieNeu.

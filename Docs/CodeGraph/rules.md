@@ -15,6 +15,14 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.487 — Phase 3–5: ghi chú luật cho backend Core ML
+
+* **Trần 400 + mẫu `X+Feature.swift`**: hai extension mới (`VieNeuTTSEngine+Backend` 23, `VieNeuTTSService+CoreML` 58) tồn tại **chỉ vì** file chính đã chạm/nhích trần.
+* **`private` theo file**: extension ở file khác cần `internal` ⇒ `VieNeuTTSEngine.engine`/`VieNeuTTSService.engine` hạ `private`→`internal`; `VieNeuTTSService.store` giữ `private`, extension dùng `modelStore`.
+* **Services không SwiftUI, không `ToastManager.shared`**: `enableCoreML()` trả `(passed, detail)`; toast ở View.
+* **Bẫy Core ML kiểu dữ liệu** (đừng thử lại): `ids`→Int32, `ctx_mask`→Int32, `time` scalar; shape đóng băng ở bucket `T`; `L` đệm 200.
+* **`AppLogger.shared.log`**, không `print`; `CancellationError` không tính là fail tổng hợp.
+
 ## 1.3.470 — revert: Luật 20/21/22 mất hiệu lực, Luật 23 giữ lại
 
 * **Mất hiệu lực** (code đã gỡ, không còn gì để áp): Luật 20 (thứ tự nhả ngữ cảnh ORT) · Luật 21 (đổi cấu hình session phải có đường nạp lại) · Luật 22 (cache của EP tách theo cấu hình).

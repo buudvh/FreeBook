@@ -15,6 +15,14 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.487 — Phase 3–5: vòng đời tài nguyên Core ML
+
+* **Nạp/nhả `MLModel` theo bucket**: giữ cả 3 `vector_estimator` (≈234 MB) + `codec_decoder` là ≈383 MB ⇒ `VieNeuCoreMLRuntime` nạp theo nhu cầu, nhả sau (U7), không giữ hết.
+* **ORT luôn trú**: khi Core ML bật, ORT **không** unload — cần cho "rớt từng đoạn".
+* **Đĩa**: `CoreML/<name>.mlpackage` (8 gói, 397,8 MB) + `CoreML/Compiled/<name>.mlmodelc`; `.mlmodelc` mất ⇒ biên dịch lại **không** tải lại.
+* **Invalidate khi đổi backend**: `TTSManager.invalidateVieNeuBackend()` hủy refill, bỏ preload sau đoạn hiện tại, xoá `preparedNext`, huỷ prefetch, làm mới cửa sổ nếu đang phát.
+* Xoá gói: `VieNeuModelStore.deleteCoreML()` + `VieNeuBackendSelfTest.reset()` + tắt `useCoreML` ⇒ về ONNX.
+
 ## 1.3.470 — revert: hết mọi tài nguyên của đợt CoreML
 
 * Không còn cache CoreML nào được tạo; không còn callback log C sống suốt tiến trình; không còn đường nhả ngữ cảnh ORT.

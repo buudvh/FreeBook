@@ -15,6 +15,14 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.487 — Phase 3–5: luật phụ thuộc cho backend Core ML
+
+* Chiều **Views → Services**: `VieNeuModelManagerView` gọi `VieNeuTTSService`; **không** `modelContext.insert/delete/save` trong View.
+* **Service không toast**: `VieNeuTTSService.enableCoreML()` trả `(passed, detail)`, `useCoreML` chỉ ghi `UserDefaults` + báo engine; **toast nằm ở View** (`coreMLBinding`) — đúng luật `SERVICE_TOAST_COUPLING`.
+* **Service không `import SwiftUI`**: các file mới trong `Services/TTS/VieNeu/` chỉ `import Foundation` (+ CoreML/Accelerate khi cần).
+* **`private` giới hạn theo file**: `VieNeuTTSService+CoreML` (file riêng) truy cập `engine` (đã nới `internal`) + `modelStore` (computed `internal`); `store` giữ `private`.
+* Trần 400: `VieNeuTTSEngine+Backend` (23) và `VieNeuTTSService+CoreML` (58) sinh ra **vì trần dòng** — mẫu `X+Feature.swift`.
+
 ## 1.3.470 — revert: trả lại mức truy cập `private`
 
 * 7 thành viên của `VieNeuTTSEngine` và `engine` của `VieNeuTTSService` trở lại `private` (không còn file `+Reload` nào cần đọc chéo file).

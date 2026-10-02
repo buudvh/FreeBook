@@ -15,6 +15,13 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.487 — Phase 3–5: hồ sơ độ phức tạp (độ dài file)
+
+* **11 file mới, tất cả ≤ 400**: `VieNeuCoreMLRuntime` **303** · `VieNeuGoldenNPZ` **187** · `VieNeuModelManagerView+Sections` **160** · `VieNeuBackendSelfTest` **155** · `VieNeuInferenceBackend` **124** · `VieNeuModelManagerView` **100** · `VieNeuBackendFactory` **63** · `VieNeuTTSService+CoreML` **58** · `VieNeuCoreMLCompiler` **49** · `VieNeuBucketSelector` **30** · `VieNeuTTSEngine+Backend` **23**.
+* **`VieNeuTTSEngine.swift` 400 → 357** (chuyển `makeNullBranch` ra `+Backend.swift`).
+* **`VieNeuTTSService.swift` 398** (tách `useCoreML`/`enableCoreML` ra `+CoreML.swift` — không chạm trần 400).
+* Cổng `check_architecture.py`: **5 violation nền, 0 mới** (5 file legacy vượt baseline: ChapterPersistenceStore, JSDom, JSExecutor, TTSManager, ReaderViewModel).
+
 ## 1.3.470 — revert: về đúng 639 file và đúng số dòng của 1.3.465
 
 * Validator: **641 → 639** file Swift (xoá 2 file `+Reload`).

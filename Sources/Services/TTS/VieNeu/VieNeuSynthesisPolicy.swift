@@ -140,6 +140,25 @@ enum VieNeuSynthesisPolicy {
         return max(synthesisSpeedRange.lowerBound, min(synthesisSpeedRange.upperBound, raw))
     }
 
+    // MARK: - Core ML (bucket tĩnh, Phases 3–5)
+
+    /// Khoá `UserDefaults` bật/tắt Core ML. **Mặc định TẮT** (user chốt 2026-10-02): Core ML là thử
+    /// nghiệm (~1,4×, chưa đo máy thật), tốn 398 MB, và chỉ làm primary khi tự test đạt. Đọc bằng
+    /// `UserDefaults.bool(forKey:)` ⇒ thiếu khoá trả `false` (đúng mặc định), nên **không** cần hàm
+    /// `bool(forKey:) == nil ? true : …`.
+    static let coreMLEnabledKey = "vieneuCoreMLEnabled"
+
+    /// Khoá kết quả tự test Core ML — ghi bởi `VieNeuBackendSelfTest`, đọc bởi `VieNeuBackendFactory`.
+    /// Gộp về đây (thay vì nằm rải rác trong self-test enum) để giữ **một nguồn sự thật** (luật dự án).
+    static let coreMLSelfTestPassedKey = "vieneuCoreMLSelfTestPassed"
+    static let coreMLSelfTestSNRKey = "vieneuCoreMLSelfTestSNR"
+    static let coreMLSelfTestDateKey = "vieneuCoreMLSelfTestDate"
+    static let coreMLSelfTestMachineKey = "vieneuCoreMLSelfTestMachine"
+    static let coreMLSelfTestOSKey = "vieneuCoreMLSelfTestOSVersion"
+
+    /// Khoá "đã hỏi user migrate lên Core ML" — dùng sau này nếu muốn nhắc bật thử nghiệm. Mặc định `false`.
+    static let coreMLMigrationAskedKey = "vieneuCoreMLMigrationAsked"
+
     // MARK: - Luật đổi chế độ
 
     /// RTF ≥ ngưỡng này coi là "đuối". Đo bằng `synthSeconds / audioSeconds`, cùng định nghĩa với

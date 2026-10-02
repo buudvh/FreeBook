@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.487 — Phase 3–5: trạng thái Core ML
+
+* **`UserDefaults`** (`VieNeuSynthesisPolicy`): `vieneuCoreMLEnabled` (**thiếu khoá = `false`** — mặc định TẮT) · `vieneuCoreMLSelfTestPassed` · `vieneuCoreMLSelfTestSNR` · `vieneuCoreMLSelfTestDate` · `vieneuCoreMLSelfTestMachine` · `vieneuCoreMLSelfTestOSVersion` · `vieneuCoreMLMigrationAsked`. Khoá định nghĩa **một chỗ** ở policy; `VieNeuBackendSelfTest` tham chiếu lại (không khai trùng).
+* **Engine**: `backend: VieNeuInferenceBackend?` (primary) + `fallbackRuntime: VieNeuONNXRuntime?` (luôn có khi Core ML bật) — đổi từ `runtime: VieNeuONNXRuntime?` đơn nhất.
+* **Đĩa**: `CoreML/` (8 `.mlpackage`) + `CoreML/Compiled/<name>.mlmodelc`; `coreMLReady` = 8 gói đã compile.
+* Bật/tắt giữa lúc đọc ⇒ `TTSManager.invalidateVieNeuBackend()` giữ đoạn hiện tại, nạp lại từ đoạn kế (không khựng, không sai tốc độ).
+
 ## 1.3.470 — revert: gỡ `@State` của đợt CoreML
 
 * Gỡ `@State vieNeuEngineReloading` (trạng thái "đang nạp lại engine"); `TTSSettingsView` trở về đúng tập `@State` của 1.3.465.

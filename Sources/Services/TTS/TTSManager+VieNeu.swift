@@ -182,6 +182,28 @@ extension TTSManager {
         updateNghiPrefetchWindow()
     }
 
+    /// Đổi bộ máy suy luận **giữa lúc đang đọc** (bật/tắt Core ML): phát nốt đoạn hiện tại, nạp lại phần
+    /// còn lại bằng bộ máy mới.
+    ///
+    /// Cùng bốn việc phải làm với `invalidateVieNeuSynthesisSpeed()` (sao chép nguyên xi khung đó): huỷ
+    /// các lượt đang bay, bỏ đệm từ đoạn **sau** đoạn hiện tại, xoá `preparedNext`, huỷ prefetch chương
+    /// kế. Khác một chỗ: thay vì đổi tốc độ tổng hợp, engine đã được `VieNeuTTSService` gọi
+    /// `setRequestedCoreML(_:)` để xoá backend dưới lock — lượt `prepareLocked` kế tiếp dựng lại theo
+    /// bộ máy mới (Core ML primary + ORT fallback, hoặc ngược lại). Không đụng `nghiAudioPlayerQueue`
+    /// của đoạn đang phát ⇒ không khựng (đúng quyết định "đợi hết đoạn đang phát, áp từ đoạn kế").
+    internal func invalidateVieNeuBackend() {
+        guard tool == "vieneu" else { return }
+        AppLogger.shared.log("[TTSRoute] doi backend Core ML = \(VieNeuTTSService.shared?.useCoreML == true ? "bat" : "tat") (giu doan \(currentParagraphIndex), nap lai tu doan \(currentParagraphIndex + 1))")
+        cancelNghiRefill()
+        let keepUpTo = currentParagraphIndex
+        preloadedData = preloadedData.filter { $0.key <= keepUpTo }
+        preloadedDurations = preloadedDurations.filter { $0.key <= keepUpTo }
+        nghiAudioPlayerQueue.clearPreparedNext()
+        nextChapterPrefetcher.cancel()
+        guard isPlaying else { return }
+        updateNghiPrefetchWindow()
+    }
+
     /// Đặt lại tham số "Tải trước dữ liệu" cho **engine đang chọn**.
     ///
     /// Gom về đây (thay vì để chuỗi `if/else` trong header của `Section` ở `TTSSettingsView`) vì hai lý do:

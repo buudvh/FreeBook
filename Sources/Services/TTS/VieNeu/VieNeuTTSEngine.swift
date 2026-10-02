@@ -84,15 +84,26 @@ final class VieNeuTTSEngine: @unchecked Sendable {
     let store: VieNeuModelStore
     let lock = NSLock()
 
-    private var runtime: VieNeuONNXRuntime?
+    /// Bộ máy chính (ORT hoặc Core ML). Thay `runtime: VieNeuONNXRuntime?` (Phases 4–5) để hỗ trợ
+    /// chuyển bộ máy tại runtime và rớt từng đoạn về ORT.
+    private var backend: VieNeuInferenceBackend?
+    /// Bộ máy fallback (luôn là ORT khi Core ML được chọn) — rớt từng đoạn khi Core ML lỗi (plan §2 Q2).
+    private var fallbackRuntime: VieNeuONNXRuntime?
     private var config: VieNeuConfig?
     var catalog: VieNeuVoiceCatalog?
     private var phonemizer: SeaG2P?
-    /// `ctx` của nhánh vô điều kiện (CFG) — không phụ thuộc giọng lẫn văn bản nên tính một lần.
+    /// `ctx` của nhánh vô điều kiện (CFG) của **primary** — shape do bộ máy quyết định (ORT động / Core ML 200).
     /// Giữ **cả shape** vì shape đó do model quyết định, không suy được từ `config.json`.
     private var nullContext: [Float] = []
     private var nullContextShape: [Int64] = []
     private var nullMask: [UInt8] = []
+    /// Null branch của **fallback ORT** — cần shape riêng (`L = 2`) nên không dùng được null branch của
+    /// Core ML (vốn là `L = 200`). Chỉ có giá trị khi `fallbackRuntime != nil`.
+    private var fallbackNullContext: [Float] = []
+    private var fallbackNullContextShape: [Int64] = []
+    private var fallbackNullMask: [UInt8] = []
+    /// Toggle Core ML do người dùng chọn (đọc khi nạp engine). Mặc định `false` (plan §2 Q1).
+    private var requestedCoreML = false
 
     // Trạng thái thích nghi — `+Adaptive` đọc/ghi, nên phải `internal` chứ không `private`.
     var droppedScalarWarningShown = false
@@ -130,11 +141,27 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         return config?.sampleRate ?? 24_000
     }
 
-    /// `true` khi 4 session ONNX đã nạp xong. Màn thử giọng dùng nó để biết lượt phát đầu tiên phải chờ
-    /// nạp engine (~3 s đọc 4 graph + 62,8 MB `sea_g2p.bin`) hay không.
+    /// `true` khi bộ máy (ORT hoặc Core ML) đã nạp xong. Màn thử giọng dùng nó để biết lượt phát đầu tiên
+    /// phải chờ nạp engine (~3 s đọc 4 graph + 62,8 MB `sea_g2p.bin`) hay không.
     var isPrepared: Bool {
         lock.lock(); defer { lock.unlock() }
-        return runtime != nil
+        return backend != nil
+    }
+
+    /// Đổi yêu cầu bộ máy (toggle Core ML). Gọi từ tầng trên (`TTSManager`/`VieNeuTTSService`) để vô hiệu
+    /// đệm backend — lượt `prepareLocked` kế tiếp dựng lại theo `requestedCoreML` mới. Giữ lock để không
+    /// đua với `synthesize` đang giữ lock.
+    func setRequestedCoreML(_ enabled: Bool) {
+        lock.lock(); defer { lock.unlock() }
+        requestedCoreML = enabled
+        backend = nil
+        fallbackRuntime = nil
+        nullContext = []
+        nullContextShape = []
+        nullMask = []
+        fallbackNullContext = []
+        fallbackNullContextShape = []
+        fallbackNullMask = []
     }
 
     // MARK: - Nạp
@@ -147,48 +174,45 @@ final class VieNeuTTSEngine: @unchecked Sendable {
     }
 
     private func prepareLocked() throws {
-        guard runtime == nil else { return }
+        guard backend == nil else { return }
         let missing = store.missingNames
-        guard missing.isEmpty else { throw EngineError.modelMissing(missing) }
+        // ONNX (`isReady`) là bắt buộc, **trừ khi** user đã tải riêng Core ML (`coreMLReady`): lúc đó Core ML
+        // chạy một mình (không có ORT fallback). Xem `VieNeuBackendFactory.make`.
+        guard missing.isEmpty || store.coreMLReady else { throw EngineError.modelMissing(missing) }
 
-        // Dựng **hết** vào biến cục bộ rồi mới gán. Gán từng cái như bản đầu là mở đường cho trạng thái
-        // nửa vời: `runtime` đã có mà `config` chưa ⇒ `isPrepared` nói dối, mọi lượt sau nhảy qua bước
-        // nạp, và lỗi thật bị che bởi một guard ở tầng dưới ("Graph runtime…"). Đúng chuyện đã xảy ra
-        // khi `NPZReader` còn đọc sai kích thước entry. `nullContext`/`nullMask`/`nullSpeaker`/`nullStyle`
-        // là **bất biến suốt vòng đời engine** (chỉ gán đúng một lần ở đây; engine không có `unload`) ⇒
-        // tensor cache của A2b an toàn (buffer nguồn sống lâu hơn tensor; `VieNeuORTDestroy` giải phóng cache).
-        let newRuntime = try VieNeuONNXRuntime(modelStore: store, threadCount: VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard))
+        // Dựng **hết** vào biến cục bộ rồi mới gán (xem doc cũ). `nullContext`/`nullMask`/`nullSpeaker`/
+        // `nullStyle` là **bất biến suốt vòng đời engine** (chỉ gán đúng một lần ở đây; engine không có
+        // `unload`) ⇒ tensor cache của A2b an toàn. Factory luôn dựng ORT làm fallback khi Core ML bật.
         let newConfig = try VieNeuConfig.load(modelStore: store)
         let newCatalog = try VieNeuVoiceCatalog.load(modelStore: store)
         let newPhonemizer = try SeaG2P(binURL: store.url(for: "sea_g2p.bin"))
-        let nullBranch = try Self.makeNullBranch(runtime: newRuntime, config: newConfig)
+        let choice = try VieNeuBackendFactory.make(
+            store: store, config: newConfig, useCoreML: requestedCoreML,
+            threadCount: VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard)
+        )
+        let newBackend = choice.primary
+        let newFallback = choice.fallback
 
-        runtime = newRuntime
+        let nullBranch = try Self.makeNullBranch(backend: newBackend, config: newConfig)
+        // Null branch riêng cho fallback ORT (shape `L = 2`, khác null branch Core ML `L = 200`).
+        var fallbackNull: (context: [Float], shape: [Int64], mask: [UInt8])? = nil
+        if let fallback = newFallback {
+            fallbackNull = try Self.makeNullBranch(backend: fallback, config: newConfig)
+        }
+
+        backend = newBackend
+        fallbackRuntime = newFallback
         config = newConfig
         catalog = newCatalog
         phonemizer = newPhonemizer
         nullContext = nullBranch.context
         nullContextShape = nullBranch.shape
         nullMask = nullBranch.mask
+        fallbackNullContext = fallbackNull?.context ?? []
+        fallbackNullContextShape = fallbackNull?.shape ?? []
+        fallbackNullMask = fallbackNull?.mask ?? []
 
-        AppLogger.shared.log("🎙️ [VieNeu] Nạp xong engine: \(newCatalog.presets.count) giọng, threads=\(VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard))")
-    }
-
-    /// Nhánh **vô điều kiện** của CFG: chạy `text_encoder` với đúng `[bos, eos]` và `null_style`.
-    ///
-    /// Là hàm `static` nhận tham số (thay vì method đọc trạng thái của `self`) để `prepareLocked` chỉ
-    /// phải gán trạng thái **sau khi** biết chắc mọi bước đều đã thành công.
-    private static func makeNullBranch(
-        runtime: VieNeuONNXRuntime,
-        config: VieNeuConfig
-    ) throws -> (context: [Float], shape: [Int64], mask: [UInt8]) {
-        let context = try runtime.textEncoder(
-            ids: [config.bosID, config.eosID],
-            style: config.constants.nullStyle,
-            styleRows: config.nStyle,
-            styleColumns: config.styleDim
-        )
-        return (context.values, context.shape, [1, 1])
+        AppLogger.shared.log("🎙️ [VieNeu] Nạp xong engine: \(newCatalog.presets.count) giọng, backend=\(newBackend.backendID), threads=\(VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard))")
     }
 
     // MARK: - Tổng hợp
@@ -206,7 +230,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         defer { lock.unlock() }
         try prepareLocked()
 
-        guard let runtime, let config, let catalog, let phonemizer else {
+        guard let backend, let config, let catalog, let phonemizer else {
             throw EngineError.notPrepared
         }
         guard let preset = catalog.preset(named: voiceName) ?? catalog.defaultPreset else {
@@ -228,7 +252,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         )
         let started = ProcessInfo.processInfo.systemUptime
         // Bộ đếm churn tính từ đầu lượt này (không tích luỹ qua các lượt) để con số ứng đúng đoạn đang đọc.
-        runtime.resetChurnCounters()
+        backend.resetChurnCounters()
 
         var waveforms: [[Float]] = []
         var gaps: [Chunk.Gap] = []
@@ -251,7 +275,6 @@ final class VieNeuTTSEngine: @unchecked Sendable {
                 preset: preset,
                 tuning: tuning,
                 speed: speed,
-                runtime: runtime,
                 config: config,
                 timing: &timing
             ))
@@ -303,98 +326,32 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         )
     }
 
-    /// Một chunk phoneme → PCM. Toàn bộ phần "dịch" số học của bản tham chiếu nằm ở đây.
+    /// Một chunk phoneme → PCM. Toàn bộ đường ống 4 bước nằm ở `vieNeuOrchestrateChunk`
+    /// (dùng chung ORT lẫn Core ML). Ở đây chỉ **uỷ quyền** cho bộ máy chính và **bọc try/catch** để
+    /// rớt từng đoạn về ORT khi Core ML ném (plan §2 Q2) — không khựng, không im lặng toàn chương.
     private func runChunk(
         ids: [Int64],
         preset: VieNeuVoiceCatalog.Preset,
         tuning: VieNeuSynthesisPolicy.Tuning,
         speed: Double,
-        runtime: VieNeuONNXRuntime,
         config: VieNeuConfig,
         timing: inout Timing
     ) throws -> [Float] {
-        // Số token không cần biến riêng: `mask` lấy từ `ids`, còn shape của `ctx` đọc từ model.
-        let mask = ids.map { $0 == config.padID ? UInt8(0) : UInt8(1) }
-
-        let chunkStarted = ProcessInfo.processInfo.systemUptime
-
-        // 1. text_encoder → ctx, kèm **shape thật** để hai bước sau dùng lại
-        let context = try runtime.textEncoder(
-            ids: ids,
-            style: preset.style,
-            styleRows: config.nStyle,
-            styleColumns: config.styleDim
-        )
-
-        // 2. duration_predictor → số giây
-        let logSeconds = try runtime.durationPredictor(
-            context: context.values,
-            contextShape: context.shape,
-            mask: mask,
-            speaker: preset.speakerEmbedding
-        )
-        let seconds = min(exp(Double(logSeconds)) / max(speed, 1e-3), VieNeuConfig.maxChunkSeconds)
-        let frames = max(VieNeuConfig.minFrames, Int((seconds * config.flowFPS).rounded(.toNearestOrEven)))
-
-        // 3. Vòng Euler + CFG
-        var latent = [Float](repeating: 0, count: config.latentChannels * frames)
-        Self.fillStandardNormal(&latent)
-        let steps = max(1, tuning.steps)
-        let grid = Self.timeGrid(steps: steps, sway: tuning.sway)
-
-        let vectorStarted = ProcessInfo.processInfo.systemUptime
-
-        for step in 0..<steps {
-            try Task.checkCancellation()
-            let conditioned = try runtime.vectorEstimator(
-                latent: latent,
-                time: Float(grid[step]),
-                context: context.values,
-                contextShape: context.shape,
-                mask: mask,
-                speaker: preset.speakerEmbedding,
-                style: preset.style,
-                styleRows: config.nStyle,
-                styleColumns: config.styleDim,
-                latentChannels: config.latentChannels,
-                frames: frames
+        guard let backend else { throw EngineError.notPrepared }
+        do {
+            return try backend.runChunk(
+                ids: ids, preset: preset, tuning: tuning, speed: speed, config: config,
+                nullContext: nullContext, nullContextShape: nullContextShape, nullMask: nullMask,
+                timing: &timing
             )
-            var velocity = conditioned
-            if tuning.cfg > 0 {
-                let unconditioned = try runtime.vectorEstimatorUnconditioned(
-                    latent: latent, time: Float(grid[step]), nullContext: nullContext,
-                    nullContextShape: nullContextShape, nullMask: nullMask,
-                    nullSpeaker: config.constants.nullSpeaker, nullStyle: config.constants.nullStyle,
-                    styleRows: config.nStyle, styleColumns: config.styleDim,
-                    latentChannels: config.latentChannels, frames: frames
-                )
-                // v = vu + cfg × (v − vu)
-                for index in velocity.indices {
-                    velocity[index] = unconditioned[index]
-                        + tuning.cfg * (velocity[index] - unconditioned[index])
-                }
-            }
-            let delta = Float(grid[step + 1] - grid[step])
-            for index in latent.indices {
-                latent[index] += delta * velocity[index]
-            }
+        } catch {
+            guard let fallback = fallbackRuntime else { throw error }
+            AppLogger.shared.log("⚠️ [VieNeuFallback] Core ML lỗi chunk: \(error.localizedDescription) — rớt về ORT.")
+            return try fallback.runChunk(
+                ids: ids, preset: preset, tuning: tuning, speed: speed, config: config,
+                nullContext: fallbackNullContext, nullContextShape: fallbackNullContextShape,
+                nullMask: fallbackNullMask, timing: &timing
+            )
         }
-
-        // 4. codec_decoder → PCM
-        let waveform = try runtime.codecDecoder(
-            latent: latent,
-            latentChannels: config.latentChannels,
-            frames: frames
-        )
-        // `otherMs` = phần còn lại của chunk, đo bằng `chunkMs - vectorMs` chứ **không** đo riêng
-        // text_encoder/codec rồi cộng (đo cả chunk mà không trừ là đếm phần vector hai lần).
-        let vectorMs = (ProcessInfo.processInfo.systemUptime - vectorStarted) * 1_000
-        let chunkMs = (ProcessInfo.processInfo.systemUptime - chunkStarted) * 1_000
-        timing.vectorMs += vectorMs
-        timing.otherMs += max(0, chunkMs - vectorMs)
-        // Phụ trợ ở bridge C, cộng dồn cả đoạn (RTF không phản ánh phần này — xem doc `Timing`).
-        (timing.tensorCreates, timing.tensorReleases, timing.copiedBytes) = runtime.churnSnapshot
-
-        return Self.trimAndFade(waveform, sampleRate: config.sampleRate)
     }
 }

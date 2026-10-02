@@ -15,6 +15,36 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.487 — Phase 3–5: 11 file mới, 10 file sửa — tích hợp Core ML bucket tĩnh vào VieNeu-TTS
+
+| Nhóm | File | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Mới | [`VieNeuInferenceBackend.swift`](../../Sources/Services/TTS/VieNeu/VieNeuInferenceBackend.swift) | `protocol` khớp 7 thành viên `VieNeuONNXRuntime` + `backendID` | 124 |
+| Mới | [`VieNeuCoreMLRuntime.swift`](../../Sources/Services/TTS/VieNeu/VieNeuCoreMLRuntime.swift) | nạp N `MLModel`; `ids`/`ctx_mask`→Int32, `time` scalar; nạp/nhả theo bucket | 303 |
+| Mới | [`VieNeuBucketSelector.swift`](../../Sources/Services/TTS/VieNeu/VieNeuBucketSelector.swift) | `frames` → bucket nhỏ nhất ≥ trong `{64,96,234}` | 30 |
+| Mới | [`VieNeuCoreMLCompiler.swift`](../../Sources/Services/TTS/VieNeu/VieNeuCoreMLCompiler.swift) | `MLModel.compileModel` `.mlpackage` → `.mlmodelc`, idempotent | 49 |
+| Mới | [`VieNeuBackendFactory.swift`](../../Sources/Services/TTS/VieNeu/VieNeuBackendFactory.swift) | chọn `BackendChoice { primary, fallback }` | 63 |
+| Mới | [`VieNeuBackendSelfTest.swift`](../../Sources/Services/TTS/VieNeu/VieNeuBackendSelfTest.swift) | golden SNR ≥ 30 dB; ghi `UserDefaults` | 155 |
+| Mới | [`VieNeuGoldenNPZ.swift`](../../Sources/Services/TTS/VieNeu/VieNeuGoldenNPZ.swift) | đọc `golden/T{n}.npz` | 187 |
+| Mới | [`VieNeuTTSEngine+Backend.swift`](../../Sources/Services/TTS/VieNeu/VieNeuTTSEngine+Backend.swift) | `makeNullBranch` rời file chính (giải phóng trần 400) | 23 |
+| Mới | [`VieNeuTTSService+CoreML.swift`](../../Sources/Services/TTS/VieNeu/VieNeuTTSService+CoreML.swift) | `useCoreML` + `enableCoreML()` (tách khỏi file chính) | 58 |
+| Mới | [`VieNeuModelManagerView.swift`](../../Sources/Views/Settings/TTS/VieNeuModelManagerView.swift) | màn `Model VieNeu` (toggle + 8 gói + tự test) | 100 |
+| Mới | [`VieNeuModelManagerView+Sections.swift`](../../Sources/Views/Settings/TTS/VieNeuModelManagerView+Sections.swift) | khối `Form` + `coreMLBinding` (toast ở View) | 160 |
+| Sửa | [`VieNeuModelStore.swift`](../../Sources/Services/TTS/VieNeu/VieNeuModelStore.swift) | `coreMLURL`/`coreMLReady`/`coreMLTotalBytes` (đệ quy)/`deleteCoreML`; `url(for:)` 3 nhánh | 245 |
+| Sửa | [`VieNeuModelClient.swift`](../../Sources/Services/TTS/VieNeu/VieNeuModelClient.swift) | `coreMLSources`/`prefetchCoreML`; `expectedSha`+`expectedBytes` | 306 |
+| Sửa | [`VieNeuTTSEngine.swift`](../../Sources/Services/TTS/VieNeu/VieNeuTTSEngine.swift) | `backend: VieNeuInferenceBackend?` + `fallbackRuntime`; factory ở `prepareLocked`; fallback ở `runChunk` | 357 |
+| Sửa | [`VieNeuTTSService.swift`](../../Sources/Services/TTS/VieNeu/VieNeuTTSService.swift) | tách Core ML sang `+CoreML.swift` | 398 |
+| Sửa | [`VieNeuSynthesisPolicy.swift`](../../Sources/Services/TTS/VieNeu/VieNeuSynthesisPolicy.swift) | khoá `vieneuCoreML*` (mặc định TẮT) | 205 |
+| Sửa | [`VieNeuONNXRuntime.swift`](../../Sources/Services/TTS/VieNeu/VieNeuONNXRuntime.swift) | conform `VieNeuInferenceBackend` | 346 |
+| Sửa | [`TTSManager+VieNeu.swift`](../../Sources/Services/TTS/TTSManager+VieNeu.swift) | `invalidateVieNeuBackend()` (khuôn `invalidateVieNeuSynthesisSpeed`) | 308 |
+| Sửa | [`TTSSettingsView+VieNeu.swift`](../../Sources/Views/TTSWidget/TTSSettingsView+VieNeu.swift) | `vieNeuDownloadRow` → link `Model VieNeu`; `isReady \|\| coreMLReady` | 349 |
+| Sửa | [`VieNeuTTSTestView.swift`](../../Sources/Views/Settings/TTS/VieNeuTTSTestView.swift) | bỏ `modelSection`/`download`/`deleteModel`; `isModelReady \|\| coreMLReady` | 339 |
+| Sửa | [`VieNeuTTSTestView+Sections.swift`](../../Sources/Views/Settings/TTS/VieNeuTTSTestView+Sections.swift) | bỏ `modelSection` (đã chuyển sang `Model VieNeu`) | 227 |
+
+* **`VieNeuTTSEngine.swift` 400 → 357**: `makeNullBranch` chuyển ra `+Backend.swift` — bắt buộc vì file đang đúng trần 400 (R6 của plan).
+* **`VieNeuTTSService.swift` giữ 398**: `useCoreML` + `enableCoreML()` tách sang `+CoreML.swift` để không chạm trần 400.
+* `Sources/**/*.swift` **639 → 650**.
+
 ## 1.3.470 — revert: xoá 2 file `+Reload`
 
 * **Xoá**: `VieNeuTTSEngine+Reload` (44) · `VieNeuTTSService+Reload` (36).

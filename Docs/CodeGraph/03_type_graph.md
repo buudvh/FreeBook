@@ -15,6 +15,18 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.487 — Phase 3–5: kiểu mới cho backend Core ML
+
+* **`protocol VieNeuInferenceBackend`** (mới) — mặt chung của bộ máy suy luận; `VieNeuONNXRuntime` (L động) và `VieNeuCoreMLRuntime` (L đóng băng 200, T∈{64,96,234}) cùng thỏa. Có `backendID: String` + `runChunk(...)`.
+* **`VieNeuCoreMLRuntime`** (class, mới) — nạp N `MLModel`; **bẫy kiểu**: `ids`→Int32, `ctx_mask`→Int32 (Core ML khai INT32/FLOAT32, ONNX int64/bool), `time` scalar 0 chiều.
+* **`VieNeuBackendFactory`** + `BackendChoice { primary: VieNeuInferenceBackend, fallback: VieNeuONNXRuntime? }` (mới).
+* **`VieNeuBucketSelector`** (mới) — `frames` → chỉ số bucket `{64,96,234}`.
+* **`VieNeuCoreMLCompiler`** (mới) — `MLModel.compileModel`; **`VieNeuBackendSelfTest`** (+ `Report`) — SNR/`passed`.
+* **`VieNeuGoldenNPZ`** (mới) — đọc `golden/T{n}.npz` (dùng `VieNeuNPZReader`).
+* **`VieNeuModelManagerView`** (struct View, mới) + extension `+Sections`.
+* Extension mới: `VieNeuTTSEngine+Backend`, `VieNeuTTSService+CoreML`.
+* `VieNeuTTSEngine`: `runtime: VieNeuONNXRuntime?` → `backend: VieNeuInferenceBackend?` + `fallbackRuntime: VieNeuONNXRuntime?`.
+
 ## 1.3.470 — revert: gỡ hết API của đợt CoreML
 
 * **Gỡ**: `VieNeuORTSetLogCallback` + `VieNeuORTLogCallback` + trampoline log · `VieNeuTTSEngine.unload()` · `VieNeuTTSService.reloadEngine(reason:)` · `TTSManager.invalidateVieNeuPrefetch(reason:)` (**trở lại** tên cũ `invalidateVieNeuSynthesisSpeed()`).

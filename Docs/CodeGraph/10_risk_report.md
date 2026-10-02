@@ -15,6 +15,20 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.487 — Phase 3–5: rủi ro của backend Core ML
+
+| # | Rủi ro | Mức | Giảm thiểu |
+|---|---|---|---|
+| R1 | Hệ số ~1,4× là **suy luận** (chưa đo ORT 2 luồng trên iPhone) | **Cao** | Tự test + toast khi fail; điều kiện hoàn thành ≥ 1,3× trên máy thật (U1) |
+| R2 | `isReady` khoá UI nếu chỉ tải Core ML | **Cao** | `isReady \|\| coreMLReady` ở mọi chỗ (§5.6) |
+| R3 | `MLModel.compileModel` lâu (~398 MB) | Vừa | Biên dịch lúc tải (có tiến độ), idempotent |
+| R4 | RAM nạp hết ≈ 383 MB | Vừa | Nạp/nhả theo bucket (U7) |
+| R5 | Chọn bucket sai ⇒ chunk ngắn chậm hơn ORT | Vừa | Lưới theo bình quân có trọng số |
+| R6 | Vượt trần 400 dòng `VieNeuTTSEngine.swift` | **Chắc chắn** | Đã chuyển `makeNullBranch` ra `+Backend.swift` **trước** (357) |
+| R7 | Chưa chốt nạp/nhả hay giữ hết | Vừa | Đo RAM máy thật (U7) |
+
+* **Chưa kiểm chứng biên dịch trên Windows** — `check_architecture.py` `[PASS]` không phải bằng chứng build.
+
 ## 1.3.470 — revert: rủi ro vòng đời engine biến mất
 
 * **Gỡ toàn bộ** đường `unload()`/`reloadEngine` ⇒ không còn thao tác nhả ngữ cảnh ORT lúc chạy, tức không còn rủi ro giải phóng tensor cache khi buffer nguồn đang được `Run` dùng.

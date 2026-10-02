@@ -53,7 +53,7 @@ struct VieNeuTTSTestView: View {
         TTSManager.shared.isPlaying || TTSManager.shared.showFloatingWidget
     }
 
-    var isModelReady: Bool { store?.isReady ?? false }
+    var isModelReady: Bool { (store?.isReady ?? false) || (store?.coreMLReady ?? false) }
 
     var canPlay: Bool {
         isModelReady
@@ -66,7 +66,6 @@ struct VieNeuTTSTestView: View {
 
     var body: some View {
         Form {
-            modelSection
             voiceSection
             japaneseDictionarySection
             textSection
@@ -141,51 +140,6 @@ struct VieNeuTTSTestView: View {
             selectedVoice = voices.first(where: { $0.name == service.defaultVoiceName })?.name
                 ?? voices.first?.name
                 ?? ""
-        }
-    }
-
-    func download() {
-        guard let service else { return }
-        isDownloading = true
-        isError = false
-        statusMessage = ""
-        let client = VieNeuModelClient(store: service.modelStore)
-        Task {
-            do {
-                _ = try await client.prefetch { message, fraction in
-                    Task { @MainActor in
-                        downloadMessage = message
-                        downloadProgress = fraction
-                    }
-                }
-                await MainActor.run {
-                    isDownloading = false
-                    statusMessage = "Tải xong model VieNeu."
-                    loadVoices()
-                }
-            } catch {
-                await MainActor.run {
-                    isDownloading = false
-                    isError = true
-                    statusMessage = "Tải thất bại: \(error.localizedDescription)"
-                }
-            }
-        }
-    }
-
-    func deleteModel() {
-        guard let service else { return }
-        stopPlayback()
-        do {
-            try service.modelStore.deleteAll()
-            voices = []
-            selectedVoice = ""
-            lastReport = ""
-            statusMessage = "Đã xoá model VieNeu."
-            isError = false
-        } catch {
-            isError = true
-            statusMessage = "Xoá thất bại: \(error.localizedDescription)"
         }
     }
 

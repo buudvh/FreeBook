@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.487] - 2026-10-02
+
+### feat: tich hop Core ML bucket tinh vao engine VieNeu-TTS (Phase 3-5)
+
+Phases 3–5 của plan `Docs/Plans/2026-10-02-plan-vieneu-coreml-phases-3-5.md` — nối 8 gói Core ML bucket tĩnh (đã publish sạch ở Phase 1–2, `raikiri1498/VieNeu-TTS-v3-Nano-CoreML`, 397,8 MB) vào app. Phase 0 (shape động) đã chốt **FAIL** ở `1.3.472–1.3.475` nên đây là đường duy nhất còn lại.
+
+- **Thêm 11 file Swift** (`Sources/**/*.swift` **639 → 650**); `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%** (`--accept` **12** doc).
+- **Phase 3 — tầng dữ liệu**: `VieNeuModelStore` thêm `coreMLURL`/`coreMLPackageNames`/`coreMLReady`/`coreMLTotalBytes` (**đệ quy** — `byteCount(of:)` dùng `fileSizeKey` không đệ quy nên không dùng được cho `.mlpackage`)/`deleteCoreML`, `url(for:)` thành **3 nhánh**; `VieNeuModelClient` thêm `coreMLSources`/`prefetchCoreML` + `expectedSha`/`expectedBytes` (bắt file cụt **và** sai sha — trước chỉ kiểm `size > 0`). `VieNeuCoreMLCompiler` (`MLModel.compileModel` → `.mlmodelc`, idempotent) · `VieNeuBucketSelector` (`frames` → bucket `{64,96,234}`).
+- **Phase 4 — tầng engine**: protocol `VieNeuInferenceBackend` (khớp **7** thành viên `VieNeuONNXRuntime`) ⇒ `VieNeuCoreMLRuntime` (nạp N `MLModel`; **`ids`/`ctx_mask`→Int32**, `time` scalar; nạp/nhả theo bucket) và `VieNeuONNXRuntime` cùng thỏa; `VieNeuBackendFactory` trả `BackendChoice { primary, fallback: VieNeuONNXRuntime? }`; `VieNeuBackendSelfTest` + `VieNeuGoldenNPZ` (golden SNR ≥ 30 dB; đo 45–49,5 dB). `VieNeuTTSEngine`: `runtime` → `backend` + `fallbackRuntime`; `runChunk` bọc `try/catch` ⇒ **rớt riêng đoạn đó về ORT** (Q2). `makeNullBranch` chuyển ra `+Backend.swift` (file chính 400 → **357**, R6).
+- **Phase 5 — nối dây + UI**: khoá `vieneuCoreML*` ở `VieNeuSynthesisPolicy` (mặc định **TẮT**); `VieNeuTTSService.useCoreML`/`enableCoreML()` (tách ra `+CoreML.swift`, file chính giữ **398**); `TTSManager.invalidateVieNeuBackend()`; màn mới `VieNeuModelManagerView` (+`+Sections`) chứa toggle + 8 gói + tự test; `VieNeuTTSTestView` bỏ phần model; Section 3 Cài đặt TTS thành **link** `Model VieNeu`. Gate `isReady` → `isReady || coreMLReady` ở **mọi** chỗ (R2).
+- **Ba quyết định sản phẩm** (grill 2026-10-02): Core ML **tắt mặc định** · **rớt từng đoạn về ORT** · UI gom **màn riêng**.
+- ⚠️ **Chưa đo trên máy thật** — hệ số ~1,4× là **suy luận** (R1/U1); điều kiện hoàn thành là ≥ 1,3× trên iPhone. **Không có Swift toolchain trên Windows** ⇒ không khẳng định đã kiểm chứng biên dịch.
+- **Không đụng** `VieNeuONNXBridge.m/.h`, thuật toán tổng hợp (`steps`/`sway`/`cfg`/chunking), `@Model`/SwiftData.
+
+---
+
 ## [1.3.486] - 2026-10-02
 
 ### feat: sinh 7 goi CoreML bucket tinh va publish len HuggingFace bang OIDC
@@ -13,6 +29,8 @@ Vòng sửa thứ ba của Phase 2 — **dọn rác trên repo HF vẫn chưa xo
 - **Gỡ job `dynamic` (Phase 0) khỏi workflow**: Phase 0 đã KẾT LUẬN FAIL (xem `Docs/Reports/research-2026-10-02-vieneu-coreml-shape-dong.md`) ⇒ chạy lại mỗi push chỉ tốn ~40 phút CI và kéo dài thời gian xác minh. Workflow giờ chỉ còn `convert` (baseline) + `bucket` (Phase 2). Cập nhật luôn header comment.
 - **Bài học OIDC**: dưới Trusted Publishers, **không dùng `hf auth token`** để lấy token cho Python API — nó rỗng. Mọi thao tác cần auth (upload, xoá, list) phải qua `hf` CLI (tự exchange) hoặc truyền token OIDC trực tiếp. Đã ghi vào `01_project.md`.
 - **Không đụng `Sources/`** — `Sources/**/*.swift` vẫn 639 file. Lượt này chỉ sửa `.github/workflows/convert-coreml.yml` + tài liệu.
+
+---
 
 ## [1.3.485] - 2026-10-02
 
@@ -28,6 +46,8 @@ Vòng sửa thứ hai của Phase 2. Lượt trước publish được gói, nh�
 - **Không đụng `Sources/`** — `Sources/**/*.swift` vẫn 639 file. Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%** (`--accept 01_project.md`).
 - **Chưa build được trên Windows** ⇒ không khẳng định đã kiểm chứng biên dịch; lượt này không đổi mã Swift.
 
+---
+
 ## [1.3.484] - 2026-10-02
 
 ### feat: sinh 7 goi CoreML bucket tinh va publish len HuggingFace bang OIDC
@@ -42,6 +62,8 @@ Vòng sửa sau lượt CI đầu của Phase 2 (`37016482886`). ⚠️ **Lượ
 - **Không đụng `Sources/`** — `Sources/**/*.swift` vẫn 639 file. Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%** (`--accept 01_project.md`).
 - **Chưa build được trên Windows** ⇒ không khẳng định đã kiểm chứng biên dịch; lượt này không đổi mã Swift.
 
+---
+
 ## [1.3.483] - 2026-10-02
 
 ### feat: sinh 7 goi CoreML bucket tinh va publish len HuggingFace bang OIDC
@@ -54,6 +76,8 @@ Phase 2 của plan `Docs/Plans/2026-10-02-plan-vieneu-coreml-bucket-tinh.md`. **
 - **Publish bằng Trusted Publishers (OIDC)**: job `bucket` có `permissions: id-token: write` + `contents: read`, `HF_OIDC_RESOURCE=raikiri1498/VieNeu-TTS-v3-Nano-CoreML`, `hf upload …`. **Không có secret nào.** Publish **chỉ khi sinh đủ 7 gói** — bộ thiếu gói còn tệ hơn không phát hành, vì app sẽ tải về rồi mới phát hiện thiếu.
 - **Không đụng `Sources/`** — `Sources/**/*.swift` vẫn 639 file. Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%** (`--accept 01_project.md`).
 - **Chưa build được trên Windows** ⇒ không khẳng định đã kiểm chứng biên dịch; lượt này không đổi mã Swift.
+
+---
 
 ## [1.3.482] - 2026-10-02
 
@@ -69,6 +93,8 @@ Chỉ tài liệu — lượt này **không** đổi mã, chốt R1 sau lượt 
 - **Cách chốt con số**: so `rtf` trước/sau khi bật Core ML, với **mốc nền đo hôm nay = `rtf` trung vị 0,420** (p10 0,380 · p90 0,480) — phép so sạch nhất, không cần giả định.
 - **Không đụng `Sources/`** — `Sources/**/*.swift` vẫn 639 file. Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%**.
 
+---
+
 ## [1.3.481] - 2026-10-02
 
 ### chore: them quet L cho ORT (D7) de go nhieu khi so rtf may that voi so CI
@@ -82,6 +108,8 @@ Bước 1 của hướng A. **Không đụng `Sources/`.**
 - **`.github/workflows/convert-coreml.yml`** (141 → 148 dòng): bước `Verdict` in thêm bảng quét `L`.
 - **Không đụng `Sources/`** — `Sources/**/*.swift` vẫn 639 file. Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%** (`--accept 01_project.md`).
 - **Chưa build được trên Windows** ⇒ không khẳng định đã kiểm chứng biên dịch; lượt này không đổi mã Swift.
+
+---
 
 ## [1.3.480] - 2026-10-02
 
@@ -97,6 +125,8 @@ Chỉ tài liệu — lượt này **không** đổi mã, chốt tham số cuố
 - ⚠️ **Dao động giữa các lượt chạy**: cùng bucket `t64`, lượt trước đo `vector_estimator` **1,47×**, lượt này **2,12×**. Runner `Apple M1 (Virtual)` 3 core dùng chung ⇒ chênh dưới ~20 % không đọc là thật. Vì vậy **R1 (đo trên iPhone thật)** vẫn là việc bắt buộc trước khi tin con số nào.
 - **Không đụng `Sources/`** — `Sources/**/*.swift` vẫn 639 file. Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%**.
 
+---
+
 ## [1.3.479] - 2026-10-02
 
 ### chore: Phase 1 huong A - do them bucket t32/t96/t128 cho luoi CoreML
@@ -111,6 +141,8 @@ Phase 1 của plan `Docs/Plans/2026-10-02-plan-vieneu-coreml-bucket-tinh.md` (h�
 - **Không đụng `Sources/`** — `Sources/**/*.swift` vẫn 639 file. Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%**.
 - **Chưa build được trên Windows** ⇒ không khẳng định đã kiểm chứng biên dịch; lượt này không đổi mã Swift.
 
+---
+
 ## [1.3.478] - 2026-10-02
 
 ### docs: ghi so do cuoi cua Phase 0 CoreML (FAIL) vao CHANGELOG
@@ -122,6 +154,8 @@ Chỉ tài liệu — lượt này **không** đổi mã, chỉ chốt lại b�
 - ⇒ Đường torch hỏng vì **hai** lý do độc lập: (1) **không shape động**; (2) **chất lượng gói kém hơn**. Điều này làm hướng "viết lại converter `Reshape` của `onnx2torch`" **khó hơn** so với lúc viết plan: sửa được shape động vẫn còn phải sửa cả chất lượng gói.
 - **Báo cáo đầy đủ**: `Docs/Reports/research-2026-10-02-vieneu-coreml-shape-dong.md` (gitignored).
 - **Trạng thái**: Phase 0 đã đóng với `FAIL`; theo quyết định #6 của plan, **dừng và chờ quyết định** giữa ba hướng (bucket 384–512 MB · viết lại converter onnx2torch · bỏ Core ML).
+
+---
 
 ## [1.3.477] - 2026-10-02
 
@@ -135,6 +169,8 @@ Vòng dọn cuối của Phase 0 (đã chốt `FAIL` ở 1.3.475). `golden` vẫ
 - **Không đụng `Sources/`** — `Sources/**/*.swift` vẫn 639 file. Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%**.
 - **Chưa build được trên Windows** ⇒ không khẳng định đã kiểm chứng biên dịch; lượt này không đổi mã Swift.
 
+---
+
 ## [1.3.476] - 2026-10-02
 
 ### chore: sua golden stage CoreML + bo .github/workflows/** khoi paths cua build-ipa
@@ -146,6 +182,8 @@ Vòng dọn sau khi Phase 0 đã chốt `FAIL` (1.3.475). Hai việc độc lậ
 - **`01_project.md` cập nhật theo**: hai chỗ ghi *"`build-ipa.yml` có `paths: '.github/workflows/**'` nên push file này cũng kích hoạt build IPA"* nay đã hết hiệu lực, sửa thành ghi chú lịch sử có mốc ngày. Ghi rõ thêm: `01_project.md` vẫn khai `.github/workflows/*.yml` trong `sourcePatterns`, nên thay đổi file workflow **vẫn** làm doc này stale — đó là chủ ý của validator, không phải hệ quả của `build-ipa.yml`.
 - **Không đụng `Sources/`** — `Sources/**/*.swift` vẫn 639 file. Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%**.
 - **Chưa build được trên Windows** ⇒ không khẳng định đã kiểm chứng biên dịch; lượt này không đổi mã Swift.
+
+---
 
 ## [1.3.475] - 2026-10-02
 
@@ -162,6 +200,8 @@ Vòng sửa thứ ba, và là vòng **chốt kết luận**. Lượt CI #3 (`369
 - **Không đụng `Sources/`** — `Sources/**/*.swift` vẫn 639 file. Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%**.
 - **Chưa build được trên Windows** ⇒ không khẳng định đã kiểm chứng biên dịch; lượt này không đổi mã Swift.
 
+---
+
 ## [1.3.474] - 2026-10-02
 
 ### chore: them Phase 0 tham do shape dong cho mlpackage CoreML (khong dung Sources/)
@@ -176,6 +216,8 @@ Vòng sửa thứ hai. Lượt CI #2 (`36997384879`) **xanh** và cho ra bảng 
 - **Bảng chẩn đoán lượt CI #2 (giữ nguyên, vẫn đúng)**: `o2c_original` — `text_encoder`/`vector_estimator` chặn bởi `Range` (1 và 6 node), `duration_predictor`/`codec_decoder` chặn bởi `input has a dynamic or unknown dimension` ⇒ `onnx2coreml` **đòi shape tĩnh**, đo chứ không chỉ đọc tài liệu. `o2c_surgery` — gỡ `Range` rồi vẫn chặn vì chiều động. `torch_original` — `text_encoder`/`vector_estimator` chặn bởi `Clip` bỏ trống `max`. `duration_predictor` — đường torch chạy được và **giữ được chiều động** (đầu ra là scalar nên không có op phụ thuộc shape).
 - **Không đụng `Sources/`** — `Sources/**/*.swift` vẫn 639 file. Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%**.
 - **Chưa build được trên Windows** ⇒ không khẳng định đã kiểm chứng biên dịch; lượt này không đổi mã Swift.
+
+---
 
 ## [1.3.473] - 2026-10-02
 
@@ -192,6 +234,8 @@ Vòng sửa sau lượt CI đầu. Job `dynamic` **xanh nhưng `verdict = FAIL`*
 - **Số liệu bucket dự phòng lượt trước (giữ nguyên, vẫn đúng)**: 3 mức × 2 graph = **384,0 MB**; tại bucket `t234`: `vector_estimator` **2,87×** (383,3 → 133,6 ms, SNR 45,4 dB), `codec_decoder` **1,23×** (916,1 → 746,3 ms, SNR 49,3 dB).
 - **Không đụng `Sources/`** — `Sources/**/*.swift` vẫn 639 file. Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%**.
 - **Chưa build được trên Windows** ⇒ không khẳng định đã kiểm chứng biên dịch; lượt này không đổi mã Swift.
+
+---
 
 ## [1.3.472] - 2026-10-02
 
@@ -212,6 +256,8 @@ Cổng của plan `Docs/Plans/2026-10-02-plan-vieneu-coreml-engine-trong-app.md`
 - **Không đụng `Sources/`** — `Sources/**/*.swift` vẫn 639 file. Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%**.
 - **Chưa build được trên Windows** (không có Swift toolchain) ⇒ không có khẳng định "đã kiểm chứng biên dịch"; lượt này cũng không đổi mã Swift nên không cần.
 
+---
+
 ## [1.3.471] - 2026-10-02
 
 ### chore: them workflow thi nghiem convert ONNX sang mlpackage (CoreML) tren runner macOS
@@ -225,6 +271,8 @@ Thí nghiệm **một lần**, không đụng `Sources/`. Mục tiêu: trả l�
 - **Đã kiểm chứng cục bộ phần không cần coremltools**: `freeze_shapes` cho model nạp được trong ORT với shape tĩnh đúng thiết kế và `Run` trả `[1,144,96]`.
 - Tiêu chí chốt trước: convert được **và** SNR ≥ 20 dB **và** Core ML nhanh hơn ORT ≥ 1,3× ⇒ mới bàn tới việc viết engine mới trong app. Trượt cổng nào thì ghi vào báo cáo nghiên cứu và **dừng nhánh CoreML**.
 
+---
+
 ## [1.3.470] - 2026-10-02
 
 ### revert: dua toan bo phan VieNeu ve dung moc truoc khi them CoreML EP
@@ -236,6 +284,8 @@ Người dùng: *"sao bạn không revert code mà về trước khi thêm corem
 - **Xoá 2 file**: `VieNeuTTSEngine+Reload.swift` (44) · `VieNeuTTSService+Reload.swift` (36). Validator: **641 → 639** file Swift.
 - **Trở lại như cũ**: 7 thành viên engine + `engine` của service về `private`; `VieNeuONNXRuntime.init(modelStore:threadCount:)`; `createBaseContext` dùng `CreateEnv`; tên hàm `invalidateVieNeuSynthesisSpeed()`; ô "Số luồng" + caption trở về hành vi cũ.
 - **Kết luận kỹ thuật vẫn giữ** (không bị revert, đã ghi trong `Docs/Reports/`): int8 · fp16 · CoreML EP · XNNPACK EP · nén thời lượng — **tất cả đều không dùng được** cho `VieNeu-TTS v3 Nano` + ORT 1.24.2. `rules.md` **Luật 23** giữ lại (đừng thử lại CoreML EP); Luật 20/21/22 mất hiệu lực vì code đã gỡ.
+
+---
 
 ## [1.3.469] - 2026-10-02
 
@@ -251,6 +301,8 @@ Tiếp sau 3 lượt đo CoreML EP trên máy thật (1.3.466 → 1.3.468): **c�
 - **Luật 23** (`rules.md`): đừng thử lại CoreML EP cho model Nano, kèm bài học chung khi thử một EP mới cho đường phát (công tắc tắt được + tiêu chí đo chốt trước + log của backend vào được `AppLogger`).
 - **Trần dòng lùi mạnh**: `VieNeuONNXRuntime.swift` 400 → **341** · `VieNeuONNXBridge.m` 1257 → **1187** · `VieNeuONNXBridge.h` 219 → **196** · `VieNeuSynthesisPolicy.swift` 199 → **187** · `TTSSettingsView+VieNeu.swift` 398 → **361**; còn **2** file chạm trần 400 (`VieNeuTTSEngine.swift`, `VieNeuTTSService.swift`).
 
+---
+
 ## [1.3.468] - 2026-10-02
 
 ### fix: CoreML EP ep shape tinh van ra tieng nhieu - chuyen MLComputeUnits sang CPUOnly de chan doan
@@ -261,6 +313,8 @@ Người dùng: *"phát ra toàn tiếng nhiễu, không có tiếng việt"* (l
 - **Đổi `MLComputeUnits` → `CPUOnly`** (bước **chẩn đoán**): CoreML trên CPU là đường **không mất độ chính xác** (fp32) ⇒ nếu audio **đúng** thì thủ phạm là **fp16/ANE**; nếu **vẫn nhiễu** thì lỗi ở **semantics/phân mảnh của EP**. Không phải để dùng thật — CoreML trên CPU chắc chắn chậm hơn ORT CPU.
 - **Cache**: hậu tố đổi thành `CoreMLCache-staticShapes-cpuOnly`; **cả hai** thế hệ cache cũ (`CoreMLCache`, `CoreMLCache-staticShapes`) bị dọn một lần theo danh sách tên (Luật 22).
 - **Trần dòng**: `VieNeuONNXRuntime.swift` giữ **đúng 400** (đã vượt 402 khi thêm chú thích và phải nén lại — lần sau **tách file trước**) · `VieNeuONNXBridge.m` 1252 → **1257**.
+
+---
 
 ## [1.3.467] - 2026-10-02
 
@@ -274,6 +328,8 @@ Người dùng: *"hoàn toàn không phát ra tiếng"* sau khi bật công tắ
 - **Luật 22** (`rules.md`): cache của execution provider phải tách theo cấu hình EP.
 - Công tắc vẫn **mặc định TẮT**; khôi phục nếu vẫn im tiếng: gạt công tắc về TẮT (engine tự nạp lại bằng CPU).
 - **Trần dòng**: `VieNeuONNXRuntime.swift` 390 → **400** (chạm trần — lần sau phải tách file trước) · `VieNeuONNXBridge.m` 1245 → **1252**.
+
+---
 
 ## [1.3.466] - 2026-10-02
 
@@ -290,6 +346,8 @@ Nối tiếp nghiên cứu nhóm C (`Docs/Reports/research-2026-10-02-vieneu-nho
 - **Trần dòng**: `VieNeuTTSEngine.swift` giữ **đúng 400** (chỉ đổi `private`→`internal` và nối thêm tham số vào dòng có sẵn) · `VieNeuTTSService.swift` 398 → **400** (lần sau phải tách file trước) · `TTSSettingsView.swift` 458 → **462**.
 - **Chưa kết luận**: tiêu chí đã chốt trước khi đo — *ăn* nếu `rtf` giảm ≥ 20 % và audio không lệch tai nghe; lượt đo đầu tiên bị loại vì còn thời gian Core ML biên dịch.
 
+---
+
 ## [1.3.465] - 2026-10-02
 
 ### feat: them thanh Toc do tong hop cho VieNeu-TTS de giam tai CPU va giam nhiet
@@ -303,6 +361,8 @@ Người dùng: *"Tôi muốn tối ưu thêm VieuNeu-TTS để giảm nhiệt, 
 - **Đổi lúc đang đọc**: phát nốt đoạn hiện tại (`invalidateVieNeuSynthesisSpeed()` huỷ nạp trước, lọc `preloadedData`, `clearPreparedNext()`), áp từ đoạn kế ⇒ không khựng.
 - **Trần dòng**: `TTSSettingsView.swift` kẹt **519/519** ⇒ Section 4 chuyển nguyên sang file mới `TTSSettingsView+Voice.swift` (**90**), file chính **519 → 458**. `TTSManager.swift` giữ **3970** (gộp hai dòng tham số để bù).
 
+---
+
 ## [1.3.464] - 2026-10-01
 
 ### feat: dat hop thoai Tron/Thay the vao nut nhap vao tu dien sau phien am lai, revert duong nhap tu file va ve lai UI danh sach tron
@@ -314,6 +374,8 @@ Người dùng: *"ý tôi là sau khi bấm vào nhấp vào từ điển sau kh
 - **`RephoneticizeTask.applyMerged(_:)`** — đường áp kiểu trộn. `apply()` và nó cùng đi qua một helper `write(_:)` ⇒ hai đường không thể lệch ở bước sao lưu hay bước dọn file kết quả + meta. `RephoneticizeService.normalizedKey(_:target:)` và `currentWords(for:)` hạ `private` → `internal`.
 - **Màn danh sách trộn vẽ lại (hướng C).** Mỗi dòng hai tầng — `khoá` đậm, rồi `cách đọc hiện tại → cách đọc mới` trên **cùng một dòng**; **chạm cả dòng** để chọn/bỏ (bỏ `Toggle`); chip `N trùng · M thêm mới · K giữ nguyên`; ô tìm kiếm + `Chọn hết` / `Bỏ chọn hết`. Màn **tự đọc** từ điển đang dùng trong `Task.detached` (không nhận ảnh chụp từ caller) để mục bị bỏ chọn không bị ghi đè bằng giá trị cũ.
 - **Revert 100% đường nhập từ file** về code trước 1.3.462: VieNeu **trộn** (bản nhập thắng), NghiTTS **ghi đè toàn bộ** (ghi plist trực tiếp + `loadResources()`, **không** backup, có lại `parseCSV` riêng). **Xoá** `DictionaryImportFlowModifier.swift`; giữ `DictionaryImportParser` + `DictionaryImportDiff` vì màn trộn dùng.
+
+---
 
 ## [1.3.463] - 2026-10-01
 
@@ -424,34 +486,3 @@ Sửa lỗi UX người dùng báo: *"bấm vào nút tạo giọng nói nó kh�
 - **File sửa**: `VieNeuVoiceLibraryView.swift` 372 → **385**; `VieNeuVoiceLibraryView+Sections.swift` 201 → **208** (cả hai < 400); `DictionaryHubView.swift` **199 → 199** (chỉ đổi thứ tự khối).
 - **Ràng buộc đã đo**: `check_architecture.py` **5 violation nền / 0 mới**; `validate_links.py` **PASS 100%**.
 - **Tài liệu CodeGraph**: `11_subsystems.md` **accept** (thêm mục 1.3.458).
-
----
-
-## [1.3.457] - 2026-10-01
-
-### fix: ep che do cao cho giong clone va sua cai dat TTS luon hien mac dinh
-
-Sửa lỗi biên dịch CI của lượt `[1.3.456]` — **giữ nguyên commit subject cho lần push sửa CI**.
-
-- **Đúng một lỗi thật trong log CI** (`Build and Archive App (Unsigned)`, exit 65): `VieNeuVoiceCatalog.swift:32:45: error: type 'VieNeuVoiceCatalog.Preset' has no member 'customGender'`.
-- **Nguyên nhân**: `var isCloned` nằm **trong** `struct Preset` lồng nhau, nên `Self` = `Preset` — mà `customGender` là hằng của `VieNeuVoiceCatalog` (type ngoài). Phải viết tường minh `VieNeuVoiceCatalog.customGender`. Đây là bẫy `Self` trong type lồng nhau, **không** liên quan đến giới hạn `private` theo file.
-- **Sửa**: đúng một dòng. `VieNeuVoiceCatalog.swift` **153 → 153** (không đổi số dòng).
-- **Ràng buộc đã đo**: `check_architecture.py` **5 violation nền / 0 mới**; `validate_links.py` **PASS 100% (16 doc, 624 file Swift)**.
-- **Tài liệu CodeGraph**: sửa cơ học ⇒ `04_call_graph`, `10_risk_report`, `11_subsystems`, `13_resource_lifecycle`, `rules` **no-change-needed** (mô tả trong doc vẫn đúng).
-
----
-
-## [1.3.456] - 2026-10-01
-
-### fix: ep che do cao cho giong clone va sua cai dat TTS luon hien mac dinh
-
-Hai việc: (1) người dùng thử **16 bước** và báo *"khá hơn chút"* nhưng *"âm sắc vẫn chưa giống lắm"* ⇒ yêu cầu phần clone **luôn** dùng chất lượng cao bất kể cài đặt; (2) vào Cài đặt TTS từ tab Cài đặt **luôn hiện giá trị mặc định** (bật Tiết kiệm pin) dù đã đổi.
-
-- **⭐ Đối chiếu nguyên văn với upstream — pipeline nhân bản KHÔNG có lỗi.** Đã tải mã nguồn thật ở revision đã ghim (`v3nano.py`, `fbank.py`, `onnx_extractor.py`, `audio_utils.py`) và `config.json`: `_load_mono` (mean kênh) · fbank 80-mel 16 kHz `mean_norm` · `_group_latent` · cắt `min(int(5×15,625), 140)` · `ref_mask` toàn 1 — **khớp hoàn toàn**. `speaker_encoder.embed` cũng đúng (không L2-normalize, không chia đoạn). `config.json` thật: `steps_default = 16`, `cfg_default = 3,0`, `ref_max_frames = 140`, `latent_scale = 0,25`. Vòng tổng hợp (`infer`) cũng khớp từng dòng, kể cả `max_chars = 140` / `max_seconds = 15` / `min_frames = 2`. Denoiser của upstream là **tuỳ chọn** (`None` ⇒ vẫn nhân bản được) nên việc app bỏ qua không phải lỗi.
-- **Vậy thủ phạm là số bước Euler**: "Tiết kiệm pin" **mặc định BẬT** (`isPowerSaving`: khoá absent ⇒ `true`) và `VieNeuTTSService.swift:138` ép `.fast` (8 bước / `sway = -1`) bất kể người dùng chọn `.high`; có `requestedMode != nil` thì engine còn **không tự thích nghi**. Vòng Euler là nơi áp dụng **toàn bộ điều kiện hoá** (x-vector + `style`) nên 8 bước làm âm sắc không bám mẫu.
-- **Sửa 1**: `VieNeuSynthesisPolicy.effectiveMode(requested:current:isClonedVoice:)` — giọng clone (`Preset.isCloned`) trả **`.high`** (16 bước / `sway = 0` / `cfg = 3,0` = đúng mặc định của model). Gọi ở `VieNeuTTSEngine.swift:216` ⇒ phủ cả "Nghe thử" lẫn đọc truyện. Đánh đổi: gấp đôi tính toán ⇒ máy nóng hơn — có chủ ý.
-- **Sửa 2 (lỗi UI)**: `TTSSettingsView` giữ `vieNeuPowerSaving` / `vieNeuThreadCount` trong `@State` khởi tạo **một lần** lúc View dựng, mà lúc đó `VieNeuTTSService.shared` có thể chưa tồn tại ⇒ `?? true` rơi về mặc định; và **không bao giờ** được làm mới (trước đây chỉ `vieNeuSelectedMode` được làm mới trong `.onChange(of: ttsManager.tool)`). Thêm `refreshVieNeuSettings()` (`TTSSettingsView+VieNeu.swift`) đọc thẳng `UserDefaults` trong `.onAppear`.
-- **Chuyển khoá** `vieneuPreferredMode` từ `VieNeuTTSService` sang `VieNeuSynthesisPolicy` (cùng chỗ với `powerSavingKey`/`threadCountKey`) để màn Cài đặt đọc được **không cần service**.
-- **File sửa**: `VieNeuTTSEngine.swift` **400 → 400** (đổi đúng 1 dòng), `VieNeuTTSService.swift` 394 → **389**, `VieNeuSynthesisPolicy.swift` 126 → **149**, `VieNeuVoiceCatalog.swift` 148 → **153**, `TTSSettingsView+VieNeu.swift` 189 → **206**, `TTSSettingsView.swift` 513 → **516** (trần 519).
-- **Ràng buộc đã đo**: `check_architecture.py` **5 violation nền / 0 mới**; `validate_links.py` **PASS 100% (16 doc, 624 file Swift)**.
-- **Tài liệu CodeGraph**: `11_subsystems.md` + `rules.md` **accept** (thêm Luật 10/11/12); `03_type_graph`, `04_call_graph`, `05_state_graph`, `10_risk_report`, `13_resource_lifecycle` **no-change-needed** (sửa cơ học, mô tả vẫn đúng).

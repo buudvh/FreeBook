@@ -33,7 +33,7 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
     }()
 
     private let store: VieNeuModelStore
-    private let engine: VieNeuTTSEngine
+    let engine: VieNeuTTSEngine
     private let syncQueue = DispatchQueue(label: "VieNeuTTSService.sync")
     private var _currentVoice: String?
     private var _lastDroppedScalars = 0

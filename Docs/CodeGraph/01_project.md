@@ -15,6 +15,14 @@ Tài liệu này phác thảo kiến trúc tổng thể, sơ đồ thư mục, c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.487 — Phase 3–5: tích hợp Core ML (bucket tĩnh) vào engine VieNeu-TTS
+
+* **Thêm 11 file Swift** (`Sources/**/*.swift` **639 → 650**). 8 gói `.mlpackage` tĩnh đã publish ở Phase 2 (397,8 MB, OIDC) nay có đường vào app: `VieNeuModelStore`/`VieNeuModelClient` tải gói + ghim sha/bytes từ `manifest.json`; `VieNeuCoreMLCompiler` biên dịch `.mlpackage` → `.mlmodelc` **lúc tải xong** (idempotent); `VieNeuBackendSelfTest` chạy `golden/T{64,96,234}.npz` so SNR (ngưỡng 30 dB; đo 45–49,5 dB) rồi mới cho chọn primary.
+* **Kiến trúc backend**: protocol `VieNeuInferenceBackend` (khớp 7 thành viên `VieNeuONNXRuntime`) ⇒ `VieNeuONNXRuntime` và `VieNeuCoreMLRuntime` cùng thỏa; `VieNeuBackendFactory` trả `BackendChoice { primary, fallback: VieNeuONNXRuntime? }`. `VieNeuTTSEngine.runChunk` bọc `try/catch`: Core ML ném ⇒ log `[VieNeuFallback]` + chạy ORT **cho chunk đó** (Q2).
+* **Ba quyết định sản phẩm**: Core ML **tắt mặc định** · **rớt từng đoạn về ORT** · UI gom vào **màn riêng** `Model VieNeu` (Section 3 Cài đặt TTS chỉ là link).
+* ⚠️ **Rủi ro đã ghi**: hệ số ~1,4× là **suy luận** (chưa đo ORT 2 luồng trên iPhone — R1/U1) ⇒ điều kiện hoàn thành là **đo được ≥ 1,3× trên máy thật**, không thì dừng và báo cáo. `isReady` khoá UI nếu chỉ tải Core ML ⇒ đổi thành `isReady || coreMLReady` ở **mọi** chỗ dùng (R2).
+* **Không đụng** `VieNeuONNXBridge.m/.h`, thuật toán tổng hợp, `@Model`/SwiftData. Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%**. Chưa build được trên Windows.
+
 ## 1.3.479–1.3.483 — hướng A (bucket tĩnh): đo tham số, chốt lưới, sinh gói phát hành
 
 * **Chuyển hướng sau khi Phase 0 chốt `FAIL`**: plan `Docs/Plans/2026-10-02-plan-vieneu-coreml-bucket-tinh.md` thay phần "sinh gói" bằng **N `.mlpackage` tĩnh** (đóng băng `L`, chia mức `T`) dùng `onnx2coreml` — đường đã chứng minh. `Sources/**/*.swift` **vẫn 639 file**, chưa đụng mã app.
