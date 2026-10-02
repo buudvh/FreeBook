@@ -15,13 +15,14 @@ Tài liệu này phác thảo kiến trúc tổng thể, sơ đồ thư mục, c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## 1.3.479–1.3.481 — hướng A (bucket tĩnh): đo tham số và chốt lưới CoreML
+## 1.3.479–1.3.483 — hướng A (bucket tĩnh): đo tham số, chốt lưới, sinh gói phát hành
 
 * **Chuyển hướng sau khi Phase 0 chốt `FAIL`**: plan `Docs/Plans/2026-10-02-plan-vieneu-coreml-bucket-tinh.md` thay phần "sinh gói" bằng **N `.mlpackage` tĩnh** (đóng băng `L`, chia mức `T`) dùng `onnx2coreml` — đường đã chứng minh. `Sources/**/*.swift` **vẫn 639 file**, chưa đụng mã app.
 * **`Scripts/coreml_dynamic_experiment.py`** (806 → 939 dòng): `FALLBACK_BUCKETS` 3 mức → **5 mức `t32/t64/t96/t128/t234`**; thêm giai đoạn **D7 `stage_ort_l_sweep`** đo ORT theo `L ∈ {32…256}` ở `T ∈ {64,96,234}`.
 * **Vì sao D7 tồn tại**: phép so `rtf` đo trên iPhone (`[VieNeuPerf]`) với thời gian CI dự đoán bị lệch **một chiều** vì CI đo ORT ở `L = 200` đóng băng còn máy chạy `L` thật (trung vị ~91) ⇒ không tách được "máy chậm hơn CI" khỏi "máy làm ít việc hơn". ⚠️ Máy phát triển Windows **không đo được thời gian** (cùng phép đo tại chỗ ra số **không đơn điệu**: `L=91` → 371 ms nhưng `L=128` → 108 ms) ⇒ **mọi số timing phải lấy từ runner CI**.
 * **Job `dynamic` trong `.github/workflows/convert-coreml.yml`** (141 → 148 dòng) in thêm bảng quét `L` ở bước `Verdict`. Nhắc lại: `build-ipa.yml` **đã bỏ** `.github/workflows/**` khỏi `paths` nên sửa file workflow **không** còn kéo theo build IPA — đã xác nhận nhiều lượt.
 * **Chốt lưới `{64, 96, 234}` = 397 MB** (1,86× theo hệ số 1,28×, hoặc 1,53× theo hệ số đo được 1,05× — xem `ort_l_sweep.json` để chốt). Lý do có `t234`: `VieNeuConfig.maxChunkSeconds = 15,0` chặn `T ≤ 234` **bằng thiết kế** ⇒ đó là trần cấu trúc, không phải suy luận từ log. **`t128` vô dụng** (thêm 127,8 MB mà tỉ lệ không đổi).
+* **Phase 2 — `Scripts/coreml_bucket_package.py` (mới, 274 dòng)**: sinh **7 gói** phát hành (`text_encoder` + `duration_predictor` mỗi cái 1 gói vì chỉ phụ thuộc `L`; `vector_estimator` + `codec_decoder` × 3 mức `T ∈ {64,96,234}`), kèm **`manifest.json`** (sha256 + size từng file — vì `VieNeuModelClient.download(_:)` hiện **chỉ** kiểm `size > 0` ⇒ không bắt được file cụt) và **`golden/T{n}.npz`** (đầu vào cố định + đầu ra tham chiếu ORT fp32 cho self-test). Job `bucket` mới trong workflow, publish bằng **Trusted Publishers OIDC** (`permissions: id-token: write`, không có secret), và **chỉ publish khi sinh đủ 7 gói** — bộ thiếu gói còn tệ hơn không phát hành.
 * Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%**. Không có Swift toolchain trên Windows ⇒ không khẳng định đã kiểm chứng biên dịch.
 
 ## 1.3.472–1.3.475 — Phase 0: thăm dò `.mlpackage` **shape động** cho CoreML (cổng của plan engine Core ML)

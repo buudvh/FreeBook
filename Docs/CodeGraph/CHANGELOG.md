@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.483] - 2026-10-02
+
+### feat: sinh 7 goi CoreML bucket tinh va publish len HuggingFace bang OIDC
+
+Phase 2 của plan `Docs/Plans/2026-10-02-plan-vieneu-coreml-bucket-tinh.md`. **Không đụng `Sources/`.**
+
+- **`Scripts/coreml_bucket_package.py` (mới, 274 dòng)**: sinh **7 gói** theo lưới đã chốt ở Phase 1 — `text_encoder` + `duration_predictor` mỗi cái **1 gói** (chiều động duy nhất của chúng là `L`, đã đóng băng ở 200); `vector_estimator` + `codec_decoder` **× 3 mức `T ∈ {64, 96, 234}`**. Dùng đúng đường `onnx2coreml` đã chứng minh: `freeze_shapes` → `optimize_with_ort` (**BASIC**, không ALL) → `fold_range`, thử **nhiều ứng viên** để một bản tối ưu hỏng không làm mất bản gốc. **`T = 128` không sinh** — Phase 1 đo được: thêm 127,8 MB mà tỉ lệ **không đổi**.
+- **`manifest.json`**: sha256 + size từng file. Cần vì `VieNeuModelClient.download(_:)` hiện **chỉ** kiểm `size > 0` ⇒ **không bắt được file cụt**. App sẽ kiểm `expectedBytes` ở Phase 3.
+- **`golden/T{n}.npz` + `.json`** cho từng mức: đầu vào cố định (`ids`/`style`/`spk`/`latent`/`time`) + đầu ra tham chiếu ORT fp32 (`ctx`/`log_s`/`velocity`/`pcm`). Chạm đủ 4 graph đã chuyển, tất định, bắt đúng 3 kiểu hỏng đã gặp: **im lặng · NaN · nhiễu**. Không kiểm được: bộ phonemizer (`sea_g2p.bin`, không đổi) và chất lượng tiếng Việt — phải nghe trên máy.
+- **Publish bằng Trusted Publishers (OIDC)**: job `bucket` có `permissions: id-token: write` + `contents: read`, `HF_OIDC_RESOURCE=raikiri1498/VieNeu-TTS-v3-Nano-CoreML`, `hf upload …`. **Không có secret nào.** Publish **chỉ khi sinh đủ 7 gói** — bộ thiếu gói còn tệ hơn không phát hành, vì app sẽ tải về rồi mới phát hiện thiếu.
+- **Không đụng `Sources/`** — `Sources/**/*.swift` vẫn 639 file. Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%** (`--accept 01_project.md`).
+- **Chưa build được trên Windows** ⇒ không khẳng định đã kiểm chứng biên dịch; lượt này không đổi mã Swift.
+
 ## [1.3.482] - 2026-10-02
 
 ### docs: R1 da giai quyet - gia tri huong A ha xuong ~1,5x
@@ -438,26 +451,3 @@ Sửa lỗi biên dịch CI của lượt `[1.3.453]` — **giữ nguyên commit
 - **File sửa**: `VieNeuAudioResampler.swift` 192 → **194**, `rules.md` (+ **Luật 9**).
 - **Ràng buộc đã đo**: `check_architecture.py` **5** violation nền cũ / **0** vi phạm mới; `validate_links.py` **PASS 100%** (16 doc, 623 file Swift).
 - **Tài liệu CodeGraph**: `rules.md` **accept** (thêm Luật 9 về hằng `NS_TYPED_ENUM`); `04_call_graph`, `10_risk_report`, `11_subsystems`, `13_resource_lifecycle` **no-change-needed** — sửa cơ học, mô tả trong doc vẫn đúng.
-
----
-
-## [1.3.453] - 2026-09-30
-
-### feat: nhan ban giong VieNeu tu audio mau (voice cloning)
-
-Người dùng yêu cầu tạo **giọng đọc riêng** từ audio mẫu. Chốt nguyên lý **trước** khi viết code: một "giọng" trong VieNeu-TTS v3 Nano **chỉ là 2 mảng float** — `speakerEmbedding` (192) + `style` (50×256) — không có model riêng cho từng giọng và **không** fine-tune. Nhân bản = chạy **3 graph clone** để sinh 2 mảng đó.
-
-- **Pipeline** (port `prepare_reference` của bản tham chiếu): cắt ≤30 s → fbank 80-mel 16 kHz → mean-normalize → `speaker_encoder`; resample 24 kHz lấy 5 s đầu → `codec_encoder` → chuẩn hoá `(mu − latent_mean) / latent_std × latent_scale` → `groupLatent` (24 kênh × 6 = **144**, 468 → **78** frame) → `reference_encoder` (kèm `ref_mask` toàn 1) → `style`. Đầu ra được kiểm `spk.count == 192`, `style.count == 12 800`, và mọi giá trị hữu hạn.
-- **Bẫy lớn nhất — `groupLatent` không phải concat kênh liền kề**: `out[c*g + slot][block] = zpad[c][block*g + slot]`. Viết sai (duỗi thẳng kênh liền kề) vẫn ra **đúng shape (50, 256)** nên **không** có lỗi nào nổi lên — chỉ giọng khác đi. Đã chứng minh bit-exact với biểu thức numpy (`max|d| = 0.000e+00`).
-- **`speaker_encoder` ăn fbank, không ăn waveform** — truyền PCM thô sẽ ra embedding 192 số vô nghĩa mà **không** báo lỗi. Vì vậy `VieNeuVoiceCloner` chỉ có **một** đường gọi fbank.
-- **Cầu C mở ngữ cảnh ORT riêng, chỉ 3 graph clone**: `VieNeuORTCreateCloneOnly` (+ `createBaseContext` tách ra từ `VieNeuORTCreate`, `loadCloneGraphsWithOptions`, `createCloneSession` đọc **mọi** tên input bằng `SessionGetInputName` theo kiểu all-or-nothing). Lý do: engine chính không được sửa, mà dùng lại ngữ cảnh của nó thì phải nạp thêm **~280 MB** graph chính — trong khi gói clone chỉ **95 500 985 B** (~91 MiB).
-- **Sửa một lỗi biên dịch thật do chính lượt này**: đổi `copyFloatsInto`'s `outCount` sang `int64_t *` khiến hai caller cũ ghi **8 byte vào ô 4 byte** (hỏng heap, `check_architecture.py` **không** thấy). Đã trả về `int32_t *`.
-- **Gói clone là tuỳ chọn**: `VieNeuModelStore.cloneGraphNames` **không** nằm trong `requiredNames` — điều kiện `store.missingNames.isEmpty` ở `VieNeuTTSEngine.swift:151` không bị đụng, nên người dùng chưa tải gói clone vẫn đọc truyện bình thường.
-- **`VieNeuTTSEngine.swift` giữ đúng 400/400** (không sửa): giọng custom hoà vào danh sách giọng qua `VieNeuVoiceCatalog.load(modelStore:customStore:)`, custom xếp **trước** preset.
-- **`VieNeuCustomVoiceStore.init` không chạm đĩa** — nó được gọi trên đường **đọc** (`VieNeuVoiceCatalog.load` ← `VieNeuTTSEngine.prepareLocked`); tạo thư mục trong `init` là ghi đĩa mỗi lượt tổng hợp. Thư mục chỉ tạo trong `add`/`save`.
-- **Thu âm**: `VieNeuVoiceRecorder` đổi phiên âm thanh `.playback` → `.playAndRecord` rồi **khôi phục** qua `TTSAudioSessionController` — quên khôi phục thì TTS mất tiếng ở **mọi** lượt phát sau, một lỗi nằm khác chỗ với nguyên nhân. Thêm `NSMicrophoneUsageDescription` vào `project.yml`: thiếu nó thì iOS **kill app** ngay khi phiên âm thanh chạm tới input, không phải trả `false`.
-- **File mới**: `VieNeuVoiceCloner.swift` **270**, `VieNeuCustomVoiceStore.swift` **226**, `VieNeuAudioResampler.swift` **192**, `VieNeuVoiceRecorder.swift` **148**, `VieNeuONNXRuntime+Clone.swift` **141**, `VieNeuVoiceLibraryView.swift` **346** + `+Sections.swift` **171**, `VieNeuVoiceCreatorView.swift` **329**.
-- **File sửa**: `VieNeuONNXBridge.h` 121 → **181**, `VieNeuONNXBridge.m` 726 → **1155**, `VieNeuONNXRuntime.swift` 289 → **316**, `VieNeuModelStore.swift` 91 → **149**, `VieNeuModelClient.swift` 128 → **162**, `VieNeuVoiceCatalog.swift` 103 → **148**, `VieNeuTTSService.swift` 349 → **376**, `VieNeuConfig.swift` → **200**, `TTSSettingsView+VieNeu.swift` 179 → **189**, `VieNeuTTSTestView+Sections.swift` 218 → **224**, `project.yml`.
-- **Hạ `private` → `internal`** (bẫy lặp lại lần thứ tư trong repo): `VieNeuONNXRuntime.handle` / `.maximumRank` / `.consume(_:fallback:)` — Swift giới hạn `private` theo file.
-- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` **PASS 100% (16 doc, 623 file Swift)**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
-- **Tài liệu CodeGraph**: cập nhật **12** doc (`00_index`, `01_project`, `02_file_graph`, `03_type_graph`, `04_call_graph`, `05_state_graph`, `09_dependency_rules`, `10_risk_report`, `11_subsystems`, `13_resource_lifecycle`, `14_complexity_report`, `rules.md`) — trong đó có cả nợ tài liệu của `[1.3.451]`/`[1.3.452]`.

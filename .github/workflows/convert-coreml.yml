@@ -18,6 +18,7 @@ on:
       - 'Scripts/coreml_convert_experiment.py'
       - 'Scripts/coreml_dynamic_experiment.py'
       - 'Scripts/coreml_shape_surgery.py'
+      - 'Scripts/coreml_bucket_package.py'
 
 jobs:
   convert:
@@ -73,6 +74,73 @@ jobs:
       run: |
         echo "=== summary.json ==="
         cat reports/summary.json 2>/dev/null || echo "(không có summary.json)"
+
+  bucket:
+    name: Phase 2 - bucket packages (publish to HF)
+    runs-on: macos-15
+    timeout-minutes: 120
+    # Bắt buộc để xin OIDC ID token cho Trusted Publishers. **Không có secret nào** — phía HF đã cấu hình
+    # claim `repository equals buudvh/FreeBook`.
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install converters (with hf CLI)
+      run: |
+        python -m pip install --upgrade pip
+        pip install coremltools onnx2coreml onnxruntime "huggingface_hub[cli]>=1.19.0" numpy onnx
+        python -c "import coremltools, onnx2coreml; print('coremltools', coremltools.__version__)"
+
+    - name: Build bucket packages and goldens
+      run: |
+        set -o pipefail
+        python Scripts/coreml_bucket_package.py --out coreml-bucket --workdir coreml-bucket-work 2>&1 | tee coreml-bucket.log
+
+    - name: Upload artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: coreml-bucket-reports
+        path: |
+          coreml-bucket/manifest.json
+          coreml-bucket/summary.json
+          coreml-bucket/golden/**
+          coreml-bucket.log
+        if-no-files-found: warn
+        retention-days: 30
+
+    - name: Publish to HuggingFace (Trusted Publisher OIDC)
+      if: always()
+      env:
+        HF_OIDC_RESOURCE: raikiri1498/VieNeu-TTS-v3-Nano-CoreML
+      run: |
+        # Chỉ publish khi sinh đủ 7 gói. Thiếu một gói thì phát hành ra một bộ không dùng được còn tệ hơn
+        # không phát hành: app sẽ tải về rồi mới phát hiện thiếu.
+        verdict=$(python -c "import json; print(json.load(open('coreml-bucket/summary.json')).get('verdict'))")
+        echo "verdict: $verdict"
+        if [ "$verdict" != "PASS" ]; then
+          echo "KHÔNG publish vì chưa sinh đủ gói."
+          exit 0
+        fi
+        ls -R coreml-bucket | head -40
+        hf upload raikiri1498/VieNeu-TTS-v3-Nano-CoreML ./coreml-bucket . \
+          --commit-message "CoreML buckets T64/T96/T234 (L=200) from ${GITHUB_SHA::7}"
+        echo "ĐÃ publish."
+
+    - name: Summary
+      if: always()
+      run: |
+        echo "=== summary.json ==="
+        cat coreml-bucket/summary.json 2>/dev/null || echo "(không có summary.json)"
 
   dynamic:
     name: Phase 0 - dynamic shape probe
