@@ -350,8 +350,33 @@ def stage_parity(model_dir: str, workdir: str, converted: dict, reports: str) ->
         for unit_name, unit in units.items():
             try:
                 model = ct.models.MLModel(package, compute_units=unit)
-                inputs = {name: np.asarray(value) for name, value in feeds.items()}
-                model.predict(inputs)  # warm-up
+                # **Hỏi model** kiểu input thay vì đoán — `ctx_mask` là bool trong ONNX nhưng Core ML có
+                # thể khai `int32`/`float32`; đoán sai thì `predict` ném "value type not convertible".
+                description = {name: str(model.get_spec().description.input[i].type)
+                               for i, name in enumerate(
+                                   item.name for item in model.get_spec().description.input)}
+                log("G3", f"input description: {description}")
+                # Thử lần lượt các cách ép kiểu cho mask cho tới khi `predict` chạy được.
+                variants = [
+                    ("as-is", {name: np.asarray(value) for name, value in feeds.items()}),
+                    ("mask-int32", {**{k: np.asarray(v) for k, v in feeds.items()},
+                                    "ctx_mask": np.asarray(feeds["ctx_mask"], dtype=np.int32)}),
+                    ("mask-float32", {**{k: np.asarray(v) for k, v in feeds.items()},
+                                      "ctx_mask": np.asarray(feeds["ctx_mask"], dtype=np.float32)}),
+                ]
+                inputs = None
+                used_variant = None
+                last_error = None
+                for variant_name, candidate in variants:
+                    try:
+                        model.predict(candidate)
+                        inputs, used_variant = candidate, variant_name
+                        break
+                    except Exception as error:  # noqa: BLE001
+                        last_error = error
+                if inputs is None:
+                    raise RuntimeError(f"mọi cách ép kiểu đều lỗi: {last_error}")
+                log("G3", f"Core ML[{unit_name}]: dùng biến thể input `{used_variant}`")
                 timings = []
                 for _ in range(5):
                     started = time.perf_counter()
@@ -362,6 +387,7 @@ def stage_parity(model_dir: str, workdir: str, converted: dict, reports: str) ->
                 rms = float(np.sqrt(np.mean(np.asarray(out_ort, dtype=np.float32) ** 2)))
                 snr = 20 * float(np.log10(rms / max(float(np.std(diff)), 1e-12)))
                 result[unit_name] = {
+                    "input_variant": used_variant,
                     "coreml_ms": round(cml_ms, 1),
                     "ort_ms": round(ort_ms, 1),
                     "speed_ratio": round(ort_ms / cml_ms, 2),
