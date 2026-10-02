@@ -34,9 +34,11 @@ MODEL_FILES = [
     "config.json",
     "constants.npz",
 ]
-VOICES_REPO = "pnnbao97/VieNeu-TTS"
-VOICES_REVISION = "2e982ff857bbe23fffa0c314e0f60da2497e2f4b"
-VOICES_FILE = "src/vieneu/assets/voices_v3_nano.json"
+# `voices_v3_nano.json` nằm ở **GitHub** (không phải HuggingFace) — tải qua raw URL ghim revision,
+# đúng như app làm trong `VieNeuModelClient`.
+VOICES_URL = ("https://raw.githubusercontent.com/pnnbao97/VieNeu-TTS/"
+              "2e982ff857bbe23fffa0c314e0f60da2497e2f4b/src/vieneu/assets/voices_v3_nano.json")
+VOICES_FILE = "voices_v3_nano.json"
 
 # Phoneme THẬT chép từ `app_logs (60).txt` — để input của phép so số là dữ liệu thật, không phải nhiễu.
 PHONEMES = (
@@ -75,7 +77,12 @@ def stage_download(workdir: str) -> str:
     for name in MODEL_FILES:
         hf_hub_download(repo_id=REPO_ID, filename=name, revision=REVISION, local_dir=model_dir)
         log("G0", f"tải {name} ({os.path.getsize(os.path.join(model_dir, name)) / 1e6:.1f} MB)")
-    hf_hub_download(repo_id=VOICES_REPO, filename=VOICES_FILE, revision=VOICES_REVISION, local_dir=workdir)
+    voices = os.path.join(workdir, VOICES_FILE)
+    if not os.path.exists(voices):
+        import urllib.request
+
+        urllib.request.urlretrieve(VOICES_URL, voices)  # noqa: S310 — URL ghim revision, hằng số
+    log("G0", f"tải {VOICES_FILE} ({os.path.getsize(voices) / 1e6:.1f} MB)")
     log("G0", "xong")
     return model_dir
 

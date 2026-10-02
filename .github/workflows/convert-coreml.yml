@@ -37,6 +37,8 @@ jobs:
 
     - name: Run conversion experiment
       run: |
+        # `pipefail`: không có nó thì mã thoát của `python` bị `tee` che ⇒ bước này "xanh" dù script lỗi.
+        set -o pipefail
         python Scripts/coreml_convert_experiment.py --out reports --workdir .coreml-experiment 2>&1 | tee coreml-experiment.log
 
     # `always()` để vẫn lấy được báo cáo khi một giai đoạn lỗi — "lỗi ở đâu, vì sao" cũng là kết quả.
