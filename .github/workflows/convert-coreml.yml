@@ -4,10 +4,12 @@ name: CoreML Convert Experiment
 #
 #   `convert`  — lượt BASELINE (đã chạy): shape **đóng băng**, trả lời "convert được graph nào" và
 #                "Core ML có nhanh hơn ORT CPU không". Giữ nguyên làm mốc so sánh.
-#   `dynamic`  — **Phase 0**: thử `.mlpackage` **shape động**. Đây là cổng của plan
-#                `Docs/Plans/2026-10-02-plan-vieneu-coreml-engine-trong-app.md`: đạt thì mới làm engine
-#                Core ML trong app. Vì sao cần shape động: trọng số chiếm gần hết gói (78,1 MB ở
-#                `T=96` **và** 78,5 MB ở `T=234`) ⇒ bucket hoá tốn 127,8 MB cho MỖI mức.
+#   `bucket`   — **Phase 2**: sinh 8 `.mlpackage` bucket tĩnh (T ∈ {64,96,234}, L=200) + manifest + golden
+#                tự test, rồi publish lên HuggingFace `raikiri1498/VieNeu-TTS-v3-Nano-CoreML` qua Trusted
+#                Publisher OIDC (không cần secret). `--delete="mlpackage/*.onnx"` dọn phần trung gian lỡ đẩy.
+#
+# Phase 0 (shape động) ĐÃ KẾT LUẬN FAIL — xem `Docs/Reports/research-2026-10-02-vieneu-coreml-shape-dong.md`
+# nên job `dynamic` đã gỡ khỏi workflow để không tốn CI mỗi lần push.
 #
 # Không job nào đụng `Sources/`, không đụng `build-ipa.yml`. Chạy khi push chính các file này, hoặc bấm tay.
 on:
@@ -123,8 +125,8 @@ jobs:
       env:
         HF_OIDC_RESOURCE: raikiri1498/VieNeu-TTS-v3-Nano-CoreML
       run: |
-        # Chỉ publish khi sinh đủ 7 gói. Thiếu một gói thì phát hành ra một bộ không dùng được còn tệ hơn
-        # không phát hành: app sẽ tải về rồi mới phát hiện thiếu.
+        # Chỉ publish khi sinh đủ 8 gói (2 length-only + 3 mức T × 2 graph frame). Thiếu một gói thì phát
+        # hành ra một bộ không dùng được còn tệ hơn không phát hành: app sẽ tải về rồi mới phát hiện thiếu.
         verdict=$(python -c "import json; print(json.load(open('coreml-bucket/summary.json')).get('verdict'))")
         echo "verdict: $verdict  (goi: $(python -c "import json; print(json.load(open('coreml-bucket/summary.json')).get('packages_ok'))"))"
         if [ "$verdict" != "PASS" ]; then
@@ -141,110 +143,16 @@ jobs:
         fi
         du -sh coreml-bucket
         ls coreml-bucket/mlpackage
+        # `--delete="mlpackage/*.onnx"` dọn luôn phần `.frozen.onnx` / `.opt.onnx` lỡ đẩy ở lượt trước
+        # (repo từng phình 1984,5 MB). Chỉ xoá `.onnx` dưới `mlpackage/`, GIỮ README/manifest/golden.
+        # `hf upload` tự làm OIDC exchange nên không cần token tĩnh (khác bước dọn bằng Python từng lỗi).
         hf upload raikiri1498/VieNeu-TTS-v3-Nano-CoreML ./coreml-bucket . \
+          --delete="mlpackage/*.onnx" \
           --commit-message "CoreML buckets T64/T96/T234 (L=200) from ${GITHUB_SHA::7}"
-        echo "ĐÃ publish."
-
-    - name: Dọn file trung gian trên HF
-      if: always()
-      env:
-        HF_OIDC_RESOURCE: raikiri1498/VieNeu-TTS-v3-Nano-CoreML
-      run: |
-        # Lượt trước lỡ đẩy cả `.frozen.onnx` / `.opt.onnx` lên (repo phình 400 MB -> 1984,5 MB).
-        # Script đã sửa để trung gian nằm ngoài thư mục phát hành; bước này dọn phần đã lỡ có trên repo.
-        export HF_TOKEN=$(hf auth token)
-        python - <<'PY'
-        import os
-        from huggingface_hub import HfApi
-        repo = "raikiri1498/VieNeu-TTS-v3-Nano-CoreML"
-        token = os.environ["HF_TOKEN"]
-        files = HfApi(token=token).list_repo_files(repo_id=repo, repo_type="model")
-        junk = [f for f in files if f.startswith("mlpackage/") and f.endswith(".onnx")]
-        print("file trung gian tren repo:", len(junk))
-        for f in junk:
-            print("  ", f)
-        if junk:
-            HfApi(token=token).delete_files(repo_id=repo, repo_type="model", files=junk,
-                                            commit_message="remove intermediate ONNX (app chi can .mlpackage)")
-            print("da xoa", len(junk), "file")
-        PY
+        echo "ĐÃ publish + dọn .onnx trung gian."
 
     - name: Summary
       if: always()
       run: |
         echo "=== summary.json ==="
         cat coreml-bucket/summary.json 2>/dev/null || echo "(không có summary.json)"
-
-  dynamic:
-    name: Phase 0 - dynamic shape probe
-    runs-on: macos-15
-    timeout-minutes: 120
-
-    steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
-
-    - name: Set up Python 3.12
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
-
-    # `torch` + `onnx2torch`: đường shape động bắt buộc đi qua frontend torch của `coremltools` vì
-    # `onnx2coreml` ghi thẳng trong *Known limitations* là **"Fixed input shapes"**. `torch` nặng
-    # ~200 MB nên bước này chậm hơn job baseline vài phút — đổi lại nó là thứ quyết định cả plan.
-    - name: Install converters (with torch)
-      run: |
-        python -m pip install --upgrade pip
-        pip install coremltools onnx2coreml onnxruntime huggingface_hub numpy onnx torch onnx2torch
-        python -c "import coremltools, onnx, torch, onnx2torch, onnx2coreml; print('coremltools', coremltools.__version__, '| torch', torch.__version__)"
-
-    - name: Probe dynamic shapes
-      run: |
-        set -o pipefail
-        python Scripts/coreml_dynamic_experiment.py --out reports-dynamic --workdir coreml-dynamic 2>&1 | tee coreml-dynamic.log
-
-    # Chỉ upload **báo cáo** (JSON + `golden.npz`), cố ý **không** upload `.mlpackage`: 4 graph × 4 đường
-    # là tới ~1,2 GB, mà Phase 1 sẽ chạy lại conversion (mỗi graph ~7 s) nên gói cũ là rác.
-    - name: Upload reports
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: coreml-dynamic-reports
-        path: |
-          reports-dynamic/**
-          coreml-dynamic.log
-        if-no-files-found: warn
-        retention-days: 30
-
-    - name: Verdict
-      if: always()
-      run: |
-        echo "=== range_report.json ==="
-        cat reports-dynamic/range_report.json 2>/dev/null || echo "(không có range_report.json)"
-        echo
-        echo "=== verdict ==="
-        python - <<'PY'
-        import json, os
-        path = "reports-dynamic/summary.json"
-        if not os.path.exists(path):
-            print("(không có summary.json)")
-            raise SystemExit(0)
-        data = json.load(open(path, encoding="utf-8"))
-        print("verdict:", data.get("verdict"))
-        print("(chi tinh duong SHAPE DONG:", ", ".join(data.get("dynamic_routes") or []), ")")
-        for graph, entry in (data.get("routes") or {}).items():
-            ok = [route for route, info in entry.items() if info.get("ok")]
-            print(f"  {graph}: {'OK ' + ','.join(ok) if ok else 'KHONG duong nao chay duoc'}")
-        print("  trace chay lai duoc / 3 shape:")
-        for graph, routes in (data.get("trace_ok") or {}).items():
-            print(f"    {graph}: {routes}")
-        golden = data.get("golden") or {}
-        print("  golden:", golden.get("snr_db") if golden.get("ok") else golden.get("reason"))
-        bucket = data.get("bucket_fallback") or {}
-        if bucket:
-            print(f"  bucket du phong: {bucket.get('total_bytes', 0) / 1e6:.1f} MB")
-        sweep = (data.get("ort_l_sweep") or {}).get("ort_ms") or {}
-        for graph, rows in sweep.items():
-            for frames, row in rows.items():
-                print(f"  {graph} {frames}: " + " ".join(f"L{k}={v}" for k, v in row.items()))
-        PY

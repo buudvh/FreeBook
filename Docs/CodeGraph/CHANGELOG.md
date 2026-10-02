@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.486] - 2026-10-02
+
+### feat: sinh 7 goi CoreML bucket tinh va publish len HuggingFace bang OIDC
+
+Vòng sửa thứ ba của Phase 2 — **dọn rác trên repo HF vẫn chưa xong**. (Tiền lệ: [1.3.484] gói không được publish · [1.3.485] publish kèm ~1,6 GB rác.)
+
+- **Lỗi ở lượt [1.3.485]**: bước "Dọn file trung gian trên HF" chạy `export HF_TOKEN=$(hf auth token)` rồi `HfApi.delete_files`. Dưới **Trusted Publishers OIDC không có credential lưu** ⇒ `hf auth token` trả **rỗng** ⇒ `HfApi(token="")` không xoá được (thiếu quyền) ⇒ bước **FAIL**, repo vẫn giữ **16 file `.onnx` trung gian (1582,9 MB)**. Đã xác minh bằng tree API lúc đó: 84 mục = 40 mlpackage/weight (8 gói đúng) + 16 `.onnx` rác + `manifest.json` + 3 `golden/*.npz`.
+- **Sửa**: gộp việc dọn vào chính lệnh `hf upload` (cái đã chạy OIDC thành công ở bước publish) qua cờ **`--delete="mlpackage/*.onnx"`** — glob phẫu thuật, **chỉ xoá `.onnx` dưới `mlpackage/`**, GIỮ `README.md` / `manifest.json` / `golden`. Xoá hẳn bước Python dọn riêng (vốn lỗi vì không có token tĩnh). `hf upload` tự làm OIDC exchange nên không cần secret.
+- **Gỡ job `dynamic` (Phase 0) khỏi workflow**: Phase 0 đã KẾT LUẬN FAIL (xem `Docs/Reports/research-2026-10-02-vieneu-coreml-shape-dong.md`) ⇒ chạy lại mỗi push chỉ tốn ~40 phút CI và kéo dài thời gian xác minh. Workflow giờ chỉ còn `convert` (baseline) + `bucket` (Phase 2). Cập nhật luôn header comment.
+- **Bài học OIDC**: dưới Trusted Publishers, **không dùng `hf auth token`** để lấy token cho Python API — nó rỗng. Mọi thao tác cần auth (upload, xoá, list) phải qua `hf` CLI (tự exchange) hoặc truyền token OIDC trực tiếp. Đã ghi vào `01_project.md`.
+- **Không đụng `Sources/`** — `Sources/**/*.swift` vẫn 639 file. Lượt này chỉ sửa `.github/workflows/convert-coreml.yml` + tài liệu.
+
 ## [1.3.485] - 2026-10-02
 
 ### feat: sinh 7 goi CoreML bucket tinh va publish len HuggingFace bang OIDC
