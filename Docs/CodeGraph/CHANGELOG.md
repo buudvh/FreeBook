@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.479] - 2026-10-02
+
+### chore: Phase 1 huong A - do them bucket t32/t96/t128 cho luoi CoreML
+
+Phase 1 của plan `Docs/Plans/2026-10-02-plan-vieneu-coreml-bucket-tinh.md` (hướng A — bucket tĩnh). **Không đụng `Sources/`.**
+
+- **Trả lời được hai câu hỏi của Phase 1 ngay trên Windows, không tốn lượt CI nào** — bằng cách khai thác log có sẵn `Docs/Reports/2026-09-30-log-vieneu-25phut.txt`:
+  - **`L` (số phoneme id)**: lọc ký tự của `[VieNeuChunk] phonemes=«…»` theo `config.json → vocab` (81 mục), 609 chunk ⇒ **p50 91 · p90 129 · p99 143 · max 150**. `L_max = 160` phủ **100 %** ⇒ **giữ `L = 200`**, lo ngại "`L=200` sát trần" ở bản plan đầu là **sai**; bỏ được một vòng đo lại bucket ở `L=256`.
+  - **Guard `T > 96` không khả thi**: quét `limit` cho thấy `limit=90` ⇒ **+16 %** số chunk mà vẫn còn 1 chunk vượt; muốn **chắc chắn** không vượt thì `limit ≈ 53` (vì `speech/char` max = 0,115) ⇒ **+59 %** số chunk — câu bị vụn vì quá nhiều ranh giới. ⇒ **Loại bỏ guard**.
+- **⭐ Sự kiện làm đổi quyết định của plan**: `VieNeuConfig.maxChunkSeconds = 15,0` (`VieNeuConfig.swift:61`) chặn `T ≤ round(15 × 15,625) = 234` **bằng thiết kế** (`VieNeuTTSEngine.swift:336-337`) ⇒ **chỉ bucket `t234` mới bảo đảm không bao giờ tràn**. Lưới `{32,64,96}` dù có guard vẫn có thể tràn (90 ký tự × 0,115 = 10,35 s → `T = 162`). ⇒ Con số **397 MB** của bản plan đầu **không đạt được** nếu không thêm một trong hai thứ; plan đã cập nhật thành hai thiết kế **D1** (`{32,64,96,234}`, **525 MB**, không đụng logic chia đoạn) và **D2** (`{32,64,96}`, **397 MB**, cần đường xử lý tràn). Đề xuất **D1**. **Chờ người dùng chốt.**
+- **Đo thêm bucket**: `FALLBACK_BUCKETS` từ 3 mức (`t64/t128/t234`) → **5 mức `t32/t64/t96/t128/t234`** — `t32` và `t96` **chưa từng có số**, mà lưới đề xuất cần cả hai; `t128` để so. `L` vẫn 200 (đã chứng minh đủ).
+- **Không đụng `Sources/`** — `Sources/**/*.swift` vẫn 639 file. Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%**.
+- **Chưa build được trên Windows** ⇒ không khẳng định đã kiểm chứng biên dịch; lượt này không đổi mã Swift.
+
 ## [1.3.478] - 2026-10-02
 
 ### docs: ghi so do cuoi cua Phase 0 CoreML (FAIL) vao CHANGELOG
@@ -451,19 +465,3 @@ Sửa **12** file (9 Swift + 2 C/header bridge + 1 doc-mirror):
 - **Giới hạn dòng**: `VieNeuTTSEngine.swift` giữ **đúng 400/400** (nén comment + gộp tham số); `TTSManager.swift` **3957 → 3970** (baseline 3470 — vi phạm nền, không loại mới).
 - **Sửa lỗi biên dịch đầu tiên (CI run `36722575609`)**: khi nén comment để giữ trần 400, một dòng trong `prepareLocked` bị mất ký tự xuống dòng ⇒ `VieNeuTTSEngine.swift:172:44: error: consecutive statements on a line must be separated by ';'` (`nullContextShape = nullBranch.shape        nullMask = nullBranch.mask`). Tách lại thành hai dòng và bù bằng cách gộp hai dòng comment liền kề ⇒ vẫn **đúng 400**. Không có lỗi nào khác (bridge C `.m` biên dịch sạch).
 - Cổng: `check_architecture.py` **5 violation nền / 0 mới**; `validate_links.py` **PASS 100% (16 doc, 614 file Swift)**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
-
----
-
-## [1.3.449] - 2026-09-30
-
-### feat: VieNeu thêm chế độ "Thấp" (4 bước) giảm nhiệt
-
-Sửa **5** file (4 Swift + 1 plan):
-
-- **Đòn bẩy thật là SỐ BƯỚC, không phải độ lớn CFG**: `VieNeuTTSEngine.runChunk` hỏi `if tuning.cfg > 0` — **điều kiện nhị phân**, không theo tỉ lệ ⇒ `cfg = 3.0 → 1.5` tiết kiệm **0%**. Mỗi bước vẫn gọi `vector_estimator` **2 lần** khi có CFG ⇒ số lượt/đoạn: `.high` **32**, `.fast` **16**, `.low` **8**. Vòng Euler chiếm ~98% thời gian (`vector 7,60 s | khác 0,14 s` trên 28,01 s audio).
-- **`VieNeuSynthesisPolicy`** (122 → **137**): `Mode` thêm case `low`; `tuning(for:)` thêm `Tuning(steps: 4, sway: -1.0, cfg: 3.0)`; `nextMode` thêm `case .low: return nil` (giữ hợp đồng "switch không có `default`", chặn bộ thích nghi tự nâng lên). Doc đầu file "hai chế độ" → "ba chế độ".
-- **`VieNeuTTSTestView+Sections`** (218 → **222**): `displayName` thêm `case .low: return "Thấp"`; sửa footer lỗi thời (nêu đủ 32/16/8 lượt, **bỏ** câu về mục "Nhanh nhất" đã bị gỡ từ lâu).
-- **`TTSSettingsView+VieNeu`** (179): dòng giải thích thêm một câu về chế độ "Thấp". Picker "Chế độ tạo audio" **không sửa vòng lặp** — `ForEach(Mode.allCases)` tự có case mới.
-- **Sửa 3 comment sai `12 → 10`** (việc sửa tài liệu, **không** đổi hành vi): `TTSManager.swift:742`, `TTSManager+NghiPrefetchConcurrency.swift:15`, `Docs/Plans/2026-09-30-plan-tts-stutter-overlap-battery.md:47`. Giá trị 12 chỉ là **placeholder khởi tạo**, bị `applyVieNeuParamsIfNeeded` ghi đè bằng `bufferedSecondsTarget` = **10.0** khi khởi động.
-- **Cố ý không làm**: **không** cắt `maxConcurrentNghiRefills` 3→1–2, **không** cắt `optionalCap` 4→2 (hai số này sinh từ chính báo cáo lỗi "đoạn 1→2→3 phải chờ" của người dùng ở `[1.3.438]` — cắt là mở lại lỗi cũ); **không** đụng `VieNeuTTSEngine.swift` (đang đúng trần **400/400**). Toggle "Tiết kiệm pin" giữ nguyên (vẫn ép `.fast`).
-- Cổng: `check_architecture.py` **5 violation nền/0 mới**; `validate_links.py` **PASS 100% (16 doc, 614 file Swift)**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.

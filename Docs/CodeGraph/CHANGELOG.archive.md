@@ -6164,3 +6164,20 @@ Sửa **3** file Swift:
 - **`NotificationInboxView+Merge`** (186 → **188**): thêm nhánh `isMetaMissing` hiện *"Số liệu chưa có — gộp lại để cập nhật."* khi có file `.txt` nhưng không có meta (file sinh từ bản app cũ) — **không** parse bù.
 - **Cố ý không làm**: cache `hasResult` khỏi `fileExists` — chỉ là syscall `stat` cỡ µs, không phải nguyên nhân, mà cache đòi tự cập nhật ở 5 nơi.
 - Cổng: `check_architecture.py` **5 violation nền/0 mới**; `validate_links.py` **PASS 100% (16 doc, 614 file Swift)**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
+
+
+---
+
+## [1.3.449] - 2026-09-30
+
+### feat: VieNeu thêm chế độ "Thấp" (4 bước) giảm nhiệt
+
+Sửa **5** file (4 Swift + 1 plan):
+
+- **Đòn bẩy thật là SỐ BƯỚC, không phải độ lớn CFG**: `VieNeuTTSEngine.runChunk` hỏi `if tuning.cfg > 0` — **điều kiện nhị phân**, không theo tỉ lệ ⇒ `cfg = 3.0 → 1.5` tiết kiệm **0%**. Mỗi bước vẫn gọi `vector_estimator` **2 lần** khi có CFG ⇒ số lượt/đoạn: `.high` **32**, `.fast` **16**, `.low` **8**. Vòng Euler chiếm ~98% thời gian (`vector 7,60 s | khác 0,14 s` trên 28,01 s audio).
+- **`VieNeuSynthesisPolicy`** (122 → **137**): `Mode` thêm case `low`; `tuning(for:)` thêm `Tuning(steps: 4, sway: -1.0, cfg: 3.0)`; `nextMode` thêm `case .low: return nil` (giữ hợp đồng "switch không có `default`", chặn bộ thích nghi tự nâng lên). Doc đầu file "hai chế độ" → "ba chế độ".
+- **`VieNeuTTSTestView+Sections`** (218 → **222**): `displayName` thêm `case .low: return "Thấp"`; sửa footer lỗi thời (nêu đủ 32/16/8 lượt, **bỏ** câu về mục "Nhanh nhất" đã bị gỡ từ lâu).
+- **`TTSSettingsView+VieNeu`** (179): dòng giải thích thêm một câu về chế độ "Thấp". Picker "Chế độ tạo audio" **không sửa vòng lặp** — `ForEach(Mode.allCases)` tự có case mới.
+- **Sửa 3 comment sai `12 → 10`** (việc sửa tài liệu, **không** đổi hành vi): `TTSManager.swift:742`, `TTSManager+NghiPrefetchConcurrency.swift:15`, `Docs/Plans/2026-09-30-plan-tts-stutter-overlap-battery.md:47`. Giá trị 12 chỉ là **placeholder khởi tạo**, bị `applyVieNeuParamsIfNeeded` ghi đè bằng `bufferedSecondsTarget` = **10.0** khi khởi động.
+- **Cố ý không làm**: **không** cắt `maxConcurrentNghiRefills` 3→1–2, **không** cắt `optionalCap` 4→2 (hai số này sinh từ chính báo cáo lỗi "đoạn 1→2→3 phải chờ" của người dùng ở `[1.3.438]` — cắt là mở lại lỗi cũ); **không** đụng `VieNeuTTSEngine.swift` (đang đúng trần **400/400**). Toggle "Tiết kiệm pin" giữ nguyên (vẫn ép `.fast`).
+- Cổng: `check_architecture.py` **5 violation nền/0 mới**; `validate_links.py` **PASS 100% (16 doc, 614 file Swift)**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.

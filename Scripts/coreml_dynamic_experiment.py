@@ -76,9 +76,17 @@ SHAPES = {
 # `EnumeratedShapes` cho `T` — 5 mức, phủ dải 2…234.
 T_ENUMERATED = [32, 64, 96, 160, 234]
 
-# Bucket dự phòng (nếu shape động thất bại): chỉ 2 graph nặng, 3 mức `T`.
+# Bucket dự phòng (nếu shape động thất bại). **Đo cả 5 mức** để chọn được lưới cuối:
+# `t32/t64/t96` là lưới "rẻ" (397 MB) mà plan hướng A nhắm tới; `t128` để so; `t234` là mức **duy nhất
+# bảo đảm không bao giờ tràn** vì `VieNeuConfig.maxChunkSeconds = 15,0` chặn `T ≤ round(15 × 15,625) = 234`
+# **bằng thiết kế** (`VieNeuTTSEngine.swift:336-337`).
+#
+# `L = 200` đã kiểm bằng log thật (`[VieNeuChunk] chars=… phonemes=«…»`, 609 chunk): `L` p50 91 · p90 129 ·
+# p99 143 · **max 150** ⇒ 200 phủ hết với biên rộng, **không cần** nâng lên 256.
 FALLBACK_BUCKETS = {
+    "t32": {"L": 200, "T": 32},
     "t64": {"L": 200, "T": 64},
+    "t96": {"L": 200, "T": 96},
     "t128": {"L": 200, "T": 128},
     "t234": {"L": 200, "T": 234},
 }
