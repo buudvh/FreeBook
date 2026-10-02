@@ -3,8 +3,8 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-10-02T10:54:14Z",
-  "gitCommit": "b78e8473299b87e3dae68b942eee24a6dae891d9",
+  "generatedAt": "2026-10-02T11:00:38Z",
+  "gitCommit": "278122f5b2ac9691aa69b7e244cad07357662140",
   "sourceFileCount": 639,
   "documentCount": 16,
   "documents": [
@@ -687,10 +687,10 @@
       ],
       "structureHash": "afa7ccbb089e87dcdc9cfbffea2e9323b9c09e423d2f9b7e400a22e2f8c4f74f",
       "sourceHash": "c7e38d98991426f7959b011a773a146d2d970d5a022e62c85aed16b8c49b3d5c",
-      "generatedHash": "542d688598181e403a9ebed1ee73069c5c028c05e469ebc72cb9aeecf784cecf",
-      "generatedAt": "2026-10-02T10:54:14Z",
-      "reviewedAt": "2026-10-02T10:54:14Z",
-      "reviewedCommit": "b78e8473299b87e3dae68b942eee24a6dae891d9",
+      "generatedHash": "bfc491d59885d355117a82f96026d7eac4d5bea6455f20f6f1f43d00376ff14e",
+      "generatedAt": "2026-10-02T11:00:38Z",
+      "reviewedAt": "2026-10-02T11:00:38Z",
+      "reviewedCommit": "278122f5b2ac9691aa69b7e244cad07357662140",
       "reviewMode": "accept"
     },
     {

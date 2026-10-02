@@ -6089,3 +6089,25 @@ Thêm **1** file Swift mới, sửa **5** file Swift trong `Sources/Services/` v
 - **Ghép WAV (`WAVConcatenator.swift`, file mới 56 dòng)**: nối N file WAV PCM16 cùng định dạng thành một file — cắt 44 byte header, nối payload, dựng lại header; kiểm 4 mốc `RIFF`/`WAVE`/`fmt `/`data` và trả `nil` khi lệch khuôn.
 - Cổng: `check_architecture.py` **5 violation nền/0 mới**; `validate_links.py` **PASS**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
 - Đồng bộ tài liệu cho thay đổi UI TTS của commit trước (`AISettingsSection.swift`, `TTSSettingsSection.swift`) mà CodeGraph chưa accept.
+
+
+---
+
+## [1.3.445] - 2026-09-30
+
+### feat: gộp VietPhrase ra file text mới rồi nhập/xuất theo lựa chọn
+
+Thêm **3** file Swift mới, sửa **5** file Swift trong `Sources/Models/`, `Sources/Services/`, `Sources/Views/`:
+
+- **API duyệt từ điển (`TrieDictionary.allEntries()`, `FrozenTrieDictionary.swift` 86 → 183)**:
+  - `VietPhrase.dat` là DoubleArrayTrie nhị phân và `TranslationManager.loadAllDictionaries` **xoá** `VietPhrase.txt` sau lần biên dịch đầu ⇒ không còn nguồn text nào để đọc từ điển gốc. Thêm `allEntries()`, khai ở **cả 3** conformer.
+  - Kho `.dat` duyệt DFS theo **đúng** phép tính chỉ số của `trieMatches` nhưng chiều ngược; chỉ mục con dựng **một lượt** (gom slot theo `check[slot] > 0`) vì quét `charMap` mỗi nút là O(nút × số ký tự). Slot kết thúc có `code == 0` nên bị loại tự nhiên (mã ký tự bắt đầu từ 1).
+- **Gộp ra file text mới (`DictionaryMergeService.swift`, file mới 123 dòng)**:
+  - `VietPhrase.dat` + `CustomVietPhrase.txt` (áp tombstone) → **`VietPhraseMerged.txt`**, ghi qua `.tmp` + `replaceItemAt`. **Không** đụng từ điển gốc ⇒ một lỗi ở bước gộp chỉ tạo file sai mà người dùng vẫn xem được trước khi áp.
+  - **Tự kiểm** `allEntries().count == wordCount`; lệch ⇒ `enumerationMismatch`, dừng và **không** tạo file.
+- **Mục thông báo ghim (`DictionaryMergeTask.swift` 183 dòng + `NotificationInboxView+Merge.swift` 127 dòng)**:
+  - Trạng thái lấy từ **file trên đĩa** ⇒ mục còn nguyên sau khi tắt app. Icon `symbolEffect(.pulse, options: .repeating)` khi đang gộp.
+  - 3 hành động khi xong: **Nhập vào VietPhrase** (sao lưu `.dat` → `VietPhrase.dat.bak-merge` → `importDictionary` → xoá custom + tombstone), **Xuất file** (`ShareLink`), **Bỏ qua**.
+  - Mục **ghim**: không thuộc `NotificationInboxManager` lẫn `NewChapterInboxManager` nên hai hành động toolbar ("Đánh dấu đã đọc hết" / "Xoá thông báo đã đọc") **không** xoá được nó.
+- Cổng: `check_architecture.py` **5 violation nền/0 mới**; `validate_links.py` **PASS**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
+- Đồng bộ tài liệu cho commit "Tiết kiệm pin" trước đó (`TTSSettingsView+VieNeu.swift`, `TTSSettingsView.swift`) mà CodeGraph chưa accept.

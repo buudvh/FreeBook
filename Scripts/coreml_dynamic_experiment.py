@@ -821,15 +821,37 @@ def main() -> int:
 
     # Kết luận chỉ tính đường **shape động** (`torch_*`). `o2c_original`/`o2c_surgery` chạy được cũng
     # KHÔNG tính: chúng chỉ sống khi shape đã đóng băng, mà shape động chính là thứ plan cần.
+    #
+    # ⚠️ **Và "convert được" KHÔNG đủ.** `ct.convert` vẫn dựng ra `.mlpackage` có `RangeDim` từ một graph
+    # đã bị `torch.jit.trace` nướng shape — gói đó **compile được** nhưng cho kết quả **sai/im lặng** ở
+    # shape khác. Đó đúng là loại lỗi tệ nhất trong engine này. Nên điều kiện bắt buộc là graph **đã trace**
+    # phải chạy lại đúng ở **cả 3** shape (`trace_shapes` toàn `ok`).
     dynamic_routes = ("torch_surgery", "torch_enum_T")
     summary["dynamic_routes"] = list(dynamic_routes)
+
+    def _truly_dynamic(graph: str, route: str) -> bool:
+        info = routes.get(graph, {}).get(route) or {}
+        if not info.get("ok"):
+            return False
+        probe = info.get("trace_shapes") or {}
+        return bool(probe) and all(item.get("ok") for item in probe.values())
+
     summary["verdict"] = "PASS" if routes and all(
-        any(routes.get(graph, {}).get(route, {}).get("ok") for route in dynamic_routes)
-        for graph in GRAPHS) else "FAIL"
+        any(_truly_dynamic(graph, route) for route in dynamic_routes) for graph in GRAPHS) else "FAIL"
+    if summary["verdict"] == "FAIL":
+        summary["verdict_reason"] = (
+            "Không graph nào có đường shape động chạy lại được ở cả 3 shape. `.mlpackage` vẫn được sinh ra "
+            "(xem `routes`) nhưng graph bên trong đã bị `torch.jit.trace` nướng shape ⇒ không dùng được."
+        )
     # Phép thử quyết định: graph **đã trace** phải chạy lại được ở **cả 3** shape.
     summary["trace_ok"] = {
         graph: {route: sum(1 for item in (routes.get(graph, {}).get(route, {}).get("trace_shapes") or {}).values()
                            if item.get("ok"))
+                for route in dynamic_routes}
+        for graph in GRAPHS
+    }
+    summary["package_bytes"] = {
+        graph: {route: (routes.get(graph, {}).get(route) or {}).get("bytes")
                 for route in dynamic_routes}
         for graph in GRAPHS
     }

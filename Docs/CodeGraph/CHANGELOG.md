@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.475] - 2026-10-02
+
+### chore: them Phase 0 tham do shape dong cho mlpackage CoreML (khong dung Sources/)
+
+Vòng sửa thứ ba, và là vòng **chốt kết luận**. Lượt CI #3 (`36998092891`) báo `verdict: PASS` — nhưng **sai**, vì tiêu chí của script còn lỏng.
+
+- **Siết `verdict`**: "convert được" **không đủ**. `ct.convert` vẫn dựng ra `.mlpackage` có `RangeDim` từ một graph đã bị `torch.jit.trace` nướng shape — gói đó **compile được** nhưng cho kết quả **sai/im lặng** ở shape khác, đúng loại lỗi tệ nhất trong engine này. Nay điều kiện bắt buộc là graph **đã trace** phải chạy lại đúng ở **cả 3** shape (`trace_shapes` toàn `ok`), cộng thêm `verdict_reason` và `package_bytes` vào `summary.json`.
+- **⭐ KẾT LUẬN PHASE 0: `FAIL`.** Bốn `.mlpackage` **có** được sinh ra, tổng **142,0 MB** — khớp gần đúng ước tính ~141,6 MB của plan ⇒ **phần dung lượng của plan đúng**. Nhưng `trace_ok` = **1/3** cho `text_encoder`, `vector_estimator`, `codec_decoder` (chỉ `duration_predictor` được 3/3, và nó chiếm ~0 % thời gian): graph đã trace **chỉ đúng ở đúng shape đã trace**, nên **không có gói shape động nào dùng được**.
+- **Nguyên nhân gốc (đã truy tới dòng)**: `onnx2torch/node_converters/reshape.py:23` dùng `torch.reshape(input_tensor, torch.Size(shape))`. `torch.Size` **không trace được** nên torch.jit tính ngay lúc trace rồi **nướng shape thành hằng**. Vá một dòng **không cứu được**: `torch.reshape(x, tensor_shape)` → `TypeError: argument 'shape' must be tuple of ints, not Tensor`; `shape.tolist()` vẫn hỏng vì còn op khác cũng bị nướng. Đường torch chỉ sống nếu **viết lại converter `Reshape` của `onnx2torch`** — một dự án riêng, không phải một bước trong plan này.
+- **Hai chặn độc lập của `onnx2coreml`, đo chứ không đọc tài liệu**: (a) `Range` không có lowering (1 node ở `text_encoder`, 6 node ở `vector_estimator`); (b) `input has a dynamic or unknown dimension; fixed input shapes are required in this version`.
+- **Số liệu phương án bucket dự phòng (đã đo ở lượt CI #1, vẫn đúng)**: 3 mức × 2 graph = **384,0 MB**; tại bucket `t234`: `vector_estimator` **2,87×** (383,3 → 133,6 ms, SNR 45,4 dB), `codec_decoder` **1,23×** (916,1 → 746,3 ms, SNR 49,3 dB).
+- **Theo đúng quyết định #6 của plan, dừng ở đây**: báo cáo số đo, **không** tự chuyển sang bucket. Chi tiết ở `Docs/Reports/research-2026-10-02-vieneu-coreml-shape-dong.md`.
+- **Không đụng `Sources/`** — `Sources/**/*.swift` vẫn 639 file. Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%**.
+- **Chưa build được trên Windows** ⇒ không khẳng định đã kiểm chứng biên dịch; lượt này không đổi mã Swift.
+
 ## [1.3.474] - 2026-10-02
 
 ### chore: them Phase 0 tham do shape dong cho mlpackage CoreML (khong dung Sources/)
@@ -466,24 +481,3 @@ Thêm **4** file Swift mới, sửa **17** file Swift trong `Sources/Services/` 
 - **Mục gộp VietPhrase ở màn Thông báo** làm lại theo mockup: nút **Nhập vào VietPhrase** full-width nổi bật, **Xuất file** / **Bỏ qua** ngang hàng, **3 chip** `gốc/sửa/xoá`, giờ ở góc phải, chú thích dài gộp còn 1 dòng; số liệu lưu `UserDefaults` (`vietPhraseMergeSummary`) để chip còn sau khi khởi động lại. `timeLabel` ở `NotificationInboxView` hạ `private` → `internal`.
 - Cổng: `check_architecture.py` **5 violation nền/0 mới** (đã bắt 1 violation mới ở `ReaderView.swift` và sửa bằng cách rút closure ra extension); `validate_links.py` **PASS**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
 - Đồng bộ tài liệu cho commit `e85b0b4` trước đó (`DictionaryMergeTask.swift`, `NotificationInboxView.swift`) mà CodeGraph chưa accept.
-
----
-
-## [1.3.445] - 2026-09-30
-
-### feat: gộp VietPhrase ra file text mới rồi nhập/xuất theo lựa chọn
-
-Thêm **3** file Swift mới, sửa **5** file Swift trong `Sources/Models/`, `Sources/Services/`, `Sources/Views/`:
-
-- **API duyệt từ điển (`TrieDictionary.allEntries()`, `FrozenTrieDictionary.swift` 86 → 183)**:
-  - `VietPhrase.dat` là DoubleArrayTrie nhị phân và `TranslationManager.loadAllDictionaries` **xoá** `VietPhrase.txt` sau lần biên dịch đầu ⇒ không còn nguồn text nào để đọc từ điển gốc. Thêm `allEntries()`, khai ở **cả 3** conformer.
-  - Kho `.dat` duyệt DFS theo **đúng** phép tính chỉ số của `trieMatches` nhưng chiều ngược; chỉ mục con dựng **một lượt** (gom slot theo `check[slot] > 0`) vì quét `charMap` mỗi nút là O(nút × số ký tự). Slot kết thúc có `code == 0` nên bị loại tự nhiên (mã ký tự bắt đầu từ 1).
-- **Gộp ra file text mới (`DictionaryMergeService.swift`, file mới 123 dòng)**:
-  - `VietPhrase.dat` + `CustomVietPhrase.txt` (áp tombstone) → **`VietPhraseMerged.txt`**, ghi qua `.tmp` + `replaceItemAt`. **Không** đụng từ điển gốc ⇒ một lỗi ở bước gộp chỉ tạo file sai mà người dùng vẫn xem được trước khi áp.
-  - **Tự kiểm** `allEntries().count == wordCount`; lệch ⇒ `enumerationMismatch`, dừng và **không** tạo file.
-- **Mục thông báo ghim (`DictionaryMergeTask.swift` 183 dòng + `NotificationInboxView+Merge.swift` 127 dòng)**:
-  - Trạng thái lấy từ **file trên đĩa** ⇒ mục còn nguyên sau khi tắt app. Icon `symbolEffect(.pulse, options: .repeating)` khi đang gộp.
-  - 3 hành động khi xong: **Nhập vào VietPhrase** (sao lưu `.dat` → `VietPhrase.dat.bak-merge` → `importDictionary` → xoá custom + tombstone), **Xuất file** (`ShareLink`), **Bỏ qua**.
-  - Mục **ghim**: không thuộc `NotificationInboxManager` lẫn `NewChapterInboxManager` nên hai hành động toolbar ("Đánh dấu đã đọc hết" / "Xoá thông báo đã đọc") **không** xoá được nó.
-- Cổng: `check_architecture.py` **5 violation nền/0 mới**; `validate_links.py` **PASS**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
-- Đồng bộ tài liệu cho commit "Tiết kiệm pin" trước đó (`TTSSettingsView+VieNeu.swift`, `TTSSettingsView.swift`) mà CodeGraph chưa accept.
