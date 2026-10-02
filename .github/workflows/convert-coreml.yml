@@ -130,12 +130,16 @@ jobs:
             raise SystemExit(0)
         data = json.load(open(path, encoding="utf-8"))
         print("verdict:", data.get("verdict"))
+        print("(chi tinh duong SHAPE DONG:", ", ".join(data.get("dynamic_routes") or []), ")")
         for graph, entry in (data.get("routes") or {}).items():
             ok = [route for route, info in entry.items() if info.get("ok")]
-            print(f"  {graph}: {'OK ' + ','.join(ok) if ok else 'KHÔNG đường nào chạy được'}")
+            print(f"  {graph}: {'OK ' + ','.join(ok) if ok else 'KHONG duong nao chay duoc'}")
+        print("  trace chay lai duoc / 3 shape:")
+        for graph, routes in (data.get("trace_ok") or {}).items():
+            print(f"    {graph}: {routes}")
         golden = data.get("golden") or {}
         print("  golden:", golden.get("snr_db") if golden.get("ok") else golden.get("reason"))
         bucket = data.get("bucket_fallback") or {}
         if bucket:
-            print(f"  bucket dự phòng: {bucket.get('total_bytes', 0) / 1e6:.1f} MB")
+            print(f"  bucket du phong: {bucket.get('total_bytes', 0) / 1e6:.1f} MB")
         PY

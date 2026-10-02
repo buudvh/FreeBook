@@ -132,12 +132,18 @@ def build_context(model_dir: str, config: dict, ids, style, length: int):
 
 
 def make_feeds(model_dir: str, workdir: str, length: int, frames: int) -> dict:
-    """Mọi tensor cần cho **cả 4** graph ở shape `(L=length, T=frames)`. Graph nào dùng tập con thì tự lấy."""
+    """Mọi tensor cần cho **cả 4** graph ở shape `(L=length, T=frames)`. Graph nào dùng tập con thì tự lấy.
+
+    ⚠️ **Bẫy đã trả giá ở lượt CI #2**: `ids` phải được **cắt/đệm về đúng `length`**. Bản đầu dùng
+    `real_ids(config)` nguyên trạng (~140 phần tử) bất kể `length` ⇒ `text_encoder` nhận **cùng một**
+    shape ở cả 3 "shape" đại diện ⇒ phép thử `trace_shapes` của nó **rỗng nghĩa**: nó "đạt" mà không
+    chứng minh gì. Đúng loại lỗi nguy hiểm nhất — xanh vì phép kiểm không đo gì.
+    """
     import numpy as np
 
     config = load_config(model_dir)
     speaker, style = load_voice(workdir, config)
-    ids = real_ids(config)
+    ids = _fit_ids(real_ids(config), length, config["pad_id"])
     ctx, mask = build_context(model_dir, config, ids, style, length)
     latent_channels = config["latent_dim"] * config["group"]
     return {
@@ -152,6 +158,18 @@ def make_feeds(model_dir: str, workdir: str, length: int, frames: int) -> dict:
     }
 
 
+def _fit_ids(ids, length: int, pad_id: int):
+    """Cắt hoặc đệm `ids` cho đúng `length` để `L` **thật sự** đổi giữa các shape đo."""
+    import numpy as np
+
+    if ids.shape[1] == length:
+        return ids
+    if ids.shape[1] > length:
+        return ids[:, :length]
+    padding = np.full((1, length - ids.shape[1]), pad_id, dtype=np.int64)
+    return np.concatenate([ids, padding], axis=1)
+
+
 def feeds_for(graph: str, feeds: dict) -> dict:
     table = {
         "text_encoder.onnx": ["ids", "style"],
@@ -164,10 +182,15 @@ def feeds_for(graph: str, feeds: dict) -> dict:
 
 # ─────────────────────────── Đặc tả shape cho `ct.convert` ───────────────────────────
 def dynamic_spec(graph: str, config: dict, use_enumerated_T: bool):
-    """Trả `(input_names, shapes)` cho `ct.TensorType`.
+    """Trả `(input_names, shapes)` — `shapes` đã ở dạng dùng thẳng cho `ct.TensorType(shape=)`.
 
-    `L` và `T` là hai chiều động duy nhất. `T` có thể đổi sang `EnumeratedShapes` để ANE khỏi phải đặc
-    biệt hoá theo từng giá trị.
+    ⚠️ **Bẫy đã trả giá ở lượt CI #2**: `x` của `vector_estimator`/`codec_decoder` là
+    `[1, latent_channels, T]` — **3 chiều**, với `T` ở chiều **thứ ba**. Trả về một `RangeDim` trần làm
+    *cả* shape sẽ ra `ValueError: Shape should be list or tuple, got type RangeDim`. `T` phải nằm trong
+    danh sách: `[1, channels, RangeDim]`.
+
+    `L` và `T` là hai chiều động duy nhất. `T` có thể đổi sang `EnumeratedShapes` (đối tượng spec dùng
+    thẳng, **không** bọc thêm `ct.Shape`) để ANE khỏi phải đặc biệt hoá theo từng giá trị.
     """
     import coremltools as ct
 
@@ -177,19 +200,23 @@ def dynamic_spec(graph: str, config: dict, use_enumerated_T: bool):
     def dim_L():
         return ct.RangeDim(lower_bound=2, upper_bound=512, default=160)
 
-    def dim_T():
+    def shape_x():
         if use_enumerated_T:
             return ct.EnumeratedShapes(shapes=[[1, channels, value] for value in T_ENUMERATED])
-        return ct.RangeDim(lower_bound=2, upper_bound=256, default=96)
+        return ct.Shape(shape=[1, channels, ct.RangeDim(lower_bound=2, upper_bound=256, default=96)])
 
     if graph == "text_encoder.onnx":
-        return ["ids", "style"], [[1, dim_L()], [1, n_style, style_dim]]
+        return ["ids", "style"], [ct.Shape(shape=[1, dim_L()]), ct.Shape(shape=[1, n_style, style_dim])]
     if graph == "duration_predictor.onnx":
-        return ["ctx", "ctx_mask", "spk"], [[1, dim_L(), style_dim], [1, dim_L()], [1, 192]]
+        return (["ctx", "ctx_mask", "spk"],
+                [ct.Shape(shape=[1, dim_L(), style_dim]), ct.Shape(shape=[1, dim_L()]),
+                 ct.Shape(shape=[1, 192])])
     if graph == "vector_estimator.onnx":
         return (["x", "t", "ctx", "ctx_mask", "spk", "style"],
-                [dim_T(), [1], [1, dim_L(), style_dim], [1, dim_L()], [1, 192], [1, n_style, style_dim]])
-    return ["x"], [dim_T()]
+                [shape_x(), ct.Shape(shape=[1]), ct.Shape(shape=[1, dim_L(), style_dim]),
+                 ct.Shape(shape=[1, dim_L()]), ct.Shape(shape=[1, 192]),
+                 ct.Shape(shape=[1, n_style, style_dim])])
+    return ["x"], [shape_x()]
 
 
 # ─────────────────────────── Năm đường convert ───────────────────────────
@@ -244,8 +271,8 @@ def _torch_pipeline(graph: str, source: str, package: str, context: dict, enumer
             probe[shape_name] = {"ok": False,
                                  "error": f"{type(error).__name__}: {str(error).splitlines()[0][:200]}"}
 
-    inputs = [ct.TensorType(name=name, shape=ct.Shape(shape=spec))
-              for name, spec in zip(names, shapes)]
+    # `spec` đã là `ct.Shape` hoặc `ct.EnumeratedShapes` — bọc thêm một lớp `ct.Shape` là sai.
+    inputs = [ct.TensorType(name=name, shape=spec) for name, spec in zip(names, shapes)]
     mlmodel = ct.convert(
         traced,
         inputs=inputs,
@@ -792,9 +819,20 @@ def main() -> int:
             summary["bucket_error"] = f"{type(error).__name__}: {error}"
             log("D6", f"LỖI: {error}")
 
-    # Kết luận: shape động **đạt** chỉ khi cả 4 graph có ít nhất một đường chạy được.
+    # Kết luận chỉ tính đường **shape động** (`torch_*`). `o2c_original`/`o2c_surgery` chạy được cũng
+    # KHÔNG tính: chúng chỉ sống khi shape đã đóng băng, mà shape động chính là thứ plan cần.
+    dynamic_routes = ("torch_surgery", "torch_enum_T")
+    summary["dynamic_routes"] = list(dynamic_routes)
     summary["verdict"] = "PASS" if routes and all(
-        any(info.get("ok") for info in routes.get(graph, {}).values()) for graph in GRAPHS) else "FAIL"
+        any(routes.get(graph, {}).get(route, {}).get("ok") for route in dynamic_routes)
+        for graph in GRAPHS) else "FAIL"
+    # Phép thử quyết định: graph **đã trace** phải chạy lại được ở **cả 3** shape.
+    summary["trace_ok"] = {
+        graph: {route: sum(1 for item in (routes.get(graph, {}).get(route, {}).get("trace_shapes") or {}).values()
+                           if item.get("ok"))
+                for route in dynamic_routes}
+        for graph in GRAPHS
+    }
 
     with open(os.path.join(reports, "summary.json"), "w", encoding="utf-8") as handle:
         json.dump(summary, handle, ensure_ascii=False, indent=2)

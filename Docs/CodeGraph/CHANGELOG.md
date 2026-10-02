@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.474] - 2026-10-02
+
+### chore: them Phase 0 tham do shape dong cho mlpackage CoreML (khong dung Sources/)
+
+Vòng sửa thứ hai. Lượt CI #2 (`36997384879`) **xanh** và cho ra bảng chẩn đoán đầy đủ — nhưng trong đó có **hai lỗi nữa của script**, và một trong hai làm phép kiểm trung tâm **rỗng nghĩa**.
+
+- **`dynamic_spec` sai số chiều**: `x` của `vector_estimator`/`codec_decoder` là `[1, latent_channels, T]` — **3 chiều**, `T` ở chiều thứ ba. Bản cũ trả về **một** `RangeDim` trần làm *cả* shape ⇒ `ValueError: Shape should be list or tuple, got type RangeDim` cho cả hai graph. Nay `T` nằm trong danh sách: `ct.Shape([1, channels, RangeDim])`. Cũng bỏ lớp bọc `ct.Shape` thừa quanh `EnumeratedShapes`.
+- **`make_feeds` làm phép kiểm `text_encoder` rỗng nghĩa**: `ids` dùng `real_ids(config)` nguyên trạng (~140 phần tử) **bất kể** `length`, nên `text_encoder` nhận **cùng một** shape ở cả 3 "shape" đại diện ⇒ `trace_shapes` "đạt" mà **không chứng minh gì**. Thêm `_fit_ids()` cắt/đệm về đúng `length`. Đây là loại lỗi nguy hiểm nhất — xanh vì phép kiểm không đo gì.
+- **Siết tiêu chí kết luận**: `verdict` giờ **chỉ tính đường shape động** (`torch_surgery`/`torch_enum_T`). `o2c_original`/`o2c_surgery` chạy được cũng **không** tính, vì chúng chỉ sống khi shape đã đóng băng — mà shape động chính là thứ plan cần. Thêm `trace_ok` (số shape chạy lại được / 3) vào `summary.json` và vào bước `Verdict` của workflow.
+- **Xác nhận lại kết luận của 1.3.473, lần này bằng phép đo trung thực**: `torch.jit.trace` **nướng shape** vào graph. Đo cục bộ (torch **2.14.1**, đúng bản CI dùng) trên graph đã phẫu thuật + đã vá `Clip`: trace ở `(L=160,T=96)` xong chạy lại ở `(64,32)`, `(200,234)`, `(300,96)` đều `RuntimeError` — với cả `text_encoder` lẫn `vector_estimator`. Gốc: `onnx2torch/node_converters/reshape.py:23` dùng `torch.reshape(input_tensor, torch.Size(shape))`, mà `torch.Size` **không trace được** nên torch.jit tính ngay lúc trace rồi nướng kết quả thành hằng.
+  ⚠️ Lượt CI #2 báo `text_encoder [torch_surgery]: OK` **kèm** `trace@small/typical/max: chạy lại OK` — đó là **ảo giác của phép kiểm rỗng nghĩa**, không phải bằng chứng trace giữ được chiều động. Ghi lại để lần sau không đọc nhầm nó thành "đã chạy được".
+- **Bảng chẩn đoán lượt CI #2 (giữ nguyên, vẫn đúng)**: `o2c_original` — `text_encoder`/`vector_estimator` chặn bởi `Range` (1 và 6 node), `duration_predictor`/`codec_decoder` chặn bởi `input has a dynamic or unknown dimension` ⇒ `onnx2coreml` **đòi shape tĩnh**, đo chứ không chỉ đọc tài liệu. `o2c_surgery` — gỡ `Range` rồi vẫn chặn vì chiều động. `torch_original` — `text_encoder`/`vector_estimator` chặn bởi `Clip` bỏ trống `max`. `duration_predictor` — đường torch chạy được và **giữ được chiều động** (đầu ra là scalar nên không có op phụ thuộc shape).
+- **Không đụng `Sources/`** — `Sources/**/*.swift` vẫn 639 file. Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%**.
+- **Chưa build được trên Windows** ⇒ không khẳng định đã kiểm chứng biên dịch; lượt này không đổi mã Swift.
+
 ## [1.3.473] - 2026-10-02
 
 ### chore: them Phase 0 tham do shape dong cho mlpackage CoreML (khong dung Sources/)
@@ -472,24 +487,3 @@ Thêm **3** file Swift mới, sửa **5** file Swift trong `Sources/Models/`, `S
   - Mục **ghim**: không thuộc `NotificationInboxManager` lẫn `NewChapterInboxManager` nên hai hành động toolbar ("Đánh dấu đã đọc hết" / "Xoá thông báo đã đọc") **không** xoá được nó.
 - Cổng: `check_architecture.py` **5 violation nền/0 mới**; `validate_links.py` **PASS**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
 - Đồng bộ tài liệu cho commit "Tiết kiệm pin" trước đó (`TTSSettingsView+VieNeu.swift`, `TTSSettingsView.swift`) mà CodeGraph chưa accept.
-
----
-
-## [1.3.444] - 2026-09-30
-
-### fix: rule dịch hán tự thuần không tự gắn space + màn thử VieNeu đi cùng đường Reader
-
-Thêm **1** file Swift mới, sửa **5** file Swift trong `Sources/Services/` và `Sources/Views/`:
-
-- **Rule dịch không tự gắn khoảng trắng cho hán tự thuần (`QuickTranslationRuleEngine.swift`)**:
-  - `assemble` miễn auto-space 2 bên khi `rendered` là **hán tự thuần** (`!rendered.isEmpty && rendered.allSatisfy(VietPhraseTokenizer.isChineseCharacter)`). Rule dạng `唐三=唐三` cho ra đúng `唐三`, không còn ` 唐三 `.
-  - Hán tự lẫn dấu câu/space/số/latin ⇒ **vẫn** chèn như cũ, nên `我买了四个苹果` + rule `<n>个 = 4 cái` giữ nguyên `我买了 4 cái 苹果`.
-  - File **398 → 399/400** dòng (không có trong `architecture_allowlist.json`) — chỉ còn **1** dòng headroom.
-- **Màn thử VieNeu đi cùng đường Reader (`VieNeuTTSTestView.swift` + 2 file extension + `TTSManager+VieNeu.swift`)**:
-  - `playSample()` nay chạy đủ ba bước của Reader: `TTSReplacementManager.applyReplacements` → `NghiUtteranceSegmenter.expand(…, maximumLength:)` → `synthesizeWithDuration(boundaryKind:)` cho **từng** đoạn (trước đây gọi một lượt cho cả ô chữ với `boundaryKind` mặc định).
-  - `TTSManager.vieNeuChunkLength` (mới, `nonisolated static`): đọc khoá `vieneuChunk` (mặc định 100) — cố ý **không** dùng `shared.chunkLength` vì đó là giá trị của engine đang chọn.
-  - Báo cáo RTF **cộng dồn** qua các đoạn; chẩn đoán tách `đoạn` (NghiUtteranceSegmenter) khỏi `chunk engine` (`lastChunkCount`).
-  - Footer mục "Kết quả" sửa lại cho đúng đường đi (trước đây mô tả sai).
-- **Ghép WAV (`WAVConcatenator.swift`, file mới 56 dòng)**: nối N file WAV PCM16 cùng định dạng thành một file — cắt 44 byte header, nối payload, dựng lại header; kiểm 4 mốc `RIFF`/`WAVE`/`fmt `/`data` và trả `nil` khi lệch khuôn.
-- Cổng: `check_architecture.py` **5 violation nền/0 mới**; `validate_links.py` **PASS**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
-- Đồng bộ tài liệu cho thay đổi UI TTS của commit trước (`AISettingsSection.swift`, `TTSSettingsSection.swift`) mà CodeGraph chưa accept.
