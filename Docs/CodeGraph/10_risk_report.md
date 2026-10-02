@@ -15,6 +15,13 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.468 — cấu hình shape tĩnh vẫn hỏng: **tiếng nhiễu**, và chậm gấp 2×
+
+* Log `app_logs (62).txt` với `RequireStaticInputShapes=1`: **14 partition** (giảm từ 33+) nhưng `rtf` **0,64–0,93** — so với **0,26–0,44** của CPU thường ⇒ EP **chậm gấp ~2×**; 3 `Underrun`.
+* `[VieNeuPerf] coreML=on` có đầy đủ và `pcm` hợp lý (7,32 s / 6,95 s / 8,61 s…) nhưng audio là **nhiễu hoàn toàn, không có tiếng Việt** ⇒ **giá trị tính ra sai**, không phải lỗi tầng phát. Nghi phạm chính: CoreML chạy **fp16** trên ANE/GPU ⇒ latent lệch.
+* ⇒ Cả hai cấu hình đều bị đo phủ định: shape động ⇒ **im tiếng**; shape tĩnh ⇒ **nhiễu + chậm 2×**.
+* **Bước chẩn đoán 1.3.468**: đổi `MLComputeUnits` sang `CPUOnly` (CoreML trên CPU là đường **không mất độ chính xác**) để tách "fp16/ANE" khỏi "semantics/phân mảnh của EP".
+
 ## 1.3.467 — rủi ro của CoreML EP ĐÃ THÀNH HIỆN THỰC (đo trên máy thật)
 
 * **Phân mảnh + bão biên dịch — đúng như dự đoán ở mục 1.3.466.** Log `app_logs (61).txt`: CoreML EP chia `vector_estimator` thành **33+ partition**, mỗi partition là một `.mlmodel` riêng (`CoreMLCache/<hash>/3_dynamic_mlprogram` … `33_dynamic_mlprogram`), và **sinh thêm partition ở mỗi lượt chạy** (lượt trước đã có 3–26, lượt này ghi thêm 27–33).

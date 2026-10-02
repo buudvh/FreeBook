@@ -15,6 +15,11 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.468 — cache CoreML: dọn hai thế hệ cũ
+
+* Hậu tố cache đổi theo cấu hình EP mới: `CoreMLCache-staticShapes-cpuOnly`. **Cả hai** thư mục cũ bị dọn một lần trong `prepareCoreMLCacheDirectory`: `CoreMLCache` (1.3.466) và `CoreMLCache-staticShapes` (1.3.467) — cả hai đều là cache của cấu hình đã đo được là hỏng (im tiếng / nhiễu).
+* Vòng lặp dọn dùng danh sách tên, nên **thêm một thế hệ cache mới chỉ cần thêm tên vào danh sách** đó (Luật 22).
+
 ## 1.3.467 — cache CoreML: tách theo cấu hình EP và dọn cache cũ
 
 * **Khoá cache của CoreML EP chỉ là hash model** (metadata/URL/graph IO) — **không** gồm tuỳ chọn EP ⇒ đổi tuỳ chọn mà giữ nguyên thư mục là partition của cấu hình cũ bị tái dùng. Vì vậy thư mục nay là `CoreMLCache-staticShapes`, và **đổi bộ tuỳ chọn trong `appendCoreMLProvider` thì phải đổi hậu tố**.

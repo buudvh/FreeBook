@@ -96,23 +96,23 @@ final class VieNeuONNXRuntime {
         self.coreMLActive = active
     }
 
-    /// Thư mục cache của CoreML EP — **bắt buộc** khi bật EP: không có cache thì Core ML **biên dịch
-    /// lại** subgraph mỗi lần mở session (hàng chục giây cho mỗi lượt nạp engine).
+    /// Thư mục cache của CoreML EP — **bắt buộc** khi bật EP: không cache thì Core ML **biên dịch lại**
+    /// subgraph mỗi lần mở session. Tên thư mục **mang hậu tố cấu hình** vì khoá cache của EP chỉ là hash
+    /// model, **không** gồm tuỳ chọn EP ⇒ đổi tuỳ chọn mà giữ tên cũ là partition cũ bị tái dùng (Luật 22:
+    /// đổi bộ tuỳ chọn trong `appendCoreMLProvider` thì phải đổi hậu tố ở đây).
     ///
-    /// **Tên thư mục mang hậu tố cấu hình** (1.3.467) vì khoá cache của CoreML EP **chỉ** là hash model,
-    /// **không** gồm tuỳ chọn EP ⇒ đổi tuỳ chọn mà giữ tên cũ là partition của cấu hình cũ bị tái dùng.
-    /// **Đổi bộ tuỳ chọn trong `appendCoreMLProvider` thì phải đổi hậu tố ở đây.**
-    ///
-    /// Thư mục `CoreMLCache` (tên 1.3.466, không hậu tố) được dọn một lần: nó chứa 33+ partition của cấu
-    /// hình `RequireStaticInputShapes=0` — cấu hình đã chứng minh làm im tiếng.
+    /// Hai thư mục cũ bị dọn một lần: `CoreMLCache` (1.3.466 — 33+ partition, **im tiếng**) và
+    /// `CoreMLCache-staticShapes` (1.3.467 — 14 partition, **tiếng nhiễu**, `rtf` 0,64–0,93).
     static func prepareCoreMLCacheDirectory(modelStore: VieNeuModelStore) throws -> String {
         let root = modelStore.rootURL
-        let legacy = root.appendingPathComponent("CoreMLCache", isDirectory: true)
-        if FileManager.default.fileExists(atPath: legacy.path) {
-            try? FileManager.default.removeItem(at: legacy)
-            AppLogger.shared.log("🧹 [VieNeu] Dọn cache CoreML cũ (cấu hình shape động gây bão biên dịch)")
+        for stale in ["CoreMLCache", "CoreMLCache-staticShapes"] {
+            let url = root.appendingPathComponent(stale, isDirectory: true)
+            if FileManager.default.fileExists(atPath: url.path) {
+                try? FileManager.default.removeItem(at: url)
+                AppLogger.shared.log("🧹 [VieNeu] Dọn cache CoreML cũ: \(stale)")
+            }
         }
-        let directory = root.appendingPathComponent("CoreMLCache-staticShapes", isDirectory: true)
+        let directory = root.appendingPathComponent("CoreMLCache-staticShapes-cpuOnly", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return directory.path
     }

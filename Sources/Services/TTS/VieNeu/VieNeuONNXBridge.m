@@ -164,8 +164,13 @@ static int32_t appendCoreMLProvider(const OrtApi *api, OrtSessionOptions *option
     // MLProgram (Core ML 5+, iOS 15+): bắt buộc cho các op hiện đại của graph này
     // (LayerNormalization / Gelu / Erf / ReduceMean) mà định dạng NeuralNetwork không có.
     keys[count] = "ModelFormat";          values[count++] = "MLProgram";
-    // Nhắm ANE; máy không có ANE thì Core ML tự rơi về CPU, không lỗi.
-    keys[count] = "MLComputeUnits";       values[count++] = "CPUAndNeuralEngine";
+    // ⚠️ **CHẨN ĐOÁN (1.3.468)** — tạm đổi sang `CPUOnly` để tách nguyên nhân tiếng nhiễu:
+    // CoreML chạy trên CPU là đường **không mất độ chính xác** (fp32), nên:
+    //   * audio **đúng** ⇒ thủ phạm là fp16/ANE (CoreML trên ANE/GPU tính fp16 ⇒ latent lệch ⇒ nhiễu);
+    //   * audio **vẫn nhiễu** ⇒ lỗi ở semantics/phân mảnh của EP, không liên quan độ chính xác.
+    // Giá trị cũ là `CPUAndNeuralEngine` (1.3.466–1.3.467) — đo được **tiếng nhiễu** với `rtf` 0,64–0,93
+    // trong khi CPU thường (ORT) chỉ 0,26–0,44. Đổi tuỳ chọn ⇒ **phải đổi hậu tố thư mục cache** (Luật 22).
+    keys[count] = "MLComputeUnits";       values[count++] = "CPUOnly";
     keys[count] = "ModelCacheDirectory";  values[count++] = runOptions->coreMLCacheDirectory;
     // Bảng phân bổ ANE/GPU/CPU theo từng toán tử — nguồn sự thật duy nhất cho câu hỏi "EP có ăn không".
     keys[count] = "ProfileComputePlan";   values[count++] = "1";

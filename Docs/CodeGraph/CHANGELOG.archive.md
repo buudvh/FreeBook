@@ -2,6 +2,36 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.438] - 2026-09-29
+
+### fix: nạp trước đồng thời VieNeu + safe-window 150ms (chống đứt đoạn ngắn / chồng tiếng)
+
+Người dùng báo: **đoạn văn ngắn đọc xong → đoạn kế không kịp tổng hợp → phải chờ lâu mới nghe tiếp**. Nguyên nhân gốc nằm ở cơ chế nạp trước, không phải engine.
+
+### 1) Đứt đoạn ngắn — root cause: nạp trước BẮT BUỘC tuần tự 1 đoạn
+`canScheduleNghiRefill(hasRefillTask:hasRetryTask:)` trả `!hasRefillTask && !hasRetryTask` ⇒ **chỉ 1 lượt refill được phép bay cùng lúc** — nghiêm ngặt tuần tự. VieNeu tổng hợp đắt (`VieNeuSynthesisPolicy.bufferedSecondsTarget = 12`, RTF ~0,29 + chi phí cố định theo chunk) nên một lần nạp trước tuần tự **không bao giờ đi trước kịp** một đoạn ngắn có thời lượng audio ≤ 1 lần tổng hợp ⇒ đúng lỗi người dùng báo. NghiTTS (Piper) tổng hợp gần tức thì nên giữ 1 luồng.
+
+**Sửa (chung cho đường local NghiTTS/VieNeu):**
+- Đổi stored prop đơn thành **pool**: `nghiRefillTask: Task?` → `nghiRefillTasks: [Int: Task]`; `nghiRefillInFlightIndex: Int?` → `nghiRefillInFlightIndices: Set<Int>`. `cancelNghiRefill()` lặp huỷ mọi task + xoá cả hai tập.
+- `maxConcurrentNghiRefills`: **3** cho `vieneu`, **1** cho `nghitts` (giữ nguyên behaviour Piper).
+- File mới **`TTSManager+NghiPrefetchConcurrency.swift`** (46 dòng, ratchet-down): `fillNghiRefillUpToCapacity()` lập lịch tới khi đầy luồng hoặc hết ứng viên (safety counter 32, mỗi task xong `defer` gọi lại `updateNghiPrefetchWindow` nên pipeline tự duy trì).
+- `nghiRefillCandidate` thêm bỏ qua chỉ mục **đang bay** (`!nghiRefillInFlightIndices.contains(...)`) + cap optional reserve **4 (vieu) / 2 (nghitts)**.
+- Xoá `static func canScheduleNghiRefill` cũ. `scheduleNghiRefill()` → `internal func scheduleNghiRefill() -> Bool` có guard `nghiRefillRetryTask == nil` + in-flight + `nghiRefillTasks.count < maxConcurrentNghiRefills`; đường reuse trong `playNghiTTS` dùng `nghiRefillTasks[index]`.
+- `updateNghiPrefetchWindow()` thay khối "nạp 1 rồi return" bằng `fillNghiRefillUpToCapacity()` (cả nhánh đầu và nhánh `cachedTime < threshold`).
+
+### 2) Nâng ngưỡng mặc định VieNeu 8s → 12s
+`vieneuSafeCachedTimeThreshold` default `NghiSynthesisPolicy.defaultSafeCachedTimeThreshold` (8) → **12.0**; `applyVieNeuParamsIfNeeded()` fallback khi chưa có `UserDefaults` cũng về `VieNeuSynthesisPolicy.bufferedSecondsTarget` (12) thay vì 8. (Ngưỡng này đã có nơi đọc từ 1.3.435 qua `currentSafeCachedTimeThreshold`.)
+
+### 3) Safe-window 50 → 150ms (chống chồng tiếng)
+`NghiAudioPlayerQueue.prepareNextNghiAudioIfPossible` (task #8): `guard wallClockRemaining > 0.050` → `> 0.150`. Lý do: `AVAudioPlayer.duration` có thể ước lượng ngắn hơn thực tế vài ms ⇒ một `startTime` tính sát đích rất dễ rơi **trước** khi đoạn hiện tại kết thúc ⇒ hai đoạn phát song song. Đánh đổi một khoảng nghỉ cực nhỏ lấy việc chắc chắn không bao giờ schedule sớm.
+
+### Số dòng & cổng
+`TTSManager.swift` **4028 → 4024** (net −4, nhờ xoá `canScheduleNghiRefill` + gom comment); file mới `TTSManager+NghiPrefetchConcurrency.swift` (46); `TTSManager+VieNeu.swift` (fallback 12s); `NghiAudioPlayerQueue.swift` (comment + guard, ~+2 dòng).
+Cổng: `check_architecture.py` **5 violation nền, 0 mới** (`TTSManager` giảm 4 dòng ⇒ an toàn); `validate_links.py` **PASS 16 documents / 609 Swift files** (13 doc được `--accept` bắt kịp luôn nợ cũ từ 1.3.437). **Không build được trên Windows** ⇒ CI xác nhận biên dịch.
+
+**Còn lại (treo):** `vieneuPitch` vẫn no-op — `NghiAudioPlayerQueue` chỉ có `updateRate`, chưa có `AVAudioUnitTimePitch` (task #9); clone giọng (overlay `VieNeuVoiceCatalog` + script Python trích `speaker_encoder/codec_encoder/reference_encoder`, task #10/#11).
+
+---
 ## [1.3.437] - 2026-09-29
 
 ### refactor: gom tien xu ly so VieNeu len service chung

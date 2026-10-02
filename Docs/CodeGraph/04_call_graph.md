@@ -15,6 +15,10 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.468 — chẩn đoán: `MLComputeUnits=CPUOnly` (không đổi cạnh gọi)
+
+* `appendCoreMLProvider` đổi giá trị `MLComputeUnits` → `CPUOnly`; `prepareCoreMLCacheDirectory` dọn **hai** thư mục cache cũ thay vì một (vòng lặp tên).
+
 ## 1.3.467 — sửa cấu hình EP sau khi đo trên máy (không đổi cạnh gọi)
 
 * `VieNeuONNXRuntime.prepareCoreMLCacheDirectory` đổi thư mục cache sang `CoreMLCache-staticShapes` và **dọn** `CoreMLCache` cũ ⇒ cạnh gọi mới: hàm này → `FileManager.removeItem` (một lần, cho cache của cấu hình đã hỏng).

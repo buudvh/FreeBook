@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.468 — chẩn đoán CoreML: đổi sang `MLComputeUnits=CPUOnly`
+
+* **Kết quả 1.3.467 đo trên máy** (`app_logs (62).txt`): 14 partition, `rtf` **0,64–0,93** (CPU thường: 0,26–0,44) và audio là **tiếng nhiễu, không có tiếng Việt** ⇒ EP tính sai giá trị, đồng thời chậm gấp ~2×.
+* **Đổi `MLComputeUnits` → `CPUOnly`** để tách nguyên nhân: CoreML trên CPU là đường **không mất độ chính xác** (fp32). Nếu audio **đúng** ⇒ thủ phạm là **fp16/ANE**; nếu **vẫn nhiễu** ⇒ lỗi ở **semantics/phân mảnh của EP**. Đây là **bước chẩn đoán**, không phải để dùng thật (CoreML trên CPU chắc chắn chậm hơn ORT CPU).
+* Thư mục cache đổi thành `CoreMLCache-staticShapes-cpuOnly` (Luật 22); **cả hai** thư mục cũ (`CoreMLCache`, `CoreMLCache-staticShapes`) bị dọn một lần.
+
 ## 1.3.467 — CoreML EP: ép shape tĩnh sau khi lượt đầu làm im tiếng
 
 * **Đo trên máy thật (`app_logs (61).txt`)**: với `RequireStaticInputShapes=0`, CoreML EP chia `vector_estimator` thành **33+ partition**, mỗi cái biên dịch riêng và **sinh thêm mỗi lượt chạy**; trong 25 giây đọc **không có `[VieNeuPerf]` nào** ⇒ không có tiếng, chỉ `[NghiEnergy] Underrun`.
