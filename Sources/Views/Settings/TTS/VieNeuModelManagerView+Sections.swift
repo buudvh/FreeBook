@@ -99,7 +99,7 @@ extension VieNeuModelManagerView {
     @ViewBuilder
     var packageList: some View {
         ForEach(VieNeuModelStore.coreMLPackageNames, id: \.self) { name in
-            let url = store?.coreMLCompiledURL(for: name)
+            let url = store?.compiledURL(for: name)
             let ready = url.map { FileManager.default.fileExists(atPath: $0.path) } ?? false
             HStack(spacing: 8) {
                 Image(systemName: ready ? "checkmark.circle.fill" : "circle")

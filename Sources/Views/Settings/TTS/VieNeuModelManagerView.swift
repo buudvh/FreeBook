@@ -7,11 +7,11 @@ import SwiftUI
 /// **Không có hai nguồn sự thật**: model ONNX trước đây quản lý ở `VieNeuTTSTestView.modelSection`, nay
 /// chuyển sang đây (plan §5.4 / §5.7). Mọi ghi model đều qua service/store, không đụng SwiftData.
 struct VieNeuModelManagerView: View {
-    @State private var isDownloading = false
-    @State private var downloadProgress: Double = 0
-    @State private var downloadMessage = ""
-    @State private var statusMessage = ""
-    @State private var isError = false
+    @State var isDownloading = false
+    @State var downloadProgress: Double = 0
+    @State var downloadMessage = ""
+    @State var statusMessage = ""
+    @State var isError = false
 
     var service: VieNeuTTSService? { VieNeuTTSService.shared }
     var store: VieNeuModelStore? { service?.modelStore }

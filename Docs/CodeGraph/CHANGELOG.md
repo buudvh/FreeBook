@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.488] - 2026-10-02
+
+### feat: tich hop Core ML bucket tinh vao engine VieNeu-TTS (Phase 3-5)
+
+Vòng sửa sau lượt CI đầu (`37030475201` — **X FAILURE**, `Build and Archive App (Unsigned)` exit 65). Giữ **nguyên subject**, **không amend/force-push**.
+
+- **8 lỗi biên dịch** (chỉ CI bắt được — Windows không có Swift toolchain): `VieNeuCoreMLRuntime.swift:165` `MLMultiArray` không có `floatValue(at:)` ⇒ `array[0].floatValue` · `VieNeuModelClient.swift:104,105` dùng `voicesURL`/`g2pURL` (static) như thành viên instance ⇒ `Self.voicesURL`/`Self.g2pURL` · `VieNeuModelClient.swift:276` `hasher.update(…)` thiếu nhãn `data:` ⇒ `hasher.update(data: Data(buffer[..<read]))` · `VieNeuModelManagerView+Sections.swift:102` gọi `store.coreMLCompiledURL(for:)` nhưng đó là **thuộc tính** `URL` ⇒ `store.compiledURL(for:)` · `…+Sections.swift:129-131` `isDownloading`/`downloadProgress`/`downloadMessage` là `@State private` ⇒ extension **khác file** không đọc được ⇒ bỏ `private`.
+- **Bài học**: `private` của Swift giới hạn **theo file** ⇒ `@State private` ở View mà extension nằm file khác là **lỗi access**; muốn dùng chéo file phải hạ xuống `internal`.
+- Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%** (`--no-change-needed` 5 doc — sửa cơ học, mô tả vẫn đúng).
+
+---
+
 ## [1.3.487] - 2026-10-02
 
 ### feat: tich hop Core ML bucket tinh vao engine VieNeu-TTS (Phase 3-5)
@@ -469,20 +481,3 @@ Người dùng: *"VieNeu-TTS đọc tiếng Nhật nhiều từ chưa chính xá
 - **Ràng buộc đã đo**: `check_architecture.py` **5 violation nền / 0 mới** (lượt đầu có **1 vi phạm mới** `ReaderView.swift` 2054 > 2053 — đã nén lại còn **2049**); `validate_links.py` **PASS 100% (16 doc, 629 file Swift)**.
 - **Tài liệu CodeGraph**: `00_index`, `02_file_graph`, `03_type_graph`, `04_call_graph`, `05_state_graph`, `11_subsystems`, `14_complexity_report`, `rules`, `09_dependency_rules` **accept**; `08_lifecycle`, `10_risk_report`, `13_resource_lifecycle` **no-change-needed**. Sửa luôn 2 **link chết** trỏ tới file đã xoá (`00_index.md`, `02_file_graph.md`) — validator bắt được.
 - **Kèm theo (công cụ, không phải mã app)**: 2 bản skill `push-ci-monitor` được repo track (`.workbuddy/skills/`, `.agents/skills/`) sửa lại phần theo dõi CI — bản cũ dạy dùng công cụ `schedule`/`DurationSeconds` của **Antigravity** (không tồn tại trên WorkBuddy); nay ghi đúng cách đã kiểm chứng: `gh run watch <id> --exit-status` chạy nền + `TaskOutput block=true`, và `gh` đã đăng nhập sẵn nên bỏ bước trích `GH_TOKEN`.
-
----
-
-## [1.3.458] - 2026-10-01
-
-### fix: bao toast khi nut tao giong bi chan boi phat lai, sap xep lai muc Tu Dien
-
-Sửa lỗi UX người dùng báo: *"bấm vào nút tạo giọng nói nó không hoạt động, không mở ra được màn hình tạo giọng nói"*. Đã xác nhận bằng thực nghiệm — **dừng phát truyện thì bấm được** ⇒ thủ phạm là cổng `isBlockedByPlayback`, không phải lỗi điều hướng/sheet.
-
-- **Nguyên nhân**: `creationSection` khoá nút bằng `.disabled(!isModelReady || !hasCloneGraphs || isBlockedByPlayback)` nhưng footer **chỉ có nhánh cho 2 điều kiện đầu** ⇒ khi bị khoá vì đang phát, footer rơi vào `else` và hiện câu hướng dẫn bình thường. Thêm nữa `.tint(.white)` toàn cục làm nút disabled trông y hệt nút thường ⇒ "nút bình thường, bấm không phản hồi".
-- **Ràng buộc kỹ thuật quyết định cách sửa**: nút `.disabled` **không** phát sinh sự kiện ⇒ muốn báo bằng toast thì buộc phải **bỏ `isBlockedByPlayback` khỏi `.disabled`** rồi kiểm trong action.
-- **Sửa**: thêm `playbackBlockReason(action:)` (`VieNeuVoiceLibraryView.swift`) tách **đúng nguyên nhân** (`isPlaying` = đang đọc truyện; chỉ `showFloatingWidget` = trình phát hiện nhưng có thể đã tạm dừng — nói "đang phát truyện" khi chỉ mở trình phát là sai). Hai nút bỏ cổng khỏi `.disabled`, toast `ToastManager.shared.show(message:type: .info)` thay vì mở sheet. Áp cho cả **"Tạo giọng mới"** lẫn nút **nghe thử** ở `voiceRow` (cùng lớp lỗi, `+Sections.swift:127`); nút nghe thử vẫn cho **dừng** bản nghe thử của chính nó.
-- **Không đổi**: `isBlockedByPlayback` giữ nguyên định nghĩa và vẫn là cổng trong `enroll`/`playPreview`; không đụng `TTSManager`/`VieNeuTTSService`/`VieNeuTTSEngine`; không đổi `.sheet`.
-- **Kèm theo (thay đổi có sẵn trong cây làm việc)**: `DictionaryHubView.swift` — dời mục **"Thay thế từ (TTS)"** xuống **cuối** danh sách (sau nhóm "Rule Dịch"), không đổi nội dung/đích điều hướng; `ttsReplacementStatusText` giữ nguyên.
-- **File sửa**: `VieNeuVoiceLibraryView.swift` 372 → **385**; `VieNeuVoiceLibraryView+Sections.swift` 201 → **208** (cả hai < 400); `DictionaryHubView.swift` **199 → 199** (chỉ đổi thứ tự khối).
-- **Ràng buộc đã đo**: `check_architecture.py` **5 violation nền / 0 mới**; `validate_links.py` **PASS 100%**.
-- **Tài liệu CodeGraph**: `11_subsystems.md` **accept** (thêm mục 1.3.458).

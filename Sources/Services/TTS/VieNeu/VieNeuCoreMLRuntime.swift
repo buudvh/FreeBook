@@ -162,7 +162,7 @@ final class VieNeuCoreMLRuntime: VieNeuInferenceBackend {
     private func firstFloat(from provider: MLFeatureProvider, name: String) throws -> Float {
         guard let feature = provider.featureValue(for: name) else { throw RuntimeError.missing(name) }
         if let array = feature.multiArrayValue {
-            return array.floatValue(at: [0])
+            return array[0].floatValue
         }
         return Float(feature.doubleValue)
     }

@@ -101,8 +101,8 @@ final class VieNeuModelClient {
         for name in VieNeuModelStore.graphNames + VieNeuModelStore.configNames {
             list.append(try source(name: name, urlString: "\(Self.modelBase)/\(name)"))
         }
-        list.append(try source(name: "voices_v3_nano.json", urlString: voicesURL))
-        list.append(try source(name: "sea_g2p.bin", urlString: g2pURL))
+        list.append(try source(name: "voices_v3_nano.json", urlString: Self.voicesURL))
+        list.append(try source(name: "sea_g2p.bin", urlString: Self.g2pURL))
         return list
     }
 
@@ -273,7 +273,7 @@ final class VieNeuModelClient {
             while stream.hasBytesAvailable {
                 let read = stream.read(&buffer, maxLength: bufferSize)
                 if read <= 0 { break }
-                hasher.update(buffer[..<read])
+                hasher.update(data: Data(buffer[..<read]))
             }
         }
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
