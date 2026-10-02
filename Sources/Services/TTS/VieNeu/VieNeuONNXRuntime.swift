@@ -60,7 +60,10 @@ final class VieNeuONNXRuntime {
         var active = coreML
         var message: UnsafeMutablePointer<CChar>?
         var options = VieNeuORTRunOptions(useCoreML: coreML ? 1 : 0,
-                                          verboseLog: verboseORTLog ? 1 : 0,
+                                          // Bật EP ⇒ **buộc** log verbose: `ProfileComputePlan` ghi ở mức
+                                          // INFO, để mức WARNING là mất luôn bảng phân bổ ANE/GPU/CPU — tức
+                                          // mất đúng thứ thí nghiệm cần đọc.
+                                          verboseLog: (verboseORTLog || coreML) ? 1 : 0,
                                           coreMLCacheDirectory: nil)
         var created: OpaquePointer?
 
@@ -127,6 +130,8 @@ final class VieNeuONNXRuntime {
             throw RuntimeError.failure(Self.consume(message, fallback: "không nạp được gói graph clone"))
         }
         self.handle = handle
+        // Ngữ cảnh clone **không** dùng CoreML EP (xem doc `VieNeuORTCreateCloneOnly`) ⇒ cờ luôn `false`.
+        self.coreMLActive = false
     }
 
     deinit {

@@ -20,7 +20,7 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 * Validator: **639 → 641** file Swift.
 * File mới: `VieNeuTTSEngine+Reload` **55**/400 · `VieNeuTTSService+Reload` **43**/400.
 * Chạm trần: `VieNeuTTSEngine.swift` **400** (chỉ đổi `private`→`internal` + dài thêm 1 dòng có sẵn) · `VieNeuTTSService.swift` **400** (398 → 400, chỉ thêm 2 dòng chú thích ⇒ **lần sau phải tách file trước**).
-* Tăng khác: `VieNeuONNXRuntime.swift` 316 → **385** · `VieNeuSynthesisPolicy.swift` 186 → **199** · `TTSSettingsView+VieNeu.swift` 332 → **398** · `TTSManager+VieNeu.swift` 285 → **289** · `VieNeuONNXBridge.m` 1155 → **1245** (không bị luật 400).
+* Tăng khác: `VieNeuONNXRuntime.swift` 316 → **390** · `VieNeuSynthesisPolicy.swift` 186 → **199** · `TTSSettingsView+VieNeu.swift` 332 → **398** · `TTSManager+VieNeu.swift` 285 → **289** · `VieNeuONNXBridge.m` 1155 → **1245** (không bị luật 400).
 
 ## 1.3.465 — độ phức tạp: Section 4 tách file, `TTSSettingsView.swift` lùi khỏi trần
 
