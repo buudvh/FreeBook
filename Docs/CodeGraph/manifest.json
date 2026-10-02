@@ -3,8 +3,8 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-10-02T08:34:52Z",
-  "gitCommit": "9bba76583847d61525c17ed8a5aedac8eec7fc08",
+  "generatedAt": "2026-10-02T09:22:37Z",
+  "gitCommit": "d9ca854457c50e574e0351aff53bb66f0a28f315",
   "sourceFileCount": 639,
   "documentCount": 16,
   "documents": [
@@ -678,18 +678,19 @@
       "sourceFiles": [
         ".github/workflows/build-ipa.yml",
         ".github/workflows/cleanup-runs.yml",
+        ".github/workflows/convert-coreml.yml",
         ".github/workflows/fbank-gate.yml",
         "Scripts/architecture_allowlist.json",
         "Scripts/check_architecture.py",
         "Sources/App/FreeBookApp.swift",
         "project.yml"
       ],
-      "structureHash": "b0cfdd8c1e7b6e72942a3d911e6e0ae75d287884996dd5e765ffe31886e1ff18",
-      "sourceHash": "9a3eda6b08e6a0ac993e83804ef5fac055732f2201698167de98e35248df6301",
-      "generatedHash": "669456678bdd2492aa87f5b7484b7446d4ee78afdc18564e44ed22e5bda33d0b",
-      "generatedAt": "2026-09-30T15:53:00Z",
-      "reviewedAt": "2026-09-30T15:53:00Z",
-      "reviewedCommit": "8f77b91d1abeda6dbae0e3348b524055cbca2b9d",
+      "structureHash": "afa7ccbb089e87dcdc9cfbffea2e9323b9c09e423d2f9b7e400a22e2f8c4f74f",
+      "sourceHash": "27c1a411adfac33026fb184d6b409f6d04b5831e89adb512323ed17023eba7d4",
+      "generatedHash": "f8886745b3b0fd263b6c588e06b84b88a3b75f3bff85774e69e07eb7c0823e14",
+      "generatedAt": "2026-10-02T09:22:37Z",
+      "reviewedAt": "2026-10-02T09:22:37Z",
+      "reviewedCommit": "d9ca854457c50e574e0351aff53bb66f0a28f315",
       "reviewMode": "accept"
     },
     {

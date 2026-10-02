@@ -1,0 +1,67 @@
+name: CoreML Convert Experiment
+
+# Thí nghiệm MỘT LẦN: convert 4 graph ONNX của VieNeu-TTS v3 Nano sang `.mlpackage` (Core ML)
+# và đo 3 thứ trên runner macOS (Apple Silicon ⇒ có ANE):
+#   1. convert được graph nào (độ phủ op của `onnx2coreml`)
+#   2. Core ML fp16 có khớp số với ONNX Runtime fp32 không (SNR thật, thay cho proxy)
+#   3. Core ML có nhanh hơn ORT CPU trên CÙNG một máy không
+#
+# Không đụng `Sources/`, không đụng `build-ipa.yml`. Chạy khi push chính file này, hoặc bấm tay.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/convert-coreml.yml'
+
+jobs:
+  convert:
+    name: Convert ONNX to mlpackage
+    runs-on: macos-15
+    timeout-minutes: 60
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    # `onnx2coreml` yêu cầu Python >=3.11,<3.14. `coremltools` chỉ có wheel cho macOS/Linux.
+    - name: Install converters
+      run: |
+        python -m pip install --upgrade pip
+        pip install coremltools onnx2coreml onnxruntime huggingface_hub numpy onnx
+        python -c "import coremltools, onnx2coreml, onnxruntime; print('coremltools', coremltools.__version__, '| onnxruntime', onnxruntime.__version__)"
+
+    - name: Run conversion experiment
+      run: |
+        python Scripts/coreml_convert_experiment.py --out reports --workdir .coreml-experiment 2>&1 | tee coreml-experiment.log
+
+    # `always()` để vẫn lấy được báo cáo khi một giai đoạn lỗi — "lỗi ở đâu, vì sao" cũng là kết quả.
+    - name: Upload reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: coreml-experiment-reports
+        path: |
+          reports/**
+          coreml-experiment.log
+        if-no-files-found: warn
+        retention-days: 14
+
+    - name: Upload mlpackage artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: coreml-mlpackages
+        path: .coreml-experiment/*.mlpackage
+        if-no-files-found: warn
+        retention-days: 14
+
+    - name: Summary
+      if: always()
+      run: |
+        echo "=== summary.json ==="
+        cat reports/summary.json 2>/dev/null || echo "(không có summary.json)"

@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.471] - 2026-10-02
+
+### chore: them workflow thi nghiem convert ONNX sang mlpackage (CoreML) tren runner macOS
+
+Thí nghiệm **một lần**, không đụng `Sources/`. Mục tiêu: trả lời 3 câu cho nhánh CoreML bằng số đo trên runner macOS (Apple Silicon, **có ANE**).
+
+- **`onnx2coreml` convert được không** — `analyze` cả 4 graph, ghi op thiếu vào `reports/analysis.json`.
+- **fp16 thật có giữ được số không** — so đầu ra Core ML (fp16) với ORT **fp32** trên cùng input thật (phoneme chép từ log + preset giọng thật) ⇒ SNR, thay cho proxy 25,6 dB đã đo trên PC.
+- **Core ML có nhanh hơn ORT CPU không** — đo `ms/lượt` của `vector_estimator` trên **cùng một máy**, với `ComputeUnit` = ALL / CPU_AND_NE / CPU_ONLY.
+- Shape phải **cố định** (giới hạn của `onnx2coreml`) ⇒ `freeze_shapes` chốt `dim_value` + xoá `value_info` + `infer_shapes`; 2 bucket: `L=160,T=96` (điển hình) và `L=200,T=234` (trần 15 s).
+- **Đã kiểm chứng cục bộ phần không cần coremltools**: `freeze_shapes` cho model nạp được trong ORT với shape tĩnh đúng thiết kế và `Run` trả `[1,144,96]`.
+- Tiêu chí chốt trước: convert được **và** SNR ≥ 20 dB **và** Core ML nhanh hơn ORT ≥ 1,3× ⇒ mới bàn tới việc viết engine mới trong app. Trượt cổng nào thì ghi vào báo cáo nghiên cứu và **dừng nhánh CoreML**.
+
 ## [1.3.470] - 2026-10-02
 
 ### revert: dua toan bo phan VieNeu ve dung moc truoc khi them CoreML EP
@@ -489,32 +502,5 @@ Theo yêu cầu user (config hiện tại làm mặc định + sửa UI + làm "
 Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS** (04/10/11/rules `--accept`; 03/05/06/08/13 `--no-change-needed`). **Không build trên Windows** ⇒ CI xác nhận biên dịch.
 
 **Còn sót nhỏ**: cờ `nextIsScheduled` trong `NghiAudioPlayerQueue` (luôn `false`) — dọn ở lượt sau nếu cần.
-
----
-
-## [1.3.441] - 2026-09-30
-
-### feat: bỏ pre-schedule hết chồng tiếng/nói lắp + log phoneme + ưu tiên fast/tiết kiệm pin
-
-Ba lỗi TTS (grill-me chốt phương án): (1) nói lắp "chân tướng" → "chân chân tướng"; (2) chồng tiếng (2 đoạn song song); (3) VieNeu nóng máy/nhanh hết pin.
-
-### 1) Bỏ pre-schedule `play(atTime:)` — hết chồng tiếng + nói lắp
-- **Root cause**: `NghiAudioPlayerQueue.scheduleNextIfPossible` lập lịch đoạn kế bằng `nextPlayer.play(atTime: deviceCurrentTime + (duration - currentTime)/rate)`. `duration`/`deviceCurrentTime` ước lượng lệch ⇒ đoạn kế chạy **sớm**, đuôi âm tiết cuối chồng lên đầu đoạn kế.
-- **Mô phỏng xác nhận**: cắt chunk **không** nhân đôi text (biên rơi giữa "chân" và "tướng" nhưng tái dựng khớp 100%) ⇒ lỗi ở **tầng phát audio tại biên**.
-- **Sửa**: `scheduleNextIfPossible` → rỗng; giữ `nextPlayer` ở `prepareToPlay()`, bàn giao qua `audioPlayerDidFinishPlaying` → `promoteNextAfterCurrentFinished` → `play()`. `NghiAudioPlayerQueue` **368 → 324** dòng. (Cụm `.scheduled`/`onScheduleHandoff`/`handleNghiScheduledHandoff` là dead code — gỡ ở lượt "B", chưa làm.)
-
-### 2) Log chẩn đoán
-- `handleNghiAudioTransition`: `[TTSPerf] NghiHandoff prevTail=… nextHead=…` (text ở biên).
-- `VieNeuTTSEngine.synthesize` → `logChunkPhonemes` (ở `+Adaptive`): `[VieNeuChunk] i=… text=… phonemes=…` (đường Reader trước đây không log phoneme).
-
-### 3) VieNeu nóng máy/pin
-- **Ưu tiên `fast`**: `VieNeuTTSEngine.mode` mặc định `.high` → `.fast`; `upshiftRTF` 0.45 → 0.30 (giảm ~2× tính toán ⇒ mát/pin hơn, chất lượng thấp hơn).
-- **"Tiết kiệm pin" (opt-in)** + **số luồng ORT**: `VieNeuTTSService.powerSaving`/`threadCount`; `VieNeuSynthesisPolicy.threadCount(from:)` (giữ type thuần); UI toggle + Picker ở `vieNeuReaderSection` kèm hướng dẫn. `threadCount` áp dụng sau khi **nạp lại engine**.
-
-### Số dòng & cổng
-`NghiAudioPlayerQueue.swift` 368 → 324; `TTSManager.swift` net 0 (4024); `VieNeuTTSEngine.swift` 400/400 (đúng trần); `VieNeuSynthesisPolicy.swift` 94 → 114; `VieNeuTTSService.swift` 345; `TTSSettingsView.swift` 513/519.
-Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS** (04/10/11/rules `--accept`; 03/05/06/08/13 `--no-change-needed`). **Không build trên Windows** ⇒ CI xác nhận biên dịch.
-
-**Cần kiểm chứng máy thật (IPA):** hết chồng tiếng; 1→2→3 liền mạch; gap do bỏ pre-schedule không đáng kể; "Tiết kiệm pin" mát hơn rõ rệt. **Còn nợ "B"**: gỡ cụm `.scheduled`.
 
 ---

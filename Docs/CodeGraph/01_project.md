@@ -15,6 +15,12 @@ Tài liệu này phác thảo kiến trúc tổng thể, sơ đồ thư mục, c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.471 — workflow thí nghiệm CoreML (một lần, không đụng CI IPA)
+
+* Thêm `.github/workflows/convert-coreml.yml` — **workflow riêng**, chỉ chạy khi `workflow_dispatch` hoặc khi chính file đó đổi. Runner `macos-15` (Apple Silicon ⇒ **có ANE**), Python 3.12 vì `onnx2coreml` yêu cầu `>=3.11,<3.14`.
+* Thêm `Scripts/coreml_convert_experiment.py` — tải model ghim revision, `analyze` 4 graph, chốt shape tĩnh rồi convert `vector_estimator` (2 bucket) + `codec_decoder` (1 bucket), và **so số + đo tốc độ Core ML fp16 vs ORT fp32 trên cùng một máy**; mọi giai đoạn bọc `try/except` để lỗi ở đâu cũng là kết quả thu được.
+* **Không** sửa `Sources/`, **không** sửa `build-ipa.yml`. Lưu ý: `build-ipa.yml` có `paths: '.github/workflows/**'` nên push file này **cũng** kích hoạt một lượt build IPA (không ảnh hưởng kết quả, chỉ tốn thời gian runner).
+
 
 ## `project.yml` thêm `NSMicrophoneUsageDescription` + cổng CI `fbank-gate` (1.3.451 / 1.3.453)
 
