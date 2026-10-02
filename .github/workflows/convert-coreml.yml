@@ -12,6 +12,7 @@ on:
   push:
     paths:
       - '.github/workflows/convert-coreml.yml'
+      - 'Scripts/coreml_convert_experiment.py'
 
 jobs:
   convert:
