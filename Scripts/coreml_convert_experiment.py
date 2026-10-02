@@ -137,6 +137,60 @@ def freeze_shapes(src: str, dst: str, shapes: dict) -> None:
     onnx.save(model, dst)
 
 
+def optimize_with_ort(src: str, dst: str) -> None:
+    """Cho **ORT tự tối ưu** rồi lưu graph đã tối ưu ra `dst`.
+
+    Đây là cách rẻ nhất để gấp hằng số: sau khi chốt shape tĩnh, các chuỗi `Shape`→`Gather`→`Range`
+    trở thành hằng, và bộ `ConstantFolding` của ORT sẽ thay chúng bằng initializer. `Range` chính là op
+    mà `onnx2coreml` báo thiếu lowering (6 node ở `vector_estimator`, 1 ở `text_encoder`).
+    """
+    import onnxruntime as ort
+
+    options = ort.SessionOptions()
+    options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+    options.optimized_model_filepath = dst
+    ort.InferenceSession(src, options, providers=["CPUExecutionProvider"])
+
+
+def fold_range(src: str, dst: str) -> int:
+    """Gấp mọi `Range` có input hằng thành initializer (lưới an toàn nếu ORT không gấp).
+
+    `Range(start, limit, delta)` với input hằng thì kết quả là hằng ⇒ thay node bằng một initializer
+    cùng tên output. Trả về số node đã gấp.
+    """
+    import numpy as np
+    import onnx
+    from onnx import numpy_helper
+
+    model = onnx.load(src)
+    values: dict = {}
+    for init in model.graph.initializer:
+        values[init.name] = numpy_helper.to_array(init)
+    for node in model.graph.node:
+        if node.op_type == "Constant":
+            for attr in node.attribute:
+                if attr.name == "value":
+                    values[node.output[0]] = numpy_helper.to_array(attr.t)
+    kept = []
+    folded = 0
+    for node in model.graph.node:
+        if node.op_type == "Range" and all(item in values for item in node.input):
+            start, limit, delta = (values[item] for item in node.input)
+            array = np.arange(start.item(), limit.item(), delta.item())
+            dtype = values[node.input[0]].dtype
+            model.graph.initializer.append(
+                numpy_helper.from_array(array.astype(dtype), name=node.output[0])
+            )
+            folded += 1
+            continue
+        kept.append(node)
+    if folded:
+        del model.graph.node[:]
+        model.graph.node.extend(kept)
+        onnx.save(model, dst)
+    return folded
+
+
 def stage_convert(model_dir: str, workdir: str) -> dict:
     import onnx2coreml as o2c
 
@@ -167,6 +221,15 @@ def stage_convert(model_dir: str, workdir: str) -> dict:
             frozen = os.path.join(workdir, f"{key}.onnx")
             freeze_shapes(os.path.join(model_dir, name), frozen, shapes)
             log("G2", f"{key}: đã chốt shape {shapes}")
+
+            # Chốt shape trước ⇒ các chuỗi `Shape`→`Gather`→`Range` thành hằng ⇒ gấp được.
+            optimized = os.path.join(workdir, f"{key}.opt.onnx")
+            optimize_with_ort(frozen, optimized)
+            if os.path.exists(optimized):
+                folded = fold_range(optimized, optimized)
+                log("G2", f"{key}: ORT tối ưu xong, gấp thêm {folded} node Range")
+                frozen = optimized
+
             started = time.time()
             mlmodel = o2c.convert(frozen, format="mlpackage", minimum_deployment_target="iOS17")
             package = os.path.join(workdir, f"{key}.mlpackage")
