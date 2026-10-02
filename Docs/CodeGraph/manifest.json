@@ -3,8 +3,8 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-10-02T16:05:07Z",
-  "gitCommit": "61dc65828bcf08a3e17cda4db20d14853d1e9825",
+  "generatedAt": "2026-10-02T16:15:55Z",
+  "gitCommit": "24c38d45507d3e12e53b30db224a3010ef3e4d07",
   "sourceFileCount": 650,
   "documentCount": 16,
   "documents": [
@@ -1473,12 +1473,12 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "85dfe2f3c4065ae76e76e6fd8e1c35808a45fc5366c0568d3c9e3a346fcb6bfb",
-      "sourceHash": "a74e81ea4c8545ddcf116877d52acbbcd8215065514cdd5a48dc71fc57ee65dc",
+      "sourceHash": "9cda5f5347baef355533148c3e0f604c3f4e3f7d4aa1371ee204fcc9194ed498",
       "generatedHash": "ea73934f7225cbee803f111a1465d8c32dd37662674140ed3ad2f402851ef7d5",
-      "generatedAt": "2026-10-02T15:52:19Z",
-      "reviewedAt": "2026-10-02T15:52:19Z",
-      "reviewedCommit": "68af081811cbe9b26314629638dc9b620226fee7",
-      "reviewMode": "accept"
+      "generatedAt": "2026-10-02T16:15:55Z",
+      "reviewedAt": "2026-10-02T16:15:55Z",
+      "reviewedCommit": "24c38d45507d3e12e53b30db224a3010ef3e4d07",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "04_call_graph.md",
@@ -1763,12 +1763,12 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "7b0032e356ced0bdb25a7909f3558648519357d39103954d4145bd1cad37d21c",
-      "sourceHash": "7be17e01f839a61e40e44c8a64bdfabd4d498bbe3de6f0829db22f8bd79cc621",
+      "sourceHash": "c6171ccbf4f3817d416cf602d2e06c8caa0eaa81e2d39c78d4bbed707cf9fca0",
       "generatedHash": "e8366c8ebb4233282db3f4965a18a886f3878f196755796d4d0379e981f2c1f7",
-      "generatedAt": "2026-10-02T15:52:19Z",
-      "reviewedAt": "2026-10-02T15:52:19Z",
-      "reviewedCommit": "68af081811cbe9b26314629638dc9b620226fee7",
-      "reviewMode": "accept"
+      "generatedAt": "2026-10-02T16:15:55Z",
+      "reviewedAt": "2026-10-02T16:15:55Z",
+      "reviewedCommit": "24c38d45507d3e12e53b30db224a3010ef3e4d07",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "06_event_graph.md",
@@ -3428,11 +3428,11 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "9c5adaf3a998d6221680bcfff9c086215c99197b0316fc3545d81af1a8598704",
-      "sourceHash": "c9fd709466e831dc4697eb394f776f0392ce9e796af45160050bca23f8010b7f",
+      "sourceHash": "116a97a44923588978bd72fd9a2045acda8512cf82908c752e74dbb811abeaea",
       "generatedHash": "d0daa3029b981b71c417031fcb108922f5a224abfc7c477fff8ddec98179db43",
-      "generatedAt": "2026-10-02T16:05:07Z",
-      "reviewedAt": "2026-10-02T16:05:07Z",
-      "reviewedCommit": "61dc65828bcf08a3e17cda4db20d14853d1e9825",
+      "generatedAt": "2026-10-02T16:15:55Z",
+      "reviewedAt": "2026-10-02T16:15:55Z",
+      "reviewedCommit": "24c38d45507d3e12e53b30db224a3010ef3e4d07",
       "reviewMode": "no-change-needed"
     },
     {

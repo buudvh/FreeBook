@@ -18,7 +18,7 @@ extension TTSSettingsView {
     /// không bị khoá ở Picker lẫn lối vào giọng nhân bản.
     var vieNeuModelReady: Bool {
         let store = VieNeuTTSService.shared?.modelStore
-        (store?.isReady ?? false) || (store?.coreMLReady ?? false)
+        return (store?.isReady ?? false) || (store?.coreMLReady ?? false)
     }
 
     /// Dòng Picker cho VieNeu + lối tải model khi còn thiếu.
