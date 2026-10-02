@@ -425,11 +425,16 @@ def stage_verify_surgery(model_dir: str, surgery_dir: str, reports: str) -> dict
 
 
 # ─────────────────────────── Đo ───────────────────────────
-def predict_with_mask_variants(model, feeds: dict):
-    """Core ML khai `ctx_mask` là FLOAT32 còn ONNX khai bool ⇒ thử lần lượt cho tới khi `predict` chạy.
+def predict_with_dtype_variants(model, feeds: dict):
+    """Thử lần lượt các biến thể dtype cho input mà Core ML hay khai **khác** ONNX.
 
-    Bản sao có chủ ý của `coreml_convert_experiment._predict_any_variant`: ở đây cần **trả cả tên biến
-    thể** cho từng graph để báo cáo, không chỉ để chạy được.
+    Đo được hai ca, cả hai đều ném `RuntimeError: value type not convertible` — thông báo **không nói
+    input nào**, nên cách duy nhất là thử:
+
+    - `ctx_mask`: ONNX khai **bool**, Core ML khai **FLOAT32** (biến thể chạy được: `int32`).
+    - `ids`: ONNX khai **int64**, Core ML khai **INT32**.
+
+    Trả `(tên biến thể, feeds đã ép kiểu)`.
     """
     import numpy as np
 
@@ -438,6 +443,12 @@ def predict_with_mask_variants(model, feeds: dict):
     if "ctx_mask" in feeds:
         variants.append(("mask-int32", {**base, "ctx_mask": np.asarray(feeds["ctx_mask"], dtype=np.int32)}))
         variants.append(("mask-float32", {**base, "ctx_mask": np.asarray(feeds["ctx_mask"], dtype=np.float32)}))
+    if "ids" in feeds:
+        variants.append(("ids-int32", {**base, "ids": np.asarray(feeds["ids"], dtype=np.int32)}))
+    if "ids" in feeds and "ctx_mask" in feeds:
+        variants.append(("ids-int32+mask-int32", {**base,
+                                                  "ids": np.asarray(feeds["ids"], dtype=np.int32),
+                                                  "ctx_mask": np.asarray(feeds["ctx_mask"], dtype=np.int32)}))
     last_error = None
     for name, candidate in variants:
         try:
@@ -503,7 +514,7 @@ def bench_graph(model_dir: str, workdir: str, graph: str, package: str, label: s
                 model = ct.models.MLModel(package, compute_units=unit)
                 compile_seconds = round(time.perf_counter() - started, 1)
 
-                variant, inputs = predict_with_mask_variants(model, feeds)
+                variant, inputs = predict_with_dtype_variants(model, feeds)
                 timings = []
                 output = None
                 for _ in range(5):
@@ -600,23 +611,25 @@ def stage_golden(model_dir: str, workdir: str, routes: dict, reports: str) -> di
     actual: dict = {}
     try:
         encoder = ct.models.MLModel(chosen["text_encoder.onnx"], compute_units=ct.ComputeUnit.ALL)
-        actual["ctx"] = list(encoder.predict({"ids": feeds["ids"], "style": feeds["style"]}).values())[0]
+        _, inputs = predict_with_dtype_variants(encoder, {"ids": feeds["ids"], "style": feeds["style"]})
+        actual["ctx"] = list(encoder.predict(inputs).values())[0]
 
         duration = ct.models.MLModel(chosen["duration_predictor.onnx"], compute_units=ct.ComputeUnit.ALL)
-        _, inputs = predict_with_mask_variants(duration, {"ctx": reference["ctx"],
+        _, inputs = predict_with_dtype_variants(duration, {"ctx": reference["ctx"],
                                                           "ctx_mask": feeds["ctx_mask"],
                                                           "spk": feeds["spk"]})
         actual["log_s"] = list(duration.predict(inputs).values())[0]
 
         vector = ct.models.MLModel(chosen["vector_estimator.onnx"], compute_units=ct.ComputeUnit.ALL)
-        _, inputs = predict_with_mask_variants(vector, {"x": feeds["x"], "t": feeds["t"],
+        _, inputs = predict_with_dtype_variants(vector, {"x": feeds["x"], "t": feeds["t"],
                                                         "ctx": reference["ctx"],
                                                         "ctx_mask": feeds["ctx_mask"],
                                                         "spk": feeds["spk"], "style": feeds["style"]})
         actual["velocity"] = list(vector.predict(inputs).values())[0]
 
         decoder = ct.models.MLModel(chosen["codec_decoder.onnx"], compute_units=ct.ComputeUnit.ALL)
-        actual["pcm"] = list(decoder.predict({"x": feeds["x"]}).values())[0]
+        _, inputs = predict_with_dtype_variants(decoder, {"x": feeds["x"]})
+        actual["pcm"] = list(decoder.predict(inputs).values())[0]
     except Exception as error:  # noqa: BLE001
         log("GOLDEN", f"chạy Core ML lỗi: {type(error).__name__}: {error}")
         return {"ok": False, "reason": f"{type(error).__name__}: {error}"}

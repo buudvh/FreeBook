@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.477] - 2026-10-02
+
+### fix: sua golden stage CoreML dung bien the dtype (ids int32)
+
+Vòng dọn cuối của Phase 0 (đã chốt `FAIL` ở 1.3.475). `golden` vẫn chưa sinh được, nhưng vì lý do khác.
+
+- **Lượt CI #5 (`36999267717`) xác nhận thêm hai điều**: `verdict = FAIL` (lần thứ hai, độc lập) và **D2b `surgery_parity` toàn bộ `max_abs_delta = 0`** ⇒ phẫu thuật `Range` **bit-exact** trên runner macOS, không chỉ trên máy Windows. Nhưng `golden` báo `RuntimeError: value type not convertible`.
+- **Nguyên nhân**: Core ML khai `ids` là **INT32** còn ONNX khai **int64** ⇒ cùng họ với bẫy `ctx_mask` (ONNX bool, Core ML FLOAT32) đã gặp ở lượt baseline. Thông báo `value type not convertible` **không nói input nào**, nên cách duy nhất là thử biến thể.
+- **Sửa**: đổi `predict_with_mask_variants` → `predict_with_dtype_variants`, mở rộng để thử cả `ids-int32` (và tổ hợp `ids-int32+mask-int32`), rồi dùng nó cho **cả 4** graph trong `stage_golden` — trước đó chỉ `duration_predictor`/`vector_estimator` dùng, còn `text_encoder`/`codec_decoder` gọi `predict` trần nên không được bảo vệ.
+- **Không đụng `Sources/`** — `Sources/**/*.swift` vẫn 639 file. Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%**.
+- **Chưa build được trên Windows** ⇒ không khẳng định đã kiểm chứng biên dịch; lượt này không đổi mã Swift.
+
 ## [1.3.476] - 2026-10-02
 
 ### chore: sua golden stage CoreML + bo .github/workflows/** khoi paths cua build-ipa
@@ -458,15 +470,3 @@ Sửa **3** file Swift:
 - **`NotificationInboxView+Merge`** (186 → **188**): thêm nhánh `isMetaMissing` hiện *"Số liệu chưa có — gộp lại để cập nhật."* khi có file `.txt` nhưng không có meta (file sinh từ bản app cũ) — **không** parse bù.
 - **Cố ý không làm**: cache `hasResult` khỏi `fileExists` — chỉ là syscall `stat` cỡ µs, không phải nguyên nhân, mà cache đòi tự cập nhật ở 5 nơi.
 - Cổng: `check_architecture.py` **5 violation nền/0 mới**; `validate_links.py` **PASS 100% (16 doc, 614 file Swift)**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
-
----
-
-## [1.3.447] - 2026-09-30
-
-### fix: nút "Nhập vào VietPhrase" mất chữ ở dark mode
-
-Sửa **1** file Swift (`Sources/Views/Shelf/ShelfMain/NotificationInboxView+Merge.swift`):
-
-- **Nguyên nhân**: lượt `1.3.446` để nút ở `.buttonStyle(.borderedProminent)` + `.tint(Color.primary)`. `borderedProminent` **không** tự đảo màu chữ theo tint — nó lấy nền từ tint và luôn đặt chữ theo một sắc sáng cố định (giả định tint là màu đậm/bão hoà). `Color.primary` ở **dark mode** = trắng ⇒ nền trắng + chữ sáng ⇒ **nút rỗng** (ảnh user gửi). `.foregroundStyle(Color(uiColor: .systemBackground))` đặt *bên trong* label không cứu được vì `.buttonStyle` ở ngoài ghi đè.
-- **Không thể** chỉ gỡ `.tint(Color.primary)`: `MainTabView` đặt `.tint(.white)` toàn cục nên tint mặc định cũng là trắng, vẫn trắng-trên-trắng.
-- **Cách sửa**: bỏ cả hai modifier sai, dùng `.tint` **xanh lá đậm literal** (`Color(red: 0.204, green: 0.780, blue: 0.349)`) + chữ `.foregroundColor(.white)` — theo khuôn tint đậm có sẵn trong repo (`ReaderAINameReviewCardView.swift`), đọc được ở mọi theme, không phụ thuộc tint hệ thống.
