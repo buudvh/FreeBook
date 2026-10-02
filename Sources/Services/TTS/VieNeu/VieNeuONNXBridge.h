@@ -29,21 +29,6 @@
 /// Ngữ cảnh ORT: giữ `OrtEnv`, `OrtMemoryInfo`, `OrtAllocator` và 4 `OrtSession`.
 typedef struct VieNeuORT VieNeuORT;
 
-/// Callback nhận log của ONNX Runtime (thay vì để ORT ghi thẳng ra stderr như mặc định).
-///
-/// Cần thiết vì `[VieNeuPerf]` **không** thấy được log bên trong ORT: cảnh báo "node không hỗ trợ",
-/// lý do một EP từ chối toán tử, và các cảnh báo của graph optimizer đều đi qua logger của ORT.
-///
-/// Dùng **con trỏ hàm C** (không phải block ObjC) để không phụ thuộc việc target bật ARC hay không —
-/// Swift truyền được hàm toàn cục không capture vào đây.
-typedef void (*VieNeuORTLogCallback)(int32_t severity, const char *message, void *context);
-
-/// Đăng ký callback log. Truyền `callback == NULL` để gỡ.
-///
-/// `context` được trả nguyên lại cho callback. ORT gọi callback **từ luồng đang chạy `Run`** nên bên
-/// nhận phải rẻ và không được ném ngoại lệ.
-void VieNeuORTSetLogCallback(VieNeuORTLogCallback callback, void *context);
-
 /// Tạo ngữ cảnh và nạp 4 graph từ `modelDirectory`.
 /// Trả `NULL` khi lỗi; `*errorMessage` (nếu khác NULL) nhận chuỗi do `malloc` cấp phát.
 VieNeuORT *VieNeuORTCreate(const char *modelDirectory, int32_t threadCount, char **errorMessage);

@@ -2657,8 +2657,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
-    /// `internal` (không còn `private`): `TTSManager+VieNeu.invalidateVieNeuPrefetch(reason:)` ở file
-    /// khác phải gọi lại sau khi engine đổi cấu hình (tốc độ tổng hợp, hoặc nạp lại engine).
+    /// `internal` (không còn `private`): `TTSManager+VieNeu.invalidateVieNeuSynthesisSpeed()` ở file
+    /// khác phải gọi lại sau khi đổi tốc độ tổng hợp.
     internal func updateNghiPrefetchWindow() {
         updateNghiBufferedDuration()
         guard isPlaying, TTSManager.isLocalEngine(tool) else {

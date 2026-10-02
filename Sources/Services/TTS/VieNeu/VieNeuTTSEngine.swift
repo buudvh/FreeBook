@@ -84,15 +84,15 @@ final class VieNeuTTSEngine: @unchecked Sendable {
     let store: VieNeuModelStore
     let lock = NSLock()
 
-    // 6 thành viên này `internal` (không `private`) từ 1.3.466 — lý do ở `VieNeuTTSEngine+Reload.swift`.
-    var runtime: VieNeuONNXRuntime?
-    var config: VieNeuConfig?
+    private var runtime: VieNeuONNXRuntime?
+    private var config: VieNeuConfig?
     var catalog: VieNeuVoiceCatalog?
-    var phonemizer: SeaG2P?
-    /// `ctx` của nhánh vô điều kiện (CFG) — không phụ thuộc giọng/văn bản nên tính một lần; giữ **cả shape** vì shape do model quyết định, không suy được từ `config.json`.
-    var nullContext: [Float] = []
-    var nullContextShape: [Int64] = []
-    var nullMask: [UInt8] = []
+    private var phonemizer: SeaG2P?
+    /// `ctx` của nhánh vô điều kiện (CFG) — không phụ thuộc giọng lẫn văn bản nên tính một lần.
+    /// Giữ **cả shape** vì shape đó do model quyết định, không suy được từ `config.json`.
+    private var nullContext: [Float] = []
+    private var nullContextShape: [Int64] = []
+    private var nullMask: [UInt8] = []
 
     // Trạng thái thích nghi — `+Adaptive` đọc/ghi, nên phải `internal` chứ không `private`.
     var droppedScalarWarningShown = false

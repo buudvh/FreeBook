@@ -140,7 +140,6 @@ enum VieNeuSynthesisPolicy {
         return max(synthesisSpeedRange.lowerBound, min(synthesisSpeedRange.upperBound, raw))
     }
 
-
     // MARK: - Luật đổi chế độ
 
     /// RTF ≥ ngưỡng này coi là "đuối". Đo bằng `synthSeconds / audioSeconds`, cùng định nghĩa với

@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.470 — REVERT TOÀN BỘ: phân hệ VieNeu trở về đúng 1.3.465
+
+* Toàn bộ đợt thí nghiệm backend (1.3.466 → 1.3.469) đã bị **gỡ sạch**: không còn đăng ký EP, không còn công tắc, không còn cầu nối log ORT, không còn đường nạp lại engine.
+* Lý do revert (không chỉ gỡ EP): cầu nối log chỉ hữu ích khi bật thí nghiệm verbose — ở mức WARNING ORT im lặng trên 4 graph này, nên nó thành **code chết**; đường nạp lại chỉ có người dùng nhờ một thay đổi hành vi chưa được yêu cầu. Giữ lại chỉ làm codebase khác mốc đã ship mà không đổi lại lợi ích.
+* **Kết luận kỹ thuật vẫn giữ nguyên giá trị** (đã ghi vào báo cáo): lượng tử hoá int8, fp16, CoreML EP, XNNPACK EP, nén thời lượng — **tất cả đều không dùng được** cho `VieNeu-TTS v3 Nano` với ORT 1.24.2.
+
 ## 1.3.469 — LOẠI CoreML EP; đường nạp lại engine nay phục vụ "Số luồng tổng hợp"
 
 * **CoreML EP bị xoá hoàn toàn** (đăng ký EP, công tắc trong Cài đặt, `coreMLActive`). Kết luận từ 3 lượt đo trên máy: shape động ⇒ **im tiếng** (33+ partition); shape tĩnh ⇒ **nhiễu** (14 partition, `rtf` 0,64–0,93); shape tĩnh + `CPUOnly` (fp32, không mất độ chính xác) ⇒ **vẫn nhiễu** ⇒ thủ phạm là **semantics của EP** với graph này, không phải fp16/ANE. Xem `Docs/Reports/walkthrough-1.3.467.md` / `-1.3.468.md`.

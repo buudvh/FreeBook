@@ -122,29 +122,6 @@ static int check(OrtStatus *status, const OrtApi *api, char **errorMessage) {
     return -1;
 }
 
-#pragma mark - Log của ONNX Runtime (1.3.466)
-
-/// Callback do tầng Swift đăng ký. `NULL` ⇒ không đụng gì (ORT vẫn ghi ra stderr như trước).
-static VieNeuORTLogCallback vieNeuLogCallback = NULL;
-static void *vieNeuLogContext = NULL;
-
-/// Cầu nối đúng chữ ký `OrtLoggingFunction` (6 tham số) sang callback 2 tham số của tầng trên.
-///
-/// ORT gọi hàm này **từ luồng đang chạy `Run`** ⇒ chỉ được làm việc rẻ, và phải chịu được việc
-/// `message` là `NULL`.
-static void vieNeuORTLogTrampoline(void *param, OrtLoggingLevel severity, const char *category,
-                                   const char *logid, const char *code_location, const char *message) {
-    (void)param; (void)category; (void)logid; (void)code_location;
-    VieNeuORTLogCallback callback = vieNeuLogCallback;
-    if (callback == NULL || message == NULL) return;
-    callback((int32_t)severity, message, vieNeuLogContext);
-}
-
-void VieNeuORTSetLogCallback(VieNeuORTLogCallback callback, void *context) {
-    vieNeuLogCallback = callback;
-    vieNeuLogContext = context;
-}
-
 /// Nạp một graph và **hỏi thẳng session tên output của nó**.
 ///
 /// `outputNames` là mảng trong `VieNeuORT`; tên do ORT cấp phát bằng allocator mặc định nên phải giải
@@ -451,11 +428,7 @@ static VieNeuORT *createBaseContext(int32_t threadCount,
     }
     context->api = api;
 
-    // Luôn dùng logger tuỳ biến ở mức WARNING để **cảnh báo của ORT vào được `AppLogger`** — trước 1.3.466
-    // ORT ghi thẳng ra stderr nên log ứng dụng không thấy gì. (1.3.466–1.3.468 từng bật VERBOSE cho thí
-    // nghiệm CoreML EP; EP đó đã bị loại nên chỉ còn WARNING.)
-    if (check(api->CreateEnvWithCustomLogger(vieNeuORTLogTrampoline, NULL, ORT_LOGGING_LEVEL_WARNING,
-                                             "FreeBookVieNeu", &context->env),
+    if (check(api->CreateEnv(ORT_LOGGING_LEVEL_WARNING, "FreeBookVieNeu", &context->env),
               api, errorMessage) != 0) {
         VieNeuORTDestroy(context);
         return NULL;
@@ -488,8 +461,7 @@ static VieNeuORT *createBaseContext(int32_t threadCount,
     return context;
 }
 
-/// Dựng ngữ cảnh **đủ 4 graph chính**.
-static VieNeuORT *createMainContext(const char *modelDirectory, int32_t threadCount, char **errorMessage) {
+VieNeuORT *VieNeuORTCreate(const char *modelDirectory, int32_t threadCount, char **errorMessage) {
     if (modelDirectory == NULL) {
         setError(errorMessage, "modelDirectory is NULL");
         return NULL;
@@ -516,10 +488,6 @@ static VieNeuORT *createMainContext(const char *modelDirectory, int32_t threadCo
         }
     }
     return context;
-}
-
-VieNeuORT *VieNeuORTCreate(const char *modelDirectory, int32_t threadCount, char **errorMessage) {
-    return createMainContext(modelDirectory, threadCount, errorMessage);
 }
 
 VieNeuORT *VieNeuORTCreateCloneOnly(const char *modelDirectory, int32_t threadCount, char **errorMessage) {

@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.470] - 2026-10-02
+
+### revert: dua toan bo phan VieNeu ve dung moc truoc khi them CoreML EP
+
+Người dùng: *"sao bạn không revert code mà về trước khi thêm coreml"* → sau khi hỏi lại: *"bây giờ còn dùng cầu nối log làm gì không"*.
+
+- **Revert toàn bộ `Sources/` về `ee3d24f` (1.3.465)**: kiểm chứng bằng `git diff ee3d24f --stat -- Sources/` **rỗng** ⇒ không còn dòng nào của đợt thí nghiệm backend (1.3.466 → 1.3.469).
+- **Vì sao revert hết chứ không chỉ gỡ EP**: (1) **cầu nối log ORT** chỉ có ích khi bật verbose cho thí nghiệm — ở mức WARNING ORT **im lặng** trên 4 graph này (không in gì trong nhiều lượt nạp model trên PC), lỗi thật thì C API đã trả về qua `RuntimeError` ⇒ nó là **code chết**; (2) **đường nạp lại engine** chỉ có người dùng nhờ một thay đổi hành vi (ô "Số luồng" áp dụng ngay) mà người dùng **chưa yêu cầu**; (3) giữ lại làm codebase khác mốc đã ship **+214 dòng** mà không đổi lại lợi ích.
+- **Xoá 2 file**: `VieNeuTTSEngine+Reload.swift` (44) · `VieNeuTTSService+Reload.swift` (36). Validator: **641 → 639** file Swift.
+- **Trở lại như cũ**: 7 thành viên engine + `engine` của service về `private`; `VieNeuONNXRuntime.init(modelStore:threadCount:)`; `createBaseContext` dùng `CreateEnv`; tên hàm `invalidateVieNeuSynthesisSpeed()`; ô "Số luồng" + caption trở về hành vi cũ.
+- **Kết luận kỹ thuật vẫn giữ** (không bị revert, đã ghi trong `Docs/Reports/`): int8 · fp16 · CoreML EP · XNNPACK EP · nén thời lượng — **tất cả đều không dùng được** cho `VieNeu-TTS v3 Nano` + ORT 1.24.2. `rules.md` **Luật 23** giữ lại (đừng thử lại CoreML EP); Luật 20/21/22 mất hiệu lực vì code đã gỡ.
+
 ## [1.3.469] - 2026-10-02
 
 ### fix: loai bo CoreML EP va noi duong nap lai engine vao o So luong tong hop
@@ -504,27 +516,5 @@ Ba lỗi TTS (grill-me chốt phương án): (1) nói lắp "chân tướng" →
 Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS** (04/10/11/rules `--accept`; 03/05/06/08/13 `--no-change-needed`). **Không build trên Windows** ⇒ CI xác nhận biên dịch.
 
 **Cần kiểm chứng máy thật (IPA):** hết chồng tiếng; 1→2→3 liền mạch; gap do bỏ pre-schedule không đáng kể; "Tiết kiệm pin" mát hơn rõ rệt. **Còn nợ "B"**: gỡ cụm `.scheduled`.
-
----
-
-## [1.3.440] - 2026-09-29
-
-### fix: bump generation mỗi lần schedule làm vô hiệu hoá task nạp trước cùng batch
-
-Người dùng báo 1.3.439 **không sửa được** 2 lỗi: (a) đầu phát chờ giữa đoạn 1→2→3; (b) sang chương chờ giữa tên chương và đoạn 1 (kèm báo thêm: 2 đoạn phát song song).
-
-### Root cause (bug logic xác định, không phải timing)
-`scheduleNghiRefill()` bump `nghiRefillGeneration &+= 1` **mỗi lần** gọi (`TTSManager.swift:2835`), nhưng guard `isValidNghiRefillContext` đòi `nghiRefillGeneration == refillGeneration` **bằng ĐÚNG** (`:2745`). `fillNghiRefillUpToCapacity()` lập **3 task cùng batch** (`N+1`, `N+2`, `N+3`) → gen `G+1/G+2/G+3`. Khi task chạy, gen hiện tại đã là `G+3` ⇒ **2 task đầu bị vô hiệu** (guard fail ngay trước bước tổng hợp), chỉ task cuối sống. Tệ hơn, `defer` chỉ dọn khi gen khớp (`:2855`) nên 2 task bị vô hiệu **rò rỉ** trong `nghiRefillTasks`/`nghiRefillInFlightIndices` ⇒ `fillNghiRefillUpToCapacity` dần hết chỗ ⇒ **pool nạp trước nghẽn rồi tắt**. Đây là lý do đệm nóng 1.3.439 (dựa vào pool) không có tác dụng: pool không chạy thật.
-
-Bug lộ ra từ 1.3.438: lượt đó thêm pool đa luồng nhưng để lại bump per-schedule — vốn vô hại khi chỉ có **1** refill (`nghiRefillTask: Task?`), nhưng phá khi có **nhiều** task cùng batch.
-
-### Sửa
-Bỏ `nghiRefillGeneration &+= 1` khỏi `scheduleNghiRefill()`. Chỉ `cancelNghiRefill()` (đổi chương/session/seek/engine — gọi từ `clearCurrentParagraphPrefetchCache`) mới bump. Cả batch dùng chung gen ⇒ 3 task đều sống + `defer` dọn đúng ⇒ pool hoạt động.
-
-### Số dòng & cổng
-`TTSManager.swift` **4024 → 4024** (net 0: bỏ 1 dòng bump, thêm 1 dòng comment).
-Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS** (04/10/11/rules `--accept`, 05/06/08/13 `--no-change-needed`). **Không build được trên Windows** ⇒ CI xác nhận biên dịch.
-
-**Cần kiểm chứng lúc chạy:** đầu phát 1→2→3 liền mạch; biên chương tên chương → đoạn 1 liền mạch; chồng tiếng (nếu còn → cần log `[NghiAudioPlayerQueue] schedule` từ máy thật).
 
 ---

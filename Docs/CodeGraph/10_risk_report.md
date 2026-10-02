@@ -15,6 +15,11 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.470 — revert: rủi ro vòng đời engine biến mất
+
+* **Gỡ toàn bộ** đường `unload()`/`reloadEngine` ⇒ không còn thao tác nhả ngữ cảnh ORT lúc chạy, tức không còn rủi ro giải phóng tensor cache khi buffer nguồn đang được `Run` dùng.
+* **Kết luận còn giá trị (giữ lại)**: CoreML EP và XNNPACK EP đều đã bị đo phủ định cho model này — xem `Docs/Reports/research-2026-10-02-vieneu-xnnpack-va-turbo.md`. Ghi lại để **không thử lại vô cớ**.
+
 ## 1.3.469 — CoreML EP đã bị loại; rủi ro còn lại của đường nạp lại
 
 * **Kết luận cuối về CoreML EP**: cả ba cấu hình đều hỏng (im tiếng / nhiễu / nhiễu + chậm 2×) ⇒ đã **xoá** khỏi code. Ghi lại để **không thử lại vô cớ** trên model Nano + ORT 1.24.2.

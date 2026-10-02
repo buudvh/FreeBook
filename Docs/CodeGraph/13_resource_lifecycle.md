@@ -15,6 +15,11 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.470 — revert: hết mọi tài nguyên của đợt CoreML
+
+* Không còn cache CoreML nào được tạo; không còn callback log C sống suốt tiến trình; không còn đường nhả ngữ cảnh ORT.
+* Cache cũ trên máy người dùng (`CoreMLCache*`) là rác của bản thí nghiệm — không code nào đọc; gỡ app là dọn hết.
+
 ## 1.3.469 — cache CoreML bị xoá cùng EP
 
 * `prepareCoreMLCacheDirectory` **đã xoá** cùng đường CoreML EP ⇒ không còn thư mục cache nào được tạo trong Application Support.

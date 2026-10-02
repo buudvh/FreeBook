@@ -15,6 +15,11 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.470 — revert: trả lại mức truy cập `private`
+
+* 7 thành viên của `VieNeuTTSEngine` và `engine` của `VieNeuTTSService` trở lại `private` (không còn file `+Reload` nào cần đọc chéo file).
+* `TTSSettingsView+VieNeu` không còn gọi service để nạp lại engine.
+
 ## 1.3.469 — gỡ đường CoreML; các lần hạ mức truy cập vẫn cần
 
 * Vẫn giữ `internal` cho 7 thành viên engine + `engine` của service (do hai file `+Reload`), dù nay chúng phục vụ ô "Số luồng tổng hợp" thay vì công tắc EP.

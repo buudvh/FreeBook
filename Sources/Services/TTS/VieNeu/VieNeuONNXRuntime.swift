@@ -49,24 +49,11 @@ final class VieNeuONNXRuntime {
     let handle: OpaquePointer
 
     init(modelStore: VieNeuModelStore, threadCount: Int32) throws {
-        // Cài cầu nối log **luôn**: từ 1.3.469 cảnh báo của ORT (mức WARNING) vào `AppLogger`, thay vì
-        // rơi vào stderr như trước.
-        Self.installLogBridge()
         var message: UnsafeMutablePointer<CChar>?
         guard let handle = VieNeuORTCreate(modelStore.modelsURL.path, threadCount, &message) else {
             throw RuntimeError.failure(Self.consume(message, fallback: "không tạo được ngữ cảnh ORT"))
         }
         self.handle = handle
-    }
-
-    /// Cài cầu nối log ORT → `AppLogger` (idempotent). Gọi từ `init` để cảnh báo của ORT luôn vào được
-    /// log ứng dụng.
-    private static var logBridgeInstalled = false
-
-    private static func installLogBridge() {
-        guard !logBridgeInstalled else { return }
-        logBridgeInstalled = true
-        VieNeuORTSetLogCallback(vieNeuORTLogTrampoline, nil)
     }
 
     /// Ngữ cảnh **chỉ 3 graph clone** — dùng cho luồng tạo giọng.
@@ -326,16 +313,4 @@ final class VieNeuONNXRuntime {
         VieNeuORTFreeErrorMessage(message)
         return text
     }
-}
-
-/// Cầu nối log của ONNX Runtime → `AppLogger` (1.3.466).
-///
-/// Phải là hàm **toàn cục, không capture** vì nó được chuyển thành **con trỏ hàm C** để đăng ký với
-/// bridge. ORT gọi nó **từ luồng đang chạy `Run`** ⇒ chỉ làm việc rẻ, và tôn trọng cổng
-/// `AppLogger.isLoggingEnabled` để bản thường không bị ngập log (mức VERBOSE có thể ra hàng nghìn dòng).
-private func vieNeuORTLogTrampoline(severity: Int32,
-                                    message: UnsafePointer<CChar>?,
-                                    context: UnsafeMutableRawPointer?) {
-    guard AppLogger.shared.isLoggingEnabled, let message else { return }
-    AppLogger.shared.log("[ORT] \(String(cString: message))")
 }

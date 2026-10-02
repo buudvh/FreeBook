@@ -15,6 +15,11 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.470 — revert: gỡ hết API của đợt CoreML
+
+* **Gỡ**: `VieNeuORTSetLogCallback` + `VieNeuORTLogCallback` + trampoline log · `VieNeuTTSEngine.unload()` · `VieNeuTTSService.reloadEngine(reason:)` · `TTSManager.invalidateVieNeuPrefetch(reason:)` (**trở lại** tên cũ `invalidateVieNeuSynthesisSpeed()`).
+* Trở về: `VieNeuONNXRuntime.init(modelStore:threadCount:)`; 7 thành viên engine (`runtime`/`config`/`phonemizer`/3 mảng `null*`) và `engine` của service **trở lại `private`**.
+
 ## 1.3.469 — gỡ API của CoreML EP, đổi chữ ký `reloadEngine`
 
 * **Xoá**: `VieNeuORTRunOptions`, `VieNeuORTCreateWithRunOptions`, `VieNeuONNXRuntime.coreMLActive`, `prepareCoreMLCacheDirectory(modelStore:)`, `VieNeuSynthesisPolicy.coreMLEPKey` + `isCoreMLEPEnabled(_:)`, `VieNeuTTSService.isCoreMLActive`, `VieNeuTTSEngine.coreMLActive`.

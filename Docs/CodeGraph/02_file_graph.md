@@ -15,10 +15,15 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.470 — revert: xoá 2 file `+Reload`
+
+* **Xoá**: `VieNeuTTSEngine+Reload` (44) · `VieNeuTTSService+Reload` (36).
+* Số dòng trở về đúng mốc 1.3.465: `VieNeuONNXRuntime.swift` **316** · `VieNeuONNXBridge.m` **1155** · `VieNeuONNXBridge.h` **181** · `VieNeuSynthesisPolicy.swift` **186** · `TTSSettingsView+VieNeu.swift` **332** · `TTSSettingsView.swift` **458** · `VieNeuTTSEngine+Adaptive.swift` **112** · `VieNeuTTSTestView+Diagnostics.swift` **53**.
+
 ## 1.3.466 — đường nạp lại engine tách thành 2 file `+Reload`
 
 * File mới: `VieNeuTTSEngine+Reload` **55** (nhả ngữ cảnh ORT) · `VieNeuTTSService+Reload` **43** (`reloadEngine(useCoreML:)`).
-* Sửa: `VieNeuONNXRuntime.swift` 316 → **341** (sau khi gỡ CoreML EP ở 1.3.469) (EP + cache + cầu nối log) · `VieNeuSynthesisPolicy.swift` 186 → **199** (khoá `vieneuCoreMLEP`) · `VieNeuTTSService.swift` → **400** · `VieNeuTTSEngine.swift` **400** (không đổi) · `TTSSettingsView+VieNeu.swift` 332 → **398** · `VieNeuONNXBridge.h` 181 → **196** (sau khi gỡ CoreML EP ở 1.3.469), `VieNeuONNXBridge.m` 1155 → **1187** (sau khi gỡ CoreML EP ở 1.3.469).
+* Sửa: `VieNeuONNXRuntime.swift` **316** (revert về đúng 1.3.465 ở 1.3.470) (EP + cache + cầu nối log) · `VieNeuSynthesisPolicy.swift` 186 → **199** (khoá `vieneuCoreMLEP`) · `VieNeuTTSService.swift` → **400** · `VieNeuTTSEngine.swift` **400** (không đổi) · `TTSSettingsView+VieNeu.swift` 332 → **398** · `VieNeuONNXBridge.h` **181** (revert về đúng 1.3.465 ở 1.3.470), `VieNeuONNXBridge.m` **1155** (revert về đúng 1.3.465 ở 1.3.470).
 
 ## 1.3.465 — Section 4 của màn Cài đặt TTS thành file riêng
 

@@ -124,7 +124,7 @@ extension TTSSettingsView {
             UserDefaults.standard.set(newValue, forKey: VieNeuSynthesisPolicy.synthesisSpeedKey)
             // Phần đệm đã tổng hợp ở tốc độ cũ phải bị bỏ: đoạn đang phát được giữ nguyên, các đoạn sau
             // nạp lại. Không gọi là nghe sai tốc độ mà không có lỗi gì.
-            ttsManager.invalidateVieNeuPrefetch(reason: "toc-do-tong-hop")
+            ttsManager.invalidateVieNeuSynthesisSpeed()
         }
     }
 
@@ -133,21 +133,7 @@ extension TTSSettingsView {
         guard ttsManager.tool == "vieneu" else { return }
         vieNeuSynthesisSpeed = 1.0
         UserDefaults.standard.set(1.0, forKey: VieNeuSynthesisPolicy.synthesisSpeedKey)
-        ttsManager.invalidateVieNeuPrefetch(reason: "dat-lai-toc-do")
-    }
-
-    /// Nạp lại engine tại chỗ rồi vô hiệu đệm audio cũ. Dùng cho các cài đặt chỉ có hiệu lực lúc tạo
-    /// session ORT (hiện là **Số luồng tổng hợp**).
-    func reloadVieNeuEngine(reason: String) async {
-        guard let service = VieNeuTTSService.shared else { return }
-        vieNeuEngineReloading = true
-        defer { vieNeuEngineReloading = false }
-        do {
-            try await service.reloadEngine(reason: reason)
-            ttsManager.invalidateVieNeuPrefetch(reason: reason)
-        } catch {
-            ToastManager.shared.show(message: "Không nạp lại được engine: \(error.localizedDescription)", type: .error)
-        }
+        ttsManager.invalidateVieNeuSynthesisSpeed()
     }
 
     func loadVoicesForCurrentTool() async {
@@ -199,31 +185,16 @@ extension TTSSettingsView {
         // 3. Số luồng tổng hợp (2/3/4, KHÔNG kèm ngoặc bổ nghĩa).
         Picker("Số luồng tổng hợp", selection: Binding(
             get: { vieNeuPowerSaving ? 2 : vieNeuThreadCount },
-            set: { newValue in
-                vieNeuThreadCount = newValue
-                VieNeuTTSService.shared?.threadCount = newValue
-                // Số luồng chỉ có hiệu lực lúc **tạo session ORT** ⇒ phải nạp lại engine, không thể đợi
-                // "mở lại app" như trước (1.3.469 dùng đường nạp lại tại chỗ).
-                Task { await reloadVieNeuEngine(reason: "so-luong") }
-            }
+            set: { vieNeuThreadCount = $0; VieNeuTTSService.shared?.threadCount = $0 }
         )) {
             ForEach([2, 3, 4], id: \.self) { count in
                 Text("\(count) luồng").tag(count)
             }
         }
         .pickerStyle(.menu)
-        .disabled(vieNeuPowerSaving || vieNeuEngineReloading)
-        // Dòng trạng thái: nạp lại engine mất ~2 s, không có nó thì người dùng tưởng nút không ăn.
-        if vieNeuEngineReloading {
-            HStack(spacing: 8) {
-                ProgressView().controlSize(.small)
-                Text("Đang nạp lại engine… (màn Cài đặt đang tạm dừng phát)")
-            }
-            .font(.caption)
-            .foregroundColor(.secondary)
-        }
+        .disabled(vieNeuPowerSaving)
         // 4. Giải thích — LUÔN hiển thị (nối thuyết minh khi bật Tiết kiệm pin).
-        Text("Số luồng càng nhiều càng khó gây ra trường hợp phải chờ đợi giữa hai đoạn nghe nhưng dễ nóng máy và hết pin nhanh. Số luồng áp dụng ngay sau khi nạp lại engine (~2 giây)." + (vieNeuPowerSaving ? " Đang bật Tiết kiệm pin: cố định chế độ Cân bằng + 2 luồng để máy mát và ít tốn pin; chất lượng giọng thấp hơn." : ""))
+        Text("Số luồng càng nhiều càng khó gây ra trường hợp phải chờ đợi giữa hai đoạn nghe nhưng dễ nóng máy và hết pin nhanh. Số luồng áp dụng sau khi nạp lại engine (mở lại app hoặc đổi engine)." + (vieNeuPowerSaving ? " Đang bật Tiết kiệm pin: cố định chế độ Cân bằng + 2 luồng để máy mát và ít tốn pin; chất lượng giọng thấp hơn." : ""))
             .font(.caption)
             .foregroundColor(.secondary)
         // 5. Hai công tắc **riêng của VieNeu** cho tiền xử lý tiếng Nhật. Cả hai mặc định **TẮT** nên mặc

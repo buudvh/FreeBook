@@ -15,6 +15,10 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.470 — revert: gỡ `@State` của đợt CoreML
+
+* Gỡ `@State vieNeuEngineReloading` (trạng thái "đang nạp lại engine"); `TTSSettingsView` trở về đúng tập `@State` của 1.3.465.
+
 ## 1.3.469 — trạng thái CoreML bị gỡ; `vieNeuEngineReloading` đổi mục đích
 
 * **Gỡ**: khoá `UserDefaults` `vieneuCoreMLEP`, `@State vieNeuCoreMLEnabled`.

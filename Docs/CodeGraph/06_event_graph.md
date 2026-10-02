@@ -15,6 +15,10 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.470 — revert: gỡ sự kiện nạp lại engine
+
+* Gỡ sự kiện Picker *Số luồng tổng hợp* → nạp lại engine. Ô số luồng trở lại hành vi cũ: ghi `UserDefaults`, **áp dụng khi nạp lại engine** (mở lại app / đổi engine) — caption trong màn Cài đặt cũng trở về câu cũ.
+
 ## 1.3.469 — sự kiện CoreML bị gỡ; đổi số luồng nay phát sự kiện nạp lại
 
 * **Gỡ**: `vieNeuCoreMLRow` → `applyCoreMLEP` → toast (bật/tắt EP, quay về CPU).
