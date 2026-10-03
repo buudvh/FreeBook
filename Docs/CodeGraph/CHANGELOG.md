@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.496] - 2026-10-03
+
+### fix: sửa verify_package đọc golden["raw"] + bỏ mảng numpy khỏi manifest (Phần B)
+
+Hai lỗi trong `coreml_bucket_package.py` (Phần B, 1.3.493) khiến lượt CI `37090751555` sinh gói **hỏng** rồi vẫn publish:
+
+- **`verify_package` đọc sai khoá**: `build_golden` đặt mảng golden dưới `meta["raw"]`, nhưng `verify_package` đọc top-level (`golden["ids"]`, `golden["ctx"]`…) ⇒ `KeyError` ⇒ mọi gói "verify fail" (`verified 0/8`), và candidate fallback luôn rơi về ứng viên **CUỐI** (`frozen`) thay vì dùng `basic-folded` khi nó đạt. Sửa: `g = golden.get("raw", golden)`.
+- **manifest không ghi được**: `main()` append `meta` (đã thêm `meta["raw"]` = ndarray) vào `goldens` ⇒ `json.dump` ném `TypeError: Object of type ndarray is not JSON serializable` ⇒ `manifest.json` **KHÔNG** được ghi ở lượt đó. Sửa: bỏ khoá `"raw"` trước khi vào manifest.
+
+---
+
 ## [1.3.495] - 2026-10-03
 
 ### fix: gạt model Core ML khỏi cache khi predict thất bại (chống nhiễu do huỷ tiến trình)

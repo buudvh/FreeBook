@@ -216,8 +216,9 @@ def verify_package(package: str, kind: str, golden: dict, config: dict, frames: 
     except Exception as error:  # noqa: BLE001
         return {"verified": False, "skipped": True, "reason": f"coremltools unavailable: {error}"}
 
-    style_dim, n_style = config["style_dim"], config["n_style"]
-    _ = (style_dim, n_style)  # shape lấy từ golden đã đúng bucket
+    # `golden` là `meta` do `build_golden` trả về: các mảng nằm dưới khoá **"raw"**, không phải
+    # top-level. Đọc sai chỗ ⇒ `KeyError` ⇒ mọi gói "verify fail" (lượt CI 37090751555: 0/8).
+    g = golden.get("raw", golden)
 
     try:
         model = ct.models.MLModel(package)
@@ -239,25 +240,25 @@ def verify_package(package: str, kind: str, golden: dict, config: dict, frames: 
     snr_results: dict = {}
     try:
         if kind == "text_encoder":
-            out = model.predict({"ids": golden["ids"].astype(np.int32),
-                                "style": golden["style"].astype(np.float32)})
-            snr_results["ctx"] = _snr(out.get("ctx"), golden["ctx"])
+            out = model.predict({"ids": g["ids"].astype(np.int32),
+                                "style": g["style"].astype(np.float32)})
+            snr_results["ctx"] = _snr(out.get("ctx"), g["ctx"])
         elif kind == "duration_predictor":
-            out = model.predict({"ctx": golden["ctx"].astype(np.float32),
-                                "ctx_mask": golden["ctx_mask"].astype(np.int32),
-                                "spk": golden["spk"].astype(np.float32)})
-            snr_results["log"] = _snr(out.get("log_seconds"), golden["log_s"])
+            out = model.predict({"ctx": g["ctx"].astype(np.float32),
+                                "ctx_mask": g["ctx_mask"].astype(np.int32),
+                                "spk": g["spk"].astype(np.float32)})
+            snr_results["log"] = _snr(out.get("log_seconds"), g["log_s"])
         elif kind == "vector_estimator":
-            out = model.predict({"x": golden["latent"].astype(np.float32),
-                                "t": golden["time"].astype(np.float32),
-                                "ctx": golden["ctx"].astype(np.float32),
-                                "ctx_mask": golden["ctx_mask"].astype(np.int32),
-                                "spk": golden["spk"].astype(np.float32),
-                                "style": golden["style"].astype(np.float32)})
-            snr_results["v"] = _snr(out.get("v"), golden["velocity"])
+            out = model.predict({"x": g["latent"].astype(np.float32),
+                                "t": g["time"].astype(np.float32),
+                                "ctx": g["ctx"].astype(np.float32),
+                                "ctx_mask": g["ctx_mask"].astype(np.int32),
+                                "spk": g["spk"].astype(np.float32),
+                                "style": g["style"].astype(np.float32)})
+            snr_results["v"] = _snr(out.get("v"), g["velocity"])
         elif kind == "codec_decoder":
-            out = model.predict({"x": golden["latent"].astype(np.float32)})
-            snr_results["wav"] = _snr(out.get("wav"), golden["pcm"])
+            out = model.predict({"x": g["latent"].astype(np.float32)})
+            snr_results["wav"] = _snr(out.get("wav"), g["pcm"])
         else:
             return {"verified": False, "skipped": True, "reason": f"unknown kind {kind}"}
     except Exception as error:  # noqa: BLE001
@@ -337,8 +338,10 @@ def main() -> int:
     for frames in BUCKET_FRAMES:
         try:
             meta = build_golden(model_dir, outdir, config, frames)
-            goldens_by_frames[frames] = meta
-            goldens.append(meta)
+            goldens_by_frames[frames] = meta  # giữ nguyên (có "raw") cho verify_package
+            # Bỏ "raw" (mảng numpy) trước khi vào manifest: json.dump không serialize được ndarray
+            # ⇒ lượt CI 37090751555 manifest.json KHÔNG ghi được (TypeError: Object of type ndarray…).
+            goldens.append({k: v for k, v in meta.items() if k != "raw"})
         except Exception as error:  # noqa: BLE001
             goldens.append({"bucket_frames": frames, "error": f"{type(error).__name__}: {error}"})
             log("GOLDEN", f"T{frames}: LỖI {type(error).__name__}: {error}")
