@@ -1,4 +1,5 @@
 import Foundation
+import CoreML
 
 /// Tự test Core ML: đọc `golden/T{n}.npz` (đầu vào + đầu ra tham chiếu ORT fp32, sinh ở Phase 2), chạy
 /// **từng bucket** qua `VieNeuCoreMLRuntime` với đúng đầu vào đã lưu, rồi so với tham chiếu bằng **SNR**
@@ -53,7 +54,23 @@ enum VieNeuBackendSelfTest {
         // bẫy đã mắc 2026-10-03 (toast chỉ hiện "SNR -1 dB", không chẩn đoán được).
         AppLogger.shared.log("🎙️ [VieNeuSelfTest] \(passed ? "ĐẠT" : "RỚT") · SNR thấp nhất \(String(format: "%.1f", minSnr)) dB · \(buckets.map { "T\($0.frames):\($0.passed ? "ok" : "fail")" }.joined(separator: " "))")
         AppLogger.shared.log("🎙️ [VieNeuSelfTest] chi tiết: \(buckets.map { "T\($0.frames)=\($0.note)" }.joined(separator: " · "))")
+        // CHẨN ĐOÁN (1.3.499, tạm): chạy lại 3 bucket dưới từng mức `computeUnits` để so trên máy thật.
+        diagnoseComputeUnits(store: store, config: config)
         return SelfTestReport(passed: passed, minSnrDb: minSnr, buckets: buckets, firstFailure: failures.first)
+    }
+
+    /// CHẨN ĐOÁN `vector_estimator-T234` — vì sao cho −2 dB trên **máy** (iOS Core ML) dù coremltools đạt.
+    /// Chạy 3 bucket dưới `.cpuOnly` / `.cpuAndGPU` / `.all` và log SNR mỗi mức ⇒ biết CPU có sửa được không.
+    static func diagnoseComputeUnits(store: VieNeuModelStore, config: VieNeuConfig) {
+        let units: [(String, MLComputeUnits)] = [("cpuOnly", .cpuOnly), ("cpuAndGPU", .cpuAndGPU), ("all", .all)]
+        for (label, computeUnits) in units {
+            let runtime = VieNeuCoreMLRuntime(store: store, paddingID: config.padID, computeUnits: computeUnits)
+            let line = VieNeuBucketSelector.bucketFrames.map { frames -> String in
+                let report = runBucket(frames: frames, store: store, config: config, runtime: runtime)
+                return "T\(frames)=\(report.passed ? "ok" : "fail")/\(String(format: "%.0f", report.snrDb))dB"
+            }.joined(separator: " ")
+            AppLogger.shared.log("🎙️ [VieNeuDiag] computeUnits=\(label): \(line)")
+        }
     }
 
     /// Ghi kết quả tự test (dùng chung cho cả đường bật toggle và đường debug).
@@ -128,6 +145,17 @@ enum VieNeuBackendSelfTest {
             let passed = ctxSnr >= snrThresholdDb && logOk && velSnr >= snrThresholdDb && pcmSnr >= snrThresholdDb
             let snr = min(ctxSnr, velSnr, pcmSnr)
             let note = "ctx=\(Int(ctxSnr))dB vel=\(Int(velSnr))dB pcm=\(Int(pcmSnr))dB log=\(logOk ? "ok" : "saic")"
+            // CHẨN ĐOÁN (1.3.499, tạm): khi rớt, log **bản chất** output `vel` (NaN? toàn 0? lệch số?).
+            if !passed {
+                let nan = vel.reduce(0) { $0 + (($1.isNaN || $1.isInfinite) ? 1 : 0) }
+                let vmin = vel.min() ?? 0, vmax = vel.max() ?? 0
+                let gmin = velGold.min() ?? 0, gmax = velGold.max() ?? 0
+                AppLogger.shared.log(
+                    "🎙️ [VieNeuDiag] T\(frames) FAIL · vel n=\(vel.count) nan=\(nan) "
+                    + "min=\(String(format: "%.2f", vmin)) max=\(String(format: "%.2f", vmax)) "
+                    + "| gold min=\(String(format: "%.2f", gmin)) max=\(String(format: "%.2f", gmax))"
+                )
+            }
             return BucketReport(frames: frames, passed: passed, snrDb: snr, note: note)
         } catch {
             return BucketReport(frames: frames, passed: false, snrDb: -1, note: "lỗi: \(error.localizedDescription)")

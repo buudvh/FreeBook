@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.499] - 2026-10-03
+
+### chore: thêm chẩn đoán self-test cho vector_estimator-T234 (điều tra on-device)
+
+Theo yêu cầu "điều tra sâu T234 on-device": `vector_estimator-T234` cho `vel=-2dB` trên **máy** (iOS Core ML) dù `coremltools` (CI) đạt ≥30dB cho **cùng gói**. Thêm log chẩn đoán (KHÔNG đổi hành vi):
+
+- `VieNeuBackendSelfTest.runBucket`: khi bucket rớt, log **bản chất** output `vel` — `n`, số phần tử NaN/Inf, `min/max` của `vel` và của golden ⇒ phân biệt "rác/NaN" với "lệch số".
+- `VieNeuBackendSelfTest.diagnoseComputeUnits` (mới): chạy lại 3 bucket dưới `.cpuOnly` / `.cpuAndGPU` / `.all` và log SNR mỗi mức (`[VieNeuDiag] computeUnits=…`) ⇒ biết CPU có sửa được T234 không.
+- ⚠️ **TẠM THỜI** (chẩn đoán) — gỡ sau khi chốt nguyên nhân. Cổng: `check_architecture.py` 5 nền / 0 mới.
+
+---
+
 ## [1.3.498] - 2026-10-03
 
 ### revert: trả computeUnits Core ML về .all (bỏ thử nghiệm loại ANE ở 1.3.497)
