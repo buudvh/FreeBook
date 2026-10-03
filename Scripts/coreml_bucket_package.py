@@ -23,6 +23,8 @@ import os
 import time
 import traceback
 
+import numpy as np
+
 # Dùng lại hạ tầng đã kiểm chứng của lượt baseline — cố ý không sao chép.
 from coreml_convert_experiment import (
     REVISION,
@@ -65,7 +67,8 @@ def shapes_for(graph: str, config: dict, frames: int) -> dict:
     return table[graph]
 
 
-def convert_graph(source: str, pkgdir: str, scratchdir: str, name: str, config: dict, frames: int) -> dict:
+def convert_graph(source: str, pkgdir: str, scratchdir: str, name: str, config: dict, frames: int,
+                  golden: dict | None = None) -> dict:
     """Đóng băng shape rồi convert bằng `onnx2coreml` — đúng đường đã chạy ở lượt baseline.
 
     ⚠️ **Hai bẫy đã trả giá ở Phase 2, cả hai đều về chỗ ghi file:**
@@ -92,16 +95,35 @@ def convert_graph(source: str, pkgdir: str, scratchdir: str, name: str, config: 
 
     package = os.path.join(pkgdir, f"{name}.mlpackage")
     errors = []
+    last_ok: dict | None = None
     for label, candidate in candidates:
         try:
             started = time.time()
             o2c.convert(candidate, format="mlpackage", minimum_deployment_target="iOS17").save(package)
-            return {"ok": True, "package": package, "converted_with": label,
-                    "seconds": round(time.time() - started, 1),
-                    "bytes": _dir_bytes(package), "shapes": shapes,
-                    "candidates": errors}
+            result = {"ok": True, "package": package, "converted_with": label,
+                      "seconds": round(time.time() - started, 1),
+                      "bytes": _dir_bytes(package), "shapes": shapes,
+                      "candidates": errors}
+            last_ok = result
+            # Tự verify với golden (nếu có): bắt gói hỏng ngay lúc build. Nếu ứng viên này verify fail,
+            # thử ứng viên kế (vd `basic-folded` hỏng → thử `frozen`).
+            if golden is not None:
+                kind = name.split("-T")[0] if "-T" in name else name
+                vres = verify_package(package, kind, golden, config, frames)
+                result["verified"] = vres
+                if vres.get("skipped"):
+                    return result  # không có coremltools (Windows) → chấp nhận, verify thật trên macOS
+                if vres.get("verified"):
+                    return result  # verify đạt → xong
+                errors.append(f"{label}: verify SNR thấp {vres.get('snr')}")
+                continue  # thử ứng viên kế
+            return result
         except Exception as error:  # noqa: BLE001 — thử ứng viên kế
             errors.append(f"{label}: {type(error).__name__}: {str(error).splitlines()[0][:200]}")
+    if last_ok is not None:
+        last_ok.setdefault("verified", {"verified": False, "skipped": False,
+                                        "reason": "mọi ứng viên đều verify fail"})
+        return last_ok
     return {"ok": False, "error": "; ".join(errors)}
 
 
@@ -172,7 +194,78 @@ def build_golden(model_dir: str, outdir: str, config: dict, frames: int) -> dict
     with open(os.path.join(golden_dir, f"T{frames}.json"), "w", encoding="utf-8") as handle:
         json.dump(meta, handle, ensure_ascii=False, indent=2)
     log("GOLDEN", f"T{frames}: {meta['bytes'] / 1e3:.0f} KB")
+    # Trả thêm raw arrays để `verify_package` dùng luôn (không đọc lại npz).
+    meta["raw"] = {"ids": ids, "style": style, "spk": spk, "latent": latent, "time": time_step,
+                   "ctx_mask": mask, "ctx": ctx, "log_s": log_s, "velocity": velocity, "pcm": pcm}
     return meta
+
+
+def verify_package(package: str, kind: str, golden: dict, config: dict, frames: int) -> dict:
+    """Chạy gói `.mlpackage` qua coremltools với golden inputs, tính SNR so với tham chiếu ORT fp32.
+
+    Trả về `{"verified": bool, "snr": {thành phần: dB}, "skipped": bool, "reason": str}`.
+    `skipped=True` khi coremltools không import được (Windows) — không chặn build, chỉ chạy thật trên macOS.
+    Ngưỡng SNR = 30 dB (khớp `VieNeuBackendSelfTest.snrThresholdDb`).
+
+    Mục đích: bắt gói hỏng ngay lúc build (như `vector_estimator-T234` convert ra `vel=-2 dB`) thay vì
+    để app tự test mới phát hiện trên máy.
+    """
+    threshold = 30.0
+    try:
+        import coremltools as ct
+    except Exception as error:  # noqa: BLE001
+        return {"verified": False, "skipped": True, "reason": f"coremltools unavailable: {error}"}
+
+    style_dim, n_style = config["style_dim"], config["n_style"]
+    _ = (style_dim, n_style)  # shape lấy từ golden đã đúng bucket
+
+    try:
+        model = ct.models.MLModel(package)
+    except Exception as error:  # noqa: BLE001
+        return {"verified": False, "skipped": False,
+                "reason": f"load failed: {type(error).__name__}: {str(error)[:160]}"}
+
+    def _snr(out, ref):
+        out = np.asarray(out, dtype=np.float32).reshape(-1)
+        ref = np.asarray(ref, dtype=np.float32).reshape(-1)
+        if out.shape != ref.shape:
+            return -1.0
+        signal = float(np.sum(ref * ref))
+        noise = float(np.sum((ref - out) * (ref - out)))
+        if noise <= 0:
+            return 99.0
+        return float(10 * np.log10(signal / noise))
+
+    snr_results: dict = {}
+    try:
+        if kind == "text_encoder":
+            out = model.predict({"ids": golden["ids"].astype(np.int32),
+                                "style": golden["style"].astype(np.float32)})
+            snr_results["ctx"] = _snr(out.get("ctx"), golden["ctx"])
+        elif kind == "duration_predictor":
+            out = model.predict({"ctx": golden["ctx"].astype(np.float32),
+                                "ctx_mask": golden["ctx_mask"].astype(np.int32),
+                                "spk": golden["spk"].astype(np.float32)})
+            snr_results["log"] = _snr(out.get("log_seconds"), golden["log_s"])
+        elif kind == "vector_estimator":
+            out = model.predict({"x": golden["latent"].astype(np.float32),
+                                "t": golden["time"].astype(np.float32),
+                                "ctx": golden["ctx"].astype(np.float32),
+                                "ctx_mask": golden["ctx_mask"].astype(np.int32),
+                                "spk": golden["spk"].astype(np.float32),
+                                "style": golden["style"].astype(np.float32)})
+            snr_results["v"] = _snr(out.get("v"), golden["velocity"])
+        elif kind == "codec_decoder":
+            out = model.predict({"x": golden["latent"].astype(np.float32)})
+            snr_results["wav"] = _snr(out.get("wav"), golden["pcm"])
+        else:
+            return {"verified": False, "skipped": True, "reason": f"unknown kind {kind}"}
+    except Exception as error:  # noqa: BLE001
+        return {"verified": False, "skipped": False,
+                "reason": f"predict failed: {type(error).__name__}: {str(error)[:160]}"}
+
+    verified = all(v >= threshold for v in snr_results.values())
+    return {"verified": verified, "snr": snr_results, "skipped": False, "reason": "ok"}
 
 
 def manifest_files(outdir: str) -> list:
@@ -237,12 +330,28 @@ def main() -> int:
     pkgdir = os.path.join(outdir, "mlpackage")
     os.makedirs(pkgdir, exist_ok=True)
 
-    # ── 1. Sinh 8 gói ──────────────────────────────────────────────────────────
+    # ── 1. Golden self-test (đầu vào cố định + tham chiếu ORT fp32) theo từng mức ──
+    # Phải sinh TRƯỚC gói, vì mỗi `convert_graph` sẽ verify gói vừa convert bằng golden này.
+    goldens_by_frames: dict = {}
+    goldens: list = []
+    for frames in BUCKET_FRAMES:
+        try:
+            meta = build_golden(model_dir, outdir, config, frames)
+            goldens_by_frames[frames] = meta
+            goldens.append(meta)
+        except Exception as error:  # noqa: BLE001
+            goldens.append({"bucket_frames": frames, "error": f"{type(error).__name__}: {error}"})
+            log("GOLDEN", f"T{frames}: LỖI {type(error).__name__}: {error}")
+    # text_encoder / duration_predictor không phụ thuộc `T` ⇒ dùng golden của bất kỳ bucket.
+    base_golden = goldens_by_frames.get(BUCKET_FRAMES[0])
+
+    # ── 2. Sinh 8 gói + verify từng cái bằng golden ────────────────────────────
     packages: dict = {}
     for graph in LENGTH_ONLY_GRAPHS:
         name = graph.replace(".onnx", "")
         try:
-            result = convert_graph(os.path.join(model_dir, graph), pkgdir, workdir, name, config, 0)
+            result = convert_graph(os.path.join(model_dir, graph), pkgdir, workdir, name, config, 0,
+                                   golden=base_golden)
         except Exception as error:  # noqa: BLE001
             result = {"ok": False, "error": f"{type(error).__name__}: {error}",
                       "traceback": traceback.format_exc()[-1000:]}
@@ -250,24 +359,17 @@ def main() -> int:
         log("PKG", f"{name}: {'OK ' + str(result.get('bytes', 0) / 1e6) + ' MB' if result.get('ok') else 'LỖI ' + str(result.get('error'))[:110]}")
 
     for frames in BUCKET_FRAMES:
+        golden = goldens_by_frames.get(frames)
         for graph in FRAME_GRAPHS:
             name = f"{graph.replace('.onnx', '')}-T{frames}"
             try:
-                result = convert_graph(os.path.join(model_dir, graph), pkgdir, workdir, name, config, frames)
+                result = convert_graph(os.path.join(model_dir, graph), pkgdir, workdir, name, config, frames,
+                                       golden=golden)
             except Exception as error:  # noqa: BLE001
                 result = {"ok": False, "error": f"{type(error).__name__}: {error}",
                           "traceback": traceback.format_exc()[-1000:]}
             packages[name] = result
             log("PKG", f"{name}: {'OK ' + str(result.get('bytes', 0) / 1e6) + ' MB' if result.get('ok') else 'LỖI ' + str(result.get('error'))[:110]}")
-
-    # ── 2. Golden self-test theo từng mức ──────────────────────────────────────
-    goldens: list = []
-    for frames in BUCKET_FRAMES:
-        try:
-            goldens.append(build_golden(model_dir, outdir, config, frames))
-        except Exception as error:  # noqa: BLE001
-            goldens.append({"bucket_frames": frames, "error": f"{type(error).__name__}: {error}"})
-            log("GOLDEN", f"T{frames}: LỖI {type(error).__name__}: {error}")
 
     # ── 3. manifest.json ───────────────────────────────────────────────────────
     try:
@@ -279,6 +381,12 @@ def main() -> int:
     expected = len(LENGTH_ONLY_GRAPHS) + len(FRAME_GRAPHS) * len(BUCKET_FRAMES)
     ok = sum(1 for item in packages.values() if item.get("ok"))
     summary["packages_ok"] = f"{ok}/{expected}"
+    # Đếm gói verify đạt SNR ≥ 30 dB (chỉ khi coremltools có mặt trên macOS). Windows skip → không chặn.
+    verified = sum(1 for item in packages.values()
+                   if item.get("ok") and item.get("verified", {}).get("verified"))
+    skipped_verify = sum(1 for item in packages.values()
+                         if item.get("ok") and item.get("verified", {}).get("skipped"))
+    summary["verified"] = f"{verified}/{ok} (skip {skipped_verify})"
     # Đếm theo số file **thật sự có mặt** trong `outdir`, không chỉ theo kết quả convert — để một gói sinh
     # ra ở chỗ sai (không nằm trong `outdir`) thì vẫn bị bắt, chứ không "PASS" với nội dung trống rỗng.
     published = [item for item in manifest_files(outdir)
