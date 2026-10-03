@@ -302,12 +302,6 @@ extension VieNeuTTSTestView {
             statusMessage = "Xoá ONNX thất bại: \(error.localizedDescription)"
         }
     }
-
-    func formattedBytes(_ bytes: Int64) -> String {
-        let formatter = ByteCountFormatter()
-        formatter.countStyle = .file
-        return formatter.string(fromByteCount: bytes)
-    }
 }
 
 extension VieNeuSynthesisPolicy.Mode {
