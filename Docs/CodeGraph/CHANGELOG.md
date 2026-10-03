@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.497] - 2026-10-03
+
+### fix: loại ANE khỏi Core ML (computeUnits .cpuAndGPU) để T234 đạt self-test
+
+Sửa gốc "lúc đọc đúng lúc đọc không đúng (nhiễu)": `vector_estimator-T234` cho kết quả **sai trên ANE**.
+
+- **Bằng chứng**: CÙNG gói (sha y hệt giữa revision cũ `5dec426…` và mới `ec0fff3c…`) + CÙNG golden + CÙNG công thức SNR → self-test **trên máy (ANE)** báo `T234 vel=-2 dB` (log `app_logs (67)/(70).txt`), còn `verify_package` **trên CI (macOS VM không ANE)** báo `T234 v ≥ 30 dB`. Khác biệt duy nhất = ANE ⇒ ANE sai với T234.
+- **Sửa** (`VieNeuBackendFactory.coreMLComputeUnits`): `.all` → **`.cpuAndGPU`** (loại ANE). Số đo tốc độ trước đây đến từ CPU+fp16 ⇒ không mất tốc độ.
+- **Bắt buộc đi kèm** (`VieNeuBackendSelfTest.run`): truyền `computeUnits: VieNeuBackendFactory.coreMLComputeUnits` để self-test chạy **cùng** compute units với production — nếu không, self-test vẫn dùng ANE ⇒ vẫn loại T234 oan ⇒ sửa vô nghĩa.
+- Kỳ vọng sau IPA: self-test `T234 vel ≥ 30 dB` ⇒ `capableBuckets = {64,96,234}` ⇒ cả 3 bucket Core ML ⇒ đồng nhất âm sắc.
+- Cổng: `check_architecture.py` 5 nền / 0 mới.
+
+---
+
 ## [1.3.496] - 2026-10-03
 
 ### fix: sửa verify_package đọc golden["raw"] + bỏ mảng numpy khỏi manifest (Phần B)

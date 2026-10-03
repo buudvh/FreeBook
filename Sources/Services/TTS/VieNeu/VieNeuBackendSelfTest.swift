@@ -31,7 +31,13 @@ enum VieNeuBackendSelfTest {
 
     /// Chạy tự test cả 3 bucket, ghi `UserDefaults`, trả báo cáo.
     static func run(store: VieNeuModelStore, config: VieNeuConfig) -> SelfTestReport {
-        let runtime = VieNeuCoreMLRuntime(store: store, paddingID: config.padID)
+        // PHẢI dùng **cùng compute units với production** (`VieNeuBackendFactory.coreMLComputeUnits`).
+        // Nếu self-test chạy một đằng (vd `.all` = ANE) mà lúc phát chạy một nẻo thì `capableBuckets`
+        // đo sai ⇒ T234 bị loại oan (hoặc dùng nhầm) ⇒ lệch âm sắc. Xem `VieNeuBackendFactory`.
+        let runtime = VieNeuCoreMLRuntime(
+            store: store, paddingID: config.padID,
+            computeUnits: VieNeuBackendFactory.coreMLComputeUnits
+        )
         var buckets: [BucketReport] = []
         for frames in VieNeuBucketSelector.bucketFrames {
             buckets.append(runBucket(frames: frames, store: store, config: config, runtime: runtime))
