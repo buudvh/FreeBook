@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.495] - 2026-10-03
+
+### fix: gạt model Core ML khỏi cache khi predict thất bại (chống nhiễu do huỷ tiến trình)
+
+Sửa nguyên nhân phụ của lỗi "lúc đọc đúng lúc đọc không đúng (nhiễu)": `models` cache trong `VieNeuCoreMLRuntime` tái dùng cùng một `MLModel` qua các chunk. Nếu một `prediction` bị huỷ giữa chừng (CancellationError khi user dừng/tua), model ở trạng thái giữa chừng và được tái dùng cho chunk sau → nhiễu lẻ tẻ.
+
+- `predict(named:_:)` bắt lỗi ⇒ gạt `models[name] = nil` (dưới `lock`) trước khi ném lại, nên chunk sau nạp lại model mới thay vì tái dùng model "bị nhiễm". `model(named:)` đã nhả lock trước khi trả về nên khoá lại không deadlock.
+- Không đổi routing T234→ORT (đó là nguyên nhân chính, cần rebuild T234 Core ML trên macOS — Phần B, script đã commit `6a79960`).
+
+---
+
 ## [1.3.494] - 2026-10-03
 
 ### feat: chuyển toggle Core ML ra ngoài cài đặt TTS + sửa nav Core ML hiển thị mọi engine

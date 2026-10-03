@@ -185,6 +185,14 @@ final class VieNeuCoreMLRuntime: VieNeuInferenceBackend {
         do {
             return try model(named: name).prediction(from: provider)
         } catch {
+            // Prediction thất bại (huỷ tiến trình / CancellationError / lỗi Core ML khác) có thể để lại
+            // `MLModel` ở trạng thái giữa chừng. Gạt khỏi cache để chunk sau **nạp lại** model mới,
+            // thay vì tái dùng model "bị nhiễm" gây tiếng nhiễu ở các chunk kế tiếp (nguyên nhân
+            // "lúc đọc đúng lúc đọc không đúng"). `model(named:)` đã nhả lock trước khi trả về nên
+            // việc khoá lại ở đây không deadlock.
+            lock.lock()
+            models[name] = nil
+            lock.unlock()
             throw RuntimeError.predict("\(name): \(error.localizedDescription)")
         }
     }
