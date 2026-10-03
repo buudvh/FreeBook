@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.467] - 2026-10-03
+
+### chore: them chunkLen vao log [VieNeuPerf] de do chunkLength ↔ CPU
+
+Thêm `chunkLen=` vào `[VieNeuPerf]` (`VieNeuTTSEngine+Adaptive.logSynthesisPerf`) — số đo còn thiếu để đối chiếu **chunkLength** với CPU/nhiệt/pin/độ mượt. Đọc `TTSManager.vieNeuChunkLength` (`nonisolated static`, không nhảy actor). `[NghiEnergy] Summary` đã có sẵn `busyPct`/`underrun`/`aggregateRTF`; `[TTSEnergy]` đã có `thermal`. Kèm 2 báo cáo trong `Docs/Reports/`: `…-chunklength-cpu-analysis.md` + `…-chunklength-measurement-protocol.md`.
+
+- Cổng: `check_architecture.py` **5 nền / 0 mới**.
+
+---
+
 ## [1.3.466] - 2026-10-03
 
 ### revert: dua toan bo repo ve moc truoc khi them CoreML + build-ipa chi chay khi Sources/project.yml doi

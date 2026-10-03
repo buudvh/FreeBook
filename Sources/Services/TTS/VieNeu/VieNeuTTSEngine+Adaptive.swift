@@ -69,7 +69,7 @@ extension VieNeuTTSEngine {
         synthesisSpeed: Double
     ) {
         AppLogger.shared.log(
-            "[VieNeuPerf] mode=\(mode.rawValue) chunks=\(chunkCount) dropped=\(droppedScalars)"
+            "[VieNeuPerf] mode=\(mode.rawValue) chunkLen=\(TTSManager.vieNeuChunkLength) chunks=\(chunkCount) dropped=\(droppedScalars)"
                 + " synthSpeed=\(String(format: "%.2f", synthesisSpeed))x"
                 + " chars=\(characterCount) pcm=\(String(format: "%.2f", pcmDuration))s"
                 + " speech=\(String(format: "%.2f", speechDuration))s"
