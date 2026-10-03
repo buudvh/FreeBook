@@ -30,11 +30,15 @@ enum VieNeuBackendSelfTest {
         for frames in VieNeuBucketSelector.bucketFrames {
             buckets.append(runBucket(frames: frames, store: store, config: config, runtime: runtime))
         }
-        let passed = buckets.allSatisfy { $0.passed }
+        let failures = buckets.filter { !$0.passed }
+        let passed = failures.isEmpty
         let minSnr = buckets.map { $0.snrDb }.min() ?? -1
         record(passed: passed, minSnr: minSnr)
+        // ⚠️ Phải log **cả `note`**: chữ số SNR một mình (`-1`) là mã lỗi, không nói được vì sao rớt —
+        // bẫy đã mắc 2026-10-03 (toast chỉ hiện "SNR -1 dB", không chẩn đoán được).
         AppLogger.shared.log("🎙️ [VieNeuSelfTest] \(passed ? "ĐẠT" : "RỚT") · SNR thấp nhất \(String(format: "%.1f", minSnr)) dB · \(buckets.map { "T\($0.frames):\($0.passed ? "ok" : "fail")" }.joined(separator: " "))")
-        return SelfTestReport(passed: passed, minSnrDb: minSnr, buckets: buckets)
+        AppLogger.shared.log("🎙️ [VieNeuSelfTest] chi tiết: \(buckets.map { "T\($0.frames)=\($0.note)" }.joined(separator: " · "))")
+        return SelfTestReport(passed: passed, minSnrDb: minSnr, buckets: buckets, firstFailure: failures.first)
     }
 
     /// Ghi kết quả tự test (dùng chung cho cả đường bật toggle và đường debug).
@@ -144,6 +148,8 @@ enum VieNeuBackendSelfTest {
         let passed: Bool
         let minSnrDb: Float
         let buckets: [BucketReport]
+        /// Bucket đầu tiên rớt — `note` của nó là **lý do thật** (đưa lên toast, không để phải đoán).
+        let firstFailure: BucketReport?
     }
 
     struct BucketReport {

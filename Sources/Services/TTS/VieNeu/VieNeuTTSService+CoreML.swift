@@ -46,7 +46,10 @@ extension VieNeuTTSService {
             let report = VieNeuBackendSelfTest.run(store: modelStore, config: config)
             guard report.passed else {
                 VieNeuBackendSelfTest.reset()
-                return (false, "Tự test không đạt (SNR thấp nhất \(String(format: "%.1f", report.minSnrDb)) dB)")
+                // Kèm **lý do thật** (note của bucket đầu tiên rớt): SNR `-1` một mình là mã lỗi,
+                // không đủ để chẩn đoán — xem bẫy 2026-10-03.
+                let reason = report.firstFailure.map { "T\($0.frames): \($0.note)" } ?? "không rõ nguyên nhân"
+                return (false, "Tự test không đạt (SNR thấp nhất \(String(format: "%.1f", report.minSnrDb)) dB) — \(reason)")
             }
             return (true, String(format: "%.0f", report.minSnrDb))
         } catch {
