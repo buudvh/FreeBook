@@ -47,34 +47,12 @@ final class VieNeuModelStore {
     /// lúc đó chưa có file nào để đo, nên `cloneTotalBytes` trả 0.
     static let cloneApproximateBytes: Int64 = 95_500_985
 
-    // MARK: - Core ML (bucket tĩnh, Phases 3–5)
-
-    /// Lưới frame của các bucket Core ML — phải khớp `Scripts/coreml_bucket_package.py:BUCKET_FRAMES`
-    /// và `VieNeuBucketSelector.bucketFrames`.
-    static let coreMLBucketFrames = [64, 96, 234]
-
-    /// Tám gói Core ML (tên gốc, không đuôi `.mlpackage`). `text_encoder` + `duration_predictor` dùng
-    /// chung mọi bucket (chiều động duy nhất là `L = 200` đã cố định); mỗi graph phụ thuộc `T` có một
-    /// gói riêng cho mỗi mức. Tổng 2 + 3 × 2 = 8 gói, ~397,8 MB.
-    static let coreMLPackageNames = [
-        "text_encoder",
-        "duration_predictor",
-        "vector_estimator-T64",
-        "vector_estimator-T96",
-        "vector_estimator-T234",
-        "codec_decoder-T64",
-        "codec_decoder-T96",
-        "codec_decoder-T234"
-    ]
-
     /// Toàn bộ file bắt buộc phải có trước khi engine chạy được.
     static var requiredNames: [String] { graphNames + configNames + assetNames }
 
     let rootURL: URL
     let modelsURL: URL
     let assetsURL: URL
-    let coreMLURL: URL
-    let coreMLCompiledURL: URL
 
     init(fileManager: FileManager = .default) throws {
         let appSupport = try fileManager.url(
@@ -86,12 +64,8 @@ final class VieNeuModelStore {
         self.rootURL = appSupport.appendingPathComponent("FreeBook/TTS/VieNeu", isDirectory: true)
         self.modelsURL = rootURL.appendingPathComponent("Models", isDirectory: true)
         self.assetsURL = rootURL.appendingPathComponent("Assets", isDirectory: true)
-        self.coreMLURL = rootURL.appendingPathComponent("CoreML", isDirectory: true)
-        self.coreMLCompiledURL = coreMLURL.appendingPathComponent("Compiled", isDirectory: true)
         try fileManager.createDirectory(at: modelsURL, withIntermediateDirectories: true)
         try fileManager.createDirectory(at: assetsURL, withIntermediateDirectories: true)
-        try fileManager.createDirectory(at: coreMLURL, withIntermediateDirectories: true)
-        try fileManager.createDirectory(at: coreMLCompiledURL, withIntermediateDirectories: true)
     }
 
     // MARK: - Đường dẫn
@@ -103,76 +77,6 @@ final class VieNeuModelStore {
 
     func exists(_ name: String) -> Bool {
         FileManager.default.fileExists(atPath: url(for: name).path)
-    }
-
-    // MARK: - Core ML: đường dẫn & trạng thái
-
-    /// URL gói `.mlpackage` Core ML chưa biên dịch.
-    func coreMLPackageURL(for name: String) -> URL {
-        coreMLURL.appendingPathComponent("\(name).mlpackage", isDirectory: true)
-    }
-
-    /// URL gói `.mlmodelc` Core ML đã biên dịch (dùng để nạp `MLModel`).
-    func compiledURL(for name: String) -> URL {
-        coreMLCompiledURL.appendingPathComponent("\(name).mlmodelc", isDirectory: true)
-    }
-
-    /// `manifest.json` của repo Core ML — lưu bản sao tại máy sau khi tải để tự test đọc được SHA/tham chiếu.
-    var coreMLManifestURL: URL {
-        coreMLURL.appendingPathComponent("manifest.json")
-    }
-
-    /// `golden/T{frames}.npz` — đầu vào/tham chiếu tự test theo bucket (tải từ repo Core ML).
-    func coreMLGoldenURL(for frames: Int) -> URL {
-        coreMLURL.appendingPathComponent("golden/T\(frames).npz")
-    }
-
-    /// `true` khi cả 3 file `golden/T{n}.npz` đã tải — tự test cần chúng.
-    var coreMLGoldenReady: Bool {
-        VieNeuBucketSelector.bucketFrames.allSatisfy {
-            FileManager.default.fileExists(atPath: coreMLGoldenURL(for: $0).path)
-        }
-    }
-
-    /// `true` khi **cả 8** gói Core ML đã biên dịch xong (`.mlmodelc` tồn tại). Dùng làm cổng cứng thay
-    /// thế `isReady` khi người dùng chỉ tải Core ML mà không tải ONNX.
-    var coreMLReady: Bool {
-        Self.coreMLPackageNames.allSatisfy { FileManager.default.fileExists(atPath: compiledURL(for: $0).path) }
-    }
-
-    /// Số gói Core ML đã biên dịch (0…8) — UI dùng hiện tiến độ.
-    var coreMLCompiledCount: Int {
-        Self.coreMLPackageNames.filter { FileManager.default.fileExists(atPath: compiledURL(for: $0).path) }.count
-    }
-
-    /// Dung lượng **đệ quy** đã chiếm của toàn bộ thư mục `CoreML` (gói + đã biên dịch).
-    /// `byteCount(of:)` chỉ đọc kích thước file đơn nên **không** dùng được cho `.mlpackage` (thư mục).
-    var coreMLTotalBytes: Int64 {
-        recursiveByteCount(of: coreMLURL)
-    }
-
-    /// Dung lượng **đệ quy** của thư mục `CoreML/Compiled` (chỉ `.mlmodelc`).
-    var coreMLCompiledBytes: Int64 {
-        recursiveByteCount(of: coreMLCompiledURL)
-    }
-
-    /// Xoá toàn bộ Core ML (gói + đã biên dịch + manifest). Không đụng ONNX.
-    func deleteCoreML() throws {
-        let fileManager = FileManager.default
-        try? fileManager.removeItem(at: coreMLURL)
-        try fileManager.createDirectory(at: coreMLURL, withIntermediateDirectories: true)
-        try fileManager.createDirectory(at: coreMLCompiledURL, withIntermediateDirectories: true)
-    }
-
-    private func recursiveByteCount(of url: URL) -> Int64 {
-        let fileManager = FileManager.default
-        guard let enumerator = fileManager.enumerator(at: url, includingPropertiesForKeys: [.fileSizeKey], options: [.skipsHiddenFiles]) else { return 0 }
-        var total: Int64 = 0
-        for case let fileURL as URL in enumerator {
-            let size = (try? fileURL.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
-            total += Int64(size)
-        }
-        return total
     }
 
     /// `true` khi đủ **cả 8** file (4 graph + `config.json` + `constants.npz` + 2 asset). Không có trạng thái "thiếu một nửa chạy được": pipeline Nano cần

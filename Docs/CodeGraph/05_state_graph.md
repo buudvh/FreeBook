@@ -15,29 +15,6 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## 1.3.487 — Phase 3–5: trạng thái Core ML
-
-* **`UserDefaults`** (`VieNeuSynthesisPolicy`): `vieneuCoreMLEnabled` (**thiếu khoá = `false`** — mặc định TẮT) · `vieneuCoreMLSelfTestPassed` · `vieneuCoreMLSelfTestSNR` · `vieneuCoreMLSelfTestDate` · `vieneuCoreMLSelfTestMachine` · `vieneuCoreMLSelfTestOSVersion` · `vieneuCoreMLMigrationAsked`. Khoá định nghĩa **một chỗ** ở policy; `VieNeuBackendSelfTest` tham chiếu lại (không khai trùng).
-* **Engine**: `backend: VieNeuInferenceBackend?` (primary) + `fallbackRuntime: VieNeuONNXRuntime?` (luôn có khi Core ML bật) — đổi từ `runtime: VieNeuONNXRuntime?` đơn nhất.
-* **Đĩa**: `CoreML/` (8 `.mlpackage`) + `CoreML/Compiled/<name>.mlmodelc`; `coreMLReady` = 8 gói đã compile.
-* Bật/tắt giữa lúc đọc ⇒ `TTSManager.invalidateVieNeuBackend()` giữ đoạn hiện tại, nạp lại từ đoạn kế (không khựng, không sai tốc độ).
-
-## 1.3.470 — revert: gỡ `@State` của đợt CoreML
-
-* Gỡ `@State vieNeuEngineReloading` (trạng thái "đang nạp lại engine"); `TTSSettingsView` trở về đúng tập `@State` của 1.3.465.
-
-## 1.3.469 — trạng thái CoreML bị gỡ; `vieNeuEngineReloading` đổi mục đích
-
-* **Gỡ**: khoá `UserDefaults` `vieneuCoreMLEP`, `@State vieNeuCoreMLEnabled`.
-* **Giữ**: `@State vieNeuEngineReloading` — nay là trạng thái của ô **Số luồng tổng hợp** (hiện dòng "Đang nạp lại engine…" và khoá Picker khi đang nạp).
-* Trạng thái engine vẫn là `VieNeuTTSEngine.isPrepared`; không còn cờ `coreMLActive` nào.
-
-## 1.3.466 — khoá cài đặt mới + trạng thái nạp lại engine
-
-* Khoá `vieneuCoreMLEP` (**mặc định TẮT**), đọc bởi `VieNeuSynthesisPolicy.isCoreMLEPEnabled(_:)`; `TTSSettingsView` mirror qua `@State vieNeuCoreMLEnabled` + `@State vieNeuEngineReloading`, làm mới trong `refreshVieNeuSettings()`.
-* Trạng thái **thật** của EP nằm ở `VieNeuONNXRuntime.coreMLActive` → `VieNeuTTSEngine.coreMLActive` → `VieNeuTTSService.isCoreMLActive`; cờ `UserDefaults` chỉ là *ý định*.
-* Nhả ngữ cảnh theo thứ tự bắt buộc: `runtime = nil` **trước** khi xoá `nullContext`/`nullContextShape`/`nullMask` (tensor cache của nhánh vô điều kiện trỏ vào buffer của chúng).
-
 ## 1.3.465 — một khoá `UserDefaults` mới; đệm audio bị vô hiệu khi đổi nó
 
 * Khoá `vieneuSynthesisSpeed` (dải 1,0...2,0, mặc định 1,0) do `VieNeuSynthesisPolicy.synthesisSpeed(from:)` đọc; `TTSSettingsView` mirror qua `@State vieNeuSynthesisSpeed` và làm mới trong `refreshVieNeuSettings()` (bài học 1.3.456).

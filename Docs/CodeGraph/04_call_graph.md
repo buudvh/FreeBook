@@ -15,41 +15,6 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## 1.3.487 — Phase 3–5: cạnh gọi mới (backend Core ML + fallback ORT)
-
-* `VieNeuTTSEngine.prepareLocked` → `VieNeuBackendFactory.make(...)` ⇒ `BackendChoice`; dựng ORT làm `fallbackRuntime` khi Core ML được chọn.
-* `VieNeuTTSEngine.runChunk` → `backend.runChunk(...)` trong `try/catch`; Core ML ném ⇒ log `[VieNeuFallback]` → `fallbackRuntime.runChunk(...)` **cho chunk đó**.
-* `VieNeuTTSService.enableCoreML` → `VieNeuModelClient.prefetchCoreML` → `VieNeuCoreMLCompiler.compileAll` → `VieNeuBackendSelfTest.run` (fail ⇒ `reset()`).
-* `VieNeuTTSService.useCoreML.set` → `engine.setRequestedCoreML(...)` + `TTSManager.shared.invalidateVieNeuBackend()`.
-* `VieNeuModelManagerView` (`coreMLBinding`) → `service.enableCoreML()` rồi **toast ở tầng View** (`ToastManager.shared` — Service không gọi, luật `SERVICE_TOAST_COUPLING`).
-* `VieNeuCoreMLRuntime` → `VieNeuBucketSelector` (chọn bucket) · `VieNeuGoldenNPZ` → `VieNeuNPZReader`.
-
-## 1.3.470 — revert: gỡ mọi cạnh gọi của đợt CoreML
-
-* Gỡ: ô "Số luồng" → `reloadVieNeuEngine` → `reloadEngine` → `unload()`/`prepare()` → `invalidateVieNeuPrefetch`.
-* `VieNeuONNXRuntime.init` không còn gọi `installLogBridge()`; `createBaseContext` dùng lại `CreateEnv` (không còn logger tuỳ biến).
-
-## 1.3.469 — cạnh gọi của đường nạp lại engine chuyển sang ô "Số luồng tổng hợp"
-
-* `TTSSettingsView+VieNeu` (Picker **Số luồng tổng hợp**) → `reloadVieNeuEngine(reason:)` → `VieNeuTTSService.reloadEngine(reason:)` → `VieNeuTTSEngine.unload()` → `prepare()` → `TTSManager.invalidateVieNeuPrefetch(reason:)`.
-* **Cạnh đã gỡ**: `applyCoreMLEP` → `reloadEngine` (công tắc CoreML), `VieNeuONNXRuntime.init(coreML:)` → `VieNeuORTCreateWithRunOptions` → `SessionOptionsAppendExecutionProvider("CoreML", …)`.
-* `VieNeuONNXRuntime.init` luôn gọi `installLogBridge()` ⇒ log ORT vào `AppLogger` trên mọi đường.
-
-## 1.3.468 — chẩn đoán: `MLComputeUnits=CPUOnly` (không đổi cạnh gọi)
-
-* `appendCoreMLProvider` đổi giá trị `MLComputeUnits` → `CPUOnly`; `prepareCoreMLCacheDirectory` dọn **hai** thư mục cache cũ thay vì một (vòng lặp tên).
-
-## 1.3.467 — sửa cấu hình EP sau khi đo trên máy (không đổi cạnh gọi)
-
-* `VieNeuONNXRuntime.prepareCoreMLCacheDirectory` đổi thư mục cache sang `CoreMLCache-staticShapes` và **dọn** `CoreMLCache` cũ ⇒ cạnh gọi mới: hàm này → `FileManager.removeItem` (một lần, cho cache của cấu hình đã hỏng).
-* `appendCoreMLProvider` đổi giá trị `RequireStaticInputShapes` 0 → **1** (cùng số khoá, không thêm cạnh).
-
-## 1.3.466 — cạnh gọi của đường nạp lại engine
-
-* `TTSSettingsView+VieNeu.applyCoreMLEP(_:)` → `VieNeuTTSService.reloadEngine(useCoreML:)` → `VieNeuTTSEngine.unload()` → `engine.prepare()` → `VieNeuONNXRuntime.init(coreML:)` → `VieNeuORTCreateWithRunOptions` → `SessionOptionsAppendExecutionProvider("CoreML", …)`.
-* Sau khi nạp xong: `applyCoreMLEP` đọc `service.isCoreMLActive` (nguồn sự thật) rồi gọi `TTSManager.invalidateVieNeuPrefetch(reason:)`.
-* Log ORT đi theo đường: `OrtLoggingFunction` (bridge) → `vieNeuORTLogTrampoline` (Swift, toàn cục không capture) → `AppLogger`.
-
 ## 1.3.465 — tốc độ tổng hợp đi vào ba điểm gọi và vào khoá cache
 
 * `TTSManager.scheduleNghiRefill` (`:2903`) và đường phát on-demand (`:3596`) truyền `TTSManager.localSynthesisSpeed(forTool:)` thay vì hằng `1.0`; `TTSNextChapterPrefixSynthesizer.one` (`:28`) và `TTSChapterPrefetcher` (`:192`, nhánh local) cũng vậy ⇒ **4** điểm gọi local, rà bằng `grep "localService.synthesize|service.synthesizeWithDuration"`.

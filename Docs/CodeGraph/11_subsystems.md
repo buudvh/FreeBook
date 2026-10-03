@@ -15,46 +15,6 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## 1.3.487 — Phase 3–5: phân hệ VieNeu-TTS có thêm tầng backend
-
-* `VieNeuTTSEngine` không còn gắn cứng `VieNeuONNXRuntime`: nay `backend: VieNeuInferenceBackend?` (chọn bởi `VieNeuBackendFactory`) + `fallbackRuntime` ORT luôn trú.
-* Đường suy luận một chunk: `VieNeuBucketSelector` chọn bucket `T ∈ {64,96,234}` → `VieNeuCoreMLRuntime.runChunk`; lỗi ⇒ ORT chunk đó.
-* Vòng đời gói: `VieNeuModelClient.prefetchCoreML` (tải, ghim sha) → `VieNeuCoreMLCompiler.compileAll` → `VieNeuBackendSelfTest` (golden SNR) → `VieNeuModelStore.coreMLReady`.
-* UI: màn `Model VieNeu` là **một nguồn sự thật** cho toggle + 8 gói + tự test; Section 3 Cài đặt TTS chỉ link.
-
-## 1.3.470 — REVERT TOÀN BỘ: phân hệ VieNeu trở về đúng 1.3.465
-
-* Toàn bộ đợt thí nghiệm backend (1.3.466 → 1.3.469) đã bị **gỡ sạch**: không còn đăng ký EP, không còn công tắc, không còn cầu nối log ORT, không còn đường nạp lại engine.
-* Lý do revert (không chỉ gỡ EP): cầu nối log chỉ hữu ích khi bật thí nghiệm verbose — ở mức WARNING ORT im lặng trên 4 graph này, nên nó thành **code chết**; đường nạp lại chỉ có người dùng nhờ một thay đổi hành vi chưa được yêu cầu. Giữ lại chỉ làm codebase khác mốc đã ship mà không đổi lại lợi ích.
-* **Kết luận kỹ thuật vẫn giữ nguyên giá trị** (đã ghi vào báo cáo): lượng tử hoá int8, fp16, CoreML EP, XNNPACK EP, nén thời lượng — **tất cả đều không dùng được** cho `VieNeu-TTS v3 Nano` với ORT 1.24.2.
-
-## 1.3.469 — LOẠI CoreML EP; đường nạp lại engine nay phục vụ "Số luồng tổng hợp"
-
-* **CoreML EP bị xoá hoàn toàn** (đăng ký EP, công tắc trong Cài đặt, `coreMLActive`). Kết luận từ 3 lượt đo trên máy: shape động ⇒ **im tiếng** (33+ partition); shape tĩnh ⇒ **nhiễu** (14 partition, `rtf` 0,64–0,93); shape tĩnh + `CPUOnly` (fp32, không mất độ chính xác) ⇒ **vẫn nhiễu** ⇒ thủ phạm là **semantics của EP** với graph này, không phải fp16/ANE. Xem `Docs/Reports/walkthrough-1.3.467.md` / `-1.3.468.md`.
-* **Giữ lại hạ tầng có giá trị**: log ORT vào `AppLogger` (nay **luôn** bật ở mức WARNING — `CreateEnvWithCustomLogger` thay `CreateEnv`), và đường **nạp lại engine tại chỗ** (`VieNeuTTSEngine.unload()` + `VieNeuTTSService.reloadEngine(reason:)`).
-* **Đường nạp lại nay có người dùng thật**: ô **"Số luồng tổng hợp"** áp dụng **ngay** (nạp lại engine ~2 s + dòng trạng thái) thay vì bắt "mở lại app hoặc đổi engine" như trước. Trước đây số luồng chỉ có hiệu lực lúc tạo session ORT nên đổi xong phải khởi động lại app.
-* `invalidateVieNeuPrefetch(reason:)` phục vụ cả hai nguyên nhân (đổi tốc độ tổng hợp / nạp lại engine).
-
-## 1.3.468 — chẩn đoán CoreML: đổi sang `MLComputeUnits=CPUOnly`
-
-* **Kết quả 1.3.467 đo trên máy** (`app_logs (62).txt`): 14 partition, `rtf` **0,64–0,93** (CPU thường: 0,26–0,44) và audio là **tiếng nhiễu, không có tiếng Việt** ⇒ EP tính sai giá trị, đồng thời chậm gấp ~2×.
-* **Đổi `MLComputeUnits` → `CPUOnly`** để tách nguyên nhân: CoreML trên CPU là đường **không mất độ chính xác** (fp32). Nếu audio **đúng** ⇒ thủ phạm là **fp16/ANE**; nếu **vẫn nhiễu** ⇒ lỗi ở **semantics/phân mảnh của EP**. Đây là **bước chẩn đoán**, không phải để dùng thật (CoreML trên CPU chắc chắn chậm hơn ORT CPU).
-* Thư mục cache đổi thành `CoreMLCache-staticShapes-cpuOnly` (Luật 22); **cả hai** thư mục cũ (`CoreMLCache`, `CoreMLCache-staticShapes`) bị dọn một lần.
-
-## 1.3.467 — CoreML EP: ép shape tĩnh sau khi lượt đầu làm im tiếng
-
-* **Đo trên máy thật (`app_logs (61).txt`)**: với `RequireStaticInputShapes=0`, CoreML EP chia `vector_estimator` thành **33+ partition**, mỗi cái biên dịch riêng và **sinh thêm mỗi lượt chạy**; trong 25 giây đọc **không có `[VieNeuPerf]` nào** ⇒ không có tiếng, chỉ `[NghiEnergy] Underrun`.
-* **Sửa**: `RequireStaticInputShapes=1` (EP chỉ nhận node shape tĩnh). `L`/`T` của model này đổi mỗi đoạn nên EP sẽ nhận **rất ít** node ⇒ kỳ vọng lợi ích ~0, nhưng hết bão biên dịch. Đây là bước kiểm chứng **trước khi quyết định bỏ hẳn EP**.
-* Thư mục cache đổi thành `CoreMLCache-staticShapes` (khoá cache của EP chỉ là hash model, **không** gồm tuỳ chọn EP) và thư mục `CoreMLCache` cũ của 1.3.466 bị **dọn một lần**.
-* Công tắc vẫn **mặc định TẮT**; cách khôi phục nếu vẫn im tiếng: gạt công tắc về TẮT (engine tự nạp lại bằng CPU).
-
-## 1.3.466 — công tắc thí nghiệm CoreML/ANE: đẩy 2 graph nặng khỏi CPU
-
-* Bật công tắc ⇒ đăng ký **CoreML EP** cho `vector_estimator` (**83,1 %** thời gian chunk) và `codec_decoder` (**15,5 %**) với `ModelFormat=MLProgram`, `MLComputeUnits=CPUAndNeuralEngine`, `ModelCacheDirectory` (bắt buộc) và `ProfileComputePlan=1` (ghi ra từng op chạy trên ANE/GPU/CPU).
-* Đổi EP **phải** nạp lại engine (`prepareLocked` chỉ chạy một lần trong vòng đời engine) ⇒ có `VieNeuTTSEngine.unload()` + `VieNeuTTSService.reloadEngine(useCoreML:)`, chạy ở `Task.detached`, và vô hiệu đệm audio qua `TTSManager.invalidateVieNeuPrefetch(reason:)`.
-* EP lỗi ⇒ `VieNeuONNXRuntime.init` **tự nạp lại bằng CPU** và ghi log lý do; UI đọc `isCoreMLActive` (không đọc cờ cài đặt) nên không bao giờ nói dối là đang chạy ANE.
-* Mặc định **TẮT**; thí nghiệm chưa kết luận (tiêu chí: `rtf` giảm ≥ 20 % và audio không lệch tai nghe).
-
 ## 1.3.465 — VieNeu có thanh "Tốc độ tổng hợp": giảm tính toán thay vì làm chậm tổng hợp
 
 * Tốc độ nay có **hai** thanh: *Tốc độ* (phát, `AVAudioPlayer.rate`) và *Tốc độ tổng hợp (VieNeu)* (đưa vào model qua `secs = exp(log_s)/speed`, `VieNeuTTSEngine.swift:336`). Tốc độ nghe = **tích** hai thanh, nên màn hình hiện luôn tích đó.

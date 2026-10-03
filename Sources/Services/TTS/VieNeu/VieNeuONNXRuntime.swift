@@ -24,7 +24,7 @@ import Foundation
 /// thay vì hỏi model**.
 ///
 /// Mọi mảng C trả về là `malloc` ⇒ Swift phải `free` sau khi copy.
-final class VieNeuONNXRuntime: VieNeuInferenceBackend {
+final class VieNeuONNXRuntime {
     enum RuntimeError: LocalizedError {
         case failure(String)
 
@@ -47,9 +47,6 @@ final class VieNeuONNXRuntime: VieNeuInferenceBackend {
     /// graph clone. Cùng lý do và cùng khuôn với `VieNeuTTSEngine+Adaptive`: Swift giới hạn `private`
     /// theo file, nên tách file là phải hạ quyền truy cập của đúng những thành viên dùng chéo file.
     let handle: OpaquePointer
-
-    /// Định danh bộ máy (phần của `VieNeuInferenceBackend`).
-    let backendID = "onnx"
 
     init(modelStore: VieNeuModelStore, threadCount: Int32) throws {
         var message: UnsafeMutablePointer<CChar>?
@@ -275,14 +272,6 @@ final class VieNeuONNXRuntime: VieNeuInferenceBackend {
         VieNeuORTResetChurnCounters(handle)
     }
 
-    /// ONNX giữ shape động nên `frames` tính từ duration là `frames` dùng suy luận — không snap.
-    ///
-    /// Trái ngược với Core ML (mỗi graph đóng băng ở một bucket `T` cố định), ORT nhận `frames` bất kỳ
-    /// nên `effectiveFrames` trả đúng tham số vào. Đây là phần của `VieNeuInferenceBackend`.
-    func effectiveFrames(_ frames: Int) -> Int {
-        frames
-    }
-
     /// `codec_decoder(x)` → PCM float32. Số mẫu đọc từ shape thật ở phía C.
     func codecDecoder(latent: [Float], latentChannels: Int, frames: Int) throws -> [Float] {
         var count: Int32 = 0
@@ -323,24 +312,5 @@ final class VieNeuONNXRuntime: VieNeuInferenceBackend {
         let text = String(cString: message)
         VieNeuORTFreeErrorMessage(message)
         return text
-    }
-
-    /// Tổng hợp một chunk qua ORT — phần của `VieNeuInferenceBackend`. Ủy quyền cho hàm tự do chung để
-    /// ORT và Core ML dùng **cùng một** đường ống 4 bước (không lặp logic).
-    func runChunk(
-        ids: [Int64],
-        preset: VieNeuVoiceCatalog.Preset,
-        tuning: VieNeuSynthesisPolicy.Tuning,
-        speed: Double,
-        config: VieNeuConfig,
-        nullContext: [Float],
-        nullContextShape: [Int64],
-        nullMask: [UInt8],
-        timing: inout VieNeuTTSEngine.Timing
-    ) throws -> [Float] {
-        try vieNeuOrchestrateChunk(
-            backend: self, ids: ids, preset: preset, tuning: tuning, speed: speed, config: config,
-            nullContext: nullContext, nullContextShape: nullContextShape, nullMask: nullMask, timing: &timing
-        )
     }
 }

@@ -15,34 +15,6 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## 1.3.487 — Phase 3–5: ghi chú luật cho backend Core ML
-
-* **Trần 400 + mẫu `X+Feature.swift`**: hai extension mới (`VieNeuTTSEngine+Backend` 23, `VieNeuTTSService+CoreML` 58) tồn tại **chỉ vì** file chính đã chạm/nhích trần.
-* **`private` theo file**: extension ở file khác cần `internal` ⇒ `VieNeuTTSEngine.engine`/`VieNeuTTSService.engine` hạ `private`→`internal`; `VieNeuTTSService.store` giữ `private`, extension dùng `modelStore`.
-* **Services không SwiftUI, không `ToastManager.shared`**: `enableCoreML()` trả `(passed, detail)`; toast ở View.
-* **Bẫy Core ML kiểu dữ liệu** (đừng thử lại): `ids`→Int32, `ctx_mask`→Int32, `time` scalar; shape đóng băng ở bucket `T`; `L` đệm 200.
-* **`AppLogger.shared.log`**, không `print`; `CancellationError` không tính là fail tổng hợp.
-
-## 1.3.470 — revert: Luật 20/21/22 mất hiệu lực, Luật 23 giữ lại
-
-* **Mất hiệu lực** (code đã gỡ, không còn gì để áp): Luật 20 (thứ tự nhả ngữ cảnh ORT) · Luật 21 (đổi cấu hình session phải có đường nạp lại) · Luật 22 (cache của EP tách theo cấu hình).
-* **Giữ lại**: Luật 23 — **đừng thử lại CoreML EP** cho model Nano, kèm bài học chung: khi thử một backend/EP mới cho đường phát phải có (a) công tắc tắt được, (b) tiêu chí đo chốt trước, (c) log của backend vào được `AppLogger`. Ba thứ đó là lý do 3 lượt hỏng liên tiếp vẫn xác định được nguyên nhân thay vì đoán.
-
-## 1.3.469 — luật bổ sung (kết luận về EP)
-
-* **Luật 23 — đừng thử lại CoreML EP cho model Nano.** Đã đo ba cấu hình: shape động ⇒ **im tiếng** (33+ partition); shape tĩnh + ANE ⇒ **nhiễu** (14 partition, `rtf` 0,64–0,93 so với 0,26–0,44 của CPU); shape tĩnh + `CPUOnly` (fp32, không mất độ chính xác) ⇒ **vẫn nhiễu** ⇒ lỗi ở **semantics của EP** với graph này (nghi đường `ctx_mask` bool + phân mảnh với chiều động). Kể cả khi đúng thì EP vẫn **chậm gấp ~2×**.
-* **Bài học chung khi thử một backend/EP mới cho đường phát**: bắt buộc có (a) **công tắc tắt được**, (b) **tiêu chí đo chốt trước**, (c) **log của backend vào được `AppLogger`**. Ba thứ này là thứ duy nhất giúp 3 lượt hỏng liên tiếp vẫn xác định được nguyên nhân thay vì đoán.
-
-## 1.3.467 — luật mới (cache của execution provider)
-
-* **Luật 22 — cache của execution provider phải tách theo cấu hình EP.** Khoá cache của CoreML EP **chỉ** là hash của model, **không** gồm các tuỳ chọn EP (`RequireStaticInputShapes`, `ModelFormat`, `MLComputeUnits`…). Giữ nguyên thư mục cache khi đổi tuỳ chọn ⇒ partition của cấu hình cũ bị tái dùng lẫn với cấu hình mới. Cách xử lý: **tên thư mục mang hậu tố cấu hình**, và đổi hậu tố mỗi khi đổi bộ tuỳ chọn.
-* **Cảnh báo kèm theo (đo được ở 1.3.466)**: với model nhiều node và shape động, CoreML EP **phân mảnh + biên dịch lại** tới mức **không kịp sinh audio** (33+ partition, không có `[VieNeuPerf]` nào trong 25 giây) — hậu quả là **im tiếng**, không phải "chậm". Trước khi bật một EP mới cho đường phát, phải có **cách tắt nhanh** và **tiêu chí đo**.
-
-## 1.3.466 — hai luật mới (vòng đời ngữ cảnh & đổi cấu hình session)
-
-* **Luật 20 — nhả ngữ cảnh ORT phải theo thứ tự.** `runtime = nil` **trước**, rồi mới xoá các mảng buffer nguồn (`nullContext`/`nullMask`/`nullSpeaker`/`nullStyle`), vì tensor cache của nhánh vô điều kiện **không copy** và trỏ thẳng vào chúng. Đảo thứ tự ⇒ cache trỏ vào bộ nhớ đã chết, không có lỗi nào báo. Chỉ được nhả khi đang giữ `lock` của engine (chờ lượt `Run` hiện tại xong).
-* **Luật 21 — đổi cấu hình session ORT bắt buộc có đường nạp lại.** Số luồng, EP, mức tối ưu… chỉ áp lúc **tạo session**; `prepareLocked` lại chỉ chạy một lần trong vòng đời engine ⇒ thêm một cấu hình session mới mà không thêm đường nhả thì cấu hình đó **không bao giờ** có hiệu lực (và UI sẽ nói dối). Nguồn sự thật để hiển thị phải là trạng thái **thật** của ngữ cảnh (ví dụ `coreMLActive`), không phải cờ `UserDefaults`.
-
 ## 1.3.465 — hai luật mới (tốc độ tổng hợp & khoá cache)
 
 * **Luật 18 — khoá cache phải mang mọi tham số làm đổi audio.** `TTSSynthesisIdentity.computeKey` là khoá của cả nạp trước lẫn cache prefix liên chương. Bất kỳ tham số nào làm audio khác đi (giọng, văn bản, ranh giới, **và tốc độ tổng hợp**) phải nằm trong khoá; thiếu thì audio cũ được trả cho yêu cầu mới — nghe sai mà **không có lỗi nào**. Thêm tham số mới thì truyền tường minh ở mọi caller, đừng tin vào default.

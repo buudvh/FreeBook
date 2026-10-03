@@ -15,43 +15,6 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## 1.3.487 — Phase 3–5: vòng đời tài nguyên Core ML
-
-* **Nạp/nhả `MLModel` theo bucket**: giữ cả 3 `vector_estimator` (≈234 MB) + `codec_decoder` là ≈383 MB ⇒ `VieNeuCoreMLRuntime` nạp theo nhu cầu, nhả sau (U7), không giữ hết.
-* **ORT luôn trú**: khi Core ML bật, ORT **không** unload — cần cho "rớt từng đoạn".
-* **Đĩa**: `CoreML/<name>.mlpackage` (8 gói, 397,8 MB) + `CoreML/Compiled/<name>.mlmodelc`; `.mlmodelc` mất ⇒ biên dịch lại **không** tải lại.
-* **Invalidate khi đổi backend**: `TTSManager.invalidateVieNeuBackend()` hủy refill, bỏ preload sau đoạn hiện tại, xoá `preparedNext`, huỷ prefetch, làm mới cửa sổ nếu đang phát.
-* Xoá gói: `VieNeuModelStore.deleteCoreML()` + `VieNeuBackendSelfTest.reset()` + tắt `useCoreML` ⇒ về ONNX.
-
-## 1.3.470 — revert: hết mọi tài nguyên của đợt CoreML
-
-* Không còn cache CoreML nào được tạo; không còn callback log C sống suốt tiến trình; không còn đường nhả ngữ cảnh ORT.
-* Cache cũ trên máy người dùng (`CoreMLCache*`) là rác của bản thí nghiệm — không code nào đọc; gỡ app là dọn hết.
-
-## 1.3.469 — cache CoreML bị xoá cùng EP
-
-* `prepareCoreMLCacheDirectory` **đã xoá** cùng đường CoreML EP ⇒ không còn thư mục cache nào được tạo trong Application Support.
-* **Cache cũ trên máy người dùng vẫn còn** (`CoreMLCache-staticShapes-cpuOnly`, và có thể `CoreMLCache`, `CoreMLCache-staticShapes` nếu chưa từng bật bản mới): đó là cache chết, chỉ tốn dung lượng, **không** ảnh hưởng chức năng (không code nào đọc nữa). Có thể xoá bằng cách gỡ app nếu muốn dọn.
-* Vòng đời ngữ cảnh ORT khi nạp lại không đổi so với 1.3.466 (Luật 20: `runtime = nil` **trước** khi xoá các mảng `null*`).
-
-## 1.3.468 — cache CoreML: dọn hai thế hệ cũ
-
-* Hậu tố cache đổi theo cấu hình EP mới: `CoreMLCache-staticShapes-cpuOnly`. **Cả hai** thư mục cũ bị dọn một lần trong `prepareCoreMLCacheDirectory`: `CoreMLCache` (1.3.466) và `CoreMLCache-staticShapes` (1.3.467) — cả hai đều là cache của cấu hình đã đo được là hỏng (im tiếng / nhiễu).
-* Vòng lặp dọn dùng danh sách tên, nên **thêm một thế hệ cache mới chỉ cần thêm tên vào danh sách** đó (Luật 22).
-
-## 1.3.467 — cache CoreML: tách theo cấu hình EP và dọn cache cũ
-
-* **Khoá cache của CoreML EP chỉ là hash model** (metadata/URL/graph IO) — **không** gồm tuỳ chọn EP ⇒ đổi tuỳ chọn mà giữ nguyên thư mục là partition của cấu hình cũ bị tái dùng. Vì vậy thư mục nay là `CoreMLCache-staticShapes`, và **đổi bộ tuỳ chọn trong `appendCoreMLProvider` thì phải đổi hậu tố**.
-* Thư mục `CoreMLCache` (tên 1.3.466) bị **dọn một lần** trong `prepareCoreMLCacheDirectory`: nó chứa 33+ partition của cấu hình `RequireStaticInputShapes=0` — cấu hình đã chứng minh làm im tiếng.
-* Vẫn là **cache**: xoá được bất cứ lúc nào, **không** đưa vào backup.
-
-## 1.3.466 — vòng đời ngữ cảnh ORT khi nạp lại, và cache CoreML
-
-* `VieNeuTTSEngine.unload()` nhả theo thứ tự **bắt buộc**: `runtime = nil` trước (⇒ `VieNeuONNXRuntime.deinit` → `VieNeuORTDestroy` giải phóng tensor cache), rồi mới xoá `nullContext`/`nullContextShape`/`nullMask` — buffer nguồn của cache. Đảo thứ tự là cache trỏ vào bộ nhớ đã chết.
-* An toàn nhờ `lock`: `synthesize` giữ `lock` suốt lượt ⇒ `unload()` luôn chờ lượt đang chạy xong.
-* **Cache CoreML** ở `Application Support/FreeBook/TTS/VieNeu/CoreMLCache` — là cache, xoá được, **không** đưa vào backup.
-* Callback log ORT là con trỏ hàm C toàn cục (không capture) ⇒ không có vòng đời block; sống suốt tiến trình, gỡ bằng `VieNeuORTSetLogCallback(nil, nil)`.
-
 ## 1.3.465 — vòng đời đệm audio khi đổi tốc độ tổng hợp
 
 * `TTSManager.invalidateVieNeuSynthesisSpeed()` giải phóng **có chọn lọc**: `cancelNghiRefill()` (huỷ task đang bay + xoá `nghiRefillInFlightIndices`), lọc `preloadedData`/`preloadedDurations` còn các đoạn ≤ `currentParagraphIndex`, `nextChapterPrefetcher.cancel()`, `NghiAudioPlayerQueue.clearPreparedNext()` (bỏ `AVAudioPlayer` của đoạn N+1 đã `prepareToPlay`).

@@ -15,21 +15,6 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## 1.3.470 — revert: gỡ sự kiện nạp lại engine
-
-* Gỡ sự kiện Picker *Số luồng tổng hợp* → nạp lại engine. Ô số luồng trở lại hành vi cũ: ghi `UserDefaults`, **áp dụng khi nạp lại engine** (mở lại app / đổi engine) — caption trong màn Cài đặt cũng trở về câu cũ.
-
-## 1.3.469 — sự kiện CoreML bị gỡ; đổi số luồng nay phát sự kiện nạp lại
-
-* **Gỡ**: `vieNeuCoreMLRow` → `applyCoreMLEP` → toast (bật/tắt EP, quay về CPU).
-* **Thêm**: Picker *Số luồng tổng hợp* → `reloadVieNeuEngine` → nạp lại engine tại chỗ + `invalidateVieNeuPrefetch`; lỗi ⇒ toast. Dòng trạng thái "Đang nạp lại engine…" hiện trong lúc chờ.
-
-## 1.3.466 — sự kiện mới: gạt công tắc CoreML ⇒ nạp lại engine
-
-* `vieNeuCoreMLRow` → `applyCoreMLEP` → `reloadEngine` → toast kết quả (thành công / "không dùng được CoreML — đã quay về CPU" / lỗi nạp lại).
-* Công tắc **khoá** trong lúc `vieNeuEngineReloading` và hiện `ProgressView` + dòng trạng thái.
-* Log ORT (mức VERBOSE khi bật EP) chảy vào `AppLogger` qua callback C — chỉ khi `AppLogger.isLoggingEnabled`.
-
 ## 1.3.465 — một sự kiện nội bộ mới: đổi tốc độ tổng hợp khi đang phát
 
 * `vieneuSynthesisSpeedRow.onChange` / `resetVieNeuSynthesisSpeed()` ⇒ `TTSManager.invalidateVieNeuSynthesisSpeed()`: huỷ nạp trước, lọc đệm, `clearPreparedNext()`, nạp lại từ đoạn kế. Không có sự kiện hướng ra UI (không toast).

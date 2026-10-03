@@ -9,16 +9,12 @@ import SwiftUI
 /// Vì tách file, `availableVoices` của view chính phải hạ từ `private` xuống `internal` (Swift giới hạn
 /// `private` theo file).
 extension TTSSettingsView {
-    /// Model VieNeu đã sẵn sàng chưa — quyết định có cho chọn `vieneu` trong Picker hay không.
+    /// Model VieNeu đã tải đủ chưa — quyết định có cho chọn `vieneu` trong Picker hay không.
     ///
     /// Quyết định grill #2: **chặn ở Picker**. Chọn rồi mới biết không dùng được là trải nghiệm tệ, mà
     /// model thì 343 MB nên không thể tải ngầm.
-    ///
-    /// **Phases 3–5**: thêm `|| coreMLReady` (plan §5.6) — nếu user chỉ tải Core ML (không ONNX) thì UI
-    /// không bị khoá ở Picker lẫn lối vào giọng nhân bản.
     var vieNeuModelReady: Bool {
-        let store = VieNeuTTSService.shared?.modelStore
-        return (store?.isReady ?? false) || (store?.coreMLReady ?? false)
+        VieNeuTTSService.shared?.modelStore.isReady ?? false
     }
 
     /// Dòng Picker cho VieNeu + lối tải model khi còn thiếu.
@@ -29,27 +25,14 @@ extension TTSSettingsView {
         }
     }
 
-    /// Lối vào màn **Model VieNeu** (toggle Core ML + 8 gói + tự test). Luôn hiện (phương án C,
-    /// plan §3): Section 3 **không** đặt toggle, chỉ là link. Sublabel động theo trạng thái bộ máy.
+    /// Lối tải model, hiện ngay dưới Picker khi chưa có model.
     @ViewBuilder
     var vieNeuDownloadRow: some View {
-        NavigationLink(destination: VieNeuModelManagerView()) {
-            VStack(alignment: .leading, spacing: 4) {
-                Label("Model VieNeu", systemImage: "cpu")
-                Text(vieNeuModelManagerSublabel)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+        if !vieNeuModelReady {
+            NavigationLink(destination: VieNeuTTSTestView()) {
+                Label("Tải model VieNeu-TTS (343 MB)", systemImage: "arrow.down.circle")
             }
         }
-    }
-
-    /// Sublabel động của link `Model VieNeu ›`: cho biết bộ máy nào đang hiệu lực.
-    private var vieNeuModelManagerSublabel: String {
-        let store = VieNeuTTSService.shared?.modelStore
-        if VieNeuTTSService.shared?.useCoreML == true {
-            return (store?.coreMLReady ?? false) ? "Core ML · ONNX" : "Core ML · đang tải…"
-        }
-        return "ONNX (mặc định)"
     }
 
     /// Danh sách giọng của VieNeu.
@@ -173,17 +156,6 @@ extension TTSSettingsView {
     /// (`vieneuRate`/`vieneuPitch` nhờ `persistSpeed`/`persistPitch`). Lặp lại sẽ tạo hai nguồn sự thật.
     @ViewBuilder
     var vieNeuReaderSection: some View {
-        // 0. Toggle Core ML (thử nghiệm) — đem ra ngoài màn Model VieNeu (plan 1.3.494), nằm đầu
-        //    Section 3. Chỉ hiện khi engine là `vieneu` (vì Section 3 gating nên tự động không lộ ra
-        //    ở các engine khác). Bọc TimelineView để thanh tiến trình tải/biên dịch tự làm mới —
-        //    Cài đặt TTS không có vòng poll riêng như màn Model VieNeu.
-        TimelineView(.periodic(from: .now, by: 1.0)) { _ in
-            VieNeuCoreMLToggle()
-        }
-        // 0b. Lối vào màn Model VieNeu (toggle Core ML + 8 gói + tự test). Chuyển từ Section 1
-        //     (plan 1.3.494) xuống đây — vì Section 3 chỉ hiện khi chọn engine `vieneu` nên nav này
-        //     tự động chỉ hiện cho VieNeu, sửa luôn bug "hiển thị ở mọi engine".
-        vieNeuDownloadRow
         // 1. Tiết kiệm pin (LÊN TRÊN): bật ⇒ ghim "Cân bằng" + 2 luồng, khoá 2 picker bên dưới.
         Toggle("Tiết kiệm pin", isOn: Binding(
             get: { vieNeuPowerSaving },

@@ -9,6 +9,49 @@ import UIKit
 /// `VieNeuTTSEngine+Adaptive`.
 extension VieNeuTTSTestView {
     @ViewBuilder
+    var modelSection: some View {
+        Section {
+            if service == nil {
+                Text("Không dựng được kho model VieNeu (thư mục Application Support không ghi được).")
+                    .font(.footnote)
+                    .foregroundStyle(Color.red)
+            } else if isModelReady {
+                LabeledContent("Trạng thái", value: "Đã tải đủ 8 file")
+                LabeledContent("Dung lượng", value: formattedBytes(store?.totalBytes ?? 0))
+            } else {
+                LabeledContent("Còn thiếu", value: "\(store?.missingNames.count ?? 0) file")
+                Text("Cần tải khoảng 343 MB: 4 graph ONNX + `config.json` + `constants.npz` từ HuggingFace, `voices_v3_nano.json` và `sea_g2p.bin` từ GitHub. Cả ba nguồn đều **ghim sha** nên tác giả đổi file cũng không làm app hỏng. Gói graph **nhân bản giọng** (~91 MB) là tuỳ chọn, tải riêng ở “Giọng của tôi”.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if isDownloading {
+                ProgressView(value: downloadProgress) {
+                    Text(downloadMessage)
+                        .font(.caption)
+                }
+            } else if !isModelReady {
+                Button {
+                    download()
+                } label: {
+                    Label("Tải model VieNeu", systemImage: "arrow.down.circle")
+                }
+                .disabled(service == nil)
+            } else {
+                Button(role: .destructive) {
+                    deleteModel()
+                } label: {
+                    Label("Xoá model", systemImage: "trash")
+                }
+            }
+        } header: {
+            Text("Model")
+        } footer: {
+            Text("Engine local, chạy hoàn toàn trên máy. Giọng đọc không nằm trong file model mà là hai mảng số trong `voices_v3_nano.json`, nên 11 giọng dùng chung một bộ graph. Gói graph **nhân bản giọng** (~91 MB, 3 file) là **tuỳ chọn**: chỉ cần khi bạn muốn tạo giọng mới từ audio mẫu — vào “Giọng của tôi” để tải riêng.")
+        }
+    }
+
+    @ViewBuilder
     var voiceSection: some View {
         Section("Giọng đọc") {
             if voices.isEmpty {
@@ -212,94 +255,6 @@ extension VieNeuTTSTestView {
             } else {
                 Text("Màn này đi **cùng đường** với Reader: thay thế ký tự (`TTSReplacementManager`) → cắt đoạn bằng `NghiUtteranceSegmenter` theo `chunkLength` của VieNeu → tổng hợp từng đoạn với `boundaryKind` riêng rồi ghép lại. Lớp đọc số/ngày do tầng engine lo; VieNeu **không** dùng lớp phiên âm Anh/Nhật của NghiTTS — số và viết tắt do bộ G2P của model tự xử.")
             }
-        }
-    }
-
-    // MARK: - Model VieNeu (ONNX) — lối tải lần đầu (plan 1.3.494, B4)
-
-    /// Đường tải model VieNeu khi chưa có gì — bù đắp cho việc `vieNeuDownloadRow` đã chuyển từ
-    /// Section 1 lên Section 3 (chỉ hiện khi chọn engine `vieneu`). Màn này luôn với tới được từ
-    /// `TTSSettingsSection`, nên là lối vào tải model an toàn ngay cả trước lần chọn engine đầu tiên.
-    @ViewBuilder
-    var modelSection: some View {
-        Section {
-            if let store, store.isReady {
-                LabeledContent("Trạng thái", value: "Đã tải đủ 8 file")
-                LabeledContent("Dung lượng", value: formattedBytes(store.totalBytes))
-                NavigationLink(destination: VieNeuModelManagerView()) {
-                    Label("Quản lý model VieNeu", systemImage: "cpu")
-                }
-                Button(role: .destructive) {
-                    deleteVieNeuModel()
-                } label: {
-                    Label("Xoá model ONNX", systemImage: "trash")
-                }
-            } else {
-                LabeledContent("Còn thiếu", value: "\(store?.missingNames.count ?? 0) file")
-                Text("Cần tải khoảng 343 MB: 4 graph ONNX + config.json + constants.npz từ HuggingFace, voices_v3_nano.json và sea_g2p.bin từ GitHub. Cả ba nguồn đều ghim sha nên tác giả đổi file cũng không làm app hỏng.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                if isDownloading {
-                    ProgressView(value: downloadProgress) {
-                        Text(downloadMessage)
-                            .font(.caption)
-                    }
-                } else {
-                    Button {
-                        downloadVieNeuModel()
-                    } label: {
-                        Label("Tải model VieNeu (ONNX)", systemImage: "arrow.down.circle")
-                    }
-                    .disabled(service == nil)
-                }
-            }
-        } header: {
-            Text("Model VieNeu (ONNX)")
-        } footer: {
-            Text("Bắt buộc để dùng VieNeu-TTS. Sau khi tải xong có thể bật Core ML (thử nghiệm) ở Cài đặt TTS để tăng tốc.")
-        }
-    }
-
-    /// Tải model ONNX (4 graph + config + 2 asset, ~343 MB) — nền luôn trú và là fallback của Core ML.
-    /// Tái dùng `VieNeuModelClient.prefetch` giống `VieNeuModelManagerView.downloadModel`.
-    func downloadVieNeuModel() {
-        guard let service else { return }
-        isDownloading = true
-        isError = false
-        statusMessage = ""
-        let client = VieNeuModelClient(store: service.modelStore)
-        Task {
-            do {
-                _ = try await client.prefetch { message, fraction in
-                    Task { @MainActor in
-                        downloadMessage = message
-                        downloadProgress = fraction
-                    }
-                }
-                await MainActor.run {
-                    isDownloading = false
-                    statusMessage = "Tải xong model ONNX."
-                }
-            } catch {
-                await MainActor.run {
-                    isDownloading = false
-                    isError = true
-                    statusMessage = "Tải ONNX thất bại: \(error.localizedDescription)"
-                }
-            }
-        }
-    }
-
-    /// Xoá model ONNX (không đụng Core ML, không đụng giọng user).
-    func deleteVieNeuModel() {
-        guard let service else { return }
-        do {
-            try service.modelStore.deleteAll()
-            statusMessage = "Đã xoá model ONNX."
-            isError = false
-        } catch {
-            isError = true
-            statusMessage = "Xoá ONNX thất bại: \(error.localizedDescription)"
         }
     }
 }

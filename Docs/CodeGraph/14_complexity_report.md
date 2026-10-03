@@ -15,31 +15,6 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
-## 1.3.487 — Phase 3–5: hồ sơ độ phức tạp (độ dài file)
-
-* **11 file mới, tất cả ≤ 400**: `VieNeuCoreMLRuntime` **303** · `VieNeuGoldenNPZ` **187** · `VieNeuModelManagerView+Sections` **160** · `VieNeuBackendSelfTest` **155** · `VieNeuInferenceBackend` **124** · `VieNeuModelManagerView` **100** · `VieNeuBackendFactory` **63** · `VieNeuTTSService+CoreML` **58** · `VieNeuCoreMLCompiler` **49** · `VieNeuBucketSelector` **30** · `VieNeuTTSEngine+Backend` **23**.
-* **`VieNeuTTSEngine.swift` 400 → 357** (chuyển `makeNullBranch` ra `+Backend.swift`).
-* **`VieNeuTTSService.swift` 398** (tách `useCoreML`/`enableCoreML` ra `+CoreML.swift` — không chạm trần 400).
-* Cổng `check_architecture.py`: **5 violation nền, 0 mới** (5 file legacy vượt baseline: ChapterPersistenceStore, JSDom, JSExecutor, TTSManager, ReaderViewModel).
-
-## 1.3.470 — revert: về đúng 639 file và đúng số dòng của 1.3.465
-
-* Validator: **641 → 639** file Swift (xoá 2 file `+Reload`).
-* Mọi file trong phân hệ VieNeu trở về **đúng** số dòng ở `ee3d24f` (kiểm chứng `git diff ee3d24f --stat -- Sources/` **rỗng**).
-
-## 1.3.469 — gỡ CoreML EP: nhiều file lùi mạnh khỏi trần
-
-* Validator vẫn **641** file Swift (không thêm/xoá file).
-* Giảm: `VieNeuONNXRuntime.swift` 400 → **341** · `VieNeuONNXBridge.m` 1257 → **1187** · `VieNeuONNXBridge.h` 219 → **196** · `VieNeuSynthesisPolicy.swift` 199 → **187** · `VieNeuTTSEngine+Reload` 55 → **44** · `VieNeuTTSService+Reload` 43 → **36** · `TTSSettingsView+VieNeu.swift` 398 → **361** · `TTSSettingsView.swift` 462 → **461** · `VieNeuTTSEngine+Adaptive.swift` 115 → **112** · `VieNeuTTSTestView+Diagnostics.swift` 56 → **53**.
-* **Chỉ còn 2 file chạm trần 400**: `VieNeuTTSEngine.swift` và `VieNeuTTSService.swift` — cả hai đều **phải tách file trước** khi thêm bất cứ gì.
-
-## 1.3.466 — độ phức tạp: +2 file `+Reload`, hai file chạm trần 400
-
-* Validator: **639 → 641** file Swift.
-* File mới: `VieNeuTTSEngine+Reload` **55**/400 · `VieNeuTTSService+Reload` **43**/400.
-* Chạm trần: `VieNeuTTSEngine.swift` **400** (chỉ đổi `private`→`internal` + dài thêm 1 dòng có sẵn) · `VieNeuTTSService.swift` **400** (398 → 400, chỉ thêm 2 dòng chú thích ⇒ **lần sau phải tách file trước**).
-* Tăng khác: `VieNeuONNXRuntime.swift` **316** (revert về đúng 1.3.465 ở 1.3.470) · `VieNeuSynthesisPolicy.swift` 186 → **199** · `TTSSettingsView+VieNeu.swift` 332 → **398** · `TTSManager+VieNeu.swift` 285 → **289** · `VieNeuONNXBridge.m` **1155** (revert về đúng 1.3.465 ở 1.3.470) (không bị luật 400).
-
 ## 1.3.465 — độ phức tạp: Section 4 tách file, `TTSSettingsView.swift` lùi khỏi trần
 
 * Validator: **638 → 639** file Swift.

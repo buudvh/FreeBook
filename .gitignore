@@ -9,5 +9,3 @@ DerivedData/
 /Docs/CheckList
 /Docs/Reports
 .claude/
-__pycache__/
-*.pyc

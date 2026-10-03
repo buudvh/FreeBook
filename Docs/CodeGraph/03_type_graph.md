@@ -15,38 +15,6 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
-## 1.3.487 — Phase 3–5: kiểu mới cho backend Core ML
-
-* **`protocol VieNeuInferenceBackend`** (mới) — mặt chung của bộ máy suy luận; `VieNeuONNXRuntime` (L động) và `VieNeuCoreMLRuntime` (L đóng băng 200, T∈{64,96,234}) cùng thỏa. Có `backendID: String` + `runChunk(...)`.
-* **`VieNeuCoreMLRuntime`** (class, mới) — nạp N `MLModel`; **bẫy kiểu**: `ids`→Int32, `ctx_mask`→Int32 (Core ML khai INT32/FLOAT32, ONNX int64/bool), `time` scalar 0 chiều.
-* **`VieNeuBackendFactory`** + `BackendChoice { primary: VieNeuInferenceBackend, fallback: VieNeuONNXRuntime? }` (mới).
-* **`VieNeuBucketSelector`** (mới) — `frames` → chỉ số bucket `{64,96,234}`.
-* **`VieNeuCoreMLCompiler`** (mới) — `MLModel.compileModel`; **`VieNeuBackendSelfTest`** (+ `Report`) — SNR/`passed`.
-* **`VieNeuGoldenNPZ`** (mới) — đọc `golden/T{n}.npz` (dùng `VieNeuNPZReader`).
-* **`VieNeuModelManagerView`** (struct View, mới) + extension `+Sections`.
-* Extension mới: `VieNeuTTSEngine+Backend`, `VieNeuTTSService+CoreML`.
-* `VieNeuTTSEngine`: `runtime: VieNeuONNXRuntime?` → `backend: VieNeuInferenceBackend?` + `fallbackRuntime: VieNeuONNXRuntime?`.
-
-## 1.3.470 — revert: gỡ hết API của đợt CoreML
-
-* **Gỡ**: `VieNeuORTSetLogCallback` + `VieNeuORTLogCallback` + trampoline log · `VieNeuTTSEngine.unload()` · `VieNeuTTSService.reloadEngine(reason:)` · `TTSManager.invalidateVieNeuPrefetch(reason:)` (**trở lại** tên cũ `invalidateVieNeuSynthesisSpeed()`).
-* Trở về: `VieNeuONNXRuntime.init(modelStore:threadCount:)`; 7 thành viên engine (`runtime`/`config`/`phonemizer`/3 mảng `null*`) và `engine` của service **trở lại `private`**.
-
-## 1.3.469 — gỡ API của CoreML EP, đổi chữ ký `reloadEngine`
-
-* **Xoá**: `VieNeuORTRunOptions`, `VieNeuORTCreateWithRunOptions`, `VieNeuONNXRuntime.coreMLActive`, `prepareCoreMLCacheDirectory(modelStore:)`, `VieNeuSynthesisPolicy.coreMLEPKey` + `isCoreMLEPEnabled(_:)`, `VieNeuTTSService.isCoreMLActive`, `VieNeuTTSEngine.coreMLActive`.
-* **Đổi chữ ký**: `VieNeuTTSService.reloadEngine(useCoreML:)` → **`reloadEngine(reason: String)`**; `VieNeuONNXRuntime.init(modelStore:threadCount:coreML:verboseORTLog:)` → **`init(modelStore:threadCount:)`**.
-* **Giữ**: `VieNeuORTSetLogCallback` + trampoline log; `VieNeuTTSEngine.unload()`; `TTSManager.invalidateVieNeuPrefetch(reason:)`.
-
-## 1.3.466 — API mới của đường CoreML EP
-
-* `VieNeuONNXBridge.h`: + `VieNeuORTRunOptions` (useCoreML/verboseLog/coreMLCacheDirectory) · + `VieNeuORTSetLogCallback` · + `VieNeuORTCreateWithRunOptions`.
-* `VieNeuONNXRuntime`: + `let coreMLActive` (sự thật, không phải ý định) · `init(modelStore:threadCount:coreML:verboseORTLog:)` (2 tham số cuối có default) · + `prepareCoreMLCacheDirectory(modelStore:)`.
-* `VieNeuTTSEngine+Reload`: + `unload()` + `var coreMLActive` (đọc dưới `lock`).
-* `VieNeuTTSService+Reload`: + `reloadEngine(useCoreML:)` + `var isCoreMLActive`.
-* `VieNeuSynthesisPolicy`: + `coreMLEPKey` + `isCoreMLEPEnabled(_:)` (mặc định TẮT).
-* `TTSManager+VieNeu`: `invalidateVieNeuSynthesisSpeed()` **đổi tên** thành `invalidateVieNeuPrefetch(reason:)` (phục vụ cả 2 nguyên nhân).
-
 ## 1.3.465 — API mới cho tốc độ tổng hợp
 
 * `VieNeuSynthesisPolicy`: + `synthesisSpeedKey`, `synthesisSpeedRange` (1,0...2,0), `synthesisSpeed(from:)` — hàm thuần nhận `UserDefaults`, mặc định **1,0**.

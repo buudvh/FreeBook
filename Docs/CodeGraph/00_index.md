@@ -15,25 +15,6 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## 1.3.487 — Phase 3–5: tích hợp Core ML (bucket tĩnh) vào engine VieNeu-TTS
-
-* **Thêm 11 file Swift** (`Sources/**/*.swift` **639 → 650**), bộ tài liệu vẫn **16** doc. Lượt này nối 8 `.mlpackage` tĩnh (Phase 1–2 đã publish lên `raikiri1498/VieNeu-TTS-v3-Nano-CoreML`, 397,8 MB) vào app: tải → biên dịch `.mlmodelc` → tự test bằng `golden` → chọn làm **bộ máy chính** (mặc định **TẮT**), ONNX/ORT luôn trú làm **fallback**.
-* **Ba quyết định sản phẩm** (grill 2026-10-02, plan `Docs/Plans/2026-10-02-plan-vieneu-coreml-phases-3-5.md`): (1) Core ML **tắt mặc định**; (2) lỗi một chunk ⇒ **rớt riêng đoạn đó về ORT**; (3) toggle + 8 gói + tự test gom vào **màn riêng** `Model VieNeu`, Section 3 Cài đặt TTS chỉ còn hàng link.
-* File mới — Services/TTS/VieNeu: `VieNeuInferenceBackend` (124) · `VieNeuCoreMLRuntime` (303) · `VieNeuBucketSelector` (30) · `VieNeuCoreMLCompiler` (49) · `VieNeuBackendFactory` (63) · `VieNeuBackendSelfTest` (155) · `VieNeuGoldenNPZ` (187) · `VieNeuTTSEngine+Backend` (23) · `VieNeuTTSService+CoreML` (58); Views/Settings/TTS: `VieNeuModelManagerView` (100) + `+Sections` (160).
-* **Không đụng** `VieNeuONNXBridge.m/.h`, không đổi thuật toán tổng hợp (`steps`/`sway`/`cfg`/chunking), không đổi `@Model`/SwiftData, không chuyển gói clone giọng (U8).
-* Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS 100%**. Không có Swift toolchain trên Windows ⇒ không khẳng định đã kiểm chứng biên dịch.
-
-## 1.3.470 — REVERT TOÀN BỘ về mốc trước CoreML
-
-* `Sources/` **giống hệt** commit `ee3d24f` (1.3.465) — kiểm chứng bằng `git diff ee3d24f --stat -- Sources/` **rỗng**.
-* **Xoá 2** file (`VieNeuTTSEngine+Reload.swift` 44, `VieNeuTTSService+Reload.swift` 36) ⇒ validator đếm **641 → 639** file Swift, bộ tài liệu vẫn **16** doc.
-* Không còn file nào chạm trần 400 trong phân hệ VieNeu ngoài `VieNeuTTSEngine.swift` và `VieNeuTTSService.swift` (đều 400, như trước 1.3.466).
-
-## 1.3.466 — thí nghiệm CoreML/ANE cho VieNeu; 2 file mới ở tầng nạp lại
-
-* Thêm **2** file Swift (`Services/TTS/VieNeu/VieNeuTTSEngine+Reload.swift` **55** dòng, `Services/TTS/VieNeu/VieNeuTTSService+Reload.swift` **43**) ⇒ validator đếm **641** file, bộ tài liệu vẫn **16** doc.
-* `VieNeuTTSEngine.swift` giữ **đúng 400/400** (chỉ đổi `private`→`internal` và thêm tham số vào dòng đã có) · `VieNeuTTSService.swift` 398 → **400** (chạm trần) · `VieNeuONNXBridge.m` **1155** (revert về đúng 1.3.465 ở 1.3.470) (không bị luật 400 vì không phải `.swift`).
-
 ## 1.3.465 — thanh "Tốc độ tổng hợp" cho VieNeu; Section 4 của màn Cài đặt TTS tách file
 
 * Thêm **1** file Swift (`Views/TTSWidget/TTSSettingsView+Voice.swift`, **90** dòng) ⇒ validator đếm **639** file, bộ tài liệu vẫn **16** doc.
