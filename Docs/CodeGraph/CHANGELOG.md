@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.493] - 2026-10-03
+
+### feat: core ml per-bucket fallback (T234 ve ORT, T64/T96 chay core ml)
+
+Tiep noi 1.3.492 (ten tensor output dung, nhung chi `vector_estimator-T234` hong conversion - `vel=-2 dB`, `codec_decoder-T234` van 60 dB). App an toan rot ve ORT toan phan, nhung lang phi Core ML o T64/T96 (pho bien nhat, SNR 45-60 dB). Them **route theo bucket tung graph** trong `VieNeuCoreMLRuntime`.
+
+- **Tu test ghi tung bucket dat hay khong** (`VieNeuBackendSelfTest`): them `coreMLCapableBucketsKey` + `capableBuckets()` (Set<Int> 64/96/234). `run()` tinh `capable = buckets.filter{passed}.map{frames}`; `record(passed:minSnr:capableBuckets:)` luu them; `passed` doi nghia = "it nhat 1 bucket capable" (Core ML co the lam primary). `isPassed()`/UI doc theo nghia moi.
+- **`VieNeuCoreMLRuntime` route theo bucket** (van <400 dong, 1 primary type - `NullBranch` la nested struct): them `ortFallback: VieNeuONNXRuntime?`, `ortNull: NullBranch?` (L=2), `capableBuckets: Set<Int>`; init mo rong (optional). `vectorEstimator`/`vectorEstimatorUnconditioned`/`codecDecoder`: neu `bucketValue(frames) khong thuoc capableBuckets` -> goi ORT (unconditioned bat buoc dung `ortNull` L=2, khong dung `nullContext` L=200 - bay 2026-10-03). `textEncoder`/`durationPredictor` luon Core ML.
+- **`VieNeuBackendFactory.make`**: thay guard `isPassed()` bang `!capableBuckets().isEmpty` -> build Core ML primary tiem `ort` + `ortNull` + `capable`; neu rong -> primary=ORT. `VieNeuTTSService+CoreML.enableCoreML` coi la thanh cong neu `capable` khong rong, detail ro "dat N/3 bucket".
+- **Hieu qua thuc te** (sau IPA nay): bat Core ML -> tu test DAT 2/3 (T64/T96 chay Core ML, T234 tu route ORT tung graph). Chat luong khong doi (ORT chay dung T234).
+- Cong: `check_architecture.py` **5 violation nen (LINE_LIMIT), 0 moi** (tranh MULTI_PRIMARY_TYPES bang cach dua `NullBranch` vao nested); `validate_links.py` **PASS 100% (16 doc, 650 file Swift)** - 5 doc stale tu 1.3.492 (`--no-change-needed`, mo ta van dung).
+- **Chua xong (Phan B)**: rebuild `vector_estimator-T234` dung tren macOS + republish HF de Core ML 100% (khong can fallback). Script `coreml_bucket_package.py` se co them `verify_package`.
+---
 ## [1.3.492] - 2026-10-03
 
 ### fix: sua ten tensor output Core ML khac ONNX (log_s->log_seconds, velocity->v, pcm->wav)
@@ -441,19 +454,4 @@ Người dùng: *"ý tôi là sau khi bấm vào nhấp vào từ điển sau kh
 - **Revert 100% đường nhập từ file** về code trước 1.3.462: VieNeu **trộn** (bản nhập thắng), NghiTTS **ghi đè toàn bộ** (ghi plist trực tiếp + `loadResources()`, **không** backup, có lại `parseCSV` riêng). **Xoá** `DictionaryImportFlowModifier.swift`; giữ `DictionaryImportParser` + `DictionaryImportDiff` vì màn trộn dùng.
 
 ---
-
-## [1.3.463] - 2026-10-01
-
-### fix: hop thoai Tron/Thay the toan bo khong hien, chi hien card da phien am lai va banner tien do o man tu dien
-
-Người dùng: *"vì sao nhập từ điển không có 2 option Trộn / Thay thế toàn bộ; bạn đang hiểu nhầm gì không đấy"* + *"ở thông báo từ điển nào phiên âm lại mới hiển thị ra, từ điển không phiên âm hiển thị làm gì"*.
-
-- **Hộp thoại *Trộn / Thay thế toàn bộ* không hiện — lỗi presentation.** 1.3.462 mở hộp thoại bằng `.onChange(of: fileURL)`, tức bật cờ **ngay trong `onPick`**; mà `onPick` của `DocumentPicker` chạy trong **completion của lượt dismiss** sheet chọn file ⇒ presentation bắt đầu giữa lượt dismiss modal bị UIKit/SwiftUI **nuốt im lặng**. Tệ hơn: `fileURL` vẫn còn giá trị nên `.onChange` không thấy đổi ⇒ chọn lại **đúng file đó** cũng không kích hoạt lại. Nay cờ `isModeDialogPresented` do **View gọi sở hữu** và bật trong `onDismiss` của sheet chọn file — hook này chỉ chạy **sau khi** animation đóng xong.
-- **Chỉ hiện card của từ điển đã phiên âm lại.** `rephoneticizeRow()` vẽ **cả hai** card vô điều kiện ⇒ từ điển chưa chạy vẫn hiện một dòng "Chưa phiên âm lại" vô nghĩa. Nay mỗi card chỉ vẽ khi `task.isVisible`.
-- **Chặn nhầm file hợp lệ ở màn NghiTTS.** Kiểm tra kích thước `resourceValues(forKeys: [.fileSizeKey])` thêm ở 1.3.462 nhưng đọc **ngoài** security scope ⇒ file từ provider (iCloud/Files) ném lỗi, `fileSize` ra 0, chặn nhầm file hợp lệ. Nay bọc trong `startAccessingSecurityScopedResource()` / `stopAccessing`.
-- **Banner tiến độ ngay trên màn từ điển.** User: *"hiển thị cả tiến độ phiên âm lại ở màn hình từ điển phiên âm nữa, tương tự màn hình thông báo"*. Thêm `RephoneticizeProgressBanner` — `ViewModifier` gắn qua `.safeAreaInset(edge: .top)`: tiêu đề + `statusText`, `ProgressView(value:)` khi đang chạy, và khi có kết quả thì nút **Nhập vào từ điển** / **Bỏ qua** (nút **Xuất file** để ở màn Thông báo cho banner khỏi che danh sách). Là modifier chứ không viết thẳng vì `VieNeuJapaneseDictionaryView.swift` đang **397/400**; mỗi màn chỉ thêm **một dòng**.
-- **File mới**: `Views/Settings/TTS/RephoneticizeProgressBanner.swift` (**127**) · `Views/Settings/TTS/VieNeuJapaneseDictionaryView+Status.swift` (**36** — tách `statusSection` + `JapaneseFlags` khỏi file chính khi nó chỉ còn **1** dòng biên so với trần 400).
-- **File sửa**: `DictionaryImportFlowModifier.swift` 144 → **158** (bỏ `.onChange`, `@State showingModeDialog` → `@Binding isModeDialogPresented`), `TTSDictionaryEditView.swift` 518 → **532**, `VieNeuJapaneseDictionaryView.swift` 389 → **374** sau khi tách, `NotificationInboxView+Rephoneticize.swift` 219 → **226**.
-- **Ràng buộc đã đo**: `check_architecture.py` **5 violation nền / 0 mới**; `validate_links.py` **PASS 100% (16 doc, 636 file Swift)**. Không build được trên Windows.
-- **Tài liệu CodeGraph**: `11_subsystems.md` thêm mục 1.3.463 — **accept**.
 

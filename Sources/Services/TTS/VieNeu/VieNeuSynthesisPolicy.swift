@@ -155,6 +155,9 @@ enum VieNeuSynthesisPolicy {
     static let coreMLSelfTestDateKey = "vieneuCoreMLSelfTestDate"
     static let coreMLSelfTestMachineKey = "vieneuCoreMLSelfTestMachine"
     static let coreMLSelfTestOSKey = "vieneuCoreMLSelfTestOSVersion"
+    /// Các bucket (64/96/234) Core ML chạy đúng (tự test SNR ≥ 30 dB). Rỗng = chưa tự test / mọi bucket hỏng.
+    /// Đọc bởi `VieNeuBackendFactory` để quyết có dùng Core ML làm primary hay không.
+    static let coreMLSelfTestCapableKey = "vieneuCoreMLSelfTestCapableBuckets"
 
     /// Khoá "đã hỏi user migrate lên Core ML" — dùng sau này nếu muốn nhắc bật thử nghiệm. Mặc định `false`.
     static let coreMLMigrationAskedKey = "vieneuCoreMLMigrationAsked"

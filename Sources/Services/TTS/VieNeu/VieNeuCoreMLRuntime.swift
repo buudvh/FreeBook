@@ -27,6 +27,15 @@ import CoreML
 /// duy nhất để nó không đọc rác — chấp nhận rò rỉ chú ý nhẹ ở vị trí đệm (đo SNR 45–49 dB ở pha 2,
 /// chất lượng thực tế đo trên máy, xem `Docs/Plans/...phases-3-5.md` R1/G2).
 final class VieNeuCoreMLRuntime: VieNeuInferenceBackend {
+    /// Null branch của ORT (L=2) — dùng riêng cho việc route `vectorEstimatorUnconditioned` sang ORT khi bucket
+    /// Core ML không capable. Tách khỏi `VieNeuTTSEngine.makeNullBranch` (trả tuple) để `VieNeuCoreMLRuntime`
+    /// tự giữ và truyền đúng shape L=2 cho ORT (Core ML cần L=200, ORT cần L=2 — bẫy 2026-10-03).
+    struct NullBranch {
+        let ctx: [Float]
+        let shape: [Int64]
+        let mask: [UInt8]
+    }
+
     enum RuntimeError: LocalizedError {
         case missing(String)
         case notMultiArray(String)
@@ -56,15 +65,39 @@ final class VieNeuCoreMLRuntime: VieNeuInferenceBackend {
     private let paddingID: Int64
     private let computeUnits: MLComputeUnits
 
+    /// ORT dùng làm fallback cho **từng graph** theo bucket: khi bucket của `frames` không nằm trong
+    /// `capableBuckets`, các graph `vector_estimator`/`codec_decoder` được route sang ORT thay vì Core ML.
+    /// `nil` khi ONNX không có mặt (`store.isReady == false`) — lúc đó route không thể thực hiện (chạy Core ML).
+    private let ortFallback: VieNeuONNXRuntime?
+
+    /// Null branch của ORT (L=2) — thay cho `nullContext` L=200 mà `vectorEstimatorUnconditioned` nhận vào,
+    /// khi route nhánh vô điều kiện sang ORT. Bẫy 2026-10-03: ORT unconditioned cần L=2, Core ML cần L=200.
+    private let ortNull: NullBranch?
+
+    /// Các bucket Core ML chạy **đúng** (tự test SNR ≥ 30 dB). Bucket không có trong set này ⇒ route graph
+    /// tương ứng sang ORT. THực tế: `vector_estimator-T234` hỏng conversion ⇒ chỉ T234 rớt ORT, T64/T96
+    /// (phổ biến nhất) vẫn chạy Core ML 100%.
+    private let capableBuckets: Set<Int>
+
     /// Cache các `MLModel` đã nạp, key theo tên gói. Giữ hết ≤ 383 MB (xem plan §6) — chưa quyết
     /// nạp/nhả theo bucket (U7), nên đơn giản là cache và tái dùng.
     private let lock = NSLock()
     private var models: [String: MLModel] = [:]
 
-    init(store: VieNeuModelStore, paddingID: Int64, computeUnits: MLComputeUnits = .all) {
+    init(
+        store: VieNeuModelStore,
+        paddingID: Int64,
+        computeUnits: MLComputeUnits = .all,
+        ortFallback: VieNeuONNXRuntime? = nil,
+        ortNull: NullBranch? = nil,
+        capableBuckets: Set<Int> = []
+    ) {
         self.store = store
         self.paddingID = paddingID
         self.computeUnits = computeUnits
+        self.ortFallback = ortFallback
+        self.ortNull = ortNull
+        self.capableBuckets = capableBuckets
     }
 
     // MARK: - Nạp MLModel theo nhu cầu
@@ -221,6 +254,16 @@ final class VieNeuCoreMLRuntime: VieNeuInferenceBackend {
         latentChannels: Int,
         frames: Int
     ) throws -> [Float] {
+        // Bucket Core ML hỏng (tự test SNR thấp) ⇒ route sang ORT cho graph này. ORT giữ shape động nên
+        // nhận đúng `frames` (đã snap bởi `effectiveFrames`), không đổi.
+        let bucket = bucketValue(for: frames)
+        if !capableBuckets.contains(bucket), let ort = ortFallback {
+            return try ort.vectorEstimator(
+                latent: latent, time: time, context: context, contextShape: contextShape, mask: mask,
+                speaker: speaker, style: style, styleRows: styleRows, styleColumns: styleColumns,
+                latentChannels: latentChannels, frames: frames
+            )
+        }
         let output = try predict(
             named: "vector_estimator" + VieNeuBucketSelector.packageSuffix(for: frames),
             [
@@ -248,6 +291,16 @@ final class VieNeuCoreMLRuntime: VieNeuInferenceBackend {
         latentChannels: Int,
         frames: Int
     ) throws -> [Float] {
+        let bucket = bucketValue(for: frames)
+        if !capableBuckets.contains(bucket), let ort = ortFallback, let ortNull {
+            // Route sang ORT: BẮT BUỘC dùng `ortNull` (L=2), KHÔNG dùng `nullContext` L=200 nhận vào
+            // (bẫy 2026-10-03: ORT unconditioned cần L=2, Core ML cần L=200).
+            return try ort.vectorEstimatorUnconditioned(
+                latent: latent, time: time, nullContext: ortNull.ctx, nullContextShape: ortNull.shape,
+                nullMask: ortNull.mask, nullSpeaker: nullSpeaker, nullStyle: nullStyle,
+                styleRows: styleRows, styleColumns: styleColumns, latentChannels: latentChannels, frames: frames
+            )
+        }
         let output = try predict(
             named: "vector_estimator" + VieNeuBucketSelector.packageSuffix(for: frames),
             [
@@ -263,11 +316,21 @@ final class VieNeuCoreMLRuntime: VieNeuInferenceBackend {
     }
 
     func codecDecoder(latent: [Float], latentChannels: Int, frames: Int) throws -> [Float] {
+        let bucket = bucketValue(for: frames)
+        if !capableBuckets.contains(bucket), let ort = ortFallback {
+            return try ort.codecDecoder(latent: latent, latentChannels: latentChannels, frames: frames)
+        }
         let output = try predict(
             named: "codec_decoder" + VieNeuBucketSelector.packageSuffix(for: frames),
             ["x": try floatMultiArray(shape: [1, latentChannels, frames], latent)]
         )
         return try floats(from: output, name: "wav")
+    }
+
+    /// Snap `frames` lên bucket và trả **giá trị frame** của bucket đó (64/96/234) — dùng để tra
+    /// `capableBuckets` (lưu theo frame value, không theo index).
+    private func bucketValue(for frames: Int) -> Int {
+        VieNeuBucketSelector.bucketFrames[VieNeuBucketSelector.bucketIndex(for: frames)]
     }
 
     // MARK: - Snap bucket & churn

@@ -18,6 +18,12 @@ enum VieNeuBackendSelfTest {
     static let dateKey = VieNeuSynthesisPolicy.coreMLSelfTestDateKey
     static let machineKey = VieNeuSynthesisPolicy.coreMLSelfTestMachineKey
     static let osKey = VieNeuSynthesisPolicy.coreMLSelfTestOSKey
+    static let capableBucketsKey = VieNeuSynthesisPolicy.coreMLSelfTestCapableKey
+
+    /// Các bucket (64/96/234) Core ML chạy đúng (tự test SNR ≥ 30 dB). Rỗng = chưa tự test / mọi bucket hỏng.
+    static func capableBuckets() -> Set<Int> {
+        Set(UserDefaults.standard.array(forKey: capableBucketsKey) as? [Int] ?? [])
+    }
 
     static func isPassed() -> Bool {
         UserDefaults.standard.bool(forKey: passedKey)
@@ -31,9 +37,12 @@ enum VieNeuBackendSelfTest {
             buckets.append(runBucket(frames: frames, store: store, config: config, runtime: runtime))
         }
         let failures = buckets.filter { !$0.passed }
-        let passed = failures.isEmpty
-        let minSnr = buckets.map { $0.snrDb }.min() ?? -1
-        record(passed: passed, minSnr: minSnr)
+        let capable = buckets.filter { $0.passed }.map { $0.frames }
+        // "Đạt" theo nghĩa mới = ít nhất 1 bucket chạy được Core ML (còn bucket hỏng tự route sang ORT từng
+        // graph). `isPassed()` đọc khoá này để UI/factory biết Core ML có thể làm primary hay không.
+        let passed = !capable.isEmpty
+        let minSnr = capable.isEmpty ? -1 : (buckets.filter { $0.passed }.map { $0.snrDb }.min() ?? -1)
+        record(passed: passed, minSnr: minSnr, capableBuckets: capable)
         // ⚠️ Phải log **cả `note`**: chữ số SNR một mình (`-1`) là mã lỗi, không nói được vì sao rớt —
         // bẫy đã mắc 2026-10-03 (toast chỉ hiện "SNR -1 dB", không chẩn đoán được).
         AppLogger.shared.log("🎙️ [VieNeuSelfTest] \(passed ? "ĐẠT" : "RỚT") · SNR thấp nhất \(String(format: "%.1f", minSnr)) dB · \(buckets.map { "T\($0.frames):\($0.passed ? "ok" : "fail")" }.joined(separator: " "))")
@@ -42,10 +51,11 @@ enum VieNeuBackendSelfTest {
     }
 
     /// Ghi kết quả tự test (dùng chung cho cả đường bật toggle và đường debug).
-    static func record(passed: Bool, minSnr: Float) {
+    static func record(passed: Bool, minSnr: Float, capableBuckets: [Int]) {
         let defaults = UserDefaults.standard
         defaults.set(passed, forKey: passedKey)
         defaults.set(Double(minSnr), forKey: snrKey)
+        defaults.set(capableBuckets, forKey: capableBucketsKey)
         defaults.set(Date().timeIntervalSince1970, forKey: dateKey)
         if let machine = Self.machineModel() { defaults.set(machine, forKey: machineKey) }
         defaults.set(ProcessInfo.processInfo.operatingSystemVersionString, forKey: osKey)
@@ -56,6 +66,7 @@ enum VieNeuBackendSelfTest {
         let defaults = UserDefaults.standard
         defaults.removeObject(forKey: passedKey)
         defaults.removeObject(forKey: snrKey)
+        defaults.removeObject(forKey: capableBucketsKey)
         defaults.removeObject(forKey: dateKey)
         defaults.removeObject(forKey: machineKey)
         defaults.removeObject(forKey: osKey)

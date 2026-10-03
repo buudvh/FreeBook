@@ -48,16 +48,31 @@ enum VieNeuBackendFactory {
             }
             return BackendChoice(primary: ort, fallback: nil)
         }
-        guard VieNeuBackendSelfTest.isPassed() else {
-            AppLogger.shared.log("⚠️ [VieNeuBackend] Core ML đã biên dịch nhưng tự test chưa đạt — dùng ORT.")
+        let capable = VieNeuBackendSelfTest.capableBuckets()
+        guard !capable.isEmpty else {
+            AppLogger.shared.log("⚠️ [VieNeuBackend] Core ML đã biên dịch nhưng không bucket nào tự test đạt — dùng ORT.")
             guard let ort else {
                 throw VieNeuTTSEngine.EngineError.modelMissing(store.missingNames)
             }
             return BackendChoice(primary: ort, fallback: nil)
         }
 
-        let coreML = VieNeuCoreMLRuntime(store: store, paddingID: config.padID, computeUnits: coreMLComputeUnits)
-        AppLogger.shared.log("🎙️ [VieNeuBackend] Dùng Core ML làm primary, ORT làm fallback.")
+        // Null branch của ORT (L=2) — dùng cho `vectorEstimatorUnconditioned` khi route sang ORT. Khác null
+        // branch của Core ML (L=200). `ort` có thể nil khi chỉ tải Core ML (không có ONNX) ⇒ route không thể
+        // thực hiện, nhưng lúc đó `capable` phải gồm mọi bucket (không bucket nào cần route) nên an toàn.
+        let ortNull: VieNeuCoreMLRuntime.NullBranch?
+        if let ort {
+            let branch = try VieNeuTTSEngine.makeNullBranch(backend: ort, config: config)
+            ortNull = VieNeuCoreMLRuntime.NullBranch(ctx: branch.context, shape: branch.shape, mask: branch.mask)
+        } else {
+            ortNull = nil
+        }
+
+        let coreML = VieNeuCoreMLRuntime(
+            store: store, paddingID: config.padID, computeUnits: coreMLComputeUnits,
+            ortFallback: ort, ortNull: ortNull, capableBuckets: capable
+        )
+        AppLogger.shared.log("🎙️ [VieNeuBackend] Dùng Core ML làm primary (\(capable.count)/\(VieNeuBucketSelector.bucketFrames.count) bucket), ORT làm fallback.")
         return BackendChoice(primary: coreML, fallback: ort)
     }
 }
