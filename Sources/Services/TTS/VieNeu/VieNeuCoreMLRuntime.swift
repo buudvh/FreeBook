@@ -9,6 +9,11 @@ import CoreML
 /// - `ctx_mask` phải là **Int32** — Core ML khai FLOAT32, ONNX khai bool; biến thể chạy được duy nhất
 ///   là `mask-int32` (đã đo trên máy). Truyền bool/uint8 là ném.
 /// - `t` là tensor **[1]** (Core ML giữ nguyên shape ONNX, không collapse về scalar).
+/// - **Tên tensor output Core ML KHÁC ONNX.** Khi nạp `.mlpackage` qua `coremltools`, tên output
+///   được đặt lại theo node cuối: `log_s` → `log_seconds`, `velocity` → `v`, `pcm` → `wav`
+///   (riêng `ctx` giữ nguyên). Đọc sai tên ⇒ `RuntimeError.missing` ⇒ tự test SNR −1 dB.
+///   Xem `Docs/Plans/...phases-3-5.md` R1/G3. Luôn parse `model.mlmodel` để lấy tên chuẩn
+///   thay vì đoán theo ONNX.
 /// - Graph bị **đóng băng shape** ở bucket: `text_encoder`/`duration_predictor` ở `L = 200`, còn
 ///   `vector_estimator-T{n}`/`codec_decoder-T{n}` ở `T = n ∈ {64, 96, 234}`. Nên `effectiveFrames(_:)`
 ///   snap `frames` lên bucket gần nhất `≥ frames` (xem `VieNeuBucketSelector`), và mọi chunk truyền
@@ -200,7 +205,7 @@ final class VieNeuCoreMLRuntime: VieNeuInferenceBackend {
                 "spk": try floatMultiArray(shape: [1, 192], speaker)
             ]
         )
-        return try firstFloat(from: output, name: "log_s")
+        return try firstFloat(from: output, name: "log_seconds")
     }
 
     func vectorEstimator(
@@ -227,7 +232,7 @@ final class VieNeuCoreMLRuntime: VieNeuInferenceBackend {
                 "style": try floatMultiArray(shape: [1, styleRows, styleColumns], style)
             ]
         )
-        return try floats(from: output, name: "velocity")
+        return try floats(from: output, name: "v")
     }
 
     func vectorEstimatorUnconditioned(
@@ -254,7 +259,7 @@ final class VieNeuCoreMLRuntime: VieNeuInferenceBackend {
                 "style": try floatMultiArray(shape: [1, styleRows, styleColumns], nullStyle)
             ]
         )
-        return try floats(from: output, name: "velocity")
+        return try floats(from: output, name: "v")
     }
 
     func codecDecoder(latent: [Float], latentChannels: Int, frames: Int) throws -> [Float] {
@@ -262,7 +267,7 @@ final class VieNeuCoreMLRuntime: VieNeuInferenceBackend {
             named: "codec_decoder" + VieNeuBucketSelector.packageSuffix(for: frames),
             ["x": try floatMultiArray(shape: [1, latentChannels, frames], latent)]
         )
-        return try floats(from: output, name: "pcm")
+        return try floats(from: output, name: "wav")
     }
 
     // MARK: - Snap bucket & churn
