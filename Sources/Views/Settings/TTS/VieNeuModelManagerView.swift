@@ -81,20 +81,4 @@ struct VieNeuModelManagerView: View {
             statusMessage = "Xoá ONNX thất bại: \(error.localizedDescription)"
         }
     }
-
-    /// Xoá 8 gói Core ML: xoá đĩa + xoá kết quả tự test + tắt Core ML (trả về ONNX).
-    func deleteCoreML() {
-        guard let store else { return }
-        do {
-            try store.deleteCoreML()
-            VieNeuBackendSelfTest.reset()
-            service?.useCoreML = false
-            statusMessage = "Đã xoá 8 gói Core ML — quay lại ONNX."
-            isError = false
-            ToastManager.shared.show(message: "Đã xoá Core ML, quay lại ONNX.", type: .success)
-        } catch {
-            isError = true
-            statusMessage = "Xoá Core ML thất bại: \(error.localizedDescription)"
-        }
-    }
 }

@@ -98,10 +98,8 @@ struct TTSSettingsView: View {
                     }
                 }
                 .pickerStyle(.menu)
-
-                vieNeuDownloadRow
             }
-            
+
             // Section 2: Chọn giọng đọc
             Section("Giọng đọc") {
                 if ttsManager.tool == "system" {

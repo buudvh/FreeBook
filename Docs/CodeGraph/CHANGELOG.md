@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.494] - 2026-10-03
+
+### feat: chuyển toggle Core ML ra ngoài cài đặt TTS + sửa nav Core ML hiển thị mọi engine
+
+Theo yêu cầu người dùng: (1) đem toggle "Dùng Core ML (thử nghiệm)" ra ngoài, hiện trực tiếp ở Section 3 "Quản lý riêng của trình đọc" (Cài đặt TTS), không cần mở sâu vào màn Model VieNeu; (2) sửa bug nav "Model VieNeu / Core ML" (`vieNeuDownloadRow`) hiển thị ở MỌI engine.
+
+- **B1**: tách `VieNeuCoreMLToggle` (file mới, 1 primary type, 111 dòng) chứa toggle + trạng thái tải/biên dịch/tự test + nút xoá 8 gói Core ML. Logic bật/tắt giữ nguyên (`enableCoreML()` nền + toast ở View).
+- **B2**: `vieNeuReaderSection` (Section 3, đang gating `vieneu`) thêm `VieNeuCoreMLToggle()` ở ĐẦU + `vieNeuDownloadRow` ngay DƯỚI toggle; XOÁ `vieNeuDownloadRow` khỏi Section 1. Vì Section 3 chỉ hiện khi chọn `vieneu` nên nav tự động chỉ hiện cho VieNeu → sửa xong bug "hiển thị mọi engine". Bọc `TimelineView` 1 Hz để thanh tiến trình tự làm mới.
+- **B3**: `VieNeuModelManagerView+Sections.coreMLSection` tái dùng component (giữ `packageList` + header/footer); xoá `deleteCoreML()` khỏi manager (component đã tự xoá).
+- **B4** (tránh regression tải lần đầu): `VieNeuTTSTestView` thêm `modelSection` (nút tải model ONNX + progress + nav quản lý + xoá) vì `vieNeuDownloadRow` đã chuyển khỏi Section 1.
+- Cổng: `check_architecture.py` **5 violation nền, 0 mới**; không đổi hành vi Core ML (chỉ dời UI); `capableBuckets`/fallback T234→ORT giữ nguyên từ 1.3.493.
+
+---
+
 ## [1.3.493] - 2026-10-03
 
 ### feat: core ml per-bucket fallback (T234 ve ORT, T64/T96 chay core ml)
@@ -13,7 +27,7 @@ Tiep noi 1.3.492 (ten tensor output dung, nhung chi `vector_estimator-T234` hong
 - **`VieNeuBackendFactory.make`**: thay guard `isPassed()` bang `!capableBuckets().isEmpty` -> build Core ML primary tiem `ort` + `ortNull` + `capable`; neu rong -> primary=ORT. `VieNeuTTSService+CoreML.enableCoreML` coi la thanh cong neu `capable` khong rong, detail ro "dat N/3 bucket".
 - **Hieu qua thuc te** (sau IPA nay): bat Core ML -> tu test DAT 2/3 (T64/T96 chay Core ML, T234 tu route ORT tung graph). Chat luong khong doi (ORT chay dung T234).
 - Cong: `check_architecture.py` **5 violation nen (LINE_LIMIT), 0 moi** (tranh MULTI_PRIMARY_TYPES bang cach dua `NullBranch` vao nested); `validate_links.py` **PASS 100% (16 doc, 650 file Swift)** - 5 doc stale tu 1.3.492 (`--no-change-needed`, mo ta van dung).
-- **Chua xong (Phan B)**: rebuild `vector_estimator-T234` dung tren macOS + republish HF de Core ML 100% (khong can fallback). Script `coreml_bucket_package.py` se co them `verify_package`.
+- **Phan B (script hoan thanh)**: `coreml_bucket_package.py` da them `verify_package` (check SNR≥30 dB qua `coremltools`) + build goldens TRUOC packages; `convert_graph` thu tu `basic-folded`→`frozen`, `continue` neu verify fail; `main()` ghi them `summary["verified"]`. **Con lai**: rebuild `vector_estimator-T234` tren macOS + republish HF (chi goi T234) de Core ML 100% (khong can fallback ORT).
 ---
 ## [1.3.492] - 2026-10-03
 

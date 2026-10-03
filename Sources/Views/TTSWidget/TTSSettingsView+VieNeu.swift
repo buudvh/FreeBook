@@ -173,6 +173,17 @@ extension TTSSettingsView {
     /// (`vieneuRate`/`vieneuPitch` nhờ `persistSpeed`/`persistPitch`). Lặp lại sẽ tạo hai nguồn sự thật.
     @ViewBuilder
     var vieNeuReaderSection: some View {
+        // 0. Toggle Core ML (thử nghiệm) — đem ra ngoài màn Model VieNeu (plan 1.3.494), nằm đầu
+        //    Section 3. Chỉ hiện khi engine là `vieneu` (vì Section 3 gating nên tự động không lộ ra
+        //    ở các engine khác). Bọc TimelineView để thanh tiến trình tải/biên dịch tự làm mới —
+        //    Cài đặt TTS không có vòng poll riêng như màn Model VieNeu.
+        TimelineView(.periodic(from: .now, by: 1.0)) { _ in
+            VieNeuCoreMLToggle()
+        }
+        // 0b. Lối vào màn Model VieNeu (toggle Core ML + 8 gói + tự test). Chuyển từ Section 1
+        //     (plan 1.3.494) xuống đây — vì Section 3 chỉ hiện khi chọn engine `vieneu` nên nav này
+        //     tự động chỉ hiện cho VieNeu, sửa luôn bug "hiển thị ở mọi engine".
+        vieNeuDownloadRow
         // 1. Tiết kiệm pin (LÊN TRÊN): bật ⇒ ghim "Cân bằng" + 2 luồng, khoá 2 picker bên dưới.
         Toggle("Tiết kiệm pin", isOn: Binding(
             get: { vieNeuPowerSaving },
