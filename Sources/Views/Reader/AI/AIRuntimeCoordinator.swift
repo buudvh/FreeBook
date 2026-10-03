@@ -203,6 +203,10 @@ public final class AIRuntimeCoordinator: ObservableObject {
                     guard let self = self else { return }
                     self.isRunning = false
                     self.activeBatchTask = nil
+                    // Bắt buộc: `@Published` phát lại giá trị hiện tại cho subscriber mới, nên để
+                    // `batchProgress` khác nil sau khi xong thì mỗi lần màn AI dựng lại, thanh tiến
+                    // trình cũ sống dậy và không còn emission nào tắt nó.
+                    self.batchProgress = nil
                     self.batchExtractedNames = finalResults
                     let text = finalResults.map { "\($0.original)=\($0.suggestedMeaning)" }.joined(separator: "\n")
                     if let mid = assistantMsgId, let idx = self.activeSession?.messages.firstIndex(where: { $0.id == mid }) {
@@ -220,6 +224,7 @@ public final class AIRuntimeCoordinator: ObservableObject {
                     guard let self = self else { return }
                     self.isRunning = false
                     self.activeBatchTask = nil
+                    self.batchProgress = nil
                     if let mid = assistantMsgId, let idx = self.activeSession?.messages.firstIndex(where: { $0.id == mid }) {
                         self.activeSession?.messages[idx].content = "Lỗi quét tên riêng: \(error.localizedDescription)"
                         self.activeSession?.messages[idx].isStreaming = false

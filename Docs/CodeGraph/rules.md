@@ -15,6 +15,11 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.469 — một luật mới (trạng thái tiến trình phải trả về `nil`)
+
+* **Luật 22 — trạng thái "đang chạy" phải được đặt về `nil`, không chỉ hạ cờ boolean.** `@Published` phát lại **giá trị hiện tại** cho mỗi subscriber mới, nên một `batchProgress: (Int, Int)?` còn khác `nil` sau khi tác vụ xong sẽ **sống dậy** ở lần dựng View kế tiếp — mà không còn emission nào để tắt nó. Lỗi thật (1.3.469): thanh "Đang quét tên riêng: Batch n/n" treo vĩnh viễn sau khi quét xong, vì `startBatchExtraction` chỉ hạ `isRunning` mà không xoá `batchProgress`. Quy tắc: mọi trạng thái tuỳ chọn (`Optional`) biểu diễn "đang chạy" phải được gán `nil` ở **mọi** nhánh kết thúc — thành công, lỗi, **và** huỷ.
+* **Hệ quả kèm theo**: đừng để View tự suy "đang chạy" từ một giá trị chỉ được xoá ở đường huỷ — `ReaderAIFullScreenView.onReceive($batchProgress)` ánh xạ `isBatchExtracting = (progress != nil)` chính là chỗ đã lộ lỗi.
+
 ## 1.3.468 — hai luật mới (prompt đã lưu phải di trú; bộ bóc tách chỉ một định dạng)
 
 * **Luật 20 — đổi prompt mặc định trong code KHÔNG tự áp cho người dùng cũ.** Prompt nằm trong `UserDefaults` (`FreeBook_AI_Configuration_V1`) sau lần lưu cấu hình đầu tiên; sửa hằng số `defaultNameExtractionPrompt` chỉ ảnh hưởng máy **chưa** từng lưu. Muốn đổi cho máy đã dùng thì phải **di trú tường minh** trong `loadConfiguration()` — nhận diện bản cũ bằng marker (`suggestedMeaning` / `extracted_names` / `JSON hợp lệ`) rồi ghi **thẳng** UserDefaults, **không** phát notification: phát notification ngay trong `loadConfiguration()` sẽ tái nhập qua `onReceive` → `reloadSettings()` → `loadConfiguration()`. Cùng khuôn với `BookAIMemoryStore.loadGlobalMemory()`.

@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.469 — vòng đời thanh tiến trình batch: phải trả về `nil`, không chỉ hạ cờ
+
+* **Lỗi thật đã sửa**: `AIRuntimeCoordinator.startBatchExtraction` chỉ đặt `isRunning = false` khi xong mà **không** đặt `batchProgress = nil`; chỉ `cancelActiveTask()` mới xoá. `@Published` phát lại giá trị hiện tại cho **mỗi** subscriber mới, và `ReaderAIFullScreenView.onReceive($batchProgress)` ánh xạ `isBatchExtracting = (progress != nil)` ⇒ mỗi lần màn AI được dựng lại, thanh tiến trình cũ sống dậy và **không còn emission nào** tắt nó.
+* Nay: cả nhánh thành công và nhánh lỗi đặt `batchProgress = nil` **trước** `onComplete(...)`; `ReaderAIFullScreenView+Actions.onComplete` cũng xoá `batchProgress` cục bộ của view.
+* Nhánh khôi phục khi mở lại màn AI (`initializeSessionAsync`) đã có guard `isRunning` — với `batchProgress` về `nil` thì không còn cửa sổ nào để nó bật thanh tiến trình oan.
+* Sheet `ReaderAINameReviewSheet` đóng **ngay** sau `onSave` (`executeSave` gọi `onSave` rồi `dismiss()`); màn gọi thay nội dung tin nhắn bằng bản tóm tắt nên danh sách trong sheet thành dữ liệu cũ — vì vậy card không còn banner xác nhận nào để hiện.
 
 ## 1.3.446 — vòng đời rule thay thế TTS theo tầng
 

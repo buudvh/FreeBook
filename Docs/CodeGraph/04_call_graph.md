@@ -15,6 +15,32 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.469 — hai nút Lưu gom về một chỗ, và một đường ghi phiên âm dùng chung
+
+```text
+AddWordSheet (nút Lưu ở .confirmationAction — Menu 3 mục, MỌI chế độ mở sheet)
+  ├─ "Lưu vào NghiTTS"    → onAdd(key, value, .nghiTTS)
+  ├─ "Lưu vào VieNeu-TTS" → onAdd(key, value, .vieNeu)
+  └─ "Lưu tất cả"         → onAdd(key, value, .both)
+        ├─ ReaderView                 → PhoneticDictionaryWriter.write → loadResources() nếu wroteNghiTTS → Toast
+        ├─ TTSDictionaryEditView      → PhoneticDictionaryWriter.write → loadDictionary() → Toast
+        └─ VieNeuJapaneseDictionaryView → PhoneticDictionaryWriter.write → loadDictionary() → Toast
+
+PhoneticDictionaryWriter.write(key:value:destination:)
+  ├─ destination.includesNghiTTS → TextPreprocessor.shared.updateWord
+  └─ destination.includesVieNeu  → VieNeuJapaneseDictionary.shared.update
+
+ReaderAINameReviewSheet (nút Lưu ở .confirmationAction — Menu 2 mục)
+  ├─ "Lưu vào Name riêng" → requestSave(isName: true)
+  └─ "Lưu vào VP riêng"   → requestSave(isName: false)
+        └─ confirmationDialog Gộp / Thay thế → executeSave(isName:isMerge:)
+              ├─ onSave(chosen, isName, isMerge) → ReaderAIFullScreenView.saveNamesToDictionary
+              └─ dismiss()
+```
+
+* Card `ReaderAINameReviewCardView` **không** còn đường nào tới `onSave` — nút Lưu duy nhất nằm ở sheet.
+* `AIRuntimeCoordinator.startBatchExtraction` khi kết thúc (thành công **và** lỗi) nay đặt `batchProgress = nil` ⇒ `.onReceive($batchProgress)` trong `ReaderAIFullScreenView` tắt thanh tiến trình thay vì giữ giá trị `(total, total)`.
+
 ## 1.3.468 — chip quét tên riêng mở sheet chọn prompt; gỡ hẳn nhánh JSON
 
 ```text

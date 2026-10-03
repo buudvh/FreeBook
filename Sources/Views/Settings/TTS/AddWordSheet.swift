@@ -17,11 +17,11 @@ import SwiftUI
 /// Tách khỏi `TTSDictionaryEditView.swift` cùng lượt: file đó đang **vượt** baseline dòng của
 /// `check_architecture.py` và baseline chỉ được phép giảm.
 struct AddWordSheet: View {
-    /// Đích lưu của sheet.
+    /// Chế độ mở sheet — quyết định **cách dựng gợi ý phiên âm**, KHÔNG còn quyết định nút Lưu.
     ///
-    /// `chooseAtSave` = mở từ **Reader**: nút "Lưu" là `Menu` **2 mục** (đúng khuôn
-    /// `AddTTSReplacementSheet.swift:108-115`). Hai case còn lại là **đích cố định** — màn sửa từ điển của
-    /// từng engine — nên nút Lưu vẫn là `Button` như cũ.
+    /// `chooseAtSave` = mở từ **Reader** (không có từ điển đích sẵn). Hai case còn lại là màn sửa từ điển
+    /// của từng engine. Từ 1.3.469 nút Lưu là `Menu` **3 mục** ở **mọi** chế độ, nên `Target` **không**
+    /// còn được truyền ra `onAdd` — đích ghi nằm ở `PhoneticDictionaryWriter.Destination`.
     enum Target: Equatable {
         case nghiTTS
         case vieNeu
@@ -48,7 +48,7 @@ struct AddWordSheet: View {
     @State private var suggestionLoadTask: Task<Void, Never>? = nil
     @State private var pendingDeletion: PendingDeletion? = nil
 
-    let onAdd: (String, String, Target) -> Void
+    let onAdd: (String, String, PhoneticDictionaryWriter.Destination) -> Void
     let showSuggestions: Bool
     let target: Target
 
@@ -56,7 +56,7 @@ struct AddWordSheet: View {
         initialKey: String = "",
         showSuggestions: Bool = false,
         target: Target = .nghiTTS,
-        onAdd: @escaping (String, String, Target) -> Void
+        onAdd: @escaping (String, String, PhoneticDictionaryWriter.Destination) -> Void
     ) {
         self.onAdd = onAdd
         self.showSuggestions = showSuggestions
@@ -133,17 +133,14 @@ struct AddWordSheet: View {
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    if target == .chooseAtSave {
-                        // Menu 2 mục, đúng khuôn `AddTTSReplacementSheet` ("Lưu riêng" / "Lưu chung").
-                        Menu("Lưu") {
-                            Button("Lưu vào NghiTTS") { save(.nghiTTS) }
-                            Button("Lưu vào VieNeu-TTS") { save(.vieNeu) }
-                        }
-                        .disabled(!canSave)
-                    } else {
-                        Button("Lưu") { save(target) }
-                            .disabled(!canSave)
+                    // 3 mục ở **mọi** chế độ mở sheet: đích cố định của màn gọi chỉ là gợi ý, không phải
+                    // ràng buộc — người dùng vẫn có thể lưu sang từ điển của engine kia, hoặc cả hai.
+                    Menu("Lưu") {
+                        Button("Lưu vào NghiTTS") { save(.nghiTTS) }
+                        Button("Lưu vào VieNeu-TTS") { save(.vieNeu) }
+                        Button("Lưu tất cả") { save(.both) }
                     }
+                    .disabled(!canSave)
                 }
             }
         }
@@ -288,7 +285,7 @@ struct AddWordSheet: View {
         }
     }
 
-    private func save(_ destination: Target) {
+    private func save(_ destination: PhoneticDictionaryWriter.Destination) {
         onAdd(key, value, destination)
         dismiss()
     }

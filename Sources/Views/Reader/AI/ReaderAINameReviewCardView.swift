@@ -1,9 +1,12 @@
 import SwiftUI
 
 /// Bảng duyệt danh sách tên riêng trích xuất từ văn bản truyện.
+///
+/// Từ 1.3.469 card **không** còn nút Lưu: nút Lưu là `Menu` 2 mục trên thanh điều hướng của
+/// `ReaderAINameReviewSheet` (đúng khuôn `AddWordSheet`). Card chỉ còn hiển thị danh sách, sắp xếp,
+/// chọn/bỏ chọn và xoá từng mục.
 public struct ReaderAINameReviewCardView: View {
     @Binding public var names: [AIExtractedName]
-    public let onSave: ([AIExtractedName], Bool, Bool) -> Void
     public var onDelete: ((UUID) -> Void)? = nil
 
     public enum SortMode {
@@ -12,17 +15,12 @@ public struct ReaderAINameReviewCardView: View {
     }
 
     @State private var sortMode: SortMode = .selectedFirst
-    @State private var showingModeDialog: Bool = false
-    @State private var pendingIsName: Bool = true
-    @State private var savedConfirmationMessage: String? = nil
 
     public init(
         names: Binding<[AIExtractedName]>,
-        onSave: @escaping ([AIExtractedName], Bool, Bool) -> Void,
         onDelete: ((UUID) -> Void)? = nil
     ) {
         self._names = names
-        self.onSave = onSave
         self.onDelete = onDelete
     }
 
@@ -185,67 +183,6 @@ public struct ReaderAINameReviewCardView: View {
                     .cornerRadius(8)
                 }
             }
-
-            // Phần lưu từ điển hoặc banner thông báo sau khi lưu
-            if let confirmation = savedConfirmationMessage {
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.seal.fill")
-                        .foregroundColor(.green)
-                        .font(.system(size: 14))
-                    Text(confirmation)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.green)
-                    Spacer()
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Color.green.opacity(0.12))
-                .cornerRadius(8)
-            } else {
-                HStack(spacing: 8) {
-                    // Nút Lưu vào Name riêng
-                    Button(action: {
-                        pendingIsName = true
-                        showingModeDialog = true
-                    }) {
-                        Text("Lưu Name riêng (\(selectedCount))")
-                            .font(.system(size: 11, weight: .bold))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.75)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Color(red: 55/255.0, green: 67/255.0, blue: 87/255.0))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.white.opacity(0.18), lineWidth: 1)
-                    )
-                    .disabled(selectedCount == 0)
-
-                    // Nút Lưu vào VP riêng
-                    Button(action: {
-                        pendingIsName = false
-                        showingModeDialog = true
-                    }) {
-                        Text("Lưu VP riêng (\(selectedCount))")
-                            .font(.system(size: 11, weight: .bold))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.75)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Color(red: 55/255.0, green: 67/255.0, blue: 87/255.0))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.white.opacity(0.18), lineWidth: 1)
-                    )
-                    .disabled(selectedCount == 0)
-                }
-            }
         }
         .padding(12)
         .background(Color(UIColor.secondarySystemBackground))
@@ -257,32 +194,10 @@ public struct ReaderAINameReviewCardView: View {
         .onAppear {
             applySorting()
         }
-        .confirmationDialog(
-            "Lựa chọn chế độ lưu vào \(pendingIsName ? "Name riêng" : "VietPhrase riêng")",
-            isPresented: $showingModeDialog,
-            titleVisibility: .visible
-        ) {
-            Button("Gộp (trùng từ thì thay mới)") {
-                executeSave(isName: pendingIsName, isMerge: true)
-            }
-            Button("Thay thế hoàn toàn", role: .destructive) {
-                executeSave(isName: pendingIsName, isMerge: false)
-            }
-            Button("Hủy", role: .cancel) {}
-        } message: {
-            Text(pendingIsName
-                 ? "Chế độ Gộp sẽ thêm các tên mới vào Names.txt và giữ nguyên các tên cũ. Chế độ Thay thế sẽ làm mới hoàn toàn Names.txt của truyện."
-                 : "Chế độ Gộp sẽ thêm các từ mới vào VietPhrase.txt và giữ nguyên các từ cũ. Chế độ Thay thế sẽ làm mới hoàn toàn VietPhrase.txt của truyện."
-            )
-        }
     }
 
     private var allSelected: Bool {
         names.allSatisfy { $0.isSelected }
-    }
-
-    private var selectedCount: Int {
-        names.filter { $0.isSelected }.count
     }
 
     private func toggleSelectAll() {
@@ -295,14 +210,6 @@ public struct ReaderAINameReviewCardView: View {
     private func deleteItem(id: UUID) {
         names.removeAll(where: { $0.id == id })
         onDelete?(id)
-    }
-
-    private func executeSave(isName: Bool, isMerge: Bool) {
-        let chosen = names.filter { $0.isSelected }
-        guard !chosen.isEmpty else { return }
-        onSave(chosen, isName, isMerge)
-        let targetName = isName ? "Name riêng" : "VP riêng"
-        savedConfirmationMessage = "Đã lưu \(chosen.count) mục vào \(targetName) của truyện"
     }
 
     private func applySorting() {

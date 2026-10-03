@@ -1,6 +1,9 @@
 import SwiftUI
 
 /// Bottom sheet hiển thị danh sách tên riêng trích xuất từ tin nhắn AI với hiệu ứng Skeleton bất đồng bộ.
+///
+/// Từ 1.3.469 nút Lưu nằm trên **thanh điều hướng** (`.confirmationAction`) dưới dạng `Menu` 2 mục —
+/// đúng khuôn `AddWordSheet` — thay cho hai nút `Lưu Name riêng` / `Lưu VP riêng` ở đáy card.
 public struct ReaderAINameReviewSheet: View {
     public struct Target: Identifiable, Sendable {
         public let id = UUID()
@@ -19,6 +22,8 @@ public struct ReaderAINameReviewSheet: View {
 
     @State private var isLoading: Bool = true
     @State private var names: [AIExtractedName] = []
+    @State private var pendingIsName: Bool = true
+    @State private var showingModeDialog: Bool = false
 
     public init(
         content: String,
@@ -28,6 +33,10 @@ public struct ReaderAINameReviewSheet: View {
         self.content = content
         self.bookId = bookId
         self.onSave = onSave
+    }
+
+    private var selectedCount: Int {
+        names.filter { $0.isSelected }.count
     }
 
     public var body: some View {
@@ -51,10 +60,6 @@ public struct ReaderAINameReviewSheet: View {
                     ScrollView {
                         ReaderAINameReviewCardView(
                             names: $names,
-                            onSave: { itemsToSave, isName, isMerge in
-                                onSave(itemsToSave, isName, isMerge)
-                                dismiss()
-                            },
                             onDelete: { deletedId in
                                 names.removeAll(where: { $0.id == deletedId })
                             }
@@ -71,11 +76,51 @@ public struct ReaderAINameReviewSheet: View {
                         dismiss()
                     }
                 }
+                ToolbarItem(placement: .confirmationAction) {
+                    Menu("Lưu") {
+                        Button("Lưu vào Name riêng") { requestSave(isName: true) }
+                        Button("Lưu vào VP riêng") { requestSave(isName: false) }
+                    }
+                    .disabled(selectedCount == 0)
+                }
+            }
+            .confirmationDialog(
+                "Lựa chọn chế độ lưu vào \(pendingIsName ? "Name riêng" : "VietPhrase riêng")",
+                isPresented: $showingModeDialog,
+                titleVisibility: .visible
+            ) {
+                Button("Gộp (trùng từ thì thay mới)") {
+                    executeSave(isName: pendingIsName, isMerge: true)
+                }
+                Button("Thay thế hoàn toàn", role: .destructive) {
+                    executeSave(isName: pendingIsName, isMerge: false)
+                }
+                Button("Hủy", role: .cancel) {}
+            } message: {
+                Text(pendingIsName
+                     ? "Chế độ Gộp sẽ thêm các tên mới vào Names.txt và giữ nguyên các tên cũ. Chế độ Thay thế sẽ làm mới hoàn toàn Names.txt của truyện."
+                     : "Chế độ Gộp sẽ thêm các từ mới vào VietPhrase.txt và giữ nguyên các từ cũ. Chế độ Thay thế sẽ làm mới hoàn toàn VietPhrase.txt của truyện."
+                )
             }
             .task {
                 await loadAndDecorateNames()
             }
         }
+    }
+
+    /// Bước 1: chọn đích — mở dialog Gộp / Thay thế hoàn toàn.
+    private func requestSave(isName: Bool) {
+        pendingIsName = isName
+        showingModeDialog = true
+    }
+
+    /// Bước 2: chốt chế độ ghi. Sheet đóng ngay sau khi giao việc cho `onSave` — màn gọi sẽ thay nội
+    /// dung tin nhắn bằng bản tóm tắt nên danh sách ở đây thành dữ liệu cũ.
+    private func executeSave(isName: Bool, isMerge: Bool) {
+        let chosen = names.filter { $0.isSelected }
+        guard !chosen.isEmpty else { return }
+        onSave(chosen, isName, isMerge)
+        dismiss()
     }
 
     private func loadAndDecorateNames() async {

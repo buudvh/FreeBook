@@ -15,6 +15,13 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.469 — một đường ghi phiên âm ở tầng Services cho cả ba màn
+
+* **File mới `Services/TTS/Preprocessing/PhoneticDictionaryWriter.swift`** chỉ `import Foundation`; **không** `import SwiftUI`, **không** gọi `ToastManager.shared` (câu thông báo trả về dưới dạng `String` để tầng View tự hiện Toast) ⇒ không vi phạm `SERVICE_SWIFTUI_IMPORT` / `SERVICE_TOAST_COUPLING`.
+* Nó gọi **xuống** hai actor cùng tầng Services: `TextPreprocessor.shared.updateWord` (NghiTTS) và `VieNeuJapaneseDictionary.shared.update` (VieNeu) — đúng chiều, không có phụ thuộc ngược lên `Views/`.
+* **Vì sao phải tách file**: `ReaderView.swift` chỉ còn **4 dòng dư** dưới baseline `FILE_SIZE_LIMIT` (2053); closure ở `.sheet` của nó rút từ 13 xuống 8 dòng, file nay **2043**.
+* `ReaderAINameReviewCardView` mất `onSave` ⇒ tầng View **không** còn đường nào ghi thẳng từ card; mọi lượt lưu đi qua `ReaderAINameReviewSheet` (View) rồi `ReaderAIFullScreenView+Actions.saveNamesToDictionary`.
+
 ## 1.3.468 — sheet chọn prompt nằm đúng tầng View; Services/AI vẫn chỉ `import Foundation`
 
 * **File mới `Views/Reader/AI/ReaderAIBatchPromptSheet.swift`** nằm trong tầng View: chỉ dùng `SwiftUI`, không chạm `ModelContext`, không gọi `modelContext.insert/delete/save` ⇒ không vi phạm `VIEW_SWIFTDATA_MUTATION`.

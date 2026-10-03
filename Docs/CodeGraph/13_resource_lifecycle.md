@@ -15,12 +15,19 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.469 — vòng đời trạng thái batch: `batchProgress` phải về `nil`
+
+* `AIRuntimeCoordinator.startBatchExtraction` nay đặt `batchProgress = nil` ở **cả** nhánh thành công và nhánh lỗi (trước đây chỉ `cancelActiveTask()` xoá). Đây là bản sửa cho lỗi thanh tiến trình quét treo: `@Published` phát lại giá trị hiện tại cho subscriber mới, nên giữ `(total, total)` đồng nghĩa mỗi lần màn AI dựng lại là thanh tiến trình hiện lại và không có emission nào tắt nó.
+* `ReaderAIFullScreenView+Actions.onComplete` xoá thêm `batchProgress` cục bộ của view cạnh `isBatchExtracting = false`.
+* `ReaderAINameReviewSheet.executeSave` gọi `onSave` rồi `dismiss()` ngay: sheet không giữ trạng thái nào sau khi lưu, danh sách trong card thành dữ liệu cũ nên không có banner xác nhận.
+* `PhoneticDictionaryWriter` không giữ tài nguyên nào: hai actor đích tự ghi đĩa atomic; không có `ModelContext`, `AVAudioEngine` hay `WKWebView` mới.
+
 ## 1.3.468 — vòng đời của sheet chọn prompt và của lượt quét batch
 
 * `ReaderAIBatchPromptSheet` là View thuần: `@State useCustomPrompt` + `@State customPrompt` sống theo sheet; **không** giữ tác vụ nền, không giữ `ModelContext`, không chạm `AVAudioEngine`. `dismiss()` được gọi **trước** `onStart(prompt)` ⇒ sheet đóng rồi batch mới bắt đầu.
 * Prompt tự nhập chỉ tồn tại trong `@State` của sheet — đóng sheet là mất, **không** ghi vào UserDefaults.
 * `AISettingsStore.loadConfiguration()` ghi UserDefaults **một lần duy nhất** cho mỗi máy khi di trú prompt JSON cũ (`migrateLegacyNamePromptIfNeeded`); sau đó marker không còn khớp nên không ghi lại. Ghi **thẳng**, không phát `AISettingsStoreDidChangeNotification` ⇒ không có vòng lặp reload ↔ save.
-* `AIRuntimeCoordinator` giữ nguyên vòng đời tác vụ batch (`activeBatchTask`, `batchProgress`, nút "Dừng" → `cancelActiveTask()`); chỉ thêm tham số `promptOverride` truyền xuống `AINameExtractionBatchProcessor`.
+* `AIRuntimeCoordinator` giữ nguyên vòng đời tác vụ batch (`activeBatchTask`, `batchProgress`, nút "Dừng" → `cancelActiveTask()`); chỉ thêm tham số `promptOverride` truyền xuống `AINameExtractionBatchProcessor`. *(1.3.469: `batchProgress` nay được đặt về `nil` khi batch kết thúc — xem mục 1.3.469 ở đầu tài liệu.)*
 * Không có vòng đời mới cho `AVAudioEngine` / `ModelContext` / `WKWebView`.
 
 ## 1.3.465 — vòng đời đệm audio khi đổi tốc độ tổng hợp

@@ -15,6 +15,17 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.469 — lưu phiên âm một đường dùng chung; nút Lưu của hai sheet gom về thanh điều hướng
+
+* **Ghi phiên âm dùng chung (`PhoneticDictionaryWriter.swift`, `AddWordSheet.swift`, `ReaderView.swift`, `TTSDictionaryEditView.swift`, `VieNeuJapaneseDictionaryView.swift`)**:
+  - `AddWordSheet` nút Lưu là `Menu` **3 mục** ở **mọi** chế độ mở sheet: `Lưu vào NghiTTS` / `Lưu vào VieNeu-TTS` / `Lưu tất cả`. Trước đây chỉ chế độ mở-từ-Reader mới có Menu 2 mục, hai màn từ điển là `Button` một đích.
+  - `PhoneticDictionaryWriter.write(key:value:destination:)` là **đường ghi duy nhất**: NghiTTS qua `TextPreprocessor.updateWord`, VieNeu qua `VieNeuJapaneseDictionary.update`. Lỗi từng bên bắt riêng, trả `Result` để Toast nói đúng thực tế đã ghi.
+  - `AddWordSheet.onAdd` đổi tham số thứ 3 `Target` → `PhoneticDictionaryWriter.Destination`; `Target` nay chỉ còn nghĩa "chế độ mở sheet" (quyết định cách dựng gợi ý).
+* **Nút Lưu của sheet duyệt tên riêng (`ReaderAINameReviewSheet.swift`, `ReaderAINameReviewCardView.swift`)**:
+  - Nút Lưu lên `.confirmationAction` của sheet dưới dạng `Menu("Lưu")` 2 mục — khuôn `AddWordSheet`. Card bỏ 2 nút `Lưu Name riêng` / `Lưu VP riêng`, bỏ `onSave` và bỏ banner xác nhận.
+  - Dialog **Gộp / Thay thế hoàn toàn** chuyển từ card lên sheet; luồng bấm nay 3 bước: mở Menu → chọn đích → chọn chế độ ghi.
+* **Sửa lỗi thanh tiến trình quét (`AIRuntimeCoordinator.swift`, `ReaderAIFullScreenView+Actions.swift`)**: đặt `batchProgress = nil` khi batch kết thúc ở cả hai nhánh, nên thanh "Đang quét tên riêng: Batch n/n" tự tắt và không sống lại khi mở lại màn AI.
+
 ## 1.3.468 — quét tên riêng toàn bộ chương đã tải: sheet chọn prompt + parser chỉ đọc `Tên gốc=Nghĩa`
 
 * **Chip "Lọc name cả bộ tải" không còn quét ngay** (`ReaderAIQuickActionChipsView.swift`, `ReaderAIFullScreenView+Actions.swift`, `ReaderAIFullScreenView.swift`, `ReaderAIBatchPromptSheet.swift`):

@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.469] - 2026-10-03
+
+### feat: luu tat ca o man them phien am, nut luu goc phai cho duyet ten rieng va fix thanh tien trinh quet
+
+Người dùng: *"Thêm một option lưu tất cả ở màn hình thêm phiên âm · sửa 2 nút lưu name riêng/lưu vp riêng thành nút lưu ở góc phải gồm 2 option (tương tự màn hình thêm phiên âm) · fix lỗi sau khi quét tên riêng tất cả chương đã tải xong phần hiển thị tiến độ không tự tắt đi."*
+
+- **R1 — `AddWordSheet` Menu Lưu 3 mục ở MỌI chế độ mở sheet**: `Lưu vào NghiTTS` / `Lưu vào VieNeu-TTS` / **`Lưu tất cả`** (ghi cùng một mục vào cả hai từ điển). Trước đây chỉ chế độ mở-từ-Reader mới có Menu 2 mục; hai màn từ điển là `Button` một đích.
+- **R2 — nút Lưu của sheet duyệt tên riêng lên thanh điều hướng**: `Menu("Lưu")` 2 mục ở `.confirmationAction` (khuôn `AddWordSheet`), `.disabled(selectedCount == 0)`; dialog **Gộp / Thay thế hoàn toàn** chuyển từ card lên sheet. `ReaderAINameReviewCardView` **327 → 234** dòng, bỏ 2 nút đáy + `onSave` + banner xác nhận (banner chưa bao giờ hiện được vì sheet đóng ngay sau `onSave`).
+- **R3 — sửa lỗi thanh tiến trình quét không tự tắt**: `AIRuntimeCoordinator.startBatchExtraction` chỉ hạ `isRunning` mà **không** xoá `batchProgress`; `@Published` phát lại giá trị hiện tại cho subscriber mới nên `(total, total)` sống dậy ở mỗi lần dựng lại màn AI. Nay `batchProgress = nil` ở **cả** nhánh thành công lẫn nhánh lỗi, và `ReaderAIFullScreenView+Actions.onComplete` cũng xoá `batchProgress` cục bộ.
+- **File mới `Services/TTS/Preprocessing/PhoneticDictionaryWriter.swift`** (**74** dòng) — một đường ghi phiên âm dùng chung cho cả ba màn (đúng `rules.md` Luật 18). `AddWordSheet.onAdd` đổi tham số thứ 3 `Target` → `PhoneticDictionaryWriter.Destination` ⇒ 3 call site sửa cùng lượt.
+- **`ReaderView.swift` 2049 → 2043** (baseline 2053 — chỉ còn 4 dòng dư, nên closure `.sheet` **bắt buộc** ngắn hơn: đây là lý do tách service thay vì chép logic ghi).
+- **CodeGraph**: 10 doc cập nhật + `--accept`; `rules.md` thêm **Luật 22** (trạng thái "đang chạy" phải trả về `nil`, không chỉ hạ cờ).
+- Cổng: `check_architecture.py` **5 nền / 0 mới**; `validate_links.py` **PASS 100%** (16 doc, 641 file).
+
+---
+
 ## [1.3.468] - 2026-10-03
 
 ### feat: popup chon prompt cho quet ten rieng toan bo chuong da tai va bo nhanh JSON

@@ -643,18 +643,12 @@ struct ReaderView: View {
     private var readerPresentationNavigationLayer: some View {
         readerObserverLayer
         .sheet(isPresented: $showingAddNghiTTSPhonemeSheet) {
-            // `chooseAtSave`: nút Lưu là `Menu` 2 mục — lưu vào từ điển NghiTTS hay của VieNeu-TTS.
+            // Nút Lưu là `Menu` 3 mục (NghiTTS / VieNeu-TTS / cả hai) — xem `PhoneticDictionaryWriter`.
             AddWordSheet(initialKey: selectedDisplayedText, showSuggestions: true, target: .chooseAtSave) { key, val, destination in
-                _ = Task {
-                    switch destination {
-                    case .vieNeu:
-                        try? await VieNeuJapaneseDictionary.shared.update(key: key, value: val)
-                        ToastManager.shared.show(message: "Đã thêm phiên âm VieNeu-TTS: \(key)")
-                    default:
-                        try? await TextPreprocessor.shared.updateWord(key: key, value: val)
-                        await TextPreprocessor.shared.loadResources()
-                        ToastManager.shared.show(message: "Đã thêm phiên âm: \(key)")
-                    }
+                Task {
+                    let result = await PhoneticDictionaryWriter.write(key: key, value: val, destination: destination)
+                    if result.wroteNghiTTS { await TextPreprocessor.shared.loadResources() }
+                    ToastManager.shared.show(message: result.message(for: key), type: result.isSuccess ? .success : .error)
                 }
             }
         }

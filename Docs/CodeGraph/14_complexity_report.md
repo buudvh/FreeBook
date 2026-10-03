@@ -15,6 +15,13 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.469 — +1 file 74 dòng; `ReaderView` lùi thêm 6 dòng; 5 violation nền
+
+* **1 file Swift mới, 1 primary type top level**: `Services/TTS/Preprocessing/PhoneticDictionaryWriter.swift` — **74**/400 dòng (enum + 2 type lồng `Destination`, `Result`).
+* Số dòng sau thay đổi: `ReaderView.swift` **2049 → 2043** (baseline 2053) · `AddWordSheet.swift` **344 → 341** · `ReaderAINameReviewCardView.swift` **327 → 234** · `ReaderAINameReviewSheet.swift` **143 → 188** · `TTSDictionaryEditView.swift` **584 → 594** (baseline 641) · `VieNeuJapaneseDictionaryView.swift` **353 → 363** · `AIRuntimeCoordinator.swift` **315 → 320** · `ReaderAIFullScreenView+Actions.swift` **270 → 271**.
+* `ReaderView.swift` là chỗ **căng nhất**: chỉ còn 4 dòng dư dưới baseline, nên closure `.sheet` của nó **bắt buộc** ngắn hơn sau khi sửa — đây là lý do tách `PhoneticDictionaryWriter` thay vì chép logic ghi vào từng call site.
+* `check_architecture.py`: **5 violation nền cũ, 0 vi phạm mới**.
+
 ## 1.3.468 — +1 file 123 dòng; bỏ 4 tầng bóc JSON; `check_architecture.py` giữ 5 violation nền
 
 * **1 file Swift mới, 1 primary type top level**: `Views/Reader/AI/ReaderAIBatchPromptSheet.swift` — **123**/400 dòng.

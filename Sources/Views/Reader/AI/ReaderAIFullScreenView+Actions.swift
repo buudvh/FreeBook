@@ -209,6 +209,7 @@ extension ReaderAIFullScreenView {
                 Task { @MainActor in
                     self.isBatchExtracting = false
                     self.isStreaming = false
+                    self.batchProgress = nil
                     self.batchExtractedNames = finalResults
                     let text = finalResults.map { "\($0.original)=\($0.suggestedMeaning)" }.joined(separator: "\n")
                     if let idx = self.currentSession.messages.firstIndex(where: { $0.id == msgId }) {

@@ -103,8 +103,8 @@ struct VieNeuJapaneseDictionaryView: View {
             }
         }
         .sheet(isPresented: $showingAddSheet) {
-            AddWordSheet(initialKey: searchText, showSuggestions: true, target: .vieNeu) { key, val, _ in
-                addWord(key: key, value: val)
+            AddWordSheet(initialKey: searchText, showSuggestions: true, target: .vieNeu) { key, val, destination in
+                saveWord(key: key, value: val, destination: destination)
             }
         }
         .sheet(isPresented: $showingFileImporter) {
@@ -277,6 +277,16 @@ struct VieNeuJapaneseDictionaryView: View {
         var words = allWords
         words[normalized] = trimmed
         persist(words, successMessage: "Đã thêm phiên âm: \(normalized)")
+    }
+
+    /// Ghi theo đích người dùng chọn trong Menu Lưu (NghiTTS / VieNeu-TTS / cả hai) rồi nạp lại danh sách.
+    /// Toast phản ánh **đúng** từ điển đã ghi được — đích `both` có thể chỉ ghi được một bên.
+    private func saveWord(key: String, value: String, destination: PhoneticDictionaryWriter.Destination) {
+        Task {
+            let result = await PhoneticDictionaryWriter.write(key: key, value: value, destination: destination)
+            await loadDictionary()
+            ToastManager.shared.show(message: result.message(for: key), type: result.isSuccess ? .success : .error)
+        }
     }
 
     private func deleteWord(_ key: String) {

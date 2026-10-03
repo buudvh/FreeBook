@@ -15,6 +15,13 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.469 — rủi ro mới của "Lưu tất cả" và lỗi thanh tiến trình treo
+
+* **Đã xử lý — thanh tiến trình quét tên riêng không tự tắt.** Nguyên nhân: `batchProgress` không bao giờ được đặt về `nil` khi batch xong, mà `@Published` phát lại giá trị hiện tại cho subscriber mới ⇒ mỗi lần dựng lại màn AI, thanh tiến trình cũ sống dậy. Nay đặt `batchProgress = nil` ở **cả** nhánh thành công lẫn nhánh lỗi.
+* **Mới — "Lưu tất cả" ghi vào hai từ điển độc lập trong một lượt.** Ghi được một nửa là trạng thái **có thể xảy ra** (một store lỗi). Giảm thiểu: `PhoneticDictionaryWriter.write` bắt lỗi **riêng** từng bên, trả `Result(wroteNghiTTS:wroteVieNeu:)`, và Toast đọc `Result.message(for:)` nên không bao giờ báo thành công khi chỉ ghi được một nửa.
+* **Mới — nút Lưu của sheet duyệt tên riêng bị vô hiệu khi chưa chọn mục nào.** `Menu("Lưu")` `.disabled(selectedCount == 0)`; `executeSave` vẫn có guard `!chosen.isEmpty` nên không có đường ghi rỗng.
+* **Đã bỏ — banner xác nhận trong card duyệt tên riêng.** Nó **chưa bao giờ** hiển thị được: `executeSave` gọi `onSave` (màn gọi thay nội dung tin nhắn) rồi `dismiss()` ngay. Giữ lại chỉ là UI chết.
+
 ## 1.3.468 — bỏ nhánh JSON của bộ bóc tách tên riêng; rủi ro mới của prompt tự nhập
 
 * **Đã xử lý — rủi ro "LLM trả JSON không chuẩn".** Bộ bóc tách đa tầng (`extractMarkdownBlock` / `cleanTrailingCommas` / `tryParseJSON`) đã bị **xoá hẳn** cùng `parseNamesFromJSONString`; `parseNamesFromText` chỉ nhận dòng đúng dạng `Tên gốc=Nghĩa` ⇒ không còn nhánh nào có thể nuốt JSON hỏng.

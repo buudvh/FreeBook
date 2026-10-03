@@ -15,6 +15,14 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.469 — "Lưu tất cả" ở màn Thêm từ mới, nút Lưu góc phải cho sheet duyệt tên riêng, và sửa thanh tiến trình quét không tự tắt
+
+* Thêm **1** file Swift (`Services/TTS/Preprocessing/PhoneticDictionaryWriter.swift`, **74** dòng) ⇒ validator đếm **641** file, bộ tài liệu vẫn **16** doc.
+* **`AddWordSheet` — Menu Lưu 3 mục ở mọi chế độ mở sheet**: `Lưu vào NghiTTS` / `Lưu vào VieNeu-TTS` / `Lưu tất cả`. `onAdd` đổi tham số thứ 3 từ `AddWordSheet.Target` sang `PhoneticDictionaryWriter.Destination` ⇒ cả 3 call site (`ReaderView`, `TTSDictionaryEditView`, `VieNeuJapaneseDictionaryView`) sửa cùng lượt.
+* **`ReaderAINameReviewSheet` — nút Lưu lên thanh điều hướng**: `Menu("Lưu")` 2 mục (`Lưu vào Name riêng` / `Lưu vào VP riêng`) ở `.confirmationAction`, `.disabled(selectedCount == 0)`; dialog Gộp/Thay thế chuyển từ card lên sheet. `ReaderAINameReviewCardView` **bỏ** 2 nút đáy, `onSave` và banner `savedConfirmationMessage` (banner không bao giờ hiện được vì sheet đóng ngay sau khi lưu).
+* **Sửa lỗi thanh tiến trình quét không tự tắt**: `AIRuntimeCoordinator.startBatchExtraction` đặt `batchProgress = nil` ở **cả** nhánh thành công lẫn nhánh lỗi; `ReaderAIFullScreenView+Actions.onComplete` cũng xoá `batchProgress` cục bộ.
+* Số dòng: `ReaderView` **2049 → 2043** (baseline 2053) · `AddWordSheet` **344 → 341** · `ReaderAINameReviewCardView` **327 → 234** · `ReaderAINameReviewSheet` **143 → 188** · `TTSDictionaryEditView` **584 → 594** (baseline 641) · `VieNeuJapaneseDictionaryView` **353 → 363** · `AIRuntimeCoordinator` **315 → 320** · `ReaderAIFullScreenView+Actions` **270 → 271**.
+
 ## 1.3.468 — popup chọn prompt cho "Quét tên riêng toàn bộ chương đã tải"; parser chỉ đọc `Tên gốc=Nghĩa`
 
 * Thêm **1** file Swift (`Views/Reader/AI/ReaderAIBatchPromptSheet.swift`, **123** dòng) ⇒ validator đếm **640** file, bộ tài liệu vẫn **16** doc.

@@ -15,6 +15,15 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.469 — +1 file: service ghi phiên âm dùng chung
+
+| Nhóm | File mới | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Services/TTS | [`Services/TTS/Preprocessing/PhoneticDictionaryWriter.swift`](../../Sources/Services/TTS/Preprocessing/PhoneticDictionaryWriter.swift) | Ghi một mục phiên âm vào NghiTTS / VieNeu-TTS / **cả hai**; đích nằm ở enum lồng `Destination` | 74 |
+
+* Số dòng sau thay đổi: `ReaderView.swift` **2049 → 2043** · `AddWordSheet.swift` **344 → 341** · `ReaderAINameReviewCardView.swift` **327 → 234** · `ReaderAINameReviewSheet.swift` **143 → 188** · `TTSDictionaryEditView.swift` **584 → 594** · `VieNeuJapaneseDictionaryView.swift` **353 → 363** · `AIRuntimeCoordinator.swift` **315 → 320** · `ReaderAIFullScreenView+Actions.swift` **270 → 271**.
+* `ReaderAINameReviewCardView` nay chỉ còn `names` + `onDelete` (bỏ `onSave`, 2 nút Lưu và banner xác nhận) — nút Lưu duy nhất nằm ở thanh điều hướng của `ReaderAINameReviewSheet`.
+
 ## 1.3.468 — +1 file: sheet chọn prompt cho quét tên riêng toàn bộ chương đã tải
 
 | Nhóm | File mới | Vai trò | Dòng |
