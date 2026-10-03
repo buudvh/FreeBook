@@ -15,6 +15,14 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.468 — vòng đời của sheet chọn prompt và của lượt quét batch
+
+* `ReaderAIBatchPromptSheet` là View thuần: `@State useCustomPrompt` + `@State customPrompt` sống theo sheet; **không** giữ tác vụ nền, không giữ `ModelContext`, không chạm `AVAudioEngine`. `dismiss()` được gọi **trước** `onStart(prompt)` ⇒ sheet đóng rồi batch mới bắt đầu.
+* Prompt tự nhập chỉ tồn tại trong `@State` của sheet — đóng sheet là mất, **không** ghi vào UserDefaults.
+* `AISettingsStore.loadConfiguration()` ghi UserDefaults **một lần duy nhất** cho mỗi máy khi di trú prompt JSON cũ (`migrateLegacyNamePromptIfNeeded`); sau đó marker không còn khớp nên không ghi lại. Ghi **thẳng**, không phát `AISettingsStoreDidChangeNotification` ⇒ không có vòng lặp reload ↔ save.
+* `AIRuntimeCoordinator` giữ nguyên vòng đời tác vụ batch (`activeBatchTask`, `batchProgress`, nút "Dừng" → `cancelActiveTask()`); chỉ thêm tham số `promptOverride` truyền xuống `AINameExtractionBatchProcessor`.
+* Không có vòng đời mới cho `AVAudioEngine` / `ModelContext` / `WKWebView`.
+
 ## 1.3.465 — vòng đời đệm audio khi đổi tốc độ tổng hợp
 
 * `TTSManager.invalidateVieNeuSynthesisSpeed()` giải phóng **có chọn lọc**: `cancelNghiRefill()` (huỷ task đang bay + xoá `nghiRefillInFlightIndices`), lọc `preloadedData`/`preloadedDurations` còn các đoạn ≤ `currentParagraphIndex`, `nextChapterPrefetcher.cancel()`, `NghiAudioPlayerQueue.clearPreparedNext()` (bỏ `AVAudioPlayer` của đoạn N+1 đã `prepareToPlay`).

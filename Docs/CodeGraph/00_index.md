@@ -15,6 +15,14 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.468 — popup chọn prompt cho "Quét tên riêng toàn bộ chương đã tải"; parser chỉ đọc `Tên gốc=Nghĩa`
+
+* Thêm **1** file Swift (`Views/Reader/AI/ReaderAIBatchPromptSheet.swift`, **123** dòng) ⇒ validator đếm **640** file, bộ tài liệu vẫn **16** doc.
+* **Bấm chip "Lọc name cả bộ tải" không còn quét ngay**: `ReaderAIQuickActionChipsView` → `ReaderAIFullScreenView+Actions.handleQuickAction` bật cờ `showingBatchPromptSheet`; sheet cho chọn **prompt trong Cài đặt** hay **tự nhập** (chỉ dùng cho lần quét đó, **không** lưu vào Cài đặt).
+* **Di trú prompt đã lưu**: `AISettingsStore.loadConfiguration()` gọi `AIConfiguration.looksLikeLegacyJSONNameExtractionPrompt(_:)` — prompt JSON cũ còn kẹt trong UserDefaults được thay bằng `defaultNameExtractionPrompt` (ghi thẳng UserDefaults, **không** phát notification để tránh tái nhập).
+* **Xoá hẳn nhánh JSON của bộ bóc tách**: `parseNamesFromJSONString` → **`parseNamesFromText`** (chỉ nhận dòng có dấu `=`); xoá `extractMarkdownBlock` / `cleanTrailingCommas` / `tryParseJSON`. Xoá theo cả `migrateLegacyJSONMessagesIfNeeded` (dọn tin nhắn JSON cũ trong lịch sử chat).
+* Xoá dead code `AIRuntimeCoordinator.startExtractNamesCurrentChapter` (không có call site nào) ⇒ file **372 → 315** dòng.
+
 ## 1.3.465 — thanh "Tốc độ tổng hợp" cho VieNeu; Section 4 của màn Cài đặt TTS tách file
 
 * Thêm **1** file Swift (`Views/TTSWidget/TTSSettingsView+Voice.swift`, **90** dòng) ⇒ validator đếm **639** file, bộ tài liệu vẫn **16** doc.
@@ -277,7 +285,7 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 * [`ReaderAIInputBarView.swift`](../../Sources/Views/Reader/AI/ReaderAIInputBarView.swift#L1): Khung nhập chat ở đáy màn hình với Mode Menu Pill (3 chế độ: `Ask`, `Plan`, `Bypass`) và Menu chọn Model trực tiếp (`[gemini-2.0-flash ▾]`).
 * [`AIBookDataInspector.swift`](../../Sources/Services/AI/Harness/AIBookDataInspector.swift#L1): Đọc nội dung thô (raw text Hán tự chưa dịch) từ `ChapterStore` và `BookBinManager` để cung cấp cho AI phân tích chính xác tên riêng, nhân vật, địa danh.
 * [`AIHarnessService.swift`](../../Sources/Services/AI/Harness/AIHarnessService.swift#L1): Điều phối thực thi hành động can thiệp dữ liệu truyện; lưu trực tiếp Name vào từ điển truyện (`TranslationManager.shared.saveCustomEntry(..., isName: true, bookId:)`), tự động hưởng cơ chế bảo vệ Name riêng trước Rule dịch.
-* [`AINameExtractionBatchProcessor.swift`](../../Sources/Services/AI/AINameExtractionBatchProcessor.swift#L1): Quét offline batching nhiều chương đã tải về (5 chương/batch) trích xuất JSON tên riêng kèm thanh tiến trình và nút Dừng.
+* [`AINameExtractionBatchProcessor.swift`](../../Sources/Services/AI/AINameExtractionBatchProcessor.swift#L1): Quét offline batching nhiều chương đã tải về (5 chương/batch) trích xuất tên riêng dạng dòng `Tên gốc=Nghĩa` kèm thanh tiến trình và nút Dừng.
 * [`AISettingsView.swift`](../../Sources/Views/Settings/AI/AISettingsView.swift#L1): Màn hình cấu hình AI trong Cài đặt, hỗ trợ preset các nhà cung cấp phổ biến (Gemini, OpenAI, Claude/OpenRouter, DeepSeek, Groq, Ollama, Custom), nút "Load danh sách từ API", và TextEditor nhập danh sách model thủ công.
 * Thêm **24** file Swift (551 tổng trong cây làm việc); cần `xcodegen generate` và build trên macOS.
 

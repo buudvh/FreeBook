@@ -10,6 +10,7 @@ extension ReaderAIFullScreenView {
         if selectedModel.isEmpty || !availableModels.contains(selectedModel) {
             selectedModel = config.activeProfile.selectedModel
         }
+        nameExtractionPromptForSheet = config.nameExtractionPrompt
     }
 
     internal func handleProfileChanged(_ newProfileId: String) {
@@ -152,7 +153,7 @@ extension ReaderAIFullScreenView {
         case .extractNamesCurrentChapter:
             sendUserMessage(promptOverride: "Lọc tên riêng trong chương này")
         case .extractNamesAllDownloaded:
-            startBatchExtraction()
+            showingBatchPromptSheet = true
         case .explainContextAndCharacters:
             sendUserMessage(promptOverride: "Giải thích bối cảnh, các thế lực và nhân vật xuất hiện trong chương này.")
         case .translateSmoothly:
@@ -160,7 +161,12 @@ extension ReaderAIFullScreenView {
         }
     }
 
-    internal func startBatchExtraction() {
+    /// Chạy quét batch với prompt người dùng đã chọn trong sheet.
+    internal func beginBatchExtraction(with prompt: String) {
+        startBatchExtraction(promptOverride: prompt)
+    }
+
+    internal func startBatchExtraction(promptOverride: String? = nil) {
         guard !isBatchExtracting else { return }
         isBatchExtracting = true
         batchProgress = (0, 1)
@@ -185,6 +191,7 @@ extension ReaderAIFullScreenView {
         AIRuntimeCoordinator.shared.startBatchExtraction(
             bookId: bookId,
             config: config,
+            promptOverride: promptOverride,
             session: currentSession,
             assistantMsgId: msgId,
             onProgress: { [self] (current: Int, total: Int, partial: [AIExtractedName]) in

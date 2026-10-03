@@ -155,69 +155,11 @@ public final class AIRuntimeCoordinator: ObservableObject {
         }
     }
 
-    /// Bắt đầu lọc tên riêng chương hiện tại.
-    public func startExtractNamesCurrentChapter(
-        bookId: String,
-        rawContent: String,
-        config: AIConfiguration,
-        session: AIChatSession? = nil,
-        assistantMsgId: UUID? = nil,
-        onComplete: @escaping ([AIExtractedName]) -> Void,
-        onError: @escaping (String) -> Void
-    ) {
-        cancelActiveTask()
-        isRunning = true
-        activeTaskTitle = "AI đang suy nghĩ"
-        if let s = session {
-            self.activeSession = s
-            self.activeSessionId = s.id
-        }
-
-        activeSingleTask = Task { [weak self] in
-            do {
-                let rawNames = try await AINameExtractionBatchProcessor.shared.extractNamesFromText(text: rawContent, config: config)
-                guard !Task.isCancelled else { return }
-                let names = AIBookDataInspector.shared.decorateExtractedNames(names: rawNames, bookId: bookId)
-                onComplete(names)
-
-                await MainActor.run {
-                    guard let self = self else { return }
-                    self.isRunning = false
-                    self.activeSingleTask = nil
-                    if let mid = assistantMsgId, let idx = self.activeSession?.messages.firstIndex(where: { $0.id == mid }) {
-                        self.activeSession?.messages[idx].content = "Đã tìm thấy \(names.count) tên riêng trong chương này:"
-                        self.activeSession?.messages[idx].extractedNames = names
-                        self.activeSession?.messages[idx].isStreaming = false
-                    }
-                    if let s = self.activeSession { AIChatHistoryStore.shared.saveSession(s, for: bookId) }
-                    if !self.isFullScreenPresented {
-                        ToastManager.shared.show(message: "Đã tìm thấy \(names.count) tên riêng!", type: .success)
-                    }
-                }
-            } catch {
-                guard !Task.isCancelled else { return }
-                onError(error.localizedDescription)
-                await MainActor.run {
-                    guard let self = self else { return }
-                    self.isRunning = false
-                    self.activeSingleTask = nil
-                    if let mid = assistantMsgId, let idx = self.activeSession?.messages.firstIndex(where: { $0.id == mid }) {
-                        self.activeSession?.messages[idx].content = "Lỗi lọc tên riêng: \(error.localizedDescription)"
-                        self.activeSession?.messages[idx].isStreaming = false
-                    }
-                    if let s = self.activeSession { AIChatHistoryStore.shared.saveSession(s, for: bookId) }
-                    if !self.isFullScreenPresented {
-                        ToastManager.shared.show(message: "Lọc tên riêng thất bại.", type: .error)
-                    }
-                }
-            }
-        }
-    }
-
     /// Bắt đầu quét tên riêng toàn bộ chương đã tải (batch).
     public func startBatchExtraction(
         bookId: String,
         config: AIConfiguration,
+        promptOverride: String? = nil,
         session: AIChatSession? = nil,
         assistantMsgId: UUID? = nil,
         onProgress: @escaping (Int, Int, [AIExtractedName]) -> Void,
@@ -237,7 +179,8 @@ public final class AIRuntimeCoordinator: ObservableObject {
             do {
                 let results = try await AINameExtractionBatchProcessor.shared.extractNamesFromDownloadedChapters(
                     bookId: bookId,
-                    config: config
+                    config: config,
+                    promptOverride: promptOverride
                 ) { current, total, partial in
                     let decorated = AIBookDataInspector.shared.decorateExtractedNames(names: partial, bookId: bookId)
                     Task { @MainActor [weak self] in

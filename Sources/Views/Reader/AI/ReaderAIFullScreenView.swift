@@ -23,6 +23,8 @@ public struct ReaderAIFullScreenView: View {
     @State internal var showingSettings: Bool = false
     @State internal var showingSessionList: Bool = false
     @State internal var showingMemorySheet: Bool = false
+    @State internal var showingBatchPromptSheet: Bool = false
+    @State internal var nameExtractionPromptForSheet: String = ""
     @State private var nameReviewTarget: ReaderAINameReviewSheet.Target? = nil
     @State internal var availableProfiles: [AIProviderProfile] = []
     @State internal var selectedProfileId: String = ""
@@ -251,6 +253,14 @@ public struct ReaderAIFullScreenView: View {
                     bookId: bookId,
                     onSave: { itemsToSave, isName, isMerge in
                         saveNamesToDictionary(itemsToSave, isName: isName, isMerge: isMerge)
+                    }
+                )
+            }
+            .sheet(isPresented: $showingBatchPromptSheet) {
+                ReaderAIBatchPromptSheet(
+                    settingsPrompt: nameExtractionPromptForSheet,
+                    onStart: { prompt in
+                        beginBatchExtraction(with: prompt)
                     }
                 )
             }

@@ -15,6 +15,13 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.468 — bỏ nhánh JSON của bộ bóc tách tên riêng; rủi ro mới của prompt tự nhập
+
+* **Đã xử lý — rủi ro "LLM trả JSON không chuẩn".** Bộ bóc tách đa tầng (`extractMarkdownBlock` / `cleanTrailingCommas` / `tryParseJSON`) đã bị **xoá hẳn** cùng `parseNamesFromJSONString`; `parseNamesFromText` chỉ nhận dòng đúng dạng `Tên gốc=Nghĩa` ⇒ không còn nhánh nào có thể nuốt JSON hỏng.
+* **Mới — model trả sai dấu phân cách (dấu hai chấm thay vì `=`).** Dòng `Tên: Nghĩa` bị bỏ qua ⇒ **ra 0 kết quả mà không báo lỗi**. Giảm thiểu: prompt mặc định ghi rõ `Tên gốc=Nghĩa`; sheet cho phép chọn prompt khác nếu cần.
+* **Mới — prompt JSON cũ còn kẹt trong UserDefaults.** `loadConfiguration()` tự di trú sang `defaultNameExtractionPrompt`, nhưng **chỉ** khi prompt khớp marker JSON (`suggestedMeaning` / `extracted_names` / `JSON hợp lệ`). Prompt do người dùng tự viết dạng khác **không** bị đụng ⇒ nếu nó không trả về dạng `Tên gốc=Nghĩa` thì kết quả rỗng.
+* **Mới — lịch sử chat JSON cũ không còn được tự dọn.** `migrateLegacyJSONMessagesIfNeeded` đã gỡ ⇒ tin nhắn assistant cũ chứa mảng JSON hiển thị **nguyên khối thô** (không crash, không mất dữ liệu).
+* **Mới — prompt tự nhập không được lưu.** Nút "Bắt đầu quét" bị vô hiệu khi ô nhập rỗng/toàn khoảng trắng; prompt tự nhập không ghi vào Cài đặt nên không thể "dính" sang lượt sau.
 
 ## 1.3.464 — rủi ro đã xử lý / mới
 
@@ -156,9 +163,9 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 * **Phụ thuộc API bên thứ ba & Độ trễ mạng**:
   - Tốc độ phản hồi và giới hạn rate limit (429) hoàn toàn phụ thuộc vào endpoint/key của nhà cung cấp do người dùng cấu hình (Gemini, OpenAI, Claude, v.v.).
   - Biện pháp khắc phục: Sử dụng streaming SSE cho chat thông thường để người dùng thấy text ngay lập tức thay vì chờ toàn bộ phản hồi; cho phép dừng stream; timeout cấu hình được mặc định 60s.
-* **Rủi ro phân tích cấu trúc JSON khi trích xuất tên riêng**:
+* **Rủi ro bóc tách tên riêng (đổi hành vi ở 1.3.468)**:
   - LLM có thể trả về JSON không chuẩn hoặc kèm giải thích thừa ngoài block markdown.
-  - Biện pháp khắc phục: `AINameExtractionBatchProcessor` áp dụng regex trích xuất block ```json ... ``` hoặc tìm cặp ngoặc vuông `[...]` hợp lệ trước khi `JSONDecoder` xử lý, fallback về mảng rỗng thay vì làm crash luồng.
+  - Biện pháp khắc phục: nhánh JSON đã bị **xoá**; `AINameExtractionBatchProcessor.parseNamesFromText` chỉ nhận dòng đúng dạng `Tên gốc=Nghĩa`, mọi dòng khác (code fence, `[...]`, `{...}`, câu "Không có name") bị **bỏ qua** ⇒ không còn nhánh nào crash được.
 * **Chi phí token khi quét batch nhiều chương**:
   - Quét hàng chục chương truyện một lúc có thể tốn lượng lớn context token nếu gộp toàn bộ nội dung.
   - Biện pháp khắc phục: Chia batch cố định 5 chương/batch, trích xuất mẫu ngữ cảnh ngắn và cung cấp progress bar kèm nút "Dừng" tức thì để người dùng kiểm soát chi phí.

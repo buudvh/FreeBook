@@ -13,10 +13,21 @@ public final class AISettingsStore: Sendable {
     /// Tải cấu hình đã lưu, hoặc trả về cấu hình mặc định.
     public func loadConfiguration() -> AIConfiguration {
         guard let data = UserDefaults.standard.data(forKey: userDefaultsKey),
-              let config = try? JSONDecoder().decode(AIConfiguration.self, from: data) else {
+              var config = try? JSONDecoder().decode(AIConfiguration.self, from: data) else {
             return AIConfiguration.default
         }
+        migrateLegacyNamePromptIfNeeded(&config)
         return config
+    }
+
+    /// Di trú prompt trích xuất dạng JSON cũ sang dạng "Tên gốc=Nghĩa".
+    /// Ghi thẳng UserDefaults (không phát notification) để tránh tái nhập khi `loadConfiguration()` được gọi lại.
+    private func migrateLegacyNamePromptIfNeeded(_ config: inout AIConfiguration) {
+        guard AIConfiguration.looksLikeLegacyJSONNameExtractionPrompt(config.nameExtractionPrompt) else { return }
+        config.nameExtractionPrompt = AIConfiguration.defaultNameExtractionPrompt
+        if let data = try? JSONEncoder().encode(config) {
+            UserDefaults.standard.set(data, forKey: userDefaultsKey)
+        }
     }
 
     /// Lưu cấu hình mới.

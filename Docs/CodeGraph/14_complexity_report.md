@@ -15,6 +15,13 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.468 — +1 file 123 dòng; bỏ 4 tầng bóc JSON; `check_architecture.py` giữ 5 violation nền
+
+* **1 file Swift mới, 1 primary type top level**: `Views/Reader/AI/ReaderAIBatchPromptSheet.swift` — **123**/400 dòng.
+* Số dòng sau thay đổi: `AINameExtractionBatchProcessor.swift` **277 → 135** (bỏ `parseNamesFromJSONString` + 3 helper) · `AIRuntimeCoordinator.swift` **372 → 315** (xoá dead code `startExtractNamesCurrentChapter`) · `ReaderAIFullScreenView.swift` **372 → 382** (sát trần nhưng vẫn dưới 400) · `ReaderAIFullScreenView+Actions.swift` **263 → 270** · `ReaderAIFullScreenView+SessionLoading.swift` **165 → 131** · `AISettingsStore.swift` **78 → 89** · `AIConfiguration.swift` **176 → 182**.
+* `check_architecture.py`: **5 violation nền cũ, 0 vi phạm mới** (`ChapterPersistenceStore` · `JSDom` · `JSExecutor` · `TTSManager` · `ReaderViewModel` — đều không thuộc vùng sửa).
+* Không có `MULTI_PRIMARY_TYPES`, `VIEW_SWIFTDATA_MUTATION`, `SERVICE_TOAST_COUPLING` hay `SERVICE_SWIFTUI_IMPORT` mới.
+
 ## 1.3.465 — độ phức tạp: Section 4 tách file, `TTSSettingsView.swift` lùi khỏi trần
 
 * Validator: **638 → 639** file Swift.

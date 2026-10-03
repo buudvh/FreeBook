@@ -16,6 +16,12 @@ Tài liệu này phác thảo kiến trúc tổng thể, sơ đồ thư mục, c
 
 <!-- GENERATED START -->
 
+## Không đổi `project.yml`; thêm 1 file Swift trong cây `Sources/` (1.3.468)
+
+* `project.yml` **không đổi**: `sources: - path: Sources` khai theo thư mục nên `Sources/Views/Reader/AI/ReaderAIBatchPromptSheet.swift` tự vào target; chỉ cần `xcodegen generate` như thường lệ.
+* Không đổi `info.properties`, không thêm dependency SPM, không đổi deployment target / code signing / bridging header.
+* Thay đổi thuộc phân hệ AI của Reader: sheet chọn prompt cho "Quét tên riêng toàn bộ chương đã tải" · di trú prompt JSON cũ trong `UserDefaults` · bỏ hẳn nhánh JSON của bộ bóc tách tên riêng.
+
 ## `project.yml` thêm `NSMicrophoneUsageDescription` + cổng CI `fbank-gate` (1.3.451 / 1.3.453)
 
 * **Quyền micro là điều kiện sống còn, không phải "cho chắc"**: thiếu `NSMicrophoneUsageDescription` trong `Info.plist` thì iOS **kill app** ngay khi phiên âm thanh chạm tới input — không phải trả `false` rồi thôi. Chuỗi thêm vào `info.properties`:

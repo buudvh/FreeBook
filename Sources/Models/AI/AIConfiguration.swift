@@ -141,15 +141,40 @@ public struct AIConfiguration: Codable, Sendable, Equatable {
     """
 
     public static let defaultNameExtractionPrompt: String = """
-    Bạn là chuyên gia dịch thuật và trích xuất thực thể tiếng Trung cho truyện chữ (tiên hiệp, kiếm hiệp, đô thị, huyền huyễn).
-    Nhiệm vụ: Tìm tất cả Tên riêng (nhân vật, địa danh, tông môn, công pháp, bảo vật...) xuất hiện trong văn bản raw tiếng Trung.
-    Yêu cầu:
-    - Trả về JSON hợp lệ duy nhất, không thêm bất kỳ văn bản giải thích nào ngoài JSON.
-    - Định dạng:
-    [
-      {"original": "tên chữ Hán", "suggestedMeaning": "tên dịch Hán Việt hoặc nghĩa phù hợp", "category": "Nhân vật/Địa danh/Tông môn/Công pháp/Khác"}
-    ]
+    Hãy trích xuất tất cả tên riêng trong văn bản, gồm tên người, địa danh, tổ chức, môn phái, công pháp, bảo vật và các thực thể có tên riêng.
+
+    FORMAT ĐẦU RA BẮT BUỘC:
+
+    * Mỗi thực thể xuất hiện trên một dòng riêng.
+    * Mỗi dòng có đúng dạng:
+    Tên gốc=Nghĩa tiếng Việt
+    * Không thêm số thứ tự, dấu đầu dòng, dấu ngoặc kép hoặc ký hiệu khác.
+    * Giữ nguyên tên gốc bằng chữ Hán ở bên trái dấu "=".
+    * Bên phải dấu "=" là cách dịch, Hán Việt hoặc phiên âm phù hợp.
+    * Nếu một tên xuất hiện nhiều lần thì chỉ xuất ra một lần.
+    * Nếu không tìm thấy tên riêng nào, chỉ trả về:
+    Không có name
+    * Không thêm bất kỳ lời giải thích, nhận xét hoặc nội dung nào khác.
+
+    QUY TẮC CHUẨN HOÁ:
+
+    * Tên Trung Quốc → Hán Việt.
+    * Tên Nhật, Hàn, Anh hoặc tên ngoại quốc viết bằng chữ Hán → dùng cách đọc/phiên âm đúng theo ngôn ngữ gốc, không đọc Hán Việt máy móc.
+    * Dạng “Họ/Tên + đại từ nhân xưng/chức danh/cách gọi” → giữ đúng thứ tự Họ/Tên + cách gọi tiếng Việt.
+    * Ví dụ:
+    何老三=Hà lão tam
+    李掌柜=Lý chưởng quầy
+    李医生=Lý bác sĩ
+    陈教授=Trần giáo sư
+    王老板=Vương lão bản
+    * Không đảo thứ tự thành “bác sĩ Lý”, “giáo sư Trần”...
     """
+
+    /// Nhận diện prompt trích xuất dạng JSON cũ để di trú sang dạng "Tên gốc=Nghĩa".
+    public static func looksLikeLegacyJSONNameExtractionPrompt(_ text: String) -> Bool {
+        let markers = ["suggestedMeaning", "extracted_names", "JSON hợp lệ"]
+        return markers.contains { text.contains($0) }
+    }
 
     public static var `default`: AIConfiguration {
         AIConfiguration()

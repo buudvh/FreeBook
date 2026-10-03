@@ -15,6 +15,20 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.468 — quét tên riêng toàn bộ chương đã tải: sheet chọn prompt + parser chỉ đọc `Tên gốc=Nghĩa`
+
+* **Chip "Lọc name cả bộ tải" không còn quét ngay** (`ReaderAIQuickActionChipsView.swift`, `ReaderAIFullScreenView+Actions.swift`, `ReaderAIFullScreenView.swift`, `ReaderAIBatchPromptSheet.swift`):
+  - `handleQuickAction(.extractNamesAllDownloaded)` chỉ bật `showingBatchPromptSheet`; `.sheet` dựng `ReaderAIBatchPromptSheet(settingsPrompt: nameExtractionPromptForSheet)`.
+  - Sheet 1 bước: 2 lựa chọn nguồn prompt — **Dùng prompt trong Cài đặt** (`config.nameExtractionPrompt`) hay **Tự nhập prompt** (ô `TextEditor` điền sẵn prompt đang lưu để sửa nhanh). Nút **Bắt đầu quét** gọi `onStart(prompt)` → `beginBatchExtraction(with:)` → `startBatchExtraction(promptOverride:)`.
+  - Prompt tự nhập **chỉ dùng cho một lần quét**, không ghi vào Cài đặt. `reloadSettings()` nạp `nameExtractionPromptForSheet` mỗi lần mở màn.
+* **Di trú prompt đã lưu** (`AISettingsStore.swift`, `AIConfiguration.swift`):
+  - `loadConfiguration()` gọi `migrateLegacyNamePromptIfNeeded(_:)`; nếu `AIConfiguration.looksLikeLegacyJSONNameExtractionPrompt` khớp (marker `suggestedMeaning` / `extracted_names` / `JSON hợp lệ`) thì thay bằng `defaultNameExtractionPrompt` và ghi thẳng UserDefaults (không phát notification, tránh tái nhập).
+* **Bộ bóc tách rời khỏi JSON** (`AINameExtractionBatchProcessor.swift`):
+  - `parseNamesFromJSONString` → **`parseNamesFromText`**: chỉ nhận dòng có dấu `=`, gộp trùng theo `original`, cộng dồn `occurrenceCount`; `category` cố định `"Tên riêng"`. Xoá `extractMarkdownBlock` / `cleanTrailingCommas` / `tryParseJSON` ⇒ file **277 → 135** dòng.
+  - `extractNamesFromText` / `extractNamesFromDownloadedChapters` nhận `promptOverride: String?`; `resolveSystemInstruction` ưu tiên prompt tự nhập → prompt đã lưu → prompt mặc định.
+  - `AIRuntimeCoordinator.startBatchExtraction` truyền tiếp `promptOverride`.
+* **Dọn nợ kèm theo**: xoá `ReaderAIFullScreenView.migrateLegacyJSONMessagesIfNeeded()` (dọn tin nhắn JSON cũ) và dead code `AIRuntimeCoordinator.startExtractNamesCurrentChapter` (không có call site).
+
 ## 1.3.465 — VieNeu có thanh "Tốc độ tổng hợp": giảm tính toán thay vì làm chậm tổng hợp
 
 * Tốc độ nay có **hai** thanh: *Tốc độ* (phát, `AVAudioPlayer.rate`) và *Tốc độ tổng hợp (VieNeu)* (đưa vào model qua `secs = exp(log_s)/speed`, `VieNeuTTSEngine.swift:336`). Tốc độ nghe = **tích** hai thanh, nên màn hình hiện luôn tích đó.
@@ -446,7 +460,7 @@ Người dùng cài IPA và bấm "Phát thử" → lỗi `Graph runtime không 
 * **Lọc Tên Riêng Cả Bộ Tải Lũy Tiến Từng Batch (`ReaderAIFullScreenView+Actions.swift`, `AIRuntimeCoordinator.swift`, `AINameExtractionBatchProcessor.swift`, `ReaderAIFullScreenView.swift`)**:
   - `ReaderAIFullScreenView+Actions` & `AIRuntimeCoordinator`: Mỗi khi hoàn thành 1 batch (5 chương), cập nhật ngay danh sách `Tên gốc=Nghĩa` vào tin nhắn Assistant. Các batch sau tự động gộp (merge/deduplicate) lũy tiến với danh sách trước.
   - Người dùng có thể nhấn giữ tin nhắn Assistant bất kỳ lúc nào ngay sau batch 1 để mở menu *"Thêm vào VP / Name riêng"* và lưu ngay lập tức.
-  - `AINameExtractionBatchProcessor`: Bổ sung fallback bóc tách danh sách dạng dòng `Từ=Nghĩa` ngoài JSON.
+  - `AINameExtractionBatchProcessor`: Bổ sung fallback bóc tách danh sách dạng dòng `Từ=Nghĩa` ngoài JSON. *(1.3.468: nhánh JSON đã bị xoá hẳn — xem mục 1.3.468 ở đầu tài liệu.)*
   - `ReaderAIFullScreenView`: Gỡ bỏ hoàn toàn việc render thẻ card inline ở đáy màn hình chat.
 * **Ổn Định Khung Cuộn Chat AI (`ReaderAIFullScreenView.swift`)**:
   - Chuyển đổi từ `LazyVStack` sang `VStack` trong ScrollView chat, triệt tiêu hoàn toàn hiện tượng layout ảo hoá làm cuộn tự giật nảy lên xuống.
@@ -509,7 +523,7 @@ Người dùng cài IPA và bấm "Phát thử" → lỗi `Graph runtime không 
   - `DictionaryHubView`: Bỏ `loadAllDictionaries()` trong `.onAppear`, loại bỏ việc nạp lại từ điển khi mở hub.
 * **Khắc Phục Đơ UI / TTS & Tối Ưu AI Streaming (`ReaderAIFullScreenView.swift`, `ReaderAIFullScreenView+Actions.swift`, `AIRuntimeCoordinator.swift`)**:
   - `ReaderAIFullScreenView`: Xoá bỏ việc gọi `resolveExtractedNames` trong body/`messageRow`, chuyển sang đọc thuộc tính tĩnh `message.extractedNames`, chấm dứt vòng lặp re-render liên tục gây lock Main Thread và làm gián đoạn TTS.
-  - `ReaderAIFullScreenView+Actions`: Thêm migration ngầm `migrateLegacyJSONMessagesIfNeeded()` trong background task khi nạp session.
+  - `ReaderAIFullScreenView+Actions`: Thêm migration ngầm `migrateLegacyJSONMessagesIfNeeded()` trong background task khi nạp session. *(1.3.468: đã gỡ.)*
   - `AIRuntimeCoordinator`: Áp dụng throttle cập nhật streaming delta ở mức 20 FPS (50ms).
 * **Nhập Từ Điển Riêng Từ Truyện Khác (`BookImportSourceSheet.swift`, `DictionaryListView.swift`, `DictionaryListView+Transfer.swift`)**:
   - `BookImportSourceSheet`: Tạo sheet chọn truyện nguồn với giao diện và thành phần đồng bộ 100% với `BookShareTargetSheet`, hỗ trợ 2 chế độ Gộp / Thay thế qua dialog xác nhận.
@@ -522,7 +536,7 @@ Người dùng cài IPA và bấm "Phát thử" → lỗi `Graph runtime không 
   - `OpenAIClient`: Bổ sung vòng lặp failover tự động qua danh sách API keys khi gặp HTTP 401, 403, 429 hoặc quota error, hàm `cleanToken`, và `testChatPing`.
 * **Trí Nhớ AI Toàn Cục, Tự Động Kích Hoạt Name Review Card & Icon Clipboard Tinh Gọn (`BookAIMemoryStore.swift`, `AIRuntimeCoordinator.swift`, `ReaderAIFullScreenView.swift`, `AISettingsView+Actions.swift`)**:
   - `BookAIMemoryStore`: Cập nhật `defaultGlobalMemoryPrompt` chuẩn hóa định dạng yêu cầu lọc name thuần JSON array.
-  - `AIRuntimeCoordinator` & `ReaderAIFullScreenView`: Tự động nhận diện response mảng JSON tên riêng ngay sau khi stream dừng hoặc khi nạp tin nhắn, bóc tách bằng `AINameExtractionBatchProcessor.parseNamesFromJSONString`, trang trí nhãn VP/NE và hiển thị ngay `ReaderAINameReviewCardView` (ẩn khối JSON thô).
+  - `AIRuntimeCoordinator` & `ReaderAIFullScreenView`: Tự động nhận diện response mảng JSON tên riêng ngay sau khi stream dừng hoặc khi nạp tin nhắn, bóc tách bằng `AINameExtractionBatchProcessor.parseNamesFromText`, trang trí nhãn VP/NE và hiển thị ngay `ReaderAINameReviewCardView`. *(1.3.468: nhánh JSON đã bị xoá; parser chỉ đọc dòng `Tên gốc=Nghĩa`.)*
   - Giao diện nút Clipboard (Xoá, Copy, Dán): Tinh chỉnh thành icon SF Symbols gọn gàng $28 \times 26\text{ pt}$ bo góc nhẹ trong cài đặt và trí nhớ sách.
 * **Tích Hợp Sao Lưu & Khôi Phục Dữ Liệu AI (`BackupSettingsArchiver.swift`, `BackupPaths.swift`, `BackupConfigArchiver.swift`)**:
   - `BackupSettingsArchiver`: Đưa `"FreeBook_AI_Configuration_V1"` vào danh sách cho phép xuất của cài đặt.

@@ -15,6 +15,11 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.468 — hai luật mới (prompt đã lưu phải di trú; bộ bóc tách chỉ một định dạng)
+
+* **Luật 20 — đổi prompt mặc định trong code KHÔNG tự áp cho người dùng cũ.** Prompt nằm trong `UserDefaults` (`FreeBook_AI_Configuration_V1`) sau lần lưu cấu hình đầu tiên; sửa hằng số `defaultNameExtractionPrompt` chỉ ảnh hưởng máy **chưa** từng lưu. Muốn đổi cho máy đã dùng thì phải **di trú tường minh** trong `loadConfiguration()` — nhận diện bản cũ bằng marker (`suggestedMeaning` / `extracted_names` / `JSON hợp lệ`) rồi ghi **thẳng** UserDefaults, **không** phát notification: phát notification ngay trong `loadConfiguration()` sẽ tái nhập qua `onReceive` → `reloadSettings()` → `loadConfiguration()`. Cùng khuôn với `BookAIMemoryStore.loadGlobalMemory()`.
+* **Luật 21 — bộ bóc tách chỉ nên có MỘT định dạng, và định dạng đó phải khớp prompt mặc định.** Bỏ 4 tầng dự phòng JSON (markdown fence → JSON trực tiếp → `[...]` → `{...}`) là **cố ý**: nhiều định dạng ⇒ prompt và parser có thể lệch nhau mà **không ai biết**, vì kết quả rỗng vẫn "không có lỗi". Đổi định dạng prompt thì phải đổi parser cùng lượt, và ngược lại. Đổi lại: model trả sai dấu phân cách (dấu hai chấm thay vì `=`) sẽ mất kết quả **im lặng** — đây là giá đã biết của luật này.
+
 ## 1.3.465 — hai luật mới (tốc độ tổng hợp & khoá cache)
 
 * **Luật 18 — khoá cache phải mang mọi tham số làm đổi audio.** `TTSSynthesisIdentity.computeKey` là khoá của cả nạp trước lẫn cache prefix liên chương. Bất kỳ tham số nào làm audio khác đi (giọng, văn bản, ranh giới, **và tốc độ tổng hợp**) phải nằm trong khoá; thiếu thì audio cũ được trả cho yêu cầu mới — nghe sai mà **không có lỗi nào**. Thêm tham số mới thì truyền tường minh ở mọi caller, đừng tin vào default.

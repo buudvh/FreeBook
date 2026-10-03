@@ -15,6 +15,17 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.468 — bộ bóc tách tên riêng rời khỏi JSON: `parseNamesFromText`
+
+* **Services/AI**:
+  - `AINameExtractionBatchProcessor`: **xoá** `parseNamesFromJSONString` cùng ba helper `extractMarkdownBlock` / `cleanTrailingCommas` / `tryParseJSON`; thay bằng `parseNamesFromText(_ rawString: String) -> [AIExtractedName]` — chỉ nhận dòng đúng dạng `Tên gốc=Nghĩa`, gộp trùng theo `original` và cộng dồn `occurrenceCount`. Hai hàm `extractNamesFromText` / `extractNamesFromDownloadedChapters` nhận thêm tham số `promptOverride: String?` (prompt tự nhập cho **một** lần quét).
+* **Models/AI**:
+  - `AIConfiguration`: thêm static `looksLikeLegacyJSONNameExtractionPrompt(_ text: String) -> Bool` — nhận diện prompt JSON cũ (marker `suggestedMeaning` / `extracted_names` / `JSON hợp lệ`) để di trú.
+* **Views/Reader/AI**:
+  - `ReaderAIBatchPromptSheet` — `struct View` **mới**: `settingsPrompt: String` + `onStart: (String) -> Void`, chọn nguồn prompt rồi trả prompt đã chốt qua `onStart`.
+* **Đã gỡ**: `ReaderAIFullScreenView.migrateLegacyJSONMessagesIfNeeded()` (extension `+SessionLoading`) — không còn type nào bóc JSON trong lịch sử chat.
+* **Đã gỡ**: `AIRuntimeCoordinator.startExtractNamesCurrentChapter(...)` — dead code, không có call site.
+
 ## 1.3.465 — API mới cho tốc độ tổng hợp
 
 * `VieNeuSynthesisPolicy`: + `synthesisSpeedKey`, `synthesisSpeedRange` (1,0...2,0), `synthesisSpeed(from:)` — hàm thuần nhận `UserDefaults`, mặc định **1,0**.

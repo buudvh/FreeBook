@@ -15,6 +15,16 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.468 — +1 file: sheet chọn prompt cho quét tên riêng toàn bộ chương đã tải
+
+| Nhóm | File mới | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Views/Reader | [`Views/Reader/AI/ReaderAIBatchPromptSheet.swift`](../../Sources/Views/Reader/AI/ReaderAIBatchPromptSheet.swift) | Sheet chọn nguồn prompt (Cài đặt / tự nhập) trước khi quét batch | 123 |
+
+* Số dòng sau thay đổi: `AINameExtractionBatchProcessor.swift` **277 → 135** (bỏ 4 tầng bóc JSON) · `AIRuntimeCoordinator.swift` **372 → 315** (xoá dead code `startExtractNamesCurrentChapter`) · `ReaderAIFullScreenView.swift` **372 → 382** · `ReaderAIFullScreenView+Actions.swift` **263 → 270** · `ReaderAIFullScreenView+SessionLoading.swift` **165 → 131** · `AISettingsStore.swift` **78 → 89** · `AIConfiguration.swift` **176 → 182**.
+* `AINameExtractionBatchProcessor.swift` nay chỉ còn **1 primary type** + không còn `parseNamesFromJSONString`; đổi tên thành `parseNamesFromText`.
+* Tất cả file mới/đổi đều dưới trần 400 dòng vật lý.
+
 ## 1.3.465 — Section 4 của màn Cài đặt TTS thành file riêng
 
 * File mới (dưới trần 400): `TTSSettingsView+Voice` **90** — chứa `voiceSection` (Tốc độ / Tốc độ tổng hợp / Cao độ) chuyển nguyên từ `TTSSettingsView.swift`.

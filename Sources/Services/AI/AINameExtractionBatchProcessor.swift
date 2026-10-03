@@ -9,15 +9,14 @@ public final class AINameExtractionBatchProcessor: Sendable {
     /// Quét tên riêng trên một chương duy nhất.
     public func extractNamesFromText(
         text: String,
-        config: AIConfiguration
+        config: AIConfiguration,
+        promptOverride: String? = nil
     ) async throws -> [AIExtractedName] {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return []
         }
 
-        let systemInstruction = config.nameExtractionPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            ? AIConfiguration.defaultNameExtractionPrompt
-            : config.nameExtractionPrompt
+        let systemInstruction = resolveSystemInstruction(config: config, promptOverride: promptOverride)
 
         // Giới hạn độ dài text nếu quá dài
         let truncated = String(text.prefix(15000))
@@ -36,13 +35,23 @@ public final class AINameExtractionBatchProcessor: Sendable {
         }
         guard let content = content else { return [] }
 
-        return parseNamesFromJSONString(content)
+        return parseNamesFromText(content)
+    }
+
+    /// Prompt hệ thống: ưu tiên prompt tự nhập cho lần quét này, rồi tới prompt đã lưu, cuối cùng là mặc định.
+    private func resolveSystemInstruction(config: AIConfiguration, promptOverride: String?) -> String {
+        if let override = promptOverride?.trimmingCharacters(in: .whitespacesAndNewlines), !override.isEmpty {
+            return override
+        }
+        let saved = config.nameExtractionPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        return saved.isEmpty ? AIConfiguration.defaultNameExtractionPrompt : saved
     }
 
     /// Quét tên riêng trên toàn bộ các chương đã tải về máy theo batch.
     public func extractNamesFromDownloadedChapters(
         bookId: String,
         config: AIConfiguration,
+        promptOverride: String? = nil,
         onProgress: @escaping @Sendable (Int, Int, [AIExtractedName]) -> Void
     ) async throws -> [AIExtractedName] {
         let downloaded = await AIBookDataInspector.shared.fetchDownloadedChapters(bookId: bookId)
@@ -70,7 +79,11 @@ public final class AINameExtractionBatchProcessor: Sendable {
             }
 
             if !combinedText.isEmpty {
-                if let batchResults = try? await extractNamesFromText(text: combinedText, config: config) {
+                if let batchResults = try? await extractNamesFromText(
+                    text: combinedText,
+                    config: config,
+                    promptOverride: promptOverride
+                ) {
                     for item in batchResults {
                         let orig = item.original.trimmingCharacters(in: .whitespacesAndNewlines)
                         guard !orig.isEmpty else { continue }
@@ -91,187 +104,32 @@ public final class AINameExtractionBatchProcessor: Sendable {
         return Array(aggregatedNames.values).sorted(by: { $0.occurrenceCount > $1.occurrenceCount })
     }
 
-    /// Bóc tách danh sách AIExtractedName từ chuỗi JSON (hỗ trợ markdown code blocks, bracket slice, đa dạng tên trường).
-    public func parseNamesFromJSONString(_ rawString: String) -> [AIExtractedName] {
-        let trimmed = rawString.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return [] }
-
-        // 1. Thử trích xuất từ khối markdown code block ```json ... ``` hoặc ``` ... ```
-        if let block = extractMarkdownBlock(from: trimmed), let items = tryParseJSON(block) {
-            return items
-        }
-
-        // 2. Thử parse trực tiếp chuỗi trimmed
-        if let items = tryParseJSON(trimmed) {
-            return items
-        }
-
-        // 3. Nếu chưa parse được, tìm dải JSON substring bắt đầu bằng '[' đến ']' cuối cùng (mảng JSON)
-        if let firstBracket = trimmed.firstIndex(of: "["),
-           let lastBracket = trimmed.lastIndex(of: "]"),
-           firstBracket < lastBracket {
-            let slice = String(trimmed[firstBracket...lastBracket])
-            if let items = tryParseJSON(slice) {
-                return items
-            }
-        }
-
-        // 4. Tìm dải JSON object '{' đến '}' cuối cùng (đề phòng AI bọc {"names": [...]})
-        if let firstBrace = trimmed.firstIndex(of: "{"),
-           let lastBrace = trimmed.lastIndex(of: "}"),
-           firstBrace < lastBrace {
-            let slice = String(trimmed[firstBrace...lastBrace])
-            if let items = tryParseJSON(slice) {
-                return items
-            }
-        }
-
-        // 5. Fallback: Parse các dòng dạng 'Tên gốc=Nghĩa'
-        let lines = trimmed.components(separatedBy: .newlines)
-        var fallbackList: [AIExtractedName] = []
-        for line in lines {
-            let clean = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard let eqIdx = clean.firstIndex(of: "=") else { continue }
-            let orig = String(clean[..<eqIdx]).trimmingCharacters(in: .whitespacesAndNewlines)
-            let meaning = String(clean[clean.index(after: eqIdx)...]).trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !orig.isEmpty, !meaning.isEmpty else { continue }
-            fallbackList.append(AIExtractedName(
-                original: orig,
-                suggestedMeaning: meaning,
-                category: "Tên riêng",
-                occurrenceCount: 1
-            ))
-        }
-        if !fallbackList.isEmpty {
-            return fallbackList
-        }
-
-        return []
-    }
-
-    private func extractMarkdownBlock(from text: String) -> String? {
-        guard let startRange = text.range(of: "```") else { return nil }
-        let afterStart = text[startRange.upperBound...]
-        var contentStart = afterStart.startIndex
-        if afterStart.hasPrefix("json") {
-            if let idx = afterStart.index(afterStart.startIndex, offsetBy: 4, limitedBy: afterStart.endIndex) {
-                contentStart = idx
-            }
-        }
-        let remaining = text[contentStart...]
-        guard let endRange = remaining.range(of: "```") else { return nil }
-        let extracted = String(remaining[..<endRange.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
-        return extracted.isEmpty ? nil : extracted
-    }
-
-    private func cleanTrailingCommas(_ json: String) -> String {
-        guard let regex = try? NSRegularExpression(pattern: ",\\s*([}\\]])", options: []) else {
-            return json
-        }
-        let range = NSRange(location: 0, length: json.utf16.count)
-        return regex.stringByReplacingMatches(in: json, options: [], range: range, withTemplate: "$1")
-    }
-
-    private func tryParseJSON(_ jsonString: String) -> [AIExtractedName]? {
-        let cleaned = cleanTrailingCommas(jsonString.trimmingCharacters(in: .whitespacesAndNewlines))
-        guard let data = cleaned.data(using: .utf8),
-              let jsonObject = try? JSONSerialization.jsonObject(with: data) else {
-            return nil
-        }
-
-        var rawList: [[String: Any]] = []
-
-        if let array = jsonObject as? [[String: Any]] {
-            rawList = array
-        } else if let dict = jsonObject as? [String: Any] {
-            let potentialKeys = ["names", "entities", "data", "result", "list", "items", "extracted_names", "characters"]
-            for key in potentialKeys {
-                if let subArray = dict[key] as? [[String: Any]] {
-                    rawList = subArray
-                    break
-                }
-            }
-            if rawList.isEmpty {
-                for (_, value) in dict {
-                    if let subArray = value as? [[String: Any]] {
-                        rawList = subArray
-                        break
-                    }
-                }
-            }
-        }
-
-        guard !rawList.isEmpty else { return nil }
-
+    /// Bóc tách danh sách tên riêng từ phản hồi AI dạng văn bản thuần, mỗi dòng đúng dạng `Tên gốc=Nghĩa`.
+    /// Mọi dòng không chứa dấu `=` (lời giải thích, code fence, câu "Không có name"...) đều bị bỏ qua.
+    public func parseNamesFromText(_ rawString: String) -> [AIExtractedName] {
         var results: [AIExtractedName] = []
-        var seenOriginals: [String: Int] = [:]
+        var indexByOriginal: [String: Int] = [:]
 
-        for dict in rawList {
-            let originalCandidates: [Any?] = [
-                dict["original"], dict["name"], dict["word"], dict["hanzi"],
-                dict["raw"], dict["chinese"], dict["text"]
-            ]
-            var origStr = ""
-            for candidate in originalCandidates {
-                if let str = candidate as? String, !str.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    origStr = str.trimmingCharacters(in: .whitespacesAndNewlines)
-                    break
-                }
-            }
-            guard !origStr.isEmpty else { continue }
+        for rawLine in rawString.components(separatedBy: .newlines) {
+            guard let eqIndex = rawLine.firstIndex(of: "=") else { continue }
 
-            let meaningCandidates: [Any?] = [
-                dict["suggestedMeaning"], dict["meaning"], dict["translation"],
-                dict["vietnamese"], dict["hvdic"], dict["hanviet"],
-                dict["viet"], dict["val"], dict["value"]
-            ]
-            var meaningStr = ""
-            for candidate in meaningCandidates {
-                if let str = candidate as? String, !str.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    meaningStr = str.trimmingCharacters(in: .whitespacesAndNewlines)
-                    break
-                }
-            }
-            guard !meaningStr.isEmpty else { continue }
+            let original = String(rawLine[..<eqIndex]).trimmingCharacters(in: .whitespacesAndNewlines)
+            let meaning = String(rawLine[rawLine.index(after: eqIndex)...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !original.isEmpty, !meaning.isEmpty else { continue }
 
-            let categoryCandidates: [Any?] = [
-                dict["category"], dict["type"], dict["tag"], dict["role"], dict["label"]
-            ]
-            var catStr = "Nhân vật"
-            for candidate in categoryCandidates {
-                if let str = candidate as? String, !str.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    catStr = str.trimmingCharacters(in: .whitespacesAndNewlines)
-                    break
-                }
-            }
-
-            let countCandidates: [Any?] = [
-                dict["occurrenceCount"], dict["count"], dict["occurrences"], dict["frequency"]
-            ]
-            var countVal = 1
-            for candidate in countCandidates {
-                if let intVal = candidate as? Int, intVal > 0 {
-                    countVal = intVal
-                    break
-                } else if let strVal = candidate as? String, let parsed = Int(strVal), parsed > 0 {
-                    countVal = parsed
-                    break
-                }
-            }
-
-            if let existingIndex = seenOriginals[origStr] {
-                results[existingIndex].occurrenceCount += countVal
+            if let existingIndex = indexByOriginal[original] {
+                results[existingIndex].occurrenceCount += 1
             } else {
-                seenOriginals[origStr] = results.count
+                indexByOriginal[original] = results.count
                 results.append(AIExtractedName(
-                    original: origStr,
-                    suggestedMeaning: meaningStr,
-                    category: catStr,
-                    occurrenceCount: countVal
+                    original: original,
+                    suggestedMeaning: meaning,
+                    category: "Tên riêng",
+                    occurrenceCount: 1
                 ))
             }
         }
 
-        return results.isEmpty ? nil : results
+        return results
     }
 }

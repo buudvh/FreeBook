@@ -15,6 +15,13 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.468 — sheet chọn prompt nằm đúng tầng View; Services/AI vẫn chỉ `import Foundation`
+
+* **File mới `Views/Reader/AI/ReaderAIBatchPromptSheet.swift`** nằm trong tầng View: chỉ dùng `SwiftUI`, không chạm `ModelContext`, không gọi `modelContext.insert/delete/save` ⇒ không vi phạm `VIEW_SWIFTDATA_MUTATION`.
+* **Chiều phụ thuộc không đổi**: `Views/Reader/AI/` → `Services/AI/` (`AISettingsStore`, `AINameExtractionBatchProcessor`) → `Models/AI/`. Không có phụ thuộc ngược từ `Services/` lên `Views/`.
+* `AISettingsStore` thêm hàm private `migrateLegacyNamePromptIfNeeded(_:)` — vẫn chỉ `import Foundation`, không `import SwiftUI`, không gọi `ToastManager.shared`.
+* `AINameExtractionBatchProcessor` sau khi bỏ 4 tầng bóc JSON vẫn chỉ `import Foundation` và **không** có singleton hướng-SwiftUI.
+
 ## 1.3.465 — Section 4 ra file riêng; hạ mức truy cập để nối được
 
 * `TTSSettingsView+Voice` (Views/TTSWidget) → `TTSSettingsView+VieNeu.vieneuSynthesisSpeedRow` → `TTSManager.invalidateVieNeuSynthesisSpeed()` (Services/TTS): View → Services, đúng chiều phụ thuộc.

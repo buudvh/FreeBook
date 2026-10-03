@@ -15,6 +15,33 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.468 — chip quét tên riêng mở sheet chọn prompt; gỡ hẳn nhánh JSON
+
+```text
+ReaderAIQuickActionChipsView (chip "Lọc name cả bộ tải")
+  └─ ReaderAIFullScreenView.handleQuickAction(.extractNamesAllDownloaded)
+        └─ showingBatchPromptSheet = true
+              └─ ReaderAIBatchPromptSheet(settingsPrompt: nameExtractionPromptForSheet)
+                    ├─ "Dùng prompt trong Cài đặt" → onStart(settingsPrompt)
+                    └─ "Tự nhập prompt"          → onStart(prompt tự nhập)
+                          └─ ReaderAIFullScreenView.beginBatchExtraction(with:)
+                                └─ startBatchExtraction(promptOverride:)
+                                      └─ AIRuntimeCoordinator.startBatchExtraction(promptOverride:)
+                                            └─ AINameExtractionBatchProcessor.extractNamesFromDownloadedChapters(promptOverride:)
+                                                  ├─ (mỗi batch 5 chương) extractNamesFromText(promptOverride:)
+                                                  │     ├─ resolveSystemInstruction: promptOverride → config.nameExtractionPrompt → defaultNameExtractionPrompt
+                                                  │     └─ parseNamesFromText(response)
+                                                  └─ onProgress(current, total, danh sách gộp luỹ tiến)
+
+ReaderAIFullScreenView.reloadSettings
+  └─ nameExtractionPromptForSheet = AISettingsStore.loadConfiguration().nameExtractionPrompt
+        └─ (AISettingsStore) migrateLegacyNamePromptIfNeeded
+              └─ AIConfiguration.looksLikeLegacyJSONNameExtractionPrompt
+```
+
+* **Đã gỡ khỏi call graph**: `migrateLegacyJSONMessagesIfNeeded` cùng `parseNamesFromJSONString` — tin nhắn JSON cũ trong lịch sử chat nay **không** còn được tự dọn thành text.
+* **Đã gỡ dead code**: `AIRuntimeCoordinator.startExtractNamesCurrentChapter` — không có call site nào trong toàn repo.
+
 ## 1.3.465 — tốc độ tổng hợp đi vào ba điểm gọi và vào khoá cache
 
 * `TTSManager.scheduleNghiRefill` (`:2903`) và đường phát on-demand (`:3596`) truyền `TTSManager.localSynthesisSpeed(forTool:)` thay vì hằng `1.0`; `TTSNextChapterPrefixSynthesizer.one` (`:28`) và `TTSChapterPrefetcher` (`:192`, nhánh local) cũng vậy ⇒ **4** điểm gọi local, rà bằng `grep "localService.synthesize|service.synthesizeWithDuration"`.
@@ -321,11 +348,7 @@ Khắc phục đơ UI và tối ưu AI streaming:
 ReaderAIFullScreenView
   ├─ messageRow: đọc trực tiếp message.extractedNames (O(1), không đọc đĩa, không sinh UUID)
   └─ switchToSession / initializeSession:
-        └─ migrateLegacyJSONMessagesIfNeeded (chạy ngầm Task.detached)
-              ├─ Lọc tin nhắn assistant cũ chưa có extractedNames
-              ├─ AINameExtractionBatchProcessor.parseNamesFromJSONString
-              ├─ AIBookDataInspector.decorateExtractedNames
-              └─ Lưu session ngầm vào AIChatHistoryStore
+        └─ (đã gỡ ở 1.3.468) migrateLegacyJSONMessagesIfNeeded — lịch sử chat JSON cũ nay không còn tự dọn
 
 AIRuntimeCoordinator.startChatStreaming:
   └─ for try await delta in stream:
@@ -353,7 +376,7 @@ ReaderAIFullScreenView / AINameExtractionBatchProcessor
 Tự động nhận diện & mở Name Review Card khi AI phản hồi danh sách tên:
 ReaderAIFullScreenView+Actions.startChatStreaming
   └─ onComplete (nhận toàn bộ chuỗi phản hồi assistant):
-        ├─ AINameExtractionBatchProcessor.parseNamesFromJSONString(fullContent)
+        ├─ AINameExtractionBatchProcessor.parseNamesFromText(fullContent)
         └─ Nếu tìm thấy danh sách tên riêng:
               ├─ AIBookDataInspector.shared.decorateExtractedNames(names, bookId)
               ├─ session.messages[last].content = "Đã tìm thấy X tên riêng trong phản hồi:"
@@ -428,7 +451,7 @@ ReaderView (bấm nút sparkles trên Header/Menu)
               ├─ Gửi tin nhắn chat thông thường (Streaming):
               │     └─ ReaderAIFullScreenView+Actions.sendMessage()
               │           ├─ OpenAIClient / AnthropicClient.sendChatStreaming(request:)
-              │           ├─ Tự động kiểm tra sau khi stream dừng: AINameExtractionBatchProcessor.parseNamesFromJSONString(accumulated) -> Tự động kích hoạt ReaderAINameReviewCardView nếu có mảng JSON tên riêng
+              │           ├─ Tự động kiểm tra sau khi stream dừng: AINameExtractionBatchProcessor.parseNamesFromText(accumulated) -> Tự động kích hoạt ReaderAINameReviewCardView nếu có danh sách tên dạng Tên gốc=Nghĩa
               │           └─ AIChatHistoryStore.saveSession(session)
               ├─ Tác vụ nhanh: Tóm tắt chương:
               │     └─ handleQuickAction(.summarizeChapter)

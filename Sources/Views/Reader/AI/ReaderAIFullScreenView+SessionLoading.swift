@@ -69,7 +69,6 @@ extension ReaderAIFullScreenView {
         }
         selectedModel = session.model
         isLoadingSession = false
-        migrateLegacyJSONMessagesIfNeeded()
     }
 
     internal func switchToSession(_ session: AIChatSession) {
@@ -127,39 +126,6 @@ extension ReaderAIFullScreenView {
         }
         if changed {
             AIChatHistoryStore.shared.saveSession(session, for: session.bookId)
-        }
-    }
-
-    internal func migrateLegacyJSONMessagesIfNeeded() {
-        let snapshot = currentSession
-        let bid = bookId
-        guard snapshot.messages.contains(where: {
-            $0.role == .assistant && !$0.isStreaming && ($0.extractedNames == nil || $0.extractedNames?.isEmpty == true)
-        }) else { return }
-
-        Task.detached(priority: .utility) {
-            var updated = snapshot.messages
-            var changed = false
-            for i in updated.indices {
-                let msg = updated[i]
-                if msg.role == .assistant, !msg.isStreaming, (msg.extractedNames == nil || msg.extractedNames?.isEmpty == true) {
-                    let parsed = AINameExtractionBatchProcessor.shared.parseNamesFromJSONString(msg.content)
-                    if !parsed.isEmpty {
-                        let plainText = self.condenseExtractedNamesToText(names: parsed, title: "Danh sách tên riêng:")
-                        updated[i].content = plainText
-                        updated[i].extractedNames = nil
-                        changed = true
-                    }
-                }
-            }
-            if changed {
-                await MainActor.run {
-                    if self.currentSession.id == snapshot.id {
-                        self.currentSession.messages = updated
-                        AIChatHistoryStore.shared.saveSession(self.currentSession, for: bid)
-                    }
-                }
-            }
         }
     }
 }
