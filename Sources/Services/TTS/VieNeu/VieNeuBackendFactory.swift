@@ -11,15 +11,12 @@ enum VieNeuBackendFactory {
         let fallback: VieNeuONNXRuntime?
     }
 
-    /// `computeUnits` cho Core ML — **`.cpuAndGPU` (LOẠI ANE)**.
+    /// `computeUnits` cho Core ML — `.all` (ANE + GPU + CPU).
     ///
-    /// Vì sao KHÔNG còn `.all`: self-test trên **máy thật** (dùng ANE) báo `vector_estimator-T234`
-    /// `vel = −2 dB` (rác) ⇒ T234 rớt ORT; nhưng `verify_package` trên CI (macOS VM **không ANE**,
-    /// chạy CPU) báo T234 đạt ≥30 dB cho **cùng gói** (sha y hệt). Khác biệt duy nhất là ANE ⇒ ANE
-    /// cho kết quả sai với T234 ⇒ lệch âm sắc đoạn dài (ORT) vs đoạn ngắn (Core ML) = "lúc đọc đúng
-    /// lúc đọc không đúng". Số đo tốc độ trước đây đến từ **CPU+fp16**, không từ ANE ⇒ bỏ ANE không
-    /// mất tốc độ đã đo. (Nếu GPU cũng lỗi thì hạ tiếp `.cpuOnly`.)
-    static let coreMLComputeUnits: MLComputeUnits = .cpuAndGPU
+    /// ⚠️ **1.3.497 từng đổi sang `.cpuAndGPU` để "loại ANE"** (giả thuyết ANE làm hỏng T234) — **SAI**:
+    /// log `app_logs (71).txt` cho thấy T234 vẫn `vel=-2dB` dưới **cả** GPU/CPU, còn T64/T96 **TỤT**
+    /// 50 → 42/41 dB (ANE chính xác hơn GPU). Revert về `.all` ở 1.3.498. Xem `Docs/CodeGraph/CHANGELOG.md`.
+    static let coreMLComputeUnits: MLComputeUnits = .all
 
     /// Dựng lựa chọn bộ máy.
     ///

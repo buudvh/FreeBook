@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.498] - 2026-10-03
+
+### revert: trả computeUnits Core ML về .all (bỏ thử nghiệm loại ANE ở 1.3.497)
+
+1.3.497 đổi `.all` → `.cpuAndGPU` để "loại ANE" (giả thuyết ANE làm hỏng `vector_estimator-T234`). Log `app_logs (71).txt` (self-test ngay sau khi cài 1.3.497) chứng minh giả thuyết **SAI**:
+
+- T234 vẫn `vel=-2dB` dưới **cả** GPU/CPU ⇒ ANE không phải nguyên nhân; T234 hỏng on-device ở **mọi** compute units.
+- T64/T96 **tụt** 50 → 42/41 dB (ANE chính xác hơn GPU) ⇒ `.cpuAndGPU` làm 2 bucket tốt tệ đi = "nặng hơn trước".
+
+⇒ Revert `VieNeuBackendFactory.coreMLComputeUnits` về `.all`. **Giữ** thay đổi 1.3.497 ở `VieNeuBackendSelfTest.run` (self-test dùng chung hằng số compute units với production — tốt về sau). Không đổi gì khác.
+
+- Cổng: `check_architecture.py` 5 nền / 0 mới.
+
+---
+
 ## [1.3.497] - 2026-10-03
 
 ### fix: loại ANE khỏi Core ML (computeUnits .cpuAndGPU) để T234 đạt self-test
