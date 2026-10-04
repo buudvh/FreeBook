@@ -15,6 +15,26 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.470 — phạm vi quét tên riêng: từ chip xuống tới lọc mục lục
+
+```text
+ReaderAIQuickActionChipsView ("Lọc name cả bộ tải")
+  └─ ReaderAIFullScreenView (.sheet)
+       └─ ReaderAIBatchPromptSheet(settingsPrompt:bookId:chapterIndex:onStart:)
+            ├─ .task → AIBookDataInspector.nameScanScopeSummary(bookId:fromChapterIndex: chapterIndex)   (đếm chương + tên chương đầu)
+            ├─ .task → AIBookDataInspector.nameScanScopeSummary(bookId:)                                 (tổng số chương đã tải)
+            ├─ Toggle "Từ chương đang đọc" .onChange → AINameScanScopeStore.setPrefersFromCurrentChapter
+            └─ "Bắt đầu quét" → onStart(prompt, fromCurrentChapter)
+                 └─ ReaderAIFullScreenView+Actions.beginBatchExtraction(with:fromCurrentChapter:)
+                      └─ startBatchExtraction(promptOverride:fromChapterIndex: fromCurrentChapter ? chapterIndex : nil)
+                           └─ AIRuntimeCoordinator.startBatchExtraction(fromChapterIndex:)
+                                └─ AINameExtractionBatchProcessor.extractNamesFromDownloadedChapters(fromChapterIndex:)
+                                     └─ AIBookDataInspector.fetchDownloadedChapters(fromChapterIndex:)
+                                          └─ ChapterStore.fetchOrderedTOC → filter isCached && length > 0 && index >= from
+```
+
+* `AINameScanScopeStore.prefersFromCurrentChapter(bookId:)` đọc trong `init` của sheet ⇒ trạng thái toggle đúng ngay khi mở, không có frame sai.
+
 ## 1.3.469 — hai nút Lưu gom về một chỗ, và một đường ghi phiên âm dùng chung
 
 ```text

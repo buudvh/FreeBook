@@ -15,6 +15,16 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.470 — +1 file: store lưu phạm vi quét tên riêng theo từng truyện
+
+| Nhóm | File mới | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Services/AI | [`Services/AI/AINameScanScopeStore.swift`](../../Sources/Services/AI/AINameScanScopeStore.swift) | Lưu lựa chọn "từ chương đang đọc" ↔ "toàn bộ chương đã tải" theo `bookId`; mặc định bật | 28 |
+
+* Import mới: `ReaderAIBatchPromptSheet` → `Services/AI/AINameScanScopeStore` (đọc/ghi lựa chọn) và → `Services/AI/Harness/AIBookDataInspector` (`nameScanScopeSummary` đếm chương). Không có import ngược từ `Services/` lên `Views/`.
+* Số dòng sau thay đổi: `AINameExtractionBatchProcessor.swift` **135 → 140** · `AIBookDataInspector.swift` **167 → 179** · `AIRuntimeCoordinator.swift` **320 → 322** · `ReaderAIBatchPromptSheet.swift` **123 → 190** · `ReaderAIFullScreenView+Actions.swift` **271 → 273** · `ReaderAIFullScreenView.swift` **382 → 384**.
+* `ReaderAIBatchPromptSheet` vẫn là 1 primary type, không tách file.
+
 ## 1.3.469 — +1 file: service ghi phiên âm dùng chung
 
 | Nhóm | File mới | Vai trò | Dòng |

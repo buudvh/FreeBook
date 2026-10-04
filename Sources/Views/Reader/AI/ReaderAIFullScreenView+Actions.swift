@@ -161,18 +161,19 @@ extension ReaderAIFullScreenView {
         }
     }
 
-    /// Chạy quét batch với prompt người dùng đã chọn trong sheet.
-    internal func beginBatchExtraction(with prompt: String) {
-        startBatchExtraction(promptOverride: prompt)
+    /// Chạy quét batch với prompt và phạm vi người dùng đã chọn trong sheet.
+    internal func beginBatchExtraction(with prompt: String, fromCurrentChapter: Bool) {
+        startBatchExtraction(promptOverride: prompt, fromChapterIndex: fromCurrentChapter ? chapterIndex : nil)
     }
 
-    internal func startBatchExtraction(promptOverride: String? = nil) {
+    internal func startBatchExtraction(promptOverride: String? = nil, fromChapterIndex: Int? = nil) {
         guard !isBatchExtracting else { return }
         isBatchExtracting = true
         batchProgress = (0, 1)
         batchExtractedNames.removeAll()
 
-        let userMsg = AIChatMessage(role: .user, content: "Quét tên riêng toàn bộ chương đã tải")
+        let scopeLabel = fromChapterIndex == nil ? "toàn bộ chương đã tải" : "từ chương đang đọc"
+        let userMsg = AIChatMessage(role: .user, content: "Quét tên riêng \(scopeLabel)")
         currentSession.messages.append(userMsg)
 
         let msgId = UUID()
@@ -192,6 +193,7 @@ extension ReaderAIFullScreenView {
             bookId: bookId,
             config: config,
             promptOverride: promptOverride,
+            fromChapterIndex: fromChapterIndex,
             session: currentSession,
             assistantMsgId: msgId,
             onProgress: { [self] (current: Int, total: Int, partial: [AIExtractedName]) in

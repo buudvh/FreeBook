@@ -6,12 +6,24 @@ final class AIBookDataInspector: Sendable {
 
     private init() {}
 
-    /// Lấy danh sách tất cả các chương đã tải về (isCached = true) của cuốn sách.
-    func fetchDownloadedChapters(bookId: String) async -> [StoredChapterSnapshot] {
+    /// Lấy danh sách các chương đã tải về (isCached = true) của cuốn sách.
+    /// Truyền `fromChapterIndex` để chỉ lấy các chương từ vị trí đó trở đi (dùng cho quét "từ chương đang đọc").
+    func fetchDownloadedChapters(bookId: String, fromChapterIndex: Int? = nil) async -> [StoredChapterSnapshot] {
         guard let toc = try? await ChapterStore.shared.fetchOrderedTOC(bookId: bookId) else {
             return []
         }
-        return toc.filter { $0.isCached && $0.length > 0 }
+        let cached = toc.filter { $0.isCached && $0.length > 0 }
+        guard let from = fromChapterIndex else { return cached }
+        return cached.filter { $0.index >= from }
+    }
+
+    /// Tóm tắt phạm vi quét để hiện trong sheet: số chương sẽ quét và tiêu đề chương đầu tiên.
+    func nameScanScopeSummary(bookId: String, fromChapterIndex: Int? = nil) async -> (count: Int, firstTitle: String?) {
+        let chapters = await fetchDownloadedChapters(bookId: bookId, fromChapterIndex: fromChapterIndex)
+        guard let first = chapters.first else { return (0, nil) }
+        let title = first.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let fallback = first.titleTrans?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return (chapters.count, title.isEmpty ? (fallback.isEmpty ? nil : fallback) : title)
     }
 
     /// Đọc nội dung raw (chưa dịch) từ file binary của một chương đã tải.

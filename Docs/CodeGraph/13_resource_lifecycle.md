@@ -15,6 +15,12 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.470 — vòng đời lựa chọn phạm vi và cách sheet không giữ tác vụ nền
+
+* **Khoá UserDefaults mới `FreeBook_AI_NameScanScope_V1`** (`AINameScanScopeStore`): dictionary `[bookId: Bool]`, chỉ đọc khi dựng sheet và ghi trong `.onChange` của toggle. Không có bộ nhớ đệm trong RAM (mỗi lần đọc là một lần `UserDefaults.standard.dictionary`) ⇒ không có nguy cơ lệch giữa các màn; cũng **không** phát `NotificationCenter` ⇒ không có vòng lặp reload ↔ save như `AISettingsStore`.
+* **Tác vụ đếm chương sống theo sheet**: `.task { await loadScopeSummary() }` chạy hai lượt `nameScanScopeSummary` bằng `async let`, gán kết quả qua `await MainActor.run`. SwiftUI tự huỷ tác vụ khi sheet đóng ⇒ không có Task nào sống sót; không giữ `ModelContext`, không đụng `AVAudioEngine` / `WKWebView`.
+* Đọc TOC qua `ChapterStore.fetchOrderedTOC` là **chỉ đọc**: không ghi `chapter_store.sqlite`, không tạo `ModelContext` mới.
+
 ## 1.3.469 — vòng đời trạng thái batch: `batchProgress` phải về `nil`
 
 * `AIRuntimeCoordinator.startBatchExtraction` nay đặt `batchProgress = nil` ở **cả** nhánh thành công và nhánh lỗi (trước đây chỉ `cancelActiveTask()` xoá). Đây là bản sửa cho lỗi thanh tiến trình quét treo: `@Published` phát lại giá trị hiện tại cho subscriber mới, nên giữ `(total, total)` đồng nghĩa mỗi lần màn AI dựng lại là thanh tiến trình hiện lại và không có emission nào tắt nó.

@@ -15,6 +15,14 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.470 — toggle "Từ chương đang đọc" cho quét tên riêng, nhớ lựa chọn theo từng truyện
+
+* Thêm **1** file Swift (`Services/AI/AINameScanScopeStore.swift`, **28** dòng) ⇒ validator đếm **642** file, bộ tài liệu vẫn **16** doc.
+* **`ReaderAIBatchPromptSheet` có Section "Phạm vi quét"** đặt **trên** "Nguồn prompt": `Toggle("Từ chương đang đọc")` kèm dòng phụ đếm số chương và tên chương đầu (`42 chương — từ ch.108: …`); phạm vi rỗng thì dòng phụ đỏ và nút "Bắt đầu quét" bị khoá. `onStart` đổi từ `(String)` sang `(String, Bool)`.
+* **Đường truyền phạm vi**: `ReaderAIFullScreenView` truyền `bookId` + `chapterIndex` cho sheet → `beginBatchExtraction(with:fromCurrentChapter:)` → `startBatchExtraction(promptOverride:fromChapterIndex:)` → `AIRuntimeCoordinator.startBatchExtraction` → `AINameExtractionBatchProcessor.extractNamesFromDownloadedChapters(fromChapterIndex:)` → `AIBookDataInspector.fetchDownloadedChapters(fromChapterIndex:)` lọc thêm `index >= from`. Tin nhắn trong timeline đổi theo phạm vi ("Quét tên riêng từ chương đang đọc" / "…toàn bộ chương đã tải").
+* **Lưu theo truyện**: `AINameScanScopeStore` (UserDefaults `FreeBook_AI_NameScanScope_V1`, dạng `[bookId: Bool]`), mặc định **bật**; tách khỏi `AISettingsStore` vì `AIConfiguration` là bản ghi **chung** cho mọi truyện.
+* Số dòng: `AINameExtractionBatchProcessor` **135 → 140** · `AIBookDataInspector` **167 → 179** · `AIRuntimeCoordinator` **320 → 322** · `ReaderAIBatchPromptSheet` **123 → 190** · `ReaderAIFullScreenView+Actions` **271 → 273** · `ReaderAIFullScreenView` **382 → 384**.
+
 ## 1.3.469 — "Lưu tất cả" ở màn Thêm từ mới, nút Lưu góc phải cho sheet duyệt tên riêng, và sửa thanh tiến trình quét không tự tắt
 
 * Thêm **1** file Swift (`Services/TTS/Preprocessing/PhoneticDictionaryWriter.swift`, **74** dòng) ⇒ validator đếm **641** file, bộ tài liệu vẫn **16** doc.

@@ -47,14 +47,19 @@ public final class AINameExtractionBatchProcessor: Sendable {
         return saved.isEmpty ? AIConfiguration.defaultNameExtractionPrompt : saved
     }
 
-    /// Quét tên riêng trên toàn bộ các chương đã tải về máy theo batch.
+    /// Quét tên riêng trên các chương đã tải về máy theo batch.
+    /// `fromChapterIndex` khác nil thì chỉ quét từ chương đó trở đi (chế độ "từ chương đang đọc").
     public func extractNamesFromDownloadedChapters(
         bookId: String,
         config: AIConfiguration,
         promptOverride: String? = nil,
+        fromChapterIndex: Int? = nil,
         onProgress: @escaping @Sendable (Int, Int, [AIExtractedName]) -> Void
     ) async throws -> [AIExtractedName] {
-        let downloaded = await AIBookDataInspector.shared.fetchDownloadedChapters(bookId: bookId)
+        let downloaded = await AIBookDataInspector.shared.fetchDownloadedChapters(
+            bookId: bookId,
+            fromChapterIndex: fromChapterIndex
+        )
         guard !downloaded.isEmpty else { return [] }
 
         // Chia nhóm các chương thành các batch 5 chương

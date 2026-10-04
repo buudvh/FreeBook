@@ -15,6 +15,15 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.470 — quét tên riêng có phạm vi: "từ chương đang đọc" hay toàn bộ chương đã tải
+
+* **Phân hệ AI Harness — luồng quét batch (`ReaderAIBatchPromptSheet.swift`, `ReaderAIFullScreenView.swift`, `ReaderAIFullScreenView+Actions.swift`, `AIRuntimeCoordinator.swift`, `AINameExtractionBatchProcessor.swift`, `AIBookDataInspector.swift`)**:
+  - Sheet chọn prompt nay có thêm **Section "Phạm vi quét"** ở trên cùng: `Toggle("Từ chương đang đọc")`. Bật ⇒ chỉ lấy các chương đã tải có `index >= chapterIndex`; tắt ⇒ toàn bộ chương đã tải (hành vi cũ).
+  - Dòng phụ dưới toggle đếm **số chương + tên chương đầu** cho đúng phạm vi đang chọn, lấy từ `AIBookDataInspector.nameScanScopeSummary` (hai lượt chạy song song khi mở sheet). Phạm vi rỗng ⇒ dòng phụ đỏ + khoá nút "Bắt đầu quét" ⇒ **không** gọi AI vô ích.
+  - `AINameExtractionBatchProcessor` vẫn gom batch 5 chương và cắt 15.000 ký tự/batch; chỉ đổi tập chương đầu vào.
+* **Lưu lựa chọn theo truyện (`AINameScanScopeStore.swift`)**: UserDefaults `FreeBook_AI_NameScanScope_V1` dạng `[bookId: Bool]`, mặc định **bật** (tiết kiệm token ngay lần đầu). Ghi ngay trong `.onChange` của toggle, đọc trong `init` của sheet ⇒ không cần nút "Lưu" riêng.
+* **Tin nhắn timeline**: `startBatchExtraction` dựng nội dung theo phạm vi ("Quét tên riêng từ chương đang đọc" / "Quét tên riêng toàn bộ chương đã tải") để lịch sử chat phản ánh đúng lượt quét.
+
 ## 1.3.469 — lưu phiên âm một đường dùng chung; nút Lưu của hai sheet gom về thanh điều hướng
 
 * **Ghi phiên âm dùng chung (`PhoneticDictionaryWriter.swift`, `AddWordSheet.swift`, `ReaderView.swift`, `TTSDictionaryEditView.swift`, `VieNeuJapaneseDictionaryView.swift`)**:

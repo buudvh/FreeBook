@@ -15,6 +15,13 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.470 — store phạm vi quét nằm ở Services, chỉ `import Foundation`
+
+* **File mới `Services/AI/AINameScanScopeStore.swift`** chỉ `import Foundation`, không `import SwiftUI`, không gọi `ToastManager.shared` ⇒ không vi phạm `SERVICE_SWIFTUI_IMPORT` / `SERVICE_TOAST_COUPLING`. Không chạm `ModelContext` ⇒ không vi phạm `VIEW_SWIFTDATA_MUTATION` ở phía view.
+* **Chiều phụ thuộc không đổi**: `Views/Reader/AI/` → `Services/AI/` (`AINameScanScopeStore`, `AIBookDataInspector`, `AINameExtractionBatchProcessor`) → `Services/ChapterText/ChapterStore`. Không có phụ thuộc ngược từ `Services/` lên `Views/`.
+* **Vì sao không gộp vào `AISettingsStore`**: cấu hình AI là một bản ghi **chung** (`AIConfiguration`) cho mọi truyện; lựa chọn phạm vi đi theo `bookId` nên cần khoá UserDefaults riêng dạng dictionary — gộp vào đó sẽ ép mọi truyện cùng một thói quen.
+* `AIBookDataInspector` thêm `nameScanScopeSummary` và tham số `fromChapterIndex` (giá trị mặc định `nil` ⇒ call site cũ không đổi) — vẫn chỉ `import Foundation`.
+
 ## 1.3.469 — một đường ghi phiên âm ở tầng Services cho cả ba màn
 
 * **File mới `Services/TTS/Preprocessing/PhoneticDictionaryWriter.swift`** chỉ `import Foundation`; **không** `import SwiftUI`, **không** gọi `ToastManager.shared` (câu thông báo trả về dưới dạng `String` để tầng View tự hiện Toast) ⇒ không vi phạm `SERVICE_SWIFTUI_IMPORT` / `SERVICE_TOAST_COUPLING`.

@@ -15,6 +15,13 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.470 — +1 file 28 dòng; `ReaderAIFullScreenView` 384/400; 5 violation nền
+
+* **1 file Swift mới, 1 primary type top level**: `Services/AI/AINameScanScopeStore.swift` — **28**/400 dòng.
+* Số dòng sau thay đổi: `AINameExtractionBatchProcessor.swift` **135 → 140** · `AIBookDataInspector.swift` **167 → 179** · `AIRuntimeCoordinator.swift` **320 → 322** · `ReaderAIBatchPromptSheet.swift` **123 → 190** · `ReaderAIFullScreenView+Actions.swift` **271 → 273** · `ReaderAIFullScreenView.swift` **382 → 384** (không có baseline riêng, trần 400 ⇒ còn 16 dòng dư).
+* `check_architecture.py`: **5 violation nền cũ, 0 vi phạm mới** (`ChapterPersistenceStore` · `JSDom` · `JSExecutor` · `TTSManager` · `ReaderViewModel` — đều không thuộc vùng sửa).
+* Không có `MULTI_PRIMARY_TYPES`, `VIEW_SWIFTDATA_MUTATION`, `SERVICE_TOAST_COUPLING` hay `SERVICE_SWIFTUI_IMPORT` mới. Không có TODO/FIXME mới.
+
 ## 1.3.469 — +1 file 74 dòng; `ReaderView` lùi thêm 6 dòng; 5 violation nền
 
 * **1 file Swift mới, 1 primary type top level**: `Services/TTS/Preprocessing/PhoneticDictionaryWriter.swift` — **74**/400 dòng (enum + 2 type lồng `Destination`, `Result`).

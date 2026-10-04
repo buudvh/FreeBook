@@ -259,8 +259,10 @@ public struct ReaderAIFullScreenView: View {
             .sheet(isPresented: $showingBatchPromptSheet) {
                 ReaderAIBatchPromptSheet(
                     settingsPrompt: nameExtractionPromptForSheet,
-                    onStart: { prompt in
-                        beginBatchExtraction(with: prompt)
+                    bookId: bookId,
+                    chapterIndex: chapterIndex,
+                    onStart: { prompt, fromCurrentChapter in
+                        beginBatchExtraction(with: prompt, fromCurrentChapter: fromCurrentChapter)
                     }
                 )
             }
