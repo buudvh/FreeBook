@@ -3,9 +3,9 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-10-04T07:07:52Z",
-  "gitCommit": "7aaf3c006185bb265488c82d229e24f3f0c1f69a",
-  "sourceFileCount": 642,
+  "generatedAt": "2026-10-05T02:18:29Z",
+  "gitCommit": "bc2c33e3b8d98b30c6a1e3c553ce5914c69d43c5",
+  "sourceFileCount": 643,
   "documentCount": 16,
   "documents": [
     {
@@ -434,6 +434,7 @@
         "Sources/Views/Common/BypassBrowserWebPane.swift",
         "Sources/Views/Common/BypassWebView.swift",
         "Sources/Views/Common/CategoryNovelsListView.swift",
+        "Sources/Views/Common/ChapterLimitPickerRows.swift",
         "Sources/Views/Common/DocumentPicker.swift",
         "Sources/Views/Common/ExpandableTextView.swift",
         "Sources/Views/Common/ExportShareCoordinator.swift",
@@ -659,12 +660,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "fce820ad97f0b8e7fa5e258e984d5143e130ba33bc3344c8206666dbe3aa3dd1",
-      "sourceHash": "bf564bc5df57bb728d2f5c7d45e35dde470d3a53e2d2fa544a3e7cd06f637740",
-      "generatedHash": "41fe684f20168f39b10916d4cb6aa4dcff33ccc9120dc399677c3e7b637a1263",
-      "generatedAt": "2026-10-04T07:07:52Z",
-      "reviewedAt": "2026-10-04T07:07:52Z",
-      "reviewedCommit": "7aaf3c006185bb265488c82d229e24f3f0c1f69a",
+      "structureHash": "3ace445d161b9d76af9a5b1c92738c97181ffec3824c51a7aeea08711f125a81",
+      "sourceHash": "bf4c66dc3115f028000392d36e2c118a16422d845626ca1bc0e9baff62c0d974",
+      "generatedHash": "fe14820e08c7914b4c0a2184aad78e6d6ff1d646a07c488c83c352a0c64c0c14",
+      "generatedAt": "2026-10-05T02:18:22Z",
+      "reviewedAt": "2026-10-05T02:18:22Z",
+      "reviewedCommit": "bc2c33e3b8d98b30c6a1e3c553ce5914c69d43c5",
       "reviewMode": "accept"
     },
     {
@@ -1121,6 +1122,7 @@
         "Sources/Views/Common/BypassBrowserWebPane.swift",
         "Sources/Views/Common/BypassWebView.swift",
         "Sources/Views/Common/CategoryNovelsListView.swift",
+        "Sources/Views/Common/ChapterLimitPickerRows.swift",
         "Sources/Views/Common/DocumentPicker.swift",
         "Sources/Views/Common/ExpandableTextView.swift",
         "Sources/Views/Common/ExportShareCoordinator.swift",
@@ -1346,12 +1348,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "fce820ad97f0b8e7fa5e258e984d5143e130ba33bc3344c8206666dbe3aa3dd1",
-      "sourceHash": "bf564bc5df57bb728d2f5c7d45e35dde470d3a53e2d2fa544a3e7cd06f637740",
-      "generatedHash": "2d4ae1901a69653e8a9f734d745fef0452c58616fe2c018afa2e9c052eb9e3d9",
-      "generatedAt": "2026-10-04T07:07:52Z",
-      "reviewedAt": "2026-10-04T07:07:52Z",
-      "reviewedCommit": "7aaf3c006185bb265488c82d229e24f3f0c1f69a",
+      "structureHash": "3ace445d161b9d76af9a5b1c92738c97181ffec3824c51a7aeea08711f125a81",
+      "sourceHash": "bf4c66dc3115f028000392d36e2c118a16422d845626ca1bc0e9baff62c0d974",
+      "generatedHash": "9411a917e7c4f493e0d6b8c4858967ef9c63094b4cf2bff216ae53c6a7f4b0f0",
+      "generatedAt": "2026-10-05T02:18:24Z",
+      "reviewedAt": "2026-10-05T02:18:24Z",
+      "reviewedCommit": "bc2c33e3b8d98b30c6a1e3c553ce5914c69d43c5",
       "reviewMode": "accept"
     },
     {
@@ -1671,11 +1673,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "36fde46871c2e9abecf46ac7aef7a52cd442c074843ea4b5c2d3ebe9e272ef97",
-      "sourceHash": "37ddd58a760f61975bc801e5e2d92685a41f3daa4b1fd9b72a65670914519d3a",
-      "generatedHash": "7dae2b47c1f5b0e4b30466140a58e89958f7b184b418513ef8a32d12309744fa",
-      "generatedAt": "2026-10-04T07:07:52Z",
-      "reviewedAt": "2026-10-04T07:07:52Z",
-      "reviewedCommit": "7aaf3c006185bb265488c82d229e24f3f0c1f69a",
+      "sourceHash": "83ed88e1415e962ddea5af23ee68eb933263b789dea79de8841de74c0a5c5fa9",
+      "generatedHash": "367422023f9cb2cb356c5c2e3c8fb1916ebd90e2928286567d04acaa7256bdb5",
+      "generatedAt": "2026-10-05T02:18:25Z",
+      "reviewedAt": "2026-10-05T02:18:25Z",
+      "reviewedCommit": "bc2c33e3b8d98b30c6a1e3c553ce5914c69d43c5",
       "reviewMode": "accept"
     },
     {
@@ -2401,6 +2403,7 @@
         "Sources/Views/Common/BypassBrowserWebPane.swift",
         "Sources/Views/Common/BypassWebView.swift",
         "Sources/Views/Common/CategoryNovelsListView.swift",
+        "Sources/Views/Common/ChapterLimitPickerRows.swift",
         "Sources/Views/Common/DocumentPicker.swift",
         "Sources/Views/Common/ExpandableTextView.swift",
         "Sources/Views/Common/ExportShareCoordinator.swift",
@@ -2626,12 +2629,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "78b0976afe2d19ecca2aee6830b5e79776f9df5858c3890d8ec2cd380f3c89d9",
-      "sourceHash": "4ddea3af1cd4f04f14b5933015764ff6118bfe356f00d32c098a476e94823a39",
-      "generatedHash": "81248e7983f399c3dbc5c189b7436cfcac7413fba2ad84453d9c6e822cc45d05",
-      "generatedAt": "2026-10-04T07:07:52Z",
-      "reviewedAt": "2026-10-04T07:07:52Z",
-      "reviewedCommit": "7aaf3c006185bb265488c82d229e24f3f0c1f69a",
+      "structureHash": "4d823d97fa8a509ae1662d54a1fbdb3b189047bdd93d9eb10feca1a2e2a386e3",
+      "sourceHash": "58b045817c469f53c8b026bf7c1ca745431244175406fcbd0d3812cb823bbd6e",
+      "generatedHash": "c752eae91a3c9f1153820a8ab5cea39d5718a713d52e99ca92fe3b292156c158",
+      "generatedAt": "2026-10-05T02:16:21Z",
+      "reviewedAt": "2026-10-05T02:16:21Z",
+      "reviewedCommit": "bc2c33e3b8d98b30c6a1e3c553ce5914c69d43c5",
       "reviewMode": "accept"
     },
     {
@@ -3154,6 +3157,7 @@
         "Sources/Views/Common/BypassBrowserWebPane.swift",
         "Sources/Views/Common/BypassWebView.swift",
         "Sources/Views/Common/CategoryNovelsListView.swift",
+        "Sources/Views/Common/ChapterLimitPickerRows.swift",
         "Sources/Views/Common/DocumentPicker.swift",
         "Sources/Views/Common/ExpandableTextView.swift",
         "Sources/Views/Common/ExportShareCoordinator.swift",
@@ -3379,12 +3383,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "58cbbf82b9f3fd6dff94f9978798d81d88fb7546911e7cf7f0d9b7c1db486b97",
-      "sourceHash": "2c31a64fcab98ea5fecbdebeace250b3fd37921408624c8cd0039b8d975951ce",
-      "generatedHash": "4772ef0df106231521320095535cd8ffa75d7d7d4926cc85b18e974ff57f8ae1",
-      "generatedAt": "2026-10-04T07:07:52Z",
-      "reviewedAt": "2026-10-04T07:07:52Z",
-      "reviewedCommit": "7aaf3c006185bb265488c82d229e24f3f0c1f69a",
+      "structureHash": "5fda1f8ff57a3b9180d41871a0216a1b097869979b2ae5e837959bfeddc13a3b",
+      "sourceHash": "b12c82d49fdb69148e744f7b27c9d117814ffa480a16d57d9b2d37b8df92272e",
+      "generatedHash": "ef3c7bdb14714d5ed408e1a8ab23a1f5b0f33788d99d72631efe7acf48678e7a",
+      "generatedAt": "2026-10-05T02:18:26Z",
+      "reviewedAt": "2026-10-05T02:18:26Z",
+      "reviewedCommit": "bc2c33e3b8d98b30c6a1e3c553ce5914c69d43c5",
       "reviewMode": "accept"
     },
     {
@@ -3679,11 +3683,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "9ea355a069d96c6d5bc0e98edef1424b83c196c41a6cb25eb5c8f56bd8282c92",
-      "sourceHash": "4e00bc8d539362174f9ed1aa8a635df9fb05a1f599d6875781a901b175e46691",
-      "generatedHash": "0a6dd77529e0673d5d1a880544e0ca592bcdea146422d02924ab1f9cc44e6e6d",
-      "generatedAt": "2026-10-04T07:07:52Z",
-      "reviewedAt": "2026-10-04T07:07:52Z",
-      "reviewedCommit": "7aaf3c006185bb265488c82d229e24f3f0c1f69a",
+      "sourceHash": "533a005a5bccfa438117e69c148cc9388d9f937401e48ebf5fe134b96c612eda",
+      "generatedHash": "328ef79e6a0f3ee87376f2c2a6b1ce4c2ac7a316f3b388a431a98f73cf443b44",
+      "generatedAt": "2026-10-05T02:18:28Z",
+      "reviewedAt": "2026-10-05T02:18:28Z",
+      "reviewedCommit": "bc2c33e3b8d98b30c6a1e3c553ce5914c69d43c5",
       "reviewMode": "accept"
     },
     {
@@ -4112,6 +4116,7 @@
         "Sources/Views/Common/BypassBrowserWebPane.swift",
         "Sources/Views/Common/BypassWebView.swift",
         "Sources/Views/Common/CategoryNovelsListView.swift",
+        "Sources/Views/Common/ChapterLimitPickerRows.swift",
         "Sources/Views/Common/DocumentPicker.swift",
         "Sources/Views/Common/ExpandableTextView.swift",
         "Sources/Views/Common/ExportShareCoordinator.swift",
@@ -4337,12 +4342,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "fce820ad97f0b8e7fa5e258e984d5143e130ba33bc3344c8206666dbe3aa3dd1",
-      "sourceHash": "bf564bc5df57bb728d2f5c7d45e35dde470d3a53e2d2fa544a3e7cd06f637740",
-      "generatedHash": "e4e89fe18b33f29651d74b415748427a8b6d59faac5e4ad9d5caeb662da7f719",
-      "generatedAt": "2026-10-04T07:07:52Z",
-      "reviewedAt": "2026-10-04T07:07:52Z",
-      "reviewedCommit": "7aaf3c006185bb265488c82d229e24f3f0c1f69a",
+      "structureHash": "3ace445d161b9d76af9a5b1c92738c97181ffec3824c51a7aeea08711f125a81",
+      "sourceHash": "bf4c66dc3115f028000392d36e2c118a16422d845626ca1bc0e9baff62c0d974",
+      "generatedHash": "6c6a58869814554318e665b21a3e8509a407eb594aa5b55a177f7edb443af8a8",
+      "generatedAt": "2026-10-05T02:18:29Z",
+      "reviewedAt": "2026-10-05T02:18:29Z",
+      "reviewedCommit": "bc2c33e3b8d98b30c6a1e3c553ce5914c69d43c5",
       "reviewMode": "accept"
     },
     {

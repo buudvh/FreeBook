@@ -261,8 +261,8 @@ public struct ReaderAIFullScreenView: View {
                     settingsPrompt: nameExtractionPromptForSheet,
                     bookId: bookId,
                     chapterIndex: chapterIndex,
-                    onStart: { prompt, fromCurrentChapter in
-                        beginBatchExtraction(with: prompt, fromCurrentChapter: fromCurrentChapter)
+                    onStart: { prompt, fromCurrentChapter, limit in
+                        beginBatchExtraction(with: prompt, fromCurrentChapter: fromCurrentChapter, limit: limit)
                     }
                 )
             }

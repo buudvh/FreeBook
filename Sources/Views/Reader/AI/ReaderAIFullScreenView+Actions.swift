@@ -161,18 +161,30 @@ extension ReaderAIFullScreenView {
         }
     }
 
-    /// Chạy quét batch với prompt và phạm vi người dùng đã chọn trong sheet.
-    internal func beginBatchExtraction(with prompt: String, fromCurrentChapter: Bool) {
-        startBatchExtraction(promptOverride: prompt, fromChapterIndex: fromCurrentChapter ? chapterIndex : nil)
+    /// Chạy quét batch với prompt, phạm vi và số chương người dùng đã chọn trong sheet.
+    internal func beginBatchExtraction(with prompt: String, fromCurrentChapter: Bool, limit: Int?) {
+        startBatchExtraction(
+            promptOverride: prompt,
+            fromChapterIndex: fromCurrentChapter ? chapterIndex : nil,
+            limit: limit
+        )
     }
 
-    internal func startBatchExtraction(promptOverride: String? = nil, fromChapterIndex: Int? = nil) {
+    internal func startBatchExtraction(promptOverride: String? = nil, fromChapterIndex: Int? = nil, limit: Int? = nil) {
         guard !isBatchExtracting else { return }
         isBatchExtracting = true
         batchProgress = (0, 1)
         batchExtractedNames.removeAll()
 
-        let scopeLabel = fromChapterIndex == nil ? "toàn bộ chương đã tải" : "từ chương đang đọc"
+        // Nhãn phạm vi: giữ nguyên câu cũ khi không giới hạn, thêm số chương khi có giới hạn.
+        let scopeLabel: String
+        if let limit = limit {
+            scopeLabel = fromChapterIndex == nil
+                ? "\(limit) chương đã tải"
+                : "\(limit) chương từ chương đang đọc"
+        } else {
+            scopeLabel = fromChapterIndex == nil ? "toàn bộ chương đã tải" : "từ chương đang đọc"
+        }
         let userMsg = AIChatMessage(role: .user, content: "Quét tên riêng \(scopeLabel)")
         currentSession.messages.append(userMsg)
 
@@ -194,6 +206,7 @@ extension ReaderAIFullScreenView {
             config: config,
             promptOverride: promptOverride,
             fromChapterIndex: fromChapterIndex,
+            limit: limit,
             session: currentSession,
             assistantMsgId: msgId,
             onProgress: { [self] (current: Int, total: Int, partial: [AIExtractedName]) in

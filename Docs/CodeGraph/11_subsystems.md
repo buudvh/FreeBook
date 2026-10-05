@@ -15,6 +15,19 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.471 — quét tên riêng chọn được số chương; một component chọn số chương dùng chung
+
+* **Component chọn số chương dùng chung (`ChapterLimitPickerRows.swift`, `TaskOptionsSheet.swift`)**:
+  - `ChapterLimitPicker.optionPicker(option:)` + `ChapterLimitPicker.customRow(customLimit:)` là **một nguồn duy nhất** cho picker "Số lượng chương" (Tất cả / 50 / 100 / 200 / 500 / 1000 / Tuỳ chọn) và hàng thanh kéo "Tuỳ chọn" 1…1000 kèm nút `-`/`+`. `TaskOptionsSheet` (tải/xuất truyện) và `ReaderAIBatchPromptSheet` (quét tên riêng) cùng dùng, nên bộ mốc và cách kẹp giá trị không thể trôi lệch nhau.
+  - Cố ý để **hai hàm rời**, gọi thẳng trong builder của `Form`, kèm điều kiện `if limitOption == .custom` ở call site: `Form` chỉ tách hàng cho view nằm **trực tiếp** trong builder của nó, nên picker và thanh kéo vẫn là **hai hàng riêng** như trước.
+  - `ChapterLimitOption.clampCustom(_:)` kẹp vào `customRange` (1…1000); `effectiveLimit` của cả hai sheet đều quy đổi mốc "Tuỳ chọn" qua hàm này.
+* **Phân hệ AI Harness — quét batch nay có giới hạn số chương (`ReaderAIBatchPromptSheet.swift`, `ReaderAIFullScreenView.swift`, `ReaderAIFullScreenView+Actions.swift`, `AIRuntimeCoordinator.swift`, `AINameExtractionBatchProcessor.swift`, `AIBookDataInspector.swift`)**:
+  - Mục "Số lượng chương" nằm trong section "Phạm vi quét", áp cho **cả** hai chế độ: lấy N chương **đầu tiên** của phạm vi (bật toggle ⇒ từ chương đang đọc trở đi; tắt ⇒ N chương đầu danh sách đã tải). Mặc định **"Tất cả"** và **không** ghi nhớ giữa các lần mở sheet (khác toggle — toggle vẫn lưu theo `bookId` ở `AINameScanScopeStore`).
+  - Dòng phụ chỉ hiện số **sau** giới hạn, kẹp theo số chương có sẵn (`min(limit, available)`) — số có sẵn nạp một lần khi mở sheet nên kéo thanh kéo không đọc lại mục lục. Giới hạn lớn hơn số có sẵn ⇒ kẹp, không lỗi, không quét rỗng.
+  - `AIBookDataInspector.fetchDownloadedChapters` cắt `prefix(limit)` **sau** khi lọc `index >= from`; `AINameExtractionBatchProcessor` vẫn gom batch 5 chương và cắt 15.000 ký tự/batch, chỉ đổi tập chương đầu vào.
+  - Nhãn timeline nêu rõ số chương (`Quét tên riêng 100 chương đã tải` / `… 100 chương từ chương đang đọc`); không giới hạn thì giữ nguyên câu cũ.
+* **Đổi tên cho khớp nghĩa mới**: tiêu đề sheet "Quét tên riêng toàn bộ chương đã tải" → **"Quét tên riêng theo phạm vi"**; chip `ReaderAIQuickActionChipsView` "Lọc name cả bộ tải" → **"Lọc name nhiều chương"**.
+
 ## 1.3.470 — quét tên riêng có phạm vi: "từ chương đang đọc" hay toàn bộ chương đã tải
 
 * **Phân hệ AI Harness — luồng quét batch (`ReaderAIBatchPromptSheet.swift`, `ReaderAIFullScreenView.swift`, `ReaderAIFullScreenView+Actions.swift`, `AIRuntimeCoordinator.swift`, `AINameExtractionBatchProcessor.swift`, `AIBookDataInspector.swift`)**:

@@ -8,13 +8,23 @@ final class AIBookDataInspector: Sendable {
 
     /// Lấy danh sách các chương đã tải về (isCached = true) của cuốn sách.
     /// Truyền `fromChapterIndex` để chỉ lấy các chương từ vị trí đó trở đi (dùng cho quét "từ chương đang đọc").
-    func fetchDownloadedChapters(bookId: String, fromChapterIndex: Int? = nil) async -> [StoredChapterSnapshot] {
+    /// Truyền `limit` để chỉ lấy `limit` chương **đầu tiên** của phạm vi đó (`nil` hoặc ≤ 0 = không giới hạn).
+    func fetchDownloadedChapters(
+        bookId: String,
+        fromChapterIndex: Int? = nil,
+        limit: Int? = nil
+    ) async -> [StoredChapterSnapshot] {
         guard let toc = try? await ChapterStore.shared.fetchOrderedTOC(bookId: bookId) else {
             return []
         }
-        let cached = toc.filter { $0.isCached && $0.length > 0 }
-        guard let from = fromChapterIndex else { return cached }
-        return cached.filter { $0.index >= from }
+        var result = toc.filter { $0.isCached && $0.length > 0 }
+        if let from = fromChapterIndex {
+            result = result.filter { $0.index >= from }
+        }
+        if let limit = limit, limit > 0 {
+            result = Array(result.prefix(limit))
+        }
+        return result
     }
 
     /// Tóm tắt phạm vi quét để hiện trong sheet: số chương sẽ quét và tiêu đề chương đầu tiên.

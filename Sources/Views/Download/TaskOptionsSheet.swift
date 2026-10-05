@@ -97,16 +97,10 @@ struct TaskOptionsSheet: View {
                     Toggle("Tải từ chương đang đọc", isOn: $startFromCurrentChapter)
                         .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
 
-                    Picker("Số lượng chương", selection: $limitOption) {
-                        ForEach(ChapterLimitOption.allCases, id: \.self) { option in
-                            Text(option.title).tag(option)
-                        }
-                        Text(ChapterLimitOption.custom.title).tag(ChapterLimitOption.custom)
-                    }
-                    .pickerStyle(.menu)
+                    ChapterLimitPicker.optionPicker(option: $limitOption)
 
                     if limitOption == ChapterLimitOption.custom {
-                        customLimitRow
+                        ChapterLimitPicker.customRow(customLimit: $customLimit)
                     }
 
                     if isExport {
@@ -193,65 +187,10 @@ struct TaskOptionsSheet: View {
         }
     }
 
-    /// Hàng "Tuỳ chọn": thanh kéo 1...1000 bước 1, hai bên là nút -/+ đổi từng chương một cho
-    /// người dùng chốt số chính xác (kéo tay khó dừng đúng con số muốn).
-    private var customLimitRow: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Số chương tuỳ chọn")
-                Spacer()
-                Text("\(customLimit)")
-                    .font(.body.monospacedDigit())
-                    .foregroundColor(.secondary)
-            }
-
-            HStack(spacing: 12) {
-                stepButton(systemName: "minus", delta: -1)
-                Slider(
-                    value: Binding(
-                        get: { Double(customLimit) },
-                        set: { customLimit = clampCustomLimit(Int($0.rounded())) }
-                    ),
-                    in: customSliderRange,
-                    step: 1
-                )
-                .tint(.white)
-                stepButton(systemName: "plus", delta: 1)
-            }
-        }
-        .padding(.vertical, 4)
-    }
-
-    /// Dải của thanh kéo, dựng ở một chỗ vì viết `a...b` xuống dòng trong danh sách tham số sẽ bị
-    /// Swift đọc thành toán tử tiền tố `...b` (một tham số rời), không phải `ClosedRange`.
-    private var customSliderRange: ClosedRange<Double> {
-        let lower = Double(ChapterLimitOption.customRange.lowerBound)
-        let upper = Double(ChapterLimitOption.customRange.upperBound)
-        return lower...upper
-    }
-
-    private func stepButton(systemName: String, delta: Int) -> some View {
-        Button {
-            customLimit = clampCustomLimit(customLimit + delta)
-        } label: {
-            Image(systemName: systemName)
-                .frame(width: 30, height: 30)
-                .contentShape(Rectangle())
-        }
-        // `.borderless` để nút không biến cả hàng của Form thành một vùng bấm duy nhất.
-        .buttonStyle(.borderless)
-        .disabled(clampCustomLimit(customLimit + delta) == customLimit)
-        .accessibilityLabel(delta > 0 ? "Tăng một chương" : "Giảm một chương")
-    }
-
-    private func clampCustomLimit(_ value: Int) -> Int {
-        min(max(value, ChapterLimitOption.customRange.lowerBound), ChapterLimitOption.customRange.upperBound)
-    }
-
     /// Giới hạn thật đưa vào hàng đợi: mốc "Tuỳ chọn" được quy đổi thành số chương đang kéo.
     private var effectiveLimit: ChapterLimitOption {
         limitOption == ChapterLimitOption.custom
-            ? ChapterLimitOption(rawValue: clampCustomLimit(customLimit))
+            ? ChapterLimitOption(rawValue: ChapterLimitOption.clampCustom(customLimit))
             : limitOption
     }
 

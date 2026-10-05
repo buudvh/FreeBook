@@ -21,7 +21,7 @@ public struct ReaderAIQuickActionChipsView: View {
             HStack(spacing: 8) {
                 chipButton(icon: "doc.text.magnifyingglass", title: "Tóm tắt chương", type: .summarizeChapter)
                 chipButton(icon: "tag", title: "Lọc name chương này", type: .extractNamesCurrentChapter)
-                chipButton(icon: "books.vertical.fill", title: "Lọc name cả bộ tải", type: .extractNamesAllDownloaded, isSpecial: true)
+                chipButton(icon: "books.vertical.fill", title: "Lọc name nhiều chương", type: .extractNamesAllDownloaded, isSpecial: true)
                 chipButton(icon: "person.2", title: "Nhân vật & Bối cảnh", type: .explainContextAndCharacters)
                 chipButton(icon: "character.book.closed", title: "Dịch mượt raw", type: .translateSmoothly)
             }

@@ -15,6 +15,13 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.471 — component View dùng chung chỉ phụ thuộc `SwiftUI` + một kiểu của Services/Download
+
+* **File mới `Views/Common/ChapterLimitPickerRows.swift`** nằm trong tầng View: chỉ `import SwiftUI`, không chạm `ModelContext`, không gọi `modelContext.insert/delete/save` ⇒ không vi phạm `VIEW_SWIFTDATA_MUTATION`.
+* **Chiều phụ thuộc không đổi**: `Views/Common/` → `Services/Download/DownloadManager.swift` (kiểu `ChapterLimitOption`, cùng module) là chiều `Views → Services` hợp lệ; không có import ngược từ `Services/` lên `Views/`.
+* `extension ChapterLimitOption { static func clampCustom(_:) }` đặt trong file View để **không** phải thêm dòng vào `DownloadManager.swift` (file legacy có entry allowlist `FILE_SIZE_LIMIT` baseline 640 — hiện 467 dòng). Đây là extension cùng module, không tạo phụ thuộc mới.
+* `AIBookDataInspector.fetchDownloadedChapters(limit:)` chỉ thêm tham số `Int?` **có giá trị mặc định** và một lượt `prefix(limit)` — vẫn chỉ `import Foundation`, không `import SwiftUI`, không gọi `ToastManager.shared`; `nameScanScopeSummary` không đổi chữ ký.
+
 ## 1.3.470 — store phạm vi quét nằm ở Services, chỉ `import Foundation`
 
 * **File mới `Services/AI/AINameScanScopeStore.swift`** chỉ `import Foundation`, không `import SwiftUI`, không gọi `ToastManager.shared` ⇒ không vi phạm `SERVICE_SWIFTUI_IMPORT` / `SERVICE_TOAST_COUPLING`. Không chạm `ModelContext` ⇒ không vi phạm `VIEW_SWIFTDATA_MUTATION` ở phía view.

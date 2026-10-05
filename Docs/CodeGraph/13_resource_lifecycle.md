@@ -15,6 +15,13 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.471 — state số chương sống theo sheet, không thêm tài nguyên nào
+
+* **`ReaderAIBatchPromptSheet`** thêm `@State limitOption: ChapterLimitOption = .all` + `@State customLimit: Int = 100`. Cả hai **chỉ sống theo sheet**: đóng sheet là mất, không ghi UserDefaults (khác `fromCurrentChapter` — vẫn đọc/ghi `AINameScanScopeStore`). Đây là chủ ý: giới hạn số chương là ý định của **từng lượt quét**, không phải thói quen lâu dài.
+* **Không phát sinh lượt đọc đĩa mới**: số chương có sẵn vẫn lấy từ hai lượt `nameScanScopeSummary` trong `.task` khi mở sheet; kéo thanh kéo chỉ tính `min(limit, available)` trong bộ nhớ. Giới hạn được áp ở `AIBookDataInspector.fetchDownloadedChapters` (`prefix`) — đọc TOC qua `ChapterStore.fetchOrderedTOC` vẫn **chỉ đọc**, không ghi `chapter_store.sqlite`, không tạo `ModelContext`.
+* **`ChapterLimitPickerRows`** (`enum ChapterLimitPicker` + 2 hàm static) là view thuần, **không** có state riêng: không `@State`, không giữ tác vụ nền, không `ModelContext`, không `AVAudioEngine`/`WKWebView`. `Slider` và nút `-`/`+` chỉ ghi vào hai `Binding` do sheet sở hữu.
+* `AIRuntimeCoordinator` giữ nguyên vòng đời tác vụ batch (`activeBatchTask`, `batchProgress`, nút "Dừng" → `cancelActiveTask()`); chỉ thêm tham số `limit` truyền xuống `AINameExtractionBatchProcessor` (giá trị mặc định `nil`).
+
 ## 1.3.470 — vòng đời lựa chọn phạm vi và cách sheet không giữ tác vụ nền
 
 * **Khoá UserDefaults mới `FreeBook_AI_NameScanScope_V1`** (`AINameScanScopeStore`): dictionary `[bookId: Bool]`, chỉ đọc khi dựng sheet và ghi trong `.onChange` của toggle. Không có bộ nhớ đệm trong RAM (mỗi lần đọc là một lần `UserDefaults.standard.dictionary`) ⇒ không có nguy cơ lệch giữa các màn; cũng **không** phát `NotificationCenter` ⇒ không có vòng lặp reload ↔ save như `AISettingsStore`.

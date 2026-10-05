@@ -15,6 +15,14 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.471 — +1 file 85 dòng; `TaskOptionsSheet` giảm 65 dòng; 5 violation nền
+
+* **1 file Swift mới, 1 primary type top level**: `Views/Common/ChapterLimitPickerRows.swift` — **80**/400 dòng (`enum ChapterLimitPicker`; `extension ChapterLimitOption` không tính là type chính). Validator: **642 → 643** file Swift.
+* **Giảm dòng nhờ tách component**: `TaskOptionsSheet.swift` **278 → 217** (−61) — xoá 4 helper private `customLimitRow` / `customSliderRange` / `stepButton` / `clampCustomLimit`, thay bằng `ChapterLimitPicker.optionPicker(...)` + `ChapterLimitPicker.customRow(...)`.
+* Số dòng sau thay đổi: `ReaderAIBatchPromptSheet.swift` **190 → 227** · `ReaderAIFullScreenView+Actions.swift` **273 → 286** · `AIBookDataInspector.swift` **179 → 189** · `AINameExtractionBatchProcessor.swift` **140 → 143** · `AIRuntimeCoordinator.swift` **322 → 324**. `ReaderAIFullScreenView.swift` giữ **384**/400 (còn 16 dòng dư — lượt này không thêm dòng nào).
+* `check_architecture.py`: **5 violation nền cũ, 0 vi phạm mới** (`ChapterPersistenceStore` · `JSDom` · `JSExecutor` · `TTSManager` · `ReaderViewModel` — đều không thuộc vùng sửa). Không có `MULTI_PRIMARY_TYPES`, `VIEW_SWIFTDATA_MUTATION`, `SERVICE_TOAST_COUPLING` hay `SERVICE_SWIFTUI_IMPORT` mới.
+* `DownloadManager.swift` **không đổi** (467 dòng, dưới baseline allowlist 640) — `clampCustom` đặt ở file View để tránh tăng dòng file legacy.
+
 ## 1.3.470 — +1 file 28 dòng; `ReaderAIFullScreenView` 384/400; 5 violation nền
 
 * **1 file Swift mới, 1 primary type top level**: `Services/AI/AINameScanScopeStore.swift` — **28**/400 dòng.

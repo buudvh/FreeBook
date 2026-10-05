@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.471] - 2026-10-05
+
+### feat: muc so chuong cho pham vi quet ten rieng, component chon so chuong dung chung
+
+Người dùng: *"thêm option chọn số chương vào lọc tên riêng tất cả chương đã tải, tương tự option chọn số chương của tải truyện"* (chốt qua grill-me, 10 câu hỏi).
+
+- **R1 — Component chọn số chương dùng chung**: file mới `Sources/Views/Common/ChapterLimitPickerRows.swift` (**80** dòng) chứa `enum ChapterLimitPicker` với 2 hàm rời `optionPicker(option:)` (picker "Số lượng chương") và `customRow(customLimit:)` (hàng thanh kéo "Tuỳ chọn" 1…1000 kèm nút `-`/`+`), cùng `extension ChapterLimitOption.clampCustom(_:)`. Cố ý để **hai hàm rời** và gọi thẳng trong builder của `Form`, kèm điều kiện `if limitOption == .custom` ở call site, vì `Form`/`List` chỉ tách hàng cho view nằm **trực tiếp** trong builder — gói hai hàng vào một view sẽ dồn picker và thanh kéo vào cùng một ô.
+- **R2 — `TaskOptionsSheet` gọi lại component chung**: xoá 4 helper private (`customLimitRow`, `customSliderRange`, `stepButton`, `clampCustomLimit`), file **278 → 217** dòng. Giao diện và hành vi tải/xuất **không đổi** (giữ nguyên thứ tự mốc picker và `.tint(.white)` của Slider).
+- **R3 — Sheet quét tên riêng có mục "Số lượng chương"**: `ReaderAIBatchPromptSheet` thêm `@State limitOption` (mặc định `.all`) + `@State customLimit = 100`, đặt trong section "Phạm vi quét" ngay dưới toggle. Giới hạn áp cho **cả hai** chế độ — lấy N chương **đầu tiên** của phạm vi đang chọn. **Không** ghi nhớ giữa các lần mở sheet (toggle vẫn lưu theo `bookId` ở `AINameScanScopeStore`).
+- **R4 — Dòng phụ hiện số sau giới hạn**: `effectiveCount = min(limit, available)`; số chương có sẵn vẫn nạp một lần trong `.task` (`nameScanScopeSummary` **không** đổi chữ ký) nên kéo thanh kéo không đọc lại mục lục. Giới hạn lớn hơn số có sẵn ⇒ kẹp, không lỗi, không quét rỗng.
+- **R5 — Đường truyền số chương**: `onStart` `(String, Bool)` → `(String, Bool, Int?)` → `beginBatchExtraction(with:fromCurrentChapter:limit:)` → `startBatchExtraction(promptOverride:fromChapterIndex:limit:)` → `AIRuntimeCoordinator.startBatchExtraction(limit:)` → `AINameExtractionBatchProcessor.extractNamesFromDownloadedChapters(limit:)` → `AIBookDataInspector.fetchDownloadedChapters(limit:)` cắt `prefix(limit)` sau khi lọc `from`. Mọi tham số mới đều có giá trị mặc định `nil` ⇒ không vỡ call site cũ.
+- **R6 — Nhãn & tên gọi**: tin nhắn timeline ghi số chương (`Quét tên riêng 100 chương đã tải` / `… 100 chương từ chương đang đọc`); không giới hạn thì giữ câu cũ. Tiêu đề sheet → "Quét tên riêng theo phạm vi"; chip `ReaderAIQuickActionChipsView` → "Lọc name nhiều chương".
+- **Kiểm chứng**: `check_architecture.py` **5 violation nền cũ, 0 vi phạm mới**; `validate_links.py` PASS 100% sau khi accept 7 doc stale (`00_index`, `02_file_graph`, `04_call_graph`, `09_dependency_rules`, `11_subsystems`, `13_resource_lifecycle`, `14_complexity_report`). Validator đếm **643** file Swift.
+- Ảnh hưởng dòng: `ReaderAIBatchPromptSheet` **190 → 227** · `ReaderAIFullScreenView+Actions` **273 → 286** · `AIBookDataInspector` **179 → 189** · `AINameExtractionBatchProcessor` **140 → 143** · `AIRuntimeCoordinator` **322 → 324** · `TaskOptionsSheet` **278 → 217**; `ReaderAIFullScreenView` giữ **384**, `ReaderAIQuickActionChipsView` giữ **52**, `DownloadManager.swift` giữ **467**.
+
 ## [1.3.470] - 2026-10-04
 
 ### feat: toggle pham vi quet ten rieng tu chuong dang doc, nho theo tung truyen

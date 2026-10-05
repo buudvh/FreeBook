@@ -155,12 +155,13 @@ public final class AIRuntimeCoordinator: ObservableObject {
         }
     }
 
-    /// Bắt đầu quét tên riêng toàn bộ chương đã tải (batch).
+    /// Bắt đầu quét tên riêng các chương đã tải (batch), có thể giới hạn phạm vi và số chương.
     public func startBatchExtraction(
         bookId: String,
         config: AIConfiguration,
         promptOverride: String? = nil,
         fromChapterIndex: Int? = nil,
+        limit: Int? = nil,
         session: AIChatSession? = nil,
         assistantMsgId: UUID? = nil,
         onProgress: @escaping (Int, Int, [AIExtractedName]) -> Void,
@@ -182,7 +183,8 @@ public final class AIRuntimeCoordinator: ObservableObject {
                     bookId: bookId,
                     config: config,
                     promptOverride: promptOverride,
-                    fromChapterIndex: fromChapterIndex
+                    fromChapterIndex: fromChapterIndex,
+                    limit: limit
                 ) { current, total, partial in
                     let decorated = AIBookDataInspector.shared.decorateExtractedNames(names: partial, bookId: bookId)
                     Task { @MainActor [weak self] in

@@ -15,6 +15,17 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.471 — +1 file: component chọn số chương dùng chung cho hai sheet
+
+| Nhóm | File mới | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Views/Common | [`Views/Common/ChapterLimitPickerRows.swift`](../../Sources/Views/Common/ChapterLimitPickerRows.swift) | `enum ChapterLimitPicker` + 2 hàm `optionPicker` / `customRow` (picker "Số lượng chương" + thanh kéo "Tuỳ chọn" 1…1000); kèm `extension ChapterLimitOption.clampCustom` | 80 |
+
+* Import: file mới chỉ `import SwiftUI`; `ChapterLimitOption` đến từ `Services/Download/DownloadManager.swift` (cùng module) ⇒ chiều phụ thuộc `Views → Services` giữ nguyên, không có import ngược.
+* Số dòng sau thay đổi: `ReaderAIBatchPromptSheet.swift` **190 → 227** · `ReaderAIFullScreenView+Actions.swift` **273 → 286** · `AIBookDataInspector.swift` **179 → 189** · `AINameExtractionBatchProcessor.swift` **140 → 143** · `AIRuntimeCoordinator.swift` **322 → 324** · `TaskOptionsSheet.swift` **278 → 217**.
+* `ReaderAIFullScreenView.swift` (**384**) và `ReaderAIQuickActionChipsView.swift` (**52**) chỉ đổi nội dung, không đổi số dòng.
+* `ChapterLimitPickerRows.swift` là **1 primary type** (`enum`); extension không tính ⇒ không vi phạm `MULTI_PRIMARY_TYPES`. Tổng **643** file Swift.
+
 ## 1.3.470 — +1 file: store lưu phạm vi quét tên riêng theo từng truyện
 
 | Nhóm | File mới | Vai trò | Dòng |

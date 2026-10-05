@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Sheet chọn nguồn prompt cho chức năng "Quét tên riêng toàn bộ chương đã tải".
+/// Sheet chọn phạm vi quét và nguồn prompt cho chức năng "Quét tên riêng theo phạm vi".
 /// Prompt tự nhập chỉ dùng cho MỘT lần quét, không ghi vào Cài đặt.
 public struct ReaderAIBatchPromptSheet: View {
     @Environment(\.dismiss) private var dismiss
@@ -8,13 +8,19 @@ public struct ReaderAIBatchPromptSheet: View {
     public let settingsPrompt: String
     public let bookId: String
     public let chapterIndex: Int
-    public let onStart: (String, Bool) -> Void
+    /// `prompt`, `fromCurrentChapter`, `limit` (số chương cần quét, `nil` = không giới hạn).
+    public let onStart: (String, Bool, Int?) -> Void
 
     @State private var useCustomPrompt: Bool = false
     @State private var customPrompt: String = ""
 
     /// Bật = chỉ quét các chương đã tải từ `chapterIndex` trở đi; tắt = quét toàn bộ chương đã tải.
     @State private var fromCurrentChapter: Bool
+    /// Số chương cần quét trong phạm vi đang chọn. Cố ý **không** ghi nhớ giữa các lần mở sheet
+    /// (khác `fromCurrentChapter`): mỗi lần mở lại về `.all`.
+    @State private var limitOption: ChapterLimitOption = .all
+    /// Số chương của mốc "Tuỳ chọn" — chỉ có nghĩa khi `limitOption == .custom`.
+    @State private var customLimit: Int = 100
     @State private var scopedCount: Int? = nil
     @State private var scopedFirstTitle: String? = nil
     @State private var totalCount: Int? = nil
@@ -23,7 +29,7 @@ public struct ReaderAIBatchPromptSheet: View {
         settingsPrompt: String,
         bookId: String,
         chapterIndex: Int,
-        onStart: @escaping (String, Bool) -> Void
+        onStart: @escaping (String, Bool, Int?) -> Void
     ) {
         self.settingsPrompt = settingsPrompt
         self.bookId = bookId
@@ -37,22 +43,45 @@ public struct ReaderAIBatchPromptSheet: View {
         customPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// Giới hạn thật: mốc "Tuỳ chọn" được quy đổi thành số chương đang kéo.
+    private var effectiveLimit: ChapterLimitOption {
+        limitOption == ChapterLimitOption.custom
+            ? ChapterLimitOption(rawValue: ChapterLimitOption.clampCustom(customLimit))
+            : limitOption
+    }
+
+    /// Số chương sẽ quét thật sự; `nil` = không giới hạn.
+    private var limitValue: Int? { effectiveLimit.limitValue }
+
+    /// Số chương đã tải của phạm vi đang chọn, **chưa** áp giới hạn.
+    private var availableCount: Int? {
+        fromCurrentChapter ? scopedCount : totalCount
+    }
+
+    /// Số chương thực quét: giới hạn được kẹp vào số chương có sẵn.
+    private var effectiveCount: Int? {
+        guard let available = availableCount else { return nil }
+        guard let limit = limitValue else { return available }
+        return min(limit, available)
+    }
+
     /// Phạm vi hiện tại không có chương nào để quét.
     private var scopeIsEmpty: Bool {
-        fromCurrentChapter ? (scopedCount == 0) : (totalCount == 0)
+        effectiveCount == 0
     }
 
     private var scopeSummaryText: String {
-        if fromCurrentChapter {
-            guard let count = scopedCount else { return "Đang tính…" }
-            guard count > 0 else { return "Không có chương đã tải từ ch.\(chapterIndex) trở đi" }
-            if let title = scopedFirstTitle, !title.isEmpty {
-                return "\(count) chương — từ ch.\(chapterIndex): \(title)"
-            }
-            return "\(count) chương — từ ch.\(chapterIndex)"
+        guard let count = effectiveCount else { return "Đang tính…" }
+        guard count > 0 else {
+            return fromCurrentChapter
+                ? "Không có chương đã tải từ ch.\(chapterIndex) trở đi"
+                : "Chưa có chương nào đã tải"
         }
-        guard let total = totalCount else { return "Đang tính…" }
-        return total > 0 ? "Toàn bộ \(total) chương đã tải" : "Chưa có chương nào đã tải"
+        guard fromCurrentChapter else { return "\(count) chương đã tải" }
+        if let title = scopedFirstTitle, !title.isEmpty {
+            return "\(count) chương — từ ch.\(chapterIndex): \(title)"
+        }
+        return "\(count) chương — từ ch.\(chapterIndex)"
     }
 
     private var canStart: Bool {
@@ -74,10 +103,16 @@ public struct ReaderAIBatchPromptSheet: View {
                     .onChange(of: fromCurrentChapter) { _, newValue in
                         AINameScanScopeStore.shared.setPrefersFromCurrentChapter(newValue, bookId: bookId)
                     }
+
+                    ChapterLimitPicker.optionPicker(option: $limitOption)
+
+                    if limitOption == ChapterLimitOption.custom {
+                        ChapterLimitPicker.customRow(customLimit: $customLimit)
+                    }
                 } header: {
                     Text("Phạm vi quét")
                 } footer: {
-                    Text("Bật: chỉ quét các chương đã tải từ chương đang đọc trở đi. Tắt: quét toàn bộ chương đã tải.")
+                    Text("Bật: chỉ quét các chương đã tải từ chương đang đọc trở đi. Tắt: quét toàn bộ chương đã tải.\n\"Số lượng chương\" giới hạn số chương thực quét, tính từ đầu phạm vi.")
                 }
 
                 Section {
@@ -117,7 +152,7 @@ public struct ReaderAIBatchPromptSheet: View {
                     Text("Prompt cho lần này")
                 }
             }
-            .navigationTitle("Quét tên riêng toàn bộ chương đã tải")
+            .navigationTitle("Quét tên riêng theo phạm vi")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -128,7 +163,7 @@ public struct ReaderAIBatchPromptSheet: View {
                 Button {
                     let prompt = useCustomPrompt ? trimmedCustomPrompt : settingsPrompt
                     dismiss()
-                    onStart(prompt, fromCurrentChapter)
+                    onStart(prompt, fromCurrentChapter, limitValue)
                 } label: {
                     Text("Bắt đầu quét")
                         .font(.headline)
@@ -149,6 +184,8 @@ public struct ReaderAIBatchPromptSheet: View {
     }
 
     /// Đếm số chương cho cả hai phạm vi ngay khi mở sheet để dòng phụ đổi theo toggle không cần chờ lại.
+    /// Nạp số chương **có sẵn** (không áp giới hạn) — view tự kẹp `min` khi người dùng kéo thanh kéo,
+    /// nên đổi số chương không phải đọc lại mục lục.
     private func loadScopeSummary() async {
         async let scoped = AIBookDataInspector.shared.nameScanScopeSummary(bookId: bookId, fromChapterIndex: chapterIndex)
         async let total = AIBookDataInspector.shared.nameScanScopeSummary(bookId: bookId)

@@ -15,6 +15,16 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.471 — mục "Số lượng chương" cho phạm vi quét tên riêng; component chọn số chương dùng chung
+
+* Thêm **1** file Swift (`Views/Common/ChapterLimitPickerRows.swift`, **80** dòng) ⇒ validator đếm **643** file, bộ tài liệu vẫn **16** doc.
+* **Component dùng chung**: `ChapterLimitPicker.optionPicker(option:)` + `ChapterLimitPicker.customRow(customLimit:)` — trước đây là code `private` trong `TaskOptionsSheet`. Cố ý để **hai hàm rời** và gọi thẳng trong builder của `Form`, kèm điều kiện `if limitOption == .custom` ở call site: `Form`/`List` chỉ tách hàng cho view nằm **trực tiếp** trong builder của nó, nên gói hai hàng vào một view sẽ dồn picker và thanh kéo vào cùng một ô. `ChapterLimitOption.clampCustom(_:)` (extension trong cùng file) là chỗ kẹp giá trị duy nhất.
+* **`TaskOptionsSheet` gọi lại component chung** ⇒ xoá 4 helper private (`customLimitRow`, `customSliderRange`, `stepButton`, `clampCustomLimit`), file **278 → 217** dòng; giao diện và hành vi tải/xuất giữ nguyên.
+* **`ReaderAIBatchPromptSheet` có mục "Số lượng chương"** trong section "Phạm vi quét", dưới toggle "Từ chương đang đọc": mặc định **"Tất cả"**, **không** ghi nhớ giữa các lần mở sheet. Giới hạn áp cho **cả hai** chế độ — lấy N chương **đầu tiên** của phạm vi đang chọn. Dòng phụ chỉ hiện số **sau** giới hạn (`100 chương — từ ch.12: …` hoặc `100 chương đã tải`); số chương có sẵn vẫn nạp một lần khi mở sheet, view tự kẹp `min` nên kéo thanh kéo không đọc lại mục lục.
+* **Đường truyền số chương**: `onStart` đổi `(String, Bool)` → `(String, Bool, Int?)` → `beginBatchExtraction(with:fromCurrentChapter:limit:)` → `startBatchExtraction(promptOverride:fromChapterIndex:limit:)` → `AIRuntimeCoordinator.startBatchExtraction(limit:)` → `AINameExtractionBatchProcessor.extractNamesFromDownloadedChapters(limit:)` → `AIBookDataInspector.fetchDownloadedChapters(limit:)` cắt `prefix(limit)` sau khi lọc `from`. Mọi tham số mới đều có giá trị mặc định `nil` ⇒ không vỡ call site cũ. `nameScanScopeSummary` **giữ nguyên** (trả số chương có sẵn).
+* **Nhãn & tên gọi**: tin nhắn timeline nay ghi số chương (`Quét tên riêng 100 chương đã tải` / `… 100 chương từ chương đang đọc`; không giới hạn thì giữ câu cũ). Tiêu đề sheet → **"Quét tên riêng theo phạm vi"**; chip → **"Lọc name nhiều chương"**.
+* Số dòng: `ReaderAIBatchPromptSheet` **190 → 227** · `ReaderAIFullScreenView+Actions` **273 → 286** · `AIBookDataInspector` **179 → 189** · `AINameExtractionBatchProcessor` **140 → 143** · `AIRuntimeCoordinator` **322 → 324** · `TaskOptionsSheet` **278 → 217**; `ReaderAIFullScreenView` giữ **384** và `ReaderAIQuickActionChipsView` giữ **52**.
+
 ## 1.3.470 — toggle "Từ chương đang đọc" cho quét tên riêng, nhớ lựa chọn theo từng truyện
 
 * Thêm **1** file Swift (`Services/AI/AINameScanScopeStore.swift`, **28** dòng) ⇒ validator đếm **642** file, bộ tài liệu vẫn **16** doc.

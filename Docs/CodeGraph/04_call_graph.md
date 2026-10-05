@@ -15,6 +15,27 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.471 — số chương đi cùng phạm vi, từ sheet xuống tới `prefix(limit)`
+
+```text
+ReaderAIQuickActionChipsView ("Lọc name nhiều chương")
+  └─ ReaderAIFullScreenView (.sheet)
+       └─ ReaderAIBatchPromptSheet(settingsPrompt:bookId:chapterIndex:onStart:)
+            ├─ .task → AIBookDataInspector.nameScanScopeSummary(bookId:fromChapterIndex:)   (số chương CÓ SẴN — không áp giới hạn)
+            ├─ Toggle "Từ chương đang đọc" .onChange → AINameScanScopeStore.setPrefersFromCurrentChapter
+            ├─ ChapterLimitPicker.optionPicker(option:) [+ customRow khi mốc "Tuỳ chọn"] → ChapterLimitOption.clampCustom
+            └─ "Bắt đầu quét" → onStart(prompt, fromCurrentChapter, limitValue)
+                 └─ ReaderAIFullScreenView+Actions.beginBatchExtraction(with:fromCurrentChapter:limit:)
+                      └─ startBatchExtraction(promptOverride:fromChapterIndex:limit:)   (dựng nhãn timeline theo limit)
+                           └─ AIRuntimeCoordinator.startBatchExtraction(fromChapterIndex:limit:)
+                                └─ AINameExtractionBatchProcessor.extractNamesFromDownloadedChapters(fromChapterIndex:limit:)
+                                     └─ AIBookDataInspector.fetchDownloadedChapters(fromChapterIndex:limit:)
+                                          └─ ChapterStore.fetchOrderedTOC → filter isCached && length > 0 && index >= from → prefix(limit)
+```
+
+* Hiển thị số chương **không** đi qua `nameScanScopeSummary`: view đã có `scopedCount`/`totalCount` (số có sẵn) và tự tính `min(limit, available)` ⇒ kéo thanh kéo không phát sinh lượt đọc mục lục nào.
+* `TaskOptionsSheet` nay gọi `ChapterLimitPicker.optionPicker(...)` / `ChapterLimitPicker.customRow(...)` thay cho khối picker + `customLimitRow` cũ; `effectiveLimit` quy đổi mốc "Tuỳ chọn" qua `ChapterLimitOption.clampCustom`.
+
 ## 1.3.470 — phạm vi quét tên riêng: từ chip xuống tới lọc mục lục
 
 ```text
