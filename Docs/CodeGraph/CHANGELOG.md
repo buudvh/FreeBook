@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.474] - 2026-10-06
+
+### fix: ZeroTTS doc output so nguyen theo kieu that (codes tra int32, khong phai int64)
+
+Người dùng dán báo cáo từ màn thử trên máy thật, sau khi `[1.3.473]` đã qua được `prefix_step` cold start: `Non-zero status code returned while running Gather node. Name:'/audio_embeddings.7/Gather' Status Message: indices element out of data bounds, idx=1189705941190 must be within the inclusive range [-1025,1024]`.
+
+- **Chẩn đoán từ chính con số**: `1189705941190 = 198 + 277 × 2^32`, mà **cả `198` lẫn `277` đều nằm trong miền code hợp lệ** (`0…1024`). Đó là dấu hiệu kinh điển của việc **đọc output `int32` như `int64`**: hai code liền nhau bị gói vào một số 64-bit. Không phải hỏng bộ nhớ, không phải model sai.
+- **Nguyên nhân**: `ZeroTTSONNXBridge.m` copy output số nguyên bằng `memcpy(count * sizeof(int64_t))`, tức **giả định cứng** kiểu int64. `docs/RUNTIME.md` ghi `codes (1, K)` là `int64`, nhưng đó là **input** — còn **output** int64 *không* được bảo đảm trả về đúng kiểu đó. Bản port JS đã biết điều này và có hàm `toBigInt64` "coerce, not cast" (`js/src/synthesizer.ts`); bản C đã bỏ qua cảnh báo đó.
+- **Sửa**: thay `copyInt64Into` bằng `copyIntegerInto` — đọc **kiểu thật** của tensor qua `GetTensorElementType` rồi mới đổi (`INT64` → `memcpy`; `INT32`/`INT16`/`INT8`/`UINT8` → chuyển từng phần tử; kiểu khác → báo lỗi kèm số hiệu kiểu). Áp dụng cho **cả** `codes` **và** `audio_lengths` của codec — cùng một loại rủi ro, không lặp lại lần thứ hai. `ZeroTTSONNXBridge.m` **1163 → 1241**.
+- **Thêm kiểm miền giá trị**: ngay sau `local_frame_decode`, cầu C kiểm mọi code nằm trong `[0, codebookSize]` và ném lỗi nêu **phần tử thứ mấy, giá trị bao nhiêu**. Trước đó lỗi nổi lên ở **graph sau** (`Gather`) với một số khổng lồ — nêu sai chỗ nổ, không nêu thủ phạm.
+- **Bài học chung cho mọi cầu C bọc ONNX**: **input** phải đúng kiểu mình khai (graph báo lỗi ngay nếu sai), nhưng **output** thì phải **hỏi** `GetTensorElementType`. Đây là luật 27.
+- **Kiểm chứng**: `check_architecture.py` **5 violation nền cũ, 0 vi phạm mới**; `validate_links.py` PASS 100% (16 doc, 656 file Swift) — lượt này chỉ đổi `.m` nên validator không đánh dấu doc nào stale. Chưa xác nhận trên máy — cần một lượt chạy thật nữa.
+
 ## [1.3.473] - 2026-10-06
 
 ### fix: ZeroTTS frame_codes - chieu cuoi la so codebook, khong phai so frame

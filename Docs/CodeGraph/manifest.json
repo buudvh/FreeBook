@@ -3,8 +3,8 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-10-06T06:12:57Z",
-  "gitCommit": "85fb619407f97fa6e05d361e0abc853ff7034bb4",
+  "generatedAt": "2026-10-06T06:43:49Z",
+  "gitCommit": "492abcd7ea6c66c584f1feb7da858b2a2c5c122a",
   "sourceFileCount": 656,
   "documentCount": 16,
   "documents": [
@@ -1376,10 +1376,10 @@
       ],
       "structureHash": "b626391c0f5d5786382e7ae22eb23d7b4aeed0295fdcf9cf56d776ce6d7dfeb1",
       "sourceHash": "83097994098ee6dbdeaee8cd97240ed972b81a7bcdc9173da19e5a7ce9fb4e57",
-      "generatedHash": "414c07245d0ec77adba63e70623539cda28145b136c4e8a14f4ee86d4fed8b4a",
-      "generatedAt": "2026-10-06T06:12:48Z",
-      "reviewedAt": "2026-10-06T06:12:48Z",
-      "reviewedCommit": "85fb619407f97fa6e05d361e0abc853ff7034bb4",
+      "generatedHash": "e6022663c0ce682c22a23f7e0f7c9042fc4199238f10d0cb2e5f258edcee119c",
+      "generatedAt": "2026-10-06T06:43:45Z",
+      "reviewedAt": "2026-10-06T06:43:45Z",
+      "reviewedCommit": "492abcd7ea6c66c584f1feb7da858b2a2c5c122a",
       "reviewMode": "accept"
     },
     {
@@ -4439,10 +4439,10 @@
       ],
       "structureHash": "b626391c0f5d5786382e7ae22eb23d7b4aeed0295fdcf9cf56d776ce6d7dfeb1",
       "sourceHash": "83097994098ee6dbdeaee8cd97240ed972b81a7bcdc9173da19e5a7ce9fb4e57",
-      "generatedHash": "3b6eed0ec27407c7a23fd577c4493edf02d6110234a87550bcd4356a8abcabb2",
-      "generatedAt": "2026-10-06T06:12:51Z",
-      "reviewedAt": "2026-10-06T06:12:51Z",
-      "reviewedCommit": "85fb619407f97fa6e05d361e0abc853ff7034bb4",
+      "generatedHash": "8dcb85850f71bc61d91f0b89f51248a25a55cc97134006e353c6b0cf6d79a66d",
+      "generatedAt": "2026-10-06T06:43:47Z",
+      "reviewedAt": "2026-10-06T06:43:47Z",
+      "reviewedCommit": "492abcd7ea6c66c584f1feb7da858b2a2c5c122a",
       "reviewMode": "accept"
     },
     {
@@ -4598,10 +4598,10 @@
       ],
       "structureHash": "c8f05bb70c61b396d519f7b6d854818fc5cfbc67e1ab348a51376e11164abee8",
       "sourceHash": "95e4d14d1cebe2ad689ebcd3f775e2246a60ab20ae4abce38cb779b3582ff2f9",
-      "generatedHash": "b72ed2703decaad10be19d40b9bed41f8b96002c8ae3fb29eeb9fca39f0cdc2e",
-      "generatedAt": "2026-10-06T06:12:44Z",
-      "reviewedAt": "2026-10-06T06:12:44Z",
-      "reviewedCommit": "85fb619407f97fa6e05d361e0abc853ff7034bb4",
+      "generatedHash": "bfe80eafb43bdb860fadc5b9beeaf7b66f81637f6c9802d9a1f164183b127208",
+      "generatedAt": "2026-10-06T06:43:49Z",
+      "reviewedAt": "2026-10-06T06:43:49Z",
+      "reviewedCommit": "492abcd7ea6c66c584f1feb7da858b2a2c5c122a",
       "reviewMode": "accept"
     }
   ]

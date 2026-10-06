@@ -21,7 +21,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 | --- | --- | --- | ---: |
 | Services/TTS | [`Services/TTS/ONNXBridgingHeader.h`](../../Sources/Services/TTS/ONNXBridgingHeader.h) | Umbrella cho `SWIFT_OBJC_BRIDGING_HEADER`; `#import` cả cầu VieNeu và cầu ZeroTTS | 22 |
 | Services/TTS/ZeroTTS | [`ZeroTTSONNXBridge.h`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSONNXBridge.h) | Khai cầu C API cho 4 graph ZeroTTS + trạng thái KV trong ngữ cảnh | 171 |
-| Services/TTS/ZeroTTS | [`ZeroTTSONNXBridge.m`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSONNXBridge.m) | Thi hành cầu bằng C API; hỏi tên output từ session, dtype int64/int32/bool | 1163 |
+| Services/TTS/ZeroTTS | [`ZeroTTSONNXBridge.m`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSONNXBridge.m) | Thi hành cầu bằng C API; hỏi tên output từ session, dtype int64/int32/bool | 1241 |
 | Services/TTS/ZeroTTS | [`ZeroTTSONNXRuntime.swift`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSONNXRuntime.swift) | Bọc cầu C: 6 hàm typed, buffer do Swift cấp nên không có `malloc` nào để quên | 260 |
 | Services/TTS/ZeroTTS | [`ZeroTTSTokenizer.swift`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSTokenizer.swift) | BPE cấp ký tự: NFC + gộp khoảng trắng → `\p{P}` → `\p{N}` → gộp cặp hạng nhỏ nhất | 262 |
 | Services/TTS/ZeroTTS | [`ZeroTTSTokenizer+Fixture.swift`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSTokenizer+Fixture.swift) | 12 ca parity sinh từ thư viện `tokenizers` thật + `parityReport()` cho màn thử | 54 |

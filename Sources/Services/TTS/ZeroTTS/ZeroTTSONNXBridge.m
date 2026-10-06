@@ -188,21 +188,80 @@ static int32_t copyBytesInto(const OrtApi *api, OrtValue *value,
     return 0;
 }
 
-/// Copy một output int64 vào buffer do bên gọi cấp.
-static int32_t copyInt64Into(const OrtApi *api, OrtValue *value,
-                             int64_t *outBuffer, int32_t capacity, int32_t *outCount,
-                             char **errorMessage) {
-    int64_t dimensions[ZeroTTSMaxTensorRank] = {0};
-    int32_t rank = 0;
-    int64_t count = 0;
-    if (readShape(api, value, dimensions, &rank, &count, errorMessage) != 0) return -1;
-    if (count > (int64_t)capacity) {
-        setError(errorMessage, "buffer ra quá nhỏ cho tensor int64 của graph");
+/// Copy một output **số nguyên** sang `int64`, bất kể graph khai kiểu gì.
+///
+/// **Không được `memcpy` thẳng.** Hợp đồng upstream (`docs/RUNTIME.md`) ghi `codes (1, K)` là `int64`, và
+/// `text_ids`/`new_pos`/`frame_codes` là **input** nên đúng kiểu int64 thật. Nhưng **output** int64
+/// *không* được bảo đảm trả về đúng kiểu đó — bản port JS phải "coerce, not cast" đúng vì lý do này
+/// (`js/src/synthesizer.ts`, hàm `toBigInt64`).
+///
+/// Đọc nhầm int32 thành int64 gói **hai** code vào một số 64-bit, và triệu chứng không nằm ở graph sinh ra
+/// nó mà ở **graph sau**: `Gather … indices element out of data bounds, idx=1189705941190` — một số khổng
+/// lồ trông như hỏng bộ nhớ, thật ra là `198 + 277 × 2^32`. Vì vậy hàm này đọc kiểu từ tensor rồi mới đổi.
+static int32_t copyIntegerInto(const OrtApi *api, OrtValue *value,
+                               int64_t *outBuffer, int32_t capacity, int32_t *outCount,
+                               char **errorMessage) {
+    OrtTensorTypeAndShapeInfo *info = NULL;
+    if (check(api->GetTensorTypeAndShape(value, &info), api, errorMessage) != 0) return -1;
+
+    ONNXTensorElementDataType elementType = ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED;
+    size_t rank = 0;
+    if (check(api->GetTensorElementType(info, &elementType), api, errorMessage) != 0
+        || check(api->GetDimensionsCount(info, &rank), api, errorMessage) != 0) {
+        api->ReleaseTensorTypeAndShapeInfo(info);
         return -1;
     }
+    if (rank > ZeroTTSMaxTensorRank) rank = ZeroTTSMaxTensorRank;
+    int64_t dimensions[ZeroTTSMaxTensorRank] = {0};
+    if (rank > 0 && check(api->GetDimensions(info, dimensions, rank), api, errorMessage) != 0) {
+        api->ReleaseTensorTypeAndShapeInfo(info);
+        return -1;
+    }
+    api->ReleaseTensorTypeAndShapeInfo(info);
+
+    int64_t count = 1;
+    for (size_t index = 0; index < rank; index++) {
+        count *= (dimensions[index] > 0 ? dimensions[index] : 1);
+    }
+    if (count > (int64_t)capacity) {
+        setError(errorMessage, "buffer ra quá nhỏ cho tensor số nguyên của graph");
+        return -1;
+    }
+
     void *raw = NULL;
     if (check(api->GetTensorMutableData(value, &raw), api, errorMessage) != 0) return -1;
-    if (count > 0) memcpy(outBuffer, raw, (size_t)count * sizeof(int64_t));
+
+    switch (elementType) {
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64:
+        if (count > 0) memcpy(outBuffer, raw, (size_t)count * sizeof(int64_t));
+        break;
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32: {
+        const int32_t *source = (const int32_t *)raw;
+        for (int64_t index = 0; index < count; index++) outBuffer[index] = (int64_t)source[index];
+        break;
+    }
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT16: {
+        const int16_t *source = (const int16_t *)raw;
+        for (int64_t index = 0; index < count; index++) outBuffer[index] = (int64_t)source[index];
+        break;
+    }
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8: {
+        const int8_t *source = (const int8_t *)raw;
+        for (int64_t index = 0; index < count; index++) outBuffer[index] = (int64_t)source[index];
+        break;
+    }
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8: {
+        const uint8_t *source = (const uint8_t *)raw;
+        for (int64_t index = 0; index < count; index++) outBuffer[index] = (int64_t)source[index];
+        break;
+    }
+    default: {
+        char buffer[128];
+        snprintf(buffer, sizeof(buffer), "output số nguyên có kiểu %d không hỗ trợ", (int)elementType);
+        setError(errorMessage, buffer);
+        return -1;
+    }
+    }
     if (outCount != NULL) *outCount = (int32_t)count;
     return 0;
 }
@@ -1022,9 +1081,23 @@ int32_t ZeroTTSORTRunLocalFrameDecode(ZeroTTSORT *context,
     int32_t result = 0;
     int32_t codeCount = 0;
     if (copyBytesInto(api, outputs[0], outIsEoa, 1, NULL, errorMessage) != 0) result = -1;
-    if (result == 0 && copyInt64Into(api, outputs[1], outCodes, codesCapacity, &codeCount, errorMessage) != 0) result = -1;
+    if (result == 0 && copyIntegerInto(api, outputs[1], outCodes, codesCapacity, &codeCount, errorMessage) != 0) result = -1;
     releaseOutputs(api, context, graph, outputs);
     if (result != 0) return -1;
+
+    // Kiểm miền giá trị **trước khi** trả ra ngoài. `Gather` của `prefix_step` chỉ nhận chỉ số trong bảng
+    // embedding (`0…codebookSize`); không chặn ở đây thì lỗi nổi lên ở **graph sau** dưới dạng
+    // "indices element out of data bounds" với một số khổng lồ — đúng triệu chứng của việc đọc sai kiểu số
+    // nguyên, và rất khó lần ngược về thủ phạm thật.
+    for (int32_t index = 0; index < codeCount; index++) {
+        if (outCodes[index] >= 0 && outCodes[index] <= codebookSize) continue;
+        char buffer[192];
+        snprintf(buffer, sizeof(buffer),
+                 "local_frame_decode trả code ngoài miền [0, %d]: phần tử %d = %lld",
+                 codebookSize, index, (long long)outCodes[index]);
+        setError(errorMessage, buffer);
+        return -1;
+    }
 
     // Lịch sử phạt lặp: graph không mang được state dài biến thiên, nên bên gọi phải tự đánh dấu — và phải
     // làm **sau** `Run`. Bản tham chiếu cũng vậy (`seenMask[c * C + codes[c]] = 1`).
@@ -1120,23 +1193,28 @@ int32_t ZeroTTSORTRunCodecDecodeFull(ZeroTTSORT *context,
         return -1;
     }
 
-    int32_t sampleCount = 0;
-    {
-        void *raw = NULL;
-        if (check(api->GetTensorMutableData(outputs[foundLengths], &raw), api, errorMessage) != 0) {
-            releaseOutputs(api, context, graph, outputs);
-            return -1;
-        }
-        sampleCount = *(const int32_t *)raw;
+    // `audio_lengths` đi qua **cùng** bộ đọc biết kiểu như `codes`: hợp đồng ghi int32 nhưng đọc cứng theo
+    // một kiểu chính là loại lỗi vừa trả giá ở `frame_codes`/`codes`.
+    int64_t lengthValue[1] = {0};
+    int32_t lengthCount = 0;
+    if (copyIntegerInto(api, outputs[foundLengths], lengthValue, 1, &lengthCount, errorMessage) != 0) {
+        releaseOutputs(api, context, graph, outputs);
+        return -1;
     }
+    if (lengthCount < 1) {
+        setError(errorMessage, "codec trả `audio_lengths` rỗng");
+        releaseOutputs(api, context, graph, outputs);
+        return -1;
+    }
+    const int64_t sampleCount = lengthValue[0];
     const int32_t channels = (int32_t)audioShape[1];
     const int32_t audioFrames = (int32_t)audioShape[2];
-    if (sampleCount <= 0 || channels <= 0 || audioFrames <= 0 || sampleCount > audioFrames) {
+    if (sampleCount <= 0 || channels <= 0 || audioFrames <= 0 || sampleCount > (int64_t)audioFrames) {
         setError(errorMessage, "codec trả về độ dài audio không hợp lệ");
         releaseOutputs(api, context, graph, outputs);
         return -1;
     }
-    if (sampleCount > pcmCapacity) {
+    if (sampleCount > (int64_t)pcmCapacity) {
         setError(errorMessage, "buffer PCM quá nhỏ cho output của codec");
         releaseOutputs(api, context, graph, outputs);
         return -1;
@@ -1149,14 +1227,14 @@ int32_t ZeroTTSORTRunCodecDecodeFull(ZeroTTSORT *context,
     }
     // `(1, channels, T_audio)` → mono bằng trung bình kênh, đúng `toMono` của bản port JS.
     const float *audio = (const float *)audioRaw;
-    for (int32_t t = 0; t < sampleCount; t++) {
+    for (int64_t t = 0; t < sampleCount; t++) {
         float sum = 0;
         for (int32_t c = 0; c < channels; c++) {
             sum += audio[(size_t)c * (size_t)audioFrames + (size_t)t];
         }
         outPcm[t] = sum / (float)channels;
     }
-    if (outPcmCount != NULL) *outPcmCount = sampleCount;
+    if (outPcmCount != NULL) *outPcmCount = (int32_t)sampleCount;
 
     releaseOutputs(api, context, graph, outputs);
     return 0;
