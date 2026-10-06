@@ -1195,18 +1195,20 @@ int32_t ZeroTTSORTRunCodecDecodeFull(ZeroTTSORT *context,
 
     // `audio_lengths` đi qua **cùng** bộ đọc biết kiểu như `codes`: hợp đồng ghi int32 nhưng đọc cứng theo
     // một kiểu chính là loại lỗi vừa trả giá ở `frame_codes`/`codes`.
-    int64_t lengthValue[1] = {0};
-    int32_t lengthCount = 0;
-    if (copyIntegerInto(api, outputs[foundLengths], lengthValue, 1, &lengthCount, errorMessage) != 0) {
+    // (Tên `lengthsBuffer` chứ **không** phải `lengthValue`: hàm này đã có `const int32_t lengthValue`
+    // dùng cho input `audio_code_lengths`.)
+    int64_t lengthsBuffer[1] = {0};
+    int32_t lengthsCount = 0;
+    if (copyIntegerInto(api, outputs[foundLengths], lengthsBuffer, 1, &lengthsCount, errorMessage) != 0) {
         releaseOutputs(api, context, graph, outputs);
         return -1;
     }
-    if (lengthCount < 1) {
+    if (lengthsCount < 1) {
         setError(errorMessage, "codec trả `audio_lengths` rỗng");
         releaseOutputs(api, context, graph, outputs);
         return -1;
     }
-    const int64_t sampleCount = lengthValue[0];
+    const int64_t sampleCount = lengthsBuffer[0];
     const int32_t channels = (int32_t)audioShape[1];
     const int32_t audioFrames = (int32_t)audioShape[2];
     if (sampleCount <= 0 || channels <= 0 || audioFrames <= 0 || sampleCount > (int64_t)audioFrames) {
