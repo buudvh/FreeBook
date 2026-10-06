@@ -62,7 +62,10 @@ final class KokoroEngine: @unchecked Sendable {
         }
     }
 
-    private let store: KokoroModelStore
+    /// Kho model. **`internal` chứ không `private`**: màn thử cần `engine.store` để lấy đường dẫn voicepack
+    /// và để gọi `deleteAll()`. `private` trong Swift giới hạn theo **file**, nên một `private` ở đây là màn
+    /// thử ở file khác không đọc được — đúng lỗi CI đã bắt ở lượt đầu.
+    let store: KokoroModelStore
     private let lock = NSLock()
 
     /// `nil` khi không dựng được thư mục kho (Application Support không ghi được).
