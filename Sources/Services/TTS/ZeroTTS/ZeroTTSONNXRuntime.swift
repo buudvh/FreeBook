@@ -93,10 +93,15 @@ final class ZeroTTSONNXRuntime {
     }
 
     /// Cấp phát lại KV cho một utterance mới.
-    func beginSequence(batch: Int, voiceCount: Int, maxFrames: Int,
+    ///
+    /// `codebooks` **không** phải số frame: `frame_codes` của `prefix_step` khai `(B, T, K)` — chiều cuối
+    /// là số codebook. Truyền nhầm số frame vào đó ra đúng lỗi
+    /// `Got invalid dimensions for input: frame_codes … index: 2 Got: 1 Expected: 16`.
+    func beginSequence(batch: Int, voiceCount: Int, maxFrames: Int, codebooks: Int,
                        layers: Int, heads: Int, headDim: Int) throws {
         var message: UnsafeMutablePointer<CChar>?
         let status = ZeroTTSORTBeginSequence(handle, Int32(batch), Int32(voiceCount), Int32(maxFrames),
+                                             Int32(codebooks),
                                              Int32(layers), Int32(heads), Int32(headDim), &message)
         guard status == 0 else {
             throw RuntimeError.failure(Self.consume(message, fallback: "cấp phát KV cache thất bại"))

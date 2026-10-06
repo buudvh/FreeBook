@@ -33,12 +33,14 @@ final class ZeroTTSGenerator {
     enum GeneratorError: LocalizedError {
         case badVoiceEmbedding(String)
         case badCrossKvShape(String)
+        case badFrameCodes(String)
         case emptyResult
 
         var errorDescription: String? {
             switch self {
             case .badVoiceEmbedding(let detail): return "Embedding giọng không khớp config: \(detail)"
             case .badCrossKvShape(let detail): return "`cross_kv` có hình dạng lạ: \(detail)"
+            case .badFrameCodes(let detail): return "`local_frame_decode` trả số code sai: \(detail)"
             case .emptyResult: return "Model không sinh frame nào — văn bản quá ngắn hoặc bị cắt hết."
             }
         }
@@ -86,6 +88,7 @@ final class ZeroTTSGenerator {
 
         // 2. Cold start: `external_embed = [voice ‖ soa]`.
         try runtime.beginSequence(batch: batch, voiceCount: voiceCount, maxFrames: sampling.maxFrames,
+                                  codebooks: codebooks,
                                   layers: config.nLayers, heads: config.nHeads, headDim: config.headDim)
         var external = [Float](repeating: 0, count: batch * (voiceCount + 1) * dModel)
         external.replaceSubrange(0..<(voiceCount * dModel), with: voiceEmbedding)
@@ -119,6 +122,12 @@ final class ZeroTTSGenerator {
             if let remaining = tail, remaining <= 0 { break }
             if index >= sampling.maxFrames { break }
 
+            // `local_frame_decode` **phải** trả đúng `K` code. Thiếu/thừa nghĩa là số codebook đã khai sai ở
+            // một trong ba chỗ (`audio_random_u`, `seen_mask`, `codebooks` của `beginSequence`) — và nếu
+            // không chặn ở đây thì `prefix_step` mới là chỗ nổ, với thông báo chỉ vào `frame_codes`.
+            guard decoded.codes.count == codebooks else {
+                throw GeneratorError.badFrameCodes("có \(decoded.codes.count), cần \(codebooks)")
+            }
             frames.append(decoded.codes)
 
             if var remaining = tail {

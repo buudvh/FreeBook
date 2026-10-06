@@ -15,6 +15,16 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.473 — sửa chiều `frame_codes`: chiều cuối là **số codebook**, không phải số frame
+
+* **Triệu chứng trên máy thật** (báo cáo từ màn thử, sau khi model tải đủ và engine nạp xong):
+  `ONNX Runtime (ZeroTTS): Got invalid dimensions for input: frame_codes for the following indices / index: 2 Got: 1 Expected: 16`.
+* **Nguyên nhân**: `frame_codes` của `prefix_step` khai `(B, T, K)` — chiều **cuối** là `K = num_codebooks = 16`, còn `T` là số vị trí (frame). Bản port đã khai `{batch, positions, 1}` ở cold start và `{batch, 1, 1}` ở frame step, tức lấy `T`-của-một-frame làm `K`. Hợp đồng upstream ghi rõ (`docs/RUNTIME.md`): cold start `frame_codes (B, V+1, K)` **toàn 0**, frame step `(B, 1, K)` là code vừa lấy.
+* **Sửa**: `ZeroTTSORTBeginSequence` nhận thêm `int32_t codebooks` và lưu vào `context->kvCodebooks`; cả hai lượt `prefix_step` dựng `frameCodeShape = {batch, positions|1, codebooks}` và cấp `batch × positions × codebooks` phần tử int64 (`ZeroTTSONNXBridge.h` **166 → 171**, `.m` **1153 → 1163**). Phía Swift: `ZeroTTSONNXRuntime.beginSequence(batch:voiceCount:maxFrames:codebooks:layers:heads:headDim:)` (**255 → 260**) và `ZeroTTSGenerator` truyền `config.numCodebooks` (**171 → 180**).
+* **Thêm một hàng rào để lỗi này không im lặng lần nữa**: `ZeroTTSGenerator` kiểm `decoded.codes.count == codebooks` **ngay sau** `local_frame_decode` và ném `badFrameCodes` nếu lệch. Không có guard đó thì chỗ nổ là `prefix_step` với thông báo chỉ vào `frame_codes`, còn thủ phạm thật có thể là `audio_random_u` / `seen_mask` / `codebooks` — ba nơi cùng khai `K`.
+* **Điều lượt lỗi này đã chứng minh được** (giá trị thật của nó): lỗi nổ ở `prefix_step` nghĩa là **`ZeroTTSORTCreate` đã nạp thành công cả bốn graph**, **`text_encoder` đã chạy xong**, và **`cross_kv` trả về đúng shape mong đợi** (`validate` đã qua). Tức là **R1 của `10_risk_report` — ORT SPM có thiếu op/opset không — coi như đã được trả lời: không thiếu.** Ba câu hỏi còn lại (RAM đỉnh, RTF, chất lượng audio) vẫn chưa có số.
+* **Bài học**: đọc hợp đồng shape rồi viết lại **vẫn** sai được, và sai ở đây **không** lộ ra lúc biên dịch. Với engine dựng trên ONNX, một lượt chạy thật là vòng kiểm chứng duy nhất cho shape — nên màn thử phải in **nguyên văn** thông báo lỗi của ORT (nó đã làm đúng, và nhờ vậy lỗi này chẩn đoán được trong một lượt).
+
 ## 1.3.472 — phân hệ ZeroTTS: spike khảo sát khả thi, **chưa** nối vào Picker "Trình đọc"
 
 * **Vị trí và phạm vi (`Services/TTS/ZeroTTS/` ×10 + `Views/Settings/TTS/ZeroTTSTestView*.swift` ×3)**:

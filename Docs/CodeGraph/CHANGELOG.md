@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.473] - 2026-10-06
+
+### fix: ZeroTTS frame_codes - chieu cuoi la so codebook, khong phai so frame
+
+Người dùng dán **báo cáo chẩn đoán** từ màn thử trên máy thật: model đã tải đủ (903,5 MB, 8 giọng), engine đã nạp, nhưng bấm Phát thì `Tổng hợp thất bại: ONNX Runtime (ZeroTTS): Got invalid dimensions for input: frame_codes for the following indices / index: 2 Got: 1 Expected: 16`.
+
+- **Nguyên nhân**: `frame_codes` của `prefix_step` khai `(B, T, K)` — chiều **cuối** là `K = num_codebooks = 16`, `T` là số vị trí. Bản port đã dựng `{batch, positions, 1}` ở cold start và `{batch, 1, 1}` ở frame step, tức lấy `T`-của-một-frame làm `K`. Hợp đồng upstream (`docs/RUNTIME.md`) ghi rõ cold start là `(B, V+1, K)` **toàn 0** và frame step là `(B, 1, K)`.
+- **Sửa ở cầu C**: `ZeroTTSORTBeginSequence` nhận thêm `int32_t codebooks`, lưu vào `context->kvCodebooks`; cả hai lượt `prefix_step` dựng `frameCodeShape = {batch, positions|1, codebooks}` và cấp `batch × positions × codebooks` phần tử int64 (`ZeroTTSONNXBridge.h` **166 → 171**, `.m` **1153 → 1163**).
+- **Sửa ở tầng Swift**: `ZeroTTSONNXRuntime.beginSequence(batch:voiceCount:maxFrames:codebooks:layers:heads:headDim:)` (**255 → 260**) và `ZeroTTSGenerator` truyền `config.numCodebooks` (**171 → 180**).
+- **Thêm guard chống tái diễn**: `ZeroTTSGenerator` kiểm `decoded.codes.count == codebooks` **ngay sau** `local_frame_decode`, ném `badFrameCodes` nếu lệch. Không có guard đó thì chỗ nổ là `prefix_step` với thông báo chỉ vào `frame_codes`, trong khi thủ phạm thật có thể là một trong **ba** nơi cùng khai `K` (`audio_random_u`, `seen_mask`, `codebooks` của `beginSequence`).
+- **Lượt lỗi này đã trả lời được R1 của spike**: lỗi nổ ở `prefix_step` nghĩa là `ZeroTTSORTCreate` **đã nạp thành công cả bốn graph**, `text_encoder` **đã chạy xong**, và `cross_kv` **đã trả về đúng shape mong đợi** (bước `validate` đã qua). Tức là ORT SPM `from: 1.16.0` **không** thiếu op/opset cho bộ weights này. Ba câu hỏi còn lại — RAM đỉnh, RTF, chất lượng audio — vẫn chưa có số.
+- **Luật mới (26)**: shape tensor của graph ONNX chỉ được coi là đã kiểm khi có **một lượt chạy thật**; đọc hợp đồng rồi viết lại vẫn sai được, và sai ở đây **không** lộ ra lúc biên dịch. Hệ quả: engine phải in **nguyên văn** thông báo lỗi của ORT, và khi nhiều tham số cùng khai một chiều thì phải có guard ngay sau lời gọi trả chiều đó.
+- **Kiểm chứng**: `check_architecture.py` **5 violation nền cũ, 0 vi phạm mới**; `validate_links.py` PASS 100% (16 doc, 656 file Swift). Chưa xác nhận được trên máy — cần một lượt chạy thật nữa.
+
 ## [1.3.472] - 2026-10-06
 
 ### feat: spike khao sat ZeroTTS tren iOS - cau C ONNX, tokenizer BPE va man thu do RTF/RAM

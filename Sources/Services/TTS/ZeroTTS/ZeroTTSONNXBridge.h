@@ -94,8 +94,13 @@ int32_t ZeroTTSORTRunTextEncoder(ZeroTTSORT *context,
 /// `maxFrames` là **trần số frame audio**; `packed_kv` được cấp đủ cho `voiceCount + 1 + maxFrames` vị
 /// trí nên **không** phải cấp lại giữa chừng (cấp lại mỗi frame là chỗ đốt thời gian lớn nhất của bản
 /// port JS). Gọi hàm này trước mỗi utterance.
+///
+/// `codebooks` (`K`) **không** phải số frame: `frame_codes` của `prefix_step` khai `(B, T, K)` — chiều
+/// cuối là số codebook. Nhầm nó với số frame sẽ ra đúng lỗi
+/// `Got invalid dimensions for input: frame_codes … index: 2 Got: 1 Expected: 16`.
 int32_t ZeroTTSORTBeginSequence(ZeroTTSORT *context,
                                 int32_t batch, int32_t voiceCount, int32_t maxFrames,
+                                int32_t codebooks,
                                 int32_t layers, int32_t heads, int32_t headDim,
                                 char **errorMessage);
 

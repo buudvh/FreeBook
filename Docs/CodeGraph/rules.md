@@ -15,6 +15,11 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.473 — một luật mới (shape của tensor ONNX phải được kiểm bằng một lượt chạy thật)
+
+* **Luật 26 — shape tensor của graph ONNX chỉ được coi là đã kiểm khi có một lượt chạy thật; đọc hợp đồng rồi viết lại vẫn sai được, và sai ở đây không lộ ra lúc biên dịch.** Ví dụ thật (1.3.473): `frame_codes` của `prefix_step` khai `(B, T, K)` — bản port đã lấy `T`-của-một-frame làm `K` (`{batch, 1, 1}` thay vì `{batch, 1, 16}`) và chỉ lộ ra khi chạy trên máy: `Got invalid dimensions for input: frame_codes … index: 2 Got: 1 Expected: 16`. Hợp đồng đã có sẵn trong `docs/RUNTIME.md` của upstream mà vẫn sai. Hệ quả quy trình: (a) màn thử/engine **phải in nguyên văn** thông báo lỗi của ORT — nó nêu đúng tên tensor, đúng index và đúng số mong đợi; (b) khi **nhiều** tham số cùng khai một chiều (ở đây `K` xuất hiện ở `audio_random_u`, `seen_mask` và `codebooks`), phải thêm guard ngay sau lời gọi trả về chiều đó để thông báo lỗi chỉ đúng thủ phạm thay vì chỉ đúng chỗ nổ.
+* **Nhắc lại (đã ghi ở 1.3.472)**: `SWIFT_OBJC_BRIDGING_HEADER` chỉ nhận **một** đường dẫn ⇒ cầu C thứ hai phải qua umbrella header `Sources/Services/TTS/ONNXBridgingHeader.h`.
+
 ## 1.3.472 — ba luật mới (fixture khi port; `Section` đủ ba closure; exclusivity khi bọc C API) + một luật build-config
 
 * **Luật 25 — không đọc `.count` của một mảng bên trong `withUnsafeMutableBufferPointer` của chính nó.** Swift báo `error: overlapping accesses to 'x', but modification requires exclusive access` — **lỗi biên dịch**, không phải cảnh báo. Phải hoist ra biến cục bộ **trước** closure: `let count = array.count` rồi dùng `Int32(count)` bên trong. Bẫy này đi kèm việc bọc C API bằng buffer của Swift (mỗi tham số truyền `baseAddress` + `count`), nên repo nay có **hai** cầu C thì nó sẽ còn gặp lại. Lưu ý phân biệt: đọc `.count` của **mảng khác** (nhất là qua `withUnsafeBufferPointer` bất biến) thì **không** vi phạm — chỉ mảng đang bị mượn mutable mới cấm.

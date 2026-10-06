@@ -71,6 +71,9 @@ struct ZeroTTSORT {
     /// Số vị trí của khối giọng (`V`). Lưu lại vì `prefix_step` phải dựng `new_pos` theo nó, mà nó không
     /// suy được từ shape nào của graph (graph khai chiều `T` là động).
     int32_t kvVoiceCount;
+    /// Số codebook (`K`). `frame_codes` của `prefix_step` khai `(B, T, K)` — chiều **cuối** là số codebook,
+    /// **không** phải số frame. Nhầm hai thứ này ra `Got: 1 Expected: 16` ở `index: 2`.
+    int32_t kvCodebooks;
     /// Trần số frame đã cấp — dùng để báo lỗi rõ khi vượt, thay vì ghi tràn.
     int32_t kvMaxFrames;
 };
@@ -555,13 +558,15 @@ int32_t ZeroTTSORTRunTextEncoder(ZeroTTSORT *context,
 
 int32_t ZeroTTSORTBeginSequence(ZeroTTSORT *context,
                                 int32_t batch, int32_t voiceCount, int32_t maxFrames,
+                                int32_t codebooks,
                                 int32_t layers, int32_t heads, int32_t headDim,
                                 char **errorMessage) {
     if (context == NULL) {
         setError(errorMessage, "context is NULL");
         return -1;
     }
-    if (batch <= 0 || voiceCount <= 0 || maxFrames <= 0 || layers <= 0 || heads <= 0 || headDim <= 0) {
+    if (batch <= 0 || voiceCount <= 0 || maxFrames <= 0 || codebooks <= 0
+        || layers <= 0 || heads <= 0 || headDim <= 0) {
         setError(errorMessage, "tham số cấp phát KV không hợp lệ");
         return -1;
     }
@@ -597,6 +602,7 @@ int32_t ZeroTTSORTBeginSequence(ZeroTTSORT *context,
     context->kvHeadDim = headDim;
     context->kvBatch = batch;
     context->kvVoiceCount = voiceCount;
+    context->kvCodebooks = codebooks;
     context->kvMaxFrames = maxFrames;
     return 0;
 }
@@ -684,6 +690,8 @@ int32_t ZeroTTSORTRunPrefixInit(ZeroTTSORT *context,
 
     const int32_t batch = context->kvBatch;
     const int32_t voiceCount = context->kvVoiceCount;
+    // `frame_codes` khai `(B, T, K)` — chiều cuối là **số codebook**, không phải số frame.
+    const int32_t codebooks = context->kvCodebooks;
     // `L` và `dModel` đọc từ chính shape của cross_kv: `(layers, 2, batch, heads, L, headDim)`.
     const int32_t textLength = (int32_t)crossKvShape[4];
     const int32_t dModel = (int32_t)crossKvShape[3] * (int32_t)crossKvShape[5];
@@ -699,13 +707,13 @@ int32_t ZeroTTSORTRunPrefixInit(ZeroTTSORT *context,
     const int32_t positions = voiceCount + 1;
     const int64_t externalShape[3] = {batch, positions, dModel};
     const int64_t positionShape[2] = {batch, positions};
-    const int64_t frameCodeShape[3] = {batch, positions, 1};
+    const int64_t frameCodeShape[3] = {batch, positions, codebooks};
     const int64_t emptyKvShape[6] = {context->kvLayers, 2, batch, context->kvHeads, 0, context->kvHeadDim};
     const int64_t emptyValidShape[2] = {batch, 0};
     const int64_t textValidShape[2] = {batch, textLength};
 
     // `frame_codes` của cold start là **toàn 0** (đúng upstream), nên cấp một mảng 0 đúng kích thước.
-    const int32_t codeCount = batch * positions;
+    const int32_t codeCount = batch * positions * codebooks;
     int64_t *frameCodes = calloc((size_t)codeCount, sizeof(int64_t));
     int64_t *positions64 = malloc((size_t)(batch * positions) * sizeof(int64_t));
     uint8_t *useExternal = malloc((size_t)(batch * positions));
@@ -815,6 +823,8 @@ int32_t ZeroTTSORTRunPrefixFrame(ZeroTTSORT *context,
     const int graph = ZeroTTSGraphPrefixStep;
 
     const int32_t batch = context->kvBatch;
+    // Cùng lý do như `ZeroTTSORTRunPrefixInit`: chiều cuối của `frame_codes` là **số codebook**.
+    const int32_t codebooks = context->kvCodebooks;
     const int32_t textLength = (int32_t)crossKvShape[4];
     const int32_t dModel = (int32_t)crossKvShape[3] * (int32_t)crossKvShape[5];
     const int32_t positions = context->packedKvLength;
@@ -829,7 +839,7 @@ int32_t ZeroTTSORTRunPrefixFrame(ZeroTTSORT *context,
 
     const int64_t externalShape[3] = {batch, 1, dModel};
     const int64_t singleShape[2] = {batch, 1};
-    const int64_t frameCodeShape[3] = {batch, 1, 1};
+    const int64_t frameCodeShape[3] = {batch, 1, codebooks};
     const int64_t kvShape[6] = {context->kvLayers, 2, batch, context->kvHeads, positions, context->kvHeadDim};
     const int64_t pastValidShape[2] = {batch, positions};
     const int64_t textValidShape[2] = {batch, textLength};
@@ -861,7 +871,7 @@ int32_t ZeroTTSORTRunPrefixFrame(ZeroTTSORT *context,
     values[1] = makeTensor(api, context->memoryInfo, useExternal, (size_t)batch, singleShape, 2,
                            ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL, errorMessage);
     values[2] = makeTensor(api, context->memoryInfo, frameCodes,
-                           (size_t)batch * sizeof(int64_t), frameCodeShape, 3,
+                           (size_t)(batch * codebooks) * sizeof(int64_t), frameCodeShape, 3,
                            ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64, errorMessage);
     values[3] = makeTensor(api, context->memoryInfo, positions64,
                            (size_t)batch * sizeof(int64_t), singleShape, 2,
