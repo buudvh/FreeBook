@@ -15,6 +15,34 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.472 — +13 file: spike khảo sát ZeroTTS (cầu C ONNX, tokenizer BPE, màn thử)
+
+| Nhóm | File mới | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Services/TTS | [`Services/TTS/ONNXBridgingHeader.h`](../../Sources/Services/TTS/ONNXBridgingHeader.h) | Umbrella cho `SWIFT_OBJC_BRIDGING_HEADER`; `#import` cả cầu VieNeu và cầu ZeroTTS | 22 |
+| Services/TTS/ZeroTTS | [`ZeroTTSONNXBridge.h`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSONNXBridge.h) | Khai cầu C API cho 4 graph ZeroTTS + trạng thái KV trong ngữ cảnh | 166 |
+| Services/TTS/ZeroTTS | [`ZeroTTSONNXBridge.m`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSONNXBridge.m) | Thi hành cầu bằng C API; hỏi tên output từ session, dtype int64/int32/bool | 1153 |
+| Services/TTS/ZeroTTS | [`ZeroTTSONNXRuntime.swift`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSONNXRuntime.swift) | Bọc cầu C: 6 hàm typed, buffer do Swift cấp nên không có `malloc` nào để quên | 247 |
+| Services/TTS/ZeroTTS | [`ZeroTTSTokenizer.swift`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSTokenizer.swift) | BPE cấp ký tự: NFC + gộp khoảng trắng → `\p{P}` → `\p{N}` → gộp cặp hạng nhỏ nhất | 262 |
+| Services/TTS/ZeroTTS | [`ZeroTTSTokenizer+Fixture.swift`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSTokenizer+Fixture.swift) | 12 ca parity sinh từ thư viện `tokenizers` thật + `parityReport()` cho màn thử | 54 |
+| Services/TTS/ZeroTTS | [`ZeroTTSConfig.swift`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSConfig.swift) | `config.json` + `Sampling` (mặc định `DEFAULT_SAMPLING`, trần frame hạ 1500 → 500) | 76 |
+| Services/TTS/ZeroTTS | [`ZeroTTSVoiceCatalog.swift`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSVoiceCatalog.swift) | `voices/index.json` + nạp `voice.bin` (float32 thô) thành `[Float]` | 69 |
+| Services/TTS/ZeroTTS | [`ZeroTTSModelStore.swift`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSModelStore.swift) | Kho file **phẳng** dưới Application Support (codec cần `.data` nằm cạnh `.onnx`) | 108 |
+| Services/TTS/ZeroTTS | [`ZeroTTSModelClient.swift`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSModelClient.swift) | Tải từ HuggingFace bằng `URLSession.download` (graph 348 MB không lọt vào RAM) | 90 |
+| Services/TTS/ZeroTTS | [`ZeroTTSRandom.swift`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSRandom.swift) | SplitMix64 → `[0,1)`; `ctrl_random_u`/`audio_random_u` là **input** của graph | 38 |
+| Services/TTS/ZeroTTS | [`ZeroTTSGenerator.swift`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSGenerator.swift) | Vòng sinh frame: 2 lời gọi ORT/frame, đuôi `<eoa>`, chuyển vị `(K,T)` cho codec | 171 |
+| Services/TTS/ZeroTTS | [`ZeroTTSEngine.swift`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSEngine.swift) | Vòng đời + `NSLock`; `phys_footprint` sau lượt; đối chiếu shape graph ↔ config | 240 |
+| Views/Settings/TTS | [`ZeroTTSTestView.swift`](../../Sources/Views/Settings/TTS/ZeroTTSTestView.swift) | Màn thử: `@State`, tải/xoá model, `playSample`, `presentReport` | 314 |
+| Views/Settings/TTS | [`ZeroTTSTestView+Sections.swift`](../../Sources/Views/Settings/TTS/ZeroTTSTestView+Sections.swift) | Các khối `Form` bám đúng thứ tự màn thử VieNeu | 210 |
+| Views/Settings/TTS | [`ZeroTTSTestView+Diagnostics.swift`](../../Sources/Views/Settings/TTS/ZeroTTSTestView+Diagnostics.swift) | `diagnosticText` gom một khối để sao chép | 70 |
+
+* **Sửa nội dung**: `Views/Settings/Main/TTSSettingsSection.swift` **28 → 35** (thêm `Section` "Nghe Truyện (TTS) · ZeroTTS (thử nghiệm)" + `NavigationLink(destination: ZeroTTSTestView())`). `project.yml` đổi `SWIFT_OBJC_BRIDGING_HEADER` sang umbrella. `.github/workflows/build-ipa.yml` thêm nhánh `ZeroTTS`.
+* **Tổng 656 file Swift** (643 → 656, +13). Bộ tài liệu vẫn **16** doc.
+* **Import**: mọi file `Services/TTS/ZeroTTS/**` chỉ `import Foundation` (riêng `ZeroTTSEngine.swift` thêm `import Darwin` cho `task_info`/`phys_footprint`) ⇒ **không** `import SwiftUI`, **không** gọi `ToastManager.shared`. Ba file View chỉ `import SwiftUI` + `AVFoundation`/`UIKit`; **không** chạm `modelContext`.
+* **Chiều phụ thuộc**: `Views/Settings/TTS/ZeroTTSTestView*` → `Services/TTS/ZeroTTS/ZeroTTSEngine` → `ZeroTTSGenerator` → `ZeroTTSONNXRuntime` → cầu C. Không có import ngược từ `Services/` lên `Views/`.
+* **1 primary type / file**: `ZeroTTSONNXRuntime` · `ZeroTTSTokenizer` · `ZeroTTSGenerator` · `ZeroTTSEngine` · `ZeroTTSModelStore` · `ZeroTTSModelClient` · `ZeroTTSRandom` (struct) · `ZeroTTSConfig` · `ZeroTTSVoiceCatalog` · `ZeroTTSTestView`; hai file `+Fixture`/`+Sections`/`+Diagnostics` là **extension cùng file type** nên không tính type chính.
+* Cố ý **không** đụng `Sources/Services/TTS/TTSManager.swift` (đang 3970/3470 dòng) hay bất kỳ file nào trong danh sách rẽ nhánh theo `tool`.
+
 ## 1.3.471 — +1 file: component chọn số chương dùng chung cho hai sheet
 
 | Nhóm | File mới | Vai trò | Dòng |

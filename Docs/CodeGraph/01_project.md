@@ -16,6 +16,17 @@ Tài liệu này phác thảo kiến trúc tổng thể, sơ đồ thư mục, c
 
 <!-- GENERATED START -->
 
+## Bridging header đổi sang umbrella `ONNXBridgingHeader.h` cho cầu C thứ hai (1.3.472)
+
+* **`SWIFT_OBJC_BRIDGING_HEADER` đổi giá trị**, lần đầu kể từ 1.3.417:
+  `Sources/Services/TTS/VieNeu/VieNeuONNXBridge.h` → `Sources/Services/TTS/ONNXBridgingHeader.h`.
+  Lý do: XcodeGen chỉ nhận **một** đường dẫn, mà repo nay có **hai** cầu nối C API cho hai engine TTS local (`VieNeu/VieNeuONNXBridge.h` và `ZeroTTS/ZeroTTSONNXBridge.h`). Umbrella `#import` cả hai; đường dẫn trong ngoặc kép giải theo thư mục của chính umbrella nên không cần thêm include path nào.
+* **Vì sao không `#include` chéo vào `VieNeuONNXBridge.h`**: file đó là của VieNeu, nhét header ZeroTTS vào cuối là làm lẫn hai engine trong một file và biến một thay đổi của ZeroTTS thành thay đổi của VieNeu. Umbrella cũng là chỗ để thêm engine thứ ba sau này bằng **một** dòng.
+* **Rủi ro đã biết vẫn nguyên**: sai đường dẫn bridging header là **mọi** file Swift hỏng biên dịch, không riêng phân hệ TTS. Đường dẫn tính từ gốc project, đúng như `sources: - path: Sources`.
+* `sources: - path: Sources` **không đổi** ⇒ `Sources/Services/TTS/ZeroTTS/*.h/.m` và `Sources/Services/TTS/ONNXBridgingHeader.h` tự vào target; chỉ cần `xcodegen generate` như thường lệ. Không thêm dependency SPM, không đổi deployment target, không đổi code signing.
+* **File không phải Swift trong target**: `ONNXBridgingHeader.h` (**22** dòng) · `ZeroTTS/ZeroTTSONNXBridge.h` (**166**) · `ZeroTTS/ZeroTTSONNXBridge.m` (**1153**). Trần **400 dòng** của `check_architecture.py` chỉ áp cho file `.swift` nên ba file này không tính.
+* Phạm vi thay đổi build config: chỉ nhánh `ZeroTTS` + `.github/workflows/build-ipa.yml:5` (thêm nhánh vào `push.branches`). `Sources/App/FreeBookApp.swift` **không đổi**; không đụng schema SwiftData.
+
 ## Không đổi `project.yml`; thêm 1 file Swift trong cây `Sources/` (1.3.468)
 
 * `project.yml` **không đổi**: `sources: - path: Sources` khai theo thư mục nên `Sources/Views/Reader/AI/ReaderAIBatchPromptSheet.swift` tự vào target; chỉ cần `xcodegen generate` như thường lệ.

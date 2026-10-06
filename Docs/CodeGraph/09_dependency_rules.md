@@ -15,6 +15,16 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.472 — 13 file mới ở tầng Services/Views; cầu C thứ hai vẫn nằm sau bridging header
+
+* **10 file `Sources/Services/TTS/ZeroTTS/*.swift`**: chỉ `import Foundation` (`ZeroTTSEngine.swift` thêm `import Darwin` cho `task_info`) ⇒ **không** vi phạm `SERVICE_SWIFTUI_IMPORT`; không file nào gọi `ToastManager.shared` ⇒ **không** vi phạm `SERVICE_TOAST_COUPLING`.
+* **3 file `Sources/Views/Settings/TTS/ZeroTTSTestView*.swift`**: chỉ `import SwiftUI` (+ `AVFoundation`/`UIKit` cho phát audio và bộ nhớ tạm). **Không** `modelContext.insert/delete/save` và **không** gán thuộc tính `@Model` ⇒ **không** vi phạm `VIEW_SWIFTDATA_MUTATION`. Màn thử **không** đụng SwiftData: nó đọc/ghi file trong Application Support và UserDefaults do `TTSManager` quản.
+* **Chiều phụ thuộc**: `Views/Settings/TTS/` → `Services/TTS/ZeroTTS/` (`ZeroTTSEngine`, `ZeroTTSModelStore`, `ZeroTTSModelClient`, `ZeroTTSVoiceCatalog`, `ZeroTTSTokenizer`) → cầu C `ZeroTTSONNXBridge`. Tầng View **không** gọi thẳng tầng ONNX: mọi lượt tổng hợp đi qua `ZeroTTSEngine.synthesizeAsync`.
+* **File `.h`/`.m` không phải Swift**: `ZeroTTSONNXBridge.m` `#import <onnxruntime/onnxruntime_c_api.h>` — **không** `import onnxruntime` từ Swift. Cùng lý do đã ghi ở 1.3.417: product SPM `onnxruntime` chỉ trỏ tới target ObjC `OnnxRuntimeBindings`, còn binary target C là dependency nội bộ và umbrella header không `#import` header C API. Đây là **cầu C thứ hai**; cả hai vào Swift qua umbrella `Services/TTS/ONNXBridgingHeader.h`.
+* **Luật "hỏi model, đừng đoán" được giữ ở tầng mới**: `ZeroTTSONNXRuntime.shapes` là shape **đọc từ graph** (`readInputShape` đọc `seen_mask`, `global_hidden`, `packed_kv`), và `ZeroTTSEngine.validate(shapes:against:)` **đối chiếu** nó với `config.json` rồi ném lỗi nếu lệch — thay vì dựng shape từ config như lỗi `Got: 512 Expected: 256` của engine VieNeu (`VieNeuONNXBridge.h:17-20`).
+* **Ràng buộc một lượt sinh tại một thời điểm**: trạng thái `packed_kv`/`full_valid` nằm trong ngữ cảnh C và bị ghi tại chỗ mỗi frame, nên `ZeroTTSEngine` bọc trọn lượt bằng `NSLock` — cùng khuôn `VieNeuTTSEngine`. Không có đường nào để hai lượt chồng nhau.
+* `Sources/Services/TTS/TTSManager.swift`, `TTSSettingsView.swift` và mọi danh sách rẽ nhánh theo `tool` **không đổi** ⇒ spike không tạo phụ thuộc mới vào phân hệ TTS đang chạy.
+
 ## 1.3.471 — component View dùng chung chỉ phụ thuộc `SwiftUI` + một kiểu của Services/Download
 
 * **File mới `Views/Common/ChapterLimitPickerRows.swift`** nằm trong tầng View: chỉ `import SwiftUI`, không chạm `ModelContext`, không gọi `modelContext.insert/delete/save` ⇒ không vi phạm `VIEW_SWIFTDATA_MUTATION`.

@@ -56,10 +56,12 @@ targets:
         GOOGLE_DRIVE_CLIENT_ID: "$(GOOGLE_DRIVE_CLIENT_ID)"
     settings:
       base:
-        # Cầu nối C API của ONNX Runtime cho engine VieNeu-TTS (`VieNeuONNXBridge.h/.m`).
+        # Cầu nối C API của ONNX Runtime cho các engine TTS local. Hiện có **hai** engine dùng:
+        # VieNeu-TTS (`VieNeu/VieNeuONNXBridge.h`) và ZeroTTS (`ZeroTTS/ZeroTTSONNXBridge.h`).
         # Cần thiết vì module C của ORT không import được từ Swift (product SPM `onnxruntime` chỉ trỏ tới
-        # target ObjC), mà lớp ObjC lại không tạo được tensor `bool` — xem doc trong `VieNeuONNXRuntime.swift`.
-        SWIFT_OBJC_BRIDGING_HEADER: Sources/Services/TTS/VieNeu/VieNeuONNXBridge.h
+        # target ObjC), mà lớp ObjC lại không tạo được tensor `bool` — xem doc trong từng file cầu.
+        # XcodeGen chỉ nhận **một** đường dẫn nên hai cầu được gom qua umbrella `ONNXBridgingHeader.h`.
+        SWIFT_OBJC_BRIDGING_HEADER: Sources/Services/TTS/ONNXBridgingHeader.h
         CODE_SIGNING_ALLOWED: "NO"
         CODE_SIGNING_REQUIRED: "NO"
         CODE_SIGN_IDENTITY: ""

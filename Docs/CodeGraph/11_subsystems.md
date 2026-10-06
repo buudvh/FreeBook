@@ -15,6 +15,24 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.472 — phân hệ ZeroTTS: spike khảo sát khả thi, **chưa** nối vào Picker "Trình đọc"
+
+* **Vị trí và phạm vi (`Services/TTS/ZeroTTS/` ×10 + `Views/Settings/TTS/ZeroTTSTestView*.swift` ×3)**:
+  - Đây là **spike khảo sát khả thi**, không phải engine thứ tư của app. `zerotts` **không** có trong Picker "Trình đọc" (`TTSSettingsView.swift:91-99`), **không** có nhánh nào trong `TTSManager` rẽ theo tên nó, và **không** đụng `LocalTTSEngine`. Đường vào duy nhất là `TTSSettingsSection.swift:27-33`.
+  - Vì sao tách hẳn khỏi phân hệ TTS đang chạy: nối một engine thật nghĩa là sửa hàng chục điểm rẽ nhánh theo `tool` trong `TTSManager`/`TTSSettingsView`, mà câu hỏi "chạy nổi trên máy thật không" (RTF < 1, RAM đỉnh) **chưa ai trả lời**. Màn thử trả lời trước — cùng lý do đã ghi ở `VieNeuTTSTestView.swift:7-10`.
+* **Bốn tầng, một chiều**:
+  - `ZeroTTSTestView` (+`Sections`/`Diagnostics`) — `Form` bám **đúng** thứ tự khối của màn thử VieNeu (Model → Giọng đọc → Chữ cần đọc → Tốc độ phát → Lấy mẫu → Phát → Kết quả → Số đo → Sao chép). Khác hai chỗ: **bỏ** khối "Tiếng Nhật" (ZeroTTS không có từ điển riêng) và khối chất lượng đổi thành **"Lấy mẫu"** — kiến trúc này **không** có vòng Euler nhiều bước như VieNeu, mỗi frame là **một** lượt `local_frame_decode`.
+  - `ZeroTTSEngine` — vòng đời + `NSLock` bọc trọn lượt; `Report` mang đủ số đo (RTF, `phys_footprint`, thời gian nạp, số frame, báo cáo tokenizer).
+  - `ZeroTTSGenerator` — vòng sinh frame; `ZeroTTSRandom` cấp các lá phiếu ngẫu nhiên; `ZeroTTSTokenizer` biến text thành id.
+  - `ZeroTTSONNXRuntime` → cầu C `ZeroTTSONNXBridge.h/.m` → 4 `OrtSession`.
+  - Kho và tải: `ZeroTTSModelStore` (thư mục **phẳng** dưới Application Support — codec cần `.data` nằm cạnh `.onnx`) + `ZeroTTSModelClient` (HuggingFace `zeroweight-ai/ZeroTTS`).
+* **Vì sao cần cầu C thứ hai**: cầu VieNeu là API **chuyên dụng theo từng bước graph của VieNeu** (`VieNeuONNXBridge.h:14`) nên không tái dùng trực tiếp được. ZeroTTS cần 12 input hỗn hợp dtype cho `local_frame_decode`, `seen_mask` bool **sửa tại chỗ**, và KV cache phình mỗi frame. Cái dùng lại là **khuôn kỹ thuật**: `CreateTensorWithDataAsOrtValue` không copy, tensor `bool` phải qua C API, và tên output **hỏi thẳng session**.
+* **Trạng thái KV nằm trong ngữ cảnh C** ⇒ một ngữ cảnh chỉ phục vụ **một** lượt sinh tại một thời điểm; `ZeroTTSEngine` bọc `NSLock` đúng như `VieNeuTTSEngine`. `packed_kv`/`full_valid` được cấp **một lần** ở `ZeroTTSORTBeginSequence` rồi ghi tại chỗ mỗi frame (cấp lại mỗi frame là chỗ đốt thời gian lớn nhất mà bản port JS đã chỉ ra).
+* **Hai chỗ "hỏi model, đừng đoán"**: `ZeroTTSORTCreate` trả `ZeroTTSORTShapes` đọc từ chính graph (`seen_mask`, `global_hidden`, `packed_kv`), `ZeroTTSEngine.validate` đối chiếu với `config.json`; `ZeroTTSGenerator.validate(crossKvShape:batch:length:)` so shape `cross_kv` thật **trước khi** vào `prefix_step`. Đây đúng bài học `Got: 512 Expected: 256` của engine VieNeu.
+* **Tiền xử lý text chỉ có một lớp**: `TTSReplacementManager.applyReplacements`. Cố ý **không** gọi `TextPreprocessor.normalizeVietnameseText` — ZeroTTS tự đọc số/ngày/viết tắt bằng chính model, mở rộng số thành chữ trước khi vào model là lệch khỏi bản tham chiếu.
+* **Ngoài phạm vi (cố ý)**: không nhân bản giọng (bản open-source **không** phát hành voice encoder — chỉ *nạp* giọng, không *tạo* giọng từ audio; giọng riêng phải lấy `.zip` từ platform.zeroweight.ai), không streaming (`decode_step`), không `cfg_scale > 1` (cần batch 2), không lượng tử hoá int8, không backend ggml/GGUF.
+* **Phân hệ TTS đang chạy không đổi một dòng**: `TTSManager.swift` giữ **3970** dòng, `TTSSettingsView.swift` giữ nguyên, mọi danh sách tên engine (`system`/`nghitts`/`vieneu`/`google`/extension) **không** được sửa.
+
 ## 1.3.471 — quét tên riêng chọn được số chương; một component chọn số chương dùng chung
 
 * **Component chọn số chương dùng chung (`ChapterLimitPickerRows.swift`, `TaskOptionsSheet.swift`)**:

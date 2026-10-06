@@ -15,6 +15,16 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.472 — +13 file Swift (dài nhất 314/400); 5 violation nền cũ, 0 vi phạm mới
+
+* **13 file Swift mới, mỗi file 1 primary type top level**: `ZeroTTSTestView` **314** · `ZeroTTSTokenizer` **262** · `ZeroTTSONNXRuntime` **247** · `ZeroTTSEngine` **240** · `ZeroTTSTestView+Sections` **210** (extension, không tính type) · `ZeroTTSGenerator` **171** · `ZeroTTSModelStore` **108** · `ZeroTTSModelClient` **90** · `ZeroTTSConfig` **76** · `ZeroTTSTestView+Diagnostics` **70** (extension) · `ZeroTTSVoiceCatalog` **69** · `ZeroTTSTokenizer+Fixture` **54** (extension) · `ZeroTTSRandom` **38**. **Không file nào chạm trần 400**; file dài nhất còn **86** dòng dư. Validator: **643 → 656** file Swift.
+* **3 file không phải Swift** (không thuộc phạm vi trần 400 của `check_architecture.py`): `ONNXBridgingHeader.h` **22** · `ZeroTTSONNXBridge.h` **166** · `ZeroTTSONNXBridge.m` **1153**. File `.m` dài là **cố ý**: cầu C phải tự quản vòng đời `OrtValue`, sao chép 5 dtype khác nhau, và đọc shape từ session — chia nhỏ nó thành nhiều `.m` chỉ làm tăng số file chứ không giảm độ phức tạp thật.
+* **File đã sửa**: `TTSSettingsSection.swift` **28 → 35** (+7: một `Section` + `NavigationLink`). `project.yml` **không đổi số dòng khai** (chỉ đổi giá trị `SWIFT_OBJC_BRIDGING_HEADER`). `.github/workflows/build-ipa.yml` **không đổi số dòng** (chỉ thêm `ZeroTTS` vào danh sách nhánh).
+* **Không file legacy nào bị đụng** ⇒ không có ratchet-down nào bị vi phạm. Cụ thể: `TTSManager.swift` giữ **3970** (baseline 3470 — violation **nền cũ**, không do lượt này), `TTSSettingsView.swift` giữ nguyên, `VieNeuTTSEngine.swift` giữ nguyên.
+* `check_architecture.py`: **5 violation nền cũ, 0 vi phạm mới** (`ChapterPersistenceStore` · `JSDom` · `JSExecutor` · `TTSManager` · `ReaderViewModel` — **đều không thuộc vùng sửa**). Không có `MULTI_PRIMARY_TYPES`, `VIEW_SWIFTDATA_MUTATION`, `SERVICE_TOAST_COUPLING` hay `SERVICE_SWIFTUI_IMPORT` mới. Không có TODO/FIXME mới.
+* **Độ phức tạp đặt ở đâu**: phần khó nhất của lượt này **không** nằm ở số dòng mà ở ba chỗ đã được cô lập và ghi doc tại chỗ — (a) trạng thái KV cấp trước trong ngữ cảnh C, (b) vị trí RoPE `V + 1 + t`, (c) thuật toán BPE cấp ký tự. Cả ba đều có hàng rào: (a) kiểm tra trần khi vượt, (b) công thức viết đúng ở cả hai lượt `prefix_step`, (c) **12 ca parity** in ra trên máy.
+* **Kiểm chứng thuật toán không dựa vào đọc code**: `ZeroTTSTokenizer` đã đối chiếu với thư viện `tokenizers` của HuggingFace trên **6438 ca** (từ vựng tiếng Việt có dấu, dấu câu ASCII và Unicode, số/ngày/giờ, ký tự ngoài BMP, emoji, khoảng trắng đặc biệt) — **0 sai khác**; kết quả này độc lập với bản port.
+
 ## 1.3.471 — +1 file 85 dòng; `TaskOptionsSheet` giảm 65 dòng; 5 violation nền
 
 * **1 file Swift mới, 1 primary type top level**: `Views/Common/ChapterLimitPickerRows.swift` — **80**/400 dòng (`enum ChapterLimitPicker`; `extension ChapterLimitOption` không tính là type chính). Validator: **642 → 643** file Swift.

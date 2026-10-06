@@ -15,6 +15,18 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.472 — spike khảo sát ZeroTTS: cầu C ONNX thứ hai, tokenizer BPE port từ `tokenizer.json`, màn thử đo RTF/RAM
+
+* Thêm **13** file Swift (`Services/TTS/ZeroTTS/` ×10 + `Views/Settings/TTS/ZeroTTSTestView*.swift` ×3) và **3** file không phải Swift (`Services/TTS/ONNXBridgingHeader.h`, `Services/TTS/ZeroTTS/ZeroTTSONNXBridge.h` + `.m`) ⇒ validator đếm **656** file Swift, bộ tài liệu vẫn **16** doc.
+* **Đây là spike khảo sát khả thi, không phải engine đã nối vào app.** `zerotts` **không** được thêm vào Picker "Trình đọc" (`TTSSettingsView.swift:91-99`) và **không** có nhánh nào trong `TTSManager` rẽ theo tên nó ⇒ toàn bộ ~30 điểm rẽ nhánh theo `tool` giữ nguyên. Lý do: chỉ nối engine sau khi biết RTF < 1 và RAM đỉnh không vượt ngân sách trên máy thật.
+* **Cầu C thứ hai** (`ZeroTTSONNXBridge.h/.m`): cầu VieNeu là API **chuyên dụng theo từng bước graph của VieNeu** (`VieNeuONNXBridge.h:14`), còn ZeroTTS cần bộ input khác hẳn — 12 tensor hỗn hợp dtype, `seen_mask` bool **sửa tại chỗ** giữa các frame, và KV cache phình dần. Vì `SWIFT_OBJC_BRIDGING_HEADER` chỉ nhận **một** đường dẫn, thêm umbrella `Services/TTS/ONNXBridgingHeader.h` gom cả hai cầu; `project.yml` trỏ vào umbrella.
+* **Tokenizer BPE port thủ công** (`ZeroTTSTokenizer.swift`): đọc `tokenizer.json` (vocab **8192**, **7925** merge, BPE **cấp ký tự** — không phải byte-level), normalize NFC + gộp cụm khoảng trắng thành một dấu cách, pre-tokenize theo thứ tự khoảng trắng → `\p{P}` → `\p{N}`. Thuật toán đã đối chiếu với thư viện `tokenizers` thật trên **6438 ca**: **0 sai khác**. `ZeroTTSTokenizer+Fixture.swift` mang 12 ca kỳ vọng để màn thử tự kiểm **trên máy** — repo không có tầng test nên đây là hàng rào duy nhất.
+* **Vòng sinh** (`ZeroTTSGenerator.swift`): **2 lời gọi ORT/frame**, frame **80 ms** (12,5 Hz), `forbid_eoa` bật khi `t < min_frames` hoặc đang trong đuôi `<eoa>`, `seen_mask` reset mỗi utterance, `cross_kv` tính **một lần** cho cả utterance rồi truyền lại mọi frame.
+* Số dòng file mới (Swift): `ZeroTTSTestView` **314** · `ZeroTTSTokenizer` **262** · `ZeroTTSONNXRuntime` **247** · `ZeroTTSEngine` **240** · `ZeroTTSTestView+Sections` **210** · `ZeroTTSGenerator` **171** · `ZeroTTSModelStore` **108** · `ZeroTTSModelClient` **90** · `ZeroTTSConfig` **76** · `ZeroTTSTestView+Diagnostics` **70** · `ZeroTTSVoiceCatalog` **69** · `ZeroTTSTokenizer+Fixture` **54** · `ZeroTTSRandom` **38** — tất cả dưới trần **400**; mỗi file **1** primary type.
+* Số dòng file đã sửa: `TTSSettingsSection.swift` **28 → 35** (thêm Section + `NavigationLink` mở `ZeroTTSTestView`).
+* **CI**: `.github/workflows/build-ipa.yml:5` thêm nhánh `ZeroTTS` vào `push.branches` ⇒ `[ main, sigle_reader, ZeroTTS ]`; **không** đụng `paths` (`:6-8`) hay `pull_request` (`:9-10`). Nhánh `ZeroTTS` tách từ `sigle_reader`.
+* **Ngoài phạm vi (cố ý)**: không nhân bản giọng (bản open-source **không** phát hành voice encoder — chỉ *nạp* giọng, không *tạo* giọng), không streaming (`decode_step`), không `cfg_scale > 1` (cần batch 2), không lượng tử hoá int8, không backend ggml/GGUF.
+
 ## 1.3.471 — mục "Số lượng chương" cho phạm vi quét tên riêng; component chọn số chương dùng chung
 
 * Thêm **1** file Swift (`Views/Common/ChapterLimitPickerRows.swift`, **80** dòng) ⇒ validator đếm **643** file, bộ tài liệu vẫn **16** doc.

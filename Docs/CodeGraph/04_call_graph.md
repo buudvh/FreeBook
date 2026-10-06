@@ -15,6 +15,42 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.472 — chuỗi gọi của một lượt thử ZeroTTS, từ nút bấm xuống 4 graph ONNX
+
+```text
+ZeroTTSTestView.playSample()
+  └─ TTSReplacementManager.shared.applyReplacements(to:)        ← lớp tiền xử lý DUY NHẤT
+  └─ Task { }
+       ├─ ZeroTTSEngine.prepareAsync()        (chỉ lượt đầu)
+       │    └─ Task.detached → ZeroTTSEngine.prepare()
+       │         ├─ ZeroTTSONNXRuntime.init(modelDirectory:threadCount:)
+       │         │    └─ ZeroTTSORTCreate  → 4 OrtSession + đọc shape từ graph
+       │         ├─ ZeroTTSConfig.load(from:)          (config.json)
+       │         ├─ ZeroTTSTokenizer(tokenizerJSONURL:) (tokenizer.json)
+       │         ├─ ZeroTTSVoiceCatalog.load(from:)     (voices_index.json)
+       │         └─ ZeroTTSEngine.validate(shapes:against:)   ← chặn graph ≠ config
+       └─ ZeroTTSEngine.synthesizeAsync(text:voice:sampling:)
+            └─ Task.detached → ZeroTTSEngine.synthesize(...)
+                 ├─ ZeroTTSVoiceCatalog.loadEmbedding(from:expectedCount:)
+                 └─ ZeroTTSGenerator.synthesize(text:)
+                      ├─ ZeroTTSTokenizer.encode(_)            → [<bos> … <eot>]
+                      ├─ ZeroTTSONNXRuntime.textEncoder(...)    → cross_kv, text_valid, soa_embed
+                      ├─ ZeroTTSONNXRuntime.beginSequence(...)  → cấp packed_kv/full_valid một lần
+                      ├─ ZeroTTSONNXRuntime.prefixInit(...)     → hidden (vị trí cuối)
+                      ├─ vòng frame:
+                      │    ├─ ZeroTTSONNXRuntime.localFrameDecode(...) → is_eoa, codes
+                      │    │     (cầu C tự cập nhật seen_mask sau Run)
+                      │    └─ ZeroTTSONNXRuntime.prefixFrame(...)      → hidden
+                      └─ ZeroTTSONNXRuntime.codecDecode(...)    → PCM mono 48 kHz
+                 └─ WAVEncoder.encodePCM16(samples:sampleRate:channels:)
+```
+
+* **Hai tầng `Task.detached` là bắt buộc**: nạp 4 graph (~903 MB) và vòng sinh frame đều **nặng và đồng bộ**; gọi thẳng từ một `Task` của View là chặn main thread. Cùng khuôn `VieNeuTTSService.prepare` (`VieNeuTTSService.swift:127-130`).
+* **Hệ quả đã biết**: `Task.detached` **không** thừa hưởng cancellation của cha ⇒ `Task.checkCancellation()` trong `ZeroTTSGenerator.synthesize` không bao giờ nổ, nút Dừng chỉ ngắt **phát** và bỏ kết quả. Màn thử ghi rõ điều này ở footer khối "Phát".
+* **Đường gọi model → file**: `ZeroTTSModelClient.prefetch(progress:)` → `URLSession.download(from:)` → `ZeroTTSModelStore.url(for:)`. Màn thử **không** tự gọi mạng; nó gọi client.
+* **Không có call site nào vào `TTSManager`**: spike chưa nối vào Picker "Trình đọc", nên chuỗi gọi của Reader (`speakCurrent` → `playbackParagraphs` → `localService.synthesize`) giữ nguyên hoàn toàn.
+* **Đối chiếu shape là một bước trong chuỗi**, không phải kiểm tra rời: `ZeroTTSORTCreate` trả `ZeroTTSORTShapes` đọc từ chính graph, `ZeroTTSEngine.validate` so với `config.json`, và `ZeroTTSGenerator.validate(crossKvShape:batch:length:)` so shape `cross_kv` thật với config **trước khi** vào `prefix_step`.
+
 ## 1.3.471 — số chương đi cùng phạm vi, từ sheet xuống tới `prefix(limit)`
 
 ```text

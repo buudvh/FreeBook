@@ -24,5 +24,12 @@ struct TTSSettingsSection: View {
                 Label("Cài đặt VieNeu TTS", systemImage: "waveform.badge.plus")
             }
         }
+        // ZeroTTS là **spike khảo sát khả thi**, không phải engine đã nối vào Picker "Trình đọc": màn này
+        // tồn tại để đo RTF và RAM đỉnh trên máy thật trước khi quyết định có nối hay không.
+        Section(header: Text("Nghe Truyện (TTS) · ZeroTTS (thử nghiệm)")) {
+            NavigationLink(destination: ZeroTTSTestView()) {
+                Label("Thử ZeroTTS", systemImage: "waveform.badge.exclamationmark")
+            }
+        }
     }
 }
