@@ -57,6 +57,9 @@ extension ZeroTTSTestView {
         if !statusMessage.isEmpty {
             lines.append("thông báo: " + statusMessage)
         }
+        if !playbackNote.isEmpty {
+            lines.append("phát: " + playbackNote)
+        }
         if !lastReport.isEmpty {
             lines.append("— số đo —")
             lines.append(lastReport)

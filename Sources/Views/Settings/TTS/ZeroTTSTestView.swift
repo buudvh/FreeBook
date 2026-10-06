@@ -55,6 +55,11 @@ struct ZeroTTSTestView: View {
     /// Kết quả đối chiếu tokenizer của lượt gần nhất. Giữ ở đây thay vì parse lại `tokenizer.json` (192 KB)
     /// mỗi lần bấm "Sao chép kết quả".
     @State var tokenizerReport = ""
+    /// Kết quả chẩn đoán của lượt phát gần nhất: trạng thái phiên âm thanh + kết quả `play()`.
+    ///
+    /// Có mặt vì "tổng hợp xong mà không nghe thấy gì" có **hai** nguyên nhân khác hẳn nhau — tầng sinh ra
+    /// im lặng, hay tầng phát không kêu — và không có ô này thì phải đoán.
+    @State var playbackNote = ""
     @State var player: AVAudioPlayer?
     @State var synthesisTask: Task<Void, Never>?
     @State var didCopy = false
@@ -262,13 +267,27 @@ struct ZeroTTSTestView: View {
         statusMessage = String(format: "Xong: %.2f giây audio, tổng hợp %.2f giây.",
                                audio, report.synthesisMs / 1_000)
         tokenizerReport = report.tokenizerReport
+        let frames = Double(max(1, report.frameCount))
+        // Dòng "đỉnh biên độ" là phép thử rẻ nhất để biết audio có **tiếng** hay không: gần 0 nghĩa là tầng
+        // sinh ra im lặng, còn số bình thường mà không nghe thấy gì thì lỗi ở tầng phát.
+        let peak = String(format: "%.3f", report.peakAmplitude)
+        let peakNote = report.peakAmplitude < 0.01 ? "   ← GẦN NHƯ IM LẶNG" : ""
         lastReport = """
         frame        \(report.frameCount)   (mỗi frame 80 ms ở 12,5 Hz)
         RTF          \(String(format: "%.2f", rtf))   (nhỏ hơn 1 là đọc realtime được)
         nhanh hơn    \(String(format: "%.1f", 1 / max(rtf, 0.001)))× so với realtime
-        nạp model    \(String(format: "%.1f", report.loadMs / 1_000)) s   (chỉ tính lượt đầu)
+        — chia thời gian —
+        text_encoder \(String(format: "%.0f", report.textEncoderMs)) ms   (một lần cho cả utterance)
+        cold start   \(String(format: "%.0f", report.coldStartMs)) ms
+        local_decode \(String(format: "%.0f", report.localDecodeMs)) ms   (\(String(format: "%.0f", report.localDecodeMs / frames)) ms/frame)
+        prefix_step  \(String(format: "%.0f", report.prefixStepMs)) ms   (\(String(format: "%.0f", report.prefixStepMs / frames)) ms/frame)
+        codec        \(String(format: "%.0f", report.codecMs)) ms
+        — tài nguyên —
+        nạp model    \(String(format: "%.1f", report.loadMs / 1_000)) s   (một lần cho cả phiên)
+        làm nóng     \(String(format: "%.1f", report.warmupMs / 1_000)) s   (đã trừ khỏi số RTF ở trên)
         RAM đỉnh     \(resident)
         lấy mẫu      \(report.sampleRate) Hz
+        đỉnh biên độ \(peak)\(peakNote)
         chữ → token  \(report.characterCount) → \(report.textTokenCount)
         """
     }
@@ -289,6 +308,23 @@ struct ZeroTTSTestView: View {
 
     private func play(_ data: Data) {
         shareURL = writeTemporaryAudio(data, replacing: shareURL)
+        playbackNote = ""
+
+        // Kích hoạt phiên âm thanh **tường minh** trước khi phát.
+        //
+        // Đường TTS của app luôn làm bước này (`TTSAudioSessionController.configureAudioSession()` rồi
+        // `activate()`), còn `AVAudioPlayer` chỉ kích hoạt **ngầm**. Khi phiên đã bị `setActive(false)` ở nơi
+        // khác thì việc kích hoạt ngầm có thể không thành công, và triệu chứng đúng là "tổng hợp xong mà
+        // không nghe thấy gì" — im lặng, không lỗi.
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(.playback, mode: .spokenAudio, options: [])
+            try session.setActive(true)
+            playbackNote = "phiên \(session.category.rawValue) đã kích hoạt"
+        } catch {
+            playbackNote = "phiên: LỖI \(error.localizedDescription)"
+        }
+
         do {
             let newPlayer = try AVAudioPlayer(data: data)
             player = newPlayer
@@ -296,9 +332,13 @@ struct ZeroTTSTestView: View {
             newPlayer.enableRate = true
             newPlayer.rate = Float(speed)
             newPlayer.prepareToPlay()
-            newPlayer.play()
+            let started = newPlayer.play()
+            playbackNote += started
+                ? String(format: " · play() = true · %.2f s", newPlayer.duration)
+                : " · play() = FALSE"
         } catch {
             isError = true
+            playbackNote += " · AVAudioPlayer lỗi: \(error.localizedDescription)"
             statusMessage = "Phát thất bại: \(error.localizedDescription)"
         }
     }

@@ -28,6 +28,16 @@ final class ZeroTTSGenerator {
         let frameCount: Int
         let sampleRate: Int
         let synthesisMs: Double
+        /// Chia nhỏ thời gian theo **graph**.
+        ///
+        /// Không có bảng này thì biết RTF mà không biết **sửa ở đâu**: `text_encoder` chạy một lần cho cả
+        /// utterance, `prefix_step` chạy `frameCount + 1` lần (cold start + mỗi frame), `local_frame_decode`
+        /// chạy `frameCount` lần, codec một lần. Bốn con số đó dẫn tới bốn hướng tối ưu khác hẳn nhau.
+        let textEncoderMs: Double
+        let coldStartMs: Double
+        let localDecodeMs: Double
+        let prefixStepMs: Double
+        let codecMs: Double
     }
 
     enum GeneratorError: LocalizedError {
@@ -79,14 +89,17 @@ final class ZeroTTSGenerator {
         let length = ids.count
 
         // 1. text_encoder — một lần cho cả utterance.
+        let textEncoderStarted = ProcessInfo.processInfo.systemUptime
         let encoded = try runtime.textEncoder(
             ids: ids, batch: batch, length: length,
             soaCapacity: batch * dModel,
             crossKvCapacity: config.nLayers * 2 * batch * config.nHeads * length * config.headDim
         )
         try validate(crossKvShape: encoded.crossKvShape, batch: batch, length: length)
+        let textEncoderMs = (ProcessInfo.processInfo.systemUptime - textEncoderStarted) * 1_000
 
         // 2. Cold start: `external_embed = [voice ‖ soa]`.
+        let coldStartStarted = ProcessInfo.processInfo.systemUptime
         try runtime.beginSequence(batch: batch, voiceCount: voiceCount, maxFrames: sampling.maxFrames,
                                   codebooks: codebooks,
                                   layers: config.nLayers, heads: config.nHeads, headDim: config.headDim)
@@ -99,6 +112,7 @@ final class ZeroTTSGenerator {
             crossKv: encoded.crossKv, crossKvShape: encoded.crossKvShape,
             textValid: encoded.textValid, batch: batch, dModel: dModel
         )
+        let coldStartMs = (ProcessInfo.processInfo.systemUptime - coldStartStarted) * 1_000
 
         // 3. Vòng frame.
         var seenMask = [UInt8](repeating: 0, count: codebooks * config.codebookSize)
@@ -107,9 +121,12 @@ final class ZeroTTSGenerator {
         var random = ZeroTTSRandom(seed: seed)
         var tail: Int?
         var index = 0
+        var localDecodeMs: Double = 0
+        var prefixStepMs: Double = 0
 
         while true {
             try Task.checkCancellation()
+            let decodeStarted = ProcessInfo.processInfo.systemUptime
             let decoded = try runtime.localFrameDecode(
                 hidden: hidden, batch: batch, dModel: dModel,
                 forbidEoa: index < sampling.minFrames || tail != nil,
@@ -118,6 +135,7 @@ final class ZeroTTSGenerator {
                 audioRandomU: random.fill(count: codebooks),
                 codebooks: codebooks
             )
+            localDecodeMs += (ProcessInfo.processInfo.systemUptime - decodeStarted) * 1_000
             if tail == nil && decoded.isEoa { tail = max(0, sampling.eoaExtraFrames) }
             if let remaining = tail, remaining <= 0 { break }
             if index >= sampling.maxFrames { break }
@@ -136,11 +154,13 @@ final class ZeroTTSGenerator {
                 if remaining <= 0 { break }
             }
 
+            let prefixStarted = ProcessInfo.processInfo.systemUptime
             hidden = try runtime.prefixFrame(
                 frameCodes: decoded.codes, frameIndex: index, voiceCount: voiceCount,
                 crossKv: encoded.crossKv, crossKvShape: encoded.crossKvShape,
                 textValid: encoded.textValid, batch: batch, dModel: dModel
             )
+            prefixStepMs += (ProcessInfo.processInfo.systemUptime - prefixStarted) * 1_000
             index += 1
         }
 
@@ -156,13 +176,20 @@ final class ZeroTTSGenerator {
         // Trần dung lượng PCM: độ dài lý thuyết + biên, để `codecDecode` báo lỗi rõ nếu model trả dài hơn.
         let expectedSamples = Double(frames.count) * config.secondsPerFrame * Double(config.sampleRate)
         let pcmCapacity = Int(expectedSamples.rounded(.up)) + 8192
+        let codecStarted = ProcessInfo.processInfo.systemUptime
         let samples = try runtime.codecDecode(codesKT: codesKT, codebooks: codebooks,
                                               frames: frames.count, pcmCapacity: pcmCapacity)
+        let codecMs = (ProcessInfo.processInfo.systemUptime - codecStarted) * 1_000
 
         return Output(samples: samples,
                       frameCount: frames.count,
                       sampleRate: config.sampleRate,
-                      synthesisMs: (ProcessInfo.processInfo.systemUptime - started) * 1_000)
+                      synthesisMs: (ProcessInfo.processInfo.systemUptime - started) * 1_000,
+                      textEncoderMs: textEncoderMs,
+                      coldStartMs: coldStartMs,
+                      localDecodeMs: localDecodeMs,
+                      prefixStepMs: prefixStepMs,
+                      codecMs: codecMs)
     }
 
     /// Đối chiếu `cross_kv` trả về với `config.json`. Lệch ở đây nghĩa là config không thuộc bộ weights —

@@ -26,6 +26,23 @@ final class ZeroTTSEngine: @unchecked Sendable {
         let textTokenCount: Int
         /// Kết quả đối chiếu tokenizer với mốc parity. Rỗng nghĩa là chưa chạy.
         let tokenizerReport: String
+        /// Thời gian **làm nóng** — một lượt tổng hợp ngắn đẩy qua cả bốn graph ở `prepare`.
+        ///
+        /// ORT cấp phát arena và tối ưu ở lần `Run` **đầu tiên** của mỗi session, nên lượt tổng hợp thật đầu
+        /// tiên luôn chậm hơn hẳn các lượt sau. Không làm nóng thì số RTF báo ra là của **lượt đầu**, không
+        /// phải trạng thái ổn định — và đó là cách một spike tự lừa mình.
+        let warmupMs: Double
+        /// Biên độ đỉnh của PCM (thang `0…1`).
+        ///
+        /// Gần `0` nghĩa là audio **im lặng**. Đây là phép thử rẻ nhất để tách "không nghe thấy gì" thành hai
+        /// nguyên nhân khác hẳn nhau: tầng **sinh** ra im lặng, hay tầng **phát** không kêu.
+        let peakAmplitude: Float
+        /// Chia nhỏ thời gian theo graph. Không có bảng này thì biết RTF mà không biết sửa ở đâu.
+        let textEncoderMs: Double
+        let coldStartMs: Double
+        let localDecodeMs: Double
+        let prefixStepMs: Double
+        let codecMs: Double
     }
 
     enum EngineError: LocalizedError {
@@ -63,6 +80,7 @@ final class ZeroTTSEngine: @unchecked Sendable {
     private var tokenizer: ZeroTTSTokenizer?
     private var voices: [ZeroTTSVoiceCatalog.Voice] = []
     private var loadMs: Double = 0
+    private var warmupMs: Double = 0
 
     init(store: ZeroTTSModelStore, threadCount: Int32 = 4) {
         self.store = store
@@ -86,31 +104,11 @@ final class ZeroTTSEngine: @unchecked Sendable {
         return voices
     }
 
-    /// Nạp bốn graph + config + tokenizer. Idempotent: gọi lại khi đã nạp thì trả về ngay.
-    ///
-    /// Dựng **hết** vào biến cục bộ rồi mới gán — gán từng cái là mở đường cho trạng thái nửa vời, đúng
-    /// lỗi đã gặp ở engine VieNeu (`VieNeuTTSEngine.swift:154-159`).
+    /// Nạp bốn graph + config + tokenizer, rồi **làm nóng**. Idempotent: gọi lại khi đã nạp thì trả về ngay.
     func prepare() throws {
         lock.lock()
         defer { lock.unlock() }
-        guard runtime == nil else { return }
-
-        let missing = store.missingNames
-        guard missing.isEmpty else { throw EngineError.modelIncomplete(missing) }
-
-        let started = ProcessInfo.processInfo.systemUptime
-        let newRuntime = try ZeroTTSONNXRuntime(modelDirectory: store.rootURL, threadCount: threadCount)
-        let newConfig = try ZeroTTSConfig.load(from: store.url(for: "config.json"))
-        let newTokenizer = try ZeroTTSTokenizer(tokenizerJSONURL: store.url(for: "tokenizer.json"))
-        let newVoices = try ZeroTTSVoiceCatalog.load(from: store.url(for: "voices_index.json"))
-        try Self.validate(shapes: newRuntime.shapes, against: newConfig)
-
-        runtime = newRuntime
-        config = newConfig
-        tokenizer = newTokenizer
-        voices = newVoices
-        loadMs = (ProcessInfo.processInfo.systemUptime - started) * 1_000
-        AppLogger.shared.log("🎙️ [ZeroTTS] Nạp xong: \(newVoices.count) giọng, nạp \(Int(loadMs)) ms")
+        try prepareLocked()
     }
 
     /// Đối chiếu shape **graph khai** với `config.json`. Hai nguồn này lệch nhau nghĩa là weights và config
@@ -149,7 +147,15 @@ final class ZeroTTSEngine: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         try prepareLocked()
+        return try synthesizeLocked(text: text, voice: voice, sampling: sampling, seed: seed)
+    }
 
+    /// Thân một lượt tổng hợp, khi **đã** giữ khoá và engine đã nạp xong.
+    ///
+    /// Tách khỏi `synthesize` vì `prepareLocked` cần gọi nó để **làm nóng** mà `NSLock` không tái nhập —
+    /// gọi `synthesize` từ trong `prepareLocked` là tự khoá chết.
+    private func synthesizeLocked(text: String, voice: String,
+                                  sampling: ZeroTTSConfig.Sampling, seed: UInt64) throws -> Report {
         guard let runtime, let config, let tokenizer else { throw EngineError.notPrepared }
 
         let voiceURL = store.url(for: ZeroTTSModelStore.voiceFileName(voice))
@@ -163,6 +169,8 @@ final class ZeroTTSEngine: @unchecked Sendable {
         let data = WAVEncoder.encodePCM16(samples: output.samples,
                                           sampleRate: output.sampleRate,
                                           channels: 1)
+        var peak: Float = 0
+        for sample in output.samples { peak = max(peak, abs(sample)) }
         return Report(
             data: data,
             samples: output.samples,
@@ -174,7 +182,14 @@ final class ZeroTTSEngine: @unchecked Sendable {
             residentBytes: Self.residentBytes(),
             characterCount: text.count,
             textTokenCount: tokenizer.encode(text).count,
-            tokenizerReport: tokenizer.parityReport()
+            tokenizerReport: tokenizer.parityReport(),
+            warmupMs: warmupMs,
+            peakAmplitude: peak,
+            textEncoderMs: output.textEncoderMs,
+            coldStartMs: output.coldStartMs,
+            localDecodeMs: output.localDecodeMs,
+            prefixStepMs: output.prefixStepMs,
+            codecMs: output.codecMs
         )
     }
 
@@ -202,9 +217,12 @@ final class ZeroTTSEngine: @unchecked Sendable {
 
     /// `prepare()` khi đã giữ khoá. Tách ra vì `synthesize` cần nạp mà **không** được khoá lại (NSLock
     /// không tái nhập).
+    ///
+    /// Dựng **hết** vào biến cục bộ rồi mới gán — gán từng cái là mở đường cho trạng thái nửa vời, đúng
+    /// lỗi đã gặp ở engine VieNeu (`VieNeuTTSEngine.swift:154-159`).
     private func prepareLocked() throws {
         guard runtime == nil else { return }
-        // `prepare()` tự khoá; ở đây đang giữ khoá nên phải làm lại phần thân thay vì gọi nó.
+
         let missing = store.missingNames
         guard missing.isEmpty else { throw EngineError.modelIncomplete(missing) }
 
@@ -220,6 +238,22 @@ final class ZeroTTSEngine: @unchecked Sendable {
         tokenizer = newTokenizer
         voices = newVoices
         loadMs = (ProcessInfo.processInfo.systemUptime - started) * 1_000
+        AppLogger.shared.log("🎙️ [ZeroTTS] Nạp xong: \(newVoices.count) giọng, nạp \(Int(loadMs)) ms")
+
+        // **Làm nóng** ngay sau khi nạp — xem doc của `Report.warmupMs`. Không có bước này thì lượt tổng hợp
+        // thật đầu tiên gánh toàn bộ chi phí khởi tạo lười của ORT (cấp arena + tối ưu graph ở lần `Run` đầu
+        // của mỗi session), và số RTF báo ra là của lượt đầu chứ không phải trạng thái ổn định. Bản port JS
+        // cũng có `warmup()` đúng vì lý do này (`js/src/synthesizer.ts`).
+        //
+        // `try?` là cố ý: làm nóng **không** được phép làm hỏng việc nạp. Hỏng thì `warmupMs` giữ 0 và số đo
+        // vẫn trung thực (nó chỉ là số của lượt đầu).
+        if let voice = newVoices.first?.name {
+            let warmupStarted = ProcessInfo.processInfo.systemUptime
+            _ = try? synthesizeLocked(text: "a", voice: voice,
+                                      sampling: ZeroTTSConfig.Sampling(), seed: 0x5EED)
+            warmupMs = (ProcessInfo.processInfo.systemUptime - warmupStarted) * 1_000
+            AppLogger.shared.log("🎙️ [ZeroTTS] Làm nóng xong: \(Int(warmupMs)) ms")
+        }
     }
 
     /// `phys_footprint` của tiến trình — đỉnh bộ nhớ **thật** mà iOS dùng để quyết định jetsam.

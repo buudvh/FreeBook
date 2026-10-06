@@ -15,6 +15,16 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.475 — màn thử ZeroTTS: bảng chia thời gian, làm nóng, và chẩn đoán phát
+
+* **Bối cảnh**: lượt chạy thật đầu tiên đã ra audio (3,20 giây, 40 frame, tokenizer **khớp 12/12 ca**) nhưng RTF **1,07** — vượt ngưỡng go/no-go (< 1,0). Vấn đề: con số đó là của **lượt tổng hợp đầu tiên**, mà lượt đầu luôn gánh chi phí khởi tạo lười của ORT; và không có bảng chia thời gian nên không biết **graph nào** ăn thời gian.
+* **Làm nóng (`ZeroTTSEngine.prepareLocked`)** — sau khi nạp bốn graph, chạy một lượt tổng hợp ngắn (`text: "a"`) rồi vứt kết quả. ORT cấp phát arena và tối ưu graph ở lần `Run` **đầu tiên** của mỗi session, nên không có bước này thì số RTF báo ra không phải trạng thái ổn định. Bản port JS cũng có `warmup()` đúng vì lý do này (`js/src/synthesizer.ts`). `try?` là cố ý: làm nóng **không** được phép làm hỏng việc nạp — hỏng thì `warmupMs` giữ 0 và số đo vẫn trung thực.
+* **Tách `synthesizeLocked`** khỏi `synthesize`: `prepareLocked` cần gọi nó để làm nóng, mà `NSLock` **không tái nhập** — gọi `synthesize` từ trong `prepareLocked` là tự khoá chết. Đồng thời gộp `prepare()` về đúng `lock + prepareLocked()` (trước đó thân hai hàm bị **trùng lặp**).
+* **Bảng chia thời gian** (`ZeroTTSGenerator.Output` + `ZeroTTSEngine.Report`): `text_encoder` (một lần/utterance), `cold start`, `local_decode` (**mỗi frame**), `prefix_step` (**mỗi frame**), `codec`. Bốn con số này dẫn tới bốn hướng tối ưu khác hẳn nhau, nên không có chúng thì biết RTF mà không biết sửa ở đâu. Hiển thị cả **ms/frame** cho hai graph chạy trong vòng lặp.
+* **Chẩn đoán phát** (`ZeroTTSTestView`): thêm `playbackNote` — trạng thái phiên âm thanh, kết quả `play()` (Bool), và thời lượng player; cộng **đỉnh biên độ** của PCM trong khối "Số đo hiệu năng". Lý do: "tổng hợp xong mà không nghe thấy gì" có **hai** nguyên nhân khác hẳn nhau — tầng **sinh** ra im lặng, hay tầng **phát** không kêu — và đỉnh biên độ gần 0 là phép thử rẻ nhất để tách đôi. Lượt phát cũng **kích hoạt phiên âm thanh tường minh** (`setCategory(.playback, mode: .spokenAudio)` + `setActive(true)`) trước khi phát, đúng như đường TTS của app (`TTSAudioSessionController`); `AVAudioPlayer` chỉ kích hoạt **ngầm**, và khi phiên đã bị `setActive(false)` ở nơi khác thì việc kích hoạt ngầm có thể không thành công — im lặng, không lỗi.
+* Số dòng: `ZeroTTSEngine` **260 → 274** · `ZeroTTSGenerator` **180 → 207** · `ZeroTTSTestView` **314 → 354** · `ZeroTTSTestView+Diagnostics` **70 → 73**; file dài nhất (`ZeroTTSTestView` **354**) còn **46** dòng dư tới trần 400.
+* **Chưa có kết luận về RTF**: lượt này chỉ làm cho phép đo **đúng** và **đủ chi tiết**. Con số ổn định thật, và graph nào chiếm thời gian, phải chờ lượt chạy tiếp theo trên máy.
+
 ## 1.3.473 — sửa chiều `frame_codes`: chiều cuối là **số codebook**, không phải số frame
 
 * **Triệu chứng trên máy thật** (báo cáo từ màn thử, sau khi model tải đủ và engine nạp xong):

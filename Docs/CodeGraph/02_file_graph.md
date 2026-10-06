@@ -30,11 +30,11 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 | Services/TTS/ZeroTTS | [`ZeroTTSModelStore.swift`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSModelStore.swift) | Kho file **phẳng** dưới Application Support (codec cần `.data` nằm cạnh `.onnx`) | 108 |
 | Services/TTS/ZeroTTS | [`ZeroTTSModelClient.swift`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSModelClient.swift) | Tải từ HuggingFace bằng `URLSession.download` (graph 348 MB không lọt vào RAM) | 90 |
 | Services/TTS/ZeroTTS | [`ZeroTTSRandom.swift`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSRandom.swift) | SplitMix64 → `[0,1)`; `ctrl_random_u`/`audio_random_u` là **input** của graph | 38 |
-| Services/TTS/ZeroTTS | [`ZeroTTSGenerator.swift`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSGenerator.swift) | Vòng sinh frame: 2 lời gọi ORT/frame, đuôi `<eoa>`, chuyển vị `(K,T)` cho codec | 180 |
-| Services/TTS/ZeroTTS | [`ZeroTTSEngine.swift`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSEngine.swift) | Vòng đời + `NSLock`; `phys_footprint` sau lượt; đối chiếu shape graph ↔ config | 240 |
-| Views/Settings/TTS | [`ZeroTTSTestView.swift`](../../Sources/Views/Settings/TTS/ZeroTTSTestView.swift) | Màn thử: `@State`, tải/xoá model, `playSample`, `presentReport` | 314 |
+| Services/TTS/ZeroTTS | [`ZeroTTSGenerator.swift`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSGenerator.swift) | Vòng sinh frame: 2 lời gọi ORT/frame, đuôi `<eoa>`, chuyển vị `(K,T)` cho codec, đo thời gian từng graph | 207 |
+| Services/TTS/ZeroTTS | [`ZeroTTSEngine.swift`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSEngine.swift) | Vòng đời + `NSLock`; `phys_footprint` sau lượt; đối chiếu shape graph ↔ config; **làm nóng** ở `prepare` | 274 |
+| Views/Settings/TTS | [`ZeroTTSTestView.swift`](../../Sources/Views/Settings/TTS/ZeroTTSTestView.swift) | Màn thử: `@State`, tải/xoá model, `playSample`, `presentReport` (bảng chia thời gian) | 354 |
 | Views/Settings/TTS | [`ZeroTTSTestView+Sections.swift`](../../Sources/Views/Settings/TTS/ZeroTTSTestView+Sections.swift) | Các khối `Form` bám đúng thứ tự màn thử VieNeu | 215 |
-| Views/Settings/TTS | [`ZeroTTSTestView+Diagnostics.swift`](../../Sources/Views/Settings/TTS/ZeroTTSTestView+Diagnostics.swift) | `diagnosticText` gom một khối để sao chép | 70 |
+| Views/Settings/TTS | [`ZeroTTSTestView+Diagnostics.swift`](../../Sources/Views/Settings/TTS/ZeroTTSTestView+Diagnostics.swift) | `diagnosticText` gom một khối để sao chép (kèm trạng thái phát) | 73 |
 
 * **Sửa nội dung**: `Views/Settings/Main/TTSSettingsSection.swift` **28 → 35** (thêm `Section` "Nghe Truyện (TTS) · ZeroTTS (thử nghiệm)" + `NavigationLink(destination: ZeroTTSTestView())`). `project.yml` đổi `SWIFT_OBJC_BRIDGING_HEADER` sang umbrella. `.github/workflows/build-ipa.yml` thêm nhánh `ZeroTTS`.
 * **Tổng 656 file Swift** (643 → 656, +13). Bộ tài liệu vẫn **16** doc.

@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.475] - 2026-10-06
+
+### chore: bang chia thoi gian, lam nong va chan doan phat cho man thu ZeroTTS
+
+Người dùng chạy thật và báo hai điều: RTF **1,07** ("RTF cao quá") và hỏi *"vì sao tổng hợp xong không phát luôn"*. Lượt chạy đó đã ra audio (3,20 giây, 40 frame) và **tokenizer khớp 12/12 ca parity**.
+
+- **Phép đo đang sai, không phải engine chậm.** RTF 1,07 là số của **lượt tổng hợp đầu tiên**, mà lượt đầu luôn gánh chi phí khởi tạo lười của ORT (cấp arena + tối ưu graph ở lần `Run` đầu của mỗi session). Bản port JS của upstream có hẳn `warmup()` vì lý do này; bản port này đã bỏ qua. Nay `prepareLocked()` đẩy một lượt tổng hợp ngắn (`text: "a"`) qua cả bốn graph rồi vứt kết quả, và **đo riêng** thời gian làm nóng (`warmupMs`) để nó không lẫn vào RTF.
+- **Bảng chia thời gian theo graph**: `text_encoder` (một lần/utterance) · `cold start` · `local_decode` (**mỗi frame**) · `prefix_step` (**mỗi frame**) · `codec`. Hiện cả **ms/frame** cho hai graph trong vòng lặp. Không có bảng này thì biết RTF mà không biết sửa ở đâu — bốn con số dẫn tới bốn hướng tối ưu khác hẳn nhau.
+- **Tách `synthesizeLocked` khỏi `synthesize`**: `prepareLocked` cần gọi nó để làm nóng, mà `NSLock` **không tái nhập** ⇒ gọi `synthesize` từ trong `prepareLocked` là tự khoá chết. Đồng thời gộp `prepare()` về đúng `lock + prepareLocked()` — trước đó thân hai hàm bị **trùng lặp** hoàn toàn.
+- **Chẩn đoán "tổng hợp xong mà không nghe thấy gì"**: thêm **đỉnh biên độ** PCM vào khối "Số đo hiệu năng" — gần `0` nghĩa là tầng **sinh** ra im lặng, biên độ bình thường mà không nghe thấy gì nghĩa là lỗi ở tầng **phát**. Hai nguyên nhân này sửa hoàn toàn khác nhau, và không có con số đó thì chỉ còn cách đoán.
+- **Sửa khả năng cao nhất của lỗi phát**: lượt phát nay **kích hoạt phiên âm thanh tường minh** (`AVAudioSession.setCategory(.playback, mode: .spokenAudio)` + `setActive(true)`) trước khi phát, đúng như đường TTS của app (`TTSAudioSessionController`). `AVAudioPlayer` chỉ kích hoạt **ngầm**; khi phiên đã bị `setActive(false)` ở nơi khác thì việc kích hoạt ngầm có thể không thành công — im lặng, không lỗi. Đồng thời **kiểm giá trị trả về** của `play()` (trước đó bỏ qua) và ghi vào `playbackNote` cùng trạng thái phiên, thời lượng player.
+- **Hai luật mới**: **28** — đo hiệu năng runtime suy luận thì phải làm nóng trước, số của lượt đầu không phải số ổn định (và nó lệch theo hướng **bi quan**, tức có thể dẫn tới bỏ một engine dùng được). **29** — "chạy xong mà không có kết quả" phải tách bằng một **đại lượng đo được** (với audio: đỉnh biên độ), không bằng suy đoán.
+- **Kiểm chứng**: `check_architecture.py` **5 violation nền cũ, 0 vi phạm mới**; `validate_links.py` PASS 100% (16 doc, 656 file Swift). **Chưa có kết luận về RTF**: lượt này chỉ làm phép đo **đúng** và **đủ chi tiết**; con số ổn định thật và graph nào chiếm thời gian phải chờ lượt chạy tiếp theo trên máy.
+- Ảnh hưởng dòng: `ZeroTTSEngine` **260 → 274** · `ZeroTTSGenerator` **180 → 207** · `ZeroTTSTestView` **314 → 354** · `ZeroTTSTestView+Diagnostics` **70 → 73**; file dài nhất còn **46** dòng dư tới trần 400.
+
 ## [1.3.474] - 2026-10-06
 
 ### fix: ZeroTTS doc output so nguyen theo kieu that (codes tra int32, khong phai int64)
