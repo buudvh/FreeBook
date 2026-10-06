@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.476] - 2026-10-06
+
+### feat: quet so luong ORT cho man thu ZeroTTS (dung lai session) va ghi trang thai nhiet
+
+Số đo thật đầu tiên cho RTF **1,00** với **RTF biên 0,978** — 78,3 ms/frame so với ngân sách 80 ms — và nút thắt nằm gọn ở `local_frame_decode` (**71% thời gian, 57 ms/frame**; `prefix_step` 16%, codec 10%). Tức tổng RTF vượt 1,0 **chỉ vì 71 ms chi phí cố định** (text_encoder + cold start) chia cho một câu 43 ký tự; với ≥100 frame thì RTF → 0,98. Người dùng chốt hướng **quét số luồng ORT**.
+
+- **Ràng buộc quyết định cả thiết kế**: số luồng nằm trong `OrtSessionOptions` **lúc tạo session**, và **không có API nào** đổi số luồng của một `OrtSession` đã tạo. Nên `ZeroTTSEngine.setThreadCount(_:)` phải **nhả ngữ cảnh cũ rồi dựng lại** (`runtime = nil` → `prepareLocked()`), và màn thử có nút **"Áp dụng & dựng lại engine"** thay vì tự quét ngầm. Nhả **trước** khi dựng là bắt buộc: giữ cả hai ngữ cảnh cùng lúc là ~1,8 GB, đủ để bị jetsam.
+- **File mới** `Views/Settings/TTS/ZeroTTSTestView+Performance.swift` (**74** dòng): `performanceSection` (stepper 2…8 + `LabeledContent` "Đang chạy" + nút áp dụng) và `reloadEngine()`. **Buộc tách file**: `ZeroTTSTestView.swift` đã 354/400.
+- **Lưu lựa chọn**: `UserDefaults` khoá `zerottsThreadCount`, miền **2…8**, mặc định **4** — trùng `VieNeuSynthesisPolicy.defaultThreadCount` nhưng **không** dùng chung khoá, vì hai engine dựng session riêng nên lựa chọn tối ưu cho bộ graph này không suy ra được cho bộ kia. `storedThreadCount(_:)` là `static` và thuần ⇒ màn thử đọc được lựa chọn **mà không cần** engine tồn tại (đúng bài học 1.3.456 của VieNeu).
+- **Ghi trạng thái nhiệt + chế độ tiết kiệm pin vào số đo** (`Report.thermalState` / `Report.lowPowerMode`): iOS hạ xung khi máy nóng, mà nạp 903 MB rồi làm nóng là đủ để máy ấm lên. Không ghi lại thì hai lượt đo cách nhau vài phút **không so được** — và phép quét số luồng chỉ công bằng khi cùng trạng thái nhiệt.
+- **Luật 30**: tham số của runtime suy luận thường bất biến sau khi tạo session ⇒ muốn quét phải thiết kế đường **dựng lại**, và phép quét đó là thủ công. Kèm hệ quả: khi so nhiều mức cấu hình phải ghi lại các biến ngoài tầm kiểm soát (nhiệt, tiết kiệm pin).
+- **Kiểm chứng**: `check_architecture.py` **5 violation nền cũ, 0 vi phạm mới**; `validate_links.py` PASS 100% (16 doc, **657** file Swift). Chưa có số của phép quét — phải chạy trên máy.
+- Ảnh hưởng dòng: `ZeroTTSEngine` **274 → 343** · `ZeroTTSTestView` **354 → 361** · thêm `ZeroTTSTestView+Performance` **74**; file dài nhất còn **39** dòng dư tới trần 400.
+
 ## [1.3.475] - 2026-10-06
 
 ### chore: bang chia thoi gian, lam nong va chan doan phat cho man thu ZeroTTS

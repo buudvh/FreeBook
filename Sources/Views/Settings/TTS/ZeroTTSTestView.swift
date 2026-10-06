@@ -60,6 +60,10 @@ struct ZeroTTSTestView: View {
     /// Có mặt vì "tổng hợp xong mà không nghe thấy gì" có **hai** nguyên nhân khác hẳn nhau — tầng sinh ra
     /// im lặng, hay tầng phát không kêu — và không có ô này thì phải đoán.
     @State var playbackNote = ""
+    /// Số luồng ORT **người dùng chọn**. Giá trị này chỉ có hiệu lực sau khi dựng lại engine — số luồng nằm
+    /// trong `OrtSessionOptions` lúc tạo session nên không sửa được tại chỗ.
+    @State var threadCount: Int32 = ZeroTTSEngine.storedThreadCount()
+    @State var isReloadingEngine = false
     @State var player: AVAudioPlayer?
     @State var synthesisTask: Task<Void, Never>?
     @State var didCopy = false
@@ -97,6 +101,7 @@ struct ZeroTTSTestView: View {
             textSection
             speedSection
             samplingSection
+            performanceSection
             playSection
 
             if !statusMessage.isEmpty {
@@ -287,6 +292,8 @@ struct ZeroTTSTestView: View {
         làm nóng     \(String(format: "%.1f", report.warmupMs / 1_000)) s   (đã trừ khỏi số RTF ở trên)
         RAM đỉnh     \(resident)
         lấy mẫu      \(report.sampleRate) Hz
+        luồng ORT    \(engine?.threadCount ?? 0)
+        nhiệt · pin   \(report.thermalState)\(report.lowPowerMode ? " · TIẾT KIỆM PIN BẬT" : "")
         đỉnh biên độ \(peak)\(peakNote)
         chữ → token  \(report.characterCount) → \(report.textTokenCount)
         """

@@ -15,6 +15,14 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.476 — khối "Hiệu năng" ở tầng View; engine đọc/ghi **một** khoá UserDefaults của riêng nó
+
+* **File mới `Views/Settings/TTS/ZeroTTSTestView+Performance.swift`** nằm trong tầng View: chỉ `import SwiftUI`, không chạm `ModelContext`, không gọi `modelContext.insert/delete/save` ⇒ không vi phạm `VIEW_SWIFTDATA_MUTATION`.
+* **Chiều phụ thuộc không đổi**: `Views/Settings/TTS/` → `Services/TTS/ZeroTTS/ZeroTTSEngine` (đã có từ 1.3.472). File mới **không** thêm phụ thuộc nào; nó chỉ gọi `ZeroTTSEngine.storedThreadCount()`, `ZeroTTSEngine.threadCountRange` và `engine.setThreadCountAsync(_:)`.
+* **`UserDefaults` đi qua một khoá riêng, không dùng chung với VieNeu**: `zerottsThreadCount`. Lý do đã ghi ở `VieNeuSynthesisPolicy.swift:88-92` vẫn giữ nguyên tinh thần — `storedThreadCount(_:)` là `static` và **thuần** (nhận `defaults` với giá trị mặc định `.standard`), nên màn thử đọc được lựa chọn **mà không cần** `ZeroTTSEngine.shared` tồn tại. Nếu để nó là instance property thì `@State` rơi về mặc định và không bao giờ được làm mới — đúng lỗi 1.3.456 của VieNeu.
+* **Ghi thì do engine làm** (`setThreadCount(_:)` ghi `UserDefaults.standard`), khác VieNeu (policy thuần, service ghi). Chấp nhận: ở đây lựa chọn **chỉ có nghĩa khi session được dựng lại**, mà việc dựng lại nằm trong engine — tách đôi ra thì hai chỗ phải khớp nhau bằng tay.
+* **Không `import SwiftUI` ở `Services/**`**: `ZeroTTSEngine` vẫn chỉ `import Foundation` + `import Darwin` ⇒ không vi phạm `SERVICE_SWIFTUI_IMPORT`; không gọi `ToastManager.shared` ⇒ không vi phạm `SERVICE_TOAST_COUPLING`.
+
 ## 1.3.472 — 13 file mới ở tầng Services/Views; cầu C thứ hai vẫn nằm sau bridging header
 
 * **10 file `Sources/Services/TTS/ZeroTTS/*.swift`**: chỉ `import Foundation` (`ZeroTTSEngine.swift` thêm `import Darwin` cho `task_info`) ⇒ **không** vi phạm `SERVICE_SWIFTUI_IMPORT`; không file nào gọi `ToastManager.shared` ⇒ **không** vi phạm `SERVICE_TOAST_COUPLING`.

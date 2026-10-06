@@ -15,6 +15,16 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.476 — quét số luồng ORT: đổi cấu hình session phải dựng lại session
+
+* **Vì sao có lượt này**: số đo thật đầu tiên (lượt 1.3.475) cho RTF **1,00** nhưng **RTF biên 0,978** — 78,3 ms/frame so với ngân sách 80 ms — và nút thắt nằm gọn ở **`local_frame_decode`: 71% thời gian, 57 ms/frame** (`prefix_step` 16%, codec 10%). Tức tổng RTF vượt 1,0 **chỉ vì 71 ms chi phí cố định** (text_encoder + cold start) chia cho một câu 43 ký tự; với ≥100 frame thì RTF → 0,98. Người dùng chốt hướng **quét số luồng ORT**.
+* **Ràng buộc quyết định cả thiết kế**: số luồng nằm trong `OrtSessionOptions` **lúc tạo session**, và **không có API nào** đổi số luồng của một `OrtSession` đã tạo. Nên `ZeroTTSEngine.setThreadCount(_:)` phải **nhả ngữ cảnh cũ rồi dựng lại** — `runtime = nil` (giải phóng bốn session) rồi `prepareLocked()` (nạp lại 903 MB + làm nóng). Giữ cả hai ngữ cảnh cùng lúc là ~1,8 GB ⇒ đủ để bị jetsam. Hệ quả UX: đây là **phép đo thủ công có nút bấm** ("Áp dụng & dựng lại engine", ~18 s mỗi mức), **không** phải thứ quét ngầm.
+* **Lưu lựa chọn**: `UserDefaults` khoá `zerottsThreadCount`, miền **2…8**, mặc định **4** — trùng `VieNeuSynthesisPolicy.defaultThreadCount` để hai engine local có cùng điểm xuất phát, nhưng **không** dùng chung khoá vì hai engine dựng session riêng.
+* **Vì sao nhiều luồng hơn không chắc nhanh hơn** (ghi thẳng vào footer của khối, để lượt sau không phải suy lại): `local_frame_decode` chạy ở **độ dài chuỗi 1**, mỗi phép nhân ma trận rất nhỏ, phần lớn thời gian là chi phí điều phối op; iPhone lại có 2 nhân hiệu năng + 4 nhân tiết kiệm nên đẩy việc sang nhân tiết kiệm có thể **làm chậm đi**. Đây là câu hỏi phép quét tồn tại để trả lời bằng số.
+* **Ghi trạng thái nhiệt vào số đo** (`Report.thermalState` + `Report.lowPowerMode`): iOS hạ xung khi máy nóng, mà nạp 903 MB rồi làm nóng là đủ để máy ấm lên — không ghi lại thì hai lượt đo cách nhau vài phút sẽ không so được. Đây là điều kiện để phép quét số luồng có ý nghĩa: so sánh giữa các mức chỉ công bằng khi cùng trạng thái nhiệt.
+* **Luật 30**: tham số của runtime suy luận thường bất biến sau khi tạo session ⇒ muốn quét phải thiết kế đường **dựng lại**, và phép quét đó là thủ công.
+* Số dòng: `ZeroTTSEngine` **274 → 343** · `ZeroTTSTestView` **354 → 361** · thêm `ZeroTTSTestView+Performance` **74** (tách file vì file chính đã 354/400).
+
 ## 1.3.475 — màn thử ZeroTTS: bảng chia thời gian, làm nóng, và chẩn đoán phát
 
 * **Bối cảnh**: lượt chạy thật đầu tiên đã ra audio (3,20 giây, 40 frame, tokenizer **khớp 12/12 ca**) nhưng RTF **1,07** — vượt ngưỡng go/no-go (< 1,0). Vấn đề: con số đó là của **lượt tổng hợp đầu tiên**, mà lượt đầu luôn gánh chi phí khởi tạo lười của ORT; và không có bảng chia thời gian nên không biết **graph nào** ăn thời gian.

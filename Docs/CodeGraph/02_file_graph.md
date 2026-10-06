@@ -15,6 +15,17 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.476 — +1 file: khối "Hiệu năng" cho màn thử ZeroTTS (quét số luồng ORT)
+
+| Nhóm | File mới | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Views/Settings/TTS | [`Views/Settings/TTS/ZeroTTSTestView+Performance.swift`](../../Sources/Views/Settings/TTS/ZeroTTSTestView+Performance.swift) | `extension ZeroTTSTestView`: `performanceSection` (stepper luồng ORT 2…8 + nút "Áp dụng & dựng lại engine") và `reloadEngine()` | 74 |
+
+* **Buộc phải tách file**: `ZeroTTSTestView.swift` đã **354** dòng; thêm khối này vào đó là vượt trần **400**. Đây là extension **cùng file type** nên `@State` của view vẫn dùng được — cùng khuôn `VieNeuTTSTestView+Sections`.
+* **Sửa nội dung**: `ZeroTTSEngine.swift` **274 → 343** (thêm `defaultThreadCount` / `threadCountKey` / `threadCountRange` / `storedThreadCount(_:)`, `threadCount` từ `let` thành `private(set) var`, `setThreadCount(_:)` + `setThreadCountAsync(_:)`, `thermalStateName()`, và hai trường `thermalState`/`lowPowerMode` trong `Report`); `ZeroTTSTestView.swift` **354 → 361** (hai `@State` mới + một dòng `performanceSection` trong `Form` + hai dòng số đo).
+* Import: file mới chỉ `import SwiftUI`; **không** chạm `modelContext` ⇒ không vi phạm `VIEW_SWIFTDATA_MUTATION`.
+* Tổng **657** file Swift (656 → 657, +1). Bộ tài liệu vẫn **16** doc.
+
 ## 1.3.472 — +13 file: spike khảo sát ZeroTTS (cầu C ONNX, tokenizer BPE, màn thử)
 
 | Nhóm | File mới | Vai trò | Dòng |
@@ -31,8 +42,9 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 | Services/TTS/ZeroTTS | [`ZeroTTSModelClient.swift`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSModelClient.swift) | Tải từ HuggingFace bằng `URLSession.download` (graph 348 MB không lọt vào RAM) | 90 |
 | Services/TTS/ZeroTTS | [`ZeroTTSRandom.swift`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSRandom.swift) | SplitMix64 → `[0,1)`; `ctrl_random_u`/`audio_random_u` là **input** của graph | 38 |
 | Services/TTS/ZeroTTS | [`ZeroTTSGenerator.swift`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSGenerator.swift) | Vòng sinh frame: 2 lời gọi ORT/frame, đuôi `<eoa>`, chuyển vị `(K,T)` cho codec, đo thời gian từng graph | 207 |
-| Services/TTS/ZeroTTS | [`ZeroTTSEngine.swift`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSEngine.swift) | Vòng đời + `NSLock`; `phys_footprint` sau lượt; đối chiếu shape graph ↔ config; **làm nóng** ở `prepare` | 274 |
-| Views/Settings/TTS | [`ZeroTTSTestView.swift`](../../Sources/Views/Settings/TTS/ZeroTTSTestView.swift) | Màn thử: `@State`, tải/xoá model, `playSample`, `presentReport` (bảng chia thời gian) | 354 |
+| Services/TTS/ZeroTTS | [`ZeroTTSEngine.swift`](../../Sources/Services/TTS/ZeroTTS/ZeroTTSEngine.swift) | Vòng đời + `NSLock`; `phys_footprint` sau lượt; đối chiếu shape graph ↔ config; **làm nóng** ở `prepare`; **đổi số luồng = dựng lại session** | 343 |
+| Views/Settings/TTS | [`ZeroTTSTestView.swift`](../../Sources/Views/Settings/TTS/ZeroTTSTestView.swift) | Màn thử: `@State`, tải/xoá model, `playSample`, `presentReport` (bảng chia thời gian) | 361 |
+| Views/Settings/TTS | [`ZeroTTSTestView+Performance.swift`](../../Sources/Views/Settings/TTS/ZeroTTSTestView+Performance.swift) | Khối "Hiệu năng": stepper số luồng ORT 2…8 + nút dựng lại engine | 74 |
 | Views/Settings/TTS | [`ZeroTTSTestView+Sections.swift`](../../Sources/Views/Settings/TTS/ZeroTTSTestView+Sections.swift) | Các khối `Form` bám đúng thứ tự màn thử VieNeu | 215 |
 | Views/Settings/TTS | [`ZeroTTSTestView+Diagnostics.swift`](../../Sources/Views/Settings/TTS/ZeroTTSTestView+Diagnostics.swift) | `diagnosticText` gom một khối để sao chép (kèm trạng thái phát) | 73 |
 

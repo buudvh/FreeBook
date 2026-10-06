@@ -15,9 +15,17 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.476 — +1 file 74 dòng; `ZeroTTSTestView` 361/400; 5 violation nền
+
+* **1 file Swift mới**: `Views/Settings/TTS/ZeroTTSTestView+Performance.swift` — **74**/400 dòng, là **extension** nên không tính type chính. Validator: **656 → 657** file Swift.
+* **Vì sao phải tách**: `ZeroTTSTestView.swift` đã **354**; khối "Hiệu năng" (stepper + nút + footer giải thích) đẩy nó vượt **400**. File chính sau khi sửa là **361/400** — còn **39** dòng dư.
+* Số dòng sau thay đổi: `ZeroTTSEngine.swift` **274 → 343** (thêm hằng số khoá/miền, `setThreadCount(_:)` + bản async, `thermalStateName()`, hai trường `Report`). `ZeroTTSGenerator.swift` giữ **207**.
+* `check_architecture.py`: **5 violation nền cũ, 0 vi phạm mới** (`ChapterPersistenceStore` · `JSDom` · `JSExecutor` · `TTSManager` · `ReaderViewModel` — đều không thuộc vùng sửa). Không có `MULTI_PRIMARY_TYPES`, `VIEW_SWIFTDATA_MUTATION`, `SERVICE_TOAST_COUPLING` hay `SERVICE_SWIFTUI_IMPORT` mới.
+* **Độ phức tạp mới nằm ở vòng đời, không ở số dòng**: `setThreadCount(_:)` phải **nhả ngữ cảnh cũ rồi dựng lại** — giữ cả hai cùng lúc là ~1,8 GB. Đó là lý do hàm này chạy dưới cùng `NSLock` và có bản `Task.detached` riêng.
+
 ## 1.3.472 — +13 file Swift (dài nhất 314/400); 5 violation nền cũ, 0 vi phạm mới
 
-* **13 file Swift mới, mỗi file 1 primary type top level**: `ZeroTTSTestView` **354** · `ZeroTTSTokenizer` **262** · `ZeroTTSONNXRuntime` **260** · `ZeroTTSEngine` **274** · `ZeroTTSTestView+Sections` **215** (extension, không tính type) · `ZeroTTSGenerator` **207** · `ZeroTTSModelStore` **108** · `ZeroTTSModelClient` **90** · `ZeroTTSConfig` **76** · `ZeroTTSTestView+Diagnostics` **73** (extension) · `ZeroTTSVoiceCatalog` **69** · `ZeroTTSTokenizer+Fixture` **54** (extension) · `ZeroTTSRandom` **38**. **Không file nào chạm trần 400**; file dài nhất còn **46** dòng dư. Validator: **643 → 656** file Swift.
+* **14 file Swift mới, mỗi file 1 primary type top level**: `ZeroTTSTestView` **361** · `ZeroTTSEngine` **343** · `ZeroTTSTokenizer` **262** · `ZeroTTSONNXRuntime` **260** · `ZeroTTSTestView+Sections` **215** (extension, không tính type) · `ZeroTTSGenerator` **207** · `ZeroTTSModelStore` **108** · `ZeroTTSModelClient` **90** · `ZeroTTSConfig` **76** · `ZeroTTSTestView+Performance` **74** (extension) · `ZeroTTSTestView+Diagnostics` **73** (extension) · `ZeroTTSVoiceCatalog` **69** · `ZeroTTSTokenizer+Fixture` **54** (extension) · `ZeroTTSRandom` **38**. **Không file nào chạm trần 400**; file dài nhất (`ZeroTTSTestView` **361**) còn **39** dòng dư. Validator: **643 → 657** file Swift.
 * **3 file không phải Swift** (không thuộc phạm vi trần 400 của `check_architecture.py`): `ONNXBridgingHeader.h` **22** · `ZeroTTSONNXBridge.h` **171** · `ZeroTTSONNXBridge.m` **1241**. File `.m` dài là **cố ý**: cầu C phải tự quản vòng đời `OrtValue`, sao chép 5 dtype khác nhau, và đọc shape từ session — chia nhỏ nó thành nhiều `.m` chỉ làm tăng số file chứ không giảm độ phức tạp thật.
 * **File đã sửa**: `TTSSettingsSection.swift` **28 → 35** (+7: một `Section` + `NavigationLink`). `project.yml` **không đổi số dòng khai** (chỉ đổi giá trị `SWIFT_OBJC_BRIDGING_HEADER`). `.github/workflows/build-ipa.yml` **không đổi số dòng** (chỉ thêm `ZeroTTS` vào danh sách nhánh).
 * **Không file legacy nào bị đụng** ⇒ không có ratchet-down nào bị vi phạm. Cụ thể: `TTSManager.swift` giữ **3970** (baseline 3470 — violation **nền cũ**, không do lượt này), `TTSSettingsView.swift` giữ nguyên, `VieNeuTTSEngine.swift` giữ nguyên.

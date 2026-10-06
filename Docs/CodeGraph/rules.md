@@ -15,6 +15,11 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.476 — một luật mới (tham số runtime suy luận bất biến sau khi tạo session)
+
+* **Luật 30 — tham số của một runtime suy luận thường **bất biến sau khi tạo session**, nên muốn quét nó thì phải thiết kế **đường dựng lại**, và phép quét đó là **thủ công**.** Số luồng ORT nằm trong `OrtSessionOptions` lúc `CreateSession`; **không có API nào** đổi số luồng của một `OrtSession` đã tạo. Hệ quả kép: (a) đổi cấu hình = **nhả ngữ cảnh cũ rồi dựng lại** — và phải nhả **trước** khi dựng, vì giữ cả hai cùng lúc ở đây là ~1,8 GB, đủ để bị jetsam; (b) mỗi mức tốn lại ~18 s nạp model, nên giao diện phải có **nút "Áp dụng"** chứ không được tự quét ngầm sau mỗi lần bấm ▶. Cùng luật này áp cho mọi tham số session khác (execution provider, graph optimization level, arena).
+* **Hệ quả về phép đo**: khi so nhiều mức cấu hình, phải **ghi lại các biến ngoài tầm kiểm soát** đi kèm số đo — ở đây là `thermalState` và `lowPowerMode`. Nạp 903 MB rồi làm nóng là đủ để máy ấm lên và bị hạ xung, nên một số RTF đo lúc `serious` **không so được** với số đo lúc `nominal`. Không ghi lại thì phép quét kết luận sai.
+
 ## 1.3.475 — hai luật mới (đo hiệu năng phải làm nóng; "im lặng" phải tách bằng biên độ đỉnh)
 
 * **Luật 28 — đo hiệu năng một runtime suy luận thì **phải làm nóng trước**; số của lượt đầu không phải số ổn định.** ORT (và hầu hết runtime) cấp phát arena + tối ưu graph ở lần `Run` **đầu tiên** của mỗi session. Đo thẳng lượt đầu rồi kết luận "RTF = 1,07, vượt ngưỡng" là tự lừa mình — và nó lừa theo hướng **bi quan**, tức sẽ dẫn tới quyết định bỏ một engine dùng được. Cách làm: sau khi nạp, đẩy **một lượt thật** qua toàn bộ pipeline rồi vứt kết quả, và **đo riêng** thời gian làm nóng để số đó không lẫn vào số RTF (ở ZeroTTS: `warmupMs`). Bản port JS của upstream có hẳn `warmup()` cho việc này.

@@ -43,6 +43,13 @@ final class ZeroTTSEngine: @unchecked Sendable {
         let localDecodeMs: Double
         let prefixStepMs: Double
         let codecMs: Double
+        /// Trạng thái nhiệt lúc đo (`nominal`/`fair`/`serious`/`critical`).
+        ///
+        /// iOS hạ xung khi máy nóng, nên **một số RTF đo lúc `serious` là số của máy đã bị hãm**, không phải
+        /// của máy nguội. Không ghi lại thì hai lượt đo cách nhau vài phút sẽ không so được với nhau — và
+        /// nạp 903 MB rồi làm nóng là đủ để máy ấm lên.
+        let thermalState: String
+        let lowPowerMode: Bool
     }
 
     enum EngineError: LocalizedError {
@@ -65,14 +72,36 @@ final class ZeroTTSEngine: @unchecked Sendable {
         }
     }
 
+    /// Số luồng ORT mặc định khi chưa có lựa chọn nào được lưu.
+    ///
+    /// Trùng với trần của engine VieNeu (`VieNeuSynthesisPolicy.defaultThreadCount`) để hai engine local có
+    /// cùng điểm xuất phát — nhưng **không** dùng chung khoá `UserDefaults`: hai engine dựng session riêng,
+    /// nên lựa chọn tối ưu cho bộ graph này không suy ra được cho bộ graph kia.
+    static let defaultThreadCount: Int32 = 4
+
+    /// Khoá `UserDefaults` cho số luồng ORT của ZeroTTS.
+    static let threadCountKey = "zerottsThreadCount"
+
+    /// Miền cho phép. Dưới 2 thì mất song song; trên 8 thì iPhone không có đủ nhân vật lý.
+    static let threadCountRange: ClosedRange<Int32> = 2...8
+
+    /// Số luồng đã lưu, đã kẹp vào `threadCountRange`.
+    static func storedThreadCount(_ defaults: UserDefaults = .standard) -> Int32 {
+        let stored = defaults.object(forKey: threadCountKey) as? Int ?? Int(defaultThreadCount)
+        return min(max(Int32(stored), threadCountRange.lowerBound), threadCountRange.upperBound)
+    }
+
     /// `nil` khi không dựng được thư mục kho (Application Support không ghi được).
     static let shared: ZeroTTSEngine? = {
         guard let store = try? ZeroTTSModelStore() else { return nil }
-        return ZeroTTSEngine(store: store)
+        return ZeroTTSEngine(store: store, threadCount: storedThreadCount())
     }()
 
     let store: ZeroTTSModelStore
-    let threadCount: Int32
+
+    /// Số luồng ORT của bốn session. **Đổi được** bằng `setThreadCount(_:)` — nhưng đổi là phải dựng lại
+    /// session, xem doc của hàm đó.
+    private(set) var threadCount: Int32
 
     private let lock = NSLock()
     private var runtime: ZeroTTSONNXRuntime?
@@ -82,7 +111,7 @@ final class ZeroTTSEngine: @unchecked Sendable {
     private var loadMs: Double = 0
     private var warmupMs: Double = 0
 
-    init(store: ZeroTTSModelStore, threadCount: Int32 = 4) {
+    init(store: ZeroTTSModelStore, threadCount: Int32 = ZeroTTSEngine.defaultThreadCount) {
         self.store = store
         self.threadCount = threadCount
     }
@@ -109,6 +138,33 @@ final class ZeroTTSEngine: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         try prepareLocked()
+    }
+
+    /// Đổi số luồng ORT và **dựng lại cả bốn session**.
+    ///
+    /// Số luồng nằm trong `OrtSessionOptions` **lúc tạo session**, nên nó **không sửa được tại chỗ** — không
+    /// có API nào đổi số luồng của một `OrtSession` đã tạo. Vì vậy quét số luồng là phép đo **thủ công**:
+    /// mỗi mức tốn lại ~17 s nạp 903 MB + ~1 s làm nóng. Đó là lý do màn thử có nút "Áp dụng & dựng lại"
+    /// chứ không tự quét ngầm.
+    ///
+    /// Nhả ngữ cảnh cũ **trước** khi dựng mới: giữ cả hai cùng lúc là ~1,8 GB, đủ để bị jetsam.
+    func setThreadCount(_ value: Int32) throws {
+        lock.lock()
+        defer { lock.unlock() }
+        let clamped = min(max(value, Self.threadCountRange.lowerBound), Self.threadCountRange.upperBound)
+        guard clamped != threadCount || runtime == nil else { return }
+        threadCount = clamped
+        UserDefaults.standard.set(Int(clamped), forKey: Self.threadCountKey)
+        runtime = nil
+        warmupMs = 0
+        try prepareLocked()
+    }
+
+    /// `setThreadCount(_:)` ở `Task.detached` — dựng lại bốn session là việc nặng và đồng bộ.
+    func setThreadCountAsync(_ value: Int32) async throws {
+        try await Task.detached(priority: .utility) { [self] in
+            try self.setThreadCount(value)
+        }.value
     }
 
     /// Đối chiếu shape **graph khai** với `config.json`. Hai nguồn này lệch nhau nghĩa là weights và config
@@ -189,8 +245,21 @@ final class ZeroTTSEngine: @unchecked Sendable {
             coldStartMs: output.coldStartMs,
             localDecodeMs: output.localDecodeMs,
             prefixStepMs: output.prefixStepMs,
-            codecMs: output.codecMs
+            codecMs: output.codecMs,
+            thermalState: Self.thermalStateName(),
+            lowPowerMode: ProcessInfo.processInfo.isLowPowerModeEnabled
         )
+    }
+
+    /// Tên trạng thái nhiệt lúc đo. Xem doc của `Report.thermalState` để biết vì sao nó phải có mặt.
+    static func thermalStateName() -> String {
+        switch ProcessInfo.processInfo.thermalState {
+        case .nominal: return "nominal"
+        case .fair: return "fair"
+        case .serious: return "serious"
+        case .critical: return "critical"
+        @unknown default: return "unknown"
+        }
     }
 
     /// `prepare()` ở `Task.detached` — nạp bốn graph (~903 MB) là việc **nặng và đồng bộ**, gọi thẳng từ
