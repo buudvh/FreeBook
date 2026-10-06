@@ -57,6 +57,11 @@ final class ZeroTTSONNXRuntime {
         var textValid = [UInt8](repeating: 0, count: max(0, batch * length))
         var soa = [Float](repeating: 0, count: max(0, soaCapacity))
         var crossKv = [Float](repeating: 0, count: max(0, crossKvCapacity))
+        // Đọc `.count` **trước** khi vào `withUnsafeMutableBufferPointer`: đọc `soa.count` bên trong
+        // closure của chính `soa` là truy cập chồng lấn — Swift báo `overlapping accesses to 'soa', but
+        // modification requires exclusive access`, và đó là **lỗi biên dịch**, không phải cảnh báo.
+        let soaCount = soa.count
+        let crossKvLength = crossKv.count
 
         let status = textValid.withUnsafeMutableBufferPointer { textValidBuffer in
             soa.withUnsafeMutableBufferPointer { soaBuffer in
@@ -67,8 +72,8 @@ final class ZeroTTSONNXRuntime {
                                 handle,
                                 idsBuffer.baseAddress, Int32(batch), Int32(length),
                                 textValidBuffer.baseAddress,
-                                soaBuffer.baseAddress, Int32(soa.count),
-                                crossKvBuffer.baseAddress, Int32(crossKv.count), &crossKvCount,
+                                soaBuffer.baseAddress, Int32(soaCount),
+                                crossKvBuffer.baseAddress, Int32(crossKvLength), &crossKvCount,
                                 shapeBuffer.baseAddress, Int32(Self.maximumRank), &crossKvRank,
                                 &message
                             )
@@ -181,9 +186,10 @@ final class ZeroTTSONNXRuntime {
         var isEoa: UInt8 = 0
         var codes = [Int64](repeating: 0, count: max(0, codebooks))
         var codeCount: Int32 = 0
-        // Đọc trước khi vào closure: truy cập `seenMask.count` bên trong `withUnsafeMutableBufferPointer`
-        // của chính nó là vi phạm exclusivity.
+        // Đọc trước khi vào closure: truy cập `seenMask.count`/`codes.count` bên trong
+        // `withUnsafeMutableBufferPointer` của chính chúng là vi phạm exclusivity (lỗi biên dịch).
         let seenCount = seenMask.count
+        let codesLength = codes.count
 
         let status = seenMask.withUnsafeMutableBufferPointer { seenBuffer in
             hidden.withUnsafeBufferPointer { hiddenBuffer in
@@ -200,7 +206,7 @@ final class ZeroTTSONNXRuntime {
                             &ctrlRandom,
                             randomBuffer.baseAddress, Int32(audioRandomU.count),
                             &isEoa,
-                            codesBuffer.baseAddress, Int32(codes.count), &codeCount,
+                            codesBuffer.baseAddress, Int32(codesLength), &codeCount,
                             &message
                         )
                     }
@@ -220,12 +226,14 @@ final class ZeroTTSONNXRuntime {
         var message: UnsafeMutablePointer<CChar>?
         var count: Int32 = 0
         var pcm = [Float](repeating: 0, count: max(0, pcmCapacity))
+        // Cùng lý do như `textEncoder`: `pcm.count` phải đọc trước closure của chính nó.
+        let pcmCount = pcm.count
         let status = pcm.withUnsafeMutableBufferPointer { pcmBuffer in
             codesKT.withUnsafeBufferPointer { codesBuffer in
                 ZeroTTSORTRunCodecDecodeFull(
                     handle,
                     codesBuffer.baseAddress, Int32(codebooks), Int32(frames),
-                    pcmBuffer.baseAddress, Int32(pcm.count), &count,
+                    pcmBuffer.baseAddress, Int32(pcmCount), &count,
                     &message
                 )
             }
