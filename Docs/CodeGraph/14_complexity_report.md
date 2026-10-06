@@ -15,6 +15,13 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.472 — +10 file (dài nhất 318/400); `VieNeuTTSTestView` 387/400; 5 violation nền
+
+* **10 file Swift mới, mỗi file 1 primary type top level**: `KokoroTTSTestView` **318** · `KokoroEngine` **260** · `KokoroTTSTestView+Sections` **201** (extension, không tính type) · `KokoroG2P` **186** (extension chứa fixture cũng không tính) · `KokoroModelStore` **125** · `KokoroVoiceCatalog` **102** · `KokoroModelClient` **101** · `KokoroConfig` **73** · `KokoroTTSTestView+Diagnostics` **69** (extension) · `ProcessMemory` **52**. **Không file nào chạm trần 400**; file dài nhất còn **82** dòng dư. Validator: **643 → 653** file Swift.
+* Số dòng file đã sửa: `TTSSettingsSection.swift` **28 → 36** (+8: một Section + `NavigationLink`) · `VieNeuTTSTestView.swift` **385 → 387** (+2: hai dòng số đo). `VieNeuTTSTestView+Sections.swift` giữ **270**; `ONNXPiperEngine.swift` giữ **469** (đã có entry allowlist).
+* `check_architecture.py`: **5 violation nền cũ, 0 vi phạm mới** (`ChapterPersistenceStore` · `JSDom` · `JSExecutor` · `TTSManager` · `ReaderViewModel` — đều không thuộc vùng sửa). Không có `MULTI_PRIMARY_TYPES`, `VIEW_SWIFTDATA_MUTATION`, `SERVICE_TOAST_COUPLING` hay `SERVICE_SWIFTUI_IMPORT` mới.
+* **Độ phức tạp nằm ở thuật toán, không ở số dòng**: `KokoroG2P` phải bám **thứ tự** bảng `VI_FIXUPS` (25 cặp) và dùng "thay lần xuất hiện **đầu tiên**" cho 4 luật tiền tố — `replacingOccurrences` (thay tất cả) là **sai**. `KokoroConfig.encode` phải duyệt `unicodeScalars` chứ không `Character` vì vocab có mục là **dấu tổ hợp đứng riêng**.
+
 ## 1.3.471 — +1 file 85 dòng; `TaskOptionsSheet` giảm 65 dòng; 5 violation nền
 
 * **1 file Swift mới, 1 primary type top level**: `Views/Common/ChapterLimitPickerRows.swift` — **80**/400 dòng (`enum ChapterLimitPicker`; `extension ChapterLimitOption` không tính là type chính). Validator: **642 → 643** file Swift.

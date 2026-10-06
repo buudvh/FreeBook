@@ -15,6 +15,35 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.472 — chuỗi gọi của một lượt thử Kokoro, từ nút bấm xuống graph ONNX
+
+```text
+KokoroTTSTestView.playSample()
+  └─ TTSReplacementManager.shared.applyReplacements(to:)        ← lớp tiền xử lý DUY NHẤT
+  └─ Task { }
+       ├─ KokoroEngine.prepareAsync()        (chỉ lượt đầu)
+       │    └─ Task.detached → KokoroEngine.prepare()
+       │         ├─ ORTEnv + ORTSessionOptions (1 luồng + XNNPACK, fallback CPU)
+       │         ├─ ORTSession(modelPath: kokoro_vi.onnx)
+       │         ├─ session.outputNames()        → chọn tên output waveform (không hardcode)
+       │         ├─ KokoroConfig.load(from: config.json)
+       │         └─ KokoroG2P(backend: SeaG2P(binURL: <kho VieNeu>/sea_g2p.bin))
+       └─ KokoroEngine.synthesizeAsync(text:voicepackURL:speed:)
+            └─ Task.detached → KokoroEngine.synthesize(...)
+                 ├─ KokoroG2P.phonemize(_)              → tokenize → SeaG2P → fixPhonemes
+                 ├─ KokoroConfig.encode(phonemes:)      → [Int64] (duyệt unicodeScalars)
+                 ├─ KokoroVoiceCatalog.loadVoicepack(from:)  → ZIPFoundation đọc entry data/0
+                 ├─ KokoroVoiceCatalog.styleVector(...)      → ref_s 256 float
+                 ├─ ORTSession.run(input_ids, ref_s, speed)  → waveform
+                 └─ WAVEncoder.encodePCM16(samples:sampleRate:channels:)
+```
+
+* **Hai tầng `Task.detached`** cùng lý do như các engine khác: nạp graph 310 MB và chạy suy luận đều **nặng và đồng bộ**.
+* **Một lượt ORT cho cả câu** — khác ZeroTTS (2 lời gọi cho **mỗi** frame). Không có vòng frame, không có KV cache.
+* **`SeaG2P` dựng từ file của kho VieNeu** nhưng là **thực thể riêng** — `SeaG2P` không an toàn đa luồng (`SeaG2P.swift:29-30`), nên **file** dùng chung còn **đối tượng** thì không.
+* **Không có call site nào vào `TTSManager`**: màn thử chưa nối vào Picker "Trình đọc", nên chuỗi gọi của Reader giữ nguyên.
+* **Đường tải**: `KokoroModelClient.prefetch(progress:)` → kiểm `store.hasSeaG2P` **trước** → tải `voices.json` → dựng kế hoạch (config + graph + 14 voicepack) → `URLSession.download(from:)` → `KokoroModelStore.url(for:)`.
+
 ## 1.3.471 — số chương đi cùng phạm vi, từ sheet xuống tới `prefix(limit)`
 
 ```text

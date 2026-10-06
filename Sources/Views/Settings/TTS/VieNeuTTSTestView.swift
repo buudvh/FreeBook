@@ -339,6 +339,8 @@ struct VieNeuTTSTestView: View {
         tổng hợp     \(String(format: "%.0f", synthesisMs)) ms
         chờ hàng đợi \(String(format: "%.0f", queueWaitMs)) ms
         audio        \(String(format: "%.2f", audio)) s
+        RAM đỉnh     \(ProcessMemory.formatted())   (mốc so với Kokoro — cùng hàm `ProcessMemory`)
+        nhiệt · pin  \(ProcessMemory.thermalStateName())\(ProcessMemory.isLowPowerModeEnabled ? " · TIẾT KIỆM PIN BẬT" : "")
         """
     }
 

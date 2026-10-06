@@ -15,6 +15,18 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.472 — phân hệ Kokoro: một phụ thuộc mới `KokoroModelStore → VieNeuModelStore`, một chiều
+
+* **10 file mới**: 6 ở `Sources/Services/TTS/Kokoro/`, 3 ở `Sources/Views/Settings/TTS/`, 1 ở `Sources/Common/Utils/`.
+* **Tầng Service**: `KokoroEngine` chỉ `import Foundation` + `import OnnxRuntimeBindings`; `KokoroVoiceCatalog` thêm `import ZIPFoundation` ⇒ **không** `import SwiftUI` (không vi phạm `SERVICE_SWIFTUI_IMPORT`), **không** gọi `ToastManager.shared` (không vi phạm `SERVICE_TOAST_COUPLING`).
+* **Tầng View**: 3 file `KokoroTTSTestView*` chỉ `import SwiftUI` + `AVFoundation`/`UIKit`; **không** `modelContext.insert/delete/save`, **không** gán thuộc tính `@Model` ⇒ không vi phạm `VIEW_SWIFTDATA_MUTATION`.
+* **Phụ thuộc mới — một chiều**: `KokoroModelStore.seaG2PURL` dựng `try? VieNeuModelStore()` để lấy đường dẫn `sea_g2p.bin`. Đây là `Services/TTS/Kokoro → Services/TTS/VieNeu`, **cùng tầng**, không tạo vòng. **VieNeu không biết gì về Kokoro** — không file nào của VieNeu được sửa để phục vụ việc này.
+  - Lý do chấp nhận phụ thuộc: đã xác minh bằng **mã băm git blob** rằng `sea_g2p.bin` mà pip `sea-g2p` v0.10.0 dùng (chính gói `vig2p` gọi) và file ở revision VieNeu ghim là **cùng một file** (`411df001…`, 62 829 820 byte); hai revision chỉ khác đúng 1 file CI. Tải bản sao thứ hai là lãng phí 62,8 MB.
+  - Đổi lại: `KokoroModelStore.deleteAll()` **cố ý không** xoá `sea_g2p.bin` — xoá nó từ màn thử của engine khác là phá engine mặc định của người dùng.
+* **`Sources/Common/Utils/ProcessMemory.swift`** ở tầng `Common`: chỉ `import Foundation` + `import Darwin`. Đặt ở `Common` (không phải `Services`) vì **cả hai màn thử** đều dùng, và số RAM chỉ so được khi cùng một hàm.
+* **Không sửa chữ ký nào của tầng cũ**: `SeaG2P`, `VieNeuModelStore`, `ONNXPiperEngine`, `WAVEncoder` đều chỉ được **đọc**.
+* **`TTSSettingsSection.swift`** thêm một `Section` + `NavigationLink` — cùng khuôn khối VieNeu ở `:21-26`, không thêm phụ thuộc tầng mới.
+
 ## 1.3.471 — component View dùng chung chỉ phụ thuộc `SwiftUI` + một kiểu của Services/Download
 
 * **File mới `Views/Common/ChapterLimitPickerRows.swift`** nằm trong tầng View: chỉ `import SwiftUI`, không chạm `ModelContext`, không gọi `modelContext.insert/delete/save` ⇒ không vi phạm `VIEW_SWIFTDATA_MUTATION`.

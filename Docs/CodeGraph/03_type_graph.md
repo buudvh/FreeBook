@@ -15,6 +15,18 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.472 — kiểu mới của phân hệ Kokoro + một tiện ích `Common` dùng chung hai màn thử
+
+* **`Sources/Common/Utils/ProcessMemory.swift`** — `enum ProcessMemory` với `residentBytes() -> Int64` (`phys_footprint` qua `task_info` + `TASK_VM_INFO`), `formatted() -> String`, `thermalStateName() -> String`, `isLowPowerModeEnabled: Bool`. **Cố ý ở tầng `Common`**: hai màn thử (VieNeu và Kokoro) phải gọi **cùng một hàm** thì số RAM mới so được với nhau — tiêu chí go/no-go của Kokoro là "RAM đỉnh thấp hơn VieNeu".
+* **`KokoroConfig`** (`struct: Decodable`) — `nToken`, `styleDim`, `maxDur`, `vocab: [String: Int]`; hằng `contextLength 512`, `sampleRate 24_000`, `maxPhonemes 510`, `styleWidth 256`; `load(from:)` kiểm `styleDim × 2 == styleWidth`.
+* **`KokoroVoiceCatalog`** (`struct`) — `Voice { key, label, fileName }`; `load(from:)` đọc `voices.json`; `loadVoicepack(from:)` đọc zip bằng `ZIPFoundation` và kiểm **đúng** `510 × 256` float32; `styleVector(from:phonemeCount:)` chọn hàng `min(n, 510) - 1`.
+* **`KokoroModelStore`** (`final class`) — kho `Application Support/Kokoro/`; `seaG2PURL: URL?` trỏ sang `VieNeuModelStore`; `hasSeaG2P`, `voicepackNames`, `missingVoicepackNames`, `missingNames`, `isReady`, `totalBytes`, `deleteAll()` (**không** xoá `sea_g2p.bin`).
+* **`KokoroModelClient`** (`final class`) — `prefetch(progress:)`, `remoteURL(for:)`; lỗi `missingSeaG2P` ném **trước** khi tải 310 MB.
+* **`KokoroG2P`** (`final class`) — bọc `SeaG2P`; `viFixUps: [(String, String)]` (**mảng có thứ tự**, không phải dictionary), `nonVietnameseSClusters`, 3 `NSRegularExpression` là `static let`; `phonemize(_:)`, `tokenize(_:)`, `fixPhonemes(_:sourceText:)`. Extension cùng file: `parityFixtures: [(text, expected)]` + `parityReport()`.
+* **`KokoroEngine`** (`final class: @unchecked Sendable`) — `Output` (data, samples, sampleRate, pcmDuration, synthesisMs, **g2pMs**, **sessionMs**, phonemeCount, characterCount, peakAmplitude, loadMs, g2pReport); `shared: KokoroEngine?`; `prepare()`/`prepareAsync()`/`synthesize(text:voicepackURL:speed:)`/`synthesizeAsync(...)`.
+* **`KokoroTTSTestView`** (`struct: View`) + 2 extension (`+Sections`, `+Diagnostics`).
+* **Không kiểu cũ nào bị đổi chữ ký** — `SeaG2P`, `VieNeuModelStore`, `ONNXPiperEngine` đều chỉ được **đọc**, không sửa.
+
 ## 1.3.468 — bộ bóc tách tên riêng rời khỏi JSON: `parseNamesFromText`
 
 * **Services/AI**:

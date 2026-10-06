@@ -15,6 +15,19 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.472 — phân hệ Kokoro: màn thử giọng để **đo**, chưa nối vào Picker "Trình đọc"
+
+* **Vị trí và phạm vi**: `Services/TTS/Kokoro/` ×6 + `Views/Settings/TTS/KokoroTTSTestView*` ×3 + `Common/Utils/ProcessMemory.swift`. Đây là **màn thử**, không phải engine thứ tư: `kokoro` **không** có trong Picker "Trình đọc" và **không** có nhánh nào trong `TTSManager` rẽ theo tên nó. Đường vào duy nhất là `TTSSettingsSection.swift`.
+* **Tiêu chí go/no-go**: **RTF < 1,0 VÀ RAM đỉnh thấp hơn VieNeu**. Chọn tiêu chí kép vì lý do chính để xem xét Kokoro là *nhẹ hơn ở cùng chất lượng* — 14 giọng ≈ 318 MB so với Piper 848 MB, và mỗi giọng chỉ **0,5 MB**.
+* **Bốn tầng, một chiều**: `KokoroTTSTestView` (+`Sections`/`Diagnostics`) → `KokoroEngine` → `KokoroG2P` + `KokoroVoiceCatalog`/`KokoroConfig` → `SeaG2P` (của VieNeu) + `ORTSession`; kho và tải là `KokoroModelStore` + `KokoroModelClient`.
+* **Không cần cầu C** — đây là điểm rẻ nhất của lượt này. Kokoro chỉ dùng tensor `int64` + `float32`, đúng lớp ObjC `OnnxRuntimeBindings` mà `ONNXPiperEngine` đang chạy. Cầu C chỉ cần khi phải tạo tensor **`bool`** — ZeroTTS cần, Kokoro không.
+* **G2P dùng lại hạ tầng có sẵn**: `vig2p` chỉ là lớp mỏng trên `sea_g2p.SEAPipeline(lang="vi")`, mà app đã có `SeaG2P` + `sea_g2p.bin` cho VieNeu. Phần phải port là **25 cặp `VI_FIXUPS`** + **4 luật tiền tố** (`th→θ`, `tr→ʈʂ`, `s→ʂ` trừ cụm `sc sh sk sl sm sn sp st sw`, `gi→ʝ`) + regex tokenize.
+* **`sea_g2p.bin` dùng chung với VieNeu** (chỉ đạo người dùng, sau khi xác minh mã băm). Hệ quả: màn thử **cần model VieNeu có trên máy**; đổi lại không tốn thêm 62,8 MB và không có nguồn thứ hai để trôi lệch. **File** dùng chung, **đối tượng `SeaG2P` thì riêng** (nó không an toàn đa luồng).
+* **Voicepack `.pt` đọc không cần torch**: file là zip, entry `*/data/0` là float32 thô `(510,1,256)`; `ZIPFoundation` (đã có) đọc thẳng. Nhờ vậy **không** cần chủ repo chuyển định dạng.
+* **Một lượt ORT cho cả câu** — khác ZeroTTS (2 lời gọi/frame) và khác VieNeu (vòng Euler nhiều bước). Nên `Output` tách `g2pMs` và `sessionMs` để biết chi phí nằm ở đâu, và khối "Tốc độ tạo audio" là **`speed` đưa thẳng vào model**.
+* **Ngoài phạm vi (cố ý)**: không nối vào Picker "Trình đọc", không tải `kokoro_vi.pth` (312 MB, chỉ để export), không lượng tử hoá int8, không streaming.
+* **Phân hệ TTS đang chạy gần như không đổi**: `TTSManager.swift` giữ **3970** dòng; chỗ duy nhất bị sửa là `VieNeuTTSTestView.swift` **385 → 387** (thêm hai dòng số đo — **bắt buộc** để tiêu chí có mốc so, xem `10_risk_report` R10).
+
 ## 1.3.471 — quét tên riêng chọn được số chương; một component chọn số chương dùng chung
 
 * **Component chọn số chương dùng chung (`ChapterLimitPickerRows.swift`, `TaskOptionsSheet.swift`)**:

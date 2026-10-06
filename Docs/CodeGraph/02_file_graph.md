@@ -15,6 +15,28 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.472 — +10 file: màn thử giọng Kokoro (đo RTF/RAM)
+
+| Nhóm | File mới | Vai trò | Dòng |
+| --- | --- | --- | ---: |
+| Common/Utils | [`ProcessMemory.swift`](../../Sources/Common/Utils/ProcessMemory.swift) | `phys_footprint` + tên trạng thái nhiệt, **dùng chung cho cả hai màn thử** | 52 |
+| Services/TTS/Kokoro | [`KokoroConfig.swift`](../../Sources/Services/TTS/Kokoro/KokoroConfig.swift) | `config.json` (vocab 114 mục, `style_dim 128`) + `encode` duyệt theo **unicode scalar** | 73 |
+| Services/TTS/Kokoro | [`KokoroVoiceCatalog.swift`](../../Sources/Services/TTS/Kokoro/KokoroVoiceCatalog.swift) | `voices.json` + đọc `.pt` (zip, entry `data/0`) thành `[Float]` `(510,1,256)` | 102 |
+| Services/TTS/Kokoro | [`KokoroModelStore.swift`](../../Sources/Services/TTS/Kokoro/KokoroModelStore.swift) | Kho `Application Support/Kokoro/`; `sea_g2p.bin` **trỏ sang kho VieNeu** | 125 |
+| Services/TTS/Kokoro | [`KokoroModelClient.swift`](../../Sources/Services/TTS/Kokoro/KokoroModelClient.swift) | Tải từ `raikiri1498/Kokoro-Vietnamese`; **không** tải `.pth` lẫn `sea_g2p.bin` | 101 |
+| Services/TTS/Kokoro | [`KokoroG2P.swift`](../../Sources/Services/TTS/Kokoro/KokoroG2P.swift) | Port `vig2p`: 25 cặp `VI_FIXUPS` + 4 luật tiền tố + **8 ca parity** | 186 |
+| Services/TTS/Kokoro | [`KokoroEngine.swift`](../../Sources/Services/TTS/Kokoro/KokoroEngine.swift) | ORT qua lớp ObjC (**không cầu C**); 1 luồng + XNNPACK; đo `g2pMs`/`sessionMs` | 260 |
+| Views/Settings/TTS | [`KokoroTTSTestView.swift`](../../Sources/Views/Settings/TTS/KokoroTTSTestView.swift) | Màn thử: `@State`, tải/xoá, `playSample`, `presentReport` | 318 |
+| Views/Settings/TTS | [`KokoroTTSTestView+Sections.swift`](../../Sources/Views/Settings/TTS/KokoroTTSTestView+Sections.swift) | Các khối `Form` bám thứ tự màn VieNeu | 201 |
+| Views/Settings/TTS | [`KokoroTTSTestView+Diagnostics.swift`](../../Sources/Views/Settings/TTS/KokoroTTSTestView+Diagnostics.swift) | `diagnosticText` gom một khối để sao chép | 69 |
+
+* **Sửa nội dung**: `Views/Settings/Main/TTSSettingsSection.swift` **28 → 36** (thêm Section "Nghe Truyện (TTS) · Kokoro (thử nghiệm)" + `NavigationLink`); `Views/Settings/TTS/VieNeuTTSTestView.swift` **385 → 387** (thêm `RAM đỉnh` + `nhiệt · pin` vào khối "Số đo hiệu năng" — **mốc so** cho tiêu chí go/no-go).
+* **Tổng 653 file Swift** (643 → 653, +10). Bộ tài liệu vẫn **16** doc.
+* **Import**: `Services/TTS/Kokoro/**` chỉ `import Foundation` + `import OnnxRuntimeBindings` (engine) + `import ZIPFoundation` (catalog) ⇒ **không** `import SwiftUI`, **không** `ToastManager`. Ba file View chỉ `import SwiftUI` + `AVFoundation`/`UIKit`; **không** chạm `modelContext`.
+* **Chiều phụ thuộc**: `Views/Settings/TTS/KokoroTTSTestView*` → `Services/TTS/Kokoro/KokoroEngine` → `KokoroG2P` → `SeaG2P` (của VieNeu) + `KokoroVoiceCatalog`/`KokoroConfig`. **Một phụ thuộc mới**: `KokoroModelStore` → `VieNeuModelStore` để lấy đường dẫn `sea_g2p.bin` — một chiều, VieNeu không biết gì về Kokoro.
+* **1 primary type / file**: `ProcessMemory` (enum) · `KokoroConfig` · `KokoroVoiceCatalog` (struct) · `KokoroModelStore` · `KokoroModelClient` · `KokoroG2P` · `KokoroEngine` (class) · `KokoroTTSTestView` (struct); ba file `+Sections`/`+Diagnostics` là extension nên không tính.
+* Cố ý **không** đụng `Sources/Services/TTS/TTSManager.swift` (3970/3470 dòng) hay bất kỳ danh sách tên engine nào.
+
 ## 1.3.471 — +1 file: component chọn số chương dùng chung cho hai sheet
 
 | Nhóm | File mới | Vai trò | Dòng |

@@ -15,6 +15,17 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.472 — tài nguyên của Kokoro: session 310 MB, voicepack đọc-rồi-thả, và `sea_g2p.bin` **không** thuộc kho này
+
+* **Session ORT — tài nguyên lớn nhất.** `KokoroEngine` giữ **một** `ORTSession` cho graph 310 MB, ở `private var session` suốt vòng đời engine; `static let shared` bảo đảm chỉ có **một** thực thể cho cả phiên. **Không có đường nhả sớm** — đúng tinh thần spike: cần đo `phys_footprint` của cấu hình đầy đủ.
+* **`ORTEnv`** giữ ở `private var env` cùng vòng đời session (session cần env còn sống).
+* **Voicepack: đọc rồi thả.** `KokoroVoiceCatalog.loadVoicepack(from:)` trả `[Float]` **130 560 phần tử (522 KB)**, và `synthesizeLocked` chỉ lấy **256 float** (`styleVector`) rồi để mảng lớn rơi khỏi scope. Nạp lại mỗi lượt là chủ ý: 522 KB đọc từ zip rẻ hơn nhiều so với giữ 14 voicepack (7,3 MB) thường trú, và nó tránh phải đồng bộ khi người dùng đổi giọng.
+* **`SeaG2P` là thực thể riêng, không dùng chung với `VieNeuTTSEngine`.** `SeaG2P` **không an toàn đa luồng** (`SeaG2P.swift:29-30`: cache là `var` trần, không khoá) nên chia sẻ đối tượng là mở đường cho hỏng dữ liệu. **Chỉ file `sea_g2p.bin` là dùng chung.** `KokoroEngine` bọc `NSLock` trọn lượt tổng hợp, cùng khuôn `VieNeuTTSEngine`.
+* **`sea_g2p.bin` (62,8 MB) KHÔNG nằm trong kho Kokoro.** `KokoroModelStore.seaG2PURL` trỏ sang `VieNeuModelStore`. Hệ quả có chủ ý: `KokoroModelStore.deleteAll()` **không** xoá nó — xoá file đó từ màn thử của engine khác là phá engine mặc định của người dùng. Và `totalBytes` **không** tính nó.
+* **File trên đĩa (`Application Support/Kokoro/`, có thư mục con `voicepacks/`)**: `kokoro_vi.onnx` (310,64 MB) + `config.json` + `voices.json` + 14 × `voicepacks/<key>.pt` (0,5 MB) ⇒ **~318 MB**. **Không** tải `kokoro_vi.pth` (312 MB, chỉ để export ONNX) và **không** tải `kokoro_vi_voicepack.pt` ở gốc repo (trùng một trong 14 giọng). `KokoroModelClient` bỏ qua file đã có; file tải dở không tồn tại trên đĩa vì `download(from:)` chỉ trả về sau khi phần thân nằm trọn ở file tạm rồi `move` nguyên file.
+* **File WAV tạm**: mỗi lượt phát ghi `kokoro-<epoch>.wav` vào thư mục tạm và **xoá file lượt trước** trước khi ghi file mới.
+* **Tác vụ nền**: hai `Task.detached` (`prepareAsync`, `synthesizeAsync`) — **không** thừa hưởng cancellation của cha, nên `stopPlayback()` chỉ `cancel()` tác vụ **ngoài** (để bỏ kết quả) và dừng phát.
+
 ## 1.3.471 — state số chương sống theo sheet, không thêm tài nguyên nào
 
 * **`ReaderAIBatchPromptSheet`** thêm `@State limitOption: ChapterLimitOption = .all` + `@State customLimit: Int = 100`. Cả hai **chỉ sống theo sheet**: đóng sheet là mất, không ghi UserDefaults (khác `fromCurrentChapter` — vẫn đọc/ghi `AINameScanScopeStore`). Đây là chủ ý: giới hạn số chương là ý định của **từng lượt quét**, không phải thói quen lâu dài.

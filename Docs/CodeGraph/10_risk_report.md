@@ -15,6 +15,19 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.472 — rủi ro của màn thử Kokoro: G2P lệch, phụ thuộc VieNeu, và tiêu chí chưa có mốc so
+
+* **R1 — G2P lệch (mức TRUNG BÌNH, đã hạ từ Cao).** Bản port Swift `KokoroG2P` có thể không trùng khớp bản Rust/Python gốc, và triệu chứng **không** phải một lỗi: model nhận chuỗi âm vị nó chưa từng thấy và chỉ đơn giản là đọc tệ hơn — rất dễ kết luận nhầm là "Kokoro dở". **Đã hạ mức** vì xác minh được `sea_g2p.bin` **và** mã nguồn giữa pip `sea-g2p` v0.10.0 (gói `vig2p` dùng) và revision VieNeu ghim là **giống hệt** (chỉ khác 1 file CI) ⇒ rủi ro không còn là "hai nguồn khác nhau" mà chỉ là độ trung thành của bản port. Giảm thiểu: **8 ca parity** in ngay trên máy; **LỆCH thì dừng**, đừng đo tiếp.
+* **R2 — Kokoro ONNX không chạy trên ORT iOS (mức TRUNG BÌNH).** Chưa kiểm op/opset trên thiết bị. Có cơ sở lạc quan: bài học ZeroTTS cho thấy ORT `from: 1.16.0` **không** thiếu op cho graph kiểu này, và Kokoro chỉ cần `int64`/`float32` — loại tensor đơn giản nhất. Giảm thiểu: `prepare()` để ORT ném **nguyên văn** thông báo; lỗi hiện thẳng lên màn thử.
+* **R3 — RAM đỉnh > VieNeu ⇒ trượt tiêu chí (mức TRUNG BÌNH).** Giảm thiểu: **cùng một hàm** `ProcessMemory.residentBytes()` cho cả hai màn; nếu trượt thì ghi số thật và **dừng**.
+* **R4 — RTF ≥ 1,0 (mức TRUNG BÌNH).** Kokoro chạy **một lượt cho cả câu** (không lặp frame như ZeroTTS) nên ít rủi ro hơn, nhưng 82 M tham số ở chuỗi ~300 âm vị chưa đo trên máy.
+* **R5 — Layout zip của PyTorch đổi (mức THẤP).** `KokoroVoiceCatalog.loadVoicepack` kiểm **đúng** `510 × 256` float32 và ném lỗi rõ nếu lệch; `voicepacks/*.pt` là file **tĩnh** đã phát hành nên layout không đổi.
+* **R6 — Máy chưa có model VieNeu ⇒ thiếu `sea_g2p.bin` (mức TRUNG BÌNH).** Hệ quả trực tiếp của việc dùng chung. Giảm thiểu: `KokoroModelClient.prefetch` kiểm **trước** khi tải 310 MB và ném `missingSeaG2P` với câu *"hãy tải model VieNeu trước"*; `KokoroEngine.prepareLocked` cũng chặn ở cùng điều kiện.
+* **R7 — Dung lượng tải ~318 MB (mức THẤP).** Bỏ qua file đã có nên tải đứt giữa đường vẫn tiếp tục được. Khuyến nghị Wi-Fi.
+* **R8 — Không build/verify được trên Windows (mức CHẮC CHẮN).** Mọi khẳng định "đã chạy" phải chờ CI + máy thật.
+* **R9 — Nhãn `duc_duy` trong `voices.json` viết thường (mức THẤP).** Hiển thị nguyên nhãn; sửa dữ liệu là việc của chủ repo.
+* **R10 — Tiêu chí "nhẹ hơn VieNeu" chưa có mốc so (mức TRUNG BÌNH).** Trước lượt này **VieNeu chưa từng được đo RAM** — không có `phys_footprint` ở đâu trong phân hệ VieNeu, nên con số 1,17 GB từng ghi trong mockup là của **ZeroTTS**. Giảm thiểu: lượt này thêm `RAM đỉnh` + `nhiệt · pin` vào màn thử VieNeu, dùng chung `ProcessMemory` ⇒ hai số đo bằng cùng một cách.
+
 ## 1.3.469 — rủi ro mới của "Lưu tất cả" và lỗi thanh tiến trình treo
 
 * **Đã xử lý — thanh tiến trình quét tên riêng không tự tắt.** Nguyên nhân: `batchProgress` không bao giờ được đặt về `nil` khi batch xong, mà `@Published` phát lại giá trị hiện tại cho subscriber mới ⇒ mỗi lần dựng lại màn AI, thanh tiến trình cũ sống dậy. Nay đặt `batchProgress = nil` ở **cả** nhánh thành công lẫn nhánh lỗi.

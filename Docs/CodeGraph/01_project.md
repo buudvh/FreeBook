@@ -16,6 +16,13 @@ Tài liệu này phác thảo kiến trúc tổng thể, sơ đồ thư mục, c
 
 <!-- GENERATED START -->
 
+## `project.yml` **không đổi**; thêm 10 file Swift, trong đó 1 file ở `Sources/Common/Utils/` (1.3.472)
+
+* **`project.yml` không đổi**: `sources: - path: Sources` khai theo thư mục nên cả 10 file mới tự vào target; chỉ cần `xcodegen generate` như thường lệ. Không thêm dependency SPM — `onnxruntime-swift-package-manager` (`:16-19`) và `ZIPFoundation` (`:12-15`) đều đã có sẵn.
+* **File mới ở tầng `Common`**: `Sources/Common/Utils/ProcessMemory.swift` (`enum ProcessMemory`) — đọc `phys_footprint` + tên trạng thái nhiệt. Đặt ở `Common` vì **cả hai màn thử** (VieNeu và Kokoro) phải gọi cùng một hàm thì số RAM mới so được với nhau.
+* **Nhánh mới `KokoroTTS`** tách từ `sigle_reader`, và `.github/workflows/build-ipa.yml:5` thêm `KokoroTTS` vào `push.branches` ⇒ `[ main, sigle_reader, KokoroTTS ]`. Không đụng `paths` (`:6-8`) hay `pull_request` (`:9-10`).
+* Thay đổi thuộc phân hệ TTS: màn **thử** giọng Kokoro-Vietnamese (đo RTF/RAM), port G2P `vig2p` trên `SeaG2P` có sẵn, và dùng chung `sea_g2p.bin` với VieNeu. **Không** nối vào Picker "Trình đọc".
+
 ## Không đổi `project.yml`; thêm 1 file Swift trong cây `Sources/` (1.3.468)
 
 * `project.yml` **không đổi**: `sources: - path: Sources` khai theo thư mục nên `Sources/Views/Reader/AI/ReaderAIBatchPromptSheet.swift` tự vào target; chỉ cần `xcodegen generate` như thường lệ.

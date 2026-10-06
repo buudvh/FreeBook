@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.472] - 2026-10-06
+
+### feat: man thu giong Kokoro (port G2P vig2p, do RTF/RAM) + moc RAM cho man thu VieNeu
+
+Người dùng: *"thêm thử giọng đọc Kokoro như thử giọng đọc vieneu để đo thử"* → chốt qua grill-me 6 câu hỏi + mockup; sau đó chỉ đạo thêm: **dùng chung `sea_g2p.bin` với VieNeu** và làm trên **nhánh `KokoroTTS`** có CI.
+
+- **R0 — Đây là màn THỬ, không phải engine.** `kokoro` **không** vào Picker "Trình đọc" và **không** có nhánh nào trong `TTSManager` rẽ theo tên nó. Tiêu chí go/no-go: **RTF < 1,0 VÀ RAM đỉnh thấp hơn VieNeu**. Nhánh `KokoroTTS` tách từ `sigle_reader`; `.github/workflows/build-ipa.yml:5` thêm `KokoroTTS` vào `push.branches`.
+- **R1 — Không cần cầu C** (điểm rẻ nhất của lượt này): Kokoro chỉ dùng tensor `int64` (`input_ids`) + `float32` (`ref_s`, `speed`) — đúng lớp ObjC `OnnxRuntimeBindings` mà `ONNXPiperEngine.swift:330-362` đang chạy. Cầu C chỉ cần cho tensor **`bool`**, mà Kokoro không có.
+- **R2 — G2P dùng lại hạ tầng có sẵn**: `vig2p` chỉ là lớp mỏng trên `sea_g2p.SEAPipeline(lang="vi")`, mà app **đã có** `SeaG2P` + `sea_g2p.bin` cho VieNeu. Phần phải port: **25 cặp `VI_FIXUPS`** + **4 luật tiền tố** (`th→θ`, `tr→ʈʂ`, `s→ʂ` trừ cụm `sc sh sk sl sm sn sp st sw`, `gi→ʝ`) + regex tokenize.
+- **R3 — `sea_g2p.bin` dùng CHUNG với VieNeu**: đã xác minh bằng **mã băm git blob** rằng file mà pip `sea-g2p` v0.10.0 dùng (chính gói `vig2p` gọi) và file ở revision VieNeu ghim là **cùng một file** (`411df001…`, 62 829 820 byte); hai revision chỉ khác **đúng 1 file CI**. ⇒ không tốn thêm 62,8 MB, không có nguồn thứ hai để trôi lệch. Đổi lại màn thử **cần model VieNeu có trên máy** — thiếu thì nút tải báo đúng câu đó, và kiểm **trước** khi tải 310 MB.
+- **R4 — Voicepack `.pt` đọc không cần torch**: file là **zip**, entry `*/data/0` là float32 thô `(510,1,256)` = 522 240 byte; `ZIPFoundation` (đã có) đọc thẳng ⇒ **không** cần chủ repo chuyển sang `.npy`/`.bin`. Kiểm **đúng** kích thước rồi mới dùng.
+- **R5 — Một lượt ORT cho cả câu** (khác ZeroTTS: 2 lời gọi/frame): không có vòng frame, không có KV cache. `Output` tách `g2pMs` và `sessionMs` để biết chi phí nằm ở đâu; khối "Tốc độ tạo audio" là **`speed` đưa thẳng vào model**.
+- **R6 — Tự kiểm G2P trên máy**: **8 ca parity** sinh từ Python `vig2p`, in `KHỚP n/n`. Cố ý phủ `th`/`tr`/`s` (kèm cụm ngoài tiếng Việt `st`/`sk`)/`gi`, tiếng Anh xen kẽ, số/ngày, chuỗi rỗng.
+- **R7 — Thêm mốc so cho tiêu chí**: `RAM đỉnh` + `nhiệt · pin` vào màn thử **VieNeu** (`VieNeuTTSTestView.swift` **385 → 387**), dùng chung `ProcessMemory` ở `Sources/Common/Utils/`. **Bắt buộc** vì VieNeu **chưa từng được đo RAM** — con số 1,17 GB từng ghi trong mockup hoá ra là của **ZeroTTS**.
+- **R8 — Ba luật mới (23, 24, 25)**: port thuật toán phải kèm fixture đối chiếu · file `.pt` của PyTorch là zip, đọc entry `data/0` · đặt tiêu chí so sánh thì cả hai vế phải đã có số đo.
+- **Kiểm chứng**: `check_architecture.py` **5 violation nền cũ, 0 vi phạm mới**; `validate_links.py` PASS 100% sau khi accept **11** doc stale. Validator đếm **653** file Swift. **Chưa** kiểm chứng được biên dịch: máy phát triển là Windows, phải chờ CI + máy thật.
+- Ảnh hưởng dòng: **+10 file Swift** (dài nhất `KokoroTTSTestView` **318**/400) · `TTSSettingsSection.swift` **28 → 36** · `VieNeuTTSTestView.swift` **385 → 387** · `TTSManager.swift` giữ **3970** · `project.yml` **không đổi**.
+
 ## [1.3.471] - 2026-10-05
 
 ### feat: muc so chuong cho pham vi quet ten rieng, component chon so chuong dung chung

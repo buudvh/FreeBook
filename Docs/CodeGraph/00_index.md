@@ -15,6 +15,19 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.472 — màn thử giọng Kokoro: port G2P `vig2p`, đọc voicepack `.pt` bằng ZIPFoundation, đo RTF/RAM
+
+* Thêm **10** file Swift (6 ở `Services/TTS/Kokoro/`, 3 ở `Views/Settings/TTS/`, 1 ở `Common/Utils/`) ⇒ validator đếm **653** file, bộ tài liệu vẫn **16** doc.
+* **Đây là màn thử, không phải engine.** `kokoro` **không** vào Picker "Trình đọc" và **không** có nhánh nào trong `TTSManager` rẽ theo tên nó. Tiêu chí go/no-go: **RTF < 1,0 VÀ RAM đỉnh thấp hơn VieNeu**.
+* **Không cần cầu C mới**: Kokoro chỉ dùng tensor `int64` (`input_ids`) + `float32` (`ref_s`, `speed`) — đúng lớp ObjC `OnnxRuntimeBindings` mà `ONNXPiperEngine.swift:330-362` đang chạy. Cầu C chỉ cần cho tensor `bool`, mà Kokoro không có.
+* **G2P**: port `vig2p` (`VI_FIXUPS` **25 cặp** + **4 luật tiền tố**) trên `SeaG2P` app đã có. `sea_g2p.bin` **dùng chung với VieNeu** — đã xác minh bằng **mã băm git blob** là *cùng một file*: `411df0016be7f665514db544bc2b76fd3a97b785`, 62 829 820 byte, và hai revision chỉ khác đúng 1 file CI.
+* **Voicepack `.pt` đọc được không cần torch**: nó là **zip**, entry `*/data/0` là float32 thô `(510,1,256)` = 522 240 byte ⇒ `ZIPFoundation` (đã có) đọc thẳng. **Không** cần chủ repo chuyển định dạng.
+* **Tự kiểm G2P**: **8 ca parity** sinh từ Python `vig2p`, in `KHỚP n/n` ngay trên máy — bắt rủi ro "bản port Swift ≠ bản Rust gốc" mà **không** báo lỗi gì.
+* **Nhánh `KokoroTTS`** tách từ `sigle_reader`, thêm vào `push.branches` của `build-ipa.yml:5`.
+* **Sửa 2 dòng ở màn thử VieNeu**: thêm `RAM đỉnh` + `nhiệt · pin` vào khối "Số đo hiệu năng" — **bắt buộc**, vì tiêu chí là "nhẹ hơn VieNeu" mà **VieNeu chưa từng được đo RAM** (không có `phys_footprint` ở đâu trong phân hệ đó).
+* Số dòng file mới: `KokoroTTSTestView` **318** · `KokoroEngine` **260** · `KokoroTTSTestView+Sections` **201** · `KokoroG2P` **186** · `KokoroModelStore` **125** · `KokoroVoiceCatalog` **102** · `KokoroModelClient` **101** · `KokoroConfig` **73** · `KokoroTTSTestView+Diagnostics` **69** · `ProcessMemory` **52** — tất cả dưới trần **400**.
+* Số dòng file đã sửa: `TTSSettingsSection.swift` **28 → 36** · `VieNeuTTSTestView.swift` **385 → 387**.
+
 ## 1.3.471 — mục "Số lượng chương" cho phạm vi quét tên riêng; component chọn số chương dùng chung
 
 * Thêm **1** file Swift (`Views/Common/ChapterLimitPickerRows.swift`, **80** dòng) ⇒ validator đếm **643** file, bộ tài liệu vẫn **16** doc.

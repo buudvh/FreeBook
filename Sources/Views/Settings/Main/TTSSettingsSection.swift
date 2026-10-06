@@ -24,5 +24,13 @@ struct TTSSettingsSection: View {
                 Label("Cài đặt VieNeu TTS", systemImage: "waveform.badge.plus")
             }
         }
+        // Kokoro cũng là màn **đo**, không phải engine đã nối vào Picker "Trình đọc": tiêu chí go/no-go là
+        // RTF < 1,0 **và** RAM đỉnh thấp hơn VieNeu. Nó dùng chung `sea_g2p.bin` với VieNeu nên **cần model
+        // VieNeu có trên máy** — thiếu thì nút tải báo đúng câu đó.
+        Section(header: Text("Nghe Truyện (TTS) · Kokoro (thử nghiệm)")) {
+            NavigationLink(destination: KokoroTTSTestView()) {
+                Label("Thử Kokoro", systemImage: "waveform.badge.mic")
+            }
+        }
     }
 }
