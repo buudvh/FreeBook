@@ -9,3 +9,5 @@ DerivedData/
 /Docs/CheckList
 /Docs/Reports
 .claude/
+/Scripts/__pycache__
+/test
