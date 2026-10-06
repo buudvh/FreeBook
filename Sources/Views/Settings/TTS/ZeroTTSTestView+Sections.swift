@@ -53,7 +53,10 @@ extension ZeroTTSTestView {
 
     @ViewBuilder
     var voiceSection: some View {
-        Section("Giọng đọc") {
+        // **Không** dùng `Section("Giọng đọc") { … } footer: { … }`: SwiftUI không có initializer
+        // `Section(_:content:footer:)`, nên dạng đó là lỗi biên dịch (`missing argument label 'content:'`).
+        // Muốn có cả tiêu đề lẫn footer thì phải `Section { } header: { } footer: { }`.
+        Section {
             if voices.isEmpty {
                 Text(isModelReady ? "Chưa đọc được danh sách giọng." : "Tải model trước để có danh sách giọng.")
                     .font(.footnote)
@@ -65,6 +68,8 @@ extension ZeroTTSTestView {
                     }
                 }
             }
+        } header: {
+            Text("Giọng đọc")
         } footer: {
             if let voice = voices.first(where: { $0.name == selectedVoice }), !voice.summary.isEmpty {
                 Text("**\(voice.displayName)** — \(voice.summary). Bản open-source **không** kèm voice encoder: nó chỉ *nạp* giọng, không *tạo* giọng từ audio, nên chỉ có tám giọng preset này.")
