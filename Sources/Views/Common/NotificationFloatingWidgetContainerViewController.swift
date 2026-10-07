@@ -256,13 +256,21 @@ final class NotificationFloatingWidgetContainerViewController: UIViewController,
             guard let self else { return }
             self.openReader(for: book)
         })
+        // Móc bắt **mọi** đường đóng sheet. `presentationControllerDidDismiss` chỉ chạy khi người dùng **vuốt
+        // xuống**, còn nút "Đóng" trong màn Thông báo gọi `@Environment(\.dismiss)` — đường lập trình, không
+        // có callback nào của UIKit. Thiếu móc này thì `isSheetPresented` kẹt ở `true`, nút nổi **biến mất
+        // vĩnh viễn** sau lần đầu đóng sheet bằng nút. Hai cơ chế cố ý chồng nhau: `setSheetPresented` idempotent,
+        // và hậu quả của việc kẹt cờ đủ nặng để đáng trả giá một lời gọi thừa.
+        let content = inbox.onDisappear {
+            NotificationFloatingWidgetWindowManager.shared.setSheetPresented(false)
+        }
         let root: AnyView
         if let container = NotificationFloatingWidgetWindowManager.shared.modelContainer {
             // Bắt buộc: cửa sổ phụ **không** có `modelContainer` trong environment, mà `NotificationInboxView`
             // `@Query` bảng `Book` — thiếu dòng này là crash ngay khi mở.
-            root = AnyView(inbox.modelContainer(container))
+            root = AnyView(content.modelContainer(container))
         } else {
-            root = AnyView(inbox)
+            root = AnyView(content)
         }
 
         let hosting = UIHostingController(rootView: root)

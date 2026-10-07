@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.473] - 2026-10-07
+
+### fix: sheet man Thong bao tu widget noi khong nhan duoc cham (thieu nhanh hitTest cho view controller duoc trinh bay)
+
+Người dùng: *"lỗi mở thông báo từ widget không đóng được và bấm vào dropdown không hoạt động"*.
+
+- **Nguyên nhân**: `NotificationFloatingWidgetUIWindow.hitTest` trả `nil` cho **mọi** điểm ngoài `widgetContainerView`. Sheet màn Thông báo được trình bày **từ chính cửa sổ đó** nên view của nó nằm trong cây của cửa sổ, mà lúc sheet mở thì `widgetContainerView` bị `isHidden = true` (trong `setSheetPresented`) ⇒ guard thất bại ⇒ mọi cú chạm trên sheet **rơi xuống app phía dưới**: không bấm được "Đóng", không mở được menu ở góc phải, không vuốt xuống được. Hai triệu chứng người dùng báo là **cùng một** nguyên nhân.
+- **Sửa**: thêm nhánh short-circuit `if containerViewController?.presentedViewController != nil { return super.hitTest(point, with: event) }` — đúng khuôn `FloatingWidgetUIWindow` của widget TTS (đã chạy production cho sheet cài đặt TTS).
+- **Lỗi thứ hai phát hiện khi rà lại**: `isSheetPresented` chỉ được hạ ở hai đường (vuốt xuống qua `presentationControllerDidDismiss`, và mở truyện qua `openReader`). Nút "Đóng" của màn Thông báo gọi `@Environment(\.dismiss)` — đường lập trình, **không** có callback nào của UIKit ⇒ cờ kẹt ở `true` ⇒ nút nổi **biến mất vĩnh viễn** sau lần đầu đóng sheet bằng nút. Thêm `.onDisappear` trên nội dung sheet làm móc bắt mọi đường đóng; `setSheetPresented` idempotent nên hai cơ chế chồng nhau là an toàn.
+- **Kiểm chứng**: `check_architecture.py` **5 violation nền cũ, 0 vi phạm mới**; `validate_links.py` PASS 100% sau khi accept `11_subsystems.md`. **Không build tại chỗ** (Windows) — `swiftc -parse` sạch trên cả hai file; CI xác nhận biên dịch.
+- Ảnh hưởng dòng: `NotificationFloatingWidgetUIWindow` **29 → 40** · `NotificationFloatingWidgetContainerViewController` **325 → 333**.
+
 ## [1.3.472] - 2026-10-07
 
 ### feat: tien do sao luu/khoi phuc va tai model o man Thong bao, widget thong bao noi, bo chan TTS khi khoi phuc

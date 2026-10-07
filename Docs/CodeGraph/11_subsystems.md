@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.473 — sheet màn Thông báo từ widget nổi không nhận được chạm
+
+* **Lỗi**: `NotificationFloatingWidgetUIWindow.hitTest` trả `nil` cho mọi điểm ngoài `widgetContainerView`, mà sheet màn Thông báo lại được trình bày **từ chính cửa sổ đó** và lúc mở sheet thì `widgetContainerView` bị `isHidden = true` ⇒ mọi cú chạm trên sheet rơi xuống app phía dưới. Người dùng báo hai triệu chứng ("không đóng được" + "dropdown không hoạt động") nhưng là **một** nguyên nhân.
+* **Sửa**: nhánh short-circuit `presentedViewController != nil` ⇒ `super.hitTest(...)`, đúng khuôn `FloatingWidgetUIWindow` của widget TTS.
+* **Sửa kèm**: `.onDisappear` trên nội dung sheet để hạ `isSheetPresented` ở **mọi** đường đóng. Trước đó chỉ hai đường (vuốt xuống, mở truyện) hạ cờ; nút "Đóng" đi qua `@Environment(\.dismiss)` nên cờ kẹt `true` ⇒ nút nổi biến mất vĩnh viễn.
+* Dòng: `NotificationFloatingWidgetUIWindow` **29 → 40** · `NotificationFloatingWidgetContainerViewController` **325 → 333**.
+
+
 ## 1.3.472 — phân hệ TTS có trung tâm tiến độ tải; phân hệ Backup bỏ chặn TTS; widget nổi thứ tư
 
 * **TTS — `ModelDownloadCenter` (mới, `Services/TTS/`)**: nguồn sự thật duy nhất cho ba đường tải (NghiTTS từng giọng, VieNeu 8 file lõi, VieNeu 3 graph clone). Sở hữu `Task`, chặn lượt trùng theo `id`, phát `lastNotice` cho tầng View. `TTSModelManagerView` **478 → 469** (bỏ `downloadingStatus` / `downloadingMessages` và toàn bộ khối `DispatchQueue.main.async` toast), `VieNeuTTSTestView` **385 → 369**, `VieNeuVoiceLibraryView` **385 → 368** — cả ba chỉ còn đọc `entries`.
