@@ -9,12 +9,14 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 Repo này có quy trình AI riêng, **ưu tiên cao hơn hướng dẫn mặc định**:
 
 1. `.agents/AGENTS.md` — workflow 8 bước bắt buộc cho mọi AI assistant.
-2. `Docs/CodeGraph/00_index.md` — mục lục hệ thống tài liệu sống (16 tài liệu, phủ 218 file Swift).
-3. `Docs/CodeGraph/rules.md` — quy chuẩn kỹ thuật + checklist tự kiểm tra.
+2. `Docs/CodeGraph/rules.md` — quy chuẩn kỹ thuật + checklist tự kiểm tra (tài liệu có thẩm quyền cao nhất).
+3. `CHANGELOG.md` — lịch sử thay đổi theo version `[1.3.NNN]`.
 
-**Thứ tự thẩm quyền khi xung đột**: `rules.md` > Source Code > `Docs/CodeGraph/*` > tài liệu khác. Nếu không đủ bằng chứng để phân biệt sai lệch là chủ ý hay bug, phải đánh dấu `UNKNOWN` và hỏi người dùng — không tự suy đoán. **Nhưng đọc mục "Bẫy đã xác minh & sai lệch tài liệu" ở cuối file trước**: `rules.md` có chỗ đã cũ hơn code, đừng sửa code chỉ để khớp nó.
+**Điều hướng cấu trúc**: thay vì đọc doc MB, hãy dùng công cụ MCP **`codegraph_explore`** (hoặc CLI `codegraph explore "<câu hỏi>"`) — nó trả source verbatim + call paths + quan hệ trong một lần gọi. Index nằm ở `.codegraph/` (tự động đồng bộ khi file đổi; build bằng `codegraph init`). Nếu agent không có MCP, fallback CLI `codegraph explore`.
 
-Sau khi sửa code phải: chạy `python Docs/CodeGraph/validate_links.py --explain` để biết doc nào bị ảnh hưởng, cập nhật tài liệu CodeGraph đó (chỉ trong vùng `<!-- GENERATED START -->` … `<!-- GENERATED END -->`, tuyệt đối không đụng nội dung ngoài vùng này), ghi nhận từng doc bằng `--accept` hoặc `--no-change-needed`, cập nhật `CHANGELOG.md`, chạy lại validator read-only, và **kết thúc response bằng một trong hai cụm**: `"CodeGraph updated."` hoặc `"No CodeGraph update required."`
+**Thứ tự thẩm quyền khi xung đột**: `rules.md` > Source Code > `CHANGELOG.md` > tài liệu khác. Nếu không đủ bằng chứng để phân biệt sai lệch là chủ ý hay bug, phải đánh dấu `UNKNOWN` và hỏi người dùng — không tự suy đoán. **Nhưng đọc mục "Bẫy đã xác minh & sai lệch tài liệu" ở cuối file trước**: `rules.md` có chỗ đã cũ hơn code, đừng sửa code chỉ để khớp nó.
+
+Sau khi sửa code: cập nhật `CHANGELOG.md` (version `[1.3.NNN] - YYYY-MM-DD`, tăng NNN mỗi thay đổi; tiêu đề entry **trùng với subject của git commit**), và **kết thúc response bằng một trong hai cụm**: `"CodeGraph updated."` hoặc `"No CodeGraph update required."` (giữ quy ước này cho nhất quán dù không còn validator). Khi cần hiểu/sửa cấu trúc, ưu tiên `codegraph_explore` thay vì đọc file lớn.
 
 `CHANGELOG.md` đánh version `[1.3.NNN] - YYYY-MM-DD` (tăng NNN mỗi thay đổi); tiêu đề entry **trùng với subject của git commit** tương ứng — giữ đúng quy ước này. Luôn thêm entry mới vào `CHANGELOG.md`; khi file vượt ~30 entry thì đẩy phần cũ nhất sang `CHANGELOG.archive.md` (chỉ để tra cứu, không bao giờ ghi mới vào đó) để giữ file chính gọn token.
 
@@ -33,28 +35,42 @@ xcodebuild build -project FreeBook.xcodeproj -scheme FreeBook \
 
 Không có lệnh test ở đây — xem mục [Tests](#tests): tầng test bị coi như không tồn tại.
 
-Hai script Python là cổng kiểm tra chạy được **mọi nền tảng**, kể cả Windows — luôn chạy chúng dù không build được:
+Công cụ kiểm tra chạy được **mọi nền tảng**, kể cả Windows — luôn chạy chúng dù không build được:
 
 ```bash
-python Docs/CodeGraph/validate_links.py                   # read-only, phải PASS 100%
-python Docs/CodeGraph/validate_links.py --explain          # doc nào bị stale và vì sao (thêm --since REF để so với commit)
-python Docs/CodeGraph/validate_links.py --accept 08 13     # ghi nhận doc đã sửa (bắt buộc vùng GENERATED đã đổi)
-python Docs/CodeGraph/validate_links.py --no-change-needed 10   # đã xem, doc vẫn đúng — có audit trail
-python Docs/CodeGraph/validate_links.py --update-hashes    # accept mọi doc đã sửa; FAIL nếu còn doc stale
-python Scripts/check_architecture.py                       # gate kiến trúc, exit 0 = pass
+codegraph explore "<câu hỏi hoặc tên symbol>"   # source verbatim + call paths (giống MCP codegraph_explore)
+codegraph status                                 # thống kê index (.codegraph/)
+codegraph init                                   # build index lần đầu (tạo .codegraph/)
+python Scripts/check_architecture.py             # gate kiến trúc, exit 0 = pass
 ```
 
-**Validator định tuyến theo từng doc, không còn bless hàng loạt.** `manifest.json` là `schemaVersion: 2`: mỗi doc khai `sourcePatterns` (glob) + `staleOn`.
+**Không còn validator `validate_links.py`.** Phần "đồ thị cấu trúc" của CodeGraph đã nghỉ hưu, thay bằng công cụ **`codegraph` MCP** (Rust/Node, 100% local, tự động đồng bộ index khi file đổi). Mọi truy vấn cấu trúc (tìm symbol, call path, blast radius) dùng `codegraph_explore` MCP hoặc CLI `codegraph explore` — **không** đọc doc MB. `codegraph.json` ở root khai `exclude` (`Tools/`, `Docs/CodeGraph/`, `Docs/Plans/`, `Docs/Reports/`, `*.xcodeproj`) và `deprioritize` (`Sources/Extensions/**/src/`).
 
-- `staleOn: structure` (`00_index`, `02_file_graph`, `09_dependency_rules`, `14_complexity_report`) — chỉ stale khi *tập* file khớp pattern đổi (thêm/xoá/đổi tên).
-- `staleOn: content` (`01_project`, `03`–`08`, `10`–`13`, `rules.md`) — stale cả khi *nội dung* file trong phạm vi đổi. Đây là cơ chế bắt "sửa logic mà doc không đổi".
-- **Coverage (2 điều kiện)**: mọi `Sources/**/*.swift` phải khớp pattern của ít nhất một doc, **và** phải được ít nhất một doc `content` phủ — nếu file chỉ nằm trong doc `structure` thì sửa nội dung nó sẽ không làm doc nào stale. `11_subsystems.md` phủ toàn bộ `Services/**` + `Views/**` để giữ điều kiện thứ hai. Validator FAIL kèm tên file khi vi phạm.
-- Doc stale chỉ hết bằng `--accept` (đã sửa vùng GENERATED — validator từ chối nếu vùng đó không đổi) hoặc `--no-change-needed` (ghi vào `reviewMode`/`reviewedAt`/`reviewedCommit`). `--bootstrap` chỉ dùng khi vừa sửa `sourcePatterns`.
-- Không có hook/CI nào chạy validator — đây là cổng chạy tay, phải tự chạy.
+## Thiết lập trên máy mới / checkout mới
+
+Khi clone repo này về máy khác (hoặc để lâu ngày rồi `git pull` nhiều thay đổi), codegraph cần khởi tạo thủ công một lần — công cụ **không tự build index** (lệnh `codegraph explore` sẽ báo *"no .codegraph/ index exists ... run 'codegraph init'"* và bảo agent không tự chạy init):
+
+1. Cài codegraph (binary + PATH): chạy `install.ps1` từ GitHub release, hoặc `codegraph upgrade` nếu đã có.
+2. Tại root repo: `codegraph init` — build `.codegraph/` từ `codegraph.json` (bắt buộc; agent **không** tự chạy).
+3. Wire các agent hỗ trợ: `codegraph install --yes --target=claude,codex,antigravity`.
+4. WorkBuddy (không nằm trong danh sách `install`): tự tạo `~/.workbuddy-ai/mcp.json`:
+   ```json
+   {
+     "mcpServers": {
+       "codegraph": {
+         "command": "codegraph",
+         "args": ["serve", "--mcp"],
+         "env": { "CODEGRAPH_TELEMETRY": "0", "CODEGRAPH_WATCH_DEBOUNCE_MS": "2000" }
+       }
+     }
+   }
+   ```
+   rồi Connectors → mục **"Custom connectors"** góc trên bên phải → bấm **Trust**.
+5. Đồng bộ lại sau idle dài / git pull: `codegraph sync` (hoặc `codegraph index` để rebuild toàn bộ). File watcher tự động đồng bộ khi session đang chạy, nhưng **không** bắt kịp thay đổi lúc máy tắt.
 
 **Lưu ý môi trường**: build chỉ chạy được trên macOS. Repo hay được mở trên Windows — khi đó không build tại chỗ được; phải nói rõ điều đó thay vì báo "đã kiểm chứng".
 
-**CI không phải test gate.** `.github/workflows/build-ipa.yml` chỉ `xcodegen generate` → `xcodebuild archive` (unsigned) → đóng gói IPA + nhồi `espeak-ng-data` → gửi Telegram. Nó **không chạy unit test, không chạy `validate_links.py`, không chạy `check_architecture.py`**, và chỉ trigger khi đổi `Sources/**` hoặc `project.yml`. Nghĩa là CI xanh = *biên dịch được*, không phải *đúng*.
+**CI không phải test gate.** `.github/workflows/build-ipa.yml` chỉ `xcodegen generate` → `xcodebuild archive` (unsigned) → đóng gói IPA + nhồi `espeak-ng-data` → gửi Telegram. Nó **không chạy unit test, không chạy `check_architecture.py`, cũng không truy vấn `codegraph` MCP**, và chỉ trigger khi đổi `Sources/**` hoặc `project.yml`. Nghĩa là CI xanh = *biên dịch được*, không phải *đúng*.
 
 `GOOGLE_CLOUD_TTS_API_KEY` đi từ GitHub secret → build setting → `Info.plist` (`project.yml` khai `GOOGLE_CLOUD_TTS_API_KEY: "$(GOOGLE_CLOUD_TTS_API_KEY)"`, workflow còn `plutil -replace` vào IPA). Build local không có key thì Google TTS im lặng không hoạt động — không phải bug.
 
@@ -207,7 +223,7 @@ Có skill riêng cho việc này: `.agents/skills/vbook_helper/SKILL.md` (mẫu 
 
 ## Tests
 
-**Coi `Tests/` như không tồn tại.** Theo yêu cầu của người dùng, từ nay bỏ qua hoàn toàn tầng test: **không** tạo, sửa, đổi tên, xoá, format, chạy hay đọc bất kỳ file nào dưới `Tests/`; **không** dùng test (đang có hay giả định) làm bằng chứng cho tính đúng; **không** báo "đã test" hay "test pass". Xác minh chỉ dựa trên đọc code, build (khi có macOS) và validator tĩnh (`validate_links.py`, `check_architecture.py`).
+**Coi `Tests/` như không tồn tại.** Theo yêu cầu của người dùng, từ nay bỏ qua hoàn toàn tầng test: **không** tạo, sửa, đổi tên, xoá, format, chạy hay đọc bất kỳ file nào dưới `Tests/`; **không** dùng test (đang có hay giả định) làm bằng chứng cho tính đúng; **không** báo "đã test" hay "test pass". Xác minh chỉ dựa trên đọc code, build (khi có macOS) và validator tĩnh (`check_architecture.py`). Truy vấn cấu trúc dùng `codegraph explore` / `codegraph_explore`.
 
 Luật này **chặt hơn và bao trùm** Test Lock Rule ở `.agents/AGENTS.md` §2.1 và mục "Test Placement" của `rules.md` (vốn chỉ cấm tạo/sửa test). Khi hai bên xung đột, áp luật này. `.agents/AGENTS.md` và `rules.md` giữ nguyên văn — không sửa chúng theo luật này trừ khi người dùng yêu cầu.
 
