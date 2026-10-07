@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.474] - 2026-10-07
+
+### fix: rule muc luc mac dinh vuot tran regex 250 cua chinh no (khoi phuc cau hinh bao loi sai)
+
+Người dùng: *"Khôi phục xong nhưng có 1 lỗi: Quy tắc mục lục: Biểu thức chính quy không hợp lệ cho 'Quy tắc mở rộng nâng cao': Độ dài Regex không được vượt quá 250 ký tự.."*.
+
+- **Nguyên nhân (lỗi có từ trước, không liên quan 1.3.472)**: `TranslateUtils.defaultTOCRules.rule21` — tên "Quy tắc mở rộng nâng cao" — có pattern dài **254** ký tự, còn `validateTOCRulePattern` (`TranslateUtils.swift:700` trước lượt này) chặn mọi pattern **> 250**. Tức app tự ship một quy tắc mặc định **vi phạm chính bộ kiểm tra của nó**. Kiểm lịch sử: trần 250 ra đời `5d99d67` (2026-07-28), rule21 được thêm `c3f83ba` (2026-07-30) — vượt đúng **4 ký tự**, và không ai phát hiện vì thêm rule mặc định thì không chạy validator.
+- **Đường ra lỗi**: `BackupConfigArchiver.restoreTOCRules` (`:164`) → `TranslateUtils.validateImportedTOCRules` (`:744`) → `validateTOCRulePattern` từng rule → `.failure(.invalidRegex(ruleName:reason:))` → `report.errors.append("Quy tắc mục lục: …")`. Cùng lỗi đó cũng chặn đường **nhập file `toc_rules.json`** và khiến rule21 hiện **"không hợp lệ"** ở màn Quy tắc mục lục (`TOCRulesConfigView:258,276`).
+- **Chữa**: rule mặc định được **miễn** trần độ dài. So khớp theo **pattern y hệt** (`isBuiltInTOCRulePattern`), **không** theo `id` — người dùng sửa pattern của rule21 thì bản sửa là dữ liệu người dùng và phải chịu đúng trần 250 như mọi pattern khác. Ngoại lệ đặt ngay trong `validateTOCRulePattern`, là **cửa kiểm tra duy nhất** của cả ba đường, nên không phải vá riêng từng chỗ và các rule mặc định thêm sau này cũng tự được miễn.
+- **Không** rút ngắn pattern rule21 (đã cân nhắc và loại): regex đó đang chạy thật để tách mục lục, sửa nó là đổi hành vi tách chương của mọi người dùng — đổi một hằng số an toàn hơn nhiều so với sửa regex đang chạy.
+- **File mới**: `Sources/Services/Translation/Utils/TranslateUtils+TOCRuleValidation.swift` (**58** dòng) chứa `isBuiltInTOCRulePattern` + `validateTOCRulePattern`. Bắt buộc tách vì `TranslateUtils.swift` đang ở **916/917** dòng (trần ratchet, chỉ dư một dòng) — sau khi tách còn **911**, đúng chiều ratchet-down. `defaultTOCRules` đổi `private` → `internal` (cùng module) để file extension đọc được, kèm doc ghi rõ vì sao `rule21` dài 254 ký tự là **chủ ý đã chấp nhận**.
+- **Kiểm chứng**: `check_architecture.py` **5 violation nền cũ, 0 vi phạm mới**; `validate_links.py` PASS 100% sau khi accept 6 doc. **Không build tại chỗ** (Windows) — `swiftc -parse` sạch; CI xác nhận biên dịch.
+- Ảnh hưởng dòng: `TranslateUtils.swift` **916 → 911** · `TranslateUtils+TOCRuleValidation.swift` **58** (mới).
+
 ## [1.3.473] - 2026-10-07
 
 ### fix: sheet man Thong bao tu widget noi khong nhan duoc cham (thieu nhanh hitTest cho view controller duoc trinh bay)

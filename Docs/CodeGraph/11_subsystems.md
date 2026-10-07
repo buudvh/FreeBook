@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.474 — phân hệ Translation: trần độ dài regex không còn áp lên chính dữ liệu mặc định của app
+
+* **Lỗi (có từ trước, không liên quan thay đổi 1.3.472)**: `rule21` "Quy tắc mở rộng nâng cao" trong `defaultTOCRules` dài **254** ký tự, vượt trần **250** của `validateTOCRulePattern` ⇒ khôi phục cấu hình, nhập `toc_rules.json` và màn Quy tắc mục lục đều coi **bộ rule mặc định của app** là sai.
+* **Chữa**: `TranslateUtils+TOCRuleValidation.swift` (mới, **58** dòng) chứa `isBuiltInTOCRulePattern` + `validateTOCRulePattern` (chuyển từ file chính). Miễn trừ so khớp **pattern y hệt** với `defaultTOCRules` ⇒ pattern người dùng sửa vẫn chịu trần. Đặt ở cửa kiểm tra duy nhất nên cả ba đường cùng đúng.
+* **Không** rút ngắn pattern rule21 — regex đó đang chạy thật để tách mục lục.
+* Dòng: `TranslateUtils.swift` **916 → 911** · file mới **58**.
+
 ## 1.3.473 — sheet màn Thông báo từ widget nổi không nhận được chạm
 
 * **Lỗi**: `NotificationFloatingWidgetUIWindow.hitTest` trả `nil` cho mọi điểm ngoài `widgetContainerView`, mà sheet màn Thông báo lại được trình bày **từ chính cửa sổ đó** và lúc mở sheet thì `widgetContainerView` bị `isHidden = true` ⇒ mọi cú chạm trên sheet rơi xuống app phía dưới. Người dùng báo hai triệu chứng ("không đóng được" + "dropdown không hoạt động") nhưng là **một** nguyên nhân.

@@ -15,6 +15,15 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.474 — rule mục lục mặc định vượt trần regex của chính nó; khôi phục cấu hình báo lỗi sai
+
+* Thêm **1** file Swift (`Services/Translation/Utils/TranslateUtils+TOCRuleValidation.swift`, **58** dòng) ⇒ validator đếm **652** file, bộ tài liệu vẫn **16** doc.
+* **Lỗi**: `defaultTOCRules.rule21` ("Quy tắc mở rộng nâng cao") dài **254** ký tự, vượt trần **250** của `validateTOCRulePattern` — app tự ship dữ liệu vi phạm chính bộ kiểm tra của nó. Kiểm lịch sử: trần ra đời `5d99d67` (2026-07-28), rule21 thêm `c3f83ba` (2026-07-30), vượt đúng **4 ký tự**; không ai phát hiện vì thêm rule mặc định thì không chạy validator.
+* **Hậu quả (người dùng báo)**: khôi phục cấu hình từ bản sao lưu báo `Quy tắc mục lục: Biểu thức chính quy không hợp lệ cho 'Quy tắc mở rộng nâng cao': Độ dài Regex không được vượt quá 250 ký tự.` — dù bản sao lưu chỉ chứa **đúng bộ rule mặc định của app**. Cùng lỗi đó làm hỏng đường nhập `toc_rules.json` và khiến rule21 hiện "không hợp lệ" ở màn Quy tắc mục lục.
+* **Chữa**: rule mặc định được **miễn** trần độ dài, so khớp theo **pattern y hệt** (không theo `id`) nên pattern do người dùng sửa vẫn chịu đúng trần. Ngoại lệ nằm ngay trong `validateTOCRulePattern` — **cửa kiểm tra duy nhất** của cả ba đường — nên không phải vá riêng từng chỗ.
+* **Không** rút ngắn pattern rule21: regex đó đang chạy thật để tách mục lục, sửa nó là đổi hành vi tách chương của mọi người dùng.
+* `TranslateUtils.swift` **916 → 911** (ratchet-down; file đang ở 916/917 nên không thể nhồi thêm logic) · `defaultTOCRules` đổi `private` → `internal` để file extension đọc được.
+
 ## 1.3.472 — tiến độ tác vụ trong màn Thông báo; widget thông báo nổi; bỏ chặn TTS khi khôi phục
 
 * Thêm **8** file Swift (chi tiết ở [02_file_graph.md](02_file_graph.md)) ⇒ validator đếm **651** file (643 → 651), bộ tài liệu vẫn **16** doc.

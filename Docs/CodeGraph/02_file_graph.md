@@ -15,6 +15,14 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.474 — +1 file: kiểm tra pattern quy tắc mục lục, có miễn trừ cho rule mặc định
+
+| Nhóm | File mới | Vai trò | Dòng |
+| --- | --- | --- | --- |
+| Service | `Services/Translation/Utils/TranslateUtils+TOCRuleValidation.swift` | `extension TranslateUtils`: `isBuiltInTOCRulePattern(_:)` (so khớp **pattern y hệt** với `defaultTOCRules`) và `validateTOCRulePattern(_:)` (chuyển từ file chính sang, nay có nhánh miễn trừ). Chỉ `import Foundation`. | 58 |
+
+Sửa trong lượt này: `TranslateUtils.swift` **916 → 911** (`validateTOCRulePattern` chuyển sang file mới; `defaultTOCRules` `private` → `internal` kèm doc giải thích vì sao `rule21` dài 254 ký tự là **chủ ý đã chấp nhận**, không phải lỗi cần rút ngắn).
+
 ## 1.3.472 — +8 file: tiến độ tác vụ ở màn Thông báo và widget thông báo nổi
 
 | Nhóm | File mới | Vai trò | Dòng |

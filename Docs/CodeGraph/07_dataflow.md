@@ -15,6 +15,25 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.474 — luồng khôi phục/nhập quy tắc mục lục: một cửa kiểm tra, có ngoại lệ cho rule mặc định
+
+```text
+[toc_rules.json trong archive] → BackupZipArchive.readStaged
+                                 → TranslateUtils.validateImportedTOCRules(data)
+                                      └─ mỗi rule → validateTOCRulePattern(rule)
+                                                      ├─ rỗng?                                  → lỗi
+                                                      ├─ > 250 ký tự VÀ không phải pattern mặc định? → lỗi
+                                                      └─ NSRegularExpression compile             → lỗi cú pháp nếu ném
+                                 → TranslateUtils.mergeTOCRules(current:imported:)
+                                 → TranslateUtils.saveTOCRules(_)   (dọn cache regex + cache tiêu đề chương)
+
+[File người dùng chọn] → TOCRulesConfigView → validateImportedTOCRules   (cùng đường trên)
+[Màn soạn rule]        → TOCRulesConfigView → validateTOCRulePattern     (cùng cửa kiểm tra)
+```
+
+Điểm cốt lõi: cả **ba** đường (khôi phục cấu hình, nhập file, soạn rule) đều đi qua **một** hàm
+`validateTOCRulePattern`, nên ngoại lệ cho rule mặc định chỉ cần đặt ở đó — không phải vá riêng từng đường.
+
 
 ## 1.3.446 — dòng dữ liệu của rule thay thế TTS theo tầng
 

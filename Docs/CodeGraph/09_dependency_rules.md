@@ -15,6 +15,13 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.474 — file kiểm tra quy tắc mục lục chỉ phụ thuộc Foundation
+
+* **`Services/Translation/Utils/TranslateUtils+TOCRuleValidation.swift`** chỉ `import Foundation` (dùng `NSRegularExpression`) ⇒ không vi phạm `SERVICE_SWIFTUI_IMPORT`, không gọi `ToastManager`.
+* `defaultTOCRules` đổi `private` → `internal` **trong cùng module** để extension ở file khác đọc được; không mở ra ngoài module, không thành API công khai.
+* `validateTOCRulePattern` giữ `public` sau khi chuyển file ⇒ hai call site cũ (`validateImportedTOCRules` cùng file, `TOCRulesConfigView` ở tầng View) không phải sửa một dòng nào.
+* **File legacy `TranslateUtils.swift` chỉ giảm dòng** (916 → 911) — đúng luật ratchet, không nới baseline. Việc tách hàm sang file mới là **bắt buộc**, không phải thẩm mỹ: file chỉ dư 1 dòng so với trần 917.
+
 ## 1.3.472 — service tải model không `import SwiftUI`, không gọi `ToastManager`
 
 * **`Services/TTS/ModelDownloadCenter.swift`** chỉ `import Foundation` + `Combine` ⇒ không vi phạm `SERVICE_SWIFTUI_IMPORT`. Kết quả lượt tải **không** hiện toast tại chỗ (sẽ vi phạm `SERVICE_TOAST_COUPLING`) mà phát qua `@Published lastNotice` để `MainTabView` — tầng View — hiện.
