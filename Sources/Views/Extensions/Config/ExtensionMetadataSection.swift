@@ -101,7 +101,7 @@ struct ExtensionMetadataSection: View {
         .onChange(of: name) { _, _ in scheduleSave() }
         .onChange(of: source) { _, _ in scheduleSave() }
         .onChange(of: regexp) { _, _ in scheduleSave() }
-        .onChange(of: description) { _, _ in scheduleSave() }
+        .onChange(of: descText) { _, _ in scheduleSave() }
         .onChange(of: locale) { _, _ in saveNow() }
         .onChange(of: type) { _, _ in saveNow() }
     }
