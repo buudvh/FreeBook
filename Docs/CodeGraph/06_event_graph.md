@@ -15,6 +15,12 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.472 — hai `Notification.Name` mới và một nguồn toast mới
+
+* **`Notification.Name.appTabDidChange`** — phát từ `MainTabView.onChange(selectedTab)`, `userInfo["index"]` là chỉ số tab. Người nhận **duy nhất**: `NotificationFloatingWidgetWindowManager` (đặt `isShelfTabActive = index == 0` rồi `refreshState()`). Lý do tồn tại: `selectedTab` là `@State` cục bộ nên widget nổi không đọc trực tiếp được, mà nút phải **tự ẩn ở tab Kệ Sách**.
+* **`Notification.Name.openReaderFromNotification`** — phát từ `NotificationFloatingWidgetContainerViewController.openReader(for:)` **sau khi sheet đóng xong**, `userInfo` mang đủ trường của `ShelfReaderRoute`. Người nhận: `ShelfView` (chỉ nơi này giữ `fullScreenCover` của Reader). Chờ đóng xong mới phát, cùng lý do đã ghi ở nhánh `openCurrentlyPlayingReader`: hai lớp trình bày không được tranh nhau.
+* **`ModelDownloadCenter.lastNotice`** là nguồn toast mới, song song `BackupCoordinator.lastMessage` / `lastError`. Cả ba đều được `MainTabView` tiêu thụ và **xoá ngay** sau khi hiện (`= nil` / `clearNotice()`), nếu không lần dựng View kế tiếp sẽ hiện lại toast cũ.
+
 ## 1.3.465 — một sự kiện nội bộ mới: đổi tốc độ tổng hợp khi đang phát
 
 * `vieneuSynthesisSpeedRow.onChange` / `resetVieNeuSynthesisSpeed()` ⇒ `TTSManager.invalidateVieNeuSynthesisSpeed()`: huỷ nạp trước, lọc đệm, `clearPreparedNext()`, nạp lại từ đoạn kế. Không có sự kiện hướng ra UI (không toast).

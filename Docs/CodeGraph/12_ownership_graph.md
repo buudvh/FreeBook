@@ -15,6 +15,28 @@ Tài liệu này mô tả mối quan hệ sở hữu đối tượng (Object Own
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ai sở hữu `Task` tải model, cửa sổ widget thông báo, và dòng tiến độ (1.3.472)
+
+```text
+ModelDownloadCenter (singleton @MainActor)
+  ├─ tasks[id]: Task<Void, Never>      ← SỞ HỮU lượt tải; xoá khỏi dictionary khi xong
+  ├─ entries: [Entry]                  ← nguồn sự thật cho mọi màn vẽ tiến độ
+  └─ lastNotice: Notice?               ← bàn giao kết quả cho MainTabView (tầng View hiện toast)
+
+BackupCoordinator (singleton @MainActor)
+  ├─ progress: BackupProgress          ← dùng CHUNG cho cả sao lưu và khôi phục
+  ├─ lastMessage / lastError           ← MainTabView tiêu thụ rồi xoá
+  └─ dismissProgress()                 ← cửa công khai duy nhất cho View dọn dòng kết quả
+
+NotificationFloatingWidgetWindowManager (singleton @MainActor)
+  ├─ window / containerViewController  ← SỞ HỮU cửa sổ nút nổi (level alert - 3)
+  ├─ modelContainer                    ← cấp cho sheet màn Thông báo (cửa sổ phụ không có environment)
+  └─ refreshState()                    ← cửa DUY NHẤT bật/tắt cửa sổ
+
+NotificationFloatingWidgetPresentationReader (do WindowManager sở hữu)
+  └─ snapshot: {unreadCount, hasRunningTask} ← gộp 4 nguồn, chỉ phát khi giá trị đổi
+```
+
 ## Ai sở hữu origin extension và lệnh Run từ editor (1.3.351)
 
 ```text

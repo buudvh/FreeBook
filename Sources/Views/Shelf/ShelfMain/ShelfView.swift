@@ -352,6 +352,22 @@ struct ShelfView: View {
                     self.selectedTab = tab
                 }
             }
+            // Widget thông báo nổi (sống ở màn khác) nhờ ShelfView mở Reader hộ: chỉ nơi này giữ
+            // `fullScreenCover` của Reader. Payload mang đủ trường của `ShelfReaderRoute`.
+            .onReceive(NotificationCenter.default.publisher(for: .openReaderFromNotification)) { notification in
+                guard let info = notification.userInfo,
+                      let bookId = info[NotificationFloatingWidgetWindowManager.bookIdUserInfoKey] as? String,
+                      !bookId.isEmpty else { return }
+                self.selectedTab = .shelf
+                self.readerPresentationRoute = ShelfReaderRoute(
+                    bookId: bookId,
+                    extensionPackageId: info[NotificationFloatingWidgetWindowManager.extensionPackageIdUserInfoKey] as? String ?? "",
+                    chapterIndex: info[NotificationFloatingWidgetWindowManager.chapterIndexUserInfoKey] as? Int ?? 0,
+                    paragraphIndex: nil,
+                    detailUrl: info[NotificationFloatingWidgetWindowManager.detailUrlUserInfoKey] as? String ?? "",
+                    sourceName: info[NotificationFloatingWidgetWindowManager.sourceNameUserInfoKey] as? String ?? ""
+                )
+            }
             .sheet(item: $selectedBookForTask) { book in
                 TaskOptionsSheet(book: book, taskType: selectedTaskType)
             }

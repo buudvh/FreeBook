@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.472 — phân hệ TTS có trung tâm tiến độ tải; phân hệ Backup bỏ chặn TTS; widget nổi thứ tư
+
+* **TTS — `ModelDownloadCenter` (mới, `Services/TTS/`)**: nguồn sự thật duy nhất cho ba đường tải (NghiTTS từng giọng, VieNeu 8 file lõi, VieNeu 3 graph clone). Sở hữu `Task`, chặn lượt trùng theo `id`, phát `lastNotice` cho tầng View. `TTSModelManagerView` **478 → 469** (bỏ `downloadingStatus` / `downloadingMessages` và toàn bộ khối `DispatchQueue.main.async` toast), `VieNeuTTSTestView` **385 → 369**, `VieNeuVoiceLibraryView` **385 → 368** — cả ba chỉ còn đọc `entries`.
+* **Backup — bỏ chặn TTS**: `BackupHubView` **235 → 221** (bỏ `@StateObject ttsState`, guard `startRestore`, nhánh footer theo `isPlaying`), `RestoreOptionsSheet` **134 → 121** (bỏ tham số `isTTSPlaying`, khối cảnh báo cam, `.disabled`), `GoogleDriveBackupListView` **211 → 208**, `LocalBackupListView` **181 → 180**. Thêm `BackupProgress.isInboxVisible` / `isRestore` và `BackupCoordinator.dismissProgress()`.
+* **Thông báo — khối tiến độ**: `NotificationInboxView+Activity.swift` (mới) ghim ở đầu `List`, **ngoài** nhóm theo ngày; `NotificationInboxView` **393 → 397** (chỉ 2 dòng thêm, giữ dưới trần 400 nên **không** thêm case vào `InboxItem`).
+* **Toast — một chỗ duy nhất**: `MainTabView` **161 → 193** observe `BackupCoordinator.lastMessage` / `lastError` + `ModelDownloadCenter.lastNotice`; `BackupHubView` đã gỡ observer của nó để một lượt không hiện hai toast.
+* **Widget nổi — cái thứ tư**: `Views/Common/NotificationFloatingWidget*` (6 file), level `alert - 3`, `ShelfView` **859 → 875** (nhận `openReaderFromNotification` để mở Reader hộ), `FreeBookApp` **116 → 122** (gán `modelContainer` + `refreshState()` cùng chỗ với 3 widget cũ).
+
 ## 1.3.471 — quét tên riêng chọn được số chương; một component chọn số chương dùng chung
 
 * **Component chọn số chương dùng chung (`ChapterLimitPickerRows.swift`, `TaskOptionsSheet.swift`)**:

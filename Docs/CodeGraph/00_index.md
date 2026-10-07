@@ -15,6 +15,15 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.472 — tiến độ tác vụ trong màn Thông báo; widget thông báo nổi; bỏ chặn TTS khi khôi phục
+
+* Thêm **8** file Swift (chi tiết ở [02_file_graph.md](02_file_graph.md)) ⇒ validator đếm **651** file (643 → 651), bộ tài liệu vẫn **16** doc.
+* **Màn Thông báo có khối tiến độ ghim ở đầu** (`NotificationInboxView+Activity.swift`): một hàng cho sao lưu/khôi phục (`BackupCoordinator.progress`, dùng chung một `@Published` cho cả hai việc) và một hàng cho **mỗi** lượt tải model (`ModelDownloadCenter.entries`). Cố ý ghim **ngoài** nhóm theo ngày và **không** thêm case vào enum `InboxItem` — `NotificationInboxView.swift` đang 393/400 dòng nên chỉ được thêm 2 dòng. Dòng kết quả giữ lại kèm nút "Bỏ qua" (`BackupProgress.isInboxVisible = phase != .idle`) và **chỉ sống trong phiên**.
+* **Toast kết quả chuyển lên `MainTabView`** — trước đây chỉ `BackupHubView` observe `lastMessage`/`lastError`, nên khôi phục một-chạm từ Google Drive **chưa bao giờ** toast, và rời màn giữa chừng là mất toast.
+* **Bỏ chặn TTS khi khôi phục** ở cả 4 lối vào (bản local, sheet tuỳ chọn, Drive một-chạm, `LocalBackupListView`) — đánh đổi đã biết và đã chấp nhận: khôi phục ghi vào đúng hàng SwiftData mà TTS đang giữ tiến độ.
+* **Tiến độ tải model không còn mất khi rời màn**: `ModelDownloadCenter` (singleton `@MainActor`) **sở hữu `Task`** và là nguồn sự thật duy nhất; ba màn tải (`TTSModelManagerView`, `VieNeuTTSTestView`, `VieNeuVoiceLibraryView`) chỉ còn là người vẽ.
+* **Widget thông báo nổi** (`Views/Common/NotificationFloatingWidget*`): nút chuông **36px** một cỡ cho cả hai trạng thái, kéo/snap mép/tự thu sau 3 giây, level cửa sổ `alert - 3` (dưới TTS `alert - 1` và trình duyệt `alert - 2`). Hiện ở mọi màn **trừ tab Kệ Sách**, và chỉ khi có thông báo chưa đọc **hoặc** đang có tác vụ chạy.
+
 ## 1.3.471 — mục "Số lượng chương" cho phạm vi quét tên riêng; component chọn số chương dùng chung
 
 * Thêm **1** file Swift (`Views/Common/ChapterLimitPickerRows.swift`, **80** dòng) ⇒ validator đếm **643** file, bộ tài liệu vẫn **16** doc.

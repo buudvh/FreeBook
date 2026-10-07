@@ -15,6 +15,13 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.472 — +8 file (lớn nhất 325 dòng); `TTSModelManagerView` giảm 9 dòng; 5 violation nền
+
+* **8 file Swift mới, mỗi file 1 primary type top level** — lớn nhất là `Views/Common/NotificationFloatingWidgetContainerViewController.swift` **325**/400 dòng (`enum Layout` lồng, không tính là type chính). Các file còn lại: 276 · 199 · 174 · 130 · 90 · 74 · 29. Validator: **643 → 651** file Swift.
+* **Ratchet-down giữ đúng**: `Views/Settings/TTS/TTSModelManagerView.swift` **478 → 469** (đang đúng trần baseline 478) — bỏ hai `@State` dictionary và toàn bộ khối `DispatchQueue.main.async` toast. `Views/Shelf/ShelfMain/NotificationInboxView.swift` **393 → 397**, vẫn **dưới** trần 400 (đây là lý do khối tiến độ nằm ở file extension riêng thay vì thêm case vào `InboxItem`).
+* **`check_architecture.py` 5 violation nền cũ, 0 vi phạm mới**: `ChapterPersistenceStore` 915/884 · `JSDom` 583/555 · `JSExecutor` 1561/1066 · `TTSManager` 3970/3470 · `ReaderViewModel` 925/830. Không entry allowlist nào được thêm, không baseline nào bị nới.
+* Biến động dòng còn lại: `MainTabView` **161 → 193** · `ShelfView` **859 → 875** (baseline 942, còn dư) · `FreeBookApp` **116 → 122** · `BackupHubView` **235 → 221** · `RestoreOptionsSheet` **134 → 121** · `GoogleDriveBackupListView` **211 → 208** · `LocalBackupListView` **181 → 180** · `BackupProgress` **83 → 113** · `BackupCoordinator` **361 → 371** · `VieNeuTTSTestView` **385 → 369** · `VieNeuVoiceLibraryView` **385 → 368** · `VieNeuTTSTestView+Sections` **270 → 271** · `VieNeuVoiceLibraryView+Sections` **208 → 209**.
+
 ## 1.3.471 — +1 file 85 dòng; `TaskOptionsSheet` giảm 65 dòng; 5 violation nền
 
 * **1 file Swift mới, 1 primary type top level**: `Views/Common/ChapterLimitPickerRows.swift` — **80**/400 dòng (`enum ChapterLimitPicker`; `extension ChapterLimitOption` không tính là type chính). Validator: **642 → 643** file Swift.

@@ -131,7 +131,7 @@ struct NotificationInboxView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if isEmpty {
+                if isEmpty && !hasActivity {
                     emptyState
                 } else {
                     inboxList
@@ -148,6 +148,10 @@ struct NotificationInboxView: View {
 
     private var inboxList: some View {
         List {
+            // Hàng tiến độ (sao lưu / khôi phục / tải model) ghim ở đầu, **ngoài** nhóm theo ngày — xem
+            // `NotificationInboxView+Activity.swift` để biết vì sao không nhập vào `InboxItem`.
+            activityRows()
+
             ForEach(groupedByDay, id: \.day) { group in
                 Section {
                     ForEach(group.items) { item in

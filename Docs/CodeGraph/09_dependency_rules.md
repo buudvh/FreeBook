@@ -15,6 +15,14 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.472 — service tải model không `import SwiftUI`, không gọi `ToastManager`
+
+* **`Services/TTS/ModelDownloadCenter.swift`** chỉ `import Foundation` + `Combine` ⇒ không vi phạm `SERVICE_SWIFTUI_IMPORT`. Kết quả lượt tải **không** hiện toast tại chỗ (sẽ vi phạm `SERVICE_TOAST_COUPLING`) mà phát qua `@Published lastNotice` để `MainTabView` — tầng View — hiện.
+* **`Views/Common/NotificationFloatingWidget*.swift`** (6 file) nằm trọn trong tầng View: không `modelContext.insert/delete/save`, không gán thuộc tính `@Model`. `NotificationFloatingWidgetContainerViewController` đọc `Book` để dựng payload `ShelfReaderRoute` nhưng **không** ghi gì lên `Book`.
+* **`Views/Shelf/ShelfMain/NotificationInboxView+Activity.swift`** chỉ đọc hai singleton đã nằm trong RAM (`BackupCoordinator.progress`, `ModelDownloadCenter.entries`); **không** chạm đĩa trong `body` — bài học 1.3.448.
+* **`Services/Backup/BackupProgress.swift`** thêm hai computed property thuần (`isInboxVisible`, `isRestore`) và `BackupCoordinator.dismissProgress()`; không thêm import nào, không đụng `ToastManager`.
+* Chiều phụ thuộc giữ nguyên: View → Coordinator/ObservableObject → Service → Model. `ModelDownloadCenter` gọi `TTSManager` / `VieNeuTTSService` (cùng tầng Services), **không** gọi ngược lên View.
+
 ## 1.3.471 — component View dùng chung chỉ phụ thuộc `SwiftUI` + một kiểu của Services/Download
 
 * **File mới `Views/Common/ChapterLimitPickerRows.swift`** nằm trong tầng View: chỉ `import SwiftUI`, không chạm `ModelContext`, không gọi `modelContext.insert/delete/save` ⇒ không vi phạm `VIEW_SWIFTDATA_MUTATION`.

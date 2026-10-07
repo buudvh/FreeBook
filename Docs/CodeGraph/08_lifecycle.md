@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.472 — `Task` tải model rời khỏi View; cửa sổ widget phải sống khi sheet mở
+
+* **`Task` tải model thuộc `ModelDownloadCenter`, không thuộc View.** Ba màn tải trước đây giữ `@State` tiến độ và tạo `Task {}` ngay trong thân hàm; `Task` **không** bị huỷ khi rời màn (chỉ `.task {}` mới bị), nên rời màn rồi vào lại thì **tải vẫn chạy mà thanh tiến độ đã mất** — không còn đường nào biết nó xong hay hỏng. Nay center giữ `Task` trong `tasks[id]`, xoá entry khi xong; View chỉ đọc `entries`.
+* **Không có đường huỷ** (cố ý): `NghiTTSClient.prefetchModels` và `VieNeuModelClient.prefetch` đều **không** nhận cancellation, nên thêm nút huỷ chỉ tạo cảm giác sai. `guard tasks[id] == nil` là toàn bộ việc chống trùng lượt.
+* **Dòng kết quả chỉ sống trong phiên.** `BackupCoordinator.progress` và `ModelDownloadCenter.entries` là RAM thuần; tắt app là mất dòng "Hoàn tất". Bản ghi bền đã do nhật ký toast lo (`notifications.json`, 200 dòng) và trạng thái "đã tải đủ 8 file" đọc được từ đĩa.
+* **Cửa sổ widget phải sống trong lúc sheet mở**: màn Thông báo được trình bày **từ chính cửa sổ đó**, nên `setSheetPresented(true)` chỉ **giấu nút** (`widgetContainerView.isHidden = true`), **không** hạ cửa sổ — hạ là sheet biến mất theo. `presentationControllerDidDismiss` bắt cả đường vuốt-xuống-để-đóng, không chỉ nút "Đóng"; thiếu nó thì nút nổi biến mất vĩnh viễn sau một lần vuốt.
+
 ## 1.3.469 — vòng đời thanh tiến trình batch: phải trả về `nil`, không chỉ hạ cờ
 
 * **Lỗi thật đã sửa**: `AIRuntimeCoordinator.startBatchExtraction` chỉ đặt `isRunning = false` khi xong mà **không** đặt `batchProgress = nil`; chỉ `cancelActiveTask()` mới xoá. `@Published` phát lại giá trị hiện tại cho **mỗi** subscriber mới, và `ReaderAIFullScreenView.onReceive($batchProgress)` ánh xạ `isBatchExtracting = (progress != nil)` ⇒ mỗi lần màn AI được dựng lại, thanh tiến trình cũ sống dậy và **không còn emission nào** tắt nó.

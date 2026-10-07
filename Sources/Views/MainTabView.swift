@@ -7,6 +7,11 @@ struct MainTabView: View {
     @State private var selectedTab = 0
     /// Số truyện có chương mới, hiện trên tab Kệ Sách.
     @ObservedObject private var newChapters = NewChapterInboxManager.shared
+    /// Hai nguồn kết quả tác vụ **nền**: sao lưu/khôi phục và tải model. Đặt observer ở đây (root, luôn
+    /// sống) chứ không ở màn Sao lưu, vì lượt khôi phục có thể kết thúc sau khi người dùng đã rời màn —
+    /// hoặc được bấm từ màn Google Drive, nơi **chưa bao giờ** observe `lastMessage` (lỗi đã xác minh).
+    @ObservedObject private var backupCoordinator = BackupCoordinator.shared
+    @ObservedObject private var modelDownloads = ModelDownloadCenter.shared
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -38,6 +43,33 @@ struct MainTabView: View {
         .tint(.white)
         .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .toolbarBackground(.visible, for: .tabBar)
+        // Kết quả sao lưu / khôi phục và kết quả tải model: hiện toast ở **đây** để không phụ thuộc việc
+        // người dùng còn đang đứng ở màn bấm hay không. `BackupHubView` đã gỡ observer của nó để một lượt
+        // không hiện hai toast.
+        .onChange(of: backupCoordinator.lastMessage) { _, message in
+            guard let message else { return }
+            ToastManager.shared.show(message: message, type: .success)
+            backupCoordinator.lastMessage = nil
+        }
+        .onChange(of: backupCoordinator.lastError) { _, error in
+            guard let error else { return }
+            ToastManager.shared.show(message: error, type: .error)
+            backupCoordinator.lastError = nil
+        }
+        .onChange(of: modelDownloads.lastNotice) { _, notice in
+            guard let notice else { return }
+            ToastManager.shared.show(message: notice.message, type: notice.isError ? .error : .success)
+            modelDownloads.clearNotice()
+        }
+        // Widget thông báo nổi phải biết tab đang chọn để tự ẩn ở tab Kệ Sách (tab đó đã có nút chuông ở
+        // toolbar). `selectedTab` là `@State` cục bộ nên không ai đọc được — phát ra ngoài bằng notification.
+        .onChange(of: selectedTab) { _, index in
+            NotificationCenter.default.post(
+                name: .appTabDidChange,
+                object: nil,
+                userInfo: [NotificationFloatingWidgetWindowManager.tabIndexUserInfoKey: index]
+            )
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openCurrentlyPlayingReader"))) { _ in
             selectedTab = 0
         }

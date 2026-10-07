@@ -351,6 +351,16 @@ public final class BackupCoordinator: ObservableObject {
         progress = value
     }
 
+    /// Dọn **dòng kết quả** ở màn Thông báo (nút "Bỏ qua").
+    ///
+    /// Cửa công khai duy nhất cho tầng View: `progress` là `private(set)` và `setProgress` là cửa dành cho
+    /// phần tự động sao lưu (doc của nó ghi rõ "đừng gọi từ tầng View"). Chỉ dọn được khi lượt đã kết thúc
+    /// — dọn một dòng đang chạy là xoá mất thông tin thật của một việc vẫn đang diễn ra.
+    public func dismissProgress() {
+        guard !progress.isActive else { return }
+        progress = .idle
+    }
+
     private func makeReporter() -> @Sendable (BackupProgress) -> Void {
         { [weak self] value in
             Task { @MainActor in

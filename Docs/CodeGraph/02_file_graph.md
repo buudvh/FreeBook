@@ -15,6 +15,21 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.472 — +8 file: tiến độ tác vụ ở màn Thông báo và widget thông báo nổi
+
+| Nhóm | File mới | Vai trò | Dòng |
+| --- | --- | --- | --- |
+| Service | `Services/TTS/ModelDownloadCenter.swift` | Singleton `@MainActor` **sở hữu `Task`** tải model (NghiTTS từng giọng, VieNeu 8 file lõi, VieNeu 3 graph clone); `@Published entries` + `lastNotice`; `guard tasks[id] == nil` chặn lượt trùng. Chỉ `Foundation` + `Combine`. | 276 |
+| View (Shelf) | `Views/Shelf/ShelfMain/NotificationInboxView+Activity.swift` | Extension `NotificationInboxView`: `hasActivity` + `activityRows()` + 4 struct **lồng** (`ActivityRows`, `BackupActivityRow`, `DownloadActivityRow`, `ActivityDismissButton`) vẽ khối tiến độ ghim đầu danh sách. | 174 |
+| View (Common) | `Views/Common/NotificationFloatingWidgetViewModel.swift` | Vị trí, kéo/thả, bung/thu của nút nổi; key UserDefaults **riêng** (`notificationWidgetVerticalRatio`, `notificationWidgetEdge`) để không ghi đè vị trí widget TTS. | 130 |
+| View (Common) | `Views/Common/NotificationFloatingWidgetPresentationReader.swift` | Gộp 4 nguồn (nhật ký toast, chương mới, sao lưu, tải model) thành **một** `Snapshot`; chỉ phát khi giá trị thật sự đổi. | 74 |
+| View (Common) | `Views/Common/NotificationFloatingWidgetView.swift` | Nút chuông 36px; badge **số** khi bung, **chấm đỏ** khi dán mép; badge lật phía theo mép. Chỉ vẽ — cử chỉ do container VC lo. | 90 |
+| View (Common) | `Views/Common/NotificationFloatingWidgetUIWindow.swift` | `UIWindow` trong suốt; `hitTest` trả `nil` ngoài vùng nút để không nuốt chạm của app. | 29 |
+| View (Common) | `Views/Common/NotificationFloatingWidgetContainerViewController.swift` | Cử chỉ pan/tap, `updateLayout(animated:)`, và **trình bày sheet màn Thông báo** từ cửa sổ widget (kèm `.modelContainer`). | 325 |
+| View (Common) | `Views/Common/NotificationFloatingWidgetWindowManager.swift` | `refreshState()` là cửa **duy nhất** bật/tắt cửa sổ; level `alert - 3`; giữ cửa sổ sống khi sheet mở; khai 2 `Notification.Name` mới. | 199 |
+
+Sửa trong lượt này: `NotificationInboxView` **393 → 397** · `MainTabView` **161 → 193** · `ShelfView` **859 → 875** · `FreeBookApp` **116 → 122** · `BackupHubView` **235 → 221** · `RestoreOptionsSheet` **134 → 121** · `GoogleDriveBackupListView` **211 → 208** · `LocalBackupListView` **181 → 180** · `BackupProgress` **83 → 113** · `BackupCoordinator` **361 → 371** · `TTSModelManagerView` **478 → 469** · `VieNeuTTSTestView` **385 → 369** · `VieNeuVoiceLibraryView` **385 → 368**.
+
 ## 1.3.471 — +1 file: component chọn số chương dùng chung cho hai sheet
 
 | Nhóm | File mới | Vai trò | Dòng |

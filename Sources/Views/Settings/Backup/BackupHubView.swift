@@ -6,12 +6,13 @@ import UniformTypeIdentifiers
 /// nhập file từ Files và mở tab Google Drive.
 ///
 /// Mọi ghi dữ liệu đi qua `BackupCoordinator` (View không chạm `modelContext.insert/save`).
-/// Chặn khôi phục khi TTS đang phát — đọc trạng thái qua projection reader, không observe
-/// `TTSManager` trực tiếp.
+///
+/// **Không** còn chặn khôi phục khi TTS đang phát (người dùng chốt 2026-10-07). Trước đây màn này đọc
+/// trạng thái TTS qua projection reader chỉ để chặn; nay bỏ hẳn, kèm đánh đổi đã biết: khôi phục ghi vào
+/// đúng hàng SwiftData mà TTS đang giữ tiến độ, nên TTS có thể đọc nhầm hoặc lỗi giữa chừng.
 struct BackupHubView: View {
     @Environment(\.modelContext) private var modelContext
     @ObservedObject private var coordinator = BackupCoordinator.shared
-    @StateObject private var ttsState = TTSWidgetStateReader()
 
     @State private var scopes = BackupScope.defaultSelection
     @State private var showingImporter = false
@@ -41,7 +42,6 @@ struct BackupHubView: View {
 
             LocalBackupListView(
                 coordinator: coordinator,
-                isTTSPlaying: ttsState.snapshot.isPlaying,
                 canUploadToDrive: GoogleDriveConfiguration.isConfigured && coordinator.isDriveSignedIn,
                 canUploadToTelegram: TelegramConfiguration.isConfigured,
                 onRestore: startRestore,
@@ -57,16 +57,9 @@ struct BackupHubView: View {
         .sheet(isPresented: $showingImporter) { importer }
         .sheet(item: $sharingItem) { ShareSheet(activityItems: [$0.url]) }
         .sheet(isPresented: $showingRestoreOptions, onDismiss: discardPreparedRestore) { restoreSheet }
-        .onChange(of: coordinator.lastMessage) { _, message in
-            guard let message else { return }
-            ToastManager.shared.show(message: message, type: .success)
-            coordinator.lastMessage = nil
-        }
-        .onChange(of: coordinator.lastError) { _, error in
-            guard let error else { return }
-            ToastManager.shared.show(message: error, type: .error)
-            coordinator.lastError = nil
-        }
+        // Toast kết quả sao lưu / khôi phục **không** còn ở đây: `MainTabView` (root) đã observe
+        // `lastMessage`/`lastError`, nên toast hiện kể cả khi người dùng đã rời màn này giữa chừng. Giữ
+        // thêm observer ở đây là mỗi lượt hiện hai toast.
     }
 
     // MARK: - Các section
@@ -118,9 +111,7 @@ struct BackupHubView: View {
                 .disabled(coordinator.isBusy)
             }
         } footer: {
-            Text(ttsState.snapshot.isPlaying
-                 ? "Đang phát TTS — hãy dừng phát trước khi khôi phục. Việc tạo bản sao lưu vẫn được."
-                 : "Mọi bản sao lưu đều kèm cài đặt & cấu hình của app, gồm quy tắc mục lục và công cụ tra cứu nhanh (trừ khoá API và token); luật thay ký tự TTS đi theo nhóm Custom VietPhrase / Names. Khôi phục là gộp vào dữ liệu hiện có: truyện, kho, extension đã có trong máy được giữ nguyên, chỉ thêm phần còn thiếu.")
+            Text("Mọi bản sao lưu đều kèm cài đặt & cấu hình của app, gồm quy tắc mục lục và công cụ tra cứu nhanh (trừ khoá API và token); luật thay ký tự TTS đi theo nhóm Custom VietPhrase / Names. Khôi phục là gộp vào dữ liệu hiện có: truyện, kho, extension đã có trong máy được giữ nguyên, chỉ thêm phần còn thiếu.")
         }
     }
 
@@ -193,7 +184,6 @@ struct BackupHubView: View {
             RestoreOptionsSheet(
                 sourceName: restoreSourceName,
                 manifest: prepared.manifest,
-                isTTSPlaying: ttsState.snapshot.isPlaying,
                 onConfirm: runRestore,
                 onCancel: { showingRestoreOptions = false }
             )
@@ -205,10 +195,6 @@ struct BackupHubView: View {
     // MARK: - Hành động
 
     private func startRestore(_ item: LocalBackupStore.Item) {
-        guard !ttsState.snapshot.isPlaying else {
-            ToastManager.shared.show(message: "Hãy dừng phát TTS trước khi khôi phục", type: .error)
-            return
-        }
         restoreSourceName = item.name
         Task {
             await coordinator.prepareRestore(from: item.url)

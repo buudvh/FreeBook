@@ -6,7 +6,6 @@ import SwiftUI
 /// modifier đặt trên `Section` sẽ lan xuống từng hàng và bật nhiều lần cùng một binding.
 struct LocalBackupListView: View {
     @ObservedObject var coordinator: BackupCoordinator
-    let isTTSPlaying: Bool
     let canUploadToDrive: Bool
     let canUploadToTelegram: Bool
     let onRestore: (LocalBackupStore.Item) -> Void
@@ -106,7 +105,7 @@ struct LocalBackupListView: View {
                 } label: {
                     Label("Khôi phục từ bản này", systemImage: "arrow.counterclockwise")
                 }
-                .disabled(isTTSPlaying || coordinator.isBusy)
+                .disabled(coordinator.isBusy)
 
                 Button {
                     onShare(item)

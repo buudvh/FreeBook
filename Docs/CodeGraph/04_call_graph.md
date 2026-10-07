@@ -15,6 +15,25 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.472 — tải model đi qua `ModelDownloadCenter`; mở Reader từ widget nổi
+
+```text
+[Màn tải]                          [Service]                        [Engine]
+TTSModelManagerView.download…     → ModelDownloadCenter.shared   → NghiTTSClient.prefetchModels(voices:progressHandler:)
+VieNeuTTSTestView.download()      →   .startVieNeuModel()         → VieNeuModelClient.prefetch(progressHandler:)
+VieNeuVoiceLibraryView.…          →   .startVieNeuCloneGraphs()   → VieNeuModelClient.prefetchCloneGraphs(progressHandler:)
+                                        ↓ progressHandler (@Sendable, đi qua `shared` không capture self)
+                                    .update(id:message:fraction:) → @Published entries
+                                        ↓ xong / lỗi
+                                    .finish(id:title:failure:)    → lastNotice → MainTabView.onChange → ToastManager.show
+
+[Màn Thông báo] NotificationInboxView.activityRows() → ActivityRows → BackupActivityRow / DownloadActivityRow
+[Widget nổi]    ContainerVC.handleTap → presentInbox() → NotificationInboxView(onOpenBook:)
+                ContainerVC.openReader(for:) → Notification.Name.openReaderFromNotification
+                                             → ShelfView.onReceive → ShelfReaderRoute + fullScreenCover
+                MainTabView.onChange(selectedTab) → Notification.Name.appTabDidChange → WindowManager.refreshState()
+```
+
 ## 1.3.471 — số chương đi cùng phạm vi, từ sheet xuống tới `prefix(limit)`
 
 ```text

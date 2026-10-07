@@ -8,7 +8,6 @@ import SwiftUI
 struct GoogleDriveBackupListView: View {
     @ObservedObject var coordinator: BackupCoordinator
     @Environment(\.modelContext) private var modelContext
-    @StateObject private var ttsState = TTSWidgetStateReader()
 
     @State private var clientIdInput = ""
     @State private var isConfigured = GoogleDriveConfiguration.isConfigured
@@ -165,7 +164,7 @@ struct GoogleDriveBackupListView: View {
                 } label: {
                     Label("Khôi phục ngay tất cả", systemImage: "arrow.clockwise.icloud")
                 }
-                .disabled(coordinator.isBusy || ttsState.snapshot.isPlaying)
+                .disabled(coordinator.isBusy)
 
                 Button {
                     Task { await coordinator.downloadFromDrive(file) }
@@ -191,12 +190,10 @@ struct GoogleDriveBackupListView: View {
     }
 
     /// Một chạm: tải về → khôi phục **toàn bộ** nhóm dữ liệu, không hiện hộp thoại chọn nhóm.
-    /// Vẫn chặn khi TTS đang phát vì khôi phục ghi vào đúng hàng mà TTS đang giữ tiến độ.
+    ///
+    /// **Không** còn chặn khi TTS đang phát (người dùng chốt 2026-10-07). Đánh đổi đã biết: khôi phục ghi
+    /// vào đúng hàng SwiftData mà TTS đang giữ tiến độ.
     private func startRestoreEverything(_ file: GoogleDriveFile) {
-        guard !ttsState.snapshot.isPlaying else {
-            ToastManager.shared.show(message: "Hãy dừng phát TTS trước khi khôi phục", type: .error)
-            return
-        }
         let container = modelContext.container
         Task { await coordinator.restoreEverythingFromDrive(file, container: container) }
     }
