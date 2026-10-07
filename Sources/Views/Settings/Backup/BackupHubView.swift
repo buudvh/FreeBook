@@ -188,18 +188,40 @@ struct BackupHubView: View {
                 onCancel: { showingRestoreOptions = false }
             )
         } else {
-            ProgressView("Đang đọc file sao lưu…")
+            // Khung xương, **không** phải `ProgressView` trần: sheet được trình bày ngay từ cú chạm đầu
+            // (xem `startRestore`) nên đây là thứ người dùng nhìn suốt thời gian giải nén. Khung xương sao
+            // đúng bố cục màn thật để lúc `preparedRestore` tới thì chỉ có chữ hiện ra, không có khung nhảy.
+            RestoreSkeletonView(sourceName: restoreSourceName) { showingRestoreOptions = false }
         }
     }
 
     // MARK: - Hành động
 
+    /// Trình bày sheet **ngay**, rồi mới chuẩn bị ở nền.
+    ///
+    /// `prepareRestore` giải nén archive và đọc `manifest.json` — vài trăm ms tới vài giây với file lớn.
+    /// Trước 1.3.475 sheet chỉ được bật **sau khi** việc đó xong, nên suốt khoảng thời gian ấy người dùng
+    /// không thấy gì ngoài cú chạm: nút như không phản hồi. Nay sheet hiện tức thì với khung xương.
     private func startRestore(_ item: LocalBackupStore.Item) {
+        // Hàng "Khôi phục từ bản này" đã `.disabled(coordinator.isBusy)`, nhưng vẫn chặn ở đây: nếu
+        // `prepareRestore` thoát sớm vì `isBusy` thì `preparedRestore` mãi là `nil` và sheet sẽ nháy mở-rồi-đóng.
+        guard !coordinator.isBusy else { return }
         restoreSourceName = item.name
+        showingRestoreOptions = true
         Task {
             await coordinator.prepareRestore(from: item.url)
-            guard coordinator.preparedRestore != nil else { return }
-            showingRestoreOptions = true
+            guard showingRestoreOptions else {
+                // Người dùng đã đóng sheet trong lúc chuẩn bị ⇒ dọn thư mục tạm vừa giải nén, nếu không nó
+                // nằm lại tới lượt khôi phục sau (đây là cửa mới mở ra vì sheet nay đóng được giữa chừng).
+                coordinator.cancelPreparedRestore()
+                return
+            }
+            // Lỗi đọc file: `prepareRestore` đã đặt `lastError`, `MainTabView` hiện toast toàn cục; ở đây chỉ
+            // cần đóng khung xương, nếu không người dùng ngồi nhìn skeleton vĩnh viễn.
+            guard coordinator.preparedRestore != nil else {
+                showingRestoreOptions = false
+                return
+            }
         }
     }
 

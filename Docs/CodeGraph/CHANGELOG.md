@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.475] - 2026-10-07
+
+### feat: man Khoi phuc hien ngay khi cham nut bang khung xuong, doc file o nen
+
+Người dùng: *"khi bấm nút khôi phục màn hình khôi phục hiển thị quá chậm, hãy hiển thị ngay khi bấm nút bằng skeleton view và tiến hành logic ở background, xong thì hiển thị ra"*.
+
+- **Vấn đề**: `BackupHubView.startRestore` chỉ đặt `showingRestoreOptions = true` **sau khi** `await coordinator.prepareRestore(...)` xong — mà việc đó giải nén archive rồi đọc `manifest.json` (vài trăm ms tới vài giây với file lớn). Suốt khoảng ấy người dùng không thấy gì ngoài cú chạm ⇒ nút như không phản hồi. Việc nặng **đã** ở nền từ trước (`BackupRestoreWorker.prepare` chạy trong `Task.detached`); lỗi nằm ở **thời điểm trình bày**, không phải thiếu background.
+- **File mới** `Sources/Views/Settings/Backup/RestoreSkeletonView.swift` (**99** dòng): khung xương **sao đúng bố cục** `RestoreOptionsSheet` — một hàng "Tên file" hiện **dữ liệu thật** (đã biết trước nên không cần để xương) + 8 hàng xương, 6 hàng nhóm khôi phục, 2 hàng toggle — nên lúc nội dung thật tới thì chỉ có **chữ hiện ra**, không khung nhảy. Tái dùng `SkeletonView` ở `Views/Common/`.
+- **Đổi ở `BackupHubView`** (**221 → 243**): bật sheet ngay từ cú chạm; `restoreSheet` chọn `RestoreOptionsSheet` khi đã có `preparedRestore`, ngược lại vẽ khung xương (thay `ProgressView` trần).
+- **Ba nhánh mới, phát sinh vì sheet nay đóng được giữa chừng** (trước đây không thể): (1) người dùng đóng sheet trong lúc đọc file ⇒ `startRestore` gọi `cancelPreparedRestore()` sau khi `prepareRestore` trả về, nếu không thư mục tạm nằm lại tới lượt khôi phục sau; (2) `prepareRestore` lỗi ⇒ đóng khung xương, không để người dùng ngồi nhìn skeleton vĩnh viễn (toast lỗi đã do `MainTabView` lo); (3) `guard !coordinator.isBusy` ở đầu `startRestore` để tránh sheet nháy mở-rồi-đóng khi `prepareRestore` thoát sớm.
+- **Nút "Huỷ" vẫn hoạt động** trong lúc đọc file — cố ý: khoá người dùng trong một màn chỉ có khung xương là đúng thứ lượt này đang sửa.
+- **Kiểm chứng**: `check_architecture.py` **5 violation nền cũ, 0 vi phạm mới**; `validate_links.py` PASS 100% sau khi accept 5 doc. **Không build tại chỗ** (Windows) — `swiftc -parse` sạch; CI xác nhận biên dịch.
+- Ảnh hưởng dòng: `BackupHubView` **221 → 243** · `RestoreSkeletonView` **99** (mới).
+
 ## [1.3.474] - 2026-10-07
 
 ### fix: rule muc luc mac dinh vuot tran regex 250 cua chinh no (khoi phuc cau hinh bao loi sai)

@@ -15,6 +15,12 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.475 — khung xương màn Khôi phục nằm trọn ở tầng View, tái dùng component chung
+
+* **`Views/Settings/Backup/RestoreSkeletonView.swift`** chỉ `import SwiftUI`; không `modelContext.insert/delete/save`, không gán thuộc tính `@Model` ⇒ không vi phạm `VIEW_SWIFTDATA_MUTATION`.
+* Tái dùng `SkeletonView` ở `Views/Common/` thay vì tự vẽ khối nhấp nháy — một định nghĩa "khung xương" cho cả app (`ReaderView`, `BookDetailView`, `DiscoveryView`, `DictionaryImportConflictView` cũng đang dùng nó).
+* **Không** thêm gì vào `Sources/Services/**`: việc nặng vốn đã ở nền (`prepareRestore` gọi `BackupRestoreWorker.prepare` trong `Task.detached`); lượt này chỉ đổi **thời điểm trình bày** ở tầng View.
+
 ## 1.3.474 — file kiểm tra quy tắc mục lục chỉ phụ thuộc Foundation
 
 * **`Services/Translation/Utils/TranslateUtils+TOCRuleValidation.swift`** chỉ `import Foundation` (dùng `NSRegularExpression`) ⇒ không vi phạm `SERVICE_SWIFTUI_IMPORT`, không gọi `ToastManager`.

@@ -15,6 +15,15 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.475 — màn Khôi phục hiện ngay khi chạm nút, bằng khung xương
+
+* Thêm **1** file Swift (`Views/Settings/Backup/RestoreSkeletonView.swift`, **99** dòng) ⇒ validator đếm **653** file, bộ tài liệu vẫn **16** doc.
+* **Vấn đề**: `BackupHubView.startRestore` chỉ bật sheet **sau khi** `prepareRestore` xong, mà việc đó giải nén archive rồi đọc `manifest.json` (vài trăm ms tới vài giây) ⇒ suốt khoảng ấy người dùng không thấy gì ngoài cú chạm, nút như không phản hồi. Việc nặng **đã** ở nền từ trước (`BackupRestoreWorker.prepare` chạy trong `Task.detached`) — lỗi nằm ở **thời điểm trình bày**, không phải thiếu background.
+* **Chữa**: sheet được trình bày **ngay** từ cú chạm; trong lúc `coordinator.preparedRestore` còn `nil`, sheet vẽ `RestoreSkeletonView` — khung xương **sao đúng bố cục** `RestoreOptionsSheet` (một hàng "Tên file" hiện dữ liệu thật + 8 hàng xương, 6 hàng nhóm khôi phục, 2 hàng toggle) nên khi nội dung thật tới thì chỉ có chữ hiện ra, không khung nhảy. Tái dùng `SkeletonView` dùng chung ở `Views/Common/`.
+* **Ba nhánh mới phải xử lý vì sheet nay đóng được giữa chừng** (trước đây không thể): (1) người dùng đóng sheet trong lúc đang đọc file ⇒ `startRestore` gọi `cancelPreparedRestore()` sau khi `prepareRestore` trả về, nếu không thư mục tạm nằm lại tới lượt sau; (2) `prepareRestore` lỗi ⇒ đóng khung xương (toast lỗi đã do `MainTabView` lo); (3) chặn bằng `guard !coordinator.isBusy` ở đầu `startRestore` để tránh sheet nháy mở-rồi-đóng khi `prepareRestore` thoát sớm.
+* **Nút "Huỷ" vẫn bấm được** trong lúc đọc file — cố ý: khoá người dùng trong một màn chỉ có khung xương là đúng thứ lượt này đang sửa.
+* Dòng: `BackupHubView` **221 → 243** · file mới **99**.
+
 ## 1.3.474 — rule mục lục mặc định vượt trần regex của chính nó; khôi phục cấu hình báo lỗi sai
 
 * Thêm **1** file Swift (`Services/Translation/Utils/TranslateUtils+TOCRuleValidation.swift`, **58** dòng) ⇒ validator đếm **652** file, bộ tài liệu vẫn **16** doc.

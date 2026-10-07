@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.475 — phân hệ Backup: sheet Khôi phục hiện ngay, khung xương trong lúc đọc file
+
+* **Trước**: `BackupHubView.startRestore` chỉ bật `showingRestoreOptions` **sau khi** `prepareRestore` xong ⇒ phải giải nén archive xong mới thấy sheet, nút như không phản hồi.
+* **Nay**: sheet hiện tức thì; khi `coordinator.preparedRestore` còn `nil` thì vẽ `RestoreSkeletonView` (mới, **99** dòng) — khung xương sao đúng bố cục `RestoreOptionsSheet`; nội dung thật tự thay vào khi prepare xong.
+* **Ba nhánh dọn dẹp mới** (vì sheet nay đóng được giữa chừng): đóng khi đang đọc ⇒ `cancelPreparedRestore()` sau khi prepare trả về; prepare lỗi ⇒ đóng khung xương; `guard !coordinator.isBusy` ở `startRestore` để tránh nháy mở-rồi-đóng.
+* Dòng: `BackupHubView` **221 → 243** · file mới **99**.
+
 ## 1.3.474 — phân hệ Translation: trần độ dài regex không còn áp lên chính dữ liệu mặc định của app
 
 * **Lỗi (có từ trước, không liên quan thay đổi 1.3.472)**: `rule21` "Quy tắc mở rộng nâng cao" trong `defaultTOCRules` dài **254** ký tự, vượt trần **250** của `validateTOCRulePattern` ⇒ khôi phục cấu hình, nhập `toc_rules.json` và màn Quy tắc mục lục đều coi **bộ rule mặc định của app** là sai.

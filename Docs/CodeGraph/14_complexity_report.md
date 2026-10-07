@@ -15,6 +15,12 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.475 — +1 file 99 dòng; `BackupHubView` 221 → 243; 5 violation nền
+
+* **1 file Swift mới, 1 primary type top level**: `Views/Settings/Backup/RestoreSkeletonView.swift` — **99**/400 dòng. Validator: **652 → 653** file Swift.
+* Không file legacy nào vượt baseline: `BackupHubView` **221 → 243** (không có entry allowlist, còn xa trần 400).
+* **`check_architecture.py` 5 violation nền cũ, 0 vi phạm mới**: `ChapterPersistenceStore` 915/884 · `JSDom` 583/555 · `JSExecutor` 1561/1066 · `TTSManager` 3970/3470 · `ReaderViewModel` 925/830.
+
 ## 1.3.474 — +1 file 58 dòng; `TranslateUtils` giảm 5 dòng (916/917 → 911); 5 violation nền
 
 * **1 file Swift mới, 0 type top level** (`extension TranslateUtils` không tính là type chính): `Services/Translation/Utils/TranslateUtils+TOCRuleValidation.swift` — **58**/400 dòng. Validator: **651 → 652** file Swift.

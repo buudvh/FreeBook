@@ -15,6 +15,14 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.475 — +1 file: khung xương màn Khôi phục
+
+| Nhóm | File mới | Vai trò | Dòng |
+| --- | --- | --- | --- |
+| View (Settings/Backup) | `Views/Settings/Backup/RestoreSkeletonView.swift` | Khung xương của màn Khôi phục, hiện ngay từ cú chạm trong lúc `prepareRestore` chạy nền. Bố cục sao đúng `RestoreOptionsSheet`; tái dùng `SkeletonView` (`Views/Common/`). Nút "Huỷ" vẫn hoạt động. | 99 |
+
+Sửa trong lượt này: `BackupHubView` **221 → 243** (`startRestore` trình bày sheet ngay + 3 nhánh dọn dẹp; `restoreSheet` đổi `ProgressView` trần thành `RestoreSkeletonView`).
+
 ## 1.3.474 — +1 file: kiểm tra pattern quy tắc mục lục, có miễn trừ cho rule mặc định
 
 | Nhóm | File mới | Vai trò | Dòng |
