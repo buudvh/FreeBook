@@ -15,6 +15,28 @@ Tài liệu này mô tả mối quan hệ sở hữu đối tượng (Object Own
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ai sở hữu `plugin.json`, cache regexp, và cửa sổ widget nổi (1.3.476)
+
+```text
+ExtensionMetadataEditor (enum tĩnh, Services/Extensions/Manager/)
+  └─ SỞ HỮU mọi thao tác đọc/ghi khối `metadata` của plugin.json
+     (merge đúng khoá đổi, giữ `config` + khoá script)
+
+ExtensionTransactionCoordinator (singleton @MainActor)
+  └─ SỞ HỮU mọi thay đổi hàng Extension trong SwiftData
+     (View không gán thuộc tính @Model)
+
+BypassWebView (View)
+  └─ SỞ HỮU regexpCache: private static [localPath: String]
+     + invalidateRegexpCache(localPath:)  ← cửa xoá DUY NHẤT, thêm ở 1.3.476
+
+NotificationFloatingWidgetWindowManager (alert - 3)   ← 1.3.472
+BrowserFloatingWidgetWindowManager  (alert - 2)        ← giữ nguyên, chỉ đổi hình khối ở 1.3.476
+TTSFloatingWidgetWindowManager      (alert - 1)        ← không đụng
+```
+
+`FreeBookApp.AppLaunchRootView` gán `modelContainer` + gọi `refreshState()` cho **cả ba** widget nổi (thêm nhánh widget thông báo ở 1.3.475) — đây là chỗ duy nhất quyết định vòng đời cửa sổ nổi.
+
 ## Ai sở hữu `Task` tải model, cửa sổ widget thông báo, và dòng tiến độ (1.3.472)
 
 ```text

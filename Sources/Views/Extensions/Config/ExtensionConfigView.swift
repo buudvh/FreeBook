@@ -50,6 +50,10 @@ struct ExtensionConfigView: View {
                     .padding()
                 } else {
                     Form {
+                        // Khối metadata của `plugin.json` (9 trường, tự lưu khi sửa). Ba section bên dưới
+                        // giữ nguyên hành vi cũ, kể cả nút "Lưu" ở thanh điều hướng.
+                        ExtensionMetadataSection(ext: ext)
+
                         Section(header: Text("Tùy Chỉnh Biến Global")) {
                             if !configDefinitions.isEmpty {
                                 ForEach(Array(configDefinitions.keys).sorted(), id: \.self) { key in

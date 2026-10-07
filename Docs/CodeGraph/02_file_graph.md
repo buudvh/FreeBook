@@ -15,6 +15,17 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.476 — +4 file: nhãn dùng chung, command metadata, editor plugin.json, section cấu hình
+
+| Nhóm | File mới | Vai trò | Dòng |
+| --- | --- | --- | --- |
+| Model | `Models/Extensions/ExtensionDisplayCatalog.swift` | Nhãn + bộ lựa chọn dùng chung cho `type`/`locale`: `typeOptions` (`novel`, `chinese_novel`), `localeOptions` (`vi_VN`, `zh_CN`), `label(forType:)`/`label(forLocale:)` (có nhánh dự phòng cho giá trị lạ), `options(including:from:)` giữ lại giá trị đang có trong file. | 49 |
+| Model | `Models/Extensions/UpdateExtensionMetadataCommand.swift` | Command DTO bất biến, **chỉ 7 trường có cột DB**: packageId, name, sourceUrl, iconUrl, desc, type, locale. Tách khỏi `UpsertExtensionCommand` vì nhánh cập nhật của nó gán `version` vô điều kiện và bỏ qua mọi giá trị rỗng. | 40 |
+| Service | `Services/Extensions/Manager/ExtensionMetadataEditor.swift` | Đọc/ghi khối `metadata` của `plugin.json`: `read(localPath:)` trả 9 trường, `write(changes:localPath:)` **merge** đúng các khoá đổi (giữ `config` và khoá script), `editableKeys`/`readOnlyKeys` là chốt chặn thứ hai. Chỉ `Foundation`. | 135 |
+| View | `Views/Extensions/Config/ExtensionMetadataSection.swift` | Khối Metadata của màn Cấu hình tiện ích: 6 hàng sửa được + 3 hàng chỉ đọc, **tự lưu** (ô chữ debounce 0,4 giây, Picker lưu ngay), chấm trạng thái "Đã lưu HH:mm:ss". | 284 |
+
+Sửa trong lượt này: `ExtensionManager` **1015 → 1018** · `ExtensionTransactionCoordinator` **289 → 327** · `BypassWebView` **378 → 388** · `ExtensionConfigView` **278 → 282** · `FilterSheet` **97 → 79** · `VisibleBrowserReopenViewModel` **61 → 129** · `VisibleBrowserReopenView` **80 → 121** · `BrowserFloatingWidgetContainerViewController` **199 → 251**.
+
 ## 1.3.475 — +1 file: khung xương màn Khôi phục
 
 | Nhóm | File mới | Vai trò | Dòng |

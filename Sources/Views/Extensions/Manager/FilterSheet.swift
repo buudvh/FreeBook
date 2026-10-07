@@ -33,7 +33,7 @@ public struct FilterSheet: View {
                     Picker("Loại", selection: $filterType) {
                         Text("Tất cả").tag("all")
                         ForEach(allTypes, id: \.self) { type in
-                            Text(translateType(type)).tag(type)
+                            Text(ExtensionDisplayCatalog.label(forType: type)).tag(type)
                         }
                     }
                 }
@@ -42,7 +42,7 @@ public struct FilterSheet: View {
                     Picker("Ngôn ngữ", selection: $filterLocale) {
                         Text("Tất cả").tag("all")
                         ForEach(allLocales, id: \.self) { locale in
-                            Text(translateLocale(locale)).tag(locale)
+                            Text(ExtensionDisplayCatalog.label(forLocale: locale)).tag(locale)
                         }
                     }
                 }
@@ -74,24 +74,6 @@ public struct FilterSheet: View {
                     .foregroundColor(.red)
                 }
             }
-        }
-    }
-
-    internal func translateType(_ type: String) -> String {
-        switch type {
-        case ExtensionType.novel: return "Truyện chữ (Novel)"
-        case ExtensionType.chineseNovel: return "Truyện Trung Quốc (Chinese)"
-        case ExtensionType.tts: return "Giọng đọc (TTS)"
-        default: return type.capitalized
-        }
-    }
-
-    internal func translateLocale(_ locale: String) -> String {
-        switch locale {
-        case "vi_VN": return "Tiếng Việt"
-        case "zh_CN": return "Tiếng Trung"
-        case "en_US": return "Tiếng Anh"
-        default: return locale
         }
     }
 }

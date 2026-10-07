@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.476 — phân hệ Extensions: metadata sửa được trong app; widget trình duyệt thành nút tròn
+
+* **Màn Cấu hình tiện ích có khối Metadata**: `ExtensionMetadataSection` (mới, **284** dòng) hiện **9 trường** của `plugin.json`; sửa được 6 (`name`, `source`, `regexp`, `description`, `locale`, `type`), chỉ đọc 3 (`author`, `version`, `language`). `ExtensionConfigView` **278 → 282** — chỉ thêm một dòng vào `Form`, ba section cũ giữ nguyên.
+* **"Áp dụng ngay" là ba việc**: ghi `plugin.json` qua `ExtensionMetadataEditor` (**135** dòng, merge chứ không ghi đè cả file) → cập nhật hàng `Extension` qua `ExtensionTransactionCoordinator.updateExtensionMetadata` (**289 → 327**) → **xoá `BypassWebView.regexpCache`** khi `regexp` đổi (`BypassWebView` **378 → 388**). Bước thứ ba là bước dễ bỏ sót nhất: cache đó là `static` khoá theo `localPath` và **không có đường xoá** trước lượt này.
+* **Cover ghép host**: `ExtensionManager` **1015 → 1018** — ba chỗ trả cover (`search`, `detail`, `executeCustomScript`) nay đi qua `JSExecutor.cleanAndResolveUrl(cover, host: dict["host"])`, khớp cách URL trang đã được xử lý ở `:397`.
+* **Nhãn `type`/`locale` về một chỗ**: `FilterSheet` **97 → 79** dùng `ExtensionDisplayCatalog` (mới, **49** dòng). Bản `translateType` ở `RepositoryManagerView+Actions` **giữ nguyên** vì nhãn của nó ngắn hơn có chủ ý (chip cỡ 9pt).
+* **Widget trình duyệt thành nút tròn 36px**: `VisibleBrowserReopenView` **80 → 121**, `VisibleBrowserReopenViewModel` **61 → 129**, `BrowserFloatingWidgetContainerViewController` **199 → 251**. Giữ nhịp nháy đỏ (đổi bằng **màu**, alpha luôn 1), giữ hai key UserDefaults cũ, level cửa sổ vẫn `alert - 2`.
+
 ## 1.3.475 — phân hệ Backup: sheet Khôi phục hiện ngay, khung xương trong lúc đọc file
 
 * **Trước**: `BackupHubView.startRestore` chỉ bật `showingRestoreOptions` **sau khi** `prepareRestore` xong ⇒ phải giải nén archive xong mới thấy sheet, nút như không phản hồi.

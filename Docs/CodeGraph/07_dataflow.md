@@ -15,6 +15,35 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.476 — luồng "sửa metadata là áp dụng ngay" và luồng ghép host cho cover
+
+```text
+[Sửa một trường ở ExtensionMetadataSection]
+   onChange  ──ô chữ──▶ scheduleSave() ──0,4 giây──▶ performSave()
+   onChange  ──Picker──▶ saveNow() ─────────────────▶ performSave()
+                                                       │
+                          changedFields() so với `loaded` (mốc đã nạp)
+                          rỗng ⇒ DỪNG, không ghi gì (lượt onChange do load() bắn ra rơi vào đây)
+                                                       │
+                    1) ExtensionMetadataEditor.write(changes:localPath:)
+                          đọc plugin.json → sửa ĐÚNG khoá đổi trong `metadata`
+                          (không có `metadata` thì sửa ở gốc, đúng luật json["metadata"] ?? json)
+                          → ghi .atomic          ← `config` + khoá script giữ nguyên
+                                                       │
+                    2) ExtensionTransactionCoordinator.updateExtensionMetadata(command:in:)
+                          gán 7 trường có cột (name, sourceUrl, iconUrl, desc, type, locale)
+                          ⇒ lưới home trình duyệt (ext.sourceUrl), danh sách Tiện Ích, bộ lọc đổi NGAY
+                                                       │
+                    3) changed chứa "regexp" ⇒ BypassWebView.invalidateRegexpCache(localPath:)
+                          ⇒ lần mở URL kế tiếp khớp regexp MỚI, không cần mở lại app
+
+[Cover thiếu host]
+   JS trả {cover: "/uploads/1.jpg", host: "https://vidu.com"}
+   → ExtensionManager.search/detail/executeCustomScript
+   → JSExecutor.cleanAndResolveUrl(cover, host: dict["host"])  ⇒ "https://vidu.com/uploads/1.jpg"
+   → Book.coverUrl (đường detail) → ImageCacheManager.downloadAndSaveCover tải được
+```
+
 ## 1.3.474 — luồng khôi phục/nhập quy tắc mục lục: một cửa kiểm tra, có ngoại lệ cho rule mặc định
 
 ```text

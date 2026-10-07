@@ -60,6 +60,44 @@ public final class ExtensionTransactionCoordinator {
         }
     }
 
+    /// Cập nhật **metadata** của một tiện ích đã cài — cửa duy nhất cho màn Cấu hình tiện ích tự lưu.
+    ///
+    /// Gán **đúng 7 trường** của command và **không** guard rỗng: người dùng xoá trắng `source` hay
+    /// `description` thì phải xoá được thật. Đây là điểm khác có chủ ý so với `apply(command:)` của upsert,
+    /// nơi mọi giá trị rỗng bị bỏ qua và `version` bị gán vô điều kiện.
+    ///
+    /// **Không** đụng `version`, `author`, `downloadUrl`, `localPath`, `configJson`, `remoteVersion`,
+    /// `repository`, `isEnabled`, `isPinned`, `installOrigin` — ba trường đầu là chỉ đọc ở màn cấu hình, còn
+    /// phần còn lại thuộc về đồng bộ kho và người dùng khác.
+    @discardableResult
+    public func updateExtensionMetadata(
+        command: UpdateExtensionMetadataCommand,
+        in context: ModelContext
+    ) -> Result<Void, ExtensionTransactionError> {
+        // `packageId` phải chốt ra biến cục bộ trước khi vào `#Predicate` — macro không nhận truy cập thành
+        // viên qua đối tượng command. Cùng khuôn `apply(command:)` ở dưới.
+        let pkgId = command.packageId
+        var descriptor = FetchDescriptor<Extension>(predicate: #Predicate { $0.packageId == pkgId })
+        descriptor.fetchLimit = 1
+        guard let existing = try? context.fetch(descriptor).first else {
+            return .failure(.entityNotFound(command.packageId))
+        }
+
+        existing.name = command.name
+        existing.sourceUrl = command.sourceUrl
+        existing.iconUrl = command.iconUrl
+        existing.desc = command.desc
+        existing.type = command.type
+        existing.locale = command.locale
+
+        do {
+            try context.save()
+            return .success(())
+        } catch {
+            return .failure(.saveFailed(error.localizedDescription))
+        }
+    }
+
     /// Phần áp field dùng chung cho cả bản đơn lẻ và bản batch — **không** `save()`.
     private func apply(command: UpsertExtensionCommand, in context: ModelContext) {
         let pkgId = command.packageId

@@ -15,6 +15,14 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.476 — +4 file (lớn nhất 284 dòng); `ExtensionManager` 1018/1022; 5 violation nền
+
+* **4 file Swift mới, mỗi file 1 primary type top level**: `Views/Extensions/Config/ExtensionMetadataSection.swift` **284**/400 · `Services/Extensions/Manager/ExtensionMetadataEditor.swift` **135** · `Models/Extensions/ExtensionDisplayCatalog.swift` **49** · `Models/Extensions/UpdateExtensionMetadataCommand.swift` **40**. Validator: **653 → 657** file Swift.
+* **`ExtensionManager.swift` 1015 → 1018, trần ratchet 1022** — ba call site cover đổi **tại chỗ** (0 dòng thêm), chỉ dòng `detail` thêm 3 dòng chú thích. Đây là lý do helper mới phải nằm ở file riêng.
+* **Ratchet-down**: `FilterSheet` **97 → 79** (bỏ hai helper nhãn, dùng `ExtensionDisplayCatalog`).
+* **`check_architecture.py` 5 violation nền cũ, 0 vi phạm mới**: `ChapterPersistenceStore` 915/884 · `JSDom` 583/555 · `JSExecutor` 1561/1066 · `TTSManager` 3970/3470 · `ReaderViewModel` 925/830. Không entry allowlist nào được thêm, không baseline nào bị nới.
+* Biến động dòng còn lại: `ExtensionTransactionCoordinator` **289 → 327** · `BypassWebView` **378 → 388** · `ExtensionConfigView` **278 → 282** · `VisibleBrowserReopenViewModel` **61 → 129** · `VisibleBrowserReopenView` **80 → 121** · `BrowserFloatingWidgetContainerViewController` **199 → 251**.
+
 ## 1.3.475 — +1 file 99 dòng; `BackupHubView` 221 → 243; 5 violation nền
 
 * **1 file Swift mới, 1 primary type top level**: `Views/Settings/Backup/RestoreSkeletonView.swift` — **99**/400 dòng. Validator: **652 → 653** file Swift.
