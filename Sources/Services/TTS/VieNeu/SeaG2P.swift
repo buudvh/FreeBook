@@ -23,8 +23,7 @@ extension Data {
 ///
 /// **Tách thành 2 file**: bản gốc 509 dòng, vượt trần 400 dòng vật lý của repo. Phần "chữ → token →
 /// phoneme" nằm ở `SeaG2P+Phonemize.swift`; các thành viên mà file đó dùng buộc phải hạ từ `private`
-/// xuống `internal` (trong Swift, `private` là phạm vi **file**) — đúng tiền lệ đã ghi ở
-/// `Docs/CodeGraph/09_dependency_rules.md:120`.
+/// xuống `internal` (trong Swift, `private` là phạm vi **file**) — đúng tiền lệ Swift về visibility.
 ///
 /// **Không an toàn đa luồng**: các cache `mergedCache`/`commonCache`/`segmentationCache` là `var` trần,
 /// không khoá. Chỉ dùng nó từ trong `VieNeuTTSEngine` — nơi một `NSLock` bọc trọn lượt tổng hợp.

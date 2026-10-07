@@ -5,7 +5,7 @@ import Foundation
 /// Tách khỏi file chính vì trần **400 dòng vật lý** của repo. Hai hàm ở đây đọc/ghi trạng thái
 /// `mode`/`consecutiveSlow`/`consecutiveFast`/`droppedScalarWarningShown` của engine, mà Swift giới hạn
 /// `private` theo **file** ⇒ các trường đó phải để `internal`. Cùng lý do và cùng khuôn với
-/// `SeaG2P`/`SeaG2P+Phonemize` và với tiền lệ đã ghi ở `Docs/CodeGraph/09_dependency_rules.md:120`.
+/// `SeaG2P`/`SeaG2P+Phonemize` và tuân theo cùng tiền lệ Swift: `private` là phạm vi **file** (không phải type) nên member dùng chung phải hạ xuống `internal`.
 extension VieNeuTTSEngine {
     /// Cập nhật bộ đếm RTF rồi đổi chế độ nếu đủ mẫu liên tiếp. Ngưỡng nằm ở `VieNeuSynthesisPolicy`.
     ///

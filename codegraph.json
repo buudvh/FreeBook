@@ -1,0 +1,12 @@
+{
+  "exclude": [
+    "Tools/",
+    "**/*.xcodeproj",
+    "Docs/CodeGraph/",
+    "Docs/Plans/",
+    "Docs/Reports/"
+  ],
+  "deprioritize": [
+    "Sources/Extensions/**/src/"
+  ]
+}
