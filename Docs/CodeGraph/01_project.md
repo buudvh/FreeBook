@@ -15,6 +15,12 @@ Tài liệu này phác thảo kiến trúc tổng thể, sơ đồ thư mục, c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Không đổi `project.yml`; thêm 8 file Swift trong cây `Sources/` (1.3.472)
+
+* **8 file mới, 0 file xoá, 15 file sửa** ⇒ `Sources/**/*.swift` **643 → 651** file. `project.yml` **không đổi**: XcodeGen quét theo thư mục nên file mới tự vào target, và CI chạy `xcodegen generate` trước khi build.
+* File mới: `Services/TTS/ModelDownloadCenter.swift` (**276** dòng); `Views/Common/NotificationFloatingWidgetViewModel.swift` (**130**), `NotificationFloatingWidgetPresentationReader.swift` (**74**), `NotificationFloatingWidgetView.swift` (**90**), `NotificationFloatingWidgetUIWindow.swift` (**29**), `NotificationFloatingWidgetContainerViewController.swift` (**325**), `NotificationFloatingWidgetWindowManager.swift` (**199**); `Views/Shelf/ShelfMain/NotificationInboxView+Activity.swift` (**174**).
+* Không thêm dependency SPM, không đổi deployment target (giữ iOS 17.0), không đụng `Info.plist` hay build settings, không thêm entry nào vào `Scripts/architecture_allowlist.json`.
+
 
 ## Không đổi `project.yml`; thêm 1 file Swift trong cây `Sources/` (1.3.468)
 

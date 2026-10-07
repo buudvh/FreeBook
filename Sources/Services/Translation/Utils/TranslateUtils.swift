@@ -37,7 +37,14 @@ public final class TranslateUtils {
         return rawTranslation.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
-    private static let defaultTOCRules = [
+    /// Bộ quy tắc mục lục mặc định của app. `internal` (không `private`) để
+    /// `TranslateUtils+TOCRuleValidation.swift` đọc được khi kiểm tra miễn trừ trần độ dài.
+    ///
+    /// **`rule21` "Quy tắc mở rộng nâng cao" dài 254 ký tự — dài hơn trần 250 của `validateTOCRulePattern`.**
+    /// Đó là **chủ ý đã được chấp nhận**, không phải lỗi cần "sửa cho hợp lệ": regex này đang chạy thật để
+    /// tách mục lục, rút ngắn nó là đổi hành vi tách chương của mọi người dùng. Thay vào đó rule mặc định
+    /// được **miễn** trần đó (`isBuiltInTOCRulePattern`) — trần chỉ áp cho pattern do người dùng nhập/nhập file.
+    static let defaultTOCRules = [
         TOCRule(id: "rule1", name: "Số thứ tự + 第x章", rule: #"^\d{1,4}\.第[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]{1,10}章.{0,50}$"#, example: "1.第1章", enabled: true),
         TOCRule(id: "rule2", name: "Mục lục (Khoảng trắng đầu dòng)", rule: #"(?<=[ 　\s])(?:序章|楔子|正文(?!完|结)|终章|后记|尾声|番外|第\s{0,4}[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]+?\s{0,4}(?:章|节(?!课)|卷|集(?![合和]))).{0,100}$"#, example: " 第一章 开始", enabled: true),
         TOCRule(id: "rule3", name: "Mục lục Tiêu chuẩn (Chương/Tập/Quyển)", rule: #"^[ 　\s]{0,4}(?:序章|楔子|正文(?!完|结)|终章|后记|尾声|番外|第\s{0,4}[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]+?\s{0,4}(?:章|节(?!课)|卷|集(?![合和])|部(?![分赛游])|篇(?!张))).{0,100}$"#, example: "第一章 序幕", enabled: true),
@@ -692,18 +699,6 @@ public final class TranslateUtils {
 
         clearChapterTitleCacheUnlocked()
         return true
-    }
-
-    public static func validateTOCRulePattern(_ pattern: String) -> String? {
-        let trimmed = pattern.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty { return "Chuỗi mẫu Regex không được để trống." }
-        if trimmed.count > 250 { return "Độ dài Regex không được vượt quá 250 ký tự." }
-        do {
-            _ = try NSRegularExpression(pattern: trimmed, options: [.caseInsensitive])
-            return nil
-        } catch {
-            return "Cú pháp Regex không hợp lệ: \(error.localizedDescription)"
-        }
     }
 
     public static func validateImportedTOCRules(_ data: Data, maxSizeBytes: Int = 500 * 1024, maxRuleCount: Int = 100) -> Result<[TOCRule], TOCRuleImportError> {

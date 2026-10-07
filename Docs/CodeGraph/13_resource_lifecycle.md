@@ -15,6 +15,20 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.476 — vòng đời lượt ghi plugin.json và tài nguyên của nút nổi trình duyệt
+
+* **`saveTask` của `ExtensionMetadataSection`** sống theo màn: mỗi lần sửa huỷ task cũ rồi đặt task mới (debounce 0,4 giây); `onDisappear` **huỷ** task để không ghi sau khi màn đã đóng. Ghi file là thao tác đồng bộ trên luồng chính nhưng chỉ vài KB, tối đa một lần mỗi 0,4 giây.
+* **Không có tài nguyên nền nào mới**: `ExtensionMetadataEditor` không giữ trạng thái, không cache — đọc/ghi xong là hết. Cố ý **không** cache `metadata` để một lượt cập nhật tiện ích từ kho không bị đọc nhầm bản cũ.
+* **`BypassWebView.regexpCache`** là tài nguyên **static sống suốt app**, khoá theo `localPath`. Vòng đời mới: ghi vào lần đọc đầu, **xoá** khi người dùng sửa `regexp`. Đây là tài nguyên duy nhất của lượt này cần đường thoát.
+* **`UIWindow` của nút nổi trình duyệt** không đổi vòng đời (tạo lười ở `showWidget()`, ẩn bằng `isHidden` chứ không phá); `VisibleBrowserReopenViewModel.autoHideTask` mới thêm có vòng đời theo view model — huỷ ở mỗi lần kéo/bung và tự kết thúc sau 3 giây.
+
+## 1.3.472 — tài nguyên của lượt tải model và của cửa sổ widget
+
+* **`Task` tải model** sống trong `ModelDownloadCenter.tasks[id]`, **không** theo vòng đời màn: rời màn không huỷ, xong thì xoá khỏi dictionary. Không mở `BackgroundTaskSession` mới — `NghiTTSClient.prefetchModels` và `VieNeuModelClient.prefetch` đã tự mở/đóng phiên nền của chúng.
+* **`UIWindow` của nút nổi** tạo lười ở lần `showWidget()` đầu tiên và **không** bị phá khi ẩn (`isHidden = true`), cùng khuôn hai widget kia. Đổi scene thì gán lại `windowScene` chứ không dựng lại cửa sổ, để vị trí đã lưu không bị nhảy.
+* **Sheet màn Thông báo** là `UIHostingController` trình bày từ container VC; nó sống **độc lập** với `rootView` của nút, nên thay `rootView` khi số chưa đọc đổi **không** làm sheet bị dựng lại. Đóng sheet ⇒ `setSheetPresented(false)` ⇒ `refreshState()`.
+* **Không rò tài nguyên mới**: khối tiến độ ở màn Thông báo chỉ đọc `@Published` đã nằm trong RAM; không mở file, không giữ `ModelContext` riêng, không tạo timer ngoài `autoHideTask` 3 giây của view model.
+
 ## 1.3.471 — state số chương sống theo sheet, không thêm tài nguyên nào
 
 * **`ReaderAIBatchPromptSheet`** thêm `@State limitOption: ChapterLimitOption = .all` + `@State customLimit: Int = 100`. Cả hai **chỉ sống theo sheet**: đóng sheet là mất, không ghi UserDefaults (khác `fromCurrentChapter` — vẫn đọc/ghi `AINameScanScopeStore`). Đây là chủ ý: giới hạn số chương là ý định của **từng lượt quét**, không phải thói quen lâu dài.

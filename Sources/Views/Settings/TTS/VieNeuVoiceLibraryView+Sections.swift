@@ -61,9 +61,10 @@ extension VieNeuVoiceLibraryView {
                 .disabled(isWorking)
             } else {
                 LabeledContent("Còn thiếu", value: "\(missingCloneGraphCount) file")
-                if isDownloading {
-                    ProgressView(value: downloadProgress) {
-                        Text(downloadMessage).font(.caption)
+                if let entry = downloads.entry(id: ModelDownloadCenter.Target.vieNeuClone),
+                   entry.state.isRunning {
+                    ProgressView(value: entry.fraction) {
+                        Text(entry.message).font(.caption)
                     }
                 } else {
                     Button {

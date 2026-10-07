@@ -15,6 +15,15 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.472 — rủi ro đã chấp nhận khi bỏ chặn TTS; rủi ro trùng lượt tải và dòng treo
+
+* **Đã chấp nhận — khôi phục khi TTS đang phát.** Bỏ chặn ở cả 4 lối vào theo yêu cầu người dùng (2026-10-07). Khôi phục ghi vào **đúng** hàng SwiftData mà TTS đang đọc tiến độ, nên TTS có thể đọc nhầm hoặc lỗi giữa chừng. Phương án "tự dừng TTS trước khi khôi phục" đã được nêu và **bị loại** — không tự đụng vào TTS.
+* **Đã xử lý — hai lượt tải trùng cho cùng một đích.** Trước đây mỗi màn tự tạo `Task` và không ai chặn, nên bấm "Tải" hai lần là hai lượt cùng ghi vào một file `.onnx` (file tạm rồi `moveItem` nguyên tử, nên hỏng theo kiểu khó thấy). Nay `ModelDownloadCenter` giữ `tasks[id]` và `guard tasks[id] == nil`.
+* **Đã xử lý — dòng tiến độ treo ở màn Thông báo.** Nếu `Task` chết giữa chừng mà không ai đánh dấu kết thúc, dòng "đang tải" sẽ treo vĩnh viễn. Nay `finish(...)` chạy ở **mọi** nhánh, kể cả nhánh entry đã bị dọn (khi đó nó vẫn phát `lastNotice`).
+* **Đã xử lý — cửa sổ phụ không có `modelContainer`.** `NotificationInboxView` `@Query` bảng `Book`; trình bày từ `UIWindow` riêng mà thiếu `.modelContainer(...)` là crash ngay khi mở nút. Đã gắn ở `presentInbox()`, và `modelContainer` được gán trong `AppLaunchRootView` cùng chỗ với 3 widget đang có.
+* **Rủi ro còn lại (thấp) — đổi vị trí widget nếu key UserDefaults trùng.** Đã tránh bằng key riêng (`notificationWidgetVerticalRatio`, `notificationWidgetEdge`), **không** tái dùng `FloatingWidgetViewModel` vốn hard-code key của TTS.
+* **Rủi ro còn lại (thấp) — `@Query` toàn bộ `Book` trong sheet màn Thông báo** ở cửa sổ widget: giữ nguyên hành vi như khi mở từ Kệ Sách, chỉ khác nguồn trình bày.
+
 ## 1.3.469 — rủi ro mới của "Lưu tất cả" và lỗi thanh tiến trình treo
 
 * **Đã xử lý — thanh tiến trình quét tên riêng không tự tắt.** Nguyên nhân: `batchProgress` không bao giờ được đặt về `nil` khi batch xong, mà `@Published` phát lại giá trị hiện tại cho subscriber mới ⇒ mỗi lần dựng lại màn AI, thanh tiến trình cũ sống dậy. Nay đặt `batchProgress = nil` ở **cả** nhánh thành công lẫn nhánh lỗi.

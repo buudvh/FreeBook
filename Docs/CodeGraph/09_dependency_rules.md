@@ -15,6 +15,35 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.476 — editor plugin.json chỉ Foundation; View ghi DB qua coordinator; một chỗ cho nhãn
+
+* **`Services/Extensions/Manager/ExtensionMetadataEditor.swift`** chỉ `import Foundation` (dùng `JSONSerialization`) ⇒ không vi phạm `SERVICE_SWIFTUI_IMPORT`, không gọi `ToastManager`. Đây là **cửa duy nhất** ghi `plugin.json` cho màn cấu hình.
+* **`Views/Extensions/Config/ExtensionMetadataSection.swift`** không gán thuộc tính `@Model` trực tiếp: mọi thay đổi DB đi qua `ExtensionTransactionCoordinator.updateExtensionMetadata(command:in:)` với `UpdateExtensionMetadataCommand` bất biến ⇒ không vi phạm `VIEW_SWIFTDATA_MUTATION`.
+* **`ExtensionManager`** ba call site cover đổi tại chỗ, **không** thêm dòng: file đang ở **1015/1022** theo trần ratchet nên helper mới ở file riêng là điều kiện bắt buộc, không phải thẩm mỹ.
+* **`ExtensionDisplayCatalog`** nằm ở `Models/` (không phải `Views/`) vì cả tầng View (`ExtensionMetadataSection`, `FilterSheet`) dùng, và nó không phụ thuộc gì ngoài `Foundation`.
+* **Không** đụng `JSExecutor.cleanAndResolveUrl` (8 call site phục vụ URL trang), **không** đụng `BookDetailView.resolvedHost`.
+
+## 1.3.475 — khung xương màn Khôi phục nằm trọn ở tầng View, tái dùng component chung
+
+* **`Views/Settings/Backup/RestoreSkeletonView.swift`** chỉ `import SwiftUI`; không `modelContext.insert/delete/save`, không gán thuộc tính `@Model` ⇒ không vi phạm `VIEW_SWIFTDATA_MUTATION`.
+* Tái dùng `SkeletonView` ở `Views/Common/` thay vì tự vẽ khối nhấp nháy — một định nghĩa "khung xương" cho cả app (`ReaderView`, `BookDetailView`, `DiscoveryView`, `DictionaryImportConflictView` cũng đang dùng nó).
+* **Không** thêm gì vào `Sources/Services/**`: việc nặng vốn đã ở nền (`prepareRestore` gọi `BackupRestoreWorker.prepare` trong `Task.detached`); lượt này chỉ đổi **thời điểm trình bày** ở tầng View.
+
+## 1.3.474 — file kiểm tra quy tắc mục lục chỉ phụ thuộc Foundation
+
+* **`Services/Translation/Utils/TranslateUtils+TOCRuleValidation.swift`** chỉ `import Foundation` (dùng `NSRegularExpression`) ⇒ không vi phạm `SERVICE_SWIFTUI_IMPORT`, không gọi `ToastManager`.
+* `defaultTOCRules` đổi `private` → `internal` **trong cùng module** để extension ở file khác đọc được; không mở ra ngoài module, không thành API công khai.
+* `validateTOCRulePattern` giữ `public` sau khi chuyển file ⇒ hai call site cũ (`validateImportedTOCRules` cùng file, `TOCRulesConfigView` ở tầng View) không phải sửa một dòng nào.
+* **File legacy `TranslateUtils.swift` chỉ giảm dòng** (916 → 911) — đúng luật ratchet, không nới baseline. Việc tách hàm sang file mới là **bắt buộc**, không phải thẩm mỹ: file chỉ dư 1 dòng so với trần 917.
+
+## 1.3.472 — service tải model không `import SwiftUI`, không gọi `ToastManager`
+
+* **`Services/TTS/ModelDownloadCenter.swift`** chỉ `import Foundation` + `Combine` ⇒ không vi phạm `SERVICE_SWIFTUI_IMPORT`. Kết quả lượt tải **không** hiện toast tại chỗ (sẽ vi phạm `SERVICE_TOAST_COUPLING`) mà phát qua `@Published lastNotice` để `MainTabView` — tầng View — hiện.
+* **`Views/Common/NotificationFloatingWidget*.swift`** (6 file) nằm trọn trong tầng View: không `modelContext.insert/delete/save`, không gán thuộc tính `@Model`. `NotificationFloatingWidgetContainerViewController` đọc `Book` để dựng payload `ShelfReaderRoute` nhưng **không** ghi gì lên `Book`.
+* **`Views/Shelf/ShelfMain/NotificationInboxView+Activity.swift`** chỉ đọc hai singleton đã nằm trong RAM (`BackupCoordinator.progress`, `ModelDownloadCenter.entries`); **không** chạm đĩa trong `body` — bài học 1.3.448.
+* **`Services/Backup/BackupProgress.swift`** thêm hai computed property thuần (`isInboxVisible`, `isRestore`) và `BackupCoordinator.dismissProgress()`; không thêm import nào, không đụng `ToastManager`.
+* Chiều phụ thuộc giữ nguyên: View → Coordinator/ObservableObject → Service → Model. `ModelDownloadCenter` gọi `TTSManager` / `VieNeuTTSService` (cùng tầng Services), **không** gọi ngược lên View.
+
 ## 1.3.471 — component View dùng chung chỉ phụ thuộc `SwiftUI` + một kiểu của Services/Download
 
 * **File mới `Views/Common/ChapterLimitPickerRows.swift`** nằm trong tầng View: chỉ `import SwiftUI`, không chạm `ModelContext`, không gọi `modelContext.insert/delete/save` ⇒ không vi phạm `VIEW_SWIFTDATA_MUTATION`.

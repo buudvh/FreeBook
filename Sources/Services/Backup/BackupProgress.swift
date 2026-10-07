@@ -64,6 +64,36 @@ public struct BackupProgress: Sendable, Equatable {
         phase != .idle && phase != .finished && phase != .failed
     }
 
+    /// Mục tiến độ có nên hiện ở **màn Thông báo** hay không.
+    ///
+    /// Khác `isActive` đúng một điểm: `.finished`/`.failed` **vẫn hiện**, vì màn Thông báo giữ lại **dòng
+    /// kết quả** kèm nút "Bỏ qua" (người dùng chốt 2026-10-07) — xong rồi mà dòng biến mất thì người dùng
+    /// không có chỗ nào xác nhận lượt khôi phục đã thành công. `.idle` là trạng thái nghỉ duy nhất ⇒ ẩn.
+    ///
+    /// **Không** dùng cờ này cho section tiến độ ở màn Sao lưu / Google Drive: hai màn đó vẽ đúng theo
+    /// `isActive` (đang chạy), đổi sang cờ này là để một dòng "Hoàn tất" nằm lại vĩnh viễn ở đầu danh sách.
+    public var isInboxVisible: Bool {
+        phase != .idle
+    }
+
+    /// Lượt này là **khôi phục** hay **sao lưu** — chỉ dùng để đặt nhãn ở màn Thông báo.
+    ///
+    /// Suy từ `phase`, không phải trường riêng: worker báo tiến độ bằng `BackupProgress` trần, thêm một
+    /// trường "loại tác vụ" là phải sửa mọi call site trong `BackupExportWorker`/`BackupRestoreWorker`.
+    /// `.extracting`/`.downloading` tính là khôi phục vì cả hai chỉ xuất hiện trên đường đi vào dữ liệu
+    /// (giải nén để đọc manifest, tải archive từ Drive về) — còn `.extracting` của luồng nhập file cũng
+    /// đúng nghĩa "đang xử lý bản sao lưu".
+    public var isRestore: Bool {
+        switch phase {
+        case .extracting, .restoringRepositories, .restoringExtensions, .restoringBooks,
+             .restoringChapters, .restoringCovers, .restoringDictionaries, .downloading:
+            return true
+        case .idle, .readingLibrary, .writingChapters, .copyingContent, .copyingCovers,
+             .copyingExtensions, .copyingDictionaries, .compressing, .uploading, .finished, .failed:
+            return false
+        }
+    }
+
     /// `nil` khi chưa biết tổng số đơn vị — UI hiện `ProgressView()` không xác định.
     public var fraction: Double? {
         guard totalUnits > 0 else { return nil }

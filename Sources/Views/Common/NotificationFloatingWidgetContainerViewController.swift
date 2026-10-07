@@ -1,34 +1,42 @@
 import Combine
+import SwiftData
 import SwiftUI
 import UIKit
 
-/// View controller của widget trình duyệt thu nhỏ: sở hữu `UIPanGestureRecognizer` /
-/// `UITapGestureRecognizer` và cập nhật frame trực tiếp trên `UIView`, đúng kiến trúc đang dùng cho TTS
-/// widget (`FloatingWidgetContainerViewController`) thay vì kéo/thả thuần SwiftUI — nhờ vậy ngón tay không
-/// bị trễ theo vòng cập nhật state của SwiftUI.
+/// View controller của **widget thông báo nổi**: sở hữu `UIPanGestureRecognizer`/`UITapGestureRecognizer`,
+/// cập nhật frame trực tiếp trên `UIView`, và mở màn Thông báo khi người dùng chạm.
 ///
-/// ## Một cỡ, hai vị trí (1.3.476)
-/// Bản cũ là **pill** co giãn theo nội dung (`sizeThatFits`, rộng 74–240, cao 38) và **không** có trạng thái
-/// thu gọn. Nay theo đúng khuôn widget thông báo: nút tròn **36px**, `.peeking` là nút **ngậm vào mép** (tâm
-/// nằm đúng trên mép nên một nửa ra ngoài), `.revealed` là nút nằm trong màn với lề ngang nhỏ. Nhờ một cỡ
-/// duy nhất, animation thu/bung chỉ là **dịch chuyển**, không phải đổi kích thước view.
+/// Kéo/thả bằng UIKit (không phải cử chỉ SwiftUI) đúng như `FloatingWidgetContainerViewController` và
+/// `BrowserFloatingWidgetContainerViewController`: ngón tay không bị trễ theo vòng cập nhật state.
 ///
-/// Level cửa sổ vẫn do `BrowserFloatingWidgetWindowManager` quyết định (`alert - 2`) — file này không đụng.
+/// ## Một cỡ, hai vị trí
+/// Khác hai widget kia, nút ở đây **không** đổi kích thước giữa hai trạng thái (người dùng chốt
+/// 2026-10-07): `.peeking` chỉ là nút **ngậm vào mép** (tâm nằm đúng trên mép nên một nửa ra ngoài), còn
+/// `.revealed` là nút nằm trong màn với lề ngang nhỏ. Nhờ vậy animation thu/bung chỉ là dịch chuyển, không
+/// phải đổi kích thước view.
+///
+/// ## Chạm là **mở màn Thông báo**, không phải bung
+/// Nút này chỉ có **một** hành động (yêu cầu của người dùng: "bấm vào sẽ hiển thị ra màn hình thông báo"),
+/// nên chạm ở **cả hai** trạng thái đều mở màn Thông báo. Bung khỏi mép bằng cách **kéo** ra (kéo bắt đầu
+/// là bung ngay, như widget TTS) hoặc tự bung khi có thông báo mới.
 @MainActor
-final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGestureRecognizerDelegate {
-    private let viewModel = VisibleBrowserReopenViewModel()
-    private let presentationReader = VisibleBrowserPresentationReader()
+final class NotificationFloatingWidgetContainerViewController: UIViewController,
+                                                               UIGestureRecognizerDelegate,
+                                                               UIAdaptivePresentationControllerDelegate {
+    private let viewModel = NotificationFloatingWidgetViewModel()
+    private let presentationReader = NotificationFloatingWidgetPresentationReader()
+
     let widgetContainerView = UIView()
-    private var hostingController: UIHostingController<VisibleBrowserReopenButton>?
+    private var hostingController: UIHostingController<NotificationFloatingWidgetButton>?
     private var panStartCenter: CGPoint = .zero
     private var cancellables = Set<AnyCancellable>()
-    private var tabCount: Int = 0
+    private var unreadCount = 0
 
     private var panGesture: UIPanGestureRecognizer!
     private var tapGesture: UITapGestureRecognizer!
 
     enum Layout {
-        static let size: CGFloat = VisibleBrowserReopenButton.size
+        static let size: CGFloat = NotificationFloatingWidgetButton.size
         /// Lề ngang khi nút ở dạng bung — nhỏ, vì nút vốn đã nhỏ.
         static let horizontalMargin: CGFloat = 8
         static let verticalMargin: CGFloat = 12
@@ -45,7 +53,7 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
         widgetContainerView.layer.masksToBounds = false
         view.addSubview(widgetContainerView)
 
-        tabCount = presentationReader.snapshot.tabCount
+        unreadCount = presentationReader.snapshot.unreadCount
         let hosting = UIHostingController(rootView: makeButton())
         hosting.view.backgroundColor = .clear
         hosting.view.clipsToBounds = false
@@ -61,9 +69,9 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
         updateLayout(animated: false)
     }
 
-    private func makeButton() -> VisibleBrowserReopenButton {
-        VisibleBrowserReopenButton(
-            tabCount: tabCount,
+    private func makeButton() -> NotificationFloatingWidgetButton {
+        NotificationFloatingWidgetButton(
+            unreadCount: unreadCount,
             mode: viewModel.mode,
             edge: viewModel.edgeDirection
         )
@@ -86,16 +94,12 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
             .receive(on: RunLoop.main)
             .sink { [weak self] snapshot in
                 guard let self else { return }
-                guard snapshot.tabCount != self.tabCount else { return }
-                self.tabCount = snapshot.tabCount
+                guard snapshot.unreadCount != self.unreadCount else { return }
+                self.unreadCount = snapshot.unreadCount
                 self.refreshContent()
-                if !self.viewModel.isDragging {
-                    self.updateLayout(animated: true)
-                }
             }
             .store(in: &cancellables)
 
-        // Nút phải vẽ lại khi bung/thu: badge đổi giữa **số tab** và **chấm đỏ**.
         viewModel.$mode
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
@@ -107,7 +111,7 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
             }
             .store(in: &cancellables)
 
-        // Badge đổi phía theo mép ⇒ chỉ vẽ lại khi cạnh đổi (chỉ xảy ra lúc nhả tay).
+        // Badge đổi phía theo mép ⇒ nội dung phải vẽ lại khi cạnh đổi (chỉ xảy ra lúc nhả tay).
         viewModel.$edgeDirection
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
@@ -134,7 +138,7 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
         }
     }
 
-    /// Kẹp theo safe area để widget không bao giờ ra ngoài vùng hiển thị hợp lệ.
+    /// Kẹp tâm Y trong vùng an toàn — nút không bao giờ chui vào thanh trạng thái hay thanh tab.
     private func clampedY(_ value: CGFloat, screenHeight: CGFloat) -> CGFloat {
         FloatingWidgetGeometry.clampedCenterY(
             value,
@@ -150,7 +154,7 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
         let y = clampedY(viewModel.verticalRatio * bounds.height, screenHeight: bounds.height)
 
         if viewModel.mode == .peeking {
-            // Tâm nằm **đúng trên mép** ⇒ một nửa nút ra ngoài, đúng dáng "cất vào mép".
+            // Tâm nằm **đúng trên mép** ⇒ một nửa nút ra ngoài, đúng dáng "cất vào mép" của widget TTS.
             let x = viewModel.edgeDirection == .left ? 0 : bounds.width
             return CGPoint(x: x, y: y)
         }
@@ -164,7 +168,7 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
         return CGPoint(x: x, y: y)
     }
 
-    /// Vẽ lại vị trí theo `mode` hiện tại.
+    /// Vẽ lại vị trí theo `mode` hiện tại. `internal` để window manager gọi được từ file khác.
     func updateLayout(animated: Bool) {
         guard view.bounds.width > 0, view.bounds.height > 0 else { return }
         let targetCenter = restingCenter(in: view.bounds)
@@ -192,11 +196,13 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
         }
     }
 
-    /// Bung nút ra khỏi mép.
+    /// Bung nút ra khỏi mép (gọi khi có thông báo mới, hoặc từ window manager).
     func reveal(animated: Bool) {
         viewModel.reveal()
         updateLayout(animated: animated)
     }
+
+    // MARK: - Cử chỉ
 
     @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
         guard let container = self.view else { return }
@@ -237,7 +243,83 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
 
     @objc private func handleTap(_ gesture: UITapGestureRecognizer) {
         guard !viewModel.isDragging else { return }
-        VisibleBrowserTabManager.shared.reopenContainer()
+        presentInbox()
+    }
+
+    // MARK: - Màn Thông báo
+
+    private func presentInbox() {
+        guard presentedViewController == nil else { return }
+        viewModel.cancelTasks()
+
+        let inbox = NotificationInboxView(onOpenBook: { [weak self] book in
+            guard let self else { return }
+            self.openReader(for: book)
+        })
+        // Móc bắt **mọi** đường đóng sheet. `presentationControllerDidDismiss` chỉ chạy khi người dùng **vuốt
+        // xuống**, còn nút "Đóng" trong màn Thông báo gọi `@Environment(\.dismiss)` — đường lập trình, không
+        // có callback nào của UIKit. Thiếu móc này thì `isSheetPresented` kẹt ở `true`, nút nổi **biến mất
+        // vĩnh viễn** sau lần đầu đóng sheet bằng nút. Hai cơ chế cố ý chồng nhau: `setSheetPresented` idempotent,
+        // và hậu quả của việc kẹt cờ đủ nặng để đáng trả giá một lời gọi thừa.
+        let content = inbox.onDisappear {
+            NotificationFloatingWidgetWindowManager.shared.setSheetPresented(false)
+        }
+        let root: AnyView
+        if let container = NotificationFloatingWidgetWindowManager.shared.modelContainer {
+            // Bắt buộc: cửa sổ phụ **không** có `modelContainer` trong environment, mà `NotificationInboxView`
+            // `@Query` bảng `Book` — thiếu dòng này là crash ngay khi mở.
+            root = AnyView(content.modelContainer(container))
+        } else {
+            root = AnyView(content)
+        }
+
+        let hosting = UIHostingController(rootView: root)
+        hosting.view.backgroundColor = .clear
+
+        NotificationFloatingWidgetWindowManager.shared.setSheetPresented(true)
+        present(hosting, animated: true) { [weak self] in
+            // Gán **sau** khi trình bày: `presentationController` chỉ tồn tại từ lúc trình bày trở đi, gán
+            // trước đó là gán vào `nil` và mất luôn đường bắt sự kiện vuốt-để-đóng.
+            hosting.presentationController?.delegate = self
+        }
+    }
+
+    /// Mở truyện vừa chạm trong màn Thông báo: đóng sheet rồi bàn giao cho `ShelfView` — nó là nơi duy nhất
+    /// giữ `fullScreenCover` của Reader. Chờ đóng xong mới phát thông báo, cùng lý do đã ghi ở
+    /// `ShelfView.swift:306-307`: hai lớp trình bày không được tranh nhau.
+    private func openReader(for book: Book) {
+        let payload: [String: Any] = [
+            NotificationFloatingWidgetWindowManager.bookIdUserInfoKey: book.bookId,
+            NotificationFloatingWidgetWindowManager.extensionPackageIdUserInfoKey: book.extensionPackageId,
+            NotificationFloatingWidgetWindowManager.chapterIndexUserInfoKey: book.currentChapterIndex,
+            NotificationFloatingWidgetWindowManager.detailUrlUserInfoKey: book.detailUrl,
+            NotificationFloatingWidgetWindowManager.sourceNameUserInfoKey: book.sourceName
+        ]
+
+        let finish = { [weak self] in
+            self?.handleSheetDismissed()
+            NotificationCenter.default.post(
+                name: .openReaderFromNotification,
+                object: nil,
+                userInfo: payload
+            )
+        }
+
+        if let presented = presentedViewController {
+            presented.dismiss(animated: true) { finish() }
+        } else {
+            finish()
+        }
+    }
+
+    /// Vuốt xuống để đóng sheet cũng phải trả nút về đúng trạng thái — nếu chỉ xử lý ở nút "Đóng" thì nút
+    /// nổi sẽ biến mất vĩnh viễn sau một lần vuốt.
+    func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        handleSheetDismissed()
+    }
+
+    private func handleSheetDismissed() {
+        NotificationFloatingWidgetWindowManager.shared.setSheetPresented(false)
     }
 
     // MARK: - UIGestureRecognizerDelegate

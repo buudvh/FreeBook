@@ -15,6 +15,48 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.476 — +4 file: nhãn dùng chung, command metadata, editor plugin.json, section cấu hình
+
+| Nhóm | File mới | Vai trò | Dòng |
+| --- | --- | --- | --- |
+| Model | `Models/Extensions/ExtensionDisplayCatalog.swift` | Nhãn + bộ lựa chọn dùng chung cho `type`/`locale`: `typeOptions` (`novel`, `chinese_novel`), `localeOptions` (`vi_VN`, `zh_CN`), `label(forType:)`/`label(forLocale:)` (có nhánh dự phòng cho giá trị lạ), `options(including:from:)` giữ lại giá trị đang có trong file. | 49 |
+| Model | `Models/Extensions/UpdateExtensionMetadataCommand.swift` | Command DTO bất biến, **chỉ 7 trường có cột DB**: packageId, name, sourceUrl, iconUrl, desc, type, locale. Tách khỏi `UpsertExtensionCommand` vì nhánh cập nhật của nó gán `version` vô điều kiện và bỏ qua mọi giá trị rỗng. | 40 |
+| Service | `Services/Extensions/Manager/ExtensionMetadataEditor.swift` | Đọc/ghi khối `metadata` của `plugin.json`: `read(localPath:)` trả 9 trường, `write(changes:localPath:)` **merge** đúng các khoá đổi (giữ `config` và khoá script), `editableKeys`/`readOnlyKeys` là chốt chặn thứ hai. Chỉ `Foundation`. | 135 |
+| View | `Views/Extensions/Config/ExtensionMetadataSection.swift` | Khối Metadata của màn Cấu hình tiện ích: 6 hàng sửa được + 3 hàng chỉ đọc, **tự lưu** (ô chữ debounce 0,4 giây, Picker lưu ngay), chấm trạng thái "Đã lưu HH:mm:ss". | 284 |
+
+Sửa trong lượt này: `ExtensionManager` **1015 → 1018** · `ExtensionTransactionCoordinator` **289 → 327** · `BypassWebView` **378 → 388** · `ExtensionConfigView` **278 → 282** · `FilterSheet` **97 → 79** · `VisibleBrowserReopenViewModel` **61 → 129** · `VisibleBrowserReopenView` **80 → 121** · `BrowserFloatingWidgetContainerViewController` **199 → 251**.
+
+## 1.3.475 — +1 file: khung xương màn Khôi phục
+
+| Nhóm | File mới | Vai trò | Dòng |
+| --- | --- | --- | --- |
+| View (Settings/Backup) | `Views/Settings/Backup/RestoreSkeletonView.swift` | Khung xương của màn Khôi phục, hiện ngay từ cú chạm trong lúc `prepareRestore` chạy nền. Bố cục sao đúng `RestoreOptionsSheet`; tái dùng `SkeletonView` (`Views/Common/`). Nút "Huỷ" vẫn hoạt động. | 99 |
+
+Sửa trong lượt này: `BackupHubView` **221 → 243** (`startRestore` trình bày sheet ngay + 3 nhánh dọn dẹp; `restoreSheet` đổi `ProgressView` trần thành `RestoreSkeletonView`).
+
+## 1.3.474 — +1 file: kiểm tra pattern quy tắc mục lục, có miễn trừ cho rule mặc định
+
+| Nhóm | File mới | Vai trò | Dòng |
+| --- | --- | --- | --- |
+| Service | `Services/Translation/Utils/TranslateUtils+TOCRuleValidation.swift` | `extension TranslateUtils`: `isBuiltInTOCRulePattern(_:)` (so khớp **pattern y hệt** với `defaultTOCRules`) và `validateTOCRulePattern(_:)` (chuyển từ file chính sang, nay có nhánh miễn trừ). Chỉ `import Foundation`. | 58 |
+
+Sửa trong lượt này: `TranslateUtils.swift` **916 → 911** (`validateTOCRulePattern` chuyển sang file mới; `defaultTOCRules` `private` → `internal` kèm doc giải thích vì sao `rule21` dài 254 ký tự là **chủ ý đã chấp nhận**, không phải lỗi cần rút ngắn).
+
+## 1.3.472 — +8 file: tiến độ tác vụ ở màn Thông báo và widget thông báo nổi
+
+| Nhóm | File mới | Vai trò | Dòng |
+| --- | --- | --- | --- |
+| Service | `Services/TTS/ModelDownloadCenter.swift` | Singleton `@MainActor` **sở hữu `Task`** tải model (NghiTTS từng giọng, VieNeu 8 file lõi, VieNeu 3 graph clone); `@Published entries` + `lastNotice`; `guard tasks[id] == nil` chặn lượt trùng. Chỉ `Foundation` + `Combine`. | 276 |
+| View (Shelf) | `Views/Shelf/ShelfMain/NotificationInboxView+Activity.swift` | Extension `NotificationInboxView`: `hasActivity` + `activityRows()` + 4 struct **lồng** (`ActivityRows`, `BackupActivityRow`, `DownloadActivityRow`, `ActivityDismissButton`) vẽ khối tiến độ ghim đầu danh sách. | 174 |
+| View (Common) | `Views/Common/NotificationFloatingWidgetViewModel.swift` | Vị trí, kéo/thả, bung/thu của nút nổi; key UserDefaults **riêng** (`notificationWidgetVerticalRatio`, `notificationWidgetEdge`) để không ghi đè vị trí widget TTS. | 130 |
+| View (Common) | `Views/Common/NotificationFloatingWidgetPresentationReader.swift` | Gộp 4 nguồn (nhật ký toast, chương mới, sao lưu, tải model) thành **một** `Snapshot`; chỉ phát khi giá trị thật sự đổi. | 74 |
+| View (Common) | `Views/Common/NotificationFloatingWidgetView.swift` | Nút chuông 36px; badge **số** khi bung, **chấm đỏ** khi dán mép; badge lật phía theo mép. Chỉ vẽ — cử chỉ do container VC lo. | 90 |
+| View (Common) | `Views/Common/NotificationFloatingWidgetUIWindow.swift` | `UIWindow` trong suốt; `hitTest` trả `nil` ngoài vùng nút để không nuốt chạm của app. | 29 |
+| View (Common) | `Views/Common/NotificationFloatingWidgetContainerViewController.swift` | Cử chỉ pan/tap, `updateLayout(animated:)`, và **trình bày sheet màn Thông báo** từ cửa sổ widget (kèm `.modelContainer`). | 325 |
+| View (Common) | `Views/Common/NotificationFloatingWidgetWindowManager.swift` | `refreshState()` là cửa **duy nhất** bật/tắt cửa sổ; level `alert - 3`; giữ cửa sổ sống khi sheet mở; khai 2 `Notification.Name` mới. | 199 |
+
+Sửa trong lượt này: `NotificationInboxView` **393 → 397** · `MainTabView` **161 → 193** · `ShelfView` **859 → 875** · `FreeBookApp` **116 → 122** · `BackupHubView` **235 → 221** · `RestoreOptionsSheet` **134 → 121** · `GoogleDriveBackupListView` **211 → 208** · `LocalBackupListView` **181 → 180** · `BackupProgress` **83 → 113** · `BackupCoordinator` **361 → 371** · `TTSModelManagerView` **478 → 469** · `VieNeuTTSTestView` **385 → 369** · `VieNeuVoiceLibraryView` **385 → 368**.
+
 ## 1.3.471 — +1 file: component chọn số chương dùng chung cho hai sheet
 
 | Nhóm | File mới | Vai trò | Dòng |

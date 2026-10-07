@@ -73,12 +73,18 @@ struct AppLaunchRootView: View {
             TTSFloatingWidgetWindowManager.shared.refreshState()
             BrowserFloatingWidgetWindowManager.shared.refreshState()
             AIFloatingWidgetWindowManager.shared.refreshState()
+            // Nút thông báo nổi: `modelContainer` là bắt buộc vì màn Thông báo được trình bày từ cửa sổ
+            // riêng của widget, mà cửa sổ đó không có environment của app.
+            NotificationFloatingWidgetWindowManager.shared.modelContainer = modelContext.container
+            NotificationFloatingWidgetWindowManager.shared.refreshState()
         }
         .onChange(of: translationManager.isInitialized) { _, _ in
             TTSFloatingWidgetWindowManager.shared.modelContainer = modelContext.container
             TTSFloatingWidgetWindowManager.shared.refreshState()
             BrowserFloatingWidgetWindowManager.shared.refreshState()
             AIFloatingWidgetWindowManager.shared.refreshState()
+            NotificationFloatingWidgetWindowManager.shared.modelContainer = modelContext.container
+            NotificationFloatingWidgetWindowManager.shared.refreshState()
         }
         .onChange(of: browserPresentation.snapshot.showReopenButton) { _, _ in
             BrowserFloatingWidgetWindowManager.shared.refreshState()

@@ -372,7 +372,7 @@ public final class ExtensionManager: ObservableObject {
                 let author = dict["author"]?.toString() ?? ""
                 let description = dict["description"]?.toString() ?? dict["desc"]?.toString() ?? ""
                 let content = dict["content"]?.toString() ?? ""
-                let cover = dict["cover"]?.toString() ?? ""
+                let cover = JSExecutor.cleanAndResolveUrl(dict["cover"]?.toString() ?? "", host: dict["host"]?.toString() ?? "")
                 let link = dict["link"]?.toString() ?? dict["url"]?.toString() ?? ""
                 let host = dict["host"]?.toString() ?? ""
                 
@@ -417,7 +417,10 @@ public final class ExtensionManager: ObservableObject {
             
             let name = dict["name"] as? String ?? ""
             let author = dict["author"] as? String ?? ""
-            let cover = dict["cover"] as? String ?? ""
+            // Cover cũng phải đi qua `cleanAndResolveUrl` như URL trang (`:397`): script hay trả đường dẫn
+            // tương đối (`/uploads/1.jpg`), mà `ImageCacheManager` không tải được URL thiếu host. Dùng
+            // `host` do JS trả về — `search`/`executeCustomScript` không có tham số host nào khác.
+            let cover = JSExecutor.cleanAndResolveUrl(dict["cover"] as? String ?? "", host: dict["host"] as? String ?? "")
             let description = dict["description"] as? String ?? ""
             let detail = dict["detail"] as? String ?? ""
             let host = dict["host"] as? String ?? ""
@@ -734,7 +737,7 @@ public final class ExtensionManager: ObservableObject {
                 let author = dict["author"]?.toString() ?? ""
                 let description = dict["description"]?.toString() ?? dict["desc"]?.toString() ?? ""
                 let content = dict["content"]?.toString() ?? ""
-                let cover = dict["cover"]?.toString() ?? ""
+                let cover = JSExecutor.cleanAndResolveUrl(dict["cover"]?.toString() ?? "", host: dict["host"]?.toString() ?? "")
                 let link = dict["link"]?.toString() ?? dict["url"]?.toString() ?? ""
                 let host = dict["host"]?.toString() ?? ""
                 

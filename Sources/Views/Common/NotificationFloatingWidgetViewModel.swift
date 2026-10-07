@@ -1,19 +1,20 @@
-import Combine
-import SwiftUI
+import Foundation
+import UIKit
 
-/// Trạng thái kéo/thả, dán mép và bung/thu của widget trình duyệt thu nhỏ.
+/// Trạng thái kéo/thả, dán mép và bung/thu của **widget thông báo nổi**.
 ///
-/// Cùng vai trò với `FloatingWidgetViewModel` của widget TTS và `NotificationFloatingWidgetViewModel` của
-/// widget thông báo, và **giữ nguyên hai key UserDefaults cũ** (`visibleBrowserReopenVerticalRatio`,
-/// `visibleBrowserReopenEdge`) nên vị trí người dùng đã chọn trước đây không mất khi hình khối đổi từ pill
-/// sang nút tròn (1.3.476).
-///
-/// **Cố ý không tái dùng `NotificationFloatingWidgetViewModel`**: lớp đó hard-code key
-/// `notificationWidgetVerticalRatio`, nên hai widget dùng chung sẽ ghi đè vị trí của nhau. Repo đã chấp
-/// nhận khuôn "mỗi widget một ViewModel giữ key riêng"; phần hình học vẫn dùng chung
+/// Cùng vai trò với `FloatingWidgetViewModel` của widget TTS và `VisibleBrowserReopenViewModel` của widget
+/// trình duyệt, nhưng **cố ý là lớp riêng** chứ không tái dùng `FloatingWidgetViewModel`:
+/// `FloatingWidgetViewModel` hard-code key `ttsWidgetVerticalRatio`/`ttsWidgetEdge`
+/// (`FloatingWidgetViewModel.swift:20-21`), nên hai widget dùng chung lớp đó sẽ **ghi đè vị trí của nhau**
+/// — kéo nút thông báo là nút nghe truyện nhảy theo. Phần hình học thì vẫn dùng chung
 /// `FloatingWidgetGeometry`.
+///
+/// Khác một điểm về kích thước so với hai widget kia: nút thông báo có **một cỡ duy nhất** (36px, người
+/// dùng chốt 2026-10-07). Vì vậy `.peeking` và `.revealed` không đổi kích thước, chỉ khác **vị trí** (ngậm
+/// vào mép hay nằm trong màn) và **kiểu badge** (chấm nhỏ hay số) — hai thứ do View quyết định.
 @MainActor
-final class VisibleBrowserReopenViewModel: ObservableObject {
+final class NotificationFloatingWidgetViewModel: ObservableObject {
     @Published var verticalRatio: CGFloat
     @Published var edgeDirection: EdgeDirection
     @Published var mode: WidgetMode
@@ -26,18 +27,19 @@ final class VisibleBrowserReopenViewModel: ObservableObject {
         }
     }
 
-    /// Tự thu về `.peeking` sau 3 giây — cùng nhịp với hai widget nổi kia.
+    /// Tự thu về `.peeking` sau 3 giây — cùng nhịp với widget TTS, để hai widget cư xử nhất quán.
     static let autoHideNanoseconds: UInt64 = 3_000_000_000
 
     private var autoHideTask: Task<Void, Never>?
-    private let storedRatioKey = "visibleBrowserReopenVerticalRatio"
-    private let storedEdgeKey = "visibleBrowserReopenEdge"
+    private let storedRatioKey = "notificationWidgetVerticalRatio"
+    private let storedEdgeKey = "notificationWidgetEdge"
 
     init() {
         let storedRatio = UserDefaults.standard.double(forKey: storedRatioKey)
         let storedEdge = UserDefaults.standard.string(forKey: storedEdgeKey)
-        // Mặc định 1.0 = sát đáy màn, giữ nguyên hành vi cũ của widget này.
-        self.verticalRatio = storedRatio > 0 ? CGFloat(storedRatio) : 1.0
+
+        // Mặc định hơi cao hơn giữa màn (0,42) để không đè lên thanh tab ở đáy.
+        self.verticalRatio = storedRatio > 0 ? CGFloat(storedRatio) : 0.42
         self.edgeDirection = (storedEdge == "left") ? .left : .right
         self.mode = .peeking
     }
@@ -67,8 +69,7 @@ final class VisibleBrowserReopenViewModel: ObservableObject {
     /// Chốt vị trí sau khi nhả tay: snap về cạnh gần nhất, kẹp Y trong vùng hợp lệ, quyết định bung hay thu,
     /// rồi lưu tỉ lệ/cạnh để không reset khi view dựng lại.
     ///
-    /// Khác bản pill cũ: nút tròn có **một** cỡ duy nhất nên chỉ nhận `widgetSize`, và thêm quyết định
-    /// `.peeking`/`.revealed` theo khoảng cách tới mép — cùng công thức `NotificationFloatingWidgetViewModel`.
+    /// Khác `FloatingWidgetViewModel` ở chỗ **không** đổi kích thước theo mode, nên chỉ cần một chiều cao.
     func handleDragEnd(
         finalPosition: CGPoint,
         widgetSize: CGFloat,
@@ -99,7 +100,7 @@ final class VisibleBrowserReopenViewModel: ObservableObject {
         verticalRatio = targetY / screenHeight
         edgeDirection = targetEdge
 
-        // Thả sát mép thì thu, thả giữa màn thì giữ bung.
+        // Thả sát mép thì thu, thả giữa màn thì giữ bung — cùng ngưỡng với widget TTS.
         let edgeDistance = min(finalPosition.x, screenWidth - finalPosition.x)
         mode = edgeDistance <= edgeSnapDistance ? .peeking : .revealed
         isDragging = false

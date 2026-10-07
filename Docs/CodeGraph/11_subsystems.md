@@ -15,6 +15,44 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.476 — phân hệ Extensions: metadata sửa được trong app; widget trình duyệt thành nút tròn
+
+* **Màn Cấu hình tiện ích có khối Metadata**: `ExtensionMetadataSection` (mới, **284** dòng) hiện **9 trường** của `plugin.json`; sửa được 6 (`name`, `source`, `regexp`, `description`, `locale`, `type`), chỉ đọc 3 (`author`, `version`, `language`). `ExtensionConfigView` **278 → 282** — chỉ thêm một dòng vào `Form`, ba section cũ giữ nguyên.
+* **"Áp dụng ngay" là ba việc**: ghi `plugin.json` qua `ExtensionMetadataEditor` (**135** dòng, merge chứ không ghi đè cả file) → cập nhật hàng `Extension` qua `ExtensionTransactionCoordinator.updateExtensionMetadata` (**289 → 327**) → **xoá `BypassWebView.regexpCache`** khi `regexp` đổi (`BypassWebView` **378 → 388**). Bước thứ ba là bước dễ bỏ sót nhất: cache đó là `static` khoá theo `localPath` và **không có đường xoá** trước lượt này.
+* **Cover ghép host**: `ExtensionManager` **1015 → 1018** — ba chỗ trả cover (`search`, `detail`, `executeCustomScript`) nay đi qua `JSExecutor.cleanAndResolveUrl(cover, host: dict["host"])`, khớp cách URL trang đã được xử lý ở `:397`.
+* **Nhãn `type`/`locale` về một chỗ**: `FilterSheet` **97 → 79** dùng `ExtensionDisplayCatalog` (mới, **49** dòng). Bản `translateType` ở `RepositoryManagerView+Actions` **giữ nguyên** vì nhãn của nó ngắn hơn có chủ ý (chip cỡ 9pt).
+* **Widget trình duyệt thành nút tròn 36px**: `VisibleBrowserReopenView` **80 → 121**, `VisibleBrowserReopenViewModel` **61 → 129**, `BrowserFloatingWidgetContainerViewController` **199 → 251**. Giữ nhịp nháy đỏ (đổi bằng **màu**, alpha luôn 1), giữ hai key UserDefaults cũ, level cửa sổ vẫn `alert - 2`.
+
+## 1.3.475 — phân hệ Backup: sheet Khôi phục hiện ngay, khung xương trong lúc đọc file
+
+* **Trước**: `BackupHubView.startRestore` chỉ bật `showingRestoreOptions` **sau khi** `prepareRestore` xong ⇒ phải giải nén archive xong mới thấy sheet, nút như không phản hồi.
+* **Nay**: sheet hiện tức thì; khi `coordinator.preparedRestore` còn `nil` thì vẽ `RestoreSkeletonView` (mới, **99** dòng) — khung xương sao đúng bố cục `RestoreOptionsSheet`; nội dung thật tự thay vào khi prepare xong.
+* **Ba nhánh dọn dẹp mới** (vì sheet nay đóng được giữa chừng): đóng khi đang đọc ⇒ `cancelPreparedRestore()` sau khi prepare trả về; prepare lỗi ⇒ đóng khung xương; `guard !coordinator.isBusy` ở `startRestore` để tránh nháy mở-rồi-đóng.
+* Dòng: `BackupHubView` **221 → 243** · file mới **99**.
+
+## 1.3.474 — phân hệ Translation: trần độ dài regex không còn áp lên chính dữ liệu mặc định của app
+
+* **Lỗi (có từ trước, không liên quan thay đổi 1.3.472)**: `rule21` "Quy tắc mở rộng nâng cao" trong `defaultTOCRules` dài **254** ký tự, vượt trần **250** của `validateTOCRulePattern` ⇒ khôi phục cấu hình, nhập `toc_rules.json` và màn Quy tắc mục lục đều coi **bộ rule mặc định của app** là sai.
+* **Chữa**: `TranslateUtils+TOCRuleValidation.swift` (mới, **58** dòng) chứa `isBuiltInTOCRulePattern` + `validateTOCRulePattern` (chuyển từ file chính). Miễn trừ so khớp **pattern y hệt** với `defaultTOCRules` ⇒ pattern người dùng sửa vẫn chịu trần. Đặt ở cửa kiểm tra duy nhất nên cả ba đường cùng đúng.
+* **Không** rút ngắn pattern rule21 — regex đó đang chạy thật để tách mục lục.
+* Dòng: `TranslateUtils.swift` **916 → 911** · file mới **58**.
+
+## 1.3.473 — sheet màn Thông báo từ widget nổi không nhận được chạm
+
+* **Lỗi**: `NotificationFloatingWidgetUIWindow.hitTest` trả `nil` cho mọi điểm ngoài `widgetContainerView`, mà sheet màn Thông báo lại được trình bày **từ chính cửa sổ đó** và lúc mở sheet thì `widgetContainerView` bị `isHidden = true` ⇒ mọi cú chạm trên sheet rơi xuống app phía dưới. Người dùng báo hai triệu chứng ("không đóng được" + "dropdown không hoạt động") nhưng là **một** nguyên nhân.
+* **Sửa**: nhánh short-circuit `presentedViewController != nil` ⇒ `super.hitTest(...)`, đúng khuôn `FloatingWidgetUIWindow` của widget TTS.
+* **Sửa kèm**: `.onDisappear` trên nội dung sheet để hạ `isSheetPresented` ở **mọi** đường đóng. Trước đó chỉ hai đường (vuốt xuống, mở truyện) hạ cờ; nút "Đóng" đi qua `@Environment(\.dismiss)` nên cờ kẹt `true` ⇒ nút nổi biến mất vĩnh viễn.
+* Dòng: `NotificationFloatingWidgetUIWindow` **29 → 40** · `NotificationFloatingWidgetContainerViewController` **325 → 333**.
+
+
+## 1.3.472 — phân hệ TTS có trung tâm tiến độ tải; phân hệ Backup bỏ chặn TTS; widget nổi thứ tư
+
+* **TTS — `ModelDownloadCenter` (mới, `Services/TTS/`)**: nguồn sự thật duy nhất cho ba đường tải (NghiTTS từng giọng, VieNeu 8 file lõi, VieNeu 3 graph clone). Sở hữu `Task`, chặn lượt trùng theo `id`, phát `lastNotice` cho tầng View. `TTSModelManagerView` **478 → 469** (bỏ `downloadingStatus` / `downloadingMessages` và toàn bộ khối `DispatchQueue.main.async` toast), `VieNeuTTSTestView` **385 → 369**, `VieNeuVoiceLibraryView` **385 → 368** — cả ba chỉ còn đọc `entries`.
+* **Backup — bỏ chặn TTS**: `BackupHubView` **235 → 221** (bỏ `@StateObject ttsState`, guard `startRestore`, nhánh footer theo `isPlaying`), `RestoreOptionsSheet` **134 → 121** (bỏ tham số `isTTSPlaying`, khối cảnh báo cam, `.disabled`), `GoogleDriveBackupListView` **211 → 208**, `LocalBackupListView` **181 → 180**. Thêm `BackupProgress.isInboxVisible` / `isRestore` và `BackupCoordinator.dismissProgress()`.
+* **Thông báo — khối tiến độ**: `NotificationInboxView+Activity.swift` (mới) ghim ở đầu `List`, **ngoài** nhóm theo ngày; `NotificationInboxView` **393 → 397** (chỉ 2 dòng thêm, giữ dưới trần 400 nên **không** thêm case vào `InboxItem`).
+* **Toast — một chỗ duy nhất**: `MainTabView` **161 → 193** observe `BackupCoordinator.lastMessage` / `lastError` + `ModelDownloadCenter.lastNotice`; `BackupHubView` đã gỡ observer của nó để một lượt không hiện hai toast.
+* **Widget nổi — cái thứ tư**: `Views/Common/NotificationFloatingWidget*` (6 file), level `alert - 3`, `ShelfView` **859 → 875** (nhận `openReaderFromNotification` để mở Reader hộ), `FreeBookApp` **116 → 122** (gán `modelContainer` + `refreshState()` cùng chỗ với 3 widget cũ).
+
 ## 1.3.471 — quét tên riêng chọn được số chương; một component chọn số chương dùng chung
 
 * **Component chọn số chương dùng chung (`ChapterLimitPickerRows.swift`, `TaskOptionsSheet.swift`)**:

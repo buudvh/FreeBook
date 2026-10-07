@@ -15,6 +15,24 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.473 — luật 25 (cửa sổ nổi có `hitTest` riêng phải nhường đường cho view controller được trình bày) và luật 26 (mọi đường đóng modal phải hạ cờ trạng thái)
+
+* **Luật 25 — cửa sổ nổi có `hitTest` riêng phải kiểm `presentedViewController != nil` TRƯỚC khi passthrough.** Cửa sổ widget (`FloatingWidgetUIWindow`, `BrowserFloatingWidgetUIWindow`, `NotificationFloatingWidgetUIWindow`) là một lớp phủ toàn màn hình chỉ chừa touch cho đúng vùng widget; nhưng khi container **trình bày một sheet/alert**, view của modal nằm trong **chính cửa sổ đó** — mà lúc đó `widgetContainerView` thường đã bị `isHidden = true`. Không có nhánh short-circuit, `hitTest` trả `nil` cho mọi điểm và modal **hiện ra nhưng không nhận được cú chạm nào** (không bấm được nút, không mở được menu, không vuốt xuống được) — trong khi app phía dưới lại nhận touch. Lỗi thật (1.3.473): sheet màn Thông báo từ widget thông báo nổi. Khuôn đúng (đã có sẵn ở widget TTS):
+  ```swift
+  if containerViewController?.presentedViewController != nil {
+      return super.hitTest(point, with: event)
+  }
+  ```
+  **Đây là điều kiện sống còn, không phải tối ưu** — và triệu chứng dễ bị chẩn đoán sai thành "nút bị lỗi" nên rất đáng nhớ.
+* **Luật 26 — mọi đường đóng một modal phải hạ cờ "đang trình bày".** `UIAdaptivePresentationControllerDelegate.presentationControllerDidDismiss` **chỉ** chạy khi người dùng **vuốt xuống**; một nút "Đóng"/"Huỷ" gọi `@Environment(\.dismiss)` đi đường **lập trình** và không phát callback nào của UIKit. Nếu cờ trạng thái chỉ được hạ ở đường vuốt, nó kẹt ở `true` và mọi thứ phụ thuộc cờ đó (ví dụ nút nổi bị ẩn trong lúc sheet mở) sẽ **mất vĩnh viễn**. Lỗi thật (1.3.473). Khuôn đúng: thêm `.onDisappear` trên nội dung modal làm móc bắt chung, và viết hàm hạ cờ **idempotent** để hai cơ chế chồng nhau không hại gì.
+
+
+## 1.3.472 — luật 23 (`Task` nền phải thuộc service giữ trạng thái) và luật 24 (observer kết quả ở nơi luôn sống)
+
+* **Luật 23 — `Task` của một việc chạy nền có trạng thái hiển thị phải do service/coordinator sở hữu, không do View.** `Task {}` tạo trong thân hàm của View **không** bị huỷ khi view biến mất (chỉ `.task {}` mới bị), nên cặp "View giữ `@State` tiến độ + View tạo `Task`" sinh ra một lỗi **im lặng**: rời màn thì thanh tiến độ mất trong khi việc tải vẫn chạy, và không còn đường nào để biết nó xong hay hỏng. Lỗi thật (1.3.472): tải model VieNeu và NghiTTS. Khuôn đúng: `ModelDownloadCenter` giữ `tasks[id]` + `@Published entries`; View chỉ đọc.
+* **Hệ quả bắt buộc kèm theo**: service giữ trạng thái thì **không** được hiện toast (`Sources/Services/**` không gọi `ToastManager`) ⇒ phát kết quả qua `@Published lastNotice` và để tầng View tiêu thụ. Cùng khuôn `BackupCoordinator.lastMessage`. Chống trùng lượt cũng là việc của service (`guard tasks[id] == nil`), không phải của nút bấm.
+* **Luật 24 — kết quả của tác vụ nền phải có observer ở nơi **luôn sống**.** Observer đặt trong màn thao tác là mất thông báo khi người dùng rời màn, **và** bỏ sót hẳn các lối vào khác của cùng tác vụ. Lỗi thật (1.3.472): toast khôi phục chỉ có ở `BackupHubView`, nên khôi phục một-chạm từ Google Drive **chưa bao giờ** toast. Khuôn đúng: observe ở `MainTabView` (root) và gỡ observer ở màn cũ để một lượt không hiện hai toast.
+
 ## 1.3.469 — một luật mới (trạng thái tiến trình phải trả về `nil`)
 
 * **Luật 22 — trạng thái "đang chạy" phải được đặt về `nil`, không chỉ hạ cờ boolean.** `@Published` phát lại **giá trị hiện tại** cho mỗi subscriber mới, nên một `batchProgress: (Int, Int)?` còn khác `nil` sau khi tác vụ xong sẽ **sống dậy** ở lần dựng View kế tiếp — mà không còn emission nào để tắt nó. Lỗi thật (1.3.469): thanh "Đang quét tên riêng: Batch n/n" treo vĩnh viễn sau khi quét xong, vì `startBatchExtraction` chỉ hạ `isRunning` mà không xoá `batchProgress`. Quy tắc: mọi trạng thái tuỳ chọn (`Optional`) biểu diễn "đang chạy" phải được gán `nil` ở **mọi** nhánh kết thúc — thành công, lỗi, **và** huỷ.

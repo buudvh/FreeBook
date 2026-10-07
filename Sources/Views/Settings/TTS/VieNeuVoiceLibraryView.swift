@@ -23,9 +23,9 @@ struct VieNeuVoiceLibraryView: View {
     @State var records: [VieNeuCustomVoiceStore.Record] = []
     @State var statusMessage = ""
     @State var isError = false
-    @State var isDownloading = false
-    @State var downloadProgress: Double = 0
-    @State var downloadMessage = ""
+    /// Nguồn sự thật của tiến độ tải gói graph — **không** `@State` cục bộ, để rời màn rồi vào lại vẫn thấy
+    /// tiến độ (lỗi người dùng báo 2026-10-07).
+    @ObservedObject var downloads = ModelDownloadCenter.shared
     @State var isWorking = false
     @State var workingMessage = ""
     @State var showingCreator = false
@@ -139,28 +139,11 @@ struct VieNeuVoiceLibraryView: View {
         isWorking = false
     }
 
+    /// Bàn giao cho `ModelDownloadCenter`: center giữ `Task`, tự chặn lượt trùng, và tự phát kết quả qua
+    /// `lastNotice` để `MainTabView` hiện toast. Hàng "Còn thiếu N file" tự đổi khi `hasCloneGraphs` đọc
+    /// lại kho sau mỗi lần `downloads.entries` đổi.
     func downloadCloneGraphs() {
-        guard let service else { return }
-        isDownloading = true
-        isError = false
-        statusMessage = ""
-        let client = VieNeuModelClient(store: service.modelStore)
-        Task {
-            do {
-                _ = try await client.prefetchCloneGraphs { message, fraction in
-                    Task { @MainActor in
-                        downloadMessage = message
-                        downloadProgress = fraction
-                    }
-                }
-                isDownloading = false
-                statusMessage = "Đã tải xong gói graph nhân bản."
-            } catch {
-                isDownloading = false
-                isError = true
-                statusMessage = "Tải gói graph thất bại: \(error.localizedDescription)"
-            }
-        }
+        ModelDownloadCenter.shared.startVieNeuCloneGraphs()
     }
 
     /// Xoá **chỉ 3 graph clone** — không đụng 4 graph chính lẫn giọng đã tạo. Giọng đã tạo vẫn nghe được

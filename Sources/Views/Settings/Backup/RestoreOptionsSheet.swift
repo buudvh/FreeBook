@@ -5,8 +5,6 @@ import SwiftUI
 struct RestoreOptionsSheet: View {
     let sourceName: String
     let manifest: BackupManifest
-    /// TTS đang phát thì chặn — restore ghi vào đúng những hàng mà TTS đang sở hữu tiến độ.
-    let isTTSPlaying: Bool
     let onConfirm: (BackupRestoreWorker.Options) -> Void
     let onCancel: () -> Void
 
@@ -17,13 +15,11 @@ struct RestoreOptionsSheet: View {
     init(
         sourceName: String,
         manifest: BackupManifest,
-        isTTSPlaying: Bool,
         onConfirm: @escaping (BackupRestoreWorker.Options) -> Void,
         onCancel: @escaping () -> Void
     ) {
         self.sourceName = sourceName
         self.manifest = manifest
-        self.isTTSPlaying = isTTSPlaying
         self.onConfirm = onConfirm
         self.onCancel = onCancel
         _scopes = State(initialValue: Set(manifest.availableScopes))
@@ -56,14 +52,6 @@ struct RestoreOptionsSheet: View {
                     Toggle("Khôi phục cài đặt & cấu hình", isOn: $restoreSettings)
                         .disabled(manifest.counts.settings == 0 && manifest.counts.config == 0)
                 }
-
-                if isTTSPlaying {
-                    Section {
-                        Label("Hãy dừng phát TTS trước khi khôi phục", systemImage: "exclamationmark.triangle")
-                            .foregroundColor(.orange)
-                            .font(.subheadline)
-                    }
-                }
             }
             .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
             .navigationTitle("Khôi phục")
@@ -80,7 +68,6 @@ struct RestoreOptionsSheet: View {
                             restoreSettings: restoreSettings
                         ))
                     }
-                    .disabled(isTTSPlaying)
                 }
             }
         }

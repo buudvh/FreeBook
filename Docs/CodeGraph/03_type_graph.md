@@ -15,6 +15,14 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.476 — bốn kiểu mới cho metadata tiện ích
+
+* **`ExtensionDisplayCatalog`** (`enum`, `Models/Extensions/`) — chỉ có thành viên `static`: `typeOptions`, `localeOptions`, `label(forType:)`, `label(forLocale:)`, `options(including:from:)`. **Không** dùng `ExtensionType.allCases` vì `ExtensionType` là `enum` không `CaseIterable` (`ExtensionType.swift:3-8` chỉ có 4 hằng `static let`), và bộ lựa chọn ở màn cấu hình là **2** giá trị theo yêu cầu chứ không phải toàn bộ hằng.
+* **`UpdateExtensionMetadataCommand`** (`struct`, `Sendable`, `Models/Extensions/`) — 7 trường có cột DB. Khác `UpsertExtensionCommand` ở **ngữ nghĩa**, không ở hình dạng: gán thẳng, cho phép rỗng, **không** mang `version`/`author`/`downloadUrl`/`configJson`/`repository`.
+* **`ExtensionMetadataEditor`** (`enum`, `Services/Extensions/Manager/`) — hai hàm tĩnh `read`/`write`, hai mảng khoá `editableKeys`/`readOnlyKeys`, và hai kiểu **lồng**: `Metadata` (9 trường dạng chuỗi, `Equatable` để làm mốc so sánh "trường nào thật sự đổi") và `EditorError` (`missingPluginJson` / `invalidPluginJson` / `writeFailed`).
+* **`ExtensionMetadataSection`** (`struct View`, `Views/Extensions/Config/`) — thân là **một `Section`** để `ExtensionConfigView` nhét thẳng vào `Form`; `@State loaded: ExtensionMetadataEditor.Metadata` là mốc so sánh, cộng 6 `@State` cho 6 trường sửa được, `isLoading`/`statusText`/`errorText`/`saveTask`.
+* **`VisibleBrowserReopenButton`** đổi hình dạng API: `(tabCount:)` → `(tabCount:mode:edge:)`, thêm `static let size: CGFloat = 36`. **`VisibleBrowserReopenViewModel`** thêm `mode: WidgetMode`, `disableAutoHide`, `reveal()/hide()/toggle()/startAutoHideTimer()/cancelTasks()`, và `handleDragEnd` đổi `widgetHeight` → `widgetSize` + `edgeSnapDistance`.
+
 ## 1.3.468 — bộ bóc tách tên riêng rời khỏi JSON: `parseNamesFromText`
 
 * **Services/AI**:

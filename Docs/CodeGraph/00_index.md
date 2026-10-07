@@ -15,6 +15,42 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.476 — cover ghép host qua `cleanAndResolveUrl`; widget trình duyệt thành nút tròn; metadata plugin.json vào màn cấu hình ext
+
+* Thêm **4** file Swift (chi tiết ở [02_file_graph.md](02_file_graph.md)) ⇒ validator đếm **657** file (653 → 657), bộ tài liệu vẫn **16** doc.
+* **R1 — cover thiếu host**: `ExtensionManager` đọc `cover` **nguyên văn** ở ba chỗ (`search:375`, `detail:420`, `executeCustomScript:737`) trong khi URL trang thì có ghép host (`:397`), nên cover tương đối (`/uploads/1.jpg`) vào DB dạng thô rồi `ImageCacheManager` không tải được (`URL(string:)` thiếu host ⇒ `dataTask` fail). Nay cả ba đi qua `JSExecutor.cleanAndResolveUrl(cover, host: dict["host"])` — dùng `host` do JS trả về vì `search`/`executeCustomScript` **không có** tham số host nào khác. Không thêm file, ba call site đổi tại chỗ (`ExtensionManager` **1015 → 1018**, trần 1022).
+* **R2 — widget trình duyệt**: pill `safari` + "N tab" (cao 38, rộng 74–240 theo `sizeThatFits`, **không** có trạng thái thu gọn) đổi thành **nút tròn 36px** đúng khuôn widget thông báo: bung = badge **số tab**, dán mép = **chấm đỏ**, tự thu sau 3 giây, badge **lật phía** theo mép. Giữ nguyên hai key UserDefaults cũ nên vị trí đã lưu không nhảy, và giữ nhịp nháy đỏ khi tab thu nhỏ quá 10 giây — đổi bằng **màu**, alpha luôn 1, vì `BrowserFloatingWidgetUIWindow.hitTest` có guard `alpha > 0.01`.
+* **R3 — metadata vào màn cấu hình tiện ích**: `ExtensionMetadataSection` (mới) hiện **9 trường** của `metadata` trong `plugin.json`; sửa được **6** (`name`, `source`, `regexp`, `description`, `locale`, `type`), chỉ đọc **3** (`author`, `version`, `language`). **Tự lưu + áp dụng ngay** gồm **ba** việc chứ không một: ghi `plugin.json` (merge, **không** ghi đè cả file), cập nhật hàng `Extension` (để lưới home của trình duyệt và danh sách Tiện Ích đổi ngay), và **xoá `BypassWebView.regexpCache`** khi `regexp` đổi — cache đó là `static` khoá theo `localPath` và trước lượt này **không có đường xoá**.
+* `ExtensionConfigView` **278 → 282**: chỉ thêm **một dòng** vào `Form`; ba section cũ ("Tùy Chỉnh Biến Global" / "Mạng & Cookie" / "Mã Nguồn Script") và nút "Lưu" giữ nguyên vai trò.
+* `FilterSheet` **97 → 79**: bỏ `translateType`/`translateLocale` để dùng `ExtensionDisplayCatalog` — một chỗ cho nhãn `type`/`locale`. (`RepositoryManagerView+Actions` cũng có `translateType` nhưng nhãn **khác** — "Truyện chữ" thay vì "Truyện chữ (Novel)" — vì dùng làm chip cỡ 9pt, nên **không** gộp.)
+
+## 1.3.475 — màn Khôi phục hiện ngay khi chạm nút, bằng khung xương
+
+* Thêm **1** file Swift (`Views/Settings/Backup/RestoreSkeletonView.swift`, **99** dòng) ⇒ validator đếm **653** file, bộ tài liệu vẫn **16** doc.
+* **Vấn đề**: `BackupHubView.startRestore` chỉ bật sheet **sau khi** `prepareRestore` xong, mà việc đó giải nén archive rồi đọc `manifest.json` (vài trăm ms tới vài giây) ⇒ suốt khoảng ấy người dùng không thấy gì ngoài cú chạm, nút như không phản hồi. Việc nặng **đã** ở nền từ trước (`BackupRestoreWorker.prepare` chạy trong `Task.detached`) — lỗi nằm ở **thời điểm trình bày**, không phải thiếu background.
+* **Chữa**: sheet được trình bày **ngay** từ cú chạm; trong lúc `coordinator.preparedRestore` còn `nil`, sheet vẽ `RestoreSkeletonView` — khung xương **sao đúng bố cục** `RestoreOptionsSheet` (một hàng "Tên file" hiện dữ liệu thật + 8 hàng xương, 6 hàng nhóm khôi phục, 2 hàng toggle) nên khi nội dung thật tới thì chỉ có chữ hiện ra, không khung nhảy. Tái dùng `SkeletonView` dùng chung ở `Views/Common/`.
+* **Ba nhánh mới phải xử lý vì sheet nay đóng được giữa chừng** (trước đây không thể): (1) người dùng đóng sheet trong lúc đang đọc file ⇒ `startRestore` gọi `cancelPreparedRestore()` sau khi `prepareRestore` trả về, nếu không thư mục tạm nằm lại tới lượt sau; (2) `prepareRestore` lỗi ⇒ đóng khung xương (toast lỗi đã do `MainTabView` lo); (3) chặn bằng `guard !coordinator.isBusy` ở đầu `startRestore` để tránh sheet nháy mở-rồi-đóng khi `prepareRestore` thoát sớm.
+* **Nút "Huỷ" vẫn bấm được** trong lúc đọc file — cố ý: khoá người dùng trong một màn chỉ có khung xương là đúng thứ lượt này đang sửa.
+* Dòng: `BackupHubView` **221 → 243** · file mới **99**.
+
+## 1.3.474 — rule mục lục mặc định vượt trần regex của chính nó; khôi phục cấu hình báo lỗi sai
+
+* Thêm **1** file Swift (`Services/Translation/Utils/TranslateUtils+TOCRuleValidation.swift`, **58** dòng) ⇒ validator đếm **652** file, bộ tài liệu vẫn **16** doc.
+* **Lỗi**: `defaultTOCRules.rule21` ("Quy tắc mở rộng nâng cao") dài **254** ký tự, vượt trần **250** của `validateTOCRulePattern` — app tự ship dữ liệu vi phạm chính bộ kiểm tra của nó. Kiểm lịch sử: trần ra đời `5d99d67` (2026-07-28), rule21 thêm `c3f83ba` (2026-07-30), vượt đúng **4 ký tự**; không ai phát hiện vì thêm rule mặc định thì không chạy validator.
+* **Hậu quả (người dùng báo)**: khôi phục cấu hình từ bản sao lưu báo `Quy tắc mục lục: Biểu thức chính quy không hợp lệ cho 'Quy tắc mở rộng nâng cao': Độ dài Regex không được vượt quá 250 ký tự.` — dù bản sao lưu chỉ chứa **đúng bộ rule mặc định của app**. Cùng lỗi đó làm hỏng đường nhập `toc_rules.json` và khiến rule21 hiện "không hợp lệ" ở màn Quy tắc mục lục.
+* **Chữa**: rule mặc định được **miễn** trần độ dài, so khớp theo **pattern y hệt** (không theo `id`) nên pattern do người dùng sửa vẫn chịu đúng trần. Ngoại lệ nằm ngay trong `validateTOCRulePattern` — **cửa kiểm tra duy nhất** của cả ba đường — nên không phải vá riêng từng chỗ.
+* **Không** rút ngắn pattern rule21: regex đó đang chạy thật để tách mục lục, sửa nó là đổi hành vi tách chương của mọi người dùng.
+* `TranslateUtils.swift` **916 → 911** (ratchet-down; file đang ở 916/917 nên không thể nhồi thêm logic) · `defaultTOCRules` đổi `private` → `internal` để file extension đọc được.
+
+## 1.3.472 — tiến độ tác vụ trong màn Thông báo; widget thông báo nổi; bỏ chặn TTS khi khôi phục
+
+* Thêm **8** file Swift (chi tiết ở [02_file_graph.md](02_file_graph.md)) ⇒ validator đếm **651** file (643 → 651), bộ tài liệu vẫn **16** doc.
+* **Màn Thông báo có khối tiến độ ghim ở đầu** (`NotificationInboxView+Activity.swift`): một hàng cho sao lưu/khôi phục (`BackupCoordinator.progress`, dùng chung một `@Published` cho cả hai việc) và một hàng cho **mỗi** lượt tải model (`ModelDownloadCenter.entries`). Cố ý ghim **ngoài** nhóm theo ngày và **không** thêm case vào enum `InboxItem` — `NotificationInboxView.swift` đang 393/400 dòng nên chỉ được thêm 2 dòng. Dòng kết quả giữ lại kèm nút "Bỏ qua" (`BackupProgress.isInboxVisible = phase != .idle`) và **chỉ sống trong phiên**.
+* **Toast kết quả chuyển lên `MainTabView`** — trước đây chỉ `BackupHubView` observe `lastMessage`/`lastError`, nên khôi phục một-chạm từ Google Drive **chưa bao giờ** toast, và rời màn giữa chừng là mất toast.
+* **Bỏ chặn TTS khi khôi phục** ở cả 4 lối vào (bản local, sheet tuỳ chọn, Drive một-chạm, `LocalBackupListView`) — đánh đổi đã biết và đã chấp nhận: khôi phục ghi vào đúng hàng SwiftData mà TTS đang giữ tiến độ.
+* **Tiến độ tải model không còn mất khi rời màn**: `ModelDownloadCenter` (singleton `@MainActor`) **sở hữu `Task`** và là nguồn sự thật duy nhất; ba màn tải (`TTSModelManagerView`, `VieNeuTTSTestView`, `VieNeuVoiceLibraryView`) chỉ còn là người vẽ.
+* **Widget thông báo nổi** (`Views/Common/NotificationFloatingWidget*`): nút chuông **36px** một cỡ cho cả hai trạng thái, kéo/snap mép/tự thu sau 3 giây, level cửa sổ `alert - 3` (dưới TTS `alert - 1` và trình duyệt `alert - 2`). Hiện ở mọi màn **trừ tab Kệ Sách**, và chỉ khi có thông báo chưa đọc **hoặc** đang có tác vụ chạy.
+
 ## 1.3.471 — mục "Số lượng chương" cho phạm vi quét tên riêng; component chọn số chương dùng chung
 
 * Thêm **1** file Swift (`Views/Common/ChapterLimitPickerRows.swift`, **80** dòng) ⇒ validator đếm **643** file, bộ tài liệu vẫn **16** doc.

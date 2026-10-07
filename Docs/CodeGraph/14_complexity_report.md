@@ -15,6 +15,33 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 1.3.476 — +4 file (lớn nhất 284 dòng); `ExtensionManager` 1018/1022; 5 violation nền
+
+* **4 file Swift mới, mỗi file 1 primary type top level**: `Views/Extensions/Config/ExtensionMetadataSection.swift` **284**/400 · `Services/Extensions/Manager/ExtensionMetadataEditor.swift` **135** · `Models/Extensions/ExtensionDisplayCatalog.swift` **49** · `Models/Extensions/UpdateExtensionMetadataCommand.swift` **40**. Validator: **653 → 657** file Swift.
+* **`ExtensionManager.swift` 1015 → 1018, trần ratchet 1022** — ba call site cover đổi **tại chỗ** (0 dòng thêm), chỉ dòng `detail` thêm 3 dòng chú thích. Đây là lý do helper mới phải nằm ở file riêng.
+* **Ratchet-down**: `FilterSheet` **97 → 79** (bỏ hai helper nhãn, dùng `ExtensionDisplayCatalog`).
+* **`check_architecture.py` 5 violation nền cũ, 0 vi phạm mới**: `ChapterPersistenceStore` 915/884 · `JSDom` 583/555 · `JSExecutor` 1561/1066 · `TTSManager` 3970/3470 · `ReaderViewModel` 925/830. Không entry allowlist nào được thêm, không baseline nào bị nới.
+* Biến động dòng còn lại: `ExtensionTransactionCoordinator` **289 → 327** · `BypassWebView` **378 → 388** · `ExtensionConfigView` **278 → 282** · `VisibleBrowserReopenViewModel` **61 → 129** · `VisibleBrowserReopenView` **80 → 121** · `BrowserFloatingWidgetContainerViewController` **199 → 251**.
+
+## 1.3.475 — +1 file 99 dòng; `BackupHubView` 221 → 243; 5 violation nền
+
+* **1 file Swift mới, 1 primary type top level**: `Views/Settings/Backup/RestoreSkeletonView.swift` — **99**/400 dòng. Validator: **652 → 653** file Swift.
+* Không file legacy nào vượt baseline: `BackupHubView` **221 → 243** (không có entry allowlist, còn xa trần 400).
+* **`check_architecture.py` 5 violation nền cũ, 0 vi phạm mới**: `ChapterPersistenceStore` 915/884 · `JSDom` 583/555 · `JSExecutor` 1561/1066 · `TTSManager` 3970/3470 · `ReaderViewModel` 925/830.
+
+## 1.3.474 — +1 file 58 dòng; `TranslateUtils` giảm 5 dòng (916/917 → 911); 5 violation nền
+
+* **1 file Swift mới, 0 type top level** (`extension TranslateUtils` không tính là type chính): `Services/Translation/Utils/TranslateUtils+TOCRuleValidation.swift` — **58**/400 dòng. Validator: **651 → 652** file Swift.
+* **Ratchet-down bắt buộc**: `TranslateUtils.swift` **916 → 911**. File đang ở **916/917** (chỉ dư **một** dòng) nên **không thể** nhồi thêm logic; thay vào đó `validateTOCRulePattern` được **chuyển sang file mới** — vừa có chỗ cho nhánh miễn trừ, vừa trả lại headroom cho file legacy. Không entry allowlist nào được thêm, không baseline nào bị nới.
+* **`check_architecture.py` 5 violation nền cũ, 0 vi phạm mới**: `ChapterPersistenceStore` 915/884 · `JSDom` 583/555 · `JSExecutor` 1561/1066 · `TTSManager` 3970/3470 · `ReaderViewModel` 925/830.
+
+## 1.3.472 — +8 file (lớn nhất 325 dòng); `TTSModelManagerView` giảm 9 dòng; 5 violation nền
+
+* **8 file Swift mới, mỗi file 1 primary type top level** — lớn nhất là `Views/Common/NotificationFloatingWidgetContainerViewController.swift` **325**/400 dòng (`enum Layout` lồng, không tính là type chính). Các file còn lại: 276 · 199 · 174 · 130 · 90 · 74 · 29. Validator: **643 → 651** file Swift.
+* **Ratchet-down giữ đúng**: `Views/Settings/TTS/TTSModelManagerView.swift` **478 → 469** (đang đúng trần baseline 478) — bỏ hai `@State` dictionary và toàn bộ khối `DispatchQueue.main.async` toast. `Views/Shelf/ShelfMain/NotificationInboxView.swift` **393 → 397**, vẫn **dưới** trần 400 (đây là lý do khối tiến độ nằm ở file extension riêng thay vì thêm case vào `InboxItem`).
+* **`check_architecture.py` 5 violation nền cũ, 0 vi phạm mới**: `ChapterPersistenceStore` 915/884 · `JSDom` 583/555 · `JSExecutor` 1561/1066 · `TTSManager` 3970/3470 · `ReaderViewModel` 925/830. Không entry allowlist nào được thêm, không baseline nào bị nới.
+* Biến động dòng còn lại: `MainTabView` **161 → 193** · `ShelfView` **859 → 875** (baseline 942, còn dư) · `FreeBookApp` **116 → 122** · `BackupHubView` **235 → 221** · `RestoreOptionsSheet` **134 → 121** · `GoogleDriveBackupListView` **211 → 208** · `LocalBackupListView` **181 → 180** · `BackupProgress` **83 → 113** · `BackupCoordinator` **361 → 371** · `VieNeuTTSTestView` **385 → 369** · `VieNeuVoiceLibraryView` **385 → 368** · `VieNeuTTSTestView+Sections` **270 → 271** · `VieNeuVoiceLibraryView+Sections` **208 → 209**.
+
 ## 1.3.471 — +1 file 85 dòng; `TaskOptionsSheet` giảm 65 dòng; 5 violation nền
 
 * **1 file Swift mới, 1 primary type top level**: `Views/Common/ChapterLimitPickerRows.swift` — **80**/400 dòng (`enum ChapterLimitPicker`; `extension ChapterLimitOption` không tính là type chính). Validator: **642 → 643** file Swift.

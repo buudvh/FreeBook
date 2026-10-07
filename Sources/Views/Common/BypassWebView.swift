@@ -337,6 +337,16 @@ struct BypassWebView: View {
 
     private static var regexpCache: [String: String] = [:]
 
+    /// Xoá cache regexp của **một** tiện ích. Gọi từ màn Cấu hình tiện ích sau khi người dùng sửa `regexp`.
+    ///
+    /// Bắt buộc phải có: cache này là `static` và khoá theo `localPath`, nên không có đường xoá thì regexp
+    /// mới chỉ có hiệu lực sau khi mở lại app — đúng thứ mà yêu cầu "sửa là áp dụng ngay" cấm. Chỉ xoá một
+    /// khoá, không xoá cả cache, để các tiện ích khác không phải đọc lại `plugin.json`.
+    static func invalidateRegexpCache(localPath: String) {
+        guard !localPath.isEmpty else { return }
+        regexpCache.removeValue(forKey: localPath)
+    }
+
     private func getExtensionRegexp(localPath: String) -> String? {
         guard !localPath.isEmpty else { return nil }
         if let cached = Self.regexpCache[localPath] {

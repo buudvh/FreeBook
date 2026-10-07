@@ -25,9 +25,10 @@ extension VieNeuTTSTestView {
                     .foregroundStyle(.secondary)
             }
 
-            if isDownloading {
-                ProgressView(value: downloadProgress) {
-                    Text(downloadMessage)
+            if let entry = downloads.entry(id: ModelDownloadCenter.Target.vieNeuModel),
+               entry.state.isRunning {
+                ProgressView(value: entry.fraction) {
+                    Text(entry.message)
                         .font(.caption)
                 }
             } else if !isModelReady {

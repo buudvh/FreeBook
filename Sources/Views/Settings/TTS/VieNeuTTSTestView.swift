@@ -21,9 +21,10 @@ struct VieNeuTTSTestView: View {
     @State var voices: [Voice] = []
     @State var isPreparing = false
     @State var isSynthesizing = false
-    @State var isDownloading = false
-    @State var downloadProgress: Double = 0
-    @State var downloadMessage = ""
+    /// Nguồn sự thật của tiến độ tải model VieNeu — **không** `@State` cục bộ: `Task` tải không bị huỷ khi
+    /// rời màn, nên giữ tiến độ ở đây là mất thanh tiến độ dù việc tải vẫn chạy (lỗi người dùng báo
+    /// 2026-10-07).
+    @ObservedObject var downloads = ModelDownloadCenter.shared
     @State var statusMessage = ""
     @State var isError = false
     @State var lastReport = ""
@@ -118,6 +119,12 @@ struct VieNeuTTSTestView: View {
             japaneseDictDownloaded = VieNeuJapaneseDictionary.existsOnDisk()
         }
         .onDisappear(perform: stopPlayback)
+        // Danh sách giọng chỉ đọc được khi model đã đủ 8 file ⇒ nạp lại **đúng lúc lượt tải kết thúc**,
+        // không theo từng nhịp tiến độ (mỗi nhịp đọc lại catalog từ đĩa là việc vô ích).
+        .onChange(of: downloads.entry(id: ModelDownloadCenter.Target.vieNeuModel)?.state) { _, state in
+            guard state == .finished else { return }
+            loadVoices()
+        }
     }
 
     // MARK: - Các khối
@@ -144,33 +151,10 @@ struct VieNeuTTSTestView: View {
         }
     }
 
+    /// Bàn giao cho `ModelDownloadCenter`: center giữ `Task`, tự chặn lượt trùng, tự phát toast toàn cục.
+    /// Thanh tiến độ ở `modelSection` đọc thẳng từ center nên rời màn rồi vào lại vẫn còn.
     func download() {
-        guard let service else { return }
-        isDownloading = true
-        isError = false
-        statusMessage = ""
-        let client = VieNeuModelClient(store: service.modelStore)
-        Task {
-            do {
-                _ = try await client.prefetch { message, fraction in
-                    Task { @MainActor in
-                        downloadMessage = message
-                        downloadProgress = fraction
-                    }
-                }
-                await MainActor.run {
-                    isDownloading = false
-                    statusMessage = "Tải xong model VieNeu."
-                    loadVoices()
-                }
-            } catch {
-                await MainActor.run {
-                    isDownloading = false
-                    isError = true
-                    statusMessage = "Tải thất bại: \(error.localizedDescription)"
-                }
-            }
-        }
+        ModelDownloadCenter.shared.startVieNeuModel()
     }
 
     func deleteModel() {

@@ -3,12 +3,14 @@ import UniformTypeIdentifiers
 
 struct TTSModelManagerView: View {
     @ObservedObject var ttsManager = TTSManager.shared
+    /// Nguồn sự thật của tiến độ tải. **Không** giữ `@State` tiến độ ở đây nữa: `Task` tải không bị huỷ
+    /// khi rời màn, nên trạng thái cục bộ mất trong khi việc tải vẫn chạy — đúng lỗi người dùng báo
+    /// 2026-10-07 ("tải chưa xong thoát ra vào lại thì không thấy thanh tiến độ nữa").
+    @ObservedObject private var downloads = ModelDownloadCenter.shared
     @State private var availableVoices: [Voice] = []
     @State private var isLoadingVoices = false
     @State private var isShowingFileImporter = false
-    @State private var downloadingStatus: [String: Double] = [:]
-    @State private var downloadingMessages: [String: String] = [:]
-    
+
     @State private var isImportingModel = false
     @State private var importModelMessage = "Đang nhập model..."
     @State private var modelRefreshTrigger = 0
@@ -154,6 +156,14 @@ struct TTSModelManagerView: View {
             .task {
                 await loadVoices()
             }
+            // Tải xong (hoặc lỗi) phải đọc lại đĩa: hàng giọng lấy dung lượng/trạng thái qua
+            // `modelRefreshTrigger`, không bump thì vẫn hiện "Chưa tải về" dù file đã nằm trên máy.
+            //
+            // Theo dõi `isBusy` (Bool) chứ **không** theo dõi `entries`: `entries` đổi ở **mỗi nhịp** tiến
+            // độ, bump theo nó là đọc lại dung lượng 20 giọng từ đĩa vài chục lần mỗi lượt tải.
+            .onChange(of: downloads.isBusy) { _, _ in
+                modelRefreshTrigger += 1
+            }
             
             if isImportingModel {
                 Color.black.opacity(0.3)
@@ -187,10 +197,10 @@ struct TTSModelManagerView: View {
                         .foregroundColor(.secondary)
                 }
                 
-                if let progress = downloadingStatus[voice.name] {
+                if let entry = downloadEntry(for: voice) {
                     VStack(alignment: .leading, spacing: 4) {
-                        ProgressView(value: progress)
-                        Text(downloadingMessages[voice.name] ?? "Đang tải...")
+                        ProgressView(value: entry.fraction)
+                        Text(entry.message.isEmpty ? "Đang tải..." : entry.message)
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     }
@@ -200,24 +210,28 @@ struct TTSModelManagerView: View {
             
             Spacer()
             
-            let isDownloading = downloadingStatus[voice.name] != nil
-            if isDownloading {
+            if downloads.isRunning(id: ModelDownloadCenter.Target.nghiVoice(voice.id)) {
                 ProgressView()
             } else {
                 let isDownloaded = isModelDownloaded(voice)
                 HStack(spacing: 8) {
                     if isDownloaded {
                         if !isCustom {
-                            pillButton("Tải lại", color: .white) { Task { await downloadSingleModel(voice: voice) } }
+                            pillButton("Tải lại", color: .white) { downloadSingleModel(voice: voice) }
                         }
                         pillButton("Xóa", color: .red) { deleteSingleModel(voice: voice) }
                     } else {
-                        pillButton("Tải", color: .white, isProminent: true) { Task { await downloadSingleModel(voice: voice) } }
+                        pillButton("Tải", color: .white, isProminent: true) { downloadSingleModel(voice: voice) }
                     }
                 }
             }
         }
         .padding(.vertical, 4)
+    }
+
+    /// Dòng tiến độ của giọng này, đọc từ `ModelDownloadCenter`. `nil` = không có lượt nào cho giọng đó.
+    private func downloadEntry(for voice: Voice) -> ModelDownloadCenter.Entry? {
+        downloads.entry(id: ModelDownloadCenter.Target.nghiVoice(voice.id))
     }
 
     private func pillButton(_ title: String, color: Color, isProminent: Bool = false, action: @escaping () -> Void) -> some View {
@@ -240,31 +254,10 @@ struct TTSModelManagerView: View {
         availableVoices = (try? await ttsManager.nghiTTSClient?.getAllVoices(forceRefresh: false)) ?? NghiTTSClient.fallbackVietnameseVoices
     }
     
-    private func downloadSingleModel(voice: Voice) async {
-        downloadingStatus[voice.name] = 0.0
-        downloadingMessages[voice.name] = "Bắt đầu tải..."
-        
-        do {
-            _ = try await ttsManager.nghiTTSClient?.prefetchModels(voices: [voice.name]) { msg, progress in
-                DispatchQueue.main.async {
-                    self.downloadingStatus[voice.name] = progress
-                    self.downloadingMessages[voice.name] = msg
-                }
-            }
-            DispatchQueue.main.async {
-                self.downloadingStatus.removeValue(forKey: voice.name)
-                self.downloadingMessages.removeValue(forKey: voice.name)
-                self.modelRefreshTrigger += 1
-                ToastManager.shared.show(message: "Tải xong model \(voice.name)", type: .success)
-            }
-            await loadVoices()
-        } catch {
-            DispatchQueue.main.async {
-                self.downloadingStatus.removeValue(forKey: voice.name)
-                self.downloadingMessages.removeValue(forKey: voice.name)
-                ToastManager.shared.show(message: "Lỗi tải model \(voice.name): \(error.localizedDescription)", type: .error)
-            }
-        }
+    /// Bàn giao cho `ModelDownloadCenter`: center giữ `Task`, tự chặn lượt trùng cho cùng một giọng, và tự
+    /// phát kết quả qua `lastNotice` để `MainTabView` hiện toast. View không còn giữ trạng thái tải nào.
+    private func downloadSingleModel(voice: Voice) {
+        ModelDownloadCenter.shared.startNghiVoiceDownloads([voice])
     }
     
     private func deleteSingleModel(voice: Voice) {
@@ -284,12 +277,10 @@ struct TTSModelManagerView: View {
     }
     
     private func downloadAll(in list: [Voice]) {
-        let toDownload = list.filter { !isModelDownloaded($0) && downloadingStatus[$0.name] == nil }
-        for voice in toDownload {
-            Task {
-                await downloadSingleModel(voice: voice)
-            }
+        let toDownload = list.filter {
+            !isModelDownloaded($0) && !downloads.isRunning(id: ModelDownloadCenter.Target.nghiVoice($0.id))
         }
+        ModelDownloadCenter.shared.startNghiVoiceDownloads(toDownload)
     }
     
     private func deleteAll(in list: [Voice]) {

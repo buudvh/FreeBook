@@ -15,6 +15,50 @@ Tài liệu này mô tả mối quan hệ sở hữu đối tượng (Object Own
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ai sở hữu `plugin.json`, cache regexp, và cửa sổ widget nổi (1.3.476)
+
+```text
+ExtensionMetadataEditor (enum tĩnh, Services/Extensions/Manager/)
+  └─ SỞ HỮU mọi thao tác đọc/ghi khối `metadata` của plugin.json
+     (merge đúng khoá đổi, giữ `config` + khoá script)
+
+ExtensionTransactionCoordinator (singleton @MainActor)
+  └─ SỞ HỮU mọi thay đổi hàng Extension trong SwiftData
+     (View không gán thuộc tính @Model)
+
+BypassWebView (View)
+  └─ SỞ HỮU regexpCache: private static [localPath: String]
+     + invalidateRegexpCache(localPath:)  ← cửa xoá DUY NHẤT, thêm ở 1.3.476
+
+NotificationFloatingWidgetWindowManager (alert - 3)   ← 1.3.472
+BrowserFloatingWidgetWindowManager  (alert - 2)        ← giữ nguyên, chỉ đổi hình khối ở 1.3.476
+TTSFloatingWidgetWindowManager      (alert - 1)        ← không đụng
+```
+
+`FreeBookApp.AppLaunchRootView` gán `modelContainer` + gọi `refreshState()` cho **cả ba** widget nổi (thêm nhánh widget thông báo ở 1.3.475) — đây là chỗ duy nhất quyết định vòng đời cửa sổ nổi.
+
+## Ai sở hữu `Task` tải model, cửa sổ widget thông báo, và dòng tiến độ (1.3.472)
+
+```text
+ModelDownloadCenter (singleton @MainActor)
+  ├─ tasks[id]: Task<Void, Never>      ← SỞ HỮU lượt tải; xoá khỏi dictionary khi xong
+  ├─ entries: [Entry]                  ← nguồn sự thật cho mọi màn vẽ tiến độ
+  └─ lastNotice: Notice?               ← bàn giao kết quả cho MainTabView (tầng View hiện toast)
+
+BackupCoordinator (singleton @MainActor)
+  ├─ progress: BackupProgress          ← dùng CHUNG cho cả sao lưu và khôi phục
+  ├─ lastMessage / lastError           ← MainTabView tiêu thụ rồi xoá
+  └─ dismissProgress()                 ← cửa công khai duy nhất cho View dọn dòng kết quả
+
+NotificationFloatingWidgetWindowManager (singleton @MainActor)
+  ├─ window / containerViewController  ← SỞ HỮU cửa sổ nút nổi (level alert - 3)
+  ├─ modelContainer                    ← cấp cho sheet màn Thông báo (cửa sổ phụ không có environment)
+  └─ refreshState()                    ← cửa DUY NHẤT bật/tắt cửa sổ
+
+NotificationFloatingWidgetPresentationReader (do WindowManager sở hữu)
+  └─ snapshot: {unreadCount, hasRunningTask} ← gộp 4 nguồn, chỉ phát khi giá trị đổi
+```
+
 ## Ai sở hữu origin extension và lệnh Run từ editor (1.3.351)
 
 ```text
