@@ -561,7 +561,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     internal var savedChunkLocationBeforeSettings: Int = 0
     internal var savedChunkIndexBeforeSettings: Int = -1
     internal var wasPlayingBeforeInterruption = false
-    internal var lastPausedTime: Date? = nil
     internal var cancellables = Set<AnyCancellable>()
     internal var prepareSpeakingTask: Task<Void, Never>? = nil
     internal var startSpeakingTask: Task<Void, Never>? = nil
@@ -708,6 +707,10 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
     internal var nghiEnergy = NghiEnergyAccumulator()
     internal var audioPlayer: AVAudioPlayer?
+    /// Mốc `systemUptime` lúc `AVAudioPlayer` của engine **remote** phát xong đoạn trước. Dùng để đo
+    /// khoảng lặng giữa hai đoạn (`[TTSPerf] RemoteHandoff`) — cơ sở để quyết định có dựng sẵn player
+    /// cho đoạn kế như local hay không. Xem `Docs/Plans/2026-10-08-plan-tts-don-dep-va-kep-toc-do.md` §6.
+    internal var lastRemoteAudioFinishUptime: Double = 0
     internal let nghiAudioPlayerQueue = NghiAudioPlayerQueue()
     internal let callObserver = TTSCallObserver()
     internal var isAudioSessionConfigured = false
@@ -777,7 +780,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
     private func scheduleNghiWarmUp() {
         nghiWarmUpTask?.cancel()
-        guard tool == "nghitts" || tool == "vieneu" else {
+        guard TTSManager.isLocalEngine(tool) else {
             nghiWarmUpTask = nil
             return
         }
@@ -803,7 +806,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
 
     private func playbackParagraphs(from baseParagraphs: [TTSParagraph]) -> [TTSParagraph] {
-        guard tool == "nghitts" || tool == "vieneu" else { return baseParagraphs }
+        guard TTSManager.isLocalEngine(tool) else { return baseParagraphs }
         return NghiUtteranceSegmenter.expand(baseParagraphs, maximumLength: chunkLength)
     }
 
@@ -902,12 +905,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
-    // AVAudioEngine cho NghiTTS
-    internal var audioEngine: AVAudioEngine?
-    private var playerNode: AVAudioPlayerNode?
-    private var timePitchNode: AVAudioUnitTimePitch?
-    private var eqNode: AVAudioUnitEQ?
-
     private override init() {
         // Nạp cấu hình từ UserDefaults
         let toolVal = UserDefaults.standard.string(forKey: "ttsTool") ?? "system"
@@ -967,7 +964,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         loadParamsForCurrentTool()
 
         setupEngines()
-        setupAudioEngine()
         setupRemoteCommandCenter()
         setupInterruptionObserver()
 
@@ -1101,17 +1097,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
-    public let audioEngineController = TTSAudioEngineController()
     public let audioSessionController = TTSAudioSessionController()
     public let nowPlayingController = TTSNowPlayingController()
-
-    internal func setupAudioEngine() {
-        audioEngineController.configureEngine(speed: speed, pitch: pitch)
-        self.audioEngine = audioEngineController.audioEngine
-        self.playerNode = audioEngineController.playerNode
-        self.timePitchNode = audioEngineController.pitchNode
-        self.eqNode = audioEngineController.eqNode
-    }
 
     internal func readRemoveDuplicatedTitle(for bookId: String) -> Bool {
         let key = "removeDuplicatedTitle_\(bookId)"
@@ -1130,7 +1117,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         if isPlaying {
             if tool == "system" {
                 // AVSpeechSynthesizer
-            } else if tool == "nghitts" || tool == "vieneu" {
+            } else if TTSManager.isLocalEngine(tool) {
                 // Tốc độ là playback-only (audio local tổng hợp x1.0) → chỉ updateRate, không đụng prefetch.
                 nghiAudioPlayerQueue.updateRate(speed)
             } else if let player = audioPlayer {
@@ -1446,7 +1433,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         finishTTSAutoAdvancePerf(outcome: "cancelled", endpoint: "pause")
         checkpointProgressAndRelease()
         self.isPlaying = false
-        self.lastPausedTime = Date()
         invalidateAudibleHandoffGeneration()
         publishLifecycleState(isPlaying: false)
         setSystemNowPlayingPlaybackState(.paused)
@@ -1546,21 +1532,28 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 speakCurrent()
             }
         } else {
-            let timeSincePause = lastPausedTime.map { Date().timeIntervalSince($0) } ?? 0.0
-            if timeSincePause > 5.0 || currentPlaybackId == nil {
+            // Chỉ re-tổng hợp khi **không còn** player: `currentPlaybackId == nil` nghĩa là
+            // `stopCurrentHardwarePlayer()` đã giải phóng nó (stop, route change, media reset).
+            //
+            // **Đã bỏ luật "pause > 5 giây thì đọc lại từ đầu đoạn".** Luật đó ra đời cho
+            // `AVAudioPlayerNode` — lý do ghi trong `CHANGELOG.archive.md` là *"OS giải phóng bộ đệm
+            // của `AVAudioPlayerNode` trong nền"*, tức một cái bẫy **chỉ có ở player node**. Đường
+            // phát nay là `AVAudioPlayer`, giữ dữ liệu trong object nên `play()` tiếp đúng vị trí;
+            // giữ luật cũ chỉ khiến người dùng phải nghe lại tới ~17 giây của đoạn hiện tại.
+            if currentPlaybackId == nil {
                 speakCurrent()
-            } else {
-                if let player = audioPlayer {
-                    if !player.isPlaying {
-                        if player.play() {
-                            publishLifecycleState(isPlaying: true)
-                        } else {
-                            speakCurrent()
-                        }
+            } else if let player = audioPlayer {
+                if !player.isPlaying {
+                    let positionBeforePlay = player.currentTime
+                    if player.play() {
+                        publishLifecycleState(isPlaying: true)
+                        verifyRemoteResumeProgress(player: player, positionBeforePlay: positionBeforePlay)
+                    } else {
+                        speakCurrent()
                     }
-                } else {
-                    speakCurrent()
                 }
+            } else {
+                speakCurrent()
             }
         }
         setSystemNowPlayingPlaybackState(.playing)
@@ -1613,8 +1606,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
         siriService.stop()
         stopCurrentHardwarePlayer()
-        siriService.stop()
-        clearPrefetchCache()
 
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         MPNowPlayingInfoCenter.default().playbackState = .stopped
@@ -2450,7 +2441,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         // Điều hướng luồng phát âm thanh sang Engine tương ứng:
         if tool == "system" {
             playSystemTTS(textToSpeak) // Phát bằng Siri mặc định của iOS (không tốn dung lượng bộ nhớ)
-        } else if tool == "nghitts" || tool == "vieneu" {
+        } else if TTSManager.isLocalEngine(tool) {
             playNghiTTS(textToSpeak) // Phát bằng Piper TTS offline (giọng đọc chất lượng cao tự nhiên hơn)
         } else if tool == "google" {
             playGoogleTTS(textToSpeak) // Phát bằng Google Cloud TTS ReadAloud REST API
@@ -3426,6 +3417,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     guard isContextValid(context) else { return }
                 }
                 self.isPlaying = true
+                self.logRemoteHandoffGap(playStartUptime: setupEnd, paragraphIndex: context?.paragraphIndex ?? currentParagraphIndex, engine: tool)
                 commitAudibleParagraphState(index: context?.paragraphIndex ?? currentParagraphIndex, playbackId: playbackId, context: context)
                 if currentParagraphIndex == 0 && activeTTSAutoAdvancePerf?.chapterIndex == playingChapterIndex {
                     let playerSetupMs = (setupEnd - setupStart) * 1000
@@ -3869,18 +3861,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             }
             .store(in: &cancellables)
 
-        // 4. Engine Configuration Change (hardware sample rate/channel thay đổi)
-        if let engine = audioEngine {
-            NotificationCenter.default.publisher(for: .AVAudioEngineConfigurationChange, object: engine)
-                .receive(on: RunLoop.main)
-                .sink { [weak self] _ in
-                    guard let self = self else { return }
-                    self.handleEngineConfigChange()
-                }
-                .store(in: &cancellables)
-        }
-
-        // 5. Thermal State Change (thiết bị nóng/mát)
+        // 4. Thermal State Change (thiết bị nóng/mát)
         NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
@@ -3951,6 +3932,11 @@ extension TTSManager {
     public nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         Task { @MainActor in
             guard self.audioPlayer === player else { return }
+            // Mốc đo khoảng lặng giữa hai đoạn của engine remote — tương ứng mốc `NghiHandoff` đã có
+            // cho engine local. Chỉ ghi khi bật log để không tốn gì trong lượt chạy thường.
+            if AppLogger.shared.isLoggingEnabled {
+                self.lastRemoteAudioFinishUptime = ProcessInfo.processInfo.systemUptime
+            }
             self.stopCurrentHardwarePlayer()
             if flag {
                 self.nextParagraph()

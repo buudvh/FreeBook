@@ -39,16 +39,6 @@ protocol LocalTTSEngine: AnyObject {
         requestID: UUID,
         synthesisKey: String?
     ) async throws -> (data: Data, pcmDuration: Double, queueWaitMs: Double, synthesisMs: Double)
-
-    func synthesizeStream(
-        text: String,
-        voice: String,
-        speed: Double,
-        priority: SynthesisPriority,
-        requestID: UUID,
-        synthesisKey: String?,
-        onChunkPayload: @escaping @Sendable (TTSPCMChunkPayload) async throws -> Void
-    ) async throws -> Data
 }
 
 extension LocalTTSEngine {

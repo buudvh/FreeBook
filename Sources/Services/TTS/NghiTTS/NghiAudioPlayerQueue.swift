@@ -244,8 +244,11 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
         return currentItem
     }
 
+    /// Kẹp tốc độ phát về dải hợp lệ — dải lấy từ `TTSSpeedPolicy` để UI và engine **không thể**
+    /// lệch nhau. Trước đây hàm này tự chặn ở 2,0× trong khi UI cho kéo tới 5,0×, nên phần
+    /// 2,0–5,0× là khoảng chết: người dùng kéo nhưng tai không nghe thấy gì khác, không cảnh báo.
     private func clampedRate(_ rate: Double) -> Float {
-        Float(min(2.0, max(0.5, rate)))
+        Float(TTSSpeedPolicy.clampPlayback(rate))
     }
 
     nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {

@@ -42,8 +42,10 @@ internal actor PiperSynthesisCoordinator {
     private struct PendingRequest {
         let synthesisKey: String?
         /// `false` = cấm gộp waiter vào request này (và cấm request này gộp vào request khác).
-        /// Dùng cho đường stream: chỉ `onChunkPayload` của waiter đầu tiên được gọi, waiter thứ hai
-        /// sẽ mất sạch chunk PCM. Payload của đường stream cũng có `pcmDuration = 0`.
+        /// **Hiện không còn caller nào truyền `false`**: cờ này ra đời cho đường `synthesizeStream`
+        /// (closure `onChunkPayload` chỉ thuộc waiter đầu tiên), mà đường đó đã bị xoá vì không có
+        /// caller. Giữ lại field để lần sau thêm một đường "không gộp được" thì có sẵn —
+        /// `enqueuePayload` vẫn nhận tham số này với mặc định `true`.
         let allowsCoalescing: Bool
         var priority: SynthesisPriority
         let sequenceNumber: UInt64
@@ -72,30 +74,11 @@ internal actor PiperSynthesisCoordinator {
     private var isProcessing = false
     private var nextSequenceNumber: UInt64 = 0
 
-    /// Xếp hàng một tác vụ chỉ trả `Data`.
+    /// Xếp hàng một lượt tổng hợp và trả `PiperSynthesisPayload` (có `pcmDuration` thật).
     ///
-    /// `allowsCoalescing` không có giá trị mặc định: đường này bọc kết quả thành
-    /// `PiperSynthesisPayload(pcmDuration: 0)` nên chia sẻ nó cho một waiter đang cần thời lượng
-    /// thật là sai. Caller phải tự khẳng định request của mình có chia sẻ được hay không.
-    internal func enqueue(
-        priority: SynthesisPriority,
-        requestID: UUID,
-        synthesisKey: String? = nil,
-        allowsCoalescing: Bool,
-        work: @escaping @Sendable () async throws -> Data
-    ) async throws -> Data {
-        let payload = try await enqueuePayload(
-            priority: priority,
-            requestID: requestID,
-            synthesisKey: synthesisKey,
-            allowsCoalescing: allowsCoalescing
-        ) {
-            let data = try await work()
-            return PiperSynthesisPayload(data: data, pcmDuration: 0.0)
-        }
-        return payload.data
-    }
-
+    /// Đây là **cửa duy nhất** vào hàng đợi kể từ khi đường `synthesizeStream` bị xoá: bản `enqueue`
+    /// chỉ trả `Data` (bọc `pcmDuration: 0`) đã bị gỡ vì **không còn caller nào** — nó tồn tại chỉ để
+    /// phục vụ `allowsCoalescing: false` của đường stream.
     internal func enqueuePayload(
         priority: SynthesisPriority,
         requestID: UUID,

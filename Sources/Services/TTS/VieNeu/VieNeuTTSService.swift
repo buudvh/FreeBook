@@ -14,11 +14,12 @@ import Foundation
 ///    tham số**: `sampleRate: 24_000` thay vì mặc định 22.050 của Piper. Quên chỗ này thì mọi khoảng
 ///    nghỉ ngắn hơn ~8 % và lệch dần suốt chương.
 ///
-/// **Hạn chế đã biết:** `synthesizeStream` phát **một** chunk cho cả đoạn văn, không phải từng câu.
-/// Model Nano không có streaming cấp frame (chính model card ghi vậy) và engine hiện tổng hợp trọn
-/// đoạn trong một lượt. Đường stream vì thế vẫn đúng chức năng nhưng mất lợi ích "nghe được trước khi
-/// tổng hợp xong" — muốn có thì phải đẩy vòng lặp chunk trong `VieNeuTTSEngine.synthesize` ra thành
-/// callback, là việc của lượt sau.
+/// **Không còn đường streaming.** `synthesizeStream` (và `buildSilenceStreamingPayload` bên Piper) đã
+/// bị xoá vì **không có caller nào** trong `Sources/` — đường phát thật của Reader
+/// (`TTSManager.playNghiTTS`) dùng `synthesizeWithDuration`. Hệ quả: mọi lượt tổng hợp trả về **trọn
+/// đoạn**; model Nano cũng không có streaming cấp frame (model card ghi vậy). Muốn có "nghe được trước
+/// khi tổng hợp xong" thì phải làm **hai** việc: đẩy vòng lặp chunk trong `VieNeuTTSEngine.synthesize`
+/// ra thành callback, **và** nối `playNghiTTS` sang đường stream — chỉ làm một việc là vô ích.
 final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
     /// Singleton **tạo lười**: `VieNeuModelStore()` có thể throw (không dựng được thư mục model) nên
     /// `nil` là trạng thái hợp lệ, và engine chỉ được dựng khi có người thật sự dùng — nạp 4 session ONNX
@@ -247,43 +248,6 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         )
     }
 
-    /// Một chunk cho cả đoạn — xem "Hạn chế đã biết" ở doc của type. `allowsCoalescing: false` đúng
-    /// như `PiperTTSService.synthesizeStream` (`:125`): closure `onChunkPayload` chỉ thuộc waiter đầu
-    /// tiên, gộp waiter thứ hai vào là mất sạch chunk PCM.
-    func synthesizeStream(
-        text: String,
-        voice: String,
-        speed: Double,
-        priority: SynthesisPriority = .demand,
-        requestID: UUID = UUID(),
-        synthesisKey: String? = nil,
-        onChunkPayload: @escaping @Sendable (TTSPCMChunkPayload) async throws -> Void
-    ) async throws -> Data {
-        // KHÔNG có tham số `boundaryKind` ở đây: protocol `LocalTTSEngine` (`:43-51`) đã bỏ nó khỏi
-        // `synthesizeStream`. Đường stream là "một chunk cho cả đoạn" nên `.paragraphEnd` đúng nghĩa.
-        let effectiveKey = synthesisKey ?? Self.makeDefaultSynthesisKey(
-            text: text,
-            voice: voice,
-            speed: speed,
-            boundaryKind: .paragraphEnd
-        )
-        return try await PiperSynthesisCoordinator.shared.enqueue(
-            priority: priority,
-            requestID: requestID,
-            synthesisKey: effectiveKey,
-            allowsCoalescing: false
-        ) { [weak self] in
-            guard let self else { throw CancellationError() }
-            return try await self.executeInternalSynthesisStream(
-                text: text,
-                voice: voice,
-                speed: speed,
-                boundaryKind: .paragraphEnd,
-                onChunkPayload: onChunkPayload
-            )
-        }
-    }
-
     // MARK: - Nội bộ
 
     private func executeInternalSynthesis(
@@ -329,45 +293,6 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
             pcmDuration: output.pcmDuration,
             synthesisMs: output.synthesisMs
         )
-    }
-
-    private func executeInternalSynthesisStream(
-        text: String,
-        voice: String,
-        speed: Double,
-        boundaryKind: TTSBoundaryKind,
-        onChunkPayload: @escaping @Sendable (TTSPCMChunkPayload) async throws -> Void
-    ) async throws -> Data {
-        if PiperTTSService.isUnspeakable(text) {
-            let silence = PiperTTSService.buildSilenceStreamingPayload(
-                text: text,
-                speed: speed,
-                sampleRate: engine.sampleRate
-            )
-            try await onChunkPayload(silence.chunkPayload)
-            return silence.wavData
-        }
-        // Mở rộng số/ngày/tháng (xem chú thích ở `executeInternalSynthesis`) — áp dụng luôn cho đường
-        // stream để thử giọng và nạp trước cũng đọc đúng số. Cộng thêm tiền xử lý riêng của VieNeu —
-        // xem chú thích ở `executeInternalSynthesis`.
-        let normalizedText = await VieNeuJapanesePreprocessor.applyUsingStoredFlags(
-            text: TextPreprocessor.normalizeVietnameseText(text)
-        )
-        let output = try engine.synthesize(
-            text: normalizedText,
-            voiceName: voice,
-            speed: speed,
-            boundaryKind: boundaryKind
-        )
-        syncQueue.sync { _currentVoice = voice }
-        try await onChunkPayload(TTSPCMChunkPayload(
-            samples: output.samples,
-            sampleRate: engine.sampleRate,
-            chunkIndex: 0,
-            totalChunks: 1,
-            isLast: true
-        ))
-        return output.data
     }
 
     private func silencePayload(text: String, speed: Double) -> PiperSynthesisPayload {

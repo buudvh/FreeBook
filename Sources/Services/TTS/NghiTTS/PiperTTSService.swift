@@ -80,8 +80,7 @@ final class PiperTTSService: LocalTTSEngine, @unchecked Sendable {
             text: text,
             voice: voice,
             speed: speed,
-            boundaryKind: boundaryKind,
-            streaming: false
+            boundaryKind: boundaryKind
         )
         let payload = try await PiperSynthesisCoordinator.shared.enqueuePayload(
             priority: priority,
@@ -99,53 +98,20 @@ final class PiperTTSService: LocalTTSEngine, @unchecked Sendable {
         )
     }
 
-    func synthesizeStream(
-        text: String,
-        voice: String,
-        speed: Double,
-        priority: SynthesisPriority = .demand,
-        requestID: UUID = UUID(),
-        synthesisKey: String? = nil,
-        onChunkPayload: @escaping @Sendable (TTSPCMChunkPayload) async throws -> Void
-    ) async throws -> Data {
-        let effectiveKey = synthesisKey ?? makeDefaultSynthesisKey(
-            text: text,
-            voice: voice,
-            speed: speed,
-            boundaryKind: .paragraphEnd,
-            streaming: true
-        )
-        // Vẫn đặt key để `promote(synthesisKey:)` nâng được mức ưu tiên, nhưng **cấm gộp**:
-        // closure `onChunkPayload` nằm trong `work` của waiter đầu tiên, waiter thứ hai gộp vào sẽ
-        // không bao giờ được gọi lại ⇒ mất sạch chunk PCM và mất luôn double-buffering.
-        return try await PiperSynthesisCoordinator.shared.enqueue(
-            priority: priority,
-            requestID: requestID,
-            synthesisKey: effectiveKey,
-            allowsCoalescing: false
-        ) { [weak self] in
-            guard let self = self else { throw CancellationError() }
-            return try await self.executeInternalSynthesisStream(
-                text: text,
-                voice: voice,
-                speed: speed,
-                onChunkPayload: onChunkPayload
-            )
-        }
-    }
-
     /// Sinh `synthesisKey` mặc định khi caller không truyền.
     ///
     /// Gộp đúng bốn thứ quyết định kết quả tổng hợp: file model (suy ra từ `voiceId`), tốc độ,
-    /// loại ranh giới và nội dung text. `engine` mang thêm nhãn `stream` để key của đường stream
-    /// không bao giờ trùng key của đường thường. Tiền tố `auto-` để phân biệt với key tường minh
-    /// do `TTSSynthesisIdentity.computeKey` sinh ở tầng trên (dạng 64 ký tự hex).
+    /// loại ranh giới và nội dung text. Tiền tố `auto-` để phân biệt với key tường minh do
+    /// `TTSSynthesisIdentity.computeKey` sinh ở tầng trên (dạng 64 ký tự hex).
+    ///
+    /// **Không còn nhánh `streaming`**: đường `synthesizeStream` đã bị xoá vì **không có caller
+    /// nào** (grep toàn `Sources/`), nên nhãn `nghitts-stream` không còn ai dùng. Giá trị `engine`
+    /// luôn là `nghitts` — đúng như hành vi cũ của đường không-stream ⇒ **khoá cache không đổi**.
     private func makeDefaultSynthesisKey(
         text: String,
         voice: String,
         speed: Double,
-        boundaryKind: TTSBoundaryKind,
-        streaming: Bool
+        boundaryKind: TTSBoundaryKind
     ) -> String {
         let voiceId = voice.toASCIIID
         let modelPath = modelStore.modelURL(for: voiceId, extension: "onnx").path
@@ -154,7 +120,7 @@ final class PiperTTSService: LocalTTSEngine, @unchecked Sendable {
             chapterIndex: -1,
             paragraphIndex: -1,
             finalText: text,
-            engine: streaming ? "nghitts-stream" : "nghitts",
+            engine: "nghitts",
             voice: "\(voiceId)|speed=\(speed)|boundary=\(boundaryKind.rawValue)"
         )
         return "auto-\(digest)"
@@ -231,11 +197,6 @@ final class PiperTTSService: LocalTTSEngine, @unchecked Sendable {
         let pcmDuration: Double
     }
 
-    struct SilenceStreamingPayload: Sendable {
-        let chunkPayload: TTSPCMChunkPayload
-        let wavData: Data
-    }
-
     /// Bộ nhớ đệm cho payload im lặng.
     ///
     /// Đoạn im lặng chỉ phụ thuộc `(sampleRate, số sample)` — mọi sample đều là 0 — nên `[Float]` và
@@ -287,70 +248,8 @@ final class PiperTTSService: LocalTTSEngine, @unchecked Sendable {
         return SilenceSpec(samples: silenceSamples, sampleRate: sampleRate, pcmDuration: pcmDur)
     }
 
-    static func buildSilenceStreamingPayload(
-        text: String,
-        speed: Double,
-        sampleRate: Int = 22050,
-        phrasePause: Double? = nil,
-        sentencePause: Double? = nil
-    ) -> SilenceStreamingPayload {
-        let spec = makeSilenceSpec(text: text, speed: speed, sampleRate: sampleRate, phrasePause: phrasePause, sentencePause: sentencePause)
-        let payload = TTSPCMChunkPayload(
-            samples: spec.samples,
-            sampleRate: spec.sampleRate,
-            chunkIndex: 0,
-            totalChunks: 1,
-            isLast: true
-        )
-        let wavData = cachedSilence(sampleRate: spec.sampleRate, count: spec.samples.count).wav
-        return SilenceStreamingPayload(chunkPayload: payload, wavData: wavData)
-    }
-
     static func isUnspeakable(_ text: String) -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty || trimmed.rangeOfCharacter(from: .alphanumerics) == nil
-    }
-
-    private func executeInternalSynthesisStream(
-        text: String,
-        voice: String,
-        speed: Double,
-        onChunkPayload: @escaping @Sendable (TTSPCMChunkPayload) async throws -> Void
-    ) async throws -> Data {
-        guard let onnxEngine = engine as? ONNXPiperEngine else {
-            throw TTSError.engineUnavailable("Streaming is not supported by current PiperEngine implementation.")
-        }
-
-        let voiceId = voice.toASCIIID
-        let modelONNX = modelStore.modelURL(for: voiceId, extension: "onnx")
-        let modelConfig = modelStore.modelURL(for: voiceId, extension: "onnx.json")
-
-        guard FileManager.default.fileExists(atPath: modelONNX.path),
-              FileManager.default.fileExists(atPath: modelConfig.path) else {
-            throw TTSError.modelNotCached("Model '\(voice)' is not cached. Call /v1/models/prefetch first.")
-        }
-
-        syncQueue.sync { _currentModel = voice }
-
-        if Self.isUnspeakable(text) {
-            let streamingSilence = Self.buildSilenceStreamingPayload(text: text, speed: speed)
-            try await onChunkPayload(streamingSilence.chunkPayload)
-            return streamingSilence.wavData
-        }
-
-        let preprocessedText = await TextPreprocessor.shared.preprocess(text)
-        if Self.isUnspeakable(preprocessedText) {
-            let streamingSilence = Self.buildSilenceStreamingPayload(text: text, speed: speed)
-            try await onChunkPayload(streamingSilence.chunkPayload)
-            return streamingSilence.wavData
-        }
-
-        return try await onnxEngine.synthesizeStream(
-            text: preprocessedText,
-            modelONNX: modelONNX,
-            modelConfig: modelConfig,
-            speed: speed,
-            onChunkPayload: onChunkPayload
-        )
     }
 }

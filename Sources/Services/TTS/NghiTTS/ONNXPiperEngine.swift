@@ -1,14 +1,6 @@
 import Foundation
 import OnnxRuntimeBindings
 
-internal struct TTSPCMChunkPayload: Sendable {
-    internal let samples: [Float]
-    internal let sampleRate: Int
-    internal let chunkIndex: Int
-    internal let totalChunks: Int
-    internal let isLast: Bool
-}
-
 final class ONNXPiperEngine: PiperEngine, @unchecked Sendable {
     private struct PiperConfig: Decodable {
         struct AudioConfig: Decodable {
@@ -31,8 +23,6 @@ final class ONNXPiperEngine: PiperEngine, @unchecked Sendable {
         let inputNames: [String]
         let firstOutputName: String
     }
-
-    private typealias ChunkPayloadHandler = @Sendable (TTSPCMChunkPayload) async throws -> Void
 
     private var cached: CachedRuntime?
     private let sessionLock = NSLock()
@@ -233,8 +223,7 @@ final class ONNXPiperEngine: PiperEngine, @unchecked Sendable {
             modelONNX: modelONNX,
             modelConfig: modelConfig,
             speed: speed,
-            boundaryKind: boundaryKind,
-            onChunkPayload: nil
+            boundaryKind: boundaryKind
         )
         return result.data
     }
@@ -245,27 +234,8 @@ final class ONNXPiperEngine: PiperEngine, @unchecked Sendable {
             modelONNX: modelONNX,
             modelConfig: modelConfig,
             speed: speed,
-            boundaryKind: boundaryKind,
-            onChunkPayload: nil
+            boundaryKind: boundaryKind
         )
-    }
-
-    func synthesizeStream(
-        text: String,
-        modelONNX: URL,
-        modelConfig: URL,
-        speed: Double,
-        onChunkPayload: @escaping @Sendable (TTSPCMChunkPayload) async throws -> Void
-    ) async throws -> Data {
-        let result = try await synthesizeInternal(
-            text: text,
-            modelONNX: modelONNX,
-            modelConfig: modelConfig,
-            speed: speed,
-            boundaryKind: .paragraphEnd,
-            onChunkPayload: onChunkPayload
-        )
-        return result.data
     }
 
     private func synthesizeInternal(
@@ -273,8 +243,7 @@ final class ONNXPiperEngine: PiperEngine, @unchecked Sendable {
         modelONNX: URL,
         modelConfig: URL,
         speed: Double,
-        boundaryKind: TTSBoundaryKind,
-        onChunkPayload: ChunkPayloadHandler?
+        boundaryKind: TTSBoundaryKind
     ) async throws -> (data: Data, pcmDuration: Double) {
         let runtime = try getRuntime(modelONNX: modelONNX, modelConfig: modelConfig)
         let sampleRate = runtime.sampleRate
@@ -440,19 +409,6 @@ final class ONNXPiperEngine: PiperEngine, @unchecked Sendable {
                     let silenceSamples = [Float](repeating: 0.0, count: boundarySilenceSamplesCount)
                     trimmedChunk.append(contentsOf: silenceSamples)
                 }
-            }
-
-            if let onChunkPayload {
-                let payload = TTSPCMChunkPayload(
-                    samples: trimmedChunk,
-                    sampleRate: sampleRate,
-                    chunkIndex: index,
-                    totalChunks: chunks.count,
-                    isLast: isLastChunk
-                )
-                try Task.checkCancellation()
-                try await onChunkPayload(payload)
-                try Task.checkCancellation()
             }
 
             mergedSamples.append(contentsOf: trimmedChunk)

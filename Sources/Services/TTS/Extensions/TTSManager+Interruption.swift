@@ -74,43 +74,15 @@ extension TTSManager {
         #if DEBUG
         logRemoteTrace("handleMediaServicesReset")
         #endif
-        AppLogger.shared.log("🔊 [TTSManager] Media services were reset. Rebuilding audio engine.")
+        AppLogger.shared.log("🔊 [TTSManager] Media services were reset. Reconfiguring audio session.")
         let wasPlaying = isPlaying
         let currentIdx = currentParagraphIndex
         isAudioSessionConfigured = false
-
-        setupAudioEngine()
-
-        if let engine = audioEngine {
-            NotificationCenter.default.publisher(for: .AVAudioEngineConfigurationChange, object: engine)
-                .receive(on: RunLoop.main)
-                .sink { [weak self] _ in
-                    guard let self = self else { return }
-                    self.handleEngineConfigChange()
-                }
-                .store(in: &cancellables)
-        }
 
         if wasPlaying && currentIdx >= 0 && currentIdx < paragraphs.count {
             configureAudioSession()
             self.isPlaying = true
             speakCurrent()
         }
-    }
-
-    internal func handleEngineConfigChange() {
-        #if DEBUG
-        logRemoteTrace("handleEngineConfigChange")
-        #endif
-        AppLogger.shared.log("🔊 [TTSManager] Engine configuration changed.")
-
-        guard isPlaying else { return }
-        let currentIdx = currentParagraphIndex
-
-        stopCurrentPlayback()
-        configureAudioSession()
-
-        currentParagraphIndex = currentIdx
-        speakCurrent()
     }
 }

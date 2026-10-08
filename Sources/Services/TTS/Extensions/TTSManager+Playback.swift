@@ -1,4 +1,5 @@
 import Foundation
+import AVFoundation
 
 extension TTSManager {
     internal func playGoogleTTS(_ text: String) {
@@ -279,6 +280,49 @@ extension TTSManager {
                 guard self.playingBookId == currentBookId else { return }
                 TTSPresentationEventCenter.shared.send(.showToast(message: "❌ Không thể tải chương: \(error.localizedDescription)", type: .error))
             }
+        }
+    }
+
+    // MARK: - Đo khoảng lặng giữa hai đoạn (engine remote)
+
+    /// Log khoảng lặng giữa hai đoạn của engine **remote** (`google`/ext).
+    ///
+    /// Local đã có mốc tương ứng — log `🔊 [TTSPerf] NghiHandoff` phát khi bàn giao giữa hai đoạn trong
+    /// `NghiAudioPlayerQueue`, nơi `nextPlayer` đã `prepareToPlay()` sẵn. Remote **không** dựng sẵn
+    /// player cho đoạn kế, nên gap ở đây gồm cả chi phí tạo + `prepareToPlay` một `AVAudioPlayer` mới.
+    ///
+    /// Con số này là **cơ sở để quyết định** có làm `prepareNext` cho remote hay không: nếu gap thật
+    /// nhỏ thì việc thêm machinery là tối ưu thứ không đáng. Xem plan §6.3.
+    internal func logRemoteHandoffGap(playStartUptime: Double, paragraphIndex: Int, engine: String) {
+        guard AppLogger.shared.isLoggingEnabled, lastRemoteAudioFinishUptime > 0 else { return }
+        let gapMs = (playStartUptime - lastRemoteAudioFinishUptime) * 1000
+        AppLogger.shared.log(String(
+            format: "[TTSPerf] RemoteHandoff engine=%@ index=%d gapMs=%.2f",
+            engine,
+            paragraphIndex,
+            gapMs
+        ))
+    }
+
+    // MARK: - Kiểm tra resume của engine remote
+
+    /// Chống trường hợp `AVAudioPlayer.play()` trả `true` mà **không ra tiếng**.
+    ///
+    /// Sau khi phần cứng audio bị thu hồi (máy ở nền lâu, media daemon reset), player vẫn báo "đang
+    /// phát" nhưng `currentTime` đứng yên. Chờ ngắn rồi kiểm vị trí có tiến; **không** tiến thì rơi về
+    /// `speakCurrent()` — tức hành vi cũ, nên không tệ hơn trước lượt này.
+    ///
+    /// Vì sao cần cửa kiểm này: trước đây nhánh resume của engine remote **luôn** gọi `speakCurrent()`
+    /// khi pause quá 5 giây (không bao giờ thử `play()`), nên không có cửa sổ "im lặng". Nay đã thử
+    /// `play()` để giữ đúng vị trí đang nghe, nên phải có cửa kiểm bù lại.
+    internal func verifyRemoteResumeProgress(player: AVAudioPlayer, positionBeforePlay: TimeInterval) {
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            guard let self else { return }
+            guard self.audioPlayer === player, self.isPlaying else { return }
+            guard player.currentTime <= positionBeforePlay else { return }
+            AppLogger.shared.log("⚠️ [TTSManager] resume(): player.play() trả true nhưng currentTime không tiến — đọc lại đoạn hiện tại")
+            self.speakCurrent()
         }
     }
 }

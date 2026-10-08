@@ -36,9 +36,6 @@ import Foundation
 final class VieNeuTTSEngine: @unchecked Sendable {
     struct Output {
         let data: Data
-        /// PCM float32 đã cắt/fade. Giữ lại cùng `data` vì đường stream của tầng trên cần `[Float]` để
-        /// dựng `TTSPCMChunkPayload` — giải mã ngược từ WAV chỉ để lấy lại đúng mảng này là việc vô nghĩa.
-        let samples: [Float]
         let pcmDuration: Double
         let synthesisMs: Double
         let mode: VieNeuSynthesisPolicy.Mode
@@ -291,7 +288,6 @@ final class VieNeuTTSEngine: @unchecked Sendable {
 
         return Output(
             data: WAVEncoder.encodePCM16(samples: samples, sampleRate: config.sampleRate, channels: 1),
-            samples: samples,
             pcmDuration: pcmDuration,
             synthesisMs: synthesisMs,
             mode: activeMode,

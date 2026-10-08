@@ -38,7 +38,10 @@ extension TTSSettingsView {
                 }
             }
             VStack(alignment: .leading, spacing: 6) {
-                Stepper(value: $ttsManager.speed, in: 0.5...5.0, step: 0.1) {
+                // Dải lấy từ `TTSSpeedPolicy` — cùng nguồn với `NghiAudioPlayerQueue.clampedRate`.
+                // Viết cứng ở đây là mở đường cho hai bên lệch nhau lần nữa (đã từng lệch: UI 5,0×
+                // nhưng engine kẹp 2,0×, người dùng kéo mà không nghe thấy gì khác).
+                Stepper(value: $ttsManager.speed, in: TTSSpeedPolicy.playbackRange, step: 0.1) {
                     HStack {
                         Text("Tốc độ:")
                         Spacer()
@@ -46,7 +49,7 @@ extension TTSSettingsView {
                             .font(.system(.body, design: .monospaced))
                     }
                 }
-                Slider(value: $ttsManager.speed, in: 0.5...5.0, step: 0.1)
+                Slider(value: $ttsManager.speed, in: TTSSpeedPolicy.playbackRange, step: 0.1)
                     .tint(.white)
             }
 
