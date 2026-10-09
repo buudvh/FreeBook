@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.466] - 2026-10-03
+
+### revert: dua toan bo repo ve moc truoc khi them CoreML + build-ipa chi chay khi Sources/project.yml doi
+
+Revert **toàn bộ** đợt CoreML (bucket tĩnh, thử nghiệm) về đúng mốc `ee3d24fa` — commit ngay trước CoreML đầu tiên. Giữ lịch sử (1 commit revert, không force-push).
+
+- Xoá 12 file `Sources/` + 4 `Scripts/coreml_*.py` + `.github/workflows/convert-coreml.yml`; hoàn nguyên 11 file `Sources/` + `Docs/CodeGraph/`.
+- `.github/workflows/build-ipa.yml`: `paths` chỉ còn **`Sources/**` + `project.yml`** (bỏ `.github/workflows/**`) ⇒ CI không build khi chỉ đổi docs/script.
+- Bộ máy VieNeu về **ORT duy nhất**; UI về trước CoreML (bỏ toggle "Dùng Core ML" + nav "Model VieNeu"; đường tải model ONNX về `VieNeuTTSTestView`).
+- Backup code CoreML ở nhánh **`coreml-bucket-tinh-backup`**.
+- Cổng: `check_architecture.py` **5 nền / 0 mới**.
+
+---
+
 ## [1.3.465] - 2026-10-02
 
 ### feat: them thanh Toc do tong hop cho VieNeu-TTS de giam tai CPU va giam nhiet

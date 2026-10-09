@@ -37,6 +37,8 @@ public actor ReadingProgressStore {
     private var container: ModelContainer?
     private var latestByBook: [String: ReadingProgressSnapshot] = [:]
     private var ownerByBook: [String: ReadingProgressOwner] = [:]
+    // Snapshot đã ghi DB thành công gần nhất cho mỗi sách; flush/flushAll bỏ qua khi không có gì mới.
+    private var persistedByBook: [String: ReadingProgressSnapshot] = [:]
 
     public func scheduleSave(bookId: String, chapterIndex: Int, page: Int) {
         let snapshot = ReadingProgressSnapshot(bookId: bookId, chapterIndex: chapterIndex, paragraphIndex: page)
@@ -82,22 +84,28 @@ public actor ReadingProgressStore {
     }
 
     func flush(bookId: String) async throws {
-        guard let snapshot = latestByBook[bookId] else { return }
+        guard let snapshot = latestByBook[bookId], !isAlreadyPersisted(snapshot) else { return }
         try await persist(snapshot)
     }
 
     func flushAll() async throws {
-        for snapshot in latestByBook.values {
+        for snapshot in latestByBook.values where !isAlreadyPersisted(snapshot) {
             try await persist(snapshot)
         }
+    }
+
+    private func isAlreadyPersisted(_ snapshot: ReadingProgressSnapshot) -> Bool {
+        persistedByBook[snapshot.bookId] == snapshot
     }
 
     private func persist(_ snapshot: ReadingProgressSnapshot) async throws {
         guard let container else { return }
         let context = ModelContext(container)
         context.autosaveEnabled = false
-        let books = try context.fetch(FetchDescriptor<Book>())
-        guard let book = books.first(where: { $0.bookId == snapshot.bookId }) else { return }
+        let targetBookId = snapshot.bookId
+        var descriptor = FetchDescriptor<Book>(predicate: #Predicate<Book> { $0.bookId == targetBookId })
+        descriptor.fetchLimit = 1
+        guard let book = try context.fetch(descriptor).first else { return }
 
         let fallbackTitleFromStore: String?
         if !ChapterStoreConfiguration.enableSwiftDataTOCWrite {
@@ -119,5 +127,6 @@ public actor ReadingProgressStore {
         book.isHistory = true
         book.lastReadDate = snapshot.recordedAt
         try context.save()
+        persistedByBook[snapshot.bookId] = snapshot
     }
 }
