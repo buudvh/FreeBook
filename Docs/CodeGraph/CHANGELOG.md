@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.500] - 2026-10-09
+
+### feat(vieneu): doi spin/so luong ORT co hieu luc ngay o luot tong hop ke tiep, khong can tat app
+
+Người dùng: *"có thể làm spin=on/off tác dụng ngay sau khi bật không, hiện tại phải tắt mở máy lại khá phiền"*.
+
+- **Trước**: số luồng ORT và spin chỉ đặt được lúc dựng session, mà `VieNeuTTSEngine` là singleton không bao giờ unload ⇒ đổi trong Cài đặt chỉ có hiệu lực sau khi **tắt hẳn app** (bẫy đo log 85–87).
+- **Nay**: `VieNeuTTSEngine+Reload.swift` (mới) — `runtimeNeedsLoadLocked()` chạy ở đầu `prepareLocked()` (tức **mỗi lượt tổng hợp**, đang giữ `lock`): so `threadCount`/`allowSpinning` của runtime **đang chạy** (lưu trên `VieNeuONNXRuntime` từ 1.3.497) với `VieNeuSynthesisPolicy.effectiveThreadCount`/`allowSpinning` (gồm cả "Tiết kiệm pin" ghim 2 luồng); lệch ⇒ log `Cài đặt đổi (threads a→b, spin x→y) — nạp lại engine`, bỏ runtime cũ rồi nạp lại ngay lượt đó (~3 s). Runtime cũ được giải phóng (session + tensor cache A2b qua `VieNeuORTDestroy`) **trước** khi dựng cái mới ⇒ không nhân đôi bộ nhớ, và không cache nào còn trỏ vào `nullContext` cũ khi nó bị gán lại. Chi phí khi không đổi: 3 lần đọc `UserDefaults` mỗi lượt.
+- `VieNeuTTSEngine.swift` chỉ đổi dòng tại chỗ (`runtime` thành `internal` cho `+Reload`, guard của `prepareLocked`, comment về tensor cache); giữ 398 dòng.
+- Chú thích UI (công tắc spin, số luồng) đổi thành "có hiệu lực từ lượt tổng hợp kế tiếp (engine tự nạp lại, chờ khoảng 3 giây)"; comment ở `VieNeuONNXRuntime`/`+Adaptive`/`VieNeuTTSService` và `rules.md` (dòng về số luồng ORT) cập nhật theo.
+- Bối cảnh: P3 (gộp CFG thành một lượt `Run` batch=2) **bỏ** theo người dùng — đo PC chỉ giảm thời gian chờ, CPU-time gần như không đổi (không giảm nhiệt), lại cần file `vector_estimator.onnx` đã sửa dim.
+- **Kiểm chứng**: `check_architecture.py` 2 vi phạm nền cũ, 0 mới (`VieNeuTTSEngine.swift` giữ 398 dòng). **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`. Thử trên máy: bật log → đổi spin hoặc số luồng trong Cài đặt VieNeu (không tắt app) → log có `Cài đặt đổi (threads …→…, spin …→…) — nạp lại engine` rồi `Nạp xong engine: … threads=… spin=…`, và `[VieNeuPerf] … threads=… spin=…` khớp cài đặt mới.
+
 ## [1.3.499] - 2026-10-09
 
 ### fix(tts): doi engine khi dang nghe khong con dung - sheet cai dat dong lai duoc, widget dung xoay khong dung speed 0
@@ -404,16 +417,3 @@ Người dùng: *"thêm option chọn số chương vào lọc tên riêng tất
 - **R6 — Nhãn & tên gọi**: tin nhắn timeline ghi số chương (`Quét tên riêng 100 chương đã tải` / `… 100 chương từ chương đang đọc`); không giới hạn thì giữ câu cũ. Tiêu đề sheet → "Quét tên riêng theo phạm vi"; chip `ReaderAIQuickActionChipsView` → "Lọc name nhiều chương".
 - **Kiểm chứng**: `check_architecture.py` **5 violation nền cũ, 0 vi phạm mới**; `validate_links.py` PASS 100% sau khi accept 7 doc stale (`00_index`, `02_file_graph`, `04_call_graph`, `09_dependency_rules`, `11_subsystems`, `13_resource_lifecycle`, `14_complexity_report`). Validator đếm **643** file Swift.
 - Ảnh hưởng dòng: `ReaderAIBatchPromptSheet` **190 → 227** · `ReaderAIFullScreenView+Actions` **273 → 286** · `AIBookDataInspector` **179 → 189** · `AINameExtractionBatchProcessor` **140 → 143** · `AIRuntimeCoordinator` **322 → 324** · `TaskOptionsSheet` **278 → 217**; `ReaderAIFullScreenView` giữ **384**, `ReaderAIQuickActionChipsView` giữ **52**, `DownloadManager.swift` giữ **467**.
-
-## [1.3.470] - 2026-10-04
-
-### feat: toggle pham vi quet ten rieng tu chuong dang doc, nho theo tung truyen
-
-Người dùng: *"thêm option lọc tên từ chương đang đọc/lọc từ đầu (dùng bật tắt) cho lọc tên truyện các chương đã tải"*
-
-- **R1 — Sheet quét tên riêng có Section "Phạm vi quét"**: `ReaderAIBatchPromptSheet` thêm `Toggle("Từ chương đang đọc")` đặt **trên** Section "Nguồn prompt". Bật ⇒ chỉ quét các chương đã tải có `index >= chapterIndex` trở đi; tắt ⇒ quét toàn bộ chương đã tải (hành vi cũ). `onStart` đổi từ `(String)` sang `(String, Bool)`.
-- **R2 — Dòng phụ biết trước phạm vi**: `AIBookDataInspector.nameScanScopeSummary(bookId:fromChapterIndex:)` đếm số chương và lấy tên chương đầu; sheet chạy hai lượt bằng `async let` trong `.task`. Dòng phụ hiện `42 chương — từ ch.108: …` hoặc `Toàn bộ 150 chương đã tải`.
-- **R3 — Rỗng thì khoá, không gọi AI**: nếu phạm vi đang chọn không có chương nào đã tải, dòng phụ chuyển đỏ (`Không có chương đã tải từ ch.108 trở đi`) và nút "Bắt đầu quét" bị `.disabled` ⇒ không tốn token cho lượt quét chắc chắn rỗng.
-- **R4 — Nhớ theo từng truyện, mặc định bật**: file mới `Services/AI/AINameScanScopeStore.swift` (28 dòng) lưu `[bookId: Bool]` tại UserDefaults `FreeBook_AI_NameScanScope_V1`, mặc định **bật**. Tách khỏi `AISettingsStore` vì `AIConfiguration` là bản ghi chung cho mọi truyện.
-- **R5 — Đường truyền tham số**: `beginBatchExtraction(with:fromCurrentChapter:)` → `startBatchExtraction(promptOverride:fromChapterIndex:)` → `AIRuntimeCoordinator.startBatchExtraction` → `AINameExtractionBatchProcessor.extractNamesFromDownloadedChapters(fromChapterIndex:)` → `AIBookDataInspector.fetchDownloadedChapters(fromChapterIndex:)`. Ba hàm có tham số mới **kèm giá trị mặc định** ⇒ không vỡ call site cũ. Tin nhắn timeline đổi theo phạm vi.
-- Ảnh hưởng dòng: `AINameExtractionBatchProcessor` **135 → 140** · `AIBookDataInspector` **167 → 179** · `AIRuntimeCoordinator` **320 → 322** · `ReaderAIBatchPromptSheet` **123 → 190** · `ReaderAIFullScreenView+Actions` **271 → 273** · `ReaderAIFullScreenView` **382 → 384**; tổng **642** file Swift. `check_architecture.py`: 5 violation nền, **0 vi phạm mới**.

@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.470] - 2026-10-04
+
+### feat: toggle pham vi quet ten rieng tu chuong dang doc, nho theo tung truyen
+
+Người dùng: *"thêm option lọc tên từ chương đang đọc/lọc từ đầu (dùng bật tắt) cho lọc tên truyện các chương đã tải"*
+
+- **R1 — Sheet quét tên riêng có Section "Phạm vi quét"**: `ReaderAIBatchPromptSheet` thêm `Toggle("Từ chương đang đọc")` đặt **trên** Section "Nguồn prompt". Bật ⇒ chỉ quét các chương đã tải có `index >= chapterIndex` trở đi; tắt ⇒ quét toàn bộ chương đã tải (hành vi cũ). `onStart` đổi từ `(String)` sang `(String, Bool)`.
+- **R2 — Dòng phụ biết trước phạm vi**: `AIBookDataInspector.nameScanScopeSummary(bookId:fromChapterIndex:)` đếm số chương và lấy tên chương đầu; sheet chạy hai lượt bằng `async let` trong `.task`. Dòng phụ hiện `42 chương — từ ch.108: …` hoặc `Toàn bộ 150 chương đã tải`.
+- **R3 — Rỗng thì khoá, không gọi AI**: nếu phạm vi đang chọn không có chương nào đã tải, dòng phụ chuyển đỏ (`Không có chương đã tải từ ch.108 trở đi`) và nút "Bắt đầu quét" bị `.disabled` ⇒ không tốn token cho lượt quét chắc chắn rỗng.
+- **R4 — Nhớ theo từng truyện, mặc định bật**: file mới `Services/AI/AINameScanScopeStore.swift` (28 dòng) lưu `[bookId: Bool]` tại UserDefaults `FreeBook_AI_NameScanScope_V1`, mặc định **bật**. Tách khỏi `AISettingsStore` vì `AIConfiguration` là bản ghi chung cho mọi truyện.
+- **R5 — Đường truyền tham số**: `beginBatchExtraction(with:fromCurrentChapter:)` → `startBatchExtraction(promptOverride:fromChapterIndex:)` → `AIRuntimeCoordinator.startBatchExtraction` → `AINameExtractionBatchProcessor.extractNamesFromDownloadedChapters(fromChapterIndex:)` → `AIBookDataInspector.fetchDownloadedChapters(fromChapterIndex:)`. Ba hàm có tham số mới **kèm giá trị mặc định** ⇒ không vỡ call site cũ. Tin nhắn timeline đổi theo phạm vi.
+- Ảnh hưởng dòng: `AINameExtractionBatchProcessor` **135 → 140** · `AIBookDataInspector` **167 → 179** · `AIRuntimeCoordinator` **320 → 322** · `ReaderAIBatchPromptSheet` **123 → 190** · `ReaderAIFullScreenView+Actions` **271 → 273** · `ReaderAIFullScreenView` **382 → 384**; tổng **642** file Swift. `check_architecture.py`: 5 violation nền, **0 vi phạm mới**.
+
 ## [1.3.469] - 2026-10-03
 
 ### feat: luu tat ca o man them phien am, nut luu goc phai cho duyet ten rieng va fix thanh tien trinh quet

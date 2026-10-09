@@ -81,7 +81,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
     let store: VieNeuModelStore
     let lock = NSLock()
 
-    private var runtime: VieNeuONNXRuntime?
+    var runtime: VieNeuONNXRuntime? // internal: `+Reload` so cấu hình luồng/spin đang chạy và bỏ runtime cũ
     private var config: VieNeuConfig?
     var catalog: VieNeuVoiceCatalog?
     private var phonemizer: SeaG2P?
@@ -144,7 +144,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
     }
 
     private func prepareLocked() throws {
-        guard runtime == nil else { return }
+        guard runtimeNeedsLoadLocked() else { return } // chưa nạp, hoặc cài đặt luồng/spin đã đổi (`+Reload`)
         let missing = store.missingNames
         guard missing.isEmpty else { throw EngineError.modelMissing(missing) }
 
@@ -152,8 +152,8 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         // nửa vời: `runtime` đã có mà `config` chưa ⇒ `isPrepared` nói dối, mọi lượt sau nhảy qua bước
         // nạp, và lỗi thật bị che bởi một guard ở tầng dưới ("Graph runtime…"). Đúng chuyện đã xảy ra
         // khi `NPZReader` còn đọc sai kích thước entry. `nullContext`/`nullMask`/`nullSpeaker`/`nullStyle`
-        // là **bất biến suốt vòng đời engine** (chỉ gán đúng một lần ở đây; engine không có `unload`) ⇒
-        // tensor cache của A2b an toàn (buffer nguồn sống lâu hơn tensor; `VieNeuORTDestroy` giải phóng cache).
+        // bất biến suốt vòng đời **một runtime** (chỉ gán ở đây; nạp lại ở `+Reload` hủy runtime cũ — kèm tensor
+        // cache A2b, `VieNeuORTDestroy` — **trước** khi gán lại) ⇒ buffer nguồn luôn sống lâu hơn tensor.
         let newRuntime = try VieNeuONNXRuntime(modelStore: store, threadCount: VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard), allowSpinning: VieNeuSynthesisPolicy.allowSpinning(from: .standard))
         let newConfig = try VieNeuConfig.load(modelStore: store)
         let newCatalog = try VieNeuVoiceCatalog.load(modelStore: store)

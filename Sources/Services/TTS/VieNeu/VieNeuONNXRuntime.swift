@@ -50,7 +50,7 @@ final class VieNeuONNXRuntime {
 
     /// Số luồng ORT và cờ spin **thật sự** dùng khi tạo ngữ cảnh này — để log `[VieNeuPerf]` báo đúng
     /// cấu hình đang chạy. Không đọc lại `UserDefaults`: engine là singleton không bao giờ nạp lại,
-    /// nên đổi cài đặt chỉ có hiệu lực sau khi tắt hẳn app rồi mở lại.
+    /// nên engine so hai giá trị này với cài đặt để tự nạp lại khi chúng đổi (`VieNeuTTSEngine+Reload`).
     let threadCount: Int32
     let allowSpinning: Bool
 

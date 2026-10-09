@@ -71,7 +71,7 @@ extension VieNeuTTSEngine {
         /// giây audio — đại lượng tỉ lệ với năng lượng; `cores` = số lõi bận trung bình (`cpu / synth`).
         cpuMs: Double,
         /// Ngữ cảnh ORT **đang nạp** — `threads=`/`spin=` lấy từ đây, không từ `UserDefaults` (cài đặt
-        /// chỉ áp dụng sau khi tắt hẳn app rồi mở lại, nên đọc `UserDefaults` sẽ báo sai cấu hình đang đo).
+        /// chỉ áp dụng khi engine nạp lại ở lượt kế tiếp, nên đọc `UserDefaults` có thể báo sai cấu hình đang đo).
         runtime: VieNeuONNXRuntime
     ) {
         AppLogger.shared.log(

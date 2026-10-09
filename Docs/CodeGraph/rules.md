@@ -120,7 +120,7 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 ## Rules UI Pin & Mặc Định VieNeu (1.3.442)
 
 * **"Tiết kiệm pin" là một overlay, không ghi đè lựa chọn người dùng.** Default = **BẬT**. ON ⇒ `engine.setRequestedMode(.fast)` + `effectiveThreadCount` = 2 (khoá 2 picker); OFF ⇒ `setRequestedMode(nil)` ("Tự động"). Dùng `VieNeuSynthesisPolicy.effectiveThreadCount(from:)`, đừng nhân đôi logic ở UI.
-* **Số luồng ORT chỉ có hiệu lực sau khi NẠP LẠI engine** (session dựng một lần) — UI phải ghi rõ điều này.
+* **Số luồng ORT (và spin) chỉ có hiệu lực khi engine NẠP LẠI** (session dựng một lần). Từ 1.3.500 engine tự so cấu hình runtime đang chạy với cài đặt ở đầu mỗi lượt tổng hợp và tự nạp lại khi lệch (`VieNeuTTSEngine+Reload`, giải phóng runtime cũ trước khi dựng mới) — UI ghi "có hiệu lực từ lượt tổng hợp kế tiếp".
 * **Nhãn mode** (`VieNeuTTSTestView+Sections.swift` `displayName`): **Tự động / Chất lượng cao / Cân bằng** — đổi ở một chỗ, cả màn Cài đặt lẫn màn thử giọng theo.
 * **Nhiệt là bài toán SỐ BƯỚC, không phải độ lớn CFG (1.3.449).** `runChunk` hỏi `if tuning.cfg > 0` — điều kiện **nhị phân**, nên `cfg = 3.0 → 1.5` tiết kiệm **0%**; chỉ số bước mới đổi chi phí. Mỗi bước gọi `vector_estimator` **2 lần** khi có CFG: `.high` 32 lượt/đoạn, `.fast` 16. Đừng đề xuất "giảm CFG một phần" — đã kiểm và nó vô ích.
 * **SÀN của `steps` là 8 — đừng thử 4/5/6/7 (1.3.450).** Mode 4 bước (`.low`) đã thử và **bỏ hẳn**: sai số tích phân vòng Euler quá lớn, người dùng nghe báo "âm thanh quá kém, không rõ tiếng"; giữ CFG **không bù được**. Chỉ còn `high`/`fast`. Đừng khôi phục `.low` trừ khi có bằng chứng nghe mới.
