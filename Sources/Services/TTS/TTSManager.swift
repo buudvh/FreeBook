@@ -182,90 +182,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     @Published public var showFloatingWidget: Bool = false
     @Published public var showingSettingsSheet: Bool = false
 
-    internal struct TTSAutoAdvancePerfContext {
-        let sessionID: UUID
-        let generation: Int
-        let chapterIndex: Int
-        let engine: String
-        let startUptime: Double
-        var origin: String = "unknown"
-        var loadMs: Double = 0
-        var processMs: Double = 0
-        var synthesisMs: Double = 0
-        var playerSetupMs: Double = 0
-        var audioCacheHit: Bool = false
-        var isFinished: Bool = false
-    }
-
-    internal var activeTTSAutoAdvancePerf: TTSAutoAdvancePerfContext? = nil
-    internal var paragraph0SynthesisStartUptime: Double = 0
-    internal var paragraph0AudioCacheHit: Bool = false
-
-    internal func resetParagraph0Timing() {
-        paragraph0SynthesisStartUptime = 0
-        paragraph0AudioCacheHit = false
-    }
-
-    internal func currentParagraph0SynthesisMs(untilUptime: Double? = nil) -> Double {
-        guard paragraph0SynthesisStartUptime > 0 && !paragraph0AudioCacheHit else { return 0.0 }
-        let end = untilUptime ?? ProcessInfo.processInfo.systemUptime
-        return max(0.0, (end - paragraph0SynthesisStartUptime) * 1000)
-    }
-
-    @MainActor
-    internal func finishTTSPrefetchPerfSummary() {
-        guard let summary = activePrefetchPerfSummary else { return }
-        activePrefetchPerfSummary = nil
-        let total = summary.immediateHit + summary.waitedHit + summary.miss + summary.failure
-        guard total > 0, AppLogger.shared.isLoggingEnabled else { return }
-        let logLine = String(
-            format: "[TTSPerf] PrefetchSummary chapter=%d engine=%@ immediateHit=%d waitedHit=%d miss=%d failure=%d retrySuccess=%d retryFailure=%d totalWaitMs=%.2f maxWaitMs=%.2f",
-            summary.chapterIndex,
-            summary.engine,
-            summary.immediateHit,
-            summary.waitedHit,
-            summary.miss,
-            summary.failure,
-            summary.retrySuccess,
-            summary.retryFailure,
-            summary.totalWaitMs,
-            summary.maxWaitMs
-        )
-        AppLogger.shared.log(logLine)
-    }
-
-    @MainActor
-    internal func recordPrefetchResult(sessionID: UUID, chapterIndex: Int, engine: String, index: Int, outcome: String, waitMs: Double = 0) {
-        guard AppLogger.shared.isLoggingEnabled else { return }
-        guard sessionID == self.sessionID, chapterIndex == self.playingChapterIndex else { return }
-        ensurePrefetchPerfSummary(sessionID: sessionID, chapterIndex: chapterIndex, engine: engine)
-        guard var summary = activePrefetchPerfSummary,
-              summary.sessionID == sessionID,
-              summary.chapterIndex == chapterIndex,
-              summary.engine == engine else { return }
-
-        switch outcome {
-        case "hit":
-            summary.immediateHit += 1
-        case "hit_wait":
-            summary.waitedHit += 1
-            summary.totalWaitMs += waitMs
-            summary.maxWaitMs = max(summary.maxWaitMs, waitMs)
-            if waitMs >= 100.0 {
-                AppLogger.shared.log(String(format: "[TTSPerf] SlowPrefetch chapter=%d index=%d engine=%@ waitMs=%.2f", summary.chapterIndex, index, summary.engine, waitMs))
-            }
-        case "miss":
-            summary.miss += 1
-        case "failure":
-            summary.failure += 1
-            summary.totalWaitMs += waitMs
-            summary.maxWaitMs = max(summary.maxWaitMs, waitMs)
-        default:
-            break
-        }
-        activePrefetchPerfSummary = summary
-    }
-
     // Sleep Timer (Hẹn giờ tạm dừng đọc)
     public enum SleepTimerMode: Equatable {
         case off
@@ -439,7 +355,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     internal var preparedChapter: TTSPreparedChapter? = nil
     internal var sessionTranslationEnabled: Bool = false
     internal var sessionShouldConvertTraditionalToSimplified: Bool = false
-    internal var activePrefetchPerfSummary: TTSPrefetchPerfSummary? = nil
     internal var prefetchTaskGenerations: [Int: UInt64] = [:]
     internal var nextPrefetchTaskGeneration: UInt64 = 0
 
@@ -511,32 +426,10 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         )
     }
 
-    internal struct NghiEnergyAccumulator {
-        var startedAt: TimeInterval?
-        var synthesisCount = 0
-        var essentialCount = 0
-        var onDemandCount = 0
-        var underrunCount = 0
-        var reusedInFlightCount = 0
-        var totalQueueWaitMs = 0.0
-        var totalSynthesisMs = 0.0
-        var totalPCMSeconds = 0.0
-        var maxRTF = 0.0
-        /// Chặng chờ **giữa hai đoạn liền kề** (đoạn cũ phát xong → đoạn mới sẵn sàng), đơn vị ms.
-        /// Khác `avgQueueWaitMs` (chờ *trong* coordinator): đây là chờ ở tầng phát, đúng thứ người dùng
-        /// nghe ra. Chỉ cập nhật ở `recordNghiUnderrun` nên không thêm phép đo trên hot path.
-        var maxPreloadGapMs = 0.0
-        /// Mốc `uptime` lần cuối một đoạn được đưa lên hàng đợi phát. Dùng để tính `maxPreloadGapMs`:
-        /// hụt xảy ra ⇒ khoảng từ mốc này tới lúc hụt chính là chặng chờ người dùng nghe ra.
-        var lastPlaybackSubmitAt: TimeInterval?
-    }
-
-    internal var nghiEnergy = NghiEnergyAccumulator()
+    /// Đo `[TTSPerf]` (AutoAdvance / PrefetchSummary / RemoteHandoff) và `[NghiEnergy]` — chỉ ghi log (đợt 8).
+    internal let autoAdvancePerf = TTSAutoAdvancePerfTracker()
+    internal let nghiEnergyTelemetry = NghiEnergyTelemetry()
     internal var audioPlayer: AVAudioPlayer?
-    /// Mốc `systemUptime` lúc `AVAudioPlayer` của engine **remote** phát xong đoạn trước. Dùng để đo
-    /// khoảng lặng giữa hai đoạn (`[TTSPerf] RemoteHandoff`) — cơ sở để quyết định có dựng sẵn player
-    /// cho đoạn kế như local hay không. Xem `Docs/Plans/2026-10-08-plan-tts-don-dep-va-kep-toc-do.md` §6.
-    internal var lastRemoteAudioFinishUptime: Double = 0
     internal let nghiAudioPlayerQueue = NghiAudioPlayerQueue()
     internal let callObserver = TTSCallObserver()
     internal var isAudioSessionConfigured = false
@@ -2282,23 +2175,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
 
     private func recordNghiUnderrun(index: Int, reusedInFlight: Bool) {
-        guard AppLogger.shared.isLoggingEnabled else { return }
-        let now = ProcessInfo.processInfo.systemUptime
-        if nghiEnergy.startedAt == nil {
-            nghiEnergy.startedAt = now
-        }
-        nghiEnergy.underrunCount += 1
-        if reusedInFlight {
-            nghiEnergy.reusedInFlightCount += 1
-        }
-        // Chặng chờ thật: từ lúc đoạn trước được đưa lên hàng đợi phát tới lúc hụt đoạn này.
-        if let submittedAt = nghiEnergy.lastPlaybackSubmitAt {
-            nghiEnergy.maxPreloadGapMs = max(nghiEnergy.maxPreloadGapMs, (now - submittedAt) * 1_000)
-        }
-        AppLogger.shared.log(
-            "[NghiEnergy] Underrun chapter=\(playingChapterIndex) index=\(index) reusedInFlight=\(reusedInFlight) thermal=\(Self.nghiThermalStateName(currentThermalState))"
-        )
-        flushNghiEnergySummary(reason: "interval", force: false)
+        nghiEnergyTelemetry.recordUnderrun(index: index, reusedInFlight: reusedInFlight,
+                                           chapterIndex: playingChapterIndex, thermalState: currentThermalState)
     }
 
     private func cancelNghiWakeTask() {
@@ -3241,7 +3119,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: tool, index: index, outcome: "hit")
             let currentDuration = preloadedDurations[index] ?? WAVEncoder.duration(of: cachedData)
             preloadedDurations[index] = currentDuration
-            nghiEnergy.lastPlaybackSubmitAt = ProcessInfo.processInfo.systemUptime
+            nghiEnergyTelemetry.markPlaybackSubmitted()
             self.playAudioData(cachedData, withId: playbackId)
             updatePrefetchWindow()
             return
@@ -3322,7 +3200,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 }
 
                 guard isIdentityValid(), self.isPlaying else { return }
-                self.nghiEnergy.lastPlaybackSubmitAt = ProcessInfo.processInfo.systemUptime
+                self.nghiEnergyTelemetry.markPlaybackSubmitted()
                 self.playAudioData(currentData, withId: playbackId)
                 self.updatePrefetchWindow()
             } catch is CancellationError {
@@ -3651,7 +3529,7 @@ extension TTSManager {
             // Mốc đo khoảng lặng giữa hai đoạn của engine remote — tương ứng mốc `NghiHandoff` đã có
             // cho engine local. Chỉ ghi khi bật log để không tốn gì trong lượt chạy thường.
             if AppLogger.shared.isLoggingEnabled {
-                self.lastRemoteAudioFinishUptime = ProcessInfo.processInfo.systemUptime
+                self.autoAdvancePerf.lastRemoteAudioFinishUptime = ProcessInfo.processInfo.systemUptime
             }
             self.stopCurrentHardwarePlayer()
             if flag {

@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.487] - 2026-10-09
+
+### refactor: tach TTSAutoAdvancePerfTracker va NghiEnergyTelemetry khoi TTSManager (dot 8 tach god object)
+
+Đợt 8 của `Docs/Plans/2026-10-09-plan-refactor-god-objects.md` — bước 4/5 cắt `TTSManager.swift`. Thuần telemetry, **không đổi hành vi phát**.
+
+- **`TTSAutoAdvancePerfTracker`** (`@MainActor final class`, `Sources/Services/TTS/`, 243 dòng): `TTSAutoAdvancePerfContext` (lồng), `activeTTSAutoAdvancePerf` (`private(set)`), hai mốc `paragraph0*`, tổng kết nạp trước (`activePrefetchPerfSummary`, `finishTTSPrefetchPerfSummary`, `recordPrefetchResult`), 5 hàm cũ của `+Telemetry` (create/updateLoad/updateProcess/finish/ensure), `lastRemoteAudioFinishUptime` + `logRemoteHandoffGap`. Thân hàm **nguyên văn**; khác duy nhất: `recordPrefetchResult` nhận `liveSessionID`/`liveChapterIndex` do façade truyền **lúc gọi** (trước đọc `self.sessionID`/`self.playingChapterIndex`).
+- **`NghiEnergyTelemetry`** (`@MainActor final class`, `NghiTTS/`, 145 dòng, kèm `Notification.Name.nghiLocalSynthesisDidComplete`): `Accumulator` (cũ `NghiEnergyAccumulator`), `recordSynthesis`, `recordUnderrun`, `markPlaybackSubmitted()` (thay 2 phép gán `nghiEnergy.lastPlaybackSubmitAt` — giữ **không gate** như cũ), `flush` (giữ reset khi tắt log + cửa sổ 60 s), `thermalStateName`. Thermal state truyền vào từ façade, chỉ để **ghi log** (CLAUDE.md).
+- `TTSManager` giữ `let autoAdvancePerf` / `let nghiEnergyTelemetry` (cùng khuôn `NghiAudioPlayerQueue`); `+Telemetry.swift`, `+NghiEnergy.swift` thành forwarder **cùng tên, cùng chữ ký** (~45 chỗ gọi không đổi); `paragraph0*` là computed get/set (`speakCurrent` ghi trực tiếp). Các điểm đánh giá paragraph-0 **không gộp** (để đợt 92).
+- **Kết quả**: `TTSManager.swift` **3672 → 3550** (baseline 3470 — còn 80 dòng, đợt 9); format log `[TTSPerf]`/`[NghiEnergy]` giữ nguyên từng byte; `check_architecture.py` 2 violation, 0 mới. Review đối kháng 2 lượt: 0 lỗi. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận.
+
 ## [1.3.486] - 2026-10-09
 
 ### refactor: tach TTSChunkPositionMapper va TTSSettingsSnapshot khoi TTSManager (dot 7 tach god object)
@@ -446,19 +457,5 @@ Sửa lỗi UX người dùng báo: *"bấm vào nút tạo giọng nói nó kh�
 - **File sửa**: `VieNeuVoiceLibraryView.swift` 372 → **385**; `VieNeuVoiceLibraryView+Sections.swift` 201 → **208** (cả hai < 400); `DictionaryHubView.swift` **199 → 199** (chỉ đổi thứ tự khối).
 - **Ràng buộc đã đo**: `check_architecture.py` **5 violation nền / 0 mới**; `validate_links.py` **PASS 100%**.
 - **Tài liệu CodeGraph**: `11_subsystems.md` **accept** (thêm mục 1.3.458).
-
----
-
-## [1.3.457] - 2026-10-01
-
-### fix: ep che do cao cho giong clone va sua cai dat TTS luon hien mac dinh
-
-Sửa lỗi biên dịch CI của lượt `[1.3.456]` — **giữ nguyên commit subject cho lần push sửa CI**.
-
-- **Đúng một lỗi thật trong log CI** (`Build and Archive App (Unsigned)`, exit 65): `VieNeuVoiceCatalog.swift:32:45: error: type 'VieNeuVoiceCatalog.Preset' has no member 'customGender'`.
-- **Nguyên nhân**: `var isCloned` nằm **trong** `struct Preset` lồng nhau, nên `Self` = `Preset` — mà `customGender` là hằng của `VieNeuVoiceCatalog` (type ngoài). Phải viết tường minh `VieNeuVoiceCatalog.customGender`. Đây là bẫy `Self` trong type lồng nhau, **không** liên quan đến giới hạn `private` theo file.
-- **Sửa**: đúng một dòng. `VieNeuVoiceCatalog.swift` **153 → 153** (không đổi số dòng).
-- **Ràng buộc đã đo**: `check_architecture.py` **5 violation nền / 0 mới**; `validate_links.py` **PASS 100% (16 doc, 624 file Swift)**.
-- **Tài liệu CodeGraph**: sửa cơ học ⇒ `04_call_graph`, `10_risk_report`, `11_subsystems`, `13_resource_lifecycle`, `rules` **no-change-needed** (mô tả trong doc vẫn đúng).
 
 ---

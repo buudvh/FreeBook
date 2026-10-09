@@ -1,61 +1,53 @@
 import Foundation
 
+/// Façade đo `[TTSPerf]` — logic nằm ở `TTSAutoAdvancePerfTracker` (đợt 8, 1.3.487). Giữ **nguyên tên và chữ ký**
+/// để ~45 chỗ gọi trong `TTSManager.swift` / `+Playback.swift` không phải sửa.
 extension TTSManager {
-    @MainActor
-    internal func createTTSAutoAdvancePerf(
-        sessionID: UUID,
-        generation: Int,
-        chapterIndex: Int,
-        engine: String
-    ) {
-        finishTTSAutoAdvancePerf(outcome: "superseded", endpoint: "superseded")
-        ensurePrefetchPerfSummary(sessionID: sessionID, chapterIndex: chapterIndex, engine: engine)
-        resetParagraph0Timing()
-        guard AppLogger.shared.isLoggingEnabled else { return }
-        activeTTSAutoAdvancePerf = TTSAutoAdvancePerfContext(
-            sessionID: sessionID,
-            generation: generation,
-            chapterIndex: chapterIndex,
-            engine: engine,
-            startUptime: ProcessInfo.processInfo.systemUptime
+    internal var activeTTSAutoAdvancePerf: TTSAutoAdvancePerfTracker.TTSAutoAdvancePerfContext? {
+        autoAdvancePerf.activeTTSAutoAdvancePerf
+    }
+
+    /// `speakCurrent` ghi trực tiếp hai mốc này ⇒ forward cả get lẫn set.
+    internal var paragraph0SynthesisStartUptime: Double {
+        get { autoAdvancePerf.paragraph0SynthesisStartUptime }
+        set { autoAdvancePerf.paragraph0SynthesisStartUptime = newValue }
+    }
+
+    internal var paragraph0AudioCacheHit: Bool {
+        get { autoAdvancePerf.paragraph0AudioCacheHit }
+        set { autoAdvancePerf.paragraph0AudioCacheHit = newValue }
+    }
+
+    internal func currentParagraph0SynthesisMs(untilUptime: Double? = nil) -> Double {
+        autoAdvancePerf.currentParagraph0SynthesisMs(untilUptime: untilUptime)
+    }
+
+    internal func finishTTSPrefetchPerfSummary() {
+        autoAdvancePerf.finishTTSPrefetchPerfSummary()
+    }
+
+    /// Truyền `sessionID`/`playingChapterIndex` **hiện tại** — guard cũ đọc trực tiếp hai giá trị này lúc gọi.
+    internal func recordPrefetchResult(sessionID: UUID, chapterIndex: Int, engine: String, index: Int, outcome: String, waitMs: Double = 0) {
+        autoAdvancePerf.recordPrefetchResult(
+            sessionID: sessionID, chapterIndex: chapterIndex, engine: engine, index: index, outcome: outcome, waitMs: waitMs,
+            liveSessionID: self.sessionID, liveChapterIndex: self.playingChapterIndex
         )
     }
 
-    @MainActor
-    internal func updateTTSAutoAdvanceLoadPerf(
-        sessionID: UUID,
-        generation: Int,
-        chapterIndex: Int,
-        loadMs: Double,
-        origin: String
-    ) {
-        guard var ctx = activeTTSAutoAdvancePerf,
-              !ctx.isFinished,
-              ctx.sessionID == sessionID,
-              ctx.generation == generation,
-              ctx.chapterIndex == chapterIndex else { return }
-        ctx.loadMs = loadMs
-        ctx.origin = origin
-        activeTTSAutoAdvancePerf = ctx
+    internal func createTTSAutoAdvancePerf(sessionID: UUID, generation: Int, chapterIndex: Int, engine: String) {
+        autoAdvancePerf.createTTSAutoAdvancePerf(sessionID: sessionID, generation: generation, chapterIndex: chapterIndex, engine: engine)
     }
 
-    @MainActor
-    internal func updateTTSAutoAdvanceProcessPerf(
-        sessionID: UUID,
-        generation: Int,
-        chapterIndex: Int,
-        processMs: Double
-    ) {
-        guard var ctx = activeTTSAutoAdvancePerf,
-              !ctx.isFinished,
-              ctx.sessionID == sessionID,
-              ctx.generation == generation,
-              ctx.chapterIndex == chapterIndex else { return }
-        ctx.processMs = processMs
-        activeTTSAutoAdvancePerf = ctx
+    internal func updateTTSAutoAdvanceLoadPerf(sessionID: UUID, generation: Int, chapterIndex: Int, loadMs: Double, origin: String) {
+        autoAdvancePerf.updateTTSAutoAdvanceLoadPerf(
+            sessionID: sessionID, generation: generation, chapterIndex: chapterIndex, loadMs: loadMs, origin: origin)
     }
 
-    @MainActor
+    internal func updateTTSAutoAdvanceProcessPerf(sessionID: UUID, generation: Int, chapterIndex: Int, processMs: Double) {
+        autoAdvancePerf.updateTTSAutoAdvanceProcessPerf(
+            sessionID: sessionID, generation: generation, chapterIndex: chapterIndex, processMs: processMs)
+    }
+
     internal func finishTTSAutoAdvancePerf(
         outcome: String,
         endpoint: String,
@@ -66,60 +58,9 @@ extension TTSManager {
         playerSetupMs: Double = 0,
         audioCacheHit: Bool? = nil
     ) {
-        guard var ctx = activeTTSAutoAdvancePerf, !ctx.isFinished else { return }
-        if let sID = sessionID, ctx.sessionID != sID { return }
-        if let gen = generation, ctx.generation != gen { return }
-        if let chIdx = chapterIndex, ctx.chapterIndex != chIdx { return }
-
-        ctx.isFinished = true
-        activeTTSAutoAdvancePerf = nil
-
-        let endUptime = ProcessInfo.processInfo.systemUptime
-        let totalMs = (endUptime - ctx.startUptime) * 1000
-
-        let finalSynMs = synthesisMs > 0 ? synthesisMs : ctx.synthesisMs
-        let finalSetupMs = playerSetupMs > 0 ? playerSetupMs : ctx.playerSetupMs
-        let finalCacheHit = audioCacheHit ?? ctx.audioCacheHit
-
-        resetParagraph0Timing()
-
-        let logLine = String(
-            format: "[TTSPerf] AutoAdvance chapter=%d engine=%@ origin=%@ loadMs=%.2f processMs=%.2f synthesisMs=%.2f playerSetupMs=%.2f totalMs=%.2f cacheHit=%@ outcome=%@ endpoint=%@",
-            ctx.chapterIndex,
-            ctx.engine,
-            ctx.origin,
-            ctx.loadMs,
-            ctx.processMs,
-            finalSynMs,
-            finalSetupMs,
-            totalMs,
-            finalCacheHit ? "true" : "false",
-            outcome,
-            endpoint
-        )
-        AppLogger.shared.log(logLine)
-    }
-
-
-
-    @MainActor
-    internal func ensurePrefetchPerfSummary(sessionID: UUID, chapterIndex: Int, engine: String) {
-        guard AppLogger.shared.isLoggingEnabled else {
-            if activePrefetchPerfSummary != nil {
-                activePrefetchPerfSummary = nil
-            }
-            return
-        }
-        if let current = activePrefetchPerfSummary {
-            if current.sessionID == sessionID && current.chapterIndex == chapterIndex && current.engine == engine {
-                return
-            }
-            finishTTSPrefetchPerfSummary()
-        }
-        activePrefetchPerfSummary = TTSPrefetchPerfSummary(
-            sessionID: sessionID,
-            chapterIndex: chapterIndex,
-            engine: engine
+        autoAdvancePerf.finishTTSAutoAdvancePerf(
+            outcome: outcome, endpoint: endpoint, sessionID: sessionID, generation: generation, chapterIndex: chapterIndex,
+            synthesisMs: synthesisMs, playerSetupMs: playerSetupMs, audioCacheHit: audioCacheHit
         )
     }
 }

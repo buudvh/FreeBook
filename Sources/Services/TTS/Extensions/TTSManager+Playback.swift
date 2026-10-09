@@ -285,23 +285,9 @@ extension TTSManager {
 
     // MARK: - Đo khoảng lặng giữa hai đoạn (engine remote)
 
-    /// Log khoảng lặng giữa hai đoạn của engine **remote** (`google`/ext).
-    ///
-    /// Local đã có mốc tương ứng — log `🔊 [TTSPerf] NghiHandoff` phát khi bàn giao giữa hai đoạn trong
-    /// `NghiAudioPlayerQueue`, nơi `nextPlayer` đã `prepareToPlay()` sẵn. Remote **không** dựng sẵn
-    /// player cho đoạn kế, nên gap ở đây gồm cả chi phí tạo + `prepareToPlay` một `AVAudioPlayer` mới.
-    ///
-    /// Con số này là **cơ sở để quyết định** có làm `prepareNext` cho remote hay không: nếu gap thật
-    /// nhỏ thì việc thêm machinery là tối ưu thứ không đáng. Xem plan §6.3.
+    /// Forwarder — đo nằm ở `TTSAutoAdvancePerfTracker.logRemoteHandoffGap` (đợt 8).
     internal func logRemoteHandoffGap(playStartUptime: Double, paragraphIndex: Int, engine: String) {
-        guard AppLogger.shared.isLoggingEnabled, lastRemoteAudioFinishUptime > 0 else { return }
-        let gapMs = (playStartUptime - lastRemoteAudioFinishUptime) * 1000
-        AppLogger.shared.log(String(
-            format: "[TTSPerf] RemoteHandoff engine=%@ index=%d gapMs=%.2f",
-            engine,
-            paragraphIndex,
-            gapMs
-        ))
+        autoAdvancePerf.logRemoteHandoffGap(playStartUptime: playStartUptime, paragraphIndex: paragraphIndex, engine: engine)
     }
 
     // MARK: - Kiểm tra resume của engine remote
