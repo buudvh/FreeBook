@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.494] - 2026-10-09
+
+### perf(js): bo stringify ket qua cho chan doan khong ai doc, gom 34 luot quet DOM, trinh duyet an ton trong lenh huy
+
+Người dùng: *"đừng làm refactor nữa, tôi muốn bạn tra lại code và xem chỗ nào ảnh hưởng hiệu năng app, chỉnh sửa lại cho app mượt hơn, hiệu năng tốt hơn"*. Nguồn: rà toàn app 7 mảng + 2 mảng tác vụ định kỳ, mỗi phát hiện qua một vòng phản biện đối kháng; nhóm này sửa xong lại qua một vòng phản biện nữa (lỗi tìm được đã sửa).
+
+- **Bỏ `JSON.stringify` thừa**: mỗi lời gọi extension (mỗi chương, mỗi nguồn khi tìm, detail/toc/page) stringify **toàn bộ** kết quả (cả chương, cả mục lục) chỉ để ghi vào `AppDiagnostics.lastCall` — grep: không nơi nào đọc. Bỏ 8 chỗ; giá trị trả về không đổi. `ExtensionManager.swift` 1018 → 1003.
+- **`JSDom.cleanAds`**: 34 selector quảng cáo đều là dạng `tag.class` / `tag[attr*=…]` (không `:has`, `:nth-*`, tổ hợp anh em…) ⇒ gom thành **một** lượt `select` thay vì 34 lượt duyệt cả cây ở mỗi `Html.parse`/`res.html()`; regex của `fixUnclosedATags` thành `static let`. `JSDom.swift` 583 → 580 (vẫn trên baseline 555 — vi phạm cũ, không tăng).
+- **`Engine.Browser` tôn trọng huỷ**: script đã bị huỷ không tạo `WKWebView` mới nữa (`_nativeBrowserNew`/`…Visible` trả về ngay); khi huỷ, lượt chờ đang bay của trình duyệt **ẩn** kết thúc ngay ('' / false — như hết giờ) thay vì chờ tới timeout. Trình duyệt hiện hình không đổi; executor dài hạn của `ExtTTSRuntime` không ảnh hưởng (`beginExecution` đặt lại cờ).
+- Chưa làm (cần đo trước): lời gọi JS đồng bộ chiếm cooperative pool (log 84 có `saturated=1` nhưng chưa thấy hại TTS).
+- **Kiểm chứng**: `check_architecture.py` chỉ còn 2 vi phạm nền cũ (`JSDom`, `TTSManager`), 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận biên dịch.
+
 ## [1.3.493] - 2026-10-09
 
 ### perf(thu vien): tim chuong khong dich lai moi phim, tim tat ca nguon huy duoc, Kham pha khong nap 2 lan
@@ -415,15 +427,3 @@ Người dùng: *"Tôi muốn tối ưu thêm VieuNeu-TTS để giảm nhiệt, 
 - **Khoá cache**: `TTSSynthesisIdentity.computeKey` nhận thêm `synthesisSpeed` — thiếu thì audio tốc độ cũ được trả cho yêu cầu tốc độ mới.
 - **Đổi lúc đang đọc**: phát nốt đoạn hiện tại (`invalidateVieNeuSynthesisSpeed()` huỷ nạp trước, lọc `preloadedData`, `clearPreparedNext()`), áp từ đoạn kế ⇒ không khựng.
 - **Trần dòng**: `TTSSettingsView.swift` kẹt **519/519** ⇒ Section 4 chuyển nguyên sang file mới `TTSSettingsView+Voice.swift` (**90**), file chính **519 → 458**. `TTSManager.swift` giữ **3970** (gộp hai dòng tham số để bù).
-
-## [1.3.464] - 2026-10-01
-
-### feat: dat hop thoai Tron/Thay the vao nut nhap vao tu dien sau phien am lai, revert duong nhap tu file va ve lai UI danh sach tron
-
-Người dùng: *"ý tôi là sau khi bấm vào nhấp vào từ điển sau khi phiên âm lại từ điển xong thì hiển thị trộn và thay thế, bạn làm cho chức năng nhập từ file làm gì, ngoài ra UI quá xấu. mocup lại UI phần danh sách trộn"* + *"Đường nhập từ file revert lại ver cũ đi"*.
-
-- **Sửa hiểu nhầm của 1.3.462/463.** Hộp thoại *Trộn / Thay thế toàn bộ* từng gắn vào **đường nhập từ điển từ file**; ý người dùng là nó thuộc **bước áp kết quả phiên âm lại** — tức nút **"Nhập vào từ điển"** ở card màn Thông báo và ở banner màn từ điển.
-- **Nút áp dùng chung.** File mới `RephoneticizeApplyButton.swift` (**122**): vẽ nút "Nhập vào từ điển" + `confirmationDialog` hai nhánh; *Thay thế toàn bộ* gọi `RephoneticizeTask.apply()` (hành vi cũ, có `.bak-rephoneticize`), *Trộn* mở `DictionaryImportConflictView`. Một nút cho cả hai chỗ để không bên nào quên bước sao lưu.
-- **`RephoneticizeTask.applyMerged(_:)`** — đường áp kiểu trộn. `apply()` và nó cùng đi qua một helper `write(_:)` ⇒ hai đường không thể lệch ở bước sao lưu hay bước dọn file kết quả + meta. `RephoneticizeService.normalizedKey(_:target:)` và `currentWords(for:)` hạ `private` → `internal`.
-- **Màn danh sách trộn vẽ lại (hướng C).** Mỗi dòng hai tầng — `khoá` đậm, rồi `cách đọc hiện tại → cách đọc mới` trên **cùng một dòng**; **chạm cả dòng** để chọn/bỏ (bỏ `Toggle`); chip `N trùng · M thêm mới · K giữ nguyên`; ô tìm kiếm + `Chọn hết` / `Bỏ chọn hết`. Màn **tự đọc** từ điển đang dùng trong `Task.detached` (không nhận ảnh chụp từ caller) để mục bị bỏ chọn không bị ghi đè bằng giá trị cũ.
-- **Revert 100% đường nhập từ file** về code trước 1.3.462: VieNeu **trộn** (bản nhập thắng), NghiTTS **ghi đè toàn bộ** (ghi plist trực tiếp + `loadResources()`, **không** backup, có lại `parseCSV` riêng). **Xoá** `DictionaryImportFlowModifier.swift`; giữ `DictionaryImportParser` + `DictionaryImportDiff` vì màn trộn dùng.

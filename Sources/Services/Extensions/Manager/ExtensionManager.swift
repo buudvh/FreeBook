@@ -359,8 +359,6 @@ public final class ExtensionManager: ObservableObject {
             // Chạy hàm "execute(query, page)" bất đồng bộ bên trong JS Engine
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [query, String(page)])
             let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "search")
-            let stringified = stringify(cleanVal)
-            // AppLogger.shared.log("📝 [ExtensionManager] search raw JS result: \(stringified)")
             
             // Ép kiểu kết quả trả về của JS thành mảng bằng toDictionaryArray
             let jsArray = toDictionaryArray(cleanVal)
@@ -381,7 +379,7 @@ public final class ExtensionManager: ObservableObject {
                 results.append(ExtensionItemResult(name: name, author: author, description: description, content: content, cover: cover, link: link, host: host))
             }
             // AppLogger.shared.log("✅ [ExtensionManager] search parsed \(results.count) results")
-            updateDiagnostics(action: "search", input: "query: \(query), page: \(page)", status: "Success", details: "Parsed \(results.count) results:\n\(stringified)")
+            updateDiagnostics(action: "search", input: "query: \(query), page: \(page)", status: "Success", details: "Parsed \(results.count) results:")
             return results
         } catch {
             // AppLogger.shared.log("❌ [ExtensionManager] search error: \(error.localizedDescription)")
@@ -405,8 +403,6 @@ public final class ExtensionManager: ObservableObject {
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [resolvedUrl])
             let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "detail")
-            let stringified = stringify(cleanVal)
-            // AppLogger.shared.log("📝 [ExtensionManager] detail raw JS result: \(stringified)")
             
             guard let dict = parseJSObject(cleanVal) else {
                 // AppLogger.shared.log("❌ [ExtensionManager] detail returned non-dictionary result or null")
@@ -473,7 +469,7 @@ public final class ExtensionManager: ObservableObject {
             
             let result = NovelDetailResult(name: name, author: author, cover: cover, description: description, detail: detail, host: host, link: link, genres: genres, suggests: suggests, comments: comments)
             AppLogger.shared.log("✅ [ExtensionManager] detail parsed info: name=\(result.name) | author=\(result.author)")
-            updateDiagnostics(action: "detail", input: url, status: "Success", details: "Name: \(result.name), Author: \(result.author)\n\(stringified)")
+            updateDiagnostics(action: "detail", input: url, status: "Success", details: "Name: \(result.name), Author: \(result.author)")
             return result
         } catch {
             // AppLogger.shared.log("❌ [ExtensionManager] detail error: \(error.localizedDescription)")
@@ -497,8 +493,6 @@ public final class ExtensionManager: ObservableObject {
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [resolvedUrl])
             let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "toc")
-            let stringified = stringify(cleanVal)
-            // AppLogger.shared.log("📝 [ExtensionManager] toc raw JS result: \(stringified)")
             
             let jsArray = toDictionaryArray(cleanVal)
 
@@ -523,7 +517,7 @@ public final class ExtensionManager: ObservableObject {
             }
 
             // AppLogger.shared.log("✅ [ExtensionManager] toc parsed \(results.count) chapters")
-            updateDiagnostics(action: "toc", input: url, status: "Success", details: "Parsed \(results.count) chapters:\n\(stringified)")
+            updateDiagnostics(action: "toc", input: url, status: "Success", details: "Parsed \(results.count) chapters:")
             return results
         } catch {
             // AppLogger.shared.log("❌ [ExtensionManager] toc error: \(error.localizedDescription)")
@@ -580,8 +574,6 @@ public final class ExtensionManager: ObservableObject {
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [resolvedUrl])
             let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "chap")
-            let stringified = stringify(cleanVal)
-            // AppLogger.shared.log("📝 [ExtensionManager] chap raw JS result length: \(stringified.count)")
             
             var resultStr = ""
             if cleanVal.isArray {
@@ -592,7 +584,7 @@ public final class ExtensionManager: ObservableObject {
                 resultStr = cleanVal.toString() ?? ""
             }
             
-            updateDiagnostics(action: "chap", input: url, status: "Success", details: "Length: \(resultStr.count) characters\n\(stringified)")
+            updateDiagnostics(action: "chap", input: url, status: "Success", details: "Length: \(resultStr.count) characters")
             return resultStr
         } catch {
             // AppLogger.shared.log("❌ [ExtensionManager] chap error: \(error.localizedDescription)")
@@ -616,8 +608,6 @@ public final class ExtensionManager: ObservableObject {
             
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
             let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "genre")
-            let stringified = stringify(cleanVal)
-            // AppLogger.shared.log("📝 [ExtensionManager] genre raw JS result: \(stringified)")
             
             var results: [CategoryResult] = []
             
@@ -647,7 +637,7 @@ public final class ExtensionManager: ObservableObject {
             }
             
             // AppLogger.shared.log("✅ [ExtensionManager] genre parsed \(results.count) categories")
-            updateDiagnostics(action: "genre", input: "localPath: \(localPath)", status: "Success", details: "Parsed \(results.count) categories:\n\(stringified)")
+            updateDiagnostics(action: "genre", input: "localPath: \(localPath)", status: "Success", details: "Parsed \(results.count) categories:")
             return results
         } catch {
             // AppLogger.shared.log("❌ [ExtensionManager] genre script failed or not supported: \(error.localizedDescription)")
@@ -670,8 +660,6 @@ public final class ExtensionManager: ObservableObject {
         
         let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
         let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "home")
-        let stringified = stringify(cleanVal)
-        // AppLogger.shared.log("📝 [ExtensionManager] home raw JS result: \(stringified)")
         
         var results: [CategoryResult] = []
         
@@ -692,7 +680,7 @@ public final class ExtensionManager: ObservableObject {
         
         // AppLogger.shared.log("✅ [ExtensionManager] home parsed \(results.count) tabs")
         if !results.isEmpty {
-            updateDiagnostics(action: "home", input: "localPath: \(localPath)", status: "Success", details: "Parsed \(results.count) tabs:\n\(stringified)")
+            updateDiagnostics(action: "home", input: "localPath: \(localPath)", status: "Success", details: "Parsed \(results.count) tabs:")
             return results
         } else {
             throw NSError(domain: "ExtensionManager", code: -7, userInfo: [NSLocalizedDescriptionKey: "Home script returned empty or invalid response"])
@@ -726,8 +714,6 @@ public final class ExtensionManager: ObservableObject {
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [formattedInput, pageArg])
             let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: scriptFileName)
-            let stringified = stringify(cleanVal)
-            // AppLogger.shared.log("📝 [ExtensionManager] custom script raw JS result: \(stringified)")
             // Ép kiểu kết quả trả về của JS thành mảng bằng toDictionaryArray
             let jsArray = toDictionaryArray(cleanVal)
             
@@ -756,7 +742,7 @@ public final class ExtensionManager: ObservableObject {
             }
             
             // AppLogger.shared.log("✅ [ExtensionManager] custom script parsed \(results.count) results, nextPage: \(nextPageVal ?? "nil")")
-            updateDiagnostics(action: scriptFileName, input: "input: \(input), page: \(page)", status: "Success", details: "Parsed \(results.count) results, nextPage: \(nextPageVal ?? "nil")\n\(stringified)")
+            updateDiagnostics(action: scriptFileName, input: "input: \(input), page: \(page)", status: "Success", details: "Parsed \(results.count) results, nextPage: \(nextPageVal ?? "nil")")
             return (results, nextPageVal)
         } catch {
             // AppLogger.shared.log("❌ [ExtensionManager] custom script error: \(error.localizedDescription)")
@@ -790,7 +776,6 @@ public final class ExtensionManager: ObservableObject {
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [resolvedUrl])
             let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "page")
-            let stringified = stringify(cleanVal)
             
             var results: [String] = []
             if cleanVal.isArray {
@@ -806,7 +791,7 @@ public final class ExtensionManager: ObservableObject {
                 }
             }
             
-            updateDiagnostics(action: "page", input: url, status: "Success", details: "Parsed \(results.count) pages:\n\(stringified)")
+            updateDiagnostics(action: "page", input: url, status: "Success", details: "Parsed \(results.count) pages:")
             return results
         } catch {
             AppLogger.shared.log("❌ [ExtensionManager] page script error: \(error.localizedDescription)")

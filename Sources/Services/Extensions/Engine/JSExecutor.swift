@@ -440,7 +440,8 @@ public final class JSExecutor: @unchecked Sendable {
 
         // Đăng ký các block chạy browser thực tế bằng WKWebView duy trì thực thể
         let browserNewBlock: @convention(block) (String) -> Void = { [weak self] browserId in
-            guard let self = self else { return }
+            // Script đã bị huỷ thì không tạo WKWebView mới trên main nữa (các lệnh sau tự bỏ qua vì không có loader).
+            guard let self = self, !self.isCurrentExecutionCancelled else { return }
             if Thread.isMainThread {
                 let loader = WebViewLoader()
                 self.activeBrowsers[browserId] = loader
@@ -644,7 +645,7 @@ public final class JSExecutor: @unchecked Sendable {
 
         // Native bridge hooks cho Visible Browser (Trình duyệt có giao diện)
         let browserNewVisibleBlock: @convention(block) (String, String) -> Void = { [weak self] browserId, title in
-            guard let self = self else { return }
+            guard let self = self, !self.isCurrentExecutionCancelled else { return }
             let setupLoader = {
                 let loader = VisibleWebViewLoader(id: browserId, title: title)
                 loader.onClose = { [weak self] in
@@ -946,6 +947,13 @@ public final class JSExecutor: @unchecked Sendable {
             for loader in self.activeBrowsers.values {
                 loader.cancelPendingWaitReady(reason: "cancelled", cancelled: true)
                 loader.webView.stopLoading()
+                // Nhả ngay launch/waitUrl đang chờ (kết quả như timeout: "" / false) thay vì đợi hết hạn.
+                let pendingLoad = loader.completion
+                loader.completion = nil
+                pendingLoad?("")
+                let pendingWaitUrl = loader.waitUrlCompletion
+                loader.waitUrlCompletion = nil
+                pendingWaitUrl?(false)
             }
             self.activeBrowsers.removeAll()
             for loader in self.activeVisibleBrowsers.values {

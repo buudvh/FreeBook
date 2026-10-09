@@ -105,13 +105,12 @@ import SwiftSoup
 // MARK: - Concrete Implementations
 
 @objc public final class JSHtml: NSObject, JSHtmlExport {
+    private static let unclosedATagRegex = try? NSRegularExpression(pattern: "(<a[^>]*class=\\s*[\"'](?:imgbox|img-box|cover|book-cover|bookcover|picbox|imagebox)[\"'][^>]*>\\s*<img[^>]*>)", options: [.caseInsensitive])
+
     internal static func fixUnclosedATags(_ html: String) -> String {
-        let pattern = "(<a[^>]*class=\\s*[\"'](?:imgbox|img-box|cover|book-cover|bookcover|picbox|imagebox)[\"'][^>]*>\\s*<img[^>]*>)"
-        if let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) {
-            let range = NSRange(location: 0, length: html.utf16.count)
-            return regex.stringByReplacingMatches(in: html, options: [], range: range, withTemplate: "$1</a>")
-        }
-        return html
+        guard let regex = unclosedATagRegex else { return html }
+        let range = NSRange(location: 0, length: html.utf16.count)
+        return regex.stringByReplacingMatches(in: html, options: [], range: range, withTemplate: "$1</a>")
     }
 
     public static func parse(_ html: String) -> JSDocument {
@@ -138,28 +137,26 @@ import SwiftSoup
         }
     }
     
+    // Một nhóm "a, b, ..." = một lượt duyệt cây; không selector nào phụ thuộc cấu trúc (:has, :nth-*, +, ~) nên kết quả như gỡ tuần tự.
+    private static let adSelectorQuery = [
+        "div.panel-g",
+        "div.ads", "div.ad", "div.a_d", "div.gg-ad", "div.gg_ad", "div.mgid-widget",
+        "div[class*=\"-ad-\"]", "div[id*=\"-ad-\"]",
+        "div[class*=\"ad-container\"]", "div[class*=\"ad-wrapper\"]", "div[class*=\"ad-box\"]",
+        "div[class*=\"ads-box\"]", "div[class*=\"ad-header\"]", "div[class*=\"ad-footer\"]",
+        "div[class*=\"pop-ad\"]", "div[class*=\"float-ad\"]",
+        "div[id*=\"google_ads_\"]", "div[id*=\"div-gpt-ad\"]",
+        "iframe[id*=\"google_ads_\"]", "iframe[src*=\"googleads\"]", "iframe[src*=\"doubleclick\"]",
+        "div[class*=\"mgid\"]", "div[id*=\"mgid\"]",
+        "div[class*=\"taboola\"]", "div[id*=\"taboola\"]",
+        "ins.adsbygoogle",
+        "a[href*=\"erodalabs.com\"]",
+        "a[href*=\"tip-top.one\"]",
+        "a[href*=\"bet88\"]", "a[href*=\"w88\"]", "a[href*=\"fun88\"]", "a[href*=\"shopee.vn\"]", "a[href*=\"lazada.vn\"]"
+    ].joined(separator: ", ")
+
     internal static func cleanAds(from doc: Document) {
-        let adSelectors = [
-            "div.panel-g",
-            "div.ads", "div.ad", "div.a_d", "div.gg-ad", "div.gg_ad", "div.mgid-widget",
-            "div[class*=\"-ad-\"]", "div[id*=\"-ad-\"]",
-            "div[class*=\"ad-container\"]", "div[class*=\"ad-wrapper\"]", "div[class*=\"ad-box\"]",
-            "div[class*=\"ads-box\"]", "div[class*=\"ad-header\"]", "div[class*=\"ad-footer\"]",
-            "div[class*=\"pop-ad\"]", "div[class*=\"float-ad\"]",
-            "div[id*=\"google_ads_\"]", "div[id*=\"div-gpt-ad\"]",
-            "iframe[id*=\"google_ads_\"]", "iframe[src*=\"googleads\"]", "iframe[src*=\"doubleclick\"]",
-            "div[class*=\"mgid\"]", "div[id*=\"mgid\"]",
-            "div[class*=\"taboola\"]", "div[id*=\"taboola\"]",
-            "ins.adsbygoogle",
-            "a[href*=\"erodalabs.com\"]",
-            "a[href*=\"tip-top.one\"]",
-            "a[href*=\"bet88\"]", "a[href*=\"w88\"]", "a[href*=\"fun88\"]", "a[href*=\"shopee.vn\"]", "a[href*=\"lazada.vn\"]"
-        ]
-        for selector in adSelectors {
-            if let elements = try? doc.select(selector) {
-                _ = try? elements.remove()
-            }
-        }
+        _ = try? doc.select(adSelectorQuery).remove()
     }
 
     public static func selectElements(from element: Element, selector: String) -> Elements {
