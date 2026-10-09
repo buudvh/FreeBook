@@ -48,12 +48,20 @@ final class VieNeuONNXRuntime {
     /// theo file, nên tách file là phải hạ quyền truy cập của đúng những thành viên dùng chéo file.
     let handle: OpaquePointer
 
+    /// Số luồng ORT và cờ spin **thật sự** dùng khi tạo ngữ cảnh này — để log `[VieNeuPerf]` báo đúng
+    /// cấu hình đang chạy. Không đọc lại `UserDefaults`: engine là singleton không bao giờ nạp lại,
+    /// nên đổi cài đặt chỉ có hiệu lực sau khi tắt hẳn app rồi mở lại.
+    let threadCount: Int32
+    let allowSpinning: Bool
+
     init(modelStore: VieNeuModelStore, threadCount: Int32, allowSpinning: Bool = false) throws {
         var message: UnsafeMutablePointer<CChar>?
         guard let handle = VieNeuORTCreate(modelStore.modelsURL.path, threadCount, allowSpinning ? 1 : 0, &message) else {
             throw RuntimeError.failure(Self.consume(message, fallback: "không tạo được ngữ cảnh ORT"))
         }
         self.handle = handle
+        self.threadCount = threadCount
+        self.allowSpinning = allowSpinning
     }
 
     /// Ngữ cảnh **chỉ 3 graph clone** — dùng cho luồng tạo giọng.
@@ -70,6 +78,8 @@ final class VieNeuONNXRuntime {
             throw RuntimeError.failure(Self.consume(message, fallback: "không nạp được gói graph clone"))
         }
         self.handle = handle
+        self.threadCount = threadCount
+        self.allowSpinning = allowSpinning
     }
 
     deinit {

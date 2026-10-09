@@ -16,8 +16,11 @@ public final class CoverRotationState: ObservableObject {
         }
     }
 
-    private static let rotationSpeed: Double = 24.0 // 24 độ/giây = 15 giây / 1 vòng quay 360°
-    @Published private var data: RotationData = RotationData()
+    static let rotationSpeed: Double = 24.0 // 24 độ/giây = 15 giây / 1 vòng quay 360°
+    // Không @Published: góc được Core Animation nội suy (TTSRotatingCoverView), view chỉ đọc lúc gắn animation.
+    private var data: RotationData = RotationData()
+    /// Tăng mỗi lần `resetAngle` (đổi sách) để TTSRotatingCoverView chạy lại animation từ góc 0.
+    @Published public private(set) var resetGeneration: Int = 0
 
     public func syncPlaybackState(isPlaying: Bool, at date: Date = Date()) {
         if isPlaying {
@@ -33,8 +36,9 @@ public final class CoverRotationState: ObservableObject {
         }
     }
 
-    public func currentAngle(at date: Date, isPlaying: Bool) -> Double {
-        guard isPlaying, let start = data.playStartDate else {
+    /// Góc hiện tại (độ) theo trạng thái phát mà model đang giữ (`playStartDate` chỉ khác nil khi đang phát).
+    public func currentAngle(at date: Date = Date()) -> Double {
+        guard let start = data.playStartDate else {
             return data.accumulatedAngle
         }
         let elapsed = max(0, date.timeIntervalSince(start))
@@ -43,6 +47,7 @@ public final class CoverRotationState: ObservableObject {
 
     public func resetAngle(isPlaying: Bool, at date: Date = Date()) {
         data = RotationData(accumulatedAngle: 0.0, playStartDate: isPlaying ? date : nil)
+        resetGeneration &+= 1
     }
 }
 
@@ -50,34 +55,38 @@ public final class CoverRotationState: ObservableObject {
 struct TTSWidgetContentView: View {
     @ObservedObject var viewModel: FloatingWidgetViewModel
     @ObservedObject var rotationState: CoverRotationState
-    @ObservedObject private var ttsManager = TTSManager.shared
     @ObservedObject private var windowManager = TTSFloatingWidgetWindowManager.shared
     @StateObject private var ttsState = TTSWidgetStateReader()
+    @StateObject private var ttsPresentation = TTSRootPresentationReader()
     @StateObject private var coverLoader = TTSCoverImageLoader()
 
     var body: some View {
-        let shouldAnimateCover = ttsManager.isPlaying && windowManager.isWidgetActuallyVisible
+        // Xoay ảnh bìa do Core Animation chạy (TTSRotatingCoverView); body chỉ đánh giá lại khi cờ này đổi.
+        let shouldAnimateCover = ttsState.snapshot.isPlaying && windowManager.isWidgetActuallyVisible
 
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !shouldAnimateCover)) { context in
-            let displayAngle = rotationState.currentAngle(at: context.date, isPlaying: ttsManager.isPlaying)
-
-            Group {
-                if viewModel.mode == .peeking {
-                    TTSWidgetPeekCircleView(
-                        coverImage: coverLoader.image,
-                        rotationAngle: displayAngle
-                    )
-                } else {
-                    TTSWidgetCapsuleView(
-                        coverImage: coverLoader.image,
-                        rotationAngle: displayAngle,
-                        viewModel: viewModel,
-                        ttsState: ttsState
-                    )
-                }
+        Group {
+            if viewModel.mode == .peeking {
+                TTSWidgetPeekCircleView(
+                    coverImage: coverLoader.image,
+                    rotationState: rotationState,
+                    isCoverRotating: shouldAnimateCover
+                )
+            } else {
+                TTSWidgetCapsuleView(
+                    coverImage: coverLoader.image,
+                    rotationState: rotationState,
+                    isCoverRotating: shouldAnimateCover,
+                    viewModel: viewModel,
+                    ttsState: ttsState
+                )
             }
         }
-        .sheet(isPresented: $ttsManager.showingSettingsSheet) {
+        // `ttsPresentation` chỉ làm mới view khi cờ sheet đổi (không observe cả TTSManager); get đọc thẳng manager
+        // để sau khi vuốt đóng (set false) không còn đọc giá trị cũ của snapshot.
+        .sheet(isPresented: Binding(
+            get: { TTSManager.shared.showingSettingsSheet },
+            set: { TTSManager.shared.showingSettingsSheet = $0 }
+        )) {
             if let container = TTSFloatingWidgetWindowManager.shared.modelContainer {
                 TTSSettingsSheet()
                     .modelContainer(container)
@@ -86,7 +95,7 @@ struct TTSWidgetContentView: View {
             }
         }
         .onAppear {
-            rotationState.syncPlaybackState(isPlaying: ttsManager.isPlaying, at: Date())
+            rotationState.syncPlaybackState(isPlaying: ttsState.snapshot.isPlaying, at: Date())
             refreshCover()
         }
         .onChange(of: ttsState.snapshot.playingBookId) { _, _ in
@@ -108,7 +117,8 @@ struct TTSWidgetContentView: View {
 /// Giao diện dạng capsule mở rộng (revealed mode).
 struct TTSWidgetCapsuleView: View {
     let coverImage: UIImage?
-    let rotationAngle: Double
+    let rotationState: CoverRotationState
+    let isCoverRotating: Bool
     @ObservedObject var viewModel: FloatingWidgetViewModel
     @ObservedObject var ttsState: TTSWidgetStateReader
     private let ttsManager = TTSManager.shared
@@ -138,7 +148,8 @@ struct TTSWidgetCapsuleView: View {
                     TTSCoverView(
                         image: coverImage,
                         size: 40,
-                        rotationAngle: rotationAngle
+                        rotationState: rotationState,
+                        isRotating: isCoverRotating
                     )
                 }
                 .buttonStyle(.plain)
@@ -190,9 +201,13 @@ struct TTSWidgetCapsuleView: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 8)
-            .background(Capsule().fill(.ultraThinMaterial))
+            // Shadow gắn vào nền tĩnh, không phủ lên ảnh bìa đang xoay.
+            .background(
+                Capsule()
+                    .fill(.ultraThinMaterial)
+                    .shadow(color: .black.opacity(0.28), radius: 11, x: 0, y: 5)
+            )
             .overlay(Capsule().stroke(Color.white.opacity(0.2), lineWidth: 1))
-            .shadow(color: .black.opacity(0.28), radius: 11, x: 0, y: 5)
         }
         .sheet(isPresented: $showingQuickTimerSheet, onDismiss: {
             viewModel.disableAutoHide = false
@@ -232,19 +247,25 @@ struct TTSWidgetCapsuleView: View {
 /// Giao diện dạng đĩa tròn thu nhỏ (peeking mode).
 struct TTSWidgetPeekCircleView: View {
     let coverImage: UIImage?
-    let rotationAngle: Double
+    let rotationState: CoverRotationState
+    let isCoverRotating: Bool
 
     var body: some View {
         TTSCoverView(
             image: coverImage,
             size: 40,
-            rotationAngle: rotationAngle
+            rotationState: rotationState,
+            isRotating: isCoverRotating
         )
         .padding(6)
         .frame(width: 52, height: 52)
-        .background(Circle().fill(.ultraThinMaterial))
+        // Shadow gắn vào nền tĩnh, không phủ lên ảnh bìa đang xoay.
+        .background(
+            Circle()
+                .fill(.ultraThinMaterial)
+                .shadow(color: .black.opacity(0.28), radius: 11, x: 0, y: 5)
+        )
         .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1))
-        .shadow(color: .black.opacity(0.28), radius: 11, x: 0, y: 5)
         .contentShape(Circle())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Mở điều khiển TTS")
@@ -252,42 +273,24 @@ struct TTSWidgetPeekCircleView: View {
     }
 }
 
-/// View hiển thị ảnh bìa dạng tròn có hiệu ứng xoay đĩa than mượt mà.
+/// View hiển thị ảnh bìa dạng tròn có hiệu ứng xoay đĩa than (Core Animation, xem TTSRotatingCoverView).
 struct TTSCoverView: View {
     let image: UIImage?
     let size: CGFloat
-    var rotationAngle: Double = 0.0
+    let rotationState: CoverRotationState
+    let isRotating: Bool
 
     var body: some View {
-        coverImage
-            .frame(width: size, height: size)
-            .rotationEffect(.degrees(rotationAngle))
-            .clipShape(Circle())
-            .overlay(Circle().stroke(Color.white.opacity(0.35), lineWidth: 1))
-    }
-
-    @ViewBuilder
-    private var coverImage: some View {
-        if let image {
-            Image(uiImage: image)
-                .resizable()
-                .scaledToFill()
-        } else {
-            fallback
-        }
-    }
-
-    private var fallback: some View {
-        ZStack {
-            LinearGradient(
-                colors: [Color.gray.opacity(0.5), Color.black.opacity(0.8)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            Image(systemName: "book.fill")
-                .font(.system(size: size * 0.36, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.88))
-        }
+        TTSRotatingCoverView(
+            image: image,
+            size: size,
+            rotationState: rotationState,
+            isRotating: isRotating
+        )
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+        .overlay(Circle().stroke(Color.white.opacity(0.35), lineWidth: 1))
+        .contentShape(Rectangle())
     }
 }
 

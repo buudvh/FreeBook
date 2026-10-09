@@ -10,7 +10,7 @@ struct VieNeuOrtSpinToggle: View {
 
     var body: some View {
         Toggle("Luồng tổng hợp chờ bận (spin)", isOn: $allowSpinning)
-        Text("Tắt (mặc định) để luồng ngủ khi rảnh — tốn ít CPU và mát máy hơn, tốc độ gần như không đổi. Bật chỉ để so sánh với cách chạy cũ. Áp dụng sau khi nạp lại engine.")
+        Text("Tắt (mặc định) để luồng ngủ khi rảnh — tốn ít CPU và mát máy hơn, tốc độ gần như không đổi. Bật chỉ để so sánh với cách chạy cũ. Áp dụng sau khi tắt hẳn app rồi mở lại.")
             .font(.caption)
             .foregroundColor(.secondary)
     }

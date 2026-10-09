@@ -69,7 +69,10 @@ extension VieNeuTTSEngine {
         synthesisSpeed: Double,
         /// CPU-time **cả tiến trình** trong lượt này (1.3.488, `ProcessCPUClock`). `cpuPerAudio` = CPU-s cho mỗi
         /// giây audio — đại lượng tỉ lệ với năng lượng; `cores` = số lõi bận trung bình (`cpu / synth`).
-        cpuMs: Double
+        cpuMs: Double,
+        /// Ngữ cảnh ORT **đang nạp** — `threads=`/`spin=` lấy từ đây, không từ `UserDefaults` (cài đặt
+        /// chỉ áp dụng sau khi tắt hẳn app rồi mở lại, nên đọc `UserDefaults` sẽ báo sai cấu hình đang đo).
+        runtime: VieNeuONNXRuntime
     ) {
         AppLogger.shared.log(
             "[VieNeuPerf] mode=\(mode.rawValue) chunkLen=\(TTSManager.vieNeuChunkLength) chunks=\(chunkCount) dropped=\(droppedScalars)"
@@ -83,6 +86,7 @@ extension VieNeuTTSEngine {
                 + " boundary=\(boundaryKind.rawValue)"
                 + " cpu=\(String(format: "%.0f", cpuMs))ms cpuPerAudio=\(String(format: "%.2f", cpuMs / 1_000 / max(0.01, pcmDuration)))"
                 + " cores=\(String(format: "%.2f", cpuMs / max(1, synthesisMs)))"
+                + " threads=\(runtime.threadCount) spin=\(runtime.allowSpinning ? "on" : "off")"
         )
     }
 

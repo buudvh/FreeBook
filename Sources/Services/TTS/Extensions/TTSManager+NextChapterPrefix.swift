@@ -46,7 +46,46 @@ extension TTSManager {
     /// nên tổng payload audio vẫn không vượt `count + 1` như lúc đang ở giữa chương.
     internal func requestRemoteNextChapterPrefixIfNeeded(windowCount: Int, inChapterTargetCount: Int) {
         guard isPlaying, tool != "system", !TTSManager.isLocalEngine(tool) else { return }
+        rearmRemoteNextChapterPrefetchIfNeeded()
         requestNextChapterPrefix(capacity: max(0, windowCount - inChapterTargetCount - 1))
+    }
+
+    /// Google/Ext: `triggerNextChapterPrefetch()` chỉ nạp trước khi đã qua nửa chương hoặc
+    /// gần hết chương, nhưng trước đây không có chỗ nào gọi lại nó giữa chương, nên lúc
+    /// chuyển chương phải nạp + tổng hợp chunk 0 từ đầu (im lặng 0,5–1,6 s). Hàm này chạy
+    /// mỗi chunk remote: kiểm tra điều kiện rẻ trước, chỉ gọi lại khi prefetcher đang rảnh
+    /// hoặc còn giữ trạng thái của chương cũ. Không retry khi chương kế đã `.failed`.
+    private func rearmRemoteNextChapterPrefetchIfNeeded() {
+        let isPastHalfway = currentParagraphIndex >= paragraphs.count / 2
+        guard isPastHalfway || remoteRemainingParentCountIsNearEnd(),
+              chaptersQueue.contains(where: { $0.index > playingChapterIndex }) else { return }
+
+        let stateKey: TTSPreparedNextChapterKey
+        switch nextChapterPrefetcher.currentState {
+        case .idle:
+            triggerNextChapterPrefetch()
+            return
+        case .loadingContent(let k, _),
+             .processedReady(let k, _, _, _, _),
+             .synthesizingAudio(let k, _, _, _, _, _, _),
+             .audioReady(let k, _, _, _, _, _, _),
+             .failed(let k, _, _, _):
+            stateKey = k
+        }
+        guard stateKey.bookId != playingBookId || stateKey.chapterIndex <= playingChapterIndex else { return }
+        triggerNextChapterPrefetch()
+    }
+
+    /// Cùng ngữ nghĩa `isNearEnd` trong `triggerNextChapterPrefetch()` (số parent còn lại
+    /// ≤ 3, tập rỗng tính là 99) nhưng dừng sớm khi đã thấy 4 parent khác nhau.
+    private func remoteRemainingParentCountIsNearEnd() -> Bool {
+        guard currentParagraphIndex >= 0 && currentParagraphIndex < paragraphs.count else { return false }
+        var remainingParents = Set<Int>()
+        for index in currentParagraphIndex..<paragraphs.count {
+            remainingParents.insert(paragraphs[index].paragraphIndex)
+            if remainingParents.count > 3 { return false }
+        }
+        return true
     }
 
     /// NghiTTS: prefix chương kế là phần **kéo dài của cùng một watermark cached-time**.

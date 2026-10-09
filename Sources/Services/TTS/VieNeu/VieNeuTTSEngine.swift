@@ -281,7 +281,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
             mode: activeMode, chunkCount: chunks.count, droppedScalars: droppedScalars,
             characterCount: text.count, pcmDuration: pcmDuration,
             speechDuration: max(0, pcmDuration - insertedPauseSeconds), synthesisMs: synthesisMs,
-            boundaryKind: boundaryKind, timing: timing, synthesisSpeed: speed, cpuMs: cpuMs
+            boundaryKind: boundaryKind, timing: timing, synthesisSpeed: speed, cpuMs: cpuMs, runtime: runtime
         )
         // Chỉ thích nghi khi người dùng để "tự động"; xem doc của `requestedMode`.
         if requestedMode == nil {

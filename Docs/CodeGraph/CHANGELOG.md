@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.497] - 2026-10-09
+
+### perf(tts): nap truoc chuong ke Google/Ext giua chuong, widget xoay bang Core Animation, log luong VieNeu
+
+Người dùng: *"đừng làm refactor nữa, tôi muốn bạn tra lại code và xem chỗ nào ảnh hưởng hiệu năng app, chỉnh sửa lại cho app mượt hơn, hiệu năng tốt hơn"*. Nguồn: rà toàn app 7 mảng + 2 mảng tác vụ định kỳ, mỗi phát hiện qua một vòng phản biện đối kháng; nhóm này sửa xong lại qua một vòng phản biện nữa (lỗi tìm được đã sửa).
+
+- **Google/Ext: hết khoảng lặng 0,45–1,6 s khi qua chương (đo được trong log 84: 5/7 lần qua chương bị hụt)**: với engine remote, `triggerNextChapterPrefetch` chỉ được gọi lúc bắt đầu/khởi động lại phiên; trong lúc phát bình thường không gì kích lại nên prefetcher nằm `.idle` và chương kế bị nạp nguội đúng lúc chuyển. Nay hook mỗi chunk remote (`requestRemoteNextChapterPrefixIfNeeded`, chạy qua `updatePrefetchWindow`) kiểm điều kiện rẻ trước (đúng biểu thức `isPastHalfway || isNearEnd`), rồi chỉ kích lại khi còn chương kế và prefetcher đang rảnh hoặc giữ chương cũ/truyện khác; **không** thử lại khi chương kế đã `.failed` (không dội nguồn), không gọi ở chương cuối. `TTSManager.swift` chỉ đổi từ khoá truy cập (3550 dòng, không tăng). Engine local không đổi.
+- **Widget TTS nổi**: (1) không còn observe **toàn bộ** `TTSManager` — `isPlaying` lấy từ `TTSWidgetStateReader`, sheet cài đặt bind qua projection reader (vuốt đóng vẫn ghi lại cờ); (2) **theo quyết định của người dùng**, giữ hiệu ứng xoay ảnh bìa nhưng chuyển từ `TimelineView` 30 Hz (SwiftUI đánh giá lại body widget 30 lần/giây suốt lúc nghe) sang `TTSRotatingCoverView` (mới): `CABasicAnimation` trên `transform.rotation.z`, cùng tốc độ 24°/s, giới hạn ≤ 30 fps (`preferredFrameRateRange` — CA mặc định chạy theo tần số màn hình), dừng bằng `layer.speed = 0` giữ nguyên góc khi tạm dừng/ẩn widget, về 0 khi đổi truyện, gắn lại khi app trở lại tiền cảnh, dùng lại ảnh đã giải mã của view cha. Bóng đổ chuyển xuống nền tĩnh. `rules.md` (TTS presentation energy invariants) cập nhật theo quyết định này.
+- **VieNeu**: mỗi dòng `[VieNeuPerf]` thêm `threads=N spin=on|off` lấy từ **runtime đang chạy thật** (bẫy đo log 85–87: engine là singleton không unload nên cài đặt chỉ có hiệu lực sau khi tắt hẳn app). Sửa chú thích sai "(mở lại app hoặc đổi engine)" → "chỉ áp dụng sau khi tắt hẳn app rồi mở lại"; thêm câu "1 luồng không tiết kiệm pin hơn 2 luồng (cùng lượng CPU) mà chỉ chậm gấp đôi, dễ hụt tiếng khi máy nóng" (đo máy thật: 0,63 CPU-s/audio-s cả hai).
+- **Kiểm chứng**: `check_architecture.py` chỉ còn 2 vi phạm nền cũ (`JSDom`, `TTSManager`), 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận biên dịch.
+
 ## [1.3.496] - 2026-10-09
 
 ### perf(log, tien do): AppLogger giu file mo co khoa, luu tien do khong doc ca bang, khong ghi lai ban trung
@@ -409,15 +420,5 @@ Người dùng: *"Giúp tôi sửa lại Quét tên riêng toàn bộ chương �
 - **Dọn nợ**: xoá `ReaderAIFullScreenView.migrateLegacyJSONMessagesIfNeeded()` và dead code `AIRuntimeCoordinator.startExtractNamesCurrentChapter` (0 call site) ⇒ `AIRuntimeCoordinator.swift` **372 → 315**.
 - **CodeGraph**: 11 doc cập nhật + `--accept`; lượt này cũng xử lý nợ stale còn lại từ `89dc5f1e`.
 - Cổng: `check_architecture.py` **5 nền / 0 mới**; `validate_links.py` **PASS 100%** (16 doc, 640 file).
-
----
-
-## [1.3.467] - 2026-10-03
-
-### chore: them chunkLen vao log [VieNeuPerf] de do chunkLength ↔ CPU
-
-Thêm `chunkLen=` vào `[VieNeuPerf]` (`VieNeuTTSEngine+Adaptive.logSynthesisPerf`) — số đo còn thiếu để đối chiếu **chunkLength** với CPU/nhiệt/pin/độ mượt. Đọc `TTSManager.vieNeuChunkLength` (`nonisolated static`, không nhảy actor). `[NghiEnergy] Summary` đã có sẵn `busyPct`/`underrun`/`aggregateRTF`; `[TTSEnergy]` đã có `thermal`. Kèm 2 báo cáo trong `Docs/Reports/`: `…-chunklength-cpu-analysis.md` + `…-chunklength-measurement-protocol.md`.
-
-- Cổng: `check_architecture.py` **5 nền / 0 mới**.
 
 ---

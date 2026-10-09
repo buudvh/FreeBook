@@ -2010,7 +2010,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         self.triggerNextChapterPrefetch()
     }
 
-    private func triggerNextChapterPrefetch() {
+    internal func triggerNextChapterPrefetch() {
         guard let nextIdx = nextChapterIndex(after: playingChapterIndex),
               let nextChapter = chaptersQueue.first(where: { $0.index == nextIdx }) else {
             nextChapterPrefetcher.cancel()
