@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.485] - 2026-10-09
+
+### refactor: tach TTSRefillFailurePolicy khoi TTSManager (dot 6 tach god object)
+
+Đợt 6 của `Docs/Plans/2026-10-09-plan-refactor-god-objects.md` — bước 2/5 cắt `TTSManager.swift`.
+
+- File mới `Sources/Services/TTS/NghiTTS/TTSRefillFailurePolicy.swift` (83 dòng, 1 enum không case, cạnh `NghiSynthesisPolicy`): `RefillFailureState`, `RefillTaskOutcome` (giữ `Equatable`), `classifyTTSError`, `evaluateRefillError` (giữ `maxAttempts = 2`; `CancellationError` vẫn **không** tính là một attempt), `selectNghiOptionalRefillCandidate` (giữ `blockedIndices = []`), `logPrefetchFailure` (từ `private` thành internal). Thân hàm chuyển **nguyên văn** — script so với `HEAD` sau khi bỏ từ khoá `internal`/`nonisolated internal`: khớp từng byte.
+- `TTSManager` giữ `typealias RefillFailureState/RefillTaskOutcome` + forwarder `nonisolated static` **cùng chữ ký và default** ⇒ 5 chỗ gọi ngoài file (`TTSNextChapterPrefixCache` ×4, `TTSManager+NextChapterPrefix:60`) và mọi chỗ trong file **không phải sửa**. `RefillFailureKey` và `nghiRefillFailureStates` **vẫn ở `TTSManager`** (state, không phải policy — đợt 94).
+- Luật giữ nguyên: policy là **nguồn duy nhất** cho cả refill Nghi lẫn cache prefix chương kế; điều phối retry vẫn do `TTSManager` sở hữu.
+- **Lưu ý codegraph** (ghi vào bẫy #5 ở CLAUDE.md): `codegraph_explore` báo `evaluateRefillError`/`RefillFailureState` chỉ có caller trong `TTSManager.swift`, grep thấy thêm 5 chỗ ở 2 file khác — đúng lý do phải grep chéo trước khi di chuyển.
+- **Kết quả**: `TTSManager.swift` **3812 → 3770** (baseline 3470, vi phạm cũ); `check_architecture.py` 2 violation, 0 mới. Review đối kháng 2 lượt: xem walkthrough. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận.
+
 ## [1.3.484] - 2026-10-09
 
 ### refactor: tach 4 type TTS khoi TTSManager va xoa 3 ham chet (dot 5 tach god object)

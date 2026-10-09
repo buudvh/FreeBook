@@ -2418,10 +2418,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let paragraphIndex: Int
     }
 
-    internal struct RefillFailureState {
-        var attempts: Int = 0
-        var isBlocked: Bool = false
-    }
+    // Chính sách lỗi refill nằm ở `TTSRefillFailurePolicy` (đợt 6); giữ alias + forwarder để caller ngoài file không đổi.
+    internal typealias RefillFailureState = TTSRefillFailurePolicy.RefillFailureState
 
     private var nghiRefillFailureStates: [RefillFailureKey: RefillFailureState] = [:]
     private var nghiRefillRetryTask: Task<Void, Never>?
@@ -2561,14 +2559,9 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         preloadedIndices: Set<Int>,
         blockedIndices: Set<Int> = []
     ) -> Int? {
-        let optionalStart = N + 2
-        guard optionalStart < paragraphsCount else { return nil }
-        for idx in optionalStart..<paragraphsCount {
-            if !preloadedIndices.contains(idx) && !blockedIndices.contains(idx) {
-                return idx
-            }
-        }
-        return nil
+        TTSRefillFailurePolicy.selectNghiOptionalRefillCandidate(
+            currentParagraphIndex: N, paragraphsCount: paragraphsCount,
+            preloadedIndices: preloadedIndices, blockedIndices: blockedIndices)
     }
 
     /// Ứng viên nạp trước kế tiếp: ưu tiên đoạn **sẽ thực sự được đọc** ngay sau đoạn hiện tại
@@ -2609,29 +2602,10 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         nghiRefillGeneration == expectedRefillGeneration
     }
 
-    internal enum RefillTaskOutcome: Equatable {
-        case success
-        case blocked(reason: String, action: String)
-        case retryScheduled(reason: String, attempt: Int)
-        case cancelled
-    }
+    internal typealias RefillTaskOutcome = TTSRefillFailurePolicy.RefillTaskOutcome
 
     nonisolated internal static func classifyTTSError(_ error: Error) -> (reason: String, isNonRetryable: Bool) {
-        if let ttsError = error as? TTSError {
-            switch ttsError {
-            case .badRequest:
-                return ("badRequest", true)
-            case .notFound:
-                return ("notFound", true)
-            case .modelNotCached:
-                return ("modelNotCached", true)
-            case .engineUnavailable:
-                return ("engineUnavailable", true)
-            case .internalError:
-                return ("internalError", false)
-            }
-        }
-        return ("unknownError", false)
+        TTSRefillFailurePolicy.classifyTTSError(error)
     }
 
     nonisolated internal static func evaluateRefillError(
@@ -2639,27 +2613,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         currentAttempts: Int,
         maxAttempts: Int = 2
     ) -> (newState: RefillFailureState, outcome: RefillTaskOutcome) {
-        if error is CancellationError {
-            return (RefillFailureState(attempts: currentAttempts, isBlocked: false), .cancelled)
-        }
-
-        let (reasonCode, isNonRetryable) = classifyTTSError(error)
-        if isNonRetryable {
-            return (RefillFailureState(attempts: currentAttempts, isBlocked: true), .blocked(reason: reasonCode, action: "blocked_non_retryable"))
-        }
-
-        let nextAttempt = currentAttempts + 1
-        if nextAttempt >= maxAttempts {
-            return (RefillFailureState(attempts: nextAttempt, isBlocked: true), .blocked(reason: reasonCode, action: "blocked_max_retries"))
-        } else {
-            return (RefillFailureState(attempts: nextAttempt, isBlocked: false), .retryScheduled(reason: reasonCode, attempt: nextAttempt))
-        }
+        TTSRefillFailurePolicy.evaluateRefillError(error, currentAttempts: currentAttempts, maxAttempts: maxAttempts)
     }
 
     private static func logPrefetchFailure(chapter: Int, index: Int, attempt: Int, reason: String, action: String) {
-        if AppLogger.shared.isLoggingEnabled {
-            AppLogger.shared.log("[TTSPerf] PrefetchFailure chapter=\(chapter) index=\(index) engine=nghitts attempt=\(attempt) reason=\(reason) action=\(action)")
-        }
+        TTSRefillFailurePolicy.logPrefetchFailure(chapter: chapter, index: index, attempt: attempt, reason: reason, action: action)
     }
 
     internal func scheduleNghiRefill() -> Bool {
