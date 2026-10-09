@@ -3,6 +3,7 @@ import Foundation
 public final class TranslateUtils {
     
     private static let translationCache = TranslationMemo<String>(maxEntries: 1024, maxCost: 8 * 1024 * 1024)
+    private static let metaTranslationCache = TranslationMemo<String>(maxEntries: 1024, maxCost: 1024 * 1024) // tên/meta: không để dòng nội dung chương đẩy ra
     private static let traditionalToSimplifiedTransform = StringTransform("Traditional-Simplified")
     private static let cacheLock = NSLock()
     private static let tocRulesLock = NSLock()
@@ -319,12 +320,13 @@ public final class TranslateUtils {
             let rawPost = String(trimmed[matchRange.upperBound...])
             let cleanPost = cleanLeadingDelimiters(rawPost)
             
+            // Mảnh tên chương đi tầng nội dung (`chapterTitleCache` đã giữ cả tên): mục lục dài không đẩy tên truyện ở tầng meta ra.
             let translatedPre = preMatch.isEmpty
                 ? ""
-                : translateMeta(preMatch, bookId: bookId, applyingQuickTranslationRules: applyingQuickTranslationRules) + " "
+                : translateContent(preMatch, bookId: bookId, applyingQuickTranslationRules: applyingQuickTranslationRules) + " "
             let translatedPost = cleanPost.isEmpty
                 ? ""
-                : ": " + translateMeta(cleanPost, bookId: bookId, applyingQuickTranslationRules: applyingQuickTranslationRules)
+                : ": " + translateContent(cleanPost, bookId: bookId, applyingQuickTranslationRules: applyingQuickTranslationRules)
             
             translated = "\(translatedPre)\(unitVal) \(numberVal)\(translatedPost)".trimmingCharacters(in: .whitespacesAndNewlines)
         } else if let match = arabicNumberTitleRegex.firstMatch(in: trimmed, options: [], range: range),
@@ -338,11 +340,11 @@ public final class TranslateUtils {
             let cleanPost = cleanLeadingDelimiters(rawPost)
             let translatedPost = cleanPost.isEmpty
                 ? ""
-                : ": " + translateMeta(cleanPost, bookId: bookId, applyingQuickTranslationRules: applyingQuickTranslationRules)
+                : ": " + translateContent(cleanPost, bookId: bookId, applyingQuickTranslationRules: applyingQuickTranslationRules)
 
             translated = "Chương \(numberVal)\(translatedPost)".trimmingCharacters(in: .whitespacesAndNewlines)
         } else {
-            translated = translateMeta(trimmed, bookId: bookId, applyingQuickTranslationRules: applyingQuickTranslationRules)
+            translated = translateContent(trimmed, bookId: bookId, applyingQuickTranslationRules: applyingQuickTranslationRules)
         }
         
         if !Task.isCancelled, generation == translationGenerationToken(for: bookId) {
@@ -367,14 +369,16 @@ public final class TranslateUtils {
             return text
         }
 
+        // Tra cache TRƯỚC `withSnapshot` (kệ sách dịch tên mọi hàng mỗi lần vẽ lại; `capture` nạp rule + từ điển riêng, cache 3 truyện).
+        let cache = isMeta ? metaTranslationCache : translationCache
+        let generation = TranslationReadContext.cacheGeneration(for: bookId)
+        let key = "\(generation)|\(isMeta)|\(applyingQuickTranslationRules)|\(bookId ?? "global")|\(text.md5())"
+        let lookup = cache.lookup(key)
+        if let cached = lookup.value { return cached }
         return TranslationReadContext.withSnapshot(bookId: bookId) {
-            let generation = TranslationReadContext.cacheGeneration(for: bookId)
-            let key = "\(generation)|\(isMeta)|\(applyingQuickTranslationRules)|\(bookId ?? "global")|\(text.md5())"
-            let lookup = translationCache.lookup(key)
-            if let cached = lookup.value { return cached }
             let translated = performTranslation(text, bookId: bookId, applyingQuickTranslationRules: applyingQuickTranslationRules)
             if !Task.isCancelled, generation == translationGenerationToken(for: bookId) {
-                translationCache.insert(translated, key: key, bookId: bookId,
+                cache.insert(translated, key: key, bookId: bookId,
                                         cost: translated.utf16.count * 2, ticket: lookup.ticket)
             }
             return translated
@@ -889,6 +893,7 @@ public final class TranslateUtils {
         }
         cacheLock.unlock()
         translationCache.invalidate(bookId: bookId)
+        metaTranslationCache.invalidate(bookId: bookId)
         chapterTitleCache.invalidate(bookId: bookId)
         TokenizeMemo.shared.clear(bookId: bookId)
         QuickTranslationRuleEngine.clearCache(bookId: bookId)
@@ -902,6 +907,7 @@ public final class TranslateUtils {
         bookGenerations.removeAll()
         cacheLock.unlock()
         translationCache.invalidate()
+        metaTranslationCache.invalidate()
         chapterTitleCache.invalidate()
         TokenizeMemo.shared.clear()
         QuickTranslationRuleEngine.clearCache()

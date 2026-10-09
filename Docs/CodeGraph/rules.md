@@ -15,6 +15,10 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## 1.3.480 — luật 30 (tra cache dịch trước khi dựng `TranslationReadContext`)
+
+* **Luật 30 — hàm dịch có cache phải tra cache TRƯỚC `TranslationReadContext.withSnapshot`/`capture`.** `capture` không rẻ: nó nạp snapshot rule riêng (`QuickTranslationRuleBookStore`) **và** `VietPhrase.txt`/`Names.txt` riêng (`TranslationDictionaryState.book`), cả hai là LRU **3 truyện**. Danh sách nhiều truyện (kệ sách, lịch sử, tìm trong kệ, sheet chọn truyện) dịch tên từng hàng bằng `bookId` riêng của hàng ⇒ ≥ 4 truyện là đá cache xoay vòng, đọc + parse lại file trên main thread ở **mỗi** lần vẽ lại dù bản dịch đã có. Lỗi thật (1.3.480): kệ sách sống dưới `fullScreenCover` của Reader nên vẽ lại mỗi lần lưu tiến độ. Khuôn đúng: `translateText` tính khoá (`cacheGeneration(for:)` — không đụng đĩa) và `lookup` trước, chỉ vào `withSnapshot` khi trượt. Kèm theo: tên/tác giả (`translateMeta`) có tầng cache riêng `metaTranslationCache`; dịch số lượng lớn (dòng nội dung, mảnh tên chương — `chapterTitleCache` đã giữ cả tên) đi tầng nội dung để không đẩy tên ra. **Không** đổi `bookId` truyền vào chỉ để né cache: một số `Book.bookId` chính là link nguồn (`BookDetailView.resolveBookId`), đổi sang `nil` là đổi kết quả dịch.
+
 ## 1.3.479 — luật 27 (cache hiển thị không được làm nguồn ghi), luật 28 (tra từ điển không copy cả chuỗi), luật 29 (JS bridge chặn pool, không chặn main)
 
 * **Luật 27 — cache phục vụ hiển thị của một giá trị đã lưu (`@AppStorage`/UserDefaults) KHÔNG được làm nguồn cho đường ghi.** Cache `@State` chỉ được nạp khi `.onChange(…, initial: true)`/`.onAppear` chạy, và SwiftUI **không** đảm bảo thứ tự giữa các modifier đó với một `.onAppear` khác đang ghi. Lỗi suýt có (1.3.479): `SearchView.onAppear` → `performSearch` → `saveQueryToHistory` đọc lịch sử qua cache rỗng rồi `addQuery` ⇒ ghi đè mất cả 15 mục. Khuôn đúng: getter dùng cho đường ghi decode thẳng từ nguồn (`SearchHistoryStore.decode(searchHistoryJSON)`), setter gán cache **và** nguồn; chỉ `matchingHistory` (hiển thị) đọc cache. Ghi hiếm nên decode thêm ở đó không tốn gì.
