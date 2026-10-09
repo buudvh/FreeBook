@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.486] - 2026-10-09
+
+### refactor: tach TTSChunkPositionMapper va TTSSettingsSnapshot khoi TTSManager (dot 7 tach god object)
+
+Đợt 7 của `Docs/Plans/2026-10-09-plan-refactor-god-objects.md` — bước 3/5 cắt `TTSManager.swift`.
+
+- **`TTSChunkPositionMapper`** (`Sources/Services/TTS/`, 106 dòng, enum không case): 3 hàm thuần đổi "vị trí người dùng" → chỉ số chunk, **cố ý giữ 3 ngữ nghĩa riêng** (phản biện khảo sát): `targetChunkIndex` (ưu tiên `resumeIdentity` rồi `sourceRange`; thân `findTargetChunkIndex`, hàm `public` này còn là forwarder), `indexForParagraphPosition` (khớp `paragraphIndex`, nhận tiêu đề qua `first?.paragraphIndex == -1`; từ `updateParagraphPositionWithoutPlaying`), `reanchorAfterSettings` (so **`range`** hiển thị với chunk cũ sau khi dựng lại đoạn, chấp nhận `range.length == 0`; từ `resumeAfterSettings`, cờ tiêu đề do caller tính y như cũ). Force-unwrap và kiểm `NSNotFound` giữ nguyên thứ tự.
+- **`TTSSettingsSnapshot`** (`Sources/Services/TTS/`, 62 dòng): struct `Equatable` từ `private` lồng trong `TTSManager` thành top-level + `static capture(...)` đọc `UserDefaults` tại thời điểm gọi (vẫn đúng 2 thời điểm: `prepareForSettings`, `resumeAfterSettings`). Danh sách trường **không đổi** — vẫn cố ý **không** gồm `nghittsSafeCachedTimeThreshold`/`nghittsPrefetchCount`/`vieneu*` (đổi riêng ngưỡng đệm không được phát lại từ đầu). **Không** gộp 4 biến `saved*BeforeSettings` thành `ResumeAnchor` (plan gợi ý tuỳ chọn): `savedChunkIndexBeforeSettings` chỉ ghi không đọc, gộp là đổi cấu trúc không cần cho đợt thuần di chuyển.
+- Caller ngoài file không đổi: `TTSSettingsView` (`prepareForSettings`/`resumeAfterSettings`), `ReaderView` (`updateParagraphPositionWithoutPlaying`).
+- **Kết quả**: `TTSManager.swift` **3770 → 3672** (baseline 3470 — đợt 8–9 xử lý tiếp); `check_architecture.py` 2 violation, 0 mới. Review đối kháng 2 lượt: xem walkthrough. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận.
+
 ## [1.3.485] - 2026-10-09
 
 ### refactor: tach TTSRefillFailurePolicy khoi TTSManager (dot 6 tach god object)
@@ -449,22 +460,5 @@ Sửa lỗi biên dịch CI của lượt `[1.3.456]` — **giữ nguyên commit
 - **Sửa**: đúng một dòng. `VieNeuVoiceCatalog.swift` **153 → 153** (không đổi số dòng).
 - **Ràng buộc đã đo**: `check_architecture.py` **5 violation nền / 0 mới**; `validate_links.py` **PASS 100% (16 doc, 624 file Swift)**.
 - **Tài liệu CodeGraph**: sửa cơ học ⇒ `04_call_graph`, `10_risk_report`, `11_subsystems`, `13_resource_lifecycle`, `rules` **no-change-needed** (mô tả trong doc vẫn đúng).
-
----
-
-## [1.3.456] - 2026-10-01
-
-### fix: ep che do cao cho giong clone va sua cai dat TTS luon hien mac dinh
-
-Hai việc: (1) người dùng thử **16 bước** và báo *"khá hơn chút"* nhưng *"âm sắc vẫn chưa giống lắm"* ⇒ yêu cầu phần clone **luôn** dùng chất lượng cao bất kể cài đặt; (2) vào Cài đặt TTS từ tab Cài đặt **luôn hiện giá trị mặc định** (bật Tiết kiệm pin) dù đã đổi.
-
-- **⭐ Đối chiếu nguyên văn với upstream — pipeline nhân bản KHÔNG có lỗi.** Đã tải mã nguồn thật ở revision đã ghim (`v3nano.py`, `fbank.py`, `onnx_extractor.py`, `audio_utils.py`) và `config.json`: `_load_mono` (mean kênh) · fbank 80-mel 16 kHz `mean_norm` · `_group_latent` · cắt `min(int(5×15,625), 140)` · `ref_mask` toàn 1 — **khớp hoàn toàn**. `speaker_encoder.embed` cũng đúng (không L2-normalize, không chia đoạn). `config.json` thật: `steps_default = 16`, `cfg_default = 3,0`, `ref_max_frames = 140`, `latent_scale = 0,25`. Vòng tổng hợp (`infer`) cũng khớp từng dòng, kể cả `max_chars = 140` / `max_seconds = 15` / `min_frames = 2`. Denoiser của upstream là **tuỳ chọn** (`None` ⇒ vẫn nhân bản được) nên việc app bỏ qua không phải lỗi.
-- **Vậy thủ phạm là số bước Euler**: "Tiết kiệm pin" **mặc định BẬT** (`isPowerSaving`: khoá absent ⇒ `true`) và `VieNeuTTSService.swift:138` ép `.fast` (8 bước / `sway = -1`) bất kể người dùng chọn `.high`; có `requestedMode != nil` thì engine còn **không tự thích nghi**. Vòng Euler là nơi áp dụng **toàn bộ điều kiện hoá** (x-vector + `style`) nên 8 bước làm âm sắc không bám mẫu.
-- **Sửa 1**: `VieNeuSynthesisPolicy.effectiveMode(requested:current:isClonedVoice:)` — giọng clone (`Preset.isCloned`) trả **`.high`** (16 bước / `sway = 0` / `cfg = 3,0` = đúng mặc định của model). Gọi ở `VieNeuTTSEngine.swift:216` ⇒ phủ cả "Nghe thử" lẫn đọc truyện. Đánh đổi: gấp đôi tính toán ⇒ máy nóng hơn — có chủ ý.
-- **Sửa 2 (lỗi UI)**: `TTSSettingsView` giữ `vieNeuPowerSaving` / `vieNeuThreadCount` trong `@State` khởi tạo **một lần** lúc View dựng, mà lúc đó `VieNeuTTSService.shared` có thể chưa tồn tại ⇒ `?? true` rơi về mặc định; và **không bao giờ** được làm mới (trước đây chỉ `vieNeuSelectedMode` được làm mới trong `.onChange(of: ttsManager.tool)`). Thêm `refreshVieNeuSettings()` (`TTSSettingsView+VieNeu.swift`) đọc thẳng `UserDefaults` trong `.onAppear`.
-- **Chuyển khoá** `vieneuPreferredMode` từ `VieNeuTTSService` sang `VieNeuSynthesisPolicy` (cùng chỗ với `powerSavingKey`/`threadCountKey`) để màn Cài đặt đọc được **không cần service**.
-- **File sửa**: `VieNeuTTSEngine.swift` **400 → 400** (đổi đúng 1 dòng), `VieNeuTTSService.swift` 394 → **389**, `VieNeuSynthesisPolicy.swift` 126 → **149**, `VieNeuVoiceCatalog.swift` 148 → **153**, `TTSSettingsView+VieNeu.swift` 189 → **206**, `TTSSettingsView.swift` 513 → **516** (trần 519).
-- **Ràng buộc đã đo**: `check_architecture.py` **5 violation nền / 0 mới**; `validate_links.py` **PASS 100% (16 doc, 624 file Swift)**.
-- **Tài liệu CodeGraph**: `11_subsystems.md` + `rules.md` **accept** (thêm Luật 10/11/12); `03_type_graph`, `04_call_graph`, `05_state_graph`, `10_risk_report`, `13_resource_lifecycle` **no-change-needed** (sửa cơ học, mô tả vẫn đúng).
 
 ---

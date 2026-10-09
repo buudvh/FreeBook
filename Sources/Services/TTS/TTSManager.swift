@@ -500,48 +500,14 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     internal var nghiRefillInFlightIndices: Set<Int> = []
     internal var nghiWakeTask: Task<Void, Never>? = nil
 
-    private struct TTSSettingsSnapshot: Equatable {
-        let tool: String
-        let selectedVoice: String
-        let pitch: Double
-        let speed: Double
-        let chunkLength: Int
-        let prefetchDelayMs: Int
-        let googlePrefetchCount: Int
-        let extPrefetchCount: Int
-        let extensionLocalPath: String
-        let extensionConfigJson: String
-        let newlinePause: Double
-        let sentencePause: Double
-        let phrasePause: Double
-        let bracketPause: Double
-        let paragraphPause: Double
-        let numericNormalization: Bool
-        let dictionaryReplacement: Bool
-        let transliteration: Bool
-    }
+    // Ảnh chụp cài đặt + ánh xạ vị trí → chunk nằm ở `TTSSettingsSnapshot` / `TTSChunkPositionMapper` (đợt 7).
     private var savedSettingsSnapshot: TTSSettingsSnapshot? = nil
 
     private func captureTTSSettingsSnapshot() -> TTSSettingsSnapshot {
-        TTSSettingsSnapshot(
-            tool: tool,
-            selectedVoice: selectedVoice,
-            pitch: pitch,
-            speed: speed,
-            chunkLength: chunkLength,
-            prefetchDelayMs: prefetchDelayMs,
-            googlePrefetchCount: googlePrefetchCount,
-            extPrefetchCount: extPrefetchCount,
-            extensionLocalPath: extensionLocalPath,
-            extensionConfigJson: extensionConfigJson,
-            newlinePause: UserDefaults.standard.double(forKey: "newlinePauseDuration"),
-            sentencePause: UserDefaults.standard.double(forKey: "sentencePauseDuration"),
-            phrasePause: UserDefaults.standard.double(forKey: "phrasePauseDuration"),
-            bracketPause: UserDefaults.standard.double(forKey: "bracketPauseDuration"),
-            paragraphPause: UserDefaults.standard.double(forKey: "paragraphPauseDuration"),
-            numericNormalization: UserDefaults.standard.object(forKey: PreprocessorSettingKey.numericNormalizationEnabled) as? Bool ?? true,
-            dictionaryReplacement: UserDefaults.standard.object(forKey: PreprocessorSettingKey.dictionaryReplacementEnabled) as? Bool ?? true,
-            transliteration: UserDefaults.standard.object(forKey: PreprocessorSettingKey.transliterationEnabled) as? Bool ?? true
+        TTSSettingsSnapshot.capture(
+            tool: tool, selectedVoice: selectedVoice, pitch: pitch, speed: speed, chunkLength: chunkLength,
+            prefetchDelayMs: prefetchDelayMs, googlePrefetchCount: googlePrefetchCount, extPrefetchCount: extPrefetchCount,
+            extensionLocalPath: extensionLocalPath, extensionConfigJson: extensionConfigJson
         )
     }
 
@@ -1062,15 +1028,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     public func updateParagraphPositionWithoutPlaying(paragraphIndex: Int) {
         guard !isPlaying else { return }
 
-        let titleInserted = paragraphs.first?.paragraphIndex == -1
-        var targetIdx = -1
-        if paragraphIndex == -1 {
-            targetIdx = 0
-        } else if let idx = paragraphs.firstIndex(where: { $0.paragraphIndex == paragraphIndex }) {
-            targetIdx = idx
-        } else {
-            targetIdx = titleInserted ? 1 : 0
-        }
+        let targetIdx = TTSChunkPositionMapper.indexForParagraphPosition(in: paragraphs, paragraphIndex: paragraphIndex)
 
         if targetIdx >= 0 && targetIdx < paragraphs.count {
             self.currentParagraphIndex = targetIdx
@@ -1228,49 +1186,10 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         startTextOffset: Int? = nil,
         resumeIdentity: TTSChunkResumeIdentity? = nil
     ) -> Int {
-        guard !paragraphs.isEmpty else { return 0 }
-
-        if let identity = resumeIdentity {
-            if identity.sourceLineId == -1 {
-                return 0
-            }
-            let matching = paragraphs.enumerated().filter { $0.element.paragraphIndex == identity.sourceLineId }
-            if !matching.isEmpty {
-                if let found = matching.first(where: {
-                    let range = $0.element.sourceRange
-                    return range.location != NSNotFound && range.location <= identity.sourceOffset && identity.sourceOffset < NSMaxRange(range)
-                }) {
-                    return found.offset
-                }
-                if identity.chunkOrdinal >= 0 && identity.chunkOrdinal < matching.count {
-                    return matching[identity.chunkOrdinal].offset
-                }
-                return matching.first!.offset
-            }
-        }
-
-        if startParagraphIndex == -1 {
-            return 0
-        }
-        let matchingChunks = paragraphs.enumerated().filter { $0.element.paragraphIndex == startParagraphIndex }
-        if matchingChunks.isEmpty {
-            return 0
-        }
-
-        if let offset = startTextOffset, offset != NSNotFound, offset >= 0 {
-            if let exact = matchingChunks.first(where: {
-                let r = $0.element.sourceRange.location != NSNotFound ? $0.element.sourceRange : $0.element.range
-                return r.location <= offset && offset < NSMaxRange(r)
-            }) {
-                return exact.offset
-            }
-            if let exactRange = matchingChunks.first(where: {
-                $0.element.range.location <= offset && offset < NSMaxRange($0.element.range)
-            }) {
-                return exactRange.offset
-            }
-        }
-        return matchingChunks.first!.offset
+        TTSChunkPositionMapper.targetChunkIndex(
+            in: paragraphs, startParagraphIndex: startParagraphIndex,
+            startTextOffset: startTextOffset, resumeIdentity: resumeIdentity
+        )
     }
 
     private func continueStartSpeaking(startParagraphIndex: Int, startTextOffset: Int? = nil, resumeIdentity: TTSChunkResumeIdentity? = nil) {
@@ -1575,27 +1494,10 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             self.paragraphs.insert(titleParagraph, at: 0)
         }
 
-        let targetIdx: Int
-        if savedParagraphIdentity == -1 {
-            targetIdx = 0
-        } else if let exactMatch = paragraphs.firstIndex(where: {
-            $0.paragraphIndex == savedParagraphIdentity && $0.range == savedChunkRange
-        }) {
-            // Khớp chính xác chunk cũ khi chunkLength không đổi
-            targetIdx = exactMatch
-        } else if let rangeMatch = paragraphs.firstIndex(where: {
-            $0.paragraphIndex == savedParagraphIdentity &&
-            $0.range.location <= savedChunkLocation &&
-            (savedChunkLocation < $0.range.location + $0.range.length || $0.range.length == 0)
-        }) {
-            // Khớp chunk mới bao hàm vị trí từ đầu tiên của chunk cũ khi chunkLength thay đổi
-            targetIdx = rangeMatch
-        } else if let parentFirstIdx = paragraphs.firstIndex(where: { $0.paragraphIndex == savedParagraphIdentity }) {
-            // Fallback: chunk đầu tiên của paragraph đó
-            targetIdx = parentFirstIdx
-        } else {
-            targetIdx = (showTitle && !chapterTitle.isEmpty && paragraphs.count > 1) ? 1 : 0
-        }
+        let targetIdx = TTSChunkPositionMapper.reanchorAfterSettings(
+            in: paragraphs, savedParagraphIdentity: savedParagraphIdentity, savedChunkRange: savedChunkRange,
+            savedChunkLocation: savedChunkLocation, titleInserted: showTitle && !chapterTitle.isEmpty
+        )
 
         self.currentParagraphIndex = targetIdx
         if targetIdx >= 0 && targetIdx < paragraphs.count {
