@@ -12,7 +12,7 @@ Repo này có quy trình AI riêng, **ưu tiên cao hơn hướng dẫn mặc đ
 2. `Docs/CodeGraph/rules.md` — quy chuẩn kỹ thuật + checklist tự kiểm tra (tài liệu có thẩm quyền cao nhất).
 3. `CHANGELOG.md` — lịch sử thay đổi theo version `[1.3.NNN]`.
 
-**Điều hướng cấu trúc**: thay vì đọc doc MB, hãy dùng công cụ MCP **`codegraph_explore`** (hoặc CLI `codegraph explore "<câu hỏi>"`) — nó trả source verbatim + call paths + quan hệ trong một lần gọi. Index nằm ở `.codegraph/` (tự động đồng bộ khi file đổi; build bằng `codegraph init`). Nếu agent không có MCP, fallback CLI `codegraph explore`.
+**Điều hướng cấu trúc**: thay vì đọc doc MB, hãy dùng công cụ MCP **`codegraph_explore`** (hoặc CLI `codegraph explore "<câu hỏi>"`) — nó trả source verbatim + call paths + quan hệ trong một lần gọi. Index nằm ở `.codegraph/` (tự động đồng bộ khi file đổi; build bằng `codegraph init`). Nếu agent không có MCP, fallback CLI `codegraph explore`. **Agent được tự chạy `codegraph sync` khi cần** — ví dụ codegraph báo *"pending index sync"*, kết quả rõ ràng cũ hơn code vừa sửa, hoặc sau `git pull`/đổi nhánh; chỉ `codegraph init` (build lần đầu) mới là việc của người dùng.
 
 **Thứ tự thẩm quyền khi xung đột**: `rules.md` > Source Code > `CHANGELOG.md` > tài liệu khác. Nếu không đủ bằng chứng để phân biệt sai lệch là chủ ý hay bug, phải đánh dấu `UNKNOWN` và hỏi người dùng — không tự suy đoán. **Nhưng đọc mục "Bẫy đã xác minh & sai lệch tài liệu" ở cuối file trước**: `rules.md` có chỗ đã cũ hơn code, đừng sửa code chỉ để khớp nó.
 
@@ -40,7 +40,8 @@ Công cụ kiểm tra chạy được **mọi nền tảng**, kể cả Windows 
 ```bash
 codegraph explore "<câu hỏi hoặc tên symbol>"   # source verbatim + call paths (giống MCP codegraph_explore)
 codegraph status                                 # thống kê index (.codegraph/)
-codegraph init                                   # build index lần đầu (tạo .codegraph/)
+codegraph sync                                   # đồng bộ index với cây làm việc — agent TỰ chạy khi cần
+codegraph init                                   # build index lần đầu (tạo .codegraph/) — chỉ người dùng chạy
 python Scripts/check_architecture.py             # gate kiến trúc, exit 0 = pass
 ```
 
@@ -66,7 +67,7 @@ Khi clone repo này về máy khác (hoặc để lâu ngày rồi `git pull` nh
    }
    ```
    rồi Connectors → mục **"Custom connectors"** góc trên bên phải → bấm **Trust**.
-5. Đồng bộ lại sau idle dài / git pull: `codegraph sync` (hoặc `codegraph index` để rebuild toàn bộ). File watcher tự động đồng bộ khi session đang chạy, nhưng **không** bắt kịp thay đổi lúc máy tắt.
+5. Đồng bộ lại sau idle dài / git pull / đổi nhánh: `codegraph sync` (hoặc `codegraph index` để rebuild toàn bộ) — **agent tự chạy**, không cần hỏi. File watcher tự động đồng bộ khi session đang chạy, nhưng **không** bắt kịp thay đổi lúc máy tắt.
 
 **Lưu ý môi trường**: build chỉ chạy được trên macOS. Repo hay được mở trên Windows — khi đó không build tại chỗ được; phải nói rõ điều đó thay vì báo "đã kiểm chứng".
 
@@ -235,3 +236,4 @@ Luật này **chặt hơn và bao trùm** Test Lock Rule ở `.agents/AGENTS.md`
 2. **`ReaderParagraphBuilder` và `TTSParagraphBuilder.build(from:)` là API chỉ test dùng.** Production dựng `[ParagraphItem]` ở `Sources/Views/Reader/Extensions/ReaderViewModel+Translation.swift` (logic gần như copy y nguyên của `ReaderParagraphBuilder.build`, thêm `Task.checkCancellation()` mỗi 5 dòng) và dựng chunk qua `TTSBackgroundProcessor` → `TTSParagraphBuilder.buildFromEntries`. Cả `ReaderParagraphBuilder` và overload `build(from:chunkLength:)` **không có caller nào trong `Sources/`**. Sửa logic dựng đoạn phải sửa **cả hai bản**.
 3. **`ReaderRoute` không nằm trong thư mục Reader.** Nó khai ở `Sources/Views/BookDetail/BookDetailView.swift:4`; một type khác `ShelfReaderRoute` ở `Sources/Views/Shelf/ShelfMain/ShelfView.swift:5`. Không có file `ReaderRoute.swift` nào.
 4. **`ReaderSelectionCoordinator` bị đặt tên sai** — nó chỉ làm tra Hán-Việt và format chữ hoa/thường, không liên quan gì tới selection.
+5. **`codegraph_callers` không đủ 100%**: nó bỏ sót lời gọi tĩnh qua tên type (`TranslateUtils.xxx(...)` → báo 0 caller trong khi grep thấy 12) và lời gọi qua biến/optional từ View (`viewModel?.saveProgressImmediately()`). Dùng codegraph để **định vị và đọc**; trước khi **xoá** hay **đổi chữ ký** một member, phải grep chéo toàn `Sources/` để có danh sách caller đầy đủ.

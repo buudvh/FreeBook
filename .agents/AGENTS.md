@@ -82,7 +82,7 @@ Thứ tự ưu tiên thẩm quyền của tài liệu và mã nguồn khi xảy 
 
 ## 4. Quy tắc Bảo trì & Cập nhật tăng dần (Maintenance Rules)
 *   **Không tạo lại toàn bộ (No Full Regeneration)**: Chỉ phân tích và chỉnh sửa các tài liệu bị ảnh hưởng trực tiếp. Giữ nguyên các tài liệu khác.
-*   **Đồng bộ index cấu trúc**: `codegraph` tự động đồng bộ index (`.codegraph/`) khi file Swift đổi (thêm/xoá/đổi tên/sửa nội dung) qua file watcher — **không** cần chạy tay. Nếu index thiếu (không có `.codegraph/`), chạy `codegraph init` tại root.
+*   **Đồng bộ index cấu trúc**: `codegraph` tự động đồng bộ index (`.codegraph/`) khi file Swift đổi (thêm/xoá/đổi tên/sửa nội dung) qua file watcher. Khi codegraph báo *"pending index sync"*, kết quả cũ hơn code vừa sửa, hoặc sau `git pull`/đổi nhánh, **agent tự chạy `codegraph sync`** không cần hỏi. Nếu index thiếu (không có `.codegraph/`), người dùng chạy `codegraph init` tại root.
 *   **Đồng bộ khi Rename / Delete / Move file**:
     *   `codegraph` tự bắt các thay đổi đường dẫn; không cần quét tay.
     *   Nếu một quy tắc ở `rules.md` thay đổi theo, cập nhật `rules.md` (chỉ khi bản thân quy chuẩn kỹ thuật đổi).
@@ -107,7 +107,7 @@ Khi clone repo về máy khác (hoặc để lâu ngày rồi `git pull` nhiều
    }
    ```
    rồi Connectors → mục **"Custom connectors"** góc trên bên phải → bấm **Trust**.
-5. Đồng bộ lại sau idle dài / git pull: `codegraph sync` (hoặc `codegraph index` rebuild toàn bộ). File watcher tự động đồng bộ khi session đang chạy, nhưng **không** bắt kịp thay đổi lúc máy tắt.
+5. Đồng bộ lại sau idle dài / git pull / đổi nhánh: `codegraph sync` (hoặc `codegraph index` rebuild toàn bộ) — **agent tự chạy**, không cần hỏi. File watcher tự động đồng bộ khi session đang chạy, nhưng **không** bắt kịp thay đổi lúc máy tắt.
 
 ---
 

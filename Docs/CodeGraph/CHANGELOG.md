@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.482] - 2026-10-09
+
+### refactor: tach 10 DTO/error/state khoi ChapterPersistenceStore sang Persistence/ (dot 2 tach god object)
+
+Đợt 2 của `Docs/Plans/2026-10-09-plan-refactor-god-objects.md` — thuần di chuyển, không đổi hành vi, không đổi tên.
+
+- **Nhánh làm việc**: từ đợt này refactor chạy trên nhánh `refactor/god-objects` (tách từ `sigle_reader` sau đợt 1); `.github/workflows/build-ipa.yml` thêm nhánh vào trigger `push` để CI biên dịch từng đợt. Xong toàn bộ và CI xanh mới merge về `sigle_reader`.
+- 10 type top-level ở đầu `ChapterPersistenceStore.swift` (HEAD dòng 4–133) tách thành **mỗi type một file** dưới `Sources/Services/ChapterText/Persistence/`: `ChapterMetadataSnapshot`, `ProtectedTTSChapter`, `LocalTOCRefreshResult` (giữ `public` + `public init` — `TTSManager.applyTOCReconciliation` là `public func`), `BookMetadataSnapshot`, `TOCBookCreateSnapshot`, `TOCReconciliationMode`, `SaveTOCResult`, `PersistedChapterSnapshot`, `ChapterPersistenceError` (giữ nguyên chuỗi `errorDescription` tiếng Việt), `ChapterPersistenceState`. Mỗi file chỉ `import Foundation`.
+- Tên type giữ nguyên, phạm vi module ⇒ **12 file tiêu thụ** (`ChapterContentRepository`, `BackupChapterRestorer`, `ExportContentProvider`, `BookDetailView(+Extensions)`, `ReaderChapterListView+Refresh`, `ReaderViewModel`, `ShelfView+BookImport`, `TTSManager`, `ChapterStore*`…) **không phải sửa**. `PersistedChapterSnapshot` là kiểu trả về của `readChapter` — không phải dead code.
+- `ChapterPersistenceStore.swift` **915 → 784** dòng (baseline 884) ⇒ hết vi phạm; file còn actor + `ReconciliationPool` (`fileprivate`, sẽ tách ở đợt 18).
+- **Kiểm chứng**: script so **từng byte** với `HEAD` — phần tách ra ghép lại bằng đúng dòng 4–133, phần còn lại bằng đúng phần còn lại; `check_architecture.py` **4 → 3 violation**, 0 mới. Review đối kháng 2 lượt: 0 lỗi. **Không build tại chỗ** (Windows) — CI xác nhận.
+
 ## [1.3.481] - 2026-10-09
 
 ### refactor: tach 7 chuoi JS bootstrap va cleanAndResolveUrl khoi JSExecutor (dot 1 tach god object)
@@ -439,55 +451,5 @@ Người dùng thử trên máy thật (IPA cài qua **LiveContainer**) và báo
 - **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` **PASS 100%**. **Không build trên Windows** ⇒ CI (`Build Unsigned IPA`) là nơi xác nhận biên dịch.
 - **Tài liệu CodeGraph**: cập nhật **9** doc (`00_index`, `02_file_graph`, `04_call_graph`, `09_dependency_rules`, `10_risk_report`, `11_subsystems`, `13_resource_lifecycle`, `14_complexity_report`, `rules.md`) — 8 doc stale do **thêm file mới** (đổi *cấu trúc*), 4 trong đó còn stale do **đổi nội dung**.
 - **Chưa kiểm chứng trên máy thật**: bước 4 của plan — nghe **đúng** giọng vừa tạo **trong cùng phiên** — là phép thử bắt buộc và **chỉ** chạy được trên thiết bị.
-
----
-
-## [1.3.454] - 2026-09-30
-
-### feat: nhan ban giong VieNeu tu audio mau (voice cloning)
-
-Sửa lỗi biên dịch CI của lượt `[1.3.453]` — **giữ nguyên commit subject cho lần push sửa CI**.
-
-- **Lỗi thật duy nhất trong log CI** (`Build and Archive App (Unsigned)`, exit 65): `VieNeuAudioResampler.swift:121:50: error: cannot find 'AVSampleRateConverterAlgorithm' in scope`.
-- **Nguyên nhân**: `AVAudioConverter.sampleRateConverterAlgorithm` có kiểu `String?`, còn các hằng thuật toán là **biến toàn cục kiểu `String`** (`AVSampleRateConverterAlgorithm_Mastering`) — tên `AVSampleRateConverterAlgorithm` **không tồn tại** trong Swift, nên `.mastering` là sai. Không phải case của một enum nào.
-- **Sửa**: dùng `AVSampleRateConverterAlgorithm_Mastering` + 2 dòng comment tại chỗ nêu rõ lý do, để không ai viết lại `.mastering`.
-- **Xác minh API**: tra Apple docs JSON — `avaudioconverter/samplerateconverteralgorithm.json` cho `var sampleRateConverterAlgorithm: String?`; `avsamplerateconverteralgorithm_mastering.json` cho `let AVSampleRateConverterAlgorithm_Mastering: String`, `roleHeading = Global Variable`. Máy Windows **không** có SDK nên đây là nguồn đối chiếu duy nhất.
-- **File sửa**: `VieNeuAudioResampler.swift` 192 → **194**, `rules.md` (+ **Luật 9**).
-- **Ràng buộc đã đo**: `check_architecture.py` **5** violation nền cũ / **0** vi phạm mới; `validate_links.py` **PASS 100%** (16 doc, 623 file Swift).
-- **Tài liệu CodeGraph**: `rules.md` **accept** (thêm Luật 9 về hằng `NS_TYPED_ENUM`); `04_call_graph`, `10_risk_report`, `11_subsystems`, `13_resource_lifecycle` **no-change-needed** — sửa cơ học, mô tả trong doc vẫn đúng.
-
----
-
-## [1.3.453] - 2026-09-30
-
-### feat: nhan ban giong VieNeu tu audio mau (voice cloning)
-
-Người dùng yêu cầu tạo **giọng đọc riêng** từ audio mẫu. Chốt nguyên lý **trước** khi viết code: một "giọng" trong VieNeu-TTS v3 Nano **chỉ là 2 mảng float** — `speakerEmbedding` (192) + `style` (50×256) — không có model riêng cho từng giọng và **không** fine-tune. Nhân bản = chạy **3 graph clone** để sinh 2 mảng đó.
-
-- **Pipeline** (port `prepare_reference` của bản tham chiếu): cắt ≤30 s → fbank 80-mel 16 kHz → mean-normalize → `speaker_encoder`; resample 24 kHz lấy 5 s đầu → `codec_encoder` → chuẩn hoá `(mu − latent_mean) / latent_std × latent_scale` → `groupLatent` (24 kênh × 6 = **144**, 468 → **78** frame) → `reference_encoder` (kèm `ref_mask` toàn 1) → `style`. Đầu ra được kiểm `spk.count == 192`, `style.count == 12 800`, và mọi giá trị hữu hạn.
-- **Bẫy lớn nhất — `groupLatent` không phải concat kênh liền kề**: `out[c*g + slot][block] = zpad[c][block*g + slot]`. Viết sai (duỗi thẳng kênh liền kề) vẫn ra **đúng shape (50, 256)** nên **không** có lỗi nào nổi lên — chỉ giọng khác đi. Đã chứng minh bit-exact với biểu thức numpy (`max|d| = 0.000e+00`).
-- **`speaker_encoder` ăn fbank, không ăn waveform** — truyền PCM thô sẽ ra embedding 192 số vô nghĩa mà **không** báo lỗi. Vì vậy `VieNeuVoiceCloner` chỉ có **một** đường gọi fbank.
-- **Cầu C mở ngữ cảnh ORT riêng, chỉ 3 graph clone**: `VieNeuORTCreateCloneOnly` (+ `createBaseContext` tách ra từ `VieNeuORTCreate`, `loadCloneGraphsWithOptions`, `createCloneSession` đọc **mọi** tên input bằng `SessionGetInputName` theo kiểu all-or-nothing). Lý do: engine chính không được sửa, mà dùng lại ngữ cảnh của nó thì phải nạp thêm **~280 MB** graph chính — trong khi gói clone chỉ **95 500 985 B** (~91 MiB).
-- **Sửa một lỗi biên dịch thật do chính lượt này**: đổi `copyFloatsInto`'s `outCount` sang `int64_t *` khiến hai caller cũ ghi **8 byte vào ô 4 byte** (hỏng heap, `check_architecture.py` **không** thấy). Đã trả về `int32_t *`.
-- **Gói clone là tuỳ chọn**: `VieNeuModelStore.cloneGraphNames` **không** nằm trong `requiredNames` — điều kiện `store.missingNames.isEmpty` ở `VieNeuTTSEngine.swift:151` không bị đụng, nên người dùng chưa tải gói clone vẫn đọc truyện bình thường.
-- **`VieNeuTTSEngine.swift` giữ đúng 400/400** (không sửa): giọng custom hoà vào danh sách giọng qua `VieNeuVoiceCatalog.load(modelStore:customStore:)`, custom xếp **trước** preset.
-- **`VieNeuCustomVoiceStore.init` không chạm đĩa** — nó được gọi trên đường **đọc** (`VieNeuVoiceCatalog.load` ← `VieNeuTTSEngine.prepareLocked`); tạo thư mục trong `init` là ghi đĩa mỗi lượt tổng hợp. Thư mục chỉ tạo trong `add`/`save`.
-- **Thu âm**: `VieNeuVoiceRecorder` đổi phiên âm thanh `.playback` → `.playAndRecord` rồi **khôi phục** qua `TTSAudioSessionController` — quên khôi phục thì TTS mất tiếng ở **mọi** lượt phát sau, một lỗi nằm khác chỗ với nguyên nhân. Thêm `NSMicrophoneUsageDescription` vào `project.yml`: thiếu nó thì iOS **kill app** ngay khi phiên âm thanh chạm tới input, không phải trả `false`.
-- **File mới**: `VieNeuVoiceCloner.swift` **270**, `VieNeuCustomVoiceStore.swift` **226**, `VieNeuAudioResampler.swift` **192**, `VieNeuVoiceRecorder.swift` **148**, `VieNeuONNXRuntime+Clone.swift` **141**, `VieNeuVoiceLibraryView.swift` **346** + `+Sections.swift` **171**, `VieNeuVoiceCreatorView.swift` **329**.
-- **File sửa**: `VieNeuONNXBridge.h` 121 → **181**, `VieNeuONNXBridge.m` 726 → **1155**, `VieNeuONNXRuntime.swift` 289 → **316**, `VieNeuModelStore.swift` 91 → **149**, `VieNeuModelClient.swift` 128 → **162**, `VieNeuVoiceCatalog.swift` 103 → **148**, `VieNeuTTSService.swift` 349 → **376**, `VieNeuConfig.swift` → **200**, `TTSSettingsView+VieNeu.swift` 179 → **189**, `VieNeuTTSTestView+Sections.swift` 218 → **224**, `project.yml`.
-- **Hạ `private` → `internal`** (bẫy lặp lại lần thứ tư trong repo): `VieNeuONNXRuntime.handle` / `.maximumRank` / `.consume(_:fallback:)` — Swift giới hạn `private` theo file.
-- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` **PASS 100% (16 doc, 623 file Swift)**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
-- **Tài liệu CodeGraph**: cập nhật **12** doc (`00_index`, `01_project`, `02_file_graph`, `03_type_graph`, `04_call_graph`, `05_state_graph`, `09_dependency_rules`, `10_risk_report`, `11_subsystems`, `13_resource_lifecycle`, `14_complexity_report`, `rules.md`) — trong đó có cả nợ tài liệu của `[1.3.451]`/`[1.3.452]`.
-
----
-
-## [1.3.452] - 2026-09-30
-
-### ci: fbank-gate kich hoat bang push theo path thay vi chi workflow_dispatch
-
-- **Trước**: cổng số chỉ chạy tay (`workflow_dispatch`) — mà `workflow_dispatch` chỉ hiện khi file đã có trên nhánh mặc định, nên trên nhánh làm việc thì **không bấm được**. Thêm `on.push.paths`: `Scripts/FbankGate/**`, `Sources/Services/TTS/VieNeu/VieNeuFbank.swift`, `.github/workflows/fbank-gate.yml`.
-- **Hệ quả**: cổng trở thành **chống hồi quy** thật — sửa fbank là CI chạy lại và so với numpy ngay.
-- **File sửa**: `.github/workflows/fbank-gate.yml` (+8/−2).
-- **Tài liệu CodeGraph**: ghi nhận ở lượt `[1.3.453]`.
 
 ---
