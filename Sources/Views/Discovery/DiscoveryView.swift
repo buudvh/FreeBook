@@ -97,9 +97,13 @@ struct DiscoveryView: View {
     }
     
     var body: some View {
+        // Lọc + sort nguồn MỘT lần mỗi body; chỉ dùng trong biểu thức dựng view. Closure hành động/onChange
+        // vẫn đọc `selectedExtension`/`activeExtensions` để lấy giá trị hiện tại, không bắt bản cũ.
+        let active = activeExtensions
+        let selected = active.first(where: { $0.packageId == selectedExtensionId })
         NavigationStack {
             VStack(spacing: 0) {
-                if activeExtensions.isEmpty {
+                if active.isEmpty {
                     VStack(spacing: 12) {
                         Spacer()
                         Image(systemName: "safari")
@@ -121,7 +125,7 @@ struct DiscoveryView: View {
                         // Nút chọn nguồn tiện ích
                         Button(action: { showingExtensionSelector = true }) {
                             HStack(spacing: 6) {
-                                if let ext = selectedExtension {
+                                if let ext = selected {
                                     ExtensionIconView(localPath: ext.localPath, iconUrl: ext.iconUrl, size: 22)
                                     Text(ext.name)
                                         .fontWeight(.semibold)
@@ -147,7 +151,7 @@ struct DiscoveryView: View {
                         Spacer()
                         
                         // Mở nhanh trang chủ tiện ích
-                        if let ext = selectedExtension, !ext.sourceUrl.isEmpty {
+                        if let ext = selected, !ext.sourceUrl.isEmpty {
                             Button(action: {
                                 headerBrowserTarget = ExtensionBrowserTarget(urlString: ext.sourceUrl)
                             }) {
@@ -164,10 +168,10 @@ struct DiscoveryView: View {
                         ReaderTranslationScopeMenuView(
                             bookId: "",
                             packageId: selectedExtensionId,
-                            sourceName: selectedExtension?.name ?? "",
+                            sourceName: selected?.name ?? "",
                             textColor: .white,
                             showBackground: false,
-                            isChineseSourceHint: selectedExtension?.isChineseSource,
+                            isChineseSourceHint: selected?.isChineseSource,
                             iconSize: 17,
                             frameWidth: 38,
                             frameHeight: 38
@@ -178,8 +182,8 @@ struct DiscoveryView: View {
                         
                         // Nút Tìm Kiếm chuyển sang SearchView
                         NavigationLink(destination: SearchView(
-                            activeExtensions: activeExtensions,
-                            selectedExtension: selectedExtension
+                            activeExtensions: active,
+                            selectedExtension: selected
                         )) {
                             Image(systemName: "magnifyingglass")
                                 .font(.system(size: 17, weight: .semibold))
@@ -322,7 +326,7 @@ struct DiscoveryView: View {
                                     }
 
                                     ForEach(homeItems) { item in
-                                        if let ext = selectedExtension {
+                                        if let ext = selected {
                                             let extPackageId = ext.packageId
                                             let extSourceName = ext.name
                                             if shouldRenderCategoryTab(id: item.id) {
@@ -361,6 +365,8 @@ struct DiscoveryView: View {
             }
             .toolbar(.hidden, for: .navigationBar)
             .onAppear {
+                // Khôi phục từ rỗng ⇒ `onChange(of: selectedExtensionId)` sẽ tự tải, nhánh tải bên dưới phải bỏ qua.
+                let restoredSelection = selectedExtensionId.isEmpty
                 // Tự động khôi phục nguồn cuối cùng đã xem
                 if selectedExtensionId.isEmpty {
                     if !lastSelectedExtensionId.isEmpty && activeExtensions.contains(where: { $0.packageId == lastSelectedExtensionId }) {
@@ -386,7 +392,7 @@ struct DiscoveryView: View {
                     if !selectedExtensionId.isEmpty {
                         loadDiscoveryData()
                     }
-                } else if !selectedExtensionId.isEmpty && homeItems.isEmpty && genreItems.isEmpty && discoveryError.isEmpty {
+                } else if !restoredSelection && !selectedExtensionId.isEmpty && homeItems.isEmpty && genreItems.isEmpty && discoveryError.isEmpty {
                     loadDiscoveryData()
                 } else if selectedExtensionId.isEmpty {
                     isLoading = false

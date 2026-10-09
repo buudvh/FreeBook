@@ -91,6 +91,8 @@ struct BookDetailView: View {
     @State private var importedHost = ""
     @State private var navigateToImportedBook = false
     @State internal var chapterSearchQuery = ""
+    @State internal var appliedChapterSearchQuery = "" // query đã debounce, bộ lọc chỉ đọc giá trị này
+    @State internal var onlineTitleIndex = BookDetailOnlineTOCIndex()
 
     // Quản lý tác vụ tải/xuất
     @State internal var selectedTaskType: TaskType = .download
@@ -291,9 +293,8 @@ struct BookDetailView: View {
             updateFilteredLocalChapters()
             updateFilteredOnlineChapters()
         }
-        .onChange(of: chapterSearchQuery) { _, _ in
-            updateFilteredLocalChapters()
-            updateFilteredOnlineChapters()
+        .task(id: chapterSearchQuery) {
+            await applyChapterSearchQueryDebounced()
         }
         .onChange(of: isTranslationEnabled) { _, _ in
             updateFilteredLocalChapters()
@@ -548,6 +549,7 @@ struct BookDetailView: View {
 
                 BookDetailTOCView(
                     chapterSearchQuery: $chapterSearchQuery,
+                    appliedSearchQuery: appliedChapterSearchQuery,
                     totalChaps: totalChaps,
                     isTocAscending: $isTocAscending,
                     tocErrorMessage: tocErrorMessage,

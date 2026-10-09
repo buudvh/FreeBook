@@ -99,42 +99,17 @@ struct ShelfView: View {
     @State private var detailTargetBook: Book? = nil
     @State private var navigateToBookDetail = false
 
-    /// Từ 1.3.334 hai nhóm **không** còn nối thành một mảng phẳng: mỗi nhóm là một section riêng của
-    /// tab Kệ sách để người dùng thấy ngay truyện nào đang ghim. Trong mỗi nhóm vẫn giữ nguyên thứ tự
-    /// `lastReadDate` của `@Query` (không `sorted` lại vì `sorted(by:)` của Swift **không ổn định**).
-    private var pinnedShelfBooks: [Book] {
-        allBooks.filter { $0.isOnShelf && $0.isPinned }
-    }
-
-    private var unpinnedShelfBooks: [Book] {
-        allBooks.filter { $0.isOnShelf && !$0.isPinned }
-    }
-
-    /// Chỉ cần biết kệ có rỗng hay không, nên không dựng mảng gộp chỉ để gọi `isEmpty`.
-    private var isShelfEmpty: Bool {
-        !allBooks.contains { $0.isOnShelf }
-    }
-
-    private var historyBooks: [Book] {
-        allBooks
-            .filter { $0.isHistory && !$0.isOnShelf }
-    }
+    // Từ 1.3.334 hai nhóm ghim / chưa ghim **không** còn nối thành một mảng phẳng: mỗi nhóm là một
+    // section riêng của tab Kệ sách. Ba nhóm (kể cả lịch sử) được chia MỘT lần mỗi body bằng
+    // `ShelfBookPartition`, giữ nguyên thứ tự `lastReadDate` của `@Query`.
 
     /// Badge chuông = số toast chưa đọc + số truyện có chương mới.
     private var notificationBadgeCount: Int {
         notificationInbox.unreadCount + newChapters.totalNewBooks
     }
 
-    /// Phân trang **chỉ** áp cho nhóm chưa ghim: nhóm ghim luôn hiện đủ vì người dùng chủ động ghim.
-    private var displayedShelfBooks: [Book] {
-        Array(unpinnedShelfBooks.prefix(shelfLimit))
-    }
-
-    private var displayedHistoryBooks: [Book] {
-        Array(historyBooks.prefix(historyLimit))
-    }
-
     var body: some View {
+        let parts = ShelfBookPartition(allBooks)
         NavigationStack {
             ZStack {
                 VStack(spacing: 0) {
@@ -156,11 +131,11 @@ struct ShelfView: View {
                             .tag(ShelfTab.collections)
 
                         // TAB KỆ SÁCH
-                        shelfTabView
+                        shelfTabView(parts)
                             .tag(ShelfTab.shelf)
 
                         // TAB LỊCH SỬ
-                        historyTabView
+                        historyTabView(parts)
                             .tag(ShelfTab.history)
                     }
                     .tabViewStyle(.page(indexDisplayMode: .never))
@@ -227,7 +202,7 @@ struct ShelfView: View {
                             Label("Mở trình duyệt web", systemImage: "globe")
                         }
 
-                        if selectedTab == .shelf && !isShelfEmpty {
+                        if selectedTab == .shelf && !parts.isShelfEmpty {
                             Button(action: {
                                 checkAllNewChapters()
                             }) {
@@ -244,7 +219,7 @@ struct ShelfView: View {
                             }
                         }
 
-                        if selectedTab == .history && !historyBooks.isEmpty {
+                        if selectedTab == .history && !parts.history.isEmpty {
                             Button(role: .destructive, action: {
                                 showingClearHistoryAlert = true
                             }) {
@@ -580,9 +555,9 @@ struct ShelfView: View {
     }
 
     @ViewBuilder
-    private var shelfTabView: some View {
+    private func shelfTabView(_ parts: ShelfBookPartition) -> some View {
         Group {
-            if isShelfEmpty {
+            if parts.isShelfEmpty {
                 VStack(spacing: 20) {
                     Image(systemName: "books.vertical")
                         .resizable()
@@ -605,11 +580,11 @@ struct ShelfView: View {
                 List {
                     // Chưa ghim truyện nào thì kệ chỉ có một nhóm — dựng thẳng, không bọc section, để
                     // bố cục giống hệt trước 1.3.334 (không có tiêu đề nhóm lơ lửng một mình).
-                    if pinnedShelfBooks.isEmpty {
-                        unpinnedShelfRows
+                    if parts.pinned.isEmpty {
+                        unpinnedShelfRows(parts)
                     } else {
                         Section {
-                            ForEach(pinnedShelfBooks) { book in
+                            ForEach(parts.pinned) { book in
                                 shelfBookRow(book)
                             }
                         } header: {
@@ -617,18 +592,18 @@ struct ShelfView: View {
                                 "Đang ghim",
                                 icon: "pin.fill",
                                 color: .orange,
-                                count: pinnedShelfBooks.count
+                                count: parts.pinned.count
                             )
                         }
 
                         Section {
-                            unpinnedShelfRows
+                            unpinnedShelfRows(parts)
                         } header: {
                             shelfSectionHeader(
                                 "Truyện khác",
                                 icon: "books.vertical",
                                 color: .secondary,
-                                count: unpinnedShelfBooks.count
+                                count: parts.unpinned.count
                             )
                         }
                     }
@@ -638,13 +613,14 @@ struct ShelfView: View {
         }
     }
 
+    /// Phân trang **chỉ** áp cho nhóm chưa ghim: nhóm ghim luôn hiện đủ vì người dùng chủ động ghim.
     @ViewBuilder
-    private var unpinnedShelfRows: some View {
-        ForEach(displayedShelfBooks) { book in
+    private func unpinnedShelfRows(_ parts: ShelfBookPartition) -> some View {
+        ForEach(Array(parts.unpinned.prefix(shelfLimit))) { book in
             shelfBookRow(book)
         }
 
-        if unpinnedShelfBooks.count > shelfLimit {
+        if parts.unpinned.count > shelfLimit {
             HStack {
                 Spacer()
                 ProgressView()
@@ -705,9 +681,9 @@ struct ShelfView: View {
     }
 
     @ViewBuilder
-    private var historyTabView: some View {
+    private func historyTabView(_ parts: ShelfBookPartition) -> some View {
         Group {
-            if historyBooks.isEmpty {
+            if parts.history.isEmpty {
                 VStack(spacing: 20) {
                     Image(systemName: "clock.arrow.circlepath")
                         .resizable()
@@ -730,7 +706,7 @@ struct ShelfView: View {
                 List {
                     // Mỗi ngày một Section, header dùng lại đúng khuôn của tab Kệ sách
                     // ("Đang ghim"/"Truyện khác") — xem `HistoryDayGrouper` cho phần gom nhóm.
-                    ForEach(HistoryDayGrouper.group(displayedHistoryBooks)) { day in
+                    ForEach(HistoryDayGrouper.group(Array(parts.history.prefix(historyLimit)))) { day in
                         Section {
                             ForEach(day.books) { book in
                                 historyBookRow(book)
@@ -745,7 +721,7 @@ struct ShelfView: View {
                         }
                     }
 
-                    if historyBooks.count > historyLimit {
+                    if parts.history.count > historyLimit {
                         HStack {
                             Spacer()
                             ProgressView()

@@ -198,27 +198,70 @@ extension BookDetailView {
         }
     }
 
+    /// Debounce ô tìm chương: chỉ lọc lại ~200 ms sau phím gõ cuối (`.task(id:)` huỷ lượt cũ khi query đổi).
+    /// Xoá trắng ô tìm thì áp dụng ngay.
+    internal func applyChapterSearchQueryDebounced() async {
+        let query = chapterSearchQuery
+        guard query != appliedChapterSearchQuery else { return }
+        if !query.isEmpty {
+            try? await Task.sleep(nanoseconds: 200_000_000)
+            guard !Task.isCancelled else { return }
+        }
+        appliedChapterSearchQuery = query
+        updateFilteredLocalChapters()
+        updateFilteredOnlineChapters()
+    }
+
     internal func updateFilteredLocalChapters() {
+        let query = appliedChapterSearchQuery
         let sorted = chaptersList.sorted(by: { isTocAscending ? ($0.index < $1.index) : ($0.index > $1.index) })
         filteredLocalChapters = sorted.filter { chap in
-            chapterSearchQuery.isEmpty ||
-            chap.title.localizedCaseInsensitiveContains(chapterSearchQuery) ||
-            chap.titleTrans?.localizedCaseInsensitiveContains(chapterSearchQuery) == true
+            query.isEmpty ||
+            chap.title.localizedCaseInsensitiveContains(query) ||
+            chap.titleTrans?.localizedCaseInsensitiveContains(query) == true
         }
     }
 
     internal func updateFilteredOnlineChapters() {
+        let query = appliedChapterSearchQuery
+        let translationEnabled = isTranslationEnabled
+        let translatedTitles = translationEnabled ? onlineTranslatedTitlesOrScheduleBuild() : nil
+        if !translationEnabled && onlineTitleIndex.isBuilding { onlineTitleIndex.cancelBuild() }
         let enumeratedChaps = Array(onlineChapters.enumerated())
         let sortedOnline = isTocAscending ? enumeratedChaps : Array(enumeratedChaps.reversed())
         filteredOnlineChapters = sortedOnline.filter { index, chap in
-            if chapterSearchQuery.isEmpty { return true }
-            if isTranslationEnabled {
-                return chap.name.localizedCaseInsensitiveContains(chapterSearchQuery) ||
-                    TranslateUtils.translateChapterTitle(chap.name, bookId: actualBookId).localizedCaseInsensitiveContains(chapterSearchQuery)
+            if query.isEmpty { return true }
+            if translationEnabled {
+                // Chỉ mục tên dịch chưa dựng xong ⇒ tạm khớp tên gốc; dựng xong sẽ tự lọc lại.
+                return chap.name.localizedCaseInsensitiveContains(query) ||
+                    translatedTitles?[index].localizedCaseInsensitiveContains(query) == true
             } else {
-                return chap.name.localizedCaseInsensitiveContains(chapterSearchQuery)
+                return chap.name.localizedCaseInsensitiveContains(query)
             }
         }
+    }
+
+    /// Tên chương online đã dịch nếu chỉ mục khớp dữ liệu hiện tại; nếu không thì lên lịch dựng lại
+    /// ngoài main (huỷ lượt cũ) và trả `nil`.
+    private func onlineTranslatedTitlesOrScheduleBuild() -> [String]? {
+        let key = BookDetailOnlineTOCIndex.Key(
+            generation: TranslateUtils.translationGenerationToken(for: actualBookId),
+            bookId: actualBookId,
+            source: onlineChapters
+        )
+        if let titles = onlineTitleIndex.titles(for: key) { return titles }
+        // Chỉ dựng khi danh sách online thật sự hiển thị (chưa có mục lục lưu trữ, sách chưa lên kệ).
+        guard !onlineChapters.isEmpty, chapterSnapshots.isEmpty, localBook == nil,
+              onlineTitleIndex.pendingKey != key else { return nil }
+        let names = onlineChapters.map(\.name)
+        let task = Task { @MainActor in
+            guard let titles = await BookDetailOnlineTOCIndex.translateTitles(names, bookId: key.bookId),
+                  !Task.isCancelled, self.onlineTitleIndex.pendingKey == key else { return }
+            self.onlineTitleIndex.finish(key: key, titles: titles)
+            if !self.appliedChapterSearchQuery.isEmpty { self.updateFilteredOnlineChapters() }
+        }
+        onlineTitleIndex.start(key: key, task: task)
+        return nil
     }
 
     internal func reloadBookData() async {

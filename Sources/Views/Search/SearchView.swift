@@ -24,6 +24,7 @@ struct SearchView: View {
     
     @State private var searchQuery = ""
     @State private var isSearching = false
+    @State private var searchTask: Task<Void, Never>? // lượt tìm đang chạy; tìm lại thì huỷ lượt cũ
     @State private var searchAllSources = false
     @State private var searchResults: [ExtensionItemResultWithExt] = []
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
@@ -256,9 +257,10 @@ struct SearchView: View {
             }
             .frame(maxHeight: .infinity)
         } else {
+            let sortedSources = searchableExtensions.sorted(by: { $0.name < $1.name })
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    ForEach(searchableExtensions.sorted(by: { $0.name < $1.name }), id: \.packageId) { ext in
+                LazyVStack(alignment: .leading, spacing: 24) {
+                    ForEach(sortedSources, id: \.packageId) { ext in
                         if let state = sourceStates[ext.packageId] {
                             Group {
                                 switch state {
@@ -752,7 +754,7 @@ struct SearchView: View {
     private func performSearch() {
         let trimmedQuery = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedQuery.isEmpty else { return }
-        
+        searchTask?.cancel()
         saveQueryToHistory(trimmedQuery)
         
         isSearching = true
@@ -776,7 +778,7 @@ struct SearchView: View {
             }
             sourceStates = initialStates
             
-            Task {
+            searchTask = Task {
                 await withTaskGroup(of: (String, [ExtensionItemResult]?).self) { group in
                     for ext in extensionsToSearch {
                         let path = ext.localPath
@@ -802,6 +804,7 @@ struct SearchView: View {
                     
                     for await (packageId, results) in group {
                         await MainActor.run {
+                            guard !Task.isCancelled else { return } // lượt cũ không ghi đè trạng thái lượt mới
                             if let results = results {
                                 let cleanResults = filterAndDeduplicate(results)
                                 if !cleanResults.isEmpty {
@@ -817,6 +820,7 @@ struct SearchView: View {
                 }
                 
                 await MainActor.run {
+                    guard !Task.isCancelled else { return }
                     self.isSearching = false
                     let foundCount = sourceStates.values.reduce(0) { count, state in
                         if case .found(let results) = state {
@@ -836,7 +840,7 @@ struct SearchView: View {
             
             searchStatusMessage = "Đang tìm trên nguồn \(ext.name)..."
             
-            Task {
+            searchTask = Task {
                 do {
                     let results = try await ExtensionManager.shared.search(
                         localPath: ext.localPath,
@@ -846,6 +850,7 @@ struct SearchView: View {
                         configJson: ext.configJson
                     )
                     await MainActor.run {
+                        guard !Task.isCancelled else { return }
                         let cleanResults = filterAndDeduplicate(results)
                         self.searchResults = cleanResults.map { ExtensionItemResultWithExt(result: $0, ext: ext) }
                         self.isSearching = false
@@ -853,6 +858,7 @@ struct SearchView: View {
                     }
                 } catch {
                     await MainActor.run {
+                        guard !Task.isCancelled else { return }
                         self.isSearching = false
                         self.searchStatusMessage = "Lỗi khi tìm kiếm: \(error.localizedDescription)"
                     }

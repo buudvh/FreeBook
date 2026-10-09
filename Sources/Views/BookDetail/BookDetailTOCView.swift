@@ -2,6 +2,7 @@ import SwiftUI
 
 struct BookDetailTOCView: View {
     @Binding var chapterSearchQuery: String
+    let appliedSearchQuery: String // query đã debounce (~200 ms) dùng để lọc
     let totalChaps: Int
     @Binding var isTocAscending: Bool
     let tocErrorMessage: String
@@ -20,6 +21,11 @@ struct BookDetailTOCView: View {
     let onTranslateTitleIfNeeded: (String) -> String
     let onLoadMoreChapters: () -> Void
 
+    /// Danh sách chương đã đảo chiều/lọc. Giữ trong `@State` vì view này bị vẽ lại theo mọi lần vẽ của
+    /// `BookDetailView` (có closure nên không bỏ qua được): lọc `localizedStandardContains` hàng nghìn
+    /// chương ở mỗi lần vẽ là việc thừa — chỉ tính lại khi query/chiều/mục lục đổi.
+    @State private var visibleSnapshots: [StoredChapterSnapshot] = []
+
     var body: some View {
         VStack(spacing: 0) {
             if totalChaps > 0 {
@@ -27,6 +33,13 @@ struct BookDetailTOCView: View {
             }
             tocListView
         }
+        .onChange(of: appliedSearchQuery, initial: true) { recomputeVisibleSnapshots() }
+        .onChange(of: isTocAscending) { recomputeVisibleSnapshots() }
+        .onChange(of: chapterSnapshots) { recomputeVisibleSnapshots() }
+    }
+
+    private func recomputeVisibleSnapshots() {
+        visibleSnapshots = filteredChapterSnapshots
     }
 
     private var searchBarView: some View {
@@ -49,8 +62,9 @@ struct BookDetailTOCView: View {
     }
 
     private var filteredChapterSnapshots: [StoredChapterSnapshot] {
-        let sorted = chapterSnapshots.sorted(by: { isTocAscending ? ($0.index < $1.index) : ($0.index > $1.index) })
-        let query = chapterSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        // `fetchOrderedTOC` đã `ORDER BY chapter_index ASC` ⇒ chỉ cần đảo chiều, không sort lại mỗi lần vẽ.
+        let sorted = isTocAscending ? chapterSnapshots : Array(chapterSnapshots.reversed())
+        let query = appliedSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return sorted }
         return sorted.filter { chap in
             chap.title.localizedStandardContains(query)
@@ -122,7 +136,7 @@ struct BookDetailTOCView: View {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         let currentIdx = localBook?.currentChapterIndex ?? -1
                         if !chapterSnapshots.isEmpty {
-                            ForEach(filteredChapterSnapshots, id: \.id) { chap in
+                            ForEach(visibleSnapshots, id: \.id) { chap in
                                 Button(action: {
                                     onStartReading(chap.index)
                                 }) {
