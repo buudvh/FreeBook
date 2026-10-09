@@ -7,7 +7,7 @@ import SwiftData
 /// `saveImmediately()` cho `scenePhase == .background`. `claim(.reader)` ở `start` để khi TTS đang phát,
 /// TTS vẫn là chủ tiến độ (store loại snapshot `.reader` của sách đã bị `.tts` claim).
 ///
-/// `@Published currentProgress`/`readingContext` **vẫn ở VM** (SwiftUI observe VM); coordinator chỉ đọc qua
+/// `currentProgress`/`readingContext` **vẫn ở VM** (var thường, không `@Published` — không view nào observe); coordinator chỉ đọc qua
 /// `host` lúc cần, nên debounce nổ sẽ lấy vị trí **mới nhất**, đúng như code cũ đọc `self.currentProgress`.
 @MainActor
 final class ReaderProgressCoordinator {

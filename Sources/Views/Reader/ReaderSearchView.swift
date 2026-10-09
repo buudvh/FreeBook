@@ -206,13 +206,18 @@ struct ReaderSearchView: View {
     }
 
     /// Debounce ~250ms rồi tìm; huỷ lần tìm trước nếu người dùng gõ tiếp.
+    /// Bộ khớp (so khớp bỏ dấu theo locale trên mọi đoạn đã cache) chạy **ngoài main** để không giật bàn phím;
+    /// lần tìm bị huỷ vẫn chạy nốt ở nền nhưng kết quả bị bỏ nhờ guard `isCancelled` trước khi gán.
     private func scheduleSearch() {
         searchTask?.cancel()
         let currentQuery = query
+        let chapters = self.chapters
         searchTask = Task {
             try? await Task.sleep(nanoseconds: 250_000_000)
             guard !Task.isCancelled else { return }
-            let results = ReaderSearchMatcher.search(query: currentQuery, in: chapters)
+            let results = await Task.detached(priority: .userInitiated) {
+                ReaderSearchMatcher.search(query: currentQuery, in: chapters)
+            }.value
             guard !Task.isCancelled else { return }
             await MainActor.run {
                 self.hits = results

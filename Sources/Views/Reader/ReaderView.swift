@@ -207,6 +207,7 @@ struct ReaderView: View {
     @State internal var skeletonHandshakeIndex: Int? = nil
     @State internal var isAutoScrollDisabled = false
     @State internal var isSceneActive: Bool = true
+    @State internal var pendingTTSSyncChapterIndex: Int? = nil // Chương TTS sang lúc scene không active
     @State internal var ttsAutoScrollGeneration: Int = 0
     @State internal var viewModel: ReaderViewModel? = nil
     @State private var updateProgressWorkItem: DispatchWorkItem? = nil
@@ -930,6 +931,7 @@ struct ReaderView: View {
                     scrollTarget = nil
                 }
             } else {
+                applyPendingTTSSyncChapterIfNeeded()
                 let currentGen = ttsAutoScrollGeneration
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     guard self.isSceneActive && self.ttsAutoScrollGeneration == currentGen else { return }
@@ -959,9 +961,10 @@ struct ReaderView: View {
                   let bid = userInfo["bookId"] as? String,
                   let nextIdx = userInfo["chapterIndex"] as? Int else { return }
 
-            guard !isAutoScrollDisabled else { return }
-
-            if bid == bookId && nextIdx != chapterIndex {
+            guard !isAutoScrollDisabled, bid == bookId else { return }
+            // Nền/khoá màn hình: chỉ nhớ chương mới nhất, dựng khi scene active lại (tránh dịch + dựng chương ở nền).
+            guard isSceneActive else { pendingTTSSyncChapterIndex = nextIdx; return }
+            if nextIdx != chapterIndex {
                 requestChapter(
                     at: nextIdx,
                     paragraphIndex: 0,
@@ -1023,7 +1026,8 @@ struct ReaderView: View {
     }
 
     private func readerMainContent(geometry: GeometryProxy) -> some View {
-        ZStack {
+        let book = localBook // Quét `allBooks` một lần cho cả overlay thay vì mỗi tham số một lần.
+        return ZStack {
             VStack(spacing: 0) {
                 Spacer().frame(height: 100)
 
@@ -1046,9 +1050,9 @@ struct ReaderView: View {
                 readerBookDisplayTitle: readerBookDisplayTitle,
                 readerChapterDisplayTitle: readerChapterDisplayTitle,
                 bookId: bookId,
-                packageId: localBook?.extensionPackageId ?? "",
-                sourceName: localBook?.sourceName ?? bookSourceName ?? "",
-                hasLocalBook: localBook != nil,
+                packageId: book?.extensionPackageId ?? "",
+                sourceName: book?.sourceName ?? bookSourceName ?? "",
+                hasLocalBook: book != nil,
                 isLocalTXTBook: isLocalTXTBook,
                 chapterIndex: chapterIndex,
                 pendingNavigationIndex: viewModel?.pendingNavigationIndex,
@@ -1334,6 +1338,7 @@ struct ReaderView: View {
                         }
                     }
                 )
+                .equatable()
                 .frame(width: geometry.size.width, height: geometry.size.height - 60)
                 .offset(
                     y: reduceMotion

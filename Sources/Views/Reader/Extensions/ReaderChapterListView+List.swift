@@ -13,17 +13,21 @@ extension ReaderChapterListView {
             ZStack {
                 List {
                     if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        ForEach(0..<store.totalCount, id: \.self) { displayPosition in
-                            if let item = store.item(at: displayPosition) {
-                                chapterRow(at: displayPosition, logicalIndex: item.index)
-                                    .id(item.index)
-                                    .onAppear {
-                                        guard !isPositioningInitialChapter else {
-                                            return
-                                        }
-                                        scheduleVisiblePageWork(displayPosition: displayPosition)
+                        // Đúng MỘT hàng cho mỗi phần tử (không bọc `if let`): hàng tuỳ chọn buộc `List`
+                        // dựng closure của mọi chương để đếm hàng. Index logic tính như `store.item(at:)`,
+                        // từ cùng `total`/thứ tự đã chụp cho range nên luôn hợp lệ.
+                        let total = store.totalCount
+                        let ascending = store.isAscending
+                        ForEach(0..<total, id: \.self) { displayPosition in
+                            let logicalIndex = ascending ? displayPosition : (total - 1 - displayPosition)
+                            chapterRow(at: displayPosition, logicalIndex: logicalIndex)
+                                .id(logicalIndex)
+                                .onAppear {
+                                    guard !isPositioningInitialChapter else {
+                                        return
                                     }
-                            }
+                                    scheduleVisiblePageWork(displayPosition: displayPosition)
+                                }
                         }
                     } else {
                         ForEach(store.searchResults) { item in

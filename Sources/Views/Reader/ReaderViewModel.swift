@@ -6,7 +6,8 @@ import Observation
 @available(iOS 17.0, *)
 @MainActor
 class ReaderViewModel: ObservableObject {
-    @Published var readingContext: ReadingContext
+    /// `readingContext`/`currentProgress`/`currentRevision` cố ý không `@Published`: không body nào đọc, mà publish thì relay dựng lại cả `ReaderView`.
+    var readingContext: ReadingContext
     @Published private(set) var displayedChapterIndex: Int
     @Published private(set) var pendingNavigationIndex: Int? = nil
     @Published private(set) var navigationFailure: ReaderChapterLoadFailure?
@@ -15,7 +16,7 @@ class ReaderViewModel: ObservableObject {
     @Published private(set) var loadState: ReaderLoadState = .bootstrapping
 
     // Vị trí đọc hiện tại trên RAM
-    @Published var currentProgress: ReadingProgress
+    var currentProgress: ReadingProgress
     /// Chủ luồng lưu tiến độ (debounce 3 s, ≥ 3 đoạn, lưu khẩn cấp) — xem `ReaderProgressCoordinator`.
     let progress: ReaderProgressCoordinator
 
@@ -26,7 +27,7 @@ class ReaderViewModel: ObservableObject {
     let cache = ChapterCache()
     let prefetcher = PrefetchManager()
     let modelContext: ModelContext
-    @Published var currentRevision: Int = 0
+    var currentRevision: Int = 0
 
     private var prefetchQueueTask: Task<Void, Never>? = nil
     private var settledPrefetchTask: Task<Void, Never>? = nil
@@ -72,9 +73,10 @@ class ReaderViewModel: ObservableObject {
         if let cached = cachedLocalBook {
             return cached
         }
-        let descriptor = FetchDescriptor<Book>()
-        let allBooks = (try? modelContext.fetch(descriptor)) ?? []
-        cachedLocalBook = allBooks.first(where: { $0.bookId == bookId })
+        let targetBookId = bookId
+        var descriptor = FetchDescriptor<Book>(predicate: #Predicate<Book> { $0.bookId == targetBookId })
+        descriptor.fetchLimit = 1
+        cachedLocalBook = (try? modelContext.fetch(descriptor))?.first
         return cachedLocalBook
     }
 
@@ -82,9 +84,10 @@ class ReaderViewModel: ObservableObject {
         if let cached = cachedExt {
             return cached
         }
-        let descriptor = FetchDescriptor<Extension>()
-        let allExts = (try? modelContext.fetch(descriptor)) ?? []
-        cachedExt = allExts.first(where: { $0.packageId == extensionPackageId })
+        let targetPackageId = extensionPackageId
+        var descriptor = FetchDescriptor<Extension>(predicate: #Predicate<Extension> { $0.packageId == targetPackageId })
+        descriptor.fetchLimit = 1
+        cachedExt = (try? modelContext.fetch(descriptor))?.first
         return cachedExt
     }
 

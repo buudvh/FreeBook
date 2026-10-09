@@ -17,6 +17,27 @@ extension ReaderView {
         }
     }
 
+    /// Scene vừa active lại: áp chương mà TTS đã sang trong lúc nền (chỉ chương mới nhất được nhớ).
+    /// Phát lại đúng việc handler cũ đã làm ở nền (kể cả khi TTS đã dừng, để tiến độ không lùi);
+    /// chỉ bỏ khi TTS đã chuyển sang sách khác hoặc đang có điều hướng tới chính chương đó.
+    internal func applyPendingTTSSyncChapterIfNeeded() {
+        guard let pending = pendingTTSSyncChapterIndex else { return }
+        pendingTTSSyncChapterIndex = nil
+        let snapshot = ttsState.snapshot
+        guard !isAutoScrollDisabled,
+              pending != chapterIndex,
+              viewModel?.pendingNavigationIndex != pending,
+              !(snapshot.isPlaying && snapshot.playingBookId != bookId) else { return }
+        // TTS còn phát đúng chương này: đáp thẳng vào đoạn đang đọc (giống navigateReaderToPlayingChapter).
+        let isPlayingHere = snapshot.isPlaying && snapshot.playingBookId == bookId && snapshot.playingChapterIndex == pending
+        requestChapter(
+            at: pending,
+            paragraphIndex: isPlayingHere ? max(snapshot.currentParentParagraphIndex, 0) : 0,
+            source: .ttsSync,
+            persistProgress: false
+        )
+    }
+
     internal func requestTTSScrollIfNeeded(chapterIndex: Int, paragraphIndex: Int) {
         guard isSceneActive else { return }
         guard !isRestoringReaderPosition else { return }
