@@ -8,6 +8,7 @@ DerivedData/
 /Docs/Plans
 /Docs/CheckList
 /Docs/Reports
-.claude/
+.claude/*
+!.claude/skills/
 /Scripts/__pycache__
 /test
