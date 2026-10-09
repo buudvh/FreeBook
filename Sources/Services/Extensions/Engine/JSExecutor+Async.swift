@@ -8,6 +8,9 @@ extension JSExecutor {
 
         let runner = context.objectForKeyedSubscript("__safe_run_extension")
         let result: JSValue = try await withTaskCancellationHandler {
+            // Lời gọi bên dưới chặn thread hiện tại tới khi JS chạy xong (kể cả `fetch`/`sleep` đồng bộ).
+            let telemetry = JSExecutionTelemetry.begin()
+            defer { JSExecutionTelemetry.end(telemetry, localPath: self.localPath, functionName: functionName) }
             if let runner = runner, !runner.isUndefined {
                 return runner.call(withArguments: [functionName, arguments]) ?? JSValue(nullIn: self.context)
             } else {

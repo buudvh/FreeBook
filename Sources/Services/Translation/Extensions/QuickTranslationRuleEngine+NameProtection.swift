@@ -12,11 +12,12 @@ extension QuickTranslationRuleEngine {
         let bookNames = TranslationReadContext.current?.bookDictionaries.names
             ?? TranslationManager.shared.getBookDictionaries(for: bookId).names
         guard let bookNames else { return ([], []) }
-        let units = Array(text.utf16)
+        // Chỉ cần độ dài: `findLongestMatch` tự đọc `text.utf16` tại chỗ (không copy cả dòng mỗi vị trí).
+        let unitCount = text.utf16.count
         var ranges: [NSRange] = []
         var indices = Set<Int>()
         var cursor = 0
-        while cursor < units.count {
+        while cursor < unitCount {
             if let match = bookNames.findLongestMatch(text: text, startIndex: cursor) {
                 ranges.append(NSRange(location: cursor, length: match.length))
                 for idx in cursor..<(cursor + match.length) {

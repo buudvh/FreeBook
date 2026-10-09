@@ -2,6 +2,333 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.451] - 2026-09-30
+
+### feat: VieNeuFbank fbank 80-mel Kaldi thuan Swift va cong kiem chung so
+
+Tiền đề của nhân bản giọng: `speaker_encoder` cần **fbank 80-mel kiểu Kaldi**, không phải waveform. Viết thuần Swift rồi kiểm bằng **số** trước khi ghép vào pipeline.
+
+- **`VieNeuFbank.swift`** **293** — `melSpectrogram(samples:sampleRate:)` + `meanNormalized(_:)`, 16 kHz, 80 bin, `snip_edges = true` (không đệm đầu/cuối). Cố ý **không** dùng Accelerate/vDSP để file biên dịch được bằng `swiftc` trần.
+- **Cổng kiểm chứng số** — `Scripts/FbankGate/main.swift` **115** + `Scripts/FbankGate/gate.py` **210**: `gate.py probe` sinh WAV tất định, `gate.py golden` tính fbank bằng **numpy độc lập**, `swiftc -O VieNeuFbank.swift main.swift` biên dịch **chính file production**, rồi `gate.py compare` so từng ô. Kết quả: **RAW MAE = 0.000e+00** (bit-exact).
+- **Vì sao cần cổng này**: máy phát triển là Windows **không có Swift toolchain**, nên tại chỗ chỉ chạy được bản **dịch Python** của cùng thuật toán — tự kiểm bằng bản dịch là lập luận vòng tròn. Đây là chỗ **duy nhất** mã Swift thật được thi hành trong CI ngoài `build-ipa.yml`.
+- **File mới**: `VieNeuFbank.swift` **293**, `Scripts/FbankGate/main.swift` **115**, `Scripts/FbankGate/gate.py` **210**, `.github/workflows/fbank-gate.yml`.
+- **Ràng buộc đã đo**: `check_architecture.py` **5** violation nền / **0** mới. **Không build trên Windows**.
+- **Tài liệu CodeGraph**: ghi nhận ở lượt `[1.3.453]`.
+
+---
+
+## [1.3.450] - 2026-09-30
+
+### feat: bo mode Thap, giam churn ONNX va them log chan doan tang nhiet
+
+Sửa **12** file (9 Swift + 2 C/header bridge + 1 doc-mirror):
+
+- **Bỏ hẳn mode "Thấp" (`.low`, 4 bước)**: người dùng nghe và chốt *"low tạo âm thanh quá kém, không rõ tiếng"*. `VieNeuSynthesisPolicy.Mode` quay lại **hai** chế độ `high`/`fast`; `tuning(for:)` bỏ `Tuning(steps: 4, …)`; `nextMode` bỏ nhánh `case .low: return nil`. Sàn `steps` là **8** — ghi thành **bài học bắt buộc** trong `enum Mode` để không ai thử 5/6/7 (giữ CFG không bù được sai số tích phân vòng Euler). Giá trị `"low"`/`"turbo"` cũ trong `UserDefaults` tự rơi về "tự động" vì `Mode(rawValue:)` trả `nil` — **không cần migrate**.
+- **UI theo sau**: `displayName` bỏ `case .low` (còn Tự động / Chất lượng cao / Cân bằng); footer `VieNeuTTSTestView+Sections` còn hai mức; `TTSSettingsView+VieNeu` bỏ câu mô tả chế độ "Thấp". Cả hai Picker dùng `ForEach(Mode.allCases)` nên **không sửa vòng lặp**.
+- **A2a — gỡ một tầng copy**: `VieNeuORTRunVectorEstimatorInto` (C) ghi thẳng vào buffer Swift cấp (`float *outBuffer, int32_t outCapacity`, trả `-1` nếu buffer nhỏ thay vì tràn) — Swift dùng một mảng `Float` zeroed bằng `repeating: 0, count: capacity` + `withUnsafeMutableBufferPointer`, bỏ `malloc`+`memcpy` phía C **và** `Array(UnsafeBufferPointer)` phía Swift. Hàm cũ `VieNeuORTRunVectorEstimator` giữ làm wrapper mỏng cho tương thích.
+- **A2b — đệm `OrtValue` nhánh vô điều kiện**: `VieNeuORTRunVectorEstimatorUnconditionedInto` cache 4 tensor bất biến (`nullContext`/`nullMask`/`nullSpeaker`/`nullStyle`) **dựng từ buffer null thật** (không phải buffer `x`) và tái dùng suốt vòng lặp Euler, thay vì `makeTensor` lại mỗi bước. An toàn vì `VieNeuTTSEngine` **không có `unload`** ⇒ 4 buffer nguồn bất biến suốt vòng đời engine. Thêm `VieNeuORTResetVectorCache`; `VieNeuORTDestroy` giải phóng cache trước khi huỷ runtime. Comment bất biến ở `VieNeuONNXBridge.m:11-12` sửa để nêu ngoại lệ có kiểm soát.
+- **L2 — đo churn**: `struct VieNeuORT` thêm `tensorCreates`/`tensorReleases`/`copiedBytes` + `makeTensorCounted`; mặt C `VieNeuORTChurnSnapshot`/`VieNeuORTResetChurnCounters`; `VieNeuONNXRuntime` thêm `churnSnapshot` (tuple 3 phần tử)/`resetChurnCounters`/`resetVectorCache`; `VieNeuTTSEngine.Timing` thêm 3 trường; `[VieNeuPerf]` in `churn=creates/releases/copiedBytes`.
+- **L1 — đo busy/preload**: `NghiEnergyAccumulator` thêm `maxPreloadGapMs`/`lastPlaybackSubmitAt`; `[NghiEnergy] Summary` in thêm `busyPct=`/`preloadGapMs=`.
+- **L3 — cầu Service → View**: `TTSManager.recordNghiSynthesis` phát `Notification.Name.nghiLocalSynthesisDidComplete` (không gọi thẳng singleton UI) ⇒ `ReaderEnergyDiagnostics` đọc `lastLocalSynthAgoMs` in trong `[ReaderEnergy] Summary`. **Đây là nguyên nhân gốc của việc thiếu `[TTSEnergy] Summary` cho đường local**: `RemoteTTSSynthesisCoordinator` chỉ phục vụ engine **remote**, engine local (vieneu/nghitts) đi qua `PiperSynthesisCoordinator` ⇒ không Summary nào chạy.
+- **Cố ý không làm (GĐ2 huỷ)**: **không** cắt `maxConcurrentNghiRefills` 3→1–2, **không** cắt `optionalCap` 4→2, **không** đổi cửa sổ 12s — chờ log IPA mới để quyết, tránh mở lại lỗi đứt đoạn ngắn đã sửa ở 1.3.438.
+- **Giới hạn dòng**: `VieNeuTTSEngine.swift` giữ **đúng 400/400** (nén comment + gộp tham số); `TTSManager.swift` **3957 → 3970** (baseline 3470 — vi phạm nền, không loại mới).
+- **Sửa lỗi biên dịch đầu tiên (CI run `36722575609`)**: khi nén comment để giữ trần 400, một dòng trong `prepareLocked` bị mất ký tự xuống dòng ⇒ `VieNeuTTSEngine.swift:172:44: error: consecutive statements on a line must be separated by ';'` (`nullContextShape = nullBranch.shape        nullMask = nullBranch.mask`). Tách lại thành hai dòng và bù bằng cách gộp hai dòng comment liền kề ⇒ vẫn **đúng 400**. Không có lỗi nào khác (bridge C `.m` biên dịch sạch).
+- Cổng: `check_architecture.py` **5 violation nền / 0 mới**; `validate_links.py` **PASS 100% (16 doc, 614 file Swift)**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
+
+---
+
+## [1.3.449] - 2026-09-30
+
+### feat: VieNeu thêm chế độ "Thấp" (4 bước) giảm nhiệt
+
+Sửa **5** file (4 Swift + 1 plan):
+
+- **Đòn bẩy thật là SỐ BƯỚC, không phải độ lớn CFG**: `VieNeuTTSEngine.runChunk` hỏi `if tuning.cfg > 0` — **điều kiện nhị phân**, không theo tỉ lệ ⇒ `cfg = 3.0 → 1.5` tiết kiệm **0%**. Mỗi bước vẫn gọi `vector_estimator` **2 lần** khi có CFG ⇒ số lượt/đoạn: `.high` **32**, `.fast` **16**, `.low` **8**. Vòng Euler chiếm ~98% thời gian (`vector 7,60 s | khác 0,14 s` trên 28,01 s audio).
+- **`VieNeuSynthesisPolicy`** (122 → **137**): `Mode` thêm case `low`; `tuning(for:)` thêm `Tuning(steps: 4, sway: -1.0, cfg: 3.0)`; `nextMode` thêm `case .low: return nil` (giữ hợp đồng "switch không có `default`", chặn bộ thích nghi tự nâng lên). Doc đầu file "hai chế độ" → "ba chế độ".
+- **`VieNeuTTSTestView+Sections`** (218 → **222**): `displayName` thêm `case .low: return "Thấp"`; sửa footer lỗi thời (nêu đủ 32/16/8 lượt, **bỏ** câu về mục "Nhanh nhất" đã bị gỡ từ lâu).
+- **`TTSSettingsView+VieNeu`** (179): dòng giải thích thêm một câu về chế độ "Thấp". Picker "Chế độ tạo audio" **không sửa vòng lặp** — `ForEach(Mode.allCases)` tự có case mới.
+- **Sửa 3 comment sai `12 → 10`** (việc sửa tài liệu, **không** đổi hành vi): `TTSManager.swift:742`, `TTSManager+NghiPrefetchConcurrency.swift:15`, `Docs/Plans/2026-09-30-plan-tts-stutter-overlap-battery.md:47`. Giá trị 12 chỉ là **placeholder khởi tạo**, bị `applyVieNeuParamsIfNeeded` ghi đè bằng `bufferedSecondsTarget` = **10.0** khi khởi động.
+- **Cố ý không làm**: **không** cắt `maxConcurrentNghiRefills` 3→1–2, **không** cắt `optionalCap` 4→2 (hai số này sinh từ chính báo cáo lỗi "đoạn 1→2→3 phải chờ" của người dùng ở `[1.3.438]` — cắt là mở lại lỗi cũ); **không** đụng `VieNeuTTSEngine.swift` (đang đúng trần **400/400**). Toggle "Tiết kiệm pin" giữ nguyên (vẫn ép `.fast`).
+- Cổng: `check_architecture.py` **5 violation nền/0 mới**; `validate_links.py` **PASS 100% (16 doc, 614 file Swift)**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
+
+---
+
+## [1.3.448] - 2026-09-30
+
+### fix: gộp VietPhrase ghi số liệu ra file meta kèm theo, không đọc lại file gộp
+
+Sửa **3** file Swift:
+
+- **Nguyên nhân**: mục gộp ở màn Thông báo đọc `DictionaryMergeTask.resultRecordCount` + `displayDate` **trực tiếp trong `body`**. Sau restart (`lastOutcome` chỉ sống trong RAM), `resultRecordCount` rơi xuống `DictionaryTextFileStore.loadCount(from:)` → `parseRecords` — **đọc cả `VietPhraseMerged.txt` (~1,4 triệu dòng) thành `String`, cắt mảng, dựng `Set<String>`** chỉ để lấy `.count`, **trên main thread** ⇒ đơ app, nghẽn luôn TTS (TTS cần main thread cập nhật highlight). `DictionaryMergeTask.init()` → `refreshFromDisk()` chặn main **ngay lúc mở app**.
+- **`DictionaryMergeService`** (123 → **210**): thêm `Meta` (`Codable`, `version` + 4 số + `createdAt`), `mergedMetaFileName` (dẫn xuất từ `mergedFileName`), `mergedMetaURL()`, `writeMeta(_:)` / `loadMeta()` / `deleteMeta()`. `merge(progress:)` ghi meta **sau** khi ghi `.txt`, cùng khuôn nguyên tử `tmp` + `replaceItemAt`. `loadMeta` trả `nil` khi thiếu file / decode lỗi / `version` lạ.
+- **`DictionaryMergeTask`** (236 → **216**): thêm `@Published private(set) var meta` + `isMetaMissing`. `summaryCounts`/`resultRecordCount`/`displayDate` nay **thuần RAM** (bỏ hẳn `loadCount` và `attributesOfItem`). `refreshFromDisk` chỉ `loadMeta()` ⇒ chạy thẳng trên `MainActor` an toàn. `finish` đọc lại meta. `applyToVietPhrase` + `discardResult` gọi `deleteMeta()` cùng lượt. **Xoá** `MergeSummary`, `summaryKey`, `persistSummary`, `clearSummary` (bản 1.3.446) + dọn khoá `UserDefaults` cũ trong `init`.
+- **`NotificationInboxView+Merge`** (186 → **188**): thêm nhánh `isMetaMissing` hiện *"Số liệu chưa có — gộp lại để cập nhật."* khi có file `.txt` nhưng không có meta (file sinh từ bản app cũ) — **không** parse bù.
+- **Cố ý không làm**: cache `hasResult` khỏi `fileExists` — chỉ là syscall `stat` cỡ µs, không phải nguyên nhân, mà cache đòi tự cập nhật ở 5 nơi.
+- Cổng: `check_architecture.py` **5 violation nền/0 mới**; `validate_links.py` **PASS 100% (16 doc, 614 file Swift)**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
+
+---
+
+## [1.3.447] - 2026-09-30
+
+### fix: nút "Nhập vào VietPhrase" mất chữ ở dark mode
+
+Sửa **1** file Swift (`Sources/Views/Shelf/ShelfMain/NotificationInboxView+Merge.swift`):
+
+- **Nguyên nhân**: lượt `1.3.446` để nút ở `.buttonStyle(.borderedProminent)` + `.tint(Color.primary)`. `borderedProminent` **không** tự đảo màu chữ theo tint — nó lấy nền từ tint và luôn đặt chữ theo một sắc sáng cố định (giả định tint là màu đậm/bão hoà). `Color.primary` ở **dark mode** = trắng ⇒ nền trắng + chữ sáng ⇒ **nút rỗng** (ảnh user gửi). `.foregroundStyle(Color(uiColor: .systemBackground))` đặt *bên trong* label không cứu được vì `.buttonStyle` ở ngoài ghi đè.
+- **Không thể** chỉ gỡ `.tint(Color.primary)`: `MainTabView` đặt `.tint(.white)` toàn cục nên tint mặc định cũng là trắng, vẫn trắng-trên-trắng.
+- **Cách sửa**: bỏ cả hai modifier sai, dùng `.tint` **xanh lá đậm literal** (`Color(red: 0.204, green: 0.780, blue: 0.349)`) + chữ `.foregroundColor(.white)` — theo khuôn tint đậm có sẵn trong repo (`ReaderAINameReviewCardView.swift`), đọc được ở mọi theme, không phụ thuộc tint hệ thống.
+
+---
+
+## [1.3.446] - 2026-09-30
+
+### feat: TTS thay thế từ có tầng riêng theo truyện + làm lại UI mục gộp VietPhrase
+
+Thêm **4** file Swift mới, sửa **17** file Swift trong `Sources/Services/` và `Sources/Views/`:
+
+- **Tầng rule thay thế TTS riêng theo truyện** (`translate/books/<bookId>/character_replacements.json`):
+  - **Luật gộp**: rule riêng **đè** rule chung theo `pattern` và đứng trước; rule riêng đang **tắt** vẫn **chặn** rule chung cùng `pattern` (kiểu tombstone) ⇒ tập `pattern` để chặn tính trên **toàn bộ** rule riêng, còn `compile` vẫn lọc `isEnabled`.
+  - `applyReplacements(to:bookId:)` — `bookId` có default `nil` nên 8 call site cũ vẫn biên dịch; đã truyền `bookId` thật ở **cả 8** (`playingBookId` cho `TTSManager*`, `key.bookId` cho `TTSChapterPrefetcher` / `TTSNextChapterPrefixCache` / `+GoogleBatch`). `VieNeuTTSTestView` cố ý để `nil` (màn thử không có ngữ cảnh truyện).
+  - **Tách file vì trần dòng**: `TTSReplacementManager.swift` 391 → **352** (đưa `compile`/`compileCharacterRun` sang `+PlanCompile.swift`, tầng riêng sang `+BookScope.swift`); `TTSReplacementManagerView.swift` 390 → **362** (đưa định tuyến theo tầng + `ruleRow` sang `+Layer.swift`). Hạ `private` → `internal` cho `ReplacementStep`, `planLock`, `compile`, `ruleRow`, `alertMessage`, `prepareForEdit`.
+  - **Cache**: `bookRulesCache` (lock riêng) + `bookPlansCache` (dùng chung `planLock`); đổi rule **chung** ⇒ `rebuildReplacementPlan` gọi `invalidateBookPlans()` để mọi kế hoạch theo truyện dựng lại.
+  - **UI**: `TTSReplacementManagerView` nhận `bookId`/`bookName`, tầng riêng **ẩn** "Khôi phục mặc định", thêm section **"Rule chung — lấy vào riêng"** + vuốt "Sang chung"; hub theo truyện thêm section **"Thay thế từ (TTS)"** (mở từ BookDetail và Reader).
+  - **Backup/đổi nguồn**: `bookScopedTTSFiles` vào `bookScopedMigrationFiles` (đi theo truyện khi đổi nguồn); `BackupPaths.bookTTSFiles` đi cùng nhóm `dict/books/<slug>/`; khôi phục **tái dùng** `mergeReplacementRules` (hàm gộp JSON đã có). **Không** thêm `BackupScope`.
+- **Sheet "Thêm thay thế TTS" khi bôi đen** (`AddTTSReplacementSheet.swift` 79 → **184**):
+  - Ô **chuỗi thay thế luôn rỗng** khi mở — bỏ auto-fill ở `init` **và** `onChange(of: pattern)` (đổi hành vi cũ: trước đây điền sẵn từ rule trùng).
+  - **Chip gợi ý** cho đúng chuỗi gốc, lấy từ **cả 2 tầng**, badge **R**/**C**, tầng riêng trước; bấm chip ⇒ nhập chuỗi thay thế + đặt công tắc theo rule đó; rule đang **tắt** ⇒ chip **mờ**.
+  - **Lưu** = menu **2 mục** (riêng truyện / chung). Closure xử lý đặt ở `ReaderView+RuleTools.swift` vì `ReaderView.swift` ở đúng baseline **2053**.
+- **Mục gộp VietPhrase ở màn Thông báo** làm lại theo mockup: nút **Nhập vào VietPhrase** full-width nổi bật, **Xuất file** / **Bỏ qua** ngang hàng, **3 chip** `gốc/sửa/xoá`, giờ ở góc phải, chú thích dài gộp còn 1 dòng; số liệu lưu `UserDefaults` (`vietPhraseMergeSummary`) để chip còn sau khi khởi động lại. `timeLabel` ở `NotificationInboxView` hạ `private` → `internal`.
+- Cổng: `check_architecture.py` **5 violation nền/0 mới** (đã bắt 1 violation mới ở `ReaderView.swift` và sửa bằng cách rút closure ra extension); `validate_links.py` **PASS**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
+- Đồng bộ tài liệu cho commit `e85b0b4` trước đó (`DictionaryMergeTask.swift`, `NotificationInboxView.swift`) mà CodeGraph chưa accept.
+
+---
+
+## [1.3.445] - 2026-09-30
+
+### feat: gộp VietPhrase ra file text mới rồi nhập/xuất theo lựa chọn
+
+Thêm **3** file Swift mới, sửa **5** file Swift trong `Sources/Models/`, `Sources/Services/`, `Sources/Views/`:
+
+- **API duyệt từ điển (`TrieDictionary.allEntries()`, `FrozenTrieDictionary.swift` 86 → 183)**:
+  - `VietPhrase.dat` là DoubleArrayTrie nhị phân và `TranslationManager.loadAllDictionaries` **xoá** `VietPhrase.txt` sau lần biên dịch đầu ⇒ không còn nguồn text nào để đọc từ điển gốc. Thêm `allEntries()`, khai ở **cả 3** conformer.
+  - Kho `.dat` duyệt DFS theo **đúng** phép tính chỉ số của `trieMatches` nhưng chiều ngược; chỉ mục con dựng **một lượt** (gom slot theo `check[slot] > 0`) vì quét `charMap` mỗi nút là O(nút × số ký tự). Slot kết thúc có `code == 0` nên bị loại tự nhiên (mã ký tự bắt đầu từ 1).
+- **Gộp ra file text mới (`DictionaryMergeService.swift`, file mới 123 dòng)**:
+  - `VietPhrase.dat` + `CustomVietPhrase.txt` (áp tombstone) → **`VietPhraseMerged.txt`**, ghi qua `.tmp` + `replaceItemAt`. **Không** đụng từ điển gốc ⇒ một lỗi ở bước gộp chỉ tạo file sai mà người dùng vẫn xem được trước khi áp.
+  - **Tự kiểm** `allEntries().count == wordCount`; lệch ⇒ `enumerationMismatch`, dừng và **không** tạo file.
+- **Mục thông báo ghim (`DictionaryMergeTask.swift` 183 dòng + `NotificationInboxView+Merge.swift` 127 dòng)**:
+  - Trạng thái lấy từ **file trên đĩa** ⇒ mục còn nguyên sau khi tắt app. Icon `symbolEffect(.pulse, options: .repeating)` khi đang gộp.
+  - 3 hành động khi xong: **Nhập vào VietPhrase** (sao lưu `.dat` → `VietPhrase.dat.bak-merge` → `importDictionary` → xoá custom + tombstone), **Xuất file** (`ShareLink`), **Bỏ qua**.
+  - Mục **ghim**: không thuộc `NotificationInboxManager` lẫn `NewChapterInboxManager` nên hai hành động toolbar ("Đánh dấu đã đọc hết" / "Xoá thông báo đã đọc") **không** xoá được nó.
+- Cổng: `check_architecture.py` **5 violation nền/0 mới**; `validate_links.py` **PASS**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
+- Đồng bộ tài liệu cho commit "Tiết kiệm pin" trước đó (`TTSSettingsView+VieNeu.swift`, `TTSSettingsView.swift`) mà CodeGraph chưa accept.
+
+---
+
+## [1.3.444] - 2026-09-30
+
+### fix: rule dịch hán tự thuần không tự gắn space + màn thử VieNeu đi cùng đường Reader
+
+Thêm **1** file Swift mới, sửa **5** file Swift trong `Sources/Services/` và `Sources/Views/`:
+
+- **Rule dịch không tự gắn khoảng trắng cho hán tự thuần (`QuickTranslationRuleEngine.swift`)**:
+  - `assemble` miễn auto-space 2 bên khi `rendered` là **hán tự thuần** (`!rendered.isEmpty && rendered.allSatisfy(VietPhraseTokenizer.isChineseCharacter)`). Rule dạng `唐三=唐三` cho ra đúng `唐三`, không còn ` 唐三 `.
+  - Hán tự lẫn dấu câu/space/số/latin ⇒ **vẫn** chèn như cũ, nên `我买了四个苹果` + rule `<n>个 = 4 cái` giữ nguyên `我买了 4 cái 苹果`.
+  - File **398 → 399/400** dòng (không có trong `architecture_allowlist.json`) — chỉ còn **1** dòng headroom.
+- **Màn thử VieNeu đi cùng đường Reader (`VieNeuTTSTestView.swift` + 2 file extension + `TTSManager+VieNeu.swift`)**:
+  - `playSample()` nay chạy đủ ba bước của Reader: `TTSReplacementManager.applyReplacements` → `NghiUtteranceSegmenter.expand(…, maximumLength:)` → `synthesizeWithDuration(boundaryKind:)` cho **từng** đoạn (trước đây gọi một lượt cho cả ô chữ với `boundaryKind` mặc định).
+  - `TTSManager.vieNeuChunkLength` (mới, `nonisolated static`): đọc khoá `vieneuChunk` (mặc định 100) — cố ý **không** dùng `shared.chunkLength` vì đó là giá trị của engine đang chọn.
+  - Báo cáo RTF **cộng dồn** qua các đoạn; chẩn đoán tách `đoạn` (NghiUtteranceSegmenter) khỏi `chunk engine` (`lastChunkCount`).
+  - Footer mục "Kết quả" sửa lại cho đúng đường đi (trước đây mô tả sai).
+- **Ghép WAV (`WAVConcatenator.swift`, file mới 56 dòng)**: nối N file WAV PCM16 cùng định dạng thành một file — cắt 44 byte header, nối payload, dựng lại header; kiểm 4 mốc `RIFF`/`WAVE`/`fmt `/`data` và trả `nil` khi lệch khuôn.
+- Cổng: `check_architecture.py` **5 violation nền/0 mới**; `validate_links.py` **PASS**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
+- Đồng bộ tài liệu cho thay đổi UI TTS của commit trước (`AISettingsSection.swift`, `TTSSettingsSection.swift`) mà CodeGraph chưa accept.
+
+---
+
+## [1.3.443] - 2026-09-30
+
+### feat: đổi tên "Cài đặt VieNeu TTS" + xoá màn Debug Extension
+
+- **Đổi tên**: nav row ở tab Cài đặt (`TTSSettingsSection.swift`) "Thử giọng VieNeu-TTS" → **"Cài đặt VieNeu TTS"**; `navigationTitle` của `VieNeuTTSTestView` cũng → **"Cài đặt VieNeu TTS"**.
+- **Xoá màn Debug Extension**: gỡ nav row (`DeveloperSettingsSection.swift`); xoá **3 file** `ExtensionDebugConsoleView.swift` + `ExtensionDebugEventRow.swift` + `ExtensionDebugTraceReader.swift` (chỉ console dùng). **Giữ** `ExtensionDebugServerView` (row riêng) + `ExtensionDebugEventHub`/`ExtensionDebugEvent` (còn dùng bởi `JSExecutor` + editor toolbar).
+- Cập nhật footer Section "Nhà Phát Triển" (bỏ tham chiếu console).
+- Cổng: `check_architecture.py` **5 violation nền/0 mới**; `validate_links.py` **PASS**. **Không build trên Windows** ⇒ CI xác nhận biên dịch.
+
+---
+
+## [1.3.442] - 2026-09-30
+
+### feat: mặc định Tiết kiệm pin + đổi tên mode/nhãn UI + gỡ máy móc pre-schedule (B)
+
+Theo yêu cầu user (config hiện tại làm mặc định + sửa UI + làm "B").
+
+### 1) Mặc định mới cho VieNeu
+- Ngưỡng nạp bộ đệm **12 → 10 s** (`VieNeuSynthesisPolicy.bufferedSecondsTarget`).
+- Số luồng ORT **4 → 2** (`VieNeuSynthesisPolicy.defaultThreadCount`).
+- Độ dài phân đoạn **200 → 100 ký tự** (`applyVieNeuParamsIfNeeded` + `resetPrefetchSettings`).
+- Số đoạn tải trước giữ 3; chế độ mặc định `.fast`.
+
+### 2) "Tiết kiệm pin" thành overlay + mặc định BẬT
+- `VieNeuSynthesisPolicy.isPowerSaving` mặc định **true** khi chưa có khoá; thêm `effectiveThreadCount(from:)` (ON ⇒ 2 luồng).
+- ON ⇒ `engine.setRequestedMode(.fast)` + khoá 2 picker; OFF ⇒ `setRequestedMode(nil)` ("Tự động"). Không ghi đè `vieneuPreferredMode`/`vieneuThreadCount`.
+- UI `vieNeuReaderSection`: Toggle **lên trên** → Picker **"Chế độ tạo audio"** → Picker **"Số luồng tổng hợp" (2/3/4, không ngoặc)** → dòng giải thích **luôn hiển thị** (kèm thuyết minh khi bật).
+
+### 3) Đổi tên mode
+`VieNeuTTSTestView+Sections.swift` `displayName`: **Tự động / Chất lượng cao / Cân bằng** (bỏ "· 16/8 bước").
+
+### 4) Làm "B" — gỡ cụm máy móc pre-schedule
+- Queue: xoá `.scheduled`, `getScheduledStatus`, `ScheduledStatus`, `onScheduleHandoff`.
+- `TTSManager`: xoá wiring `onScheduleHandoff`, `handleNghiScheduledHandoff`, `nghiScheduledHandoffTask`.
+- `TTSManager.swift` **4024 → 3957**; `NghiAudioPlayerQueue.swift` **324 → 288**.
+
+### Số dòng & cổng
+`TTSManager.swift` 3957; `NghiAudioPlayerQueue.swift` 288; `VieNeuTTSEngine.swift` 400/400; `TTSSettingsView.swift` 513/519; `VieNeuSynthesisPolicy.swift` ~118.
+Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS** (04/10/11/rules `--accept`; 03/05/06/08/13 `--no-change-needed`). **Không build trên Windows** ⇒ CI xác nhận biên dịch.
+
+**Còn sót nhỏ**: cờ `nextIsScheduled` trong `NghiAudioPlayerQueue` (luôn `false`) — dọn ở lượt sau nếu cần.
+
+---
+
+## [1.3.441] - 2026-09-30
+
+### feat: bỏ pre-schedule hết chồng tiếng/nói lắp + log phoneme + ưu tiên fast/tiết kiệm pin
+
+Ba lỗi TTS (grill-me chốt phương án): (1) nói lắp "chân tướng" → "chân chân tướng"; (2) chồng tiếng (2 đoạn song song); (3) VieNeu nóng máy/nhanh hết pin.
+
+### 1) Bỏ pre-schedule `play(atTime:)` — hết chồng tiếng + nói lắp
+- **Root cause**: `NghiAudioPlayerQueue.scheduleNextIfPossible` lập lịch đoạn kế bằng `nextPlayer.play(atTime: deviceCurrentTime + (duration - currentTime)/rate)`. `duration`/`deviceCurrentTime` ước lượng lệch ⇒ đoạn kế chạy **sớm**, đuôi âm tiết cuối chồng lên đầu đoạn kế.
+- **Mô phỏng xác nhận**: cắt chunk **không** nhân đôi text (biên rơi giữa "chân" và "tướng" nhưng tái dựng khớp 100%) ⇒ lỗi ở **tầng phát audio tại biên**.
+- **Sửa**: `scheduleNextIfPossible` → rỗng; giữ `nextPlayer` ở `prepareToPlay()`, bàn giao qua `audioPlayerDidFinishPlaying` → `promoteNextAfterCurrentFinished` → `play()`. `NghiAudioPlayerQueue` **368 → 324** dòng. (Cụm `.scheduled`/`onScheduleHandoff`/`handleNghiScheduledHandoff` là dead code — gỡ ở lượt "B", chưa làm.)
+
+### 2) Log chẩn đoán
+- `handleNghiAudioTransition`: `[TTSPerf] NghiHandoff prevTail=… nextHead=…` (text ở biên).
+- `VieNeuTTSEngine.synthesize` → `logChunkPhonemes` (ở `+Adaptive`): `[VieNeuChunk] i=… text=… phonemes=…` (đường Reader trước đây không log phoneme).
+
+### 3) VieNeu nóng máy/pin
+- **Ưu tiên `fast`**: `VieNeuTTSEngine.mode` mặc định `.high` → `.fast`; `upshiftRTF` 0.45 → 0.30 (giảm ~2× tính toán ⇒ mát/pin hơn, chất lượng thấp hơn).
+- **"Tiết kiệm pin" (opt-in)** + **số luồng ORT**: `VieNeuTTSService.powerSaving`/`threadCount`; `VieNeuSynthesisPolicy.threadCount(from:)` (giữ type thuần); UI toggle + Picker ở `vieNeuReaderSection` kèm hướng dẫn. `threadCount` áp dụng sau khi **nạp lại engine**.
+
+### Số dòng & cổng
+`NghiAudioPlayerQueue.swift` 368 → 324; `TTSManager.swift` net 0 (4024); `VieNeuTTSEngine.swift` 400/400 (đúng trần); `VieNeuSynthesisPolicy.swift` 94 → 114; `VieNeuTTSService.swift` 345; `TTSSettingsView.swift` 513/519.
+Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS** (04/10/11/rules `--accept`; 03/05/06/08/13 `--no-change-needed`). **Không build trên Windows** ⇒ CI xác nhận biên dịch.
+
+**Cần kiểm chứng máy thật (IPA):** hết chồng tiếng; 1→2→3 liền mạch; gap do bỏ pre-schedule không đáng kể; "Tiết kiệm pin" mát hơn rõ rệt. **Còn nợ "B"**: gỡ cụm `.scheduled`.
+
+---
+
+## [1.3.440] - 2026-09-29
+
+### fix: bump generation mỗi lần schedule làm vô hiệu hoá task nạp trước cùng batch
+
+Người dùng báo 1.3.439 **không sửa được** 2 lỗi: (a) đầu phát chờ giữa đoạn 1→2→3; (b) sang chương chờ giữa tên chương và đoạn 1 (kèm báo thêm: 2 đoạn phát song song).
+
+### Root cause (bug logic xác định, không phải timing)
+`scheduleNghiRefill()` bump `nghiRefillGeneration &+= 1` **mỗi lần** gọi (`TTSManager.swift:2835`), nhưng guard `isValidNghiRefillContext` đòi `nghiRefillGeneration == refillGeneration` **bằng ĐÚNG** (`:2745`). `fillNghiRefillUpToCapacity()` lập **3 task cùng batch** (`N+1`, `N+2`, `N+3`) → gen `G+1/G+2/G+3`. Khi task chạy, gen hiện tại đã là `G+3` ⇒ **2 task đầu bị vô hiệu** (guard fail ngay trước bước tổng hợp), chỉ task cuối sống. Tệ hơn, `defer` chỉ dọn khi gen khớp (`:2855`) nên 2 task bị vô hiệu **rò rỉ** trong `nghiRefillTasks`/`nghiRefillInFlightIndices` ⇒ `fillNghiRefillUpToCapacity` dần hết chỗ ⇒ **pool nạp trước nghẽn rồi tắt**. Đây là lý do đệm nóng 1.3.439 (dựa vào pool) không có tác dụng: pool không chạy thật.
+
+Bug lộ ra từ 1.3.438: lượt đó thêm pool đa luồng nhưng để lại bump per-schedule — vốn vô hại khi chỉ có **1** refill (`nghiRefillTask: Task?`), nhưng phá khi có **nhiều** task cùng batch.
+
+### Sửa
+Bỏ `nghiRefillGeneration &+= 1` khỏi `scheduleNghiRefill()`. Chỉ `cancelNghiRefill()` (đổi chương/session/seek/engine — gọi từ `clearCurrentParagraphPrefetchCache`) mới bump. Cả batch dùng chung gen ⇒ 3 task đều sống + `defer` dọn đúng ⇒ pool hoạt động.
+
+### Số dòng & cổng
+`TTSManager.swift` **4024 → 4024** (net 0: bỏ 1 dòng bump, thêm 1 dòng comment).
+Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS** (04/10/11/rules `--accept`, 05/06/08/13 `--no-change-needed`). **Không build được trên Windows** ⇒ CI xác nhận biên dịch.
+
+**Cần kiểm chứng lúc chạy:** đầu phát 1→2→3 liền mạch; biên chương tên chương → đoạn 1 liền mạch; chồng tiếng (nếu còn → cần log `[NghiAudioPlayerQueue] schedule` từ máy thật).
+
+---
+
+## [1.3.439] - 2026-09-29
+
+### fix: đọc số thập phân/0 đầu, đệm nóng đầu phát & biên chương, tách speed khỏi prefetch
+
+Bốn lỗi TTS người dùng báo, đã grill-me chốt phương án trước khi code: (A) `0.001` đọc thành `1`, `001` cần đọc `không không một`, `0, 001` (có space) ≠ `0,001`; (B) bắt đầu nghe / giữa đoạn 1→2→3 bị chờ; (C) sang chương mới tên chương đọc ngay nhưng gap trước đoạn đầu; (D) đổi tốc độ phát lại "tạo âm thanh lại".
+
+### 1) Đọc số thập phân & số có số 0 đầu (`TextPreprocessor.swift`)
+- **Root cause `0.001` → `1`**: `formatNumbers` dùng `thousandsSeparatedNumber = (\d{1,3}(?:\.\d{3})+)` để xóa dấu chấm (ngăn cách nghìn) ⇒ `"0.001"` khớp → `"0001"` → `spell` → `"1"`. Nay **chỉ xóa chấm khi phần nguyên trước chấm đầu ≠ `0`**; `"0.xxx"` giữ nguyên để rơi vào `processDecimals`.
+- Regex `decimal` và `percentageDecimal`: thay dấu phẩy cố định bằng lớp ký tự chấm-hoặc-phẩy để nhận **cả chấm và phẩy**; vẫn space-sensitive ⇒ `"0, 001"` không khớp (giữ thành danh sách).
+- `processDecimals` / `processPercentages`: bỏ cắt `^0+` ở phần thập phân, đọc **từng chữ số giữ số 0** ⇒ `"0,001"` → "không phẩy không không một".
+- `processDigits`: số có số 0 đầu (vd `"001"`) đọc từng chữ số → "không không một". **Cố ý KHÔNG đặt ở `VietnameseNumberSpeller.spell`** vì `processDates` gọi `spell("01")` cho ngày ⇒ `"01/02"` sẽ thành "không một tháng hai".
+
+### 2) Đệm nóng đầu phát & biên chương
+- Thêm `warmNghiRefillForPlaybackStart()` (`TTSManager+NghiPrefetchConcurrency.swift`, ratchet-down) gọi `fillNghiRefillUpToCapacity()`; chèn 1 dòng tại `continueStartSpeaking` (`TTSManager.swift`).
+- `continueStartSpeaking` là điểm vào **chung** của fresh start (`startSpeaking`) lẫn sang chương mới (`applyNextChapter`) ⇒ một call site phủ cả hai: tổng hợp trước `N+1..N+3` song song với đoạn hiện tại (đoạn đầu thường lạnh) ⇒ 1→2→3 liền mạch, hết gap ở đầu phát và ở biên chương.
+
+### 3) Tách tốc độ khỏi nạp trước
+- Điều tra **cả 4 engine**: **không engine nào tái tổng hợp audio đang phát khi đổi tốc độ** — nghitts/vieneu `updateRate` playback-only (tổng hợp x1.0); system per-utterance; google tổng hợp `speed: 1.0` (`TTSManager+Playback.swift:58`); extension synthesisKey không chứa speed.
+- Điểm thừa duy nhất: `updatePlaybackParams` (`:1122`) mỗi nấc kéo slider còn gọi `cancelNghiWakeTask()` + `updateNghiPrefetchWindow()` ⇒ kích tổng hợp đoạn kế + chương sau. Nay nhánh local **chỉ** `nghiAudioPlayerQueue.updateRate(speed)`; vòng `nghiWakeTask` tự hiệu chỉnh đệm theo tốc độ mới.
+
+### 4) Pitch local (task #9) — bỏ
+Quyết định grill: giữ **no-op** cho engine local (không thêm `AVAudioUnitTimePitch` vào `NghiAudioPlayerQueue`), giữ `disablePitch` trong UI. Không code.
+
+### Số dòng & cổng
+`TextPreprocessor.swift` **1121 → 1120** (net −1: viết lại 4 hàm gọn + ternary 1 dòng để không vượt baseline 1121); `TTSManager.swift` **4024 → 4024** (net 0: +1 call site warmup, −1 dòng ở `updatePlaybackParams`); `TTSManager+NghiPrefetchConcurrency.swift` 46 → 58 (thêm `warmNghiRefillForPlaybackStart`).
+Cổng: `check_architecture.py` **5 violation nền, 0 mới**; `validate_links.py` **PASS** (04/10/11/rules `--accept`, 05/06/08/13 `--no-change-needed`). **Không build được trên Windows** ⇒ CI xác nhận biên dịch.
+
+**Cần kiểm chứng lúc chạy (IPA máy thật):** đệm nóng D/F thực sự liền mạch và không trùng tiếng; đổi tốc độ không kích tổng hợp.
+
+---
+
+## [1.3.438] - 2026-09-29
+
+### fix: nạp trước đồng thời VieNeu + safe-window 150ms (chống đứt đoạn ngắn / chồng tiếng)
+
+Người dùng báo: **đoạn văn ngắn đọc xong → đoạn kế không kịp tổng hợp → phải chờ lâu mới nghe tiếp**. Nguyên nhân gốc nằm ở cơ chế nạp trước, không phải engine.
+
+### 1) Đứt đoạn ngắn — root cause: nạp trước BẮT BUỘC tuần tự 1 đoạn
+`canScheduleNghiRefill(hasRefillTask:hasRetryTask:)` trả `!hasRefillTask && !hasRetryTask` ⇒ **chỉ 1 lượt refill được phép bay cùng lúc** — nghiêm ngặt tuần tự. VieNeu tổng hợp đắt (`VieNeuSynthesisPolicy.bufferedSecondsTarget = 12`, RTF ~0,29 + chi phí cố định theo chunk) nên một lần nạp trước tuần tự **không bao giờ đi trước kịp** một đoạn ngắn có thời lượng audio ≤ 1 lần tổng hợp ⇒ đúng lỗi người dùng báo. NghiTTS (Piper) tổng hợp gần tức thì nên giữ 1 luồng.
+
+**Sửa (chung cho đường local NghiTTS/VieNeu):**
+- Đổi stored prop đơn thành **pool**: `nghiRefillTask: Task?` → `nghiRefillTasks: [Int: Task]`; `nghiRefillInFlightIndex: Int?` → `nghiRefillInFlightIndices: Set<Int>`. `cancelNghiRefill()` lặp huỷ mọi task + xoá cả hai tập.
+- `maxConcurrentNghiRefills`: **3** cho `vieneu`, **1** cho `nghitts` (giữ nguyên behaviour Piper).
+- File mới **`TTSManager+NghiPrefetchConcurrency.swift`** (46 dòng, ratchet-down): `fillNghiRefillUpToCapacity()` lập lịch tới khi đầy luồng hoặc hết ứng viên (safety counter 32, mỗi task xong `defer` gọi lại `updateNghiPrefetchWindow` nên pipeline tự duy trì).
+- `nghiRefillCandidate` thêm bỏ qua chỉ mục **đang bay** (`!nghiRefillInFlightIndices.contains(...)`) + cap optional reserve **4 (vieu) / 2 (nghitts)**.
+- Xoá `static func canScheduleNghiRefill` cũ. `scheduleNghiRefill()` → `internal func scheduleNghiRefill() -> Bool` có guard `nghiRefillRetryTask == nil` + in-flight + `nghiRefillTasks.count < maxConcurrentNghiRefills`; đường reuse trong `playNghiTTS` dùng `nghiRefillTasks[index]`.
+- `updateNghiPrefetchWindow()` thay khối "nạp 1 rồi return" bằng `fillNghiRefillUpToCapacity()` (cả nhánh đầu và nhánh `cachedTime < threshold`).
+
+### 2) Nâng ngưỡng mặc định VieNeu 8s → 12s
+`vieneuSafeCachedTimeThreshold` default `NghiSynthesisPolicy.defaultSafeCachedTimeThreshold` (8) → **12.0**; `applyVieNeuParamsIfNeeded()` fallback khi chưa có `UserDefaults` cũng về `VieNeuSynthesisPolicy.bufferedSecondsTarget` (12) thay vì 8. (Ngưỡng này đã có nơi đọc từ 1.3.435 qua `currentSafeCachedTimeThreshold`.)
+
+### 3) Safe-window 50 → 150ms (chống chồng tiếng)
+`NghiAudioPlayerQueue.prepareNextNghiAudioIfPossible` (task #8): `guard wallClockRemaining > 0.050` → `> 0.150`. Lý do: `AVAudioPlayer.duration` có thể ước lượng ngắn hơn thực tế vài ms ⇒ một `startTime` tính sát đích rất dễ rơi **trước** khi đoạn hiện tại kết thúc ⇒ hai đoạn phát song song. Đánh đổi một khoảng nghỉ cực nhỏ lấy việc chắc chắn không bao giờ schedule sớm.
+
+### Số dòng & cổng
+`TTSManager.swift` **4028 → 4024** (net −4, nhờ xoá `canScheduleNghiRefill` + gom comment); file mới `TTSManager+NghiPrefetchConcurrency.swift` (46); `TTSManager+VieNeu.swift` (fallback 12s); `NghiAudioPlayerQueue.swift` (comment + guard, ~+2 dòng).
+Cổng: `check_architecture.py` **5 violation nền, 0 mới** (`TTSManager` giảm 4 dòng ⇒ an toàn); `validate_links.py` **PASS 16 documents / 609 Swift files** (13 doc được `--accept` bắt kịp luôn nợ cũ từ 1.3.437). **Không build được trên Windows** ⇒ CI xác nhận biên dịch.
+
+**Còn lại (treo):** `vieneuPitch` vẫn no-op — `NghiAudioPlayerQueue` chỉ có `updateRate`, chưa có `AVAudioUnitTimePitch` (task #9); clone giọng (overlay `VieNeuVoiceCatalog` + script Python trích `speaker_encoder/codec_encoder/reference_encoder`, task #10/#11).
+
+---
+
+## [1.3.437] - 2026-09-29
+
+### refactor: gom tien xu ly so VieNeu len service chung
+
+Theo ý người dùng "chỉ dùng tiền xử lý chung (thay thế ký tự Tts)", chuyển mở rộng số/ngày/tháng của VieNeu từ engine lên tầng service để đồng nhất với NghiTTS (Piper).
+
+- **Phát hiện**: cả Piper và VieNeu đều xử lý số qua cùng hàm chung `TextPreprocessor.processVietnameseText`. Piper gọi nó bên trong `preprocess` (tại `PiperTTSService.synthesize`, :195/:341); VieNeu gọi bản mỏng `normalizingForVieNeu` (= `processVietnameseText`, bỏ espeak vì `sea_g2p.bin` không có IPA) ngay trong `VieNeuTTSEngine.synthesize`. `applyReplacements` (thay thế ký tự chung) không xử lý số.
+- **Đổi**: xoá lớp gọi riêng trong engine; gọi `TextPreprocessor.normalizeVietnameseText` (đổi tên trung lập, vẫn = `processVietnameseText` không espeak) tại `VieNeuTTSService.executeInternalSynthesis` và `…Stream`. Mọi đường (Reader, prefetch, next-chapter-prefix, thử giọng) đều qua `VieNeuTTSService.shared` nên bao phủ đủ.
+- **Tác dụng**: engine VieNeu không còn tự tiền xử lý, đồng nhất với Piper; số/ngày vẫn đọc đúng (bắt buộc vì vocab thiếu chữ số).
+- **File**: `TextPreprocessor+Numbers.swift` (đổi tên hàm), `VieNeuTTSEngine.swift` (xoá gọi, net ~-5 dòng, trần 400 an toàn), `VieNeuTTSService.swift` (thêm gọi 2 chỗ).
+
+## [1.3.436] - 2026-09-29
+
+### fix: VieNeu ton trong boundaryKind + sua 4 loi hau kiem dinh
+
+Người dùng cài IPA của 1.3.435 và xác nhận **đã có âm thanh** (hai nguyên nhân gốc đã đúng), rồi báo tiếp 4 vấn đề.
+
+- **"Chọn tốc độ tạo audio không đổi ngay" — lỗi UI, không phải engine.** `Picker` buộc vào một `Binding` đọc thẳng `VieNeuTTSService.preferredMode`; `VieNeuTTSService` là class thường (**không** `@Observable`) nên SwiftUI **không thấy** nó đổi. Setter của `preferredMode` **đã** gọi `engine.setRequestedMode(...)` từ trước, tức engine luôn đúng — chỉ UI stale. Đây là **lần thứ hai** đúng lỗi này (lần đầu ở `VieNeuTTSTestView`, đã ghi vào `rules.md` ở 1.3.421). Sửa theo khuôn đã ghi: `@State var vieNeuSelectedMode` khai ở `TTSSettingsView` (extension không thêm được stored property) + `.onChange` đẩy xuống service; xoá `vieNeuModeBinding`.
+- **"Âm thanh đọc dễ mất chữ" — VieNeu bỏ qua `boundaryKind`.** `ONNXPiperEngine` **có** `pauseDuration(for:)` và nối khoảng lặng đuôi vào cuối mỗi utterance (`:436`). `VieNeuTTSService` nhận `boundaryKind` trong chữ ký (`:137`, `:156`) nhưng **chưa bao giờ dùng**. Mà `joinChunks` chỉ chèn khoảng lặng **giữa các chunk nội bộ**, **không bao giờ** cho chunk cuối; mỗi payload lại đã bị `trimAndFade` cắt còn ~40 ms đệm ⇒ phoneme cuối utterance N dính thẳng vào phoneme đầu utterance N+1 ⇒ nghe như **mất chữ**.
+  * Thêm `VieNeuTTSEngine.pauseSeconds(for boundaryKind:)` — **bản sao ánh xạ của Piper, đọc cùng khoá `UserDefaults`** (`paragraphPauseDuration` / `sentencePauseDuration` / `phrasePauseDuration` / `bracketPauseDuration` / `newlinePauseDuration`) nên một cài đặt điều khiển cả hai engine.
+  * Khoảng lặng chèn thêm **không phải lời đọc** ⇒ cộng vào `insertedPauseSeconds`, nếu không `speechDuration` bị thổi lên và RTF theo lời nói sai.
+  * `boundaryKind` cũng vào `makeDefaultSynthesisKey`: nó đổi audio, nên hai lượt cùng văn bản khác ranh giới **không được** gộp (`PiperSynthesisCoordinator` coalesce theo khoá; Piper cũng đưa `boundary=` vào khoá).
+  * **Vì sao không lộ ở màn thử giọng**: màn đó đưa **cả đoạn** vào một lượt gọi nên `joinChunks` tự chèn khoảng lặng theo dấu câu. Chỉ đường Reader (cắt trước rồi gọi từng mảnh) mới lộ — đúng lý do người dùng thấy "chất lượng kém hơn hẳn".
+- **"Chất lượng kém hơn hẳn màn thử giọng" — nay có số để trả lời, trước đó thì không.** Màn thử giọng hiện mode/chunk/dropped **trên UI**; đường Reader **không có gì** — engine chỉ log **lúc đổi** chế độ và **một lần cho cả vòng đời** cho phoneme bị bỏ. Thêm `logSynthesisPerf` (`+Adaptive`, để `VieNeuTTSEngine.swift` không vượt trần 400) ghi **mỗi lượt**: `mode`, `chunks`, `dropped`, `chars`, `pcm`, `speech`, `synth`, `rtf`, `boundary`. Hai giả thuyết cần số này phân định: (a) bộ thích nghi **hạ xuống `fast`** vì đường Reader có nhiều payload nhỏ ⇒ RTF cao hơn; (b) **cắt hai tầng** — engine tự cắt ở `VieNeuConfig.maxChunkCharacters` = **140**, Reader cắt trước ở `vieneuChunk` (mặc định 200).
+- **"Đoạn này chưa đọc xong thì đoạn khác đã đọc song song" — thêm chẩn đoán, KHÔNG đoán bừa.** Cơ chế `play(atTime:)` + `deviceCurrentTime` của `NghiAudioPlayerQueue` rất nhạy thời điểm và **không thể suy ra nguyên nhân chỉ bằng đọc mã**. Lượt này cố ý không đổi hành vi: thêm log `[NghiAudioPlayerQueue] schedule next=… cur=… mediaRemaining=… rate=… wallRemaining=… duration=… currentTime=…` (đủ để thấy `wallRemaining` có bị tính nhỏ đi không ⇒ `nextPlayer` bắt đầu trước khi `currentPlayer` kết thúc), cộng **một chốt an toàn** trong `prepareNextNghiAudioIfPossible`: không nạp lại đoạn mà queue **đang phát** (`currentItem`), vì `currentParagraphIndex` có thể chưa kịp nhảy do bàn giao chạy nền ⇒ `nextIndex` trỏ vào chính đoạn đang phát ⇒ đoạn đó phát **lần thứ hai**.
+- **File**: `VieNeuTTSEngine.swift` 370 → **395**, `VieNeuTTSEngine+Chunking.swift` 294 → **323**, `VieNeuTTSEngine+Adaptive.swift` 56 → **84**, `VieNeuTTSService.swift` 282 → **319**, `NghiAudioPlayerQueue.swift` 351 → **364**, `TTSSettingsView.swift` 502 → **509**, `TTSSettingsView+VieNeu.swift` 157 → **151** (xoá `vieNeuModeBinding`), `TTSManager.swift` **4028** (net 0).
+- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows.
+- **Còn lại**: nguyên nhân **chồng tiếng** chưa xác định — cần log từ máy thật. `vieneuPitch` vẫn chưa nghe thấy (queue không có pitch).
+
 ## [1.3.435] - 2026-09-29
 
 ### fix: mo gate engine local + sua 2 nguyen nhan goc lam VieNeu khong ra tieng
@@ -32,6 +359,7 @@ Người dùng báo *"VieNeu tts vẫn không tạo được âm thanh, tôi th�
 - **File**: `TTSManager.swift` 4025 → **4028**, `TTSSettingsView.swift` 517 → **502**, `TTSManager+VieNeu.swift` 183 → **227**, `TTSSettingsView+VieNeu.swift` 128 → **157**, `TTSManager+NextChapterPrefix.swift` 130 (không đổi), `TTSNextChapterPrefixSynthesizer.swift` 113 (không đổi), `TTSNextChapterPrefixCache.swift` 339 (không đổi), `TTSManager+TranslationIdentity.swift` 26 (không đổi).
 - **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền và **0** vi phạm mới; `validate_links.py` PASS. Không build được trên Windows — CI sẽ xác nhận biên dịch.
 - **Hạn chế còn lại**: `vieneuPitch` vẫn chưa nghe thấy (queue không có pitch). **Chưa kiểm chứng hành vi lúc chạy** — toàn bộ ~28 gate vừa mở dựa trên suy luận từ việc đọc `nghiAudioPlayerQueue`/`preloadedData` là tài nguyên dùng chung; cần cài IPA lên máy thật để xác nhận audio phát, tự chuyển đoạn, và NghiTTS không hồi quy.
+
 ## [1.3.434] - 2026-09-29
 
 ### fix: noi VieNeu vao duong phat local + tach khoa tham so theo engine
@@ -3788,8 +4116,6 @@ Sửa **tài liệu** (không đụng `Sources/` hay `Tests/`) tại 22 điểm 
 * **Phân Tích & Chuẩn Hóa Ký Tự Phân Cách Nghĩa Từ Điển (`TextDictionary.swift`)**:
   * Cập nhật `TextDictionary` và `DictionaryTextFileStore` hỗ trợ phân tích các bản ghi TXT hợp nhất.
   * Tự động chuẩn hóa tất cả các ký tự phân cách nghĩa `/`, `¦`, `|` về một ký tự chuẩn duy nhất là `/`.
-
-
 
 ## [1.3.74] - 2026-08-01
 

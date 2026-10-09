@@ -73,9 +73,11 @@ final class PaginatedNovelLoader: ObservableObject {
             if page == 1 {
                 novels = unique
             } else {
-                let newUnique = unique.filter { item in
-                    !novels.contains(where: { normalizeLink($0.link) == normalizeLink(item.link) })
-                }
+                // Dựng lại tập khoá **mỗi trang**, không giữ thành biến state: `reload()` gán thẳng
+                // `novels = unique`, một `Set` sống qua lần đó sẽ nuốt im lặng mọi kết quả trùng khoá cũ.
+                // O(tổng mục) mỗi trang thay cho O(mục mới × tổng mục) của `contains(where:)`.
+                let existingKeys = Set(novels.map { normalizeLink($0.link) })
+                let newUnique = unique.filter { !existingKeys.contains(normalizeLink($0.link)) }
                 novels.append(contentsOf: newUnique)
             }
 

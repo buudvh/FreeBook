@@ -29,12 +29,15 @@ struct SearchView: View {
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     @State private var searchStatusMessage = ""
     @AppStorage("search_history") private var searchHistoryJSON = "[]"
-    
+    /// Bản đã decode của `searchHistoryJSON`, **chỉ** cho hiển thị (`matchingHistory`) — xem `ShelfSearchView`.
+    @State private var displayedHistory: [String] = []
+
+    /// Đường **ghi** đọc thẳng JSON, không qua cache: `onAppear` gọi `performSearch` → `saveQueryToHistory`
+    /// có thể chạy trước `onChange(initial:)`; đọc cache rỗng lúc đó là ghi đè mất cả lịch sử.
     private var searchHistory: [String] {
-        get {
-            return SearchHistoryStore.decode(searchHistoryJSON)
-        }
+        get { SearchHistoryStore.decode(searchHistoryJSON) }
         nonmutating set {
+            displayedHistory = newValue
             searchHistoryJSON = SearchHistoryStore.encode(newValue)
         }
     }
@@ -42,8 +45,8 @@ struct SearchView: View {
     // Lịch sử hiển thị: lọc theo từ đang nhập khi có query, ngược lại hiện toàn bộ.
     private var matchingHistory: [String] {
         let trimmed = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return searchHistory }
-        return searchHistory.filter { $0.localizedCaseInsensitiveContains(trimmed) }
+        guard !trimmed.isEmpty else { return displayedHistory }
+        return displayedHistory.filter { $0.localizedCaseInsensitiveContains(trimmed) }
     }
 
     private var searchableExtensions: [Extension] {
@@ -121,7 +124,10 @@ struct SearchView: View {
                     performSearch()
                 }
             }
-            
+            .onChange(of: searchHistoryJSON, initial: true) { _, json in
+                displayedHistory = SearchHistoryStore.decode(json)
+            }
+
             if isChangingSource {
                 Color.black.opacity(0.4)
                     .ignoresSafeArea()

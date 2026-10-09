@@ -22,11 +22,18 @@ func normalizeLink(_ link: String) -> String {
 
 /// Lọc bỏ kết quả thiếu name/link và loại bỏ trùng theo `normalizeLink`.
 /// Dùng chung cho danh sách genres, discovery, search và suggest.
+///
+/// Giữ phần tử **đầu tiên** của mỗi khoá đã chuẩn hoá, đúng thứ tự gốc. Tra `Set` nên O(n) và
+/// `normalizeLink` chỉ chạy một lần mỗi phần tử — bản `reduce` + `contains(where:)` cũ là O(n²) và
+/// chuẩn hoá lại cả hai vế ở mọi cặp.
 func filterAndDeduplicate(_ results: [ExtensionItemResult]) -> [ExtensionItemResult] {
-    let filtered = results.filter { !$0.name.isEmpty && !$0.link.isEmpty }
-    return filtered.reduce(into: [ExtensionItemResult]()) { acc, item in
-        if !acc.contains(where: { normalizeLink($0.link) == normalizeLink(item.link) }) {
-            acc.append(item)
+    var seen = Set<String>()
+    var output: [ExtensionItemResult] = []
+    output.reserveCapacity(results.count)
+    for item in results where !item.name.isEmpty && !item.link.isEmpty {
+        if seen.insert(normalizeLink(item.link)).inserted {
+            output.append(item)
         }
     }
+    return output
 }

@@ -40,15 +40,24 @@ struct ShelfSearchView: View {
         allExtensions.filter { !$0.localPath.isEmpty && $0.isEnabled }
     }
 
+    /// Bản đã decode của `searchHistoryJSON`, **chỉ** cho đường hiển thị (`matchingHistory`). `body` đọc
+    /// `matchingHistory` 3 lần mỗi phím gõ — decode JSON ở mỗi lần đọc là việc thừa.
+    @State private var displayedHistory: [String] = []
+
+    /// Đường **ghi** đọc thẳng JSON, không qua cache: cache chỉ được nạp khi `onChange(initial:)` chạy, nếu
+    /// một lần ghi đến trước đó mà đọc cache rỗng thì `addQuery`/`filter` sẽ ghi đè mất cả lịch sử.
     private var searchHistory: [String] {
         get { SearchHistoryStore.decode(searchHistoryJSON) }
-        nonmutating set { searchHistoryJSON = SearchHistoryStore.encode(newValue) }
+        nonmutating set {
+            displayedHistory = newValue
+            searchHistoryJSON = SearchHistoryStore.encode(newValue)
+        }
     }
 
     // Lịch sử hiển thị: lọc theo từ đang nhập khi có query, ngược lại hiện toàn bộ.
     private var matchingHistory: [String] {
-        guard !trimmedQuery.isEmpty else { return searchHistory }
-        return searchHistory.filter { $0.localizedCaseInsensitiveContains(trimmedQuery) }
+        guard !trimmedQuery.isEmpty else { return displayedHistory }
+        return displayedHistory.filter { $0.localizedCaseInsensitiveContains(trimmedQuery) }
     }
 
     private var trimmedQuery: String {
@@ -82,6 +91,10 @@ struct ShelfSearchView: View {
 
     var body: some View {
         searchPresentationView
+            // `initial: true` nạp cache lúc xuất hiện; về sau bắt cả lần ghi từ `SearchView` (dùng chung key).
+            .onChange(of: searchHistoryJSON, initial: true) { _, json in
+                displayedHistory = SearchHistoryStore.decode(json)
+            }
             .sheet(item: $actionTarget) { target in
                 BookActionSheet(
                     target: target,

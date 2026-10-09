@@ -30,12 +30,18 @@ public struct FrozenTrieDictionary: TrieDictionary, Sendable {
     public var wordCount: Int { dat?.size ?? entries.count }
     public func frozen() -> FrozenTrieDictionary { self }
 
+    // Ba hàm tra **không** dựng `Array(text.utf16)` của cả chuỗi: có caller truyền **cả dòng** kèm
+    // `startIndex` chạy dọc chuỗi (`scanBookNameOccupiedIndices`), copy toàn dòng ở mỗi lời gọi biến lượt
+    // quét thành O(L²). Nhánh `entries` chỉ copy một **cửa sổ** dài bằng khoá dài nhất; nhánh `.dat` duyệt
+    // `text.utf16` tại chỗ. Mỗi lời gọi đổi `startIndex` → index đúng **một** lần: với chuỗi native, offset
+    // ≥ 64 đi qua breadcrumbs (cache trong storage của String), dưới 64 thì đi bộ — luôn bị chặn trên.
+    // Đơn vị vẫn là UTF-16 (luật 1.3.339), chữ ký không đổi.
+
     public func findLongestMatch(text: String, startIndex: Int) -> (length: Int, value: String)? {
         if let dat { return trieMatches(text, at: startIndex, dat: dat, longestOnly: true).last }
-        let units = Array(text.utf16)
-        guard startIndex >= 0, startIndex < units.count else { return nil }
-        for length in lengths where length <= units.count - startIndex {
-            let key = String(decoding: units[startIndex..<(startIndex + length)], as: UTF16.self)
+        guard let window = keyWindow(text, startIndex: startIndex) else { return nil }
+        for length in lengths where length <= window.count {
+            let key = String(decoding: window[0..<length], as: UTF16.self)
             if let value = entries[key] { return (length, value) }
         }
         return nil
@@ -43,14 +49,25 @@ public struct FrozenTrieDictionary: TrieDictionary, Sendable {
 
     public func findAllPrefixMatches(text: String, startIndex: Int) -> [(length: Int, value: String)] {
         if let dat { return trieMatches(text, at: startIndex, dat: dat, longestOnly: false) }
-        let units = Array(text.utf16)
-        guard startIndex >= 0, startIndex < units.count else { return [] }
+        guard let window = keyWindow(text, startIndex: startIndex) else { return [] }
         var result: [(length: Int, value: String)] = []
-        for length in lengths where length <= units.count - startIndex {
-            let key = String(decoding: units[startIndex..<(startIndex + length)], as: UTF16.self)
+        for length in lengths where length <= window.count {
+            let key = String(decoding: window[0..<length], as: UTF16.self)
             if let value = entries[key] { result.append((length, value)) }
         }
         return result
+    }
+
+    /// Các đơn vị UTF-16 từ `startIndex`, cắt ở độ dài khoá dài nhất. Dựa vào hợp đồng `lengths` **giảm dần**
+    /// (cả `TextDictionary.keyLengthsDescending` lẫn `publishCustomRecords` đều `sorted(by: >)`; `findLongestMatch`
+    /// vốn đã cần thứ tự này). `nil` khi `startIndex` ngoài chuỗi — đúng các guard cũ.
+    /// Khoá cắt từ đây bằng `String(decoding:)` nên lát cắt chẻ đôi cặp surrogate vẫn ra U+FFFD như cũ.
+    private func keyWindow(_ text: String, startIndex: Int) -> [UInt16]? {
+        let utf16 = text.utf16
+        let unitCount = utf16.count
+        guard startIndex >= 0, startIndex < unitCount else { return nil }
+        let windowLength = min(lengths.first ?? 0, unitCount - startIndex)
+        return Array(utf16[utf16.index(utf16.startIndex, offsetBy: startIndex)...].prefix(windowLength))
     }
 
     /// Duyệt **toàn bộ** entry (xem doc ở `TrieDictionary.allEntries`).
@@ -154,19 +171,21 @@ public struct FrozenTrieDictionary: TrieDictionary, Sendable {
     private func trieMatches(
         _ text: String, at start: Int, dat: DAT, longestOnly: Bool
     ) -> [(length: Int, value: String)] {
-        let units = Array(text.utf16)
-        guard start >= 0, start < units.count else { return [] }
+        let utf16 = text.utf16
+        guard start >= 0, start < utf16.count else { return [] }
         var state = 1
         var terminals: [(length: Int, offset: Int)] = []
-        for index in start..<units.count {
-            let code = dat.charMap[Int(units[index])]
+        var matchedLength = 0
+        for unit in utf16[utf16.index(utf16.startIndex, offsetBy: start)...] {
+            matchedLength += 1
+            let code = dat.charMap[Int(unit)]
             guard code != 0, dat.base.indices.contains(state) else { break }
             let next = Int(dat.base[state]) + Int(code)
             guard dat.base.indices.contains(next), dat.check[next] == Int32(state) else { break }
             let term = Int(dat.base[next])
             if dat.base.indices.contains(term), dat.check[term] == Int32(next), dat.base[term] >= 0 {
                 if longestOnly { terminals.removeAll(keepingCapacity: true) }
-                terminals.append((index - start + 1, Int(dat.base[term])))
+                terminals.append((matchedLength, Int(dat.base[term])))
             }
             state = next
         }
