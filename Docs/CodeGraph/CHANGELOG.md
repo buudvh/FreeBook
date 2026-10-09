@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.491] - 2026-10-09
+
+### perf(dich): nho ket qua span theo chuong, regex tinh, md5 nhanh, tokenizer khong giai ma thua
+
+Người dùng: *"đừng làm refactor nữa, tôi muốn bạn tra lại code và xem chỗ nào ảnh hưởng hiệu năng app, chỉnh sửa lại cho app mượt hơn, hiệu năng tốt hơn"*. Nguồn: rà toàn app 7 mảng + 2 mảng tác vụ định kỳ, mỗi phát hiện qua một vòng phản biện đối kháng; nhóm này sửa xong lại qua một vòng phản biện nữa (lỗi tìm được đã sửa).
+
+- **Reader và TTS không dịch span lại cùng một chương**: `translateContentWithMapping` chỉ cache phần text; span (`translationSpansApplyingRules` — tra 8 trie, hậu xử lý, dò vị trí từng token) bị tính lại cho từng dòng mỗi lần dựng, mà Reader + TTS + prefetch N+1 cùng dựng một chương. Thêm memo kết quả `TranslatedTextResult` (`TranslateUtils+MappingMemo.swift`, 1024 mục / 8 MiB): khoá gồm `cacheGeneration`, `bookId`, cờ phồn→giản, cờ pronouns/luật nhân và md5 dòng; tra **trước** `withSnapshot` (rules.md luật 30); chỉ ghi khi không bị huỷ, từ điển đã nạp và generation chưa đổi (cùng cơ chế ticket với `translateText`). Sửa VP/rule ⇒ generation đổi ⇒ entry cũ tự hết hiệu lực.
+- **Regex tĩnh** cho `translateChapterTitle` (4 `try! NSRegularExpression` mỗi lần trượt cache → `static let`, cùng pattern/option). Không đổi cỡ cache tên chương.
+- **`md5()`/`sha256()`**: hex bằng bảng tra thay vì 16–32 lần `String(format:)` — kết quả giống từng byte (md5 nằm trong khoá của 3 memo nóng).
+- **Tokenizer**: `FrozenTrieDictionary` không còn `subdata` khi đọc số/giải mã nghĩa; thêm `prefixMatchLengths` vào `TrieDictionary` (mặc định = `findAllPrefixMatches(...).map(\.length)`) để tokenizer — chỉ cần độ dài — không giải mã UTF-8 nghĩa của mọi match; lọc `>= 2` và mục đã xoá giữ nguyên.
+- **Nạp `.dat` lúc khởi động** (`DoubleArrayTrie.load`, nằm trên cổng chặn UI): dựng `base`/`check` trong một lượt `withUnsafeBytes` vào mảng cục bộ rồi gán một lần, thay vì ghi từng phần tử qua thuộc tính class; mảng kết quả giống từng bit.
+- `TranslateUtils.swift` giữ đúng baseline 917 dòng (chỉ đổi dòng tại chỗ).
+- **Kiểm chứng**: `check_architecture.py` chỉ còn 2 vi phạm nền cũ (`JSDom`, `TTSManager`), 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận biên dịch.
+
 ## [1.3.490] - 2026-10-09
 
 ### perf(cover): cache anh bia da giai ma, doc dia ngoai main, moi bia tai mot lan
@@ -425,23 +439,5 @@ Thực thi plan `Docs/Plans/2026-10-01-plan-chip-ngi-vie-va-phien-am-lai-tu-dien
 - **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền và **0** vi phạm mới; `validate_links.py` **PASS 100% (16 doc, 636 file Swift)**. Không build được trên Windows.
 - **Tài liệu CodeGraph**: cả **10** doc stale đều được cập nhật mục 1.3.462 (`00_index`, `02_file_graph`, `03_type_graph`, `04_call_graph`, `09_dependency_rules`, `10_risk_report`, `11_subsystems`, `13_resource_lifecycle`, `14_complexity_report`, `rules.md` thêm **luật 13–17**).
 - **Chưa chốt**: có nên **chặn** "Phiên âm lại" khi TTS đang đọc (nhánh tiếng Anh dùng chung `NSLock` của espeak với đường tổng hợp ⇒ có thể giật audio).
-
----
-
-## [1.3.461] - 2026-10-01
-
-### fix: bo ep che do cao theo loai giong, doc truyen theo dung cai dat TTS
-
-Người dùng: *"tôi bật fast mà sao lại log high nhỉ"* → *"chỉ high khi đang thực hiện clone giọng, khi đọc tts thì theo đúng cài đặt tts, cài đặt tts là tiết kiệm thì phải tiết kiệm"*.
-
-- **Sửa lỗi phạm vi của 1.3.456.** Lượt đó thêm `isClonedVoice` vào `VieNeuSynthesisPolicy.effectiveMode` và **ép `.high` (16 bước) cho MỌI lượt tổng hợp bằng giọng nhân bản**, kể cả đường đọc truyện. Đó là **hiểu sai yêu cầu gốc**: "chất lượng cao" thuộc **bước clone giọng** (chọn audio gốc + bấm Lưu) — mà bước đó chạy **3 graph clone** (`speaker_encoder`/`codec_encoder`/`reference_encoder`), **không** chạy vòng Euler ⇒ **không có `steps`** để đặt. Nay `effectiveMode(requested:current:)` = `requested ?? current`: **chỉ theo cài đặt**, cho cả giọng preset lẫn giọng clone.
-- **Triệu chứng thật, đo từ log người dùng gửi** (`app_logs (58).txt`): "Tiết kiệm pin" BẬT + giọng clone ⇒ `mode=high`, `rtf` 0,75–1,08, `busyPct` **97,2 %**, **`underrun` 4**, `thermal=serious` ⇒ **audio giật, máy nóng**. Màn Cài đặt vẫn hiện "Cân bằng" (vì "Tiết kiệm pin" khoá ô chọn) và **không có gì tiết lộ sự lệch** ⇒ người dùng tưởng lỗi ở chỗ khác.
-- **Cách chẩn đoán** (đáng nhớ): log `[VieNeuPerf] mode=` in **đúng** `activeMode` (`VieNeuTTSEngine.swift:282`). "Tiết kiệm pin" BẬT ⇒ `requestedMode = .fast` (`VieNeuTTSService.swift:105` setter, `:133` trong `prepare`) ⇒ nếu giọng là **preset** thì `activeMode` **phải** là `.fast`; log ghi `high` ⇒ nhánh duy nhất còn lại là `isClonedVoice == true` ⇒ giọng đang chọn ở Reader **là giọng nhân bản** (danh sách giọng xếp giọng user **lên đầu** nên rất dễ được chọn sẵn).
-- **Loại trừ được nghi vấn sai**: tính năng **từ điển tiếng Nhật (1.3.459) KHÔNG liên quan** — trong log, `Danzo`/`Sharingan`/`Shisui` đi tới engine nguyên vẹn (không có trong từ điển và `ForeignScriptClassifier` không nhận là tiếng Nhật), và lớp tiền xử lý còn chạy ở **tầng service trước khi gọi engine** nên không nằm trong `vectorMs`/`otherMs`.
-- **Hệ quả có chủ ý**: đọc truyện bằng giọng clone khi "Tiết kiệm pin" BẬT nay chạy **8 bước** ⇒ RTF ~0,45, hết `underrun`, máy mát hơn; đổi lại **âm sắc khi đọc bám mẫu kém hơn** 16 bước. Muốn 16 bước khi đọc thì **tắt "Tiết kiệm pin" + đặt "Chất lượng cao"** — hai công tắc đã có sẵn, không thêm gì.
-- **`Preset.isCloned` nay không còn caller** — giữ lại (vị từ miền "giọng này do user tạo" mà UI sẽ cần khi muốn đánh dấu giọng nhân bản trong danh sách), doc đã sửa để **không** còn nói nó đổi chế độ chất lượng.
-- **File sửa**: `VieNeuSynthesisPolicy.swift` (doc viết lại + bỏ tham số `isClonedVoice`), `VieNeuTTSEngine.swift:216` (1 dòng, giữ **400/400**), `VieNeuVoiceCatalog.swift` (doc `isCloned`).
-- **Ràng buộc đã đo**: `check_architecture.py` **5 violation nền / 0 mới**; `validate_links.py` **PASS 100% (16 doc, 629 file Swift)**.
-- **Tài liệu CodeGraph**: `11_subsystems.md` thêm mục 1.3.461 + `rules.md` thêm luật **"đừng ghi đè cài đặt người dùng vì lý do chất lượng"** — **accept**; `04_call_graph`, `10_risk_report`, `13_resource_lifecycle` **no-change-needed**.
 
 ---

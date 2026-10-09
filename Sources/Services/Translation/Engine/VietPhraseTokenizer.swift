@@ -73,35 +73,35 @@ public enum VietPhraseTokenizer {
             var nameLengths = Set<Int>()
             
             if let bookNames = bookNames {
-                for match in bookNames.findAllPrefixMatches(text: checkText, startIndex: 0) {
-                    nameLengths.insert(match.length)
+                for matchLength in bookNames.prefixMatchLengths(text: checkText, startIndex: 0) {
+                    nameLengths.insert(matchLength)
                 }
             }
             
             if let customNames = customNames {
-                for match in customNames.findAllPrefixMatches(text: checkText, startIndex: 0) {
-                    nameLengths.insert(match.length)
+                for matchLength in customNames.prefixMatchLengths(text: checkText, startIndex: 0) {
+                    nameLengths.insert(matchLength)
                 }
             }
             
             if let names = names {
-                for match in names.findAllPrefixMatches(text: checkText, startIndex: 0) {
-                    let matchedStr = String(chars[i..<(i + match.length)])
+                for matchLength in names.prefixMatchLengths(text: checkText, startIndex: 0) {
+                    let matchedStr = String(chars[i..<(i + matchLength)])
                     if !deletedNames.contains(matchedStr) {
-                        nameLengths.insert(match.length)
+                        nameLengths.insert(matchLength)
                     }
                 }
             }
             
             if let pronouns = pronouns {
-                for match in pronouns.findAllPrefixMatches(text: checkText, startIndex: 0) {
-                    nameLengths.insert(match.length)
+                for matchLength in pronouns.prefixMatchLengths(text: checkText, startIndex: 0) {
+                    nameLengths.insert(matchLength)
                 }
             }
             
             if let luatNhan = luatNhan {
-                for match in luatNhan.findAllPrefixMatches(text: checkText, startIndex: 0) {
-                    nameLengths.insert(match.length)
+                for matchLength in luatNhan.prefixMatchLengths(text: checkText, startIndex: 0) {
+                    nameLengths.insert(matchLength)
                 }
             }
             
@@ -164,22 +164,22 @@ public enum VietPhraseTokenizer {
                 var vpLengths = Set<Int>()
                 
                 if let bookVP = bookVP {
-                    for match in bookVP.findAllPrefixMatches(text: checkText, startIndex: 0) where match.length >= 2 {
-                        vpLengths.insert(match.length)
+                    for matchLength in bookVP.prefixMatchLengths(text: checkText, startIndex: 0) where matchLength >= 2 {
+                        vpLengths.insert(matchLength)
                     }
                 }
                 
                 if let customVP = customVP {
-                    for match in customVP.findAllPrefixMatches(text: checkText, startIndex: 0) where match.length >= 2 {
-                        vpLengths.insert(match.length)
+                    for matchLength in customVP.prefixMatchLengths(text: checkText, startIndex: 0) where matchLength >= 2 {
+                        vpLengths.insert(matchLength)
                     }
                 }
                 
                 if let vp = vp {
-                    for match in vp.findAllPrefixMatches(text: checkText, startIndex: 0) where match.length >= 2 {
-                        let matchedStr = String(chars[j..<(j + match.length)])
+                    for matchLength in vp.prefixMatchLengths(text: checkText, startIndex: 0) where matchLength >= 2 {
+                        let matchedStr = String(chars[j..<(j + matchLength)])
                         if !deletedVP.contains(matchedStr) {
-                            vpLengths.insert(match.length)
+                            vpLengths.insert(matchLength)
                         }
                     }
                 }

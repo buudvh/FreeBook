@@ -204,7 +204,7 @@ public final class TranslateUtils {
         bookId: String? = nil,
         shouldConvertTraditionalToSimplified: Bool = false
     ) -> TranslatedTextResult {
-        return TranslationReadContext.withSnapshot(bookId: bookId) {
+        return mappingMemo(text ?? "", bookId: bookId, convert: shouldConvertTraditionalToSimplified) { TranslationReadContext.withSnapshot(bookId: bookId) {
         let original = text ?? ""
         let translationInput = textForTranslation(
             original,
@@ -217,7 +217,7 @@ public final class TranslateUtils {
                 ? translationSpansApplyingRules(source: translationInput, translated: translated, bookId: bookId)
                 : []
         )
-        }
+        } }
     }
 
     public static func translateChapterTitleWithMapping(
@@ -289,15 +289,15 @@ public final class TranslateUtils {
                 .trimmingCharacters(in: .whitespacesAndNewlines)
         }
         
-        let titleNumberRegex = try! NSRegularExpression(pattern: #"(第\s*[0-9一二三四五六七八九十百千零〇两壹贰叁肆伍陆柒捌玖拾佰仟]+\s*[卷回章节幕折集部篇话])"#, options: [])
-        let arabicNumberTitleRegex = try! NSRegularExpression(pattern: #"^\s*(\d{1,5})[\s.:：,.， 、_—\-]+(.*)$"#, options: [])
+        let titleNumberRegex = chapterTitleNumberRegex
+        let arabicNumberTitleRegex = chapterTitleArabicNumberRegex
         
         if let match = titleNumberRegex.firstMatch(in: trimmed, options: [], range: range),
            let matchRange = Range(match.range(at: 1), in: trimmed) {
             let matchedPrefix = String(trimmed[matchRange])
             
-            let numberPartRegex = try! NSRegularExpression(pattern: #"([0-9一二三四五六七八九十百千零〇两壹贰叁肆伍陆柒捌玖拾佰仟]+)"#, options: [])
-            let unitPartRegex = try! NSRegularExpression(pattern: #"([卷回章节幕折集部篇话])"#, options: [])
+            let numberPartRegex = chapterTitleNumberPartRegex
+            let unitPartRegex = chapterTitleUnitPartRegex
             
             let prefixRange = NSRange(matchedPrefix.startIndex..<matchedPrefix.endIndex, in: matchedPrefix)
             

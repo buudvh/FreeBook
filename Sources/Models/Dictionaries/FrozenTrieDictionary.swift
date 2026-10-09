@@ -58,6 +58,24 @@ public struct FrozenTrieDictionary: TrieDictionary, Sendable {
         return result
     }
 
+    /// Cùng tập độ dài (cùng thứ tự) với `findAllPrefixMatches(...).map { $0.length }`, nhưng không dựng
+    /// chuỗi nghĩa: nhánh `.dat` dùng chung phép duyệt `trieTerminals` và chỉ **kiểm** nghĩa giải mã được
+    /// (match có nghĩa hỏng vẫn bị loại như ở `trieMatches`); nhánh `entries` chỉ kiểm khoá có mặt.
+    public func prefixMatchLengths(text: String, startIndex: Int) -> [Int] {
+        if let dat {
+            return trieTerminals(text, at: startIndex, dat: dat, longestOnly: false).compactMap { terminal in
+                Self.poolValueIsDecodable(at: dat.poolOffset + terminal.offset, dat: dat) ? terminal.length : nil
+            }
+        }
+        guard let window = keyWindow(text, startIndex: startIndex) else { return [] }
+        var result: [Int] = []
+        for length in lengths where length <= window.count {
+            let key = String(decoding: window[0..<length], as: UTF16.self)
+            if entries[key] != nil { result.append(length) }
+        }
+        return result
+    }
+
     /// Các đơn vị UTF-16 từ `startIndex`, cắt ở độ dài khoá dài nhất. Dựa vào hợp đồng `lengths` **giảm dần**
     /// (cả `TextDictionary.keyLengthsDescending` lẫn `publishCustomRecords` đều `sorted(by: >)`; `findLongestMatch`
     /// vốn đã cần thứ tự này). `nil` khi `startIndex` ngoài chuỗi — đúng các guard cũ.
@@ -171,6 +189,18 @@ public struct FrozenTrieDictionary: TrieDictionary, Sendable {
     private func trieMatches(
         _ text: String, at start: Int, dat: DAT, longestOnly: Bool
     ) -> [(length: Int, value: String)] {
+        trieTerminals(text, at: start, dat: dat, longestOnly: longestOnly).compactMap { terminal in
+            guard let range = Self.poolValueRange(at: dat.poolOffset + terminal.offset, dat: dat),
+                  let value = String(bytes: dat.data[range], encoding: .utf8)
+            else { return nil }
+            return (terminal.length, value)
+        }
+    }
+
+    /// Phép duyệt cây của `trieMatches` (và `prefixMatchLengths`): độ dài khớp + offset nghĩa trong pool.
+    private func trieTerminals(
+        _ text: String, at start: Int, dat: DAT, longestOnly: Bool
+    ) -> [(length: Int, offset: Int)] {
         let utf16 = text.utf16
         guard start >= 0, start < utf16.count else { return [] }
         var state = 1
@@ -189,14 +219,31 @@ public struct FrozenTrieDictionary: TrieDictionary, Sendable {
             }
             state = next
         }
-        return terminals.compactMap { terminal in
-            let offset = dat.poolOffset + terminal.offset
-            guard offset >= 0, offset + 2 <= dat.data.count else { return nil }
-            let length = Int(dat.data.readUInt16BE(at: offset))
-            guard offset + 2 + length <= dat.data.count,
-                  let value = String(data: dat.data.subdata(in: (offset + 2)..<(offset + 2 + length)), encoding: .utf8)
-            else { return nil }
-            return (terminal.length, value)
+        return terminals
+    }
+
+    /// Vùng byte UTF-8 của nghĩa tại `offset` (2 byte độ dài big-endian + nội dung); `nil` khi vượt `data`.
+    private static func poolValueRange(at offset: Int, dat: DAT) -> Range<Int>? {
+        guard offset >= 0, offset + 2 <= dat.data.count else { return nil }
+        let length = Int(dat.data.readUInt16BE(at: offset))
+        guard offset + 2 + length <= dat.data.count else { return nil }
+        return (offset + 2)..<(offset + 2 + length)
+    }
+
+    /// Đúng điều kiện `String(bytes:encoding: .utf8) != nil` của `trieMatches` mà không dựng chuỗi: UTF-8 hợp
+    /// lệ theo parser stdlib thì API đó luôn trả chuỗi; parser từ chối thì gọi lại chính API đó để giữ nguyên
+    /// ngữ nghĩa `nil` (builder luôn ghi UTF-8 hợp lệ nên nhánh này gần như không chạy).
+    private static func poolValueIsDecodable(at offset: Int, dat: DAT) -> Bool {
+        guard let range = poolValueRange(at: offset, dat: dat) else { return false }
+        let bytes = dat.data[range]
+        var iterator = bytes.makeIterator()
+        var parser = Unicode.UTF8.ForwardParser()
+        while true {
+            switch parser.parseScalar(from: &iterator) {
+            case .valid: continue
+            case .emptyInput: return true
+            case .error: return String(bytes: bytes, encoding: .utf8) != nil
+            }
         }
     }
 }

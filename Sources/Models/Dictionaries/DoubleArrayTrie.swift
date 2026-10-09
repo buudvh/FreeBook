@@ -4,6 +4,9 @@ public protocol TrieDictionary {
     func frozen() -> FrozenTrieDictionary
     func findLongestMatch(text: String, startIndex: Int) -> (length: Int, value: String)?
     func findAllPrefixMatches(text: String, startIndex: Int) -> [(length: Int, value: String)]
+    /// Chỉ độ dài của các khớp tiền tố — cùng tập với `findAllPrefixMatches(...)` nhưng không dựng nghĩa
+    /// (tokenizer chỉ đọc độ dài). Mặc định suy ra từ `findAllPrefixMatches`.
+    func prefixMatchLengths(text: String, startIndex: Int) -> [Int]
     var wordCount: Int { get }
     /// Duyệt **toàn bộ** entry (khoá + nghĩa), không phụ thuộc kho đang giữ text hay `.dat` nhị phân.
     ///
@@ -13,21 +16,24 @@ public protocol TrieDictionary {
     func allEntries() -> [(key: String, value: String)]
 }
 
+extension TrieDictionary {
+    public func prefixMatchLengths(text: String, startIndex: Int) -> [Int] {
+        findAllPrefixMatches(text: text, startIndex: startIndex).map { $0.length }
+    }
+}
+
+// Đọc từng byte theo chỉ số tuyệt đối (giống `subdata(in:)` cũ) thay vì cắt một `Data` tạm cho mỗi lần đọc.
 extension Data {
     func readInt32BE(at offset: Int) -> Int32 {
         guard offset + 4 <= self.count else { return 0 }
-        let value = self.subdata(in: offset..<(offset + 4)).withUnsafeBytes { pointer in
-            pointer.load(as: Int32.self)
-        }
-        return Int32(bigEndian: value)
+        let byte0 = UInt32(self[offset]), byte1 = UInt32(self[offset + 1])
+        let byte2 = UInt32(self[offset + 2]), byte3 = UInt32(self[offset + 3])
+        return Int32(bitPattern: (byte0 << 24) | (byte1 << 16) | (byte2 << 8) | byte3)
     }
     
     func readUInt16BE(at offset: Int) -> UInt16 {
         guard offset + 2 <= self.count else { return 0 }
-        let value = self.subdata(in: offset..<(offset + 2)).withUnsafeBytes { pointer in
-            pointer.load(as: UInt16.self)
-        }
-        return UInt16(bigEndian: value)
+        return (UInt16(self[offset]) << 8) | UInt16(self[offset + 1])
     }
 }
 
@@ -98,22 +104,27 @@ public final class DoubleArrayTrie: TrieDictionary {
             throw NSError(domain: "DoubleArrayTrie", code: -4, userInfo: [NSLocalizedDescriptionKey: "File is truncated"])
         }
         
-        self.base = Array(repeating: 0, count: baseLen)
-        self.check = Array(repeating: 0, count: baseLen)
-        
-        fileData.withUnsafeBytes { rawBufferPointer in
-            guard let baseAddress = rawBufferPointer.baseAddress else { return }
-            for i in 0..<baseLen {
-                let baseOffset = baseByteOffset + i * 4
-                let checkOffset = checkByteOffset + i * 4
-                
-                let rawBase = baseAddress.load(fromByteOffset: baseOffset, as: Int32.self)
-                self.base[i] = Int32(bigEndian: rawBase)
-                
-                let rawCheck = baseAddress.load(fromByteOffset: checkOffset, as: Int32.self)
-                self.check[i] = Int32(bigEndian: rawCheck)
+        // Dựng hai mảng cục bộ trong một lượt `withUnsafeBytes` rồi gán **một** lần: ghi `self.base[i]` từng
+        // phần tử qua thuộc tính class trả kiểm exclusivity/CoW mỗi vòng, cộng một lượt zero-fill thừa.
+        // Vẫn là phép `load` căn lề cũ, nên mảng thu được giống từng bit.
+        let count = baseLen
+        let (loadedBase, loadedCheck) = fileData.withUnsafeBytes { rawBufferPointer -> ([Int32], [Int32]) in
+            guard let baseAddress = rawBufferPointer.baseAddress else {
+                return (Array(repeating: 0, count: count), Array(repeating: 0, count: count))
             }
+            func loadBigEndianInt32s(from byteOffset: Int) -> [Int32] {
+                [Int32](unsafeUninitializedCapacity: count) { buffer, initializedCount in
+                    for i in 0..<count {
+                        let raw = baseAddress.load(fromByteOffset: byteOffset + i * 4, as: Int32.self)
+                        buffer[i] = Int32(bigEndian: raw)
+                    }
+                    initializedCount = count
+                }
+            }
+            return (loadBigEndianInt32s(from: baseByteOffset), loadBigEndianInt32s(from: checkByteOffset))
         }
+        self.base = loadedBase
+        self.check = loadedCheck
         
         let poolSize = Int(fileData.readInt32BE(at: afterCheckOffset))
         self.stringPoolOffset = afterCheckOffset + 4
