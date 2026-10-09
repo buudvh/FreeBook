@@ -6,85 +6,6 @@ import QuartzCore
 import UIKit
 import SwiftData
 
-internal struct TTSPreparedChapterKey: Equatable, Sendable {
-    let bookId: String
-    let chapterIndex: Int
-    let chapterTitle: String
-    let content: String
-    let chunkLength: Int
-    let includeChapterTitle: Bool
-    let removeDuplicatedTitle: Bool
-    let isTranslationEnabled: Bool
-    let shouldConvertTraditionalToSimplified: Bool
-    let translationToken: Int
-}
-
-internal struct TTSPreparedChapter: Sendable {
-    let normalizedContent: String
-    let paragraphs: [TTSParagraph]
-}
-
-public struct TTSPrefetchPerfSummary: Sendable {
-    public var sessionID: UUID
-    public var chapterIndex: Int
-    public var engine: String
-    public var immediateHit: Int
-    public var waitedHit: Int
-    public var miss: Int
-    public var failure: Int
-    public var retrySuccess: Int
-    public var retryFailure: Int
-    public var totalWaitMs: Double
-    public var maxWaitMs: Double
-    public var startTime: Date
-
-    public init(
-        sessionID: UUID,
-        chapterIndex: Int,
-        engine: String,
-        immediateHit: Int = 0,
-        waitedHit: Int = 0,
-        miss: Int = 0,
-        failure: Int = 0,
-        retrySuccess: Int = 0,
-        retryFailure: Int = 0,
-        totalWaitMs: Double = 0,
-        maxWaitMs: Double = 0,
-        startTime: Date = Date()
-    ) {
-        self.sessionID = sessionID
-        self.chapterIndex = chapterIndex
-        self.engine = engine
-        self.immediateHit = immediateHit
-        self.waitedHit = waitedHit
-        self.miss = miss
-        self.failure = failure
-        self.retrySuccess = retrySuccess
-        self.retryFailure = retryFailure
-        self.totalWaitMs = totalWaitMs
-        self.maxWaitMs = maxWaitMs
-        self.startTime = startTime
-    }
-}
-
-@available(iOS 17.0, *)
-private actor TTSChapterQueueMetadataWorker {
-    private let container: ModelContainer
-
-    init(container: ModelContainer) {
-        self.container = container
-    }
-
-    func fetchLocalQueue(bookId: String) async -> [TTSChapterInfo] {
-        if let storeChaps = try? await ChapterStore.shared.fetchOrderedTOC(bookId: bookId), !storeChaps.isEmpty {
-            return storeChaps.map {
-                TTSChapterInfo(title: $0.title, url: $0.url, index: $0.index, host: $0.host)
-            }
-        }
-        return []
-    }
-}
-
 @MainActor
 public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
     public static let shared = TTSManager()
@@ -343,67 +264,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             break
         }
         activePrefetchPerfSummary = summary
-    }
-
-    @MainActor
-    private func recordPrefetchRetry(sessionID: UUID, chapterIndex: Int, engine: String, success: Bool) {
-        guard AppLogger.shared.isLoggingEnabled else { return }
-        guard sessionID == self.sessionID, chapterIndex == self.playingChapterIndex else { return }
-        guard var summary = activePrefetchPerfSummary,
-              summary.sessionID == sessionID,
-              summary.chapterIndex == chapterIndex,
-              summary.engine == engine else { return }
-        if success {
-            summary.retrySuccess += 1
-        } else {
-            summary.retryFailure += 1
-        }
-        activePrefetchPerfSummary = summary
-    }
-
-    private func isTransientTTSError(_ error: Error) -> Bool {
-        if error is CancellationError { return false }
-        let nsError = error as NSError
-        if nsError.domain == NSURLErrorDomain {
-            switch nsError.code {
-            case NSURLErrorTimedOut,
-                 NSURLErrorCannotFindHost,
-                 NSURLErrorCannotConnectToHost,
-                 NSURLErrorNetworkConnectionLost,
-                 NSURLErrorDNSLookupFailed,
-                 NSURLErrorNotConnectedToInternet,
-                 NSURLErrorResourceUnavailable,
-                 NSURLErrorInternationalRoamingOff,
-                 NSURLErrorCallIsActive,
-                 NSURLErrorDataNotAllowed:
-                return true
-            default:
-                break
-            }
-        }
-        if nsError.domain == "GoogleTTSService" || nsError.domain == "ExtTTSService" || nsError.domain == "ExtensionManager" {
-            if nsError.code == 429 || (500...599).contains(nsError.code) || nsError.code == -20 || nsError.code == -21 {
-                return true
-            }
-        }
-        let lower = error.localizedDescription.lowercased()
-        if lower.contains("unexpected eof") ||
-           lower.contains("timed out") ||
-           lower.contains("connection reset") ||
-           lower.contains("network connection") ||
-           lower.contains("internal error") ||
-           lower.contains("rate limit") ||
-           lower.contains("resource_exhausted") ||
-           lower.contains("service unavailable") ||
-           lower.contains("extttsservice") ||
-           lower.contains("extensionmanager") ||
-           lower.contains("503") ||
-           lower.contains("500") ||
-           lower.contains("502") ||
-           lower.contains("504") {
-            return true
-        }
-        return false
     }
 
     // Sleep Timer (Hẹn giờ tạm dừng đọc)
@@ -3268,10 +3128,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
         updatePrefetchWindow()
         updateNowPlayingInfo()
-    }
-
-    private func commitParagraphState(index: Int, playbackId: String) {
-        commitAudibleParagraphState(index: index, playbackId: playbackId)
     }
 
     private func handleNghiAudioTransition(_ item: NghiAudioPlayerQueue.Item) {

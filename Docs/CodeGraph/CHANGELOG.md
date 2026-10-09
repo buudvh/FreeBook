@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.484] - 2026-10-09
+
+### refactor: tach 4 type TTS khoi TTSManager va xoa 3 ham chet (dot 5 tach god object)
+
+Đợt 5 của `Docs/Plans/2026-10-09-plan-refactor-god-objects.md` — bước đầu trong 5 bước đưa `TTSManager.swift` (3956) xuống dưới baseline 3470.
+
+- **4 type top-level** ở đầu `TTSManager.swift` (HEAD dòng 9–86) tách **mỗi type một file** cùng thư mục `Sources/Services/TTS/`: `TTSPreparedChapterKey`, `TTSPreparedChapter`, `TTSPrefetchPerfSummary` (giữ `public` + `public init` — `TTSManager+Telemetry` dùng), `TTSChapterQueueMetadataWorker` (giữ `@available(iOS 17.0, *)`, thêm `import SwiftData` cho `ModelContainer`). Thay đổi ngữ nghĩa **duy nhất**: `private actor` → `actor` (private top-level là phạm vi **file**). `TTSManager.swift` nay còn **đúng một** primary type ⇒ entry `MULTI_PRIMARY_TYPES` của nó trong allowlist đã thừa (không sửa allowlist — chờ người dùng).
+- **Xoá 3 hàm `private` chết**, grep toàn `Sources/` (kể cả `#selector`, string literal, `TTSManager+*.swift`) ra **0 caller**: `recordPrefetchRetry` (chỗ duy nhất tăng `retrySuccess`/`retryFailure` ⇒ hai trường này vốn luôn 0 trong log `[TTSPerf] PrefetchSummary`, trước sau không đổi), `isTransientTTSError` (phân loại retry đã nằm ở `evaluateRefillError`/`ExtTTSService.isTransient`/Google inline — đúng luật "retry thuộc một tầng"), `commitParagraphState` (wrapper một dòng; caller thật gọi thẳng `commitAudibleParagraphState`). **Ghi nhận**: `rules.md:1049` còn nhắc tên `commitParagraphState` — không sửa `rules.md` nếu người dùng chưa yêu cầu.
+- **Kết quả**: `TTSManager.swift` **3956 → 3812** (còn 342 dòng trên baseline — vi phạm cũ, các đợt 6–9 xử lý tiếp); `check_architecture.py` **2 violation** (`JSDom`, `TTSManager`), 0 mới. Script so từng byte với `HEAD`: phần còn lại = HEAD trừ 3 vùng; 4 thân type khớp (trừ đúng từ `private`). Review đối kháng 2 lượt: 0 lỗi biên dịch/hành vi. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận.
+
 ## [1.3.483] - 2026-10-09
 
 ### refactor: tach 7 DTO dieu huong + ReaderProgressCoordinator khoi ReaderViewModel (dot 3+4 tach god object)
