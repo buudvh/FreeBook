@@ -3,7 +3,10 @@ import SwiftData
 
 /// Đọc thư viện SwiftData thành DTO `Sendable` để worker nén ngoài MainActor dùng lại.
 /// Chỉ đọc — không `insert/delete/save` bất cứ gì.
-@MainActor
+///
+/// Không gắn `@MainActor`: reader tự tạo `ModelContext` riêng và chỉ trả DTO, nên `BackupExportWorker`
+/// gọi thẳng trên actor của nó — đọc cả thư viện không còn chặn main thread. Context không được
+/// thoát khỏi `read(scopes:)`.
 public struct BackupLibraryReader {
     /// Toàn bộ dữ liệu SwiftData cần cho một archive, đã tách khỏi `@Model`.
     public struct Payload: Sendable {

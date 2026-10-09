@@ -1,3 +1,4 @@
+import Combine
 import SwiftData
 import SwiftUI
 
@@ -7,11 +8,6 @@ struct MainTabView: View {
     @State private var selectedTab = 0
     /// Số truyện có chương mới, hiện trên tab Kệ Sách.
     @ObservedObject private var newChapters = NewChapterInboxManager.shared
-    /// Hai nguồn kết quả tác vụ **nền**: sao lưu/khôi phục và tải model. Đặt observer ở đây (root, luôn
-    /// sống) chứ không ở màn Sao lưu, vì lượt khôi phục có thể kết thúc sau khi người dùng đã rời màn —
-    /// hoặc được bấm từ màn Google Drive, nơi **chưa bao giờ** observe `lastMessage` (lỗi đã xác minh).
-    @ObservedObject private var backupCoordinator = BackupCoordinator.shared
-    @ObservedObject private var modelDownloads = ModelDownloadCenter.shared
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -43,23 +39,28 @@ struct MainTabView: View {
         .tint(.white)
         .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .toolbarBackground(.visible, for: .tabBar)
-        // Kết quả sao lưu / khôi phục và kết quả tải model: hiện toast ở **đây** để không phụ thuộc việc
-        // người dùng còn đang đứng ở màn bấm hay không. `BackupHubView` đã gỡ observer của nó để một lượt
-        // không hiện hai toast.
-        .onChange(of: backupCoordinator.lastMessage) { _, message in
-            guard let message else { return }
+        // Kết quả sao lưu / khôi phục và kết quả tải model — hai nguồn kết quả tác vụ **nền**: hiện toast ở
+        // **đây** (root, luôn sống) để không phụ thuộc việc người dùng còn đang đứng ở màn bấm hay không, kể cả
+        // lượt bấm từ màn Google Drive. `BackupHubView` đã gỡ observer của nó để một lượt không hiện hai toast.
+        // Chỉ nghe đúng ba publisher thay vì observe cả hai object: `progress` của backup và tiến độ tải model
+        // publish liên tục, observe cả object là vẽ lại root theo từng nhịp. `@Published` phát lúc willSet nên
+        // phải `receive(on:)` sang lượt main kế tiếp rồi mới xoá về nil — xoá ngay sẽ bị setter ngoài ghi đè.
+        // Guard "giá trị vẫn còn nguyên" giữ đúng ngữ nghĩa `onChange` cũ: giá trị đã bị thay/được nơi khác
+        // xử lý (vd `DriveAutoBackupSettingsView` cũng tiêu thụ `lastError`) thì không hiện thêm toast.
+        .onReceive(BackupCoordinator.shared.$lastMessage.compactMap { $0 }.receive(on: DispatchQueue.main)) { message in
+            guard BackupCoordinator.shared.lastMessage == message else { return }
             ToastManager.shared.show(message: message, type: .success)
-            backupCoordinator.lastMessage = nil
+            BackupCoordinator.shared.lastMessage = nil
         }
-        .onChange(of: backupCoordinator.lastError) { _, error in
-            guard let error else { return }
+        .onReceive(BackupCoordinator.shared.$lastError.compactMap { $0 }.receive(on: DispatchQueue.main)) { error in
+            guard BackupCoordinator.shared.lastError == error else { return }
             ToastManager.shared.show(message: error, type: .error)
-            backupCoordinator.lastError = nil
+            BackupCoordinator.shared.lastError = nil
         }
-        .onChange(of: modelDownloads.lastNotice) { _, notice in
-            guard let notice else { return }
+        .onReceive(ModelDownloadCenter.shared.$lastNotice.compactMap { $0 }.receive(on: DispatchQueue.main)) { notice in
+            guard ModelDownloadCenter.shared.lastNotice == notice else { return }
             ToastManager.shared.show(message: notice.message, type: notice.isError ? .error : .success)
-            modelDownloads.clearNotice()
+            ModelDownloadCenter.shared.clearNotice()
         }
         // Widget thông báo nổi phải biết tab đang chọn để tự ẩn ở tab Kệ Sách (tab đó đã có nút chuông ở
         // toolbar). `selectedTab` là `@State` cục bộ nên không ai đọc được — phát ra ngoài bằng notification.
@@ -98,10 +99,12 @@ struct MainTabView: View {
             // Công tắc debug server sống lâu hơn màn hình: mở lại app thì theo lựa chọn cũ.
             ExtensionDebugServerLauncher.restoreIfEnabled(container: modelContext.container)
         }
-        .task {
+        // `.utility`: nén + tải lên + dọn truyện là việc nền, không được tranh CPU với Reader/TTS
+        // (`.task` mặc định là `.userInitiated`). Bước nhảy MainActor bên trong vẫn chạy trên main.
+        .task(priority: .utility) {
             await runAutomaticBackupIfDue(container: modelContext.container)
         }
-        .task {
+        .task(priority: .utility) {
             await runStaleBookCleanupIfDue(container: modelContext.container)
         }
         .onChange(of: scenePhase) { _, phase in
@@ -132,7 +135,14 @@ extension MainTabView {
         try? await Task.sleep(nanoseconds: DriveAutoBackupPolicy.startupDelayNanoseconds)
         guard !Task.isCancelled else { return }
 
-        let outcome = await BackupCoordinator.shared.runAutoDriveBackup(container: container)
+        let outcome: BackupCoordinator.AutoDriveBackupOutcome
+        switch await BackupCoordinator.shared.runScheduledAutoBackup(container: container) {
+        case .unchanged:
+            // Không có gì đổi kể từ lượt thành công gần nhất: im lặng như `.notDue`.
+            return
+        case .ran(let ran):
+            outcome = ran
+        }
         switch outcome {
         case .skipped(.notDue):
             break
@@ -162,6 +172,13 @@ extension MainTabView {
     func runStaleBookCleanupIfDue(container: ModelContainer) async {
         guard StaleBookCleanupPolicy.shouldRun() else { return }
         try? await Task.sleep(nanoseconds: StaleBookCleanupPolicy.startupDelayNanoseconds)
+        // Hoãn theo giờ chưa đủ: lượt sao lưu (hoặc khôi phục/tải lên bấm tay) có thể còn chạy quá mốc trên.
+        // Chờ nó xong để bản sao lưu chụp trước khi có gì bị xoá — kiểm tra mỗi 2 s, tối đa ~10 phút.
+        var busyPolls = 0
+        while BackupCoordinator.shared.isBusy, !Task.isCancelled, busyPolls < 300 {
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            busyPolls += 1
+        }
         guard !Task.isCancelled else { return }
 
         switch await StaleBookCleanupCoordinator.runIfDue(container: container) {

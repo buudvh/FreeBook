@@ -1,8 +1,8 @@
 import Foundation
 import SwiftData
 
-/// Dựng file `.fbbackup`. Chạy ngoài MainActor; chỉ nhảy vào MainActor đúng một lần để đọc
-/// thư viện SwiftData thành DTO.
+/// Dựng file `.fbbackup`. Chạy hoàn toàn ngoài MainActor, kể cả bước đọc thư viện SwiftData thành DTO
+/// (`BackupLibraryReader` dùng `ModelContext` riêng tạo ngay trên actor này).
 public actor BackupExportWorker {
     public struct Outcome: Sendable {
         public let fileURL: URL
@@ -28,11 +28,7 @@ public actor BackupExportWorker {
         defer { try? FileManager.default.removeItem(at: staging) }
 
         report(BackupProgress(phase: .readingLibrary))
-        let capturedContainer = container
-        let capturedScopes = scopes
-        let payload = await MainActor.run {
-            BackupLibraryReader(container: capturedContainer).read(scopes: capturedScopes)
-        }
+        let payload = BackupLibraryReader(container: container).read(scopes: scopes)
 
         let encoder = BackupPayload.makeEncoder()
         var counts = BackupManifest.Counts()

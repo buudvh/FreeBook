@@ -2,6 +2,22 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.468] - 2026-10-03
+
+### feat: popup chon prompt cho quet ten rieng toan bo chuong da tai va bo nhanh JSON
+
+Người dùng: *"Giúp tôi sửa lại Quét tên riêng toàn bộ chương đã tải theo đúng dạng prompt, ngoài ra khi bấm vào … hãy popup hỏi người dùng là dùng prompt mặc định hay tự nhập prompt."*
+
+- **Gốc rễ**: `AIConfiguration.defaultNameExtractionPrompt` đã đổi sang dạng `Tên gốc=Nghĩa`, nhưng batch dùng `config.nameExtractionPrompt` — bản **lưu trong UserDefaults** (`AISettingsStore.loadConfiguration`) ⇒ máy từng mở Settings AI vẫn chạy prompt JSON cũ. Tiền lệ di trú: `BookAIMemoryStore.loadGlobalMemory()`.
+- **Sheet chọn prompt**: thêm `Views/Reader/AI/ReaderAIBatchPromptSheet.swift` (**123** dòng). Chip "Lọc name cả bộ tải" giờ mở sheet: *Dùng prompt trong Cài đặt* hoặc *Tự nhập prompt* (điền sẵn prompt đang lưu để sửa nhanh). Prompt tự nhập **chỉ dùng cho lần quét đó**, không ghi vào Cài đặt.
+- **Di trú prompt**: `AISettingsStore.loadConfiguration()` gọi `migrateLegacyNamePromptIfNeeded(_:)`; chỉ thay khi `AIConfiguration.looksLikeLegacyJSONNameExtractionPrompt` khớp (marker `suggestedMeaning` / `extracted_names` / `JSON hợp lệ`); ghi thẳng UserDefaults, **không** phát notification (tránh tái nhập).
+- **Bỏ hẳn nhánh JSON**: `parseNamesFromJSONString` → `parseNamesFromText` (chỉ nhận dòng có dấu `=`); xoá `extractMarkdownBlock` / `cleanTrailingCommas` / `tryParseJSON` ⇒ `AINameExtractionBatchProcessor.swift` **277 → 135**.
+- **Dọn nợ**: xoá `ReaderAIFullScreenView.migrateLegacyJSONMessagesIfNeeded()` và dead code `AIRuntimeCoordinator.startExtractNamesCurrentChapter` (0 call site) ⇒ `AIRuntimeCoordinator.swift` **372 → 315**.
+- **CodeGraph**: 11 doc cập nhật + `--accept`; lượt này cũng xử lý nợ stale còn lại từ `89dc5f1e`.
+- Cổng: `check_architecture.py` **5 nền / 0 mới**; `validate_links.py` **PASS 100%** (16 doc, 640 file).
+
+---
+
 ## [1.3.467] - 2026-10-03
 
 ### chore: them chunkLen vao log [VieNeuPerf] de do chunkLength ↔ CPU

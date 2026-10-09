@@ -19,6 +19,12 @@ public final class BackupCoordinator: ObservableObject {
     @Published public private(set) var preparedRestore: BackupRestoreWorker.Prepared?
     @Published public var lastMessage: String?
     @Published public var lastError: String?
+    /// Mốc `systemUptime` của lần publish tiến độ worker gần nhất — xem `publishReportedProgress`.
+    var lastReportedProgressTime: TimeInterval = 0
+    /// Giá trị bị nuốt gần nhất — publish bù ở cuối cửa sổ (trailing edge). Worker báo **trước** khi làm
+    /// một đơn vị, nên nuốt mất giá trị cuối là màn hình hiện sai việc đang chạy.
+    var pendingReportedProgress: BackupProgress?
+    var isReportedProgressFlushScheduled = false
 
     private init() {
         isDriveSignedIn = GoogleDriveTokenStore.hasRefreshToken
@@ -364,7 +370,7 @@ public final class BackupCoordinator: ObservableObject {
     private func makeReporter() -> @Sendable (BackupProgress) -> Void {
         { [weak self] value in
             Task { @MainActor in
-                self?.progress = value
+                self?.publishReportedProgress(value)
             }
         }
     }

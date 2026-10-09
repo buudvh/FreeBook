@@ -124,6 +124,35 @@ enum DriveAutoBackupPolicy {
         lastRunAt = now
     }
 
+    // MARK: - Cổng "không có gì đổi"
+
+    /// Dấu vân tay (`BackupLibraryFingerprint`) của lượt **thành công trọn vẹn** gần nhất, kèm tên archive
+    /// của lượt đó. Chữ cái đầu **viết hoa có chủ đích**: `BackupSettingsArchiver.isExportable` chỉ mang
+    /// khoá bắt đầu bằng chữ thường vào archive. Lọt vào khối cài đặt thì chính việc lưu dấu vân tay làm
+    /// lần sau lệch — cổng không bao giờ khớp — và máy khôi phục nhận nhầm mốc của máy cũ.
+    private static let lastFingerprintKey = "DriveAutoBackupLastFingerprint"
+    private static let lastFingerprintArchiveKey = "DriveAutoBackupLastFingerprintArchive"
+
+    /// Lượt theo lịch đã tới kỳ có được bỏ qua không: dấu vân tay phải trùng bản đã lưu **và** archive
+    /// tự động của lượt đó vẫn còn trong `backups/` — bản cục bộ là bản duy nhất app tự kiểm chứng được;
+    /// người dùng xoá/đổi tên nó (hoặc nó bị dọn) thì chạy lại để có bản mới.
+    static func isUnchanged(fingerprint: String) -> Bool {
+        let defaults = UserDefaults.standard
+        guard defaults.string(forKey: lastFingerprintKey) == fingerprint,
+              let archiveName = defaults.string(forKey: lastFingerprintArchiveKey),
+              BackupPaths.isAutoBackupFileName(archiveName)
+        else { return false }
+        let archive = BackupPaths.backupsDirectory.appendingPathComponent(archiveName)
+        return FileManager.default.fileExists(atPath: archive.path)
+    }
+
+    /// Chỉ gọi sau lượt mà **mọi** đích đang bật đều nhận được archive và không có lỗi nào. Lượt lỗi giữ
+    /// nguyên dấu vân tay cũ để lần tới còn chạy lại.
+    static func recordSuccessfulRun(fingerprint: String, archiveName: String) {
+        UserDefaults.standard.set(fingerprint, forKey: lastFingerprintKey)
+        UserDefaults.standard.set(archiveName, forKey: lastFingerprintArchiveKey)
+    }
+
     /// Cửa mở cho **lời nhắc**, không phải cho lượt sao lưu: lượt đã tới kỳ mà Drive chưa đăng nhập
     /// thì im lặng là mất hẳn tín hiệu (dấu hiệu duy nhất còn lại nằm trong Cài đặt), nhưng nhắc mỗi
     /// lần mở app thì thành spam.

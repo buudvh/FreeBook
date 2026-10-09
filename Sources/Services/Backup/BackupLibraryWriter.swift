@@ -101,24 +101,7 @@ public struct BackupLibraryWriter {
             }
 
             let addResult = BookTransactionCoordinator.shared.addBookToShelf(
-                command: AddBookToShelfCommand(
-                    bookId: record.bookId,
-                    title: record.title,
-                    author: record.author,
-                    coverUrl: record.coverUrl,
-                    desc: record.desc,
-                    detailUrl: record.detailUrl,
-                    sourceName: record.sourceName,
-                    sourceUrl: record.sourceUrl,
-                    extensionPackageId: record.extensionPackageId,
-                    currentChapterIndex: record.currentChapterIndex,
-                    currentChapterPage: record.currentChapterPage,
-                    currentChapterTitle: record.currentChapterTitle,
-                    isOnShelf: record.isOnShelf,
-                    isHistory: record.isHistory,
-                    host: record.host,
-                    lastReadDate: record.lastReadDate
-                ),
+                command: Self.shelfCommand(for: record),
                 in: context
             )
 
@@ -156,6 +139,30 @@ public struct BackupLibraryWriter {
         }
 
         return report
+    }
+
+    /// Lệnh thêm truyện dựng từ bản ghi backup. Dùng chung cho đường từng truyện ở trên và đường ghi
+    /// theo lô của `BackupRestoreWorker` (`BookTransactionCoordinator.addBooksFromBackup`), để hai đường
+    /// không trôi khỏi nhau. `nonisolated` vì worker gọi từ ngoài MainActor.
+    nonisolated static func shelfCommand(for record: BackupPayload.BookRecord) -> AddBookToShelfCommand {
+        AddBookToShelfCommand(
+            bookId: record.bookId,
+            title: record.title,
+            author: record.author,
+            coverUrl: record.coverUrl,
+            desc: record.desc,
+            detailUrl: record.detailUrl,
+            sourceName: record.sourceName,
+            sourceUrl: record.sourceUrl,
+            extensionPackageId: record.extensionPackageId,
+            currentChapterIndex: record.currentChapterIndex,
+            currentChapterPage: record.currentChapterPage,
+            currentChapterTitle: record.currentChapterTitle,
+            isOnShelf: record.isOnShelf,
+            isHistory: record.isHistory,
+            host: record.host,
+            lastReadDate: record.lastReadDate
+        )
     }
 
     /// Khôi phục bộ sưu tập theo kiểu **gộp**: bộ trùng tên (không phân biệt hoa/thường) thì dùng lại

@@ -121,13 +121,9 @@ public actor BackupRestoreWorker {
             library.merge(await restoreExtensionsAndRepositories())
         }
 
-        report(BackupProgress(phase: .restoringBooks, totalUnits: books.count))
-        let capturedContainer = container
-        let bookReport = await MainActor.run {
-            BackupLibraryWriter(container: capturedContainer).insertMissingBooks(books)
-        }
-        library.merge(bookReport)
+        library.merge(await restoreBooks(books))
 
+        let capturedContainer = container
         if !collections.isEmpty {
             let collectionReport = await MainActor.run {
                 BackupLibraryWriter(container: capturedContainer).restoreCollections(collections)
@@ -190,6 +186,70 @@ public actor BackupRestoreWorker {
     }
 
     // MARK: - Các bước
+
+    /// Số truyện mới mỗi lần `save()` (cùng nhịp `BookTitleTranslationBackfill`).
+    private static let bookBatchSize = 50
+
+    /// Thêm truyện chưa có trên context nền của worker, `save()` theo lô — không còn giữ MainActor
+    /// suốt cả danh sách. Số đếm (`insertedBooks`/`skippedBooks`/`errors`) giống hệt
+    /// `BackupLibraryWriter.insertMissingBooks`, vốn vẫn là đường dự phòng từng truyện.
+    private func restoreBooks(_ books: [BackupPayload.BookRecord]) async -> BackupLibraryWriter.Report {
+        report(BackupProgress(phase: .restoringBooks, totalUnits: books.count))
+        // Archive hợp lệ luôn có bookId khác nhau (cột `.unique`); archive lạ thì đi nguyên đường cũ.
+        guard Set(books.map { $0.bookId }).count == books.count else {
+            let capturedContainer = container
+            return await MainActor.run {
+                BackupLibraryWriter(container: capturedContainer).insertMissingBooks(books)
+            }
+        }
+
+        var result = BackupLibraryWriter.Report()
+        let context = ModelContext(container)
+        context.autosaveEnabled = false
+        let existing = Set(((try? context.fetch(FetchDescriptor<Book>())) ?? []).map { $0.bookId })
+        var batch: [BackupPayload.BookRecord] = []
+        for (index, record) in books.enumerated() {
+            if existing.contains(record.bookId) {
+                result.skippedBooks += 1
+            } else {
+                batch.append(record)
+            }
+            let isLast = index == books.count - 1
+            guard batch.count >= Self.bookBatchSize || (isLast && !batch.isEmpty) else { continue }
+            result.merge(await insertBookBatch(batch, context: context))
+            batch.removeAll(keepingCapacity: true)
+            report(BackupProgress(phase: .restoringBooks, completedUnits: index + 1, totalUnits: books.count))
+        }
+        return result
+    }
+
+    /// Một lô ghi lỗi thì context đã `rollback()`; chạy lại đúng lô đó qua đường từng truyện trên
+    /// MainActor để lỗi vẫn được báo theo truyện như trước.
+    private func insertBookBatch(
+        _ batch: [BackupPayload.BookRecord],
+        context: ModelContext
+    ) async -> BackupLibraryWriter.Report {
+        let items = batch.map { record in
+            (
+                command: BackupLibraryWriter.shelfCommand(for: record),
+                isPinned: record.isPinned == true && record.isOnShelf
+            )
+        }
+        switch BookTransactionCoordinator.addBooksFromBackup(items, in: context) {
+        case .success:
+            var outcome = BackupLibraryWriter.Report()
+            outcome.insertedBooks = batch.count
+            return outcome
+        case .failure(let error):
+            AppLogger.shared.log(
+                "⚠️ [Restore] Ghi lô \(batch.count) truyện thất bại (\(error.localizedDescription)) — chạy lại từng truyện"
+            )
+            let capturedContainer = container
+            return await MainActor.run {
+                BackupLibraryWriter(container: capturedContainer).insertMissingBooks(batch)
+            }
+        }
+    }
 
     private func restoreExtensionsAndRepositories() async -> BackupLibraryWriter.Report {
         var outcome = BackupLibraryWriter.Report()

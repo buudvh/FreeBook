@@ -68,7 +68,9 @@ public actor TelegramBackupUploader {
                 totalUnits: package.partURLs.count + 1,
                 detail: "Phần \(offset + 1)/\(package.partURLs.count)"
             ))
-            try await sendDocument(part, token: token, caption: nil, report: { _ in })
+            // Part chỉ cần tới lúc dựng xong body multipart — xoá ngay thay vì giữ tới `cleanUp()`, để chỗ
+            // trống tạm giảm dần theo từng part đã gửi (đỉnh điểm bớt đúng một part).
+            try await sendDocument(part, token: token, caption: nil, removingSourceAfterBuild: true, report: { _ in })
         }
         try await sendDocument(
             package.manifestURL,
@@ -84,6 +86,7 @@ public actor TelegramBackupUploader {
         _ fileURL: URL,
         token: String,
         caption: String?,
+        removingSourceAfterBuild: Bool = false,
         report: @escaping @Sendable (BackupProgress) -> Void
     ) async throws {
         let boundary = "FreeBook-\(UUID().uuidString)"
@@ -91,6 +94,8 @@ public actor TelegramBackupUploader {
             .appendingPathComponent("telegram-body-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: bodyURL) }
         try makeMultipartBody(fileURL: fileURL, destination: bodyURL, boundary: boundary, caption: caption)
+        // Các lần thử lại chỉ đọc `bodyURL`, nên file nguồn có thể xoá ngay sau khi body đã dựng xong.
+        if removingSourceAfterBuild { try? FileManager.default.removeItem(at: fileURL) }
 
         var attempt = 0
         while true {

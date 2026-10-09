@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.498] - 2026-10-09
+
+### perf(backup): khoi phuc ngoai main gop save, bo qua tu sao luu khi khong doi, gian nhip tien do
+
+Người dùng: *"đừng làm refactor nữa, tôi muốn bạn tra lại code và xem chỗ nào ảnh hưởng hiệu năng app, chỉnh sửa lại cho app mượt hơn, hiệu năng tốt hơn"*. Nguồn: rà toàn app 7 mảng + 2 mảng tác vụ định kỳ, mỗi phát hiện qua một vòng phản biện đối kháng; nhóm này sửa xong lại qua một vòng phản biện nữa (lỗi tìm được đã sửa).
+
+Người dùng bổ sung: *"các task chạy hằng ngày như tự xoá truyện cũ, tự backup, task đồng bộ dữ liệu backup nữa"*; hỏi thêm *"f1 chuyển ra ngoài main thread thì sao?"* (đồng ý hướng này) và chọn **"Bỏ qua khi không đổi"** cho tự sao lưu.
+- **Khôi phục (F1)**: trước đây chèn **mọi** truyện trong **một** khối `MainActor.run`, mỗi truyện 2–3 lượt fetch + `save()` ⇒ khôi phục nhiều truyện là đơ app, và mỗi `save()` kéo `@Query` của Kệ sách chạy lại. Nay `BookTransactionCoordinator.addBooksFromBackup` (`nonisolated`, file `+BackupRestore` mới; không đổi isolation của coordinator) chạy trên actor `BackupRestoreWorker` với `ModelContext` riêng, dựng `Book` đúng giá trị như `addBookToShelf` + ghim (chỉ khi đang trên kệ) + `titleTrans`/`authorTrans` đúng công thức `updateBookInfo`, **50 truyện một lần `save()`** (tiền lệ `BookTitleTranslationBackfill`); lô lỗi ⇒ `rollback()` rồi chạy lại lô đó theo đường từng truyện để vẫn báo lỗi theo truyện. Số liệu báo cáo giữ nguyên.
+- **Tự sao lưu bỏ qua khi không đổi (quyết định của người dùng)**: `BackupLibraryFingerprint` (mới) băm SHA-256 ngoài main **đúng những gì archive tự động chứa** — books/collections/repo/extension (cùng DTO với lúc xuất), mục lục từng truyện (mọi trường của từng hàng, không đọc nội dung chương), file `.bin` truyện local, bìa không phục hồi được, thư mục extension, từ điển/luật theo phạm vi, snapshot cài đặt (dạng chuẩn hoá), cùng tập đích đang bật và mã băm token Drive (đổi tài khoản Drive ⇒ chạy lại). Trùng dấu vân tay **và** archive tự động của lượt đó còn trong `backups/` ⇒ ghi nhận kỳ này đã chạy, không xuất/không tải, log `[Backup] Tự động sao lưu bỏ qua: không có thay đổi`, không toast. Dấu vân tay chỉ được lưu khi **mọi** đích đang bật nhận được archive, số lượng trong manifest khớp lần đọc, và tính lại sau khi xuất vẫn trùng (đổi trong lúc xuất ⇒ không lưu ⇒ lần sau chạy lại). "Sao lưu ngay" thủ công không bị chặn. Khoá UserDefaults viết hoa chữ đầu nên không lọt vào snapshot cài đặt.
+- **Ưu tiên & main thread**: hai `.task` tự sao lưu/tự dọn chạy `.utility` (trước là `userInitiated`, tranh CPU với Reader/TTS ngay sau khi mở app); `BackupLibraryReader` bỏ `@MainActor` — đọc cả thư viện lúc xuất không còn chạy trên main.
+- **Root không vẽ lại theo tiến độ**: `MainTabView` thôi `@ObservedObject` `BackupCoordinator`/`ModelDownloadCenter` (chỉ để hiện toast) mà nghe đúng `$lastMessage`/`$lastError`/`$lastNotice`; tiến độ worker publish tối đa mỗi 0,25 s mỗi pha (luôn publish khi đổi pha/đơn vị cuối, giá trị bị nuốt được phát bù ở cuối nhịp — `BackupCoordinator+ReportedProgress.swift`).
+- **Tự dọn truyện cũ chờ sao lưu xong** (trước chỉ dựa vào hẹn giờ 25 s vs 40 s): chờ khi `isBusy` (2 s/lần, tối đa ~10 phút). **Telegram**: xoá file phần ngay sau khi dựng xong body (đỉnh dung lượng tạm ~1× archive thay vì ~2×).
+- Còn để ngỏ: `repositoryLastRefreshAt` (mốc lịch làm mới repo, đổi mỗi lần mở tab Tiện ích) nằm trong snapshot cài đặt nên làm dấu vân tay đổi ⇒ ngày nào mở tab đó vẫn sao lưu; đưa vào `deniedKeys` là đổi nội dung backup — chờ người dùng quyết.
+- **Kiểm chứng**: `check_architecture.py` chỉ còn 2 vi phạm nền cũ (`JSDom`, `TTSManager`), 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận biên dịch.
+
 ## [1.3.497] - 2026-10-09
 
 ### perf(tts): nap truoc chuong ke Google/Ext giua chuong, widget xoay bang Core Animation, log luong VieNeu
@@ -404,21 +419,5 @@ Người dùng: *"Thêm một option lưu tất cả ở màn hình thêm phiên
 - **`ReaderView.swift` 2049 → 2043** (baseline 2053 — chỉ còn 4 dòng dư, nên closure `.sheet` **bắt buộc** ngắn hơn: đây là lý do tách service thay vì chép logic ghi).
 - **CodeGraph**: 10 doc cập nhật + `--accept`; `rules.md` thêm **Luật 22** (trạng thái "đang chạy" phải trả về `nil`, không chỉ hạ cờ).
 - Cổng: `check_architecture.py` **5 nền / 0 mới**; `validate_links.py` **PASS 100%** (16 doc, 641 file).
-
----
-
-## [1.3.468] - 2026-10-03
-
-### feat: popup chon prompt cho quet ten rieng toan bo chuong da tai va bo nhanh JSON
-
-Người dùng: *"Giúp tôi sửa lại Quét tên riêng toàn bộ chương đã tải theo đúng dạng prompt, ngoài ra khi bấm vào … hãy popup hỏi người dùng là dùng prompt mặc định hay tự nhập prompt."*
-
-- **Gốc rễ**: `AIConfiguration.defaultNameExtractionPrompt` đã đổi sang dạng `Tên gốc=Nghĩa`, nhưng batch dùng `config.nameExtractionPrompt` — bản **lưu trong UserDefaults** (`AISettingsStore.loadConfiguration`) ⇒ máy từng mở Settings AI vẫn chạy prompt JSON cũ. Tiền lệ di trú: `BookAIMemoryStore.loadGlobalMemory()`.
-- **Sheet chọn prompt**: thêm `Views/Reader/AI/ReaderAIBatchPromptSheet.swift` (**123** dòng). Chip "Lọc name cả bộ tải" giờ mở sheet: *Dùng prompt trong Cài đặt* hoặc *Tự nhập prompt* (điền sẵn prompt đang lưu để sửa nhanh). Prompt tự nhập **chỉ dùng cho lần quét đó**, không ghi vào Cài đặt.
-- **Di trú prompt**: `AISettingsStore.loadConfiguration()` gọi `migrateLegacyNamePromptIfNeeded(_:)`; chỉ thay khi `AIConfiguration.looksLikeLegacyJSONNameExtractionPrompt` khớp (marker `suggestedMeaning` / `extracted_names` / `JSON hợp lệ`); ghi thẳng UserDefaults, **không** phát notification (tránh tái nhập).
-- **Bỏ hẳn nhánh JSON**: `parseNamesFromJSONString` → `parseNamesFromText` (chỉ nhận dòng có dấu `=`); xoá `extractMarkdownBlock` / `cleanTrailingCommas` / `tryParseJSON` ⇒ `AINameExtractionBatchProcessor.swift` **277 → 135**.
-- **Dọn nợ**: xoá `ReaderAIFullScreenView.migrateLegacyJSONMessagesIfNeeded()` và dead code `AIRuntimeCoordinator.startExtractNamesCurrentChapter` (0 call site) ⇒ `AIRuntimeCoordinator.swift` **372 → 315**.
-- **CodeGraph**: 11 doc cập nhật + `--accept`; lượt này cũng xử lý nợ stale còn lại từ `89dc5f1e`.
-- Cổng: `check_architecture.py` **5 nền / 0 mới**; `validate_links.py` **PASS 100%** (16 doc, 640 file).
 
 ---
