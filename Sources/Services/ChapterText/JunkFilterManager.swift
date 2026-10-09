@@ -67,7 +67,8 @@ public final class JunkFilterManager: ObservableObject {
 
     @MainActor @Published public private(set) var rules: [JunkFilterRule] = []
     private let lock = NSLock()
-    private nonisolated(unsafe) var activeRulesCache: [JunkFilterRule] = []
+    /// Quy tắc đang bật kèm regex đã biên dịch sẵn (nil với quy tắc literal).
+    private nonisolated(unsafe) var activeRulesCache: [(rule: JunkFilterRule, regex: NSRegularExpression?)] = []
 
     private var rulesFileURL: URL {
         let paths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
@@ -123,9 +124,15 @@ public final class JunkFilterManager: ObservableObject {
     }
 
     private func updateCache(_ list: [JunkFilterRule]) {
-        let enabledOnly = list.filter { $0.isEnabled && !$0.pattern.isEmpty }
+        // Biên dịch regex một lần khi danh sách quy tắc đổi; regex lỗi bị bỏ qua như `try?` cũ.
+        let compiled = list.filter { $0.isEnabled && !$0.pattern.isEmpty }
+            .compactMap { rule -> (rule: JunkFilterRule, regex: NSRegularExpression?)? in
+                guard rule.isRegex else { return (rule, nil) }
+                guard let regex = try? NSRegularExpression(pattern: rule.pattern, options: []) else { return nil }
+                return (rule, regex)
+            }
         lock.lock()
-        activeRulesCache = enabledOnly
+        activeRulesCache = compiled
         lock.unlock()
     }
 
@@ -140,19 +147,27 @@ public final class JunkFilterManager: ObservableObject {
 
         guard !active.isEmpty else { return rawContent }
 
-        var result = rawContent
-
-        for rule in active {
-            if rule.isRegex {
-                if let regex = try? NSRegularExpression(pattern: rule.pattern, options: []) {
-                    let range = NSRange(location: 0, length: result.utf16.count)
-                    result = regex.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: rule.replacement)
-                }
+        let startTime = CFAbsoluteTimeGetCurrent()
+        // Bridge sang NSString một lần rồi thay tại chỗ, cùng thứ tự và cùng options [] như
+        // `stringByReplacingMatches` / `replacingOccurrences` trước đây.
+        let buffer = NSMutableString(string: rawContent)
+        for entry in active {
+            let range = NSRange(location: 0, length: buffer.length)
+            if let regex = entry.regex {
+                regex.replaceMatches(in: buffer, options: [], range: range, withTemplate: entry.rule.replacement)
             } else {
-                result = result.replacingOccurrences(of: rule.pattern, with: rule.replacement)
+                buffer.replaceOccurrences(of: entry.rule.pattern, with: entry.rule.replacement, options: [], range: range)
             }
         }
+        let result = String(buffer)
 
+        if AppLogger.shared.isLoggingEnabled {
+            let elapsedMs = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
+            AppLogger.shared.log(String(
+                format: "[ReaderPerf] JunkFilter rules=%d chars=%d ms=%.2f",
+                active.count, rawContent.utf16.count, elapsedMs
+            ))
+        }
         return result
     }
 

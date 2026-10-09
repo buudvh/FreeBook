@@ -166,18 +166,6 @@ public final class TranslationManager: ObservableObject {
         return translateDirectory.appendingPathComponent(fileName)
     }
 
-    private func updateDeletedState(from records: [DictionaryTextRecord], isName: Bool) {
-        let deletedList = records.filter { $0.isDeleted }.map { $0.key }
-        if isName {
-            deletedNames = Set(deletedList)
-            dictionaryState.update { $0.deletedNamesList = deletedList }
-        } else {
-            deletedVietPhrase = Set(deletedList)
-            dictionaryState.update { $0.deletedVietPhraseList = deletedList }
-        }
-        Task { @MainActor in self.publishCustomUI(isName: isName) }
-    }
-
     @MainActor internal func publishCustomUI(isName: Bool) {
         let state = dictionaryState.read()
         if isName {
@@ -206,11 +194,20 @@ public final class TranslationManager: ObservableObject {
     }
     
     public func loadAllDictionaries() async throws {
+        let loadStart = CFAbsoluteTimeGetCurrent()
         defer {
+            if AppLogger.shared.isLoggingEnabled {
+                AppLogger.shared.log(String(format: "[LaunchPerf] Dictionaries ms=%.1f", (CFAbsoluteTimeGetCurrent() - loadStart) * 1000))
+            }
             Task { @MainActor in
                 self.isInitialized = true
             }
         }
+        
+        // 0. PhienAm không phụ thuộc từ điển nào khác: nạp song song với các khối .dat, chờ ở bước 5.
+        let paTxtUrl = translateDirectory.appendingPathComponent("ChinesePhienAmWords.txt")
+        async let phoneticMapResult: [String: String]? = FileManager.default.fileExists(atPath: paTxtUrl.path)
+            ? (try? Self.loadPhoneticMap(from: paTxtUrl)) : nil
         
         // 1. Load Names (Optional)
         let namesDatUrl = translateDirectory.appendingPathComponent("Names.dat")
@@ -237,17 +234,13 @@ public final class TranslationManager: ObservableObject {
         
         // 1.1 Load Custom Names (Optional, TXT-only)
         let customNamesTxtUrl = customTextURL(isName: true, bookId: nil)
-        var tempCustomNames: TrieDictionary? = nil
         var customNameRecords: [DictionaryTextRecord] = []
         if FileManager.default.fileExists(atPath: customNamesTxtUrl.path) {
             customNameRecords = (try? DictionaryTextFileStore.parseRecords(from: customNamesTxtUrl)) ?? []
-            let text = TextDictionary()
-            try? text.load(from: customNamesTxtUrl)
-            if text.isLoaded, text.wordCount > 0 { tempCustomNames = text }
         }
-        self.customNamesDict = tempCustomNames
+        // publishCustomRecords dựng dict custom + tombstone từ chính các record này (một lần parse).
         publishCustomRecords(customNameRecords, isName: true)
-        let customNamesLoaded = tempCustomNames != nil
+        let customNamesLoaded = dictionaryState.read().customNames != nil
         await MainActor.run { self.isCustomNamesLoaded = customNamesLoaded }
         
         // 2. Load VietPhrase (Required)
@@ -275,17 +268,12 @@ public final class TranslationManager: ObservableObject {
         
         // 2.1 Load Custom VietPhrase (Optional, TXT-only)
         let customVpTxtUrl = customTextURL(isName: false, bookId: nil)
-        var tempCustomVP: TrieDictionary? = nil
         var customVPRecords: [DictionaryTextRecord] = []
         if FileManager.default.fileExists(atPath: customVpTxtUrl.path) {
             customVPRecords = (try? DictionaryTextFileStore.parseRecords(from: customVpTxtUrl)) ?? []
-            let text = TextDictionary()
-            try? text.load(from: customVpTxtUrl)
-            if text.isLoaded, text.wordCount > 0 { tempCustomVP = text }
         }
-        self.customVietPhraseDict = tempCustomVP
         publishCustomRecords(customVPRecords, isName: false)
-        let customVPLoaded = tempCustomVP != nil
+        let customVPLoaded = dictionaryState.read().customVietPhrase != nil
         await MainActor.run { self.isCustomVietPhraseLoaded = customVPLoaded }
         
         // 3. Load Pronouns (Optional)
@@ -334,26 +322,12 @@ public final class TranslationManager: ObservableObject {
         let luatNhanLoaded = tempLuatNhan != nil
         await MainActor.run { self.isLuatNhanLoaded = luatNhanLoaded }
         
-        // 5. Load PhienAm (Required)
-        let paTxtUrl = translateDirectory.appendingPathComponent("ChinesePhienAmWords.txt")
-        var tempPA: [String: String] = [:]
-        let paLoaded: Bool
-        if FileManager.default.fileExists(atPath: paTxtUrl.path) {
-            var loaded = false
-            do {
-                tempPA = try loadPhoneticMap(from: paTxtUrl)
-                loaded = true
-            } catch {}
-            paLoaded = loaded
-        } else {
-            paLoaded = false
-        }
-        self.phienAmMap = tempPA
+        // 5. Load PhienAm (Required) — đã bắt đầu nạp ở bước 0.
+        let tempPA = await phoneticMapResult
+        let paLoaded = tempPA != nil
+        self.phienAmMap = tempPA ?? [:]
         await MainActor.run { self.isPhienAmLoaded = paLoaded }
-        
-        // 6. Load Deleted lists from unified custom TXT files (`word=` lines)
-        updateDeletedState(from: customVPRecords, isName: false)
-        updateDeletedState(from: customNameRecords, isName: true)
+        // Tombstone (`word=`) đã được publishCustomRecords ghi ở bước 1.1/2.1.
     }
 
     public func notifyDictionariesDidUpdate(bookId: String? = nil, scope: DictionaryInvalidationScope = .globalReload) {
@@ -382,7 +356,7 @@ public final class TranslationManager: ObservableObject {
         }
     }
     
-    private func loadPhoneticMap(from fileURL: URL) throws -> [String: String] {
+    private static func loadPhoneticMap(from fileURL: URL) throws -> [String: String] {
         let content = try String(contentsOf: fileURL, encoding: .utf8)
         let lines = content.components(separatedBy: .newlines)
         var map: [String: String] = [:]

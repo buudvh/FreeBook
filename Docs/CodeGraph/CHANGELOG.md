@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.492] - 2026-10-09
+
+### perf(chuong, khoi dong): bien dich luat loc rac mot lan, bo luot loc thua, regex cleanHTML tinh, bo parse tu dien trung
+
+Người dùng: *"đừng làm refactor nữa, tôi muốn bạn tra lại code và xem chỗ nào ảnh hưởng hiệu năng app, chỉnh sửa lại cho app mượt hơn, hiệu năng tốt hơn"*. Nguồn: rà toàn app 7 mảng + 2 mảng tác vụ định kỳ, mỗi phát hiện qua một vòng phản biện đối kháng; nhóm này sửa xong lại qua một vòng phản biện nữa (lỗi tìm được đã sửa).
+
+- **Lọc rác**: `filterRawContent` trước đây biên dịch lại regex của **mọi** luật ở mỗi lần gọi và chép cả chương một lần cho mỗi luật. Nay biên dịch một lần khi nạp luật (luật regex lỗi bị bỏ như `try?` cũ), áp theo đúng thứ tự trên một `NSMutableString` — đầu ra giống hệt. Thêm `[ReaderPerf] JunkFilter rules= chars= ms=` (chỉ khi bật log và có luật).
+- **Bỏ một lượt lọc thừa khi đọc chương đã lưu**: `ChapterPersistenceStore` đã `normalize` (lọc) nội dung; `ChapterContentRepository.makeDocument` lọc lần nữa. Nhánh persisted nay dựng document bằng `normalizeProcessedContent` (tham số `prefiltered`); nhánh lấy từ extension vẫn `normalize`. Hệ quả có chủ đích: luật **không idempotent** được áp ít hơn một lần (vốn là lỗi áp trùng). `ChapterContentRepository.swift` giữ đúng baseline 455.
+- **`cleanHTML`**: 7 regex thành `static let` (cùng pattern, cờ `(?i)`, thứ tự, template) — chạy mỗi lần nạp chương và mỗi hàng mô tả ở Khám phá.
+- **Khởi động**: bỏ lượt parse `TextDictionary` thứ hai của Names/VietPhrase tuỳ chỉnh mà `publishCustomRecords` ghi đè ngay sau đó (cờ đã nạp lấy từ state đã publish); thêm `[LaunchPerf] Dictionaries ms=` (chỉ khi bật log). `TranslationManager.swift` 590 → 564.
+- **Backfill tên dịch**: chỉ xét truyện thật sự còn gì để điền, chỉ gán khi giá trị mới khác rỗng và khác cũ, `save()` khi `hasChanges` — trước đây truyện có tác giả rỗng bị xử lý lại và `save()` ở **mỗi** lần mở app.
+- **Kiểm chứng**: `check_architecture.py` chỉ còn 2 vi phạm nền cũ (`JSDom`, `TTSManager`), 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận biên dịch.
+
 ## [1.3.491] - 2026-10-09
 
 ### perf(dich): nho ket qua span theo chuong, regex tinh, md5 nhanh, tokenizer khong giai ma thua
@@ -416,28 +429,5 @@ Người dùng: *"vì sao nhập từ điển không có 2 option Trộn / Thay 
 - **File sửa**: `DictionaryImportFlowModifier.swift` 144 → **158** (bỏ `.onChange`, `@State showingModeDialog` → `@Binding isModeDialogPresented`), `TTSDictionaryEditView.swift` 518 → **532**, `VieNeuJapaneseDictionaryView.swift` 389 → **374** sau khi tách, `NotificationInboxView+Rephoneticize.swift` 219 → **226**.
 - **Ràng buộc đã đo**: `check_architecture.py` **5 violation nền / 0 mới**; `validate_links.py` **PASS 100% (16 doc, 636 file Swift)**. Không build được trên Windows.
 - **Tài liệu CodeGraph**: `11_subsystems.md` thêm mục 1.3.463 — **accept**.
-
----
-
-## [1.3.462] - 2026-10-01
-
-### feat: chip NGI/VIE, xoa tu bang nhan giu, tsu thanh su, phien am lai tu dien va man chon trung khi nhap
-
-Thực thi plan `Docs/Plans/2026-10-01-plan-chip-ngi-vie-va-phien-am-lai-tu-dien.md` (phiên grill-me, 17 câu hỏi đã chốt).
-
-- **Chip gợi ý có hai nguồn.** `TTSPhoneticSuggestion.Origin` tách `.library` (badge `TĐ`) thành `.nghiTTSLibrary` (`NGI`) + `.vieNeuLibrary` (`VIE`); `AddWordSheet` tra **cả hai** store mỗi lượt. Dedupe đổi khoá từ `text` sang `origin.rawValue + "|" + text` ⇒ hai từ điển cùng cách đọc vẫn hiện **hai** chip (trước đây chip của nguồn kia bị nuốt). Cả hai chip từ điển đều `isPipelineChoice = true`.
-- **Nhấn giữ chip `NGI`/`VIE` để xoá mục** khỏi đúng từ điển (`contextMenu` + `confirmationDialog` → `TextPreprocessor.deleteWord` / `VieNeuJapaneseDictionary.delete`). Chip `JP`/`EN` không có menu. Chip gỡ **sau khi** xoá thành công.
-- **`tsu` (つ) đọc "su" thay vì "chu"**: `JapaneseTransliterator.romajiToViSyllable` sửa một dòng. Bảng dùng **chung** cho NghiTTS, VieNeu và chip JP ⇒ cả hai engine đổi theo; `tu` vẫn ra `"chu"`.
-- **Nút "Phiên âm lại từ điển"** ở cả hai màn từ điển → `RephoneticizeService.run` chạy trong `Task.detached(priority: .utility)`: chuẩn hoá khoá (gấp dấu phụ — vá luôn **mục chết** của NghiTTS), gộp mục trùng khoá, mục engine không phiên âm được thì **giữ giá trị cũ**. NghiTTS đi đúng thứ tự `transliterateToken` (Nhật trước, Anh sau); VieNeu chỉ có nhánh Nhật. Kết quả ghi ra `phien-am-lai-nghi.plist` / `phien-am-lai-vieneu.plist` — **không** ghi thẳng vào từ điển.
-- **Hai card ở màn Thông báo**, mỗi từ điển một card. Số liệu nằm ở **file meta JSON** kèm theo (`RephoneticizeService.Meta`, mirror `DictionaryMergeService.Meta`); `init` chỉ đọc meta vài trăm byte, `body` **không** chạm đĩa — đúng cách chữa của 1.3.448 để mở màn Thông báo sau khi khởi động lại không bị đơ.
-- **"Nhập vào từ điển"** sao lưu `.bak-rephoneticize` rồi `replaceAllWords` / `replaceAll`.
-- **Luồng nhập file gom vào `DictionaryImportFlowModifier`**: hỏi *Trộn* / *Thay thế toàn bộ*. Chọn *Trộn* mở `DictionaryImportConflictView` — màn mở **ngay** với skeleton, parse + `diff` chạy trong `Task.detached`, mặc định **tích hết**, có ô tìm kiếm + Chọn hết/Bỏ chọn hết; **Huỷ = không ghi gì**. `DictionaryImportParser` dùng chung plist/json/csv/txt.
-- **Bất đối xứng đã sửa**: nhập của NghiTTS trước đây **ghi đè toàn bộ** (`TTSDictionaryEditView.swift:459-460`, không backup) còn VieNeu **trộn**; nay cả hai có đủ hai nhánh và nhánh ghi đè có sao lưu. `loadResources()` không xoá `transliterationCache` ⇒ nay đường ghi dùng `replaceAllWords` để xoá cache cùng lượt.
-- **Bẫy đã vấp**: `private @State` trong struct làm `init` memberwise thành `private` ⇒ ba chỗ (`DictionaryImportConflictView`, `DictionaryImportFlowModifier`, `RephoneticizeCard`) phải khai `init` tường minh, nếu không CI đỏ ở file gọi.
-- **File mới (7)**: `RephoneticizeService` **309** · `RephoneticizeTask` **236** · `DictionaryImportConflictView` **234** · `NotificationInboxView+Rephoneticize` **219** · `DictionaryImportFlowModifier` **144** · `DictionaryImportParser` **128** · `DictionaryImportDiff` **94**.
-- **File sửa**: `TTSDictionaryEditView.swift` 559 → **518** (giảm), `AddWordSheet.swift` 253 → **344**, `VieNeuJapaneseDictionaryView.swift` 358 → **389**, `NotificationInboxView.swift` 368 → **393**, `TTSPhoneticSuggestion.swift` 61 → **82**, `TTSPhoneticSuggestionBuilder.swift` 81 → **91**, `JapaneseTransliterator.swift` 347 → **350**, `TextPreprocessor+Bulk.swift` 30 → **47**.
-- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền và **0** vi phạm mới; `validate_links.py` **PASS 100% (16 doc, 636 file Swift)**. Không build được trên Windows.
-- **Tài liệu CodeGraph**: cả **10** doc stale đều được cập nhật mục 1.3.462 (`00_index`, `02_file_graph`, `03_type_graph`, `04_call_graph`, `09_dependency_rules`, `10_risk_report`, `11_subsystems`, `13_resource_lifecycle`, `14_complexity_report`, `rules.md` thêm **luật 13–17**).
-- **Chưa chốt**: có nên **chặn** "Phiên âm lại" khi TTS đang đọc (nhánh tiếng Anh dùng chung `NSLock` của espeak với đường tổng hợp ⇒ có thể giật audio).
 
 ---

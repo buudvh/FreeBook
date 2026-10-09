@@ -6,12 +6,12 @@ extension String {
         var text = self
         
         // 1. Thay thế các thẻ xuống dòng/đoạn bằng ký tự \n
-        text = text.replacingOccurrences(of: "(?i)<br\\s*/?>", with: "\n", options: .regularExpression)
-        text = text.replacingOccurrences(of: "(?i)</?p\\s*>", with: "\n", options: .regularExpression)
-        text = text.replacingOccurrences(of: "(?i)</?div\\s*>", with: "\n", options: .regularExpression)
+        text = Self.replaceMatches(Self.brTagRegex, in: text, with: "\n")
+        text = Self.replaceMatches(Self.paragraphTagRegex, in: text, with: "\n")
+        text = Self.replaceMatches(Self.divTagRegex, in: text, with: "\n")
         
         // 2. Loại bỏ tất cả các thẻ HTML khác
-        text = text.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+        text = Self.replaceMatches(Self.anyTagRegex, in: text, with: "")
         
         // 3. Giải mã các thực thể HTML phổ biến
         let entities = [
@@ -40,15 +40,31 @@ extension String {
         text = decodeNumericEntities(text)
         
         // 5. Chuẩn hóa khoảng trắng và dòng trống liên tiếp
-        text = text.replacingOccurrences(of: "[\t ]+", with: " ", options: .regularExpression)
-        text = text.replacingOccurrences(of: "\n\n+", with: "\n\n", options: .regularExpression)
+        text = Self.replaceMatches(Self.horizontalSpaceRegex, in: text, with: " ")
+        text = Self.replaceMatches(Self.blankLinesRegex, in: text, with: "\n\n")
         
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
+    // Regex biên dịch một lần, giữ nguyên pattern + cờ inline của bản `replacingOccurrences(options: .regularExpression)` cũ.
+    private static let brTagRegex = try? NSRegularExpression(pattern: "(?i)<br\\s*/?>", options: [])
+    private static let paragraphTagRegex = try? NSRegularExpression(pattern: "(?i)</?p\\s*>", options: [])
+    private static let divTagRegex = try? NSRegularExpression(pattern: "(?i)</?div\\s*>", options: [])
+    private static let anyTagRegex = try? NSRegularExpression(pattern: "<[^>]+>", options: [])
+    private static let horizontalSpaceRegex = try? NSRegularExpression(pattern: "[\t ]+", options: [])
+    private static let blankLinesRegex = try? NSRegularExpression(pattern: "\n\n+", options: [])
+    private static let numericEntityRegex = try? NSRegularExpression(pattern: "&#(x?[0-9a-fA-F]+);", options: [])
+
+    /// Template ở đây không chứa `$` hay `\`, nên kết quả trùng `replacingOccurrences(options: .regularExpression)`.
+    private static func replaceMatches(_ regex: NSRegularExpression?, in text: String, with template: String) -> String {
+        guard let regex else { return text }
+        let range = NSRange(location: 0, length: text.utf16.count)
+        return regex.stringByReplacingMatches(in: text, options: [], range: range, withTemplate: template)
+    }
+
     private func decodeNumericEntities(_ string: String) -> String {
         var result = string
-        guard let regex = try? NSRegularExpression(pattern: "&#(x?[0-9a-fA-F]+);", options: []) else {
+        guard let regex = Self.numericEntityRegex else {
             return string
         }
         

@@ -310,7 +310,7 @@ actor ChapterContentRepository {
                     url: request.url
                 ) {
                     try Task.checkCancellation()
-                    let document = makeDocument(request: request, rawContent: persisted.content)
+                    let document = makeDocument(request: request, rawContent: persisted.content, prefiltered: true) // readChapter đã lọc rác + normalize
                     storeInMemory(document, for: key)
                     return ChapterContentResult(document: document, origin: .persistentCache)
                 }
@@ -416,14 +416,14 @@ actor ChapterContentRepository {
 
     private func makeDocument(
         request: ChapterContentRequest,
-        rawContent: String
+        rawContent: String, prefiltered: Bool = false
     ) -> ChapterDocument {
         ChapterDocument(
             chapterIndex: request.chapterIndex,
             title: request.title,
             url: request.url,
             host: request.host,
-            text: ChapterTextNormalizer.normalize(rawContent)
+            text: prefiltered ? ChapterTextNormalizer.normalizeProcessedContent(rawContent) : ChapterTextNormalizer.normalize(rawContent)
         )
     }
 
