@@ -84,6 +84,8 @@ enum VieNeuSynthesisPolicy {
     /// Khoá `UserDefaults` cho chế độ "Tiết kiệm pin" và số luồng ORT.
     static let powerSavingKey = "vieneuPowerSaving"
     static let threadCountKey = "vieneuThreadCount"
+    /// Khoá công tắc spin của pool luồng ORT (1.3.488). Mặc định **tắt** — xem `allowSpinning(from:)`.
+    static let allowSpinningKey = "vieneuOrtAllowSpinning"
 
     /// Khoá `UserDefaults` của chế độ chất lượng. Nằm ở đây — **cùng chỗ** với hai khoá trên — thay vì
     /// giấu trong `VieNeuTTSService`: màn Cài đặt phải đọc được nó ngay cả khi `VieNeuTTSService.shared`
@@ -97,10 +99,17 @@ enum VieNeuSynthesisPolicy {
         return Mode(rawValue: raw)
     }
 
-    /// Số luồng ORT đã chọn (2...4), mặc định 4. **Hàm thuần** — nhận `defaults` từ caller (type này
-    /// không tự đọc `UserDefaults`). Áp dụng khi **nạp lại engine** (session ORT dựng với số luồng này).
+    /// Số luồng ORT đã chọn (1...4; mức 1 thêm ở 1.3.488 để đo CPU-time — NghiTTS vốn chạy 1 luồng).
+    /// **Hàm thuần** — nhận `defaults` từ caller (type này không tự đọc `UserDefaults`). Áp dụng khi
+    /// **nạp lại engine** (session ORT dựng với số luồng này).
     static func threadCount(from defaults: UserDefaults) -> Int32 {
-        Int32(max(2, min(4, defaults.object(forKey: threadCountKey) as? Int ?? Int(defaultThreadCount))))
+        Int32(max(1, min(4, defaults.object(forKey: threadCountKey) as? Int ?? Int(defaultThreadCount))))
+    }
+
+    /// Cho luồng pool ORT **spin** (chờ bận) hay không. Mặc định **tắt** (1.3.488): spin đốt CPU-time giữa các
+    /// op mà gần như không đổi tốc độ. Bật chỉ để so A/B. Áp dụng khi **nạp lại engine**. **Hàm thuần**.
+    static func allowSpinning(from defaults: UserDefaults) -> Bool {
+        defaults.bool(forKey: allowSpinningKey)
     }
 
     /// "Tiết kiệm pin": ép `fast` + 2 luồng. **Mặc định BẬT** khi chưa có khoá (user chốt 2026-09-30).

@@ -55,6 +55,8 @@ struct VieNeuORT {
     OrtAllocator *allocator;
     /// Số luồng intra-op đã dùng cho 4 graph chính; giữ lại để graph clone dùng **cùng** cấu hình.
     int32_t threadCount;
+    /// `session.intra_op.allow_spinning` đã dùng (0/1) — graph clone dùng **cùng** giá trị.
+    int32_t allowSpinning;
     OrtSession *sessions[VieNeuGraphCount];
     /// Tên output **đọc từ chính session** (`SessionGetOutputName`), không hardcode.
     ///
@@ -408,6 +410,7 @@ static int32_t loadCloneGraphsWithOptions(VieNeuORT *context, const char *modelD
 /// `*outOptions` thuộc bên gọi: giải phóng bằng `ReleaseSessionOptions` sau khi mở xong session. Truyền
 /// `NULL` được nếu bên gọi tự lo options (khi đó options dựng ở đây bị giải phóng luôn).
 static VieNeuORT *createBaseContext(int32_t threadCount,
+                                    int32_t allowSpinning,
                                     OrtSessionOptions **outOptions,
                                     char **errorMessage) {
     const OrtApiBase *base = OrtGetApiBase();
@@ -450,8 +453,13 @@ static VieNeuORT *createBaseContext(int32_t threadCount,
         return NULL;
     }
     check(api->SetIntraOpNumThreads(options, threadCount), api, errorMessage);
+    // Mặc định ORT cho luồng pool **spin** (chờ bận) giữa các op/lượt `Run` ⇒ đốt CPU-time mà gần như không
+    // nhanh hơn. Tắt để luồng ngủ khi rảnh — cùng phép tính, audio không đổi (1.3.488).
+    check(api->AddSessionConfigEntry(options, "session.intra_op.allow_spinning", allowSpinning ? "1" : "0"),
+          api, errorMessage);
     check(api->SetSessionGraphOptimizationLevel(options, ORT_ENABLE_ALL), api, errorMessage);
     context->threadCount = threadCount;
+    context->allowSpinning = allowSpinning;
 
     if (outOptions != NULL) {
         *outOptions = options;
@@ -461,13 +469,13 @@ static VieNeuORT *createBaseContext(int32_t threadCount,
     return context;
 }
 
-VieNeuORT *VieNeuORTCreate(const char *modelDirectory, int32_t threadCount, char **errorMessage) {
+VieNeuORT *VieNeuORTCreate(const char *modelDirectory, int32_t threadCount, int32_t allowSpinning, char **errorMessage) {
     if (modelDirectory == NULL) {
         setError(errorMessage, "modelDirectory is NULL");
         return NULL;
     }
     OrtSessionOptions *options = NULL;
-    VieNeuORT *context = createBaseContext(threadCount, &options, errorMessage);
+    VieNeuORT *context = createBaseContext(threadCount, allowSpinning, &options, errorMessage);
     if (context == NULL) return NULL;
     const OrtApi *api = context->api;
 
@@ -490,13 +498,13 @@ VieNeuORT *VieNeuORTCreate(const char *modelDirectory, int32_t threadCount, char
     return context;
 }
 
-VieNeuORT *VieNeuORTCreateCloneOnly(const char *modelDirectory, int32_t threadCount, char **errorMessage) {
+VieNeuORT *VieNeuORTCreateCloneOnly(const char *modelDirectory, int32_t threadCount, int32_t allowSpinning, char **errorMessage) {
     if (modelDirectory == NULL) {
         setError(errorMessage, "modelDirectory is NULL");
         return NULL;
     }
     OrtSessionOptions *options = NULL;
-    VieNeuORT *context = createBaseContext(threadCount, &options, errorMessage);
+    VieNeuORT *context = createBaseContext(threadCount, allowSpinning, &options, errorMessage);
     if (context == NULL) return NULL;
 
     // Dùng **cùng** options với khung (số luồng + mức tối ưu) thay vì để `VieNeuORTLoadCloneGraphs` dựng
@@ -937,6 +945,8 @@ int32_t VieNeuORTLoadCloneGraphs(VieNeuORT *context, const char *modelDirectory,
     OrtSessionOptions *options = NULL;
     if (check(api->CreateSessionOptions(&options), api, errorMessage) != 0) return -1;
     check(api->SetIntraOpNumThreads(options, context->threadCount), api, errorMessage);
+    check(api->AddSessionConfigEntry(options, "session.intra_op.allow_spinning", context->allowSpinning ? "1" : "0"),
+          api, errorMessage);
     check(api->SetSessionGraphOptimizationLevel(options, ORT_ENABLE_ALL), api, errorMessage);
 
     int32_t status = loadCloneGraphsWithOptions(context, modelDirectory, options, errorMessage);

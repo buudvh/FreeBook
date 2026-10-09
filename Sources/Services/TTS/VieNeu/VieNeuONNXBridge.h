@@ -30,8 +30,10 @@
 typedef struct VieNeuORT VieNeuORT;
 
 /// Tạo ngữ cảnh và nạp 4 graph từ `modelDirectory`.
+/// `allowSpinning` = 0 đặt `session.intra_op.allow_spinning=0`: luồng pool **ngủ** khi rảnh thay vì quay rỗng
+/// (1.3.488 — tốn ít CPU-time hơn, audio không đổi). Graph clone nạp sau dùng **cùng** giá trị.
 /// Trả `NULL` khi lỗi; `*errorMessage` (nếu khác NULL) nhận chuỗi do `malloc` cấp phát.
-VieNeuORT *VieNeuORTCreate(const char *modelDirectory, int32_t threadCount, char **errorMessage);
+VieNeuORT *VieNeuORTCreate(const char *modelDirectory, int32_t threadCount, int32_t allowSpinning, char **errorMessage);
 
 /// Giải phóng ngữ cảnh cùng mọi session bên trong.
 void VieNeuORTDestroy(VieNeuORT *context);
@@ -133,7 +135,7 @@ void VieNeuORTFreeErrorMessage(char *errorMessage);
 /// `…RunCodecEncoder` / `…RunReferenceEncoder`.
 ///
 /// Trả `NULL` khi lỗi; `*errorMessage` (nếu khác NULL) nhận chuỗi do `malloc` cấp phát.
-VieNeuORT *VieNeuORTCreateCloneOnly(const char *modelDirectory, int32_t threadCount, char **errorMessage);
+VieNeuORT *VieNeuORTCreateCloneOnly(const char *modelDirectory, int32_t threadCount, int32_t allowSpinning, char **errorMessage);
 
 /// Nạp **3 graph clone** (`speaker_encoder` / `codec_encoder` / `reference_encoder`) từ `modelDirectory`.
 ///

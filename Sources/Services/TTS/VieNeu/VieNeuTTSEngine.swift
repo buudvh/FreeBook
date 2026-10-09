@@ -154,7 +154,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         // khi `NPZReader` còn đọc sai kích thước entry. `nullContext`/`nullMask`/`nullSpeaker`/`nullStyle`
         // là **bất biến suốt vòng đời engine** (chỉ gán đúng một lần ở đây; engine không có `unload`) ⇒
         // tensor cache của A2b an toàn (buffer nguồn sống lâu hơn tensor; `VieNeuORTDestroy` giải phóng cache).
-        let newRuntime = try VieNeuONNXRuntime(modelStore: store, threadCount: VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard))
+        let newRuntime = try VieNeuONNXRuntime(modelStore: store, threadCount: VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard), allowSpinning: VieNeuSynthesisPolicy.allowSpinning(from: .standard))
         let newConfig = try VieNeuConfig.load(modelStore: store)
         let newCatalog = try VieNeuVoiceCatalog.load(modelStore: store)
         let newPhonemizer = try SeaG2P(binURL: store.url(for: "sea_g2p.bin"))
@@ -168,7 +168,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         nullContextShape = nullBranch.shape
         nullMask = nullBranch.mask
 
-        AppLogger.shared.log("🎙️ [VieNeu] Nạp xong engine: \(newCatalog.presets.count) giọng, threads=\(VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard))")
+        AppLogger.shared.log("🎙️ [VieNeu] Nạp xong engine: \(newCatalog.presets.count) giọng, threads=\(VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard)) spin=\(VieNeuSynthesisPolicy.allowSpinning(from: .standard) ? "on" : "off")")
     }
 
     /// Nhánh **vô điều kiện** của CFG: chạy `text_encoder` với đúng `[bos, eos]` và `null_style`.
@@ -224,6 +224,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
             limit: VieNeuConfig.maxChunkCharacters
         )
         let started = ProcessInfo.processInfo.systemUptime
+        let cpuStarted = ProcessCPUClock.nowMs()
         // Bộ đếm churn tính từ đầu lượt này (không tích luỹ qua các lượt) để con số ứng đúng đoạn đang đọc.
         runtime.resetChurnCounters()
 
@@ -273,13 +274,14 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         let insertedPauseSeconds = joined.pauseSeconds + boundarySilenceSeconds
 
         let synthesisMs = (ProcessInfo.processInfo.systemUptime - started) * 1_000
+        let cpuMs = ProcessCPUClock.nowMs() - cpuStarted
         let pcmDuration = Double(samples.count) / Double(config.sampleRate)
         // Số liệu **mỗi lượt tổng hợp** — xem doc của `logSynthesisPerf` ở `+Adaptive`.
         logSynthesisPerf(
             mode: activeMode, chunkCount: chunks.count, droppedScalars: droppedScalars,
             characterCount: text.count, pcmDuration: pcmDuration,
             speechDuration: max(0, pcmDuration - insertedPauseSeconds), synthesisMs: synthesisMs,
-            boundaryKind: boundaryKind, timing: timing, synthesisSpeed: speed
+            boundaryKind: boundaryKind, timing: timing, synthesisSpeed: speed, cpuMs: cpuMs
         )
         // Chỉ thích nghi khi người dùng để "tự động"; xem doc của `requestedMode`.
         if requestedMode == nil {

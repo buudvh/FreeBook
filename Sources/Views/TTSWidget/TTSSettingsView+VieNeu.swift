@@ -182,12 +182,12 @@ extension TTSSettingsView {
         .onChange(of: vieNeuSelectedMode) { _, newValue in
             VieNeuTTSService.shared?.preferredMode = newValue
         }
-        // 3. Số luồng tổng hợp (2/3/4, KHÔNG kèm ngoặc bổ nghĩa).
+        // 3. Số luồng tổng hợp (1/2/3/4, KHÔNG kèm ngoặc bổ nghĩa). Mức 1 thêm ở 1.3.488 để đo CPU-time.
         Picker("Số luồng tổng hợp", selection: Binding(
             get: { vieNeuPowerSaving ? 2 : vieNeuThreadCount },
             set: { vieNeuThreadCount = $0; VieNeuTTSService.shared?.threadCount = $0 }
         )) {
-            ForEach([2, 3, 4], id: \.self) { count in
+            ForEach([1, 2, 3, 4], id: \.self) { count in
                 Text("\(count) luồng").tag(count)
             }
         }
@@ -197,6 +197,8 @@ extension TTSSettingsView {
         Text("Số luồng càng nhiều càng khó gây ra trường hợp phải chờ đợi giữa hai đoạn nghe nhưng dễ nóng máy và hết pin nhanh. Số luồng áp dụng sau khi nạp lại engine (mở lại app hoặc đổi engine)." + (vieNeuPowerSaving ? " Đang bật Tiết kiệm pin: cố định chế độ Cân bằng + 2 luồng để máy mát và ít tốn pin; chất lượng giọng thấp hơn." : ""))
             .font(.caption)
             .foregroundColor(.secondary)
+        // 4b. Spin của pool luồng ORT (1.3.488) — mặc định tắt, bật chỉ để so A/B năng lượng.
+        VieNeuOrtSpinToggle()
         // 5. Hai công tắc **riêng của VieNeu** cho tiền xử lý tiếng Nhật. Cả hai mặc định **TẮT** nên mặc
         //    định VieNeu đọc y như trước — chỉ khác đúng một thứ luôn chạy: gấp macron về ASCII
         //    (`danzō` → `danzo`), xem `VieNeuJapanesePreprocessor`.

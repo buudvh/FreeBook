@@ -110,10 +110,10 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         }
     }
 
-    /// Số luồng ORT (2...4). Chỉ có hiệu lực khi **nạp lại engine** (session ORT dựng với số luồng này).
+    /// Số luồng ORT (1...4). Chỉ có hiệu lực khi **nạp lại engine** (session ORT dựng với số luồng này).
     var threadCount: Int {
         get { Int(VieNeuSynthesisPolicy.threadCount(from: .standard)) }
-        set { UserDefaults.standard.set(max(2, min(4, newValue)), forKey: VieNeuSynthesisPolicy.threadCountKey) }
+        set { UserDefaults.standard.set(max(1, min(4, newValue)), forKey: VieNeuSynthesisPolicy.threadCountKey) }
     }
 
     init(store: VieNeuModelStore, engine: VieNeuTTSEngine) {

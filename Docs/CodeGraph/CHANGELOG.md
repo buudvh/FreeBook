@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.488] - 2026-10-09
+
+### perf(vieneu): do CPU-time, tat spin luong ORT, cho phep 1 luong (P0+P1+P2)
+
+Người dùng: *"làm cho xong đợt 8, sau đó làm Vieneu TTS tối ưu hóa trước đi, trong nhánh này luôn"*. Nguồn: báo cáo `Docs/Reports/2026-10-09-vieneu-huong-toi-uu-moi.md` (session "Vieneu TTS tối ưu hóa", chỉ điều tra). Gói P0+P1+P2 vào **một bản IPA** để đo A/B trên máy thật.
+
+- **P0 — đo CPU-time (lỗ hổng đo lường §1 của báo cáo)**: mọi số trước đây (`rtf`, `busyPct`) là thời gian **tường**, còn năng lượng/nhiệt tỉ lệ với **CPU-time**. File mới `Sources/Services/TTS/ProcessCPUClock.swift` (`clock_gettime(CLOCK_PROCESS_CPUTIME_ID)` — cả tiến trình, tính cả pool luồng ORT).
+  - `[VieNeuPerf]` thêm `cpu=…ms cpuPerAudio=… cores=…` (đo cùng khoảng với `synth=`; `cores` = số lõi bận trung bình).
+  - `[NghiEnergy] Summary` (dùng cho mọi engine local) thêm `cpuMs= cpuPerAudioSec= cpuCores=` trên cả cửa sổ 60 s — CPU **cả app** (gồm render), đúng thứ quyết định nóng máy. Mẫu số `cpuPerAudioSec` là `cpuPCMSeconds` — **bỏ** audio của lượt tổng hợp mở cửa sổ (CPU của lượt đó tiêu trước mốc `startedCPUMs`, vì hàm ghi chạy khi lượt xong); `totalPCMSeconds`/`aggregateRTF` giữ nguyên. Trường mới **nối cuối**, các trường cũ giữ thứ tự.
+- **P1 — tắt spin pool luồng ORT (F1)**: ORT mặc định cho luồng pool **chờ bận** giữa các op/lượt `Run`. `VieNeuONNXBridge.m` thêm `AddSessionConfigEntry(options, "session.intra_op.allow_spinning", …)` ở **cả hai** chỗ dựng session (4 graph chính + gói graph clone, giá trị lưu ở `context->allowSpinning`). `VieNeuORTCreate`/`VieNeuORTCreateCloneOnly` + 2 init Swift nhận thêm `allowSpinning`. **Mặc định TẮT** (khoá `vieneuOrtAllowSpinning`); cùng phép tính ⇒ **audio không đổi**. Công tắc `VieNeuOrtSpinToggle` trong Cài đặt VieNeu để bật lại khi cần so; dòng `Nạp xong engine` in thêm `spin=on/off`. Desktop (nhiễu tải) đo CPU-s/audio-s 2 luồng: 0,84 → 0,63 khi tắt spin — **phải xác nhận trên iPhone**.
+- **P2 — cho chọn 1 luồng (F3)**: kẹp số luồng `2…4` → `1…4` (`VieNeuSynthesisPolicy.threadCount`, setter của service, picker). "Tiết kiệm pin" vẫn ghim 2 luồng và khoá picker (rules.md). Mục đích: đo 1/2/4 luồng bằng P0 — chọn mặc định theo **CPU-s/audio-s**, không theo RTF.
+- **Cách đo trên máy**: bật log → **tắt** "Tiết kiệm pin" (để chọn luồng) → nghe VieNeu ~5 phút mỗi cấu hình (đổi luồng/spin xong phải nạp lại engine: đổi engine qua lại hoặc mở lại app) → gửi log. So `cpuPerAudio` của `[VieNeuPerf]` và `cpuPerAudioSec` của `[NghiEnergy] Summary`, kèm `underrun` để chắc không hụt tiếng.
+- File: `VieNeuONNXBridge.h/.m`, `VieNeuONNXRuntime.swift`, `VieNeuSynthesisPolicy.swift`, `VieNeuTTSService.swift`, `VieNeuTTSEngine.swift` (396 → 398, dưới trần 400), `VieNeuTTSEngine+Adaptive.swift`, `NghiEnergyTelemetry.swift`, `TTSSettingsView+VieNeu.swift`; mới `ProcessCPUClock.swift`, `VieNeuOrtSpinToggle.swift`.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền cũ, 0 mới. Review đối kháng 2 lượt (biên dịch: 0 lỗi — `CLOCK_PROCESS_CPUTIME_ID` import được qua Darwin, `AddSessionConfigEntry` có từ ORT ~1.7, 16 specifier = 16 tham số; hành vi: 1 lỗi — mẫu số `cpuPerAudioSec` lệch cửa sổ, đã sửa như trên). **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận.
+
 ## [1.3.487] - 2026-10-09
 
 ### refactor: tach TTSAutoAdvancePerfTracker va NghiEnergyTelemetry khoi TTSManager (dot 8 tach god object)
@@ -440,22 +455,5 @@ Người dùng: *"VieNeu-TTS đọc tiếng Nhật nhiều từ chưa chính xá
 - **Ràng buộc đã đo**: `check_architecture.py` **5 violation nền / 0 mới** (lượt đầu có **1 vi phạm mới** `ReaderView.swift` 2054 > 2053 — đã nén lại còn **2049**); `validate_links.py` **PASS 100% (16 doc, 629 file Swift)**.
 - **Tài liệu CodeGraph**: `00_index`, `02_file_graph`, `03_type_graph`, `04_call_graph`, `05_state_graph`, `11_subsystems`, `14_complexity_report`, `rules`, `09_dependency_rules` **accept**; `08_lifecycle`, `10_risk_report`, `13_resource_lifecycle` **no-change-needed**. Sửa luôn 2 **link chết** trỏ tới file đã xoá (`00_index.md`, `02_file_graph.md`) — validator bắt được.
 - **Kèm theo (công cụ, không phải mã app)**: 2 bản skill `push-ci-monitor` được repo track (`.workbuddy/skills/`, `.agents/skills/`) sửa lại phần theo dõi CI — bản cũ dạy dùng công cụ `schedule`/`DurationSeconds` của **Antigravity** (không tồn tại trên WorkBuddy); nay ghi đúng cách đã kiểm chứng: `gh run watch <id> --exit-status` chạy nền + `TaskOutput block=true`, và `gh` đã đăng nhập sẵn nên bỏ bước trích `GH_TOKEN`.
-
----
-
-## [1.3.458] - 2026-10-01
-
-### fix: bao toast khi nut tao giong bi chan boi phat lai, sap xep lai muc Tu Dien
-
-Sửa lỗi UX người dùng báo: *"bấm vào nút tạo giọng nói nó không hoạt động, không mở ra được màn hình tạo giọng nói"*. Đã xác nhận bằng thực nghiệm — **dừng phát truyện thì bấm được** ⇒ thủ phạm là cổng `isBlockedByPlayback`, không phải lỗi điều hướng/sheet.
-
-- **Nguyên nhân**: `creationSection` khoá nút bằng `.disabled(!isModelReady || !hasCloneGraphs || isBlockedByPlayback)` nhưng footer **chỉ có nhánh cho 2 điều kiện đầu** ⇒ khi bị khoá vì đang phát, footer rơi vào `else` và hiện câu hướng dẫn bình thường. Thêm nữa `.tint(.white)` toàn cục làm nút disabled trông y hệt nút thường ⇒ "nút bình thường, bấm không phản hồi".
-- **Ràng buộc kỹ thuật quyết định cách sửa**: nút `.disabled` **không** phát sinh sự kiện ⇒ muốn báo bằng toast thì buộc phải **bỏ `isBlockedByPlayback` khỏi `.disabled`** rồi kiểm trong action.
-- **Sửa**: thêm `playbackBlockReason(action:)` (`VieNeuVoiceLibraryView.swift`) tách **đúng nguyên nhân** (`isPlaying` = đang đọc truyện; chỉ `showFloatingWidget` = trình phát hiện nhưng có thể đã tạm dừng — nói "đang phát truyện" khi chỉ mở trình phát là sai). Hai nút bỏ cổng khỏi `.disabled`, toast `ToastManager.shared.show(message:type: .info)` thay vì mở sheet. Áp cho cả **"Tạo giọng mới"** lẫn nút **nghe thử** ở `voiceRow` (cùng lớp lỗi, `+Sections.swift:127`); nút nghe thử vẫn cho **dừng** bản nghe thử của chính nó.
-- **Không đổi**: `isBlockedByPlayback` giữ nguyên định nghĩa và vẫn là cổng trong `enroll`/`playPreview`; không đụng `TTSManager`/`VieNeuTTSService`/`VieNeuTTSEngine`; không đổi `.sheet`.
-- **Kèm theo (thay đổi có sẵn trong cây làm việc)**: `DictionaryHubView.swift` — dời mục **"Thay thế từ (TTS)"** xuống **cuối** danh sách (sau nhóm "Rule Dịch"), không đổi nội dung/đích điều hướng; `ttsReplacementStatusText` giữ nguyên.
-- **File sửa**: `VieNeuVoiceLibraryView.swift` 372 → **385**; `VieNeuVoiceLibraryView+Sections.swift` 201 → **208** (cả hai < 400); `DictionaryHubView.swift` **199 → 199** (chỉ đổi thứ tự khối).
-- **Ràng buộc đã đo**: `check_architecture.py` **5 violation nền / 0 mới**; `validate_links.py` **PASS 100%**.
-- **Tài liệu CodeGraph**: `11_subsystems.md` **accept** (thêm mục 1.3.458).
 
 ---

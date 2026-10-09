@@ -48,9 +48,9 @@ final class VieNeuONNXRuntime {
     /// theo file, nên tách file là phải hạ quyền truy cập của đúng những thành viên dùng chéo file.
     let handle: OpaquePointer
 
-    init(modelStore: VieNeuModelStore, threadCount: Int32) throws {
+    init(modelStore: VieNeuModelStore, threadCount: Int32, allowSpinning: Bool = false) throws {
         var message: UnsafeMutablePointer<CChar>?
-        guard let handle = VieNeuORTCreate(modelStore.modelsURL.path, threadCount, &message) else {
+        guard let handle = VieNeuORTCreate(modelStore.modelsURL.path, threadCount, allowSpinning ? 1 : 0, &message) else {
             throw RuntimeError.failure(Self.consume(message, fallback: "không tạo được ngữ cảnh ORT"))
         }
         self.handle = handle
@@ -64,9 +64,9 @@ final class VieNeuONNXRuntime {
     /// thay vì +~371 MB, và **nhả hết** khi xong (`deinit`).
     ///
     /// Ngữ cảnh này **không** dùng được cho `textEncoder`/`durationPredictor`/… (session 4 bước là `NULL`).
-    init(cloneOnlyModelStore modelStore: VieNeuModelStore, threadCount: Int32) throws {
+    init(cloneOnlyModelStore modelStore: VieNeuModelStore, threadCount: Int32, allowSpinning: Bool = false) throws {
         var message: UnsafeMutablePointer<CChar>?
-        guard let handle = VieNeuORTCreateCloneOnly(modelStore.modelsURL.path, threadCount, &message) else {
+        guard let handle = VieNeuORTCreateCloneOnly(modelStore.modelsURL.path, threadCount, allowSpinning ? 1 : 0, &message) else {
             throw RuntimeError.failure(Self.consume(message, fallback: "không nạp được gói graph clone"))
         }
         self.handle = handle

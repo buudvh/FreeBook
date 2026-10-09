@@ -66,7 +66,10 @@ extension VieNeuTTSEngine {
         /// Tốc độ **tổng hợp** (1.3.465). Có mặt vì đây là số liệu duy nhất nói ra "lượt này model đang
         /// nói ở tốc độ nào" — thiếu nó thì không phân biệt được RTF tốt do máy khoẻ hay do đang tổng
         /// hợp ở 1,8× (bài học 1.3.461: log từng thiếu đúng trường cần ⇒ phải hỏi người dùng nhiều lượt).
-        synthesisSpeed: Double
+        synthesisSpeed: Double,
+        /// CPU-time **cả tiến trình** trong lượt này (1.3.488, `ProcessCPUClock`). `cpuPerAudio` = CPU-s cho mỗi
+        /// giây audio — đại lượng tỉ lệ với năng lượng; `cores` = số lõi bận trung bình (`cpu / synth`).
+        cpuMs: Double
     ) {
         AppLogger.shared.log(
             "[VieNeuPerf] mode=\(mode.rawValue) chunkLen=\(TTSManager.vieNeuChunkLength) chunks=\(chunkCount) dropped=\(droppedScalars)"
@@ -78,6 +81,8 @@ extension VieNeuTTSEngine {
                 + " vectorMs=\(String(format: "%.0f", timing.vectorMs)) otherMs=\(String(format: "%.0f", timing.otherMs))"
                 + " churn=\(timing.tensorCreates)/\(timing.tensorReleases)/\(timing.copiedBytes)"
                 + " boundary=\(boundaryKind.rawValue)"
+                + " cpu=\(String(format: "%.0f", cpuMs))ms cpuPerAudio=\(String(format: "%.2f", cpuMs / 1_000 / max(0.01, pcmDuration)))"
+                + " cores=\(String(format: "%.2f", cpuMs / max(1, synthesisMs)))"
         )
     }
 

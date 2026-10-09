@@ -32,6 +32,11 @@ final class NghiEnergyTelemetry {
         /// Mốc `uptime` lần cuối một đoạn được đưa lên hàng đợi phát. Dùng để tính `maxPreloadGapMs`:
         /// hụt xảy ra ⇒ khoảng từ mốc này tới lúc hụt chính là chặng chờ người dùng nghe ra.
         var lastPlaybackSubmitAt: TimeInterval?
+        /// CPU-time **cả tiến trình** lúc mở cửa sổ (1.3.488, `ProcessCPUClock`) — để tính `cpuPerAudioSec`.
+        var startedCPUMs: Double?
+        /// Audio của các lượt tổng hợp **sau** mốc `startedCPUMs` — mẫu số của `cpuPerAudioSec`. Lượt mở cửa
+        /// sổ bị loại vì CPU của nó đã tiêu trước mốc (hàm ghi chạy khi lượt đó xong); `totalPCMSeconds` giữ nguyên.
+        var cpuPCMSeconds = 0.0
     }
 
     private var nghiEnergy = Accumulator()
@@ -48,6 +53,9 @@ final class NghiEnergyTelemetry {
         let now = ProcessInfo.processInfo.systemUptime
         if nghiEnergy.startedAt == nil {
             nghiEnergy.startedAt = now
+            nghiEnergy.startedCPUMs = ProcessCPUClock.nowMs()
+        } else {
+            nghiEnergy.cpuPCMSeconds += pcmDuration
         }
         nghiEnergy.synthesisCount += 1
         if essential { nghiEnergy.essentialCount += 1 }
@@ -70,6 +78,7 @@ final class NghiEnergyTelemetry {
         let now = ProcessInfo.processInfo.systemUptime
         if nghiEnergy.startedAt == nil {
             nghiEnergy.startedAt = now
+            nghiEnergy.startedCPUMs = ProcessCPUClock.nowMs()
         }
         nghiEnergy.underrunCount += 1
         if reusedInFlight {
@@ -114,8 +123,13 @@ final class NghiEnergyTelemetry {
         // cao (≥85%) ⇒ CPU bận vì chính việc tổng hợp (đòn bẩy là tầng ONNX); thấp mà máy vẫn nóng ⇒
         // thủ phạm ở tầng render. Nếu không đo, hai tầng này nhìn giống nhau qua `aggregateRTF`.
         let busyPct = elapsed > 0 ? (nghiEnergy.totalSynthesisMs / (elapsed * 1_000)) * 100 : 0
+        // CPU-time cả tiến trình trong cửa sổ (1.3.488): `busyPct`/RTF là thời gian **tường**, còn năng lượng/nhiệt
+        // tỉ lệ với CPU-time. `cpuPerAudioSec` = CPU-s cho mỗi giây audio tổng hợp; `cpuCores` = số lõi bận TB.
+        let cpuMs = nghiEnergy.startedCPUMs.map { ProcessCPUClock.nowMs() - $0 } ?? 0
+        let cpuPerAudioSec = nghiEnergy.cpuPCMSeconds > 0 ? (cpuMs / 1_000) / nghiEnergy.cpuPCMSeconds : 0
+        let cpuCores = elapsed > 0 ? cpuMs / (elapsed * 1_000) : 0
         AppLogger.shared.log(String(
-            format: "[NghiEnergy] Summary reason=%@ elapsedSec=%.1f synth=%d essential=%d onDemand=%d underrun=%d reusedInFlight=%d avgQueueWaitMs=%.2f aggregateRTF=%.3f maxRTF=%.3f busyPct=%.1f preloadGapMs=%.1f thermal=%@",
+            format: "[NghiEnergy] Summary reason=%@ elapsedSec=%.1f synth=%d essential=%d onDemand=%d underrun=%d reusedInFlight=%d avgQueueWaitMs=%.2f aggregateRTF=%.3f maxRTF=%.3f busyPct=%.1f preloadGapMs=%.1f thermal=%@ cpuMs=%.0f cpuPerAudioSec=%.3f cpuCores=%.2f",
             reason,
             elapsed,
             nghiEnergy.synthesisCount,
@@ -128,7 +142,10 @@ final class NghiEnergyTelemetry {
             nghiEnergy.maxRTF,
             busyPct,
             nghiEnergy.maxPreloadGapMs,
-            Self.thermalStateName(thermalState)
+            Self.thermalStateName(thermalState),
+            cpuMs,
+            cpuPerAudioSec,
+            cpuCores
         ))
         nghiEnergy = Accumulator()
     }
