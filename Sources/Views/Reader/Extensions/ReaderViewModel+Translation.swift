@@ -208,9 +208,9 @@ extension ReaderViewModel {
         }
 
         if let cached = cache.cache[currentIndex],
-           cached.translationToken == TranslateUtils.translationGenerationToken(for: bookId),
-           cached.isTranslationEnabled == isTranslationEnabled,
-           cached.shouldConvertTraditionalToSimplified == shouldConvertTraditionalToSimplified { return }
+           cached.isTranslationFresh(token: TranslateUtils.translationGenerationToken(for: bookId),
+                                     enabled: isTranslationEnabled,
+                                     convertTraditional: shouldConvertTraditionalToSimplified) { return }
         refreshParagraphItems()
     }
 

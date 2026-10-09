@@ -3,88 +3,6 @@ import SwiftData
 import Combine
 import Observation
 
-enum ReaderNavigationSource: Equatable {
-    case history
-    case previousButton
-    case nextButton
-    case chapterList
-    case ttsSync
-    case reload
-
-    var isImmediate: Bool {
-        switch self {
-        case .history, .ttsSync, .reload, .previousButton, .nextButton, .chapterList:
-            return true
-        }
-    }
-}
-
-enum ReaderNavigationDirection: Equatable {
-    case backward
-    case none
-    case forward
-}
-
-enum ReaderLoadState: Equatable {
-    case bootstrapping
-    case loading(chapterIndex: Int)
-    case ready(chapterIndex: Int)
-    case failed(chapterIndex: Int?, message: String)
-}
-
-enum ReaderLoadError: LocalizedError {
-    case noChapters
-    case invalidChapterIndex(Int, total: Int)
-    case missingChapterSnapshot(Int)
-    case missingExtension
-    case timedOut
-
-    var errorDescription: String? {
-        switch self {
-        case .noChapters:
-            return "Không tìm thấy chương để đọc"
-        case .invalidChapterIndex(let index, let total):
-            return "Chương \(index + 1) nằm ngoài danh sách \(total) chương"
-        case .missingChapterSnapshot(let index):
-            return "Chưa có dữ liệu cho chương \(index + 1)"
-        case .missingExtension:
-            return "Không tìm thấy tiện ích bóc tách"
-        case .timedOut:
-            return "Tải chương quá thời gian cho phép"
-        }
-    }
-}
-
-struct ReaderNavigationCommit: Equatable {
-    let generation: Int
-    let chapterIndex: Int
-    let paragraphIndex: Int
-    let direction: ReaderNavigationDirection
-    let source: ReaderNavigationSource
-    let animateContent: Bool
-}
-
-struct ReaderChapterLoadFailure: Equatable {
-    let generation: Int
-    let targetChapterIndex: Int
-    let chapterTitle: String
-    let sourceMessage: String
-    let source: ReaderNavigationSource
-    let paragraphIndex: Int
-    let persistProgress: Bool
-    let forceRefresh: Bool
-}
-
-private struct ReaderNavigationRequest: Equatable {
-    let generation: Int
-    let chapterIndex: Int
-    let paragraphIndex: Int
-    let direction: ReaderNavigationDirection
-    let source: ReaderNavigationSource
-    let persistProgress: Bool
-    let forceRefresh: Bool
-}
-
 @available(iOS 17.0, *)
 @MainActor
 class ReaderViewModel: ObservableObject {
@@ -98,7 +16,8 @@ class ReaderViewModel: ObservableObject {
 
     // Vị trí đọc hiện tại trên RAM
     @Published var currentProgress: ReadingProgress
-    private var lastSavedProgress: ReadingProgress?
+    /// Chủ luồng lưu tiến độ (debounce 3 s, ≥ 3 đoạn, lưu khẩn cấp) — xem `ReaderProgressCoordinator`.
+    let progress: ReaderProgressCoordinator
 
     let bookId: String
     let extensionPackageId: String
@@ -106,11 +25,9 @@ class ReaderViewModel: ObservableObject {
 
     let cache = ChapterCache()
     let prefetcher = PrefetchManager()
-    let progressStore = ReadingProgressStore.shared
     let modelContext: ModelContext
     @Published var currentRevision: Int = 0
 
-    private var dbSaveTask: Task<Void, Never>? = nil
     private var prefetchQueueTask: Task<Void, Never>? = nil
     private var settledPrefetchTask: Task<Void, Never>? = nil
     private var navigationDebounceTask: Task<Void, Never>? = nil
@@ -232,13 +149,14 @@ class ReaderViewModel: ObservableObject {
 
         let initial = ReadingProgress(chapterIndex: initialChapterIndex, paragraphIndex: initialParagraphIndex)
         self.currentProgress = initial
-        self.lastSavedProgress = initial
+        self.progress = ReaderProgressCoordinator(bookId: bookId, initial: initial)
         self.readingContext = ReadingContext(bookId: bookId, chapterIndex: initialChapterIndex, paragraphIndex: initialParagraphIndex)
         self.displayedChapterIndex = initialChapterIndex
+        // Gắn host SAU pha 1 (mọi stored property đã gán) — closure bắt `self` sớm hơn là lỗi biên dịch.
+        progress.attach(host: self)
 
         Task {
-            await progressStore.configure(container: modelContext.container)
-            await progressStore.claim(bookId: bookId, owner: .reader)
+            await progress.start(container: modelContext.container)
             await ChapterContentRepository.shared.configure(container: modelContext.container)
         }
 
@@ -325,71 +243,21 @@ class ReaderViewModel: ObservableObject {
 
         self.currentProgress = newProgress
         self.readingContext = ReadingContext(bookId: bookId, chapterIndex: chapterIndex, paragraphIndex: paragraphIndex)
-        Task { await progressStore.record(progressSnapshot(newProgress, owner: .reader)) }
+        progress.record(newProgress)
 
         // Chi luu dia va cap nhat cache khi dich chuyen tu 3 doan van tro len
-        if shouldScheduleSave(newProgress) {
+        if progress.shouldScheduleSave(newProgress) {
             cache.setScrollParagraph(chapterIndex, paragraphIndex: paragraphIndex)
-            triggerDebounceDBSave()
-        }
-    }
-
-    private func shouldScheduleSave(_ newProgress: ReadingProgress) -> Bool {
-        guard ReaderProgressScheduler.shared.shouldScheduleProgressSave(bookId: bookId, chapterIndex: newProgress.chapterIndex, progressToken: 1) else { return false }
-        guard let last = lastSavedProgress else { return true }
-        if newProgress.chapterIndex != last.chapterIndex { return true }
-        if abs(newProgress.paragraphIndex - last.paragraphIndex) >= 3 { return true }
-        return false
-    }
-
-    private func triggerDebounceDBSave() {
-        dbSaveTask?.cancel()
-        dbSaveTask = Task {
-            do {
-                try await Task.sleep(nanoseconds: 3 * 1_000_000_000) // Debounce 3 giây
-                guard !Task.isCancelled else { return }
-                await saveProgressToDatabase(force: false)
-            } catch {
-                // Task bị hủy khi cuộn tiếp
-            }
+            progress.scheduleDebouncedSave()
         }
     }
 
     func saveProgressToDatabase(force: Bool = false) async {
-        let progressToSave = currentProgress
-        if !force {
-            guard !progressToSave.isSameLocation(as: lastSavedProgress ?? progressToSave) else { return }
-        }
-
-        do {
-            await progressStore.record(progressSnapshot(progressToSave, owner: .reader))
-            try await progressStore.flush(bookId: bookId)
-            self.lastSavedProgress = progressToSave
-        } catch {
-            #if DEBUG
-            AppLogger.shared.log("❌ [ReaderViewModel] Lỗi ghi DB: \(error.localizedDescription)")
-            #endif
-        }
+        await progress.save(force: force)
     }
 
     func saveProgressImmediately() {
-        dbSaveTask?.cancel()
-        dbSaveTask = nil
-
-        let progressToSave = currentProgress
-        guard !progressToSave.isSameLocation(as: lastSavedProgress ?? progressToSave) else { return }
-
-        Task(priority: .high) {
-            do {
-                await progressStore.record(progressSnapshot(progressToSave, owner: .reader))
-                try await progressStore.flush(bookId: bookId)
-                self.lastSavedProgress = progressToSave
-            } catch {
-                #if DEBUG
-                AppLogger.shared.log("❌ [ReaderViewModel] Lỗi ghi đĩa khẩn cấp: \(error.localizedDescription)")
-                #endif
-            }
-        }
+        progress.saveImmediately()
     }
 
     func requestChapter(
@@ -453,9 +321,8 @@ class ReaderViewModel: ObservableObject {
 
         if let cached = cache.get(index), cached.state == .loaded, !forceRefresh {
             let currentToken = TranslateUtils.translationGenerationToken(for: bookId)
-            if cached.translationToken == currentToken &&
-                cached.isTranslationEnabled == isTranslationEnabled &&
-                cached.shouldConvertTraditionalToSimplified == shouldConvertTraditionalToSimplified {
+            if cached.isTranslationFresh(token: currentToken, enabled: isTranslationEnabled,
+                                         convertTraditional: shouldConvertTraditionalToSimplified) {
                 queuedNavigation = nil
                 // Chờ đúng một nhịp frame, KHÔNG dùng Task.yield(): yield chỉ đưa
                 // continuation về cuối hàng đợi main actor, mà run loop drain hết hàng đợi
@@ -567,9 +434,8 @@ class ReaderViewModel: ObservableObject {
                 }
 
                 let currentToken = TranslateUtils.translationGenerationToken(for: bookId)
-                if cached.translationToken != currentToken ||
-                    cached.isTranslationEnabled != isTranslationEnabled ||
-                    cached.shouldConvertTraditionalToSimplified != shouldConvertTraditionalToSimplified {
+                if !cached.isTranslationFresh(token: currentToken, enabled: isTranslationEnabled,
+                                              convertTraditional: shouldConvertTraditionalToSimplified) {
                     await processAndSaveChapter(
                         index: request.chapterIndex,
                         originalTitle: cached.originalTitle,
@@ -581,9 +447,9 @@ class ReaderViewModel: ObservableObject {
 
                 guard let updatedCached = cache.cache[request.chapterIndex],
                       updatedCached.state == .loaded,
-                      updatedCached.translationToken == TranslateUtils.translationGenerationToken(for: bookId),
-                      updatedCached.isTranslationEnabled == isTranslationEnabled,
-                      updatedCached.shouldConvertTraditionalToSimplified == shouldConvertTraditionalToSimplified else {
+                      updatedCached.isTranslationFresh(token: TranslateUtils.translationGenerationToken(for: bookId),
+                                                       enabled: isTranslationEnabled,
+                                                       convertTraditional: shouldConvertTraditionalToSimplified) else {
                     guard !Task.isCancelled, workerIdentity == activeWorkerIdentity, request.generation == navigationGeneration else { return }
                     failNavigation(request, message: "Không thể làm mới bản dịch cho chương")
                     continue
@@ -751,8 +617,7 @@ class ReaderViewModel: ObservableObject {
         translationRefreshTask?.cancel()
         translationRefreshTask = nil
         translationPresentation.pending = nil
-        dbSaveTask?.cancel()
-        dbSaveTask = nil
+        progress.cancelPendingSave()
         prefetchQueueTask?.cancel()
         prefetchQueueTask = nil
         settledPrefetchTask?.cancel()
@@ -860,20 +725,6 @@ class ReaderViewModel: ObservableObject {
         return result.origin
     }
 
-    private func progressSnapshot(
-        _ progress: ReadingProgress,
-        owner: ReadingProgressOwner
-    ) -> ReadingProgressSnapshot {
-        ReadingProgressSnapshot(
-            bookId: bookId,
-            chapterIndex: progress.chapterIndex,
-            paragraphIndex: progress.paragraphIndex,
-            chapterTitle: originalChapterTitle(at: progress.chapterIndex),
-            owner: owner,
-            recordedAt: Date()
-        )
-    }
-
     private func makeBookMetadataSnapshot() -> BookMetadataSnapshot? {
         guard localBook == nil, let title = bookTitle, !title.isEmpty else {
             return nil
@@ -923,3 +774,6 @@ class ReaderViewModel: ObservableObject {
         translationRefreshTask?.cancel()
     }
 }
+
+/// `currentProgress` và `originalChapterTitle(at:)` đã là member internal của VM.
+extension ReaderViewModel: ReaderProgressHost {}

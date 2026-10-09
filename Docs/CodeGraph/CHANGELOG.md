@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.483] - 2026-10-09
+
+### refactor: tach 7 DTO dieu huong + ReaderProgressCoordinator khoi ReaderViewModel (dot 3+4 tach god object)
+
+Đợt 3 và 4 của `Docs/Plans/2026-10-09-plan-refactor-god-objects.md`, gộp một commit vì đợt 3 một mình chưa đưa `ReaderViewModel.swift` xuống dưới baseline 830.
+
+- **Đợt 3a — 7 value type** ở đầu `ReaderViewModel.swift` (HEAD dòng 6–86) tách **mỗi type một file** dưới `Sources/Views/Reader/Navigation/`: `ReaderNavigationSource`, `ReaderNavigationDirection`, `ReaderLoadState`, `ReaderLoadError` (giữ nguyên chuỗi tiếng Việt), `ReaderNavigationCommit`, `ReaderChapterLoadFailure`, `ReaderNavigationRequest`. Chỉ `import Foundation`. Thay đổi **duy nhất** về ngữ nghĩa: `private struct ReaderNavigationRequest` → `struct` (private top-level là phạm vi **file**, chuyển file thì VM không thấy nữa). Script so từng byte với `HEAD`: khớp (trừ đúng từ `private`).
+- **Đợt 3b — `CachedChapter.isTranslationFresh(token:enabled:convertTraditional:)`** (`Extensions/CachedChapter+TranslationFreshness.swift`) gom 4 bản copy của cùng một điều kiện (`requestChapter`, `runNavigationWorker` ×2 — một dạng phủ định, `+Translation.updateCachedTranslatedContent`). Chỗ chỉ kiểm riêng token trong `memoryCommitTask` **cố ý giữ nguyên**.
+- **Đợt 4 — `ReaderProgressCoordinator`** (`@MainActor final class`, `Coordinators/`, 119 dòng) + `ReaderProgressHost` (protocol, `weak`): sở hữu `lastSavedProgress`, `dbSaveTask`, truy cập `ReadingProgressStore`, `shouldScheduleSave` (≥ 3 đoạn hoặc đổi chương, `ReaderProgressScheduler` `progressToken: 1`), debounce **3 s**, `save(force:)`, `saveImmediately()` (Task `.high`, chụp vị trí theo **giá trị**, giữ coordinator chứ không giữ VM ⇒ flush vẫn xong sau khi Reader đóng), `cancelPendingSave()`, `start(container:)` (`configure` → `claim(.reader)` đúng thứ tự cũ). VM giữ `@Published currentProgress`/`readingContext`, `saveProgressToDatabase`/`saveProgressImmediately` thành forwarder (caller `ReaderView` không đổi).
+  - **Hai bẫy đã tránh (theo phản biện khảo sát)**: (1) gắn host bằng `progress.attach(host: self)` **sau** pha 1 của `init` — truyền closure bắt `self` vào constructor là lỗi "self captured before all members initialized"; không dùng `lazy var` vì sẽ seed `lastSavedProgress` sai. (2) Debounce đọc `host?.currentProgress` **lúc nổ**, không chụp lúc đặt lịch — đúng như code cũ đọc `self.currentProgress`.
+  - Luật §5.10 giữ nguyên; không thêm hook `.onDisappear`; TTS vẫn là chủ tiến độ khi phát.
+- **Kết quả**: `ReaderViewModel.swift` **925 → 779** (baseline 830) ⇒ hết vi phạm; `check_architecture.py` **3 → 2 violation** (còn `JSDom`, `TTSManager`), 0 mới. Review đối kháng 2 lượt (biên dịch + hành vi): xem kết quả ở walkthrough. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận.
+
 ## [1.3.482] - 2026-10-09
 
 ### refactor: tach 10 DTO/error/state khoi ChapterPersistenceStore sang Persistence/ (dot 2 tach god object)
@@ -431,25 +444,5 @@ Hai việc: (1) người dùng thử **16 bước** và báo *"khá hơn chút"*
 - **File sửa**: `VieNeuTTSEngine.swift` **400 → 400** (đổi đúng 1 dòng), `VieNeuTTSService.swift` 394 → **389**, `VieNeuSynthesisPolicy.swift` 126 → **149**, `VieNeuVoiceCatalog.swift` 148 → **153**, `TTSSettingsView+VieNeu.swift` 189 → **206**, `TTSSettingsView.swift` 513 → **516** (trần 519).
 - **Ràng buộc đã đo**: `check_architecture.py` **5 violation nền / 0 mới**; `validate_links.py` **PASS 100% (16 doc, 624 file Swift)**.
 - **Tài liệu CodeGraph**: `11_subsystems.md` + `rules.md` **accept** (thêm Luật 10/11/12); `03_type_graph`, `04_call_graph`, `05_state_graph`, `10_risk_report`, `13_resource_lifecycle` **no-change-needed** (sửa cơ học, mô tả vẫn đúng).
-
----
-
-## [1.3.455] - 2026-09-30
-
-### fix: sua luong nhan ban giong VieNeu (chon file, giong moi toi engine, tien do)
-
-Người dùng thử trên máy thật (IPA cài qua **LiveContainer**) và báo **ba** lỗi mà đọc code **không** thấy: không chọn được file audio, bấm "Tạo giọng" **chờ lâu**, và — nặng nhất — **giọng mới đọc ra y như giọng mặc định `minh quân`**, tắt app mở lại mới đúng âm sắc.
-
-- **Lỗi nặng nhất — giọng mới không bao giờ tới được engine, và im lặng.** `VieNeuTTSEngine.prepareLocked` có `guard runtime == nil else { return }` (`VieNeuTTSEngine.swift:150`) nên `catalog` chỉ được nạp **một lần**; engine sống suốt vòng đời app. `synthesize` chọn giọng bằng `catalog.preset(named:) ?? catalog.defaultPreset` (`:212`) ⇒ tên giọng chưa có trong catalog **rơi về giọng mặc định — không lỗi, không log**. Triệu chứng *"tắt máy mở lại thì đúng âm sắc"* là **chữ ký chính xác** của cơ chế này: mở lại app ⇒ `prepareLocked` nạp lại catalog ⇒ thấy giọng mới.
-- **Sửa**: [`VieNeuTTSEngine+Catalog.swift`](../../Sources/Services/TTS/VieNeu/VieNeuTTSEngine+Catalog.swift) (**34**) — `refreshVoiceCatalog()` nạp lại catalog dưới `lock`; `VieNeuTTSService.refreshVoiceCatalog()` uỷ quyền; `VieNeuVoiceLibraryView` gọi sau **mọi** thay đổi kho giọng (`enroll`, `delete`, `commitRename`, và ngay sau `reload()`). Đặt ở **file mới** vì `VieNeuTTSEngine.swift` đã ở **đúng 400/400** — chỉ hạ `store`/`lock`/`catalog` từ `private` → `internal` **tại chỗ, không đổi số dòng**.
-- **Chọn file**: `VieNeuVoiceCreatorView` bỏ `.fileImporter` (picker **mở** nhưng completion **không bao giờ chạy** khi app chạy trong LiveContainer) → dùng `DocumentPickerPresenter` của repo ([`DocumentPicker.swift`](../../Sources/Views/Common/DocumentPicker.swift) `:80-133`), mở với `asCopy: true` (`:36`) nên URL trả về **đã nằm trong sandbox app**, không cần security-scope.
-- **`discardSample` có thể xoá file gốc của người dùng**: nay chỉ xoá khi URL nằm trong `FileManager.default.temporaryDirectory` (trước đây xoá vô điều kiện).
-- **Tốc độ**: `enroll` **bỏ** bước `service.prepare()` thừa — nó nạp 4 graph chính + `sea_g2p.bin` (62,8 MB) trong khi `enrollVoice` chỉ cần `store` + `VieNeuVoiceCloner`. Cũng bỏ việc đặt `_currentVoice` ở đường tạo giọng.
-- **Tiến trình**: thêm `enum VieNeuVoiceCloner.Stage` + callback `@Sendable` (`decoding` → `features` → `loadingGraphs` → `speaker` → `codec` → `style`); `VieNeuVoiceLibraryView+Sections` hiện nhãn từng bước (`EnrollProgress` box + `Task { @MainActor }`) thay vì một `ProgressView` xoay vô định. `.loadingGraphs` đặt ngay trước `VieNeuONNXRuntime(cloneOnlyModelStore:)` — bước chậm nhất.
-- **Nút Lưu khoá mà không nói vì sao**: `saveBlockReason` trả lý do cụ thể (đang dò file / đang thu / chưa có mẫu / chưa nhập tên), render thành một mục trong Form; `canSave = saveBlockReason == nil`.
-- **File mới**: `VieNeuTTSEngine+Catalog.swift` **34**. **File sửa**: `VieNeuTTSEngine.swift` **400 → 400** (không đổi), `VieNeuTTSService.swift` 376 → **394**, `VieNeuVoiceCloner.swift` 270 → **294**, `VieNeuVoiceCreatorView.swift` 329 → **365**, `VieNeuVoiceLibraryView.swift` 346 → **372**, `VieNeuVoiceLibraryView+Sections.swift` 171 → **201**.
-- **Ràng buộc đã đo**: `check_architecture.py` giữ nguyên **5** violation nền cũ và **0** vi phạm mới; `validate_links.py` **PASS 100%**. **Không build trên Windows** ⇒ CI (`Build Unsigned IPA`) là nơi xác nhận biên dịch.
-- **Tài liệu CodeGraph**: cập nhật **9** doc (`00_index`, `02_file_graph`, `04_call_graph`, `09_dependency_rules`, `10_risk_report`, `11_subsystems`, `13_resource_lifecycle`, `14_complexity_report`, `rules.md`) — 8 doc stale do **thêm file mới** (đổi *cấu trúc*), 4 trong đó còn stale do **đổi nội dung**.
-- **Chưa kiểm chứng trên máy thật**: bước 4 của plan — nghe **đúng** giọng vừa tạo **trong cùng phiên** — là phép thử bắt buộc và **chỉ** chạy được trên thiết bị.
 
 ---
