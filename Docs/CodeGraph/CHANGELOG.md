@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.495] - 2026-10-09
+
+### fix(chuong moi): huy giua chung khong ghi sai trang thai, bo luot tai muc luc thua, debounce thanh truot don truyen
+
+Người dùng: *"đừng làm refactor nữa, tôi muốn bạn tra lại code và xem chỗ nào ảnh hưởng hiệu năng app, chỉnh sửa lại cho app mượt hơn, hiệu năng tốt hơn"*. Nguồn: rà toàn app 7 mảng + 2 mảng tác vụ định kỳ, mỗi phát hiện qua một vòng phản biện đối kháng; nhóm này sửa xong lại qua một vòng phản biện nữa (lỗi tìm được đã sửa).
+
+- **Huỷ giữa chừng không ghi sai**: lượt kiểm tra chương mới tự động chạy trong `.task` của Kệ sách — mở Chi tiết/đổi tab là bị huỷ, nhưng trước đây truyện đang dở vẫn bị ghi `lastCheckedAt` + `lastFailure` (`CancellationError` thành lỗi) và cả đợt bị đánh dấu đã chạy. Nay `Outcome.wasCancelled` giữ nguyên bản ghi cũ; `markBatchRun()` chỉ khi lượt thật sự chạy (`summary != nil`) và không bị huỷ — lần sau chạy tiếp các truyện còn lại.
+- **Bỏ lượt tải mục lục thừa**: mục lục > 8 trang trước đây chạy `toc.js` trang đầu rồi vứt đi để lấy trang cuối. Thêm `BookDetailLoader.fetchPageList`; > 8 trang thì tải thẳng trang cuối; ≤ 8 trang giữ đường tải đủ như cũ (đếm chính xác — quyết định đã ghi trong archive). Vẫn tuần tự từng truyện.
+- **Thanh trượt "Ngưỡng bỏ quên"**: mỗi nấc kéo trước đây bắn một lượt đọc **toàn bảng** `Book` không huỷ, kết quả về lộn xộn có thể hiện số của ngưỡng cũ. Nay `.task(id:)` + chờ 300 ms (gộp cả lần mở màn).
+- **Kiểm chứng**: `check_architecture.py` chỉ còn 2 vi phạm nền cũ (`JSDom`, `TTSManager`), 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận biên dịch.
+
 ## [1.3.494] - 2026-10-09
 
 ### perf(js): bo stringify ket qua cho chan doan khong ai doc, gom 34 luot quet DOM, trinh duyet an ton trong lenh huy
@@ -414,16 +425,3 @@ Revert **toàn bộ** đợt CoreML (bucket tĩnh, thử nghiệm) về đúng m
 - Cổng: `check_architecture.py` **5 nền / 0 mới**.
 
 ---
-
-## [1.3.465] - 2026-10-02
-
-### feat: them thanh Toc do tong hop cho VieNeu-TTS de giam tai CPU va giam nhiet
-
-Người dùng: *"Tôi muốn tối ưu thêm VieuNeu-TTS để giảm nhiệt, giảm lag"* (ràng buộc cứng: **không ảnh hưởng độ mượt khi nghe**).
-
-- **Gốc rễ tìm được: không engine local nào dùng tốc độ gốc của model.** `TTSManager.swift:2903`/`:3596` và `TTSNextChapterPrefixSynthesizer` đều truyền `speed: 1.0`; tốc độ chỉ áp bằng `AVAudioPlayer.rate` (`NghiAudioPlayerQueue.swift:186`, `enableRate = true` ⇒ varispeed, **đổi cả cao độ**). Trong khi VieNeu có sẵn `secs = exp(log_s)/speed` (`VieNeuTTSEngine.swift:336`) và Piper có `lengthScale = 1/speed`.
-- **Vì sao đây là đòn bẩy duy nhất thoả ràng buộc**: lượng tính toán tỷ lệ thuận với thời lượng audio sinh ra, nên tổng hợp ở 1,8× rồi phát 1,0× cho cùng tốc độ nghe mà tốn ít hơn ~45 % tính toán (duty cycle 79 % → ~44 %). Hạ luồng ORT / hạ QoS / tự động theo nhiệt đều là **làm chậm** tổng hợp ⇒ sinh đứt đoạn.
-- **Thanh mới "Tốc độ tổng hợp (VieNeu)"** (1,0–2,0, bước 0,1, mặc định 1,0 = hành vi cũ) đặt cạnh thanh Tốc độ trong section *Cấu hình giọng nói*; hiện luôn **tốc độ nghe thực tế** (= tích hai thanh) và đổi màu khi > 2,0×. Màn "Nghe thử" dùng chung cài đặt.
-- **Khoá cache**: `TTSSynthesisIdentity.computeKey` nhận thêm `synthesisSpeed` — thiếu thì audio tốc độ cũ được trả cho yêu cầu tốc độ mới.
-- **Đổi lúc đang đọc**: phát nốt đoạn hiện tại (`invalidateVieNeuSynthesisSpeed()` huỷ nạp trước, lọc `preloadedData`, `clearPreparedNext()`), áp từ đoạn kế ⇒ không khựng.
-- **Trần dòng**: `TTSSettingsView.swift` kẹt **519/519** ⇒ Section 4 chuyển nguyên sang file mới `TTSSettingsView+Voice.swift` (**90**), file chính **519 → 458**. `TTSManager.swift` giữ **3970** (gộp hai dòng tham số để bù).

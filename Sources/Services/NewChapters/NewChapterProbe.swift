@@ -27,11 +27,15 @@ enum NewChapterProbe {
         /// Số chương mới **vừa phát hiện trong lượt này** (đã trừ phần đã biết từ trước).
         let newlyFound: Int
         let failure: String?
+        /// Lượt bị huỷ giữa chừng (rời Kệ sách/đổi tab): `record` là bản **nguyên trạng**, caller
+        /// không được lưu nó và không tính là lỗi.
+        var wasCancelled = false
     }
 
     static func probe(target: Target, previous: NewChapterRecord?) async -> Outcome {
         var record = previous ?? NewChapterRecord(bookId: target.bookId)
         record.bookId = target.bookId
+        let untouched = record
         let previousNewCount = record.newChapterCount
         record.lastCheckedAt = Date()
 
@@ -39,6 +43,17 @@ enum NewChapterProbe {
         do {
             fetched = try await fetchTOC(target: target)
         } catch {
+            // Huỷ không phải lỗi nguồn: không ghi `lastCheckedAt`/`lastFailure`, để lượt sau kiểm tra lại.
+            if error is CancellationError || Task.isCancelled {
+                return Outcome(
+                    bookId: target.bookId,
+                    title: target.title,
+                    record: untouched,
+                    newlyFound: 0,
+                    failure: nil,
+                    wasCancelled: true
+                )
+            }
             record.lastFailure = error.localizedDescription
             return Outcome(
                 bookId: target.bookId,
@@ -99,36 +114,42 @@ enum NewChapterProbe {
     private static func fetchTOC(
         target: Target
     ) async throws -> (chapters: [(name: String, url: String)], isPartial: Bool) {
-        let first = try await BookDetailLoader.shared.fetchFirstPageTOC(
+        // Lấy danh sách trang trước (đúng một lần `page.js`) để biết có cần tải trang đầu hay không.
+        let pages = try await BookDetailLoader.shared.fetchPageList(
             snapshot: target.snapshot,
             url: target.detailUrl,
             host: target.host
         )
-        let flatFirst = first.chapters.map { (name: $0.name, url: $0.url) }
 
-        guard first.pages.count > 1 else {
-            return (flatFirst, false)
-        }
-
-        if first.pages.count <= NewChapterCheckPolicy.maxTOCPagesPerCheck {
-            let rest = try await BookDetailLoader.shared.fetchRemainingPages(
+        // Quá nhiều trang: chỉ trang cuối, bỏ hẳn trang đầu (trước đây tải xong rồi vứt).
+        // Không đoán tổng số chương từ đây.
+        if pages.count > NewChapterCheckPolicy.maxTOCPagesPerCheck, let lastPage = pages.last {
+            let tail = try await BookDetailLoader.shared.fetchPageTOC(
                 snapshot: target.snapshot,
-                pages: first.pages,
+                url: lastPage,
                 host: target.host
             )
-            return (flatFirst + rest.map { (name: $0.name, url: $0.url) }, false)
+            return (tail.map { (name: $0.name, url: $0.url) }, true)
         }
 
-        // Quá nhiều trang: chỉ trang cuối. Không đoán tổng số chương từ đây.
-        guard let lastPage = first.pages.last else {
-            return (flatFirst, false)
-        }
-        let tail = try await BookDetailLoader.shared.fetchPageTOC(
+        // Không phân trang (hoặc `page.js` trả rỗng) ⇒ mục lục nằm ở chính url chi tiết.
+        let first = try await BookDetailLoader.shared.fetchPageTOC(
             snapshot: target.snapshot,
-            url: lastPage,
+            url: pages.first ?? target.detailUrl,
             host: target.host
         )
-        return (tail.map { (name: $0.name, url: $0.url) }, true)
+        let flatFirst = first.map { (name: $0.name, url: $0.url) }
+
+        guard pages.count > 1 else {
+            return (flatFirst, false)
+        }
+
+        let rest = try await BookDetailLoader.shared.fetchRemainingPages(
+            snapshot: target.snapshot,
+            pages: pages,
+            host: target.host
+        )
+        return (flatFirst + rest.map { (name: $0.name, url: $0.url) }, false)
     }
 
     private static func dedupePreservingOrder(

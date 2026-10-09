@@ -21,6 +21,25 @@ public actor BookDetailLoader {
         )
     }
 
+    /// Chỉ chạy `page.js` để lấy danh sách url trang mục lục — **không** tải mục lục trang nào.
+    /// Trả `[]` khi extension không có script phân trang.
+    public func fetchPageList(
+        snapshot: ExtensionExecutionSnapshot,
+        url: String,
+        host: String?
+    ) async throws -> [String] {
+        guard ExtensionManager.shared.hasScript(localPath: snapshot.localPath, scriptKey: "page") else {
+            return []
+        }
+        return try await ExtensionManager.shared.page(
+            localPath: snapshot.localPath,
+            downloadUrl: snapshot.downloadUrl,
+            url: url,
+            host: host,
+            configJson: snapshot.configJson
+        )
+    }
+
     public func fetchFirstPageTOC(
         snapshot: ExtensionExecutionSnapshot,
         url: String,

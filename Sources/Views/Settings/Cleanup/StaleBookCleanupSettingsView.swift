@@ -70,11 +70,12 @@ struct StaleBookCleanupSettingsView: View {
         .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .navigationTitle("Dọn Truyện Cũ")
         .navigationBarTitleDisplayMode(.inline)
-        .task {
+        // Chạy lúc mở màn và mỗi khi ngưỡng đổi; kéo slider huỷ lượt cũ nên chỉ nấc dừng cuối cùng
+        // mới đếm lại (debounce ~300 ms) thay vì mỗi nấc ngày một lượt fetch toàn bảng.
+        .task(id: clampedInactiveDays) {
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            guard !Task.isCancelled else { return }
             await refreshStaleCount()
-        }
-        .onChange(of: inactiveDays) { _, _ in
-            Task { await refreshStaleCount() }
         }
         .confirmationDialog(
             "Xoá truyện lâu không đọc?",
@@ -212,7 +213,10 @@ struct StaleBookCleanupSettingsView: View {
     @MainActor
     private func refreshStaleCount() async {
         let container = modelContext.container
-        staleCount = await StaleBookCleanupCoordinator.previewStaleCount(container: container)
+        let count = await StaleBookCleanupCoordinator.previewStaleCount(container: container)
+        // Lượt đã bị ngưỡng mới thay thế thì bỏ kết quả, tránh số cũ về sau ghi đè số mới.
+        guard !Task.isCancelled else { return }
+        staleCount = count
     }
 
     // MARK: - Định dạng

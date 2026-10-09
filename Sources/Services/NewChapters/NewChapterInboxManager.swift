@@ -160,7 +160,12 @@ final class NewChapterInboxManager: ObservableObject {
             return nil
         }
         let summary = await run(batch)
-        NewChapterCheckPolicy.markBatchRun()
+        // Bị huỷ giữa chừng (`.task` của Kệ sách) ⇒ chưa tính là đã chạy: lần sau chạy tiếp các
+        // truyện còn lại, truyện đã kiểm tra bị `shouldCheck` lọc ra nên không lặp request. `nil` = lượt
+        // không chạy (một lượt cũ đang huỷ dở vẫn giữ `isChecking`) ⇒ cũng chưa tính là đã chạy.
+        if summary != nil, !Task.isCancelled {
+            NewChapterCheckPolicy.markBatchRun()
+        }
         return summary
     }
 
@@ -170,7 +175,9 @@ final class NewChapterInboxManager: ObservableObject {
         let batch = Array(targets.prefix(NewChapterCheckPolicy.maxBooksPerBatch))
         guard !batch.isEmpty else { return nil }
         let summary = await run(batch)
-        NewChapterCheckPolicy.markBatchRun()
+        if !Task.isCancelled {
+            NewChapterCheckPolicy.markBatchRun()
+        }
         return summary
     }
 
@@ -197,6 +204,8 @@ final class NewChapterInboxManager: ObservableObject {
             if Task.isCancelled { break }
             checkProgress = "\(index + 1)/\(targets.count)"
             let outcome = await NewChapterProbe.probe(target: target, previous: records[target.bookId])
+            // Truyện bị cắt ngang: giữ record cũ, không đếm, vẫn lưu các truyện đã xong bên dưới.
+            if outcome.wasCancelled { break }
             records[target.bookId] = outcome.record
             pending.append(outcome.record)
             summary.checkedCount += 1
