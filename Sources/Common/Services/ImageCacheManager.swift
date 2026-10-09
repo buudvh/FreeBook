@@ -2,27 +2,57 @@ import Foundation
 import UIKit
 import CryptoKit
 
-public final class ImageCacheManager {
+public final class ImageCacheManager: @unchecked Sendable {
     public static let shared = ImageCacheManager()
 
     private let fileManager = FileManager.default
 
-    private var coversDirectory: URL {
-        let paths = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)
-        let appSupportDirectory = paths[0]
+    /// Tính một lần lúc khởi tạo (trước đây mỗi lần truy cập lại gọi `urls(for:)` + `fileExists`).
+    private let coversDirectory: URL
+    /// Gốc đã chuẩn hoá của `coversDirectory` cho `validatePathSafety`, khỏi resolve symlink lại mỗi lần.
+    private let canonicalRootComponents: [String]
+    /// Thumbnail đã giải mã cho `BookCoverView`; xoá ở mọi chỗ ghi/xoá `covers/<sha>.jpg`.
+    private let thumbnailCache = CoverThumbnailCache()
+
+    /// Bảo vệ các bảng nhớ bên dưới: lớp này bị gọi từ main, worker tải truyện, backup và hàng đợi URLSession.
+    private let stateLock = NSLock()
+    /// bookId đã chạy migration legacy trong phiên chạy app này.
+    private var migratedBookIds = Set<String>()
+    /// bookId → URL bìa SHA-256 đã migrate + qua `validatePathSafety`.
+    private var validatedCoverURLs: [String: URL] = [:]
+    /// bookId → các completion đang chờ chung một lượt tải bìa.
+    private var inFlightDownloads: [String: [(UIImage?) -> Void]] = [:]
+
+    private static let hexDigits: [UInt8] = Array("0123456789abcdef".utf8)
+
+    init() {
+        let manager = FileManager.default
+        let appSupportDirectory = manager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let directoryURL = appSupportDirectory.appendingPathComponent("covers", isDirectory: true)
-
-        if !fileManager.fileExists(atPath: directoryURL.path) {
-            try? fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true, attributes: nil)
+        if !manager.fileExists(atPath: directoryURL.path) {
+            try? manager.createDirectory(at: directoryURL, withIntermediateDirectories: true, attributes: nil)
         }
-
-        return directoryURL
+        coversDirectory = directoryURL
+        canonicalRootComponents = directoryURL.standardized.resolvingSymlinksInPath().pathComponents
     }
 
+    /// Tạo lại thư mục `covers/` nếu bị mất, trước các lượt ghi.
+    private func ensureCoversDirectory() {
+        guard !fileManager.fileExists(atPath: coversDirectory.path) else { return }
+        try? fileManager.createDirectory(at: coversDirectory, withIntermediateDirectories: true, attributes: nil)
+    }
+
+    /// Hex chữ thường qua bảng tra — cùng kết quả byte-for-byte với `String(format: "%02x")`.
     private func sha256Hex(_ string: String) -> String {
         let inputData = Data(string.utf8)
         let hashed = SHA256.hash(data: inputData)
-        return hashed.map { String(format: "%02x", $0) }.joined()
+        var hexBytes = [UInt8]()
+        hexBytes.reserveCapacity(64)
+        for byte in hashed {
+            hexBytes.append(Self.hexDigits[Int(byte >> 4)])
+            hexBytes.append(Self.hexDigits[Int(byte & 0x0F)])
+        }
+        return String(decoding: hexBytes, as: UTF8.self)
     }
 
     private func getNewFileName(for bookId: String) -> String {
@@ -36,9 +66,8 @@ public final class ImageCacheManager {
     }
 
     private func validatePathSafety(for targetURL: URL) throws {
-        let canonicalRoot = coversDirectory.standardized.resolvingSymlinksInPath()
         let canonicalTarget = targetURL.standardized.resolvingSymlinksInPath()
-        guard canonicalTarget.pathComponents.starts(with: canonicalRoot.pathComponents) else {
+        guard canonicalTarget.pathComponents.starts(with: canonicalRootComponents) else {
             throw NSError(domain: "SecurityError", code: 403, userInfo: [NSLocalizedDescriptionKey: "Truy cập file ngoài thư mục Sandbox bị từ chối."])
         }
     }
@@ -82,21 +111,75 @@ public final class ImageCacheManager {
         }
     }
 
-    public func localCoverURL(for bookId: String) -> URL {
+    /// Migration legacy chỉ chạy tối đa một lần cho mỗi bookId trong một phiên chạy app.
+    private func migrateLegacyFileOnce(for bookId: String) {
+        stateLock.lock()
+        let isFirstRun = migratedBookIds.insert(bookId).inserted
+        stateLock.unlock()
+        guard isFirstRun else { return }
         migrateLegacyFileIfNecessary(for: bookId)
-        return coversDirectory.appendingPathComponent(getNewFileName(for: bookId))
+    }
+
+    /// URL bìa SHA-256 đã migrate + kiểm path; kết quả hợp lệ được nhớ suốt phiên chạy app
+    /// (giống `BookBinManager.resolvedBinURLs`), nên SHA-256/regex/lstat không lặp lại mỗi lần hiện bìa.
+    private func validatedCoverURL(for bookId: String) -> URL? {
+        stateLock.lock()
+        let cached = validatedCoverURLs[bookId]
+        stateLock.unlock()
+        if let cached { return cached }
+
+        migrateLegacyFileOnce(for: bookId)
+        let url = coversDirectory.appendingPathComponent(getNewFileName(for: bookId))
+        guard (try? validatePathSafety(for: url)) != nil else { return nil }
+        stateLock.lock()
+        validatedCoverURLs[bookId] = url
+        stateLock.unlock()
+        return url
+    }
+
+    public func localCoverURL(for bookId: String) -> URL {
+        ensureCoversDirectory()
+        return validatedCoverURL(for: bookId)
+            ?? coversDirectory.appendingPathComponent(getNewFileName(for: bookId))
     }
 
     public func loadLocalCover(for bookId: String) -> UIImage? {
-        migrateLegacyFileIfNecessary(for: bookId)
-        let destinationURL = coversDirectory.appendingPathComponent(getNewFileName(for: bookId))
-        guard (try? validatePathSafety(for: destinationURL)) != nil else { return nil }
+        guard let destinationURL = validatedCoverURL(for: bookId) else { return nil }
         let path = destinationURL.path
         guard fileManager.fileExists(atPath: path) else { return nil }
         return UIImage(contentsOfFile: path)
     }
 
+    // MARK: - Thumbnail cho BookCoverView
+
+    /// Chỉ tra cache RAM, không đụng đĩa — gọi đồng bộ trên main được.
+    public func cachedCoverThumbnail(for bookId: String, pixelSize: CGSize) -> UIImage? {
+        thumbnailCache.image(for: bookId, pixelSize: pixelSize)
+    }
+
+    /// Đọc bìa local, downsample về `pixelSize` (aspect-fill), giải mã sẵn rồi cất vào cache RAM.
+    /// Có I/O và giải mã: chỉ gọi ở luồng nền. Trả `nil` khi chưa có file bìa.
+    public func loadCoverThumbnail(for bookId: String, pixelSize: CGSize, scale: CGFloat) -> UIImage? {
+        if let cached = thumbnailCache.image(for: bookId, pixelSize: pixelSize) { return cached }
+        let generation = thumbnailCache.currentGeneration(for: bookId)
+        guard let destinationURL = validatedCoverURL(for: bookId) else { return nil }
+        let path = destinationURL.path
+        guard fileManager.fileExists(atPath: path) else { return nil }
+        guard let image = CoverThumbnailCache.makeThumbnail(contentsOf: destinationURL, pixelSize: pixelSize, scale: scale)
+                ?? UIImage(contentsOfFile: path)?.preparingForDisplay() else {
+            return nil
+        }
+        thumbnailCache.insert(image, for: bookId, pixelSize: pixelSize, generation: generation)
+        return image
+    }
+
+    /// Bỏ thumbnail RAM của một sách — gọi sau MỌI lượt ghi/xoá `covers/<sha>.jpg`.
+    public func invalidateCover(for bookId: String) {
+        thumbnailCache.invalidate(bookId: bookId)
+    }
+
     public func deleteCover(for bookId: String) throws {
+        defer { invalidateCover(for: bookId) }
         let newURL = coversDirectory.appendingPathComponent(getNewFileName(for: bookId))
         let oldURL = coversDirectory.appendingPathComponent(getLegacyFileName(for: bookId))
 
@@ -140,10 +223,12 @@ public final class ImageCacheManager {
         let resized = downscaled(image, maxDimension: maxDimension)
         guard let jpegData = resized.jpegData(compressionQuality: quality) else { return nil }
 
+        ensureCoversDirectory()
         let destinationURL = coversDirectory.appendingPathComponent(getNewFileName(for: bookId))
         do {
             try validatePathSafety(for: destinationURL)
             try jpegData.write(to: destinationURL, options: .atomic)
+            invalidateCover(for: bookId)
             AppLogger.shared.log("💾 Đã lưu ảnh bìa do người dùng chọn cho sách: \(bookId)")
             return resized
         } catch {
@@ -179,26 +264,49 @@ public final class ImageCacheManager {
             }
         }
 
+        // Gộp lượt tải trùng: bookId đã có lượt đang bay thì chỉ xếp completion chờ chung kết quả.
+        stateLock.lock()
+        if inFlightDownloads[bookId] != nil {
+            inFlightDownloads[bookId]?.append(completion)
+            stateLock.unlock()
+            return
+        }
+        inFlightDownloads[bookId] = [completion]
+        stateLock.unlock()
+
         URLSession.shared.dataTask(with: url) { data, _, error in
             guard let data = data, error == nil,
                   let image = UIImage(data: data) else {
-                DispatchQueue.main.async { completion(nil) }
+                self.finishDownload(for: bookId, image: nil)
                 return
             }
 
             // Nén ảnh JPEG ở mức chất lượng 80% để tiết kiệm tài nguyên bộ nhớ
             if let jpegData = image.jpegData(compressionQuality: 0.8) {
                 do {
-                    try jpegData.write(to: destinationURL)
+                    try jpegData.write(to: destinationURL, options: .atomic)
+                    self.invalidateCover(for: bookId)
                     AppLogger.shared.log("💾 Đã tải và lưu ảnh bìa offline thành công cho sách: \(bookId)")
-                    DispatchQueue.main.async { completion(image) }
+                    self.finishDownload(for: bookId, image: image)
                 } catch {
                     AppLogger.shared.log("❌ Lỗi ghi tệp ảnh bìa local: \(error.localizedDescription)")
-                    DispatchQueue.main.async { completion(nil) }
+                    self.finishDownload(for: bookId, image: nil)
                 }
             } else {
-                DispatchQueue.main.async { completion(nil) }
+                self.finishDownload(for: bookId, image: nil)
             }
         }.resume()
+    }
+
+    /// Trả kết quả cho mọi completion đang chờ lượt tải của bookId, trên main như trước.
+    private func finishDownload(for bookId: String, image: UIImage?) {
+        stateLock.lock()
+        let waiters = inFlightDownloads.removeValue(forKey: bookId) ?? []
+        stateLock.unlock()
+        DispatchQueue.main.async {
+            for waiter in waiters {
+                waiter(image)
+            }
+        }
     }
 }

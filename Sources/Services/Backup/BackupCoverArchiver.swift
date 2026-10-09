@@ -70,6 +70,7 @@ public enum BackupCoverArchiver {
             }
             do {
                 try Data(contentsOf: source).write(to: destination, options: .atomic)
+                ImageCacheManager.shared.invalidateCover(for: book.bookId)
                 report.restoredCovers += 1
             } catch {
                 report.errors.append("Ảnh bìa \(book.title): \(error.localizedDescription)")

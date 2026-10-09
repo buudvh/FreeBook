@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.460] - 2026-10-01
+
+### feat: tu dien phien am tieng Nhat rieng cho VieNeu-TTS va hub Cai dat NghiTTS
+
+Sửa lỗi biên dịch CI của lượt `[1.3.459]` — **giữ nguyên commit subject cho lần push sửa CI**.
+
+- **Đúng một lỗi thật trong log CI** (`Build and Archive App (Unsigned)`, exit 65): `NghiTTSSettingsView.swift:24:13: error: generic parameter 'Content' could not be inferred` (+2 chẩn đoán cùng gốc `missing argument label 'content:'` / `cannot convert value of type 'String' to expected argument type '() -> Content'`).
+- **Nguyên nhân**: lượt trước đổi `Section("Tiền xử lý text") { … }` thành `Section("Tiền xử lý text") { … } footer: { … }` để thêm footer. Nhưng **`Section(_:content:)` không có tham số `footer`** — chỉ tồn tại `Section(content:header:footer:)`. Đây **đúng cái bẫy đã ghi trong bộ nhớ dự án** (*"`Section(header:…) { } footer: { }` SAI — phải `Section { } header: { } footer: { }`"*) và tôi đã vấp lại.
+- **Sửa**: đổi sang `Section { … } header: { Text("Tiền xử lý text") } footer: { … }`, kèm một dòng comment ngay trên để lần sau không lặp lại. `NghiTTSSettingsView.swift` 155 → **159** dòng.
+- **Rà soát lại toàn bộ code mới** tìm cùng bẫy: mọi `Section("…") { … }` còn lại (`Giọng đọc`, `Tốc độ`, `Kết quả`, `Cấu hình khoảng ngắt`, `Tải trước & Bộ đệm`) đều **không** kèm `footer`/`header` ⇒ hợp lệ; các section có header/footer đều đã ở dạng `Section { } header: { } footer: { }`.
+- **Ràng buộc đã đo**: `check_architecture.py` **5 violation nền / 0 mới**; `validate_links.py` **PASS 100% (16 doc, 629 file Swift)**. `11_subsystems.md` chuyển `accept` → **no-change-needed** (sửa cú pháp Swift không đổi hành vi nào đã mô tả).
+
+---
+
 ## [1.3.459] - 2026-10-01
 
 ### feat: tu dien phien am tieng Nhat rieng cho VieNeu-TTS va hub Cai dat NghiTTS
