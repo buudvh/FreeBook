@@ -5,7 +5,7 @@ import Combine
 /// Ảnh bìa tròn của widget TTS, xoay bằng Core Animation (render server chạy) thay cho `TimelineView` của SwiftUI,
 /// nên body SwiftUI của widget không còn bị đánh giá lại theo từng frame.
 /// Góc quay lấy từ `CoverRotationState` (sống lâu hơn view) nên đổi peeking/expanded hay đổi sách vẫn giữ đúng góc.
-/// Khi không phát hoặc widget không thật sự hiển thị, layer bị đóng băng (`speed = 0`) để render server không vẽ lại.
+/// Khi không phát hoặc widget không thật sự hiển thị, animation bị gỡ (góc giữ bằng transform tĩnh) để render server không vẽ lại.
 struct TTSRotatingCoverView: UIViewRepresentable {
     let image: UIImage?
     let size: CGFloat
@@ -142,11 +142,11 @@ struct TTSRotatingCoverView: UIViewRepresentable {
         }
 
         private func restoreAnimationIfNeeded() {
-            guard rotatingView.layer.animation(forKey: Self.animationKey) == nil else { return }
+            guard isRotating, rotatingView.layer.animation(forKey: Self.animationKey) == nil else { return }
             restartFromModelAngle()
         }
 
-        /// Gắn lại animation bắt đầu từ góc hiện tại của `CoverRotationState`; đóng băng ngay nếu không được xoay.
+        /// Đặt góc hiện tại của `CoverRotationState` làm transform tĩnh, rồi gắn animation xoay nếu đang được xoay.
         private func restartFromModelAngle() {
             let layer = rotatingView.layer
             layer.removeAnimation(forKey: Self.animationKey)
@@ -154,9 +154,15 @@ struct TTSRotatingCoverView: UIViewRepresentable {
             layer.timeOffset = 0
             layer.beginTime = 0
 
-            let startDegrees = rotationState?.currentAngle() ?? 0
+            let startRadians = (rotationState?.currentAngle() ?? 0) * Double.pi / 180.0
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            layer.transform = CATransform3DMakeRotation(CGFloat(startRadians), 0, 0, 1)
+            CATransaction.commit()
+            guard isRotating else { return }
+
             let animation = CABasicAnimation(keyPath: "transform.rotation.z")
-            animation.fromValue = startDegrees * Double.pi / 180.0
+            animation.fromValue = startRadians
             animation.byValue = 2.0 * Double.pi
             animation.duration = 360.0 / CoverRotationState.rotationSpeed
             animation.repeatCount = .infinity
@@ -165,19 +171,19 @@ struct TTSRotatingCoverView: UIViewRepresentable {
             // Giữ trần 30 fps như TimelineView cũ (minimumInterval 1/30); mặc định CA chạy theo tần số màn hình.
             animation.preferredFrameRateRange = CAFrameRateRange(minimum: 10, maximum: 30, preferred: 30)
             layer.add(animation, forKey: Self.animationKey)
-
-            if !isRotating {
-                freeze()
-            }
         }
 
-        /// Mẫu tạm dừng chuẩn của Core Animation: `speed = 0` và giữ thời điểm hiện tại trong `timeOffset`.
+        /// Dừng xoay: giữ góc đang hiển thị bằng transform tĩnh rồi **gỡ** animation. Không dùng mẫu `speed = 0`:
+        /// nó đóng băng mọi animation trong cây layer con (kể cả animation chuyển cảnh của UIKit/SwiftUI).
         private func freeze() {
             let layer = rotatingView.layer
-            guard layer.speed != 0 else { return }
-            let pausedTime = layer.convertTime(CACurrentMediaTime(), from: nil)
-            layer.speed = 0
-            layer.timeOffset = pausedTime
+            guard layer.animation(forKey: Self.animationKey) != nil else { return }
+            let shownRadians = (layer.presentation()?.value(forKeyPath: "transform.rotation.z") as? NSNumber)?.doubleValue ?? 0
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            layer.transform = CATransform3DMakeRotation(CGFloat(shownRadians), 0, 0, 1)
+            layer.removeAnimation(forKey: Self.animationKey)
+            CATransaction.commit()
         }
     }
 }

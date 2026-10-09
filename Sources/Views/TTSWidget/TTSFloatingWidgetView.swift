@@ -57,7 +57,6 @@ struct TTSWidgetContentView: View {
     @ObservedObject var rotationState: CoverRotationState
     @ObservedObject private var windowManager = TTSFloatingWidgetWindowManager.shared
     @StateObject private var ttsState = TTSWidgetStateReader()
-    @StateObject private var ttsPresentation = TTSRootPresentationReader()
     @StateObject private var coverLoader = TTSCoverImageLoader()
 
     var body: some View {
@@ -81,19 +80,8 @@ struct TTSWidgetContentView: View {
                 )
             }
         }
-        // `ttsPresentation` chỉ làm mới view khi cờ sheet đổi (không observe cả TTSManager); get đọc thẳng manager
-        // để sau khi vuốt đóng (set false) không còn đọc giá trị cũ của snapshot.
-        .sheet(isPresented: Binding(
-            get: { TTSManager.shared.showingSettingsSheet },
-            set: { TTSManager.shared.showingSettingsSheet = $0 }
-        )) {
-            if let container = TTSFloatingWidgetWindowManager.shared.modelContainer {
-                TTSSettingsSheet()
-                    .modelContainer(container)
-            } else {
-                TTSSettingsSheet()
-            }
-        }
+        // Sheet cài đặt: binding SwiftUI theo dõi được, chỉ modifier observe TTSManager (xem TTSSettingsSheetHost).
+        .modifier(TTSSettingsSheetHost())
         .onAppear {
             rotationState.syncPlaybackState(isPlaying: ttsState.snapshot.isPlaying, at: Date())
             refreshCover()

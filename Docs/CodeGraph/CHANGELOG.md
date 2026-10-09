@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.499] - 2026-10-09
+
+### fix(tts): doi engine khi dang nghe khong con dung - sheet cai dat dong lai duoc, widget dung xoay khong dung speed 0
+
+Người dùng: *"đang nghe chuyển sang engine tts khác thì đơ app luôn"* (log `app_logs (89).txt`); *"google tts sang vieneu lỗi mà ngược lại cũng vậy, nói chung chỉ cần chuyển là lỗi"*. Lỗi do chính 1.3.497 gây ra. Điều tra: 4 giả thuyết song song (nạp trước chương kế, khoá mới, vòng lặp SwiftUI, rà diff) — cả 4 cùng chỉ về sheet cài đặt.
+
+- **Triệu chứng (log 89, 2 lần)**: đổi engine (bất kỳ chiều nào) trong sheet cài đặt TTS khi đang nghe → TTS im hẳn, app như đơ; chỉ khi vuốt tắt app thì `PrefetchSummary` + `Underrun` mới được ghi (TTS phát tiếp lúc app bị huỷ).
+- **Cơ chế**: mở sheet cài đặt ⇒ `TTSSettingsView.onAppear` → `prepareForSettings()` **tạm dừng** phát; đóng sheet ⇒ `onDisappear` → `resumeAfterSettings()` là **đường duy nhất** dựng lại đoạn cho engine mới và phát tiếp. 1.3.497 đổi sheet của widget sang `Binding(get: { TTSManager.shared.showingSettingsSheet }, …)` + làm mới qua `TTSRootPresentationReader` (trễ một nhịp `RunLoop.main`) để widget khỏi observe cả `TTSManager` — SwiftUI không theo dõi được giá trị đọc trong `get`, nên "Xong" (`dismiss()`) ghi `false` mà sheet không đóng ⇒ `onDisappear` không chạy ⇒ TTS kẹt ở trạng thái tạm dừng. Không liên quan engine (vì vậy chiều nào cũng lỗi), không phải deadlock/khoá (main vẫn phục vụ các lệnh `Engine.Browser` trong lúc "đơ").
+- **Sửa**: `TTSSettingsSheetHost` (mới, `ViewModifier`) trả lại đúng binding cũ `$ttsManager.showingSettingsSheet`; chỉ modifier observe `TTSManager`, `content` (cây widget) không bị vẽ lại theo từng nhịp phát — giữ mục tiêu hiệu năng của 1.3.497. Bỏ `TTSRootPresentationReader` khỏi widget (không còn dùng).
+- **Kèm theo — dừng xoay ảnh bìa**: `TTSRotatingCoverView` không còn tạm dừng bằng `layer.speed = 0` (mẫu đó đóng băng **mọi** animation trong cây layer con, kể cả animation chuyển cảnh UIKit/SwiftUI — nguồn treo tiềm ẩn). Nay dừng = giữ góc đang hiển thị bằng `layer.transform` tĩnh rồi gỡ animation; phát lại gắn animation từ góc của `CoverRotationState`; lúc không xoay thì không gắn animation nào (cũng nhẹ hơn). `rules.md` (TTS presentation energy invariants) cập nhật theo.
+- **Kiểm chứng**: `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`; cần thử trên máy: đang nghe → mở cài đặt TTS → đổi engine → bấm "Xong" ⇒ phát tiếp ngay bằng engine mới (log có `PrefetchSummary` + `Underrun`/`[VieNeuChunk]` ngay sau khi đóng).
+
 ## [1.3.498] - 2026-10-09
 
 ### perf(backup): khoi phuc ngoai main gop save, bo qua tu sao luu khi khong doi, gian nhip tien do
@@ -405,19 +417,3 @@ Người dùng: *"thêm option lọc tên từ chương đang đọc/lọc từ 
 - **R4 — Nhớ theo từng truyện, mặc định bật**: file mới `Services/AI/AINameScanScopeStore.swift` (28 dòng) lưu `[bookId: Bool]` tại UserDefaults `FreeBook_AI_NameScanScope_V1`, mặc định **bật**. Tách khỏi `AISettingsStore` vì `AIConfiguration` là bản ghi chung cho mọi truyện.
 - **R5 — Đường truyền tham số**: `beginBatchExtraction(with:fromCurrentChapter:)` → `startBatchExtraction(promptOverride:fromChapterIndex:)` → `AIRuntimeCoordinator.startBatchExtraction` → `AINameExtractionBatchProcessor.extractNamesFromDownloadedChapters(fromChapterIndex:)` → `AIBookDataInspector.fetchDownloadedChapters(fromChapterIndex:)`. Ba hàm có tham số mới **kèm giá trị mặc định** ⇒ không vỡ call site cũ. Tin nhắn timeline đổi theo phạm vi.
 - Ảnh hưởng dòng: `AINameExtractionBatchProcessor` **135 → 140** · `AIBookDataInspector` **167 → 179** · `AIRuntimeCoordinator` **320 → 322** · `ReaderAIBatchPromptSheet` **123 → 190** · `ReaderAIFullScreenView+Actions` **271 → 273** · `ReaderAIFullScreenView` **382 → 384**; tổng **642** file Swift. `check_architecture.py`: 5 violation nền, **0 vi phạm mới**.
-
-## [1.3.469] - 2026-10-03
-
-### feat: luu tat ca o man them phien am, nut luu goc phai cho duyet ten rieng va fix thanh tien trinh quet
-
-Người dùng: *"Thêm một option lưu tất cả ở màn hình thêm phiên âm · sửa 2 nút lưu name riêng/lưu vp riêng thành nút lưu ở góc phải gồm 2 option (tương tự màn hình thêm phiên âm) · fix lỗi sau khi quét tên riêng tất cả chương đã tải xong phần hiển thị tiến độ không tự tắt đi."*
-
-- **R1 — `AddWordSheet` Menu Lưu 3 mục ở MỌI chế độ mở sheet**: `Lưu vào NghiTTS` / `Lưu vào VieNeu-TTS` / **`Lưu tất cả`** (ghi cùng một mục vào cả hai từ điển). Trước đây chỉ chế độ mở-từ-Reader mới có Menu 2 mục; hai màn từ điển là `Button` một đích.
-- **R2 — nút Lưu của sheet duyệt tên riêng lên thanh điều hướng**: `Menu("Lưu")` 2 mục ở `.confirmationAction` (khuôn `AddWordSheet`), `.disabled(selectedCount == 0)`; dialog **Gộp / Thay thế hoàn toàn** chuyển từ card lên sheet. `ReaderAINameReviewCardView` **327 → 234** dòng, bỏ 2 nút đáy + `onSave` + banner xác nhận (banner chưa bao giờ hiện được vì sheet đóng ngay sau `onSave`).
-- **R3 — sửa lỗi thanh tiến trình quét không tự tắt**: `AIRuntimeCoordinator.startBatchExtraction` chỉ hạ `isRunning` mà **không** xoá `batchProgress`; `@Published` phát lại giá trị hiện tại cho subscriber mới nên `(total, total)` sống dậy ở mỗi lần dựng lại màn AI. Nay `batchProgress = nil` ở **cả** nhánh thành công lẫn nhánh lỗi, và `ReaderAIFullScreenView+Actions.onComplete` cũng xoá `batchProgress` cục bộ.
-- **File mới `Services/TTS/Preprocessing/PhoneticDictionaryWriter.swift`** (**74** dòng) — một đường ghi phiên âm dùng chung cho cả ba màn (đúng `rules.md` Luật 18). `AddWordSheet.onAdd` đổi tham số thứ 3 `Target` → `PhoneticDictionaryWriter.Destination` ⇒ 3 call site sửa cùng lượt.
-- **`ReaderView.swift` 2049 → 2043** (baseline 2053 — chỉ còn 4 dòng dư, nên closure `.sheet` **bắt buộc** ngắn hơn: đây là lý do tách service thay vì chép logic ghi).
-- **CodeGraph**: 10 doc cập nhật + `--accept`; `rules.md` thêm **Luật 22** (trạng thái "đang chạy" phải trả về `nil`, không chỉ hạ cờ).
-- Cổng: `check_architecture.py` **5 nền / 0 mới**; `validate_links.py` **PASS 100%** (16 doc, 641 file).
-
----
