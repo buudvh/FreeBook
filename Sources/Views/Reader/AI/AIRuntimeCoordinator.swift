@@ -98,7 +98,9 @@ public final class AIRuntimeCoordinator: ObservableObject {
         activeStreamingTask = Task { [weak self] in
             do {
                 let stream: AsyncThrowingStream<String, Error>
-                if config.activeProfile.apiFormat == "anthropic" {
+                if config.activeProfile.isGeminiWeb {
+                    stream = await GeminiWebClient.shared.sendChatStreaming(config: config, messages: messages)
+                } else if config.activeProfile.apiFormat == "anthropic" {
                     stream = await AnthropicClient.shared.sendChatStreaming(config: config, messages: messages)
                 } else {
                     stream = await OpenAIClient.shared.sendChatStreaming(config: config, messages: messages)

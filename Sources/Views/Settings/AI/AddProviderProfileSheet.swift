@@ -32,6 +32,7 @@ public struct AddProviderProfileSheet: View {
                     Picker("Mẫu Provider", selection: $selectedTemplateKey) {
                         Section("Mẫu có sẵn (Built-in)") {
                             Text("Google Gemini").tag("gemini")
+                            Text("Google Gemini (Web — đăng nhập)").tag("geminiWeb")
                             Text("OpenAI (API Key)").tag("openai")
                             Text("Anthropic Claude (Chính thức)").tag("anthropic")
                             Text("DeepSeek").tag("deepseek")
@@ -73,27 +74,38 @@ public struct AddProviderProfileSheet: View {
                         Picker("Định dạng API", selection: $apiFormat) {
                             Text("OpenAI").tag("openai")
                             Text("Anthropic Claude").tag("anthropic")
+                            Text("Gemini Web").tag("geminiWeb")
                         }
                         .pickerStyle(.segmented)
+                        .onChange(of: apiFormat) { _, newFormat in
+                            // Chuyển sang Gemini Web từ mẫu trống: điền host để nút Lưu không bị khoá.
+                            if newFormat == "geminiWeb", baseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                baseURL = "https://gemini.google.com"
+                            }
+                        }
                     }
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("API Base URL")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        TextField("https://...", text: $baseURL)
-                            .font(.system(.body, design: .monospaced))
-                            .autocorrectionDisabled()
-                            .textInputAutocapitalization(.never)
-                    }
+                    if apiFormat == "geminiWeb" {
+                        GeminiWebAccountRow()
+                    } else {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("API Base URL")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            TextField("https://...", text: $baseURL)
+                                .font(.system(.body, design: .monospaced))
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.never)
+                        }
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("API Key")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        SecureField("Nhập API Key...", text: $apiKey)
-                            .autocorrectionDisabled()
-                            .textInputAutocapitalization(.never)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("API Key")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            SecureField("Nhập API Key...", text: $apiKey)
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.never)
+                        }
                     }
                 }
 
@@ -175,6 +187,11 @@ public struct AddProviderProfileSheet: View {
                 baseURL = "https://generativelanguage.googleapis.com/v1beta/openai/"
                 apiFormat = "openai"
                 modelsText = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-1.5-pro"].joined(separator: "\n")
+            case "geminiWeb":
+                name = "Google Gemini (Web)"
+                baseURL = "https://gemini.google.com"
+                apiFormat = "geminiWeb"
+                modelsText = GeminiWebClient.fallbackModelNames.joined(separator: "\n")
             case "openai":
                 name = "OpenAI"
                 baseURL = "https://api.openai.com/v1"
@@ -233,7 +250,9 @@ public struct AddProviderProfileSheet: View {
         Task {
             do {
                 let fetched: [String]
-                if apiFormat == "anthropic" {
+                if apiFormat == "geminiWeb" {
+                    fetched = try await GeminiWebClient.shared.fetchAvailableModels()
+                } else if apiFormat == "anthropic" {
                     fetched = try await AnthropicClient.shared.fetchAvailableModels(
                         baseURL: baseURL,
                         apiKey: apiKey
@@ -281,7 +300,7 @@ public struct AddProviderProfileSheet: View {
             availableModels: models.isEmpty ? ["default-model"] : models,
             temperature: 0.3,
             isCustom: true,
-            authType: "apiKey",
+            authType: apiFormat == "geminiWeb" ? "googleWebSession" : "apiKey",
             apiFormat: apiFormat
         )
 

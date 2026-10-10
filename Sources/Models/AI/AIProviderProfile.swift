@@ -98,6 +98,20 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
         isCustom: false
     )
 
+    /// Gemini qua phiên web đã đăng nhập (không API key). Danh sách model chỉ là gợi ý — tên thật do
+    /// `GeminiWebClient.fetchAvailableModels()` khám phá theo tài khoản.
+    public static let defaultGeminiWeb = AIProviderProfile(
+        id: "geminiWeb",
+        name: "Google Gemini (Web)",
+        baseURL: "https://gemini.google.com",
+        selectedModel: "gemini-flash",
+        availableModels: ["gemini-flash", "gemini-pro", "gemini-flash-lite"],
+        temperature: 0.3,
+        isCustom: false,
+        authType: "googleWebSession",
+        apiFormat: "geminiWeb"
+    )
+
     public static let defaultOpenAI = AIProviderProfile(
         id: "openai",
         name: "OpenAI",
@@ -175,7 +189,12 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
 
     /// Các mẫu provider chuẩn định nghĩa sẵn để người dùng chọn khi thêm mới.
     public static var standardTemplates: [AIProviderProfile] {
-        [defaultGemini, defaultOpenAI, defaultAnthropic, defaultDeepSeek, defaultClaudeOpenRouter, defaultGroq, defaultOllama]
+        [defaultGemini, defaultGeminiWeb, defaultOpenAI, defaultAnthropic, defaultDeepSeek, defaultClaudeOpenRouter, defaultGroq, defaultOllama]
+    }
+
+    /// Provider Gemini Web: không key, không temperature, chỉ chat — các chỗ rẽ nhánh client dựa vào cờ này.
+    public var isGeminiWeb: Bool {
+        apiFormat == "geminiWeb"
     }
 
     /// Mặc định không lưu sẵn profile rỗng nào, chỉ lưu khi người dùng chủ động thêm.

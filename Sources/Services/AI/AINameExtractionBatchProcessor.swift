@@ -15,6 +15,9 @@ public final class AINameExtractionBatchProcessor: Sendable {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return []
         }
+        if config.activeProfile.isGeminiWeb {
+            throw GeminiWebError.unsupportedTask("quét tên riêng")
+        }
 
         let systemInstruction = resolveSystemInstruction(config: config, promptOverride: promptOverride)
 
@@ -58,6 +61,11 @@ public final class AINameExtractionBatchProcessor: Sendable {
         limit: Int? = nil,
         onProgress: @escaping @Sendable (Int, Int, [AIExtractedName]) -> Void
     ) async throws -> [AIExtractedName] {
+        // Ném trước vòng lặp: bên trong, lỗi từng batch bị `try?` nuốt nên quét bằng Gemini Web sẽ
+        // "thành công" với 0 tên mà không ai biết vì sao.
+        if config.activeProfile.isGeminiWeb {
+            throw GeminiWebError.unsupportedTask("quét tên riêng hàng loạt")
+        }
         let downloaded = await AIBookDataInspector.shared.fetchDownloadedChapters(
             bookId: bookId,
             fromChapterIndex: fromChapterIndex,

@@ -71,53 +71,58 @@ public struct AISettingsView: View {
                         )) {
                             Text("OpenAI").tag("openai")
                             Text("Anthropic Claude").tag("anthropic")
+                            Text("Gemini Web").tag("geminiWeb")
                         }
                         .pickerStyle(.segmented)
                     }
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("API Base URL")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        TextField("https://...", text: Binding(
-                            get: { config.activeProfile.baseURL },
-                            set: { newURL in
-                                var p = config.activeProfile
-                                p.baseURL = newURL
-                                config.updateActiveProfile(p)
-                            }
-                        ))
-                        .font(.system(.body, design: .monospaced))
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                    }
-
-                    // Quản lý API Keys
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Text("API Keys (\(parsedKeysCount) keys):")
+                    if config.activeProfile.isGeminiWeb {
+                        GeminiWebAccountRow()
+                    } else {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("API Base URL")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
-                            Spacer()
-                            clipboardToolbar(for: $apiKeysText) {
-                                syncApiKeysFromText(apiKeysText)
-                            }
-                        }
-                        TextEditor(text: $apiKeysText)
-                            .font(.system(.caption, design: .monospaced))
-                            .frame(minHeight: 70)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-                            )
+                            TextField("https://...", text: Binding(
+                                get: { config.activeProfile.baseURL },
+                                set: { newURL in
+                                    var p = config.activeProfile
+                                    p.baseURL = newURL
+                                    config.updateActiveProfile(p)
+                                }
+                            ))
+                            .font(.system(.body, design: .monospaced))
                             .autocorrectionDisabled()
                             .textInputAutocapitalization(.never)
-                            .onChange(of: apiKeysText) { _, newText in
-                                syncApiKeysFromText(newText)
+                        }
+
+                        // Quản lý API Keys
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text("API Keys (\(parsedKeysCount) keys):")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                clipboardToolbar(for: $apiKeysText) {
+                                    syncApiKeysFromText(apiKeysText)
+                                }
                             }
-                        Text("Mỗi dòng 1 key. Tự động chuyển key tiếp theo khi gặp lỗi quota hoặc 401/403/429.")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary)
+                            TextEditor(text: $apiKeysText)
+                                .font(.system(.caption, design: .monospaced))
+                                .frame(minHeight: 70)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                                )
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.never)
+                                .onChange(of: apiKeysText) { _, newText in
+                                    syncApiKeysFromText(newText)
+                                }
+                            Text("Mỗi dòng 1 key. Tự động chuyển key tiếp theo khi gặp lỗi quota hoặc 401/403/429.")
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                        }
                     }
 
                     if config.activeProfile.apiFormat == "anthropic" {
@@ -201,25 +206,28 @@ public struct AISettingsView: View {
 
                 // SECTION 4: THAM SỐ VÀ TEST KẾT NỐI
                 Section(header: Text("Tham Số AI & Kiểm Tra")) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Text("Temperature (Độ sáng tạo)")
-                            Spacer()
-                            Text(String(format: "%.1f", config.activeProfile.temperature))
-                                .foregroundColor(.secondary)
+                    // Gemini Web không nhận temperature — ẩn để khỏi gợi ý một tham số vô hiệu.
+                    if !config.activeProfile.isGeminiWeb {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text("Temperature (Độ sáng tạo)")
+                                Spacer()
+                                Text(String(format: "%.1f", config.activeProfile.temperature))
+                                    .foregroundColor(.secondary)
+                            }
+                            Slider(
+                                value: Binding(
+                                    get: { config.activeProfile.temperature },
+                                    set: { newTemp in
+                                        var p = config.activeProfile
+                                        p.temperature = newTemp
+                                        config.updateActiveProfile(p)
+                                    }
+                                ),
+                                in: 0.0...1.0,
+                                step: 0.1
+                            )
                         }
-                        Slider(
-                            value: Binding(
-                                get: { config.activeProfile.temperature },
-                                set: { newTemp in
-                                    var p = config.activeProfile
-                                    p.temperature = newTemp
-                                    config.updateActiveProfile(p)
-                                }
-                            ),
-                            in: 0.0...1.0,
-                            step: 0.1
-                        )
                     }
 
                     Button(action: testConnection) {

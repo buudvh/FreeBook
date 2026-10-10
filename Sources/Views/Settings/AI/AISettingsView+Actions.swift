@@ -55,7 +55,9 @@ extension AISettingsView {
         Task {
             do {
                 let fetched: [String]
-                if currentProfile.apiFormat == "anthropic" {
+                if currentProfile.isGeminiWeb {
+                    fetched = try await GeminiWebClient.shared.fetchAvailableModels()
+                } else if currentProfile.apiFormat == "anthropic" {
                     fetched = try await AnthropicClient.shared.fetchAvailableModels(
                         baseURL: currentProfile.baseURL,
                         apiKey: currentProfile.apiKey,
@@ -104,7 +106,9 @@ extension AISettingsView {
         Task {
             do {
                 let responseText: String
-                if currentConfig.activeProfile.apiFormat == "anthropic" {
+                if currentConfig.activeProfile.isGeminiWeb {
+                    responseText = try await GeminiWebClient.shared.testChatPing(config: currentConfig)
+                } else if currentConfig.activeProfile.apiFormat == "anthropic" {
                     responseText = try await AnthropicClient.shared.testChatPing(config: currentConfig)
                 } else {
                     responseText = try await OpenAIClient.shared.testChatPing(config: currentConfig)

@@ -21,6 +21,12 @@ public final class AIContextCompactor: Sendable {
         guard session.messages.count > Self.compactionThreshold else {
             return session.contextSummary
         }
+        // Gemini Web chỉ dành cho chat: không tốn thêm một lượt tóm tắt (dễ chạm hạn mức tài khoản).
+        // Cửa sổ 6 tin gần nhất của Reader vẫn giới hạn kích thước prompt.
+        if config.activeProfile.isGeminiWeb {
+            AppLogger.shared.log("🤖 [GeminiWeb] Bỏ qua nén ngữ cảnh cho profile Gemini Web")
+            return session.contextSummary
+        }
 
         let cutoffIndex = session.messages.count - Self.recentMessagesPreservedCount
         guard cutoffIndex > 0 else { return session.contextSummary }

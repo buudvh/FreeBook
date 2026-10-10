@@ -256,6 +256,18 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 * **Immediate disk persistence for all AI actions and chat messages.** In `ReaderAIFullScreenView+Actions.swift`, calling `AIChatHistoryStore.shared.saveSession` must occur immediately when appending user and assistant messages (typing, quick chips, name extractions, batch scans). Never defer saving until stream completion.
 * **AIRuntimeCoordinator owns the live `activeSession`.** When the AI view is closed during streaming or batch execution, `AIRuntimeCoordinator.shared` must maintain and update the active session in memory, ensuring reopening from the widget restores the entire conversation state seamlessly.
 
+## Gemini Web provider invariants (1.3.505)
+
+Provider `apiFormat == "geminiWeb"` dùng **giao thức web không chính thức** của gemini.google.com (chép theo thư viện `gemini-webapi`), không API key. Code nằm ở `Sources/Services/AI/GeminiWeb/`; UI đăng nhập ở `Sources/Views/Settings/AI/GeminiWeb*.swift`.
+
+* **Chỉ gọi giao thức từ bên trong WKWebView ẩn của `GeminiWebSessionController`** (`fetch()` qua `evaluateJavaScript`, kết quả stream về qua `WKScriptMessageHandler`). Không copy cookie sang `URLSession`: `__Secure-1PSIDTS` là cookie HttpOnly xoay liên tục và Google gắn phiên với dấu vân tay trình duyệt. Token `SNlM0e`/`cfb2h`/`FdrFJe`/`TuX5cc` đọc từ `window.WIZ_global_data`, không regex HTML. WebView ẩn và `GeminiWebLoginView` **cùng** `WKWebsiteDataStore.default()`; đăng xuất là xoá cookie `*.google.com` của kho đó (trình duyệt bypass cũng mất đăng nhập Google — UI phải nói rõ).
+* **Mỗi lượt là một temporary chat mới, stateless** (`f.req[45] = 1`, metadata rỗng). App không giữ cid/rid/rcid; `GeminiWebPromptFormatter` ghép system prompt + cửa sổ 6 tin gần nhất thành một prompt có nhãn. Không có `temperature`, không tool calling.
+* **Frame `StreamGenerate` mang text tích luỹ, không phải delta.** `GeminiWebClient.consumeGeneration` đổi sang delta theo tiền tố (so theo unicode scalar); frame không nối tiếp được thì bỏ qua, và nếu bản cuối khác phần đã phát thì nối bản cuối sau dấu "— Gemini sửa lại câu trả lời —". `AIRuntimeCoordinator` giữ nguyên `accumulated += delta`.
+* **Độ dài frame tính theo đơn vị UTF-16** (`GeminiWebFrameParser` giữ buffer `[UInt16]`). Mọi chỉ số field (`[5][2][0][1][0]` lỗi, `[4][i][1][0]` text, `[4][i][8][0]==2` xong, `GetUserStatus` `[14]/[15]/[16]/[17]`) tập trung ở `GeminiWebResponseParser` — Google đổi cấu trúc thì sửa đúng một file và lỗi hiện là `protocolChanged(<vị trí>)`.
+* **Header model dựng lúc gọi từ model khám phá qua RPC `otAQ7b`**, không găm id hex trong code. `selectedModel` không khớp tên/bí danh nào ⇒ gửi **không** header model (Google tự chọn mặc định) thay vì ném lỗi.
+* **Phạm vi: chỉ chat trong Reader.** `AIContextCompactor` bỏ qua nén; `AINameExtractionBatchProcessor` ném `GeminiWebError.unsupportedTask` **trước** vòng lặp batch (bên trong, lỗi từng batch bị `try?` nuốt nên nếu chỉ ném trong `extractNamesFromText` thì quét "thành công" với 0 tên).
+* **Retry đúng một tầng — `GeminiWebClient`**: 1 lần khi 1013 (lỗi tạm) hoặc HTTP 400/401/403 (token cũ ⇒ `prepare(force: true)` nạp lại trang). Coordinator không bọc thêm retry. WebView ẩn tự giải phóng sau 10 phút không dùng và tạo lại khi cần.
+
 ## Reader AI Agent Harness invariants (1.3.385)
 
 * **Raw chapter content is the single source of truth for AI analysis.** Extraction of character names, locations, and glossary terms must use the raw Chinese chapter text via `AIBookDataInspector.loadRawChapterContent`, never the translated text. This prevents translation distortion from polluting the dictionary.

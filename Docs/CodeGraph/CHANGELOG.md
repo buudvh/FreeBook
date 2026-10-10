@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.505] - 2026-10-10
+
+### feat(ai): provider Gemini Web - dang nhap Google trong app, khong can API key
+
+Người dùng: *"Tôi muốn thêm provider gemini web vào chế độ AI ở reader"* — chốt: đăng nhập Google trong app, lấy cookie tự động; phạm vi chỉ chat trong Reader. Plan đã duyệt: `Docs/Plans/2026-10-10-plan-gemini-web-provider.md`.
+
+- **Cách nối**: WKWebView **ẩn** (không gắn window, giống `WebViewLoader`) nạp `gemini.google.com/app`, rồi chạy `fetch()` **trong chính trang đó** bằng `evaluateJavaScript`; body stream về Swift qua `WKScriptMessageHandler` (`GeminiWebSessionController`, 394 dòng). WebKit tự lo cookie xoay `__Secure-1PSIDTS`, Origin/Referer, TLS — không copy cookie sang `URLSession`. Token `SNlM0e`/`cfb2h`/`FdrFJe`/`TuX5cc` đọc từ `window.WIZ_global_data`.
+- **Giao thức** (chép theo `gemini-webapi` 2026-10, không có tài liệu chính thức): `StreamGenerate` với `f.req` 81 ô (`[45]=1` temporary chat — không bẩn lịch sử Gemini của tài khoản), header model `x-goog-ext-525001261-jspb` dựng từ model khám phá qua RPC `otAQ7b` (`batchexecute`), frame `rt=c` độ dài theo **UTF-16** (`GeminiWebFrameParser`), field index tập trung ở `GeminiWebResponseParser`. Mã lỗi 1037/1050/1052/1060/1013 và trạng thái tài khoản 1016/1040/1042… thành `GeminiWebError` tiếng Việt.
+- **Hội thoại stateless**: `GeminiWebPromptFormatter` ghép system prompt + 6 tin gần nhất thành một prompt có nhãn; không temperature, không tool calling. Frame mang text tích luỹ ⇒ `GeminiWebClient` đổi sang delta theo tiền tố, bản cuối khác thì nối sau dấu "— Gemini sửa lại câu trả lời —"; `AIRuntimeCoordinator` giữ nguyên.
+- **Phạm vi**: chat + quick chips + test kết nối + "Load từ API" (khám phá model). `AIContextCompactor` bỏ qua nén; `AINameExtractionBatchProcessor` ném `unsupportedTask` **trước** vòng lặp batch (bên trong `try?` nuốt lỗi từng batch).
+- **UI**: mẫu "Google Gemini (Web — đăng nhập)" và segment "Gemini Web" ở `AddProviderProfileSheet` + `AISettingsView`; profile Gemini Web ẩn Base URL/API Key/Temperature, thay bằng `GeminiWebAccountRow` (trạng thái + Đăng nhập Google/Đăng xuất) mở sheet `GeminiWebLoginView` (WKWebView hiển thị, cùng `WKWebsiteDataStore.default()`, tới `gemini.google.com` là tự đóng). Đăng xuất xoá cookie `*.google.com` — trình duyệt bypass cũng mất đăng nhập Google, alert nói rõ.
+- **Model/Preset**: `AIProviderPreset.geminiWeb`, `AIProviderProfile.defaultGeminiWeb` (`apiFormat: "geminiWeb"`, `authType: "googleWebSession"`), `isGeminiWeb`.
+- **File mới** (9 service ≤ 394 dòng, 3 view): `GeminiWeb{Error,InitSession,Model,RequestBuilder,FrameParser,ResponseParser,PromptFormatter,SessionController,Client}.swift`, `GeminiWeb{LoginWebPane,LoginView,AccountRow}.swift`. `rules.md`: mục "Gemini Web provider invariants (1.3.505)".
+- **Rủi ro đã nêu trước khi duyệt**: Google có thể từ chối đăng nhập trong WKWebView (UA Safari như trình duyệt bypass thường qua được; chưa kiểm chứng được trên Windows); giao thức không chính thức, Google đổi là `protocolChanged`; tài khoản miễn phí có hạn mức (1037).
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`.
+
 ## [1.3.504] - 2026-10-10
 
 ### fix(ai): widget AI thu nho mo lai dung truyen dang chay, khong theo reader dang hien thi
