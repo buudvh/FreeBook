@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.477] - 2026-10-07
+
+### chore: nghỉ hưu tài liệu đồ thị cấu trúc CodeGraph, chuyển sang công cụ codegraph MCP
+
+- Xoá 9 tài liệu đồ thị cấu trúc (`00_index`, `02_file_graph`, `03_type_graph`, `04_call_graph`, `09_dependency_rules`, `11_subsystems`, `12_ownership_graph`, `13_resource_lifecycle`, `14_complexity_report`), 3 file validator (`validate_links.py`, `manifest.json`, `codegraph.schema.json`) và 6 tài liệu prose hành vi (`01_project`, `05_state_graph`, `06_event_graph`, `07_dataflow`, `08_lifecycle`, `10_risk_report`) trong `Docs/CodeGraph/`. Giữ lại `rules.md` (quy chuẩn kỹ thuật) và `CHANGELOG.md`/`CHANGELOG.archive.md` (audit trail).
+- Thay thế bằng công cụ **`codegraph`** (Rust/Node, 100% local, MCP `codegraph serve --mcp`): `codegraph init` build index `.codegraph/` (670 file, 13.331 nodes, 27.880 edges). Truy vấn cấu trúc qua `codegraph_explore` MCP hoặc CLI `codegraph explore` — một lần gọi thay vì đọc doc MB. MCP đã wire cho WorkBuddy (`~/.workbuddy-ai/mcp.json`), Claude Code, Codex và Antigravity (`codegraph install --target=claude,codex,antigravity`).
+- Cập nhật `AGENTS.md`, `CLAUDE.md`, `.agents/AGENTS.md` bỏ cổng `validate_links.py`, ưu tiên `codegraph` cho mọi truy vấn cấu trúc; giữ kỷ luật `CHANGELOG.md [1.3.NNN]` và cụm kết thúc `"CodeGraph updated."` / `"No CodeGraph update required."`.
+- Đảm bảo mang sang máy mới: commit `codegraph.json` (`exclude`/`deprioritize`) vào repo để clone có config index; thêm mục 'Thiết lập trên máy mới / checkout mới' vào `AGENTS.md`/`CLAUDE.md`/`.agents/AGENTS.md` — codegraph **không** tự build index (phải `codegraph init` thủ công, agent không tự chạy); `codegraph install` không hỗ trợ WorkBuddy nên tự tạo `~/.workbuddy-ai/mcp.json` dùng `"codegraph"` qua PATH thay absolute path.
+- **Kiểm chứng**: `check_architecture.py` giữ **5 violation nền cũ, 0 mới** (script không đọc doc). `codegraph explore "how does TTSManager initialize?"` trả 82 symbols / 8 files + source verbatim.
+
 ## [1.3.476] - 2026-10-07
 
 ### feat: cover ghep host qua cleanAndResolveUrl, widget trinh duyet thanh nut tron, metadata plugin.json vao man cau hinh ext

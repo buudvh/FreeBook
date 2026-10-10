@@ -40,7 +40,8 @@ extension GeminiWebSessionController {
     }
 
     /// `fetch` + `ReadableStream` trong trang; mỗi chunk đã giải mã UTF-8 được đẩy về Swift qua message handler
-    /// (`{id, type: chunk|done|error, payload}`). `post()` nuốt exception để một lỗi bridge không phá vòng đọc.
+    /// (`{id, type: meta|chunk|done|error, payload}`; `meta` = header đã về). `post()` nuốt exception để một
+    /// lỗi bridge không phá vòng đọc.
     static func fetchScript(id: String, request: GeminiWebRequestBuilder.Request) throws -> String {
         let idLiteral = try jsLiteral(id)
         let urlLiteral = try jsLiteral(request.url)
@@ -64,6 +65,7 @@ extension GeminiWebSessionController {
               window.__fbGeminiAbort = window.__fbGeminiAbort || {};
               window.__fbGeminiAbort[id] = controller;
               var response = await fetch(url, { method: "POST", headers: headers, body: params, credentials: "include", signal: controller.signal });
+              post("meta", response.status + " " + (response.headers.get("content-type") || ""));
               if (!response.ok) {
                 var detail = "";
                 try { detail = (await response.text()).slice(0, 300); } catch (e) {}

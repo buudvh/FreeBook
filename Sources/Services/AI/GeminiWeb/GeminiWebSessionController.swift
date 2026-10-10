@@ -44,6 +44,8 @@ final class GeminiWebSessionController: NSObject {
     }
 
     private var webView: WKWebView?
+    /// Giữ WebView ẩn trong một window để WebKit không tạm dừng tiến trình web giữa lúc `fetch` (1.3.507).
+    private let windowHost = GeminiWebHiddenWindowHost()
     private var initSession: GeminiWebInitSession?
     private var navigationWaiters: [CheckedContinuation<Void, Error>] = []
     /// `true` giữa lúc `load()` gọi và lúc commit — để phân biệt điều hướng của ta với điều hướng do trang tự làm.
@@ -95,23 +97,6 @@ final class GeminiWebSessionController: NSObject {
         initSession = nil
     }
 
-    func isSignedIn() async -> Bool {
-        let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
-        return cookies.contains { $0.name == "__Secure-1PSID" && $0.domain.hasSuffix("google.com") }
-    }
-
-    /// Xoá mọi cookie `*.google.com` của kho mặc định — **cũng** đăng xuất Google trong trình duyệt bypass của app.
-    func signOut() async {
-        let store = WKWebsiteDataStore.default().httpCookieStore
-        let cookies = await store.allCookies()
-        for cookie in cookies where cookie.domain.hasSuffix("google.com") {
-            await store.deleteCookie(cookie)
-        }
-        initSession = nil
-        releaseWebView()
-        AppLogger.shared.log("🤖 [GeminiWeb] Đã đăng xuất Google (xoá cookie *.google.com)")
-    }
-
     // MARK: - Fetch trong trang
 
     /// Chạy `fetch()` trong trang, trả về **chunk text thô** của body theo thứ tự nhận được. Yêu cầu
@@ -128,6 +113,7 @@ final class GeminiWebSessionController: NSObject {
                     continuation.finish(throwing: GeminiWebError.sessionUnavailable)
                     return
                 }
+                self.windowHost.attach(webView)
                 let now = Date()
                 var state = StreamState(continuation: continuation, kind: kind, startedAt: now, idleTimeout: idleTimeout, lastActivity: now)
                 state.watchdog = self.makeWatchdog(id: id)
@@ -185,6 +171,11 @@ final class GeminiWebSessionController: NSObject {
             }
             streams[id] = state
             state.continuation.yield(payload)
+        case "meta":
+            // Header đã về (mã HTTP + content-type): phân biệt "không có header" với "có header, không có body".
+            if let state = streams[id] {
+                AppLogger.shared.log("🤖 [GeminiWeb] \(state.kind) nhận header sau \(Self.ms(since: state.startedAt)) ms: \(payload.prefix(80))")
+            }
         case "done":
             finishStream(id: id, error: nil)
         case "error":
@@ -234,6 +225,7 @@ final class GeminiWebSessionController: NSObject {
         let view = WKWebView(frame: CGRect(x: 0, y: 0, width: 390, height: 844), configuration: config)
         view.customUserAgent = Self.userAgent
         view.navigationDelegate = self
+        windowHost.attach(view)
         webView = view
         return view
     }
@@ -245,6 +237,7 @@ final class GeminiWebSessionController: NSObject {
         view.configuration.userContentController.removeScriptMessageHandler(forName: Self.messageHandlerName)
         view.navigationDelegate = nil
         view.stopLoading()
+        windowHost.detach(view)
         webView = nil
         initSession = nil
         failAllStreams(.sessionUnavailable)

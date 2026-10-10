@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.507] - 2026-10-10
+
+### fix(ai): Gemini Web - giu WKWebView an trong window de WebKit khong tam dung tien trinh web giua luc fetch
+
+Người dùng: *"vẫn còn lỗi: Lỗi phản hồi: Gemini Web không phản hồi kịp thời gian chờ"* kèm `app_logs (93).txt`. Plan duyệt trong chat (bổ sung cho `Docs/Plans/2026-10-10-plan-gemini-web-no-response.md`).
+
+- **Log phân định**: `StreamGenerate bắt đầu (…, idle 45 s)` → 45 s sau `timeout (idle 45 s, tổng 45 s, chunk=0)`. Không header, không chunk, không lỗi HTTP — trong khi từ máy dev cùng endpoint với body 38 KB Google trả header sau 1,3 s và xong sau 4 s. ⇒ JavaScript trong WKWebView ẩn **bị đóng băng**, không phải Google chậm.
+- **Nguyên nhân**: WKWebView không nằm trong window nào ⇒ WebKit không giữ assertion cho tiến trình WebContent; hết page load là iOS tạm dừng tiến trình dù app foreground, `fetch()` đang bay đứng im. `WebViewLoader` bypass Cloudflare không gặp vì luôn có page load đang chạy và poll bằng `evaluateJavaScript` — nên đợt rà soát trước đã loại trừ nhầm điểm này.
+- **Sửa**: `GeminiWebHiddenWindowHost` (file mới) tạo `UIWindow` 1×1 dưới cửa sổ chính (`normal − 1`, không chạm, alpha 0,02) chứa WKWebView ẩn; gắn khi tạo view và trước mỗi `fetch` (gắn lại nếu scene đổi), gỡ khi `releaseWebView()`. App vào background thì WebKit vẫn tạm dừng — đúng ý.
+- **Thêm mốc log**: JS gửi `meta` khi `fetch` nhận response ⇒ `… nhận header sau N ms: <mã HTTP> <content-type>`, để lần sau phân biệt "không có header" với "có header, không có body".
+- Tách `isSignedIn`/`signOut` sang `GeminiWebSessionController+Account.swift` để file chính dưới 400 dòng. `rules.md`: thêm 1 bullet vào mục "Gemini Web provider invariants".
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`. Cần người dùng thử lại với Logging bật: kỳ vọng thấy `nhận header sau … ms: 200 application/json` rồi `nhận chunk đầu`.
+
 ## [1.3.506] - 2026-10-10
 
 ### fix(ai): Gemini Web - phan hoi rong thanh loi, probe token tu didCommit, timeout theo chunk, log tung buoc
@@ -400,13 +413,3 @@ Người dùng: *"kiểm tra lại có engine nào phát âm thanh dùng cái kh
 - **Nợ nhỏ**: `speakCurrent` và **3 chỗ nữa** cùng khuôn (`scheduleNghiWarmUp`, `playbackParagraphs`, `updatePlaybackParams`) đổi từ viết thẳng `tool == "nghitts" || tool == "vieneu"` sang `TTSManager.isLocalEngine(tool)` — đúng quy ước ở `TTSManager+VieNeu.swift:43-44`; `stopPlayback` bỏ 2 cặp lệnh gọi trùng (`clearPrefetchCache()`, `siriService.stop()`).
 - **Kiểm chứng**: `check_architecture.py` **5 violation nền cũ, 0 mới**. **Không build tại chỗ** (Windows, không có `swiftc`) — CI xác nhận biên dịch. `xcodegen generate` do CI chạy; `project.yml` dùng glob `- path: Sources` nên không phải sửa.
 - Ảnh hưởng dòng: `TTSManager.swift` **3970 → 3956** · `PiperTTSService.swift` **356 → 255** · `VieNeuTTSService.swift` **398 → 323** · `ONNXPiperEngine.swift` **469 → 425** · `VieNeuTTSEngine.swift` **400 → 396** · `PiperSynthesisCoordinator.swift` **339 → 322** · `TTSManager+Interruption.swift` **116 → 88** · `TTSManager+Playback.swift` **284 → 328** · `LocalTTSEngine.swift` **81 → 71** · `NghiAudioPlayerQueue.swift` **288 → 291** · `TTSSettingsView+Voice.swift` **90 → 93** · `TTSAudioEngineController.swift` **xoá (77)** · `TTSSpeedPolicy.swift` **31 (mới)**.
-
-## [1.3.477] - 2026-10-07
-
-### chore: nghỉ hưu tài liệu đồ thị cấu trúc CodeGraph, chuyển sang công cụ codegraph MCP
-
-- Xoá 9 tài liệu đồ thị cấu trúc (`00_index`, `02_file_graph`, `03_type_graph`, `04_call_graph`, `09_dependency_rules`, `11_subsystems`, `12_ownership_graph`, `13_resource_lifecycle`, `14_complexity_report`), 3 file validator (`validate_links.py`, `manifest.json`, `codegraph.schema.json`) và 6 tài liệu prose hành vi (`01_project`, `05_state_graph`, `06_event_graph`, `07_dataflow`, `08_lifecycle`, `10_risk_report`) trong `Docs/CodeGraph/`. Giữ lại `rules.md` (quy chuẩn kỹ thuật) và `CHANGELOG.md`/`CHANGELOG.archive.md` (audit trail).
-- Thay thế bằng công cụ **`codegraph`** (Rust/Node, 100% local, MCP `codegraph serve --mcp`): `codegraph init` build index `.codegraph/` (670 file, 13.331 nodes, 27.880 edges). Truy vấn cấu trúc qua `codegraph_explore` MCP hoặc CLI `codegraph explore` — một lần gọi thay vì đọc doc MB. MCP đã wire cho WorkBuddy (`~/.workbuddy-ai/mcp.json`), Claude Code, Codex và Antigravity (`codegraph install --target=claude,codex,antigravity`).
-- Cập nhật `AGENTS.md`, `CLAUDE.md`, `.agents/AGENTS.md` bỏ cổng `validate_links.py`, ưu tiên `codegraph` cho mọi truy vấn cấu trúc; giữ kỷ luật `CHANGELOG.md [1.3.NNN]` và cụm kết thúc `"CodeGraph updated."` / `"No CodeGraph update required."`.
-- Đảm bảo mang sang máy mới: commit `codegraph.json` (`exclude`/`deprioritize`) vào repo để clone có config index; thêm mục 'Thiết lập trên máy mới / checkout mới' vào `AGENTS.md`/`CLAUDE.md`/`.agents/AGENTS.md` — codegraph **không** tự build index (phải `codegraph init` thủ công, agent không tự chạy); `codegraph install` không hỗ trợ WorkBuddy nên tự tạo `~/.workbuddy-ai/mcp.json` dùng `"codegraph"` qua PATH thay absolute path.
-- **Kiểm chứng**: `check_architecture.py` giữ **5 violation nền cũ, 0 mới** (script không đọc doc). `codegraph explore "how does TTSManager initialize?"` trả 82 symbols / 8 files + source verbatim.
