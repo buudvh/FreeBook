@@ -39,7 +39,10 @@ public final class AIRuntimeCoordinator: ObservableObject {
     @Published public var activeSession: AIChatSession? = nil
     @Published public var batchProgress: (current: Int, total: Int)? = nil
     @Published public var batchExtractedNames: [AIExtractedName] = []
-    public var isReaderActive: Bool = false
+    /// `bookId` của Reader đang trên màn hình (`nil` khi không có Reader nào). Là **bookId** chứ không
+    /// phải cờ Bool: widget thu nhỏ của truyện A bấm khi đang đọc truyện B phải mở lại AI của **A**,
+    /// không được nhờ Reader B dựng màn AI theo truyện của nó.
+    public var activeReaderBookId: String? = nil
 
     private var activeStreamingTask: Task<Void, Never>? = nil
     private var activeBatchTask: Task<Void, Never>? = nil
@@ -264,8 +267,15 @@ public final class AIRuntimeCoordinator: ObservableObject {
         guard let ctx = self.activeContext else { return }
         guard !isFullScreenPresented else { return }
 
-        if isReaderActive {
-            NotificationCenter.default.post(name: NSNotification.Name("reopenReaderAI"), object: nil)
+        // Chỉ nhờ Reader mở lại bằng `.fullScreenCover` khi Reader đang hiển thị đúng là truyện đang
+        // chạy AI. Reader của truyện khác (hoặc Shelf/Discovery) đi đường UIKit `.overFullScreen` bên
+        // dưới với `activeContext` của truyện đang chạy — không tháo view hierarchy của Reader đó.
+        if activeReaderBookId == ctx.bookId {
+            NotificationCenter.default.post(
+                name: NSNotification.Name("reopenReaderAI"),
+                object: nil,
+                userInfo: ["bookId": ctx.bookId]
+            )
             return
         }
 

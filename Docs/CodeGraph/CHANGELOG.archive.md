@@ -2,6 +2,34 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.475] - 2026-10-07
+
+### feat: man Khoi phuc hien ngay khi cham nut bang khung xuong, doc file o nen
+
+Người dùng: *"khi bấm nút khôi phục màn hình khôi phục hiển thị quá chậm, hãy hiển thị ngay khi bấm nút bằng skeleton view và tiến hành logic ở background, xong thì hiển thị ra"*.
+
+- **Vấn đề**: `BackupHubView.startRestore` chỉ đặt `showingRestoreOptions = true` **sau khi** `await coordinator.prepareRestore(...)` xong — mà việc đó giải nén archive rồi đọc `manifest.json` (vài trăm ms tới vài giây với file lớn). Suốt khoảng ấy người dùng không thấy gì ngoài cú chạm ⇒ nút như không phản hồi. Việc nặng **đã** ở nền từ trước (`BackupRestoreWorker.prepare` chạy trong `Task.detached`); lỗi nằm ở **thời điểm trình bày**, không phải thiếu background.
+- **File mới** `Sources/Views/Settings/Backup/RestoreSkeletonView.swift` (**99** dòng): khung xương **sao đúng bố cục** `RestoreOptionsSheet` — một hàng "Tên file" hiện **dữ liệu thật** (đã biết trước nên không cần để xương) + 8 hàng xương, 6 hàng nhóm khôi phục, 2 hàng toggle — nên lúc nội dung thật tới thì chỉ có **chữ hiện ra**, không khung nhảy. Tái dùng `SkeletonView` ở `Views/Common/`.
+- **Đổi ở `BackupHubView`** (**221 → 243**): bật sheet ngay từ cú chạm; `restoreSheet` chọn `RestoreOptionsSheet` khi đã có `preparedRestore`, ngược lại vẽ khung xương (thay `ProgressView` trần).
+- **Ba nhánh mới, phát sinh vì sheet nay đóng được giữa chừng** (trước đây không thể): (1) người dùng đóng sheet trong lúc đọc file ⇒ `startRestore` gọi `cancelPreparedRestore()` sau khi `prepareRestore` trả về, nếu không thư mục tạm nằm lại tới lượt khôi phục sau; (2) `prepareRestore` lỗi ⇒ đóng khung xương, không để người dùng ngồi nhìn skeleton vĩnh viễn (toast lỗi đã do `MainTabView` lo); (3) `guard !coordinator.isBusy` ở đầu `startRestore` để tránh sheet nháy mở-rồi-đóng khi `prepareRestore` thoát sớm.
+- **Nút "Huỷ" vẫn hoạt động** trong lúc đọc file — cố ý: khoá người dùng trong một màn chỉ có khung xương là đúng thứ lượt này đang sửa.
+- **Kiểm chứng**: `check_architecture.py` **5 violation nền cũ, 0 vi phạm mới**; `validate_links.py` PASS 100% sau khi accept 5 doc. **Không build tại chỗ** (Windows) — `swiftc -parse` sạch; CI xác nhận biên dịch.
+- Ảnh hưởng dòng: `BackupHubView` **221 → 243** · `RestoreSkeletonView` **99** (mới).
+
+## [1.3.474] - 2026-10-07
+
+### fix: rule muc luc mac dinh vuot tran regex 250 cua chinh no (khoi phuc cau hinh bao loi sai)
+
+Người dùng: *"Khôi phục xong nhưng có 1 lỗi: Quy tắc mục lục: Biểu thức chính quy không hợp lệ cho 'Quy tắc mở rộng nâng cao': Độ dài Regex không được vượt quá 250 ký tự.."*.
+
+- **Nguyên nhân (lỗi có từ trước, không liên quan 1.3.472)**: `TranslateUtils.defaultTOCRules.rule21` — tên "Quy tắc mở rộng nâng cao" — có pattern dài **254** ký tự, còn `validateTOCRulePattern` (`TranslateUtils.swift:700` trước lượt này) chặn mọi pattern **> 250**. Tức app tự ship một quy tắc mặc định **vi phạm chính bộ kiểm tra của nó**. Kiểm lịch sử: trần 250 ra đời `5d99d67` (2026-07-28), rule21 được thêm `c3f83ba` (2026-07-30) — vượt đúng **4 ký tự**, và không ai phát hiện vì thêm rule mặc định thì không chạy validator.
+- **Đường ra lỗi**: `BackupConfigArchiver.restoreTOCRules` (`:164`) → `TranslateUtils.validateImportedTOCRules` (`:744`) → `validateTOCRulePattern` từng rule → `.failure(.invalidRegex(ruleName:reason:))` → `report.errors.append("Quy tắc mục lục: …")`. Cùng lỗi đó cũng chặn đường **nhập file `toc_rules.json`** và khiến rule21 hiện **"không hợp lệ"** ở màn Quy tắc mục lục (`TOCRulesConfigView:258,276`).
+- **Chữa**: rule mặc định được **miễn** trần độ dài. So khớp theo **pattern y hệt** (`isBuiltInTOCRulePattern`), **không** theo `id` — người dùng sửa pattern của rule21 thì bản sửa là dữ liệu người dùng và phải chịu đúng trần 250 như mọi pattern khác. Ngoại lệ đặt ngay trong `validateTOCRulePattern`, là **cửa kiểm tra duy nhất** của cả ba đường, nên không phải vá riêng từng chỗ và các rule mặc định thêm sau này cũng tự được miễn.
+- **Không** rút ngắn pattern rule21 (đã cân nhắc và loại): regex đó đang chạy thật để tách mục lục, sửa nó là đổi hành vi tách chương của mọi người dùng — đổi một hằng số an toàn hơn nhiều so với sửa regex đang chạy.
+- **File mới**: `Sources/Services/Translation/Utils/TranslateUtils+TOCRuleValidation.swift` (**58** dòng) chứa `isBuiltInTOCRulePattern` + `validateTOCRulePattern`. Bắt buộc tách vì `TranslateUtils.swift` đang ở **916/917** dòng (trần ratchet, chỉ dư một dòng) — sau khi tách còn **911**, đúng chiều ratchet-down. `defaultTOCRules` đổi `private` → `internal` (cùng module) để file extension đọc được, kèm doc ghi rõ vì sao `rule21` dài 254 ký tự là **chủ ý đã chấp nhận**.
+- **Kiểm chứng**: `check_architecture.py` **5 violation nền cũ, 0 vi phạm mới**; `validate_links.py` PASS 100% sau khi accept 6 doc. **Không build tại chỗ** (Windows) — `swiftc -parse` sạch; CI xác nhận biên dịch.
+- Ảnh hưởng dòng: `TranslateUtils.swift` **916 → 911** · `TranslateUtils+TOCRuleValidation.swift` **58** (mới).
+
 ## [1.3.473] - 2026-10-07
 
 ### fix: sheet man Thong bao tu widget noi khong nhan duoc cham (thieu nhanh hitTest cho view controller duoc trinh bay)

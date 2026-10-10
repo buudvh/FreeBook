@@ -636,7 +636,8 @@ struct ReaderView: View {
             let newState = TranslationConfigStore.shared.isTranslationEnabled(bookId: bookId, packageId: targetPkgId)
             if isTranslationEnabled != newState { isTranslationEnabled = newState }
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("reopenReaderAI"))) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("reopenReaderAI"))) { notification in
+            guard (notification.userInfo?["bookId"] as? String) == bookId else { return }
             showingAIFullScreen = true
         }
     }
@@ -887,7 +888,7 @@ struct ReaderView: View {
             await initializeReaderIfNeeded()
         }
         .onAppear {
-            AIRuntimeCoordinator.shared.isReaderActive = true
+            AIRuntimeCoordinator.shared.activeReaderBookId = bookId
             isSceneActive = (scenePhase == .active)
             ttsState.scope(to: bookId)
             ReaderEnergyDiagnostics.shared.beginReaderSession()
@@ -900,7 +901,9 @@ struct ReaderView: View {
         }
         .onDisappear {
             if navigateToChangeSource || navigateToBookDetail { return }
-            if !showingAIFullScreen { AIRuntimeCoordinator.shared.isReaderActive = false }
+            if !showingAIFullScreen, AIRuntimeCoordinator.shared.activeReaderBookId == bookId {
+                AIRuntimeCoordinator.shared.activeReaderBookId = nil
+            }
             definitionSession.cancel()
             translationRefreshDebounceTask?.cancel()
             ReaderEnergyDiagnostics.shared.flush(reason: "reader_disappear")
