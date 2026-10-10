@@ -90,7 +90,7 @@ public actor GeminiWebClient {
         let ping = OpenAIChatRequest.Message(role: "user", content: "Xin chào, phản hồi lại ngắn gọn: OK")
         let (content, _) = try await sendChat(config: config, messages: [ping])
         guard let text = content?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else {
-            throw GeminiWebError.protocolChanged("Gemini không trả về nội dung")
+            throw GeminiWebError.emptyResponse(completed: true)
         }
         return text
     }
@@ -137,17 +137,20 @@ public actor GeminiWebClient {
         request: GeminiWebRequestBuilder.Request,
         onDelta: @escaping @Sendable (String) -> Void
     ) async throws {
+        let startedAt = Date()
         let raw = await GeminiWebSessionController.shared.fetchStream(request)
         var parser = GeminiWebFrameParser()
         var emitted = ""
         var latest = ""
-        var sawCandidate = false
+        var candidateFrames = 0
+        var sawCompleted = false
         var rewrites = 0
 
         func handle(_ frames: [Any]) throws {
             for part in frames {
                 guard let frame = try GeminiWebResponseParser.parseGenerateEnvelope(part) else { continue }
-                sawCandidate = true
+                candidateFrames += 1
+                sawCompleted = sawCompleted || frame.completed
                 latest = frame.text
                 if frame.text.unicodeScalars.starts(with: emitted.unicodeScalars) {
                     let suffix = frame.text.unicodeScalars.dropFirst(emitted.unicodeScalars.count)
@@ -168,14 +171,22 @@ public actor GeminiWebClient {
         }
         try handle(parser.flush())
 
-        guard sawCandidate else {
+        let elapsed = Int(Date().timeIntervalSince(startedAt) * 1000)
+        guard candidateFrames > 0 else {
+            AppLogger.shared.log("🤖 [GeminiWeb] StreamGenerate xong sau \(elapsed) ms nhưng không có frame ứng viên")
             throw GeminiWebError.protocolChanged("phản hồi StreamGenerate không có ứng viên ([4][0][1][0])")
+        }
+        // Text rỗng là LỖI, không phải hoàn tất: coordinator sẽ hiện "Lỗi phản hồi" thay vì một tin trợ lý
+        // rỗng bị màn AI ẩn đi. `completed == false` ⇒ Google cắt stream sớm ⇒ `isRetryable` cho thử lại 1 lần.
+        guard !latest.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            AppLogger.shared.log("🤖 [GeminiWeb] StreamGenerate xong sau \(elapsed) ms với text rỗng (frame=\(candidateFrames), completed=\(sawCompleted))")
+            throw GeminiWebError.emptyResponse(completed: sawCompleted)
         }
         if latest != emitted {
             // Google thay cả câu trả lời (vd. bộ lọc an toàn): nối bản cuối vào sau phần đã hiện.
             onDelta("\n\n— Gemini sửa lại câu trả lời —\n\(latest)")
-            AppLogger.shared.log("🤖 [GeminiWeb] Text bị viết lại \(rewrites) lần, đã nối bản cuối")
         }
+        AppLogger.shared.log("🤖 [GeminiWeb] StreamGenerate xong: \(elapsed) ms, frame=\(candidateFrames), completed=\(sawCompleted), len=\(latest.count), rewrites=\(rewrites)")
     }
 
     // MARK: - Model
@@ -203,7 +214,7 @@ public actor GeminiWebClient {
         let requestId = await GeminiWebSessionController.shared.nextRequestId()
         let request = try GeminiWebRequestBuilder.userStatus(session: session, requestId: requestId)
 
-        let raw = await GeminiWebSessionController.shared.fetchStream(request, timeout: 30)
+        let raw = await GeminiWebSessionController.shared.fetchStream(request, idleTimeout: 20)
         var text = ""
         for try await chunk in raw {
             text += chunk

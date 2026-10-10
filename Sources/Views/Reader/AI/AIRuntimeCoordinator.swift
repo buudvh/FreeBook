@@ -125,6 +125,13 @@ public final class AIRuntimeCoordinator: ObservableObject {
 
                 guard !Task.isCancelled else { return }
 
+                // Phản hồi rỗng là lỗi, không phải hoàn tất: tin trợ lý rỗng bị màn AI ẩn đi, người dùng
+                // sẽ không thấy gì (lỗi thật 1.3.506). Ném để rơi vào nhánh `catch` bên dưới.
+                let providerName = config.activeProfile.name
+                guard !accumulated.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                    throw AIEmptyResponseError(providerName: providerName)
+                }
+                AppLogger.shared.log("🤖 [AI] \(providerName) trả lời xong, \(accumulated.count) ký tự")
                 onComplete(accumulated)
 
                 await MainActor.run {
@@ -142,6 +149,7 @@ public final class AIRuntimeCoordinator: ObservableObject {
                 }
             } catch {
                 guard !Task.isCancelled else { return }
+                AppLogger.shared.log("🤖 [AI] \(config.activeProfile.name) lỗi: \(error.localizedDescription)")
                 onError(error.localizedDescription)
                 await MainActor.run {
                     guard let self = self else { return }

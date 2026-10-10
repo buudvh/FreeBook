@@ -59,7 +59,12 @@ extension ReaderAIFullScreenView {
 
         let config = AISettingsStore.shared.loadConfiguration()
         availableProfiles = config.profiles
-        let profileId = session.providerProfileId ?? config.activeProfileId
+        // Profile ghim trong phiên không còn tồn tại ⇒ rơi về profile đang chọn, để pill và danh sách model
+        // khớp với request thật sự được gửi (`sendUserMessage` cũng rơi về `activeProfileId` khi không tìm thấy).
+        let pinnedId = session.providerProfileId.flatMap { id in
+            config.profiles.contains(where: { $0.id == id }) ? id : nil
+        }
+        let profileId = pinnedId ?? config.activeProfileId
         selectedProfileId = profileId
 
         if let profile = availableProfiles.first(where: { $0.id == profileId }) {

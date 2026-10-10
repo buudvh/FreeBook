@@ -363,6 +363,13 @@ public struct ReaderAIFullScreenView: View {
                                     }
                                 }
                             }
+                    } else if !message.isStreaming {
+                        // Tin đã xong mà rỗng (phiên lưu trước 1.3.506): hiện rõ thay vì ẩn — ẩn là "mất tích".
+                        Text("(Không có nội dung)")
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
                     }
 
                     if let actions = message.harnessActions, !actions.isEmpty {

@@ -27,9 +27,21 @@ public enum GeminiWebError: LocalizedError, Sendable, Equatable {
     case unsupportedTask(String)
     /// JavaScript trong trang báo lỗi (fetch bị huỷ, mạng rớt…).
     case script(String)
+    /// Stream kết thúc mà không có text. `completed == false`: Google đóng kết nối sớm (thường khi model
+    /// suy nghĩ lâu) — thư viện tham chiếu gọi là "silently aborted by Google"; `true`: trả lời rỗng thật
+    /// (bộ lọc an toàn…). Trước 1.3.506 trường hợp này bị coi là "thành công rỗng" và màn AI ẩn luôn tin trợ lý.
+    case emptyResponse(completed: Bool)
+    /// Trang gemini.google.com tự điều hướng sang document mới khi `fetch` đang bay — fetch chết theo document cũ.
+    case documentChanged
 
     public var errorDescription: String? {
         switch self {
+        case .emptyResponse(let completed):
+            return completed
+                ? "Gemini hoàn tất nhưng không trả về nội dung (có thể bị bộ lọc an toàn) — thử diễn đạt lại."
+                : "Gemini đóng kết nối trước khi trả lời xong — thử lại hoặc đổi sang model Flash."
+        case .documentChanged:
+            return "Trang Gemini tự tải lại khi đang trả lời — thử lại."
         case .notSignedIn:
             return "Chưa đăng nhập Google cho Gemini Web — vào Cài đặt › AI › profile Gemini Web để đăng nhập."
         case .accountStatus(let code):
@@ -86,10 +98,13 @@ public enum GeminiWebError: LocalizedError, Sendable, Equatable {
         }
     }
 
-    /// Lỗi tạm 1013: thử lại một lần sau khi nghỉ.
+    /// Thử lại một lần sau khi nghỉ: lỗi tạm 1013, Google cắt stream sớm, trang tự điều hướng.
     public var isRetryable: Bool {
-        if case .temporary = self { return true }
-        return false
+        switch self {
+        case .temporary, .documentChanged: return true
+        case .emptyResponse(let completed): return !completed
+        default: return false
+        }
     }
 
     /// Token `SNlM0e` cũ thường bị trả HTTP 400; đăng nhập hết hạn trả 401/403. Cả hai đáng nạp lại
