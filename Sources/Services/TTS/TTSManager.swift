@@ -837,8 +837,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             if tool == "system" {
                 // AVSpeechSynthesizer
             } else if TTSManager.isLocalEngine(tool) {
-                // Tốc độ là playback-only (audio local tổng hợp x1.0) → chỉ updateRate, không đụng prefetch.
-                nghiAudioPlayerQueue.updateRate(speed)
+                // Tốc độ phát là playback-only (VieNeu đã chia hệ số bù chống đọc lặp) → chỉ updateRate, không đụng prefetch.
+                nghiAudioPlayerQueue.updateRate(localPlaybackRate)
             } else if let player = audioPlayer {
                 player.rate = Float(speed)
             }
@@ -2927,7 +2927,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 paragraphIndex: currentParagraphIndex,
                 playbackId: playbackId
             )
-            try nghiAudioPlayerQueue.start(data: audioData, item: item, rate: speed)
+            try nghiAudioPlayerQueue.start(data: audioData, item: item, rate: localPlaybackRate)
             currentPlaybackId = playbackId
             isPlaying = true
             invalidateAudibleHandoffGeneration()

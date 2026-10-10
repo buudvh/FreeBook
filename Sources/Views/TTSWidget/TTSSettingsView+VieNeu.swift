@@ -119,6 +119,7 @@ extension TTSSettingsView {
             Text("1.00x = như cũ. Tăng để model tự nói nhanh: ít tính toán hơn, máy mát hơn, không đổi cao độ. Chỉ dùng cho VieNeu-TTS.")
                 .font(.caption2)
                 .foregroundColor(.secondary)
+            VieNeuAntiRepeatToggle()
         }
         .onChange(of: vieNeuSynthesisSpeed) { _, newValue in
             UserDefaults.standard.set(newValue, forKey: VieNeuSynthesisPolicy.synthesisSpeedKey)

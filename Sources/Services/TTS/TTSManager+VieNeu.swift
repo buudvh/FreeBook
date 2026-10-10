@@ -153,10 +153,21 @@ extension TTSManager {
         VieNeuSynthesisPolicy.synthesisSpeed(from: .standard)
     }
 
-    /// Tốc độ truyền vào engine cho một lượt tổng hợp local: VieNeu dùng **tốc độ tổng hợp**, các
-    /// engine local khác giữ 1,0 như cũ.
+    /// Tốc độ truyền vào engine cho một lượt tổng hợp local: VieNeu dùng **tốc độ model** (tốc độ tổng hợp,
+    /// nâng lên sàn chống đọc lặp khi bật — `VieNeuSynthesisPolicy.modelSpeed`), các engine local khác giữ 1,0.
+    /// Mọi đường tổng hợp VieNeu (đoạn hiện tại, refill, prefix/prefetch chương kế) đều đi qua hàm này nên dùng
+    /// chung một tốc độ model. **Không** có cache nào tự vô hiệu theo giá trị này (khoá prefix chương kế không chứa
+    /// nó) ⇒ đổi công tắc / tốc độ tổng hợp phải đi qua `invalidateVieNeuSynthesisSpeed()`.
     nonisolated static func localSynthesisSpeed(forTool tool: String) -> Double {
-        tool == "vieneu" ? vieNeuSynthesisSpeed : 1.0
+        tool == "vieneu" ? VieNeuSynthesisPolicy.modelSpeed(from: .standard) : 1.0
+    }
+
+    /// Tốc độ **phát** thật của player local. VieNeu chia thêm hệ số bù chống đọc lặp (model đã nói nhanh hơn
+    /// bao nhiêu thì phát chậm lại bấy nhiêu) ⇒ tốc độ **nghe** vẫn = tốc độ tổng hợp người dùng chọn × `speed`.
+    /// Engine local khác: đúng `speed` như cũ. Phần tính thời lượng đệm đọc `effectivePlaybackRate` của hàng
+    /// đợi nên tự đúng theo.
+    internal var localPlaybackRate: Double {
+        tool == "vieneu" ? speed / VieNeuSynthesisPolicy.playbackCompensation(from: .standard) : speed
     }
 
     /// Đổi "Tốc độ tổng hợp" **giữa lúc đang đọc**: phát nốt đoạn hiện tại, nạp lại phần còn lại.
@@ -167,19 +178,27 @@ extension TTSManager {
     ///    đang phát.
     /// 3. `clearPreparedNext()` — đoạn N+1 đã `prepareToPlay()` vẫn phát ở tốc độ cũ nếu không bỏ.
     ///
-    /// **Không** đụng `nghiAudioPlayerQueue` của đoạn đang phát ⇒ không khựng (đúng quyết định đã chốt:
-    /// "đợi hết đoạn đang phát, áp từ đoạn kế").
+    /// **Không** đụng player của đoạn đang phát ⇒ không khựng (đúng quyết định đã chốt: "đợi hết đoạn đang
+    /// phát, áp từ đoạn kế"). Cũng là đường áp công tắc **Chống đọc lặp** (1.3.501): tốc độ model và hệ số bù
+    /// tốc độ phát đổi cùng lúc, nên tốc độ phát mới chỉ áp cho các player dựng sau (`setRateForUpcoming`).
+    /// Hai chỗ audio cũ còn lọt (1.3.501, review): (a) prefix chương kế đã tổng hợp — khoá của nó không có tốc độ
+    /// model ⇒ phải `resetNextChapterPrefixCache()`; (b) đoạn hiện tại **chưa vào player** (đang hụt tiếng chờ tổng
+    /// hợp) — audio/lượt đang bay của nó mang tốc độ cũ mà sẽ phát với hệ số bù mới ⇒ bỏ và tổng hợp lại.
     internal func invalidateVieNeuSynthesisSpeed() {
         guard tool == "vieneu" else { return }
-        AppLogger.shared.log("[TTSRoute] doi toc do tong hop = \(Self.vieNeuSynthesisSpeed)x (giu doan \(currentParagraphIndex), nap lai tu doan \(currentParagraphIndex + 1))")
+        let currentInPlayer = nghiAudioPlayerQueue.currentItem?.paragraphIndex == currentParagraphIndex
+        AppLogger.shared.log("[TTSRoute] doi toc do tong hop = \(Self.vieNeuSynthesisSpeed)x model=\(Self.localSynthesisSpeed(forTool: tool))x phat=\(String(format: "%.2f", localPlaybackRate))x (doan \(currentParagraphIndex) \(currentInPlayer ? "giu" : "tong hop lai"))")
         cancelNghiRefill()
-        let keepUpTo = currentParagraphIndex
+        if !currentInPlayer { cancelNghiPlaybackTask() }
+        let keepUpTo = currentInPlayer ? currentParagraphIndex : currentParagraphIndex - 1
         preloadedData = preloadedData.filter { $0.key <= keepUpTo }
         preloadedDurations = preloadedDurations.filter { $0.key <= keepUpTo }
         nghiAudioPlayerQueue.clearPreparedNext()
+        nghiAudioPlayerQueue.setRateForUpcoming(localPlaybackRate)
         nextChapterPrefetcher.cancel()
+        resetNextChapterPrefixCache()
         guard isPlaying else { return }
-        updateNghiPrefetchWindow()
+        if currentInPlayer { updateNghiPrefetchWindow() } else { speakCurrent() }
     }
 
     /// Đặt lại tham số "Tải trước dữ liệu" cho **engine đang chọn**.

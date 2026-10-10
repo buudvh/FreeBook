@@ -24,6 +24,8 @@ extension VieNeuTTSTestView {
         lines.append("tốc độ phát: \(String(format: "%.2f", speed))×")
         lines.append("tốc độ tổng hợp: \(String(format: "%.2f", synthSpeed))×")
         lines.append("tốc độ nghe: \(String(format: "%.2f", speed * synthSpeed))×")
+        // 1.3.501: chống đọc lặp nâng tốc độ **model** lên sàn rồi chia lại vào tốc độ phát thật.
+        lines.append("tốc độ model: \(String(format: "%.2f", VieNeuSynthesisPolicy.modelSpeed(from: .standard)))× (phát thật \(String(format: "%.2f", speed / VieNeuSynthesisPolicy.playbackCompensation(from: .standard)))×)")
         lines.append("chữ: \(text.count) ký tự")
         // Khác 0 nghĩa là có phoneme không nằm trong vocab của model — dấu hiệu text không đọc được,
         // và cũng là dấu hiệu bộ G2P trả về ký tự lạ. Đây là chỉ số đã thiếu ở lượt "audio không phải

@@ -232,13 +232,13 @@ struct VieNeuTTSTestView: View {
                 var otherMs = 0.0
 
                 for paragraph in paragraphs {
-                    // Tổng hợp ở **tốc độ tổng hợp** đã cài đặt (1.3.465), không còn cố định 1.0×: đây là
-                    // cách màn thử nghe đúng thứ sẽ áp dụng khi đọc truyện. Mặc định 1,0× = hành vi cũ.
-                    // Phần còn lại của tốc độ người dùng chọn vẫn áp ở tầng **phát** (`AVAudioPlayer.rate`).
+                    // Tổng hợp ở **tốc độ model** như Reader (tốc độ tổng hợp, nâng lên sàn chống đọc lặp khi
+                    // bật — 1.3.501): màn thử phải nghe đúng thứ sẽ áp dụng khi đọc truyện. Phần bù được chia
+                    // vào tầng **phát** (`play`), nên tốc độ nghe vẫn = tốc độ tổng hợp × tốc độ phát.
                     let result = try await service.synthesizeWithDuration(
                         text: paragraph.text,
                         voice: voice,
-                        speed: VieNeuSynthesisPolicy.synthesisSpeed(from: .standard),
+                        speed: VieNeuSynthesisPolicy.modelSpeed(from: .standard),
                         boundaryKind: paragraph.boundaryKind,
                         priority: .demand
                     )
@@ -348,7 +348,7 @@ struct VieNeuTTSTestView: View {
             player = newPlayer
             // `enableRate` phải bật **trước** khi đặt `rate`, nếu không iOS bỏ qua giá trị.
             newPlayer.enableRate = true
-            newPlayer.rate = Float(speed)
+            newPlayer.rate = Float(speed / VieNeuSynthesisPolicy.playbackCompensation(from: .standard)) // bù chống đọc lặp
             newPlayer.prepareToPlay()
             newPlayer.play()
         } catch {
