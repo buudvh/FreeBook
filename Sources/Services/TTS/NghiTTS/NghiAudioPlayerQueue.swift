@@ -146,13 +146,6 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
         return true
     }
 
-    /// Đổi tốc độ cho các player **dựng sau** (đoạn kế trở đi), **giữ nguyên** đoạn đang phát. Dùng khi audio sắp
-    /// tới được tổng hợp ở tốc độ model khác (VieNeu: tốc độ tổng hợp / chống đọc lặp) — đoạn đang phát vẫn là
-    /// audio cũ nên phải giữ tốc độ cũ. Caller phải bỏ player đã chuẩn bị (`clearPreparedNext`) **trước** khi gọi.
-    func setRateForUpcoming(_ rate: Double) {
-        playbackRate = clampedRate(rate)
-    }
-
     func updateRate(_ rate: Double) {
         let newRate = clampedRate(rate)
         // Kéo slider tốc độ bắn rất nhiều event, phần lớn là cùng một giá trị sau khi clamp. Không có

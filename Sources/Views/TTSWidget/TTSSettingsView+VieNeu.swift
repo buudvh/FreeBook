@@ -119,7 +119,9 @@ extension TTSSettingsView {
             Text("1.00x = như cũ. Tăng để model tự nói nhanh: ít tính toán hơn, máy mát hơn, không đổi cao độ. Chỉ dùng cho VieNeu-TTS.")
                 .font(.caption2)
                 .foregroundColor(.secondary)
-            VieNeuAntiRepeatToggle()
+            Text("Mẹo: 1.15x là mức ít bị đọc lặp chữ nhất (ở 1.00x thỉnh thoảng lặp kiểu \"đến đó, đó là\"); quá 1.25x bắt đầu mất chữ. Khi tăng tốc độ tổng hợp, hạ tốc độ phát tương ứng để giữ tốc độ nghe thực tế.")
+                .font(.caption2)
+                .foregroundColor(.secondary)
         }
         .onChange(of: vieNeuSynthesisSpeed) { _, newValue in
             // Bước 0,05 cộng dồn số thực ra kiểu 1.1500000000000001 ⇒ làm tròn 2 chữ số khi lưu (1.3.502).

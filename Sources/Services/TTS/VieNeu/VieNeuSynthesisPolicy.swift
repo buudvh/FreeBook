@@ -143,43 +143,16 @@ enum VieNeuSynthesisPolicy {
     /// Tổng hợp ở 1,8× rồi phát ở 1,0× cho cùng một tốc độ nghe như tổng hợp 1,0× rồi phát 1,8×, nhưng
     /// tốn **ít hơn ~45 %** tính toán. Đây là cách duy nhất giảm nhiệt mà **không** làm chậm tổng hợp
     /// (hạ số luồng / hạ QoS đều là làm chậm ⇒ sinh đứt đoạn).
+    ///
+    /// ## Đọc lặp chữ (đo 2026-10-10, 1.3.503)
+    /// Model thỉnh thoảng đọc **lặp một âm tiết** ("đến đó, đó là") khi được cấp **dư** thời gian. Đo trên PC
+    /// (mô phỏng đúng app, 200 mẫu/mức, Whisper đếm từ lặp): 1,00 ≈ 7 | 1,10 = 1 | **1,15 = 1** | 1,25 = 0; độ
+    /// rõ như nhau tới 1,25, từ 1,40 mất chữ. Người dùng **tự chỉnh** theo ghi chú dưới thanh (không có cơ chế
+    /// tự nâng — công tắc "Chống đọc lặp" của 1.3.501 đã bỏ theo yêu cầu người dùng).
     static func synthesisSpeed(from defaults: UserDefaults) -> Double {
         let raw = defaults.double(forKey: synthesisSpeedKey)
         guard raw > 0 else { return 1.0 }
         return max(synthesisSpeedRange.lowerBound, min(synthesisSpeedRange.upperBound, raw))
-    }
-
-    // MARK: - Chống đọc lặp (1.3.501)
-
-    /// Khoá `UserDefaults` của công tắc **Chống đọc lặp** — mặc định **bật** (khoá chưa có = bật).
-    static let antiRepeatKey = "vieneuAntiRepeat"
-
-    /// Sàn tốc độ đưa vào model khi bật chống đọc lặp.
-    ///
-    /// ## Vì sao
-    /// Model thỉnh thoảng đọc **lặp một âm tiết** ("đến đó, đó là", "làm được được") khi được cấp **dư** thời
-    /// gian so với số chữ. Đo trên PC (mô phỏng đúng app, 25 câu × 8 seed = 200 mẫu/mức, Whisper đếm từ lặp,
-    /// 2026-10-10): lặp thật ở 1,00 ≈ 7 | 1,10 = 1 | **1,15 = 1** | 1,25 = 0; độ rõ (WER) như nhau tới 1,25,
-    /// từ 1,40 thì mất chữ. Sway/cfg/nhiễu/nới thời lượng **không** đỡ; 16 bước chỉ giảm nửa mà gấp đôi CPU.
-    /// ⇒ ép model nói nhanh ≥ 1,15 rồi phát chậm lại đúng tỉ lệ (`playbackCompensation`) để tốc độ **nghe**
-    /// không đổi; kèm lợi phụ ~13 % CPU (ít frame hơn).
-    static let antiRepeatModelSpeedFloor: Double = 1.15
-
-    /// **Hàm thuần**. Khoá chưa có ⇒ bật.
-    static func isAntiRepeatEnabled(_ defaults: UserDefaults) -> Bool {
-        defaults.object(forKey: antiRepeatKey) == nil ? true : defaults.bool(forKey: antiRepeatKey)
-    }
-
-    /// Tốc độ **thật** đưa vào model: tốc độ tổng hợp người dùng chọn, nâng lên sàn khi bật chống đọc lặp.
-    static func modelSpeed(from defaults: UserDefaults) -> Double {
-        let chosen = synthesisSpeed(from: defaults)
-        return isAntiRepeatEnabled(defaults) ? max(chosen, antiRepeatModelSpeedFloor) : chosen
-    }
-
-    /// Hệ số phải **chia** vào tốc độ phát để bù phần model đã nói nhanh thêm (≥ 1; = 1 khi tắt hoặc khi người
-    /// dùng đã chọn tốc độ tổng hợp ≥ sàn). Tốc độ nghe = tốc độ tổng hợp người dùng chọn × tốc độ phát, như cũ.
-    static func playbackCompensation(from defaults: UserDefaults) -> Double {
-        modelSpeed(from: defaults) / synthesisSpeed(from: defaults)
     }
 
     // MARK: - Luật đổi chế độ
