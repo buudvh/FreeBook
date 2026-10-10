@@ -53,7 +53,7 @@ public struct GeminiWebAccountRow: View {
                 }
             }
 
-            Text("Giao thức web không chính thức: Google đổi là có thể hỏng; tài khoản miễn phí có hạn mức. Chỉ dùng cho chat trong Reader — quét tên riêng hàng loạt cần profile API.")
+            Text("Giao thức web không chính thức: Google đổi là có thể hỏng. Model Pro có trần prompt theo ngày (miễn phí ~5, gói Pro ~100), Flash gần như thoải mái — quét tên riêng nhiều chương nên chọn Flash.")
                 .font(.system(size: 10))
                 .foregroundColor(.secondary)
         }

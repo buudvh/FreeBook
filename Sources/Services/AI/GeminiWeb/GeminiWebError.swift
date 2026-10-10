@@ -23,8 +23,6 @@ public enum GeminiWebError: LocalizedError, Sendable, Equatable {
     case timeout
     /// WKWebView ẩn không tạo được hoặc đã bị giải phóng giữa chừng.
     case sessionUnavailable
-    /// Tác vụ không hỗ trợ trên Gemini Web (quét tên riêng hàng loạt).
-    case unsupportedTask(String)
     /// JavaScript trong trang báo lỗi (fetch bị huỷ, mạng rớt…).
     case script(String)
     /// Stream kết thúc mà không có text. `completed == false`: Google đóng kết nối sớm (thường khi model
@@ -71,8 +69,6 @@ public enum GeminiWebError: LocalizedError, Sendable, Equatable {
             return "Gemini Web không phản hồi kịp thời gian chờ."
         case .sessionUnavailable:
             return "Phiên Gemini Web chưa sẵn sàng — thử lại."
-        case .unsupportedTask(let task):
-            return "Gemini Web không hỗ trợ \(task) — hãy chọn một profile API (Gemini API, OpenAI, Claude…)."
         case .script(let detail):
             return "Lỗi khi gọi Gemini Web trong trang: \(detail)"
         }

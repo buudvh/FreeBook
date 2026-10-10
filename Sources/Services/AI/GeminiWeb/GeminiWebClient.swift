@@ -4,8 +4,8 @@ import Foundation
 /// `apiFormat` gọi được y hệt. Phần WebKit nằm ở `GeminiWebSessionController` (MainActor); actor
 /// này chỉ dựng request, bóc frame và đổi text tích luỹ thành delta.
 ///
-/// Phạm vi cố ý: **chỉ chat**. `AIContextCompactor` bỏ qua và `AINameExtractionBatchProcessor` từ
-/// chối profile Gemini Web — gọi dồn dập là tài khoản bị 1037 (hết hạn mức) hoặc 1060 (chặn IP).
+/// Phạm vi: chat và quét tên riêng (1.3.508 — batch nghỉ 2 s giữa các nhóm và dừng ngay khi 1037/1060/mất
+/// đăng nhập). `AIContextCompactor` vẫn bỏ qua để tiết kiệm hạn mức ngày của model Pro.
 ///
 /// Retry thuộc về đúng tầng này: một lần khi 1013 (lỗi tạm) hoặc khi token cũ (HTTP 400/401/403 ⇒
 /// nạp lại trang). `AIRuntimeCoordinator` không bọc thêm vòng retry.

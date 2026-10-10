@@ -15,9 +15,6 @@ public final class AINameExtractionBatchProcessor: Sendable {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return []
         }
-        if config.activeProfile.isGeminiWeb {
-            throw GeminiWebError.unsupportedTask("quét tên riêng")
-        }
 
         let systemInstruction = resolveSystemInstruction(config: config, promptOverride: promptOverride)
 
@@ -29,7 +26,10 @@ public final class AINameExtractionBatchProcessor: Sendable {
         ]
 
         let content: String?
-        if config.activeProfile.apiFormat == "anthropic" {
+        if config.activeProfile.isGeminiWeb {
+            let (res, _) = try await GeminiWebClient.shared.sendChat(config: config, messages: messages)
+            content = res
+        } else if config.activeProfile.apiFormat == "anthropic" {
             let (res, _) = try await AnthropicClient.shared.sendChat(config: config, messages: messages)
             content = res
         } else {
@@ -39,6 +39,14 @@ public final class AINameExtractionBatchProcessor: Sendable {
         guard let content = content else { return [] }
 
         return parseNamesFromText(content)
+    }
+
+    /// Lỗi Gemini Web khiến gọi tiếp vô ích (và có hại cho tài khoản): dừng cả lượt quét thay vì nuốt như lỗi lẻ.
+    private static func shouldStopBatch(on error: GeminiWebError) -> Bool {
+        switch error {
+        case .usageLimit, .ipBlocked, .notSignedIn, .accountStatus: return true
+        default: return false
+        }
     }
 
     /// Prompt hệ thống: ưu tiên prompt tự nhập cho lần quét này, rồi tới prompt đã lưu, cuối cùng là mặc định.
@@ -61,11 +69,6 @@ public final class AINameExtractionBatchProcessor: Sendable {
         limit: Int? = nil,
         onProgress: @escaping @Sendable (Int, Int, [AIExtractedName]) -> Void
     ) async throws -> [AIExtractedName] {
-        // Ném trước vòng lặp: bên trong, lỗi từng batch bị `try?` nuốt nên quét bằng Gemini Web sẽ
-        // "thành công" với 0 tên mà không ai biết vì sao.
-        if config.activeProfile.isGeminiWeb {
-            throw GeminiWebError.unsupportedTask("quét tên riêng hàng loạt")
-        }
         let downloaded = await AIBookDataInspector.shared.fetchDownloadedChapters(
             bookId: bookId,
             fromChapterIndex: fromChapterIndex,
@@ -95,11 +98,12 @@ public final class AINameExtractionBatchProcessor: Sendable {
             }
 
             if !combinedText.isEmpty {
-                if let batchResults = try? await extractNamesFromText(
-                    text: combinedText,
-                    config: config,
-                    promptOverride: promptOverride
-                ) {
+                do {
+                    let batchResults = try await extractNamesFromText(
+                        text: combinedText,
+                        config: config,
+                        promptOverride: promptOverride
+                    )
                     for item in batchResults {
                         let orig = item.original.trimmingCharacters(in: .whitespacesAndNewlines)
                         guard !orig.isEmpty else { continue }
@@ -110,11 +114,26 @@ public final class AINameExtractionBatchProcessor: Sendable {
                             aggregatedNames[orig] = item
                         }
                     }
+                } catch let error as GeminiWebError where Self.shouldStopBatch(on: error) {
+                    // Hết hạn mức / chặn IP / mất đăng nhập: gọi tiếp chỉ làm tài khoản bị chặn nặng hơn.
+                    // Dừng và báo rõ; phần đã quét vẫn nằm trong `batchExtractedNames` của coordinator.
+                    AppLogger.shared.log("🤖 [GeminiWeb] Dừng quét tên riêng ở nhóm \(index + 1)/\(batches.count): \(error.localizedDescription)")
+                    throw NSError(domain: "AINameExtraction", code: 429, userInfo: [
+                        NSLocalizedDescriptionKey: "Dừng quét sau \(index)/\(batches.count) nhóm — \(error.localizedDescription) Các tên đã quét được vẫn hiện bên dưới."
+                    ])
+                } catch {
+                    // Lỗi lẻ của một nhóm (mạng, model trả sai định dạng…): bỏ qua nhóm đó và quét tiếp — hành vi cũ, nay có log.
+                    AppLogger.shared.log("🤖 [AI] Quét tên riêng nhóm \(index + 1)/\(batches.count) lỗi, bỏ qua: \(error.localizedDescription)")
                 }
             }
 
             let currentList = Array(aggregatedNames.values).sorted(by: { $0.occurrenceCount > $1.occurrenceCount })
             onProgress(index + 1, batches.count, currentList)
+
+            // Gemini Web: nghỉ giữa các nhóm để không bị coi là tự động hoá dồn dập (1037 hết hạn mức, 1060 chặn IP).
+            if config.activeProfile.isGeminiWeb, index < batches.count - 1 {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+            }
         }
 
         return Array(aggregatedNames.values).sorted(by: { $0.occurrenceCount > $1.occurrenceCount })
