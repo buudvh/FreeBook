@@ -95,7 +95,7 @@ extension TTSSettingsView {
     var vieneuSynthesisSpeedRow: some View {
         let effective = vieNeuSynthesisSpeed * ttsManager.speed
         VStack(alignment: .leading, spacing: 6) {
-            Stepper(value: $vieNeuSynthesisSpeed, in: VieNeuSynthesisPolicy.synthesisSpeedRange, step: 0.1) {
+            Stepper(value: $vieNeuSynthesisSpeed, in: VieNeuSynthesisPolicy.synthesisSpeedRange, step: 0.05) {
                 HStack {
                     Text("Tốc độ tổng hợp (VieNeu):")
                     Spacer()
@@ -103,7 +103,7 @@ extension TTSSettingsView {
                         .font(.system(.body, design: .monospaced))
                 }
             }
-            Slider(value: $vieNeuSynthesisSpeed, in: VieNeuSynthesisPolicy.synthesisSpeedRange, step: 0.1)
+            Slider(value: $vieNeuSynthesisSpeed, in: VieNeuSynthesisPolicy.synthesisSpeedRange, step: 0.05)
                 // `.tint` tường minh vì `TTSSettingsView` đặt `.tint(.white)` toàn cục.
                 .tint(.white)
             HStack(spacing: 4) {
@@ -122,7 +122,8 @@ extension TTSSettingsView {
             VieNeuAntiRepeatToggle()
         }
         .onChange(of: vieNeuSynthesisSpeed) { _, newValue in
-            UserDefaults.standard.set(newValue, forKey: VieNeuSynthesisPolicy.synthesisSpeedKey)
+            // Bước 0,05 cộng dồn số thực ra kiểu 1.1500000000000001 ⇒ làm tròn 2 chữ số khi lưu (1.3.502).
+            UserDefaults.standard.set((newValue * 100).rounded() / 100, forKey: VieNeuSynthesisPolicy.synthesisSpeedKey)
             // Phần đệm đã tổng hợp ở tốc độ cũ phải bị bỏ: đoạn đang phát được giữ nguyên, các đoạn sau
             // nạp lại. Không gọi là nghe sai tốc độ mà không có lỗi gì.
             ttsManager.invalidateVieNeuSynthesisSpeed()
