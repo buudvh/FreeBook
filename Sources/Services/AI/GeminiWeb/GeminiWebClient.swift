@@ -37,6 +37,11 @@ public actor GeminiWebClient {
     }
 
     /// Sau khi đăng nhập xong ở `GeminiWebLoginView`: ép lượt kế tiếp nạp lại trang để lấy token mới.
+    /// Gọi khi sheet đăng nhập mở: giải phóng WKWebView ẩn nếu rảnh (1.3.511).
+    public func prepareForLogin() async {
+        await GeminiWebSessionController.shared.releaseWebViewIfIdle()
+    }
+
     public func refreshAfterLogin() async {
         await GeminiWebSessionController.shared.invalidateSession()
         models = []

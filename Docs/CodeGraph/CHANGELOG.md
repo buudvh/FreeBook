@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.511] - 2026-10-11
+
+### fix(ai): dang nhap Gemini Web - khong tu tai lai khi iOS giai phong trang, log chan doan, giam RAM
+
+Người dùng: *"có lỗi khi đăng nhập gemini web, khi web yêu cầu bấm số xác thực tôi chuyển qua gmail xác thực thì màn hình xác thực của app bị trở về màn hình đăng nhập ban đầu"*. Plan duyệt: `Docs/Plans/2026-10-11-plan-vieneu-search-geminilogin.md` mục 3.
+
+- **Giả thuyết chính (cơ chế có bằng chứng, nhân quả cần log xác nhận)**: khi app ở nền, iOS có thể kết thúc tiến trình WebContent của trang đăng nhập. `GeminiWebLoginWebPane.Coordinator` **không** implement `webViewWebContentProcessDidTerminate` ⇒ WebKit tự tải lại trang khi view hiện lại (mã nguồn WebKit: `NavigationState.mm`, `WebPageProxy::tryReloadAfterProcessTermination`), và trang xác minh của Google mất trạng thái nên quay về bước nhập email. Đã loại trừ theo code: SwiftUI dựng lại pane (sẽ làm sheet đóng hẳn), cửa sổ ẩn của Gemini, xử lý `scenePhase` của app.
+- **Không tự tải lại**: implement `webViewWebContentProcessDidTerminate` — ghi log, báo lên `GeminiWebLoginView` để footer hiện "iOS đã giải phóng trang đăng nhập khi app ở nền. Bấm Tải lại để tiếp tục." kèm nút **Tải lại** (`reloadToken` → `updateUIView` gọi `reload()`). Không gọi `reload()` ngay trong callback vì phá lớp chống vòng lặp crash 1 lần/30 s của WebKit.
+- **Giảm RAM khi đăng nhập**: sheet mở ⇒ `GeminiWebClient.prepareForLogin()` → `GeminiWebSessionController.releaseWebViewIfIdle()` (file `+Account.swift`; `isIdle` = không fetch đang bay, không nạp trang dở) bỏ WKWebView ẩn — một tiến trình WebContent ít hơn; sau đăng nhập phiên vốn được nạp lại.
+- **Mẹo trong footer**: "ở bước bấm số, chọn "Thử cách khác" → mã SMS. iOS gợi ý mã ngay trên bàn phím, không cần rời app."
+- **Log chẩn đoán** `🤖 [GeminiWebLogin]`: tạo WKWebView kèm mã instance (hai dòng trong một lần mở sheet ⇒ pane bị dựng lại), mỗi điều hướng / commit / lỗi (chỉ host + path, không query vì chứa token), iOS kết thúc tiến trình, người dùng bấm Tải lại, `scenePhase` khi sheet đang mở.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới (`GeminiWebSessionController.swift` 393/400). **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`. Cần log từ máy thật (bật Logging trước) để xác nhận nguyên nhân.
+
 ## [1.3.510] - 2026-10-11
 
 ### fix(reader): tim chuong theo ten dang hien thi, khong phan biet hoa thuong va dau
@@ -364,17 +377,3 @@ Người dùng: *"làm cho xong đợt 8, sau đó làm Vieneu TTS tối ưu hó
 - Tên type giữ nguyên, phạm vi module ⇒ **12 file tiêu thụ** (`ChapterContentRepository`, `BackupChapterRestorer`, `ExportContentProvider`, `BookDetailView(+Extensions)`, `ReaderChapterListView+Refresh`, `ReaderViewModel`, `ShelfView+BookImport`, `TTSManager`, `ChapterStore*`…) **không phải sửa**. `PersistedChapterSnapshot` là kiểu trả về của `readChapter` — không phải dead code.
 - `ChapterPersistenceStore.swift` **915 → 784** dòng (baseline 884) ⇒ hết vi phạm; file còn actor + `ReconciliationPool` (`fileprivate`, sẽ tách ở đợt 18).
 - **Kiểm chứng**: script so **từng byte** với `HEAD` — phần tách ra ghép lại bằng đúng dòng 4–133, phần còn lại bằng đúng phần còn lại; `check_architecture.py` **4 → 3 violation**, 0 mới. Review đối kháng 2 lượt: 0 lỗi. **Không build tại chỗ** (Windows) — CI xác nhận.
-
-## [1.3.481] - 2026-10-09
-
-### refactor: tach 7 chuoi JS bootstrap va cleanAndResolveUrl khoi JSExecutor (dot 1 tach god object)
-
-Người dùng: *"refactor toàn dự án luôn"* → chọn **tách hẳn các god object**, làm thẳng **từng đợt một**. Kế hoạch 95 đợt (khảo sát chỉ đọc: 13 đối tượng × bản đồ + phản biện + tổng hợp) ở `Docs/Plans/2026-10-09-plan-refactor-god-objects.md`. Đây là **đợt 1** — thuần di chuyển, không đổi hành vi.
-
-- **7 chuỗi JS bootstrap** (trước là `let xxxBootstrap = """…"""` cục bộ trong `JSExecutor`) chuyển sang `static let` của 6 enum, mỗi file một enum:
-  - `Engine/Bootstrap/JSCoreBootstrapScripts.swift` — `response`, `userAgent`
-  - `Engine/Bootstrap/JSScriptHttpBootstrapScript.swift`, `JSFetchBootstrapScript.swift`, `JSEngineBootstrapScript.swift` — `source`
-  - `Engine/Bridges/JSQtTranslateBridge.swift`, `JSExtensionStorageBridge.swift` — `bootstrap` (hiện chỉ giữ polyfill; block `_native*` vẫn cài trong `JSExecutor`)
-- **Giống từng byte**: chuyển bằng script, so giá trị literal sau khi mô phỏng cách Swift bỏ lề `"""` — cả 7 khớp với `HEAD`; hai lượt review độc lập tự tính lại SHA-1 cũng khớp. Literal không có interpolation, không có escape. Mỗi `let xxxBootstrap = Enum.prop` + `context.evaluateScript(...)` **giữ nguyên vị trí và thứ tự** (Engine vẫn nạp cuối).
-- **`cleanAndResolveUrl`**: thân hàm chuyển nguyên văn sang `ExtensionURLFormatter.cleanAndResolve` (`Engine/ExtensionURLFormatter.swift`); `JSExecutor.cleanAndResolveUrl` còn là forwarder `public static` một dòng ⇒ 14 caller không phải sửa.
-- **Kiểm chứng**: `check_architecture.py` **5 → 4 violation** — `JSExecutor.swift` **1561 → 976** (baseline 1066) hết vi phạm; 0 mới. Review đối kháng 2 lượt (biên dịch + hành vi/luật): 0 lỗi. **Không build tại chỗ** (Windows) — CI xác nhận; `project.yml` glob `Sources` gom cả thư mục con mới. File mới: 34–184 dòng, 1 type, chỉ `import Foundation`.

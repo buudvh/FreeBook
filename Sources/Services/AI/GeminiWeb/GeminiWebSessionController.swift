@@ -54,6 +54,8 @@ final class GeminiWebSessionController: NSObject {
     private var requestCounter = Int.random(in: 10_000...99_999)
     private var idleReleaseTask: Task<Void, Never>?
     private var prepareTask: Task<GeminiWebInitSession, Error>?
+    /// Không có fetch đang bay và không nạp trang dở — giải phóng WebView lúc này không làm hỏng lượt nào.
+    var isIdle: Bool { streams.isEmpty && prepareTask == nil }
 
     private override init() {
         super.init()

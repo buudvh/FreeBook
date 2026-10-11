@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.481] - 2026-10-09
+
+### refactor: tach 7 chuoi JS bootstrap va cleanAndResolveUrl khoi JSExecutor (dot 1 tach god object)
+
+Người dùng: *"refactor toàn dự án luôn"* → chọn **tách hẳn các god object**, làm thẳng **từng đợt một**. Kế hoạch 95 đợt (khảo sát chỉ đọc: 13 đối tượng × bản đồ + phản biện + tổng hợp) ở `Docs/Plans/2026-10-09-plan-refactor-god-objects.md`. Đây là **đợt 1** — thuần di chuyển, không đổi hành vi.
+
+- **7 chuỗi JS bootstrap** (trước là `let xxxBootstrap = """…"""` cục bộ trong `JSExecutor`) chuyển sang `static let` của 6 enum, mỗi file một enum:
+  - `Engine/Bootstrap/JSCoreBootstrapScripts.swift` — `response`, `userAgent`
+  - `Engine/Bootstrap/JSScriptHttpBootstrapScript.swift`, `JSFetchBootstrapScript.swift`, `JSEngineBootstrapScript.swift` — `source`
+  - `Engine/Bridges/JSQtTranslateBridge.swift`, `JSExtensionStorageBridge.swift` — `bootstrap` (hiện chỉ giữ polyfill; block `_native*` vẫn cài trong `JSExecutor`)
+- **Giống từng byte**: chuyển bằng script, so giá trị literal sau khi mô phỏng cách Swift bỏ lề `"""` — cả 7 khớp với `HEAD`; hai lượt review độc lập tự tính lại SHA-1 cũng khớp. Literal không có interpolation, không có escape. Mỗi `let xxxBootstrap = Enum.prop` + `context.evaluateScript(...)` **giữ nguyên vị trí và thứ tự** (Engine vẫn nạp cuối).
+- **`cleanAndResolveUrl`**: thân hàm chuyển nguyên văn sang `ExtensionURLFormatter.cleanAndResolve` (`Engine/ExtensionURLFormatter.swift`); `JSExecutor.cleanAndResolveUrl` còn là forwarder `public static` một dòng ⇒ 14 caller không phải sửa.
+- **Kiểm chứng**: `check_architecture.py` **5 → 4 violation** — `JSExecutor.swift` **1561 → 976** (baseline 1066) hết vi phạm; 0 mới. Review đối kháng 2 lượt (biên dịch + hành vi/luật): 0 lỗi. **Không build tại chỗ** (Windows) — CI xác nhận; `project.yml` glob `Sources` gom cả thư mục con mới. File mới: 34–184 dòng, 1 type, chỉ `import Foundation`.
+
 ## [1.3.480] - 2026-10-09
 
 ### fix: ke sach da cache rule va tu dien rieng 3 truyen (tra cache dich truoc capture, tach tang ten)

@@ -20,4 +20,12 @@ extension GeminiWebSessionController {
         releaseWebView()
         AppLogger.shared.log("🤖 [GeminiWeb] Đã đăng xuất Google (xoá cookie *.google.com)")
     }
+
+    /// Mở sheet đăng nhập: bỏ WKWebView ẩn (một tiến trình WebContent) nếu đang rảnh để bớt RAM — giảm khả năng
+    /// iOS giải phóng trang đăng nhập khi người dùng sang Gmail bấm số. Sau đăng nhập phiên vốn được nạp lại.
+    func releaseWebViewIfIdle() {
+        guard isIdle else { return }
+        AppLogger.shared.log("🤖 [GeminiWeb] Mở đăng nhập — giải phóng WKWebView ẩn để bớt RAM")
+        releaseWebView()
+    }
 }
