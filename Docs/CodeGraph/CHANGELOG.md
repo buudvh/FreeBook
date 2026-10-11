@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.515] - 2026-10-11
+
+### fix(ai): dung AI mot lan la xong, quet ten rieng Gemini Web it luot hon va theo cong tac luu, bo nut X widget
+
+Người dùng: *"lọc tên riêng nhiều chương chưa áp dụng config bật tắt tạm à, ngoài ra hãy giảm số batch để thích hợp với gemini web; bỏ nút x trong widget ai; có lỗi phải bấm nút dừng 2 lần trên dải đến batch mới mất dải batch trên top; hơn nữa dòng ai đang suy nghĩ cũng không mất đi khi bấm dừng"*. Plan duyệt trong chat.
+
+- **Phải bấm dừng 2 lần mới mất dải batch**: bấm dừng thì coordinator xoá dải, nhưng request đang bay ném lỗi huỷ, vòng quét coi là "lỗi lẻ của một nhóm", bỏ qua rồi gọi `onProgress`; báo tiến độ chạy trong một `Task` mới (`Task.isCancelled` của nó luôn false) nên dựng lại dải. Sửa: vòng quét gặp huỷ thì thoát, không báo tiến độ; coordinator gắn `batchRunId` cho mỗi lần chạy và bỏ mọi báo cáo không khớp.
+- **"AI đang suy nghĩ" không mất khi dừng**: luồng chat bị huỷ thoát ngay mà tin trợ lý trong `activeSession` vẫn `isStreaming`; màn AI đồng bộ ngược trạng thái đó, cộng một nhịp chữ có thể tới sau khi dừng. Sửa: `AIRuntimeCoordinator.stopActiveTask()` (view gọi thay `cancelActiveTask()`) huỷ rồi hoàn tất mọi tin đang chạy — tin rỗng ghi "Đã dừng." — và lưu phiên; nhịp chữ phải khớp `streamRunId` mới được ghi. Màn AI cũng hoàn tất tin của chính nó ngay khi bấm.
+- **Quét tên riêng với Gemini Web**:
+  - Gom chương liền nhau tới **~40.000 ký tự/lượt**, không cắt giữa chương (chỉ cắt khi một chương đơn lẻ dài hơn). Đã thử thật từ máy dev: 15k/40k/80k ký tự chữ Hán đều trả `Tên=Nghĩa` trong 5–9 s. Ví dụ 100 chương ~3.000 ký tự: 20 → ~8 lượt. Provider API giữ 5 chương/15.000 ký tự. Văn bản chương được đọc trước rồi mới chia lượt (tổng số lượt biết trước như cũ).
+  - Theo công tắc "Lưu chat vào lịch sử Gemini": bật ⇒ cả lần quét là một cuộc chat nối tiếp (`GeminiWebClient.sendConversation`, mở cuộc chat mới sau mỗi 5 lượt để ngữ cảnh không phình; trạng thái chỉ giữ trong RAM — `persist: false` — để không đẩy trạng thái chat thật ra khỏi store); tắt ⇒ mỗi lượt là chat tạm độc lập như trước.
+- **Bỏ nút X** trên widget AI thu nhỏ (`AIFloatingWidgetView`).
+- `rules.md`: bullet mới về dừng/mã lần chạy trong mục Reader AI; bổ sung kích thước lượt quét vào mục Gemini Web.
+- **Kiểm chứng**: đọc code + thử prompt lớn thật; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`.
+
 ## [1.3.514] - 2026-10-11
 
 ### feat(ai): Gemini Web noi tiep cuoc chat theo phien, cong tac luu chat vao lich su Gemini
@@ -374,15 +389,3 @@ Người dùng: *"làm cho xong đợt 8, sau đó làm Vieneu TTS tối ưu hó
 - **`TTSSettingsSnapshot`** (`Sources/Services/TTS/`, 62 dòng): struct `Equatable` từ `private` lồng trong `TTSManager` thành top-level + `static capture(...)` đọc `UserDefaults` tại thời điểm gọi (vẫn đúng 2 thời điểm: `prepareForSettings`, `resumeAfterSettings`). Danh sách trường **không đổi** — vẫn cố ý **không** gồm `nghittsSafeCachedTimeThreshold`/`nghittsPrefetchCount`/`vieneu*` (đổi riêng ngưỡng đệm không được phát lại từ đầu). **Không** gộp 4 biến `saved*BeforeSettings` thành `ResumeAnchor` (plan gợi ý tuỳ chọn): `savedChunkIndexBeforeSettings` chỉ ghi không đọc, gộp là đổi cấu trúc không cần cho đợt thuần di chuyển.
 - Caller ngoài file không đổi: `TTSSettingsView` (`prepareForSettings`/`resumeAfterSettings`), `ReaderView` (`updateParagraphPositionWithoutPlaying`).
 - **Kết quả**: `TTSManager.swift` **3770 → 3672** (baseline 3470 — đợt 8–9 xử lý tiếp); `check_architecture.py` 2 violation, 0 mới. Review đối kháng 2 lượt: xem walkthrough. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận.
-
-## [1.3.485] - 2026-10-09
-
-### refactor: tach TTSRefillFailurePolicy khoi TTSManager (dot 6 tach god object)
-
-Đợt 6 của `Docs/Plans/2026-10-09-plan-refactor-god-objects.md` — bước 2/5 cắt `TTSManager.swift`.
-
-- File mới `Sources/Services/TTS/NghiTTS/TTSRefillFailurePolicy.swift` (83 dòng, 1 enum không case, cạnh `NghiSynthesisPolicy`): `RefillFailureState`, `RefillTaskOutcome` (giữ `Equatable`), `classifyTTSError`, `evaluateRefillError` (giữ `maxAttempts = 2`; `CancellationError` vẫn **không** tính là một attempt), `selectNghiOptionalRefillCandidate` (giữ `blockedIndices = []`), `logPrefetchFailure` (từ `private` thành internal). Thân hàm chuyển **nguyên văn** — script so với `HEAD` sau khi bỏ từ khoá `internal`/`nonisolated internal`: khớp từng byte.
-- `TTSManager` giữ `typealias RefillFailureState/RefillTaskOutcome` + forwarder `nonisolated static` **cùng chữ ký và default** ⇒ 5 chỗ gọi ngoài file (`TTSNextChapterPrefixCache` ×4, `TTSManager+NextChapterPrefix:60`) và mọi chỗ trong file **không phải sửa**. `RefillFailureKey` và `nghiRefillFailureStates` **vẫn ở `TTSManager`** (state, không phải policy — đợt 94).
-- Luật giữ nguyên: policy là **nguồn duy nhất** cho cả refill Nghi lẫn cache prefix chương kế; điều phối retry vẫn do `TTSManager` sở hữu.
-- **Lưu ý codegraph** (ghi vào bẫy #5 ở CLAUDE.md): `codegraph_explore` báo `evaluateRefillError`/`RefillFailureState` chỉ có caller trong `TTSManager.swift`, grep thấy thêm 5 chỗ ở 2 file khác — đúng lý do phải grep chéo trước khi di chuyển.
-- **Kết quả**: `TTSManager.swift` **3812 → 3770** (baseline 3470, vi phạm cũ); `check_architecture.py` 2 violation, 0 mới. Review đối kháng 2 lượt: xem walkthrough. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận.

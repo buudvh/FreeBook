@@ -10,10 +10,13 @@ import Foundation
 ///   với đủ ngữ cảnh, đúng một lần. Lỗi tài khoản/hạn mức thì không thử lại.
 /// - Chỉ chat trong Reader đi đường này; quét tên riêng và "Kiểm tra kết nối" vẫn là chat tạm, không nối tiếp.
 extension GeminiWebClient {
+    /// `persist == false` (quét tên riêng): chỉ giữ trạng thái trong RAM, không ghi `GeminiWebConversationStore` —
+    /// các cuộc chat của một lần quét không được đẩy trạng thái chat thật của người dùng ra khỏi store.
     public func sendConversationStreaming(
         config: AIConfiguration,
         messages: [OpenAIChatRequest.Message],
-        sessionId: UUID
+        sessionId: UUID,
+        persist: Bool = true
     ) -> AsyncThrowingStream<String, Error> {
         let modelName = config.selectedModel
         return AsyncThrowingStream { continuation in
@@ -23,7 +26,12 @@ extension GeminiWebClient {
                     return
                 }
                 do {
-                    try await self.runConversationTurn(messages: messages, modelName: modelName, sessionId: sessionId) {
+                    try await self.runConversationTurn(
+                        messages: messages,
+                        modelName: modelName,
+                        sessionId: sessionId,
+                        persist: persist
+                    ) {
                         continuation.yield($0)
                     }
                     continuation.finish()
@@ -35,16 +43,31 @@ extension GeminiWebClient {
         }
     }
 
+    /// Một lượt nối tiếp, gom thành chuỗi (quét tên riêng dùng, không cần stream).
+    public func sendConversation(
+        config: AIConfiguration,
+        messages: [OpenAIChatRequest.Message],
+        sessionId: UUID,
+        persist: Bool
+    ) async throws -> String {
+        var text = ""
+        for try await delta in sendConversationStreaming(config: config, messages: messages, sessionId: sessionId, persist: persist) {
+            text += delta
+        }
+        return text
+    }
+
     private func runConversationTurn(
         messages: [OpenAIChatRequest.Message],
         modelName: String,
         sessionId: UUID,
+        persist: Bool,
         onDelta: @escaping @Sendable (String) -> Void
     ) async throws {
         let saveToHistory = GeminiWebConversationStore.saveToHistory
         let systemText = messages.filter { $0.role == "system" }.compactMap(\.content).joined(separator: "\n\n")
         let fingerprint = Chapter.hashUrl(systemText)
-        let previous = conversations[sessionId] ?? GeminiWebConversationStore.load(sessionId: sessionId)
+        let previous = conversations[sessionId] ?? (persist ? GeminiWebConversationStore.load(sessionId: sessionId) : nil)
         let canContinue = previous.map {
             !$0.cid.isEmpty && $0.model == modelName && $0.savedToHistory == saveToHistory
         } ?? false
@@ -66,7 +89,7 @@ extension GeminiWebClient {
                 }
                 state.contextFingerprint = fingerprint
                 state.updatedAt = Date()
-                remember(state, sessionId: sessionId)
+                remember(state, sessionId: sessionId, persist: persist)
                 AppLogger.shared.log("🤖 [GeminiWeb] Nối tiếp cuộc chat (lưu=\(saveToHistory), cập nhật ngữ cảnh=\(contextUpdate != nil))")
                 return
             } catch let error as GeminiWebError where !emitted.value && Self.allowsFreshRestart(after: error) {
@@ -83,13 +106,15 @@ extension GeminiWebClient {
             onDelta: onDelta
         )
         state.updatedAt = Date()
-        remember(state, sessionId: sessionId)
+        remember(state, sessionId: sessionId, persist: persist)
         AppLogger.shared.log("🤖 [GeminiWeb] Mở cuộc chat mới (lưu=\(saveToHistory), có cid=\(!state.cid.isEmpty))")
     }
 
-    private func remember(_ state: GeminiWebConversationState, sessionId: UUID) {
+    private func remember(_ state: GeminiWebConversationState, sessionId: UUID, persist: Bool) {
         conversations[sessionId] = state
-        GeminiWebConversationStore.save(state, sessionId: sessionId)
+        if persist {
+            GeminiWebConversationStore.save(state, sessionId: sessionId)
+        }
     }
 
     /// Lỗi của tài khoản/mạng thì mở cuộc chat mới cũng vô ích (và tốn hạn mức) — chỉ thử lại khi lỗi có thể do

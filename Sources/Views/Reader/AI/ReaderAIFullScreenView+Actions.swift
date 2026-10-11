@@ -139,10 +139,13 @@ extension ReaderAIFullScreenView {
     }
 
     internal func stopStreaming() {
-        AIRuntimeCoordinator.shared.cancelActiveTask()
+        AIRuntimeCoordinator.shared.stopActiveTask()
         isStreaming = false
-        if let lastIdx = currentSession.messages.indices.last {
-            currentSession.messages[lastIdx].isStreaming = false
+        for index in currentSession.messages.indices where currentSession.messages[index].isStreaming {
+            currentSession.messages[index].isStreaming = false
+            if currentSession.messages[index].content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                currentSession.messages[index].content = "Đã dừng."
+            }
         }
     }
 
@@ -238,10 +241,16 @@ extension ReaderAIFullScreenView {
     }
 
     internal func cancelBatchExtraction() {
-        AIRuntimeCoordinator.shared.cancelActiveTask()
+        AIRuntimeCoordinator.shared.stopActiveTask()
         isBatchExtracting = false
         isStreaming = false
         batchProgress = nil
+        for index in currentSession.messages.indices where currentSession.messages[index].isStreaming {
+            currentSession.messages[index].isStreaming = false
+            if currentSession.messages[index].content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                currentSession.messages[index].content = "Đã dừng."
+            }
+        }
     }
 
     internal func saveNamesToDictionary(_ items: [AIExtractedName], isName: Bool, isMerge: Bool) {

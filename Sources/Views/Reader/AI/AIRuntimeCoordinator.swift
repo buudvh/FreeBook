@@ -46,6 +46,11 @@ public final class AIRuntimeCoordinator: ObservableObject {
 
     private var activeStreamingTask: Task<Void, Never>? = nil
     private var activeBatchTask: Task<Void, Never>? = nil
+    /// Mã của lần chạy hiện hành (1.3.515). Mọi cập nhật trễ — nhịp chữ của stream, báo tiến độ batch chạy trong
+    /// một `Task` mới (không bị huỷ theo) — phải khớp mã này, nếu không thì bỏ: trước đây chúng dựng lại dải batch
+    /// và dòng "đang suy nghĩ" sau khi người dùng đã bấm dừng.
+    private var streamRunId: UUID?
+    private var batchRunId: UUID?
     private var activeSingleTask: Task<Void, Never>? = nil
     private var cancellables = Set<AnyCancellable>()
     private weak var currentPresentedVC: UIViewController? = nil
@@ -94,6 +99,8 @@ public final class AIRuntimeCoordinator: ObservableObject {
         activeTaskTitle = "AI đang suy nghĩ"
         activeSessionId = session.id
         activeSession = session
+        let runId = UUID()
+        streamRunId = runId
 
         activeStreamingTask = Task { [weak self] in
             do {
@@ -118,12 +125,14 @@ public final class AIRuntimeCoordinator: ObservableObject {
                     let now = Date().timeIntervalSinceReferenceDate
                     if now - lastUIUpdateTime >= 0.05 {
                         lastUIUpdateTime = now
-                        await MainActor.run {
-                            guard let self = self else { return }
+                        let stillCurrent = await MainActor.run { () -> Bool in
+                            guard let self = self, self.streamRunId == runId else { return false }
                             if let idx = self.activeSession?.messages.firstIndex(where: { $0.id == assistantMsgId }) {
                                 self.activeSession?.messages[idx].content = accumulated
                             }
+                            return true
                         }
+                        guard stillCurrent else { break }
                         onDelta(accumulated)
                     }
                 }
@@ -189,6 +198,8 @@ public final class AIRuntimeCoordinator: ObservableObject {
         isRunning = true
         activeTaskTitle = "Đang quét tên riêng..."
         batchProgress = (0, 1)
+        let runId = UUID()
+        batchRunId = runId
         batchExtractedNames.removeAll()
         if let s = session {
             self.activeSession = s
@@ -206,7 +217,8 @@ public final class AIRuntimeCoordinator: ObservableObject {
                 ) { current, total, partial in
                     let decorated = AIBookDataInspector.shared.decorateExtractedNames(names: partial, bookId: bookId)
                     Task { @MainActor [weak self] in
-                        guard let self = self, !Task.isCancelled else { return }
+                        // `Task.isCancelled` ở đây là của Task MỚI này (không bao giờ bị huỷ) ⇒ phải so mã lần chạy.
+                        guard let self = self, self.batchRunId == runId else { return }
                         self.batchProgress = (current, total)
                         self.batchExtractedNames = decorated
                         self.activeTaskTitle = "Đang quét: Batch \(current)/\(total)"
@@ -260,8 +272,10 @@ public final class AIRuntimeCoordinator: ObservableObject {
         }
     }
 
-    /// Huỷ tác vụ AI đang thực thi.
+    /// Huỷ tác vụ AI đang thực thi (dùng nội bộ khi bắt đầu tác vụ mới — **không** đụng tin nhắn).
     public func cancelActiveTask() {
+        streamRunId = nil
+        batchRunId = nil
         activeStreamingTask?.cancel()
         activeStreamingTask = nil
         activeSingleTask?.cancel()
@@ -270,6 +284,25 @@ public final class AIRuntimeCoordinator: ObservableObject {
         activeBatchTask = nil
         isRunning = false
         batchProgress = nil
+    }
+
+    /// Người dùng bấm **dừng** (1.3.515): huỷ tác vụ và hoàn tất mọi tin đang chạy trong phiên — tin còn rỗng ghi
+    /// "Đã dừng." — rồi lưu phiên. Không làm vậy thì luồng bị huỷ thoát mà tin vẫn `isStreaming`, màn AI đồng bộ
+    /// ngược trạng thái đó nên dòng "AI đang suy nghĩ" không bao giờ mất.
+    public func stopActiveTask() {
+        cancelActiveTask()
+        guard var session = activeSession else { return }
+        var changed = false
+        for index in session.messages.indices where session.messages[index].isStreaming {
+            session.messages[index].isStreaming = false
+            if session.messages[index].content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                session.messages[index].content = "Đã dừng."
+            }
+            changed = true
+        }
+        guard changed else { return }
+        activeSession = session
+        AIChatHistoryStore.shared.saveSession(session, for: session.bookId)
     }
 
     // MARK: - Mở màn hình toàn màn hình từ bất kỳ đâu

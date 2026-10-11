@@ -22,16 +22,6 @@ public struct AIFloatingWidgetView: View {
                 .font(.system(size: 12, weight: .semibold))
                 .lineLimit(1)
                 .foregroundColor(.primary)
-
-            Button(action: {
-                coordinator.cancelActiveTask()
-            }) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 14))
-                    .foregroundColor(Color(UIColor.tertiaryLabel))
-            }
-            .buttonStyle(.plain)
-            .padding(.leading, 2)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
