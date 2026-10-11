@@ -34,14 +34,18 @@ enum GeminiWebRequestBuilder {
         prompt: String,
         session: GeminiWebInitSession,
         model: GeminiWebModel?,
-        requestId: Int
+        requestId: Int,
+        conversation: [String?] = GeminiWebConversationState.emptyMetadata,
+        temporary: Bool = true
     ) throws -> Request {
         let requestUUID = UUID().uuidString.uppercased()
         let inner = innerRequestArray(
             prompt: prompt,
             language: session.language,
             requestUUID: requestUUID,
-            modelNumber: model?.modelNumber
+            modelNumber: model?.modelNumber,
+            conversation: conversation,
+            temporary: temporary
         )
         let innerJSON = try jsonString(inner)
         let outerJSON = try jsonString([NSNull(), innerJSON] as [Any])
@@ -59,12 +63,19 @@ enum GeminiWebRequestBuilder {
     }
 
     /// Mảng 81 ô của một lượt sinh nội dung (không file đính kèm, không gem, không deep research).
-    static func innerRequestArray(prompt: String, language: String, requestUUID: String, modelNumber: Int?) -> [Any] {
+    static func innerRequestArray(
+        prompt: String,
+        language: String,
+        requestUUID: String,
+        modelNumber: Int?,
+        conversation: [String?] = GeminiWebConversationState.emptyMetadata,
+        temporary: Bool = true
+    ) -> [Any] {
         var slots: [Any] = Array(repeating: NSNull(), count: 81)
         slots[0] = [prompt, 0, NSNull(), NSNull(), NSNull(), NSNull(), 0] as [Any]
         slots[1] = [language]
-        // Metadata hội thoại rỗng = bắt đầu hội thoại mới (không cid/rid/rcid).
-        slots[2] = ["", "", "", NSNull(), NSNull(), NSNull(), NSNull(), NSNull(), NSNull(), ""] as [Any]
+        // Metadata hội thoại 10 ô: rỗng = cuộc chat mới; có cid/rid/rcid = nối tiếp (1.3.514).
+        slots[2] = conversation.map { value -> Any in value ?? NSNull() }
         slots[6] = [1]
         slots[7] = 1   // streaming
         slots[10] = 1
@@ -74,7 +85,7 @@ enum GeminiWebRequestBuilder {
         slots[27] = 1
         slots[30] = [4]
         slots[41] = [1]
-        slots[45] = 1  // temporary chat
+        if temporary { slots[45] = 1 }  // chat tạm: không vào lịch sử Gemini của tài khoản
         slots[53] = 0
         slots[59] = requestUUID
         slots[61] = [Any]()

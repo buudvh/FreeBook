@@ -8,6 +8,7 @@ import SwiftUI
 public struct GeminiWebAccountRow: View {
     public var onSessionChanged: (() -> Void)? = nil
 
+    @AppStorage(GeminiWebConversationStore.saveHistoryKey) private var saveToHistory = false
     @State private var isSignedIn: Bool? = nil
     @State private var showingSignOutConfirm = false
     @State private var isBusy = false
@@ -52,6 +53,18 @@ public struct GeminiWebAccountRow: View {
                     }
                     .buttonStyle(.bordered)
                     .disabled(isBusy)
+                }
+            }
+
+            Toggle(isOn: $saveToHistory) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Lưu chat vào lịch sử Gemini")
+                        .font(.footnote.bold())
+                    Text(saveToHistory
+                        ? "Mỗi phiên chat trong app là một cuộc chat trên gemini.google.com."
+                        : "Chat tạm: không hiện trên gemini.google.com.")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
                 }
             }
 

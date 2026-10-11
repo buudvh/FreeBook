@@ -99,7 +99,12 @@ public final class AIRuntimeCoordinator: ObservableObject {
             do {
                 let stream: AsyncThrowingStream<String, Error>
                 if config.activeProfile.isGeminiWeb {
-                    stream = await GeminiWebClient.shared.sendChatStreaming(config: config, messages: messages)
+                    // Nối tiếp một cuộc chat Gemini cho mỗi phiên chat của app (1.3.514).
+                    stream = await GeminiWebClient.shared.sendConversationStreaming(
+                        config: config,
+                        messages: messages,
+                        sessionId: session.id
+                    )
                 } else if config.activeProfile.apiFormat == "anthropic" {
                     stream = await AnthropicClient.shared.sendChatStreaming(config: config, messages: messages)
                 } else {

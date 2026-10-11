@@ -21,6 +21,8 @@ public actor GeminiWebClient {
 
     private var models: [GeminiWebModel] = []
     private var modelsLoadedAt: Date?
+    /// Cuộc chat Gemini của từng phiên chat trong app (bản trong RAM; bản lưu ở `GeminiWebConversationStore`).
+    var conversations: [UUID: GeminiWebConversationState] = [:]
 
     private init() {}
 
@@ -103,11 +105,15 @@ public actor GeminiWebClient {
     // MARK: - Lõi
 
     /// Một lượt sinh nội dung: nạp phiên → (khám phá model nếu chưa) → fetch → bóc frame → phát delta.
-    private func streamGeneration(
+    /// `metadata` rỗng = cuộc chat mới; trả metadata sau lượt (cid/rid/rcid/ngữ cảnh) để nối tiếp (1.3.514).
+    @discardableResult
+    func streamGeneration(
         prompt: String,
         modelName: String,
+        metadata: [String?] = GeminiWebConversationState.emptyMetadata,
+        temporary: Bool = true,
         onDelta: @escaping @Sendable (String) -> Void
-    ) async throws {
+    ) async throws -> [String?] {
         var session = try await GeminiWebSessionController.shared.prepare()
         let model = await resolveModel(named: modelName)
         var attempt = 0
@@ -120,10 +126,11 @@ public actor GeminiWebClient {
                     prompt: prompt,
                     session: session,
                     model: model,
-                    requestId: requestId
+                    requestId: requestId,
+                    conversation: metadata,
+                    temporary: temporary
                 )
-                try await consumeGeneration(request: request, onDelta: onDelta)
-                return
+                return try await consumeGeneration(request: request, metadata: metadata, onDelta: onDelta)
             } catch let error as GeminiWebError where attempt == 0 && (error.isRetryable || error.suggestsSessionRefresh) {
                 attempt += 1
                 AppLogger.shared.log("🤖 [GeminiWeb] Lượt 1 lỗi (\(error.localizedDescription)) — thử lại 1 lần\(error.suggestsSessionRefresh ? " sau khi nạp lại trang" : "")")
@@ -140,9 +147,12 @@ public actor GeminiWebClient {
     /// theo tiền tố (so theo unicode scalar để chunk cắt giữa cụm ký tự không làm hỏng phép so).
     private func consumeGeneration(
         request: GeminiWebRequestBuilder.Request,
+        metadata: [String?],
         onDelta: @escaping @Sendable (String) -> Void
-    ) async throws {
+    ) async throws -> [String?] {
         let startedAt = Date()
+        var conversation = GeminiWebConversationState(model: "", contextFingerprint: "", savedToHistory: false)
+        conversation.metadata = metadata
         let raw = await GeminiWebSessionController.shared.fetchStream(request)
         var parser = GeminiWebFrameParser()
         var emitted = ""
@@ -153,6 +163,9 @@ public actor GeminiWebClient {
 
         func handle(_ frames: [Any]) throws {
             for part in frames {
+                if let update = GeminiWebResponseParser.conversationUpdate(part) {
+                    conversation.apply(update)
+                }
                 guard let frame = try GeminiWebResponseParser.parseGenerateEnvelope(part) else { continue }
                 candidateFrames += 1
                 sawCompleted = sawCompleted || frame.completed
@@ -192,6 +205,7 @@ public actor GeminiWebClient {
             onDelta("\n\n— Gemini sửa lại câu trả lời —\n\(latest)")
         }
         AppLogger.shared.log("🤖 [GeminiWeb] StreamGenerate xong: \(elapsed) ms, frame=\(candidateFrames), completed=\(sawCompleted), len=\(latest.count), rewrites=\(rewrites)")
+        return conversation.metadata
     }
 
     // MARK: - Model

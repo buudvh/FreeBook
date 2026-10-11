@@ -5,12 +5,19 @@ import Foundation
 /// Vị trí field chép theo `gemini-webapi`: lỗi server `part[5][2][0][1][0]`; inner `[1][0]`=cid,
 /// `[1][1]`=rid, `[4]`=ứng viên — mỗi ứng viên `[0]`=rcid, `[1][0]`=**text tích luỹ** (không phải
 /// delta), `[8][0]==2`=đã xong. `GetUserStatus`: `[14]`=trạng thái tài khoản, `[15]`=model,
-/// `[16]`/`[17]`=cờ tier/capability. App không giữ cid/rid vì mỗi lượt là temporary chat mới.
+/// `[16]`/`[17]`=cờ tier/capability. cid/rid/rcid + chuỗi ngữ cảnh `inner[25]` được giữ để nối tiếp cuộc chat (1.3.514).
 enum GeminiWebResponseParser {
     struct GenerateFrame: Sendable, Equatable {
         /// Toàn bộ text trả lời tính tới frame này.
         let text: String
         let completed: Bool
+    }
+
+    /// Phần metadata hội thoại mà một envelope mang theo: `inner[1]` (cid, rid…), rcid ứng viên, ngữ cảnh `inner[25]`.
+    struct ConversationUpdate: Sendable, Equatable {
+        let ids: [String?]
+        let rcid: String?
+        let context: String?
     }
 
     struct UserStatus: Sendable, Equatable {
@@ -49,6 +56,18 @@ enum GeminiWebResponseParser {
         text = stripArtifacts(text)
         let completed = intValue(nested(candidate, [8, 0])) == 2
         return GenerateFrame(text: text, completed: completed)
+    }
+
+    /// `nil` khi envelope không mang gì về hội thoại. Không ném lỗi (lỗi server do `parseGenerateEnvelope` xử lý).
+    static func conversationUpdate(_ part: Any) -> ConversationUpdate? {
+        guard let innerString = nested(part, [2]) as? String, let inner = parseJSON(innerString) else { return nil }
+        let ids = ((nested(inner, [1]) as? [Any]) ?? []).prefix(10).map { $0 as? String }
+        let rcid = ((nested(inner, [4]) as? [Any]) ?? [])
+            .compactMap { nested($0, [0]) as? String }
+            .first { !$0.isEmpty }
+        let context = nested(inner, [25]) as? String
+        guard !ids.isEmpty || rcid != nil || context != nil else { return nil }
+        return ConversationUpdate(ids: Array(ids), rcid: rcid, context: context)
     }
 
     // MARK: - GetUserStatus

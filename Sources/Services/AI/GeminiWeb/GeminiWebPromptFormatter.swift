@@ -44,4 +44,14 @@ enum GeminiWebPromptFormatter {
 
         return sections.joined(separator: "\n\n")
     }
+
+    /// Lượt **nối tiếp** một cuộc chat Gemini (1.3.514): Gemini đã có lịch sử nên chỉ gửi tin mới của người dùng;
+    /// khi khối ngữ cảnh hệ thống đổi (sang chương khác…) thì kèm bản mới, nói rõ là thay cho bản trước.
+    static func buildContinuationPrompt(from messages: [OpenAIChatRequest.Message], contextUpdate: String?) -> String {
+        let lastUser = messages.last { $0.role != "system" && $0.role != "assistant" }?.content?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard let contextUpdate, !contextUpdate.isEmpty else { return lastUser }
+        return "### Cập nhật ngữ cảnh (thay cho hướng dẫn và ngữ cảnh trước đó)\n" + contextUpdate
+            + "\n\n### Lượt hiện tại\nNgười dùng: " + lastUser
+    }
 }
