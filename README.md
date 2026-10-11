@@ -1,81 +1,127 @@
 # FreeBook (Tàng Công Các)
 
-FreeBook (Tàng Công Các) là một ứng dụng đọc sách và đọc truyện chữ miễn phí trên nền tảng iOS, được thiết kế tinh gọn nhưng sở hữu nhiều tính năng mạnh mẽ nhằm mang lại trải nghiệm đọc sách tối ưu cho người dùng.
+Ứng dụng đọc truyện chữ cho iOS, viết bằng SwiftUI + SwiftData. Lấy truyện từ nguồn web qua extension JavaScript (tương thích VBook), dịch convert bằng VietPhrase, đọc thành tiếng bằng nhiều engine TTS (có engine offline chạy ONNX ngay trên máy) và có trợ lý AI ngay trong màn đọc.
 
-## 🚀 Các Tính Năng Nổi Bật
-
-1. **VBook Extensions Integration**:
-   - Tích hợp công cụ JavaScript Core Runtime cho phép cài đặt và chạy các extension (plugin) để cào dữ liệu truyện từ nhiều nguồn trang web khác nhau.
-   - Quản lý kho extension linh hoạt, hỗ trợ đồng bộ hóa kho lưu trữ trực tuyến (repository sync).
-
-2. **Dịch Thuật Tự Động (VietPhrase)**:
-   - Tích hợp bộ dịch thuật tự động sử dụng kho dữ liệu từ điển VietPhrase phục vụ cho việc đọc truyện convert, dịch thô từ tiếng Trung sang tiếng Việt một cách mượt mà và dễ hiểu.
-   - Hỗ trợ tra từ điển trực tiếp ngay trên trang đọc truyện để xem nghĩa Hán Việt, VietPhrase và nghĩa chi tiết.
-
-3. **Đọc Thành Tiếng Offline (NghiTTS / Piper)**:
-   - Hỗ trợ công cụ đọc văn bản thành giọng nói (TTS) chất lượng cao hoàn toàn offline trên thiết bị.
-   - Sử dụng lõi công nghệ **Piper** chạy mô hình định dạng **ONNX Runtime** giúp phát âm tiếng Việt tự nhiên với các giọng đọc truyền cảm (như giọng Ngọc Huyền, v.v.).
-   - Bộ tiền xử lý văn bản (`Preprocessing`) thông minh giúp xử lý chuyển đổi chữ số, từ viết tắt và chuẩn hóa phát âm trước khi tổng hợp âm thanh.
-
-4. **Trình Đọc Tiện Lợi**:
-   - Tùy chỉnh giao diện đọc truyện (cỡ chữ, giãn dòng, màu nền, font chữ).
-   - Widget nổi điều khiển TTS (`TTSFloatingWidgetView`) giúp quản lý luồng phát (play, pause, chuyển câu) trực tiếp trên trang đọc mà không che khuất nội dung.
+- Tên hiển thị: **Tàng Công Các** · Bundle target: `FreeBook`
+- iOS **17.0+** · Swift / SwiftUI / SwiftData · dự án sinh bằng **XcodeGen**
+- Bản build chính thức là **IPA unsigned** do GitHub Actions đóng gói, cài qua sideload / LiveContainer.
 
 ---
 
-## 📂 Cơ Cấu Thư Mục Dự Án
+## Tính năng
 
-Mã nguồn được tổ chức sạch sẽ và mô-đun hóa cao dưới thư mục `Sources/`:
+### Nguồn truyện & thư viện
+- **Extension JavaScript (VBook)**: cài từ kho (repository) trực tuyến, tự đồng bộ cập nhật; mỗi extension có `search` / `home` / `genre` / `detail` / `toc` / `chap`. Có trình soạn script có tô màu cú pháp và cấu hình riêng từng extension.
+- **Trình duyệt bypass** nhiều tab để vượt Cloudflare / đăng nhập trang nguồn, có widget nổi để mở lại.
+- **Khám phá & tìm kiếm** trên nhiều nguồn cùng lúc, cấu hình bộ máy tìm kiếm.
+- **Kệ sách** có bộ sưu tập, sửa thông tin truyện, đổi nguồn truyện.
+- **Tải truyện offline** chạy nền (tuần tự từng truyện — cố ý, để không bị trang nguồn chặn), theo dõi trong màn tải.
+- **Hộp thư chương mới**: tự kiểm tra truyện đang theo dõi có chương mới.
+- **Nhập** TXT, EPUB, DOCX, FB2, MOBI, PDF, HTML · **Xuất** TXT, EPUB, FB2, MOBI.
+- **Sao lưu / khôi phục** thư viện, chương, ảnh bìa, từ điển, extension và cài đặt — lưu cục bộ, **Google Drive** (có tự động sao lưu) hoặc **Telegram bot**.
+- Tự dọn truyện cũ không đọc theo chính sách cấu hình được.
 
-* **`Sources/Common/`**: Chứa các thành phần dùng chung hệ thống.
-  - `Extensions/`: Các phần mở rộng hữu ích (`String+HTML.swift`, `View+Keyboard.swift`, `String+Crypto.swift`).
-  - `Services/`: Các dịch vụ cốt lõi toàn cục (`ImageCacheManager.swift`, `ToastManager.swift`).
-* **`Sources/Models/`**: Các thực thể dữ liệu của ứng dụng.
-  - `Database/`: Các thực thể SwiftData được lưu trữ (`Book`, `Chapter`, `Extension`, `Repository`).
-  - `Dictionaries/`: Các cấu trúc dữ liệu tra từ điển hiệu năng cao (`DoubleArrayTrie`, `TextDictionary`, `SearchEngine`).
-* **`Sources/Views/`**: Giao diện người dùng SwiftUI được chia theo các màn hình và module độc lập.
-  - `Shelf/ShelfMain/`: Màn hình kệ sách chính (`ShelfView.swift`).
-  - `BookDetail/`: Màn hình chi tiết truyện và danh sách chương.
-  - `Reader/`: Trình đọc truyện chính và hiển thị trang chữ.
-  - `TTSWidget/`: Widget nổi điều khiển phát TTS.
-  - `Dictionary/`: Giao diện tra cứu và quản lý từ điển.
-  - `Download/`: Màn hình theo dõi tiến trình tải truyện ngoại tuyến.
-  - `Discovery/`: Giao diện tab khám phá để tìm truyện từ các nguồn extension.
-  - `Extensions/`: Giao diện quản lý, cấu hình và cửa hàng extension.
-  - `Settings/`: Giao diện cấu hình chung, quản lý từ điển phát âm và tải mô hình TTS.
-  - `Common/`: Các view dùng chung (`BypassWebView.swift` để vượt tường lửa Cloudflare, `DocumentPicker.swift`...).
-* **`Sources/Services/`**: Các dịch vụ thực thi logic nghiệp vụ.
-  - `TTS/`: Quản lý TTS chung và 3 engine con: `NghiTTS/` (Piper offline), `Siri/` (Native iOS), `Ext/` (JS Extension).
-  - `Extensions/`: Trình biên dịch và quản lý JS Extension.
-  - `Translation/`: Quản lý dịch thuật tự động VietPhrase.
-  - `Download/`: Quản lý tác vụ tải chương truyện chạy ngầm.
-  - `Logging/`: Nhật ký hệ thống ghi ra file (`AppLogger.swift`).
+### Trình đọc
+- Trang đọc dựng trên `UITextView` (TextKit 1): tuỳ chỉnh font, cỡ chữ, giãn dòng, màu nền; menu chọn chữ riêng thay menu hệ thống.
+- Tra nghĩa ngay trên đoạn chọn: Hán-Việt, VietPhrase, nghĩa chi tiết; sửa từ điển / thêm luật ngay tại chỗ.
+- Tìm trong chương, danh sách chương, xoá dòng rác, sao chép bản gốc.
+- Lưu tiến độ đọc tự động (debounce, flush khi app vào nền).
 
----
+### Dịch thuật
+- **VietPhrase** với từ điển Hán-Việt / VietPhrase / Names, từ điển riêng theo từng truyện, nhập / xuất / chia sẻ từ điển.
+- **Quick Translation Rules**: bộ luật viết lại câu có trình soạn, trình thử, chẩn đoán lỗi, độ ưu tiên và bật/tắt theo truyện.
+- Bộ lọc rác nội dung, luật mục lục, phạm vi dịch theo nguồn.
 
-## 🛠️ Thiết Lập & Build Dự Án
+### Đọc thành tiếng (TTS)
 
-Dự án này sử dụng công cụ **XcodeGen** để cấu hình và quản lý file dự án Xcode (`.xcodeproj`).
+| Engine | Mô tả |
+|---|---|
+| **NghiTTS** | Piper chạy ONNX Runtime + eSpeak NG, hoàn toàn offline |
+| **VieNeu** | Model tiếng Việt offline (ONNX), thư viện giọng, **nhân bản giọng** từ bản ghi âm, từ điển tiếng Nhật |
+| **Siri** | `AVSpeechSynthesizer` của iOS |
+| **Google Cloud TTS** | REST, cần API key lúc build |
+| **Extension** | TTS do extension JavaScript tự định nghĩa |
 
-### Yêu cầu hệ thống
-- Máy Mac cài đặt **macOS** (để build ứng dụng) hoặc môi trường **GitHub Actions CI**.
-- **Xcode 15.0** trở lên.
-- **XcodeGen** (cài đặt qua Homebrew: `brew install xcodegen`).
+- Tiền xử lý văn bản: đọc số tiếng Việt, phiên âm từ tiếng Anh/Nhật, luật regex, từ điển thay thế (chung và theo truyện), phiên âm lại hàng loạt.
+- Highlight đoạn đang đọc trong trang đọc, tự chuyển chương, prefetch chương kế, điều khiển từ màn hình khoá / tai nghe, widget TTS nổi.
+- Quản lý / tải model TTS trong app.
 
-### Các bước thiết lập
-1. Mở Terminal tại thư mục gốc của dự án.
-2. Chạy lệnh sau để tự động quét thư mục `Sources/` và tạo dự án Xcode từ file cấu hình `project.yml`:
-   ```bash
-   xcodegen generate
-   ```
-3. Sau khi lệnh chạy thành công, một file `FreeBook.xcodeproj` sẽ xuất hiện ở thư mục gốc.
-4. Mở file `FreeBook.xcodeproj` bằng Xcode, chọn Target `FreeBook`, và tiến hành Build hoặc Run trên Simulator/Thiết bị thật.
+### Trợ lý AI
+- Chat về chương đang đọc, gợi ý nhanh, nhiều phiên chat, bộ nhớ AI theo truyện, tự nén ngữ cảnh.
+- **Quét tên riêng** nhiều chương rồi duyệt để đưa vào từ điển Names.
+- Nhà cung cấp: Google Gemini (API hoặc **Gemini Web** đăng nhập tài khoản, không cần key), OpenAI, Anthropic Claude, OpenRouter, DeepSeek, Groq, Ollama và endpoint tuỳ chỉnh tương thích OpenAI.
+- Widget AI nổi, có thể thu nhỏ khi đang đọc.
 
-*Lưu ý:* Các thư viện phụ thuộc (SwiftSoup, ZIPFoundation, ONNX Runtime, libespeak-ng-spm) được cấu hình dưới dạng Swift Package Manager trực tiếp trong `project.yml` và sẽ tự động được Xcode tải về khi nạp dự án.
+### Dành cho người viết extension
+- **Debug server** trong app + extension VS Code ở [`Tools/VSCode/FreeBookExtDebug`](Tools/VSCode/FreeBookExtDebug) để chạy và gỡ lỗi script extension trên máy thật.
+- Mẫu `plugin.json` và từng script: [`.agents/skills/vbook_helper/SKILL.md`](.agents/skills/vbook_helper/SKILL.md).
 
 ---
 
-## 📝 Quy Định Lập Trình & Đóng Góp
+## Build
 
-Mọi thay đổi trên codebase cần tuân thủ nghiêm ngặt các quy tắc lập trình, tổ chức file và các ràng buộc về runtime được quy định chi tiết tại:
-👉 [Quy tắc lập trình của dự án (.agents/AGENTS.md)](.agents/AGENTS.md)
+Chỉ build được trên **macOS** với Xcode (CI dùng `macos-15`). `FreeBook.xcodeproj` **không** được commit — luôn sinh từ `project.yml`.
+
+```bash
+brew install xcodegen
+xcodegen generate          # chạy lại mỗi khi thêm / xoá / đổi tên file Swift
+xcodebuild build -project FreeBook.xcodeproj -scheme FreeBook \
+  -destination 'platform=iOS Simulator,name=iPhone 15'
+```
+
+- Dependencies khai SPM trong `project.yml`, Xcode tự tải: **SwiftSoup**, **ZIPFoundation**, **ONNX Runtime**, **espeak-ng-spm** (+ `libsqlite3`).
+- Target đặt `CODE_SIGNING_ALLOWED: NO`.
+- `GOOGLE_CLOUD_TTS_API_KEY` lấy từ build setting → `Info.plist`. Build local không có key thì engine Google TTS không hoạt động — bình thường.
+
+### CI
+
+[`.github/workflows/build-ipa.yml`](.github/workflows/build-ipa.yml) chạy khi push `Sources/**` hoặc `project.yml` lên `main` (và vài nhánh phát triển): `xcodegen generate` → `xcodebuild archive` unsigned → đóng gói IPA kèm `espeak-ng-data` → gửi Telegram. CI **chỉ chứng minh biên dịch được**, không chạy test hay kiểm tra kiến trúc.
+
+---
+
+## Cấu trúc mã nguồn
+
+```
+Sources/
+├── App/        FreeBookApp.swift — ModelContainer, cổng nạp từ điển, migration khởi động
+├── Common/     tiện ích dùng chung, ImageCacheManager, ToastManager
+├── Models/     @Model SwiftData (Repository, Extension, Book, Chapter, DownloadTaskModel), DTO, từ điển
+├── Services/
+│   ├── AI/            client OpenAI/Anthropic, Gemini Web, quét tên riêng, lịch sử chat
+│   ├── Backup/        sao lưu cục bộ, Google Drive, Telegram
+│   ├── Books/         transaction coordinator cho sách
+│   ├── ChapterText/   ChapterContentRepository, ChapterTextNormalizer, ChapterStore (sqlite)
+│   ├── Download/      DownloadManager, BookDownloadWorker, BookStorageManager
+│   ├── Export/ Import/   các định dạng xuất / nhập
+│   ├── Extensions/    JSExecutor + bootstrap API JS, quản lý kho, debug server
+│   ├── NewChapters/   kiểm tra chương mới
+│   ├── ReadingProgress/
+│   ├── TTS/           TTSManager + NghiTTS, VieNeu, Siri, Google, Ext, Preprocessing
+│   └── Translation/   VietPhrase, Quick Translation Rules
+└── Views/      SwiftUI theo màn hình: Shelf, BookDetail, Reader (+AI), Discovery, Search,
+                Download, Dictionary, Extensions, Settings, TTSWidget, Common
+```
+
+Dữ liệu app nằm dưới `Application Support`: `library.db` (SwiftData), `chapters/chapter_store.sqlite` (mục lục), `books/*.bin` (nội dung chương), `covers/`, `extensions/`, `translate/`, `FreeBook/TTS/`, `app_logs.txt`. File xuất nằm ở `Documents/Exports/`.
+
+Luồng xử lý trung tâm: **normalize → paragraph → chunk → highlight** — `ChapterTextNormalizer` là nguồn duy nhất chuẩn hoá text chương, Reader và TTS dùng chung một `ChapterDocument`.
+
+---
+
+## Đóng góp
+
+Đọc trước khi sửa code:
+
+1. [`CLAUDE.md`](CLAUDE.md) / [`AGENTS.md`](AGENTS.md) — tổng quan kiến trúc, bất biến và các bẫy đã biết.
+2. [`.agents/AGENTS.md`](.agents/AGENTS.md) — quy trình làm việc bắt buộc.
+3. [`Docs/CodeGraph/rules.md`](Docs/CodeGraph/rules.md) — quy chuẩn kỹ thuật (thẩm quyền cao nhất).
+4. [`Docs/CodeGraph/CHANGELOG.md`](Docs/CodeGraph/CHANGELOG.md) — lịch sử thay đổi `[1.3.NNN]`; tiêu đề entry trùng subject commit.
+
+Công cụ kiểm tra chạy được trên mọi nền tảng:
+
+```bash
+python Scripts/check_architecture.py   # luật kích thước file, 1 type chính/file, tách View–SwiftData, Service không import SwiftUI
+codegraph explore "<câu hỏi hoặc tên symbol>"
+```
+
+Quy ước chính: file Swift mới ≤ 400 dòng, mỗi file một type chính; View không ghi SwiftData trực tiếp mà qua `*TransactionCoordinator`; log chỉ qua `AppLogger.shared.log(...)`; comment và chuỗi giao diện viết tiếng Việt.

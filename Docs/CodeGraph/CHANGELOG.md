@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.516] - 2026-10-11
+
+### docs: viet lai README.md theo trang thai hien tai cua app
+
+Người dùng: *"merge code vào nhánh main và viết lại readme.md cho tôi"*.
+
+- Fast-forward `main` lên `refactor/god-objects` (không có merge commit, `main` không có commit riêng).
+- `README.md` viết lại: README cũ chỉ nói VBook/VietPhrase/NghiTTS và 3 engine TTS. Bản mới liệt kê đúng tính năng hiện có — 5 engine TTS (NghiTTS, VieNeu, Siri, Google, Extension), trợ lý AI (Gemini Web, OpenAI, Anthropic…), Quick Translation Rules, nhập/xuất nhiều định dạng, sao lưu Local/Google Drive/Telegram, hộp thư chương mới, debug server extension + extension VS Code; cập nhật cấu trúc `Sources/`, cách build, CI và chỉ dẫn đóng góp.
+- Chuyển entry `[1.3.486]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- Chỉ đổi tài liệu, không đổi code.
+
 ## [1.3.515] - 2026-10-11
 
 ### fix(ai): dung AI mot lan la xong, quet ten rieng Gemini Web it luot hon va theo cong tac luu, bo nut X widget
@@ -378,14 +389,3 @@ Người dùng: *"làm cho xong đợt 8, sau đó làm Vieneu TTS tối ưu hó
 - **`NghiEnergyTelemetry`** (`@MainActor final class`, `NghiTTS/`, 145 dòng, kèm `Notification.Name.nghiLocalSynthesisDidComplete`): `Accumulator` (cũ `NghiEnergyAccumulator`), `recordSynthesis`, `recordUnderrun`, `markPlaybackSubmitted()` (thay 2 phép gán `nghiEnergy.lastPlaybackSubmitAt` — giữ **không gate** như cũ), `flush` (giữ reset khi tắt log + cửa sổ 60 s), `thermalStateName`. Thermal state truyền vào từ façade, chỉ để **ghi log** (CLAUDE.md).
 - `TTSManager` giữ `let autoAdvancePerf` / `let nghiEnergyTelemetry` (cùng khuôn `NghiAudioPlayerQueue`); `+Telemetry.swift`, `+NghiEnergy.swift` thành forwarder **cùng tên, cùng chữ ký** (~45 chỗ gọi không đổi); `paragraph0*` là computed get/set (`speakCurrent` ghi trực tiếp). Các điểm đánh giá paragraph-0 **không gộp** (để đợt 92).
 - **Kết quả**: `TTSManager.swift` **3672 → 3550** (baseline 3470 — còn 80 dòng, đợt 9); format log `[TTSPerf]`/`[NghiEnergy]` giữ nguyên từng byte; `check_architecture.py` 2 violation, 0 mới. Review đối kháng 2 lượt: 0 lỗi. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận.
-
-## [1.3.486] - 2026-10-09
-
-### refactor: tach TTSChunkPositionMapper va TTSSettingsSnapshot khoi TTSManager (dot 7 tach god object)
-
-Đợt 7 của `Docs/Plans/2026-10-09-plan-refactor-god-objects.md` — bước 3/5 cắt `TTSManager.swift`.
-
-- **`TTSChunkPositionMapper`** (`Sources/Services/TTS/`, 106 dòng, enum không case): 3 hàm thuần đổi "vị trí người dùng" → chỉ số chunk, **cố ý giữ 3 ngữ nghĩa riêng** (phản biện khảo sát): `targetChunkIndex` (ưu tiên `resumeIdentity` rồi `sourceRange`; thân `findTargetChunkIndex`, hàm `public` này còn là forwarder), `indexForParagraphPosition` (khớp `paragraphIndex`, nhận tiêu đề qua `first?.paragraphIndex == -1`; từ `updateParagraphPositionWithoutPlaying`), `reanchorAfterSettings` (so **`range`** hiển thị với chunk cũ sau khi dựng lại đoạn, chấp nhận `range.length == 0`; từ `resumeAfterSettings`, cờ tiêu đề do caller tính y như cũ). Force-unwrap và kiểm `NSNotFound` giữ nguyên thứ tự.
-- **`TTSSettingsSnapshot`** (`Sources/Services/TTS/`, 62 dòng): struct `Equatable` từ `private` lồng trong `TTSManager` thành top-level + `static capture(...)` đọc `UserDefaults` tại thời điểm gọi (vẫn đúng 2 thời điểm: `prepareForSettings`, `resumeAfterSettings`). Danh sách trường **không đổi** — vẫn cố ý **không** gồm `nghittsSafeCachedTimeThreshold`/`nghittsPrefetchCount`/`vieneu*` (đổi riêng ngưỡng đệm không được phát lại từ đầu). **Không** gộp 4 biến `saved*BeforeSettings` thành `ResumeAnchor` (plan gợi ý tuỳ chọn): `savedChunkIndexBeforeSettings` chỉ ghi không đọc, gộp là đổi cấu trúc không cần cho đợt thuần di chuyển.
-- Caller ngoài file không đổi: `TTSSettingsView` (`prepareForSettings`/`resumeAfterSettings`), `ReaderView` (`updateParagraphPositionWithoutPlaying`).
-- **Kết quả**: `TTSManager.swift` **3770 → 3672** (baseline 3470 — đợt 8–9 xử lý tiếp); `check_architecture.py` 2 violation, 0 mới. Review đối kháng 2 lượt: xem walkthrough. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận.

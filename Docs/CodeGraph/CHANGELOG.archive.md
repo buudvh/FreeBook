@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.486] - 2026-10-09
+
+### refactor: tach TTSChunkPositionMapper va TTSSettingsSnapshot khoi TTSManager (dot 7 tach god object)
+
+Đợt 7 của `Docs/Plans/2026-10-09-plan-refactor-god-objects.md` — bước 3/5 cắt `TTSManager.swift`.
+
+- **`TTSChunkPositionMapper`** (`Sources/Services/TTS/`, 106 dòng, enum không case): 3 hàm thuần đổi "vị trí người dùng" → chỉ số chunk, **cố ý giữ 3 ngữ nghĩa riêng** (phản biện khảo sát): `targetChunkIndex` (ưu tiên `resumeIdentity` rồi `sourceRange`; thân `findTargetChunkIndex`, hàm `public` này còn là forwarder), `indexForParagraphPosition` (khớp `paragraphIndex`, nhận tiêu đề qua `first?.paragraphIndex == -1`; từ `updateParagraphPositionWithoutPlaying`), `reanchorAfterSettings` (so **`range`** hiển thị với chunk cũ sau khi dựng lại đoạn, chấp nhận `range.length == 0`; từ `resumeAfterSettings`, cờ tiêu đề do caller tính y như cũ). Force-unwrap và kiểm `NSNotFound` giữ nguyên thứ tự.
+- **`TTSSettingsSnapshot`** (`Sources/Services/TTS/`, 62 dòng): struct `Equatable` từ `private` lồng trong `TTSManager` thành top-level + `static capture(...)` đọc `UserDefaults` tại thời điểm gọi (vẫn đúng 2 thời điểm: `prepareForSettings`, `resumeAfterSettings`). Danh sách trường **không đổi** — vẫn cố ý **không** gồm `nghittsSafeCachedTimeThreshold`/`nghittsPrefetchCount`/`vieneu*` (đổi riêng ngưỡng đệm không được phát lại từ đầu). **Không** gộp 4 biến `saved*BeforeSettings` thành `ResumeAnchor` (plan gợi ý tuỳ chọn): `savedChunkIndexBeforeSettings` chỉ ghi không đọc, gộp là đổi cấu trúc không cần cho đợt thuần di chuyển.
+- Caller ngoài file không đổi: `TTSSettingsView` (`prepareForSettings`/`resumeAfterSettings`), `ReaderView` (`updateParagraphPositionWithoutPlaying`).
+- **Kết quả**: `TTSManager.swift` **3770 → 3672** (baseline 3470 — đợt 8–9 xử lý tiếp); `check_architecture.py` 2 violation, 0 mới. Review đối kháng 2 lượt: xem walkthrough. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận.
+
 ## [1.3.485] - 2026-10-09
 
 ### refactor: tach TTSRefillFailurePolicy khoi TTSManager (dot 6 tach god object)
