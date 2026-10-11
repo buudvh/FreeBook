@@ -7,7 +7,7 @@ import WebKit
 /// Vì sao không copy cookie sang `URLSession`: `__Secure-1PSIDTS` là cookie HttpOnly xoay liên tục và
 /// Google gắn phiên với dấu vân tay trình duyệt — để WebKit tự lo cookie/Origin/TLS (xem `rules.md`).
 /// WebView **không gắn vào window** (giống `WebViewLoader`) nhưng dùng `WKWebsiteDataStore.default()` —
-/// cùng kho cookie với `GeminiWebLoginView`. Mọi hàm chạy trên MainActor; `GeminiWebClient` (actor) gọi
+/// cùng kho cookie với trình duyệt bypass dùng để đăng nhập. Mọi hàm chạy trên MainActor; `GeminiWebClient` (actor) gọi
 /// vào đây rồi bóc frame ở ngoài. WebView tự giải phóng sau 10 phút không dùng.
 ///
 /// Hai bài học 1.3.506: (1) chờ `didCommit` chứ **không** chờ `didFinish` — `WIZ_global_data` nằm trong

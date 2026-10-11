@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.482] - 2026-10-09
+
+### refactor: tach 10 DTO/error/state khoi ChapterPersistenceStore sang Persistence/ (dot 2 tach god object)
+
+Đợt 2 của `Docs/Plans/2026-10-09-plan-refactor-god-objects.md` — thuần di chuyển, không đổi hành vi, không đổi tên.
+
+- **Nhánh làm việc**: từ đợt này refactor chạy trên nhánh `refactor/god-objects` (tách từ `sigle_reader` sau đợt 1); `.github/workflows/build-ipa.yml` thêm nhánh vào trigger `push` để CI biên dịch từng đợt. Xong toàn bộ và CI xanh mới merge về `sigle_reader`.
+- 10 type top-level ở đầu `ChapterPersistenceStore.swift` (HEAD dòng 4–133) tách thành **mỗi type một file** dưới `Sources/Services/ChapterText/Persistence/`: `ChapterMetadataSnapshot`, `ProtectedTTSChapter`, `LocalTOCRefreshResult` (giữ `public` + `public init` — `TTSManager.applyTOCReconciliation` là `public func`), `BookMetadataSnapshot`, `TOCBookCreateSnapshot`, `TOCReconciliationMode`, `SaveTOCResult`, `PersistedChapterSnapshot`, `ChapterPersistenceError` (giữ nguyên chuỗi `errorDescription` tiếng Việt), `ChapterPersistenceState`. Mỗi file chỉ `import Foundation`.
+- Tên type giữ nguyên, phạm vi module ⇒ **12 file tiêu thụ** (`ChapterContentRepository`, `BackupChapterRestorer`, `ExportContentProvider`, `BookDetailView(+Extensions)`, `ReaderChapterListView+Refresh`, `ReaderViewModel`, `ShelfView+BookImport`, `TTSManager`, `ChapterStore*`…) **không phải sửa**. `PersistedChapterSnapshot` là kiểu trả về của `readChapter` — không phải dead code.
+- `ChapterPersistenceStore.swift` **915 → 784** dòng (baseline 884) ⇒ hết vi phạm; file còn actor + `ReconciliationPool` (`fileprivate`, sẽ tách ở đợt 18).
+- **Kiểm chứng**: script so **từng byte** với `HEAD` — phần tách ra ghép lại bằng đúng dòng 4–133, phần còn lại bằng đúng phần còn lại; `check_architecture.py` **4 → 3 violation**, 0 mới. Review đối kháng 2 lượt: 0 lỗi. **Không build tại chỗ** (Windows) — CI xác nhận.
+
 ## [1.3.481] - 2026-10-09
 
 ### refactor: tach 7 chuoi JS bootstrap va cleanAndResolveUrl khoi JSExecutor (dot 1 tach god object)

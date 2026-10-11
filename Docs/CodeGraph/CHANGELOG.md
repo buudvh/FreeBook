@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.512] - 2026-10-11
+
+### fix(ai): dang nhap Gemini Web trong trinh duyet bypass - WebView khong bi SwiftUI dung lai theo Reader
+
+Người dùng: *"gemini web vẫn lỗi đó, vì sao bạn không dùng bypass browser"* kèm `app_logs (94).txt`. Plan duyệt trong chat.
+
+- **Log phân định (giả thuyết 1.3.511 sai)**: không có dòng nào báo iOS kết thúc tiến trình web; thay vào đó `Tạo WKWebView đăng nhập` xuất hiện **10 lần trong 30 giây** — 3 khi mở, 4 khi quay lại từ Gmail (10:34:26), 3 ngay sau một nhịp TTS (10:34:29); mỗi lần kèm `.task` của một màn đăng nhập mới ⇒ SwiftUI dựng lại cả view, WKWebView mới nạp lại trang đăng nhập từ đầu.
+- **Nguyên nhân**: sheet đăng nhập nằm đáy chuỗi `ReaderView → fullScreenCover AI → sheet Cài đặt AI → hàng Form (GeminiWebAccountRow) → sheet`. ReaderView vẽ lại theo từng highlight TTS và khi quay về từ nền (một `@Published snapshot` gộp cả `highlightRange`) nên SwiftUI tính lại nội dung mọi presentation bên dưới và dựng lại sheet gắn trên hàng Form. Quy tắc SwiftUI nội bộ chọn "dựng lại" thay vì "cập nhật" không đọc được từ code app; log cho thấy nó xảy ra.
+- **Sửa**: `GeminiWebLoginLauncher` (file mới) mở trang đăng nhập trong **trình duyệt bypass** (`VisibleWebViewLoader` + `VisibleBrowserTabManager`, UIKit, sống suốt app, ngoài cây SwiftUI), `selectTab` để luôn mở toàn màn hình kể cả khi cài đặt "mở thu nhỏ" bật. Nhận biết xong bằng **host** `gemini.google.com` qua KVO `webView.url` (không so chuỗi con — URL đăng nhập chứa `continue=…gemini.google.com…`) ⇒ `refreshAfterLogin`, chờ 0,8 s, đóng tab; người dùng đóng tab trước ⇒ chỉ làm mới trạng thái. Vẫn giải phóng WKWebView ẩn khi bắt đầu đăng nhập. Log `🤖 [GeminiWebLogin]` mỗi điều hướng (host + path).
+- `GeminiWebAccountRow` gọi launcher thay cho `.sheet`; xoá `GeminiWebLoginView.swift`, `GeminiWebLoginWebPane.swift` (cùng phần xử lý `webViewWebContentProcessDidTerminate` của 1.3.511 — không phải nguyên nhân). `rules.md`: bullet mới trong mục Gemini Web ("WKWebView mang trạng thái người dùng không được để SwiftUI sở hữu bên dưới Reader").
+- Gốc rễ chung (ReaderView vẽ lại theo highlight) được xử lý riêng ở 1.3.513.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`.
+
 ## [1.3.511] - 2026-10-11
 
 ### fix(ai): dang nhap Gemini Web - khong tu tai lai khi iOS giai phong trang, log chan doan, giam RAM
@@ -365,15 +378,3 @@ Người dùng: *"làm cho xong đợt 8, sau đó làm Vieneu TTS tối ưu hó
   - **Hai bẫy đã tránh (theo phản biện khảo sát)**: (1) gắn host bằng `progress.attach(host: self)` **sau** pha 1 của `init` — truyền closure bắt `self` vào constructor là lỗi "self captured before all members initialized"; không dùng `lazy var` vì sẽ seed `lastSavedProgress` sai. (2) Debounce đọc `host?.currentProgress` **lúc nổ**, không chụp lúc đặt lịch — đúng như code cũ đọc `self.currentProgress`.
   - Luật §5.10 giữ nguyên; không thêm hook `.onDisappear`; TTS vẫn là chủ tiến độ khi phát.
 - **Kết quả**: `ReaderViewModel.swift` **925 → 779** (baseline 830) ⇒ hết vi phạm; `check_architecture.py` **3 → 2 violation** (còn `JSDom`, `TTSManager`), 0 mới. Review đối kháng 2 lượt (biên dịch + hành vi): xem kết quả ở walkthrough. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận.
-
-## [1.3.482] - 2026-10-09
-
-### refactor: tach 10 DTO/error/state khoi ChapterPersistenceStore sang Persistence/ (dot 2 tach god object)
-
-Đợt 2 của `Docs/Plans/2026-10-09-plan-refactor-god-objects.md` — thuần di chuyển, không đổi hành vi, không đổi tên.
-
-- **Nhánh làm việc**: từ đợt này refactor chạy trên nhánh `refactor/god-objects` (tách từ `sigle_reader` sau đợt 1); `.github/workflows/build-ipa.yml` thêm nhánh vào trigger `push` để CI biên dịch từng đợt. Xong toàn bộ và CI xanh mới merge về `sigle_reader`.
-- 10 type top-level ở đầu `ChapterPersistenceStore.swift` (HEAD dòng 4–133) tách thành **mỗi type một file** dưới `Sources/Services/ChapterText/Persistence/`: `ChapterMetadataSnapshot`, `ProtectedTTSChapter`, `LocalTOCRefreshResult` (giữ `public` + `public init` — `TTSManager.applyTOCReconciliation` là `public func`), `BookMetadataSnapshot`, `TOCBookCreateSnapshot`, `TOCReconciliationMode`, `SaveTOCResult`, `PersistedChapterSnapshot`, `ChapterPersistenceError` (giữ nguyên chuỗi `errorDescription` tiếng Việt), `ChapterPersistenceState`. Mỗi file chỉ `import Foundation`.
-- Tên type giữ nguyên, phạm vi module ⇒ **12 file tiêu thụ** (`ChapterContentRepository`, `BackupChapterRestorer`, `ExportContentProvider`, `BookDetailView(+Extensions)`, `ReaderChapterListView+Refresh`, `ReaderViewModel`, `ShelfView+BookImport`, `TTSManager`, `ChapterStore*`…) **không phải sửa**. `PersistedChapterSnapshot` là kiểu trả về của `readChapter` — không phải dead code.
-- `ChapterPersistenceStore.swift` **915 → 784** dòng (baseline 884) ⇒ hết vi phạm; file còn actor + `ReconciliationPool` (`fileprivate`, sẽ tách ở đợt 18).
-- **Kiểm chứng**: script so **từng byte** với `HEAD` — phần tách ra ghép lại bằng đúng dòng 4–133, phần còn lại bằng đúng phần còn lại; `check_architecture.py` **4 → 3 violation**, 0 mới. Review đối kháng 2 lượt: 0 lỗi. **Không build tại chỗ** (Windows) — CI xác nhận.

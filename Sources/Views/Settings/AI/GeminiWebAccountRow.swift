@@ -2,11 +2,13 @@ import SwiftUI
 
 /// Hàng trạng thái tài khoản của profile Gemini Web — dùng ở sheet thêm profile và màn chi tiết profile
 /// thay cho các ô Base URL / API Key (provider này không có key).
+///
+/// Đăng nhập mở trong **trình duyệt bypass** (`GeminiWebLoginLauncher`), không phải sheet gắn trên hàng này:
+/// sheet SwiftUI ở đây bị dựng lại theo nhịp vẽ lại của Reader và nạp lại trang đăng nhập từ đầu (1.3.512).
 public struct GeminiWebAccountRow: View {
     public var onSessionChanged: (() -> Void)? = nil
 
     @State private var isSignedIn: Bool? = nil
-    @State private var showingLogin = false
     @State private var showingSignOutConfirm = false
     @State private var isBusy = false
 
@@ -36,7 +38,7 @@ public struct GeminiWebAccountRow: View {
             }
 
             HStack(spacing: 10) {
-                Button(action: { showingLogin = true }) {
+                Button(action: startLogin) {
                     Label(isSignedIn == true ? "Đăng nhập lại" : "Đăng nhập Google", systemImage: "arrow.right.circle")
                         .font(.footnote.bold())
                 }
@@ -59,14 +61,6 @@ public struct GeminiWebAccountRow: View {
         }
         .padding(.vertical, 4)
         .task { await refresh() }
-        .sheet(isPresented: $showingLogin) {
-            GeminiWebLoginView {
-                Task {
-                    await refresh()
-                    onSessionChanged?()
-                }
-            }
-        }
         .alert("Đăng xuất Google?", isPresented: $showingSignOutConfirm) {
             Button("Đăng xuất", role: .destructive) {
                 Task {
@@ -86,6 +80,15 @@ public struct GeminiWebAccountRow: View {
     private var statusTitle: String {
         guard let isSignedIn else { return "Đang kiểm tra đăng nhập…" }
         return isSignedIn ? "Đã đăng nhập Google" : "Chưa đăng nhập Google"
+    }
+
+    private func startLogin() {
+        GeminiWebLoginLauncher.shared.start { _ in
+            Task {
+                await refresh()
+                onSessionChanged?()
+            }
+        }
     }
 
     private func refresh() async {

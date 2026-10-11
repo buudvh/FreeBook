@@ -2,7 +2,7 @@ import Foundation
 import WebKit
 
 /// Trạng thái đăng nhập Google của Gemini Web — đọc/xoá cookie ở `WKWebsiteDataStore.default()`, kho
-/// dùng chung với `GeminiWebLoginView` và trình duyệt bypass.
+/// dùng chung với trình duyệt bypass (nơi `GeminiWebLoginLauncher` mở trang đăng nhập).
 extension GeminiWebSessionController {
     func isSignedIn() async -> Bool {
         let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()

@@ -9,7 +9,7 @@ import Foundation
 enum GeminiWebRequestBuilder {
     static let origin = "https://gemini.google.com"
     static let appURL = URL(string: "https://gemini.google.com/app")!
-    /// Đăng nhập xong Google chuyển thẳng về `/app` — `GeminiWebLoginView` dựa vào host đích để tự đóng.
+    /// Đăng nhập xong Google chuyển thẳng về `/app` — `GeminiWebLoginLauncher` dựa vào host đích để tự đóng tab.
     static let loginURL = URL(string: "https://accounts.google.com/ServiceLogin?continue=https%3A%2F%2Fgemini.google.com%2Fapp&hl=vi")!
     static let generateEndpoint = "https://gemini.google.com/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate"
     static let batchExecuteEndpoint = "https://gemini.google.com/_/BardChatUi/data/batchexecute"
