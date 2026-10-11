@@ -66,6 +66,7 @@ public final class ReaderChapterListStore {
         self.isTranslationEnabled = isTranslationEnabled
         self.shouldConvertTraditionalToSimplified = shouldConvertTraditionalToSimplified
         setupPlaceholderRows()
+        rerunSearchIfNeeded()
     }
 
     public func setupPlaceholderRows() {
@@ -97,7 +98,12 @@ public final class ReaderChapterListStore {
     public func updateSortOrder(isAscending: Bool) {
         self.isAscending = isAscending
         setupPlaceholderRows()
+        rerunSearchIfNeeded()
+    }
 
+    /// `setupPlaceholderRows()` xoá `searchResults` nhưng ô tìm của View vẫn giữ chữ ⇒ phải tìm lại, nếu không
+    /// danh sách trắng trơn tới khi người dùng sửa một ký tự (1.3.510).
+    private func rerunSearchIfNeeded() {
         if !currentSearchQuery.isEmpty {
             performSearch(query: currentSearchQuery)
         }
@@ -108,11 +114,13 @@ public final class ReaderChapterListStore {
         self.totalCount = totalCount
         setupPlaceholderRows()
         reloadViewportAfterReset()
+        rerunSearchIfNeeded()
     }
 
     public func reloadAllPages() {
         setupPlaceholderRows()
         reloadViewportAfterReset()
+        rerunSearchIfNeeded()
     }
 
     private func reloadViewportAfterReset() {
@@ -325,6 +333,9 @@ public final class ReaderChapterListStore {
 
     public func performSearch(query: String) {
         self.currentSearchQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let queryLength = currentSearchQuery.count
+        let startedAt = Date()
+        let bookHash = String(Chapter.hashUrl(bookId).prefix(8))
         searchCoordinator.performSearch(
             query: currentSearchQuery,
             bookId: bookId,
@@ -340,6 +351,11 @@ public final class ReaderChapterListStore {
             onResultsReady: { [weak self] items, states in
                 self?.searchResults = items
                 self?.searchResultStates = states
+                // Không log từ khoá, chỉ độ dài. `ms` gồm debounce 250 ms của coordinator.
+                if queryLength > 0 {
+                    let ms = Int(Date().timeIntervalSince(startedAt) * 1000)
+                    AppLogger.shared.log("🔎 [ChapterSearch] bookIdHash=\(bookHash) len=\(queryLength) results=\(items.count) ms=\(ms)")
+                }
             }
         )
     }

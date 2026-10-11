@@ -96,7 +96,7 @@ public final class ChapterListSearchCoordinator {
                     if count >= 100 { break }
                     let trimmedUrl = chapter.url.trimmingCharacters(in: .whitespacesAndNewlines)
                     guard !trimmedUrl.isEmpty else { continue }
-                    if chapter.name.localizedCaseInsensitiveContains(trimmed) {
+                    if ChapterTitleSearchMatcher.matches(trimmed, anyOf: [chapter.name]) {
                         let displayPos = isAscending ? index : (totalCount - 1 - index)
                         let state = ReaderChapterRowState(
                             id: displayPos,

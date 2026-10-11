@@ -1307,7 +1307,7 @@ struct ReaderView: View {
                     .opacity(showingChapterList ? 1 : 0)
                     .allowsHitTesting(showingChapterList)
 
-                ReaderChapterListView(
+                ReaderChapterListHost(
                     bookId: bookId,
                     bookTitle: bookTitle,
                     bookAuthor: bookAuthor,

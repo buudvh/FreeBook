@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.510] - 2026-10-11
+
+### fix(reader): tim chuong theo ten dang hien thi, khong phan biet hoa thuong va dau
+
+Người dùng: *"tìm kiếm không được trong danh sách chương của reader"*, *"gõ số chương cũng không được, gõ đúng viết hoa cũng không được"*, *"tôi tìm xong thì dữ liệu không đổi theo tôi tìm nhưng tắt danh sách chương đi rồi mở lại vì có chữ tìm trong đó danh sách sẽ đổ kết quả tìm"*. Plan duyệt: `Docs/Plans/2026-10-11-plan-vieneu-search-geminilogin.md` mục 2.
+
+- **Bằng chứng**: chạy đúng câu SQL tìm của app trên `chapter_store.sqlite` lấy từ máy người dùng (truyện `bookIdHash=88949c37`, 163/163 chương có `title_trans`): `100` → 2 kết quả, `chương 100` → 1, tên đầy đủ → 1. Truy vấn đúng; lỗi nằm ở tầng vẽ. Git: toàn bộ đường tìm không đổi từ 07–08/2026, thay đổi duy nhất là `c9e7c20a` (2026-10-09) cho `ReaderChapterListView` conform `Equatable` + `.equatable()`.
+- **Nguyên nhân chính (thoái lui từ `c9e7c20a`)**: view thật có `@State searchQuery` và đọc store `@Observable` lại mang `==` (bỏ qua state, so store theo identity) dưới `.equatable()`; trên máy, body không chạy lại khi gõ hay khi kết quả về — chỉ chạy khi input `isPresented` đổi (đóng/mở danh sách). Trước commit đó `ReaderView` vẽ lại danh sách liên tục nên che mất chỗ hở. Các `@State` nội bộ khác (đảo thứ tự, đang cập nhật mục lục, đang tải chương lẻ, cache tên dịch) kẹt cùng kiểu.
+- **Sửa gốc, giữ tối ưu**: `ReaderChapterListHost` (file mới) là vỏ **không trạng thái** mang `==` + `.equatable()`, body chỉ dựng `ReaderChapterListView`; xoá `ReaderChapterListView+Equatable.swift` nên view thật **không** còn `Equatable` ⇒ `@State`/Observation cập nhật bình thường, nhịp vẽ lại của `ReaderView` (highlight TTS) vẫn bị chặn ở vỏ. `ReaderView` chỉ đổi tên view ở chỗ mount.
+- **Lọc trên tên đang hiển thị** (`ChapterTitleSearchMatcher`, file mới): `BackgroundSearchWorker` bỏ SQL `LIKE`, đọc `fetchOrderedTOC` rồi khớp trong Swift trên tên hiển thị (cùng cách chọn với `BackgroundPagingWorker`), tên gốc và `titleTrans`, không phân biệt hoa/thường, dấu, độ rộng; kiểm tra huỷ mỗi 200 chương. Sửa luôn: chương thiếu `title_trans` chỉ tìm được bằng chữ Hán (DB người dùng: 60/204 truyện thiếu một phần hoặc toàn bộ), "đại đế" không ra "Đại Đế" (`LIKE` chỉ gấp hoa/thường ASCII), `%`/`_` thành ký tự đại diện, lệch khi chuyển phồn→giản. Nhánh dự phòng `onlineChapters` dùng cùng bộ khớp. `ChapterStoreDatabase.searchChapters` giữ nguyên (không đổi schema), chỉ không còn được ô tìm gọi.
+- **Tìm lại sau reset**: `updateChapters`, `reloadAllPages`, `updateTranslation` (cùng `updateSortOrder`) gọi `rerunSearchIfNeeded()` — trước đây kết quả bị xoá mà ô tìm vẫn giữ chữ.
+- **Log** mỗi lượt tìm: `🔎 [ChapterSearch] bookIdHash=… len=… results=… ms=…` (không log từ khoá; `ms` gồm debounce 250 ms).
+- **Kiểm chứng**: đọc code + thử SQL trên DB thật; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`.
+
 ## [1.3.509] - 2026-10-11
 
 ### feat(vieneu): bo lua chon 1 luong, mo ta cai dat gon va dung tac dung spin
@@ -364,21 +378,3 @@ Người dùng: *"refactor toàn dự án luôn"* → chọn **tách hẳn các 
 - **Giống từng byte**: chuyển bằng script, so giá trị literal sau khi mô phỏng cách Swift bỏ lề `"""` — cả 7 khớp với `HEAD`; hai lượt review độc lập tự tính lại SHA-1 cũng khớp. Literal không có interpolation, không có escape. Mỗi `let xxxBootstrap = Enum.prop` + `context.evaluateScript(...)` **giữ nguyên vị trí và thứ tự** (Engine vẫn nạp cuối).
 - **`cleanAndResolveUrl`**: thân hàm chuyển nguyên văn sang `ExtensionURLFormatter.cleanAndResolve` (`Engine/ExtensionURLFormatter.swift`); `JSExecutor.cleanAndResolveUrl` còn là forwarder `public static` một dòng ⇒ 14 caller không phải sửa.
 - **Kiểm chứng**: `check_architecture.py` **5 → 4 violation** — `JSExecutor.swift` **1561 → 976** (baseline 1066) hết vi phạm; 0 mới. Review đối kháng 2 lượt (biên dịch + hành vi/luật): 0 lỗi. **Không build tại chỗ** (Windows) — CI xác nhận; `project.yml` glob `Sources` gom cả thư mục con mới. File mới: 34–184 dòng, 1 type, chỉ `import Foundation`.
-
-## [1.3.480] - 2026-10-09
-
-### fix: ke sach da cache rule va tu dien rieng 3 truyen (tra cache dich truoc capture, tach tang ten)
-
-Người dùng: log `app_logs (81–82).txt` — *"bộ rule của 4 truyện khác nhau … được nạp xoay vòng … nhìn có vẻ là bug, tối đa 2 truyện (1 nghe 1 đọc) được dịch chứ sao đến 4 truyện nhỉ"*.
-
-- **Triệu chứng**: `🔤 [QuickTranslateRule] Bộ riêng: nạp … rule` của **4** hash khác nhau lặp xoay vòng 6–7 lần mỗi cụm, ngay trước các khoảng lặng chuyển chương (log 81) và ngay sau khi mở chi tiết truyện (log 82); `gen` lên **366** trong ~1,5 giờ.
-- **Nguồn 4 truyện là kệ sách, không phải Reader/TTS**: `ShelfView` trình bày Reader bằng `fullScreenCover` nên vẫn sống bên dưới, `@Query(sort: \Book.lastReadDate)` bắn lại khi tiến độ được lưu (chuyển chương, mở chi tiết); mỗi hàng `BookListItemView` dịch tên bằng `bookId` **của chính truyện đó**.
-- **Lỗi gốc**: `TranslateUtils.translateText` gọi `TranslationReadContext.withSnapshot` → `capture` **trước** khi tra cache dịch. `capture` nạp snapshot rule (`QuickTranslationRuleBookStore`, cache 3 truyện) **và** `VietPhrase.txt`/`Names.txt` riêng (`TranslationDictionaryState.book`, cache 3 truyện — phần này **không có log**) ⇒ ≥ 4 truyện là đá cache xoay vòng, đọc + parse lại file trên main thread dù bản dịch đã có trong cache.
-- **Sửa** (`TranslateUtils.swift`, chữ ký không đổi, kết quả dịch không đổi):
-  - Tính khoá + tra cache **trước** `withSnapshot`; chỉ `capture` khi trượt. Ticket (`epoch`) của `TranslationMemo` lấy sớm hơn ⇒ chỉ chặt hơn, không thể ghi bản dịch cũ.
-  - Tầng cache riêng `metaTranslationCache` cho `translateMeta` (tên/tác giả) — dòng nội dung chương của Reader/TTS (mỗi chương ~100–200 mục) không còn đẩy tên trên kệ ra khỏi cache 1024 mục. Xoá ở đúng hai chỗ xoá cache cũ (`invalidateCache(bookId:)`, `clearCache()`).
-  - Mảnh tên chương trong `translateChapterTitle` đi tầng nội dung (`translateContent`): `chapterTitleCache` đã giữ cả tên, mục lục dài không còn làm tràn tầng tên. `isMeta` chỉ nằm trong khoá cache, không vào `performTranslation` ⇒ kết quả y hệt.
-- **Đã thử và bỏ**: cho hàng Khám phá dịch với `bookId = nil` — review chỉ ra `BookDetailView.resolveBookId` (:759-769) có lúc giữ **link** làm `Book.bookId`, khi đó truyện có từ điển/rule riêng dưới `books/<link>/` ⇒ đổi sang `nil` làm tên ở Khám phá lệch tên trên kệ. Đã hoàn lại.
-- **Còn lại (chấp nhận)**: lần **trượt** cache vẫn `capture` từng truyện — sau khi sửa từ điển (đổi `generation` của mọi truyện), lần vẽ đầu sau khi mở app, hoặc khi danh sách bình luận dài (vẫn dùng `translateMeta`) làm tràn tầng tên ⇒ một đợt nạp, không còn ở **mỗi** lần vẽ lại. Giới hạn 3 truyện giữ nguyên.
-- **Không phải** liên quan tới commit `1d6c93a4` (miễn trần regex 250 cho rule mục lục mặc định khi khôi phục cấu hình) — commit đó đã có trên `sigle_reader` và còn nguyên.
-- **Kiểm chứng**: `check_architecture.py` **5 violation nền cũ, 0 mới**; `TranslateUtils.swift` **911 → 917** (đúng baseline 917 — lần sau đụng file này **phải tách file trước**). Review đối kháng 3 lượt: tương đương hành vi, invalidation đầy đủ, biên dịch (đọc code). **Không build tại chỗ** (Windows). Chưa chứng minh được đây là nguyên nhân khoảng lặng 0,45–2,5 s lúc chuyển chương — cần log sau bản sửa để so.

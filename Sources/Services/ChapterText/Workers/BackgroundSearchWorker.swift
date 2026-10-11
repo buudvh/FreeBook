@@ -17,12 +17,17 @@ public actor BackgroundSearchWorker {
         shouldConvertTraditionalToSimplified: Bool = false
     ) async -> [SearchChapterDTO] {
         if !ChapterStoreConfiguration.enableSwiftDataTOCWrite {
+            // Lọc trong Swift trên **tên đang hiển thị** (cùng cách chọn với `BackgroundPagingWorker`) + tên gốc +
+            // `titleTrans` — không dùng SQL `LIKE` nữa, xem `ChapterTitleSearchMatcher` (1.3.510).
             do {
-                let storeResults = try await ChapterStore.shared.searchChapters(bookId: bookId, query: query)
-                let sorted = isAscending ? storeResults.sorted(by: { $0.index < $1.index }) : storeResults.sorted(by: { $0.index > $1.index })
-                return sorted.compactMap { chap in
+                let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+                let toc = try await ChapterStore.shared.fetchOrderedTOC(bookId: bookId)
+                var matched: [SearchChapterDTO] = []
+                for (offset, chap) in toc.enumerated() {
+                    // Mỗi phím gõ huỷ lượt cũ: dừng sớm thay vì dịch nốt cả mục lục.
+                    if offset % 200 == 0, Task.isCancelled { return [] }
                     let trimmedUrl = chap.url.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !trimmedUrl.isEmpty else { return nil }
+                    guard !trimmedUrl.isEmpty else { continue }
                     let displayTitle: String
                     if isTranslationEnabled {
                         if !shouldConvertTraditionalToSimplified, let trans = chap.titleTrans, !trans.isEmpty {
@@ -39,13 +44,17 @@ public actor BackgroundSearchWorker {
                     } else {
                         displayTitle = chap.title
                     }
-                    return SearchChapterDTO(
+                    guard ChapterTitleSearchMatcher.matches(trimmed, anyOf: [displayTitle, chap.title, chap.titleTrans]) else {
+                        continue
+                    }
+                    matched.append(SearchChapterDTO(
                         index: chap.index,
                         title: displayTitle,
                         url: trimmedUrl,
                         isCached: chap.isCached
-                    )
+                    ))
                 }
+                return isAscending ? matched : Array(matched.reversed())
             } catch {
                 let bookHash = String(Chapter.hashUrl(bookId).prefix(8))
                 AppLogger.shared.log("❌ [BackgroundSearch] bookIdHash=\(bookHash) status=search_failed")
