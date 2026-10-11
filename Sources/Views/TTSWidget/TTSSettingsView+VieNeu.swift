@@ -116,10 +116,7 @@ extension TTSSettingsView {
             }
             .font(.caption)
             .foregroundColor(.secondary)
-            Text("1.00x = như cũ. Tăng để model tự nói nhanh: ít tính toán hơn, máy mát hơn, không đổi cao độ. Chỉ dùng cho VieNeu-TTS.")
-                .font(.caption2)
-                .foregroundColor(.secondary)
-            Text("Mẹo: 1.15x là mức ít bị đọc lặp chữ nhất (ở 1.00x thỉnh thoảng lặp kiểu \"đến đó, đó là\"); quá 1.25x bắt đầu mất chữ. Khi tăng tốc độ tổng hợp, hạ tốc độ phát tương ứng để giữ tốc độ nghe thực tế.")
+            Text("Model nói nhanh hơn, máy mát hơn. 1.15x ít lặp chữ nhất, quá 1.25x mất chữ.")
                 .font(.caption2)
                 .foregroundColor(.secondary)
         }
@@ -186,19 +183,19 @@ extension TTSSettingsView {
         .onChange(of: vieNeuSelectedMode) { _, newValue in
             VieNeuTTSService.shared?.preferredMode = newValue
         }
-        // 3. Số luồng tổng hợp (1/2/3/4, KHÔNG kèm ngoặc bổ nghĩa). Mức 1 thêm ở 1.3.488 để đo CPU-time.
+        // 3. Số luồng tổng hợp (2/3/4, KHÔNG kèm ngoặc bổ nghĩa). Mức 1 bỏ ở 1.3.509: cùng CPU-time với 2 luồng mà chậm gấp đôi.
         Picker("Số luồng tổng hợp", selection: Binding(
             get: { vieNeuPowerSaving ? 2 : vieNeuThreadCount },
             set: { vieNeuThreadCount = $0; VieNeuTTSService.shared?.threadCount = $0 }
         )) {
-            ForEach([1, 2, 3, 4], id: \.self) { count in
+            ForEach([2, 3, 4], id: \.self) { count in
                 Text("\(count) luồng").tag(count)
             }
         }
         .pickerStyle(.menu)
         .disabled(vieNeuPowerSaving)
         // 4. Giải thích — LUÔN hiển thị (nối thuyết minh khi bật Tiết kiệm pin).
-        Text("Số luồng càng nhiều càng khó gây ra trường hợp phải chờ đợi giữa hai đoạn nghe nhưng dễ nóng máy và hết pin nhanh. 1 luồng không tiết kiệm pin hơn 2 luồng (cùng lượng CPU) mà chỉ chậm gấp đôi, dễ hụt tiếng khi máy nóng. Đổi số luồng có hiệu lực từ lượt tổng hợp kế tiếp (engine tự nạp lại, chờ khoảng 3 giây)." + (vieNeuPowerSaving ? " Đang bật Tiết kiệm pin: cố định chế độ Cân bằng + 2 luồng để máy mát và ít tốn pin; chất lượng giọng thấp hơn." : ""))
+        Text("Nhiều luồng ít chờ hơn nhưng nóng máy hơn." + (vieNeuPowerSaving ? " Tiết kiệm pin đang ghim Cân bằng + 2 luồng." : ""))
             .font(.caption)
             .foregroundColor(.secondary)
         // 4b. Spin của pool luồng ORT (1.3.488) — mặc định tắt, bật chỉ để so A/B năng lượng.
@@ -285,7 +282,7 @@ extension TTSSettingsView {
                         .font(.system(.body, design: .monospaced))
                 }
             }
-            Text("Tự động tổng hợp thêm âm thanh khi thời lượng đệm âm thanh liên tục còn lại giảm xuống dưới \(Int(ttsManager.vieneuSafeCachedTimeThreshold)) giây.")
+            Text("Nạp thêm khi đệm còn dưới \(Int(ttsManager.vieneuSafeCachedTimeThreshold)) giây.")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }

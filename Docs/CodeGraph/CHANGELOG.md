@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.509] - 2026-10-11
+
+### feat(vieneu): bo lua chon 1 luong, mo ta cai dat gon va dung tac dung spin
+
+Người dùng: *"Làm gọn bớt phần mô tả của mỗi config trong màn hình cài đặt tts của vieneu"*, *"gọn hơn nữa"*, *"1 luồng không tiết kiệm pin hơn lại còn lag hơn thì bỏ luôn option 1 luồng đi. Luồng chờ bận (spin) giải thích bậy quá, phải giải thích bật/tắt có hiệu quả gì"*. Plan duyệt: `Docs/Plans/2026-10-11-plan-vieneu-search-geminilogin.md` mục 1.
+
+- **Bỏ "1 luồng"**: picker "Số luồng tổng hợp" còn 2/3/4. Kẹp ở `VieNeuSynthesisPolicy.threadCount(from:)` (`max(2, …)`) — đường đọc **duy nhất** của khoá `vieneuThreadCount`, nên giá trị 1 đã lưu (kể cả từ bản sao lưu cũ, vốn ghi thô) tự thành 2 ở UI, nạp engine, kiểm tra nạp lại và tạo giọng; setter `VieNeuTTSService.threadCount` cũng kẹp `max(2, …)`. Căn cứ: đo trên iPhone 1 luồng 0,63 CPU-s/audio-s như 2 luồng nhưng RTF 0,60 so với 0,32, hụt tiếng khi nóng.
+- **Spin**: mô tả cũ nói về trạng thái *tắt* trong khi nhãn công tắc là trạng thái *bật*, kèm câu "chỉ để so sánh" khó hiểu. Mới: "Bật: luồng quay vòng chờ việc thay vì ngủ ngay, tốn CPU và nóng máy hơn mà không nhanh hơn. Nên để tắt." (`session.intra_op.allow_spinning`; iPhone 2 luồng: tắt 0,63 CPU-s/audio-s RTF 0,32, bật 0,76 RTF 0,38 — một lần đo, máy đã ấm nên không ghi % vào UI; audio giống hệt từng bit).
+- **Mô tả gọn**: tốc độ tổng hợp gộp 2 dòng còn 1 ("Model nói nhanh hơn, máy mát hơn. 1.15x ít lặp chữ nhất, quá 1.25x mất chữ."); số luồng "Nhiều luồng ít chờ hơn nhưng nóng máy hơn." (+ " Tiết kiệm pin đang ghim Cân bằng + 2 luồng."); ngưỡng đệm "Nạp thêm khi đệm còn dưới N giây.".
+- **Sửa tài liệu lệch code** (người dùng duyệt): doc `defaultThreadCount` ("Đã đo và giữ 4" trong khi giá trị là 2), `rules.md` "so 4 is kept" và "opt-in Tiết kiệm pin" (mặc định đang BẬT), doc `VieNeuTTSService.powerSaving`.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`.
+
 ## [1.3.508] - 2026-10-10
 
 ### feat(ai): Gemini Web - cho phep quet ten rieng nhieu chuong, nghi 2 s giua nhom, dung ro khi het han muc
@@ -370,42 +382,3 @@ Người dùng: log `app_logs (81–82).txt` — *"bộ rule của 4 truyện kh
 - **Còn lại (chấp nhận)**: lần **trượt** cache vẫn `capture` từng truyện — sau khi sửa từ điển (đổi `generation` của mọi truyện), lần vẽ đầu sau khi mở app, hoặc khi danh sách bình luận dài (vẫn dùng `translateMeta`) làm tràn tầng tên ⇒ một đợt nạp, không còn ở **mỗi** lần vẽ lại. Giới hạn 3 truyện giữ nguyên.
 - **Không phải** liên quan tới commit `1d6c93a4` (miễn trần regex 250 cho rule mục lục mặc định khi khôi phục cấu hình) — commit đó đã có trên `sigle_reader` và còn nguyên.
 - **Kiểm chứng**: `check_architecture.py` **5 violation nền cũ, 0 mới**; `TranslateUtils.swift` **911 → 917** (đúng baseline 917 — lần sau đụng file này **phải tách file trước**). Review đối kháng 3 lượt: tương đương hành vi, invalidation đầy đủ, biên dịch (đọc code). **Không build tại chỗ** (Windows). Chưa chứng minh được đây là nguyên nhân khoảng lặng 0,45–2,5 s lúc chuyển chương — cần log sau bản sửa để so.
-
-## [1.3.479] - 2026-10-09
-
-### perf: dedupe O(n), cache lich su tim kiem, tra tu dien khong copy ca chuoi, them log JSPerf
-
-Người dùng: *"bạn tiến hành tối ưu đi"* — thực thi plan `Docs/Plans/2026-10-09-plan-perf-4-hotspots.md` bước 1–4 (bước 5, sửa #1, chờ số đo).
-
-#### #2 + #4 — khử trùng lặp O(n), cache lịch sử tìm kiếm
-
-- **`filterAndDeduplicate`** (`NovelListUtils.swift`): `reduce` + `acc.contains(where:)` gọi `normalizeLink` hai vế ở mọi cặp (O(n²)) ⇒ một vòng với `Set<String>`. Giữ đúng phần tử **đầu tiên** của mỗi khoá và thứ tự gốc; chữ ký không đổi nên 4 caller không phải sửa.
-- **`PaginatedNovelLoader`**: trang ≥ 2 so từng mục mới với **toàn bộ** `novels` đã tích luỹ trên `@MainActor` (chậm dần theo số trang đã cuộn) ⇒ dựng `Set` khoá **mỗi trang**. Cố ý **không** giữ `Set` làm state: `reload()` gán thẳng `novels = unique`, một `Set` sống qua lần đó sẽ nuốt im lặng kết quả trùng khoá cũ.
-- **Lịch sử tìm kiếm** (`SearchView`, `ShelfSearchView` — dùng chung key `search_history`): getter decode JSON mỗi lần đọc, mà `matchingHistory` bị đọc 3 lần mỗi lần dựng `body`, tức mỗi phím gõ. Nay `@State displayedHistory` cho **hiển thị**, nạp bằng `.onChange(of: searchHistoryJSON, initial: true)` (iOS 17) — bắt luôn lần ghi từ màn kia.
-- **Bẫy đã tránh**: đường **ghi** vẫn decode thẳng từ JSON, **không** đọc cache. `SearchView.onAppear` gọi `performSearch` → `saveQueryToHistory` khi mở kèm `initialSearchQuery`, và thứ tự giữa `.onAppear` với `onChange(initial:)` không được SwiftUI đảm bảo — đọc cache rỗng lúc đó là ghi đè mất cả 15 mục lịch sử. Setter gán cache ngay để hiển thị không lệch.
-- Lợi ích thật: #2(b) có ý nghĩa khi cuộn nhiều trang; lọc kết quả search (~20–50 mục/nguồn) và lịch sử (trần 15 mục) là dọn dẹp rẻ, gần như không cảm nhận được.
-- **Kiểm chứng**: `check_architecture.py` **5 violation nền cũ, 0 mới**. **Không build tại chỗ** (Windows, không có `swiftc`) — CI xác nhận biên dịch. Review đối kháng (state SwiftUI, tương đương khử trùng) không phát hiện lỗi. Ảnh hưởng dòng: `NovelListUtils.swift` **32 → 39** · `PaginatedNovelLoader.swift` **107 → 109** · `SearchView.swift` **858 → 864** (baseline 872) · `ShelfSearchView.swift` **293 → 306**.
-
-#### #3 — tra từ điển không copy cả chuỗi mỗi lời gọi
-
-- **Chỗ O(L²) thật**: `QuickTranslationRuleEngine.scanBookNameOccupiedIndices` (`+NameProtection.swift`) gọi `bookNames.findLongestMatch(text: text, startIndex: cursor)` với **cả dòng** và `cursor` chạy dọc chuỗi; nhánh `entries` của `FrozenTrieDictionary` (từ điển name riêng của truyện) dựng `Array(text.utf16)` **mỗi lời gọi** ⇒ copy toàn dòng ở mọi vị trí. Chạy khi bật rule dịch nhanh và truyện có name riêng; memo 2048 entry phía trên chỉ cứu các lần sau.
-- **Sửa** (`FrozenTrieDictionary.swift`, chữ ký **không đổi**, đơn vị vẫn UTF-16 — luật 1.3.339, **không** sửa caller nào, tokenizer giữ `chars: [Character]`):
-  - Nhánh `entries`: hàm mới `keyWindow` copy **một cửa sổ** từ `startIndex`, dài bằng khoá dài nhất (`lengths` giảm dần ⇒ `lengths.first`), rồi cắt khoá từ cửa sổ bằng `String(decoding:as:)` như cũ ⇒ lát cắt chẻ đôi cặp surrogate vẫn ra U+FFFD. NameProtection: O(L) → O(độ dài khoá dài nhất) mỗi vị trí.
-  - Nhánh `.dat` (`trieMatches`): duyệt `text.utf16` tại chỗ, không cấp mảng.
-  - Mỗi lời gọi đổi `startIndex` → index **một** lần. Bản nháp đầu gọi `index(_:offsetBy:)` cho **từng** độ dài khoá — review chỉ ra breadcrumbs của String chỉ dùng cho offset ≥ 64, dưới đó là đi bộ từ đầu chuỗi ⇒ đã bỏ.
-- `scanBookNameOccupiedIndices`: bỏ `let units = Array(text.utf16)` vốn chỉ dùng `.count` ⇒ `text.utf16.count`.
-- Đường cửa sổ ≤ 20 ký tự (`VietPhraseTokenizer`, `QuickTranslationRuleMatcher`): nhánh `entries` vẫn một mảng nhỏ mỗi lời gọi như cũ, nhánh `.dat` bớt một lần cấp phát — lợi ích hằng số nhỏ, có thể không đo ra.
-- **Ghi nhận, KHÔNG sửa (UNKNOWN)**: `VietPhraseTokenizer.swift:89`/`:180` dùng `match.length` (UTF-16) làm số `Character` khi cắt `chars[i..<(i + match.length)]` — chỉ lệch với ký tự ngoài BMP.
-- **Kiểm chứng**: `check_architecture.py` **5 violation nền cũ, 0 mới**. **Không build tại chỗ** (Windows, không có `swiftc`) — CI xác nhận biên dịch. Review đối kháng soát tương đương **từng bit** với bản cũ (startIndex ngoài biên, `lengths` rỗng, cặp surrogate bị chẻ, NSString bridge) — không lệch. Ảnh hưởng dòng: `FrozenTrieDictionary.swift` **183 → 202** · `QuickTranslationRuleEngine+NameProtection.swift` **56 → 57**.
-
-#### #1 — chỉ đo: log `[JSPerf]` đếm lời gọi JS đồng bộ chạy cùng lúc
-
-Plan `Docs/Plans/2026-10-09-plan-perf-4-hotspots.md` §1.3 — **chỉ đo, không đổi hành vi**.
-
-- **Chẩn đoán (đã sửa so với bản đầu của plan)**: JS `fetch`/`sleep` **không** chặn main thread. `SearchView` gọi `ExtensionManager.search` trong `group.addTask` (task con không thừa hưởng actor), và `JSExecutor.callAsync` là hàm `async` nonisolated của một class thường ⇒ theo SE-0338 (Swift 5 mode, không bật `NonisolatedNonsendingByDefault`) luôn chạy trên **cooperative pool**. Thứ bị chặn là thread của pool (≈ số core): `runner.call` đồng bộ, suốt lúc `semaphore.wait` của `syncFetchBlock` (tới 15 s), `Thread.sleep` hay chờ browser. Search **tất cả nguồn** (>15 nguồn đang bật) có thể làm cạn pool ⇒ mọi task async khác (TTS remote, dịch) phải xếp hàng.
-- File mới `Sources/Services/Extensions/Engine/JSExecutionTelemetry.swift` (**67** dòng, 1 enum): bộ đếm số lời gọi JS đồng bộ đang chạy cùng lúc (khoá `NSLock`, nhả khoá trước khi ghi log), móc ở **một** chỗ — quanh `runner.call`/`function.call` trong `JSExecutor+Async.swift` (`defer` ⇒ cân bằng cả nhánh ném lỗi `-404`). **Không** chạm `JSExecutor.swift` (1561 dòng, baseline 1066).
-- Log **chỉ khi có chồng lấn** (Ext TTS từng chunk và tải tuần tự từng chương — một lời gọi mỗi lúc — không sinh dòng nào): `[JSPerf] SyncCall source fn ms concurrent cores` cho lời gọi bắt đầu lúc đã có lời gọi khác chạy; `[JSPerf] SyncBurst peak calls ms cores saturated` khi đợt chồng lấn kết thúc. `saturated=1` ⇔ `peak ≥ activeProcessorCount` ⇒ pool cạn theo định nghĩa. **Không** log `main=`: với `callAsync` nó luôn bằng 0 (xem chẩn đoán trên); JS chạy trên main chỉ có `validateSyntax` ở màn soạn extension — ngoài phạm vi đo này.
-- Đọc hậu quả ở log **đã có**: `[TTSPerf] PrefetchSummary` (`waitedHit`/`miss`/`maxWaitMs`). **Không** dùng `RemoteHandoff gapMs` — lúc bàn giao audio đã nằm sẵn trong bộ nhớ (prefetch ≥ 3 đoạn) và lệnh phát chạy trên main, nên pool cạn vài giây không làm gap tăng.
-- Cách đo: bật log trong Cài đặt (AppLogger tự tắt mỗi lần mở app), nghe Google TTS, rồi tìm **tất cả nguồn**.
-- Ghi nhận, **không** sửa ở đây: `AppLogger.log` không khoá (mỗi lần mở `FileHandle` + `seekToEndOfFile` + `write`), hai thread ghi cùng micro-giây có thể đè dòng của nhau — lỗi có từ trước, toàn app.
-- **Kiểm chứng**: `check_architecture.py` **5 violation nền cũ, 0 mới**. **Không build tại chỗ** (Windows, không có `swiftc`) — CI xác nhận biên dịch. `xcodegen generate` do CI chạy (`project.yml` glob `Sources` ⇒ file mới không phải khai). Review đối kháng (biên dịch + cân bằng `begin`/`end` + khoá) không phát hiện lỗi. Ảnh hưởng dòng: `JSExecutor+Async.swift` **63 → 66** · `JSExecutionTelemetry.swift` **67 (mới)**.

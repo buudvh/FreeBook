@@ -74,9 +74,10 @@ enum VieNeuSynthesisPolicy {
     /// tổng hợp 10,15 s cho 28,13 s audio (RTF thật 0,37, trước là 0,26–0,30) nên nâng lên 4 — sau khi
     /// đã ở 8 bước + CFG thì **số luồng là đòn bẩy còn lại duy nhất**, đổi lại là máy nóng hơn.
     ///
-    /// **Đã đo và giữ 4**: `Output.timing` cho `vector 7,60 s | khác 0,14 s` trên 28,01 s audio, và
-    /// `RTF thật` giảm 0,37 → **0,29** so với lúc còn 2 luồng. Vòng Euler chiếm **98%** thời gian nên đây
-    /// đúng là nút thắt, và chi phí cố định theo chunk (0,14 s) nhỏ tới mức **giảm số chunk không giúp gì**.
+    /// Đo 4 luồng: `Output.timing` cho `vector 7,60 s | khác 0,14 s` trên 28,01 s audio, `RTF thật` 0,37 → 0,29
+    /// so với 2 luồng. Vòng Euler chiếm **98%** thời gian nên đây đúng là nút thắt, và chi phí cố định theo
+    /// chunk (0,14 s) nhỏ tới mức **giảm số chunk không giúp gì**. Mặc định sau đó **về lại 2** (1.3.488): đo
+    /// CPU-time trên máy thật thì 2 luồng + tắt spin mát máy hơn, RTF 0,32 vẫn đủ nhanh.
     static let defaultThreadCount: Int32 = 2
 
     // MARK: - Cài đặt "Tiết kiệm pin" & số luồng (1.3.441)
@@ -99,11 +100,12 @@ enum VieNeuSynthesisPolicy {
         return Mode(rawValue: raw)
     }
 
-    /// Số luồng ORT đã chọn (1...4; mức 1 thêm ở 1.3.488 để đo CPU-time — NghiTTS vốn chạy 1 luồng).
-    /// **Hàm thuần** — nhận `defaults` từ caller (type này không tự đọc `UserDefaults`). Áp dụng khi
-    /// **nạp lại engine** (session ORT dựng với số luồng này).
+    /// Số luồng ORT đã chọn (2...4). Mức 1 (thêm ở 1.3.488 để đo) **bị bỏ ở 1.3.509**: đo trên máy thật thì
+    /// 1 luồng tốn đúng bằng CPU-time của 2 luồng mà RTF 0,60 so với 0,32, hụt tiếng khi máy nóng. Đây là
+    /// đường đọc **duy nhất** của khoá nên giá trị 1 đã lưu (kể cả từ bản sao lưu cũ) tự thành 2 ở mọi nơi.
+    /// **Hàm thuần** — nhận `defaults` từ caller. Áp dụng khi **nạp lại engine**.
     static func threadCount(from defaults: UserDefaults) -> Int32 {
-        Int32(max(1, min(4, defaults.object(forKey: threadCountKey) as? Int ?? Int(defaultThreadCount))))
+        Int32(max(2, min(4, defaults.object(forKey: threadCountKey) as? Int ?? Int(defaultThreadCount))))
     }
 
     /// Cho luồng pool ORT **spin** (chờ bận) hay không. Mặc định **tắt** (1.3.488): spin đốt CPU-time giữa các
