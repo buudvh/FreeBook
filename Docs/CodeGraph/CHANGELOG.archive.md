@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.483] - 2026-10-09
+
+### refactor: tach 7 DTO dieu huong + ReaderProgressCoordinator khoi ReaderViewModel (dot 3+4 tach god object)
+
+Đợt 3 và 4 của `Docs/Plans/2026-10-09-plan-refactor-god-objects.md`, gộp một commit vì đợt 3 một mình chưa đưa `ReaderViewModel.swift` xuống dưới baseline 830.
+
+- **Đợt 3a — 7 value type** ở đầu `ReaderViewModel.swift` (HEAD dòng 6–86) tách **mỗi type một file** dưới `Sources/Views/Reader/Navigation/`: `ReaderNavigationSource`, `ReaderNavigationDirection`, `ReaderLoadState`, `ReaderLoadError` (giữ nguyên chuỗi tiếng Việt), `ReaderNavigationCommit`, `ReaderChapterLoadFailure`, `ReaderNavigationRequest`. Chỉ `import Foundation`. Thay đổi **duy nhất** về ngữ nghĩa: `private struct ReaderNavigationRequest` → `struct` (private top-level là phạm vi **file**, chuyển file thì VM không thấy nữa). Script so từng byte với `HEAD`: khớp (trừ đúng từ `private`).
+- **Đợt 3b — `CachedChapter.isTranslationFresh(token:enabled:convertTraditional:)`** (`Extensions/CachedChapter+TranslationFreshness.swift`) gom 4 bản copy của cùng một điều kiện (`requestChapter`, `runNavigationWorker` ×2 — một dạng phủ định, `+Translation.updateCachedTranslatedContent`). Chỗ chỉ kiểm riêng token trong `memoryCommitTask` **cố ý giữ nguyên**.
+- **Đợt 4 — `ReaderProgressCoordinator`** (`@MainActor final class`, `Coordinators/`, 119 dòng) + `ReaderProgressHost` (protocol, `weak`): sở hữu `lastSavedProgress`, `dbSaveTask`, truy cập `ReadingProgressStore`, `shouldScheduleSave` (≥ 3 đoạn hoặc đổi chương, `ReaderProgressScheduler` `progressToken: 1`), debounce **3 s**, `save(force:)`, `saveImmediately()` (Task `.high`, chụp vị trí theo **giá trị**, giữ coordinator chứ không giữ VM ⇒ flush vẫn xong sau khi Reader đóng), `cancelPendingSave()`, `start(container:)` (`configure` → `claim(.reader)` đúng thứ tự cũ). VM giữ `@Published currentProgress`/`readingContext`, `saveProgressToDatabase`/`saveProgressImmediately` thành forwarder (caller `ReaderView` không đổi).
+  - **Hai bẫy đã tránh (theo phản biện khảo sát)**: (1) gắn host bằng `progress.attach(host: self)` **sau** pha 1 của `init` — truyền closure bắt `self` vào constructor là lỗi "self captured before all members initialized"; không dùng `lazy var` vì sẽ seed `lastSavedProgress` sai. (2) Debounce đọc `host?.currentProgress` **lúc nổ**, không chụp lúc đặt lịch — đúng như code cũ đọc `self.currentProgress`.
+  - Luật §5.10 giữ nguyên; không thêm hook `.onDisappear`; TTS vẫn là chủ tiến độ khi phát.
+- **Kết quả**: `ReaderViewModel.swift` **925 → 779** (baseline 830) ⇒ hết vi phạm; `check_architecture.py` **3 → 2 violation** (còn `JSDom`, `TTSManager`), 0 mới. Review đối kháng 2 lượt (biên dịch + hành vi): xem kết quả ở walkthrough. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận.
+
 ## [1.3.482] - 2026-10-09
 
 ### refactor: tach 10 DTO/error/state khoi ChapterPersistenceStore sang Persistence/ (dot 2 tach god object)

@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.513] - 2026-10-11
+
+### perf(reader): tach trang thai highlight TTS khoi ReaderView - nhip highlight chi ve lai cac hang doan van
+
+Người dùng: *"reader vẽ lại như vậy có vẻ khá dư thừa nhỉ, vẫn ở truyện đó thì sao phải vẽ lại liên tục, trong khi chỉ có highlight thay đổi thôi"*. Plan duyệt trong chat.
+
+- **Nguyên nhân**: `ReaderTTSStateReader` có **một** `@Published snapshot` gộp trạng thái thô (đang phát, truyện/chương, widget) với phần mịn (`currentParentParagraphIndex`, `highlightRange`, vệt chuẩn bị); ReaderView `@StateObject` nó ⇒ mỗi câu TTS mới làm **cả thân ReaderView** (~2050 dòng) tính lại, kéo theo overlay, danh sách chương và nội dung mọi màn đang trình bày từ Reader (AI, Cài đặt AI, sheet). `scope(to:)` chỉ chặn highlight của truyện khác. Telemetry máy thật: `updateRPM=105.7`, `repeatUpdateRPM=40.4` khi nghe. Hệ quả đã gặp: sheet đăng nhập Gemini Web bị dựng lại 10 lần/30 s (1.3.512), danh sách chương phải bọc `.equatable()` (1.3.510).
+- **Sửa**:
+  - `ReaderTTSStateSnapshot` chỉ còn trường thô ⇒ `ReaderTTSStateReader` không publish theo highlight nữa.
+  - `ReaderTTSHighlightReader` (file mới) giữ phần mịn, cùng cách gộp highlight của truyện khác thành snapshot trống. ReaderView giữ nó bằng **`@State`** (không `@StateObject` — ReaderView không được quan sát nó).
+  - `ReaderTTSHighlightBinder` (file mới) bọc mỗi hàng đoạn văn, quan sát reader mịn và đưa vệt TTS/vệt chuẩn bị vào `ParagraphCardView` (logic chọn vệt y như cũ; thẻ vẫn `.equatable()` nên chỉ thẻ có vệt đổi chạm UIKit).
+  - Tự cuộn theo đoạn đang đọc: `.onChange(of: ttsState.snapshot.currentParentParagraphIndex)` → `.background(ReaderTTSParagraphChangeObserver(…))` (file mới, `.onChange` trong view rỗng — giữ ngữ nghĩa chỉ gọi khi đổi).
+  - `ReaderView+Controls`, `ReaderView+LoadingView` đọc `ttsHighlight.currentParentParagraphIndex` tức thời (không subscribe).
+- ReaderView 2051 → 2045 dòng. `rules.md`: bullet mới về hợp đồng reader thô/mịn.
+- **Kiểm chứng**: đọc code + rà soát độc lập 3 lăng kính (observation, tương đương hành vi, biên dịch) có phản biện; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`. Đo trên máy: so `ReaderEnergy updateRPM` trước/sau khi nghe TTS.
+
 ## [1.3.512] - 2026-10-11
 
 ### fix(ai): dang nhap Gemini Web trong trinh duyet bypass - WebView khong bi SwiftUI dung lai theo Reader
@@ -365,16 +381,3 @@ Người dùng: *"làm cho xong đợt 8, sau đó làm Vieneu TTS tối ưu hó
 - **4 type top-level** ở đầu `TTSManager.swift` (HEAD dòng 9–86) tách **mỗi type một file** cùng thư mục `Sources/Services/TTS/`: `TTSPreparedChapterKey`, `TTSPreparedChapter`, `TTSPrefetchPerfSummary` (giữ `public` + `public init` — `TTSManager+Telemetry` dùng), `TTSChapterQueueMetadataWorker` (giữ `@available(iOS 17.0, *)`, thêm `import SwiftData` cho `ModelContainer`). Thay đổi ngữ nghĩa **duy nhất**: `private actor` → `actor` (private top-level là phạm vi **file**). `TTSManager.swift` nay còn **đúng một** primary type ⇒ entry `MULTI_PRIMARY_TYPES` của nó trong allowlist đã thừa (không sửa allowlist — chờ người dùng).
 - **Xoá 3 hàm `private` chết**, grep toàn `Sources/` (kể cả `#selector`, string literal, `TTSManager+*.swift`) ra **0 caller**: `recordPrefetchRetry` (chỗ duy nhất tăng `retrySuccess`/`retryFailure` ⇒ hai trường này vốn luôn 0 trong log `[TTSPerf] PrefetchSummary`, trước sau không đổi), `isTransientTTSError` (phân loại retry đã nằm ở `evaluateRefillError`/`ExtTTSService.isTransient`/Google inline — đúng luật "retry thuộc một tầng"), `commitParagraphState` (wrapper một dòng; caller thật gọi thẳng `commitAudibleParagraphState`). **Ghi nhận**: `rules.md:1049` còn nhắc tên `commitParagraphState` — không sửa `rules.md` nếu người dùng chưa yêu cầu.
 - **Kết quả**: `TTSManager.swift` **3956 → 3812** (còn 342 dòng trên baseline — vi phạm cũ, các đợt 6–9 xử lý tiếp); `check_architecture.py` **2 violation** (`JSDom`, `TTSManager`), 0 mới. Script so từng byte với `HEAD`: phần còn lại = HEAD trừ 3 vùng; 4 thân type khớp (trừ đúng từ `private`). Review đối kháng 2 lượt: 0 lỗi biên dịch/hành vi. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận.
-
-## [1.3.483] - 2026-10-09
-
-### refactor: tach 7 DTO dieu huong + ReaderProgressCoordinator khoi ReaderViewModel (dot 3+4 tach god object)
-
-Đợt 3 và 4 của `Docs/Plans/2026-10-09-plan-refactor-god-objects.md`, gộp một commit vì đợt 3 một mình chưa đưa `ReaderViewModel.swift` xuống dưới baseline 830.
-
-- **Đợt 3a — 7 value type** ở đầu `ReaderViewModel.swift` (HEAD dòng 6–86) tách **mỗi type một file** dưới `Sources/Views/Reader/Navigation/`: `ReaderNavigationSource`, `ReaderNavigationDirection`, `ReaderLoadState`, `ReaderLoadError` (giữ nguyên chuỗi tiếng Việt), `ReaderNavigationCommit`, `ReaderChapterLoadFailure`, `ReaderNavigationRequest`. Chỉ `import Foundation`. Thay đổi **duy nhất** về ngữ nghĩa: `private struct ReaderNavigationRequest` → `struct` (private top-level là phạm vi **file**, chuyển file thì VM không thấy nữa). Script so từng byte với `HEAD`: khớp (trừ đúng từ `private`).
-- **Đợt 3b — `CachedChapter.isTranslationFresh(token:enabled:convertTraditional:)`** (`Extensions/CachedChapter+TranslationFreshness.swift`) gom 4 bản copy của cùng một điều kiện (`requestChapter`, `runNavigationWorker` ×2 — một dạng phủ định, `+Translation.updateCachedTranslatedContent`). Chỗ chỉ kiểm riêng token trong `memoryCommitTask` **cố ý giữ nguyên**.
-- **Đợt 4 — `ReaderProgressCoordinator`** (`@MainActor final class`, `Coordinators/`, 119 dòng) + `ReaderProgressHost` (protocol, `weak`): sở hữu `lastSavedProgress`, `dbSaveTask`, truy cập `ReadingProgressStore`, `shouldScheduleSave` (≥ 3 đoạn hoặc đổi chương, `ReaderProgressScheduler` `progressToken: 1`), debounce **3 s**, `save(force:)`, `saveImmediately()` (Task `.high`, chụp vị trí theo **giá trị**, giữ coordinator chứ không giữ VM ⇒ flush vẫn xong sau khi Reader đóng), `cancelPendingSave()`, `start(container:)` (`configure` → `claim(.reader)` đúng thứ tự cũ). VM giữ `@Published currentProgress`/`readingContext`, `saveProgressToDatabase`/`saveProgressImmediately` thành forwarder (caller `ReaderView` không đổi).
-  - **Hai bẫy đã tránh (theo phản biện khảo sát)**: (1) gắn host bằng `progress.attach(host: self)` **sau** pha 1 của `init` — truyền closure bắt `self` vào constructor là lỗi "self captured before all members initialized"; không dùng `lazy var` vì sẽ seed `lastSavedProgress` sai. (2) Debounce đọc `host?.currentProgress` **lúc nổ**, không chụp lúc đặt lịch — đúng như code cũ đọc `self.currentProgress`.
-  - Luật §5.10 giữ nguyên; không thêm hook `.onDisappear`; TTS vẫn là chủ tiến độ khi phát.
-- **Kết quả**: `ReaderViewModel.swift` **925 → 779** (baseline 830) ⇒ hết vi phạm; `check_architecture.py` **3 → 2 violation** (còn `JSDom`, `TTSManager`), 0 mới. Review đối kháng 2 lượt (biên dịch + hành vi): xem kết quả ở walkthrough. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận.

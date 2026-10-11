@@ -189,6 +189,8 @@ struct ReaderView: View {
 
     // Reader chỉ quan sát projection TTS cần để render; manager singleton vẫn xử lý action.
     @StateObject internal var ttsState = ReaderTTSStateReader()
+    /// Phần mịn (đoạn đang đọc, vệt highlight): `@State`, KHÔNG `@StateObject` — ReaderView không được quan sát nó (1.3.513).
+    @State internal var ttsHighlight = ReaderTTSHighlightReader()
     /// `viewModel` nằm trong `@State` nên SwiftUI không tự subscribe nó — relay này mới là
     /// thứ làm `@Published` của view model invalidate được `ReaderView`.
     @StateObject internal var viewModelRelay = ReaderViewModelInvalidationRelay()
@@ -891,6 +893,7 @@ struct ReaderView: View {
             AIRuntimeCoordinator.shared.activeReaderBookId = bookId
             isSceneActive = (scenePhase == .active)
             ttsState.scope(to: bookId)
+            ttsHighlight.scope(to: bookId)
             ReaderEnergyDiagnostics.shared.beginReaderSession()
             updateDisplayedBookTitleCache()
             if ReaderView.activeBookId == nil { ReaderView.activeBookId = bookId }
@@ -1005,7 +1008,7 @@ struct ReaderView: View {
                 scrollTarget = ScrollTarget(chapterIndex: targetIndex, paragraphIndex: paragraphIndex)
             }
         }
-        .onChange(of: ttsState.snapshot.currentParentParagraphIndex) { _, newValue in
+        .background(ReaderTTSParagraphChangeObserver(reader: ttsHighlight) { newValue in
             guard isSceneActive else { return }
             guard ttsState.snapshot.isPlaying &&
                   ttsState.snapshot.playingBookId == bookId &&
@@ -1018,7 +1021,7 @@ struct ReaderView: View {
             guard !isRestoringReaderPosition else { return }
             guard chapterIndex == playingChapterIndex else { return }
             requestTTSScrollIfNeeded(chapterIndex: playingChapterIndex, paragraphIndex: newValue)
-        }
+        })
     }
 
     @ViewBuilder
@@ -1400,30 +1403,20 @@ struct ReaderView: View {
         let isNavigatingNewChapter = (viewModel?.pendingNavigationIndex != nil)
 
         ForEach(chapter.paragraphItems) { item in
-            let relativeHighlightRange: NSRange? = {
-                guard !isNavigatingNewChapter,
-                      ttsState.snapshot.playingBookId == bookId,
-                      ttsState.snapshot.playingChapterIndex == chapter.index,
-                      item.id == ttsState.snapshot.currentParentParagraphIndex,
-                      let chunkRange = ttsState.snapshot.highlightRange else { return nil }
-
-                return chunkRange
-            }()
-            let isPreparingHighlight = relativeHighlightRange == nil &&
-                !isNavigatingNewChapter &&
-                ttsState.snapshot.playingBookId == bookId &&
-                ttsState.snapshot.playingChapterIndex == chapter.index &&
-                ttsState.snapshot.preparingParentParagraphIndex == .some(item.id)
-            let preparingHighlightRange = isPreparingHighlight ? ttsState.snapshot.preparingHighlightRange : nil
-            // Vệt TTS luôn thắng vệt tìm: hệ toạ độ của TTS là bất biến của trục highlight, còn
-            // vệt chuẩn bị chỉ là phản hồi tức thì trước khi audio bắt đầu, còn vệt tìm chỉ là
-            // chỉ dẫn tạm cho người dùng.
+            // Vệt TTS/chuẩn bị do binder (quan sát reader mịn) đưa vào: nhịp highlight chỉ làm các hàng tính lại,
+            // không làm cả thân ReaderView (1.3.513). Vệt TTS thắng vệt chuẩn bị, vệt chuẩn bị thắng vệt tìm.
+            ReaderTTSHighlightBinder(
+                reader: ttsHighlight,
+                bookId: bookId,
+                chapterIndex: chapter.index,
+                paragraphId: item.id,
+                isSuppressed: isNavigatingNewChapter
+            ) { relativeHighlightRange, preparingHighlightRange in
             let effectiveHighlightRange = relativeHighlightRange ?? preparingHighlightRange ?? searchHighlightRange(
                 for: item,
                 chapterIndex: chapter.index,
                 isTranslationEnabled: isTrans
             )
-
             ParagraphCardView(
                 item: item,
                 isTranslationEnabled: isTrans,
@@ -1433,7 +1426,7 @@ struct ReaderView: View {
                 fontFamily: fontFamily,
                 theme: theme,
                 highlightRange: effectiveHighlightRange,
-                highlightIsPreparing: isPreparingHighlight && preparingHighlightRange != nil,
+                highlightIsPreparing: preparingHighlightRange != nil,
                 triggerGetVisibleIndex: $triggerGetVisibleIndex,
                 clearSelectionTrigger: $clearSelectionTrigger,
                 onGetVisibleIndex: { visibleOffset in
@@ -1455,6 +1448,7 @@ struct ReaderView: View {
                 }
             )
             .equatable()
+            }
             .id("paragraph-\(chapter.index)-\(item.id)")
             .background(
                 GeometryReader { geo in

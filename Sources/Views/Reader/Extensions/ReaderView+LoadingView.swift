@@ -4,8 +4,8 @@ extension ReaderView {
     internal func scrollToTTSHighlightIfNeeded() {
         guard isSceneActive else { return }
         guard !isAutoScrollDisabled else { return }
-        if ttsState.snapshot.isPlaying && ttsState.snapshot.playingBookId == bookId && ttsState.snapshot.currentParentParagraphIndex >= 0 {
-            let targetIdx = ttsState.snapshot.currentParentParagraphIndex
+        if ttsState.snapshot.isPlaying && ttsState.snapshot.playingBookId == bookId && ttsHighlight.currentParentParagraphIndex >= 0 {
+            let targetIdx = ttsHighlight.currentParentParagraphIndex
             let chapIdx = ttsState.snapshot.playingChapterIndex
             if chapIdx == chapterIndex {
                 let currentGen = ttsAutoScrollGeneration
@@ -32,7 +32,7 @@ extension ReaderView {
         let isPlayingHere = snapshot.isPlaying && snapshot.playingBookId == bookId && snapshot.playingChapterIndex == pending
         requestChapter(
             at: pending,
-            paragraphIndex: isPlayingHere ? max(snapshot.currentParentParagraphIndex, 0) : 0,
+            paragraphIndex: isPlayingHere ? max(ttsHighlight.currentParentParagraphIndex, 0) : 0,
             source: .ttsSync,
             persistProgress: false
         )

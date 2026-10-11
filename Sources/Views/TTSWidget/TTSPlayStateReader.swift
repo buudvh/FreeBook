@@ -101,20 +101,17 @@ final class TTSRootPresentationReader: ObservableObject {
     }
 }
 
+/// Trạng thái TTS **thô** cho Reader — chỉ đổi khi bắt đầu/dừng, đổi truyện/chương, bật widget. Phần mịn (đoạn đang
+/// đọc, vệt highlight) nằm ở `ReaderTTSHighlightReader` để ReaderView không vẽ lại cả thân theo từng câu (1.3.513).
 struct ReaderTTSStateSnapshot: Equatable {
     var isPlaying = false
     var showFloatingWidget = false
     var playingBookId = ""
     var playingChapterIndex = -1
-    var currentParentParagraphIndex = -1
-    var highlightRange: NSRange?
-    var preparingParentParagraphIndex: Int?
-    var preparingHighlightRange: NSRange?
 }
 
-/// Projects TTS state needed by one Reader. Highlight movement from another
-/// book is collapsed to an unchanged inactive snapshot, so it does not redraw
-/// the unrelated Reader.
+/// Projects coarse TTS state needed by one Reader. Highlight movement is NOT part of this snapshot (see
+/// `ReaderTTSHighlightReader`), so a highlight step never invalidates `ReaderView`.
 @MainActor
 final class ReaderTTSStateReader: ObservableObject {
     @Published private(set) var snapshot = ReaderTTSStateSnapshot()
@@ -130,11 +127,7 @@ final class ReaderTTSStateReader: ObservableObject {
             isPlaying: ps.isPlaying,
             showFloatingWidget: manager.showFloatingWidget,
             playingBookId: ps.playingBookId,
-            playingChapterIndex: ps.playingChapterIndex,
-            currentParentParagraphIndex: -1,
-            highlightRange: nil,
-            preparingParentParagraphIndex: nil,
-            preparingHighlightRange: nil
+            playingChapterIndex: ps.playingChapterIndex
         )
 
         manager.$playbackSnapshot.receive(on: RunLoop.main).sink { [weak self] _ in self?.refresh() }
@@ -151,16 +144,11 @@ final class ReaderTTSStateReader: ObservableObject {
 
     private func refresh() {
         let ps = manager.playbackSnapshot
-        let ownsBook = scopedBookId == ps.playingBookId
         let newSnapshot = ReaderTTSStateSnapshot(
             isPlaying: ps.isPlaying,
             showFloatingWidget: manager.showFloatingWidget,
             playingBookId: ps.playingBookId,
-            playingChapterIndex: ps.playingChapterIndex,
-            currentParentParagraphIndex: ownsBook ? ps.currentParentParagraphIndex : -1,
-            highlightRange: ownsBook ? ps.highlightRange : nil,
-            preparingParentParagraphIndex: ownsBook ? ps.preparingParentParagraphIndex : nil,
-            preparingHighlightRange: ownsBook ? ps.preparingHighlightRange : nil
+            playingChapterIndex: ps.playingChapterIndex
         )
         guard newSnapshot != snapshot else { return }
         snapshot = newSnapshot

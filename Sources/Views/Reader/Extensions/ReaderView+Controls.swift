@@ -91,12 +91,12 @@ extension ReaderView {
 
         let landsOnPlayingParagraph = isTTSOwningThisBook &&
             snapshot.playingChapterIndex == targetIndex &&
-            snapshot.currentParentParagraphIndex >= 0 &&
+            ttsHighlight.currentParentParagraphIndex >= 0 &&
             !isAutoScrollDisabled
 
         requestChapter(
             at: targetIndex,
-            paragraphIndex: landsOnPlayingParagraph ? snapshot.currentParentParagraphIndex : -1,
+            paragraphIndex: landsOnPlayingParagraph ? ttsHighlight.currentParentParagraphIndex : -1,
             source: source,
             persistProgress: !isTTSOwningThisBook
         )
