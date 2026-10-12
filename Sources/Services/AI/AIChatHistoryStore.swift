@@ -140,7 +140,7 @@ public final class AIChatHistoryStore: Sendable {
             let data = try JSONEncoder().encode(session)
             try data.write(to: file, options: .atomic)
         } catch {
-            AppLogger.shared.log("Lỗi lưu phiên chat \(session.id) cho sách \(bookId): \(error.localizedDescription)")
+            AppLogger.shared.log("❌ Lỗi lưu phiên chat \(session.id) cho sách \(bookId): \(error.localizedDescription)")
         }
 
         var summaries = loadSessionSummaries(for: bookId)
@@ -234,7 +234,7 @@ public final class AIChatHistoryStore: Sendable {
             let data = try JSONEncoder().encode(summaries)
             try data.write(to: indexFile, options: .atomic)
         } catch {
-            AppLogger.shared.log("Lỗi lưu mục lục AI chat cho sách \(bookId): \(error.localizedDescription)")
+            AppLogger.shared.log("❌ Lỗi lưu mục lục AI chat cho sách \(bookId): \(error.localizedDescription)")
         }
     }
 }

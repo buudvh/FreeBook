@@ -47,7 +47,7 @@ public final class BookAIMemoryStore: Sendable {
             let data = try JSONEncoder().encode(toSave)
             try data.write(to: url, options: .atomic)
         } catch {
-            AppLogger.shared.log("Lỗi lưu trí nhớ AI cho sách \(memory.bookId): \(error.localizedDescription)")
+            AppLogger.shared.log("❌ Lỗi lưu trí nhớ AI cho sách \(memory.bookId): \(error.localizedDescription)")
         }
     }
 
@@ -95,7 +95,7 @@ public final class BookAIMemoryStore: Sendable {
             saveMemory(updated)
             AppLogger.shared.log("Đã di chuyển trí nhớ AI từ \(oldBookId) sang \(newBookId)")
         } catch {
-            AppLogger.shared.log("Lỗi di chuyển trí nhớ AI: \(error.localizedDescription)")
+            AppLogger.shared.log("❌ Lỗi di chuyển trí nhớ AI: \(error.localizedDescription)")
         }
     }
 

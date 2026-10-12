@@ -88,7 +88,7 @@ actor NewChapterStore {
                 result[pair.key] = record
             }
         } catch {
-            AppLogger.shared.log("[NewChapterStore] Không đọc được new_chapters.json: \(error.localizedDescription)")
+            AppLogger.shared.log("❌ [NewChapterStore] Không đọc được new_chapters.json: \(error.localizedDescription)")
             return [:]
         }
     }
@@ -101,7 +101,7 @@ actor NewChapterStore {
             let data = try encoder.encode(records)
             try data.write(to: url, options: .atomic)
         } catch {
-            AppLogger.shared.log("[NewChapterStore] Không ghi được new_chapters.json: \(error.localizedDescription)")
+            AppLogger.shared.log("❌ [NewChapterStore] Không ghi được new_chapters.json: \(error.localizedDescription)")
         }
     }
 }

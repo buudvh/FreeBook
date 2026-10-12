@@ -93,7 +93,7 @@ extension DownloadManager {
             lastTaskSaveAt = CFAbsoluteTimeGetCurrent()
             self.tasks = loadedTasks
         } catch {
-            AppLogger.shared.log("Error loading download tasks from DB: \(error.localizedDescription)")
+            AppLogger.shared.log("❌ Error loading download tasks from DB: \(error.localizedDescription)")
         }
     }
 

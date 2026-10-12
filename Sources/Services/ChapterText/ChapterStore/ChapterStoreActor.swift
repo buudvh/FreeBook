@@ -23,7 +23,7 @@ internal actor ChapterStore: ChapterStoreProtocol {
 
     internal func replaceFullTOC(bookId: String, chapters: [ChapterMetadataSnapshot], protectedTTS: ProtectedTTSChapter?) async throws -> SaveTOCResult {
         guard let database else {
-            AppLogger.shared.log("[ChapterStore Save] status=failed,errorCode=503")
+            AppLogger.shared.log("❌ [ChapterStore Save] status=failed,errorCode=503")
             throw ChapterStoreError.unavailable
         }
         let t0 = CFAbsoluteTimeGetCurrent()
@@ -38,14 +38,14 @@ internal actor ChapterStore: ChapterStoreProtocol {
                 if case .databaseError(let code) = err { return code }
                 return Int32(500)
             } ?? Int32(500)
-            AppLogger.shared.log("[ChapterStore Save] status=failed,errorCode=\(errCode)")
+            AppLogger.shared.log("❌ [ChapterStore Save] status=failed,errorCode=\(errCode)")
             throw error
         }
     }
 
     internal func upsertPage(bookId: String, chapters: [ChapterMetadataSnapshot]) async throws -> SaveTOCResult {
         guard let database else {
-            AppLogger.shared.log("[ChapterStore Save] status=failed,errorCode=503")
+            AppLogger.shared.log("❌ [ChapterStore Save] status=failed,errorCode=503")
             throw ChapterStoreError.unavailable
         }
         let t0 = CFAbsoluteTimeGetCurrent()
@@ -60,7 +60,7 @@ internal actor ChapterStore: ChapterStoreProtocol {
                 if case .databaseError(let code) = err { return code }
                 return Int32(500)
             } ?? Int32(500)
-            AppLogger.shared.log("[ChapterStore Save] status=failed,errorCode=\(errCode)")
+            AppLogger.shared.log("❌ [ChapterStore Save] status=failed,errorCode=\(errCode)")
             throw error
         }
     }

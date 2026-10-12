@@ -47,7 +47,7 @@ final class AIBookDataInspector: Sendable {
             )
             return ChapterTextNormalizer.normalize(raw).content
         } catch {
-            AppLogger.shared.log("Lỗi đọc nội dung raw chương \(snapshot.index): \(error.localizedDescription)")
+            AppLogger.shared.log("❌ Lỗi đọc nội dung raw chương \(snapshot.index): \(error.localizedDescription)")
             return nil
         }
     }

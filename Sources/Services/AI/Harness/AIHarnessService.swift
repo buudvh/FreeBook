@@ -77,7 +77,7 @@ public final class AIHarnessService: Sendable {
             }
             return validItems.count
         } catch {
-            AppLogger.shared.log("Lỗi lưu từ điển AI vào sách \(bookId): \(error.localizedDescription)")
+            AppLogger.shared.log("❌ Lỗi lưu từ điển AI vào sách \(bookId): \(error.localizedDescription)")
             return 0
         }
     }

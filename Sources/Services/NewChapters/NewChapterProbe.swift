@@ -182,7 +182,7 @@ enum NewChapterProbe {
             guard let last = stored.last else { return (0, "", false) }
             return (stored.count, last.url, true)
         } catch {
-            AppLogger.shared.log("[NewChapterProbe] Không đọc được mục lục local: \(error.localizedDescription)")
+            AppLogger.shared.log("❌ [NewChapterProbe] Không đọc được mục lục local: \(error.localizedDescription)")
             return (0, "", false)
         }
     }

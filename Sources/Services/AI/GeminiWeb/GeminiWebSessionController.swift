@@ -192,7 +192,7 @@ final class GeminiWebSessionController: NSObject {
         state.watchdog?.cancel()
         let elapsed = Self.ms(since: state.startedAt)
         if let error {
-            AppLogger.shared.log("🤖 [GeminiWeb] \(state.kind) lỗi sau \(elapsed) ms, chunk=\(state.chunks): \(error.localizedDescription)")
+            AppLogger.shared.log("❌ 🤖 [GeminiWeb] \(state.kind) lỗi sau \(elapsed) ms, chunk=\(state.chunks): \(error.localizedDescription)")
             state.continuation.finish(throwing: error)
         } else {
             AppLogger.shared.log("🤖 [GeminiWeb] \(state.kind) xong sau \(elapsed) ms, chunk=\(state.chunks)")
@@ -381,7 +381,7 @@ final class GeminiWebSessionController: NSObject {
 
     func navigationDidFail(_ error: Error) {
         expectingNavigation = false
-        AppLogger.shared.log("🤖 [GeminiWeb] Nạp trang thất bại: \(error.localizedDescription)")
+        AppLogger.shared.log("❌ 🤖 [GeminiWeb] Nạp trang thất bại: \(error.localizedDescription)")
         failNavigationWaiters(GeminiWebError.script(error.localizedDescription))
     }
 

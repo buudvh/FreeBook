@@ -463,6 +463,7 @@ class ReaderViewModel: ObservableObject {
                 return
             } catch {
                 guard !Task.isCancelled, workerIdentity == activeWorkerIdentity, request.generation == navigationGeneration else { return }
+                AppLogger.shared.log("❌ [ReaderViewModel] Không tải được chương \(request.chapterIndex): \(FileDescriptorCensus.describe(error))")
                 failNavigation(request, message: error.localizedDescription)
             }
         }

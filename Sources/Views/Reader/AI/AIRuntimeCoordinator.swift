@@ -163,7 +163,7 @@ public final class AIRuntimeCoordinator: ObservableObject {
                 }
             } catch {
                 guard !Task.isCancelled else { return }
-                AppLogger.shared.log("🤖 [AI] \(config.activeProfile.name) lỗi: \(error.localizedDescription)")
+                AppLogger.shared.log("❌ 🤖 [AI] \(config.activeProfile.name) lỗi: \(error.localizedDescription)")
                 onError(error.localizedDescription)
                 await MainActor.run {
                     guard let self = self else { return }

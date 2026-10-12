@@ -63,7 +63,7 @@ actor NotificationInboxStore {
             decoder.dateDecodingStrategy = .iso8601
             return try decoder.decode([NotificationInboxRecord].self, from: data)
         } catch {
-            AppLogger.shared.log("[NotificationInboxStore] Không đọc được notifications.json: \(error.localizedDescription)")
+            AppLogger.shared.log("❌ [NotificationInboxStore] Không đọc được notifications.json: \(error.localizedDescription)")
             return []
         }
     }
@@ -76,7 +76,7 @@ actor NotificationInboxStore {
             let data = try encoder.encode(records)
             try data.write(to: url, options: .atomic)
         } catch {
-            AppLogger.shared.log("[NotificationInboxStore] Không ghi được notifications.json: \(error.localizedDescription)")
+            AppLogger.shared.log("❌ [NotificationInboxStore] Không ghi được notifications.json: \(error.localizedDescription)")
         }
     }
 }

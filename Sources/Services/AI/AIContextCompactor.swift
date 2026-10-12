@@ -70,7 +70,7 @@ public final class AIContextCompactor: Sendable {
             let trimmed = summary.trimmingCharacters(in: .whitespacesAndNewlines)
             return trimmed.isEmpty ? session.contextSummary : trimmed
         } catch {
-            AppLogger.shared.log("Lỗi tự động compact ngữ cảnh AI session: \(error.localizedDescription)")
+            AppLogger.shared.log("❌ Lỗi tự động compact ngữ cảnh AI session: \(error.localizedDescription)")
             return session.contextSummary
         }
     }

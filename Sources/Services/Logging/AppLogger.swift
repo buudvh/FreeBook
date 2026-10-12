@@ -61,18 +61,28 @@ public final class AppLogger {
         // Tự động tắt ghi log hệ thống khi khởi chạy lại ứng dụng
         UserDefaults.standard.set(false, forKey: "isLoggingEnabled")
         
-        // Tự động xóa log cũ nếu file quá lớn (> 5MB) để tránh đầy bộ nhớ
+        // File quá lớn (> 5MB) thì chỉ giữ 1MB cuối thay vì xoá hẳn: lần mở lại app ngay sau sự cố (vd cạn
+        // file descriptor — chỉ tắt hẳn app mới hết) không được xoá mất đoạn log của chính sự cố đó.
         if let attributes = try? FileManager.default.attributesOfItem(atPath: logFileUrl.path),
            let fileSize = attributes[.size] as? UInt64,
            fileSize > 5 * 1024 * 1024 {
-            try? FileManager.default.removeItem(at: logFileUrl)
+            let keepBytes: UInt64 = 1024 * 1024
+            if let handle = try? FileHandle(forReadingFrom: logFileUrl),
+               (try? handle.seek(toOffset: fileSize - keepBytes)) != nil,
+               let tail = try? handle.readToEnd() {
+                try? handle.close()
+                try? tail.write(to: logFileUrl, options: .atomic)
+            } else {
+                try? FileManager.default.removeItem(at: logFileUrl)
+            }
         }
     }
     
-    // `@autoclosure`: chuỗi log chỉ được dựng sau khi kiểm tra cờ bật log.
+    // Công tắc log tắt thì vẫn ghi **dòng lỗi** (chứa "❌") để lỗi xảy ra lúc chưa bật log còn dấu vết;
+    // muốn một dòng luôn được ghi thì đánh dấu ❌. Vì vậy chuỗi luôn được dựng ra mới biết có phải dòng lỗi.
     public func log(_ message: @autoclosure () -> String) {
-        guard isLoggingEnabled else { return }
         let text = message()
+        guard isLoggingEnabled || text.contains("❌") else { return }
 
         fileLock.lock()
         defer { fileLock.unlock() }
@@ -89,15 +99,29 @@ public final class AppLogger {
         }
     }
 
+    /// Ghi một dòng **bất kể công tắc log** — chỉ dành cho `FileDescriptorCensus` (~1 dòng mỗi chương).
+    /// Lần ghi đầu ở lúc khởi động mở handle rồi giữ suốt phiên, nên khi tiến trình đã cạn file descriptor
+    /// vẫn ghi được; bật log sau khi đã cạn thì không mở nổi file nữa.
+    public func logAlways(_ message: String) {
+        fileLock.lock()
+        defer { fileLock.unlock() }
+
+        let logLine = "[\(Self.timestampFormatter.string(from: Date()))] \(message)\n"
+        print(logLine, terminator: "")
+        if let data = logLine.data(using: .utf8) {
+            appendLocked(data)
+        }
+    }
+
     /// Chỉ gọi khi đang giữ `fileLock`.
     private func appendLocked(_ data: Data) {
         if fileHandle == nil {
-            guard FileManager.default.fileExists(atPath: logFileUrl.path) else {
-                // File chưa có: tạo mới như trước, lần ghi sau sẽ mở handle.
-                try? data.write(to: logFileUrl, options: .atomic)
-                return
+            if !FileManager.default.fileExists(atPath: logFileUrl.path) {
+                // File chưa có: tạo rỗng rồi mở handle luôn, để ngay dòng đầu đã giữ được handle.
+                FileManager.default.createFile(atPath: logFileUrl.path, contents: nil)
             }
-            fileHandle = try? FileHandle(forWritingTo: logFileUrl)
+            // `forUpdating` (đọc + ghi) để `readLogContents` đọc qua chính handle này, không cần fd mới.
+            fileHandle = try? FileHandle(forUpdating: logFileUrl)
         }
         guard let handle = fileHandle else { return }
         do {
@@ -120,9 +144,13 @@ public final class AppLogger {
         log(message())
     }
 
+    // clear / đo kích thước / đọc **không đóng** handle đang giữ: mở lại cần fd mới, mà lúc tiến trình đã cạn
+    // fd thì mở lại hỏng âm thầm và mọi dòng log sau đó mất. Ghi qua handle là `write(2)` không đệm, nên
+    // `stat` và đọc lại luôn thấy đủ dữ liệu.
     public func clear() {
         fileLock.lock()
         defer { fileLock.unlock() }
+        if let handle = fileHandle, (try? handle.truncate(atOffset: 0)) != nil { return }
         closeFileHandleLocked()
         try? FileManager.default.removeItem(at: logFileUrl)
     }
@@ -134,18 +162,21 @@ public final class AppLogger {
     public var logFileSize: UInt64 {
         fileLock.lock()
         defer { fileLock.unlock() }
-        closeFileHandleLocked()
         if let attributes = try? FileManager.default.attributesOfItem(atPath: logFileUrl.path),
            let fileSize = attributes[.size] as? UInt64 {
             return fileSize
         }
         return 0
     }
-    
+
     public func readLogContents() -> String {
         fileLock.lock()
         defer { fileLock.unlock() }
-        closeFileHandleLocked()
+        if let handle = fileHandle,
+           (try? handle.seek(toOffset: 0)) != nil,
+           let data = try? handle.readToEnd() {
+            return String(decoding: data, as: UTF8.self)
+        }
         guard let contents = try? String(contentsOf: logFileUrl, encoding: .utf8) else {
             return ""
         }

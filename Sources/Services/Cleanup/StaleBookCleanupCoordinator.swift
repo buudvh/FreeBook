@@ -42,7 +42,7 @@ enum StaleBookCleanupCoordinator {
         do {
             return try await staleBookIds(cutoff: cutoff, protectedIds: protectedBookIds(), container: container).count
         } catch {
-            AppLogger.shared.log("🧹 [Cleanup] Không đếm được truyện bỏ quên: \(error.localizedDescription)")
+            AppLogger.shared.log("❌ 🧹 [Cleanup] Không đếm được truyện bỏ quên: \(error.localizedDescription)")
             return 0
         }
     }
@@ -77,7 +77,7 @@ enum StaleBookCleanupCoordinator {
             )
             return .deleted(count: deletedCount)
         } catch {
-            AppLogger.shared.log("🧹 [Cleanup] Thất bại: \(error.localizedDescription)")
+            AppLogger.shared.log("❌ 🧹 [Cleanup] Thất bại: \(error.localizedDescription)")
             return .failed(message: error.localizedDescription)
         }
     }

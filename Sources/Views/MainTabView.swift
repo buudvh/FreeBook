@@ -112,9 +112,11 @@ struct MainTabView: View {
                 // Bản xuất hoàn thành lúc app ở background: share sheet không trình bày được, được giữ lại
                 // và bàn giao ngay khi app trở lại foreground.
                 ExportShareCoordinator.shared.flushPendingShare()
+                FileDescriptorCensus.record(event: "active")
                 return
             }
             guard phase == .inactive || phase == .background else { return }
+            if phase == .background { FileDescriptorCensus.record(event: "background") }
             TTSManager.shared.checkpointForBackground()
             let backgroundSession = BackgroundTaskSession.begin(name: "Flush reading progress")
             Task(priority: .high) {

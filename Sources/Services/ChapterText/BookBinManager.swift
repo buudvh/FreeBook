@@ -95,7 +95,13 @@ public actor BookBinManager {
             throw NSError(domain: "BookBinManager", code: 404, userInfo: [NSLocalizedDescriptionKey: "File .bin không tồn tại cho sách \(bookId)"])
         }
 
-        let fileHandle = try FileHandle(forReadingFrom: fileURL)
+        let fileHandle: FileHandle
+        do {
+            fileHandle = try FileHandle(forReadingFrom: fileURL)
+        } catch {
+            FileDescriptorCensus.noteOpenFailure(context: "BookBinManager.read", error: error)
+            throw error
+        }
         defer { try? fileHandle.close() }
 
         try fileHandle.seek(toOffset: UInt64(offset))

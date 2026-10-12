@@ -33,7 +33,7 @@ final class EspeakPhonemizer {
 
         let voiceResult = espeak_SetVoiceByName("en-us")
         guard voiceResult.rawValue == 0 else {
-            AppLogger.shared.log("🗣️ [EspeakPhonemizer] LỖI: espeak_SetVoiceByName('en-us') thất bại — bộ dữ liệu thiếu giọng Anh.")
+            AppLogger.shared.log("❌ 🗣️ [EspeakPhonemizer] LỖI: espeak_SetVoiceByName('en-us') thất bại — bộ dữ liệu thiếu giọng Anh.")
             throw TTSError.internalError("espeak_SetVoiceByName('en-us') failed.")
         }
         defer { _ = espeak_SetVoiceByName(synthesisVoice) }
@@ -57,14 +57,14 @@ final class EspeakPhonemizer {
         // espeak_Initialize: Khởi tạo engine espeak. Trả về tần số mẫu (sample rate) nếu thành công, hoặc số âm nếu lỗi.
         let sampleRate = espeak_Initialize(AUDIO_OUTPUT_RETRIEVAL, 0, parentPath, 0)
         guard sampleRate >= 0 else {
-            AppLogger.shared.log("🗣️ [EspeakPhonemizer] LỖI: espeak_Initialize thất bại với mã \(sampleRate)")
+            AppLogger.shared.log("❌ 🗣️ [EspeakPhonemizer] LỖI: espeak_Initialize thất bại với mã \(sampleRate)")
             throw TTSError.internalError("espeak_Initialize failed with code \(sampleRate).")
         }
 
         // espeak_SetVoiceByName: Thiết lập ngôn ngữ đọc. Ở đây chọn 'vi' cho tiếng Việt.
         let voiceResult = espeak_SetVoiceByName(synthesisVoice)
         guard voiceResult.rawValue == 0 else {
-            AppLogger.shared.log("🗣️ [EspeakPhonemizer] LỖI: espeak_SetVoiceByName('vi') thất bại.")
+            AppLogger.shared.log("❌ 🗣️ [EspeakPhonemizer] LỖI: espeak_SetVoiceByName('vi') thất bại.")
             throw TTSError.internalError("espeak_SetVoiceByName('vi') failed.")
         }
 

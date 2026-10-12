@@ -147,7 +147,12 @@ public final class ImageCacheManager: @unchecked Sendable {
         guard let destinationURL = validatedCoverURL(for: bookId) else { return nil }
         let path = destinationURL.path
         guard fileManager.fileExists(atPath: path) else { return nil }
-        return UIImage(contentsOfFile: path)
+        guard let image = UIImage(contentsOfFile: path) else {
+            // File có mà không đọc được: nếu bảng fd đã sát giới hạn thì chụp lại để chẩn đoán.
+            FileDescriptorCensus.noteOpenFailure(context: "ImageCacheManager.loadLocalCover", error: nil)
+            return nil
+        }
+        return image
     }
 
     // MARK: - Thumbnail cho BookCoverView

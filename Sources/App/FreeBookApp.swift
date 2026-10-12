@@ -31,6 +31,9 @@ struct FreeBookApp: App {
         } catch {
             fatalError("Không thể khởi tạo ModelContainer: \(error.localizedDescription) ")
         }
+
+        // Nâng giới hạn file descriptor + ghi mốc đếm fd ban đầu (chẩn đoán cạn fd sau phiên nghe dài).
+        FileDescriptorCensus.start()
     }
 
     var body: some Scene {

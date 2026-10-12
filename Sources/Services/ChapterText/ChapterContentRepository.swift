@@ -318,7 +318,7 @@ actor ChapterContentRepository {
                 throw CancellationError()
             } catch {
                 AppLogger.shared.log(
-                    "❌ [ChapterContentRepository] Không thể đọc cache local \(request.bookId)#\(request.chapterIndex): \(error.localizedDescription)"
+                    "❌ [ChapterContentRepository] Không thể đọc cache local \(request.bookId)#\(request.chapterIndex): \(error.localizedDescription) [\(FileDescriptorCensus.describe(error))]"
                 )
             }
         }

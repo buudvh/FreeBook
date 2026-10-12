@@ -39,7 +39,7 @@ actor ChapterPersistenceStore {
                         )
                     }
                 } catch {
-                    AppLogger.shared.log("❌ [ChapterPersistenceStore] ChapterStore bin read failed | operation: readChapter")
+                    AppLogger.shared.log("❌ [ChapterPersistenceStore] ChapterStore bin read failed | operation: readChapter | \(FileDescriptorCensus.describe(error))")
                 }
             }
         }

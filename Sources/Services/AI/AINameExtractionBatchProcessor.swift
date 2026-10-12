@@ -166,14 +166,14 @@ public final class AINameExtractionBatchProcessor: Sendable {
             } catch let error as GeminiWebError where !Task.isCancelled && Self.shouldStopBatch(on: error) {
                 // Hết hạn mức / chặn IP / mất đăng nhập: gọi tiếp chỉ làm tài khoản bị chặn nặng hơn.
                 // Dừng và báo rõ; phần đã quét vẫn nằm trong `batchExtractedNames` của coordinator.
-                AppLogger.shared.log("🤖 [GeminiWeb] Dừng quét tên riêng ở lượt \(index + 1)/\(batches.count): \(error.localizedDescription)")
+                AppLogger.shared.log("❌ 🤖 [GeminiWeb] Dừng quét tên riêng ở lượt \(index + 1)/\(batches.count): \(error.localizedDescription)")
                 throw NSError(domain: "AINameExtraction", code: 429, userInfo: [
                     NSLocalizedDescriptionKey: "Dừng quét sau \(index)/\(batches.count) lượt — \(error.localizedDescription) Các tên đã quét được vẫn hiện bên dưới."
                 ])
             } catch {
                 if Task.isCancelled || error is CancellationError { break }
                 // Lỗi lẻ của một lượt (mạng, model trả sai định dạng…): bỏ qua lượt đó và quét tiếp, có log.
-                AppLogger.shared.log("🤖 [AI] Quét tên riêng lượt \(index + 1)/\(batches.count) lỗi, bỏ qua: \(error.localizedDescription)")
+                AppLogger.shared.log("❌ 🤖 [AI] Quét tên riêng lượt \(index + 1)/\(batches.count) lỗi, bỏ qua: \(error.localizedDescription)")
             }
 
             if Task.isCancelled { break }

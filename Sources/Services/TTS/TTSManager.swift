@@ -343,6 +343,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     internal var chapterQueueRefreshTask: Task<Void, Never>? = nil
     internal var chapterAdvanceTask: Task<Void, Never>? = nil
     internal var chapterAdvanceTaskGeneration: UInt64 = 0
+    internal var consecutiveChapterFailureCount = 0 // xem TTSManager+ChapterSkipLimit
     internal var nghiWarmUpTask: Task<Void, Never>? = nil
     internal let audioSynthesisWorker = TTSAudioSynthesisWorker()
     internal lazy var nextChapterPrefetcher = TTSChapterPrefetcher(audioWorker: audioSynthesisWorker)
@@ -516,7 +517,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             } catch is CancellationError {
                 return
             } catch {
-                AppLogger.shared.log("[TTSPerf] NghiTTS warm-up failed: \(error.localizedDescription)")
+                AppLogger.shared.log("❌ [TTSPerf] NghiTTS warm-up failed: \(error.localizedDescription)")
             }
             await MainActor.run {
                 self?.nghiWarmUpTask = nil
@@ -812,7 +813,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 self.selectedVoice = NghiTTSClient.defaultVietnameseVoice.name
             }
         } catch {
-            AppLogger.shared.log("Error initializing TTS model store: \(error.localizedDescription)")
+            AppLogger.shared.log("❌ Error initializing TTS model store: \(error.localizedDescription)")
         }
     }
 
@@ -913,7 +914,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             } catch is CancellationError {
                 return
             } catch {
-                AppLogger.shared.log("[TTSManager] Không thể chuẩn bị trước chương TTS: \(error.localizedDescription)")
+                AppLogger.shared.log("❌ [TTSManager] Không thể chuẩn bị trước chương TTS: \(error.localizedDescription)")
             }
         }
     }
@@ -961,6 +962,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         startSpeakingTask?.cancel()
         startSpeakingTask = nil
         cancelChapterAdvanceTask()
+        consecutiveChapterFailureCount = 0
 
         let newSessionID = UUID()
         self.sessionID = newSessionID
@@ -1069,7 +1071,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             } catch is CancellationError {
                 return
             } catch {
-                AppLogger.shared.log("[TTSManager] Không thể bắt đầu TTS: \(error.localizedDescription)")
+                AppLogger.shared.log("❌ [TTSManager] Không thể bắt đầu TTS: \(error.localizedDescription)")
             }
         }
     }
@@ -1102,6 +1104,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     public func pause() {
         guard isPlaying else { return }
         cancelChapterAdvanceTask()
+        consecutiveChapterFailureCount = 0
         finishTTSAutoAdvancePerf(outcome: "cancelled", endpoint: "pause")
         checkpointProgressAndRelease()
         self.isPlaying = false
@@ -1446,14 +1449,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 return
             }
             stopCurrentPlayback()
-            if let nextIdx = nextChapterIndex(after: playingChapterIndex) {
-                advanceToNextChapter(nextIdx: nextIdx)
-            } else {
-                stopCurrentPlayback()
-                pause()
-                TTSPresentationEventCenter.shared.send(.showToast(message: "📖 Đã phát hết nội dung bộ truyện.", type: .info))
-                onChapterFinished?()
-            }
+            advanceOrFinishBook(after: playingChapterIndex)
         }
     }
 
@@ -1515,39 +1511,24 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 TTSPresentationEventCenter.shared.send(.showToast(message: "📖 Hẹn giờ: Đã tự động tạm dừng khi đọc hết chương.", type: .info))
                 return
             }
-            if let nextIdx = nextChapterIndex(after: playingChapterIndex) {
-                stopCurrentPlayback()
-                advanceToNextChapter(nextIdx: nextIdx)
-            } else {
-                // Đã hết sách hoàn toàn
-                stopCurrentPlayback()
-                pause()
-                TTSPresentationEventCenter.shared.send(.showToast(message: "📖 Đã phát hết nội dung bộ truyện.", type: .info))
-                onChapterFinished?()
-            }
+            stopCurrentPlayback()
+            advanceOrFinishBook(after: playingChapterIndex)
         }
     }
 
     /// Tự tải và phát chương tiếp theo mà không cần ReaderView làm trung gian.
     /// Nội dung chương kế tiếp luôn đi qua ChapterContentRepository local-first.
     /// Sau khi bắt đầu phát, post notification để ReaderView sync UI nếu đang visible.
-    private func nextChapterIndex(after index: Int) -> Int? {
+    internal func nextChapterIndex(after index: Int) -> Int? {
         chaptersQueue
             .map(\.index)
             .filter { $0 > index }
             .min()
     }
 
-    private func advanceToNextChapter(nextIdx: Int) {
+    internal func advanceToNextChapter(nextIdx: Int) {
         guard let nextChapter = chaptersQueue.first(where: { $0.index == nextIdx }) else {
-            if let followingIdx = nextChapterIndex(after: nextIdx) {
-                advanceToNextChapter(nextIdx: followingIdx)
-            } else {
-                stopCurrentPlayback()
-                pause()
-                TTSPresentationEventCenter.shared.send(.showToast(message: "📖 Đã phát hết nội dung bộ truyện.", type: .info))
-                onChapterFinished?()
-            }
+            advanceOrFinishBook(after: nextIdx)
             return
         }
         cancelChapterAdvanceTask()
@@ -1787,19 +1768,12 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                         chapterIndex: nextChapter.index
                     )
                 }
-                guard self.sessionID == expectedSessionID,
+                guard !Task.isCancelled,
+                      self.sessionID == expectedSessionID,
+                      self.ttsProcessingGeneration == expectedGeneration,
                       self.playingBookId == expectedBookId,
                       self.isPlaying else { return }
-                AppLogger.shared.log("❌ [TTSManager] Không tải được chương \(nextChapter.index): \(error.localizedDescription)")
-                TTSPresentationEventCenter.shared.send(.showToast(message: "⚠️ Lỗi tải chương \(nextChapter.index), đang chuyển sang chương tiếp theo...", type: .info))
-                if let followingIdx = self.nextChapterIndex(after: nextChapter.index) {
-                    self.advanceToNextChapter(nextIdx: followingIdx)
-                } else {
-                    self.stopCurrentPlayback()
-                    self.pause()
-                    TTSPresentationEventCenter.shared.send(.showToast(message: "📖 Đã phát hết nội dung bộ truyện.", type: .info))
-                    self.onChapterFinished?()
-                }
+                self.skipFailedChapter(nextChapter.index, toast: "⚠️ Lỗi tải chương \(nextChapter.index), đang chuyển sang chương tiếp theo...", error: error)
                 return
             }
 
@@ -1889,19 +1863,12 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                         chapterIndex: nextChapter.index
                     )
                 }
-                guard self.sessionID == expectedSessionID,
+                guard !Task.isCancelled,
+                      self.sessionID == expectedSessionID,
+                      self.ttsProcessingGeneration == expectedGeneration,
                       self.playingBookId == expectedBookId,
                       self.isPlaying else { return }
-                AppLogger.shared.log("❌ [TTSManager] Lỗi xử lý chương \(nextChapter.index): \(error.localizedDescription)")
-                TTSPresentationEventCenter.shared.send(.showToast(message: "⚠️ Lỗi xử lý chương \(nextChapter.index), đang chuyển sang chương tiếp theo...", type: .info))
-                if let followingIdx = self.nextChapterIndex(after: nextChapter.index) {
-                    self.advanceToNextChapter(nextIdx: followingIdx)
-                } else {
-                    self.stopCurrentPlayback()
-                    self.pause()
-                    TTSPresentationEventCenter.shared.send(.showToast(message: "📖 Đã phát hết nội dung bộ truyện.", type: .info))
-                    self.onChapterFinished?()
-                }
+                self.skipFailedChapter(nextChapter.index, toast: "⚠️ Lỗi xử lý chương \(nextChapter.index), đang chuyển sang chương tiếp theo...", error: error)
                 return
             }
 
@@ -1972,19 +1939,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
         let playbackParas = playbackParagraphs(from: paragraphs)
         guard !playbackParas.isEmpty else {
-            AppLogger.shared.log("⚠️ [TTSManager] Chương \(index) không có nội dung đọc, tự động chuyển sang chương tiếp theo.")
-            TTSPresentationEventCenter.shared.send(.showToast(message: "⚠️ Chương \(index) không có nội dung, đang chuyển tiếp...", type: .info))
-            if let nextIdx = nextChapterIndex(after: index) {
-                advanceToNextChapter(nextIdx: nextIdx)
-            } else {
-                stopCurrentPlayback()
-                pause()
-                TTSPresentationEventCenter.shared.send(.showToast(message: "📖 Đã phát hết nội dung bộ truyện.", type: .info))
-                onChapterFinished?()
-            }
+            skipFailedChapter(index, toast: "⚠️ Chương \(index) không có nội dung, đang chuyển tiếp...", error: nil)
             return
         }
 
+        noteChapterAdvanceSucceeded(index)
         checkpointProgress()
         self.playingChapterIndex = index
         self.playingChapterUrl = chapter.url
@@ -2984,6 +2943,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         self.currentPlaybackId = playbackId
 
         if let context, !isContextValid(context) { return }
+        FileDescriptorCensus.tickChunk()
 
         if TTSManager.isLocalEngine(tool) {
             AppLogger.shared.log("[TTSRoute] playAudioData -> hang doi local engine=\(tool) id=\(playbackId) bytes=\(audioData.count)")
@@ -3218,7 +3178,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                         synthesisMs: synMs
                     )
                 }
-                AppLogger.shared.log("NghiTTS synthesis failed: \(error.localizedDescription)")
+                AppLogger.shared.log("❌ NghiTTS synthesis failed: \(error.localizedDescription)")
                 self.preloadedData.removeValue(forKey: index)
                 self.preloadedDurations.removeValue(forKey: index)
                 self.currentPlaybackId = nil

@@ -586,6 +586,7 @@ Thêm `case` vào `ExtensionDebugEvent.Category` là đổi contract v1 ⇒ nân
 * One in-flight chapter operation may serve multiple Reader/TTS subscribers. Canceling a subscriber must resume only that waiter with `CancellationError`; the underlying operation is canceled only after its final waiter leaves. Force refresh supersedes the prior operation and cancels all of its waiters.
 * Cancellation from the final waiter must propagate through persistent lookup and extension execution. Once fetched content has passed the final cancellation checkpoint and entered shared memory, its background persistence write must not be canceled by Reader dismissal.
 * `TTSManager` must own fallback auto-advance work. Stop, engine/session replacement, or a newer chapter advance cancels the prior task; canceled/superseded work must not stop playback as an ordinary load failure or commit stale chapter state. If repository force-refresh supersedes only the shared load while playback itself remains active, auto-advance may reattach once to the replacement operation.
+* Auto-skipping unplayable chapters is bounded (1.3.517, user decision 2026-10-12): a chapter whose load fails, whose processing fails, or that has no readable content is skipped via `TTSManager.skipFailedChapter` (`TTSManager+ChapterSkipLimit.swift`); the 5th consecutive unplayable chapter stops playback and pauses with an error toast instead of skipping on. The counter resets when `applyNextChapter` actually starts a chapter, on `startSpeaking`, and on `pause()`. `CancellationError`, superseded work and the translation-token re-route are never counted. New skip paths must go through `skipFailedChapter`, and "end of book" through `advanceOrFinishBook(after:)` — do not re-inline either.
 
 ## TTS presentation energy invariants (1.3.112)
 
@@ -723,7 +724,7 @@ Dự án FreeBook được tổ chức theo cấu trúc phân tầng nghiêm ng�
         *   `Manager/`: `TranslationManager.swift`.
         *   `Utils/`: `TranslateUtils.swift`, `DictionaryCache.swift`.
     *   `Download/`: `DownloadManager.swift`, `BookDownloadWorker.swift`, `DownloadTaskOutcomeCalculator.swift`.
-    *   `Logging/`: `AppLogger.swift`.
+    *   `Logging/`: `AppLogger.swift`, `FileDescriptorCensus.swift` (đếm fd đang mở theo nhóm + nâng `RLIMIT_NOFILE` lúc khởi động — chẩn đoán cạn file descriptor, 1.3.517).
 
 ### 4.2. JavaScript Core Runtime & VBook Extensions Integration
 *   **Script Entrypoint**: Tên hàm bắt đầu thực thi bên trong toàn bộ các tệp JavaScript (`search.js`, `detail.js`, `toc.js`, `chap.js`, `genre.js`, `home.js`) phải là `execute(...)`, được gọi bất đồng bộ qua `runAsync` trong `ExtensionManager.swift`.
@@ -978,7 +979,7 @@ Dự án FreeBook được tổ chức theo cấu trúc phân tầng nghiêm ng�
 ### 5.9. Logging Rules
 *   **Tên**: Ghi log ngoại lệ chi tiết của JS Engine ra tệp logs
 *   **Loại quy tắc**: **Observed Rule**
-*   **Mô tả**: Toàn bộ thông tin crash, exception của JS phải được lưu vào file `app_logs.txt` trong thư mục `applicationSupportDirectory` (không phải `Documents`). `AppLogger.init` set `isLoggingEnabled = false` mỗi lần khởi chạy và tự xóa file khi vượt 5 MB, nên phải bật lại trong Settings mới thấy log mới.
+*   **Mô tả**: Toàn bộ thông tin crash, exception của JS phải được lưu vào file `app_logs.txt` trong thư mục `applicationSupportDirectory` (không phải `Documents`). `AppLogger.init` set `isLoggingEnabled = false` mỗi lần khởi chạy và, nếu file vượt 5 MB, chỉ giữ 1 MB cuối (1.3.517 — trước đây xoá hẳn), nên phải bật lại trong Settings mới thấy log mới. Handle ghi log được mở một lần rồi giữ suốt phiên; `clear`/`logFileSize`/`readLogContents` không đóng nó (đọc qua chính handle `forUpdating`) để vẫn ghi/đọc được khi tiến trình đã cạn fd. Ngoại lệ (1.3.517, yêu cầu người dùng 2026-10-12): (1) **dòng lỗi** — chuỗi chứa `❌` — luôn được `AppLogger.log` ghi dù công tắc tắt, nên log lỗi mới phải đánh dấu `❌` (và không gắn `❌` cho dòng thường để lách công tắc); (2) `AppLogger.logAlways` ghi bất kể công tắc, **chỉ** dành cho `FileDescriptorCensus` (~1 dòng/chương, handle mở từ lúc khởi động để vẫn ghi được khi tiến trình đã cạn fd); code khác không được dùng nó.
 *   **Lý do**: Nhà phát triển ứng dụng cài app qua LiveContainer test trực tiếp trên iOS vật lý, không thể debug qua Xcode Console.
 *   **Ví dụ đúng**:
     ```swift
