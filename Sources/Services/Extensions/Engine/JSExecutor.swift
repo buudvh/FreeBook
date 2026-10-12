@@ -18,6 +18,11 @@ public final class JSExecutor: @unchecked Sendable {
     /// run có một `JSExecutor` riêng.
     internal let debugSink: ExtensionDebugEventSink?
 
+    /// Đếm số executor đang sống cho `FileDescriptorCensus` (dòng `live=`): chẩn đoán rò fd sau khi tìm truyện.
+    deinit {
+        FileDescriptorCensus.trackLive("JSExecutor", -1)
+    }
+
     public init(
         localPath: String? = nil,
         downloadUrl: String? = nil,
@@ -27,6 +32,7 @@ public final class JSExecutor: @unchecked Sendable {
         self.localPath = localPath
         self.downloadUrl = downloadUrl
         self.debugSink = debugSink
+        FileDescriptorCensus.trackLive("JSExecutor", 1)
 
         // 1. Cấu hình Exception Handler
         context.exceptionHandler = { [weak self] context, exception in

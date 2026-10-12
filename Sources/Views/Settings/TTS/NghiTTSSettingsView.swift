@@ -31,7 +31,7 @@ struct NghiTTSSettingsView: View {
             } header: {
                 Text("Tiền xử lý text")
             } footer: {
-                Text("Thử giọng đọc đã chuyển vào màn **Cài đặt NghiTTS** (tab Cài đặt → Nghe Truyện (TTS) · NghiTTS) — cùng chỗ với các lối vào quản lý.")
+                Text("Thử giọng đọc đã chuyển vào màn **Cài đặt NghiTTS** (tab Cài đặt → Nghe truyện (TTS) → Cài đặt NghiTTS) — cùng chỗ với các lối vào quản lý.")
             }
             
             Section("Cấu hình khoảng ngắt (giây)") {

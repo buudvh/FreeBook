@@ -1,0 +1,40 @@
+import SwiftUI
+
+/// Section "Đọc & Nghe" của tab Cài đặt (1.3.520): mỗi nhóm cài đặt là **một dòng** dẫn vào màn riêng, chữ phụ
+/// bên phải là trạng thái hiện tại. Đọc trạng thái qua `@AppStorage` (cùng khoá các màn con ghi) — không
+/// observe `TTSManager` (View không được observe trực tiếp manager).
+struct ReadingSettingsSection: View {
+    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
+    /// `TTSManager` ghi khoá này mỗi khi đổi engine; mặc định `"system"` giống `TTSManager.init`.
+    @AppStorage("ttsTool") private var ttsTool = "system"
+    @AppStorage(VisibleBrowserSettings.openMinimizedKey) private var openBrowserMinimized = false
+
+    var body: some View {
+        Section(header: Text("Đọc & Nghe")) {
+            NavigationLink(destination: TranslationSettingsView()) {
+                LabeledContent {
+                    Text(isTranslationEnabled ? "Đang bật" : "Tắt")
+                } label: {
+                    Label("Cài đặt dịch thuật", systemImage: "character.book.closed")
+                }
+            }
+            NavigationLink(destination: TTSSettingsHubView()) {
+                LabeledContent {
+                    Text(TTSSettingsHubView.engineName(for: ttsTool))
+                } label: {
+                    Label("Nghe truyện (TTS)", systemImage: "headphones")
+                }
+            }
+            NavigationLink(destination: AISettingsView()) {
+                Label("Trợ lý AI", systemImage: "sparkles")
+            }
+            NavigationLink(destination: VisibleBrowserSettingsView()) {
+                LabeledContent {
+                    Text(openBrowserMinimized ? "Thu nhỏ" : "Toàn màn hình")
+                } label: {
+                    Label("Trình duyệt hiển thị", systemImage: "globe")
+                }
+            }
+        }
+    }
+}

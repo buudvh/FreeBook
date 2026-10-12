@@ -110,6 +110,10 @@ public final class AppLogger {
         }
         // `forUpdating` (đọc + ghi) để `readLogContents` đọc qua chính handle này, không cần fd mới.
         fileHandle = try? FileHandle(forUpdating: url)
+        // Phép thử chẩn đoán rò fd: fd thiếu FD_CLOEXEC có bị nhân bản theo nhóm hay không (xem FileDescriptorCensus).
+        if let descriptor = fileHandle?.fileDescriptor {
+            _ = fcntl(descriptor, F_SETFD, FD_CLOEXEC)
+        }
         currentFileSize = (try? fileHandle?.seekToEnd()) ?? 0
     }
 

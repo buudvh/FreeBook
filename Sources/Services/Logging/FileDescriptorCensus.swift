@@ -20,9 +20,13 @@ enum FileDescriptorCensus {
     private static var previousTotal = 0
     private static var chunkCount = 0
     private static var failureRecorded = false
+    /// Số đối tượng "có thể giữ fd" đang sống theo loại (`JSExecutor`, `WebViewLoader`…), chỉ đổi trên `queue`.
+    private static var liveCounts: [String: Int] = [:]
 
     /// Số nhóm in ra mỗi lần đếm đủ (lần chụp lúc lỗi in tất cả).
     private static let topBucketCount = 12
+    /// Số nhóm vừa tăng được in chi tiết (dải fd, cờ mở, vị trí đọc) mỗi lần đếm đủ.
+    private static let detailBucketCount = 5
     /// Cứ bấy nhiêu đoạn audio thì đếm tổng một lần.
     private static let chunkSampleInterval = 100
     /// Tổng tăng quá ngưỡng này so với lần đếm đủ trước ⇒ đếm đủ ngay để bắt nhóm đang rò.
@@ -88,6 +92,17 @@ enum FileDescriptorCensus {
         }
     }
 
+    /// Số fd đang mở và giới hạn mềm — cho màn "Ghi log hệ thống". Chỉ dùng `fcntl`, gọi được từ mọi luồng.
+    static func openCount() -> (open: Int, limit: Int) {
+        let (total, soft) = countOpen()
+        return (total, soft)
+    }
+
+    /// Đối tượng loại `kind` vừa được tạo (`+1`) hoặc giải phóng (`-1`). Gọi được từ mọi luồng, kể cả `deinit`.
+    static func trackLive(_ kind: String, _ delta: Int) {
+        queue.async { Self.liveCounts[kind, default: 0] += delta }
+    }
+
     /// Lỗi có mang errno EMFILE/ENFILE ở bất kỳ tầng `NSUnderlyingError` nào.
     static func isOutOfDescriptors(_ error: Error) -> Bool {
         var current: NSError? = error as NSError
@@ -140,7 +155,7 @@ enum FileDescriptorCensus {
 
     /// Chỉ gọi trên `queue`.
     private static func recordOnQueue(event: String, includeAllBuckets: Bool) {
-        let (total, soft, buckets) = census()
+        let (total, soft, buckets, fdsByBucket) = census()
         let deltaTotal = total - previousTotal
         let ranked = buckets.sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }
         let shown = includeAllBuckets ? ranked : Array(ranked.prefix(topBucketCount))
@@ -148,15 +163,18 @@ enum FileDescriptorCensus {
             let delta = entry.value - (previousBuckets[entry.key] ?? 0)
             return delta == 0 ? "\(entry.key)=\(entry.value)" : "\(entry.key)=\(entry.value)(\(signed(delta)))"
         }
-        let grown = buckets
+        let grownBuckets = buckets
             .map { ($0.key, $0.value - (previousBuckets[$0.key] ?? 0)) }
             .filter { $0.1 > 0 }
             .sorted { $0.1 > $1.1 }
-            .prefix(5)
-            .map { "\($0.0)\(signed($0.1))" }
+        let grown = grownBuckets.prefix(5).map { "\($0.0)\(signed($0.1))" }
+        let live = liveCounts.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }
         AppLogger.shared.logAlways(
-            "[FD] \(event) total=\(total)/\(soft) (\(signed(deltaTotal))) grow=[\(grown.joined(separator: ", "))] top=[\(top.joined(separator: ", "))]"
+            "[FD] \(event) total=\(total)/\(soft) (\(signed(deltaTotal))) grow=[\(grown.joined(separator: ", "))] live=[\(live.joined(separator: ", "))] top=[\(top.joined(separator: ", "))]"
         )
+        for (bucket, _) in grownBuckets.prefix(detailBucketCount) {
+            AppLogger.shared.logAlways(detailLine(bucket: bucket, fds: fdsByBucket[bucket] ?? []))
+        }
         previousBuckets = buckets
         previousTotal = total
     }
@@ -180,16 +198,36 @@ enum FileDescriptorCensus {
         return (total, soft)
     }
 
-    private static func census() -> (total: Int, soft: Int, buckets: [String: Int]) {
+    private static func census() -> (total: Int, soft: Int, buckets: [String: Int], fdsByBucket: [String: [Int32]]) {
         let soft = softLimit()
         var buckets: [String: Int] = [:]
+        var fdsByBucket: [String: [Int32]] = [:]
         var total = 0
         var pathBuffer = [CChar](repeating: 0, count: Int(MAXPATHLEN))
         for fd in 0..<Int32(soft) where fcntl(fd, F_GETFD) != -1 {
             total += 1
-            buckets[bucket(for: fd, pathBuffer: &pathBuffer), default: 0] += 1
+            let name = bucket(for: fd, pathBuffer: &pathBuffer)
+            buckets[name, default: 0] += 1
+            fdsByBucket[name, default: []].append(fd)
         }
-        return (total, soft, buckets)
+        return (total, soft, buckets, fdsByBucket)
+    }
+
+    /// Chi tiết một nhóm vừa tăng: dải số fd và cờ/vị trí đọc của fd cũ nhất và mới nhất. Hai fd cùng vị trí
+    /// đọc ⇒ cùng một "open file description" (bản `dup`); khác vị trí ⇒ mở độc lập. `cloexec=0` ở cả nhóm
+    /// ⇒ ủng hộ giả thuyết "fd thiếu FD_CLOEXEC bị nhân bản".
+    private static func detailLine(bucket: String, fds: [Int32]) -> String {
+        guard let oldest = fds.min(), let newest = fds.max() else { return "[FD] detail \(bucket) n=0" }
+        return "[FD] detail \(bucket) n=\(fds.count) fd=\(oldest)…\(newest) newest(\(describeFD(newest))) oldest(\(describeFD(oldest)))"
+    }
+
+    /// Cờ mở (`F_GETFL`), `FD_CLOEXEC` và vị trí đọc hiện tại — `lseek(…, 0, SEEK_CUR)` chỉ đọc, không dời vị trí.
+    private static func describeFD(_ fd: Int32) -> String {
+        let flags = fcntl(fd, F_GETFL)
+        let descriptorFlags = fcntl(fd, F_GETFD)
+        let cloexec = descriptorFlags == -1 ? "?" : ((descriptorFlags & FD_CLOEXEC) != 0 ? "1" : "0")
+        let offset = lseek(fd, 0, SEEK_CUR)
+        return "fd=\(fd) fl=0x\(String(UInt32(bitPattern: flags), radix: 16)) cloexec=\(cloexec) off=\(offset)"
     }
 
     private static func bucket(for fd: Int32, pathBuffer: inout [CChar]) -> String {

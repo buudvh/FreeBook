@@ -80,7 +80,7 @@ extension ReaderDefinitionOverlayView {
     private var ruleNoticeText: String? {
         if isLoadingRules { return "Đang cập nhật rule cho đoạn này…" }
         if !hasAnyRuleSet {
-            return "Máy chưa có bộ rule nào. Tải hoặc nhập ở Cài đặt → Quản lý rule dịch."
+            return "Máy chưa có bộ rule nào. Tải hoặc nhập ở Cài đặt → Cài đặt dịch thuật → Quản lý rule dịch."
         }
         if !isRuleFeatureEnabled {
             return "Công tắc rule dịch đang TẮT trong Cài đặt — dải rule bên dưới chỉ là mô phỏng."

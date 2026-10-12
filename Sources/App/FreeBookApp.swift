@@ -34,6 +34,8 @@ struct FreeBookApp: App {
 
         // Nâng giới hạn file descriptor + ghi mốc đếm fd ban đầu (chẩn đoán cạn fd sau phiên nghe dài).
         FileDescriptorCensus.start()
+        // Bộ ghi nhiệt cho màn "Theo dõi nhiệt": 1 mẫu / 30 giây vào bộ đệm vòng trong RAM, không ghi đĩa.
+        DeviceThermalMonitor.shared.start()
     }
 
     var body: some Scene {

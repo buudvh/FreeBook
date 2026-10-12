@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.490] - 2026-10-09
+
+### perf(cover): cache anh bia da giai ma, doc dia ngoai main, moi bia tai mot lan
+
+Người dùng: *"đừng làm refactor nữa, tôi muốn bạn tra lại code và xem chỗ nào ảnh hưởng hiệu năng app, chỉnh sửa lại cho app mượt hơn, hiệu năng tốt hơn"*. Nguồn: rà toàn app 7 mảng + 2 mảng tác vụ định kỳ, mỗi phát hiện qua một vòng phản biện đối kháng; nhóm này sửa xong lại qua một vòng phản biện nữa (lỗi tìm được đã sửa).
+
+- **Triệu chứng**: mỗi lần một hàng có ảnh bìa xuất hiện (kệ sách, lịch sử, Khám phá, tìm kiếm…) `BookCoverView` chạy **đồng bộ trên main** ~20 syscall (tính lại thư mục, `resolvingSymlinksInPath`, `fileExists`), 2 lần SHA-256 + regex của bước di trú tên cũ, rồi `UIImage(contentsOfFile:)` giải mã **độ phân giải gốc** ngay lúc vẽ; không có cache RAM nên cuộn qua lại lặp lại toàn bộ. Bìa chưa có trên đĩa còn bị tải 2–3 lần.
+- **Sửa**: `CoverThumbnailCache` (mới) — `NSCache` ảnh **đã giải mã**, thu nhỏ bằng ImageIO đúng cỡ hiển thị, khoá `bookId|cỡ`, trần 48 MB. `BookCoverView`: trúng cache thì hiện ngay (không nháy); trượt thì đọc đĩa ngoài main, trong lúc kiểm tra đĩa hiện placeholder — **không** gắn `AsyncImage` trước khi biết đĩa không có (tránh tải mạng bìa đã có). Cỡ khung đổi thì tải lại đúng cỡ.
+- **`ImageCacheManager`**: thư mục bìa + gốc canonical tính một lần; di trú tên cũ + kiểm tra đường dẫn ghi nhớ theo `bookId` (một lần mỗi phiên, có khoá); hex SHA-256 bằng bảng tra (tên file **giữ nguyên từng byte**); gộp các lượt tải cùng `bookId` đang bay; ghi `.atomic` (cùng byte).
+- **Vô hiệu cache ở mọi chỗ ghi bìa**: `saveCover`, `deleteCover`, tải xong, và khôi phục backup (`BackupCoverArchiver`). Không đổi byte/định dạng/độ phân giải bìa đã lưu (backup phụ thuộc).
+- **Kiểm chứng**: `check_architecture.py` chỉ còn 2 vi phạm nền cũ (`JSDom`, `TTSManager`), 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận biên dịch.
+
 ## [1.3.489] - 2026-10-09
 
 ### perf(reader): danh sach chuong an khong ve lai, bo @Published thua, khong dung chuong khi man hinh khoa
