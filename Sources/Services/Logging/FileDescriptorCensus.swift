@@ -9,8 +9,8 @@ import Darwin
 ///
 /// - Chỉ dùng `fcntl`/`fstat`/`getsockopt`/`getpeername` trên fd sẵn có, **không mở fd mới**, nên vẫn chạy
 ///   được đúng lúc đã cạn.
-/// - Ghi qua `AppLogger.logAlways` (không cần bật log): mỗi chương ~1 dòng, file log không phình tới
-///   ngưỡng 5 MB mà `AppLogger` cắt bớt lúc khởi động. Việc đếm chạy trên một serial queue `.utility`.
+/// - Ghi qua `AppLogger.logAlways` (không cần bật log): mỗi chương ~1 dòng, nên log đo fd không đẩy
+///   các dòng khác ra khỏi vòng xoay file của `AppLogFiles`. Việc đếm chạy trên một serial queue `.utility`.
 /// - `start()` còn nâng giới hạn mềm `RLIMIT_NOFILE` (thường 256) lên mức hệ thống cho phép, để người
 ///   dùng nghe được lâu hơn trong lúc chờ tìm chỗ rò; log vẫn thấy fd tăng dần.
 enum FileDescriptorCensus {

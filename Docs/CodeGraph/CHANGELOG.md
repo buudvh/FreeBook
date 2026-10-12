@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.518] - 2026-10-12
+
+### perf(log): ghi log o luong nen, tu chia file log 2 MB, xuat va xoa tat ca file log
+
+Người dùng: *"có thể sửa tự động chia log file khi quá nhiều không, tôi sợ nhiều quá gây lag app khi log"* → chọn *"chuyển vào luồng nền và chia thành nhiều file, sửa lại xuất cho phép xuất tất cả các file log, sửa xoá tất cả log xoá tất cả file log"*.
+
+- Ghi chú khi phân tích: kích thước file **không** làm việc ghi chậm đi (mỗi dòng là `seekToEnd` + `write` qua handle giữ sẵn); thứ tốn là số dòng/giây ghi đồng bộ trên luồng gọi (kể cả main) và sao chép/xuất file lớn.
+- **Ghi trên luồng nền**: `AppLogger.log`/`logAlways` chỉ dựng chuỗi + lấy thời điểm ở luồng gọi rồi `async` sang serial queue `.utility` của `AppLogger`; định dạng giờ, `print` và ghi file làm trên queue. Bỏ `NSLock`; `clear`/`readLogContents` đồng bộ với queue bằng `queue.sync`; `logFileSize` đọc `stat` trực tiếp (bị gọi lúc dựng view). Đổi lại: crash có thể mất vài dòng cuối chưa kịp ghi.
+- **Chia file (mới, `Services/Logging/AppLogFiles.swift`)**: `app_logs.txt` quá 2 MB ⇒ đẩy thành `app_logs.1.txt`, các file cũ lùi một bậc tới `app_logs.4.txt`, file cũ nhất bị xoá (tổng ≤ ~10 MB). Xoay vòng chỉ đổi tên/xoá file (không tốn fd); không mở nổi file mới (cạn fd) thì ghi tiếp vào handle cũ — giờ trỏ `app_logs.1.txt` — để không mất dòng. Thay luật "lúc khởi động file > 5 MB thì giữ 1 MB cuối" của 1.3.517.
+- **Cài đặt → Nhật ký**: "Xuất tất cả file log" (`ShareLink(items:)` mọi file đang có), "Xóa tất cả nhật ký log" xoá mọi file (file đang ghi cắt về 0 qua handle), "Sao chép nhật ký log (file mới nhất)" chỉ lấy file đang ghi để tránh đưa ~10 MB lên clipboard. `SettingsView.swift` giữ đúng 453 dòng (baseline).
+- **Sửa theo review phản biện**: (a) xoay vòng mà không mở nổi file mới (cạn fd) thì đổi tên file đang ghi về lại `app_logs.txt` để handle luôn trỏ file hiện hành — trước đó handle kẹt ở `app_logs.1.txt` và lần xoay sau/"Xóa tất cả" có thể xoá chính file đang ghi; `shiftForRotation` trả `Bool` để chỉ trả tên khi bước đổi tên đã xảy ra; (b) danh sách file cho "Xuất tất cả file log" giữ trong `@State logFileURLs` (thay `logFileExists`), cập nhật khi mở màn Cài đặt và sau khi xoá, để không bỏ sót file mới chia; (c) sửa số dòng `AppLogger.swift` trích trong `CLAUDE.md`/`AGENTS.md`.
+- `rules.md` §5.9 + cây thư mục `Logging/`, `CLAUDE.md`/`AGENTS.md` mục Logging cập nhật theo.
+- Chuyển entry `[1.3.488]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ (JSDom, TTSManager), 0 mới. **Không build tại chỗ** (Windows), cần CI. Không đụng `Tests/`.
+
 ## [1.3.517] - 2026-10-12
 
 ### fix(tts): tam dung khi 5 chuong lien tiep loi, dem file descriptor de tim cho ro, nang gioi han fd, luon ghi log loi
@@ -382,18 +397,3 @@ Người dùng: *"đừng làm refactor nữa, tôi muốn bạn tra lại code 
 - **Tìm trong truyện**: bộ so khớp chạy `Task.detached` thay vì trên main (debounce 250 ms giữ nguyên).
 - **Không dựng chương khi màn hình khoá**: TTS tự sang chương lúc app ở nền trước đây bắt Reader dựng + dịch chương mới (log 84: `commitMs≈987`, chồng lên lượt tổng hợp đầu chương). Nay chỉ ghi nhớ chương mới nhất; khi app active thì nhảy tới — giữa đường TTS dừng vẫn nhảy tới chương TTS đã đọc tới (như hành vi cũ), đang phát thì đáp đúng đoạn đang đọc; TTS đã sang truyện khác thì bỏ.
 - **Kiểm chứng**: `check_architecture.py` chỉ còn 2 vi phạm nền cũ (`JSDom`, `TTSManager`), 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận biên dịch.
-
-## [1.3.488] - 2026-10-09
-
-### perf(vieneu): do CPU-time, tat spin luong ORT, cho phep 1 luong (P0+P1+P2)
-
-Người dùng: *"làm cho xong đợt 8, sau đó làm Vieneu TTS tối ưu hóa trước đi, trong nhánh này luôn"*. Nguồn: báo cáo `Docs/Reports/2026-10-09-vieneu-huong-toi-uu-moi.md` (session "Vieneu TTS tối ưu hóa", chỉ điều tra). Gói P0+P1+P2 vào **một bản IPA** để đo A/B trên máy thật.
-
-- **P0 — đo CPU-time (lỗ hổng đo lường §1 của báo cáo)**: mọi số trước đây (`rtf`, `busyPct`) là thời gian **tường**, còn năng lượng/nhiệt tỉ lệ với **CPU-time**. File mới `Sources/Services/TTS/ProcessCPUClock.swift` (`clock_gettime(CLOCK_PROCESS_CPUTIME_ID)` — cả tiến trình, tính cả pool luồng ORT).
-  - `[VieNeuPerf]` thêm `cpu=…ms cpuPerAudio=… cores=…` (đo cùng khoảng với `synth=`; `cores` = số lõi bận trung bình).
-  - `[NghiEnergy] Summary` (dùng cho mọi engine local) thêm `cpuMs= cpuPerAudioSec= cpuCores=` trên cả cửa sổ 60 s — CPU **cả app** (gồm render), đúng thứ quyết định nóng máy. Mẫu số `cpuPerAudioSec` là `cpuPCMSeconds` — **bỏ** audio của lượt tổng hợp mở cửa sổ (CPU của lượt đó tiêu trước mốc `startedCPUMs`, vì hàm ghi chạy khi lượt xong); `totalPCMSeconds`/`aggregateRTF` giữ nguyên. Trường mới **nối cuối**, các trường cũ giữ thứ tự.
-- **P1 — tắt spin pool luồng ORT (F1)**: ORT mặc định cho luồng pool **chờ bận** giữa các op/lượt `Run`. `VieNeuONNXBridge.m` thêm `AddSessionConfigEntry(options, "session.intra_op.allow_spinning", …)` ở **cả hai** chỗ dựng session (4 graph chính + gói graph clone, giá trị lưu ở `context->allowSpinning`). `VieNeuORTCreate`/`VieNeuORTCreateCloneOnly` + 2 init Swift nhận thêm `allowSpinning`. **Mặc định TẮT** (khoá `vieneuOrtAllowSpinning`); cùng phép tính ⇒ **audio không đổi**. Công tắc `VieNeuOrtSpinToggle` trong Cài đặt VieNeu để bật lại khi cần so; dòng `Nạp xong engine` in thêm `spin=on/off`. Desktop (nhiễu tải) đo CPU-s/audio-s 2 luồng: 0,84 → 0,63 khi tắt spin — **phải xác nhận trên iPhone**.
-- **P2 — cho chọn 1 luồng (F3)**: kẹp số luồng `2…4` → `1…4` (`VieNeuSynthesisPolicy.threadCount`, setter của service, picker). "Tiết kiệm pin" vẫn ghim 2 luồng và khoá picker (rules.md). Mục đích: đo 1/2/4 luồng bằng P0 — chọn mặc định theo **CPU-s/audio-s**, không theo RTF.
-- **Cách đo trên máy**: bật log → **tắt** "Tiết kiệm pin" (để chọn luồng) → nghe VieNeu ~5 phút mỗi cấu hình (đổi luồng/spin xong phải nạp lại engine: đổi engine qua lại hoặc mở lại app) → gửi log. So `cpuPerAudio` của `[VieNeuPerf]` và `cpuPerAudioSec` của `[NghiEnergy] Summary`, kèm `underrun` để chắc không hụt tiếng.
-- File: `VieNeuONNXBridge.h/.m`, `VieNeuONNXRuntime.swift`, `VieNeuSynthesisPolicy.swift`, `VieNeuTTSService.swift`, `VieNeuTTSEngine.swift` (396 → 398, dưới trần 400), `VieNeuTTSEngine+Adaptive.swift`, `NghiEnergyTelemetry.swift`, `TTSSettingsView+VieNeu.swift`; mới `ProcessCPUClock.swift`, `VieNeuOrtSpinToggle.swift`.
-- **Kiểm chứng**: `check_architecture.py` 2 violation nền cũ, 0 mới. Review đối kháng 2 lượt (biên dịch: 0 lỗi — `CLOCK_PROCESS_CPUTIME_ID` import được qua Darwin, `AddSessionConfigEntry` có từ ORT ~1.7, 16 specifier = 16 tham số; hành vi: 1 lỗi — mẫu số `cpuPerAudioSec` lệch cửa sổ, đã sửa như trên). **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận.

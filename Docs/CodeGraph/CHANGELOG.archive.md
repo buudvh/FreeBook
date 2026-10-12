@@ -2,6 +2,21 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.488] - 2026-10-09
+
+### perf(vieneu): do CPU-time, tat spin luong ORT, cho phep 1 luong (P0+P1+P2)
+
+Người dùng: *"làm cho xong đợt 8, sau đó làm Vieneu TTS tối ưu hóa trước đi, trong nhánh này luôn"*. Nguồn: báo cáo `Docs/Reports/2026-10-09-vieneu-huong-toi-uu-moi.md` (session "Vieneu TTS tối ưu hóa", chỉ điều tra). Gói P0+P1+P2 vào **một bản IPA** để đo A/B trên máy thật.
+
+- **P0 — đo CPU-time (lỗ hổng đo lường §1 của báo cáo)**: mọi số trước đây (`rtf`, `busyPct`) là thời gian **tường**, còn năng lượng/nhiệt tỉ lệ với **CPU-time**. File mới `Sources/Services/TTS/ProcessCPUClock.swift` (`clock_gettime(CLOCK_PROCESS_CPUTIME_ID)` — cả tiến trình, tính cả pool luồng ORT).
+  - `[VieNeuPerf]` thêm `cpu=…ms cpuPerAudio=… cores=…` (đo cùng khoảng với `synth=`; `cores` = số lõi bận trung bình).
+  - `[NghiEnergy] Summary` (dùng cho mọi engine local) thêm `cpuMs= cpuPerAudioSec= cpuCores=` trên cả cửa sổ 60 s — CPU **cả app** (gồm render), đúng thứ quyết định nóng máy. Mẫu số `cpuPerAudioSec` là `cpuPCMSeconds` — **bỏ** audio của lượt tổng hợp mở cửa sổ (CPU của lượt đó tiêu trước mốc `startedCPUMs`, vì hàm ghi chạy khi lượt xong); `totalPCMSeconds`/`aggregateRTF` giữ nguyên. Trường mới **nối cuối**, các trường cũ giữ thứ tự.
+- **P1 — tắt spin pool luồng ORT (F1)**: ORT mặc định cho luồng pool **chờ bận** giữa các op/lượt `Run`. `VieNeuONNXBridge.m` thêm `AddSessionConfigEntry(options, "session.intra_op.allow_spinning", …)` ở **cả hai** chỗ dựng session (4 graph chính + gói graph clone, giá trị lưu ở `context->allowSpinning`). `VieNeuORTCreate`/`VieNeuORTCreateCloneOnly` + 2 init Swift nhận thêm `allowSpinning`. **Mặc định TẮT** (khoá `vieneuOrtAllowSpinning`); cùng phép tính ⇒ **audio không đổi**. Công tắc `VieNeuOrtSpinToggle` trong Cài đặt VieNeu để bật lại khi cần so; dòng `Nạp xong engine` in thêm `spin=on/off`. Desktop (nhiễu tải) đo CPU-s/audio-s 2 luồng: 0,84 → 0,63 khi tắt spin — **phải xác nhận trên iPhone**.
+- **P2 — cho chọn 1 luồng (F3)**: kẹp số luồng `2…4` → `1…4` (`VieNeuSynthesisPolicy.threadCount`, setter của service, picker). "Tiết kiệm pin" vẫn ghim 2 luồng và khoá picker (rules.md). Mục đích: đo 1/2/4 luồng bằng P0 — chọn mặc định theo **CPU-s/audio-s**, không theo RTF.
+- **Cách đo trên máy**: bật log → **tắt** "Tiết kiệm pin" (để chọn luồng) → nghe VieNeu ~5 phút mỗi cấu hình (đổi luồng/spin xong phải nạp lại engine: đổi engine qua lại hoặc mở lại app) → gửi log. So `cpuPerAudio` của `[VieNeuPerf]` và `cpuPerAudioSec` của `[NghiEnergy] Summary`, kèm `underrun` để chắc không hụt tiếng.
+- File: `VieNeuONNXBridge.h/.m`, `VieNeuONNXRuntime.swift`, `VieNeuSynthesisPolicy.swift`, `VieNeuTTSService.swift`, `VieNeuTTSEngine.swift` (396 → 398, dưới trần 400), `VieNeuTTSEngine+Adaptive.swift`, `NghiEnergyTelemetry.swift`, `TTSSettingsView+VieNeu.swift`; mới `ProcessCPUClock.swift`, `VieNeuOrtSpinToggle.swift`.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền cũ, 0 mới. Review đối kháng 2 lượt (biên dịch: 0 lỗi — `CLOCK_PROCESS_CPUTIME_ID` import được qua Darwin, `AddSessionConfigEntry` có từ ORT ~1.7, 16 specifier = 16 tham số; hành vi: 1 lỗi — mẫu số `cpuPerAudioSec` lệch cửa sổ, đã sửa như trên). **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận.
+
 ## [1.3.487] - 2026-10-09
 
 ### refactor: tach TTSAutoAdvancePerfTracker va NghiEnergyTelemetry khoi TTSManager (dot 8 tach god object)

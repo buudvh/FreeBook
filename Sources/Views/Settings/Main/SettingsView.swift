@@ -10,7 +10,7 @@ struct SettingsView: View {
     @AppStorage("isTranslationLuatNhanEnabled") private var isTranslationLuatNhanEnabled = false
     @ObservedObject private var translationManager = TranslationManager.shared
     
-    @State private var logFileExists = false
+    @State private var logFileURLs: [URL] = [] // giữ trong state để mở lại màn hình là thấy file mới chia
     @State private var showingCopyWarningAlert = false
     @State private var showingCopySuccessAlert = false
     @State private var showingClearLogAlert = false
@@ -225,7 +225,7 @@ struct SettingsView: View {
                             Text("Ghi log hệ thống")
                                 .font(.body)
                                 .fontWeight(.medium)
-                            Text("Bật ghi log giúp chẩn đoán và sửa lỗi. Log được lưu trong file applicationSupportDirectory/app_logs.txt trên thiết bị.")
+                            Text("Bật ghi log giúp chẩn đoán và sửa lỗi. Log được lưu trong applicationSupportDirectory/app_logs.txt trên thiết bị, mỗi file quá 2 MB thì tự chia sang app_logs.1…4.txt (file cũ nhất bị xoá).")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -268,7 +268,7 @@ struct SettingsView: View {
                 }
                 
                 Section(header: Text("Nhật Ký (Log)")) {
-                    if logFileExists {
+                    if !logFileURLs.isEmpty {
                         Button(action: {
                             let fileSize = AppLogger.shared.logFileSize
                             if fileSize > 1 * 1024 * 1024 { // > 1MB
@@ -277,17 +277,17 @@ struct SettingsView: View {
                                 copyLogToClipboard()
                             }
                         }) {
-                            Label("Sao chép nhật ký log", systemImage: "doc.on.doc")
+                            Label("Sao chép nhật ký log (file mới nhất)", systemImage: "doc.on.doc")
                         }
                         
-                        ShareLink(item: AppLogger.shared.getLogFileUrl()) {
-                            Label("Xuất file log (app_logs.txt)", systemImage: "square.and.arrow.up")
+                        ShareLink(items: logFileURLs) {
+                            Label("Xuất tất cả file log", systemImage: "square.and.arrow.up")
                         }
                         
                         Button(role: .destructive, action: {
                             showingClearLogAlert = true
                         }) {
-                            Label("Xóa nhật ký log", systemImage: "trash")
+                            Label("Xóa tất cả nhật ký log", systemImage: "trash")
                         }
                     } else {
                         Text("Chưa có dữ liệu log ghi nhận.")
@@ -322,7 +322,7 @@ struct SettingsView: View {
             .alert("Đã Sao Chép", isPresented: $showingCopySuccessAlert) {
                 Button("OK", role: .cancel) {}
             } message: {
-                Text("Đã sao chép toàn bộ nhật ký log vào bộ nhớ tạm.")
+                Text("Đã sao chép file log mới nhất vào bộ nhớ tạm.")
             }
             .alert("Xóa Nhật Ký", isPresented: $showingClearLogAlert) {
                 Button("Hủy", role: .cancel) {}
@@ -331,7 +331,7 @@ struct SettingsView: View {
                     updateLogStatus()
                 }
             } message: {
-                Text("Bạn có chắc chắn muốn xóa file app_logs.txt không? Thao tác này không thể hoàn tác.")
+                Text("Bạn có chắc chắn muốn xóa tất cả file log (app_logs*.txt) không? Thao tác này không thể hoàn tác.")
             }
 
             .background(
@@ -381,7 +381,7 @@ struct SettingsView: View {
     }
     
     private func updateLogStatus() {
-        logFileExists = FileManager.default.fileExists(atPath: AppLogger.shared.getLogFileUrl().path)
+        logFileURLs = AppLogger.shared.logFileUrls()
     }
     
     private func copyLogToClipboard() {
