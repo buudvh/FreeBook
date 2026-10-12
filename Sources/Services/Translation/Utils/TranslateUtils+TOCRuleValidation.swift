@@ -38,6 +38,17 @@ extension TranslateUtils {
         }
     }
 
+    /// Lý do `toc_rules.json` tại `url` không decode được (thiếu khoá nào, sai kiểu ở đâu) — chỉ để ghi log.
+    /// Đọc + decode lại file một lần, và chỉ được gọi ở nhánh đã hỏng nên không tốn gì lúc bình thường.
+    static func tocRulesDecodeFailureReason(at url: URL) -> String {
+        do {
+            _ = try JSONDecoder().decode([TOCRule].self, from: Data(contentsOf: url))
+            return "decode lại thì được"
+        } catch {
+            return String(describing: error)
+        }
+    }
+
     /// `nil` = hợp lệ; ngược lại là **câu lỗi** để màn Quy tắc mục lục hiện được lý do cụ thể.
     ///
     /// Là cửa kiểm tra **duy nhất** cho pattern: màn soạn rule, đường nhập file và đường khôi phục cấu hình đều

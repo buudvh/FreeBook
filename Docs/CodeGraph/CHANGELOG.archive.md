@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.489] - 2026-10-09
+
+### perf(reader): danh sach chuong an khong ve lai, bo @Published thua, khong dung chuong khi man hinh khoa
+
+Người dùng: *"đừng làm refactor nữa, tôi muốn bạn tra lại code và xem chỗ nào ảnh hưởng hiệu năng app, chỉnh sửa lại cho app mượt hơn, hiệu năng tốt hơn"*. Nguồn: rà toàn app 7 mảng + 2 mảng tác vụ định kỳ, mỗi phát hiện qua một vòng phản biện đối kháng; nhóm này sửa xong lại qua một vòng phản biện nữa (lỗi tìm được đã sửa).
+
+- **Danh sách chương ẩn không vẽ lại**: mở danh sách chương một lần là `ReaderChapterListView` nằm lại trong cây (ẩn bằng opacity) và chạy lại `body` ở **mọi** lần vẽ của `ReaderView` (mỗi bước highlight TTS, mỗi lần lưu tiến độ). Thêm `ReaderChapterListView+Equatable.swift` (so mọi input giá trị, `===` cho `@Model`/store, bỏ qua closure — cùng hợp đồng với `ParagraphCardView`) + `.equatable()`. `ForEach` của danh sách nay sinh đúng một hàng không-optional mỗi phần tử (`store.item(at:)` không bao giờ nil trong khoảng) để `List` không phải dựng mọi hàng.
+- **Bỏ 3 `@Published` không ai đọc**: `readingContext`, `currentProgress`, `currentRevision` của `ReaderViewModel` thành `var` thường — mỗi lần ghi trước đây kéo theo một lượt vẽ lại toàn bộ `ReaderView` lúc đang cuộn (grep: không có body/`$` nào đọc).
+- **`localBook`/`ext` của VM**: fetch bằng `#Predicate` bằng nhau + `fetchLimit = 1` thay vì đọc **cả bảng** `Book`/`Extension` trên main sau mỗi chương lấy từ extension. `ReaderView` lấy `localBook` một lần cho overlay header/footer.
+- **Tìm trong truyện**: bộ so khớp chạy `Task.detached` thay vì trên main (debounce 250 ms giữ nguyên).
+- **Không dựng chương khi màn hình khoá**: TTS tự sang chương lúc app ở nền trước đây bắt Reader dựng + dịch chương mới (log 84: `commitMs≈987`, chồng lên lượt tổng hợp đầu chương). Nay chỉ ghi nhớ chương mới nhất; khi app active thì nhảy tới — giữa đường TTS dừng vẫn nhảy tới chương TTS đã đọc tới (như hành vi cũ), đang phát thì đáp đúng đoạn đang đọc; TTS đã sang truyện khác thì bỏ.
+- **Kiểm chứng**: `check_architecture.py` chỉ còn 2 vi phạm nền cũ (`JSDom`, `TTSManager`), 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận biên dịch.
+
 ## [1.3.488] - 2026-10-09
 
 ### perf(vieneu): do CPU-time, tat spin luong ORT, cho phep 1 luong (P0+P1+P2)

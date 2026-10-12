@@ -659,7 +659,7 @@ public final class TranslateUtils {
                     try? data.write(to: url)
                 }
             } else {
-                AppLogger.shared.log("❌ Lỗi decode file toc_rules.json, fallback về defaultTOCRules")
+                AppLogger.shared.log("❌ Lỗi decode file toc_rules.json, fallback về defaultTOCRules: \(tocRulesDecodeFailureReason(at: url))")
             }
             all = defaultTOCRules
         }
