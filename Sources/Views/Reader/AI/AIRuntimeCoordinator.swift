@@ -231,7 +231,12 @@ public final class AIRuntimeCoordinator: ObservableObject {
                     }
                 }
                 guard !Task.isCancelled else { return }
-                let finalResults = AIBookDataInspector.shared.decorateExtractedNames(names: results, bookId: bookId)
+                // Task này kế thừa MainActor; gắn cờ NE/VP đọc Names.txt/VietPhrase.txt và tra từ điển cho cả
+                // danh sách — chạy ngoài main thread như các lượt giữa chừng (ở callback tiến độ).
+                let finalResults = await Task.detached(priority: .userInitiated) {
+                    AIBookDataInspector.shared.decorateExtractedNames(names: results, bookId: bookId)
+                }.value
+                guard !Task.isCancelled else { return }
 
                 await MainActor.run {
                     guard let self = self else { return }

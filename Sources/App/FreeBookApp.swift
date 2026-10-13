@@ -74,6 +74,9 @@ struct AppLaunchRootView: View {
             }
             BookStorageManager.shared.drainRetryQueue()
             BookStorageManager.shared.retryFailedChapterStoreDeletions()
+            // `Extension.localPath` là path tuyệt đối: gốc thư mục dữ liệu đổi thì trỏ lại thư mục thật trước khi
+            // Reader/TTS cần tới (app còn chặn ở màn nạp từ điển). Chỉ sửa path, không gỡ/xoá gì.
+            ExtensionTransactionCoordinator.shared.repairExtensionPathsAtLaunch(in: modelContext)
             TTSFloatingWidgetWindowManager.shared.modelContainer = modelContext.container
             TTSFloatingWidgetWindowManager.shared.refreshState()
             BrowserFloatingWidgetWindowManager.shared.refreshState()

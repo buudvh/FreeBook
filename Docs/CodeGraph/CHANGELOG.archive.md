@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.493] - 2026-10-09
+
+### perf(thu vien): tim chuong khong dich lai moi phim, tim tat ca nguon huy duoc, Kham pha khong nap 2 lan
+
+Người dùng: *"đừng làm refactor nữa, tôi muốn bạn tra lại code và xem chỗ nào ảnh hưởng hiệu năng app, chỉnh sửa lại cho app mượt hơn, hiệu năng tốt hơn"*. Nguồn: rà toàn app 7 mảng + 2 mảng tác vụ định kỳ, mỗi phát hiện qua một vòng phản biện đối kháng; nhóm này sửa xong lại qua một vòng phản biện nữa (lỗi tìm được đã sửa).
+
+- **Tìm chương ở Chi tiết truyện (nặng nhất)**: với truyện mở từ Khám phá/Tìm kiếm và đang bật dịch, mỗi phím gõ dịch lại tên **mọi** chương trên main; cache tên chương 1024 mục bị chính lượt quét đá văng nên mục lục > 1024 chương luôn trượt (ước 0,3–0,8 s mỗi phím). Nay `BookDetailOnlineTOCIndex` (mới) dịch tên một lần ngoài main (huỷ/dựng lại khi mục lục, cờ dịch hoặc generation đổi), lọc trên mảng đó; query debounce ~200 ms; khi chỉ mục chưa xong thì khớp tên gốc.
+- **`BookDetailTOCView`**: mục lục từ SQL vốn tăng dần ⇒ đảo chiều thay vì sort; danh sách đã lọc giữ trong `@State`, chỉ tính lại khi query (đã debounce)/chiều/mục lục đổi — không lọc hàng nghìn chương ở mỗi lần vẽ.
+- **Tìm tất cả nguồn**: khung ngoài `LazyVStack` (nguồn ngoài màn hình không dựng thẻ, không tải bìa); danh sách nguồn sort một lần mỗi lượt vẽ. Lượt tìm lưu handle và **huỷ** khi tìm lại — trước đây lượt cũ vẫn chạy và ghi đè kết quả của query mới (huỷ lan xuống `callAsync` → `cancelCurrentExecution`). Không huỷ ở `onDisappear` (mở Chi tiết cũng bắn sự kiện đó).
+- **Khám phá**: `activeExtensions` (lọc + sort có locale) tính một lần đầu `body` cho các biểu thức dựng view (closure/onChange vẫn đọc giá trị sống); mở tab lần đầu không còn chạy `home.js` + `genre.js` **hai lần** (khớp log 81/84). Nguồn vẫn gọi tuần tự.
+- **Kệ sách**: `ShelfBookPartition` (mới) chia ghim/không ghim/lịch sử trong **một** lượt giữ thứ tự `@Query`, thay cho 7–9 lượt lọc mỗi lần vẽ. `ShelfView.swift` 875 → 851.
+- **Kiểm chứng**: `check_architecture.py` chỉ còn 2 vi phạm nền cũ (`JSDom`, `TTSManager`), 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận biên dịch.
+
 ## [1.3.492] - 2026-10-09
 
 ### perf(chuong, khoi dong): bien dich luat loc rac mot lan, bo luot loc thua, regex cleanHTML tinh, bo parse tu dien trung

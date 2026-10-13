@@ -239,7 +239,8 @@ public final class ExtensionTransactionCoordinator {
     /// Áp kế hoạch dọn của `ExtensionInstallAudit` trong **một** transaction.
     ///
     /// Trả về số hàng đã xoá. Không hỏi xác nhận: hàng bị xoá là hàng đã mất file **và** không có
-    /// nguồn để tải lại, tức nó chỉ còn là một nút Tải về không chạy được.
+    /// nguồn để tải lại, tức nó chỉ còn là một nút Tải về không chạy được. Path tìm lại được
+    /// (`relocations`) được ghi lại thay vì gỡ.
     @discardableResult
     public func applyInstallAudit(
         plan: ExtensionInstallAudit.Plan,
@@ -250,10 +251,13 @@ public final class ExtensionTransactionCoordinator {
         let all = (try? context.fetch(FetchDescriptor<Extension>())) ?? []
         let deleteSet = Set(plan.deletePackageIds)
         let clearSet = Set(plan.clearFolderPackageIds)
+        let relocated = Dictionary(plan.relocations.map { ($0.packageId, $0.newPath) }, uniquingKeysWith: { first, _ in first })
         var deleted = 0
 
         for ext in all {
-            if deleteSet.contains(ext.packageId) {
+            if let newPath = relocated[ext.packageId] {
+                ext.localPath = newPath
+            } else if deleteSet.contains(ext.packageId) {
                 context.delete(ext)
                 deleted += 1
             } else if clearSet.contains(ext.packageId), !ext.localPath.isEmpty {
@@ -261,19 +265,44 @@ public final class ExtensionTransactionCoordinator {
             }
         }
 
-        guard deleted > 0 || !clearSet.isEmpty else { return .success(0) }
+        guard deleted > 0 || !clearSet.isEmpty || !relocated.isEmpty else { return .success(0) }
         do {
             try context.save()
+            // ❌: cả ba đều là dữ liệu hỏng/mất — phải hiện trong log kể cả khi công tắc log đang tắt.
+            if !plan.relocations.isEmpty {
+                let oldRoot = plan.relocations.compactMap { ExtensionPathResolver.storageRoot(of: $0.oldPath) }.first ?? "(trống — đã bị gỡ trước đó)"
+                let newRoot = plan.relocations.compactMap { ExtensionPathResolver.storageRoot(of: $0.newPath) }.first ?? "-"
+                AppLogger.shared.log("❌ 🧩 [ExtAudit] \(plan.relocations.count) tiện ích có đường dẫn hỏng — đã trỏ lại thư mục hiện tại (gốc cũ: \(oldRoot) → gốc mới: \(newRoot)): \(plan.relocations.map(\.packageId).joined(separator: ", "))")
+            }
             if deleted > 0 {
-                AppLogger.shared.log("🧹 [ExtAudit] Xoá \(deleted) tiện ích mất file và không có nguồn tải lại: \(plan.deletedNames.joined(separator: ", "))")
+                AppLogger.shared.log("❌ 🧹 [ExtAudit] Xoá \(deleted) tiện ích mất file và không có nguồn tải lại: \(plan.deletedNames.joined(separator: ", "))")
             }
             if !clearSet.isEmpty {
-                AppLogger.shared.log("🧹 [ExtAudit] Đưa \(clearSet.count) tiện ích của kho về trạng thái chưa cài (file đã mất)")
+                AppLogger.shared.log("❌ 🧹 [ExtAudit] Đưa \(clearSet.count) tiện ích của kho về trạng thái chưa cài (file đã mất): \(plan.clearFolderPackageIds.joined(separator: ", "))")
             }
             return .success(deleted)
         } catch {
             return .failure(ExtensionTransactionError.saveFailed(error.localizedDescription))
         }
+    }
+
+    /// Lúc mở app: chỉ sửa `localPath` hỏng (gốc thư mục dữ liệu đổi) để Reader/TTS/tải chương dùng path
+    /// đúng mà không phải ghé tab Tiện ích. **Không** gỡ hay xoá gì — việc đó vẫn chỉ thuộc lượt đối chiếu
+    /// khi mở màn quản lý.
+    @discardableResult
+    public func repairExtensionPathsAtLaunch(in context: ModelContext) -> Result<Int, ExtensionTransactionError> {
+        let all = (try? context.fetch(FetchDescriptor<Extension>())) ?? []
+        let entries = all.map { ext in
+            ExtensionInstallAudit.Entry(
+                packageId: ext.packageId,
+                name: ext.name,
+                localPath: ext.localPath,
+                isRegistered: ext.repository != nil || !ext.downloadUrl.isEmpty
+            )
+        }
+        let plan = ExtensionInstallAudit.plan(for: entries).relocationsOnly
+        guard !plan.isEmpty else { return .success(0) }
+        return applyInstallAudit(plan: plan, in: context).map { _ in plan.relocations.count }
     }
 
     /// Xoá hẳn một tiện ích khỏi DB — dùng khi gỡ tiện ích **không** có nguồn tải lại.

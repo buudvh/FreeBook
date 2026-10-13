@@ -93,16 +93,20 @@ public struct ReaderAINameReviewCardView: View {
             }
             .padding(.bottom, 2)
 
-            // Danh sách tên riêng
-            VStack(spacing: 6) {
+            // Danh sách tên riêng. `LazyVStack`: mỗi lần chọn/bỏ chọn (hay gõ nghĩa) `names` đổi, `VStack` thường
+            // cập nhật lại MỌI hàng kèm `TextField` của nó — vài trăm tên là giật; lazy chỉ dựng hàng đang hiện.
+            LazyVStack(spacing: 6) {
                 ForEach($names) { $item in
-                    HStack(spacing: 8) {
+                    HStack(spacing: 4) {
+                        // Vùng chạm 44×44 (mức tối thiểu của Apple) thay cho icon 16 pt trơn.
                         Button(action: {
                             item.isSelected.toggle()
                         }) {
                             Image(systemName: item.isSelected ? "checkmark.square.fill" : "square")
                                 .foregroundColor(item.isSelected ? Color(red: 90/255.0, green: 170/255.0, blue: 255/255.0) : .secondary)
-                                .font(.system(size: 16))
+                                .font(.system(size: 22))
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
 
@@ -159,6 +163,12 @@ public struct ReaderAINameReviewCardView: View {
                                         .fixedSize(horizontal: true, vertical: false)
                                 }
                             }
+                            // Chạm vào dòng tên cũng chọn/bỏ chọn; ô nhập nghĩa bên dưới vẫn để gõ.
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                item.isSelected.toggle()
+                            }
 
                             TextField("Nghĩa Hán-Việt/Dịch", text: $item.suggestedMeaning)
                                 .font(.system(size: 12))
@@ -178,7 +188,9 @@ public struct ReaderAINameReviewCardView: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    .padding(8)
+                    // Không đệm trái: khung 44 pt của nút chọn đã tự chừa lề, hàng giữ chiều cao gần như cũ.
+                    .padding(.vertical, 4)
+                    .padding(.trailing, 8)
                     .background(Color(UIColor.tertiarySystemBackground))
                     .cornerRadius(8)
                 }

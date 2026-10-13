@@ -152,17 +152,20 @@ public struct ReaderAINameReviewSheet: View {
         }
     }
 
+    /// Gọi trong `.contextMenu` của **mọi** tin mỗi lần màn AI vẽ lại (mỗi nhịp stream 50 ms): duyệt từng dòng
+    /// và dừng ở dòng `từ=nghĩa` đầu tiên thay vì tách cả tin thành mảng dòng.
     public static func hasDictionaryEntries(in text: String) -> Bool {
-        let lines = text.components(separatedBy: .newlines)
-        for line in lines {
-            guard let eqIdx = line.firstIndex(of: "=") else { continue }
+        var found = false
+        text.enumerateLines { line, stop in
+            guard let eqIdx = line.firstIndex(of: "=") else { return }
             let k = line[..<eqIdx].trimmingCharacters(in: .whitespacesAndNewlines)
             let v = line[line.index(after: eqIdx)...].trimmingCharacters(in: .whitespacesAndNewlines)
             if !k.isEmpty && !v.isEmpty {
-                return true
+                found = true
+                stop = true
             }
         }
-        return false
+        return found
     }
 
     private static func parseEntriesFromText(_ text: String) -> [(key: String, value: String)] {

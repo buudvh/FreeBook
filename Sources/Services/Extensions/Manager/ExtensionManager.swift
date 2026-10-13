@@ -277,7 +277,7 @@ public final class ExtensionManager: ObservableObject {
         
         // Kiểm tra sự tồn tại của file cấu hình plugin.json
         guard FileManager.default.fileExists(atPath: pluginJsonUrl.path) else {
-            throw NSError(domain: "ExtensionManager", code: -3, userInfo: [NSLocalizedDescriptionKey: "plugin.json not found inside extension"])
+            throw NSError(domain: "ExtensionManager", code: -3, userInfo: [NSLocalizedDescriptionKey: "plugin.json not found inside extension (\(extensionPath.isEmpty ? "localPath rỗng" : extensionPath))"])
         }
         
         // Đọc nội dung plugin.json và lấy tên file script tương ứng với scriptKey (ví dụ: search, detail, chap)

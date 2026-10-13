@@ -27,6 +27,13 @@ public enum ExtensionInstallAudit {
         }
     }
 
+    /// `localPath` hỏng nhưng thư mục vẫn còn ở `extensions/` hiện tại (xem `ExtensionPathResolver`).
+    public struct Relocation: Sendable {
+        public let packageId: String
+        public let oldPath: String
+        public let newPath: String
+    }
+
     public struct Plan: Sendable {
         /// Xoá hẳn hàng: tiện ích không có nguồn tải lại mà file đã mất.
         public let deletePackageIds: [String]
@@ -34,9 +41,16 @@ public enum ExtensionInstallAudit {
         public let clearFolderPackageIds: [String]
         /// Tên tiện ích bị xoá, dùng cho log.
         public let deletedNames: [String]
+        /// Ghi lại `localPath` trỏ vào thư mục tìm lại được — luôn xét **trước** khi gỡ/xoá.
+        public var relocations: [Relocation] = []
 
         public var isEmpty: Bool {
-            deletePackageIds.isEmpty && clearFolderPackageIds.isEmpty
+            deletePackageIds.isEmpty && clearFolderPackageIds.isEmpty && relocations.isEmpty
+        }
+
+        /// Chỉ phần sửa đường dẫn — dùng lúc mở app, nơi không được gỡ hay xoá gì.
+        public var relocationsOnly: Plan {
+            Plan(deletePackageIds: [], clearFolderPackageIds: [], deletedNames: [], relocations: relocations)
         }
     }
 
@@ -55,10 +69,18 @@ public enum ExtensionInstallAudit {
         var deleteIds: [String] = []
         var deletedNames: [String] = []
         var clearIds: [String] = []
+        var relocations: [Relocation] = []
 
         for entry in entries {
             let hasFolderRecorded = !entry.localPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             let alive = isInstalled(localPath: entry.localPath)
+
+            // Tìm lại trước khi dọn: path trỏ về gốc thư mục cũ, hoặc đã bị đưa về rỗng mà thư mục vẫn còn.
+            // Đánh đổi có chủ ý: gỡ tiện ích đúng lúc path đang hỏng (thư mục không xoá được) thì nó hiện lại.
+            if !alive, let newPath = ExtensionPathResolver.relocatedPath(for: entry.localPath, packageId: entry.packageId) {
+                relocations.append(Relocation(packageId: entry.packageId, oldPath: entry.localPath, newPath: newPath))
+                continue
+            }
 
             if entry.isRegistered {
                 // Tiện ích của kho: chỉ cần đưa `localPath` về rỗng để UI hiện đúng nút Tải về.
@@ -78,7 +100,8 @@ public enum ExtensionInstallAudit {
         return Plan(
             deletePackageIds: deleteIds,
             clearFolderPackageIds: clearIds,
-            deletedNames: deletedNames
+            deletedNames: deletedNames,
+            relocations: relocations
         )
     }
 }

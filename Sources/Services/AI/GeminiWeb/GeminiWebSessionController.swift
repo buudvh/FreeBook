@@ -80,13 +80,17 @@ final class GeminiWebSessionController: NSObject {
             return try await running.value
         }
         let task = Task<GeminiWebInitSession, Error> { [self] in
-            defer { self.prepareTask = nil }
+            // Hẹn giải phóng ở MỌI lối ra, kể cả throw (notSignedIn/timeout/protocolChanged): trước đây chỉ
+            // nhánh thành công gọi `touch()` nên prepare() lỗi để WKWebView + window ẩn sống tới khi app thoát.
+            defer {
+                self.prepareTask = nil
+                self.touch()
+            }
             let startedAt = Date()
             let webView = self.ensureWebView()
             try await self.load(GeminiWebRequestBuilder.appURL, in: webView, forceReload: force)
             let session = try await self.probeInitSession(in: webView)
             self.initSession = session
-            self.touch()
             AppLogger.shared.log("🤖 [GeminiWeb] Phiên sẵn sàng sau \(Self.ms(since: startedAt)) ms (hl=\(session.language), bl=\(session.buildLabel ?? "-"), host=\(webView.url?.host ?? "-"))")
             return session
         }
@@ -251,7 +255,7 @@ final class GeminiWebSessionController: NSObject {
         idleReleaseTask?.cancel()
         idleReleaseTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: UInt64(Self.idleReleaseSeconds * 1_000_000_000))
-            guard !Task.isCancelled, let self, self.streams.isEmpty, self.prepareTask == nil else { return }
+            guard !Task.isCancelled, let self, self.webView != nil, self.streams.isEmpty, self.prepareTask == nil else { return }
             AppLogger.shared.log("🤖 [GeminiWeb] Giải phóng WKWebView ẩn sau \(Int(Self.idleReleaseSeconds)) s không dùng")
             self.releaseWebView()
         }
