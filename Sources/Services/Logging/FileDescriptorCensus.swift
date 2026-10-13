@@ -13,6 +13,8 @@ import Darwin
 ///   các dòng khác ra khỏi vòng xoay file của `AppLogFiles`. Việc đếm chạy trên một serial queue `.utility`.
 /// - `start()` còn nâng giới hạn mềm `RLIMIT_NOFILE` (thường 256) lên mức hệ thống cho phép, để người
 ///   dùng nghe được lâu hơn trong lúc chờ tìm chỗ rò; log vẫn thấy fd tăng dần.
+/// - Báo nền/active cho `FileDescriptorStepProbe` (đo theo bước) và mỗi `FileDescriptorSweeper.chunkInterval`
+///   đoạn audio gọi `FileDescriptorSweeper` dọn fd mồ côi (1.3.521).
 enum FileDescriptorCensus {
     /// Mọi việc đếm và mọi trạng thái bên dưới chạy tuần tự trên queue này: không chặn main/TTS.
     private static let queue = DispatchQueue(label: "FreeBook.FileDescriptorCensus", qos: .utility)
@@ -60,14 +62,22 @@ enum FileDescriptorCensus {
 
     /// Đếm đủ theo nhóm, in tổng + chênh lệch so với lần đếm đủ trước.
     static func record(event: String) {
+        if event == "background" || event == "active" {
+            FileDescriptorStepProbe.noteScene(background: event == "background")
+        }
         queue.async { Self.recordOnQueue(event: event, includeAllBuckets: false) }
     }
 
     /// Mỗi đoạn audio bắt đầu phát: cứ `chunkSampleInterval` đoạn đếm tổng một lần (rẻ), tổng tăng
     /// nhanh thì đếm đủ luôn.
     static func tickChunk() {
+        FileDescriptorStepProbe.noteChunk()
         queue.async {
             Self.chunkCount += 1
+            if Self.chunkCount % FileDescriptorSweeper.chunkInterval == 0 {
+                let (total, soft) = Self.countOpen()
+                FileDescriptorSweeper.sweepIfNeeded(total: total, soft: soft)
+            }
             guard Self.chunkCount % Self.chunkSampleInterval == 0 else { return }
             let (total, soft) = Self.countOpen()
             AppLogger.shared.logAlways("[FD] chunks=\(Self.chunkCount) total=\(total)/\(soft)")
@@ -299,8 +309,8 @@ enum FileDescriptorCensus {
     ]
 
     /// Bỏ phần đường dẫn container, thay tên băm SHA/UUID bằng `<hex>`/`<uuid>` để các file cùng loại
-    /// (vd `AS/books/<hex>.bin`) gom chung một nhóm.
-    private static func normalize(_ path: String) -> String {
+    /// (vd `AS/books/<hex>.bin`) gom chung một nhóm. `FileDescriptorSweeper` dùng lại để ghi log.
+    static func normalize(_ path: String) -> String {
         var result = path
         if systemPrefixes.contains(where: { path.hasPrefix($0) }) {
             result = "sys:" + (path as NSString).lastPathComponent

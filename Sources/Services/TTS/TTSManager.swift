@@ -2952,19 +2952,19 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
         AppLogger.shared.log("[TTSRoute] playAudioData -> AVAudioPlayer engine=\(tool) id=\(playbackId) bytes=\(audioData.count)")
 
-        stopCurrentHardwarePlayer()
+        FileDescriptorStepProbe.measure("player.stop") { stopCurrentHardwarePlayer() }
 
         let setupStart = ProcessInfo.processInfo.systemUptime
         do {
-            configureAudioSession()
-            let player = try AVAudioPlayer(data: audioData)
+            FileDescriptorStepProbe.measure("session") { configureAudioSession() }
+            let player = try FileDescriptorStepProbe.measure("player.init") { try AVAudioPlayer(data: audioData) }
             player.delegate = self
             player.enableRate = true
             player.rate = Float(speed)
 
             self.audioPlayer = player
 
-            let ok = player.play()
+            let ok = FileDescriptorStepProbe.measure("player.play") { player.play() }
             let setupEnd = ProcessInfo.processInfo.systemUptime
             if ok {
                 if let context {
@@ -3031,7 +3031,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             TTSPresentationEventCenter.shared.send(.showToast(message: "Lỗi trình phát âm thanh: \(error.localizedDescription). Tạm dừng đọc.", type: .error))
         }
 
-        updateNowPlayingInfo()
+        FileDescriptorStepProbe.measure("nowPlaying") { updateNowPlayingInfo() }
     }
 
     private func stopCurrentHardwarePlayer() {
@@ -3491,9 +3491,9 @@ extension TTSManager {
             if AppLogger.shared.isLoggingEnabled {
                 self.autoAdvancePerf.lastRemoteAudioFinishUptime = ProcessInfo.processInfo.systemUptime
             }
-            self.stopCurrentHardwarePlayer()
+            FileDescriptorStepProbe.measure("finish.stop") { self.stopCurrentHardwarePlayer() }
             if flag {
-                self.nextParagraph()
+                FileDescriptorStepProbe.measure("finish.next") { self.nextParagraph() }
             } else {
                 AppLogger.shared.log("⚠️ [TTSManager] AVAudioPlayer phát kết thúc không thành công")
                 self.isPlaying = false

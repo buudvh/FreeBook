@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.491] - 2026-10-09
+
+### perf(dich): nho ket qua span theo chuong, regex tinh, md5 nhanh, tokenizer khong giai ma thua
+
+Người dùng: *"đừng làm refactor nữa, tôi muốn bạn tra lại code và xem chỗ nào ảnh hưởng hiệu năng app, chỉnh sửa lại cho app mượt hơn, hiệu năng tốt hơn"*. Nguồn: rà toàn app 7 mảng + 2 mảng tác vụ định kỳ, mỗi phát hiện qua một vòng phản biện đối kháng; nhóm này sửa xong lại qua một vòng phản biện nữa (lỗi tìm được đã sửa).
+
+- **Reader và TTS không dịch span lại cùng một chương**: `translateContentWithMapping` chỉ cache phần text; span (`translationSpansApplyingRules` — tra 8 trie, hậu xử lý, dò vị trí từng token) bị tính lại cho từng dòng mỗi lần dựng, mà Reader + TTS + prefetch N+1 cùng dựng một chương. Thêm memo kết quả `TranslatedTextResult` (`TranslateUtils+MappingMemo.swift`, 1024 mục / 8 MiB): khoá gồm `cacheGeneration`, `bookId`, cờ phồn→giản, cờ pronouns/luật nhân và md5 dòng; tra **trước** `withSnapshot` (rules.md luật 30); chỉ ghi khi không bị huỷ, từ điển đã nạp và generation chưa đổi (cùng cơ chế ticket với `translateText`). Sửa VP/rule ⇒ generation đổi ⇒ entry cũ tự hết hiệu lực.
+- **Regex tĩnh** cho `translateChapterTitle` (4 `try! NSRegularExpression` mỗi lần trượt cache → `static let`, cùng pattern/option). Không đổi cỡ cache tên chương.
+- **`md5()`/`sha256()`**: hex bằng bảng tra thay vì 16–32 lần `String(format:)` — kết quả giống từng byte (md5 nằm trong khoá của 3 memo nóng).
+- **Tokenizer**: `FrozenTrieDictionary` không còn `subdata` khi đọc số/giải mã nghĩa; thêm `prefixMatchLengths` vào `TrieDictionary` (mặc định = `findAllPrefixMatches(...).map(\.length)`) để tokenizer — chỉ cần độ dài — không giải mã UTF-8 nghĩa của mọi match; lọc `>= 2` và mục đã xoá giữ nguyên.
+- **Nạp `.dat` lúc khởi động** (`DoubleArrayTrie.load`, nằm trên cổng chặn UI): dựng `base`/`check` trong một lượt `withUnsafeBytes` vào mảng cục bộ rồi gán một lần, thay vì ghi từng phần tử qua thuộc tính class; mảng kết quả giống từng bit.
+- `TranslateUtils.swift` giữ đúng baseline 917 dòng (chỉ đổi dòng tại chỗ).
+- **Kiểm chứng**: `check_architecture.py` chỉ còn 2 vi phạm nền cũ (`JSDom`, `TTSManager`), 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận biên dịch.
+
 ## [1.3.490] - 2026-10-09
 
 ### perf(cover): cache anh bia da giai ma, doc dia ngoai main, moi bia tai mot lan

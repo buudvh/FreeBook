@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.521] - 2026-10-13
+
+### fix(fd): tu don fd mo coi khi nghe TTS o nen, do fd theo tung buoc doan audio
+
+Người dùng gửi `app_logs (103).txt`, hỏi *"không có cách nào giải phóng…"*, *"bình thường mở file không đóng à"*; duyệt plan gộp (bộ đo + bộ dọn) bằng `/push-ci-monitor`.
+
+- **Phân tích log 103 (bản 1.3.520)**: phiên 07:06 → 08:32 chạm trần 10240 fd, 08:33 `NSPOSIXErrorDomain 24` (EMFILE) khi mở `plugin.json`/chương/bìa = tái hiện lỗi gốc. fd **chỉ tăng khi app ở nền và đang phát TTS** (lúc app trên màn hình gần như 0), ~1 đợt mỗi đoạn audio, mỗi đợt mở thêm **1 fd cho mỗi file** trong một nhóm (`app_logs.txt`; sau sao lưu tự động chạy ở nền thêm `books/*.bin`, `.fbbackup`, `VietPhrase.dat`; có lúc `collator.dat`/`Dictionary.dat`/`default.metallib`). fd mới là **mở mới chỉ-đọc** (`fl=0x0 off=0 cloexec=0`), không phải bản `dup` ⇒ giả thuyết `FD_CLOEXEC` của 1.3.520 **sai**. `live=` toàn 0 ⇒ không phải JS/WebView. File trong thư mục tạm đã xoá dừng ở +4 ⇒ thứ gây rò mở lại **theo đường dẫn**. Code app không có chỗ nào làm vậy ⇒ nghi framework hệ thống được gọi mỗi đoạn audio khi ở nền hoặc LiveContainer — **UNKNOWN**.
+- **Bộ đo theo bước (`Services/Logging/FileDescriptorStepProbe.swift`, mới)**: khi app ở nền, trong 60 đoạn audio đầu sau mỗi lần xuống nền, đếm fd trước/sau từng bước — `player.stop`, `session`, `player.init`, `player.play`, `nowPlaying`, `finish.stop`, `finish.next` (`TTSManager.swift`, bọc tại chỗ, **không thêm dòng**: vẫn 3510) và `google.request` (`GoogleTTSService.audioParts`); tăng thì ghi `[FD] step=<bước> +N total=T chunk=C` (tối đa 40 dòng mỗi lần xuống nền). Thêm nhịp 1 giây trong 120 giây đầu ở nền: `[FD] tick t=…s ±N total=T chunk=C` khi tổng đổi — phân biệt rò **trong** một bước (đồng bộ) với rò **giữa** các bước (thứ khác đẩy vào). Đếm bằng `fcntl(F_GETFD)` tới fd lớn nhất từng thấy + 512, không mở fd mới.
+- **Bộ dọn fd mồ côi (`Services/Logging/FileDescriptorSweeper.swift`, mới)**: chạy trên queue của census mỗi 20 đoạn audio khi tổng fd ≥ 500. Chỉ đóng fd thoả **hết**: file thường, không phải SQLite (`.db`, `.sqlite`, `-wal`, `-shm`, `-journal`) và không dưới `/dev/`; chỉ-đọc, không `FD_CLOEXEC`, vị trí 0; cùng file (device + inode) có ≥ 4 fd như vậy; đã thấy đúng fd đó cùng file ≥ 45 giây; không phải fd số nhỏ nhất của đống. Ghi `[FD] sweep total=A->B closed=N kept=M top=[…]`. Công tắc **"Tự dọn file mở thừa"** (`fdSweeperEnabled`, mặc định bật) ở Cài đặt → Nhà Phát Triển → Ghi log hệ thống, mục Chẩn Đoán. Rủi ro còn lại (đã nói với người dùng): nếu thứ mở lại thỉnh thoảng dùng/đóng các fd đó thì có thể sinh lỗi lạ — tắt công tắc.
+- `FileDescriptorCensus`: `record(event:)` báo `background`/`active` cho bộ đo; `tickChunk()` báo đoạn audio cho bộ đo và gọi bộ dọn; `normalize` bỏ `private` để bộ dọn ghi log.
+- `rules.md` §5.9 và `CLAUDE.md`/`AGENTS.md` (mirror): `logAlways` dành cho chẩn đoán fd — census, bộ đo, bộ dọn.
+- Chuyển entry `[1.3.491]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ (JSDom, TTSManager 3510), 0 mới; file mới 157 và 102 dòng, một type chính. **Không build tại chỗ** (Windows), cần CI. Không đụng `Tests/`.
+
 ## [1.3.520] - 2026-10-12
 
 ### feat(settings): gon tab Cai dat thanh cac man rieng (dich, TTS, trinh duyet, log, theo doi nhiet), census fd chi tiet
@@ -385,18 +399,4 @@ Người dùng: *"đừng làm refactor nữa, tôi muốn bạn tra lại code 
 - **`cleanHTML`**: 7 regex thành `static let` (cùng pattern, cờ `(?i)`, thứ tự, template) — chạy mỗi lần nạp chương và mỗi hàng mô tả ở Khám phá.
 - **Khởi động**: bỏ lượt parse `TextDictionary` thứ hai của Names/VietPhrase tuỳ chỉnh mà `publishCustomRecords` ghi đè ngay sau đó (cờ đã nạp lấy từ state đã publish); thêm `[LaunchPerf] Dictionaries ms=` (chỉ khi bật log). `TranslationManager.swift` 590 → 564.
 - **Backfill tên dịch**: chỉ xét truyện thật sự còn gì để điền, chỉ gán khi giá trị mới khác rỗng và khác cũ, `save()` khi `hasChanges` — trước đây truyện có tác giả rỗng bị xử lý lại và `save()` ở **mỗi** lần mở app.
-- **Kiểm chứng**: `check_architecture.py` chỉ còn 2 vi phạm nền cũ (`JSDom`, `TTSManager`), 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận biên dịch.
-
-## [1.3.491] - 2026-10-09
-
-### perf(dich): nho ket qua span theo chuong, regex tinh, md5 nhanh, tokenizer khong giai ma thua
-
-Người dùng: *"đừng làm refactor nữa, tôi muốn bạn tra lại code và xem chỗ nào ảnh hưởng hiệu năng app, chỉnh sửa lại cho app mượt hơn, hiệu năng tốt hơn"*. Nguồn: rà toàn app 7 mảng + 2 mảng tác vụ định kỳ, mỗi phát hiện qua một vòng phản biện đối kháng; nhóm này sửa xong lại qua một vòng phản biện nữa (lỗi tìm được đã sửa).
-
-- **Reader và TTS không dịch span lại cùng một chương**: `translateContentWithMapping` chỉ cache phần text; span (`translationSpansApplyingRules` — tra 8 trie, hậu xử lý, dò vị trí từng token) bị tính lại cho từng dòng mỗi lần dựng, mà Reader + TTS + prefetch N+1 cùng dựng một chương. Thêm memo kết quả `TranslatedTextResult` (`TranslateUtils+MappingMemo.swift`, 1024 mục / 8 MiB): khoá gồm `cacheGeneration`, `bookId`, cờ phồn→giản, cờ pronouns/luật nhân và md5 dòng; tra **trước** `withSnapshot` (rules.md luật 30); chỉ ghi khi không bị huỷ, từ điển đã nạp và generation chưa đổi (cùng cơ chế ticket với `translateText`). Sửa VP/rule ⇒ generation đổi ⇒ entry cũ tự hết hiệu lực.
-- **Regex tĩnh** cho `translateChapterTitle` (4 `try! NSRegularExpression` mỗi lần trượt cache → `static let`, cùng pattern/option). Không đổi cỡ cache tên chương.
-- **`md5()`/`sha256()`**: hex bằng bảng tra thay vì 16–32 lần `String(format:)` — kết quả giống từng byte (md5 nằm trong khoá của 3 memo nóng).
-- **Tokenizer**: `FrozenTrieDictionary` không còn `subdata` khi đọc số/giải mã nghĩa; thêm `prefixMatchLengths` vào `TrieDictionary` (mặc định = `findAllPrefixMatches(...).map(\.length)`) để tokenizer — chỉ cần độ dài — không giải mã UTF-8 nghĩa của mọi match; lọc `>= 2` và mục đã xoá giữ nguyên.
-- **Nạp `.dat` lúc khởi động** (`DoubleArrayTrie.load`, nằm trên cổng chặn UI): dựng `base`/`check` trong một lượt `withUnsafeBytes` vào mảng cục bộ rồi gán một lần, thay vì ghi từng phần tử qua thuộc tính class; mảng kết quả giống từng bit.
-- `TranslateUtils.swift` giữ đúng baseline 917 dòng (chỉ đổi dòng tại chỗ).
 - **Kiểm chứng**: `check_architecture.py` chỉ còn 2 vi phạm nền cũ (`JSDom`, `TTSManager`), 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận biên dịch.

@@ -188,7 +188,7 @@ public final class GoogleTTSService: Sendable {
     /// Phản hồi có dạng `[{metadata}, {text}, {audio}, {text}, {audio}, …]` — một cặp `text` + `audio`
     /// cho mỗi part. Phần tử `text` mang `timingInfo` (mốc thời gian theo từng từ) mà app **chưa** dùng.
     private func audioParts(from request: URLRequest) async throws -> [Data] {
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await FileDescriptorStepProbe.measureAsync("google.request") { try await URLSession.shared.data(for: request) }
         
         guard let httpResponse = response as? HTTPURLResponse else {
             throw NSError(domain: "GoogleTTSService", code: -4, userInfo: [NSLocalizedDescriptionKey: "Phản hồi từ máy chủ không hợp lệ"])

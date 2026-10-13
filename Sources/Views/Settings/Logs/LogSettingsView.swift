@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// Màn "Ghi log hệ thống" (Cài đặt → Nhà Phát Triển). Công tắc, 3 nút và 3 alert chuyển **nguyên văn** từ
-/// `SettingsView` (1.3.520); thêm dòng số file descriptor đang mở (`FileDescriptorCensus.openCount()`) và
-/// danh sách file log (chỉ xem).
+/// `SettingsView` (1.3.520); thêm dòng số file descriptor đang mở (`FileDescriptorCensus.openCount()`), công tắc
+/// tự dọn fd mồ côi (`FileDescriptorSweeper`, 1.3.521) và danh sách file log (chỉ xem).
 struct LogSettingsView: View {
     private struct LogFileRow: Identifiable {
         let url: URL
@@ -14,6 +14,7 @@ struct LogSettingsView: View {
     @AppStorage("isLoggingEnabled") private var isLoggingEnabled = false
     @AppStorage("isCompactSuccessLogEnabled") private var isCompactSuccessLogEnabled = true
     @AppStorage("isTTSVerboseLoggingEnabled") private var isTTSVerboseLoggingEnabled = false
+    @AppStorage(FileDescriptorSweeper.enabledKey) private var isFDSweeperEnabled = true
 
     @State private var logFileURLs: [URL] = [] // giữ trong state để mở lại màn hình là thấy file mới chia
     @State private var logFiles: [LogFileRow] = []
@@ -73,8 +74,13 @@ struct LogSettingsView: View {
                 }
             }
 
-            Section(header: Text("Chẩn Đoán")) {
+            Section {
                 LabeledContent("File đang mở", value: "\(openFileCount) / \(openFileLimit)")
+                Toggle("Tự dọn file mở thừa", isOn: $isFDSweeperEnabled)
+            } header: {
+                Text("Chẩn Đoán")
+            } footer: {
+                Text("Nghe TTS lâu ở nền có thể làm app mở thừa hàng nghìn file rồi lỗi đọc chương. Bật thì app tự đóng các bản mở thừa (không đụng database). Tắt nếu thấy lỗi lạ.")
             }
 
             Section {
