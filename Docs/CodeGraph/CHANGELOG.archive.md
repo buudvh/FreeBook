@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.492] - 2026-10-09
+
+### perf(chuong, khoi dong): bien dich luat loc rac mot lan, bo luot loc thua, regex cleanHTML tinh, bo parse tu dien trung
+
+Người dùng: *"đừng làm refactor nữa, tôi muốn bạn tra lại code và xem chỗ nào ảnh hưởng hiệu năng app, chỉnh sửa lại cho app mượt hơn, hiệu năng tốt hơn"*. Nguồn: rà toàn app 7 mảng + 2 mảng tác vụ định kỳ, mỗi phát hiện qua một vòng phản biện đối kháng; nhóm này sửa xong lại qua một vòng phản biện nữa (lỗi tìm được đã sửa).
+
+- **Lọc rác**: `filterRawContent` trước đây biên dịch lại regex của **mọi** luật ở mỗi lần gọi và chép cả chương một lần cho mỗi luật. Nay biên dịch một lần khi nạp luật (luật regex lỗi bị bỏ như `try?` cũ), áp theo đúng thứ tự trên một `NSMutableString` — đầu ra giống hệt. Thêm `[ReaderPerf] JunkFilter rules= chars= ms=` (chỉ khi bật log và có luật).
+- **Bỏ một lượt lọc thừa khi đọc chương đã lưu**: `ChapterPersistenceStore` đã `normalize` (lọc) nội dung; `ChapterContentRepository.makeDocument` lọc lần nữa. Nhánh persisted nay dựng document bằng `normalizeProcessedContent` (tham số `prefiltered`); nhánh lấy từ extension vẫn `normalize`. Hệ quả có chủ đích: luật **không idempotent** được áp ít hơn một lần (vốn là lỗi áp trùng). `ChapterContentRepository.swift` giữ đúng baseline 455.
+- **`cleanHTML`**: 7 regex thành `static let` (cùng pattern, cờ `(?i)`, thứ tự, template) — chạy mỗi lần nạp chương và mỗi hàng mô tả ở Khám phá.
+- **Khởi động**: bỏ lượt parse `TextDictionary` thứ hai của Names/VietPhrase tuỳ chỉnh mà `publishCustomRecords` ghi đè ngay sau đó (cờ đã nạp lấy từ state đã publish); thêm `[LaunchPerf] Dictionaries ms=` (chỉ khi bật log). `TranslationManager.swift` 590 → 564.
+- **Backfill tên dịch**: chỉ xét truyện thật sự còn gì để điền, chỉ gán khi giá trị mới khác rỗng và khác cũ, `save()` khi `hasChanges` — trước đây truyện có tác giả rỗng bị xử lý lại và `save()` ở **mỗi** lần mở app.
+- **Kiểm chứng**: `check_architecture.py` chỉ còn 2 vi phạm nền cũ (`JSDom`, `TTSManager`), 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận biên dịch.
+
 ## [1.3.491] - 2026-10-09
 
 ### perf(dich): nho ket qua span theo chuong, regex tinh, md5 nhanh, tokenizer khong giai ma thua

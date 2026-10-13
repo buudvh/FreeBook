@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.522] - 2026-10-13
+
+### docs(fd): ghi nhan nguyen nhan can fd khi nghe TTS o nen la bug Dead10ccFix cua LiveContainer
+
+Người dùng: *"ghi lại changelog để biết lỗi này do LiveContainer"*. Chỉ ghi tài liệu, không đổi code.
+
+- **Lỗi**: nghe TTS (Google) lâu với màn hình khoá ⇒ tiến trình cạn file descriptor (EMFILE, `NSPOSIXErrorDomain 24`, hiện ra thành `NSCocoaErrorDomain 256`): không mở được chương, ảnh bìa, cả file log; chỉ tắt hẳn app mới hết. Điều tra qua 1.3.517 → 1.3.521 (census `[FD]`, `detail`, bộ đo theo bước, nhịp 1 s).
+- **Nguyên nhân gốc — không nằm trong code FreeBook**: `LiveContainer/Tweaks/Dead10ccFix.m` (đã đọc source bản mirror, commit `4dbe0f9a`; vòng 2 giây có từ commit `85ca2724`, 2025-07-31). Đoạn này **chỉ được cài khi app chạy dạng Shared App hoặc Multitask (LiveProcess)**. Khi app ở nền mà chưa bị iOS treo (tức đang phát audio), cứ `dispatch_after` **2 giây** nó liệt kê fd của tiến trình (`PROC_PIDLISTFDS`), rồi với mỗi đường dẫn file thường (bỏ `-wal`/`-shm`/`-journal`, bỏ SQLite không khoá, bỏ file có xattr `com.apple.runningboard.can-suspend-locked` ≠ 0) gọi `open(path, O_RDONLY | O_NOCTTY)` + `fcntl(F_GETLKPID)` và **không bao giờ `close`**. Bản mở thừa lại giữ đường dẫn trong danh sách ⇒ file nào đã bị "bắt" một lần là rò mãi, khoảng 30 fd/phút mỗi file.
+- **Khớp từng số đo trong log**: chỉ tăng khi app ở nền (trên màn hình ≈ 0; ở nền mà dừng TTS ⇒ app bị treo ⇒ 0); +1 mỗi ~2,1 s theo đồng hồ, không theo đoạn audio (log 104); fd mới là mở mới chỉ-đọc `fl=0x0 off=0 cloexec=0`, không phải bản `dup`; SQLite không bao giờ bị nhân; file đã xoá thì dừng nhân (log 103); file hệ thống `collator.dat`/`Dictionary.dat`/`default.metallib` lúc có lúc không (bị bắt khi tình cờ đang mở đúng vòng 2 s).
+- **Vì sao chỉ mới gặp từ 2026-10-12**: commit `bd683b62` (2026-10-09, *"AppLogger giữ file mở có khoá"*) khiến `app_logs.txt` **luôn mở** ⇒ bị bắt ngay vòng đầu mỗi lần xuống nền. Trước đó log mở/ghi/đóng từng dòng nên hầu như không bị bắt. Sao lưu tự động chạy ở nền bắt thêm `books/*.bin`, `.fbbackup`, `VietPhrase.dat` (log 103: cạn 10240 fd sau ~1,5 giờ). Rà 45 commit 2026-10-08 → 2026-10-11: không commit nào tự mở lại file theo nhịp; `bd683b62` chỉ là chỗ khuếch đại.
+- **Cách tránh**: (1) phía người dùng — trong LiveContainer chọn **"Convert to Private App"** cho FreeBook và không chạy Multitask ⇒ đoạn lỗi không được cài; (2) trong app — gắn xattr `com.apple.runningboard.can-suspend-locked = 0x01` lên file app giữ mở lâu (Dead10ccFix tự bỏ qua), còn file hệ thống thì nhờ `FileDescriptorSweeper` (1.3.521) dọn bản thừa. Bản sửa phía app đang chờ duyệt.
+- **Không phải nguyên nhân** (đã loại trừ bằng số đo): `FD_CLOEXEC`/bản `dup` (giả thuyết của 1.3.520), JSExecutor/WebView (bộ đếm `live=` bằng 0), các bước phát audio `AVAudioPlayer`/Now Playing (bộ đo theo bước của 1.3.521 không thấy tăng), tính năng nhảy về chương đang nghe khi mở lại Reader (`c9e7c20a`).
+- **Tham khảo**: [Dead10ccFix.m](https://github.com/LiveContainerMirror/LiveContainer/blob/4dbe0f9a626de801184a42c0be8d2cb105058e3d/LiveContainer/Tweaks/Dead10ccFix.m) · [commit thêm vòng 2 s](https://github.com/LiveContainerMirror/LiveContainer/commit/85ca2724812b5098d67bb5a02317cf94995525bc) · [chỗ cài trong LCBootstrap.m](https://github.com/LiveContainerMirror/LiveContainer/blob/4dbe0f9a626de801184a42c0be8d2cb105058e3d/LiveContainer/LCBootstrap.m#L514-L518) · [gist gốc cũng thiếu `close`](https://gist.github.com/JJTech0130/07e2458df592faad1d2ba72283a0ca50).
+- Chuyển entry `[1.3.492]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+
 ## [1.3.521] - 2026-10-13
 
 ### fix(fd): tu don fd mo coi khi nghe TTS o nen, do fd theo tung buoc doan audio
@@ -386,17 +401,4 @@ Người dùng: *"đừng làm refactor nữa, tôi muốn bạn tra lại code 
 - **Tìm tất cả nguồn**: khung ngoài `LazyVStack` (nguồn ngoài màn hình không dựng thẻ, không tải bìa); danh sách nguồn sort một lần mỗi lượt vẽ. Lượt tìm lưu handle và **huỷ** khi tìm lại — trước đây lượt cũ vẫn chạy và ghi đè kết quả của query mới (huỷ lan xuống `callAsync` → `cancelCurrentExecution`). Không huỷ ở `onDisappear` (mở Chi tiết cũng bắn sự kiện đó).
 - **Khám phá**: `activeExtensions` (lọc + sort có locale) tính một lần đầu `body` cho các biểu thức dựng view (closure/onChange vẫn đọc giá trị sống); mở tab lần đầu không còn chạy `home.js` + `genre.js` **hai lần** (khớp log 81/84). Nguồn vẫn gọi tuần tự.
 - **Kệ sách**: `ShelfBookPartition` (mới) chia ghim/không ghim/lịch sử trong **một** lượt giữ thứ tự `@Query`, thay cho 7–9 lượt lọc mỗi lần vẽ. `ShelfView.swift` 875 → 851.
-- **Kiểm chứng**: `check_architecture.py` chỉ còn 2 vi phạm nền cũ (`JSDom`, `TTSManager`), 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận biên dịch.
-
-## [1.3.492] - 2026-10-09
-
-### perf(chuong, khoi dong): bien dich luat loc rac mot lan, bo luot loc thua, regex cleanHTML tinh, bo parse tu dien trung
-
-Người dùng: *"đừng làm refactor nữa, tôi muốn bạn tra lại code và xem chỗ nào ảnh hưởng hiệu năng app, chỉnh sửa lại cho app mượt hơn, hiệu năng tốt hơn"*. Nguồn: rà toàn app 7 mảng + 2 mảng tác vụ định kỳ, mỗi phát hiện qua một vòng phản biện đối kháng; nhóm này sửa xong lại qua một vòng phản biện nữa (lỗi tìm được đã sửa).
-
-- **Lọc rác**: `filterRawContent` trước đây biên dịch lại regex của **mọi** luật ở mỗi lần gọi và chép cả chương một lần cho mỗi luật. Nay biên dịch một lần khi nạp luật (luật regex lỗi bị bỏ như `try?` cũ), áp theo đúng thứ tự trên một `NSMutableString` — đầu ra giống hệt. Thêm `[ReaderPerf] JunkFilter rules= chars= ms=` (chỉ khi bật log và có luật).
-- **Bỏ một lượt lọc thừa khi đọc chương đã lưu**: `ChapterPersistenceStore` đã `normalize` (lọc) nội dung; `ChapterContentRepository.makeDocument` lọc lần nữa. Nhánh persisted nay dựng document bằng `normalizeProcessedContent` (tham số `prefiltered`); nhánh lấy từ extension vẫn `normalize`. Hệ quả có chủ đích: luật **không idempotent** được áp ít hơn một lần (vốn là lỗi áp trùng). `ChapterContentRepository.swift` giữ đúng baseline 455.
-- **`cleanHTML`**: 7 regex thành `static let` (cùng pattern, cờ `(?i)`, thứ tự, template) — chạy mỗi lần nạp chương và mỗi hàng mô tả ở Khám phá.
-- **Khởi động**: bỏ lượt parse `TextDictionary` thứ hai của Names/VietPhrase tuỳ chỉnh mà `publishCustomRecords` ghi đè ngay sau đó (cờ đã nạp lấy từ state đã publish); thêm `[LaunchPerf] Dictionaries ms=` (chỉ khi bật log). `TranslationManager.swift` 590 → 564.
-- **Backfill tên dịch**: chỉ xét truyện thật sự còn gì để điền, chỉ gán khi giá trị mới khác rỗng và khác cũ, `save()` khi `hasChanges` — trước đây truyện có tác giả rỗng bị xử lý lại và `save()` ở **mỗi** lần mở app.
 - **Kiểm chứng**: `check_architecture.py` chỉ còn 2 vi phạm nền cũ (`JSDom`, `TTSManager`), 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận biên dịch.
