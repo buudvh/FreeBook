@@ -5,6 +5,8 @@ import SwiftUI
 /// - Đang chuẩn bị (chưa chia lượt): "Đang chuẩn bị quét tên riêng..." + số chương đang đọc.
 /// - Đang gửi: "Batch N/T" với N là lượt **đang gửi** — khớp số tin gửi đi và dòng log `gửi lượt N/T`; dòng phụ
 ///   thêm số lượt lỗi đã bỏ qua khi có.
+/// - Vòng thử lại lượt lỗi (tự động ở cuối lần quét hoặc nút "Thử lại k lượt lỗi", 1.3.527): "Đang thử lại: Batch i/k",
+///   đếm trong số lượt đang thử lại.
 public struct ReaderAIBatchProgressBannerView: View {
     public let progress: AINameScanProgress
     public let foundCount: Int
@@ -40,9 +42,11 @@ public struct ReaderAIBatchProgressBannerView: View {
     }
 
     private var title: String {
-        progress.isPreparing
-            ? "Đang chuẩn bị quét tên riêng..."
-            : "Đang quét tên riêng: Batch \(progress.sendingBatch)/\(progress.totalBatches)..."
+        if progress.isPreparing {
+            return progress.isRetry ? "Đang chuẩn bị thử lại..." : "Đang chuẩn bị quét tên riêng..."
+        }
+        let verb = progress.isRetry ? "Đang thử lại" : "Đang quét tên riêng"
+        return "\(verb): Batch \(progress.sendingBatch)/\(progress.totalBatches)..."
     }
 
     private var subtitle: String {

@@ -23,12 +23,12 @@ final class GeminiWebSessionController: NSObject {
     static let messageHandlerName = "geminiWebStream"
     /// Không nhận chunk nào trong khoảng này ⇒ `.timeout`.
     static let defaultIdleTimeout: TimeInterval = 45
+    /// Trần tuyệt đối mặc định của một `fetch`, kể cả khi vẫn còn chunk về. Lượt quét tên riêng truyền trần riêng (1.3.527).
+    static let defaultAbsoluteTimeout: TimeInterval = 240
 
     private static let commitTimeout: TimeInterval = 30
     /// 90 × 0,5 s = 45 s chờ `WIZ_global_data` sau khi HTML commit.
     private static let tokenProbeAttempts = 90
-    /// Trần tuyệt đối của một `fetch`, kể cả khi vẫn còn chunk về.
-    private static let absoluteTimeout: TimeInterval = 240
     private static let watchdogInterval: UInt64 = 5_000_000_000
     private static let idleReleaseSeconds: TimeInterval = 10 * 60
 
@@ -38,6 +38,7 @@ final class GeminiWebSessionController: NSObject {
         let kind: String
         let startedAt: Date
         let idleTimeout: TimeInterval
+        let absoluteTimeout: TimeInterval
         var lastActivity: Date
         var chunks = 0
         var watchdog: Task<Void, Never>?
@@ -109,7 +110,8 @@ final class GeminiWebSessionController: NSObject {
     /// `prepare()` đã thành công trước đó; huỷ stream là huỷ `fetch` (AbortController).
     func fetchStream(
         _ request: GeminiWebRequestBuilder.Request,
-        idleTimeout: TimeInterval = GeminiWebSessionController.defaultIdleTimeout
+        idleTimeout: TimeInterval = GeminiWebSessionController.defaultIdleTimeout,
+        absoluteTimeout: TimeInterval = GeminiWebSessionController.defaultAbsoluteTimeout
     ) -> AsyncThrowingStream<String, Error> {
         let id = UUID().uuidString
         let kind = request.url.contains("batchexecute") ? "batchexecute" : "StreamGenerate"
@@ -121,7 +123,7 @@ final class GeminiWebSessionController: NSObject {
                 }
                 self.windowHost.attach(webView)
                 let now = Date()
-                var state = StreamState(continuation: continuation, kind: kind, startedAt: now, idleTimeout: idleTimeout, lastActivity: now)
+                var state = StreamState(continuation: continuation, kind: kind, startedAt: now, idleTimeout: idleTimeout, absoluteTimeout: absoluteTimeout, lastActivity: now)
                 state.watchdog = self.makeWatchdog(id: id)
                 self.streams[id] = state
                 self.touch()
@@ -137,7 +139,7 @@ final class GeminiWebSessionController: NSObject {
                             self?.finishStream(id: id, error: GeminiWebError.script(error.localizedDescription))
                         }
                     }
-                    AppLogger.shared.log("🤖 [GeminiWeb] \(kind) bắt đầu (\(id.prefix(8)), idle \(Int(idleTimeout)) s)")
+                    AppLogger.shared.log("🤖 [GeminiWeb] \(kind) bắt đầu (\(id.prefix(8)), idle \(Int(idleTimeout)) s, trần \(Int(absoluteTimeout)) s)")
                 } catch {
                     self.finishStream(id: id, error: error)
                 }
@@ -153,8 +155,8 @@ final class GeminiWebSessionController: NSObject {
                 guard !Task.isCancelled, let self, let state = self.streams[id] else { return }
                 let idle = Date().timeIntervalSince(state.lastActivity)
                 let total = Date().timeIntervalSince(state.startedAt)
-                if idle > state.idleTimeout || total > Self.absoluteTimeout {
-                    AppLogger.shared.log("🤖 [GeminiWeb] \(state.kind) timeout (idle \(Int(idle)) s, tổng \(Int(total)) s, chunk=\(state.chunks))")
+                if idle > state.idleTimeout || total > state.absoluteTimeout {
+                    AppLogger.shared.log("🤖 [GeminiWeb] \(state.kind) timeout (idle \(Int(idle))/\(Int(state.idleTimeout)) s, tổng \(Int(total))/\(Int(state.absoluteTimeout)) s, chunk=\(state.chunks))")
                     self.finishStream(id: id, error: GeminiWebError.timeout)
                     return
                 }

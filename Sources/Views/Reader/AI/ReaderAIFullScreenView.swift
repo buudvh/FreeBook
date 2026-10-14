@@ -19,6 +19,7 @@ public struct ReaderAIFullScreenView: View {
     @State internal var batchProgress: AINameScanProgress? = nil
     @State internal var batchExtractionTask: Task<Void, Never>? = nil
     @State internal var batchExtractedNames: [AIExtractedName] = []
+    @State internal var nameScanRetry: AIRuntimeCoordinator.NameScanRetryInfo? = nil
 
     @State internal var showingSettings: Bool = false
     @State internal var showingSessionList: Bool = false
@@ -293,6 +294,9 @@ public struct ReaderAIFullScreenView: View {
                     self.batchExtractedNames = names
                 }
             }
+            .onReceive(AIRuntimeCoordinator.shared.$nameScanRetry) { retry in
+                self.nameScanRetry = retry
+            }
         }
     }
 
@@ -363,6 +367,11 @@ public struct ReaderAIFullScreenView: View {
                             onReject: { action in rejectAction(action) },
                             onApproveAll: { approveAllActions(actions) }
                         )
+                    }
+
+                    // Quét tên riêng còn lượt vẫn lỗi sau vòng tự thử lại (1.3.527): nút ngay dưới đúng tin kết quả.
+                    if let retry = nameScanRetry, retry.messageId == message.id, !isStreaming, !isBatchExtracting {
+                        ReaderAINameScanRetryButton(failedCount: retry.failedCount) { retryFailedNameScanBatches() }
                     }
                 }
                 Spacer(minLength: 32)

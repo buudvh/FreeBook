@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.527] - 2026-10-14
+
+### feat(ai): quet ten rieng giu mot chat Gemini, tu thu lai luot loi, nut thu lai, log chan doan
+
+Người dùng: *"vẫn không cùng chat, thêm nút thử lại các batch lỗi sau khi chạy xong"*, *"tự động thử lại những cái lỗi ít nhất 1 lần"* (log `app_logs (107)` trên bản 1.3.526: lượt 3, 4, 6/15 lỗi `StreamGenerate lỗi sau ~244 000 ms, chunk=5` — Gemini vẫn đang trả lời chậm, request chạm **trần tuyệt đối 240 s**; lượt 1, 2, 5 xong; log thường đang tắt nên không thấy dòng quyết định nối tiếp/mở chat mới).
+- **Một chat cho lượt quét (bắt buộc)**: phiên đã có chat Gemini thì lượt quét (`forceContext`) **không bao giờ** mở chat mới — nối tiếp bị từ chối thì chờ 5 s, gửi lại đúng lượt nối tiếp một lần (Google có thể còn đang viết nốt lượt app đã cắt), vẫn lỗi ⇒ tính lượt lỗi. Chỉ đổi model / đổi công tắc lưu lịch sử mới mở chat mới (log ❌ kèm lý do). Chat thường giữ hành vi cũ (bị từ chối ⇒ mở lại một lần).
+- **Log chẩn đoán ❌** (luôn ghi dù tắt log): lượt quét mở chat mới dù phiên đã có chat (lý do: chưa có chat / không có cid / đổi model a → b / đổi công tắc / bị từ chối), nối tiếp bị từ chối, mở chat mới mà không lấy được cid. Dòng bắt đầu quét ghi công tắc lưu lịch sử, id phiên và cid hiện có (`GeminiWebClient.conversationCidPrefix`).
+- **Trần tuyệt đối theo từng lượt**: `fetchStream(_:idleTimeout:absoluteTimeout:)` (mặc định vẫn 240 s); lượt quét Gemini Web dùng 600 s.
+- **Tự thử lại một vòng** đúng các lượt lỗi ở **cuối** lần quét (không thử ngay — lượt vừa bị cắt có thể còn đang chạy phía Google); dải/widget "Đang thử lại: Batch i/k"; toast "k/T lượt vẫn lỗi sau khi thử lại".
+- **Nút "Thử lại k lượt lỗi"** (`ReaderAINameScanRetryButton`) dưới tin kết quả, chỉ hiện khi không có lệnh chạy; mỗi lần bấm một vòng, gộp tên vào đúng tin cũ rồi lưu phiên. Danh sách lượt lỗi chỉ giữ trong RAM (`AIRuntimeCoordinator.nameScanRetry`, người dùng chọn) — mất khi thoát app, xoá khi quét mới. Gặp lỗi tài khoản/hạn mức khi bấm thử lại ⇒ giữ nguyên tin và danh sách cũ.
+- Code: vòng gửi dùng chung `AINameExtractionBatchProcessor.runTurns` (quét chính / tự thử lại / nút); `AINameScanFailedBatch` (mới); `AINameScanProgress.isRetry`; `AIRuntimeCoordinator+NameScanRetry.swift` (mới). `rules.md` mục Reader AI + Gemini Web.
+- Chuyển entry `[1.3.497]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới (`GeminiWebSessionController.swift` 399/400). Không build tại chỗ (Windows), cần CI. Nguyên nhân gốc của tách chat vẫn **UNKNOWN** tới khi có log ❌ của bản này.
+
 ## [1.3.526] - 2026-10-14
 
 ### fix: quet ten rieng Gemini Web khong tao chat moi moi batch khi luot bi timeout, badge so thong bao dung goc chuong
@@ -425,15 +439,4 @@ Người dùng bổ sung: *"các task chạy hằng ngày như tự xoá truyệ
 - **Root không vẽ lại theo tiến độ**: `MainTabView` thôi `@ObservedObject` `BackupCoordinator`/`ModelDownloadCenter` (chỉ để hiện toast) mà nghe đúng `$lastMessage`/`$lastError`/`$lastNotice`; tiến độ worker publish tối đa mỗi 0,25 s mỗi pha (luôn publish khi đổi pha/đơn vị cuối, giá trị bị nuốt được phát bù ở cuối nhịp — `BackupCoordinator+ReportedProgress.swift`).
 - **Tự dọn truyện cũ chờ sao lưu xong** (trước chỉ dựa vào hẹn giờ 25 s vs 40 s): chờ khi `isBusy` (2 s/lần, tối đa ~10 phút). **Telegram**: xoá file phần ngay sau khi dựng xong body (đỉnh dung lượng tạm ~1× archive thay vì ~2×).
 - Còn để ngỏ: `repositoryLastRefreshAt` (mốc lịch làm mới repo, đổi mỗi lần mở tab Tiện ích) nằm trong snapshot cài đặt nên làm dấu vân tay đổi ⇒ ngày nào mở tab đó vẫn sao lưu; đưa vào `deniedKeys` là đổi nội dung backup — chờ người dùng quyết.
-- **Kiểm chứng**: `check_architecture.py` chỉ còn 2 vi phạm nền cũ (`JSDom`, `TTSManager`), 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận biên dịch.
-
-## [1.3.497] - 2026-10-09
-
-### perf(tts): nap truoc chuong ke Google/Ext giua chuong, widget xoay bang Core Animation, log luong VieNeu
-
-Người dùng: *"đừng làm refactor nữa, tôi muốn bạn tra lại code và xem chỗ nào ảnh hưởng hiệu năng app, chỉnh sửa lại cho app mượt hơn, hiệu năng tốt hơn"*. Nguồn: rà toàn app 7 mảng + 2 mảng tác vụ định kỳ, mỗi phát hiện qua một vòng phản biện đối kháng; nhóm này sửa xong lại qua một vòng phản biện nữa (lỗi tìm được đã sửa).
-
-- **Google/Ext: hết khoảng lặng 0,45–1,6 s khi qua chương (đo được trong log 84: 5/7 lần qua chương bị hụt)**: với engine remote, `triggerNextChapterPrefetch` chỉ được gọi lúc bắt đầu/khởi động lại phiên; trong lúc phát bình thường không gì kích lại nên prefetcher nằm `.idle` và chương kế bị nạp nguội đúng lúc chuyển. Nay hook mỗi chunk remote (`requestRemoteNextChapterPrefixIfNeeded`, chạy qua `updatePrefetchWindow`) kiểm điều kiện rẻ trước (đúng biểu thức `isPastHalfway || isNearEnd`), rồi chỉ kích lại khi còn chương kế và prefetcher đang rảnh hoặc giữ chương cũ/truyện khác; **không** thử lại khi chương kế đã `.failed` (không dội nguồn), không gọi ở chương cuối. `TTSManager.swift` chỉ đổi từ khoá truy cập (3550 dòng, không tăng). Engine local không đổi.
-- **Widget TTS nổi**: (1) không còn observe **toàn bộ** `TTSManager` — `isPlaying` lấy từ `TTSWidgetStateReader`, sheet cài đặt bind qua projection reader (vuốt đóng vẫn ghi lại cờ); (2) **theo quyết định của người dùng**, giữ hiệu ứng xoay ảnh bìa nhưng chuyển từ `TimelineView` 30 Hz (SwiftUI đánh giá lại body widget 30 lần/giây suốt lúc nghe) sang `TTSRotatingCoverView` (mới): `CABasicAnimation` trên `transform.rotation.z`, cùng tốc độ 24°/s, giới hạn ≤ 30 fps (`preferredFrameRateRange` — CA mặc định chạy theo tần số màn hình), dừng bằng `layer.speed = 0` giữ nguyên góc khi tạm dừng/ẩn widget, về 0 khi đổi truyện, gắn lại khi app trở lại tiền cảnh, dùng lại ảnh đã giải mã của view cha. Bóng đổ chuyển xuống nền tĩnh. `rules.md` (TTS presentation energy invariants) cập nhật theo quyết định này.
-- **VieNeu**: mỗi dòng `[VieNeuPerf]` thêm `threads=N spin=on|off` lấy từ **runtime đang chạy thật** (bẫy đo log 85–87: engine là singleton không unload nên cài đặt chỉ có hiệu lực sau khi tắt hẳn app). Sửa chú thích sai "(mở lại app hoặc đổi engine)" → "chỉ áp dụng sau khi tắt hẳn app rồi mở lại"; thêm câu "1 luồng không tiết kiệm pin hơn 2 luồng (cùng lượng CPU) mà chỉ chậm gấp đôi, dễ hụt tiếng khi máy nóng" (đo máy thật: 0,63 CPU-s/audio-s cả hai).
 - **Kiểm chứng**: `check_architecture.py` chỉ còn 2 vi phạm nền cũ (`JSDom`, `TTSManager`), 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận biên dịch.

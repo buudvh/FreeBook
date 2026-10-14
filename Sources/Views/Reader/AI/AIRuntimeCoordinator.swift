@@ -40,6 +40,10 @@ public final class AIRuntimeCoordinator: ObservableObject {
     @Published public var activeSession: AIChatSession? = nil
     @Published public var batchProgress: AINameScanProgress? = nil
     @Published public var batchExtractedNames: [AIExtractedName] = []
+    /// Lượt quét tên riêng vẫn lỗi sau vòng tự thử lại (1.3.527) — UI hiện nút "Thử lại k lượt lỗi" dưới đúng tin
+    /// kết quả. Chỉ trong RAM (mất khi thoát app), xoá khi bắt đầu lần quét mới. Ghi qua `setNameScanRetry`.
+    @Published public internal(set) var nameScanRetry: NameScanRetryInfo? = nil
+    var nameScanRetryContext: NameScanRetryContext? = nil
     /// `bookId` của Reader đang trên màn hình (`nil` khi không có Reader nào). Là **bookId** chứ không
     /// phải cờ Bool: widget thu nhỏ của truyện A bấm khi đang đọc truyện B phải mở lại AI của **A**,
     /// không được nhờ Reader B dựng màn AI theo truyện của nó.

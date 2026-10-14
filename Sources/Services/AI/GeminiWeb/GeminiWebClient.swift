@@ -60,11 +60,13 @@ public actor GeminiWebClient {
     public func sendChatStreaming(
         config: AIConfiguration,
         messages: [OpenAIChatRequest.Message],
-        idleTimeout: TimeInterval? = nil
+        idleTimeout: TimeInterval? = nil,
+        absoluteTimeout: TimeInterval? = nil
     ) -> AsyncThrowingStream<String, Error> {
         let prompt = GeminiWebPromptFormatter.buildPrompt(from: messages)
         // Hàm `public` không được dùng hằng `internal` làm giá trị mặc định ⇒ `nil` = mặc định của controller.
         let idleTimeout = idleTimeout ?? GeminiWebSessionController.defaultIdleTimeout
+        let absoluteTimeout = absoluteTimeout ?? GeminiWebSessionController.defaultAbsoluteTimeout
         let modelName = config.selectedModel
         return AsyncThrowingStream { continuation in
             let task = Task { [weak self] in
@@ -73,7 +75,12 @@ public actor GeminiWebClient {
                     return
                 }
                 do {
-                    try await self.streamGeneration(prompt: prompt, modelName: modelName, idleTimeout: idleTimeout) { delta in
+                    try await self.streamGeneration(
+                        prompt: prompt,
+                        modelName: modelName,
+                        idleTimeout: idleTimeout,
+                        absoluteTimeout: absoluteTimeout
+                    ) { delta in
                         continuation.yield(delta)
                     }
                     continuation.finish()
@@ -88,10 +95,16 @@ public actor GeminiWebClient {
     public func sendChat(
         config: AIConfiguration,
         messages: [OpenAIChatRequest.Message],
-        idleTimeout: TimeInterval? = nil
+        idleTimeout: TimeInterval? = nil,
+        absoluteTimeout: TimeInterval? = nil
     ) async throws -> (content: String?, toolCalls: [OpenAIChatRequest.ToolCall]?) {
         var text = ""
-        for try await delta in sendChatStreaming(config: config, messages: messages, idleTimeout: idleTimeout) {
+        for try await delta in sendChatStreaming(
+            config: config,
+            messages: messages,
+            idleTimeout: idleTimeout,
+            absoluteTimeout: absoluteTimeout
+        ) {
             text += delta
         }
         return (text.isEmpty ? nil : text, nil)
@@ -112,6 +125,7 @@ public actor GeminiWebClient {
     /// `metadata` rỗng = cuộc chat mới; trả metadata sau lượt (cid/rid/rcid/ngữ cảnh) để nối tiếp (1.3.514).
     /// `onMetadata` (1.3.526) báo metadata **ngay khi** Google gửi về — thường ở gói đầu, trước cả chữ — để lượt bị
     /// huỷ giữa chừng (timeout) vẫn giữ được cid: Google đã tạo cuộc chat trên web dù app không nhận hết câu trả lời.
+    /// `absoluteTimeout` (1.3.527): trần tuyệt đối của fetch — quét tên riêng truyền trần riêng, còn lại dùng mặc định.
     @discardableResult
     func streamGeneration(
         prompt: String,
@@ -119,6 +133,7 @@ public actor GeminiWebClient {
         metadata: [String?] = GeminiWebConversationState.emptyMetadata,
         temporary: Bool = true,
         idleTimeout: TimeInterval = GeminiWebSessionController.defaultIdleTimeout,
+        absoluteTimeout: TimeInterval = GeminiWebSessionController.defaultAbsoluteTimeout,
         onDelta: @escaping @Sendable (String) -> Void,
         onMetadata: (@Sendable ([String?]) -> Void)? = nil
     ) async throws -> [String?] {
@@ -142,6 +157,7 @@ public actor GeminiWebClient {
                     request: request,
                     metadata: metadata,
                     idleTimeout: idleTimeout,
+                    absoluteTimeout: absoluteTimeout,
                     onDelta: onDelta,
                     onMetadata: onMetadata
                 )
@@ -163,13 +179,18 @@ public actor GeminiWebClient {
         request: GeminiWebRequestBuilder.Request,
         metadata: [String?],
         idleTimeout: TimeInterval,
+        absoluteTimeout: TimeInterval,
         onDelta: @escaping @Sendable (String) -> Void,
         onMetadata: (@Sendable ([String?]) -> Void)?
     ) async throws -> [String?] {
         let startedAt = Date()
         var conversation = GeminiWebConversationState(model: "", contextFingerprint: "", savedToHistory: false)
         conversation.metadata = metadata
-        let raw = await GeminiWebSessionController.shared.fetchStream(request, idleTimeout: idleTimeout)
+        let raw = await GeminiWebSessionController.shared.fetchStream(
+            request,
+            idleTimeout: idleTimeout,
+            absoluteTimeout: absoluteTimeout
+        )
         var parser = GeminiWebFrameParser()
         var emitted = ""
         var latest = ""

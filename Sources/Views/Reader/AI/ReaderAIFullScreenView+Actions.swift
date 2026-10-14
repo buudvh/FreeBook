@@ -224,33 +224,64 @@ extension ReaderAIFullScreenView {
             session: currentSession,
             assistantMsgId: msgId,
             onProgress: { [self] (progress: AINameScanProgress, partial: [AIExtractedName]?) in
-                Task { @MainActor in
-                    self.batchProgress = progress
-                    // `nil` = chỉ báo "đang gửi lượt N", danh sách tên chưa đổi ⇒ không vẽ lại tin dài.
-                    guard let partial else { return }
-                    self.batchExtractedNames = partial
-                    let text = partial.map { "\($0.original)=\($0.suggestedMeaning)" }.joined(separator: "\n")
-                    if let idx = self.currentSession.messages.firstIndex(where: { $0.id == msgId }) {
-                        self.currentSession.messages[idx].content = text
-                        self.currentSession.messages[idx].isStreaming = true
-                    }
-                }
+                Task { @MainActor in self.applyNameScanProgress(progress, partial: partial, messageId: msgId) }
             },
             onComplete: { [self] (finalResults: [AIExtractedName]) in
-                Task { @MainActor in
-                    self.isBatchExtracting = false
-                    self.isStreaming = false
-                    self.batchProgress = nil
-                    self.batchExtractedNames = finalResults
-                    let text = finalResults.map { "\($0.original)=\($0.suggestedMeaning)" }.joined(separator: "\n")
-                    if let idx = self.currentSession.messages.firstIndex(where: { $0.id == msgId }) {
-                        self.currentSession.messages[idx].content = text.isEmpty ? "Không có name" : text
-                        self.currentSession.messages[idx].isStreaming = false
-                    }
-                    AIChatHistoryStore.shared.saveSession(self.currentSession, for: self.bookId)
-                }
+                Task { @MainActor in self.finishNameScan(finalResults, messageId: msgId) }
             }
         )
+    }
+
+    /// Nút "Thử lại k lượt lỗi" (1.3.527): chạy lại các lượt còn lỗi của lần quét gần nhất, ghi đè đúng tin kết quả
+    /// cũ. Cùng cách hiển thị với quét thường: tin chạy, dải tiến độ ("Đang thử lại"), nút dừng là `cancelBatchExtraction`.
+    internal func retryFailedNameScanBatches() {
+        guard !isBatchExtracting, !isStreaming, let retry = nameScanRetry else { return }
+        let msgId = retry.messageId
+        var session = currentSession
+        if let idx = session.messages.firstIndex(where: { $0.id == msgId }) {
+            session.messages[idx].isStreaming = true
+        }
+        let started = AIRuntimeCoordinator.shared.retryFailedNameScanBatches(
+            session: session,
+            onProgress: { [self] (progress: AINameScanProgress, partial: [AIExtractedName]?) in
+                Task { @MainActor in self.applyNameScanProgress(progress, partial: partial, messageId: msgId) }
+            },
+            onComplete: { [self] (finalResults: [AIExtractedName]) in
+                Task { @MainActor in self.finishNameScan(finalResults, messageId: msgId) }
+            }
+        )
+        guard started else { return }
+        currentSession = session
+        isBatchExtracting = true
+        isStreaming = true
+        batchProgress = AIRuntimeCoordinator.shared.batchProgress
+    }
+
+    /// Tiến độ quét/thử lại: dải batch + (khi danh sách tên đổi) tin kết quả đang chạy.
+    private func applyNameScanProgress(_ progress: AINameScanProgress, partial: [AIExtractedName]?, messageId: UUID) {
+        batchProgress = progress
+        // `nil` = chỉ báo "đang gửi lượt N", danh sách tên chưa đổi ⇒ không vẽ lại tin dài.
+        guard let partial else { return }
+        batchExtractedNames = partial
+        let text = partial.map { "\($0.original)=\($0.suggestedMeaning)" }.joined(separator: "\n")
+        if let idx = currentSession.messages.firstIndex(where: { $0.id == messageId }) {
+            currentSession.messages[idx].content = text
+            currentSession.messages[idx].isStreaming = true
+        }
+    }
+
+    /// Quét/thử lại xong: tắt trạng thái chạy, ghi danh sách cuối vào tin kết quả và lưu phiên.
+    private func finishNameScan(_ finalResults: [AIExtractedName], messageId: UUID) {
+        isBatchExtracting = false
+        isStreaming = false
+        batchProgress = nil
+        batchExtractedNames = finalResults
+        let text = finalResults.map { "\($0.original)=\($0.suggestedMeaning)" }.joined(separator: "\n")
+        if let idx = currentSession.messages.firstIndex(where: { $0.id == messageId }) {
+            currentSession.messages[idx].content = text.isEmpty ? "Không có name" : text
+            currentSession.messages[idx].isStreaming = false
+        }
+        AIChatHistoryStore.shared.saveSession(currentSession, for: bookId)
     }
 
     internal func cancelBatchExtraction() {
