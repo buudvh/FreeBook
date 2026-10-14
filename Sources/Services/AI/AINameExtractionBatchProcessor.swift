@@ -17,6 +17,9 @@ public final class AINameExtractionBatchProcessor: Sendable {
     private static let apiChaptersPerBatch = 5
     private static let apiCharacterLimit = 15_000
     private static let geminiWebCharacterLimit = 40_000
+    /// Gemini Web nhận ~40.000 ký tự rồi nghĩ lâu: log thật (1.3.524) thấy gói đầu về ngay rồi im > 45 s ⇒ mọi lượt
+    /// timeout ở mức mặc định. Trần tuyệt đối của một fetch vẫn là 240 s (`GeminiWebSessionController`).
+    private static let geminiWebIdleTimeout: TimeInterval = 150
 
     private init() {}
 
@@ -53,10 +56,15 @@ public final class AINameExtractionBatchProcessor: Sendable {
                     messages: messages,
                     sessionId: conversationId,
                     persist: true,
-                    forceContext: true
+                    forceContext: true,
+                    idleTimeout: Self.geminiWebIdleTimeout
                 )
             } else {
-                let (res, _) = try await GeminiWebClient.shared.sendChat(config: config, messages: messages)
+                let (res, _) = try await GeminiWebClient.shared.sendChat(
+                    config: config,
+                    messages: messages,
+                    idleTimeout: Self.geminiWebIdleTimeout
+                )
                 content = res
             }
         } else if config.activeProfile.apiFormat == "anthropic" {

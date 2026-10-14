@@ -15,14 +15,18 @@ extension GeminiWebClient {
     /// caller nào — quét tên riêng ghi chung trạng thái với chat của phiên).
     /// `forceContext == true`: lượt nối tiếp luôn kèm khối ngữ cảnh hệ thống dù băm không đổi. Quét tên riêng cần cờ
     /// này: prompt trích xuất giống hệt giữa các lượt nên so băm sẽ bỏ nó từ lượt 2, Gemini chỉ nhận raw (lỗi thật).
+    /// `idleTimeout` (1.3.526): `nil` = mặc định của controller (45 s). Lượt quét tên riêng gửi ~40.000 ký tự nên cần
+    /// chờ lâu hơn (log thật: Gemini gửi gói đầu rồi im > 45 s ⇒ mọi lượt timeout).
     public func sendConversationStreaming(
         config: AIConfiguration,
         messages: [OpenAIChatRequest.Message],
         sessionId: UUID,
         persist: Bool = true,
-        forceContext: Bool = false
+        forceContext: Bool = false,
+        idleTimeout: TimeInterval? = nil
     ) -> AsyncThrowingStream<String, Error> {
         let modelName = config.selectedModel
+        let idleTimeout = idleTimeout ?? GeminiWebSessionController.defaultIdleTimeout
         return AsyncThrowingStream { continuation in
             let task = Task { [weak self] in
                 guard let self else {
@@ -35,7 +39,8 @@ extension GeminiWebClient {
                         modelName: modelName,
                         sessionId: sessionId,
                         persist: persist,
-                        forceContext: forceContext
+                        forceContext: forceContext,
+                        idleTimeout: idleTimeout
                     ) {
                         continuation.yield($0)
                     }
@@ -54,7 +59,8 @@ extension GeminiWebClient {
         messages: [OpenAIChatRequest.Message],
         sessionId: UUID,
         persist: Bool,
-        forceContext: Bool = false
+        forceContext: Bool = false,
+        idleTimeout: TimeInterval? = nil
     ) async throws -> String {
         var text = ""
         for try await delta in sendConversationStreaming(
@@ -62,7 +68,8 @@ extension GeminiWebClient {
             messages: messages,
             sessionId: sessionId,
             persist: persist,
-            forceContext: forceContext
+            forceContext: forceContext,
+            idleTimeout: idleTimeout
         ) {
             text += delta
         }
@@ -75,6 +82,7 @@ extension GeminiWebClient {
         sessionId: UUID,
         persist: Bool,
         forceContext: Bool,
+        idleTimeout: TimeInterval,
         onDelta: @escaping @Sendable (String) -> Void
     ) async throws {
         let saveToHistory = GeminiWebConversationStore.saveToHistory
@@ -90,39 +98,72 @@ extension GeminiWebClient {
             // ngữ cảnh chương.
             let contextUpdate = (forceContext || previous.contextFingerprint != fingerprint) ? systemText : nil
             let prompt = GeminiWebPromptFormatter.buildContinuationPrompt(from: messages, contextUpdate: contextUpdate)
-            let emitted = DeltaFlag()
+            let observed = TurnObservation()
+            var state = previous
+            state.contextFingerprint = fingerprint
             do {
-                var state = previous
                 state.metadata = try await streamGeneration(
                     prompt: prompt,
                     modelName: modelName,
                     metadata: previous.metadata,
-                    temporary: !saveToHistory
-                ) { delta in
-                    emitted.set()
-                    onDelta(delta)
-                }
-                state.contextFingerprint = fingerprint
+                    temporary: !saveToHistory,
+                    idleTimeout: idleTimeout,
+                    onDelta: { delta in
+                        observed.markEmitted()
+                        onDelta(delta)
+                    },
+                    onMetadata: { observed.record($0) }
+                )
                 state.updatedAt = Date()
                 remember(state, sessionId: sessionId, persist: persist)
                 AppLogger.shared.log("🤖 [GeminiWeb] Nối tiếp cuộc chat (lưu=\(saveToHistory), cập nhật ngữ cảnh=\(contextUpdate != nil))")
                 return
-            } catch let error as GeminiWebError where !emitted.value && Self.allowsFreshRestart(after: error) {
+            } catch let error as GeminiWebError where !observed.emitted && Self.allowsFreshRestart(after: error) {
                 AppLogger.shared.log("🤖 [GeminiWeb] Cuộc chat cũ bị từ chối (\(error.localizedDescription)) — mở cuộc chat mới với đủ ngữ cảnh")
+            } catch {
+                rememberPartial(state, observed: observed, sessionId: sessionId, persist: persist, error: error)
+                throw error
             }
         }
 
         var state = GeminiWebConversationState(model: modelName, contextFingerprint: fingerprint, savedToHistory: saveToHistory)
-        state.metadata = try await streamGeneration(
-            prompt: GeminiWebPromptFormatter.buildPrompt(from: messages),
-            modelName: modelName,
-            metadata: GeminiWebConversationState.emptyMetadata,
-            temporary: !saveToHistory,
-            onDelta: onDelta
-        )
+        let observed = TurnObservation()
+        do {
+            state.metadata = try await streamGeneration(
+                prompt: GeminiWebPromptFormatter.buildPrompt(from: messages),
+                modelName: modelName,
+                metadata: GeminiWebConversationState.emptyMetadata,
+                temporary: !saveToHistory,
+                idleTimeout: idleTimeout,
+                onDelta: onDelta,
+                onMetadata: { observed.record($0) }
+            )
+        } catch {
+            rememberPartial(state, observed: observed, sessionId: sessionId, persist: persist, error: error)
+            throw error
+        }
         state.updatedAt = Date()
         remember(state, sessionId: sessionId, persist: persist)
         AppLogger.shared.log("🤖 [GeminiWeb] Mở cuộc chat mới (lưu=\(saveToHistory), có cid=\(!state.cid.isEmpty))")
+    }
+
+    /// Lượt lỗi giữa chừng (timeout, huỷ…) mà Google **đã** gửi cid: cuộc chat đã có trên web ⇒ giữ nó cho phiên để lượt
+    /// sau nối tiếp. Không giữ thì lượt sau mở cuộc chat mới — lỗi thật 1.3.524: quét tên riêng timeout từng lượt ⇒ mỗi
+    /// batch một cuộc chat trên Gemini.
+    private func rememberPartial(
+        _ state: GeminiWebConversationState,
+        observed: TurnObservation,
+        sessionId: UUID,
+        persist: Bool,
+        error: Error
+    ) {
+        guard let partial = observed.metadata else { return }
+        var kept = state
+        kept.metadata = partial
+        guard !kept.cid.isEmpty else { return }
+        kept.updatedAt = Date()
+        remember(kept, sessionId: sessionId, persist: persist)
+        AppLogger.shared.log("🤖 [GeminiWeb] Lượt lỗi (\(error.localizedDescription)) nhưng đã có cid — giữ cuộc chat cho lượt sau nối tiếp")
     }
 
     private func remember(_ state: GeminiWebConversationState, sessionId: UUID, persist: Bool) {
@@ -144,18 +185,29 @@ extension GeminiWebClient {
     }
 }
 
-/// Cờ "đã phát ít nhất một delta" dùng chung giữa closure `@Sendable` và actor — chỉ để quyết định có được mở lại
-/// cuộc chat mới hay không (đã hiện chữ thì không mở lại, tránh trả lời trùng).
-private final class DeltaFlag: @unchecked Sendable {
+/// Quan sát một lượt, dùng chung giữa closure `@Sendable` và actor:
+/// - đã phát ít nhất một delta chưa — đã hiện chữ thì không mở lại cuộc chat mới (tránh trả lời trùng);
+/// - metadata mới nhất Google gửi về (1.3.526) — để lượt lỗi giữa chừng vẫn giữ được cid.
+private final class TurnObservation: @unchecked Sendable {
     private let lock = NSLock()
-    private var flag = false
+    private var didEmit = false
+    private var latestMetadata: [String?]?
 
-    var value: Bool {
+    var emitted: Bool {
         lock.lock(); defer { lock.unlock() }
-        return flag
+        return didEmit
     }
 
-    func set() {
-        lock.lock(); flag = true; lock.unlock()
+    var metadata: [String?]? {
+        lock.lock(); defer { lock.unlock() }
+        return latestMetadata
+    }
+
+    func markEmitted() {
+        lock.lock(); didEmit = true; lock.unlock()
+    }
+
+    func record(_ metadata: [String?]) {
+        lock.lock(); latestMetadata = metadata; lock.unlock()
     }
 }

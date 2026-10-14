@@ -35,7 +35,9 @@ struct FloatingHubItem: Equatable, Identifiable {
             case .browser:
                 return "safari"
             case .notifications:
-                return unreadCount > 0 ? "bell.badge.fill" : "bell"
+                // `bell.fill` chứ không `bell.badge.fill`: nút đã có chấm/số đỏ riêng, icon có chấm sẵn là hai badge chồng
+                // nhau (1.3.526).
+                return unreadCount > 0 ? "bell.fill" : "bell"
             }
         }
 

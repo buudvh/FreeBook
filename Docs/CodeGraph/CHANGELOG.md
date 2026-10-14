@@ -2,6 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.526] - 2026-10-14
+
+### fix: quet ten rieng Gemini Web khong tao chat moi moi batch khi luot bi timeout, badge so thong bao dung goc chuong
+
+**1. Quét tên riêng: mỗi batch một chat trên Gemini** — người dùng: *"bật lưu lịch sử gemini thì để tất cả chung 1 chat … bây giờ tôi test lọc name nhiều chương thì nó tạo mỗi batch 1 chat"* (log `app_logs (106)`).
+- **Nguyên nhân (từ log)**: gần như mọi lượt quét kết thúc bằng `StreamGenerate lỗi sau ~51 s, chunk=1: … không phản hồi kịp thời gian chờ` (13/10 và 14/10, lượt 1/2, 1/7, 1/8, 1/10…). Gemini nhận prompt ~40.000 ký tự, gửi **một** gói đầu (có cid — cuộc chat đã được tạo trên web) rồi nghĩ lâu hơn ngưỡng im lặng 45 s ⇒ app huỷ lượt **và vứt luôn metadata** vì `consumeGeneration` chỉ trả metadata khi xong ⇒ lượt sau không có cid để nối tiếp ⇒ mở cuộc chat mới. Kết quả: chat mới trên web mỗi batch, còn trong app lượt đó tính là lỗi.
+- **Giữ cid khi lượt lỗi**: `GeminiWebClient.streamGeneration(onMetadata:)` báo metadata ngay khi Google gửi; `runConversationTurn` ghi nhớ cuộc chat qua `rememberPartial` khi lượt timeout/bị huỷ (cả nhánh nối tiếp lẫn nhánh mở mới). `DeltaFlag` gộp thành `TurnObservation` (cờ đã phát chữ + metadata mới nhất).
+- **Chờ lâu hơn cho lượt quét**: `idleTimeout` 150 s cho lượt quét Gemini Web (`AINameExtractionBatchProcessor.geminiWebIdleTimeout`, cả nhánh nối tiếp lẫn chat tạm); chat thường giữ 45 s; trần tuyệt đối 240 s không đổi. Tham số `idleTimeout` của hàm `public` là optional (`nil` = mặc định) vì giá trị mặc định của hàm `public` không được tham chiếu hằng `internal`.
+- `rules.md` mục Gemini Web: thêm luật "lượt lỗi giữa chừng vẫn giữ cid".
+
+**2. Badge số thông báo** — người dùng gửi ảnh chuông Kệ sách: *"vị trí hiển thị số thông báo chưa đẹp"* (badge đỏ đè thân chuông, cạnh chấm trắng có sẵn của icon).
+- `ShelfView`: `bell.badge.fill` → `bell.fill` (bỏ chấm có sẵn — hai badge chồng nhau; chấm của icon vẽ tràn khung nên neo theo khung làm badge số rơi vào thân chuông). Badge tối thiểu 16×16 (1 chữ số tròn), tâm ở góc trên-phải chuông lùi 2pt, số dài mọc sang phải, viền 1,5pt màu nền tách khỏi nét chuông.
+- Hub (`FloatingHubItem.systemImage`): mục Thông báo cũng `bell.fill`/`bell` vì nút hub đã có chấm/số đỏ riêng.
+
+- Chuyển entry `[1.3.496]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + log thật; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. Không build tại chỗ (Windows), cần CI; cần thử lại quét trên máy (bật log trong Cài đặt để thấy dòng "Lượt lỗi … nhưng đã có cid").
+
 ## [1.3.525] - 2026-10-14
 
 ### feat(hub): cham hub dang nep co tu 2 muc thi mo menu ngay
@@ -419,14 +436,4 @@ Người dùng: *"đừng làm refactor nữa, tôi muốn bạn tra lại code 
 - **Google/Ext: hết khoảng lặng 0,45–1,6 s khi qua chương (đo được trong log 84: 5/7 lần qua chương bị hụt)**: với engine remote, `triggerNextChapterPrefetch` chỉ được gọi lúc bắt đầu/khởi động lại phiên; trong lúc phát bình thường không gì kích lại nên prefetcher nằm `.idle` và chương kế bị nạp nguội đúng lúc chuyển. Nay hook mỗi chunk remote (`requestRemoteNextChapterPrefixIfNeeded`, chạy qua `updatePrefetchWindow`) kiểm điều kiện rẻ trước (đúng biểu thức `isPastHalfway || isNearEnd`), rồi chỉ kích lại khi còn chương kế và prefetcher đang rảnh hoặc giữ chương cũ/truyện khác; **không** thử lại khi chương kế đã `.failed` (không dội nguồn), không gọi ở chương cuối. `TTSManager.swift` chỉ đổi từ khoá truy cập (3550 dòng, không tăng). Engine local không đổi.
 - **Widget TTS nổi**: (1) không còn observe **toàn bộ** `TTSManager` — `isPlaying` lấy từ `TTSWidgetStateReader`, sheet cài đặt bind qua projection reader (vuốt đóng vẫn ghi lại cờ); (2) **theo quyết định của người dùng**, giữ hiệu ứng xoay ảnh bìa nhưng chuyển từ `TimelineView` 30 Hz (SwiftUI đánh giá lại body widget 30 lần/giây suốt lúc nghe) sang `TTSRotatingCoverView` (mới): `CABasicAnimation` trên `transform.rotation.z`, cùng tốc độ 24°/s, giới hạn ≤ 30 fps (`preferredFrameRateRange` — CA mặc định chạy theo tần số màn hình), dừng bằng `layer.speed = 0` giữ nguyên góc khi tạm dừng/ẩn widget, về 0 khi đổi truyện, gắn lại khi app trở lại tiền cảnh, dùng lại ảnh đã giải mã của view cha. Bóng đổ chuyển xuống nền tĩnh. `rules.md` (TTS presentation energy invariants) cập nhật theo quyết định này.
 - **VieNeu**: mỗi dòng `[VieNeuPerf]` thêm `threads=N spin=on|off` lấy từ **runtime đang chạy thật** (bẫy đo log 85–87: engine là singleton không unload nên cài đặt chỉ có hiệu lực sau khi tắt hẳn app). Sửa chú thích sai "(mở lại app hoặc đổi engine)" → "chỉ áp dụng sau khi tắt hẳn app rồi mở lại"; thêm câu "1 luồng không tiết kiệm pin hơn 2 luồng (cùng lượng CPU) mà chỉ chậm gấp đôi, dễ hụt tiếng khi máy nóng" (đo máy thật: 0,63 CPU-s/audio-s cả hai).
-- **Kiểm chứng**: `check_architecture.py` chỉ còn 2 vi phạm nền cũ (`JSDom`, `TTSManager`), 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận biên dịch.
-
-## [1.3.496] - 2026-10-09
-
-### perf(log, tien do): AppLogger giu file mo co khoa, luu tien do khong doc ca bang, khong ghi lai ban trung
-
-Người dùng: *"đừng làm refactor nữa, tôi muốn bạn tra lại code và xem chỗ nào ảnh hưởng hiệu năng app, chỉnh sửa lại cho app mượt hơn, hiệu năng tốt hơn"*. Nguồn: rà toàn app 7 mảng + 2 mảng tác vụ định kỳ, mỗi phát hiện qua một vòng phản biện đối kháng; nhóm này sửa xong lại qua một vòng phản biện nữa (lỗi tìm được đã sửa).
-
-- **`AppLogger`**: trước đây mỗi dòng log tạo `DateFormatter` mới + mở/seek/ghi/đóng file, không khoá ⇒ các dòng ghi chen nhau (dòng hỏng kiểu `2 cores=6` trong log) và làm phồng chính các số `[TTSPerf]`/`[ReaderPerf]` đang đo. Nay một formatter tĩnh, `FileHandle` mở một lần giữ ở cuối file, mọi thao tác (ghi, `clear`, đọc, kích thước, xoay 5 MB) dưới cùng một `NSLock`. **Vẫn ghi đồng bộ** — app chạy qua LiveContainer, file log là kênh chẩn đoán duy nhất nên không được mất dòng cuối khi crash. `log(_:)` nhận `@autoclosure`: khi tắt log (mặc định mỗi lần mở app) không còn dựng chuỗi.
-- **`ReadingProgressStore`**: lưu tiến độ fetch đúng một `Book` bằng `#Predicate` + `fetchLimit = 1` thay vì đọc cả bảng; `flush`/`flushAll` (chạy ở **mỗi** lần `.inactive`/`.background` — kéo Control Center cũng tính) bỏ qua truyện có snapshot đã lưu y hệt, nên không còn `save()` lặp kéo `@Query` của Kệ/Reader vẽ lại. `checkpoint` vẫn luôn lưu; debounce/chủ sở hữu tiến độ không đổi.
 - **Kiểm chứng**: `check_architecture.py` chỉ còn 2 vi phạm nền cũ (`JSDom`, `TTSManager`), 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận biên dịch.

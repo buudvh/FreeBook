@@ -4,7 +4,7 @@ import SwiftUI
 /// viền trắng 20 %, bóng đen 24 %.
 ///
 /// ## Glyph theo số mục
-/// - 1 mục: glyph của chính mục đó (`sparkles` tím / `safari` / `bell.badge.fill` hoặc `bell`).
+/// - 1 mục: glyph của chính mục đó (`sparkles` tím / `safari` / `bell.fill` hoặc `bell`).
 /// - Từ 2 mục: `square.grid.2x2`.
 ///
 /// ## Chỉ báo

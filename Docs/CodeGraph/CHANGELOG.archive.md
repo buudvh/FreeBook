@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.496] - 2026-10-09
+
+### perf(log, tien do): AppLogger giu file mo co khoa, luu tien do khong doc ca bang, khong ghi lai ban trung
+
+Người dùng: *"đừng làm refactor nữa, tôi muốn bạn tra lại code và xem chỗ nào ảnh hưởng hiệu năng app, chỉnh sửa lại cho app mượt hơn, hiệu năng tốt hơn"*. Nguồn: rà toàn app 7 mảng + 2 mảng tác vụ định kỳ, mỗi phát hiện qua một vòng phản biện đối kháng; nhóm này sửa xong lại qua một vòng phản biện nữa (lỗi tìm được đã sửa).
+
+- **`AppLogger`**: trước đây mỗi dòng log tạo `DateFormatter` mới + mở/seek/ghi/đóng file, không khoá ⇒ các dòng ghi chen nhau (dòng hỏng kiểu `2 cores=6` trong log) và làm phồng chính các số `[TTSPerf]`/`[ReaderPerf]` đang đo. Nay một formatter tĩnh, `FileHandle` mở một lần giữ ở cuối file, mọi thao tác (ghi, `clear`, đọc, kích thước, xoay 5 MB) dưới cùng một `NSLock`. **Vẫn ghi đồng bộ** — app chạy qua LiveContainer, file log là kênh chẩn đoán duy nhất nên không được mất dòng cuối khi crash. `log(_:)` nhận `@autoclosure`: khi tắt log (mặc định mỗi lần mở app) không còn dựng chuỗi.
+- **`ReadingProgressStore`**: lưu tiến độ fetch đúng một `Book` bằng `#Predicate` + `fetchLimit = 1` thay vì đọc cả bảng; `flush`/`flushAll` (chạy ở **mỗi** lần `.inactive`/`.background` — kéo Control Center cũng tính) bỏ qua truyện có snapshot đã lưu y hệt, nên không còn `save()` lặp kéo `@Query` của Kệ/Reader vẽ lại. `checkpoint` vẫn luôn lưu; debounce/chủ sở hữu tiến độ không đổi.
+- **Kiểm chứng**: `check_architecture.py` chỉ còn 2 vi phạm nền cũ (`JSDom`, `TTSManager`), 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận biên dịch.
+
 ## [1.3.495] - 2026-10-09
 
 ### fix(chuong moi): huy giua chung khong ghi sai trang thai, bo luot tai muc luc thua, debounce thanh truot don truyen

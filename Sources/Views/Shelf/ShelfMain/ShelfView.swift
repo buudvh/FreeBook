@@ -152,23 +152,26 @@ struct ShelfView: View {
                     Button(action: {
                         showingNotificationInbox = true
                     }) {
-                        Image(systemName: notificationBadgeCount > 0 ? "bell.badge.fill" : "bell")
+                        // `bell.fill` chứ không `bell.badge.fill`: icon có chấm sẵn cộng badge số là hai badge chồng nhau,
+                        // và chấm của icon vẽ tràn khung nên neo theo khung thì badge số rơi vào thân chuông (1.3.526).
+                        Image(systemName: notificationBadgeCount > 0 ? "bell.fill" : "bell")
                             .font(.system(size: 17, weight: .semibold))
                             .overlay(alignment: .topTrailing) {
                                 if notificationBadgeCount > 0 {
-                                    // `overlay` chỉ đề xuất đúng khung icon (~20pt) nên "99+" từng bị ép xuống
-                                    // dòng: `fixedSize` giữ một dòng. Neo **mép trái** badge vào mép phải icon
-                                    // (lùi 4pt) để số dài mọc sang phải thay vì che chuông.
+                                    // `overlay` chỉ đề xuất đúng khung icon (~20pt) ⇒ `fixedSize` giữ "99+" một dòng.
+                                    // Tối thiểu 16×16 ⇒ 1 chữ số là hình tròn. Tâm hình tròn đặt ở góc trên-phải chuông,
+                                    // lùi vào 2pt mỗi chiều; số dài mọc sang phải thay vì che chuông.
                                     Text(notificationBadgeCount > 99 ? "99+" : "\(notificationBadgeCount)")
                                         .font(.system(size: 10, weight: .bold))
                                         .lineLimit(1)
                                         .fixedSize()
                                         .foregroundColor(.white)
                                         .padding(.horizontal, 4)
-                                        .padding(.vertical, 1)
+                                        .frame(minWidth: 16, minHeight: 16)
                                         .background(Color.red, in: Capsule())
-                                        .alignmentGuide(.trailing) { $0[.leading] + 4 }
-                                        .offset(y: -8)
+                                        .overlay(Capsule().stroke(Color(UIColor.systemBackground), lineWidth: 1.5))
+                                        .alignmentGuide(.trailing) { $0[.leading] + 10 }
+                                        .alignmentGuide(.top) { $0[VerticalAlignment.center] - 2 }
                                 }
                             }
                     }
