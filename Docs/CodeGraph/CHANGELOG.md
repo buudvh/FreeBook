@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.525] - 2026-10-14
+
+### feat(hub): cham hub dang nep co tu 2 muc thi mo menu ngay
+
+Người dùng: *"nếu 2 widget trở lên khi bấm mở rộng thì hiển thị ngay danh sách widget ở trạng thái mở rộng luôn"*, *"ví dụ chỉ 1 browser thì hiển thị icon browser thay vì icon chung"*, *"trường hợp có thông báo và 1 cái khác ở kệ sách thì tính 1"*.
+- **`FloatingHubContainerViewController.handlePrimaryAction`**: chạm khi `.peeking` mà có ≥ 2 mục ⇒ bung **và** `openMenu()` ngay (trước đây phải chạm hai lần). `updateLayout` gán vị trí đích ngay nên `layoutMenu` đặt thẻ đúng cạnh nút đã bung; mở menu bật `disableAutoHide` nên không bị tự thu giữa chừng. 1 mục: giữ nguyên (chạm khi nép chỉ bung, chạm lần nữa mới mở).
+- Icon 1 mục = icon của chính mục đó và cách đếm mục ở tab Kệ Sách (không tính Thông báo) **đã đúng từ 1.3.524** (`FloatingHubPresentationReader.makeSnapshot`, `FloatingHubButton.glyphName`) — chỉ ghi rõ thành luật trong `rules.md` mục "Nút hub nổi".
+- Chuyển entry `[1.3.495]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. Không build tại chỗ (Windows), cần CI.
+
 ## [1.3.524] - 2026-10-14
 
 ### feat: gop widget noi thanh nut hub, quet ten rieng noi tiep chat cua phien, icon Lucide sao chep dan, badge 99+ khong vo
@@ -419,15 +429,4 @@ Người dùng: *"đừng làm refactor nữa, tôi muốn bạn tra lại code 
 
 - **`AppLogger`**: trước đây mỗi dòng log tạo `DateFormatter` mới + mở/seek/ghi/đóng file, không khoá ⇒ các dòng ghi chen nhau (dòng hỏng kiểu `2 cores=6` trong log) và làm phồng chính các số `[TTSPerf]`/`[ReaderPerf]` đang đo. Nay một formatter tĩnh, `FileHandle` mở một lần giữ ở cuối file, mọi thao tác (ghi, `clear`, đọc, kích thước, xoay 5 MB) dưới cùng một `NSLock`. **Vẫn ghi đồng bộ** — app chạy qua LiveContainer, file log là kênh chẩn đoán duy nhất nên không được mất dòng cuối khi crash. `log(_:)` nhận `@autoclosure`: khi tắt log (mặc định mỗi lần mở app) không còn dựng chuỗi.
 - **`ReadingProgressStore`**: lưu tiến độ fetch đúng một `Book` bằng `#Predicate` + `fetchLimit = 1` thay vì đọc cả bảng; `flush`/`flushAll` (chạy ở **mỗi** lần `.inactive`/`.background` — kéo Control Center cũng tính) bỏ qua truyện có snapshot đã lưu y hệt, nên không còn `save()` lặp kéo `@Query` của Kệ/Reader vẽ lại. `checkpoint` vẫn luôn lưu; debounce/chủ sở hữu tiến độ không đổi.
-- **Kiểm chứng**: `check_architecture.py` chỉ còn 2 vi phạm nền cũ (`JSDom`, `TTSManager`), 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận biên dịch.
-
-## [1.3.495] - 2026-10-09
-
-### fix(chuong moi): huy giua chung khong ghi sai trang thai, bo luot tai muc luc thua, debounce thanh truot don truyen
-
-Người dùng: *"đừng làm refactor nữa, tôi muốn bạn tra lại code và xem chỗ nào ảnh hưởng hiệu năng app, chỉnh sửa lại cho app mượt hơn, hiệu năng tốt hơn"*. Nguồn: rà toàn app 7 mảng + 2 mảng tác vụ định kỳ, mỗi phát hiện qua một vòng phản biện đối kháng; nhóm này sửa xong lại qua một vòng phản biện nữa (lỗi tìm được đã sửa).
-
-- **Huỷ giữa chừng không ghi sai**: lượt kiểm tra chương mới tự động chạy trong `.task` của Kệ sách — mở Chi tiết/đổi tab là bị huỷ, nhưng trước đây truyện đang dở vẫn bị ghi `lastCheckedAt` + `lastFailure` (`CancellationError` thành lỗi) và cả đợt bị đánh dấu đã chạy. Nay `Outcome.wasCancelled` giữ nguyên bản ghi cũ; `markBatchRun()` chỉ khi lượt thật sự chạy (`summary != nil`) và không bị huỷ — lần sau chạy tiếp các truyện còn lại.
-- **Bỏ lượt tải mục lục thừa**: mục lục > 8 trang trước đây chạy `toc.js` trang đầu rồi vứt đi để lấy trang cuối. Thêm `BookDetailLoader.fetchPageList`; > 8 trang thì tải thẳng trang cuối; ≤ 8 trang giữ đường tải đủ như cũ (đếm chính xác — quyết định đã ghi trong archive). Vẫn tuần tự từng truyện.
-- **Thanh trượt "Ngưỡng bỏ quên"**: mỗi nấc kéo trước đây bắn một lượt đọc **toàn bảng** `Book` không huỷ, kết quả về lộn xộn có thể hiện số của ngưỡng cũ. Nay `.task(id:)` + chờ 300 ms (gộp cả lần mở màn).
 - **Kiểm chứng**: `check_architecture.py` chỉ còn 2 vi phạm nền cũ (`JSDom`, `TTSManager`), 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận biên dịch.

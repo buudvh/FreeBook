@@ -19,7 +19,8 @@ import UIKit
 /// 3. `menuContainerView` — thẻ menu, cạnh nút về phía xa mép.
 ///
 /// ## Bảng chạm
-/// `.peeking` ⇒ bung. `.revealed` + 1 mục ⇒ mở thẳng mục. `.revealed` + ≥ 2 mục ⇒ mở menu. Menu đang mở ⇒ đóng.
+/// `.peeking` + 1 mục ⇒ bung. `.peeking` + ≥ 2 mục ⇒ bung **và** mở menu ngay (1.3.525, người dùng chốt: một chạm
+/// là thấy danh sách). `.revealed` + 1 mục ⇒ mở thẳng mục. `.revealed` + ≥ 2 mục ⇒ mở menu. Menu đang mở ⇒ đóng.
 @MainActor
 final class FloatingHubContainerViewController: UIViewController, UIGestureRecognizerDelegate {
     /// `internal` (không `private`): file `+Actions`/`+Menu` cần dùng, mà `private` của Swift chỉ có hiệu lực
@@ -279,6 +280,11 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
         case .peeking:
             viewModel.reveal()
             updateLayout(animated: true)
+            // `updateLayout` gán ngay vị trí đích cho `widgetContainerView` (animation chỉ chạy ở lớp hiển thị) ⇒
+            // `layoutMenu` đặt thẻ đúng cạnh nút đã bung. Mở menu bật `isMenuOpen` ⇒ huỷ hẹn giờ tự thu.
+            if presentationReader.snapshot.items.count >= 2 {
+                openMenu()
+            }
         case .revealed:
             let items = presentationReader.snapshot.items
             if items.count == 1, let only = items.first {

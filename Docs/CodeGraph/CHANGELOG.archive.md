@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.495] - 2026-10-09
+
+### fix(chuong moi): huy giua chung khong ghi sai trang thai, bo luot tai muc luc thua, debounce thanh truot don truyen
+
+Người dùng: *"đừng làm refactor nữa, tôi muốn bạn tra lại code và xem chỗ nào ảnh hưởng hiệu năng app, chỉnh sửa lại cho app mượt hơn, hiệu năng tốt hơn"*. Nguồn: rà toàn app 7 mảng + 2 mảng tác vụ định kỳ, mỗi phát hiện qua một vòng phản biện đối kháng; nhóm này sửa xong lại qua một vòng phản biện nữa (lỗi tìm được đã sửa).
+
+- **Huỷ giữa chừng không ghi sai**: lượt kiểm tra chương mới tự động chạy trong `.task` của Kệ sách — mở Chi tiết/đổi tab là bị huỷ, nhưng trước đây truyện đang dở vẫn bị ghi `lastCheckedAt` + `lastFailure` (`CancellationError` thành lỗi) và cả đợt bị đánh dấu đã chạy. Nay `Outcome.wasCancelled` giữ nguyên bản ghi cũ; `markBatchRun()` chỉ khi lượt thật sự chạy (`summary != nil`) và không bị huỷ — lần sau chạy tiếp các truyện còn lại.
+- **Bỏ lượt tải mục lục thừa**: mục lục > 8 trang trước đây chạy `toc.js` trang đầu rồi vứt đi để lấy trang cuối. Thêm `BookDetailLoader.fetchPageList`; > 8 trang thì tải thẳng trang cuối; ≤ 8 trang giữ đường tải đủ như cũ (đếm chính xác — quyết định đã ghi trong archive). Vẫn tuần tự từng truyện.
+- **Thanh trượt "Ngưỡng bỏ quên"**: mỗi nấc kéo trước đây bắn một lượt đọc **toàn bảng** `Book` không huỷ, kết quả về lộn xộn có thể hiện số của ngưỡng cũ. Nay `.task(id:)` + chờ 300 ms (gộp cả lần mở màn).
+- **Kiểm chứng**: `check_architecture.py` chỉ còn 2 vi phạm nền cũ (`JSDom`, `TTSManager`), 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận biên dịch.
+
 ## [1.3.494] - 2026-10-09
 
 ### perf(js): bo stringify ket qua cho chan doan khong ai doc, gom 34 luot quet DOM, trinh duyet an ton trong lenh huy
