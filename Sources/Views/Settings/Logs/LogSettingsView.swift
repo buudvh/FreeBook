@@ -118,7 +118,11 @@ struct LogSettingsView: View {
                             copyLogToClipboard()
                         }
                     }) {
-                        Label("Sao chép nhật ký log (file mới nhất)", systemImage: "doc.on.doc")
+                        Label {
+                            Text("Sao chép nhật ký log (file mới nhất)")
+                        } icon: {
+                            AppGlyph.copy.image(size: 17)
+                        }
                     }
 
                     ShareLink(items: logFileURLs) {

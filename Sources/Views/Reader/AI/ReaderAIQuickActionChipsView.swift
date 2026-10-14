@@ -2,6 +2,9 @@ import SwiftUI
 
 /// Thanh cuộn ngang chứa các chip hành động nhanh cho Reader AI.
 public struct ReaderAIQuickActionChipsView: View {
+    /// Có lệnh AI đang chạy (chat hoặc quét, của bất kỳ truyện nào): cả hàng chip mờ và không bấm được (1.3.524).
+    /// Vẫn hiện để bố cục không giật khi lệnh bắt đầu/kết thúc; hàng chip vẫn cuộn ngang được.
+    public let isDisabled: Bool
     public let onSelectAction: (ActionType) -> Void
 
     public enum ActionType: Sendable {
@@ -12,7 +15,8 @@ public struct ReaderAIQuickActionChipsView: View {
         case translateSmoothly
     }
 
-    public init(onSelectAction: @escaping (ActionType) -> Void) {
+    public init(isDisabled: Bool = false, onSelectAction: @escaping (ActionType) -> Void) {
+        self.isDisabled = isDisabled
         self.onSelectAction = onSelectAction
     }
 
@@ -25,6 +29,8 @@ public struct ReaderAIQuickActionChipsView: View {
                 chipButton(icon: "person.2", title: "Nhân vật & Bối cảnh", type: .explainContextAndCharacters)
                 chipButton(icon: "character.book.closed", title: "Dịch mượt raw", type: .translateSmoothly)
             }
+            .disabled(isDisabled)
+            .opacity(isDisabled ? 0.4 : 1)
             .padding(.horizontal, 12)
             .padding(.vertical, 4)
         }

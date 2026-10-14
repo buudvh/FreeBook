@@ -31,13 +31,14 @@ public final class AIRuntimeCoordinator: ObservableObject {
         }
     }
 
-    @Published public private(set) var isRunning: Bool = false
-    @Published public private(set) var activeTaskTitle: String = "AI đang suy nghĩ"
+    /// Setter `internal` (không `private`) vì luồng quét nằm ở `AIRuntimeCoordinator+BatchExtraction.swift`.
+    @Published public internal(set) var isRunning: Bool = false
+    @Published public internal(set) var activeTaskTitle: String = "AI đang suy nghĩ"
     @Published public var isFullScreenPresented: Bool = false
     @Published public private(set) var activeContext: ActiveContext? = nil
     @Published public var activeSessionId: UUID? = nil
     @Published public var activeSession: AIChatSession? = nil
-    @Published public var batchProgress: (current: Int, total: Int)? = nil
+    @Published public var batchProgress: AINameScanProgress? = nil
     @Published public var batchExtractedNames: [AIExtractedName] = []
     /// `bookId` của Reader đang trên màn hình (`nil` khi không có Reader nào). Là **bookId** chứ không
     /// phải cờ Bool: widget thu nhỏ của truyện A bấm khi đang đọc truyện B phải mở lại AI của **A**,
@@ -45,12 +46,12 @@ public final class AIRuntimeCoordinator: ObservableObject {
     public var activeReaderBookId: String? = nil
 
     private var activeStreamingTask: Task<Void, Never>? = nil
-    private var activeBatchTask: Task<Void, Never>? = nil
+    var activeBatchTask: Task<Void, Never>? = nil
     /// Mã của lần chạy hiện hành (1.3.515). Mọi cập nhật trễ — nhịp chữ của stream, báo tiến độ batch chạy trong
     /// một `Task` mới (không bị huỷ theo) — phải khớp mã này, nếu không thì bỏ: trước đây chúng dựng lại dải batch
     /// và dòng "đang suy nghĩ" sau khi người dùng đã bấm dừng.
     private var streamRunId: UUID?
-    private var batchRunId: UUID?
+    var batchRunId: UUID?
     private var activeSingleTask: Task<Void, Never>? = nil
     private var cancellables = Set<AnyCancellable>()
     private weak var currentPresentedVC: UIViewController? = nil
@@ -176,101 +177,6 @@ public final class AIRuntimeCoordinator: ObservableObject {
                     if let s = self.activeSession { AIChatHistoryStore.shared.saveSession(s, for: bookId) }
                     if !self.isFullScreenPresented {
                         ToastManager.shared.show(message: "AI phản hồi thất bại.", type: .error)
-                    }
-                }
-            }
-        }
-    }
-
-    /// Bắt đầu quét tên riêng các chương đã tải (batch), có thể giới hạn phạm vi và số chương.
-    public func startBatchExtraction(
-        bookId: String,
-        config: AIConfiguration,
-        promptOverride: String? = nil,
-        fromChapterIndex: Int? = nil,
-        limit: Int? = nil,
-        session: AIChatSession? = nil,
-        assistantMsgId: UUID? = nil,
-        onProgress: @escaping (Int, Int, [AIExtractedName]) -> Void,
-        onComplete: @escaping ([AIExtractedName]) -> Void
-    ) {
-        cancelActiveTask()
-        isRunning = true
-        activeTaskTitle = "Đang quét tên riêng..."
-        batchProgress = (0, 1)
-        let runId = UUID()
-        batchRunId = runId
-        batchExtractedNames.removeAll()
-        if let s = session {
-            self.activeSession = s
-            self.activeSessionId = s.id
-        }
-
-        activeBatchTask = Task { [weak self] in
-            do {
-                let results = try await AINameExtractionBatchProcessor.shared.extractNamesFromDownloadedChapters(
-                    bookId: bookId,
-                    config: config,
-                    promptOverride: promptOverride,
-                    fromChapterIndex: fromChapterIndex,
-                    limit: limit
-                ) { current, total, partial in
-                    let decorated = AIBookDataInspector.shared.decorateExtractedNames(names: partial, bookId: bookId)
-                    Task { @MainActor [weak self] in
-                        // `Task.isCancelled` ở đây là của Task MỚI này (không bao giờ bị huỷ) ⇒ phải so mã lần chạy.
-                        guard let self = self, self.batchRunId == runId else { return }
-                        self.batchProgress = (current, total)
-                        self.batchExtractedNames = decorated
-                        self.activeTaskTitle = "Đang quét: Batch \(current)/\(total)"
-                        let text = decorated.map { "\($0.original)=\($0.suggestedMeaning)" }.joined(separator: "\n")
-                        if let mid = assistantMsgId, let idx = self.activeSession?.messages.firstIndex(where: { $0.id == mid }) {
-                            self.activeSession?.messages[idx].content = text
-                            self.activeSession?.messages[idx].isStreaming = true
-                        }
-                        onProgress(current, total, decorated)
-                    }
-                }
-                guard !Task.isCancelled else { return }
-                // Task này kế thừa MainActor; gắn cờ NE/VP đọc Names.txt/VietPhrase.txt và tra từ điển cho cả
-                // danh sách — chạy ngoài main thread như các lượt giữa chừng (ở callback tiến độ).
-                let finalResults = await Task.detached(priority: .userInitiated) {
-                    AIBookDataInspector.shared.decorateExtractedNames(names: results, bookId: bookId)
-                }.value
-                guard !Task.isCancelled else { return }
-
-                await MainActor.run {
-                    guard let self = self else { return }
-                    self.isRunning = false
-                    self.activeBatchTask = nil
-                    // Bắt buộc: `@Published` phát lại giá trị hiện tại cho subscriber mới, nên để
-                    // `batchProgress` khác nil sau khi xong thì mỗi lần màn AI dựng lại, thanh tiến
-                    // trình cũ sống dậy và không còn emission nào tắt nó.
-                    self.batchProgress = nil
-                    self.batchExtractedNames = finalResults
-                    let text = finalResults.map { "\($0.original)=\($0.suggestedMeaning)" }.joined(separator: "\n")
-                    if let mid = assistantMsgId, let idx = self.activeSession?.messages.firstIndex(where: { $0.id == mid }) {
-                        self.activeSession?.messages[idx].content = text.isEmpty ? "Không có name" : text
-                        self.activeSession?.messages[idx].isStreaming = false
-                    }
-                    if let s = self.activeSession { AIChatHistoryStore.shared.saveSession(s, for: bookId) }
-                    onComplete(finalResults)
-                    if !self.isFullScreenPresented {
-                        ToastManager.shared.show(message: "Đã quét xong \(finalResults.count) tên riêng!", type: .success)
-                    }
-                }
-            } catch {
-                await MainActor.run {
-                    guard let self = self else { return }
-                    self.isRunning = false
-                    self.activeBatchTask = nil
-                    self.batchProgress = nil
-                    if let mid = assistantMsgId, let idx = self.activeSession?.messages.firstIndex(where: { $0.id == mid }) {
-                        self.activeSession?.messages[idx].content = "Lỗi quét tên riêng: \(error.localizedDescription)"
-                        self.activeSession?.messages[idx].isStreaming = false
-                    }
-                    if let s = self.activeSession { AIChatHistoryStore.shared.saveSession(s, for: bookId) }
-                    if !self.isFullScreenPresented {
-                        ToastManager.shared.show(message: "Quét tên riêng bị gián đoạn.", type: .error)
                     }
                 }
             }

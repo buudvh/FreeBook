@@ -90,12 +90,12 @@ public struct FloatingSelectionMenu: View {
                     .frame(width: buttonWidth, height: row1Height)
 
                     Button(action: onCopy) {
-                        menuItemContent(icon: "doc.on.doc.fill", label: "Copy")
+                        menuItemContent(glyph: .copy, label: "Copy")
                     }
                     .frame(width: buttonWidth, height: row1Height)
 
                     Button(action: onCopyOriginal) {
-                        menuItemContent(icon: "doc.on.clipboard", label: "Gốc")
+                        menuItemContent(glyph: .originalText, label: "Gốc")
                     }
                     .frame(width: buttonWidth, height: row1Height)
 
@@ -180,10 +180,23 @@ public struct FloatingSelectionMenu: View {
     }
 
     private func menuItemContent(icon: String, label: String) -> some View {
-        VStack(spacing: 4) {
+        menuItemContent(label: label) {
             Image(systemName: icon)
                 .font(.system(size: 15, weight: .semibold))
                 .frame(height: 15)
+        }
+    }
+
+    /// Biến thể dùng icon Lucide (`AppGlyph`) — cùng khung 15pt với SF Symbol ở các ô còn lại.
+    private func menuItemContent(glyph: AppGlyph, label: String) -> some View {
+        menuItemContent(label: label) {
+            glyph.image(size: 15)
+        }
+    }
+
+    private func menuItemContent<Icon: View>(label: String, @ViewBuilder icon: () -> Icon) -> some View {
+        VStack(spacing: 4) {
+            icon()
 
             Text(label)
                 .font(.system(size: 7, weight: .bold))

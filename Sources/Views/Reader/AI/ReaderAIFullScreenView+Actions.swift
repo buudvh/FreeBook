@@ -47,6 +47,9 @@ extension ReaderAIFullScreenView {
             config.activeProfileId = profile.id
         }
         config.selectedModel = selectedModel
+        // Gemini Web + bật "Lưu chat vào lịch sử Gemini" (1.3.524): Gemini tự giữ hội thoại của phiên ⇒ không gom
+        // tóm tắt ngữ cảnh cũ lẫn cửa sổ tin gần nhất vào prompt, kể cả khi phải mở cuộc chat Gemini mới.
+        let geminiKeepsHistory = config.activeProfile.isGeminiWeb && GeminiWebConversationStore.saveToHistory
 
         // 1. Nạp từ điển Name riêng và VP riêng của truyện
         let bookDictContext = AIBookDataInspector.shared.fetchBookDictionaryContext(
@@ -61,7 +64,7 @@ extension ReaderAIFullScreenView {
         let memoryContext = bookMemory.compiledContextText()
 
         // 3. Nạp Tóm tắt ngữ cảnh cũ của session nếu đã compact
-        let summaryContext = (currentSession.contextSummary?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false)
+        let summaryContext = (!geminiKeepsHistory && currentSession.contextSummary?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false)
             ? "\n\n[Tóm tắt ngữ cảnh các lượt trao đổi trước]:\n\(currentSession.contextSummary!)"
             : ""
 
@@ -75,9 +78,12 @@ extension ReaderAIFullScreenView {
             OpenAIChatRequest.Message(role: "system", content: systemInstruction)
         ]
 
-        // 5. Cửa sổ trượt tin nhắn hội thoại (nếu > 12 tin nhắn, gửi 6 tin nhắn gần nhất kèm summary)
+        // 5. Cửa sổ trượt tin nhắn hội thoại (nếu > 12 tin nhắn, gửi 6 tin nhắn gần nhất kèm summary).
+        //    Gemini giữ lịch sử ⇒ chỉ gửi tin hiện tại.
         let messagesToSend = currentSession.messages.filter { $0.id != assistantMsgId }
-        let recentMessages = messagesToSend.count > 6 ? Array(messagesToSend.suffix(6)) : messagesToSend
+        let recentMessages = geminiKeepsHistory
+            ? [userMsg]
+            : (messagesToSend.count > 6 ? Array(messagesToSend.suffix(6)) : messagesToSend)
         for m in recentMessages {
             chatMessages.append(OpenAIChatRequest.Message(role: m.role.rawValue, content: m.content))
         }
@@ -150,6 +156,9 @@ extension ReaderAIFullScreenView {
     }
 
     internal func handleQuickAction(_ type: ReaderAIQuickActionChipsView.ActionType) {
+        // Chip đã mờ và khoá khi có lệnh chạy; chặn thêm ở đây (phòng thủ) — chip "nhiều chương" từng mở sheet bất kể
+        // đang chạy, rồi bắt đầu quét là huỷ lệnh đang chạy.
+        guard !isStreaming, !isBatchExtracting else { return }
         switch type {
         case .summarizeChapter:
             sendUserMessage(promptOverride: "Tóm tắt ngắn gọn các sự kiện và nhân vật chính trong chương này.")
@@ -174,9 +183,11 @@ extension ReaderAIFullScreenView {
     }
 
     internal func startBatchExtraction(promptOverride: String? = nil, fromChapterIndex: Int? = nil, limit: Int? = nil) {
-        guard !isBatchExtracting else { return }
+        // Đang chat stream thì không bắt đầu quét: `AIRuntimeCoordinator.startBatchExtraction` gọi `cancelActiveTask()`
+        // sẽ huỷ ngang câu trả lời đang chạy.
+        guard !isBatchExtracting, !isStreaming else { return }
         isBatchExtracting = true
-        batchProgress = (0, 1)
+        batchProgress = AINameScanProgress()
         batchExtractedNames.removeAll()
 
         // Nhãn phạm vi: giữ nguyên câu cũ khi không giới hạn, thêm số chương khi có giới hạn.
@@ -212,9 +223,11 @@ extension ReaderAIFullScreenView {
             limit: limit,
             session: currentSession,
             assistantMsgId: msgId,
-            onProgress: { [self] (current: Int, total: Int, partial: [AIExtractedName]) in
+            onProgress: { [self] (progress: AINameScanProgress, partial: [AIExtractedName]?) in
                 Task { @MainActor in
-                    self.batchProgress = (current, total)
+                    self.batchProgress = progress
+                    // `nil` = chỉ báo "đang gửi lượt N", danh sách tên chưa đổi ⇒ không vẽ lại tin dài.
+                    guard let partial else { return }
                     self.batchExtractedNames = partial
                     let text = partial.map { "\($0.original)=\($0.suggestedMeaning)" }.joined(separator: "\n")
                     if let idx = self.currentSession.messages.firstIndex(where: { $0.id == msgId }) {

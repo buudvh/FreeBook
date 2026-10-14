@@ -1,9 +1,9 @@
 import UIKit
 
-/// Hình học dùng chung cho các widget nổi (TTS và trình duyệt): kẹp tâm theo trục dọc,
+/// Hình học dùng chung cho các widget nổi (TTS và nút hub nổi): kẹp tâm theo trục dọc,
 /// chọn cạnh gần nhất khi nhả tay và tính tâm X ở trạng thái nghỉ.
 ///
-/// Tách ra để widget trình duyệt tái dùng đúng công thức của TTS widget thay vì
+/// Tách ra để các widget khác tái dùng đúng công thức của TTS widget thay vì
 /// nhân bản; công thức giữ nguyên tuyệt đối so với bản trong TTS widget trước đây.
 enum FloatingWidgetGeometry {
     /// Kẹp tâm Y sao cho widget không vượt ra ngoài vùng hiển thị hợp lệ.

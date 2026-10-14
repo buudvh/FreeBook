@@ -226,7 +226,7 @@ struct ReaderCopyOriginalOverlayView: View {
     private var copyButtonView: some View {
         Button(action: onCommit) {
             HStack {
-                Image(systemName: "doc.on.clipboard")
+                AppGlyph.copy.image(size: 17)
                 Text("Copy")
                     .font(.body)
                     .fontWeight(.bold)

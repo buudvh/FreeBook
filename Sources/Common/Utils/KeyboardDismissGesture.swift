@@ -14,7 +14,7 @@ import UIKit
 ///   `UITextField`), nếu không bấm vào ô đang gõ lại tự tắt bàn phím.
 ///
 /// Chỉ cài lên window ở level `.normal` (mirror cách lọc của `VisibleBrowserTabManager`): window của
-/// TTS widget, widget trình duyệt và toast nằm ở level quanh `.alert` và hit-test passthrough, còn
+/// TTS widget, nút hub nổi và toast nằm ở level quanh `.alert` và hit-test passthrough, còn
 /// bàn phím sống trong window hệ thống riêng nên tap vào bàn phím không bao giờ chạm recognizer này.
 ///
 /// Cài trễ theo `keyboardWillShowNotification` thay vì lúc khởi động: lúc `App.init` chưa có window

@@ -139,7 +139,7 @@ extension VieNeuTTSTestView {
                 Button {
                     UIPasteboard.general.string = text
                 } label: {
-                    Image(systemName: "doc.on.doc")
+                    AppGlyph.copy.image(size: 17)
                 }
                 .accessibilityLabel("Sao chép chữ")
                 .disabled(text.isEmpty)
@@ -147,7 +147,7 @@ extension VieNeuTTSTestView {
                 Button {
                     if let pasted = UIPasteboard.general.string { text = pasted }
                 } label: {
-                    Image(systemName: "doc.on.clipboard")
+                    AppGlyph.paste.image(size: 17)
                 }
                 .accessibilityLabel("Dán chữ")
                 .disabled(!UIPasteboard.general.hasStrings)

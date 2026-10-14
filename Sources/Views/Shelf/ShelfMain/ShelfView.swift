@@ -156,13 +156,19 @@ struct ShelfView: View {
                             .font(.system(size: 17, weight: .semibold))
                             .overlay(alignment: .topTrailing) {
                                 if notificationBadgeCount > 0 {
+                                    // `overlay` chỉ đề xuất đúng khung icon (~20pt) nên "99+" từng bị ép xuống
+                                    // dòng: `fixedSize` giữ một dòng. Neo **mép trái** badge vào mép phải icon
+                                    // (lùi 4pt) để số dài mọc sang phải thay vì che chuông.
                                     Text(notificationBadgeCount > 99 ? "99+" : "\(notificationBadgeCount)")
                                         .font(.system(size: 10, weight: .bold))
+                                        .lineLimit(1)
+                                        .fixedSize()
                                         .foregroundColor(.white)
                                         .padding(.horizontal, 4)
                                         .padding(.vertical, 1)
                                         .background(Color.red, in: Capsule())
-                                        .offset(x: 10, y: -8)
+                                        .alignmentGuide(.trailing) { $0[.leading] + 4 }
+                                        .offset(y: -8)
                                 }
                             }
                     }
@@ -327,20 +333,20 @@ struct ShelfView: View {
                     self.selectedTab = tab
                 }
             }
-            // Widget thông báo nổi (sống ở màn khác) nhờ ShelfView mở Reader hộ: chỉ nơi này giữ
+            // Màn Thông báo mở từ nút hub nổi (sống ở cửa sổ khác) nhờ ShelfView mở Reader hộ: chỉ nơi này giữ
             // `fullScreenCover` của Reader. Payload mang đủ trường của `ShelfReaderRoute`.
             .onReceive(NotificationCenter.default.publisher(for: .openReaderFromNotification)) { notification in
                 guard let info = notification.userInfo,
-                      let bookId = info[NotificationFloatingWidgetWindowManager.bookIdUserInfoKey] as? String,
+                      let bookId = info[FloatingHubWindowManager.bookIdUserInfoKey] as? String,
                       !bookId.isEmpty else { return }
                 self.selectedTab = .shelf
                 self.readerPresentationRoute = ShelfReaderRoute(
                     bookId: bookId,
-                    extensionPackageId: info[NotificationFloatingWidgetWindowManager.extensionPackageIdUserInfoKey] as? String ?? "",
-                    chapterIndex: info[NotificationFloatingWidgetWindowManager.chapterIndexUserInfoKey] as? Int ?? 0,
+                    extensionPackageId: info[FloatingHubWindowManager.extensionPackageIdUserInfoKey] as? String ?? "",
+                    chapterIndex: info[FloatingHubWindowManager.chapterIndexUserInfoKey] as? Int ?? 0,
                     paragraphIndex: nil,
-                    detailUrl: info[NotificationFloatingWidgetWindowManager.detailUrlUserInfoKey] as? String ?? "",
-                    sourceName: info[NotificationFloatingWidgetWindowManager.sourceNameUserInfoKey] as? String ?? ""
+                    detailUrl: info[FloatingHubWindowManager.detailUrlUserInfoKey] as? String ?? "",
+                    sourceName: info[FloatingHubWindowManager.sourceNameUserInfoKey] as? String ?? ""
                 )
             }
             .sheet(item: $selectedBookForTask) { book in

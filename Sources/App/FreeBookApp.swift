@@ -50,7 +50,6 @@ struct AppLaunchRootView: View {
     @Environment(\.modelContext) private var modelContext
     @ObservedObject private var translationManager = TranslationManager.shared
     @StateObject private var ttsPresentation = TTSRootPresentationReader()
-    @StateObject private var browserPresentation = VisibleBrowserPresentationReader()
 
     var body: some View {
         ZStack {
@@ -79,23 +78,17 @@ struct AppLaunchRootView: View {
             ExtensionTransactionCoordinator.shared.repairExtensionPathsAtLaunch(in: modelContext)
             TTSFloatingWidgetWindowManager.shared.modelContainer = modelContext.container
             TTSFloatingWidgetWindowManager.shared.refreshState()
-            BrowserFloatingWidgetWindowManager.shared.refreshState()
-            AIFloatingWidgetWindowManager.shared.refreshState()
-            // Nút thông báo nổi: `modelContainer` là bắt buộc vì màn Thông báo được trình bày từ cửa sổ
-            // riêng của widget, mà cửa sổ đó không có environment của app.
-            NotificationFloatingWidgetWindowManager.shared.modelContainer = modelContext.container
-            NotificationFloatingWidgetWindowManager.shared.refreshState()
+            // Nút hub nổi (AI / trình duyệt / thông báo): `modelContainer` là bắt buộc vì màn Thông báo được
+            // trình bày từ cửa sổ riêng của hub, mà cửa sổ đó không có environment của app. Hub tự nghe các
+            // nguồn của nó; root chỉ còn phải gọi lại khi cổng từ điển mở.
+            FloatingHubWindowManager.shared.modelContainer = modelContext.container
+            FloatingHubWindowManager.shared.refreshState()
         }
         .onChange(of: translationManager.isInitialized) { _, _ in
             TTSFloatingWidgetWindowManager.shared.modelContainer = modelContext.container
             TTSFloatingWidgetWindowManager.shared.refreshState()
-            BrowserFloatingWidgetWindowManager.shared.refreshState()
-            AIFloatingWidgetWindowManager.shared.refreshState()
-            NotificationFloatingWidgetWindowManager.shared.modelContainer = modelContext.container
-            NotificationFloatingWidgetWindowManager.shared.refreshState()
-        }
-        .onChange(of: browserPresentation.snapshot.showReopenButton) { _, _ in
-            BrowserFloatingWidgetWindowManager.shared.refreshState()
+            FloatingHubWindowManager.shared.modelContainer = modelContext.container
+            FloatingHubWindowManager.shared.refreshState()
         }
         .onChange(of: ttsPresentation.snapshot.showFloatingWidget) { _, _ in
             TTSFloatingWidgetWindowManager.shared.modelContainer = modelContext.container

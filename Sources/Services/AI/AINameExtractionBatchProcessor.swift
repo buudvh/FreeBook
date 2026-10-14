@@ -7,26 +7,30 @@ import Foundation
 /// - Gemini Web: gom chương liền nhau tới ~40.000 ký tự/lượt, **không cắt giữa chương** (chỉ cắt khi một chương đơn lẻ
 ///   dài hơn mức đó). Đã thử thật: prompt 15k/40k/80k ký tự chữ Hán đều trả `Tên=Nghĩa` trong 5–9 s. Ít lượt hơn ⇒ ít
 ///   prompt tính vào hạn mức ngày, ít lần nghỉ 2 s.
-/// - Gemini Web + công tắc "Lưu chat vào lịch sử Gemini" bật: cả lần quét là **một** cuộc chat nối tiếp (mở cuộc chat
-///   mới sau mỗi `geminiWebTurnsPerConversation` lượt để ngữ cảnh không phình); tắt thì mỗi lượt là chat tạm độc lập.
+/// - Gemini Web + công tắc "Lưu chat vào lịch sử Gemini" bật (1.3.524): mỗi lượt là một lượt **nối tiếp cuộc chat
+///   Gemini của phiên chat app** (`AIChatSession.id`, lưu trạng thái — cùng cuộc chat với chat thường, không xoay
+///   sang chat mới), lượt nào cũng kèm prompt trích xuất. Tắt thì mỗi lượt là chat tạm độc lập, đủ prompt.
+/// - Mọi lượt gửi đều có nhãn "lượt N/T" trong tin gửi và một dòng log `gửi lượt N/T` để đối chiếu với số tin thật.
 public final class AINameExtractionBatchProcessor: Sendable {
     public static let shared = AINameExtractionBatchProcessor()
 
     private static let apiChaptersPerBatch = 5
     private static let apiCharacterLimit = 15_000
     private static let geminiWebCharacterLimit = 40_000
-    private static let geminiWebTurnsPerConversation = 5
 
     private init() {}
 
     /// Quét tên riêng trên một đoạn văn bản (một chương hoặc một batch).
-    /// `conversationId` khác nil (chỉ Gemini Web) ⇒ gửi như một lượt của cuộc chat Gemini đó, không lưu trạng thái.
+    /// `conversationId` khác nil (chỉ Gemini Web) ⇒ gửi như một lượt nối tiếp cuộc chat Gemini của phiên chat đó (lưu
+    /// trạng thái), ép kèm prompt trích xuất (`forceContext`) — prompt không đổi giữa các lượt nên so băm sẽ bỏ nó từ
+    /// lượt 2. `turnLabel` ("lượt N/T") gắn vào tin gửi.
     public func extractNamesFromText(
         text: String,
         config: AIConfiguration,
         promptOverride: String? = nil,
         characterLimit: Int? = nil,
-        conversationId: UUID? = nil
+        conversationId: UUID? = nil,
+        turnLabel: String? = nil
     ) async throws -> [AIExtractedName] {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return []
@@ -35,9 +39,10 @@ public final class AINameExtractionBatchProcessor: Sendable {
         let systemInstruction = resolveSystemInstruction(config: config, promptOverride: promptOverride)
         let limit = characterLimit ?? (config.activeProfile.isGeminiWeb ? Self.geminiWebCharacterLimit : Self.apiCharacterLimit)
         let truncated = String(text.prefix(limit))
+        let header = turnLabel.map { "Văn bản raw chương truyện (\($0)):" } ?? "Văn bản raw chương truyện:"
         let messages = [
             OpenAIChatRequest.Message(role: "system", content: systemInstruction),
-            OpenAIChatRequest.Message(role: "user", content: "Văn bản raw chương truyện:\n\n\(truncated)")
+            OpenAIChatRequest.Message(role: "user", content: "\(header)\n\n\(truncated)")
         ]
 
         let content: String?
@@ -47,7 +52,8 @@ public final class AINameExtractionBatchProcessor: Sendable {
                     config: config,
                     messages: messages,
                     sessionId: conversationId,
-                    persist: false
+                    persist: true,
+                    forceContext: true
                 )
             } else {
                 let (res, _) = try await GeminiWebClient.shared.sendChat(config: config, messages: messages)
@@ -105,6 +111,11 @@ public final class AINameExtractionBatchProcessor: Sendable {
     /// Quét tên riêng trên các chương đã tải về máy theo batch.
     /// `fromChapterIndex` khác nil thì chỉ quét từ chương đó trở đi (chế độ "từ chương đang đọc").
     /// `limit` khác nil thì chỉ quét `limit` chương đầu tiên của phạm vi đó.
+    /// `sessionId` là id phiên chat app — Gemini Web + bật lưu lịch sử thì quét nối tiếp cuộc chat Gemini của phiên này.
+    ///
+    /// `onProgress` (1.3.524) báo: khi đã biết số chương (đang chuẩn bị), **trước** mỗi lượt (`sendingBatch` = lượt sắp
+    /// gửi, tên = `nil` vì chưa đổi) và sau mỗi lượt (danh sách tên gộp + số lượt lỗi). Trả về kèm tiến độ cuối để
+    /// coordinator biết số lượt lỗi.
     ///
     /// Bị huỷ (người dùng bấm dừng) ⇒ thoát ngay, **không** báo tiến độ nữa: lỗi huỷ của request đang bay từng bị
     /// coi là "lỗi lẻ của một nhóm", vòng quét bỏ qua rồi gọi `onProgress` ⇒ dải batch sống lại, phải bấm dừng lần
@@ -115,18 +126,22 @@ public final class AINameExtractionBatchProcessor: Sendable {
         promptOverride: String? = nil,
         fromChapterIndex: Int? = nil,
         limit: Int? = nil,
-        onProgress: @escaping @Sendable (Int, Int, [AIExtractedName]) -> Void
-    ) async throws -> [AIExtractedName] {
+        sessionId: UUID? = nil,
+        onProgress: @escaping @Sendable (AINameScanProgress, [AIExtractedName]?) -> Void
+    ) async throws -> (names: [AIExtractedName], progress: AINameScanProgress) {
+        var progress = AINameScanProgress()
         let downloaded = await AIBookDataInspector.shared.fetchDownloadedChapters(
             bookId: bookId,
             fromChapterIndex: fromChapterIndex,
             limit: limit
         )
-        guard !downloaded.isEmpty else { return [] }
+        guard !downloaded.isEmpty, !Task.isCancelled else { return ([], progress) }
+        progress.chapterCount = downloaded.count
+        onProgress(progress, nil)
 
         var texts: [String] = []
         for chapter in downloaded {
-            if Task.isCancelled { return [] }
+            if Task.isCancelled { return ([], progress) }
             if let raw = await AIBookDataInspector.shared.readRawChapterContent(bookId: bookId, snapshot: chapter),
                !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 texts.append(raw)
@@ -134,24 +149,29 @@ public final class AINameExtractionBatchProcessor: Sendable {
         }
         let isGeminiWeb = config.activeProfile.isGeminiWeb
         let batches = Self.makeBatches(texts, isGeminiWeb: isGeminiWeb)
-        let useConversation = isGeminiWeb && GeminiWebConversationStore.saveToHistory
-        var conversationId = UUID()
-        AppLogger.shared.log("🤖 [AI] Quét tên riêng: \(texts.count) chương → \(batches.count) lượt (GeminiWeb=\(isGeminiWeb), nối tiếp=\(useConversation))")
+        // Bật lưu lịch sử ⇒ đúng cuộc chat Gemini của phiên chat app (cùng khoá với chat thường), một chat cho cả lần
+        // quét. Tắt (hoặc không có phiên) ⇒ mỗi lượt là chat tạm độc lập.
+        let conversationId = (isGeminiWeb && GeminiWebConversationStore.saveToHistory) ? sessionId : nil
+        let characterLimit = isGeminiWeb ? Self.geminiWebCharacterLimit : Self.apiCharacterLimit
+        progress.totalBatches = batches.count
+        AppLogger.shared.log("🤖 [AI] Quét tên riêng: \(texts.count) chương → \(batches.count) lượt (GeminiWeb=\(isGeminiWeb), chat phiên=\(conversationId != nil))")
 
         var aggregatedNames: [String: AIExtractedName] = [:]
 
         for (index, combinedText) in batches.enumerated() {
             if Task.isCancelled { break }
-            if useConversation, index > 0, index % Self.geminiWebTurnsPerConversation == 0 {
-                conversationId = UUID()
-            }
+            let turnLabel = "lượt \(index + 1)/\(batches.count)"
+            progress.sendingBatch = index + 1
+            onProgress(progress, nil)
+            AppLogger.shared.log("🤖 [AI] Quét tên riêng: gửi \(turnLabel) (\(min(combinedText.count, characterLimit)) ký tự, chat phiên=\(conversationId != nil))")
 
             do {
                 let batchResults = try await extractNamesFromText(
                     text: combinedText,
                     config: config,
                     promptOverride: promptOverride,
-                    conversationId: useConversation ? conversationId : nil
+                    conversationId: conversationId,
+                    turnLabel: turnLabel
                 )
                 for item in batchResults {
                     let orig = item.original.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -172,13 +192,14 @@ public final class AINameExtractionBatchProcessor: Sendable {
                 ])
             } catch {
                 if Task.isCancelled || error is CancellationError { break }
-                // Lỗi lẻ của một lượt (mạng, model trả sai định dạng…): bỏ qua lượt đó và quét tiếp, có log.
+                // Lỗi lẻ của một lượt (mạng, model trả sai định dạng…): bỏ qua lượt đó và quét tiếp, có log và có đếm.
+                progress.failedBatches += 1
                 AppLogger.shared.log("❌ 🤖 [AI] Quét tên riêng lượt \(index + 1)/\(batches.count) lỗi, bỏ qua: \(error.localizedDescription)")
             }
 
             if Task.isCancelled { break }
             let currentList = Array(aggregatedNames.values).sorted(by: { $0.occurrenceCount > $1.occurrenceCount })
-            onProgress(index + 1, batches.count, currentList)
+            onProgress(progress, currentList)
 
             // Gemini Web: nghỉ giữa các lượt để không bị coi là tự động hoá dồn dập (1037 hết hạn mức, 1060 chặn IP).
             if isGeminiWeb, index < batches.count - 1 {
@@ -186,7 +207,8 @@ public final class AINameExtractionBatchProcessor: Sendable {
             }
         }
 
-        return Array(aggregatedNames.values).sorted(by: { $0.occurrenceCount > $1.occurrenceCount })
+        let names = Array(aggregatedNames.values).sorted(by: { $0.occurrenceCount > $1.occurrenceCount })
+        return (names, progress)
     }
 
     /// Bóc tách danh sách tên riêng từ phản hồi AI dạng văn bản thuần, mỗi dòng đúng dạng `Tên gốc=Nghĩa`.

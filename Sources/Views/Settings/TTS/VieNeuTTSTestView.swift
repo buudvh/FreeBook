@@ -99,7 +99,11 @@ struct VieNeuTTSTestView: View {
                     UIPasteboard.general.string = diagnosticText
                     didCopy = true
                 } label: {
-                    Label("Sao chép kết quả", systemImage: "doc.on.doc")
+                    Label {
+                        Text("Sao chép kết quả")
+                    } icon: {
+                        AppGlyph.copy.image(size: 17)
+                    }
                 }
                 if didCopy {
                     Text("Đã sao chép toàn bộ khối chẩn đoán vào bộ nhớ tạm.")

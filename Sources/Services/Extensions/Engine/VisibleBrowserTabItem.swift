@@ -9,7 +9,7 @@ public struct VisibleBrowserTabItem: Identifiable {
     public var displayTitle: String
     public let loader: VisibleWebViewLoader
     /// Thời điểm tab được tạo, dùng để biết tab đã mở đủ lâu (≥ 10s) cho nhịp nháy
-    /// của widget trình duyệt khi đang thu nhỏ.
+    /// của nút hub nổi (mục Trình duyệt) khi đang thu nhỏ.
     public let createdAt: Date
 
     public init(

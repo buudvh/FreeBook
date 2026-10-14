@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.494] - 2026-10-09
+
+### perf(js): bo stringify ket qua cho chan doan khong ai doc, gom 34 luot quet DOM, trinh duyet an ton trong lenh huy
+
+Người dùng: *"đừng làm refactor nữa, tôi muốn bạn tra lại code và xem chỗ nào ảnh hưởng hiệu năng app, chỉnh sửa lại cho app mượt hơn, hiệu năng tốt hơn"*. Nguồn: rà toàn app 7 mảng + 2 mảng tác vụ định kỳ, mỗi phát hiện qua một vòng phản biện đối kháng; nhóm này sửa xong lại qua một vòng phản biện nữa (lỗi tìm được đã sửa).
+
+- **Bỏ `JSON.stringify` thừa**: mỗi lời gọi extension (mỗi chương, mỗi nguồn khi tìm, detail/toc/page) stringify **toàn bộ** kết quả (cả chương, cả mục lục) chỉ để ghi vào `AppDiagnostics.lastCall` — grep: không nơi nào đọc. Bỏ 8 chỗ; giá trị trả về không đổi. `ExtensionManager.swift` 1018 → 1003.
+- **`JSDom.cleanAds`**: 34 selector quảng cáo đều là dạng `tag.class` / `tag[attr*=…]` (không `:has`, `:nth-*`, tổ hợp anh em…) ⇒ gom thành **một** lượt `select` thay vì 34 lượt duyệt cả cây ở mỗi `Html.parse`/`res.html()`; regex của `fixUnclosedATags` thành `static let`. `JSDom.swift` 583 → 580 (vẫn trên baseline 555 — vi phạm cũ, không tăng).
+- **`Engine.Browser` tôn trọng huỷ**: script đã bị huỷ không tạo `WKWebView` mới nữa (`_nativeBrowserNew`/`…Visible` trả về ngay); khi huỷ, lượt chờ đang bay của trình duyệt **ẩn** kết thúc ngay ('' / false — như hết giờ) thay vì chờ tới timeout. Trình duyệt hiện hình không đổi; executor dài hạn của `ExtTTSRuntime` không ảnh hưởng (`beginExecution` đặt lại cờ).
+- Chưa làm (cần đo trước): lời gọi JS đồng bộ chiếm cooperative pool (log 84 có `saturated=1` nhưng chưa thấy hại TTS).
+- **Kiểm chứng**: `check_architecture.py` chỉ còn 2 vi phạm nền cũ (`JSDom`, `TTSManager`), 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận biên dịch.
+
 ## [1.3.493] - 2026-10-09
 
 ### perf(thu vien): tim chuong khong dich lai moi phim, tim tat ca nguon huy duoc, Kham pha khong nap 2 lan

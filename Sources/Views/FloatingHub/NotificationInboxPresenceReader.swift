@@ -1,22 +1,23 @@
 import Combine
 import Foundation
 
-/// Ảnh chụp trạng thái mà widget thông báo nổi cần để quyết định **có hiện hay không**: số thông báo chưa
-/// đọc và có tác vụ nền nào đang chạy.
+/// Nguồn của mục **"Thông báo"** trên nút hub nổi (`FloatingHubPresentationReader`): số thông báo chưa đọc
+/// và có tác vụ nền nào đang chạy. Trước 1.3.524 lớp này là presentation reader của widget thông báo nổi
+/// riêng; logic giữ nguyên, chỉ đổi tên theo chủ mới.
 ///
 /// ## Vì sao phải có lớp đọc riêng
-/// Widget là một `UIWindow` sống suốt phiên. Nếu cửa sổ đó observe thẳng `NotificationInboxManager`,
+/// Hub là một `UIWindow` sống suốt phiên. Nếu cửa sổ đó observe thẳng `NotificationInboxManager`,
 /// `NewChapterInboxManager`, `BackupCoordinator` và `ModelDownloadCenter` thì **mỗi nhịp tiến độ** của một
-/// lượt khôi phục hay tải model đều kéo cả cây view của widget vẽ lại — trong khi thứ duy nhất widget quan
+/// lượt khôi phục hay tải model đều kéo cả cây view của hub vẽ lại — trong khi thứ duy nhất hub quan
 /// tâm chỉ đổi vài lần mỗi lượt. Lớp này gộp bốn nguồn thành **một** snapshot và chỉ phát khi giá trị
 /// **thật sự** đổi (cùng khuôn `VisibleBrowserPresentationReader`, `TTSPlayStateReader`).
 ///
-/// ## Quy tắc hiện nút (người dùng chốt 2026-10-07)
-/// Hiện khi **có thông báo chưa đọc** *hoặc* **đang có tác vụ chạy** (sao lưu / khôi phục / tải model).
-/// Vế thứ hai có lý do rõ ràng: màn Thông báo là **nơi duy nhất** xem được thanh tiến độ, nên nếu nút chỉ
-/// hiện theo số chưa đọc thì một lượt khôi phục dài chạy nền sẽ không có lối vào nào.
+/// ## Quy tắc có mục (người dùng chốt 2026-10-07)
+/// Có mục khi **có thông báo chưa đọc** *hoặc* **đang có tác vụ chạy** (sao lưu / khôi phục / tải model).
+/// Vế thứ hai có lý do rõ ràng: màn Thông báo là **nơi duy nhất** xem được thanh tiến độ, nên nếu mục chỉ
+/// có theo số chưa đọc thì một lượt khôi phục dài chạy nền sẽ không có lối vào nào.
 @MainActor
-final class NotificationFloatingWidgetPresentationReader: ObservableObject {
+final class NotificationInboxPresenceReader: ObservableObject {
     struct Snapshot: Equatable {
         var unreadCount = 0
         var hasRunningTask = false

@@ -16,7 +16,7 @@ public struct ReaderAIFullScreenView: View {
     @State internal var streamingTask: Task<Void, Never>? = nil
 
     @State internal var isBatchExtracting: Bool = false
-    @State internal var batchProgress: (current: Int, total: Int)? = nil
+    @State internal var batchProgress: AINameScanProgress? = nil
     @State internal var batchExtractionTask: Task<Void, Never>? = nil
     @State internal var batchExtractedNames: [AIExtractedName] = []
 
@@ -66,28 +66,11 @@ public struct ReaderAIFullScreenView: View {
             VStack(spacing: 0) {
                 // Thanh tiến trình khi đang quét toàn bộ chương đã tải
                 if isBatchExtracting, let progress = batchProgress {
-                    HStack(spacing: 10) {
-                        ProgressView()
-                            .controlSize(.small)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Đang quét tên riêng: Batch \(progress.current)/\(progress.total)...")
-                                .font(.caption)
-                                .fontWeight(.semibold)
-                            Text("Đã tìm thấy \(batchExtractedNames.count) tên riêng")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
-                        Spacer()
-                        Button("Dừng") {
-                            cancelBatchExtraction()
-                        }
-                        .font(.caption)
-                        .buttonStyle(.bordered)
-                        .tint(.red)
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(Color.purple.opacity(0.12))
+                    ReaderAIBatchProgressBannerView(
+                        progress: progress,
+                        foundCount: batchExtractedNames.count,
+                        onStop: { cancelBatchExtraction() }
+                    )
                 }
 
                 // Vùng nội dung tin nhắn chat
@@ -159,8 +142,8 @@ public struct ReaderAIFullScreenView: View {
 
                 Divider()
 
-                // Thanh gợi ý thao tác nhanh
-                ReaderAIQuickActionChipsView { actionType in
+                // Thanh gợi ý thao tác nhanh — mờ và khoá khi có lệnh AI đang chạy (chat hoặc quét)
+                ReaderAIQuickActionChipsView(isDisabled: isStreaming || isBatchExtracting) { actionType in
                     handleQuickAction(actionType)
                 }
 
@@ -327,7 +310,7 @@ public struct ReaderAIFullScreenView: View {
                         Button {
                             UIPasteboard.general.string = message.content
                         } label: {
-                            Label("Sao chép tin nhắn", systemImage: "doc.on.doc")
+                            Label("Sao chép tin nhắn", image: AppGlyph.copy.assetName)
                         }
 
                         if ReaderAINameReviewSheet.hasDictionaryEntries(in: message.content) {
@@ -352,7 +335,7 @@ public struct ReaderAIFullScreenView: View {
                                 Button {
                                     UIPasteboard.general.string = message.content
                                 } label: {
-                                    Label("Sao chép tin nhắn", systemImage: "doc.on.doc")
+                                    Label("Sao chép tin nhắn", image: AppGlyph.copy.assetName)
                                 }
 
                                 if ReaderAINameReviewSheet.hasDictionaryEntries(in: message.content) {

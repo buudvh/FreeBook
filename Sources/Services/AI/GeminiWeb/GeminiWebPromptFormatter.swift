@@ -2,10 +2,11 @@ import Foundation
 
 /// Ghép `[OpenAIChatRequest.Message]` thành **một** prompt cho Gemini Web.
 ///
-/// Gemini Web không có vai trò `system`, và app không giữ cid/rid của hội thoại web — mỗi lượt là
-/// một temporary chat mới (`GeminiWebRequestBuilder`, ô `[45]`). System prompt cùng cửa sổ 6 tin gần
-/// nhất mà `ReaderAIFullScreenView+Actions.sendUserMessage` đã chọn vì vậy được viết lại thành văn
-/// bản có nhãn; model được dặn chỉ trả lời lượt cuối.
+/// Gemini Web không có vai trò `system` nên system prompt và các lượt được viết lại thành văn bản có nhãn; model
+/// được dặn chỉ trả lời lượt cuối. Từ 1.3.514 app giữ cid/rid theo phiên chat (`GeminiWebClient+Conversation`):
+/// `buildPrompt` chỉ dùng khi mở cuộc chat Gemini mới, lượt nối tiếp dùng `buildContinuationPrompt`.
+/// `ReaderAIFullScreenView+Actions.sendUserMessage` gửi kèm cửa sổ 6 tin gần nhất khi tắt "Lưu chat vào lịch sử
+/// Gemini"; bật thì chỉ gửi [system, tin hiện tại] (1.3.524) nên mục "Lịch sử trao đổi" trống.
 enum GeminiWebPromptFormatter {
     static func buildPrompt(from messages: [OpenAIChatRequest.Message]) -> String {
         var systemParts: [String] = []

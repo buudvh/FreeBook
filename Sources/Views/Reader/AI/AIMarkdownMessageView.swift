@@ -92,7 +92,11 @@ public struct AIMarkdownMessageView: View {
                         }
                     } label: {
                         HStack(spacing: 4) {
-                            Image(systemName: copiedBlockIndex == index ? "checkmark" : "doc.on.doc")
+                            if copiedBlockIndex == index {
+                                Image(systemName: "checkmark")
+                            } else {
+                                AppGlyph.copy.image(size: 12)
+                            }
                             Text(copiedBlockIndex == index ? "Đã chép" : "Chép")
                         }
                         .font(.caption2.bold())

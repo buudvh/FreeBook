@@ -62,13 +62,13 @@ struct MainTabView: View {
             ToastManager.shared.show(message: notice.message, type: notice.isError ? .error : .success)
             ModelDownloadCenter.shared.clearNotice()
         }
-        // Widget thông báo nổi phải biết tab đang chọn để tự ẩn ở tab Kệ Sách (tab đó đã có nút chuông ở
-        // toolbar). `selectedTab` là `@State` cục bộ nên không ai đọc được — phát ra ngoài bằng notification.
+        // Mục Thông báo của nút hub nổi phải biết tab đang chọn để vắng mặt ở tab Kệ Sách (tab đó đã có nút
+        // chuông ở toolbar). `selectedTab` là `@State` cục bộ nên không ai đọc được — phát ra ngoài bằng notification.
         .onChange(of: selectedTab) { _, index in
             NotificationCenter.default.post(
                 name: .appTabDidChange,
                 object: nil,
-                userInfo: [NotificationFloatingWidgetWindowManager.tabIndexUserInfoKey: index]
+                userInfo: [FloatingHubWindowManager.tabIndexUserInfoKey: index]
             )
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openCurrentlyPlayingReader"))) { _ in

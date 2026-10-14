@@ -54,7 +54,7 @@ struct QuickTranslationRuleIssueSheet: View {
                         UIPasteboard.general.string = clipboardText()
                         ToastManager.shared.show(message: "Đã copy danh sách lỗi.", type: .info)
                     } label: {
-                        Image(systemName: "doc.on.doc")
+                        AppGlyph.copy.image(size: 17)
                     }
                     .disabled(issues.isEmpty)
                 }

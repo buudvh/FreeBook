@@ -61,7 +61,7 @@ struct ExtensionDebugServerView: View {
                         Button {
                             UIPasteboard.general.string = endpoint
                         } label: {
-                            Image(systemName: "doc.on.doc")
+                            AppGlyph.copy.image(size: 17)
                         }
                         .buttonStyle(.borderless)
                     }

@@ -147,8 +147,7 @@ extension AISettingsView {
             Button {
                 UIPasteboard.general.string = text.wrappedValue
             } label: {
-                Image(systemName: "doc.on.doc")
-                    .font(.caption)
+                AppGlyph.copy.image(size: 13)
                     .frame(width: 28, height: 26)
                     .background(Color.secondary.opacity(0.12))
                     .cornerRadius(5)
@@ -160,8 +159,7 @@ extension AISettingsView {
                 appendClipboard(to: text)
                 onPaste?()
             } label: {
-                Image(systemName: "doc.on.clipboard")
-                    .font(.caption)
+                AppGlyph.paste.image(size: 13)
                     .frame(width: 28, height: 26)
                     .background(Color.accentColor.opacity(0.15))
                     .foregroundColor(.accentColor)

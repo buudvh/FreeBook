@@ -356,9 +356,7 @@ struct ReaderDefinitionOverlayView: View {
             }
 
             Button(action: pasteFromClipboard) {
-                Image(systemName: "doc.on.clipboard")
-                    .font(.body)
-                    .fontWeight(.medium)
+                AppGlyph.paste.image(size: 17)
                     .foregroundColor(.white)
                     .padding(8)
                     .background(Color.white.opacity(0.12))

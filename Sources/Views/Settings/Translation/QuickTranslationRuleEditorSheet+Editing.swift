@@ -210,8 +210,7 @@ extension QuickTranslationRuleEditorSheet {
                     }
 
                     Button(action: copyPatternToClipboard) {
-                        Image(systemName: "doc.on.doc")
-                            .font(.system(size: 13))
+                        AppGlyph.copy.image(size: 13)
                             .foregroundColor(.white)
                             .frame(width: 28, height: 28)
                             .background(Color.white.opacity(0.12))
@@ -224,8 +223,7 @@ extension QuickTranslationRuleEditorSheet {
                     .accessibilityLabel("Sao chép mẫu")
 
                     Button(action: pastePatternFromClipboard) {
-                        Image(systemName: "doc.on.clipboard")
-                            .font(.system(size: 13))
+                        AppGlyph.paste.image(size: 13)
                             .foregroundColor(.white)
                             .frame(width: 28, height: 28)
                             .background(Color.white.opacity(0.12))
@@ -306,8 +304,7 @@ extension QuickTranslationRuleEditorSheet {
                     }
 
                     Button(action: copyReplacementToClipboard) {
-                        Image(systemName: "doc.on.doc")
-                            .font(.system(size: 13))
+                        AppGlyph.copy.image(size: 13)
                             .foregroundColor(.white)
                             .frame(width: 28, height: 28)
                             .background(Color.white.opacity(0.12))
@@ -320,8 +317,7 @@ extension QuickTranslationRuleEditorSheet {
                     .accessibilityLabel("Sao chép bản dịch")
 
                     Button(action: pasteReplacementFromClipboard) {
-                        Image(systemName: "doc.on.clipboard")
-                            .font(.system(size: 13))
+                        AppGlyph.paste.image(size: 13)
                             .foregroundColor(.white)
                             .frame(width: 28, height: 28)
                             .background(Color.white.opacity(0.12))

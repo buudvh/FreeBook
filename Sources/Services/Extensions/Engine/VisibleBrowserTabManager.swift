@@ -250,10 +250,10 @@ public final class VisibleBrowserTabManager: NSObject, UIAdaptivePresentationCon
 
     /// Tìm view controller trên cùng để present container.
     ///
-    /// Chỉ nhận window ở level `.normal`: TTS widget và widget trình duyệt sống trong
+    /// Chỉ nhận window ở level `.normal`: TTS widget và nút hub nổi sống trong
     /// `UIWindow` riêng ở level `alert - 1` / `alert - 2`. Nếu present sheet lên window
-    /// widget thì `notifyStateChanged()` ngay sau đó sẽ ẩn chính window đó (widget không
-    /// còn điều kiện hiển thị vì `isHidden == false`), kéo theo sheet vừa present cũng
+    /// của hub thì `notifyStateChanged()` ngay sau đó có thể ẩn chính window đó (mục Trình
+    /// duyệt không còn điều kiện vì `isHidden == false`), kéo theo sheet vừa present cũng
     /// biến mất — đúng triệu chứng "bấm widget thì widget mất mà trình duyệt không mở".
     private func findTopViewController() -> UIViewController? {
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }

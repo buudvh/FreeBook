@@ -8,15 +8,19 @@ import Foundation
 /// - Mở cuộc chat mới khi: chưa có, đổi model (Google trả 1050 nếu đổi giữa chừng), đổi công tắc lưu lịch sử.
 /// - Lượt nối tiếp bị Google từ chối trước khi có chữ nào (vd. cuộc chat đã xoá trên web) ⇒ mở lại cuộc chat mới
 ///   với đủ ngữ cảnh, đúng một lần. Lỗi tài khoản/hạn mức thì không thử lại.
-/// - Chỉ chat trong Reader đi đường này; quét tên riêng và "Kiểm tra kết nối" vẫn là chat tạm, không nối tiếp.
+/// - Đi đường này: chat trong Reader, và quét tên riêng nhiều chương khi bật "Lưu chat vào lịch sử Gemini" (1.3.524 —
+///   nối tiếp **đúng** cuộc chat của phiên chat app, không mở cuộc chat riêng). "Kiểm tra kết nối" vẫn là chat tạm.
 extension GeminiWebClient {
-    /// `persist == false` (quét tên riêng): chỉ giữ trạng thái trong RAM, không ghi `GeminiWebConversationStore` —
-    /// các cuộc chat của một lần quét không được đẩy trạng thái chat thật của người dùng ra khỏi store.
+    /// `persist == false`: chỉ giữ trạng thái trong RAM, không ghi `GeminiWebConversationStore` (từ 1.3.524 không còn
+    /// caller nào — quét tên riêng ghi chung trạng thái với chat của phiên).
+    /// `forceContext == true`: lượt nối tiếp luôn kèm khối ngữ cảnh hệ thống dù băm không đổi. Quét tên riêng cần cờ
+    /// này: prompt trích xuất giống hệt giữa các lượt nên so băm sẽ bỏ nó từ lượt 2, Gemini chỉ nhận raw (lỗi thật).
     public func sendConversationStreaming(
         config: AIConfiguration,
         messages: [OpenAIChatRequest.Message],
         sessionId: UUID,
-        persist: Bool = true
+        persist: Bool = true,
+        forceContext: Bool = false
     ) -> AsyncThrowingStream<String, Error> {
         let modelName = config.selectedModel
         return AsyncThrowingStream { continuation in
@@ -30,7 +34,8 @@ extension GeminiWebClient {
                         messages: messages,
                         modelName: modelName,
                         sessionId: sessionId,
-                        persist: persist
+                        persist: persist,
+                        forceContext: forceContext
                     ) {
                         continuation.yield($0)
                     }
@@ -48,10 +53,17 @@ extension GeminiWebClient {
         config: AIConfiguration,
         messages: [OpenAIChatRequest.Message],
         sessionId: UUID,
-        persist: Bool
+        persist: Bool,
+        forceContext: Bool = false
     ) async throws -> String {
         var text = ""
-        for try await delta in sendConversationStreaming(config: config, messages: messages, sessionId: sessionId, persist: persist) {
+        for try await delta in sendConversationStreaming(
+            config: config,
+            messages: messages,
+            sessionId: sessionId,
+            persist: persist,
+            forceContext: forceContext
+        ) {
             text += delta
         }
         return text
@@ -62,6 +74,7 @@ extension GeminiWebClient {
         modelName: String,
         sessionId: UUID,
         persist: Bool,
+        forceContext: Bool,
         onDelta: @escaping @Sendable (String) -> Void
     ) async throws {
         let saveToHistory = GeminiWebConversationStore.saveToHistory
@@ -73,7 +86,9 @@ extension GeminiWebClient {
         } ?? false
 
         if canContinue, let previous {
-            let contextUpdate = previous.contextFingerprint == fingerprint ? nil : systemText
+            // Băm vẫn cập nhật theo system của lượt này ⇒ chat thường kế tiếp sau lượt quét thấy lệch và tự gửi lại
+            // ngữ cảnh chương.
+            let contextUpdate = (forceContext || previous.contextFingerprint != fingerprint) ? systemText : nil
             let prompt = GeminiWebPromptFormatter.buildContinuationPrompt(from: messages, contextUpdate: contextUpdate)
             let emitted = DeltaFlag()
             do {
