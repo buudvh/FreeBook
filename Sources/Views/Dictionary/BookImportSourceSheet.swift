@@ -10,7 +10,6 @@ struct BookImportSourceSheet: View {
     let excludedBookId: String?
     let onConfirm: (Book, Bool) -> Void
 
-    @Query private var allExtensions: [Extension]
     @State private var books: [Book] = []
     @State private var pendingSource: Book? = nil
     @State private var showingModeDialog = false
@@ -44,7 +43,8 @@ struct BookImportSourceSheet: View {
                         pendingSource = book
                         showingModeDialog = true
                     } label: {
-                        let ext = allExtensions.first(where: { $0.packageId == book.extensionPackageId })
+                        // `catalog` gồm cả nguồn chưa cài — vẫn lấy được icon từ registry.
+                        let ext = ExtensionLibraryRepository.shared.catalogExtension(packageId: book.extensionPackageId)
                         BookListItemView(
                             item: book,
                             showChapter: false,

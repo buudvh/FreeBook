@@ -1,5 +1,4 @@
 import SwiftUI
-import SwiftData
 
 /// Struct định danh cho item-based fullScreenCover mở trình duyệt bypass
 struct ExtensionBrowserTarget: Identifiable {
@@ -18,27 +17,18 @@ private struct DiscoveryDetailRoute: Identifiable, Hashable {
 }
 
 struct DiscoveryView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query private var allExtensions: [Extension]
-    
     // Nhớ Extension và Home tab cuối cùng đã xem
     @AppStorage("lastSelectedExtensionId") private var lastSelectedExtensionId: String = ""
     @AppStorage("lastSelectedCategoryId") private var lastSelectedCategoryId: String = ""
-    
+
+    /// Tiện ích truyện đã cài, thứ tự ghim → vừa dùng → A-Z (`ExtensionSortPolicy`). Đọc repository
+    /// `@Observable` trong `body` ⇒ tự vẽ lại khi cài/gỡ/ghim/đánh dấu đã dùng.
     private var activeExtensions: [Extension] {
-        allExtensions
-            .filter {
-                !$0.localPath.isEmpty
-                    && $0.isEnabled
-                    && ($0.type == ExtensionType.novel || $0.type == ExtensionType.chineseNovel)
+        ExtensionSortPolicy.sorted(
+            ExtensionLibraryRepository.shared.installed.filter {
+                $0.type == ExtensionType.novel || $0.type == ExtensionType.chineseNovel
             }
-            .sorted { ext1, ext2 in
-                // Nguồn được ghim lên đầu, sau đó sắp xếp theo A-Z
-                if ext1.isPinned != ext2.isPinned {
-                    return ext1.isPinned && !ext2.isPinned
-                }
-                return ext1.name.localizedCaseInsensitiveCompare(ext2.name) == .orderedAscending
-            }
+        )
     }
     
     @State private var selectedExtensionId: String = ""
@@ -420,7 +410,6 @@ struct DiscoveryView: View {
                     activeExtensions: activeExtensions,
                     selectedExtensionId: $selectedExtensionId,
                     extensionSearchQuery: $extensionSearchQuery,
-                    modelContext: modelContext,
                     onImport: { detailUrl, packageId, sourceName in
                         importedBookId = BookIdUtils.make(extensionPackageId: packageId, detailUrl: detailUrl)
                         importedExtensionPackageId = packageId
@@ -765,7 +754,6 @@ struct ExtensionSelectorView: View {
     let activeExtensions: [Extension]
     @Binding var selectedExtensionId: String
     @Binding var extensionSearchQuery: String
-    let modelContext: ModelContext
     var onImport: ((_ detailUrl: String, _ extensionPackageId: String, _ sourceName: String) -> Void)? = nil
     
     @State private var configExtension: Extension? = nil
@@ -782,17 +770,14 @@ struct ExtensionSelectorView: View {
             }
         }
         
-        // Đưa phần mở rộng đang chọn lên đầu danh sách
+        // Đưa phần mở rộng đang chọn lên đầu danh sách, phần còn lại ghim → vừa dùng → A-Z
         return baseList.sorted { ext1, ext2 in
             let isSel1 = ext1.packageId == selectedExtensionId
             let isSel2 = ext2.packageId == selectedExtensionId
             if isSel1 != isSel2 {
                 return isSel1
             }
-            if ext1.isPinned != ext2.isPinned {
-                return ext1.isPinned && !ext2.isPinned
-            }
-            return ext1.name.localizedCaseInsensitiveCompare(ext2.name) == .orderedAscending
+            return ExtensionSortPolicy.areInIncreasingOrder(ext1, ext2)
         }
     }
     
@@ -884,6 +869,8 @@ struct ExtensionSelectorView: View {
                     .contentShape(Rectangle())
                     .onTapGesture {
                         selectedExtensionId = ext.packageId
+                        // Chọn nguồn = duyệt chủ động ⇒ lên đầu nhóm "vừa dùng" (ghi file gom ~3 s).
+                        ExtensionTransactionCoordinator.shared.markUsed(packageId: ext.packageId)
                         dismiss()
                     }
                     .listRowBackground(isSelected ? Color.white.opacity(0.1) : Color(.systemBackground))
@@ -917,7 +904,7 @@ struct ExtensionSelectorView: View {
     }
     
     private func togglePin(_ ext: Extension) {
-        let res = ExtensionTransactionCoordinator.shared.togglePinned(packageId: ext.packageId, in: modelContext)
+        let res = ExtensionTransactionCoordinator.shared.togglePinned(packageId: ext.packageId)
         if case .failure(let err) = res {
             AppLogger.shared.log("❌ [DiscoveryView] Lỗi ghim tiện ích: \(err.localizedDescription)")
         }

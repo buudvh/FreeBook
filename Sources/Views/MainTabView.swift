@@ -118,6 +118,9 @@ struct MainTabView: View {
             guard phase == .inactive || phase == .background else { return }
             if phase == .background { FileDescriptorCensus.record(event: "background") }
             TTSManager.shared.checkpointForBackground()
+            // Index tiện ích (`lastUsedAt` gom ~3 s) và localStorage của JS (gom ~2 s): ghi ngay, đồng bộ.
+            ExtensionLibraryRepository.shared.flush()
+            ExtensionLocalStorageStore.shared.flush()
             let backgroundSession = BackgroundTaskSession.begin(name: "Flush reading progress")
             Task(priority: .high) {
                 try? await ReadingProgressStore.shared.flushAll()

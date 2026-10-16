@@ -18,7 +18,8 @@ struct ShelfSearchView: View {
     @Environment(\.modelContext) var modelContext
 
     @Query(sort: \Book.lastReadDate, order: .reverse) private var allBooks: [Book]
-    @Query var allExtensions: [Extension]
+    /// `catalog` (gồm cả nguồn chưa cài) như `@Query` cũ; `ShelfSearchView+Actions.swift` dùng tới.
+    var allExtensions: [Extension] { ExtensionLibraryRepository.shared.catalog }
     @AppStorage(SearchHistoryStore.storageKey) private var searchHistoryJSON = "[]"
     @ObservedObject private var newChapters = NewChapterInboxManager.shared
 
@@ -37,7 +38,7 @@ struct ShelfSearchView: View {
     @State var isProcessingDeletion = false
 
     var activeExtensions: [Extension] {
-        allExtensions.filter { !$0.localPath.isEmpty && $0.isEnabled }
+        ExtensionLibraryRepository.shared.installed
     }
 
     /// Bản đã decode của `searchHistoryJSON`, **chỉ** cho đường hiển thị (`matchingHistory`). `body` đọc

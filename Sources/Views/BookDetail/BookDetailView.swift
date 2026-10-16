@@ -10,7 +10,6 @@ struct BookDetailView: View {
     @Environment(\.modelContext) internal var modelContext
     @Environment(\.dismiss) private var dismiss
     @Query private var allBooks: [Book]
-    @Query private var allExtensions: [Extension]
 
     let bookId: String
     let extensionPackageId: String
@@ -111,9 +110,10 @@ struct BookDetailView: View {
         })
     }
 
-    // Tìm extension cục bộ để chạy script
+    // Tìm extension để chạy script. Tra cả mục catalog **chưa cài** (folder rỗng) để còn báo "Vui lòng cài đặt
+    // tiện ích …" theo tên; `localPath` rỗng ⇒ không chạy script.
     internal var ext: Extension? {
-        allExtensions.first(where: { $0.packageId == extensionPackageId })
+        ExtensionLibraryRepository.shared.catalogExtension(packageId: extensionPackageId)
     }
 
     // Host đã phân giải (ưu tiên localBook.host -> self.host -> ext.sourceUrl)
@@ -257,6 +257,7 @@ struct BookDetailView: View {
                 isChineseSourceHint: ext?.isChineseSource
             )
             loadBookData()
+            markSourceUsed()
             syncChaptersList()
             updateFilteredLocalChapters()
             updateFilteredOnlineChapters()
@@ -336,7 +337,7 @@ struct BookDetailView: View {
 
             NavigationLink(
                 destination: SearchView(
-                    activeExtensions: Array(allExtensions),
+                    activeExtensions: ExtensionLibraryRepository.shared.installed,
                     selectedExtension: nil,
                     initialSearchQuery: title,
                     changeSourceTargetBook: localBook,

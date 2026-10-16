@@ -1,9 +1,9 @@
 import Foundation
 
-/// Bản sao bất biến của một hàng `Extension` để mang qua ranh giới isolation.
+/// Bản sao bất biến của một tiện ích đã cài, kèm thông tin script đọc từ đĩa, để router dùng trong actor.
 ///
-/// Router chạy trong actor và đọc SwiftData bằng `ModelContext` riêng; `@Model` **không** được mang ra
-/// khỏi context của nó, nên mọi thứ router cần được copy vào đây một lần.
+/// Router đọc thư viện qua `ExtensionLibraryRepository.installedSnapshot()` (`nonisolated`); bản chụp này
+/// gom thêm `scriptKeys`/`executableScripts` (tốn I/O) một lần cho mỗi lượt đọc.
 ///
 /// `scriptKeys` đọc từ `plugin.json` chứ không từ DB: đó là nguồn sự thật về script mà extension khai,
 /// và cũng là thứ duy nhất client được biết (`extensions.list` không trả `localPath` hay `configJson`).

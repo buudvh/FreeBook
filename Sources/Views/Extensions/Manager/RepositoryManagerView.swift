@@ -1,12 +1,16 @@
 import SwiftUI
-import SwiftData
 import UniformTypeIdentifiers
 
 struct RepositoryManagerView: View {
-    @Environment(\.modelContext) internal var modelContext
-    @Query(sort: \Repository.name) internal var repositories: [Repository]
-    @Query internal var allExtensions: [Extension]
-    
+    /// Nguồn sự thật (`@Observable`): đọc trong `body` là tự vẽ lại khi kho/tiện ích đổi. Ghi qua
+    /// `ExtensionTransactionCoordinator`.
+    internal var library: ExtensionLibraryRepository { ExtensionLibraryRepository.shared }
+    internal var repositories: [ExtensionRepositoryRecord] {
+        library.repositories.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+    /// Đã cài ∪ mục registry chưa cài (`folder` rỗng ⇒ `localPath` rỗng).
+    internal var allExtensions: [Extension] { library.catalog }
+
     // Quản lý Tab chính của view
     @State internal var selectedTab = 0 // 0: Tất cả tiện ích, 1: Danh sách kho
     @State internal var renderedTab = 0
@@ -21,7 +25,7 @@ struct RepositoryManagerView: View {
     @State internal var errorMessage = ""
     @State internal var selectedExtensionForConfig: Extension? = nil
     @State internal var selectedExtensionForScriptEditor: Extension? = nil
-    @State internal var repositoryToDelete: Repository?
+    @State internal var repositoryToDelete: ExtensionRepositoryRecord?
     @State internal var showingDeleteRepositoryAlert = false
     
     internal var updatableExtensions: [Extension] {
@@ -32,32 +36,43 @@ struct RepositoryManagerView: View {
     @State internal var showingFilterSheet = false
     @State internal var showingUninstallAllAlert = false
     @State internal var showingZipImporter = false
-    @AppStorage("extFilterType") internal var filterType: String = "all"
-    @AppStorage("extFilterLocale") internal var filterLocale: String = "all"
-    @AppStorage("extFilterAuthor") internal var filterAuthor: String = "all"
-    
-    // Trạng thái bộ lọc
+    // Bộ lọc chọn nhiều: JSON `[String]`, rỗng = chưa ghi (đọc khoá cũ) — xem `ExtensionFilterSelection`.
+    @AppStorage(ExtensionFilterSelection.typesKey) internal var filterTypesJSON: String = ""
+    @AppStorage(ExtensionFilterSelection.localesKey) internal var filterLocalesJSON: String = ""
+    @AppStorage(ExtensionFilterSelection.authorsKey) internal var filterAuthorsJSON: String = ""
+
+    internal var filterTypes: Binding<Set<String>> {
+        ExtensionFilterSelection.binding($filterTypesJSON, legacyKey: ExtensionFilterSelection.legacyTypeKey)
+    }
+    internal var filterLocales: Binding<Set<String>> {
+        ExtensionFilterSelection.binding($filterLocalesJSON, legacyKey: ExtensionFilterSelection.legacyLocaleKey)
+    }
+    internal var filterAuthors: Binding<Set<String>> {
+        ExtensionFilterSelection.binding($filterAuthorsJSON, legacyKey: ExtensionFilterSelection.legacyAuthorKey)
+    }
+
+    // Trạng thái bộ lọc: có ít nhất một nhóm không rỗng
     internal var isFiltering: Bool {
-        filterType != "all" || filterLocale != "all" || filterAuthor != "all"
+        !filterTypes.wrappedValue.isEmpty || !filterLocales.wrappedValue.isEmpty || !filterAuthors.wrappedValue.isEmpty
     }
 
     internal var isUninstallAllDisabled: Bool {
-        allExtensions.filter { !$0.localPath.isEmpty }.isEmpty
+        library.installed.isEmpty
     }
     
-    // Lọc danh sách tác giả động từ database
+    // Lọc danh sách tác giả động từ catalog (đã cài ∪ cache registry)
     internal var allAuthors: [String] {
         let authors = allExtensions.map { $0.author }
         return Array(Set(authors)).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     }
     
-    // Lọc danh sách ngôn ngữ động từ database
+    // Lọc danh sách ngôn ngữ động từ catalog
     internal var allLocales: [String] {
         let locales = allExtensions.map { $0.locale }
         return Array(Set(locales)).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     }
     
-    // Lọc danh sách loại tiện ích động từ database (loại trừ comic)
+    // Lọc danh sách loại tiện ích động từ catalog (loại trừ comic)
     internal var allTypes: [String] {
         let types = allExtensions.map { $0.type }.filter { $0 != ExtensionType.comic }
         return Array(Set(types)).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
@@ -68,9 +83,9 @@ struct RepositoryManagerView: View {
         RepositoryFilterPolicy.shared.filterExtensions(
             allExtensions,
             query: storeSearchQuery,
-            author: filterAuthor,
-            type: filterType,
-            locale: filterLocale
+            authors: filterAuthors.wrappedValue,
+            types: filterTypes.wrappedValue,
+            locales: filterLocales.wrappedValue
         )
     }
     
@@ -139,9 +154,9 @@ struct RepositoryManagerView: View {
                     allAuthors: allAuthors,
                     allLocales: allLocales,
                     allTypes: allTypes,
-                    filterType: $filterType,
-                    filterLocale: $filterLocale,
-                    filterAuthor: $filterAuthor
+                    filterTypes: filterTypes,
+                    filterLocales: filterLocales,
+                    filterAuthors: filterAuthors
                 )
             }
             .sheet(isPresented: $showingAddRepo) {
@@ -271,9 +286,9 @@ struct RepositoryManagerView: View {
             Spacer()
             if isFiltering {
                 Button(action: {
-                    filterType = "all"
-                    filterLocale = "all"
-                    filterAuthor = "all"
+                    filterTypes.wrappedValue = []
+                    filterLocales.wrappedValue = []
+                    filterAuthors.wrappedValue = []
                 }) {
                     HStack(spacing: 4) {
                         Image(systemName: "trash.circle")
@@ -582,163 +597,4 @@ struct RepositoryManagerView: View {
         }
         .listStyle(.insetGrouped)
     }
-
-    internal func importExtensionFromZip(_ url: URL) {
-        statusMessage = "Đang giải nén & import tiện ích từ file zip..."
-        errorMessage = ""
-        
-        Task {
-            do {
-                let result = try await ExtensionManager.shared.installFromLocalZip(fileUrl: url)
-                
-                await MainActor.run {
-                    let cmd = UpsertExtensionCommand(packageId: result.packageId, name: result.name, author: result.author, version: result.version, remoteVersion: result.version, sourceUrl: result.sourceUrl, iconUrl: result.iconUrl, desc: result.desc, type: result.type, locale: result.locale, localPath: result.mainFolderPath, downloadUrl: "", configJson: nil, repositoryUrl: nil, installOrigin: Extension.installOriginImportZip)
-                    let res = ExtensionTransactionCoordinator.shared.upsertExtension(command: cmd, in: modelContext)
-                    switch res {
-                    case .success:
-                        statusMessage = "Đã import thành công tiện ích '\(result.name)' v\(result.version)!"
-                    case .failure(let err):
-                        errorMessage = "Lỗi lưu tiện ích import: \(err.localizedDescription)"
-                    }
-                }
-            } catch {
-                await MainActor.run {
-                    errorMessage = "Lỗi import tệp zip: \(error.localizedDescription)"
-                }
-            }
-        }
-    }
-    
-    internal func addSampleRepository() {
-        addNewRepository(name: "Kho mặc định (buudvh)", url: "https://raw.githubusercontent.com/buudvh/leech_story_ext/main/plugin.json")
-    }
-    
-    internal func addNewRepository(name: String, url: String) {
-        let trimmedUrl = url.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedUrl.isEmpty else { return }
-        
-        if repositories.contains(where: { $0.url == trimmedUrl }) {
-            statusMessage = "Kho tiện ích này đã được nhập trước đó!"
-            return
-        }
-        
-        isRefreshingAll = true
-        statusMessage = "Đang tải dữ liệu kho..."
-        
-        Task {
-            do {
-                let items = try await ExtensionManager.shared.fetchRegistry(from: trimmedUrl)
-                
-                let repoName = name.isEmpty ? "Kho Tiện Ích Mới" : name
-                let result = ExtensionTransactionCoordinator.shared.addRepository(url: trimmedUrl, name: repoName, in: modelContext)
-                switch result {
-                case .success:
-                    let syncRes = await syncExtensions(for: trimmedUrl, with: items)
-                    await MainActor.run {
-                        switch syncRes {
-                        case .success:
-                            statusMessage = "Đã nhập thành công kho '\(repoName)' với \(items.count) nguồn truyện."
-                        case .failure(let error):
-                            errorMessage = "Lỗi đồng bộ tiện ích kho '\(repoName)': \(error.localizedDescription)"
-                        }
-                        isRefreshingAll = false
-                    }
-                case .failure(let error):
-                    await MainActor.run {
-                        statusMessage = "Lỗi khi lưu kho truyện: \(error.localizedDescription)"
-                        isRefreshingAll = false
-                    }
-                }
-            } catch {
-                await MainActor.run {
-                    statusMessage = "Lỗi khi tải kho truyện: \(error.localizedDescription)"
-                    isRefreshingAll = false
-                }
-            }
-        }
-    }
-    
-    internal func refreshAllRepositories(force: Bool = false) {
-        guard !repositories.isEmpty else { return }
-        // Lượt tự động lúc mở tab đi qua cửa cooldown; nút refresh trên toolbar thì không.
-        guard force || RepositoryRefreshPolicy.shouldRunAutoRefresh() else { return }
-        guard !isRefreshingAll else { return }
-        isRefreshingAll = true
-        statusMessage = "Đang cập nhật lại các kho..."
-
-        Task {
-            var updatedCount = 0
-            for repo in repositories {
-                do {
-                    let items = try await ExtensionManager.shared.fetchRegistry(from: repo.url)
-                    let syncRes = await syncExtensions(for: repo.url, with: items)
-                    if case .failure(let err) = syncRes {
-                        AppLogger.shared.log("⚠️ [RepoRefresh] Sync failed for repo \(repo.name): \(err.localizedDescription)")
-                        continue
-                    }
-                    let touchRes = ExtensionTransactionCoordinator.shared.touchRepositoryLastUpdated(url: repo.url, in: modelContext)
-                    switch touchRes {
-                    case .success: updatedCount += 1
-                    case .failure(let err): AppLogger.shared.log("⚠️ [RepoRefresh] Touch lastUpdated failed for repo \(repo.name): \(err.localizedDescription)")
-                    }
-                } catch {
-                    AppLogger.shared.log("⚠️ [RepoRefresh] Fetch registry failed for repo \(repo.name): \(error.localizedDescription)")
-                }
-            }
-
-            await MainActor.run {
-                if updatedCount > 0 {
-                    RepositoryRefreshPolicy.markRefreshed()
-                }
-                statusMessage = "Đã cập nhật \(updatedCount) kho tiện ích."
-                isRefreshingAll = false
-            }
-        }
-    }
-    
-    /// Đồng bộ cả kho: chụp `localPath` hiện có trên MainActor, tải/parse `plugin.json` **song song
-    /// ngoài main** qua `ExtensionSyncCommandBuilder`, rồi ghi **một transaction duy nhất**.
-    ///
-    /// Sau khi ghi xong mới dọn các tiện ích kho đã gỡ khỏi registry (`pruneRepositoryExtensions`) —
-    /// đúng thứ tự này, vì tập giữ lại được suy ra từ chính danh sách command vừa ghi. Registry rỗng
-    /// thoát sớm ở `guard` đầu hàm nên một lần fetch lỗi không bao giờ quét sạch kho.
-    @MainActor
-    @discardableResult
-    internal func syncExtensions(for repoUrl: String, with items: [ExtensionRegistryItem]) async -> Result<Void, ExtensionTransactionError> {
-        guard !items.isEmpty else { return .success(()) }
-        let startedAt = Date()
-
-        var localPaths: [String: String] = [:]
-        for ext in allExtensions where !ext.localPath.isEmpty {
-            localPaths[ext.packageId] = ext.localPath
-        }
-        let inputs = items.map { item in
-            ExtensionSyncCommandBuilder.Input(
-                item: item,
-                existingLocalPath: localPaths[ExtensionSyncCommandBuilder.packageId(forName: item.name)] ?? ""
-            )
-        }
-
-        let commands = await ExtensionSyncCommandBuilder.build(inputs: inputs, repositoryUrl: repoUrl)
-        let result = ExtensionTransactionCoordinator.shared.upsertExtensions(commands: commands, in: modelContext)
-        if case .success = result {
-            let keep = Set(commands.map { $0.packageId })
-            let pruneCmd = PruneRepositoryExtensionsCommand(repositoryUrl: repoUrl, keepPackageIds: keep)
-            let pruneRes = ExtensionTransactionCoordinator.shared.pruneRepositoryExtensions(command: pruneCmd, in: modelContext)
-            switch pruneRes {
-            case .success(let removed) where removed > 0:
-                AppLogger.shared.log("ℹ️ [ExtSync] Đã xoá \(removed) tiện ích kho \(repoUrl) đã gỡ khỏi registry (giữ tiện ích đã cài)")
-            case .success:
-                break
-            case .failure(let err):
-                AppLogger.shared.log("⚠️ [ExtSync] Dọn tiện ích đã gỡ của kho \(repoUrl) thất bại: \(err.localizedDescription)")
-            }
-        }
-        let elapsed = String(format: "%.2f", Date().timeIntervalSince(startedAt))
-        AppLogger.shared.log("ℹ️ [ExtSync] Đồng bộ \(commands.count)/\(items.count) ext của kho \(repoUrl) trong \(elapsed)s")
-        return result
-    }
-    
-
-
 }

@@ -1,60 +1,42 @@
 import Foundation
 
-/// Đối chiếu danh sách tiện ích trong DB với **thực tế trên đĩa**, rồi nói cần dọn gì.
+/// Đối chiếu index tiện ích **đã cài** (`installed.json`) với **thực tế trên đĩa**, rồi nói cần dọn gì.
 ///
-/// Lý do cần bước này: `uninstallExtension` chỉ xoá thư mục và **để lại** hàng trong DB với
-/// `localPath` rỗng, để tiện ích của kho có thể tải lại. Nhưng tiện ích **import từ zip** không thuộc
-/// kho nào và không có `downloadUrl`, nên hàng còn lại chỉ hiện một nút Tải về không bao giờ chạy được.
-/// Với chúng, mất file nghĩa là mất hẳn — phải xoá luôn hàng.
+/// Từ khi index chỉ giữ tiện ích đã cài và lưu thư mục **tương đối** (`Extension.folder`), không còn nhánh
+/// "tìm lại path hỏng" (relocation) hay "đưa về chưa cài": bản ghi đã cài mà thư mục mất `plugin.json` thì
+/// xoá bản ghi — mục đó (nếu thuộc kho) tự hiện lại ở catalog như chưa cài, nhờ cache registry.
 ///
-/// Bước kiểm tra file nằm ở đây (Services) chứ không ở View, và việc ghi DB do
-/// `ExtensionTransactionCoordinator` làm — View chỉ chuyển kế hoạch giữa hai bên.
+/// Bước kiểm tra file nằm ở đây (Services); việc xoá bản ghi do `ExtensionTransactionCoordinator` làm.
 public enum ExtensionInstallAudit {
 
-    /// Ảnh chụp một tiện ích, đủ để quyết định mà không cần chạm `@Model` ngoài MainActor.
+    /// Ảnh chụp một tiện ích, đủ để quyết định mà không cần chạm repository.
     public struct Entry: Sendable {
         public let packageId: String
         public let name: String
         public let localPath: String
-        /// Có nguồn để tải lại hay không: thuộc một kho, hoặc có `downloadUrl` riêng.
-        public let isRegistered: Bool
 
-        public init(packageId: String, name: String, localPath: String, isRegistered: Bool) {
+        public init(packageId: String, name: String, localPath: String) {
             self.packageId = packageId
             self.name = name
             self.localPath = localPath
-            self.isRegistered = isRegistered
         }
-    }
-
-    /// `localPath` hỏng nhưng thư mục vẫn còn ở `extensions/` hiện tại (xem `ExtensionPathResolver`).
-    public struct Relocation: Sendable {
-        public let packageId: String
-        public let oldPath: String
-        public let newPath: String
     }
 
     public struct Plan: Sendable {
-        /// Xoá hẳn hàng: tiện ích không có nguồn tải lại mà file đã mất.
+        /// Bản ghi cần xoá: đã cài nhưng thư mục không còn `plugin.json`.
         public let deletePackageIds: [String]
-        /// Chỉ xoá `localPath`: tiện ích của kho, file mất nhưng vẫn tải lại được.
-        public let clearFolderPackageIds: [String]
         /// Tên tiện ích bị xoá, dùng cho log.
         public let deletedNames: [String]
-        /// Ghi lại `localPath` trỏ vào thư mục tìm lại được — luôn xét **trước** khi gỡ/xoá.
-        public var relocations: [Relocation] = []
 
-        public var isEmpty: Bool {
-            deletePackageIds.isEmpty && clearFolderPackageIds.isEmpty && relocations.isEmpty
-        }
+        public var isEmpty: Bool { deletePackageIds.isEmpty }
 
-        /// Chỉ phần sửa đường dẫn — dùng lúc mở app, nơi không được gỡ hay xoá gì.
-        public var relocationsOnly: Plan {
-            Plan(deletePackageIds: [], clearFolderPackageIds: [], deletedNames: [], relocations: relocations)
+        public init(deletePackageIds: [String], deletedNames: [String]) {
+            self.deletePackageIds = deletePackageIds
+            self.deletedNames = deletedNames
         }
     }
 
-    /// Một thư mục extension được coi là còn sống khi có `plugin.json` đọc được.
+    /// Một thư mục extension được coi là còn sống khi có `plugin.json`.
     ///
     /// Không chỉ kiểm tra thư mục tồn tại: sau một lượt giải nén dở dang, thư mục có thể còn mà manifest
     /// không có — lúc đó mọi lời gọi bóc tách đều lỗi, coi như chưa cài mới đúng.
@@ -68,40 +50,10 @@ public enum ExtensionInstallAudit {
     public static func plan(for entries: [Entry]) -> Plan {
         var deleteIds: [String] = []
         var deletedNames: [String] = []
-        var clearIds: [String] = []
-        var relocations: [Relocation] = []
-
-        for entry in entries {
-            let hasFolderRecorded = !entry.localPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            let alive = isInstalled(localPath: entry.localPath)
-
-            // Tìm lại trước khi dọn: path trỏ về gốc thư mục cũ, hoặc đã bị đưa về rỗng mà thư mục vẫn còn.
-            // Đánh đổi có chủ ý: gỡ tiện ích đúng lúc path đang hỏng (thư mục không xoá được) thì nó hiện lại.
-            if !alive, let newPath = ExtensionPathResolver.relocatedPath(for: entry.localPath, packageId: entry.packageId) {
-                relocations.append(Relocation(packageId: entry.packageId, oldPath: entry.localPath, newPath: newPath))
-                continue
-            }
-
-            if entry.isRegistered {
-                // Tiện ích của kho: chỉ cần đưa `localPath` về rỗng để UI hiện đúng nút Tải về.
-                if hasFolderRecorded && !alive {
-                    clearIds.append(entry.packageId)
-                }
-                continue
-            }
-
-            // Không có nguồn tải lại: chỉ giữ hàng khi file thật sự còn.
-            if !alive {
-                deleteIds.append(entry.packageId)
-                deletedNames.append(entry.name)
-            }
+        for entry in entries where !isInstalled(localPath: entry.localPath) {
+            deleteIds.append(entry.packageId)
+            deletedNames.append(entry.name)
         }
-
-        return Plan(
-            deletePackageIds: deleteIds,
-            clearFolderPackageIds: clearIds,
-            deletedNames: deletedNames,
-            relocations: relocations
-        )
+        return Plan(deletePackageIds: deleteIds, deletedNames: deletedNames)
     }
 }

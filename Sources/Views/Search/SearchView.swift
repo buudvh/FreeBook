@@ -839,7 +839,8 @@ struct SearchView: View {
             }
             
             searchStatusMessage = "Đang tìm trên nguồn \(ext.name)..."
-            
+            ExtensionTransactionCoordinator.shared.markUsed(packageId: ext.packageId) // chỉ tìm MỘT nguồn mới tính "đã dùng"
+
             searchTask = Task {
                 do {
                     let results = try await ExtensionManager.shared.search(

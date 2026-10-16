@@ -1,10 +1,10 @@
 import Foundation
 
-/// Cài lại file extension từ archive rồi dựng `UpsertExtensionCommand` cho tầng ghi SwiftData.
+/// Cài lại file extension từ archive rồi dựng `UpsertExtensionCommand` cho `ExtensionTransactionCoordinator`.
 ///
 /// Nguyên tắc: **giữ bản của máy**. Thư mục đã có chỉ bị thay khi `version` trong backup lớn hơn
-/// bản đang cài. `localPath` luôn được tính lại từ thư mục thật vì `Extension.localPath` là đường
-/// dẫn tuyệt đối trong sandbox — chép nguyên từ máy khác sang là trỏ vào hư không.
+/// bản đang cài. `localPath` của command luôn tính lại từ thư mục thật trên máy này (coordinator đổi nó sang
+/// `folder` tương đối và từ chối thư mục thiếu `plugin.json`) — không dùng đường dẫn của máy tạo backup.
 public enum BackupExtensionInstaller {
     public struct Outcome: Sendable {
         public var commands: [UpsertExtensionCommand] = []
@@ -13,7 +13,7 @@ public enum BackupExtensionInstaller {
         public var errors: [String] = []
     }
 
-    /// - Parameter existingVersions: packageId → version đang cài (đọc từ SwiftData).
+    /// - Parameter existingVersions: packageId → version đang cài (`BackupLibraryWriter.existingExtensionVersions`).
     public static func install(
         from extractedDirectory: URL,
         records: [BackupPayload.ExtensionRecord],
@@ -32,8 +32,11 @@ public enum BackupExtensionInstaller {
             let hasSource = isDirectory(source)
             let hasTarget = isDirectory(target)
 
-            // Không có file ở cả hai phía thì hàng SwiftData sẽ trỏ vào thư mục rỗng — bỏ qua.
-            guard hasSource || hasTarget else { continue }
+            // Không có file ở cả hai phía thì bản ghi sẽ trỏ vào thư mục rỗng — bỏ qua. Archive cũ (bản SwiftData)
+            // còn chứa hàng registry **chưa cài** (`localPathRelative` rỗng, không kèm thư mục): bỏ qua cả khi máy
+            // này đang cài tiện ích đó, để metadata registry không đè bản ghi đang cài. Danh mục chưa cài tự có
+            // lại khi làm mới kho.
+            guard hasSource || (hasTarget && !record.localPathRelative.isEmpty) else { continue }
 
             if hasSource {
                 let localVersion = existingVersions[record.packageId]

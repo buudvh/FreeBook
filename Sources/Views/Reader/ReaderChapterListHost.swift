@@ -65,7 +65,7 @@ struct ReaderChapterListHost: View, Equatable {
                lhs.bookCoverUrl == rhs.bookCoverUrl &&
                lhs.bookDetailUrl == rhs.bookDetailUrl &&
                lhs.localBook === rhs.localBook &&
-               lhs.ext === rhs.ext &&
+               lhs.ext == rhs.ext &&
                lhs.currentChapterIndex == rhs.currentChapterIndex &&
                lhs.isPresented == rhs.isPresented &&
                lhs.isTranslationEnabled == rhs.isTranslationEnabled &&

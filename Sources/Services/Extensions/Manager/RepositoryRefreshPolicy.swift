@@ -3,9 +3,10 @@ import Foundation
 /// Nguồn **duy nhất** cho câu hỏi "có được tự làm mới danh sách kho tiện ích lúc này không".
 ///
 /// Vì sao phải có: `RepositoryManagerView.onAppear` gọi `refreshAllRepositories()` mỗi lần tab Tiện
-/// Ích hiện ra, và một lượt làm mới là 1 request registry cho **mỗi kho**, cộng thêm một request
-/// `plugin.json` cho **mỗi tiện ích chưa cài** (`ExtensionSyncCommandBuilder`, 6 luồng song song).
-/// Kho 100 tiện ích mà máy cài 5 là ~95 request — mỗi lần ghé tab. Trước 1.3.330 không có cửa nào cả.
+/// Ích hiện ra. Từ khi tiện ích chuyển sang `extension_store/` (JSON), một lượt làm mới chỉ còn
+/// **1 request registry cho mỗi kho** (`ExtensionTransactionCoordinator.saveRegistry` lưu nguyên văn
+/// registry, danh mục chưa cài dựng từ cache đó) — không còn tải `plugin.json` cho từng tiện ích chưa cài.
+/// Cửa này vẫn giữ để không tải lại registry mỗi lần ghé tab. Trước 1.3.330 không có cửa nào cả.
 ///
 /// Refresh **bằng tay** (nút trên toolbar) cố ý **không** đi qua cửa này, giống `checkAllNewChapters`
 /// bỏ qua cooldown của `NewChapterCheckPolicy`.

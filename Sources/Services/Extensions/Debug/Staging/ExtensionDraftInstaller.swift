@@ -12,11 +12,11 @@ import Foundation
 /// 3. **Swap nguyên tử.** Dùng `FileManager.replaceItemAt` trên cùng volume (cả hai đều trong
 ///    `applicationSupportDirectory`), nên không tồn tại trạng thái nửa vời: hoặc bản cũ, hoặc bản mới.
 ///
-/// Ranh giới cố ý giữ: installer **chỉ đụng file**. Hàng `Extension` trong SwiftData do
-/// `ExtensionDebugCommandRouter` ghi qua `ExtensionTransactionCoordinator` — luật của repo là mọi ghi
-/// SwiftData đi qua coordinator, và `ExtensionDraftInstaller` là actor nền không được giữ
-/// `ModelContext`. Với đường **cập nhật**, metadata thư viện vẫn không đổi (một bản nháp đang thử
-/// không nên đổi tên/phiên bản trong thư viện); chỉ đường **cài mới** mới sinh hàng mới. Xem
+/// Ranh giới cố ý giữ: installer **chỉ đụng file**. Bản ghi `Extension` trong thư viện (`installed.json`)
+/// do `ExtensionDebugCommandRouter` ghi qua `ExtensionTransactionCoordinator` — luật của repo là mọi ghi
+/// thư viện tiện ích đi qua coordinator (`@MainActor`), còn `ExtensionDraftInstaller` là actor nền.
+/// Với đường **cập nhật**, metadata thư viện vẫn không đổi (một bản nháp đang thử không nên đổi
+/// tên/phiên bản trong thư viện); chỉ đường **cài mới** mới sinh bản ghi mới. Xem
 /// `10_risk_report`.
 public actor ExtensionDraftInstaller {
     public static let shared = ExtensionDraftInstaller()
@@ -85,8 +85,8 @@ public actor ExtensionDraftInstaller {
         return FileManager.default.fileExists(atPath: marker.path)
     }
 
-    /// Tháo hẳn một bản **do debug cài mới**: xoá thư mục extension rồi bỏ dấu. Hàng `Extension` trong
-    /// thư viện do router xoá (ghi SwiftData không thuộc tầng này).
+    /// Tháo hẳn một bản **do debug cài mới**: xoá thư mục extension rồi bỏ dấu. Bản ghi `Extension` trong
+    /// thư viện do router xoá qua coordinator (ghi thư viện không thuộc tầng này).
     public func uninstallNewInstall(packageId: String) throws {
         guard ExtensionDraftManifest.pathIssue(packageId) == nil else { throw InstallError.unsafePackageId }
         let target = ExtensionManager.shared.extensionsDirectory
@@ -146,7 +146,7 @@ public actor ExtensionDraftInstaller {
     }
 
     /// Cài **mới**: dựng `extensions/<packageId>/` từ bản nháp và trả path đích cho người gọi ghi vào
-    /// hàng SwiftData.
+    /// bản ghi `Extension` của thư viện (qua `ExtensionTransactionCoordinator`).
     ///
     /// Thư mục đích có thể đã tồn tại dù app chưa có hàng nào trỏ tới nó (lần cài trước chết giữa
     /// đường, bản ghi bị xoá mà file còn lại — đúng lớp lệch mà `ExtensionInstallAudit` đi tìm). Trường

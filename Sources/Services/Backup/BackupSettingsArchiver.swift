@@ -23,8 +23,7 @@ public enum BackupSettingsArchiver {
     /// Khoá không bao giờ được sao lưu, kèm lý do:
     /// - hai khoá đầu là **bí mật/định danh OAuth** của riêng máy đó;
     /// - `ttsExtensionLocalPath` là đường dẫn **tuyệt đối** chứa UUID container của máy cũ (cùng lý do
-    ///   `BackupLibraryReader` phải tương đối hoá `Extension.localPath`) — phục hồi nó là trỏ vào
-    ///   đường dẫn không tồn tại;
+    ///   `Extension` chỉ lưu `folder` tương đối) — phục hồi nó là trỏ vào đường dẫn không tồn tại;
     /// - ba mốc `...LastRunAt` / `LastBatchAt` quyết định lần chạy nền kế tiếp: mang mốc của máy cũ
     ///   sang sẽ làm lượt tự động chạy sai thời điểm;
     /// - hai hàng đợi `failed_*` là việc dở của riêng máy đó;
@@ -49,12 +48,16 @@ public enum BackupSettingsArchiver {
     /// - `lastChapterIndex_` / `lastParagraphIndex_`: tiến độ đọc, do nhóm `.books` (bảng SwiftData)
     ///   sở hữu — phục hồi từ đây sẽ đá nhau với bản trong thư viện;
     /// - `failed_file_deletions_retry_count_`: đếm lần thử xoá file của riêng máy đó;
-    /// - `ttsSleepTimer`: trạng thái hẹn giờ của phiên phát, không phải cấu hình.
+    /// - `ttsSleepTimer`: trạng thái hẹn giờ của phiên phát, không phải cấu hình;
+    /// - `vbook_ext_storage_`: `localStorage` kiểu cũ của tiện ích, khoá theo md5 đường dẫn tuyệt đối — vô dụng
+    ///   trên máy khác/sau khi đổi gốc thư mục. `localStorage` giờ nằm ở `ExtensionLocalStorageStore` và đi theo
+    ///   nhóm `.extensions` (`BackupPaths.extensionLocalStorage`); chặn cả hai chiều để archive cũ không ghi lại rác.
     private static let deniedKeyPrefixes = [
         "lastChapterIndex_",
         "lastParagraphIndex_",
         "failed_file_deletions_retry_count_",
-        "ttsSleepTimer"
+        "ttsSleepTimer",
+        "vbook_ext_storage_"
     ]
 
     /// Tiền tố của khoá do hệ thống ghi vào cùng domain (`com.apple.*`, `kCF*`). Các khoá hệ thống

@@ -7,7 +7,7 @@ import SwiftData
 /// `deleteRule: .nullify` là **bắt buộc** ở đây: xoá một bộ sưu tập chỉ được tháo liên kết, tuyệt đối
 /// không kéo theo `Book` — truyện vẫn phải nằm trên kệ. Đổi thành `.cascade` là xoá sách thật.
 ///
-/// Chiều nghịch khai ở phía bộ sưu tập (giống `Repository.extensions` ⇄ `Extension.repository`), nên
+/// Chiều nghịch khai ở phía bộ sưu tập (khuôn quan hệ hai chiều của SwiftData), nên
 /// `Book.collections` để trơn không macro.
 @Model
 public final class BookCollection {

@@ -12,10 +12,11 @@ struct TTSSettingsView: View {
     @State var availableVoices: [Voice] = []
     @State private var systemVoices: [AVSpeechSynthesisVoice] = []
 
-    @Query private var allExtensions: [Extension]
+    /// `catalog` (gồm cả nguồn chưa cài) như `@Query` cũ; danh sách chọn engine lọc lại chỉ bản đã cài.
+    private var allExtensions: [Extension] { ExtensionLibraryRepository.shared.catalog }
 
     private var ttsExtensions: [Extension] {
-        allExtensions.filter { $0.type == ExtensionType.tts && !$0.localPath.isEmpty && $0.isEnabled }
+        ExtensionLibraryRepository.shared.installed.filter { $0.type == ExtensionType.tts }
     }
 
     @State private var extensionVoices: [[String: String]] = []

@@ -21,7 +21,6 @@ struct BypassWebView: View {
     }
 
     @Environment(\.dismiss) private var dismiss
-    @Query private var allExtensions: [Extension]
 
     /// Chủ sở hữu duy nhất các tab (và mọi `WKWebView`) của phiên duyệt này.
     @StateObject private var store = BypassBrowserTabStore()
@@ -30,8 +29,9 @@ struct BypassWebView: View {
     @State private var showingSourcePicker = false
     @State private var showingAllHistorySheet = false
 
+    /// Tiện ích đã cài, đọc từ `ExtensionLibraryRepository` (Observation tự theo dõi khi đọc trong `body`).
     private var activeExtensions: [Extension] {
-        allExtensions.filter { !$0.localPath.isEmpty && $0.isEnabled }
+        ExtensionLibraryRepository.shared.installed
     }
 
     private var bookExtensions: [Extension] {

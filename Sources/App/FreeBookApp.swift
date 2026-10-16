@@ -18,11 +18,13 @@ struct FreeBookApp: App {
             let appSupportURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
             try? FileManager.default.createDirectory(at: appSupportURL, withIntermediateDirectories: true)
             let dbURL = appSupportURL.appendingPathComponent("library.db")
+            // Tiện ích & kho đã rời SwiftData sang `extension_store/` (JSON). Phải chuyển dữ liệu cũ TRƯỚC khi
+            // mở container: schema mới không còn `Extension`/`Repository`, mở xong SwiftData có thể drop hai bảng.
+            LegacyExtensionSQLiteMigrator.runIfNeeded(databaseURL: dbURL)
+            ExtensionLibraryRepository.shared.load()
             let config = ModelConfiguration(url: dbURL)
             container = try ModelContainer(
-                for: Repository.self,
-                Extension.self,
-                Book.self,
+                for: Book.self,
                 BookCollection.self,
                 Chapter.self,
                 DownloadTaskModel.self,
@@ -73,9 +75,6 @@ struct AppLaunchRootView: View {
             }
             BookStorageManager.shared.drainRetryQueue()
             BookStorageManager.shared.retryFailedChapterStoreDeletions()
-            // `Extension.localPath` là path tuyệt đối: gốc thư mục dữ liệu đổi thì trỏ lại thư mục thật trước khi
-            // Reader/TTS cần tới (app còn chặn ở màn nạp từ điển). Chỉ sửa path, không gỡ/xoá gì.
-            ExtensionTransactionCoordinator.shared.repairExtensionPathsAtLaunch(in: modelContext)
             TTSFloatingWidgetWindowManager.shared.modelContainer = modelContext.container
             TTSFloatingWidgetWindowManager.shared.refreshState()
             // Nút hub nổi (AI / trình duyệt / thông báo): `modelContainer` là bắt buộc vì màn Thông báo được

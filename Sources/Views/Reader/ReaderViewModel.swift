@@ -49,7 +49,6 @@ class ReaderViewModel: ObservableObject {
     private var speculativePrefetchEnabled = true
     private var memoryWarningSubscription: AnyCancellable?
     private var cachedLocalBook: Book? = nil
-    private var cachedExt: Extension? = nil
     var onChapterCached: ((Int) -> Void)?
 
     public func fetchChapterSnapshot(at index: Int) async -> StoredChapterSnapshot? {
@@ -80,15 +79,10 @@ class ReaderViewModel: ObservableObject {
         return cachedLocalBook
     }
 
+    /// Không cache: `Extension` là snapshot giá trị — giữ lại thì `configJson` sửa sau đó sẽ không tới
+    /// lượt tải chương kế tiếp. Tra `catalog` để giữ đúng hành vi của `FetchDescriptor` cũ (gồm cả chưa cài).
     internal var ext: Extension? {
-        if let cached = cachedExt {
-            return cached
-        }
-        let targetPackageId = extensionPackageId
-        var descriptor = FetchDescriptor<Extension>(predicate: #Predicate<Extension> { $0.packageId == targetPackageId })
-        descriptor.fetchLimit = 1
-        cachedExt = (try? modelContext.fetch(descriptor))?.first
-        return cachedExt
+        ExtensionLibraryRepository.shared.catalogExtension(packageId: extensionPackageId)
     }
 
     init(

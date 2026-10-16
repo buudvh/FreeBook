@@ -24,7 +24,9 @@ struct ShelfView: View {
     // SwiftUI sẽ tự động vẽ lại giao diện bất cứ khi nào danh sách sách trong database thay đổi.
     // `internal` vì khối kiểm tra chương mới đã tách sang `Extensions/ShelfView+NewChapters.swift`.
     @Query(sort: \Book.lastReadDate, order: .reverse) internal var allBooks: [Book]
-    @Query internal var allExtensions: [Extension]
+    /// `catalog` (gồm cả nguồn chưa cài) — giữ đúng tập hàng `@Query` cũ: icon nguồn trên kệ vẫn lấy được
+    /// từ registry. `internal` vì `ShelfView+NewChapters.swift` dùng tới.
+    internal var allExtensions: [Extension] { ExtensionLibraryRepository.shared.catalog }
 
     /// Hộp thư chương mới — chỉ đọc, mọi thao tác ghi đi qua manager.
     @ObservedObject internal var newChapters = NewChapterInboxManager.shared
@@ -32,7 +34,7 @@ struct ShelfView: View {
     @ObservedObject private var notificationInbox = NotificationInboxManager.shared
     
     private var activeExtensions: [Extension] {
-        allExtensions.filter { !$0.localPath.isEmpty && $0.isEnabled }
+        ExtensionLibraryRepository.shared.installed
     }
     
     @State private var changeSourceTargetBook: Book? = nil

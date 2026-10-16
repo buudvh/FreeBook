@@ -142,12 +142,16 @@ public enum BackupPayload {
         public let locale: String
         public let downloadUrl: String
         public let configJson: String
+        /// Tiện ích không còn cờ bật/tắt — luôn ghi `true`, chỉ để bản app cũ (decode bắt buộc) đọc được.
         public let isEnabled: Bool
+        /// Bản app cũ chỉ hiểu cờ này; bản mới ghi `pinnedAt != nil` và đọc `pinnedAt` trước.
         public let isPinned: Bool
         public let repositoryUrl: String?
-        /// `Extension.localPath` bỏ tiền tố `extensions/`. `localPath` gốc là đường dẫn tuyệt đối
-        /// của máy tạo backup nên không dùng lại được — khi restore phải tính lại.
+        /// `Extension.folder` — thư mục tương đối dưới `extensions/`. Khi restore vẫn tính lại từ thư mục thật.
         public let localPathRelative: String
+        /// `Optional` **có chủ đích** (như `BookRecord.isPinned`): archive cũ không có hai khoá này.
+        public let pinnedAt: Date?
+        public let lastUsedAt: Date?
 
         public init(
             packageId: String,
@@ -164,7 +168,9 @@ public enum BackupPayload {
             isEnabled: Bool,
             isPinned: Bool,
             repositoryUrl: String?,
-            localPathRelative: String
+            localPathRelative: String,
+            pinnedAt: Date? = nil,
+            lastUsedAt: Date? = nil
         ) {
             self.packageId = packageId
             self.name = name
@@ -181,7 +187,12 @@ public enum BackupPayload {
             self.isPinned = isPinned
             self.repositoryUrl = repositoryUrl
             self.localPathRelative = localPathRelative
+            self.pinnedAt = pinnedAt
+            self.lastUsedAt = lastUsedAt
         }
+
+        /// Archive cũ chỉ có `isPinned`, archive mới có thêm `pinnedAt` — một trong hai là đủ.
+        public var wasPinned: Bool { pinnedAt != nil || isPinned }
     }
 
     /// Một chương trong `chapters/<slug>.json`. `offset`/`length` chỉ có nghĩa khi đi cùng

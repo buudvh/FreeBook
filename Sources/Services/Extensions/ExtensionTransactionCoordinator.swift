@@ -1,356 +1,287 @@
 import Foundation
-import SwiftData
 
+/// Cửa ghi **duy nhất** cho tiện ích, kho và cache registry — giờ ghi vào `ExtensionLibraryRepository`
+/// (file JSON dưới `extension_store/`) thay vì SwiftData, nên không còn tham số `in context:`.
+///
+/// Mỗi hàm sửa một bản sao danh sách rồi giao lại cho repository **một lần** (một lần publish, một lần ghi
+/// file). Vẫn trả `Result<_, ExtensionTransactionError>` để View xử lý lỗi như cũ.
+///
+/// Luật giữ nguyên từ bản SwiftData:
+/// - Cài/cập nhật: **file trước, bản ghi sau** — `upsertExtension` chỉ nhận `localPath` có `plugin.json`.
+/// - Gỡ (`uninstallExtension`, `deleteRepository`): xoá file rồi xoá bản ghi + `localStorage` (xoá sạch).
 @MainActor
 public final class ExtensionTransactionCoordinator {
     public static let shared = ExtensionTransactionCoordinator()
 
+    private var library: ExtensionLibraryRepository { ExtensionLibraryRepository.shared }
+
     private init() {}
 
-    public func addRepository(url: String, name: String, in context: ModelContext) -> Result<Void, ExtensionTransactionError> {
-        let repo = Repository(url: url, name: name)
-        context.insert(repo)
-        do {
-            try context.save()
-            return .success(())
-        } catch {
-            return .failure(ExtensionTransactionError.saveFailed(error.localizedDescription))
-        }
+    // MARK: - Kho
+
+    /// Thêm kho (URL đã trim). Kho đã có ⇒ thành công, không đổi gì. Tên rỗng ⇒ dùng URL.
+    public func addRepository(url: String, name: String) -> Result<Void, ExtensionTransactionError> {
+        let key = Self.trimmed(url)
+        guard !key.isEmpty else { return .failure(.saveFailed("URL kho rỗng")) }
+        guard !library.repositories.contains(where: { $0.url == key }) else { return .success(()) }
+        let displayName = Self.trimmed(name)
+        var list = library.repositories
+        list.append(ExtensionRepositoryRecord(url: key, name: displayName.isEmpty ? key : displayName))
+        library.setRepositories(list)
+        return .success(())
     }
 
-    public func deleteRepository(url: String, in context: ModelContext) -> Result<Void, ExtensionTransactionError> {
-        var descriptor = FetchDescriptor<Repository>(predicate: #Predicate { $0.url == url })
-        descriptor.fetchLimit = 1
-        if let repo = try? context.fetch(descriptor).first {
-            context.delete(repo)
-            do {
-                try context.save()
-                return .success(())
-            } catch {
-                return .failure(ExtensionTransactionError.saveFailed(error.localizedDescription))
+    /// Xoá kho: gỡ file các tiện ích đã cài thuộc kho, xoá bản ghi + `localStorage` của chúng, xoá kho và
+    /// cache registry. Kho không tồn tại vẫn dọn phần còn sót (thành công).
+    ///
+    /// Không chặn khi TTS đang dùng một tiện ích của kho — View kiểm tra trước khi gọi (như cũ).
+    public func deleteRepository(url: String) -> Result<Void, ExtensionTransactionError> {
+        let key = Self.trimmed(url)
+        let owned = library.installed.filter { $0.repositoryUrl == key }
+        if !owned.isEmpty {
+            for ext in owned { removeFiles(of: ext) }
+            let ids = Set(owned.map(\.packageId))
+            library.setInstalled(library.installed.filter { !ids.contains($0.packageId) })
+            for id in ids { ExtensionLocalStorageStore.shared.removeAll(namespace: id) }
+        }
+        let remaining = library.repositories.filter { $0.url != key }
+        if remaining.count != library.repositories.count {
+            library.setRepositories(remaining)
+        }
+        library.removeRegistry(url: key)
+        return .success(())
+    }
+
+    /// Lưu cache registry vừa tải của một kho. `items` rỗng ⇒ bỏ qua (thành công): một lần fetch lỗi/trả file
+    /// trắng không được quét sạch danh mục của kho.
+    public func saveRegistry(url: String, items: [ExtensionRegistryItem]) -> Result<Void, ExtensionTransactionError> {
+        let key = Self.trimmed(url)
+        guard !key.isEmpty else { return .failure(.saveFailed("URL kho rỗng")) }
+        guard !items.isEmpty else { return .success(()) }
+        library.setRegistry(ExtensionRegistrySnapshot(url: key, fetchedAt: Date(), items: items))
+        return .success(())
+    }
+
+    // MARK: - Cài / cập nhật
+
+    public func upsertExtension(command: UpsertExtensionCommand) -> Result<Void, ExtensionTransactionError> {
+        upsertExtensions(commands: [command])
+    }
+
+    /// Áp nhiều command rồi ghi **một lần**. Chỉ áp cho tiện ích **đã cài**:
+    /// - command có `localPath` (tuyệt đối) ⇒ insert/update, `localPath` được đổi sang `folder` tương đối;
+    /// - command không có `localPath` mà chưa có bản ghi ⇒ no-op thành công (mục catalog chưa cài không lưu).
+    ///
+    /// `localPath` không tìm được thư mục có `plugin.json` ⇒ command đó lỗi; các command khác vẫn được ghi,
+    /// kết quả là `.failure` liệt kê tên lỗi.
+    public func upsertExtensions(commands: [UpsertExtensionCommand]) -> Result<Void, ExtensionTransactionError> {
+        guard !commands.isEmpty else { return .success(()) }
+        var list = library.installed
+        let knownRepositories = Set(library.repositories.map(\.url))
+        let now = Date()
+        var changed = false
+        var failedNames: [String] = []
+
+        for command in commands {
+            switch apply(command, to: &list, knownRepositories: knownRepositories, now: now) {
+            case .changed: changed = true
+            case .unchanged: break
+            case .failed(let name): failedNames.append(name)
             }
+        }
+
+        if changed { library.setInstalled(list) }
+        guard failedNames.isEmpty else {
+            let names = failedNames.joined(separator: ", ")
+            AppLogger.shared.log("❌ 🧩 [ExtStore] Không tìm thấy thư mục cài (plugin.json) của: \(names)")
+            return .failure(.saveFailed("Không tìm thấy thư mục cài của tiện ích: \(names)"))
         }
         return .success(())
     }
 
-    public func upsertExtension(command: UpsertExtensionCommand, in context: ModelContext) -> Result<Void, ExtensionTransactionError> {
-        apply(command: command, in: context)
-
-        do {
-            try context.save()
-            return .success(())
-        } catch {
-            return .failure(ExtensionTransactionError.saveFailed(error.localizedDescription))
-        }
+    private enum ApplyOutcome {
+        case changed
+        case unchanged
+        case failed(String)
     }
 
-    /// Áp nhiều command rồi `save()` **một lần**. Dùng cho đồng bộ cả kho: mỗi `save()` riêng lẻ
-    /// vừa là một transaction vừa kéo `@Query` của View render lại, nên kho vài chục ext trả giá rất đắt.
-    public func upsertExtensions(commands: [UpsertExtensionCommand], in context: ModelContext) -> Result<Void, ExtensionTransactionError> {
-        guard !commands.isEmpty else { return .success(()) }
-        for command in commands {
-            apply(command: command, in: context)
+    /// Luật update giữ như `apply(command:)` bản SwiftData: bỏ qua giá trị rỗng, `version` gán vô điều kiện.
+    /// Giữ `pinnedAt`, `lastUsedAt`, `installedAt`, `configJson` (trừ khi command có `configJson`).
+    /// `remoteVersion` của command bị bỏ qua — giờ tính từ cache registry.
+    private func apply(
+        _ command: UpsertExtensionCommand,
+        to list: inout [Extension],
+        knownRepositories: Set<String>,
+        now: Date
+    ) -> ApplyOutcome {
+        let path = Self.trimmed(command.localPath ?? "")
+        var resolvedFolder: String?
+        if !path.isEmpty {
+            guard let folder = ExtensionFolderLocator.folder(forAbsolutePath: path, packageId: command.packageId) else {
+                return .failed(command.name.isEmpty ? command.packageId : command.name)
+            }
+            resolvedFolder = folder
+        }
+        // Như bản cũ (chỉ gắn quan hệ khi tìm thấy `Repository`): URL kho phải là kho đang có.
+        let repoKey = Self.trimmed(command.repositoryUrl ?? "")
+        let repositoryUrl: String? = knownRepositories.contains(repoKey) ? repoKey : nil
+
+        if let index = list.firstIndex(where: { $0.packageId == command.packageId }) {
+            var ext = list[index]
+            if !command.name.isEmpty { ext.name = command.name }
+            if !command.author.isEmpty { ext.author = command.author }
+            ext.version = command.version
+            if !command.sourceUrl.isEmpty { ext.sourceUrl = command.sourceUrl }
+            if let icon = command.iconUrl { ext.iconUrl = icon }
+            if let desc = command.desc { ext.desc = desc }
+            if !command.type.isEmpty { ext.type = command.type }
+            if !command.locale.isEmpty { ext.locale = command.locale }
+            if !command.downloadUrl.isEmpty { ext.downloadUrl = command.downloadUrl }
+            if let folder = resolvedFolder { ext.folder = folder }
+            if let config = command.configJson { ext.configJson = config }
+            if let origin = command.installOrigin { ext.installOrigin = origin }
+            if let repositoryUrl { ext.repositoryUrl = repositoryUrl }
+            ext.updatedAt = now
+            list[index] = ext
+            return .changed
         }
 
-        do {
-            try context.save()
-            return .success(())
-        } catch {
-            return .failure(ExtensionTransactionError.saveFailed(error.localizedDescription))
-        }
+        guard let folder = resolvedFolder else { return .unchanged }
+        list.append(Extension(
+            packageId: command.packageId,
+            name: command.name.isEmpty ? command.packageId : command.name,
+            author: command.author,
+            version: command.version,
+            sourceUrl: command.sourceUrl,
+            iconUrl: command.iconUrl,
+            desc: command.desc,
+            type: command.type.isEmpty ? ExtensionType.novel : command.type,
+            locale: command.locale.isEmpty ? "vi_VN" : command.locale,
+            folder: folder,
+            configJson: command.configJson ?? "{}",
+            downloadUrl: command.downloadUrl,
+            repositoryUrl: repositoryUrl,
+            installOrigin: command.installOrigin ?? Extension.installOriginRepository,
+            installedAt: now,
+            updatedAt: now
+        ))
+        return .changed
     }
+
+    // MARK: - Sửa một tiện ích đã cài
 
     /// Cập nhật **metadata** của một tiện ích đã cài — cửa duy nhất cho màn Cấu hình tiện ích tự lưu.
     ///
-    /// Gán **đúng 7 trường** của command và **không** guard rỗng: người dùng xoá trắng `source` hay
-    /// `description` thì phải xoá được thật. Đây là điểm khác có chủ ý so với `apply(command:)` của upsert,
-    /// nơi mọi giá trị rỗng bị bỏ qua và `version` bị gán vô điều kiện.
-    ///
-    /// **Không** đụng `version`, `author`, `downloadUrl`, `localPath`, `configJson`, `remoteVersion`,
-    /// `repository`, `isEnabled`, `isPinned`, `installOrigin` — ba trường đầu là chỉ đọc ở màn cấu hình, còn
-    /// phần còn lại thuộc về đồng bộ kho và người dùng khác.
+    /// Gán **đúng 6 trường** của command và **không** guard rỗng: người dùng xoá trắng `source` hay
+    /// `description` thì phải xoá được thật (khác có chủ ý với `apply` của upsert). **Không** đụng `version`,
+    /// `author`, `downloadUrl`, `folder`, `configJson`, `repositoryUrl`, `installOrigin`, ghim/lần dùng.
     @discardableResult
-    public func updateExtensionMetadata(
-        command: UpdateExtensionMetadataCommand,
-        in context: ModelContext
-    ) -> Result<Void, ExtensionTransactionError> {
-        // `packageId` phải chốt ra biến cục bộ trước khi vào `#Predicate` — macro không nhận truy cập thành
-        // viên qua đối tượng command. Cùng khuôn `apply(command:)` ở dưới.
-        let pkgId = command.packageId
-        var descriptor = FetchDescriptor<Extension>(predicate: #Predicate { $0.packageId == pkgId })
-        descriptor.fetchLimit = 1
-        guard let existing = try? context.fetch(descriptor).first else {
-            return .failure(.entityNotFound(command.packageId))
-        }
-
-        existing.name = command.name
-        existing.sourceUrl = command.sourceUrl
-        existing.iconUrl = command.iconUrl
-        existing.desc = command.desc
-        existing.type = command.type
-        existing.locale = command.locale
-
-        do {
-            try context.save()
-            return .success(())
-        } catch {
-            return .failure(.saveFailed(error.localizedDescription))
+    public func updateExtensionMetadata(command: UpdateExtensionMetadataCommand) -> Result<Void, ExtensionTransactionError> {
+        mutateInstalled(packageId: command.packageId) { ext in
+            ext.name = command.name
+            ext.sourceUrl = command.sourceUrl
+            ext.iconUrl = command.iconUrl
+            ext.desc = command.desc
+            ext.type = command.type
+            ext.locale = command.locale
         }
     }
 
-    /// Phần áp field dùng chung cho cả bản đơn lẻ và bản batch — **không** `save()`.
-    private func apply(command: UpsertExtensionCommand, in context: ModelContext) {
-        let pkgId = command.packageId
-        var descriptor = FetchDescriptor<Extension>(predicate: #Predicate { $0.packageId == pkgId })
-        descriptor.fetchLimit = 1
+    public func setInstallOrigin(packageId: String, origin: String) -> Result<Void, ExtensionTransactionError> {
+        mutateInstalled(packageId: packageId) { $0.installOrigin = origin }
+    }
 
-        var repoEntity: Repository? = nil
-        if let repoUrl = command.repositoryUrl, !repoUrl.isEmpty {
-            var repoDesc = FetchDescriptor<Repository>(predicate: #Predicate { $0.url == repoUrl })
-            repoDesc.fetchLimit = 1
-            repoEntity = try? context.fetch(repoDesc).first
-        }
+    public func saveExtensionConfig(command: ExtensionConfigCommand) -> Result<Void, ExtensionTransactionError> {
+        mutateInstalled(packageId: command.packageId) { $0.configJson = command.configJson }
+    }
 
-        if let existing = try? context.fetch(descriptor).first {
-            if !command.name.isEmpty { existing.name = command.name }
-            if !command.author.isEmpty { existing.author = command.author }
-            existing.version = command.version
-            if let remote = command.remoteVersion { existing.remoteVersion = remote }
-            if !command.sourceUrl.isEmpty { existing.sourceUrl = command.sourceUrl }
-            if let icon = command.iconUrl { existing.iconUrl = icon }
-            if let d = command.desc { existing.desc = d }
-            if !command.type.isEmpty { existing.type = command.type }
-            if !command.locale.isEmpty { existing.locale = command.locale }
-            if !command.downloadUrl.isEmpty { existing.downloadUrl = command.downloadUrl }
-            if let path = command.localPath { existing.localPath = path }
-            if let cfg = command.configJson { existing.configJson = cfg }
-            if let origin = command.installOrigin { existing.installOrigin = origin }
-            if let repo = repoEntity { existing.repository = repo }
-        } else {
-            let newExt = Extension(
-                packageId: command.packageId,
-                name: command.name,
-                author: command.author,
-                version: command.version,
-                sourceUrl: command.sourceUrl,
-                iconUrl: command.iconUrl,
-                desc: command.desc,
-                type: command.type,
-                locale: command.locale,
-                localPath: command.localPath ?? "",
-                isEnabled: true,
-                configJson: command.configJson ?? "{}",
-                downloadUrl: command.downloadUrl,
-                isPinned: false,
-                remoteVersion: command.remoteVersion,
-                installOrigin: command.installOrigin ?? Extension.installOriginRepository
-            )
-            if let repo = repoEntity { newExt.repository = repo }
-            context.insert(newExt)
+    /// Ghim ⇒ `pinnedAt = now` (ghim sau nằm cuối nhóm ghim); bỏ ghim ⇒ `nil`.
+    public func togglePinned(packageId: String) -> Result<Void, ExtensionTransactionError> {
+        let now = Date()
+        return mutateInstalled(packageId: packageId) { ext in
+            ext.pinnedAt = ext.pinnedAt == nil ? now : nil
         }
     }
 
-    public func setInstallOrigin(packageId: String, origin: String, in context: ModelContext) -> Result<Void, ExtensionTransactionError> {
-        var descriptor = FetchDescriptor<Extension>(predicate: #Predicate { $0.packageId == packageId })
-        descriptor.fetchLimit = 1
-        guard let ext = try? context.fetch(descriptor).first else {
-            return .failure(ExtensionTransactionError.entityNotFound(packageId))
-        }
-        ext.installOrigin = origin
-        do {
-            try context.save()
-            return .success(())
-        } catch {
-            return .failure(ExtensionTransactionError.saveFailed(error.localizedDescription))
-        }
-    }
-
-    /// Xoá bản ghi những tiện ích của kho mà registry mới **không còn liệt kê**, trừ tiện ích đã cài.
-    /// Trả về số bản ghi đã xoá (0 là hợp lệ, không phải lỗi).
-    ///
-    /// Lọc trên RAM qua quan hệ `Repository.extensions` thay vì viết predicate đi xuyên quan hệ: một
-    /// kho chỉ vài chục ext, còn predicate lồng quan hệ trên iOS 17 là đường dễ vỡ ngầm. Tiện ích
-    /// import từ file zip có `repository == nil` nên không bao giờ nằm trong tập này.
-    ///
-    /// Chỉ xoá **bản ghi**, không đụng file: tiện ích đã cài bị loại ngay ở bộ lọc nên không có
-    /// thư mục nào cần thu hồi. Xem `PruneRepositoryExtensionsCommand` cho hai lằn ranh an toàn.
+    /// Đánh dấu vừa **duyệt chủ động** bằng nguồn này (chọn nguồn Khám phá, tìm bằng một nguồn, mở chi tiết).
+    /// Ghi file gom ~3 s.
     @discardableResult
-    public func pruneRepositoryExtensions(
-        command: PruneRepositoryExtensionsCommand,
-        in context: ModelContext
-    ) -> Result<Int, ExtensionTransactionError> {
-        guard !command.keepPackageIds.isEmpty else { return .success(0) }
-
-        let repoUrl = command.repositoryUrl
-        var descriptor = FetchDescriptor<Repository>(predicate: #Predicate { $0.url == repoUrl })
-        descriptor.fetchLimit = 1
-        guard let repo = try? context.fetch(descriptor).first else {
-            return .failure(ExtensionTransactionError.entityNotFound(repoUrl))
-        }
-
-        let stale = repo.extensions.filter { ext in
-            ext.localPath.isEmpty && !command.keepPackageIds.contains(ext.packageId)
-        }
-        guard !stale.isEmpty else { return .success(0) }
-
-        for ext in stale {
-            context.delete(ext)
-        }
-        do {
-            try context.save()
-            return .success(stale.count)
-        } catch {
-            return .failure(ExtensionTransactionError.saveFailed(error.localizedDescription))
-        }
+    public func markUsed(packageId: String) -> Result<Void, ExtensionTransactionError> {
+        let now = Date()
+        return mutateInstalled(packageId: packageId, debounced: true) { $0.lastUsedAt = now }
     }
 
-    public func saveExtensionConfig(command: ExtensionConfigCommand, in context: ModelContext) -> Result<Void, ExtensionTransactionError> {
-        let packageId = command.packageId
-        var descriptor = FetchDescriptor<Extension>(predicate: #Predicate { $0.packageId == packageId })
-        descriptor.fetchLimit = 1
-        guard let ext = try? context.fetch(descriptor).first else {
-            return .failure(ExtensionTransactionError.entityNotFound(packageId))
+    // MARK: - Gỡ / xoá
+
+    /// Xoá bản ghi + `localStorage` của tiện ích — **không** xoá file (caller đã xoá, hoặc dùng
+    /// `uninstallExtension`). `localStorage` được dọn kể cả khi không có bản ghi.
+    public func deleteExtension(packageId: String) -> Result<Void, ExtensionTransactionError> {
+        ExtensionLocalStorageStore.shared.removeAll(namespace: packageId)
+        let list = library.installed
+        guard list.contains(where: { $0.packageId == packageId }) else {
+            return .failure(.entityNotFound(packageId))
         }
-        ext.configJson = command.configJson
-        do {
-            try context.save()
-            return .success(())
-        } catch {
-            return .failure(ExtensionTransactionError.saveFailed(error.localizedDescription))
-        }
+        library.setInstalled(list.filter { $0.packageId != packageId })
+        return .success(())
     }
 
-    public func updateExtensionFolder(command: UpdateExtensionFolderCommand, in context: ModelContext) -> Result<Void, ExtensionTransactionError> {
-        let packageId = command.packageId
-        var descriptor = FetchDescriptor<Extension>(predicate: #Predicate { $0.packageId == packageId })
-        descriptor.fetchLimit = 1
-        guard let ext = try? context.fetch(descriptor).first else {
-            return .failure(ExtensionTransactionError.entityNotFound(packageId))
+    /// Gỡ hẳn: xoá thư mục trước, rồi `deleteExtension` (bản ghi + `localStorage`). Cấu hình, ghim, lần dùng mất
+    /// theo bản ghi — đúng nghĩa gỡ.
+    public func uninstallExtension(packageId: String) -> Result<Void, ExtensionTransactionError> {
+        guard let ext = library.installedExtension(packageId: packageId) else {
+            return .failure(.entityNotFound(packageId))
         }
-        ext.localPath = command.localFolder
-        do {
-            try context.save()
-            return .success(())
-        } catch {
-            return .failure(ExtensionTransactionError.saveFailed(error.localizedDescription))
-        }
+        removeFiles(of: ext)
+        return deleteExtension(packageId: packageId)
     }
 
-    /// Áp kế hoạch dọn của `ExtensionInstallAudit` trong **một** transaction.
+    /// Xoá bản ghi đã cài mà thư mục mất `plugin.json` (`ExtensionInstallAudit`). Trả số bản ghi đã xoá.
     ///
-    /// Trả về số hàng đã xoá. Không hỏi xác nhận: hàng bị xoá là hàng đã mất file **và** không có
-    /// nguồn để tải lại, tức nó chỉ còn là một nút Tải về không chạy được. Path tìm lại được
-    /// (`relocations`) được ghi lại thay vì gỡ.
+    /// Giữ `localStorage` của chúng: đây không phải người dùng gỡ, cài lại thì dữ liệu đăng nhập còn nguyên.
     @discardableResult
-    public func applyInstallAudit(
-        plan: ExtensionInstallAudit.Plan,
-        in context: ModelContext
-    ) -> Result<Int, ExtensionTransactionError> {
+    public func auditInstalledExtensions() -> Result<Int, ExtensionTransactionError> {
+        let entries = library.installed.map {
+            ExtensionInstallAudit.Entry(packageId: $0.packageId, name: $0.name, localPath: $0.localPath)
+        }
+        let plan = ExtensionInstallAudit.plan(for: entries)
         guard !plan.isEmpty else { return .success(0) }
-
-        let all = (try? context.fetch(FetchDescriptor<Extension>())) ?? []
         let deleteSet = Set(plan.deletePackageIds)
-        let clearSet = Set(plan.clearFolderPackageIds)
-        let relocated = Dictionary(plan.relocations.map { ($0.packageId, $0.newPath) }, uniquingKeysWith: { first, _ in first })
-        var deleted = 0
-
-        for ext in all {
-            if let newPath = relocated[ext.packageId] {
-                ext.localPath = newPath
-            } else if deleteSet.contains(ext.packageId) {
-                context.delete(ext)
-                deleted += 1
-            } else if clearSet.contains(ext.packageId), !ext.localPath.isEmpty {
-                ext.localPath = ""
-            }
-        }
-
-        guard deleted > 0 || !clearSet.isEmpty || !relocated.isEmpty else { return .success(0) }
-        do {
-            try context.save()
-            // ❌: cả ba đều là dữ liệu hỏng/mất — phải hiện trong log kể cả khi công tắc log đang tắt.
-            if !plan.relocations.isEmpty {
-                let oldRoot = plan.relocations.compactMap { ExtensionPathResolver.storageRoot(of: $0.oldPath) }.first ?? "(trống — đã bị gỡ trước đó)"
-                let newRoot = plan.relocations.compactMap { ExtensionPathResolver.storageRoot(of: $0.newPath) }.first ?? "-"
-                AppLogger.shared.log("❌ 🧩 [ExtAudit] \(plan.relocations.count) tiện ích có đường dẫn hỏng — đã trỏ lại thư mục hiện tại (gốc cũ: \(oldRoot) → gốc mới: \(newRoot)): \(plan.relocations.map(\.packageId).joined(separator: ", "))")
-            }
-            if deleted > 0 {
-                AppLogger.shared.log("❌ 🧹 [ExtAudit] Xoá \(deleted) tiện ích mất file và không có nguồn tải lại: \(plan.deletedNames.joined(separator: ", "))")
-            }
-            if !clearSet.isEmpty {
-                AppLogger.shared.log("❌ 🧹 [ExtAudit] Đưa \(clearSet.count) tiện ích của kho về trạng thái chưa cài (file đã mất): \(plan.clearFolderPackageIds.joined(separator: ", "))")
-            }
-            return .success(deleted)
-        } catch {
-            return .failure(ExtensionTransactionError.saveFailed(error.localizedDescription))
-        }
+        library.setInstalled(library.installed.filter { !deleteSet.contains($0.packageId) })
+        // ❌: dữ liệu mất — phải hiện trong log kể cả khi công tắc log đang tắt.
+        AppLogger.shared.log("❌ 🧹 [ExtAudit] Xoá \(plan.deletePackageIds.count) tiện ích mất plugin.json: \(plan.deletedNames.joined(separator: ", "))")
+        return .success(plan.deletePackageIds.count)
     }
 
-    /// Lúc mở app: chỉ sửa `localPath` hỏng (gốc thư mục dữ liệu đổi) để Reader/TTS/tải chương dùng path
-    /// đúng mà không phải ghé tab Tiện ích. **Không** gỡ hay xoá gì — việc đó vẫn chỉ thuộc lượt đối chiếu
-    /// khi mở màn quản lý.
-    @discardableResult
-    public func repairExtensionPathsAtLaunch(in context: ModelContext) -> Result<Int, ExtensionTransactionError> {
-        let all = (try? context.fetch(FetchDescriptor<Extension>())) ?? []
-        let entries = all.map { ext in
-            ExtensionInstallAudit.Entry(
-                packageId: ext.packageId,
-                name: ext.name,
-                localPath: ext.localPath,
-                isRegistered: ext.repository != nil || !ext.downloadUrl.isEmpty
-            )
-        }
-        let plan = ExtensionInstallAudit.plan(for: entries).relocationsOnly
-        guard !plan.isEmpty else { return .success(0) }
-        return applyInstallAudit(plan: plan, in: context).map { _ in plan.relocations.count }
-    }
+    // MARK: - Helpers
 
-    /// Xoá hẳn một tiện ích khỏi DB — dùng khi gỡ tiện ích **không** có nguồn tải lại.
-    public func deleteExtension(
+    private func mutateInstalled(
         packageId: String,
-        in context: ModelContext
+        debounced: Bool = false,
+        _ body: (inout Extension) -> Void
     ) -> Result<Void, ExtensionTransactionError> {
-        var descriptor = FetchDescriptor<Extension>(predicate: #Predicate { $0.packageId == packageId })
-        descriptor.fetchLimit = 1
-        guard let ext = try? context.fetch(descriptor).first else {
-            return .failure(ExtensionTransactionError.entityNotFound(packageId))
+        var list = library.installed
+        guard let index = list.firstIndex(where: { $0.packageId == packageId }) else {
+            return .failure(.entityNotFound(packageId))
         }
-        context.delete(ext)
-        do {
-            try context.save()
-            return .success(())
-        } catch {
-            return .failure(ExtensionTransactionError.saveFailed(error.localizedDescription))
-        }
+        body(&list[index])
+        library.setInstalled(list, debounced: debounced)
+        return .success(())
     }
 
-    public func togglePinned(packageId: String, in context: ModelContext) -> Result<Void, ExtensionTransactionError> {
-        var descriptor = FetchDescriptor<Extension>(predicate: #Predicate { $0.packageId == packageId })
-        descriptor.fetchLimit = 1
-        guard let ext = try? context.fetch(descriptor).first else {
-            return .failure(ExtensionTransactionError.entityNotFound(packageId))
+    /// Xoá thư mục cài. Chỉ xoá khi path nằm **trong** `extensions/` — `folder` rỗng/`..` không bao giờ dẫn tới
+    /// xoá nhầm thư mục khác (`URL(fileURLWithPath: "")` là thư mục làm việc hiện tại).
+    private func removeFiles(of ext: Extension) {
+        guard ext.isInstalled else { return }
+        let path = ext.localPath
+        let root = ExtensionFolderLocator.extensionsRoot.standardizedFileURL.path
+        guard !path.isEmpty, URL(fileURLWithPath: path).standardizedFileURL.path.hasPrefix(root + "/") else {
+            AppLogger.shared.log("❌ 🧩 [ExtStore] Từ chối xoá thư mục ngoài extensions/ của tiện ích \(ext.packageId)")
+            return
         }
-        ext.isPinned.toggle()
-        do {
-            try context.save()
-            return .success(())
-        } catch {
-            return .failure(ExtensionTransactionError.saveFailed(error.localizedDescription))
-        }
+        ExtensionManager.shared.uninstall(localPath: path)
     }
 
-    public func touchRepositoryLastUpdated(url: String, in context: ModelContext) -> Result<Void, ExtensionTransactionError> {
-        var descriptor = FetchDescriptor<Repository>(predicate: #Predicate { $0.url == url })
-        descriptor.fetchLimit = 1
-        guard let repo = try? context.fetch(descriptor).first else {
-            return .failure(ExtensionTransactionError.entityNotFound(url))
-        }
-        repo.lastUpdated = Date()
-        do {
-            try context.save()
-            return .success(())
-        } catch {
-            return .failure(ExtensionTransactionError.saveFailed(error.localizedDescription))
-        }
+    nonisolated private static func trimmed(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

@@ -90,7 +90,6 @@ struct ReaderView: View {
 
     // @Query: Tự động tải dữ liệu từ database SwiftData
     @Query private var allBooks: [Book] // Tất cả sách trong máy
-    @Query private var allExtensions: [Extension] // Tất cả các tiện ích (extensions) đã cài đặt
 
     let bookId: String // ID cuốn sách đang đọc
     let extensionPackageId: String // ID extension phụ trách bóc tách nội dung cuốn sách này
@@ -239,8 +238,9 @@ struct ReaderView: View {
         allBooks.first(where: { $0.bookId == bookId }) ?? localBookSnapshot
     }
 
+    /// Tra `catalog` (gồm cả nguồn chưa cài) như `@Query` cũ: header mục lục vẫn hiện tên/icon nguồn.
     internal var ext: Extension? {
-        allExtensions.first(where: { $0.packageId == extensionPackageId })
+        ExtensionLibraryRepository.shared.catalogExtension(packageId: extensionPackageId)
     }
 
     private var isLocalTXTBook: Bool {
@@ -752,7 +752,7 @@ struct ReaderView: View {
     }
 
     private var activeExtensions: [Extension] {
-        allExtensions.filter { !$0.localPath.isEmpty && $0.isEnabled }
+        ExtensionLibraryRepository.shared.installed
     }
 
     @State private var selectionAudioPlayer: AVAudioPlayer? = nil

@@ -1,7 +1,7 @@
 import Foundation
 
-/// Metadata đọc từ `plugin.json` của một bản nháp — đủ để dựng hàng `Extension` trong SwiftData khi
-/// cài **mới** một extension chưa có trên app (Phase 5).
+/// Metadata đọc từ `plugin.json` của một bản nháp — đủ để dựng bản ghi `Extension` trong thư viện tiện ích
+/// (`installed.json`) khi cài **mới** một extension chưa có trên app (Phase 5).
 ///
 /// Luật đọc khớp **từng bước** với `ExtensionManager.installFromLocalZip`: lấy mục `metadata` nếu có,
 /// không thì chính object gốc; `packageId` tường minh thắng, thiếu thì `name.lowercased()` thay dấu
@@ -109,12 +109,12 @@ public struct ExtensionDraftMetadata: Sendable, Equatable {
         )
     }
 
-    /// Command để `ExtensionTransactionCoordinator` upsert hàng `Extension`.
+    /// Command để `ExtensionTransactionCoordinator` upsert bản ghi `Extension`.
     ///
     /// `downloadUrl` và `repositoryUrl` cố ý để rỗng/`nil`: bản này đến từ máy phát triển, không thuộc
-    /// kho nào — nếu gán một kho thì lượt đồng bộ kho sau đó sẽ coi nó là bản lạc và có thể prune bản ghi.
-    /// `configJson: nil` để coordinator đặt `"{}"` cho hàng mới và **không** ghi đè config người dùng đã
-    /// lưu ở hàng cũ.
+    /// kho nào — gán một kho thì xoá kho đó sẽ gỡ luôn bản debug, và "có cập nhật" sẽ so với registry kho.
+    /// `configJson: nil` để coordinator đặt `"{}"` cho bản ghi mới và **không** ghi đè config người dùng
+    /// đã lưu ở bản ghi cũ.
     public func upsertCommand(localPath: String) -> UpsertExtensionCommand {
         UpsertExtensionCommand(
             packageId: packageId,

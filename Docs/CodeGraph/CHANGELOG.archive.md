@@ -2,6 +2,33 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.499] - 2026-10-09
+
+### fix(tts): doi engine khi dang nghe khong con dung - sheet cai dat dong lai duoc, widget dung xoay khong dung speed 0
+
+Người dùng: *"đang nghe chuyển sang engine tts khác thì đơ app luôn"* (log `app_logs (89).txt`); *"google tts sang vieneu lỗi mà ngược lại cũng vậy, nói chung chỉ cần chuyển là lỗi"*. Lỗi do chính 1.3.497 gây ra. Điều tra: 4 giả thuyết song song (nạp trước chương kế, khoá mới, vòng lặp SwiftUI, rà diff) — cả 4 cùng chỉ về sheet cài đặt.
+
+- **Triệu chứng (log 89, 2 lần)**: đổi engine (bất kỳ chiều nào) trong sheet cài đặt TTS khi đang nghe → TTS im hẳn, app như đơ; chỉ khi vuốt tắt app thì `PrefetchSummary` + `Underrun` mới được ghi (TTS phát tiếp lúc app bị huỷ).
+- **Cơ chế**: mở sheet cài đặt ⇒ `TTSSettingsView.onAppear` → `prepareForSettings()` **tạm dừng** phát; đóng sheet ⇒ `onDisappear` → `resumeAfterSettings()` là **đường duy nhất** dựng lại đoạn cho engine mới và phát tiếp. 1.3.497 đổi sheet của widget sang `Binding(get: { TTSManager.shared.showingSettingsSheet }, …)` + làm mới qua `TTSRootPresentationReader` (trễ một nhịp `RunLoop.main`) để widget khỏi observe cả `TTSManager` — SwiftUI không theo dõi được giá trị đọc trong `get`, nên "Xong" (`dismiss()`) ghi `false` mà sheet không đóng ⇒ `onDisappear` không chạy ⇒ TTS kẹt ở trạng thái tạm dừng. Không liên quan engine (vì vậy chiều nào cũng lỗi), không phải deadlock/khoá (main vẫn phục vụ các lệnh `Engine.Browser` trong lúc "đơ").
+- **Sửa**: `TTSSettingsSheetHost` (mới, `ViewModifier`) trả lại đúng binding cũ `$ttsManager.showingSettingsSheet`; chỉ modifier observe `TTSManager`, `content` (cây widget) không bị vẽ lại theo từng nhịp phát — giữ mục tiêu hiệu năng của 1.3.497. Bỏ `TTSRootPresentationReader` khỏi widget (không còn dùng).
+- **Kèm theo — dừng xoay ảnh bìa**: `TTSRotatingCoverView` không còn tạm dừng bằng `layer.speed = 0` (mẫu đó đóng băng **mọi** animation trong cây layer con, kể cả animation chuyển cảnh UIKit/SwiftUI — nguồn treo tiềm ẩn). Nay dừng = giữ góc đang hiển thị bằng `layer.transform` tĩnh rồi gỡ animation; phát lại gắn animation từ góc của `CoverRotationState`; lúc không xoay thì không gắn animation nào (cũng nhẹ hơn). `rules.md` (TTS presentation energy invariants) cập nhật theo.
+- **Kiểm chứng**: `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`; cần thử trên máy: đang nghe → mở cài đặt TTS → đổi engine → bấm "Xong" ⇒ phát tiếp ngay bằng engine mới (log có `PrefetchSummary` + `Underrun`/`[VieNeuChunk]` ngay sau khi đóng).
+
+## [1.3.498] - 2026-10-09
+
+### perf(backup): khoi phuc ngoai main gop save, bo qua tu sao luu khi khong doi, gian nhip tien do
+
+Người dùng: *"đừng làm refactor nữa, tôi muốn bạn tra lại code và xem chỗ nào ảnh hưởng hiệu năng app, chỉnh sửa lại cho app mượt hơn, hiệu năng tốt hơn"*. Nguồn: rà toàn app 7 mảng + 2 mảng tác vụ định kỳ, mỗi phát hiện qua một vòng phản biện đối kháng; nhóm này sửa xong lại qua một vòng phản biện nữa (lỗi tìm được đã sửa).
+
+Người dùng bổ sung: *"các task chạy hằng ngày như tự xoá truyện cũ, tự backup, task đồng bộ dữ liệu backup nữa"*; hỏi thêm *"f1 chuyển ra ngoài main thread thì sao?"* (đồng ý hướng này) và chọn **"Bỏ qua khi không đổi"** cho tự sao lưu.
+- **Khôi phục (F1)**: trước đây chèn **mọi** truyện trong **một** khối `MainActor.run`, mỗi truyện 2–3 lượt fetch + `save()` ⇒ khôi phục nhiều truyện là đơ app, và mỗi `save()` kéo `@Query` của Kệ sách chạy lại. Nay `BookTransactionCoordinator.addBooksFromBackup` (`nonisolated`, file `+BackupRestore` mới; không đổi isolation của coordinator) chạy trên actor `BackupRestoreWorker` với `ModelContext` riêng, dựng `Book` đúng giá trị như `addBookToShelf` + ghim (chỉ khi đang trên kệ) + `titleTrans`/`authorTrans` đúng công thức `updateBookInfo`, **50 truyện một lần `save()`** (tiền lệ `BookTitleTranslationBackfill`); lô lỗi ⇒ `rollback()` rồi chạy lại lô đó theo đường từng truyện để vẫn báo lỗi theo truyện. Số liệu báo cáo giữ nguyên.
+- **Tự sao lưu bỏ qua khi không đổi (quyết định của người dùng)**: `BackupLibraryFingerprint` (mới) băm SHA-256 ngoài main **đúng những gì archive tự động chứa** — books/collections/repo/extension (cùng DTO với lúc xuất), mục lục từng truyện (mọi trường của từng hàng, không đọc nội dung chương), file `.bin` truyện local, bìa không phục hồi được, thư mục extension, từ điển/luật theo phạm vi, snapshot cài đặt (dạng chuẩn hoá), cùng tập đích đang bật và mã băm token Drive (đổi tài khoản Drive ⇒ chạy lại). Trùng dấu vân tay **và** archive tự động của lượt đó còn trong `backups/` ⇒ ghi nhận kỳ này đã chạy, không xuất/không tải, log `[Backup] Tự động sao lưu bỏ qua: không có thay đổi`, không toast. Dấu vân tay chỉ được lưu khi **mọi** đích đang bật nhận được archive, số lượng trong manifest khớp lần đọc, và tính lại sau khi xuất vẫn trùng (đổi trong lúc xuất ⇒ không lưu ⇒ lần sau chạy lại). "Sao lưu ngay" thủ công không bị chặn. Khoá UserDefaults viết hoa chữ đầu nên không lọt vào snapshot cài đặt.
+- **Ưu tiên & main thread**: hai `.task` tự sao lưu/tự dọn chạy `.utility` (trước là `userInitiated`, tranh CPU với Reader/TTS ngay sau khi mở app); `BackupLibraryReader` bỏ `@MainActor` — đọc cả thư viện lúc xuất không còn chạy trên main.
+- **Root không vẽ lại theo tiến độ**: `MainTabView` thôi `@ObservedObject` `BackupCoordinator`/`ModelDownloadCenter` (chỉ để hiện toast) mà nghe đúng `$lastMessage`/`$lastError`/`$lastNotice`; tiến độ worker publish tối đa mỗi 0,25 s mỗi pha (luôn publish khi đổi pha/đơn vị cuối, giá trị bị nuốt được phát bù ở cuối nhịp — `BackupCoordinator+ReportedProgress.swift`).
+- **Tự dọn truyện cũ chờ sao lưu xong** (trước chỉ dựa vào hẹn giờ 25 s vs 40 s): chờ khi `isBusy` (2 s/lần, tối đa ~10 phút). **Telegram**: xoá file phần ngay sau khi dựng xong body (đỉnh dung lượng tạm ~1× archive thay vì ~2×).
+- Còn để ngỏ: `repositoryLastRefreshAt` (mốc lịch làm mới repo, đổi mỗi lần mở tab Tiện ích) nằm trong snapshot cài đặt nên làm dấu vân tay đổi ⇒ ngày nào mở tab đó vẫn sao lưu; đưa vào `deniedKeys` là đổi nội dung backup — chờ người dùng quyết.
+- **Kiểm chứng**: `check_architecture.py` chỉ còn 2 vi phạm nền cũ (`JSDom`, `TTSManager`), 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects` xác nhận biên dịch.
+
 ## [1.3.497] - 2026-10-09
 
 ### perf(tts): nap truoc chuong ke Google/Ext giua chuong, widget xoay bang Core Animation, log luong VieNeu

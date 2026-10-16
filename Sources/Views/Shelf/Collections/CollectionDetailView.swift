@@ -15,7 +15,8 @@ struct CollectionDetailView: View {
     @Environment(\.dismiss) var dismiss
 
     @Query private var allCollections: [BookCollection]
-    @Query private var allExtensions: [Extension]
+    /// `catalog` (gồm cả nguồn chưa cài) như `@Query` cũ — icon nguồn trên hàng truyện.
+    private var allExtensions: [Extension] { ExtensionLibraryRepository.shared.catalog }
     @ObservedObject private var newChapters = NewChapterInboxManager.shared
 
     @State private var readerRoute: ShelfReaderRoute? = nil
@@ -40,7 +41,7 @@ struct CollectionDetailView: View {
     }
 
     private var activeExtensions: [Extension] {
-        allExtensions.filter { !$0.localPath.isEmpty && $0.isEnabled }
+        ExtensionLibraryRepository.shared.installed
     }
 
     private var isEmpty: Bool {

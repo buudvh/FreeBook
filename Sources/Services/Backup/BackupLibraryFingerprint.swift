@@ -21,13 +21,15 @@ import SwiftData
 ///   cộng digest của refresh token Drive: liên kết lại (tài khoản khác) cũng là một đích mới.
 ///
 /// Sai lệch an toàn duy nhất được chấp nhận là **chạy thừa** (mốc sửa đổi đổi mà nội dung không đổi);
-/// hướng ngược lại — bỏ qua khi archive lẽ ra đã khác — là bug.
+/// hướng ngược lại — bỏ qua khi archive lẽ ra đã khác — là bug. Ngoại lệ có chủ đích duy nhất:
+/// `ExtensionRecord.lastUsedAt` (`withoutLastUsed`) và `localStorage` của tiện ích không được băm — duyệt nguồn hay
+/// một token JS tự làm mới không đáng một lượt sao lưu; chúng vẫn đi theo lượt sao lưu kế tiếp do thay đổi khác.
 ///
 /// Không gắn actor: hàm `async` không cô lập nên chạy ngoài main thread kể cả khi coordinator
 /// (`@MainActor`) gọi. `ModelContext` riêng chỉ sống trong một câu lệnh, không vắt qua `await`.
 enum BackupLibraryFingerprint {
     /// Tăng khi đổi cách băm: dấu vân tay đã lưu tự lệch, lượt kế tiếp chạy đủ.
-    private static let formatVersion: Int64 = 2
+    private static let formatVersion: Int64 = 3
 
     /// Digest kèm số lượng lần đọc này thấy — để đối chiếu với `manifest.counts` của archive: export tự
     /// nuốt lỗi đọc (`try?`), nên archive thiếu mà vẫn "thành công" thì không được lưu dấu vân tay.
@@ -137,8 +139,8 @@ enum BackupLibraryFingerprint {
         feed(telegramEnabled ? 1 : 0, into: &hasher)
     }
 
-    /// `library/books.json`, `collections.json`, và khi có nhóm `.extensions` thì `repositories.json` +
-    /// `extensions.json`; cộng danh sách bookId chỉ còn từ điển (nguồn của `slugs.json`).
+    /// `library/books.json`, `collections.json`, và khi có nhóm `.extensions` thì `repositories.json`,
+    /// `extensions.json`, `extension_local_storage.json`; cộng danh sách bookId chỉ còn từ điển (nguồn của `slugs.json`).
     private static func feedLibrary(
         _ payload: BackupLibraryReader.Payload,
         scopes: Set<BackupScope>,
@@ -156,7 +158,7 @@ enum BackupLibraryFingerprint {
                 feed("repositories", into: &hasher)
                 feedData(try encoder.encode(payload.repositories), into: &hasher)
                 feed("extensions", into: &hasher)
-                feedData(try encoder.encode(payload.extensions), into: &hasher)
+                feedData(try encoder.encode(payload.extensions.map(withoutLastUsed)), into: &hasher)
             }
         } catch {
             AppLogger.shared.log("⚠️ [Backup] Không mã hoá được thư viện để so thay đổi: \(error.localizedDescription)")
@@ -168,6 +170,16 @@ enum BackupLibraryFingerprint {
             feed(bookId, into: &hasher)
         }
         return true
+    }
+
+    /// `lastUsedAt` đổi mỗi lần duyệt nguồn — không băm (giữ `pinnedAt`); file backup thật vẫn ghi đủ trường.
+    private static func withoutLastUsed(_ r: BackupPayload.ExtensionRecord) -> BackupPayload.ExtensionRecord {
+        BackupPayload.ExtensionRecord(
+            packageId: r.packageId, name: r.name, author: r.author, version: r.version, sourceUrl: r.sourceUrl,
+            iconUrl: r.iconUrl, desc: r.desc, type: r.type, locale: r.locale, downloadUrl: r.downloadUrl,
+            configJson: r.configJson, isEnabled: r.isEnabled, isPinned: r.isPinned, repositoryUrl: r.repositoryUrl,
+            localPathRelative: r.localPathRelative, pinnedAt: r.pinnedAt, lastUsedAt: nil
+        )
     }
 
     /// Đủ mọi trường của `BackupPayload.ChapterRecord`. `updatedAt` băm nguyên độ chính xác (chặt hơn

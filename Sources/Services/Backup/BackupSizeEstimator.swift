@@ -21,7 +21,10 @@ public enum BackupSizeEstimator {
             // biết phải mở SwiftData. Chấp nhận, vì con số này vốn chỉ là xấp xỉ.
             return BackupPaths.directorySize(at: applicationSupport.appendingPathComponent("books", isDirectory: true))
         case .extensions:
+            // Cộng `local_storage.json` (entry `library/extension_local_storage.json`) — xấp xỉ, archive chỉ
+            // giữ namespace của tiện ích đã cài.
             return BackupPaths.directorySize(at: ExtensionManager.shared.extensionsDirectory)
+                + BackupPaths.fileSize(at: ExtensionStorePaths.localStorageURL)
         case .dictBooks:
             return BackupPaths.directorySize(at: TranslationManager.shared.translateDirectory
                 .appendingPathComponent("books", isDirectory: true))

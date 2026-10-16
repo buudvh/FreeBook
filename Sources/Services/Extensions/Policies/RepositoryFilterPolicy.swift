@@ -5,51 +5,44 @@ public struct RepositoryFilterPolicy: Sendable {
 
     public init() {}
 
+    /// Lọc chọn nhiều: **HOẶC** trong một nhóm, **VÀ** giữa các nhóm; nhóm rỗng = không lọc nhóm đó.
     public func filterExtensions(
         _ extensions: [Extension],
         query: String,
-        author: String = "all",
-        type: String = "all",
-        locale: String = "all"
+        authors: Set<String> = [],
+        types: Set<String> = [],
+        locales: Set<String> = []
     ) -> [Extension] {
-        var result = extensions.filter { $0.type != ExtensionType.comic }
-        if author != "all" {
-            result = result.filter { $0.author == author }
-        }
-        if type != "all" {
-            result = result.filter { $0.type == type }
-        }
-        if locale != "all" {
-            result = result.filter { $0.locale == locale }
-        }
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty {
-            result = result.filter {
-                $0.name.localizedCaseInsensitiveContains(trimmed) ||
-                $0.sourceUrl.localizedCaseInsensitiveContains(trimmed) ||
-                ($0.desc?.localizedCaseInsensitiveContains(trimmed) ?? false)
-            }
+        let result = extensions.filter { ext in
+            guard ext.type != ExtensionType.comic,
+                  authors.isEmpty || authors.contains(ext.author),
+                  types.isEmpty || types.contains(ext.type),
+                  locales.isEmpty || locales.contains(ext.locale) else { return false }
+            guard !trimmed.isEmpty else { return true }
+            return ext.name.localizedCaseInsensitiveContains(trimmed) ||
+                ext.sourceUrl.localizedCaseInsensitiveContains(trimmed) ||
+                (ext.desc?.localizedCaseInsensitiveContains(trimmed) ?? false)
         }
         return sortExtensions(result)
     }
 
-    /// Thứ tự: **tiện ích đã cài có bản cập nhật chưa áp dụng** → đã cài → được ghim → tên A→Z.
-    /// `hasUpdate` chỉ đúng khi `localPath` khác rỗng nên khoá này luôn nằm trong nhóm đã cài,
-    /// không phá thứ tự cài/chưa cài ở dưới.
+    /// Thứ tự: **tiện ích đã cài có bản cập nhật chưa áp dụng** → đã cài → chưa cài.
+    /// Trong nhóm đã cài (kể cả nhóm có cập nhật) theo `ExtensionSortPolicy` (ghim → vừa dùng → A-Z);
+    /// nhóm chưa cài (mục catalog từ cache registry) chỉ A-Z.
+    /// `hasUpdate` chỉ đúng khi đã cài nên khoá này luôn nằm trong nhóm đã cài.
     public func sortExtensions(_ extensions: [Extension]) -> [Extension] {
         return extensions.sorted { ext1, ext2 in
             if ext1.hasUpdate != ext2.hasUpdate {
-                return ext1.hasUpdate && !ext2.hasUpdate
+                return ext1.hasUpdate
             }
-            let isInstalled1 = !ext1.localPath.isEmpty
-            let isInstalled2 = !ext2.localPath.isEmpty
-            if isInstalled1 != isInstalled2 {
-                return isInstalled1 && !isInstalled2
+            if ext1.isInstalled != ext2.isInstalled {
+                return ext1.isInstalled
             }
-            if ext1.isPinned != ext2.isPinned {
-                return ext1.isPinned && !ext2.isPinned
+            if ext1.isInstalled {
+                return ExtensionSortPolicy.areInIncreasingOrder(ext1, ext2)
             }
-            return ext1.name.localizedCompare(ext2.name) == .orderedAscending
+            return ExtensionSortPolicy.isNameAscending(ext1, ext2)
         }
     }
 }

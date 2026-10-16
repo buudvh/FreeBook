@@ -13,10 +13,11 @@ import UIKit
 /// (chủ dự án chốt 2026-10-07 — ba trường này thuộc về tác giả tiện ích, không phải thứ người dùng nên đổi).
 ///
 /// ## "Áp dụng ngay" gồm ba việc, không chỉ một
-/// 1. Ghi `plugin.json` — nguồn sự thật; lượt đồng bộ kho sau đó đọc lại **đúng** bản đã sửa
-///    (`ExtensionSyncCommandBuilder` ưu tiên `plugin.json` cục bộ).
-/// 2. Cập nhật hàng `Extension` — để lưới home của trình duyệt (`ext.sourceUrl`), danh sách Tiện Ích và bộ
-///    lọc đổi ngay mà không cần khởi động lại.
+/// 1. Ghi `plugin.json` — nguồn sự thật trên đĩa. Làm mới kho giờ chỉ lưu cache registry và **không** ghi đè
+///    bản ghi đã cài, nên giá trị đã sửa không bị lượt làm mới kho đè lại.
+/// 2. Cập nhật bản ghi `Extension` trong index JSON (`ExtensionTransactionCoordinator.updateExtensionMetadata`)
+///    — để lưới home của trình duyệt (`ext.sourceUrl`), danh sách Tiện Ích và bộ lọc đổi ngay mà không cần
+///    khởi động lại.
 /// 3. Xoá `BypassWebView.regexpCache` khi `regexp` đổi — không có bước này thì regexp cũ còn sống tới lần mở
 ///    lại app.
 ///
@@ -30,8 +31,6 @@ import UIKit
 /// giả. Quan trọng với `locale`: `read` có nhánh dự phòng `metadata.language` (đúng luật 4 reader khác), nên
 /// không so sánh là lượt ghi giả sẽ biến `language: "javascript"` thành `locale: "javascript"` trong file.
 struct ExtensionMetadataSection: View {
-    @Environment(\.modelContext) private var modelContext
-
     let ext: Extension
 
     /// Bản đã nạp từ file — mốc so sánh để biết trường nào **thật sự** đổi.
@@ -230,21 +229,20 @@ struct ExtensionMetadataSection: View {
             let changed = try ExtensionMetadataEditor.write(changes: changes, localPath: ext.localPath)
             guard !changed.isEmpty else { return }
 
-            // 2. Hàng `Extension` — chỉ các trường có cột. `icon` không nằm trong màn này nên truyền lại giá
-            // trị hiện có (command gán thẳng, không guard).
+            // 2. Bản ghi `Extension` — chỉ các trường có trong index. `icon` không nằm trong màn này nên truyền
+            // lại giá trị hiện có (command gán thẳng, không guard). `ext` là snapshot lúc mở màn: tra bản mới
+            // nhất, không thì đổi tên rồi sửa trường khác sẽ ghi lại tên cũ.
+            let latest = ExtensionLibraryRepository.shared.installedExtension(packageId: ext.packageId) ?? ext
             let command = UpdateExtensionMetadataCommand(
                 packageId: ext.packageId,
-                name: changes["name"] ?? ext.name,
+                name: changes["name"] ?? latest.name,
                 sourceUrl: source,
-                iconUrl: ext.iconUrl,
+                iconUrl: latest.iconUrl,
                 desc: descText.isEmpty ? nil : descText,
                 type: type,
                 locale: locale
             )
-            if case .failure(let error) = ExtensionTransactionCoordinator.shared.updateExtensionMetadata(
-                command: command,
-                in: modelContext
-            ) {
+            if case .failure(let error) = ExtensionTransactionCoordinator.shared.updateExtensionMetadata(command: command) {
                 errorText = error.localizedDescription
                 return
             }

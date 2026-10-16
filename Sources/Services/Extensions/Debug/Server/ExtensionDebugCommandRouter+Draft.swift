@@ -1,5 +1,4 @@
 import Foundation
-import SwiftData
 
 /// Nhánh `draft.*` của router: nạp snapshot nháp (Phase 3), cài / cài mới và rollback (Phase 4–5).
 ///
@@ -128,7 +127,7 @@ extension ExtensionDebugCommandRouter {
 
         // App là thẩm quyền về danh tính: id thật đọc từ `plugin.json` của bản nháp, **không** lấy từ
         // client. Nhờ vậy client gửi `Truyen Full` trong khi app đang có `truyen_full` vẫn được nhận
-        // diện là *cập nhật*, không sinh hàng SwiftData thứ hai cho cùng một extension.
+        // diện là *cập nhật*, không sinh bản ghi thứ hai trong thư viện cho cùng một extension.
         let metadata: ExtensionDraftMetadata
         do {
             metadata = try ExtensionDraftMetadata.read(from: directory)
@@ -191,11 +190,11 @@ extension ExtensionDebugCommandRouter {
         }
     }
 
-    /// Cài một extension **chưa có trên app**: dựng thư mục trong `extensions/` rồi ghi hàng `Extension`
+    /// Cài một extension **chưa có trên app**: dựng thư mục trong `extensions/` rồi ghi bản ghi `Extension`
     /// qua `ExtensionTransactionCoordinator`.
     ///
     /// Thứ tự **file trước, bản ghi sau** là bắt buộc: ghi bản ghi trước mà copy file thất bại thì thư
-    /// viện có một extension trỏ vào thư mục không tồn tại — lỗi im lặng ở mọi màn đang `@Query`. Ngược
+    /// viện có một extension trỏ vào thư mục không tồn tại — lỗi im lặng ở mọi màn đọc thư viện. Ngược
     /// lại, file có mà bản ghi chưa có chỉ là thư mục mồ côi: `ExtensionInstallAudit` phát hiện được, và
     /// lần cài sau tự sao lưu rồi thay.
     private func installAsNew(
@@ -323,17 +322,14 @@ extension ExtensionDebugCommandRouter {
         }
     }
 
-    /// Xoá hàng `Extension` của một bản do debug cài mới. Trả `nil` khi thành công.
+    /// Xoá bản ghi `Extension` (kèm `localStorage`) của một bản do debug cài mới — file đã xoá trước đó.
+    /// Trả `nil` khi thành công.
     ///
-    /// Cùng khuôn `writeLibraryRow`: `ModelContext` dựng mới từ container (ghi từ tác vụ nền), hop sang
-    /// `@MainActor` cho coordinator, và phát `"extensionDidUpdate"` để màn Khám Phá thấy ngay.
+    /// Cùng khuôn `writeLibraryRow`: hop sang `@MainActor` cho coordinator, và phát `"extensionDidUpdate"`
+    /// để màn Khám Phá thấy ngay.
     private func deleteLibraryRow(packageId: String) async -> String? {
-        let container = self.container
-        return await MainActor.run(resultType: String?.self) {
-            let result = ExtensionTransactionCoordinator.shared.deleteExtension(
-                packageId: packageId,
-                in: ModelContext(container)
-            )
+        await MainActor.run(resultType: String?.self) {
+            let result = ExtensionTransactionCoordinator.shared.deleteExtension(packageId: packageId)
             switch result {
             case .success:
                 NotificationCenter.default.post(name: Notification.Name("extensionDidUpdate"), object: nil)
@@ -344,20 +340,15 @@ extension ExtensionDebugCommandRouter {
         }
     }
 
-    /// Ghi hàng `Extension` cho bản vừa cài mới. Trả `nil` khi thành công, câu lỗi khi thất bại.
+    /// Ghi bản ghi `Extension` cho bản vừa cài mới. Trả `nil` khi thành công, câu lỗi khi thất bại.
     ///
-    /// `ModelContext` được dựng **mới** từ container thay vì dùng context của MainActor — đây là ghi từ
-    /// tác vụ nền, đúng luật của repo. Coordinator là `@MainActor` nên vẫn phải hop; chỉ một `String?`
-    /// băng qua ranh giới isolation. `"extensionDidUpdate"` phát cùng nhịp với đường restore backup
+    /// Coordinator là `@MainActor` nên phải hop; chỉ command (`Sendable`) và một `String?` băng qua ranh
+    /// giới isolation. `"extensionDidUpdate"` phát cùng nhịp với đường restore backup
     /// (`BackupRestoreWorker`) để màn Khám Phá thấy extension mới mà không cần mở lại app.
     private func writeLibraryRow(metadata: ExtensionDraftMetadata, localPath: String) async -> String? {
         let command = metadata.upsertCommand(localPath: localPath)
-        let container = self.container
         return await MainActor.run(resultType: String?.self) {
-            let result = ExtensionTransactionCoordinator.shared.upsertExtension(
-                command: command,
-                in: ModelContext(container)
-            )
+            let result = ExtensionTransactionCoordinator.shared.upsertExtension(command: command)
             switch result {
             case .success:
                 NotificationCenter.default.post(name: Notification.Name("extensionDidUpdate"), object: nil)
@@ -369,12 +360,10 @@ extension ExtensionDebugCommandRouter {
     }
 
     private func markDebugInstallOrigin(packageId: String) async -> String? {
-        let container = self.container
-        return await MainActor.run(resultType: String?.self) {
+        await MainActor.run(resultType: String?.self) {
             let result = ExtensionTransactionCoordinator.shared.setInstallOrigin(
                 packageId: packageId,
-                origin: Extension.installOriginDebugServer,
-                in: ModelContext(container)
+                origin: Extension.installOriginDebugServer
             )
             switch result {
             case .success:

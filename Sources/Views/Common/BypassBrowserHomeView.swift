@@ -51,7 +51,7 @@ public struct BypassBrowserHomeView: View {
         var list: [QuickShortcut] = []
 
         // Tiện ích đã cài đặt
-        for ext in installedExtensions where ext.isEnabled {
+        for ext in installedExtensions {
             let src = ext.sourceUrl.isEmpty ? "https://www.google.com" : ext.sourceUrl
             list.append(QuickShortcut(
                 name: ext.name,

@@ -26,18 +26,6 @@ public struct RegistryMetadata: Codable {
     public let description: String?
 }
 
-public struct ExtensionRegistryItem: Codable {
-    public let name: String
-    public let author: String?
-    public let path: String // Link tải file plugin.zip
-    public let version: Int?
-    public let source: String? // URL trang web nguồn (ví dụ: https://truyenfull.vn)
-    public let icon: String?
-    public let description: String?
-    public let type: String? // "novel", "chinese_novel", "comic", "tts"
-    public let locale: String? // "vi_VN", "zh_CN", ...
-}
-
 // MARK: - Helper Structs for JavaScript results
 public struct ExtensionItemResult: Identifiable, Hashable {
     public let id = UUID()

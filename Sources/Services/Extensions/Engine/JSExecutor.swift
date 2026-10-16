@@ -120,30 +120,31 @@ public final class JSExecutor: @unchecked Sendable {
         }
         context.setObject(btoaBlock, forKeyedSubscript: "btoa" as NSCopying & NSObjectProtocol)
 
-        // Đăng ký native bridges cho Storage (localStorage)
-        let extStoragePrefix = "vbook_ext_storage_" + (self.localPath?.md5() ?? "global") + "_"
+        // Đăng ký native bridges cho Storage (localStorage). Namespace theo `packageId` của tiện ích đã cài
+        // (không đổi khi gốc thư mục dữ liệu đổi); path ngoài `extensions/` (bản nháp debug) ⇒ "path:" + md5;
+        // không có path ⇒ "global". Store đồng bộ, chỉ giữ lock ngắn — gọi thẳng từ thread JS được.
+        let storageNamespace = self.localPath.map { path in
+            ExtensionLibraryRepository.packageId(forLocalPath: path) ?? "path:" + path.md5()
+        } ?? "global"
+        let localStorage = ExtensionLocalStorageStore.shared
         let storageGetBlock: @convention(block) (String) -> String = { key in
-            UserDefaults.standard.string(forKey: extStoragePrefix + key) ?? ""
+            localStorage.value(namespace: storageNamespace, key: key) ?? ""
         }
         context.setObject(storageGetBlock, forKeyedSubscript: "_nativeStorageGet" as NSCopying & NSObjectProtocol)
 
         let storageSetBlock: @convention(block) (String, String) -> Void = { key, val in
-            UserDefaults.standard.set(val, forKey: extStoragePrefix + key)
+            localStorage.setValue(val, namespace: storageNamespace, key: key)
         }
         context.setObject(storageSetBlock, forKeyedSubscript: "_nativeStorageSet" as NSCopying & NSObjectProtocol)
 
         let storageRemoveBlock: @convention(block) (String) -> Void = { key in
-            UserDefaults.standard.removeObject(forKey: extStoragePrefix + key)
+            localStorage.removeValue(namespace: storageNamespace, key: key)
         }
         context.setObject(storageRemoveBlock, forKeyedSubscript: "_nativeStorageRemove" as NSCopying & NSObjectProtocol)
 
+        // `clear()` chỉ xoá namespace của chính tiện ích này.
         let storageClearBlock: @convention(block) () -> Void = {
-            let defaults = UserDefaults.standard
-            for (k, _) in defaults.dictionaryRepresentation() {
-                if k.hasPrefix(extStoragePrefix) {
-                    defaults.removeObject(forKey: k)
-                }
-            }
+            localStorage.removeAll(namespace: storageNamespace)
         }
         context.setObject(storageClearBlock, forKeyedSubscript: "_nativeStorageClear" as NSCopying & NSObjectProtocol)
 

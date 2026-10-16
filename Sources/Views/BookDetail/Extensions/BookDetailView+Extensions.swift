@@ -264,6 +264,13 @@ extension BookDetailView {
         return nil
     }
 
+    /// Mở (hoặc kéo làm mới) chi tiết truyện = duyệt chủ động bằng nguồn này ⇒ nguồn lên đầu nhóm "vừa dùng"
+    /// ở chọn nguồn Khám phá / Kho Tiện Ích. Repository ghi file gom ~3 s.
+    internal func markSourceUsed() {
+        guard let ext, ext.isInstalled else { return }
+        ExtensionTransactionCoordinator.shared.markUsed(packageId: ext.packageId)
+    }
+
     internal func reloadBookData() async {
         guard let ext = ext else { return }
         guard !ext.localPath.isEmpty else { return }
@@ -271,6 +278,7 @@ extension BookDetailView {
         await MainActor.run {
             self.detailErrorMessage = ""
             self.tocErrorMessage = ""
+            self.markSourceUsed()
         }
 
         let bookHost = resolvedHost

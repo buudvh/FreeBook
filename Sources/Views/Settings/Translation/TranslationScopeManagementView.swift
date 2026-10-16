@@ -5,7 +5,6 @@ import SwiftData
 public struct TranslationScopeManagementView: View {
     @Environment(\.dismiss) private var dismiss
     @Query private var allBooks: [Book]
-    @Query private var allExtensions: [Extension]
 
     @State private var bookOverrides: [String: TranslationConfigStore.OverrideMode] = [:]
     @State private var sourceOverrides: [String: TranslationConfigStore.OverrideMode] = [:]
@@ -235,7 +234,7 @@ public struct TranslationScopeManagementView: View {
         if packageId == "local" || packageId.isEmpty {
             return "Sách tự nhập (Local)"
         }
-        if let found = allExtensions.first(where: { $0.packageId == packageId }) {
+        if let found = ExtensionLibraryRepository.shared.catalogExtension(packageId: packageId) {
             return found.name
         }
         return packageId

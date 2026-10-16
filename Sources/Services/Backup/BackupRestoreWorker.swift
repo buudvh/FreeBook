@@ -168,6 +168,7 @@ public actor BackupRestoreWorker {
             + "\(chapters.restoredChapters) chương, \(chapters.restoredCachedChapters) chương có nội dung, "
             + "\(covers.restoredCovers) bìa (\(covers.skippedCovers) đã có), "
             + "\(library.insertedRepositories) kho, \(library.upsertedExtensions) ext, "
+            + "\(library.restoredExtensionPins) ghim ext, \(library.restoredLocalStorageNamespaces) localStorage ext, "
             + "\(library.insertedCollections) bộ sưu tập, "
             + "\(dictionaries.customFiles + dictionaries.bookFiles + dictionaries.sharedFiles) file từ điển, "
             + "\(settings.restoredKeys) khoá cài đặt, "
@@ -257,10 +258,7 @@ public actor BackupRestoreWorker {
         let extensions = decode([BackupPayload.ExtensionRecord].self, entry: BackupPaths.extensions) ?? []
 
         report(BackupProgress(phase: .restoringRepositories, totalUnits: repositories.count))
-        let capturedContainer = container
-        let existingVersions = await MainActor.run {
-            BackupLibraryWriter(container: capturedContainer).existingExtensionVersions()
-        }
+        let existingVersions = BackupLibraryWriter.existingExtensionVersions()
 
         report(BackupProgress(phase: .restoringExtensions, totalUnits: extensions.count))
         let installed = BackupExtensionInstaller.install(
@@ -270,14 +268,47 @@ public actor BackupRestoreWorker {
         )
         outcome.errors.append(contentsOf: installed.errors)
 
+        // Kho **trước** tiện ích: coordinator chỉ nhận `repositoryUrl` của kho đã tồn tại.
         let commands = installed.commands
+        let previouslyInstalled = Set(existingVersions.keys)
+        let capturedContainer = container
         let batch = await MainActor.run { () -> BackupLibraryWriter.Report in
             let writer = BackupLibraryWriter(container: capturedContainer)
             var result = writer.insertMissingRepositories(repositories)
             result.merge(writer.upsertExtensions(commands))
+            let newlyInstalled = Set(ExtensionLibraryRepository.shared.installed.map(\.packageId))
+                .subtracting(previouslyInstalled)
+            result.merge(writer.restorePins(extensions, newlyInstalled: newlyInstalled))
             return result
         }
         outcome.merge(batch)
+        outcome.merge(restoreLocalStorage())
+        return outcome
+    }
+
+    /// `localStorage` (`library/extension_local_storage.json`) — chỉ cho tiện ích **đang cài** sau bước trên và
+    /// chỉ namespace máy này chưa có: dữ liệu trên máy (token đăng nhập…) thường mới hơn bản sao lưu. Archive cũ
+    /// không có entry ⇒ bỏ qua. Không log giá trị.
+    private func restoreLocalStorage() -> BackupLibraryWriter.Report {
+        var outcome = BackupLibraryWriter.Report()
+        guard let stored = decode([String: [String: String]].self, entry: BackupPaths.extensionLocalStorage),
+              !stored.isEmpty
+        else { return outcome }
+
+        let installedIds = Set(ExtensionLibraryRepository.installedSnapshot().map(\.packageId))
+        let store = ExtensionLocalStorageStore.shared
+        let current = store.snapshot()
+        let incoming = stored.filter { entry in
+            installedIds.contains(entry.key) && !entry.value.isEmpty && (current[entry.key]?.isEmpty ?? true)
+        }
+        guard !incoming.isEmpty else { return outcome }
+
+        store.merge(incoming)
+        if store.flush() {
+            outcome.restoredLocalStorageNamespaces = incoming.count
+        } else {
+            outcome.errors.append("localStorage tiện ích: không ghi được file (sẽ thử lại ở lần ghi sau)")
+        }
         return outcome
     }
 

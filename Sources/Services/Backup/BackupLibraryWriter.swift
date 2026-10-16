@@ -1,13 +1,16 @@
 import Foundation
 import SwiftData
 
-/// Ghi phần SwiftData của một lần khôi phục. Mọi ghi đi qua coordinator + Command DTO;
-/// writer chỉ tự `fetch` để biết cái gì đã có (restore là **gộp**, không ghi đè).
+/// Ghi phần thư viện của một lần khôi phục. Mọi ghi đi qua coordinator + Command DTO: sách qua
+/// `BookTransactionCoordinator` (SwiftData), tiện ích/kho qua `ExtensionTransactionCoordinator` (extension store
+/// JSON). Writer chỉ tự đọc để biết cái gì đã có (restore là **gộp**, không ghi đè).
 @MainActor
 public struct BackupLibraryWriter {
     public struct Report: Sendable {
         public var insertedRepositories = 0
         public var upsertedExtensions = 0
+        public var restoredExtensionPins = 0
+        public var restoredLocalStorageNamespaces = 0
         public var insertedBooks = 0
         public var skippedBooks = 0
         public var mirroredChapters = 0
@@ -17,6 +20,8 @@ public struct BackupLibraryWriter {
         public mutating func merge(_ other: Report) {
             insertedRepositories += other.insertedRepositories
             upsertedExtensions += other.upsertedExtensions
+            restoredExtensionPins += other.restoredExtensionPins
+            restoredLocalStorageNamespaces += other.restoredLocalStorageNamespaces
             insertedBooks += other.insertedBooks
             skippedBooks += other.skippedBooks
             mirroredChapters += other.mirroredChapters
@@ -34,8 +39,7 @@ public struct BackupLibraryWriter {
     // MARK: - Đọc trạng thái hiện có
 
     public func existingRepositoryUrls() -> Set<String> {
-        let rows = (try? context.fetch(FetchDescriptor<Repository>())) ?? []
-        return Set(rows.map { $0.url })
+        Set(ExtensionLibraryRepository.shared.repositories.map(\.url))
     }
 
     public func existingBookIds() -> Set<String> {
@@ -44,27 +48,27 @@ public struct BackupLibraryWriter {
     }
 
     /// packageId → version đang cài. Dùng để chỉ thay file extension khi bản trong backup mới hơn.
-    public func existingExtensionVersions() -> [String: Int] {
-        let rows = (try? context.fetch(FetchDescriptor<Extension>())) ?? []
+    /// `nonisolated`: đọc bảng chụp của repository, worker gọi thẳng không cần nhảy lên MainActor.
+    nonisolated public static func existingExtensionVersions() -> [String: Int] {
         var table: [String: Int] = [:]
-        for ext in rows { table[ext.packageId] = ext.version }
+        for ext in ExtensionLibraryRepository.installedSnapshot() { table[ext.packageId] = ext.version }
         return table
     }
 
     // MARK: - Ghi
 
-    /// `addRepository` **không** dedupe mà `Repository.url` là `.unique`, nên phải lọc trước.
+    /// Phải chạy **trước** `upsertExtensions`: coordinator chỉ nhận `repositoryUrl` của kho đã tồn tại.
+    /// `addRepository` tự bỏ qua kho đã có; lọc trước chỉ để đếm đúng số kho thêm mới. Thêm theo đúng thứ tự
+    /// trong archive — thứ tự kho quyết định kho nào thắng khi trùng `packageId`.
     public func insertMissingRepositories(_ records: [BackupPayload.RepositoryRecord]) -> Report {
         var report = Report()
-        let existing = existingRepositoryUrls()
-        for record in records where !existing.contains(record.url) && !record.url.isEmpty {
-            let result = ExtensionTransactionCoordinator.shared.addRepository(
-                url: record.url,
-                name: record.name,
-                in: context
-            )
-            switch result {
+        var existing = existingRepositoryUrls()
+        for record in records {
+            let url = record.url.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !url.isEmpty, !existing.contains(url) else { continue }
+            switch ExtensionTransactionCoordinator.shared.addRepository(url: url, name: record.name) {
             case .success:
+                existing.insert(url)
                 report.insertedRepositories += 1
             case .failure(let error):
                 report.errors.append("Kho \(record.url): \(error.localizedDescription)")
@@ -76,12 +80,35 @@ public struct BackupLibraryWriter {
     public func upsertExtensions(_ commands: [UpsertExtensionCommand]) -> Report {
         var report = Report()
         guard !commands.isEmpty else { return report }
-        let result = ExtensionTransactionCoordinator.shared.upsertExtensions(commands: commands, in: context)
-        switch result {
+        switch ExtensionTransactionCoordinator.shared.upsertExtensions(commands: commands) {
         case .success:
             report.upsertedExtensions = commands.count
         case .failure(let error):
             report.errors.append("Extension: \(error.localizedDescription)")
+        }
+        return report
+    }
+
+    /// Ghim lại tiện ích mà lượt khôi phục **vừa cài thêm** (máy chưa có trước đó) — cùng nguyên tắc ghim truyện
+    /// ở `insertMissingBooks`: không đè lựa chọn ghim của máy đang khôi phục.
+    ///
+    /// Coordinator chưa có API đặt `pinnedAt` theo mốc cho trước nên dùng `togglePinned` (mốc = lúc khôi phục),
+    /// gọi lần lượt theo `pinnedAt` gốc để giữ thứ tự ghim; archive cũ chỉ có `isPinned` thì theo tên.
+    /// `lastUsedAt` của archive chưa được áp (không có API) — chỉ ảnh hưởng thứ tự "vừa dùng".
+    public func restorePins(_ records: [BackupPayload.ExtensionRecord], newlyInstalled: Set<String>) -> Report {
+        var report = Report()
+        let library = ExtensionLibraryRepository.shared
+        let candidates = records
+            .filter { $0.wasPinned && newlyInstalled.contains($0.packageId) }
+            .sorted { ($0.pinnedAt ?? .distantFuture, $0.name) < ($1.pinnedAt ?? .distantFuture, $1.name) }
+        for record in candidates {
+            guard let ext = library.installedExtension(packageId: record.packageId), !ext.isPinned else { continue }
+            switch ExtensionTransactionCoordinator.shared.togglePinned(packageId: record.packageId) {
+            case .success:
+                report.restoredExtensionPins += 1
+            case .failure(let error):
+                report.errors.append("Ghim \(record.name): \(error.localizedDescription)")
+            }
         }
         return report
     }

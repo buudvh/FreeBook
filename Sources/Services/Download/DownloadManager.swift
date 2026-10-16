@@ -256,9 +256,8 @@ public final class DownloadManager: ObservableObject {
         let bgContext = ModelContext(container)
         let taskId = task.id
 
-        // 2. Fetch Extension by filtering in memory
-        let allExts = (try? bgContext.fetch(FetchDescriptor<Extension>())) ?? []
-        let bgExt = allExts.first(where: { $0.packageId == task.extensionPackageId })
+        // 2. Tiện ích đã cài: đọc bảng chụp `nonisolated` của repository (không qua SwiftData, không await).
+        let bgExt = ExtensionLibraryRepository.snapshot(packageId: task.extensionPackageId)
 
         let worker: BookDownloadWorker?
         if let bgExt = bgExt {

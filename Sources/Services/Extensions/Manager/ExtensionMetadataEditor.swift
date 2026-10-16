@@ -3,10 +3,10 @@ import Foundation
 /// Đọc/ghi khối `metadata` của `plugin.json` cho màn Cấu hình tiện ích.
 ///
 /// ## Một cửa duy nhất cho phần file
-/// `metadata` là dữ liệu nằm **trên đĩa**: app chỉ có cột DB cho `name`, `author`, `version`, `source`,
-/// `icon`, `description`, `type`, `locale` — còn `regexp` và `language` **không** có cột nào (và cố ý không
-/// thêm, vì repo không có `VersionedSchema` nên đổi shape `@Model` là việc nguy hiểm). Mọi thao tác đọc/ghi
-/// file của màn cấu hình đi qua đây để luật "đọc ở đâu thì ghi ở đó" chỉ có một định nghĩa.
+/// `metadata` là dữ liệu nằm **trên đĩa**: bản ghi `Extension` trong index JSON (`extension_store/installed.json`)
+/// chỉ có trường cho `name`, `author`, `version`, `source`, `icon`, `description`, `type`, `locale` — còn
+/// `regexp` và `language` **không** có trường nào (chỉ sống trong `plugin.json`). Mọi thao tác đọc/ghi file của
+/// màn cấu hình đi qua đây để luật "đọc ở đâu thì ghi ở đó" chỉ có một định nghĩa.
 ///
 /// ## Ghi phải MERGE, tuyệt đối không ghi đè cả file
 /// `plugin.json` còn chứa `config` — nguồn mặc định cho `getCombinedConfigs` — và các khoá trỏ tới file
@@ -19,10 +19,10 @@ import Foundation
 ///
 /// ## `metadata` có thể **không tồn tại**
 /// Bốn chỗ đọc trong app dùng cùng một luật `json["metadata"] ?? json`:
-/// `ExtensionManager.installFromLocalZip:199`, `ExtensionDraftMetadata.read:81`,
-/// `ExtensionSyncCommandBuilder.parse:154`, `TranslationConfigStore:153`. Lúc ghi phải theo **đúng** luật đó:
-/// file phẳng thì sửa ở gốc và **không** sinh thêm object `metadata` mới — nếu không, bốn reader kia vẫn đọc
-/// ở gốc và không thấy gì đổi.
+/// `ExtensionManager.installFromLocalZip:191`, `ExtensionDraftMetadata.read:81`,
+/// `RepositoryManagerView.installExtensionAsync` (`+Actions.swift:38`), `TranslationConfigStore:151`. Lúc ghi
+/// phải theo **đúng** luật đó: file phẳng thì sửa ở gốc và **không** sinh thêm object `metadata` mới — nếu
+/// không, bốn reader kia vẫn đọc ở gốc và không thấy gì đổi.
 enum ExtensionMetadataEditor {
     /// Sáu khoá màn cấu hình cho sửa.
     static let editableKeys = ["name", "source", "regexp", "description", "locale", "type"]

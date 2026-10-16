@@ -12,12 +12,12 @@ import SwiftData
 ///    sẵn**: không cần bấm gì trên thiết bị, và mỗi lần cài được ghi vào `app_logs.txt`.
 ///
 /// Từ 1.3.325 `draft.install` có hai nhánh: extension đã có trên app thì **ghi đè** file (metadata thư
-/// viện không đổi), chưa có thì **cài mới** — dựng `extensions/<packageId>/` rồi thêm hàng `Extension`
-/// qua `ExtensionTransactionCoordinator`. Đây là chỗ duy nhất trong phân hệ debug ghi SwiftData, và nó
-/// ghi bằng `ModelContext` riêng dựng từ `container`.
+/// viện không đổi), chưa có thì **cài mới** — dựng `extensions/<packageId>/` rồi thêm bản ghi `Extension`
+/// qua `ExtensionTransactionCoordinator` (hop `@MainActor`). Đây là chỗ duy nhất trong phân hệ debug ghi
+/// thư viện tiện ích; đọc thì qua bảng chụp `nonisolated` của `ExtensionLibraryRepository`.
 public actor ExtensionDebugCommandRouter {
-    /// `internal` chứ không `private`: nhánh `draft.*` nằm ở file `+Draft.swift`, mà `private` trong
-    /// Swift là phạm vi **file** — đường cài mới cần container để dựng `ModelContext` riêng.
+    /// Thư viện tiện ích đã ra khỏi SwiftData nên router **không** còn dùng container. Giữ tham số để không
+    /// đổi chữ ký chuỗi khởi động (`ExtensionDebugServer.start(container:)` ← `MainTabView`).
     internal let container: ModelContainer
     private let hub: ExtensionDebugEventHub
     private let runner: ExtensionDebugRunner
@@ -314,14 +314,9 @@ public actor ExtensionDebugCommandRouter {
         emit(ExtensionDebugProtocol.errorEnvelope(requestId: envelope.requestId, code: code, message: message))
     }
 
-    /// Đọc SwiftData bằng `ModelContext` **riêng** dựng từ container — luật của repo cho tác vụ nền.
-    /// Trả snapshot bất biến, không trả `@Model` ra khỏi context.
+    /// Tiện ích **đã cài**, đọc bảng chụp `nonisolated` của repository — không await, không SwiftData.
     internal func installedExtensions() -> [ExtensionDebugInstalledSnapshot] {
-        let context = ModelContext(container)
-        let descriptor = FetchDescriptor<Extension>()
-        guard let rows = try? context.fetch(descriptor) else { return [] }
-        return rows
-            .filter { !$0.localPath.isEmpty }
+        ExtensionLibraryRepository.installedSnapshot()
             .map { ExtensionDebugInstalledSnapshot(extensionRow: $0) }
     }
 

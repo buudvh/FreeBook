@@ -16,6 +16,10 @@ public enum BackupPaths {
     public static let collections = "library/collections.json"
     public static let repositories = "library/repositories.json"
     public static let extensions = "library/extensions.json"
+    /// `localStorage` của tiện ích (`[packageId: [key: value]]`), chỉ các tiện ích có trong `extensions.json`.
+    /// **Đi kèm nhóm `.extensions`**, không có `BackupScope` riêng (cùng lý do `collections`). File thiếu
+    /// (archive tạo trước khi có extension store JSON) thì bỏ qua.
+    public static let extensionLocalStorage = "library/extension_local_storage.json"
 
     public static func chapters(slug: String) -> String { "chapters/\(slug).json" }
     public static func content(slug: String) -> String { "content/\(slug).bin" }

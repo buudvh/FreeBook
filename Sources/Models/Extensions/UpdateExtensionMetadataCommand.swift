@@ -2,8 +2,8 @@ import Foundation
 
 /// Command cập nhật **metadata** của một tiện ích đã cài, phát từ màn Cấu hình tiện ích.
 ///
-/// Chỉ mang các trường **có cột** trong `@Model Extension` (`Extension.swift:6-18`). `regexp` và `language`
-/// không có cột nên chỉ ghi xuống `plugin.json` — xem `ExtensionMetadataEditor`.
+/// Chỉ mang các trường **có trong bản ghi** `Extension` của `installed.json` (`Models/Extensions/Extension.swift`).
+/// `regexp` và `language` không có trường nên chỉ ghi xuống `plugin.json` — xem `ExtensionMetadataEditor`.
 ///
 /// ## Vì sao không dùng lại `UpsertExtensionCommand`
 /// Nhánh cập nhật của nó (`ExtensionTransactionCoordinator.apply`) gán `existing.version = command.version`

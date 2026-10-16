@@ -1,19 +1,22 @@
 import Foundation
 import SwiftData
 
-/// Đọc thư viện SwiftData thành DTO `Sendable` để worker nén ngoài MainActor dùng lại.
+/// Đọc thư viện thành DTO `Sendable` để worker nén ngoài MainActor dùng lại.
 /// Chỉ đọc — không `insert/delete/save` bất cứ gì.
 ///
-/// Không gắn `@MainActor`: reader tự tạo `ModelContext` riêng và chỉ trả DTO, nên `BackupExportWorker`
-/// gọi thẳng trên actor của nó — đọc cả thư viện không còn chặn main thread. Context không được
-/// thoát khỏi `read(scopes:)`.
+/// Không gắn `@MainActor`: sách/bộ sưu tập đọc bằng `ModelContext` riêng; tiện ích, kho và `localStorage`
+/// đọc qua bảng chụp `nonisolated` của `ExtensionLibraryRepository` / `ExtensionLocalStorageStore`. Nhờ vậy
+/// `BackupExportWorker` gọi thẳng trên actor của nó — đọc cả thư viện không chặn main thread. Context không
+/// được thoát khỏi `read(scopes:)`.
 public struct BackupLibraryReader {
-    /// Toàn bộ dữ liệu SwiftData cần cho một archive, đã tách khỏi `@Model`.
+    /// Toàn bộ dữ liệu cần cho một archive, đã tách khỏi `@Model`.
     public struct Payload: Sendable {
         public var books: [BackupPayload.BookRecord]
         public var collections: [BackupPayload.CollectionRecord]
         public var repositories: [BackupPayload.RepositoryRecord]
         public var extensions: [BackupPayload.ExtensionRecord]
+        /// `[packageId: [key: value]]` — chỉ namespace của tiện ích có trong `extensions`.
+        public var extensionLocalStorage: [String: [String: String]]
         /// bookId của các truyện có thư mục từ điển riêng nhưng không còn trong thư viện —
         /// vẫn phải sao lưu vì người dùng yêu cầu "vp/name riêng của tất cả truyện".
         public var orphanDictionaryBookIds: [String]
@@ -23,12 +26,14 @@ public struct BackupLibraryReader {
             collections: [BackupPayload.CollectionRecord] = [],
             repositories: [BackupPayload.RepositoryRecord],
             extensions: [BackupPayload.ExtensionRecord],
+            extensionLocalStorage: [String: [String: String]] = [:],
             orphanDictionaryBookIds: [String]
         ) {
             self.books = books
             self.collections = collections
             self.repositories = repositories
             self.extensions = extensions
+            self.extensionLocalStorage = extensionLocalStorage
             self.orphanDictionaryBookIds = orphanDictionaryBookIds
         }
     }
@@ -44,12 +49,14 @@ public struct BackupLibraryReader {
         let books = readBooks()
         let bookIds = Set(books.map { $0.bookId })
         let includeExtensions = scopes.contains(.extensions)
+        let extensions = includeExtensions ? readExtensions() : []
 
         return Payload(
             books: books,
             collections: readCollections(),
             repositories: includeExtensions ? readRepositories() : [],
-            extensions: includeExtensions ? readExtensions() : [],
+            extensions: extensions,
+            extensionLocalStorage: includeExtensions ? readLocalStorage(for: extensions) : [:],
             orphanDictionaryBookIds: scopes.contains(.dictBooks)
                 ? BackupLibraryReader.dictionaryBookIds().filter { !bookIds.contains($0) }
                 : []
@@ -97,53 +104,52 @@ public struct BackupLibraryReader {
         }
     }
 
+    /// Giữ **thứ tự thêm kho** (không sắp lại): thứ tự này quyết định kho nào thắng khi trùng `packageId`, và
+    /// restore thêm kho theo đúng thứ tự trong archive. `isEnabled` không còn — luôn ghi `true` cho app cũ.
     private func readRepositories() -> [BackupPayload.RepositoryRecord] {
-        let descriptor = FetchDescriptor<Repository>(sortBy: [SortDescriptor(\.url)])
-        guard let rows = try? context.fetch(descriptor) else { return [] }
-        return rows.map { repo in
+        ExtensionLibraryRepository.repositoriesSnapshot().map { repo in
             BackupPayload.RepositoryRecord(
                 url: repo.url,
                 name: repo.name,
                 author: repo.author,
                 desc: repo.desc,
-                isEnabled: repo.isEnabled
+                isEnabled: true
             )
         }
     }
 
+    /// Chỉ tiện ích **đã cài** — mục chưa cài của kho nằm ở cache registry, làm mới kho là có lại.
     private func readExtensions() -> [BackupPayload.ExtensionRecord] {
-        let descriptor = FetchDescriptor<Extension>(sortBy: [SortDescriptor(\.packageId)])
-        guard let rows = try? context.fetch(descriptor) else { return [] }
-        let root = ExtensionManager.shared.extensionsDirectory.standardized.path
-        return rows.map { ext in
-            BackupPayload.ExtensionRecord(
-                packageId: ext.packageId,
-                name: ext.name,
-                author: ext.author,
-                version: ext.version,
-                sourceUrl: ext.sourceUrl,
-                iconUrl: ext.iconUrl,
-                desc: ext.desc,
-                type: ext.type,
-                locale: ext.locale,
-                downloadUrl: ext.downloadUrl,
-                configJson: ext.configJson,
-                isEnabled: ext.isEnabled,
-                isPinned: ext.isPinned,
-                repositoryUrl: ext.repository?.url,
-                localPathRelative: BackupLibraryReader.relativePath(of: ext.localPath, under: root)
-            )
-        }
+        ExtensionLibraryRepository.installedSnapshot()
+            .sorted { $0.packageId < $1.packageId }
+            .map { ext in
+                BackupPayload.ExtensionRecord(
+                    packageId: ext.packageId,
+                    name: ext.name,
+                    author: ext.author,
+                    version: ext.version,
+                    sourceUrl: ext.sourceUrl,
+                    iconUrl: ext.iconUrl,
+                    desc: ext.desc,
+                    type: ext.type,
+                    locale: ext.locale,
+                    downloadUrl: ext.downloadUrl,
+                    configJson: ext.configJson,
+                    isEnabled: true,
+                    isPinned: ext.isPinned,
+                    repositoryUrl: ext.repositoryUrl,
+                    localPathRelative: ext.folder,
+                    pinnedAt: ext.pinnedAt,
+                    lastUsedAt: ext.lastUsedAt
+                )
+            }
     }
 
-    /// `Extension.localPath` là đường dẫn tuyệt đối của máy tạo backup. Giữ phần đuôi tính từ
-    /// `extensions/` để máy khác dựng lại được, còn phần sandbox prefix thì bỏ.
-    private static func relativePath(of localPath: String, under root: String) -> String {
-        guard !localPath.isEmpty else { return "" }
-        let standardized = URL(fileURLWithPath: localPath).standardized.path
-        guard standardized.hasPrefix(root) else { return "" }
-        let suffix = String(standardized.dropFirst(root.count))
-        return suffix.hasPrefix("/") ? String(suffix.dropFirst()) : suffix
+    /// Namespace `"global"` / `"path:…"` (executor không gắn tiện ích đã cài) không thuộc tiện ích nào nên bỏ.
+    private func readLocalStorage(for extensions: [BackupPayload.ExtensionRecord]) -> [String: [String: String]] {
+        let packageIds = Set(extensions.map(\.packageId))
+        guard !packageIds.isEmpty else { return [:] }
+        return ExtensionLocalStorageStore.shared.snapshot().filter { packageIds.contains($0.key) && !$0.value.isEmpty }
     }
 
     /// Các bookId đang có thư mục `translate/books/<bookId>/`.

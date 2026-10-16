@@ -3,9 +3,13 @@ import SwiftData
 
 struct ExtensionConfigView: View {
     @Environment(\.dismiss) internal var dismiss
-    @Environment(\.modelContext) internal var modelContext
-    
+
     var ext: Extension
+
+    /// `ext` là snapshot giá trị lúc mở màn — tra lại theo `packageId` để thấy tên/config vừa lưu.
+    internal var current: Extension {
+        ExtensionLibraryRepository.shared.installedExtension(packageId: ext.packageId) ?? ext
+    }
     
     // Lưu các cấu hình định nghĩa trong plugin.json
     @State internal var configDefinitions: [String: ConfigItem] = [:]
@@ -52,7 +56,7 @@ struct ExtensionConfigView: View {
                     Form {
                         // Khối metadata của `plugin.json` (9 trường, tự lưu khi sửa). Ba section bên dưới
                         // giữ nguyên hành vi cũ, kể cả nút "Lưu" ở thanh điều hướng.
-                        ExtensionMetadataSection(ext: ext)
+                        ExtensionMetadataSection(ext: current)
 
                         Section(header: Text("Tùy Chỉnh Biến Global")) {
                             if !configDefinitions.isEmpty {
@@ -129,10 +133,10 @@ struct ExtensionConfigView: View {
                     .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
                 }
             }
-            .navigationTitle("Cấu Hình: \(ext.name)")
+            .navigationTitle("Cấu Hình: \(current.name)")
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showingScriptEditor) {
-                ExtensionScriptEditorView(ext: ext)
+                ExtensionScriptEditorView(ext: current)
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -153,13 +157,13 @@ struct ExtensionConfigView: View {
     }
     
     internal func loadConfigDefinitions() {
-        guard !ext.localPath.isEmpty else {
+        guard !current.localPath.isEmpty else {
             errorMessage = "Tiện ích chưa được cài đặt cục bộ."
             isLoading = false
             return
         }
         
-        let extUrl = URL(fileURLWithPath: ext.localPath)
+        let extUrl = URL(fileURLWithPath: current.localPath)
         let pluginJsonUrl = extUrl.appendingPathComponent("plugin.json")
         
         guard FileManager.default.fileExists(atPath: pluginJsonUrl.path) else {
@@ -209,7 +213,7 @@ struct ExtensionConfigView: View {
             }
             
             // Đọc các giá trị người dùng đã lưu trước đó trong Extension
-            if let userConfigData = ext.configJson.data(using: .utf8),
+            if let userConfigData = current.configJson.data(using: .utf8),
                let savedValues = try? JSONSerialization.jsonObject(with: userConfigData) as? [String: Any] {
                 var stringMap: [String: String] = [:]
                 for (k, v) in savedValues {
@@ -266,7 +270,7 @@ struct ExtensionConfigView: View {
             let data = try JSONSerialization.data(withJSONObject: typedDict, options: [])
             if let jsonString = String(data: data, encoding: .utf8) {
                 let cmd = ExtensionConfigCommand(packageId: ext.packageId, configJson: jsonString)
-                let res = ExtensionTransactionCoordinator.shared.saveExtensionConfig(command: cmd, in: modelContext)
+                let res = ExtensionTransactionCoordinator.shared.saveExtensionConfig(command: cmd)
                 switch res {
                 case .success:
                     ToastManager.shared.show(message: "Đã lưu cấu hình thành công!", type: .success)
