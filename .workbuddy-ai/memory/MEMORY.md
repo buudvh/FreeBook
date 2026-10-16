@@ -15,9 +15,9 @@ Thêm entry `Docs/CodeGraph/CHANGELOG.md` `[1.3.NNN] - YYYY-MM-DD` (tăng NNN m�
 
 ## Bẫy nhanh
 - **Không build trên Windows** ⇒ không bao giờ nói "đã kiểm chứng biên dịch" (CI xác nhận).
-- `Scripts/check_architecture.py` **đỏ sẵn** (baseline 30 violation): chỉ chịu violation **MỚI**; `[PASS]` của script **không phải bằng chứng** (regex ăn nhầm code thật khi có string interpolation).
+- `Scripts/check_architecture.py` **đỏ sẵn** (đo lại trên `main` 2026-10-16: **2** violation, không phải 30 — `JSDom.swift` 580/555, `TTSManager.swift` 3510/3470): chỉ chịu violation **MỚI**; `[PASS]` của script **không phải bằng chứng** (regex ăn nhầm code thật khi có string interpolation).
 - File Swift ≤ **400 dòng**, **1 type chính** top level; `Sources/Services/**` không `import SwiftUI`/`ToastManager`; `Sources/Views/**` không `modelContext.insert/delete/save`.
-- **Ratchet-down**: `TextPreprocessor.swift` **đúng 1121** dòng; `QuickTranslationRuleEngine.swift` 399/400; `TTSManager.swift` 4024/3470 (code mới → `TTSManager+*.swift`).
+- **Ratchet-down**: `TextPreprocessor.swift` **đúng 1121** dòng; `QuickTranslationRuleEngine.swift` 399/400; `TTSManager.swift` 3510/3470 (code mới → `TTSManager+*.swift`); `ExtensionManager.swift` **1005/1022** — chỉ còn **17 dòng** ngân sách, logic mới phải nằm ở file khác (script fail khi `physical_lines > baseline`, `check_architecture.py:126`).
 - Grep chỉ trong `Sources/` (`Tools/` >4000 file → timeout). **Bẫy doc**: cú pháp chứa `](` (vd `[Float](repeating:)`) bị hiểu là markdown link ⇒ viết lại bằng chữ.
 - Thêm file Swift mới ⇒ **không cần** cập nhật doc đồ thị nữa (9 doc đó đã bị xoá ở 1.3.477). Chỉ cần `xcodegen generate` khi thêm/xoá/đổi tên file Swift.
 - TTS: `Sources/Services/TTS/` có ~90 file; entry luồng phát là `TTSManager.startSpeaking` (`:1243`) → `speakCurrent` (`:2421`) → dispatch `:2451-2459`. `TTSAudioEngineController` (EQ + TimePitch) là **dead code**, đừng tưởng nó đang chỉnh tiếng.
