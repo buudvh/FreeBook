@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.530] - 2026-10-16
+
+### fix(tts): tts tien ich suy duong dan tu packageId, bo ttsExtensionLocalPath tuyet doi
+
+Người dùng: duyệt plan *"TTS tiện ích: bỏ ttsExtensionLocalPath tuyệt đối"* — việc còn lại ở §9 plan `Docs/Plans/2026-10-16-plan-extension-store-json.md` (1.3.529).
+
+- **Vấn đề**: `TTSManager.extensionLocalPath` được lưu nguyên đường dẫn **tuyệt đối** vào `UserDefaults` (`ttsExtensionLocalPath`). Gốc thư mục dữ liệu đổi (LiveContainer, lỗi 1.3.523) ⇒ TTS tiện ích trỏ vào thư mục chết cho tới khi mở màn Cài đặt TTS, và `localStorage` của nó rơi vào namespace `"path:"+md5` thay vì `packageId` (`JSExecutor`). Restore cài đặt cũng hỏng tương tự: `ttsTool` về nhưng khoá đường dẫn bị `BackupSettingsArchiver` chặn ⇒ đường dẫn rỗng.
+- **File mới** `Sources/Services/TTS/TTSManager+ExtensionPath.swift`: `libraryExtensionLocalPath(tool:)` / `libraryExtensionConfigJson(tool:)` (`nonisolated static`, đọc `ExtensionLibraryRepository.snapshot(packageId:)`), `refreshExtensionPathFromLibrary()` (chỉ gán khi khác để không xoá cache prefetch vô ích), và dọn khoá cũ một lần — chuyển namespace `"path:"+md5(đường dẫn cũ)` sang `packageId` nếu namespace đó còn trống (cứu `localStorage` mà 1.3.529 có thể đã ghi nhầm chỗ), rồi xoá khoá.
+- **`TTSManager.swift`** giữ nguyên **3510** dòng: bỏ dòng ghi `UserDefaults` trong `didSet` (−1); `init` tính `extensionLocalPath` và `extensionConfigJson` từ index (`configJson` của tiện ích là nguồn sự thật, bản sao `ttsExtensionConfigJson` chỉ còn là dự phòng; ±0); `initialize(container:)` gọi `refreshExtensionPathFromLibrary()` sau khi library đã nạp (+1).
+- **Tài liệu**: `rules.md` bỏ ngoại lệ "`ttsExtensionLocalPath` còn tồn"; comment deny-list của `BackupSettingsArchiver` cập nhật (vẫn chặn khoá sót trên máy chưa dọn).
+- **Không đổi**: màn Cài đặt TTS (vẫn đồng bộ khi mở màn), luồng tổng hợp/cache; chưa tự cập nhật đường dẫn khi bản cập nhật tiện ích đổi thư mục con lúc app đang chạy (có từ trước).
+- **Kiểm chứng**: `check_architecture.py` **2 violation, 0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch. Test tay: chọn TTS tiện ích, khởi động lại app, nghe được ngay không cần mở màn cài đặt.
+
 ## [1.3.529] - 2026-10-16
 
 ### feat: luu tien ich va kho bang JSON thay SwiftData, sap xep ghim/vua dung, loc chip chon nhieu
@@ -433,16 +446,3 @@ Người dùng: *"spin=off thỉnh thoảng bị đọc lắp. ví dụ 'thiên 
 - Màn **Thử giọng** VieNeu dùng cùng tốc độ model + tốc độ phát đã bù (trước đó bỏ qua công tắc ⇒ người dùng sẽ tưởng công tắc vô tác dụng); dòng chẩn đoán thêm "tốc độ model (phát thật)". Log `[TTSRoute] doi toc do tong hop` ghi cả tốc độ model và tốc độ phát đã bù.
 - **Giới hạn đã biết** (ghi ở `rules.md`): tốc độ phát VieNeu < 0,575× thì tốc độ phát đã bù bị kẹp ở sàn 0,5× ⇒ nghe nhanh hơn tối đa 15 %. Mẫu nghe trước/sau: `Docs/Reports/tts-samples-2026-10-10-doc-lap/` (gitignored).
 - **Kiểm chứng**: `check_architecture.py` 2 vi phạm nền cũ, 0 mới (`TTSManager.swift` giữ 3550 dòng). Review đối kháng 2 lượt: biên dịch 0 lỗi; hành vi 4 lỗi — 3 đã sửa ở trên, 1 ghi là giới hạn. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`. Thử trên máy: nghe VieNeu như thường (công tắc mặc định bật) — `[VieNeuPerf] synthSpeed=1.15x`, tốc độ nghe không đổi; tắt công tắc để so.
-
-## [1.3.500] - 2026-10-09
-
-### feat(vieneu): doi spin/so luong ORT co hieu luc ngay o luot tong hop ke tiep, khong can tat app
-
-Người dùng: *"có thể làm spin=on/off tác dụng ngay sau khi bật không, hiện tại phải tắt mở máy lại khá phiền"*.
-
-- **Trước**: số luồng ORT và spin chỉ đặt được lúc dựng session, mà `VieNeuTTSEngine` là singleton không bao giờ unload ⇒ đổi trong Cài đặt chỉ có hiệu lực sau khi **tắt hẳn app** (bẫy đo log 85–87).
-- **Nay**: `VieNeuTTSEngine+Reload.swift` (mới) — `runtimeNeedsLoadLocked()` chạy ở đầu `prepareLocked()` (tức **mỗi lượt tổng hợp**, đang giữ `lock`): so `threadCount`/`allowSpinning` của runtime **đang chạy** (lưu trên `VieNeuONNXRuntime` từ 1.3.497) với `VieNeuSynthesisPolicy.effectiveThreadCount`/`allowSpinning` (gồm cả "Tiết kiệm pin" ghim 2 luồng); lệch ⇒ log `Cài đặt đổi (threads a→b, spin x→y) — nạp lại engine`, bỏ runtime cũ rồi nạp lại ngay lượt đó (~3 s). Runtime cũ được giải phóng (session + tensor cache A2b qua `VieNeuORTDestroy`) **trước** khi dựng cái mới ⇒ không nhân đôi bộ nhớ, và không cache nào còn trỏ vào `nullContext` cũ khi nó bị gán lại. Chi phí khi không đổi: 3 lần đọc `UserDefaults` mỗi lượt.
-- `VieNeuTTSEngine.swift` chỉ đổi dòng tại chỗ (`runtime` thành `internal` cho `+Reload`, guard của `prepareLocked`, comment về tensor cache); giữ 398 dòng.
-- Chú thích UI (công tắc spin, số luồng) đổi thành "có hiệu lực từ lượt tổng hợp kế tiếp (engine tự nạp lại, chờ khoảng 3 giây)"; comment ở `VieNeuONNXRuntime`/`+Adaptive`/`VieNeuTTSService` và `rules.md` (dòng về số luồng ORT) cập nhật theo.
-- Bối cảnh: P3 (gộp CFG thành một lượt `Run` batch=2) **giữ lại, chưa làm** (người dùng chốt sau khi hỏi lại): CPU-time gần như không đổi (nhiệt ≈ như cũ) nhưng tổng hợp nhanh hơn ⇒ bớt hụt tiếng khi máy nóng; làm sau khi chốt lỗi đọc lắp, dạng công tắc A/B — trạng thái + lý do ghi ở mục P3 của `Docs/Reports/2026-10-09-vieneu-huong-toi-uu-moi.md`.
-- **Kiểm chứng**: `check_architecture.py` 2 vi phạm nền cũ, 0 mới (`VieNeuTTSEngine.swift` giữ 398 dòng). **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`. Thử trên máy: bật log → đổi spin hoặc số luồng trong Cài đặt VieNeu (không tắt app) → log có `Cài đặt đổi (threads …→…, spin …→…) — nạp lại engine` rồi `Nạp xong engine: … threads=… spin=…`, và `[VieNeuPerf] … threads=… spin=…` khớp cài đặt mới.

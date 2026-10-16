@@ -22,8 +22,9 @@ public enum BackupSettingsArchiver {
 
     /// Khoá không bao giờ được sao lưu, kèm lý do:
     /// - hai khoá đầu là **bí mật/định danh OAuth** của riêng máy đó;
-    /// - `ttsExtensionLocalPath` là đường dẫn **tuyệt đối** chứa UUID container của máy cũ (cùng lý do
-    ///   `Extension` chỉ lưu `folder` tương đối) — phục hồi nó là trỏ vào đường dẫn không tồn tại;
+    /// - `ttsExtensionLocalPath` là đường dẫn **tuyệt đối** chứa UUID container của máy cũ. Từ 1.3.530 app không
+    ///   còn ghi khoá này (TTS tiện ích suy đường dẫn từ `packageId`, `TTSManager+ExtensionPath`) — vẫn chặn để
+    ///   khoá sót trên máy chưa dọn không đi vào backup;
     /// - ba mốc `...LastRunAt` / `LastBatchAt` quyết định lần chạy nền kế tiếp: mang mốc của máy cũ
     ///   sang sẽ làm lượt tự động chạy sai thời điểm;
     /// - hai hàng đợi `failed_*` là việc dở của riêng máy đó;

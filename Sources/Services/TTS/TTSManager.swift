@@ -67,7 +67,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
     @Published public var extensionLocalPath: String {
         didSet {
-            UserDefaults.standard.set(extensionLocalPath, forKey: "ttsExtensionLocalPath")
             clearPrefetchCache()
         }
     }
@@ -493,6 +492,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         // `init` nạp tham số trước `super.init()` nên không gọi được instance method, và chuỗi ở đó thiếu
         // nhánh `vieneu` ⇒ khởi động app với VieNeu là nạp nhầm khoá `extRate_vieneu`/`extVoice_vieneu`.
         applyVieNeuParamsIfNeeded()
+        refreshExtensionPathFromLibrary()
         if TTSManager.isLocalEngine(tool) {
             scheduleNghiWarmUp()
         }
@@ -664,8 +664,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         UserDefaults.standard.set(clampedInitThreshold, forKey: "nghittsSafeCachedTimeThreshold")
         self.extPrefetchCount = 3
         self.prefetchDelayMs = UserDefaults.standard.object(forKey: "ttsPrefetchDelayMs") != nil ? UserDefaults.standard.integer(forKey: "ttsPrefetchDelayMs") : 350
-        self.extensionLocalPath = UserDefaults.standard.string(forKey: "ttsExtensionLocalPath") ?? ""
-        self.extensionConfigJson = UserDefaults.standard.string(forKey: "ttsExtensionConfigJson") ?? "{}"
+        self.extensionLocalPath = TTSManager.libraryExtensionLocalPath(tool: toolVal)
+        self.extensionConfigJson = TTSManager.libraryExtensionConfigJson(tool: toolVal) ?? UserDefaults.standard.string(forKey: "ttsExtensionConfigJson") ?? "{}"
 
         switch UserDefaults.standard.string(forKey: "ttsSleepTimerMode") {
         case "minutes":
