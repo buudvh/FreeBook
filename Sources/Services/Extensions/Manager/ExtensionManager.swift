@@ -149,6 +149,7 @@ public final class ExtensionManager: ObservableObject {
         // Một số file zip giải nén ra sẽ chứa thẳng các file js, một số khác nén trong 1 folder con
         // Tìm kiếm tệp plugin.json để xác định thư mục làm việc chính
         let mainFolder = findMainExtensionFolder(at: destFolder)
+        try ExtensionScriptDecoder.decodeScripts(in: mainFolder)
         
         return mainFolder.path
     }
@@ -188,6 +189,7 @@ public final class ExtensionManager: ObservableObject {
         try FileManager.default.unzipItem(at: tempZipFile, to: tempExtractDir)
 
         let mainFolder = findMainExtensionFolder(at: tempExtractDir)
+        try ExtensionScriptDecoder.decodeScripts(in: mainFolder)
         let pluginJsonUrl = mainFolder.appendingPathComponent("plugin.json")
         guard FileManager.default.fileExists(atPath: pluginJsonUrl.path) else {
             throw NSError(domain: "ExtensionManager", code: -3, userInfo: [NSLocalizedDescriptionKey: "Không tìm thấy tệp plugin.json trong file zip"])

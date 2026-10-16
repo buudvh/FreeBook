@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.482] - 2026-10-16
+
+### feat: them bo giai ma script extension Vbook (AES-256-CBC) luc cai dat
+
+Người dùng: *"thêm bộ giải mã vào app để giải mã những script bị mã hoá như thế này"* → phỏng vấn `grill-me` rồi duyệt plan `Docs/Plans/2026-10-15-plan-extension-script-decoder.md`.
+
+- **File mới** `Sources/Services/Extensions/Manager/ExtensionScriptDecoder.swift` (223 dòng, 1 type `enum`, chỉ `import CommonCrypto` / `CryptoKit` / `Foundation`): bỏ token `x0P1Xx` / `x0P2Xx` / `x0P3Xx` về `+` `/` `=` rồi giải **AES-256-CBC** (IV 16 byte `0x00`, padding PKCS#7), key `SHA256(MD5("com.vbook.app" + source + author) dạng hex)`. CryptoKit không có AES-CBC nên dùng CommonCrypto.
+- **Móc 2 dòng** vào `ExtensionManager.swift`, ngay sau `findMainExtensionFolder` ở **cả hai** luồng cài — `install(item:packageId:)` và `installFromLocalZip(fileUrl:)`. File 1018 → **1020** dòng (baseline `FILE_SIZE_LIMIT` 1022): toàn bộ logic nằm trong file mới, không nhồi thêm vào file legacy.
+- **Cách ghi**: ghi đè nội dung file script (giữ nguyên tên) + đặt `encrypt = false` trong `plugin.json` ⇒ bản đồ `script` không phải sửa, runtime và editor đọc bản rõ luôn, **không giải mã lại ở mỗi lần chạy**.
+- **Chốt phạm vi** (đã phỏng vấn): chỉ dùng công thức chuẩn — không ma trận biến thể key, không giải nén payload (tool chính thức của Vbook mã hoá JS thô), không nút giải mã thủ công / migration. File có token mà giải không ra JS ⇒ **ném lỗi để chặn cài**.
+- **Kiểm chứng**: công thức đã đối chứng bằng dữ liệu thật 10 file của extension `hhtqvietsub` v10 — key `d476a9f7…292073`, ciphertext khớp **100% từng ký tự** với ZIP công bố của `Darkrai9x/vbook-extensions`. `check_architecture.py`: **4 violation, 0 mới**. `swiftc -parse` sạch cả 2 file. **Không build tại chỗ** (Windows) — CI xác nhận biên dịch.
+- **Gap đã biết**: luồng khôi phục extension từ backup (`BackupExtensionInstaller`) chưa móc giải mã.
+
 ## [1.3.481] - 2026-10-09
 
 ### refactor: tach 7 chuoi JS bootstrap va cleanAndResolveUrl khoi JSExecutor (dot 1 tach god object)
