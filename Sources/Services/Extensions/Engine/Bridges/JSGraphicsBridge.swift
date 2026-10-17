@@ -8,14 +8,14 @@ import ImageIO
 ///
 /// - Handle là số nguyên trong bảng của **một** bridge; bridge do các block `_nativeGraphics*` giữ, các block do
 ///   `JSContext` giữ ⇒ handle sống đúng bằng executor. Bridge không giữ `JSContext` nên không tạo vòng tham chiếu.
-/// - Toạ độ theo canvas HTML: gốc trên-trái, làm tròn về pixel nguyên. Canvas tối đa 8192×8192 điểm ảnh (tính theo diện tích).
+/// - Toạ độ theo canvas HTML: gốc trên-trái, số thực (chỉ vùng cắt ảnh nguồn làm tròn về pixel nguyên).
+/// - Canvas mỗi cạnh ≤ 8192 (tổng ≤ ~64 MP); ảnh nguồn tổng ≤ ~64 MP — quá trần thì kẹp/từ chối và log ❌.
 /// - `capture()` giải phóng canvas; `_nativeGraphicsReset()` xoá mọi handle (runner script ảnh gọi quanh mỗi lượt).
 final class JSGraphicsBridge: @unchecked Sendable {
-    /// Trần bộ nhớ một canvas: 8192×8192 điểm ảnh (~256 MB RGBA). Tính theo **diện tích** chứ không theo từng cạnh:
-    /// cuutruyen dựng canvas bằng đúng cỡ ảnh gốc, chặn cạnh 8192 sẽ cắt mất đáy trang webtoon hẹp mà dài.
+    /// Trần bộ nhớ một bitmap (canvas hoặc ảnh giải mã): 8192×8192 ≈ 64 MP (~256 MB RGBA).
     static let maxCanvasPixels = 8192 * 8192
-    /// Cạnh dài nhất cho phép của bitmap.
-    static let maxCanvasSide = 32_768
+    /// Cạnh dài nhất của canvas (đúng plan comic/video). Trang dựng từ tile cao hơn 8192 px sẽ bị cắt đáy.
+    static let maxCanvasSide = 8192
 
     private let lock = NSLock()
     private var images: [Int: CGImage] = [:]
@@ -63,8 +63,19 @@ final class JSGraphicsBridge: @unchecked Sendable {
             payload = String(payload[payload.index(after: comma)...])
         }
         guard let data = Data(base64Encoded: payload, options: .ignoreUnknownCharacters), !data.isEmpty,
-              let source = CGImageSourceCreateWithData(data as CFData, nil),
-              let image = CGImageSourceCreateImageAtIndex(
+              let source = CGImageSourceCreateWithData(data as CFData, nil) else {
+            return ["id": 0, "width": 0, "height": 0]
+        }
+        // Đọc kích thước từ header trước khi giải mã: ảnh quá trần bị từ chối (không downsample — script cắt tile
+        // theo toạ độ điểm ảnh gốc).
+        if let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+           let width = (properties[kCGImagePropertyPixelWidth] as? NSNumber)?.doubleValue,
+           let height = (properties[kCGImagePropertyPixelHeight] as? NSNumber)?.doubleValue,
+           width * height > Double(Self.maxCanvasPixels) {
+            AppLogger.shared.log("❌ [Graphics] Ảnh \(width)x\(height) vượt trần \(Self.maxCanvasPixels) điểm ảnh, từ chối giải mã")
+            return ["id": 0, "width": 0, "height": 0]
+        }
+        guard let image = CGImageSourceCreateImageAtIndex(
                 source,
                 0,
                 [kCGImageSourceShouldCacheImmediately: true] as CFDictionary
@@ -84,10 +95,11 @@ final class JSGraphicsBridge: @unchecked Sendable {
     private func createCanvas(width: Double, height: Double) -> [String: Any] {
         guard width.isFinite, height.isFinite else { return ["id": 0, "width": 0, "height": 0] }
         // Kẹp trên `Double` trước khi đổi sang `Int` (số JS quá lớn làm `Int(_:)` trap).
+        // Hai cạnh ≤ 8192 ⇒ tổng ≤ `maxCanvasPixels`.
         let pixelWidth = Int(min(max(width.rounded(), 1), Double(Self.maxCanvasSide)))
-        var pixelHeight = Int(min(max(height.rounded(), 1), Double(Self.maxCanvasSide)))
-        if pixelWidth * pixelHeight > Self.maxCanvasPixels {
-            pixelHeight = max(1, Self.maxCanvasPixels / pixelWidth)
+        let pixelHeight = Int(min(max(height.rounded(), 1), Double(Self.maxCanvasSide)))
+        if width.rounded() > Double(Self.maxCanvasSide) || height.rounded() > Double(Self.maxCanvasSide) {
+            AppLogger.shared.log("❌ [Graphics] Canvas \(width)x\(height) vượt trần, kẹp về \(pixelWidth)x\(pixelHeight)")
         }
         guard let canvas = CGContext(
             data: nil,
@@ -121,7 +133,8 @@ final class JSGraphicsBridge: @unchecked Sendable {
         guard let canvas, let image else { return }
         guard arguments.allSatisfy({ $0.isFinite }) else { return }
 
-        let values = arguments.map { CGFloat($0.rounded()) }
+        // Canvas HTML nhận toạ độ số thực: không làm tròn khung đích.
+        let values = arguments.map { CGFloat($0) }
         let imageBounds = CGRect(x: 0, y: 0, width: image.width, height: image.height)
         var sourceRect = imageBounds
         let destinationRect: CGRect
@@ -143,18 +156,22 @@ final class JSGraphicsBridge: @unchecked Sendable {
         guard source.width > 0, source.height > 0, destination.width > 0, destination.height > 0 else { return }
         let clipped = source.intersection(imageBounds)
         guard !clipped.isNull, clipped.width > 0, clipped.height > 0 else { return }
+        // `CGImage.cropping(to:)` chỉ cắt theo pixel nguyên (toạ độ ảnh gốc trên-trái — khớp thẳng với `sx, sy`).
+        // `clipped` nằm trong `imageBounds` (cạnh nguyên) nên `integral` không vượt ra ngoài ảnh.
+        let cropRect = clipped.integral
+        guard cropRect.width > 0, cropRect.height > 0 else { return }
 
+        // Khung đích tính theo đúng vùng đã cắt (không theo `clipped` lẻ) để mảnh ảnh không bị kéo giãn.
         let scaleX = destination.width / source.width
         let scaleY = destination.height / source.height
         let target = CGRect(
-            x: destination.minX + (clipped.minX - source.minX) * scaleX,
-            y: destination.minY + (clipped.minY - source.minY) * scaleY,
-            width: clipped.width * scaleX,
-            height: clipped.height * scaleY
+            x: destination.minX + (cropRect.minX - source.minX) * scaleX,
+            y: destination.minY + (cropRect.minY - source.minY) * scaleY,
+            width: cropRect.width * scaleX,
+            height: cropRect.height * scaleY
         )
 
-        // `CGImage.cropping(to:)` dùng toạ độ ảnh gốc trên-trái — khớp thẳng với `sx, sy`.
-        guard let piece = clipped == imageBounds ? image : image.cropping(to: clipped) else { return }
+        guard let piece = cropRect == imageBounds ? image : image.cropping(to: cropRect) else { return }
 
         // Bitmap context của CoreGraphics có gốc dưới-trái và vẽ ảnh đúng chiều: chỉ cần lật trục y của khung đích.
         let flipped = CGRect(

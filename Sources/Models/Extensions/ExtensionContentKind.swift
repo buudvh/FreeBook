@@ -34,6 +34,12 @@ public enum ExtensionContentKind: String, Sendable {
     ///
     /// Đọc bảng chụp có lock của `ExtensionLibraryRepository` nên gọi được từ thread bất kỳ, không `await`.
     public static func resolve(packageId: String) -> ExtensionContentKind {
+        resolveIfKnown(packageId: packageId) ?? .text
+    }
+
+    /// Như `resolve(packageId:)` nhưng trả `nil` khi không tra được cả bản cài lẫn catalog (tiện ích đã gỡ) —
+    /// dùng cho chỗ **lọc/so loại** (đổi nguồn), nơi đoán `text` sẽ chặn nhầm sách tranh/video. `"local"`/rỗng → `text`.
+    public static func resolveIfKnown(packageId: String) -> ExtensionContentKind? {
         let trimmed = packageId.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, trimmed.lowercased() != "local" else { return .text }
         if let installed = ExtensionLibraryRepository.snapshot(packageId: trimmed) {
@@ -42,7 +48,7 @@ public enum ExtensionContentKind: String, Sendable {
         if let catalog = ExtensionLibraryRepository.catalogSnapshot(packageId: trimmed) {
             return ExtensionContentKind(typeString: catalog.type)
         }
-        return .text
+        return nil
     }
 
     /// Loại theo `metadata.type` trong `<localPath>/plugin.json` (dự phòng `type` ở gốc file, giống luồng cài).

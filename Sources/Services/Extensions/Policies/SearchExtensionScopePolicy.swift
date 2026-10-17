@@ -34,14 +34,17 @@ public enum SearchExtensionScopePolicy {
     }
 
     /// Danh sách nguồn để tìm. `changeSourcePackageId != nil` ⇒ đang đổi nguồn: chỉ giữ tiện ích cùng loại với
-    /// sách đó và bỏ qua `kindFilter`.
+    /// sách đó và bỏ qua `kindFilter`. Không tra được loại của sách (tiện ích đã gỡ, không còn trong catalog) ⇒
+    /// giữ mọi tiện ích nội dung thay vì đoán là chữ.
     public static func searchableExtensions(
         _ extensions: [Extension],
         kindFilter: String,
         changeSourcePackageId: String?
     ) -> [Extension] {
         if let packageId = changeSourcePackageId {
-            let bookKind = ExtensionContentKind.resolve(packageId: packageId)
+            guard let bookKind = ExtensionContentKind.resolveIfKnown(packageId: packageId) else {
+                return extensions.filter { isBrowsable($0) }
+            }
             return extensions.filter { isBrowsable($0) && kind(of: $0) == bookKind }
         }
         return extensions.filter { matches($0, kindFilter: kindFilter) }

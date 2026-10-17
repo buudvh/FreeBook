@@ -889,7 +889,8 @@ public final class ExtensionManager: ObservableObject {
                 guard AppLogger.shared.isLoggingEnabled else {
                     return dataVal
                 }
-                let dataStr = formatSuccessDataLog(dataVal)
+                // `track` chứa URL có token và header Cookie/Authorization: luôn log dạng gọn, không stringify.
+                let dataStr = scriptName == "track" ? compactRepresentation(dataVal) : formatSuccessDataLog(dataVal)
                 AppLogger.shared.log("✅ [\(logPrefix)] Response.success: \(dataStr)")
                 return dataVal
             } else {

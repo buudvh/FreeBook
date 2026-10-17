@@ -128,7 +128,7 @@ final class ComicReaderViewModel {
         isRestoringScroll = false
         pendingScrollPage = nil
         currentPageIndex = max(0, page)
-        currentChapterUrl = chapters.first { $0.index == index }?.url ?? ""
+        currentChapterUrl = chapters.first { $0.index == index }.map { resolvedChapterUrl($0) } ?? ""
         loadState = .loading
         loadGeneration += 1
         let generation = loadGeneration
@@ -211,6 +211,14 @@ final class ComicReaderViewModel {
               !manifest.pages.isEmpty else {
             return nil
         }
+        // Manifest của URL chương khác (nguồn đổi đường dẫn) ⇒ coi như chưa tải. So cả dạng chỉ dùng host chương —
+        // đúng công thức `DownloadManager+Comic` ghi manifest. Không có trong mục lục ⇒ vẫn đọc bản offline.
+        if let chapter = chapters.first(where: { $0.index == index }),
+           manifest.chapterUrl != resolvedChapterUrl(chapter),
+           manifest.chapterUrl != JSExecutor.cleanAndResolveUrl(chapter.url, host: chapter.host) {
+            AppLogger.shared.log("⚠️ [ComicReader] Bản offline chương \(index) không khớp URL chương hiện tại — đọc online")
+            return nil
+        }
         return manifest.pages.map { page in
             ComicPageSource(
                 link: ComicOfflineStore.pageFileURL(bookId: bookId, chapterIndex: index, file: page.file).absoluteString,
@@ -222,6 +230,11 @@ final class ComicReaderViewModel {
                 headers: [:]
             )
         }
+    }
+
+    /// URL chương đã resolve (host chương, rỗng thì host sách) — nguồn `Referer` mặc định của ảnh.
+    private func resolvedChapterUrl(_ chapter: ComicChapterEntry) -> String {
+        JSExecutor.cleanAndResolveUrl(chapter.url, host: Self.nonEmpty(chapter.host) ?? bookHost)
     }
 
     private func prefetchNextChapter(after index: Int) {

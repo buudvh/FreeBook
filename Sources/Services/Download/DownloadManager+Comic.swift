@@ -5,7 +5,8 @@ import SwiftData
 /// media không bao giờ chạm pipeline chữ (`ExportContentProvider`, `BookBinManager`, `ChapterContentRepository`).
 ///
 /// - Comic + `.download`: tải **tuần tự** từng chương, từng ảnh (chủ ý, tránh bị nguồn chặn) vào `ComicOfflineStore`.
-///   Bỏ qua chương đã có manifest; tôn trọng `startFromCurrent` / `limit`; tiến độ theo chương; huỷ được.
+///   Bỏ qua chương đã có manifest **cùng URL chương** (khác URL ⇒ tải lại, ghi đè); tôn trọng `startFromCurrent` /
+///   `limit`; tiến độ theo chương; huỷ được. Script ảnh chạy trên `ComicImageScriptRunner` riêng của tác vụ.
 /// - Comic/video + xuất ebook, video + tải: báo thất bại (UI bình thường đã ẩn các nút này).
 extension DownloadManager {
     /// `true` khi tác vụ thuộc sách media và đã được xử lý trọn ở đây — caller phải `return` ngay.
@@ -53,6 +54,8 @@ extension DownloadManager {
 
         let total = chapters.count
         await updateProgress(taskId: taskId, progress: 0, total: total)
+        // Runner riêng: không chung executor/lượt chạy với màn đọc (`ComicImageLoader.shared`), tự nhả khi xong/huỷ.
+        let scriptRunner = ComicImageScriptRunner()
 
         var downloadedCount = 0
         var skippedCount = 0
@@ -61,21 +64,28 @@ extension DownloadManager {
 
         for (offset, chapter) in chapters.enumerated() {
             if await isComicTaskCancelled(taskId) {
-                await finishCancelledComicDownload(taskId: taskId)
+                await finishCancelledComicDownload(taskId: taskId, scriptRunner: scriptRunner)
                 return
             }
 
-            if ComicOfflineStore.manifest(bookId: task.bookId, chapterIndex: chapter.index) != nil {
+            let chapterUrl = JSExecutor.cleanAndResolveUrl(chapter.url, host: chapter.host)
+            if ComicOfflineStore.manifest(bookId: task.bookId, chapterIndex: chapter.index)?.chapterUrl == chapterUrl {
                 skippedCount += 1
             } else {
                 do {
-                    try await downloadComicChapter(chapter, bookId: task.bookId, ext: ext)
+                    try await downloadComicChapter(
+                        chapter,
+                        chapterUrl: chapterUrl,
+                        bookId: task.bookId,
+                        ext: ext,
+                        scriptRunner: scriptRunner
+                    )
                     downloadedCount += 1
                 } catch {
                     ComicOfflineStore.discardChapter(bookId: task.bookId, chapterIndex: chapter.index)
                     // Huỷ giữa chừng có thể nổi lên dưới dạng `URLError.cancelled`/lỗi JS chứ không chỉ `CancellationError`.
                     if error is CancellationError || Task.isCancelled {
-                        await finishCancelledComicDownload(taskId: taskId)
+                        await finishCancelledComicDownload(taskId: taskId, scriptRunner: scriptRunner)
                         return
                     }
                     failedCount += 1
@@ -87,7 +97,7 @@ extension DownloadManager {
             await updateProgress(taskId: taskId, progress: offset + 1, total: total)
         }
 
-        await ComicImageLoader.shared.releaseScriptRunners()
+        await scriptRunner.releaseAll()
         AppLogger.shared.log("📊 [DownloadManager] Tác vụ comic \(taskId) xong: tải \(downloadedCount), có sẵn \(skippedCount), lỗi \(failedCount)/\(total) chương")
 
         if failedCount > 0 {
@@ -98,8 +108,15 @@ extension DownloadManager {
         }
     }
 
-    /// Một chương: `comicPages` → từng ảnh qua `ComicImageLoader.data(for:)` → ghi đĩa → manifest sau cùng.
-    private func downloadComicChapter(_ chapter: StoredChapterSnapshot, bookId: String, ext: Extension) async throws {
+    /// Một chương: `comicPages` → từng ảnh qua `ComicImageLoader.data(for:scriptRunner:)` → ghi đĩa → manifest sau cùng.
+    /// `chapterUrl` là URL đã resolve mà vòng lặp dùng để so manifest — ghi đúng giá trị đó vào manifest mới.
+    private func downloadComicChapter(
+        _ chapter: StoredChapterSnapshot,
+        chapterUrl: String,
+        bookId: String,
+        ext: Extension,
+        scriptRunner: ComicImageScriptRunner
+    ) async throws {
         let pages = try await ExtensionManager.shared.comicPages(
             localPath: ext.localPath,
             downloadUrl: ext.downloadUrl,
@@ -111,7 +128,6 @@ extension DownloadManager {
             throw NSError(domain: "DownloadManager", code: -20, userInfo: [NSLocalizedDescriptionKey: "Chương không có ảnh nào."])
         }
 
-        let chapterUrl = JSExecutor.cleanAndResolveUrl(chapter.url, host: chapter.host)
         let directory = try ComicOfflineStore.prepareChapterDirectory(bookId: bookId, chapterIndex: chapter.index)
         var storedPages: [ComicChapterManifest.Page] = []
         storedPages.reserveCapacity(pages.count)
@@ -125,7 +141,7 @@ extension DownloadManager {
                 downloadUrl: ext.downloadUrl,
                 configJson: ext.configJson
             )
-            let data = try await ComicImageLoader.shared.data(for: request)
+            let data = try await ComicImageLoader.shared.data(for: request, scriptRunner: scriptRunner)
             let page = try ComicOfflineStore.writePage(
                 data,
                 pageNumber: pageOffset + 1,
@@ -188,8 +204,8 @@ extension DownloadManager {
         return await MainActor.run { self.isTaskCancelled(taskId: taskId) }
     }
 
-    private func finishCancelledComicDownload(taskId: UUID) async {
-        await ComicImageLoader.shared.releaseScriptRunners()
+    private func finishCancelledComicDownload(taskId: UUID, scriptRunner: ComicImageScriptRunner) async {
+        await scriptRunner.releaseAll()
         await markCancelled(taskId: taskId)
     }
 }

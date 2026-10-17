@@ -97,7 +97,7 @@ Miễn trừ khai trong `Scripts/architecture_allowlist.json` (`schema_version: 
 
 ## Architecture
 
-`Sources/` có 5 tầng: `App` (chỉ `FreeBookApp.swift`) / `Common` / `Models` / `Services` / `Views`. Chiều phụ thuộc: Views → ViewModel/Coordinator → Services/Repositories → Models. 218 file Swift.
+`Sources/` có 5 tầng: `App` (chỉ `FreeBookApp.swift`) / `Common` / `Models` / `Services` / `Views`. Chiều phụ thuộc: Views → ViewModel/Coordinator → Services/Repositories → Models. 814 file Swift (đếm 1.3.531).
 
 ### Bootstrap & lưu trữ
 
@@ -108,7 +108,7 @@ Khởi động chia làm **hai chỗ**, đây là bẫy cho người mới:
 
 **`ChapterStoreConfiguration.enableSwiftDataTOCWrite = false`** — mục lục chương **không** nằm ở bảng SwiftData `Chapter` mà ở `chapters/chapter_store.sqlite` (raw sqlite3, actor `ChapterStore`). Đọc `Book.chapters` trong production sẽ thấy rỗng. Code branch theo cờ này ở `ReaderViewModel`, `ReadingProgressStore`, `BookDetailView`.
 
-Mọi thứ nằm dưới `applicationSupportDirectory` (ngoại lệ duy nhất: `Documents/Exports/` cho export TXT): `library.db`, `chapters/chapter_store.sqlite`, `books/<sha256(bookId)>.bin` (append-only, không compaction — ghi lại chương làm file phình mãi, chỉ xoá cả truyện mới thu hồi), `covers/<sha256(bookId)>.jpg`, `extensions/<packageId>/` (script/icon của tiện ích), `extension_store/` (`installed.json` = index tiện ích đã cài với đường dẫn **tương đối**, `repositories.json`, `registry/<sha256(url)>.json` = cache registry, `local_storage.json` = `localStorage` của JS theo `packageId`, `legacy/library-pre-ext.sqlite` = bản chép DB trước migrate), `translate/`, `FreeBook/TTS/`, `app_logs.txt`. Hàm băm SHA-256 và `validatePathSafety(for:)` bị **cài lại độc lập ở từng owner** (`BookBinManager`, `ImageCacheManager`, `BookStorageManager`, `ChapterStorePath`) — sửa một chỗ không lan sang chỗ khác.
+Mọi thứ nằm dưới `applicationSupportDirectory` (hai ngoại lệ: `Documents/Exports/` cho export TXT, và `Caches/comic_images/` = cache ảnh comic tải lại được, hệ điều hành được phép xoá): `library.db`, `chapters/chapter_store.sqlite`, `books/<sha256(bookId)>.bin` (append-only, không compaction — ghi lại chương làm file phình mãi, chỉ xoá cả truyện mới thu hồi), `covers/<sha256(bookId)>.jpg`, `extensions/<packageId>/` (script/icon của tiện ích), `extension_store/` (`installed.json` = index tiện ích đã cài với đường dẫn **tương đối**, `repositories.json`, `registry/<sha256(url)>.json` = cache registry, `local_storage.json` = `localStorage` của JS theo `packageId`, `legacy/library-pre-ext.sqlite` = bản chép DB trước migrate), `comics/<sha256(bookId)>/<chapterIndex>/` (ảnh comic tải offline + `manifest.json`, `ComicOfflineStore`; Backup **không** gói), `translate/`, `FreeBook/TTS/`, `app_logs.txt`. Hàm băm SHA-256 và `validatePathSafety(for:)` bị **cài lại độc lập ở từng owner** (`BookBinManager`, `ImageCacheManager`, `BookStorageManager`, `ChapterStorePath`, `ComicOfflineStore`) — sửa một chỗ không lan sang chỗ khác.
 
 ### Trục dọc quan trọng nhất: normalize → paragraph → chunk → highlight
 
@@ -190,6 +190,18 @@ Mỗi tác vụ bóc tách tạo `JSExecutor` mới rồi giải phóng — **kh
 
 Có skill riêng cho việc này: `.agents/skills/vbook_helper/SKILL.md` (mẫu `plugin.json` + mẫu từng script).
 
+### Comic & Video (1.3.531)
+
+Hợp đồng chuẩn: `extension-api.md` của Darkrai9x (`raw.githubusercontent.com/Darkrai9x/vbook-extensions/master/extension-api.md`).
+
+- **Loại nội dung suy ra lúc chạy, không lưu**: `ExtensionContentKind.resolve(packageId:)` (bản đã cài → catalog → `text`; `"local"` luôn `text`) hoặc `resolve(localPath:)` (đọc `metadata.type` của `plugin.json`). `Book` **không** có trường loại; `detail.type` ghi đè không được lưu.
+- **Một router duy nhất**: `BookContentDestination` (cùng nhãn tham số với `ReaderView`) đứng ở cả 4 chỗ mở reader (BookDetail, Kệ, Tìm trên kệ, Bộ sưu tập) và chọn `ReaderView` / `ComicReaderView` / `VideoPlayerScreen`. Thêm lối vào reader mới thì dùng router, đừng gọi `ReaderView(` trực tiếp.
+- **Media không bao giờ đi qua pipeline text**: ảnh comic và server/track video lấy bằng `ExtensionManager.comicPages` / `videoServers` / `videoTrack` (`ExtensionManager+Media.swift`), không qua `chap()`, `ChapterContentRepository`, `cleanHTML`, JunkFilter, bin, dịch hay TTS. `link` của ảnh có `script` và `data` của server/track phải giữ **nguyên văn**, không `cleanAndResolveUrl`, không trim.
+- **`Book.currentChapterPage` có ba nghĩa** theo loại: chỉ số đoạn (chữ), chỉ số ảnh (comic), **số giây** (video). Comic/video ghi tiến độ qua `ReadingProgressStore.checkpoint`, nếu không sách sẽ rơi khỏi tab Lịch sử.
+- `toc` bỏ item `type:"section"` **chỉ** với comic/video; truyện chữ giữ nguyên để chỉ số chương của sách đã lưu không lệch.
+- **Browser của tiện ích** (`WebViewLoader`, `VisibleWebViewController`) cài `WebNetworkCaptureScript` vào mọi frame. Vì vậy `urls()` / `waitUrl` thấy cả XHR, fetch và media, không chỉ điều hướng. Autoplay tắt tiếng **chỉ** bật cho tiện ích loại video.
+- **Trình phát video** chiếm `AVAudioSession` (`.playback/.moviePlayback`) và tạm dừng TTS khi phát.
+
 ## Ràng buộc runtime cần nhớ
 
 - **Logging**: chỉ `AppLogger.shared.log(...)`. File ghi ở `applicationSupportDirectory/app_logs.txt` (**không** phải `Documents`); ghi trên queue nền riêng (luồng gọi không chờ đĩa; crash có thể mất vài dòng cuối) và xoay vòng theo `AppLogFiles`: file quá 2 MB thì đẩy thành `app_logs.1.txt`…`app_logs.4.txt`, file cũ nhất bị xoá (1.3.518). Xuất log = xuất tất cả file, xoá log = xoá tất cả file. `AppLogger.init` **set `isLoggingEnabled = false` mỗi lần khởi chạy** (`AppLogger.swift:61`) — thêm log mà không thấy gì thì là do đây, phải bật lại trong Settings. Ngoại lệ (1.3.517): dòng chứa `❌` (log lỗi) luôn được ghi dù công tắc tắt — log lỗi mới phải có `❌`, dòng thường không được gắn `❌` để lách công tắc; `AppLogger.logAlways` chỉ dành cho chẩn đoán fd (`FileDescriptorCensus`, `FileDescriptorStepProbe`, `FileDescriptorSweeper`). App chạy thật qua LiveContainer trên máy iOS vật lý nên không đính được debugger; log file là kênh duy nhất. Không log secret hay full payload chương. (`AppLogger.log` tự gọi `print` bên trong — luật "không `print`" là không gọi trực tiếp ở nơi khác.)
@@ -212,7 +224,7 @@ Có skill riêng cho việc này: `.agents/skills/vbook_helper/SKILL.md` (mẫu 
 
   Đường dẫn `Sources/Views/Extensions/Manager/Extensions/RepositoryManagerView+Actions.swift` chứa hai nghĩa khác nhau của cùng một từ. Đọc kỹ path trước khi kết luận.
 - **Tách file kiểu `X+Feature.swift`** (19 file) là cách repo giữ god-object dưới baseline dòng: `TTSManager+{Playback,Interruption,NowPlaying,NghiEnergy,PrefetchCache,Telemetry}`, `ReaderView+{Controls,LoadingView}`, `ReaderViewModel+Translation`, `BookDetailView+{Extensions,TOCPreparation}`, `JSExecutor+Async`, `TranslateUtils+Tokenization`. Muốn thêm code vào một type lớn thì thêm vào file `+` phù hợp (hoặc tạo file mới), đừng làm file gốc phình thêm.
-- **Chỉ có 3 ViewModel thật**: `ReaderViewModel`, `FloatingWidgetViewModel` và `FloatingHubViewModel`, đặt cạnh view của nó chứ không có thư mục `ViewModels/`. Mọi màn khác dùng `@State` trong View + projection reader.
+- **Chỉ có 5 ViewModel thật**: `ReaderViewModel`, `FloatingWidgetViewModel`, `FloatingHubViewModel`, `ComicReaderViewModel` và `VideoPlayerController` (1.3.531), đặt cạnh view của nó chứ không có thư mục `ViewModels/`. Mọi màn khác dùng `@State` trong View + projection reader.
 - Hậu tố quyết định vai trò (theo `rules.md`, và code tuân thủ khá sát): `Repository` = single source of truth cho một domain, `Store` = engine lưu trữ mức thấp, `Coordinator` = chủ transaction/flow, `Worker` = actor/task nền, `Snapshot` = bản sao bất biến qua ranh giới isolation, `Command`/`DTO` = payload bất biến, `Mapper`/`Formatter` = converter thuần, `Engine` = thực thi mức thấp.
 - **View không observe trực tiếp `TTSManager`** — dùng projection reader (`TTSWidgetStateReader`, `TTSRootPresentationReader`, `ReaderTTSStateReader`). `ReaderTTSStateReader.scope(to: bookId)` làm snapshot của sách khác thành inactive để Reader ngoài màn hình không redraw theo mỗi bước highlight.
 - **NotificationCenter vẫn là event bus liên module nhưng phần lớn tên là string literal trần** — đổi tên là vỡ ngầm, grep cả hai đầu: `"openCurrentlyPlayingReader"`, `"navigateReaderToPlayingChapter"`, `"ttsDidAdvanceToNextChapter"`, `"sourceChangedNavigateToShelf"`, `"extensionDidUpdate"`. Chỉ 2 tên có hằng số kiểu: `.translationDictionariesDidUpdate` và `VisibleBrowserTabManager.stateDidChangeNotification` — nhưng `TTSManager` vẫn observe tên thứ nhất bằng string trần. Signalling mới thì dùng `AsyncStream` event center, đừng thêm notification string mới.

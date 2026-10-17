@@ -2,6 +2,84 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.531] - 2026-10-17
+
+### feat: ho tro extension comic va video, sua bo loc kho theo nhom the loai/ngon ngu, them nut go o man cau hinh
+
+Người dùng duyệt plan `Docs/Plans/2026-10-17-plan-comic-video.md`, gồm: comic và video làm chung một đợt; video hỗ trợ `native`, `auto` và nhúng `webview`; comic đọc cuộn dọc; làm cả API `Graphics` lẫn tải offline. Thêm hai yêu cầu: sửa bộ lọc kho (Phần E) và nút Gỡ ở màn cấu hình (Phần F). Toàn bộ làm trên nhánh `feature/comic-video`, đã thêm nhánh này vào trigger `build-ipa.yml`. Hợp đồng VBook lấy theo `extension-api.md` của Darkrai9x.
+
+- **Nền tảng**
+  - `ExtensionType.video`.
+  - `ExtensionContentKind` (`text`/`comic`/`video`/`unsupported`) suy loại lúc chạy, theo `packageId` (bản đã cài → catalog → `text`) hoặc theo `plugin.json` của `localPath`. **Không** đổi `@Model`; `detail.type` ghi đè thì không lưu.
+  - Model media: `ComicPageSource`, `VideoServer`, `VideoTrack` (+ `VideoTrackKind`, `VideoTimeSkip`, `VideoSubtitleTrack`). Mapper thuần: `ComicPageMapper`, `VideoTrackMapper`, `JSValueReader`.
+  - `ExtensionManager+Media`: `comicPages` / `videoServers` / `videoTrack`. **Không** qua pipeline text (`cleanHTML`, JunkFilter, bin, dịch, TTS). `link` của ảnh có `script` và `data` của track được giữ nguyên văn. `chap()` cũ giữ nguyên chữ ký.
+  - `toc` bỏ item `type:"section"` chỉ với comic/video; truyện chữ giữ nguyên để chỉ số chương không lệch.
+- **Định tuyến**
+  - `BookContentDestination` (cùng nhãn tham số với `ReaderView`) thay `ReaderView(` ở 4 chỗ: BookDetail, Kệ, Tìm trên kệ, Bộ sưu tập. Router chọn `ReaderView` / `ComicReaderView` / `VideoPlayerScreen`.
+  - `BookContentLaunch.initialParagraphIndex` là `Int?`: `nil` = tiến độ đã lưu.
+- **Màn hình cho media**
+  - Khám phá và Tìm kiếm có hàng chip loại `ExtensionKindFilterBar`.
+  - Đổi nguồn chỉ cho chọn nguồn cùng loại (`SearchExtensionScopePolicy`, `BookSourceMigrator` chặn khác loại).
+  - BookDetail (`+Media`): comic/video ẩn Xuất ebook và Từ điển; video ẩn Tải; nhãn "Tải ảnh offline" / "Xem ngay".
+  - `BookActionSheet` ẩn các thao tác tương ứng.
+  - `BookKindBadge` trên bìa sách ở kệ.
+- **Comic**
+  - `ComicImageLoader` (actor): header gồm `headers` > `referer` > `Referer: <origin chương>/` + UA iPhone; thử `fallback` lần lượt; tối đa 3 request đồng thời.
+  - Downsample bằng ImageIO, khống chế bề ngang và tổng điểm ảnh.
+  - Cache gồm `NSCache` và `ComicImageDiskCache` (`Caches/comic_images/`, 400 MB, dọn khi vào nền).
+  - `ComicImageScriptRunner` chạy script ảnh, nhận base64 trần, `Response.success` hoặc `data:`.
+  - API JS `Graphics` (`JSGraphicsBridge` + `JSGraphicsBootstrapScript`): `createImage`, `createCanvas`, `drawImage` 3/5/9 tham số, `capture` → PNG base64.
+  - Màn đọc `Views/ComicReader/`: cuộn dọc, chạm đúp mở `ComicZoomViewer`, mục lục, chương trước/sau. Tiến độ (chỉ số ảnh) lưu qua `ReadingProgressStore.checkpoint`.
+  - Tải offline: `ComicOfflineStore` (`comics/<sha256(bookId)>/<chapterIndex>/manifest.json` + ảnh) và `DownloadManager+Comic` tải tuần tự từng chương, từng ảnh. Xoá sách thì xoá thư mục comic.
+  - `DownloadManager.executeTask` từ chối xuất ebook cho comic/video và từ chối tải video.
+- **Video**
+  - Browser của tiện ích bắt cả XHR, fetch, media và iframe nhờ `WebNetworkCaptureScript` (`WKUserScript` mọi frame) cùng `WebNetworkCaptureMessageProxy` (weak). `urls()` / `waitUrl` thấy toàn bộ request, đúng ngữ nghĩa VBook.
+  - Autoplay tắt tiếng chỉ bật cho tiện ích loại video; tiện ích khác giữ `.all` như cũ.
+  - `VideoMediaSniffer` + `VideoSourceResolver` → `VideoPlaybackPlan` (`.native` / `.hlsText` / `.embed`). `auto` không ra link thì báo lỗi, đúng DOC; `webview` không ra link thì nhúng trang.
+  - `HLSPlaylistResourceLoader` (`fbhls://`) cho playlist dạng text hoặc `data:`. `VideoSubtitleParser` đọc SRT/VTT.
+  - Trình phát `Views/VideoPlayer/`: `AVPlayerViewController` có header (`AVURLAssetHTTPHeaderFieldsKey`) và PiP; chọn server (nhớ theo sách); lưới tập; nút Bỏ qua theo `timeSkip`; phụ đề trong `contentOverlayView`; tự sang tập kế; `VideoEmbedWebView` cho nhánh nhúng.
+  - Khi phát thì tạm dừng TTS và chiếm `AVAudioSession` `.playback/.moviePlayback`. Tiến độ (số giây) lưu qua `checkpoint`.
+- **Bộ lọc kho (Phần E)**
+  - `ExtensionFilterGroups` gom thể loại thô (`eng_novel`, `novel,comic`, `chinese_novel`…) và ngôn ngữ thô (`zh-CN`, `vi`, `vi-VN`, `global`, `ja_JP`, `kr_KR`…) thành nhóm cố định như vbookext.me. Riêng `ja`/`ko` so theo tiền tố.
+  - `FilterSheet` hiện chip theo nhóm kèm số lượng. Lựa chọn đã lưu được ánh xạ lại qua nhóm. Comic không còn bị lọc khỏi kho.
+- **Nút Gỡ (Phần F)**: `ExtensionConfigView+Uninstall` thêm nút Gỡ có xác nhận, đi cùng đường `ExtensionTransactionCoordinator.uninstallExtension`. Chặn gỡ tiện ích đang làm giọng đọc. Khám phá tự chọn lại nguồn khi nguồn đang chọn bị gỡ.
+- **Sửa sau review phản biện (2 agent đọc chéo toàn bộ diff)**
+  - `waitUrl`:
+    - Reset danh sách URL **đồng bộ** lúc bắt đầu load (`beginLaunch`), tránh khớp nhầm URL của lần launch trước.
+    - So chuỗi con chỉ áp cho URL điều hướng (hành vi cũ); request bắt được phải khớp regex toàn URL. Nhờ vậy ext truyện chữ và màn giải captcha không bị đóng sớm.
+    - Thêm token chống timer cũ kết thúc lượt chờ mới.
+  - Browser của ext video được gắn cửa sổ ẩn (`WebViewLoader+HiddenWindow`) để iOS không treo media.
+  - Trang nhúng:
+    - Gửi `Referer` và UA.
+    - Chặn khung chính rời host gốc và chặn domain quảng cáo.
+  - Track video:
+    - `mimeType` dùng qua `AVURLAssetOverrideMIMETypeKey`, UA qua `AVURLAssetHTTPUserAgentKey`.
+    - `chap` trả chuỗi JSON thì được parse lại.
+  - Lưu tiến độ video:
+    - Hết tập không còn lưu giây ≈ độ dài phim.
+    - Mở lại đúng tập đang xem thì xem tiếp từ giây đã lưu.
+  - Comic online:
+    - Referer lấy theo URL chương **đã resolve**.
+    - Byte do script ảnh trả về phải là ảnh thật; mục cache hỏng thì bị xoá.
+    - Ảnh có cạnh dài ≤ 16384 px.
+  - Comic offline:
+    - Chỉ dùng bản đã tải khi `chapterUrl` của manifest khớp chương.
+    - Lượt tải dùng script runner riêng.
+    - Đổi nguồn thì xoá ảnh offline cũ.
+  - `Graphics`:
+    - Canvas mỗi cạnh ≤ 8192.
+    - `drawImage` giữ toạ độ thực.
+  - Đổi nguồn sách comic/video mà tiện ích cũ đã gỡ: không còn bị suy thành `text` (`resolveIfKnown`).
+  - Log `track` chỉ ghi dạng gọn, vì có thể chứa token hoặc header.
+- **Dòng file legacy**: `BookDetailView` 1200 → 1105 (chuyển hai hàm tải trang mục lục sang `+TOCPreparation`), `SearchView` 871 → 862. Mọi file mới ≤ 400 dòng.
+- **Ngoài phạm vi**:
+  - Video: feed `short`, DRM native (ClearKey chỉ qua nhúng), nhiều audio, danmaku, tải video.
+  - Comic: dấu "đã tải" trên mục lục chi tiết truyện.
+  - Đồng bộ cookie WKWebView sang URLSession.
+  - Sơ đồ mã hoá mới của AllShorts.
+  - Backup **không** gói thư mục `comics/`.
+- **Kiểm chứng**: `check_architecture.py` báo **2 violation, 0 mới**. Không build tại chỗ (Windows); CI chỉ xác nhận biên dịch. Cần thử trên máy theo danh sách ext mẫu ở mục 7 của plan.
+
 ## [1.3.530] - 2026-10-16
 
 ### fix(tts): tts tien ich suy duong dan tu packageId, bo ttsExtensionLocalPath tuyet doi
@@ -433,16 +511,3 @@ Người dùng: *"sửa thêm step của thanh điều chỉnh tốc độ tổn
 - Hàng **"Tốc độ tổng hợp (VieNeu)"**: `Stepper` và `Slider` đổi bước 0,1 → **0,05** (dải 1,0–2,0 giữ nguyên) — chỉnh mịn được quanh vùng đã đo (1,10 / 1,15 / 1,25; xem 1.3.501).
 - Bước 0,05 cộng dồn số thực ra kiểu `1.1500000000000001` ⇒ giá trị **lưu vào `UserDefaults`** được làm tròn 2 chữ số. Tốc độ đưa vào model, so sánh với sàn chống đọc lặp 1,15 và khoá `TTSSynthesisIdentity` (băm `×100`) vì vậy luôn sạch; nhãn hiển thị vốn đã `%.2f`.
 - **Kiểm chứng**: `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`.
-
-## [1.3.501] - 2026-10-09
-
-### fix(vieneu): chong doc lap - model noi nhanh toi thieu 1.15x, phat cham lai bu dung ti le
-
-Người dùng: *"spin=off thỉnh thoảng bị đọc lắp. ví dụ 'thiên thần' bị đọc thành 'thiên thần thần'… tìm cách fix cho tôi"* (log `app_logs (90).txt`), rồi *"không có cách nào fix à"* (sau khi tôi đề xuất tự chỉnh tốc độ tổng hợp).
-
-- **Nguyên nhân (đo, không đoán)**: VieNeu thỉnh thoảng đọc **lặp một âm tiết** ("đến đó, đó là", "làm được được", "Mất, mất tích") khi model được cấp **dư** thời gian so với số chữ; ngẫu nhiên theo nhiễu đầu vào nhưng dồn vào một số câu. Thực nghiệm PC mô phỏng đúng app (fast/8 bước/cfg 3, 25 câu thật của log 90 × 8 seed = 200 mẫu/mức, Whisper small đếm từ lặp, lọc tay lỗi ASR, xác nhận lại từng file lẻ): lặp thật **1,00 ≈ 7 | 1,10 = 1 | 1,15 = 1 | 1,25 = 0**; độ rõ (WER) như nhau tới 1,25, 1,40 bắt đầu mất chữ. Sway 0 / cfg 2 / nhiễu ×0,8 / nới thời lượng +5 % **không** đỡ (nới còn tệ hơn); 16 bước chỉ giảm một nửa mà gấp đôi CPU; kẹp thời lượng/âm vị chỉ chữa câu cực ngắn. Spin và số luồng cho audio **giống hệt từng bit** ⇒ không liên quan; phoneme đúng (người dùng đã kiểm trước).
-- **Sửa — công tắc "Chống đọc lặp" (mặc định bật)** trong Cài đặt VieNeu (`VieNeuAntiRepeatToggle`, dưới thanh Tốc độ tổng hợp): tốc độ đưa vào model = `max(tốc độ tổng hợp, 1,15)` (`VieNeuSynthesisPolicy.modelSpeed`, hàm thuần), và tốc độ phát của player local chia đúng hệ số bù (`TTSManager.localPlaybackRate` = `speed / playbackCompensation`) ⇒ **tốc độ nghe giữ nguyên** (= tốc độ tổng hợp người dùng chọn × tốc độ phát), lỗi lặp giảm ~85 %, lợi phụ ~13 % CPU (ít frame hơn). Mọi đường tổng hợp VieNeu lấy tốc độ qua `localSynthesisSpeed(forTool:)`; `TTSManager.swift` chỉ đổi 2 dòng (`updateRate`/`start(rate:)` dùng `localPlaybackRate`), không tăng dòng. NghiTTS không đổi.
-- **Đổi giữa lúc nghe** (công tắc hoặc tốc độ tổng hợp, cùng đường `invalidateVieNeuSynthesisSpeed`): đoạn đang phát giữ nguyên tốc độ cũ, các đoạn sau dựng player với tốc độ mới (`NghiAudioPlayerQueue.setRateForUpcoming`). Review tìm 2 chỗ audio tốc độ cũ còn lọt, đã sửa: prefix chương kế đã tổng hợp (khoá không có tốc độ model) ⇒ `resetNextChapterPrefixCache()` — lỗi này có sẵn từ trước với thanh tốc độ tổng hợp; đoạn hiện tại **chưa vào player** (đang hụt tiếng) ⇒ huỷ lượt đang bay, bỏ audio, `speakCurrent()` tổng hợp lại.
-- Màn **Thử giọng** VieNeu dùng cùng tốc độ model + tốc độ phát đã bù (trước đó bỏ qua công tắc ⇒ người dùng sẽ tưởng công tắc vô tác dụng); dòng chẩn đoán thêm "tốc độ model (phát thật)". Log `[TTSRoute] doi toc do tong hop` ghi cả tốc độ model và tốc độ phát đã bù.
-- **Giới hạn đã biết** (ghi ở `rules.md`): tốc độ phát VieNeu < 0,575× thì tốc độ phát đã bù bị kẹp ở sàn 0,5× ⇒ nghe nhanh hơn tối đa 15 %. Mẫu nghe trước/sau: `Docs/Reports/tts-samples-2026-10-10-doc-lap/` (gitignored).
-- **Kiểm chứng**: `check_architecture.py` 2 vi phạm nền cũ, 0 mới (`TTSManager.swift` giữ 3550 dòng). Review đối kháng 2 lượt: biên dịch 0 lỗi; hành vi 4 lỗi — 3 đã sửa ở trên, 1 ghi là giới hạn. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`. Thử trên máy: nghe VieNeu như thường (công tắc mặc định bật) — `[VieNeuPerf] synthSpeed=1.15x`, tốc độ nghe không đổi; tắt công tắc để so.

@@ -20,9 +20,12 @@ extension VideoPlayerController {
         } else if let pending = pendingResumeSeconds {
             // Item chưa sẵn sàng ⇒ đừng ghi đè giây đã lưu bằng 0.
             seconds = pending
-        } else if player.currentItem == nil {
+        } else if playerStorage?.currentItem == nil {
             seconds = 0
         } else {
+            // Đã hết item (KVO `.paused`, đóng màn, vào nền… đến sau `handlePlayedToEnd`) ⇒ giữ giây đã lưu lúc hết
+            // tập, không ghi giây ≈ độ dài phim. Phòng thủ thêm khi đầu phát nằm trong giây cuối của item.
+            guard !reachedEndOfItem, !isAtEndOfCurrentItem() else { return }
             seconds = currentPlaybackSeconds()
         }
 
@@ -83,10 +86,11 @@ extension VideoPlayerController {
         resolver = nil
         loadGeneration += 1
 
-        player.pause()
+        // `playerStorage`: đóng màn không được tự dựng `AVPlayer` chưa từng dùng.
+        playerStorage?.pause()
         detachCurrentItem()
         if let token = timeObserverToken {
-            player.removeTimeObserver(token)
+            playerStorage?.removeTimeObserver(token)
             timeObserverToken = nil
         }
         embedContent = nil

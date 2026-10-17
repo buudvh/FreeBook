@@ -15,9 +15,13 @@ enum VideoTrackMapper {
 
     // MARK: - Servers (`chap.js`)
 
-    /// Nhận: mảng server; wrapper `{tracks: […]}` / `{data: […]}`; một object server đơn; hoặc một chuỗi đơn.
+    /// Nhận: mảng server; wrapper `{tracks: […]}` / `{data: […]}`; một object server đơn; chuỗi JSON của một trong các
+    /// dạng đó (`Response.success(JSON.stringify(list))` — DOC: app parse lại chuỗi); hoặc một chuỗi đơn.
     /// Alias: `url`/`link` → `data`, `name`/`label` → `title`. Title rỗng ⇒ "Server N"; trùng ⇒ thêm " (2)"…
     static func servers(from value: JSValue) -> [VideoServer] {
+        if value.isString, let parsed = parsedJSONContainer(value) {
+            return servers(from: parsed)
+        }
         let items: [JSValue]
         if value.isArray {
             items = JSValueReader.array(value)
@@ -47,14 +51,40 @@ enum VideoTrackMapper {
         return servers
     }
 
+    /// Chuỗi (sau trim) mở đầu bằng `[`/`{` và là JSON hợp lệ ⇒ `JSON.parse` phía JS (giữ thứ tự khoá cho
+    /// `opaqueString`). Chỉ nhận kết quả là mảng/object; ngược lại `nil` ⇒ giữ hành vi cũ (một server chuỗi).
+    /// Kiểm tra trước bằng `JSONSerialization`: `JSExecutor` cài `exceptionHandler` riêng nên `JSON.parse` lỗi (vd.
+    /// title `"[HD] …"`) không để lại `context.exception` mà còn log nhầm `❌ JSContext Exception`.
+    private static func parsedJSONContainer(_ value: JSValue) -> JSValue? {
+        guard let text = value.toString() else { return nil }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("[") || trimmed.hasPrefix("{"),
+              let data = trimmed.data(using: .utf8),
+              (try? JSONSerialization.jsonObject(with: data)) != nil,
+              let context = value.context,
+              let parse = context.objectForKeyedSubscript("JSON")?.objectForKeyedSubscript("parse"),
+              let parsed = parse.call(withArguments: [trimmed]) else { return nil }
+        if context.exception != nil {
+            context.exception = nil
+            return nil
+        }
+        guard parsed.isArray || JSValueReader.isPlainObject(parsed) else { return nil }
+        return parsed
+    }
+
+    /// `data` chỉ có khoảng trắng thì bỏ server; `data` hợp lệ vẫn giữ nguyên văn (không trim).
+    private static func isBlank(_ text: String) -> Bool {
+        text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     private static func rawServer(from item: JSValue) -> (title: String, data: String)? {
         if item.isString {
-            guard let data = item.toString(), !data.isEmpty else { return nil }
+            guard let data = item.toString(), !isBlank(data) else { return nil }
             return ("", data)
         }
         guard JSValueReader.isPlainObject(item) else { return nil }
         let dataValue = firstPresent(item, keys: ["data", "url", "link"])
-        guard let data = JSValueReader.opaqueString(dataValue), !data.isEmpty else { return nil }
+        guard let data = JSValueReader.opaqueString(dataValue), !isBlank(data) else { return nil }
         let title = JSValueReader.nonEmptyString(firstPresent(item, keys: ["title", "name", "label"]))?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return (title, data)

@@ -87,7 +87,7 @@ public final class VisibleWebViewController: UIViewController, WKNavigationDeleg
                 decisionHandler(.cancel)
                 return
             }
-            checkWaitUrl(urlString)  // cả điều hướng iframe
+            checkWaitUrl(urlString, allowSubstring: true)  // cả điều hướng iframe
         }
         decisionHandler(.allow)
     }
@@ -105,13 +105,15 @@ public final class VisibleWebViewController: UIViewController, WKNavigationDeleg
             }
             interceptedUrls.append(url)
         }
-        checkWaitUrl(url)
+        // Request bắt được chỉ khớp regex toàn URL (không khớp chuỗi con) — xem `WebNetworkCaptureScript.url`.
+        checkWaitUrl(url, allowSubstring: false)
     }
 
-    internal func checkWaitUrl(_ currentUrl: String?) {
+    /// `allowSubstring`: `true` cho URL điều hướng (luật cũ), `false` cho request do script bắt được.
+    internal func checkWaitUrl(_ currentUrl: String?, allowSubstring: Bool) {
         guard let current = currentUrl, let targets = targetUrlsToWait, let comp = waitUrlCompletion else { return }
         for target in targets {
-            if WebNetworkCaptureScript.url(current, matchesWaitPattern: target) {
+            if WebNetworkCaptureScript.url(current, matchesWaitPattern: target, allowSubstring: allowSubstring) {
                 self.waitUrlCompletion = nil
                 self.targetUrlsToWait = nil
                 comp(true)
@@ -127,11 +129,11 @@ public final class VisibleWebViewController: UIViewController, WKNavigationDeleg
                 comp(html as? String ?? "")
             }
         }
-        checkWaitUrl(webView.url?.absoluteString)
+        checkWaitUrl(webView.url?.absoluteString, allowSubstring: true)
     }
 
     public func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-        checkWaitUrl(webView.url?.absoluteString)
+        checkWaitUrl(webView.url?.absoluteString, allowSubstring: true)
     }
 
     public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {

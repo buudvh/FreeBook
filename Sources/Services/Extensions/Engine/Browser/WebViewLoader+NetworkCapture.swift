@@ -32,6 +32,18 @@ extension WebViewLoader {
         capturedRequestUrlSet.removeAll()
     }
 
+    /// Bắt đầu một lượt `launch` / `launchAsync`: reset `urls()` rồi nạp — **đồng bộ** khi đang ở main (block
+    /// `_nativeBrowser*` đã nhảy về main). Reset trong một `main.async` lồng sẽ chạy SAU block `waitUrl` mà JS xếp hàng
+    /// ngay sau `launchAsync`, khiến `waitUrl` khớp nhầm URL của lần launch trước.
+    func beginLaunch(_ request: URLRequest) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { self.beginLaunch(request) }
+            return
+        }
+        resetRequestedUrls()
+        webView.load(request)
+    }
+
     func recordCapturedRequest(_ url: String) {
         // Domain quảng cáo/bị chặn: XHR tới đó không huỷ được từ native, nhưng cũng không đáng lưu.
         guard WebNetworkCaptureScript.isRecordable(url),
@@ -40,26 +52,32 @@ extension WebViewLoader {
         if capturedRequestUrls.count < Self.maxCapturedRequestUrls, capturedRequestUrlSet.insert(url).inserted {
             capturedRequestUrls.append(url)
         }
-        completePendingWaitUrl(ifMatching: url)
+        // Request bắt được (ảnh/css/js/XHR) chỉ khớp regex toàn URL, không khớp chuỗi con.
+        completePendingWaitUrl(ifMatching: url, allowSubstring: false)
     }
 
-    /// Hoàn tất `waitUrl` đang chờ khi `url` khớp một mẫu (luật khớp: `WebNetworkCaptureScript.url(_:matchesWaitPattern:)`).
-    func completePendingWaitUrl(ifMatching url: String) {
+    /// Hoàn tất `waitUrl` đang chờ khi `url` khớp một mẫu (luật khớp: `WebNetworkCaptureScript.url`).
+    /// `allowSubstring`: `true` cho URL điều hướng, `false` cho request do script bắt được.
+    func completePendingWaitUrl(ifMatching url: String, allowSubstring: Bool) {
         guard let comp = waitUrlCompletion,
-              targetUrlsToWait.contains(where: { WebNetworkCaptureScript.url(url, matchesWaitPattern: $0) }) else { return }
+              targetUrlsToWait.contains(where: {
+                  WebNetworkCaptureScript.url(url, matchesWaitPattern: $0, allowSubstring: allowSubstring)
+              }) else { return }
         waitUrlCompletion = nil
         targetUrlsToWait.removeAll()
         comp(true)
     }
 
     /// VBook: `waitUrl` trả về ngay nếu URL khớp đã được request kể từ lần launch cuối (thường request m3u8 bay ngay
-    /// trong lúc `launch` còn chờ trang tải xong). Trả `true` khi đã hoàn tất.
+    /// trong lúc `launch` còn chờ trang tải xong). URL đã thấy trước đó — kể cả URL điều hướng — chỉ xét regex toàn
+    /// URL: luật chuỗi con cũ chỉ từng áp cho điều hướng **đang diễn ra** (vd. `launch(".../login?next=/user")` rồi
+    /// `waitUrl("/user")` không được trả về ngay). Trả `true` khi đã hoàn tất.
     func completeWaitUrlIfAlreadyRequested() -> Bool {
         let targets = targetUrlsToWait
         guard let hit = allRequestedUrls.first(where: { url in
-            targets.contains { WebNetworkCaptureScript.url(url, matchesWaitPattern: $0) }
+            targets.contains { WebNetworkCaptureScript.url(url, matchesWaitPattern: $0, allowSubstring: false) }
         }) else { return false }
-        completePendingWaitUrl(ifMatching: hit)
-        return true
+        completePendingWaitUrl(ifMatching: hit, allowSubstring: false)
+        return waitUrlCompletion == nil
     }
 }

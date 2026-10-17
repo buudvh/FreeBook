@@ -137,6 +137,50 @@ function execute(url) {
 }
 ```
 
+### 3. Comic extensions (`metadata.type: "comic"`)
+`chap.js` must return an **array** of image entries. Each entry is either a URL string or an object
+`{ link, fallback: [url...], script: "image.js", width, height, referer, headers }`:
+```javascript
+function execute(url) {
+    let doc = fetch(url).html();
+    let imgs = [];
+    doc.select(".page-chapter img").forEach(function(e) {
+        imgs.push({ link: e.attr("data-src"), fallback: [e.attr("src")] });
+    });
+    return Response.success(imgs);
+}
+```
+An image `script` receives `execute(link)` and returns **raw base64** (no `data:` prefix). It may use
+`Graphics.createImage(b64)`, `Graphics.createCanvas(w, h)`, `canvas.drawImage(img, ...3|5|9 args)` and
+`canvas.capture()`. In FreeBook, a `link` paired with a `script` is passed through verbatim.
+
+### 4. Video extensions (`metadata.type: "video"`, script key `track` required)
+Flow: `toc` (episodes) → `chap(episodeUrl)` (servers) → `track(data)` (playable source).
+```javascript
+// chap.js — list of servers; `data` is opaque and passed verbatim to track.js
+function execute(url) {
+    let doc = fetch(url).html();
+    let servers = [];
+    doc.select(".server a").forEach(function(e) {
+        servers.push({ title: e.text(), data: e.attr("data-link") });
+    });
+    return Response.success(servers);
+}
+// track.js — type: "native" (m3u8/mp4 URL or #EXTM3U text), "auto" (page URL, app sniffs the media),
+// "webview" (URL/HTML; app sniffs, otherwise embeds the page)
+function execute(data) {
+    return Response.success({
+        type: "native",
+        data: data,
+        headers: { Referer: "https://mysource.com/" },
+        timeSkip: [{ fromTime: 0, toTime: 90000 }],          // milliseconds
+        subtitles: [{ data: "https://mysource.com/vi.vtt", type: "vtt", label: "Tiếng Việt", language: "vi" }]
+    });
+}
+```
+`browser.urls()` / `browser.waitUrl([regex], ms)` see every request of the page (XHR, fetch, media, iframes);
+the regex must match the **whole** URL.
+
 ---
 
 ## Debugging JS Environment in FreeBook App

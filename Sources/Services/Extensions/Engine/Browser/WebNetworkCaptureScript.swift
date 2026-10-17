@@ -41,11 +41,13 @@ enum WebNetworkCaptureScript {
         return lower.hasPrefix("http://") || lower.hasPrefix("https://")
     }
 
-    /// Luật khớp của `waitUrl`: như VBook, mẫu là **regex khớp toàn bộ URL**; giữ thêm luật cũ của FreeBook (URL chứa
-    /// nguyên văn mẫu) để ext đang truyền chuỗi con không bị hỏng. Mẫu không phải regex hợp lệ thì chỉ dùng luật cũ.
-    static func url(_ url: String, matchesWaitPattern pattern: String) -> Bool {
+    /// Luật khớp của `waitUrl`: như VBook, mẫu là **regex khớp toàn bộ URL**. `allowSubstring` giữ thêm luật cũ của
+    /// FreeBook (URL chứa nguyên văn mẫu) — CHỈ cho URL **điều hướng** (hành vi trước khi có bắt request), để ext đang
+    /// truyền chuỗi con không bị hỏng. Request bắt được (ảnh/css/js/XHR) luôn truyền `false`: chuỗi con như `"/user"`
+    /// sẽ khớp nhầm `…/static/user.js` khi trang còn đang tải/giải captcha.
+    static func url(_ url: String, matchesWaitPattern pattern: String, allowSubstring: Bool) -> Bool {
         guard !pattern.isEmpty else { return false }
-        if url.contains(pattern) { return true }
+        if allowSubstring, url.contains(pattern) { return true }
         guard let regex = wholeMatchRegex(for: pattern) else { return false }
         let range = NSRange(url.startIndex..<url.endIndex, in: url)
         return regex.firstMatch(in: url, options: [], range: range) != nil

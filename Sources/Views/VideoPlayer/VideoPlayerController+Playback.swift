@@ -25,6 +25,7 @@ extension VideoPlayerController {
         hasSubtitles = false
         if !currentCueText.isEmpty { currentCueText = "" }
         if skipTargetSeconds != nil { skipTargetSeconds = nil }
+        reachedEndOfItem = false
         pendingResumeSeconds = resumeSeconds > 5 ? resumeSeconds : nil
         loadGeneration += 1
         return loadGeneration
@@ -45,15 +46,23 @@ extension VideoPlayerController {
         return Int(seconds)
     }
 
+    /// Đầu phát nằm trong giây cuối của item (độ dài hữu hạn) — lưu lúc này sẽ ghi giây ≈ độ dài phim.
+    func isAtEndOfCurrentItem() -> Bool {
+        guard let item = playerStorage?.currentItem else { return false }
+        let duration = item.duration.seconds
+        let current = item.currentTime().seconds
+        guard duration.isFinite, duration > 0, current.isFinite else { return false }
+        return current >= duration - 1
+    }
+
     // MARK: - Áp kế hoạch phát
 
     func apply(plan: VideoPlaybackPlan, track: VideoTrack, generation: Int) {
         guard isCurrent(generation) else { return }
         switch plan {
         case .native(let url, let headers):
-            AppLogger.shared.log("▶️ [VideoPlayer] Phát native host=\(url.host ?? "?") headers=\(headers.count) server=«\(selectedServerTitle)»")
-            // Khoá không công bố chính thức nhưng AVFoundation vẫn đọc (rủi ro đã ghi trong plan, mục 8).
-            let options: [String: Any] = headers.isEmpty ? [:] : ["AVURLAssetHTTPHeaderFieldsKey": headers]
+            AppLogger.shared.log("▶️ [VideoPlayer] Phát native host=\(url.host ?? "?") headers=\(headers.count) mime=\(track.mimeType ?? "-") server=«\(selectedServerTitle)»")
+            let options = Self.assetOptions(headers: headers, mimeType: track.mimeType)
             let asset = AVURLAsset(url: url, options: options)
             attach(asset: asset, track: track, generation: generation)
         case .hlsText(let playlist, let baseURL, let headers):
@@ -63,10 +72,14 @@ extension VideoPlayerController {
             attach(asset: made.asset, track: track, generation: generation)
         case .embed(let url, let html, let baseURL):
             // Hợp đồng `VideoPlaybackPlan.embed`: có `url` thì nạp URL, không thì nạp `html` với `baseURL`.
+            // DOC: chỉ `User-Agent` và `Referer` (của `track.headers`) tới được trang; thiếu thì UA iPhone Safari
+            // dùng chung và Referer = trang/host chứa khung nhúng.
+            let userAgent = Self.headerValue("User-Agent", in: track.headers) ?? VideoMediaSniffer.userAgent
             if let url {
-                embedContent = .page(url)
+                let referer = Self.headerValue("Referer", in: track.headers) ?? baseURL?.absoluteString
+                embedContent = .page(url, referer: referer, userAgent: userAgent)
             } else if let html, !html.isEmpty {
-                embedContent = .html(html, baseURL: baseURL)
+                embedContent = .html(html, baseURL: baseURL, userAgent: userAgent)
             } else {
                 AppLogger.shared.log("❌ [VideoPlayer] Kế hoạch nhúng không có URL lẫn HTML (server «\(selectedServerTitle)»)")
                 fail(generation: generation, message: "Không có trang để phát nhúng.")
@@ -80,6 +93,36 @@ extension VideoPlayerController {
             // Nhúng thì không biết giây đang xem ⇒ vẫn ghi tập vào Lịch sử với giây = 0.
             saveProgress(reason: "nhúng", seconds: 0)
         }
+    }
+
+    /// UA đi qua `AVURLAssetHTTPUserAgentKey` (iOS 16+) — UA nằm trong header fields có thể bị AVFoundation bỏ qua;
+    /// header còn lại qua `"AVURLAssetHTTPHeaderFieldsKey"` (khoá không công bố nhưng AVFoundation vẫn đọc — rủi ro đã
+    /// ghi trong plan, mục 8). `mimeType` của track ⇒ `AVURLAssetOverrideMIMETypeKey` (iOS 17+, khớp deployment target).
+    static func assetOptions(headers: [String: String], mimeType: String?) -> [String: Any] {
+        var options: [String: Any] = [:]
+        var fields: [String: String] = [:]
+        for (key, value) in headers where !isHeader(key, named: "User-Agent") {
+            fields[key] = value
+        }
+        if let userAgent = headerValue("User-Agent", in: headers) {
+            options[AVURLAssetHTTPUserAgentKey] = userAgent
+        }
+        if !fields.isEmpty {
+            options["AVURLAssetHTTPHeaderFieldsKey"] = fields
+        }
+        if let mime = mimeType?.trimmingCharacters(in: .whitespacesAndNewlines), !mime.isEmpty {
+            options[AVURLAssetOverrideMIMETypeKey] = mime
+        }
+        return options
+    }
+
+    /// Giá trị header (so tên không phân biệt hoa thường), bỏ giá trị rỗng/khoảng trắng.
+    static func headerValue(_ name: String, in headers: [String: String]) -> String? {
+        headers.first { isHeader($0.key, named: name) && !$0.value.trimmingCharacters(in: .whitespaces).isEmpty }?.value
+    }
+
+    private static func isHeader(_ key: String, named name: String) -> Bool {
+        key.caseInsensitiveCompare(name) == .orderedSame
     }
 
     private func attach(asset: AVURLAsset, track: VideoTrack, generation: Int) {
@@ -142,7 +185,8 @@ extension VideoPlayerController {
             NotificationCenter.default.removeObserver(token)
         }
         itemNotificationTokens = []
-        if player.currentItem != nil {
+        // `playerStorage`: dọn dẹp không được tự dựng `AVPlayer` chưa từng dùng.
+        if let player = playerStorage, player.currentItem != nil {
             player.replaceCurrentItem(with: nil)
         }
         hlsLoader = nil
@@ -185,6 +229,8 @@ extension VideoPlayerController {
         case .playing:
             guard !wasPlaying else { return }
             wasPlaying = true
+            // Xem lại từ AVKit sau khi hết tập cuối ⇒ lượt tạm dừng sau đó lại được lưu.
+            reachedEndOfItem = false
             // Người dùng có thể bấm play trên điều khiển AVKit sau khi TTS được bật lại ⇒ kiểm tra mỗi lần.
             prepareAudioForPlayback()
             setIdleTimerDisabled(true)
@@ -193,6 +239,8 @@ extension VideoPlayerController {
             guard wasPlaying else { return }
             wasPlaying = false
             setIdleTimerDisabled(false)
+            // KVO `.paused` đến SAU `handlePlayedToEnd` ⇒ đừng ghi đè giây 0 bằng giây ≈ độ dài phim.
+            guard !reachedEndOfItem else { return }
             saveProgress(reason: "tạm dừng")
         default:
             break
@@ -201,6 +249,7 @@ extension VideoPlayerController {
 
     private func handlePlayedToEnd(itemId: ObjectIdentifier) {
         guard isCurrentItem(itemId) else { return }
+        reachedEndOfItem = true
         guard let next = nextEpisode else {
             AppLogger.shared.log("🏁 [VideoPlayer] Đã xem hết tập cuối")
             saveProgress(reason: "hết tập cuối", seconds: 0)

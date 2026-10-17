@@ -14,8 +14,9 @@ struct VideoPlayerScreen: View {
     @State private var controller: VideoPlayerController
 
     init(launch: BookContentLaunch) {
-        // `init` của controller không có side effect: SwiftUI có thể dựng lại struct này nhiều lần
-        // nhưng chỉ giữ instance đầu tiên trong `@State`.
+        // SwiftUI có thể dựng lại struct này nhiều lần nhưng chỉ giữ instance đầu tiên trong `@State`. `init` của
+        // controller rẻ và không side effect: `AVPlayer` được tạo lười (`VideoPlayerController.player`) nên các
+        // instance bị vứt không dựng player thừa.
         _controller = State(initialValue: VideoPlayerController(launch: launch))
     }
 

@@ -16,6 +16,8 @@ final class VideoMediaSniffer: NSObject, WKNavigationDelegate {
     struct Result: Sendable {
         let url: URL
         /// `Referer` = URL frame phát request (trang chính nếu không rõ), kèm `Origin` và UA iPhone Safari.
+        /// Khoá `User-Agent` giữ trong dict; khi dựng `AVURLAsset`, `VideoPlayerController.assetOptions` tách nó sang
+        /// `AVURLAssetHTTPUserAgentKey` (UA trong header fields có thể bị AVFoundation bỏ qua).
         let headers: [String: String]
     }
 

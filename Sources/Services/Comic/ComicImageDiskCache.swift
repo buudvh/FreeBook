@@ -77,6 +77,17 @@ final class ComicImageDiskCache: @unchecked Sendable {
         }
     }
 
+    /// Bỏ một mục (byte đã cache nhưng không giải mã được). Sổ dung lượng ước lượng để nguyên — lượt dọn kế đo lại.
+    func remove(forKey key: String) {
+        let url = fileURL(forKey: key)
+        guard fileManager.fileExists(atPath: url.path) else { return }
+        do {
+            try fileManager.removeItem(at: url)
+        } catch {
+            AppLogger.shared.log("❌ [ComicImageDiskCache] Lỗi xoá mục cache ảnh hỏng: \(error.localizedDescription)")
+        }
+    }
+
     func removeAll() {
         trimQueue.async { [weak self] in
             guard let self else { return }

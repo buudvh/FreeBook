@@ -2,19 +2,24 @@ import Foundation
 import UIKit
 import ImageIO
 
-/// Nơi duy nhất tải ảnh comic — cho màn đọc (`image(for:maxPixelWidth:)`) và tải offline (`data(for:)`).
+/// Nơi duy nhất tải ảnh comic — cho màn đọc (`image(for:maxPixelWidth:)`) và tải offline (`data(for:scriptRunner:)`).
 ///
 /// Thứ tự tra: RAM (`NSCache` ~120 MB, theo kích thước downsample) → cache đĩa (`ComicImageDiskCache`) → nguồn:
 /// script ảnh khi có `script`, ngược lại `link` rồi lần lượt từng `fallback` (`http(s)`, `file://`, `data:`).
 ///
 /// Actor chỉ giữ bộ đếm request mạng (tối đa `maxConcurrentRequests`). Giải mã ImageIO, I/O đĩa và chờ mạng chạy
 /// trong các hàm `nonisolated` — không xếp hàng sau nhau trên actor. Ảnh luôn được downsample: bề ngang
-/// ≤ `maxPixelWidth`, tổng ≤ `maxDecodedPixels` (chống OOM với trang webtoon rất dài).
+/// ≤ `maxPixelWidth`, tổng ≤ `maxDecodedPixels` (chống OOM với trang webtoon rất dài), cạnh dài ≤ `maxTextureSide`.
+///
+/// Script ảnh: màn đọc dùng `scriptRunner` riêng của loader; tải offline truyền runner của chính tác vụ, để
+/// `releaseScriptRunners()` bên này không nhả executor bên kia và ảnh màn đọc không xếp hàng sau ảnh đang tải.
 public actor ComicImageLoader {
     public static let shared = ComicImageLoader()
 
     static let maxConcurrentRequests = 3
     static let maxDecodedPixels: Double = 16_000_000
+    /// Cạnh dài tối đa sau downsample — giới hạn texture GPU, quá cỡ thì `UIImageView` không vẽ được.
+    static let maxTextureSide: Double = 16_384
     static let memoryCostLimit = 120 * 1024 * 1024
     static let requestTimeout: TimeInterval = 30
 
@@ -62,9 +67,13 @@ public actor ComicImageLoader {
         if let cached = memoryCache.image(forKey: memoryKey) {
             return cached
         }
-        let data = try await loadData(for: request, storeInDiskCache: true)
+        let data = try await loadData(for: request, storeInDiskCache: true, scriptRunner: scriptRunner)
         try Task.checkCancellation()
         guard let image = Self.downsample(data, maxPixelWidth: maxPixelWidth) else {
+            // Byte hỏng đã vào cache đĩa thì "Thử lại" sẽ trúng lại đúng nó: bỏ mục đó để lần sau tải lại từ nguồn.
+            if !request.isLocalOnly {
+                diskCache.remove(forKey: request.cacheKey)
+            }
             AppLogger.shared.log("❌ [ComicImageLoader] Không giải mã được ảnh (\(data.count) byte)")
             throw Self.error("Không giải mã được ảnh")
         }
@@ -75,10 +84,16 @@ public actor ComicImageLoader {
     /// Byte gốc cho tải offline, cùng chuỗi thử `link` → `fallbacks` / script. Đọc cache đĩa nếu màn đọc đã tải
     /// ảnh này, nhưng **không** ghi vào đó (bản offline đã nằm ở `ComicOfflineStore`, ghi thêm chỉ đẩy ảnh khác ra).
     public nonisolated func data(for request: ComicImageRequest) async throws -> Data {
-        try await loadData(for: request, storeInDiskCache: false)
+        try await loadData(for: request, storeInDiskCache: false, scriptRunner: scriptRunner)
     }
 
-    /// Giải phóng các `JSExecutor` của script ảnh (gọi khi rời chương / đóng màn đọc).
+    /// Như `data(for:)` nhưng script ảnh chạy trên `runner` của caller (tác vụ tải offline tự tạo và tự
+    /// `releaseAll()` khi xong/huỷ) — không dùng chung executor/lượt chạy với màn đọc.
+    nonisolated func data(for request: ComicImageRequest, scriptRunner runner: ComicImageScriptRunner) async throws -> Data {
+        try await loadData(for: request, storeInDiskCache: false, scriptRunner: runner)
+    }
+
+    /// Giải phóng các `JSExecutor` script ảnh của **màn đọc** (gọi khi rời chương / đóng màn đọc).
     public func releaseScriptRunners() {
         let runner = scriptRunner
         Task {
@@ -92,7 +107,11 @@ public actor ComicImageLoader {
 
     // MARK: - Nguồn byte
 
-    private nonisolated func loadData(for request: ComicImageRequest, storeInDiskCache: Bool) async throws -> Data {
+    private nonisolated func loadData(
+        for request: ComicImageRequest,
+        storeInDiskCache: Bool,
+        scriptRunner: ComicImageScriptRunner
+    ) async throws -> Data {
         let usesDiskCache = !request.isLocalOnly
         let diskKey = request.cacheKey
         if usesDiskCache, let cached = diskCache.data(forKey: diskKey) {
@@ -108,6 +127,10 @@ public actor ComicImageLoader {
                     downloadUrl: request.downloadUrl,
                     configJson: request.configJson
                 )
+                // Base64 giải được nhưng không phải ảnh thì không được vào cache đĩa / bản offline.
+                guard Self.isImageData(data) else {
+                    throw Self.error("Script ảnh không trả về ảnh hợp lệ")
+                }
                 if storeInDiskCache {
                     diskCache.store(data, forKey: diskKey)
                 }
@@ -250,6 +273,7 @@ public actor ComicImageLoader {
             if maxPixelWidth > 0 {
                 scale = min(scale, Double(maxPixelWidth) / width)
             }
+            scale = min(scale, maxTextureSide / max(width, height))
             options[kCGImageSourceThumbnailMaxPixelSize] = max(1, Int((max(width, height) * scale).rounded(.up)))
         } else {
             // Không đọc được kích thước: vẫn chặn cứng cạnh dài để không giải mã full-res.

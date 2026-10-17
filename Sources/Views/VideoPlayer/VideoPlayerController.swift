@@ -35,14 +35,25 @@ final class VideoPlayerController {
         case failed(String)
     }
 
+    /// Trang nhúng kèm hai header duy nhất được đưa tới trang (DOC VBook: chỉ `User-Agent` và `Referer`).
     enum EmbedContent: Equatable {
-        case page(URL)
-        case html(String, baseURL: URL?)
+        /// `referer` đặt lên `URLRequest` của trang; `nil` = không gửi.
+        case page(URL, referer: String?, userAgent: String)
+        /// `loadHTMLString` không gắn được header ⇒ Referer của request con do `baseURL` quyết định.
+        case html(String, baseURL: URL?, userAgent: String)
     }
 
     let launch: BookContentLaunch
+    /// Tạo lười: SwiftUI có thể init `VideoPlayerScreen` (và controller trong `State(initialValue:)`) nhiều lần
+    /// rồi vứt — không dựng `AVPlayer` cho các instance đó. Không gán ở chỗ khác ngoài `player`.
+    @ObservationIgnored var playerStorage: AVPlayer?
     /// Một `AVPlayer` dùng suốt màn; đổi tập/server chỉ `replaceCurrentItem`.
-    let player = AVPlayer()
+    var player: AVPlayer {
+        if let playerStorage { return playerStorage }
+        let created = AVPlayer()
+        playerStorage = created
+        return created
+    }
 
     var bookTitle: String
     var episodes: [Episode] = []
@@ -76,6 +87,8 @@ final class VideoPlayerController {
     /// Giây cần tua tới khi item sẵn sàng (chỉ khi > 5 giây); dùng xong thì về `nil`.
     @ObservationIgnored var pendingResumeSeconds: Int?
     @ObservationIgnored var wasPlaying = false
+    /// Item hiện tại đã phát hết: KVO `.paused` (và các lượt lưu sau đó) không được ghi giây ≈ độ dài phim.
+    @ObservationIgnored var reachedEndOfItem = false
     @ObservationIgnored var lastProgressSaveUptime: TimeInterval = 0
     @ObservationIgnored var lastSavedProgress: (episode: Int, seconds: Int)?
     @ObservationIgnored var didActivateAudioSession = false
@@ -125,7 +138,6 @@ final class VideoPlayerController {
         let book = fetchBook()
         if bookTitle.isEmpty, let title = book?.title { bookTitle = title }
         bookHost = resolveBookHost(book: book)
-        let resumeSeconds = initialResumeSeconds(book: book)
 
         guard !episodes.isEmpty else {
             AppLogger.shared.log("❌ [VideoPlayer] Phim không có tập nào để phát (bookId=\(launch.bookId))")
@@ -135,6 +147,7 @@ final class VideoPlayerController {
         if currentEpisode == nil {
             currentEpisodeIndex = episodes[0].index
         }
+        let resumeSeconds = initialResumeSeconds(book: book)
         if book == nil {
             await ensureHistoryBook()
             guard !isTornDown else { return }
@@ -173,12 +186,18 @@ final class VideoPlayerController {
         return episodes.first(where: { !$0.host.isEmpty })?.host ?? ""
     }
 
-    /// `initialParagraphIndex` có giá trị = số giây router truyền vào; `nil` = dùng tiến độ đã lưu
-    /// (`currentChapterPage` là **số giây** với sách video) nếu đúng tập đang mở.
+    /// `initialParagraphIndex` (router): `>= 0` = số giây cần tua tới; `nil` (Kệ) hoặc âm (BookDetail truyền -1) =
+    /// giây đã lưu (`currentChapterPage` là **số giây** với sách video) khi tập đang mở trùng `Book.currentChapterIndex`,
+    /// tập khác thì phát từ đầu. Với giá trị âm phải so thêm tên tập: BookDetail gọi `setCurrentChapterIndex` trước khi
+    /// mở — đổi chỉ số nhưng giữ `currentChapterPage`/`currentChapterTitle` của tập cũ (như `ComicReaderViewModel`).
+    /// Ngưỡng > 5 giây áp ở `prepareForNewLoad`.
     private func initialResumeSeconds(book: Book?) -> Int {
-        if let seconds = launch.initialParagraphIndex { return max(0, seconds) }
-        if let book, book.currentChapterIndex == launch.chapterIndex { return max(0, book.currentChapterPage) }
-        return 0
+        if let seconds = launch.initialParagraphIndex, seconds >= 0 { return seconds }
+        guard let book, book.currentChapterIndex == currentEpisodeIndex, book.currentChapterPage > 0 else { return 0 }
+        if launch.initialParagraphIndex == nil { return book.currentChapterPage }
+        guard let episode = currentEpisode, !episode.title.isEmpty,
+              book.currentChapterTitle == episode.title else { return 0 }
+        return book.currentChapterPage
     }
 
     /// `ReadingProgressStore.persist` bỏ qua khi chưa có hàng `Book` ⇒ phim xem trực tuyến sẽ không vào

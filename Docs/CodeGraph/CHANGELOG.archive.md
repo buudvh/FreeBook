@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.501] - 2026-10-09
+
+### fix(vieneu): chong doc lap - model noi nhanh toi thieu 1.15x, phat cham lai bu dung ti le
+
+Người dùng: *"spin=off thỉnh thoảng bị đọc lắp. ví dụ 'thiên thần' bị đọc thành 'thiên thần thần'… tìm cách fix cho tôi"* (log `app_logs (90).txt`), rồi *"không có cách nào fix à"* (sau khi tôi đề xuất tự chỉnh tốc độ tổng hợp).
+
+- **Nguyên nhân (đo, không đoán)**: VieNeu thỉnh thoảng đọc **lặp một âm tiết** ("đến đó, đó là", "làm được được", "Mất, mất tích") khi model được cấp **dư** thời gian so với số chữ; ngẫu nhiên theo nhiễu đầu vào nhưng dồn vào một số câu. Thực nghiệm PC mô phỏng đúng app (fast/8 bước/cfg 3, 25 câu thật của log 90 × 8 seed = 200 mẫu/mức, Whisper small đếm từ lặp, lọc tay lỗi ASR, xác nhận lại từng file lẻ): lặp thật **1,00 ≈ 7 | 1,10 = 1 | 1,15 = 1 | 1,25 = 0**; độ rõ (WER) như nhau tới 1,25, 1,40 bắt đầu mất chữ. Sway 0 / cfg 2 / nhiễu ×0,8 / nới thời lượng +5 % **không** đỡ (nới còn tệ hơn); 16 bước chỉ giảm một nửa mà gấp đôi CPU; kẹp thời lượng/âm vị chỉ chữa câu cực ngắn. Spin và số luồng cho audio **giống hệt từng bit** ⇒ không liên quan; phoneme đúng (người dùng đã kiểm trước).
+- **Sửa — công tắc "Chống đọc lặp" (mặc định bật)** trong Cài đặt VieNeu (`VieNeuAntiRepeatToggle`, dưới thanh Tốc độ tổng hợp): tốc độ đưa vào model = `max(tốc độ tổng hợp, 1,15)` (`VieNeuSynthesisPolicy.modelSpeed`, hàm thuần), và tốc độ phát của player local chia đúng hệ số bù (`TTSManager.localPlaybackRate` = `speed / playbackCompensation`) ⇒ **tốc độ nghe giữ nguyên** (= tốc độ tổng hợp người dùng chọn × tốc độ phát), lỗi lặp giảm ~85 %, lợi phụ ~13 % CPU (ít frame hơn). Mọi đường tổng hợp VieNeu lấy tốc độ qua `localSynthesisSpeed(forTool:)`; `TTSManager.swift` chỉ đổi 2 dòng (`updateRate`/`start(rate:)` dùng `localPlaybackRate`), không tăng dòng. NghiTTS không đổi.
+- **Đổi giữa lúc nghe** (công tắc hoặc tốc độ tổng hợp, cùng đường `invalidateVieNeuSynthesisSpeed`): đoạn đang phát giữ nguyên tốc độ cũ, các đoạn sau dựng player với tốc độ mới (`NghiAudioPlayerQueue.setRateForUpcoming`). Review tìm 2 chỗ audio tốc độ cũ còn lọt, đã sửa: prefix chương kế đã tổng hợp (khoá không có tốc độ model) ⇒ `resetNextChapterPrefixCache()` — lỗi này có sẵn từ trước với thanh tốc độ tổng hợp; đoạn hiện tại **chưa vào player** (đang hụt tiếng) ⇒ huỷ lượt đang bay, bỏ audio, `speakCurrent()` tổng hợp lại.
+- Màn **Thử giọng** VieNeu dùng cùng tốc độ model + tốc độ phát đã bù (trước đó bỏ qua công tắc ⇒ người dùng sẽ tưởng công tắc vô tác dụng); dòng chẩn đoán thêm "tốc độ model (phát thật)". Log `[TTSRoute] doi toc do tong hop` ghi cả tốc độ model và tốc độ phát đã bù.
+- **Giới hạn đã biết** (ghi ở `rules.md`): tốc độ phát VieNeu < 0,575× thì tốc độ phát đã bù bị kẹp ở sàn 0,5× ⇒ nghe nhanh hơn tối đa 15 %. Mẫu nghe trước/sau: `Docs/Reports/tts-samples-2026-10-10-doc-lap/` (gitignored).
+- **Kiểm chứng**: `check_architecture.py` 2 vi phạm nền cũ, 0 mới (`TTSManager.swift` giữ 3550 dòng). Review đối kháng 2 lượt: biên dịch 0 lỗi; hành vi 4 lỗi — 3 đã sửa ở trên, 1 ghi là giới hạn. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`. Thử trên máy: nghe VieNeu như thường (công tắc mặc định bật) — `[VieNeuPerf] synthSpeed=1.15x`, tốc độ nghe không đổi; tắt công tắc để so.
+
 ## [1.3.500] - 2026-10-09
 
 ### feat(vieneu): doi spin/so luong ORT co hieu luc ngay o luot tong hop ke tiep, khong can tat app

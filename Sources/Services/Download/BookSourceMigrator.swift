@@ -9,9 +9,13 @@ public actor BookSourceMigrator {
     /// Chặn đổi nguồn sang tiện ích **khác loại** (chữ/tranh/video): mục lục, tiến độ (`paragraphIndex` là đoạn /
     /// chỉ số ảnh / số giây) và chương đã tải không chuyển được giữa hai loại. Gọi **trước** mọi lệnh mạng.
     /// `static` (không thuộc actor) nên caller gọi đồng bộ.
+    /// Tiện ích cũ đã gỡ và không còn trong catalog ⇒ không biết loại: bỏ qua phép so (không đoán là chữ).
     public static func ensureSameContentKind(oldPackageId: String, newPackageId: String) throws {
-        let oldKind = ExtensionContentKind.resolve(packageId: oldPackageId)
-        let newKind = ExtensionContentKind.resolve(packageId: newPackageId)
+        guard let oldKind = ExtensionContentKind.resolveIfKnown(packageId: oldPackageId),
+              let newKind = ExtensionContentKind.resolveIfKnown(packageId: newPackageId) else {
+            AppLogger.shared.log("⚠️ [BookSourceMigrator] Không tra được loại nội dung (\(oldPackageId) → \(newPackageId)), bỏ qua kiểm tra cùng loại")
+            return
+        }
         guard oldKind == newKind else {
             let message = "Không thể đổi sang nguồn khác loại (chữ/tranh/video)"
             AppLogger.shared.log("❌ [BookSourceMigrator] \(message): \(oldKind.rawValue) → \(newKind.rawValue)")
@@ -108,5 +112,11 @@ public actor BookSourceMigrator {
     public func cleanupOldBookStorage(oldBookId: String) async {
         try? await ChapterStore.shared.deleteBook(bookId: oldBookId)
         try? await BookBinManager.shared.deleteBinFile(for: oldBookId)
+        // Sách truyện tranh: ảnh tải offline nằm ở `comics/<sha256(oldBookId)>`, sách mới không dùng lại được.
+        do {
+            try ComicOfflineStore.deleteBook(bookId: oldBookId)
+        } catch {
+            AppLogger.shared.log("❌ [BookSourceMigrator] Lỗi xoá ảnh offline của truyện cũ: \(error.localizedDescription)")
+        }
     }
 }
