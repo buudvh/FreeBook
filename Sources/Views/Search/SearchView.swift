@@ -325,16 +325,7 @@ struct SearchView: View {
                                                                 showingChangeSourceAlert = true
                                                             }) {
                                                                 VStack(alignment: .leading, spacing: 6) {
-                                                                    AsyncImage(url: URL(string: result.cover)) { image in
-                                                                        image.resizable()
-                                                                            .aspectRatio(contentMode: .fill)
-                                                                    } placeholder: {
-                                                                        Color.gray.opacity(0.3)
-                                                                            .overlay(Image(systemName: "book"))
-                                                                    }
-                                                                    .frame(width: 90, height: 125)
-                                                                    .cornerRadius(6)
-                                                                    .clipped()
+                                                                    searchResultCover(result, ext: ext, width: 90, height: 125)
                                                                     
                                                                     Text(DisplayTextFormatter.titleCase(translateIfNeeded(result.name)))
                                                                         .font(.caption)
@@ -362,16 +353,7 @@ struct SearchView: View {
                                                                 initialHost: result.host
                                                             )) {
                                                                 VStack(alignment: .leading, spacing: 6) {
-                                                                    AsyncImage(url: URL(string: result.cover)) { image in
-                                                                        image.resizable()
-                                                                            .aspectRatio(contentMode: .fill)
-                                                                    } placeholder: {
-                                                                        Color.gray.opacity(0.3)
-                                                                            .overlay(Image(systemName: "book"))
-                                                                    }
-                                                                    .frame(width: 90, height: 125)
-                                                                    .cornerRadius(6)
-                                                                    .clipped()
+                                                                    searchResultCover(result, ext: ext, width: 90, height: 125)
                                                                     
                                                                     Text(DisplayTextFormatter.titleCase(translateIfNeeded(result.name)))
                                                                         .font(.caption)
@@ -420,16 +402,7 @@ struct SearchView: View {
                     showingChangeSourceAlert = true
                 }) {
                     HStack(spacing: 12) {
-                        AsyncImage(url: URL(string: item.result.cover)) { image in
-                            image.resizable()
-                                .aspectRatio(contentMode: .fill)
-                        } placeholder: {
-                            Color.gray.opacity(0.3)
-                                .overlay(Image(systemName: "book"))
-                        }
-                        .frame(width: 50, height: 70)
-                        .cornerRadius(6)
-                        .clipped()
+                        searchResultCover(item.result, ext: item.ext, width: 50, height: 70)
                         
                         VStack(alignment: .leading, spacing: 4) {
                             Text(DisplayTextFormatter.titleCase(translateIfNeeded(item.result.name)))
@@ -468,16 +441,7 @@ struct SearchView: View {
                     initialHost: item.result.host
                 )) {
                     HStack(spacing: 12) {
-                        AsyncImage(url: URL(string: item.result.cover)) { image in
-                            image.resizable()
-                                .aspectRatio(contentMode: .fill)
-                        } placeholder: {
-                            Color.gray.opacity(0.3)
-                                .overlay(Image(systemName: "book"))
-                        }
-                        .frame(width: 50, height: 70)
-                        .cornerRadius(6)
-                        .clipped()
+                        searchResultCover(item.result, ext: item.ext, width: 50, height: 70)
                         
                         VStack(alignment: .leading, spacing: 4) {
                             Text(DisplayTextFormatter.titleCase(translateIfNeeded(item.result.name)))

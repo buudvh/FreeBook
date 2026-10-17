@@ -88,7 +88,7 @@ struct BookDetailHeaderView: View {
 
     private var headerContentView: some View {
         HStack(alignment: .top, spacing: 16) {
-            BookCoverView(bookId: actualBookId, coverUrl: coverUrl, width: 100, height: 140)
+            BookCoverView(bookId: actualBookId, coverUrl: coverUrl, width: 100, height: 140, extensionPackageId: extensionPackageId)
                 .cornerRadius(8)
                 .shadow(radius: 2)
 

@@ -50,7 +50,7 @@ struct DownloadTrackerView: View {
         HStack(spacing: 12) {
             // Match the shelf/history book-row proportions so a task still looks
             // like the same book wherever it is shown.
-            BookCoverView(bookId: task.bookId, coverUrl: task.bookCoverUrl, width: 50, height: 70)
+            BookCoverView(bookId: task.bookId, coverUrl: task.bookCoverUrl, width: 50, height: 70, extensionPackageId: task.extensionPackageId)
                 .cornerRadius(4)
                 .shadow(color: Color.black.opacity(0.08), radius: 2, x: 0, y: 1)
             

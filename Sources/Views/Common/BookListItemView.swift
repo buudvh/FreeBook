@@ -14,12 +14,22 @@ protocol BookDisplayable {
     var isLocalBook: Bool { get }
     var extensionLocalPath: String { get }
     var extensionIconUrl: String? { get }
+    /// Host của sách/item cho bìa (ghép bìa tương đối + `Referer`). Tên riêng, không trùng `host` của
+    /// `Book` (`String?`) / `ExtensionItemResult` (`String`).
+    var coverHost: String? { get }
+    /// Tiện ích nguồn — lấy `source` khi `coverHost` rỗng.
+    var coverPackageId: String { get }
+    /// Nhãn ngắn hiện trên bìa (`tag` của item); `""` = không có.
+    var coverTag: String { get }
 }
 
 extension BookDisplayable {
     var isLocalBook: Bool { false }
     var extensionLocalPath: String { "" }
     var extensionIconUrl: String? { nil }
+    var coverHost: String? { nil }
+    var coverPackageId: String { "" }
+    var coverTag: String { "" }
 }
 
 /// Row hiển thị một cuốn sách (cover + title dịch + author/source hoặc description),
@@ -33,6 +43,9 @@ struct BookListItemView<Item: BookDisplayable>: View {
     var coverHeight: CGFloat
     var extensionLocalPath: String
     var extensionIconUrl: String?
+    /// Tiện ích nguồn của item khi `item` không tự biết (`ExtensionItemResult` ở Khám phá/thể loại) — để bìa có
+    /// `Referer` (`source`) khi item thiếu `host`. Rỗng ⇒ `item.coverPackageId`, rồi tra theo `extensionLocalPath`.
+    var extensionPackageId: String
 
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
 
@@ -44,7 +57,8 @@ struct BookListItemView<Item: BookDisplayable>: View {
         coverWidth: CGFloat = 50,
         coverHeight: CGFloat = 70,
         extensionLocalPath: String = "",
-        extensionIconUrl: String? = nil
+        extensionIconUrl: String? = nil,
+        extensionPackageId: String = ""
     ) {
         self.item = item
         switch style {
@@ -59,12 +73,23 @@ struct BookListItemView<Item: BookDisplayable>: View {
         self.coverHeight = coverHeight
         self.extensionLocalPath = extensionLocalPath
         self.extensionIconUrl = extensionIconUrl
+        self.extensionPackageId = extensionPackageId
     }
 
     var body: some View {
         HStack(spacing: 12) {
-            BookCoverView(bookId: item.bookId, coverUrl: item.coverUrl, width: coverWidth, height: coverHeight)
-                .cornerRadius(4)
+            BookCoverView(
+                bookId: item.bookId,
+                coverUrl: item.coverUrl,
+                width: coverWidth,
+                height: coverHeight,
+                host: item.coverHost,
+                extensionPackageId: coverPackageId
+            )
+            .overlay(alignment: .bottomLeading) {
+                CoverTagBadge(tag: item.coverTag)
+            }
+            .cornerRadius(4)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(DisplayTextFormatter.titleCase(translateIfNeeded(item.title, bookId: item.bookId)))
@@ -125,6 +150,14 @@ struct BookListItemView<Item: BookDisplayable>: View {
         return TranslateUtils.translateMeta(text, bookId: bookId)
     }
 
+    /// Tham số tường minh → của item → tra theo thư mục tiện ích (chỉ khi hai nguồn trên rỗng).
+    private var coverPackageId: String {
+        if !extensionPackageId.isEmpty { return extensionPackageId }
+        if !item.coverPackageId.isEmpty { return item.coverPackageId }
+        guard !extensionLocalPath.isEmpty else { return "" }
+        return ExtensionLibraryRepository.packageId(forLocalPath: extensionLocalPath) ?? ""
+    }
+
     private var displayedAuthor: String {
         guard isTranslationEnabled else { return item.author }
         return TranslateUtils.translateAuthorHanViet(item.author)
@@ -161,6 +194,8 @@ struct BookListItemView<Item: BookDisplayable>: View {
 
 extension Book: BookDisplayable {
     var description: String { desc }
+    var coverHost: String? { host }
+    var coverPackageId: String { extensionPackageId }
 }
 
 extension ExtensionItemResult: BookDisplayable {
@@ -170,4 +205,6 @@ extension ExtensionItemResult: BookDisplayable {
     var sourceName: String { "" }
     var currentChapterTitle: String { "" }
     var currentChapterIndex: Int { 0 }
+    var coverHost: String? { host }
+    var coverTag: String { tag }
 }

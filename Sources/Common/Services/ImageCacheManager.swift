@@ -253,8 +253,11 @@ public final class ImageCacheManager: @unchecked Sendable {
         }
     }
 
-    public func downloadAndSaveCover(urlStr: String, bookId: String, completion: @escaping (UIImage?) -> Void = { _ in }) {
-        guard !urlStr.isEmpty, let url = URL(string: urlStr) else {
+    /// Tải bìa rồi ghi `covers/<sha256(bookId)>.jpg`. `urlStr` phải là URL tuyệt đối (bìa tương đối đã ghép host ở
+    /// caller — `CoverRequestResolver.displayURL`). `referer` (host, `source` hay URL; chuẩn hoá về origin + "/") gửi
+    /// kèm UA iPhone Safari: CDN chặn hotlink trả 403 khi thiếu. `nil` ⇒ không gửi `Referer`.
+    public func downloadAndSaveCover(urlStr: String, bookId: String, referer: String? = nil, completion: @escaping (UIImage?) -> Void = { _ in }) {
+        guard !urlStr.isEmpty, let url = URL(string: urlStr), url.scheme != nil else {
             completion(nil)
             return
         }
@@ -279,8 +282,10 @@ public final class ImageCacheManager: @unchecked Sendable {
         inFlightDownloads[bookId] = [completion]
         stateLock.unlock()
 
-        URLSession.shared.dataTask(with: url) { data, _, error in
-            guard let data = data, error == nil,
+        let request = CoverRequestResolver.request(for: url, referer: referer, timeout: 30)
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            let statusOK = (response as? HTTPURLResponse).map { (200...299).contains($0.statusCode) } ?? true
+            guard let data = data, error == nil, statusOK,
                   let image = UIImage(data: data) else {
                 self.finishDownload(for: bookId, image: nil)
                 return

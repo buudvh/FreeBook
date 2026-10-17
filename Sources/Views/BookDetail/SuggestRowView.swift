@@ -63,9 +63,17 @@ struct SuggestRowView: View {
                             initialHost: novel.host
                         )) {
                             HStack(alignment: .top, spacing: 10) {
-                                BookCoverView(bookId: novel.link, coverUrl: novel.cover, width: 48, height: 68)
-                                    .cornerRadius(6)
-                                    .shadow(radius: 1)
+                                // Gợi ý là danh sách tạm: cache ảnh ở `Caches` (`RemoteCoverImage`), không ghi `covers/`.
+                                RemoteCoverImage(
+                                    url: CoverRequestResolver.displayURL(novel.cover, itemHost: novel.host, packageId: extensionPackageId),
+                                    referer: CoverRequestResolver.referer(itemHost: novel.host, packageId: extensionPackageId)
+                                )
+                                .frame(width: 48, height: 68)
+                                .overlay(alignment: .bottomLeading) {
+                                    CoverTagBadge(tag: novel.tag)
+                                }
+                                .cornerRadius(6)
+                                .shadow(radius: 1)
                                 
                                 let displayName = (isTranslationEnabled && TranslateUtils.containsChinese(novel.name)) ? TranslateUtils.translateMeta(novel.name) : novel.name
                                 Text(DisplayTextFormatter.titleCase(displayName))

@@ -54,7 +54,9 @@ struct CollectionCoverMosaicView: View {
             bookId: book.bookId,
             coverUrl: book.coverUrl,
             width: width,
-            height: height
+            height: height,
+            host: book.host,
+            extensionPackageId: book.extensionPackageId
         )
     }
 

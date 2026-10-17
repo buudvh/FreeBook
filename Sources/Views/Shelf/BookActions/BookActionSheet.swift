@@ -125,7 +125,7 @@ struct BookActionSheet: View {
     @ViewBuilder
     private var headerTappableContent: some View {
         HStack(alignment: .top, spacing: 12) {
-            BookCoverView(bookId: book.bookId, coverUrl: book.coverUrl, width: 60, height: 84)
+            BookCoverView(bookId: book.bookId, coverUrl: book.coverUrl, width: 60, height: 84, host: book.host, extensionPackageId: book.extensionPackageId)
                 .cornerRadius(6)
 
             VStack(alignment: .leading, spacing: 6) {

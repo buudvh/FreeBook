@@ -43,7 +43,7 @@ struct TaskOptionsSheet: View {
             Form {
                 Section {
                     HStack(spacing: 16) {
-                        BookCoverView(bookId: book.bookId, coverUrl: book.coverUrl, width: 60, height: 84)
+                        BookCoverView(bookId: book.bookId, coverUrl: book.coverUrl, width: 60, height: 84, host: book.host, extensionPackageId: book.extensionPackageId)
                             .cornerRadius(6)
                             .shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 2)
                         

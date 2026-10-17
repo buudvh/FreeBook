@@ -5,13 +5,17 @@ struct BookCoverView: View {
     let coverUrl: String
     let width: CGFloat
     let height: CGFloat
+    /// Host của sách/item: ghép bìa đã lưu dạng tương đối hoặc `//` (resolve lúc hiển thị, không backfill) và làm
+    /// `Referer`. Rỗng ⇒ `source` của tiện ích theo `extensionPackageId` (`CoverRequestResolver`).
+    var host: String? = nil
+    /// Tiện ích nguồn. Rỗng (sách local, chỗ gọi không biết nguồn) ⇒ chỉ tải được bìa tuyệt đối, không `Referer`.
+    var extensionPackageId: String = ""
 
     @Environment(\.displayScale) private var displayScale
     @State private var localImage: UIImage? = nil
-    /// bookId đã kiểm tra đĩa xong (có hay không có file). Chưa khớp `bookId` = đang kiểm tra:
-    /// chỉ hiện placeholder, chưa mount `AsyncImage` để bìa đã có trên đĩa không bị tải mạng.
+    /// bookId đã kiểm tra đĩa xong (có hay không có file). Chưa khớp `bookId` = đang kiểm tra.
     @State private var checkedBookId: String? = nil
-    /// bookId đang có lượt tải bìa do view này khởi động, chặn lượt thứ hai từ nhánh `.success`.
+    /// bookId đang có lượt tải bìa do view này khởi động — đổi cỡ khung chạy lại `.task` không tải lần hai.
     @State private var downloadingBookId: String? = nil
     /// bookId mà view đang hiển thị, đọc qua @State nên luôn mới — closure của `.task`/`Task`
     /// giữ bản sao struct cũ, so với `bookId` trong đó sẽ không phát hiện được sách đã đổi.
@@ -19,28 +23,12 @@ struct BookCoverView: View {
 
     var body: some View {
         Group {
+            // Không còn `AsyncImage`: nó không gửi được `Referer` (CDN chặn hotlink trả 403) và tải trùng với
+            // `downloadCover`. Chưa có bìa local thì hiện placeholder tới khi `ImageCacheManager` tải + ghi xong.
             if let uiImage = localImage {
                 Image(uiImage: uiImage)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-            } else if checkedBookId == bookId {
-                AsyncImage(url: URL(string: coverUrl)) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .onAppear {
-                                triggerSaveLocalCover()
-                            }
-                    case .failure:
-                        fallbackPlaceholder
-                    case .empty:
-                        fallbackPlaceholder
-                    @unknown default:
-                        fallbackPlaceholder
-                    }
-                }
             } else {
                 fallbackPlaceholder
             }
@@ -88,7 +76,7 @@ struct BookCoverView: View {
         }
     }
 
-    /// Đọc + giải mã bìa local ở luồng nền. Không có file thì mới mount `AsyncImage` và tải ngầm.
+    /// Đọc + giải mã bìa local ở luồng nền. Không có file thì tải ngầm (kèm `Referer`) rồi ghi đĩa.
     @MainActor
     private func loadLocalImage() async {
         let requestedId = bookId
@@ -115,23 +103,16 @@ struct BookCoverView: View {
         }
     }
 
-    @MainActor
-    private func triggerSaveLocalCover() {
-        let requestedId = bookId
-        Task { @MainActor in
-            await downloadCover(for: requestedId)
-        }
-    }
-
-    /// `ImageCacheManager` đã gộp lượt tải trùng bookId; cờ `downloadingBookId` chỉ để nhánh
-    /// `.success` của `AsyncImage` khỏi gọi lại khi lượt tải sớm còn đang bay.
+    /// `ImageCacheManager` đã gộp lượt tải trùng bookId; cờ `downloadingBookId` chặn `.task` chạy lại (đổi cỡ
+    /// khung) xếp thêm lượt chờ khi lượt trước còn đang bay.
     @MainActor
     private func downloadCover(for requestedId: String) async {
-        let urlStr = coverUrl
+        let urlStr = CoverRequestResolver.displayURL(coverUrl, itemHost: host, packageId: extensionPackageId)
         guard !urlStr.isEmpty, downloadingBookId != requestedId else { return }
         downloadingBookId = requestedId
+        let referer = CoverRequestResolver.referer(itemHost: host, packageId: extensionPackageId)
         let downloaded: UIImage? = await withCheckedContinuation { continuation in
-            ImageCacheManager.shared.downloadAndSaveCover(urlStr: urlStr, bookId: requestedId) { image in
+            ImageCacheManager.shared.downloadAndSaveCover(urlStr: urlStr, bookId: requestedId, referer: referer) { image in
                 continuation.resume(returning: image)
             }
         }

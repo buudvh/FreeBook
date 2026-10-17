@@ -65,7 +65,9 @@ struct BookDetailTOCView: View {
 
     private var filteredChapterSnapshots: [StoredChapterSnapshot] {
         // `fetchOrderedTOC` đã `ORDER BY chapter_index ASC` ⇒ chỉ cần đảo chiều, không sort lại mỗi lần vẽ.
-        let sorted = isTocAscending ? chapterSnapshots : Array(chapterSnapshots.reversed())
+        let sorted = isTocAscending
+            ? chapterSnapshots
+            : Self.liftSectionHeaders(Array(chapterSnapshots.reversed()), isSection: { $0.isSection })
         let query = appliedSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return sorted }
         return sorted.filter { chap in
@@ -78,7 +80,7 @@ struct BookDetailTOCView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text("Danh sách \(episodeNoun) (\(totalChaps))")
+                    Text("Danh sách \(episodeNoun) (\(readableChapterCount))")
                         .font(.headline)
 
                     Button(action: {
@@ -139,29 +141,33 @@ struct BookDetailTOCView: View {
                         let currentIdx = localBook?.currentChapterIndex ?? -1
                         if !chapterSnapshots.isEmpty {
                             ForEach(visibleSnapshots, id: \.id) { chap in
-                                Button(action: {
-                                    onStartReading(chap.index)
-                                }) {
-                                    HStack {
-                                        let displayTitle = isTranslationEnabled ? onTranslateTitleIfNeeded(chap.titleTrans ?? chap.title) : chap.title
-                                        let isCurrent = currentIdx == chap.index
-                                        let isRead = currentIdx >= 0 && chap.index < currentIdx
-                                        Text(displayTitle)
-                                            .foregroundColor(isCurrent ? .white : (isRead ? Color.primary.opacity(0.4) : .primary))
-                                            .font(.subheadline)
-                                            .lineLimit(2)
-                                        Spacer()
-                                        if chap.isCached {
-                                            Image(systemName: "arrow.down.circle.fill")
-                                                .font(.caption)
-                                                .foregroundColor(.green)
+                                if chap.isSection {
+                                    sectionHeader(isTranslationEnabled ? onTranslateTitleIfNeeded(chap.titleTrans ?? chap.title) : chap.title)
+                                } else {
+                                    Button(action: {
+                                        onStartReading(chap.index)
+                                    }) {
+                                        HStack {
+                                            let displayTitle = isTranslationEnabled ? onTranslateTitleIfNeeded(chap.titleTrans ?? chap.title) : chap.title
+                                            let isCurrent = currentIdx == chap.index
+                                            let isRead = currentIdx >= 0 && chap.index < currentIdx
+                                            Text(displayTitle)
+                                                .foregroundColor(isCurrent ? .white : (isRead ? Color.primary.opacity(0.4) : .primary))
+                                                .font(.subheadline)
+                                                .lineLimit(2)
+                                            Spacer()
+                                            if chap.isCached {
+                                                Image(systemName: "arrow.down.circle.fill")
+                                                    .font(.caption)
+                                                    .foregroundColor(.green)
+                                            }
                                         }
+                                        .padding(.vertical, 12)
+                                        .padding(.horizontal)
+                                        Divider()
                                     }
-                                    .padding(.vertical, 12)
-                                    .padding(.horizontal)
-                                    Divider()
+                                    .buttonStyle(.plain)
                                 }
-                                .buttonStyle(.plain)
                             }
                         } else if let book = localBook {
                             ForEach(filteredLocalChapters) { chap in
@@ -189,23 +195,27 @@ struct BookDetailTOCView: View {
                                 .buttonStyle(.plain)
                             }
                         } else {
-                            ForEach(filteredOnlineChapters, id: \.offset) { index, chap in
-                                Button(action: {
-                                    onStartReading(index)
-                                }) {
-                                    VStack(alignment: .leading) {
-                                        let isCurrent = currentIdx == index
-                                        let isRead = currentIdx >= 0 && index < currentIdx
-                                        Text(onTranslateTitleIfNeeded(chap.name))
-                                            .font(.subheadline)
-                                            .foregroundColor(isCurrent ? .white : (isRead ? Color.primary.opacity(0.4) : .primary))
-                                            .lineLimit(2)
-                                            .padding(.vertical, 12)
-                                            .padding(.horizontal)
-                                        Divider()
+                            ForEach(onlineRows, id: \.offset) { index, chap in
+                                if chap.isSection {
+                                    sectionHeader(onTranslateTitleIfNeeded(chap.name))
+                                } else {
+                                    Button(action: {
+                                        onStartReading(index)
+                                    }) {
+                                        VStack(alignment: .leading) {
+                                            let isCurrent = currentIdx == index
+                                            let isRead = currentIdx >= 0 && index < currentIdx
+                                            Text(onTranslateTitleIfNeeded(chap.name))
+                                                .font(.subheadline)
+                                                .foregroundColor(isCurrent ? .white : (isRead ? Color.primary.opacity(0.4) : .primary))
+                                                .lineLimit(2)
+                                                .padding(.vertical, 12)
+                                                .padding(.horizontal)
+                                            Divider()
+                                        }
                                     }
+                                    .buttonStyle(.plain)
                                 }
-                                .buttonStyle(.plain)
                             }
                         }
 
@@ -234,5 +244,59 @@ struct BookDetailTOCView: View {
             }
             .padding(.vertical)
         }
+    }
+
+    // MARK: - Nhóm tập (section)
+
+    /// Số chương trên tiêu đề danh sách: dòng tiêu đề nhóm (`isSection`, ext nhiều server) không chạm được nên
+    /// không tính.
+    private var readableChapterCount: Int {
+        let sectionRows: Int
+        if !chapterSnapshots.isEmpty {
+            sectionRows = chapterSnapshots.reduce(0) { count, chapter in chapter.isSection ? count + 1 : count }
+        } else {
+            sectionRows = filteredOnlineChapters.reduce(0) { count, row in row.element.isSection ? count + 1 : count }
+        }
+        return max(0, totalChaps - sectionRows)
+    }
+
+    /// `BookDetailView` đảo chiều mục lục online sẵn; giữ tiêu đề nhóm ở đầu nhóm khi xếp giảm dần.
+    private var onlineRows: [(offset: Int, element: ChapterResult)] {
+        guard !isTocAscending else { return filteredOnlineChapters }
+        return Self.liftSectionHeaders(filteredOnlineChapters, isSection: { $0.element.isSection })
+    }
+
+    private func sectionHeader(_ title: String) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(title)
+                .font(.subheadline.weight(.bold))
+                .foregroundColor(.secondary)
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal)
+                .padding(.top, 16)
+                .padding(.bottom, 6)
+            Divider()
+        }
+        .accessibilityAddTraits(.isHeader)
+    }
+
+    /// Danh sách **đã đảo chiều**: tiêu đề nhóm đứng sau các tập của nó — đưa lên đầu nhóm. Tập đứng trước tiêu đề
+    /// đầu tiên (không thuộc nhóm nào) giữ ở cuối, đúng thứ tự giảm dần.
+    private static func liftSectionHeaders<Row>(_ reversedRows: [Row], isSection: (Row) -> Bool) -> [Row] {
+        var result: [Row] = []
+        result.reserveCapacity(reversedRows.count)
+        var pending: [Row] = []
+        for row in reversedRows {
+            if isSection(row) {
+                result.append(row)
+                result.append(contentsOf: pending)
+                pending.removeAll(keepingCapacity: true)
+            } else {
+                pending.append(row)
+            }
+        }
+        result.append(contentsOf: pending)
+        return result
     }
 }

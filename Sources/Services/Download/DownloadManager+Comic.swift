@@ -205,8 +205,10 @@ extension DownloadManager {
         guard startIdx >= 0, startIdx < sortedChapters.count else {
             throw NSError(domain: "DownloadManager", code: -3, userInfo: [NSLocalizedDescriptionKey: "Chỉ mục chương bắt đầu vượt quá số lượng chương hiện có."])
         }
-        let endIdx = task.limit.limitValue.map { min(startIdx + $0, sortedChapters.count) } ?? sortedChapters.count
-        return (sortedChapters[startIdx..<endIdx].filter { !$0.isSection }, bookHost)
+        // Lọc dòng tiêu đề nhóm **trước** khi áp `limit`: giới hạn N chương phải ra đúng N chương có ảnh.
+        let readable: [StoredChapterSnapshot] = sortedChapters[startIdx...].filter { !$0.isSection }
+        guard let limit = task.limit.limitValue else { return (readable, bookHost) }
+        return (Array(readable.prefix(limit)), bookHost)
     }
 
     /// Huỷ qua `cancelTask`/`cancelTasksForBook`/`deleteTask` (đều `handle.cancel()`), cộng cờ `isTaskCancelled`.

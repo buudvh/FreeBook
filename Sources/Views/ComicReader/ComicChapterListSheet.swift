@@ -24,7 +24,7 @@ struct ComicChapterListSheet: View {
                     chapterList
                 }
             }
-            .navigationTitle("Mục lục (\(chapters.count))")
+            .navigationTitle("Mục lục (\(readableChapterCount))")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -44,8 +44,14 @@ struct ComicChapterListSheet: View {
     private var chapterList: some View {
         ScrollViewReader { proxy in
             List(chapters, id: \.index) { chapter in
-                row(for: chapter)
-                    .id(chapter.index)
+                Group {
+                    if chapter.isSection {
+                        sectionHeader(for: chapter)
+                    } else {
+                        row(for: chapter)
+                    }
+                }
+                .id(chapter.index)
             }
             .listStyle(.plain)
             .onAppear {
@@ -55,6 +61,23 @@ struct ComicChapterListSheet: View {
                 }
             }
         }
+    }
+
+    /// Số chương đọc được — không tính dòng tiêu đề nhóm.
+    private var readableChapterCount: Int {
+        chapters.reduce(0) { count, chapter in chapter.isSection ? count : count + 1 }
+    }
+
+    /// Dòng tiêu đề nhóm tập (`isSection`): chỉ là nhãn, không chạm được.
+    private func sectionHeader(for chapter: ComicChapterEntry) -> some View {
+        Text(chapter.displayTitle(translated: isTranslationEnabled))
+            .font(.subheadline.weight(.bold))
+            .foregroundStyle(Color.secondary)
+            .lineLimit(2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 8)
+            .listRowBackground(Color(.secondarySystemBackground))
+            .accessibilityAddTraits(.isHeader)
     }
 
     private func row(for chapter: ComicChapterEntry) -> some View {

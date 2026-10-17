@@ -144,7 +144,9 @@ public struct ReaderChapterListView: View {
                         bookId: bookId,
                         coverUrl: metadataCoverUrl,
                         width: 72,
-                        height: 100
+                        height: 100,
+                        host: localBook?.host,
+                        extensionPackageId: ext?.packageId ?? localBook?.extensionPackageId ?? ""
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 }

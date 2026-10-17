@@ -76,6 +76,8 @@ final class ComicReaderViewModel {
         self.bookHost = Self.nonEmpty(bookHost) ?? Self.nonEmpty(launch.onlineChapters.first?.host)
         extensionSnapshot = ExtensionLibraryRepository.snapshot(packageId: launch.extensionPackageId)
         await loadTableOfContents()
+        // Chỉ số mở là dòng tiêu đề nhóm ("Đọc ngay" ở tập đầu, tiến độ cũ) ⇒ chương thường kế tiếp.
+        chapterIndex = ComicChapterEntry.openableIndex(chapterIndex, in: chapters)
         refreshDownloadedChapters()
         loadChapter(chapterIndex, restoringPage: restorePage(saved: saved), releaseRunners: false)
     }
@@ -107,7 +109,8 @@ final class ComicReaderViewModel {
 
     // MARK: - Điều hướng chương
 
-    func openChapter(_ index: Int) {
+    func openChapter(_ requestedIndex: Int) {
+        let index = ComicChapterEntry.openableIndex(requestedIndex, in: chapters)
         guard index != chapterIndex || loadState != .loaded else { return }
         flushProgress()
         loadChapter(index, restoringPage: 0, releaseRunners: true)
@@ -360,11 +363,11 @@ final class ComicReaderViewModel {
         }
         if !stored.isEmpty {
             chapters = stored.map {
-                ComicChapterEntry(index: $0.index, title: $0.title, titleTrans: $0.titleTrans, url: $0.url, host: $0.host)
+                ComicChapterEntry(index: $0.index, title: $0.title, titleTrans: $0.titleTrans, url: $0.url, host: $0.host, isSection: $0.isSection)
             }
         } else {
             chapters = launch.onlineChapters.enumerated().map { offset, chapter in
-                ComicChapterEntry(index: offset, title: chapter.name, titleTrans: nil, url: chapter.url, host: chapter.host)
+                ComicChapterEntry(index: offset, title: chapter.name, titleTrans: nil, url: chapter.url, host: chapter.host, isSection: chapter.isSection)
             }
         }
         if chapters.isEmpty {
@@ -372,11 +375,9 @@ final class ComicReaderViewModel {
         }
     }
 
+    /// Chương thường liền trước/sau — bỏ qua dòng tiêu đề nhóm (nút chuyển chương, prefetch).
     private func neighborChapterIndex(of index: Int, offset: Int) -> Int? {
-        guard let position = chapters.firstIndex(where: { $0.index == index }) else { return nil }
-        let target = position + offset
-        guard chapters.indices.contains(target) else { return nil }
-        return chapters[target].index
+        ComicChapterEntry.neighborIndex(of: index, step: offset, in: chapters)
     }
 
     // MARK: - Tiện ích
