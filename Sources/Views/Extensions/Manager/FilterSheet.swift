@@ -6,7 +6,11 @@ import SwiftUI
 /// "Tất cả" tự sáng lại. Luật lọc (HOẶC trong nhóm, VÀ giữa nhóm) nằm ở `RepositoryFilterPolicy`.
 ///
 /// `allTypes`/`allLocales` là **khoá nhóm** (`ExtensionFilterGroups`) theo thứ tự cố định, chỉ gồm nhóm có ít nhất
-/// một tiện ích; chip hiện nhãn nhóm kèm số lượng, vd "Truyện chữ (494)".
+/// một tiện ích; chip hiện nhãn nhóm kèm số lượng, vd "Truyện chữ (494)". Danh mục và số đếm do caller tính **sau**
+/// công tắc NSFW.
+///
+/// Công tắc "Nội dung nhạy cảm (NSFW)" mặc định **tắt** (`RepositoryFilterPolicy.includeNsfwDefaultsKey`): ẩn tiện
+/// ích NSFW ở Kho và khi tìm mọi nguồn; Khám phá vẫn hiện tiện ích đã cài. "Đặt lại" đưa về tắt.
 public struct FilterSheet: View {
     @Environment(\.dismiss) internal var dismiss
     public let allAuthors: [String]
@@ -18,6 +22,9 @@ public struct FilterSheet: View {
     @Binding public var filterTypes: Set<String>
     @Binding public var filterLocales: Set<String>
     @Binding public var filterAuthors: Set<String>
+    @Binding public var includeNsfw: Bool
+    /// Số tiện ích NSFW đang bị ẩn (0 khi công tắc bật).
+    public let hiddenNsfwCount: Int
 
     public init(
         allAuthors: [String],
@@ -27,7 +34,9 @@ public struct FilterSheet: View {
         localeCounts: [String: Int] = [:],
         filterTypes: Binding<Set<String>>,
         filterLocales: Binding<Set<String>>,
-        filterAuthors: Binding<Set<String>>
+        filterAuthors: Binding<Set<String>>,
+        includeNsfw: Binding<Bool>,
+        hiddenNsfwCount: Int = 0
     ) {
         self.allAuthors = allAuthors
         self.allLocales = allLocales
@@ -37,12 +46,15 @@ public struct FilterSheet: View {
         self._filterTypes = filterTypes
         self._filterLocales = filterLocales
         self._filterAuthors = filterAuthors
+        self._includeNsfw = includeNsfw
+        self.hiddenNsfwCount = hiddenNsfwCount
     }
 
     public var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
+                    nsfwToggle
                     chipGroup(title: "Loại tiện ích", options: allTypes, selection: $filterTypes) {
                         Self.countedLabel(ExtensionFilterGroups.typeGroupLabel($0), count: typeCounts[$0])
                     }
@@ -68,12 +80,37 @@ public struct FilterSheet: View {
                         filterTypes = []
                         filterLocales = []
                         filterAuthors = []
+                        includeNsfw = false
                         dismiss()
                     }
                     .foregroundColor(.red)
                 }
             }
         }
+    }
+
+    private var nsfwToggle: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Toggle(isOn: $includeNsfw) {
+                Text("Nội dung nhạy cảm (NSFW)")
+                    .font(.subheadline.weight(.semibold))
+            }
+            .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
+            Text(nsfwFootnote)
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding(12)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var nsfwFootnote: String {
+        if includeNsfw {
+            return "Đang hiện cả tiện ích NSFW ở Kho và khi tìm mọi nguồn."
+        }
+        let hidden = hiddenNsfwCount > 0 ? "Đang ẩn \(hiddenNsfwCount) tiện ích NSFW" : "Ẩn tiện ích NSFW"
+        return hidden + " ở Kho và khi tìm mọi nguồn. Khám phá vẫn hiện tiện ích đã cài."
     }
 
     private func chipGroup(

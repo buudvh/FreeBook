@@ -140,7 +140,9 @@ public struct BackupLibraryReader {
                     repositoryUrl: ext.repositoryUrl,
                     localPathRelative: ext.folder,
                     pinnedAt: ext.pinnedAt,
-                    lastUsedAt: ext.lastUsedAt
+                    lastUsedAt: ext.lastUsedAt,
+                    isNsfw: ext.isNsfw,
+                    savesHistory: ext.savesHistory
                 )
             }
     }

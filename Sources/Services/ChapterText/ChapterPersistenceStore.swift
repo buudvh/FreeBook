@@ -88,6 +88,9 @@ actor ChapterPersistenceStore {
     func ensureBook(_ snapshot: BookMetadataSnapshot) async throws {
         let context = ModelContext(container)
         let book: Book
+        // Tiện ích tắt "Lưu lịch sử": không bật `isHistory` (bản ghi vẫn tạo để giữ mục lục/tiến độ; lượt quét lúc
+        // mở app dọn bản ghi mồ côi). Không bao giờ hạ cờ đã có — lịch sử cũ giữ nguyên.
+        let recordsHistory = ExtensionHistoryPolicy.recordsHistory(packageId: snapshot.extensionPackageId)
 
         if let existing = try fetchBook(bookId: snapshot.bookId, in: context) {
             book = existing
@@ -103,7 +106,7 @@ actor ChapterPersistenceStore {
                 sourceUrl: snapshot.sourceUrl,
                 extensionPackageId: snapshot.extensionPackageId,
                 isOnShelf: false,
-                isHistory: true,
+                isHistory: recordsHistory,
                 host: snapshot.host
             )
             context.insert(book)
@@ -118,7 +121,9 @@ actor ChapterPersistenceStore {
         book.sourceUrl = snapshot.sourceUrl
         book.extensionPackageId = snapshot.extensionPackageId
         book.host = snapshot.host
-        book.isHistory = true
+        if recordsHistory {
+            book.isHistory = true
+        }
 
         try context.save()
 
@@ -607,7 +612,7 @@ actor ChapterPersistenceStore {
                 sourceUrl: snapshot.sourceUrl,
                 extensionPackageId: snapshot.extensionPackageId,
                 isOnShelf: false,
-                isHistory: true,
+                isHistory: ExtensionHistoryPolicy.recordsHistory(packageId: snapshot.extensionPackageId),
                 host: snapshot.host
             )
             context.insert(book)
@@ -626,7 +631,10 @@ actor ChapterPersistenceStore {
             book.extensionPackageId = snapshot.extensionPackageId
         }
 
-        book.isHistory = true
+        // Như `ensureBook`: chỉ bật khi tiện ích lưu lịch sử, không hạ cờ đã có.
+        if ExtensionHistoryPolicy.recordsHistory(packageId: book.extensionPackageId) {
+            book.isHistory = true
+        }
 
         if ChapterStoreConfiguration.enableSwiftDataTOCWrite {
             if let snapshot {

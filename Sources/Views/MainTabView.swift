@@ -88,6 +88,9 @@ struct MainTabView: View {
         .onAppear {
             DownloadManager.shared.initialize(container: modelContext.container)
             TTSManager.shared.initialize(container: modelContext.container)
+            // Dọn sách mồ côi của tiện ích không lưu lịch sử — ngay sau khi danh sách tác vụ tải đã nạp, trước khi
+            // người dùng kịp mở truyện nào. Lịch sử cũ giữ nguyên.
+            HistoryOrphanBookSweeper.startOnce(container: modelContext.container)
             Task {
                 await ReadingProgressStore.shared.configure(container: modelContext.container)
                 await ChapterContentRepository.shared.configure(container: modelContext.container)

@@ -123,6 +123,8 @@ struct ExtensionConfigView: View {
                                 .foregroundColor(.secondary)
                         }
 
+                        historySection // tự lưu khi bấm — `ExtensionConfigView+History`
+
                         Section(header: Text("Mã Nguồn Script")) {
                             Button(action: {
                                 showingScriptEditor = true

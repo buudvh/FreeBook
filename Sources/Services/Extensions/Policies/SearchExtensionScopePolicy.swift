@@ -7,6 +7,10 @@ import Foundation
 ///   `ExtensionContentKind.rawValue`. Giá trị lạ/hỏng coi như tất cả.
 /// - **Đổi nguồn**: chỉ tiện ích **cùng loại** với sách (mục lục, tiến độ và chương đã tải không chuyển được
 ///   giữa chữ/tranh/video); hàng chip bị bỏ qua.
+/// - **NSFW**: tìm mọi nguồn (kể cả đổi nguồn) bỏ tiện ích NSFW khi công tắc NSFW của bộ lọc Kho đang tắt
+///   (`RepositoryFilterPolicy.includeNsfwDefaultsKey`, mặc định tắt). Ngoại lệ: đổi nguồn cho sách của chính một
+///   tiện ích NSFW thì giữ — nếu không danh sách nguồn thay thế luôn rỗng. Khám phá (`matches`/`isBrowsable`)
+///   không lọc NSFW: tiện ích đã cài vẫn hiện.
 public enum SearchExtensionScopePolicy {
     /// Các loại hiện trên hàng chip, theo thứ tự cố định.
     public static let browsableKinds: [ExtensionContentKind] = [.text, .comic, .video]
@@ -36,17 +40,33 @@ public enum SearchExtensionScopePolicy {
     /// Danh sách nguồn để tìm. `changeSourcePackageId != nil` ⇒ đang đổi nguồn: chỉ giữ tiện ích cùng loại với
     /// sách đó và bỏ qua `kindFilter`. Không tra được loại của sách (tiện ích đã gỡ, không còn trong catalog) ⇒
     /// giữ mọi tiện ích nội dung thay vì đoán là chữ.
+    ///
+    /// `includeNsfw` mặc định đọc công tắc NSFW của bộ lọc Kho ngay lúc gọi (call site không đổi).
     public static func searchableExtensions(
         _ extensions: [Extension],
         kindFilter: String,
-        changeSourcePackageId: String?
+        changeSourcePackageId: String?,
+        includeNsfw: Bool = RepositoryFilterPolicy.includesNsfwPreference
     ) -> [Extension] {
+        let scoped: [Extension]
+        var keepsNsfw = includeNsfw
         if let packageId = changeSourcePackageId {
-            guard let bookKind = ExtensionContentKind.resolveIfKnown(packageId: packageId) else {
-                return extensions.filter { isBrowsable($0) }
+            if let bookKind = ExtensionContentKind.resolveIfKnown(packageId: packageId) {
+                scoped = extensions.filter { isBrowsable($0) && kind(of: $0) == bookKind }
+            } else {
+                scoped = extensions.filter { isBrowsable($0) }
             }
-            return extensions.filter { isBrowsable($0) && kind(of: $0) == bookKind }
+            keepsNsfw = keepsNsfw || isNsfwSource(packageId: packageId)
+        } else {
+            scoped = extensions.filter { matches($0, kindFilter: kindFilter) }
         }
-        return extensions.filter { matches($0, kindFilter: kindFilter) }
+        return RepositoryFilterPolicy.applyNsfwFilter(scoped, includeNsfw: keepsNsfw)
+    }
+
+    /// Tiện ích của sách đang đổi nguồn có phải NSFW không (tra bản cài rồi catalog; không tìm thấy ⇒ `false`).
+    private static func isNsfwSource(packageId: String) -> Bool {
+        guard let ext = ExtensionLibraryRepository.snapshot(packageId: packageId)
+                ?? ExtensionLibraryRepository.catalogSnapshot(packageId: packageId) else { return false }
+        return ExtensionNsfwCache.shared.isNsfw(ext)
     }
 }

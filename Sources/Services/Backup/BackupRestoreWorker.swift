@@ -279,6 +279,7 @@ public actor BackupRestoreWorker {
             let newlyInstalled = Set(ExtensionLibraryRepository.shared.installed.map(\.packageId))
                 .subtracting(previouslyInstalled)
             result.merge(writer.restorePins(extensions, newlyInstalled: newlyInstalled))
+            result.merge(writer.restoreHistoryPreferences(extensions))
             return result
         }
         outcome.merge(batch)

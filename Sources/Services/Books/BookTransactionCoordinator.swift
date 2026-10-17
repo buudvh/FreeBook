@@ -171,7 +171,10 @@ public final class BookTransactionCoordinator {
             return .failure(BookTransactionError.bookNotFound(bookId))
         }
         book.isOnShelf = false
-        book.isHistory = true
+        // Tiện ích tắt "Lưu lịch sử" (`ExtensionHistoryPolicy`): không ghi mới vào Lịch sử; cờ cũ giữ nguyên.
+        if ExtensionHistoryPolicy.recordsHistory(packageId: book.extensionPackageId) {
+            book.isHistory = true
+        }
         book.lastReadDate = Date()
         // Bất biến "truyện trong bộ sưu tập luôn ở trên kệ": rời kệ là rời hết bộ sưu tập. Không xoá
         // `BookCollection` nào — chỉ tháo liên kết.

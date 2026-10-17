@@ -40,6 +40,8 @@ struct RepositoryManagerView: View {
     @AppStorage(ExtensionFilterSelection.typesKey) internal var filterTypesJSON: String = ""
     @AppStorage(ExtensionFilterSelection.localesKey) internal var filterLocalesJSON: String = ""
     @AppStorage(ExtensionFilterSelection.authorsKey) internal var filterAuthorsJSON: String = ""
+    /// Công tắc NSFW (mặc định tắt = ẩn tiện ích NSFW). Tìm mọi nguồn đọc cùng khoá; Khám phá không đọc.
+    @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) internal var filterIncludeNsfw: Bool = false
 
     internal var filterTypes: Binding<Set<String>> {
         ExtensionFilterSelection.binding($filterTypesJSON, legacyKey: ExtensionFilterSelection.legacyTypeKey, normalize: ExtensionFilterGroups.typeGroup(for:))
@@ -51,40 +53,47 @@ struct RepositoryManagerView: View {
         ExtensionFilterSelection.binding($filterAuthorsJSON, legacyKey: ExtensionFilterSelection.legacyAuthorKey)
     }
 
-    // Trạng thái bộ lọc: có ít nhất một nhóm không rỗng
+    // Trạng thái bộ lọc: có ít nhất một nhóm không rỗng, hoặc đã bật hiện NSFW (mặc định tắt không tính là lọc)
     internal var isFiltering: Bool {
         !filterTypes.wrappedValue.isEmpty || !filterLocales.wrappedValue.isEmpty || !filterAuthors.wrappedValue.isEmpty
+            || filterIncludeNsfw
     }
 
     internal var isUninstallAllDisabled: Bool {
         library.installed.isEmpty
     }
     
-    // Lọc danh sách tác giả động từ catalog (đã cài ∪ cache registry)
-    internal var allAuthors: [String] {
-        let authors = allExtensions.map { $0.author }
-        return Array(Set(authors)).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    /// Sheet bộ lọc. Tác giả / nhóm ngôn ngữ / nhóm thể loại và số trên chip tính trên catalog (đã cài ∪ cache
+    /// registry) **sau** công tắc NSFW — lọc NSFW **một lần** cho cả sheet: bấm chip là dựng lại nội dung sheet.
+    internal func makeFilterSheet() -> FilterSheet {
+        let pool = RepositoryFilterPolicy.applyNsfwFilter(allExtensions, includeNsfw: filterIncludeNsfw)
+        let typeCounts = ExtensionFilterGroups.typeGroupCounts(pool)
+        let localeCounts = ExtensionFilterGroups.localeGroupCounts(pool)
+        let authors = Array(Set(pool.map { $0.author }))
+            .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+        return FilterSheet(
+            allAuthors: authors,
+            allLocales: ExtensionFilterGroups.presentGroups(ExtensionFilterGroups.localeGroupOrder, counts: localeCounts),
+            allTypes: ExtensionFilterGroups.presentGroups(ExtensionFilterGroups.typeGroupOrder, counts: typeCounts),
+            typeCounts: typeCounts,
+            localeCounts: localeCounts,
+            filterTypes: filterTypes,
+            filterLocales: filterLocales,
+            filterAuthors: filterAuthors,
+            includeNsfw: $filterIncludeNsfw,
+            hiddenNsfwCount: allExtensions.count - pool.count
+        )
     }
-    
-    // Nhóm ngôn ngữ / thể loại có trong catalog (khoá nhóm, thứ tự cố định — `ExtensionFilterGroups`)
-    internal var localeCounts: [String: Int] { ExtensionFilterGroups.localeGroupCounts(allExtensions) }
-    internal var allLocales: [String] {
-        ExtensionFilterGroups.presentGroups(ExtensionFilterGroups.localeGroupOrder, counts: localeCounts)
-    }
-    
-    internal var typeCounts: [String: Int] { ExtensionFilterGroups.typeGroupCounts(allExtensions) }
-    internal var allTypes: [String] {
-        ExtensionFilterGroups.presentGroups(ExtensionFilterGroups.typeGroupOrder, counts: typeCounts)
-    }
-    
-    // Danh sách tiện ích sau khi lọc theo các tiêu chí và tìm kiếm
+
+    // Danh sách tiện ích sau khi lọc theo các tiêu chí, công tắc NSFW và tìm kiếm
     internal var filteredExtensions: [Extension] {
         RepositoryFilterPolicy.shared.filterExtensions(
             allExtensions,
             query: storeSearchQuery,
             authors: filterAuthors.wrappedValue,
             types: filterTypes.wrappedValue,
-            locales: filterLocales.wrappedValue
+            locales: filterLocales.wrappedValue,
+            includeNsfw: filterIncludeNsfw
         )
     }
     
@@ -149,16 +158,7 @@ struct RepositoryManagerView: View {
                 Text("Kho \(repo.name) và các tiện ích đã cài từ kho này sẽ bị xóa khỏi ứng dụng.")
             }
             .sheet(isPresented: $showingFilterSheet) {
-                FilterSheet(
-                    allAuthors: allAuthors,
-                    allLocales: allLocales,
-                    allTypes: allTypes,
-                    typeCounts: typeCounts,
-                    localeCounts: localeCounts,
-                    filterTypes: filterTypes,
-                    filterLocales: filterLocales,
-                    filterAuthors: filterAuthors
-                )
+                makeFilterSheet()
             }
             .sheet(isPresented: $showingAddRepo) {
                 AddRepositoryView { name, url in
@@ -290,6 +290,7 @@ struct RepositoryManagerView: View {
                     filterTypes.wrappedValue = []
                     filterLocales.wrappedValue = []
                     filterAuthors.wrappedValue = []
+                    filterIncludeNsfw = false
                 }) {
                     HStack(spacing: 4) {
                         Image(systemName: "trash.circle")

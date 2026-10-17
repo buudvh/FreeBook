@@ -221,6 +221,13 @@ public final class ExtensionTransactionCoordinator {
         }
     }
 
+    /// Bật/tắt "Lưu lịch sử đọc/xem" của tiện ích — ghi **ngay** vào bản ghi (`Extension.savesHistory`), không qua
+    /// `configJson` (chuỗi đó bị tiêm thành biến global của JS). `nil` = về mặc định `!isNsfw`
+    /// (`ExtensionHistoryPolicy`). Tắt chỉ chặn ghi mới vào Lịch sử; lịch sử cũ giữ nguyên.
+    public func setSavesHistory(packageId: String, _ savesHistory: Bool?) -> Result<Void, ExtensionTransactionError> {
+        mutateInstalled(packageId: packageId) { $0.savesHistory = savesHistory }
+    }
+
     /// Đánh dấu vừa **duyệt chủ động** bằng nguồn này (chọn nguồn Khám phá, tìm bằng một nguồn, mở chi tiết).
     /// Ghi file gom ~3 s.
     @discardableResult

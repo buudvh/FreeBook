@@ -5,24 +5,44 @@ public struct RepositoryFilterPolicy: Sendable {
 
     public init() {}
 
+    /// Khoá `UserDefaults` của công tắc "Nội dung nhạy cảm (NSFW)" trong bộ lọc Kho — mặc định **tắt** (ẩn tiện ích
+    /// NSFW). Tìm kiếm mọi nguồn đọc cùng khoá (`SearchExtensionScopePolicy`); Khám phá không đọc.
+    public static let includeNsfwDefaultsKey = "extFilterIncludeNsfw"
+
+    /// Giá trị hiện tại của công tắc NSFW (khoá chưa ghi ⇒ `false`).
+    public static var includesNsfwPreference: Bool {
+        UserDefaults.standard.bool(forKey: includeNsfwDefaultsKey)
+    }
+
+    /// Bỏ tiện ích NSFW (`ExtensionNsfwClassifier`, qua bộ đệm) khi `includeNsfw == false`.
+    public static func applyNsfwFilter(_ extensions: [Extension], includeNsfw: Bool) -> [Extension] {
+        guard !includeNsfw else { return extensions }
+        return extensions.filter { !ExtensionNsfwCache.shared.isNsfw($0) }
+    }
+
     /// Lọc chọn nhiều: **HOẶC** trong một nhóm, **VÀ** giữa các nhóm; nhóm rỗng = không lọc nhóm đó.
     /// `types`/`locales` là **khoá nhóm** (`ExtensionFilterGroups`), so với nhóm của giá trị thô — không so thô.
+    /// `includeNsfw == false` ⇒ bỏ tiện ích NSFW; xét **sau cùng** vì classifier đắt hơn các điều kiện khác.
     public func filterExtensions(
         _ extensions: [Extension],
         query: String,
         authors: Set<String> = [],
         types: Set<String> = [],
-        locales: Set<String> = []
+        locales: Set<String> = [],
+        includeNsfw: Bool = true
     ) -> [Extension] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let result = extensions.filter { ext in
             guard authors.isEmpty || authors.contains(ext.author),
                   types.isEmpty || types.contains(ExtensionFilterGroups.typeGroup(for: ext.type)),
                   locales.isEmpty || locales.contains(ExtensionFilterGroups.localeGroup(for: ext.locale)) else { return false }
-            guard !trimmed.isEmpty else { return true }
-            return ext.name.localizedCaseInsensitiveContains(trimmed) ||
-                ext.sourceUrl.localizedCaseInsensitiveContains(trimmed) ||
-                (ext.desc?.localizedCaseInsensitiveContains(trimmed) ?? false)
+            if !trimmed.isEmpty {
+                let matchesQuery = ext.name.localizedCaseInsensitiveContains(trimmed) ||
+                    ext.sourceUrl.localizedCaseInsensitiveContains(trimmed) ||
+                    (ext.desc?.localizedCaseInsensitiveContains(trimmed) ?? false)
+                guard matchesQuery else { return false }
+            }
+            return includeNsfw || !ExtensionNsfwCache.shared.isNsfw(ext)
         }
         return sortExtensions(result)
     }

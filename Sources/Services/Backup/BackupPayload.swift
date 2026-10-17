@@ -152,6 +152,10 @@ public enum BackupPayload {
         /// `Optional` **có chủ đích** (như `BookRecord.isPinned`): archive cũ không có hai khoá này.
         public let pinnedAt: Date?
         public let lastUsedAt: Date?
+        /// `Extension.isNsfw` (cờ tiện ích tự khai) và `Extension.savesHistory` (công tắc "Lưu lịch sử" của người
+        /// dùng). `Optional`: archive cũ không có hai khoá này — Codable tổng hợp đọc thiếu khoá thành `nil`.
+        public let isNsfw: Bool?
+        public let savesHistory: Bool?
 
         public init(
             packageId: String,
@@ -170,7 +174,9 @@ public enum BackupPayload {
             repositoryUrl: String?,
             localPathRelative: String,
             pinnedAt: Date? = nil,
-            lastUsedAt: Date? = nil
+            lastUsedAt: Date? = nil,
+            isNsfw: Bool? = nil,
+            savesHistory: Bool? = nil
         ) {
             self.packageId = packageId
             self.name = name
@@ -189,6 +195,8 @@ public enum BackupPayload {
             self.localPathRelative = localPathRelative
             self.pinnedAt = pinnedAt
             self.lastUsedAt = lastUsedAt
+            self.isNsfw = isNsfw
+            self.savesHistory = savesHistory
         }
 
         /// Archive cũ chỉ có `isPinned`, archive mới có thêm `pinnedAt` — một trong hai là đủ.

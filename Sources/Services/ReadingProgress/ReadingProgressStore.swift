@@ -124,7 +124,11 @@ public actor ReadingProgressStore {
             ?? fallbackTitleFromStore
             ?? book.chapters.first(where: { $0.index == snapshot.chapterIndex })?.title
             ?? book.currentChapterTitle
-        book.isHistory = true
+        // Tiện ích tắt "Lưu lịch sử" chỉ chặn **ghi mới** vào Lịch sử (cờ cũ giữ nguyên); tiến độ và
+        // `lastReadDate` vẫn ghi để sách trên kệ nhớ vị trí đọc.
+        if ExtensionHistoryPolicy.recordsHistory(packageId: book.extensionPackageId) {
+            book.isHistory = true
+        }
         book.lastReadDate = snapshot.recordedAt
         try context.save()
         persistedByBook[snapshot.bookId] = snapshot

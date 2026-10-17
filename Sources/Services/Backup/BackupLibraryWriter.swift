@@ -113,6 +113,25 @@ public struct BackupLibraryWriter {
         return report
     }
 
+    /// Áp công tắc "Lưu lịch sử đọc/xem" (`savesHistory`) của archive cho tiện ích **đang cài** mà máy này chưa chọn
+    /// (`savesHistory == nil`) — không đè lựa chọn của máy đang khôi phục. Phải chạy **sau** `upsertExtensions`:
+    /// `UpsertExtensionCommand` không mang trường này. `isNsfw` không cần áp: upsert đọc lại từ `plugin.json`/registry.
+    public func restoreHistoryPreferences(_ records: [BackupPayload.ExtensionRecord]) -> Report {
+        var report = Report()
+        let library = ExtensionLibraryRepository.shared
+        for record in records {
+            guard let savesHistory = record.savesHistory,
+                  let ext = library.installedExtension(packageId: record.packageId),
+                  ext.savesHistory == nil else { continue }
+            if case .failure(let error) = ExtensionTransactionCoordinator.shared.setSavesHistory(
+                packageId: record.packageId, savesHistory
+            ) {
+                report.errors.append("Lưu lịch sử \(record.name): \(error.localizedDescription)")
+            }
+        }
+        return report
+    }
+
     /// Chỉ thêm truyện chưa có. Truyện đã có giữ nguyên metadata **và tiến độ đọc** của máy này.
     ///
     /// Truyện mới nhận lại `lastReadDate` từ bản sao lưu (qua `AddBookToShelfCommand.lastReadDate`)
