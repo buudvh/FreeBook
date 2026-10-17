@@ -270,6 +270,7 @@ struct RepositoryManagerView: View {
                 } else {
                     List(extensions) { ext in
                         extensionRow(ext)
+                            .contextMenu { nsfwContextMenu(ext) }
                     }
                     .listStyle(.plain)
                 }

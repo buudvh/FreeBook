@@ -120,13 +120,19 @@ public struct BackupLibraryWriter {
         var report = Report()
         let library = ExtensionLibraryRepository.shared
         for record in records {
-            guard let savesHistory = record.savesHistory,
-                  let ext = library.installedExtension(packageId: record.packageId),
-                  ext.savesHistory == nil else { continue }
-            if case .failure(let error) = ExtensionTransactionCoordinator.shared.setSavesHistory(
-                packageId: record.packageId, savesHistory
-            ) {
+            guard let ext = library.installedExtension(packageId: record.packageId) else { continue }
+            if let savesHistory = record.savesHistory, ext.savesHistory == nil,
+               case .failure(let error) = ExtensionTransactionCoordinator.shared.setSavesHistory(
+                   packageId: record.packageId, savesHistory
+               ) {
                 report.errors.append("Lưu lịch sử \(record.name): \(error.localizedDescription)")
+            }
+            // Đánh dấu 18+ của người dùng: cùng luật — chỉ áp khi máy này chưa tự chọn.
+            if let nsfwOverride = record.nsfwOverride, ext.nsfwOverride == nil,
+               case .failure(let error) = ExtensionTransactionCoordinator.shared.setNsfwOverride(
+                   packageId: record.packageId, nsfwOverride
+               ) {
+                report.errors.append("Đánh dấu 18+ \(record.name): \(error.localizedDescription)")
             }
         }
         return report

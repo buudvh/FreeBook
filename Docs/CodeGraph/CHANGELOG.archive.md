@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.504] - 2026-10-10
+
+### fix(ai): widget AI thu nho mo lai dung truyen dang chay, khong theo reader dang hien thi
+
+Người dùng: *"khi vào reader truyện khác bấm vào widget thu nhỏ thì hiển thị chế độ AI không đúng truyện — truyện A đang chạy AI, thu nhỏ, sang truyện B bấm vào widget lại không hiển thị A mà hiển thị B"*.
+
+- **Nguyên nhân**: `AIRuntimeCoordinator.presentFullScreen()` chỉ xét cờ `isReaderActive: Bool`. Reader B đang hiển thị ⇒ cờ bật ⇒ post `reopenReaderAI` ⇒ `ReaderView` của **B** bật `showingAIFullScreen` và dựng `ReaderAIFullScreenView(bookId: B)`; `initializeSessionAsync` thấy `activeSession.bookId (A) != B` nên nạp phiên của B.
+- **Sửa**: thay cờ bằng `activeReaderBookId: String?` (Reader `onAppear` gán bookId của mình, `onDisappear` chỉ xoá khi còn đúng là mình — thứ tự appear/disappear giữa hai Reader không làm mất cờ). `presentFullScreen` chỉ đi đường `reopenReaderAI` khi `activeReaderBookId == activeContext.bookId`, kèm `userInfo["bookId"]` để `ReaderView` guard; mọi trường hợp khác (Reader truyện khác, Shelf, Discovery) đi đường UIKit `.overFullScreen` sẵn có với context của truyện đang chạy AI. Rule 1.3.397 giữ nguyên: không có đường `.fullScreen` nào.
+- Hành vi mới: ở Reader B bấm widget ⇒ mở AI của **A** đè lên Reader B; đóng ⇒ về Reader B. Nút AI của chính Reader B vẫn mở AI của B như trước.
+- `rules.md`: thêm 1 bullet vào mục "Reader AI FullScreen & Background Session Invariants".
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới (`ReaderView.swift` 2051/2053). **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`.
+
 ## [1.3.503] - 2026-10-09
 
 ### revert(vieneu): bo cong tac chong doc lap, ghi chu 1.15x it lap nhat de nguoi dung tu chinh

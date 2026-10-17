@@ -228,6 +228,11 @@ public final class ExtensionTransactionCoordinator {
         mutateInstalled(packageId: packageId) { $0.savesHistory = savesHistory }
     }
 
+    /// Người dùng đánh dấu (`true`) / bỏ đánh dấu (`false`) NSFW; `nil` = trả về nhận diện tự động.
+    public func setNsfwOverride(packageId: String, _ override: Bool?) -> Result<Void, ExtensionTransactionError> {
+        mutateInstalled(packageId: packageId) { $0.nsfwOverride = override }
+    }
+
     /// Đánh dấu vừa **duyệt chủ động** bằng nguồn này (chọn nguồn Khám phá, tìm bằng một nguồn, mở chi tiết).
     /// Ghi file gom ~3 s.
     @discardableResult

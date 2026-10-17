@@ -2,7 +2,8 @@ import Foundation
 
 /// Phân loại tiện ích có nội dung người lớn (NSFW) — hàm **thuần**, không I/O.
 ///
-/// Thứ tự: cờ tiện ích tự khai (`Extension.isNsfw == true`, từ `metadata.nsfw`/thẻ `nsfw`) **hoặc** heuristic:
+/// Người dùng tự đánh dấu / bỏ đánh dấu (`Extension.nsfwOverride`) thắng tất cả. Không có thì: cờ tiện ích tự khai
+/// (`Extension.isNsfw == true`, từ `metadata.nsfw`/thẻ `nsfw`) **hoặc** heuristic:
 /// - từ khoá trên tên + mô tả + tác giả (bỏ dấu, chữ thường, `đ` ⇒ `d`);
 /// - tên miền trên `sourceUrl`.
 ///
@@ -16,6 +17,7 @@ import Foundation
 ///   "khoa thanh", "sau dam"…
 enum ExtensionNsfwClassifier {
     nonisolated static func isNsfw(_ ext: Extension) -> Bool {
+        if let override = ext.nsfwOverride { return override }
         if ext.isNsfw == true { return true }
         let text = normalized([ext.name, ext.desc ?? "", ext.author].joined(separator: " "))
         if matchesKeyword(in: text) { return true }

@@ -2,6 +2,26 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.534] - 2026-10-17
+
+### feat: nút đánh dấu và bỏ đánh dấu 18+ cho tiện ích
+
+Yêu cầu: *"thêm nút đánh dấu/bỏ đánh dấu ext nsfw"*.
+
+- **Lưu lựa chọn**
+  - `Extension.nsfwOverride: Bool?`: `true` = đánh dấu, `false` = bỏ đánh dấu, `nil` = nhận diện tự động. Decode khoan dung.
+  - Trường này **tách khỏi** `isNsfw`: cập nhật tiện ích đọc lại `isNsfw` từ `plugin.json`, nhưng không làm mất lựa chọn của người dùng.
+- **Nhận diện**: `ExtensionNsfwClassifier` ưu tiên `nsfwOverride` trên cả cờ tự khai lẫn heuristic. `ExtensionNsfwCache` so sánh cả bản ghi nên tự tính lại khi lựa chọn đổi.
+- **Ghi**: `ExtensionTransactionCoordinator.setNsfwOverride` (theo mẫu `setSavesHistory`), lưu ngay khi bấm.
+- **Giao diện**
+  - Màn Cấu hình tiện ích có section "Nội dung nhạy cảm" (`ExtensionConfigView+Nsfw`): nút "Đánh dấu 18+" / "Bỏ đánh dấu 18+"; đã tự chọn thì hiện thêm "Dùng nhận diện tự động". Chú thích ghi rõ trạng thái hiện tại.
+  - Nhấn giữ dòng tiện ích đã cài trong Kho có cùng các lựa chọn (`RepositoryManagerView+Nsfw`).
+- **Tác dụng kéo theo**: nhãn 18+ trên icon, ẩn khi công tắc NSFW tắt, và mặc định không lưu lịch sử nếu người dùng chưa tự chọn.
+- **Sao lưu**
+  - `BackupPayload` mang thêm `nsfwOverride`, tính vào fingerprint.
+  - Khi khôi phục, chỉ áp lựa chọn cho tiện ích mà máy đang khôi phục chưa tự chọn, cùng luật với `savesHistory`.
+- **Kiểm chứng**: `check_architecture.py` **2 violation, 0 mới**. Không build tại chỗ (Windows); CI chỉ xác nhận biên dịch.
+
 ## [1.3.533] - 2026-10-17
 
 ### feat: khám phá dạng section, trình phát kiểu Aloha có PiP và phát nền, hub luôn hiện, công tắc NSFW toàn app
@@ -583,15 +603,3 @@ Người dùng: *"Tôi muốn thêm provider gemini web vào chế độ AI ở 
 - **File mới** (9 service ≤ 394 dòng, 3 view): `GeminiWeb{Error,InitSession,Model,RequestBuilder,FrameParser,ResponseParser,PromptFormatter,SessionController,Client}.swift`, `GeminiWeb{LoginWebPane,LoginView,AccountRow}.swift`. `rules.md`: mục "Gemini Web provider invariants (1.3.505)".
 - **Rủi ro đã nêu trước khi duyệt**: Google có thể từ chối đăng nhập trong WKWebView (UA Safari như trình duyệt bypass thường qua được; chưa kiểm chứng được trên Windows); giao thức không chính thức, Google đổi là `protocolChanged`; tài khoản miễn phí có hạn mức (1037).
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`.
-
-## [1.3.504] - 2026-10-10
-
-### fix(ai): widget AI thu nho mo lai dung truyen dang chay, khong theo reader dang hien thi
-
-Người dùng: *"khi vào reader truyện khác bấm vào widget thu nhỏ thì hiển thị chế độ AI không đúng truyện — truyện A đang chạy AI, thu nhỏ, sang truyện B bấm vào widget lại không hiển thị A mà hiển thị B"*.
-
-- **Nguyên nhân**: `AIRuntimeCoordinator.presentFullScreen()` chỉ xét cờ `isReaderActive: Bool`. Reader B đang hiển thị ⇒ cờ bật ⇒ post `reopenReaderAI` ⇒ `ReaderView` của **B** bật `showingAIFullScreen` và dựng `ReaderAIFullScreenView(bookId: B)`; `initializeSessionAsync` thấy `activeSession.bookId (A) != B` nên nạp phiên của B.
-- **Sửa**: thay cờ bằng `activeReaderBookId: String?` (Reader `onAppear` gán bookId của mình, `onDisappear` chỉ xoá khi còn đúng là mình — thứ tự appear/disappear giữa hai Reader không làm mất cờ). `presentFullScreen` chỉ đi đường `reopenReaderAI` khi `activeReaderBookId == activeContext.bookId`, kèm `userInfo["bookId"]` để `ReaderView` guard; mọi trường hợp khác (Reader truyện khác, Shelf, Discovery) đi đường UIKit `.overFullScreen` sẵn có với context của truyện đang chạy AI. Rule 1.3.397 giữ nguyên: không có đường `.fullScreen` nào.
-- Hành vi mới: ở Reader B bấm widget ⇒ mở AI của **A** đè lên Reader B; đóng ⇒ về Reader B. Nút AI của chính Reader B vẫn mở AI của B như trước.
-- `rules.md`: thêm 1 bullet vào mục "Reader AI FullScreen & Background Session Invariants".
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới (`ReaderView.swift` 2051/2053). **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`.

@@ -124,6 +124,7 @@ struct ExtensionConfigView: View {
                         }
 
                         historySection // tự lưu khi bấm — `ExtensionConfigView+History`
+                        nsfwSection // tự lưu khi bấm — `ExtensionConfigView+Nsfw`
 
                         Section(header: Text("Mã Nguồn Script")) {
                             Button(action: {

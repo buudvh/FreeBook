@@ -156,6 +156,8 @@ public enum BackupPayload {
         /// dùng). `Optional`: archive cũ không có hai khoá này — Codable tổng hợp đọc thiếu khoá thành `nil`.
         public let isNsfw: Bool?
         public let savesHistory: Bool?
+        /// `Extension.nsfwOverride` (người dùng tự đánh dấu/bỏ đánh dấu 18+); archive cũ không có ⇒ `nil`.
+        public let nsfwOverride: Bool?
 
         public init(
             packageId: String,
@@ -176,7 +178,8 @@ public enum BackupPayload {
             pinnedAt: Date? = nil,
             lastUsedAt: Date? = nil,
             isNsfw: Bool? = nil,
-            savesHistory: Bool? = nil
+            savesHistory: Bool? = nil,
+            nsfwOverride: Bool? = nil
         ) {
             self.packageId = packageId
             self.name = name
@@ -197,6 +200,7 @@ public enum BackupPayload {
             self.lastUsedAt = lastUsedAt
             self.isNsfw = isNsfw
             self.savesHistory = savesHistory
+            self.nsfwOverride = nsfwOverride
         }
 
         /// Archive cũ chỉ có `isPinned`, archive mới có thêm `pinnedAt` — một trong hai là đủ.

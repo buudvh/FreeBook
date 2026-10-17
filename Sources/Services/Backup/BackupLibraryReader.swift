@@ -142,7 +142,8 @@ public struct BackupLibraryReader {
                     pinnedAt: ext.pinnedAt,
                     lastUsedAt: ext.lastUsedAt,
                     isNsfw: ext.isNsfw,
-                    savesHistory: ext.savesHistory
+                    savesHistory: ext.savesHistory,
+                    nsfwOverride: ext.nsfwOverride
                 )
             }
     }

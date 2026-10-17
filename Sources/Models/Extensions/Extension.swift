@@ -39,6 +39,10 @@ public struct Extension: Codable, Identifiable, Hashable, Sendable {
     /// Người dùng bật/tắt "Lưu lịch sử đọc/xem" cho tiện ích này; `nil` = theo mặc định (`!isNsfw`, xem
     /// `ExtensionHistoryPolicy`). Không nằm trong `configJson` vì `configJson` bị tiêm thành biến global của JS.
     public var savesHistory: Bool?
+    /// Người dùng tự **đánh dấu** (`true`) / **bỏ đánh dấu** (`false`) NSFW; `nil` = nhận diện tự động. Thắng cả cờ
+    /// tiện ích tự khai lẫn heuristic (`ExtensionNsfwClassifier`). Tách khỏi `isNsfw` vì cập nhật tiện ích đọc lại
+    /// `isNsfw` từ `plugin.json` — lựa chọn của người dùng không được mất theo.
+    public var nsfwOverride: Bool?
 
     public static let installOriginRepository = "repository"
     public static let installOriginImportZip = "importZip"
@@ -91,7 +95,8 @@ public struct Extension: Codable, Identifiable, Hashable, Sendable {
         updatedAt: Date? = nil,
         remoteVersion: Int? = nil,
         isNsfw: Bool? = nil,
-        savesHistory: Bool? = nil
+        savesHistory: Bool? = nil,
+        nsfwOverride: Bool? = nil
     ) {
         self.packageId = packageId
         self.name = name
@@ -114,6 +119,7 @@ public struct Extension: Codable, Identifiable, Hashable, Sendable {
         self.remoteVersion = remoteVersion
         self.isNsfw = isNsfw
         self.savesHistory = savesHistory
+        self.nsfwOverride = nsfwOverride
     }
 
     // MARK: - Codable
@@ -123,7 +129,7 @@ public struct Extension: Codable, Identifiable, Hashable, Sendable {
         case packageId, name, author, version, sourceUrl, iconUrl, desc, type, locale, folder
         case configJson, downloadUrl, repositoryUrl, installOrigin
         case pinnedAt, lastUsedAt, installedAt, updatedAt
-        case isNsfw, savesHistory
+        case isNsfw, savesHistory, nsfwOverride
     }
 
     /// Decode khoan dung: chỉ `packageId` là bắt buộc, trường thiếu rơi về mặc định — file do bản app khác
@@ -152,5 +158,6 @@ public struct Extension: Codable, Identifiable, Hashable, Sendable {
         // Trường mới: sai kiểu ⇒ `nil` (theo mặc định), không làm hỏng cả `installed.json`.
         isNsfw = try? c.decodeIfPresent(Bool.self, forKey: .isNsfw)
         savesHistory = try? c.decodeIfPresent(Bool.self, forKey: .savesHistory)
+        nsfwOverride = try? c.decodeIfPresent(Bool.self, forKey: .nsfwOverride)
     }
 }
