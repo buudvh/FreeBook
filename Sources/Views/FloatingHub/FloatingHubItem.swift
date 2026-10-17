@@ -1,60 +1,75 @@
 import SwiftUI
 
-/// Một mục của **nút hub nổi** (1.3.524): lối tắt tới một việc đang chạy nền mà người dùng có thể quay lại.
+/// Một **dòng** của nút hub nổi (1.3.524; 1.3.533 đổi sang tập dòng cố định): lối tắt tới một việc đang chạy
+/// nền mà người dùng có thể quay lại.
 ///
-/// Hub thay ba widget nổi cũ (Trợ lý AI, Trình duyệt thu nhỏ, Thông báo) bằng **một** nút. Mỗi mục chỉ có mặt
-/// khi điều kiện của nó đúng — `FloatingHubPresentationReader` là nơi duy nhất quyết định điều đó; type này chỉ
-/// mô tả mục trông ra sao.
+/// ## Tập dòng cố định
+/// Menu luôn có đủ `Kind.allCases` (AI → Thông báo → Video), mục nào không dùng được thì **xám** chứ không
+/// biến mất. `FloatingHubPresentationReader` là nơi duy nhất quyết định trạng thái từng dòng; type này chỉ mô
+/// tả dòng trông ra sao. Trình duyệt thu nhỏ đã rời hub, quay về cửa sổ riêng (`BrowserFloatingWidgetWindowManager`).
 ///
-/// `detail` là dòng phụ trong menu ("Đang quét: Batch 3/12", "2 tab", "5 chưa đọc"). Nó **không** đi vào
-/// `FloatingHubPresentationReader.ButtonState`, nên tiêu đề AI đổi theo từng batch không làm vẽ lại nút.
+/// Mọi thứ hàng cần vẽ đều nằm trên item (`isEnabled`, `title`, `detail`, `badgeCount`, `isPlaying`), nên
+/// đường `snapshot.items` → `removeDuplicates()` của container bắt được mọi đổi trạng thái của menu. Các trường
+/// này **không** đi vào `FloatingHubPresentationReader.ButtonState`: tiêu đề AI đổi theo từng batch hay video
+/// phát/dừng không làm vẽ lại nút.
 struct FloatingHubItem: Equatable, Identifiable {
-    /// Loại mục. Thứ tự khai báo là **thứ tự hiển thị cố định** trong menu: AI → Trình duyệt → Thông báo.
+    /// Loại dòng. Thứ tự khai báo là **thứ tự hiển thị cố định** trong menu: AI → Thông báo → Video.
     enum Kind: Int, CaseIterable {
         case ai
-        case browser
         case notifications
+        case video
 
         var title: String {
             switch self {
             case .ai:
                 return "Trợ lý AI"
-            case .browser:
-                return "Trình duyệt"
             case .notifications:
                 return "Thông báo"
+            case .video:
+                return "Video"
             }
         }
 
-        /// Glyph SF Symbols của mục. Chuông có chấm khi còn thông báo chưa đọc, chuông trơn khi mục chỉ có mặt
-        /// vì đang chạy tác vụ (sao lưu / khôi phục / tải model).
+        /// Glyph SF Symbols của dòng. Chuông đặc khi còn thông báo chưa đọc, chuông trơn khi không.
         func systemImage(unreadCount: Int) -> String {
             switch self {
             case .ai:
                 return "sparkles"
-            case .browser:
-                return "safari"
             case .notifications:
-                // `bell.fill` chứ không `bell.badge.fill`: nút đã có chấm/số đỏ riêng, icon có chấm sẵn là hai badge chồng
-                // nhau (1.3.526).
+                // `bell.fill` chứ không `bell.badge.fill`: dòng đã có badge số riêng, icon có chấm sẵn là hai badge
+                // chồng nhau (1.3.526).
                 return unreadCount > 0 ? "bell.fill" : "bell"
+            case .video:
+                return "play.rectangle"
             }
         }
 
-        /// AI giữ màu tím quen thuộc của widget AI cũ; hai mục kia theo màu chữ hệ thống.
+        /// AI giữ màu tím quen thuộc của widget AI cũ; hai dòng kia theo màu chữ hệ thống.
         var tint: Color {
             switch self {
             case .ai:
                 return .purple
-            case .browser, .notifications:
+            case .notifications, .video:
                 return .primary
             }
         }
     }
 
     let kind: Kind
-    /// Dòng phụ một dòng trong menu.
-    let detail: String
+    /// Dòng dùng được: chạm được và tính vào badge của nút hub. `false` ⇒ dòng xám, không chạm được — dòng
+    /// **vẫn nằm đó**, không bị bỏ khỏi menu.
+    var isEnabled = false
+    /// Dòng chính; rỗng ⇒ dùng `kind.title`. Mục Video đặt tên phim vào đây.
+    var headline = ""
+    /// Dòng phụ một dòng. Reader luôn điền chữ (kể cả lúc xám) để chiều cao dòng không đổi.
+    var detail = ""
+    /// Số trên badge của dòng (Thông báo: số chưa đọc). 0 ⇒ badge trong suốt, không bị bỏ khỏi cây view.
+    var badgeCount = 0
+    /// Chỉ mục Video dùng: đang phát hay đang dừng (glyph của nút phát/dừng).
+    var isPlaying = false
 
     var id: Kind { kind }
+
+    /// Chữ hiển thị ở dòng chính.
+    var title: String { headline.isEmpty ? kind.title : headline }
 }

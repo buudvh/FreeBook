@@ -1,17 +1,21 @@
 import SwiftUI
 import UIKit
 
-/// Thẻ menu của nút hub nổi (1.3.524) — chỉ mở khi hub có từ 2 mục.
+/// Thẻ menu của nút hub nổi (1.3.524). Từ 1.3.533 menu luôn đủ ba dòng và mở ở mọi lần chạm hub.
 ///
 /// Menu sống trong **chính cửa sổ hub**: lớp nền trong suốt `menuBackdropView` phủ toàn màn và thẻ
 /// `menuContainerView` cạnh nút. Khi menu mở, `FloatingHubUIWindow.hitTest` nhường **mọi** chạm cho cây view
 /// của cửa sổ — nên cờ `FloatingHubViewModel.isMenuOpen` kẹt ở `true` là khoá cả app. `closeMenu` vì vậy
 /// idempotent và được gọi ở mọi đường có thể bỏ quên menu.
 ///
+/// ## Không vẽ lại
+/// Hosting controller của thẻ được tạo **một lần** rồi giữ suốt đời container; mỗi lần trạng thái đổi chỉ gán
+/// lại `rootView` với cùng cấu trúc dòng (`FloatingHubMenuView` dựng theo `Kind.allCases`), nên SwiftUI giữ
+/// danh tính từng dòng và chỉ diff thuộc tính.
+///
 /// Tách khỏi file chính để giữ mỗi file dưới 400 dòng; các member dùng chéo file là `internal`.
 extension FloatingHubContainerViewController {
     func openMenu() {
-        guard presentationReader.snapshot.items.count >= 2 else { return }
         viewModel.setMenuOpen(true)
         refreshMenu()
         layoutMenu()
@@ -32,8 +36,8 @@ extension FloatingHubContainerViewController {
         )
     }
 
-    /// Đóng menu. **Idempotent** — gọi ở mọi đường có thể làm cờ kẹt: ẩn hub, bắt đầu kéo, số mục < 2, mở
-    /// sheet, mở một mục, đổi scene, `prepareForAppearance`. Cờ và lớp nền được hạ **ngay**, chỉ thẻ menu mờ dần.
+    /// Đóng menu. **Idempotent** — gọi ở mọi đường có thể làm cờ kẹt: ẩn hub, bắt đầu kéo, mở sheet, mở một
+    /// mục, đổi scene, `prepareForAppearance`. Cờ và lớp nền được hạ **ngay**, chỉ thẻ menu mờ dần.
     func closeMenu(animated: Bool) {
         viewModel.setMenuOpen(false)
         menuBackdropView.isHidden = true
@@ -65,12 +69,16 @@ extension FloatingHubContainerViewController {
 
     /// Gán lại nội dung thẻ theo snapshot hiện tại; tạo hosting controller ở lần mở đầu tiên.
     func refreshMenu() {
-        let snapshot = presentationReader.snapshot
         let menu = FloatingHubMenuView(
-            items: snapshot.items,
-            unreadCount: snapshot.unreadCount,
+            items: presentationReader.snapshot.items,
             onSelect: { [weak self] kind in
                 self?.open(kind)
+            },
+            onToggleVideoPlayback: { [weak self] in
+                self?.toggleVideoPlayback()
+            },
+            onStopVideo: { [weak self] in
+                self?.stopVideo()
             }
         )
 

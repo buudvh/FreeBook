@@ -16,6 +16,7 @@ public final class TTSFloatingWidgetWindowManager: ObservableObject {
     private var containerViewController: FloatingWidgetContainerViewController?
     private var isPresented = false
     private var shouldRevealOnNextShow = false
+    private var cancellables = Set<AnyCancellable>()
 
     private init() {
         NotificationCenter.default.addObserver(
@@ -30,11 +31,21 @@ public final class TTSFloatingWidgetWindowManager: ObservableObject {
             name: UIApplication.didBecomeActiveNotification,
             object: nil
         )
+        // Trình phát video toàn màn / khoá màn ⇒ ẩn widget, thoát ra ⇒ hiện lại. `@Published` phát ở willSet nên
+        // phải qua `receive(on:)` thì `refreshState` mới đọc được giá trị mới.
+        FloatingWidgetSuppression.shared.$isSuppressed
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.refreshState()
+            }
+            .store(in: &cancellables)
     }
 
     public func refreshState() {
         let shouldShow = TranslationManager.shared.isInitialized
             && TTSManager.shared.showFloatingWidget
+            && !FloatingWidgetSuppression.shared.isSuppressed
 
         if shouldShow {
             showWidget()

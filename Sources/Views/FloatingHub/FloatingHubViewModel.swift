@@ -29,7 +29,7 @@ final class FloatingHubViewModel: ObservableObject {
         }
     }
     /// Menu đang mở. Khi `true`, cửa sổ hub nhận **mọi** chạm (lớp nền trong suốt đóng menu) — nên cờ này phải
-    /// được hạ ở mọi đường: ẩn hub, bắt đầu kéo, số mục < 2, mở sheet, đổi scene. Xem `rules.md` mục 1.3.524.
+    /// được hạ ở mọi đường: ẩn hub, bắt đầu kéo, mở sheet, mở một mục, đổi scene. Xem `rules.md` mục 1.3.524.
     @Published private(set) var isMenuOpen = false
 
     /// Tự thu về `.peeking` sau 3 giây — cùng nhịp với widget TTS, để hai widget cư xử nhất quán.

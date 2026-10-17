@@ -3,7 +3,7 @@ import SwiftUI
 import UIKit
 
 /// View controller của **nút hub nổi** (1.3.524): sở hữu cử chỉ kéo/chạm và cập nhật frame trực tiếp trên
-/// `UIView`. Menu (khi hub có từ 2 mục) nằm ở `+Menu.swift`; hành động mở mục và sheet Thông báo ở
+/// `UIView`. Menu nằm ở `+Menu.swift`; hành động mở mục, nút của dòng Video và sheet Thông báo ở
 /// `+Actions.swift`.
 ///
 /// Kéo/thả bằng UIKit (không phải cử chỉ SwiftUI) đúng như widget TTS: ngón tay không bị trễ theo vòng cập
@@ -18,9 +18,9 @@ import UIKit
 /// 2. `widgetContainerView` — nút hub.
 /// 3. `menuContainerView` — thẻ menu, cạnh nút về phía xa mép.
 ///
-/// ## Bảng chạm
-/// `.peeking` + 1 mục ⇒ bung. `.peeking` + ≥ 2 mục ⇒ bung **và** mở menu ngay (1.3.525, người dùng chốt: một chạm
-/// là thấy danh sách). `.revealed` + 1 mục ⇒ mở thẳng mục. `.revealed` + ≥ 2 mục ⇒ mở menu. Menu đang mở ⇒ đóng.
+/// ## Bảng chạm (1.3.533)
+/// Menu luôn có đủ ba dòng nên chạm **không còn phụ thuộc số mục**: `.peeking` ⇒ bung **và** mở menu ngay;
+/// `.revealed` ⇒ mở menu; menu đang mở ⇒ đóng. Không còn nhánh "1 mục thì mở thẳng".
 @MainActor
 final class FloatingHubContainerViewController: UIViewController, UIGestureRecognizerDelegate {
     /// `internal` (không `private`): file `+Actions`/`+Menu` cần dùng, mà `private` của Swift chỉ có hiệu lực
@@ -128,7 +128,8 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
     }
 
     private func bindState() {
-        // Nút chỉ vẽ lại khi loại mục hoặc số chưa đọc đổi — tiêu đề AI đổi theo batch không chạm tới đây.
+        // Nút chỉ vẽ lại khi tập mục đang hoạt động hoặc số chưa đọc đổi — tiêu đề AI đổi theo batch không
+        // chạm tới đây.
         presentationReader.$snapshot
             .map(\.button)
             .removeDuplicates()
@@ -138,20 +139,16 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
             }
             .store(in: &cancellables)
 
-        // Menu chỉ vẽ khi đang mở. Còn ≥ 2 mục thì vẽ lại hàng; còn 1 thì đóng menu (hub vẫn bung, hẹn lại
-        // 3 s); còn 0 thì window manager ẩn hub (và cũng đóng menu).
+        // Menu chỉ vẽ khi đang mở, và chỉ **cập nhật** dòng đã có (sáng/xám, badge, chữ) — tập dòng cố định nên
+        // không bao giờ phải đóng menu vì "hết mục".
         presentationReader.$snapshot
             .map(\.items)
             .removeDuplicates()
             .receive(on: RunLoop.main)
-            .sink { [weak self] items in
+            .sink { [weak self] _ in
                 guard let self, self.viewModel.isMenuOpen else { return }
-                if items.count >= 2 {
-                    self.refreshMenu()
-                    self.layoutMenu()
-                } else {
-                    self.closeMenu(animated: true)
-                }
+                self.refreshMenu()
+                self.layoutMenu()
             }
             .store(in: &cancellables)
 
@@ -276,23 +273,14 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
             return
         }
 
-        switch viewModel.mode {
-        case .peeking:
+        if viewModel.mode == .peeking {
             viewModel.reveal()
-            updateLayout(animated: true)
             // `updateLayout` gán ngay vị trí đích cho `widgetContainerView` (animation chỉ chạy ở lớp hiển thị) ⇒
-            // `layoutMenu` đặt thẻ đúng cạnh nút đã bung. Mở menu bật `isMenuOpen` ⇒ huỷ hẹn giờ tự thu.
-            if presentationReader.snapshot.items.count >= 2 {
-                openMenu()
-            }
-        case .revealed:
-            let items = presentationReader.snapshot.items
-            if items.count == 1, let only = items.first {
-                open(only.kind)
-            } else if items.count >= 2 {
-                openMenu()
-            }
+            // `layoutMenu` đặt thẻ đúng cạnh nút đã bung.
+            updateLayout(animated: true)
         }
+        // Mở menu bật `isMenuOpen` ⇒ huỷ hẹn giờ tự thu.
+        openMenu()
     }
 
     @objc private func handleTap(_ gesture: UITapGestureRecognizer) {

@@ -12,10 +12,14 @@ import UIKit
 extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDelegate {
     /// Mở một mục: menu đóng, hub thu về nép mép ngay (việc đã xong), rồi giao cho chủ của mục đó.
     ///
-    /// Hai mục AI và Trình duyệt tự tìm view controller trên cùng **chỉ trong window `.normal`**
-    /// (`AIRuntimeCoordinator.presentFullScreen`, `VisibleBrowserTabManager.findTopViewController`), nên không
-    /// phụ thuộc cửa sổ của hub. Chỉ màn Thông báo được trình bày từ chính cửa sổ này.
+    /// Dòng xám đã `disabled` trong menu; guard ở đây chặn thêm đường VoiceOver và lượt chạm lọt vào đúng lúc
+    /// trạng thái vừa đổi.
+    ///
+    /// AI tự tìm view controller trên cùng **chỉ trong window `.normal`** (`AIRuntimeCoordinator.presentFullScreen`),
+    /// Video giao cho closure do phiên phát gắn (`VideoMiniPlayerState.onReopen`), nên cả hai không phụ thuộc
+    /// cửa sổ của hub. Chỉ màn Thông báo được trình bày từ chính cửa sổ này.
     func open(_ kind: FloatingHubItem.Kind) {
+        guard isItemEnabled(kind) else { return }
         closeMenu(animated: false)
         viewModel.hide()
         updateLayout(animated: true)
@@ -23,11 +27,41 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
         switch kind {
         case .ai:
             AIRuntimeCoordinator.shared.presentFullScreen()
-        case .browser:
-            VisibleBrowserTabManager.shared.reopenContainer()
         case .notifications:
             presentInbox()
+        case .video:
+            guard let reopen = VideoMiniPlayerState.shared.onReopen else {
+                AppLogger.shared.log("❌ [FloatingHub] Mục Video đang hoạt động nhưng chưa gắn onReopen")
+                return
+            }
+            reopen()
         }
+    }
+
+    // MARK: - Nút của dòng Video
+
+    /// Phát/dừng video nền. Menu **giữ nguyên** để người dùng thấy glyph đổi ngay trên dòng.
+    func toggleVideoPlayback() {
+        guard isItemEnabled(.video) else { return }
+        guard let toggle = VideoMiniPlayerState.shared.onTogglePlay else {
+            AppLogger.shared.log("❌ [FloatingHub] Mục Video đang hoạt động nhưng chưa gắn onTogglePlay")
+            return
+        }
+        toggle()
+    }
+
+    /// Dừng hẳn video nền. Menu giữ nguyên: phiên phát `reset()` cầu nối ⇒ dòng Video tự chuyển xám.
+    func stopVideo() {
+        guard isItemEnabled(.video) else { return }
+        guard let stop = VideoMiniPlayerState.shared.onStop else {
+            AppLogger.shared.log("❌ [FloatingHub] Mục Video đang hoạt động nhưng chưa gắn onStop")
+            return
+        }
+        stop()
+    }
+
+    private func isItemEnabled(_ kind: FloatingHubItem.Kind) -> Bool {
+        presentationReader.snapshot.items.first(where: { $0.kind == kind })?.isEnabled == true
     }
 
     // MARK: - Màn Thông báo

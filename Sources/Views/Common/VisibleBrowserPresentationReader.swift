@@ -1,6 +1,9 @@
 import SwiftUI
 import Combine
 
+/// Snapshot "trình duyệt đang thu nhỏ và còn tab" cho widget trình duyệt nổi. Chủ duy nhất là
+/// `BrowserFloatingWidgetWindowManager` (1.3.533); chỉ phát khi giá trị **thật sự** đổi, nên số tab hay cờ thu
+/// nhỏ không đổi thì widget không vẽ lại theo mỗi `stateDidChangeNotification`.
 @MainActor
 final class VisibleBrowserPresentationReader: ObservableObject {
     struct Snapshot: Equatable {

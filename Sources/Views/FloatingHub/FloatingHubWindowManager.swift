@@ -2,17 +2,20 @@ import Combine
 import SwiftData
 import UIKit
 
-/// Điều phối `UIWindow` riêng cho **nút hub nổi** (1.3.524) — một nút gộp ba lối tắt từng là ba widget có
-/// cửa sổ riêng: Trợ lý AI, Trình duyệt thu nhỏ, Thông báo. Mỗi mục chỉ có mặt khi điều kiện của nó đúng
-/// (`FloatingHubPresentationReader`); hub hiện khi có ít nhất một mục **và** từ điển đã nạp xong.
+/// Điều phối `UIWindow` riêng cho **nút hub nổi** (1.3.524) — một nút gộp các lối tắt: Trợ lý AI, Thông báo
+/// và (từ 1.3.533) Video phát nền. Trình duyệt thu nhỏ đã quay về cửa sổ riêng (`BrowserFloatingWidgetWindowManager`).
+///
+/// ## Luôn hiện (1.3.533)
+/// Hub hiện cả khi không mục nào hoạt động — mục không dùng được thì xám trong menu. Chỉ ẩn ở ba trường hợp:
+/// cổng từ điển chưa mở, sheet của chính hub đang mở (chỉ giấu nút, xem dưới), và
+/// `FloatingWidgetSuppression.isSuppressed` (trình phát video toàn màn / khoá màn).
 ///
 /// ## Vì sao phải là `UIWindow`, không phải overlay trong `MainTabView`
 /// Reader và trình duyệt bypass đều được trình bày bằng `fullScreenCover`, nên một overlay gắn vào
 /// `MainTabView` sẽ **bị che** ngay khi người dùng mở truyện — đúng lúc họ cần nút nhất.
 ///
 /// ## Level cửa sổ: `alert - 2`
-/// Lấy chỗ của widget trình duyệt cũ. TTS (`alert - 1`) vẫn nằm trên và nhận chạm trước ở vùng chồng nhau.
-/// Level `alert - 3` (từng bị widget AI **và** widget thông báo dùng trùng) nay không còn cửa sổ nào dùng.
+/// TTS (`alert - 1`) nằm trên và nhận chạm trước ở vùng chồng nhau; widget trình duyệt (`alert - 3`) nằm dưới.
 ///
 /// ## Cửa sổ phải sống trong lúc sheet mở
 /// Màn Thông báo được trình bày **từ chính cửa sổ này**, nên khi sheet mở mà ta ẩn cửa sổ thì sheet biến
@@ -59,7 +62,10 @@ final class FloatingHubWindowManager {
             object: nil
         )
 
-        presentationReader.$snapshot
+        // Snapshot không còn quyết định hiện/ẩn (hub luôn hiện), nên chỉ nghe cờ ẩn widget của trình phát video.
+        // `@Published` phát ở willSet ⇒ phải qua `receive(on:)` thì `refreshState` mới đọc được giá trị mới.
+        FloatingWidgetSuppression.shared.$isSuppressed
+            .removeDuplicates()
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.refreshState()
@@ -67,12 +73,15 @@ final class FloatingHubWindowManager {
             .store(in: &cancellables)
     }
 
-    /// Cửa duy nhất để đồng bộ hiển thị. Gọi ở lúc khởi động, khi cổng từ điển mở, khi snapshot đổi, và khi
-    /// sheet đóng/mở — không nơi nào tự bật/tắt cửa sổ. Rẻ khi gọi lặp: hub đang hiện thì không làm gì thêm.
+    /// Cửa duy nhất để đồng bộ hiển thị. Gọi ở lúc khởi động, khi cổng từ điển mở, khi cờ ẩn widget đổi, và
+    /// khi sheet đóng/mở — không nơi nào tự bật/tắt cửa sổ. Rẻ khi gọi lặp: hub đang hiện thì không làm gì thêm.
+    ///
+    /// Thứ tự nhánh là bắt buộc: đang ẩn vì trình phát video mà sheet Thông báo còn mở thì rơi vào nhánh
+    /// `isSheetPresented` (giữ cửa sổ, chỉ giấu nút) — `hideWidget()` lúc đó sẽ cuốn mất sheet.
     func refreshState() {
         let shouldShowButton = TranslationManager.shared.isInitialized
             && !isSheetPresented
-            && !presentationReader.snapshot.items.isEmpty
+            && !FloatingWidgetSuppression.shared.isSuppressed
 
         if shouldShowButton {
             showWidget()

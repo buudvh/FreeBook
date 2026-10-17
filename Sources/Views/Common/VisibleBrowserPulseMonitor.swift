@@ -1,9 +1,9 @@
 import Foundation
 import Combine
 
-/// Theo dõi "trình duyệt vẫn còn sống": phát tín hiệu nháy cho mục Trình duyệt của nút hub
-/// nổi (`FloatingHubButton`, 1.3.524) khi đang thu nhỏ và có ít nhất một tab đã mở
-/// ≥ `pulseThreshold` giây.
+/// Theo dõi "trình duyệt vẫn còn sống": phát tín hiệu nháy cho nút của widget trình duyệt
+/// nổi (`VisibleBrowserReopenButton`; 1.3.524–1.3.532 là mục Trình duyệt của nút hub) khi
+/// đang thu nhỏ và có ít nhất một tab đã mở ≥ `pulseThreshold` giây.
 ///
 /// Thiết kế cố ý:
 /// - **Không** timer theo từng tab, **không** polling định kỳ. Chỉ một timer one-shot
@@ -13,7 +13,7 @@ import Combine
 ///   của tab, nên mở lại rồi thu nhỏ lần nữa vẫn đúng.
 /// - Chỉ đổi một `@Published Bool`; hiệu ứng nháy nằm trong SwiftUI và chỉ đổi **màu**
 ///   (đỏ sẫm ↔ đỏ tươi, alpha luôn 1), không chạm alpha/isHidden của view container
-///   nên không ảnh hưởng hit-testing của `FloatingHubUIWindow` (guard `alpha > 0.01`).
+///   nên không ảnh hưởng hit-testing của `BrowserFloatingWidgetUIWindow` (guard `alpha > 0.01`).
 @MainActor
 final class VisibleBrowserPulseMonitor: ObservableObject {
     static let shared = VisibleBrowserPulseMonitor()
