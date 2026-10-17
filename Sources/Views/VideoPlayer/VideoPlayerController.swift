@@ -37,7 +37,7 @@ final class VideoPlayerController {
         case failed(String)
     }
 
-    /// Trang nhúng kèm hai header duy nhất được đưa tới trang (DOC VBook: chỉ `User-Agent` và `Referer`).
+    /// Trang nhúng kèm hai header duy nhất được đưa tới trang (DOC extension-api.md: chỉ `User-Agent` và `Referer`).
     enum EmbedContent: Equatable {
         /// `referer` đặt lên `URLRequest` của trang; `nil` = không gửi.
         case page(URL, referer: String?, userAgent: String)
@@ -264,7 +264,7 @@ final class VideoPlayerController {
         beginServerLoad(at: index, resumeSeconds: resumePointForReload())
     }
 
-    /// Chỉ chạy khi người dùng bấm — không tự nhảy server khi lỗi (đúng DOC VBook).
+    /// Chỉ chạy khi người dùng bấm — không tự nhảy server khi lỗi (đúng DOC extension-api.md).
     func tryAnotherServer() {
         guard canTryAnotherServer else { return }
         let current = selectedServerIndex ?? 0

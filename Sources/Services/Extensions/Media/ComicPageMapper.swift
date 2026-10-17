@@ -3,7 +3,7 @@ import JavaScriptCore
 
 /// Ánh xạ kết quả `chap.js` của tiện ích **truyện tranh** sang `[ComicPageSource]` — hàm thuần, không I/O.
 ///
-/// `data` theo hợp đồng VBook là **mảng**; mỗi phần tử là:
+/// `data` theo hợp đồng extension là **mảng**; mỗi phần tử là:
 /// - chuỗi URL (mangadex, truyenvn);
 /// - object `{link | url, fallback | fallbacks, script, width, height, referer, headers}` (nettruyen, truyenqq,
 ///   cuutruyen, ext cộng đồng).

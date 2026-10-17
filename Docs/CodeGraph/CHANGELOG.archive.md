@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.502] - 2026-10-09
+
+### feat(vieneu): buoc thanh toc do tong hop 0.1 -> 0.05
+
+Người dùng: *"sửa thêm step của thanh điều chỉnh tốc độ tổng hợp từ 0.1 -> 0.05"*.
+
+- Hàng **"Tốc độ tổng hợp (VieNeu)"**: `Stepper` và `Slider` đổi bước 0,1 → **0,05** (dải 1,0–2,0 giữ nguyên) — chỉnh mịn được quanh vùng đã đo (1,10 / 1,15 / 1,25; xem 1.3.501).
+- Bước 0,05 cộng dồn số thực ra kiểu `1.1500000000000001` ⇒ giá trị **lưu vào `UserDefaults`** được làm tròn 2 chữ số. Tốc độ đưa vào model, so sánh với sàn chống đọc lặp 1,15 và khoá `TTSSynthesisIdentity` (băm `×100`) vì vậy luôn sạch; nhãn hiển thị vốn đã `%.2f`.
+- **Kiểm chứng**: `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`.
+
 ## [1.3.501] - 2026-10-09
 
 ### fix(vieneu): chong doc lap - model noi nhanh toi thieu 1.15x, phat cham lai bu dung ti le

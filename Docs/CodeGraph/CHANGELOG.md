@@ -2,11 +2,59 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.532] - 2026-10-17
+
+### fix: sua host/url va bia gui referer, parse an toan, nhom tap theo server, loc nsfw, cong tac luu lich su
+
+Mốc sửa lỗi của plan đợt 2 (`Docs/Plans/2026-10-17-plan-round2-fixes-player-hub.md`), cùng nhánh `feature/comic-video`. Chia làm 3 phần: nền tảng N chạy trước, sau đó T1 (NSFW + lịch sử) và T2 (bìa, nhãn, nhóm tập) chạy song song. Từ bản này có luật mới: không đưa tên ứng dụng gốc vào comment, chuỗi, tài liệu hay commit; các dòng nhánh đã thêm trước đó đã được dọn.
+
+- **Parse an toàn**
+  - Mọi đường parse của `ExtensionManager` (`search`, `custom`, `detail`, `toc`, `page`, `genre`, `home`) đọc qua `JSValueReader` (`ExtensionManager+ItemParsing`). `undefined`/`null` không còn hiện thành chữ.
+  - Ca thật: kkphim, tab Mới cập nhật — ext trả `description: item.description` trong khi API không có trường này.
+  - `ExtensionItemResult` thêm `tag`, `type`; tách `ExtensionItemResult` và `ChapterResult` ra file riêng.
+- **URL và host**
+  - `ExtensionURLFormatter` đổi `//x` thành `https://x`.
+  - Thêm `resolveAssetURL` cho bìa: URL tuyệt đối giữ nguyên (không còn bước "lấy `https://` cuối cùng" làm hỏng bìa proxy `?url=`).
+  - Item thiếu `host` thì dùng `source` của tiện ích; `host: ""` thì giữ nguyên, đúng DOC.
+  - `ExtensionHostResolver.chapterHost`: chương → sách → `source`. Áp ở điểm chung `ChapterContentRepository.fetchFromExtension` (Reader, TTS), danh sách chương tải, xuất, comic đọc/tải và video.
+  - Host đã lưu không còn bị ghi đè thành rỗng (`updateBookMetadata`, BookDetail). Đổi nguồn lấy host theo thứ tự: detail → item → `source`.
+  - `link`/`url` không bị resolve lúc parse, vì chúng là khoá nhận diện.
+- **Track video**
+  - `VideoSourceResolver` giải escape JSON (`\t \n \/ \uXXXX`…) và cắt khoảng trắng trước khi hiểu `data` là URL.
+  - Ca thật: HHHTQ trả `"\thttps://play.abyssplayer.com/…"`, trước đây báo "cần URL http(s) tuyệt đối".
+- **Bìa gửi `Referer`**
+  - Ca thật: CDN bìa của truyenqq trả 403 khi thiếu `Referer`.
+  - `CoverImageLoader` (actor, cache bộ nhớ và `Caches/cover_images/`, downsample) cùng `RemoteCoverImage` thay `AsyncImage` ở Tìm kiếm, Gợi ý, `BookCoverView` và danh sách Khám phá.
+  - `Referer` lấy theo host item, rồi `source`.
+  - `ImageCacheManager.downloadAndSaveCover` nhận `referer`.
+  - Bìa và icon cũ dạng tương đối được ghép `source` lúc hiển thị, không backfill.
+  - Thêm nhãn `tag` trên bìa.
+- **Nhóm tập theo server**
+  - ChapterStore thêm cột `is_section` (`user_version` 2). `toc` của comic/video giữ dòng `type:"section"` làm tiêu đề nhóm; truyện chữ không đổi.
+  - Mục lục BookDetail và danh sách chương comic hiện tiêu đề nhóm.
+  - Comic, video và lượt tải comic bỏ qua dòng section; lượt tải lọc section **trước** khi áp giới hạn số chương.
+- **NSFW**
+  - `Extension.isNsfw`, đọc từ `metadata.nsfw`/`tag`/`tags` lúc cài.
+  - Registry decode khoan dung: một mục hỏng không làm trắng cả kho.
+  - `ExtensionNsfwClassifier`: cờ tường minh, hoặc từ khoá/tên miền theo trang danh mục cộng đồng; bỏ hai từ đơn `dam`, `cu`; cụm nhiều chữ so theo ranh giới từ.
+  - Bộ lọc kho có công tắc "Nội dung nhạy cảm (NSFW)", mặc định tắt. Công tắc tắt thì ẩn tiện ích NSFW trong Kho và khi tìm mọi nguồn. Khám phá vẫn hiện tiện ích NSFW đã cài.
+- **Lưu lịch sử theo tiện ích**
+  - `Extension.savesHistory` + `ExtensionHistoryPolicy` (mặc định bật, NSFW mặc định tắt). Công tắc nằm ở màn cấu hình (`ExtensionConfigView+History`) và lưu ngay qua `ExtensionTransactionCoordinator.setSavesHistory`, không qua `configJson`.
+  - `isHistory` chỉ được bật khi chính sách cho phép, ở các chỗ: `ReadingProgressStore.persist`, `ChapterPersistenceStore.ensureBook` và upsert, `removeFromShelf`. Tiến độ đọc vẫn được lưu.
+  - Lịch sử cũ được giữ.
+  - `HistoryOrphanBookSweeper` chạy lúc mở app, dọn sách mồ côi (không trên kệ, không lịch sử, tiện ích tắt lịch sử), trừ sách đang TTS hoặc đang tải.
+  - Backup mang thêm `isNsfw`/`savesHistory`.
+- **Rủi ro đã biết**
+  - Lần làm mới mục lục đầu tiên ghi lại host của mọi chương (`""` thành `source`).
+  - Vị trí đọc dở của comic/video mở trước bản này có thể lệch vì mục lục có thêm dòng section.
+  - "Xoá khỏi kệ" với tiện ích đã tắt lưu lịch sử thì sách bị dọn hẳn ở lần mở app sau.
+- **Kiểm chứng**: `check_architecture.py` báo **2 violation, 0 mới**. Không build tại chỗ (Windows); CI chỉ xác nhận biên dịch. Thử trên máy theo mục 6 của plan.
+
 ## [1.3.531] - 2026-10-17
 
 ### feat: ho tro extension comic va video, sua bo loc kho theo nhom the loai/ngon ngu, them nut go o man cau hinh
 
-Người dùng duyệt plan `Docs/Plans/2026-10-17-plan-comic-video.md`, gồm: comic và video làm chung một đợt; video hỗ trợ `native`, `auto` và nhúng `webview`; comic đọc cuộn dọc; làm cả API `Graphics` lẫn tải offline. Thêm hai yêu cầu: sửa bộ lọc kho (Phần E) và nút Gỡ ở màn cấu hình (Phần F). Toàn bộ làm trên nhánh `feature/comic-video`, đã thêm nhánh này vào trigger `build-ipa.yml`. Hợp đồng VBook lấy theo `extension-api.md` của Darkrai9x.
+Người dùng duyệt plan `Docs/Plans/2026-10-17-plan-comic-video.md`, gồm: comic và video làm chung một đợt; video hỗ trợ `native`, `auto` và nhúng `webview`; comic đọc cuộn dọc; làm cả API `Graphics` lẫn tải offline. Thêm hai yêu cầu: sửa bộ lọc kho (Phần E) và nút Gỡ ở màn cấu hình (Phần F). Toàn bộ làm trên nhánh `feature/comic-video`, đã thêm nhánh này vào trigger `build-ipa.yml`. Hợp đồng extension lấy theo `extension-api.md` của Darkrai9x.
 
 - **Nền tảng**
   - `ExtensionType.video`.
@@ -33,14 +81,14 @@ Người dùng duyệt plan `Docs/Plans/2026-10-17-plan-comic-video.md`, gồm: 
   - Tải offline: `ComicOfflineStore` (`comics/<sha256(bookId)>/<chapterIndex>/manifest.json` + ảnh) và `DownloadManager+Comic` tải tuần tự từng chương, từng ảnh. Xoá sách thì xoá thư mục comic.
   - `DownloadManager.executeTask` từ chối xuất ebook cho comic/video và từ chối tải video.
 - **Video**
-  - Browser của tiện ích bắt cả XHR, fetch, media và iframe nhờ `WebNetworkCaptureScript` (`WKUserScript` mọi frame) cùng `WebNetworkCaptureMessageProxy` (weak). `urls()` / `waitUrl` thấy toàn bộ request, đúng ngữ nghĩa VBook.
+  - Browser của tiện ích bắt cả XHR, fetch, media và iframe nhờ `WebNetworkCaptureScript` (`WKUserScript` mọi frame) cùng `WebNetworkCaptureMessageProxy` (weak). `urls()` / `waitUrl` thấy toàn bộ request, đúng ngữ nghĩa hợp đồng extension.
   - Autoplay tắt tiếng chỉ bật cho tiện ích loại video; tiện ích khác giữ `.all` như cũ.
   - `VideoMediaSniffer` + `VideoSourceResolver` → `VideoPlaybackPlan` (`.native` / `.hlsText` / `.embed`). `auto` không ra link thì báo lỗi, đúng DOC; `webview` không ra link thì nhúng trang.
   - `HLSPlaylistResourceLoader` (`fbhls://`) cho playlist dạng text hoặc `data:`. `VideoSubtitleParser` đọc SRT/VTT.
   - Trình phát `Views/VideoPlayer/`: `AVPlayerViewController` có header (`AVURLAssetHTTPHeaderFieldsKey`) và PiP; chọn server (nhớ theo sách); lưới tập; nút Bỏ qua theo `timeSkip`; phụ đề trong `contentOverlayView`; tự sang tập kế; `VideoEmbedWebView` cho nhánh nhúng.
   - Khi phát thì tạm dừng TTS và chiếm `AVAudioSession` `.playback/.moviePlayback`. Tiến độ (số giây) lưu qua `checkpoint`.
 - **Bộ lọc kho (Phần E)**
-  - `ExtensionFilterGroups` gom thể loại thô (`eng_novel`, `novel,comic`, `chinese_novel`…) và ngôn ngữ thô (`zh-CN`, `vi`, `vi-VN`, `global`, `ja_JP`, `kr_KR`…) thành nhóm cố định như vbookext.me. Riêng `ja`/`ko` so theo tiền tố.
+  - `ExtensionFilterGroups` gom thể loại thô (`eng_novel`, `novel,comic`, `chinese_novel`…) và ngôn ngữ thô (`zh-CN`, `vi`, `vi-VN`, `global`, `ja_JP`, `kr_KR`…) thành nhóm cố định như trang danh mục tiện ích cộng đồng. Riêng `ja`/`ko` so theo tiền tố.
   - `FilterSheet` hiện chip theo nhóm kèm số lượng. Lựa chọn đã lưu được ánh xạ lại qua nhóm. Comic không còn bị lọc khỏi kho.
 - **Nút Gỡ (Phần F)**: `ExtensionConfigView+Uninstall` thêm nút Gỡ có xác nhận, đi cùng đường `ExtensionTransactionCoordinator.uninstallExtension`. Chặn gỡ tiện ích đang làm giọng đọc. Khám phá tự chọn lại nguồn khi nguồn đang chọn bị gỡ.
 - **Sửa sau review phản biện (2 agent đọc chéo toàn bộ diff)**
@@ -502,13 +550,3 @@ Người dùng: *"bỏ cái nút chống đọc lặp đi, ghi để người d�
 - **Giữ** hai bản sửa phụ của 1.3.501 vì chúng sửa lỗi có sẵn của thanh tốc độ tổng hợp: đổi tốc độ ⇒ `resetNextChapterPrefixCache()` (prefix chương kế tổng hợp ở tốc độ cũ không còn lọt vào đầu chương sau) và đoạn hiện tại **chưa vào player** thì huỷ lượt đang bay + tổng hợp lại.
 - Quy trình: từ nay mọi thay đổi code trình plan và chờ người dùng duyệt trước khi sửa.
 - **Kiểm chứng**: grep `Sources/` không còn `modelSpeed`/`playbackCompensation`/`antiRepeat`/`localPlaybackRate`/`setRateForUpcoming`; `NghiAudioPlayerQueue.swift`, `VieNeuTTSTestView(+Diagnostics).swift` giống hệt 1.3.500; `check_architecture.py` 2 vi phạm nền cũ, 0 mới (`TTSManager.swift` giữ 3550). **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`.
-
-## [1.3.502] - 2026-10-09
-
-### feat(vieneu): buoc thanh toc do tong hop 0.1 -> 0.05
-
-Người dùng: *"sửa thêm step của thanh điều chỉnh tốc độ tổng hợp từ 0.1 -> 0.05"*.
-
-- Hàng **"Tốc độ tổng hợp (VieNeu)"**: `Stepper` và `Slider` đổi bước 0,1 → **0,05** (dải 1,0–2,0 giữ nguyên) — chỉnh mịn được quanh vùng đã đo (1,10 / 1,15 / 1,25; xem 1.3.501).
-- Bước 0,05 cộng dồn số thực ra kiểu `1.1500000000000001` ⇒ giá trị **lưu vào `UserDefaults`** được làm tròn 2 chữ số. Tốc độ đưa vào model, so sánh với sàn chống đọc lặp 1,15 và khoá `TTSSynthesisIdentity` (băm `×100`) vì vậy luôn sạch; nhãn hiển thị vốn đã `%.2f`.
-- **Kiểm chứng**: `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`.

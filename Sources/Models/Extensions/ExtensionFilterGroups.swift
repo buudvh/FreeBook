@@ -3,7 +3,7 @@ import Foundation
 /// Nhóm **thể loại** và **ngôn ngữ** của tiện ích cho bộ lọc kho, hàng chip Khám phá/Tìm kiếm và nhãn/cờ trên
 /// từng dòng của kho.
 ///
-/// Registry thật (vbookext.me, 736 tiện ích) có nhiều biến thể chính tả cho cùng một ý: `zh_CN`/`zh-CN`,
+/// Registry thật (trang danh mục tiện ích cộng đồng, 736 tiện ích) có nhiều biến thể chính tả cho cùng một ý: `zh_CN`/`zh-CN`,
 /// `vi_VN`/`vi-VN`/`vi`/`vn_VI`, `novel`/`eng_novel`/`novel,comic`… So khớp giá trị thô làm mỗi biến thể thành
 /// một chip riêng. Mọi chỗ cần gom phải đi qua hai hàm `typeGroup(for:)` / `localeGroup(for:)` dưới đây.
 ///
@@ -12,7 +12,7 @@ import Foundation
 ///   `ExtensionFilterSelection.decode` ánh xạ lại lựa chọn đã lưu mỗi lần đọc, nên khoá nhóm phải tự ánh xạ
 ///   về chính nó.
 /// - `novel`/`text` được xét **trước** `comic` để `"novel,comic"` thuộc nhóm truyện chữ.
-/// - Ngôn ngữ so **tiền tố** sau khi chuẩn hoá (chữ thường, trim, `-` → `_`). vbookext so khớp đúng `ja`/`kr`
+/// - Ngôn ngữ so **tiền tố** sau khi chuẩn hoá (chữ thường, trim, `-` → `_`). trang danh mục cộng đồng so khớp đúng `ja`/`kr`
 ///   nên `ja_JP`/`kr_KR` của họ rơi vào "Khác"; ở đây sửa lỗi đó.
 ///
 /// Màn Cấu hình tiện ích **không** dùng nhóm: nó vẫn chọn giá trị thô qua `ExtensionDisplayCatalog`.
@@ -27,7 +27,7 @@ enum ExtensionFilterGroups {
     /// Thứ tự cố định của chip thể loại.
     static let typeGroupOrder = [novelGroup, comicGroup, videoGroup, "audio", "tts", "translate", "tool", "ai", otherGroup]
 
-    /// Giá trị `type` thô → khoá nhóm. Rỗng ⇒ `novel` (VBook coi thiếu `metadata.type` là novel).
+    /// Giá trị `type` thô → khoá nhóm. Rỗng ⇒ `novel` (hợp đồng extension coi thiếu `metadata.type` là novel).
     static func typeGroup(for rawType: String) -> String {
         let value = rawType.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if value.isEmpty || value.contains("novel") || value.contains("text") { return novelGroup }

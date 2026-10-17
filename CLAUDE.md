@@ -192,7 +192,7 @@ Có skill riêng cho việc này: `.agents/skills/vbook_helper/SKILL.md` (mẫu 
 
 ### Comic & Video (1.3.531)
 
-Hợp đồng chuẩn: `extension-api.md` của Darkrai9x (`raw.githubusercontent.com/Darkrai9x/vbook-extensions/master/extension-api.md`).
+Hợp đồng chuẩn: `extension-api.md` của Darkrai9x (repo Darkrai9x).
 
 - **Loại nội dung suy ra lúc chạy, không lưu**: `ExtensionContentKind.resolve(packageId:)` (bản đã cài → catalog → `text`; `"local"` luôn `text`) hoặc `resolve(localPath:)` (đọc `metadata.type` của `plugin.json`). `Book` **không** có trường loại; `detail.type` ghi đè không được lưu.
 - **Một router duy nhất**: `BookContentDestination` (cùng nhãn tham số với `ReaderView`) đứng ở cả 4 chỗ mở reader (BookDetail, Kệ, Tìm trên kệ, Bộ sưu tập) và chọn `ReaderView` / `ComicReaderView` / `VideoPlayerScreen`. Thêm lối vào reader mới thì dùng router, đừng gọi `ReaderView(` trực tiếp.

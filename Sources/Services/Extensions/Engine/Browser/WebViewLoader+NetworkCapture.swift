@@ -2,7 +2,7 @@ import Foundation
 import WebKit
 
 /// Bắt request mạng cho browser ẩn của ext (`Engine.newBrowser()`): URL do `WebNetworkCaptureScript` báo về được gộp
-/// với URL điều hướng, để `urls()` / `waitUrl` thấy mọi request của trang (XHR, fetch, media, iframe) như VBook.
+/// với URL điều hướng, để `urls()` / `waitUrl` thấy mọi request của trang (XHR, fetch, media, iframe) như hợp đồng extension.
 /// Mọi hàm ở đây chạy trên main thread (handler WebKit và các block `_nativeBrowser*` đều nhảy về main).
 extension WebViewLoader {
     /// Trần số request bắt được giữ lại mỗi lần launch; đủ rộng để link m3u8 đến muộn sau hàng trăm request quảng cáo
@@ -25,7 +25,7 @@ extension WebViewLoader {
         }
     }
 
-    /// Ngữ nghĩa VBook: `urls()` chỉ tính từ lần `launch` / `launchAsync` gần nhất.
+    /// Ngữ nghĩa hợp đồng extension: `urls()` chỉ tính từ lần `launch` / `launchAsync` gần nhất.
     func resetRequestedUrls() {
         interceptedUrls.removeAll()
         capturedRequestUrls.removeAll()
@@ -68,7 +68,7 @@ extension WebViewLoader {
         comp(true)
     }
 
-    /// VBook: `waitUrl` trả về ngay nếu URL khớp đã được request kể từ lần launch cuối (thường request m3u8 bay ngay
+    /// Hợp đồng extension: `waitUrl` trả về ngay nếu URL khớp đã được request kể từ lần launch cuối (thường request m3u8 bay ngay
     /// trong lúc `launch` còn chờ trang tải xong). URL đã thấy trước đó — kể cả URL điều hướng — chỉ xét regex toàn
     /// URL: luật chuỗi con cũ chỉ từng áp cho điều hướng **đang diễn ra** (vd. `launch(".../login?next=/user")` rồi
     /// `waitUrl("/user")` không được trả về ngay). Trả `true` khi đã hoàn tất.

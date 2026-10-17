@@ -3,7 +3,7 @@ import WebKit
 
 /// Nguồn `WKUserScript` bắt **mọi request mạng** của trang (XHR, `fetch`, phần tử media, Resource Timing) và báo URL
 /// tuyệt đối về native qua message handler `fbNetCapture`, để `browser.urls()` / `waitUrl` của ext thấy được cả request
-/// không phải điều hướng (hợp đồng VBook: "mọi URL đã request kể từ lần launch cuối"). `VideoMediaSniffer` dùng lại
+/// không phải điều hướng (hợp đồng extension: "mọi URL đã request kể từ lần launch cuối"). `VideoMediaSniffer` dùng lại
 /// cùng script để dò link m3u8/mp4.
 ///
 /// Script chạy `atDocumentStart`, `forMainFrameOnly: false` nên vào cả iframe (player nhúng thường nằm trong iframe).
@@ -41,7 +41,7 @@ enum WebNetworkCaptureScript {
         return lower.hasPrefix("http://") || lower.hasPrefix("https://")
     }
 
-    /// Luật khớp của `waitUrl`: như VBook, mẫu là **regex khớp toàn bộ URL**. `allowSubstring` giữ thêm luật cũ của
+    /// Luật khớp của `waitUrl`: như hợp đồng extension, mẫu là **regex khớp toàn bộ URL**. `allowSubstring` giữ thêm luật cũ của
     /// FreeBook (URL chứa nguyên văn mẫu) — CHỈ cho URL **điều hướng** (hành vi trước khi có bắt request), để ext đang
     /// truyền chuỗi con không bị hỏng. Request bắt được (ảnh/css/js/XHR) luôn truyền `false`: chuỗi con như `"/user"`
     /// sẽ khớp nhầm `…/static/user.js` khi trang còn đang tải/giải captcha.

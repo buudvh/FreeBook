@@ -5,7 +5,7 @@ import WebKit
 /// nhúng nguyên trang xem để người dùng bấm play trong trang. Không có timeSkip, phụ đề hay lưu giây.
 ///
 /// `updateUIView` chạy theo mỗi lần màn cha vẽ lại ⇒ so với nội dung đã nạp trong Coordinator,
-/// chỉ nạp lại khi thật sự đổi trang. Trang chỉ nhận `User-Agent` và `Referer` (DOC VBook), lấy từ `EmbedContent`.
+/// chỉ nạp lại khi thật sự đổi trang. Trang chỉ nhận `User-Agent` và `Referer` (DOC extension-api.md), lấy từ `EmbedContent`.
 struct VideoEmbedWebView: UIViewRepresentable {
     let content: VideoPlayerController.EmbedContent
 

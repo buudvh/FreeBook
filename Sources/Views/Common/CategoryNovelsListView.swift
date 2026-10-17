@@ -61,7 +61,7 @@ struct CategoryNovelsListView: View {
                         Button {
                             selectedNovel = novel
                         } label: {
-                            BookListItemView(item: novel, style: .discovery)
+                            BookListItemView(item: novel, style: .discovery, extensionPackageId: extensionPackageId)
                                 .padding(.vertical, 4)
                         }
                         .buttonStyle(.plain)

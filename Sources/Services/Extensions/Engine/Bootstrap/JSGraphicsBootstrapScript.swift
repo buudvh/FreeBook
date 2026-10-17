@@ -1,11 +1,11 @@
 import Foundation
 
-/// Polyfill JS cho `Graphics` (VBook extension-api.md, mục "Graphics") — gọi xuống các block `_nativeGraphics*`
+/// Polyfill JS cho `Graphics` (extension-api.md, mục "Graphics") — gọi xuống các block `_nativeGraphics*`
 /// do `JSGraphicsBridge.install(in:)` cài. Nạp sau bridge trong `JSExecutor`.
 ///
 /// ```js
 /// let canvas = Graphics.createCanvas(800, 600);
-/// let image = Graphics.createImage(base64String);  // ảnh lỗi ⇒ undefined (hành vi iOS của VBook)
+/// let image = Graphics.createImage(base64String);  // ảnh lỗi ⇒ undefined (hành vi iOS của app gốc)
 /// canvas.drawImage(image, dx, dy);                  // 3 / 5 (6 coi như 5) / 9 tham số như canvas HTML
 /// let png = canvas.capture();                       // PNG base64; canvas bị giải phóng
 /// ```

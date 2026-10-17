@@ -645,7 +645,7 @@ struct DiscoveryCategoryTabView: View {
                             Button {
                                 onSelectNovel(novel)
                             } label: {
-                                BookListItemView(item: novel, style: .discovery)
+                                BookListItemView(item: novel, style: .discovery, extensionLocalPath: localPath)
                             }
                             .buttonStyle(.plain)
                             // Neo theo `link` chu khong phai `novel.id`: `ExtensionItemResult.id` la

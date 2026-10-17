@@ -1,6 +1,6 @@
 import Foundation
 
-/// Loại **nội dung** mà một tiện ích VBook cung cấp — quyết định sách mở bằng Reader chữ, màn đọc truyện tranh
+/// Loại **nội dung** mà một tiện ích cung cấp — quyết định sách mở bằng Reader chữ, màn đọc truyện tranh
 /// hay trình phát video (`BookContentDestination`).
 ///
 /// Suy ra **lúc chạy** từ `metadata.type`, không lưu vào `@Model Book` (bất biến 4 của plan comic/video):

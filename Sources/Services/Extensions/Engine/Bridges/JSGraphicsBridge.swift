@@ -3,7 +3,7 @@ import JavaScriptCore
 import CoreGraphics
 import ImageIO
 
-/// Phần native của `Graphics` (VBook extension-api.md, mục "Graphics"): giải mã ảnh, vẽ lên canvas, xuất PNG.
+/// Phần native của `Graphics` (extension-api.md, mục "Graphics"): giải mã ảnh, vẽ lên canvas, xuất PNG.
 /// Polyfill JS ở `JSGraphicsBootstrapScript`; script ảnh comic (cuutruyen ráp tile) là người dùng chính.
 ///
 /// - Handle là số nguyên trong bảng của **một** bridge; bridge do các block `_nativeGraphics*` giữ, các block do
@@ -55,7 +55,7 @@ final class JSGraphicsBridge: @unchecked Sendable {
 
     // MARK: - Ảnh
 
-    /// `{id, width, height}`; `id == 0` khi base64 không phải ảnh (wrapper JS trả `undefined`, đúng hành vi iOS của VBook).
+    /// `{id, width, height}`; `id == 0` khi base64 không phải ảnh (wrapper JS trả `undefined`, đúng hành vi iOS của app gốc).
     private func createImage(base64: String) -> [String: Any] {
         // Chấp nhận cả URI `data:…;base64,…` cho dễ tính, dù hợp đồng chỉ nói base64 trần.
         var payload = base64.trimmingCharacters(in: .whitespacesAndNewlines)

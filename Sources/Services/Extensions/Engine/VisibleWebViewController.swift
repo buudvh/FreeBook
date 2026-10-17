@@ -93,7 +93,7 @@ public final class VisibleWebViewController: UIViewController, WKNavigationDeleg
     }
 
     /// Request XHR/fetch/media do `WebNetworkCaptureScript` báo về: gộp vào `interceptedUrls` (không trùng) để
-    /// `urls()` / `waitUrl` thấy như VBook. Khác browser ẩn: không reset theo launch và `waitUrl` không xét URL đã có
+    /// `urls()` / `waitUrl` thấy đúng hợp đồng extension. Khác browser ẩn: không reset theo launch và `waitUrl` không xét URL đã có
     /// từ trước (mốc launch nằm ở `VisibleWebViewLoader`; xét URL cũ dễ khớp nhầm, vd. trang login chuyển hướng).
     internal func recordCapturedRequest(_ url: String) {
         guard WebNetworkCaptureScript.isRecordable(url),
