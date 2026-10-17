@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Hàng chip chọn server của tập đang xem (pill cao 38pt). Chọn server nào thì nhớ theo `title`
-/// cho cả bộ phim (`VideoPlayerController.selectServer`).
+/// cho cả bộ phim (`VideoPlaybackSession.selectServer`).
 struct VideoServerChipBar: View {
     let servers: [VideoServer]
     let selectedIndex: Int?

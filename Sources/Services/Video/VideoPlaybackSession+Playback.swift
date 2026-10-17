@@ -1,9 +1,9 @@
 import Foundation
 import AVFoundation
 
-/// Dựng `AVPlayerItem` từ `VideoPlaybackPlan`, quan sát trạng thái item / tick 0,5 giây
-/// (nút "Bỏ qua", phụ đề, lưu tiến độ định kỳ) và tự sang tập kế khi hết tập.
-extension VideoPlayerController {
+/// Dựng `AVPlayerItem` từ `VideoPlaybackPlan`, quan sát trạng thái item / tick 0,5 giây (thời gian, phần đã đệm,
+/// nút "Bỏ qua", phụ đề, lưu tiến độ định kỳ) và tự sang tập kế khi hết tập (bỏ qua dòng section).
+extension VideoPlaybackSession {
     // MARK: - Chuẩn bị lượt nạp mới
 
     /// Huỷ mọi việc của lượt nạp trước, gỡ item cũ, tăng `loadGeneration`. Trả generation mới.
@@ -25,6 +25,9 @@ extension VideoPlayerController {
         hasSubtitles = false
         if !currentCueText.isEmpty { currentCueText = "" }
         if skipTargetSeconds != nil { skipTargetSeconds = nil }
+        currentSeconds = 0
+        durationSeconds = 0
+        bufferedSeconds = 0
         reachedEndOfItem = false
         pendingResumeSeconds = resumeSeconds > 5 ? resumeSeconds : nil
         loadGeneration += 1
@@ -41,14 +44,12 @@ extension VideoPlayerController {
     }
 
     func currentPlaybackSeconds() -> Int {
-        let seconds = player.currentTime().seconds
-        guard seconds.isFinite, seconds > 0 else { return 0 }
-        return Int(seconds)
+        Int(currentPlaybackTime)
     }
 
     /// Đầu phát nằm trong giây cuối của item (độ dài hữu hạn) — lưu lúc này sẽ ghi giây ≈ độ dài phim.
     func isAtEndOfCurrentItem() -> Bool {
-        guard let item = playerStorage?.currentItem else { return false }
+        guard let item = player.currentItem else { return false }
         let duration = item.duration.seconds
         let current = item.currentTime().seconds
         guard duration.isFinite, duration > 0, current.isFinite else { return false }
@@ -72,7 +73,7 @@ extension VideoPlayerController {
             attach(asset: made.asset, track: track, generation: generation)
         case .embed(let url, let html, let baseURL):
             // Hợp đồng `VideoPlaybackPlan.embed`: có `url` thì nạp URL, không thì nạp `html` với `baseURL`.
-            // DOC: chỉ `User-Agent` và `Referer` (của `track.headers`) tới được trang; thiếu thì UA iPhone Safari
+            // Chỉ `User-Agent` và `Referer` (của `track.headers`) tới được trang; thiếu thì UA iPhone Safari
             // dùng chung và Referer = trang/host chứa khung nhúng.
             let userAgent = Self.headerValue("User-Agent", in: track.headers) ?? VideoMediaSniffer.userAgent
             if let url {
@@ -88,7 +89,7 @@ extension VideoPlayerController {
             AppLogger.shared.log("🌐 [VideoPlayer] Không bắt được link media ⇒ phát nhúng trang (server «\(selectedServerTitle)»)")
             pendingResumeSeconds = nil
             phase = .embed
-            prepareAudioForPlayback()
+            prepareAudioForPlayback(claimRemoteControls: false)
             setIdleTimerDisabled(true)
             // Nhúng thì không biết giây đang xem ⇒ vẫn ghi tập vào Lịch sử với giây = 0.
             saveProgress(reason: "nhúng", seconds: 0)
@@ -96,8 +97,8 @@ extension VideoPlayerController {
     }
 
     /// UA đi qua `AVURLAssetHTTPUserAgentKey` (iOS 16+) — UA nằm trong header fields có thể bị AVFoundation bỏ qua;
-    /// header còn lại qua `"AVURLAssetHTTPHeaderFieldsKey"` (khoá không công bố nhưng AVFoundation vẫn đọc — rủi ro đã
-    /// ghi trong plan, mục 8). `mimeType` của track ⇒ `AVURLAssetOverrideMIMETypeKey` (iOS 17+, khớp deployment target).
+    /// header còn lại qua `"AVURLAssetHTTPHeaderFieldsKey"` (khoá không công bố nhưng AVFoundation vẫn đọc).
+    /// `mimeType` của track ⇒ `AVURLAssetOverrideMIMETypeKey` (iOS 17+, khớp deployment target).
     static func assetOptions(headers: [String: String], mimeType: String?) -> [String: Any] {
         var options: [String: Any] = [:]
         var fields: [String: String] = [:]
@@ -185,15 +186,14 @@ extension VideoPlayerController {
             NotificationCenter.default.removeObserver(token)
         }
         itemNotificationTokens = []
-        // `playerStorage`: dọn dẹp không được tự dựng `AVPlayer` chưa từng dùng.
-        if let player = playerStorage, player.currentItem != nil {
+        if player.currentItem != nil {
             player.replaceCurrentItem(with: nil)
         }
         hlsLoader = nil
     }
 
     private func isCurrentItem(_ itemId: ObjectIdentifier) -> Bool {
-        guard !isTornDown, let item = player.currentItem else { return false }
+        guard launch != nil, let item = player.currentItem else { return false }
         return ObjectIdentifier(item) == itemId
     }
 
@@ -205,11 +205,15 @@ extension VideoPlayerController {
             if let resume = pendingResumeSeconds {
                 pendingResumeSeconds = nil
                 player.seek(to: CMTime(seconds: Double(resume), preferredTimescale: 600))
+                currentSeconds = Double(resume)
                 AppLogger.shared.log("⏩ [VideoPlayer] Tua tới giây đã lưu: \(resume)")
             }
+            refreshTimeline()
             prepareAudioForPlayback()
+            // `play()` dùng `defaultRate` ⇒ giữ tốc độ người dùng chọn qua các tập.
             player.play()
             phase = .playing
+            publishNowPlaying()
         case .failed:
             handleItemFailure(itemId: itemId, message: item.error?.localizedDescription ?? "Không rõ lỗi")
         default:
@@ -223,28 +227,36 @@ extension VideoPlayerController {
         phase = .failed("Không phát được video: \(message)")
     }
 
-    private func handleTimeControlChange() {
-        guard !isTornDown else { return }
-        switch player.timeControlStatus {
+    func handleTimeControlChange() {
+        let status = player.timeControlStatus
+        let playing = status != .paused
+        if isPlaying != playing { isPlaying = playing }
+        let buffering = status == .waitingToPlayAtSpecifiedRate
+        if isBuffering != buffering { isBuffering = buffering }
+        guard launch != nil else { return }
+        switch status {
         case .playing:
-            guard !wasPlaying else { return }
-            wasPlaying = true
-            // Xem lại từ AVKit sau khi hết tập cuối ⇒ lượt tạm dừng sau đó lại được lưu.
-            reachedEndOfItem = false
-            // Người dùng có thể bấm play trên điều khiển AVKit sau khi TTS được bật lại ⇒ kiểm tra mỗi lần.
-            prepareAudioForPlayback()
-            setIdleTimerDisabled(true)
-            if phase == .buffering { phase = .playing }
+            if !wasPlaying {
+                wasPlaying = true
+                // Xem lại sau khi hết tập cuối ⇒ lượt tạm dừng sau đó lại được lưu.
+                reachedEndOfItem = false
+                // Phát lại từ màn khoá / hub sau khi TTS được bật lại ⇒ kiểm tra mỗi lần.
+                prepareAudioForPlayback()
+                setIdleTimerDisabled(true)
+                if phase == .buffering { phase = .playing }
+            }
         case .paused:
-            guard wasPlaying else { return }
-            wasPlaying = false
-            setIdleTimerDisabled(false)
-            // KVO `.paused` đến SAU `handlePlayedToEnd` ⇒ đừng ghi đè giây 0 bằng giây ≈ độ dài phim.
-            guard !reachedEndOfItem else { return }
-            saveProgress(reason: "tạm dừng")
+            if wasPlaying {
+                wasPlaying = false
+                setIdleTimerDisabled(false)
+                // KVO `.paused` đến SAU `handlePlayedToEnd` ⇒ đừng ghi đè giây 0 bằng giây ≈ độ dài phim.
+                if !reachedEndOfItem { saveProgress(reason: "tạm dừng") }
+            }
         default:
             break
         }
+        syncMiniPlayerState()
+        publishNowPlaying()
     }
 
     private func handlePlayedToEnd(itemId: ObjectIdentifier) {
@@ -263,13 +275,37 @@ extension VideoPlayerController {
     // MARK: - Tick 0,5 giây
 
     private func handleTick(seconds: Double) {
-        guard !isTornDown, embedContent == nil, seconds.isFinite else { return }
+        guard launch != nil, embedContent == nil, seconds.isFinite else { return }
+        if abs(currentSeconds - seconds) >= 0.2 { currentSeconds = max(0, seconds) }
+        refreshTimeline()
         updateSkipTarget(at: seconds)
         updateCue(at: seconds)
         if player.timeControlStatus == .playing,
            ProcessInfo.processInfo.systemUptime - lastProgressSaveUptime >= 10 {
             saveProgress(reason: "định kỳ")
         }
+        if VideoNowPlayingCoordinator.shared.needsRepublish() {
+            publishNowPlaying()
+        }
+    }
+
+    /// Độ dài và phần đã đệm (khoảng `loadedTimeRanges` chứa đầu phát).
+    func refreshTimeline() {
+        guard let item = player.currentItem else { return }
+        let duration = item.duration.seconds
+        let newDuration = duration.isFinite && duration > 0 ? duration : 0
+        if newDuration != durationSeconds { durationSeconds = newDuration }
+        let current = item.currentTime().seconds
+        guard current.isFinite else { return }
+        var buffered = 0.0
+        for value in item.loadedTimeRanges {
+            let range = value.timeRangeValue
+            let start = range.start.seconds
+            let end = CMTimeRangeGetEnd(range).seconds
+            guard start.isFinite, end.isFinite, current >= start - 1, current <= end + 1 else { continue }
+            buffered = max(buffered, end)
+        }
+        if abs(buffered - bufferedSeconds) >= 0.5 { bufferedSeconds = buffered }
     }
 
     private func updateSkipTarget(at seconds: Double) {
@@ -294,7 +330,7 @@ extension VideoPlayerController {
         guard let target = skipTargetSeconds else { return }
         skipTargetSeconds = nil
         AppLogger.shared.log("⏭️ [VideoPlayer] Bỏ qua đoạn, tua tới \(Int(target))s")
-        player.seek(to: CMTime(seconds: target, preferredTimescale: 600))
+        seek(to: target)
     }
 
     // MARK: - Phụ đề

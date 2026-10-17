@@ -2,7 +2,7 @@ import Foundation
 
 /// Cách phát một `VideoTrack` sau khi `VideoSourceResolver` phân giải xong.
 public enum VideoPlaybackPlan: Sendable {
-    /// URL media tuyệt đối (m3u8/mp4…) phát bằng AVPlayer; `headers` đi qua `VideoPlayerController.assetOptions`
+    /// URL media tuyệt đối (m3u8/mp4…) phát bằng AVPlayer; `headers` đi qua `VideoPlaybackSession.assetOptions`
     /// (UA → `AVURLAssetHTTPUserAgentKey`, còn lại → `AVURLAssetHTTPHeaderFieldsKey`).
     case native(url: URL, headers: [String: String])
     /// Playlist HLS dạng text (từ `#EXTM3U` hoặc URI `data:` đã giải mã); phát qua `HLSPlaylistResourceLoader.makeAsset`,

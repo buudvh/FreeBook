@@ -1,166 +1,119 @@
 import SwiftUI
 import SwiftData
 
-/// Màn xem phim cho tiện ích loại `video`. `BookContentDestination` mở màn này bên trong
-/// `NavigationStack` của `fullScreenCover` khi `ExtensionContentKind` là `.video`.
+/// Màn xem phim cho tiện ích loại `video`. Hai đường vào:
+/// - Router (`BookContentDestination`, trong `fullScreenCover` + `NavigationStack`): `init(launch:)` mở phim vào
+///   `VideoPlaybackSession` (cùng phim đang chạy nền thì chỉ gắn lại).
+/// - Presenter (`VideoPlayerPresenter`, mở lại từ hub / PiP): `init(onDismiss:)` gắn vào phiên đang chạy.
 ///
-/// Layout: thanh trên (Quay lại + tên phim) → player 16:9 → tên phim/tập, chip server, phụ đề,
-/// lưới tập. Mọi logic nằm ở `VideoPlayerController`; View chỉ đọc state và gọi hàm.
+/// Màn hình chỉ gắn / gỡ session: biến mất mà chưa bấm Đóng ⇒ thu nhỏ (phim chạy nền, hub hiện mục Video).
+/// Bố cục: màn dọc = khung 16:9 + tên phim, chip server, lưới tập; ngang hoặc "toàn màn" ở màn dọc = khung phim phủ
+/// cả màn. Toàn màn / khoá cảm ứng thì ẩn mọi widget nổi (`FloatingWidgetSuppression`).
 struct VideoPlayerScreen: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
 
+    private let launch: BookContentLaunch?
+    private let onDismiss: (() -> Void)?
     @State private var controller: VideoPlayerController
+    @State private var isLeaving = false
 
     init(launch: BookContentLaunch) {
-        // SwiftUI có thể dựng lại struct này nhiều lần nhưng chỉ giữ instance đầu tiên trong `@State`. `init` của
-        // controller rẻ và không side effect: `AVPlayer` được tạo lười (`VideoPlayerController.player`) nên các
-        // instance bị vứt không dựng player thừa.
-        _controller = State(initialValue: VideoPlayerController(launch: launch))
+        self.launch = launch
+        self.onDismiss = nil
+        _controller = State(initialValue: VideoPlayerController(session: VideoPlaybackSession.shared))
     }
 
+    /// Đường presenter: không dùng `@Environment(\.dismiss)` (không đáng tin trong `UIHostingController` trình bày bằng
+    /// UIKit) mà gọi closure của presenter.
+    init(onDismiss: @escaping () -> Void) {
+        self.launch = nil
+        self.onDismiss = onDismiss
+        _controller = State(initialValue: VideoPlayerController(session: VideoPlaybackSession.shared))
+    }
+
+    private var session: VideoPlaybackSession { controller.session }
+    /// iPhone: chiều dọc compact ⇔ đang ngang.
+    private var isLandscape: Bool { verticalSizeClass == .compact }
+    private var isFullscreen: Bool { isLandscape || controller.isPortraitFullscreen }
+    private var suppressesFloatingWidgets: Bool { isFullscreen || controller.isTouchLocked }
+
     var body: some View {
-        VStack(spacing: 0) {
-            headerBar
-            VideoPlayerSurface(controller: controller)
-            ScrollViewReader { proxy in
-                ScrollView {
-                    details
-                        .padding(.vertical, 16)
-                }
-                .onChange(of: controller.currentEpisodeIndex) { _, newIndex in
-                    scrollToEpisode(newIndex, proxy: proxy)
-                }
-                .onChange(of: controller.episodes.count) { _, _ in
-                    scrollToEpisode(controller.currentEpisodeIndex, proxy: proxy)
+        GeometryReader { geometry in
+            VStack(spacing: 0) {
+                VideoPlayerStage(
+                    session: session,
+                    controller: controller,
+                    isLandscape: isLandscape,
+                    isFullscreen: isFullscreen,
+                    onMinimize: { leave(stopPlayback: false) },
+                    onClose: { leave(stopPlayback: true) }
+                )
+                .frame(height: isFullscreen ? geometry.size.height : geometry.size.width * 9 / 16)
+
+                if !isFullscreen {
+                    VideoPlayerDetailsView(session: session)
                 }
             }
         }
         .background(Color.black.ignoresSafeArea())
         .preferredColorScheme(.dark)
         .toolbar(.hidden, for: .navigationBar)
-        .task {
-            await controller.start(modelContext: modelContext)
+        .statusBarHidden(isFullscreen)
+        .persistentSystemOverlays(isFullscreen ? .hidden : .automatic)
+        .animation(.easeInOut(duration: 0.25), value: isFullscreen)
+        .onAppear {
+            VideoPlayerPresenter.install()
+            if let launch {
+                session.open(launch, modelContainer: modelContext.container)
+            }
+            session.attachScreen()
+            controller.onMinimizeRequest = { leave(stopPlayback: false) }
+            controller.showControls()
+            FloatingWidgetSuppression.shared.isSuppressed = suppressesFloatingWidgets
         }
-        .onChange(of: scenePhase) { _, newPhase in
-            controller.handleScenePhase(newPhase)
+        .onChange(of: suppressesFloatingWidgets) { _, suppressed in
+            FloatingWidgetSuppression.shared.isSuppressed = suppressed
         }
         .onDisappear {
-            controller.handleDisappear()
+            controller.cancelTimers()
+            controller.onMinimizeRequest = nil
+            FloatingWidgetSuppression.shared.isSuppressed = false
+            VideoOrientationLock.resetForExit()
+            session.detachScreen()
         }
     }
 
-    // MARK: - Thanh trên
+    // MARK: - Rời màn
 
-    private var headerBar: some View {
-        HStack(spacing: 6) {
-            Button {
-                close()
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 38, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Quay lại")
-
-            Text(controller.bookTitle)
-                .font(.headline)
-                .foregroundStyle(.white)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
+    /// Thu nhỏ (`stopPlayback == false`): phim chạy nền, `onDisappear` gỡ màn khỏi session. Đóng: dừng hẳn trước.
+    /// Đang ngang thì trả về dọc rồi mới đóng màn để phần còn lại của app không nằm ngang.
+    private func leave(stopPlayback: Bool) {
+        guard !isLeaving else { return }
+        isLeaving = true
+        if stopPlayback {
+            session.stop()
         }
-        .padding(.horizontal, 8)
-        .frame(height: 44)
-    }
-
-    // MARK: - Phần dưới player
-
-    private var details: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(controller.bookTitle)
-                    .font(.title3.weight(.bold))
-                    .foregroundStyle(.white)
-                    .lineLimit(2)
-                if let episode = controller.currentEpisode {
-                    Text(episode.title.isEmpty ? "Tập \(episode.index + 1)" : episode.title)
-                        .font(.subheadline)
-                        .foregroundStyle(.white.opacity(0.7))
-                        .lineLimit(2)
-                }
-                if controller.phase == .embed {
-                    Text("Đang phát nhúng trang nguồn — bấm play trong khung phim.")
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.55))
-                }
+        controller.cancelTimers()
+        FloatingWidgetSuppression.shared.isSuppressed = false
+        let wasLandscape = isLandscape
+        VideoOrientationLock.resetForExit()
+        if wasLandscape {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 350_000_000)
+                performDismiss()
             }
-            .padding(.horizontal, 16)
-
-            if !controller.servers.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    sectionTitle("Server")
-                    VideoServerChipBar(
-                        servers: controller.servers,
-                        selectedIndex: controller.selectedServerIndex,
-                        onSelect: { controller.selectServer(at: $0) }
-                    )
-                }
-            }
-
-            if controller.hasSubtitles {
-                subtitleToggle
-                    .padding(.horizontal, 16)
-            }
-
-            if !controller.episodes.isEmpty {
-                VideoEpisodeGridView(
-                    episodes: controller.episodes,
-                    currentIndex: controller.currentEpisodeIndex,
-                    onSelect: { controller.selectEpisode($0) }
-                )
-            }
+        } else {
+            performDismiss()
         }
     }
 
-    private var subtitleToggle: some View {
-        Button {
-            controller.toggleSubtitles()
-        } label: {
-            Label(
-                controller.subtitlesEnabled ? "Phụ đề: Bật" : "Phụ đề: Tắt",
-                systemImage: controller.subtitlesEnabled ? "captions.bubble.fill" : "captions.bubble"
-            )
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 16)
-            .frame(height: 38)
-            .background(Capsule().fill(Color.white.opacity(controller.subtitlesEnabled ? 0.22 : 0.1)))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func sectionTitle(_ title: String) -> some View {
-        Text(title)
-            .font(.headline)
-            .foregroundStyle(.white)
-            .padding(.horizontal, 16)
-    }
-
-    // MARK: - Hành động
-
-    private func close() {
-        controller.teardown()
-        dismiss()
-    }
-
-    private func scrollToEpisode(_ index: Int, proxy: ScrollViewProxy) {
-        guard controller.episodes.contains(where: { $0.index == index }) else { return }
-        withAnimation(.easeInOut(duration: 0.25)) {
-            proxy.scrollTo(index, anchor: .center)
+    private func performDismiss() {
+        if let onDismiss {
+            onDismiss()
+        } else {
+            dismiss()
         }
     }
 }

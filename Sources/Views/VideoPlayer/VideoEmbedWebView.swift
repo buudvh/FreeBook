@@ -5,9 +5,9 @@ import WebKit
 /// nhúng nguyên trang xem để người dùng bấm play trong trang. Không có timeSkip, phụ đề hay lưu giây.
 ///
 /// `updateUIView` chạy theo mỗi lần màn cha vẽ lại ⇒ so với nội dung đã nạp trong Coordinator,
-/// chỉ nạp lại khi thật sự đổi trang. Trang chỉ nhận `User-Agent` và `Referer` (DOC extension-api.md), lấy từ `EmbedContent`.
+/// chỉ nạp lại khi thật sự đổi trang. Trang chỉ nhận `User-Agent` và `Referer` (hợp đồng extension), lấy từ `EmbedContent`.
 struct VideoEmbedWebView: UIViewRepresentable {
-    let content: VideoPlayerController.EmbedContent
+    let content: VideoPlaybackSession.EmbedContent
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -45,12 +45,12 @@ struct VideoEmbedWebView: UIViewRepresentable {
     /// Chặn quảng cáo chuyển hướng: domain trong danh sách chặn chung (`isEngineDomainBlocked`) bị huỷ ở mọi frame;
     /// sau khi trang đầu nạp xong, khung chính (main frame) không được rời host của trang đó — iframe vẫn tự do.
     final class Coordinator: NSObject, WKNavigationDelegate {
-        private var loadedContent: VideoPlayerController.EmbedContent?
+        private var loadedContent: VideoPlaybackSession.EmbedContent?
         /// Host khung chính sau lần nạp đầu (cập nhật tới `didFinish` để chuyển hướng lúc nạp vẫn đi qua).
         private var pinnedHost: String?
         private var isInitialLoadFinished = false
 
-        func load(_ content: VideoPlayerController.EmbedContent, into webView: WKWebView) {
+        func load(_ content: VideoPlaybackSession.EmbedContent, into webView: WKWebView) {
             guard loadedContent != content else { return }
             loadedContent = content
             pinnedHost = nil

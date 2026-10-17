@@ -1,9 +1,9 @@
 import SwiftUI
 
 /// Lớp phủ trên player: đang nạp (tập / server / link) hoặc lỗi kèm "Thử lại" / "Thử server khác".
-/// Lúc `.buffering` / `.playing` / `.embed` không phủ gì — AVKit tự hiện vòng chờ của nó.
+/// Lúc `.buffering` / `.playing` / `.embed` không phủ gì — lớp điều khiển tự hiện vòng chờ đệm.
 struct VideoPlayerStatusView: View {
-    let phase: VideoPlayerController.Phase
+    let phase: VideoPlaybackSession.Phase
     let canTryAnotherServer: Bool
     let onRetry: () -> Void
     let onTryAnotherServer: () -> Void

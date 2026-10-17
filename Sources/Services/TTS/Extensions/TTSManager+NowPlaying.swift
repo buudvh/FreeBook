@@ -2,8 +2,17 @@ import Foundation
 import MediaPlayer
 import UIKit
 
+/// Phân xử với video (`VideoNowPlayingCoordinator`): khi video giữ phiên điều khiển màn khoá, mọi hàm ghi Now Playing /
+/// bật-tắt lệnh ở file này bỏ qua để không ghi đè trạng thái của video. TTS bắt đầu/tiếp tục phát (bật lệnh, hoặc đặt
+/// trạng thái `.playing`) thì video tạm dừng và trả phiên trước, rồi TTS cấu hình như thường.
 extension TTSManager {
     internal func setRemoteCommandsEnabled(_ enabled: Bool) {
+        let video = VideoNowPlayingCoordinator.shared
+        if video.isHoldingSession {
+            // Chỉ TTS bắt đầu/tiếp tục phát mới bật lệnh ⇒ video nhường; lệnh tắt thì bỏ qua (giữ nút của video).
+            guard enabled else { return }
+            video.yieldToTTS()
+        }
         #if DEBUG
         logRemoteTrace("setRemoteCommandsEnabled(\(enabled))")
         #endif
@@ -25,6 +34,7 @@ extension TTSManager {
     }
 
     internal func syncRemoteCommandState() {
+        guard !VideoNowPlayingCoordinator.shared.isHoldingSession else { return }
         let commandCenter = MPRemoteCommandCenter.shared()
         let active = !playingBookId.isEmpty && showFloatingWidget
         let playing = active && isPlaying
@@ -41,6 +51,11 @@ extension TTSManager {
 
     @MainActor
     internal func setSystemNowPlayingPlaybackState(_ state: MPNowPlayingPlaybackState) {
+        let video = VideoNowPlayingCoordinator.shared
+        if video.isHoldingSession {
+            guard state == .playing else { return }
+            video.yieldToTTS()
+        }
         let center = MPNowPlayingInfoCenter.default()
         var info = center.nowPlayingInfo ?? [:]
         let currentRate = (state == .playing) ? 1.0 : 0.0
@@ -61,6 +76,8 @@ extension TTSManager {
     }
 
     internal func publishNowPlayingInfo(using metadata: NowPlayingStaticMetadata) {
+        // Metadata nạp bất đồng bộ có thể về sau khi video đã giữ phiên ⇒ không ghi đè.
+        guard !VideoNowPlayingCoordinator.shared.isHoldingSession else { return }
         let paragraphIndex = currentParagraphIndex
         let paragraphCount = paragraphs.count
         let liveIsPlaying = isPlaying
@@ -92,6 +109,18 @@ extension TTSManager {
 
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
         MPNowPlayingInfoCenter.default().playbackState = liveIsPlaying ? .playing : .paused
+    }
+
+    /// Video vừa trả phiên (đóng trình phát): dựng lại lệnh / Now Playing của TTS — lúc video giữ phiên các hàm ghi ở
+    /// file này đều bỏ qua nên trạng thái hệ thống đang là của video.
+    internal func reclaimRemoteControlsAfterVideo() {
+        guard !playingBookId.isEmpty, showFloatingWidget else {
+            setRemoteCommandsEnabled(false)
+            return
+        }
+        setRemoteCommandsEnabled(true)
+        syncRemoteCommandState()
+        updateNowPlayingInfo()
     }
 
     internal func downloadNowPlayingCoverIfNeeded(for key: NowPlayingStaticMetadataKey) {
