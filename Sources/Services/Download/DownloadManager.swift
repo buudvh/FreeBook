@@ -286,6 +286,11 @@ public final class DownloadManager: ObservableObject {
             }
         }
 
+        // Truyện tranh/video không đi pipeline chữ: rẽ sau `defer` để slot tác vụ vẫn được nhả (`DownloadManager+Comic`).
+        if await executeMediaTaskIfNeeded(task, extensionSnapshot: bgExt, container: container) {
+            return
+        }
+
         // Renderer ghi dần bản xuất ra đĩa. Khai ngoài `do` để mọi nhánh lỗi/huỷ đều dọn được file tạm.
         var renderer: ExportRenderer?
 

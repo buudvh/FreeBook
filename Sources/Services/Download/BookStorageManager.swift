@@ -100,6 +100,8 @@ public final class BookStorageManager {
                     let coverPath = ImageCacheManager.shared.localCoverURL(for: bookId).path
                     await Self.shared.enqueueFailedDeletionAsync(path: coverPath)
                 }
+
+                await Self.deleteComicFiles(bookId: bookId)
             }
         }
 
@@ -171,6 +173,8 @@ public final class BookStorageManager {
                     let coverPath = ImageCacheManager.shared.localCoverURL(for: bookId).path
                     await Self.shared.enqueueFailedDeletionAsync(path: coverPath)
                 }
+
+                await Self.deleteComicFiles(bookId: bookId)
             }
         }
     }
@@ -255,7 +259,19 @@ public final class BookStorageManager {
                     let coverPath = ImageCacheManager.shared.localCoverURL(for: bookId).path
                     await Self.shared.enqueueFailedDeletionAsync(path: coverPath)
                 }
+
+                await Self.deleteComicFiles(bookId: bookId)
             }
+        }
+    }
+
+    /// Ảnh comic tải offline (`comics/<sha256(bookId)>`); sách chữ không có thư mục này nên là no-op.
+    nonisolated private static func deleteComicFiles(bookId: String) async {
+        do {
+            try ComicOfflineStore.deleteBook(bookId: bookId)
+        } catch {
+            AppLogger.shared.log("❌ Lỗi xóa ảnh comic offline: \(error.localizedDescription)")
+            await Self.shared.enqueueFailedDeletionAsync(path: ComicOfflineStore.bookDirectoryURL(bookId: bookId).path)
         }
     }
 

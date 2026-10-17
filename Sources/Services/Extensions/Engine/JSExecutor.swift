@@ -263,6 +263,10 @@ public final class JSExecutor: @unchecked Sendable {
         let scriptBootstrap = JSScriptHttpBootstrapScript.source
         context.evaluateScript(scriptBootstrap)
 
+        // 6.8. `Graphics` (createImage/createCanvas cho script ảnh comic); handle ảnh/canvas sống theo executor
+        JSGraphicsBridge.install(in: context)
+        context.evaluateScript(JSGraphicsBootstrapScript.source)
+
         let syncFetchBlock: @convention(block) (String, JSValue?) -> [String: Any] = { [weak self] urlString, optionsVal in
             guard let self = self else {
                 return ["html": "", "status": 500, "raw": "", "headers": [String: String]()]
