@@ -37,7 +37,14 @@ struct BookContentDestination: View {
             bookSourceName: bookSourceName,
             initialParagraphIndex: initialParagraphIndex
         )
-        self._kind = State(initialValue: ExtensionContentKind.resolve(packageId: extensionPackageId))
+        self._kind = State(initialValue: Self.resolveKind(bookId: bookId, packageId: extensionPackageId))
+    }
+
+    /// Tiện ích đã gỡ và không còn trong catalog (vd cài từ zip) thì không tra được loại. Truyện tranh đã tải
+    /// offline vẫn phải mở bằng màn comic thay vì rơi vào reader chữ.
+    private static func resolveKind(bookId: String, packageId: String) -> ExtensionContentKind {
+        if let known = ExtensionContentKind.resolveIfKnown(packageId: packageId) { return known }
+        return ComicOfflineStore.downloadedChapterIndexes(bookId: bookId).isEmpty ? .text : .comic
     }
 
     var body: some View {

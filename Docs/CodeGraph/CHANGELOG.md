@@ -70,6 +70,7 @@ Người dùng duyệt plan `Docs/Plans/2026-10-17-plan-comic-video.md`, gồm: 
     - Canvas mỗi cạnh ≤ 8192.
     - `drawImage` giữ toạ độ thực.
   - Đổi nguồn sách comic/video mà tiện ích cũ đã gỡ: không còn bị suy thành `text` (`resolveIfKnown`).
+  - Router: khi không tra được loại tiện ích mà sách có ảnh comic offline thì mở bằng màn comic, không mở reader chữ.
   - Log `track` chỉ ghi dạng gọn, vì có thể chứa token hoặc header.
 - **Dòng file legacy**: `BookDetailView` 1200 → 1105 (chuyển hai hàm tải trang mục lục sang `+TOCPreparation`), `SearchView` 871 → 862. Mọi file mới ≤ 400 dòng.
 - **Ngoài phạm vi**:
