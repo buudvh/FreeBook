@@ -13,6 +13,8 @@ public final class VisibleWebViewController: UIViewController, WKNavigationDeleg
     internal var navigationCompletion: ((String?) -> Void)?
     internal var waitUrlCompletion: ((Bool) -> Void)?
     internal var targetUrlsToWait: [String]?
+    /// Trần `interceptedUrls` (bỏ URL cũ nhất khi đầy); nâng từ 200 vì giờ chứa cả request XHR/fetch/media.
+    internal static let maxRecordedUrls = 1000
 
     init(title: String) {
         self.titleString = title
@@ -23,6 +25,10 @@ public final class VisibleWebViewController: UIViewController, WKNavigationDeleg
         FileDescriptorCensus.trackLive("VisibleWebView", 1)
         self.webView.navigationDelegate = self
         self.webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+        // Browser hiện của ext không autoplay (giữ `.all`), chỉ bắt request cho `urls()` / `waitUrl`.
+        WebNetworkCaptureScript.install(into: webView.configuration.userContentController, mediaMode: false) { [weak self] url, _ in
+            self?.recordCapturedRequest(url)
+        }
     }
 
     deinit {
@@ -72,7 +78,7 @@ public final class VisibleWebViewController: UIViewController, WKNavigationDeleg
     public func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         if let url = navigationAction.request.url {
             let urlString = url.absoluteString
-            if interceptedUrls.count >= 200 {
+            if interceptedUrls.count >= Self.maxRecordedUrls {
                 interceptedUrls.removeFirst()
             }
             interceptedUrls.append(urlString)
@@ -81,14 +87,31 @@ public final class VisibleWebViewController: UIViewController, WKNavigationDeleg
                 decisionHandler(.cancel)
                 return
             }
+            checkWaitUrl(urlString)  // cả điều hướng iframe
         }
         decisionHandler(.allow)
+    }
+
+    /// Request XHR/fetch/media do `WebNetworkCaptureScript` báo về: gộp vào `interceptedUrls` (không trùng) để
+    /// `urls()` / `waitUrl` thấy như VBook. Khác browser ẩn: không reset theo launch và `waitUrl` không xét URL đã có
+    /// từ trước (mốc launch nằm ở `VisibleWebViewLoader`; xét URL cũ dễ khớp nhầm, vd. trang login chuyển hướng).
+    internal func recordCapturedRequest(_ url: String) {
+        guard WebNetworkCaptureScript.isRecordable(url),
+              !isEngineDomainBlocked(url),
+              !isDynamicDomainBlocked(url) else { return }
+        if !interceptedUrls.contains(url) {
+            if interceptedUrls.count >= Self.maxRecordedUrls {
+                interceptedUrls.removeFirst()
+            }
+            interceptedUrls.append(url)
+        }
+        checkWaitUrl(url)
     }
 
     internal func checkWaitUrl(_ currentUrl: String?) {
         guard let current = currentUrl, let targets = targetUrlsToWait, let comp = waitUrlCompletion else { return }
         for target in targets {
-            if current.contains(target) {
+            if WebNetworkCaptureScript.url(current, matchesWaitPattern: target) {
                 self.waitUrlCompletion = nil
                 self.targetUrlsToWait = nil
                 comp(true)

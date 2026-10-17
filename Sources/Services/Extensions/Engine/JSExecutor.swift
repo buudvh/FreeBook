@@ -454,11 +454,11 @@ public final class JSExecutor: @unchecked Sendable {
             // Script đã bị huỷ thì không tạo WKWebView mới trên main nữa (các lệnh sau tự bỏ qua vì không có loader).
             guard let self = self, !self.isCurrentExecutionCancelled else { return }
             if Thread.isMainThread {
-                let loader = WebViewLoader()
+                let loader = WebViewLoader(extensionLocalPath: self.localPath)
                 self.activeBrowsers[browserId] = loader
             } else {
                 DispatchQueue.main.sync {
-                    let loader = WebViewLoader()
+                    let loader = WebViewLoader(extensionLocalPath: self.localPath)
                     self.activeBrowsers[browserId] = loader
                 }
             }
@@ -539,10 +539,10 @@ public final class JSExecutor: @unchecked Sendable {
             guard let self = self else { return [] }
             var urls: [String] = []
             if Thread.isMainThread {
-                urls = self.activeBrowsers[browserId]?.interceptedUrls ?? []
+                urls = self.activeBrowsers[browserId]?.allRequestedUrls ?? []
             } else {
                 DispatchQueue.main.sync {
-                    urls = self.activeBrowsers[browserId]?.interceptedUrls ?? []
+                    urls = self.activeBrowsers[browserId]?.allRequestedUrls ?? []
                 }
             }
             return urls

@@ -54,6 +54,8 @@ class WebViewLoader: NSObject, WKNavigationDelegate {
     internal var waitUrlCompletion: ((Bool) -> Void)?
     internal var targetUrlsToWait: [String] = []
     internal var interceptedUrls: [String] = []
+    internal var capturedRequestUrls: [String] = []  // XHR/fetch/media, xem `+NetworkCapture`
+    internal var capturedRequestUrlSet = Set<String>()
     internal var dynamicBlockedPatterns: [String] = []
 
     internal var waitForReadyCompletion: ((String) -> Void)?
@@ -107,15 +109,19 @@ class WebViewLoader: NSObject, WKNavigationDelegate {
         }
     }
 
-    override init() {
+    /// Chỉ ext loại video mới được autoplay (tắt tiếng, inline); mọi ext khác giữ `.all` như cũ.
+    init(extensionLocalPath: String? = nil) {
+        let allowsAutoplay = extensionLocalPath.map { ExtensionContentKind.resolve(localPath: $0) == .video } ?? false
         let config = WKWebViewConfiguration()
-        config.mediaTypesRequiringUserActionForPlayback = .all
+        config.mediaTypesRequiringUserActionForPlayback = allowsAutoplay ? [] : .all
+        if allowsAutoplay { config.allowsInlineMediaPlayback = true }
 
         self.webView = WKWebView(frame: .zero, configuration: config)
         super.init()
         FileDescriptorCensus.trackLive("WebViewLoader", 1)
         self.webView.navigationDelegate = self
         self.webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+        installNetworkCapture(mediaMode: allowsAutoplay)
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
@@ -130,6 +136,7 @@ class WebViewLoader: NSObject, WKNavigationDelegate {
                 decisionHandler(.cancel)
                 return
             }
+            completePendingWaitUrl(ifMatching: urlString)  // cả điều hướng iframe
         }
         decisionHandler(.allow)
     }
@@ -157,6 +164,7 @@ class WebViewLoader: NSObject, WKNavigationDelegate {
         let request = URLRequest(url: url)
 
         DispatchQueue.main.async {
+            self.resetRequestedUrls()
             self.webView.load(request)
         }
 
@@ -195,6 +203,7 @@ class WebViewLoader: NSObject, WKNavigationDelegate {
     func loadAsync(url: URL) {
         let request = URLRequest(url: url)
         DispatchQueue.main.async {
+            self.resetRequestedUrls()
             self.webView.load(request)
         }
     }
@@ -202,6 +211,7 @@ class WebViewLoader: NSObject, WKNavigationDelegate {
     func waitUrl(targetUrls: [String], timeout: TimeInterval, completion: @escaping (Bool) -> Void) {
         self.targetUrlsToWait = targetUrls.filter { !$0.isEmpty }
         self.waitUrlCompletion = completion
+        if completeWaitUrlIfAlreadyRequested() { return }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + timeout) { [weak self] in
             guard let self = self, let comp = self.waitUrlCompletion else { return }
@@ -328,18 +338,11 @@ class WebViewLoader: NSObject, WKNavigationDelegate {
     }
 
     internal func checkWaitUrl(_ currentUrl: String?) {
-        guard let current = currentUrl, let comp = waitUrlCompletion else { return }
+        guard let current = currentUrl, waitUrlCompletion != nil else { return }
         if !interceptedUrls.contains(current) && interceptedUrls.count < 200 {
             interceptedUrls.append(current)
         }
-        for target in targetUrlsToWait {
-            if current.contains(target) {
-                self.waitUrlCompletion = nil
-                self.targetUrlsToWait.removeAll()
-                comp(true)
-                return
-            }
-        }
+        completePendingWaitUrl(ifMatching: current)
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
