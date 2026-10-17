@@ -304,7 +304,7 @@ struct BookDetailView: View {
         .fullScreenCover(item: $readerRoute) { route in
             NavigationStack {
                 LazyView {
-                    ReaderView(
+                    BookContentDestination(
                         bookId: actualBookId,
                         extensionPackageId: extensionPackageId,
                         chapterIndex: route.chapterIndex,
@@ -566,7 +566,8 @@ struct BookDetailView: View {
                     onStartReading: startReading,
                     onTranslateChapterTitleIfNeeded: translateChapterTitleIfNeeded,
                     onTranslateTitleIfNeeded: translateTitleIfNeeded,
-                    onLoadMoreChapters: loadMoreChapters
+                    onLoadMoreChapters: loadMoreChapters,
+                    episodeNoun: episodeNoun
                 )
             } else {
                 Spacer()
@@ -647,7 +648,7 @@ struct BookDetailView: View {
                                 startReading(at: activeChapterIndex)
                             }) {
                                 HStack {
-                                    Text(localBook == nil ? "Đọc ngay" : "Đọc tiếp")
+                                    Text(readActionTitle(isResuming: localBook != nil))
                                         .font(.caption)
                                         .fontWeight(.bold)
                                     Image(systemName: localBook == nil ? "play.fill" : "book.fill")
@@ -690,49 +691,53 @@ struct BookDetailView: View {
                             }
                             .transition(.scale.combined(with: .opacity))
 
-                            Button(action: {
-                                isMenuExpanded = false
-                                prepareForTask(taskType: .download)
-                            }) {
-                                HStack {
-                                    Text("Tải truyện")
-                                        .font(.caption)
-                                        .fontWeight(.bold)
-                                    Image(systemName: "arrow.down.circle.fill")
-                                        .resizable()
-                                        .frame(width: 16, height: 16)
+                            if let downloadTitle = downloadActionTitle {
+                                Button(action: {
+                                    isMenuExpanded = false
+                                    prepareForTask(taskType: .download)
+                                }) {
+                                    HStack {
+                                        Text(downloadTitle)
+                                            .font(.caption)
+                                            .fontWeight(.bold)
+                                        Image(systemName: "arrow.down.circle.fill")
+                                            .resizable()
+                                            .frame(width: 16, height: 16)
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(Color(white: 0.22))
+                                    .foregroundColor(.white)
+                                    .cornerRadius(20)
+                                    .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.35), lineWidth: 1))
+                                    .shadow(radius: 3)
                                 }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(Color(white: 0.22))
-                                .foregroundColor(.white)
-                                .cornerRadius(20)
-                                .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.35), lineWidth: 1))
-                                .shadow(radius: 3)
+                                .transition(.scale.combined(with: .opacity))
                             }
-                            .transition(.scale.combined(with: .opacity))
 
-                            Button(action: {
-                                isMenuExpanded = false
-                                prepareForTask(taskType: .exportTxt)
-                            }) {
-                                HStack {
-                                    Text("Xuất ebook")
-                                        .font(.caption)
-                                        .fontWeight(.bold)
-                                    Image(systemName: "square.and.arrow.up.fill")
-                                        .resizable()
-                                        .frame(width: 16, height: 16)
+                            if showsExport {
+                                Button(action: {
+                                    isMenuExpanded = false
+                                    prepareForTask(taskType: .exportTxt)
+                                }) {
+                                    HStack {
+                                        Text("Xuất ebook")
+                                            .font(.caption)
+                                            .fontWeight(.bold)
+                                        Image(systemName: "square.and.arrow.up.fill")
+                                            .resizable()
+                                            .frame(width: 16, height: 16)
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(Color(white: 0.22))
+                                    .foregroundColor(.white)
+                                    .cornerRadius(20)
+                                    .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.35), lineWidth: 1))
+                                    .shadow(radius: 3)
                                 }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(Color(white: 0.22))
-                                .foregroundColor(.white)
-                                .cornerRadius(20)
-                                .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.35), lineWidth: 1))
-                                .shadow(radius: 3)
+                                .transition(.scale.combined(with: .opacity))
                             }
-                            .transition(.scale.combined(with: .opacity))
                         }
 
                         Button(action: {
@@ -1016,18 +1021,6 @@ struct BookDetailView: View {
         }
     }
 
-    internal func loadAllRemainingPages() async throws -> [ChapterResult] {
-        guard let ext = ext else { return [] }
-        let snapshot = ExtensionExecutionSnapshot(
-            packageId: ext.packageId,
-            name: ext.name,
-            localPath: ext.localPath,
-            downloadUrl: ext.downloadUrl,
-            configJson: ext.configJson
-        )
-        return try await BookDetailLoader.shared.fetchRemainingPages(snapshot: snapshot, pages: tocPages, host: resolvedHost)
-    }
-
     internal func scheduleBackgroundTitleTranslationIfNeeded(for targetBook: Book? = nil) {
         guard isTranslationEnabled else { return }
         let targetBookId = actualBookId
@@ -1094,94 +1087,6 @@ struct BookDetailView: View {
                 switch res {
                 case .success: self.syncChaptersList()
                 case .failure(let err): AppLogger.shared.log("⚠️ [BookDetail] Failed to save chapter title translations: \(err.localizedDescription)")
-                }
-            }
-        }
-    }
-
-    internal func startBackgroundRemainingPagesLoading(for targetBook: Book? = nil) {
-        guard tocPages.count > 1, !remainingPagesLoaded, !isLoadingRemainingPages else { return }
-        isLoadingRemainingPages = true
-        tocErrorMessage = ""
-
-        let bookRef = targetBook ?? localBook
-
-        loadingTask = Task {
-            do {
-                guard let ext = ext else {
-                    await MainActor.run { self.isLoadingRemainingPages = false }
-                    return
-                }
-                let remainingPages = Array(tocPages.dropFirst())
-                let targetBookId = await MainActor.run { self.actualBookId }
-
-                for pageUrl in remainingPages {
-                    try Task.checkCancellation()
-                    let pageChaps = try await ExtensionManager.shared.toc(
-                        localPath: ext.localPath,
-                        downloadUrl: ext.downloadUrl,
-                        url: pageUrl,
-                        host: resolvedHost,
-                        configJson: ext.configJson
-                    )
-                    try Task.checkCancellation()
-
-                    let transEnabled = await MainActor.run { self.isTranslationEnabled }
-                    let translatedTitlesMap: [Int: String] = await Task.detached(priority: .utility) {
-                        var map: [Int: String] = [:]
-                        guard transEnabled else { return map }
-                        for (idx, item) in pageChaps.enumerated() {
-                            if Task.isCancelled { break }
-                            if !item.name.isEmpty && TranslateUtils.containsChinese(item.name) {
-                                map[idx] = TranslateUtils.translateChapterTitle(item.name, bookId: targetBookId)
-                            }
-                        }
-                        return map
-                    }.value
-
-                    let startIndex = await MainActor.run { self.onlineChapters.count }
-                    let shouldPersistPage = await MainActor.run { bookRef != nil || self.localBook != nil }
-                    let ttsProtection = await MainActor.run { self.activeTTSProtectedChapter }
-                    if shouldPersistPage {
-                        let snapshots = pageChaps.enumerated().map { offset, item in
-                            ChapterMetadataSnapshot(
-                                title: item.name,
-                                url: item.url,
-                                index: startIndex + offset,
-                                host: item.host,
-                                titleTrans: translatedTitlesMap[offset]
-                            )
-                        }
-                        _ = try await ChapterContentRepository.shared.saveChapterList(
-                            bookId: targetBookId,
-                            createSnapshot: nil,
-                            chapters: snapshots,
-                            mode: .upsertPage,
-                            protectedTTSChapter: ttsProtection
-                        )
-                    }
-
-                    await MainActor.run {
-                        self.onlineChapters.append(contentsOf: pageChaps)
-                        if let savedBook = refetchBook(bookId: targetBookId) {
-                            self.chaptersList = savedBook.chapters
-                        }
-                    }
-                    await Task.yield()
-                }
-
-                await MainActor.run {
-                    self.remainingPagesLoaded = true
-                    self.isLoadingRemainingPages = false
-                    self.loadingTask = nil
-                }
-            } catch {
-                if !Task.isCancelled {
-                    await MainActor.run {
-                        self.tocErrorMessage = "Lỗi tải thêm chương: \(error.localizedDescription)"
-                        self.isLoadingRemainingPages = false
-                        self.loadingTask = nil
-                    }
                 }
             }
         }

@@ -311,8 +311,15 @@ struct BookActionSheet: View {
             actionRow(.changeSource, "Đổi nguồn", "arrow.triangle.2.circlepath")
         }
 
-        actionRow(.download, "Tải truyện", "arrow.down.circle")
-        actionRow(.exportEbook, "Xuất ebook", "square.and.arrow.up")
+        // Loại nội dung suy lúc chạy (không lưu vào `Book`): video chưa tải offline được, truyện tranh/video
+        // không xuất ebook.
+        let kind = ExtensionContentKind.resolve(packageId: book.extensionPackageId)
+        if kind != .video {
+            actionRow(.download, kind == .comic ? "Tải ảnh offline" : "Tải truyện", "arrow.down.circle")
+        }
+        if !kind.isMedia {
+            actionRow(.exportEbook, "Xuất ebook", "square.and.arrow.up")
+        }
         actionRow(.retranslateChapterTitles, "Dịch lại tên chương", "arrow.clockwise.circle")
 
         if currentCollectionId != nil {

@@ -150,7 +150,7 @@ struct ShelfSearchView: View {
         .navigationBarTitleDisplayMode(.inline)
         .fullScreenCover(item: $readerRoute) { route in
             NavigationStack {
-                ReaderView(
+                BookContentDestination(
                     bookId: route.bookId,
                     extensionPackageId: route.extensionPackageId,
                     chapterIndex: route.chapterIndex,

@@ -6,6 +6,7 @@ public struct RepositoryFilterPolicy: Sendable {
     public init() {}
 
     /// Lọc chọn nhiều: **HOẶC** trong một nhóm, **VÀ** giữa các nhóm; nhóm rỗng = không lọc nhóm đó.
+    /// `types`/`locales` là **khoá nhóm** (`ExtensionFilterGroups`), so với nhóm của giá trị thô — không so thô.
     public func filterExtensions(
         _ extensions: [Extension],
         query: String,
@@ -15,10 +16,9 @@ public struct RepositoryFilterPolicy: Sendable {
     ) -> [Extension] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let result = extensions.filter { ext in
-            guard ext.type != ExtensionType.comic,
-                  authors.isEmpty || authors.contains(ext.author),
-                  types.isEmpty || types.contains(ext.type),
-                  locales.isEmpty || locales.contains(ext.locale) else { return false }
+            guard authors.isEmpty || authors.contains(ext.author),
+                  types.isEmpty || types.contains(ExtensionFilterGroups.typeGroup(for: ext.type)),
+                  locales.isEmpty || locales.contains(ExtensionFilterGroups.localeGroup(for: ext.locale)) else { return false }
             guard !trimmed.isEmpty else { return true }
             return ext.name.localizedCaseInsensitiveContains(trimmed) ||
                 ext.sourceUrl.localizedCaseInsensitiveContains(trimmed) ||

@@ -487,8 +487,10 @@ public final class ExtensionManager: ObservableObject {
             let jsArray = toDictionaryArray(cleanVal)
 
             var results: [ChapterResult] = []
- 
+            // Truyện tranh/video: bỏ dòng `type: "section"` (tiêu đề nhóm tập, không mở được). Truyện chữ giữ nguyên để chỉ số chương đã lưu không lệch.
+            let skipsSections = ExtensionContentKind.resolve(localPath: localPath).isMedia
             for dict in jsArray {
+                if skipsSections, dict["type"]?.toString()?.lowercased() == "section" { continue }
                 let name = dict["name"]?.toString() ?? ""
                 let url = dict["url"]?.toString()
                     ?? dict["link"]?.toString()

@@ -1,19 +1,22 @@
 import Foundation
 
-/// Nhãn hiển thị + bộ lựa chọn dùng chung cho `type` và `locale` của tiện ích.
+/// Nhãn hiển thị + bộ lựa chọn cho **giá trị thô** `type` và `locale` của tiện ích (màn Cấu hình tiện ích).
+///
+/// Bộ lọc kho, hàng chip Khám phá/Tìm kiếm và nhãn/cờ trên dòng kho **không** dùng type này mà dùng nhóm
+/// `ExtensionFilterGroups` (gom các biến thể chính tả như `zh_CN`/`zh-CN`).
 ///
 /// Một chỗ duy nhất cho các chuỗi nhãn: trước 1.3.476 chúng nằm trong `FilterSheet.translateType` /
 /// `translateLocale`, còn màn Cấu hình tiện ích cần **đúng** bộ nhãn đó cho hai select `type`/`locale` — hai
 /// bản sao là hai chỗ để trôi khỏi nhau.
 ///
 /// ## Bộ lựa chọn **không** bằng toàn bộ hằng của `ExtensionType`
-/// Màn cấu hình chỉ cho chọn `novel` và `chinese_novel` (chủ dự án chốt 2026-10-07), nhưng `FilterSheet` liệt
-/// kê theo tiện ích **đang cài** nên vẫn gặp `comic`, `tts`, `en_US`. Vì vậy:
+/// Màn cấu hình chỉ cho chọn `novel` và `chinese_novel` (chủ dự án chốt 2026-10-07), nhưng file `plugin.json`
+/// của tiện ích đã cài vẫn có thể mang `comic`, `video`, `tts`, `en_US`. Vì vậy:
 /// - nhãn **phải** có nhánh dự phòng (`label(forType:)` / `label(forLocale:)` trả nguyên văn);
 /// - `options(including:)` **phải** giữ lại giá trị lạ của file — nếu không, mở một tiện ích `type: "tts"`
 ///   sẽ thấy select không có mục nào khớp, và lần lưu kế tiếp là ghi đè mất giá trị thật.
 ///
-/// `ExtensionType` là `enum` **không** `CaseIterable` (chỉ 4 hằng `static let`, `ExtensionType.swift:3-8`)
+/// `ExtensionType` là `enum` **không** `CaseIterable` (chỉ các hằng `static let` trong `ExtensionType.swift`)
 /// nên không có `allCases` để duyệt.
 enum ExtensionDisplayCatalog {
     /// Bộ chọn ở màn Cấu hình tiện ích.
@@ -25,6 +28,7 @@ enum ExtensionDisplayCatalog {
         case ExtensionType.novel: return "Truyện chữ (Novel)"
         case ExtensionType.chineseNovel: return "Truyện Trung Quốc (Chinese)"
         case ExtensionType.comic: return "Truyện tranh (Comic)"
+        case ExtensionType.video: return "Phim/Video (Video)"
         case ExtensionType.tts: return "Giọng đọc (TTS)"
         default: return type.isEmpty ? "—" : type.capitalized
         }

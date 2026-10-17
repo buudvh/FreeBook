@@ -25,7 +25,8 @@ struct SearchView: View {
     @State private var searchQuery = ""
     @State private var isSearching = false
     @State private var searchTask: Task<Void, Never>? // lượt tìm đang chạy; tìm lại thì huỷ lượt cũ
-    @State private var searchAllSources = false
+    @State var searchAllSources = false
+    @AppStorage("searchKindFilter") var searchKindFilter = "" // chip loại nội dung — `SearchView+KindFilter`
     @State private var searchResults: [ExtensionItemResultWithExt] = []
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     @State private var searchStatusMessage = ""
@@ -51,7 +52,7 @@ struct SearchView: View {
     }
 
     private var searchableExtensions: [Extension] {
-        activeExtensions.filter { $0.type != ExtensionType.tts }
+        SearchExtensionScopePolicy.searchableExtensions(activeExtensions, kindFilter: searchKindFilter, changeSourcePackageId: changeSourceTargetBook?.extensionPackageId)
     }
     
     init(activeExtensions: [Extension], selectedExtension: Extension?, initialSearchQuery: String = "", changeSourceTargetBook: Book? = nil, onSourceChanged: (() -> Void)? = nil) {
@@ -71,7 +72,7 @@ struct SearchView: View {
         case noResults
     }
     
-    @State private var sourceStates: [String: SourceSearchState] = [:]
+    @State var sourceStates: [String: SourceSearchState] = [:]
     
     private var hasAnyResults: Bool {
         sourceStates.values.contains { state in
@@ -215,18 +216,6 @@ struct SearchView: View {
         .padding(.horizontal)
         .padding(.vertical, 8)
         .background(Color(.systemBackground))
-    }
-    
-    @ViewBuilder
-    private var searchOptionsView: some View {
-        Toggle(isOn: $searchAllSources) {
-            Text("Tìm trên tất cả nguồn đã cài")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-        }
-        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
-        .padding(.horizontal)
-        .padding(.vertical, 6)
     }
     
     @ViewBuilder
@@ -637,6 +626,7 @@ struct SearchView: View {
         let isPlayingTTS = (TTSManager.shared.isPlaying || TTSManager.shared.showFloatingWidget) && TTSManager.shared.playingBookId == oldBookId
         
         do {
+            try BookSourceMigrator.ensureSameContentKind(oldPackageId: oldBook.extensionPackageId, newPackageId: ext.packageId)
             let path = ext.localPath
             let detailResult = try await ExtensionManager.shared.detail(localPath: path, downloadUrl: ext.downloadUrl, url: result.link, host: ext.sourceUrl, configJson: ext.configJson)
             
@@ -736,7 +726,8 @@ struct SearchView: View {
                 await BookSourceMigrator.shared.cleanupOldBookStorage(oldBookId: oldBookId)
             }
         } catch {
-            print("❌ Lỗi đổi nguồn truyện: \(error.localizedDescription)")
+            AppLogger.shared.log("❌ Lỗi đổi nguồn truyện: \(error.localizedDescription)")
+            await MainActor.run { searchStatusMessage = "Lỗi đổi nguồn: \(error.localizedDescription)" }
         }
     }
     
@@ -751,7 +742,7 @@ struct SearchView: View {
         searchHistory = SearchHistoryStore.addQuery(query, to: searchHistory)
     }
 
-    private func performSearch() {
+    func performSearch() {
         let trimmedQuery = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedQuery.isEmpty else { return }
         searchTask?.cancel()

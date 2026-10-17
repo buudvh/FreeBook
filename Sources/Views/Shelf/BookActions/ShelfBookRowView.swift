@@ -16,6 +16,14 @@ struct ShelfBookRowView: View {
                 extensionLocalPath: ext?.localPath ?? "",
                 extensionIconUrl: ext?.iconUrl
             )
+            // Badge truyện tranh/video ở góc dưới phải bìa (50 × 70, mặc định của `BookListItemView`). Bìa nằm
+            // giữa theo chiều dọc của dòng nên khung cùng cỡ căn `.leading` trùng đúng bìa.
+            .overlay(alignment: .leading) {
+                BookKindBadge(kind: ExtensionContentKind.resolve(packageId: book.extensionPackageId))
+                    .padding(2)
+                    .frame(width: 50, height: 70, alignment: .bottomTrailing)
+                    .allowsHitTesting(false)
+            }
 
             if book.isPinned {
                 Image(systemName: "pin.fill")

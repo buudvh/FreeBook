@@ -6,7 +6,7 @@ extension BookDetailView {
     @ViewBuilder
     internal var ellipsisMenu: some View {
         Menu {
-            if localBook != nil {
+            if localBook != nil && showsDictionaryMenu {
                 Button(action: {
                     navigateToDictionary = true
                 }) {

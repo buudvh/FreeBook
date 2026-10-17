@@ -19,6 +19,8 @@ struct ExtensionConfigView: View {
     @State internal var isLoading = true
     @State internal var errorMessage = ""
     @State internal var showingScriptEditor = false
+    @State internal var showingUninstallConfirm = false
+    @State internal var uninstallAlertMessage = "" // lỗi/chặn gỡ — `ExtensionConfigView+Uninstall`
     
     struct ConfigItem: Codable {
         let title: String?
@@ -129,6 +131,8 @@ struct ExtensionConfigView: View {
                                     .foregroundColor(.purple)
                             }
                         }
+
+                        uninstallSection
                     }
                     .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
                 }

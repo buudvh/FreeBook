@@ -21,12 +21,12 @@ struct DiscoveryView: View {
     @AppStorage("lastSelectedExtensionId") private var lastSelectedExtensionId: String = ""
     @AppStorage("lastSelectedCategoryId") private var lastSelectedCategoryId: String = ""
 
-    /// Tiện ích truyện đã cài, thứ tự ghim → vừa dùng → A-Z (`ExtensionSortPolicy`). Đọc repository
-    /// `@Observable` trong `body` ⇒ tự vẽ lại khi cài/gỡ/ghim/đánh dấu đã dùng.
+    /// Tiện ích nội dung đã cài (chữ/tranh/video), thứ tự ghim → vừa dùng → A-Z (`ExtensionSortPolicy`). Đọc
+    /// repository `@Observable` trong `body` ⇒ tự vẽ lại khi cài/gỡ/ghim/đánh dấu đã dùng.
     private var activeExtensions: [Extension] {
         ExtensionSortPolicy.sorted(
             ExtensionLibraryRepository.shared.installed.filter {
-                $0.type == ExtensionType.novel || $0.type == ExtensionType.chineseNovel
+                SearchExtensionScopePolicy.isBrowsable($0)
             }
         )
     }
@@ -354,6 +354,11 @@ struct DiscoveryView: View {
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
+            // Tiện ích đang chọn vừa bị gỡ (vd từ màn Cấu hình) ⇒ chọn tiện ích đầu tiên; hết tiện ích thì xoá chọn.
+            .onChange(of: activeExtensions.map(\.packageId)) { _, ids in
+                guard !selectedExtensionId.isEmpty, !ids.contains(selectedExtensionId) else { return }
+                selectedExtensionId = ids.first ?? ""
+            }
             .onAppear {
                 // Khôi phục từ rỗng ⇒ `onChange(of: selectedExtensionId)` sẽ tự tải, nhánh tải bên dưới phải bỏ qua.
                 let restoredSelection = selectedExtensionId.isEmpty
@@ -758,13 +763,15 @@ struct ExtensionSelectorView: View {
     
     @State private var configExtension: Extension? = nil
     @State private var listBrowserTarget: ExtensionBrowserTarget? = nil
+    @AppStorage("discoveryKindFilter") private var kindFilter = "" // chip loại: "" = tất cả, còn lại `ExtensionContentKind.rawValue`
     
     private var filteredExtensions: [Extension] {
+        let kindScoped = activeExtensions.filter { SearchExtensionScopePolicy.matches($0, kindFilter: kindFilter) }
         let baseList: [Extension]
         if extensionSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            baseList = activeExtensions
+            baseList = kindScoped
         } else {
-            baseList = activeExtensions.filter {
+            baseList = kindScoped.filter {
                 $0.name.localizedCaseInsensitiveContains(extensionSearchQuery) ||
                 $0.sourceUrl.localizedCaseInsensitiveContains(extensionSearchQuery)
             }
@@ -803,6 +810,7 @@ struct ExtensionSelectorView: View {
                 .cornerRadius(10)
                 .padding()
                 
+                ExtensionKindFilterBar(selection: $kindFilter)
                 Divider()
                 
                 // Danh sách phần mở rộng
@@ -821,6 +829,7 @@ struct ExtensionSelectorView: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                                 .lineLimit(1)
+                            BookKindBadge(kind: SearchExtensionScopePolicy.kind(of: ext), showsLabel: true, hidesText: false)
                         }
                         
                         Spacer()

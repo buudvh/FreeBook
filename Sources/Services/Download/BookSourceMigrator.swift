@@ -6,6 +6,19 @@ public actor BookSourceMigrator {
 
     private init() {}
 
+    /// Chặn đổi nguồn sang tiện ích **khác loại** (chữ/tranh/video): mục lục, tiến độ (`paragraphIndex` là đoạn /
+    /// chỉ số ảnh / số giây) và chương đã tải không chuyển được giữa hai loại. Gọi **trước** mọi lệnh mạng.
+    /// `static` (không thuộc actor) nên caller gọi đồng bộ.
+    public static func ensureSameContentKind(oldPackageId: String, newPackageId: String) throws {
+        let oldKind = ExtensionContentKind.resolve(packageId: oldPackageId)
+        let newKind = ExtensionContentKind.resolve(packageId: newPackageId)
+        guard oldKind == newKind else {
+            let message = "Không thể đổi sang nguồn khác loại (chữ/tranh/video)"
+            AppLogger.shared.log("❌ [BookSourceMigrator] \(message): \(oldKind.rawValue) → \(newKind.rawValue)")
+            throw ExtensionManagerError.sourceResponse(message: message)
+        }
+    }
+
     /// Sao chép các chương đã tải từ nguồn cũ sang nguồn mới nếu chương tương ứng tồn tại theo thứ tự.
     func migrateCachedChapters(
         oldBookId: String,

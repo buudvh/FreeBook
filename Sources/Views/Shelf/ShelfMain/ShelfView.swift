@@ -256,7 +256,7 @@ struct ShelfView: View {
             }
             .fullScreenCover(item: $readerPresentationRoute) { route in
                 NavigationStack {
-                    ReaderView(
+                    BookContentDestination(
                         bookId: route.bookId,
                         extensionPackageId: route.extensionPackageId,
                         chapterIndex: route.chapterIndex,

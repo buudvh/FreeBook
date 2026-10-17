@@ -142,24 +142,18 @@ extension RepositoryManagerView {
         }
     }
 
+    /// Nhãn loại trên dòng kho — dùng chung nhóm với bộ lọc (`ExtensionFilterGroups`), không so giá trị thô.
     internal func translateType(_ type: String) -> String {
-        switch type {
-        case ExtensionType.novel: return "Truyện chữ"
-        case ExtensionType.chineseNovel: return "Truyện Trung"
-        case ExtensionType.tts: return "Giọng đọc (TTS)"
-        default: return type.capitalized
-        }
+        ExtensionFilterGroups.typeGroupLabel(ExtensionFilterGroups.typeGroup(for: type))
     }
 
+    /// Icon dự phòng (khi tiện ích chưa có ảnh) theo nhóm thể loại.
+    internal func typeIcon(_ type: String) -> String {
+        ExtensionFilterGroups.typeGroupSymbol(ExtensionFilterGroups.typeGroup(for: type))
+    }
+
+    /// Cờ theo nhóm ngôn ngữ (so tiền tố sau chuẩn hoá: `global` → 🇺🇸, `ja_JP` → 🇯🇵, `kr_KR` → 🇰🇷).
     internal func getFlagEmoji(_ locale: String) -> String {
-        let cleanLocale = locale.lowercased()
-        if cleanLocale.contains("vi") {
-            return "🇻🇳"
-        } else if cleanLocale.contains("zh") || cleanLocale.contains("cn") {
-            return "🇨🇳"
-        } else if cleanLocale.contains("en") {
-            return "🇺🇸"
-        }
-        return "🌐"
+        ExtensionFilterGroups.localeGroupFlag(ExtensionFilterGroups.localeGroup(for: locale))
     }
 }

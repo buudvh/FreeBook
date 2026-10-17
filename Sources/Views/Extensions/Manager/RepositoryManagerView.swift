@@ -42,10 +42,10 @@ struct RepositoryManagerView: View {
     @AppStorage(ExtensionFilterSelection.authorsKey) internal var filterAuthorsJSON: String = ""
 
     internal var filterTypes: Binding<Set<String>> {
-        ExtensionFilterSelection.binding($filterTypesJSON, legacyKey: ExtensionFilterSelection.legacyTypeKey)
+        ExtensionFilterSelection.binding($filterTypesJSON, legacyKey: ExtensionFilterSelection.legacyTypeKey, normalize: ExtensionFilterGroups.typeGroup(for:))
     }
     internal var filterLocales: Binding<Set<String>> {
-        ExtensionFilterSelection.binding($filterLocalesJSON, legacyKey: ExtensionFilterSelection.legacyLocaleKey)
+        ExtensionFilterSelection.binding($filterLocalesJSON, legacyKey: ExtensionFilterSelection.legacyLocaleKey, normalize: ExtensionFilterGroups.localeGroup(for:))
     }
     internal var filterAuthors: Binding<Set<String>> {
         ExtensionFilterSelection.binding($filterAuthorsJSON, legacyKey: ExtensionFilterSelection.legacyAuthorKey)
@@ -66,16 +66,15 @@ struct RepositoryManagerView: View {
         return Array(Set(authors)).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     }
     
-    // Lọc danh sách ngôn ngữ động từ catalog
+    // Nhóm ngôn ngữ / thể loại có trong catalog (khoá nhóm, thứ tự cố định — `ExtensionFilterGroups`)
+    internal var localeCounts: [String: Int] { ExtensionFilterGroups.localeGroupCounts(allExtensions) }
     internal var allLocales: [String] {
-        let locales = allExtensions.map { $0.locale }
-        return Array(Set(locales)).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+        ExtensionFilterGroups.presentGroups(ExtensionFilterGroups.localeGroupOrder, counts: localeCounts)
     }
     
-    // Lọc danh sách loại tiện ích động từ catalog (loại trừ comic)
+    internal var typeCounts: [String: Int] { ExtensionFilterGroups.typeGroupCounts(allExtensions) }
     internal var allTypes: [String] {
-        let types = allExtensions.map { $0.type }.filter { $0 != ExtensionType.comic }
-        return Array(Set(types)).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+        ExtensionFilterGroups.presentGroups(ExtensionFilterGroups.typeGroupOrder, counts: typeCounts)
     }
     
     // Danh sách tiện ích sau khi lọc theo các tiêu chí và tìm kiếm
@@ -154,6 +153,8 @@ struct RepositoryManagerView: View {
                     allAuthors: allAuthors,
                     allLocales: allLocales,
                     allTypes: allTypes,
+                    typeCounts: typeCounts,
+                    localeCounts: localeCounts,
                     filterTypes: filterTypes,
                     filterLocales: filterLocales,
                     filterAuthors: filterAuthors
@@ -388,7 +389,7 @@ struct RepositoryManagerView: View {
             if !ext.localPath.isEmpty || !(ext.iconUrl ?? "").isEmpty {
                 ExtensionIconView(localPath: ext.localPath, iconUrl: ext.iconUrl, size: 44)
             } else {
-                Image(systemName: ext.type == ExtensionType.tts ? "waveform" : "book.closed")
+                Image(systemName: typeIcon(ext.type))
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 32, height: 32)

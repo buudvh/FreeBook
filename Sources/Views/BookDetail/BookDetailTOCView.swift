@@ -20,6 +20,8 @@ struct BookDetailTOCView: View {
     let onTranslateChapterTitleIfNeeded: (Chapter) -> String
     let onTranslateTitleIfNeeded: (String) -> String
     let onLoadMoreChapters: () -> Void
+    /// "chương" hoặc "tập" (video) — `BookDetailView.episodeNoun`.
+    var episodeNoun: String = "chương"
 
     /// Danh sách chương đã đảo chiều/lọc. Giữ trong `@State` vì view này bị vẽ lại theo mọi lần vẽ của
     /// `BookDetailView` (có closure nên không bỏ qua được): lọc `localizedStandardContains` hàng nghìn
@@ -46,7 +48,7 @@ struct BookDetailTOCView: View {
         HStack {
             Image(systemName: "magnifyingglass")
                 .foregroundColor(.secondary)
-            TextField("Tìm kiếm chương...", text: $chapterSearchQuery)
+            TextField("Tìm kiếm \(episodeNoun)...", text: $chapterSearchQuery)
                 .textFieldStyle(.roundedBorder)
                 .textInputAutocapitalization(.none)
             if !chapterSearchQuery.isEmpty {
@@ -76,7 +78,7 @@ struct BookDetailTOCView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text("Danh sách chương (\(totalChaps))")
+                    Text("Danh sách \(episodeNoun) (\(totalChaps))")
                         .font(.headline)
 
                     Button(action: {
@@ -108,7 +110,7 @@ struct BookDetailTOCView: View {
                 if isLoadingTOC && totalChaps == 0 {
                     HStack {
                         Spacer()
-                        ProgressView("Đang tải danh sách chương...")
+                        ProgressView("Đang tải danh sách \(episodeNoun)...")
                             .padding(.vertical, 30)
                         Spacer()
                     }

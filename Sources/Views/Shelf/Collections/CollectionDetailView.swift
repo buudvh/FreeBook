@@ -121,7 +121,7 @@ struct CollectionDetailView: View {
         }
         .fullScreenCover(item: $readerRoute) { route in
             NavigationStack {
-                ReaderView(
+                BookContentDestination(
                     bookId: route.bookId,
                     extensionPackageId: route.extensionPackageId,
                     chapterIndex: route.chapterIndex,

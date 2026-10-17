@@ -4,11 +4,16 @@ import SwiftUI
 ///
 /// Mỗi nhóm: chip "Tất cả" (sáng khi nhóm rỗng, bấm = bỏ chọn cả nhóm) rồi các giá trị; bỏ hết chip thì
 /// "Tất cả" tự sáng lại. Luật lọc (HOẶC trong nhóm, VÀ giữa nhóm) nằm ở `RepositoryFilterPolicy`.
+///
+/// `allTypes`/`allLocales` là **khoá nhóm** (`ExtensionFilterGroups`) theo thứ tự cố định, chỉ gồm nhóm có ít nhất
+/// một tiện ích; chip hiện nhãn nhóm kèm số lượng, vd "Truyện chữ (494)".
 public struct FilterSheet: View {
     @Environment(\.dismiss) internal var dismiss
     public let allAuthors: [String]
     public let allLocales: [String]
     public let allTypes: [String]
+    public let typeCounts: [String: Int]
+    public let localeCounts: [String: Int]
 
     @Binding public var filterTypes: Set<String>
     @Binding public var filterLocales: Set<String>
@@ -18,6 +23,8 @@ public struct FilterSheet: View {
         allAuthors: [String],
         allLocales: [String],
         allTypes: [String],
+        typeCounts: [String: Int] = [:],
+        localeCounts: [String: Int] = [:],
         filterTypes: Binding<Set<String>>,
         filterLocales: Binding<Set<String>>,
         filterAuthors: Binding<Set<String>>
@@ -25,6 +32,8 @@ public struct FilterSheet: View {
         self.allAuthors = allAuthors
         self.allLocales = allLocales
         self.allTypes = allTypes
+        self.typeCounts = typeCounts
+        self.localeCounts = localeCounts
         self._filterTypes = filterTypes
         self._filterLocales = filterLocales
         self._filterAuthors = filterAuthors
@@ -35,10 +44,11 @@ public struct FilterSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     chipGroup(title: "Loại tiện ích", options: allTypes, selection: $filterTypes) {
-                        ExtensionDisplayCatalog.label(forType: $0)
+                        Self.countedLabel(ExtensionFilterGroups.typeGroupLabel($0), count: typeCounts[$0])
                     }
                     chipGroup(title: "Ngôn ngữ", options: allLocales, selection: $filterLocales) {
-                        ExtensionDisplayCatalog.label(forLocale: $0)
+                        let label = "\(ExtensionFilterGroups.localeGroupFlag($0)) \(ExtensionFilterGroups.localeGroupLabel($0))"
+                        return Self.countedLabel(label, count: localeCounts[$0])
                     }
                     chipGroup(title: "Tác giả", options: allAuthors, selection: $filterAuthors) { $0 }
                 }
@@ -100,6 +110,12 @@ public struct FilterSheet: View {
                 }
             }
         }
+    }
+
+    /// "Nhãn (n)"; không có số (chip đã chọn nhưng nhóm không còn tiện ích) thì chỉ nhãn.
+    private static func countedLabel(_ label: String, count: Int?) -> String {
+        guard let count, count > 0 else { return label }
+        return "\(label) (\(count))"
     }
 
     private func chip(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
