@@ -6,8 +6,9 @@ import UIKit
 ///
 /// `MPRemoteCommandCenter` là một instance dùng chung với TTS (`TTSNowPlayingController` gắn target một lần lúc khởi
 /// động, không gỡ) ⇒ phân xử bằng cờ `isHoldingSession`:
-/// - Video giữ phiên từ lúc bắt đầu phát (`claim()`) tới khi đóng hẳn (`release(handBackToTTS: true)`) hoặc khi TTS
-///   bắt đầu/tiếp tục phát (`yieldToTTS()` — video tạm dừng rồi trả phiên).
+/// - Video giữ phiên từ lúc bắt đầu phát (`claim()`) tới khi không còn item phát native — đóng hẳn, item lỗi,
+///   chuyển sang trang nhúng (`release(handBackToTTS: true)`) — hoặc khi TTS bắt đầu/tiếp tục phát (`yieldToTTS()` —
+///   video tạm dừng rồi trả phiên). Đổi tập/server: vẫn giữ phiên nhưng báo trạng thái dừng (`publishLoading`).
 /// - Trong lúc giữ: mọi hàm ghi Now Playing / bật-tắt lệnh của TTS (`TTSManager+NowPlaying`) và handler của
 ///   `TTSNowPlayingController` đều bỏ qua; target của video chỉ tồn tại trong lúc giữ phiên.
 /// - Chỉ gỡ đúng token target của video (`removeTarget(token)`), không bao giờ `removeTarget(nil)` (sẽ gỡ cả của TTS).
@@ -81,11 +82,13 @@ final class VideoNowPlayingCoordinator {
         }
     }
 
-    /// TTS bắt đầu/tiếp tục phát trong lúc video giữ phiên (hook ở `TTSManager+NowPlaying`): video tạm dừng và trả phiên.
+    /// TTS bắt đầu/tiếp tục phát (hook ở `TTSManager+NowPlaying`). Video luôn được báo (`pauseForTTS`) — kể cả khi
+    /// chưa giữ phiên: item đang nạp thì không tự phát khi sẵn sàng, trang nhúng thì dừng media. Đang giữ phiên thì
+    /// trả phiên luôn.
     func yieldToTTS() {
+        actions?.pauseForTTS()
         guard isHoldingSession else { return }
         AppLogger.shared.log("⏸️ [VideoNowPlaying] TTS bắt đầu phát ⇒ tạm dừng video, nhường điều khiển màn khoá")
-        actions?.pauseForTTS()
         release(handBackToTTS: false)
     }
 
@@ -121,6 +124,22 @@ final class VideoNowPlayingCoordinator {
         infoCenter.nowPlayingInfo = info
         infoCenter.playbackState = isPlaying ? .playing : .paused
         MPRemoteCommandCenter.shared().nextTrackCommand.isEnabled = hasNextEpisode
+    }
+
+    /// Đang nạp item mới (đổi tập / đổi server / thử lại) mà video vẫn giữ phiên: báo dừng (`rate 0`, `.paused`) với tên
+    /// tập mới — màn khoá không chạy tiếp đồng hồ của item cũ. Không đặt độ dài (thiếu độ dài ≠ phát trực tiếp).
+    func publishLoading(title: String, album: String) {
+        guard isHoldingSession else { return }
+        var info: [String: Any] = [:]
+        info[MPMediaItemPropertyTitle] = title
+        info[MPMediaItemPropertyAlbumTitle] = album
+        info[MPMediaItemPropertyArtist] = album
+        info[MPNowPlayingInfoPropertyMediaType] = MPNowPlayingInfoMediaType.video.rawValue
+        info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = 0.0
+        info[MPNowPlayingInfoPropertyPlaybackRate] = 0.0
+        let infoCenter = MPNowPlayingInfoCenter.default()
+        infoCenter.nowPlayingInfo = info
+        infoCenter.playbackState = .paused
     }
 
     /// `TTSManager.stopPlayback` (file gốc, không sửa được) xoá thẳng `nowPlayingInfo` mà không qua guard ⇒ tick của

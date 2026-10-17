@@ -132,6 +132,7 @@ extension VideoPlaybackSession {
             return
         }
         saveProgress(reason: "đổi tập")
+        beginUserRequestedPlayback()
         beginEpisodeLoad(episode.index, resumeSeconds: 0)
     }
 
@@ -145,6 +146,7 @@ extension VideoPlaybackSession {
         guard launch != nil, servers.indices.contains(index) else { return }
         if index == selectedServerIndex, phase == .playing || phase == .buffering { return }
         UserDefaults.standard.set(servers[index].title, forKey: serverDefaultsKey)
+        beginUserRequestedPlayback()
         beginServerLoad(at: index, resumeSeconds: resumePointForReload())
     }
 
@@ -157,6 +159,7 @@ extension VideoPlaybackSession {
 
     func retry() {
         guard launch != nil else { return }
+        beginUserRequestedPlayback()
         if let index = selectedServerIndex, servers.indices.contains(index) {
             beginServerLoad(at: index, resumeSeconds: resumePointForReload())
         } else if !episodes.isEmpty {
@@ -267,5 +270,7 @@ extension VideoPlaybackSession {
     func fail(generation: Int, message: String) {
         guard isCurrent(generation) else { return }
         phase = .failed(message)
+        // Không còn item phát ⇒ không giữ phiên màn khoá (TTS dựng lại lệnh của nó nếu đang có widget).
+        VideoNowPlayingCoordinator.shared.release(handBackToTTS: true)
     }
 }

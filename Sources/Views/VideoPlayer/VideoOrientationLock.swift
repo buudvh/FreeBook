@@ -5,10 +5,13 @@ import UIKit
 /// - Nút **Xoay**: `requestGeometryUpdate` sang ngang/dọc ngay, không cần nghiêng máy. Hướng giữ nguyên tới khi máy
 ///   được xoay thật.
 /// - **Khoá xoay**: `supportedMask` chỉ còn hướng hiện tại.
-///   - `VideoPlayerHostingController` (đường mở lại từ hub/PiP) trả mask này ⇒ khoá cứng.
-///   - Đường `fullScreenCover` của router do SwiftUI giữ view controller, không đọc mask ⇒ dự phòng: máy xoay khi đang
-///     khoá thì xin lại hướng đã khoá (có thể thấy giật một nhịp). Muốn khoá cứng mọi đường, app delegate trả
-///     `VideoOrientationLock.supportedMask` trong `application(_:supportedInterfaceOrientationsFor:)`.
+///   - `VideoPlayerHostingController` (đường mở lại từ hub/PiP, trình bày `.overFullScreen`) trả mask này — có hiệu
+///     lực khi UIKit hỏi VC được trình bày; không chắc với mọi phiên bản iOS nên vẫn có dự phòng bên dưới.
+///   - Đường `fullScreenCover` của router do SwiftUI giữ view controller, không đọc mask ⇒ dự phòng (cả hai đường):
+///     máy xoay khi đang khoá thì xin lại hướng đã khoá (có thể thấy giật một nhịp). Muốn khoá cứng mọi đường, app
+///     delegate trả `VideoOrientationLock.supportedMask` trong `application(_:supportedInterfaceOrientationsFor:)`.
+///   - Khoá ở ngang rồi bấm Xoay dọc thì khoá theo dọc; nút khoá xoay vẫn hiện khi đang khoá (`VideoPlayerTopBar`)
+///     để mở khoá được ở màn dọc.
 @MainActor
 enum VideoOrientationLock {
     /// Hướng được phép khi đang khoá; `nil` = theo cảm biến.

@@ -6,6 +6,8 @@ import SwiftUI
 /// - Đang nạp / lỗi / nhúng: luôn hiện thanh trên (thu nhỏ, đóng, server…) vì lớp trạng thái phía dưới chặn chạm;
 ///   cụm giữa và thanh dưới chỉ có khi có item phát native.
 /// - Nền chuyển màu chỉ để đọc chữ, không nhận chạm — vùng trống rơi xuống `VideoGestureLayer`.
+/// - Tự ẩn chỉ làm trong suốt + tắt nhận chạm, **không** gỡ khỏi cây view: `Menu` (tốc độ, server, `⋯`) đang mở mà
+///   neo của nó bị gỡ thì menu mất neo.
 struct VideoPlayerControlsOverlay: View {
     let session: VideoPlaybackSession
     let controller: VideoPlayerController
@@ -17,11 +19,9 @@ struct VideoPlayerControlsOverlay: View {
     var body: some View {
         ZStack {
             if controller.isTouchLocked {
-                if controller.controlsVisible {
-                    unlockButton
-                }
-            } else if controller.controlsVisible || !session.hasPlayableItem {
-                controls
+                revealed(unlockButton, when: controller.controlsVisible)
+            } else {
+                revealed(controls, when: controller.controlsVisible || !session.hasPlayableItem)
             }
         }
         .animation(.easeInOut(duration: 0.2), value: controller.controlsVisible)
@@ -107,6 +107,13 @@ struct VideoPlayerControlsOverlay: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
+    }
+
+    private func revealed(_ content: some View, when visible: Bool) -> some View {
+        content
+            .opacity(visible ? 1 : 0)
+            .allowsHitTesting(visible)
+            .accessibilityHidden(!visible)
     }
 
     private var unlockButton: some View {

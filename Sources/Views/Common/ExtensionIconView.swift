@@ -4,8 +4,28 @@ struct ExtensionIconView: View {
     let localPath: String
     let iconUrl: String?
     let size: CGFloat
-    
+    /// Tiện ích chưa cài (mục catalog ở Kho) không có `localPath` — truyền `packageId` để vẫn tra được NSFW.
+    var packageId: String? = nil
+
     var body: some View {
+        iconContent
+            .overlay(alignment: .topTrailing) {
+                if isNsfw {
+                    ExtensionNsfwBadge(iconSize: size)
+                }
+            }
+    }
+
+    /// Nhãn 18+ cho tiện ích NSFW: tra theo `packageId` nếu có, không thì suy từ `localPath` của bản đã cài.
+    private var isNsfw: Bool {
+        guard let id = packageId ?? ExtensionLibraryRepository.packageId(forLocalPath: localPath), !id.isEmpty else {
+            return false
+        }
+        return RepositoryFilterPolicy.isNsfwSource(packageId: id)
+    }
+
+    @ViewBuilder
+    private var iconContent: some View {
         if let uiImage = ExtensionIconImageCache.shared.icon(forExtensionAt: localPath) {
             Image(uiImage: uiImage)
                 .resizable()

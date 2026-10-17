@@ -7,6 +7,7 @@ extension VideoPlaybackSession {
 
     func play() {
         guard launch != nil else { return }
+        autoplayBlockedByTTS = false
         if embedContent != nil {
             requestScreen()
             return
@@ -39,11 +40,31 @@ extension VideoPlaybackSession {
         }
     }
 
-    /// TTS giành phiên (`VideoNowPlayingCoordinator.yieldToTTS`).
+    /// TTS bắt đầu/tiếp tục đọc (`VideoNowPlayingCoordinator.yieldToTTS`) — kể cả khi video chưa giữ phiên (đang nạp
+    /// item, đang nhúng trang). Cờ đặt TRƯỚC mọi guard: item nạp xong (`readyToPlay`) không được tự phát dập TTS.
     func pauseForTTS() {
+        guard launch != nil else { return }
+        autoplayBlockedByTTS = true
+        if embedContent != nil {
+            // Media của trang nhúng không điều khiển được từ native ⇒ nhờ WKWebView đang hiện dừng hết media của nó.
+            // Màn đã thu nhỏ thì WKWebView đã bị huỷ cùng màn, không còn gì phát.
+            AppLogger.shared.log("⏸️ [VideoPlayer] TTS bắt đầu phát ⇒ tạm dừng media trang nhúng")
+            embedPauseRequest += 1
+            return
+        }
         guard player.timeControlStatus != .paused else { return }
         AppLogger.shared.log("⏸️ [VideoPlayer] TTS bắt đầu phát ⇒ tạm dừng video")
         player.pause()
+    }
+
+    /// Người dùng chủ động chọn phát (mở phim mới, chọn tập, chọn server, thử lại): bỏ cờ nhường TTS và tạm dừng TTS
+    /// ngay để item mới tự phát khi sẵn sàng. Tự sang tập kế lúc hết tập **không** đi qua đây — vẫn tôn trọng cờ.
+    func beginUserRequestedPlayback() {
+        autoplayBlockedByTTS = false
+        let tts = TTSManager.shared
+        guard tts.isPlaying else { return }
+        AppLogger.shared.log("⏸️ [VideoPlayer] Người dùng chọn phát video ⇒ tạm dừng TTS")
+        tts.pause()
     }
 
     // MARK: - Tua
@@ -162,7 +183,8 @@ extension VideoPlaybackSession {
     }
 
     /// Khôi phục từ cửa sổ PiP: màn hình còn hiện thì xong ngay; đã thu nhỏ thì mở lại trình phát, xong mới báo AVKit
-    /// (layer phải nằm trong cửa sổ để PiP thu về đúng chỗ).
+    /// (layer phải nằm trong cửa sổ để PiP thu về đúng chỗ). `stop()` gỡ `launch` trước khi tắt PiP ⇒ phim vừa đóng
+    /// rơi vào guard đầu, không bị mở lại màn.
     private func restoreFromPictureInPicture(completion: @escaping (Bool) -> Void) {
         guard launch != nil else {
             completion(false)

@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.503] - 2026-10-09
+
+### revert(vieneu): bo cong tac chong doc lap, ghi chu 1.15x it lap nhat de nguoi dung tu chinh
+
+Người dùng: *"bỏ cái nút chống đọc lặp đi, ghi để người dùng biết 1.15 là ít lặp nhất và họ tự điều chỉnh là được. lần sau sửa phải có plan chờ tôi duyệt nhé"*.
+
+- **Bỏ** cơ chế của 1.3.501: công tắc "Chống đọc lặp" (`VieNeuAntiRepeatToggle.swift` xoá), sàn tốc độ model 1,15 (`VieNeuSynthesisPolicy.modelSpeed`/`playbackCompensation`/`antiRepeatKey`), tốc độ phát đã bù (`TTSManager.localPlaybackRate`, `NghiAudioPlayerQueue.setRateForUpcoming`). Tốc độ đưa vào model lại đúng bằng tốc độ tổng hợp người dùng chọn; `TTSManager.swift` trả 2 dòng về `speed` (giữ 3550 dòng); màn Thử giọng + dòng chẩn đoán về như 1.3.500. Khoá `vieneuAntiRepeat` đã lưu trên máy (nếu có) không còn ai đọc — vô hại.
+- **Thay bằng ghi chú** dưới thanh "Tốc độ tổng hợp (VieNeu)": *"Mẹo: 1.15x là mức ít bị đọc lặp chữ nhất (ở 1.00x thỉnh thoảng lặp kiểu "đến đó, đó là"); quá 1.25x bắt đầu mất chữ. Khi tăng tốc độ tổng hợp, hạ tốc độ phát tương ứng để giữ tốc độ nghe thực tế."* — dựa trên số đo của 1.3.501 (200 mẫu/mức: lặp 1,00 ≈ 7, 1,10 = 1, 1,15 = 1, 1,25 = 0), số đo ghi lại trong doc của `VieNeuSynthesisPolicy.synthesisSpeed` và `rules.md`.
+- **Giữ** hai bản sửa phụ của 1.3.501 vì chúng sửa lỗi có sẵn của thanh tốc độ tổng hợp: đổi tốc độ ⇒ `resetNextChapterPrefixCache()` (prefix chương kế tổng hợp ở tốc độ cũ không còn lọt vào đầu chương sau) và đoạn hiện tại **chưa vào player** thì huỷ lượt đang bay + tổng hợp lại.
+- Quy trình: từ nay mọi thay đổi code trình plan và chờ người dùng duyệt trước khi sửa.
+- **Kiểm chứng**: grep `Sources/` không còn `modelSpeed`/`playbackCompensation`/`antiRepeat`/`localPlaybackRate`/`setRateForUpcoming`; `NghiAudioPlayerQueue.swift`, `VieNeuTTSTestView(+Diagnostics).swift` giống hệt 1.3.500; `check_architecture.py` 2 vi phạm nền cũ, 0 mới (`TTSManager.swift` giữ 3550). **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`.
+
 ## [1.3.502] - 2026-10-09
 
 ### feat(vieneu): buoc thanh toc do tong hop 0.1 -> 0.05

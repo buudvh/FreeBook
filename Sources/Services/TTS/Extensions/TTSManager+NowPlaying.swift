@@ -4,7 +4,8 @@ import UIKit
 
 /// Phân xử với video (`VideoNowPlayingCoordinator`): khi video giữ phiên điều khiển màn khoá, mọi hàm ghi Now Playing /
 /// bật-tắt lệnh ở file này bỏ qua để không ghi đè trạng thái của video. TTS bắt đầu/tiếp tục phát (bật lệnh, hoặc đặt
-/// trạng thái `.playing`) thì video tạm dừng và trả phiên trước, rồi TTS cấu hình như thường.
+/// trạng thái `.playing`) thì video tạm dừng và trả phiên trước, rồi TTS cấu hình như thường. Riêng trạng thái
+/// `.playing` luôn báo video (kể cả khi video không giữ phiên) để item đang nạp không tự phát chồng và trang nhúng dừng.
 extension TTSManager {
     internal func setRemoteCommandsEnabled(_ enabled: Bool) {
         let video = VideoNowPlayingCoordinator.shared
@@ -52,9 +53,13 @@ extension TTSManager {
     @MainActor
     internal func setSystemNowPlayingPlaybackState(_ state: MPNowPlayingPlaybackState) {
         let video = VideoNowPlayingCoordinator.shared
-        if video.isHoldingSession {
-            guard state == .playing else { return }
+        if state == .playing {
+            // TTS thật sự bắt đầu/tiếp tục đọc ⇒ báo video cả khi video chưa giữ phiên (đang nạp item, đang nhúng
+            // trang). Không hook ở `setRemoteCommandsEnabled(true)`: `reclaimRemoteControlsAfterVideo` cũng gọi nó
+            // khi TTS chỉ đang tạm dừng.
             video.yieldToTTS()
+        } else if video.isHoldingSession {
+            return
         }
         let center = MPNowPlayingInfoCenter.default()
         var info = center.nowPlayingInfo ?? [:]

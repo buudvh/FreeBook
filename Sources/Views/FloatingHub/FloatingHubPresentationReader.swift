@@ -41,7 +41,7 @@ final class FloatingHubPresentationReader: ObservableObject {
         var unreadCount = 0
 
         var button: ButtonState {
-            ButtonState(activeKinds: items.filter(\.isEnabled).map(\.kind), unreadCount: unreadCount)
+            ButtonState(activeKinds: items.filter(\.isActive).map(\.kind), unreadCount: unreadCount)
         }
     }
 
@@ -149,8 +149,10 @@ final class FloatingHubPresentationReader: ObservableObject {
     /// Dựng đủ ba dòng theo `Kind.allCases` — không nhánh nào được bỏ qua một loại.
     private func makeSnapshot() -> Snapshot {
         let inbox = inboxReader.snapshot
-        let notificationsEnabled = inbox.shouldShowWidget && !isShelfTabActive
-        let unreadCount = notificationsEnabled ? inbox.unreadCount : 0
+        // Thông báo **luôn** chạm được (mở sheet thông báo) và luôn có chấm đỏ khi còn tin chưa đọc. Chỉ việc tính
+        // vào badge số của nút hub mới bỏ qua tab Kệ Sách (tab đó đã có nút chuông riêng).
+        let notificationsActive = inbox.shouldShowWidget && !isShelfTabActive
+        let unreadCount = notificationsActive ? inbox.unreadCount : 0
 
         let items = FloatingHubItem.Kind.allCases.map { kind -> FloatingHubItem in
             switch kind {
@@ -159,9 +161,10 @@ final class FloatingHubPresentationReader: ObservableObject {
             case .notifications:
                 return FloatingHubItem(
                     kind: .notifications,
-                    isEnabled: notificationsEnabled,
+                    isEnabled: true,
                     detail: notificationDetail(inbox: inbox),
-                    badgeCount: unreadCount
+                    badgeCount: inbox.unreadCount,
+                    isActive: notificationsActive
                 )
             case .video:
                 return videoItem()
@@ -173,10 +176,12 @@ final class FloatingHubPresentationReader: ObservableObject {
     /// Trợ lý AI dùng được khi đang chạy **và** màn AI đang đóng — đúng điều kiện có mục trước đây.
     private func aiItem() -> FloatingHubItem {
         let title = aiState.title.isEmpty ? "Đang chạy" : aiState.title
+        let usable = aiState.isRunning && !aiState.isFullScreenPresented
         return FloatingHubItem(
             kind: .ai,
-            isEnabled: aiState.isRunning && !aiState.isFullScreenPresented,
-            detail: aiState.isRunning ? title : "Không có tác vụ"
+            isEnabled: usable,
+            detail: aiState.isRunning ? title : "Không có tác vụ",
+            isActive: usable
         )
     }
 
@@ -191,16 +196,14 @@ final class FloatingHubPresentationReader: ObservableObject {
             isEnabled: true,
             headline: videoState.title,
             detail: videoState.subtitle.isEmpty ? fallback : videoState.subtitle,
-            isPlaying: videoState.isPlaying
+            isPlaying: videoState.isPlaying,
+            isActive: true
         )
     }
 
-    /// Ở tab Kệ Sách thì chỉ chỗ chuông trên toolbar. Còn lại: có chưa đọc thì ưu tiên con số (kể cả khi đồng
-    /// thời có tác vụ chạy); không thì báo đang chạy tác vụ; không có gì thì nói rõ là trống.
+    /// Có chưa đọc thì ưu tiên con số (kể cả khi đồng thời có tác vụ chạy); không thì báo đang chạy tác vụ; không có
+    /// gì thì nói rõ là trống.
     private func notificationDetail(inbox: NotificationInboxPresenceReader.Snapshot) -> String {
-        if isShelfTabActive {
-            return "Xem ở nút chuông của Kệ Sách"
-        }
         if inbox.unreadCount > 0 {
             let count = inbox.unreadCount > 99 ? "99+" : "\(inbox.unreadCount)"
             return "\(count) chưa đọc"

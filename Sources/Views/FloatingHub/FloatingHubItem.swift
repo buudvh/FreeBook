@@ -36,19 +36,19 @@ struct FloatingHubItem: Equatable, Identifiable {
             case .ai:
                 return "sparkles"
             case .notifications:
-                // `bell.fill` chứ không `bell.badge.fill`: dòng đã có badge số riêng, icon có chấm sẵn là hai badge
-                // chồng nhau (1.3.526).
+                // `bell.fill` chứ không `bell.badge.fill`: dòng tự vẽ chấm đỏ chưa đọc lên icon (`FloatingHubMenuRow`),
+                // icon có chấm sẵn là hai chấm chồng nhau.
                 return unreadCount > 0 ? "bell.fill" : "bell"
             case .video:
                 return "play.rectangle"
             }
         }
 
-        /// AI giữ màu tím quen thuộc của widget AI cũ; hai dòng kia theo màu chữ hệ thống.
+        /// AI dùng icon trắng (người dùng chốt 2026-10-17); hai dòng kia theo màu chữ hệ thống.
         var tint: Color {
             switch self {
             case .ai:
-                return .purple
+                return .white
             case .notifications, .video:
                 return .primary
             }
@@ -67,6 +67,9 @@ struct FloatingHubItem: Equatable, Identifiable {
     var badgeCount = 0
     /// Chỉ mục Video dùng: đang phát hay đang dừng (glyph của nút phát/dừng).
     var isPlaying = false
+    /// Đang có việc (tính vào badge số của nút hub). Tách khỏi `isEnabled` vì Thông báo **luôn** chạm được
+    /// nhưng chỉ tính là "đang hoạt động" khi có tin chưa đọc hoặc tác vụ chạy.
+    var isActive = false
 
     var id: Kind { kind }
 

@@ -14,6 +14,8 @@ struct ShelfBookPartition {
     /// `hidesNsfwHistory`: công tắc NSFW toàn app đang tắt ⇒ bỏ sách **lịch sử** của nguồn NSFW (chỉ ẩn hiển thị,
     /// không xoá; sách trên kệ không bị ẩn).
     init(_ books: [Book], hidesNsfwHistory: Bool = false) {
+        // Partition chạy mỗi body: nhớ kết quả NSFW theo nguồn để mỗi `packageId` chỉ tra kho + classifier một lần.
+        var nsfwByPackageId: [String: Bool] = [:]
         for book in books {
             if book.isOnShelf {
                 if book.isPinned {
@@ -22,7 +24,17 @@ struct ShelfBookPartition {
                     unpinned.append(book)
                 }
             } else if book.isHistory {
-                if hidesNsfwHistory && RepositoryFilterPolicy.isNsfwSource(packageId: book.extensionPackageId) { continue }
+                if hidesNsfwHistory {
+                    let packageId = book.extensionPackageId
+                    let isNsfw: Bool
+                    if let cached = nsfwByPackageId[packageId] {
+                        isNsfw = cached
+                    } else {
+                        isNsfw = RepositoryFilterPolicy.isNsfwSource(packageId: packageId)
+                        nsfwByPackageId[packageId] = isNsfw
+                    }
+                    if isNsfw { continue }
+                }
                 history.append(book)
             }
         }

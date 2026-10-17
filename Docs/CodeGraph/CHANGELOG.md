@@ -2,6 +2,63 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.533] - 2026-10-17
+
+### feat: khám phá dạng section, trình phát kiểu Aloha có PiP và phát nền, hub luôn hiện, công tắc NSFW toàn app
+
+Mốc giao diện của plan đợt 2 (`Docs/Plans/2026-10-17-plan-round2-fixes-player-hub.md`), nằm trên nhánh `feature/comic-video`. T3, T4 và T5 chạy song song trên worktree riêng; T6 và các yêu cầu bổ sung làm ở session chính; hai agent review phản biện chéo rồi sửa trước khi chốt. Từ mốc này commit viết tiếng Việt có dấu.
+
+- **Khám phá dạng section (T3)**
+  - `ExtensionManager+Explore` parse `explore` thành `ExploreSection` / `ExploreItem` / `ExploreAction`.
+    - Section: `banner`, `horizontal_list`, `grid`, `list`, `ranking`, `chip`; giá trị lạ thì bỏ qua.
+    - Hình thẻ: `book`, `square`, `circle`, `movie`, `short`.
+  - Nguồn có `explore` thì trang chính dựng section **thay** tab `home`, đúng DOC; `genre` giữ nguyên. Section hiện ngay, `home` và `genre` nạp song song.
+  - "Xem thêm" (`more` kiểu `list`) mở danh sách phân trang. Item không có action thì mở chi tiết theo `link`.
+  - Banner giữ item không có tên nếu có ảnh và có `link` hoặc `action`.
+  - Bìa dùng `RemoteCoverImage`. Referer dự phòng là `source` của tiện ích, tính một lần khi view xuất hiện.
+  - Nhãn `tag` dùng chung `CoverTagBadge` (bỏ `DiscoveryCoverTag`).
+  - `hasScript` đọc `script` dạng `[String: Any]`.
+- **Trình phát tự dựng (T4)**
+  - Kiến trúc:
+    - `VideoPlaybackSession` giữ `AVPlayer` sống lâu hơn màn hình; màn hình chỉ gắn vào, đếm theo từng lần gắn.
+    - `VideoPlayerSurfaceView` (`AVPlayerLayer`) thay `AVPlayerViewController`.
+  - Điều khiển chỉ dùng biểu tượng, theo mockup đã duyệt:
+    - tốc độ, Vừa / Lấp đầy, khoá xoay `lock.rotation`, phụ đề, PiP, server
+    - nút Xoay (`requestGeometryUpdate`), khoá cảm ứng, tập kế, danh sách tập nhóm theo section, nút "Bỏ qua"
+  - Cử chỉ: chạm đúp ±10 giây cộng dồn; vuốt dọc chỉnh độ sáng / âm lượng; vuốt ngang để tua; nhấn giữ phát 2×. Độ sáng được trả lại khi rời trình phát.
+  - Thu nhỏ để phát nền qua `VideoMiniPlayerState`. Mở lại bằng `VideoPlayerPresenter` dạng `.overFullScreen`, nên màn đọc bên dưới không bị tháo.
+  - PiP tự bật khi rời app. Không bật được PiP thì tách hình và chỉ phát tiếng, có background task.
+  - Màn khoá và Now Playing:
+    - `VideoNowPlayingCoordinator` giữ phiên màn khoá chỉ khi có item đang phát.
+    - TTS bỏ qua lệnh màn khoá khi video giữ phiên (`TTSManager+NowPlaying`, `TTSNowPlayingController`), không sửa `TTSManager.swift`.
+  - Ưu tiên TTS:
+    - Video đã nhường TTS thì không tự phát khi tải xong.
+    - TTS bắt đầu đọc thì media của trang nhúng tạm dừng.
+  - Giữ màn sáng qua `ScreenIdleTimerLock` dùng chung với màn đọc truyện tranh; chỉ giữ khi màn trình phát đang hiện.
+  - **Dailymotion mất tiếng (giả thuyết, chưa kiểm trên máy)**:
+    - Trình bắt link gom thêm m3u8 trong 1,5 giây.
+    - `VideoHLSPlaylistProbe` tải tối đa 6 ứng viên và ưu tiên playlist gốc (`#EXT-X-STREAM-INF`).
+    - Log loại playlist đã chọn (chỉ host và tên file). Cái giá: mỗi lần mở HLS chậm thêm khoảng 1,5 giây.
+- **Hub và widget (T5 + bổ sung)**
+  - Hub luôn hiện, bấm là bung đủ 3 dòng cố định: Trợ lý AI, Thông báo, Video. Dòng nào không dùng được thì xám; dòng có định danh cố định, trạng thái đổi không làm vẽ lại.
+  - Ẩn khi `FloatingWidgetSuppression` bật (đang xem phim toàn màn).
+  - Thông báo **luôn** bấm được. Có tin chưa đọc thì hiện chấm đỏ trên icon chuông; số lượng ghi ở dòng phụ.
+  - Icon AI đổi sang màu trắng.
+  - Badge số của nút hub chỉ đếm mục đang có việc (`FloatingHubItem.isActive`).
+  - Hub nép vào mép thì nút mờ còn 0,5.
+  - Widget trình duyệt tách lại thành cửa sổ riêng (`alert-3`): nút mờ 0,7 khi nghỉ, đậm 1,0 khi chạm hoặc kéo; dùng lại khoá vị trí cũ.
+  - Widget TTS cũng ẩn theo `FloatingWidgetSuppression`.
+- **Công tắc NSFW toàn app (T6)**
+  - Khoá chung `extFilterIncludeNsfw` dùng ở Cài đặt › Thư Viện › "Nội dung nhạy cảm (NSFW)" (màn riêng `NsfwSettingsView`, có công tắc và giải thích) và ở bộ lọc Kho.
+  - Mặc định tắt và **tự tắt lại mỗi lần mở app** (`resetNsfwVisibilityOnLaunch`).
+  - Khi tắt:
+    - Khám phá ẩn nguồn NSFW và tự chuyển sang nguồn khác, kể cả khi mở lại app. Nếu mọi nguồn đều bị ẩn thì báo trạng thái rỗng.
+    - Tab Lịch sử và phần tìm trong lịch sử ẩn sách của nguồn NSFW. Sách trên Kệ không bị ẩn.
+  - Nhãn **18+** (chữ trắng, nền đỏ) ở góc icon của mọi tiện ích NSFW (`ExtensionNsfwBadge` trong `ExtensionIconView` và dòng Kho).
+- **Xoá lịch sử theo khoảng**: "Xoá tất cả lịch sử" mở hộp chọn 1 giờ / 1 ngày / 30 ngày / Tất cả. Chỉ xoá sách đang hiển thị (lịch sử NSFW đang ẩn được giữ), qua `BookStorageManager.deleteBooksAsync`.
+- **Khám phá ổn định hơn**: lượt tải mới huỷ lượt cũ, kết quả chỉ được ghi khi nguồn vẫn đang được chọn, và không tải hai lần khi tự chuyển nguồn.
+- **Kiểm chứng**: `check_architecture.py` **2 violation, 0 mới**. Không build tại chỗ (Windows); CI chỉ xác nhận biên dịch. PiP, phát nền, màn khoá, cử chỉ, xoay và cửa sổ nổi chỉ kiểm được trên máy.
+
 ## [1.3.532] - 2026-10-17
 
 ### fix: sua host/url va bia gui referer, parse an toan, nhom tap theo server, loc nsfw, cong tac luu lich su
@@ -538,15 +595,3 @@ Người dùng: *"khi vào reader truyện khác bấm vào widget thu nhỏ th�
 - Hành vi mới: ở Reader B bấm widget ⇒ mở AI của **A** đè lên Reader B; đóng ⇒ về Reader B. Nút AI của chính Reader B vẫn mở AI của B như trước.
 - `rules.md`: thêm 1 bullet vào mục "Reader AI FullScreen & Background Session Invariants".
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới (`ReaderView.swift` 2051/2053). **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`.
-
-## [1.3.503] - 2026-10-09
-
-### revert(vieneu): bo cong tac chong doc lap, ghi chu 1.15x it lap nhat de nguoi dung tu chinh
-
-Người dùng: *"bỏ cái nút chống đọc lặp đi, ghi để người dùng biết 1.15 là ít lặp nhất và họ tự điều chỉnh là được. lần sau sửa phải có plan chờ tôi duyệt nhé"*.
-
-- **Bỏ** cơ chế của 1.3.501: công tắc "Chống đọc lặp" (`VieNeuAntiRepeatToggle.swift` xoá), sàn tốc độ model 1,15 (`VieNeuSynthesisPolicy.modelSpeed`/`playbackCompensation`/`antiRepeatKey`), tốc độ phát đã bù (`TTSManager.localPlaybackRate`, `NghiAudioPlayerQueue.setRateForUpcoming`). Tốc độ đưa vào model lại đúng bằng tốc độ tổng hợp người dùng chọn; `TTSManager.swift` trả 2 dòng về `speed` (giữ 3550 dòng); màn Thử giọng + dòng chẩn đoán về như 1.3.500. Khoá `vieneuAntiRepeat` đã lưu trên máy (nếu có) không còn ai đọc — vô hại.
-- **Thay bằng ghi chú** dưới thanh "Tốc độ tổng hợp (VieNeu)": *"Mẹo: 1.15x là mức ít bị đọc lặp chữ nhất (ở 1.00x thỉnh thoảng lặp kiểu "đến đó, đó là"); quá 1.25x bắt đầu mất chữ. Khi tăng tốc độ tổng hợp, hạ tốc độ phát tương ứng để giữ tốc độ nghe thực tế."* — dựa trên số đo của 1.3.501 (200 mẫu/mức: lặp 1,00 ≈ 7, 1,10 = 1, 1,15 = 1, 1,25 = 0), số đo ghi lại trong doc của `VieNeuSynthesisPolicy.synthesisSpeed` và `rules.md`.
-- **Giữ** hai bản sửa phụ của 1.3.501 vì chúng sửa lỗi có sẵn của thanh tốc độ tổng hợp: đổi tốc độ ⇒ `resetNextChapterPrefixCache()` (prefix chương kế tổng hợp ở tốc độ cũ không còn lọt vào đầu chương sau) và đoạn hiện tại **chưa vào player** thì huỷ lượt đang bay + tổng hợp lại.
-- Quy trình: từ nay mọi thay đổi code trình plan và chờ người dùng duyệt trước khi sửa.
-- **Kiểm chứng**: grep `Sources/` không còn `modelSpeed`/`playbackCompensation`/`antiRepeat`/`localPlaybackRate`/`setRateForUpcoming`; `NghiAudioPlayerQueue.swift`, `VieNeuTTSTestView(+Diagnostics).swift` giống hệt 1.3.500; `check_architecture.py` 2 vi phạm nền cũ, 0 mới (`TTSManager.swift` giữ 3550). **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`.

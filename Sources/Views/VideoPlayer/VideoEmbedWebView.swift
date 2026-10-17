@@ -6,8 +6,12 @@ import WebKit
 ///
 /// `updateUIView` chạy theo mỗi lần màn cha vẽ lại ⇒ so với nội dung đã nạp trong Coordinator,
 /// chỉ nạp lại khi thật sự đổi trang. Trang chỉ nhận `User-Agent` và `Referer` (hợp đồng extension), lấy từ `EmbedContent`.
+///
+/// `pauseRequest` (`VideoPlaybackSession.embedPauseRequest`) đổi ⇒ dừng mọi media của trang (TTS bắt đầu đọc); giá
+/// trị lúc tạo WebView chỉ làm mốc, không dừng.
 struct VideoEmbedWebView: UIViewRepresentable {
     let content: VideoPlaybackSession.EmbedContent
+    let pauseRequest: Int
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -25,12 +29,17 @@ struct VideoEmbedWebView: UIViewRepresentable {
         webView.scrollView.backgroundColor = .black
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.navigationDelegate = context.coordinator
+        context.coordinator.appliedPauseRequest = pauseRequest
         context.coordinator.load(content, into: webView)
         return webView
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
         context.coordinator.load(content, into: webView)
+        if context.coordinator.appliedPauseRequest != pauseRequest {
+            context.coordinator.appliedPauseRequest = pauseRequest
+            webView.pauseAllMediaPlayback(completionHandler: {})
+        }
     }
 
     static func dismantleUIView(_ webView: WKWebView, coordinator: Coordinator) {
@@ -45,6 +54,8 @@ struct VideoEmbedWebView: UIViewRepresentable {
     /// Chặn quảng cáo chuyển hướng: domain trong danh sách chặn chung (`isEngineDomainBlocked`) bị huỷ ở mọi frame;
     /// sau khi trang đầu nạp xong, khung chính (main frame) không được rời host của trang đó — iframe vẫn tự do.
     final class Coordinator: NSObject, WKNavigationDelegate {
+        /// Lượt yêu cầu dừng media đã áp dụng (`VideoEmbedWebView.pauseRequest`).
+        var appliedPauseRequest = 0
         private var loadedContent: VideoPlaybackSession.EmbedContent?
         /// Host khung chính sau lần nạp đầu (cập nhật tới `didFinish` để chuyển hướng lúc nạp vẫn đi qua).
         private var pinnedHost: String?

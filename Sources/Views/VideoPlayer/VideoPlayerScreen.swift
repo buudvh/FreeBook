@@ -68,7 +68,7 @@ struct VideoPlayerScreen: View {
             if let launch {
                 session.open(launch, modelContainer: modelContext.container)
             }
-            session.attachScreen()
+            session.attachScreen(controller)
             controller.onMinimizeRequest = { leave(stopPlayback: false) }
             controller.showControls()
             FloatingWidgetSuppression.shared.isSuppressed = suppressesFloatingWidgets
@@ -81,7 +81,9 @@ struct VideoPlayerScreen: View {
             controller.onMinimizeRequest = nil
             FloatingWidgetSuppression.shared.isSuppressed = false
             VideoOrientationLock.resetForExit()
-            session.detachScreen()
+            // `resetForExit` vừa bỏ khoá ⇒ đồng bộ nút khoá xoay nếu màn này hiện lại.
+            controller.isOrientationLocked = false
+            session.detachScreen(controller)
         }
     }
 

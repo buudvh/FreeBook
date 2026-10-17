@@ -16,9 +16,9 @@ extension VideoPlaybackSession {
         resolver = nil
         detachCurrentItem()
         if embedContent != nil {
-            // Trang nhúng không báo pause ⇒ tự trả khoá màn hình khi rời trang.
-            setIdleTimerDisabled(false)
             embedContent = nil
+            // Trang nhúng không báo pause ⇒ tự trả khoá màn hình khi rời trang.
+            refreshIdleTimer()
         }
         cues = []
         timeSkips = []
@@ -30,6 +30,8 @@ extension VideoPlaybackSession {
         bufferedSeconds = 0
         reachedEndOfItem = false
         pendingResumeSeconds = resumeSeconds > 5 ? resumeSeconds : nil
+        // Màn khoá không chạy tiếp đồng hồ của item cũ trong lúc nạp item mới.
+        VideoNowPlayingCoordinator.shared.publishLoading(title: currentEpisodeLabel, album: bookTitle)
         loadGeneration += 1
         return loadGeneration
     }
@@ -90,7 +92,10 @@ extension VideoPlaybackSession {
             pendingResumeSeconds = nil
             phase = .embed
             prepareAudioForPlayback(claimRemoteControls: false)
-            setIdleTimerDisabled(true)
+            // Không điều khiển được media của trang ⇒ không giữ phiên màn khoá (gọi SAU khi đã tạm dừng TTS).
+            VideoNowPlayingCoordinator.shared.release(handBackToTTS: true)
+            refreshIdleTimer()
+            syncMiniPlayerState()
             // Nhúng thì không biết giây đang xem ⇒ vẫn ghi tập vào Lịch sử với giây = 0.
             saveProgress(reason: "nhúng", seconds: 0)
         }
@@ -209,6 +214,15 @@ extension VideoPlaybackSession {
                 AppLogger.shared.log("⏩ [VideoPlayer] Tua tới giây đã lưu: \(resume)")
             }
             refreshTimeline()
+            guard !autoplayBlockedByTTS, !TTSManager.shared.isPlaying else {
+                // Video đã nhường TTS / TTS đang đọc ⇒ chỉ chuẩn bị item, chờ người dùng bấm phát. `rate` còn khác 0
+                // (thay item khi đang phát) thì AVPlayer sẽ tự phát ⇒ dừng hẳn.
+                autoplayBlockedByTTS = true
+                if player.timeControlStatus != .paused { player.pause() }
+                phase = .playing
+                AppLogger.shared.log("⏸️ [VideoPlayer] Item sẵn sàng nhưng TTS đang đọc / video đã nhường TTS ⇒ không tự phát")
+                return
+            }
             prepareAudioForPlayback()
             // `play()` dùng `defaultRate` ⇒ giữ tốc độ người dùng chọn qua các tập.
             player.play()
@@ -225,6 +239,8 @@ extension VideoPlaybackSession {
         guard isCurrentItem(itemId) else { return }
         AppLogger.shared.log("❌ [VideoPlayer] AVPlayerItem lỗi (tập \(currentEpisodeIndex), server «\(selectedServerTitle)»): \(message)")
         phase = .failed("Không phát được video: \(message)")
+        // Không còn item phát ⇒ không giữ phiên màn khoá (TTS dựng lại lệnh của nó nếu đang có widget).
+        VideoNowPlayingCoordinator.shared.release(handBackToTTS: true)
     }
 
     func handleTimeControlChange() {
@@ -233,6 +249,7 @@ extension VideoPlaybackSession {
         if isPlaying != playing { isPlaying = playing }
         let buffering = status == .waitingToPlayAtSpecifiedRate
         if isBuffering != buffering { isBuffering = buffering }
+        refreshIdleTimer()
         guard launch != nil else { return }
         switch status {
         case .playing:
@@ -240,15 +257,15 @@ extension VideoPlaybackSession {
                 wasPlaying = true
                 // Xem lại sau khi hết tập cuối ⇒ lượt tạm dừng sau đó lại được lưu.
                 reachedEndOfItem = false
+                // Phát thật (kể cả nút phát của PiP, đi thẳng vào `AVPlayer`) ⇒ không còn nhường TTS.
+                autoplayBlockedByTTS = false
                 // Phát lại từ màn khoá / hub sau khi TTS được bật lại ⇒ kiểm tra mỗi lần.
                 prepareAudioForPlayback()
-                setIdleTimerDisabled(true)
                 if phase == .buffering { phase = .playing }
             }
         case .paused:
             if wasPlaying {
                 wasPlaying = false
-                setIdleTimerDisabled(false)
                 // KVO `.paused` đến SAU `handlePlayedToEnd` ⇒ đừng ghi đè giây 0 bằng giây ≈ độ dài phim.
                 if !reachedEndOfItem { saveProgress(reason: "tạm dừng") }
             }

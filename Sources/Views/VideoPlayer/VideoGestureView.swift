@@ -10,6 +10,9 @@ import AVFoundation
 ///
 /// Âm lượng hệ thống chỉ chỉnh được qua `UISlider` của `MPVolumeView` ⇒ giữ một `MPVolumeView` gần như trong suốt
 /// (alpha 0.01, không `isHidden` — ẩn hẳn thì không chỉnh được và iOS hiện HUD âm lượng của hệ thống).
+///
+/// Độ sáng là của cả máy, iOS không tự trả lại khi rời app ⇒ chụp độ sáng gốc ở lần vuốt đầu và trả lại khi view rời
+/// cửa sổ (đóng / thu nhỏ trình phát, chuyển sang trang nhúng) hoặc app mất active (`willResignActive`).
 final class VideoGestureView: UIView {
     enum Side {
         case leading
@@ -48,6 +51,8 @@ final class VideoGestureView: UIView {
     private let volumeView = MPVolumeView(frame: CGRect(x: -200, y: -200, width: 40, height: 40))
     private var activePan: PanKind?
     private var panStartLevel: CGFloat = 0
+    /// Độ sáng trước lần vuốt đầu tiên (kèm màn hình đã chỉnh); `nil` = chưa chỉnh hoặc đã trả lại.
+    private var originalBrightness: (screen: UIScreen, value: CGFloat)?
     private lazy var singleTapRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleSingleTap(_:)))
     private lazy var doubleTapRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap(_:)))
     private lazy var panRecognizer = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
@@ -76,6 +81,21 @@ final class VideoGestureView: UIView {
         for recognizer in [singleTapRecognizer, doubleTapRecognizer, panRecognizer, longPressRecognizer] as [UIGestureRecognizer] {
             addGestureRecognizer(recognizer)
         }
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleWillResignActive),
+            name: UIApplication.willResignActiveNotification,
+            object: nil
+        )
+    }
+
+    override func willMove(toWindow newWindow: UIWindow?) {
+        super.willMove(toWindow: newWindow)
+        if newWindow == nil { restoreOriginalBrightness() }
+    }
+
+    @objc private func handleWillResignActive() {
+        restoreOriginalBrightness()
     }
 
     // MARK: - Lọc cử chỉ
@@ -114,7 +134,9 @@ final class VideoGestureView: UIView {
             let kind = panKind(for: recognizer)
             activePan = kind
             switch kind {
-            case .brightness: panStartLevel = currentBrightness
+            case .brightness:
+                rememberOriginalBrightness()
+                panStartLevel = currentBrightness
             case .volume: panStartLevel = CGFloat(AVAudioSession.sharedInstance().outputVolume)
             case .seek, .dismiss: break
             }
@@ -162,6 +184,17 @@ final class VideoGestureView: UIView {
 
     private var currentBrightness: CGFloat {
         window?.windowScene?.screen.brightness ?? 0.5
+    }
+
+    private func rememberOriginalBrightness() {
+        guard originalBrightness == nil, let screen = window?.windowScene?.screen else { return }
+        originalBrightness = (screen: screen, value: screen.brightness)
+    }
+
+    private func restoreOriginalBrightness() {
+        guard let original = originalBrightness else { return }
+        originalBrightness = nil
+        original.screen.brightness = original.value
     }
 
     private func apply(level: CGFloat, kind: PanKind) {

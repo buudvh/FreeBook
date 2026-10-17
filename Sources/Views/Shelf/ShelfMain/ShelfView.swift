@@ -44,7 +44,7 @@ struct ShelfView: View {
     // @State: Biến trạng thái nội bộ của View. Khi giá trị thay đổi, UI sẽ tự động vẽ lại.
     // Thứ tự tab: Downloads → Bộ Sưu Tập → Kệ Sách → Lịch Sử (xem `ShelfTab`).
     @State internal var selectedTab: ShelfTab = .shelf
-    @State private var showingClearHistoryAlert = false // Hiện alert xác nhận xóa lịch sử đọc
+    @State private var showingClearHistoryAlert = false // Hiện hộp chọn khoảng thời gian để xóa lịch sử đọc
     @State private var showingShelfSearch = false // Hiện màn hình tìm kiếm sách trong Kệ sách & Lịch sử
     @State private var showingNotificationInbox = false // Hiện Trung tâm thông báo (nút chuông)
 
@@ -247,13 +247,16 @@ struct ShelfView: View {
             .navigationDestination(isPresented: $navigateToChangeSource) {
                 changeSourceDestinationView
             }
-            .alert("Xóa tất cả lịch sử", isPresented: $showingClearHistoryAlert) {
-                Button("Xóa tất cả", role: .destructive) {
-                    clearAllHistory()
+            // Chọn khoảng thời gian; chỉ xoá truyện đang hiện trong tab Lịch sử (`parts.history`, đã ẩn NSFW thì không đụng).
+            .confirmationDialog("Xóa lịch sử đọc", isPresented: $showingClearHistoryAlert, titleVisibility: .visible) {
+                ForEach(HistoryClearRange.allCases, id: \.self) { range in
+                    Button(range.title, role: range == .all ? .destructive : nil) {
+                        clearHistory(range, from: parts.history)
+                    }
                 }
                 Button("Hủy", role: .cancel) {}
             } message: {
-                Text("Bạn có chắc chắn muốn xóa toàn bộ lịch sử đọc không? Các truyện lịch sử không ở trên kệ sách sẽ bị xóa hoàn toàn khỏi thiết bị. Truyện đang ở trên kệ sách và truyện đang nghe phát âm thanh sẽ được giữ nguyên.")
+                Text("Truyện lịch sử không ở trên kệ sách sẽ bị xóa khỏi thiết bị. Truyện trên kệ và truyện đang nghe được giữ nguyên.")
             }
             .fullScreenCover(item: $readerPresentationRoute) { route in
                 NavigationStack {
@@ -826,14 +829,21 @@ struct ShelfView: View {
         }
     }
 
-    private func clearAllHistory() {
+    /// Xoá các truyện lịch sử đang hiển thị đọc lần cuối trong `range`. `deleteBooksAsync` tự giữ truyện đang nghe
+    /// TTS; `history` không chứa truyện trên kệ.
+    private func clearHistory(_ range: HistoryClearRange, from history: [Book]) {
+        let bookIds = range.bookIds(in: history)
+        guard !bookIds.isEmpty else {
+            ToastManager.shared.show(message: "Không có truyện nào đọc trong khoảng này", type: .info)
+            return
+        }
         let container = modelContext.container
         isProcessingDeletion = true
         Task { @MainActor in
             do {
-                try await BookStorageManager.shared.clearAllOffShelfHistoryAsync(container: container)
+                try await BookStorageManager.shared.deleteBooksAsync(bookIds: bookIds, container: container)
             } catch {
-                AppLogger.shared.log("❌ Lỗi khi xóa toàn bộ lịch sử: \(error.localizedDescription)")
+                AppLogger.shared.log("❌ Lỗi khi xóa lịch sử đọc: \(error.localizedDescription)")
             }
             self.isProcessingDeletion = false
         }

@@ -67,7 +67,8 @@ extension VideoPlaybackSession {
 
     /// Tách `playerLayer.player` khi vào nền mà không có PiP — iOS tự dừng player còn gắn hình ⇒ tách ra để chỉ phát
     /// tiếng. Không tách ở `willResignActive` (giết PiP tự bật). Màn hình đang hiện và đang phát thì PiP sắp tự bật:
-    /// chờ một nhịp, PiP không lên thì mới tách và phát tiếp.
+    /// chờ một nhịp, PiP không lên thì mới tách và phát tiếp. Nhịp chờ nằm trong background task: lúc đó iOS đã dừng
+    /// player (còn gắn hình) nên không còn tiếng giữ app sống — thiếu task thì app có thể bị treo trước khi kịp phát lại.
     private func handleDidEnterBackground() {
         isInBackground = true
         guard launch != nil else { return }
@@ -80,10 +81,34 @@ extension VideoPlaybackSession {
             return
         }
         let shouldResume = isPlaying
+        let backgroundTask = beginAudioFallbackBackgroundTask()
         Task { [weak self] in
             try? await Task.sleep(nanoseconds: 1_000_000_000)
             self?.fallBackToAudioOnlyIfNeeded(resume: shouldResume)
+            self?.endAudioFallbackBackgroundTask(backgroundTask)
         }
+    }
+
+    /// Mỗi lượt vào nền một task; task cũ (nền → trước → nền trong vòng 1 giây) được kết thúc trước.
+    private func beginAudioFallbackBackgroundTask() -> UIBackgroundTaskIdentifier {
+        endAudioFallbackBackgroundTask(audioFallbackBackgroundTask)
+        let task = UIApplication.shared.beginBackgroundTask(withName: "VideoAudioFallback") { [weak self] in
+            // iOS gọi trên main khi hết hạn ⇒ kết thúc task đang giữ (helper kiểm `.invalid`, không kết thúc hai lần).
+            let owner = self
+            MainActor.assumeIsolated {
+                guard let owner else { return }
+                owner.endAudioFallbackBackgroundTask(owner.audioFallbackBackgroundTask)
+            }
+        }
+        audioFallbackBackgroundTask = task
+        return task
+    }
+
+    /// Chỉ kết thúc khi `task` vẫn là task đang giữ: nhịp chờ của lượt vào nền cũ không được kết thúc task của lượt mới.
+    private func endAudioFallbackBackgroundTask(_ task: UIBackgroundTaskIdentifier) {
+        guard task != .invalid, task == audioFallbackBackgroundTask else { return }
+        audioFallbackBackgroundTask = .invalid
+        UIApplication.shared.endBackgroundTask(task)
     }
 
     private func fallBackToAudioOnlyIfNeeded(resume: Bool) {
@@ -155,17 +180,15 @@ extension VideoPlaybackSession {
 
     // MARK: - Khoá màn hình
 
-    func setIdleTimerDisabled(_ disabled: Bool) {
-        guard launch != nil || !disabled else { return }
-        if idleTimerBaseline == nil {
-            idleTimerBaseline = UIApplication.shared.isIdleTimerDisabled
+    /// Giữ màn sáng chỉ khi màn trình phát đang hiện và đang phát (native) hoặc đang nhúng trang. Đi qua
+    /// `ScreenIdleTimerLock` (dùng chung với màn đọc truyện tranh): video chỉ trả phần của chính nó, không ghi đè giá
+    /// trị gốc lẫn nhau. Gọi lặp an toàn.
+    func refreshIdleTimer() {
+        let owner = ObjectIdentifier(self)
+        if launch != nil, isScreenAttached, isPlaying || embedContent != nil {
+            ScreenIdleTimerLock.acquire(owner)
+        } else {
+            ScreenIdleTimerLock.release(owner)
         }
-        UIApplication.shared.isIdleTimerDisabled = disabled || (idleTimerBaseline ?? false)
-    }
-
-    func restoreIdleTimer() {
-        guard let baseline = idleTimerBaseline else { return }
-        UIApplication.shared.isIdleTimerDisabled = baseline
-        idleTimerBaseline = nil
     }
 }

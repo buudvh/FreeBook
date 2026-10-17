@@ -622,15 +622,16 @@ public final class ExtensionManager: ObservableObject {
         }
     }
     
+    /// Khớp cách đọc của `getScriptPath`: map `script` có thể lẫn giá trị không phải chuỗi — ép `[String: String]`
+    /// sẽ hỏng cả map và báo thiếu mọi script.
     public func hasScript(localPath: String, scriptKey: String) -> Bool {
         let extUrl = URL(fileURLWithPath: localPath)
         let pluginJsonUrl = extUrl.appendingPathComponent("plugin.json")
         guard let data = try? Data(contentsOf: pluginJsonUrl),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let script = json["script"] as? [String: String] else {
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return false
         }
-        return script[scriptKey] != nil
+        return (json["script"] as? [String: Any])?[scriptKey] is String
     }
     
     public func page(localPath: String, downloadUrl: String = "", url: String, host: String? = nil, configJson: String = "{}") async throws -> [String] {

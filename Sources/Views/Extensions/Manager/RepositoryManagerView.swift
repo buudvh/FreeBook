@@ -388,7 +388,7 @@ struct RepositoryManagerView: View {
             // Dùng `ExtensionIconView`: nó ưu tiên `icon.png` **cục bộ** (qua cache) rồi mới ra mạng,
             // nên tiện ích đã cài không tải icon lần nào và vẫn hiện đúng khi offline.
             if !ext.localPath.isEmpty || !(ext.iconUrl ?? "").isEmpty {
-                ExtensionIconView(localPath: ext.localPath, iconUrl: ext.iconUrl, size: 44)
+                ExtensionIconView(localPath: ext.localPath, iconUrl: ext.iconUrl, size: 44, packageId: ext.packageId)
             } else {
                 Image(systemName: typeIcon(ext.type))
                     .resizable()
@@ -398,6 +398,9 @@ struct RepositoryManagerView: View {
                     .background(Color.secondary.opacity(0.2))
                     .foregroundColor(.white)
                     .cornerRadius(8)
+                    .overlay(alignment: .topTrailing) {
+                        if ExtensionNsfwCache.shared.isNsfw(ext) { ExtensionNsfwBadge(iconSize: 44) }
+                    }
             }
             
             VStack(alignment: .leading, spacing: 6) {

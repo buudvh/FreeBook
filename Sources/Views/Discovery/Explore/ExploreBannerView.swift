@@ -57,12 +57,15 @@ struct ExploreBannerView: View {
             .overlay(alignment: .bottomLeading) {
                 VStack(alignment: .leading, spacing: 4) {
                     if !item.tag.isEmpty {
-                        DiscoveryCoverTag(text: context.display(item.tag), fontSize: 11)
+                        CoverTagBadge(tag: context.display(item.tag), inset: 0)
                     }
-                    Text(context.display(item.name))
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundColor(.white)
-                        .lineLimit(2)
+                    // Banner chỉ có ảnh (parser giữ item không tên) ⇒ không vẽ dòng tên rỗng.
+                    if !item.name.isEmpty {
+                        Text(context.display(item.name))
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundColor(.white)
+                            .lineLimit(2)
+                    }
                     if !item.description.isEmpty {
                         Text(context.display(item.description.cleanHTML()))
                             .font(.caption)

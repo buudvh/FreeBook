@@ -28,6 +28,7 @@ struct FloatingHubMenuRow: View {
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(item.kind.tint)
                         .frame(width: 28, height: 28)
+                        .overlay(alignment: .topTrailing) { unreadDot }
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(item.title)
@@ -43,8 +44,6 @@ struct FloatingHubMenuRow: View {
                     }
 
                     Spacer(minLength: 0)
-
-                    badge
                 }
                 // Lề dọc nằm **trong** vùng chạm để cả chiều cao dòng (48pt) đều bấm được.
                 .padding(.vertical, 6)
@@ -69,18 +68,14 @@ struct FloatingHubMenuRow: View {
         }
     }
 
-    /// Badge số của dòng (Thông báo: số chưa đọc). Luôn trong cây view, 0 ⇒ trong suốt.
-    private var badge: some View {
-        Text(item.badgeCount > 99 ? "99+" : "\(item.badgeCount)")
-            .font(.system(size: 11, weight: .bold))
-            .foregroundColor(.white)
-            .lineLimit(1)
-            .fixedSize()
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(Color.red, in: Capsule())
+    /// Chấm đỏ trên icon khi còn tin chưa đọc (số cụ thể nằm ở dòng phụ). Luôn trong cây view, 0 ⇒ trong suốt.
+    private var unreadDot: some View {
+        Circle()
+            .fill(Color.red)
+            .frame(width: 8, height: 8)
+            .offset(x: 1, y: 2)
             .opacity(item.badgeCount > 0 ? 1 : 0)
-            .accessibilityHidden(item.badgeCount == 0)
+            .accessibilityHidden(true)
     }
 
     /// Nút phát/dừng và nút đóng — cỡ "cụm nút menu phụ" của chuẩn header (icon 14pt, khung 32×32, cách 4pt).

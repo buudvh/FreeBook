@@ -4,10 +4,11 @@ import SwiftUI
 /// `CategoryNovelsListView`).
 ///
 /// Cùng bố cục với `BookListItemView` kiểu `.discovery` (bìa 50×70, tên in hoa đầu từ + dịch, mô tả 2 dòng, không
-/// có mô tả thì hiện tác giả), khác hai điểm:
-/// - Bìa tải qua `RemoteCoverImage` kèm Referer (host item → `source` của tiện ích) — nhiều CDN trả 403 khi thiếu.
-///   Item tìm kiếm chưa phải sách đã lưu nên không ghi bìa xuống đĩa theo `link` như `BookCoverView`.
-/// - Nhãn `tag` của item đè lên đáy bìa.
+/// có mô tả thì hiện tác giả). Giữ view riêng thay vì dùng `BookListItemView` vì bìa ở đây **không được ghi xuống đĩa**:
+/// - `BookListItemView` dùng `BookCoverView`, ghi bìa vào `covers/` theo `link` như sách đã lưu; item Khám phá chỉ là
+///   danh sách tạm, nên tải qua `RemoteCoverImage` (cache ở `Caches`) kèm Referer (host item → `source` của tiện
+///   ích) — nhiều CDN trả 403 khi thiếu.
+/// - Nhãn `tag` dùng chung `CoverTagBadge` (cùng kiểu với Tìm kiếm/Gợi ý), đè góc dưới bìa.
 struct DiscoveryNovelRowView: View {
     let item: ExtensionItemResult
     /// `source` của tiện ích — Referer dự phòng khi item không có `host`.
@@ -27,11 +28,8 @@ struct DiscoveryNovelRowView: View {
                     )
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 4))
-                .overlay(alignment: .bottom) {
-                    if !item.tag.isEmpty {
-                        DiscoveryCoverTag(text: translateIfNeeded(item.tag), fontSize: 8)
-                            .padding(2)
-                    }
+                .overlay(alignment: .bottomLeading) {
+                    CoverTagBadge(tag: translateIfNeeded(item.tag))
                 }
 
             VStack(alignment: .leading, spacing: 4) {

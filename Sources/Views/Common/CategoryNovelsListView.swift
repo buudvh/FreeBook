@@ -7,9 +7,10 @@ struct CategoryNovelsListView: View {
     let downloadUrl: String
     let configJson: String
     let sourceName: String
-    private let sourceHost: String? // Referer dự phòng cho bìa khi item không có `host`
-
     @StateObject private var loader: PaginatedNovelLoader
+    /// Referer dự phòng cho bìa khi item không có `host`. Tra lười khi xuất hiện, không trong `init` — `init` chạy lại
+    /// mỗi lần view cha dựng lại body.
+    @State private var sourceHost: String? = nil
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     @State private var selectedNovel: ExtensionItemResult? = nil
 
@@ -27,7 +28,6 @@ struct CategoryNovelsListView: View {
         self.downloadUrl = downloadUrl
         self.configJson = configJson
         self.sourceName = sourceName
-        self.sourceHost = ExtensionHostResolver.sourceUrl(localPath: localPath)
         _loader = StateObject(wrappedValue: PaginatedNovelLoader(
             localPath: localPath,
             downloadUrl: downloadUrl,
@@ -100,6 +100,11 @@ struct CategoryNovelsListView: View {
         }
         .navigationTitle(translateIfNeeded(category.title))
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            if sourceHost == nil {
+                sourceHost = ExtensionHostResolver.sourceUrl(localPath: localPath)
+            }
+        }
         .task {
             await loader.loadInitial()
         }

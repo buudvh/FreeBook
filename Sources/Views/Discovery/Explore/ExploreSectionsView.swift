@@ -33,10 +33,12 @@ struct ExploreSectionsView: View {
     @State private var isLoading = false
     @State private var hasLoaded = false
     @State private var errorMessage = ""
+    /// Referer dự phòng cho bìa: `source` của tiện ích (bản cài → `plugin.json`). Tính một lần trước lượt tải đầu.
+    @State private var sourceHost: String? = nil
 
     var body: some View {
         let context = ExploreRenderContext(
-            sourceHost: ExtensionHostResolver.nonEmpty(ext.sourceUrl),
+            sourceHost: sourceHost,
             isTranslationEnabled: isTranslationEnabled,
             onSelect: { handleTap($0) }
         )
@@ -114,6 +116,10 @@ struct ExploreSectionsView: View {
     /// Trang xuất hiện (kể cả khi vuốt qua lại giữa các tab): chỉ tải khi chưa có kết quả.
     @MainActor
     private func loadIfNeeded() async {
+        // Bìa chỉ vẽ sau khi có section nên gán ở đây là kịp cho lượt tải bìa đầu tiên.
+        if sourceHost == nil {
+            sourceHost = ExtensionHostResolver.sourceUrl(localPath: ext.localPath)
+        }
         guard !hasLoaded else { return }
         await load()
     }

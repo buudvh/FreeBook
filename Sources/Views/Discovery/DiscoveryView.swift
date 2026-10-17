@@ -35,6 +35,8 @@ struct DiscoveryView: View {
     @State private var selectedExtensionId: String = ""
     @State private var isLoading = true
     @State private var needsReloadActiveExtension = false
+    /// Lượt tải danh mục đang chạy; lượt mới huỷ lượt cũ (đổi nguồn nhanh / `extensionDidUpdate`).
+    @State private var discoveryLoadTask: Task<Void, Never>? = nil
     
     // Nguồn dữ liệu danh mục của tiện ích
     @State private var homeItems: [CategoryResult] = []
@@ -95,15 +97,20 @@ struct DiscoveryView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 if active.isEmpty {
+                    // Có nguồn duyệt được nhưng đều bị công tắc NSFW ẩn ⇒ chỉ chỗ bật lại, không báo "chưa có nguồn".
+                    let hidesNsfwOnly = !includeNsfw
+                        && ExtensionLibraryRepository.shared.installed.contains { SearchExtensionScopePolicy.isBrowsable($0) }
                     VStack(spacing: 12) {
                         Spacer()
                         Image(systemName: "safari")
                             .resizable()
                             .frame(width: 60, height: 60)
                             .foregroundColor(.secondary)
-                        Text("Chưa có nguồn đọc truyện nào hoạt động")
+                        Text(hidesNsfwOnly ? "Đang ẩn nguồn nhạy cảm (NSFW)" : "Chưa có nguồn đọc truyện nào hoạt động")
                             .font(.headline)
-                        Text("Hãy cài đặt và kích hoạt ít nhất một tiện ích trong kho để khám phá danh mục truyện.")
+                        Text(hidesNsfwOnly
+                             ? "Bật trong Cài đặt › Thư Viện để xem."
+                             : "Hãy cài đặt và kích hoạt ít nhất một tiện ích trong kho để khám phá danh mục truyện.")
                             .font(.caption)
                             .foregroundColor(.gray)
                             .multilineTextAlignment(.center)
@@ -187,23 +194,7 @@ struct DiscoveryView: View {
                     .padding(.horizontal)
                     .padding(.vertical, 10)
                     .background(Color(.systemBackground))
-                    .onChange(of: selectedExtensionId) { _, newValue in
-                        lastSelectedExtensionId = newValue
-                        let isChinese = selectedExtension?.isChineseSource ?? false
-                        TranslationConfigStore.shared.registerSource(packageId: newValue, isChinese: isChinese)
-                        isTranslationEnabled = TranslationConfigStore.shared.isTranslationEnabled(bookId: "", packageId: newValue, isChineseSourceHint: isChinese)
-                        // Xóa sạch dữ liệu cũ khi đổi extension để tránh rác hiển thị
-                        homeItems.removeAll()
-                        genreItems.removeAll()
-                        selectedCategoryId = ""
-                        discoveryError = ""
-                        if !newValue.isEmpty {
-                            loadDiscoveryData()
-                        } else {
-                            isLoading = false
-                        }
-                    }
-                    
+
                     if isLoading && homeItems.isEmpty && genreItems.isEmpty && discoveryError.isEmpty {
                         // Hiển thị Skeleton UI toàn trang khám phá khi tải lần đầu
                         DiscoveryMainSkeletonView()
@@ -360,10 +351,33 @@ struct DiscoveryView: View {
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
-            // Tiện ích đang chọn vừa bị gỡ (vd từ màn Cấu hình) ⇒ chọn tiện ích đầu tiên; hết tiện ích thì xoá chọn.
+            // Gắn ở view ngoài cùng (không nằm trong nhánh có nguồn) để vẫn chạy khi danh sách nguồn rỗng.
+            .onChange(of: selectedExtensionId) { _, newValue in
+                // Không ghi "" vào nguồn đã nhớ: hết nguồn (vd ẩn hết nguồn NSFW) rồi có lại thì còn khôi phục được.
+                if !newValue.isEmpty { lastSelectedExtensionId = newValue }
+                let isChinese = selectedExtension?.isChineseSource ?? false
+                TranslationConfigStore.shared.registerSource(packageId: newValue, isChinese: isChinese)
+                isTranslationEnabled = TranslationConfigStore.shared.isTranslationEnabled(bookId: "", packageId: newValue, isChineseSourceHint: isChinese)
+                // Xóa sạch dữ liệu cũ khi đổi extension để tránh rác hiển thị
+                homeItems.removeAll()
+                genreItems.removeAll()
+                selectedCategoryId = ""
+                discoveryError = ""
+                if !newValue.isEmpty {
+                    loadDiscoveryData()
+                } else {
+                    discoveryLoadTask?.cancel()
+                    isLoading = false
+                }
+            }
+            // Nguồn đang chọn vừa bị gỡ/ẩn ⇒ nguồn đầu tiên còn lại; hết nguồn thì xoá chọn. Đang không chọn gì mà có
+            // nguồn trở lại (bật NSFW, cài tiện ích) ⇒ khôi phục nguồn cuối đã xem, không còn thì nguồn đầu tiên.
             .onChange(of: activeExtensions.map(\.packageId)) { _, ids in
-                guard !selectedExtensionId.isEmpty, !ids.contains(selectedExtensionId) else { return }
-                selectedExtensionId = ids.first ?? ""
+                if selectedExtensionId.isEmpty {
+                    selectedExtensionId = ids.contains(lastSelectedExtensionId) ? lastSelectedExtensionId : (ids.first ?? "")
+                } else if !ids.contains(selectedExtensionId) {
+                    selectedExtensionId = ids.first ?? ""
+                }
             }
             .onAppear {
                 // Khôi phục từ rỗng ⇒ `onChange(of: selectedExtensionId)` sẽ tự tải, nhánh tải bên dưới phải bỏ qua.
@@ -393,7 +407,8 @@ struct DiscoveryView: View {
                     if !selectedExtensionId.isEmpty {
                         loadDiscoveryData()
                     }
-                } else if !restoredSelection && !selectedExtensionId.isEmpty && homeItems.isEmpty && genreItems.isEmpty && discoveryError.isEmpty {
+                } else if !restoredSelection && !selectedExtensionId.isEmpty && homeItems.isEmpty && genreItems.isEmpty && discoveryError.isEmpty && !isLoading {
+                    // `!isLoading`: lượt tải đang bay (vd vừa tự chuyển nguồn) thì không tải chồng lần hai.
                     loadDiscoveryData()
                 } else if selectedExtensionId.isEmpty {
                     isLoading = false
@@ -490,72 +505,39 @@ struct DiscoveryView: View {
     }
     
     private func loadDiscoveryData() {
-        guard let ext = selectedExtension else { return }
+        guard let ext = selectedExtension else {
+            isLoading = false
+            return
+        }
+        let pid = ext.packageId
+        discoveryLoadTask?.cancel()
         isLoading = true
         discoveryError = ""
         // Danh mục sắp được dựng lại từ đầu: neo cũ trỏ vào danh sách không còn tồn tại.
         scrollAnchors.removeAll()
-        
-        Task {
-            var loadedHome: [CategoryResult] = []
-            var loadedGenre: [CategoryResult] = []
-            
-            // Tải Home song song độc lập. Có `explore` ⇒ một tab section thay cho mọi tab `home` (explore thắng, bỏ qua home)
-            do {
-                if ExtensionManager.shared.hasScript(localPath: ext.localPath, scriptKey: "explore") {
-                    loadedHome = [ExploreSectionsView.makeTab()]
-                } else {
-                    loadedHome = try await ExtensionManager.shared.home(localPath: ext.localPath, downloadUrl: ext.downloadUrl, configJson: ext.configJson)
-                }
-            } catch {
-                #if DEBUG
-                AppLogger.shared.log("⚠️ [DiscoveryView] Không có hoặc lỗi chạy script home: \(error.localizedDescription)")
-                #endif
-            }
-            
-            // Tải Genre song song độc lập
-            do {
-                loadedGenre = try await ExtensionManager.shared.genre(localPath: ext.localPath, downloadUrl: ext.downloadUrl, configJson: ext.configJson)
-            } catch {
-                #if DEBUG
-                AppLogger.shared.log("⚠️ [DiscoveryView] Không có hoặc lỗi chạy script genre: \(error.localizedDescription)")
-                #endif
-            }
-            
+
+        // Có `explore` ⇒ một tab section thay cho mọi tab `home` (explore thắng). Hiện ngay, không chờ `genre`; lượt ghi
+        // kết quả dùng lại đúng tab này — gọi `makeTab()` lần nữa sẽ đổi id và trang section bị dựng/tải lại.
+        let exploreTab: CategoryResult? = ExtensionManager.shared.hasScript(localPath: ext.localPath, scriptKey: "explore")
+            ? ExploreSectionsView.makeTab() : nil
+        if let exploreTab {
+            homeItems = [exploreTab]
+            selectedCategoryId = Self.resolveCategoryId(current: selectedCategoryId, saved: lastSelectedCategoryId,
+                                                        home: homeItems, hasGenre: !genreItems.isEmpty, genresTabId: genresTabId)
+        }
+
+        discoveryLoadTask = Task {
+            let loaded = await Self.fetchCatalog(ext, exploreTab: exploreTab)
             await MainActor.run {
-                self.homeItems = loadedHome
-                self.genreItems = loadedGenre
-                self.isLoading = false
-                
-                let hasHome = !loadedHome.isEmpty
-                let hasGenre = !loadedGenre.isEmpty
-                
-                if !hasHome && !hasGenre {
-                    // Nếu không có cả hai: Báo lỗi thiếu home và genres
-                    self.discoveryError = "Extension thiếu home và genres"
-                } else {
-                    self.discoveryError = ""
-                }
-                
-                if hasHome || hasGenre {
-                    if !lastSelectedCategoryId.isEmpty {
-                        if lastSelectedCategoryId == genresTabId && hasGenre {
-                            selectedCategoryId = genresTabId
-                        } else if let savedCat = loadedHome.first(where: { $0.id == lastSelectedCategoryId }) {
-                            selectedCategoryId = savedCat.id
-                        } else if let firstHome = loadedHome.first {
-                            selectedCategoryId = firstHome.id
-                        } else if hasGenre {
-                            selectedCategoryId = genresTabId
-                        }
-                    } else if let firstHome = loadedHome.first {
-                        selectedCategoryId = firstHome.id
-                    } else if hasGenre {
-                        selectedCategoryId = genresTabId
-                    }
-                } else {
-                    selectedCategoryId = ""
-                }
+                // Đã đổi nguồn hoặc có lượt tải mới hơn ⇒ bỏ kết quả này, không ghi đè.
+                guard !Task.isCancelled, selectedExtensionId == pid else { return }
+                homeItems = loaded.home
+                genreItems = loaded.genre
+                isLoading = false
+                let hasData = !loaded.home.isEmpty || !loaded.genre.isEmpty
+                discoveryError = hasData ? "" : "Extension thiếu home và genres"
+                selectedCategoryId = Self.resolveCategoryId(current: selectedCategoryId, saved: lastSelectedCategoryId,
+                                                            home: loaded.home, hasGenre: !loaded.genre.isEmpty, genresTabId: genresTabId)
             }
         }
     }
@@ -580,7 +562,9 @@ struct DiscoveryCategoryTabView: View {
     /// Neo cuộn dùng chung của cả Khám Phá — giữ ở `DiscoveryView` nên sống qua một lượt tab bị dựng lại.
     let scrollAnchors: DiscoveryScrollAnchorStore
     let onSelectNovel: (ExtensionItemResult) -> Void
-    private let sourceHost: String? // Referer dự phòng cho bìa khi item không có `host`
+    /// Referer dự phòng cho bìa khi item không có `host`. Tra lười khi tab xuất hiện, không trong `init` — `init`
+    /// chạy lại mỗi lần `DiscoveryView` dựng lại body.
+    @State private var sourceHost: String? = nil
 
     @StateObject private var loader: PaginatedNovelLoader
     @State private var initialLoadTask: Task<Void, Never>? = nil
@@ -606,7 +590,6 @@ struct DiscoveryCategoryTabView: View {
         self._selectedCategoryId = selectedCategoryId
         self.scrollAnchors = scrollAnchors
         self.onSelectNovel = onSelectNovel
-        self.sourceHost = ExtensionHostResolver.sourceUrl(localPath: localPath)
         _loader = StateObject(wrappedValue: PaginatedNovelLoader(
             localPath: localPath,
             downloadUrl: downloadUrl,
@@ -741,6 +724,10 @@ struct DiscoveryCategoryTabView: View {
     }
 
     private func checkAndLoadData() {
+        // Tab có thể nạp từ `onChange(selectedCategoryId)` trước khi `onAppear` chạy: tra Referer ở cả hai đường.
+        if sourceHost == nil {
+            sourceHost = ExtensionHostResolver.sourceUrl(localPath: localPath)
+        }
         // Chỉ nạp dữ liệu khi tab này thực sự là tab được chọn VÀ chưa có dữ liệu
         guard selectedCategoryId == category.id else { return }
         guard loader.novels.isEmpty && !loader.isLoading && loader.errorMessage.isEmpty else { return }

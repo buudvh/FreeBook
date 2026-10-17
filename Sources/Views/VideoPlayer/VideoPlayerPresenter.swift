@@ -7,6 +7,11 @@ import UIKit
 /// Cách tìm chỗ trình bày giống `VisibleBrowserTabManager.reopenContainer`: chỉ nhận window level `.normal` (widget TTS
 /// và hub nổi sống ở window riêng level cao hơn — trình bày lên đó thì sheet biến mất theo window), lấy VC trên cùng
 /// của chuỗi `presentedViewController`, đang chuyển cảnh thì thử lại sau 0,3 giây.
+///
+/// Trình bày `.overFullScreen` (tiền lệ `AIRuntimeCoordinator.presentFullScreen`): màn bên dưới (Reader, Comic…) vẫn
+/// nằm trong cây view nên không chạy `onDisappear` (lưu tiến độ, giải phóng executor, trả màn sáng) chỉ vì mở lại
+/// trình phát. Nền đen phủ kín; `modalPresentationCapturesStatusBarAppearance` để màn trình phát tự ẩn/hiện thanh trạng
+/// thái thay vì màn bên dưới quyết định.
 @MainActor
 final class VideoPlayerPresenter {
     static let shared = VideoPlayerPresenter()
@@ -53,7 +58,8 @@ final class VideoPlayerPresenter {
         }
 
         let host = VideoPlayerHostingController(rootView: AnyView(EmptyView()))
-        host.modalPresentationStyle = .fullScreen
+        host.modalPresentationStyle = .overFullScreen
+        host.modalPresentationCapturesStatusBarAppearance = true
         host.view.backgroundColor = .black
         let screen = VideoPlayerScreen(onDismiss: { [weak host] in
             host?.dismiss(animated: true)

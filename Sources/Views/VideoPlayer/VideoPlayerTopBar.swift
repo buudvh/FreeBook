@@ -3,7 +3,8 @@ import SwiftUI
 /// Thanh trên của trình phát — **chỉ biểu tượng**, chữ duy nhất là tên phim + tập.
 ///
 /// Trái: thu nhỏ, đóng. Phải: tốc độ (`gauge…`, bung menu 0.5–2×, chỉ hiện số nhỏ khi khác 1×), Vừa/Lấp đầy/Phóng
-/// (`aspectratio`), khoá xoay (chỉ khi ngang), phụ đề, PiP, server, `⋯`. Màn dọc hẹp nên khung hình và server dồn vào
+/// (`aspectratio`), khoá xoay (khi ngang, hoặc khi đang khoá — khoá ở ngang rồi bấm Xoay dọc thì vẫn còn nút để mở
+/// khoá), phụ đề, PiP, server, `⋯`. Màn dọc hẹp nên khung hình và server dồn vào
 /// menu `⋯` (server còn có hàng chip dưới khung phim).
 struct VideoPlayerTopBar: View {
     let session: VideoPlaybackSession
@@ -37,7 +38,7 @@ struct VideoPlayerTopBar: View {
                     gravityMenu
                 }
             }
-            if isLandscape {
+            if isLandscape || controller.isOrientationLocked {
                 VideoPlayerIconButton(
                     systemName: controller.isOrientationLocked ? "lock.rotation" : "lock.rotation.open",
                     label: controller.isOrientationLocked ? "Mở khoá xoay" : "Khoá xoay",

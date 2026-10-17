@@ -20,10 +20,7 @@ struct ExploreCoverView: View {
             }
             .clipShape(clipShape)
             .overlay(alignment: shape == .circle ? .bottom : .topLeading) {
-                if !tag.isEmpty {
-                    DiscoveryCoverTag(text: tag, fontSize: tagFontSize)
-                        .padding(4)
-                }
+                CoverTagBadge(tag: tag, fontSize: tagFontSize, inset: 4)
             }
     }
 

@@ -6,8 +6,10 @@ import WebKit
 /// script bắt request (`WebNetworkCaptureScript`), cho autoplay tắt tiếng rồi thử `play()`; ứng viên khớp đuôi
 /// `.m3u8|.mp4|.m4v|.webm|.mov` trên **path** (bỏ `.ts`, `.mpd`) hoặc response có MIME video/HLS.
 ///
-/// - m3u8 thấy là chốt ngay; mp4… thì chờ thêm `progressiveGrace` vì link đầu thường là quảng cáo pre-roll và
-///   m3u8 vẫn được ưu tiên. Quá `timeout` thì trả ứng viên tốt nhất hoặc `nil`.
+/// - m3u8 đầu tiên mở cửa sổ gom `hlsCollectWindow` (vẫn trong `timeout` tổng) để bắt thêm m3u8 khác, rồi
+///   `VideoHLSPlaylistProbe` tải từng playlist và ưu tiên playlist gốc (master) — playlist con chỉ có hình thì phát
+///   ra hình mà mất tiếng. mp4… thì chờ thêm `progressiveGrace` vì link đầu thường là quảng cáo pre-roll và m3u8 vẫn
+///   được ưu tiên. Quá `timeout` thì trả ứng viên tốt nhất hoặc `nil`.
 /// - WebView được gắn vào cửa sổ ẩn (`GeminiWebHiddenWindowHost`): WKWebView ngoài window bị WebKit tạm dừng tiến
 ///   trình WebContent và chặn phát media. Giải phóng ngay khi có kết quả, hết giờ hoặc bị huỷ.
 /// - Mỗi sniffer phục vụ một lượt `sniff` tại một thời điểm; gọi lại sẽ huỷ lượt cũ.
@@ -38,6 +40,10 @@ final class VideoMediaSniffer: NSObject, WKNavigationDelegate {
 
     static let timeout: TimeInterval = 20
     private static let progressiveGrace: TimeInterval = 2
+    /// Thấy m3u8 đầu tiên thì gom thêm chừng này giây: trang thường request cả playlist gốc lẫn playlist con.
+    private static let hlsCollectWindow: TimeInterval = 1.5
+    /// Số m3u8 tối đa đem đi tải để phân loại.
+    private static let maxHLSCandidates = 6
     /// Cùng UA với `fetch` của ext (`JSExecutor`) và `WebViewLoader`.
     static let userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
     private static let progressiveExtensions: Set<String> = ["mp4", "m4v", "webm", "mov"]
@@ -55,11 +61,16 @@ final class VideoMediaSniffer: NSObject, WKNavigationDelegate {
     private var webView: WKWebView?
     private var continuation: CheckedContinuation<Result?, Error>?
     private var pageURL: URL?
-    private var hlsCandidate: Candidate?
+    /// Theo thứ tự bắt được.
+    private var hlsCandidates: [Candidate] = []
     private var progressiveCandidate: Candidate?
     private var seenUrls = Set<String>()
     private var timeoutTask: Task<Void, Never>?
     private var graceTask: Task<Void, Never>?
+    private var hlsWindowTask: Task<Void, Never>?
+    private var playlistProbeTask: Task<Void, Never>?
+    /// Đang tải/phân loại playlist ứng viên: không nhận ứng viên mới, không chốt lần hai.
+    private var isProbingPlaylists = false
 
     /// `nil` = không thấy link media; huỷ (`cancel()` hoặc Task bị huỷ) thì ném `CancellationError`.
     func sniff(_ page: Page) async throws -> Result? {
@@ -125,12 +136,40 @@ final class VideoMediaSniffer: NSObject, WKNavigationDelegate {
         }
     }
 
+    /// Điểm chốt chung (hết cửa sổ m3u8, hết hạn chờ mp4, hết giờ, trang lỗi). Có m3u8 thì chọn qua lượt tải playlist;
+    /// đang tải dở thì bỏ qua — lượt tải tự chốt trong `VideoHLSPlaylistProbe.fetchTimeout`.
     private func completeWithBestCandidate(reason: String) {
-        guard let pick = hlsCandidate ?? progressiveCandidate else {
+        guard continuation != nil, !isProbingPlaylists else { return }
+        if !hlsCandidates.isEmpty {
+            probePlaylistsThenComplete(reason: reason)
+            return
+        }
+        guard let pick = progressiveCandidate else {
             complete(.success(nil), reason: reason)
             return
         }
         complete(.success(makeResult(pick)), reason: reason)
+    }
+
+    /// WebView ẩn không cần nữa ⇒ gỡ ngay (dừng tải trang và media tắt tiếng), chỉ còn chờ lượt tải playlist.
+    /// Header mỗi ứng viên tính riêng (`Referer` = frame phát request đó) trước khi gỡ (`makeResult` cần `pageURL`).
+    private func probePlaylistsThenComplete(reason: String) {
+        isProbingPlaylists = true
+        let results = hlsCandidates.map { makeResult($0) }
+        hlsWindowTask?.cancel()
+        hlsWindowTask = nil
+        graceTask?.cancel()
+        graceTask = nil
+        releaseWebView()
+        playlistProbeTask = Task { @MainActor [weak self] in
+            let choice = await VideoHLSPlaylistProbe.choose(among: results)
+            // `tearDown` (huỷ, lượt `sniff` mới, đã chốt) huỷ task này ⇒ kết quả cũ không được chạm lượt mới.
+            guard !Task.isCancelled, let self, self.isProbingPlaylists,
+                  results.indices.contains(choice.index) else { return }
+            let picked = results[choice.index]
+            AppLogger.shared.log("🎬 [VideoMediaSniffer] \(choice.summary): \(Self.redacted(picked.url))")
+            self.complete(.success(picked), reason: reason)
+        }
     }
 
     private func complete(_ outcome: Swift.Result<Result?, Error>, reason: String) {
@@ -154,18 +193,26 @@ final class VideoMediaSniffer: NSObject, WKNavigationDelegate {
         timeoutTask = nil
         graceTask?.cancel()
         graceTask = nil
-        if let view = webView {
-            view.configuration.userContentController.removeScriptMessageHandler(forName: WebNetworkCaptureScript.handlerName)
-            view.configuration.userContentController.removeAllUserScripts()
-            view.navigationDelegate = nil
-            view.stopLoading()
-            windowHost.detach(view)
-        }
-        webView = nil
+        hlsWindowTask?.cancel()
+        hlsWindowTask = nil
+        playlistProbeTask?.cancel()
+        playlistProbeTask = nil
+        isProbingPlaylists = false
+        releaseWebView()
         pageURL = nil
-        hlsCandidate = nil
+        hlsCandidates = []
         progressiveCandidate = nil
         seenUrls.removeAll()
+    }
+
+    private func releaseWebView() {
+        guard let view = webView else { return }
+        webView = nil
+        view.configuration.userContentController.removeScriptMessageHandler(forName: WebNetworkCaptureScript.handlerName)
+        view.configuration.userContentController.removeAllUserScripts()
+        view.navigationDelegate = nil
+        view.stopLoading()
+        windowHost.detach(view)
     }
 
     // MARK: - Ứng viên
@@ -173,7 +220,7 @@ final class VideoMediaSniffer: NSObject, WKNavigationDelegate {
     private func consider(_ urlString: String, frameURL: URL?, kind explicitKind: MediaKind?) {
         // Phân loại trước rồi mới đánh dấu đã thấy: cùng một URL có thể tới lần đầu không rõ loại (điều hướng iframe)
         // rồi mới có MIME video ở response.
-        guard continuation != nil,
+        guard continuation != nil, !isProbingPlaylists,
               let url = URL(string: urlString),
               let kind = explicitKind ?? Self.mediaKind(ofPath: url),
               !isEngineDomainBlocked(urlString),
@@ -181,11 +228,23 @@ final class VideoMediaSniffer: NSObject, WKNavigationDelegate {
         let candidate = Candidate(url: url, frameURL: frameURL)
         switch kind {
         case .hls:
-            if hlsCandidate == nil { hlsCandidate = candidate }
-            completeWithBestCandidate(reason: "m3u8")
+            guard hlsCandidates.count < Self.maxHLSCandidates else { return }
+            hlsCandidates.append(candidate)
+            guard hlsCandidates.count == 1 else { return }
+            // m3u8 luôn thắng mp4 ⇒ bỏ hẹn chờ mp4 (2 giây có thể nổ giữa cửa sổ gom), chỉ còn cửa sổ m3u8.
+            graceTask?.cancel()
+            graceTask = nil
+            AppLogger.shared.log("🎬 [VideoMediaSniffer] Thấy m3u8 đầu tiên ⇒ gom thêm \(Self.hlsCollectWindow) giây tìm playlist gốc")
+            hlsWindowTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(nanoseconds: UInt64(Self.hlsCollectWindow * 1_000_000_000))
+                guard !Task.isCancelled else { return }
+                self?.completeWithBestCandidate(reason: "m3u8")
+            }
         case .progressive:
             guard progressiveCandidate == nil else { return }
             progressiveCandidate = candidate
+            // Đã có m3u8 ⇒ cửa sổ gom m3u8 tự chốt.
+            guard hlsCandidates.isEmpty else { return }
             graceTask = Task { @MainActor [weak self] in
                 try? await Task.sleep(nanoseconds: UInt64(Self.progressiveGrace * 1_000_000_000))
                 guard !Task.isCancelled else { return }

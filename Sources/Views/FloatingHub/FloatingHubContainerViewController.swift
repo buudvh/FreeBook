@@ -51,6 +51,8 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
         /// Khoảng cách giữa nút và thẻ menu.
         static let menuSpacing: CGFloat = 8
         static let menuAnimationDuration: TimeInterval = 0.18
+        /// Độ đậm của nút khi đang nép mép (người dùng chốt 2026-10-17: nép thì trong suốt).
+        static let peekingContentAlpha: CGFloat = 0.5
     }
 
     /// Cửa sổ đọc cờ này trong `hitTest`.
@@ -102,6 +104,7 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
         setupGestures()
         bindState()
         updateLayout(animated: false)
+        applyEdgeTransparency(animated: false)
     }
 
     private func makeButton() -> FloatingHubButton {
@@ -157,6 +160,7 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
             .sink { [weak self] _ in
                 guard let self else { return }
                 self.refreshButton()
+                self.applyEdgeTransparency(animated: true)
                 if !self.viewModel.isDragging {
                     self.updateLayout(animated: true)
                 }
@@ -174,6 +178,17 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
 
     private func refreshButton() {
         buttonHostingController?.rootView = makeButton()
+    }
+
+    /// Nép vào mép ⇒ nút mờ (`peekingContentAlpha`); bung ra/kéo (kéo từ mép là bung ngay) ⇒ đậm lại. Chỉ hạ alpha
+    /// trên hosting view — `hitTest` của cửa sổ có guard `alpha > 0.01` trên `widgetContainerView`.
+    private func applyEdgeTransparency(animated: Bool) {
+        let target: CGFloat = viewModel.mode == .peeking ? Layout.peekingContentAlpha : 1
+        guard let hostingView = buttonHostingController?.view, hostingView.alpha != target else { return }
+        guard animated else { hostingView.alpha = target; return }
+        UIView.animate(withDuration: 0.2, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
+            hostingView.alpha = target
+        }
     }
 
     override func viewDidLayoutSubviews() {

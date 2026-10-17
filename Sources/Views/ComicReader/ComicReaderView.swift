@@ -24,8 +24,6 @@ struct ComicReaderView: View {
     @State private var showsChapterList = false
     @State private var zoomImage: UIImage?
     @State private var isZoomPresented = false
-    /// Giá trị `isIdleTimerDisabled` trước khi vào màn — trả lại đúng giá trị này khi rời.
-    @State private var idleTimerBaseline: Bool?
 
     init(launch: BookContentLaunch) {
         self.launch = launch
@@ -256,18 +254,16 @@ struct ComicReaderView: View {
         return try? modelContext.fetch(descriptor).first
     }
 
+    /// Qua `ScreenIdleTimerLock` (dùng chung với trình phát video): rời màn chỉ trả phần của màn này — video đang
+    /// phát trên màn khác vẫn giữ màn sáng, và giá trị gốc không bị ghi đè chéo. Gọi lặp (đóng trình xem phóng to) an toàn.
     private func keepScreenAwake() {
-        if idleTimerBaseline == nil {
-            idleTimerBaseline = UIApplication.shared.isIdleTimerDisabled
-        }
-        UIApplication.shared.isIdleTimerDisabled = true
+        ScreenIdleTimerLock.acquire(ObjectIdentifier(viewModel))
     }
 
     private func handleDisappear() {
         // Trình xem phóng to đang che màn này — màn đọc vẫn sống, không dọn dẹp.
         if isZoomPresented { return }
-        UIApplication.shared.isIdleTimerDisabled = idleTimerBaseline ?? false
-        idleTimerBaseline = nil
+        ScreenIdleTimerLock.release(ObjectIdentifier(viewModel))
         viewModel.shutdown()
     }
 }

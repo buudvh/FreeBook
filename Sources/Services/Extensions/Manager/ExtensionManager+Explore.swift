@@ -7,7 +7,8 @@ import JavaScriptCore
 /// Quy tắc parse:
 /// - Section: `type` không phân biệt hoa thường; rỗng/lạ ⇒ bỏ cả section. `id` rỗng ⇒ `<type>_<vị trí>` (vị trí
 ///   trong mảng gốc); `id` trùng ⇒ thêm hậu tố. `shape` thiếu/lạ ⇒ `book`. Section không còn item nào ⇒ bỏ.
-/// - Item: đọc qua `listItem` (an toàn với `undefined`/`null`, bìa resolve host item → `source`); tên rỗng ⇒ bỏ.
+/// - Item: đọc qua `listItem` (an toàn với `undefined`/`null`, bìa resolve host item → `source`); tên rỗng ⇒ bỏ,
+///   trừ item của section `banner` chỉ có ảnh (có `cover` và có `link` hoặc `action`).
 ///   **Không** lọc trùng — hợp đồng để việc đó cho script.
 /// - Action (`more`, `action`): thiếu `type` ⇒ bỏ action; `type` lạ ⇒ `.unsupported`. `input` giữ nguyên văn
 ///   (với `detail` là URL item — khoá nhận diện sách).
@@ -65,7 +66,7 @@ extension ExtensionManager {
             }
             usedIds.insert(id)
 
-            let items = exploreItems(raw.forProperty("items"), sectionId: id, sourceHost: sourceHost)
+            let items = exploreItems(raw.forProperty("items"), sectionId: id, allowsUnnamed: kind == .banner, sourceHost: sourceHost)
             guard !items.isEmpty else { continue }
             sections.append(ExploreSection(
                 id: id,
@@ -80,8 +81,9 @@ extension ExtensionManager {
         return sections
     }
 
-    /// Các item của một section; phần tử không phải object hoặc tên rỗng ⇒ bỏ.
-    private static func exploreItems(_ value: JSValue?, sectionId: String, sourceHost: String?) -> [ExploreItem] {
+    /// Các item của một section; phần tử không phải object hoặc tên rỗng ⇒ bỏ. `allowsUnnamed` (banner): giữ item
+    /// không tên nếu còn ảnh để hiện và chỗ để mở (`link` hoặc `action`) — banner thường chỉ là ảnh quảng bá.
+    private static func exploreItems(_ value: JSValue?, sectionId: String, allowsUnnamed: Bool, sourceHost: String?) -> [ExploreItem] {
         var items: [ExploreItem] = []
         for raw in exploreElements(value) where JSValueReader.isPlainObject(raw) {
             var dict: [String: JSValue] = [:]
@@ -90,7 +92,10 @@ extension ExtensionManager {
             }
             let base = listItem(from: dict, sourceHost: sourceHost)
             let name = base.name.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !name.isEmpty else { continue }
+            let action = exploreAction(dict["action"])
+            let isImageOnly = allowsUnnamed && !base.cover.isEmpty
+                && (ExtensionHostResolver.nonEmpty(base.link) != nil || action != nil)
+            guard !name.isEmpty || isImageOnly else { continue }
             items.append(ExploreItem(
                 id: "\(sectionId)#\(items.count)",
                 name: name,
@@ -100,7 +105,7 @@ extension ExtensionManager {
                 tag: base.tag,
                 host: base.host,
                 type: base.type.lowercased(),
-                action: exploreAction(dict["action"])
+                action: action
             ))
         }
         return items
