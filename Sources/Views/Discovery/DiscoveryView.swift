@@ -207,8 +207,8 @@ struct DiscoveryView: View {
                         // Hiển thị Skeleton UI toàn trang khám phá khi tải lần đầu
                         DiscoveryMainSkeletonView()
                     } else {
-                        // 3. Menu danh mục & Home tabs hiển thị khi có dữ liệu
-                        if !homeItems.isEmpty || !genreItems.isEmpty {
+                        // 3. Menu danh mục & Home tabs hiển thị khi có dữ liệu (chỉ có trang section thì không cần thanh chip)
+                        if !genreItems.isEmpty || homeItems.contains(where: { !ExploreSectionsView.isTab($0) }) {
                             ScrollViewReader { proxy in
                                 ScrollView(.horizontal, showsIndicators: false) {
                                     HStack(spacing: 8) {
@@ -319,7 +319,20 @@ struct DiscoveryView: View {
                                         if let ext = selected {
                                             let extPackageId = ext.packageId
                                             let extSourceName = ext.name
-                                            if shouldRenderCategoryTab(id: item.id) {
+                                            let openNovel: (ExtensionItemResult) -> Void = { novel in
+                                                selectedDetailRoute = DiscoveryDetailRoute(
+                                                    bookId: "\(extSourceName.lowercased())_\(novel.link)",
+                                                    extensionPackageId: extPackageId,
+                                                    initialDetailUrl: novel.link,
+                                                    sourceName: extSourceName,
+                                                    initialHost: novel.host
+                                                )
+                                            }
+                                            if ExploreSectionsView.isTab(item) {
+                                                ExploreSectionsView(ext: ext, isTranslationEnabled: isTranslationEnabled, onSelectNovel: openNovel,
+                                                                    onSelectCategory: { selectedGenre = $0; navigateToGenre = true })
+                                                    .tag(item.id)
+                                            } else if shouldRenderCategoryTab(id: item.id) {
                                                 DiscoveryCategoryTabView(
                                                     category: item,
                                                     localPath: ext.localPath,
@@ -328,15 +341,7 @@ struct DiscoveryView: View {
                                                     isTranslationEnabled: isTranslationEnabled,
                                                     selectedCategoryId: $selectedCategoryId,
                                                     scrollAnchors: scrollAnchors,
-                                                    onSelectNovel: { novel in
-                                                        selectedDetailRoute = DiscoveryDetailRoute(
-                                                            bookId: "\(extSourceName.lowercased())_\(novel.link)",
-                                                            extensionPackageId: extPackageId,
-                                                            initialDetailUrl: novel.link,
-                                                            sourceName: extSourceName,
-                                                            initialHost: novel.host
-                                                        )
-                                                    }
+                                                    onSelectNovel: openNovel
                                                 )
                                                 .tag(item.id)
                                             } else {
@@ -494,9 +499,13 @@ struct DiscoveryView: View {
             var loadedHome: [CategoryResult] = []
             var loadedGenre: [CategoryResult] = []
             
-            // Tải Home song song độc lập
+            // Tải Home song song độc lập. Có `explore` ⇒ một tab section thay cho mọi tab `home` (explore thắng, bỏ qua home)
             do {
-                loadedHome = try await ExtensionManager.shared.home(localPath: ext.localPath, downloadUrl: ext.downloadUrl, configJson: ext.configJson)
+                if ExtensionManager.shared.hasScript(localPath: ext.localPath, scriptKey: "explore") {
+                    loadedHome = [ExploreSectionsView.makeTab()]
+                } else {
+                    loadedHome = try await ExtensionManager.shared.home(localPath: ext.localPath, downloadUrl: ext.downloadUrl, configJson: ext.configJson)
+                }
             } catch {
                 #if DEBUG
                 AppLogger.shared.log("⚠️ [DiscoveryView] Không có hoặc lỗi chạy script home: \(error.localizedDescription)")
@@ -570,6 +579,7 @@ struct DiscoveryCategoryTabView: View {
     /// Neo cuộn dùng chung của cả Khám Phá — giữ ở `DiscoveryView` nên sống qua một lượt tab bị dựng lại.
     let scrollAnchors: DiscoveryScrollAnchorStore
     let onSelectNovel: (ExtensionItemResult) -> Void
+    private let sourceHost: String? // Referer dự phòng cho bìa khi item không có `host`
 
     @StateObject private var loader: PaginatedNovelLoader
     @State private var initialLoadTask: Task<Void, Never>? = nil
@@ -595,6 +605,7 @@ struct DiscoveryCategoryTabView: View {
         self._selectedCategoryId = selectedCategoryId
         self.scrollAnchors = scrollAnchors
         self.onSelectNovel = onSelectNovel
+        self.sourceHost = ExtensionHostResolver.sourceUrl(localPath: localPath)
         _loader = StateObject(wrappedValue: PaginatedNovelLoader(
             localPath: localPath,
             downloadUrl: downloadUrl,
@@ -645,7 +656,7 @@ struct DiscoveryCategoryTabView: View {
                             Button {
                                 onSelectNovel(novel)
                             } label: {
-                                BookListItemView(item: novel, style: .discovery, extensionLocalPath: localPath)
+                                DiscoveryNovelRowView(item: novel, sourceHost: sourceHost)
                             }
                             .buttonStyle(.plain)
                             // Neo theo `link` chu khong phai `novel.id`: `ExtensionItemResult.id` la

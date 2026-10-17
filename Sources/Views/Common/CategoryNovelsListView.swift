@@ -7,6 +7,7 @@ struct CategoryNovelsListView: View {
     let downloadUrl: String
     let configJson: String
     let sourceName: String
+    private let sourceHost: String? // Referer dự phòng cho bìa khi item không có `host`
 
     @StateObject private var loader: PaginatedNovelLoader
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
@@ -26,6 +27,7 @@ struct CategoryNovelsListView: View {
         self.downloadUrl = downloadUrl
         self.configJson = configJson
         self.sourceName = sourceName
+        self.sourceHost = ExtensionHostResolver.sourceUrl(localPath: localPath)
         _loader = StateObject(wrappedValue: PaginatedNovelLoader(
             localPath: localPath,
             downloadUrl: downloadUrl,
@@ -61,7 +63,7 @@ struct CategoryNovelsListView: View {
                         Button {
                             selectedNovel = novel
                         } label: {
-                            BookListItemView(item: novel, style: .discovery, extensionPackageId: extensionPackageId)
+                            DiscoveryNovelRowView(item: novel, sourceHost: sourceHost)
                                 .padding(.vertical, 4)
                         }
                         .buttonStyle(.plain)
