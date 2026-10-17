@@ -7,10 +7,10 @@ import Foundation
 ///   `ExtensionContentKind.rawValue`. Giá trị lạ/hỏng coi như tất cả.
 /// - **Đổi nguồn**: chỉ tiện ích **cùng loại** với sách (mục lục, tiến độ và chương đã tải không chuyển được
 ///   giữa chữ/tranh/video); hàng chip bị bỏ qua.
-/// - **NSFW**: tìm mọi nguồn (kể cả đổi nguồn) bỏ tiện ích NSFW khi công tắc NSFW của bộ lọc Kho đang tắt
+/// - **NSFW**: tìm mọi nguồn (kể cả đổi nguồn) bỏ tiện ích NSFW khi công tắc NSFW toàn app đang tắt
 ///   (`RepositoryFilterPolicy.includeNsfwDefaultsKey`, mặc định tắt). Ngoại lệ: đổi nguồn cho sách của chính một
-///   tiện ích NSFW thì giữ — nếu không danh sách nguồn thay thế luôn rỗng. Khám phá (`matches`/`isBrowsable`)
-///   không lọc NSFW: tiện ích đã cài vẫn hiện.
+///   tiện ích NSFW thì giữ — nếu không danh sách nguồn thay thế luôn rỗng. Khám phá lọc NSFW ở chính `DiscoveryView`
+///   (`matches`/`isBrowsable` ở đây không xét NSFW).
 public enum SearchExtensionScopePolicy {
     /// Các loại hiện trên hàng chip, theo thứ tự cố định.
     public static let browsableKinds: [ExtensionContentKind] = [.text, .comic, .video]
@@ -56,17 +56,10 @@ public enum SearchExtensionScopePolicy {
             } else {
                 scoped = extensions.filter { isBrowsable($0) }
             }
-            keepsNsfw = keepsNsfw || isNsfwSource(packageId: packageId)
+            keepsNsfw = keepsNsfw || RepositoryFilterPolicy.isNsfwSource(packageId: packageId)
         } else {
             scoped = extensions.filter { matches($0, kindFilter: kindFilter) }
         }
         return RepositoryFilterPolicy.applyNsfwFilter(scoped, includeNsfw: keepsNsfw)
-    }
-
-    /// Tiện ích của sách đang đổi nguồn có phải NSFW không (tra bản cài rồi catalog; không tìm thấy ⇒ `false`).
-    private static func isNsfwSource(packageId: String) -> Bool {
-        guard let ext = ExtensionLibraryRepository.snapshot(packageId: packageId)
-                ?? ExtensionLibraryRepository.catalogSnapshot(packageId: packageId) else { return false }
-        return ExtensionNsfwCache.shared.isNsfw(ext)
     }
 }

@@ -21,14 +21,15 @@ struct DiscoveryView: View {
     @AppStorage("lastSelectedExtensionId") private var lastSelectedExtensionId: String = ""
     @AppStorage("lastSelectedCategoryId") private var lastSelectedCategoryId: String = ""
 
-    /// Tiện ích nội dung đã cài (chữ/tranh/video), thứ tự ghim → vừa dùng → A-Z (`ExtensionSortPolicy`). Đọc
-    /// repository `@Observable` trong `body` ⇒ tự vẽ lại khi cài/gỡ/ghim/đánh dấu đã dùng.
+    @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
+
+    /// Tiện ích nội dung đã cài (chữ/tranh/video), thứ tự ghim → vừa dùng → A-Z (`ExtensionSortPolicy`); công tắc NSFW
+    /// tắt thì bỏ nguồn NSFW — nguồn đang xem bị ẩn sẽ được `onChange` bên dưới đổi sang nguồn đầu tiên còn lại.
     private var activeExtensions: [Extension] {
-        ExtensionSortPolicy.sorted(
-            ExtensionLibraryRepository.shared.installed.filter {
-                SearchExtensionScopePolicy.isBrowsable($0)
-            }
-        )
+        ExtensionSortPolicy.sorted(RepositoryFilterPolicy.applyNsfwFilter(
+            ExtensionLibraryRepository.shared.installed.filter { SearchExtensionScopePolicy.isBrowsable($0) },
+            includeNsfw: includeNsfw
+        ))
     }
     
     @State private var selectedExtensionId: String = ""

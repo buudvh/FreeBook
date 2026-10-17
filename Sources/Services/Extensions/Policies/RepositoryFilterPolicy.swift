@@ -5,13 +5,26 @@ public struct RepositoryFilterPolicy: Sendable {
 
     public init() {}
 
-    /// Khoá `UserDefaults` của công tắc "Nội dung nhạy cảm (NSFW)" trong bộ lọc Kho — mặc định **tắt** (ẩn tiện ích
-    /// NSFW). Tìm kiếm mọi nguồn đọc cùng khoá (`SearchExtensionScopePolicy`); Khám phá không đọc.
+    /// Khoá `UserDefaults` của công tắc NSFW **toàn app** (Cài đặt › Thư Viện và bộ lọc Kho dùng chung): mặc định
+    /// **tắt** và tự tắt lại mỗi lần mở app (`resetNsfwVisibilityOnLaunch`). Tắt ⇒ ẩn tiện ích NSFW ở Kho, Tìm kiếm
+    /// mọi nguồn (`SearchExtensionScopePolicy`), Khám phá, và ẩn sách lịch sử của nguồn NSFW (`ShelfBookPartition`).
     public static let includeNsfwDefaultsKey = "extFilterIncludeNsfw"
 
     /// Giá trị hiện tại của công tắc NSFW (khoá chưa ghi ⇒ `false`).
     public static var includesNsfwPreference: Bool {
         UserDefaults.standard.bool(forKey: includeNsfwDefaultsKey)
+    }
+
+    /// Gọi đầu `FreeBookApp.init`: mỗi lần mở app công tắc NSFW về tắt (người dùng chốt 2026-10-17).
+    public static func resetNsfwVisibilityOnLaunch() {
+        UserDefaults.standard.set(false, forKey: includeNsfwDefaultsKey)
+    }
+
+    /// Tiện ích `packageId` có phải NSFW không (tra bản cài rồi catalog; không tìm thấy ⇒ `false`).
+    public static func isNsfwSource(packageId: String) -> Bool {
+        guard let ext = ExtensionLibraryRepository.snapshot(packageId: packageId)
+                ?? ExtensionLibraryRepository.catalogSnapshot(packageId: packageId) else { return false }
+        return ExtensionNsfwCache.shared.isNsfw(ext)
     }
 
     /// Bỏ tiện ích NSFW (`ExtensionNsfwClassifier`, qua bộ đệm) khi `includeNsfw == false`.

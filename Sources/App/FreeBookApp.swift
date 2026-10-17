@@ -7,6 +7,7 @@ struct FreeBookApp: App {
     let container: ModelContainer
 
     init() {
+        RepositoryFilterPolicy.resetNsfwVisibilityOnLaunch()
         let tabBarAppearance = UITabBarAppearance()
         tabBarAppearance.configureWithDefaultBackground()
         UITabBar.appearance().standardAppearance = tabBarAppearance

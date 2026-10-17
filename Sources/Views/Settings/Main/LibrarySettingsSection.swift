@@ -6,6 +6,9 @@ import SwiftUI
 struct LibrarySettingsSection: View {
     var body: some View {
         Section(header: Text("Thư Viện")) {
+            NavigationLink(destination: NsfwSettingsView()) {
+                Label("Nội dung nhạy cảm (NSFW)", systemImage: "eye.slash")
+            }
             NavigationLink(destination: NewChapterSettingsView()) {
                 Label("Kiểm tra chương mới", systemImage: "bell.badge")
             }

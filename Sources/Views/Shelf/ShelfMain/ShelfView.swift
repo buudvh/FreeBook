@@ -24,6 +24,7 @@ struct ShelfView: View {
     // SwiftUI sẽ tự động vẽ lại giao diện bất cứ khi nào danh sách sách trong database thay đổi.
     // `internal` vì khối kiểm tra chương mới đã tách sang `Extensions/ShelfView+NewChapters.swift`.
     @Query(sort: \Book.lastReadDate, order: .reverse) internal var allBooks: [Book]
+    @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
     /// `catalog` (gồm cả nguồn chưa cài) — giữ đúng tập hàng `@Query` cũ: icon nguồn trên kệ vẫn lấy được
     /// từ registry. `internal` vì `ShelfView+NewChapters.swift` dùng tới.
     internal var allExtensions: [Extension] { ExtensionLibraryRepository.shared.catalog }
@@ -111,7 +112,7 @@ struct ShelfView: View {
     }
 
     var body: some View {
-        let parts = ShelfBookPartition(allBooks)
+        let parts = ShelfBookPartition(allBooks, hidesNsfwHistory: !includeNsfw)
         NavigationStack {
             ZStack {
                 VStack(spacing: 0) {
