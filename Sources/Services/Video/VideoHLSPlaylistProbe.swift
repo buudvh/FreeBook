@@ -13,6 +13,12 @@ enum VideoHLSPlaylistProbe {
     struct Choice: Sendable {
         /// Chỉ số trong mảng ứng viên truyền vào (luôn hợp lệ khi mảng không rỗng).
         let index: Int
+        /// Mọi ứng viên theo thứ tự nên thử (phần tử đầu = `index`): master có `#EXT-X-MEDIA:TYPE=AUDIO` → master →
+        /// playlist con → chưa rõ loại; cùng nhóm thì giữ thứ tự bắt được. Phần sau phần tử đầu là link dự phòng khi
+        /// item phát ra hình mà mất tiếng (`VideoSourceResolution`).
+        let ranked: [Int]
+        /// Nhãn loại theo chỉ số ứng viên (`master+AUDIO`, `media`…) — không chứa URL.
+        let labels: [String]
         /// Loại playlist đã chọn và loại từng ứng viên — không chứa URL.
         let summary: String
     }
@@ -36,6 +42,16 @@ enum VideoHLSPlaylistProbe {
             case .unavailable: return "không tải được"
             }
         }
+
+        /// Thứ tự ưu tiên khi xếp hạng (nhỏ hơn = thử trước).
+        var rank: Int {
+            switch self {
+            case .master(let hasAudioRendition): return hasAudioRendition ? 0 : 1
+            case .media: return 2
+            case .unavailable: return 3
+            case .notPlaylist: return 4
+            }
+        }
     }
 
     private struct Probed: Sendable {
@@ -50,7 +66,10 @@ enum VideoHLSPlaylistProbe {
 
     static func choose(among candidates: [VideoMediaSniffer.Result]) async -> Choice {
         let kinds = await probe(candidates)
-        let index = kinds.firstIndex { $0.isMaster } ?? 0
+        // Sắp xếp ổn định theo (hạng, thứ tự bắt được): không có master thì vẫn giữ ứng viên đầu như trước.
+        let ranked = kinds.indices.sorted { (kinds[$0].rank, $0) < (kinds[$1].rank, $1) }
+        let index = ranked.first { kinds[$0].isMaster } ?? 0
+        let ordered = [index] + ranked.filter { $0 != index }
         let chosen = kinds.indices.contains(index) ? kinds[index] : Kind.unavailable
         let description: String
         switch chosen {
@@ -66,8 +85,16 @@ enum VideoHLSPlaylistProbe {
         let list = kinds.enumerated().map { "#\($0.offset + 1) \($0.element.label)" }.joined(separator: ", ")
         return Choice(
             index: index,
+            ranked: kinds.isEmpty ? [] : ordered,
+            labels: kinds.map { $0.label },
             summary: "Chọn \(description) — ứng viên \(index + 1)/\(candidates.count) [\(list)]"
         )
+    }
+
+    /// Nhãn loại của một playlist text (`master+AUDIO`, `master`, `media`, `không phải m3u8`) — dùng cho log chẩn đoán
+    /// của playlist do tiện ích trả thẳng (`hlsText`).
+    static func label(ofPlaylist text: String) -> String {
+        classify(text).label
     }
 
     // MARK: - Tải & phân loại

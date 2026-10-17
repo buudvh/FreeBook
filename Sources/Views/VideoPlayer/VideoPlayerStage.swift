@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Khung phim (dọc 16:9 hoặc toàn màn), xếp lớp từ dưới lên:
 /// hình (`VideoPlayerSurfaceView`) hoặc trang nhúng → phụ đề → cử chỉ → trạng thái nạp/lỗi → điều khiển → nút
-/// "Bỏ qua" → HUD cử chỉ → bảng danh sách tập (toàn màn).
+/// "Bỏ qua" → HUD cử chỉ → thông báo tự đổi link (`playbackNotice`) → bảng danh sách tập (toàn màn).
 ///
 /// Trang nhúng cần chạm trực tiếp nên khi nhúng không có lớp cử chỉ, chỉ còn thanh trên.
 /// Toàn màn: hình, nền và lớp cử chỉ tràn qua vùng an toàn (tai thỏ, home indicator); điều khiển vẫn nằm trong vùng an
@@ -60,6 +60,10 @@ struct VideoPlayerStage: View {
 
             VideoPlayerGestureHUD(feedback: controller.feedback)
 
+            if let notice = session.playbackNotice {
+                noticeBanner(notice)
+            }
+
             if controller.showsEpisodePanel, isFullscreen {
                 VideoEpisodePanel(session: session) {
                     controller.setEpisodePanelVisible(false)
@@ -68,6 +72,7 @@ struct VideoPlayerStage: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: controller.showsEpisodePanel)
+        .animation(.easeInOut(duration: 0.25), value: session.playbackNotice)
     }
 
     private var bleedEdges: Edge.Set { isFullscreen ? .all : [] }
@@ -81,6 +86,24 @@ struct VideoPlayerStage: View {
         }
         .foregroundStyle(.white.opacity(0.7))
         .allowsHitTesting(false)
+    }
+
+    /// Nằm dưới thanh trên, không nhận chạm (cả khi đang nhúng trang).
+    private func noticeBanner(_ text: String) -> some View {
+        VStack {
+            Text(text)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(Capsule().fill(Color.black.opacity(0.75)))
+                .padding(.top, 52)
+                .padding(.horizontal, 16)
+            Spacer(minLength: 0)
+        }
+        .allowsHitTesting(false)
+        .transition(.opacity)
     }
 
     private var gestureHandlers: VideoGestureView.Handlers {

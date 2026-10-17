@@ -20,6 +20,7 @@ extension VideoPlaybackSession {
             // Trang nhúng không báo pause ⇒ tự trả khoá màn hình khi rời trang.
             refreshIdleTimer()
         }
+        resetPlaybackSource()
         cues = []
         timeSkips = []
         hasSubtitles = false
@@ -96,8 +97,9 @@ extension VideoPlaybackSession {
             VideoNowPlayingCoordinator.shared.release(handBackToTTS: true)
             refreshIdleTimer()
             syncMiniPlayerState()
-            // Nhúng thì không biết giây đang xem ⇒ vẫn ghi tập vào Lịch sử với giây = 0.
-            saveProgress(reason: "nhúng", seconds: 0)
+            // Nhúng thì không biết giây đang xem ⇒ vẫn ghi tập vào Lịch sử với giây = 0 (tự chuyển sang nhúng vì mất
+            // tiếng thì giữ giây đang xem — `embedProgressSeconds`).
+            saveProgress(reason: "nhúng", seconds: embedProgressSeconds)
         }
     }
 
@@ -237,7 +239,8 @@ extension VideoPlaybackSession {
 
     private func handleItemFailure(itemId: ObjectIdentifier, message: String) {
         guard isCurrentItem(itemId) else { return }
-        AppLogger.shared.log("❌ [VideoPlayer] AVPlayerItem lỗi (tập \(currentEpisodeIndex), server «\(selectedServerTitle)»): \(message)")
+        // Log ❌ kèm nguồn + URL đã che; phương án dự phòng (mất tiếng) lỗi thì sang phương án kế thay vì báo lỗi.
+        guard !logItemFailureAndTryFallback(message: message) else { return }
         phase = .failed("Không phát được video: \(message)")
         // Không còn item phát ⇒ không giữ phiên màn khoá (TTS dựng lại lệnh của nó nếu đang có widget).
         VideoNowPlayingCoordinator.shared.release(handBackToTTS: true)
@@ -263,6 +266,7 @@ extension VideoPlaybackSession {
                 prepareAudioForPlayback()
                 if phase == .buffering { phase = .playing }
             }
+            scheduleAudioCheckIfNeeded()
         case .paused:
             if wasPlaying {
                 wasPlaying = false

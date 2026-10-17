@@ -83,6 +83,8 @@ final class VideoPlaybackSession {
     var isPictureInPictureActive = false
     /// Tăng mỗi lần cần dừng media của trang nhúng đang hiện (TTS bắt đầu đọc) — `VideoEmbedWebView` so giá trị này.
     var embedPauseRequest = 0
+    /// Thông báo ngắn trên khung phim khi tự đổi link vì mất tiếng; `nil` = không hiện. Tự ẩn sau vài giây.
+    var playbackNotice: String?
 
     // MARK: - Engine
 
@@ -126,6 +128,16 @@ final class VideoPlaybackSession {
     @ObservationIgnored var lastProgressSaveUptime: TimeInterval = 0
     @ObservationIgnored var lastSavedProgress: (episode: Int, seconds: Int)?
     @ObservationIgnored var didActivateAudioSession = false
+    /// Track + kết quả phân giải của lượt đang phát: log chẩn đoán và phương án dự phòng khi mất tiếng
+    /// (`+AudioFallback`). Xoá ở mỗi lượt nạp mới và khi `stop()`.
+    @ObservationIgnored var currentTrack: VideoTrack?
+    @ObservationIgnored var sourceResolution: VideoSourceResolution?
+    @ObservationIgnored var audioCheckTask: Task<Void, Never>?
+    /// `loadGeneration` đã kiểm tiếng — mỗi lượt nạp (kể cả mỗi phương án dự phòng) chỉ kiểm một lần.
+    @ObservationIgnored var audioCheckedGeneration: Int?
+    @ObservationIgnored var noticeTask: Task<Void, Never>?
+    /// Giây ghi vào Lịch sử khi đang nhúng trang: 0, trừ khi tự chuyển sang nhúng vì mất tiếng (giữ giây đang xem).
+    @ObservationIgnored var embedProgressSeconds = 0
 
     private init() {
         let player = AVPlayer()
@@ -274,6 +286,7 @@ final class VideoPlaybackSession {
         reachedEndOfItem = false
         lastSavedProgress = nil
         autoplayBlockedByTTS = false
+        resetPlaybackSource()
     }
 
     // MARK: - Màn hình gắn / gỡ

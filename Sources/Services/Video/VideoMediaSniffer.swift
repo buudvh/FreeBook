@@ -21,6 +21,13 @@ final class VideoMediaSniffer: NSObject, WKNavigationDelegate {
         /// Khoá `User-Agent` giữ trong dict; khi dựng `AVURLAsset`, `VideoPlaybackSession.assetOptions` tách nó sang
         /// `AVURLAssetHTTPUserAgentKey` (UA trong header fields có thể bị AVFoundation bỏ qua).
         let headers: [String: String]
+        /// Nhãn ứng viên để log (`m3u8 #2 media`) — không chứa URL.
+        var label: String? = nil
+        /// Các m3u8 còn lại theo thứ tự `VideoHLSPlaylistProbe.Choice.ranked` — link dự phòng khi item mất tiếng.
+        /// Không gồm mp4 khi đã có m3u8: mp4 lúc đó thường là quảng cáo pre-roll (có tiếng ⇒ sẽ "đạt" kiểm tiếng).
+        var alternatives: [Result] = []
+        /// Tóm tắt lượt phân loại playlist (`VideoHLSPlaylistProbe.Choice.summary`) — không chứa URL.
+        var playlistSummary: String? = nil
     }
 
     enum Page {
@@ -148,7 +155,9 @@ final class VideoMediaSniffer: NSObject, WKNavigationDelegate {
             complete(.success(nil), reason: reason)
             return
         }
-        complete(.success(makeResult(pick)), reason: reason)
+        var result = makeResult(pick)
+        result.label = "mp4/webm"
+        complete(.success(result), reason: reason)
     }
 
     /// WebView ẩn không cần nữa ⇒ gỡ ngay (dừng tải trang và media tắt tiếng), chỉ còn chờ lượt tải playlist.
@@ -166,7 +175,17 @@ final class VideoMediaSniffer: NSObject, WKNavigationDelegate {
             // `tearDown` (huỷ, lượt `sniff` mới, đã chốt) huỷ task này ⇒ kết quả cũ không được chạm lượt mới.
             guard !Task.isCancelled, let self, self.isProbingPlaylists,
                   results.indices.contains(choice.index) else { return }
-            let picked = results[choice.index]
+            let labeled = results.indices.map { index -> Result in
+                var result = results[index]
+                let kind = choice.labels.indices.contains(index) ? choice.labels[index] : "?"
+                result.label = "m3u8 #\(index + 1) \(kind)"
+                return result
+            }
+            var picked = labeled[choice.index]
+            picked.alternatives = choice.ranked
+                .filter { $0 != choice.index && labeled.indices.contains($0) }
+                .map { labeled[$0] }
+            picked.playlistSummary = choice.summary
             AppLogger.shared.log("🎬 [VideoMediaSniffer] \(choice.summary): \(Self.redacted(picked.url))")
             self.complete(.success(picked), reason: reason)
         }

@@ -6,6 +6,9 @@ import Foundation
 ///   (đúng DOC, không có fallback nhúng trang).
 /// - `webview`: URL, HTML hoặc JSON `{"data":…,"host":…}` → dò như `auto`; không ra thì `.embed`
 ///   (src iframe tuyệt đối nếu có, không thì nhúng nguyên HTML với base = host).
+/// - Link dò được (`auto`/`webview`) kèm phương án dự phòng cho ca **mất tiếng** (`VideoSourceResolution`): các m3u8
+///   khác đã gom rồi nhúng trang. Với `auto` đây là ngoại lệ có chủ đích so với DOC — chỉ dùng khi item phát ra hình
+///   mà không có tiếng, không dùng khi không dò được link.
 ///
 /// Header: header dò được (Referer/Origin/UA) rồi `track.headers` đè lên, so khoá không phân biệt hoa thường —
 /// header của ext luôn thắng. `track.data` không bao giờ bị sửa; chỉ dùng bản trim để nhận dạng dạng dữ liệu.
@@ -47,22 +50,30 @@ public final class VideoSourceResolver {
 
     /// `extensionLocalPath` dùng để lấy `metadata.source` trong `plugin.json` làm base khi track không có `host`.
     public func resolve(_ track: VideoTrack, extensionLocalPath: String) async throws -> VideoPlaybackPlan {
+        try await resolveSource(track, extensionLocalPath: extensionLocalPath).current.plan
+    }
+
+    /// Như `resolve`, kèm nguồn gốc link và phương án dự phòng khi item mất tiếng.
+    func resolveSource(_ track: VideoTrack, extensionLocalPath: String) async throws -> VideoSourceResolution {
         cancel()
         let current = generation
         let baseURL = Self.baseURL(host: track.host, extensionLocalPath: extensionLocalPath)
         do {
-            let plan: VideoPlaybackPlan
+            let resolution: VideoSourceResolution
             switch track.kind {
             case .native:
-                plan = try Self.nativePlan(track, baseURL: baseURL)
+                resolution = try VideoSourceResolution(direct: Self.nativePlan(track, baseURL: baseURL))
             case .auto:
-                plan = try await autoPlan(track, baseURL: baseURL, generation: current)
+                resolution = try await autoPlan(track, baseURL: baseURL, generation: current)
             case .webview:
-                plan = try await webviewPlan(track, baseURL: baseURL, generation: current)
+                resolution = try await webviewPlan(track, baseURL: baseURL, generation: current)
             }
             try ensureCurrent(current)
-            AppLogger.shared.log("🎬 [VideoSourceResolver] \(track.kind.rawValue) → \(Self.describe(plan))")
-            return plan
+            let spare = resolution.fallbacks.isEmpty
+                ? ""
+                : " (dự phòng khi mất tiếng: \(resolution.fallbacks.count) phương án)"
+            AppLogger.shared.log("🎬 [VideoSourceResolver] \(track.kind.rawValue) → \(Self.describe(resolution.current.plan))\(spare)")
+            return resolution
         } catch is CancellationError {
             throw CancellationError()
         } catch {
@@ -96,20 +107,20 @@ public final class VideoSourceResolver {
         return .native(url: url, headers: track.headers)
     }
 
-    private func autoPlan(_ track: VideoTrack, baseURL: URL?, generation: Int) async throws -> VideoPlaybackPlan {
+    private func autoPlan(_ track: VideoTrack, baseURL: URL?, generation: Int) async throws -> VideoSourceResolution {
         let probe = track.data.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !probe.isEmpty else { throw ResolveError.emptyData }
         guard let pageURL = Self.webURL(Self.urlText(probe), relativeTo: baseURL) else { throw ResolveError.invalidURL }
         if VideoMediaSniffer.isDirectMediaURL(pageURL) {
-            return .native(url: pageURL, headers: track.headers)
+            return VideoSourceResolution(direct: .native(url: pageURL, headers: track.headers))
         }
         guard let found = try await sniff(.url(pageURL), generation: generation) else {
             throw ResolveError.mediaNotFound
         }
-        return .native(url: found.url, headers: Self.merge(found.headers, overriddenBy: track.headers))
+        return Self.sniffedResolution(found, track: track, embed: .embed(url: pageURL, html: nil, baseURL: baseURL))
     }
 
-    private func webviewPlan(_ track: VideoTrack, baseURL: URL?, generation: Int) async throws -> VideoPlaybackPlan {
+    private func webviewPlan(_ track: VideoTrack, baseURL: URL?, generation: Int) async throws -> VideoSourceResolution {
         var content = track.data
         var base = baseURL
         if let wrapped = Self.unwrapJSON(content) {
@@ -123,26 +134,54 @@ public final class VideoSourceResolver {
         guard !probe.isEmpty else { throw ResolveError.emptyData }
 
         if Self.looksLikeHTML(probe) {
+            let embed = Self.htmlEmbedPlan(content, baseURL: base)
             if let found = try await sniff(.html(content, baseURL: base), generation: generation) {
-                return .native(url: found.url, headers: Self.merge(found.headers, overriddenBy: track.headers))
+                return Self.sniffedResolution(found, track: track, embed: embed)
             }
             AppLogger.shared.log("🎬 [VideoSourceResolver] webview: không bắt được link, chuyển sang nhúng trang")
-            if let iframe = Self.absoluteIframeSource(in: content) {
-                return .embed(url: iframe, html: nil, baseURL: base)
-            }
-            return .embed(url: nil, html: content, baseURL: base)
+            return VideoSourceResolution(direct: embed)
         }
 
         // `<!DOCTYPE html>` trần (không `<body`) cũng rơi xuống đây và bị từ chối như DOC.
         guard let pageURL = Self.webURL(Self.urlText(probe), relativeTo: base) else { throw ResolveError.invalidWebviewData }
         if VideoMediaSniffer.isDirectMediaURL(pageURL) {
-            return .native(url: pageURL, headers: track.headers)
+            return VideoSourceResolution(direct: .native(url: pageURL, headers: track.headers))
         }
+        let embed = VideoPlaybackPlan.embed(url: pageURL, html: nil, baseURL: base)
         if let found = try await sniff(.url(pageURL), generation: generation) {
-            return .native(url: found.url, headers: Self.merge(found.headers, overriddenBy: track.headers))
+            return Self.sniffedResolution(found, track: track, embed: embed)
         }
         AppLogger.shared.log("🎬 [VideoSourceResolver] webview: không bắt được link, chuyển sang nhúng trang")
-        return .embed(url: pageURL, html: nil, baseURL: base)
+        return VideoSourceResolution(direct: embed)
+    }
+
+    /// Link dò được ⇒ phương án chính + tối đa `maxAlternateCandidates` m3u8 khác (đã xếp hạng) + nhúng trang cuối
+    /// cùng. Header của ext đè header dò được ở mọi phương án native.
+    private static func sniffedResolution(
+        _ found: VideoMediaSniffer.Result,
+        track: VideoTrack,
+        embed: VideoPlaybackPlan
+    ) -> VideoSourceResolution {
+        func attempt(_ result: VideoMediaSniffer.Result) -> VideoSourceResolution.Attempt {
+            let headers = merge(result.headers, overriddenBy: track.headers)
+            let plan = VideoPlaybackPlan.native(url: result.url, headers: headers)
+            return VideoSourceResolution.Attempt(plan: plan, origin: .sniffed, note: result.label)
+        }
+        let alternates = found.alternatives.prefix(VideoSourceResolution.maxAlternateCandidates).map { attempt($0) }
+        let last = VideoSourceResolution.Attempt(plan: embed, origin: .embed, note: nil)
+        return VideoSourceResolution(
+            current: attempt(found),
+            fallbacks: alternates + [last],
+            playlistSummary: found.playlistSummary
+        )
+    }
+
+    /// HTML của `webview`: src iframe tuyệt đối nếu có, không thì nhúng nguyên HTML với base = host.
+    private static func htmlEmbedPlan(_ html: String, baseURL: URL?) -> VideoPlaybackPlan {
+        if let iframe = absoluteIframeSource(in: html) {
+            return .embed(url: iframe, html: nil, baseURL: baseURL)
+        }
+        return .embed(url: nil, html: html, baseURL: baseURL)
     }
 
     private func sniff(_ page: VideoMediaSniffer.Page, generation: Int) async throws -> VideoMediaSniffer.Result? {

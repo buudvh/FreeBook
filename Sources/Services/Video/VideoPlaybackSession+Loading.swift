@@ -255,10 +255,13 @@ extension VideoPlaybackSession {
             guard isCurrent(generation) else { return }
             let resolver = VideoSourceResolver()
             self.resolver = resolver
-            let plan = try await resolver.resolve(track, extensionLocalPath: ext.localPath)
+            let resolution = try await resolver.resolveSource(track, extensionLocalPath: ext.localPath)
             guard isCurrent(generation) else { return }
             self.resolver = nil
-            apply(plan: plan, track: track, generation: generation)
+            // Giữ track + phương án dự phòng cho kiểm tiếng (`+AudioFallback`); xoá ở lượt nạp sau.
+            currentTrack = track
+            sourceResolution = resolution
+            apply(plan: resolution.current.plan, track: track, generation: generation)
         } catch {
             guard isCurrent(generation), !(error is CancellationError) else { return }
             resolver = nil

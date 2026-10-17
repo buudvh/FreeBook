@@ -2,6 +2,28 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.535] - 2026-10-17
+
+### fix: video dò từ trang mất tiếng thì tự thử link khác hoặc nhúng trang, ghi log chẩn đoán
+
+Người dùng báo nguồn Dailymotion (tiện ích HHHTQ, track `auto`) có hình mà mất tiếng; app gốc thì có tiếng. Log người dùng gửi không có dòng chẩn đoán vì công tắc log đang tắt, và từ máy dev không tải được manifest (403, token gắn theo thiết bị). Vì vậy bản này vừa ghi lại bằng chứng, vừa tự khắc phục.
+
+- **Phát hiện mất tiếng**: sau khi item đang phát khoảng 2,5 giây, đếm `AVPlayerItem.tracks` và bỏ các track tiếng đang tắt; nhóm `.audible` chỉ ghi vào log. Mỗi lượt nạp chỉ kiểm một lần; đang tạm dừng thì hoãn tới lần phát sau.
+- **Log luôn ghi (`❌`)**:
+  - `Không có âm thanh: …` kèm tiện ích, tập, server, nguồn link (link trực tiếp / HLS text / dò từ trang), loại playlist đã chọn (master/media, có `AUDIO` hay không, số ứng viên), số track hình/tiếng.
+  - Dòng lỗi `AVPlayerItem` có thêm nguồn link, URL đã che token (scheme + host + tên file), mã lỗi và lỗi mạng gần nhất trong error log của item.
+- **Tự khắc phục**, chỉ áp với link do `VideoMediaSniffer` dò từ trang (track `auto`/`webview`):
+  - Thứ tự thử: link chính → tối đa 3 m3u8 khác (master có `AUDIO` trước) → nhúng trang.
+  - Phương án dự phòng phải có cả hình lẫn tiếng; lỗi thì sang phương án kế. Chuyển phương án thì giữ giây đang xem.
+  - Chỉ tự đổi khi màn trình phát đang hiện, app ở trước và không ở PiP.
+  - Có thông báo ngắn trên khung phim.
+  - Đây là ngoại lệ có chủ đích: DOC không cho `auto` rơi về nhúng trang, chỉ cho phép ở ca mất tiếng.
+- **Không còn đưa mp4** vào danh sách dự phòng khi đã có m3u8, vì mp4 thường là quảng cáo. Có nhiều master thì ưu tiên master có `AUDIO` làm link chính.
+- **Link tiện ích trả thẳng** (`native`/HLS text): không tự đổi, chỉ ghi log.
+- **File mới**: `VideoPlaybackSession+AudioFallback.swift`, `VideoSourceResolution.swift`. Sửa `VideoMediaSniffer`, `VideoHLSPlaylistProbe`, `VideoSourceResolver`, `VideoPlaybackSession` (+`Playback`/`Loading`/`Lifecycle`) và `VideoPlayerStage`.
+- **Rủi ro**: HLS tách tiếng có thể không hiện trong `item.tracks`. Khi đó link dò từ trang chuyển sang nhúng dù không cần, còn link tiện ích trả thẳng sẽ ghi một dòng `❌` sai.
+- **Kiểm chứng**: `check_architecture.py` **2 violation, 0 mới**. Không build tại chỗ (Windows); CI chỉ xác nhận biên dịch. Thử Dailymotion trên máy: nếu vẫn mất tiếng thì gửi log, giờ sẽ có dòng `Không có âm thanh` dù công tắc log tắt.
+
 ## [1.3.534] - 2026-10-17
 
 ### feat: nút đánh dấu và bỏ đánh dấu 18+ cho tiện ích
@@ -587,19 +609,3 @@ Người dùng: *"thêm provider gemini web và đăng nhập nhưng gửi reque
 - **Phụ**: `applyLoadedSession` rơi về `activeProfileId` khi profile ghim trong phiên không còn tồn tại (pill/model khớp request thật sự gửi).
 - Tách `GeminiWebSessionController+Scripts.swift` (JS tiêm) và `+Delegates.swift` (WKNavigationDelegate/WKScriptMessageHandler) để file chính dưới 400 dòng. `rules.md`: cập nhật mục "Gemini Web provider invariants" (3 bullet).
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`. Hành vi thật cần log `[GeminiWeb]` từ máy người dùng (bật Logging trong Cài đặt trước — mặc định tắt mỗi lần mở app).
-
-## [1.3.505] - 2026-10-10
-
-### feat(ai): provider Gemini Web - dang nhap Google trong app, khong can API key
-
-Người dùng: *"Tôi muốn thêm provider gemini web vào chế độ AI ở reader"* — chốt: đăng nhập Google trong app, lấy cookie tự động; phạm vi chỉ chat trong Reader. Plan đã duyệt: `Docs/Plans/2026-10-10-plan-gemini-web-provider.md`.
-
-- **Cách nối**: WKWebView **ẩn** (không gắn window, giống `WebViewLoader`) nạp `gemini.google.com/app`, rồi chạy `fetch()` **trong chính trang đó** bằng `evaluateJavaScript`; body stream về Swift qua `WKScriptMessageHandler` (`GeminiWebSessionController`, 394 dòng). WebKit tự lo cookie xoay `__Secure-1PSIDTS`, Origin/Referer, TLS — không copy cookie sang `URLSession`. Token `SNlM0e`/`cfb2h`/`FdrFJe`/`TuX5cc` đọc từ `window.WIZ_global_data`.
-- **Giao thức** (chép theo `gemini-webapi` 2026-10, không có tài liệu chính thức): `StreamGenerate` với `f.req` 81 ô (`[45]=1` temporary chat — không bẩn lịch sử Gemini của tài khoản), header model `x-goog-ext-525001261-jspb` dựng từ model khám phá qua RPC `otAQ7b` (`batchexecute`), frame `rt=c` độ dài theo **UTF-16** (`GeminiWebFrameParser`), field index tập trung ở `GeminiWebResponseParser`. Mã lỗi 1037/1050/1052/1060/1013 và trạng thái tài khoản 1016/1040/1042… thành `GeminiWebError` tiếng Việt.
-- **Hội thoại stateless**: `GeminiWebPromptFormatter` ghép system prompt + 6 tin gần nhất thành một prompt có nhãn; không temperature, không tool calling. Frame mang text tích luỹ ⇒ `GeminiWebClient` đổi sang delta theo tiền tố, bản cuối khác thì nối sau dấu "— Gemini sửa lại câu trả lời —"; `AIRuntimeCoordinator` giữ nguyên.
-- **Phạm vi**: chat + quick chips + test kết nối + "Load từ API" (khám phá model). `AIContextCompactor` bỏ qua nén; `AINameExtractionBatchProcessor` ném `unsupportedTask` **trước** vòng lặp batch (bên trong `try?` nuốt lỗi từng batch).
-- **UI**: mẫu "Google Gemini (Web — đăng nhập)" và segment "Gemini Web" ở `AddProviderProfileSheet` + `AISettingsView`; profile Gemini Web ẩn Base URL/API Key/Temperature, thay bằng `GeminiWebAccountRow` (trạng thái + Đăng nhập Google/Đăng xuất) mở sheet `GeminiWebLoginView` (WKWebView hiển thị, cùng `WKWebsiteDataStore.default()`, tới `gemini.google.com` là tự đóng). Đăng xuất xoá cookie `*.google.com` — trình duyệt bypass cũng mất đăng nhập Google, alert nói rõ.
-- **Model/Preset**: `AIProviderPreset.geminiWeb`, `AIProviderProfile.defaultGeminiWeb` (`apiFormat: "geminiWeb"`, `authType: "googleWebSession"`), `isGeminiWeb`.
-- **File mới** (9 service ≤ 394 dòng, 3 view): `GeminiWeb{Error,InitSession,Model,RequestBuilder,FrameParser,ResponseParser,PromptFormatter,SessionController,Client}.swift`, `GeminiWeb{LoginWebPane,LoginView,AccountRow}.swift`. `rules.md`: mục "Gemini Web provider invariants (1.3.505)".
-- **Rủi ro đã nêu trước khi duyệt**: Google có thể từ chối đăng nhập trong WKWebView (UA Safari như trình duyệt bypass thường qua được; chưa kiểm chứng được trên Windows); giao thức không chính thức, Google đổi là `protocolChanged`; tài khoản miễn phí có hạn mức (1037).
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`.

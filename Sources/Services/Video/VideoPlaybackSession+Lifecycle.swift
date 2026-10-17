@@ -15,7 +15,7 @@ extension VideoPlaybackSession {
         if let overrideSeconds {
             seconds = overrideSeconds
         } else if embedContent != nil {
-            seconds = 0
+            seconds = embedProgressSeconds
         } else if let pending = pendingResumeSeconds {
             // Item chưa sẵn sàng ⇒ đừng ghi đè giây đã lưu bằng 0.
             seconds = pending
