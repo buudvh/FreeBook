@@ -82,7 +82,9 @@ public final class BookTransactionCoordinator {
         book.author = author
         book.coverUrl = coverUrl
         book.desc = desc
-        book.host = host
+        // `detail` không trả host là chuyện thường (hợp đồng extension không có trường này) — `""` không được xoá
+        // host đã lưu: các fallback `chapter host → book host → source` sau đó sẽ không bao giờ chạy tới.
+        if !host.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { book.host = host }
         do {
             try context.save()
             return .success(())

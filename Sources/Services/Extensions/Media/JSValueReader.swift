@@ -21,6 +21,33 @@ enum JSValueReader {
         return value.toString()
     }
 
+    /// Như `string(_:)` nhưng coi luôn chuỗi `"null"`/`"undefined"` là **thiếu** — script hay nối chuỗi/`String(x)`
+    /// trên trường không tồn tại (vd `description: item.description` khi API không có trường đó). Dùng cho mọi
+    /// trường hiển thị/định danh do script trả về (`ExtensionManager` parse search/detail/toc/genre/home…).
+    static func cleanString(_ value: JSValue?) -> String? {
+        guard let text = string(value), !isNullLiteral(text) else { return nil }
+        return text
+    }
+
+    /// Bản cho giá trị Foundation (kết quả `parseJSObject`/`JSONSerialization`): `String`/số; `NSNull`,
+    /// `"null"`, `"undefined"`, object, mảng ⇒ `nil`.
+    static func cleanString(any value: Any?) -> String? {
+        switch value {
+        case let text as String:
+            return isNullLiteral(text) ? nil : text
+        case let number as NSNumber:
+            return number.stringValue
+        default:
+            return nil
+        }
+    }
+
+    /// `"null"`/`"undefined"` (bỏ khoảng trắng hai đầu, không phân biệt hoa thường).
+    static func isNullLiteral(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return trimmed == "null" || trimmed == "undefined"
+    }
+
     /// Như `string(_:)` nhưng bỏ chuỗi rỗng/chỉ có khoảng trắng.
     static func nonEmptyString(_ value: JSValue?) -> String? {
         guard let text = string(value),

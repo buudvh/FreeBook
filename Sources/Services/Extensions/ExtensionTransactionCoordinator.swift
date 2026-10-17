@@ -125,9 +125,19 @@ public final class ExtensionTransactionCoordinator {
         // Như bản cũ (chỉ gắn quan hệ khi tìm thấy `Repository`): URL kho phải là kho đang có.
         let repoKey = Self.trimmed(command.repositoryUrl ?? "")
         let repositoryUrl: String? = knownRepositories.contains(repoKey) ? repoKey : nil
+        let existingIndex = list.firstIndex(where: { $0.packageId == command.packageId })
+        // Cờ NSFW tiện ích tự khai: `plugin.json` vừa cài (mọi đường cài: kho, zip, Debug, khôi phục) → registry
+        // của kho. Không khai ⇒ giữ cờ cũ khi cập nhật. `savesHistory` là lựa chọn của người dùng: không đụng.
+        let manifestNsfw = resolvedFolder.flatMap { folder in
+            ExtensionManifestReader.nsfwFlag(localPath: ExtensionFolderLocator.absolutePath(forFolder: folder))
+        }
+        let existingRepositoryUrl = existingIndex.flatMap { list[$0].repositoryUrl }
+        let declaredNsfw = manifestNsfw
+            ?? registryNsfwFlag(packageId: command.packageId, repositoryUrl: repositoryUrl ?? existingRepositoryUrl)
 
-        if let index = list.firstIndex(where: { $0.packageId == command.packageId }) {
+        if let index = existingIndex {
             var ext = list[index]
+            if let declaredNsfw { ext.isNsfw = declaredNsfw }
             if !command.name.isEmpty { ext.name = command.name }
             if !command.author.isEmpty { ext.author = command.author }
             ext.version = command.version
@@ -163,9 +173,17 @@ public final class ExtensionTransactionCoordinator {
             repositoryUrl: repositoryUrl,
             installOrigin: command.installOrigin ?? Extension.installOriginRepository,
             installedAt: now,
-            updatedAt: now
+            updatedAt: now,
+            isNsfw: declaredNsfw
         ))
         return .changed
+    }
+
+    /// Cờ NSFW của dòng registry cùng `packageId` trong cache registry của kho `repositoryUrl`.
+    private func registryNsfwFlag(packageId: String, repositoryUrl: String?) -> Bool? {
+        guard let repositoryUrl, let snapshot = library.registries[repositoryUrl] else { return nil }
+        let item = snapshot.items.first(where: { ExtensionSyncCommandBuilder.packageId(forName: $0.name) == packageId })
+        return item?.isNsfw
     }
 
     // MARK: - Sửa một tiện ích đã cài

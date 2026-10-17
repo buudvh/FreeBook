@@ -194,7 +194,8 @@ public final class ExtensionLibraryRepository {
             downloadUrl: item.path,
             repositoryUrl: repositoryUrl,
             installOrigin: Extension.installOriginRepository,
-            remoteVersion: item.version
+            remoteVersion: item.version,
+            isNsfw: item.isNsfw
         )
     }
 

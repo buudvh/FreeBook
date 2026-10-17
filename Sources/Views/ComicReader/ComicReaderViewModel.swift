@@ -192,7 +192,7 @@ final class ComicReaderViewModel {
         guard let ext = extensionSnapshot, !ext.localPath.isEmpty else {
             throw Self.readerError("Chưa cài tiện ích nguồn của truyện này")
         }
-        let host = Self.nonEmpty(chapter.host) ?? bookHost ?? ""
+        let host = ExtensionHostResolver.chapterHost(chapterHost: chapter.host, bookHost: bookHost, packageId: ext.packageId)
         let sources = try await ExtensionManager.shared.comicPages(
             localPath: ext.localPath,
             downloadUrl: ext.downloadUrl,

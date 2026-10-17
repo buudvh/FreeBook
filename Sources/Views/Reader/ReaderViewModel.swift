@@ -662,7 +662,7 @@ class ReaderViewModel: ObservableObject {
             }
             title = chap.title
             urlString = chap.url
-            chapterHost = chap.host
+            chapterHost = ExtensionHostResolver.chapterHost(chapterHost: chap.host, bookHost: localBook?.host, packageId: extensionPackageId)
             bookMetadata = nil
         } else {
             guard index < onlineChapters.count else {

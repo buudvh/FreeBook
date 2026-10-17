@@ -437,7 +437,7 @@ actor ChapterContentRepository {
                     localPath: extensionInfo.localPath,
                     downloadUrl: extensionInfo.downloadUrl,
                     url: request.url,
-                    host: request.host,
+                    host: ExtensionHostResolver.chapterHost(chapterHost: request.host, bookHost: request.bookMetadata?.host, packageId: extensionInfo.packageId),
                     configJson: extensionInfo.configJson ?? "{}"
                 )
             }

@@ -44,8 +44,11 @@ extension DownloadManager {
         }
 
         let chapters: [StoredChapterSnapshot]
+        let bookHost: String?
         do {
-            chapters = try await comicChaptersToDownload(task, container: container)
+            let prepared = try await comicChaptersToDownload(task, container: container)
+            chapters = prepared.chapters
+            bookHost = prepared.bookHost
         } catch {
             AppLogger.shared.log("❌ [DownloadManager] Không chuẩn bị được danh sách chương truyện tranh: \(error.localizedDescription)")
             await markFailed(taskId: taskId, error: error.localizedDescription)
@@ -77,6 +80,7 @@ extension DownloadManager {
                         chapter,
                         chapterUrl: chapterUrl,
                         bookId: task.bookId,
+                        bookHost: bookHost,
                         ext: ext,
                         scriptRunner: scriptRunner
                     )
@@ -110,10 +114,12 @@ extension DownloadManager {
 
     /// Một chương: `comicPages` → từng ảnh qua `ComicImageLoader.data(for:scriptRunner:)` → ghi đĩa → manifest sau cùng.
     /// `chapterUrl` là URL đã resolve mà vòng lặp dùng để so manifest — ghi đúng giá trị đó vào manifest mới.
+    /// Host gọi script: host chương → host sách → `source` (`ExtensionHostResolver`); khoá manifest không đổi.
     private func downloadComicChapter(
         _ chapter: StoredChapterSnapshot,
         chapterUrl: String,
         bookId: String,
+        bookHost: String?,
         ext: Extension,
         scriptRunner: ComicImageScriptRunner
     ) async throws {
@@ -121,7 +127,7 @@ extension DownloadManager {
             localPath: ext.localPath,
             downloadUrl: ext.downloadUrl,
             url: chapter.url,
-            host: chapter.host,
+            host: ExtensionHostResolver.chapterHost(chapterHost: chapter.host, bookHost: bookHost, packageId: ext.packageId),
             configJson: ext.configJson
         )
         guard !pages.isEmpty else {
@@ -159,7 +165,11 @@ extension DownloadManager {
 
     /// Mục lục cần tải — cùng quy tắc với nhánh chữ của `executeTask` (ChapterStore trước, SwiftData sau;
     /// `startFromCurrent` theo `currentChapterIndex`; `limit`), và cũng đẩy truyện lên kệ nếu chưa nằm ở đâu.
-    private func comicChaptersToDownload(_ task: DownloadTask, container: ModelContainer) async throws -> [StoredChapterSnapshot] {
+    /// Bỏ dòng tiêu đề nhóm tập (`isSection`): không có ảnh để tải. Trả kèm host sách cho fallback host.
+    private func comicChaptersToDownload(
+        _ task: DownloadTask,
+        container: ModelContainer
+    ) async throws -> (chapters: [StoredChapterSnapshot], bookHost: String?) {
         let context = ModelContext(container)
         let allBooks = (try? context.fetch(FetchDescriptor<Book>())) ?? []
         guard let book = allBooks.first(where: { $0.bookId == task.bookId }) else {
@@ -172,6 +182,7 @@ extension DownloadManager {
 
         // Đọc hết từ `@Model` trước `await` (context không được dùng chéo luồng).
         let currentIndex = book.currentChapterIndex
+        let bookHost = book.host
         let legacyChapters = book.chapters.sorted(by: { $0.index < $1.index }).map { ch in
             StoredChapterSnapshot(
                 id: ch.id,
@@ -195,7 +206,7 @@ extension DownloadManager {
             throw NSError(domain: "DownloadManager", code: -3, userInfo: [NSLocalizedDescriptionKey: "Chỉ mục chương bắt đầu vượt quá số lượng chương hiện có."])
         }
         let endIdx = task.limit.limitValue.map { min(startIdx + $0, sortedChapters.count) } ?? sortedChapters.count
-        return Array(sortedChapters[startIdx..<endIdx])
+        return (sortedChapters[startIdx..<endIdx].filter { !$0.isSection }, bookHost)
     }
 
     /// Huỷ qua `cancelTask`/`cancelTasksForBook`/`deleteTask` (đều `handle.cancel()`), cộng cờ `isTaskCancelled`.

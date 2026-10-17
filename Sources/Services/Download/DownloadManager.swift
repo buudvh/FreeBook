@@ -367,7 +367,9 @@ public final class DownloadManager: ObservableObject {
             let provider = ExportContentProvider(
                 bookId: bgBook.bookId,
                 worker: worker,
-                skipUncached: exportFormat != nil && task.onlyExportCached
+                skipUncached: exportFormat != nil && task.onlyExportCached,
+                bookHost: bgBook.host,
+                packageId: bgBook.extensionPackageId
             )
             var processedCount = 0
 

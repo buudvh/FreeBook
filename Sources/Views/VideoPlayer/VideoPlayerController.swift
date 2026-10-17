@@ -21,6 +21,8 @@ final class VideoPlayerController {
         let title: String
         let url: String
         let host: String
+        /// Dòng tiêu đề nhóm tập (`type: "section"`) — không phát được.
+        var isSection: Bool = false
         var id: Int { index }
     }
 
@@ -109,9 +111,8 @@ final class VideoPlayerController {
     }
 
     var nextEpisode: Episode? {
-        guard let position = episodes.firstIndex(where: { $0.index == currentEpisodeIndex }),
-              position + 1 < episodes.count else { return nil }
-        return episodes[position + 1]
+        guard let position = episodes.firstIndex(where: { $0.index == currentEpisodeIndex }) else { return nil }
+        return episodes[(position + 1)...].first { !$0.isSection }
     }
 
     var canTryAnotherServer: Bool { servers.count > 1 }
@@ -144,8 +145,10 @@ final class VideoPlayerController {
             phase = .failed("Phim chưa có tập nào.")
             return
         }
-        if currentEpisode == nil {
-            currentEpisodeIndex = episodes[0].index
+        if currentEpisode == nil || currentEpisode?.isSection == true {
+            // Dòng tiêu đề nhóm tập (section) không phát được ⇒ tập thật đầu tiên từ vị trí đó.
+            let playable = episodes.first { $0.index >= currentEpisodeIndex && !$0.isSection } ?? episodes.first { !$0.isSection }
+            currentEpisodeIndex = (playable ?? episodes[0]).index
         }
         let resumeSeconds = initialResumeSeconds(book: book)
         if book == nil {
@@ -163,10 +166,10 @@ final class VideoPlayerController {
             AppLogger.shared.log("❌ [VideoPlayer] Lỗi đọc mục lục tập: \(error.localizedDescription)")
         }
         if !stored.isEmpty {
-            episodes = stored.map { Episode(index: $0.index, title: $0.title, url: $0.url, host: $0.host ?? "") }
+            episodes = stored.map { Episode(index: $0.index, title: $0.title, url: $0.url, host: $0.host ?? "", isSection: $0.isSection) }
         } else {
             episodes = launch.onlineChapters.enumerated().map { offset, chapter in
-                Episode(index: offset, title: chapter.name, url: chapter.url, host: chapter.host)
+                Episode(index: offset, title: chapter.name, url: chapter.url, host: chapter.host, isSection: chapter.isSection)
             }
         }
     }
@@ -227,7 +230,7 @@ final class VideoPlayerController {
             host: bookHost.isEmpty ? nil : bookHost
         )
         let chapters = episodes.map {
-            ChapterMetadataSnapshot(title: $0.title, url: $0.url, index: $0.index, host: $0.host.isEmpty ? nil : $0.host)
+            ChapterMetadataSnapshot(title: $0.title, url: $0.url, index: $0.index, host: $0.host.isEmpty ? nil : $0.host, isSection: $0.isSection)
         }
         do {
             _ = try await ChapterContentRepository.shared.saveChapterList(
@@ -323,7 +326,7 @@ final class VideoPlayerController {
         }
         guard let ext = installedExtension(generation: generation) else { return }
         phase = .loadingServers
-        let host = episode.host.isEmpty ? bookHost : episode.host
+        let host = ExtensionHostResolver.chapterHost(chapterHost: episode.host, bookHost: bookHost, packageId: ext.packageId)
         do {
             let list = try await ExtensionManager.shared.videoServers(
                 localPath: ext.localPath,

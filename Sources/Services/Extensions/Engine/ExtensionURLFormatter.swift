@@ -1,7 +1,9 @@
 import Foundation
 
-/// Chuẩn hoá URL ảnh/link do extension trả về: lấy `http(s)://` cuối cùng khi bị lặp, ghép `host` cho URL tương đối.
-/// Chuyển nguyên văn từ `JSExecutor.cleanAndResolveUrl` (1.3.481) — hàm đó còn là forwarder công khai cho caller cũ.
+/// Chuẩn hoá URL do extension trả về.
+/// - `cleanAndResolve` (link/URL lúc gọi script): lấy `http(s)://` cuối cùng khi bị lặp, `//x` ⇒ `https://x`, ghép
+///   `host` cho URL tương đối. Chuyển từ `JSExecutor.cleanAndResolveUrl` (1.3.481) — hàm đó còn là forwarder.
+/// - `resolveAssetURL` (ảnh): xem chú thích hàm.
 enum ExtensionURLFormatter {
     static func cleanAndResolve(_ urlString: String, host: String? = nil) -> String {
         var cleaned = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -24,6 +26,11 @@ enum ExtensionURLFormatter {
             cleaned = String(cleaned[idx...])
         }
 
+        // URL không giao thức `//cdn…` không phải đường dẫn tương đối: thêm `https:` thay vì ghép host.
+        if cleaned.hasPrefix("//") {
+            return "https:" + cleaned
+        }
+
         // 2. Nếu là URL tương đối (không bắt đầu bằng http:// hoặc https://)
         if !cleaned.lowercased().hasPrefix("http://") && !cleaned.lowercased().hasPrefix("https://") {
             let foundHost = host?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -34,5 +41,30 @@ enum ExtensionURLFormatter {
         }
 
         return cleaned
+    }
+
+    /// Chuẩn hoá URL **ảnh** (bìa, icon, ảnh trong mục khám phá) theo hợp đồng extension (extension-api.md):
+    /// - URL `http(s)://` tuyệt đối giữ **nguyên văn** — không có bước "lấy `https://` cuối cùng" như
+    ///   `cleanAndResolve` (bước đó làm hỏng bìa dạng proxy `…?url=https://…`);
+    /// - `//cdn…` ⇒ `https://cdn…`; URI `data:` giữ nguyên;
+    /// - còn lại là đường dẫn tương đối ⇒ ghép `host` (host rỗng ⇒ giữ nguyên chuỗi đã trim).
+    ///
+    /// **Không** dùng cho `link`/`url` của sách hay chương: đó là khoá nhận diện, phải giữ nguyên văn lúc parse.
+    static func resolveAssetURL(_ raw: String, host: String?) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "" }
+        let lower = trimmed.lowercased()
+        if lower.hasPrefix("http://") || lower.hasPrefix("https://") || lower.hasPrefix("data:") {
+            return trimmed
+        }
+        if trimmed.hasPrefix("//") {
+            return "https:" + trimmed
+        }
+
+        var base = host?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !base.isEmpty else { return trimmed }
+        if base.hasPrefix("//") { base = "https:" + base }
+        while base.hasSuffix("/") { base.removeLast() }
+        return trimmed.hasPrefix("/") ? base + trimmed : base + "/" + trimmed
     }
 }

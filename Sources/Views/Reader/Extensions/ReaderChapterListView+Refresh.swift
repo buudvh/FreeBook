@@ -52,7 +52,8 @@ extension ReaderChapterListView {
                             title: item.name,
                             url: item.url,
                             index: index,
-                            host: item.host
+                            host: item.host,
+                            isSection: item.isSection
                         )
                     }
 

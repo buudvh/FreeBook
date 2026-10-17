@@ -140,6 +140,18 @@ internal final class ChapterStoreDatabase {
             }
         }
 
+        // v2: cờ dòng tiêu đề nhóm tập (`type: "section"`) của truyện tranh/video. DB mới chạy cả v1 rồi v2.
+        if version < 2 {
+            try beginTransaction()
+            do {
+                try execRaw("ALTER TABLE chapter_metadata ADD COLUMN is_section INTEGER NOT NULL DEFAULT 0; PRAGMA user_version = 2;")
+                try commitTransaction()
+            } catch {
+                rollbackTransaction()
+                throw error
+            }
+        }
+
         applyFileProtection()
     }
 
@@ -199,13 +211,14 @@ internal final class ChapterStoreDatabase {
 
     private func prepareStatements() throws {
         let replaceSQL = """
-        INSERT INTO chapter_metadata (id, book_id, chapter_index, title, url, host, title_trans, is_cached, offset, length, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO chapter_metadata (id, book_id, chapter_index, title, url, host, title_trans, is_cached, offset, length, updated_at, is_section)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
             chapter_index = excluded.chapter_index,
             title = excluded.title,
             url = excluded.url,
             host = excluded.host,
+            is_section = excluded.is_section,
             title_trans = coalesce(excluded.title_trans, chapter_metadata.title_trans),
             updated_at = excluded.updated_at;
         """
@@ -215,7 +228,7 @@ internal final class ChapterStoreDatabase {
         try prepareOne(upsertSQL, &stmtUpsert)
 
         let fetchByUrlSQL = """
-        SELECT id, book_id, chapter_index, title, url, host, title_trans, is_cached, offset, length, updated_at
+        SELECT id, book_id, chapter_index, title, url, host, title_trans, is_cached, offset, length, updated_at, is_section
         FROM chapter_metadata
         WHERE book_id = ? AND url = ?
         LIMIT 1;
@@ -223,7 +236,7 @@ internal final class ChapterStoreDatabase {
         try prepareOne(fetchByUrlSQL, &stmtFetchChapterByUrl)
 
         let fetchByIndexSQL = """
-        SELECT id, book_id, chapter_index, title, url, host, title_trans, is_cached, offset, length, updated_at
+        SELECT id, book_id, chapter_index, title, url, host, title_trans, is_cached, offset, length, updated_at, is_section
         FROM chapter_metadata
         WHERE book_id = ? AND chapter_index = ?
         LIMIT 1;
@@ -231,7 +244,7 @@ internal final class ChapterStoreDatabase {
         try prepareOne(fetchByIndexSQL, &stmtFetchChapterByIndex)
 
         let fetchOrderedTOCSQL = """
-        SELECT id, book_id, chapter_index, title, url, host, title_trans, is_cached, offset, length, updated_at
+        SELECT id, book_id, chapter_index, title, url, host, title_trans, is_cached, offset, length, updated_at, is_section
         FROM chapter_metadata
         WHERE book_id = ?
         ORDER BY chapter_index ASC;
@@ -239,7 +252,7 @@ internal final class ChapterStoreDatabase {
         try prepareOne(fetchOrderedTOCSQL, &stmtFetchOrderedTOC)
 
         let fetchRangeSQL = """
-        SELECT id, book_id, chapter_index, title, url, host, title_trans, is_cached, offset, length, updated_at
+        SELECT id, book_id, chapter_index, title, url, host, title_trans, is_cached, offset, length, updated_at, is_section
         FROM chapter_metadata
         WHERE book_id = ? AND chapter_index >= ? AND chapter_index <= ?
         ORDER BY chapter_index ASC;
@@ -247,7 +260,7 @@ internal final class ChapterStoreDatabase {
         try prepareOne(fetchRangeSQL, &stmtFetchRange)
 
         let searchChaptersSQL = """
-        SELECT id, book_id, chapter_index, title, url, host, title_trans, is_cached, offset, length, updated_at
+        SELECT id, book_id, chapter_index, title, url, host, title_trans, is_cached, offset, length, updated_at, is_section
         FROM chapter_metadata
         WHERE book_id = ? AND (title LIKE ? OR (title_trans IS NOT NULL AND title_trans LIKE ?))
         ORDER BY chapter_index ASC;
@@ -427,6 +440,7 @@ internal final class ChapterStoreDatabase {
                 try bindInt64(stmt, 9, offset)
                 try bindInt64(stmt, 10, length)
                 try bindDouble(stmt, 11, now)
+                try bindInt32(stmt, 12, item.isSection ? 1 : 0)
 
                 if sqlite3_step(stmt) != SQLITE_DONE {
                     let code = sqlite3_errcode(db)
@@ -549,6 +563,7 @@ internal final class ChapterStoreDatabase {
                 try bindInt64(stmt, 9, offset)
                 try bindInt64(stmt, 10, length)
                 try bindDouble(stmt, 11, now)
+                try bindInt32(stmt, 12, item.isSection ? 1 : 0)
 
                 if sqlite3_step(stmt) != SQLITE_DONE {
                     let code = sqlite3_errcode(db)
@@ -804,6 +819,7 @@ internal final class ChapterStoreDatabase {
                 try bindInt64(stmt, 9, item.offset)
                 try bindInt64(stmt, 10, item.length)
                 try bindDouble(stmt, 11, item.updatedAt.timeIntervalSince1970)
+                try bindInt32(stmt, 12, item.isSection ? 1 : 0)
 
                 if sqlite3_step(stmt) != SQLITE_DONE {
                     let code = sqlite3_errcode(db)
@@ -936,6 +952,7 @@ internal final class ChapterStoreDatabase {
         let offset = sqlite3_column_int64(stmt, 8)
         let length = sqlite3_column_int64(stmt, 9)
         let updatedAt = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 10))
+        let isSection = sqlite3_column_int(stmt, 11) != 0
 
         return StoredChapterSnapshot(
             id: id,
@@ -948,7 +965,8 @@ internal final class ChapterStoreDatabase {
             isCached: isCached,
             offset: offset,
             length: length,
-            updatedAt: updatedAt
+            updatedAt: updatedAt,
+            isSection: isSection
         )
     }
 }

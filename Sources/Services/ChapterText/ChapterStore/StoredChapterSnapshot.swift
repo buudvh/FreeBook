@@ -12,6 +12,8 @@ internal struct StoredChapterSnapshot: Sendable, Equatable {
     internal let offset: Int64
     internal let length: Int64
     internal let updatedAt: Date
+    /// Dòng tiêu đề nhóm tập (`type: "section"`) của truyện tranh/video — cột `is_section`.
+    internal let isSection: Bool
 
     internal init(
         id: String,
@@ -24,7 +26,8 @@ internal struct StoredChapterSnapshot: Sendable, Equatable {
         isCached: Bool = false,
         offset: Int64 = 0,
         length: Int64 = 0,
-        updatedAt: Date = Date()
+        updatedAt: Date = Date(),
+        isSection: Bool = false
     ) {
         self.id = id
         self.bookId = bookId
@@ -37,5 +40,6 @@ internal struct StoredChapterSnapshot: Sendable, Equatable {
         self.offset = offset
         self.length = length
         self.updatedAt = updatedAt
+        self.isSection = isSection
     }
 }

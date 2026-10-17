@@ -805,7 +805,7 @@ struct BookDetailView: View {
             self.genres = cachedEntry.genres
             self.suggests = cachedEntry.suggests
             self.comments = cachedEntry.comments
-            self.host = cachedEntry.host
+            if !cachedEntry.host.isEmpty { self.host = cachedEntry.host }
             self.isLoadingDetail = false
             // Vẫn cần tải TOC
             loadTOCDataOnly()
@@ -846,7 +846,7 @@ struct BookDetailView: View {
                         self.genres = detailResult.genres
                         self.suggests = detailResult.suggests
                         self.comments = detailResult.comments
-                        self.host = detailResult.host
+                        if !detailResult.host.isEmpty { self.host = detailResult.host }
 
                         if let book = localBook {
                             let savedDesc = detailResult.detail.isEmpty ? detailResult.description.cleanHTML() : "\(detailResult.description.cleanHTML())\n\n---\n\(self.cleanDetailText(detailResult.detail))"

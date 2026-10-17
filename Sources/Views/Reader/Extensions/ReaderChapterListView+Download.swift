@@ -53,7 +53,7 @@ extension ReaderChapterListView {
                         chapterIndex: index,
                         title: title,
                         url: url,
-                        host: row?.host ?? fallbackHost,
+                        host: ExtensionHostResolver.chapterHost(chapterHost: row?.host, bookHost: fallbackHost, packageId: extensionInfo.packageId),
                         bookMetadata: nil,
                         extensionInfo: extensionInfo,
                         forceRefresh: false

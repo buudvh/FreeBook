@@ -197,7 +197,8 @@ extension BookDetailView {
                                 url: item.url,
                                 index: startIndex + offset,
                                 host: item.host,
-                                titleTrans: translatedTitlesMap[offset]
+                                titleTrans: translatedTitlesMap[offset],
+                                isSection: item.isSection
                             )
                         }
                         _ = try await ChapterContentRepository.shared.saveChapterList(

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Phân giải `VideoTrack` (kết quả `track.js`) thành `VideoPlaybackPlan` theo hợp đồng VBook:
+/// Phân giải `VideoTrack` (kết quả `track.js`) thành `VideoPlaybackPlan` theo hợp đồng extension:
 /// - `native`: URL m3u8/mp4 tuyệt đối → `.native`; text `#EXTM3U` hoặc URI `data:` chứa HLS → `.hlsText`.
 /// - `auto`: URL trang xem/embed → dò link bằng `VideoMediaSniffer` → `.native`; không ra thì **báo lỗi**
 ///   (đúng DOC, không có fallback nhúng trang).
@@ -92,14 +92,14 @@ public final class VideoSourceResolver {
             }
             return .hlsText(playlist: decoded.text, baseURL: baseURL, headers: track.headers)
         }
-        guard let url = webURL(probe, relativeTo: baseURL) else { throw ResolveError.invalidURL }
+        guard let url = webURL(urlText(probe), relativeTo: baseURL) else { throw ResolveError.invalidURL }
         return .native(url: url, headers: track.headers)
     }
 
     private func autoPlan(_ track: VideoTrack, baseURL: URL?, generation: Int) async throws -> VideoPlaybackPlan {
         let probe = track.data.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !probe.isEmpty else { throw ResolveError.emptyData }
-        guard let pageURL = Self.webURL(probe, relativeTo: baseURL) else { throw ResolveError.invalidURL }
+        guard let pageURL = Self.webURL(Self.urlText(probe), relativeTo: baseURL) else { throw ResolveError.invalidURL }
         if VideoMediaSniffer.isDirectMediaURL(pageURL) {
             return .native(url: pageURL, headers: track.headers)
         }
@@ -115,7 +115,7 @@ public final class VideoSourceResolver {
         if let wrapped = Self.unwrapJSON(content) {
             content = wrapped.data
             if let host = wrapped.host,
-               let hostURL = Self.webURL(host.trimmingCharacters(in: .whitespacesAndNewlines), relativeTo: nil) {
+               let hostURL = Self.webURL(Self.urlText(host), relativeTo: nil) {
                 base = hostURL
             }
         }
@@ -134,7 +134,7 @@ public final class VideoSourceResolver {
         }
 
         // `<!DOCTYPE html>` trần (không `<body`) cũng rơi xuống đây và bị từ chối như DOC.
-        guard let pageURL = Self.webURL(probe, relativeTo: base) else { throw ResolveError.invalidWebviewData }
+        guard let pageURL = Self.webURL(Self.urlText(probe), relativeTo: base) else { throw ResolveError.invalidWebviewData }
         if VideoMediaSniffer.isDirectMediaURL(pageURL) {
             return .native(url: pageURL, headers: track.headers)
         }
@@ -163,18 +163,69 @@ public final class VideoSourceResolver {
 
     // MARK: - Tiện ích
 
-    /// `host` của track; thiếu hoặc hỏng thì lấy `metadata.source` trong `plugin.json` của ext.
+    /// `host` của track; thiếu hoặc hỏng thì lấy `source` của tiện ích (bản cài; bản nháp debug ⇒ `plugin.json`).
     private static func baseURL(host: String?, extensionLocalPath: String) -> URL? {
-        if let host, let url = webURL(host.trimmingCharacters(in: .whitespacesAndNewlines), relativeTo: nil) {
+        if let host, let url = webURL(urlText(host), relativeTo: nil) {
             return url
         }
-        guard !extensionLocalPath.isEmpty else { return nil }
-        let manifest = URL(fileURLWithPath: extensionLocalPath).appendingPathComponent("plugin.json")
-        guard let data = try? Data(contentsOf: manifest),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let metadata = json["metadata"] as? [String: Any],
-              let source = metadata["source"] as? String else { return nil }
-        return webURL(source.trimmingCharacters(in: .whitespacesAndNewlines), relativeTo: nil)
+        guard let source = ExtensionHostResolver.sourceUrl(localPath: extensionLocalPath) else { return nil }
+        return webURL(source, relativeTo: nil)
+    }
+
+    /// Chuỗi `data`/`host` của track **trước khi hiểu là URL**: giải escape kiểu JSON còn sót (`\t`, `\n`, `\r`,
+    /// `\/`, `\"`, `\\`, `\uXXXX`) rồi bỏ khoảng trắng/tab/xuống dòng hai đầu. Ca thật: `track.js` của HHHTQ lấy
+    /// `url` trong `player_aaaa` bằng regex và chỉ đổi `\/`, nên trả `"\thttps://…"` (gạch ngược + `t`) — không
+    /// parse được thành URL. Chỉ dùng ở bước nhận dạng URL: HLS text/HTML không đi qua đây, `track.data` gửi cho
+    /// script vẫn nguyên văn.
+    static func urlText(_ raw: String) -> String {
+        let trimmed = VideoDataURI.stripBOM(raw).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.contains("\\") else { return trimmed }
+        return unescapeJSON(trimmed).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Giải escape trong **một lượt** (`\\t` ⇒ `\t` dạng chữ, không thành tab). Escape lạ/hỏng giữ nguyên văn.
+    private static func unescapeJSON(_ text: String) -> String {
+        let scalars = Array(text.unicodeScalars)
+        var output = String.UnicodeScalarView()
+        var index = 0
+        while index < scalars.count {
+            let scalar = scalars[index]
+            guard scalar == "\\", index + 1 < scalars.count else {
+                output.append(scalar)
+                index += 1
+                continue
+            }
+            let next = scalars[index + 1]
+            switch next {
+            case "t": output.append("\t"); index += 2
+            case "n": output.append("\n"); index += 2
+            case "r": output.append("\r"); index += 2
+            case "/", "\"", "\\": output.append(next); index += 2
+            case "u":
+                if let decoded = hexScalar(scalars, from: index + 2) {
+                    output.append(decoded)
+                    index += 6
+                } else {
+                    output.append(scalar)
+                    index += 1
+                }
+            default:
+                output.append(scalar)
+                index += 1
+            }
+        }
+        return String(output)
+    }
+
+    /// 4 chữ số hex bắt đầu từ `start` ⇒ scalar; thiếu ký tự, sai hex hoặc surrogate ⇒ `nil`.
+    private static func hexScalar(_ scalars: [Unicode.Scalar], from start: Int) -> Unicode.Scalar? {
+        guard start + 4 <= scalars.count else { return nil }
+        var hex = ""
+        for scalar in scalars[start..<(start + 4)] {
+            hex.unicodeScalars.append(scalar)
+        }
+        guard let value = UInt32(hex, radix: 16) else { return nil }
+        return Unicode.Scalar(value)
     }
 
     /// URL http(s) tuyệt đối; `//host/…` thêm `https:`; tương đối thì resolve theo `base` (nới hơn DOC một chút).

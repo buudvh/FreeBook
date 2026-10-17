@@ -882,6 +882,11 @@ public final class JSExecutor: @unchecked Sendable {
         ExtensionURLFormatter.cleanAndResolve(urlString, host: host)
     }
 
+    /// URL ảnh (bìa/icon): xem `ExtensionURLFormatter.resolveAssetURL`.
+    public static func resolveAssetUrl(_ raw: String, host: String?) -> String {
+        ExtensionURLFormatter.resolveAssetURL(raw, host: host)
+    }
+
     /// Inject các cấu hình dưới dạng biến toàn cục vào JSContext
     public func injectGlobals(_ globals: [String: Any]) {
         self.injectedConfigs = globals

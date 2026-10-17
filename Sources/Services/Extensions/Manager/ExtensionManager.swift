@@ -8,6 +8,20 @@ import CryptoKit
 public struct RegistryResponse: Codable {
     public let metadata: RegistryMetadata?
     public let data: [ExtensionRegistryItem]
+
+    private enum CodingKeys: String, CodingKey { case metadata, data }
+
+    /// Một mục registry hỏng (thiếu `name`/`path`, sai kiểu) chỉ bị bỏ qua, không làm trắng cả kho.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        metadata = try? c.decodeIfPresent(RegistryMetadata.self, forKey: .metadata)
+        data = try c.decode([LossyItem].self, forKey: .data).compactMap(\.value)
+    }
+
+    private struct LossyItem: Decodable {
+        let value: ExtensionRegistryItem?
+        init(from decoder: Decoder) throws { value = try? ExtensionRegistryItem(from: decoder) }
+    }
 }
 
 public enum ExtensionManagerError: LocalizedError, Equatable {
@@ -27,34 +41,7 @@ public struct RegistryMetadata: Codable {
 }
 
 // MARK: - Helper Structs for JavaScript results
-public struct ExtensionItemResult: Identifiable, Hashable {
-    public let id = UUID()
-    public let name: String
-    public let author: String
-    public let description: String
-    public let content: String
-    public let cover: String
-    public let link: String
-    public let host: String
-
-    public init(
-        name: String,
-        author: String = "",
-        description: String = "",
-        content: String = "",
-        cover: String = "",
-        link: String = "",
-        host: String = ""
-    ) {
-        self.name = name
-        self.author = author
-        self.description = description
-        self.content = content
-        self.cover = cover
-        self.link = link
-        self.host = host
-    }
-}
+// `ExtensionItemResult`, `ChapterResult`: file riêng cùng thư mục.
 public struct NovelDetailResult {
     public let name: String
     public let author: String
@@ -67,12 +54,6 @@ public struct NovelDetailResult {
     public let genres: [CategoryResult]
     public let suggests: [CategoryResult]
     public let comments: [CategoryResult]
-}
-
-public struct ChapterResult: Equatable {
-    public let name: String
-    public let url: String
-    public let host: String
 }
 
 // MARK: - Extension Manager
@@ -284,7 +265,7 @@ public final class ExtensionManager: ObservableObject {
             return scriptUrl
         }
         
-        // Cách 2: Tìm dự phòng bên trong thư mục con src/ (cấu trúc phổ biến của VBook Extension)
+        // Cách 2: Tìm dự phòng bên trong thư mục con src/ (cấu trúc phổ biến của extension)
         let srcScriptUrl = extUrl.appendingPathComponent("src").appendingPathComponent(scriptFileName)
         if FileManager.default.fileExists(atPath: srcScriptUrl.path) {
             return srcScriptUrl
@@ -353,21 +334,11 @@ public final class ExtensionManager: ObservableObject {
             // Ép kiểu kết quả trả về của JS thành mảng bằng toDictionaryArray
             let jsArray = toDictionaryArray(cleanVal)
             
-            // Duyệt qua mảng kết quả JS để ánh xạ sang cấu trúc dữ liệu ExtensionItemResult của Swift
-            var results: [ExtensionItemResult] = []
-            for dict in jsArray {
-                let name = dict["name"]?.toString() ?? ""
-                let author = dict["author"]?.toString() ?? ""
-                let description = dict["description"]?.toString() ?? dict["desc"]?.toString() ?? ""
-                let content = dict["content"]?.toString() ?? ""
-                let cover = JSExecutor.cleanAndResolveUrl(dict["cover"]?.toString() ?? "", host: dict["host"]?.toString() ?? "")
-                let link = dict["link"]?.toString() ?? dict["url"]?.toString() ?? ""
-                let host = dict["host"]?.toString() ?? ""
-                
-                guard !link.isEmpty else { continue }
-                
-                results.append(ExtensionItemResult(name: name, author: author, description: description, content: content, cover: cover, link: link, host: host))
-            }
+            // Ánh xạ sang `ExtensionItemResult` (đọc an toàn, bìa resolve theo host item → source): `+ItemParsing`.
+            let sourceHost = ExtensionHostResolver.sourceUrl(localPath: localPath)
+            let results = jsArray
+                .map { Self.listItem(from: $0, sourceHost: sourceHost) }
+                .filter { !$0.link.isEmpty }
             // AppLogger.shared.log("✅ [ExtensionManager] search parsed \(results.count) results")
             updateDiagnostics(action: "search", input: "query: \(query), page: \(page)", status: "Success", details: "Parsed \(results.count) results:")
             return results
@@ -382,7 +353,9 @@ public final class ExtensionManager: ObservableObject {
     public func detail(localPath: String, downloadUrl: String = "", url: String, host: String? = nil, configJson: String = "{}") async throws -> NovelDetailResult {
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "detail")
         let scriptName = scriptUrl.lastPathComponent
-        let resolvedUrl = JSExecutor.cleanAndResolveUrl(url, host: host)
+        let sourceHost = ExtensionHostResolver.sourceUrl(localPath: localPath)
+        let requestHost = ExtensionHostResolver.nonEmpty(host) ?? sourceHost
+        let resolvedUrl = JSExecutor.cleanAndResolveUrl(url, host: requestHost)
         AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: arguments=[\(resolvedUrl)], url=\(url), host=\(host ?? "nil"), configJson=\(configJson)")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
@@ -401,63 +374,26 @@ public final class ExtensionManager: ObservableObject {
                 throw NSError(domain: "ExtensionManager", code: -6, userInfo: [NSLocalizedDescriptionKey: errorDesc])
             }
             
-            let name = dict["name"] as? String ?? ""
-            let author = dict["author"] as? String ?? ""
-            // Cover cũng phải đi qua `cleanAndResolveUrl` như URL trang (`:397`): script hay trả đường dẫn
-            // tương đối (`/uploads/1.jpg`), mà `ImageCacheManager` không tải được URL thiếu host. Dùng
-            // `host` do JS trả về — `search`/`executeCustomScript` không có tham số host nào khác.
-            let cover = JSExecutor.cleanAndResolveUrl(dict["cover"] as? String ?? "", host: dict["host"] as? String ?? "")
-            let description = dict["description"] as? String ?? ""
-            let detail = dict["detail"] as? String ?? ""
-            let host = dict["host"] as? String ?? ""
-            let link = dict["link"] as? String ?? dict["url"] as? String ?? url
-            
+            let name = Self.foundationString(dict, ["name"]) ?? ""
+            let author = Self.foundationString(dict, ["author"]) ?? ""
+            let description = Self.foundationString(dict, ["description"]) ?? ""
+            let detail = Self.foundationString(dict, ["detail"]) ?? ""
+            let itemHost = Self.foundationString(dict, ["host"]) ?? ""
+            let link = Self.foundationString(dict, ["link", "url"]) ?? url
+            // Bìa tương đối (`/uploads/1.jpg`) phải ghép host — `ImageCacheManager` không tải được URL thiếu host.
+            // Thứ tự: host JS trả → tham số `host` → `source`. `link` giữ nguyên văn (khoá nhận diện sách).
+            let coverHost = Self.coverHost(itemHost: itemHost, fallbackHost: requestHost, sourceHost: sourceHost)
+            let cover = ExtensionURLFormatter.resolveAssetURL(Self.foundationString(dict, ["cover"]) ?? "", host: coverHost)
+
             // No on-the-fly translation during parsing to preserve raw Chinese in memory/DB
-            
-            // Parse genres
-            var genres: [CategoryResult] = []
-            if let genresArray = dict["genres"] as? [[String: Any]] {
-                for item in genresArray {
-                    let gTitle = item["title"] as? String ?? ""
-                    let gInput = item["input"] as? String ?? ""
-                    let gScript = item["script"] as? String ?? "search.js"
-                    if !gTitle.isEmpty && !gInput.isEmpty {
-                        genres.append(CategoryResult(title: gTitle, input: gInput, script: gScript))
-                    }
-                }
-            } else if let genresDict = dict["genres"] as? [String: String] {
-                for (key, val) in genresDict {
-                    genres.append(CategoryResult(title: key, input: val, script: "search.js"))
-                }
+            var genres = Self.detailCategories(dict["genres"], defaultScript: "search.js")
+            if genres.isEmpty, let genresDict = dict["genres"] as? [String: String] {
+                genres = genresDict.map { CategoryResult(title: $0.key, input: $0.value, script: "search.js") }
             }
-            
-            // Parse suggests
-            var suggests: [CategoryResult] = []
-            if let suggestsArray = dict["suggests"] as? [[String: Any]] {
-                for item in suggestsArray {
-                    let sTitle = item["title"] as? String ?? ""
-                    let sInput = item["input"] as? String ?? ""
-                    let sScript = item["script"] as? String ?? "search.js"
-                    if !sTitle.isEmpty && !sInput.isEmpty {
-                        suggests.append(CategoryResult(title: sTitle, input: sInput, script: sScript))
-                    }
-                }
-            }
-            
-            // Parse comments
-            var comments: [CategoryResult] = []
-            if let commentsArray = dict["comments"] as? [[String: Any]] {
-                for item in commentsArray {
-                    let cTitle = item["title"] as? String ?? ""
-                    let cInput = item["input"] as? String ?? ""
-                    let cScript = item["script"] as? String ?? "comment.js"
-                    if !cTitle.isEmpty && !cInput.isEmpty {
-                        comments.append(CategoryResult(title: cTitle, input: cInput, script: cScript))
-                    }
-                }
-            }
-            
-            let result = NovelDetailResult(name: name, author: author, cover: cover, description: description, detail: detail, host: host, link: link, genres: genres, suggests: suggests, comments: comments)
+            let suggests = Self.detailCategories(dict["suggests"], defaultScript: "search.js")
+            let comments = Self.detailCategories(dict["comments"], defaultScript: "comment.js")
+
+            let result = NovelDetailResult(name: name, author: author, cover: cover, description: description, detail: detail, host: itemHost, link: link, genres: genres, suggests: suggests, comments: comments)
             AppLogger.shared.log("✅ [ExtensionManager] detail parsed info: name=\(result.name) | author=\(result.author)")
             updateDiagnostics(action: "detail", input: url, status: "Success", details: "Name: \(result.name), Author: \(result.author)")
             return result
@@ -472,7 +408,8 @@ public final class ExtensionManager: ObservableObject {
     public func toc(localPath: String, downloadUrl: String = "", url: String, host: String? = nil, configJson: String = "{}") async throws -> [ChapterResult] {
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "toc")
         let scriptName = scriptUrl.lastPathComponent
-        let resolvedUrl = hasScript(localPath: localPath, scriptKey: "page") ? url : JSExecutor.cleanAndResolveUrl(url, host: host)
+        let sourceHost = ExtensionHostResolver.sourceUrl(localPath: localPath)
+        let resolvedUrl = hasScript(localPath: localPath, scriptKey: "page") ? url : JSExecutor.cleanAndResolveUrl(url, host: ExtensionHostResolver.nonEmpty(host) ?? sourceHost)
         AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: arguments=[\(resolvedUrl)], url=\(url), host=\(host ?? "nil"), configJson=\(configJson)")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
@@ -486,27 +423,11 @@ public final class ExtensionManager: ObservableObject {
             
             let jsArray = toDictionaryArray(cleanVal)
 
-            var results: [ChapterResult] = []
-            // Truyện tranh/video: bỏ dòng `type: "section"` (tiêu đề nhóm tập, không mở được). Truyện chữ giữ nguyên để chỉ số chương đã lưu không lệch.
-            let skipsSections = ExtensionContentKind.resolve(localPath: localPath).isMedia
-            for dict in jsArray {
-                if skipsSections, dict["type"]?.toString()?.lowercased() == "section" { continue }
-                let name = dict["name"]?.toString() ?? ""
-                let url = dict["url"]?.toString()
-                    ?? dict["link"]?.toString()
-                    ?? ""
-                let host = dict["host"]?.toString() ?? ""
- 
-                // No on-the-fly translation during parsing to preserve raw Chinese in memory/DB
- 
-                results.append(
-                    ChapterResult(
-                        name: name,
-                        url: url,
-                        host: host
-                    )
-                )
-            }
+            // Truyện tranh/video: giữ dòng `type: "section"` (tiêu đề nhóm tập) và gắn `isSection`. Truyện chữ giữ dòng
+            // đó như chương thường để chỉ số chương đã lưu không lệch. Thiếu `host` ⇒ `source` (`+ItemParsing`).
+            // No on-the-fly translation during parsing to preserve raw Chinese in memory/DB
+            let flagsSections = ExtensionContentKind.resolve(localPath: localPath).isMedia
+            let results = jsArray.map { Self.chapterItem(from: $0, sourceHost: sourceHost, flagsSections: flagsSections) }
 
             // AppLogger.shared.log("✅ [ExtensionManager] toc parsed \(results.count) chapters")
             updateDiagnostics(action: "toc", input: url, status: "Success", details: "Parsed \(results.count) chapters:")
@@ -555,7 +476,7 @@ public final class ExtensionManager: ObservableObject {
     public func chap(localPath: String, downloadUrl: String = "", url: String, host: String? = nil, configJson: String = "{}") async throws -> String {
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "chap")
         let scriptName = scriptUrl.lastPathComponent
-        let resolvedUrl = JSExecutor.cleanAndResolveUrl(url, host: host)
+        let resolvedUrl = JSExecutor.cleanAndResolveUrl(url, host: Self.scriptHost(host, localPath: localPath))
         AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: arguments=[\(resolvedUrl)], url=\(url), host=\(host ?? "nil"), configJson=\(configJson)")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
@@ -604,18 +525,7 @@ public final class ExtensionManager: ObservableObject {
             var results: [CategoryResult] = []
             
             if cleanVal.isArray {
-                let jsArray = toDictionaryArray(cleanVal)
-                for itemDict in jsArray {
-                    if let title = itemDict["title"]?.toString(),
-                       let input = itemDict["input"]?.toString() {
-                        let script = itemDict["script"]?.toString() ?? "search.js"
-                        results.append(CategoryResult(title: title, input: input, script: script))
-                    } else if let title = itemDict["name"]?.toString(),
-                              let input = itemDict["link"]?.toString() {
-                        let script = itemDict["script"]?.toString() ?? "search.js"
-                        results.append(CategoryResult(title: title, input: input, script: script))
-                    }
-                }
+                results = Self.categoryItems(from: toDictionaryArray(cleanVal))
             } else if let dict = parseJSObject(cleanVal) as? [String: String] {
                 for (key, val) in dict {
                     results.append(CategoryResult(title: key, input: val, script: "search.js"))
@@ -653,23 +563,8 @@ public final class ExtensionManager: ObservableObject {
         let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
         let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "home")
         
-        var results: [CategoryResult] = []
-        
-        if cleanVal.isArray {
-            let jsArray = toDictionaryArray(cleanVal)
-            for itemDict in jsArray {
-                if let title = itemDict["title"]?.toString(),
-                   let input = itemDict["input"]?.toString() {
-                    let script = itemDict["script"]?.toString() ?? "search.js"
-                    results.append(CategoryResult(title: title, input: input, script: script))
-                } else if let title = itemDict["name"]?.toString(),
-                          let input = itemDict["link"]?.toString() {
-                    let script = itemDict["script"]?.toString() ?? "search.js"
-                    results.append(CategoryResult(title: title, input: input, script: script))
-                }
-            }
-        }
-        
+        let results = cleanVal.isArray ? Self.categoryItems(from: toDictionaryArray(cleanVal)) : []
+
         // AppLogger.shared.log("✅ [ExtensionManager] home parsed \(results.count) tabs")
         if !results.isEmpty {
             updateDiagnostics(action: "home", input: "localPath: \(localPath)", status: "Success", details: "Parsed \(results.count) tabs:")
@@ -709,29 +604,13 @@ public final class ExtensionManager: ObservableObject {
             // Ép kiểu kết quả trả về của JS thành mảng bằng toDictionaryArray
             let jsArray = toDictionaryArray(cleanVal)
             
-            var results: [ExtensionItemResult] = []
-            for dict in jsArray {
-                let name = dict["name"]?.toString() ?? dict["username"]?.toString() ?? dict["author"]?.toString() ?? ""
-                let author = dict["author"]?.toString() ?? ""
-                let description = dict["description"]?.toString() ?? dict["desc"]?.toString() ?? ""
-                let content = dict["content"]?.toString() ?? ""
-                let cover = JSExecutor.cleanAndResolveUrl(dict["cover"]?.toString() ?? "", host: dict["host"]?.toString() ?? "")
-                let link = dict["link"]?.toString() ?? dict["url"]?.toString() ?? ""
-                let host = dict["host"]?.toString() ?? ""
-                
-                let hasLink = !link.isEmpty
-                let hasContent = !content.isEmpty
-                let hasDescription = !description.isEmpty
-                guard hasLink || hasContent || hasDescription else { continue }
-                results.append(ExtensionItemResult(name: name, author: author, description: description, content: content, cover: cover, link: link, host: host))
-            }
-            
-            var nextPageVal: String? = nil
-            if let responseObj = executor.context.objectForKeyedSubscript("Response"),
-               let nextVal = responseObj.objectForKeyedSubscript("nextPage"),
-               !nextVal.isUndefined && !nextVal.isNull {
-                nextPageVal = nextVal.toString()
-            }
+            let sourceHost = ExtensionHostResolver.sourceUrl(localPath: localPath)
+            let results = jsArray
+                .map { Self.listItem(from: $0, nameKeys: ["name", "username", "author"], sourceHost: sourceHost) }
+                .filter { !$0.link.isEmpty || !$0.content.isEmpty || !$0.description.isEmpty }
+
+            let responseObj = executor.context.objectForKeyedSubscript("Response")
+            let nextPageVal = JSValueReader.cleanString(responseObj?.objectForKeyedSubscript("nextPage"))
             
             // AppLogger.shared.log("✅ [ExtensionManager] custom script parsed \(results.count) results, nextPage: \(nextPageVal ?? "nil")")
             updateDiagnostics(action: scriptFileName, input: "input: \(input), page: \(page)", status: "Success", details: "Parsed \(results.count) results, nextPage: \(nextPageVal ?? "nil")")
@@ -757,7 +636,7 @@ public final class ExtensionManager: ObservableObject {
     public func page(localPath: String, downloadUrl: String = "", url: String, host: String? = nil, configJson: String = "{}") async throws -> [String] {
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "page")
         let scriptName = scriptUrl.lastPathComponent
-        let resolvedUrl = JSExecutor.cleanAndResolveUrl(url, host: host)
+        let resolvedUrl = JSExecutor.cleanAndResolveUrl(url, host: Self.scriptHost(host, localPath: localPath))
         AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: arguments=[\(resolvedUrl)], url=\(url), host=\(host ?? "nil"), configJson=\(configJson)")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
@@ -769,19 +648,8 @@ public final class ExtensionManager: ObservableObject {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [resolvedUrl])
             let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "page")
             
-            var results: [String] = []
-            if cleanVal.isArray {
-                let length = Int(cleanVal.forProperty("length").toInt32())
-                for i in 0..<length {
-                    if let itemVal = cleanVal.atIndex(i), !itemVal.isUndefined && !itemVal.isNull {
-                        results.append(itemVal.toString() ?? "")
-                    }
-                }
-            } else if !cleanVal.isUndefined && !cleanVal.isNull {
-                if let str = cleanVal.toString() {
-                    results = [str]
-                }
-            }
+            // Bỏ phần tử undefined/null/"null"/"undefined"/rỗng: mỗi trang sẽ được gọi `toc` một lần.
+            let results = JSValueReader.stringArray(cleanVal).filter { !JSValueReader.isNullLiteral($0) }
             
             updateDiagnostics(action: "page", input: url, status: "Success", details: "Parsed \(results.count) pages:")
             return results

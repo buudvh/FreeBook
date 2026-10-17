@@ -45,6 +45,7 @@ internal enum ChapterTOCDiff {
             if old.url != new.url { return .full }
             if old.title != new.title { return .full }
             if (old.host ?? "") != (new.host ?? "") { return .full }
+            if old.isSection != new.isSection { return .full }
             // `titleTrans` rỗng ở bản mới nghĩa là "giữ giá trị cũ" (xem `replaceFullTOC`), không phải xoá.
             if let newTrans = new.titleTrans, !newTrans.isEmpty, newTrans != old.titleTrans { return .full }
         }

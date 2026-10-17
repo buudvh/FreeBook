@@ -29,14 +29,19 @@ final class ExportContentProvider {
 
     private let bookId: String
     private let worker: BookDownloadWorker?
+    /// Host sách + tiện ích: fallback host khi gọi `chap` (`ExtensionHostResolver.chapterHost`).
+    private let bookHost: String?
+    private let packageId: String
     /// `true` khi tác vụ xuất bật "Chỉ xuất chương đã tải" — không phát request mạng nào.
     private let skipUncached: Bool
     private(set) var tally = Tally()
 
-    init(bookId: String, worker: BookDownloadWorker?, skipUncached: Bool) {
+    init(bookId: String, worker: BookDownloadWorker?, skipUncached: Bool, bookHost: String? = nil, packageId: String = "") {
         self.bookId = bookId
         self.worker = worker
         self.skipUncached = skipUncached
+        self.bookHost = bookHost
+        self.packageId = packageId
     }
 
     /// Ném `CancellationError` khi worker bị huỷ — caller phải dọn file tạm rồi `markCancelled`.
@@ -67,7 +72,8 @@ final class ExportContentProvider {
         }
 
         do {
-            let content = try await worker.fetchChapterContent(url: chapter.url, host: chapter.host)
+            let host = ExtensionHostResolver.chapterHost(chapterHost: chapter.host, bookHost: bookHost, packageId: packageId)
+            let content = try await worker.fetchChapterContent(url: chapter.url, host: host)
             let cleaned = content.cleanHTML()
             guard !cleaned.isEmpty else {
                 tally.failed += 1

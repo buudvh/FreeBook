@@ -628,15 +628,16 @@ struct SearchView: View {
         do {
             try BookSourceMigrator.ensureSameContentKind(oldPackageId: oldBook.extensionPackageId, newPackageId: ext.packageId)
             let path = ext.localPath
-            let detailResult = try await ExtensionManager.shared.detail(localPath: path, downloadUrl: ext.downloadUrl, url: result.link, host: ext.sourceUrl, configJson: ext.configJson)
-            
-            var firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: result.link, host: detailResult.host, configJson: ext.configJson)
+            let detailResult = try await ExtensionManager.shared.detail(localPath: path, downloadUrl: ext.downloadUrl, url: result.link, host: ExtensionHostResolver.nonEmpty(result.host) ?? ext.sourceUrl, configJson: ext.configJson)
+            // Host sách: host detail → host item tìm kiếm → source (detail thường không trả host).
+            let bookHost = ExtensionHostResolver.nonEmpty(detailResult.host) ?? ExtensionHostResolver.nonEmpty(result.host) ?? ext.sourceUrl
+            var firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: result.link, host: bookHost, configJson: ext.configJson)
             
             if ExtensionManager.shared.hasScript(localPath: path, scriptKey: "page") {
-                let pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: result.link, host: detailResult.host, configJson: ext.configJson)
+                let pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: result.link, host: bookHost, configJson: ext.configJson)
                 if pages.count > 1 {
                     for pageUrl in pages.dropFirst() {
-                        let pageChaps = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pageUrl, host: detailResult.host, configJson: ext.configJson)
+                        let pageChaps = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pageUrl, host: bookHost, configJson: ext.configJson)
                         firstPageChapters.append(contentsOf: pageChaps)
                     }
                 }
@@ -661,11 +662,11 @@ struct SearchView: View {
                 currentChapterTitle: initialChapterTitle,
                 isOnShelf: oldBook.isOnShelf,
                 isHistory: oldBook.isHistory,
-                host: detailResult.host
+                host: bookHost
             )
 
             let chapterSnapshots = firstPageChapters.enumerated().map { index, item in
-                ChapterMetadataSnapshot(title: item.name, url: item.url, index: index, host: item.host)
+                ChapterMetadataSnapshot(title: item.name, url: item.url, index: index, host: item.host, isSection: item.isSection)
             }
 
             _ = try await ChapterContentRepository.shared.saveChapterList(

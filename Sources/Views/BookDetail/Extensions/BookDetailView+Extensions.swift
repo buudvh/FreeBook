@@ -148,7 +148,8 @@ extension BookDetailView {
                 title: item.name,
                 url: item.url,
                 index: startIndex + offset,
-                host: item.host
+                host: item.host,
+                isSection: item.isSection
             )
         }
     }
@@ -295,7 +296,7 @@ extension BookDetailView {
                 self.genres = detailResult.genres
                 self.suggests = detailResult.suggests
                 self.comments = detailResult.comments
-                self.host = detailResult.host
+                if !detailResult.host.isEmpty { self.host = detailResult.host } // "" không đè host đã biết
 
                 if let book = localBook {
                     let savedDesc = detailResult.detail.isEmpty ? detailResult.description.cleanHTML() : "\(detailResult.description.cleanHTML())\n\n---\n\(self.cleanDetailText(detailResult.detail))"
@@ -305,7 +306,7 @@ extension BookDetailView {
                         && book.author == detailResult.author
                         && book.coverUrl == detailResult.cover
                         && book.desc == savedDesc
-                        && (book.host ?? "") == detailResult.host
+                        && (detailResult.host.isEmpty || (book.host ?? "") == detailResult.host)
                     if !isMetadataUnchanged {
                         let res = BookTransactionCoordinator.shared.updateBookMetadata(
                             bookId: book.bookId,
@@ -345,7 +346,7 @@ extension BookDetailView {
                     self.remainingPagesLoaded = true
                 }
             } else {
-                let tocResult = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: localBook?.host, configJson: ext.configJson)
+                let tocResult = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
                 allChapters = tocResult
             }
 
