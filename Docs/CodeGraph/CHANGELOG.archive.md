@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.508] - 2026-10-10
+
+### feat(ai): Gemini Web - cho phep quet ten rieng nhieu chuong, nghi 2 s giua nhom, dung ro khi het han muc
+
+Người dùng: *"đã chạy tốt, vì sao bạn không cho phép lọc name nhiều chương vậy"* — trước đó đã chọn phạm vi "chỉ chat" theo khuyến nghị (sợ hạn mức/chặn IP); nay giao thức chạy ổn nên mở. Plan duyệt trong chat.
+
+- **Mở quét tên riêng** cho profile Gemini Web: bỏ hai chốt `unsupportedTask` trong `AINameExtractionBatchProcessor` (xoá luôn case khỏi `GeminiWebError`); `extractNamesFromText` rẽ nhánh `GeminiWebClient.sendChat` (prompt hệ thống + văn bản ≤ 15 000 ký tự đi qua `GeminiWebPromptFormatter`, parser `Tên gốc=Nghĩa` giữ nguyên).
+- **Nghỉ 2 s giữa các nhóm** khi profile là Gemini Web (`try? Task.sleep`, không ném khi huỷ) — provider API giữ nhịp cũ.
+- **Dừng rõ thay vì nuốt lỗi**: vòng quét đổi `try?` thành `do/catch`; `GeminiWebError.usageLimit`/`ipBlocked`/`notSignedIn`/`accountStatus` ⇒ ném `NSError` "Dừng quét sau N/M nhóm — <lý do> Các tên đã quét được vẫn hiện bên dưới." (coordinator giữ `batchExtractedNames` nên phần đã quét vẫn hiện); lỗi lẻ của một nhóm vẫn bỏ qua nhưng nay có log `🤖 [AI]`.
+- Nhãn `GeminiWebAccountRow` đổi từ "chỉ chat" sang khuyến nghị quét bằng Flash (Pro có trần ~5/ngày miễn phí, ~100 gói Pro — theo trang hạn mức Gemini Apps của Google, số có thể đổi).
+- `AIContextCompactor` vẫn bỏ qua Gemini Web (tiết kiệm hạn mức). `rules.md`: sửa bullet "Phạm vi" trong mục Gemini Web.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`.
+
 ## [1.3.507] - 2026-10-10
 
 ### fix(ai): Gemini Web - giu WKWebView an trong window de WebKit khong tam dung tien trinh web giua luc fetch

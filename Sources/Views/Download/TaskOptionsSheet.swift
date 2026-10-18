@@ -21,7 +21,6 @@ struct TaskOptionsSheet: View {
     /// Số chương đã có cache / tổng số chương — để người dùng biết trước bản xuất offline sẽ thiếu bao nhiêu.
     @State private var cachedChapterCount: Int? = nil
     @State private var totalChapterCount: Int? = nil
-    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
 
     init(book: Book, taskType: TaskType, defaultOnlyExportCached: Bool = false) {
         self.book = book
@@ -48,15 +47,16 @@ struct TaskOptionsSheet: View {
                             .shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 2)
                         
                         VStack(alignment: .leading, spacing: 6) {
-                            Text(displayedBookTitle)
+                            let displayed = displayedBookInfo
+                            Text(displayed.title)
                                 .font(.headline)
                                 .lineLimit(2)
                             
-                            if !displayedAuthor.isEmpty {
+                            if !displayed.author.isEmpty {
                                 HStack(spacing: 5) {
                                     Image(systemName: "person.fill")
                                         .font(.caption)
-                                    Text(displayedAuthor)
+                                    Text(displayed.author)
                                         .lineLimit(1)
                                 }
                                 .font(.subheadline)
@@ -156,16 +156,17 @@ struct TaskOptionsSheet: View {
         }
     }
     
-    private var displayedBookTitle: String {
+    /// Tên/tác giả hiển thị, dịch theo cờ **của chính truyện này** (Truyện > Nguồn > Toàn cục) — không theo công tắc dịch
+    /// toàn app. Tính cờ một lần cho cả hai chuỗi. Sheet đang mở thì không đổi được cấu hình dịch nên không cần nghe
+    /// thông báo. Tuỳ chọn "Dịch nội dung" (`translateContent`) là lựa chọn riêng của tác vụ, không suy ra từ cờ này.
+    private var displayedBookInfo: (title: String, author: String) {
+        let isTranslationEnabled = TranslationConfigSnapshot.current()
+            .isTranslationEnabled(bookId: book.bookId, packageId: book.extensionPackageId)
         let title = isTranslationEnabled && TranslateUtils.containsChinese(book.title)
             ? TranslateUtils.translateMeta(book.title, bookId: book.bookId)
             : book.title
-        return DisplayTextFormatter.titleCase(title)
-    }
-
-    private var displayedAuthor: String {
         let author = isTranslationEnabled ? TranslateUtils.translateAuthorHanViet(book.author) : book.author
-        return DisplayTextFormatter.titleCase(author)
+        return (DisplayTextFormatter.titleCase(title), DisplayTextFormatter.titleCase(author))
     }
 
     /// Dòng xem trước "đã tải X/Y chương", `nil` khi chưa đọc được mục lục.

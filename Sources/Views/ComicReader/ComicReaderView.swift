@@ -17,7 +17,9 @@ struct ComicReaderView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var modelContext
     @Environment(\.displayScale) private var displayScale
-    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
+    /// Cờ dịch tên chương **của truyện đang đọc** (Truyện > Nguồn > Toàn cục), không phải công tắc dịch toàn app. Tính
+    /// lúc mở: màn đọc truyện tranh không có chỗ đổi cấu hình dịch nên không cần nghe thông báo.
+    private let isTranslationEnabled: Bool
 
     @State private var viewModel: ComicReaderViewModel
     @State private var showsChrome = true
@@ -27,6 +29,8 @@ struct ComicReaderView: View {
 
     init(launch: BookContentLaunch) {
         self.launch = launch
+        self.isTranslationEnabled = TranslationConfigSnapshot.current()
+            .isTranslationEnabled(bookId: launch.bookId, packageId: launch.extensionPackageId)
         _viewModel = State(initialValue: ComicReaderViewModel(launch: launch))
     }
 

@@ -1681,7 +1681,7 @@ struct ReaderView: View {
     private func getPretranslatedSnapshot(for index: Int) -> TTSPretranslatedSnapshot? {
         guard let cached = viewModel?.cache.get(index), cached.state == .loaded else { return nil }
         let currentToken = TranslateUtils.translationGenerationToken(for: bookId)
-        let isTransEnabled = TranslateUtils.isTranslationEnabled
+        let isTransEnabled = isTranslationEnabled
         guard cached.translationToken == currentToken,
               cached.isTranslationEnabled == isTransEnabled,
               cached.shouldConvertTraditionalToSimplified == shouldConvertTraditionalToSimplified else {

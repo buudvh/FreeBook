@@ -2,6 +2,30 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.538] - 2026-10-18
+
+### fix: mọi danh sách và tên truyện dịch theo cờ của truyện rồi tới nguồn
+
+Tiếp theo 1.3.537. Người dùng yêu cầu rà mọi chỗ còn lỗi tương tự và sửa luôn, nhớ tính cả cờ theo truyện. Dịch có 3 cấp, ưu tiên Truyện > Nguồn > Toàn cục (`TranslationConfigStore`), nhưng nhiều view vẫn đọc thẳng công tắc toàn cục `@AppStorage("isTranslationEnabled")`. Vì vậy tắt dịch cho một nguồn hay một truyện thì danh sách vẫn dịch.
+
+- **Snapshot dùng chung**: thêm `TranslationConfigSnapshot`. Nó đọc cấu hình đè **một lần mỗi lượt vẽ**, rồi áp đúng thứ tự ưu tiên của store qua hàm `resolve` vừa tách khỏi `resolveStatus`. Nhờ vậy danh sách dài không phải tra `UserDefaults` cho từng dòng. Các màn mở lâu nghe `TranslationConfigStore.didChangeNotification` để vẽ lại ngay khi người dùng đổi cấu hình.
+- **Theo truyện**:
+  - `BookListItemView` (kệ, lịch sử, bộ sưu tập, sheet chia sẻ/nhập)
+  - `ComicReaderView`, `DownloadTrackerView`, `TaskOptionsSheet`, `BookActionSheet`, `NotificationInboxView`
+  - `ReaderView` (một chỗ), `TTSManager` (thay tại chỗ, **không thêm dòng**)
+  - `TranslateUtils.translateBookTitleIfNeeded`: thêm `packageId: String? = nil`; đã cập nhật 8 nơi gọi. Trước đây hàm này nhận `bookId` mà vẫn kiểm cờ toàn cục.
+- **Theo truyện, không có cờ riêng thì theo nguồn**, cho item chưa lưu thành sách:
+  - các dòng `DiscoveryNovelRowView` và `CategoryNovelsListView`
+  - thẻ, dòng, banner của trang explore
+  - Tìm kiếm, cả hai chế độ (`SearchView+Translation`)
+  - Mã truyện suy ra từ `BookIdUtils.make(packageId, link)`, cùng hai dạng id cũ.
+- **Theo nguồn**: tiêu đề section, chip, thể loại, tiêu đề màn "Xem thêm".
+- **Giữ toàn cục**: các màn Cài đặt dịch và công tắc nhanh ở Kệ, vì đây là nơi đặt giá trị toàn cục.
+- **Lưu ý**:
+  - Truyện bị gán UUID qua `resolveBookId` thì ở Khám phá/Tìm kiếm rơi về cờ của nguồn.
+  - Tên truyện trên màn khoá theo cờ của phiên TTS đang phát, nên đổi cờ giữa chừng thì phải phát lại mới thấy.
+- **Kiểm chứng**: `check_architecture.py` **2 violation, 0 mới**. Không build tại chỗ (Windows); CI chỉ xác nhận biên dịch.
+
 ## [1.3.537] - 2026-10-18
 
 ### fix: danh sách truyện ở Khám phá theo công tắc dịch của nguồn
@@ -606,17 +630,4 @@ Người dùng: *"Làm gọn bớt phần mô tả của mỗi config trong màn
 - **Spin**: mô tả cũ nói về trạng thái *tắt* trong khi nhãn công tắc là trạng thái *bật*, kèm câu "chỉ để so sánh" khó hiểu. Mới: "Bật: luồng quay vòng chờ việc thay vì ngủ ngay, tốn CPU và nóng máy hơn mà không nhanh hơn. Nên để tắt." (`session.intra_op.allow_spinning`; iPhone 2 luồng: tắt 0,63 CPU-s/audio-s RTF 0,32, bật 0,76 RTF 0,38 — một lần đo, máy đã ấm nên không ghi % vào UI; audio giống hệt từng bit).
 - **Mô tả gọn**: tốc độ tổng hợp gộp 2 dòng còn 1 ("Model nói nhanh hơn, máy mát hơn. 1.15x ít lặp chữ nhất, quá 1.25x mất chữ."); số luồng "Nhiều luồng ít chờ hơn nhưng nóng máy hơn." (+ " Tiết kiệm pin đang ghim Cân bằng + 2 luồng."); ngưỡng đệm "Nạp thêm khi đệm còn dưới N giây.".
 - **Sửa tài liệu lệch code** (người dùng duyệt): doc `defaultThreadCount` ("Đã đo và giữ 4" trong khi giá trị là 2), `rules.md` "so 4 is kept" và "opt-in Tiết kiệm pin" (mặc định đang BẬT), doc `VieNeuTTSService.powerSaving`.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`.
-
-## [1.3.508] - 2026-10-10
-
-### feat(ai): Gemini Web - cho phep quet ten rieng nhieu chuong, nghi 2 s giua nhom, dung ro khi het han muc
-
-Người dùng: *"đã chạy tốt, vì sao bạn không cho phép lọc name nhiều chương vậy"* — trước đó đã chọn phạm vi "chỉ chat" theo khuyến nghị (sợ hạn mức/chặn IP); nay giao thức chạy ổn nên mở. Plan duyệt trong chat.
-
-- **Mở quét tên riêng** cho profile Gemini Web: bỏ hai chốt `unsupportedTask` trong `AINameExtractionBatchProcessor` (xoá luôn case khỏi `GeminiWebError`); `extractNamesFromText` rẽ nhánh `GeminiWebClient.sendChat` (prompt hệ thống + văn bản ≤ 15 000 ký tự đi qua `GeminiWebPromptFormatter`, parser `Tên gốc=Nghĩa` giữ nguyên).
-- **Nghỉ 2 s giữa các nhóm** khi profile là Gemini Web (`try? Task.sleep`, không ném khi huỷ) — provider API giữ nhịp cũ.
-- **Dừng rõ thay vì nuốt lỗi**: vòng quét đổi `try?` thành `do/catch`; `GeminiWebError.usageLimit`/`ipBlocked`/`notSignedIn`/`accountStatus` ⇒ ném `NSError` "Dừng quét sau N/M nhóm — <lý do> Các tên đã quét được vẫn hiện bên dưới." (coordinator giữ `batchExtractedNames` nên phần đã quét vẫn hiện); lỗi lẻ của một nhóm vẫn bỏ qua nhưng nay có log `🤖 [AI]`.
-- Nhãn `GeminiWebAccountRow` đổi từ "chỉ chat" sang khuyến nghị quét bằng Flash (Pro có trần ~5/ngày miễn phí, ~100 gói Pro — theo trang hạn mức Gemini Apps của Google, số có thể đổi).
-- `AIContextCompactor` vẫn bỏ qua Gemini Web (tiết kiệm hạn mức). `rules.md`: sửa bullet "Phạm vi" trong mục Gemini Web.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`.

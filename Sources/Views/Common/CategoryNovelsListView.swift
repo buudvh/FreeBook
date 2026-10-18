@@ -12,15 +12,15 @@ struct CategoryNovelsListView: View {
     /// mỗi lần view cha dựng lại body.
     @State private var sourceHost: String? = nil
     @State private var selectedNovel: ExtensionItemResult? = nil
+    /// Tăng khi cấu hình dịch đổi (`TranslationConfigStore.didChangeNotification`) để body chụp lại cờ dịch — đổi cấp
+    /// nguồn/truyện ở màn khác rồi quay lại thì danh sách phải cập nhật ngay.
+    @State private var translationRevision = 0
 
-    /// Cờ dịch **theo nguồn** (giống `DiscoveryView`), không phải công tắc dịch toàn app: tắt dịch cho nguồn thì danh
-    /// sách và tiêu đề phải hiện nguyên văn.
-    private var isTranslationEnabled: Bool {
-        TranslationConfigStore.shared.isTranslationEnabled(
-            bookId: "",
-            packageId: extensionPackageId,
-            isChineseSourceHint: ExtensionLibraryRepository.snapshot(packageId: extensionPackageId)?.isChineseSource
-        )
+    /// Cờ dịch của nguồn này, không phải công tắc dịch toàn app: tiêu đề màn theo nguồn, từng dòng theo truyện (override
+    /// thắng nguồn). Chụp một lần mỗi body; đọc `translationRevision` để SwiftUI theo dõi.
+    private var translation: TranslationConfigSnapshot.Source {
+        _ = translationRevision
+        return TranslationConfigSnapshot.current().source(packageId: extensionPackageId, sourceName: sourceName)
     }
 
     init(
@@ -47,6 +47,7 @@ struct CategoryNovelsListView: View {
     }
 
     var body: some View {
+        let translation = self.translation
         VStack {
             if loader.isLoading && loader.novels.isEmpty {
                 ProgressView("Đang tải danh sách truyện...")
@@ -72,7 +73,7 @@ struct CategoryNovelsListView: View {
                         Button {
                             selectedNovel = novel
                         } label: {
-                            DiscoveryNovelRowView(item: novel, sourceHost: sourceHost, isTranslationEnabled: isTranslationEnabled)
+                            DiscoveryNovelRowView(item: novel, sourceHost: sourceHost, translation: translation)
                                 .padding(.vertical, 4)
                         }
                         .buttonStyle(.plain)
@@ -107,7 +108,7 @@ struct CategoryNovelsListView: View {
                 }
             }
         }
-        .navigationTitle(translateIfNeeded(category.title))
+        .navigationTitle(translateIfNeeded(category.title, enabled: translation.isSourceEnabled))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             if sourceHost == nil {
@@ -117,9 +118,12 @@ struct CategoryNovelsListView: View {
         .task {
             await loader.loadInitial()
         }
+        .onReceive(NotificationCenter.default.publisher(for: TranslationConfigStore.didChangeNotification)) { _ in
+            translationRevision &+= 1
+        }
     }
 
-    private func translateIfNeeded(_ text: String) -> String {
+    private func translateIfNeeded(_ text: String, enabled isTranslationEnabled: Bool) -> String {
         guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
             return text
         }

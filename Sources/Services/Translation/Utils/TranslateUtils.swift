@@ -174,8 +174,8 @@ public final class TranslateUtils {
         )
     }
 
-    public static func translateBookTitleIfNeeded(_ title: String, bookId: String? = nil) -> String {
-        guard isTranslationEnabled, containsChinese(title) else { return title }
+    public static func translateBookTitleIfNeeded(_ title: String, bookId: String? = nil, packageId: String? = nil) -> String {
+        guard containsChinese(title), TranslationConfigSnapshot.current().isTranslationEnabled(bookId: bookId, packageId: packageId) else { return title }
         return translateMeta(title, bookId: bookId)
     }
 

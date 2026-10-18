@@ -3279,7 +3279,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             chapterIndex: playingChapterIndex,
             chapterTitle: chapterTitle,
             coverUrl: playingCoverUrl,
-            isTranslationEnabled: TranslateUtils.isTranslationEnabled,
+            isTranslationEnabled: sessionTranslationEnabled,
             shouldConvertTraditionalToSimplified: sessionShouldConvertTraditionalToSimplified,
             translationToken: TranslateUtils.translationGenerationToken(for: playingBookId)
         )

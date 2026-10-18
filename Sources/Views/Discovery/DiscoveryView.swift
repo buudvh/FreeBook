@@ -63,6 +63,8 @@ struct DiscoveryView: View {
     @State private var showingExtensionSelector = false
     @State private var extensionSearchQuery = ""
     @State private var isTranslationEnabled = false
+    /// Cấu hình dịch đã chụp — tab danh sách/explore dựng cờ của nguồn đang xem từ đây để từng truyện theo override riêng.
+    @State private var translationConfig = TranslationConfigSnapshot()
     
     // Import từ trình duyệt
     @State private var importedBookId: String = ""
@@ -94,6 +96,8 @@ struct DiscoveryView: View {
         // vẫn đọc `selectedExtension`/`activeExtensions` để lấy giá trị hiện tại, không bắt bản cũ.
         let active = activeExtensions
         let selected = active.first(where: { $0.packageId == selectedExtensionId })
+        // Cờ dịch của nguồn đang xem, dựng một lần mỗi body (đọc `translationConfig` ngay trong body để đổi override là vẽ lại).
+        let translationSource = selected.map { translationConfig.source(packageId: $0.packageId, sourceName: $0.name, isChineseSourceHint: $0.isChineseSource) }
         NavigationStack {
             VStack(spacing: 0) {
                 if active.isEmpty {
@@ -308,7 +312,7 @@ struct DiscoveryView: View {
                                     }
 
                                     ForEach(homeItems) { item in
-                                        if let ext = selected {
+                                        if let ext = selected, let translation = translationSource {
                                             let extPackageId = ext.packageId
                                             let extSourceName = ext.name
                                             let openNovel: (ExtensionItemResult) -> Void = { novel in
@@ -321,7 +325,7 @@ struct DiscoveryView: View {
                                                 )
                                             }
                                             if ExploreSectionsView.isTab(item) {
-                                                ExploreSectionsView(ext: ext, isTranslationEnabled: isTranslationEnabled, onSelectNovel: openNovel,
+                                                ExploreSectionsView(ext: ext, translation: translation, onSelectNovel: openNovel,
                                                                     onSelectCategory: { selectedGenre = $0; navigateToGenre = true })
                                                     .tag(item.id)
                                             } else if shouldRenderCategoryTab(id: item.id) {
@@ -330,7 +334,7 @@ struct DiscoveryView: View {
                                                     localPath: ext.localPath,
                                                     downloadUrl: ext.downloadUrl,
                                                     configJson: ext.configJson,
-                                                    isTranslationEnabled: isTranslationEnabled,
+                                                    translation: translation,
                                                     selectedCategoryId: $selectedCategoryId,
                                                     scrollAnchors: scrollAnchors,
                                                     onSelectNovel: openNovel
@@ -401,6 +405,7 @@ struct DiscoveryView: View {
                     packageId: selectedExtensionId,
                     isChineseSourceHint: selectedExtension?.isChineseSource
                 )
+                translationConfig = TranslationConfigSnapshot.current()
                 
                 if needsReloadActiveExtension {
                     needsReloadActiveExtension = false
@@ -422,6 +427,8 @@ struct DiscoveryView: View {
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: TranslationConfigStore.didChangeNotification)) { _ in
+                // Chụp lại cả khi cờ nguồn không đổi: override cấp truyện đổi thì các dòng vẫn phải vẽ lại.
+                translationConfig = TranslationConfigSnapshot.current()
                 let newState = TranslationConfigStore.shared.isTranslationEnabled(
                     bookId: "",
                     packageId: selectedExtensionId,
@@ -557,7 +564,8 @@ struct DiscoveryCategoryTabView: View {
     let localPath: String
     let downloadUrl: String
     let configJson: String
-    let isTranslationEnabled: Bool
+    /// Cờ dịch của nguồn — mỗi dòng tự tính theo truyện của nó (`DiscoveryNovelRowView`).
+    let translation: TranslationConfigSnapshot.Source
     @Binding var selectedCategoryId: String
     /// Neo cuộn dùng chung của cả Khám Phá — giữ ở `DiscoveryView` nên sống qua một lượt tab bị dựng lại.
     let scrollAnchors: DiscoveryScrollAnchorStore
@@ -577,7 +585,7 @@ struct DiscoveryCategoryTabView: View {
         localPath: String,
         downloadUrl: String,
         configJson: String,
-        isTranslationEnabled: Bool,
+        translation: TranslationConfigSnapshot.Source,
         selectedCategoryId: Binding<String>,
         scrollAnchors: DiscoveryScrollAnchorStore,
         onSelectNovel: @escaping (ExtensionItemResult) -> Void
@@ -586,7 +594,7 @@ struct DiscoveryCategoryTabView: View {
         self.localPath = localPath
         self.downloadUrl = downloadUrl
         self.configJson = configJson
-        self.isTranslationEnabled = isTranslationEnabled
+        self.translation = translation
         self._selectedCategoryId = selectedCategoryId
         self.scrollAnchors = scrollAnchors
         self.onSelectNovel = onSelectNovel
@@ -640,7 +648,7 @@ struct DiscoveryCategoryTabView: View {
                             Button {
                                 onSelectNovel(novel)
                             } label: {
-                                DiscoveryNovelRowView(item: novel, sourceHost: sourceHost, isTranslationEnabled: isTranslationEnabled)
+                                DiscoveryNovelRowView(item: novel, sourceHost: sourceHost, translation: translation)
                             }
                             .buttonStyle(.plain)
                             // Neo theo `link` chu khong phai `novel.id`: `ExtensionItemResult.id` la

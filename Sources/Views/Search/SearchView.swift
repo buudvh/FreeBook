@@ -28,7 +28,8 @@ struct SearchView: View {
     @State var searchAllSources = false
     @AppStorage("searchKindFilter") var searchKindFilter = "" // chip loại nội dung — `SearchView+KindFilter`
     @State private var searchResults: [ExtensionItemResultWithExt] = []
-    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
+    /// Tăng khi cấu hình dịch đổi — `SearchView+Translation` chụp lại cờ dịch theo nguồn/truyện của từng dòng.
+    @State var translationRevision = 0
     @State private var searchStatusMessage = ""
     @AppStorage("search_history") private var searchHistoryJSON = "[]"
     /// Bản đã decode của `searchHistoryJSON`, **chỉ** cho hiển thị (`matchingHistory`) — xem `ShelfSearchView`.
@@ -128,6 +129,9 @@ struct SearchView: View {
             }
             .onChange(of: searchHistoryJSON, initial: true) { _, json in
                 displayedHistory = SearchHistoryStore.decode(json)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: TranslationConfigStore.didChangeNotification)) { _ in
+                translationRevision &+= 1
             }
 
             if isChangingSource {
@@ -247,6 +251,7 @@ struct SearchView: View {
             .frame(maxHeight: .infinity)
         } else {
             let sortedSources = searchableExtensions.sorted(by: { $0.name < $1.name })
+            let translationConfig = currentTranslationConfig
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 24) {
                     ForEach(sortedSources, id: \.packageId) { ext in
@@ -290,6 +295,7 @@ struct SearchView: View {
                                     
                                 case .found(let results):
                                     let displayResults = changeSourceTargetBook != nil ? results.filter { !isSameBookSource(result: $0, ext: ext) } : results
+                                    let translation = translationConfig.source(packageId: ext.packageId, sourceName: ext.name, isChineseSourceHint: ext.isChineseSource)
                                     if !displayResults.isEmpty {
                                         VStack(alignment: .leading, spacing: 8) {
                                             HStack {
@@ -318,6 +324,7 @@ struct SearchView: View {
                                             ScrollView(.horizontal, showsIndicators: false) {
                                                 HStack(spacing: 16) {
                                                     ForEach(displayResults, id: \.link) { result in
+                                                        let translate = translation.isTranslationEnabled(itemLink: result.link)
                                                         if changeSourceTargetBook != nil {
                                                             Button(action: {
                                                                 changeSourceTargetResult = result
@@ -327,7 +334,7 @@ struct SearchView: View {
                                                                 VStack(alignment: .leading, spacing: 6) {
                                                                     searchResultCover(result, ext: ext, width: 90, height: 125)
                                                                     
-                                                                    Text(DisplayTextFormatter.titleCase(translateIfNeeded(result.name)))
+                                                                    Text(DisplayTextFormatter.titleCase(translateIfNeeded(result.name, enabled: translate)))
                                                                         .font(.caption)
                                                                         .fontWeight(.semibold)
                                                                         .foregroundColor(.primary)
@@ -355,7 +362,7 @@ struct SearchView: View {
                                                                 VStack(alignment: .leading, spacing: 6) {
                                                                     searchResultCover(result, ext: ext, width: 90, height: 125)
                                                                     
-                                                                    Text(DisplayTextFormatter.titleCase(translateIfNeeded(result.name)))
+                                                                    Text(DisplayTextFormatter.titleCase(translateIfNeeded(result.name, enabled: translate)))
                                                                         .font(.caption)
                                                                         .fontWeight(.semibold)
                                                                         .foregroundColor(.primary)
@@ -394,7 +401,9 @@ struct SearchView: View {
     @ViewBuilder
     private var singleSourceResultsView: some View {
         let displayResults = changeSourceTargetBook != nil ? searchResults.filter { !isSameBookSource(result: $0.result, ext: $0.ext) } : searchResults
+        let translationConfig = currentTranslationConfig
         List(displayResults) { item in
+            let translate = isTranslationEnabled(for: item, in: translationConfig)
             if changeSourceTargetBook != nil {
                 Button(action: {
                     changeSourceTargetResult = item.result
@@ -405,7 +414,7 @@ struct SearchView: View {
                         searchResultCover(item.result, ext: item.ext, width: 50, height: 70)
                         
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(DisplayTextFormatter.titleCase(translateIfNeeded(item.result.name)))
+                            Text(DisplayTextFormatter.titleCase(translateIfNeeded(item.result.name, enabled: translate)))
                                 .font(.subheadline)
                                 .fontWeight(.bold)
                                 .foregroundColor(.primary)
@@ -413,7 +422,7 @@ struct SearchView: View {
                                 .multilineTextAlignment(.leading)
                             
                             let descText = !item.result.description.isEmpty ? item.result.description : (!item.result.content.isEmpty ? item.result.content : item.result.author)
-                            Text(translateIfNeeded(descText))
+                            Text(translateIfNeeded(descText, enabled: translate))
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                                 .lineLimit(2)
@@ -444,13 +453,13 @@ struct SearchView: View {
                         searchResultCover(item.result, ext: item.ext, width: 50, height: 70)
                         
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(DisplayTextFormatter.titleCase(translateIfNeeded(item.result.name)))
+                            Text(DisplayTextFormatter.titleCase(translateIfNeeded(item.result.name, enabled: translate)))
                                 .font(.subheadline)
                                 .fontWeight(.bold)
                                 .lineLimit(2)
                             
                             let descText = !item.result.description.isEmpty ? item.result.description : (!item.result.content.isEmpty ? item.result.content : item.result.author)
-                            Text(translateIfNeeded(descText))
+                            Text(translateIfNeeded(descText, enabled: translate))
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                                 .lineLimit(2)
@@ -696,13 +705,6 @@ struct SearchView: View {
         }
     }
     
-    private func translateIfNeeded(_ text: String) -> String {
-        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
-            return text
-        }
-        return TranslateUtils.translateMeta(text)
-    }
-
     private func saveQueryToHistory(_ query: String) {
         searchHistory = SearchHistoryStore.addQuery(query, to: searchHistory)
     }

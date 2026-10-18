@@ -249,7 +249,7 @@ extension ShelfView {
                 self.importIsIndeterminate = true
 
                 AppLogger.shared.log("✅ Đã nhập thành công truyện: \(parsed.title) (\(totalChapters) chương)")
-                ToastManager.shared.show(message: "Đã nhập thành công: \(TranslateUtils.translateBookTitleIfNeeded(parsed.title, bookId: newBookId))")
+                ToastManager.shared.show(message: "Đã nhập thành công: \(TranslateUtils.translateBookTitleIfNeeded(parsed.title, bookId: newBookId, packageId: "local"))")
 
                 try? FileManager.default.removeItem(at: tempFileUrl)
                 self.isImporting = false

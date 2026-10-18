@@ -13,11 +13,12 @@ struct DiscoveryNovelRowView: View {
     let item: ExtensionItemResult
     /// `source` của tiện ích — Referer dự phòng khi item không có `host`.
     let sourceHost: String?
-    /// Cờ dịch **theo nguồn** (`TranslationConfigStore`, do màn cha tính) — không đọc công tắc dịch toàn app, nếu không
-    /// tắt dịch cho một nguồn thì danh sách vẫn dịch.
-    let isTranslationEnabled: Bool
+    /// Cờ dịch của nguồn đang xem (màn cha chụp). Mỗi dòng theo **truyện của dòng** (override "Luôn bật/Luôn tắt" thắng
+    /// cờ nguồn), không đọc công tắc dịch toàn app — nếu không tắt dịch cho nguồn/truyện thì danh sách vẫn dịch.
+    let translation: TranslationConfigSnapshot.Source
 
     var body: some View {
+        let isTranslationEnabled = translation.isTranslationEnabled(itemLink: item.link)
         HStack(spacing: 12) {
             Color(.secondarySystemBackground)
                 .frame(width: 50, height: 70)
@@ -30,21 +31,21 @@ struct DiscoveryNovelRowView: View {
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 4))
                 .overlay(alignment: .bottomLeading) {
-                    CoverTagBadge(tag: translateIfNeeded(item.tag))
+                    CoverTagBadge(tag: translateIfNeeded(item.tag, enabled: isTranslationEnabled))
                 }
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(DisplayTextFormatter.titleCase(translateIfNeeded(item.name, bookId: item.link)))
+                Text(DisplayTextFormatter.titleCase(translateIfNeeded(item.name, bookId: item.link, enabled: isTranslationEnabled)))
                     .font(.system(size: 14.5, weight: .semibold))
                     .lineLimit(2)
 
                 if !item.description.isEmpty {
-                    Text(translateIfNeeded(item.description.cleanHTML()))
+                    Text(translateIfNeeded(item.description.cleanHTML(), enabled: isTranslationEnabled))
                         .font(.caption2)
                         .foregroundColor(.secondary)
                         .lineLimit(2)
                 } else if !item.author.isEmpty {
-                    Text(DisplayTextFormatter.titleCase(displayedAuthor))
+                    Text(DisplayTextFormatter.titleCase(displayedAuthor(enabled: isTranslationEnabled)))
                         .font(.system(size: 13))
                         .foregroundColor(.secondary)
                         .lineLimit(1)
@@ -55,12 +56,12 @@ struct DiscoveryNovelRowView: View {
         .contentShape(Rectangle())
     }
 
-    private var displayedAuthor: String {
+    private func displayedAuthor(enabled isTranslationEnabled: Bool) -> String {
         guard isTranslationEnabled else { return item.author }
         return TranslateUtils.translateAuthorHanViet(item.author)
     }
 
-    private func translateIfNeeded(_ text: String, bookId: String? = nil) -> String {
+    private func translateIfNeeded(_ text: String, bookId: String? = nil, enabled isTranslationEnabled: Bool) -> String {
         guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
             return text
         }

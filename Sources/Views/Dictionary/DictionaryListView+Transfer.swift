@@ -61,7 +61,7 @@ extension DictionaryListView {
                     isMerge: isMerge
                 )
 
-                let targetTitle = TranslateUtils.translateBookTitleIfNeeded(targetBook.title, bookId: targetBook.bookId)
+                let targetTitle = TranslateUtils.translateBookTitleIfNeeded(targetBook.title, bookId: targetBook.bookId, packageId: targetBook.extensionPackageId)
                 ToastManager.shared.show(
                     message: "Đã chia sẻ \(type.displayName) sang truyện \(targetTitle)",
                     type: .success
@@ -95,7 +95,7 @@ extension DictionaryListView {
                 )
 
                 await loadData()
-                let sourceTitle = TranslateUtils.translateBookTitleIfNeeded(sourceBook.title, bookId: sourceBook.bookId)
+                let sourceTitle = TranslateUtils.translateBookTitleIfNeeded(sourceBook.title, bookId: sourceBook.bookId, packageId: sourceBook.extensionPackageId)
                 ToastManager.shared.show(
                     message: "Đã nhập \(type.displayName) từ truyện \(sourceTitle)",
                     type: .success

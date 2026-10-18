@@ -29,7 +29,6 @@ struct BookActionSheet: View {
 
     @State private var showingCreateAlert = false
     @State private var newCollectionName = ""
-    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
 
     private var book: Book { target.book }
 
@@ -221,12 +220,15 @@ struct BookActionSheet: View {
         .accessibilityLabel(book.isOnShelf ? "Xoá khỏi kệ sách" : "Thêm vào kệ sách")
     }
 
+    /// Tên và tác giả dịch theo cờ **của chính truyện này** (Truyện > Nguồn > Toàn cục), không theo công tắc dịch toàn app.
     private var displayedTitle: String {
-        TranslateUtils.translateBookTitleIfNeeded(book.title, bookId: book.bookId)
+        TranslateUtils.translateBookTitleIfNeeded(book.title, bookId: book.bookId, packageId: book.extensionPackageId)
     }
 
     private var displayedAuthor: String {
-        isTranslationEnabled ? TranslateUtils.translateAuthorHanViet(book.author) : book.author
+        let isTranslationEnabled = TranslationConfigSnapshot.current()
+            .isTranslationEnabled(bookId: book.bookId, packageId: book.extensionPackageId)
+        return isTranslationEnabled ? TranslateUtils.translateAuthorHanViet(book.author) : book.author
     }
 
     // MARK: - Bộ sưu tập
