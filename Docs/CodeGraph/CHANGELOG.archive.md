@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.509] - 2026-10-11
+
+### feat(vieneu): bo lua chon 1 luong, mo ta cai dat gon va dung tac dung spin
+
+Người dùng: *"Làm gọn bớt phần mô tả của mỗi config trong màn hình cài đặt tts của vieneu"*, *"gọn hơn nữa"*, *"1 luồng không tiết kiệm pin hơn lại còn lag hơn thì bỏ luôn option 1 luồng đi. Luồng chờ bận (spin) giải thích bậy quá, phải giải thích bật/tắt có hiệu quả gì"*. Plan duyệt: `Docs/Plans/2026-10-11-plan-vieneu-search-geminilogin.md` mục 1.
+
+- **Bỏ "1 luồng"**: picker "Số luồng tổng hợp" còn 2/3/4. Kẹp ở `VieNeuSynthesisPolicy.threadCount(from:)` (`max(2, …)`) — đường đọc **duy nhất** của khoá `vieneuThreadCount`, nên giá trị 1 đã lưu (kể cả từ bản sao lưu cũ, vốn ghi thô) tự thành 2 ở UI, nạp engine, kiểm tra nạp lại và tạo giọng; setter `VieNeuTTSService.threadCount` cũng kẹp `max(2, …)`. Căn cứ: đo trên iPhone 1 luồng 0,63 CPU-s/audio-s như 2 luồng nhưng RTF 0,60 so với 0,32, hụt tiếng khi nóng.
+- **Spin**: mô tả cũ nói về trạng thái *tắt* trong khi nhãn công tắc là trạng thái *bật*, kèm câu "chỉ để so sánh" khó hiểu. Mới: "Bật: luồng quay vòng chờ việc thay vì ngủ ngay, tốn CPU và nóng máy hơn mà không nhanh hơn. Nên để tắt." (`session.intra_op.allow_spinning`; iPhone 2 luồng: tắt 0,63 CPU-s/audio-s RTF 0,32, bật 0,76 RTF 0,38 — một lần đo, máy đã ấm nên không ghi % vào UI; audio giống hệt từng bit).
+- **Mô tả gọn**: tốc độ tổng hợp gộp 2 dòng còn 1 ("Model nói nhanh hơn, máy mát hơn. 1.15x ít lặp chữ nhất, quá 1.25x mất chữ."); số luồng "Nhiều luồng ít chờ hơn nhưng nóng máy hơn." (+ " Tiết kiệm pin đang ghim Cân bằng + 2 luồng."); ngưỡng đệm "Nạp thêm khi đệm còn dưới N giây.".
+- **Sửa tài liệu lệch code** (người dùng duyệt): doc `defaultThreadCount` ("Đã đo và giữ 4" trong khi giá trị là 2), `rules.md` "so 4 is kept" và "opt-in Tiết kiệm pin" (mặc định đang BẬT), doc `VieNeuTTSService.powerSaving`.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`.
+
 ## [1.3.508] - 2026-10-10
 
 ### feat(ai): Gemini Web - cho phep quet ten rieng nhieu chuong, nghi 2 s giua nhom, dung ro khi het han muc

@@ -604,21 +604,14 @@ struct SearchView: View {
             let detailResult = try await ExtensionManager.shared.detail(localPath: path, downloadUrl: ext.downloadUrl, url: result.link, host: ExtensionHostResolver.nonEmpty(result.host) ?? ext.sourceUrl, configJson: ext.configJson)
             // Host sách: host detail → host item tìm kiếm → source (detail thường không trả host).
             let bookHost = ExtensionHostResolver.nonEmpty(detailResult.host) ?? ExtensionHostResolver.nonEmpty(result.host) ?? ext.sourceUrl
-            var firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: result.link, host: bookHost, configJson: ext.configJson)
-            
-            if ExtensionManager.shared.hasScript(localPath: path, scriptKey: "page") {
-                let pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: result.link, host: bookHost, configJson: ext.configJson)
-                if pages.count > 1 {
-                    for pageUrl in pages.dropFirst() {
-                        let pageChaps = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pageUrl, host: bookHost, configJson: ext.configJson)
-                        firstPageChapters.append(contentsOf: pageChaps)
-                    }
-                }
-            }
-            
+            // Cùng quy tắc với BookDetail (trang đầu = `pages.first`). Mục lục rỗng/trang rỗng ⇒ ném lỗi trước khi tạo sách
+            // mới, nên sách cũ và chương đã tải không bị xoá.
+            let snapshot = ExtensionExecutionSnapshot(packageId: ext.packageId, name: ext.name, localPath: path, downloadUrl: ext.downloadUrl, configJson: ext.configJson)
+            let tocChapters = try await BookDetailLoader.shared.fetchFullTOC(snapshot: snapshot, url: result.link, host: bookHost).chapters
+
             let savedDesc = detailResult.detail.isEmpty ? detailResult.description.cleanHTML() : "\(detailResult.description.cleanHTML())\n\n---\n\(detailResult.detail.cleanHTML())"
-            let initialChapterIndex = min(oldChapterIndex, max(0, firstPageChapters.count - 1))
-            let initialChapterTitle = firstPageChapters.isEmpty ? "" : firstPageChapters[initialChapterIndex].name
+            let initialChapterIndex = min(oldChapterIndex, max(0, tocChapters.count - 1))
+            let initialChapterTitle = tocChapters.isEmpty ? "" : tocChapters[initialChapterIndex].name
 
             let createSnapshot = TOCBookCreateSnapshot(
                 bookId: newBookId,
@@ -638,7 +631,7 @@ struct SearchView: View {
                 host: bookHost
             )
 
-            let chapterSnapshots = firstPageChapters.enumerated().map { index, item in
+            let chapterSnapshots = tocChapters.enumerated().map { index, item in
                 ChapterMetadataSnapshot(title: item.name, url: item.url, index: index, host: item.host, isSection: item.isSection)
             }
 

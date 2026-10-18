@@ -124,7 +124,10 @@ public enum BackupChapterRestorer {
     ) async throws {
         var localByIndex = try await fetchIndexedTOC(bookId: bookId)
 
-        let missing = records.filter { localByIndex[$0.index] == nil }
+        // `upsertPage` khớp theo url: chương có url đã nằm ở chỉ số khác trên máy mà vẫn đưa vào sẽ bị **chuyển** chỉ số,
+        // để lại lỗ ở chỗ cũ ⇒ chỉ thêm chương máy chưa có (url lạ, hoặc không có url).
+        let localUrls = Set(localByIndex.values.map(\.url))
+        let missing = records.filter { localByIndex[$0.index] == nil && ($0.url.isEmpty || !localUrls.contains($0.url)) }
         if !missing.isEmpty {
             let metadata = missing.map { record in
                 ChapterMetadataSnapshot(

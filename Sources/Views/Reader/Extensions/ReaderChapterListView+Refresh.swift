@@ -18,33 +18,16 @@ extension ReaderChapterListView {
         errorMessage = ""
         Task {
             do {
-                var allChapters: [ChapterResult] = []
-                if ExtensionManager.shared.hasScript(localPath: ext.localPath, scriptKey: "page") {
-                    let pages = try await ExtensionManager.shared.page(
-                        localPath: ext.localPath,
-                        downloadUrl: ext.downloadUrl,
-                        url: url,
-                        host: localBook?.host,
-                        configJson: ext.configJson
-                    )
-                    for pageURL in pages {
-                        allChapters.append(contentsOf: try await ExtensionManager.shared.toc(
-                            localPath: ext.localPath,
-                            downloadUrl: ext.downloadUrl,
-                            url: pageURL,
-                            host: localBook?.host,
-                            configJson: ext.configJson
-                        ))
-                    }
-                } else {
-                    allChapters = try await ExtensionManager.shared.toc(
-                        localPath: ext.localPath,
-                        downloadUrl: ext.downloadUrl,
-                        url: url,
-                        host: localBook?.host,
-                        configJson: ext.configJson
-                    )
-                }
+                // Cùng quy tắc với BookDetail: `page.js` trả rỗng ⇒ mục lục ở chính url chi tiết; trang nào rỗng ⇒ lỗi,
+                // không ghi đè (trước đây `page.js` trả `[]` ở đây = 0 chương ⇒ xoá sạch mục lục đã lưu).
+                let snapshot = ExtensionExecutionSnapshot(
+                    packageId: ext.packageId,
+                    name: ext.name,
+                    localPath: ext.localPath,
+                    downloadUrl: ext.downloadUrl,
+                    configJson: ext.configJson
+                )
+                let allChapters = try await BookDetailLoader.shared.fetchFullTOC(snapshot: snapshot, url: url, host: localBook?.host).chapters
 
                 if let book = localBook {
                     let fullTOCSnapshots = allChapters.enumerated().map { index, item in

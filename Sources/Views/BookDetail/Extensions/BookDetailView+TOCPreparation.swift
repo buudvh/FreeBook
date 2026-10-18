@@ -45,29 +45,33 @@ extension BookDetailView {
                 var allChapters: [ChapterResult] = onlineChapters
                 var pages: [String] = tocPages
 
+                var loadedPages = loadedRemainingPageCount
+
                 if allChapters.isEmpty {
                     if ExtensionManager.shared.hasScript(localPath: path, scriptKey: "page") {
                         pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
-                        let firstUrl = pages.first ?? initialDetailUrl
-                        let firstChaps = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: firstUrl, host: resolvedHost, configJson: ext.configJson)
-                        allChapters.append(contentsOf: firstChaps)
-                    } else {
-                        let firstChaps = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
-                        allChapters.append(contentsOf: firstChaps)
                     }
+                    let firstChaps = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pages.first ?? initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
+                    try BookDetailLoader.requireChapters(firstChaps, page: 1, of: max(pages.count, 1))
+                    allChapters.append(contentsOf: firstChaps)
                     try Task.checkCancellation()
                     self.onlineChapters = allChapters
                     self.tocPages = pages
+                    self.loadedRemainingPageCount = 0
+                    loadedPages = 0
                 }
 
                 if pages.count > 1 && !remainingPagesLoaded {
-                    let remainingPages = Array(pages.dropFirst())
+                    // Lượt "Tải thêm chương" đang chạy thì dừng; các trang nó đã nối (kể cả lượt lỗi dở) nằm sẵn trong
+                    // `allChapters` ⇒ tải tiếp từ trang sau đó, không tải lại từ trang 2.
+                    loadingTask?.cancel()
+                    isLoadingRemainingPages = false
                     let totalPages = pages.count
-                    for (idx, pageUrl) in remainingPages.enumerated() {
+                    for pageIndex in min(1 + loadedPages, totalPages)..<totalPages {
                         try Task.checkCancellation()
-                        let currentPageNum = idx + 2
-                        self.prepareProgressText = "Đang lấy mục lục... Trang \(currentPageNum)/\(totalPages) (Đã lấy \(allChapters.count) chương)"
-                        let pageChaps = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pageUrl, host: resolvedHost, configJson: ext.configJson)
+                        self.prepareProgressText = "Đang lấy mục lục... Trang \(pageIndex + 1)/\(totalPages) (Đã lấy \(allChapters.count) chương)"
+                        let pageChaps = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pages[pageIndex], host: resolvedHost, configJson: ext.configJson)
+                        try BookDetailLoader.requireChapters(pageChaps, page: pageIndex + 1, of: totalPages)
                         allChapters.append(contentsOf: pageChaps)
                         await Task.yield()
                     }
@@ -135,7 +139,8 @@ extension BookDetailView {
     // MARK: - Mục lục nhiều trang
     // Chuyển từ `BookDetailView.swift` (plan comic/video, A7) để file gốc không vượt baseline dòng.
 
-    internal func loadAllRemainingPages() async throws -> [ChapterResult] {
+    /// `loadedPages` = số trang sau trang 1 đã nằm trong `onlineChapters` (lượt "Tải thêm chương" lỗi/huỷ dở).
+    internal func loadAllRemainingPages(skippingLoaded loadedPages: Int) async throws -> [ChapterResult] {
         guard let ext = ext else { return [] }
         let snapshot = ExtensionExecutionSnapshot(
             packageId: ext.packageId,
@@ -144,7 +149,7 @@ extension BookDetailView {
             downloadUrl: ext.downloadUrl,
             configJson: ext.configJson
         )
-        return try await BookDetailLoader.shared.fetchRemainingPages(snapshot: snapshot, pages: tocPages, host: resolvedHost)
+        return try await BookDetailLoader.shared.fetchRemainingPages(snapshot: snapshot, pages: tocPages, host: resolvedHost, skippingLoaded: loadedPages)
     }
 
     internal func startBackgroundRemainingPagesLoading(for targetBook: Book? = nil) {
@@ -153,6 +158,13 @@ extension BookDetailView {
         tocErrorMessage = ""
 
         let bookRef = targetBook ?? localBook
+        let pages = tocPages
+        // Tiếp từ trang sau trang cuối đã nối: bấm lại sau lỗi/huỷ không tải lại từ trang 2 (trước đây trang 2 bị ghi
+        // lại ở chỉ số `onlineChapters.count` vốn đã gồm các trang đó ⇒ trùng chương, lệch chỉ số).
+        let firstPageIndex = min(1 + loadedRemainingPageCount, pages.count)
+        // Tích luỹ cục bộ `base + fetched`, không đọc lại `self.onlineChapters`: kéo làm mới chạy xen giữa có thể gán
+        // mục lục đầy đủ vào đó, nối tiếp lên sẽ nhân đôi chương.
+        let baseChapters = onlineChapters
 
         loadingTask = Task {
             do {
@@ -160,69 +172,68 @@ extension BookDetailView {
                     await MainActor.run { self.isLoadingRemainingPages = false }
                     return
                 }
-                let remainingPages = Array(tocPages.dropFirst())
                 let targetBookId = await MainActor.run { self.actualBookId }
+                var fetched: [ChapterResult] = []
 
-                for pageUrl in remainingPages {
+                for pageIndex in firstPageIndex..<pages.count {
                     try Task.checkCancellation()
                     let pageChaps = try await ExtensionManager.shared.toc(
                         localPath: ext.localPath,
                         downloadUrl: ext.downloadUrl,
-                        url: pageUrl,
+                        url: pages[pageIndex],
                         host: resolvedHost,
                         configJson: ext.configJson
                     )
+                    try BookDetailLoader.requireChapters(pageChaps, page: pageIndex + 1, of: pages.count)
                     try Task.checkCancellation()
-
-                    let transEnabled = await MainActor.run { self.isTranslationEnabled }
-                    let translatedTitlesMap: [Int: String] = await Task.detached(priority: .utility) {
-                        var map: [Int: String] = [:]
-                        guard transEnabled else { return map }
-                        for (idx, item) in pageChaps.enumerated() {
-                            if Task.isCancelled { break }
-                            if !item.name.isEmpty && TranslateUtils.containsChinese(item.name) {
-                                map[idx] = TranslateUtils.translateChapterTitle(item.name, bookId: targetBookId)
-                            }
-                        }
-                        return map
-                    }.value
-
-                    let startIndex = await MainActor.run { self.onlineChapters.count }
-                    let shouldPersistPage = await MainActor.run { bookRef != nil || self.localBook != nil }
-                    let ttsProtection = await MainActor.run { self.activeTTSProtectedChapter }
-                    if shouldPersistPage {
-                        let snapshots = pageChaps.enumerated().map { offset, item in
-                            ChapterMetadataSnapshot(
-                                title: item.name,
-                                url: item.url,
-                                index: startIndex + offset,
-                                host: item.host,
-                                titleTrans: translatedTitlesMap[offset],
-                                isSection: item.isSection
-                            )
-                        }
-                        _ = try await ChapterContentRepository.shared.saveChapterList(
-                            bookId: targetBookId,
-                            createSnapshot: nil,
-                            chapters: snapshots,
-                            mode: .upsertPage,
-                            protectedTTSChapter: ttsProtection
-                        )
+                    fetched.append(contentsOf: pageChaps)
+                    let progress = baseChapters + fetched
+                    let stillWanted = await MainActor.run { () -> Bool in
+                        guard !self.remainingPagesLoaded else { return false } // kéo làm mới vừa nạp đủ mục lục
+                        self.onlineChapters = progress
+                        self.loadedRemainingPageCount = pageIndex
+                        return true
                     }
-
-                    await MainActor.run {
-                        self.onlineChapters.append(contentsOf: pageChaps)
-                        if let savedBook = refetchBook(bookId: targetBookId) {
-                            self.chaptersList = savedBook.chapters
+                    guard stillWanted else {
+                        await MainActor.run {
+                            self.isLoadingRemainingPages = false
+                            self.loadingTask = nil
                         }
+                        return
                     }
                     await Task.yield()
                 }
 
+                // Ghi **một lần** khi đã đủ mọi trang: lỗi giữa chừng không để lại mục lục ghi dở, và đối chiếu đầy đủ
+                // dọn luôn hàng thừa/trùng (khớp theo url nên không mất chương đã tải). Tên dịch do lượt dịch nền lo.
+                let allChapters = baseChapters + fetched
+                let saveContext = await MainActor.run {
+                    (shouldPersist: bookRef != nil || self.localBook != nil, ttsProtection: self.activeTTSProtectedChapter, snapshots: self.tocMetadata(from: allChapters))
+                }
+                if saveContext.shouldPersist {
+                    _ = try await ChapterContentRepository.shared.saveChapterList(
+                        bookId: targetBookId,
+                        createSnapshot: nil,
+                        chapters: saveContext.snapshots,
+                        mode: .replaceFullTOC,
+                        protectedTTSChapter: saveContext.ttsProtection
+                    )
+                }
+                // Bị lượt khác huỷ trong lúc ghi ⇒ không đè cờ/`loadingTask` của lượt mới hơn.
+                try Task.checkCancellation()
+
                 await MainActor.run {
+                    self.onlineChapters = allChapters
                     self.remainingPagesLoaded = true
                     self.isLoadingRemainingPages = false
                     self.loadingTask = nil
+                    if saveContext.shouldPersist {
+                        if let savedBook = refetchBook(bookId: targetBookId) {
+                            self.chaptersList = savedBook.chapters
+                        }
+                        self.refreshLocalTOCSnapshots()
+                        self.scheduleBackgroundTitleTranslationIfNeeded()
+                    }
                 }
             } catch {
                 if !Task.isCancelled {

@@ -77,6 +77,8 @@ struct BookDetailView: View {
     @State internal var tocPages: [String] = []
     @State internal var remainingPagesLoaded = false
     @State internal var isLoadingRemainingPages = false
+    /// Số trang **sau trang 1** đã nối vào `onlineChapters`: lượt "Tải thêm chương" lỗi/huỷ thì lần sau tải tiếp từ đây.
+    @State internal var loadedRemainingPageCount = 0
     @State internal var readerRoute: ReaderRoute?
     @State internal var navigateToDictionary = false
     @State internal var navigateToChangeSource = false
@@ -928,9 +930,13 @@ struct BookDetailView: View {
                 let (firstPageChapters, pages) = try await BookDetailLoader.shared.fetchFirstPageTOC(snapshot: snapshot, url: initialDetailUrl, host: resolvedHost)
 
                 let shouldPersistTOC = await MainActor.run {
+                    self.isLoadingTOC = false
+                    // "Tải thêm chương" đang/đã nối các trang sau vào `onlineChapters` (và tự ghi mục lục đầy đủ):
+                    // gán lại bằng trang 1 sẽ làm danh sách đó mất các trang giữa.
+                    if pages.count > 1 && (self.isLoadingRemainingPages || self.remainingPagesLoaded) { return false }
                     self.onlineChapters = firstPageChapters
                     self.tocPages = pages
-                    self.isLoadingTOC = false
+                    self.loadedRemainingPageCount = 0
                     return self.localBook != nil
                 }
 
@@ -939,14 +945,23 @@ struct BookDetailView: View {
                     let saveContext: (bookId: String, ttsProtection: ProtectedTTSChapter?, snapshots: [ChapterMetadataSnapshot]) = await MainActor.run {
                         (self.actualBookId, self.activeTTSProtectedChapter, self.tocMetadata(from: firstPageChapters))
                     }
-                    let saveResult = try await ChapterContentRepository.shared.saveChapterList(
-                        bookId: saveContext.bookId,
-                        createSnapshot: nil,
-                        chapters: saveContext.snapshots,
-                        mode: pages.count > 1 ? .upsertPage : .replaceFullTOC,
-                        protectedTTSChapter: saveContext.ttsProtection
-                    )
-                    let didChangeTOC = saveResult.inserted > 0 || saveResult.updated > 0 || saveResult.deleted > 0
+                    // Nguồn nhiều trang mà máy đã có mục lục: riêng trang 1 không đủ để đối chiếu (khớp theo url sẽ kéo
+                    // các chương đầu trang 2 lên, hở chỉ số ở các trang chưa tải) ⇒ không ghi. Cập nhật đầy đủ do
+                    // kéo làm mới, làm mới trong Reader và "Tải thêm chương" lo. Đọc số chương lỗi ⇒ coi như đã có (không ghi).
+                    let storedCount = pages.count > 1 ? ((try? await ChapterStore.shared.countChapters(bookId: saveContext.bookId)) ?? 1) : 0
+                    let didChangeTOC: Bool
+                    if storedCount == 0 {
+                        let saveResult = try await ChapterContentRepository.shared.saveChapterList(
+                            bookId: saveContext.bookId,
+                            createSnapshot: nil,
+                            chapters: saveContext.snapshots,
+                            mode: pages.count > 1 ? .upsertPage : .replaceFullTOC,
+                            protectedTTSChapter: saveContext.ttsProtection
+                        )
+                        didChangeTOC = saveResult.inserted > 0 || saveResult.updated > 0 || saveResult.deleted > 0
+                    } else {
+                        didChangeTOC = false
+                    }
                     await MainActor.run {
                         // Mục lục y nguyên ⇒ không đọc lại toàn bộ TOC chỉ để gán lại mảng `@State`.
                         if didChangeTOC || self.chapterSnapshots.isEmpty {

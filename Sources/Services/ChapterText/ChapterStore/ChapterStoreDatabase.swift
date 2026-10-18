@@ -1,11 +1,6 @@
 import Foundation
 import SQLite3
 
-internal struct CompositeKey: Hashable, Sendable {
-    internal let url: String
-    internal let index: Int
-}
-
 internal final class ChapterStoreDatabase {
     private var db: OpaquePointer?
     private let dbURL: URL
@@ -362,6 +357,11 @@ internal final class ChapterStoreDatabase {
     func replaceFullTOC(bookId: String, chapters: [ChapterMetadataSnapshot], protectedTTS: ProtectedTTSChapter?) throws -> (result: SaveTOCResult, reconcileMs: Double, writeMs: Double, parityOk: Bool) {
         let tReconcile0 = CFAbsoluteTimeGetCurrent()
         let existingChapters = try fetchOrderedTOC(bookId: bookId)
+        // Mục lục rỗng mà máy đang có chương ⇒ gần như chắc chắn là nguồn chặn/bóc tách hỏng, không phải truyện bị gỡ hết.
+        if chapters.isEmpty && !existingChapters.isEmpty {
+            AppLogger.shared.log("❌ [ChapterStore Save] Từ chối mục lục rỗng, giữ nguyên \(existingChapters.count) chương | bookHash=\(String(Chapter.hashUrl(bookId).prefix(8)))")
+            throw ChapterStoreError.invalidContent
+        }
 
         let plan = ChapterTOCDiff.plan(existing: existingChapters, incoming: chapters, protectedTTS: protectedTTS, bookId: bookId)
         if plan == .unchanged {
@@ -374,11 +374,9 @@ internal final class ChapterStoreDatabase {
         var tailStart = 0
         if case .appendOnly(let start) = plan { tailStart = start }
 
-        var candidateMap: [CompositeKey: [StoredChapterSnapshot]] = [:]
-        for ch in existingChapters {
-            let key = CompositeKey(url: ch.url, index: ch.index)
-            candidateMap[key, default: []].append(ch)
-        }
+        // `.appendOnly`: mọi hàng cũ đã khớp theo vị trí ⇒ không hàng nào được làm ứng viên cho phần đuôi
+        // (nếu không, chương đuôi trùng url sẽ kéo hàng cũ ra khỏi chỗ của nó).
+        var candidateMap: [CompositeKey: [StoredChapterSnapshot]] = tailStart > 0 ? [:] : CompositeKey.candidateMap(for: existingChapters)
 
         var existingIDs: Set<String> = Set(existingChapters.map { $0.id })
         var matchedOrInsertedIds: Set<String> = []
@@ -393,7 +391,7 @@ internal final class ChapterStoreDatabase {
         do {
             for item in chapters[tailStart...] {
                 try Task.checkCancellation()
-                let key = CompositeKey(url: item.url, index: item.index)
+                let key = CompositeKey.reconcile(url: item.url, index: item.index)
 
                 let finalId: String
                 let isCached: Int32
@@ -495,17 +493,13 @@ internal final class ChapterStoreDatabase {
             return (result, reconcileMs, 0, true)
         }
 
-        var expectedKeys = Set(existingChapters.map { CompositeKey(url: $0.url, index: $0.index) })
+        var expectedKeys = Set(existingChapters.map { CompositeKey.reconcile(url: $0.url, index: $0.index) })
         for item in chapters {
-            expectedKeys.insert(CompositeKey(url: item.url, index: item.index))
+            expectedKeys.insert(CompositeKey.reconcile(url: item.url, index: item.index))
         }
         let expectedCount = expectedKeys.count
 
-        var candidateMap: [CompositeKey: [StoredChapterSnapshot]] = [:]
-        for ch in existingChapters {
-            let key = CompositeKey(url: ch.url, index: ch.index)
-            candidateMap[key, default: []].append(ch)
-        }
+        var candidateMap = CompositeKey.candidateMap(for: existingChapters)
         var existingIDs: Set<String> = Set(existingChapters.map { $0.id })
 
         var insertedCount = 0
@@ -518,7 +512,7 @@ internal final class ChapterStoreDatabase {
         do {
             for item in chapters {
                 try Task.checkCancellation()
-                let key = CompositeKey(url: item.url, index: item.index)
+                let key = CompositeKey.reconcile(url: item.url, index: item.index)
 
                 let finalId: String
                 let isCached: Int32

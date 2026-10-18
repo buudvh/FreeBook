@@ -40,56 +40,50 @@ extension BookDetailView {
 
     internal func prepareForTask(taskType: TaskType) {
         if tocPages.count > 1 && !remainingPagesLoaded {
+            // Lượt "Tải thêm chương" đang chạy thì dừng; các trang nó đã nối nằm sẵn trong `baseChapters`.
+            loadingTask?.cancel()
             isLoadingRemainingPages = true
             tocErrorMessage = ""
+            let baseChapters = onlineChapters
+            let loadedPages = loadedRemainingPageCount
 
             loadingTask = Task {
                 do {
-                    let remainingChaps = try await loadAllRemainingPages()
+                    let remainingChaps = try await loadAllRemainingPages(skippingLoaded: loadedPages)
                     try Task.checkCancellation()
 
                     let ttsProtection = await MainActor.run { self.activeTTSProtectedChapter }
+                    // Đủ mọi trang ⇒ ghi mục lục đầy đủ một lần (cả khi sách đã có): đối chiếu đầy đủ dọn hàng thừa/trùng,
+                    // khớp theo url nên không mất chương đã tải.
                     let saveRequest = await MainActor.run {
-                        let targetBookId = self.resolvedBookId
-                        if self.localBook != nil {
-                            return (
-                                bookId: targetBookId,
-                                snapshot: Optional<TOCBookCreateSnapshot>.none,
-                                chapters: self.tocMetadata(from: remainingChaps, startIndex: self.onlineChapters.count),
-                                mode: TOCReconciliationMode.upsertPage
-                            )
-                        }
+                        let allChapters = baseChapters + remainingChaps
                         let savedDesc = self.detail.isEmpty ? self.desc : "\(self.desc)\n\n---\n\(self.cleanDetailText(self.detail))"
-                        let allChapters = self.onlineChapters + remainingChaps
-                        return (
-                            bookId: targetBookId,
-                            snapshot: Optional(
-                                self.makeTOCCreateSnapshot(
-                                    savedDesc: savedDesc,
-                                    sourceUrl: self.ext?.sourceUrl ?? "",
-                                    initialChapterIndex: 0,
-                                    initialChapterTitle: allChapters.first?.name ?? "",
-                                    isOnShelf: true,
-                                    isHistory: false
-                                )
-                            ),
-                            chapters: self.tocMetadata(from: allChapters),
-                            mode: TOCReconciliationMode.replaceFullTOC
+                        let createSnapshot: TOCBookCreateSnapshot? = self.localBook != nil ? nil : self.makeTOCCreateSnapshot(
+                            savedDesc: savedDesc,
+                            sourceUrl: self.ext?.sourceUrl ?? "",
+                            initialChapterIndex: 0,
+                            initialChapterTitle: allChapters.first?.name ?? "",
+                            isOnShelf: true,
+                            isHistory: false
                         )
+                        return (bookId: self.resolvedBookId, snapshot: createSnapshot, chapters: self.tocMetadata(from: allChapters))
                     }
 
                     _ = try await ChapterContentRepository.shared.saveChapterList(
                         bookId: saveRequest.bookId,
                         createSnapshot: saveRequest.snapshot,
                         chapters: saveRequest.chapters,
-                        mode: saveRequest.mode,
+                        mode: .replaceFullTOC,
                         protectedTTSChapter: ttsProtection
                     )
+                    // Bị huỷ (kéo làm mới, mở sách) trong lúc ghi ⇒ không mở sheet, không đè cờ của lượt mới hơn.
+                    try Task.checkCancellation()
 
                     await MainActor.run {
-                        self.onlineChapters.append(contentsOf: remainingChaps)
+                        self.onlineChapters = baseChapters + remainingChaps
                         if let savedBook = refetchBook(bookId: saveRequest.bookId) {
                             self.chaptersList = savedBook.chapters
+                            self.refreshLocalTOCSnapshots()
                         } else {
                             self.syncChaptersList()
                         }
@@ -142,12 +136,12 @@ extension BookDetailView {
         }
     }
 
-    internal func tocMetadata(from results: [ChapterResult], startIndex: Int = 0) -> [ChapterMetadataSnapshot] {
+    internal func tocMetadata(from results: [ChapterResult]) -> [ChapterMetadataSnapshot] {
         results.enumerated().map { offset, item in
             ChapterMetadataSnapshot(
                 title: item.name,
                 url: item.url,
-                index: startIndex + offset,
+                index: offset,
                 host: item.host,
                 isSection: item.isSection
             )
@@ -280,6 +274,10 @@ extension BookDetailView {
             self.detailErrorMessage = ""
             self.tocErrorMessage = ""
             self.markSourceUsed()
+            // Lượt "Tải thêm chương"/chuẩn bị tải đang nối trang vào `onlineChapters` sẽ đua với mục lục đầy đủ dưới đây.
+            self.loadingTask?.cancel()
+            self.loadingTask = nil
+            self.isLoadingRemainingPages = false
         }
 
         let bookHost = resolvedHost
@@ -330,25 +328,9 @@ extension BookDetailView {
         }
 
         do {
-            let path = ext.localPath
-            var allChapters: [ChapterResult] = []
-            if ExtensionManager.shared.hasScript(localPath: path, scriptKey: "page") {
-                let pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
-                await MainActor.run {
-                    self.tocPages = pages
-                }
-
-                for pageUrl in pages {
-                    let pageChaps = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pageUrl, host: resolvedHost, configJson: ext.configJson)
-                    allChapters.append(contentsOf: pageChaps)
-                }
-                await MainActor.run {
-                    self.remainingPagesLoaded = true
-                }
-            } else {
-                let tocResult = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
-                allChapters = tocResult
-            }
+            // `page.js` trả rỗng ⇒ mục lục ở chính url chi tiết; trang nào rỗng ⇒ lỗi, không ghi đè mục lục đã lưu.
+            let snapshot = ExtensionExecutionSnapshot(packageId: ext.packageId, name: ext.name, localPath: ext.localPath, downloadUrl: ext.downloadUrl, configJson: ext.configJson)
+            let (allChapters, pages) = try await BookDetailLoader.shared.fetchFullTOC(snapshot: snapshot, url: initialDetailUrl, host: resolvedHost)
 
             // Một hop MainActor duy nhất cho cả bốn giá trị (trước đây là bốn `await MainActor.run` rời rạc).
             let saveContext: (bookId: String, shouldPersist: Bool, ttsProtection: ProtectedTTSChapter?, snapshots: [ChapterMetadataSnapshot]) = await MainActor.run {
@@ -368,7 +350,11 @@ extension BookDetailView {
             }
 
             await MainActor.run {
+                // Bật cờ "đã đủ trang" cùng lúc với danh sách đầy đủ: ghi lỗi thì không để cờ bật trên danh sách thiếu.
                 self.onlineChapters = allChapters
+                self.tocPages = pages
+                self.remainingPagesLoaded = true
+                self.loadedRemainingPageCount = 0
                 if let savedBook = refetchBook(bookId: saveContext.bookId) {
                     self.chaptersList = savedBook.chapters
                     // Chỉ nạp lại mảng `@State` khi engine thật sự ghi hàng nào đó; kéo refresh liên tục mà
