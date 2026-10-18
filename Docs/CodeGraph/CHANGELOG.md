@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.537] - 2026-10-18
+
+### fix: danh sách truyện ở Khám phá theo công tắc dịch của nguồn
+
+Người dùng báo: tắt dịch cho một nguồn rồi mà danh sách truyện ở Khám phá vẫn dịch.
+
+- **Nguyên nhân** (hồi quy từ 1.3.533): hai view tạo mới cho Khám phá đọc công tắc dịch **toàn app** (`@AppStorage("isTranslationEnabled")`), không đọc cờ **theo nguồn** của `TranslationConfigStore` mà `DiscoveryView` vẫn tính và truyền xuống. Hai view đó là:
+  - `DiscoveryNovelRowView`: dòng truyện ở tab `home` và màn "Xem thêm".
+  - `CategoryNovelsListView`.
+- **Sửa**:
+  - `DiscoveryNovelRowView` nhận `isTranslationEnabled` qua tham số. Ở `DiscoveryCategoryTabView`, view cha truyền đúng cờ theo nguồn nó đang có.
+  - `CategoryNovelsListView` tự tính cờ theo nguồn bằng `TranslationConfigStore.isTranslationEnabled(bookId: "", packageId:, isChineseSourceHint:)`, giống `DiscoveryView`. Cờ này áp cho cả dòng truyện lẫn tiêu đề màn.
+  - Trang `explore` (section) vốn đã nhận cờ theo nguồn từ view cha nên không cần đổi.
+- **Không đổi**: `BookListItemView` (kệ, lịch sử…) vẫn dùng công tắc toàn app như trước bản này.
+- **Kiểm chứng**: `check_architecture.py` **2 violation, 0 mới**. Không build tại chỗ (Windows); CI chỉ xác nhận biên dịch.
+
 ## [1.3.536] - 2026-10-18
 
 ### fix: phát kèm luồng tiếng audios của track, sửa Dailymotion mất tiếng
@@ -604,16 +620,3 @@ Người dùng: *"đã chạy tốt, vì sao bạn không cho phép lọc name n
 - Nhãn `GeminiWebAccountRow` đổi từ "chỉ chat" sang khuyến nghị quét bằng Flash (Pro có trần ~5/ngày miễn phí, ~100 gói Pro — theo trang hạn mức Gemini Apps của Google, số có thể đổi).
 - `AIContextCompactor` vẫn bỏ qua Gemini Web (tiết kiệm hạn mức). `rules.md`: sửa bullet "Phạm vi" trong mục Gemini Web.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`.
-
-## [1.3.507] - 2026-10-10
-
-### fix(ai): Gemini Web - giu WKWebView an trong window de WebKit khong tam dung tien trinh web giua luc fetch
-
-Người dùng: *"vẫn còn lỗi: Lỗi phản hồi: Gemini Web không phản hồi kịp thời gian chờ"* kèm `app_logs (93).txt`. Plan duyệt trong chat (bổ sung cho `Docs/Plans/2026-10-10-plan-gemini-web-no-response.md`).
-
-- **Log phân định**: `StreamGenerate bắt đầu (…, idle 45 s)` → 45 s sau `timeout (idle 45 s, tổng 45 s, chunk=0)`. Không header, không chunk, không lỗi HTTP — trong khi từ máy dev cùng endpoint với body 38 KB Google trả header sau 1,3 s và xong sau 4 s. ⇒ JavaScript trong WKWebView ẩn **bị đóng băng**, không phải Google chậm.
-- **Nguyên nhân**: WKWebView không nằm trong window nào ⇒ WebKit không giữ assertion cho tiến trình WebContent; hết page load là iOS tạm dừng tiến trình dù app foreground, `fetch()` đang bay đứng im. `WebViewLoader` bypass Cloudflare không gặp vì luôn có page load đang chạy và poll bằng `evaluateJavaScript` — nên đợt rà soát trước đã loại trừ nhầm điểm này.
-- **Sửa**: `GeminiWebHiddenWindowHost` (file mới) tạo `UIWindow` 1×1 dưới cửa sổ chính (`normal − 1`, không chạm, alpha 0,02) chứa WKWebView ẩn; gắn khi tạo view và trước mỗi `fetch` (gắn lại nếu scene đổi), gỡ khi `releaseWebView()`. App vào background thì WebKit vẫn tạm dừng — đúng ý.
-- **Thêm mốc log**: JS gửi `meta` khi `fetch` nhận response ⇒ `… nhận header sau N ms: <mã HTTP> <content-type>`, để lần sau phân biệt "không có header" với "có header, không có body".
-- Tách `isSignedIn`/`signOut` sang `GeminiWebSessionController+Account.swift` để file chính dưới 400 dòng. `rules.md`: thêm 1 bullet vào mục "Gemini Web provider invariants".
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`. Cần người dùng thử lại với Logging bật: kỳ vọng thấy `nhận header sau … ms: 200 application/json` rồi `nhận chunk đầu`.

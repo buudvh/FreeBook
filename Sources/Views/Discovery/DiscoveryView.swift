@@ -640,7 +640,7 @@ struct DiscoveryCategoryTabView: View {
                             Button {
                                 onSelectNovel(novel)
                             } label: {
-                                DiscoveryNovelRowView(item: novel, sourceHost: sourceHost)
+                                DiscoveryNovelRowView(item: novel, sourceHost: sourceHost, isTranslationEnabled: isTranslationEnabled)
                             }
                             .buttonStyle(.plain)
                             // Neo theo `link` chu khong phai `novel.id`: `ExtensionItemResult.id` la

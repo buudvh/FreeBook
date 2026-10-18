@@ -11,8 +11,17 @@ struct CategoryNovelsListView: View {
     /// Referer dự phòng cho bìa khi item không có `host`. Tra lười khi xuất hiện, không trong `init` — `init` chạy lại
     /// mỗi lần view cha dựng lại body.
     @State private var sourceHost: String? = nil
-    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     @State private var selectedNovel: ExtensionItemResult? = nil
+
+    /// Cờ dịch **theo nguồn** (giống `DiscoveryView`), không phải công tắc dịch toàn app: tắt dịch cho nguồn thì danh
+    /// sách và tiêu đề phải hiện nguyên văn.
+    private var isTranslationEnabled: Bool {
+        TranslationConfigStore.shared.isTranslationEnabled(
+            bookId: "",
+            packageId: extensionPackageId,
+            isChineseSourceHint: ExtensionLibraryRepository.snapshot(packageId: extensionPackageId)?.isChineseSource
+        )
+    }
 
     init(
         category: CategoryResult,
@@ -63,7 +72,7 @@ struct CategoryNovelsListView: View {
                         Button {
                             selectedNovel = novel
                         } label: {
-                            DiscoveryNovelRowView(item: novel, sourceHost: sourceHost)
+                            DiscoveryNovelRowView(item: novel, sourceHost: sourceHost, isTranslationEnabled: isTranslationEnabled)
                                 .padding(.vertical, 4)
                         }
                         .buttonStyle(.plain)

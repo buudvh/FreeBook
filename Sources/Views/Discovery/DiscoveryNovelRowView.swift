@@ -13,8 +13,9 @@ struct DiscoveryNovelRowView: View {
     let item: ExtensionItemResult
     /// `source` của tiện ích — Referer dự phòng khi item không có `host`.
     let sourceHost: String?
-
-    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
+    /// Cờ dịch **theo nguồn** (`TranslationConfigStore`, do màn cha tính) — không đọc công tắc dịch toàn app, nếu không
+    /// tắt dịch cho một nguồn thì danh sách vẫn dịch.
+    let isTranslationEnabled: Bool
 
     var body: some View {
         HStack(spacing: 12) {

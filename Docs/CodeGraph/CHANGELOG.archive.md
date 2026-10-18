@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.507] - 2026-10-10
+
+### fix(ai): Gemini Web - giu WKWebView an trong window de WebKit khong tam dung tien trinh web giua luc fetch
+
+Người dùng: *"vẫn còn lỗi: Lỗi phản hồi: Gemini Web không phản hồi kịp thời gian chờ"* kèm `app_logs (93).txt`. Plan duyệt trong chat (bổ sung cho `Docs/Plans/2026-10-10-plan-gemini-web-no-response.md`).
+
+- **Log phân định**: `StreamGenerate bắt đầu (…, idle 45 s)` → 45 s sau `timeout (idle 45 s, tổng 45 s, chunk=0)`. Không header, không chunk, không lỗi HTTP — trong khi từ máy dev cùng endpoint với body 38 KB Google trả header sau 1,3 s và xong sau 4 s. ⇒ JavaScript trong WKWebView ẩn **bị đóng băng**, không phải Google chậm.
+- **Nguyên nhân**: WKWebView không nằm trong window nào ⇒ WebKit không giữ assertion cho tiến trình WebContent; hết page load là iOS tạm dừng tiến trình dù app foreground, `fetch()` đang bay đứng im. `WebViewLoader` bypass Cloudflare không gặp vì luôn có page load đang chạy và poll bằng `evaluateJavaScript` — nên đợt rà soát trước đã loại trừ nhầm điểm này.
+- **Sửa**: `GeminiWebHiddenWindowHost` (file mới) tạo `UIWindow` 1×1 dưới cửa sổ chính (`normal − 1`, không chạm, alpha 0,02) chứa WKWebView ẩn; gắn khi tạo view và trước mỗi `fetch` (gắn lại nếu scene đổi), gỡ khi `releaseWebView()`. App vào background thì WebKit vẫn tạm dừng — đúng ý.
+- **Thêm mốc log**: JS gửi `meta` khi `fetch` nhận response ⇒ `… nhận header sau N ms: <mã HTTP> <content-type>`, để lần sau phân biệt "không có header" với "có header, không có body".
+- Tách `isSignedIn`/`signOut` sang `GeminiWebSessionController+Account.swift` để file chính dưới 400 dòng. `rules.md`: thêm 1 bullet vào mục "Gemini Web provider invariants".
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`. Cần người dùng thử lại với Logging bật: kỳ vọng thấy `nhận header sau … ms: 200 application/json` rồi `nhận chunk đầu`.
+
 ## [1.3.506] - 2026-10-10
 
 ### fix(ai): Gemini Web - phan hoi rong thanh loi, probe token tu didCommit, timeout theo chunk, log tung buoc
