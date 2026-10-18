@@ -2,6 +2,21 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.506] - 2026-10-10
+
+### fix(ai): Gemini Web - phan hoi rong thanh loi, probe token tu didCommit, timeout theo chunk, log tung buoc
+
+Người dùng: *"thêm provider gemini web và đăng nhập nhưng gửi requets ko có response về"*. Plan đã duyệt: `Docs/Plans/2026-10-10-plan-gemini-web-no-response.md`.
+
+- **Đã kiểm chứng trước khi sửa**: từ máy dev (chế độ khách, cùng UA iOS Safari) với đúng payload/header app dựng: `StreamGenerate` trả 200 + text "OK" + `[8][0]==2` (cả đường có header model); `batchexecute otAQ7b` trả 1016 + model `Flash-Lite` ⇒ tên `gemini-flash-lite` đúng. Giao thức không phải thủ phạm. Rà soát độc lập (35 agent, 4 lăng kính, 3 phản biện/phát hiện): không có đường treo vô hạn ở tầng Swift/WebKit; message handler, cookie chia sẻ, CSP, nhánh `isGeminiWeb`, continuation đều loại trừ có bằng chứng.
+- **Nguyên nhân 1 — phản hồi rỗng được coi là thành công** (likely): ứng viên có rcid nhưng thiếu `[1][0]` ⇒ `GenerateFrame(text: "")`; `consumeGeneration` chỉ guard "có ứng viên", không đọc cờ `completed`; `AIRuntimeCoordinator` gọi `onComplete("")`; `ReaderAIFullScreenView.messageRow` không vẽ tin trợ lý đã xong mà rỗng ⇒ bubble **biến mất, không lỗi, không toast, không log**. Thư viện tham chiếu coi "EOF mà chưa `[8][0]==2`" là lỗi "silently aborted by Google".
+  - Sửa 3 tầng: `GeminiWebError.emptyResponse(completed:)` (retryable khi `completed == false` ⇒ vòng retry 1 lần sẵn có); `consumeGeneration` theo dõi `completed`, đếm frame, ném khi text rỗng; `AIRuntimeCoordinator` ném `AIEmptyResponseError` (file mới `Sources/Services/AI/AIEmptyResponseError.swift`, áp cho mọi provider) khi `accumulated` rỗng ⇒ "Lỗi phản hồi: …"; `messageRow` vẽ "(Không có nội dung)" cho tin đã xong mà rỗng.
+- **Nguyên nhân 2 — chuỗi chờ nối tiếp không mốc trung gian** (possible): `prepare()` chờ `didFinish` (sự kiện `load` của SPA nặng) với `.reloadIgnoringLocalCacheData` tới 30 s dù `WIZ_global_data` có ngay khi HTML commit; `GetUserStatus` 30 s; `StreamGenerate` 90 s **tuyệt đối**; không log ở load/probe/finishStream/timeout ⇒ im lặng tới vài phút rồi mới ra timeout.
+  - Sửa: probe token từ **`didCommit`** (trần commit 30 s + probe 45 s; chỉ ép tải lại khi `force`); timeout **theo chunk** (idle 45 s chat / 20 s batchexecute, trần tuyệt đối 240 s, watchdog 5 s/lần); trang tự điều hướng hoặc `prepare(force:)` khi còn fetch bay ⇒ fail ngay bằng `.documentChanged` (retryable); log `🤖 [GeminiWeb]` ở commit, probe, bắt đầu/chunk đầu/kết thúc/lỗi/timeout của mỗi fetch, và `🤖 [AI]` ở nhánh xong/lỗi của coordinator (không log nội dung/token).
+- **Phụ**: `applyLoadedSession` rơi về `activeProfileId` khi profile ghim trong phiên không còn tồn tại (pill/model khớp request thật sự gửi).
+- Tách `GeminiWebSessionController+Scripts.swift` (JS tiêm) và `+Delegates.swift` (WKNavigationDelegate/WKScriptMessageHandler) để file chính dưới 400 dòng. `rules.md`: cập nhật mục "Gemini Web provider invariants" (3 bullet).
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`. Hành vi thật cần log `[GeminiWeb]` từ máy người dùng (bật Logging trong Cài đặt trước — mặc định tắt mỗi lần mở app).
+
 ## [1.3.505] - 2026-10-10
 
 ### feat(ai): provider Gemini Web - dang nhap Google trong app, khong can API key

@@ -1,7 +1,9 @@
 import Foundation
 
 /// Phân giải `VideoTrack` (kết quả `track.js`) thành `VideoPlaybackPlan` theo hợp đồng extension:
-/// - `native`: URL m3u8/mp4 tuyệt đối → `.native`; text `#EXTM3U` hoặc URI `data:` chứa HLS → `.hlsText`.
+/// - `native`: URL m3u8/mp4 tuyệt đối → `.native`; text `#EXTM3U` hoặc URI `data:` chứa HLS → `.hlsText`. Có `audios`
+///   và luồng hình là playlist con (không phải master) ⇒ `VideoAudioRenditionComposer` ghép thành playlist gốc tổng hợp
+///   (`.hlsText`), phương án cũ thành dự phòng khi playlist ghép lỗi phát.
 /// - `auto`: URL trang xem/embed → dò link bằng `VideoMediaSniffer` → `.native`; không ra thì **báo lỗi**
 ///   (đúng DOC, không có fallback nhúng trang).
 /// - `webview`: URL, HTML hoặc JSON `{"data":…,"host":…}` → dò như `auto`; không ra thì `.embed`
@@ -62,16 +64,21 @@ public final class VideoSourceResolver {
             let resolution: VideoSourceResolution
             switch track.kind {
             case .native:
-                resolution = try VideoSourceResolution(direct: Self.nativePlan(track, baseURL: baseURL))
+                resolution = try await Self.nativeResolution(track, baseURL: baseURL)
             case .auto:
                 resolution = try await autoPlan(track, baseURL: baseURL, generation: current)
             case .webview:
                 resolution = try await webviewPlan(track, baseURL: baseURL, generation: current)
             }
             try ensureCurrent(current)
-            let spare = resolution.fallbacks.isEmpty
-                ? ""
-                : " (dự phòng khi mất tiếng: \(resolution.fallbacks.count) phương án)"
+            let spare: String
+            if resolution.fallbacks.isEmpty {
+                spare = ""
+            } else if resolution.isMergedAudio {
+                spare = " (dự phòng khi playlist ghép lỗi: luồng gốc)"
+            } else {
+                spare = " (dự phòng khi mất tiếng: \(resolution.fallbacks.count) phương án)"
+            }
             AppLogger.shared.log("🎬 [VideoSourceResolver] \(track.kind.rawValue) → \(Self.describe(resolution.current.plan))\(spare)")
             return resolution
         } catch is CancellationError {
@@ -89,6 +96,27 @@ public final class VideoSourceResolver {
     }
 
     // MARK: - Theo loại track
+
+    /// `native`; có `audios` thì thử ghép luồng hình + tiếng. Lỗi dữ liệu (rỗng, URL hỏng, `data:` không phải HLS) vẫn
+    /// ném như cũ trước khi xét `audios`.
+    private static func nativeResolution(_ track: VideoTrack, baseURL: URL?) async throws -> VideoSourceResolution {
+        let direct = try nativePlan(track, baseURL: baseURL)
+        guard let outcome = await VideoAudioRenditionComposer.compose(track, baseURL: baseURL) else {
+            return VideoSourceResolution(direct: direct)
+        }
+        switch outcome {
+        case .skipped(let reason):
+            AppLogger.shared.log("🎧 [VideoSourceResolver] Track có \(track.audios.count) luồng tiếng (audios) nhưng không ghép: \(reason) ⇒ phát như cũ")
+            return VideoSourceResolution(direct: direct)
+        case .composed(let composition):
+            AppLogger.shared.log("🎧 [VideoSourceResolver] Ghép luồng hình + \(composition.audioCount) luồng tiếng (audios của tiện ích) — \(composition.summary)")
+            return VideoSourceResolution(
+                mergedAudio: composition.plan,
+                note: "1 hình + \(composition.audioCount) tiếng",
+                direct: direct
+            )
+        }
+    }
 
     private static func nativePlan(_ track: VideoTrack, baseURL: URL?) throws -> VideoPlaybackPlan {
         let probe = VideoDataURI.stripBOM(track.data).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -326,8 +354,9 @@ public final class VideoSourceResolver {
         switch plan {
         case .native(let url, _):
             return "native \(VideoMediaSniffer.redacted(url))"
-        case .hlsText(let playlist, _, _):
-            return "playlist text \(playlist.utf8.count) byte"
+        case .hlsText(let playlist, _, _, let subPlaylists):
+            let extra = subPlaylists.isEmpty ? "" : " + \(subPlaylists.count) playlist con kèm"
+            return "playlist text \(playlist.utf8.count) byte\(extra)"
         case .embed(let url, _, _):
             return url.map { "nhúng \(VideoMediaSniffer.redacted($0))" } ?? "nhúng HTML"
         }

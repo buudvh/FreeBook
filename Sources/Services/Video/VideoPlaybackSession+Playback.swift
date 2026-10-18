@@ -69,9 +69,10 @@ extension VideoPlaybackSession {
             let options = Self.assetOptions(headers: headers, mimeType: track.mimeType)
             let asset = AVURLAsset(url: url, options: options)
             attach(asset: asset, track: track, generation: generation)
-        case .hlsText(let playlist, let baseURL, let headers):
-            AppLogger.shared.log("▶️ [VideoPlayer] Phát HLS dạng text (\(playlist.utf8.count) byte) base=\(baseURL?.host ?? "-") server=«\(selectedServerTitle)»")
-            let made = HLSPlaylistResourceLoader.makeAsset(playlist: playlist, baseURL: baseURL, headers: headers)
+        case .hlsText(let playlist, let baseURL, let headers, let subPlaylists):
+            let extra = subPlaylists.isEmpty ? "" : " + \(subPlaylists.count) playlist con kèm"
+            AppLogger.shared.log("▶️ [VideoPlayer] Phát HLS dạng text (\(playlist.utf8.count) byte\(extra)) base=\(baseURL?.host ?? "-") server=«\(selectedServerTitle)»")
+            let made = HLSPlaylistResourceLoader.makeAsset(playlist: playlist, baseURL: baseURL, headers: headers, subPlaylists: subPlaylists)
             hlsLoader = made.loader
             attach(asset: made.asset, track: track, generation: generation)
         case .embed(let url, let html, let baseURL):

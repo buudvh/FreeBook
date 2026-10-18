@@ -4,47 +4,40 @@ import Foundation
 /// Phục vụ playlist HLS dạng **text** (track `native` trả `#EXTM3U` hoặc URI `data:`) cho AVPlayer qua scheme riêng
 /// `fbhls://`. AVPlayer chỉ nạp playlist qua delegate; segment, playlist con và khoá đều phải là URL http(s) thật,
 /// nên mọi URI tương đối trong playlist được viết lại thành tuyệt đối theo `baseURL` (host của track) ngay lúc tạo.
+/// Ngoại lệ duy nhất: playlist con phục vụ kèm (`subPlaylists`, URI `fbhls://` do `subPlaylistURI()` cấp) — luồng
+/// hình dạng text của playlist gốc tổng hợp (`VideoAudioRenditionComposer`).
 public final class HLSPlaylistResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
     static let scheme = "fbhls"
 
-    private let playlistData: Data
-    /// Path của URL `fbhls://` duy nhất được phục vụ; URI tương đối còn sót (thiếu `baseURL`) cũng rơi vào scheme
-    /// `fbhls` và phải bị từ chối thay vì trả nhầm nội dung playlist.
-    private let playlistPath: String
+    /// Nội dung theo path của URL `fbhls://` được phục vụ (playlist chính + playlist con kèm). URI tương đối còn sót
+    /// (thiếu `baseURL`) cũng rơi vào scheme `fbhls` và phải bị từ chối thay vì trả nhầm nội dung playlist.
+    private let documents: [String: Data]
     private let queue = DispatchQueue(label: "FreeBook.HLSPlaylistResourceLoader")
 
-    private init(playlistData: Data, playlistPath: String) {
-        self.playlistData = playlistData
-        self.playlistPath = playlistPath
+    private init(documents: [String: Data]) {
+        self.documents = documents
         super.init()
     }
 
-    /// Dựng asset phát playlist text. `headers` đi vào `AVURLAssetHTTPHeaderFieldsKey` để áp cho mọi request http(s)
-    /// của asset (playlist con, segment, khoá).
+    /// Dựng asset phát playlist text. `headers` áp cho mọi request http(s) của asset (playlist con, segment, khoá):
+    /// `User-Agent` qua `AVURLAssetHTTPUserAgentKey` (như `VideoPlaybackSession.assetOptions`), còn lại qua
+    /// `AVURLAssetHTTPHeaderFieldsKey`. `subPlaylists`: URI `fbhls://` (từ `subPlaylistURI()`) → nội dung playlist con
+    /// phục vụ kèm; URI tương đối trong đó cũng resolve theo `baseURL`.
     /// Caller PHẢI giữ strong reference tới loader chừng nào asset còn dùng (resource loader chỉ giữ delegate weak).
     public static func makeAsset(
         playlist: String,
         baseURL: URL?,
-        headers: [String: String]
+        headers: [String: String],
+        subPlaylists: [String: String] = [:]
     ) -> (asset: AVURLAsset, loader: HLSPlaylistResourceLoader) {
-        // HLS bắt buộc `#EXTM3U` ở dòng đầu: playlist dựng bằng template string của JS hay có xuống dòng/thụt lề đầu.
-        let text = VideoDataURI.decode(playlist)?.text ?? playlist
-        let body = VideoDataURI.stripBOM(text).trimmingCharacters(in: .whitespacesAndNewlines)
-        let rewritten = rewritePlaylist(body, baseURL: baseURL)
-
-        // Đuôi `.m3u8` để AVFoundation nhận diện HLS ngay từ URL.
-        var components = URLComponents()
-        components.scheme = scheme
-        components.host = "playlist"
-        components.path = "/\(UUID().uuidString).m3u8"
-        let url = components.url ?? URL(fileURLWithPath: "/invalid.m3u8")
-        let loader = HLSPlaylistResourceLoader(playlistData: Data(rewritten.utf8), playlistPath: url.path)
-
-        var options: [String: Any] = [:]
-        if !headers.isEmpty {
-            options["AVURLAssetHTTPHeaderFieldsKey"] = headers
+        let url = playlistURL()
+        var documents = [url.path: preparedPlaylist(playlist, baseURL: baseURL)]
+        for (uri, text) in subPlaylists {
+            guard let subURL = URL(string: uri), subURL.scheme?.lowercased() == scheme, subURL.path != url.path else { continue }
+            documents[subURL.path] = preparedPlaylist(text, baseURL: baseURL)
         }
-        let asset = AVURLAsset(url: url, options: options)
+        let loader = HLSPlaylistResourceLoader(documents: documents)
+        let asset = AVURLAsset(url: url, options: assetOptions(headers: headers))
         asset.resourceLoader.setDelegate(loader, queue: loader.queue)
         return (asset, loader)
     }
@@ -54,7 +47,7 @@ public final class HLSPlaylistResourceLoader: NSObject, AVAssetResourceLoaderDel
         shouldWaitForLoadingOfRequestedResource loadingRequest: AVAssetResourceLoadingRequest
     ) -> Bool {
         guard let url = loadingRequest.request.url, url.scheme?.lowercased() == Self.scheme else { return false }
-        guard url.path == playlistPath else {
+        guard let playlistData = documents[url.path] else {
             AppLogger.shared.log("❌ [HLSPlaylistResourceLoader] Playlist có URI tương đối nhưng track không có host: \(url.lastPathComponent)")
             loadingRequest.finishLoading(with: NSError(domain: NSURLErrorDomain, code: NSURLErrorFileDoesNotExist))
             return true
@@ -77,6 +70,43 @@ public final class HLSPlaylistResourceLoader: NSObject, AVAssetResourceLoaderDel
         }
         loadingRequest.finishLoading()
         return true
+    }
+
+    /// URI `fbhls://` cho một playlist con phục vụ kèm qua `makeAsset(…, subPlaylists:)`.
+    static func subPlaylistURI() -> String {
+        playlistURL().absoluteString
+    }
+
+    /// `fbhls://playlist/<UUID>.m3u8` — đuôi `.m3u8` để AVFoundation nhận diện HLS ngay từ URL.
+    private static func playlistURL() -> URL {
+        var components = URLComponents()
+        components.scheme = scheme
+        components.host = "playlist"
+        components.path = "/\(UUID().uuidString).m3u8"
+        return components.url ?? URL(fileURLWithPath: "/invalid.m3u8")
+    }
+
+    /// HLS bắt buộc `#EXTM3U` ở dòng đầu: playlist dựng bằng template string của JS hay có xuống dòng/thụt lề đầu.
+    private static func preparedPlaylist(_ playlist: String, baseURL: URL?) -> Data {
+        let text = VideoDataURI.decode(playlist)?.text ?? playlist
+        let body = VideoDataURI.stripBOM(text).trimmingCharacters(in: .whitespacesAndNewlines)
+        return Data(rewritePlaylist(body, baseURL: baseURL).utf8)
+    }
+
+    /// `User-Agent` (không rỗng) ⇒ `AVURLAssetHTTPUserAgentKey` (UA trong header fields có thể bị AVFoundation bỏ
+    /// qua); còn lại ⇒ `"AVURLAssetHTTPHeaderFieldsKey"`.
+    private static func assetOptions(headers: [String: String]) -> [String: Any] {
+        var options: [String: Any] = [:]
+        var fields = headers
+        if let key = fields.keys.first(where: { $0.caseInsensitiveCompare("User-Agent") == .orderedSame }),
+           let userAgent = fields[key], !userAgent.trimmingCharacters(in: .whitespaces).isEmpty {
+            fields.removeValue(forKey: key)
+            options[AVURLAssetHTTPUserAgentKey] = userAgent
+        }
+        if !fields.isEmpty {
+            options["AVURLAssetHTTPHeaderFieldsKey"] = fields
+        }
+        return options
     }
 
     // MARK: - Viết lại URI

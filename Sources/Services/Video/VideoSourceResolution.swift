@@ -9,12 +9,17 @@ import Foundation
 ///
 /// Ngoại lệ có chủ đích so với DOC: DOC nói `auto` không có fallback nhúng — vẫn đúng khi **không dò được link** (báo
 /// lỗi như cũ). Nhúng ở đây chỉ là bước cuối của ca dò được link nhưng phát ra mất tiếng.
+///
+/// Playlist ghép luồng hình + `audios` (`VideoAudioRenditionComposer`) có đúng một dự phòng: phương án cũ (luồng gốc, bỏ
+/// `audios`), chỉ dùng khi playlist ghép **lỗi phát** — không dùng cho ca mất tiếng vì luồng gốc vốn không có tiếng.
 struct VideoSourceResolution: Sendable {
     enum Origin: Sendable {
         /// URL media do tiện ích trả thẳng.
         case extensionURL
         /// Playlist text / URI `data:` do tiện ích trả.
         case extensionPlaylist
+        /// Playlist gốc tổng hợp ghép luồng hình với `audios` của tiện ích.
+        case extensionMergedAudio
         /// Link `VideoMediaSniffer` dò từ trang xem/embed.
         case sniffed
         /// Nhúng trang vào WKWebView.
@@ -24,6 +29,7 @@ struct VideoSourceResolution: Sendable {
             switch self {
             case .extensionURL: return "link tiện ích trả thẳng (native)"
             case .extensionPlaylist: return "playlist text của tiện ích (hlsText)"
+            case .extensionMergedAudio: return "playlist ghép luồng hình + luồng tiếng (audios của tiện ích)"
             case .sniffed: return "dò link từ trang"
             case .embed: return "nhúng trang"
             }
@@ -57,16 +63,30 @@ struct VideoSourceResolution: Sendable {
 
     /// Link tiện ích trả thẳng hoặc nhúng trang: không có dự phòng.
     init(direct plan: VideoPlaybackPlan) {
-        let origin: Origin
+        self.init(current: Attempt(plan: plan, origin: Self.directOrigin(of: plan), note: nil), fallbacks: [], playlistSummary: nil)
+    }
+
+    /// Playlist ghép luồng hình + `audios`; dự phòng duy nhất là `direct` (phương án cũ) khi playlist ghép lỗi phát.
+    init(mergedAudio plan: VideoPlaybackPlan, note: String, direct: VideoPlaybackPlan) {
+        self.init(
+            current: Attempt(plan: plan, origin: .extensionMergedAudio, note: note),
+            fallbacks: [Attempt(plan: direct, origin: Self.directOrigin(of: direct), note: "luồng gốc, bỏ audios")],
+            playlistSummary: nil
+        )
+    }
+
+    private static func directOrigin(of plan: VideoPlaybackPlan) -> Origin {
         switch plan {
-        case .native: origin = .extensionURL
-        case .hlsText: origin = .extensionPlaylist
-        case .embed: origin = .embed
+        case .native: return .extensionURL
+        case .hlsText: return .extensionPlaylist
+        case .embed: return .embed
         }
-        self.init(current: Attempt(plan: plan, origin: origin, note: nil), fallbacks: [], playlistSummary: nil)
     }
 
     var isOnFallback: Bool { attemptNumber > 1 }
+
+    /// Đang phát playlist ghép luồng hình + `audios` của tiện ích.
+    var isMergedAudio: Bool { current.origin == .extensionMergedAudio }
 
     /// Chuyển sang phương án kế; hết thì trả `nil` và giữ nguyên.
     mutating func advance() -> Attempt? {
@@ -80,7 +100,7 @@ struct VideoSourceResolution: Sendable {
     var diagnostics: String {
         var parts = ["nguồn: \(current.origin.label)" + (current.note.map { " [\($0)]" } ?? "")]
         parts.append("phương án \(attemptNumber)/\(totalAttempts)")
-        if case .hlsText(let playlist, let baseURL, _) = current.plan {
+        if case .hlsText(let playlist, let baseURL, _, _) = current.plan {
             parts.append("playlist text: \(VideoHLSPlaylistProbe.label(ofPlaylist: playlist)), base \(baseURL?.host ?? "-")")
         }
         if let playlistSummary {

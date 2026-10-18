@@ -13,6 +13,9 @@ import AVFoundation
 ///   phải có **cả** tiếng lẫn hình (playlist con chỉ có tiếng ⇒ màn đen); lỗi phát cũng sang phương án kế. Nhúng trang
 ///   là bước cuối; hết phương án thì giữ nguyên. Chỉ tự đổi khi màn trình phát đang hiện ở trước và không PiP — thay
 ///   item lúc PiP / chạy nền / thu nhỏ làm hỏng các ca đó.
+/// - Playlist ghép luồng hình + `audios` (`VideoAudioRenditionComposer`): tiếng là rendition `#EXT-X-MEDIA` ⇒ có lựa
+///   chọn `.audible` đang được chọn cũng tính là có tiếng. Mất tiếng thì chỉ ghi log, không đổi (dự phòng là luồng gốc
+///   không tiếng); item **lỗi** thì sang dự phòng đó để vẫn xem được hình như trước.
 extension VideoPlaybackSession {
     /// Đếm track của một item tại thời điểm kiểm.
     struct AudioInspection {
@@ -95,18 +98,26 @@ extension VideoPlaybackSession {
         let inspection = await inspectAudio(of: item)
         guard isCurrent(generation), player.currentItem === item else { return }
         let onFallback = sourceResolution?.isOnFallback ?? false
+        let mergedAudio = sourceResolution?.isMergedAudio ?? false
         let details = sourceDiagnostics(item: item, inspection: inspection)
-        if inspection.hasAudio, inspection.hasVideo || !onFallback {
+        let hasAudio = inspection.hasAudio || (mergedAudio && inspection.selectedAudible != nil)
+        if hasAudio, inspection.hasVideo || !onFallback {
             if onFallback { AppLogger.shared.log("🔊 [VideoPlayer] Phương án dự phòng có tiếng: \(details)") }
+            // Log dòng thường để xác nhận từ file log rằng playlist ghép ra tiếng (kể cả khi chỉ thấy lựa chọn `.audible`).
+            if mergedAudio { AppLogger.shared.log("🔊 [VideoPlayer] Playlist ghép audios có tiếng: \(details)") }
             return
         }
         guard inspection.trackCount > 0 else {
             AppLogger.shared.log("⚠️ [VideoPlayer] Chưa kết luận được âm thanh (item chưa có track): \(details)")
             return
         }
-        let problem = inspection.hasAudio ? "Phương án dự phòng không có hình" : "Không có âm thanh"
-        let canSwitch = canSwitchSourceAutomatically && sourceResolution?.fallbacks.isEmpty == false
-        AppLogger.shared.log("❌ [VideoPlayer] \(problem): \(details) \(fallbackAction(canSwitch: canSwitch))")
+        let problem = hasAudio ? "Phương án dự phòng không có hình" : "Không có âm thanh"
+        // Playlist ghép: dự phòng là luồng gốc không tiếng ⇒ đổi sang đó không giúp được gì.
+        let canSwitch = !mergedAudio && canSwitchSourceAutomatically && sourceResolution?.fallbacks.isEmpty == false
+        let action = mergedAudio
+            ? "⇒ giữ nguyên (dự phòng chỉ là luồng hình gốc, không có tiếng)"
+            : fallbackAction(canSwitch: canSwitch)
+        AppLogger.shared.log("❌ [VideoPlayer] \(problem): \(details) \(action)")
         guard canSwitch else { return }
         // Đang chạy trong `audioCheckTask`: gỡ tham chiếu trước để `prepareForNewLoad` không huỷ chính task này — task
         // bị huỷ thì `isCurrent` sai và `apply` bỏ qua phương án mới.
@@ -159,6 +170,7 @@ extension VideoPlaybackSession {
     /// Sang phương án kế với **cùng** `VideoTrack` (nhúng trang giữ Referer/UA như nhánh nhúng sẵn có).
     private func switchToNextFallback() {
         guard var resolution = sourceResolution, let track = currentTrack else { return }
+        let leavingMergedAudio = resolution.isMergedAudio
         guard let next = resolution.advance() else { return }
         let resume = resumePointForReload()
         let generation = prepareForNewLoad(resumeSeconds: resume)
@@ -168,6 +180,8 @@ extension VideoPlaybackSession {
             // Nhúng không tua được ⇒ Lịch sử giữ giây đang xem thay vì ghi đè bằng 0.
             embedProgressSeconds = resume
             showPlaybackNotice("Đã chuyển sang trình phát của trang để có tiếng")
+        } else if leavingMergedAudio {
+            showPlaybackNotice("Không ghép được luồng tiếng, đang phát luồng gốc…")
         } else {
             showPlaybackNotice("Không có tiếng, đang thử link khác…")
         }
@@ -175,10 +189,12 @@ extension VideoPlaybackSession {
     }
 
     /// Log ❌ khi `AVPlayerItem` lỗi, kèm nguồn link, URL đã che, URL lỗi và sự kiện lỗi mạng gần nhất (404…).
-    /// Đang ở phương án dự phòng mà lỗi ⇒ sang phương án kế và trả `true` (caller không báo lỗi).
+    /// Đang ở phương án dự phòng (hoặc playlist ghép `audios`) mà lỗi ⇒ sang phương án kế và trả `true` (caller không
+    /// báo lỗi).
     func logItemFailureAndTryFallback(message: String) -> Bool {
         let item = player.currentItem
-        let canSwitch = sourceResolution?.isOnFallback == true
+        let switchable = sourceResolution?.isOnFallback == true || sourceResolution?.isMergedAudio == true
+        let canSwitch = switchable
             && sourceResolution?.fallbacks.isEmpty == false
             && canSwitchSourceAutomatically
         let action = canSwitch ? " \(fallbackAction(canSwitch: true))" : ""

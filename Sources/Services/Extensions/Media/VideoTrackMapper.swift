@@ -110,7 +110,7 @@ enum VideoTrackMapper {
 
     // MARK: - Track (`track.js`)
 
-    /// `{type, data, host?, mimeType?, headers?, timeSkip?, subtitles?}`.
+    /// `{type, data, host?, mimeType?, headers?, timeSkip?, subtitles?, audios?}`.
     ///
     /// - `type` so chữ thường; `iframe` ⇒ `webview`; thiếu/rỗng ⇒ `native` (dự phòng mềm, có log);
     ///   giá trị lạ ⇒ ném lỗi.
@@ -138,7 +138,8 @@ enum VideoTrackMapper {
             mimeType: mimeType,
             headers: JSValueReader.stringDictionary(value.forProperty("headers")),
             timeSkips: timeSkips(from: firstPresent(value, keys: ["timeSkip", "timeSkips", "timeskip"])),
-            subtitles: subtitles(from: firstPresent(value, keys: ["subtitles", "subtitle"]))
+            subtitles: subtitles(from: firstPresent(value, keys: ["subtitles", "subtitle"])),
+            audios: audios(of: value)
         )
     }
 
@@ -180,6 +181,37 @@ enum VideoTrackMapper {
                 language: JSValueReader.nonEmptyString(firstPresent(item, keys: ["language", "lang"]))
             )
         }
+    }
+
+    /// `audios: [{data, type, label, language, headers}]` — alias `url`/`link` cho `data`, `name`/`title` cho `label`,
+    /// `lang` cho `language`; phần tử chuỗi trần hoặc một object đơn cũng nhận. Bỏ phần tử `data` rỗng/`"null"`, khử
+    /// trùng theo `data` (bản trim, giữ phần tử đầu). `audios` không ra phần tử nào ⇒ trường đơn cũ `audio` (chuỗi).
+    private static func audios(of track: JSValue) -> [VideoAudioTrack] {
+        let raw = track.forProperty("audios")
+        let items = JSValueReader.isPlainObject(raw) ? [raw].compactMap { $0 } : JSValueReader.array(raw)
+        var audios = items.compactMap { audioTrack(from: $0) }
+        if audios.isEmpty, let single = JSValueReader.cleanString(track.forProperty("audio")), !isBlank(single) {
+            audios = [VideoAudioTrack(data: single)]
+        }
+        var seen = Set<String>()
+        return audios.filter { seen.insert($0.data.trimmingCharacters(in: .whitespacesAndNewlines)).inserted }
+    }
+
+    private static func audioTrack(from item: JSValue) -> VideoAudioTrack? {
+        if item.isString {
+            guard let data = JSValueReader.cleanString(item), !isBlank(data) else { return nil }
+            return VideoAudioTrack(data: data)
+        }
+        guard JSValueReader.isPlainObject(item),
+              let data = JSValueReader.cleanString(firstPresent(item, keys: ["data", "url", "link"])),
+              !isBlank(data) else { return nil }
+        return VideoAudioTrack(
+            data: data,
+            type: JSValueReader.nonEmptyString(firstPresent(item, keys: ["type", "mimeType"])),
+            label: JSValueReader.nonEmptyString(firstPresent(item, keys: ["label", "name", "title"])),
+            language: JSValueReader.nonEmptyString(firstPresent(item, keys: ["language", "lang"])),
+            headers: JSValueReader.stringDictionary(item.forProperty("headers"))
+        )
     }
 
     /// Thuộc tính đầu tiên có mặt (không undefined/null) theo thứ tự `keys`.

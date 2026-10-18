@@ -97,6 +97,51 @@ enum VideoHLSPlaylistProbe {
         classify(text).label
     }
 
+    // MARK: - Luồng hình do tiện ích trả thẳng (`VideoAudioRenditionComposer`)
+
+    /// Loại một playlist đơn lẻ, không cần biết có rendition tiếng hay không.
+    enum Shape: Sendable {
+        /// Playlist gốc (có `#EXT-X-STREAM-INF`).
+        case master
+        /// Playlist con (không có `#EXT-X-STREAM-INF`).
+        case media
+        /// Tải được nhưng không mở đầu bằng `#EXTM3U`.
+        case notPlaylist
+        /// Lỗi mạng, mã HTTP ngoài 2xx hoặc quá hạn chót.
+        case unavailable
+    }
+
+    static func shape(ofPlaylist text: String) -> Shape {
+        shape(of: classify(text))
+    }
+
+    /// Tải một playlist (cùng `headers`) rồi phân loại; cả lượt không vượt `fetchTimeout` + 0,5 giây (timeout của
+    /// `URLRequest` chỉ là thời gian chờ rỗi, DNS/kết nối treo vẫn có thể lâu hơn).
+    static func shape(ofRemote url: URL, headers: [String: String]) async -> Shape {
+        let kind = await withTaskGroup(of: Kind?.self, returning: Kind.self) { group in
+            group.addTask {
+                await VideoHLSPlaylistProbe.kind(url: url, headers: headers)
+            }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: UInt64((VideoHLSPlaylistProbe.fetchTimeout + 0.5) * 1_000_000_000))
+                return nil
+            }
+            let first: Kind? = await group.next() ?? nil
+            group.cancelAll()
+            return first ?? .unavailable
+        }
+        return shape(of: kind)
+    }
+
+    private static func shape(of kind: Kind) -> Shape {
+        switch kind {
+        case .master: return .master
+        case .media: return .media
+        case .notPlaylist: return .notPlaylist
+        case .unavailable: return .unavailable
+        }
+    }
+
     // MARK: - Tải & phân loại
 
     private static func probe(_ candidates: [VideoMediaSniffer.Result]) async -> [Kind] {
@@ -104,7 +149,7 @@ enum VideoHLSPlaylistProbe {
         return await withTaskGroup(of: Probed?.self, returning: [Kind].self) { group in
             for (index, candidate) in candidates.enumerated() {
                 group.addTask {
-                    let kind = await VideoHLSPlaylistProbe.kind(of: candidate)
+                    let kind = await VideoHLSPlaylistProbe.kind(url: candidate.url, headers: candidate.headers)
                     return Probed(index: index, kind: kind)
                 }
             }
@@ -125,13 +170,13 @@ enum VideoHLSPlaylistProbe {
         }
     }
 
-    private static func kind(of candidate: VideoMediaSniffer.Result) async -> Kind {
+    private static func kind(url: URL, headers: [String: String]) async -> Kind {
         var request = URLRequest(
-            url: candidate.url,
+            url: url,
             cachePolicy: .reloadIgnoringLocalCacheData,
             timeoutInterval: fetchTimeout
         )
-        for (name, value) in candidate.headers {
+        for (name, value) in headers {
             request.setValue(value, forHTTPHeaderField: name)
         }
         do {

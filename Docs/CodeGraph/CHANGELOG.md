@@ -2,6 +2,29 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.536] - 2026-10-18
+
+### fix: phát kèm luồng tiếng audios của track, sửa Dailymotion mất tiếng
+
+Log người dùng gửi (bản 1.3.535) ghi rõ: tiện ích «Dailymotion», nguồn "link tiện ích trả thẳng (native)", "track: 1 hình, 0 tiếng, không có nhóm audible". Giải mã script của tiện ích này cho thấy nó trả `data` là playlist con **chỉ có hình** của một chất lượng, còn luồng tiếng nằm ở `audios: [{data, url, headers, type, label, language}]` (thêm `audio` dạng chuỗi), đúng hợp đồng extension. App trước đây bỏ qua `audios`, nên phát không có tiếng; app gốc phát kèm luồng tiếng.
+
+- **Model**: thêm `VideoAudioTrack` (`data`, `type`, `label`, `language`, `headers`) và `VideoTrack.audios`, mặc định rỗng.
+- **Đọc từ track**: `VideoTrackMapper` đọc `audios` (nhận `url` thay cho `data`, bỏ phần tử rỗng và trùng). Khi `audios` rỗng thì đọc trường đơn `audio`.
+- **Ghép hình + tiếng** (`VideoAudioRenditionComposer`), áp cho track `native` có `audios`:
+  1. Tải nhanh `data` (chỉ khi đuôi là `.m3u8`/`.m3u` hoặc mime `mpegurl`; kèm header; tối đa 4,5 giây).
+  2. Nếu `data` đã là playlist gốc (có `#EXT-X-STREAM-INF`): phát như cũ.
+  3. Nếu là playlist con, hoặc tải lỗi: dựng playlist gốc tổng hợp, mỗi phần tử `audios` thành một dòng `#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud"` (phần tử đầu là `DEFAULT`), rồi `#EXT-X-STREAM-INF:BANDWIDTH=2000000,AUDIO="aud"` trỏ tới luồng hình. Playlist này phát qua nhánh `.hlsText` / `HLSPlaylistResourceLoader`.
+  4. `data` ở dạng text hoặc `data:` cũng ghép được: playlist con được phục vụ kèm.
+- **Nhánh `.hlsText`**: giờ gửi User-Agent qua `AVURLAssetHTTPUserAgentKey`.
+- **Playlist ghép lỗi**: tự quay về luồng gốc như trước.
+- **Kiểm tra mất tiếng**: playlist ghép có nhóm `.audible` nên không còn báo `❌` sai.
+- **Rủi ro**:
+  - Playlist ghép không khai `CODECS`.
+  - Cả asset dùng chung một bộ header: header của track thắng, header riêng của `audios` chỉ bù khoá còn thiếu.
+  - Track có `audios` nạp chậm thêm tối đa khoảng 4,5 giây.
+  - AirPlay không phát được `fbhls://`, giống nhánh HLS text có từ trước.
+- **Kiểm chứng**: `check_architecture.py` **2 violation, 0 mới**. Không build tại chỗ (Windows); CI chỉ xác nhận biên dịch. Cần thử Dailymotion trên máy.
+
 ## [1.3.535] - 2026-10-17
 
 ### fix: video dò từ trang mất tiếng thì tự thử link khác hoặc nhúng trang, ghi log chẩn đoán
@@ -594,18 +617,3 @@ Người dùng: *"vẫn còn lỗi: Lỗi phản hồi: Gemini Web không phản
 - **Thêm mốc log**: JS gửi `meta` khi `fetch` nhận response ⇒ `… nhận header sau N ms: <mã HTTP> <content-type>`, để lần sau phân biệt "không có header" với "có header, không có body".
 - Tách `isSignedIn`/`signOut` sang `GeminiWebSessionController+Account.swift` để file chính dưới 400 dòng. `rules.md`: thêm 1 bullet vào mục "Gemini Web provider invariants".
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`. Cần người dùng thử lại với Logging bật: kỳ vọng thấy `nhận header sau … ms: 200 application/json` rồi `nhận chunk đầu`.
-
-## [1.3.506] - 2026-10-10
-
-### fix(ai): Gemini Web - phan hoi rong thanh loi, probe token tu didCommit, timeout theo chunk, log tung buoc
-
-Người dùng: *"thêm provider gemini web và đăng nhập nhưng gửi requets ko có response về"*. Plan đã duyệt: `Docs/Plans/2026-10-10-plan-gemini-web-no-response.md`.
-
-- **Đã kiểm chứng trước khi sửa**: từ máy dev (chế độ khách, cùng UA iOS Safari) với đúng payload/header app dựng: `StreamGenerate` trả 200 + text "OK" + `[8][0]==2` (cả đường có header model); `batchexecute otAQ7b` trả 1016 + model `Flash-Lite` ⇒ tên `gemini-flash-lite` đúng. Giao thức không phải thủ phạm. Rà soát độc lập (35 agent, 4 lăng kính, 3 phản biện/phát hiện): không có đường treo vô hạn ở tầng Swift/WebKit; message handler, cookie chia sẻ, CSP, nhánh `isGeminiWeb`, continuation đều loại trừ có bằng chứng.
-- **Nguyên nhân 1 — phản hồi rỗng được coi là thành công** (likely): ứng viên có rcid nhưng thiếu `[1][0]` ⇒ `GenerateFrame(text: "")`; `consumeGeneration` chỉ guard "có ứng viên", không đọc cờ `completed`; `AIRuntimeCoordinator` gọi `onComplete("")`; `ReaderAIFullScreenView.messageRow` không vẽ tin trợ lý đã xong mà rỗng ⇒ bubble **biến mất, không lỗi, không toast, không log**. Thư viện tham chiếu coi "EOF mà chưa `[8][0]==2`" là lỗi "silently aborted by Google".
-  - Sửa 3 tầng: `GeminiWebError.emptyResponse(completed:)` (retryable khi `completed == false` ⇒ vòng retry 1 lần sẵn có); `consumeGeneration` theo dõi `completed`, đếm frame, ném khi text rỗng; `AIRuntimeCoordinator` ném `AIEmptyResponseError` (file mới `Sources/Services/AI/AIEmptyResponseError.swift`, áp cho mọi provider) khi `accumulated` rỗng ⇒ "Lỗi phản hồi: …"; `messageRow` vẽ "(Không có nội dung)" cho tin đã xong mà rỗng.
-- **Nguyên nhân 2 — chuỗi chờ nối tiếp không mốc trung gian** (possible): `prepare()` chờ `didFinish` (sự kiện `load` của SPA nặng) với `.reloadIgnoringLocalCacheData` tới 30 s dù `WIZ_global_data` có ngay khi HTML commit; `GetUserStatus` 30 s; `StreamGenerate` 90 s **tuyệt đối**; không log ở load/probe/finishStream/timeout ⇒ im lặng tới vài phút rồi mới ra timeout.
-  - Sửa: probe token từ **`didCommit`** (trần commit 30 s + probe 45 s; chỉ ép tải lại khi `force`); timeout **theo chunk** (idle 45 s chat / 20 s batchexecute, trần tuyệt đối 240 s, watchdog 5 s/lần); trang tự điều hướng hoặc `prepare(force:)` khi còn fetch bay ⇒ fail ngay bằng `.documentChanged` (retryable); log `🤖 [GeminiWeb]` ở commit, probe, bắt đầu/chunk đầu/kết thúc/lỗi/timeout của mỗi fetch, và `🤖 [AI]` ở nhánh xong/lỗi của coordinator (không log nội dung/token).
-- **Phụ**: `applyLoadedSession` rơi về `activeProfileId` khi profile ghim trong phiên không còn tồn tại (pill/model khớp request thật sự gửi).
-- Tách `GeminiWebSessionController+Scripts.swift` (JS tiêm) và `+Delegates.swift` (WKNavigationDelegate/WKScriptMessageHandler) để file chính dưới 400 dòng. `rules.md`: cập nhật mục "Gemini Web provider invariants" (3 bullet).
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`. Hành vi thật cần log `[GeminiWeb]` từ máy người dùng (bật Logging trong Cài đặt trước — mặc định tắt mỗi lần mở app).
