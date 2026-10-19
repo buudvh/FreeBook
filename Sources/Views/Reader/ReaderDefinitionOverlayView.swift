@@ -109,7 +109,7 @@ struct ReaderDefinitionOverlayView: View {
         .padding(.horizontal)
         .padding(.top, 4)
         .padding(.bottom, 8)
-        .background(Color(uiColor: .systemBackground).onTapGesture { hideKeyboard() })
+        .background(Color(uiColor: .systemBackground).onTapGesture { KeyboardDismissPreference.dismissOnTapOutsideIfEnabled() })
         .presentationDetents([.height(660), .large])
         .confirmationDialog(
             ruleActionTarget.map { "Rule dòng \($0.sourceLine) · \($0.scope.longLabel)" } ?? "Rule",
@@ -376,9 +376,5 @@ struct ReaderDefinitionOverlayView: View {
             }
         }
         .frame(maxWidth: .infinity, minHeight: 36, maxHeight: 36, alignment: .leading)
-    }
-
-    private func hideKeyboard() {
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 }

@@ -27,7 +27,7 @@ struct ReaderJunkDeleteOverlayView: View {
             actionButtonsView
         }
         .padding()
-        .background(Color(uiColor: .systemBackground).onTapGesture { hideKeyboard() })
+        .background(Color(uiColor: .systemBackground).onTapGesture { KeyboardDismissPreference.dismissOnTapOutsideIfEnabled() })
     }
 
     private var dragIndicatorView: some View {
@@ -263,9 +263,5 @@ struct ReaderJunkDeleteOverlayView: View {
             .disabled(junkPatternInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
         .padding(.top, 8)
-    }
-
-    private func hideKeyboard() {
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 }

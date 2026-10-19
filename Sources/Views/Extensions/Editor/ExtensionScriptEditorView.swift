@@ -142,13 +142,13 @@ public struct ExtensionScriptEditorView: View {
                         // IDE Code Canvas với Gutter số dòng tích hợp sẵn
                         codeEditorCanvas
 
-                        // Hai thanh dưới cùng: chạm vào vùng trống ở đây là tắt bàn phím
+                        // Hai thanh dưới cùng: chạm vào vùng trống ở đây là tắt bàn phím (theo tuỳ chọn "Tự tắt")
                         VStack(spacing: 0) {
                             quickSymbolToolbar
                             editorFooter
                         }
                         .contentShape(Rectangle())
-                        .onTapGesture { dismissKeyboard() }
+                        .onTapGesture { KeyboardDismissPreference.dismissOnTapOutsideIfEnabled() }
                     }
                 }
             }

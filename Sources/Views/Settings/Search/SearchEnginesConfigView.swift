@@ -109,7 +109,7 @@ struct SearchEnginesConfigView: View {
                     }
                 }
             }
-            .background(Color(uiColor: .systemBackground).onTapGesture { hideKeyboard() })
+            .background(Color(uiColor: .systemBackground).onTapGesture { KeyboardDismissPreference.dismissOnTapOutsideIfEnabled() })
             .presentationDetents([.height(260)])
         }
         .background(
