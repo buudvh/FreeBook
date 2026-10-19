@@ -55,7 +55,6 @@ struct BookDetailTOCView: View {
     private var videoTOC: some View {
         BookDetailVideoTOCGrid(
             rows: videoRows,
-            totalCount: readableChapterCount,
             currentIndex: localBook?.currentChapterIndex ?? -1,
             isAscending: isTocAscending,
             isLoading: isLoadingTOC,
@@ -76,28 +75,11 @@ struct BookDetailTOCView: View {
 
     /// Dòng mục lục cho lưới tập. Giữ **đúng thứ tự ưu tiên** của danh sách hàng
     /// (`chapterSnapshots` → `Book.chapters` → `onlineChapters`) để hai cách hiển thị không lệch nhau.
-    ///
-    /// `ordinal` là số tập hiển thị 1…N, đếm bỏ qua dòng tiêu đề nhóm; khi sắp xếp giảm dần thì đánh
-    /// từ N về 1 để số trên ô vẫn là số tập thật chứ không phải vị trí trong danh sách.
+    /// Số tập hiển thị do lưới tự đánh theo từng tab, nên ở đây chỉ chuyển dữ liệu thô.
     private var videoRows: [BookDetailVideoTOCGrid.Row] {
-        let source = videoSourceRows()
-        let total = source.reduce(0) { $1.isSection ? $0 : $0 + 1 }
-        var counter = isTocAscending ? 0 : total + 1
-
-        return source.map { item in
-            var ordinal = 0
-            if !item.isSection {
-                if isTocAscending {
-                    counter += 1
-                    ordinal = counter
-                } else {
-                    counter -= 1
-                    ordinal = counter
-                }
-            }
-            return BookDetailVideoTOCGrid.Row(
+        videoSourceRows().map { item in
+            BookDetailVideoTOCGrid.Row(
                 index: item.index,
-                ordinal: ordinal,
                 title: item.title,
                 isSection: item.isSection,
                 isCached: item.isCached

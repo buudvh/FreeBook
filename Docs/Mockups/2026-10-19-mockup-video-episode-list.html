@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup — Mục lục phim (trình phát) theo tab section</title>
+<style>
+:root{
+  --bg:#08080a;
+  --text:#f5f5f7;
+  --muted:rgba(235,235,245,.56);
+  --faint:rgba(235,235,245,.34);
+  --stroke:rgba(255,255,255,.10);
+  --hair:rgba(255,255,255,.08);
+  --safe-top:44px;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:
+    radial-gradient(900px 520px at 12% -12%, rgba(96,128,168,.14), transparent 62%),
+    radial-gradient(760px 460px at 92% -4%, rgba(168,124,84,.10), transparent 62%),
+    var(--bg);
+  color:var(--text);font-family:var(--font);-webkit-font-smoothing:antialiased;
+  padding:34px 22px 64px;min-height:100vh;
+}
+.page-head{max-width:1180px;margin:0 auto 34px}
+.eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin-bottom:10px}
+h1{font-size:27px;line-height:1.2;margin:0 0 10px;font-weight:650;letter-spacing:-.02em}
+.lede{margin:0;max-width:820px;font-size:14px;line-height:1.6;color:var(--muted)}
+.lede code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:rgba(235,235,245,.78);background:rgba(255,255,255,.06);padding:1px 5px;border-radius:5px}
+.legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:20px}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.swatch{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;font-size:10px;font-weight:700}
+.sw-now{background:#fff;color:#000}
+.sw-read{background:rgba(255,255,255,.09);color:rgba(255,255,255,.4)}
+.sw-cached{background:rgba(255,255,255,.09);color:#fff;position:relative}
+.sw-cached::after{content:"";position:absolute;top:4px;right:4px;width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.55)}
+.sw-new{background:rgba(255,255,255,.09);color:#fff}
+
+.stage{display:flex;flex-wrap:wrap;gap:44px;justify-content:center;align-items:flex-start;max-width:1180px;margin:0 auto}
+.col{width:330px;display:flex;flex-direction:column;gap:14px;margin:0}
+.col-head{display:flex;align-items:baseline;gap:8px}
+.col-tag{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:4px 8px;border-radius:6px}
+.tag-now{background:rgba(255,255,255,.08);color:var(--faint);border:1px solid var(--stroke)}
+.tag-new{background:#fff;color:#000}
+.col-title{font-size:13.5px;font-weight:600}
+.col-desc{font-size:12px;line-height:1.5;color:var(--muted);margin:-6px 0 0;min-height:36px}
+
+.phone{position:relative;width:330px;height:716px;border-radius:46px;background:#000;
+  box-shadow:0 30px 70px rgba(0,0,0,.62), 0 0 0 9px #131316, 0 0 0 10px rgba(255,255,255,.07);
+  overflow:hidden;isolation:isolate}
+.screen{position:absolute;inset:0;border-radius:46px;overflow:hidden;background:#000;display:flex;flex-direction:column}
+.island{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:96px;height:26px;border-radius:14px;background:#000;z-index:60}
+
+/* ---------- fake video ---------- */
+.video{position:absolute;inset:0;overflow:hidden;background:#05070a}
+.poster{position:absolute;inset:0;background:radial-gradient(120% 95% at 72% 18%, #35586b 0%, #1b2c37 42%, #0a1015 100%)}
+.moon{position:absolute;top:52px;right:44px;width:74px;height:74px;border-radius:50%;
+  background:radial-gradient(circle at 34% 32%, #ffe6c2, #d8a86a 58%, rgba(216,168,106,0) 72%);
+  filter:blur(1px);opacity:.85}
+.ridge{position:absolute;left:0;right:0;bottom:0;height:52%;background:linear-gradient(180deg,#0a1319,#05090c);
+  clip-path:polygon(0 62%,14% 40%,26% 55%,38% 26%,52% 48%,64% 30%,78% 52%,90% 36%,100% 54%,100% 100%,0 100%)}
+.ridge2{position:absolute;left:0;right:0;bottom:0;height:38%;background:linear-gradient(180deg,#0d1a22,#070d11);opacity:.9;
+  clip-path:polygon(0 74%,10% 56%,22% 70%,34% 48%,48% 66%,60% 50%,74% 68%,86% 52%,100% 66%,100% 100%,0 100%)}
+.fog{position:absolute;left:-20%;right:-20%;bottom:-10%;height:45%;
+  background:radial-gradient(60% 100% at 50% 100%, rgba(120,160,190,.18), transparent 70%);filter:blur(12px)}
+.v-scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.62),rgba(0,0,0,0) 32%,rgba(0,0,0,0) 58%,rgba(0,0,0,.72))}
+.v-top{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:4px;padding:var(--safe-top) 8px 8px}
+.vbtn{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#fff;background:transparent;border:0;padding:0;flex:0 0 auto;opacity:.92}
+.vbtn svg{width:17px;height:17px}
+.v-meta{flex:1;min-width:0;padding:0 2px}
+.v-title{font-size:11.5px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v-ep{font-size:9.5px;color:rgba(255,255,255,.66);margin-top:1px}
+.v-rate{font-size:9px;font-weight:700;color:#000;background:#fff;border-radius:4px;padding:1px 4px}
+.v-bottom{position:absolute;left:0;right:0;bottom:0;padding:0 14px 14px}
+.v-times{display:flex;justify-content:space-between;font-size:9.5px;color:rgba(255,255,255,.72);margin-bottom:5px;font-variant-numeric:tabular-nums}
+.seek{position:relative;height:3px;border-radius:2px;background:rgba(255,255,255,.24)}
+.seek i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:#fff}
+.seek b{position:absolute;top:50%;width:9px;height:9px;border-radius:50%;background:#fff;transform:translate(-50%,-50%)}
+.screen.controls-off .v-top,.screen.controls-off .v-bottom{opacity:0}
+
+/* ---------- panel chung ---------- */
+.panel{position:absolute;top:0;right:0;bottom:0;z-index:30;display:flex;flex-direction:column;transition:transform .34s cubic-bezier(.32,.72,0,1)}
+.icon-btn{width:30px;height:30px;border-radius:50%;border:0;background:rgba(255,255,255,.10);color:#fff;
+  display:grid;place-items:center;padding:0;cursor:pointer;flex:0 0 auto}
+.icon-btn svg{width:13px;height:13px}
+
+/* ---------- HIỆN TẠI ---------- */
+.panel.now{width:85%;background:#050506}
+.now-head{height:auto;min-height:44px;display:flex;align-items:center;gap:6px;
+  padding:calc(var(--safe-top) + 6px) 8px 6px 16px;flex:0 0 auto}
+.now-title{font-size:15px;font-weight:600;flex:1}
+.now-scroll{flex:1;overflow-y:auto;padding:12px 16px 24px;scrollbar-width:none}
+.now-scroll::-webkit-scrollbar{display:none}
+.now-count{font-size:15px;font-weight:600;margin-bottom:12px}
+.now-sec{display:flex;align-items:center;gap:8px;padding:4px 0 8px}
+.now-sec i{width:3px;height:14px;border-radius:2px;background:rgba(255,255,255,.6)}
+.now-sec span{font-size:12.5px;font-weight:600;color:rgba(255,255,255,.85)}
+.now-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;align-items:start;margin-bottom:12px}
+.cep{display:flex;align-items:center;justify-content:center;gap:4px;min-height:38px;padding:4px 6px;
+  border-radius:8px;border:0;background:rgba(255,255,255,.10);color:#fff;font-family:inherit;
+  font-size:11.5px;line-height:1.18;text-align:center;cursor:pointer}
+.cep span{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.cep.is-current{background:#fff;color:#000;font-weight:700}
+.cep svg{width:9px;height:9px;flex:0 0 auto}
+
+/* ---------- ĐỀ XUẤT ---------- */
+.panel.new{width:92%;border-radius:26px 0 0 26px;background:rgba(13,13,16,.82);
+  backdrop-filter:blur(30px) saturate(150%);border-left:1px solid rgba(255,255,255,.13);
+  box-shadow:-24px 0 60px rgba(0,0,0,.55)}
+.grabber{width:34px;height:4px;border-radius:2px;background:rgba(255,255,255,.28);margin:calc(var(--safe-top) + 2px) auto 0;flex:0 0 auto}
+.new-head{padding:10px 16px 10px;flex:0 0 auto}
+.new-head-row{display:flex;align-items:center;gap:8px}
+.new-title{font-size:16.5px;font-weight:650;letter-spacing:-.01em}
+.badge{font-size:10.5px;font-weight:700;color:rgba(255,255,255,.72);background:rgba(255,255,255,.12);
+  border-radius:8px;padding:2px 6px;margin-left:2px;font-variant-numeric:tabular-nums}
+.new-sub{font-size:11px;color:var(--muted);margin-top:5px;display:flex;align-items:center;gap:5px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dot-live{width:5px;height:5px;border-radius:50%;background:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.16);flex:0 0 auto}
+.new-sub b{color:rgba(255,255,255,.92);font-weight:600}
+
+/* tab theo section */
+.segments{flex:0 0 auto;display:flex;gap:4px;padding:0 16px 10px}
+.seg{flex:1;height:32px;border-radius:9px;border:1px solid transparent;background:rgba(255,255,255,.07);
+  color:rgba(255,255,255,.72);font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:6px;padding:0 6px;white-space:nowrap;overflow:hidden}
+.seg.is-on{background:#fff;color:#000;border-color:#fff}
+.seg .n{font-size:10.5px;font-weight:700;opacity:.55;font-variant-numeric:tabular-nums}
+.seg.is-on .n{opacity:.6}
+
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;padding:0 16px 14px}
+.ep{position:relative;height:46px;border-radius:11px;border:1px solid rgba(255,255,255,.07);
+  background:rgba(255,255,255,.07);color:#fff;font-family:inherit;font-size:14px;font-weight:600;
+  font-variant-numeric:tabular-nums;cursor:pointer;overflow:hidden;padding:0;display:grid;place-items:center;
+  transition:background .16s ease,color .16s ease,transform .12s ease}
+.ep:hover{background:rgba(255,255,255,.14)}
+.ep:active{transform:scale(.96)}
+.ep.is-watched{color:rgba(255,255,255,.36);background:rgba(255,255,255,.045);border-color:rgba(255,255,255,.05)}
+.ep.is-current{background:#fff;color:#000;border-color:#fff;font-weight:750;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+.ep .dot{position:absolute;top:5px;right:5px;width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.45)}
+.ep.is-current .dot{background:rgba(0,0,0,.45)}
+.new-scroll{flex:1;overflow-y:auto;padding:0 0 8px;scrollbar-width:none}
+.new-scroll::-webkit-scrollbar{display:none}
+.new-foot{flex:0 0 auto;padding:10px 16px 20px;border-top:1px solid rgba(255,255,255,.07);
+  background:linear-gradient(180deg,rgba(13,13,16,0),rgba(13,13,16,.55))}
+.foot-row{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-bottom:6px}
+.foot-row b{color:rgba(255,255,255,.9);font-weight:600;font-variant-numeric:tabular-nums}
+.foot-bar{height:3px;border-radius:2px;background:rgba(255,255,255,.12);overflow:hidden}
+.foot-bar i{display:block;height:100%;background:rgba(255,255,255,.75);border-radius:2px;transition:width .3s ease}
+
+/* ---------- màn dọc ---------- */
+.pv{position:absolute;inset:0;overflow-y:auto;scrollbar-width:none;background:#000}
+.pv::-webkit-scrollbar{display:none}
+.pv-video{position:relative;height:186px;overflow:hidden}
+.pv-body{padding:14px 16px 26px}
+.pv-title{font-size:16px;font-weight:650;line-height:1.25}
+.pv-ep{font-size:12px;color:var(--muted);margin-top:3px}
+.srv-cap{font-size:12.5px;font-weight:650;margin:16px 0 8px}
+.srv{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.srv::-webkit-scrollbar{display:none}
+.schip{flex:0 0 auto;height:32px;padding:0 13px;border-radius:16px;border:1px solid transparent;
+  background:rgba(255,255,255,.1);color:#fff;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.schip.is-on{background:#fff;color:#000}
+.pv .segments{padding:14px 0 10px}
+.pv .grid{padding:0}
+.pv .ep{height:44px;border-radius:10px;font-size:13.5px}
+
+/* ---------- notes ---------- */
+.notes{max-width:1180px;margin:64px auto 0}
+.notes h2{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);font-weight:600;margin:0 0 18px}
+.notes-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.note{padding:16px 18px 18px;border-radius:14px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07)}
+.note-top{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.note-n{font-size:10px;font-weight:700;color:var(--faint);font-variant-numeric:tabular-nums;border:1px solid var(--stroke);border-radius:5px;padding:2px 5px}
+.note h3{margin:0;font-size:13px;font-weight:650}
+.note p{margin:0;font-size:12.5px;line-height:1.62;color:var(--muted)}
+.note code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:rgba(235,235,245,.8);background:rgba(255,255,255,.06);padding:1px 4px;border-radius:4px}
+.foot-note{max-width:1180px;margin:30px auto 0;font-size:12px;line-height:1.6;color:var(--faint);border-left:2px solid rgba(255,255,255,.12);padding-left:14px}
+</style>
+</head>
+<body>
+
+<header class="page-head">
+  <div class="eyebrow">FreeBook · VideoPlayer</div>
+  <h1>Mục lục phim trong trình phát — tab theo section</h1>
+  <p class="lede">Cùng quy ước với mục lục ở màn Chi tiết: mỗi dòng <code>section</code> của <code>toc</code> thành
+    <b>một tab chọn được</b> (“Vietsub”, “Thuyết minh”), bỏ tiêu đề nhóm chen giữa lưới và bỏ việc cuộn qua cả bộ
+    tập của nhóm khác. Áp cho cả panel toàn màn (<code>VideoEpisodePanel</code>) và màn dọc
+    (<code>VideoPlayerDetailsView</code>) — hai chỗ đang dùng chung <code>VideoEpisodeGridView</code>.</p>
+  <div class="legend">
+    <div class="legend-item"><span class="swatch sw-now">17</span> Đang phát</div>
+    <div class="legend-item"><span class="swatch sw-read">12</span> Đã xem</div>
+    <div class="legend-item"><span class="swatch sw-cached">24</span> Đã tải (chấm góc)</div>
+    <div class="legend-item"><span class="swatch sw-new">30</span> Chưa xem</div>
+  </div>
+</header>
+
+<div class="stage">
+
+  <!-- ============ CURRENT ============ -->
+  <figure class="col">
+    <div class="col-head"><span class="col-tag tag-now">Hiện tại</span><span class="col-title">Toàn màn · panel 85%</span></div>
+    <p class="col-desc">180 tập trong một cuộn; tiêu đề nhóm chen giữa, ô so le vì tên 2 dòng.</p>
+    <div class="phone">
+      <div class="screen controls-off">
+        <div class="video">
+          <div class="poster"><div class="moon"></div><div class="ridge2"></div><div class="ridge"></div><div class="fog"></div></div>
+          <div class="v-scrim"></div>
+          <div class="v-top">
+            <button class="vbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
+            <button class="vbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+            <div class="v-meta"><div class="v-title">Thần Điêu Đại Hiệp 2024</div><div class="v-ep">Tập 17 · Vietsub</div></div>
+            <span class="v-rate">1×</span>
+          </div>
+          <div class="v-bottom">
+            <div class="v-times"><span>12:34</span><span>45:02</span></div>
+            <div class="seek"><i style="width:28%"></i><b style="left:28%"></b></div>
+          </div>
+        </div>
+        <aside class="panel now">
+          <div class="now-head">
+            <div class="now-title">Danh sách tập</div>
+            <button class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+          </div>
+          <div class="now-scroll js-now-list"></div>
+        </aside>
+      </div>
+      <div class="island"></div>
+    </div>
+  </figure>
+
+  <!-- ============ PROPOSED · FULLSCREEN ============ -->
+  <figure class="col">
+    <div class="col-head"><span class="col-tag tag-new">Đề xuất</span><span class="col-title">Toàn màn · tab + lưới</span></div>
+    <p class="col-desc">Header + tab “Vietsub 96” / “Thuyết minh 84”; bấm tab để đổi nhóm.</p>
+    <div class="phone">
+      <div class="screen controls-off">
+        <div class="video">
+          <div class="poster"><div class="moon"></div><div class="ridge2"></div><div class="ridge"></div><div class="fog"></div></div>
+          <div class="v-scrim"></div>
+          <div class="v-top">
+            <button class="vbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
+            <button class="vbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+            <div class="v-meta"><div class="v-title">Thần Điêu Đại Hiệp 2024</div><div class="v-ep">Tập 17 · Vietsub</div></div>
+            <span class="v-rate">1×</span>
+          </div>
+          <div class="v-bottom">
+            <div class="v-times"><span>12:34</span><span>45:02</span></div>
+            <div class="seek"><i style="width:28%"></i><b style="left:28%"></b></div>
+          </div>
+        </div>
+        <aside class="panel new">
+          <div class="grabber"></div>
+          <div class="new-head">
+            <div class="new-head-row">
+              <div class="new-title">Danh sách tập</div>
+              <span class="badge js-count">96</span>
+              <div style="flex:1"></div>
+              <button class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+            </div>
+            <div class="new-sub"><span class="dot-live"></span>Đang phát <b class="js-now">Tập 17</b> · Vietsub</div>
+          </div>
+          <div class="segments js-seg"></div>
+          <div class="new-scroll">
+            <div class="grid js-grid"></div>
+            <div style="height:16px"></div>
+          </div>
+          <div class="new-foot">
+            <div class="foot-row"><span>Đã xem <b class="js-watched">16</b>/<b class="js-total">96</b></span><span class="js-group">Vietsub</span></div>
+            <div class="foot-bar"><i class="js-bar" style="width:17%"></i></div>
+          </div>
+        </aside>
+      </div>
+      <div class="island"></div>
+    </div>
+  </figure>
+
+  <!-- ============ PROPOSED · PORTRAIT ============ -->
+  <figure class="col">
+    <div class="col-head"><span class="col-tag tag-new">Đề xuất</span><span class="col-title">Màn dọc · dưới khung phim</span></div>
+    <p class="col-desc">Chip “Server” giữ riêng; tab section nằm ngay trên lưới — cùng component với panel.</p>
+    <div class="phone">
+      <div class="screen">
+        <div class="pv">
+          <div class="pv-video video">
+            <div class="poster"><div class="moon"></div><div class="ridge2"></div><div class="ridge"></div><div class="fog"></div></div>
+            <div class="v-scrim"></div>
+            <div class="v-top">
+              <button class="vbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
+              <button class="vbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+              <div class="v-meta"><div class="v-title">Thần Điêu Đại Hiệp 2024</div><div class="v-ep">Tập 17 · Vietsub</div></div>
+              <span class="v-rate">1×</span>
+            </div>
+            <div class="v-bottom">
+              <div class="v-times"><span>12:34</span><span>45:02</span></div>
+              <div class="seek"><i style="width:28%"></i><b style="left:28%"></b></div>
+            </div>
+          </div>
+
+          <div class="pv-body">
+            <div class="pv-title">Thần Điêu Đại Hiệp 2024</div>
+            <div class="pv-ep js-pv-ep">Tập 17 · Vietsub · Full HD</div>
+
+            <div class="srv-cap">Server</div>
+            <div class="srv">
+              <button class="schip is-on">Server 1</button>
+              <button class="schip">Server 2</button>
+            </div>
+
+            <div class="segments js-seg-pv"></div>
+            <div class="grid js-grid-pv"></div>
+            <div style="height:20px"></div>
+          </div>
+        </div>
+      </div>
+      <div class="island"></div>
+    </div>
+  </figure>
+
+</div>
+
+<section class="notes">
+  <h2>Chi tiết thay đổi</h2>
+  <div class="notes-grid">
+    <div class="note">
+      <div class="note-top"><span class="note-n">01</span><h3>Ba bề mặt, một quy ước</h3></div>
+      <p>Màn Chi tiết, panel toàn màn và màn dọc của trình phát đều dùng tab theo <code>section</code>. Hết cảnh
+        mỗi nơi chia một kiểu (Chi tiết: tab; trình phát: tiêu đề nhóm chen giữa lưới).</p>
+    </div>
+    <div class="note">
+      <div class="note-top"><span class="note-n">02</span><h3>Bỏ tiêu đề nhóm trong lưới</h3></div>
+      <p><code>VideoEpisodeGridView</code> đang chèn dòng “Phần 1 · …” vào giữa lưới và chia nhóm bằng hàm
+        <code>makeGroups()</code>. Tab thay chỗ đó; lưới chỉ còn ô tập.</p>
+    </div>
+    <div class="note">
+      <div class="note-top"><span class="note-n">03</span><h3>Số tập đánh lại từ 1 mỗi tab</h3></div>
+      <p>Vietsub 1–96, Thuyết minh 1–84. Chạm ô vẫn gọi <code>session.selectEpisode(episode)</code> với đúng
+        <code>Episode.index</code> của dòng, không phải số hiển thị.</p>
+    </div>
+    <div class="note">
+      <div class="note-top"><span class="note-n">04</span><h3>Tab mặc định = tab đang phát</h3></div>
+      <p>Mở panel nhảy đúng tab chứa <code>currentEpisodeIndex</code>. Đổi tab chỉ để xem, <b>không</b> đổi tập
+        đang phát — phải chạm một ô mới phát.</p>
+    </div>
+    <div class="note">
+      <div class="note-top"><span class="note-n">05</span><h3>Ô cố định 46pt, 4 cột</h3></div>
+      <p>Bỏ <code>adaptive(minimum: 96)</code> + <code>minHeight: 38</code> + tên 2 dòng ⇒ hết so le, vùng chạm đủ lớn.
+        Màn dọc dùng 4 cột hẹp hơn (ô 44pt).</p>
+    </div>
+    <div class="note">
+      <div class="note-top"><span class="note-n">06</span><h3>Trạng thái tập</h3></div>
+      <p>Đang phát = nền trắng; đã xem (index nhỏ hơn tập đang phát) = mờ 36%; đã tải = chấm góc. Bản hiện tại chỉ
+        phân biệt “đang phát / còn lại”.</p>
+    </div>
+    <div class="note">
+      <div class="note-top"><span class="note-n">07</span><h3>Một component cho hai chỗ</h3></div>
+      <p>Tách phần “tab + lưới” thành view dùng chung cho <code>VideoEpisodePanel</code> (toàn màn) và
+        <code>VideoPlayerDetailsView</code> (màn dọc) — hiện cả hai đang gọi <code>VideoEpisodeGridView</code>
+        nên sửa một lần là cả hai theo.</p>
+    </div>
+    <div class="note">
+      <div class="note-top"><span class="note-n">08</span><h3>Không đổi tầng dữ liệu</h3></div>
+      <p>Vẫn <code>session.episodes</code> + <code>currentEpisodeIndex</code> + <code>servers</code>; section vẫn là
+        dòng <code>isSection</code>. Không thêm model, không ghi SwiftData.</p>
+    </div>
+  </div>
+  <p class="foot-note">Mockup tĩnh: Vietsub 96 tập (đang phát tập 17, đã tải 24 tập đầu) và Thuyết minh 84 tập.
+    Bấm tab / ô tập để xem hành vi. Chưa sửa code.</p>
+</section>
+
+<script>
+(function () {
+  "use strict";
+
+  var GROUPS = [
+    { name: "Vietsub", full: "Vietsub · Full HD", count: 96 },
+    { name: "Thuyết minh", full: "Thuyết minh", count: 84 }
+  ];
+  var CACHED_UP_TO = 24;
+  var NAMES = {
+    1: "Trùng phùng", 2: "Lời hẹn dưới mưa", 5: "Bí mật động Hắc Phong",
+    9: "Kẻ phản bội", 17: "Quyết chiến trên đỉnh Tuyết", 23: "Một đời một kiếm"
+  };
+  function titleOf(n) {
+    return NAMES[n] ? ("Tập " + n + ": " + NAMES[n]) : ("Tập " + n);
+  }
+  var svgPlay = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 8-13 8z"/></svg>';
+
+  /* ---------- hiện tại ---------- */
+  var host = document.querySelector(".js-now-list");
+  var html = '<div class="now-count">Danh sách tập (180)</div>';
+  GROUPS.forEach(function (g, gi) {
+    html += '<div class="now-sec"><i></i><span>' + g.full + "</span></div>";
+    html += '<div class="now-grid">';
+    for (var n = 1; n <= g.count; n++) {
+      var cur = (gi === 0 && n === 17);
+      html += '<button class="cep' + (cur ? " is-current" : "") + '">' +
+        (cur ? svgPlay : "") + "<span>" + titleOf(n) + "</span></button>";
+    }
+    html += "</div>";
+  });
+  host.innerHTML = html;
+
+  /* ---------- đề xuất ---------- */
+  function createState() {
+    return { group: 0, current: 17, currentGroup: 0 };
+  }
+
+  function initProposed(opts) {
+    var state = createState();
+    var segHost = document.querySelector(opts.seg);
+    var gridHost = document.querySelector(opts.grid);
+
+    function renderSegments() {
+      segHost.innerHTML = GROUPS.map(function (g, i) {
+        return '<button class="seg' + (i === state.group ? " is-on" : "") + '" data-g="' + i + '">' +
+          g.name + '<span class="n">' + g.count + "</span></button>";
+      }).join("");
+    }
+
+    function renderGrid() {
+      var g = GROUPS[state.group];
+      var cells = "";
+      for (var n = 1; n <= g.count; n++) {
+        var cls = "ep";
+        var isCurrent = state.group === state.currentGroup && n === state.current;
+        var isWatched = state.group === state.currentGroup && n < state.current;
+        if (isWatched) cls += " is-watched";
+        if (isCurrent) cls += " is-current";
+        var dot = (state.group === 0 && n <= CACHED_UP_TO && !isCurrent) ? '<span class="dot"></span>' : "";
+        cells += '<button class="' + cls + '" data-n="' + n + '">' + n + dot + "</button>";
+      }
+      gridHost.innerHTML = cells;
+
+      if (opts.onChange) opts.onChange(state, g);
+    }
+
+    segHost.addEventListener("click", function (e) {
+      var seg = e.target.closest(".seg");
+      if (!seg) return;
+      state.group = parseInt(seg.dataset.g, 10);
+      renderSegments();
+      renderGrid();
+    });
+
+    gridHost.addEventListener("click", function (e) {
+      var cell = e.target.closest(".ep");
+      if (!cell) return;
+      state.current = parseInt(cell.dataset.n, 10);
+      state.currentGroup = state.group;
+      renderGrid();
+    });
+
+    renderSegments();
+    renderGrid();
+    return state;
+  }
+
+  /* panel toàn màn: cập nhật badge + footer */
+  initProposed({
+    seg: ".js-seg",
+    grid: ".js-grid",
+    onChange: function (state, g) {
+      document.querySelector(".js-count").textContent = String(g.count);
+      document.querySelector(".js-total").textContent = String(g.count);
+      document.querySelector(".js-group").textContent = g.name;
+      var watched = state.group === state.currentGroup ? Math.max(0, state.current - 1) : 0;
+      document.querySelector(".js-watched").textContent = String(watched);
+      document.querySelector(".js-bar").style.width = Math.round(watched / g.count * 100) + "%";
+      document.querySelector(".js-now").textContent = "Tập " + state.current;
+    }
+  });
+
+  /* màn dọc */
+  initProposed({
+    seg: ".js-seg-pv",
+    grid: ".js-grid-pv",
+    onChange: function (state) {
+      document.querySelector(".js-pv-ep").textContent = "Tập " + state.current + " · Vietsub · Full HD";
+    }
+  });
+})();
+</script>
+</body>
+</html>

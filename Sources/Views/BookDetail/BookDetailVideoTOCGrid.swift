@@ -1,40 +1,37 @@
 import SwiftUI
 
-/// Mục lục dạng **lưới tập** cho tab "Mục lục" của màn Chi tiết khi nội dung là video.
+/// Mục lục dạng **tab theo section** cho tab "Mục lục" của màn Chi tiết khi nội dung là video.
 ///
-/// Vì sao có: `BookDetailTOCView` vẽ mỗi chương một hàng có `Divider`; phim 60–120 tập thì danh sách rất dài,
-/// hàng không có số tập nên khó nhảy đúng tập, và dòng tiêu đề nhóm không gấp được. View này giữ **nguyên**
-/// nguồn dữ liệu của màn Chi tiết (đã lọc/sắp ở `BookDetailTOCView.videoRows`) nhưng trình bày thành:
-/// thanh công cụ dính (số tập + kiểu sắp xếp + tìm kiếm), chip chia khoảng theo dòng `section` của mục lục,
-/// và lưới 4 cột ô 46pt.
+/// Mỗi dòng `type: "section"` của mục lục thành **một tab** ("Vietsub", "Thuyết minh"…); chọn tab nào thì lưới
+/// hiện đúng bộ tập của nhóm đó, số tập đánh lại từ 1. Không còn cắt nhóm thành các cụm số (`1–24`, `25–48`…)
+/// như bản 1.3.543 — mốc số không có nghĩa với người xem, còn tên nhóm thì có.
 ///
 /// Hợp đồng: view **không** đọc SwiftData, không gọi mạng — mọi thao tác đi qua closure của màn cha.
-/// Chỉ hiển thị `ordinal` (1…N, đếm bỏ qua dòng nhóm); chạm ô thì trả về `index` thật của chương.
+/// Ô chỉ hiển thị số thứ tự trong tab; chạm ô trả về `index` thật của chương.
 struct BookDetailVideoTOCGrid: View {
     /// Một dòng mục lục đã chuẩn hoá từ `StoredChapterSnapshot` / `Chapter` / `ChapterResult`.
     struct Row: Identifiable, Equatable {
         /// Chỉ số chương thật — khoá để mở chương, **không** dùng để hiển thị.
         let index: Int
-        /// Số tập hiển thị 1…N (bỏ qua dòng tiêu đề nhóm), không đổi theo chiều sắp xếp.
-        let ordinal: Int
         let title: String
-        /// Dòng `type: "section"` — tiêu đề nhóm, không chạm được.
+        /// Dòng `type: "section"` — tên nhóm, không chạm được.
         let isSection: Bool
         let isCached: Bool
 
         var id: Int { index }
     }
 
-    /// Một khoảng tập (một chip): nhóm theo section, nhóm quá dài thì tự cắt khúc.
-    struct RangeGroup: Identifiable {
+    /// Một tab: đúng một section của mục lục (không cắt khúc).
+    struct SectionGroup: Identifiable {
         let id: Int
         let title: String
-        let label: String
         let rows: [Row]
+
+        /// Nhóm đứng trước section đầu tiên không có tên — gọi là "Khác" cho dễ đọc.
+        var label: String { title.isEmpty ? "Khác" : title }
     }
 
     let rows: [Row]
-    let totalCount: Int
     let currentIndex: Int
     let isAscending: Bool
     let isLoading: Bool
@@ -51,14 +48,13 @@ struct BookDetailVideoTOCGrid: View {
     let onLoadMore: () -> Void
 
     @State private var isSearchVisible = false
-    @State var selectedRange = 0
+    @State var selectedGroup = 0
 
     private static let columnsPerRow = 4
     private static let cellHeight: CGFloat = 46
     private static let spacing: CGFloat = 7
-    /// Một nhóm dài hơn ngưỡng này sẽ bị cắt thành nhiều chip để không phải cuộn quá lâu.
-    static let maxRowsPerGroup = 60
-    static let chunkSize = 24
+    /// Tối đa chừng này tab thì chia đều bề ngang; nhiều hơn thì cho cuộn ngang để tên không bị cắt.
+    static let maxEvenTabs = 3
 
     private let columns = Array(
         repeating: GridItem(.flexible(), spacing: BookDetailVideoTOCGrid.spacing),
@@ -76,15 +72,15 @@ struct BookDetailVideoTOCGrid: View {
             if rows.isEmpty {
                 emptyState
             } else {
-                if !isFiltering {
-                    rangeChips
+                if showsTabs {
+                    sectionTabs
                 }
                 gridScroller
             }
         }
-        .onAppear(perform: syncRangeToCurrent)
-        .onChange(of: currentIndex) { _, _ in syncRangeToCurrent() }
-        .onChange(of: rows) { _, _ in syncRangeToCurrent() }
+        .onAppear(perform: syncGroupToCurrent)
+        .onChange(of: currentIndex) { _, _ in syncGroupToCurrent() }
+        .onChange(of: rows) { _, _ in syncGroupToCurrent() }
     }
 
     // MARK: - Thanh công cụ
@@ -94,7 +90,7 @@ struct BookDetailVideoTOCGrid: View {
             Text("Danh sách \(noun)")
                 .font(.subheadline.weight(.semibold))
 
-            Text("\(totalCount)")
+            Text("\(visibleRows.count)")
                 .font(.caption2.weight(.bold))
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
@@ -111,7 +107,7 @@ struct BookDetailVideoTOCGrid: View {
         .padding(.vertical, 8)
     }
 
-    /// Thay cho icon `arrow.down.circle` trần của bản cũ: pill có nhãn nên biết ngay đang xếp chiều nào.
+    /// Pill có nhãn thay cho icon `arrow.down.circle` trần của bản cũ — nhìn là biết đang xếp chiều nào.
     private var sortMenu: some View {
         Menu {
             Button {
@@ -190,37 +186,61 @@ struct BookDetailVideoTOCGrid: View {
         .padding(.bottom, 8)
     }
 
-    // MARK: - Chip khoảng
+    // MARK: - Tab theo section
 
-    private var rangeChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: Self.spacing) {
+    private var showsTabs: Bool {
+        !isFiltering && groups.count > 1
+    }
+
+    @ViewBuilder
+    private var sectionTabs: some View {
+        if groups.count <= Self.maxEvenTabs {
+            HStack(spacing: 4) {
                 ForEach(groups) { group in
-                    chip(group)
+                    tab(group, fillsWidth: true)
                 }
             }
             .padding(.horizontal, 16)
+            .padding(.bottom, 10)
+        } else {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 4) {
+                    ForEach(groups) { group in
+                        tab(group, fillsWidth: false)
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+            .padding(.bottom, 10)
         }
-        .padding(.bottom, 10)
     }
 
-    private func chip(_ group: RangeGroup) -> some View {
+    private func tab(_ group: SectionGroup, fillsWidth: Bool) -> some View {
         let isSelected = group.id == activeGroup?.id
         return Button {
-            withAnimation(.easeInOut(duration: 0.2)) { selectedRange = group.id }
+            withAnimation(.easeInOut(duration: 0.2)) { selectedGroup = group.id }
         } label: {
-            Text(group.label)
-                .font(.caption.weight(.semibold))
-                .monospacedDigit()
-                .foregroundStyle(isSelected ? Color(.systemBackground) : Color.primary.opacity(0.8))
-                .padding(.horizontal, 11)
-                .frame(height: 28)
-                .background(
-                    Capsule().fill(isSelected ? Color.primary : Color.primary.opacity(0.08))
-                )
+            HStack(spacing: 6) {
+                Text(group.label)
+                    .lineLimit(1)
+                Text("\(group.rows.count)")
+                    .font(.caption2.weight(.bold))
+                    .monospacedDigit()
+                    .opacity(0.55)
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(isSelected ? Color(.systemBackground) : Color.primary.opacity(0.72))
+            .padding(.horizontal, 12)
+            .frame(maxWidth: fillsWidth ? .infinity : nil)
+            .frame(height: 32)
+            .background(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(isSelected ? Color.primary : Color.primary.opacity(0.07))
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(noun) \(group.label)")
+        .accessibilityLabel("\(group.label), \(group.rows.count) \(noun)")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
@@ -232,13 +252,9 @@ struct BookDetailVideoTOCGrid: View {
                 VStack(alignment: .leading, spacing: 0) {
                     Color.clear.frame(height: 0).id("grid-top")
 
-                    if !isFiltering {
-                        sectionLabel
-                    }
-
                     LazyVGrid(columns: columns, spacing: Self.spacing) {
-                        ForEach(visibleRows) { row in
-                            cell(row)
+                        ForEach(Array(visibleRows.enumerated()), id: \.element.id) { offset, row in
+                            cell(row, number: displayNumber(for: offset))
                         }
                     }
                     .padding(.horizontal, 16)
@@ -253,42 +269,25 @@ struct BookDetailVideoTOCGrid: View {
                 }
                 .padding(.bottom, 24)
             }
-            .onChange(of: selectedRange) { _, _ in
+            .onChange(of: selectedGroup) { _, _ in
                 proxy.scrollTo("grid-top", anchor: .top)
             }
         }
     }
 
-    private var sectionLabel: some View {
-        HStack(spacing: 7) {
-            Capsule()
-                .fill(Color.primary.opacity(0.35))
-                .frame(width: 3, height: 13)
-
-            Text(groupTitle)
-                .font(.caption.weight(.bold))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-
-            Spacer(minLength: 6)
-
-            Text(activeGroup?.label ?? "")
-                .font(.caption2)
-                .monospacedDigit()
-                .foregroundStyle(.tertiary)
-        }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 8)
+    /// Số tập hiển thị: 1…N trong tab; sắp xếp giảm dần thì đánh ngược để số vẫn là số tập.
+    private func displayNumber(for offset: Int) -> Int {
+        isAscending ? offset + 1 : visibleRows.count - offset
     }
 
-    private func cell(_ row: Row) -> some View {
+    private func cell(_ row: Row, number: Int) -> some View {
         let isCurrent = row.index == currentIndex
         let isRead = currentIndex >= 0 && row.index < currentIndex
 
         return Button {
             onSelect(row.index)
         } label: {
-            Text("\(row.ordinal)")
+            Text("\(number)")
                 .font(.system(size: 14, weight: isCurrent ? .bold : .semibold))
                 .monospacedDigit()
                 .foregroundStyle(isCurrent ? Color(.systemBackground) : Color.primary.opacity(isRead ? 0.36 : 1))
@@ -309,7 +308,7 @@ struct BookDetailVideoTOCGrid: View {
                 .contentShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(noun) \(row.ordinal): \(row.title)")
+        .accessibilityLabel("\(noun) \(number): \(row.title)")
         .accessibilityValue(isCurrent ? "Đang xem" : "")
     }
 
