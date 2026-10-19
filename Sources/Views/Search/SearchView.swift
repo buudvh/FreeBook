@@ -180,7 +180,8 @@ struct SearchView: View {
                     .foregroundColor(.secondary)
                 TextField("Tìm truyện hoặc tác giả...", text: $searchQuery, onCommit: performSearch)
                     .textInputAutocapitalization(.none)
-                
+                    // Thanh trên bàn phím nhận ra ô tìm kiếm qua `returnKeyType == .search` để ẩn nhóm `aa…AA`.
+                    .submitLabel(.search)
                 if !searchQuery.isEmpty {
                     Button(action: {
                         searchQuery = ""

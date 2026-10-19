@@ -69,6 +69,8 @@ struct AppLaunchRootView: View {
         }
         .onAppear {
             KeyboardDismissGesture.shared.activate()
+            // Thanh công cụ trên bàn phím (đóng bàn phím, aa…AA, xoá/sao chép/dán) cho mọi ô nhập.
+            KeyboardTextToolbarInstaller.shared.activate()
             // Compile bộ rule dịch trước khi lần dịch đầu chạy: `AppLaunchRootView` chặn app tới khi
             // từ điển nạp xong, nên đây là chỗ sớm nhất mà snapshot chắc chắn sẵn sàng trước Reader.
             Task.detached(priority: .utility) {

@@ -1,13 +1,14 @@
 import SwiftUI
 
-/// Tab Cài đặt: chỉ còn các dòng điều hướng, chia 4 nhóm (1.3.520). Nội dung từng nhóm nằm ở màn riêng —
+/// Tab Cài đặt: chỉ còn các dòng điều hướng, chia 5 nhóm (1.3.520; nhóm "Chung" thêm sau). Nội dung từng nhóm nằm ở màn riêng —
 /// `TranslationSettingsView`, `TTSSettingsHubView`, `VisibleBrowserSettingsView`, `LogSettingsView`,
-/// `ThermalMonitorView`… — và các section ở `ReadingSettingsSection`, `LibrarySettingsSection`,
+/// `ThermalMonitorView`… — và các section ở `GeneralSettingsSection`, `ReadingSettingsSection`, `LibrarySettingsSection`,
 /// `DeveloperSettingsSection`.
 struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                GeneralSettingsSection()
                 ReadingSettingsSection()
                 LibrarySettingsSection()
                 DeveloperSettingsSection()

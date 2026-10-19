@@ -2,6 +2,21 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.518] - 2026-10-12
+
+### perf(log): ghi log o luong nen, tu chia file log 2 MB, xuat va xoa tat ca file log
+
+Người dùng: *"có thể sửa tự động chia log file khi quá nhiều không, tôi sợ nhiều quá gây lag app khi log"* → chọn *"chuyển vào luồng nền và chia thành nhiều file, sửa lại xuất cho phép xuất tất cả các file log, sửa xoá tất cả log xoá tất cả file log"*.
+
+- Ghi chú khi phân tích: kích thước file **không** làm việc ghi chậm đi (mỗi dòng là `seekToEnd` + `write` qua handle giữ sẵn); thứ tốn là số dòng/giây ghi đồng bộ trên luồng gọi (kể cả main) và sao chép/xuất file lớn.
+- **Ghi trên luồng nền**: `AppLogger.log`/`logAlways` chỉ dựng chuỗi + lấy thời điểm ở luồng gọi rồi `async` sang serial queue `.utility` của `AppLogger`; định dạng giờ, `print` và ghi file làm trên queue. Bỏ `NSLock`; `clear`/`readLogContents` đồng bộ với queue bằng `queue.sync`; `logFileSize` đọc `stat` trực tiếp (bị gọi lúc dựng view). Đổi lại: crash có thể mất vài dòng cuối chưa kịp ghi.
+- **Chia file (mới, `Services/Logging/AppLogFiles.swift`)**: `app_logs.txt` quá 2 MB ⇒ đẩy thành `app_logs.1.txt`, các file cũ lùi một bậc tới `app_logs.4.txt`, file cũ nhất bị xoá (tổng ≤ ~10 MB). Xoay vòng chỉ đổi tên/xoá file (không tốn fd); không mở nổi file mới (cạn fd) thì ghi tiếp vào handle cũ — giờ trỏ `app_logs.1.txt` — để không mất dòng. Thay luật "lúc khởi động file > 5 MB thì giữ 1 MB cuối" của 1.3.517.
+- **Cài đặt → Nhật ký**: "Xuất tất cả file log" (`ShareLink(items:)` mọi file đang có), "Xóa tất cả nhật ký log" xoá mọi file (file đang ghi cắt về 0 qua handle), "Sao chép nhật ký log (file mới nhất)" chỉ lấy file đang ghi để tránh đưa ~10 MB lên clipboard. `SettingsView.swift` giữ đúng 453 dòng (baseline).
+- **Sửa theo review phản biện**: (a) xoay vòng mà không mở nổi file mới (cạn fd) thì đổi tên file đang ghi về lại `app_logs.txt` để handle luôn trỏ file hiện hành — trước đó handle kẹt ở `app_logs.1.txt` và lần xoay sau/"Xóa tất cả" có thể xoá chính file đang ghi; `shiftForRotation` trả `Bool` để chỉ trả tên khi bước đổi tên đã xảy ra; (b) danh sách file cho "Xuất tất cả file log" giữ trong `@State logFileURLs` (thay `logFileExists`), cập nhật khi mở màn Cài đặt và sau khi xoá, để không bỏ sót file mới chia; (c) sửa số dòng `AppLogger.swift` trích trong `CLAUDE.md`/`AGENTS.md`.
+- `rules.md` §5.9 + cây thư mục `Logging/`, `CLAUDE.md`/`AGENTS.md` mục Logging cập nhật theo.
+- Chuyển entry `[1.3.488]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ (JSDom, TTSManager), 0 mới. **Không build tại chỗ** (Windows), cần CI. Không đụng `Tests/`.
+
 ## [1.3.517] - 2026-10-12
 
 ### fix(tts): tam dung khi 5 chuong lien tiep loi, dem file descriptor de tim cho ro, nang gioi han fd, luon ghi log loi

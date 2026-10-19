@@ -58,8 +58,6 @@ public struct DictEntrySheet: View {
             Form {
                 if isAdd {
                     Section {
-                        clipboardToolbar(for: $rawText)
-
                         ZStack(alignment: .topLeading) {
                             if rawText.isEmpty {
                                 Text("Từ gốc 1=nghĩa 1\nTừ gốc 2=nghĩa 2")
@@ -154,57 +152,5 @@ public struct DictEntrySheet: View {
             }
         }
         return result
-    }
-
-    // MARK: - Clipboard Toolbar
-
-    @ViewBuilder
-    private func clipboardToolbar(for text: Binding<String>) -> some View {
-        HStack(spacing: 8) {
-            Spacer()
-            Button(action: {
-                text.wrappedValue = ""
-            }) {
-                Image(systemName: "trash")
-                    .font(.caption)
-                    .frame(width: 28, height: 26)
-                    .background(Color.secondary.opacity(0.12))
-                    .cornerRadius(5)
-            }
-            .buttonStyle(.borderless)
-            .disabled(text.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-            Button(action: {
-                UIPasteboard.general.string = text.wrappedValue
-            }) {
-                AppGlyph.copy.image(size: 13)
-                    .frame(width: 28, height: 26)
-                    .background(Color.secondary.opacity(0.12))
-                    .cornerRadius(5)
-            }
-            .buttonStyle(.borderless)
-            .disabled(text.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-            Button(action: {
-                appendFromClipboard(to: &text.wrappedValue)
-            }) {
-                AppGlyph.paste.image(size: 13)
-                    .frame(width: 28, height: 26)
-                    .background(Color.accentColor.opacity(0.15))
-                    .foregroundColor(.accentColor)
-                    .cornerRadius(5)
-            }
-            .buttonStyle(.borderless)
-        }
-        .padding(.vertical, 2)
-    }
-
-    private func appendFromClipboard(to text: inout String) {
-        guard let clipboard = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines), !clipboard.isEmpty else { return }
-        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            text = clipboard
-        } else {
-            text = text.hasSuffix("\n") ? "\(text)\(clipboard)" : "\(text)\n\(clipboard)"
-        }
     }
 }

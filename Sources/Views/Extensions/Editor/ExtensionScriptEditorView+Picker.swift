@@ -20,6 +20,7 @@ extension ExtensionScriptEditorView {
                         .foregroundColor(.secondary)
                     TextField("Tìm kiếm script (ví dụ: search, libs, json)...", text: $scriptSearchText)
                         .textFieldStyle(.plain)
+                        .submitLabel(.search)
                     if !scriptSearchText.isEmpty {
                         Button(action: { scriptSearchText = "" }) {
                             Image(systemName: "xmark.circle.fill")

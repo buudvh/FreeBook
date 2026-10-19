@@ -40,7 +40,7 @@ extension QuickTranslationRuleEditorSheet {
         selectionLength = 0
     }
 
-    /// Kẹp vùng chọn về biên hợp lệ sau khi mẫu đổi từ đường khác (khôi phục bản nháp, xoá bằng nút).
+    /// Kẹp vùng chọn về biên hợp lệ sau khi mẫu đổi từ đường khác (khôi phục bản nháp).
     /// Con trỏ do ô nhập cấp nên ở đây **không** còn heuristic "đưa về cuối" nào.
     func reconcileSelection(after newPattern: String) {
         let count = Array(newPattern).count
@@ -132,106 +132,32 @@ extension QuickTranslationRuleEditorSheet {
         }
     }
 
-    // MARK: - Sao chép & Dán Clipboard
-
-    func copyPatternToClipboard() {
-        guard !pattern.isEmpty else { return }
-        UIPasteboard.general.string = pattern
-        ToastManager.shared.show(message: "Đã sao chép mẫu vào clipboard", type: .success)
-    }
-
-    func pastePatternFromClipboard() {
-        guard let pasted = UIPasteboard.general.string,
-              !pasted.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            ToastManager.shared.show(message: "Không có nội dung trong clipboard", type: .info)
-            return
-        }
-        let clean = pasted.replacingOccurrences(of: "\r", with: "").replacingOccurrences(of: "\n", with: "")
-        insertIntoPattern(clean)
-    }
-
-    func copyReplacementToClipboard() {
-        guard !replacement.isEmpty else { return }
-        UIPasteboard.general.string = replacement
-        ToastManager.shared.show(message: "Đã sao chép bản dịch vào clipboard", type: .success)
-    }
-
-    func pasteReplacementFromClipboard() {
-        guard let pasted = UIPasteboard.general.string,
-              !pasted.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            ToastManager.shared.show(message: "Không có nội dung trong clipboard", type: .info)
-            return
-        }
-        let clean = pasted.replacingOccurrences(of: "\r", with: "").replacingOccurrences(of: "\n", with: "")
-        insertIntoReplacement(clean)
-    }
-
     // MARK: - Các Section ViewBuilder
 
+    /// Xoá · sao chép · dán của ô Mẫu và ô Bản dịch nằm ở thanh công cụ trên bàn phím — không còn bộ nút riêng
+    /// cạnh ô.
     @ViewBuilder
     func patternSection(segments: [QuickTranslationRuleDraftAnalyzer.Segment]) -> some View {
         Section {
-            HStack(alignment: .top, spacing: 8) {
-                ZStack(alignment: .topLeading) {
-                    if pattern.isEmpty {
-                        Text("第<n:1-6>章")
-                            .font(.system(.body, design: .monospaced))
-                            .foregroundColor(Color(uiColor: .placeholderText))
-                            .allowsHitTesting(false)
-                    }
-
-                    QuickTranslationRulePatternField(
-                        text: $pattern,
-                        selectionStart: $selectionStart,
-                        selectionLength: $selectionLength,
-                        autoFocus: restoredFocus == .pattern
-                    ) { focused in
-                        if focused {
-                            focusedField = .pattern
-                        } else if focusedField == .pattern {
-                            focusedField = nil
-                        }
-                    }
+            ZStack(alignment: .topLeading) {
+                if pattern.isEmpty {
+                    Text("第<n:1-6>章")
+                        .font(.system(.body, design: .monospaced))
+                        .foregroundColor(Color(uiColor: .placeholderText))
+                        .allowsHitTesting(false)
                 }
 
-                HStack(spacing: 4) {
-                    if !pattern.isEmpty {
-                        Button(action: { setPattern("", caret: 0) }) {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(.white)
-                                .frame(width: 28, height: 28)
-                                .background(Color.white.opacity(0.12))
-                                .clipShape(Circle())
-                                .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityLabel("Xoá mẫu")
+                QuickTranslationRulePatternField(
+                    text: $pattern,
+                    selectionStart: $selectionStart,
+                    selectionLength: $selectionLength,
+                    autoFocus: restoredFocus == .pattern
+                ) { focused in
+                    if focused {
+                        focusedField = .pattern
+                    } else if focusedField == .pattern {
+                        focusedField = nil
                     }
-
-                    Button(action: copyPatternToClipboard) {
-                        AppGlyph.copy.image(size: 13)
-                            .foregroundColor(.white)
-                            .frame(width: 28, height: 28)
-                            .background(Color.white.opacity(0.12))
-                            .clipShape(Circle())
-                            .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
-                    }
-                    .buttonStyle(.borderless)
-                    .disabled(pattern.isEmpty)
-                    .opacity(pattern.isEmpty ? 0.4 : 1.0)
-                    .accessibilityLabel("Sao chép mẫu")
-
-                    Button(action: pastePatternFromClipboard) {
-                        AppGlyph.paste.image(size: 13)
-                            .foregroundColor(.white)
-                            .frame(width: 28, height: 28)
-                            .background(Color.white.opacity(0.12))
-                            .clipShape(Circle())
-                            .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
-                    }
-                    .buttonStyle(.borderless)
-                    .accessibilityLabel("Dán vào mẫu")
                 }
             }
 
@@ -261,71 +187,25 @@ extension QuickTranslationRuleEditorSheet {
     @ViewBuilder
     func replacementSection(analysis: QuickTranslationRuleDraftAnalyzer.Analysis) -> some View {
         Section {
-            HStack(alignment: .top, spacing: 8) {
-                ZStack(alignment: .topLeading) {
-                    if replacement.isEmpty {
-                        Text("Chương {0}")
-                            .foregroundColor(Color(uiColor: .placeholderText))
-                            .allowsHitTesting(false)
-                    }
-
-                    QuickTranslationRulePatternField(
-                        text: $replacement,
-                        selectionStart: $replacementSelectionStart,
-                        selectionLength: $replacementSelectionLength,
-                        autoFocus: restoredFocus == .replacement,
-                        usesMonospacedFont: false
-                    ) { focused in
-                        if focused {
-                            focusedField = .replacement
-                        } else if focusedField == .replacement {
-                            focusedField = nil
-                        }
-                    }
+            ZStack(alignment: .topLeading) {
+                if replacement.isEmpty {
+                    Text("Chương {0}")
+                        .foregroundColor(Color(uiColor: .placeholderText))
+                        .allowsHitTesting(false)
                 }
 
-                HStack(spacing: 4) {
-                    if !replacement.isEmpty {
-                        Button(action: {
-                            replacement = ""
-                            replacementSelectionStart = 0
-                            replacementSelectionLength = 0
-                        }) {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(.white)
-                                .frame(width: 28, height: 28)
-                                .background(Color.white.opacity(0.12))
-                                .clipShape(Circle())
-                                .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityLabel("Xoá bản dịch")
+                QuickTranslationRulePatternField(
+                    text: $replacement,
+                    selectionStart: $replacementSelectionStart,
+                    selectionLength: $replacementSelectionLength,
+                    autoFocus: restoredFocus == .replacement,
+                    usesMonospacedFont: false
+                ) { focused in
+                    if focused {
+                        focusedField = .replacement
+                    } else if focusedField == .replacement {
+                        focusedField = nil
                     }
-
-                    Button(action: copyReplacementToClipboard) {
-                        AppGlyph.copy.image(size: 13)
-                            .foregroundColor(.white)
-                            .frame(width: 28, height: 28)
-                            .background(Color.white.opacity(0.12))
-                            .clipShape(Circle())
-                            .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
-                    }
-                    .buttonStyle(.borderless)
-                    .disabled(replacement.isEmpty)
-                    .opacity(replacement.isEmpty ? 0.4 : 1.0)
-                    .accessibilityLabel("Sao chép bản dịch")
-
-                    Button(action: pasteReplacementFromClipboard) {
-                        AppGlyph.paste.image(size: 13)
-                            .foregroundColor(.white)
-                            .frame(width: 28, height: 28)
-                            .background(Color.white.opacity(0.12))
-                            .clipShape(Circle())
-                            .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
-                    }
-                    .buttonStyle(.borderless)
-                    .accessibilityLabel("Dán vào bản dịch")
                 }
             }
 

@@ -48,6 +48,7 @@ struct ExtensionSelectorView: View {
                         .foregroundColor(.secondary)
                     TextField("Tìm kiếm phần mở rộng", text: $extensionSearchQuery)
                         .textInputAutocapitalization(.none)
+                        .submitLabel(.search)
                     
                     if !extensionSearchQuery.isEmpty {
                         Button(action: { extensionSearchQuery = "" }) {

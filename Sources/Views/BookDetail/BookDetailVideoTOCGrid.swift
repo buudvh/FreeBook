@@ -168,6 +168,7 @@ struct BookDetailVideoTOCGrid: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .font(.subheadline)
+                .submitLabel(.search)
 
             if !searchQuery.isEmpty {
                 Button {

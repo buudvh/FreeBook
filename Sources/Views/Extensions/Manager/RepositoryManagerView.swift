@@ -315,7 +315,7 @@ struct RepositoryManagerView: View {
                     .foregroundColor(.secondary)
                 TextField("Tìm tên tiện ích hoặc URL...", text: $storeSearchQuery)
                     .textInputAutocapitalization(.none)
-                
+                    .submitLabel(.search)
                 if !storeSearchQuery.isEmpty {
                     Button(action: { storeSearchQuery = "" }) {
                         Image(systemName: "xmark.circle.fill")

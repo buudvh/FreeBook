@@ -28,6 +28,9 @@ import UIKit
 /// chữ; nó chỉ âm thầm xoá vùng chọn ở đúng nhịp thả ngón tay. Vùng bôi **ngắn** trúng nhiều nhất vì
 /// tap chỉ fail khi ngón di chuyển quá ngưỡng — kéo một vệt dài thì tap tự fail, chọn một từ thì
 /// không. Đây là bug đã xác nhận trên máy thật ở Reader và ở web view tra cứu của công cụ tìm kiếm.
+///
+/// Người dùng tắt được hành vi này (`KeyboardDismissPreference`, "Không tắt bàn phím"): khi đó recognizer không
+/// được cài, bàn phím chỉ tắt bằng nút đóng ở thanh công cụ trên bàn phím (hoặc Return / kéo danh sách).
 @MainActor
 final class KeyboardDismissGesture: NSObject, UIGestureRecognizerDelegate {
     static let shared = KeyboardDismissGesture()
@@ -36,6 +39,8 @@ final class KeyboardDismissGesture: NSObject, UIGestureRecognizerDelegate {
     private static let gestureName = "FreeBookKeyboardDismissTap"
 
     private var isObserving = false
+    /// Theo `keyboardWillShow/WillHide` — để `applyPreference()` biết có nên cài recognizer ngay hay chờ lần sau.
+    private var isKeyboardVisible = false
 
     private override init() {
         super.init()
@@ -60,10 +65,25 @@ final class KeyboardDismissGesture: NSObject, UIGestureRecognizerDelegate {
     }
 
     @objc private func keyboardWillShow() {
+        isKeyboardVisible = true
+        guard KeyboardDismissPreference.tapOutsideDismisses else { return }
         installIfNeeded()
     }
 
+    /// Đổi tuỳ chọn lúc bàn phím **đang mở** (giữ nút đóng bàn phím ⇒ menu): áp dụng ngay, không chờ lần mở sau.
+    /// Bàn phím đang tắt thì `uninstall()` là no-op, còn lần `keyboardWillShow` sau tự đọc tuỳ chọn mới.
+    func applyPreference() {
+        if KeyboardDismissPreference.tapOutsideDismisses {
+            if isKeyboardVisible {
+                installIfNeeded()
+            }
+        } else {
+            uninstall()
+        }
+    }
+
     @objc private func keyboardWillHide() {
+        isKeyboardVisible = false
         uninstall()
     }
 

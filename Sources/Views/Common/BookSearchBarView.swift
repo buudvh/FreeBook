@@ -17,6 +17,7 @@ struct BookSearchBarView: View {
                     onCommit?()
                 })
                 .textInputAutocapitalization(.none)
+                .submitLabel(.search) // thanh trên bàn phím nhận ra ô tìm kiếm ⇒ ẩn nhóm aa…AA
 
                 if !text.isEmpty {
                     Button(action: {

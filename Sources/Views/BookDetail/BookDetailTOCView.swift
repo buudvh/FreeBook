@@ -124,6 +124,7 @@ struct BookDetailTOCView: View {
             TextField("Tìm kiếm \(episodeNoun)...", text: $chapterSearchQuery)
                 .textFieldStyle(.roundedBorder)
                 .textInputAutocapitalization(.none)
+                .submitLabel(.search)
             if !chapterSearchQuery.isEmpty {
                 Button(action: { chapterSearchQuery = "" }) {
                     Image(systemName: "xmark.circle.fill")

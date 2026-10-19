@@ -305,6 +305,7 @@ public struct ReaderChapterListView: View {
                 .textFieldStyle(.plain)
                 .textInputAutocapitalization(.never)
                 .foregroundColor(theme.textColor)
+                .submitLabel(.search)
             if !searchQuery.isEmpty {
                 Button(action: { searchQuery = "" }) {
                     Image(systemName: "xmark.circle.fill")

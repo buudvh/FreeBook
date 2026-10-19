@@ -98,15 +98,9 @@ public struct AISettingsView: View {
 
                         // Quản lý API Keys
                         VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                Text("API Keys (\(parsedKeysCount) keys):")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                Spacer()
-                                clipboardToolbar(for: $apiKeysText) {
-                                    syncApiKeysFromText(apiKeysText)
-                                }
-                            }
+                            Text("API Keys (\(parsedKeysCount) keys):")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                             TextEditor(text: $apiKeysText)
                                 .font(.system(.caption, design: .monospaced))
                                 .frame(minHeight: 70)
@@ -173,15 +167,9 @@ public struct AISettingsView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Text("Danh sách Model (\(parsedModelsCount) models):")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Spacer()
-                            clipboardToolbar(for: $modelsText) {
-                                syncModelsFromText(modelsText)
-                            }
-                        }
+                        Text("Danh sách Model (\(parsedModelsCount) models):")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                         TextEditor(text: $modelsText)
                             .font(.system(.caption, design: .monospaced))
                             .frame(minHeight: 80)

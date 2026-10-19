@@ -355,17 +355,6 @@ struct ReaderDefinitionOverlayView: View {
                     .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
             }
 
-            Button(action: pasteFromClipboard) {
-                AppGlyph.paste.image(size: 17)
-                    .foregroundColor(.white)
-                    .padding(8)
-                    .background(Color.white.opacity(0.12))
-                    .clipShape(Circle())
-                    .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
-            }
-            .accessibilityLabel("Dán từ clipboard")
-            .accessibilityHint("Dán nội dung clipboard vào ô nhập nghĩa")
-
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(suggestionChips) { chip in
@@ -391,14 +380,5 @@ struct ReaderDefinitionOverlayView: View {
 
     private func hideKeyboard() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-    }
-
-    private func pasteFromClipboard() {
-        guard let pasted = UIPasteboard.general.string,
-              !pasted.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            ToastManager.shared.show(message: "Không có nội dung trong clipboard", type: .info)
-            return
-        }
-        customMeaning = pasted.replacingOccurrences(of: "\r", with: "").replacingOccurrences(of: "\n", with: "")
     }
 }
