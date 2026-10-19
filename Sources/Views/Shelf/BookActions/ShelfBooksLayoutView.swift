@@ -126,39 +126,57 @@ struct ShelfBooksLayoutView: View {
         )
         let loadedCount = groups.reduce(0) { $0 + $1.books.count }
 
-        // Sentinel nằm trong `LazyVStack` (không phải `VStack`): con của stack thường trong `ScrollView` chạy
-        // `onAppear` ngay khi dựng, sentinel sẽ bắn một lần rồi thôi; còn làm một ô của lưới thì chỉ chiếm một cột.
+        // Tiêu đề nhóm (Đang ghim / Truyện khác / từng ngày) **dính đầu khi cuộn** như `List` `.plain` ở kiểu danh sách:
+        // `pinnedViews: [.sectionHeaders]`. Lưới nằm **thẳng** trong `ScrollView` — bọc thêm một `LazyVStack` thì tiêu
+        // đề không dính được.
         return ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                LazyVGrid(columns: columns, alignment: .leading, spacing: layout.mode == .coverOnly ? 10 : 14) {
-                    ForEach(groups) { group in
-                        if let header = group.header {
-                            Section {
-                                gridCards(group.books, mode: layout.mode)
-                            } header: {
-                                headerView(header)
-                                    .padding(.top, 6)
-                            }
-                        } else {
+            LazyVGrid(
+                columns: columns,
+                alignment: .leading,
+                spacing: layout.mode == .coverOnly ? 10 : 14,
+                pinnedViews: [.sectionHeaders]
+            ) {
+                ForEach(groups) { group in
+                    if let header = group.header {
+                        Section {
                             gridCards(group.books, mode: layout.mode)
+                        } header: {
+                            pinnedHeader(header)
                         }
+                    } else {
+                        gridCards(group.books, mode: layout.mode)
                     }
                 }
 
+                // Sentinel là **footer** của một section rỗng: footer trải hết bề ngang lưới (một ô lưới chỉ chiếm một
+                // cột) và được dựng lười — `onAppear` chỉ nổ khi cuộn tới cuối.
                 if hasMore {
-                    ProgressView()
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .onAppear { scheduleLoadMore() }
-                        // `id` theo số truyện đã hiện, đặt **ngoài** `onAppear`: tải thêm xong mà sentinel vẫn trong
-                        // màn hình (lưới bìa ngang nhiều cột rất thấp) thì nó được dựng lại và `onAppear` chạy tiếp,
-                        // không kẹt tới khi người dùng cuộn.
-                        .id(loadedCount)
+                    Section {
+                        EmptyView()
+                    } footer: {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .onAppear { scheduleLoadMore() }
+                            // `id` theo số truyện đã hiện, đặt **ngoài** `onAppear`: tải thêm xong mà sentinel vẫn trong
+                            // màn hình (lưới bìa ngang nhiều cột rất thấp) thì nó được dựng lại và `onAppear` chạy tiếp,
+                            // không kẹt tới khi người dùng cuộn.
+                            .id(loadedCount)
+                    }
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.bottom, 12)
         }
+    }
+
+    /// Tiêu đề nhóm của kiểu lưới: nền đặc để thẻ cuộn qua bên dưới không lộ ra khi tiêu đề đang dính, nền tràn qua
+    /// lề 16pt hai bên để phủ hết bề ngang như tiêu đề của `List`.
+    private func pinnedHeader(_ header: Header) -> some View {
+        headerView(header)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(.systemBackground).padding(.horizontal, -16))
     }
 
     private func gridCards(_ books: [Book], mode: BookListLayoutMode) -> some View {

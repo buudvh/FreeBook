@@ -2,6 +2,30 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.523] - 2026-10-13
+
+### fix: tu sua duong dan tien ich khi doi goc thu muc, danh sach ten AI dai khong giat, Gemini Web giai phong WebView khi loi
+
+Người dùng duyệt gộp 3 plan bằng `/push-ci-monitor tất cả 1 lượt`.
+
+**1. Tiện ích "bị xoá" — thật ra là đường dẫn hỏng** (`app_logs (105)`: từ 10:38:53 mọi chương chưa tải lỗi `ExtensionManager -3 "plugin.json not found inside extension"`; mở tab Tiện ích thấy trống; tắt mở lại vẫn mất; thư mục plugin trên máy còn đủ; restore backup thì có lại).
+- **Cơ chế**: `Extension.localPath` lưu **đường dẫn tuyệt đối** trong `library.db`. Gốc thư mục dữ liệu của app đổi ⇒ mọi `localPath` trỏ về gốc cũ (file vẫn ở `extensions/<packageId>/` hiện tại) ⇒ lỗi -3; rồi `ExtensionInstallAudit` (chạy mỗi lần mở tab Tiện ích) coi là mất file: tiện ích của kho bị đưa `localPath` về rỗng, tiện ích import zip bị **xoá hàng** ⇒ tab trống, lưu luôn trong DB. Restore chữa được vì `BackupExtensionInstaller` giữ file đang có và **tính lại** `localPath` từ thư mục hiện tại. Vì sao gốc đổi: **UNKNOWN** — khớp thời gian với khuyến nghị "Convert to Private App" của 1.3.522 (LiveContainer chuyển thư mục dữ liệu giữa App Group và container riêng), chưa xác nhận.
+- **`ExtensionPathResolver`** (mới, `Services/Extensions`): khi `localPath` không còn `plugin.json`, tìm lại theo thứ tự (1) phần sau `/extensions/` của path cũ ghép vào gốc hiện tại, (2) `extensions/<packageId>/` kể cả thư mục con có `plugin.json`. Chỉ nhận thư mục nằm trong `extensions/`, không nhận `..`.
+- **`ExtensionInstallAudit`** tìm lại **trước** khi gỡ/xoá (`Plan.relocations`); chỉ gỡ/xoá khi không thấy ở đâu. Tiện ích đã bị đưa `localPath` về rỗng mà thư mục còn `plugin.json` được khôi phục. Đánh đổi có chủ ý: gỡ tiện ích đúng lúc path đang hỏng (thư mục không xoá được) thì nó hiện lại.
+- **Lúc mở app** (`AppLaunchRootView.onAppear` → `ExtensionTransactionCoordinator.repairExtensionPathsAtLaunch`): chỉ sửa path, không gỡ/xoá, chạy trước khi Reader/TTS cần tới.
+- **Log ❌** (luôn ghi kể cả khi tắt log): một dòng khi sửa path (số tiện ích, gốc cũ → gốc mới, packageId); dòng gỡ/xoá của audit nay cũng có ❌. Lỗi -3 kèm đường dẫn đã tìm (`localPath rỗng` khi rỗng).
+
+**2. AI: hiển thị danh sách tên dài làm giật máy và TTS** (`TTSManager` là `@MainActor`, main thread bận thì TTS khựng).
+- **`AIMarkdownMessageView`**: mỗi dòng là một `Text(LocalizedStringKey)` trong `VStack` không lazy, dựng lại cả tin mỗi nhịp stream 50 ms / mỗi batch quét tên. Nay chỉ dựng **100 đoạn cuối**, tự nạp thêm 100 đoạn khi cuộn lên gần mép trên (vòng xoay nhỏ, không nút; đo bằng `GeometryProxy.bounds(of: .scrollView)`, preference `Bool` nên mỗi lần lọt vào vùng nhìn chỉ nạp một đợt). Nạp từ đáy lên vì chat neo đáy (`.defaultScrollAnchor(.bottom)`) và cố ý không dùng `LazyVStack`. Sao chép / Thêm vào VP-Name vẫn dùng toàn bộ nội dung.
+- **`hasDictionaryEntries`** (gọi trong `.contextMenu` của mọi tin mỗi lần vẽ): `enumerateLines`, dừng ở dòng `từ=nghĩa` đầu tiên thay vì tách cả tin.
+- **Sheet duyệt tên riêng** (`ReaderAINameReviewCardView`): `LazyVStack` — chọn/bỏ chọn trước đây cập nhật lại mọi hàng kèm `TextField`. Nút chọn icon 22 pt, vùng chạm 44×44 (cũ: 16 pt); chạm dòng tên cũng chọn/bỏ chọn; hàng bỏ đệm trái để giữ chiều cao gần như cũ.
+- **`AIRuntimeCoordinator`**: bước gắn cờ NE/VP cuối đợt quét (đọc `Names.txt`/`VietPhrase.txt` + tra từ điển cả danh sách) chuyển ra `Task.detached`, kiểm tra huỷ sau khi chờ.
+
+**3. Gemini Web: WebView ẩn không được giải phóng khi `prepare()` lỗi.** `touch()` (hẹn giải phóng sau 10 phút) chỉ chạy ở nhánh thành công; `prepare()` ném (`notSignedIn`/timeout/`protocolChanged`) ⇒ WKWebView + window ẩn sống tới khi app thoát. Nay `touch()` nằm trong `defer` của task (mọi lối ra). Hẹn giờ thêm điều kiện `webView != nil` để không ghi log "Giải phóng WKWebView ẩn" sai khi WebView đã bị giải phóng giữa chừng. Tối đa một WebView (singleton) nên lỗ này không làm fd tăng dần.
+
+- Chuyển entry `[1.3.493]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ (JSDom, TTSManager 3510), 0 mới; file mới `ExtensionPathResolver.swift` 65 dòng, một type chính. **Không build tại chỗ** (Windows), cần CI. Không đụng `Tests/`.
+
 ## [1.3.522] - 2026-10-13
 
 ### docs(fd): ghi nhan nguyen nhan can fd khi nghe TTS o nen la bug Dead10ccFix cua LiveContainer
