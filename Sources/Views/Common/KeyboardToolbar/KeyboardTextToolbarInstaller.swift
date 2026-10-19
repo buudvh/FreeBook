@@ -10,8 +10,12 @@ import UIKit
 /// bàn phím (thanh gợi ý thuộc về bàn phím nên không mất).
 ///
 /// Không gắn cho: ô mật khẩu / API key (`isSecureTextEntry` — Sao chép sẽ đưa khoá ra bộ nhớ tạm), trình sửa mã Script
-/// (`CodeEditorTextView` — lỡ Xoá hay `AA` là hỏng cả file), ô đã có accessory riêng. Ô nhập trong trang web
-/// (`WKWebView`) không dùng hai lớp này nên không có thanh; WebKit có thanh ‹ › Xong của nó.
+/// (`CodeEditorTextView` — lỡ Xoá hay `AA` là hỏng cả file). Ô nhập trong trang web (`WKWebView`) không dùng hai lớp này
+/// nên không có thanh; WebKit có thanh ‹ › Xong của nó.
+///
+/// Ô của SwiftUI (`TextField`/`TextEditor`) tự quản accessory nội bộ: gán thẳng không ăn (lỗi 1.3.548 — thanh không
+/// hiện ở đâu cả) ⇒ đi đường `KeyboardAccessoryOverride` (thay getter theo lớp). Bản 1.3.548 còn bỏ qua mọi ô "đã có
+/// accessory của người khác" — chính accessory nội bộ đó — nên đã bỏ điều kiện này (app không có màn nào tự gắn accessory).
 ///
 /// Một thanh (một `UIInputView`) dùng chung cho mọi ô: chỉ một ô làm first responder tại một thời điểm, model được trỏ
 /// lại vào ô mới mỗi lần bắt đầu gõ.
@@ -23,6 +27,7 @@ final class KeyboardTextToolbarInstaller: NSObject {
     private var hostingController: UIHostingController<KeyboardTextToolbarView>?
     private var accessoryView: UIInputView?
     private var isObserving = false
+    private var loggedClasses = Set<String>()
 
     private override init() {
         super.init()
@@ -51,12 +56,7 @@ final class KeyboardTextToolbarInstaller: NSObject {
 
     @objc private func textFieldDidBeginEditing(_ notification: Notification) {
         guard let field = notification.object as? UITextField, !field.isSecureTextEntry else { return }
-        guard canAttach(currentAccessory: field.inputAccessoryView) else { return }
-        let accessory = sharedAccessoryView()
-        if field.inputAccessoryView !== accessory {
-            field.inputAccessoryView = accessory
-            field.reloadInputViews()
-        }
+        attachAccessory(to: field, current: field.inputAccessoryView) { field.inputAccessoryView = $0 }
         model.attach(to: field)
     }
 
@@ -65,12 +65,7 @@ final class KeyboardTextToolbarInstaller: NSObject {
               textView.isEditable,
               !textView.isSecureTextEntry,
               !(textView is CodeEditorTextView) else { return }
-        guard canAttach(currentAccessory: textView.inputAccessoryView) else { return }
-        let accessory = sharedAccessoryView()
-        if textView.inputAccessoryView !== accessory {
-            textView.inputAccessoryView = accessory
-            textView.reloadInputViews()
-        }
+        attachAccessory(to: textView, current: textView.inputAccessoryView) { textView.inputAccessoryView = $0 }
         model.attach(to: textView)
     }
 
@@ -90,9 +85,41 @@ final class KeyboardTextToolbarInstaller: NSObject {
 
     // MARK: - Thanh
 
-    /// Ô đã có accessory **của người khác** thì để nguyên — không giành thanh của màn tự làm riêng.
-    private func canAttach(currentAccessory: UIView?) -> Bool {
-        currentAccessory == nil || currentAccessory === accessoryView
+    /// Gắn thanh vào ô vừa bắt đầu gõ. Lớp UIKit thường: gán `inputAccessoryView` rồi đọc lại — đọc lại không ra thanh
+    /// (getter bị override) thì chuyển sang thay getter. Lớp nội bộ SwiftUI: luôn thay getter, vì SwiftUI có thể gán đè
+    /// accessory của nó ở lượt cập nhật sau dù lần gán đầu có ăn.
+    private func attachAccessory(to input: UIView, current: UIView?, assign: (UIView) -> Void) {
+        let accessory = sharedAccessoryView()
+        guard let cls = object_getClass(input) else { return }
+        var method = "đã gắn sẵn"
+        if KeyboardAccessoryOverride.isPatched(input) {
+            KeyboardAccessoryOverride.install(accessory, on: input)
+            method = "thay getter (lớp đã vá)"
+        } else if KeyboardAccessoryOverride.isSwiftUIClass(cls) {
+            method = KeyboardAccessoryOverride.install(accessory, on: input) ? "thay getter" : "❌ không thay được getter"
+        } else if current !== accessory {
+            assign(accessory)
+            if input.inputAccessoryView === accessory {
+                method = "gán thẳng"
+            } else {
+                method = KeyboardAccessoryOverride.install(accessory, on: input)
+                    ? "thay getter (gán không ăn)" : "❌ gán không ăn, không thay được getter"
+            }
+        }
+        if input.inputAccessoryView !== accessory {
+            method += " — ❌ getter vẫn không trả thanh"
+        }
+        input.reloadInputViews()
+        logOnce(cls: cls, previous: current, method: method)
+    }
+
+    /// Log chẩn đoán **một lần mỗi lớp ô** (app chạy qua LiveContainer, log là kênh duy nhất để biết đường nào đã dùng).
+    private func logOnce(cls: AnyClass, previous: UIView?, method: String) {
+        let name = NSStringFromClass(cls)
+        guard !loggedClasses.contains(name) else { return }
+        loggedClasses.insert(name)
+        let previousName = previous.map { NSStringFromClass(type(of: $0)) } ?? "nil"
+        AppLogger.shared.log("⌨️ [KeyboardToolbar] lớp ô \(name), accessory sẵn có \(previousName): \(method)")
     }
 
     private func sharedAccessoryView() -> UIInputView {
