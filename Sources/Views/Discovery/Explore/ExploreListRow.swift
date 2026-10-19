@@ -9,7 +9,6 @@ struct ExploreListRow: View {
     var rank: Int? = nil
 
     var body: some View {
-        let translate = context.isTranslationEnabled(for: item)
         Button {
             context.onSelect(item)
         } label: {
@@ -27,19 +26,19 @@ struct ExploreListRow: View {
                     url: item.cover,
                     referer: context.referer(for: item),
                     shape: shape,
-                    tag: context.display(item.tag, translating: translate),
+                    tag: context.display(item.tag),
                     tagFontSize: 8
                 )
                 .frame(width: shape.thumbnailWidth)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(context.display(item.name, translating: translate))
+                    Text(context.display(item.name))
                         .font(.system(size: 14.5, weight: .semibold))
                         .foregroundColor(.primary)
                         .lineLimit(2)
 
                     if !item.description.isEmpty {
-                        Text(context.display(item.description.cleanHTML(), translating: translate))
+                        Text(context.display(item.description.cleanHTML()))
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .lineLimit(2)

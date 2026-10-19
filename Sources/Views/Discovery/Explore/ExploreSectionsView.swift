@@ -25,8 +25,7 @@ struct ExploreSectionsView: View {
     }
 
     let ext: Extension
-    /// Cờ dịch của nguồn (`DiscoveryView` chụp): section theo nguồn, item theo truyện — xem `ExploreRenderContext`.
-    let translation: TranslationConfigSnapshot.Source
+    let isTranslationEnabled: Bool
     let onSelectNovel: (ExtensionItemResult) -> Void
     let onSelectCategory: (CategoryResult) -> Void
 
@@ -40,7 +39,7 @@ struct ExploreSectionsView: View {
     var body: some View {
         let context = ExploreRenderContext(
             sourceHost: sourceHost,
-            translation: translation,
+            isTranslationEnabled: isTranslationEnabled,
             onSelect: { handleTap($0) }
         )
         ScrollView(.vertical, showsIndicators: false) {
@@ -162,7 +161,8 @@ struct ExploreSectionsView: View {
         switch action.kind {
         case .detail:
             // `input` là URL item; rỗng thì dùng `link`.
-            openDetail(item, url: ExploreRenderContext.detailUrl(for: item))
+            let input = action.input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? item.link : action.input
+            openDetail(item, url: input)
         case .list:
             openList(action, fallbackTitle: item.name)
         case .unsupported:

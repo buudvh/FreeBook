@@ -86,7 +86,6 @@ struct BookActionRunner {
 
         let bookId = book.bookId
         let bookTitle = book.title
-        let packageId = book.extensionPackageId
 
         Task {
             guard let storeChaps = try? await ChapterStore.shared.fetchOrderedTOC(bookId: bookId), !storeChaps.isEmpty else { return }
@@ -120,13 +119,13 @@ struct BookActionRunner {
                     object: nil,
                     userInfo: ["bookId": bookId]
                 )
-                ToastManager.shared.show(message: "Đã dịch lại xong tên chương cho: \(TranslateUtils.translateBookTitleIfNeeded(bookTitle, bookId: bookId, packageId: packageId))")
+                ToastManager.shared.show(message: "Đã dịch lại xong tên chương cho: \(TranslateUtils.translateBookTitleIfNeeded(bookTitle, bookId: bookId))")
             }
         }
     }
 
     static func displayTitle(_ book: Book) -> String {
-        TranslateUtils.translateBookTitleIfNeeded(book.title, bookId: book.bookId, packageId: book.extensionPackageId)
+        TranslateUtils.translateBookTitleIfNeeded(book.title, bookId: book.bookId)
     }
 
     // MARK: - Chương mới

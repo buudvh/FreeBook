@@ -8,19 +8,8 @@ struct DownloadTrackerView: View {
     @State private var selectedBookForTask: Book? = nil
     @State private var selectedTaskType: TaskType = .download
     @State private var defaultOnlyExportCached = false
-    /// Chỉ để vẽ lại khi công tắc dịch toàn cục đổi (ghi thẳng `UserDefaults`, không phát thông báo) — tên truyện của
-    /// mỗi tác vụ dịch theo cờ **của truyện đó** (`translationConfig`), không theo công tắc này.
-    @AppStorage("isTranslationEnabled") private var globalTranslationEnabled = false
-    /// Tăng khi `TranslationConfigStore.didChangeNotification` đến (đổi override cấp nguồn/truyện).
-    @State private var translationRevision = 0
-
-    /// Chụp cấu hình dịch một lần mỗi body (danh sách vẽ lại theo mỗi nhịp tiến độ), không đọc lại cho từng dòng.
-    private var translationConfig: TranslationConfigSnapshot {
-        _ = translationRevision
-        _ = globalTranslationEnabled
-        return TranslationConfigSnapshot.current()
-    }
-
+    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
+    
     var body: some View {
         VStack(spacing: 0) {
             if downloadManager.tasks.isEmpty {
@@ -43,17 +32,13 @@ struct DownloadTrackerView: View {
                 }
                 .frame(maxHeight: .infinity)
             } else {
-                let translationConfig = self.translationConfig
                 List {
                     ForEach(downloadManager.tasks) { task in
-                        taskRow(task, translationConfig: translationConfig)
+                        taskRow(task)
                     }
                 }
                 .listStyle(.plain)
             }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: TranslationConfigStore.didChangeNotification)) { _ in
-            translationRevision &+= 1
         }
         .sheet(item: $selectedBookForTask) { book in
             TaskOptionsSheet(book: book, taskType: selectedTaskType, defaultOnlyExportCached: defaultOnlyExportCached)
@@ -61,7 +46,7 @@ struct DownloadTrackerView: View {
     }
     
     @ViewBuilder
-    private func taskRow(_ task: DownloadTask, translationConfig: TranslationConfigSnapshot) -> some View {
+    private func taskRow(_ task: DownloadTask) -> some View {
         HStack(spacing: 12) {
             // Match the shelf/history book-row proportions so a task still looks
             // like the same book wherever it is shown.
@@ -70,8 +55,7 @@ struct DownloadTrackerView: View {
                 .shadow(color: Color.black.opacity(0.08), radius: 2, x: 0, y: 1)
             
             VStack(alignment: .leading, spacing: 4) {
-                let rawTitle = TranslateUtils.containsChinese(task.bookTitle)
-                    && translationConfig.isTranslationEnabled(bookId: task.bookId, packageId: task.extensionPackageId)
+                let rawTitle = isTranslationEnabled && TranslateUtils.containsChinese(task.bookTitle)
                      ? TranslateUtils.translateMeta(task.bookTitle, bookId: task.bookId)
                      : task.bookTitle
                 Text(DisplayTextFormatter.titleCase(rawTitle))

@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.540] - 2026-10-19
+
+### Revert "fix: mọi danh sách và tên truyện dịch theo cờ của truyện rồi tới nguồn"
+
+Người dùng yêu cầu lùi nội dung commit `6bdc424` (entry `[1.3.538]`). Revert bằng `git revert --no-commit 6bdc424`, giữ nguyên `[1.3.539]` (commit sau, không liên quan).
+
+- **Xoá file**: `Sources/Services/Translation/Utils/TranslationConfigSnapshot.swift`, `Sources/Views/Search/SearchView+Translation.swift`.
+- **`TranslationConfigStore`**: bỏ hàm dùng chung `resolve(global:bookOverride:sourceOverride:packageId:isChineseSourceHint:)`, `resolveStatus` trở lại đọc `globalEnabled` + hai bảng override tại chỗ.
+- **`TranslateUtils.translateBookTitleIfNeeded`**: bỏ tham số `packageId`, điều kiện trở lại cờ toàn cục `isTranslationEnabled`.
+- **View**: `BookListItemView`, `CategoryNovelsListView`, `DiscoveryNovelRowView`, `DiscoveryView`, `ExploreBannerView`/`ExploreItemCard`/`ExploreListRow`/`ExploreRenderContext`/`ExploreSectionsView`, `SearchView`, `ComicReaderView`, `DownloadTrackerView`, `TaskOptionsSheet`, `BookActionSheet`/`BookActionRunner`, `NotificationInboxView`, `ReaderView`, `DictionaryListView+Transfer`, `ShelfView+BookImport`, `DownloadManager+TaskStore` trở lại đọc công tắc dịch **toàn cục** (`@AppStorage("isTranslationEnabled")`) thay vì cờ Truyện > Nguồn > Toàn cục. `TTSManager` trở lại `TranslateUtils.isTranslationEnabled`.
+- **Xung đột đã xử lý**: `SearchView.swift` auto-merge sạch — thay đổi của `[1.3.539]` (`fetchFullTOC`) còn nguyên. Hai file `Docs/CodeGraph/CHANGELOG*.md` xung đột: giữ nguyên lịch sử (không đẩy entry cũ trở lại `CHANGELOG.md`, không thêm lại entry vào archive).
+- **Kiểm chứng**: grep `Sources/` không còn tham chiếu `TranslationConfigSnapshot`, `translationRevision`, `currentTranslationConfig`; mọi call site `translateBookTitleIfNeeded` khớp chữ ký mới. **Không build tại chỗ** (Windows) — chỉ CI xác nhận biên dịch.
+
 ## [1.3.539] - 2026-10-18
 
 ### fix: chặn mục lục rỗng xoá chương, khớp chương theo url, sửa tải thêm chương
@@ -34,6 +47,8 @@ Làm theo báo cáo `Docs/Reports/2026-10-18-toc-update-investigation.md` (đề
 ## [1.3.538] - 2026-10-18
 
 ### fix: mọi danh sách và tên truyện dịch theo cờ của truyện rồi tới nguồn
+
+> **Đã bị revert ở `[1.3.540]`** — mục này chỉ còn giá trị lịch sử; code hiện tại quay về trạng thái của `[1.3.537]`.
 
 Tiếp theo 1.3.537. Người dùng yêu cầu rà mọi chỗ còn lỗi tương tự và sửa luôn, nhớ tính cả cờ theo truyện. Dịch có 3 cấp, ưu tiên Truyện > Nguồn > Toàn cục (`TranslationConfigStore`), nhưng nhiều view vẫn đọc thẳng công tắc toàn cục `@AppStorage("isTranslationEnabled")`. Vì vậy tắt dịch cho một nguồn hay một truyện thì danh sách vẫn dịch.
 

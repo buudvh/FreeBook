@@ -212,7 +212,7 @@ extension DownloadManager {
             }
         }
 
-        let title = TranslateUtils.translateBookTitleIfNeeded(tasks[index].bookTitle, bookId: tasks[index].bookId, packageId: tasks[index].extensionPackageId)
+        let title = TranslateUtils.translateBookTitleIfNeeded(tasks[index].bookTitle, bookId: tasks[index].bookId)
         let type = tasks[index].taskType.rawValue
         DownloadPresentationEventCenter.shared.send(.showToast(message: "Đã xong: \(type) '\(title)' thành công!", type: .success))
     }
@@ -257,7 +257,7 @@ extension DownloadManager {
             model.errorMessage = error
         }
 
-        let title = TranslateUtils.translateBookTitleIfNeeded(tasks[index].bookTitle, bookId: tasks[index].bookId, packageId: tasks[index].extensionPackageId)
+        let title = TranslateUtils.translateBookTitleIfNeeded(tasks[index].bookTitle, bookId: tasks[index].bookId)
         let type = tasks[index].taskType.rawValue
         DownloadPresentationEventCenter.shared.send(.showToast(message: "Lỗi \(type) '\(title)': \(error)", type: .error))
     }
@@ -272,7 +272,7 @@ extension DownloadManager {
             model.statusRaw = TaskStatus.cancelled.rawValue
         }
 
-        let title = TranslateUtils.translateBookTitleIfNeeded(tasks[index].bookTitle, bookId: tasks[index].bookId, packageId: tasks[index].extensionPackageId)
+        let title = TranslateUtils.translateBookTitleIfNeeded(tasks[index].bookTitle, bookId: tasks[index].bookId)
         let type = tasks[index].taskType.rawValue
         DownloadPresentationEventCenter.shared.send(.showToast(message: "Đã hủy tác vụ: \(type) '\(title)'", type: .info))
     }

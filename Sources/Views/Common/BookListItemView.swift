@@ -47,11 +47,7 @@ struct BookListItemView<Item: BookDisplayable>: View {
     /// `Referer` (`source`) khi item thiếu `host`. Rỗng ⇒ `item.coverPackageId`, rồi tra theo `extensionLocalPath`.
     var extensionPackageId: String
 
-    /// Chỉ để vẽ lại khi công tắc dịch toàn cục đổi (ghi thẳng `UserDefaults`, không phát thông báo) — cờ thật của dòng
-    /// do `resolveTranslationEnabled()` tính theo truyện/nguồn.
-    @AppStorage("isTranslationEnabled") private var globalTranslationEnabled = false
-    /// Tăng khi `TranslationConfigStore.didChangeNotification` đến (đổi override cấp nguồn/truyện).
-    @State private var translationRevision = 0
+    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
 
     init(
         item: Item,
@@ -81,7 +77,6 @@ struct BookListItemView<Item: BookDisplayable>: View {
     }
 
     var body: some View {
-        let isTranslationEnabled = resolveTranslationEnabled()
         HStack(spacing: 12) {
             BookCoverView(
                 bookId: item.bookId,
@@ -97,12 +92,12 @@ struct BookListItemView<Item: BookDisplayable>: View {
             .cornerRadius(4)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(DisplayTextFormatter.titleCase(translateIfNeeded(item.title, bookId: item.bookId, enabled: isTranslationEnabled)))
+                Text(DisplayTextFormatter.titleCase(translateIfNeeded(item.title, bookId: item.bookId)))
                     .font(.system(size: 14.5, weight: .semibold))
                     .lineLimit(2)
 
                 if showDescription, !item.description.isEmpty {
-                    Text(translateIfNeeded(item.description.cleanHTML(), enabled: isTranslationEnabled))
+                    Text(translateIfNeeded(item.description.cleanHTML()))
                         .font(.caption2)
                         .foregroundColor(.secondary)
                         .lineLimit(2)
@@ -112,7 +107,7 @@ struct BookListItemView<Item: BookDisplayable>: View {
                     if hasAuthor || hasSource {
                         HStack(spacing: 8) {
                             if hasAuthor {
-                                Text(DisplayTextFormatter.titleCase(displayedAuthor(enabled: isTranslationEnabled)))
+                                Text(DisplayTextFormatter.titleCase(displayedAuthor))
                                     .font(.system(size: 13))
                                     .foregroundColor(.secondary)
                                     .lineLimit(1)
@@ -132,7 +127,7 @@ struct BookListItemView<Item: BookDisplayable>: View {
                         ? "Chương \(item.currentChapterIndex + 1)"
                         : item.currentChapterTitle
                     let chapterTitle = isTranslationEnabled
-                        ? translateChapterTitleIfNeeded(rawChapterTitle, bookId: item.bookId, enabled: isTranslationEnabled)
+                        ? translateChapterTitleIfNeeded(rawChapterTitle, bookId: item.bookId)
                         : rawChapterTitle
 
                     if !chapterTitle.isEmpty {
@@ -146,28 +141,9 @@ struct BookListItemView<Item: BookDisplayable>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .contentShape(Rectangle())
-        .onReceive(NotificationCenter.default.publisher(for: TranslationConfigStore.didChangeNotification)) { _ in
-            translationRevision &+= 1
-        }
     }
 
-    /// Cờ dịch **của truyện trên dòng này** (Truyện > Nguồn > Toàn cục), không phải công tắc dịch toàn app. Gọi một lần
-    /// mỗi body; đọc `translationRevision`/`globalTranslationEnabled` để SwiftUI vẽ lại khi cấu hình đổi.
-    private func resolveTranslationEnabled() -> Bool {
-        _ = translationRevision
-        _ = globalTranslationEnabled
-        let config = TranslationConfigSnapshot.current()
-        if let book = item as? Book {
-            // Cùng cặp khoá Reader dùng (`bookId` + `extensionPackageId` của sách) để danh sách khớp nội dung đang đọc.
-            return config.isTranslationEnabled(bookId: book.bookId, packageId: book.extensionPackageId)
-        }
-        // Item chưa lưu (`ExtensionItemResult`): `bookId` là `link`, tra override theo các id truyện có thể mang.
-        let packageId = coverPackageId
-        let sourceName = ExtensionLibraryRepository.snapshot(packageId: packageId)?.name ?? ""
-        return config.source(packageId: packageId, sourceName: sourceName).isTranslationEnabled(itemLink: item.bookId)
-    }
-
-    private func translateIfNeeded(_ text: String, bookId: String? = nil, enabled isTranslationEnabled: Bool) -> String {
+    private func translateIfNeeded(_ text: String, bookId: String? = nil) -> String {
         guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
             return text
         }
@@ -182,12 +158,12 @@ struct BookListItemView<Item: BookDisplayable>: View {
         return ExtensionLibraryRepository.packageId(forLocalPath: extensionLocalPath) ?? ""
     }
 
-    private func displayedAuthor(enabled isTranslationEnabled: Bool) -> String {
+    private var displayedAuthor: String {
         guard isTranslationEnabled else { return item.author }
         return TranslateUtils.translateAuthorHanViet(item.author)
     }
 
-    private func translateChapterTitleIfNeeded(_ text: String, bookId: String, enabled isTranslationEnabled: Bool) -> String {
+    private func translateChapterTitleIfNeeded(_ text: String, bookId: String) -> String {
         guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
             return text
         }

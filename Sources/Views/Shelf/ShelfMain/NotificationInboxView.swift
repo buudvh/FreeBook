@@ -27,6 +27,7 @@ struct NotificationInboxView: View {
     /// là điều kiện để mở màn Thông báo sau khi khởi động lại không bị đơ (bài học 1.3.448).
     @ObservedObject var rephoneticizeNghi = RephoneticizeTask.nghiTTS
     @ObservedObject var rephoneticizeVieNeu = RephoneticizeTask.vieNeu
+    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
 
     /// Trạng thái cục bộ của khối "Gộp VietPhrase". Phải khai ở **file chính**: Swift không cho `@State`
     /// trong extension khác file, mà khối đó nằm ở `NotificationInboxView+Merge.swift` vì trần 400 dòng.
@@ -218,7 +219,7 @@ struct NotificationInboxView: View {
                         .font(.footnote.weight(.medium))
                         .foregroundColor(.orange)
                     if !record.latestChapterTitle.isEmpty {
-                        Text("Mới nhất: \(displayedChapterTitle(for: record, book: book))")
+                        Text("Mới nhất: \(displayedChapterTitle(for: record))")
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .lineLimit(1)
@@ -340,19 +341,19 @@ struct NotificationInboxView: View {
 
     private func bookTitle(for record: NewChapterRecord, book: Book?) -> String {
         if let title = book?.title, !title.isEmpty {
-            return TranslateUtils.translateBookTitleIfNeeded(title, bookId: record.bookId, packageId: book?.extensionPackageId)
+            return TranslateUtils.translateBookTitleIfNeeded(title, bookId: record.bookId)
         }
-        let fallback = displayedChapterTitle(for: record, book: book)
+        let fallback = displayedChapterTitle(for: record)
         return fallback.isEmpty ? "Truyện" : fallback
     }
 
     /// `latestChapterTitle` được `NewChapterProbe` lưu **nguyên văn** từ mục lục nguồn (thường là chữ
     /// Hán), nên phải dịch ở chỗ hiển thị — tên truyện ngay trên nó đã dịch từ trước, để một dòng chữ
-    /// Hán bên dưới là lệch. Chỉ dịch khi cờ dịch **của truyện đó** bật (theo truyện/nguồn, không theo công tắc toàn
-    /// app) và chuỗi thật sự có chữ Hán, nhờ vậy tên chương tiếng Việt/Anh không đi qua bộ dịch một cách vô ích.
-    private func displayedChapterTitle(for record: NewChapterRecord, book: Book?) -> String {
+    /// Hán bên dưới là lệch. Guard giống `BookListItemView`: chỉ dịch khi công tắc đang bật và chuỗi
+    /// thật sự có chữ Hán, nhờ vậy tên chương tiếng Việt/Anh không đi qua bộ dịch một cách vô ích.
+    private func displayedChapterTitle(for record: NewChapterRecord) -> String {
         let raw = record.latestChapterTitle
-        guard TranslateUtils.containsChinese(raw), TranslationConfigSnapshot.current().isTranslationEnabled(bookId: record.bookId, packageId: book?.extensionPackageId) else { return raw }
+        guard isTranslationEnabled, TranslateUtils.containsChinese(raw) else { return raw }
         return TranslateUtils.translateChapterTitle(raw, bookId: record.bookId)
     }
 

@@ -43,8 +43,7 @@ struct ExploreBannerView: View {
     }
 
     private func slide(_ item: ExploreItem) -> some View {
-        let translate = context.isTranslationEnabled(for: item)
-        return Color(.secondarySystemBackground)
+        Color(.secondarySystemBackground)
             .overlay {
                 RemoteCoverImage(url: item.cover, referer: context.referer(for: item), contentMode: .fill)
             }
@@ -58,17 +57,17 @@ struct ExploreBannerView: View {
             .overlay(alignment: .bottomLeading) {
                 VStack(alignment: .leading, spacing: 4) {
                     if !item.tag.isEmpty {
-                        CoverTagBadge(tag: context.display(item.tag, translating: translate), inset: 0)
+                        CoverTagBadge(tag: context.display(item.tag), inset: 0)
                     }
                     // Banner chỉ có ảnh (parser giữ item không tên) ⇒ không vẽ dòng tên rỗng.
                     if !item.name.isEmpty {
-                        Text(context.display(item.name, translating: translate))
+                        Text(context.display(item.name))
                             .font(.system(size: 17, weight: .bold))
                             .foregroundColor(.white)
                             .lineLimit(2)
                     }
                     if !item.description.isEmpty {
-                        Text(context.display(item.description.cleanHTML(), translating: translate))
+                        Text(context.display(item.description.cleanHTML()))
                             .font(.caption)
                             .foregroundColor(.white.opacity(0.8))
                             .lineLimit(1)

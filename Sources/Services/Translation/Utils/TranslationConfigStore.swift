@@ -160,24 +160,10 @@ public final class TranslationConfigStore: @unchecked Sendable {
     }
 
     public func resolveStatus(bookId: String?, packageId: String? = nil, isChineseSourceHint: Bool? = nil) -> ResolvedStatus {
-        resolve(
-            global: globalEnabled,
-            bookOverride: bookId.flatMap { getBookOverride(bookId: $0) } ?? .inherited,
-            sourceOverride: packageId.flatMap { getSourceOverride(packageId: $0) } ?? .inherited,
-            packageId: packageId,
-            isChineseSourceHint: isChineseSourceHint
-        )
-    }
+        let global = globalEnabled
+        let bOverride = bookId.flatMap { getBookOverride(bookId: $0) } ?? .inherited
+        let sOverride = packageId.flatMap { getSourceOverride(packageId: $0) } ?? .inherited
 
-    /// Thứ tự phân giải Truyện > Nguồn > Toàn cục trên các giá trị **đã đọc sẵn**. Dùng chung cho `resolveStatus` và
-    /// `TranslationConfigSnapshot` (danh sách dài chụp cấu hình một lần rồi phân giải từng dòng) — không chép lại.
-    func resolve(
-        global: Bool,
-        bookOverride bOverride: ScopeOverride,
-        sourceOverride sOverride: ScopeOverride,
-        packageId: String?,
-        isChineseSourceHint: Bool?
-    ) -> ResolvedStatus {
         if bOverride == .enabled {
             return ResolvedStatus(isEnabled: true, origin: .book, bookOverride: bOverride, sourceOverride: sOverride, globalEnabled: global)
         } else if bOverride == .disabled {
