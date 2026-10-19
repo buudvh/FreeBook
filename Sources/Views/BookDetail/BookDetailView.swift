@@ -303,7 +303,15 @@ struct BookDetailView: View {
             updateFilteredLocalChapters()
             updateFilteredOnlineChapters()
         }
-        .fullScreenCover(item: $readerRoute) { route in
+        // Reader đóng: màn này **không** chạy lại `onAppear` (cover phủ lên, không pop navigation), nên phải tự
+        // đọc lại danh sách cục bộ. Sách vừa được `startReading` tạo ⇒ `localBook` đã khác nil nhưng
+        // `chapterSnapshots`/`chaptersList` còn rỗng; không đồng bộ ở đây thì tab mục lục trắng (chỉ đọc DB,
+        // không gọi mạng — mục lục vừa được `startReading` ghi đủ).
+        .fullScreenCover(item: $readerRoute, onDismiss: {
+            syncChaptersList()
+            updateFilteredLocalChapters()
+            updateFilteredOnlineChapters()
+        }) { route in
             NavigationStack {
                 LazyView {
                     BookContentDestination(
@@ -932,11 +940,18 @@ struct BookDetailView: View {
                 let shouldPersistTOC = await MainActor.run {
                     self.isLoadingTOC = false
                     // "Tải thêm chương" đang/đã nối các trang sau vào `onlineChapters` (và tự ghi mục lục đầy đủ):
-                    // gán lại bằng trang 1 sẽ làm danh sách đó mất các trang giữa.
-                    if pages.count > 1 && (self.isLoadingRemainingPages || self.remainingPagesLoaded) { return false }
+                    // gán lại bằng trang 1 sẽ làm danh sách đó mất các trang giữa. Nhưng `onlineChapters` rỗng thì
+                    // bỏ qua = mục lục trắng, nên điều kiện phải có dữ liệu đang giữ.
+                    if !self.onlineChapters.isEmpty, pages.count > 1,
+                       self.isLoadingRemainingPages || self.remainingPagesLoaded {
+                        if self.tocPages.isEmpty { self.tocPages = pages }
+                        return false
+                    }
                     self.onlineChapters = firstPageChapters
                     self.tocPages = pages
                     self.loadedRemainingPageCount = 0
+                    // Chỉ có trang 1 ⇒ chưa đủ mục lục: mở lại nút "Tải thêm chương" thay vì giữ cờ đã đủ trang.
+                    if pages.count > 1 { self.remainingPagesLoaded = false }
                     return self.localBook != nil
                 }
 

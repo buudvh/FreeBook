@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.541] - 2026-10-19
+
+### fix: giữ mục lục ở chi tiết sau khi đọc ngay, đồng bộ lại khi đóng reader
+
+Người dùng: *"xảy ra lỗi khi bấm đọc ngay rồi back về dễ xảy ra trường hợp mất mục lục ở chi tiết … trên 1000 chương mất rồi có, trên 4000 thì mất luôn"*. Log `app_logs (172).txt` chốt được nguyên nhân.
+
+- **Bằng chứng log**: `[ChapterStore Save] mode=replaceFullTOC items=7243 stored=7243 … status=success` rồi `[ReaderBootstrap] totalChapters=7243 source=ChapterStore` ⇒ **DB không mất chương**. Sau `reader_disappear` không có dòng log nào (không `toc.js`, không lỗi) ⇒ màn Chi tiết không nạp lại.
+- **Nguyên nhân**: Reader mở bằng `.fullScreenCover(item: $readerRoute)` không có `onDismiss:` nên `onAppear` của màn Chi tiết không chạy lại khi cover đóng. Sách mới đọc lần đầu chỉ có mục lục trong RAM (`onlineChapters`); `chapterSnapshots` và `chaptersList` rỗng. `startReading` tạo sách ⇒ `localBook` khác nil, mà `BookDetailTOCView` chọn nguồn vẽ `chapterSnapshots` → `localBook != nil` → `filteredLocalChapters`, tức `Book.chapters` — **luôn rỗng** vì `enableSwiftDataTOCWrite = false` ⇒ 0 dòng, trong khi tiêu đề vẫn ghi số chương của `onlineChapters`.
+- **F1 — `BookDetailTOCView`**: nhánh `filteredLocalChapters` chỉ dùng khi danh sách **không rỗng**; còn lại rơi xuống `onlineChapters`. Không bao giờ bỏ danh sách đang giữ trong RAM.
+- **F2 — `BookDetailView`**: thêm `onDismiss:` cho `fullScreenCover` của Reader → `syncChaptersList()`, `updateFilteredLocalChapters()`, `updateFilteredOnlineChapters()`. Chỉ đọc DB, không gọi mạng (mục lục vừa được `startReading` ghi đủ).
+- **F3 — `loadTOCDataOnly`**: guard "Tải thêm chương đang chạy" chỉ bắn khi `onlineChapters` đã có dữ liệu (trước đây bắn cả khi rỗng ⇒ tắt `isLoadingTOC` mà không gán gì = màn trắng, không nút "Tải lại"); khi phải gán trang 1 của nguồn nhiều trang thì mở lại cờ `remainingPagesLoaded` để nút "Tải thêm chương" hiện lại.
+- **Kiểm chứng**: `swiftc -parse` hai file sạch; `check_architecture.py` 2 violation nền (`JSDom.swift`, `TTSManager.swift`), **0 mới**; `BookDetailView.swift` 1128/1201 dòng baseline. Không build tại chỗ (Windows) — CI chỉ xác nhận biên dịch.
+- Plan: `Docs/Plans/2026-10-19-plan-toc-loss-after-read.md`.
+
 ## [1.3.540] - 2026-10-19
 
 ### Revert "fix: mọi danh sách và tên truyện dịch theo cờ của truyện rồi tới nguồn"

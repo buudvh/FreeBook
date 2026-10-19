@@ -169,7 +169,10 @@ struct BookDetailTOCView: View {
                                     .buttonStyle(.plain)
                                 }
                             }
-                        } else if let book = localBook {
+                        } else if let book = localBook, !filteredLocalChapters.isEmpty {
+                            // `chaptersList` lấy từ `Book.chapters`, mà `enableSwiftDataTOCWrite = false` nên **luôn rỗng**:
+                            // sách vừa được tạo (bấm "Đọc ngay") có `localBook != nil` mà chưa nạp kịp `chapterSnapshots`
+                            // ⇒ nhánh này vẽ ra danh sách 0 dòng dù `onlineChapters` đang giữ đủ mục lục. Chỉ dùng khi có dữ liệu.
                             ForEach(filteredLocalChapters) { chap in
                                 Button(action: {
                                     onStartReading(chap.index)
