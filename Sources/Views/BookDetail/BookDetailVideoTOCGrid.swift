@@ -57,8 +57,8 @@ struct BookDetailVideoTOCGrid: View {
     private static let cellHeight: CGFloat = 46
     private static let spacing: CGFloat = 7
     /// Một nhóm dài hơn ngưỡng này sẽ bị cắt thành nhiều chip để không phải cuộn quá lâu.
-    private static let maxRowsPerGroup = 60
-    private static let chunkSize = 24
+    static let maxRowsPerGroup = 60
+    static let chunkSize = 24
 
     private let columns = Array(
         repeating: GridItem(.flexible(), spacing: BookDetailVideoTOCGrid.spacing),
