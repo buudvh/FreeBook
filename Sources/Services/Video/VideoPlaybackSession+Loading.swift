@@ -253,7 +253,7 @@ extension VideoPlaybackSession {
                 configJson: ext.configJson
             )
             guard isCurrent(generation) else { return }
-            let resolver = VideoSourceResolver()
+            let resolver = VideoSourceResolver(extensionPackageId: ext.packageId)
             self.resolver = resolver
             let resolution = try await resolver.resolveSource(track, extensionLocalPath: ext.localPath)
             guard isCurrent(generation) else { return }

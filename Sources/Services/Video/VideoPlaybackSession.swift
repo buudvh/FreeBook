@@ -46,11 +46,13 @@ final class VideoPlaybackSession {
     }
 
     /// Trang nhúng kèm hai header duy nhất được đưa tới trang (hợp đồng extension: chỉ `User-Agent` và `Referer`).
+    /// `userAgent` = **chỉ** header `User-Agent` tiện ích tự khai; `nil` ⇒ `VideoEmbedWebView` dùng UA theo chế độ
+    /// máy tính/điện thoại của tiện ích (`WebContentConfigurator`).
     enum EmbedContent: Equatable {
         /// `referer` đặt lên `URLRequest` của trang; `nil` = không gửi.
-        case page(URL, referer: String?, userAgent: String)
+        case page(URL, referer: String?, userAgent: String?)
         /// `loadHTMLString` không gắn được header ⇒ Referer của request con do `baseURL` quyết định.
-        case html(String, baseURL: URL?, userAgent: String)
+        case html(String, baseURL: URL?, userAgent: String?)
     }
 
     // MARK: - Trạng thái View đọc

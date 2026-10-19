@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.549] - 2026-10-19
+
+### feat: chặn quảng cáo theo bộ lọc AdGuard, chặn popup và chế độ máy tính cho webview
+
+Người dùng: *"tìm cách nâng cấp chặn quảng cáo trong trình duyệt của freebook… Thêm chế độ mở ở máy tính/điện thoại. bật/tắt chặn quảng cáo cho browser"*, *"có thể config chặn quảng cáo của aloha browser không"*; chốt qua `/grill-me` (plan `Docs/Plans/2026-10-19-plan-chan-quang-cao-trinh-duyet.md`, 3 mockup đã duyệt).
+
+- **Vì sao**: chặn cũ chỉ là 11 chuỗi tên miền (`isEngineDomainBlocked`) xét ở `decidePolicyFor` ⇒ chỉ huỷ được điều hướng trang/iframe; script, ảnh, XHR quảng cáo vẫn tải, và mọi `window.open` của trình duyệt mở thành tab mới. Aloha không lấy cấu hình được (mã đóng) nhưng dùng nguồn công khai: bộ lọc AdGuard.
+- **Bộ lọc** (`Sources/Services/Browser/AdBlock/`, 16 file): `WKContentRuleList` từ AdGuard bản tối ưu iOS — bật sẵn Base, Mobile Ads, ABPVN, Chinese; tắt sẵn Popups, Cookie Notices, Tracking. Chuyển đổi bằng **SafariConverterLib 4.3.1** (SPM mới, GPL-3.0 — app vốn đã GPL qua espeak-ng), mỗi bộ một rule list `adblock-<id>`, tự tải lại khi quá hạn `! Expires:` (5 ngày) + nút Cập nhật ngay. Bản đóng gói `Sources/Resources/AdBlock/` (4 bộ, `Scripts/update_adblock_snapshot.py`, `.gitattributes` giữ CRLF cho checksum; bỏ 3 dòng luật bên thứ ba chứa chuỗi bị cấm của repo).
+- **Chính sách** `WebContentPolicy` → `WebContentConfigurator`: trình duyệt = chỉnh riêng theo tên miền ?? cài đặt chung; webview tiện ích = `Extension.adBlockOverride ?? chung`, `desktopModeOverride ?? false`; UA track video tự khai thắng chế độ máy tính. Áp cho 5 webview (`BypassBrowserTabStore`, `WebViewLoader`, `VisibleWebViewController`, `VideoEmbedWebView`, `VideoMediaSniffer`), đều chuyển sang `decidePolicyFor:preferences:` để đặt `preferredContentMode`. Gemini/Google Drive giữ nguyên.
+- **Chặn popup** (trình duyệt, công tắc riêng): `createWebViewWith` không do bấm link (`!= .linkActivated`) sang tên miền khác ⇒ chặn + dải báo "Đã chặn cửa sổ bật lên" có nút Mở.
+- **UI**: nút khiên thay ổ khoá trong ô URL (bảng: Chặn quảng cáo / Xem bản máy tính — nhớ theo tên miền, nạp lại tab); màn **Cài đặt → Trình duyệt** (thay "Trình duyệt hiển thị": chặn QC, chặn popup, 7 bộ lọc + trạng thái, mặc định Điện thoại/Máy tính, trang đã chỉnh riêng, công tắc thu nhỏ cũ); **Cấu hình tiện ích → Trình duyệt** (`+WebContent`, lưu ngay).
+- **Dữ liệu**: `Extension` thêm `adBlockOverride`, `desktopModeOverride` (JSON, decode khoan dung; có trong sao lưu/khôi phục); `applicationSupportDirectory/adblock/` (Backup không gói); 4 khoá UserDefaults `web*`.
+- **Không làm**: scriptlet/extended CSS (đợt 2), bộ lọc tự thêm, đếm số quảng cáo đã chặn (WebKit không có API).
+- Chuyển entry `[1.3.519]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**; rà soát phản biện bằng agent (chữ ký API SafariConverterLib đối chiếu nguồn v4.3.1, caller của mọi init đổi chữ ký). Không build tại chỗ (Windows) — CI xác nhận biên dịch; **chưa thử trên máy**. Chưa chắc: tab `window.open` dùng chung `WKUserContentController` với tab mẹ, popup tạo bằng `a.click()` có bị báo `.linkActivated` không, và nếu chữ ký `decidePolicyFor:preferences:` lệch SDK thì WebKit không gọi (CI vẫn xanh) — kiểm trên máy theo §8 plan.
+
 ## [1.3.548] - 2026-10-19
 
 ### feat: thanh công cụ trên bàn phím cho mọi ô nhập, chọn tự tắt bàn phím
@@ -633,16 +649,3 @@ Người dùng (4 phiên `/grill-me` + `/push-ci-monitor`): tạo màn log riên
 - `rules.md`: §5.9 trỏ màn log mới + `detail`/`live`/`FD_CLOEXEC`; cây thư mục thêm `Diagnostics/`.
 - Chuyển entry `[1.3.490]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code + review phản biện; `check_architecture.py` 2 vi phạm nền cũ (JSDom, TTSManager), 0 mới; mọi file mới ≤ 320 dòng, một type chính. **Không build tại chỗ** (Windows) — CI. Không đụng `Tests/`.
-
-## [1.3.519] - 2026-10-12
-
-### fix(toc): doc duoc toc_rules.json kieu cu thieu truong replace/isRegex
-
-Người dùng: *"fix ❌ Lỗi decode file toc_rules.json, fallback về defaultTOCRules"* (dòng lỗi lộ ra nhờ 1.3.517 luôn ghi log ❌), kèm file `toc_rules_config_CADD841F.json`. Plan duyệt trong chat.
-
-- **Nguyên nhân**: `TOCRule` ban đầu (2026-07-04) chỉ có `id, name, rule, example, enabled`; refactor 2026-08-13 (`688b57ee`) thêm `replace: String` và `isRegex: Bool` **bắt buộc** (không dùng ở logic mục lục nào) nên decoder tự sinh đòi đủ 7 khoá. `translate/toc_rules.json` ghi từ bản cũ thiếu 2 khoá ⇒ mỗi lần đọc đều decode hỏng, app lẳng lặng dùng `defaultTOCRules` và **bỏ qua rule người dùng đã chỉnh**. Cùng lỗi làm nhập file rule kiểu cũ báo "JSON không hợp lệ" (`validateImportedTOCRules`) và khôi phục bản sao lưu cũ báo lỗi phần quy tắc mục lục. File người dùng gửi decode bình thường — đó là bộ 21 rule mặc định xuất ra sau khi app đã rơi về mặc định.
-- **Sửa (`Models/Translation/TOCRule.swift`)**: `init(from:)` + `CodingKeys` tường minh — `id`, `name`, `rule` vẫn bắt buộc; thiếu `enabled` ⇒ `true`, `replace` ⇒ `""`, `isRegex` ⇒ `true` (đúng mặc định của `init`). Ghi file giữ nguyên đủ 7 khoá (encode tự sinh). Một chỗ sửa chữa cả 3 đường: đọc lúc chạy, nhập file, khôi phục sao lưu.
-- **Log**: dòng `❌ Lỗi decode file toc_rules.json` in thêm lý do (`TranslateUtils.tocRulesDecodeFailureReason(at:)` trong `TranslateUtils+TOCRuleValidation.swift`, chỉ chạy ở nhánh đã hỏng). Sửa trên dòng có sẵn: `TranslateUtils.swift` giữ 917 dòng (baseline).
-- **Hệ quả**: rule tự chỉnh trong file cũ có hiệu lực trở lại thay cho bộ mặc định; file cũ có thể thiếu rule mặc định thêm về sau — muốn bộ mới nhất thì "Khôi phục mặc định" ở màn Quy tắc mục lục.
-- Chuyển entry `[1.3.489]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ (JSDom, TTSManager), 0 mới. **Không build tại chỗ** (Windows), cần CI. Không đụng `Tests/`.

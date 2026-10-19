@@ -77,9 +77,9 @@ extension VideoPlaybackSession {
             attach(asset: made.asset, track: track, generation: generation)
         case .embed(let url, let html, let baseURL):
             // Hợp đồng `VideoPlaybackPlan.embed`: có `url` thì nạp URL, không thì nạp `html` với `baseURL`.
-            // Chỉ `User-Agent` và `Referer` (của `track.headers`) tới được trang; thiếu thì UA iPhone Safari
-            // dùng chung và Referer = trang/host chứa khung nhúng.
-            let userAgent = Self.headerValue("User-Agent", in: track.headers) ?? VideoMediaSniffer.userAgent
+            // Chỉ `User-Agent` và `Referer` (của `track.headers`) tới được trang; thiếu UA thì `VideoEmbedWebView` dùng UA
+            // theo chế độ máy tính/điện thoại của tiện ích, thiếu Referer thì Referer = trang/host chứa khung nhúng.
+            let userAgent = Self.headerValue("User-Agent", in: track.headers)
             if let url {
                 let referer = Self.headerValue("Referer", in: track.headers) ?? baseURL?.absoluteString
                 embedContent = .page(url, referer: referer, userAgent: userAgent)

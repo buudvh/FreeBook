@@ -4,8 +4,9 @@ import SwiftData
 /// Màn **Cấu hình tiện ích**: thẻ đầu (giới thiệu + Trình duyệt · Ghim · Gỡ) rồi các nhóm cài đặt **tự lưu**.
 ///
 /// Không còn nút "Lưu"/"Hủy" — chỉ "Đóng". Mỗi nhóm ghi ngay qua `ExtensionTransactionCoordinator`:
-/// biến cấu hình + cookie ở `ExtensionConfigView+GlobalConfig`, lịch sử + 18+ ở `+History`/`+Nsfw`, gỡ ở
-/// `+Uninstall`, trình duyệt của nguồn ở `+Browser`. Khối `plugin.json` nằm ở màn con `ExtensionMetadataScreen`.
+/// biến cấu hình + cookie ở `ExtensionConfigView+GlobalConfig`, lịch sử + 18+ ở `+History`/`+Nsfw`, chặn quảng cáo
+/// + chế độ máy tính của webview ở `+WebContent`, gỡ ở `+Uninstall`, trình duyệt của nguồn ở `+Browser`. Khối
+/// `plugin.json` nằm ở màn con `ExtensionMetadataScreen`.
 ///
 /// Mọi `@State` để `internal`: các file `+` là extension ở file khác, mà `private` chỉ có phạm vi **file**.
 /// `onImport` có mặc định `nil` nên Quản lý tiện ích và màn TTS vẫn gọi `ExtensionConfigView(ext:)` như cũ.
@@ -123,6 +124,7 @@ struct ExtensionConfigView: View {
 
             globalConfigSection // tự lưu — `ExtensionConfigView+GlobalConfig`
             browsingAndHistorySection // tự lưu khi bấm — `ExtensionConfigView+History` / `+Nsfw`
+            webContentSection // tự lưu khi bấm — `ExtensionConfigView+WebContent`
             networkSection // tự lưu — `ExtensionConfigView+GlobalConfig`
 
             Section(header: Text("Nâng cao")) {

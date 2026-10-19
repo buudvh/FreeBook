@@ -15,16 +15,25 @@ public final class VisibleWebViewController: UIViewController, WKNavigationDeleg
     internal var targetUrlsToWait: [String]?
     /// Trần `interceptedUrls` (bỏ URL cũ nhất khi đầy); nâng từ 200 vì giờ chứa cả request XHR/fetch/media.
     internal static let maxRecordedUrls = 1000
+    /// Chặn QC / chế độ máy tính theo tiện ích. Không có tiện ích (đăng nhập Gemini) ⇒ `.excluded`: không luật, UA
+    /// iPhone như cũ.
+    internal let contentDecision: WebContentDecision
+    /// Cổng 11 tên miền (`isEngineDomainBlocked`) ở `decidePolicyFor`: theo chặn QC của tiện ích; không có tiện ích thì
+    /// giữ nguyên hành vi cũ (luôn xét) vì webview đăng nhập nằm ngoài phạm vi chặn quảng cáo.
+    internal let appliesEngineDomainGate: Bool
 
-    init(title: String) {
+    init(title: String, extensionLocalPath: String? = nil) {
         self.titleString = title
         let config = WKWebViewConfiguration()
         config.mediaTypesRequiringUserActionForPlayback = .all
         self.webView = WKWebView(frame: .zero, configuration: config)
+        let decision = WebContentPolicy.decision(forExtensionLocalPath: extensionLocalPath)
+        self.contentDecision = decision
+        self.appliesEngineDomainGate = extensionLocalPath == nil ? true : decision.adBlock
         super.init(nibName: nil, bundle: nil)
         FileDescriptorCensus.trackLive("VisibleWebView", 1)
         self.webView.navigationDelegate = self
-        self.webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+        WebContentConfigurator.apply(decision, to: webView)  // luật chặn QC + UA (mobile/desktop)
         // Browser hiện của ext không autoplay (giữ `.all`), chỉ bắt request cho `urls()` / `waitUrl`.
         WebNetworkCaptureScript.install(into: webView.configuration.userContentController, mediaMode: false) { [weak self] url, _ in
             self?.recordCapturedRequest(url)
@@ -75,7 +84,10 @@ public final class VisibleWebViewController: UIViewController, WKNavigationDeleg
         return false
     }
 
-    public func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+    public func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, preferences: WKWebpagePreferences, decisionHandler: @escaping (WKNavigationActionPolicy, WKWebpagePreferences) -> Void) {
+        if navigationAction.targetFrame?.isMainFrame == true {
+            preferences.preferredContentMode = WebContentConfigurator.contentMode(for: contentDecision)
+        }
         if let url = navigationAction.request.url {
             let urlString = url.absoluteString
             if interceptedUrls.count >= Self.maxRecordedUrls {
@@ -83,13 +95,14 @@ public final class VisibleWebViewController: UIViewController, WKNavigationDeleg
             }
             interceptedUrls.append(urlString)
 
-            if isEngineDomainBlocked(urlString) || isDynamicDomainBlocked(urlString) {
-                decisionHandler(.cancel)
+            // Luật script tiện ích khai (`Engine.block`) luôn xét; mọi khung dùng chung decision của browser.
+            if (appliesEngineDomainGate && isEngineDomainBlocked(urlString)) || isDynamicDomainBlocked(urlString) {
+                decisionHandler(.cancel, preferences)
                 return
             }
             checkWaitUrl(urlString, allowSubstring: true)  // cả điều hướng iframe
         }
-        decisionHandler(.allow)
+        decisionHandler(.allow, preferences)
     }
 
     /// Request XHR/fetch/media do `WebNetworkCaptureScript` báo về: gộp vào `interceptedUrls` (không trùng) để

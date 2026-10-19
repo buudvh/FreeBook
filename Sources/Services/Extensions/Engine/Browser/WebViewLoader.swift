@@ -61,6 +61,10 @@ class WebViewLoader: NSObject, WKNavigationDelegate {
     internal var capturedRequestUrls: [String] = []  // XHR/fetch/media, xem `+NetworkCapture`
     internal var capturedRequestUrlSet = Set<String>()
     internal var dynamicBlockedPatterns: [String] = []
+    /// Chặn QC / chế độ máy tính theo tiện ích, tính một lần lúc tạo browser (đổi cài đặt áp từ browser kế tiếp).
+    internal let contentDecision: WebContentDecision
+    /// Cổng 11 tên miền (`isEngineDomainBlocked`): theo chặn QC của tiện ích; không có tiện ích thì luôn xét (như cũ).
+    internal let appliesEngineDomainGate: Bool
 
     internal var waitForReadyCompletion: ((String) -> Void)?
     internal var isWaitingForReady = false
@@ -124,15 +128,24 @@ class WebViewLoader: NSObject, WKNavigationDelegate {
         if allowsAutoplay { config.allowsInlineMediaPlayback = true }
 
         self.webView = WKWebView(frame: allowsAutoplay ? WebViewLoader.mediaFrame : .zero, configuration: config)
+        let decision = WebContentPolicy.decision(forExtensionLocalPath: extensionLocalPath)
+        self.contentDecision = decision
+        // Không có tiện ích (ngoài phạm vi chặn QC) ⇒ giữ hành vi cũ: luôn xét cổng 11 tên miền.
+        self.appliesEngineDomainGate = extensionLocalPath == nil ? true : decision.adBlock
         super.init()
         FileDescriptorCensus.trackLive("WebViewLoader", 1)
         self.webView.navigationDelegate = self
-        self.webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+        WebContentConfigurator.apply(contentDecision, to: webView)  // luật chặn QC + UA (mobile/desktop)
         installNetworkCapture(mediaMode: allowsAutoplay)
         if allowsAutoplay { attachToHiddenWindow() }
     }
 
-    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+    /// Cổng 11 tên miền chỉ khi tiện ích bật chặn QC (mọi khung dùng chung `contentDecision`); luật script tiện ích
+    /// khai (`Engine.block`) luôn xét.
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, preferences: WKWebpagePreferences, decisionHandler: @escaping (WKNavigationActionPolicy, WKWebpagePreferences) -> Void) {
+        if navigationAction.targetFrame?.isMainFrame == true {
+            preferences.preferredContentMode = WebContentConfigurator.contentMode(for: contentDecision)
+        }
         if let url = navigationAction.request.url {
             let urlString = url.absoluteString
             if !interceptedUrls.contains(urlString) {
@@ -140,13 +153,13 @@ class WebViewLoader: NSObject, WKNavigationDelegate {
                     interceptedUrls.append(urlString)
                 }
             }
-            if isEngineDomainBlocked(urlString) || isDynamicDomainBlocked(urlString) {
-                decisionHandler(.cancel)
+            if (appliesEngineDomainGate && isEngineDomainBlocked(urlString)) || isDynamicDomainBlocked(urlString) {
+                decisionHandler(.cancel, preferences)
                 return
             }
             completePendingWaitUrl(ifMatching: urlString, allowSubstring: true)  // cả điều hướng iframe
         }
-        decisionHandler(.allow)
+        decisionHandler(.allow, preferences)
     }
 
     internal func isDynamicDomainBlocked(_ urlString: String) -> Bool {

@@ -110,6 +110,11 @@ struct MainTabView: View {
         .task(priority: .utility) {
             await runStaleBookCleanupIfDue(container: modelContext.container)
         }
+        // Nạp/biên dịch bộ lọc quảng cáo (lần đầu vài giây CPU nền, sau đó chỉ tra lại) rồi tự cập nhật bộ quá hạn.
+        // Gọi nhiều lần vô hại (`warmUp` chỉ chạy một lần). Webview mở trước khi xong thì chưa có luật ở lượt đó.
+        .task(priority: .utility) {
+            await AdBlockRuleListProvider.shared.warmUp()
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 // Bản xuất hoàn thành lúc app ở background: share sheet không trình bày được, được giữ lại

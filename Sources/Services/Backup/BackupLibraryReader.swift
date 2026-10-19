@@ -143,7 +143,9 @@ public struct BackupLibraryReader {
                     lastUsedAt: ext.lastUsedAt,
                     isNsfw: ext.isNsfw,
                     savesHistory: ext.savesHistory,
-                    nsfwOverride: ext.nsfwOverride
+                    nsfwOverride: ext.nsfwOverride,
+                    adBlockOverride: ext.adBlockOverride,
+                    desktopModeOverride: ext.desktopModeOverride
                 )
             }
     }

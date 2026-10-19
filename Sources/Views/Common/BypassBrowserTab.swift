@@ -7,9 +7,10 @@ import WebKit
 ///
 /// Tab nền vẫn tự cập nhật tiêu đề/URL vì observer thuộc chính tab, không thuộc
 /// `UIViewRepresentable` — nhờ vậy đổi tab không mất trạng thái.
+///
+/// User-Agent, luật chặn quảng cáo và chế độ máy tính **không** gán ở đây: `BypassBrowserTabStore` áp qua
+/// `WebContentConfigurator` (theo tên miền) ngay khi tạo tab và ở mỗi điều hướng khung chính.
 final class BypassBrowserTab: ObservableObject, Identifiable {
-    static let mobileUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
-
     let id: String
     let webView: WKWebView
 
@@ -19,6 +20,17 @@ final class BypassBrowserTab: ObservableObject, Identifiable {
     @Published var progress: Double = 0.0
     @Published var canGoBack: Bool = false
     @Published var canGoForward: Bool = false
+
+    /// Trạng thái luật/UA/chế độ hiển thị đã áp lên `webView` lần gần nhất (`nil` = chưa áp hoặc đã mất hiệu lực vì
+    /// tab khác dùng chung `WKUserContentController` vừa đổi luật). Không `@Published`: View không vẽ theo nó.
+    var appliedState: WebContentAppliedState?
+    /// Rule list (định danh đối tượng) gắn ở lần áp gần nhất. Bộ lọc biên dịch xong muộn / bật-tắt / cập nhật làm bộ
+    /// này lệch ⇒ điều hướng khung chính kế tiếp gắn lại (không huỷ + nạp lại), vì `appliedState` không đổi.
+    var appliedRuleListIds: [ObjectIdentifier] = []
+    /// Chống lặp cancel + nạp lại (R1): URL tab vừa tự nạp lại sau khi phải đổi luật/UA. Còn giá trị ⇒ chuỗi điều
+    /// hướng hiện tại đã dùng lượt cancel duy nhất, mọi điều hướng khung chính tiếp theo (kể cả chuyển hướng của
+    /// server) chỉ áp rồi cho qua. Xoá khi trang commit hoặc lỗi tải.
+    var policyReloadURL: URL?
 
     /// URL cần nạp khi tab được hiển thị lần đầu. `nil` với tab do WebKit tự nạp
     /// (`window.open` / `target="_blank"`) — nạp lại tay sẽ làm hỏng navigation.
@@ -37,7 +49,6 @@ final class BypassBrowserTab: ObservableObject, Identifiable {
         self.urlString = initialUrl?.absoluteString ?? ""
         self.pendingUrl = initialUrl
         webView.allowsBackForwardNavigationGestures = true
-        webView.customUserAgent = Self.mobileUserAgent
         attachObservers()
     }
 

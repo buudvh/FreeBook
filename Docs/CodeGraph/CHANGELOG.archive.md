@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.519] - 2026-10-12
+
+### fix(toc): doc duoc toc_rules.json kieu cu thieu truong replace/isRegex
+
+Người dùng: *"fix ❌ Lỗi decode file toc_rules.json, fallback về defaultTOCRules"* (dòng lỗi lộ ra nhờ 1.3.517 luôn ghi log ❌), kèm file `toc_rules_config_CADD841F.json`. Plan duyệt trong chat.
+
+- **Nguyên nhân**: `TOCRule` ban đầu (2026-07-04) chỉ có `id, name, rule, example, enabled`; refactor 2026-08-13 (`688b57ee`) thêm `replace: String` và `isRegex: Bool` **bắt buộc** (không dùng ở logic mục lục nào) nên decoder tự sinh đòi đủ 7 khoá. `translate/toc_rules.json` ghi từ bản cũ thiếu 2 khoá ⇒ mỗi lần đọc đều decode hỏng, app lẳng lặng dùng `defaultTOCRules` và **bỏ qua rule người dùng đã chỉnh**. Cùng lỗi làm nhập file rule kiểu cũ báo "JSON không hợp lệ" (`validateImportedTOCRules`) và khôi phục bản sao lưu cũ báo lỗi phần quy tắc mục lục. File người dùng gửi decode bình thường — đó là bộ 21 rule mặc định xuất ra sau khi app đã rơi về mặc định.
+- **Sửa (`Models/Translation/TOCRule.swift`)**: `init(from:)` + `CodingKeys` tường minh — `id`, `name`, `rule` vẫn bắt buộc; thiếu `enabled` ⇒ `true`, `replace` ⇒ `""`, `isRegex` ⇒ `true` (đúng mặc định của `init`). Ghi file giữ nguyên đủ 7 khoá (encode tự sinh). Một chỗ sửa chữa cả 3 đường: đọc lúc chạy, nhập file, khôi phục sao lưu.
+- **Log**: dòng `❌ Lỗi decode file toc_rules.json` in thêm lý do (`TranslateUtils.tocRulesDecodeFailureReason(at:)` trong `TranslateUtils+TOCRuleValidation.swift`, chỉ chạy ở nhánh đã hỏng). Sửa trên dòng có sẵn: `TranslateUtils.swift` giữ 917 dòng (baseline).
+- **Hệ quả**: rule tự chỉnh trong file cũ có hiệu lực trở lại thay cho bộ mặc định; file cũ có thể thiếu rule mặc định thêm về sau — muốn bộ mới nhất thì "Khôi phục mặc định" ở màn Quy tắc mục lục.
+- Chuyển entry `[1.3.489]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ (JSDom, TTSManager), 0 mới. **Không build tại chỗ** (Windows), cần CI. Không đụng `Tests/`.
+
 ## [1.3.518] - 2026-10-12
 
 ### perf(log): ghi log o luong nen, tu chia file log 2 MB, xuat va xoa tat ca file log

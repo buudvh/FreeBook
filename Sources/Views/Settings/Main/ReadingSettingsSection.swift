@@ -7,7 +7,8 @@ struct ReadingSettingsSection: View {
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     /// `TTSManager` ghi khoá này mỗi khi đổi engine; mặc định `"system"` giống `TTSManager.init`.
     @AppStorage("ttsTool") private var ttsTool = "system"
-    @AppStorage(VisibleBrowserSettings.openMinimizedKey) private var openBrowserMinimized = false
+    /// Mặc định `true` khớp `WebContentSettings.registerDefaults()`.
+    @AppStorage(WebContentSettings.adBlockEnabledKey) private var adBlockEnabled = true
 
     var body: some View {
         Section(header: Text("Đọc & Nghe")) {
@@ -28,11 +29,11 @@ struct ReadingSettingsSection: View {
             NavigationLink(destination: AISettingsView()) {
                 Label("Trợ lý AI", systemImage: "sparkles")
             }
-            NavigationLink(destination: VisibleBrowserSettingsView()) {
+            NavigationLink(destination: BrowserSettingsView()) {
                 LabeledContent {
-                    Text(openBrowserMinimized ? "Thu nhỏ" : "Toàn màn hình")
+                    Text(adBlockEnabled ? "Chặn QC: Bật" : "Chặn QC: Tắt")
                 } label: {
-                    Label("Trình duyệt hiển thị", systemImage: "globe")
+                    Label("Trình duyệt", systemImage: "globe")
                 }
             }
         }

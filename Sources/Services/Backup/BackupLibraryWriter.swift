@@ -134,6 +134,19 @@ public struct BackupLibraryWriter {
                ) {
                 report.errors.append("Đánh dấu 18+ \(record.name): \(error.localizedDescription)")
             }
+            // Chặn quảng cáo / chế độ máy tính của webview tiện ích: cùng luật — chỉ áp khi máy này chưa tự chọn.
+            if let adBlock = record.adBlockOverride, ext.adBlockOverride == nil,
+               case .failure(let error) = ExtensionTransactionCoordinator.shared.setAdBlockOverride(
+                   packageId: record.packageId, adBlock
+               ) {
+                report.errors.append("Chặn quảng cáo \(record.name): \(error.localizedDescription)")
+            }
+            if let desktop = record.desktopModeOverride, ext.desktopModeOverride == nil,
+               case .failure(let error) = ExtensionTransactionCoordinator.shared.setDesktopModeOverride(
+                   packageId: record.packageId, desktop
+               ) {
+                report.errors.append("Chế độ máy tính \(record.name): \(error.localizedDescription)")
+            }
         }
         return report
     }

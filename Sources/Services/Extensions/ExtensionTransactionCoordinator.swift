@@ -233,6 +233,17 @@ public final class ExtensionTransactionCoordinator {
         mutateInstalled(packageId: packageId) { $0.nsfwOverride = override }
     }
 
+    /// Bật (`true`) / tắt (`false`) chặn quảng cáo cho webview của tiện ích; `nil` = "Dùng cài đặt chung". Ghi
+    /// **ngay** vào bản ghi, không qua `configJson`. Áp từ lượt nạp trang kế tiếp (`WebContentPolicy`).
+    public func setAdBlockOverride(packageId: String, _ value: Bool?) -> Result<Void, ExtensionTransactionError> {
+        mutateInstalled(packageId: packageId) { $0.adBlockOverride = value }
+    }
+
+    /// Chế độ máy tính cho webview của tiện ích. Công tắc tắt phải truyền `nil` (khớp mặc định điện thoại).
+    public func setDesktopModeOverride(packageId: String, _ value: Bool?) -> Result<Void, ExtensionTransactionError> {
+        mutateInstalled(packageId: packageId) { $0.desktopModeOverride = value }
+    }
+
     /// Đánh dấu vừa **duyệt chủ động** bằng nguồn này (chọn nguồn Khám phá, tìm bằng một nguồn, mở chi tiết).
     /// Ghi file gom ~3 s.
     @discardableResult

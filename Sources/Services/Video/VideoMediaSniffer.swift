@@ -13,6 +13,7 @@ import WebKit
 /// - WebView được gắn vào cửa sổ ẩn (`GeminiWebHiddenWindowHost`): WKWebView ngoài window bị WebKit tạm dừng tiến
 ///   trình WebContent và chặn phát media. Giải phóng ngay khi có kết quả, hết giờ hoặc bị huỷ.
 /// - Mỗi sniffer phục vụ một lượt `sniff` tại một thời điểm; gọi lại sẽ huỷ lượt cũ.
+/// - Chặn QC / chế độ máy tính theo tiện ích (`extensionPackageId`), tính ở mỗi lượt `sniff`.
 @MainActor
 final class VideoMediaSniffer: NSObject, WKNavigationDelegate {
     struct Result: Sendable {
@@ -51,7 +52,8 @@ final class VideoMediaSniffer: NSObject, WKNavigationDelegate {
     private static let hlsCollectWindow: TimeInterval = 1.5
     /// Số m3u8 tối đa đem đi tải để phân loại.
     private static let maxHLSCandidates = 6
-    /// Cùng UA với `fetch` của ext (`JSExecutor`) và `WebViewLoader`.
+    /// Cùng UA với `fetch` của ext (`JSExecutor`); chỉ dùng cho header ứng viên (`makeResult`) — UA của webview dò do
+    /// `WebContentConfigurator` gán theo chế độ của tiện ích.
     static let userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
     private static let progressiveExtensions: Set<String> = ["mp4", "m4v", "webm", "mov"]
     private static let playProbeScript = """
@@ -65,6 +67,9 @@ final class VideoMediaSniffer: NSObject, WKNavigationDelegate {
     """
 
     private let windowHost = GeminiWebHiddenWindowHost()
+    private let extensionPackageId: String?
+    /// Decision của lượt `sniff` đang chạy — mọi frame dùng chung (cổng 11 tên miền chỉ khi chặn QC bật).
+    private var contentDecision = WebContentPolicy.decision(for: .excluded)
     private var webView: WKWebView?
     private var continuation: CheckedContinuation<Result?, Error>?
     private var pageURL: URL?
@@ -78,6 +83,12 @@ final class VideoMediaSniffer: NSObject, WKNavigationDelegate {
     private var playlistProbeTask: Task<Void, Never>?
     /// Đang tải/phân loại playlist ứng viên: không nhận ứng viên mới, không chốt lần hai.
     private var isProbingPlaylists = false
+
+    /// `extensionPackageId`: tiện ích của track (`nil` ⇒ chặn QC theo cài đặt chung, điện thoại).
+    init(extensionPackageId: String? = nil) {
+        self.extensionPackageId = extensionPackageId
+        super.init()
+    }
 
     /// `nil` = không thấy link media; huỷ (`cancel()` hoặc Task bị huỷ) thì ném `CancellationError`.
     func sniff(_ page: Page) async throws -> Result? {
@@ -121,7 +132,8 @@ final class VideoMediaSniffer: NSObject, WKNavigationDelegate {
         }
 
         let view = WKWebView(frame: CGRect(x: 0, y: 0, width: 390, height: 844), configuration: config)
-        view.customUserAgent = Self.userAgent
+        contentDecision = WebContentPolicy.decision(for: .extensionContent(packageId: extensionPackageId))
+        WebContentConfigurator.apply(contentDecision, to: view)
         view.navigationDelegate = self
         view.isUserInteractionEnabled = false
         windowHost.attach(view)
@@ -318,18 +330,22 @@ final class VideoMediaSniffer: NSObject, WKNavigationDelegate {
     func webView(
         _ webView: WKWebView,
         decidePolicyFor navigationAction: WKNavigationAction,
-        decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+        preferences: WKWebpagePreferences,
+        decisionHandler: @escaping (WKNavigationActionPolicy, WKWebpagePreferences) -> Void
     ) {
+        if navigationAction.targetFrame?.isMainFrame == true {
+            preferences.preferredContentMode = WebContentConfigurator.contentMode(for: contentDecision)
+        }
         guard let url = navigationAction.request.url else {
-            decisionHandler(.allow)
+            decisionHandler(.allow, preferences)
             return
         }
-        if isEngineDomainBlocked(url.absoluteString) {
-            decisionHandler(.cancel)
+        if contentDecision.adBlock, isEngineDomainBlocked(url.absoluteString) {
+            decisionHandler(.cancel, preferences)
             return
         }
         consider(url.absoluteString, frameURL: pageURL, kind: nil)
-        decisionHandler(.allow)
+        decisionHandler(.allow, preferences)
     }
 
     func webView(

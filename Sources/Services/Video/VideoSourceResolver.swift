@@ -40,6 +40,8 @@ public final class VideoSourceResolver {
     }
 
     private var sniffer: VideoMediaSniffer?
+    /// Tiện ích của track — webview dò media áp chặn QC / chế độ máy tính theo nó.
+    private let extensionPackageId: String?
     /// Tăng mỗi lần `resolve`/`cancel`; lượt cũ thấy lệch thì ném `CancellationError` (lượt mới nhất thắng).
     private var generation = 0
 
@@ -48,7 +50,9 @@ public final class VideoSourceResolver {
         options: [.caseInsensitive]
     )
 
-    public init() {}
+    public init(extensionPackageId: String? = nil) {
+        self.extensionPackageId = extensionPackageId
+    }
 
     /// `extensionLocalPath` dùng để lấy `metadata.source` trong `plugin.json` làm base khi track không có `host`.
     public func resolve(_ track: VideoTrack, extensionLocalPath: String) async throws -> VideoPlaybackPlan {
@@ -214,7 +218,7 @@ public final class VideoSourceResolver {
 
     private func sniff(_ page: VideoMediaSniffer.Page, generation: Int) async throws -> VideoMediaSniffer.Result? {
         try ensureCurrent(generation)
-        let sniffer = VideoMediaSniffer()
+        let sniffer = VideoMediaSniffer(extensionPackageId: extensionPackageId)
         self.sniffer = sniffer
         defer {
             if self.sniffer === sniffer { self.sniffer = nil }

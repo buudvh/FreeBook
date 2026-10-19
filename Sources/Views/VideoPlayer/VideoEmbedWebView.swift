@@ -7,11 +7,16 @@ import WebKit
 /// `updateUIView` chạy theo mỗi lần màn cha vẽ lại ⇒ so với nội dung đã nạp trong Coordinator,
 /// chỉ nạp lại khi thật sự đổi trang. Trang chỉ nhận `User-Agent` và `Referer` (hợp đồng extension), lấy từ `EmbedContent`.
 ///
+/// Chặn QC / chế độ máy tính theo tiện ích (`extensionPackageId`, tính lại mỗi lần nạp trang mới); UA tiện ích tự khai
+/// thắng chế độ máy tính, không khai thì UA theo chế độ (iPhone/macOS).
+///
 /// `pauseRequest` (`VideoPlaybackSession.embedPauseRequest`) đổi ⇒ dừng mọi media của trang (TTS bắt đầu đọc); giá
 /// trị lúc tạo WebView chỉ làm mốc, không dừng.
 struct VideoEmbedWebView: UIViewRepresentable {
     let content: VideoPlaybackSession.EmbedContent
     let pauseRequest: Int
+    /// Tiện ích của phim (`VideoPlaybackSession.launch?.extensionPackageId`); `nil` ⇒ chặn QC theo cài đặt chung.
+    let extensionPackageId: String?
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -30,11 +35,13 @@ struct VideoEmbedWebView: UIViewRepresentable {
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.navigationDelegate = context.coordinator
         context.coordinator.appliedPauseRequest = pauseRequest
+        context.coordinator.extensionPackageId = extensionPackageId
         context.coordinator.load(content, into: webView)
         return webView
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
+        context.coordinator.extensionPackageId = extensionPackageId
         context.coordinator.load(content, into: webView)
         if context.coordinator.appliedPauseRequest != pauseRequest {
             context.coordinator.appliedPauseRequest = pauseRequest
@@ -51,11 +58,15 @@ struct VideoEmbedWebView: UIViewRepresentable {
         coordinator.reset()
     }
 
-    /// Chặn quảng cáo chuyển hướng: domain trong danh sách chặn chung (`isEngineDomainBlocked`) bị huỷ ở mọi frame;
-    /// sau khi trang đầu nạp xong, khung chính (main frame) không được rời host của trang đó — iframe vẫn tự do.
+    /// Chặn quảng cáo chuyển hướng: domain trong danh sách chặn chung (`isEngineDomainBlocked`) bị huỷ ở mọi frame
+    /// khi tiện ích bật chặn QC; sau khi trang đầu nạp xong, khung chính (main frame) không được rời host của trang đó —
+    /// iframe vẫn tự do.
     final class Coordinator: NSObject, WKNavigationDelegate {
         /// Lượt yêu cầu dừng media đã áp dụng (`VideoEmbedWebView.pauseRequest`).
         var appliedPauseRequest = 0
+        var extensionPackageId: String?
+        /// Decision đã áp cho trang đang nạp — mọi frame dùng chung (không tính theo host iframe).
+        private var decision = WebContentPolicy.decision(for: .excluded)
         private var loadedContent: VideoPlaybackSession.EmbedContent?
         /// Host khung chính sau lần nạp đầu (cập nhật tới `didFinish` để chuyển hướng lúc nạp vẫn đi qua).
         private var pinnedHost: String?
@@ -66,16 +77,17 @@ struct VideoEmbedWebView: UIViewRepresentable {
             loadedContent = content
             pinnedHost = nil
             isInitialLoadFinished = false
+            decision = WebContentPolicy.decision(for: .extensionContent(packageId: extensionPackageId))
             switch content {
             case .page(let url, let referer, let userAgent):
-                webView.customUserAgent = userAgent
+                WebContentConfigurator.apply(decision, to: webView, explicitUserAgent: userAgent)
                 var request = URLRequest(url: url)
                 if let referer, !referer.isEmpty {
                     request.setValue(referer, forHTTPHeaderField: "Referer")
                 }
                 webView.load(request)
             case .html(let html, let baseURL, let userAgent):
-                webView.customUserAgent = userAgent
+                WebContentConfigurator.apply(decision, to: webView, explicitUserAgent: userAgent)
                 webView.loadHTMLString(html, baseURL: baseURL)
             }
         }
@@ -89,24 +101,28 @@ struct VideoEmbedWebView: UIViewRepresentable {
         func webView(
             _ webView: WKWebView,
             decidePolicyFor navigationAction: WKNavigationAction,
-            decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+            preferences: WKWebpagePreferences,
+            decisionHandler: @escaping (WKNavigationActionPolicy, WKWebpagePreferences) -> Void
         ) {
+            if navigationAction.targetFrame?.isMainFrame == true {
+                preferences.preferredContentMode = WebContentConfigurator.contentMode(for: decision)
+            }
             guard let url = navigationAction.request.url else {
-                decisionHandler(.allow)
+                decisionHandler(.allow, preferences)
                 return
             }
-            if isEngineDomainBlocked(url.absoluteString) {
-                decisionHandler(.cancel)
+            if decision.adBlock, isEngineDomainBlocked(url.absoluteString) {
+                decisionHandler(.cancel, preferences)
                 return
             }
             // `targetFrame == nil` = mở cửa sổ mới (popup quảng cáo) ⇒ xét như khung chính.
             let isMainFrame = navigationAction.targetFrame?.isMainFrame ?? true
             if isMainFrame, isInitialLoadFinished, Self.isWebURL(url), !Self.host(url.host, isWithin: pinnedHost) {
                 AppLogger.shared.log("🚫 [VideoEmbed] Chặn khung chính rời host trang nhúng: \(url.host ?? "?")")
-                decisionHandler(.cancel)
+                decisionHandler(.cancel, preferences)
                 return
             }
-            decisionHandler(.allow)
+            decisionHandler(.allow, preferences)
         }
 
         func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {

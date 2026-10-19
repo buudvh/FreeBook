@@ -43,7 +43,7 @@ jobs:
     - name: Resolve and patch Package dependencies
       run: |
         set -euo pipefail
-        xcodebuild -resolvePackageDependencies -project FreeBook.xcodeproj -scheme FreeBook -derivedDataPath build_dd 2>&1 | tee -a build_error.log
+        xcodebuild -resolvePackageDependencies -project FreeBook.xcodeproj -scheme FreeBook -derivedDataPath build_dd -skipPackagePluginValidation 2>&1 | tee -a build_error.log
         python3 -c '
         import os
         p = "build_dd/SourcePackages/checkouts/espeak-ng-spm/Package.swift"
@@ -78,6 +78,7 @@ jobs:
           -destination 'generic/platform=iOS' \
           -archivePath build/FreeBook.xcarchive \
           -derivedDataPath build_dd \
+          -skipPackagePluginValidation \
           CODE_SIGNING_ALLOWED=NO \
           CODE_SIGNING_REQUIRED=NO \
           CODE_SIGN_IDENTITY="" \

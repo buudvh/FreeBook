@@ -15,9 +15,11 @@ public final class VisibleWebViewLoader: NSObject, UIAdaptivePresentationControl
     internal var waitReadyTimerWorkItem: DispatchWorkItem?
     internal var waitReadyTimeoutWorkItem: DispatchWorkItem?
 
-    init(id: String = UUID().uuidString, title: String) {
+    /// `extensionLocalPath`: tiện ích mở browser (chặn QC / chế độ máy tính theo tiện ích đó); `nil` = không thuộc tiện
+    /// ích nào (đăng nhập Gemini) ⇒ không gắn luật, UA iPhone như cũ.
+    init(id: String = UUID().uuidString, title: String, extensionLocalPath: String? = nil) {
         self.id = id
-        self.viewController = VisibleWebViewController(title: title)
+        self.viewController = VisibleWebViewController(title: title, extensionLocalPath: extensionLocalPath)
         super.init()
         self.viewController.onDismiss = { [weak self] in
             self?.cleanUp()

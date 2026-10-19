@@ -7,6 +7,8 @@ struct FreeBookApp: App {
     let container: ModelContainer
 
     init() {
+        // Mặc định chặn quảng cáo/cửa sổ bật lên phải có TRƯỚC mọi chỗ tạo webview (và mọi `@AppStorage` đọc chúng).
+        WebContentSettings.registerDefaults()
         RepositoryFilterPolicy.resetNsfwVisibilityOnLaunch()
         let tabBarAppearance = UITabBarAppearance()
         tabBarAppearance.configureWithDefaultBackground()

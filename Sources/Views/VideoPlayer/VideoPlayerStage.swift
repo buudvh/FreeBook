@@ -21,8 +21,12 @@ struct VideoPlayerStage: View {
                 .ignoresSafeArea(.all, edges: bleedEdges)
 
             if let embed = session.embedContent {
-                VideoEmbedWebView(content: embed, pauseRequest: session.embedPauseRequest)
-                    .padding(.top, 44)
+                VideoEmbedWebView(
+                    content: embed,
+                    pauseRequest: session.embedPauseRequest,
+                    extensionPackageId: session.launch?.extensionPackageId
+                )
+                .padding(.top, 44)
             } else {
                 VideoPlayerSurfaceView(layerView: session.layerView, gravity: controller.gravity.layerGravity)
                     .ignoresSafeArea(.all, edges: bleedEdges)

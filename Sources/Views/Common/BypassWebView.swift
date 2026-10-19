@@ -28,6 +28,7 @@ struct BypassWebView: View {
     @State private var isEditingUrl = false
     @State private var showingSourcePicker = false
     @State private var showingAllHistorySheet = false
+    @State private var showingBrowserSettings = false // mở từ bảng nổi của nút khiên
 
     /// Tiện ích đã cài, đọc từ `ExtensionLibraryRepository` (Observation tự theo dõi khi đọc trong `body`).
     private var activeExtensions: [Extension] {
@@ -88,6 +89,9 @@ struct BypassWebView: View {
                         )
                     } else {
                         BypassBrowserWebPane(webView: tab.webView)
+                            .overlay(alignment: .bottom) {
+                                BypassBrowserPopupBanner(store: store) // dải báo cửa sổ bật lên bị chặn
+                            }
                     }
 
                     if tab.isLoading {
@@ -150,6 +154,9 @@ struct BypassWebView: View {
                         inputUrl = selectedUrl
                     }
                 }
+            }
+            .sheet(isPresented: $showingBrowserSettings) {
+                NavigationStack { BrowserSettingsView(showsDoneButton: true) }
             }
         }
     }
@@ -234,9 +241,7 @@ struct BypassWebView: View {
     @ViewBuilder
     private func urlField(for tab: BypassBrowserTab) -> some View {
         HStack(spacing: 6) {
-            Image(systemName: "lock.fill")
-                .font(.caption)
-                .foregroundColor(.secondary)
+            BypassBrowserShieldButton(store: store, tab: tab) { showingBrowserSettings = true }
 
             URLBarTextField(
                 placeholder: "Nhập địa chỉ web...",

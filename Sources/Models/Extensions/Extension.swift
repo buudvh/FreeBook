@@ -43,6 +43,12 @@ public struct Extension: Codable, Identifiable, Hashable, Sendable {
     /// tiện ích tự khai lẫn heuristic (`ExtensionNsfwClassifier`). Tách khỏi `isNsfw` vì cập nhật tiện ích đọc lại
     /// `isNsfw` từ `plugin.json` — lựa chọn của người dùng không được mất theo.
     public var nsfwOverride: Bool?
+    /// Người dùng bật (`true`) / tắt (`false`) chặn quảng cáo cho webview của tiện ích này; `nil` = theo cài đặt
+    /// chung (`WebContentSettings.adBlockEnabled`). Luật ưu tiên ở `WebContentPolicy`.
+    public var adBlockOverride: Bool?
+    /// `true` = webview của tiện ích dùng chế độ máy tính (UA Safari macOS); `nil` = điện thoại (mặc định —
+    /// **không** theo mặc định máy tính của trình duyệt). Tắt công tắc ghi `nil`, không ghi `false`.
+    public var desktopModeOverride: Bool?
 
     public static let installOriginRepository = "repository"
     public static let installOriginImportZip = "importZip"
@@ -96,7 +102,9 @@ public struct Extension: Codable, Identifiable, Hashable, Sendable {
         remoteVersion: Int? = nil,
         isNsfw: Bool? = nil,
         savesHistory: Bool? = nil,
-        nsfwOverride: Bool? = nil
+        nsfwOverride: Bool? = nil,
+        adBlockOverride: Bool? = nil,
+        desktopModeOverride: Bool? = nil
     ) {
         self.packageId = packageId
         self.name = name
@@ -120,6 +128,8 @@ public struct Extension: Codable, Identifiable, Hashable, Sendable {
         self.isNsfw = isNsfw
         self.savesHistory = savesHistory
         self.nsfwOverride = nsfwOverride
+        self.adBlockOverride = adBlockOverride
+        self.desktopModeOverride = desktopModeOverride
     }
 
     // MARK: - Codable
@@ -130,6 +140,7 @@ public struct Extension: Codable, Identifiable, Hashable, Sendable {
         case configJson, downloadUrl, repositoryUrl, installOrigin
         case pinnedAt, lastUsedAt, installedAt, updatedAt
         case isNsfw, savesHistory, nsfwOverride
+        case adBlockOverride, desktopModeOverride
     }
 
     /// Decode khoan dung: chỉ `packageId` là bắt buộc, trường thiếu rơi về mặc định — file do bản app khác
@@ -159,5 +170,7 @@ public struct Extension: Codable, Identifiable, Hashable, Sendable {
         isNsfw = try? c.decodeIfPresent(Bool.self, forKey: .isNsfw)
         savesHistory = try? c.decodeIfPresent(Bool.self, forKey: .savesHistory)
         nsfwOverride = try? c.decodeIfPresent(Bool.self, forKey: .nsfwOverride)
+        adBlockOverride = try? c.decodeIfPresent(Bool.self, forKey: .adBlockOverride)
+        desktopModeOverride = try? c.decodeIfPresent(Bool.self, forKey: .desktopModeOverride)
     }
 }

@@ -21,6 +21,12 @@ packages:
     type: git
     url: https://github.com/espeak-ng/espeak-ng-spm.git
     revision: cb0dfa23248513e39b9619d8d1383da329507281
+  # Chuyển bộ lọc AdGuard sang JSON luật WebKit (chặn quảng cáo cho webview). Có build-tool plugin
+  # `GenerateVersion` ⇒ CI phải chạy xcodebuild với `-skipPackagePluginValidation`.
+  SafariConverterLib:
+    type: git
+    url: https://github.com/AdguardTeam/SafariConverterLib.git
+    exactVersion: 4.3.1
 targets:
   FreeBook:
     type: application
@@ -36,6 +42,8 @@ targets:
         product: libespeak-ng
       - package: espeak-ng-spm
         product: espeak-ng-data
+      - package: SafariConverterLib
+        product: ContentBlockerConverter
       - sdk: libsqlite3.tbd
     info:
       path: Sources/Info.plist

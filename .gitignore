@@ -12,3 +12,4 @@ DerivedData/
 !.claude/skills/
 /Scripts/__pycache__
 /test
+/.adblock_snapshot_tmp/

@@ -1,0 +1,29 @@
+{
+  "downloadedAt": "2026-10-19T08:03:24Z",
+  "filters": [
+    {
+      "id": 2,
+      "resource": "adguard-2",
+      "sha256": "2388a8e53280929b13c10f2eddcc5ea5ca5cac589f93d27f426995f9ba19d887",
+      "bytes": 3267274
+    },
+    {
+      "id": 11,
+      "resource": "adguard-11",
+      "sha256": "3ca1f623e3973e41eb27a1122444c68f0e6f6e14ad57affb739ae9d01d3620fb",
+      "bytes": 484713
+    },
+    {
+      "id": 214,
+      "resource": "adguard-214",
+      "sha256": "a8df3745aef8f6e0f922c25fd16930c6880a328cd861d5f8f2d640ce24147056",
+      "bytes": 55138
+    },
+    {
+      "id": 224,
+      "resource": "adguard-224",
+      "sha256": "f350555963f7b6c14ef35e7860e6b0085ffdb2791a52c0d1039ee701bd672802",
+      "bytes": 696308
+    }
+  ]
+}

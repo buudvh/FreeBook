@@ -158,6 +158,10 @@ public enum BackupPayload {
         public let savesHistory: Bool?
         /// `Extension.nsfwOverride` (người dùng tự đánh dấu/bỏ đánh dấu 18+); archive cũ không có ⇒ `nil`.
         public let nsfwOverride: Bool?
+        /// `Extension.adBlockOverride` / `Extension.desktopModeOverride` (mục Trình duyệt của Cấu hình tiện ích);
+        /// archive cũ không có ⇒ `nil`.
+        public let adBlockOverride: Bool?
+        public let desktopModeOverride: Bool?
 
         public init(
             packageId: String,
@@ -179,7 +183,9 @@ public enum BackupPayload {
             lastUsedAt: Date? = nil,
             isNsfw: Bool? = nil,
             savesHistory: Bool? = nil,
-            nsfwOverride: Bool? = nil
+            nsfwOverride: Bool? = nil,
+            adBlockOverride: Bool? = nil,
+            desktopModeOverride: Bool? = nil
         ) {
             self.packageId = packageId
             self.name = name
@@ -201,6 +207,8 @@ public enum BackupPayload {
             self.isNsfw = isNsfw
             self.savesHistory = savesHistory
             self.nsfwOverride = nsfwOverride
+            self.adBlockOverride = adBlockOverride
+            self.desktopModeOverride = desktopModeOverride
         }
 
         /// Archive cũ chỉ có `isPinned`, archive mới có thêm `pinnedAt` — một trong hai là đủ.

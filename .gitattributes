@@ -1,0 +1,3 @@
+# Bộ lọc chặn quảng cáo đóng gói kèm app: giữ nguyên byte (CRLF như máy chủ AdGuard trả về) để checksum
+# trong adblock_bundled_meta.json khớp đúng file được đóng gói — không cho git đổi xuống dòng.
+Sources/Resources/AdBlock/** -text
