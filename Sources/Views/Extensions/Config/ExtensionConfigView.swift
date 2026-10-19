@@ -141,6 +141,8 @@ struct ExtensionConfigView: View {
         }
         .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .scrollDismissesKeyboard(.interactively)
+        // Bớt khoảng trống mặc định giữa các nhóm và phía trên thẻ đầu (iOS 17).
+        .listSectionSpacing(.compact)
     }
 
     internal func loadConfigDefinitions() {

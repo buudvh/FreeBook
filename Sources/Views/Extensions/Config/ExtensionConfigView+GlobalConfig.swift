@@ -69,7 +69,11 @@ extension ExtensionConfigView {
         }
     }
 
-    /// Tiêu đề bên trái (dòng phụ `key` + "mặc định X"), control bên phải.
+    /// Ba dáng dòng:
+    /// - công tắc: tiêu đề + khoá bên trái, `Toggle` bên phải;
+    /// - số: ô gọn bên phải (giá trị ngắn);
+    /// - chữ (thường là URL dài): tiêu đề + khoá, bộ nút ↺ · xoá · sao chép · dán bên phải, ô nhập **rộng hết dòng**
+    ///   ở dưới — để bên phải thì URL bị cắt chỉ còn vài ký tự. Giá trị mặc định là chữ mờ trong ô khi ô trống.
     @ViewBuilder
     private func configRow(key: String, definition: ConfigItem) -> some View {
         if Self.isToggle(definition) {
@@ -79,36 +83,59 @@ extension ExtensionConfigView {
             )) {
                 configRowLabel(key: key, definition: definition)
             }
-        } else {
+        } else if definition.format == "number" {
             HStack(spacing: 12) {
                 configRowLabel(key: key, definition: definition)
                 Spacer(minLength: 8)
-                TextField(definition.default ?? "", text: Binding(
-                    get: { userValues[key] ?? "" },
-                    set: { userValues[key] = $0 }
-                ))
-                .keyboardType(definition.format == "number" ? .numberPad : .default)
-                .multilineTextAlignment(.trailing)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .frame(maxWidth: 180)
+                TextField(definition.default ?? "", text: configTextBinding(key))
+                    .keyboardType(.numberPad)
+                    .multilineTextAlignment(.trailing)
+                    .font(.callout.monospacedDigit())
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .frame(width: 90)
+                    .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
+        } else {
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(alignment: .top, spacing: 8) {
+                    configRowLabel(key: key, definition: definition)
+                    Spacer(minLength: 8)
+                    TextFieldClipboardButtons(text: configTextBinding(key), defaultValue: definition.default)
+                }
+                TextField(definition.default ?? "", text: configTextBinding(key))
+                    .font(.footnote)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .lineLimit(1)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 7)
+                    .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            }
+            .padding(.vertical, 2)
         }
     }
 
+    private func configTextBinding(_ key: String) -> Binding<String> {
+        Binding(
+            get: { userValues[key] ?? "" },
+            set: { userValues[key] = $0 }
+        )
+    }
+
+    /// Tiêu đề + dòng phụ là **khoá** (chữ đều, một dòng). Không ghi "mặc định X" ở đây: mặc định thường là URL dài,
+    /// kéo dòng phụ xuống 3–4 dòng; nó đã là chữ mờ trong ô và là đích của nút ↺.
     private func configRowLabel(key: String, definition: ConfigItem) -> some View {
         let title = definition.title ?? key
-        var notes: [String] = []
-        if title != key { notes.append(key) }
-        if let defaultValue = definition.default, !defaultValue.isEmpty { notes.append("mặc định \(defaultValue)") }
-        let subtitle = notes.joined(separator: " · ")
         return VStack(alignment: .leading, spacing: 2) {
             Text(title)
                 .font(.subheadline)
-            if !subtitle.isEmpty {
-                Text(subtitle)
-                    .font(.caption2)
+            if title != key {
+                Text(key)
+                    .font(.caption2.monospaced())
                     .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
             }
         }
     }

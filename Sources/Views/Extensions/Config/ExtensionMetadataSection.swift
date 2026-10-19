@@ -115,9 +115,7 @@ struct ExtensionMetadataSection: View {
     /// Cùng dáng với hàng cấu hình cũ của màn này (`ExtensionConfigView`: nhãn trên, ô nhập dưới).
     private func textFieldRow(_ key: String, text: Binding<String>, keyboard: UIKeyboardType = .default) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(key)
-                .font(.subheadline)
-                .fontWeight(.semibold)
+            fieldHeader(key, text: text)
             TextField("", text: text)
                 .keyboardType(keyboard)
                 .textInputAutocapitalization(.never)
@@ -130,9 +128,7 @@ struct ExtensionMetadataSection: View {
     /// `regexp` là biểu thức chính quy — hiện bằng chữ đều để đọc được ký tự đặc biệt.
     private var regexpRow: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("regexp")
-                .font(.subheadline)
-                .fontWeight(.semibold)
+            fieldHeader("regexp", text: $regexp)
             TextField("", text: $regexp)
                 .font(.system(.footnote, design: .monospaced))
                 .textInputAutocapitalization(.never)
@@ -145,9 +141,7 @@ struct ExtensionMetadataSection: View {
     /// Ô mô tả cho **rộng, nhiều dòng** theo yêu cầu — `axis: .vertical` (iOS 16+, target của app là 17).
     private var descriptionRow: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("description")
-                .font(.subheadline)
-                .fontWeight(.semibold)
+            fieldHeader("description", text: $descText)
             TextField("", text: $descText, axis: .vertical)
                 .lineLimit(3...8)
                 .textInputAutocapitalization(.never)
@@ -155,6 +149,18 @@ struct ExtensionMetadataSection: View {
                 .textFieldStyle(.roundedBorder)
         }
         .padding(.vertical, 4)
+    }
+
+    /// Tên khoá + bộ nút xoá · sao chép · dán (dán thay cả giá trị) — ghi vào cùng `@State`, nên lượt tự lưu
+    /// (0,4 s, xem `scheduleSave`) chạy như khi gõ tay.
+    private func fieldHeader(_ key: String, text: Binding<String>) -> some View {
+        HStack(alignment: .center, spacing: 8) {
+            Text(key)
+                .font(.subheadline)
+                .fontWeight(.semibold)
+            Spacer(minLength: 8)
+            TextFieldClipboardButtons(text: text)
+        }
     }
 
     private func readOnlyRow(_ key: String, _ value: String) -> some View {

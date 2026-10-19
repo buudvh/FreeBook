@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Thẻ đầu màn **Cấu hình tiện ích**: icon, tên, "<tác giả> · Phiên bản N", nhãn loại + ngôn ngữ, mô tả 2 dòng có
-/// "Xem thêm", rồi hàng 3 nút ngang nhau **Trình duyệt · Ghim · Gỡ**.
+/// "Xem thêm", rồi hàng 3 nút tròn có nhãn **Trình duyệt · Ghim · Gỡ**.
 ///
 /// Chỉ đọc bản ghi `Extension` (caller truyền `current` — bản tra lại theo `packageId`, nên ghim xong là thẻ vẽ lại
 /// "Bỏ ghim"); không đọc `plugin.json`. Sửa các trường metadata ở màn con "Thông tin plugin.json".
@@ -93,44 +93,49 @@ struct ExtensionConfigHeaderCard: View {
     // MARK: - Hàng nút
 
     private var actionRow: some View {
-        HStack(spacing: 8) {
+        HStack(alignment: .top, spacing: 8) {
             if let onOpenBrowser {
-                actionButton(title: "Trình duyệt", systemImage: "safari", tint: .primary, action: onOpenBrowser)
+                actionButton(title: "Trình duyệt", systemImage: "safari", action: onOpenBrowser)
             }
             actionButton(
                 title: ext.isPinned ? "Bỏ ghim" : "Ghim",
                 systemImage: ext.isPinned ? "pin.fill" : "pin",
-                tint: ext.isPinned ? .orange : .primary,
-                isHighlighted: ext.isPinned,
+                iconColor: ext.isPinned ? .orange : .primary,
+                circleFill: ext.isPinned ? Color.orange.opacity(0.18) : nil,
                 action: { togglePin() }
             )
             if let onUninstall {
-                actionButton(title: "Gỡ", systemImage: "trash", tint: .red, action: onUninstall)
+                actionButton(title: "Gỡ", systemImage: "trash", iconColor: .red, titleColor: .red, action: onUninstall)
             }
         }
     }
 
+    /// Nút tròn 44pt + nhãn nhỏ bên dưới, chia đều chiều ngang. Không dùng `Label`: trong một dòng của `Form`, iOS
+    /// dàn icon và chữ của `Label` ra hai đầu ô (cột icon cố định), chữ bị đẩy lệch và co nhỏ.
     private func actionButton(
         title: String,
         systemImage: String,
-        tint: Color,
-        isHighlighted: Bool = false,
+        iconColor: Color = .primary,
+        titleColor: Color = .secondary,
+        circleFill: Color? = nil,
         action: @escaping () -> Void
     ) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
-        return Button(action: { action() }) {
-            Label(title, systemImage: systemImage)
-                .font(.footnote.weight(.semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-                .foregroundColor(tint)
-                .frame(maxWidth: .infinity)
-                .frame(height: 38)
-                .background(isHighlighted ? tint.opacity(0.15) : Color(.tertiarySystemFill))
-                .clipShape(shape)
-                .contentShape(shape)
+        Button(action: { action() }) {
+            VStack(spacing: 5) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(iconColor)
+                    .frame(width: 44, height: 44)
+                    .background(circleFill ?? Color(.tertiarySystemFill), in: Circle())
+                Text(title)
+                    .font(.caption)
+                    .foregroundColor(titleColor)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
         }
-        .frame(maxWidth: .infinity)
+        .accessibilityLabel(title)
     }
 
     /// Ghim ⇒ lên nhóm ghim ở bảng chọn nguồn và Kho. Bảng tiện ích là `@Observable` nên thẻ tự vẽ lại.
