@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.551] - 2026-10-19
+
+### fix: thanh công cụ bàn phím có nền riêng, không lệch khỏi bàn phím
+
+Người dùng (ảnh máy thật, màn "Thêm rule", bàn phím nổi kiểu mới): *"vỡ UI bàn phím"* — sau `[1.3.550]` thanh đã hiện nhưng nổi lơ lửng không nền, chữ của màn bên dưới lộ qua giữa các nút và có khoảng hở với bàn phím.
+
+- **Vì sao**: thanh dựa vào nền `.keyboard` của `UIInputView`, nhưng bàn phím nổi kiểu mới để nền đó trong suốt; `UIHostingController` trong accessory còn tính vùng an toàn nên đệm thêm khoảng trống.
+- **`KeyboardTextToolbarView`**: thanh tự có nền — viên kính `.regularMaterial` bo tròn, viền mảnh, cách mép 6pt; tổng cao vẫn 46pt.
+- **`KeyboardTextToolbarInstaller`**: `host.safeAreaRegions = []`.
+- Chuyển entry `[1.3.521]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
+
 ## [1.3.550] - 2026-10-19
 
 ### fix: thanh công cụ bàn phím không hiện ở ô nhập SwiftUI
@@ -633,17 +645,3 @@ Người dùng: *"ghi lại changelog để biết lỗi này do LiveContainer"*
 - **Không phải nguyên nhân** (đã loại trừ bằng số đo): `FD_CLOEXEC`/bản `dup` (giả thuyết của 1.3.520), JSExecutor/WebView (bộ đếm `live=` bằng 0), các bước phát audio `AVAudioPlayer`/Now Playing (bộ đo theo bước của 1.3.521 không thấy tăng), tính năng nhảy về chương đang nghe khi mở lại Reader (`c9e7c20a`).
 - **Tham khảo**: [Dead10ccFix.m](https://github.com/LiveContainerMirror/LiveContainer/blob/4dbe0f9a626de801184a42c0be8d2cb105058e3d/LiveContainer/Tweaks/Dead10ccFix.m) · [commit thêm vòng 2 s](https://github.com/LiveContainerMirror/LiveContainer/commit/85ca2724812b5098d67bb5a02317cf94995525bc) · [chỗ cài trong LCBootstrap.m](https://github.com/LiveContainerMirror/LiveContainer/blob/4dbe0f9a626de801184a42c0be8d2cb105058e3d/LiveContainer/LCBootstrap.m#L514-L518) · [gist gốc cũng thiếu `close`](https://gist.github.com/JJTech0130/07e2458df592faad1d2ba72283a0ca50).
 - Chuyển entry `[1.3.492]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-
-## [1.3.521] - 2026-10-13
-
-### fix(fd): tu don fd mo coi khi nghe TTS o nen, do fd theo tung buoc doan audio
-
-Người dùng gửi `app_logs (103).txt`, hỏi *"không có cách nào giải phóng…"*, *"bình thường mở file không đóng à"*; duyệt plan gộp (bộ đo + bộ dọn) bằng `/push-ci-monitor`.
-
-- **Phân tích log 103 (bản 1.3.520)**: phiên 07:06 → 08:32 chạm trần 10240 fd, 08:33 `NSPOSIXErrorDomain 24` (EMFILE) khi mở `plugin.json`/chương/bìa = tái hiện lỗi gốc. fd **chỉ tăng khi app ở nền và đang phát TTS** (lúc app trên màn hình gần như 0), ~1 đợt mỗi đoạn audio, mỗi đợt mở thêm **1 fd cho mỗi file** trong một nhóm (`app_logs.txt`; sau sao lưu tự động chạy ở nền thêm `books/*.bin`, `.fbbackup`, `VietPhrase.dat`; có lúc `collator.dat`/`Dictionary.dat`/`default.metallib`). fd mới là **mở mới chỉ-đọc** (`fl=0x0 off=0 cloexec=0`), không phải bản `dup` ⇒ giả thuyết `FD_CLOEXEC` của 1.3.520 **sai**. `live=` toàn 0 ⇒ không phải JS/WebView. File trong thư mục tạm đã xoá dừng ở +4 ⇒ thứ gây rò mở lại **theo đường dẫn**. Code app không có chỗ nào làm vậy ⇒ nghi framework hệ thống được gọi mỗi đoạn audio khi ở nền hoặc LiveContainer — **UNKNOWN**.
-- **Bộ đo theo bước (`Services/Logging/FileDescriptorStepProbe.swift`, mới)**: khi app ở nền, trong 60 đoạn audio đầu sau mỗi lần xuống nền, đếm fd trước/sau từng bước — `player.stop`, `session`, `player.init`, `player.play`, `nowPlaying`, `finish.stop`, `finish.next` (`TTSManager.swift`, bọc tại chỗ, **không thêm dòng**: vẫn 3510) và `google.request` (`GoogleTTSService.audioParts`); tăng thì ghi `[FD] step=<bước> +N total=T chunk=C` (tối đa 40 dòng mỗi lần xuống nền). Thêm nhịp 1 giây trong 120 giây đầu ở nền: `[FD] tick t=…s ±N total=T chunk=C` khi tổng đổi — phân biệt rò **trong** một bước (đồng bộ) với rò **giữa** các bước (thứ khác đẩy vào). Đếm bằng `fcntl(F_GETFD)` tới fd lớn nhất từng thấy + 512, không mở fd mới.
-- **Bộ dọn fd mồ côi (`Services/Logging/FileDescriptorSweeper.swift`, mới)**: chạy trên queue của census mỗi 20 đoạn audio khi tổng fd ≥ 500. Chỉ đóng fd thoả **hết**: file thường, không phải SQLite (`.db`, `.sqlite`, `-wal`, `-shm`, `-journal`) và không dưới `/dev/`; chỉ-đọc, không `FD_CLOEXEC`, vị trí 0; cùng file (device + inode) có ≥ 4 fd như vậy; đã thấy đúng fd đó cùng file ≥ 45 giây; không phải fd số nhỏ nhất của đống. Ghi `[FD] sweep total=A->B closed=N kept=M top=[…]`. Công tắc **"Tự dọn file mở thừa"** (`fdSweeperEnabled`, mặc định bật) ở Cài đặt → Nhà Phát Triển → Ghi log hệ thống, mục Chẩn Đoán. Rủi ro còn lại (đã nói với người dùng): nếu thứ mở lại thỉnh thoảng dùng/đóng các fd đó thì có thể sinh lỗi lạ — tắt công tắc.
-- `FileDescriptorCensus`: `record(event:)` báo `background`/`active` cho bộ đo; `tickChunk()` báo đoạn audio cho bộ đo và gọi bộ dọn; `normalize` bỏ `private` để bộ dọn ghi log.
-- `rules.md` §5.9 và `CLAUDE.md`/`AGENTS.md` (mirror): `logAlways` dành cho chẩn đoán fd — census, bộ đo, bộ dọn.
-- Chuyển entry `[1.3.491]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ (JSDom, TTSManager 3510), 0 mới; file mới 157 và 102 dòng, một type chính. **Không build tại chỗ** (Windows), cần CI. Không đụng `Tests/`.

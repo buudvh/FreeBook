@@ -30,7 +30,15 @@ struct KeyboardTextToolbarView: View {
                 AppGlyph.paste.image(size: 15)
             }
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 5)
+        .frame(maxWidth: .infinity, minHeight: 42, maxHeight: 42)
+        // Nền riêng của thanh: bàn phím nổi kiểu mới (iOS 26) để nền `.keyboard` của `UIInputView` trong suốt ⇒ không
+        // có nền này thì chữ của màn bên dưới lộ qua giữa các nút. Trên bàn phím kiểu cũ, viên kính nằm gọn trên dải
+        // màu bàn phím nên vẫn khớp.
+        .background(.regularMaterial, in: Capsule(style: .continuous))
+        .overlay(Capsule(style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
         .frame(maxWidth: .infinity, minHeight: 46, maxHeight: 46)
     }
 

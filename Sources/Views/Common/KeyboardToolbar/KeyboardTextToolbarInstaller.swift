@@ -127,6 +127,9 @@ final class KeyboardTextToolbarInstaller: NSObject {
 
         let host = UIHostingController(rootView: KeyboardTextToolbarView(model: model))
         host.view.backgroundColor = .clear
+        // Accessory nằm sát mép dưới màn hình lúc bàn phím trượt lên: để hosting tính vùng an toàn thì SwiftUI đệm
+        // thêm khoảng trống và đẩy thanh lệch khỏi bàn phím.
+        host.safeAreaRegions = []
 
         let width = UIScreen.main.bounds.width
         let container = UIInputView(frame: CGRect(x: 0, y: 0, width: width, height: 46), inputViewStyle: .keyboard)
