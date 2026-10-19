@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup — Nút tải hàng loạt trong Reader chữ &amp; Comic</title>
+<style>
+:root{
+  --bg:#08080a;
+  --text:#f5f5f7;
+  --muted:rgba(235,235,245,.56);
+  --faint:rgba(235,235,245,.34);
+  --stroke:rgba(255,255,255,.10);
+  --hair:rgba(255,255,255,.08);
+  --safe-top:44px;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:
+    radial-gradient(900px 520px at 12% -12%, rgba(96,128,168,.14), transparent 62%),
+    radial-gradient(760px 460px at 92% -4%, rgba(168,124,84,.10), transparent 62%),
+    var(--bg);
+  color:var(--text);font-family:var(--font);-webkit-font-smoothing:antialiased;
+  padding:34px 22px 64px;min-height:100vh;
+}
+.page-head{max-width:1180px;margin:0 auto 34px}
+.eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin-bottom:10px}
+h1{font-size:27px;line-height:1.2;margin:0 0 10px;font-weight:650;letter-spacing:-.02em}
+.lede{margin:0;max-width:800px;font-size:14px;line-height:1.6;color:var(--muted)}
+.lede code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:rgba(235,235,245,.78);background:rgba(255,255,255,.06);padding:1px 5px;border-radius:5px}
+.legend{display:flex;flex-wrap:wrap;gap:18px;margin-top:20px}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.newdot{width:8px;height:8px;border-radius:50%;background:#0a84ff;box-shadow:0 0 0 4px rgba(10,132,255,.18)}
+
+.stage{display:flex;flex-wrap:wrap;gap:44px;justify-content:center;align-items:flex-start;max-width:1180px;margin:0 auto}
+.col{width:330px;display:flex;flex-direction:column;gap:14px;margin:0}
+.col-head{display:flex;align-items:baseline;gap:8px}
+.col-tag{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:4px 8px;border-radius:6px}
+.tag-a{background:rgba(255,255,255,.08);color:var(--faint);border:1px solid var(--stroke)}
+.tag-b{background:#fff;color:#000}
+.col-title{font-size:13.5px;font-weight:600}
+.col-desc{font-size:12px;line-height:1.5;color:var(--muted);margin:-6px 0 0;min-height:36px}
+
+.phone{position:relative;width:330px;height:716px;border-radius:46px;background:#000;
+  box-shadow:0 30px 70px rgba(0,0,0,.62), 0 0 0 9px #131316, 0 0 0 10px rgba(255,255,255,.07);
+  overflow:hidden;isolation:isolate;transition:box-shadow .25s ease}
+.phone.flash{box-shadow:0 30px 70px rgba(0,0,0,.62), 0 0 0 9px #131316, 0 0 0 10px rgba(255,255,255,.07), 0 0 0 13px rgba(10,132,255,.55)}
+.screen{position:absolute;inset:0;border-radius:46px;overflow:hidden;background:#000;display:flex;flex-direction:column}
+.island{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:96px;height:26px;border-radius:14px;background:#000;z-index:60}
+
+/* ---------- reader chữ ---------- */
+.reader{background:#111110;color:#ece9e4;--rtext:#ece9e4;flex:1;display:flex;flex-direction:column;overflow:hidden}
+.r-head{flex:0 0 auto;padding:calc(var(--safe-top) + 10px) 12px 10px;background:#111110}
+.grab{width:36px;height:5px;border-radius:3px;background:rgba(236,233,228,.3);margin:0 auto 10px}
+.r-top{display:flex;gap:12px;align-items:flex-start}
+.cover{width:72px;height:100px;border-radius:6px;flex:0 0 auto;overflow:hidden;position:relative;
+  background:linear-gradient(150deg,#3b4d5c,#1b2a34 55%,#0e161b)}
+.cover::after{content:"";position:absolute;inset:0;background:radial-gradient(70% 50% at 70% 22%, rgba(255,224,180,.5), transparent 65%)}
+.r-meta{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.r-title{font-size:15px;font-weight:650;line-height:1.2;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.r-author{font-size:12.5px;color:rgba(236,233,228,.72)}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:2px 6px;border-radius:9px;background:rgba(236,233,228,.12);
+  font-size:9.5px;font-weight:600;color:rgba(236,233,228,.8);align-self:flex-start}
+.chip i{width:12px;height:12px;border-radius:3px;background:linear-gradient(140deg,#5a8f6a,#2c5c40)}
+.r-count-row{display:flex;align-items:center;gap:4px;margin-top:1px}
+.r-count{font-size:11px;font-weight:600;color:rgba(236,233,228,.72);white-space:nowrap}
+.r-actions{display:flex;gap:4px;margin-left:auto}
+.ibtn{width:32px;height:32px;border:0;background:transparent;color:var(--rtext);display:grid;place-items:center;padding:0;cursor:pointer;border-radius:8px}
+.ibtn svg{width:16px;height:16px}
+.ibtn.is-new{color:#7ab6ff}
+.ibtn.is-new:hover{background:rgba(122,182,255,.12)}
+.ibtn:active{background:rgba(255,255,255,.08)}
+.r-search{display:flex;align-items:center;gap:8px;margin:8px 16px;padding:10px;border-radius:8px;background:rgba(236,233,228,.08);flex:0 0 auto}
+.r-search svg{width:15px;height:15px;color:rgba(236,233,228,.6)}
+.r-search span{font-size:13px;color:rgba(236,233,228,.5)}
+.r-list{flex:1;overflow-y:auto;scrollbar-width:none}
+.r-list::-webkit-scrollbar{display:none}
+.r-row{display:flex;align-items:center;gap:8px;padding:9px 16px;border-bottom:1px solid rgba(236,233,228,.07);cursor:pointer}
+.r-row .t{flex:1;font-size:14.5px;line-height:1.35;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;color:var(--rtext)}
+.r-row.is-read .t{color:rgba(236,233,228,.4)}
+.r-row.is-current{background:rgba(255,255,255,.09)}
+.r-row.is-current .t{font-weight:600;color:#fff}
+.acc{width:30px;height:30px;display:grid;place-items:center;flex:0 0 auto}
+.acc svg{width:16px;height:16px}
+.acc.done{color:#34c759}
+.acc.todo{color:rgba(236,233,228,.55)}
+.spin{width:14px;height:14px;border-radius:50%;border:2px solid rgba(236,233,228,.25);border-top-color:rgba(236,233,228,.8);animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ---------- comic ---------- */
+.comic-bg{position:absolute;inset:0;background:#0a0a0b;overflow:hidden}
+.page{position:absolute;left:14px;right:14px;top:44px;bottom:0;border-radius:10px 10px 0 0;background:#1a2026;padding:9px;display:flex;flex-direction:column;gap:8px;opacity:.6;overflow:hidden}
+.panel{border-radius:4px;background:linear-gradient(160deg,#2b333a,#171d22);height:120px}
+.panel.short{height:74px}
+.panel.wide{height:150px}
+.sheet{position:absolute;left:0;right:0;top:112px;bottom:0;background:#1c1c1e;border-radius:16px 16px 0 0;
+  display:flex;flex-direction:column;overflow:hidden;box-shadow:0 -18px 40px rgba(0,0,0,.55)}
+.sh-grab{width:36px;height:5px;border-radius:3px;background:rgba(255,255,255,.24);margin:6px auto 0;flex:0 0 auto}
+.sh-nav{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:4px 8px 6px;border-bottom:1px solid rgba(255,255,255,.1)}
+.sh-title{flex:1;text-align:center;font-size:16px;font-weight:650}
+.sh-btn{width:36px;height:36px;border:0;background:transparent;color:#fff;display:grid;place-items:center;padding:0;cursor:pointer;border-radius:8px}
+.sh-btn svg{width:18px;height:18px}
+.sh-btn.is-new{color:#7ab6ff}
+.sh-list{flex:1;overflow-y:auto;scrollbar-width:none}
+.sh-list::-webkit-scrollbar{display:none}
+.c-sec{font-size:12.5px;font-weight:700;color:rgba(235,235,245,.55);padding:8px 16px;background:rgba(255,255,255,.06)}
+.c-row{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid rgba(255,255,255,.07);cursor:pointer}
+.c-row .t{flex:1;font-size:14px;line-height:1.35;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;color:#f2f2f7}
+.c-row.is-current{background:rgba(10,132,255,.13)}
+.c-row.is-current .t{color:#5aa9ff;font-weight:600}
+.c-row svg{width:14px;height:14px;flex:0 0 auto}
+
+/* ---------- task options ---------- */
+.form{flex:1;background:#1c1c1e;display:flex;flex-direction:column;overflow:hidden}
+.form-nav{flex:0 0 auto;display:flex;align-items:center;padding:calc(var(--safe-top) + 2px) 12px 8px;border-bottom:1px solid rgba(255,255,255,.1)}
+.form-nav .side{font-size:15px;color:#0a84ff;width:64px;background:none;border:0;font-family:inherit;text-align:left;cursor:pointer;padding:0}
+.form-nav .side.right{text-align:right;font-weight:650}
+.form-title{flex:1;text-align:center;font-size:15.5px;font-weight:650}
+.form-body{flex:1;overflow-y:auto;padding:14px 0 20px;scrollbar-width:none}
+.form-body::-webkit-scrollbar{display:none}
+.sec-label{font-size:11px;text-transform:uppercase;color:rgba(235,235,245,.5);padding:0 20px 7px}
+.card{background:#2c2c2e;border-radius:11px;margin:0 14px 20px;overflow:hidden}
+.f-row{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid rgba(255,255,255,.07)}
+.f-row:last-child{border-bottom:0}
+.f-cover{width:46px;height:64px;border-radius:5px;background:linear-gradient(150deg,#3b4d5c,#1b2a34 55%,#0e161b);position:relative;flex:0 0 auto;overflow:hidden}
+.f-cover::after{content:"";position:absolute;inset:0;background:radial-gradient(70% 50% at 70% 22%, rgba(255,224,180,.45), transparent 65%)}
+.f-meta{min-width:0}
+.f-title{font-size:14px;font-weight:600;line-height:1.25}
+.f-sub{font-size:11.5px;color:rgba(235,235,245,.55);margin-top:3px}
+.f-chip{display:inline-block;margin-top:5px;font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(255,255,255,.1);color:rgba(235,235,245,.75)}
+.f-line{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.07);font-size:14px}
+.f-line:last-child{border-bottom:0}
+.f-line .val{color:rgba(235,235,245,.55);display:flex;align-items:center;gap:6px;font-size:13.5px}
+.f-line svg{width:12px;height:12px;color:rgba(235,235,245,.35)}
+.sw{width:44px;height:26px;border-radius:13px;background:#34c759;position:relative;flex:0 0 auto}
+.sw::after{content:"";position:absolute;top:2px;right:2px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.f-foot{font-size:11px;line-height:1.5;color:rgba(235,235,245,.45);padding:0 20px;margin-top:-8px}
+
+/* ---------- notes ---------- */
+.notes{max-width:1180px;margin:64px auto 0}
+.notes h2{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);font-weight:600;margin:0 0 18px}
+.notes-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.note{padding:16px 18px 18px;border-radius:14px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07)}
+.note-top{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.note-n{font-size:10px;font-weight:700;color:var(--faint);font-variant-numeric:tabular-nums;border:1px solid var(--stroke);border-radius:5px;padding:2px 5px}
+.note h3{margin:0;font-size:13px;font-weight:650}
+.note p{margin:0;font-size:12.5px;line-height:1.62;color:var(--muted)}
+.note code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:rgba(235,235,245,.8);background:rgba(255,255,255,.06);padding:1px 4px;border-radius:4px}
+.foot-note{max-width:1180px;margin:30px auto 0;font-size:12px;line-height:1.6;color:var(--faint);border-left:2px solid rgba(255,255,255,.12);padding-left:14px}
+</style>
+</head>
+<body>
+
+<header class="page-head">
+  <div class="eyebrow">FreeBook · Reader + ComicReader</div>
+  <h1>Nút tải hàng loạt trong danh sách chương</h1>
+  <p class="lede">Thêm một nút duy nhất vào mỗi màn đọc, mở đúng <code>TaskOptionsSheet(book:taskType: .download)</code> —
+    cùng sheet, cùng tuỳ chọn và cùng <code>DownloadManager.enqueueTask</code> như nhấn-giữ một truyện ở Kệ / Lịch sử.
+    Reader chữ đã có nút tải <b>từng chương</b> từ 1.3.334 (giữ nguyên); comic reader thì chưa có gì, chỉ hiện dấu “đã tải”.</p>
+  <div class="legend">
+    <div class="legend-item"><span class="newdot"></span> Nút mới thêm trong lần này</div>
+    <div class="legend-item">Bấm nút ở hai khung đầu để xem khung thứ ba sáng lên</div>
+  </div>
+</header>
+
+<div class="stage">
+
+  <!-- ============ 1. READER CHỮ ============ -->
+  <figure class="col">
+    <div class="col-head"><span class="col-tag tag-b">Mới</span><span class="col-title">Reader chữ · danh sách chương</span></div>
+    <p class="col-desc">Nút <code>arrow.down.to.line</code> đứng đầu hàng icon ở header, cạnh “96 chương” (màu xanh chỉ để đánh dấu nút mới).</p>
+    <div class="phone" id="p1">
+      <div class="screen">
+        <div class="reader">
+          <div class="r-head">
+            <div class="grab"></div>
+            <div class="r-top">
+              <div class="cover"></div>
+              <div class="r-meta">
+                <div class="r-title">Thần Điêu Đại Hiệp 2024</div>
+                <div class="r-author">Kim Dung</div>
+                <div class="chip"><i></i>Truyện Full</div>
+                <div class="r-count-row">
+                  <span class="r-count">96 chương</span>
+                  <div class="r-actions">
+                    <button class="ibtn is-new js-open-sheet" aria-label="Tải truyện offline">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v10"/><path d="M8 10.5l4 4 4-4"/><path d="M5 19h14"/></svg>
+                    </button>
+                    <button class="ibtn" aria-label="Dịch lại chương và mục lục">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 6h9M8.5 6v1.5c0 3.5-2 6.5-4.5 8"/><path d="M5.5 10c1.2 2.2 3 3.6 5 4.3"/><path d="M13.5 20l4-10 4 10M15 17h5"/></svg>
+                    </button>
+                    <button class="ibtn" aria-label="Cập nhật mục lục">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 12a8 8 0 11-2.3-5.6"/><path d="M20 4v4h-4"/></svg>
+                    </button>
+                    <button class="ibtn" aria-label="Sắp xếp">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 5v14M5 8l3-3 3 3M16 19V5M13 16l3 3 3-3"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="r-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg>
+            <span>Tìm kiếm chương...</span>
+          </div>
+          <div class="r-list js-rlist"></div>
+        </div>
+      </div>
+      <div class="island"></div>
+    </div>
+  </figure>
+
+  <!-- ============ 2. COMIC ============ -->
+  <figure class="col">
+    <div class="col-head"><span class="col-tag tag-b">Mới</span><span class="col-title">Comic reader · sheet mục lục</span></div>
+    <p class="col-desc">Toolbar trước đây chỉ có X; thêm nút tải ở bên trái, nhãn “Tải ảnh offline”.</p>
+    <div class="phone" id="p2">
+      <div class="screen">
+        <div class="comic-bg">
+          <div class="page">
+            <div class="panel wide"></div>
+            <div class="panel"></div>
+            <div class="panel short"></div>
+          </div>
+        </div>
+        <div class="sheet">
+          <div class="sh-grab"></div>
+          <div class="sh-nav">
+            <button class="sh-btn is-new js-open-sheet" aria-label="Tải ảnh offline">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v10"/><path d="M8 10.5l4 4 4-4"/><path d="M5 19h14"/></svg>
+            </button>
+            <div class="sh-title">Mục lục (96)</div>
+            <button class="sh-btn" aria-label="Đóng">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+          </div>
+          <div class="sh-list js-clist"></div>
+        </div>
+      </div>
+      <div class="island"></div>
+    </div>
+  </figure>
+
+  <!-- ============ 3. TASK OPTIONS ============ -->
+  <figure class="col">
+    <div class="col-head"><span class="col-tag tag-a">Dùng chung</span><span class="col-title">TaskOptionsSheet</span></div>
+    <p class="col-desc">Bấm nút ở hai khung bên mở đúng sheet này — không thêm logic tải mới.</p>
+    <div class="phone" id="p3">
+      <div class="screen">
+        <div class="form">
+          <div class="form-nav">
+            <button class="side">Hủy</button>
+            <div class="form-title">Tải truyện</div>
+            <button class="side right">Bắt đầu</button>
+          </div>
+          <div class="form-body">
+            <div class="sec-label">Thông tin truyện</div>
+            <div class="card">
+              <div class="f-row">
+                <div class="f-cover"></div>
+                <div class="f-meta">
+                  <div class="f-title">Thần Điêu Đại Hiệp 2024</div>
+                  <div class="f-sub">Kim Dung</div>
+                  <span class="f-chip">Truyện Full</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="sec-label">Tùy chọn tác vụ</div>
+            <div class="card">
+              <div class="f-line"><span>Tải từ chương đang đọc</span><span class="sw"></span></div>
+              <div class="f-line"><span>Số chương</span><span class="val">Tất cả
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+              </span></div>
+              <div class="f-line"><span>Hiển thị trong Kệ sách</span><span class="sw"></span></div>
+            </div>
+            <p class="f-foot">Tải truyện offline sẽ chỉ tải nội dung gốc chưa dịch để lưu trữ và tối ưu tốc độ đọc.
+              Tắt “Hiển thị trong Kệ sách” để truyện nằm trong Lịch sử đọc.</p>
+          </div>
+        </div>
+      </div>
+      <div class="island"></div>
+    </div>
+  </figure>
+
+</div>
+
+<section class="notes">
+  <h2>Chi tiết thay đổi</h2>
+  <div class="notes-grid">
+    <div class="note">
+      <div class="note-top"><span class="note-n">01</span><h3>Reader chữ: một icon, không thêm hàng</h3></div>
+      <p>Nút 32×32 chèn <b>đầu</b> hàng icon ở header (<code>ReaderChapterListView.header</code>), trước “dịch lại /
+        cập nhật mục lục / đảo thứ tự”. Không thêm hàng mới nên chiều cao header không đổi.</p>
+    </div>
+    <div class="note">
+      <div class="note-top"><span class="note-n">02</span><h3>Comic: nút ở toolbar trái</h3></div>
+      <p>Sheet mục lục comic trước đây chỉ có X ở phải. Thêm nút tải ở trái để đối xứng, tiêu đề vẫn căn giữa.</p>
+    </div>
+    <div class="note">
+      <div class="note-top"><span class="note-n">03</span><h3>Cùng một sheet, cùng một đường tải</h3></div>
+      <p>Không viết lại logic: cả hai nút mở <code>TaskOptionsSheet(book:taskType: .download)</code> →
+        <code>DownloadManager.enqueueTask</code>. Tuỳ chọn “từ chương đang đọc / số chương / hiển thị trong kệ” giống hệt Kệ.</p>
+    </div>
+    <div class="note">
+      <div class="note-top"><span class="note-n">04</span><h3>Điều kiện hiện nút</h3></div>
+      <p>Reader chữ: dùng lại <code>canDownloadChapters</code> (có <code>ext</code>, có <code>localBook</code>, không phải TXT nội bộ).
+        Comic: chỉ cần <code>book != nil</code> và mục lục không rỗng — <code>ComicReaderView</code> đã đọc sẵn
+        <code>Book</code> trong <code>bootstrap()</code>.</p>
+    </div>
+    <div class="note">
+      <div class="note-top"><span class="note-n">05</span><h3>Nhãn khác nhau cho đúng nội dung</h3></div>
+      <p>Reader chữ: “Tải truyện offline”. Comic: “Tải ảnh offline” — khớp <code>downloadActionTitle</code> đang dùng ở màn Chi tiết.</p>
+    </div>
+    <div class="note">
+      <div class="note-top"><span class="note-n">06</span><h3>Không đụng nút tải từng chương</h3></div>
+      <p>Icon tải lẻ mỗi hàng của reader chữ giữ nguyên (đã có từ 1.3.334). Comic chưa có tải lẻ — nằm ngoài phạm vi lần này.</p>
+    </div>
+    <div class="note">
+      <div class="note-top"><span class="note-n">07</span><h3>Sheet có toggle “Hiển thị trong Kệ sách”</h3></div>
+      <p>Nghĩa là có thể bỏ truyện khỏi kệ ngay khi đang đọc. Đây là hành vi gốc của sheet ở Kệ/Lịch sử — giữ nguyên để hai nơi khớp nhau.</p>
+    </div>
+    <div class="note">
+      <div class="note-top"><span class="note-n">08</span><h3>Sách chưa có trong thư viện</h3></div>
+      <p>Cả hai nút ẩn khi không có hàng <code>Book</code>, vì <code>TaskOptionsSheet</code> bắt buộc cần <code>Book</code> thật.
+        Muốn mở cho cả trường hợp đó thì phải tạo hàng <code>Book</code> trước — việc riêng, chưa làm.</p>
+    </div>
+  </div>
+  <p class="foot-note">Mockup tĩnh, dữ liệu mẫu 96 chương. Chưa sửa code — đang chờ duyệt plan
+    <code>Docs/Plans/2026-10-19-plan-reader-toc-bulk-download.md</code>.</p>
+</section>
+
+<script>
+(function () {
+  "use strict";
+
+  var TOTAL = 96;
+  var CURRENT = 17;
+  var WATCHED = 16;
+  var CACHED = { 1:1,2:1,3:1,4:1,5:1,6:1,7:1,8:1,9:1,10:1,11:1,12:1,13:1,14:1,15:1,16:1,17:1 };
+  var NAMES = {
+    1:"Trùng phùng", 2:"Lời hẹn dưới mưa", 5:"Bí mật động Hắc Phong",
+    9:"Kẻ phản bội", 17:"Quyết chiến trên đỉnh Tuyết", 23:"Một đời một kiếm"
+  };
+  function titleOf(n, noun) {
+    return NAMES[n] ? (noun + " " + n + ": " + NAMES[n]) : (noun + " " + n);
+  }
+
+  var svgDone = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm-4.2 9.4h2.7V6.6h3v4.8h2.7L12 16.6 7.8 11.4z"/></svg>';
+  var svgTodo = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v10"/><path d="M8 10.5l4 4 4-4"/><path d="M5 19h14"/></svg>';
+  var svgBook = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 5.5A2.5 2.5 0 016.5 3H19v18H6.5A2.5 2.5 0 014 18.5v-13z"/></svg>';
+
+  // reader list
+  var rl = document.querySelector(".js-rlist");
+  var html = "";
+  for (var n = 1; n <= 26; n++) {
+    var cls = "r-row";
+    if (n < WATCHED) cls += " is-read";
+    if (n === CURRENT) cls += " is-current";
+    var acc = "";
+    if (n === 22) acc = '<span class="acc"><span class="spin"></span></span>';
+    else if (CACHED[n]) acc = '<span class="acc done">' + svgDone + "</span>";
+    else acc = '<span class="acc todo">' + svgTodo + "</span>";
+    html += '<div class="' + cls + '"><span class="t">' + titleOf(n, "Chương") + "</span>" + acc + "</div>";
+  }
+  rl.innerHTML = html;
+
+  // comic list
+  var cl = document.querySelector(".js-clist");
+  var chtml = '<div class="c-sec">Phần 1 · Khai cục</div>';
+  for (var m = 1; m <= 26; m++) {
+    if (m === 25) chtml += '<div class="c-sec">Phần 2 · Gió nổi</div>';
+    var ccls = "c-row" + (m === CURRENT ? " is-current" : "");
+    var cacc = (m <= 20 ? '<span style="color:#34c759">' + svgDone + "</span>" : "");
+    if (m === CURRENT) cacc += '<span style="color:#5aa9ff">' + svgBook + "</span>";
+    chtml += '<div class="' + ccls + '"><span class="t">' + titleOf(m, "Tập") + "</span>" + cacc + "</div>";
+  }
+  cl.innerHTML = chtml;
+
+  // flash the shared sheet
+  var p3 = document.getElementById("p3");
+  var timer = null;
+  document.querySelectorAll(".js-open-sheet").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      p3.classList.add("flash");
+      p3.scrollIntoView({ behavior: "smooth", block: "center" });
+      clearTimeout(timer);
+      timer = setTimeout(function () { p3.classList.remove("flash"); }, 1600);
+    });
+  });
+})();
+</script>
+</body>
+</html>

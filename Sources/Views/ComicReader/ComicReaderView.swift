@@ -22,6 +22,8 @@ struct ComicReaderView: View {
     @State private var viewModel: ComicReaderViewModel
     @State private var showsChrome = true
     @State private var showsChapterList = false
+    /// `Book` đọc một lần lúc mở màn — chỉ để mục lục có thể mở `TaskOptionsSheet` (tải ảnh offline).
+    @State private var localBook: Book?
     @State private var zoomImage: UIImage?
     @State private var isZoomPresented = false
 
@@ -66,6 +68,7 @@ struct ComicReaderView: View {
                 currentIndex: viewModel.chapterIndex,
                 downloadedIndexes: viewModel.downloadedChapterIndexes,
                 isTranslationEnabled: isTranslationEnabled,
+                book: localBook,
                 onSelect: { viewModel.openChapter($0) }
             )
         }
@@ -242,6 +245,7 @@ struct ComicReaderView: View {
     private func bootstrap() async {
         guard !viewModel.hasStarted else { return }
         let book = fetchBook()
+        localBook = book
         let saved = book.map { (chapterIndex: $0.currentChapterIndex, page: $0.currentChapterPage, chapterTitle: $0.currentChapterTitle) }
         await viewModel.start(saved: saved, bookHost: book?.host)
     }

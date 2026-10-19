@@ -14,6 +14,26 @@ extension ReaderChapterListView {
         !isLocalTXTBook && ext != nil && localBook != nil
     }
 
+    /// Nút "Tải truyện" ở header danh sách chương: mở **đúng** `TaskOptionsSheet` mà nhấn-giữ một truyện ở
+    /// Kệ/Lịch sử vẫn mở, nên mọi tuỳ chọn (từ chương đang đọc, số chương, hiển thị trong kệ) và đường tải
+    /// (`DownloadManager.enqueueTask`) không bị nhân đôi ở đây.
+    ///
+    /// Ẩn cùng điều kiện với nút tải lẻ: sheet cần một `Book` thật trong SwiftData.
+    @ViewBuilder
+    internal var bulkDownloadButton: some View {
+        if canDownloadChapters {
+            Button {
+                showingDownloadOptions = true
+            } label: {
+                Image(systemName: "arrow.down.to.line")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(theme.textColor)
+                    .frame(width: 32, height: 32)
+            }
+            .accessibilityLabel("Tải truyện offline")
+        }
+    }
+
     internal func downloadChapter(_ chapter: ReaderChapterRowState) {
         guard canDownloadChapters, let ext else { return }
         guard !chapter.isPlaceholder, !chapter.isCached else { return }

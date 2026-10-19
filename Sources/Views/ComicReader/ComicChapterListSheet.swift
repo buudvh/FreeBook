@@ -1,15 +1,20 @@
 import SwiftUI
 
 /// Mục lục của màn đọc comic: chương đang đọc được đánh dấu, chương đã tải offline có icon; chạm để nhảy chương.
+///
+/// `book` (nếu có) chỉ dùng cho nút **tải ảnh offline**: mở `TaskOptionsSheet` y như nhấn-giữ một truyện ở
+/// Kệ/Lịch sử. Sách chưa có trong thư viện thì không có hàng `Book` nên nút ẩn.
 @MainActor
 struct ComicChapterListSheet: View {
     let chapters: [ComicChapterEntry]
     let currentIndex: Int
     let downloadedIndexes: Set<Int>
     let isTranslationEnabled: Bool
+    let book: Book?
     let onSelect: (Int) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @State private var showingDownloadOptions = false
 
     var body: some View {
         NavigationStack {
@@ -27,6 +32,18 @@ struct ComicChapterListSheet: View {
             .navigationTitle("Mục lục (\(readableChapterCount))")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    if book != nil, !chapters.isEmpty {
+                        Button {
+                            showingDownloadOptions = true
+                        } label: {
+                            Image(systemName: "arrow.down.to.line")
+                                .font(.system(size: 17, weight: .semibold))
+                                .frame(width: 36, height: 38)
+                        }
+                        .accessibilityLabel("Tải ảnh offline")
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         dismiss()
@@ -36,6 +53,11 @@ struct ComicChapterListSheet: View {
                             .frame(width: 36, height: 38)
                     }
                     .accessibilityLabel("Đóng")
+                }
+            }
+            .sheet(isPresented: $showingDownloadOptions) {
+                if let book {
+                    TaskOptionsSheet(book: book, taskType: .download)
                 }
             }
         }

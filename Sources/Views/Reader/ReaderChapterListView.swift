@@ -72,6 +72,8 @@ public struct ReaderChapterListView: View {
     @State internal var deferredVisiblePageTask: Task<Void, Never>? = nil
     /// Index **logic** của các chương đang tải lẻ — xem `ReaderChapterListView+Download.swift`.
     @State internal var downloadingChapterIndices: Set<Int> = []
+    /// Mở `TaskOptionsSheet` của tác vụ **tải cả truyện** (cùng sheet với nhấn-giữ ở Kệ/Lịch sử).
+    @State internal var showingDownloadOptions = false
 
     private var metadataTitle: String {
         let original = firstNonempty(localBook?.title, bookTitle) ?? "FreeBook"
@@ -123,6 +125,11 @@ public struct ReaderChapterListView: View {
         }
         .accessibilityAction(.escape) {
             onClose()
+        }
+        .sheet(isPresented: $showingDownloadOptions) {
+            if let book = localBook {
+                TaskOptionsSheet(book: book, taskType: .download)
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("chapterTitlesDidRetranslate"))) { notification in
             guard let notifBookId = notification.userInfo?["bookId"] as? String, notifBookId == bookId else { return }
@@ -217,6 +224,8 @@ public struct ReaderChapterListView: View {
                         Spacer(minLength: 4)
 
                         HStack(spacing: 4) {
+                            bulkDownloadButton
+
                             Button(action: retranslateChaptersAction) {
                                 Image(systemName: "character.bubble")
                                     .font(.system(size: 14, weight: .semibold))
