@@ -12,6 +12,12 @@ struct CategoryNovelsListView: View {
     /// mỗi lần view cha dựng lại body.
     @State private var sourceHost: String? = nil
     @State private var selectedNovel: ExtensionItemResult? = nil
+    @State private var showingLayoutSheet = false
+
+    /// Kiểu hiển thị theo loại của nguồn (màn này mở cả từ Khám phá lẫn Chi tiết truyện, chỉ có `packageId`).
+    private var layoutScope: BookListLayoutScope {
+        BookListLayoutScope(kind: ExtensionContentKind.resolve(packageId: extensionPackageId))
+    }
 
     /// Cờ dịch **theo nguồn** (giống `DiscoveryView`), không phải công tắc dịch toàn app: tắt dịch cho nguồn thì danh
     /// sách và tiêu đề phải hiện nguyên văn.
@@ -47,10 +53,22 @@ struct CategoryNovelsListView: View {
     }
 
     var body: some View {
+        let scope = layoutScope
+        // Đọc trong `body` ⇒ sheet "Kiểu hiển thị" hay màn Cài đặt ghi là danh sách vẽ lại theo kiểu mới.
+        let layout = BookListLayoutPreferences.shared.layout(for: scope)
         VStack {
             if loader.isLoading && loader.novels.isEmpty {
-                ProgressView("Đang tải danh sách truyện...")
+                if layout.mode.isGrid {
+                    DiscoverySkeletonGridView(
+                        columns: layout.columns,
+                        aspectRatio: scope.coverAspectRatio,
+                        showsText: layout.mode == .grid
+                    )
                     .frame(maxHeight: .infinity)
+                } else {
+                    ProgressView("Đang tải danh sách truyện...")
+                        .frame(maxHeight: .infinity)
+                }
             } else if !loader.errorMessage.isEmpty && loader.novels.isEmpty {
                 VStack(spacing: 12) {
                     Text(loader.errorMessage)
@@ -67,48 +85,43 @@ struct CategoryNovelsListView: View {
                 }
                 .frame(maxHeight: .infinity)
             } else {
-                List {
-                    ForEach(loader.novels) { novel in
-                        Button {
-                            selectedNovel = novel
-                        } label: {
-                            DiscoveryNovelRowView(item: novel, sourceHost: sourceHost, isTranslationEnabled: isTranslationEnabled)
-                                .padding(.vertical, 4)
-                        }
-                        .buttonStyle(.plain)
-                    }
-
-                    if loader.canLoadMore {
-                        HStack {
-                            Spacer()
-                            ProgressView()
-                            Spacer()
-                        }
-                        .padding(.vertical, 8)
-                        .onAppear {
-                            Task {
-                                await loader.loadMore()
-                            }
-                        }
-                    }
-                }
-                .listStyle(.plain)
-                .refreshable {
-                    await loader.reload()
-                }
-                .navigationDestination(item: $selectedNovel) { novel in
-                    BookDetailView(
-                        bookId: novel.link,
-                        extensionPackageId: extensionPackageId,
-                        initialDetailUrl: novel.link,
-                        sourceName: sourceName,
-                        initialHost: novel.host
-                    )
-                }
+                DiscoveryNovelsLayoutView(
+                    loader: loader,
+                    layout: layout,
+                    aspectRatio: scope.coverAspectRatio,
+                    sourceHost: sourceHost,
+                    isTranslationEnabled: isTranslationEnabled,
+                    rowVerticalPadding: 4,
+                    onSelectNovel: { selectedNovel = $0 }
+                )
             }
+        }
+        // Gắn ở `VStack` ngoài (luôn tồn tại), không trong một nhánh danh sách/lưới: đổi kiểu không làm mất đích.
+        .navigationDestination(item: $selectedNovel) { novel in
+            BookDetailView(
+                bookId: novel.link,
+                extensionPackageId: extensionPackageId,
+                initialDetailUrl: novel.link,
+                sourceName: sourceName,
+                initialHost: novel.host
+            )
         }
         .navigationTitle(translateIfNeeded(category.title))
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showingLayoutSheet = true
+                } label: {
+                    Image(systemName: layout.mode.symbolName)
+                        .font(.system(size: 17, weight: .semibold))
+                }
+                .accessibilityLabel("Kiểu hiển thị")
+            }
+        }
+        .sheet(isPresented: $showingLayoutSheet) {
+            BookListLayoutSheet(scope: layoutScope)
+        }
         .onAppear {
             if sourceHost == nil {
                 sourceHost = ExtensionHostResolver.sourceUrl(localPath: localPath)

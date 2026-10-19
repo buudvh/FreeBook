@@ -1,189 +1,169 @@
 import SwiftUI
 import SwiftData
 
+/// Màn **Cấu hình tiện ích**: thẻ đầu (giới thiệu + Trình duyệt · Ghim · Gỡ) rồi các nhóm cài đặt **tự lưu**.
+///
+/// Không còn nút "Lưu"/"Hủy" — chỉ "Đóng". Mỗi nhóm ghi ngay qua `ExtensionTransactionCoordinator`:
+/// biến cấu hình + cookie ở `ExtensionConfigView+GlobalConfig`, lịch sử + 18+ ở `+History`/`+Nsfw`, gỡ ở
+/// `+Uninstall`, trình duyệt của nguồn ở `+Browser`. Khối `plugin.json` nằm ở màn con `ExtensionMetadataScreen`.
+///
+/// Mọi `@State` để `internal`: các file `+` là extension ở file khác, mà `private` chỉ có phạm vi **file**.
+/// `onImport` có mặc định `nil` nên Quản lý tiện ích và màn TTS vẫn gọi `ExtensionConfigView(ext:)` như cũ.
 struct ExtensionConfigView: View {
     @Environment(\.dismiss) internal var dismiss
 
     var ext: Extension
+    /// Khám phá truyền vào để **tự** mở màn Chi tiết sau khi bấm "Import truyện" trong trình duyệt của nguồn.
+    /// `nil` (Quản lý tiện ích, TTS) ⇒ màn này tự đẩy Chi tiết trong `NavigationStack` của nó.
+    var onImport: ((_ detailUrl: String, _ extensionPackageId: String, _ sourceName: String) -> Void)? = nil
 
     /// `ext` là snapshot giá trị lúc mở màn — tra lại theo `packageId` để thấy tên/config vừa lưu.
     internal var current: Extension {
         ExtensionLibraryRepository.shared.installedExtension(packageId: ext.packageId) ?? ext
     }
-    
+
     // Lưu các cấu hình định nghĩa trong plugin.json
     @State internal var configDefinitions: [String: ConfigItem] = [:]
     // Lưu các giá trị hiện tại người dùng nhập vào
     @State internal var userValues: [String: String] = [:]
-    
+    /// Bản đã ghi gần nhất (hoặc bản vừa nạp) — mốc so sánh để không sinh lượt ghi giả. `+GlobalConfig`
+    @State internal var persistedConfigValues: [String: String] = [:]
+    @State internal var configSaveTask: Task<Void, Never>? = nil
+    @State internal var configSaveError = ""
+
     @State internal var isLoading = true
     @State internal var errorMessage = ""
     @State internal var showingScriptEditor = false
     @State internal var showingUninstallConfirm = false
     @State internal var uninstallAlertMessage = "" // lỗi/chặn gỡ — `ExtensionConfigView+Uninstall`
-    
+
+    // Trình duyệt của nguồn + đích Chi tiết khi Import mà không có `onImport` — `ExtensionConfigView+Browser`
+    @State internal var showingBrowser = false
+    @State internal var importedBook: ImportedBookRoute? = nil
+    @State internal var navigateToImportedBook = false
+
     struct ConfigItem: Codable {
         let title: String?
         let mode: String?
         let format: String?
         let `default`: String?
     }
-    
+
     var body: some View {
         NavigationStack {
-            Group {
-                if isLoading {
-                    ProgressView("Đang đọc cấu hình...")
-                } else if !errorMessage.isEmpty {
-                    VStack(spacing: 16) {
-                        Text("Lỗi đọc cấu hình")
-                            .font(.headline)
-                        Button(action: { dismiss() }) {
-                            Text("Hủy")
-                                .font(.subheadline.weight(.medium))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 8)
-                                .background(Color.white.opacity(0.12))
-                                .overlay(
-                                    Capsule()
-                                        .stroke(Color.white.opacity(0.25), lineWidth: 1)
-                                )
-                                .clipShape(Capsule())
+            browserPresentation(on: uninstallDialogs(on: screenContent))
+                .navigationTitle("Cấu hình tiện ích")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Đóng") {
+                            dismiss()
                         }
-                        .buttonStyle(.plain)
-                    }
-                    .padding()
-                } else {
-                    Form {
-                        // Khối metadata của `plugin.json` (9 trường, tự lưu khi sửa). Ba section bên dưới
-                        // giữ nguyên hành vi cũ, kể cả nút "Lưu" ở thanh điều hướng.
-                        ExtensionMetadataSection(ext: current)
-
-                        Section(header: Text("Tùy Chỉnh Biến Global")) {
-                            if !configDefinitions.isEmpty {
-                                ForEach(Array(configDefinitions.keys).sorted(), id: \.self) { key in
-                                    let definition = configDefinitions[key]!
-                                    let title = definition.title ?? key
-                                    
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        Text(title)
-                                            .font(.subheadline)
-                                            .fontWeight(.semibold)
-                                        
-                                        if definition.format == "boolean" || definition.mode == "toggle" {
-                                            Toggle(isOn: Binding(
-                                                get: { (userValues[key] ?? definition.default ?? "false") == "true" },
-                                                set: { userValues[key] = $0 ? "true" : "false" }
-                                            )) {
-                                                Text(key)
-                                                    .font(.caption)
-                                                    .foregroundColor(.secondary)
-                                            }
-                                        } else if definition.format == "number" {
-                                            TextField(definition.default ?? "", text: Binding(
-                                                get: { userValues[key] ?? "" },
-                                                set: { userValues[key] = $0 }
-                                            ))
-                                            .keyboardType(.numberPad)
-                                            .textFieldStyle(.roundedBorder)
-                                            .textInputAutocapitalization(.none)
-                                        } else {
-                                            TextField(definition.default ?? "", text: Binding(
-                                                get: { userValues[key] ?? "" },
-                                                set: { userValues[key] = $0 }
-                                            ))
-                                            .textFieldStyle(.roundedBorder)
-                                            .textInputAutocapitalization(.none)
-                                        }
-                                        
-                                        if let defaultVal = definition.default {
-                                            Text("Mặc định: \(defaultVal)")
-                                                .font(.caption2)
-                                                .foregroundColor(.gray)
-                                        }
-                                    }
-                                    .padding(.vertical, 4)
-                                }
-                            } else {
-                                Text("Tiện ích này không có cấu hình tùy chỉnh bổ sung.")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                                    .padding(.vertical, 4)
-                            }
-                        }
-                        
-                        Section(header: Text("Mạng & Cookie")) {
-                            Toggle("Xử lý cookie hệ thống", isOn: Binding(
-                                get: { (userValues["http_should_handle_cookies"] ?? "true") == "true" },
-                                set: { userValues["http_should_handle_cookies"] = $0 ? "true" : "false" }
-                            ))
-                            Text("Mặc định bật. Tắt tính năng này nếu tiện ích bị lỗi HTTP 400 do dính cookie đăng nhập Google/hệ thống (ví dụ: Google TTS).")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
-
-                        historySection // tự lưu khi bấm — `ExtensionConfigView+History`
-                        nsfwSection // tự lưu khi bấm — `ExtensionConfigView+Nsfw`
-
-                        Section(header: Text("Mã Nguồn Script")) {
-                            Button(action: {
-                                showingScriptEditor = true
-                            }) {
-                                Label("Chỉnh sửa mã nguồn Script", systemImage: "code.square")
-                                    .foregroundColor(.purple)
-                            }
-                        }
-
-                        uninstallSection
-                    }
-                    .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
-                }
-            }
-            .navigationTitle("Cấu Hình: \(current.name)")
-            .navigationBarTitleDisplayMode(.inline)
-            .sheet(isPresented: $showingScriptEditor) {
-                ExtensionScriptEditorView(ext: current)
-            }
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Hủy") {
-                        dismiss()
                     }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Lưu") {
-                        saveConfig()
-                    }
+                .sheet(isPresented: $showingScriptEditor) {
+                    ExtensionScriptEditorView(ext: current)
                 }
-            }
-            .onAppear {
-                loadConfigDefinitions()
-            }
+                .onChange(of: userValues) { oldValues, newValues in
+                    handleConfigChange(from: oldValues, to: newValues)
+                }
+        }
+        // Gắn ở `NavigationStack` (không phải nội dung bên trong): đẩy màn plugin.json / Chi tiết truyện làm
+        // nội dung gốc nhận `onAppear`/`onDisappear` mỗi lần, còn stack chỉ nhận khi sheet thật sự mở/đóng.
+        .onAppear {
+            if isLoading { loadConfigDefinitions() }
+        }
+        .onDisappear {
+            flushPendingConfigSave() // ghi ngay lượt đang chờ debounce, không bỏ
         }
     }
-    
+
+    @ViewBuilder
+    private var screenContent: some View {
+        if isLoading {
+            ProgressView("Đang đọc cấu hình...")
+        } else if !errorMessage.isEmpty {
+            loadErrorView
+        } else {
+            configForm
+        }
+    }
+
+    private var loadErrorView: some View {
+        VStack(spacing: 16) {
+            Text("Lỗi đọc cấu hình")
+                .font(.headline)
+            Button(action: { dismiss() }) {
+                Text("Đóng")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 8)
+                    .background(Color.white.opacity(0.12))
+                    .overlay(
+                        Capsule()
+                            .stroke(Color.white.opacity(0.25), lineWidth: 1)
+                    )
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding()
+    }
+
+    private var configForm: some View {
+        Form {
+            Section {
+                ExtensionConfigHeaderCard(
+                    ext: current,
+                    onOpenBrowser: openBrowserAction, // `+Browser`
+                    onUninstall: uninstallAction // `+Uninstall`
+                )
+            }
+
+            globalConfigSection // tự lưu — `ExtensionConfigView+GlobalConfig`
+            browsingAndHistorySection // tự lưu khi bấm — `ExtensionConfigView+History` / `+Nsfw`
+            networkSection // tự lưu — `ExtensionConfigView+GlobalConfig`
+
+            Section(header: Text("Nâng cao")) {
+                NavigationLink {
+                    ExtensionMetadataScreen(ext: current)
+                } label: {
+                    Label("Thông tin plugin.json", systemImage: "doc.text")
+                }
+                Button(action: {
+                    showingScriptEditor = true
+                }) {
+                    Label("Sửa mã nguồn Script", systemImage: "code.square")
+                        .foregroundColor(.primary)
+                }
+            }
+        }
+        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
+        .scrollDismissesKeyboard(.interactively)
+    }
+
     internal func loadConfigDefinitions() {
         guard !current.localPath.isEmpty else {
             errorMessage = "Tiện ích chưa được cài đặt cục bộ."
             isLoading = false
             return
         }
-        
+
         let extUrl = URL(fileURLWithPath: current.localPath)
         let pluginJsonUrl = extUrl.appendingPathComponent("plugin.json")
-        
+
         guard FileManager.default.fileExists(atPath: pluginJsonUrl.path) else {
             errorMessage = "Không tìm thấy tệp plugin.json"
             isLoading = false
             return
         }
-        
+
         do {
             let data = try Data(contentsOf: pluginJsonUrl)
             if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
                 var definitions: [String: ConfigItem] = [:]
-                
+
                 // 1. Đọc từ section "config" nếu có
                 if let configSection = json["config"] as? [String: Any] {
                     for (key, value) in configSection {
@@ -201,7 +181,7 @@ struct ExtensionConfigView: View {
                         }
                     }
                 }
-                
+
                 // 2. Đọc các trường thô đặc biệt ở root plugin.json nếu chưa có trong config
                 let specialKeys = ["preload_size", "max_length", "required_api_key", "support_url"]
                 for key in specialKeys {
@@ -215,79 +195,44 @@ struct ExtensionConfigView: View {
                         }
                     }
                 }
-                
+
                 self.configDefinitions = definitions
             }
-            
+
             // Đọc các giá trị người dùng đã lưu trước đó trong Extension
+            var values: [String: String] = [:]
             if let userConfigData = current.configJson.data(using: .utf8),
                let savedValues = try? JSONSerialization.jsonObject(with: userConfigData) as? [String: Any] {
-                var stringMap: [String: String] = [:]
                 for (k, v) in savedValues {
-                    stringMap[k] = "\(v)"
+                    values[k] = Self.storedValueText(v)
                 }
-                self.userValues = stringMap
             }
-            
+
             // Điền sẵn các giá trị mặc định cho những key chưa được lưu
-            for (key, definition) in configDefinitions {
-                if userValues[key] == nil {
-                    userValues[key] = definition.default ?? ""
-                }
+            for (key, definition) in configDefinitions where values[key] == nil {
+                values[key] = definition.default ?? ""
             }
-            if userValues["http_should_handle_cookies"] == nil {
-                userValues["http_should_handle_cookies"] = "true"
+            if values[Self.cookieKey] == nil {
+                values[Self.cookieKey] = "true"
             }
-            
+
+            // Mốc so sánh lấy SAU khi điền mặc định: lượt `onChange` do lần gán này bắn ra thấy hai bản bằng nhau
+            // nên không ghi gì.
+            self.persistedConfigValues = values
+            self.userValues = values
             isLoading = false
         } catch {
             errorMessage = "Lỗi xử lý file plugin.json: \(error.localizedDescription)"
             isLoading = false
         }
     }
-    
-    internal func saveConfig() {
-        do {
-            var typedDict: [String: Any] = [:]
-            for (key, strVal) in userValues {
-                guard !strVal.isEmpty else { continue }
-                if key == "http_should_handle_cookies" {
-                    typedDict[key] = (strVal.lowercased() == "true")
-                    continue
-                }
-                let fmt = configDefinitions[key]?.format
-                if fmt == "boolean" {
-                    typedDict[key] = (strVal.lowercased() == "true")
-                } else if fmt == "number" {
-                    if let iVal = Int(strVal) {
-                        typedDict[key] = iVal
-                    } else if let dVal = Double(strVal) {
-                        typedDict[key] = dVal
-                    } else {
-                        typedDict[key] = strVal
-                    }
-                } else {
-                    typedDict[key] = strVal
-                }
-            }
-            if typedDict["http_should_handle_cookies"] == nil {
-                typedDict["http_should_handle_cookies"] = (userValues["http_should_handle_cookies"]?.lowercased() != "false")
-            }
-            
-            let data = try JSONSerialization.data(withJSONObject: typedDict, options: [])
-            if let jsonString = String(data: data, encoding: .utf8) {
-                let cmd = ExtensionConfigCommand(packageId: ext.packageId, configJson: jsonString)
-                let res = ExtensionTransactionCoordinator.shared.saveExtensionConfig(command: cmd)
-                switch res {
-                case .success:
-                    ToastManager.shared.show(message: "Đã lưu cấu hình thành công!", type: .success)
-                    dismiss()
-                case .failure(let err):
-                    errorMessage = err.localizedDescription
-                }
-            }
-        } catch {
-            errorMessage = error.localizedDescription
+
+    /// `JSONSerialization` trả bool dưới dạng `NSNumber`; nội suy `"\(v)"` ra `"1"`/`"0"` nên công tắc (so với
+    /// `"true"`) luôn hiện tắt và lần ghi sau biến `true` thành `false`. Nhận diện bool thật qua `CFBoolean`.
+    private static func storedValueText(_ value: Any) -> String {
+        if let number = value as? NSNumber, CFGetTypeID(number) == CFBooleanGetTypeID() {
+            return number.boolValue ? "true" : "false"
         }
+        return "\(value)"
     }
 }

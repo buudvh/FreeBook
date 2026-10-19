@@ -4,6 +4,9 @@ import UIKit
 
 /// Khối **Metadata** của màn Cấu hình tiện ích: 9 trường đọc từ `plugin.json`, **tự lưu** khi sửa.
 ///
+/// Từ bản làm lại màn Cấu hình, khối này nằm ở màn con **"Thông tin plugin.json"** (`ExtensionMetadataScreen`, mở từ
+/// nhóm Nâng cao); đầu màn Cấu hình chỉ còn thẻ giới thiệu chỉ đọc (`ExtensionConfigHeaderCard`).
+///
 /// ## Vì sao là View riêng chứ không nhét vào `ExtensionConfigView`
 /// `ExtensionConfigView` đang 278 dòng và màn này sát trần 400; khối metadata một mình đã ~9 hàng có trạng
 /// thái riêng. Tách ra thì file chính chỉ thêm **một dòng** trong `Form`, và ba section cũ của màn giữ nguyên.
@@ -96,7 +99,9 @@ struct ExtensionMetadataSection: View {
             Text("Sửa là tự lưu và áp dụng ngay. `regexp` quyết định tiện ích nào xử lý URL đang mở trong trình duyệt; `source` là link mà lưới home của trình duyệt mở ra. `name` để trống sẽ giữ nguyên tên cũ.")
         }
         .onAppear { load() }
-        .onDisappear { saveTask?.cancel() }
+        // Rời màn (Back ở "Thông tin plugin.json") khi lượt ghi 0,4 s còn chờ: ghi ngay thay vì huỷ, không thì mất
+        // chỉnh sửa. `performSave` chỉ ghi trường khác `loaded` nên gọi thừa cũng không sinh lượt ghi giả.
+        .onDisappear { saveNow() }
         .onChange(of: name) { _, _ in scheduleSave() }
         .onChange(of: source) { _, _ in scheduleSave() }
         .onChange(of: regexp) { _, _ in scheduleSave() }

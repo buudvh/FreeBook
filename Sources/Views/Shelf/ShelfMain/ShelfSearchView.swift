@@ -269,6 +269,20 @@ struct ShelfSearchView: View {
                 Spacer()
             }
             .frame(maxHeight: .infinity)
+        } else if BookListLayoutPreferences.shared.layout(for: .all).mode.isGrid {
+            // Kiểu lưới theo scope "Tất cả" (không chip, không nút đổi kiểu ở màn này) dùng thẻ lưới của kệ; kiểu
+            // danh sách giữ nguyên `resultRow` bên dưới (hàng `BookListItemView` trơn, không ghim/badge chương mới).
+            ShelfBooksLayoutView(
+                groups: [ShelfBooksLayoutView.BookGroup(id: "results", books: filteredBooks)],
+                extensions: allExtensions,
+                scope: .all,
+                onTap: { book in
+                    openReader(book)
+                },
+                onLongPress: { book in
+                    showActions(for: book)
+                }
+            )
         } else {
             List {
                 ForEach(filteredBooks) { book in
@@ -290,22 +304,30 @@ struct ShelfSearchView: View {
         )
         .contentShape(Rectangle())
         .onTapGesture {
-            newChapters.markSeen(bookId: book.bookId)
-            readerRoute = ShelfReaderRoute(
-                bookId: book.bookId,
-                extensionPackageId: book.extensionPackageId,
-                chapterIndex: book.currentChapterIndex,
-                paragraphIndex: nil,
-                detailUrl: book.detailUrl,
-                sourceName: book.sourceName
-            )
+            openReader(book)
         }
         .onLongPressGesture(minimumDuration: BookSheetAction.longPressMinimumDuration) {
-            BookSheetAction.playLongPressFeedback()
-            actionTarget = BookSheetAction.Target(
-                book: book,
-                mode: book.isOnShelf ? .shelf : .history
-            )
+            showActions(for: book)
         }
+    }
+
+    private func openReader(_ book: Book) {
+        newChapters.markSeen(bookId: book.bookId)
+        readerRoute = ShelfReaderRoute(
+            bookId: book.bookId,
+            extensionPackageId: book.extensionPackageId,
+            chapterIndex: book.currentChapterIndex,
+            paragraphIndex: nil,
+            detailUrl: book.detailUrl,
+            sourceName: book.sourceName
+        )
+    }
+
+    private func showActions(for book: Book) {
+        BookSheetAction.playLongPressFeedback()
+        actionTarget = BookSheetAction.Target(
+            book: book,
+            mode: book.isOnShelf ? .shelf : .history
+        )
     }
 }

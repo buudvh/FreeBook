@@ -1,11 +1,5 @@
 import SwiftUI
 
-/// Struct định danh cho item-based fullScreenCover mở trình duyệt bypass
-struct ExtensionBrowserTarget: Identifiable {
-    let id = UUID()
-    let urlString: String
-}
-
 /// Route snapshot bất biến cho màn chi tiết truyện từ Discovery
 private struct DiscoveryDetailRoute: Identifiable, Hashable {
     var id: String { bookId }
@@ -71,12 +65,17 @@ struct DiscoveryView: View {
     @State private var importedSourceName: String = ""
     @State private var importedHost: String = ""
     @State private var navigateToImportedBook = false
-    
-    // Trình duyệt trang chủ extension (item-based để khởi tạo đúng lúc, tránh URL rỗng)
-    @State private var headerBrowserTarget: ExtensionBrowserTarget? = nil
-    
+
+    /// Sheet "Kiểu hiển thị" của loại nguồn đang chọn (nút tròn trên header).
+    @State private var showingLayoutSheet = false
+
     private var selectedExtension: Extension? {
         activeExtensions.first(where: { $0.packageId == selectedExtensionId })
+    }
+
+    /// Phạm vi kiểu hiển thị theo loại của nguồn; chưa chọn nguồn ⇒ truyện chữ.
+    private static func layoutScope(for ext: Extension?) -> BookListLayoutScope {
+        BookListLayoutScope(kind: ext.map(SearchExtensionScopePolicy.kind(of:)) ?? .text)
     }
 
     private func shouldRenderCategoryTab(id: String) -> Bool {
@@ -94,6 +93,9 @@ struct DiscoveryView: View {
         // vẫn đọc `selectedExtension`/`activeExtensions` để lấy giá trị hiện tại, không bắt bản cũ.
         let active = activeExtensions
         let selected = active.first(where: { $0.packageId == selectedExtensionId })
+        // Kiểu hiển thị theo loại nguồn đang xem; đọc trong `body` nên đổi nguồn hay ghi từ sheet là vẽ lại.
+        let layoutScope = Self.layoutScope(for: selected)
+        let layout = BookListLayoutPreferences.shared.layout(for: layoutScope)
         NavigationStack {
             VStack(spacing: 0) {
                 if active.isEmpty {
@@ -148,20 +150,20 @@ struct DiscoveryView: View {
                         
                         Spacer()
                         
-                        // Mở nhanh trang chủ tiện ích
-                        if let ext = selected, !ext.sourceUrl.isEmpty {
-                            Button(action: {
-                                headerBrowserTarget = ExtensionBrowserTarget(urlString: ext.sourceUrl)
-                            }) {
-                                Image(systemName: "safari")
+                        // Kiểu hiển thị danh sách của loại nguồn (thay nút trình duyệt cũ — trình duyệt của nguồn
+                        // giờ chỉ mở từ màn Cấu hình tiện ích).
+                        if selected != nil {
+                            Button(action: { showingLayoutSheet = true }) {
+                                Image(systemName: layout.mode.symbolName)
                                     .font(.system(size: 17, weight: .semibold))
                                     .foregroundColor(.primary)
                                     .frame(width: 38, height: 38)
                                     .background(Color(.secondarySystemBackground))
                                     .clipShape(Circle())
                             }
+                            .accessibilityLabel("Kiểu hiển thị")
                         }
-                        
+
                         // Menu cấu hình dịch cho nguồn
                         ReaderTranslationScopeMenuView(
                             bookId: "",
@@ -197,7 +199,7 @@ struct DiscoveryView: View {
 
                     if isLoading && homeItems.isEmpty && genreItems.isEmpty && discoveryError.isEmpty {
                         // Hiển thị Skeleton UI toàn trang khám phá khi tải lần đầu
-                        DiscoveryMainSkeletonView()
+                        DiscoveryMainSkeletonView(layout: layout, aspectRatio: layoutScope.coverAspectRatio)
                     } else {
                         // 3. Menu danh mục & Home tabs hiển thị khi có dữ liệu (chỉ có trang section thì không cần thanh chip)
                         if !genreItems.isEmpty || homeItems.contains(where: { !ExploreSectionsView.isTab($0) }) {
@@ -331,6 +333,7 @@ struct DiscoveryView: View {
                                                     downloadUrl: ext.downloadUrl,
                                                     configJson: ext.configJson,
                                                     isTranslationEnabled: isTranslationEnabled,
+                                                    layoutScope: layoutScope,
                                                     selectedCategoryId: $selectedCategoryId,
                                                     scrollAnchors: scrollAnchors,
                                                     onSelectNovel: openNovel
@@ -450,26 +453,9 @@ struct DiscoveryView: View {
                     }
                 )
             }
-            .fullScreenCover(item: $headerBrowserTarget) { target in
-                BypassWebView(
-                    urlString: target.urlString,
-                    onImport: { detailUrl, packageId, sourceName in
-                        importedBookId = BookIdUtils.make(extensionPackageId: packageId, detailUrl: detailUrl)
-                        importedExtensionPackageId = packageId
-                        importedDetailUrl = detailUrl
-                        importedSourceName = sourceName
-                        if let url = URL(string: detailUrl), let scheme = url.scheme, let host = url.host {
-                            importedHost = "\(scheme)://\(host)"
-                        } else {
-                            importedHost = ""
-                        }
-                        headerBrowserTarget = nil
-                        ToastManager.shared.show(message: "Đã hoàn tất tải các chương!", type: .success)
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            navigateToImportedBook = true
-                        }
-                    }
-                )
+            .sheet(isPresented: $showingLayoutSheet) {
+                // Tính scope lúc mở từ nguồn hiện tại, không bắt `layoutScope` của lượt body cũ.
+                BookListLayoutSheet(scope: Self.layoutScope(for: selectedExtension))
             }
             .navigationDestination(isPresented: $navigateToImportedBook) {
                 BookDetailView(
@@ -550,375 +536,6 @@ struct DiscoveryView: View {
     }
 }
 
-// MARK: - Subviews
-
-struct DiscoveryCategoryTabView: View {
-    let category: CategoryResult
-    let localPath: String
-    let downloadUrl: String
-    let configJson: String
-    let isTranslationEnabled: Bool
-    @Binding var selectedCategoryId: String
-    /// Neo cuộn dùng chung của cả Khám Phá — giữ ở `DiscoveryView` nên sống qua một lượt tab bị dựng lại.
-    let scrollAnchors: DiscoveryScrollAnchorStore
-    let onSelectNovel: (ExtensionItemResult) -> Void
-    /// Referer dự phòng cho bìa khi item không có `host`. Tra lười khi tab xuất hiện, không trong `init` — `init`
-    /// chạy lại mỗi lần `DiscoveryView` dựng lại body.
-    @State private var sourceHost: String? = nil
-
-    @StateObject private var loader: PaginatedNovelLoader
-    @State private var initialLoadTask: Task<Void, Never>? = nil
-    /// Neo đang chờ áp. Có giá trị từ lúc tab xuất hiện/được chọn tới lúc `scrollTo` chạy được —
-    /// dữ liệu có thể chưa nạp xong ở thời điểm xuất hiện.
-    @State private var pendingRestoreAnchor: String? = nil
-
-    init(
-        category: CategoryResult,
-        localPath: String,
-        downloadUrl: String,
-        configJson: String,
-        isTranslationEnabled: Bool,
-        selectedCategoryId: Binding<String>,
-        scrollAnchors: DiscoveryScrollAnchorStore,
-        onSelectNovel: @escaping (ExtensionItemResult) -> Void
-    ) {
-        self.category = category
-        self.localPath = localPath
-        self.downloadUrl = downloadUrl
-        self.configJson = configJson
-        self.isTranslationEnabled = isTranslationEnabled
-        self._selectedCategoryId = selectedCategoryId
-        self.scrollAnchors = scrollAnchors
-        self.onSelectNovel = onSelectNovel
-        _loader = StateObject(wrappedValue: PaginatedNovelLoader(
-            localPath: localPath,
-            downloadUrl: downloadUrl,
-            scriptFileName: category.script,
-            input: category.input,
-            configJson: configJson
-        ))
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            if loader.isLoading && loader.novels.isEmpty {
-                DiscoverySkeletonListView()
-                    .frame(maxHeight: .infinity)
-            } else if !loader.errorMessage.isEmpty && loader.novels.isEmpty {
-                VStack(spacing: 12) {
-                    Spacer()
-                    Text(loader.errorMessage)
-                        .foregroundColor(.red)
-                        .font(.subheadline)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                    Button("Thử lại") {
-                        Task {
-                            await loader.loadInitial()
-                        }
-                    }
-                    .buttonStyle(.bordered)
-                    Spacer()
-                }
-                .frame(maxHeight: .infinity)
-            } else if loader.novels.isEmpty {
-                VStack(spacing: 12) {
-                    Spacer()
-                    Image(systemName: "book.closed")
-                        .font(.largeTitle)
-                        .foregroundColor(.secondary)
-                    Text("Không tìm thấy truyện nào")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                }
-                .frame(maxHeight: .infinity)
-            } else {
-                ScrollViewReader { proxy in
-                    List {
-                        ForEach(loader.novels) { novel in
-                            Button {
-                                onSelectNovel(novel)
-                            } label: {
-                                DiscoveryNovelRowView(item: novel, sourceHost: sourceHost, isTranslationEnabled: isTranslationEnabled)
-                            }
-                            .buttonStyle(.plain)
-                            // Neo theo `link` chu khong phai `novel.id`: `ExtensionItemResult.id` la
-                            // `UUID()` moi moi lan bocs tach, nen sau mot luot nap lai no khong con khop
-                            // va neo se vo dung. `link` la dinh danh noi dung, on dinh qua nap lai.
-                            .id(novel.link)
-                            .onAppear { scrollAnchors.setVisible(novel.link, isVisible: true, categoryId: category.id) }
-                            .onDisappear { scrollAnchors.setVisible(novel.link, isVisible: false, categoryId: category.id) }
-                        }
-
-                        if loader.canLoadMore {
-                            HStack {
-                                Spacer()
-                                ProgressView()
-                                    .onAppear {
-                                        Task {
-                                            await loader.loadMore()
-                                        }
-                                    }
-                                Spacer()
-                            }
-                            .listRowSeparator(.hidden)
-                        }
-                    }
-                    .listStyle(.plain)
-                    .refreshable {
-                        await loader.reload()
-                    }
-                    // Neo có thể được đặt lúc dữ liệu chưa nạp xong, nên phải thử lại khi danh sách
-                    // vừa có hàng đầu tiên. `pendingRestoreAnchor` bị xoá ngay sau lượt áp nên các
-                    // lượt `loadMore` sau đó không kéo người dùng về chỗ cũ.
-                    .onChange(of: loader.novels.count) { oldValue, _ in
-                        guard oldValue == 0 else { return }
-                        applyPendingRestore(proxy: proxy)
-                    }
-                    .onAppear {
-                        pendingRestoreAnchor = scrollAnchors.anchor(for: category.id)
-                        applyPendingRestore(proxy: proxy, delay: 0.2)
-                    }
-                }
-            }
-        }
-        .onAppear {
-            checkAndLoadData()
-        }
-        .onDisappear {
-            initialLoadTask?.cancel()
-            initialLoadTask = nil
-            // Chốt neo đúng lúc rời tab: một phép quét cho mỗi lượt đổi tab, thay vì mỗi hàng cuộn.
-            captureAnchor()
-        }
-        .onChange(of: selectedCategoryId) { _, newValue in
-            checkAndLoadData()
-            if newValue == category.id {
-                // Tab này vừa thành tab đang xem: nạp neo để lượt `applyPendingRestore` kế tiếp có việc.
-                pendingRestoreAnchor = scrollAnchors.anchor(for: category.id)
-            } else {
-                // Đường thứ hai để chốt neo, cho ca `onDisappear` không nổ (trang chưa bị dỡ hẳn).
-                captureAnchor()
-            }
-        }
-    }
-
-    private func captureAnchor() {
-        guard scrollAnchors.hasVisibleRows(categoryId: category.id) else { return }
-        scrollAnchors.captureAnchor(categoryId: category.id, orderedIds: loader.novels.map(\.link))
-    }
-
-    private func applyPendingRestore(proxy: ScrollViewProxy, delay: TimeInterval = 0.05) {
-        guard let anchor = pendingRestoreAnchor else { return }
-        // Neo trỏ hàng đầu tiên thì không có gì phải khôi phục — tránh một cú nhảy vô nghĩa.
-        guard loader.novels.first?.link != anchor else {
-            pendingRestoreAnchor = nil
-            return
-        }
-        guard loader.novels.contains(where: { $0.link == anchor }) else { return }
-        pendingRestoreAnchor = nil
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            proxy.scrollTo(anchor, anchor: .top)
-        }
-    }
-
-    private func checkAndLoadData() {
-        // Tab có thể nạp từ `onChange(selectedCategoryId)` trước khi `onAppear` chạy: tra Referer ở cả hai đường.
-        if sourceHost == nil {
-            sourceHost = ExtensionHostResolver.sourceUrl(localPath: localPath)
-        }
-        // Chỉ nạp dữ liệu khi tab này thực sự là tab được chọn VÀ chưa có dữ liệu
-        guard selectedCategoryId == category.id else { return }
-        guard loader.novels.isEmpty && !loader.isLoading && loader.errorMessage.isEmpty else { return }
-        scheduleInitialLoad()
-    }
-
-    private func scheduleInitialLoad() {
-        initialLoadTask?.cancel()
-        initialLoadTask = Task {
-            try? await Task.sleep(nanoseconds: 150_000_000)
-            guard !Task.isCancelled else { return }
-            await MainActor.run {
-                guard selectedCategoryId == category.id,
-                      loader.novels.isEmpty,
-                      !loader.isLoading,
-                      loader.errorMessage.isEmpty else { return }
-                Task {
-                    await loader.loadInitial()
-                }
-            }
-        }
-    }
-}
-
-struct ExtensionSelectorView: View {
-    @Environment(\.dismiss) private var dismiss
-    
-    let activeExtensions: [Extension]
-    @Binding var selectedExtensionId: String
-    @Binding var extensionSearchQuery: String
-    var onImport: ((_ detailUrl: String, _ extensionPackageId: String, _ sourceName: String) -> Void)? = nil
-    
-    @State private var configExtension: Extension? = nil
-    @State private var listBrowserTarget: ExtensionBrowserTarget? = nil
-    @AppStorage("discoveryKindFilter") private var kindFilter = "" // chip loại: "" = tất cả, còn lại `ExtensionContentKind.rawValue`
-    
-    private var filteredExtensions: [Extension] {
-        let kindScoped = activeExtensions.filter { SearchExtensionScopePolicy.matches($0, kindFilter: kindFilter) }
-        let baseList: [Extension]
-        if extensionSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            baseList = kindScoped
-        } else {
-            baseList = kindScoped.filter {
-                $0.name.localizedCaseInsensitiveContains(extensionSearchQuery) ||
-                $0.sourceUrl.localizedCaseInsensitiveContains(extensionSearchQuery)
-            }
-        }
-        
-        // Đưa phần mở rộng đang chọn lên đầu danh sách, phần còn lại ghim → vừa dùng → A-Z
-        return baseList.sorted { ext1, ext2 in
-            let isSel1 = ext1.packageId == selectedExtensionId
-            let isSel2 = ext2.packageId == selectedExtensionId
-            if isSel1 != isSel2 {
-                return isSel1
-            }
-            return ExtensionSortPolicy.areInIncreasingOrder(ext1, ext2)
-        }
-    }
-    
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                // Ô tìm kiếm tích hợp di chuyển lên trên cùng của danh sách để dễ sử dụng
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.secondary)
-                    TextField("Tìm kiếm phần mở rộng", text: $extensionSearchQuery)
-                        .textInputAutocapitalization(.none)
-                    
-                    if !extensionSearchQuery.isEmpty {
-                        Button(action: { extensionSearchQuery = "" }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-                .padding(10)
-                .background(Color(.secondarySystemBackground))
-                .cornerRadius(10)
-                .padding()
-                
-                ExtensionKindFilterBar(selection: $kindFilter)
-                Divider()
-                
-                // Danh sách phần mở rộng
-                List(filteredExtensions) { ext in
-                    let isSelected = ext.packageId == selectedExtensionId
-                    HStack(spacing: 12) {
-                        // Icon đại diện nguồn
-                        ExtensionIconView(localPath: ext.localPath, iconUrl: ext.iconUrl, size: 36)
-                        
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(ext.name)
-                                .font(.body)
-                                .fontWeight(isSelected ? .bold : .semibold)
-                                .lineLimit(1) // Tránh tên tiện ích rớt dòng, tự động thu gọn bằng dấu ba chấm (...)
-                            Text(ext.sourceUrl)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
-                            BookKindBadge(kind: SearchExtensionScopePolicy.kind(of: ext), showsLabel: true, hidesText: false)
-                        }
-                        
-                        Spacer()
-                        
-                        if isSelected {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.white)
-                                .padding(.trailing, 4)
-                        }
-                        
-                        // Nút Trình duyệt trang chủ
-                        if !ext.sourceUrl.isEmpty {
-                            Button(action: {
-                                listBrowserTarget = ExtensionBrowserTarget(urlString: ext.sourceUrl)
-                            }) {
-                                Image(systemName: "safari")
-                                    .font(.body)
-                                    .foregroundColor(.secondary)
-                                    .padding(8)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        
-                        // Nút cấu hình (Bánh răng)
-                        Button(action: {
-                            configExtension = ext
-                        }) {
-                            Image(systemName: "gearshape")
-                                .font(.body)
-                                .foregroundColor(.secondary)
-                                .padding(8)
-                        }
-                        .buttonStyle(.plain)
-                        
-                        // Nút Ghim (Pin)
-                        Button(action: {
-                            togglePin(ext)
-                        }) {
-                            Image(systemName: ext.isPinned ? "pin.fill" : "pin")
-                                .font(.body)
-                                .foregroundColor(ext.isPinned ? .white : .secondary)
-                                .padding(8)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        selectedExtensionId = ext.packageId
-                        // Chọn nguồn = duyệt chủ động ⇒ lên đầu nhóm "vừa dùng" (ghi file gom ~3 s).
-                        ExtensionTransactionCoordinator.shared.markUsed(packageId: ext.packageId)
-                        dismiss()
-                    }
-                    .listRowBackground(isSelected ? Color.white.opacity(0.1) : Color(.systemBackground))
-                }
-                .listStyle(.plain)
-            }
-            .navigationTitle("Phần mở rộng")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button(action: { dismiss() }) {
-                        Image(systemName: "xmark")
-                            .foregroundColor(.primary)
-                    }
-                }
-            }
-            .sheet(item: $configExtension) { ext in
-                ExtensionConfigView(ext: ext)
-            }
-            .fullScreenCover(item: $listBrowserTarget) { target in
-                BypassWebView(
-                    urlString: target.urlString,
-                    onImport: { detailUrl, packageId, sourceName in
-                        listBrowserTarget = nil
-                        dismiss()
-                        onImport?(detailUrl, packageId, sourceName)
-                    }
-                )
-            }
-        }
-    }
-    
-    private func togglePin(_ ext: Extension) {
-        let res = ExtensionTransactionCoordinator.shared.togglePinned(packageId: ext.packageId)
-        if case .failure(let err) = res {
-            AppLogger.shared.log("❌ [DiscoveryView] Lỗi ghim tiện ích: \(err.localizedDescription)")
-        }
-    }
-}
-
 // MARK: - Skeleton UI Components
 
 struct DiscoverySkeletonListView: View {
@@ -946,6 +563,10 @@ struct DiscoverySkeletonListView: View {
 }
 
 struct DiscoveryMainSkeletonView: View {
+    /// Kiểu hiển thị của loại nguồn — khung chờ phần danh sách khớp kiểu mà tab danh mục sắp dựng.
+    var layout: BookListLayout = .default
+    var aspectRatio: CGFloat = BookListLayoutScope.text.coverAspectRatio
+
     var body: some View {
         VStack(spacing: 0) {
             // Category pills horizontal scroll skeleton
@@ -968,7 +589,11 @@ struct DiscoveryMainSkeletonView: View {
             Divider()
             
             // Novels list skeleton
-            DiscoverySkeletonListView()
+            if layout.mode.isGrid {
+                DiscoverySkeletonGridView(columns: layout.columns, aspectRatio: aspectRatio, showsText: layout.mode == .grid)
+            } else {
+                DiscoverySkeletonListView()
+            }
         }
     }
 }

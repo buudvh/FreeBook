@@ -92,7 +92,7 @@ struct BookListItemView<Item: BookDisplayable>: View {
             .cornerRadius(4)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(DisplayTextFormatter.titleCase(translateIfNeeded(item.title, bookId: item.bookId)))
+                Text(BookDisplayTranslation.title(item.title, bookId: item.bookId, isEnabled: isTranslationEnabled))
                     .font(.system(size: 14.5, weight: .semibold))
                     .lineLimit(2)
 
@@ -143,11 +143,9 @@ struct BookListItemView<Item: BookDisplayable>: View {
         .contentShape(Rectangle())
     }
 
+    /// Luật dịch dùng chung với thẻ lưới phía kệ — xem `BookDisplayTranslation`.
     private func translateIfNeeded(_ text: String, bookId: String? = nil) -> String {
-        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
-            return text
-        }
-        return TranslateUtils.translateMeta(text, bookId: bookId)
+        BookDisplayTranslation.translateIfNeeded(text, bookId: bookId, isEnabled: isTranslationEnabled)
     }
 
     /// Tham số tường minh → của item → tra theo thư mục tiện ích (chỉ khi hai nguồn trên rỗng).

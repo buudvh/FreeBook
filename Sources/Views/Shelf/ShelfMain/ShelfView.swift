@@ -69,8 +69,13 @@ struct ShelfView: View {
     @State internal var showingPasswordPrompt = false
     @State internal var importPassword = ""
 
-    @State private var shelfLimit = 50 // Giới hạn số lượng sách hiển thị trên kệ để tối ưu hiệu năng cuộn
-    @State private var historyLimit = 50 // Giới hạn số lượng sách hiển thị trong lịch sử đọc
+    // `internal` từ đây (và `readerPresentationRoute`, `actionTarget`): hai trang Kệ/Lịch sử đã tách sang
+    // `Extensions/ShelfView+Layout.swift`.
+    @State internal var shelfLimit = 50 // Giới hạn số lượng sách hiển thị trên kệ để tối ưu hiệu năng cuộn
+    @State internal var historyLimit = 50 // Giới hạn số lượng sách hiển thị trong lịch sử đọc
+    /// Chip loại của Kệ sách + Lịch sử (`""` = tất cả, như `ExtensionKindFilterBar`).
+    @AppStorage("shelfKindFilter") internal var shelfKindFilter = ""
+    @State private var showingLayoutSheet = false // Sheet "Kiểu hiển thị" mở từ menu "…"
     @State private var isProcessingDeletion = false // Trạng thái đang xóa sách bất đồng bộ (tránh bấm lặp)
 
     // Chỉ đọc snapshot TTS khi nhận sự kiện mở Reader; không redraw toàn bộ Shelf theo từng đoạn.
@@ -78,7 +83,7 @@ struct ShelfView: View {
 
     // Trình bày Reader dạng fullScreenCover để tab bar phía dưới không bị ẩn/hiện
     // (tránh hiện tượng tab bar hiển thị trễ khi quay lại từ màn hình toàn màn hình).
-    @State private var readerPresentationRoute: ShelfReaderRoute? = nil
+    @State internal var readerPresentationRoute: ShelfReaderRoute? = nil
 
     // Tùy chọn tác vụ
     @State private var selectedTaskType: TaskType = .download
@@ -98,7 +103,7 @@ struct ShelfView: View {
     @AppStorage("readerSelectedTheme") private var selectedTheme: ReaderTheme = .dark
 
     // Sheet nhấn-giữ một cuốn sách (thay cho context menu cũ) và đích "Xem chi tiết" phát từ sheet đó.
-    @State private var actionTarget: BookSheetAction.Target? = nil
+    @State internal var actionTarget: BookSheetAction.Target? = nil
     @State private var detailTargetBook: Book? = nil
     @State private var navigateToBookDetail = false
 
@@ -113,6 +118,7 @@ struct ShelfView: View {
 
     var body: some View {
         let parts = ShelfBookPartition(allBooks, hidesNsfwHistory: !includeNsfw)
+        let kindFilter = ShelfKindFilter(parts, kindFilter: shelfKindFilter)
         NavigationStack {
             ZStack {
                 VStack(spacing: 0) {
@@ -134,11 +140,11 @@ struct ShelfView: View {
                             .tag(ShelfTab.collections)
 
                         // TAB KỆ SÁCH
-                        shelfTabView(parts)
+                        shelfTabView(parts, kindFilter)
                             .tag(ShelfTab.shelf)
 
                         // TAB LỊCH SỬ
-                        historyTabView(parts)
+                        historyTabView(parts, kindFilter)
                             .tag(ShelfTab.history)
                     }
                     .tabViewStyle(.page(indexDisplayMode: .never))
@@ -202,6 +208,12 @@ struct ShelfView: View {
                             )
                         }
 
+                        if selectedTab == .shelf || selectedTab == .history {
+                            Button(action: { showingLayoutSheet = true }) {
+                                Label("Kiểu hiển thị", systemImage: "square.grid.2x2")
+                            }
+                        }
+
                         Button(action: {
                             showingFilePicker = true
                         }) {
@@ -231,7 +243,7 @@ struct ShelfView: View {
                             }
                         }
 
-                        if selectedTab == .history && !parts.history.isEmpty {
+                        if selectedTab == .history && !kindFilter.history.isEmpty {
                             Button(role: .destructive, action: {
                                 showingClearHistoryAlert = true
                             }) {
@@ -247,11 +259,12 @@ struct ShelfView: View {
             .navigationDestination(isPresented: $navigateToChangeSource) {
                 changeSourceDestinationView
             }
-            // Chọn khoảng thời gian; chỉ xoá truyện đang hiện trong tab Lịch sử (`parts.history`, đã ẩn NSFW thì không đụng).
+            // Chọn khoảng thời gian; chỉ xoá truyện đang hiện trong tab Lịch sử (`kindFilter.history`: đã ẩn NSFW hay
+            // khác loại chip đang lọc thì không đụng).
             .confirmationDialog("Xóa lịch sử đọc", isPresented: $showingClearHistoryAlert, titleVisibility: .visible) {
                 ForEach(HistoryClearRange.allCases, id: \.self) { range in
                     Button(range.title, role: range == .all ? .destructive : nil) {
-                        clearHistory(range, from: parts.history)
+                        clearHistory(range, from: kindFilter.history)
                     }
                 }
                 Button("Hủy", role: .cancel) {}
@@ -278,6 +291,10 @@ struct ShelfView: View {
             }
             .navigationDestination(isPresented: $showingShelfSearch) {
                 ShelfSearchView()
+            }
+            // Scope = chip đang áp ("Tất cả" khi thanh chip ẩn), cùng scope mà hai trang đang vẽ theo.
+            .sheet(isPresented: $showingLayoutSheet) {
+                BookListLayoutSheet(scope: kindFilter.scope)
             }
             .sheet(item: $actionTarget) { target in
                 BookActionSheet(
@@ -567,212 +584,6 @@ struct ShelfView: View {
                 }
             )
         }
-    }
-
-    @ViewBuilder
-    private func shelfTabView(_ parts: ShelfBookPartition) -> some View {
-        Group {
-            if parts.isShelfEmpty {
-                VStack(spacing: 20) {
-                    Image(systemName: "books.vertical")
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 80, height: 80)
-                        .foregroundColor(.secondary)
-
-                    Text("Kệ sách của bạn đang trống")
-                        .font(.title3)
-                        .fontWeight(.semibold)
-
-                    Text("Đi tới phần Tìm Kiếm hoặc Khám Phá để thêm các truyện yêu thích vào kệ sách.")
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
-                }
-                .frame(maxHeight: .infinity)
-            } else {
-                List {
-                    // Chưa ghim truyện nào thì kệ chỉ có một nhóm — dựng thẳng, không bọc section, để
-                    // bố cục giống hệt trước 1.3.334 (không có tiêu đề nhóm lơ lửng một mình).
-                    if parts.pinned.isEmpty {
-                        unpinnedShelfRows(parts)
-                    } else {
-                        Section {
-                            ForEach(parts.pinned) { book in
-                                shelfBookRow(book)
-                            }
-                        } header: {
-                            shelfSectionHeader(
-                                "Đang ghim",
-                                icon: "pin.fill",
-                                color: .orange,
-                                count: parts.pinned.count
-                            )
-                        }
-
-                        Section {
-                            unpinnedShelfRows(parts)
-                        } header: {
-                            shelfSectionHeader(
-                                "Truyện khác",
-                                icon: "books.vertical",
-                                color: .secondary,
-                                count: parts.unpinned.count
-                            )
-                        }
-                    }
-                }
-                .listStyle(.plain)
-            }
-        }
-    }
-
-    /// Phân trang **chỉ** áp cho nhóm chưa ghim: nhóm ghim luôn hiện đủ vì người dùng chủ động ghim.
-    @ViewBuilder
-    private func unpinnedShelfRows(_ parts: ShelfBookPartition) -> some View {
-        ForEach(Array(parts.unpinned.prefix(shelfLimit))) { book in
-            shelfBookRow(book)
-        }
-
-        if parts.unpinned.count > shelfLimit {
-            HStack {
-                Spacer()
-                ProgressView()
-                    .onAppear {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            shelfLimit += 50
-                        }
-                    }
-                Spacer()
-            }
-            .listRowSeparator(.hidden)
-        }
-    }
-
-    /// Một hàng của tab Kệ sách. Tách thành hàm vì 1.3.334 dựng hàng ở **hai** section (ghim / khác).
-    private func shelfBookRow(_ book: Book) -> some View {
-        // Nhấn giữ mở `BookActionSheet` thay cho `.contextMenu` cũ: menu ngữ cảnh chỉ
-        // nhận `Button` nên không dựng được phần đầu có ảnh bìa và danh sách bộ sưu tập.
-        // Dùng `onTapGesture` + `onLongPressGesture` chứ **không** bọc `Button`: bọc
-        // Button thì nhả tay sau khi giữ vẫn kích hoạt action, mở luôn cả Reader.
-        ShelfBookRowView(book: book, extensions: allExtensions)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                newChapters.markSeen(bookId: book.bookId)
-                readerPresentationRoute = ShelfReaderRoute(
-                    bookId: book.bookId,
-                    extensionPackageId: book.extensionPackageId,
-                    chapterIndex: book.currentChapterIndex,
-                    paragraphIndex: nil,
-                    detailUrl: book.detailUrl,
-                    sourceName: book.sourceName
-                )
-            }
-            .onLongPressGesture(minimumDuration: BookSheetAction.longPressMinimumDuration) {
-                BookSheetAction.playLongPressFeedback()
-                actionTarget = BookSheetAction.Target(book: book, mode: .shelf)
-            }
-    }
-
-    /// `textCase(nil)` để tiêu đề giữ nguyên chữ thường — mặc định của `List` là in hoa hết.
-    private func shelfSectionHeader(_ title: String, icon: String, color: Color, count: Int) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: icon)
-                .font(.caption2)
-                .foregroundColor(color)
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundColor(color)
-            Text("\(count)")
-                .font(.caption2.weight(.semibold))
-                .foregroundColor(.secondary)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 1)
-                .background(Color.secondary.opacity(0.15), in: Capsule())
-            Spacer()
-        }
-        .textCase(nil)
-    }
-
-    @ViewBuilder
-    private func historyTabView(_ parts: ShelfBookPartition) -> some View {
-        Group {
-            if parts.history.isEmpty {
-                VStack(spacing: 20) {
-                    Image(systemName: "clock.arrow.circlepath")
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 80, height: 80)
-                        .foregroundColor(.secondary)
-
-                    Text("Lịch sử đọc trống")
-                        .font(.title3)
-                        .fontWeight(.semibold)
-
-                    Text("Lịch sử sẽ tự động ghi nhớ sau khi bạn bắt đầu đọc một chương truyện.")
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
-                }
-                .frame(maxHeight: .infinity)
-            } else {
-                List {
-                    // Mỗi ngày một Section, header dùng lại đúng khuôn của tab Kệ sách
-                    // ("Đang ghim"/"Truyện khác") — xem `HistoryDayGrouper` cho phần gom nhóm.
-                    ForEach(HistoryDayGrouper.group(Array(parts.history.prefix(historyLimit)))) { day in
-                        Section {
-                            ForEach(day.books) { book in
-                                historyBookRow(book)
-                            }
-                        } header: {
-                            shelfSectionHeader(
-                                day.label,
-                                icon: "clock",
-                                color: .secondary,
-                                count: day.books.count
-                            )
-                        }
-                    }
-
-                    if parts.history.count > historyLimit {
-                        HStack {
-                            Spacer()
-                            ProgressView()
-                                .onAppear {
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                        historyLimit += 50
-                                    }
-                                }
-                            Spacer()
-                        }
-                        .listRowSeparator(.hidden)
-                    }
-                }
-                .listStyle(.plain)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func historyBookRow(_ book: Book) -> some View {
-        ShelfBookRowView(book: book, extensions: allExtensions)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                readerPresentationRoute = ShelfReaderRoute(
-                    bookId: book.bookId,
-                    extensionPackageId: book.extensionPackageId,
-                    chapterIndex: book.currentChapterIndex,
-                    paragraphIndex: nil,
-                    detailUrl: book.detailUrl,
-                    sourceName: book.sourceName
-                )
-            }
-            .onLongPressGesture(minimumDuration: BookSheetAction.longPressMinimumDuration) {
-                BookSheetAction.playLongPressFeedback()
-                actionTarget = BookSheetAction.Target(book: book, mode: .history)
-            }
     }
 
     /// Thực thi mục người dùng chọn trong `BookActionSheet`. Thân của từng hành động nằm ở

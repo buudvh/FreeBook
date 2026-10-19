@@ -9,6 +9,9 @@ struct LibrarySettingsSection: View {
             NavigationLink(destination: NsfwSettingsView()) {
                 Label("Nội dung nhạy cảm (NSFW)", systemImage: "eye.slash")
             }
+            NavigationLink(destination: BookListLayoutSettingsView()) {
+                Label("Kiểu hiển thị danh sách", systemImage: "square.grid.2x2")
+            }
             NavigationLink(destination: NewChapterSettingsView()) {
                 Label("Kiểm tra chương mới", systemImage: "bell.badge")
             }

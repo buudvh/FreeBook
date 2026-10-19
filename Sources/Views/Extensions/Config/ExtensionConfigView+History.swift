@@ -1,23 +1,27 @@
 import SwiftUI
 
-/// Section **Lưu lịch sử đọc/xem** của màn Cấu hình tiện ích.
+/// Nhóm **Duyệt và lịch sử** của màn Cấu hình tiện ích: công tắc "Lưu lịch sử đọc/xem" + bộ chọn "Nội dung 18+"
+/// (`ExtensionConfigView+Nsfw`).
 ///
 /// Công tắc hiển thị `savesHistory ?? !isNsfw` (đúng luật của `ExtensionHistoryPolicy`, không tự tính lại) và lưu
-/// **ngay** khi bấm qua `ExtensionTransactionCoordinator.setSavesHistory` — không chờ nút "Lưu" ở thanh điều hướng
-/// và không đi qua `configJson` (chuỗi đó bị tiêm thành biến global của JS).
+/// **ngay** khi bấm qua `ExtensionTransactionCoordinator.setSavesHistory` — không đi qua `configJson` (chuỗi đó bị
+/// tiêm thành biến global của JS).
 ///
-/// Tắt chỉ chặn **ghi mới** vào Lịch sử: lịch sử cũ giữ nguyên; tiến độ đọc của sách trên kệ vẫn được lưu. Chỉ hiện
-/// với tiện ích nội dung (chữ/tranh/video) đã cài — TTS, dịch… không tạo sách nên không có lịch sử.
+/// Tắt chỉ chặn **ghi mới** vào Lịch sử: lịch sử cũ giữ nguyên; tiến độ đọc của sách trên kệ vẫn được lưu.
+///
+/// Chỉ hiện với tiện ích **nội dung** (chữ/tranh/video) đã cài — mockup đã duyệt: tiện ích TTS, dịch… không có nhóm
+/// này (không tạo sách nên không có lịch sử). Đánh dấu 18+ cho các tiện ích đó vẫn làm được ở menu nhấn giữ của Kho.
 extension ExtensionConfigView {
     @ViewBuilder
-    internal var historySection: some View {
+    internal var browsingAndHistorySection: some View {
         if current.isInstalled, SearchExtensionScopePolicy.isBrowsable(current) {
             Section {
                 Toggle("Lưu lịch sử đọc/xem", isOn: savesHistoryBinding)
+                nsfwPicker
             } header: {
-                Text("Lịch sử")
+                Text("Duyệt và lịch sử")
             } footer: {
-                Text(historyFooter)
+                Text(historyFooter + " " + nsfwFooter)
             }
         }
     }
@@ -38,10 +42,10 @@ extension ExtensionConfigView {
 
     private var historyFooter: String {
         let defaultNote = ExtensionNsfwClassifier.isNsfw(current)
-            ? "Mặc định tắt vì tiện ích được nhận là nội dung nhạy cảm (NSFW)."
+            ? "Mặc định tắt vì tiện ích là 18+."
             : "Mặc định bật."
-        return "Tắt thì truyện/phim xem bằng tiện ích này không được ghi mới vào Lịch sử; lịch sử cũ giữ nguyên, "
-            + "truyện trên kệ vẫn nhớ vị trí đọc. " + defaultNote
+        return "Tắt lưu lịch sử thì truyện/phim xem bằng tiện ích này không được ghi mới vào Lịch sử; lịch sử cũ giữ "
+            + "nguyên, truyện trên kệ vẫn nhớ vị trí đọc. " + defaultNote
     }
 
     @MainActor

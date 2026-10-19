@@ -1,47 +1,45 @@
 import SwiftUI
 
-/// Nút **Gỡ tiện ích** ở cuối form cấu hình (plan comic/video, Phần F).
+/// **Gỡ tiện ích** từ màn cấu hình — nút nằm ở hàng nút của thẻ đầu (`ExtensionConfigHeaderCard`), cạnh Trình duyệt
+/// và Ghim; không còn section gỡ ở cuối form.
 ///
 /// Cùng đường với nút gỡ ở kho (`RepositoryManagerView.uninstallExtension`):
 /// `ExtensionTransactionCoordinator.uninstallExtension(packageId:)` xoá thư mục, bản ghi (cấu hình, ghim, lần
 /// dùng) và `localStorage`. Kho, Khám phá và màn TTS tự cập nhật vì `ExtensionLibraryRepository` là `@Observable`.
 ///
 /// Lỗi hiện bằng `uninstallAlertMessage` **riêng** — không dùng `errorMessage`, biến đó thay cả form bằng màn
-/// "Lỗi đọc cấu hình". Dialog/alert gắn vào chính nút để file gốc chỉ thêm 2 `@State` và 1 dòng gọi section.
+/// "Lỗi đọc cấu hình". Hộp xác nhận + alert gắn ở gốc màn (`uninstallDialogs(on:)`), không gắn vào dòng của `Form`.
 extension ExtensionConfigView {
     static let uninstallConfirmMessage = "Xoá thư mục, cấu hình, ghim và dữ liệu đăng nhập (localStorage) của tiện ích. Sách đã thêm vẫn nằm trên kệ, nhưng không tải được chương mới cho tới khi cài lại."
 
     static let uninstallBlockedByTTSMessage = "Tiện ích đang dùng làm giọng đọc. Hãy chọn giọng đọc khác trước khi gỡ."
 
-    /// Section cuối `Form`; chỉ hiện khi tiện ích đã cài (`localPath` khác rỗng).
-    @ViewBuilder
-    internal var uninstallSection: some View {
-        if !current.localPath.isEmpty {
-            Section {
-                Button(role: .destructive) {
-                    requestUninstall()
-                } label: {
-                    Label("Gỡ tiện ích", systemImage: "trash")
+    /// Hành động của nút Gỡ trên thẻ đầu; `nil` (tiện ích chưa cài — `localPath` rỗng) ⇒ thẻ ẩn nút.
+    internal var uninstallAction: (() -> Void)? {
+        guard !current.localPath.isEmpty else { return nil }
+        return { requestUninstall() }
+    }
+
+    /// Gắn hộp xác nhận gỡ + alert lỗi/chặn gỡ vào nội dung gốc của màn.
+    internal func uninstallDialogs<Content: View>(on content: Content) -> some View {
+        content
+            .confirmationDialog(
+                "Gỡ «\(current.name)»?",
+                isPresented: $showingUninstallConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Gỡ tiện ích", role: .destructive) {
+                    performUninstall()
                 }
-                .confirmationDialog(
-                    "Gỡ «\(current.name)»?",
-                    isPresented: $showingUninstallConfirm,
-                    titleVisibility: .visible
-                ) {
-                    Button("Gỡ tiện ích", role: .destructive) {
-                        performUninstall()
-                    }
-                    Button("Hủy", role: .cancel) {}
-                } message: {
-                    Text(Self.uninstallConfirmMessage)
-                }
-                .alert("Không thể gỡ tiện ích", isPresented: uninstallAlertBinding) {
-                    Button("OK", role: .cancel) {}
-                } message: {
-                    Text(uninstallAlertMessage)
-                }
+                Button("Hủy", role: .cancel) {}
+            } message: {
+                Text(Self.uninstallConfirmMessage)
             }
-        }
+            .alert("Không thể gỡ tiện ích", isPresented: uninstallAlertBinding) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(uninstallAlertMessage)
+            }
     }
 
     private var uninstallAlertBinding: Binding<Bool> {

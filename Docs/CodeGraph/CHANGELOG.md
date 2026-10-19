@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.546] - 2026-10-19
+
+### feat: kiểu hiển thị danh sách truyện theo loại, làm lại màn cấu hình tiện ích
+
+Người dùng: *"tôi muốn thay tuỳ chỉnh hiển thị layout của danh sách truyện (bao gồm tab kệ sách và tab khám phá)"* và *"mockup lại phần cài đặt cấu hình ext… bỏ nút mở trình duyệt ở phần chọn ext của khám phá và mang vào trong cấu hình ext"*. Plan: `Docs/Plans/2026-10-18-plan-kieu-hien-thi-danh-sach-va-cau-hinh-tien-ich.md` (mockup đã duyệt trong phiên phỏng vấn). Nhánh `feature/list-layout-ext-config` tách từ `main` sau khi `feature/comic-video` được fast-forward vào `main`.
+
+- **Kiểu hiển thị** (`Sources/Views/Common/BookListLayout/`): ba kiểu `BookListLayoutMode` — Danh sách (mặc định, như cũ) / Lưới / Chỉ bìa; lưới 2–5 cột (mặc định 3). Lưu **theo loại nội dung** (`BookListLayoutScope`: Tất cả · Truyện chữ · Truyện tranh · Phim/Video), dùng chung giữa Kệ và Khám phá, trong `BookListLayoutPreferences` (`@MainActor @Observable`, khoá `bookListLayout.mode.<scope>` / `bookListLayout.columns.<scope>`; tự vào bản sao lưu vì khoá bắt đầu bằng chữ thường; nạp lại theo `UserDefaults.didChangeNotification` để khôi phục sao lưu có hiệu lực). Bìa video ngang 16:9, còn lại (kể cả "Tất cả") đứng 2:3.
+- **Đổi kiểu**: sheet nhỏ `BookListLayoutSheet` ("Áp cho: <loại>", thanh chọn kiểu + Số cột) mở từ menu "…" của Kệ (tab Kệ/Lịch sử), nút tròn mới trên header Khám phá, thanh điều hướng màn Thể loại/Xem thêm, menu của Bộ sưu tập; và Cài đặt → Thư Viện → **Kiểu hiển thị danh sách** (`BookListLayoutSettingsView`, 4 nhóm + "Đặt lại mặc định").
+- **Phía kệ**: `ShelfBooksLayoutView` dựng Kệ sách, Lịch sử, chi tiết Bộ sưu tập, Tìm trên kệ — nhánh danh sách giữ `List` cũ, nhánh lưới là `ScrollView` + `LazyVGrid` (không bao giờ lồng trong `List`), giữ nhóm Đang ghim/Truyện khác, nhóm theo ngày, phân trang 50/lượt, chạm/giữ bằng `onTapGesture` + `onLongPressGesture`. Thẻ `ShelfBookGridCardView`: ghim (trên-trái), chương mới (trên-phải), badge loại (dưới-phải), "icon nguồn · Ch. N" ("Tập N" với video). **Chip lọc loại** (`ShelfKindFilter` + `ExtensionKindFilterBar`, `@AppStorage("shelfKindFilter")`) ở đầu trang Kệ và Lịch sử, chỉ hiện khi có ≥ 2 loại; "Xóa tất cả lịch sử" chỉ xoá truyện đang hiện theo chip. Hai trang dời sang `ShelfView+Layout.swift` (`ShelfView` 873 → 684 dòng); header nhóm thành `ShelfSectionHeaderView`; luật dịch tên của danh sách đã lưu gom về `BookDisplayTranslation`.
+- **Phía Khám phá**: `DiscoveryNovelsLayoutView` dùng chung cho tab danh mục (`DiscoveryCategoryTabView`, tách sang file riêng) và `CategoryNovelsListView`; cả hai nhánh giữ `.id(link)`, neo cuộn, kéo làm mới, sentinel tải thêm. Thẻ `DiscoveryNovelGridCardView` tải bìa bằng `RemoteCoverImage` (không ghi `covers/`). Skeleton dạng lưới `DiscoverySkeletonGridView`. Trang dạng section **không đổi**.
+- **Bỏ nút safari** ở header Khám phá và ở từng dòng bảng chọn nguồn (`ExtensionSelectorView`, tách khỏi `DiscoveryView`; `DiscoveryView` 975 → 600 dòng). Trình duyệt của nguồn chỉ còn mở từ màn Cấu hình tiện ích.
+- **Màn Cấu hình tiện ích**: thẻ đầu `ExtensionConfigHeaderCard` (icon, tên, tác giả · phiên bản, loại, ngôn ngữ, mô tả "Xem thêm") với hàng nút **Trình duyệt · Ghim · Gỡ**; các nhóm "Cài đặt của tiện ích", "Duyệt và lịch sử" (18+ thành bộ chọn Tự động/Có/Không), "Mạng", "Nâng cao" (màn con `ExtensionMetadataScreen` "Thông tin plugin.json", sửa Script). **Tự lưu tất cả**: bỏ "Lưu"/"Hủy", chỉ còn "Đóng"; công tắc ghi ngay, ô chữ ghi sau 0,4 s, đóng màn thì ghi nốt (`ExtensionMetadataSection` cũng đổi từ huỷ sang ghi nốt khi rời màn). "Import truyện" từ trình duyệt: mở từ Khám phá thì Chi tiết hiện ở Khám phá như cũ, nơi khác thì hiện ngay trong màn Cấu hình.
+- **Sửa kèm**: giá trị bool đã lưu trong `configJson` bị đọc lại thành `"1"`/`"0"` (công tắc luôn hiện tắt, lần lưu sau ghi `true` thành `false`) — nhận diện bool thật qua `CFBoolean`.
+- **Không đổi**: `@Model`/schema, Tìm kiếm toàn nguồn, Gợi ý, sheet chọn truyện ở Từ điển, tab Tải về, hộp xác nhận và luật chặn gỡ tiện ích đang là giọng TTS.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền (`JSDom.swift`, `TTSManager.swift`), **0 mới**; mọi file mới ≤ 400 dòng, 1 type chính/file. Không build tại chỗ (Windows, không có `swiftc`) — CI xác nhận biên dịch; chưa thử trên máy.
+
 ## [1.3.545] - 2026-10-19
 
 ### feat: mục lục video dùng tab theo section ở chi tiết và trình phát
@@ -635,100 +651,3 @@ Người dùng: *"nghe truyện lâu sẽ xảy ra lỗi này, đây là chươn
 - **Sửa theo review phản biện (không build được nên review thay compiler)**: (a) mở màn Cài đặt từng gọi `logFileSize` khi dựng view và đóng mất handle log — lúc đã cạn fd thì mọi dòng log sau đó mất âm thầm; nay `logFileSize`/`readLogContents` không đóng handle, handle mở `forUpdating` để "Sao chép nhật ký log" đọc qua chính nó, `clear()` cắt file về 0 qua handle thay vì xoá; (b) `AppLogger.init` gặp file > 5 MB thì giữ 1 MB cuối thay vì xoá hẳn, để lần mở lại app ngay sau sự cố không xoá mất log của sự cố; (c) census chạy trên serial queue `.utility` (không chặn main/TTS, bỏ lock), đã chụp lúc lỗi rồi thì không quét lại; (d) `describe` giữ câu mô tả lưu sẵn (`NSLocalizedDescriptionKey`, `errorDescription` của lỗi Swift) để log lỗi chương không mất text exception JS như log cũ.
 - Chuyển entry `[1.3.487]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ (JSDom, TTSManager), 0 mới. **Không build tại chỗ** (Windows), cần CI/máy Mac. Không đụng `Tests/`.
-
-## [1.3.516] - 2026-10-11
-
-### docs: viet lai README.md theo trang thai hien tai cua app
-
-Người dùng: *"merge code vào nhánh main và viết lại readme.md cho tôi"*.
-
-- Fast-forward `main` lên `refactor/god-objects` (không có merge commit, `main` không có commit riêng).
-- `README.md` viết lại: README cũ chỉ nói VBook/VietPhrase/NghiTTS và 3 engine TTS. Bản mới liệt kê đúng tính năng hiện có — 5 engine TTS (NghiTTS, VieNeu, Siri, Google, Extension), trợ lý AI (Gemini Web, OpenAI, Anthropic…), Quick Translation Rules, nhập/xuất nhiều định dạng, sao lưu Local/Google Drive/Telegram, hộp thư chương mới, debug server extension + extension VS Code; cập nhật cấu trúc `Sources/`, cách build, CI và chỉ dẫn đóng góp.
-- Chuyển entry `[1.3.486]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- Chỉ đổi tài liệu, không đổi code.
-
-## [1.3.515] - 2026-10-11
-
-### fix(ai): dung AI mot lan la xong, quet ten rieng Gemini Web it luot hon va theo cong tac luu, bo nut X widget
-
-Người dùng: *"lọc tên riêng nhiều chương chưa áp dụng config bật tắt tạm à, ngoài ra hãy giảm số batch để thích hợp với gemini web; bỏ nút x trong widget ai; có lỗi phải bấm nút dừng 2 lần trên dải đến batch mới mất dải batch trên top; hơn nữa dòng ai đang suy nghĩ cũng không mất đi khi bấm dừng"*. Plan duyệt trong chat.
-
-- **Phải bấm dừng 2 lần mới mất dải batch**: bấm dừng thì coordinator xoá dải, nhưng request đang bay ném lỗi huỷ, vòng quét coi là "lỗi lẻ của một nhóm", bỏ qua rồi gọi `onProgress`; báo tiến độ chạy trong một `Task` mới (`Task.isCancelled` của nó luôn false) nên dựng lại dải. Sửa: vòng quét gặp huỷ thì thoát, không báo tiến độ; coordinator gắn `batchRunId` cho mỗi lần chạy và bỏ mọi báo cáo không khớp.
-- **"AI đang suy nghĩ" không mất khi dừng**: luồng chat bị huỷ thoát ngay mà tin trợ lý trong `activeSession` vẫn `isStreaming`; màn AI đồng bộ ngược trạng thái đó, cộng một nhịp chữ có thể tới sau khi dừng. Sửa: `AIRuntimeCoordinator.stopActiveTask()` (view gọi thay `cancelActiveTask()`) huỷ rồi hoàn tất mọi tin đang chạy — tin rỗng ghi "Đã dừng." — và lưu phiên; nhịp chữ phải khớp `streamRunId` mới được ghi. Màn AI cũng hoàn tất tin của chính nó ngay khi bấm.
-- **Quét tên riêng với Gemini Web**:
-  - Gom chương liền nhau tới **~40.000 ký tự/lượt**, không cắt giữa chương (chỉ cắt khi một chương đơn lẻ dài hơn). Đã thử thật từ máy dev: 15k/40k/80k ký tự chữ Hán đều trả `Tên=Nghĩa` trong 5–9 s. Ví dụ 100 chương ~3.000 ký tự: 20 → ~8 lượt. Provider API giữ 5 chương/15.000 ký tự. Văn bản chương được đọc trước rồi mới chia lượt (tổng số lượt biết trước như cũ).
-  - Theo công tắc "Lưu chat vào lịch sử Gemini": bật ⇒ cả lần quét là một cuộc chat nối tiếp (`GeminiWebClient.sendConversation`, mở cuộc chat mới sau mỗi 5 lượt để ngữ cảnh không phình; trạng thái chỉ giữ trong RAM — `persist: false` — để không đẩy trạng thái chat thật ra khỏi store); tắt ⇒ mỗi lượt là chat tạm độc lập như trước.
-- **Bỏ nút X** trên widget AI thu nhỏ (`AIFloatingWidgetView`).
-- `rules.md`: bullet mới về dừng/mã lần chạy trong mục Reader AI; bổ sung kích thước lượt quét vào mục Gemini Web.
-- **Kiểm chứng**: đọc code + thử prompt lớn thật; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`.
-
-## [1.3.514] - 2026-10-11
-
-### feat(ai): Gemini Web noi tiep cuoc chat theo phien, cong tac luu chat vao lich su Gemini
-
-Người dùng: *"mở gemini thấy trong đoạn chat không có chat mới"*, rồi *"làm cả 2 cách thì sao"*. Plan duyệt trong chat.
-
-- **Vì sao trước đây không thấy**: mỗi lượt gửi `f.req[45] = 1` (chat tạm) và metadata rỗng ⇒ không vào lịch sử tài khoản, mỗi lượt là một cuộc chat mới gửi lại toàn bộ ngữ cảnh.
-- **Đã thử thật** (chế độ khách): lượt 2 kèm metadata của lượt 1 ⇒ Gemini nhớ nội dung lượt 1, cùng cid — đúng cả khi chat tạm lẫn chat lưu.
-- **Nối tiếp hội thoại (luôn bật)**: `GeminiWebClient.sendConversationStreaming` (file `+Conversation.swift`) — mỗi phiên chat của app ứng với một cuộc chat Gemini. Lượt đầu gửi đủ ngữ cảnh; lượt sau chỉ gửi tin mới, khối ngữ cảnh hệ thống đổi (so băm SHA-256 — sang chương khác, đổi chế độ, đổi từ điển…) thì kèm "Cập nhật ngữ cảnh". Mở cuộc chat mới khi đổi model (tránh 1050) hoặc đổi công tắc lưu; lượt nối tiếp bị từ chối trước khi có chữ ⇒ mở lại một lần với đủ ngữ cảnh (không áp cho lỗi tài khoản/hạn mức/timeout).
-- **Công tắc "Lưu chat vào lịch sử Gemini"** trong hàng tài khoản Gemini Web (`geminiWebSaveHistory`, mặc định tắt): tắt = chat tạm như cũ; bật = mỗi phiên chat của app là **một** cuộc chat trên gemini.google.com.
-- **Giao thức**: `GeminiWebRequestBuilder` nhận metadata 10 ô cho `f.req[2]` và cờ chat tạm; `GeminiWebResponseParser.conversationUpdate` đọc cid/rid (`inner[1]`), rcid (ứng viên `[0]`), ngữ cảnh (`inner[25]`); `GeminiWebConversationState.apply` chỉ ghi đè ô có giá trị (port setter của `gemini-webapi`).
-- **Lưu trạng thái**: `GeminiWebConversationStore` (UserDefaults, theo id phiên, tối đa 100 cuộc chat gần nhất). **Lệch plan có chủ ý**: không lưu trong `AIChatSession` vì màn AI và `AIRuntimeCoordinator` cùng ghi phiên khi một lượt kết thúc ⇒ trường mới dễ bị ghi đè mất.
-- **Không đổi**: quét tên riêng và "Kiểm tra kết nối" vẫn là chat tạm, không nối tiếp. `rules.md`: thay bullet "stateless" trong mục Gemini Web.
-- **Kiểm chứng**: đọc code + thử nối tiếp hội thoại thật từ máy dev; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`.
-
-## [1.3.513] - 2026-10-11
-
-### perf(reader): tach trang thai highlight TTS khoi ReaderView - nhip highlight chi ve lai cac hang doan van
-
-Người dùng: *"reader vẽ lại như vậy có vẻ khá dư thừa nhỉ, vẫn ở truyện đó thì sao phải vẽ lại liên tục, trong khi chỉ có highlight thay đổi thôi"*. Plan duyệt trong chat.
-
-- **Nguyên nhân**: `ReaderTTSStateReader` có **một** `@Published snapshot` gộp trạng thái thô (đang phát, truyện/chương, widget) với phần mịn (`currentParentParagraphIndex`, `highlightRange`, vệt chuẩn bị); ReaderView `@StateObject` nó ⇒ mỗi câu TTS mới làm **cả thân ReaderView** (~2050 dòng) tính lại, kéo theo overlay, danh sách chương và nội dung mọi màn đang trình bày từ Reader (AI, Cài đặt AI, sheet). `scope(to:)` chỉ chặn highlight của truyện khác. Telemetry máy thật: `updateRPM=105.7`, `repeatUpdateRPM=40.4` khi nghe. Hệ quả đã gặp: sheet đăng nhập Gemini Web bị dựng lại 10 lần/30 s (1.3.512), danh sách chương phải bọc `.equatable()` (1.3.510).
-- **Sửa**:
-  - `ReaderTTSStateSnapshot` chỉ còn trường thô ⇒ `ReaderTTSStateReader` không publish theo highlight nữa.
-  - `ReaderTTSHighlightReader` (file mới) giữ phần mịn, cùng cách gộp highlight của truyện khác thành snapshot trống. ReaderView giữ nó bằng **`@State`** (không `@StateObject` — ReaderView không được quan sát nó).
-  - `ReaderTTSHighlightBinder` (file mới) bọc mỗi hàng đoạn văn, quan sát reader mịn và đưa vệt TTS/vệt chuẩn bị vào `ParagraphCardView` (logic chọn vệt y như cũ; thẻ vẫn `.equatable()` nên chỉ thẻ có vệt đổi chạm UIKit).
-  - Tự cuộn theo đoạn đang đọc: `.onChange(of: ttsState.snapshot.currentParentParagraphIndex)` → `.background(ReaderTTSParagraphChangeObserver(…))` (file mới, `.onChange` trong view rỗng — giữ ngữ nghĩa chỉ gọi khi đổi).
-  - `ReaderView+Controls`, `ReaderView+LoadingView` đọc `ttsHighlight.currentParentParagraphIndex` tức thời (không subscribe).
-- ReaderView 2051 → 2045 dòng. `rules.md`: bullet mới về hợp đồng reader thô/mịn.
-- **Kiểm chứng**: đọc code + rà soát độc lập 3 lăng kính (observation, tương đương hành vi, biên dịch) có phản biện; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`. Đo trên máy: so `ReaderEnergy updateRPM` trước/sau khi nghe TTS.
-
-## [1.3.512] - 2026-10-11
-
-### fix(ai): dang nhap Gemini Web trong trinh duyet bypass - WebView khong bi SwiftUI dung lai theo Reader
-
-Người dùng: *"gemini web vẫn lỗi đó, vì sao bạn không dùng bypass browser"* kèm `app_logs (94).txt`. Plan duyệt trong chat.
-
-- **Log phân định (giả thuyết 1.3.511 sai)**: không có dòng nào báo iOS kết thúc tiến trình web; thay vào đó `Tạo WKWebView đăng nhập` xuất hiện **10 lần trong 30 giây** — 3 khi mở, 4 khi quay lại từ Gmail (10:34:26), 3 ngay sau một nhịp TTS (10:34:29); mỗi lần kèm `.task` của một màn đăng nhập mới ⇒ SwiftUI dựng lại cả view, WKWebView mới nạp lại trang đăng nhập từ đầu.
-- **Nguyên nhân**: sheet đăng nhập nằm đáy chuỗi `ReaderView → fullScreenCover AI → sheet Cài đặt AI → hàng Form (GeminiWebAccountRow) → sheet`. ReaderView vẽ lại theo từng highlight TTS và khi quay về từ nền (một `@Published snapshot` gộp cả `highlightRange`) nên SwiftUI tính lại nội dung mọi presentation bên dưới và dựng lại sheet gắn trên hàng Form. Quy tắc SwiftUI nội bộ chọn "dựng lại" thay vì "cập nhật" không đọc được từ code app; log cho thấy nó xảy ra.
-- **Sửa**: `GeminiWebLoginLauncher` (file mới) mở trang đăng nhập trong **trình duyệt bypass** (`VisibleWebViewLoader` + `VisibleBrowserTabManager`, UIKit, sống suốt app, ngoài cây SwiftUI), `selectTab` để luôn mở toàn màn hình kể cả khi cài đặt "mở thu nhỏ" bật. Nhận biết xong bằng **host** `gemini.google.com` qua KVO `webView.url` (không so chuỗi con — URL đăng nhập chứa `continue=…gemini.google.com…`) ⇒ `refreshAfterLogin`, chờ 0,8 s, đóng tab; người dùng đóng tab trước ⇒ chỉ làm mới trạng thái. Vẫn giải phóng WKWebView ẩn khi bắt đầu đăng nhập. Log `🤖 [GeminiWebLogin]` mỗi điều hướng (host + path).
-- `GeminiWebAccountRow` gọi launcher thay cho `.sheet`; xoá `GeminiWebLoginView.swift`, `GeminiWebLoginWebPane.swift` (cùng phần xử lý `webViewWebContentProcessDidTerminate` của 1.3.511 — không phải nguyên nhân). `rules.md`: bullet mới trong mục Gemini Web ("WKWebView mang trạng thái người dùng không được để SwiftUI sở hữu bên dưới Reader").
-- Gốc rễ chung (ReaderView vẽ lại theo highlight) được xử lý riêng ở 1.3.513.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`.
-
-## [1.3.511] - 2026-10-11
-
-### fix(ai): dang nhap Gemini Web - khong tu tai lai khi iOS giai phong trang, log chan doan, giam RAM
-
-Người dùng: *"có lỗi khi đăng nhập gemini web, khi web yêu cầu bấm số xác thực tôi chuyển qua gmail xác thực thì màn hình xác thực của app bị trở về màn hình đăng nhập ban đầu"*. Plan duyệt: `Docs/Plans/2026-10-11-plan-vieneu-search-geminilogin.md` mục 3.
-
-- **Giả thuyết chính (cơ chế có bằng chứng, nhân quả cần log xác nhận)**: khi app ở nền, iOS có thể kết thúc tiến trình WebContent của trang đăng nhập. `GeminiWebLoginWebPane.Coordinator` **không** implement `webViewWebContentProcessDidTerminate` ⇒ WebKit tự tải lại trang khi view hiện lại (mã nguồn WebKit: `NavigationState.mm`, `WebPageProxy::tryReloadAfterProcessTermination`), và trang xác minh của Google mất trạng thái nên quay về bước nhập email. Đã loại trừ theo code: SwiftUI dựng lại pane (sẽ làm sheet đóng hẳn), cửa sổ ẩn của Gemini, xử lý `scenePhase` của app.
-- **Không tự tải lại**: implement `webViewWebContentProcessDidTerminate` — ghi log, báo lên `GeminiWebLoginView` để footer hiện "iOS đã giải phóng trang đăng nhập khi app ở nền. Bấm Tải lại để tiếp tục." kèm nút **Tải lại** (`reloadToken` → `updateUIView` gọi `reload()`). Không gọi `reload()` ngay trong callback vì phá lớp chống vòng lặp crash 1 lần/30 s của WebKit.
-- **Giảm RAM khi đăng nhập**: sheet mở ⇒ `GeminiWebClient.prepareForLogin()` → `GeminiWebSessionController.releaseWebViewIfIdle()` (file `+Account.swift`; `isIdle` = không fetch đang bay, không nạp trang dở) bỏ WKWebView ẩn — một tiến trình WebContent ít hơn; sau đăng nhập phiên vốn được nạp lại.
-- **Mẹo trong footer**: "ở bước bấm số, chọn "Thử cách khác" → mã SMS. iOS gợi ý mã ngay trên bàn phím, không cần rời app."
-- **Log chẩn đoán** `🤖 [GeminiWebLogin]`: tạo WKWebView kèm mã instance (hai dòng trong một lần mở sheet ⇒ pane bị dựng lại), mỗi điều hướng / commit / lỗi (chỉ host + path, không query vì chứa token), iOS kết thúc tiến trình, người dùng bấm Tải lại, `scenePhase` khi sheet đang mở.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới (`GeminiWebSessionController.swift` 393/400). **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`. Cần log từ máy thật (bật Logging trước) để xác nhận nguyên nhân.
-
-## [1.3.510] - 2026-10-11
-
-### fix(reader): tim chuong theo ten dang hien thi, khong phan biet hoa thuong va dau
-
-Người dùng: *"tìm kiếm không được trong danh sách chương của reader"*, *"gõ số chương cũng không được, gõ đúng viết hoa cũng không được"*, *"tôi tìm xong thì dữ liệu không đổi theo tôi tìm nhưng tắt danh sách chương đi rồi mở lại vì có chữ tìm trong đó danh sách sẽ đổ kết quả tìm"*. Plan duyệt: `Docs/Plans/2026-10-11-plan-vieneu-search-geminilogin.md` mục 2.
-
-- **Bằng chứng**: chạy đúng câu SQL tìm của app trên `chapter_store.sqlite` lấy từ máy người dùng (truyện `bookIdHash=88949c37`, 163/163 chương có `title_trans`): `100` → 2 kết quả, `chương 100` → 1, tên đầy đủ → 1. Truy vấn đúng; lỗi nằm ở tầng vẽ. Git: toàn bộ đường tìm không đổi từ 07–08/2026, thay đổi duy nhất là `c9e7c20a` (2026-10-09) cho `ReaderChapterListView` conform `Equatable` + `.equatable()`.
-- **Nguyên nhân chính (thoái lui từ `c9e7c20a`)**: view thật có `@State searchQuery` và đọc store `@Observable` lại mang `==` (bỏ qua state, so store theo identity) dưới `.equatable()`; trên máy, body không chạy lại khi gõ hay khi kết quả về — chỉ chạy khi input `isPresented` đổi (đóng/mở danh sách). Trước commit đó `ReaderView` vẽ lại danh sách liên tục nên che mất chỗ hở. Các `@State` nội bộ khác (đảo thứ tự, đang cập nhật mục lục, đang tải chương lẻ, cache tên dịch) kẹt cùng kiểu.
-- **Sửa gốc, giữ tối ưu**: `ReaderChapterListHost` (file mới) là vỏ **không trạng thái** mang `==` + `.equatable()`, body chỉ dựng `ReaderChapterListView`; xoá `ReaderChapterListView+Equatable.swift` nên view thật **không** còn `Equatable` ⇒ `@State`/Observation cập nhật bình thường, nhịp vẽ lại của `ReaderView` (highlight TTS) vẫn bị chặn ở vỏ. `ReaderView` chỉ đổi tên view ở chỗ mount.
-- **Lọc trên tên đang hiển thị** (`ChapterTitleSearchMatcher`, file mới): `BackgroundSearchWorker` bỏ SQL `LIKE`, đọc `fetchOrderedTOC` rồi khớp trong Swift trên tên hiển thị (cùng cách chọn với `BackgroundPagingWorker`), tên gốc và `titleTrans`, không phân biệt hoa/thường, dấu, độ rộng; kiểm tra huỷ mỗi 200 chương. Sửa luôn: chương thiếu `title_trans` chỉ tìm được bằng chữ Hán (DB người dùng: 60/204 truyện thiếu một phần hoặc toàn bộ), "đại đế" không ra "Đại Đế" (`LIKE` chỉ gấp hoa/thường ASCII), `%`/`_` thành ký tự đại diện, lệch khi chuyển phồn→giản. Nhánh dự phòng `onlineChapters` dùng cùng bộ khớp. `ChapterStoreDatabase.searchChapters` giữ nguyên (không đổi schema), chỉ không còn được ô tìm gọi.
-- **Tìm lại sau reset**: `updateChapters`, `reloadAllPages`, `updateTranslation` (cùng `updateSortOrder`) gọi `rerunSearchIfNeeded()` — trước đây kết quả bị xoá mà ô tìm vẫn giữ chữ.
-- **Log** mỗi lượt tìm: `🔎 [ChapterSearch] bookIdHash=… len=… results=… ms=…` (không log từ khoá; `ms` gồm debounce 250 ms).
-- **Kiểm chứng**: đọc code + thử SQL trên DB thật; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. **Không build tại chỗ** (Windows) — CI nhánh `refactor/god-objects`.

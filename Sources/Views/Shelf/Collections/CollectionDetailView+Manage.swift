@@ -19,6 +19,13 @@ extension CollectionDetailView {
     var collectionMenu: some View {
         if collection != nil {
             Menu {
+                // Bộ sưu tập không có chip loại ⇒ luôn theo kiểu của "Tất cả" (dùng chung với Kệ khi chip ở "Tất cả").
+                Button {
+                    showingLayoutSheet = true
+                } label: {
+                    Label("Kiểu hiển thị", systemImage: "square.grid.2x2")
+                }
+
                 Button {
                     renameText = collection?.name ?? ""
                     showingRenameAlert = true

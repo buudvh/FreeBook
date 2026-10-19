@@ -35,6 +35,8 @@ struct CollectionDetailView: View {
     @State var showingRenameAlert = false
     @State var renameText = ""
     @State var showingDeleteConfirm = false
+    /// Sheet "Kiểu hiển thị" (scope "Tất cả") mở từ `collectionMenu`.
+    @State var showingLayoutSheet = false
 
     var collection: BookCollection? {
         allCollections.first(where: { $0.collectionId == collectionId })
@@ -105,6 +107,9 @@ struct CollectionDetailView: View {
         .sheet(item: $selectedBookForTask) { book in
             TaskOptionsSheet(book: book, taskType: selectedTaskType)
         }
+        .sheet(isPresented: $showingLayoutSheet) {
+            BookListLayoutSheet(scope: .all)
+        }
         .sheet(item: $editingInfoBook) { book in
             BookInfoEditView(
                 bookId: book.bookId,
@@ -154,83 +159,60 @@ struct CollectionDetailView: View {
                 message: "Nhấn giữ một truyện trên kệ sách rồi chọn \"Thêm vào bộ sưu tập\" để bỏ vào đây."
             )
         } else {
-            List {
-                // Chưa ghim truyện nào thì chỉ có một nhóm — dựng thẳng, không bọc section, để không
-                // có tiêu đề nhóm lơ lửng một mình.
-                if pinnedBooks.isEmpty {
-                    ForEach(unpinnedBooks) { book in
-                        bookRow(book)
+            ShelfBooksLayoutView(
+                groups: bookGroups,
+                extensions: allExtensions,
+                scope: .all,
+                // Vuốt "Bỏ khỏi bộ" chỉ có ở kiểu danh sách; kiểu lưới dùng mục cùng việc trong sheet nhấn giữ.
+                swipeAction: ShelfBooksLayoutView.SwipeAction(
+                    title: "Bỏ khỏi bộ",
+                    systemImage: "folder.badge.minus",
+                    perform: { book in
+                        BookActionRunner.removeFromCollection(book, collectionId: collectionId, in: modelContext)
                     }
-                } else {
-                    Section {
-                        ForEach(pinnedBooks) { book in
-                            bookRow(book)
-                        }
-                    } header: {
-                        sectionHeader("Đang ghim", icon: "pin.fill", color: .orange, count: pinnedBooks.count)
-                    }
-
-                    Section {
-                        ForEach(unpinnedBooks) { book in
-                            bookRow(book)
-                        }
-                    } header: {
-                        sectionHeader("Truyện khác", icon: "books.vertical", color: .secondary, count: unpinnedBooks.count)
-                    }
+                ),
+                onTap: { book in
+                    newChapters.markSeen(bookId: book.bookId)
+                    readerRoute = ShelfReaderRoute(
+                        bookId: book.bookId,
+                        extensionPackageId: book.extensionPackageId,
+                        chapterIndex: book.currentChapterIndex,
+                        paragraphIndex: nil,
+                        detailUrl: book.detailUrl,
+                        sourceName: book.sourceName
+                    )
+                },
+                onLongPress: { book in
+                    BookSheetAction.playLongPressFeedback()
+                    actionTarget = BookSheetAction.Target(
+                        book: book,
+                        mode: .collection(collectionId: collectionId)
+                    )
                 }
-            }
-            .listStyle(.plain)
+            )
         }
     }
 
-    private func bookRow(_ book: Book) -> some View {
-        ShelfBookRowView(book: book, extensions: allExtensions)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                newChapters.markSeen(bookId: book.bookId)
-                readerRoute = ShelfReaderRoute(
-                    bookId: book.bookId,
-                    extensionPackageId: book.extensionPackageId,
-                    chapterIndex: book.currentChapterIndex,
-                    paragraphIndex: nil,
-                    detailUrl: book.detailUrl,
-                    sourceName: book.sourceName
-                )
-            }
-            .onLongPressGesture(minimumDuration: BookSheetAction.longPressMinimumDuration) {
-                BookSheetAction.playLongPressFeedback()
-                actionTarget = BookSheetAction.Target(
-                    book: book,
-                    mode: .collection(collectionId: collectionId)
-                )
-            }
-            .swipeActions(edge: .trailing) {
-                Button(role: .destructive) {
-                    BookActionRunner.removeFromCollection(book, collectionId: collectionId, in: modelContext)
-                } label: {
-                    Label("Bỏ khỏi bộ", systemImage: "folder.badge.minus")
-                }
-            }
-    }
-
-    /// `textCase(nil)` để tiêu đề giữ nguyên chữ thường — mặc định của `List` là in hoa hết.
-    private func sectionHeader(_ title: String, icon: String, color: Color, count: Int) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: icon)
-                .font(.caption2)
-                .foregroundColor(color)
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundColor(color)
-            Text("\(count)")
-                .font(.caption2.weight(.semibold))
-                .foregroundColor(.secondary)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 1)
-                .background(Color.secondary.opacity(0.15), in: Capsule())
-            Spacer()
+    /// Chưa ghim truyện nào thì chỉ có một nhóm không tiêu đề — không có tiêu đề nhóm lơ lửng một mình. Bộ sưu tập
+    /// không có chip lọc nên luôn theo kiểu hiển thị của "Tất cả".
+    private var bookGroups: [ShelfBooksLayoutView.BookGroup] {
+        let pinned = pinnedBooks
+        let unpinned = unpinnedBooks
+        guard !pinned.isEmpty else {
+            return [ShelfBooksLayoutView.BookGroup(id: "unpinned", books: unpinned)]
         }
-        .textCase(nil)
+        return [
+            ShelfBooksLayoutView.BookGroup(
+                id: "pinned",
+                header: ShelfBooksLayoutView.Header(title: "Đang ghim", icon: "pin.fill", color: .orange, count: pinned.count),
+                books: pinned
+            ),
+            ShelfBooksLayoutView.BookGroup(
+                id: "unpinned",
+                header: ShelfBooksLayoutView.Header(title: "Truyện khác", icon: "books.vertical", color: .secondary, count: unpinned.count),
+                books: unpinned
+            )
+        ]
     }
 
     @ViewBuilder
