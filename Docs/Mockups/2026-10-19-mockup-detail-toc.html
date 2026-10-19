@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup — Mục lục ở màn Chi tiết (phim)</title>
+<style>
+:root{
+  --bg:#08080a;
+  --text:#f5f5f7;
+  --muted:rgba(235,235,245,.56);
+  --faint:rgba(235,235,245,.34);
+  --stroke:rgba(255,255,255,.10);
+  --hair:rgba(255,255,255,.08);
+  --glass:rgba(255,255,255,.08);
+  --safe-top:44px;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:
+    radial-gradient(900px 520px at 12% -12%, rgba(96,128,168,.14), transparent 62%),
+    radial-gradient(760px 460px at 92% -4%, rgba(168,124,84,.10), transparent 62%),
+    var(--bg);
+  color:var(--text);
+  font-family:var(--font);
+  -webkit-font-smoothing:antialiased;
+  padding:34px 22px 64px;
+  min-height:100vh;
+}
+
+/* ---------- page ---------- */
+.page-head{max-width:1180px;margin:0 auto 34px}
+.eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin-bottom:10px}
+h1{font-size:27px;line-height:1.2;margin:0 0 10px;font-weight:650;letter-spacing:-.02em}
+.lede{margin:0;max-width:780px;font-size:14px;line-height:1.6;color:var(--muted)}
+.lede code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:rgba(235,235,245,.78);background:rgba(255,255,255,.06);padding:1px 5px;border-radius:5px}
+.legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:20px}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.swatch{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;font-size:10px;font-weight:700}
+.sw-now{background:#fff;color:#000}
+.sw-read{background:rgba(255,255,255,.09);color:rgba(255,255,255,.4)}
+.sw-cached{background:rgba(255,255,255,.09);color:#34c759}
+.sw-new{background:rgba(255,255,255,.09);color:#fff}
+
+/* ---------- stage ---------- */
+.stage{display:flex;flex-wrap:wrap;gap:44px;justify-content:center;align-items:flex-start;max-width:1180px;margin:0 auto}
+.col{width:330px;display:flex;flex-direction:column;gap:14px;margin:0}
+.col-head{display:flex;align-items:baseline;gap:8px}
+.col-tag{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:4px 8px;border-radius:6px}
+.tag-now{background:rgba(255,255,255,.08);color:var(--faint);border:1px solid var(--stroke)}
+.tag-new{background:#fff;color:#000}
+.col-title{font-size:13.5px;font-weight:600}
+.col-desc{font-size:12px;line-height:1.5;color:var(--muted);margin:-6px 0 0;min-height:36px}
+
+/* ---------- phone ---------- */
+.phone{position:relative;width:330px;height:716px;border-radius:46px;background:#000;
+  box-shadow:0 30px 70px rgba(0,0,0,.62), 0 0 0 9px #131316, 0 0 0 10px rgba(255,255,255,.07);
+  overflow:hidden;isolation:isolate}
+.screen{position:absolute;inset:0;border-radius:46px;overflow:hidden;background:#000;display:flex;flex-direction:column}
+.island{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:96px;height:26px;border-radius:14px;background:#000;z-index:60}
+
+/* nav + tabs */
+.navbar{flex:0 0 auto;display:flex;align-items:center;gap:2px;padding:calc(var(--safe-top) + 2px) 8px 4px;height:auto}
+.nav-btn{width:32px;height:32px;border-radius:50%;border:0;background:transparent;color:#fff;display:grid;place-items:center;padding:0;cursor:pointer}
+.nav-btn svg{width:18px;height:18px}
+.nav-title{flex:1;text-align:center;font-size:14.5px;font-weight:650;letter-spacing:-.01em}
+.nav-right{display:flex;align-items:center;gap:2px}
+.tabbar{flex:0 0 auto;display:flex;padding-top:2px}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;border:0;background:transparent;
+  color:var(--muted);font-family:inherit;font-size:13.5px;font-weight:500;padding:4px 0 0;cursor:pointer}
+.tab.is-on{color:#fff;font-weight:700}
+.tab-line{width:100%;height:3px;background:transparent;border-radius:2px}
+.tab.is-on .tab-line{background:#fff}
+.tab-label{display:flex;align-items:center;gap:6px}
+.tab-badge{font-size:10px;font-weight:700;color:#fff;background:#ff3b30;border-radius:9px;padding:1px 6px;line-height:1.5}
+.hair{flex:0 0 auto;height:1px;background:var(--hair)}
+
+/* content */
+.content{flex:1;overflow-y:auto;scrollbar-width:none;position:relative}
+.content::-webkit-scrollbar{display:none}
+.fab{position:absolute;right:18px;bottom:22px;width:50px;height:50px;border-radius:50%;
+  background:#2a2a2c;border:1px solid rgba(255,255,255,.32);color:#fff;display:grid;place-items:center;
+  box-shadow:0 8px 22px rgba(0,0,0,.55);z-index:40;cursor:pointer}
+.fab svg{width:19px;height:19px}
+
+/* ---------- shipped TOC ---------- */
+.search{display:flex;align-items:center;gap:8px;padding:8px 16px;background:#000;flex:0 0 auto}
+.search svg{width:15px;height:15px;color:var(--muted);flex:0 0 auto}
+.search-field{flex:1;height:32px;border-radius:8px;border:1px solid rgba(255,255,255,.16);
+  background:rgba(255,255,255,.05);display:flex;align-items:center;padding:0 9px;font-size:12.5px;color:var(--faint)}
+.toc-head{display:flex;align-items:center;gap:6px;padding:6px 16px 4px}
+.toc-head h3{margin:0;font-size:14px;font-weight:650}
+.sort-icon{width:24px;height:24px;border:0;background:transparent;color:#fff;display:grid;place-items:center;cursor:pointer;padding:0}
+.sort-icon svg{width:15px;height:15px}
+.rows{display:block}
+.row{display:flex;align-items:center;gap:6px;width:100%;text-align:left;border:0;background:transparent;
+  color:rgba(255,255,255,.92);font-family:inherit;font-size:13px;line-height:1.35;
+  padding:12px 16px;border-bottom:1px solid var(--hair);cursor:pointer}
+.row.is-read{opacity:.4}
+.row.is-current{color:#fff}
+.row span.t{flex:1;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.row .cached{color:#34c759;flex:0 0 auto;display:grid;place-items:center}
+.row .cached svg{width:13px;height:13px}
+.sec{font-size:12.5px;font-weight:700;color:var(--muted);padding:16px 16px 6px;border-bottom:1px solid var(--hair)}
+.load-more{margin:10px 16px 0;width:calc(100% - 32px);height:40px;border-radius:8px;
+  background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);color:#fff;
+  font-family:inherit;font-size:12.5px;font-weight:650;cursor:pointer}
+
+/* ---------- proposed toolbar ---------- */
+.toolbar{flex:0 0 auto;display:flex;align-items:center;gap:7px;padding:8px 12px 8px 16px;
+  border-bottom:1px solid var(--hair);background:rgba(8,8,10,.92);backdrop-filter:blur(12px)}
+.tb-title{font-size:13.5px;font-weight:650;white-space:nowrap}
+.badge{font-size:10px;font-weight:700;color:rgba(255,255,255,.75);background:rgba(255,255,255,.12);
+  border-radius:7px;padding:2px 6px;font-variant-numeric:tabular-nums}
+.tb-spacer{flex:1}
+.pill{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 9px;border-radius:14px;
+  border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#fff;
+  font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap}
+.pill svg{width:11px;height:11px;opacity:.8}
+.icon-btn{width:28px;height:28px;border-radius:50%;border:0;background:rgba(255,255,255,.08);
+  color:#fff;display:grid;place-items:center;padding:0;cursor:pointer;flex:0 0 auto}
+.icon-btn svg{width:13px;height:13px}
+.search-inline{display:none;padding:8px 12px 8px 16px;border-bottom:1px solid var(--hair)}
+.search-inline.is-on{display:flex;align-items:center;gap:8px}
+.search-inline .search-field{height:30px}
+
+/* pinned current */
+.pinned{display:flex;align-items:center;gap:10px;margin:10px 12px 4px;padding:9px 10px;border-radius:13px;
+  background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.12)}
+.pin-num{width:34px;height:34px;border-radius:10px;background:#fff;color:#000;display:grid;place-items:center;
+  font-size:14px;font-weight:750;flex:0 0 auto;font-variant-numeric:tabular-nums}
+.pin-l{flex:1;min-width:0}
+.pin-cap{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.pin-t{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.pin-play{width:32px;height:32px;border-radius:50%;background:#fff;color:#000;border:0;display:grid;place-items:center;cursor:pointer;flex:0 0 auto}
+.pin-play svg{width:12px;height:12px}
+
+/* section head */
+.sec-head{display:flex;align-items:center;gap:7px;padding:12px 16px 7px;cursor:pointer;user-select:none}
+.sec-head i{width:3px;height:13px;border-radius:2px;background:rgba(255,255,255,.55);flex:0 0 auto}
+.sec-head span{font-size:12px;font-weight:700;color:rgba(255,255,255,.86)}
+.sec-head em{font-style:normal;font-size:10.5px;color:var(--faint);margin-left:auto;font-variant-numeric:tabular-nums}
+.sec-head .chev{width:12px;height:12px;color:var(--faint);transition:transform .2s ease}
+.sec-head.is-closed .chev{transform:rotate(-90deg)}
+
+/* rich rows */
+.r2{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:transparent;
+  font-family:inherit;padding:8px 16px;border-bottom:1px solid var(--hair);cursor:pointer;color:#fff}
+.r2:active{background:rgba(255,255,255,.04)}
+.r2-num{width:27px;height:27px;border-radius:8px;background:rgba(255,255,255,.09);color:#fff;
+  display:grid;place-items:center;font-size:11.5px;font-weight:650;flex:0 0 auto;font-variant-numeric:tabular-nums}
+.r2-body{flex:1;min-width:0}
+.r2-t{display:block;font-size:12.5px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r2-s{display:block;font-size:10px;color:var(--faint);margin-top:2px}
+.r2.is-read .r2-num{background:rgba(255,255,255,.045);color:rgba(255,255,255,.34)}
+.r2.is-read .r2-t{color:rgba(255,255,255,.42)}
+.r2.is-read .r2-ico{opacity:.55}
+.r2.is-current{background:rgba(255,255,255,.10)}
+.r2.is-current .r2-num{background:#fff;color:#000}
+.r2.is-current .r2-s{color:rgba(255,255,255,.7)}
+.r2-ico{width:16px;height:16px;display:grid;place-items:center;flex:0 0 auto;color:rgba(255,255,255,.4)}
+.r2-ico svg{width:13px;height:13px}
+.r2-ico.dl{color:#34c759}
+
+/* ranges + grid */
+.ranges{display:flex;gap:7px;padding:10px 16px 10px;overflow-x:auto;scrollbar-width:none;flex:0 0 auto}
+.ranges::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;height:28px;padding:0 11px;border-radius:14px;border:1px solid transparent;
+  background:rgba(255,255,255,.08);color:rgba(255,255,255,.8);font-family:inherit;
+  font-size:11.5px;font-weight:600;cursor:pointer;font-variant-numeric:tabular-nums}
+.chip.is-on{background:#fff;color:#000}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;padding:0 16px 14px}
+.grid-end{display:flex;align-items:center;gap:10px;padding:2px 16px 16px;font-size:10.5px;color:var(--faint)}
+.grid-end::before,.grid-end::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.08)}
+.ep{position:relative;height:46px;border-radius:11px;border:1px solid rgba(255,255,255,.07);
+  background:rgba(255,255,255,.07);color:#fff;font-family:inherit;font-size:14px;font-weight:600;
+  font-variant-numeric:tabular-nums;cursor:pointer;overflow:hidden;padding:0;display:grid;place-items:center}
+.ep.is-watched{color:rgba(255,255,255,.36);background:rgba(255,255,255,.045);border-color:rgba(255,255,255,.05)}
+.ep.is-current{background:#fff;color:#000;border-color:#fff;font-weight:750;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+.ep-bar{position:absolute;left:0;bottom:0;height:2px;background:rgba(255,255,255,.7);width:0}
+.ep.is-current .ep-bar{background:#000;height:2.5px}
+
+/* ---------- notes ---------- */
+.notes{max-width:1180px;margin:64px auto 0}
+.notes h2{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);font-weight:600;margin:0 0 18px}
+.notes-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.note{padding:16px 18px 18px;border-radius:14px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07)}
+.note-top{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.note-n{font-size:10px;font-weight:700;color:var(--faint);font-variant-numeric:tabular-nums;
+  border:1px solid var(--stroke);border-radius:5px;padding:2px 5px}
+.note h3{margin:0;font-size:13px;font-weight:650}
+.note p{margin:0;font-size:12.5px;line-height:1.62;color:var(--muted)}
+.note code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;
+  color:rgba(235,235,245,.8);background:rgba(255,255,255,.06);padding:1px 4px;border-radius:4px}
+.foot-note{max-width:1180px;margin:30px auto 0;font-size:12px;line-height:1.6;color:var(--faint);
+  border-left:2px solid rgba(255,255,255,.12);padding-left:14px}
+</style>
+</head>
+<body>
+
+<header class="page-head">
+  <div class="eyebrow">FreeBook · BookDetail · tab “Mục lục”</div>
+  <h1>Mục lục ở màn Chi tiết (phim) — mockup lại</h1>
+  <p class="lede">Đúng phần <code>BookDetailTOCView</code> trong tab “Mục lục” của màn Chi tiết, với
+    <code>episodeNoun = "tập"</code> (video). Bản hiện tại: thanh tìm kiếm thường trực, tiêu đề
+    “Danh sách tập (96)” + nút đảo chiều chỉ là icon, mỗi tập một hàng có divider, tập đang xem chỉ khác
+    ở chỗ… không bị mờ. Đề xuất hai hướng: <b>danh sách dày</b> (giữ kiểu hàng, thêm số + trạng thái + gấp nhóm)
+    và <b>lưới tập</b> (4 cột + chip khoảng) cho phim nhiều tập.</p>
+  <div class="legend">
+    <div class="legend-item"><span class="swatch sw-now">17</span> Đang xem</div>
+    <div class="legend-item"><span class="swatch sw-read">12</span> Đã xem</div>
+    <div class="legend-item"><span class="swatch sw-cached">↓</span> Đã tải</div>
+    <div class="legend-item"><span class="swatch sw-new">24</span> Chưa xem</div>
+  </div>
+</header>
+
+<div class="stage">
+
+  <!-- ============ CURRENT ============ -->
+  <figure class="col">
+    <div class="col-head"><span class="col-tag tag-now">Hiện tại</span><span class="col-title">Tab Mục lục</span></div>
+    <p class="col-desc">96 hàng + 4 tiêu đề nhóm trong một cuộn; tập đang xem không có dấu hiệu riêng.</p>
+    <div class="phone">
+      <div class="screen">
+        <div class="navbar">
+          <button class="nav-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <div class="nav-title">Chi Tiết Truyện</div>
+          <div class="nav-right">
+            <button class="nav-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 3 2.6 15 0 18M12 3c-2.6 3-2.6 15 0 18"/></svg></button>
+            <button class="nav-btn"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
+          </div>
+        </div>
+        <div class="tabbar">
+          <button class="tab"><span class="tab-label">Chi tiết</span><span class="tab-line"></span></button>
+          <button class="tab is-on"><span class="tab-label">Mục lục <span class="tab-badge">96</span></span><span class="tab-line"></span></button>
+        </div>
+        <div class="hair"></div>
+        <div class="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg>
+          <div class="search-field">Tìm kiếm tập...</div>
+        </div>
+        <div class="content js-now">
+          <div class="toc-head">
+            <h3>Danh sách tập (96)</h3>
+            <button class="sort-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8.5 12.5L12 16l3.5-3.5"/></svg></button>
+          </div>
+          <div class="js-now-rows"></div>
+          <button class="load-more">Tải thêm chương (còn 2 trang)</button>
+          <div style="height:90px"></div>
+        </div>
+        <button class="fab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+      </div>
+      <div class="island"></div>
+    </div>
+  </figure>
+
+  <!-- ============ PROPOSED A · dense list ============ -->
+  <figure class="col">
+    <div class="col-head"><span class="col-tag tag-new">Đề xuất A</span><span class="col-title">Danh sách dày</span></div>
+    <p class="col-desc">Toolbar dính, tập đang xem ghim trên cùng, số tập + trạng thái, nhóm gấp được.</p>
+    <div class="phone">
+      <div class="screen">
+        <div class="navbar">
+          <button class="nav-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <div class="nav-title">Chi tiết phim</div>
+          <div class="nav-right">
+            <button class="nav-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 3 2.6 15 0 18M12 3c-2.6 3-2.6 15 0 18"/></svg></button>
+            <button class="nav-btn"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
+          </div>
+        </div>
+        <div class="tabbar">
+          <button class="tab"><span class="tab-label">Chi tiết</span><span class="tab-line"></span></button>
+          <button class="tab is-on"><span class="tab-label">Mục lục <span class="tab-badge">96</span></span><span class="tab-line"></span></button>
+        </div>
+        <div class="hair"></div>
+
+        <div class="toolbar">
+          <span class="tb-title">Danh sách tập</span>
+          <span class="badge">96</span>
+          <span class="tb-spacer"></span>
+          <button class="pill js-sort">Cũ nhất
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <button class="icon-btn js-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg></button>
+        </div>
+        <div class="search-inline js-searchbar">
+          <div class="search-field">Tìm tập: “17”, “quyết chiến”…</div>
+        </div>
+
+        <div class="content js-a">
+          <div class="pinned">
+            <div class="pin-num">17</div>
+            <div class="pin-l">
+              <div class="pin-cap">Đang xem</div>
+              <div class="pin-t js-pin-t">Tập 17: Quyết chiến trên đỉnh Tuyết</div>
+            </div>
+            <button class="pin-play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 8-13 8z"/></svg></button>
+          </div>
+          <div class="js-a-list"></div>
+          <div style="height:80px"></div>
+        </div>
+        <button class="fab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+      </div>
+      <div class="island"></div>
+    </div>
+  </figure>
+
+  <!-- ============ PROPOSED B · grid ============ -->
+  <figure class="col">
+    <div class="col-head"><span class="col-tag tag-new">Đề xuất B</span><span class="col-title">Lưới tập</span></div>
+    <p class="col-desc">Cùng toolbar, thêm chip khoảng + lưới 4 cột — quét 96 tập trong 6 hàng.</p>
+    <div class="phone">
+      <div class="screen">
+        <div class="navbar">
+          <button class="nav-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <div class="nav-title">Chi tiết phim</div>
+          <div class="nav-right">
+            <button class="nav-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 3 2.6 15 0 18M12 3c-2.6 3-2.6 15 0 18"/></svg></button>
+            <button class="nav-btn"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
+          </div>
+        </div>
+        <div class="tabbar">
+          <button class="tab"><span class="tab-label">Chi tiết</span><span class="tab-line"></span></button>
+          <button class="tab is-on"><span class="tab-label">Mục lục <span class="tab-badge">96</span></span><span class="tab-line"></span></button>
+        </div>
+        <div class="hair"></div>
+
+        <div class="toolbar">
+          <span class="tb-title">Danh sách tập</span>
+          <span class="badge">96</span>
+          <span class="tb-spacer"></span>
+          <button class="pill js-sort-b">Cũ nhất
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <button class="icon-btn js-search-b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg></button>
+        </div>
+
+        <div class="content js-b">
+          <div class="ranges js-ranges"></div>
+          <div class="grid js-grid"></div>
+          <div class="grid-end js-grid-end">Hết phần 1 · 24 tập</div>
+          <div style="height:80px"></div>
+        </div>
+        <button class="fab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+      </div>
+      <div class="island"></div>
+    </div>
+  </figure>
+
+</div>
+
+<section class="notes">
+  <h2>Vì sao đổi</h2>
+  <div class="notes-grid">
+    <div class="note">
+      <div class="note-top"><span class="note-n">01</span><h3>Tập đang xem không có dấu hiệu</h3></div>
+      <p>Hàng hiện tại chỉ đổi sang <code>.white</code> còn hàng thường là <code>.primary</code> — trong dark mode
+        hai màu gần như trùng nhau (<code>BookDetailTOCView.swift:155</code>). Đề xuất: nền sáng + badge số đảo màu.</p>
+    </div>
+    <div class="note">
+      <div class="note-top"><span class="note-n">02</span><h3>Số tập chỉ nằm trong tiêu đề</h3></div>
+      <p>Hàng chỉ có tên, không có số thứ tự ⇒ phim 96 tập rất khó nhảy đúng tập. Đề xuất badge số bên trái
+        (lấy <code>chap.index</code> + 1 như <code>Episode.displayTitle</code> đang làm).</p>
+    </div>
+    <div class="note">
+      <div class="note-top"><span class="note-n">03</span><h3>Nút đảo chiều là icon trần</h3></div>
+      <p><code>arrow.down.circle</code> / <code>arrow.up.circle</code> không nói đang xếp “mới nhất” hay “cũ nhất”.
+        Đề xuất pill có nhãn + menu, đổi chiều vẫn giữ vị trí cuộn.</p>
+    </div>
+    <div class="note">
+      <div class="note-top"><span class="note-n">04</span><h3>Thanh tìm kiếm chiếm chỗ thường trực</h3></div>
+      <p>Luôn chiếm ~44pt dù hiếm dùng. Đề xuất thu thành icon trên toolbar, bấm mới bung — vẫn tìm được
+        theo tên hoặc số tập.</p>
+    </div>
+    <div class="note">
+      <div class="note-top"><span class="note-n">05</span><h3>Nhóm không gấp được</h3></div>
+      <p>Tiêu đề nhóm chỉ là chữ + divider (<code>:272-285</code>); 4 nhóm × 24 tập buộc cuộn hết. Đề xuất chevron
+        gấp/mở + số tập của nhóm, mặc định mở nhóm chứa tập đang xem.</p>
+    </div>
+    <div class="note">
+      <div class="note-top"><span class="note-n">06</span><h3>Chữ “chương” lọt vào phim</h3></div>
+      <p>Nút cuối danh sách hardcode “Tải thêm chương (còn N trang)” (<code>:229</code>) dù view đã có
+        <code>episodeNoun</code>. Đề xuất dùng “Tải thêm tập”.</p>
+    </div>
+    <div class="note">
+      <div class="note-top"><span class="note-n">07</span><h3>“Chi Tiết Truyện” cho phim</h3></div>
+      <p><code>navigationTitle</code> hardcode ở <code>BookDetailView.swift:235</code>. Với
+        <code>contentKind == .video</code> nên là “Chi tiết phim”.</p>
+    </div>
+    <div class="note">
+      <div class="note-top"><span class="note-n">08</span><h3>Chọn A hay B</h3></div>
+      <p>A giữ được tên tập dài, đọc như danh sách chương; B quét nhanh hơn nhiều với phim 60–120 tập nhưng
+        mất phần tên. Có thể dùng A cho truyện chữ/truyện tranh và B khi <code>contentKind == .video</code>.</p>
+    </div>
+  </div>
+  <p class="foot-note">Mockup tĩnh, dữ liệu mẫu của một phim 96 tập. Bấm hàng tập / chip khoảng / tiêu đề nhóm /
+    icon tìm kiếm để xem hành vi. Không sửa code, không đổi tầng dữ liệu.</p>
+</section>
+
+<script>
+(function () {
+  "use strict";
+
+  var TOTAL = 96;
+  var CURRENT = 17;
+  var WATCHED_UP_TO = 16;
+  var PARTIAL = { 3: 42, 9: 71, 14: 22, 17: 28 };
+  var CACHED = { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 8: 1, 9: 1, 10: 1, 16: 1, 17: 1 };
+  var NAMES = {
+    1: "Tập 1: Trùng phùng",
+    2: "Tập 2: Lời hẹn dưới mưa",
+    5: "Tập 5: Bí mật động Hắc Phong",
+    9: "Tập 9: Kẻ phản bội",
+    17: "Tập 17: Quyết chiến trên đỉnh Tuyết",
+    23: "Tập 23: Một đời một kiếm",
+    31: "Tập 31: Huyết thư",
+    48: "Tập 48: Khói lửa thành Tương Dương",
+    57: "Tập 57: Cố nhân",
+    66: "Tập 66: Đêm dài nhất",
+    77: "Tập 77: Tiếng đàn cuối",
+    88: "Tập 88: Thiên hạ đệ nhất"
+  };
+  var SECTIONS = [
+    { name: "Phần 1 · Khai cục", start: 1, end: 24 },
+    { name: "Phần 2 · Gió nổi", start: 25, end: 48 },
+    { name: "Phần 3 · Tuyết rơi", start: 49, end: 72 },
+    { name: "Phần 4 · Quyết chiến", start: 73, end: 96 }
+  ];
+
+  function titleOf(n) { return NAMES[n] || ("Tập " + n); }
+  function sectionOf(n) {
+    for (var i = 0; i < SECTIONS.length; i++) {
+      if (n >= SECTIONS[i].start && n <= SECTIONS[i].end) return i;
+    }
+    return 0;
+  }
+  function progressOf(n) { return PARTIAL[n] || 0; }
+
+  var svgDown = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8.5 12.5L12 16l3.5-3.5"/></svg>';
+  var svgCheck = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>';
+  var svgDl = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 100 18 9 9 0 000-18zm-4 8.4h2.4V7h3.2v4.4H16L12 16l-4-4.6z"/></svg>';
+  var svgChev = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>';
+
+  /* ---------------- CURRENT ---------------- */
+  (function buildCurrent() {
+    var host = document.querySelector(".js-now-rows");
+    var html = "";
+    SECTIONS.forEach(function (sec) {
+      html += '<div class="sec">' + sec.name + "</div>";
+      for (var n = sec.start; n <= sec.end; n++) {
+        var cls = "row";
+        if (n < WATCHED_UP_TO) cls += " is-read";
+        if (n === CURRENT) cls += " is-current";
+        html += '<button class="' + cls + '" data-n="' + n + '">' +
+          '<span class="t">' + titleOf(n) + "</span>" +
+          (CACHED[n] ? '<span class="cached">' + svgDl + "</span>" : "") +
+          "</button>";
+      }
+    });
+    host.innerHTML = html;
+    var scroller = document.querySelector(".js-now");
+    if (scroller) scroller.scrollTop = 540;
+    host.addEventListener("click", function (e) {
+      var row = e.target.closest(".row");
+      if (!row) return;
+      CURRENT = parseInt(row.dataset.n, 10);
+      refreshAll();
+    });
+  })();
+
+  /* ---------------- A: dense list ---------------- */
+  var aState = { current: CURRENT, sortAsc: true, closed: {} };
+
+  function renderA() {
+    var host = document.querySelector(".js-a-list");
+    var html = "";
+    SECTIONS.forEach(function (sec, si) {
+      var closed = !!aState.closed[si];
+      html += '<div class="sec-head js-sec" data-sec="' + si + '">' + svgChev +
+        "<i></i><span>" + sec.name + "</span><em>" + (sec.end - sec.start + 1) + " tập</em></div>";
+      if (closed) return;
+      for (var n = sec.start; n <= sec.end; n++) {
+        var cls = "r2";
+        if (n < WATCHED_UP_TO) cls += " is-read";
+        if (n === aState.current) cls += " is-current";
+        var sub = n === aState.current
+          ? "Đang xem · 12:34 / 45:02"
+          : (n >= WATCHED_UP_TO && CACHED[n] ? "Đã tải" : "");
+        var ico = n === aState.current ? "" : (CACHED[n] ? '<span class="r2-ico dl">' + svgDl + "</span>" : (n < WATCHED_UP_TO ? '<span class="r2-ico">' + svgCheck + "</span>" : ""));
+        html += '<button class="' + cls + '" data-n="' + n + '">' +
+          '<span class="r2-num">' + n + "</span>" +
+          '<span class="r2-body"><span class="r2-t">' + titleOf(n) + '</span>' +
+            (sub ? '<span class="r2-s">' + sub + "</span>" : "") + "</span>" +
+          ico + "</button>";
+      }
+    });
+    host.innerHTML = html;
+    host.querySelectorAll(".js-sec").forEach(function (el) {
+      if (aState.closed[el.dataset.sec]) el.classList.add("is-closed");
+    });
+    var pin = document.querySelector(".js-pin-t");
+    if (pin) pin.textContent = titleOf(aState.current);
+  }
+
+  document.querySelector(".js-a-list").addEventListener("click", function (e) {
+    var sec = e.target.closest(".js-sec");
+    if (sec) {
+      var i = sec.dataset.sec;
+      aState.closed[i] = !aState.closed[i];
+      renderA();
+      return;
+    }
+    var row = e.target.closest(".r2");
+    if (!row) return;
+    aState.current = parseInt(row.dataset.n, 10);
+    CURRENT = aState.current;
+    refreshAll();
+  });
+
+  document.querySelector(".js-search").addEventListener("click", function () {
+    document.querySelector(".js-searchbar").classList.toggle("is-on");
+  });
+  document.querySelector(".js-sort").addEventListener("click", function (e) {
+    var b = e.currentTarget;
+    aState.sortAsc = !aState.sortAsc;
+    b.firstChild.textContent = aState.sortAsc ? "Cũ nhất" : "Mới nhất";
+  });
+
+  /* ---------------- B: grid ---------------- */
+  var bState = { current: CURRENT, range: sectionOf(CURRENT) };
+
+  function renderB() {
+    var ranges = document.querySelector(".js-ranges");
+    ranges.innerHTML = SECTIONS.map(function (s, i) {
+      return '<button class="chip' + (i === bState.range ? " is-on" : "") + '" data-r="' + i + '">' +
+        s.start + "–" + s.end + "</button>";
+    }).join("");
+
+    var grid = document.querySelector(".js-grid");
+    var cells = "";
+    for (var n = 1; n <= TOTAL; n++) {
+      var cls = "ep";
+      if (n < WATCHED_UP_TO) cls += " is-watched";
+      if (n === bState.current) cls += " is-current";
+      var p = progressOf(n);
+      cells += '<button class="' + cls + '" data-n="' + n + '" data-sec="' + sectionOf(n) + '"' +
+        (sectionOf(n) === bState.range ? "" : ' style="display:none"') + ">" + n +
+        (p ? '<span class="ep-bar" style="width:' + p + '%"></span>' : "") + "</button>";
+    }
+    grid.innerHTML = cells;
+
+    var ge = document.querySelector(".js-grid-end");
+    if (ge) {
+      var sec = SECTIONS[bState.range];
+      ge.textContent = "Hết phần " + (bState.range + 1) + " · " + (sec.end - sec.start + 1) + " tập";
+    }
+  }
+
+  document.querySelector(".js-ranges").addEventListener("click", function (e) {
+    var chip = e.target.closest(".chip");
+    if (!chip) return;
+    bState.range = parseInt(chip.dataset.r, 10);
+    renderB();
+  });
+  document.querySelector(".js-grid").addEventListener("click", function (e) {
+    var cell = e.target.closest(".ep");
+    if (!cell) return;
+    bState.current = parseInt(cell.dataset.n, 10);
+    CURRENT = bState.current;
+    refreshAll();
+  });
+  document.querySelector(".js-search-b").addEventListener("click", function () {
+    var bar = document.querySelector(".js-searchbar");
+    if (bar) bar.classList.toggle("is-on");
+  });
+  document.querySelector(".js-sort-b").addEventListener("click", function (e) {
+    var b = e.currentTarget;
+    b.dataset.asc = b.dataset.asc === "0" ? "1" : "0";
+    b.firstChild.textContent = b.dataset.asc === "0" ? "Mới nhất" : "Cũ nhất";
+  });
+
+  /* ---------------- shared refresh ---------------- */
+  function refreshAll() {
+    // current design
+    document.querySelectorAll(".js-now .row").forEach(function (el) {
+      var n = parseInt(el.dataset.n, 10);
+      el.classList.toggle("is-current", n === CURRENT);
+      el.classList.toggle("is-read", n < WATCHED_UP_TO);
+    });
+    // A
+    aState.current = CURRENT;
+    aState.range = sectionOf(CURRENT);
+    renderA();
+    // B
+    bState.current = CURRENT;
+    bState.range = sectionOf(CURRENT);
+    renderB();
+  }
+
+  renderA();
+  renderB();
+})();
+</script>
+</body>
+</html>

@@ -22,6 +22,8 @@ struct BookDetailTOCView: View {
     let onLoadMoreChapters: () -> Void
     /// "chương" hoặc "tập" (video) — `BookDetailView.episodeNoun`.
     var episodeNoun: String = "chương"
+    /// `true` = nội dung video: vẽ **lưới tập** (`BookDetailVideoTOCGrid`) thay cho danh sách hàng.
+    var isVideo: Bool = false
 
     /// Danh sách chương đã đảo chiều/lọc. Giữ trong `@State` vì view này bị vẽ lại theo mọi lần vẽ của
     /// `BookDetailView` (có closure nên không bỏ qua được): lọc `localizedStandardContains` hàng nghìn
@@ -29,15 +31,104 @@ struct BookDetailTOCView: View {
     @State private var visibleSnapshots: [StoredChapterSnapshot] = []
 
     var body: some View {
-        VStack(spacing: 0) {
-            if totalChaps > 0 {
-                searchBarView
+        Group {
+            if isVideo {
+                videoTOC
+            } else {
+                VStack(spacing: 0) {
+                    if totalChaps > 0 {
+                        searchBarView
+                    }
+                    tocListView
+                }
             }
-            tocListView
         }
         .onChange(of: appliedSearchQuery, initial: true) { recomputeVisibleSnapshots() }
         .onChange(of: isTocAscending) { recomputeVisibleSnapshots() }
         .onChange(of: chapterSnapshots) { recomputeVisibleSnapshots() }
+    }
+
+    // MARK: - Video: mục lục dạng lưới
+
+    /// Nhánh video: cùng dữ liệu với danh sách hàng, khác cách trình bày. Tìm kiếm dùng chung
+    /// `chapterSearchQuery` nên không có hai nguồn từ khoá.
+    private var videoTOC: some View {
+        BookDetailVideoTOCGrid(
+            rows: videoRows,
+            totalCount: readableChapterCount,
+            currentIndex: localBook?.currentChapterIndex ?? -1,
+            isAscending: isTocAscending,
+            isLoading: isLoadingTOC,
+            errorMessage: tocErrorMessage,
+            noun: episodeNoun,
+            remainingPages: tocPages.count > 1 && !remainingPagesLoaded ? tocPages.count - 1 : 0,
+            searchQuery: $chapterSearchQuery,
+            onToggleSort: {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isTocAscending.toggle()
+                }
+            },
+            onSelect: { onStartReading($0) },
+            onReload: onLoadTOCDataOnly,
+            onLoadMore: onLoadMoreChapters
+        )
+    }
+
+    /// Dòng mục lục cho lưới tập. Giữ **đúng thứ tự ưu tiên** của danh sách hàng
+    /// (`chapterSnapshots` → `Book.chapters` → `onlineChapters`) để hai cách hiển thị không lệch nhau.
+    ///
+    /// `ordinal` là số tập hiển thị 1…N, đếm bỏ qua dòng tiêu đề nhóm; khi sắp xếp giảm dần thì đánh
+    /// từ N về 1 để số trên ô vẫn là số tập thật chứ không phải vị trí trong danh sách.
+    private var videoRows: [BookDetailVideoTOCGrid.Row] {
+        let source = videoSourceRows()
+        let total = source.reduce(0) { $1.isSection ? $0 : $0 + 1 }
+        var counter = isTocAscending ? 0 : total + 1
+
+        return source.map { item in
+            var ordinal = 0
+            if !item.isSection {
+                if isTocAscending {
+                    counter += 1
+                    ordinal = counter
+                } else {
+                    counter -= 1
+                    ordinal = counter
+                }
+            }
+            return BookDetailVideoTOCGrid.Row(
+                index: item.index,
+                ordinal: ordinal,
+                title: item.title,
+                isSection: item.isSection,
+                isCached: item.isCached
+            )
+        }
+    }
+
+    private func videoSourceRows() -> [(index: Int, title: String, isSection: Bool, isCached: Bool)] {
+        if !chapterSnapshots.isEmpty {
+            return visibleSnapshots.map { chap in
+                (index: chap.index,
+                 title: isTranslationEnabled ? onTranslateTitleIfNeeded(chap.titleTrans ?? chap.title) : chap.title,
+                 isSection: chap.isSection,
+                 isCached: chap.isCached)
+            }
+        }
+        if localBook != nil, !filteredLocalChapters.isEmpty {
+            // `Book.chapters` luôn rỗng khi `enableSwiftDataTOCWrite = false`; giữ nhánh cho đồng bộ với danh sách hàng.
+            return filteredLocalChapters.map { chap in
+                (index: chap.index,
+                 title: onTranslateChapterTitleIfNeeded(chap),
+                 isSection: false,
+                 isCached: chap.isCached)
+            }
+        }
+        return onlineRows.map { row in
+            (index: row.offset,
+             title: onTranslateTitleIfNeeded(row.element.name),
+             isSection: row.element.isSection,
+             isCached: false)
+        }
     }
 
     private func recomputeVisibleSnapshots() {
@@ -226,7 +317,7 @@ struct BookDetailTOCView: View {
                             Button(action: onLoadMoreChapters) {
                                 HStack {
                                     Spacer()
-                                    Text("Tải thêm chương (còn \(tocPages.count - 1) trang)")
+                                    Text("Tải thêm \(episodeNoun) (còn \(tocPages.count - 1) trang)")
                                         .fontWeight(.semibold)
                                     Spacer()
                                 }

@@ -577,7 +577,8 @@ struct BookDetailView: View {
                     onTranslateChapterTitleIfNeeded: translateChapterTitleIfNeeded,
                     onTranslateTitleIfNeeded: translateTitleIfNeeded,
                     onLoadMoreChapters: loadMoreChapters,
-                    episodeNoun: episodeNoun
+                    episodeNoun: episodeNoun,
+                    isVideo: contentKind == .video
                 )
             } else {
                 Spacer()
