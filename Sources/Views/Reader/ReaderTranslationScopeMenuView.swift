@@ -47,6 +47,17 @@ public struct ReaderTranslationScopeMenuView: View {
         self.frameWidth = frameWidth
         self.frameHeight = frameHeight
         _status = State(initialValue: TranslationConfigStore.shared.resolveStatus(bookId: bookId, packageId: packageId, isChineseSourceHint: isChineseSourceHint))
+        // Khởi tạo ngay theo phạm vi **có thật** của màn gọi: Khám phá truyền `bookId: ""` nên không bao giờ
+        // được bắt đầu ở "Truyện này" (mục đó còn không có trong `Menu`). Trước đây mặc định cứng `.book` và chỉ
+        // sửa trong `preparePopupState()` lúc bấm nút, nên popover vẽ lần đầu vẫn ghi "Truyện này".
+        _selectedScope = State(initialValue: Self.availableScope(bookId: bookId, packageId: packageId))
+    }
+
+    /// Phạm vi mặc định theo tham số màn gọi — chỉ chọn cấp **đang tồn tại**.
+    static func availableScope(bookId: String, packageId: String) -> TranslationPopupScope {
+        if !bookId.isEmpty { return .book }
+        if !packageId.isEmpty { return .source }
+        return .global
     }
 
     private var resolvedWidth: CGFloat {
@@ -172,7 +183,7 @@ public struct ReaderTranslationScopeMenuView: View {
                         } label: {
                             HStack {
                                 Text("Truyện này")
-                                if selectedScope == .book {
+                                if effectiveScope == .book {
                                     Image(systemName: "checkmark")
                                 }
                             }
@@ -185,7 +196,7 @@ public struct ReaderTranslationScopeMenuView: View {
                         } label: {
                             HStack {
                                 Text("Nguồn này (\(displaySourceName))")
-                                if selectedScope == .source {
+                                if effectiveScope == .source {
                                     Image(systemName: "checkmark")
                                 }
                             }
@@ -197,7 +208,7 @@ public struct ReaderTranslationScopeMenuView: View {
                     } label: {
                         HStack {
                             Text("Tất cả (Toàn cục)")
-                            if selectedScope == .global {
+                            if effectiveScope == .global {
                                 Image(systemName: "checkmark")
                             }
                         }
@@ -243,8 +254,21 @@ public struct ReaderTranslationScopeMenuView: View {
         .frame(minWidth: 260, maxWidth: 280)
     }
 
-    private var scopeDisplayText: String {
+    /// Phạm vi đang chọn nhưng đã kẹp về cấp có thật: `selectedScope` có thể còn `.book` từ state khởi tạo cũ
+    /// hoặc từ lần mở trước, trong khi màn hiện tại không có truyện/nguồn tương ứng.
+    private var effectiveScope: TranslationPopupScope {
         switch selectedScope {
+        case .book:
+            return bookId.isEmpty ? Self.availableScope(bookId: bookId, packageId: packageId) : .book
+        case .source:
+            return packageId.isEmpty ? Self.availableScope(bookId: bookId, packageId: packageId) : .source
+        case .global:
+            return .global
+        }
+    }
+
+    private var scopeDisplayText: String {
+        switch effectiveScope {
         case .book:
             return "Truyện này"
         case .source:
@@ -257,17 +281,12 @@ public struct ReaderTranslationScopeMenuView: View {
     private func preparePopupState() {
         refreshStatus()
         tempIsEnabled = status.isEnabled
-        if !bookId.isEmpty {
-            selectedScope = .book
-        } else if !packageId.isEmpty {
-            selectedScope = .source
-        } else {
-            selectedScope = .global
-        }
+        selectedScope = Self.availableScope(bookId: bookId, packageId: packageId)
     }
 
     private func saveSettings() {
-        switch selectedScope {
+        // Dùng scope đã kẹp: `bookId` rỗng mà lưu `.book` sẽ ghi override rác với khoá "" vào `UserDefaults`.
+        switch effectiveScope {
         case .book:
             TranslationConfigStore.shared.setBookOverride(bookId: bookId, mode: tempIsEnabled ? .enabled : .disabled)
         case .source:
@@ -281,5 +300,8 @@ public struct ReaderTranslationScopeMenuView: View {
 
     private func refreshStatus() {
         status = TranslationConfigStore.shared.resolveStatus(bookId: bookId, packageId: packageId, isChineseSourceHint: isChineseSourceHint)
+        // Đổi nguồn ở Khám phá (hoặc đóng/mở màn) có thể làm phạm vi đang chọn không còn tồn tại.
+        let clamped = effectiveScope
+        if clamped != selectedScope { selectedScope = clamped }
     }
 }
