@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Các khối `Form` của `VieNeuTTSTestView`.
 ///
@@ -127,8 +128,31 @@ extension VieNeuTTSTestView {
                 .frame(minHeight: 110)
                 .font(.body)
             HStack(spacing: 28) {
-                // Phát / Dừng căn **sang phải** (user 2026-09-30). Xoá · sao chép · dán nằm ở thanh công cụ trên
-                // bàn phím.
+                Button {
+                    text = ""
+                } label: {
+                    Image(systemName: "xmark.circle")
+                }
+                .accessibilityLabel("Xoá hết chữ")
+                .disabled(text.isEmpty)
+
+                Button {
+                    UIPasteboard.general.string = text
+                } label: {
+                    AppGlyph.copy.image(size: 17)
+                }
+                .accessibilityLabel("Sao chép chữ")
+                .disabled(text.isEmpty)
+
+                Button {
+                    if let pasted = UIPasteboard.general.string { text = pasted }
+                } label: {
+                    AppGlyph.paste.image(size: 17)
+                }
+                .accessibilityLabel("Dán chữ")
+                .disabled(!UIPasteboard.general.hasStrings)
+
+                // Phát / Dừng căn **sang phải** (user 2026-09-30), tách khỏi nhóm xoá-sao chép-dán.
                 Spacer()
 
                 Button {

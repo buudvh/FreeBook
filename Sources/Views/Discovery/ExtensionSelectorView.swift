@@ -150,23 +150,26 @@ struct ExtensionSelectorView: View {
     }
     
     /// Nút viên thuốc "NSFW" góc phải thanh tiêu đề; bật thì tô màu nhấn như chip đang chọn của `ExtensionKindFilterBar`.
+    /// Viên thuốc nhỏ (cao 26pt, chữ 12pt) theo yêu cầu người dùng — nhỏ hơn chuẩn nút header 38pt; vùng chạm vẫn
+    /// cao 38pt nhờ khung trong suốt bọc ngoài.
     private var nsfwToggle: some View {
         Button(action: { includeNsfw.toggle() }) {
-            HStack(spacing: 5) {
+            HStack(spacing: 3) {
                 Image(systemName: includeNsfw ? "eye" : "eye.slash")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
                 Text("NSFW")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.system(size: 12, weight: .semibold))
             }
-            .padding(.horizontal, 12)
-            .frame(height: 38)
+            .padding(.horizontal, 8)
+            .frame(height: 26)
             .foregroundColor(includeNsfw ? .accentColor : .secondary)
             .background(includeNsfw ? Color.accentColor.opacity(0.18) : Color(.secondarySystemBackground))
             .clipShape(Capsule())
             .overlay(
                 Capsule().stroke(includeNsfw ? Color.accentColor.opacity(0.6) : Color.white.opacity(0.12), lineWidth: 1)
             )
-            .contentShape(Capsule())
+            .frame(minWidth: 36, minHeight: 38)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Hiện nội dung nhạy cảm (NSFW)")

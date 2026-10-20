@@ -128,4 +128,56 @@ extension AISettingsView {
             }
         }
     }
+
+    @ViewBuilder
+    internal func clipboardToolbar(for text: Binding<String>, onPaste: (() -> Void)? = nil) -> some View {
+        HStack(spacing: 8) {
+            Button {
+                text.wrappedValue = ""
+                onPaste?()
+            } label: {
+                Image(systemName: "trash")
+                    .font(.caption)
+                    .frame(width: 28, height: 26)
+                    .background(Color.secondary.opacity(0.12))
+                    .cornerRadius(5)
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                UIPasteboard.general.string = text.wrappedValue
+            } label: {
+                AppGlyph.copy.image(size: 13)
+                    .frame(width: 28, height: 26)
+                    .background(Color.secondary.opacity(0.12))
+                    .cornerRadius(5)
+            }
+            .buttonStyle(.plain)
+            .disabled(text.wrappedValue.isEmpty)
+
+            Button {
+                appendClipboard(to: text)
+                onPaste?()
+            } label: {
+                AppGlyph.paste.image(size: 13)
+                    .frame(width: 28, height: 26)
+                    .background(Color.accentColor.opacity(0.15))
+                    .foregroundColor(.accentColor)
+                    .cornerRadius(5)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    internal func appendClipboard(to text: Binding<String>) {
+        guard let clip = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines), !clip.isEmpty else {
+            return
+        }
+        let current = text.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        if current.isEmpty {
+            text.wrappedValue = clip
+        } else {
+            text.wrappedValue = current + "\n" + clip
+        }
+    }
 }

@@ -72,9 +72,8 @@ extension ExtensionConfigView {
     /// Ba dáng dòng:
     /// - công tắc: tiêu đề + khoá bên trái, `Toggle` bên phải;
     /// - số: ô gọn bên phải (giá trị ngắn);
-    /// - chữ (thường là URL dài): tiêu đề + khoá, nút ↺ khôi phục mặc định bên phải, ô nhập **rộng hết dòng**
+    /// - chữ (thường là URL dài): tiêu đề + khoá, bộ nút ↺ · xoá · sao chép · dán bên phải, ô nhập **rộng hết dòng**
     ///   ở dưới — để bên phải thì URL bị cắt chỉ còn vài ký tự. Giá trị mặc định là chữ mờ trong ô khi ô trống.
-    ///   Xoá · sao chép · dán nằm ở thanh công cụ trên bàn phím.
     @ViewBuilder
     private func configRow(key: String, definition: ConfigItem) -> some View {
         if Self.isToggle(definition) {
@@ -102,7 +101,7 @@ extension ExtensionConfigView {
                 HStack(alignment: .top, spacing: 8) {
                     configRowLabel(key: key, definition: definition)
                     Spacer(minLength: 8)
-                    RestoreDefaultValueButton(text: configTextBinding(key), defaultValue: definition.default)
+                    TextFieldClipboardButtons(text: configTextBinding(key), defaultValue: definition.default)
                 }
                 TextField(definition.default ?? "", text: configTextBinding(key))
                     .font(.footnote)

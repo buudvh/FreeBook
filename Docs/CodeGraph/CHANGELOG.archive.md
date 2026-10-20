@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.525] - 2026-10-14
+
+### feat(hub): cham hub dang nep co tu 2 muc thi mo menu ngay
+
+Người dùng: *"nếu 2 widget trở lên khi bấm mở rộng thì hiển thị ngay danh sách widget ở trạng thái mở rộng luôn"*, *"ví dụ chỉ 1 browser thì hiển thị icon browser thay vì icon chung"*, *"trường hợp có thông báo và 1 cái khác ở kệ sách thì tính 1"*.
+- **`FloatingHubContainerViewController.handlePrimaryAction`**: chạm khi `.peeking` mà có ≥ 2 mục ⇒ bung **và** `openMenu()` ngay (trước đây phải chạm hai lần). `updateLayout` gán vị trí đích ngay nên `layoutMenu` đặt thẻ đúng cạnh nút đã bung; mở menu bật `disableAutoHide` nên không bị tự thu giữa chừng. 1 mục: giữ nguyên (chạm khi nép chỉ bung, chạm lần nữa mới mở).
+- Icon 1 mục = icon của chính mục đó và cách đếm mục ở tab Kệ Sách (không tính Thông báo) **đã đúng từ 1.3.524** (`FloatingHubPresentationReader.makeSnapshot`, `FloatingHubButton.glyphName`) — chỉ ghi rõ thành luật trong `rules.md` mục "Nút hub nổi".
+- Chuyển entry `[1.3.495]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. Không build tại chỗ (Windows), cần CI.
+
 ## [1.3.524] - 2026-10-14
 
 ### feat: gop widget noi thanh nut hub, quet ten rieng noi tiep chat cua phien, icon Lucide sao chep dan, badge 99+ khong vo

@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.555] - 2026-10-20
+
+### feat: đưa lại nút xoá, sao chép, dán cạnh ô nhập, thêm nút viết hoa
+
+Người dùng: *"thêm lại copy, paste, clear và các nút format viết hoa … vào ô nhập"* — chọn "nút cạnh ô như cũ" (thanh công cụ trên bàn phím vẫn giữ), duyệt plan; kèm *"giảm size nút nsfw … nút quá to"*.
+
+- **Khôi phục nguyên văn** phần đã gỡ ở `[1.3.548]` (`b4c67e26`), đảo ngược đúng các hunk gỡ nút, không đụng code thanh bàn phím:
+  - `TextFieldClipboardButtons` (↺ · xoá · sao chép · dán, **dán thay cả giá trị**) ở Cấu hình tiện ích (biến cấu hình) và Thông tin plugin.json; xoá `RestoreDefaultValueButton` vì ↺ quay về trong bộ nút này.
+  - `clipboardToolbar` (**dán nối thêm dòng**) ở Thêm từ nhiều dòng (`DictEntrySheet`), Bộ nhớ AI (4 ô), Cài đặt AI (API keys, models).
+  - Nút ✕ / sao chép / dán tròn (dán **chèn tại con trỏ**, có toast) ở ô Mẫu và ô Bản dịch của Thêm/Sửa rule; Xoá / Sao chép / Dán ở ô chữ thử VieNeu; nút Dán tròn ở panel Dịch của Reader (bỏ lại hàm `hideKeyboard` riêng mà `[1.3.552]` đã gỡ).
+- **`TextCaseButtonGroup`** (mới, `Views/Common`): 5 nút `aa · Aa¹ · Aa² · Aa · AA` cao 26pt khớp bộ nút cạnh ô, luật đổi chữ dùng lại `TextCaseFormatter`. Gắn ở: Thêm từ nhiều dòng (đầu hàng nút; **chỉ đổi phần nghĩa** sau dấu `=` đầu tiên của từng dòng, dòng không có `=` giữ nguyên), Sửa từ (dòng dưới ô "Nghĩa dịch"), ô Bản dịch của Thêm/Sửa rule. Không gắn ở ô URL/khoá/API key, Bộ nhớ AI, chữ thử VieNeu (đoạn văn dài — `aa` sẽ viết thường cả đoạn) và ô Mẫu rule (thường là chữ Hán).
+- **Nút NSFW** ở bảng chọn nguồn Khám phá (`[1.3.554]`) thu nhỏ: viên thuốc cao 26pt, chữ 12pt, icon 11pt — nhỏ hơn chuẩn nút header 38pt theo yêu cầu người dùng; vùng chạm vẫn 36×38pt.
+- Chuyển entry `[1.3.525]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
+
 ## [1.3.554] - 2026-10-20
 
 ### feat: Khám phá giữ tab home khi có explore, nút NSFW ở bảng chọn nguồn
@@ -603,13 +618,3 @@ Người dùng: *"vẫn không cùng chat, thêm nút thử lại các batch l�
 
 - Chuyển entry `[1.3.496]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code + log thật; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. Không build tại chỗ (Windows), cần CI; cần thử lại quét trên máy (bật log trong Cài đặt để thấy dòng "Lượt lỗi … nhưng đã có cid").
-
-## [1.3.525] - 2026-10-14
-
-### feat(hub): cham hub dang nep co tu 2 muc thi mo menu ngay
-
-Người dùng: *"nếu 2 widget trở lên khi bấm mở rộng thì hiển thị ngay danh sách widget ở trạng thái mở rộng luôn"*, *"ví dụ chỉ 1 browser thì hiển thị icon browser thay vì icon chung"*, *"trường hợp có thông báo và 1 cái khác ở kệ sách thì tính 1"*.
-- **`FloatingHubContainerViewController.handlePrimaryAction`**: chạm khi `.peeking` mà có ≥ 2 mục ⇒ bung **và** `openMenu()` ngay (trước đây phải chạm hai lần). `updateLayout` gán vị trí đích ngay nên `layoutMenu` đặt thẻ đúng cạnh nút đã bung; mở menu bật `disableAutoHide` nên không bị tự thu giữa chừng. 1 mục: giữ nguyên (chạm khi nép chỉ bung, chạm lần nữa mới mở).
-- Icon 1 mục = icon của chính mục đó và cách đếm mục ở tab Kệ Sách (không tính Thông báo) **đã đúng từ 1.3.524** (`FloatingHubPresentationReader.makeSnapshot`, `FloatingHubButton.glyphName`) — chỉ ghi rõ thành luật trong `rules.md` mục "Nút hub nổi".
-- Chuyển entry `[1.3.495]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. Không build tại chỗ (Windows), cần CI.

@@ -32,6 +32,7 @@ public struct BookAIMemorySheet: View {
                     if selectedTab == 0 {
                         // TAB 0: TRÍ NHỚ RIÊNG CỦA TRUYỆN NÀY
                         Section {
+                            clipboardToolbar(for: $characterContext)
                             TextEditor(text: $characterContext)
                                 .frame(minHeight: 90)
                                 .font(.subheadline)
@@ -43,6 +44,7 @@ public struct BookAIMemorySheet: View {
                         }
 
                         Section {
+                            clipboardToolbar(for: $plotSummary)
                             TextEditor(text: $plotSummary)
                                 .frame(minHeight: 90)
                                 .font(.subheadline)
@@ -66,6 +68,7 @@ public struct BookAIMemorySheet: View {
                         }
 
                         Section {
+                            clipboardToolbar(for: $notes)
                             TextEditor(text: $notes)
                                 .frame(minHeight: 80)
                                 .font(.subheadline)
@@ -95,6 +98,7 @@ public struct BookAIMemorySheet: View {
                     } else {
                         // TAB 1: TRÍ NHỚ TỔNG TOÀN CỤC
                         Section {
+                            clipboardToolbar(for: $globalMemory)
                             TextEditor(text: $globalMemory)
                                 .frame(minHeight: 220)
                                 .font(.system(size: 13, design: .monospaced))
@@ -150,6 +154,56 @@ public struct BookAIMemorySheet: View {
             .onAppear {
                 loadMemory()
             }
+        }
+    }
+
+    @ViewBuilder
+    private func clipboardToolbar(for text: Binding<String>) -> some View {
+        HStack(spacing: 8) {
+            Spacer()
+            Button(action: {
+                text.wrappedValue = ""
+            }) {
+                Image(systemName: "trash")
+                    .font(.caption)
+                    .frame(width: 28, height: 26)
+                    .background(Color.secondary.opacity(0.12))
+                    .cornerRadius(5)
+            }
+            .buttonStyle(.borderless)
+            .disabled(text.wrappedValue.isEmpty)
+
+            Button(action: {
+                UIPasteboard.general.string = text.wrappedValue
+            }) {
+                AppGlyph.copy.image(size: 13)
+                    .frame(width: 28, height: 26)
+                    .background(Color.secondary.opacity(0.12))
+                    .cornerRadius(5)
+            }
+            .buttonStyle(.borderless)
+            .disabled(text.wrappedValue.isEmpty)
+
+            Button(action: {
+                appendFromClipboard(to: &text.wrappedValue)
+            }) {
+                AppGlyph.paste.image(size: 13)
+                    .frame(width: 28, height: 26)
+                    .background(Color.accentColor.opacity(0.15))
+                    .foregroundColor(.accentColor)
+                    .cornerRadius(5)
+            }
+            .buttonStyle(.borderless)
+        }
+        .padding(.vertical, 2)
+    }
+
+    private func appendFromClipboard(to text: inout String) {
+        guard let clipboard = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines), !clipboard.isEmpty else { return }
+        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            text = clipboard
+        } else {
+            text = text.hasSuffix("\n") ? "\(text)\(clipboard)" : "\(text)\n\(clipboard)"
         }
     }
 

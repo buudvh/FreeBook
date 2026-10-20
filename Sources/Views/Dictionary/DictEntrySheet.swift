@@ -58,6 +58,8 @@ public struct DictEntrySheet: View {
             Form {
                 if isAdd {
                     Section {
+                        clipboardToolbar(for: $rawText)
+
                         ZStack(alignment: .topLeading) {
                             if rawText.isEmpty {
                                 Text("Từ gốc 1=nghĩa 1\nTừ gốc 2=nghĩa 2")
@@ -82,6 +84,10 @@ public struct DictEntrySheet: View {
                             .textInputAutocapitalization(.never)
 
                         TextField("Nghĩa dịch (value)", text: $value)
+
+                        TextCaseButtonGroup(isDisabled: value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) { style in
+                            value = TextCaseFormatter.format(value, style: style)
+                        }
                     }
 
                     Section {
@@ -152,5 +158,71 @@ public struct DictEntrySheet: View {
             }
         }
         return result
+    }
+
+    // MARK: - Clipboard Toolbar
+
+    @ViewBuilder
+    private func clipboardToolbar(for text: Binding<String>) -> some View {
+        HStack(spacing: 8) {
+            TextCaseButtonGroup(isDisabled: text.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) { style in
+                text.wrappedValue = Self.formatMeanings(text.wrappedValue, style: style)
+            }
+            Spacer(minLength: 8)
+            Button(action: {
+                text.wrappedValue = ""
+            }) {
+                Image(systemName: "trash")
+                    .font(.caption)
+                    .frame(width: 28, height: 26)
+                    .background(Color.secondary.opacity(0.12))
+                    .cornerRadius(5)
+            }
+            .buttonStyle(.borderless)
+            .disabled(text.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+            Button(action: {
+                UIPasteboard.general.string = text.wrappedValue
+            }) {
+                AppGlyph.copy.image(size: 13)
+                    .frame(width: 28, height: 26)
+                    .background(Color.secondary.opacity(0.12))
+                    .cornerRadius(5)
+            }
+            .buttonStyle(.borderless)
+            .disabled(text.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+            Button(action: {
+                appendFromClipboard(to: &text.wrappedValue)
+            }) {
+                AppGlyph.paste.image(size: 13)
+                    .frame(width: 28, height: 26)
+                    .background(Color.accentColor.opacity(0.15))
+                    .foregroundColor(.accentColor)
+                    .cornerRadius(5)
+            }
+            .buttonStyle(.borderless)
+        }
+        .padding(.vertical, 2)
+    }
+
+    /// aa…AA của ô nhiều dòng chỉ đổi **phần nghĩa** sau dấu `=` đầu tiên của từng dòng (như hàng aa…AA của panel
+    /// Dịch, vốn chỉ đổi nghĩa); dòng không có `=` giữ nguyên vì `parseEntries` cũng bỏ qua nó.
+    private static func formatMeanings(_ text: String, style: String) -> String {
+        text.components(separatedBy: "\n").map { line in
+            guard let eqIdx = line.firstIndex(of: "=") else { return line }
+            let meaning = String(line[line.index(after: eqIdx)...])
+            return String(line[...eqIdx]) + TextCaseFormatter.format(meaning, style: style)
+        }
+        .joined(separator: "\n")
+    }
+
+    private func appendFromClipboard(to text: inout String) {
+        guard let clipboard = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines), !clipboard.isEmpty else { return }
+        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            text = clipboard
+        } else {
+            text = text.hasSuffix("\n") ? "\(text)\(clipboard)" : "\(text)\n\(clipboard)"
+        }
     }
 }

@@ -2,8 +2,9 @@ import Foundation
 
 /// Định dạng chữ hoa/thường theo năm kiểu `aa · Aa¹ · Aa² · Aa · AA`.
 ///
-/// Một nguồn cho cả hàng nút của panel Dịch trong Reader (`ReaderSelectionCoordinator.formatMeaning`) và thanh
-/// công cụ trên bàn phím (`KeyboardTextToolbarModel`). Luật giữ nguyên bản gốc của panel Dịch:
+/// Một nguồn cho hàng nút của panel Dịch trong Reader (`ReaderSelectionCoordinator.formatMeaning`), thanh công cụ
+/// trên bàn phím (`KeyboardTextToolbarModel`) và nhóm nút cạnh ô nhập (`TextCaseButtonGroup`). Luật giữ nguyên bản
+/// gốc của panel Dịch:
 /// - `aa`: thường hết;
 /// - `Aa¹`: hoa chữ đầu từ thứ nhất, còn lại thường;
 /// - `Aa²`: hoa chữ đầu hai từ đầu;
