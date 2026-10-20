@@ -1,8 +1,9 @@
 import Foundation
 import JavaScriptCore
 
-/// Script `explore`: trang Khám phá dạng section theo hợp đồng extension (extension-api.md). Tiện ích khai cả
-/// `explore` lẫn `home` thì **`explore` thắng** — `DiscoveryView` không gọi `home` nữa, tab `genre` giữ nguyên.
+/// Script `explore`: trang Khám phá dạng section theo hợp đồng extension (extension-api.md). Hợp đồng nói khai cả
+/// `explore` lẫn `home` thì `explore` thắng, nhưng FreeBook **cố ý giữ cả hai** (1.3.554): tab section đứng đầu, các
+/// tab `home` và `genre` vẫn hiện (`DiscoveryView.fetchCatalog`).
 ///
 /// Quy tắc parse:
 /// - Section: `type` không phân biệt hoa thường; rỗng/lạ ⇒ bỏ cả section. `id` rỗng ⇒ `<type>_<vị trí>` (vị trí

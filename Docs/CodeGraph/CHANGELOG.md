@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.554] - 2026-10-20
+
+### feat: Khám phá giữ tab home khi có explore, nút NSFW ở bảng chọn nguồn
+
+Người dùng: *"hãy sửa để home không bị bỏ"* và *"thêm bật tắt nfsw ở màn chọn ext ở khám phá nữa"* (duyệt mockup B: nút trên thanh tiêu đề).
+
+- **Giữ tab `home` — cố ý khác hợp đồng**: `extension-api.md` (Darkrai9x, dòng 214–216 và 433–434) quy định khai cả `explore` lẫn `home` thì `explore` thắng, `home` bị bỏ. Nay `DiscoveryView.fetchCatalog` luôn gọi `home` song song với `genre`; tab "Trang chủ" dạng section (`ExploreSectionsView`) **đứng đầu**, các tab `home` xếp sau. Dùng lại đúng `exploreTab` truyền vào để trang section không bị dựng/tải lại. Đừng "sửa" về lại cho khớp hợp đồng.
+- **Gán tab sớm** (`loadDiscoveryData`): giữ tạm các tab `home` cũ cạnh tab explore mới, để tải lại cùng nguồn (đổi cấu hình, `extensionDidUpdate`) không đẩy người đang xem tab `home` về "Trang chủ". Đổi nguồn thì danh sách đã bị xoá trước nên vẫn mở vào "Trang chủ"; tab `home` xem lần trước không được khôi phục khi có `explore`.
+- **Thanh chip** không đổi code: điều kiện cũ đã tự hiện khi có tab `home` thật.
+- **Hợp đồng không cho tải bất đồng bộ từng section**: section chỉ có `type, title, subtitle, id, items, shape, more` (không có `script`/`input` riêng) và `fetch` là hàm đồng bộ — đường tải sau duy nhất là action `list` ("Xem thêm"). Không làm gì thêm ở đợt này.
+- **Nút NSFW** ở góc phải thanh tiêu đề của `ExtensionSelectorView`: viên thuốc `eye.slash`/`eye` + "NSFW", cao 38pt, bật thì tô màu nhấn như chip đang chọn của `ExtensionKindFilterBar`. Dùng chung khoá toàn app `RepositoryFilterPolicy.includeNsfwDefaultsKey` (Kho, Tìm kiếm, Lịch sử, Cài đặt đổi theo; vẫn tự tắt mỗi lần mở app). Danh sách nguồn do `DiscoveryView` lọc theo cùng khoá nên đổi ngay; tắt khi đang xem nguồn NSFW thì `DiscoveryView` tự chuyển nguồn như cũ. Chú thích ở `NsfwSettingsView` nhắc thêm chỗ bật nhanh này.
+- Ghi luật giữ tab `home` vào `CLAUDE.md`/`AGENTS.md` (mục Comic & Video). Chuyển entry `[1.3.524]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
+
 ## [1.3.553] - 2026-10-19
 
 ### fix: tiêu đề nhóm ở kiểu lưới của kệ sách dính đầu khi cuộn như danh sách
@@ -599,33 +613,3 @@ Người dùng: *"nếu 2 widget trở lên khi bấm mở rộng thì hiển th
 - Icon 1 mục = icon của chính mục đó và cách đếm mục ở tab Kệ Sách (không tính Thông báo) **đã đúng từ 1.3.524** (`FloatingHubPresentationReader.makeSnapshot`, `FloatingHubButton.glyphName`) — chỉ ghi rõ thành luật trong `rules.md` mục "Nút hub nổi".
 - Chuyển entry `[1.3.495]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. Không build tại chỗ (Windows), cần CI.
-
-## [1.3.524] - 2026-10-14
-
-### feat: gop widget noi thanh nut hub, quet ten rieng noi tiep chat cua phien, icon Lucide sao chep dan, badge 99+ khong vo
-
-Người dùng duyệt 4 plan bằng `/push-ci-monitor thực hiện mỗi plan trong 1 session ... push và theo dõi CI chung`. Mỗi plan do một agent con làm trong worktree riêng, gộp thành một commit. Plan: `Docs/Plans/2026-10-14-plan-ai-batch-name-scan-session-chat.md`, `Docs/Plans/2026-10-14-plan-floating-hub-widget.md`; hai plan còn lại duyệt trong chat.
-
-**1. Quét tên riêng nhiều chương** — người dùng: *"Lỗi từ batch thứ 2 … không có prompt, chỉ có raw"*, *"bị tạo một đoạn chat khác đoạn chat chung của phiên"*, *"số batch thật sự được gửi yêu cầu cũng không chính xác"*, *"khi có lệnh đang chạy hãy disabled prompt nhanh"*, *"nếu bật lưu vào lịch sử chat thì không cần gom nội dung đoạn chat vào prompt"*.
-- **Gốc lỗi thiếu prompt**: lượt nối tiếp chỉ kèm khối hệ thống khi băm của nó đổi (`GeminiWebClient+Conversation.runConversationTurn`), mà prompt trích xuất giống hệt giữa các lượt ⇒ lượt 2–5 chỉ gửi raw. Thêm `forceContext`: lượt quét luôn kèm prompt; băm vẫn cập nhật nên chat thường kế tiếp tự gửi lại ngữ cảnh chương.
-- **Một chat của phiên**: Gemini Web + bật "Lưu chat vào lịch sử Gemini" ⇒ lượt quét nối tiếp đúng cuộc chat của phiên app (`AIChatSession.id`, `persist: true`), **bỏ** xoay chat mới sau mỗi 5 lượt (nguyên nhân số tin trên Gemini lệch số batch). Tắt công tắc: như cũ (chat tạm từng lượt, đủ prompt).
-- **Đếm đúng lượt** (`AINameScanProgress`, `ReaderAIBatchProgressBannerView`): báo tổng ngay sau khi chia lượt (hết "Batch 0/1"), N = lượt **đang gửi**, dòng phụ đếm lượt lỗi; tin gửi có nhãn `(lượt N/T)`, log `gửi lượt N/T`. Xong mà có lượt lỗi ⇒ toast `.error` cả khi màn AI đang mở.
-- **Khoá chip prompt nhanh** khi có lệnh AI đang chạy (mờ + không bấm); màn AI không cho bắt đầu quét khi đang chat (trước đây `cancelActiveTask()` huỷ ngang câu trả lời).
-- **Chat thường, Gemini Web + bật lưu**: chỉ gửi `[system, tin hiện tại]`, không gom lịch sử trao đổi/tóm tắt ngữ cảnh cũ (kể cả khi phải mở cuộc chat Gemini mới).
-- Luồng quét chuyển sang `AIRuntimeCoordinator+BatchExtraction.swift` (file gốc 387/400 dòng); nới `batchRunId`/`activeBatchTask` sang `internal`, setter `isRunning`/`activeTaskTitle` sang `internal(set)`. Nhánh xong/lỗi phải khớp `batchRunId` mới xoá trạng thái.
-
-**2. Nút hub nổi thay 3 widget** — người dùng: *"hiện tại có quá nhiều widget, có cách nào gọn lại không?"*, chọn phương án "một nút hub" (TTS giữ riêng).
-- Widget AI, trình duyệt thu nhỏ và Thông báo gộp thành **một** nút 36px, một cửa sổ (`alert - 2`; TTS vẫn `alert - 1`). Thư mục mới `Sources/Views/FloatingHub/` (11 file, ~1.500 dòng); xoá 14 file widget cũ; `NotificationFloatingWidgetPresentationReader` đổi tên thành `NotificationInboxPresenceReader`.
-- Hub hiện khi có ≥1 mục (AI đang chạy và màn AI đóng / trình duyệt thu nhỏ còn tab / thông báo chưa đọc hoặc tác vụ chạy, trừ tab Kệ sách). **Luôn xuất hiện nép mép**, không tự bung khi có tin mới; chạm khi nép ⇒ bung; chạm khi bung: 1 mục ⇒ mở thẳng, ≥2 ⇒ menu (Trợ lý AI → Trình duyệt → Thông báo, có dòng phụ); tự nép sau 3 s trừ khi menu mở.
-- Chỉ báo: chấm đỏ / số chưa đọc ("99+" một dòng); AI đang chạy ⇒ viền tím tĩnh; trình duyệt tab nằm yên ⇒ nháy đỏ bằng màu; **bỏ** badge số tab và chấm đỏ của trình duyệt.
-- Sheet Thông báo chuyển nguyên văn từ widget cũ (nhánh hit-test, móc `.onDisappear`, `.modelContainer`, delegate sau present, giữ cửa sổ sống). Cờ "menu đang mở" được hạ ở mọi đường (ẩn, kéo, đổi số mục, mở sheet, đổi scene) — luật mới trong `rules.md`.
-- Vị trí: key mới `floatingHubVerticalRatio`/`floatingHubEdge`, lần đầu lấy từ vị trí widget Thông báo cũ.
-
-**3. Icon sao chép/dán** — người dùng: *"các nút copy và paste … dùng SF Symbols khó phân biệt quá"*, chọn bộ Lucide.
-- `doc.on.doc`/`doc.on.clipboard` (23 chỗ, 14 file) ⇒ Lucide `copy` / `clipboard-paste` (asset SVG template, `lucide-static@0.400.0`, ISC — `Docs/ThirdParty/Lucide-LICENSE.txt`); mục "Gốc" của menu chọn chữ ⇒ Lucide `languages`. Nút "Copy" của màn sao chép bản gốc từng dùng nhầm icon dán.
-- `AppGlyph` (`Sources/Views/Common/AppGlyph.swift`) là nguồn tên icon duy nhất; cỡ truyền tường minh từng chỗ (asset không co theo `.font()`). Quy ước thêm vào `CLAUDE.md`/`AGENTS.md`.
-
-**4. Badge "99+" trên chuông Kệ sách bị vỡ** — `overlay` chỉ đề xuất đúng khung icon (~20pt) nên "99+" bị ép xuống dòng. `ShelfView`: `.lineLimit(1)` + `.fixedSize()`, neo mép trái badge vào mép phải icon để số dài mọc sang phải.
-
-- Chuyển entry `[1.3.494]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code + review phản biện bằng agent con; `check_architecture.py` 2 vi phạm nền cũ (JSDom, TTSManager), 0 mới. **Không build tại chỗ** (Windows), cần CI. Cần xem trên máy thật: nét SVG Lucide, hub (chạm xuyên khi menu đóng, mở Reader từ sheet Thông báo ở tab khác). Không đụng `Tests/`.

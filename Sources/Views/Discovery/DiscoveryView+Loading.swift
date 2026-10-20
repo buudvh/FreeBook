@@ -3,20 +3,17 @@ import Foundation
 /// Phần tải danh mục của `DiscoveryView`, tách khỏi file gốc để giữ dưới baseline dòng. Chỉ gồm hàm tĩnh không đụng
 /// state — `loadDiscoveryData` (file gốc) giữ việc huỷ lượt cũ và chặn ghi đè khi nguồn đã đổi.
 extension DiscoveryView {
-    /// Tải song song `home` và `genre` của một nguồn. Có `exploreTab` ⇒ không gọi `home` (explore thắng) và trả đúng
-    /// tab đó. Thiếu script hoặc lỗi ⇒ mảng rỗng cho phần đó; phần còn lại vẫn dùng được.
+    /// Tải song song `home` và `genre` của một nguồn. Có `exploreTab` ⇒ tab đó đứng đầu, các tab `home` vẫn xếp sau.
+    /// Cố ý khác hợp đồng extension (khai cả hai thì `explore` thắng, `home` bị bỏ) — người dùng chọn giữ cả hai
+    /// (1.3.554). Thiếu script hoặc lỗi ⇒ mảng rỗng cho phần đó; phần còn lại vẫn dùng được.
     static func fetchCatalog(_ ext: Extension, exploreTab: CategoryResult?) async -> (home: [CategoryResult], genre: [CategoryResult]) {
         let localPath = ext.localPath
         let downloadUrl = ext.downloadUrl
         let configJson = ext.configJson
         async let genre = fetchGenre(localPath: localPath, downloadUrl: downloadUrl, configJson: configJson)
-        let home: [CategoryResult]
-        if let exploreTab {
-            home = [exploreTab]
-        } else {
-            home = await fetchHome(localPath: localPath, downloadUrl: downloadUrl, configJson: configJson)
-        }
-        return (home, await genre)
+        let home = await fetchHome(localPath: localPath, downloadUrl: downloadUrl, configJson: configJson)
+        // Dùng lại đúng `exploreTab` được truyền vào: tạo tab mới sẽ đổi id và trang section bị dựng/tải lại.
+        return ((exploreTab.map { [$0] } ?? []) + home, await genre)
     }
 
     /// Tab được chọn sau một lượt tải: tab đang xem nếu còn tồn tại → tab đã nhớ (`saved`) → tab `home` đầu tiên →

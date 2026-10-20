@@ -201,6 +201,7 @@ Hợp đồng chuẩn: `extension-api.md` của Darkrai9x (repo Darkrai9x).
 - `toc` bỏ item `type:"section"` **chỉ** với comic/video; truyện chữ giữ nguyên để chỉ số chương của sách đã lưu không lệch.
 - **Browser của tiện ích** (`WebViewLoader`, `VisibleWebViewController`) cài `WebNetworkCaptureScript` vào mọi frame. Vì vậy `urls()` / `waitUrl` thấy cả XHR, fetch và media, không chỉ điều hướng. Autoplay tắt tiếng **chỉ** bật cho tiện ích loại video.
 - **Trình phát video** chiếm `AVAudioSession` (`.playback/.moviePlayback`) và tạm dừng TTS khi phát.
+- **Khám phá giữ cả `explore` lẫn `home` — cố ý khác hợp đồng** (1.3.554): hợp đồng nói khai cả hai thì `explore` thắng, nhưng `DiscoveryView.fetchCatalog` vẫn gọi `home`; tab "Trang chủ" dạng section (`ExploreSectionsView`) đứng đầu, tab `home` và `genre` theo sau. Đừng sửa về lại cho khớp hợp đồng. Trang `explore` chờ script trả về toàn bộ mới hiện (hợp đồng không có tải lười từng section, `fetch` đồng bộ).
 
 ### Chặn quảng cáo & chế độ máy tính (1.3.549)
 

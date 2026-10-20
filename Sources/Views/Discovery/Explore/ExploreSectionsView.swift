@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// Trang chính của Khám phá khi tiện ích khai script `explore`: các section (banner, hàng ngang, lưới, danh sách,
-/// xếp hạng, chip) **thay cho** các tab `home` — hợp đồng extension: khai cả hai thì `explore` thắng. Tab `genre`
-/// vẫn do `DiscoveryView` giữ.
+/// xếp hạng, chip) ở tab "Trang chủ" **đứng đầu**, các tab `home` và `genre` vẫn giữ — cố ý khác hợp đồng extension
+/// (khai cả hai thì `explore` thắng), xem `DiscoveryView.fetchCatalog`.
 ///
 /// - Tự giữ trạng thái tải / lỗi / rỗng và kéo-để-làm-mới.
 /// - Điều hướng đẩy lên `DiscoveryView` qua hai callback, dùng chung route chi tiết và màn danh sách phân trang
@@ -14,7 +14,7 @@ struct ExploreSectionsView: View {
     /// Script giả đánh dấu tab "Trang chủ" dạng section trong `homeItems` của `DiscoveryView`.
     private static let tabScript = "__explore__"
 
-    /// Tab đứng chỗ các tab `home`. `input` là nonce: mỗi lượt `DiscoveryView.loadDiscoveryData` cho id mới nên
+    /// Tab đứng trước các tab `home`. `input` là nonce: mỗi lượt `DiscoveryView.loadDiscoveryData` cho id mới nên
     /// trang được dựng lại và tải lại (đổi cấu hình tiện ích, `extensionDidUpdate`).
     static func makeTab() -> CategoryResult {
         CategoryResult(title: "Trang chủ", input: UUID().uuidString, script: tabScript)

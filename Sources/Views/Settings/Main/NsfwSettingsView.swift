@@ -12,7 +12,7 @@ struct NsfwSettingsView: View {
             Section {
                 Toggle("Hiện nội dung nhạy cảm", isOn: $includeNsfw)
             } footer: {
-                Text("Mặc định tắt. Mỗi lần mở lại app, công tắc tự tắt.")
+                Text("Mặc định tắt. Mỗi lần mở lại app, công tắc tự tắt. Cũng bật/tắt nhanh ở bảng chọn nguồn của Khám phá.")
             }
 
             Section(header: Text("Khi tắt")) {

@@ -15,6 +15,9 @@ struct ExtensionSelectorView: View {
     
     @State private var configExtension: Extension? = nil
     @AppStorage("discoveryKindFilter") private var kindFilter = "" // chip loại: "" = tất cả, còn lại `ExtensionContentKind.rawValue`
+    /// Công tắc NSFW **toàn app** (chung khoá với Cài đặt và bộ lọc Kho). `activeExtensions` do `DiscoveryView` lọc theo
+    /// cùng khoá nên bấm là danh sách đổi ngay; tắt khi đang xem nguồn NSFW thì `DiscoveryView` tự chuyển nguồn.
+    @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
     
     private var filteredExtensions: [Extension] {
         let kindScoped = activeExtensions.filter { SearchExtensionScopePolicy.matches($0, kindFilter: kindFilter) }
@@ -134,6 +137,9 @@ struct ExtensionSelectorView: View {
                             .foregroundColor(.primary)
                     }
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    nsfwToggle
+                }
             }
             .sheet(item: $configExtension) { ext in
                 ExtensionConfigView(ext: ext, onImport: { detailUrl, packageId, sourceName in
@@ -143,6 +149,30 @@ struct ExtensionSelectorView: View {
         }
     }
     
+    /// Nút viên thuốc "NSFW" góc phải thanh tiêu đề; bật thì tô màu nhấn như chip đang chọn của `ExtensionKindFilterBar`.
+    private var nsfwToggle: some View {
+        Button(action: { includeNsfw.toggle() }) {
+            HStack(spacing: 5) {
+                Image(systemName: includeNsfw ? "eye" : "eye.slash")
+                    .font(.system(size: 17, weight: .semibold))
+                Text("NSFW")
+                    .font(.subheadline.weight(.semibold))
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 38)
+            .foregroundColor(includeNsfw ? .accentColor : .secondary)
+            .background(includeNsfw ? Color.accentColor.opacity(0.18) : Color(.secondarySystemBackground))
+            .clipShape(Capsule())
+            .overlay(
+                Capsule().stroke(includeNsfw ? Color.accentColor.opacity(0.6) : Color.white.opacity(0.12), lineWidth: 1)
+            )
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Hiện nội dung nhạy cảm (NSFW)")
+        .accessibilityAddTraits(includeNsfw ? .isSelected : [])
+    }
+
     /// "Import truyện" trong trình duyệt mở từ màn Cấu hình: ba lớp đang chồng nhau (bảng chọn nguồn → Cấu hình →
     /// trình duyệt). Đóng sheet cấu hình + bảng chọn trước, rồi mới chuyển tiếp cho `DiscoveryView` sau ~0,35 s —
     /// đẩy màn Chi tiết vào stack của Khám phá khi các sheet còn đang trượt xuống thì lượt đẩy có thể bị bỏ.

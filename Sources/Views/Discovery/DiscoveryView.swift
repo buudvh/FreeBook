@@ -502,12 +502,12 @@ struct DiscoveryView: View {
         // Danh mục sắp được dựng lại từ đầu: neo cũ trỏ vào danh sách không còn tồn tại.
         scrollAnchors.removeAll()
 
-        // Có `explore` ⇒ một tab section thay cho mọi tab `home` (explore thắng). Hiện ngay, không chờ `genre`; lượt ghi
-        // kết quả dùng lại đúng tab này — gọi `makeTab()` lần nữa sẽ đổi id và trang section bị dựng/tải lại.
+        // Có `explore` ⇒ tab section đứng đầu, các tab `home` vẫn giữ (cố ý khác hợp đồng, xem `fetchCatalog`). Hiện ngay,
+        // không chờ `home`/`genre`; giữ tạm tab `home` cũ để tải lại cùng nguồn không đẩy người dùng về "Trang chủ".
         let exploreTab: CategoryResult? = ExtensionManager.shared.hasScript(localPath: ext.localPath, scriptKey: "explore")
             ? ExploreSectionsView.makeTab() : nil
         if let exploreTab {
-            homeItems = [exploreTab]
+            homeItems = [exploreTab] + homeItems.filter { !ExploreSectionsView.isTab($0) }
             selectedCategoryId = Self.resolveCategoryId(current: selectedCategoryId, saved: lastSelectedCategoryId,
                                                         home: homeItems, hasGenre: !genreItems.isEmpty, genresTabId: genresTabId)
         }
