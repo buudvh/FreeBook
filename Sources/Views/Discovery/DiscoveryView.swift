@@ -19,11 +19,20 @@ struct DiscoveryView: View {
 
     /// Tiện ích nội dung đã cài (chữ/tranh/video), thứ tự ghim → vừa dùng → A-Z (`ExtensionSortPolicy`); công tắc NSFW
     /// tắt thì bỏ nguồn NSFW — nguồn đang xem bị ẩn sẽ được `onChange` bên dưới đổi sang nguồn đầu tiên còn lại.
+    /// Nguồn Legado chỉ hiện khi đang bật, loại chữ và có Khám phá (`SearchExtensionScopePolicy.isDiscoverable`).
     private var activeExtensions: [Extension] {
-        ExtensionSortPolicy.sorted(RepositoryFilterPolicy.applyNsfwFilter(
-            ExtensionLibraryRepository.shared.installed.filter { SearchExtensionScopePolicy.isBrowsable($0) },
+        // Bật/tắt nguồn Legado nằm ở bảng chụp không quan sát được: đọc `summaries` để Observation vẽ lại khi đổi.
+        _ = LegadoSourceRepository.shared.summaries
+        return ExtensionSortPolicy.sorted(RepositoryFilterPolicy.applyNsfwFilter(
+            ExtensionLibraryRepository.shared.installed.filter { SearchExtensionScopePolicy.isDiscoverable($0) },
             includeNsfw: includeNsfw
         ))
+    }
+
+    /// Nguồn đã nhớ là Legado mà danh sách Legado chưa nạp xong (mọi nguồn Legado tạm coi như tắt): chờ, đừng chọn
+    /// nguồn đầu tiên — `onChange(selectedExtensionId)` sẽ ghi đè mất nguồn đã nhớ.
+    private var isAwaitingLegadoList: Bool {
+        lastSelectedExtensionId.hasPrefix(LegadoSourceIdentity.packageIdPrefix) && !LegadoSourceRepository.shared.hasLoaded
     }
     
     @State private var selectedExtensionId: String = ""
@@ -101,7 +110,7 @@ struct DiscoveryView: View {
                 if active.isEmpty {
                     // Có nguồn duyệt được nhưng đều bị công tắc NSFW ẩn ⇒ chỉ chỗ bật lại, không báo "chưa có nguồn".
                     let hidesNsfwOnly = !includeNsfw
-                        && ExtensionLibraryRepository.shared.installed.contains { SearchExtensionScopePolicy.isBrowsable($0) }
+                        && ExtensionLibraryRepository.shared.installed.contains { SearchExtensionScopePolicy.isDiscoverable($0) }
                     VStack(spacing: 12) {
                         Spacer()
                         Image(systemName: "safari")
@@ -181,8 +190,10 @@ struct DiscoveryView: View {
                         .clipShape(Circle())
                         
                         // Nút Tìm Kiếm chuyển sang SearchView
+                        // Tìm kiếm tự lọc phạm vi nguồn (`SearchExtensionScopePolicy`): truyền cả kho để nguồn Legado có
+                        // rule tìm kiếm mà không có Khám phá vẫn được "tìm mọi nguồn".
                         NavigationLink(destination: SearchView(
-                            activeExtensions: active,
+                            activeExtensions: ExtensionLibraryRepository.shared.installed,
                             selectedExtension: selected
                         )) {
                             Image(systemName: "magnifyingglass")
@@ -382,6 +393,14 @@ struct DiscoveryView: View {
                     selectedExtensionId = ids.first ?? ""
                 }
             }
+            // Danh sách Legado vừa nạp xong mà vẫn chưa chọn nguồn (đang chờ nguồn Legado đã nhớ — `isAwaitingLegadoList`)
+            // ⇒ khôi phục nguồn đã nhớ nếu còn, không thì nguồn đầu tiên.
+            .onChange(of: LegadoSourceRepository.shared.hasLoaded) { _, _ in
+                guard selectedExtensionId.isEmpty else { return }
+                let ids = activeExtensions.map(\.packageId)
+                selectedExtensionId = ids.contains(lastSelectedExtensionId) ? lastSelectedExtensionId : (ids.first ?? "")
+                if selectedExtensionId.isEmpty { isLoading = false }
+            }
             .onAppear {
                 // Khôi phục từ rỗng ⇒ `onChange(of: selectedExtensionId)` sẽ tự tải, nhánh tải bên dưới phải bỏ qua.
                 let restoredSelection = selectedExtensionId.isEmpty
@@ -389,6 +408,8 @@ struct DiscoveryView: View {
                 if selectedExtensionId.isEmpty {
                     if !lastSelectedExtensionId.isEmpty && activeExtensions.contains(where: { $0.packageId == lastSelectedExtensionId }) {
                         selectedExtensionId = lastSelectedExtensionId
+                    } else if isAwaitingLegadoList {
+                        // Chờ `onChange(of: hasLoaded)` khôi phục nguồn Legado đã nhớ.
                     } else if let first = activeExtensions.first {
                         selectedExtensionId = first.packageId
                     } else {

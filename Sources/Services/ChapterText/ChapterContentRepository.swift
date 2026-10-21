@@ -426,30 +426,5 @@ actor ChapterContentRepository {
             text: prefiltered ? ChapterTextNormalizer.normalizeProcessedContent(rawContent) : ChapterTextNormalizer.normalize(rawContent)
         )
     }
-
-    private func fetchFromExtension(
-        request: ChapterContentRequest,
-        extensionInfo: TTSExtensionInfo
-    ) async throws -> String {
-        try await withThrowingTaskGroup(of: String.self) { group in
-            group.addTask {
-                try await ExtensionManager.shared.chap(
-                    localPath: extensionInfo.localPath,
-                    downloadUrl: extensionInfo.downloadUrl,
-                    url: request.url,
-                    host: ExtensionHostResolver.chapterHost(chapterHost: request.host, bookHost: request.bookMetadata?.host, packageId: extensionInfo.packageId),
-                    configJson: extensionInfo.configJson ?? "{}"
-                )
-            }
-            group.addTask {
-                try await Task.sleep(nanoseconds: 30_000_000_000)
-                throw ChapterContentRepositoryError.timedOut
-            }
-            guard let result = try await group.next() else {
-                throw ChapterContentRepositoryError.emptyContent
-            }
-            group.cancelAll()
-            return result
-        }
-    }
+    // `fetchFromExtension` ở `ChapterContentRepository+SourceFetch.swift` (đi qua `SourceRuntime`).
 }

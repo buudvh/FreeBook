@@ -1,7 +1,10 @@
 import Foundation
 
-
-
+/// Tải chi tiết + mục lục qua `SourceRuntime` (tiện ích JS hay nguồn Legado đều đi một cửa).
+///
+/// `context` (tuỳ chọn, mặc định `nil`): caller biết sách nào (bookId, URL chi tiết…) thì truyền vào — nguồn Legado
+/// ghi/đọc trạng thái theo `context.bookId`, nên id phải là id sách được/sẽ được lưu. Tiện ích JS bỏ qua tham số này.
+/// Nguồn Legado không có `page.js` (`hasScript` = false) ⇒ mục lục đi thẳng từ URL chi tiết.
 public actor BookDetailLoader {
     public static let shared = BookDetailLoader()
 
@@ -10,14 +13,16 @@ public actor BookDetailLoader {
     public func fetchDetail(
         snapshot: ExtensionExecutionSnapshot,
         url: String,
-        host: String?
+        host: String?,
+        context: SourceRuntimeContext? = nil
     ) async throws -> NovelDetailResult {
-        return try await ExtensionManager.shared.detail(
+        return try await SourceRuntime.shared.detail(
             localPath: snapshot.localPath,
             downloadUrl: snapshot.downloadUrl,
             url: url,
             host: host,
-            configJson: snapshot.configJson
+            configJson: snapshot.configJson,
+            context: context
         )
     }
 
@@ -26,61 +31,68 @@ public actor BookDetailLoader {
     public func fetchPageList(
         snapshot: ExtensionExecutionSnapshot,
         url: String,
-        host: String?
+        host: String?,
+        context: SourceRuntimeContext? = nil
     ) async throws -> [String] {
         guard ExtensionManager.shared.hasScript(localPath: snapshot.localPath, scriptKey: "page") else {
             return []
         }
-        return try await ExtensionManager.shared.page(
+        return try await SourceRuntime.shared.page(
             localPath: snapshot.localPath,
             downloadUrl: snapshot.downloadUrl,
             url: url,
             host: host,
-            configJson: snapshot.configJson
+            configJson: snapshot.configJson,
+            context: context
         )
     }
 
     public func fetchFirstPageTOC(
         snapshot: ExtensionExecutionSnapshot,
         url: String,
-        host: String?
+        host: String?,
+        context: SourceRuntimeContext? = nil
     ) async throws -> (chapters: [ChapterResult], pages: [String]) {
         let path = snapshot.localPath
         var firstPageChapters: [ChapterResult] = []
         var pages: [String] = []
 
         if ExtensionManager.shared.hasScript(localPath: path, scriptKey: "page") {
-            pages = try await ExtensionManager.shared.page(
+            pages = try await SourceRuntime.shared.page(
                 localPath: path,
                 downloadUrl: snapshot.downloadUrl,
                 url: url,
                 host: host,
-                configJson: snapshot.configJson
+                configJson: snapshot.configJson,
+                context: context
             )
             if !pages.isEmpty {
-                firstPageChapters = try await ExtensionManager.shared.toc(
+                firstPageChapters = try await SourceRuntime.shared.toc(
                     localPath: path,
                     downloadUrl: snapshot.downloadUrl,
                     url: pages[0],
                     host: host,
-                    configJson: snapshot.configJson
+                    configJson: snapshot.configJson,
+                    context: context
                 )
             } else {
-                firstPageChapters = try await ExtensionManager.shared.toc(
+                firstPageChapters = try await SourceRuntime.shared.toc(
                     localPath: path,
                     downloadUrl: snapshot.downloadUrl,
                     url: url,
                     host: host,
-                    configJson: snapshot.configJson
+                    configJson: snapshot.configJson,
+                    context: context
                 )
             }
         } else {
-            firstPageChapters = try await ExtensionManager.shared.toc(
+            firstPageChapters = try await SourceRuntime.shared.toc(
                 localPath: path,
                 downloadUrl: snapshot.downloadUrl,
                 url: url,
                 host: host,
-                configJson: snapshot.configJson
+                configJson: snapshot.configJson,
+                context: context
             )
         }
 
@@ -94,13 +106,14 @@ public actor BookDetailLoader {
     public func fetchFullTOC(
         snapshot: ExtensionExecutionSnapshot,
         url: String,
-        host: String?
+        host: String?,
+        context: SourceRuntimeContext? = nil
     ) async throws -> (chapters: [ChapterResult], pages: [String]) {
-        let pages = try await fetchPageList(snapshot: snapshot, url: url, host: host)
-        let first = try await fetchPageTOC(snapshot: snapshot, url: pages.first ?? url, host: host)
+        let pages = try await fetchPageList(snapshot: snapshot, url: url, host: host, context: context)
+        let first = try await fetchPageTOC(snapshot: snapshot, url: pages.first ?? url, host: host, context: context)
         try Self.requireChapters(first, page: 1, of: max(pages.count, 1))
         guard pages.count > 1 else { return (first, pages) }
-        let rest = try await fetchRemainingPages(snapshot: snapshot, pages: pages, host: host)
+        let rest = try await fetchRemainingPages(snapshot: snapshot, pages: pages, host: host, context: context)
         return (first + rest, pages)
     }
 
@@ -123,14 +136,16 @@ public actor BookDetailLoader {
     public func fetchPageTOC(
         snapshot: ExtensionExecutionSnapshot,
         url: String,
-        host: String?
+        host: String?,
+        context: SourceRuntimeContext? = nil
     ) async throws -> [ChapterResult] {
-        return try await ExtensionManager.shared.toc(
+        return try await SourceRuntime.shared.toc(
             localPath: snapshot.localPath,
             downloadUrl: snapshot.downloadUrl,
             url: url,
             host: host,
-            configJson: snapshot.configJson
+            configJson: snapshot.configJson,
+            context: context
         )
     }
 
@@ -141,6 +156,7 @@ public actor BookDetailLoader {
         pages: [String],
         host: String?,
         skippingLoaded loadedCount: Int = 0,
+        context: SourceRuntimeContext? = nil,
         onPageFetched: (@Sendable (Int, Int, [ChapterResult]) async -> Void)? = nil
     ) async throws -> [ChapterResult] {
         var allChapters: [ChapterResult] = []
@@ -148,12 +164,13 @@ public actor BookDetailLoader {
 
         for pageIndex in min(1 + max(loadedCount, 0), totalPages)..<totalPages {
             try Task.checkCancellation()
-            let pageChaps = try await ExtensionManager.shared.toc(
+            let pageChaps = try await SourceRuntime.shared.toc(
                 localPath: snapshot.localPath,
                 downloadUrl: snapshot.downloadUrl,
                 url: pages[pageIndex],
                 host: host,
-                configJson: snapshot.configJson
+                configJson: snapshot.configJson,
+                context: context
             )
             try Self.requireChapters(pageChaps, page: pageIndex + 1, of: totalPages)
             allChapters.append(contentsOf: pageChaps)

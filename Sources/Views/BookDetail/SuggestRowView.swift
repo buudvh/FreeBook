@@ -105,7 +105,7 @@ struct SuggestRowView: View {
         }
         
         do {
-            let (results, _) = try await ExtensionManager.shared.executeCustomScript(
+            let (results, _) = try await SourceRuntime.shared.executeCustomScript(
                 localPath: localPath,
                 downloadUrl: downloadUrl,
                 scriptFileName: category.script,

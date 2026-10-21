@@ -38,8 +38,9 @@ final class LegadoEngineDiagnostics: @unchecked Sendable {
             storage.append(Entry(kind: kind, message: trimmed, date: Date()))
         }
         lock.unlock()
-        // Chỉ 20 mục đầu mỗi phiên được đánh dấu lỗi (luôn ghi file); phần sau chỉ ghi khi bật log, tránh tràn log.
-        let marker = kind == .info || position >= 20 ? "" : "❌ "
+        // Chỉ 3 mục đầu mỗi phiên được đánh dấu lỗi (luôn ghi file); phần sau chỉ ghi khi bật log — "tìm mọi nguồn"
+        // mở hàng trăm phiên, nguồn hỏng không được làm tràn file log.
+        let marker = kind == .info || position >= 3 ? "" : "❌ "
         AppLogger.shared.log("\(marker)[Legado \(sourceName)] \(kind.rawValue): \(trimmed)")
     }
 

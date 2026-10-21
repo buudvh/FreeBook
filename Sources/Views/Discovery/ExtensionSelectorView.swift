@@ -95,16 +95,19 @@ struct ExtensionSelectorView: View {
                                 .padding(.trailing, 4)
                         }
                         
-                        // Nút cấu hình (Bánh răng)
-                        Button(action: {
-                            configExtension = ext
-                        }) {
-                            Image(systemName: "gearshape")
-                                .font(.body)
-                                .foregroundColor(.secondary)
-                                .padding(8)
+                        // Nút cấu hình (Bánh răng). Nguồn Legado không có màn cấu hình/sửa script của tiện ích JS — mở
+                        // màn đó còn cho đổi `type` trong metadata, biến nguồn thành "tiện ích JS".
+                        if !LegadoSourcePolicy.isLegado(ext) {
+                            Button(action: {
+                                configExtension = ext
+                            }) {
+                                Image(systemName: "gearshape")
+                                    .font(.body)
+                                    .foregroundColor(.secondary)
+                                    .padding(8)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                         
                         // Nút Ghim (Pin)
                         Button(action: {

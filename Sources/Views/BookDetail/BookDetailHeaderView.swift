@@ -154,30 +154,39 @@ struct BookDetailHeaderView: View {
 
             FlowLayout(spacing: 8) {
                 ForEach(genres) { genre in
-                    NavigationLink(destination: CategoryNovelsListView(
-                        category: genre,
-                        extensionPackageId: extensionPackageId,
-                        localPath: localPath,
-                        downloadUrl: downloadUrl,
-                        configJson: configJson,
-                        sourceName: sourceName
-                    )) {
-                        Text(onTranslateMetaIfNeeded(genre.title))
-                            .font(.caption2)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(Color.white.opacity(0.12))
-                            .foregroundColor(.white)
-                            .cornerRadius(8)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.white.opacity(0.25), lineWidth: 1)
-                            )
+                    // Thể loại không kèm script (vd `kind` của nguồn Legado) chỉ là nhãn — không có danh sách để mở.
+                    if genre.script.isEmpty {
+                        genreChip(genre)
+                    } else {
+                        NavigationLink(destination: CategoryNovelsListView(
+                            category: genre,
+                            extensionPackageId: extensionPackageId,
+                            localPath: localPath,
+                            downloadUrl: downloadUrl,
+                            configJson: configJson,
+                            sourceName: sourceName
+                        )) {
+                            genreChip(genre)
+                        }
                     }
                 }
             }
         }
         .padding(.horizontal)
+    }
+
+    private func genreChip(_ genre: CategoryResult) -> some View {
+        Text(onTranslateMetaIfNeeded(genre.title))
+            .font(.caption2)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(Color.white.opacity(0.12))
+            .foregroundColor(.white)
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.white.opacity(0.25), lineWidth: 1)
+            )
     }
 
     private var descriptionView: some View {

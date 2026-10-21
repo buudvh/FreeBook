@@ -27,7 +27,8 @@ extension ReaderChapterListView {
                     downloadUrl: ext.downloadUrl,
                     configJson: ext.configJson
                 )
-                let allChapters = try await BookDetailLoader.shared.fetchFullTOC(snapshot: snapshot, url: url, host: localBook?.host).chapters
+                let context = SourceRuntimeContext(bookId: bookId, bookUrl: url, bookName: localBook?.title, bookAuthor: localBook?.author)
+                let allChapters = try await BookDetailLoader.shared.fetchFullTOC(snapshot: snapshot, url: url, host: localBook?.host, context: context).chapters
 
                 if let book = localBook {
                     let fullTOCSnapshots = allChapters.enumerated().map { index, item in

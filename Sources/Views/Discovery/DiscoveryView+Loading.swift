@@ -37,7 +37,7 @@ extension DiscoveryView {
 
     private static func fetchHome(localPath: String, downloadUrl: String, configJson: String) async -> [CategoryResult] {
         do {
-            return try await ExtensionManager.shared.home(localPath: localPath, downloadUrl: downloadUrl, configJson: configJson)
+            return try await SourceRuntime.shared.home(localPath: localPath, downloadUrl: downloadUrl, configJson: configJson)
         } catch {
             #if DEBUG
             AppLogger.shared.log("⚠️ [DiscoveryView] Không có hoặc lỗi chạy script home: \(error.localizedDescription)")
@@ -48,7 +48,7 @@ extension DiscoveryView {
 
     private static func fetchGenre(localPath: String, downloadUrl: String, configJson: String) async -> [CategoryResult] {
         do {
-            return try await ExtensionManager.shared.genre(localPath: localPath, downloadUrl: downloadUrl, configJson: configJson)
+            return try await SourceRuntime.shared.genre(localPath: localPath, downloadUrl: downloadUrl, configJson: configJson)
         } catch {
             #if DEBUG
             AppLogger.shared.log("⚠️ [DiscoveryView] Không có hoặc lỗi chạy script genre: \(error.localizedDescription)")

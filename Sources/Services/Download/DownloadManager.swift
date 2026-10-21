@@ -369,7 +369,8 @@ public final class DownloadManager: ObservableObject {
                 worker: worker,
                 skipUncached: exportFormat != nil && task.onlyExportCached,
                 bookHost: bgBook.host,
-                packageId: bgBook.extensionPackageId
+                packageId: bgBook.extensionPackageId,
+                bookContext: SourceRuntimeContext(bookId: bgBook.bookId, bookUrl: bgBook.detailUrl, bookName: bgBook.title, bookAuthor: bgBook.author)
             )
             var processedCount = 0
 

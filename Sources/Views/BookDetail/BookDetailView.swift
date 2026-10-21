@@ -844,9 +844,10 @@ struct BookDetailView: View {
                 downloadUrl: ext.downloadUrl,
                 configJson: ext.configJson
             )
+            let context = sourceRuntimeContext
             Task {
                 do {
-                    let detailResult = try await BookDetailLoader.shared.fetchDetail(snapshot: snapshot, url: initialDetailUrl, host: resolvedHost)
+                    let detailResult = try await BookDetailLoader.shared.fetchDetail(snapshot: snapshot, url: initialDetailUrl, host: resolvedHost, context: context)
 
                     await MainActor.run {
                         self.title = detailResult.name
@@ -934,9 +935,10 @@ struct BookDetailView: View {
             downloadUrl: ext.downloadUrl,
             configJson: ext.configJson
         )
+        let context = sourceRuntimeContext
         Task {
             do {
-                let (firstPageChapters, pages) = try await BookDetailLoader.shared.fetchFirstPageTOC(snapshot: snapshot, url: initialDetailUrl, host: resolvedHost)
+                let (firstPageChapters, pages) = try await BookDetailLoader.shared.fetchFirstPageTOC(snapshot: snapshot, url: initialDetailUrl, host: resolvedHost, context: context)
 
                 let shouldPersistTOC = await MainActor.run {
                     self.isLoadingTOC = false

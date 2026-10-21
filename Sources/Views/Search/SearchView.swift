@@ -301,7 +301,7 @@ struct SearchView: View {
                                                 Spacer()
                                                 
                                                 NavigationLink(destination: SearchView(
-                                                    activeExtensions: searchableExtensions,
+                                                    activeExtensions: sortedSources,
                                                     selectedExtension: ext,
                                                     initialSearchQuery: searchQuery
                                                 )) {
@@ -593,13 +593,15 @@ struct SearchView: View {
         do {
             try BookSourceMigrator.ensureSameContentKind(oldPackageId: oldBook.extensionPackageId, newPackageId: ext.packageId)
             let path = ext.localPath
-            let detailResult = try await ExtensionManager.shared.detail(localPath: path, downloadUrl: ext.downloadUrl, url: result.link, host: ExtensionHostResolver.nonEmpty(result.host) ?? ext.sourceUrl, configJson: ext.configJson)
+            // Ngữ cảnh theo `newBookId`: nguồn Legado ghi trạng thái theo đúng id của sách sắp tạo.
+            let context = SourceRuntimeContext(bookId: newBookId, bookUrl: result.link, bookName: result.name, bookAuthor: result.author)
+            let detailResult = try await SourceRuntime.shared.detail(localPath: path, downloadUrl: ext.downloadUrl, url: result.link, host: ExtensionHostResolver.nonEmpty(result.host) ?? ext.sourceUrl, configJson: ext.configJson, context: context)
             // Host sách: host detail → host item tìm kiếm → source (detail thường không trả host).
             let bookHost = ExtensionHostResolver.nonEmpty(detailResult.host) ?? ExtensionHostResolver.nonEmpty(result.host) ?? ext.sourceUrl
             // Cùng quy tắc với BookDetail (trang đầu = `pages.first`). Mục lục rỗng/trang rỗng ⇒ ném lỗi trước khi tạo sách
             // mới, nên sách cũ và chương đã tải không bị xoá.
             let snapshot = ExtensionExecutionSnapshot(packageId: ext.packageId, name: ext.name, localPath: path, downloadUrl: ext.downloadUrl, configJson: ext.configJson)
-            let tocChapters = try await BookDetailLoader.shared.fetchFullTOC(snapshot: snapshot, url: result.link, host: bookHost).chapters
+            let tocChapters = try await BookDetailLoader.shared.fetchFullTOC(snapshot: snapshot, url: result.link, host: bookHost, context: context).chapters
 
             let savedDesc = detailResult.detail.isEmpty ? detailResult.description.cleanHTML() : "\(detailResult.description.cleanHTML())\n\n---\n\(detailResult.detail.cleanHTML())"
             let initialChapterIndex = min(oldChapterIndex, max(0, tocChapters.count - 1))
@@ -728,47 +730,18 @@ struct SearchView: View {
             }
             sourceStates = initialStates
             
+            // Tiện ích JS song song không giới hạn như cũ; nguồn Legado qua cửa sổ trượt (`LegadoSearchScheduler`).
+            let targets = extensionsToSearch.map { LegadoSearchScheduler.Target($0) }
             searchTask = Task {
-                await withTaskGroup(of: (String, [ExtensionItemResult]?).self) { group in
-                    for ext in extensionsToSearch {
-                        let path = ext.localPath
-                        let packageId = ext.packageId
-                        let configJson = ext.configJson
-                        let downloadUrl = ext.downloadUrl
-                        
-                        group.addTask {
-                            do {
-                                let extResults = try await ExtensionManager.shared.search(
-                                    localPath: path,
-                                    downloadUrl: downloadUrl,
-                                    query: trimmedQuery,
-                                    page: 1,
-                                    configJson: configJson
-                                )
-                                return (packageId, extResults)
-                            } catch {
-                                return (packageId, nil)
-                            }
-                        }
-                    }
-                    
-                    for await (packageId, results) in group {
-                        await MainActor.run {
-                            guard !Task.isCancelled else { return } // lượt cũ không ghi đè trạng thái lượt mới
-                            if let results = results {
-                                let cleanResults = filterAndDeduplicate(results)
-                                if !cleanResults.isEmpty {
-                                    self.sourceStates[packageId] = .found(results: cleanResults)
-                                } else {
-                                    self.sourceStates[packageId] = .noResults
-                                }
-                            } else {
-                                self.sourceStates[packageId] = .noResults
-                            }
-                        }
+                await LegadoSearchScheduler.searchAll(targets, query: trimmedQuery) { packageId, results in
+                    await MainActor.run {
+                        guard !Task.isCancelled else { return } // lượt cũ không ghi đè trạng thái lượt mới
+                        let cleanResults = results.map { filterAndDeduplicate($0) } ?? []
+                        let state: SourceSearchState = cleanResults.isEmpty ? .noResults : .found(results: cleanResults)
+                        self.sourceStates[packageId] = state
                     }
                 }
-                
+
                 await MainActor.run {
                     guard !Task.isCancelled else { return }
                     self.isSearching = false
@@ -793,7 +766,7 @@ struct SearchView: View {
 
             searchTask = Task {
                 do {
-                    let results = try await ExtensionManager.shared.search(
+                    let results = try await SourceRuntime.shared.search(
                         localPath: ext.localPath,
                         downloadUrl: ext.downloadUrl,
                         query: trimmedQuery,

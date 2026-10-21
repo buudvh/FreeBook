@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.561] - 2026-10-21
+
+### feat: luồng nguồn Legado, facade SourceRuntime và nối vào Tìm kiếm, Khám phá, Reader, tải truyện
+
+Bước 9, 10 và phần còn lại của bước 11 trong đợt 1 plan "nguồn truyện Legado — viết mới theo đặc tả". Luồng theo `Docs/Specs/legado-source-spec.md` §5.
+
+- **Luồng** (`Sources/Services/LegadoSource/Runtime/`, mới): `LegadoSourceRuntime` + `Search` / `Explore` / `Detail` / `Toc` / `Content` trên engine 1.3.560, trả đúng DTO hiện có (`ExtensionItemResult`, `NovelDetailResult`, `ChapterResult`, `CategoryResult`, `String`). Vòng `nextTocUrl`/`nextContentUrl` dừng + chống lặp theo §5.6, có trần trang; nội dung nhiều trang dùng chung một runtime JS. Mục tên tập (`isVolume`) **không thành chương** (quyết định K), chương đánh số liên tục; chương tên rỗng thành "Chương N"; trang sau lỗi thì giữ phần đã tải. `kind` → thẻ thể loại không có script (chỉ là nhãn). Nguồn đang tắt vẫn đọc tiếp được sách đã có trên kệ.
+- **Trạng thái theo truyện** (quyết định G): `LegadoBookStateStore` giữ `tocUrl` + biến truyện/chương **trong bộ nhớ** theo `packageId + bookUrl`; chỉ ghi sidecar `applicationSupport/legado_state/<sha256(bookId)>.json` khi sách đã thật sự tồn tại (đã có mục lục trong `ChapterStore`) — mở trang chi tiết (bookId UUID mới mỗi lần) hay đổi nguồn thất bại không sinh file. Lượt thông tin sách chạy song song với mục lục được gộp (`LegadoBookInfoCoalescer`). `deleteState(bookId:)` static, gọi khi xoá sách và khi đổi nguồn dọn sách cũ.
+- **Facade** `SourceRuntime` (`Sources/Services/Extensions/`, mới): giữ **nguyên nhãn tham số** của `ExtensionManager.search/detail/page/toc/chap/genre/home/executeCustomScript` (+ `context: SourceRuntimeContext?` tuỳ chọn ở cuối — bookId, URL sách, tên, tác giả, tiêu đề/chỉ số chương). Tiện ích JS ⇒ chuyển nguyên tham số sang `ExtensionManager` (hành vi không đổi). Nguồn Legado ⇒ engine, **không** qua `cleanAndResolveUrl`. `page` của Legado trả `[url]` (vòng mục lục nằm trong `toc`); `home` trả `[]`, `genre` trả các mục khám phá bấm được với script giả `__legado_explore__`. Tranh/video Legado ném "chưa hỗ trợ ở bản này".
+- **Call site** đổi sang facade (không đổi logic tiện ích JS): `ChapterContentRepository` (tách `+SourceFetch`), `BookDetailLoader` (+`context:`), `BookDetailView+Extensions/+TOCPreparation`, `SearchView`, `DiscoveryView+Loading`, `PaginatedNovelLoader`, `AllCommentsView`, `CommentSectionView`, `SuggestRowView`, `NewChapterProbe`, `ExportContentProvider`, `DownloadManager`. `BookDownloadWorker` rẽ nhánh Legado **trước** `prepareIfNeeded`/`cleanAndResolveUrl` (`+Legado`), vẫn tuần tự và huỷ được.
+- **Lọc nguồn**: `SearchExtensionScopePolicy.isSearchScoped`/`isDiscoverable` — Tìm kiếm, Đổi nguồn chỉ nhận nguồn Legado đang bật + loại đã hỗ trợ + có rule tìm; Khám phá thêm điều kiện có `exploreUrl` (tranh/video Legado bị chặn dù "browsable" theo loại). **Tìm mọi nguồn**: tiện ích JS song song như cũ, nguồn Legado qua cửa sổ trượt tối đa 8 (`LegadoSearchScheduler`, mới). Ẩn nút ⚙ cấu hình JS cho nguồn Legado ở bảng chọn nguồn Khám phá; trình duyệt bỏ nguồn Legado khỏi lối tắt và bước dò URL; kiểm chương mới bỏ sách Legado không chạy được và chờ danh sách Legado nạp (≤ ~5 s).
+- **Phân trang Khám phá**: `PaginatedNovelLoader` nhận chỗ cắm `{{…page…}}`; với mục khám phá Legado chỉ tin `nextPage` của runtime và dừng khi trang không thêm mục mới (trang web bỏ qua số trang không làm tải mãi).
+- **Trang chi tiết**: thẻ thể loại không có script hiện dạng nhãn tĩnh (`BookDetailHeaderView.genreChip`), không mở danh sách hỏng. Tiện ích JS luôn có script nên không đổi.
+- **Log**: chẩn đoán mềm của engine chỉ gắn `❌` cho 3 mục đầu mỗi phiên (trước là 20) để "tìm mọi nguồn" không làm tràn file log; lỗi `search` của facade không gắn `❌`.
+- **Còn nợ**: chưa dọn sidecar mồ côi lúc mở app; thêm sách rồi thoát trước lượt mục lục kế tiếp thì mất biến của lượt tìm; `canReName`, `ruleContent.title`, `isVip`/`updateTime` chưa dùng; nhập lại nguồn với `bookSourceType` khác đổi loại của sách đã lưu từ nguồn đó.
+- Chuyển entry `[1.3.531]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới** (`SearchView.swift` 821 → 794, `ChapterContentRepository.swift` 455 → 430; các file legacy khác ≤ baseline). Không còn `ExtensionManager.shared.(search|detail|toc|chap|page|home|genre|executeCustomScript)(` ngoài facade. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.560] - 2026-10-21
 
 ### feat: engine nguồn Legado (rule, mạng, JS) viết mới theo đặc tả
@@ -533,82 +551,3 @@ Mốc sửa lỗi của plan đợt 2 (`Docs/Plans/2026-10-17-plan-round2-fixes-
   - Vị trí đọc dở của comic/video mở trước bản này có thể lệch vì mục lục có thêm dòng section.
   - "Xoá khỏi kệ" với tiện ích đã tắt lưu lịch sử thì sách bị dọn hẳn ở lần mở app sau.
 - **Kiểm chứng**: `check_architecture.py` báo **2 violation, 0 mới**. Không build tại chỗ (Windows); CI chỉ xác nhận biên dịch. Thử trên máy theo mục 6 của plan.
-
-## [1.3.531] - 2026-10-17
-
-### feat: ho tro extension comic va video, sua bo loc kho theo nhom the loai/ngon ngu, them nut go o man cau hinh
-
-Người dùng duyệt plan `Docs/Plans/2026-10-17-plan-comic-video.md`, gồm: comic và video làm chung một đợt; video hỗ trợ `native`, `auto` và nhúng `webview`; comic đọc cuộn dọc; làm cả API `Graphics` lẫn tải offline. Thêm hai yêu cầu: sửa bộ lọc kho (Phần E) và nút Gỡ ở màn cấu hình (Phần F). Toàn bộ làm trên nhánh `feature/comic-video`, đã thêm nhánh này vào trigger `build-ipa.yml`. Hợp đồng extension lấy theo `extension-api.md` của Darkrai9x.
-
-- **Nền tảng**
-  - `ExtensionType.video`.
-  - `ExtensionContentKind` (`text`/`comic`/`video`/`unsupported`) suy loại lúc chạy, theo `packageId` (bản đã cài → catalog → `text`) hoặc theo `plugin.json` của `localPath`. **Không** đổi `@Model`; `detail.type` ghi đè thì không lưu.
-  - Model media: `ComicPageSource`, `VideoServer`, `VideoTrack` (+ `VideoTrackKind`, `VideoTimeSkip`, `VideoSubtitleTrack`). Mapper thuần: `ComicPageMapper`, `VideoTrackMapper`, `JSValueReader`.
-  - `ExtensionManager+Media`: `comicPages` / `videoServers` / `videoTrack`. **Không** qua pipeline text (`cleanHTML`, JunkFilter, bin, dịch, TTS). `link` của ảnh có `script` và `data` của track được giữ nguyên văn. `chap()` cũ giữ nguyên chữ ký.
-  - `toc` bỏ item `type:"section"` chỉ với comic/video; truyện chữ giữ nguyên để chỉ số chương không lệch.
-- **Định tuyến**
-  - `BookContentDestination` (cùng nhãn tham số với `ReaderView`) thay `ReaderView(` ở 4 chỗ: BookDetail, Kệ, Tìm trên kệ, Bộ sưu tập. Router chọn `ReaderView` / `ComicReaderView` / `VideoPlayerScreen`.
-  - `BookContentLaunch.initialParagraphIndex` là `Int?`: `nil` = tiến độ đã lưu.
-- **Màn hình cho media**
-  - Khám phá và Tìm kiếm có hàng chip loại `ExtensionKindFilterBar`.
-  - Đổi nguồn chỉ cho chọn nguồn cùng loại (`SearchExtensionScopePolicy`, `BookSourceMigrator` chặn khác loại).
-  - BookDetail (`+Media`): comic/video ẩn Xuất ebook và Từ điển; video ẩn Tải; nhãn "Tải ảnh offline" / "Xem ngay".
-  - `BookActionSheet` ẩn các thao tác tương ứng.
-  - `BookKindBadge` trên bìa sách ở kệ.
-- **Comic**
-  - `ComicImageLoader` (actor): header gồm `headers` > `referer` > `Referer: <origin chương>/` + UA iPhone; thử `fallback` lần lượt; tối đa 3 request đồng thời.
-  - Downsample bằng ImageIO, khống chế bề ngang và tổng điểm ảnh.
-  - Cache gồm `NSCache` và `ComicImageDiskCache` (`Caches/comic_images/`, 400 MB, dọn khi vào nền).
-  - `ComicImageScriptRunner` chạy script ảnh, nhận base64 trần, `Response.success` hoặc `data:`.
-  - API JS `Graphics` (`JSGraphicsBridge` + `JSGraphicsBootstrapScript`): `createImage`, `createCanvas`, `drawImage` 3/5/9 tham số, `capture` → PNG base64.
-  - Màn đọc `Views/ComicReader/`: cuộn dọc, chạm đúp mở `ComicZoomViewer`, mục lục, chương trước/sau. Tiến độ (chỉ số ảnh) lưu qua `ReadingProgressStore.checkpoint`.
-  - Tải offline: `ComicOfflineStore` (`comics/<sha256(bookId)>/<chapterIndex>/manifest.json` + ảnh) và `DownloadManager+Comic` tải tuần tự từng chương, từng ảnh. Xoá sách thì xoá thư mục comic.
-  - `DownloadManager.executeTask` từ chối xuất ebook cho comic/video và từ chối tải video.
-- **Video**
-  - Browser của tiện ích bắt cả XHR, fetch, media và iframe nhờ `WebNetworkCaptureScript` (`WKUserScript` mọi frame) cùng `WebNetworkCaptureMessageProxy` (weak). `urls()` / `waitUrl` thấy toàn bộ request, đúng ngữ nghĩa hợp đồng extension.
-  - Autoplay tắt tiếng chỉ bật cho tiện ích loại video; tiện ích khác giữ `.all` như cũ.
-  - `VideoMediaSniffer` + `VideoSourceResolver` → `VideoPlaybackPlan` (`.native` / `.hlsText` / `.embed`). `auto` không ra link thì báo lỗi, đúng DOC; `webview` không ra link thì nhúng trang.
-  - `HLSPlaylistResourceLoader` (`fbhls://`) cho playlist dạng text hoặc `data:`. `VideoSubtitleParser` đọc SRT/VTT.
-  - Trình phát `Views/VideoPlayer/`: `AVPlayerViewController` có header (`AVURLAssetHTTPHeaderFieldsKey`) và PiP; chọn server (nhớ theo sách); lưới tập; nút Bỏ qua theo `timeSkip`; phụ đề trong `contentOverlayView`; tự sang tập kế; `VideoEmbedWebView` cho nhánh nhúng.
-  - Khi phát thì tạm dừng TTS và chiếm `AVAudioSession` `.playback/.moviePlayback`. Tiến độ (số giây) lưu qua `checkpoint`.
-- **Bộ lọc kho (Phần E)**
-  - `ExtensionFilterGroups` gom thể loại thô (`eng_novel`, `novel,comic`, `chinese_novel`…) và ngôn ngữ thô (`zh-CN`, `vi`, `vi-VN`, `global`, `ja_JP`, `kr_KR`…) thành nhóm cố định như trang danh mục tiện ích cộng đồng. Riêng `ja`/`ko` so theo tiền tố.
-  - `FilterSheet` hiện chip theo nhóm kèm số lượng. Lựa chọn đã lưu được ánh xạ lại qua nhóm. Comic không còn bị lọc khỏi kho.
-- **Nút Gỡ (Phần F)**: `ExtensionConfigView+Uninstall` thêm nút Gỡ có xác nhận, đi cùng đường `ExtensionTransactionCoordinator.uninstallExtension`. Chặn gỡ tiện ích đang làm giọng đọc. Khám phá tự chọn lại nguồn khi nguồn đang chọn bị gỡ.
-- **Sửa sau review phản biện (2 agent đọc chéo toàn bộ diff)**
-  - `waitUrl`:
-    - Reset danh sách URL **đồng bộ** lúc bắt đầu load (`beginLaunch`), tránh khớp nhầm URL của lần launch trước.
-    - So chuỗi con chỉ áp cho URL điều hướng (hành vi cũ); request bắt được phải khớp regex toàn URL. Nhờ vậy ext truyện chữ và màn giải captcha không bị đóng sớm.
-    - Thêm token chống timer cũ kết thúc lượt chờ mới.
-  - Browser của ext video được gắn cửa sổ ẩn (`WebViewLoader+HiddenWindow`) để iOS không treo media.
-  - Trang nhúng:
-    - Gửi `Referer` và UA.
-    - Chặn khung chính rời host gốc và chặn domain quảng cáo.
-  - Track video:
-    - `mimeType` dùng qua `AVURLAssetOverrideMIMETypeKey`, UA qua `AVURLAssetHTTPUserAgentKey`.
-    - `chap` trả chuỗi JSON thì được parse lại.
-  - Lưu tiến độ video:
-    - Hết tập không còn lưu giây ≈ độ dài phim.
-    - Mở lại đúng tập đang xem thì xem tiếp từ giây đã lưu.
-  - Comic online:
-    - Referer lấy theo URL chương **đã resolve**.
-    - Byte do script ảnh trả về phải là ảnh thật; mục cache hỏng thì bị xoá.
-    - Ảnh có cạnh dài ≤ 16384 px.
-  - Comic offline:
-    - Chỉ dùng bản đã tải khi `chapterUrl` của manifest khớp chương.
-    - Lượt tải dùng script runner riêng.
-    - Đổi nguồn thì xoá ảnh offline cũ.
-  - `Graphics`:
-    - Canvas mỗi cạnh ≤ 8192.
-    - `drawImage` giữ toạ độ thực.
-  - Đổi nguồn sách comic/video mà tiện ích cũ đã gỡ: không còn bị suy thành `text` (`resolveIfKnown`).
-  - Router: khi không tra được loại tiện ích mà sách có ảnh comic offline thì mở bằng màn comic, không mở reader chữ.
-  - Log `track` chỉ ghi dạng gọn, vì có thể chứa token hoặc header.
-- **Dòng file legacy**: `BookDetailView` 1200 → 1105 (chuyển hai hàm tải trang mục lục sang `+TOCPreparation`), `SearchView` 871 → 862. Mọi file mới ≤ 400 dòng.
-- **Ngoài phạm vi**:
-  - Video: feed `short`, DRM native (ClearKey chỉ qua nhúng), nhiều audio, danmaku, tải video.
-  - Comic: dấu "đã tải" trên mục lục chi tiết truyện.
-  - Đồng bộ cookie WKWebView sang URLSession.
-  - Sơ đồ mã hoá mới của AllShorts.
-  - Backup **không** gói thư mục `comics/`.
-- **Kiểm chứng**: `check_architecture.py` báo **2 violation, 0 mới**. Không build tại chỗ (Windows); CI chỉ xác nhận biên dịch. Cần thử trên máy theo danh sách ext mẫu ở mục 7 của plan.

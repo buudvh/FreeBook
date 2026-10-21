@@ -36,6 +36,12 @@ final class PaginatedNovelLoader: ObservableObject {
         self.configJson = configJson
     }
 
+    /// URL mục có chỗ cắm số trang: `{0}` của tiện ích JS, hoặc `{{page}}` / `{{page-1}}` / `{{(page-1)*20}}` của nguồn
+    /// Legado (biểu thức `{{…}}` có nhắc tới `page`).
+    nonisolated static func hasPagePlaceholder(_ input: String) -> Bool {
+        input.contains("{0}") || input.range(of: #"\{\{[^}]*page"#, options: .regularExpression) != nil
+    }
+
     func loadInitial() async {
         await load(page: 1)
     }
@@ -59,7 +65,7 @@ final class PaginatedNovelLoader: ObservableObject {
         }
 
         do {
-            let (results, nextPage) = try await ExtensionManager.shared.executeCustomScript(
+            let (results, nextPage) = try await SourceRuntime.shared.executeCustomScript(
                 localPath: localPath,
                 downloadUrl: downloadUrl,
                 scriptFileName: scriptFileName,
@@ -70,6 +76,7 @@ final class PaginatedNovelLoader: ObservableObject {
             )
 
             let unique = filterAndDeduplicate(results)
+            var addedCount = unique.count
             if page == 1 {
                 novels = unique
             } else {
@@ -79,11 +86,18 @@ final class PaginatedNovelLoader: ObservableObject {
                 let existingKeys = Set(novels.map { normalizeLink($0.link) })
                 let newUnique = unique.filter { !existingKeys.contains(normalizeLink($0.link)) }
                 novels.append(contentsOf: newUnique)
+                addedCount = newUnique.count
             }
 
             nextPageUrl = nextPage
             currentPage = page
-            canLoadMore = results.count >= 10 && (nextPage != nil || input.contains("{0}"))
+            if scriptFileName == SourceRuntime.legadoExploreScriptName {
+                // Mục khám phá Legado: chỉ tin `nextPage` của runtime (đã xét chỗ cắm trang), và dừng khi trang không thêm
+                // mục mới — trang web bỏ qua số trang sẽ trả lại đúng trang cũ, không được tải mãi.
+                canLoadMore = nextPage != nil && addedCount > 0
+            } else {
+                canLoadMore = results.count >= 10 && (nextPage != nil || Self.hasPagePlaceholder(input))
+            }
             isLoading = false
             isLoadingMore = false
             retryCount = 0

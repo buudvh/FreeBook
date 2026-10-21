@@ -136,6 +136,8 @@ struct BookActionRunner {
         guard !book.isLocalBook, !book.detailUrl.isEmpty else { return nil }
         guard let ext = extensions.first(where: { $0.packageId == book.extensionPackageId }),
               !ext.localPath.isEmpty else { return nil }
+        // Nguồn Legado đang tắt / loại chưa hỗ trợ: không tự gửi request (lượt tự động lúc mở Kệ chạy không hỏi ai).
+        if LegadoSourcePolicy.isLegado(ext) && !LegadoSourcePolicy.isRunnable(ext) { return nil }
 
         let host: String?
         if let bookHost = book.host, !bookHost.isEmpty {

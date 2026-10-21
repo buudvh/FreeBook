@@ -281,7 +281,8 @@ extension BookDetailView {
         }
 
         let bookHost = resolvedHost
-        async let detailTask = ExtensionManager.shared.detail(localPath: ext.localPath, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: bookHost, configJson: ext.configJson)
+        let context = sourceRuntimeContext
+        async let detailTask = SourceRuntime.shared.detail(localPath: ext.localPath, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: bookHost, configJson: ext.configJson, context: context)
 
         do {
             let detailResult = try await detailTask
@@ -330,7 +331,7 @@ extension BookDetailView {
         do {
             // `page.js` trả rỗng ⇒ mục lục ở chính url chi tiết; trang nào rỗng ⇒ lỗi, không ghi đè mục lục đã lưu.
             let snapshot = ExtensionExecutionSnapshot(packageId: ext.packageId, name: ext.name, localPath: ext.localPath, downloadUrl: ext.downloadUrl, configJson: ext.configJson)
-            let (allChapters, pages) = try await BookDetailLoader.shared.fetchFullTOC(snapshot: snapshot, url: initialDetailUrl, host: resolvedHost)
+            let (allChapters, pages) = try await BookDetailLoader.shared.fetchFullTOC(snapshot: snapshot, url: initialDetailUrl, host: resolvedHost, context: context)
 
             // Một hop MainActor duy nhất cho cả bốn giá trị (trước đây là bốn `await MainActor.run` rời rạc).
             let saveContext: (bookId: String, shouldPersist: Bool, ttsProtection: ProtectedTTSChapter?, snapshots: [ChapterMetadataSnapshot]) = await MainActor.run {

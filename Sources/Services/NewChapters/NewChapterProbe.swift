@@ -114,11 +114,14 @@ enum NewChapterProbe {
     private static func fetchTOC(
         target: Target
     ) async throws -> (chapters: [(name: String, url: String)], isPartial: Bool) {
+        // Nguồn Legado đọc trạng thái theo đúng id sách trên kệ.
+        let context = SourceRuntimeContext(bookId: target.bookId, bookUrl: target.detailUrl, bookName: target.title)
         // Lấy danh sách trang trước (đúng một lần `page.js`) để biết có cần tải trang đầu hay không.
         let pages = try await BookDetailLoader.shared.fetchPageList(
             snapshot: target.snapshot,
             url: target.detailUrl,
-            host: target.host
+            host: target.host,
+            context: context
         )
 
         // Quá nhiều trang: chỉ trang cuối, bỏ hẳn trang đầu (trước đây tải xong rồi vứt).
@@ -127,7 +130,8 @@ enum NewChapterProbe {
             let tail = try await BookDetailLoader.shared.fetchPageTOC(
                 snapshot: target.snapshot,
                 url: lastPage,
-                host: target.host
+                host: target.host,
+                context: context
             )
             return (tail.map { (name: $0.name, url: $0.url) }, true)
         }
@@ -136,7 +140,8 @@ enum NewChapterProbe {
         let first = try await BookDetailLoader.shared.fetchPageTOC(
             snapshot: target.snapshot,
             url: pages.first ?? target.detailUrl,
-            host: target.host
+            host: target.host,
+            context: context
         )
         let flatFirst = first.map { (name: $0.name, url: $0.url) }
 
@@ -147,7 +152,8 @@ enum NewChapterProbe {
         let rest = try await BookDetailLoader.shared.fetchRemainingPages(
             snapshot: target.snapshot,
             pages: pages,
-            host: target.host
+            host: target.host,
+            context: context
         )
         return (flatFirst + rest.map { (name: $0.name, url: $0.url) }, false)
     }

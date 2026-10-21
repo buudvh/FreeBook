@@ -30,9 +30,11 @@ struct BypassWebView: View {
     @State private var showingAllHistorySheet = false
     @State private var showingBrowserSettings = false // mở từ bảng nổi của nút khiên
 
-    /// Tiện ích đã cài, đọc từ `ExtensionLibraryRepository` (Observation tự theo dõi khi đọc trong `body`).
+    /// Tiện ích đã cài, đọc từ `ExtensionLibraryRepository` (Observation tự theo dõi khi đọc trong `body`). Bỏ nguồn
+    /// Legado: không phải lối tắt trình duyệt (hàng nghìn nguồn), và `plugin.json` của chúng không có `regexp` nên dò
+    /// khớp URL chỉ tốn một lần đọc file mỗi nguồn mỗi lượt điều hướng.
     private var activeExtensions: [Extension] {
-        ExtensionLibraryRepository.shared.installed
+        LegadoSourcePolicy.excludingLegado(ExtensionLibraryRepository.shared.installed)
     }
 
     private var bookExtensions: [Extension] {

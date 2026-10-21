@@ -34,14 +34,18 @@ final class ExportContentProvider {
     private let packageId: String
     /// `true` khi tác vụ xuất bật "Chỉ xuất chương đã tải" — không phát request mạng nào.
     private let skipUncached: Bool
+    /// Ngữ cảnh sách (URL chi tiết, tên, tác giả) cho nguồn Legado; mỗi chương thêm tên + chỉ số chương.
+    private let bookContext: SourceRuntimeContext?
     private(set) var tally = Tally()
 
-    init(bookId: String, worker: BookDownloadWorker?, skipUncached: Bool, bookHost: String? = nil, packageId: String = "") {
+    init(bookId: String, worker: BookDownloadWorker?, skipUncached: Bool, bookHost: String? = nil, packageId: String = "",
+         bookContext: SourceRuntimeContext? = nil) {
         self.bookId = bookId
         self.worker = worker
         self.skipUncached = skipUncached
         self.bookHost = bookHost
         self.packageId = packageId
+        self.bookContext = bookContext
     }
 
     /// Ném `CancellationError` khi worker bị huỷ — caller phải dọn file tạm rồi `markCancelled`.
@@ -73,7 +77,11 @@ final class ExportContentProvider {
 
         do {
             let host = ExtensionHostResolver.chapterHost(chapterHost: chapter.host, bookHost: bookHost, packageId: packageId)
-            let content = try await worker.fetchChapterContent(url: chapter.url, host: host)
+            let context = SourceRuntimeContext(
+                bookId: bookId, bookUrl: bookContext?.bookUrl, bookName: bookContext?.bookName,
+                bookAuthor: bookContext?.bookAuthor, chapterTitle: chapter.title, chapterIndex: chapter.index
+            )
+            let content = try await worker.fetchChapterContent(url: chapter.url, host: host, context: context)
             let cleaned = content.cleanHTML()
             guard !cleaned.isEmpty else {
                 tally.failed += 1

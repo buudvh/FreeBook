@@ -122,7 +122,7 @@ struct AllCommentsView: View {
         }
         
         do {
-            let (results, nextPage) = try await ExtensionManager.shared.executeCustomScript(
+            let (results, nextPage) = try await SourceRuntime.shared.executeCustomScript(
                 localPath: localPath,
                 downloadUrl: downloadUrl,
                 scriptFileName: category.script,

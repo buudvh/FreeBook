@@ -31,10 +31,25 @@ extension ShelfView {
     internal func runAutoNewChapterCheck() async {
         await newChapters.loadIfNeeded()
         await newChapters.prune(keeping: Set(allBooks.map { $0.bookId }))
+        await waitForLegadoSourcesIfNeeded()
         let targets = newChapterTargets
         guard !targets.isEmpty else { return }
         guard let summary = await newChapters.autoCheck(targets: targets) else { return }
         BookActionRunner.showNewChapterSummary(summary, announceEmpty: false)
+    }
+
+    /// Danh sách nguồn Legado nạp nền lúc mở app; trước khi xong, mọi nguồn Legado coi như tắt nên sách Legado bị loại
+    /// khỏi target — mà lượt tự động lại đánh dấu cả lô đã chạy (cooldown chung), sách Legado sẽ lỡ luôn lượt đó.
+    /// Có sách Legado trên kệ ⇒ chờ danh sách nạp xong, tối đa ~5 s.
+    private func waitForLegadoSourcesIfNeeded() async {
+        let hasLegadoBooks = allBooks.contains {
+            $0.isOnShelf && $0.extensionPackageId.hasPrefix(LegadoSourceIdentity.packageIdPrefix)
+        }
+        guard hasLegadoBooks else { return }
+        for _ in 0..<25 {
+            if LegadoSourceRepository.shared.hasLoaded || Task.isCancelled { return }
+            try? await Task.sleep(nanoseconds: 200_000_000)
+        }
     }
 
     /// Refresh tay toàn bộ kệ — bỏ qua cooldown, luôn báo kết quả.

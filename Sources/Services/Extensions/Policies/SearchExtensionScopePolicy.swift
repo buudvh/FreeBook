@@ -11,6 +11,8 @@ import Foundation
 ///   (`RepositoryFilterPolicy.includeNsfwDefaultsKey`, mặc định tắt). Ngoại lệ: đổi nguồn cho sách của chính một
 ///   tiện ích NSFW thì giữ — nếu không danh sách nguồn thay thế luôn rỗng. Khám phá lọc NSFW ở chính `DiscoveryView`
 ///   (`matches`/`isBrowsable` ở đây không xét NSFW).
+/// - **Nguồn Legado** (chung index với tiện ích JS): Khám phá dùng `isDiscoverable`, Tìm kiếm/Đổi nguồn dùng
+///   `isSearchScoped` — nguồn tắt, tranh/video (chưa hỗ trợ) hay thiếu rule không bao giờ lọt vào.
 public enum SearchExtensionScopePolicy {
     /// Các loại hiện trên hàng chip, theo thứ tự cố định.
     public static let browsableKinds: [ExtensionContentKind] = [.text, .comic, .video]
@@ -28,6 +30,20 @@ public enum SearchExtensionScopePolicy {
     public static func selectedKind(_ kindFilter: String) -> ExtensionContentKind? {
         guard let kind = ExtensionContentKind(rawValue: kindFilter), browsableKinds.contains(kind) else { return nil }
         return kind
+    }
+
+    /// Nguồn hiện ở Khám phá: tiện ích JS giữ nguyên luật `isBrowsable`; nguồn Legado chỉ khi chạy được và có Khám phá
+    /// (`LegadoSourcePolicy.isExplorable` — đang bật, loại đã hỗ trợ, có `exploreUrl`). Tranh/video Legado vẫn là
+    /// "browsable" theo loại nên phải chặn ở đây.
+    public static func isDiscoverable(_ ext: Extension) -> Bool {
+        guard isBrowsable(ext) else { return false }
+        return !LegadoSourcePolicy.isLegado(ext) || LegadoSourcePolicy.isExplorable(ext)
+    }
+
+    /// Nguồn được tìm (kể cả đổi nguồn): tiện ích JS giữ nguyên; nguồn Legado chỉ khi chạy được và có rule tìm kiếm
+    /// (`LegadoSourcePolicy.isSearchable`).
+    public static func isSearchScoped(_ ext: Extension) -> Bool {
+        !LegadoSourcePolicy.isLegado(ext) || LegadoSourcePolicy.isSearchable(ext)
     }
 
     /// `ext` có khớp lựa chọn chip không (chip "Tất cả" khớp mọi tiện ích nội dung).
@@ -48,17 +64,20 @@ public enum SearchExtensionScopePolicy {
         changeSourcePackageId: String?,
         includeNsfw: Bool = RepositoryFilterPolicy.includesNsfwPreference
     ) -> [Extension] {
+        // Bỏ nguồn Legado không tìm được **trước** khi lọc loại/NSFW: hàng nghìn bản ghi Legado tắt không phải đi qua
+        // bộ phân loại NSFW mỗi lượt vẽ.
+        let candidates = extensions.filter { isSearchScoped($0) }
         let scoped: [Extension]
         var keepsNsfw = includeNsfw
         if let packageId = changeSourcePackageId {
             if let bookKind = ExtensionContentKind.resolveIfKnown(packageId: packageId) {
-                scoped = extensions.filter { isBrowsable($0) && kind(of: $0) == bookKind }
+                scoped = candidates.filter { isBrowsable($0) && kind(of: $0) == bookKind }
             } else {
-                scoped = extensions.filter { isBrowsable($0) }
+                scoped = candidates.filter { isBrowsable($0) }
             }
             keepsNsfw = keepsNsfw || RepositoryFilterPolicy.isNsfwSource(packageId: packageId)
         } else {
-            scoped = extensions.filter { matches($0, kindFilter: kindFilter) }
+            scoped = candidates.filter { matches($0, kindFilter: kindFilter) }
         }
         return RepositoryFilterPolicy.applyNsfwFilter(scoped, includeNsfw: keepsNsfw)
     }

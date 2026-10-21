@@ -42,6 +42,7 @@ extension BookDetailView {
                     throw NSError(domain: "BookError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Không tìm thấy tiện ích bóc tách!"])
                 }
                 let path = ext.localPath
+                let context = sourceRuntimeContext
                 var allChapters: [ChapterResult] = onlineChapters
                 var pages: [String] = tocPages
 
@@ -49,9 +50,9 @@ extension BookDetailView {
 
                 if allChapters.isEmpty {
                     if ExtensionManager.shared.hasScript(localPath: path, scriptKey: "page") {
-                        pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
+                        pages = try await SourceRuntime.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson, context: context)
                     }
-                    let firstChaps = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pages.first ?? initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
+                    let firstChaps = try await SourceRuntime.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pages.first ?? initialDetailUrl, host: resolvedHost, configJson: ext.configJson, context: context)
                     try BookDetailLoader.requireChapters(firstChaps, page: 1, of: max(pages.count, 1))
                     allChapters.append(contentsOf: firstChaps)
                     try Task.checkCancellation()
@@ -70,7 +71,7 @@ extension BookDetailView {
                     for pageIndex in min(1 + loadedPages, totalPages)..<totalPages {
                         try Task.checkCancellation()
                         self.prepareProgressText = "Đang lấy mục lục... Trang \(pageIndex + 1)/\(totalPages) (Đã lấy \(allChapters.count) chương)"
-                        let pageChaps = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pages[pageIndex], host: resolvedHost, configJson: ext.configJson)
+                        let pageChaps = try await SourceRuntime.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pages[pageIndex], host: resolvedHost, configJson: ext.configJson, context: context)
                         try BookDetailLoader.requireChapters(pageChaps, page: pageIndex + 1, of: totalPages)
                         allChapters.append(contentsOf: pageChaps)
                         await Task.yield()
@@ -149,7 +150,20 @@ extension BookDetailView {
             downloadUrl: ext.downloadUrl,
             configJson: ext.configJson
         )
-        return try await BookDetailLoader.shared.fetchRemainingPages(snapshot: snapshot, pages: tocPages, host: resolvedHost, skippingLoaded: loadedPages)
+        return try await BookDetailLoader.shared.fetchRemainingPages(snapshot: snapshot, pages: tocPages, host: resolvedHost, skippingLoaded: loadedPages, context: sourceRuntimeContext)
+    }
+
+    /// Ngữ cảnh sách cho `SourceRuntime`. `bookId` = `actualBookId` — id sách đã/sẽ lưu (`resolveBookId` chạy trước mọi
+    /// lượt tải): nguồn Legado ghi trạng thái theo id này, Reader/TTS/tải truyện đọc lại theo đúng id đó.
+    internal var sourceRuntimeContext: SourceRuntimeContext {
+        let name = localBook?.title ?? title
+        let bookAuthor = localBook?.author ?? author
+        return SourceRuntimeContext(
+            bookId: actualBookId,
+            bookUrl: initialDetailUrl,
+            bookName: name.isEmpty ? nil : name,
+            bookAuthor: bookAuthor.isEmpty ? nil : bookAuthor
+        )
     }
 
     internal func startBackgroundRemainingPagesLoading(for targetBook: Book? = nil) {
@@ -165,6 +179,7 @@ extension BookDetailView {
         // Tích luỹ cục bộ `base + fetched`, không đọc lại `self.onlineChapters`: kéo làm mới chạy xen giữa có thể gán
         // mục lục đầy đủ vào đó, nối tiếp lên sẽ nhân đôi chương.
         let baseChapters = onlineChapters
+        let context = sourceRuntimeContext
 
         loadingTask = Task {
             do {
@@ -177,12 +192,13 @@ extension BookDetailView {
 
                 for pageIndex in firstPageIndex..<pages.count {
                     try Task.checkCancellation()
-                    let pageChaps = try await ExtensionManager.shared.toc(
+                    let pageChaps = try await SourceRuntime.shared.toc(
                         localPath: ext.localPath,
                         downloadUrl: ext.downloadUrl,
                         url: pages[pageIndex],
                         host: resolvedHost,
-                        configJson: ext.configJson
+                        configJson: ext.configJson,
+                        context: context
                     )
                     try BookDetailLoader.requireChapters(pageChaps, page: pageIndex + 1, of: pages.count)
                     try Task.checkCancellation()

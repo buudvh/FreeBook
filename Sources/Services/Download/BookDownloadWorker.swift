@@ -5,17 +5,20 @@ import JavaScriptCore
 /// Tái sử dụng một thực thể `JSExecutor` duy nhất xuyên suốt toàn bộ quá trình
 /// để tránh khởi tạo lại `JSContext` liên tục và hỗ trợ hủy tác vụ ngay lập tức.
 public actor BookDownloadWorker {
-    private let localPath: String
-    private let downloadUrl: String
-    private let configJson: String
+    let localPath: String
+    let downloadUrl: String
+    let configJson: String
+    /// Nguồn Legado: không có `chap.js` — nội dung lấy qua `SourceRuntime` (`BookDownloadWorker+Legado.swift`).
+    let isLegadoSource: Bool
     private var executor: JSExecutor?
     private var isPrepared: Bool = false
-    private var isCancelled: Bool = false
+    private(set) var isCancelled: Bool = false
 
     public init(localPath: String, downloadUrl: String = "", configJson: String = "{}") {
         self.localPath = localPath
         self.downloadUrl = downloadUrl
         self.configJson = configJson
+        self.isLegadoSource = SourceRuntime.shared.isLegado(localPath: localPath)
     }
 
     private func prepareIfNeeded() throws {
@@ -34,9 +37,15 @@ public actor BookDownloadWorker {
         self.isPrepared = true
     }
 
-    public func fetchChapterContent(url: String, host: String?) async throws -> String {
+    /// `context` chỉ nguồn Legado dùng (ngữ cảnh sách/chương); tiện ích JS bỏ qua.
+    public func fetchChapterContent(url: String, host: String?, context: SourceRuntimeContext? = nil) async throws -> String {
         try Task.checkCancellation()
         guard !isCancelled else { throw CancellationError() }
+
+        // Rẽ **trước** `prepareIfNeeded`/`cleanAndResolveUrl`: nguồn Legado không có `chap.js`, URL chương giữ nguyên văn.
+        if isLegadoSource {
+            return try await fetchLegadoChapterContent(url: url, host: host, context: context)
+        }
 
         try prepareIfNeeded()
         guard let executor = self.executor else {
