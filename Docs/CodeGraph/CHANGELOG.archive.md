@@ -2,6 +2,32 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.538] - 2026-10-18
+
+### fix: mọi danh sách và tên truyện dịch theo cờ của truyện rồi tới nguồn
+
+> **Đã bị revert ở `[1.3.540]`** — mục này chỉ còn giá trị lịch sử; code hiện tại quay về trạng thái của `[1.3.537]`.
+
+Tiếp theo 1.3.537. Người dùng yêu cầu rà mọi chỗ còn lỗi tương tự và sửa luôn, nhớ tính cả cờ theo truyện. Dịch có 3 cấp, ưu tiên Truyện > Nguồn > Toàn cục (`TranslationConfigStore`), nhưng nhiều view vẫn đọc thẳng công tắc toàn cục `@AppStorage("isTranslationEnabled")`. Vì vậy tắt dịch cho một nguồn hay một truyện thì danh sách vẫn dịch.
+
+- **Snapshot dùng chung**: thêm `TranslationConfigSnapshot`. Nó đọc cấu hình đè **một lần mỗi lượt vẽ**, rồi áp đúng thứ tự ưu tiên của store qua hàm `resolve` vừa tách khỏi `resolveStatus`. Nhờ vậy danh sách dài không phải tra `UserDefaults` cho từng dòng. Các màn mở lâu nghe `TranslationConfigStore.didChangeNotification` để vẽ lại ngay khi người dùng đổi cấu hình.
+- **Theo truyện**:
+  - `BookListItemView` (kệ, lịch sử, bộ sưu tập, sheet chia sẻ/nhập)
+  - `ComicReaderView`, `DownloadTrackerView`, `TaskOptionsSheet`, `BookActionSheet`, `NotificationInboxView`
+  - `ReaderView` (một chỗ), `TTSManager` (thay tại chỗ, **không thêm dòng**)
+  - `TranslateUtils.translateBookTitleIfNeeded`: thêm `packageId: String? = nil`; đã cập nhật 8 nơi gọi. Trước đây hàm này nhận `bookId` mà vẫn kiểm cờ toàn cục.
+- **Theo truyện, không có cờ riêng thì theo nguồn**, cho item chưa lưu thành sách:
+  - các dòng `DiscoveryNovelRowView` và `CategoryNovelsListView`
+  - thẻ, dòng, banner của trang explore
+  - Tìm kiếm, cả hai chế độ (`SearchView+Translation`)
+  - Mã truyện suy ra từ `BookIdUtils.make(packageId, link)`, cùng hai dạng id cũ.
+- **Theo nguồn**: tiêu đề section, chip, thể loại, tiêu đề màn "Xem thêm".
+- **Giữ toàn cục**: các màn Cài đặt dịch và công tắc nhanh ở Kệ, vì đây là nơi đặt giá trị toàn cục.
+- **Lưu ý**:
+  - Truyện bị gán UUID qua `resolveBookId` thì ở Khám phá/Tìm kiếm rơi về cờ của nguồn.
+  - Tên truyện trên màn khoá theo cờ của phiên TTS đang phát, nên đổi cờ giữa chừng thì phải phát lại mới thấy.
+- **Kiểm chứng**: `check_architecture.py` **2 violation, 0 mới**. Không build tại chỗ (Windows); CI chỉ xác nhận biên dịch.
+
 ## [1.3.537] - 2026-10-18
 
 ### fix: danh sách truyện ở Khám phá theo công tắc dịch của nguồn

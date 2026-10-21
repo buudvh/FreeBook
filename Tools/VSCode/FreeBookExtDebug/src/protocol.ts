@@ -140,6 +140,21 @@ export interface LegadoCorpusSourceResult {
   steps: LegadoCorpusStepRecord[];
   unsupportedHints: string[];
   abandonedSteps: number;
+  /** Nguồn tranh/video: chi tiết bước media (nằm trong bước `content`); vắng với truyện chữ và app cũ. */
+  media?: LegadoCorpusMediaCheck;
+}
+
+/** Mirror `LegadoCorpusReport.MediaCheck` (Swift). */
+export interface LegadoCorpusMediaCheck {
+  /** `comic` | `video` */
+  kind: string;
+  items: number;
+  firstItemBytes?: number;
+  /** `native` | `webview` | `auto` (video) */
+  trackKind?: string;
+  decoded: boolean;
+  /** `list` | `item` | `track` | `probe`; vắng khi qua. */
+  failedStage?: string;
 }
 
 export interface LegadoCorpusReport {

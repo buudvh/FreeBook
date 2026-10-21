@@ -15,6 +15,19 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Nguồn Legado (1.3.557–1.3.567)
+
+Nguồn truyện JSON kiểu Legado là loại nguồn thứ hai, chạy song song tiện ích JS. Engine **viết mới theo đặc tả** (clean-room): hành vi lấy từ `Docs/Specs/legado-source-spec.md` (§0–§7) + `legado-source-spec-part2.md` (§8–§15), **không** từ mã nguồn Legado/Yuedu/nhánh `legado_source` (giấy phép GPL/MPL) — agent sửa engine chỉ được đọc spec, tài liệu trợ giúp được phép và dữ liệu nguồn thật; comment không trích file/dòng của mã gốc.
+
+* **Mọi lời gọi runtime đi qua `SourceRuntime`** (`Sources/Services/Extensions/SourceRuntime*.swift`) — không gọi thẳng `ExtensionManager.shared.search/detail/page/toc/chap/genre/home/executeCustomScript/comicPages/videoServers/videoTrack` ở call site mới. Facade giữ nguyên nhãn tham số của `ExtensionManager`; tiện ích JS được chuyển nguyên tham số.
+* **Nhận diện nguồn Legado theo `Extension.type` họ `legado*`** (`LegadoSourceIdentity`/`LegadoSourcePolicy`), không theo tiền tố `packageId`. `packageId = "legado_" + sha256(bookSourceUrl đã trim).prefix(16)` là **đóng băng** (bookId chứa nó). Mỗi nguồn là `extensions/<packageId>/{source.json (nguyên văn), plugin.json (sinh tự động)}`; thiếu `plugin.json` thì audit gỡ bản ghi.
+* **URL nguồn Legado không đi qua `JSExecutor.cleanAndResolveUrl`** (khối option `,{…}` sẽ bị phá).
+* **Engine chạy trên thread riêng**, `java.ajax/get/post` đồng bộ với script ⇒ không bao giờ chạy trên main; chờ UI (trình duyệt, mã xác minh) qua event center `LegadoPresentationEventCenter` và chờ **ngoài main**.
+* **`SourceRuntimeContext.isInteractive` chỉ bật cho lời gọi một nguồn do người dùng bấm** (mở trang chi tiết, chương/ảnh/video đang mở, Khám phá, Gỡ lỗi từng bước, đăng nhập). Tìm mọi nguồn, tải trước, tải truyện, TTS nền, kiểm chương mới, kiểm tra hàng loạt, bộ nghiệm thu **không** bật — engine không được bật màn hình khi không có người dùng.
+* **Thông tin đăng nhập chỉ nằm ở Keychain** (dự phòng: tệp được bảo vệ `.legado_login/` khi Keychain lỗi), khoá theo `bookSourceUrl`; không log, không sao lưu; xoá nguồn ⇒ xoá luôn. Backup `legado_state/` chỉ gồm sidecar truyện + biến/giá trị/cache nguồn, **không** cookie.
+* **Tìm mọi nguồn**: nguồn Legado chỉ khi đang bật + loại hỗ trợ + có rule tìm, qua cửa sổ trượt tối đa 8 (`LegadoSearchScheduler`); tiện ích JS giữ hành vi cũ.
+* **Media Legado không đi qua pipeline text** (giống tiện ích JS): tranh/video lấy qua `SourceRuntime.comicPages/videoServers/videoTrack`.
+
 ## Nút hub nổi (1.3.524)
 
 Ba widget nổi (Trợ lý AI, Trình duyệt thu nhỏ, Thông báo) gộp thành **một** nút hub (`Sources/Views/FloatingHub/`), cửa sổ `FloatingHubUIWindow` ở level `alert - 2`, dưới widget TTS (`alert - 1`). Level `alert - 3` không còn cửa sổ nào dùng.

@@ -14,7 +14,7 @@ enum LegadoCorpusFeatureScan {
     private static let tokens: [String] = [
         "java.startBrowser", "java.getVerificationCode", "java.reLoginView",
         "java.open(", "java.openVideoPlayer", "java.addBook", "java.showBrowser", "java.showReadingBrowser",
-        "java.readFile", "Jsoup.connect", "unrarFile", "un7zFile", "android.graphics", "Inflater", "java.net.URL"
+        "java.readFile", "unrarFile", "un7zFile", "android.graphics", "Inflater", "java.net.URL"
     ]
     private static let maxHints = 12
 
