@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.563] - 2026-10-21
+
+### docs: đặc tả hành vi nguồn Legado phần 2 (tranh, video, đăng nhập, quản lý, phần hiếm)
+
+Người dùng: *"làm ra thành phẩm luôn đừng có nghiệm thu"* — chọn làm luôn đợt 2 + 3 (không thử máy giữa chừng), giữ bộ chạy nghiệm thu, giao diện mới dựng mockup trước (đã duyệt cả 3 nhóm màn; giữ cả đăng nhập bằng form lẫn trên web; tab Legado theo công tắc NSFW chung; "Bật/Tắt tất cả" đổi nhãn). Plan đợt 2 + 3 đã duyệt (`Docs/Plans/2026-10-21-plan-nguon-legado-dot-2-3.md`, gitignore).
+
+- **`Docs/Specs/legado-source-spec-part2.md`** (mới, ~1.320 dòng), đánh số nối tiếp phần 1: §8 tranh (nội dung ra ảnh, URL ảnh kèm option, `imageStyle`, `imageDecode`, `coverDecodeJs`) · §9 video (13 nguồn mẫu: 12 trong corpus + 1 từ bộ yckceo 1111 tải thêm; tuyến phát trải thẳng vào mục lục, không có khái niệm server) · §10 đăng nhập (`loginUrl`, `loginUi`, `loginCheckJs`, `source.*Login*`, `java.startBrowser*`/`getVerificationCode`) · §11 Khám phá động (mục text/button/toggle/select, `refreshExplore`, `infoMap`) · §12 quản lý (xuất, scheme nhập nhanh, chế độ gỡ lỗi, `variableComment`) · §13 phần đuôi đợt 2 (`data:`, `sourceRegex`, `preUpdateJs`, `formatJs`, `setReverseToc`, `importScript`, `toURL`, `Jsoup.connect`, `javax.crypto`) · §14 đợt 3 (font chống crawl, tệp/zip, RSA/ký số, mã hoá đối xứng còn thiếu, danh sách đủ phần đuôi `java.*`/`source.*`/`cookie.*`/`cache.*`) · §15 phụ lục (bảng đợt, U29–U63, **đính chính phần 1** 8 mục — vd `book.type` là bitmask 8/32/64/128, khác §6.6).
+- Viết bởi agent riêng, cùng luật clean-room như phần 1: chỉ tài liệu trợ giúp được phép + quan sát corpus + 3 lần curl. Nhãn: `[tài liệu]` 60 / `[quan sát]` 128 / `[UNKNOWN]` 53.
+- **Kiểm clean-room** (script ngoài repo): tên lớp lạ xuất hiện đều có trong `jsHelp.md` hoặc trong script của corpus; không câu văn xuôi nào trùng nguyên văn tài liệu; 0 chữ cấm.
+- Không đổi code; commit chỉ tài liệu nên CI không chạy.
+- Chuyển entry `[1.3.533]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+
 ## [1.3.562] - 2026-10-21
 
 ### feat: bộ chạy nghiệm thu nguồn Legado qua Debug server
@@ -462,60 +474,3 @@ Yêu cầu: *"thêm nút đánh dấu/bỏ đánh dấu ext nsfw"*.
   - `BackupPayload` mang thêm `nsfwOverride`, tính vào fingerprint.
   - Khi khôi phục, chỉ áp lựa chọn cho tiện ích mà máy đang khôi phục chưa tự chọn, cùng luật với `savesHistory`.
 - **Kiểm chứng**: `check_architecture.py` **2 violation, 0 mới**. Không build tại chỗ (Windows); CI chỉ xác nhận biên dịch.
-
-## [1.3.533] - 2026-10-17
-
-### feat: khám phá dạng section, trình phát kiểu Aloha có PiP và phát nền, hub luôn hiện, công tắc NSFW toàn app
-
-Mốc giao diện của plan đợt 2 (`Docs/Plans/2026-10-17-plan-round2-fixes-player-hub.md`), nằm trên nhánh `feature/comic-video`. T3, T4 và T5 chạy song song trên worktree riêng; T6 và các yêu cầu bổ sung làm ở session chính; hai agent review phản biện chéo rồi sửa trước khi chốt. Từ mốc này commit viết tiếng Việt có dấu.
-
-- **Khám phá dạng section (T3)**
-  - `ExtensionManager+Explore` parse `explore` thành `ExploreSection` / `ExploreItem` / `ExploreAction`.
-    - Section: `banner`, `horizontal_list`, `grid`, `list`, `ranking`, `chip`; giá trị lạ thì bỏ qua.
-    - Hình thẻ: `book`, `square`, `circle`, `movie`, `short`.
-  - Nguồn có `explore` thì trang chính dựng section **thay** tab `home`, đúng DOC; `genre` giữ nguyên. Section hiện ngay, `home` và `genre` nạp song song.
-  - "Xem thêm" (`more` kiểu `list`) mở danh sách phân trang. Item không có action thì mở chi tiết theo `link`.
-  - Banner giữ item không có tên nếu có ảnh và có `link` hoặc `action`.
-  - Bìa dùng `RemoteCoverImage`. Referer dự phòng là `source` của tiện ích, tính một lần khi view xuất hiện.
-  - Nhãn `tag` dùng chung `CoverTagBadge` (bỏ `DiscoveryCoverTag`).
-  - `hasScript` đọc `script` dạng `[String: Any]`.
-- **Trình phát tự dựng (T4)**
-  - Kiến trúc:
-    - `VideoPlaybackSession` giữ `AVPlayer` sống lâu hơn màn hình; màn hình chỉ gắn vào, đếm theo từng lần gắn.
-    - `VideoPlayerSurfaceView` (`AVPlayerLayer`) thay `AVPlayerViewController`.
-  - Điều khiển chỉ dùng biểu tượng, theo mockup đã duyệt:
-    - tốc độ, Vừa / Lấp đầy, khoá xoay `lock.rotation`, phụ đề, PiP, server
-    - nút Xoay (`requestGeometryUpdate`), khoá cảm ứng, tập kế, danh sách tập nhóm theo section, nút "Bỏ qua"
-  - Cử chỉ: chạm đúp ±10 giây cộng dồn; vuốt dọc chỉnh độ sáng / âm lượng; vuốt ngang để tua; nhấn giữ phát 2×. Độ sáng được trả lại khi rời trình phát.
-  - Thu nhỏ để phát nền qua `VideoMiniPlayerState`. Mở lại bằng `VideoPlayerPresenter` dạng `.overFullScreen`, nên màn đọc bên dưới không bị tháo.
-  - PiP tự bật khi rời app. Không bật được PiP thì tách hình và chỉ phát tiếng, có background task.
-  - Màn khoá và Now Playing:
-    - `VideoNowPlayingCoordinator` giữ phiên màn khoá chỉ khi có item đang phát.
-    - TTS bỏ qua lệnh màn khoá khi video giữ phiên (`TTSManager+NowPlaying`, `TTSNowPlayingController`), không sửa `TTSManager.swift`.
-  - Ưu tiên TTS:
-    - Video đã nhường TTS thì không tự phát khi tải xong.
-    - TTS bắt đầu đọc thì media của trang nhúng tạm dừng.
-  - Giữ màn sáng qua `ScreenIdleTimerLock` dùng chung với màn đọc truyện tranh; chỉ giữ khi màn trình phát đang hiện.
-  - **Dailymotion mất tiếng (giả thuyết, chưa kiểm trên máy)**:
-    - Trình bắt link gom thêm m3u8 trong 1,5 giây.
-    - `VideoHLSPlaylistProbe` tải tối đa 6 ứng viên và ưu tiên playlist gốc (`#EXT-X-STREAM-INF`).
-    - Log loại playlist đã chọn (chỉ host và tên file). Cái giá: mỗi lần mở HLS chậm thêm khoảng 1,5 giây.
-- **Hub và widget (T5 + bổ sung)**
-  - Hub luôn hiện, bấm là bung đủ 3 dòng cố định: Trợ lý AI, Thông báo, Video. Dòng nào không dùng được thì xám; dòng có định danh cố định, trạng thái đổi không làm vẽ lại.
-  - Ẩn khi `FloatingWidgetSuppression` bật (đang xem phim toàn màn).
-  - Thông báo **luôn** bấm được. Có tin chưa đọc thì hiện chấm đỏ trên icon chuông; số lượng ghi ở dòng phụ.
-  - Icon AI đổi sang màu trắng.
-  - Badge số của nút hub chỉ đếm mục đang có việc (`FloatingHubItem.isActive`).
-  - Hub nép vào mép thì nút mờ còn 0,5.
-  - Widget trình duyệt tách lại thành cửa sổ riêng (`alert-3`): nút mờ 0,7 khi nghỉ, đậm 1,0 khi chạm hoặc kéo; dùng lại khoá vị trí cũ.
-  - Widget TTS cũng ẩn theo `FloatingWidgetSuppression`.
-- **Công tắc NSFW toàn app (T6)**
-  - Khoá chung `extFilterIncludeNsfw` dùng ở Cài đặt › Thư Viện › "Nội dung nhạy cảm (NSFW)" (màn riêng `NsfwSettingsView`, có công tắc và giải thích) và ở bộ lọc Kho.
-  - Mặc định tắt và **tự tắt lại mỗi lần mở app** (`resetNsfwVisibilityOnLaunch`).
-  - Khi tắt:
-    - Khám phá ẩn nguồn NSFW và tự chuyển sang nguồn khác, kể cả khi mở lại app. Nếu mọi nguồn đều bị ẩn thì báo trạng thái rỗng.
-    - Tab Lịch sử và phần tìm trong lịch sử ẩn sách của nguồn NSFW. Sách trên Kệ không bị ẩn.
-  - Nhãn **18+** (chữ trắng, nền đỏ) ở góc icon của mọi tiện ích NSFW (`ExtensionNsfwBadge` trong `ExtensionIconView` và dòng Kho).
-- **Xoá lịch sử theo khoảng**: "Xoá tất cả lịch sử" mở hộp chọn 1 giờ / 1 ngày / 30 ngày / Tất cả. Chỉ xoá sách đang hiển thị (lịch sử NSFW đang ẩn được giữ), qua `BookStorageManager.deleteBooksAsync`.
-- **Khám phá ổn định hơn**: lượt tải mới huỷ lượt cũ, kết quả chỉ được ghi khi nguồn vẫn đang được chọn, và không tải hai lần khi tự chuyển nguồn.
-- **Kiểm chứng**: `check_architecture.py` **2 violation, 0 mới**. Không build tại chỗ (Windows); CI chỉ xác nhận biên dịch. PiP, phát nền, màn khoá, cử chỉ, xoay và cửa sổ nổi chỉ kiểm được trên máy.
