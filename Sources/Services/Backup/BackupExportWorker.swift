@@ -71,6 +71,12 @@ public actor BackupExportWorker {
         if scopes.contains(.extensions) {
             try stageExtensionFolders(records: payload.extensions, into: staging)
         }
+        // `legado_state/` (đã bỏ cookie): sidecar truyện đi cùng nhóm `.books`, trạng thái nguồn cùng nhóm `.extensions`.
+        BackupLegadoStateArchiver.stage(
+            bookIds: payload.books.map { $0.bookId },
+            includeSources: scopes.contains(.extensions),
+            into: staging
+        )
 
         report(BackupProgress(phase: .copyingDictionaries))
         let dictSummary = try BackupDictionaryArchiver.stage(

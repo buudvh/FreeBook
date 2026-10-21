@@ -120,6 +120,11 @@ public actor BackupRestoreWorker {
         if options.scopes.contains(.extensions) {
             library.merge(await restoreExtensionsAndRepositories())
         }
+        // Sau khi nguồn đã cài lại (cần `bookSourceUrl` để khớp trạng thái nguồn), trước khi sách được mở.
+        let legadoState = BackupLegadoStateArchiver.restore(
+            from: prepared.directory, bookIds: books.map { $0.bookId }, includeSources: options.scopes.contains(.extensions)
+        )
+        library.errors.append(contentsOf: legadoState.errors)
 
         library.merge(await restoreBooks(books))
 

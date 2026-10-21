@@ -60,6 +60,12 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         UIBackgroundModes:
           - audio
+        # Liên kết nhập nhanh nguồn Legado `legado://import/importonline?src=…` (spec §12.2) — app luôn hỏi lại trước khi nhập.
+        CFBundleURLTypes:
+          - CFBundleURLName: com.raikiri1498.FreeBook.legado
+            CFBundleTypeRole: Viewer
+            CFBundleURLSchemes:
+              - legado
         NSLocalNetworkUsageDescription: "FreeBook mở một server debug trên mạng nội bộ để máy phát triển kết nối và chạy thử extension. Mặc định tắt, chỉ bật bằng tay trong Cài Đặt."
         NSMicrophoneUsageDescription: "FreeBook dùng micro để thu 3–8 giây giọng nói làm mẫu, từ đó tạo giọng đọc riêng cho phần đọc truyện. Bản thu chỉ nằm trên máy bạn."
         GOOGLE_CLOUD_TTS_API_KEY: "$(GOOGLE_CLOUD_TTS_API_KEY)"

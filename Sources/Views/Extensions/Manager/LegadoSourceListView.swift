@@ -1,23 +1,29 @@
 import SwiftUI
 
 /// Nội dung tab "Nguồn Legado" của màn Kho Tiện Ích: ô tìm, hàng chip nhóm (có số đếm), dòng "Đang bật x/y" và danh
-/// sách nguồn. Mọi thao tác ghi đi qua `LegadoSourceCoordinator`; menu ⋯ (nhập, bật/tắt hàng loạt, xoá tất cả) nằm ở
-/// toolbar của `RepositoryManagerView` và dùng chung `state`.
+/// sách nguồn. Mọi thao tác ghi đi qua `LegadoSourceCoordinator`; menu ⋯ (nhập, bật/tắt hàng loạt, kiểm tra, xuất,
+/// xoá tất cả) nằm ở toolbar của `RepositoryManagerView` và dùng chung `state`.
+///
+/// Công tắc NSFW chung (`includeNsfw`, `@AppStorage` của view cha — đọc trong `body` nên tự vẽ lại) tắt ⇒ ẩn nguồn 18+;
+/// chip nhóm và "Đang bật x/y" tính trên danh sách **sau** lọc. Chạm vào dòng ⇒ màn chi tiết (sheet).
 ///
 /// Danh sách có thể vài nghìn dòng: `List` lười, lọc một lần mỗi lượt vẽ trên `searchKey` đã tính sẵn.
 struct LegadoSourceListView: View {
     @Binding var state: LegadoSourceTabState
+    let includeNsfw: Bool
 
     private var repository: LegadoSourceRepository { LegadoSourceRepository.shared }
 
     var body: some View {
         let all = repository.summaries
-        let visible = state.visibleSummaries(all)
+        let nsfwIds = repository.nsfwPackageIds
+        let pool = state.nsfwFiltered(all, includeNsfw: includeNsfw, nsfwIds: nsfwIds)
+        let visible = state.visibleSummaries(all, includeNsfw: includeNsfw, nsfwIds: nsfwIds)
 
         VStack(spacing: 8) {
             searchField
-            groupChips(total: all.count)
-            statusLine(visible: visible)
+            groupChips(pool: pool, all: all)
+            statusLine(visible: visible, hiddenNsfw: all.count - pool.count)
             Divider()
             content(all: all, visible: visible)
         }
@@ -52,15 +58,26 @@ struct LegadoSourceListView: View {
 
     // MARK: - Chip nhóm
 
-    private func groupChips(total: Int) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+    private func groupChips(pool: [LegadoSourceSummary], all: [LegadoSourceSummary]) -> some View {
+        // Không ẩn gì ⇒ dùng số đã tính sẵn của repository; có ẩn ⇒ đếm lại trên danh sách sau lọc.
+        let counts: [LegadoSourceGroupCount]
+        let ungrouped: Int
+        if pool.count == all.count {
+            counts = repository.groupCounts
+            ungrouped = repository.ungroupedCount
+        } else {
+            let computed = LegadoSourceTabState.groupCounts(pool)
+            counts = computed.counts
+            ungrouped = computed.ungrouped
+        }
+        return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                groupChip(title: "Tất cả", count: total, filter: .all)
-                ForEach(repository.groupCounts) { entry in
+                groupChip(title: "Tất cả", count: pool.count, filter: .all)
+                ForEach(counts) { entry in
                     groupChip(title: entry.translatedGroup, count: entry.count, filter: .group(entry.group))
                 }
-                if repository.ungroupedCount > 0 {
-                    groupChip(title: "Chưa nhóm", count: repository.ungroupedCount, filter: .ungrouped)
+                if ungrouped > 0 {
+                    groupChip(title: "Chưa nhóm", count: ungrouped, filter: .ungrouped)
                 }
             }
             .padding(.horizontal)
@@ -84,12 +101,18 @@ struct LegadoSourceListView: View {
 
     // MARK: - Trạng thái
 
-    private func statusLine(visible: [LegadoSourceSummary]) -> some View {
+    private func statusLine(visible: [LegadoSourceSummary], hiddenNsfw: Int) -> some View {
         let enabled = visible.reduce(0) { $0 + ($1.isEnabled ? 1 : 0) }
         return HStack(spacing: 6) {
             Text("Đang bật \(enabled)/\(visible.count)")
                 .font(.caption)
                 .foregroundColor(.secondary)
+            if hiddenNsfw > 0 {
+                Text("· ẩn \(hiddenNsfw) nguồn 18+")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
             if repository.isLoading {
                 ProgressView()
                     .scaleEffect(0.7)
@@ -125,7 +148,8 @@ struct LegadoSourceListView: View {
                 LegadoSourceRowView(
                     summary: summary,
                     onToggle: { toggle(summary, enabled: $0) },
-                    onDelete: { delete(summary) }
+                    onDelete: { delete(summary) },
+                    onOpen: { state.detail = LegadoSourceTabState.DetailRoute(packageId: summary.packageId) }
                 )
             }
             .listStyle(.plain)

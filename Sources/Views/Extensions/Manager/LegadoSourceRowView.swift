@@ -2,29 +2,40 @@ import SwiftUI
 
 /// Một dòng nguồn Legado: tên đã dịch QT; chip loại, nhóm (dịch), "Cần đăng nhập", "Chưa hỗ trợ"; URL một dòng;
 /// công tắc bật/tắt và nút 🗑 giống dòng tiện ích ở tab "Tất cả tiện ích". Dòng đang tắt chữ mờ hơn.
+///
+/// Chạm vào **vùng chữ** (cả khoảng trống tới công tắc) ⇒ mở màn chi tiết nguồn; công tắc và nút xoá giữ hành vi
+/// riêng. Không bọc cả dòng trong `NavigationLink`/`Button`: trong `List`, dòng có nút mặc định thì chạm đâu cũng kích
+/// mọi nút của dòng.
 struct LegadoSourceRowView: View {
     let summary: LegadoSourceSummary
     let onToggle: (Bool) -> Void
     let onDelete: () -> Void
+    let onOpen: () -> Void
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(summary.displayName)
-                    .font(.headline)
-                    .lineLimit(2)
+            HStack(spacing: 4) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(summary.displayName)
+                        .font(.headline)
+                        .lineLimit(2)
 
-                chipRow
+                    chipRow
 
-                Text(summary.bookSourceUrl)
-                    .font(.caption2)
-                    .foregroundColor(.gray)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                    Text(summary.bookSourceUrl)
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+                .opacity(summary.isEnabled ? 1 : 0.45)
+
+                Spacer(minLength: 4)
             }
-            .opacity(summary.isEnabled ? 1 : 0.45)
-
-            Spacer(minLength: 4)
+            .contentShape(Rectangle())
+            .onTapGesture(perform: onOpen)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityHint("Mở chi tiết nguồn")
 
             Toggle("", isOn: Binding(
                 get: { summary.isEnabled },

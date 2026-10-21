@@ -13,7 +13,7 @@ import Foundation
 public final class LegadoSourceCoordinator {
     public static let shared = LegadoSourceCoordinator()
 
-    private var repository: LegadoSourceRepository { LegadoSourceRepository.shared }
+    var repository: LegadoSourceRepository { LegadoSourceRepository.shared }
 
     private init() {}
 
@@ -59,7 +59,7 @@ public final class LegadoSourceCoordinator {
         return await importPayloads([Data(trimmed.utf8)], origin: "bộ nhớ tạm")
     }
 
-    private func importPayloads(_ payloads: [Data], origin: String) async -> Result<LegadoImportSummary, LegadoSourceError> {
+    func importPayloads(_ payloads: [Data], origin: String) async -> Result<LegadoImportSummary, LegadoSourceError> {
         let started = Date()
         let batch = await Self.runOnFileQueue { LegadoSourceImporter.importBatch(payloads) }
         guard case .success(var outcome) = batch else {
@@ -149,6 +149,13 @@ public final class LegadoSourceCoordinator {
         }
     }
 
+    /// Xoá nhiều nguồn (kiểm tra hàng loạt: "Xoá nguồn lỗi"). Trả số nguồn đã xoá.
+    public func delete(packageIds: [String]) async -> Result<Int, LegadoSourceError> {
+        let ids = Array(Set(packageIds))
+        guard !ids.isEmpty else { return .success(0) }
+        return await deleteSources(ids)
+    }
+
     /// Xoá **mọi** bản ghi Legado trong kho tiện ích (kể cả nguồn chưa nạp vào danh sách). Trả số nguồn đã xoá.
     public func deleteAll() async -> Result<Int, LegadoSourceError> {
         let ids = LegadoSourcePolicy.onlyLegado(ExtensionLibraryRepository.shared.installed).map(\.packageId)
@@ -156,8 +163,15 @@ public final class LegadoSourceCoordinator {
         return await deleteSources(ids)
     }
 
-    private func deleteSources(_ packageIds: [String]) async -> Result<Int, LegadoSourceError> {
+    func deleteSources(_ packageIds: [String]) async -> Result<Int, LegadoSourceError> {
         let directories = packageIds.map(Self.directory(forPackageId:))
+        // Khoá đăng nhập của engine là `bookSourceUrl` — đọc trước khi thư mục và bản tóm tắt biến mất.
+        var loginKeys: [String: String] = [:]
+        for id in packageIds {
+            if let url = LegadoSourceRepository.summarySnapshot(packageId: id)?.bookSourceUrl, !url.isEmpty {
+                loginKeys[id] = url
+            }
+        }
         let token = repository.beginRemoval(packageIds)
         let failed: [String] = await Self.runOnFileQueue {
             var failures: [String] = []
@@ -179,6 +193,10 @@ public final class LegadoSourceCoordinator {
         }
         repository.finishRemoval(packageIds, token: token)
         repository.reload()
+        // Xoá nguồn ⇒ xoá luôn thông tin đăng nhập trong Keychain của nguồn đó.
+        for id in removed {
+            if let key = loginKeys[id] { await LegadoLoginService.forget(sourceKey: key) }
+        }
         AppLogger.shared.log("🧹 📚 [LegadoStore] Đã xoá \(removed.count)/\(packageIds.count) nguồn Legado")
         if let indexError { return .failure(.index(indexError)) }
         guard failed.isEmpty else {
@@ -191,7 +209,7 @@ public final class LegadoSourceCoordinator {
     // MARK: - Helpers
 
     /// Thư mục của bản ghi trong kho tiện ích; dự phòng `extensions/<packageId>/`.
-    nonisolated private static func directory(forPackageId packageId: String) -> URL {
+    nonisolated static func directory(forPackageId packageId: String) -> URL {
         if let ext = ExtensionLibraryRepository.snapshot(packageId: packageId), !ext.localPath.isEmpty {
             return URL(fileURLWithPath: ext.localPath, isDirectory: true)
         }
@@ -199,7 +217,7 @@ public final class LegadoSourceCoordinator {
     }
 
     /// Chạy `work` trên `fileQueue` (tuần tự với mọi thao tác file khác) và chờ kết quả.
-    nonisolated private static func runOnFileQueue<T: Sendable>(_ work: @escaping @Sendable () -> T) async -> T {
+    nonisolated static func runOnFileQueue<T: Sendable>(_ work: @escaping @Sendable () -> T) async -> T {
         await withCheckedContinuation { continuation in
             LegadoSourceStore.fileQueue.async {
                 continuation.resume(returning: work())

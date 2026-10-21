@@ -5,13 +5,15 @@ import UniformTypeIdentifiers
 /// Tab thứ ba "Nguồn Legado" của Kho Tiện Ích: nội dung tab, menu ⋯ trên toolbar, alert và bộ chọn tệp.
 ///
 /// Mọi thao tác đi qua `LegadoSourceCoordinator` (View không ghi file). Alert + bộ chọn tệp gắn vào **trang** của tab
-/// (không gắn vào view gốc) để không chồng với alert của hai tab còn lại.
+/// (không gắn vào view gốc) để không chồng với alert của hai tab còn lại. Sheet chi tiết nguồn / kiểm tra hàng loạt /
+/// chia sẻ tệp xuất cũng gắn ở trang này. Mọi thao tác "theo danh sách đang hiện / nhóm đang lọc" dùng
+/// `legadoVisibleSummaries` (NSFW + nhóm + ô tìm) — đúng danh sách người dùng đang thấy.
 extension RepositoryManagerView {
     @ViewBuilder
     internal var legadoSourcesTab: some View {
         VStack(spacing: 0) {
             if renderedTab == 2 {
-                LegadoSourceListView(state: $legadoState)
+                LegadoSourceListView(state: $legadoState, includeNsfw: filterIncludeNsfw)
             } else {
                 Spacer()
             }
@@ -39,6 +41,30 @@ extension RepositoryManagerView {
         } message: {
             Text("URL của tệp JSON chứa một nguồn hoặc mảng nguồn Legado.")
         }
+        .sheet(item: $legadoState.detail) { route in
+            LegadoSourceDetailView(packageId: route.packageId)
+        }
+        .sheet(item: $legadoState.check) { route in
+            NavigationStack {
+                LegadoSourceCheckView(packageIds: route.packageIds, scopeTitle: route.scopeTitle)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button("Đóng") { legadoState.check = nil }
+                        }
+                    }
+            }
+        }
+        .sheet(item: $legadoState.exportFile) { file in
+            ShareSheet(activityItems: [file.url])
+        }
+    }
+
+    /// Danh sách đang hiện của tab (NSFW + nhóm + ô tìm).
+    internal var legadoVisibleSummaries: [LegadoSourceSummary] {
+        let repository = LegadoSourceRepository.shared
+        return legadoState.visibleSummaries(
+            repository.summaries, includeNsfw: filterIncludeNsfw, nsfwIds: repository.nsfwPackageIds
+        )
     }
 
     /// Bộ chọn tệp `.json` / `.txt` — gắn ở **gốc** màn (như bộ chọn zip, `applySheetsAndAlerts`), không gắn trong
@@ -88,11 +114,22 @@ extension RepositoryManagerView {
                 Divider()
 
                 Button(action: { setLegadoEnabledForVisible(true) }) {
-                    Label("Bật tất cả (theo nhóm đang lọc)", systemImage: "checkmark.circle")
+                    Label("Bật tất cả (theo danh sách đang hiện)", systemImage: "checkmark.circle")
                 }
                 .disabled(isEmpty)
                 Button(action: { setLegadoEnabledForVisible(false) }) {
-                    Label("Tắt tất cả (theo nhóm đang lọc)", systemImage: "circle")
+                    Label("Tắt tất cả (theo danh sách đang hiện)", systemImage: "circle")
+                }
+                .disabled(isEmpty)
+
+                Divider()
+
+                Button(action: checkVisibleLegadoSources) {
+                    Label("Kiểm tra nguồn (theo nhóm đang lọc)", systemImage: "checkmark.seal")
+                }
+                .disabled(isEmpty)
+                Button(action: exportVisibleLegadoSources) {
+                    Label("Xuất nguồn (theo nhóm đang lọc)", systemImage: "square.and.arrow.up")
                 }
                 .disabled(isEmpty)
 
@@ -162,13 +199,43 @@ extension RepositoryManagerView {
 
     // MARK: - Bật / tắt hàng loạt, xoá tất cả
 
-    /// Áp cho đúng danh sách đang thấy (nhóm đang lọc + ô tìm).
+    /// Áp cho đúng danh sách đang thấy (NSFW + nhóm đang lọc + ô tìm).
     private func setLegadoEnabledForVisible(_ enabled: Bool) {
-        let ids = legadoState.visibleSummaries(LegadoSourceRepository.shared.summaries).map(\.packageId)
+        let ids = legadoVisibleSummaries.map(\.packageId)
         guard !ids.isEmpty else { return }
         Task { @MainActor in
             if case .failure(let error) = await LegadoSourceCoordinator.shared.setEnabled(enabled, packageIds: ids) {
                 legadoState.alert = .error(error.localizedDescription)
+            }
+        }
+    }
+
+    // MARK: - Kiểm tra / xuất theo danh sách đang hiện
+
+    /// Bộ kiểm tra bỏ qua nguồn đang tắt (hiện lý do trong kết quả) — vẫn giao cả danh sách để số đếm khớp tab.
+    private func checkVisibleLegadoSources() {
+        let ids = legadoVisibleSummaries.map(\.packageId)
+        guard !ids.isEmpty else { return }
+        let groups = Dictionary(
+            LegadoSourceRepository.shared.groupCounts.map { ($0.group, $0.translatedGroup) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        let title = legadoState.scopeTitle(groupLabel: { groups[$0] ?? $0 })
+        legadoState.check = LegadoSourceTabState.CheckRoute(packageIds: ids, scopeTitle: title)
+    }
+
+    private func exportVisibleLegadoSources() {
+        let ids = legadoVisibleSummaries.map(\.packageId)
+        guard !ids.isEmpty, !legadoState.isBusy else { return }
+        legadoState.isBusy = true
+        legadoState.busyMessage = "Đang xuất \(ids.count) nguồn…"
+        Task { @MainActor in
+            let result = await LegadoSourceCoordinator.shared.exportSources(packageIds: ids)
+            legadoState.isBusy = false
+            legadoState.busyMessage = ""
+            switch result {
+            case .success(let file): legadoState.exportFile = file
+            case .failure(let error): legadoState.alert = .error(error.localizedDescription)
             }
         }
     }

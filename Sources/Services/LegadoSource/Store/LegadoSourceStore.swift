@@ -4,7 +4,7 @@ import Foundation
 ///
 /// - `source.json` — object JSON gốc của nguồn, **giữ mọi khoá** (bytes JSON ổn định: khoá sắp xếp);
 /// - `plugin.json` — **sinh tự động** `{"metadata": {name, author: "Legado", version, source, type, locale: "zh_CN",
-///   description}}`. Bắt buộc phải có: `ExtensionTransactionCoordinator` chỉ nhận thư mục có `plugin.json`, và audit
+///   description, nsfw}}` (`nsfw` theo `ExtensionNsfwClassifier.isLegadoNsfw`). Bắt buộc phải có: `ExtensionTransactionCoordinator` chỉ nhận thư mục có `plugin.json`, và audit
 ///   khi mở màn Kho xoá bản ghi có thư mục thiếu nó. Không có khoá `script` ⇒ mọi đường chạy JS báo lỗi rõ ràng.
 ///
 /// **Nonisolated, an toàn đa luồng**: mọi hàm là static thuần trên file. Ghi `source.json` trước, `plugin.json` sau
@@ -78,21 +78,9 @@ public enum LegadoSourceStore {
         packageId: String,
         version: Int
     ) throws -> URL {
-        guard let type = source.kind.extensionType else { throw LegadoSourceError.invalidJSON }
         let directory = directoryURL(packageId: packageId)
         try validatePathSafety(for: directory)
-        let metadata: [String: Any] = [
-            "name": source.bookSourceName,
-            "author": LegadoSourceIdentity.author,
-            "version": version,
-            "source": source.bookSourceUrl,
-            "type": type,
-            "locale": LegadoSourceIdentity.locale,
-            "description": source.bookSourceComment
-        ]
-        guard let manifest = LegadoModelJSON.serialize(["metadata": metadata]) else {
-            throw LegadoSourceError.fileWrite(manifestFileName)
-        }
+        let manifest = try manifestData(source: source, version: version)
         do {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             try sourceJSON.write(to: directory.appendingPathComponent(sourceFileName), options: [.atomic])
@@ -101,6 +89,69 @@ public enum LegadoSourceStore {
             throw LegadoSourceError.fileWrite(error.localizedDescription)
         }
         return directory
+    }
+
+    /// Bytes `plugin.json` sinh tự động. `nsfw` luôn ghi (Bool): `ExtensionTransactionCoordinator` đọc nó thành
+    /// `Extension.isNsfw` lúc upsert, nên Tìm kiếm/Khám phá/lịch sử thấy nguồn 18+ mà không cần đọc nhóm.
+    static func manifestData(source: LegadoBookSource, version: Int) throws -> Data {
+        guard let type = source.kind.extensionType else { throw LegadoSourceError.invalidJSON }
+        let isNsfw = ExtensionNsfwClassifier.isLegadoNsfw(
+            name: source.bookSourceName, groups: source.groups, sourceUrl: source.trimmedSourceUrl
+        )
+        let metadata: [String: Any] = [
+            "name": source.bookSourceName,
+            "author": LegadoSourceIdentity.author,
+            "version": version,
+            "source": source.bookSourceUrl,
+            "type": type,
+            "locale": LegadoSourceIdentity.locale,
+            "description": source.bookSourceComment,
+            "nsfw": NSNumber(value: isNsfw)
+        ]
+        guard let manifest = LegadoModelJSON.serialize(["metadata": metadata]) else {
+            throw LegadoSourceError.fileWrite(manifestFileName)
+        }
+        return manifest
+    }
+
+    /// `plugin.json` đã có cờ `nsfw` chưa (nguồn nhập trước khi kho ghi cờ này thì chưa).
+    static func manifestHasNsfwFlag(directory: URL) -> Bool {
+        manifestMetadata(directory: directory)?["nsfw"] != nil
+    }
+
+    /// Ghi lại **chỉ** `plugin.json` (cùng `version`) — bù cờ `nsfw` cho nguồn nhập trước đó.
+    static func rewriteManifest(source: LegadoBookSource, version: Int, directory: URL) throws {
+        let url = directory.appendingPathComponent(manifestFileName)
+        try validatePathSafety(for: url)
+        let manifest = try manifestData(source: source, version: version)
+        do {
+            try manifest.write(to: url, options: [.atomic])
+        } catch {
+            throw LegadoSourceError.fileWrite(error.localizedDescription)
+        }
+    }
+
+    /// Thêm `group` vào `bookSourceGroup` (tách theo `LegadoBookSource.splitGroups`, nối lại bằng `,`), giữ mọi khoá
+    /// khác. Không đổi `plugin.json`/`version` (nhóm là nhãn người dùng, như bật/tắt). `false` khi đã có nhóm đó.
+    @discardableResult
+    static func addGroup(_ group: String, directory: URL) throws -> Bool {
+        let data = try readSourceData(directory: directory)
+        guard var object = LegadoModelJSON.parseDocument(data: data) as? [String: Any] else {
+            throw LegadoSourceError.invalidJSON
+        }
+        var groups = LegadoBookSource.splitGroups(LegadoModelCoercion.string(object["bookSourceGroup"]) ?? "")
+        guard !groups.contains(group) else { return false }
+        groups.append(group)
+        object["bookSourceGroup"] = groups.joined(separator: ",")
+        guard let patched = LegadoModelJSON.serialize(object) else { throw LegadoSourceError.invalidJSON }
+        let url = directory.appendingPathComponent(sourceFileName)
+        try validatePathSafety(for: url)
+        do {
+            try patched.write(to: url, options: [.atomic])
+        } catch {
+            throw LegadoSourceError.fileWrite(error.localizedDescription)
+        }
+        return true
     }
 
     /// Vá **đúng khoá `enabled`** của `source.json`, giữ nguyên mọi khoá khác. Không đổi `plugin.json`/`version`

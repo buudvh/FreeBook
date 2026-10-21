@@ -29,7 +29,7 @@ import SwiftData
 /// (`@MainActor`) gọi. `ModelContext` riêng chỉ sống trong một câu lệnh, không vắt qua `await`.
 enum BackupLibraryFingerprint {
     /// Tăng khi đổi cách băm: dấu vân tay đã lưu tự lệch, lượt kế tiếp chạy đủ.
-    private static let formatVersion: Int64 = 3
+    private static let formatVersion: Int64 = 4
 
     /// Digest kèm số lượng lần đọc này thấy — để đối chiếu với `manifest.counts` của archive: export tự
     /// nuốt lỗi đọc (`try?`), nên archive thiếu mà vẫn "thành công" thì không được lưu dấu vân tay.
@@ -99,6 +99,8 @@ enum BackupLibraryFingerprint {
         feedDictionaries(scopes: scopes, bookIds: dictionaryBookIds, into: &hasher)
         feedSettings(into: &hasher)
         feedConfigFiles(into: &hasher)
+        feed("legadoState", into: &hasher) // `BackupLegadoStateArchiver`: sidecar truyện + trạng thái nguồn (không cookie)
+        feedData(BackupLegadoStateArchiver.fingerprintData(bookIds: payload.books.map { $0.bookId }, includeSources: scopes.contains(.extensions)), into: &hasher)
 
         return Value(
             digest: hasher.finalize().map { String(format: "%02x", $0) }.joined(),

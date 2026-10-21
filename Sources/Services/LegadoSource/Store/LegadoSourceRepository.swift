@@ -24,6 +24,9 @@ public final class LegadoSourceRepository {
     public private(set) var ungroupedCount = 0
     public private(set) var isLoading = false
     public private(set) var hasLoaded = false
+    /// Nguồn 18+ theo `ExtensionNsfwClassifier.isLegadoNsfw` (tên + nhóm), tính trên nền mỗi lượt nạp — tab "Nguồn
+    /// Legado" ẩn chúng khi công tắc NSFW chung đang tắt.
+    public private(set) var nsfwPackageIds: Set<String> = []
 
     @ObservationIgnored private var translationMemo: [String: String] = [:]
     @ObservationIgnored private var pendingEnabled: [String: (value: Bool, token: Int)] = [:]
@@ -66,24 +69,36 @@ public final class LegadoSourceRepository {
             let started = Date()
             let loaded = Self.readAllSummaries()
             let elapsed = String(format: "%.2f", Date().timeIntervalSince(started))
-            AppLogger.shared.log("ℹ️ 📚 [LegadoStore] Nạp \(loaded.count) nguồn Legado trong \(elapsed)s")
+            AppLogger.shared.log("ℹ️ 📚 [LegadoStore] Nạp \(loaded.summaries.count) nguồn Legado trong \(elapsed)s")
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
-                    LegadoSourceRepository.shared.finishReload(loaded, generation: generation)
+                    LegadoSourceRepository.shared.finishReload(
+                        loaded.summaries, nsfwIds: loaded.nsfwIds, backfill: loaded.backfill, generation: generation
+                    )
                 }
             }
         }
     }
 
-    nonisolated private static func readAllSummaries() -> [LegadoSourceSummary] {
+    /// Tóm tắt + tập nguồn 18+ + command bù cờ `nsfw` của `plugin.json` (chỉ lượt nạp đầu mỗi phiên chạy app).
+    nonisolated private static func readAllSummaries() -> (
+        summaries: [LegadoSourceSummary], nsfwIds: Set<String>, backfill: [UpsertExtensionCommand]
+    ) {
         let records = ExtensionLibraryRepository.installedSnapshot().filter { LegadoSourceIdentity.isLegado($0) }
+        let shouldBackfill = LegadoSourceNsfwBackfill.beginIfNeeded()
         var result: [LegadoSourceSummary] = []
         result.reserveCapacity(records.count)
+        var nsfwIds = Set<String>()
+        var backfill: [UpsertExtensionCommand] = []
         var failedNames: [String] = []
         for ext in records {
             do {
                 let source = try LegadoSourceStore.loadSource(localPath: ext.localPath)
                 result.append(LegadoSourceSummary(packageId: ext.packageId, source: source, version: ext.version))
+                if ExtensionNsfwClassifier.isLegadoNsfw(ext, groups: source.groups) { nsfwIds.insert(ext.packageId) }
+                if shouldBackfill, let command = LegadoSourceNsfwBackfill.command(for: ext, source: source) {
+                    backfill.append(command)
+                }
             } catch {
                 failedNames.append(ext.name)
             }
@@ -91,11 +106,24 @@ public final class LegadoSourceRepository {
         if !failedNames.isEmpty {
             AppLogger.shared.log("❌ 📚 [LegadoStore] Không đọc được source.json của \(failedNames.count) nguồn: \(failedNames.prefix(10).joined(separator: ", "))")
         }
-        return result
+        return (result, nsfwIds, backfill)
     }
 
-    private func finishReload(_ loaded: [LegadoSourceSummary], generation: Int) {
+    private func finishReload(
+        _ loaded: [LegadoSourceSummary],
+        nsfwIds: Set<String>,
+        backfill: [UpsertExtensionCommand],
+        generation: Int
+    ) {
+        // Áp kể cả khi lượt này bị bỏ: manifest đã được ghi lại trên đĩa, bản ghi phải theo kịp. Theo lô ở các vòng
+        // runloop sau — không chặn main lúc danh sách vừa hiện.
+        if !backfill.isEmpty {
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated { Self.applyBackfill(backfill, from: 0) }
+            }
+        }
         guard generation == reloadGeneration else { return }
+        nsfwPackageIds = nsfwIds
         let currentIds = Set(ExtensionLibraryRepository.shared.installed.lazy
             .filter { LegadoSourceIdentity.isLegado($0) }
             .map(\.packageId))
@@ -108,6 +136,25 @@ public final class LegadoSourceRepository {
         hasLoaded = true
         publish(list)
         scheduleTranslation()
+    }
+
+    /// Số command upsert mỗi lô khi bù cờ `nsfw` (lần mở app đầu sau khi cập nhật có thể vài nghìn nguồn).
+    private static let backfillChunkSize = 200
+
+    /// Upsert một lô rồi hẹn lô kế ở vòng runloop sau.
+    private static func applyBackfill(_ commands: [UpsertExtensionCommand], from start: Int) {
+        guard start < commands.count else {
+            AppLogger.shared.log("ℹ️ 📚 [LegadoStore] Đã bù cờ 18+ trong plugin.json cho \(commands.count) nguồn")
+            return
+        }
+        let end = min(start + backfillChunkSize, commands.count)
+        let chunk = Array(commands[start..<end])
+        if case .failure(let error) = ExtensionTransactionCoordinator.shared.upsertExtensions(commands: chunk) {
+            AppLogger.shared.log("❌ 📚 [LegadoStore] Không cập nhật được cờ 18+ của \(chunk.count) nguồn: \(error.localizedDescription)")
+        }
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated { Self.applyBackfill(commands, from: end) }
+        }
     }
 
     // MARK: - Đổi trạng thái (chỉ LegadoSourceCoordinator)

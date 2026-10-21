@@ -17,6 +17,8 @@ import Foundation
 ///   "khoa thanh", "sau dam"…
 enum ExtensionNsfwClassifier {
     nonisolated static func isNsfw(_ ext: Extension) -> Bool {
+        // Nguồn Legado có luật riêng (tên + nhóm, không dùng mô tả) — `ExtensionNsfwClassifier+Legado`.
+        if LegadoSourceIdentity.isLegado(ext) { return isLegadoNsfw(ext) }
         if let override = ext.nsfwOverride { return override }
         if ext.isNsfw == true { return true }
         let text = normalized([ext.name, ext.desc ?? "", ext.author].joined(separator: " "))
@@ -55,7 +57,7 @@ enum ExtensionNsfwClassifier {
             .replacingOccurrences(of: "đ", with: "d")
     }
 
-    nonisolated private static func matchesKeyword(in text: String) -> Bool {
+    nonisolated static func matchesKeyword(in text: String) -> Bool {
         guard !text.isEmpty else { return false }
         if substringKeywords.contains(where: { text.contains($0) }) { return true }
         let words = " " + text.unicodeScalars

@@ -43,8 +43,9 @@ public enum LegadoSourceImporter {
         }
     }
 
-    /// Tải nội dung URL (http/https) bằng `URLSession` — không chặn main.
-    static func download(_ urlString: String) async throws -> Data {
+    /// Tải nội dung URL (http/https) bằng `URLSession` — không chặn main. `maxBytes`: liên kết ngoài `legado://` dùng
+    /// trần nhỏ hơn (`LegadoSourceLink.maxDownloadBytes`).
+    static func download(_ urlString: String, maxBytes: Int = LegadoSourceImporter.maxDownloadBytes) async throws -> Data {
         let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
         let encoded = trimmed.addingPercentEncoding(withAllowedCharacters: .urlFragmentAllowed) ?? trimmed
         guard let url = URL(string: trimmed) ?? URL(string: encoded),
@@ -65,7 +66,7 @@ public enum LegadoSourceImporter {
             throw LegadoSourceError.httpStatus(http.statusCode)
         }
         guard !data.isEmpty else { throw LegadoSourceError.emptyInput }
-        guard data.count <= maxDownloadBytes else { throw LegadoSourceError.responseTooLarge }
+        guard data.count <= maxBytes else { throw LegadoSourceError.responseTooLarge }
         return data
     }
 

@@ -69,6 +69,8 @@ struct AppLaunchRootView: View {
             }
             .animation(.easeInOut(duration: 0.5), value: translationManager.isInitialized)
         }
+        // Liên kết `legado://…` (nhập nguồn Legado) — hỏi lại rồi mới nhập; chờ cổng từ điển mở.
+        .legadoLinkImportHandler(isReady: translationManager.isInitialized)
         .onAppear {
             KeyboardDismissGesture.shared.activate()
             // Thanh công cụ trên bàn phím (đóng bàn phím, aa…AA, xoá/sao chép/dán) cho mọi ô nhập.
