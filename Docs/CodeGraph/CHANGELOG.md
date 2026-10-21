@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.558] - 2026-10-21
+
+### docs: đặc tả hành vi nguồn Legado đợt 1 (clean-room)
+
+Bước 2 của đợt 1 plan "nguồn truyện Legado — viết mới theo đặc tả": `Docs/Specs/legado-source-spec.md` (mới, ~1.630 dòng) là **nguồn sự thật duy nhất** về "Legado chạy thế nào" cho các agent triển khai.
+
+- **Viết bởi một agent riêng**, chỉ từ tài liệu trợ giúp được phép (`ruleHelp.md`, `jsHelp.md`, `xpathHelp.md`, `regexHelp.md`, `debugHelp.md`…) + quan sát 6 bộ corpus yckceo (1315, 1316, 1208, 1158, 1298, 1272 — 3.701 nguồn sau bỏ trùng, 3.406 nguồn chữ) + ~20 lần curl trang thật. Không đọc mã nguồn Legado/Yuedu/nhánh cũ. Corpus nằm ngoài repo.
+- **Mục lục**: §0 phạm vi + luật nhãn · §1 model JSON (decode khoan dung, tách nhóm, loại, rule tối thiểu — 84% nguồn chữ đạt) · §2 rule (đường ống, nhận diện chế độ, `||` `&&` `%%`, `##`/`###`, placeholder, phương ngữ kiểu jsoup, CSS, `@put`/`@get`, JSONPath, XPath, regex danh sách) · §3 URL (khối option, placeholder, `<a,b>`, charset, header) · §4 mạng (`concurrentRate`, cookie, retry, WebView, redirect) · §5 luồng (tìm, khám phá 3 dạng, thông tin, mục lục, nội dung, phân trang + chống lặp, biến, `jsLib`) · §6 JS bridge (danh sách hàm `java.*`/`source.*`/`book`/`chapter`/`cookie`/`cache` đợt 1 theo tần suất, shim `org.jsoup`, hàm hoãn) · §7 phụ lục (bảng đợt 1/hoãn, 28 điểm `[UNKNOWN]` U1–U28 để bộ chạy nghiệm thu đo).
+- Mỗi khẳng định gắn `[tài liệu]` (112) / `[quan sát]` (151) / `[UNKNOWN]` (62); `[đề xuất]` là ghi chú khuyến nghị khi không có bằng chứng (§0.3).
+- **Kiểm clean-room** (script ngoài repo): không có tên lớp nội bộ của engine gốc ngoài những tên xuất hiện trong script của chính corpus; không câu nào trùng nguyên văn tài liệu (cửa sổ 40 ký tự / 15 chữ Hán); 0 chữ cấm.
+- Không đổi code. Không build — commit chỉ có tài liệu nên CI không chạy.
+- Chuyển entry `[1.3.528]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+
 ## [1.3.557] - 2026-10-21
 
 ### build: link libxml2 cho XPath của nguồn Legado, CI chạy trên nhánh Legado
@@ -600,16 +613,3 @@ Người dùng: *"tối ưu lại cách lưu tiện ích (cả data lẫn metada
 - **Tài liệu**: `rules.md` thêm mục "Extension store invariants (1.3.529)" và sửa các đoạn còn nói SwiftData/plugin.json-per-extension; `CLAUDE.md`/`AGENTS.md` cập nhật bootstrap, thư mục lưu trữ, số violation thật (2).
 - **Kiểm chứng**: `check_architecture.py` **2 violation, 0 mới**. Triển khai bằng 1 agent nền móng + 3 session song song + 1 agent rà soát chéo. **Không build tại chỗ** (Windows, không có `swiftc`) — CI xác nhận biên dịch. Rủi ro chính: lightweight migration của SwiftData khi gỡ 2 entity (nếu `ModelContainer` lỗi thì `fatalError`); tên bảng/cột nội bộ là giả định — chỉ kiểm chứng được bằng IPA trên máy thật.
 - **Còn lại**: `ttsExtensionLocalPath` (`TTSManager`) vẫn là đường dẫn tuyệt đối; thời điểm xoá `legacy/library-pre-ext.sqlite` chưa chốt.
-
-## [1.3.528] - 2026-10-16
-
-### feat: them bo giai ma script extension Vbook (AES-256-CBC) luc cai dat
-
-Người dùng: dán một JSON `script_data` gồm 10 file `.js` đã mã hoá nhờ decode, rồi yêu cầu *"thêm bộ giải mã vào app để giải mã những script bị mã hoá như thế này"* → phỏng vấn `grill-me` 6 câu, plan đã duyệt: `Docs/Plans/2026-10-15-plan-extension-script-decoder.md`.
-
-- **File mới** `Sources/Services/Extensions/Manager/ExtensionScriptDecoder.swift` (226 dòng, 1 type `enum`, chỉ `import CommonCrypto` / `CryptoKit` / `Foundation`): bỏ token `x0P1Xx` / `x0P2Xx` / `x0P3Xx` về `+` `/` `=` rồi giải **AES-256-CBC** (IV 16 byte `0x00`, padding PKCS#7), key `SHA256(MD5("com.vbook.app" + source + author) dạng hex)`. CryptoKit không có AES-CBC nên dùng CommonCrypto.
-- **Móc 2 dòng** vào `ExtensionManager.swift`, ngay sau `findMainExtensionFolder` ở **cả hai** luồng cài — `install(item:packageId:)` và `installFromLocalZip(fileUrl:)`. File 1003 → **1005** dòng (baseline `FILE_SIZE_LIMIT` 1022): toàn bộ logic nằm trong file mới, không nhồi thêm vào file legacy.
-- **Cách ghi**: ghi đè nội dung file script (giữ nguyên tên) + đặt `encrypt = false` trong `plugin.json` ⇒ bản đồ `script` không phải sửa, runtime và editor đọc bản rõ luôn, **không giải mã lại ở mỗi lần chạy**.
-- **Chốt phạm vi** (đã phỏng vấn): chỉ dùng công thức chuẩn — không ma trận biến thể key, không giải nén payload (tool chính thức của Vbook mã hoá JS thô), không nút giải mã thủ công / migration. File có token mà giải không ra JS ⇒ **ném lỗi để chặn cài**.
-- **Kiểm chứng**: công thức đã đối chứng bằng dữ liệu thật 10 file của extension `hhtqvietsub` v10 — key `d476a9f7…292073`, ciphertext khớp **100% từng ký tự** với ZIP công bố của `Darkrai9x/vbook-extensions`. `check_architecture.py`: **2 violation, 0 mới**. `swiftc -parse` sạch cả 2 file. **Không build tại chỗ** (Windows) — CI xác nhận biên dịch.
-- **Gap đã biết**: luồng khôi phục extension từ backup (`BackupExtensionInstaller`) chưa móc giải mã.
