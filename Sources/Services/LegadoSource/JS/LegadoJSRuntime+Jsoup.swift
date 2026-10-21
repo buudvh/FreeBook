@@ -18,7 +18,7 @@ extension LegadoJSRuntime {
             return String(register(document))
         }
         guard command.hasPrefix("el.") else { return nil }
-        guard let handle = arguments.int(0), let element = element(handle: handle) else {
+        guard let elementHandle = arguments.int(0), let element = element(handle: elementHandle) else {
             throw LegadoJSNativeError("Phần tử HTML không còn hợp lệ")
         }
         switch command {
