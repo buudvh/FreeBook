@@ -131,7 +131,7 @@ enum LegadoSourceRuntime {
         context: SourceRuntimeContext?
     ) -> LegadoBookContext {
         let info = state.info
-        return LegadoBookContext(
+        let book = LegadoBookContext(
             name: firstNonEmpty(info?.name, context?.bookName),
             author: firstNonEmpty(info?.author, context?.bookAuthor),
             kind: info?.kind ?? "",
@@ -149,6 +149,9 @@ enum LegadoSourceRuntime {
             variables: state.variables,
             ruleVariables: state.ruleVariables
         )
+        // `book.type` đã ghi ở lượt trước (spec §13.6) — JS đọc lại đúng giá trị đó.
+        book.typeOverride = state.typeOverride
+        return book
     }
 
     /// Ghi kho biến của các mục tìm kiếm/khám phá vào bộ nhớ (theo `packageId` + `bookUrl`) để thông tin/mục lục/nội
@@ -214,5 +217,23 @@ enum LegadoSourceRuntime {
 
     static func trimmed(_ value: String) -> String {
         value.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Mã JS của một trường "toàn JS" (`imageDecode`, `preUpdateJs`, `formatJs`): bỏ tiền tố `@js:` hoặc vỏ
+    /// `<js>…</js>` nếu tác giả lỡ viết; còn lại giữ nguyên văn. Rỗng ⇒ `""`.
+    static func scriptBody(_ raw: String) -> String {
+        let text = trimmed(raw)
+        let lower = text.lowercased()
+        if lower.hasPrefix("@js:") {
+            return trimmed(String(text.dropFirst(4)))
+        }
+        if lower.hasPrefix("<js>") {
+            var code = String(text.dropFirst(4))
+            if let close = code.range(of: "</js>", options: [.caseInsensitive, .backwards]) {
+                code = String(code[..<close.lowerBound])
+            }
+            return trimmed(code)
+        }
+        return text
     }
 }

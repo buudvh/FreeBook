@@ -27,6 +27,12 @@ struct LegadoBookState: Codable, Sendable, Equatable {
     var ruleVariables: [String: String]
     /// Kho `chapter.putVariable`, khoá = URL chương nguyên văn (`ChapterResult.url`).
     var chapterVariables: [String: [String: String]]
+    /// Cờ `book.setReverseToc(b)` (spec §13.5): `true` ⇒ đảo cả mục lục sau khi lấy xong; `nil` = nguồn chưa đặt.
+    /// Trường tuỳ chọn: file trạng thái cũ (không có khoá) vẫn đọc được.
+    var reverseToc: Bool?
+    /// `book.type = v` / `book.setType(v)` (spec §13.6): giá trị thô nguồn ghi cho **sách này**; nạp lại cho lượt sau để
+    /// JS đọc `book.type` đúng giá trị đã ghi. `nil` = chưa ghi.
+    var typeOverride: Int?
 
     init(packageId: String, bookUrl: String) {
         self.packageId = packageId
@@ -36,11 +42,14 @@ struct LegadoBookState: Codable, Sendable, Equatable {
         self.variables = [:]
         self.ruleVariables = [:]
         self.chapterVariables = [:]
+        self.reverseToc = nil
+        self.typeOverride = nil
     }
 
     /// Có gì đáng ghi bền: đã biết `tocUrl` hoặc có biến.
     var hasContent: Bool {
-        tocUrl != nil || !variables.isEmpty || !ruleVariables.isEmpty || !chapterVariables.isEmpty
+        tocUrl != nil || !variables.isEmpty || !ruleVariables.isEmpty || !chapterVariables.isEmpty || reverseToc != nil
+            || typeOverride != nil
     }
 
     /// `overlay` (mới hơn, trong bộ nhớ) đè lên `base` (đọc từ đĩa) theo từng khoá.
@@ -50,6 +59,8 @@ struct LegadoBookState: Codable, Sendable, Equatable {
         if !overlay.bookUrl.isEmpty { result.bookUrl = overlay.bookUrl }
         if let tocUrl = overlay.tocUrl { result.tocUrl = tocUrl }
         if let info = overlay.info { result.info = info }
+        if let reverseToc = overlay.reverseToc { result.reverseToc = reverseToc }
+        if let typeOverride = overlay.typeOverride { result.typeOverride = typeOverride }
         result.variables.merge(overlay.variables) { _, new in new }
         result.ruleVariables.merge(overlay.ruleVariables) { _, new in new }
         for (url, values) in overlay.chapterVariables {

@@ -83,6 +83,8 @@ public struct LegadoCorpusReport: Codable, Sendable {
         public let unsupportedHints: [String]
         /// Bước bị bỏ chờ vì vượt trần; thread engine có thể vẫn chạy nền (vòng JS thuần không ngắt được).
         public let abandonedSteps: Int
+        /// Nguồn tranh/video: chi tiết bước media (nằm trong bước `content`); `nil` với truyện chữ và báo cáo cũ.
+        public let media: MediaCheck?
 
         public init(
             packageId: String,
@@ -98,7 +100,8 @@ public struct LegadoCorpusReport: Codable, Sendable {
             durationMs: Int,
             steps: [StepRecord],
             unsupportedHints: [String],
-            abandonedSteps: Int
+            abandonedSteps: Int,
+            media: MediaCheck? = nil
         ) {
             self.packageId = packageId
             self.name = name
@@ -114,6 +117,7 @@ public struct LegadoCorpusReport: Codable, Sendable {
             self.steps = steps
             self.unsupportedHints = unsupportedHints
             self.abandonedSteps = abandonedSteps
+            self.media = media
         }
 
         /// Kết quả "bỏ qua" dựng ngay lúc chọn nguồn, chưa chạy bước nào.

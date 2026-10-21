@@ -1,7 +1,8 @@
 import Foundation
 
 /// Chuỗi nghiệm thu của **một** nguồn: lối vào (tìm / khám phá / URL gỡ lỗi) → chi tiết → mục lục → nội dung chương
-/// đầu, mọi bước qua facade `SourceRuntime.shared` để đo đúng đường app chạy thật. Mỗi bước có trần thời gian riêng
+/// đầu (tranh: danh sách ảnh + ảnh đầu; video: server + nguồn phát — `LegadoCorpusProbe+Media`), mọi bước qua facade
+/// `SourceRuntime.shared` để đo đúng đường app chạy thật. Mỗi bước có trần thời gian riêng
 /// (`LegadoCorpusDeadline`), ghi thời gian + số mục, và dừng ở bước hỏng đầu tiên.
 ///
 /// Ngữ cảnh truyện dùng `bookId` có namespace `corpus-runner:<packageId>` và cùng chuỗi `bookUrl` (= `link` của mục)
@@ -43,10 +44,10 @@ final class LegadoCorpusProbe {
         let url: String
     }
 
-    private typealias Step = LegadoCorpusReport.Step
-    private typealias StepFailure = LegadoCorpusErrorClassifier.StepFailure
+    typealias Step = LegadoCorpusReport.Step
+    typealias StepFailure = LegadoCorpusErrorClassifier.StepFailure
 
-    private let candidate: LegadoCorpusCandidate
+    let candidate: LegadoCorpusCandidate
     private let startedAt = Date()
     private let bookId: String
     private var entry: LegadoCorpusEntry = .unavailable
@@ -56,6 +57,9 @@ final class LegadoCorpusProbe {
     private var lastPassed: Step?
     private var currentStep: Step = .search
     private var abandonedSteps = 0
+    /// Loại nguồn (đọc từ `source.json`); tranh/video đi bước media thay cho nội dung chữ.
+    var kind: LegadoSourceKind = .text
+    var mediaCheck: LegadoCorpusReport.MediaCheck?
 
     private init(candidate: LegadoCorpusCandidate) {
         self.candidate = candidate
@@ -81,6 +85,7 @@ final class LegadoCorpusProbe {
     private func execute(defaultKeyword: String) async throws {
         let source = try LegadoSourceStore.loadSource(localPath: candidate.localPath)
         hints = LegadoCorpusFeatureScan.hints(in: source)
+        kind = source.kind
         entry = LegadoCorpusEntry.resolve(
             checkKeyWord: source.ruleSearch.checkKeyWord,
             fallbackKeyword: defaultKeyword,
@@ -222,6 +227,10 @@ final class LegadoCorpusProbe {
     }
 
     private func content(_ chapter: ChapterRef, bookURL: String?, book: BookRef?) async throws {
+        if kind.contentKind.isMedia {
+            try await mediaContent(chapter, bookURL: bookURL, book: book)
+            return
+        }
         let path = candidate.localPath
         let downloadUrl = candidate.downloadUrl
         let config = candidate.configJson
@@ -244,7 +253,7 @@ final class LegadoCorpusProbe {
 
     /// Chạy một bước dưới trần thời gian, ghi `StepRecord`. Bước "không ok" (rỗng) vẫn trả giá trị để caller ném
     /// `noMatch` kèm câu cụ thể; lỗi thì ghi bước hỏng rồi ném tiếp.
-    private func measure<T: Sendable>(
+    func measure<T: Sendable>(
         _ step: Step,
         seconds: Int,
         operation: @escaping @Sendable () async throws -> T,
@@ -265,7 +274,7 @@ final class LegadoCorpusProbe {
         }
     }
 
-    private func makeContext(bookURL: String?, book: BookRef?, chapter: ChapterRef?) -> SourceRuntimeContext {
+    func makeContext(bookURL: String?, book: BookRef?, chapter: ChapterRef?) -> SourceRuntimeContext {
         let title = chapter?.title ?? ""
         return SourceRuntimeContext(
             bookId: bookId,
@@ -295,7 +304,8 @@ final class LegadoCorpusProbe {
             durationMs: Self.milliseconds(since: startedAt),
             steps: steps,
             unsupportedHints: hints,
-            abandonedSteps: abandonedSteps
+            abandonedSteps: abandonedSteps,
+            media: mediaCheck
         )
     }
 

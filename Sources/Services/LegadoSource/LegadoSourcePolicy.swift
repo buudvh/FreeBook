@@ -18,9 +18,9 @@ public enum LegadoSourcePolicy {
         extensions.filter { LegadoSourceIdentity.isLegado($0) }
     }
 
-    /// Đợt 1 chỉ chạy truyện chữ; tranh/video được lưu nhưng nhãn "Chưa hỗ trợ".
+    /// Chữ, tranh (spec §8) và video (spec §9) đều chạy được; chỉ loại không lưu (`unsupported`) bị chặn.
     public static func isSupportedInCurrentPhase(_ kind: LegadoSourceKind) -> Bool {
-        kind == .text
+        kind != .unsupported
     }
 
     /// Nguồn Legado, loại đã hỗ trợ, và **đang bật**. Trước khi danh sách nạp xong (`LegadoSourceRepository

@@ -2,6 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.565] - 2026-10-21
+
+### feat: truyện tranh và video từ nguồn Legado
+
+Khối A, B, C (và phần cấp luồng của khối I) của plan đợt 2 + 3 nguồn Legado (người dùng đã duyệt). Hành vi theo spec phần 2 §8, §9, §13, §15.3.
+
+- **Facade media** `SourceRuntime+Media` (mới): `comicPages`/`videoServers`/`videoTrack` cùng nhãn tham số với `ExtensionManager+Media`; tiện ích JS chuyển nguyên tham số, nguồn Legado chạy engine. Nối `ComicReaderViewModel` (+`+SourceContext`), `DownloadManager+Comic`, `VideoPlaybackSession+Loading`. Không còn lời gọi `ExtensionManager.shared.(comicPages|videoServers|videoTrack)(` ngoài facade. Media vẫn **không** đi qua pipeline text; `chap` gọi trên nguồn tranh/video ném lỗi rõ ràng.
+- **Tranh** (`Runtime/LegadoSourceRuntime+Comic`, `LegadoComicImageExtractor`): nội dung chương ⇒ `[ComicPageSource]` (giữ `src` nguyên văn kể cả khối option; thiếu Referer thì chèn vào option), phân trang nội dung. `imageDecode`: `ComicPageSource.script` mang tên giả của Legado, `ComicImageScriptRunner` rẽ sang engine giải mã bytes → bytes (`+ImageDecode`; ảnh vẫn qua `concurrentRate`). Chương không có ảnh ⇒ lỗi kèm tối đa 600 ký tự chữ của trang.
+- **Video** (`+Video`, `LegadoVideoServerPayload`): mỗi tập đúng một server (nguồn Legado không có khái niệm server); `data` là JSON chứa URL tập + ngữ cảnh; URL phát giải lại mỗi lần `videoTrack` (kể cả Thử lại / chọn lại) vì có chữ ký hết hạn; URL tập đã là tệp media thì không tải thân.
+- **Mục lục tranh/video**: mục `isVolume` thành dòng tiêu đề nhóm (`isSection`); truyện chữ vẫn bỏ như cũ.
+- **Phần đuôi cấp luồng** (`+TocTail`): `preUpdateJs`, `formatJs` (`index` đếm từ 1, trần 2 s), hiệu lực `book.setReverseToc`, `refreshTocUrl`/`reGetBook`, `sourceRegex` chuyển cho engine.
+- **Mở loại**: `LegadoSourcePolicy` nhận chữ + tranh + video (chip "Chưa hỗ trợ" tự mất); Tìm kiếm / Khám phá / Đổi nguồn nhận nguồn tranh/video Legado theo loại.
+- **Bộ chạy nghiệm thu**: nguồn tranh/video đo ở bước nội dung (`LegadoCorpusProbe+Media`, trường tuỳ chọn `SourceResult.media`); không đổi API public.
+- **Chưa làm**: `coverDecodeJs` (2 nguồn), `imageStyle`, `ruleContent.title`, `canReName`; ghi đè loại theo từng sách (`typeOverride` đã lưu, `BookContentDestination` chưa đọc).
+- Chuyển entry `[1.3.535]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới** (`ComicReaderViewModel.swift` 394 → 395). Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.564] - 2026-10-21
 
 ### feat: engine nguồn Legado đợt 2 + 3: đăng nhập, trình duyệt từ JS, khám phá có kiểu, font, tệp, RSA
@@ -447,25 +464,3 @@ Log người dùng gửi (bản 1.3.535) ghi rõ: tiện ích «Dailymotion», n
   - Track có `audios` nạp chậm thêm tối đa khoảng 4,5 giây.
   - AirPlay không phát được `fbhls://`, giống nhánh HLS text có từ trước.
 - **Kiểm chứng**: `check_architecture.py` **2 violation, 0 mới**. Không build tại chỗ (Windows); CI chỉ xác nhận biên dịch. Cần thử Dailymotion trên máy.
-
-## [1.3.535] - 2026-10-17
-
-### fix: video dò từ trang mất tiếng thì tự thử link khác hoặc nhúng trang, ghi log chẩn đoán
-
-Người dùng báo nguồn Dailymotion (tiện ích HHHTQ, track `auto`) có hình mà mất tiếng; app gốc thì có tiếng. Log người dùng gửi không có dòng chẩn đoán vì công tắc log đang tắt, và từ máy dev không tải được manifest (403, token gắn theo thiết bị). Vì vậy bản này vừa ghi lại bằng chứng, vừa tự khắc phục.
-
-- **Phát hiện mất tiếng**: sau khi item đang phát khoảng 2,5 giây, đếm `AVPlayerItem.tracks` và bỏ các track tiếng đang tắt; nhóm `.audible` chỉ ghi vào log. Mỗi lượt nạp chỉ kiểm một lần; đang tạm dừng thì hoãn tới lần phát sau.
-- **Log luôn ghi (`❌`)**:
-  - `Không có âm thanh: …` kèm tiện ích, tập, server, nguồn link (link trực tiếp / HLS text / dò từ trang), loại playlist đã chọn (master/media, có `AUDIO` hay không, số ứng viên), số track hình/tiếng.
-  - Dòng lỗi `AVPlayerItem` có thêm nguồn link, URL đã che token (scheme + host + tên file), mã lỗi và lỗi mạng gần nhất trong error log của item.
-- **Tự khắc phục**, chỉ áp với link do `VideoMediaSniffer` dò từ trang (track `auto`/`webview`):
-  - Thứ tự thử: link chính → tối đa 3 m3u8 khác (master có `AUDIO` trước) → nhúng trang.
-  - Phương án dự phòng phải có cả hình lẫn tiếng; lỗi thì sang phương án kế. Chuyển phương án thì giữ giây đang xem.
-  - Chỉ tự đổi khi màn trình phát đang hiện, app ở trước và không ở PiP.
-  - Có thông báo ngắn trên khung phim.
-  - Đây là ngoại lệ có chủ đích: DOC không cho `auto` rơi về nhúng trang, chỉ cho phép ở ca mất tiếng.
-- **Không còn đưa mp4** vào danh sách dự phòng khi đã có m3u8, vì mp4 thường là quảng cáo. Có nhiều master thì ưu tiên master có `AUDIO` làm link chính.
-- **Link tiện ích trả thẳng** (`native`/HLS text): không tự đổi, chỉ ghi log.
-- **File mới**: `VideoPlaybackSession+AudioFallback.swift`, `VideoSourceResolution.swift`. Sửa `VideoMediaSniffer`, `VideoHLSPlaylistProbe`, `VideoSourceResolver`, `VideoPlaybackSession` (+`Playback`/`Loading`/`Lifecycle`) và `VideoPlayerStage`.
-- **Rủi ro**: HLS tách tiếng có thể không hiện trong `item.tracks`. Khi đó link dò từ trang chuyển sang nhúng dù không cần, còn link tiện ích trả thẳng sẽ ghi một dòng `❌` sai.
-- **Kiểm chứng**: `check_architecture.py` **2 violation, 0 mới**. Không build tại chỗ (Windows); CI chỉ xác nhận biên dịch. Thử Dailymotion trên máy: nếu vẫn mất tiếng thì gửi log, giờ sẽ có dòng `Không có âm thanh` dù công tắc log tắt.

@@ -46,6 +46,8 @@ extension LegadoSourceRuntime {
         }
         let merged = mergedInfo(book, tocUrl: raw.tocUrl)
         var delta = LegadoBookStateDelta(tocUrl: raw.tocUrl, info: stateInfo(merged))
+        // `book.setReverseToc` hay gặp ở `ruleBookInfo.name` (spec §13.5) — lưu cờ để lượt mục lục áp.
+        delta.recordOverrides(book)
         delta.recordBook(book, initial: initial)
         store.commit(delta, packageId: target.packageId, bookUrl: bookUrl, bookId: bookId, persist: persist)
         let state = store.state(packageId: target.packageId, bookUrl: bookUrl, bookId: bookId)

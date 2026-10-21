@@ -5,7 +5,7 @@ import Observation
 ///
 /// - Danh sách ảnh **không** đi qua pipeline chữ (`ChapterContentRepository`, normalizer, dịch, TTS).
 /// - Nguồn ảnh của chương: ưu tiên bản tải offline (`ComicOfflineStore`), không có mới gọi
-///   `ExtensionManager.comicPages`. Danh sách ảnh của chương kế được nạp trước.
+///   `SourceRuntime.comicPages`. Danh sách ảnh của chương kế được nạp trước.
 /// - Tiến độ = **chỉ số ảnh**, ghi qua `ReadingProgressStore.checkpoint` (owner `.reader`): debounce 3 giây,
 ///   flush khi đổi chương, khi app vào nền và khi đóng màn. Không ghi SwiftData trực tiếp.
 @MainActor
@@ -196,12 +196,13 @@ final class ComicReaderViewModel {
             throw Self.readerError("Chưa cài tiện ích nguồn của truyện này")
         }
         let host = ExtensionHostResolver.chapterHost(chapterHost: chapter.host, bookHost: bookHost, packageId: ext.packageId)
-        let sources = try await ExtensionManager.shared.comicPages(
+        let sources = try await SourceRuntime.shared.comicPages(
             localPath: ext.localPath,
             downloadUrl: ext.downloadUrl,
             url: chapter.url,
             host: host,
-            configJson: ext.configJson
+            configJson: ext.configJson,
+            context: sourceContext(for: chapter)
         )
         AppLogger.shared.log("📖 [ComicReader] Chương \(index): \(sources.count) ảnh từ tiện ích")
         return sources

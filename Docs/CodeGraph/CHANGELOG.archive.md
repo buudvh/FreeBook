@@ -2,6 +2,28 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.535] - 2026-10-17
+
+### fix: video dò từ trang mất tiếng thì tự thử link khác hoặc nhúng trang, ghi log chẩn đoán
+
+Người dùng báo nguồn Dailymotion (tiện ích HHHTQ, track `auto`) có hình mà mất tiếng; app gốc thì có tiếng. Log người dùng gửi không có dòng chẩn đoán vì công tắc log đang tắt, và từ máy dev không tải được manifest (403, token gắn theo thiết bị). Vì vậy bản này vừa ghi lại bằng chứng, vừa tự khắc phục.
+
+- **Phát hiện mất tiếng**: sau khi item đang phát khoảng 2,5 giây, đếm `AVPlayerItem.tracks` và bỏ các track tiếng đang tắt; nhóm `.audible` chỉ ghi vào log. Mỗi lượt nạp chỉ kiểm một lần; đang tạm dừng thì hoãn tới lần phát sau.
+- **Log luôn ghi (`❌`)**:
+  - `Không có âm thanh: …` kèm tiện ích, tập, server, nguồn link (link trực tiếp / HLS text / dò từ trang), loại playlist đã chọn (master/media, có `AUDIO` hay không, số ứng viên), số track hình/tiếng.
+  - Dòng lỗi `AVPlayerItem` có thêm nguồn link, URL đã che token (scheme + host + tên file), mã lỗi và lỗi mạng gần nhất trong error log của item.
+- **Tự khắc phục**, chỉ áp với link do `VideoMediaSniffer` dò từ trang (track `auto`/`webview`):
+  - Thứ tự thử: link chính → tối đa 3 m3u8 khác (master có `AUDIO` trước) → nhúng trang.
+  - Phương án dự phòng phải có cả hình lẫn tiếng; lỗi thì sang phương án kế. Chuyển phương án thì giữ giây đang xem.
+  - Chỉ tự đổi khi màn trình phát đang hiện, app ở trước và không ở PiP.
+  - Có thông báo ngắn trên khung phim.
+  - Đây là ngoại lệ có chủ đích: DOC không cho `auto` rơi về nhúng trang, chỉ cho phép ở ca mất tiếng.
+- **Không còn đưa mp4** vào danh sách dự phòng khi đã có m3u8, vì mp4 thường là quảng cáo. Có nhiều master thì ưu tiên master có `AUDIO` làm link chính.
+- **Link tiện ích trả thẳng** (`native`/HLS text): không tự đổi, chỉ ghi log.
+- **File mới**: `VideoPlaybackSession+AudioFallback.swift`, `VideoSourceResolution.swift`. Sửa `VideoMediaSniffer`, `VideoHLSPlaylistProbe`, `VideoSourceResolver`, `VideoPlaybackSession` (+`Playback`/`Loading`/`Lifecycle`) và `VideoPlayerStage`.
+- **Rủi ro**: HLS tách tiếng có thể không hiện trong `item.tracks`. Khi đó link dò từ trang chuyển sang nhúng dù không cần, còn link tiện ích trả thẳng sẽ ghi một dòng `❌` sai.
+- **Kiểm chứng**: `check_architecture.py` **2 violation, 0 mới**. Không build tại chỗ (Windows); CI chỉ xác nhận biên dịch. Thử Dailymotion trên máy: nếu vẫn mất tiếng thì gửi log, giờ sẽ có dòng `Không có âm thanh` dù công tắc log tắt.
+
 ## [1.3.534] - 2026-10-17
 
 ### feat: nút đánh dấu và bỏ đánh dấu 18+ cho tiện ích

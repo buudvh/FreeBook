@@ -58,8 +58,12 @@ public final class SourceRuntime: @unchecked Sendable {
         return try await ExtensionManager.shared.toc(localPath: localPath, downloadUrl: downloadUrl, url: url, host: host, configJson: configJson)
     }
 
+    /// Nguồn Legado tranh/video không có nội dung chữ: ném lỗi rõ ràng (media đi `comicPages`/`videoServers`).
     public func chap(localPath: String, downloadUrl: String = "", url: String, host: String? = nil, configJson: String = "{}", context: SourceRuntimeContext? = nil) async throws -> String {
         if let target = try legadoTarget(localPath) {
+            guard !target.source.kind.contentKind.isMedia else {
+                throw LegadoRuntimeError.mediaHasNoText(target.source.kind.label)
+            }
             return try await legadoCall("chap", url) {
                 try await LegadoSourceRuntime.content(target, chapterUrl: url, context: context)
             }

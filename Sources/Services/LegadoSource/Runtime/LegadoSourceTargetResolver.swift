@@ -32,8 +32,8 @@ final class LegadoSourceTargetResolver: @unchecked Sendable {
         return LegadoSourceIdentity.isLegado(type: type)
     }
 
-    /// Nguồn Legado của `localPath`, `nil` khi không phải nguồn Legado. Ném khi là nguồn Legado nhưng loại chưa hỗ trợ
-    /// ở đợt này (tranh/video) hoặc không đọc được `source.json`.
+    /// Nguồn Legado của `localPath`, `nil` khi không phải nguồn Legado. Ném khi là nguồn Legado nhưng loại không chạy
+    /// được (`LegadoSourcePolicy.isSupportedInCurrentPhase`) hoặc không đọc được `source.json`.
     func target(localPath: String) throws -> LegadoSourceRuntime.Target? {
         let path = localPath.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !path.isEmpty else { return nil }

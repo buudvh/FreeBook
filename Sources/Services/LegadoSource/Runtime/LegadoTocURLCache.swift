@@ -22,13 +22,14 @@ final class LegadoTocURLCache: @unchecked Sendable {
         lock.unlock()
     }
 
-    /// URL chương ngay sau `chapterUrl`; `index` (nếu có) được thử trước để khỏi dò cả danh sách.
+    /// URL chương ngay sau `chapterUrl`; `index` (nếu có) được thử trước để khỏi dò cả danh sách. Phần tử `""` là chỗ
+    /// của dòng tiêu đề nhóm (tranh/video) — bị bỏ qua.
     func nextURL(after chapterUrl: String, index: Int?, packageId: String, bookUrl: String) -> String? {
         let key = LegadoBookStateStore.memoryKey(packageId: packageId, bookUrl: bookUrl)
         lock.lock()
         let urls = lists[key]
         lock.unlock()
-        guard let urls, !urls.isEmpty else { return nil }
+        guard let urls, !urls.isEmpty, !chapterUrl.isEmpty else { return nil }
         var position: Int?
         if let index, urls.indices.contains(index), urls[index] == chapterUrl {
             position = index
@@ -36,6 +37,6 @@ final class LegadoTocURLCache: @unchecked Sendable {
             position = urls.firstIndex(of: chapterUrl)
         }
         guard let position, position + 1 < urls.count else { return nil }
-        return urls[position + 1]
+        return urls[(position + 1)...].first(where: { !$0.isEmpty })
     }
 }

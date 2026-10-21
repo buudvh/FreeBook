@@ -19,7 +19,7 @@ struct LegadoCorpusCandidate: Sendable, Equatable {
     /// Chọn nguồn theo yêu cầu. Đọc bảng chụp `nonisolated` (không await). Gọi sau khi
     /// `LegadoSourceRepository.isSnapshotReady` — trước đó mọi nguồn Legado bị coi là tắt.
     ///
-    /// - `allEnabled`: mọi nguồn `LegadoSourcePolicy.isRunnable` (Legado + loại chữ + đang bật), xếp theo tên.
+    /// - `allEnabled`: mọi nguồn `LegadoSourcePolicy.isRunnable` (Legado + loại chạy được + đang bật), xếp theo tên.
     /// - `packageIds`: giữ thứ tự client gửi; id không có trên app / không phải Legado / loại chưa hỗ trợ / đang tắt
     ///   thành kết quả `skipped` có lý do (không vào mẫu số).
     /// `limit` chỉ cắt danh sách sẽ chạy, không cắt danh sách bỏ qua.
@@ -62,7 +62,7 @@ struct LegadoCorpusCandidate: Sendable, Equatable {
             return "Không phải nguồn Legado"
         }
         guard LegadoSourcePolicy.isSupportedInCurrentPhase(kind) else {
-            return "Loại \(kind.label) chưa hỗ trợ ở đợt 1"
+            return "Loại \(kind.label) chưa hỗ trợ ở bản này"
         }
         guard LegadoSourceRepository.isEnabled(packageId: row.packageId) else {
             return "Nguồn đang tắt"

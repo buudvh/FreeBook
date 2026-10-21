@@ -1,6 +1,7 @@
 import Foundation
 
-/// Một nguồn Legado **chữ** đã cài, trả cho client debug (`legado.sources`) để chọn nguồn nghiệm thu.
+/// Một nguồn Legado đã cài thuộc loại chạy được (chữ, tranh, video), trả cho client debug (`legado.sources`) để chọn
+/// nguồn nghiệm thu.
 ///
 /// Chỉ thông tin hiển thị — không đường dẫn, không `source.json`, không cấu hình. `extensions.list` không còn chứa
 /// nguồn Legado (chúng không có script JS), nên đây là đường duy nhất client biết `packageId` của chúng.
@@ -19,10 +20,11 @@ public struct LegadoCorpusSourceInfo: Codable, Sendable, Equatable {
         self.hasExploreRules = hasExploreRules
     }
 
-    /// Nguồn chữ trong bảng chụp `LegadoSourceRepository`, xếp theo tên gốc. Gọi sau khi bảng chụp sẵn sàng.
+    /// Nguồn chạy được (`LegadoSourcePolicy.isSupportedInCurrentPhase`: chữ, tranh, video) trong bảng chụp
+    /// `LegadoSourceRepository`, xếp theo tên gốc. Tên hàm giữ từ đợt 1. Gọi sau khi bảng chụp sẵn sàng.
     static func textSources() -> [LegadoCorpusSourceInfo] {
         LegadoSourceRepository.allSummariesSnapshot()
-            .filter { $0.kind == .text }
+            .filter { LegadoSourcePolicy.isSupportedInCurrentPhase($0.kind) }
             .map { summary in
                 LegadoCorpusSourceInfo(
                     packageId: summary.packageId,

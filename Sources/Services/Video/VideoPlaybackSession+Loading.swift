@@ -2,6 +2,7 @@ import Foundation
 import SwiftData
 
 /// Nạp phim: mục lục tập → sách lịch sử → `chap` (server) → `track` → `VideoSourceResolver` → `apply(plan:)`.
+/// Server/track đi qua `SourceRuntime` (tiện ích JS hoặc nguồn Legado).
 /// Mỗi lượt nạp gắn `loadGeneration`; lượt cũ tự bỏ kết quả khi có lượt mới hoặc khi `stop()`.
 extension VideoPlaybackSession {
     // MARK: - Khởi động
@@ -216,12 +217,16 @@ extension VideoPlaybackSession {
         phase = .loadingServers
         let host = ExtensionHostResolver.chapterHost(chapterHost: episode.host, bookHost: bookHost, packageId: ext.packageId)
         do {
-            let list = try await ExtensionManager.shared.videoServers(
+            // `context`: nguồn Legado cần đúng chỉ số tập đang phát (`book.durChapterIndex == chapter.index`, spec §9.6).
+            let list = try await SourceRuntime.shared.videoServers(
                 localPath: ext.localPath,
                 downloadUrl: ext.downloadUrl,
                 url: episode.url,
                 host: host,
-                configJson: ext.configJson
+                configJson: ext.configJson,
+                context: SourceRuntimeContext(bookId: launch?.bookId, bookUrl: launch?.bookDetailUrl,
+                                              bookName: launch?.bookTitle, bookAuthor: launch?.bookAuthor,
+                                              chapterTitle: episode.title, chapterIndex: episode.index)
             )
             guard isCurrent(generation) else { return }
             guard !list.isEmpty else {
@@ -246,7 +251,7 @@ extension VideoPlaybackSession {
         guard isCurrent(generation) else { return }
         phase = .resolving
         do {
-            let track = try await ExtensionManager.shared.videoTrack(
+            let track = try await SourceRuntime.shared.videoTrack(
                 localPath: ext.localPath,
                 downloadUrl: ext.downloadUrl,
                 data: server.data,

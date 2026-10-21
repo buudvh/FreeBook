@@ -31,6 +31,11 @@ actor ComicImageScriptRunner {
         defer { releaseTurn() }
         try Task.checkCancellation()
 
+        // Nguồn Legado có `imageDecode` (spec §8.6): tải + giải mã bằng engine của nguồn, không có file script.
+        if script == SourceRuntime.legadoImageDecodeScriptName {
+            return try await SourceRuntime.shared.legadoDecodedImage(localPath: localPath, link: link)
+        }
+
         let key = Key(localPath: localPath, script: script, configJson: configJson)
         let executor = try preparedExecutor(for: key, downloadUrl: downloadUrl)
         resetGraphics(of: executor)

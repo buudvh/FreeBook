@@ -2,8 +2,8 @@ import Foundation
 
 /// Nhánh nguồn Legado của `SourceRuntime`: tra nguồn theo `localPath` và bọc log quanh mỗi lời gọi.
 extension SourceRuntime {
-    /// Nguồn Legado đã nạp của `localPath`; `nil` khi là tiện ích JS. Ném khi là nguồn Legado nhưng loại chưa hỗ trợ
-    /// (tranh/video ở đợt 1: "Nguồn Legado loại … chưa hỗ trợ ở bản này") hoặc không đọc được `source.json`.
+    /// Nguồn Legado đã nạp của `localPath`; `nil` khi là tiện ích JS. Ném khi là nguồn Legado nhưng loại không chạy được
+    /// ("Nguồn Legado loại … chưa hỗ trợ ở bản này") hoặc không đọc được `source.json`.
     func legadoTarget(_ localPath: String) throws -> LegadoSourceRuntime.Target? {
         do {
             return try LegadoSourceTargetResolver.shared.target(localPath: localPath)

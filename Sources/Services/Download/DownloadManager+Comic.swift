@@ -45,10 +45,12 @@ extension DownloadManager {
 
         let chapters: [StoredChapterSnapshot]
         let bookHost: String?
+        let bookUrl: String?
         do {
             let prepared = try await comicChaptersToDownload(task, container: container)
             chapters = prepared.chapters
             bookHost = prepared.bookHost
+            bookUrl = prepared.bookUrl
         } catch {
             AppLogger.shared.log("❌ [DownloadManager] Không chuẩn bị được danh sách chương truyện tranh: \(error.localizedDescription)")
             await markFailed(taskId: taskId, error: error.localizedDescription)
@@ -82,7 +84,9 @@ extension DownloadManager {
                         bookId: task.bookId,
                         bookHost: bookHost,
                         ext: ext,
-                        scriptRunner: scriptRunner
+                        scriptRunner: scriptRunner,
+                        context: SourceRuntimeContext(bookId: task.bookId, bookUrl: bookUrl, bookName: task.bookTitle,
+                                                      chapterTitle: chapter.title, chapterIndex: chapter.index)
                     )
                     downloadedCount += 1
                 } catch {
@@ -112,7 +116,8 @@ extension DownloadManager {
         }
     }
 
-    /// Một chương: `comicPages` → từng ảnh qua `ComicImageLoader.data(for:scriptRunner:)` → ghi đĩa → manifest sau cùng.
+    /// Một chương: `SourceRuntime.comicPages` → từng ảnh qua `ComicImageLoader.data(for:scriptRunner:)` → ghi đĩa →
+    /// manifest sau cùng. `context` chỉ nguồn Legado dùng (kho biến theo truyện/chương).
     /// `chapterUrl` là URL đã resolve mà vòng lặp dùng để so manifest — ghi đúng giá trị đó vào manifest mới.
     /// Host gọi script: host chương → host sách → `source` (`ExtensionHostResolver`); khoá manifest không đổi.
     private func downloadComicChapter(
@@ -121,14 +126,16 @@ extension DownloadManager {
         bookId: String,
         bookHost: String?,
         ext: Extension,
-        scriptRunner: ComicImageScriptRunner
+        scriptRunner: ComicImageScriptRunner,
+        context: SourceRuntimeContext
     ) async throws {
-        let pages = try await ExtensionManager.shared.comicPages(
+        let pages = try await SourceRuntime.shared.comicPages(
             localPath: ext.localPath,
             downloadUrl: ext.downloadUrl,
             url: chapter.url,
             host: ExtensionHostResolver.chapterHost(chapterHost: chapter.host, bookHost: bookHost, packageId: ext.packageId),
-            configJson: ext.configJson
+            configJson: ext.configJson,
+            context: context
         )
         guard !pages.isEmpty else {
             throw NSError(domain: "DownloadManager", code: -20, userInfo: [NSLocalizedDescriptionKey: "Chương không có ảnh nào."])
@@ -165,11 +172,12 @@ extension DownloadManager {
 
     /// Mục lục cần tải — cùng quy tắc với nhánh chữ của `executeTask` (ChapterStore trước, SwiftData sau;
     /// `startFromCurrent` theo `currentChapterIndex`; `limit`), và cũng đẩy truyện lên kệ nếu chưa nằm ở đâu.
-    /// Bỏ dòng tiêu đề nhóm tập (`isSection`): không có ảnh để tải. Trả kèm host sách cho fallback host.
+    /// Bỏ dòng tiêu đề nhóm tập (`isSection`): không có ảnh để tải. Trả kèm host sách cho fallback host và URL trang
+    /// chi tiết (`detailUrl`, khoá trạng thái truyện của nguồn Legado).
     private func comicChaptersToDownload(
         _ task: DownloadTask,
         container: ModelContainer
-    ) async throws -> (chapters: [StoredChapterSnapshot], bookHost: String?) {
+    ) async throws -> (chapters: [StoredChapterSnapshot], bookHost: String?, bookUrl: String?) {
         let context = ModelContext(container)
         let allBooks = (try? context.fetch(FetchDescriptor<Book>())) ?? []
         guard let book = allBooks.first(where: { $0.bookId == task.bookId }) else {
@@ -183,6 +191,7 @@ extension DownloadManager {
         // Đọc hết từ `@Model` trước `await` (context không được dùng chéo luồng).
         let currentIndex = book.currentChapterIndex
         let bookHost = book.host
+        let bookUrl: String? = book.detailUrl.isEmpty ? nil : book.detailUrl
         let legacyChapters = book.chapters.sorted(by: { $0.index < $1.index }).map { ch in
             StoredChapterSnapshot(
                 id: ch.id,
@@ -207,8 +216,8 @@ extension DownloadManager {
         }
         // Lọc dòng tiêu đề nhóm **trước** khi áp `limit`: giới hạn N chương phải ra đúng N chương có ảnh.
         let readable: [StoredChapterSnapshot] = sortedChapters[startIdx...].filter { !$0.isSection }
-        guard let limit = task.limit.limitValue else { return (readable, bookHost) }
-        return (Array(readable.prefix(limit)), bookHost)
+        guard let limit = task.limit.limitValue else { return (readable, bookHost, bookUrl) }
+        return (Array(readable.prefix(limit)), bookHost, bookUrl)
     }
 
     /// Huỷ qua `cancelTask`/`cancelTasksForBook`/`deleteTask` (đều `handle.cancel()`), cộng cờ `isTaskCancelled`.
