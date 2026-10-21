@@ -53,12 +53,9 @@ struct ShelfView: View {
     @State private var showingBypassBrowser = false // Hiện WebView để bypass Cloudflare (nếu có)
     @State private var showingFilePicker = false // Hiện hộp thoại chọn tệp truyện cục bộ (TXT/HTML/EPUB/MOBI/DOCX/FB2/PDF)
 
-    // Trạng thái hiển thị tiến độ nhập file truyện. `internal` vì khối nhập file đã tách sang
+    // Tiến độ nhập file truyện nằm ở `BookImportProgressCenter` (màn Thông báo cũng đọc), không còn là
+    // `@State` ở đây. Các `@State` bên dưới `internal` vì khối nhập file đã tách sang
     // `Extensions/ShelfView+BookImport.swift`, và `private` trong Swift là phạm vi **file**.
-    @State internal var isImporting = false
-    @State internal var importIsIndeterminate = true
-    @State internal var importProgress: Double = 0.0
-    @State internal var importStatusText = ""
 
     // Xác nhận thông tin trước khi thực sự nhập truyện vào CSDL
     @State internal var pendingImport: PendingImport? = nil
@@ -490,44 +487,9 @@ struct ShelfView: View {
                 .transition(.opacity)
             }
 
-            // Overlay nhập TXT: bọc trong ZStack riêng để card được căn giữa thực sự
-            if isImporting {
-                ZStack {
-                    Color.black.opacity(0.4)
-                        .edgesIgnoringSafeArea(.all)
-
-                    VStack(spacing: 20) {
-                        Image(systemName: "square.and.arrow.down.fill")
-                            .font(.title2)
-                            .foregroundColor(.primary)
-
-                        Text("Đang nhập truyện")
-                            .font(.headline)
-
-                        if importIsIndeterminate {
-                            ProgressView()
-                                .controlSize(.regular)
-                        } else {
-                            ProgressView(value: importProgress)
-                                .progressViewStyle(.linear)
-                                .frame(width: 220)
-                                .tint(.white)
-                        }
-
-                        Text(importStatusText)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                    .padding(30)
-                    .background(
-                        RoundedRectangle(cornerRadius: 15)
-                            .fill(.ultraThinMaterial)
-                    )
-                    .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 4)
-                }
-                .transition(.opacity)
-            }
+            // Overlay nhập truyện: struct riêng tự observe `BookImportProgressCenter`, nên mỗi nhịp tiến độ chỉ
+            // vẽ lại overlay chứ không kéo cả màn Kệ sách (xem `ShelfView+BookImport.swift`).
+            ImportProgressOverlay()
 
             // Overlay xóa sách: cùng kiểu Material + căn giữa như overlay import
             if isProcessingDeletion {

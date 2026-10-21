@@ -153,18 +153,19 @@ extension ShelfView {
     internal func performImport(parsed: ParsedBook, fileName: String, tempFileUrl: URL) {
         self.pendingImport = nil
 
-        // Hiện overlay tiến trình và Toast ban đầu trên Main Thread
-        self.isImporting = true
-        self.importIsIndeterminate = true
-        self.importProgress = 0.0
-        self.importStatusText = "Đang chuẩn bị file..."
-
         let newBookId = UUID().uuidString
         let totalChapters = parsed.chapters.count
         let importChapters = parsed.chapters
 
+        // Tiến độ ghi vào center: overlay của Kệ sách và khối "Đang chạy" của màn Thông báo cùng đọc.
+        let progressCenter = BookImportProgressCenter.shared
+        progressCenter.begin(
+            title: TranslateUtils.translateBookTitleIfNeeded(parsed.title, bookId: newBookId),
+            message: "Đang chuẩn bị file..."
+        )
+
         // Quay lại Main Thread để chèn dữ liệu trực tiếp bằng modelContext chính, giúp UI đồng bộ lập tức và cập nhật progress bar mượt mà
-        self.importStatusText = "Đang tạo cuốn sách mới..."
+        progressCenter.update(message: "Đang tạo cuốn sách mới...", fraction: nil)
 
         let cmd = AddBookToShelfCommand(
             bookId: newBookId,
@@ -185,7 +186,7 @@ extension ShelfView {
         )
         let createRes = BookTransactionCoordinator.shared.addBookToShelf(command: cmd, in: self.modelContext)
         guard case .success(let newBook) = createRes else {
-            self.isImporting = false
+            progressCenter.end()
             try? FileManager.default.removeItem(at: tempFileUrl)
             ToastManager.shared.show(message: "Lỗi tạo sách local trong CSDL", type: .error)
             return
@@ -200,7 +201,7 @@ extension ShelfView {
         // Thực hiện chèn từng chương vào database / ChapterStore
         Task {
             do {
-                self.importStatusText = "Đang dịch tên chương..."
+                progressCenter.update(message: "Đang dịch tên chương...", fraction: nil)
                 let snapshots = await Task.detached(priority: .userInitiated) {
                     importChapters.enumerated().map { index, chapter in
                         ChapterMetadataSnapshot(
@@ -216,7 +217,6 @@ extension ShelfView {
                 }.value
                 _ = try await ChapterStore.shared.replaceFullTOC(bookId: newBookId, chapters: snapshots, protectedTTS: nil)
 
-                self.importIsIndeterminate = false
                 for (idx, chapData) in importChapters.enumerated() {
                     let meta = snapshots[idx]
                     let (offset, length) = try await BookBinManager.shared.writeChapterContent(bookId: newBookId, content: chapData.content)
@@ -239,24 +239,25 @@ extension ShelfView {
                     // Cập nhật tiến độ sau mỗi 50 chương và nhường thread (sleep 1ms) để tránh treo/khựng UI
                     if idx % 50 == 0 || idx == totalChapters - 1 {
                         let progress = Double(idx + 1) / Double(totalChapters)
-                        self.importProgress = progress
-                        self.importStatusText = "Đang nhập chương \(idx + 1)/\(totalChapters) (\(Int(progress * 100))%)"
+                        progressCenter.update(
+                            message: "Đang nhập chương \(idx + 1)/\(totalChapters) (\(Int(progress * 100))%)",
+                            fraction: progress
+                        )
                         try? await Task.sleep(nanoseconds: 1_000_000) // Sleep 1ms
                     }
                 }
 
-                self.importStatusText = "Đang ghi dữ liệu xuống bộ nhớ..."
-                self.importIsIndeterminate = true
+                progressCenter.update(message: "Đang ghi dữ liệu xuống bộ nhớ...", fraction: nil)
 
                 AppLogger.shared.log("✅ Đã nhập thành công truyện: \(parsed.title) (\(totalChapters) chương)")
                 ToastManager.shared.show(message: "Đã nhập thành công: \(TranslateUtils.translateBookTitleIfNeeded(parsed.title, bookId: newBookId))")
 
                 try? FileManager.default.removeItem(at: tempFileUrl)
-                self.isImporting = false
+                progressCenter.end()
                 self.selectedTab = .shelf // Chuyển sang Tab Kệ Sách để thấy truyện vừa nhập
             } catch {
                 try? FileManager.default.removeItem(at: tempFileUrl)
-                self.isImporting = false
+                progressCenter.end()
                 AppLogger.shared.log("❌ Lỗi khi lưu dữ liệu nhập từ file")
                 ToastManager.shared.show(message: "Lỗi khi lưu dữ liệu truyện nhập")
             }
@@ -269,5 +270,55 @@ extension ShelfView {
             try? FileManager.default.removeItem(at: pending.tempFileUrl)
         }
         self.pendingImport = nil
+    }
+
+    /// Overlay chờ khi đang ghi truyện nhập vào CSDL. Giữ nguyên dáng overlay cũ (vẫn chặn màn Kệ sách — nhập
+    /// chạy nền thì người dùng mở/xoá được truyện khi chương chưa ghi xong).
+    ///
+    /// Là struct **lồng** tự observe `BookImportProgressCenter` để `ShelfView` (đang `@Query` toàn bộ `Book`)
+    /// không vẽ lại theo mỗi nhịp tiến độ; lồng trong extension để không thành type chính thứ hai của file.
+    struct ImportProgressOverlay: View {
+        @ObservedObject private var center = BookImportProgressCenter.shared
+
+        var body: some View {
+            if let entry = center.entry {
+                // Bọc trong ZStack riêng để card được căn giữa thực sự
+                ZStack {
+                    Color.black.opacity(0.4)
+                        .edgesIgnoringSafeArea(.all)
+
+                    VStack(spacing: 20) {
+                        Image(systemName: "square.and.arrow.down.fill")
+                            .font(.title2)
+                            .foregroundColor(.primary)
+
+                        Text("Đang nhập truyện")
+                            .font(.headline)
+
+                        if let fraction = entry.fraction {
+                            ProgressView(value: fraction)
+                                .progressViewStyle(.linear)
+                                .frame(width: 220)
+                                .tint(.white)
+                        } else {
+                            ProgressView()
+                                .controlSize(.regular)
+                        }
+
+                        Text(entry.message)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(30)
+                    .background(
+                        RoundedRectangle(cornerRadius: 15)
+                            .fill(.ultraThinMaterial)
+                    )
+                    .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 4)
+                }
+                .transition(.opacity)
+            }
+        }
     }
 }

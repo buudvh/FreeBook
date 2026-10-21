@@ -157,6 +157,12 @@ extension DownloadManager {
         }
     }
 
+    /// Còn tác vụ tải/xuất nào chưa tới trạng thái cuối không. Màn Thông báo và hub nổi dùng để biết "đang chạy
+    /// tác vụ"; tính trên `tasks` đã nằm trong RAM, không chạm CSDL.
+    public var hasActiveTasks: Bool {
+        tasks.contains(where: \.isActive)
+    }
+
     public func isTaskCancelled(taskId: UUID) -> Bool {
         if cancelledTaskIds.contains(taskId) {
             return true
@@ -275,5 +281,12 @@ extension DownloadManager {
         let title = TranslateUtils.translateBookTitleIfNeeded(tasks[index].bookTitle, bookId: tasks[index].bookId)
         let type = tasks[index].taskType.rawValue
         DownloadPresentationEventCenter.shared.send(.showToast(message: "Đã hủy tác vụ: \(type) '\(title)'", type: .info))
+    }
+}
+
+extension DownloadTask {
+    /// Đang chạy hoặc đang chờ trong hàng đợi — tức chưa tới trạng thái cuối (xong / lỗi / huỷ).
+    public var isActive: Bool {
+        status == .running || status == .pending
     }
 }

@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.557] - 2026-10-21
+
+### feat: màn Thông báo hiện tiến độ tải, xuất và nhập truyện
+
+Người dùng: *"thêm tiến độ download và xuất truyện, import truyện vào màn hình thông báo"*; duyệt plan.
+
+- **Khối "Đang chạy"** ở đầu màn Thông báo có thêm phần truyện (`NotificationInboxView+StoryTasks.swift`, mới): mỗi tác vụ tải/xuất **đang chạy** một dòng (tên truyện đã dịch như toast, `Tải truyện · 12/300 chương` hoặc giai đoạn xuất, thanh tiến độ, nút **Huỷ** gọi `DownloadManager.cancelTask`); tác vụ **đang chờ** gộp thành một dòng `N tác vụ tải/xuất đang chờ`; lượt nhập truyện từ file một dòng (không có nút huỷ — luồng nhập không nhận cancellation). `StoryActivityRows` tự observe nên nhịp ~10 lần/giây của `DownloadManager.tasks` không kéo hàng sao lưu / tải model vẽ lại.
+- **Dòng truyện biến mất khi tác vụ xong/lỗi/huỷ**, khác hàng sao lưu và tải model (ở lại chờ "Bỏ qua"): `DownloadTaskModel` sống qua khởi động lại nên giữ dòng đã xong là phải thêm bộ nhớ "đã bỏ qua"; kết quả đã có toast và toast tự ghi vào nhật ký của chính màn này. Chia sẻ lại / thử lại vẫn ở tab Tải.
+- **Tiến độ nhập truyện ra khỏi `ShelfView`**: bỏ bốn `@State` (`isImporting`, `importIsIndeterminate`, `importProgress`, `importStatusText`), thay bằng `BookImportProgressCenter` (mới, `Services/Import`, `@MainActor`, chỉ giữ lượt đang chạy; `fraction == nil` = vô định). Overlay chờ chuyển thành `ShelfView.ImportProgressOverlay` (lồng trong `ShelfView+BookImport.swift`) tự observe center — giao diện và hành vi chặn màn Kệ giữ nguyên, nhưng cả kệ không còn vẽ lại theo mỗi nhịp tiến độ.
+- **Hub nổi**: `NotificationInboxPresenceReader.hasRunningTask` tính cả tải/xuất/nhập truyện ⇒ suốt lượt tải truyện, mục "Thông báo" trên hub (ngoài tab Kệ) sáng và ghi "Đang chạy tác vụ" — đúng luật 2026-10-07. `$tasks` được rút về một bit rồi `removeDuplicates` trước khi sink, nên chỉ refresh lúc chuyển trạng thái.
+- `DownloadManager.hasActiveTasks` và `DownloadTask.isActive` (mới, `DownloadManager+TaskStore.swift`): chạy hoặc chờ = chưa tới trạng thái cuối.
+- Hạn chế đã biết (giống hàng sao lưu hiện có): mở màn Thông báo lúc trống rồi tác vụ mới bắt đầu thì màn vẫn rỗng tới khi mở lại.
+- Chuyển entry `[1.3.527]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
+
 ## [1.3.556] - 2026-10-21
 
 ### feat: thanh gợi ý token trên bàn phím ở màn thêm rule dịch
@@ -600,17 +615,3 @@ Người dùng: dán một JSON `script_data` gồm 10 file `.js` đã mã hoá 
 - **Chốt phạm vi** (đã phỏng vấn): chỉ dùng công thức chuẩn — không ma trận biến thể key, không giải nén payload (tool chính thức của Vbook mã hoá JS thô), không nút giải mã thủ công / migration. File có token mà giải không ra JS ⇒ **ném lỗi để chặn cài**.
 - **Kiểm chứng**: công thức đã đối chứng bằng dữ liệu thật 10 file của extension `hhtqvietsub` v10 — key `d476a9f7…292073`, ciphertext khớp **100% từng ký tự** với ZIP công bố của `Darkrai9x/vbook-extensions`. `check_architecture.py`: **2 violation, 0 mới**. `swiftc -parse` sạch cả 2 file. **Không build tại chỗ** (Windows) — CI xác nhận biên dịch.
 - **Gap đã biết**: luồng khôi phục extension từ backup (`BackupExtensionInstaller`) chưa móc giải mã.
-
-## [1.3.527] - 2026-10-14
-
-### feat(ai): quet ten rieng giu mot chat Gemini, tu thu lai luot loi, nut thu lai, log chan doan
-
-Người dùng: *"vẫn không cùng chat, thêm nút thử lại các batch lỗi sau khi chạy xong"*, *"tự động thử lại những cái lỗi ít nhất 1 lần"* (log `app_logs (107)` trên bản 1.3.526: lượt 3, 4, 6/15 lỗi `StreamGenerate lỗi sau ~244 000 ms, chunk=5` — Gemini vẫn đang trả lời chậm, request chạm **trần tuyệt đối 240 s**; lượt 1, 2, 5 xong; log thường đang tắt nên không thấy dòng quyết định nối tiếp/mở chat mới).
-- **Một chat cho lượt quét (bắt buộc)**: phiên đã có chat Gemini thì lượt quét (`forceContext`) **không bao giờ** mở chat mới — nối tiếp bị từ chối thì chờ 5 s, gửi lại đúng lượt nối tiếp một lần (Google có thể còn đang viết nốt lượt app đã cắt), vẫn lỗi ⇒ tính lượt lỗi. Chỉ đổi model / đổi công tắc lưu lịch sử mới mở chat mới (log ❌ kèm lý do). Chat thường giữ hành vi cũ (bị từ chối ⇒ mở lại một lần).
-- **Log chẩn đoán ❌** (luôn ghi dù tắt log): lượt quét mở chat mới dù phiên đã có chat (lý do: chưa có chat / không có cid / đổi model a → b / đổi công tắc / bị từ chối), nối tiếp bị từ chối, mở chat mới mà không lấy được cid. Dòng bắt đầu quét ghi công tắc lưu lịch sử, id phiên và cid hiện có (`GeminiWebClient.conversationCidPrefix`).
-- **Trần tuyệt đối theo từng lượt**: `fetchStream(_:idleTimeout:absoluteTimeout:)` (mặc định vẫn 240 s); lượt quét Gemini Web dùng 600 s.
-- **Tự thử lại một vòng** đúng các lượt lỗi ở **cuối** lần quét (không thử ngay — lượt vừa bị cắt có thể còn đang chạy phía Google); dải/widget "Đang thử lại: Batch i/k"; toast "k/T lượt vẫn lỗi sau khi thử lại".
-- **Nút "Thử lại k lượt lỗi"** (`ReaderAINameScanRetryButton`) dưới tin kết quả, chỉ hiện khi không có lệnh chạy; mỗi lần bấm một vòng, gộp tên vào đúng tin cũ rồi lưu phiên. Danh sách lượt lỗi chỉ giữ trong RAM (`AIRuntimeCoordinator.nameScanRetry`, người dùng chọn) — mất khi thoát app, xoá khi quét mới. Gặp lỗi tài khoản/hạn mức khi bấm thử lại ⇒ giữ nguyên tin và danh sách cũ.
-- Code: vòng gửi dùng chung `AINameExtractionBatchProcessor.runTurns` (quét chính / tự thử lại / nút); `AINameScanFailedBatch` (mới); `AINameScanProgress.isRetry`; `AIRuntimeCoordinator+NameScanRetry.swift` (mới). `rules.md` mục Reader AI + Gemini Web.
-- Chuyển entry `[1.3.497]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới (`GeminiWebSessionController.swift` 399/400). Không build tại chỗ (Windows), cần CI. Nguyên nhân gốc của tách chat vẫn **UNKNOWN** tới khi có log ❌ của bản này.
