@@ -17,18 +17,22 @@ import UIKit
 /// hiện ở đâu cả) ⇒ đi đường `KeyboardAccessoryOverride` (thay getter theo lớp). Bản 1.3.548 còn bỏ qua mọi ô "đã có
 /// accessory của người khác" — chính accessory nội bộ đó — nên đã bỏ điều kiện này (app không có màn nào tự gắn accessory).
 ///
-/// Một thanh (một `UIInputView`) dùng chung cho mọi ô: chỉ một ô làm first responder tại một thời điểm, model được trỏ
-/// lại vào ô mới mỗi lần bắt đầu gõ.
+/// Hai thanh (hai `UIInputView`) dùng chung cho mọi ô, chung một model: chỉ một ô làm first responder tại một thời điểm,
+/// model được trỏ lại vào ô mới mỗi lần bắt đầu gõ. Thanh 46pt cho ô thường, thanh 82pt (thêm hàng gợi ý) cho ô cài
+/// `KeyboardSuggestionSource`. **Mỗi thanh cố định chiều cao từ lúc tạo** (1.3.559): bản 1.3.556 dùng một thanh rồi đổi
+/// chiều cao 46 ↔ 82pt theo ô, và iOS giữ chiều cao đo lần đầu ⇒ ở màn thêm rule hàng xoá · sao chép · dán bị đẩy xuống
+/// sau thanh gợi ý chữ của bàn phím.
 @MainActor
 final class KeyboardTextToolbarInstaller: NSObject {
     static let shared = KeyboardTextToolbarInstaller()
 
     private let model = KeyboardTextToolbarModel()
-    private var hostingController: UIHostingController<KeyboardTextToolbarView>?
-    private var accessoryView: UIInputView?
-    private var heightConstraint: NSLayoutConstraint?
+    /// Khoá = có hàng gợi ý hay không. Giữ cả hosting controller để view SwiftUI không bị giải phóng.
+    private var hostingControllers: [Bool: UIHostingController<KeyboardTextToolbarView>] = [:]
+    private var accessoryViews: [Bool: UIInputView] = [:]
     private var isObserving = false
     private var loggedClasses = Set<String>()
+    private var loggedHeightMismatches = Set<CGFloat>()
 
     private override init() {
         super.init()
@@ -55,8 +59,7 @@ final class KeyboardTextToolbarInstaller: NSObject {
 
     // MARK: - Notification
 
-    // `model.attach` đi **trước** `attachAccessory`: chiều cao accessory tuỳ ô có hàng gợi ý hay không, và phải đặt xong
-    // trước `reloadInputViews()` ở cuối `attachAccessory`.
+    // `model.attach` đi **trước** `attachAccessory`: chọn thanh 46pt hay 82pt theo `model.showsSuggestionRow` của ô này.
     @objc private func textFieldDidBeginEditing(_ notification: Notification) {
         guard let field = notification.object as? UITextField, !field.isSecureTextEntry else { return }
         model.attach(to: field)
@@ -91,9 +94,12 @@ final class KeyboardTextToolbarInstaller: NSObject {
     /// Gắn thanh vào ô vừa bắt đầu gõ. Lớp UIKit thường: gán `inputAccessoryView` rồi đọc lại — đọc lại không ra thanh
     /// (getter bị override) thì chuyển sang thay getter. Lớp nội bộ SwiftUI: luôn thay getter, vì SwiftUI có thể gán đè
     /// accessory của nó ở lượt cập nhật sau dù lần gán đầu có ăn.
+    ///
+    /// Ô chuyển từ thanh này sang thanh kia (vd ô Bản dịch rule lúc mẫu chưa / đã có token) đi đúng các nhánh dưới: gán
+    /// lại hoặc `install` lại associated object, nên getter trả thanh mới.
     private func attachAccessory(to input: UIView, current: UIView?, assign: (UIView) -> Void) {
-        let accessory = sharedAccessoryView()
-        updateAccessoryHeight()
+        let includesSuggestionRow = model.showsSuggestionRow
+        let accessory = accessoryView(includesSuggestionRow: includesSuggestionRow)
         guard let cls = object_getClass(input) else { return }
         var method = "đã gắn sẵn"
         if KeyboardAccessoryOverride.isPatched(input) {
@@ -115,6 +121,23 @@ final class KeyboardTextToolbarInstaller: NSObject {
         }
         input.reloadInputViews()
         logOnce(cls: cls, previous: current, method: method)
+        checkHeightLater(of: accessory, includesSuggestionRow: includesSuggestionRow, cls: cls)
+    }
+
+    /// Chẩn đoán cho lỗi 1.3.556 (chưa kiểm chứng được trên máy — nguyên nhân mới là suy luận): đợi bàn phím trượt lên
+    /// xong rồi so chiều cao thật của thanh với chiều cao đã đặt. Chỉ log khi **lệch**, có `❌` nên ghi cả lúc tắt log,
+    /// mỗi chiều cao một lần.
+    private func checkHeightLater(of accessory: UIInputView, includesSuggestionRow: Bool, cls: AnyClass) {
+        let expected = KeyboardTextToolbarView.height(includesSuggestionRow: includesSuggestionRow)
+        let name = NSStringFromClass(cls)
+        Task { @MainActor [weak self, weak accessory] in
+            try? await Task.sleep(nanoseconds: 600_000_000)
+            guard let self, let accessory, accessory.window != nil else { return }
+            let actual = accessory.bounds.height
+            guard abs(actual - expected) > 0.5, !self.loggedHeightMismatches.contains(expected) else { return }
+            self.loggedHeightMismatches.insert(expected)
+            AppLogger.shared.log("❌ [KeyboardToolbar] thanh cao \(actual)pt, cần \(expected)pt (ô \(name))")
+        }
     }
 
     /// Log chẩn đoán **một lần mỗi lớp ô** (app chạy qua LiveContainer, log là kênh duy nhất để biết đường nào đã dùng).
@@ -126,43 +149,34 @@ final class KeyboardTextToolbarInstaller: NSObject {
         AppLogger.shared.log("⌨️ [KeyboardToolbar] lớp ô \(name), accessory sẵn có \(previousName): \(method)")
     }
 
-    private func sharedAccessoryView() -> UIInputView {
-        if let accessoryView { return accessoryView }
+    /// Tạo lười, mỗi loại một lần, chiều cao đặt **một lần** lúc tạo và không bao giờ đổi.
+    private func accessoryView(includesSuggestionRow: Bool) -> UIInputView {
+        if let existing = accessoryViews[includesSuggestionRow] { return existing }
 
-        let host = UIHostingController(rootView: KeyboardTextToolbarView(model: model))
+        let host = UIHostingController(
+            rootView: KeyboardTextToolbarView(model: model, includesSuggestionRow: includesSuggestionRow)
+        )
         host.view.backgroundColor = .clear
         // Accessory nằm sát mép dưới màn hình lúc bàn phím trượt lên: để hosting tính vùng an toàn thì SwiftUI đệm
         // thêm khoảng trống và đẩy thanh lệch khỏi bàn phím.
         host.safeAreaRegions = []
 
         let width = UIScreen.main.bounds.width
-        let baseHeight = KeyboardTextToolbarView.toolbarHeight
-        let container = UIInputView(frame: CGRect(x: 0, y: 0, width: width, height: baseHeight), inputViewStyle: .keyboard)
+        let height = KeyboardTextToolbarView.height(includesSuggestionRow: includesSuggestionRow)
+        let container = UIInputView(frame: CGRect(x: 0, y: 0, width: width, height: height), inputViewStyle: .keyboard)
         container.allowsSelfSizing = true
         host.view.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(host.view)
-        let height = host.view.heightAnchor.constraint(equalToConstant: baseHeight)
         NSLayoutConstraint.activate([
             host.view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             host.view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             host.view.topAnchor.constraint(equalTo: container.topAnchor),
             host.view.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-            height
+            host.view.heightAnchor.constraint(equalToConstant: height)
         ])
 
-        hostingController = host
-        accessoryView = container
-        heightConstraint = height
+        hostingControllers[includesSuggestionRow] = host
+        accessoryViews[includesSuggestionRow] = container
         return container
-    }
-
-    /// Thanh một tầng (46pt) hay thêm hàng gợi ý, theo `model.showsSuggestionRow` của ô vừa gắn. Chỉ gọi lúc bắt đầu gõ,
-    /// trước `reloadInputViews()` — đổi giữa chừng là bàn phím nhảy.
-    private func updateAccessoryHeight() {
-        let height = KeyboardTextToolbarView.toolbarHeight
-            + (model.showsSuggestionRow ? KeyboardSuggestionRowView.height : 0)
-        guard let heightConstraint, heightConstraint.constant != height else { return }
-        heightConstraint.constant = height
-        accessoryView?.frame.size.height = height
     }
 }

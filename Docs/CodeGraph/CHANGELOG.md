@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.559] - 2026-10-21
+
+### fix: thanh xoá, sao chép, dán bị bàn phím che ở màn thêm rule
+
+Người dùng: *"có lỗi thanh sao chép, dán, clear, bị che bởi gợi ý của bàn phím"* — chỉ ở màn Thêm rule; duyệt plan.
+
+- **Nguyên nhân (suy luận, chưa kiểm chứng trên máy)**: `[1.3.556]` dùng **một** `UIInputView` cho mọi ô rồi đổi chiều cao 46 ↔ 82pt theo ô; iOS giữ chiều cao đo lần đầu (46pt) nên nội dung 82pt tràn xuống, hàng xoá · sao chép · dán nằm sau thanh gợi ý chữ của bàn phím.
+- `KeyboardTextToolbarInstaller` giữ **hai** accessory, chiều cao đặt một lần lúc tạo và không bao giờ đổi: 46pt cho ô thường (như trước `[1.3.556]`), 82pt cho ô cài `KeyboardSuggestionSource`. Bỏ `updateAccessoryHeight`. Ô chuyển thanh đi đúng nhánh gán lại / `install` lại sẵn có.
+- `KeyboardTextToolbarView` nhận `includesSuggestionRow` cố định theo instance (thanh 82pt luôn chừa chỗ hàng gợi ý) thay vì đọc `model.showsSuggestionRow`; cờ này thôi `@Published` vì chỉ installer đọc.
+- **Chẩn đoán**: 0,6 s sau khi gắn thanh, nếu chiều cao thật lệch chiều cao đã đặt thì ghi `❌ [KeyboardToolbar] thanh cao …pt, cần …pt (ô <lớp>)` — ghi cả khi tắt log, mỗi chiều cao một lần.
+- Chuyển entry `[1.3.529]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
+
 ## [1.3.558] - 2026-10-21
 
 ### fix: màn AI chạy riêng theo từng truyện, nút nổi liệt kê AI đang chạy
@@ -599,23 +612,3 @@ Người dùng: duyệt plan *"TTS tiện ích: bỏ ttsExtensionLocalPath tuy�
 - **Tài liệu**: `rules.md` bỏ ngoại lệ "`ttsExtensionLocalPath` còn tồn"; comment deny-list của `BackupSettingsArchiver` cập nhật (vẫn chặn khoá sót trên máy chưa dọn).
 - **Không đổi**: màn Cài đặt TTS (vẫn đồng bộ khi mở màn), luồng tổng hợp/cache; chưa tự cập nhật đường dẫn khi bản cập nhật tiện ích đổi thư mục con lúc app đang chạy (có từ trước).
 - **Kiểm chứng**: `check_architecture.py` **2 violation, 0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch. Test tay: chọn TTS tiện ích, khởi động lại app, nghe được ngay không cần mở màn cài đặt.
-
-## [1.3.529] - 2026-10-16
-
-### feat: luu tien ich va kho bang JSON thay SwiftData, sap xep ghim/vua dung, loc chip chon nhieu
-
-Người dùng: *"tối ưu lại cách lưu tiện ích (cả data lẫn metadata), danh sách kho, không lưu swiftdata nữa"* → phỏng vấn `grill-me` (tham khảo cấu trúc backup vbook iPhone), plan đã duyệt: `Docs/Plans/2026-10-16-plan-extension-store-json.md`; contract API giữa các nhánh: `Docs/Plans/2026-10-16-extension-store-phase1-api.md`.
-
-- **Gỡ `@Model Extension` và `@Model Repository` khỏi schema** (`FreeBookApp.swift`: còn 4 model `Book`, `BookCollection`, `Chapter`, `DownloadTaskModel`). Dữ liệu tiện ích/kho chuyển sang `applicationSupport/extension_store/`: `installed.json` (index **chỉ tiện ích đã cài**, đường dẫn **tương đối** `folder`), `repositories.json`, `registry/<sha256(url)>.json` (cache registry, tiện ích chưa cài chỉ hiện từ đây), `local_storage.json`. Script/icon vẫn là file trong `extensions/<folder>/` — đo trên 39 tiện ích thật: nhét script+icon vào index như vbook là 5,28 MB, index slim ~53 KB.
-- **Tầng mới** `Sources/Services/Extensions/Store/` (9 file, đều ≤ 306 dòng): `ExtensionLibraryRepository` (`@MainActor @Observable`, nguồn sự thật; `catalog` = đã cài ∪ registry chưa cài; tầng nền đọc qua `nonisolated static` + `ExtensionLibrarySnapshotTable` có lock), `ExtensionIndexStore`/`ExtensionStoreFileIO` (ghi atomic trên queue nền, file hỏng bị cách ly `.corrupt-<ts>`), `ExtensionLocalStorageStore`, `ExtensionStorePaths`, `ExtensionStoreEnvelope` (`schemaVersion: 1`). Model value type mới ở `Sources/Models/Extensions/`: `Extension` (struct, `pinnedAt`/`lastUsedAt`, `remoteVersion` transient), `ExtensionRepositoryRecord`, `ExtensionRegistrySnapshot`, `ExtensionRegistryItem` (chuyển khỏi `ExtensionManager.swift`), `ExtensionFolderLocator`. Bỏ `isEnabled` (không có chỗ nào bật/tắt).
-- **`ExtensionTransactionCoordinator` viết lại** trên repository, bỏ tham số `in context:`; thêm `saveRegistry`, `markUsed`, `uninstallExtension`, `auditInstalledExtensions`; xoá `pruneRepositoryExtensions`, `updateExtensionFolder`, `touchRepositoryLastUpdated`, `repairExtensionPathsAtLaunch`, `applyInstallAudit`. Xoá `ExtensionPathResolver` (đường dẫn tương đối ⇒ hết lớp lỗi đổi gốc thư mục 1.3.523), `PruneRepositoryExtensionsCommand`, `UpdateExtensionFolderCommand`; `ExtensionInstallAudit` rút gọn; `ExtensionSyncCommandBuilder` 169 → 18 dòng (chỉ giữ `packageId(forName:)`).
-- **Migrate một lần** (`LegacyExtensionSQLiteMigrator` + `LegacyExtensionSQLiteReader`, chạy trong `FreeBookApp.init` **trước** `ModelContainer`): `wal_checkpoint` → `VACUUM INTO extension_store/legacy/library-pre-ext.sqlite` (chép cả DB, gồm sách — lưới an toàn), đọc sqlite thô `ZEXTENSION`/`ZREPOSITORY` theo tên cột (thiếu cột ⇒ log `❌` + giữ bản chép để bản sau đọc lại), chỉ lấy tiện ích đã cài, chuyển khoá `UserDefaults` `vbook_ext_storage_<md5(localPath)>_*` sang `local_storage.json` theo `packageId`; cờ `migratedFromLegacy` ghi cuối cùng.
-- **Làm mới kho = 1 request registry/kho** (bỏ tải `plugin.json` cho từng tiện ích chưa cài, ~95 request với kho 100 tiện ích). Kho chưa có cache vẫn được tải trong cooldown. `hasUpdate` tính bằng cách ghép cache registry của **đúng** kho `repositoryUrl` (không fallback kho khác — tiện ích zip/debug không bị báo cập nhật sai), không lưu `remoteVersion`.
-- **Thứ tự ghim (`pinnedAt` tăng) → vừa dùng (`lastUsedAt` giảm) → A-Z** (`ExtensionSortPolicy` mới) ở chọn nguồn Khám phá và tab "Tất cả tiện ích" (sau nhóm có cập nhật → đã cài). `markUsed` khi chọn nguồn, tìm kiếm **một** nguồn, mở chi tiết truyện (`BookDetailView.onAppear`).
-- **Sheet "Bộ lọc tiện ích" dạng chip chọn nhiều** (`FilterSheet.swift` dùng `FlowLayout`; luật HOẶC trong nhóm, VÀ giữa nhóm, rỗng = tất cả); khoá mới `extFilterTypes/extFilterLocales/extFilterAuthors` (JSON), tự đọc khoá cũ lần đầu (`ExtensionFilterSelection`).
-- **Gỡ tiện ích = xoá sạch** config/ghim/`localStorage`; cập nhật giữ nguyên. `localStorage` của JS (`JSExecutor`) khoá theo namespace `packageId` / `"global"` / `"path:"+md5` qua `ExtensionLocalStorageStore` (ghi gom ~2 s, flush khi vào nền).
-- **Backup**: entry mới `library/extension_local_storage.json` (nhóm `.extensions`; restore chỉ thêm namespace máy chưa có); `ExtensionRecord` thêm `pinnedAt?`/`lastUsedAt?` nhưng vẫn ghi `isEnabled`/`isPinned` cho app cũ; `extensions.json` chỉ còn tiện ích đã cài; `BackupSettingsArchiver` chặn tiền tố `vbook_ext_storage_`; fingerprint (`formatVersion` 3) bỏ `lastUsedAt` và `localStorage` để duyệt nguồn / token JS tự làm mới không kích auto-backup.
-- **~25 consumer** (Reader, Kệ sách, Bypass, TTS settings, Config, Script Editor, DownloadManager, Debug server…) chuyển từ `@Query`/`FetchDescriptor` sang repository; View giữ `Extension` tra lại theo `packageId` sau khi ghi (`ReaderViewModel` bỏ `cachedExt`, `ExtensionMetadataSection` hết ghi đè tên cũ).
-- **Tài liệu**: `rules.md` thêm mục "Extension store invariants (1.3.529)" và sửa các đoạn còn nói SwiftData/plugin.json-per-extension; `CLAUDE.md`/`AGENTS.md` cập nhật bootstrap, thư mục lưu trữ, số violation thật (2).
-- **Kiểm chứng**: `check_architecture.py` **2 violation, 0 mới**. Triển khai bằng 1 agent nền móng + 3 session song song + 1 agent rà soát chéo. **Không build tại chỗ** (Windows, không có `swiftc`) — CI xác nhận biên dịch. Rủi ro chính: lightweight migration của SwiftData khi gỡ 2 entity (nếu `ModelContainer` lỗi thì `fatalError`); tên bảng/cột nội bộ là giả định — chỉ kiểm chứng được bằng IPA trên máy thật.
-- **Còn lại**: `ttsExtensionLocalPath` (`TTSManager`) vẫn là đường dẫn tuyệt đối; thời điểm xoá `legacy/library-pre-ext.sqlite` chưa chốt.

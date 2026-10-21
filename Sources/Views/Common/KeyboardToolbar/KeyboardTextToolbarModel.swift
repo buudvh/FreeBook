@@ -17,8 +17,9 @@ final class KeyboardTextToolbarModel: ObservableObject {
     /// Ẩn nhóm `aa…AA` ở ô tìm kiếm / URL (xem `showsCaseGroup(for:)`).
     @Published private(set) var showsCaseGroup = true
     @Published private(set) var tapOutsideDismisses = KeyboardDismissPreference.tapOutsideDismisses
-    /// Chốt lúc ô **bắt đầu gõ** (`KeyboardTextToolbarInstaller` đổi chiều cao accessory theo cờ này), không đổi giữa chừng.
-    @Published private(set) var showsSuggestionRow = false
+    /// Chốt lúc ô **bắt đầu gõ**, không đổi giữa chừng. Chỉ `KeyboardTextToolbarInstaller` đọc (đồng bộ) để chọn thanh
+    /// 46pt hay 82pt; view không đọc cờ này nên không cần `@Published`.
+    private(set) var showsSuggestionRow = false
     @Published private(set) var suggestions: [KeyboardSuggestion] = []
 
     private weak var input: (UIView & UITextInput)?
