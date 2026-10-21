@@ -96,7 +96,16 @@ public actor CoverImageLoader {
             return cached
         }
 
-        guard let downloaded = await fetchRemote(requestURL, referer: referer) else { return nil }
+        // `coverDecodeJs` của nguồn Legado (spec §8.7): chỉ URL bìa runtime Legado đã đăng ký — byte tải về là ảnh mã hoá,
+        // giải mã xong mới kiểm "có phải ảnh" và mới cache. Tiện ích JS: một lần tra từ điển, không đổi gì.
+        let decodePlan = LegadoCoverDecoder.shared.plan(url: trimmed, packageId: nil)
+        guard var downloaded = await fetchRemote(requestURL, referer: referer, requiresImage: decodePlan == nil) else {
+            return nil
+        }
+        if let decodePlan {
+            downloaded = await LegadoCoverDecoder.shared.decode(downloaded, plan: decodePlan)
+            guard !Task.isCancelled, Self.isImageData(downloaded) else { return nil }
+        }
         do {
             try downloaded.write(to: fileURL, options: .atomic)
         } catch {
@@ -112,7 +121,8 @@ public actor CoverImageLoader {
 
     // MARK: - Mạng
 
-    private nonisolated func fetchRemote(_ url: URL, referer: String?) async -> Data? {
+    /// `requiresImage == false` (bìa cần giải mã `coverDecodeJs`): bỏ bước kiểm "có phải ảnh" — caller kiểm sau khi giải mã.
+    private nonisolated func fetchRemote(_ url: URL, referer: String?, requiresImage: Bool = true) async -> Data? {
         let request = CoverRequestResolver.request(for: url, referer: referer, timeout: Self.requestTimeout)
         let hostLabel = url.host ?? "?"
         do {
@@ -139,7 +149,7 @@ public actor CoverImageLoader {
             await logFailureOnce(host: hostLabel, reason: "HTTP \(http.statusCode)")
             return nil
         }
-        guard Self.isImageData(data) else {
+        guard !requiresImage || Self.isImageData(data) else {
             await logFailureOnce(host: hostLabel, reason: "phản hồi không phải ảnh")
             return nil
         }

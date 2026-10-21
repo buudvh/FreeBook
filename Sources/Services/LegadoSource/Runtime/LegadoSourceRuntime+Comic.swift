@@ -26,7 +26,10 @@ extension LegadoSourceRuntime {
             if images.count > Self.comicImageWarningCount {
                 session.diagnostics.record(.info, "Chương có \(images.count) ảnh")
             }
-            return try Self.pageSources(session: session, images: images, pageURL: collected.pageURL, decodes: decodes)
+            // `imageStyle` (spec §8.5): `book.imageStyle` do JS `content` ghi ngay trong phiên này > `ruleContent.imageStyle`.
+            let style = Self.nonEmpty(session.book?.imageStyleOverride) ?? Self.nonEmpty(target.source.ruleContent.imageStyle)
+            return try Self.pageSources(session: session, images: images, pageURL: collected.pageURL, decodes: decodes,
+                                        imageStyle: style)
         }
         guard !pages.isEmpty else { throw LegadoRuntimeError.comicWithoutImages("") }
         return pages
@@ -35,19 +38,22 @@ extension LegadoSourceRuntime {
     /// Ảnh → `ComicPageSource`. URL ghép tuyệt đối theo URL cuối của trang chương; `//host` thêm scheme; `data:` giữ
     /// nguyên. Header = header mặc định < nguồn (gồm đăng nhập) < option của ảnh — dựng bằng chính `buildRequest` của
     /// engine — cộng cookie trong kho cho tên miền ảnh; thiếu `Referer` ⇒ `Referer` = URL trang chương (khuyến nghị U29).
+    /// `imageStyle` của mỗi ảnh = `style` trong khối option của ảnh, không có thì `imageStyle` truyền vào (§8.5).
     static func pageSources(
         session: LegadoEngineSession,
         images: [LegadoComicImageExtractor.RawImage],
         pageURL: String,
-        decodes: Bool
+        decodes: Bool,
+        imageStyle: String? = nil
     ) throws -> [ComicPageSource] {
         var output: [ComicPageSource] = []
         output.reserveCapacity(images.count)
         for image in images {
             try session.checkCancellation()
+            let style = optionStyle(image.option) ?? imageStyle
             let absolute = LegadoURLResolver.absolute(image.url, base: pageURL)
             if absolute.lowercased().hasPrefix("data:") {
-                output.append(ComicPageSource(link: absolute))
+                output.append(ComicPageSource(link: absolute, imageStyle: style))
                 continue
             }
             guard LegadoURLResolver.hasHTTPScheme(absolute) else {
@@ -75,12 +81,20 @@ extension LegadoSourceRuntime {
                 // Bước giải mã chỉ nhận `link`: Referer tự thêm phải nằm trong khối option để request tải lại giống hệt.
                 let link = hasReferer ? rule : addingReferer(pageURL, to: rule)
                 output.append(ComicPageSource(link: link, script: SourceRuntime.legadoImageDecodeScriptName,
-                                              referer: referer, headers: headers))
+                                              referer: referer, headers: headers, imageStyle: style))
             } else {
-                output.append(ComicPageSource(link: request.url, referer: referer, headers: headers))
+                output.append(ComicPageSource(link: request.url, referer: referer, headers: headers, imageStyle: style))
             }
         }
         return output
+    }
+
+    /// `style` trong khối option `,{…}` của ảnh (spec §8.3: kiểu riêng của ảnh đó); không có / không đọc được ⇒ `nil`.
+    static func optionStyle(_ option: String?) -> String? {
+        guard let option, let json = LegadoEngineJSONParser.parse(option, lenient: true),
+              let entries = json.objectEntries,
+              let entry = entries.first(where: { $0.key.lowercased() == "style" }) else { return nil }
+        return nonEmpty(entry.value.scalarString)
     }
 
     /// Cặp header (đã gộp không phân biệt hoa thường) → từ điển cho `ComicPageSource`/`VideoTrack`.

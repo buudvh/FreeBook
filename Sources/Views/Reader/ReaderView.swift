@@ -642,6 +642,7 @@ struct ReaderView: View {
             guard (notification.userInfo?["bookId"] as? String) == bookId else { return }
             showingAIFullScreen = true
         }
+        .legadoContentRefresh(packageId: localBook?.extensionPackageId ?? extensionPackageId) { reloadCurrentChapterFromMenu() }
     }
 
     private var readerPresentationNavigationLayer: some View {

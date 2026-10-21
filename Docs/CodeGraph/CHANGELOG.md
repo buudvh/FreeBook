@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.569] - 2026-10-21
+
+### feat: nối nốt nguồn Legado: giải mã bìa, imageStyle, ghi đè loại sách, làm mới chương, alert trình duyệt, dọn trạng thái mồ côi
+
+Người dùng: *"Làm nốt các mục chưa nối: coverDecodeJs, imageStyle, typeOverride cho BookContentDestination, refreshContent vào trình đọc, alert() trong trình duyệt nhỏ, dọn sidecar mồ côi lúc mở app."* Hành vi theo spec phần 2 §8.5, §8.7, §13.6.
+
+- **`coverDecodeJs`** (`LegadoCoverDecoder`, mới): luồng tìm / khám phá / chi tiết ghi URL bìa của nguồn có `coverDecodeJs` vào sổ; `CoverImageLoader.data` (tìm kiếm, Khám phá) giải mã bytes → bytes **trước** bước kiểm ảnh rồi cache bản đã giải; `ImageCacheManager.downloadAndSaveCover(packageId:)` (mặc định `nil`) + `BookCoverView` truyền `extensionPackageId` nên bìa trên kệ giải được sau khi mở lại app. Tối đa 2 phiên engine cùng lúc; lỗi ⇒ dùng byte gốc, `❌` một lần mỗi nguồn. JS nhận `result` dạng luồng (`read()`/`available()`) — harness `runImageDecode` chỉ thêm, không đổi hành vi `imageDecode`. Tiện ích JS chỉ tốn một lần tra từ điển.
+- **`imageStyle`**: `ComicPageSource.imageStyle` (tuỳ chọn, mặc định `nil`), ưu tiên `style` trong option của ảnh > `book.imageStyle` do JS `content` ghi trong cùng phiên > `ruleContent.imageStyle`; chuyền tới `ComicPageView`. Trình đọc tranh vốn vẽ ảnh tràn bề ngang, không khoảng cách (= `FULL`, giá trị phổ biến nhất) nên **hình không đổi**; giá trị khác giữ cách hiện tại.
+- **Ghi đè loại theo sách** (`LegadoBookTypeOverride`, mới, bitmask §13.6: 64 ⇒ tranh, 8 ⇒ chữ; audio/tệp/`3` ⇒ theo loại của nguồn): `BookContentDestination.resolveKind` ưu tiên ghi đè của sách; guard `SourceRuntime.chap` nới cho sách tranh bị nguồn ghi đè thành chữ.
+- **`refreshContent` → trình đọc** (`LegadoContentRefreshSignal` + modifier `legadoContentRefresh`, mới; gom lặp 3 s): presenter báo tín hiệu theo nguồn; Reader chữ tải lại chương đang mở bỏ qua cache (`reloadCurrentChapterFromMenu`; `ReaderView` 2045 → 2046, baseline 2053); trình đọc tranh `retry()`. Không dùng NotificationCenter.
+- **`alert()` / `confirm()` / `prompt()`** trong trình duyệt nhỏ (`LegadoBrowserController` + `LegadoBrowserJSPanel`, mới; trình duyệt đăng nhập dùng chung): `UIAlertController`, completion gọi đúng một lần kể cả khi đóng trình duyệt giữa chừng.
+- **Dọn trạng thái mồ côi** (`LegadoOrphanStateSweeper`, mới): một lần mỗi lần mở app từ `MainTabView` (225 → 227), `Task.detached` + `ModelContext` riêng; `LegadoBookStateStore.removeOrphanFiles` chỉ xoá tệp đúng mẫu `<64 hex>.json` ở gốc `legado_state/` không còn sách, sửa lần cuối trước lúc bắt đầu lượt, qua `validatePathSafety`; đọc lỗi / danh sách sách rỗng ⇒ bỏ lượt.
+- **Còn hở**: tải truyện, `BookKindBadge` và nhãn "Tải truyện" vẫn theo loại của nguồn; bìa cho TTS không truyền `packageId`; `resolveKind` đọc tệp sidecar nhỏ trên main một lần mỗi sách; chương tranh đã tải offline thì làm mới vẫn mở bản offline; đổi nguồn giữa hai nguồn Legado có thể giữ ghi đè cũ; `book.imageStyle` chưa lưu bền.
+- Chuyển entry `[1.3.539]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới** (`ComicReaderViewModel` không đổi). Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.568] - 2026-10-21
 
 ### docs: quy chuẩn nguồn Legado trong rules.md, client gỡ lỗi nhận chi tiết media
@@ -416,32 +432,3 @@ Người dùng yêu cầu lùi nội dung commit `6bdc424` (entry `[1.3.538]`). 
 - **View**: `BookListItemView`, `CategoryNovelsListView`, `DiscoveryNovelRowView`, `DiscoveryView`, `ExploreBannerView`/`ExploreItemCard`/`ExploreListRow`/`ExploreRenderContext`/`ExploreSectionsView`, `SearchView`, `ComicReaderView`, `DownloadTrackerView`, `TaskOptionsSheet`, `BookActionSheet`/`BookActionRunner`, `NotificationInboxView`, `ReaderView`, `DictionaryListView+Transfer`, `ShelfView+BookImport`, `DownloadManager+TaskStore` trở lại đọc công tắc dịch **toàn cục** (`@AppStorage("isTranslationEnabled")`) thay vì cờ Truyện > Nguồn > Toàn cục. `TTSManager` trở lại `TranslateUtils.isTranslationEnabled`.
 - **Xung đột đã xử lý**: `SearchView.swift` auto-merge sạch — thay đổi của `[1.3.539]` (`fetchFullTOC`) còn nguyên. Hai file `Docs/CodeGraph/CHANGELOG*.md` xung đột: giữ nguyên lịch sử (không đẩy entry cũ trở lại `CHANGELOG.md`, không thêm lại entry vào archive).
 - **Kiểm chứng**: grep `Sources/` không còn tham chiếu `TranslationConfigSnapshot`, `translationRevision`, `currentTranslationConfig`; mọi call site `translateBookTitleIfNeeded` khớp chữ ký mới. **Không build tại chỗ** (Windows) — chỉ CI xác nhận biên dịch.
-
-## [1.3.539] - 2026-10-18
-
-### fix: chặn mục lục rỗng xoá chương, khớp chương theo url, sửa tải thêm chương
-
-Làm theo báo cáo `Docs/Reports/2026-10-18-toc-update-investigation.md` (đề xuất P1–P4; người dùng duyệt plan trong chat). Báo cáo chỉ ra ba lỗi gây mất dữ liệu. Thứ nhất, script `toc` trả `[]` (trang chặn/captcha) thì `replaceFullTOC` xoá sạch mục lục cùng liên kết tới chương đã tải trong `.bin`. Thứ hai, khoá đối chiếu `(url, index)` làm mất cache của mọi chương phía sau chỉ vì nguồn thêm/xoá một chương. Thứ ba, "Tải thêm chương" bấm lại sau lỗi chạy lại từ trang 2 với chỉ số đã phình, ghi chương trùng vào DB.
-
-- **P1 — chặn mục lục rỗng**:
-  - `ChapterStoreDatabase.replaceFullTOC` từ chối mảng rỗng khi DB đang có chương: ghi log `❌`, ném `ChapterStoreError.invalidContent`, không xoá gì (giống `importBookMigration`). Đây là lưới an toàn cho mọi đường ghi.
-  - Tầng tải: `BookDetailLoader.requireChapters` coi một trang mục lục rỗng là lỗi ("Nguồn trả về mục lục trống" / "Trang mục lục k/N không có chương nào"). Áp ở `fetchFirstPageTOC`, `fetchRemainingPages`, `fetchFullTOC` và vòng lặp trang của `startReading` / "Tải thêm chương". Gặp lỗi thì không ghi gì.
-  - Riêng **trang cuối** của mục lục nhiều trang được phép rỗng, chỉ ghi log `⚠️`, vì `page.js` hay thừa một trang. Nếu không, cả truyện sẽ không làm mới, tải thêm hay dò chương mới được nữa. Đánh đổi: nếu bị chặn đúng ở trang cuối thì mất cache của các chương trang đó.
-  - Đổi nguồn: mục lục mới rỗng thì báo lỗi **trước** khi tạo sách mới, sách cũ giữ nguyên.
-- **P2 — `page()` trả `[]`**: thêm `BookDetailLoader.fetchFullTOC`. `page.js` rỗng thì dùng url chi tiết, trang đầu là `pages.first`, giống `fetchFirstPageTOC` và `NewChapterProbe`. Hàm này dùng ở kéo làm mới BookDetail, làm mới trong Reader (trước đây `page.js` trả `[]` ở hai chỗ này = 0 chương ⇒ xoá sạch) và đổi nguồn (trước gọi `toc(link chi tiết)` rồi mới `page`).
-- **P3 — khớp theo url**:
-  - `CompositeKey` tách ra file riêng, thêm `reconcile(url:index:)`: url rỗng mới khớp theo chỉ số. `candidateMap(for:)` gộp đoạn dựng bảng đối chiếu từng lặp ở `replaceFullTOC` và `upsertPage`; cùng url nhiều hàng (rác của bản cũ) thì hàng đã cache đứng trước.
-  - Khớp url thì giữ `id`/`is_cached`/`offset`/`length`/tên dịch, chỉ cập nhật `chapter_index`.
-  - Nhánh `.appendOnly` dùng bảng ứng viên rỗng để chương đuôi trùng url không kéo hàng cũ đi.
-  - Mở BookDetail với nguồn nhiều trang chỉ ghi trang 1 khi DB **chưa** có mục lục. Lý do: riêng trang 1 không đủ để đối chiếu, khớp theo url sẽ kéo các chương đầu trang 2 lên và làm hở chỉ số. Đọc số chương lỗi thì coi như đã có (không ghi).
-  - `BackupChapterRestorer.mergeIntoExisting` không thêm lại chương mà url đã có ở chỉ số khác trên máy. Nếu thêm, `upsertPage` giờ sẽ chuyển chỉ số hàng đó và để lại lỗ.
-- **P4 — "Tải thêm chương"**:
-  - `@State loadedRemainingPageCount` đếm số trang sau trang 1 đã nối vào `onlineChapters`. Bấm lại sau lỗi/huỷ thì tải tiếp từ trang lỗi.
-  - Lượt tải tích luỹ cục bộ `base + fetched`, không nối vào `self.onlineChapters`. Nếu kéo làm mới vừa nạp đủ mục lục (`remainingPagesLoaded`) thì lượt tải tự dừng, tránh nhân đôi chương.
-  - Sau khi ghi có `checkCancellation`, nên lượt đã bị huỷ không đè cờ/`loadingTask` của lượt mới hơn và không mở sheet tải.
-  - Không ghi từng trang nữa: đủ trang mới ghi **một** `replaceFullTOC` mục lục đầy đủ (dọn hàng thừa/trùng), rồi làm mới danh sách và chạy lượt dịch tên chương nền.
-  - `prepareForTask` (tải/xuất) bỏ qua trang đã tải và cũng ghi mục lục đầy đủ. `startReading` bỏ qua trang đã tải. Cả hai và `reloadBookData` huỷ lượt "Tải thêm chương" đang chạy. `loadTOCDataOnly` không ghi đè `onlineChapters` bằng trang 1 khi các trang sau đang/đã được nối.
-  - `tocMetadata(from:)` bỏ tham số `startIndex` (không còn caller).
-  - `reloadBookData` bật `remainingPagesLoaded` cùng lúc với danh sách đầy đủ, sau khi ghi. Nhờ vậy ghi lỗi thì cờ không bật trên danh sách thiếu.
-- **Không làm**: P5–P8 của báo cáo (mục lục co bất thường, neo `currentChapterIndex` ở tầng chung, đổi nguồn khớp theo tên, khôi phục sao lưu khớp theo url).
-- **Kiểm chứng**: một agent con rà phản biện: không thấy lỗi biên dịch; các lỗi logic nó tìm ra đã sửa ở trên. `check_architecture.py` **2 violation, 0 mới**. Không build tại chỗ (Windows); CI chỉ xác nhận biên dịch.

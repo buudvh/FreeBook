@@ -42,7 +42,9 @@ struct BookContentDestination: View {
 
     /// Tiện ích đã gỡ và không còn trong catalog (vd cài từ zip) thì không tra được loại. Truyện tranh đã tải
     /// offline vẫn phải mở bằng màn comic thay vì rơi vào reader chữ.
+    /// Nguồn Legado: ghi đè loại **của sách** (`book.type`, spec §13.6) thắng loại của nguồn; tiện ích JS không đổi.
     private static func resolveKind(bookId: String, packageId: String) -> ExtensionContentKind {
+        if let override = LegadoBookTypeOverride.shared.contentKind(bookId: bookId, packageId: packageId) { return override }
         if let known = ExtensionContentKind.resolveIfKnown(packageId: packageId) { return known }
         return ComicOfflineStore.downloadedChapterIndexes(bookId: bookId).isEmpty ? .text : .comic
     }

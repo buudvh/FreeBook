@@ -91,6 +91,8 @@ struct MainTabView: View {
             // Dọn sách mồ côi của tiện ích không lưu lịch sử — ngay sau khi danh sách tác vụ tải đã nạp, trước khi
             // người dùng kịp mở truyện nào. Lịch sử cũ giữ nguyên.
             HistoryOrphanBookSweeper.startOnce(container: modelContext.container)
+            // Sidecar trạng thái truyện Legado không còn sách tương ứng — dọn trên nền, một lần mỗi lần mở app.
+            LegadoOrphanStateSweeper.startOnce(container: modelContext.container)
             Task {
                 await ReadingProgressStore.shared.configure(container: modelContext.container)
                 await ChapterContentRepository.shared.configure(container: modelContext.container)

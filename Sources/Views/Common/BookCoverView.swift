@@ -112,7 +112,8 @@ struct BookCoverView: View {
         downloadingBookId = requestedId
         let referer = CoverRequestResolver.referer(itemHost: host, packageId: extensionPackageId)
         let downloaded: UIImage? = await withCheckedContinuation { continuation in
-            ImageCacheManager.shared.downloadAndSaveCover(urlStr: urlStr, bookId: requestedId, referer: referer) { image in
+            ImageCacheManager.shared.downloadAndSaveCover(urlStr: urlStr, bookId: requestedId, referer: referer,
+                                                          packageId: extensionPackageId) { image in
                 continuation.resume(returning: image)
             }
         }

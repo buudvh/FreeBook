@@ -235,9 +235,50 @@ final class LegadoBookStateStore: @unchecked Sendable {
 
     // MARK: - File
 
+    /// Tên file sidecar của một sách: SHA-256 (hex thường) của `bookId` đã trim + `.json`. **Một** công thức cho cả
+    /// đọc/ghi/xoá lẫn lượt dọn file mồ côi.
+    static func fileName(forBookId bookId: String) -> String {
+        let id = bookId.trimmingCharacters(in: .whitespacesAndNewlines)
+        let digest = SHA256.hash(data: Data(id.utf8)).map { String(format: "%02x", $0) }.joined()
+        return digest + ".json"
+    }
+
+    /// Đúng mẫu tên sidecar: `<64 ký tự hex thường>.json` (khác `device.json`, thư mục `sources/`, `files/`, `jslib/`).
+    static func isStateFileName(_ name: String) -> Bool {
+        guard name.hasSuffix(".json") else { return false }
+        let stem = name.utf8.dropLast(5)
+        return stem.count == 64 && stem.allSatisfy { ($0 >= 48 && $0 <= 57) || ($0 >= 97 && $0 <= 102) }
+    }
+
     private func stateFileURL(bookId: String) -> URL {
-        let digest = SHA256.hash(data: Data(bookId.utf8)).map { String(format: "%02x", $0) }.joined()
-        return rootURL.appendingPathComponent(digest + ".json")
+        rootURL.appendingPathComponent(Self.fileName(forBookId: bookId))
+    }
+
+    /// Xoá sidecar không còn sách: file thường ở **gốc** `legado_state/`, đúng mẫu tên, không thuộc `bookIds`, sửa lần
+    /// cuối **trước** `cutoff` (sách thêm sau lúc lấy danh sách vẫn giữ file vừa ghi). Chạy trên queue ghi — tuần tự với
+    /// lệnh ghi/xoá đang chờ. Thư mục chưa có ⇒ `(0, 0)`.
+    func removeOrphanFiles(keepingBookIds bookIds: Set<String>, modifiedBefore cutoff: Date) -> (removed: Int, failed: Int) {
+        let keep = Set(bookIds.map { Self.fileName(forBookId: $0) })
+        return writeQueue.sync { () -> (removed: Int, failed: Int) in
+            let manager = FileManager.default
+            guard let names = try? manager.contentsOfDirectory(atPath: rootURL.path) else { return (0, 0) }
+            var removed = 0
+            var failed = 0
+            for name in names where Self.isStateFileName(name) && !keep.contains(name) {
+                let fileURL = rootURL.appendingPathComponent(name)
+                guard (try? validatePathSafety(for: fileURL)) != nil,
+                      let values = try? fileURL.resourceValues(forKeys: [.isRegularFileKey, .contentModificationDateKey]),
+                      values.isRegularFile == true,
+                      let modified = values.contentModificationDate, modified < cutoff else { continue }
+                do {
+                    try manager.removeItem(at: fileURL)
+                    removed += 1
+                } catch {
+                    failed += 1
+                }
+            }
+            return (removed, failed)
+        }
     }
 
     private func readFile(bookId: String) -> LegadoBookState? {

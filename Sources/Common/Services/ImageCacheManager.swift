@@ -256,7 +256,9 @@ public final class ImageCacheManager: @unchecked Sendable {
     /// Tải bìa rồi ghi `covers/<sha256(bookId)>.jpg`. `urlStr` phải là URL tuyệt đối (bìa tương đối đã ghép host ở
     /// caller — `CoverRequestResolver.displayURL`). `referer` (host, `source` hay URL; chuẩn hoá về origin + "/") gửi
     /// kèm UA iPhone Safari: CDN chặn hotlink trả 403 khi thiếu. `nil` ⇒ không gửi `Referer`.
-    public func downloadAndSaveCover(urlStr: String, bookId: String, referer: String? = nil, completion: @escaping (UIImage?) -> Void = { _ in }) {
+    /// `packageId` (nguồn của sách): nguồn Legado có `coverDecodeJs` (spec §8.7) ⇒ giải mã byte trước khi dựng ảnh và
+    /// lưu bản đã giải mã; tiện ích JS / `nil` ⇒ như cũ.
+    public func downloadAndSaveCover(urlStr: String, bookId: String, referer: String? = nil, packageId: String? = nil, completion: @escaping (UIImage?) -> Void = { _ in }) {
         guard !urlStr.isEmpty, let url = URL(string: urlStr), url.scheme != nil else {
             completion(nil)
             return
@@ -285,27 +287,43 @@ public final class ImageCacheManager: @unchecked Sendable {
         let request = CoverRequestResolver.request(for: url, referer: referer, timeout: 30)
         URLSession.shared.dataTask(with: request) { data, response, error in
             let statusOK = (response as? HTTPURLResponse).map { (200...299).contains($0.statusCode) } ?? true
-            guard let data = data, error == nil, statusOK,
-                  let image = UIImage(data: data) else {
+            guard let data = data, error == nil, statusOK else {
                 self.finishDownload(for: bookId, image: nil)
                 return
             }
-
-            // Nén ảnh JPEG ở mức chất lượng 80% để tiết kiệm tài nguyên bộ nhớ
-            if let jpegData = image.jpegData(compressionQuality: 0.8) {
-                do {
-                    try jpegData.write(to: destinationURL, options: .atomic)
-                    self.invalidateCover(for: bookId)
-                    AppLogger.shared.log("💾 Đã tải và lưu ảnh bìa offline thành công cho sách: \(bookId)")
-                    self.finishDownload(for: bookId, image: image)
-                } catch {
-                    AppLogger.shared.log("❌ Lỗi ghi tệp ảnh bìa local: \(error.localizedDescription)")
-                    self.finishDownload(for: bookId, image: nil)
+            // Tra ở queue của URLSession (lần đầu có thể đọc `source.json` của nguồn), không trên main.
+            if let plan = LegadoCoverDecoder.shared.plan(url: urlStr, packageId: packageId) {
+                Task.detached(priority: .utility) {
+                    let decoded = await LegadoCoverDecoder.shared.decode(data, plan: plan)
+                    self.storeDownloadedCover(decoded, bookId: bookId, destinationURL: destinationURL)
                 }
-            } else {
-                self.finishDownload(for: bookId, image: nil)
+                return
             }
+            self.storeDownloadedCover(data, bookId: bookId, destinationURL: destinationURL)
         }.resume()
+    }
+
+    /// Dựng ảnh từ byte đã tải (đã giải mã nếu cần), ghi `covers/<sha>.jpg` rồi trả cho mọi completion đang chờ.
+    private func storeDownloadedCover(_ data: Data, bookId: String, destinationURL: URL) {
+        guard let image = UIImage(data: data) else {
+            finishDownload(for: bookId, image: nil)
+            return
+        }
+
+        // Nén ảnh JPEG ở mức chất lượng 80% để tiết kiệm tài nguyên bộ nhớ
+        if let jpegData = image.jpegData(compressionQuality: 0.8) {
+            do {
+                try jpegData.write(to: destinationURL, options: .atomic)
+                invalidateCover(for: bookId)
+                AppLogger.shared.log("💾 Đã tải và lưu ảnh bìa offline thành công cho sách: \(bookId)")
+                finishDownload(for: bookId, image: image)
+            } catch {
+                AppLogger.shared.log("❌ Lỗi ghi tệp ảnh bìa local: \(error.localizedDescription)")
+                finishDownload(for: bookId, image: nil)
+            }
+        } else {
+            finishDownload(for: bookId, image: nil)
+        }
     }
 
     /// Trả kết quả cho mọi completion đang chờ lượt tải của bookId, trên main như trước.

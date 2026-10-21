@@ -64,6 +64,7 @@ extension LegadoSourceRuntime {
             return found
         }
         stashFoundBooks(books, target: target)
+        LegadoCoverDecoder.shared.register(rawCoverURLs: books.map { $0.coverUrl }, target: target)
         let trackerKey = LegadoBookStateStore.memoryKey(packageId: target.packageId, bookUrl: url)
         let hasNewBooks = explorePages.record(key: trackerKey, page: pageNumber, urls: books.map { $0.bookUrl })
         let hasNext = hasNewBooks && pageNumber < explorePageLimit && hasPagePlaceholder(url)

@@ -61,9 +61,9 @@ final class LegadoPresentationPresenter {
             presentSearch(keyword: keyword, sourceKey: sourceKey)
         case .openURL(let url, let sourceKey):
             openURL(url, sourceKey: sourceKey)
-        case .refreshContent:
-            // Trình đọc chưa nghe tín hiệu này: người dùng kéo/tải lại chương bằng tay.
-            AppLogger.shared.log("📚 [LegadoPresenter] refreshContent: trình đọc chưa hỗ trợ tự nạp lại chương")
+        case .refreshContent(let sourceKey):
+            // Trình đọc đang mở của sách thuộc nguồn này nạp lại chương hiện tại (`legadoContentRefresh`).
+            LegadoContentRefreshSignal.shared.notify(sourceKey: sourceKey)
         }
     }
 

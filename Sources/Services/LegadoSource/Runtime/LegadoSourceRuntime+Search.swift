@@ -26,6 +26,7 @@ extension LegadoSourceRuntime {
             return found
         }
         stashFoundBooks(books, target: target)
+        LegadoCoverDecoder.shared.register(rawCoverURLs: books.map { $0.coverUrl }, target: target)
         return books.map { itemResult($0) }
     }
 

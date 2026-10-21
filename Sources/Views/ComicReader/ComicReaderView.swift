@@ -62,6 +62,8 @@ struct ComicReaderView: View {
                 viewModel.flushProgress()
             }
         }
+        // `refreshContent()` của nguồn Legado: nạp lại danh sách ảnh chương đang mở (bản offline vẫn được ưu tiên).
+        .legadoContentRefresh(packageId: launch.extensionPackageId) { viewModel.retry() }
         .sheet(isPresented: $showsChapterList) {
             ComicChapterListSheet(
                 chapters: viewModel.chapters,

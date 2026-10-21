@@ -2,6 +2,35 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.539] - 2026-10-18
+
+### fix: chặn mục lục rỗng xoá chương, khớp chương theo url, sửa tải thêm chương
+
+Làm theo báo cáo `Docs/Reports/2026-10-18-toc-update-investigation.md` (đề xuất P1–P4; người dùng duyệt plan trong chat). Báo cáo chỉ ra ba lỗi gây mất dữ liệu. Thứ nhất, script `toc` trả `[]` (trang chặn/captcha) thì `replaceFullTOC` xoá sạch mục lục cùng liên kết tới chương đã tải trong `.bin`. Thứ hai, khoá đối chiếu `(url, index)` làm mất cache của mọi chương phía sau chỉ vì nguồn thêm/xoá một chương. Thứ ba, "Tải thêm chương" bấm lại sau lỗi chạy lại từ trang 2 với chỉ số đã phình, ghi chương trùng vào DB.
+
+- **P1 — chặn mục lục rỗng**:
+  - `ChapterStoreDatabase.replaceFullTOC` từ chối mảng rỗng khi DB đang có chương: ghi log `❌`, ném `ChapterStoreError.invalidContent`, không xoá gì (giống `importBookMigration`). Đây là lưới an toàn cho mọi đường ghi.
+  - Tầng tải: `BookDetailLoader.requireChapters` coi một trang mục lục rỗng là lỗi ("Nguồn trả về mục lục trống" / "Trang mục lục k/N không có chương nào"). Áp ở `fetchFirstPageTOC`, `fetchRemainingPages`, `fetchFullTOC` và vòng lặp trang của `startReading` / "Tải thêm chương". Gặp lỗi thì không ghi gì.
+  - Riêng **trang cuối** của mục lục nhiều trang được phép rỗng, chỉ ghi log `⚠️`, vì `page.js` hay thừa một trang. Nếu không, cả truyện sẽ không làm mới, tải thêm hay dò chương mới được nữa. Đánh đổi: nếu bị chặn đúng ở trang cuối thì mất cache của các chương trang đó.
+  - Đổi nguồn: mục lục mới rỗng thì báo lỗi **trước** khi tạo sách mới, sách cũ giữ nguyên.
+- **P2 — `page()` trả `[]`**: thêm `BookDetailLoader.fetchFullTOC`. `page.js` rỗng thì dùng url chi tiết, trang đầu là `pages.first`, giống `fetchFirstPageTOC` và `NewChapterProbe`. Hàm này dùng ở kéo làm mới BookDetail, làm mới trong Reader (trước đây `page.js` trả `[]` ở hai chỗ này = 0 chương ⇒ xoá sạch) và đổi nguồn (trước gọi `toc(link chi tiết)` rồi mới `page`).
+- **P3 — khớp theo url**:
+  - `CompositeKey` tách ra file riêng, thêm `reconcile(url:index:)`: url rỗng mới khớp theo chỉ số. `candidateMap(for:)` gộp đoạn dựng bảng đối chiếu từng lặp ở `replaceFullTOC` và `upsertPage`; cùng url nhiều hàng (rác của bản cũ) thì hàng đã cache đứng trước.
+  - Khớp url thì giữ `id`/`is_cached`/`offset`/`length`/tên dịch, chỉ cập nhật `chapter_index`.
+  - Nhánh `.appendOnly` dùng bảng ứng viên rỗng để chương đuôi trùng url không kéo hàng cũ đi.
+  - Mở BookDetail với nguồn nhiều trang chỉ ghi trang 1 khi DB **chưa** có mục lục. Lý do: riêng trang 1 không đủ để đối chiếu, khớp theo url sẽ kéo các chương đầu trang 2 lên và làm hở chỉ số. Đọc số chương lỗi thì coi như đã có (không ghi).
+  - `BackupChapterRestorer.mergeIntoExisting` không thêm lại chương mà url đã có ở chỉ số khác trên máy. Nếu thêm, `upsertPage` giờ sẽ chuyển chỉ số hàng đó và để lại lỗ.
+- **P4 — "Tải thêm chương"**:
+  - `@State loadedRemainingPageCount` đếm số trang sau trang 1 đã nối vào `onlineChapters`. Bấm lại sau lỗi/huỷ thì tải tiếp từ trang lỗi.
+  - Lượt tải tích luỹ cục bộ `base + fetched`, không nối vào `self.onlineChapters`. Nếu kéo làm mới vừa nạp đủ mục lục (`remainingPagesLoaded`) thì lượt tải tự dừng, tránh nhân đôi chương.
+  - Sau khi ghi có `checkCancellation`, nên lượt đã bị huỷ không đè cờ/`loadingTask` của lượt mới hơn và không mở sheet tải.
+  - Không ghi từng trang nữa: đủ trang mới ghi **một** `replaceFullTOC` mục lục đầy đủ (dọn hàng thừa/trùng), rồi làm mới danh sách và chạy lượt dịch tên chương nền.
+  - `prepareForTask` (tải/xuất) bỏ qua trang đã tải và cũng ghi mục lục đầy đủ. `startReading` bỏ qua trang đã tải. Cả hai và `reloadBookData` huỷ lượt "Tải thêm chương" đang chạy. `loadTOCDataOnly` không ghi đè `onlineChapters` bằng trang 1 khi các trang sau đang/đã được nối.
+  - `tocMetadata(from:)` bỏ tham số `startIndex` (không còn caller).
+  - `reloadBookData` bật `remainingPagesLoaded` cùng lúc với danh sách đầy đủ, sau khi ghi. Nhờ vậy ghi lỗi thì cờ không bật trên danh sách thiếu.
+- **Không làm**: P5–P8 của báo cáo (mục lục co bất thường, neo `currentChapterIndex` ở tầng chung, đổi nguồn khớp theo tên, khôi phục sao lưu khớp theo url).
+- **Kiểm chứng**: một agent con rà phản biện: không thấy lỗi biên dịch; các lỗi logic nó tìm ra đã sửa ở trên. `check_architecture.py` **2 violation, 0 mới**. Không build tại chỗ (Windows); CI chỉ xác nhận biên dịch.
+
 ## [1.3.538] - 2026-10-18
 
 ### fix: mọi danh sách và tên truyện dịch theo cờ của truyện rồi tới nguồn

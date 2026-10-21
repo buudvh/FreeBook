@@ -27,15 +27,18 @@ extension LegadoSourceRuntime {
         }
     }
 
-    /// Chạy `imageDecode` với `result` = mảng byte (`Uint8Array`) và `src` = `link`. Byte qua ranh giới dạng hex (cùng
+    /// Chạy `imageDecode` (hoặc `coverDecodeJs`, `field` chỉ đổi nhãn chẩn đoán) với `result` = mảng byte (`Uint8Array`
+    /// kiêm luồng đọc `read()`/`read(buf)`/`available()`, spec §8.7) và `src` = `link`. Byte qua ranh giới dạng hex (cùng
     /// cách các hàm mã hoá của engine): giá trị JS → `.string` không mất byte, còn `Uint8Array` xuất thẳng sẽ bị đọc
     /// thành chuỗi UTF-8. Mã có `return` ở cấp ngoài cùng (không hợp lệ với `eval`) ⇒ chạy lại trong `new Function`.
     /// `nil` ⇒ dùng byte gốc (JS lỗi, trả `undefined`/chuỗi/rỗng, hay kết quả không phải ảnh).
-    static func runImageDecode(session: LegadoEngineSession, code: String, bytes: Data, src: String) throws -> Data? {
+    static func runImageDecode(session: LegadoEngineSession, code: String, bytes: Data, src: String,
+                               field: String = "imageDecode") throws -> Data? {
         let quoted = LegadoEngineJSON.quoted(code)
         let harness = """
         (function (g) {
           g.result = g.__lg.hexToBytes(String(g.result || ''));
+          if (typeof g.__lg.byteStream === 'function') { g.result = g.__lg.byteStream(g.result); }
           var out;
           try {
             out = (0, eval)(\(quoted));
@@ -55,15 +58,15 @@ extension LegadoSourceRuntime {
             let failed = session.diagnostics.count(of: .javaScript) > errorsBefore
             let lastError = session.diagnostics.entries.last(where: { $0.kind == .javaScript })?.message ?? ""
             if failed, lastError.contains("android") || lastError.contains("Bitmap") {
-                session.diagnostics.record(.info, "imageDecode cần shim đồ hoạ (android.graphics) — hiển thị ảnh gốc")
+                session.diagnostics.record(.info, "\(field) cần shim đồ hoạ (android.graphics) — hiển thị ảnh gốc")
             } else {
-                session.diagnostics.record(.info, "imageDecode không trả mảng byte — dùng ảnh gốc")
+                session.diagnostics.record(.info, "\(field) không trả mảng byte — dùng ảnh gốc")
             }
             return nil
         }
         let decoded = Data(LegadoJSRuntime.bytes(fromHex: hex))
         guard looksLikeImage(decoded) else {
-            session.diagnostics.record(.info, "imageDecode trả \(decoded.count) byte không phải ảnh — dùng ảnh gốc")
+            session.diagnostics.record(.info, "\(field) trả \(decoded.count) byte không phải ảnh — dùng ảnh gốc")
             return nil
         }
         return decoded

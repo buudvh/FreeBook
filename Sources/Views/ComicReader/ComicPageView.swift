@@ -8,6 +8,9 @@ import UIKit
 /// - Tải qua `ComicImageLoader` với bề ngang tối đa = bề ngang màn × scale; task tự huỷ khi hàng biến mất,
 ///   ảnh cũng được thả khỏi `@State` để `LazyVStack` không giữ ảnh của hàng đã cuộn qua (cache của loader lo phần tải lại).
 /// - Chạm một lần bật/tắt thanh điều khiển, chạm đúp mở trình xem phóng to; ảnh lỗi có nút "Thử lại".
+/// - `request.source.imageStyle` (nguồn Legado, spec §8.5): `FULL` = ảnh khớp trọn bề ngang, không lề, không khoảng
+///   cách giữa ảnh — đúng cách màn này luôn vẽ (`LazyVStack(spacing: 0)` + `.frame(maxWidth: .infinity)`); giá trị
+///   khác/rỗng (`0`, `DEFAULT`, `TEXT`…) giữ nguyên cách vẽ đó, nên không cần rẽ nhánh.
 @MainActor
 struct ComicPageView: View {
     let request: ComicImageRequest

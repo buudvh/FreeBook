@@ -6,6 +6,7 @@ extension LegadoSourceRuntime {
     /// Trường rỗng của `ruleBookInfo` giữ giá trị đã biết (ngữ cảnh/trạng thái) để trang chi tiết không bị xoá trắng.
     static func detail(_ target: Target, bookUrl: String, context: SourceRuntimeContext?, log: LegadoRunLog? = nil) async throws -> NovelDetailResult {
         let info = try await resolveBookInfo(target, bookUrl: bookUrl, context: context, log: log).info
+        LegadoCoverDecoder.shared.register(rawCoverURLs: [info.coverUrl], target: target)
         return NovelDetailResult(
             name: info.name,
             author: info.author,

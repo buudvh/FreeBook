@@ -27,6 +27,8 @@ final class LegadoBrowserController: NSObject, ObservableObject, WKNavigationDel
     private let decision: WebContentDecision
     private var visitedHosts: Set<String> = []
     private var didStart = false
+    /// Hộp thoại `alert`/`confirm`/`prompt` đang chờ người dùng (WebKit chỉ mở một hộp thoại mỗi lần).
+    private var pendingPanel: LegadoBrowserJSPanel?
 
     init(request: LegadoBrowserRequest) {
         self.request = request
@@ -84,8 +86,10 @@ final class LegadoBrowserController: NSObject, ObservableObject, WKNavigationDel
         return Snapshot(html: html, finalURL: finalURL, cookies: cookies)
     }
 
-    /// Dừng tải và gỡ delegate (trình duyệt đã đóng).
+    /// Dừng tải và gỡ delegate (trình duyệt đã đóng). Hộp thoại JS còn chờ ⇒ trả mặc định để trang không treo.
     func tearDown() {
+        pendingPanel?.cancel()
+        pendingPanel = nil
         webView.stopLoading()
         webView.navigationDelegate = nil
         webView.uiDelegate = nil
@@ -191,5 +195,35 @@ final class LegadoBrowserController: NSObject, ObservableObject, WKNavigationDel
             webView.load(navigationAction.request)
         }
         return nil
+    }
+
+    // MARK: - Hộp thoại JS (`alert` / `confirm` / `prompt`)
+
+    func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
+        showPanel(.alert, message: message, frame: frame) { _, _ in completionHandler() }
+    }
+
+    func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+        showPanel(.confirm, message: message, frame: frame) { confirmed, _ in completionHandler(confirmed) }
+    }
+
+    func webView(_ webView: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String, defaultText: String?, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (String?) -> Void) {
+        showPanel(.prompt(defaultText: defaultText), message: prompt, frame: frame) { confirmed, text in
+            completionHandler(confirmed ? (text ?? "") : nil)
+        }
+    }
+
+    /// Mỗi hộp thoại trả completion **đúng một lần** (`LegadoBrowserJSPanel`); tiêu đề = tên miền của khung gọi.
+    private func showPanel(_ kind: LegadoBrowserJSPanel.Kind, message: String, frame: WKFrameInfo,
+                           reply: @escaping (Bool, String?) -> Void) {
+        pendingPanel?.cancel()
+        let panel = LegadoBrowserJSPanel { [weak self] confirmed, text in
+            reply(confirmed, text)
+            self?.pendingPanel = nil
+        }
+        pendingPanel = panel
+        let host = frame.securityOrigin.host
+        let fallback = request.sourceName.isEmpty ? "Trang web" : request.sourceName
+        panel.present(kind, title: host.isEmpty ? fallback : host, message: message, over: webView)
     }
 }

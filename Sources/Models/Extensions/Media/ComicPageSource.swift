@@ -8,6 +8,8 @@ import Foundation
 /// - `script`: tên file JS ở gốc tiện ích hoặc `src/`, chạy `execute(link)` → base64 trần của ảnh.
 /// - `width`/`height`: kích thước gợi ý để dựng khung trước khi ảnh tải xong.
 /// - `referer`/`headers`: header riêng của ảnh (ext cộng đồng). Ưu tiên `headers` > `referer` > mặc định.
+/// - `imageStyle`: kiểu hiển thị ảnh của nguồn Legado (spec §8.5, vd `FULL`) đã chọn theo thứ tự `style` của ảnh >
+///   `book.imageStyle` > `ruleContent.imageStyle`; `nil` = không khai (tiện ích JS, bản offline).
 ///
 /// Không bao giờ đi qua pipeline text (`ChapterContentRepository`, `cleanHTML`, JunkFilter…).
 public struct ComicPageSource: Sendable, Hashable {
@@ -18,6 +20,7 @@ public struct ComicPageSource: Sendable, Hashable {
     public let height: Int?
     public let referer: String?
     public let headers: [String: String]
+    public let imageStyle: String?
 
     public init(
         link: String,
@@ -26,7 +29,8 @@ public struct ComicPageSource: Sendable, Hashable {
         width: Int? = nil,
         height: Int? = nil,
         referer: String? = nil,
-        headers: [String: String] = [:]
+        headers: [String: String] = [:],
+        imageStyle: String? = nil
     ) {
         self.link = link
         self.fallbacks = fallbacks
@@ -35,5 +39,6 @@ public struct ComicPageSource: Sendable, Hashable {
         self.height = height
         self.referer = referer
         self.headers = headers
+        self.imageStyle = imageStyle
     }
 }
