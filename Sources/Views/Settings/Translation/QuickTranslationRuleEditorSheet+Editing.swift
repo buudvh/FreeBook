@@ -184,7 +184,8 @@ extension QuickTranslationRuleEditorSheet {
                         text: $pattern,
                         selectionStart: $selectionStart,
                         selectionLength: $selectionLength,
-                        autoFocus: restoredFocus == .pattern
+                        autoFocus: restoredFocus == .pattern,
+                        keyboardSuggestionMode: .pattern
                     ) { focused in
                         if focused {
                             focusedField = .pattern
@@ -274,7 +275,8 @@ extension QuickTranslationRuleEditorSheet {
                         selectionStart: $replacementSelectionStart,
                         selectionLength: $replacementSelectionLength,
                         autoFocus: restoredFocus == .replacement,
-                        usesMonospacedFont: false
+                        usesMonospacedFont: false,
+                        keyboardSuggestionMode: .replacement(pattern: pattern)
                     ) { focused in
                         if focused {
                             focusedField = .replacement

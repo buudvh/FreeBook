@@ -17,6 +17,9 @@ import UIKit
 ///
 /// `isScrollEnabled = false` + `sizeThatFits` là cách để một `UITextView` tự cao theo nội dung trong
 /// một hàng `Form`; bật scroll là mất chiều cao nội tại và hàng sẽ sập về 0.
+///
+/// Từ 1.3.556 ô là `SuggestingTextView` để cấp **hàng gợi ý token** cho thanh công cụ bàn phím
+/// (`KeyboardSuggestionSource`); `keyboardSuggestionMode == nil` thì thanh vẫn một tầng như mọi ô khác.
 struct QuickTranslationRulePatternField: UIViewRepresentable {
     @Binding var text: String
     /// Con trỏ (`length == 0`) hoặc vùng chọn, theo chỉ số ký tự.
@@ -27,10 +30,13 @@ struct QuickTranslationRulePatternField: UIViewRepresentable {
     /// `var` có giá trị mặc định (không phải `let`) để init memberwise vẫn cấp tham số này — call site
     /// cũ của ô Mẫu không phải sửa gì.
     var usesMonospacedFont: Bool = true
+    /// Không phải closure (dù đứng trước `onFocusChange`) để trailing closure ở call site vẫn khớp đúng `onFocusChange`.
+    var keyboardSuggestionMode: QuickTranslationRuleKeyboardSuggestions.Mode? = nil
     let onFocusChange: (Bool) -> Void
 
-    func makeUIView(context: Context) -> UITextView {
-        let view = UITextView()
+    func makeUIView(context: Context) -> SuggestingTextView {
+        let view = SuggestingTextView()
+        view.suggestionMode = keyboardSuggestionMode
         view.delegate = context.coordinator
         view.isScrollEnabled = false
         view.backgroundColor = .clear
@@ -55,8 +61,10 @@ struct QuickTranslationRulePatternField: UIViewRepresentable {
         return view
     }
 
-    func updateUIView(_ view: UITextView, context: Context) {
+    func updateUIView(_ view: SuggestingTextView, context: Context) {
         context.coordinator.parent = self
+        // Ô Bản dịch: mẫu đổi (bảng token trong form vẫn bấm được khi ô này đang gõ) ⇒ `didSet` báo thanh dựng lại `{i}`.
+        view.suggestionMode = keyboardSuggestionMode
         if view.autocorrectionType != .yes { view.autocorrectionType = .yes }
         if view.spellCheckingType != .yes { view.spellCheckingType = .yes }
         if view.autocapitalizationType != .none { view.autocapitalizationType = .none }
@@ -71,7 +79,7 @@ struct QuickTranslationRulePatternField: UIViewRepresentable {
         }
     }
 
-    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextView, context: Context) -> CGSize? {
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: SuggestingTextView, context: Context) -> CGSize? {
         let width = proposal.width ?? uiView.bounds.width
         guard width > 0 else { return nil }
         let fitted = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
@@ -112,16 +120,19 @@ struct QuickTranslationRulePatternField: UIViewRepresentable {
             self.parent = parent
         }
 
+        // Đổi chữ/con trỏ bằng code (bảng token, dải chip, nút xoá) không qua `report`, nên tự báo hàng gợi ý ở đây.
         func apply(text: String, to view: UITextView) {
             isApplying = true
             view.text = text
             isApplying = false
+            (view as? SuggestingTextView)?.keyboardSuggestionsDidChange?()
         }
 
         func apply(selection: NSRange, to view: UITextView) {
             isApplying = true
             view.selectedRange = selection
             isApplying = false
+            (view as? SuggestingTextView)?.keyboardSuggestionsDidChange?()
         }
 
         func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
@@ -173,6 +184,38 @@ struct QuickTranslationRulePatternField: UIViewRepresentable {
             )
             parent.selectionStart = start
             parent.selectionLength = max(0, end - start)
+            (textView as? SuggestingTextView)?.keyboardSuggestionsDidChange?()
+        }
+    }
+
+    /// `UITextView` biết cấp gợi ý token cho thanh công cụ bàn phím. Gợi ý tính từ chữ + con trỏ **của chính ô** (không
+    /// phải binding SwiftUI), vì thanh hỏi lại ngay trong lượt notification của UIKit, trước khi SwiftUI kịp cập nhật.
+    final class SuggestingTextView: UITextView, KeyboardSuggestionSource {
+        var suggestionMode: QuickTranslationRuleKeyboardSuggestions.Mode? {
+            didSet {
+                if suggestionMode != oldValue {
+                    keyboardSuggestionsDidChange?()
+                }
+            }
+        }
+
+        var keyboardSuggestionsDidChange: (() -> Void)?
+
+        func currentKeyboardSuggestions() -> [KeyboardSuggestion]? {
+            guard let suggestionMode else { return nil }
+            let string = text ?? ""
+            let range = selectedRange
+            let start = QuickTranslationRulePatternField.characterIndex(ofUTF16Offset: range.location, in: string)
+            let end = QuickTranslationRulePatternField.characterIndex(
+                ofUTF16Offset: range.location + range.length,
+                in: string
+            )
+            return QuickTranslationRuleKeyboardSuggestions.suggestions(
+                mode: suggestionMode,
+                text: string,
+                selectionStart: start,
+                selectionLength: max(0, end - start)
+            )
         }
     }
 }

@@ -9,14 +9,20 @@ import UIKit
 ///
 /// Luật nút (đã chốt với người dùng): `aa…AA` định dạng **cả ô**, Sao chép lấy **cả ô**, Xoá xoá **cả ô**, Dán
 /// **chèn tại con trỏ** (đang bôi đen thì thay đoạn đó).
+///
+/// Hàng gợi ý (1.3.556) chỉ có khi ô đang gõ cài `KeyboardSuggestionSource`; chip cũng chèn qua `insertText` như Dán.
 @MainActor
 final class KeyboardTextToolbarModel: ObservableObject {
     @Published private(set) var isEmpty = true
     /// Ẩn nhóm `aa…AA` ở ô tìm kiếm / URL (xem `showsCaseGroup(for:)`).
     @Published private(set) var showsCaseGroup = true
     @Published private(set) var tapOutsideDismisses = KeyboardDismissPreference.tapOutsideDismisses
+    /// Chốt lúc ô **bắt đầu gõ** (`KeyboardTextToolbarInstaller` đổi chiều cao accessory theo cờ này), không đổi giữa chừng.
+    @Published private(set) var showsSuggestionRow = false
+    @Published private(set) var suggestions: [KeyboardSuggestion] = []
 
     private weak var input: (UIView & UITextInput)?
+    private weak var suggestionSource: KeyboardSuggestionSource?
     private var refreshTimer: Timer?
 
     // MARK: - Gắn / gỡ
@@ -25,6 +31,7 @@ final class KeyboardTextToolbarModel: ObservableObject {
         self.input = input
         showsCaseGroup = Self.showsCaseGroup(for: input)
         tapOutsideDismisses = KeyboardDismissPreference.tapOutsideDismisses
+        attachSuggestionSource(input as? KeyboardSuggestionSource)
         refresh()
         startRefreshTimer()
     }
@@ -33,6 +40,39 @@ final class KeyboardTextToolbarModel: ObservableObject {
         guard self.input === input else { return }
         refreshTimer?.invalidate()
         refreshTimer = nil
+        // Không xoá `suggestions` ở đây: accessory còn hiện trong lúc bàn phím trượt xuống, ô kế tiếp tự đặt lại.
+        suggestionSource?.keyboardSuggestionsDidChange = nil
+        suggestionSource = nil
+    }
+
+    /// Một accessory dùng chung cho mọi ô ⇒ ô **không** có gợi ý cũng phải đặt lại hàng về ẩn, nếu không nó giữ chip của
+    /// ô rule vừa gõ trước đó.
+    private func attachSuggestionSource(_ source: KeyboardSuggestionSource?) {
+        if suggestionSource !== source {
+            suggestionSource?.keyboardSuggestionsDidChange = nil
+        }
+        suggestionSource = source
+        // Ô có thể báo ngay trong `updateUIView` (bảng token / nút ✕ trong form đổi chữ khi bàn phím đang mở) — publish
+        // lúc SwiftUI đang cập nhật view là hành vi không xác định ⇒ dời sang lượt runloop sau. Guard của
+        // `refreshSuggestions` làm lượt muộn vô hại nếu ô đã thôi gõ.
+        source?.keyboardSuggestionsDidChange = { [weak self] in
+            DispatchQueue.main.async { [weak self] in
+                self?.refreshSuggestions()
+            }
+        }
+        let initial = source?.currentKeyboardSuggestions()
+        showsSuggestionRow = initial != nil
+        suggestions = initial ?? []
+    }
+
+    /// Ô báo lên qua `keyboardSuggestionsDidChange` mỗi lần chữ/con trỏ đổi, nên không cần timer 0,5 s của `refresh()`
+    /// (với ô Bản dịch rule, mỗi lượt là một lần phân tích lại mẫu).
+    private func refreshSuggestions() {
+        guard showsSuggestionRow, let suggestionSource else { return }
+        let next = suggestionSource.currentKeyboardSuggestions() ?? []
+        if next != suggestions {
+            suggestions = next
+        }
     }
 
     /// Đọc lại `isEmpty`. Đổi chữ bằng code (nút ↺, chip token của rule, binding SwiftUI) **không** bắn
@@ -94,6 +134,23 @@ final class KeyboardTextToolbarModel: ObservableObject {
             guard !clip.isEmpty else { return }
         }
         input.insertText(clip)
+        refresh()
+    }
+
+    /// Chèn chip gợi ý tại con trỏ / thay vùng đang bôi đen. Có `replacingPrefix` (phần gõ dở như `<h`) thì chọn lùi đúng
+    /// đoạn đó rồi mới chèn — chỉ khi chữ trên ô còn khớp, lệch thì chèn tại con trỏ như chip thường.
+    func applySuggestion(_ suggestion: KeyboardSuggestion) {
+        guard let input else { return }
+        commitMarkedText(input)
+        let prefix = suggestion.replacingPrefix
+        if !prefix.isEmpty,
+           let selected = input.selectedTextRange, selected.isEmpty,
+           let start = input.position(from: selected.start, offset: -prefix.utf16.count),
+           let range = input.textRange(from: start, to: selected.start),
+           input.text(in: range) == prefix {
+            input.selectedTextRange = range
+        }
+        input.insertText(suggestion.text)
         refresh()
     }
 

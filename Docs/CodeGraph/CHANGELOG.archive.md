@@ -2,6 +2,23 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.526] - 2026-10-14
+
+### fix: quet ten rieng Gemini Web khong tao chat moi moi batch khi luot bi timeout, badge so thong bao dung goc chuong
+
+**1. Quét tên riêng: mỗi batch một chat trên Gemini** — người dùng: *"bật lưu lịch sử gemini thì để tất cả chung 1 chat … bây giờ tôi test lọc name nhiều chương thì nó tạo mỗi batch 1 chat"* (log `app_logs (106)`).
+- **Nguyên nhân (từ log)**: gần như mọi lượt quét kết thúc bằng `StreamGenerate lỗi sau ~51 s, chunk=1: … không phản hồi kịp thời gian chờ` (13/10 và 14/10, lượt 1/2, 1/7, 1/8, 1/10…). Gemini nhận prompt ~40.000 ký tự, gửi **một** gói đầu (có cid — cuộc chat đã được tạo trên web) rồi nghĩ lâu hơn ngưỡng im lặng 45 s ⇒ app huỷ lượt **và vứt luôn metadata** vì `consumeGeneration` chỉ trả metadata khi xong ⇒ lượt sau không có cid để nối tiếp ⇒ mở cuộc chat mới. Kết quả: chat mới trên web mỗi batch, còn trong app lượt đó tính là lỗi.
+- **Giữ cid khi lượt lỗi**: `GeminiWebClient.streamGeneration(onMetadata:)` báo metadata ngay khi Google gửi; `runConversationTurn` ghi nhớ cuộc chat qua `rememberPartial` khi lượt timeout/bị huỷ (cả nhánh nối tiếp lẫn nhánh mở mới). `DeltaFlag` gộp thành `TurnObservation` (cờ đã phát chữ + metadata mới nhất).
+- **Chờ lâu hơn cho lượt quét**: `idleTimeout` 150 s cho lượt quét Gemini Web (`AINameExtractionBatchProcessor.geminiWebIdleTimeout`, cả nhánh nối tiếp lẫn chat tạm); chat thường giữ 45 s; trần tuyệt đối 240 s không đổi. Tham số `idleTimeout` của hàm `public` là optional (`nil` = mặc định) vì giá trị mặc định của hàm `public` không được tham chiếu hằng `internal`.
+- `rules.md` mục Gemini Web: thêm luật "lượt lỗi giữa chừng vẫn giữ cid".
+
+**2. Badge số thông báo** — người dùng gửi ảnh chuông Kệ sách: *"vị trí hiển thị số thông báo chưa đẹp"* (badge đỏ đè thân chuông, cạnh chấm trắng có sẵn của icon).
+- `ShelfView`: `bell.badge.fill` → `bell.fill` (bỏ chấm có sẵn — hai badge chồng nhau; chấm của icon vẽ tràn khung nên neo theo khung làm badge số rơi vào thân chuông). Badge tối thiểu 16×16 (1 chữ số tròn), tâm ở góc trên-phải chuông lùi 2pt, số dài mọc sang phải, viền 1,5pt màu nền tách khỏi nét chuông.
+- Hub (`FloatingHubItem.systemImage`): mục Thông báo cũng `bell.fill`/`bell` vì nút hub đã có chấm/số đỏ riêng.
+
+- Chuyển entry `[1.3.496]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + log thật; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. Không build tại chỗ (Windows), cần CI; cần thử lại quét trên máy (bật log trong Cài đặt để thấy dòng "Lượt lỗi … nhưng đã có cid").
+
 ## [1.3.525] - 2026-10-14
 
 ### feat(hub): cham hub dang nep co tu 2 muc thi mo menu ngay

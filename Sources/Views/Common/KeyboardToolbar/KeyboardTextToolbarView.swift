@@ -6,10 +6,25 @@ import SwiftUI
 ///
 /// Nút đóng bàn phím là `Menu(primaryAction:)`: **chạm** = đóng bàn phím, **giữ** = menu chọn cách tắt khi chạm ra
 /// ngoài ô nhập (cùng tuỳ chọn với Cài đặt → Bàn phím & ô nhập).
+///
+/// Ô cài `KeyboardSuggestionSource` (ô Mẫu / Bản dịch của màn thêm rule) có thêm `KeyboardSuggestionRowView` nằm **trên**
+/// thanh này; các ô khác vẫn một tầng.
 struct KeyboardTextToolbarView: View {
+    /// Chiều cao của riêng thanh nút (không tính hàng gợi ý).
+    static let toolbarHeight: CGFloat = 46
+
     @ObservedObject var model: KeyboardTextToolbarModel
 
     var body: some View {
+        VStack(spacing: 0) {
+            if model.showsSuggestionRow {
+                KeyboardSuggestionRowView(suggestions: model.suggestions) { model.applySuggestion($0) }
+            }
+            toolbarRow
+        }
+    }
+
+    private var toolbarRow: some View {
         HStack(spacing: 8) {
             dismissButton
 
@@ -39,7 +54,7 @@ struct KeyboardTextToolbarView: View {
         .overlay(Capsule(style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
         .padding(.horizontal, 6)
         .padding(.vertical, 2)
-        .frame(maxWidth: .infinity, minHeight: 46, maxHeight: 46)
+        .frame(maxWidth: .infinity, minHeight: Self.toolbarHeight, maxHeight: Self.toolbarHeight)
     }
 
     // MARK: - Nút đóng bàn phím

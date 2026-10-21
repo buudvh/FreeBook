@@ -26,6 +26,7 @@ final class KeyboardTextToolbarInstaller: NSObject {
     private let model = KeyboardTextToolbarModel()
     private var hostingController: UIHostingController<KeyboardTextToolbarView>?
     private var accessoryView: UIInputView?
+    private var heightConstraint: NSLayoutConstraint?
     private var isObserving = false
     private var loggedClasses = Set<String>()
 
@@ -54,10 +55,12 @@ final class KeyboardTextToolbarInstaller: NSObject {
 
     // MARK: - Notification
 
+    // `model.attach` đi **trước** `attachAccessory`: chiều cao accessory tuỳ ô có hàng gợi ý hay không, và phải đặt xong
+    // trước `reloadInputViews()` ở cuối `attachAccessory`.
     @objc private func textFieldDidBeginEditing(_ notification: Notification) {
         guard let field = notification.object as? UITextField, !field.isSecureTextEntry else { return }
-        attachAccessory(to: field, current: field.inputAccessoryView) { field.inputAccessoryView = $0 }
         model.attach(to: field)
+        attachAccessory(to: field, current: field.inputAccessoryView) { field.inputAccessoryView = $0 }
     }
 
     @objc private func textViewDidBeginEditing(_ notification: Notification) {
@@ -65,8 +68,8 @@ final class KeyboardTextToolbarInstaller: NSObject {
               textView.isEditable,
               !textView.isSecureTextEntry,
               !(textView is CodeEditorTextView) else { return }
-        attachAccessory(to: textView, current: textView.inputAccessoryView) { textView.inputAccessoryView = $0 }
         model.attach(to: textView)
+        attachAccessory(to: textView, current: textView.inputAccessoryView) { textView.inputAccessoryView = $0 }
     }
 
     @objc private func textFieldDidEndEditing(_ notification: Notification) {
@@ -90,6 +93,7 @@ final class KeyboardTextToolbarInstaller: NSObject {
     /// accessory của nó ở lượt cập nhật sau dù lần gán đầu có ăn.
     private func attachAccessory(to input: UIView, current: UIView?, assign: (UIView) -> Void) {
         let accessory = sharedAccessoryView()
+        updateAccessoryHeight()
         guard let cls = object_getClass(input) else { return }
         var method = "đã gắn sẵn"
         if KeyboardAccessoryOverride.isPatched(input) {
@@ -132,20 +136,33 @@ final class KeyboardTextToolbarInstaller: NSObject {
         host.safeAreaRegions = []
 
         let width = UIScreen.main.bounds.width
-        let container = UIInputView(frame: CGRect(x: 0, y: 0, width: width, height: 46), inputViewStyle: .keyboard)
+        let baseHeight = KeyboardTextToolbarView.toolbarHeight
+        let container = UIInputView(frame: CGRect(x: 0, y: 0, width: width, height: baseHeight), inputViewStyle: .keyboard)
         container.allowsSelfSizing = true
         host.view.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(host.view)
+        let height = host.view.heightAnchor.constraint(equalToConstant: baseHeight)
         NSLayoutConstraint.activate([
             host.view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             host.view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             host.view.topAnchor.constraint(equalTo: container.topAnchor),
             host.view.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-            host.view.heightAnchor.constraint(equalToConstant: 46)
+            height
         ])
 
         hostingController = host
         accessoryView = container
+        heightConstraint = height
         return container
+    }
+
+    /// Thanh một tầng (46pt) hay thêm hàng gợi ý, theo `model.showsSuggestionRow` của ô vừa gắn. Chỉ gọi lúc bắt đầu gõ,
+    /// trước `reloadInputViews()` — đổi giữa chừng là bàn phím nhảy.
+    private func updateAccessoryHeight() {
+        let height = KeyboardTextToolbarView.toolbarHeight
+            + (model.showsSuggestionRow ? KeyboardSuggestionRowView.height : 0)
+        guard let heightConstraint, heightConstraint.constant != height else { return }
+        heightConstraint.constant = height
+        accessoryView?.frame.size.height = height
     }
 }

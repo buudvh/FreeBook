@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.556] - 2026-10-21
+
+### feat: thanh gợi ý token trên bàn phím ở màn thêm rule dịch
+
+Người dùng: *"thêm thanh gợi ý nhập các loại token vào phần nhập vế trái … token nghĩa vào phần nhập vế phải thêm rule dịch"*, *"ý tôi là thêm thanh gợi ý vào bàn phím"*; duyệt mockup bản gọn (*"token 1 hàng thôi"*) rồi duyệt plan.
+
+- **Thanh công cụ bàn phím chung có thêm hàng gợi ý tuỳ chọn** nằm trên hàng `aa…AA` · xoá · sao chép · dán. Ô nhập nào cài `KeyboardSuggestionSource` (mới, `KeyboardSuggestion.swift`) thì có hàng; mọi ô khác vẫn một tầng. Hàng (`KeyboardSuggestionRowView`, mới) là một dòng chip cuộn ngang, mép phải mờ dần. `KeyboardTextToolbarInstaller` đổi chiều cao accessory 46 ↔ 82pt lúc ô **bắt đầu gõ** (model gắn trước, rồi mới `reloadInputViews()`), không đổi giữa chừng. Bấm chip ⇒ `KeyboardTextToolbarModel.applySuggestion` chèn qua `UITextInput.insertText` như Dán, nên binding, con trỏ và hoàn tác đi đúng đường gõ tay; đang bôi đen thì thay đoạn đó.
+- **Ô Mẫu** (vế trái): đủ 13 token theo thứ tự nhóm của bảng token, rồi `( | ) )?`; token đang tắt ở Cấu hình token rule hiện mờ. **Ô Bản dịch** (vế phải): `{0} {1}…` theo token của mẫu, đã dùng có ✓, chưa dùng đỏ; mẫu chưa có token thì không có hàng.
+- **Lọc theo phần gõ dở**: sát trước con trỏ là `<h` (hoặc `{1`) thì chỉ còn chip khớp và chip thay luôn đoạn gõ dở; không khớp thì hiện đủ. Bỏ qua `\<` (escape) và lúc con trỏ nằm giữa một token đã viết xong. Logic ở `QuickTranslationRuleKeyboardSuggestions` (mới); `QuickTranslationRulePatternField` dùng `SuggestingTextView` (lớp con `UITextView`) và tham số `keyboardSuggestionMode`.
+- `QuickTranslationRuleTokenPaletteView`: danh sách token, cú pháp nhóm và nhãn chuyển từ `private` sang `internal` để hàng gợi ý dùng lại, không chép. Bảng token và dải `{i}` trong form giữ nguyên.
+- Chuyển entry `[1.3.526]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
+
 ## [1.3.555] - 2026-10-20
 
 ### feat: đưa lại nút xoá, sao chép, dán cạnh ô nhập, thêm nút viết hoa
@@ -601,20 +614,3 @@ Người dùng: *"vẫn không cùng chat, thêm nút thử lại các batch l�
 - Code: vòng gửi dùng chung `AINameExtractionBatchProcessor.runTurns` (quét chính / tự thử lại / nút); `AINameScanFailedBatch` (mới); `AINameScanProgress.isRetry`; `AIRuntimeCoordinator+NameScanRetry.swift` (mới). `rules.md` mục Reader AI + Gemini Web.
 - Chuyển entry `[1.3.497]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 vi phạm nền cũ, 0 mới (`GeminiWebSessionController.swift` 399/400). Không build tại chỗ (Windows), cần CI. Nguyên nhân gốc của tách chat vẫn **UNKNOWN** tới khi có log ❌ của bản này.
-
-## [1.3.526] - 2026-10-14
-
-### fix: quet ten rieng Gemini Web khong tao chat moi moi batch khi luot bi timeout, badge so thong bao dung goc chuong
-
-**1. Quét tên riêng: mỗi batch một chat trên Gemini** — người dùng: *"bật lưu lịch sử gemini thì để tất cả chung 1 chat … bây giờ tôi test lọc name nhiều chương thì nó tạo mỗi batch 1 chat"* (log `app_logs (106)`).
-- **Nguyên nhân (từ log)**: gần như mọi lượt quét kết thúc bằng `StreamGenerate lỗi sau ~51 s, chunk=1: … không phản hồi kịp thời gian chờ` (13/10 và 14/10, lượt 1/2, 1/7, 1/8, 1/10…). Gemini nhận prompt ~40.000 ký tự, gửi **một** gói đầu (có cid — cuộc chat đã được tạo trên web) rồi nghĩ lâu hơn ngưỡng im lặng 45 s ⇒ app huỷ lượt **và vứt luôn metadata** vì `consumeGeneration` chỉ trả metadata khi xong ⇒ lượt sau không có cid để nối tiếp ⇒ mở cuộc chat mới. Kết quả: chat mới trên web mỗi batch, còn trong app lượt đó tính là lỗi.
-- **Giữ cid khi lượt lỗi**: `GeminiWebClient.streamGeneration(onMetadata:)` báo metadata ngay khi Google gửi; `runConversationTurn` ghi nhớ cuộc chat qua `rememberPartial` khi lượt timeout/bị huỷ (cả nhánh nối tiếp lẫn nhánh mở mới). `DeltaFlag` gộp thành `TurnObservation` (cờ đã phát chữ + metadata mới nhất).
-- **Chờ lâu hơn cho lượt quét**: `idleTimeout` 150 s cho lượt quét Gemini Web (`AINameExtractionBatchProcessor.geminiWebIdleTimeout`, cả nhánh nối tiếp lẫn chat tạm); chat thường giữ 45 s; trần tuyệt đối 240 s không đổi. Tham số `idleTimeout` của hàm `public` là optional (`nil` = mặc định) vì giá trị mặc định của hàm `public` không được tham chiếu hằng `internal`.
-- `rules.md` mục Gemini Web: thêm luật "lượt lỗi giữa chừng vẫn giữ cid".
-
-**2. Badge số thông báo** — người dùng gửi ảnh chuông Kệ sách: *"vị trí hiển thị số thông báo chưa đẹp"* (badge đỏ đè thân chuông, cạnh chấm trắng có sẵn của icon).
-- `ShelfView`: `bell.badge.fill` → `bell.fill` (bỏ chấm có sẵn — hai badge chồng nhau; chấm của icon vẽ tràn khung nên neo theo khung làm badge số rơi vào thân chuông). Badge tối thiểu 16×16 (1 chữ số tròn), tâm ở góc trên-phải chuông lùi 2pt, số dài mọc sang phải, viền 1,5pt màu nền tách khỏi nét chuông.
-- Hub (`FloatingHubItem.systemImage`): mục Thông báo cũng `bell.fill`/`bell` vì nút hub đã có chấm/số đỏ riêng.
-
-- Chuyển entry `[1.3.496]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code + log thật; `check_architecture.py` 2 vi phạm nền cũ, 0 mới. Không build tại chỗ (Windows), cần CI; cần thử lại quét trên máy (bật log trong Cài đặt để thấy dòng "Lượt lỗi … nhưng đã có cid").

@@ -20,12 +20,15 @@ struct QuickTranslationRuleTokenPaletteView: View {
     let onInsert: (String) -> Void
 
     /// Cú pháp nhóm: `(a|b)` và `(a|b)?`. Nhóm không được đánh số nên không có `{i}` cho nó.
-    private static let groupSyntax = ["(", "|", ")", ")?"]
+    ///
+    /// Danh sách, cách chia nhóm và nhãn ở file này là `internal` vì hàng gợi ý trên bàn phím
+    /// (`QuickTranslationRuleKeyboardSuggestions`) dùng lại y nguyên — hai chỗ không được nói khác nhau.
+    static let groupSyntax = ["(", "|", ")", ")?"]
 
     /// Hai nhóm token theo đúng cách chia của màn Cấu hình token rule (`Kind.isNumeralGroup`), để hai
     /// chỗ không phân nhóm khác nhau.
-    private static let numeralKinds = QuickTranslationRuleTokenSettings.Kind.allCases.filter(\.isNumeralGroup)
-    private static let dictionaryKinds = QuickTranslationRuleTokenSettings.Kind.allCases.filter { !$0.isNumeralGroup }
+    static let numeralKinds = QuickTranslationRuleTokenSettings.Kind.allCases.filter(\.isNumeralGroup)
+    static let dictionaryKinds = QuickTranslationRuleTokenSettings.Kind.allCases.filter { !$0.isNumeralGroup }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -36,7 +39,7 @@ struct QuickTranslationRuleTokenPaletteView: View {
                 caption("Nhóm")
                 FlowLayout(spacing: 6) {
                     ForEach(Self.groupSyntax, id: \.self) { syntax in
-                        plainButton(syntax, caption: caption(forGroup: syntax)) {
+                        plainButton(syntax, caption: Self.caption(forGroup: syntax)) {
                             onInsert(syntax)
                         }
                     }
@@ -107,7 +110,7 @@ struct QuickTranslationRuleTokenPaletteView: View {
     }
 
     /// Nhãn ngắn lấy đúng chữ của màn Cấu hình token rule để hai chỗ không nói khác nhau.
-    private static func caption(for kind: QuickTranslationRuleTokenSettings.Kind) -> String {
+    static func caption(for kind: QuickTranslationRuleTokenSettings.Kind) -> String {
         switch kind {
         case .numeral: return "số"
         case .digitwise: return "từng chữ số"
@@ -125,7 +128,7 @@ struct QuickTranslationRuleTokenPaletteView: View {
         }
     }
 
-    private func caption(forGroup syntax: String) -> String {
+    static func caption(forGroup syntax: String) -> String {
         switch syntax {
         case "(": return "mở nhóm"
         case "|": return "hoặc"

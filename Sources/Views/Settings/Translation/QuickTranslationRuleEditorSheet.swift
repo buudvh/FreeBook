@@ -23,6 +23,9 @@ import SwiftUI
 /// Từ 1.3.336 vế phải có **đúng cơ chế đó**: ô Bản dịch cũng là `QuickTranslationRulePatternField`
 /// (khác font) với cặp `replacementSelectionStart`/`replacementSelectionLength` riêng, nên chip `{i}`
 /// chèn tại con trỏ thay vì nối vào cuối chuỗi.
+///
+/// Từ 1.3.556 cả hai ô còn có **hàng gợi ý token trên bàn phím** (`QuickTranslationRuleKeyboardSuggestions`). Chip ở đó
+/// chèn qua `UITextInput` như gõ phím, nên chữ và vùng chọn về lại các `@State` trên bằng đúng đường của ô nhập.
 struct QuickTranslationRuleEditorSheet: View {
     /// `Identifiable` để màn danh sách mở sheet bằng `.sheet(item:)` — mở theo *dữ liệu* thì không có
     /// khoảng thời gian sheet đã hiện mà state còn rỗng như cách `isPresented` + biến phụ.
