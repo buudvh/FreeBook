@@ -10,7 +10,13 @@ import Foundation
 /// vì payload động là chỗ dễ nhất để một field chưa redact lọt qua.
 public enum ExtensionDebugProtocol {
     public static let subprotocol = "freebook-extdebug.v1"
-    public static let version = 1
+    /// v2 (nguồn Legado): thêm lệnh `legado.*`, mã `BUSY` và field `packageIds`/`allEnabled`/`limit`/
+    /// `includeSources`/`legadoCorpus`/`legadoSources`. Mọi lệnh cũ giữ nguyên shape nên server vẫn nhận envelope
+    /// v1 (client cũ chạy tiếp như trước); chỉ lệnh `legado.*` đòi `version >= legadoCommandsMinimumVersion`.
+    public static let version = 2
+    public static let minimumSupportedVersion = 1
+    public static let legadoCommandsMinimumVersion = 2
+    public static var supportedVersions: ClosedRange<Int> { minimumSupportedVersion...version }
     /// Trần một message; lớn hơn thì đóng kết nối. Client chỉ gửi lệnh nhỏ, trừ chunk source ở Phase 3.
     public static let maxIncomingMessageBytes = 512 * 1024
 
@@ -27,6 +33,11 @@ public enum ExtensionDebugProtocol {
         case draftDiscard = "draft.discard"
         case draftInstall = "draft.install"
         case draftRollback = "draft.rollback"
+        // v2 — nghiệm thu nguồn Legado (`ExtensionDebugCommandRouter+Legado`).
+        case legadoSources = "legado.sources"
+        case legadoCorpusStart = "legado.corpus.start"
+        case legadoCorpusStatus = "legado.corpus.status"
+        case legadoCorpusCancel = "legado.corpus.cancel"
     }
 
     /// Mã lỗi cố định — client dựa vào mã, không dựa vào câu chữ tiếng Việt.
@@ -40,6 +51,8 @@ public enum ExtensionDebugProtocol {
         case draftInvalid = "DRAFT_INVALID"
         case draftMissing = "DRAFT_MISSING"
         case approvalRequired = "APPROVAL_REQUIRED"
+        /// v2: đang có một lượt nghiệm thu Legado chạy.
+        case busy = "BUSY"
         case internalError = "INTERNAL_ERROR"
     }
 
@@ -92,6 +105,13 @@ public enum ExtensionDebugProtocol {
         // hello reply
         public var appVersion: String?
         public var contractVersion: Int?
+        // v2 — legado.corpus.start (+ `keyword` ở trên) / legado.corpus.status / legado.sources
+        public var packageIds: [String]?
+        public var allEnabled: Bool?
+        public var limit: Int?
+        public var includeSources: Bool?
+        public var legadoCorpus: LegadoCorpusReport?
+        public var legadoSources: [LegadoCorpusSourceInfo]?
 
         public init() {}
     }

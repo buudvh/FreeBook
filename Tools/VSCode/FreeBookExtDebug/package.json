@@ -1,7 +1,7 @@
 {
   "name": "freebook-extdebug",
   "displayName": "FreeBook Extension Debug",
-  "description": "Chạy execute(...) của VBook extension trên app FreeBook đang mở trên iPhone/iPad cùng mạng LAN, và xem trace console/fetch/exception ngay trong VS Code.",
+  "description": "Chạy execute(...) của tiện ích JavaScript trên app FreeBook đang mở trên iPhone/iPad cùng mạng LAN, và xem trace console/fetch/exception ngay trong VS Code.",
   "version": "0.1.0",
   "publisher": "freebook",
   "private": true,
@@ -49,7 +49,10 @@
       { "command": "freebook.extdebug.browseFolder", "title": "FreeBook: Browse Extension Folder…", "category": "FreeBook" },
       { "command": "freebook.extdebug.refreshWorkspace", "title": "FreeBook: Refresh Workspace Extensions", "category": "FreeBook" },
       { "command": "freebook.extdebug.cancelRun", "title": "FreeBook: Cancel Current Run", "category": "FreeBook" },
-      { "command": "freebook.extdebug.openTrace", "title": "FreeBook: Open Trace", "category": "FreeBook" }
+      { "command": "freebook.extdebug.openTrace", "title": "FreeBook: Open Trace", "category": "FreeBook" },
+      { "command": "freebook.extdebug.legadoCorpusRun", "title": "FreeBook: Chạy nghiệm thu nguồn Legado", "category": "FreeBook" },
+      { "command": "freebook.extdebug.legadoCorpusReport", "title": "FreeBook: Xem kết quả nghiệm thu nguồn Legado", "category": "FreeBook" },
+      { "command": "freebook.extdebug.legadoCorpusCancel", "title": "FreeBook: Huỷ nghiệm thu nguồn Legado", "category": "FreeBook" }
     ],
     "configuration": {
       "title": "FreeBook Extension Debug",

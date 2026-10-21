@@ -8,7 +8,7 @@ extension SourceRuntime {
         do {
             return try LegadoSourceTargetResolver.shared.target(localPath: localPath)
         } catch {
-            AppLogger.shared.log("❌ [SourceRuntime][Legado] \(URL(fileURLWithPath: localPath).lastPathComponent): \(error.localizedDescription)")
+            AppLogger.shared.log("❌ [SourceRuntime][Legado] \(URL(fileURLWithPath: localPath).lastPathComponent): \(LegadoCorpusErrorClassifier.redact(error.localizedDescription))")
             throw error
         }
     }
@@ -23,7 +23,8 @@ extension SourceRuntime {
             if !(error is CancellationError) {
                 let category = LegadoRuntimeError.categoryName(of: error)
                 let marker = action == "search" ? "" : "❌ "
-                AppLogger.shared.log("\(marker)[SourceRuntime][Legado] \(action) lỗi (\(category)): \(error.localizedDescription)")
+                // Thông điệp lỗi có thể chứa URL kèm query (token phiên…) ⇒ redact trước khi ghi file.
+                AppLogger.shared.log("\(marker)[SourceRuntime][Legado] \(action) lỗi (\(category)): \(LegadoCorpusErrorClassifier.redact(error.localizedDescription))")
             }
             throw error
         }

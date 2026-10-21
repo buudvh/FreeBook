@@ -7,7 +7,14 @@
  */
 
 export const SUBPROTOCOL = 'freebook-extdebug.v1';
-export const PROTOCOL_VERSION = 1;
+/**
+ * v2 thêm lệnh `legado.*` (nghiệm thu nguồn Legado). App v2 vẫn nhận envelope v1 cho mọi lệnh cũ; app cũ chỉ nhận
+ * đúng v1, nên client hạ xuống `MIN_PROTOCOL_VERSION` khi `hello` bị trả `UNSUPPORTED_VERSION` (xem `client.ts`).
+ */
+export const PROTOCOL_VERSION = 2;
+export const MIN_PROTOCOL_VERSION = 1;
+/** Lệnh `legado.*` chỉ có ở app nhận protocol v2. */
+export const LEGADO_MIN_PROTOCOL_VERSION = 2;
 
 export type CommandType =
   | 'hello'
@@ -21,7 +28,11 @@ export type CommandType =
   | 'draft.finish'
   | 'draft.discard'
   | 'draft.install'
-  | 'draft.rollback';
+  | 'draft.rollback'
+  | 'legado.sources'
+  | 'legado.corpus.start'
+  | 'legado.corpus.status'
+  | 'legado.corpus.cancel';
 
 export type EventCategory =
   | 'runStarted'
@@ -90,6 +101,86 @@ export interface DraftManifest {
   entries: DraftManifestEntry[];
 }
 
+/** Mirror `LegadoCorpusReport` (Swift, `Sources/Services/LegadoSource/Diagnostics/`). */
+export type LegadoCorpusStep = 'search' | 'explore' | 'detail' | 'toc' | 'content';
+export type LegadoCorpusFailureClass =
+  | 'unsupportedSyntax'
+  | 'http'
+  | 'noMatch'
+  | 'timeout'
+  | 'javaScript'
+  | 'network'
+  | 'invalidSource'
+  | 'other';
+export type LegadoCorpusOutcome = 'passed' | 'failed' | 'skipped' | 'cancelled';
+export type LegadoCorpusState = 'running' | 'finished' | 'cancelled';
+
+export interface LegadoCorpusStepRecord {
+  step: LegadoCorpusStep;
+  durationMs: number;
+  /** Số mục (tìm/khám phá/mục lục), 1/0 (chi tiết có tên), số ký tự (nội dung chương). */
+  count: number;
+  ok: boolean;
+}
+
+export interface LegadoCorpusSourceResult {
+  packageId: string;
+  name: string;
+  outcome: LegadoCorpusOutcome;
+  /** `keyword` | `explore` | `catalogExplore` | `bookUrl` | `tocUrl` | `contentUrl` | `-` */
+  entry: string;
+  /** Từ khoá hoặc URL lối vào (URL đã redact). */
+  query: string;
+  lastPassedStep?: LegadoCorpusStep;
+  failedStep?: LegadoCorpusStep;
+  failureClass?: LegadoCorpusFailureClass;
+  httpStatus?: number;
+  message?: string;
+  durationMs: number;
+  steps: LegadoCorpusStepRecord[];
+  unsupportedHints: string[];
+  abandonedSteps: number;
+}
+
+export interface LegadoCorpusReport {
+  schemaVersion: number;
+  runId: string;
+  state: LegadoCorpusState;
+  /** ISO 8601. */
+  startedAt: string;
+  finishedAt?: string;
+  selection: 'allEnabled' | 'packageIds';
+  defaultKeyword: string;
+  totalSources: number;
+  completed: number;
+  /** Mẫu số của tỉ lệ qua = passed + failed (không gồm bỏ qua / huỷ dở). */
+  attempted: number;
+  passed: number;
+  skipped: number;
+  cancelledSources: number;
+  passPercent: number;
+  byFailureClass: Record<string, number>;
+  byLastPassedStep: Record<string, number>;
+  byFailedStep: Record<string, number>;
+  httpStatusCounts: Record<string, number>;
+  unsupportedHintCounts: Record<string, number>;
+  abandonedSteps: number;
+  inFlight: string[];
+  /** Tương đối so với `applicationSupport` của app (vd `legado_reports/20261021-153000.json`). */
+  reportPath?: string;
+  /** Chỉ có khi `legado.corpus.status` gửi `includeSources: true`. */
+  sources?: LegadoCorpusSourceResult[];
+}
+
+/** Mirror `LegadoCorpusSourceInfo` — nguồn Legado chữ đã cài (`legado.sources`). */
+export interface LegadoSourceInfo {
+  packageId: string;
+  name: string;
+  enabled: boolean;
+  hasSearchRules: boolean;
+  hasExploreRules: boolean;
+}
+
 export interface Payload {
   clientName?: string;
   extensions?: ExtensionInfo[];
@@ -116,6 +207,13 @@ export interface Payload {
   message?: string;
   appVersion?: string;
   contractVersion?: number;
+  // v2 — legado.corpus.start (+ `keyword`) / legado.corpus.status / legado.sources
+  packageIds?: string[];
+  allEnabled?: boolean;
+  limit?: number;
+  includeSources?: boolean;
+  legadoCorpus?: LegadoCorpusReport;
+  legadoSources?: LegadoSourceInfo[];
 }
 
 export interface Envelope {

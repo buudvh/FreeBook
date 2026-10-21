@@ -13,7 +13,9 @@ import Foundation
 /// Thêm `case` vào `Category` là đổi contract ⇒ phải nâng version của giao thức, không thêm im lặng.
 public struct ExtensionDebugEvent: Codable, Identifiable, Sendable, Equatable {
     /// Version của contract event. Đi kèm mọi event để client Phase 2 từ chối bản không hiểu.
-    public static let contractVersion = 1
+    /// 2: nâng cùng `ExtensionDebugProtocol.version` khi thêm lệnh `legado.*` (rules.md, debug server 1.3.303) —
+    /// shape của event không đổi.
+    public static let contractVersion = 2
 
     public enum Level: String, Codable, Sendable {
         case debug

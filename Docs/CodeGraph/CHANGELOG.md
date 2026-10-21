@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.562] - 2026-10-21
+
+### feat: bộ chạy nghiệm thu nguồn Legado qua Debug server
+
+Bước 13 của đợt 1 plan "nguồn truyện Legado — viết mới theo đặc tả": đo tỉ lệ nguồn chạy trọn chuỗi để chốt cổng đợt 1 (bộ 1316 nguồn chữ ≥ 55%). Không có UI trong app.
+
+- **`LegadoCorpusRunner`** (`Sources/Services/LegadoSource/Diagnostics/`, 11 file mới): với mỗi nguồn Legado **đã cài** được chọn — tìm (từ khoá `ruleSearch.checkKeyWord`, thiếu thì mặc định; nguồn không có rule tìm thì đi Khám phá qua `genre`) → kết quả đầu → chi tiết → mục lục → nội dung chương đầu, **qua facade `SourceRuntime`** (đúng đường app chạy thật). Song song tối đa 4; trần mỗi bước (tìm/khám phá/chi tiết 60 s, mục lục 300 s, nội dung 120 s); huỷ được. Trạng thái truyện dùng `bookId = "corpus-runner:<packageId>"` nên không đụng sách thật, không sinh sidecar.
+- **Phân loại lỗi** (`LegadoCorpusErrorClassifier`): cú pháp chưa hỗ trợ / HTTP (kèm mã) / rule khớp 0 / quá thời gian / mạng / JS / nguồn hỏng / khác. Thông điệp đã redact (giá trị query thành `…`, khối option `,{…}` và URL JS bị che, cắt 300 ký tự), không chứa nội dung chương, header, cookie.
+- **Báo cáo** JSON ở `applicationSupport/legado_reports/<thời điểm>.json` (`validatePathSafety`): tổng nguồn, số qua trọn chuỗi, %, đếm theo lớp lỗi và theo bước, chi tiết từng nguồn; một dòng tóm tắt qua `AppLogger` (không gắn `❌`).
+- **Debug server — contract v2**: lệnh mới `legado.sources`, `legado.corpus.start` (đầu vào chỉ là danh sách `packageId` **hoặc** "tất cả nguồn Legado đang bật", từ khoá, giới hạn — không nhận URL/đường dẫn/JS), `legado.corpus.status`, `legado.corpus.cancel`; mã lỗi `BUSY`. `ExtensionDebugProtocol.version` 1 → 2 và `ExtensionDebugEvent.contractVersion` 1 → 2 (shape event không đổi); server vẫn nhận envelope v1 nên client cũ chạy như trước, chỉ lệnh `legado.*` đòi v2. Logic ở `ExtensionDebugCommandRouter+Legado.swift` (mới); router gốc chỉ thêm `case`. Không qua `ExtensionDebugInstallGate`: lệnh không ghi thư viện/sách/cài đặt.
+- `extensions.list` không còn liệt kê nguồn Legado; `run.start` với nguồn Legado trả `UNKNOWN_ENTRYPOINT` kèm hướng dẫn (không cố chạy `search.js` không tồn tại).
+- **Client VS Code** (`Tools/VSCode/FreeBookExtDebug`): mirror `protocol.ts`; 3 lệnh Command Palette chạy / xem tiến độ / huỷ nghiệm thu (`legadoCorpus.ts` mới, `client.ts`, `extension.ts`, `package.json`); client mới gặp app cũ tự hạ về v1. Mô tả gói bỏ tên nền tảng cũ.
+- **Log facade**: thông điệp lỗi của nhánh Legado trong `SourceRuntime` được redact URL trước khi ghi file.
+- Chuyển entry `[1.3.532]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. TypeScript kiểm kiểu với stub theo chữ ký thật (chưa `npm run compile` thật). Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa chạy trên máy.
+
 ## [1.3.561] - 2026-10-21
 
 ### feat: luồng nguồn Legado, facade SourceRuntime và nối vào Tìm kiếm, Khám phá, Reader, tải truyện
@@ -503,51 +519,3 @@ Mốc giao diện của plan đợt 2 (`Docs/Plans/2026-10-17-plan-round2-fixes-
 - **Xoá lịch sử theo khoảng**: "Xoá tất cả lịch sử" mở hộp chọn 1 giờ / 1 ngày / 30 ngày / Tất cả. Chỉ xoá sách đang hiển thị (lịch sử NSFW đang ẩn được giữ), qua `BookStorageManager.deleteBooksAsync`.
 - **Khám phá ổn định hơn**: lượt tải mới huỷ lượt cũ, kết quả chỉ được ghi khi nguồn vẫn đang được chọn, và không tải hai lần khi tự chuyển nguồn.
 - **Kiểm chứng**: `check_architecture.py` **2 violation, 0 mới**. Không build tại chỗ (Windows); CI chỉ xác nhận biên dịch. PiP, phát nền, màn khoá, cử chỉ, xoay và cửa sổ nổi chỉ kiểm được trên máy.
-
-## [1.3.532] - 2026-10-17
-
-### fix: sua host/url va bia gui referer, parse an toan, nhom tap theo server, loc nsfw, cong tac luu lich su
-
-Mốc sửa lỗi của plan đợt 2 (`Docs/Plans/2026-10-17-plan-round2-fixes-player-hub.md`), cùng nhánh `feature/comic-video`. Chia làm 3 phần: nền tảng N chạy trước, sau đó T1 (NSFW + lịch sử) và T2 (bìa, nhãn, nhóm tập) chạy song song. Từ bản này có luật mới: không đưa tên ứng dụng gốc vào comment, chuỗi, tài liệu hay commit; các dòng nhánh đã thêm trước đó đã được dọn.
-
-- **Parse an toàn**
-  - Mọi đường parse của `ExtensionManager` (`search`, `custom`, `detail`, `toc`, `page`, `genre`, `home`) đọc qua `JSValueReader` (`ExtensionManager+ItemParsing`). `undefined`/`null` không còn hiện thành chữ.
-  - Ca thật: kkphim, tab Mới cập nhật — ext trả `description: item.description` trong khi API không có trường này.
-  - `ExtensionItemResult` thêm `tag`, `type`; tách `ExtensionItemResult` và `ChapterResult` ra file riêng.
-- **URL và host**
-  - `ExtensionURLFormatter` đổi `//x` thành `https://x`.
-  - Thêm `resolveAssetURL` cho bìa: URL tuyệt đối giữ nguyên (không còn bước "lấy `https://` cuối cùng" làm hỏng bìa proxy `?url=`).
-  - Item thiếu `host` thì dùng `source` của tiện ích; `host: ""` thì giữ nguyên, đúng DOC.
-  - `ExtensionHostResolver.chapterHost`: chương → sách → `source`. Áp ở điểm chung `ChapterContentRepository.fetchFromExtension` (Reader, TTS), danh sách chương tải, xuất, comic đọc/tải và video.
-  - Host đã lưu không còn bị ghi đè thành rỗng (`updateBookMetadata`, BookDetail). Đổi nguồn lấy host theo thứ tự: detail → item → `source`.
-  - `link`/`url` không bị resolve lúc parse, vì chúng là khoá nhận diện.
-- **Track video**
-  - `VideoSourceResolver` giải escape JSON (`\t \n \/ \uXXXX`…) và cắt khoảng trắng trước khi hiểu `data` là URL.
-  - Ca thật: HHHTQ trả `"\thttps://play.abyssplayer.com/…"`, trước đây báo "cần URL http(s) tuyệt đối".
-- **Bìa gửi `Referer`**
-  - Ca thật: CDN bìa của truyenqq trả 403 khi thiếu `Referer`.
-  - `CoverImageLoader` (actor, cache bộ nhớ và `Caches/cover_images/`, downsample) cùng `RemoteCoverImage` thay `AsyncImage` ở Tìm kiếm, Gợi ý, `BookCoverView` và danh sách Khám phá.
-  - `Referer` lấy theo host item, rồi `source`.
-  - `ImageCacheManager.downloadAndSaveCover` nhận `referer`.
-  - Bìa và icon cũ dạng tương đối được ghép `source` lúc hiển thị, không backfill.
-  - Thêm nhãn `tag` trên bìa.
-- **Nhóm tập theo server**
-  - ChapterStore thêm cột `is_section` (`user_version` 2). `toc` của comic/video giữ dòng `type:"section"` làm tiêu đề nhóm; truyện chữ không đổi.
-  - Mục lục BookDetail và danh sách chương comic hiện tiêu đề nhóm.
-  - Comic, video và lượt tải comic bỏ qua dòng section; lượt tải lọc section **trước** khi áp giới hạn số chương.
-- **NSFW**
-  - `Extension.isNsfw`, đọc từ `metadata.nsfw`/`tag`/`tags` lúc cài.
-  - Registry decode khoan dung: một mục hỏng không làm trắng cả kho.
-  - `ExtensionNsfwClassifier`: cờ tường minh, hoặc từ khoá/tên miền theo trang danh mục cộng đồng; bỏ hai từ đơn `dam`, `cu`; cụm nhiều chữ so theo ranh giới từ.
-  - Bộ lọc kho có công tắc "Nội dung nhạy cảm (NSFW)", mặc định tắt. Công tắc tắt thì ẩn tiện ích NSFW trong Kho và khi tìm mọi nguồn. Khám phá vẫn hiện tiện ích NSFW đã cài.
-- **Lưu lịch sử theo tiện ích**
-  - `Extension.savesHistory` + `ExtensionHistoryPolicy` (mặc định bật, NSFW mặc định tắt). Công tắc nằm ở màn cấu hình (`ExtensionConfigView+History`) và lưu ngay qua `ExtensionTransactionCoordinator.setSavesHistory`, không qua `configJson`.
-  - `isHistory` chỉ được bật khi chính sách cho phép, ở các chỗ: `ReadingProgressStore.persist`, `ChapterPersistenceStore.ensureBook` và upsert, `removeFromShelf`. Tiến độ đọc vẫn được lưu.
-  - Lịch sử cũ được giữ.
-  - `HistoryOrphanBookSweeper` chạy lúc mở app, dọn sách mồ côi (không trên kệ, không lịch sử, tiện ích tắt lịch sử), trừ sách đang TTS hoặc đang tải.
-  - Backup mang thêm `isNsfw`/`savesHistory`.
-- **Rủi ro đã biết**
-  - Lần làm mới mục lục đầu tiên ghi lại host của mọi chương (`""` thành `source`).
-  - Vị trí đọc dở của comic/video mở trước bản này có thể lệch vì mục lục có thêm dòng section.
-  - "Xoá khỏi kệ" với tiện ích đã tắt lưu lịch sử thì sách bị dọn hẳn ở lần mở app sau.
-- **Kiểm chứng**: `check_architecture.py` báo **2 violation, 0 mới**. Không build tại chỗ (Windows); CI chỉ xác nhận biên dịch. Thử trên máy theo mục 6 của plan.

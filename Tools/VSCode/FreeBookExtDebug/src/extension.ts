@@ -11,6 +11,7 @@ import {
 } from './draft';
 import { DebugEvent, ExtensionInfo, ServerTarget, parseTarget } from './protocol';
 import { SidebarViewProvider, SidebarState } from './sidebarView';
+import { cancelLegadoCorpus, LegadoCorpusHost, runLegadoCorpus, showLegadoCorpusReport } from './legadoCorpus';
 
 /**
  * Client VS Code của FreeBook debug server kèm Sidebar UI & Quét thư mục Extension.
@@ -32,6 +33,13 @@ let currentRunId: string | undefined;
 let stagedRevisions = new Map<string, string>();
 let installedRevision: string | undefined;
 const TARGET_KEY = 'freebook.extdebug.target';
+
+/** Cầu nối cho các lệnh nghiệm thu nguồn Legado (`legadoCorpus.ts`) — đọc `client` hiện hành mỗi lần gọi. */
+const legadoHost: LegadoCorpusHost = {
+  client: () => client,
+  log: (message) => log(message),
+  showOutput: () => output.show(true)
+};
 
 export function activate(context: vscode.ExtensionContext): void {
   output = vscode.window.createOutputChannel('FreeBook ExtDebug');
@@ -134,7 +142,10 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('freebook.extdebug.installDraft', installStagedDraft),
     vscode.commands.registerCommand('freebook.extdebug.rollback', rollbackInstalled),
     vscode.commands.registerCommand('freebook.extdebug.cancelRun', cancelRun),
-    vscode.commands.registerCommand('freebook.extdebug.openTrace', () => output.show(true))
+    vscode.commands.registerCommand('freebook.extdebug.openTrace', () => output.show(true)),
+    vscode.commands.registerCommand('freebook.extdebug.legadoCorpusRun', () => runLegadoCorpus(legadoHost)),
+    vscode.commands.registerCommand('freebook.extdebug.legadoCorpusReport', () => showLegadoCorpusReport(legadoHost)),
+    vscode.commands.registerCommand('freebook.extdebug.legadoCorpusCancel', () => cancelLegadoCorpus(legadoHost))
   );
 
   // Quét workspace khi kích hoạt
@@ -352,8 +363,8 @@ async function connectWithAddress(raw: string, context: vscode.ExtensionContext)
   client = new ExtDebugClient(handleEvent, onClosed);
   try {
     await client.connect(parsed);
-    const hello = await client.request('hello', { clientName: clientName() });
-    log(`hello: app ${hello.appVersion ?? '?'} · contract v${hello.contractVersion ?? '?'}`);
+    const hello = await client.hello(clientName());
+    log(`hello: app ${hello.appVersion ?? '?'} · contract v${hello.contractVersion ?? '?'} · protocol v${client.negotiatedVersion}`);
     updateStatusBar('đã kết nối');
     await client.subscribeEvents();
     await fetchAppExtensions();

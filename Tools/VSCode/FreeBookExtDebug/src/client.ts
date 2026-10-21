@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import {
   DebugEvent,
   Envelope,
+  MIN_PROTOCOL_VERSION,
   Payload,
   PROTOCOL_VERSION,
   ServerTarget
@@ -20,6 +21,8 @@ export class ExtDebugClient {
   private socket: WebSocket | undefined;
   private pending = new Map<string, { resolve: (p: Payload) => void; reject: (e: Error) => void }>();
   private subscriptionId: string | undefined;
+  /** Version gửi trong mọi envelope của kết nối hiện tại; hạ xuống v1 khi app cũ từ chối v2 (xem `hello`). */
+  private protocolVersion = PROTOCOL_VERSION;
 
   constructor(
     private readonly onEvent: (event: DebugEvent) => void,
@@ -30,8 +33,13 @@ export class ExtDebugClient {
     return this.socket?.readyState === WebSocket.OPEN;
   }
 
+  get negotiatedVersion(): number {
+    return this.protocolVersion;
+  }
+
   async connect(target: ServerTarget, timeoutMs = 8000): Promise<void> {
     await this.disconnect();
+    this.protocolVersion = PROTOCOL_VERSION;
     const url = `ws://${target.host}:${target.port}`;
     const socket = new WebSocket(url, { handshakeTimeout: timeoutMs });
     this.socket = socket;
@@ -77,7 +85,7 @@ export class ExtDebugClient {
       return Promise.reject(new Error('Chưa kết nối tới app'));
     }
     const requestId = randomUUID();
-    const envelope: Envelope = { version: PROTOCOL_VERSION, requestId, type, payload };
+    const envelope: Envelope = { version: this.protocolVersion, requestId, type, payload };
     return new Promise<Payload>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(requestId);
@@ -95,6 +103,24 @@ export class ExtDebugClient {
       });
       socket.send(JSON.stringify(envelope));
     });
+  }
+
+  /**
+   * `hello` có thương lượng version: app cũ (trước lệnh `legado.*`) chỉ nhận đúng v1 và trả `UNSUPPORTED_VERSION`
+   * cho envelope v2 ⇒ hạ xuống v1 cho cả kết nối rồi chào lại. Mọi lệnh cũ chạy y như trước; lệnh `legado.*` tự
+   * kiểm `negotiatedVersion` để báo "app chưa hỗ trợ" thay vì gửi đi.
+   */
+  async hello(clientName: string): Promise<Payload> {
+    try {
+      return await this.request('hello', { clientName });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.startsWith('[UNSUPPORTED_VERSION]') || this.protocolVersion <= MIN_PROTOCOL_VERSION) {
+        throw error;
+      }
+      this.protocolVersion = MIN_PROTOCOL_VERSION;
+      return await this.request('hello', { clientName });
+    }
   }
 
   /**

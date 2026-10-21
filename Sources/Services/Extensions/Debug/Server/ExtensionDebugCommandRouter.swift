@@ -71,11 +71,12 @@ public actor ExtensionDebugCommandRouter {
             ))
             return nil
         }
-        guard envelope.version == ExtensionDebugProtocol.version else {
+        // v2 vẫn nhận envelope v1: lệnh cũ không đổi shape; lệnh `legado.*` tự đòi v2 (`+Legado`).
+        guard ExtensionDebugProtocol.supportedVersions.contains(envelope.version) else {
             emit(ExtensionDebugProtocol.errorEnvelope(
                 requestId: envelope.requestId,
                 code: .unsupportedVersion,
-                message: "Server nói version \(ExtensionDebugProtocol.version)"
+                message: "Server nhận version \(ExtensionDebugProtocol.minimumSupportedVersion)…\(ExtensionDebugProtocol.version)"
             ))
             return nil
         }
@@ -100,6 +101,8 @@ public actor ExtensionDebugCommandRouter {
             handleEventsSubscribe(envelope)
         case .draftStage, .draftChunk, .draftFinish, .draftDiscard, .draftInstall, .draftRollback:
             await handleDraft(type, envelope)
+        case .legadoSources, .legadoCorpusStart, .legadoCorpusStatus, .legadoCorpusCancel:
+            await handleLegado(type, envelope)
         }
         return nil
     }
@@ -133,6 +136,10 @@ public actor ExtensionDebugCommandRouter {
     private func handleRunStart(_ envelope: ExtensionDebugProtocol.Envelope) async {
         guard let packageId = envelope.payload?.packageId else {
             emit(ExtensionDebugProtocol.errorEnvelope(requestId: envelope.requestId, code: .malformedMessage, message: "Thiếu packageId"))
+            return
+        }
+        if let rejection = Self.legadoRunRejection(packageId: packageId, sourceMode: envelope.payload?.sourceMode) {
+            emit(ExtensionDebugProtocol.errorEnvelope(requestId: envelope.requestId, code: .unknownEntrypoint, message: rejection))
             return
         }
         // Ba ca tách rõ: tên lạ, thiếu tham số, và hợp lệ. Gộp hai ca đầu thành `UNKNOWN_ENTRYPOINT`
@@ -314,9 +321,11 @@ public actor ExtensionDebugCommandRouter {
         emit(ExtensionDebugProtocol.errorEnvelope(requestId: envelope.requestId, code: code, message: message))
     }
 
-    /// Tiện ích **đã cài**, đọc bảng chụp `nonisolated` của repository — không await, không SwiftData.
+    /// Tiện ích JS **đã cài**, đọc bảng chụp `nonisolated` của repository — không await, không SwiftData.
+    /// Nguồn Legado bị loại **trước** `map` (không có script JS; và init của snapshot quét thư mục từng nguồn).
     internal func installedExtensions() -> [ExtensionDebugInstalledSnapshot] {
         ExtensionLibraryRepository.installedSnapshot()
+            .filter { !LegadoSourceIdentity.isLegado($0) }
             .map { ExtensionDebugInstalledSnapshot(extensionRow: $0) }
     }
 
