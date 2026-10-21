@@ -33,7 +33,7 @@ public final class SourceRuntime: @unchecked Sendable {
 
     public func detail(localPath: String, downloadUrl: String = "", url: String, host: String? = nil, configJson: String = "{}", context: SourceRuntimeContext? = nil) async throws -> NovelDetailResult {
         if let target = try legadoTarget(localPath) {
-            return try await legadoCall("detail", url) {
+            return try await legadoCall("detail", url, interactive: context?.isInteractive == true) {
                 try await LegadoSourceRuntime.detail(target, bookUrl: url, context: context)
             }
         }
@@ -51,7 +51,7 @@ public final class SourceRuntime: @unchecked Sendable {
     /// Nguồn Legado: `url` là URL **trang chi tiết**; `tocUrl` lấy từ trạng thái của sách hoặc chạy thông tin sách trước.
     public func toc(localPath: String, downloadUrl: String = "", url: String, host: String? = nil, configJson: String = "{}", context: SourceRuntimeContext? = nil) async throws -> [ChapterResult] {
         if let target = try legadoTarget(localPath) {
-            return try await legadoCall("toc", url) {
+            return try await legadoCall("toc", url, interactive: context?.isInteractive == true) {
                 try await LegadoSourceRuntime.toc(target, bookUrl: url, context: context)
             }
         }
@@ -64,7 +64,7 @@ public final class SourceRuntime: @unchecked Sendable {
             guard !target.source.kind.contentKind.isMedia else {
                 throw LegadoRuntimeError.mediaHasNoText(target.source.kind.label)
             }
-            return try await legadoCall("chap", url) {
+            return try await legadoCall("chap", url, interactive: context?.isInteractive == true) {
                 try await LegadoSourceRuntime.content(target, chapterUrl: url, context: context)
             }
         }

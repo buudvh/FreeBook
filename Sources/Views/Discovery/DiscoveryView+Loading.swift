@@ -46,8 +46,13 @@ extension DiscoveryView {
         }
     }
 
+    /// Nguồn Legado: danh mục khám phá chạy `exploreUrl` **một lần** trong ngữ cảnh có người dùng (người dùng đang xem —
+    /// `java.startBrowserAwait` vượt chặn được trình bày) và ghi đệm mục có kiểu cho tab điều khiển (`LegadoExploreTabView`).
     private static func fetchGenre(localPath: String, downloadUrl: String, configJson: String) async -> [CategoryResult] {
         do {
+            if SourceRuntime.shared.isLegado(localPath: localPath) {
+                return try await SourceRuntime.shared.legadoExploreCatalog(localPath: localPath)
+            }
             return try await SourceRuntime.shared.genre(localPath: localPath, downloadUrl: downloadUrl, configJson: configJson)
         } catch {
             #if DEBUG

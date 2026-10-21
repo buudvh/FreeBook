@@ -71,6 +71,8 @@ struct AppLaunchRootView: View {
         }
         // Liên kết `legado://…` (nhập nguồn Legado) — hỏi lại rồi mới nhập; chờ cổng từ điển mở.
         .legadoLinkImportHandler(isReady: translationManager.isInitialized)
+        // Subscriber UI duy nhất của engine nguồn Legado: trình duyệt / mã xác minh do JS mở, làm mới khám phá, toast.
+        .legadoPresentationHandler()
         .onAppear {
             KeyboardDismissGesture.shared.activate()
             // Thanh công cụ trên bàn phím (đóng bàn phím, aa…AA, xoá/sao chép/dán) cho mọi ô nhập.

@@ -20,7 +20,7 @@ extension SourceRuntime {
         context: SourceRuntimeContext? = nil
     ) async throws -> [ComicPageSource] {
         if let target = try legadoTarget(localPath) {
-            return try await legadoCall("comicPages", url) {
+            return try await legadoCall("comicPages", url, interactive: context?.isInteractive == true) {
                 try await LegadoSourceRuntime.comicPages(target, chapterUrl: url, context: context)
             }
         }

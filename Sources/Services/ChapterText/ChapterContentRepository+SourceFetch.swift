@@ -5,7 +5,14 @@ import Foundation
 ///
 /// Đi qua `SourceRuntime`: tiện ích JS nhận nguyên tham số như trước, nguồn Legado chạy engine Legado với ngữ cảnh
 /// sách/chương lấy từ `request` (`bookId` là id sách thật — nguồn Legado đọc trạng thái đã ghi theo id này).
+///
+/// `request.isInteractive` (chỉ Reader bật, cho chương **đang mở**): nguồn Legado được trình bày trình duyệt / ô mã xác
+/// minh, và hạn chờ của **nguồn Legado** nới lên `interactiveTimeoutNanoseconds` — người dùng có thể đang vượt
+/// Cloudflare trong `startBrowserAwait` (engine tự giới hạn 600 s; request mạng của engine có hạn riêng); hạn 30 s sẽ huỷ
+/// phiên và đóng trình duyệt dưới tay người dùng. Tiện ích JS giữ hạn 30 s.
 extension ChapterContentRepository {
+    static let interactiveTimeoutNanoseconds: UInt64 = 620_000_000_000
+
     func fetchFromExtension(
         request: ChapterContentRequest,
         extensionInfo: TTSExtensionInfo
@@ -16,8 +23,11 @@ extension ChapterContentRepository {
             bookName: request.bookMetadata?.title,
             bookAuthor: request.bookMetadata?.author,
             chapterTitle: request.title,
-            chapterIndex: request.chapterIndex
+            chapterIndex: request.chapterIndex,
+            isInteractive: request.isInteractive
         )
+        let waitsForUser = request.isInteractive && SourceRuntime.shared.isLegado(localPath: extensionInfo.localPath)
+        let timeout: UInt64 = waitsForUser ? Self.interactiveTimeoutNanoseconds : 30_000_000_000
         return try await withThrowingTaskGroup(of: String.self) { group in
             group.addTask {
                 try await SourceRuntime.shared.chap(
@@ -30,7 +40,7 @@ extension ChapterContentRepository {
                 )
             }
             group.addTask {
-                try await Task.sleep(nanoseconds: 30_000_000_000)
+                try await Task.sleep(nanoseconds: timeout)
                 throw ChapterContentRepositoryError.timedOut
             }
             guard let result = try await group.next() else {

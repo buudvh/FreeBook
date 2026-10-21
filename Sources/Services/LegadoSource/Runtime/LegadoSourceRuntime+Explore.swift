@@ -42,29 +42,8 @@ extension LegadoSourceRuntime {
             }
             return entries
         }
-
-        var titleCounts: [String: Int] = [:]
-        for item in items where !item.isGroupHeader {
-            titleCounts[trimmed(item.title), default: 0] += 1
-        }
-        var output: [CategoryResult] = []
-        var seenIds = Set<String>()
-        var group = ""
-        for item in items {
-            let title = trimmed(item.title)
-            guard let url = item.url, nonEmpty(url) != nil else {
-                if !title.isEmpty { group = title }
-                continue
-            }
-            var display = title.isEmpty ? "Mục \(output.count + 1)" : title
-            if (titleCounts[title] ?? 0) > 1, !group.isEmpty {
-                display = group + " · " + display
-            }
-            let category = CategoryResult(title: display, input: url, script: scriptName)
-            guard seenIds.insert(category.id).inserted else { continue }
-            output.append(category)
-        }
-        return output
+        // Ánh xạ dùng chung với Khám phá động (`+ExploreControls`).
+        return exploreCategories(from: items, scriptName: scriptName)
     }
 
     /// Một trang của mục khám phá `url` (spec §5.2.3): dựng request với `page`, không có `key` (biến `key` = rỗng);

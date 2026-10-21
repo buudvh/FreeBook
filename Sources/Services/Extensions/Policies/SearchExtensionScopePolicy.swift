@@ -12,7 +12,7 @@ import Foundation
 ///   tiện ích NSFW thì giữ — nếu không danh sách nguồn thay thế luôn rỗng. Khám phá lọc NSFW ở chính `DiscoveryView`
 ///   (`matches`/`isBrowsable` ở đây không xét NSFW).
 /// - **Nguồn Legado** (chung index với tiện ích JS): Khám phá dùng `isDiscoverable`, Tìm kiếm/Đổi nguồn dùng
-///   `isSearchScoped` — nguồn tắt, tranh/video (chưa hỗ trợ) hay thiếu rule không bao giờ lọt vào.
+///   `isSearchScoped` — nguồn tắt, loại không hỗ trợ hay thiếu rule không bao giờ lọt vào.
 public enum SearchExtensionScopePolicy {
     /// Các loại hiện trên hàng chip, theo thứ tự cố định.
     public static let browsableKinds: [ExtensionContentKind] = [.text, .comic, .video]
@@ -33,8 +33,8 @@ public enum SearchExtensionScopePolicy {
     }
 
     /// Nguồn hiện ở Khám phá: tiện ích JS giữ nguyên luật `isBrowsable`; nguồn Legado chỉ khi chạy được và có Khám phá
-    /// (`LegadoSourcePolicy.isExplorable` — đang bật, loại đã hỗ trợ, có `exploreUrl`). Tranh/video Legado vẫn là
-    /// "browsable" theo loại nên phải chặn ở đây.
+    /// (`LegadoSourcePolicy.isExplorable` — đang bật, loại đã hỗ trợ, có `exploreUrl`). Nguồn Legado tắt hay thiếu
+    /// `exploreUrl` vẫn là "browsable" theo loại nên phải chặn ở đây.
     public static func isDiscoverable(_ ext: Extension) -> Bool {
         guard isBrowsable(ext) else { return false }
         return !LegadoSourcePolicy.isLegado(ext) || LegadoSourcePolicy.isExplorable(ext)

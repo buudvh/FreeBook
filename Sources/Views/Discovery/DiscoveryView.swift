@@ -315,7 +315,8 @@ struct DiscoveryView: View {
                                             onSelectGenre: { item in
                                                 selectedGenre = item
                                                 navigateToGenre = true
-                                            }
+                                            },
+                                            legadoExtension: selected.flatMap { LegadoSourceIdentity.isLegado($0) ? $0 : nil }
                                         )
                                         .tag(genresTabId)
                                     }

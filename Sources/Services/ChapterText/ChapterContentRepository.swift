@@ -16,6 +16,7 @@ struct ChapterContentRequest: Sendable, Equatable {
     let bookMetadata: BookMetadataSnapshot?
     let extensionInfo: TTSExtensionInfo?
     let forceRefresh: Bool
+    var isInteractive: Bool = false // chương người dùng đang mở; `fetchFromExtension` ở `+SourceFetch` (qua `SourceRuntime`)
 }
 
 struct ChapterKey: Hashable, Sendable, Equatable {
@@ -426,5 +427,4 @@ actor ChapterContentRepository {
             text: prefiltered ? ChapterTextNormalizer.normalizeProcessedContent(rawContent) : ChapterTextNormalizer.normalize(rawContent)
         )
     }
-    // `fetchFromExtension` ở `ChapterContentRepository+SourceFetch.swift` (đi qua `SourceRuntime`).
 }

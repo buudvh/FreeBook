@@ -155,6 +155,9 @@ extension BookDetailView {
 
     /// Ngữ cảnh sách cho `SourceRuntime`. `bookId` = `actualBookId` — id sách đã/sẽ lưu (`resolveBookId` chạy trước mọi
     /// lượt tải): nguồn Legado ghi trạng thái theo id này, Reader/TTS/tải truyện đọc lại theo đúng id đó.
+    /// `isInteractive`: mọi lượt tải của màn này (chi tiết, mục lục, kéo làm mới, chuẩn bị đọc) đều do người dùng đang
+    /// xem màn kích ⇒ nguồn Legado được mở trình duyệt / hỏi mã xác minh (nguồn Legado chỉ có một "trang" mục lục nên
+    /// không có lượt tải trang nền).
     internal var sourceRuntimeContext: SourceRuntimeContext {
         let name = localBook?.title ?? title
         let bookAuthor = localBook?.author ?? author
@@ -162,7 +165,8 @@ extension BookDetailView {
             bookId: actualBookId,
             bookUrl: initialDetailUrl,
             bookName: name.isEmpty ? nil : name,
-            bookAuthor: bookAuthor.isEmpty ? nil : bookAuthor
+            bookAuthor: bookAuthor.isEmpty ? nil : bookAuthor,
+            isInteractive: true
         )
     }
 

@@ -8,21 +8,21 @@ import SwiftUI
 /// `source.json` đọc qua `LegadoSourceCoordinator.loadSource` (trên nền) và đọc lại khi `version` đổi (sau khi sửa
 /// JSON). Mọi ghi qua coordinator — View không đụng file.
 ///
-/// Nút Đăng nhập chỉ hiện khi nguồn khai `loginUrl`; màn đăng nhập thuộc đợt sau — `onLogin` là chỗ cắm, chưa nối thì
-/// hiện thông báo tạm.
+/// Nút Đăng nhập chỉ hiện khi nguồn khai `loginUrl` **và** `loginUrl` là cách đăng nhập hợp lệ (URL hoặc JS —
+/// `LegadoLoginService.mode`, chú thích/rác như `{"url":"null"}` thì ẩn); bấm ⇒ đẩy `LegadoLoginView`.
 struct LegadoSourceDetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     let packageId: String
-    /// Chỗ cắm màn đăng nhập (nhận `packageId`). `nil` ⇒ alert "Đăng nhập sẽ có ở bản kế tiếp".
-    var onLogin: ((String) -> Void)? = nil
 
     @State private var source: LegadoBookSource?
+    /// Cách đăng nhập của nguồn (tính một lần mỗi lần nạp `source.json` — đọc JSON thô).
+    @State private var loginMode: LegadoLoginMode = .none
+    @State private var showingLogin = false
     @State private var loadError: String?
     @State private var showingBrowser = false
     @State private var showingEditor = false
     @State private var showingDeleteConfirm = false
-    @State private var showingLoginPending = false
     @State private var exportFile: LegadoSourceExportFile?
     @State private var errorMessage: String?
     @State private var isWorking = false
@@ -34,6 +34,7 @@ struct LegadoSourceDetailView: View {
     var body: some View {
         NavigationStack {
             screenContent
+                .navigationDestination(isPresented: $showingLogin) { loginScreen }
                 .navigationTitle("Chi tiết nguồn")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -61,11 +62,6 @@ struct LegadoSourceDetailView: View {
             Button("Xoá", role: .destructive) { deleteSource() }
         } message: {
             Text("Gỡ nguồn khỏi ứng dụng. Sách đã lưu của nguồn này sẽ không tải được chương mới.")
-        }
-        .alert("Đăng nhập", isPresented: $showingLoginPending) {
-            Button("Đóng", role: .cancel) {}
-        } message: {
-            Text("Đăng nhập sẽ có ở bản kế tiếp.")
         }
         .alert("Lỗi nguồn Legado", isPresented: Binding(
             get: { errorMessage != nil },
@@ -196,27 +192,34 @@ struct LegadoSourceDetailView: View {
         return { showingBrowser = true }
     }
 
-    /// Nút Đăng nhập chỉ có khi nguồn khai `loginUrl`.
+    /// Nút Đăng nhập chỉ có khi nguồn khai `loginUrl` hợp lệ (đã nạp `source.json` để phân loại).
     private func loginAction(needsLogin: Bool) -> (() -> Void)? {
-        guard needsLogin else { return nil }
-        return { openLogin() }
+        guard needsLogin, source != nil, loginMode != LegadoLoginMode.none else { return nil }
+        return { showingLogin = true }
+    }
+
+    /// Nguồn ở dạng engine (cho `LegadoLoginService`); `nil` khi chưa nạp xong `source.json`.
+    private var engineSource: LegadoEngineSource? {
+        source.map { LegadoSourceRuntime.Target(packageId: packageId, source: $0).engineSource }
+    }
+
+    @ViewBuilder
+    private var loginScreen: some View {
+        if let engineSource {
+            LegadoLoginView(sourceName: summary?.displayName ?? engineSource.name, source: engineSource)
+        } else {
+            ProgressView("Đang nạp nguồn…")
+        }
     }
 
     private func loadSource() async {
         switch await LegadoSourceCoordinator.shared.loadSource(packageId: packageId) {
         case .success(let loaded):
             source = loaded
+            loginMode = LegadoLoginService.mode(for: LegadoSourceRuntime.Target(packageId: packageId, source: loaded).engineSource)
             loadError = nil
         case .failure(let error):
             loadError = error.localizedDescription
-        }
-    }
-
-    private func openLogin() {
-        if let onLogin {
-            onLogin(packageId)
-        } else {
-            showingLoginPending = true
         }
     }
 

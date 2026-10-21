@@ -7,8 +7,26 @@ struct DiscoveryGenresTabView: View {
     let isTranslationEnabled: Bool
     @Binding var selectedCategoryId: String
     let onSelectGenre: (CategoryResult) -> Void
+    /// Nguồn Legado đang xem ⇒ tab vẽ mục khám phá có kiểu (tiêu đề nhóm, ô bấm, điều khiển — `LegadoExploreTabView`)
+    /// thay cho lưới `genreItems`.
+    var legadoExtension: Extension? = nil
 
     var body: some View {
+        if let legadoExtension {
+            LegadoExploreTabView(
+                localPath: legadoExtension.localPath,
+                packageId: legadoExtension.packageId,
+                isTranslationEnabled: isTranslationEnabled,
+                onSelectGenre: onSelectGenre
+            )
+            // Sửa JSON nguồn ⇒ phiên bản đổi ⇒ dựng lại tab (không giữ mục khám phá của JSON cũ).
+            .id("\(legadoExtension.packageId)#\(legadoExtension.version)")
+        } else {
+            genreGrid
+        }
+    }
+
+    private var genreGrid: some View {
         ScrollView {
             if genreItems.isEmpty {
                 Text("Nguồn truyện này không có danh sách thể loại cụ thể.")

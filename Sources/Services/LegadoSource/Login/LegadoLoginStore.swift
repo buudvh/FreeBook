@@ -4,10 +4,12 @@ import Security
 /// Thông tin đăng nhập và header đăng nhập của nguồn Legado (spec §10.5–§10.6), lưu **Keychain**
 /// (`kSecClassGenericPassword`, `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`), khoá theo `packageId` của nguồn.
 ///
-/// - Không ghi file thường, không log giá trị, không vào Backup/xuất nguồn/bộ nghiệm thu.
+/// - Không log giá trị, không vào Backup/xuất nguồn/bộ nghiệm thu.
 /// - Bộ nhớ đệm có khoá để request không chạm Keychain mỗi lần.
-/// - Keychain từ chối (chạy dưới LiveContainer có thể thiếu entitlement): giữ giá trị **trong bộ nhớ** tới khi app thoát,
-///   ghi một dòng `❌` (không kèm giá trị) và `isPersisted(sourceKey:)` trả `false` để UI báo "chưa lưu bền".
+/// - Keychain từ chối (chạy dưới LiveContainer có thể thiếu entitlement): hạ xuống **tệp được bảo vệ**
+///   `LegadoLoginFallbackStore` (cùng cách `TelegramTokenStore`; ngoài Backup, không sao lưu). Đọc: Keychain trước rồi
+///   tệp; ghi Keychain được thì xoá bản tệp; xoá thì xoá cả hai. Cả hai cùng hỏng ⇒ giữ **trong bộ nhớ** tới khi app
+///   thoát, ghi một dòng `❌` (không kèm giá trị) và `isPersisted(sourceKey:)` trả `false` để UI báo "chưa lưu bền".
 final class LegadoLoginStore: @unchecked Sendable {
     static let shared = LegadoLoginStore()
 
@@ -24,7 +26,8 @@ final class LegadoLoginStore: @unchecked Sendable {
     private let lock = NSLock()
     /// Khoá `packageId|item`; giá trị `nil` = đã biết là không có.
     private var cache: [String: String?] = [:]
-    private var volatilePackages: Set<String> = []
+    /// Khoá `packageId|item` hiện chỉ sống trong bộ nhớ (Keychain lẫn tệp dự phòng đều từ chối).
+    private var volatileAccounts: Set<String> = []
     private var reportedFailure = false
 
     // MARK: - Đọc / ghi
@@ -38,7 +41,7 @@ final class LegadoLoginStore: @unchecked Sendable {
             return cached
         }
         lock.unlock()
-        let loaded = Self.readKeychain(account: cacheKey)
+        let loaded = Self.readKeychain(account: cacheKey) ?? Self.readFallback(account: cacheKey)
         lock.lock()
         if cache[cacheKey] == nil { cache[cacheKey] = .some(loaded) }
         let result = cache[cacheKey] ?? loaded
@@ -56,20 +59,29 @@ final class LegadoLoginStore: @unchecked Sendable {
         lock.unlock()
         let persisted: Bool
         if let normalized {
-            persisted = Self.writeKeychain(Data(normalized.utf8), account: cacheKey)
+            let data = Data(normalized.utf8)
+            if Self.writeKeychain(data, account: cacheKey) {
+                LegadoLoginFallbackStore.delete(account: cacheKey)
+                persisted = true
+            } else {
+                persisted = LegadoLoginFallbackStore.write(data, account: cacheKey)
+            }
         } else {
             Self.deleteKeychain(account: cacheKey)
+            LegadoLoginFallbackStore.delete(account: cacheKey)
             persisted = true
         }
         lock.lock()
-        if !persisted {
-            volatilePackages.insert(packageId)
+        if persisted {
+            volatileAccounts.remove(cacheKey)
+        } else {
+            volatileAccounts.insert(cacheKey)
         }
         let shouldReport = !persisted && !reportedFailure
         if shouldReport { reportedFailure = true }
         lock.unlock()
         if shouldReport {
-            AppLogger.shared.log("❌ [Legado] Keychain từ chối lưu thông tin đăng nhập — chỉ giữ trong bộ nhớ tới khi thoát app")
+            AppLogger.shared.log("❌ [Legado] Keychain và tệp dự phòng đều không lưu được thông tin đăng nhập — chỉ giữ trong bộ nhớ tới khi thoát app")
         }
     }
 
@@ -81,16 +93,15 @@ final class LegadoLoginStore: @unchecked Sendable {
         setValue(nil, item: .info, sourceKey: sourceKey)
         setValue(nil, item: .header, sourceKey: sourceKey)
         UserDefaults.standard.removeObject(forKey: Self.checkedAtPrefix + Self.packageId(sourceKey))
-        lock.lock()
-        volatilePackages.remove(Self.packageId(sourceKey))
-        lock.unlock()
     }
 
-    /// `false` khi giá trị hiện có chỉ nằm trong bộ nhớ (Keychain từ chối).
+    /// `false` khi có giá trị chỉ nằm trong bộ nhớ (Keychain lẫn tệp dự phòng đều từ chối).
     func isPersisted(sourceKey: String) -> Bool {
+        let packageId = Self.packageId(sourceKey)
         lock.lock()
         defer { lock.unlock() }
-        return !volatilePackages.contains(Self.packageId(sourceKey))
+        return !volatileAccounts.contains(packageId + "|" + Item.info.rawValue)
+            && !volatileAccounts.contains(packageId + "|" + Item.header.rawValue)
     }
 
     // MARK: - Mốc "đăng nhập/kiểm tra lúc" (không phải bí mật)
@@ -144,5 +155,11 @@ final class LegadoLoginStore: @unchecked Sendable {
 
     private static func deleteKeychain(account: String) {
         SecItemDelete(baseQuery(account: account) as CFDictionary)
+    }
+
+    /// Bản ở tệp dự phòng (chỉ có khi Keychain từng từ chối ghi).
+    private static func readFallback(account: String) -> String? {
+        guard let data = LegadoLoginFallbackStore.read(account: account) else { return nil }
+        return String(data: data, encoding: .utf8)
     }
 }

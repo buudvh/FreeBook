@@ -15,7 +15,28 @@ extension SourceRuntime {
 
     /// Ghi log một lời gọi nguồn Legado (dòng thường theo công tắc log; lỗi có `❌`, trừ huỷ). Không log nội dung chương.
     /// Lỗi của `search` không gắn `❌`: "tìm mọi nguồn" chạy hàng trăm nguồn, nguồn hỏng sẽ làm tràn file log.
-    func legadoCall<T>(_ action: String, _ detail: String, _ operation: () async throws -> T) async throws -> T {
+    ///
+    /// `interactive` (= `SourceRuntimeContext.isInteractive`): chạy `operation` trong ngữ cảnh **có người dùng**
+    /// (`LegadoInteraction.isInteractive`) để `java.startBrowser*` / `getVerificationCode` / toast được trình bày.
+    /// Lời gọi đã nằm trong ngữ cảnh đó (call site tự bọc) thì giữ nguyên.
+    func legadoCall<T>(_ action: String, _ detail: String, interactive: Bool = false,
+                       _ operation: () async throws -> T) async throws -> T {
+        guard interactive, !LegadoInteraction.isInteractive else {
+            return try await loggedLegadoCall(action, detail, operation)
+        }
+        return try await LegadoInteraction.$isInteractive.withValue(true) {
+            try await loggedLegadoCall(action, detail, operation)
+        }
+    }
+
+    /// Bọc lời gọi của call site **không có** `SourceRuntimeContext` (danh mục khám phá, trang khám phá đang xem,
+    /// nguồn phát video đang xem) vào ngữ cảnh có người dùng. Tiện ích JS không bị ảnh hưởng.
+    static func userInitiated<T>(_ operation: () async throws -> T) async rethrows -> T {
+        try await LegadoInteraction.$isInteractive.withValue(true, operation: operation)
+    }
+
+    private func loggedLegadoCall<T>(_ action: String, _ detail: String,
+                                     _ operation: () async throws -> T) async throws -> T {
         AppLogger.shared.log("🔍 [SourceRuntime][Legado] \(action): \(detail.prefix(300))")
         do {
             return try await operation()

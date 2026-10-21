@@ -20,11 +20,13 @@ extension LegadoJSRuntime {
                 .map { (key: $0.key, value: LegadoEngineJSON.string($0.value)) }
             return LegadoEngineJSON.object(entries).compactText
         case "refreshExplore":
+            // Sự kiện cho UI chỉ phát khi có người dùng — kiểm tra hàng loạt / tải nền không được tự bật màn hình.
+            guard session.allowsUserInteraction else { return "" }
             LegadoPresentationEventCenter.shared.scheduleExploreRefresh(sourceKey: session.source.key)
             return ""
         case "searchBook":
             let keyword = text(of: arguments[0]).trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !keyword.isEmpty else { return "" }
+            guard !keyword.isEmpty, session.allowsUserInteraction else { return "" }
             let scope = arguments.plainString(1)
             LegadoPresentationEventCenter.shared.send(.searchBook(keyword: keyword, sourceKey: Self.searchScope(scope)))
             return ""
@@ -39,9 +41,11 @@ extension LegadoJSRuntime {
             return ""
         case "copyText":
             let value = text(of: arguments[0])
+            guard session.allowsUserInteraction else { return "" }
             Task { @MainActor in UIPasteboard.general.string = value }
             return ""
         case "refreshContent":
+            guard session.allowsUserInteraction else { return "" }
             LegadoPresentationEventCenter.shared.send(.refreshContent(sourceKey: session.source.key))
             return ""
         default:

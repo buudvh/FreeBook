@@ -181,10 +181,10 @@ final class ComicReaderViewModel {
                 return sources
             }
         }
-        return try await fetchPages(chapterIndex: index)
+        return try await fetchPages(chapterIndex: index, interactive: true)
     }
 
-    private func fetchPages(chapterIndex index: Int) async throws -> [ComicPageSource] {
+    private func fetchPages(chapterIndex index: Int, interactive: Bool = false) async throws -> [ComicPageSource] {
         if let offline = offlinePages(chapterIndex: index) {
             AppLogger.shared.log("📖 [ComicReader] Chương \(index): \(offline.count) ảnh từ bản offline")
             return offline
@@ -202,7 +202,7 @@ final class ComicReaderViewModel {
             url: chapter.url,
             host: host,
             configJson: ext.configJson,
-            context: sourceContext(for: chapter)
+            context: sourceContext(for: chapter, interactive: interactive)
         )
         AppLogger.shared.log("📖 [ComicReader] Chương \(index): \(sources.count) ảnh từ tiện ích")
         return sources

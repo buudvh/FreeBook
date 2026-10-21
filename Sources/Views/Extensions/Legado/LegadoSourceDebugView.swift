@@ -149,9 +149,12 @@ struct LegadoSourceDebugView: View {
         inputFocused = false
         let id = packageId
         runTask = Task { @MainActor in
-            let failure = await LegadoSourceDebugRunner.run(packageId: id, input: resolved, onStep: { step in
-                apply(step)
-            })
+            // Người dùng đang xem từng bước ⇒ nguồn được mở trình duyệt / hỏi mã xác minh như khi đọc thật.
+            let failure = await SourceRuntime.userInitiated {
+                await LegadoSourceDebugRunner.run(packageId: id, input: resolved, onStep: { step in
+                    apply(step)
+                })
+            }
             if let failure { message = failure }
             runTask = nil
         }

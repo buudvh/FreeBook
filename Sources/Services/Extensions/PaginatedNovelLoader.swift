@@ -65,15 +65,20 @@ final class PaginatedNovelLoader: ObservableObject {
         }
 
         do {
-            let (results, nextPage) = try await SourceRuntime.shared.executeCustomScript(
-                localPath: localPath,
-                downloadUrl: downloadUrl,
-                scriptFileName: scriptFileName,
-                input: input,
-                page: page,
-                pageUrl: page == 1 ? nil : nextPageUrl,
-                configJson: configJson
-            )
+            // Danh sách đang hiện cho người dùng ⇒ nguồn Legado được mở trình duyệt / hỏi mã xác minh khi trang bắt xác minh.
+            let (path, download, script, itemInput, config) = (localPath, downloadUrl, scriptFileName, input, configJson)
+            let pageUrl = page == 1 ? nil : nextPageUrl
+            let (results, nextPage) = try await SourceRuntime.userInitiated {
+                try await SourceRuntime.shared.executeCustomScript(
+                    localPath: path,
+                    downloadUrl: download,
+                    scriptFileName: script,
+                    input: itemInput,
+                    page: page,
+                    pageUrl: pageUrl,
+                    configJson: config
+                )
+            }
 
             let unique = filterAndDeduplicate(results)
             var addedCount = unique.count

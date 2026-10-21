@@ -9,26 +9,18 @@ import Foundation
 /// nghĩa ở §6.10 (`java.qread`, `java.deviceID`, `java.getUserAgent`): nguồn dò chúng trong `try` và đi nhánh khác,
 /// nên chúng không phải dấu hiệu hỏng. Không đổi lớp lỗi chính.
 enum LegadoCorpusFeatureScan {
+    /// Đợt 2 + 3 đã cài phần lớn bảng hoãn cũ; còn lại: hàm cố ý không định nghĩa / stub (spec §13.11, §14.5),
+    /// định dạng nén chưa hỗ trợ, shim Java chưa có, và các hàm chỉ chạy khi có người dùng (bộ chạy không tương tác).
     private static let tokens: [String] = [
-        "java.startBrowser", "java.getVerificationCode", "java.reLoginView", "java.upLoginData",
-        "java.getStrResponse", "java.initUrl", "java.refreshTocUrl", "java.reGetBook", "java.refreshBookUrl",
-        "java.importScript", "java.cacheFile", "java.toURL", "java.queryTTF", "java.queryBase64TTF",
-        "java.replaceFont", "java.downloadFile", "java.readTxtFile", "unzipFile", "unrarFile", "un7zFile",
-        "unArchiveFile", "getTxtInFolder", "StringContent(", "ByteArrayContent(", "java.createAsymmetricCrypto",
-        "java.createSign", "java.desEncodeToBase64String", "java.tripleDESEncodeBase64Str", "java.openUrl",
-        "java.openVideoPlayer", "java.showBrowser", "java.showReadingBrowser", "java.copyText", "java.searchBook",
-        "java.addBook", "putLoginHeader", "putLoginInfo", "source.login(", "Jsoup.connect", "setReverseToc"
+        "java.startBrowser", "java.getVerificationCode", "java.reLoginView",
+        "java.open(", "java.openVideoPlayer", "java.addBook", "java.showBrowser", "java.showReadingBrowser",
+        "java.readFile", "Jsoup.connect", "unrarFile", "un7zFile", "android.graphics", "Inflater", "java.net.URL"
     ]
     private static let maxHints = 12
 
     static func hints(in source: LegadoBookSource) -> [String] {
         let raw = source.rawJSONString
         var found = tokens.filter { raw.contains($0) }
-        if raw.contains("\"data:") || raw.contains("'data:") {
-            found.append("URL data:")
-        }
-        if isFilled(source.ruleToc.preUpdateJs) { found.append("preUpdateJs") }
-        if isFilled(source.ruleToc.formatJs) { found.append("formatJs") }
         if isFilled(source.loginCheckJs) { found.append("loginCheckJs") }
         if source.needsLogin { found.append("loginUrl") }
         return Array(found.prefix(maxHints))

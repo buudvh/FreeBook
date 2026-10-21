@@ -416,8 +416,7 @@ class ReaderViewModel: ObservableObject {
             do {
                 await prefetcher.cancelAll()
                 let origin = try await loadChapterContentFromExtension(
-                    request.chapterIndex,
-                    forceRefresh: request.forceRefresh
+                    request.chapterIndex, forceRefresh: request.forceRefresh, interactive: true
                 )
                 guard !Task.isCancelled, workerIdentity == activeWorkerIdentity, request.generation == navigationGeneration else { return }
                 let cached = cache.cache[request.chapterIndex] ?? cache.setPlaceholder(request.chapterIndex)
@@ -638,7 +637,8 @@ class ReaderViewModel: ObservableObject {
     @discardableResult
     func loadChapterContentFromExtension(
         _ index: Int,
-        forceRefresh: Bool = false
+        forceRefresh: Bool = false,
+        interactive: Bool = false
     ) async throws -> ChapterContentOrigin {
         guard index >= 0 && index < totalChaptersCount else {
             throw ReaderLoadError.invalidChapterIndex(index, total: totalChaptersCount)
@@ -698,7 +698,7 @@ class ReaderViewModel: ObservableObject {
                 host: chapterHost,
                 bookMetadata: bookMetadata,
                 extensionInfo: extensionInfo,
-                forceRefresh: forceRefresh
+                forceRefresh: forceRefresh, isInteractive: interactive
             )
         )
         if repoStartUptime > 0 {

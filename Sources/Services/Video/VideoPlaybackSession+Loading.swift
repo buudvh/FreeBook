@@ -226,7 +226,8 @@ extension VideoPlaybackSession {
                 configJson: ext.configJson,
                 context: SourceRuntimeContext(bookId: launch?.bookId, bookUrl: launch?.bookDetailUrl,
                                               bookName: launch?.bookTitle, bookAuthor: launch?.bookAuthor,
-                                              chapterTitle: episode.title, chapterIndex: episode.index)
+                                              chapterTitle: episode.title, chapterIndex: episode.index,
+                                              isInteractive: true)
             )
             guard isCurrent(generation) else { return }
             guard !list.isEmpty else {
@@ -251,12 +252,15 @@ extension VideoPlaybackSession {
         guard isCurrent(generation) else { return }
         phase = .resolving
         do {
-            let track = try await SourceRuntime.shared.videoTrack(
-                localPath: ext.localPath,
-                downloadUrl: ext.downloadUrl,
-                data: server.data,
-                configJson: ext.configJson
-            )
+            // Người dùng đang xem ⇒ nguồn Legado được mở trình duyệt / hỏi mã xác minh khi giải nguồn phát.
+            let track = try await SourceRuntime.userInitiated {
+                try await SourceRuntime.shared.videoTrack(
+                    localPath: ext.localPath,
+                    downloadUrl: ext.downloadUrl,
+                    data: server.data,
+                    configJson: ext.configJson
+                )
+            }
             guard isCurrent(generation) else { return }
             let resolver = VideoSourceResolver(extensionPackageId: ext.packageId)
             self.resolver = resolver

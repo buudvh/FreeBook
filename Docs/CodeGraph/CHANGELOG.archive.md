@@ -2,6 +2,22 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.537] - 2026-10-18
+
+### fix: danh sách truyện ở Khám phá theo công tắc dịch của nguồn
+
+Người dùng báo: tắt dịch cho một nguồn rồi mà danh sách truyện ở Khám phá vẫn dịch.
+
+- **Nguyên nhân** (hồi quy từ 1.3.533): hai view tạo mới cho Khám phá đọc công tắc dịch **toàn app** (`@AppStorage("isTranslationEnabled")`), không đọc cờ **theo nguồn** của `TranslationConfigStore` mà `DiscoveryView` vẫn tính và truyền xuống. Hai view đó là:
+  - `DiscoveryNovelRowView`: dòng truyện ở tab `home` và màn "Xem thêm".
+  - `CategoryNovelsListView`.
+- **Sửa**:
+  - `DiscoveryNovelRowView` nhận `isTranslationEnabled` qua tham số. Ở `DiscoveryCategoryTabView`, view cha truyền đúng cờ theo nguồn nó đang có.
+  - `CategoryNovelsListView` tự tính cờ theo nguồn bằng `TranslationConfigStore.isTranslationEnabled(bookId: "", packageId:, isChineseSourceHint:)`, giống `DiscoveryView`. Cờ này áp cho cả dòng truyện lẫn tiêu đề màn.
+  - Trang `explore` (section) vốn đã nhận cờ theo nguồn từ view cha nên không cần đổi.
+- **Không đổi**: `BookListItemView` (kệ, lịch sử…) vẫn dùng công tắc toàn app như trước bản này.
+- **Kiểm chứng**: `check_architecture.py` **2 violation, 0 mới**. Không build tại chỗ (Windows); CI chỉ xác nhận biên dịch.
+
 ## [1.3.536] - 2026-10-18
 
 ### fix: phát kèm luồng tiếng audios của track, sửa Dailymotion mất tiếng

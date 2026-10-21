@@ -594,7 +594,7 @@ struct SearchView: View {
             try BookSourceMigrator.ensureSameContentKind(oldPackageId: oldBook.extensionPackageId, newPackageId: ext.packageId)
             let path = ext.localPath
             // Ngữ cảnh theo `newBookId`: nguồn Legado ghi trạng thái theo đúng id của sách sắp tạo.
-            let context = SourceRuntimeContext(bookId: newBookId, bookUrl: result.link, bookName: result.name, bookAuthor: result.author)
+            let context = SourceRuntimeContext(bookId: newBookId, bookUrl: result.link, bookName: result.name, bookAuthor: result.author, isInteractive: true)
             let detailResult = try await SourceRuntime.shared.detail(localPath: path, downloadUrl: ext.downloadUrl, url: result.link, host: ExtensionHostResolver.nonEmpty(result.host) ?? ext.sourceUrl, configJson: ext.configJson, context: context)
             // Host sách: host detail → host item tìm kiếm → source (detail thường không trả host).
             let bookHost = ExtensionHostResolver.nonEmpty(detailResult.host) ?? ExtensionHostResolver.nonEmpty(result.host) ?? ext.sourceUrl
