@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.564] - 2026-10-21
+
+### feat: engine nguồn Legado đợt 2 + 3: đăng nhập, trình duyệt từ JS, khám phá có kiểu, font, tệp, RSA
+
+Khối D-engine, E-engine, I, J của plan đợt 2 + 3 nguồn Legado (người dùng đã duyệt). Hành vi theo spec phần 2 §10, §11, §13, §14, §15.3. 43 file mới (~3.450 dòng) + 29 file engine sửa, mọi file ≤ 400 dòng.
+
+- **Đăng nhập** (`Login/`): `source.getLoginInfo*/putLoginInfo/getLoginHeader*/putLoginHeader/removeLoginHeader/login` cài thật; `LegadoLoginStore` lưu thông tin + header đăng nhập trong **Keychain** theo nguồn (Keychain hỏng — vd dưới LiveContainer — thì chỉ giữ trong phiên); `LegadoLoginService` cho UI: trường form từ `loginUi`, gửi đăng nhập, nút hành động, đăng xuất (xoá Keychain + mọi cookie của nguồn), trạng thái, nhập cookie từ WebView. `loginCheckJs` chạy sau request luồng chính; header đăng nhập chỉ gắn khi tên miền trùng nguồn/trang đang đọc (U42).
+- **Trình duyệt / mã xác minh từ JS** (`Presentation/`): `java.startBrowser`, `startBrowserAwait`, `startBrowserDp`, `getVerificationCode`… phát yêu cầu qua event center `AsyncStream` (Services, không UI) và chờ **ngoài main** có timeout + huỷ. Chỉ hiện khi lời gọi được bọc `LegadoInteraction.$isInteractive` (người dùng chủ động) và có presenter; mặc định coi là không có người dùng.
+- **Khám phá có kiểu**: `LegadoEngineExploreItem` giữ `type` (url/text/button/toggle/select…), `action`, `chars`, `default`, `style`; giá trị chọn đi qua `infoMap` + JS của nguồn (§11.3, không tự chèn vào URL), lưu theo nguồn; `java.refreshExplore` phát sự kiện làm mới.
+- **Phần đuôi đợt 2**: URL `data:`, `java.importScript`, `java.toURL`, `Jsoup.connect`, giả lập `javax.crypto` phần hay gặp, `book.*` ghi thuộc tính + cờ cho luồng (`reverseTocOverride`, `typeOverride`, `onRefreshTocUrl`, `onReGetBook`), `fetch(…, sourceRegex:)` + bắt ứng viên phát video qua WebView. Đính chính phần 1 (§15.3): `book.type` dạng bitmask 8/32/64/128; `contentString` giữ outer HTML cho trường nội dung; `src` của `<img>` có option JSON.
+- **Đợt 3**: font chống crawl `queryTTF`/`queryBase64TTF`/`replaceFont` (`Font/`, parser TTF tự viết, lỗi ⇒ giữ văn bản gốc); tệp/zip (`Files/`, ZIPFoundation có sẵn, thư mục `legado_state/files/<nguồn>/`, 7z/rar ⇒ "Chưa hỗ trợ định dạng"); RSA `createAsymmetricCrypto`/`createSign` (`Crypto/`, Security framework); chế độ mã hoá đối xứng còn thiếu; phần đuôi `java.*`/`source.*`/`cookie.*`/`cache.*` theo §14. Cố ý không định nghĩa `java.readFile`, `showBrowser`, `showReadingBrowser`, `openWeb` (spec). Chưa có shim `android.graphics`, `Inflater`, `java.net.URL`.
+- **Ghi vết request** cho màn Gỡ lỗi: `LegadoEngineRequestRecord` + `LegadoEngineDiagnostics.recordRequest/requests` (≤ 100/phiên, mọi request kể cả lỗi, WebView, `data:`), không ghi vào `AppLogger`.
+- Chuyển entry `[1.3.534]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. 9 bootstrap JS chạy thử trên Node với lệnh native giả: 43/43 phép thử đạt. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.563] - 2026-10-21
 
 ### docs: đặc tả hành vi nguồn Legado phần 2 (tranh, video, đăng nhập, quản lý, phần hiếm)
@@ -454,23 +469,3 @@ Người dùng báo nguồn Dailymotion (tiện ích HHHTQ, track `auto`) có h�
 - **File mới**: `VideoPlaybackSession+AudioFallback.swift`, `VideoSourceResolution.swift`. Sửa `VideoMediaSniffer`, `VideoHLSPlaylistProbe`, `VideoSourceResolver`, `VideoPlaybackSession` (+`Playback`/`Loading`/`Lifecycle`) và `VideoPlayerStage`.
 - **Rủi ro**: HLS tách tiếng có thể không hiện trong `item.tracks`. Khi đó link dò từ trang chuyển sang nhúng dù không cần, còn link tiện ích trả thẳng sẽ ghi một dòng `❌` sai.
 - **Kiểm chứng**: `check_architecture.py` **2 violation, 0 mới**. Không build tại chỗ (Windows); CI chỉ xác nhận biên dịch. Thử Dailymotion trên máy: nếu vẫn mất tiếng thì gửi log, giờ sẽ có dòng `Không có âm thanh` dù công tắc log tắt.
-
-## [1.3.534] - 2026-10-17
-
-### feat: nút đánh dấu và bỏ đánh dấu 18+ cho tiện ích
-
-Yêu cầu: *"thêm nút đánh dấu/bỏ đánh dấu ext nsfw"*.
-
-- **Lưu lựa chọn**
-  - `Extension.nsfwOverride: Bool?`: `true` = đánh dấu, `false` = bỏ đánh dấu, `nil` = nhận diện tự động. Decode khoan dung.
-  - Trường này **tách khỏi** `isNsfw`: cập nhật tiện ích đọc lại `isNsfw` từ `plugin.json`, nhưng không làm mất lựa chọn của người dùng.
-- **Nhận diện**: `ExtensionNsfwClassifier` ưu tiên `nsfwOverride` trên cả cờ tự khai lẫn heuristic. `ExtensionNsfwCache` so sánh cả bản ghi nên tự tính lại khi lựa chọn đổi.
-- **Ghi**: `ExtensionTransactionCoordinator.setNsfwOverride` (theo mẫu `setSavesHistory`), lưu ngay khi bấm.
-- **Giao diện**
-  - Màn Cấu hình tiện ích có section "Nội dung nhạy cảm" (`ExtensionConfigView+Nsfw`): nút "Đánh dấu 18+" / "Bỏ đánh dấu 18+"; đã tự chọn thì hiện thêm "Dùng nhận diện tự động". Chú thích ghi rõ trạng thái hiện tại.
-  - Nhấn giữ dòng tiện ích đã cài trong Kho có cùng các lựa chọn (`RepositoryManagerView+Nsfw`).
-- **Tác dụng kéo theo**: nhãn 18+ trên icon, ẩn khi công tắc NSFW tắt, và mặc định không lưu lịch sử nếu người dùng chưa tự chọn.
-- **Sao lưu**
-  - `BackupPayload` mang thêm `nsfwOverride`, tính vào fingerprint.
-  - Khi khôi phục, chỉ áp lựa chọn cho tiện ích mà máy đang khôi phục chưa tự chọn, cùng luật với `savesHistory`.
-- **Kiểm chứng**: `check_architecture.py` **2 violation, 0 mới**. Không build tại chỗ (Windows); CI chỉ xác nhận biên dịch.

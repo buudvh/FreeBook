@@ -22,8 +22,18 @@ extension LegadoJSBootstrap {
               }
             });
           }
+          // Lớp giả lập đăng ký ở `__lg.classes` (script `classes`) được gắn vào gói chứa nó, để `JavaImporter`/
+          // `importPackage` (đọc khoá của gói) thấy được.
           function namespace(path, known) {
-            return new Proxy(known || {}, {
+            known = known || {};
+            Object.keys(L.classes || {}).forEach(function (full) {
+              var dot = full.lastIndexOf('.');
+              var name = full.slice(dot + 1);
+              if (dot > 0 && full.slice(0, dot) === path && !Object.prototype.hasOwnProperty.call(known, name)) {
+                known[name] = L.classes[full];
+              }
+            });
+            return new Proxy(known, {
               get: function (target, prop) {
                 if (typeof prop !== 'string') { return undefined; }
                 if (Object.prototype.hasOwnProperty.call(target, prop)) { return target[prop]; }

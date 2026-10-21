@@ -87,6 +87,10 @@ extension LegadoJSRuntime {
             if let hex = descriptor["$bytes"]?.stringValue {
                 return .string(String(decoding: Self.bytes(fromHex: hex), as: UTF8.self))
             }
+            if let response = descriptor["$resp"] {
+                // Đối tượng phản hồi như chuỗi = thân (`toString()`), spec §6.4.1.
+                return .string(response["body"]?.scalarString ?? "")
+            }
             return .json(descriptor)
         }
     }
@@ -101,6 +105,9 @@ extension LegadoJSRuntime {
         case .object:
             if let hex = descriptor["$bytes"]?.stringValue {
                 return String(decoding: Self.bytes(fromHex: hex), as: UTF8.self)
+            }
+            if let response = descriptor["$resp"] {
+                return response["body"]?.scalarString ?? ""
             }
             switch content(fromDescriptor: descriptor) {
             case .html(let element): return (try? element.outerHtml()) ?? ""

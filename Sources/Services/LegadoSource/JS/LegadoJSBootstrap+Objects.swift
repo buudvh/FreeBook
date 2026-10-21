@@ -25,21 +25,28 @@ extension LegadoJSBootstrap {
             putVariable: function (v) { call('sourceSetVar', [v == null ? '' : String(v)]); },
             put: function (k, v) { call('sourcePut', [String(k), v == null ? '' : String(v)]); return v; },
             get: function (k) { var v = callJSON('sourceGet', [String(k)]); return v === null ? '' : v; },
-            getLoginInfo: function () { return ''; },
-            getLoginInfoMap: function () { return L.map({}); },
-            getLoginHeader: function () { return ''; },
-            getLoginHeaderMap: function () { return L.map({}); },
-            getHeaderMap: function () { return L.map(callJSON('sourceHeaders', []) || {}); },
-            refreshExplore: function () {},
+            // Đăng nhập (spec §10.5–§10.6): chưa có ⇒ `null` (U39); bản `Map` chưa có ⇒ map rỗng.
+            getLoginInfo: function () { return callJSON('loginInfoGet', []); },
+            getLoginInfoMap: function () { return L.map(callJSON('loginInfoMap', []) || {}); },
+            putLoginInfo: function (v) { call('loginInfoPut', [textArg(v)]); return true; },
+            putLoginInfoMap: function (v) { call('loginInfoPut', [textArg(v)]); return true; },
+            removeLoginInfo: function () { call('loginInfoRemove', []); },
+            getLoginHeader: function () { return callJSON('loginHeaderGet', []); },
+            getLoginHeaderMap: function () { return L.map(callJSON('loginHeaderMap', []) || {}); },
+            putLoginHeader: function (v) { call('loginHeaderPut', [textArg(v)]); },
+            removeLoginHeader: function () { call('loginHeaderRemove', []); },
+            getHeaderMap: function (withLogin) { return L.map(callJSON('sourceHeaders', [!!withLogin]) || {}); },
+            login: function () { call('sourceLogin', []); },
+            refreshExplore: function () { call('refreshExplore', []); },
             refreshJSLib: function () {},
             putConcurrent: function () {},
-            getSource: function () { return source; },
-            putLoginHeader: L.unsupported('source.putLoginHeader'),
-            removeLoginHeader: L.unsupported('source.removeLoginHeader'),
-            putLoginInfo: L.unsupported('source.putLoginInfo'),
-            removeLoginInfo: L.unsupported('source.removeLoginInfo'),
-            login: L.unsupported('source.login')
+            getSource: function () { return source; }
           };
+          function textArg(v) {
+            if (v === undefined || v === null) { return ''; }
+            if (typeof v === 'string' || v instanceof String) { return String(v); }
+            try { return JSON.stringify(v); } catch (e) { return String(v); }
+          }
           Object.keys(sourceMethods).forEach(function (k) { L.defineHidden(source, k, sourceMethods[k]); });
 
           function contextObject(kind, fields, deferredSetters) {
@@ -51,7 +58,7 @@ extension LegadoJSBootstrap {
                   if (Object.prototype.hasOwnProperty.call(overrides, f)) { return overrides[f]; }
                   return callJSON(kind + '.get', [f]);
                 },
-                set: function (v) { overrides[f] = v; }
+                set: function (v) { overrides[f] = v; call(kind + '.set', [f, v === undefined ? null : v]); }
               });
               L.defineHidden(o, 'get' + cap(f), function () { return o[f]; });
               L.defineHidden(o, 'set' + cap(f), function (v) { o[f] = v; });
@@ -64,8 +71,12 @@ extension LegadoJSBootstrap {
               call(kind + '.putVar', [String(k), v == null ? null : String(v)]);
               return v;
             });
+            // `setReverseToc(b)`, `setUseReplaceRule(b)` (spec §13.5): ghi nhận trên ngữ cảnh Swift để luồng áp dụng.
             (deferredSetters || []).forEach(function (name) {
-              L.defineHidden(o, name, function (v) { call('deferredNoop', [kind + '.' + name]); overrides['__' + name] = v; });
+              L.defineHidden(o, name, function (v) {
+                call(kind + '.set', [name, v === undefined ? null : v]);
+                overrides['__' + name] = v;
+              });
             });
             L.defineHidden(o, '__lgReset', function () { overrides = {}; });
             L.defineHidden(o, 'toString', function () { return '[' + kind + ']'; });
@@ -75,7 +86,7 @@ extension LegadoJSBootstrap {
           var book = contextObject('book', [
             'name', 'author', 'kind', 'coverUrl', 'intro', 'bookUrl', 'tocUrl', 'origin', 'originName', 'type',
             'latestChapterTitle', 'lastChapter', 'wordCount', 'durChapterIndex', 'durChapterTitle', 'durChapterPos',
-            'totalChapterNum', 'customIntro', 'customTag', 'customCoverUrl', 'canUpdate', 'order', 'variable', 'group'
+            'totalChapterNum', 'customIntro', 'customTag', 'customCoverUrl', 'canUpdate', 'order', 'variable', 'group', 'imageStyle'
           ], ['setReverseToc', 'setUseReplaceRule']);
           var chapter = contextObject('chapter', [
             'title', 'index', 'url', 'baseUrl', 'bookUrl', 'tag', 'isVip', 'isVolume', 'isPay', 'variable', 'resourceUrl'
@@ -96,7 +107,21 @@ extension LegadoJSBootstrap {
             getKey: function (url, key) { return call('cookieGet', [String(url), String(key)]); },
             setCookie: function (url, value) { call('cookieSet', [String(url), value == null ? '' : String(value), false]); },
             replaceCookie: function (url, value) { call('cookieSet', [String(url), value == null ? '' : String(value), true]); },
-            removeCookie: function (url) { call('cookieRemove', [String(url)]); }
+            removeCookie: function (url) { call('cookieRemove', [String(url)]); },
+            // Map cookie (vd `response.cookies()`) → chuỗi `k=v; k2=v2` (spec §14.5).
+            mapToCookie: function (map) {
+              if (!map) { return ''; }
+              return Object.keys(map).filter(function (k) { return typeof map[k] !== 'function'; })
+                .map(function (k) { return k + '=' + map[k]; }).join('; ');
+            },
+            cookieToMap: function (text) {
+              var out = {};
+              String(text || '').split(';').forEach(function (part) {
+                var i = part.indexOf('=');
+                if (i > 0) { out[part.slice(0, i).trim()] = part.slice(i + 1).trim(); }
+              });
+              return L.map(out);
+            }
           };
 
           var cache = {
@@ -120,6 +145,7 @@ extension LegadoJSBootstrap {
           g.source = source;
           g.cookie = cookie;
           g.cache = cache;
+          g.infoMap = L.infoMap();
           g.book = null;
           g.chapter = null;
         })(this);

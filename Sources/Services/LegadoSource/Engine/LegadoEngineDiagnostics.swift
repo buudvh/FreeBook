@@ -23,8 +23,10 @@ final class LegadoEngineDiagnostics: @unchecked Sendable {
 
     private let lock = NSLock()
     private var storage: [Entry] = []
+    private var requestStorage: [LegadoEngineRequestRecord] = []
     private let sourceName: String
     private static let capacity = 300
+    private static let requestCapacity = 100
 
     init(sourceName: String) {
         self.sourceName = sourceName
@@ -58,5 +60,23 @@ final class LegadoEngineDiagnostics: @unchecked Sendable {
 
     func count(of kind: Kind) -> Int {
         entries.filter { $0.kind == kind }.count
+    }
+
+    // MARK: - Vết request (màn Gỡ lỗi)
+
+    /// Ghi vết một request (kể cả lỗi). Giữ tối đa 100 vết đầu mỗi phiên; **không** ghi `AppLogger`.
+    func recordRequest(_ record: LegadoEngineRequestRecord) {
+        lock.lock()
+        if requestStorage.count < Self.requestCapacity {
+            requestStorage.append(record)
+        }
+        lock.unlock()
+    }
+
+    /// Vết request của phiên theo thứ tự gửi.
+    var requests: [LegadoEngineRequestRecord] {
+        lock.lock()
+        defer { lock.unlock() }
+        return requestStorage
     }
 }

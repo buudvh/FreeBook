@@ -6,11 +6,29 @@ extension LegadoEngineSession {
     /// `allowHTTPError`. `baseUrl` nil ⇒ URL gốc của nguồn (đúng cho `searchUrl`/mục khám phá); trường URL lấy từ trang
     /// thì truyền URL cuối của trang. `content` = nội dung cho placeholder rule (`{{$.id}}`) nếu có.
     /// `webJs` = `ruleContent.webJs`, chỉ dùng khi request tải bằng WebView (§4.4).
+    /// `sourceRegex` (spec §9.4) chỉ có tác dụng khi request đi WebView: URL tài nguyên đầu tiên khớp thành thân.
+    ///
+    /// Đây là cửa **luồng chính**: `loginCheckJs` của nguồn (nếu có) chạy sau mỗi request ở đây, trước khi phân tích
+    /// thân (spec §10.7); `java.ajax`/`connect`… đi thẳng `perform` nên không kích hoạt nó.
     func fetch(_ urlRule: String, baseUrl: String? = nil, key: String? = nil, page: Int? = nil,
-               content: LegadoContentNode? = nil, webJs: String? = nil,
+               content: LegadoContentNode? = nil, webJs: String? = nil, sourceRegex: String? = nil,
                allowHTTPError: Bool = false) throws -> LegadoHTTPResponse {
-        let request = try buildRequest(urlRule, baseUrl: baseUrl, key: key, page: page, content: content)
-        return try perform(request, webJs: webJs, allowHTTPError: allowHTTPError)
+        var request = try buildRequest(urlRule, baseUrl: baseUrl, key: key, page: page, content: content)
+        if request.useWebView, let sourceRegex, !sourceRegex.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            request.sourceRegex = sourceRegex
+        }
+        guard !request.isDataURL, !isRunningLoginCheck, let check = loginCheckScript else {
+            return try perform(request, webJs: webJs, allowHTTPError: allowHTTPError)
+        }
+        let response = try perform(request, webJs: webJs, allowHTTPError: true)
+        let checked = try runLoginCheck(check, response: response, request: request, ruleUrl: urlRule,
+                                        baseUrl: baseUrl, key: key, page: page, webJs: webJs)
+        if checked.statusCode >= 400 && !allowHTTPError {
+            diagnostics.record(.http, "HTTP \(checked.statusCode) \(request.url)")
+            throw LegadoEngineError.httpStatus(code: checked.statusCode, url: checked.finalURL,
+                                               body: String(checked.body.prefix(4000)))
+        }
+        return checked
     }
 
     /// Chỉ dựng request (§3.2 bước 1–7), không gửi. `key`/`page` (nếu truyền) đè biến JS trong lúc dựng.
@@ -32,14 +50,20 @@ extension LegadoEngineSession {
     func perform(_ request: LegadoHTTPRequest, webJs: String? = nil, allowHTTPError: Bool = false) throws -> LegadoHTTPResponse {
         try checkCancellation()
         if request.isDataURL {
-            diagnostics.record(.unsupported, "URL data:")
-            throw LegadoEngineError.unsupportedSyntax("URL data:")
+            return try recordingRequest(request) {
+                guard let response = LegadoDataURL.response(for: request) else {
+                    throw LegadoEngineError.invalidURL(String(request.url.prefix(120)))
+                }
+                return response
+            }
         }
         guard LegadoURLResolver.hasHTTPScheme(request.url), URL(string: request.url) != nil else {
             throw LegadoEngineError.invalidURL(request.url)
         }
         try rateLimiter?.acquire(cancellation: cancellation)
-        let response = try (request.useWebView ? performWebView(request, webJs: webJs) : performHTTP(request))
+        let response = try recordingRequest(request) {
+            try (request.useWebView ? performWebView(request, webJs: webJs) : performHTTP(request))
+        }
         if response.statusCode >= 400 && !allowHTTPError {
             diagnostics.record(.http, "HTTP \(response.statusCode) \(request.url)")
             throw LegadoEngineError.httpStatus(code: response.statusCode, url: response.finalURL,
@@ -110,11 +134,19 @@ extension LegadoEngineSession {
         guard let url = URL(string: request.url) else { throw LegadoEngineError.invalidURL(request.url) }
         let urlRequest = request.urlRequest(url: url, cookieHeader: nil)
         let userAgent = request.header("User-Agent") ?? LegadoHTTPClient.webViewUserAgent
+        var resourcePattern: NSRegularExpression?
+        if let pattern = request.sourceRegex {
+            resourcePattern = try? NSRegularExpression(pattern: pattern)
+            if resourcePattern == nil {
+                diagnostics.record(.ruleSyntax, "sourceRegex không biên dịch được, bỏ qua: \(pattern.prefix(120))")
+            }
+        }
         let result: LegadoWebViewFetcher.Result
         do {
             result = try LegadoWebViewFetcher.load(
                 request: urlRequest, htmlString: htmlString, userAgent: userAgent, delay: request.webViewDelay,
-                webJs: webJs, timeout: 30, cookies: cookieJar.httpCookies(forURL: request.url), cancellation: cancellation
+                webJs: webJs, timeout: 30, cookies: cookieJar.httpCookies(forURL: request.url), cancellation: cancellation,
+                sourceRegex: resourcePattern
             )
         } catch {
             if error is CancellationError || cancellation.isCancelled { throw CancellationError() }
@@ -126,12 +158,16 @@ extension LegadoEngineSession {
     }
 
     /// `java.webView(html, url, js)`: `html` không rỗng ⇒ nạp chuỗi HTML với URL nền `url`.
-    func loadInWebView(url: String, htmlString: String?, script: String?) throws -> LegadoHTTPResponse {
+    /// `sourceRegex` khác `nil` ⇒ thân = URL tài nguyên đầu tiên khớp (`java.webViewGetSource`, `getStrResponse`).
+    func loadInWebView(url: String, htmlString: String?, script: String?, sourceRegex: String? = nil) throws -> LegadoHTTPResponse {
         var request = LegadoHTTPRequest(url: url)
         request.headers = [(name: "User-Agent", value: LegadoHTTPClient.webViewUserAgent)]
         request.useWebView = true
+        request.sourceRegex = sourceRegex
         try rateLimiter?.acquire(cancellation: cancellation)
-        return try performWebView(request, webJs: script, htmlString: htmlString)
+        return try recordingRequest(request) {
+            try performWebView(request, webJs: script, htmlString: htmlString)
+        }
     }
 
     // MARK: - Header nguồn (§3.10)

@@ -43,17 +43,51 @@ final class LegadoEngineSession {
     var ruleFrames: [RuleFrame] = []
     /// Đang tính header nguồn: header JS gọi `java.ajax` sẽ quay lại `buildRequest` → `sourceHeaders` (chặn đệ quy).
     var isComputingSourceHeaders = false
+
+    // MARK: Đợt 2/3
+
+    /// Phiên **có người dùng**: `java.startBrowser*`/`getVerificationCode` được trình bày UI qua
+    /// `LegadoPresentationEventCenter`. Mặc định lấy từ `LegadoInteraction.isInteractive` của Task gọi `run`; không có
+    /// người dùng (tải nền, kiểm tra hàng loạt, bộ nghiệm thu) ⇒ không mở gì (spec §10.8).
+    var allowsUserInteraction: Bool
+    /// Đang chạy `loginCheckJs` (request phát sinh bên trong không kích hoạt lại nó, spec §10.7 mục 4).
+    var isRunningLoginCheck = false
+    /// Ngữ cảnh của `loginCheckJs` đang chạy (`java.ruleUrl`, `initUrl`, `getStrResponse`, `getHeaderMap`).
+    var loginCheckContext: LegadoLoginCheckContext?
+    /// Thông tin đăng nhập **tạm** của form đang gửi (spec §10.4 bước 3): `source.getLoginInfo*` đọc cái này trước kho.
+    var pendingLoginInfo: [String: String]?
+    /// Ngữ cảnh JS của form đăng nhập: chỉ khi khác `nil` mới có `java.upLoginData`/`java.reLoginView` (§10.4 mục 5).
+    var loginForm: LegadoLoginFormState?
+    /// Đang chạy `login()` (chống đệ quy `source.login()`, §10.4 mục 7).
+    var isRunningLogin = false
+    /// Host đã ghi chẩn đoán "bỏ header đăng nhập vì khác tên miền" (mỗi host một lần mỗi phiên).
+    var reportedForeignLoginHosts: Set<String> = []
+    /// Nội dung video (spec §9.6): `java.startBrowser(url, title)` không mở trình duyệt mà ghi thành ứng viên phát.
+    /// Luồng video (M1) bật cờ này trước khi chạy `content` rồi đọc `playbackCandidates`.
+    var capturesBrowserAsPlaybackCandidate = false
+    var playbackCandidates: [LegadoPlaybackCandidate] = []
+    /// `infoMap` của khám phá (spec §11.3) khi phiên đang chạy `exploreUrl`/`action` khám phá; `nil` ⇒ map rỗng chỉ đọc.
+    var exploreInfo: [String: String]?
+    /// `java.refreshTocUrl()`/`refreshBookUrl()`/`refreshBookInfo()` (spec §13.3): luồng mục lục (M1) đặt hook này khi
+    /// chạy `preUpdateJs`/`ruleBookInfo.init`; `nil` ⇒ ghi cảnh báo, không làm gì.
+    var onRefreshTocUrl: ((LegadoEngineSession) throws -> Void)?
+    /// `java.reGetBook()` (spec §13.3 mục 3): như trên.
+    var onReGetBook: ((LegadoEngineSession) throws -> Void)?
+    /// Object JSON gốc của nguồn (parse một lần mỗi phiên) cho các khoá engine đọc thêm (`loginUi`, `loginCheckJs`…).
+    lazy var rawSourceJSON: LegadoEngineJSON = LegadoEngineJSONParser.parse(source.rawJSON, lenient: true) ?? .object([])
+
     private var httpStorage: LegadoHTTPClient?
     private var runtimeStorage: LegadoJSRuntime?
     private var lastToastDate: Date?
 
     init(source: LegadoEngineSource, book: LegadoBookContext?, chapter: LegadoChapterContext?,
-         store: LegadoPersistentStore, cancellation: LegadoEngineCancellation) {
+         store: LegadoPersistentStore, cancellation: LegadoEngineCancellation, allowsUserInteraction: Bool = false) {
         self.source = source
         self.book = book
         self.chapter = chapter
         self.store = store
         self.cancellation = cancellation
+        self.allowsUserInteraction = allowsUserInteraction
         self.diagnostics = LegadoEngineDiagnostics(sourceName: source.name.isEmpty ? source.key : source.name)
         self.memory = LegadoSourceSessionStore.shared(forSourceKey: source.key)
         self.cookieJar = LegadoCookieJar.shared(forSourceKey: source.key, store: store)
@@ -71,11 +105,13 @@ final class LegadoEngineSession {
                        store: LegadoPersistentStore = LegadoFileStateStore.shared,
                        _ body: @escaping @Sendable (LegadoEngineSession) throws -> T) async throws -> T {
         let cancellation = LegadoEngineCancellation()
+        let interactive = LegadoInteraction.isInteractive
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<T, Error>) in
                 let thread = Thread {
                     let session = LegadoEngineSession(source: source, book: book, chapter: chapter,
-                                                      store: store, cancellation: cancellation)
+                                                      store: store, cancellation: cancellation,
+                                                      allowsUserInteraction: interactive)
                     let outcome: Result<T, Error>
                     do {
                         try cancellation.check()
@@ -107,6 +143,10 @@ final class LegadoEngineSession {
         httpStorage = nil
         runtimeStorage = nil
         ruleFrames.removeAll()
+        // Hook do lớp gọi đặt có thể giữ chính phiên (vòng giữ): nhả khi phiên kết thúc.
+        onRefreshTocUrl = nil
+        onReGetBook = nil
+        loginForm = nil
         cookieJar.flushIfNeeded()
     }
 
@@ -210,11 +250,12 @@ final class LegadoEngineSession {
         AppLogger.shared.log("[Legado \(source.name)] \(text)")
     }
 
-    func emitToast(_ message: String) {
+    func emitToast(_ message: String, isLong: Bool = false) {
         logFromSource("toast: \(message)")
         let now = Date()
         if let last = lastToastDate, now.timeIntervalSince(last) < 1 { return }
         lastToastDate = now
         onToast?(message)
+        forwardToast(message, isLong: isLong)
     }
 }

@@ -19,13 +19,23 @@ extension LegadoJSRuntime {
             let value = session.store.sourceValue(forKey: text(of: arguments[0]), sourceKey: sourceKey)
             return value.map { LegadoEngineJSON.quoted($0) } ?? "null"
         case "sourceHeaders":
-            let headers = try session.sourceHeaders(baseUrl: session.currentFrameBaseUrl)
+            // `source.getHeaderMap(true)` gộp thêm header đăng nhập (spec §10.6) — không xét tên miền vì JS tự xin.
+            var headers = try session.sourceHeaders(baseUrl: session.currentFrameBaseUrl)
+            if arguments.bool(0), let text = session.loginHeaderText {
+                headers = LegadoHeaderParser.merge(headers, LegadoEngineSession.loginHeaderPairs(text))
+            }
             return LegadoEngineJSON.object(headers.map { (key: $0.name, value: LegadoEngineJSON.string($0.value)) }).compactText
 
         case "book.get":
             return (session.book?.jsValue(field: text(of: arguments[0])) ?? .null).compactText
         case "book.getVar":
             return session.book?.variable(text(of: arguments[0])) ?? ""
+        case "book.set":
+            session.book?.recordScriptWrite(field: text(of: arguments[0]), value: scriptValue(arguments[1]))
+            return ""
+        case "chapter.set":
+            session.chapter?.recordScriptWrite(field: text(of: arguments[0]), value: scriptValue(arguments[1]))
+            return ""
         case "book.putVar":
             session.book?.setVariable(arguments.isNull(1) ? nil : text(of: arguments[1]), forKey: text(of: arguments[0]))
             return ""
@@ -72,6 +82,16 @@ extension LegadoJSRuntime {
             return ""
         default:
             return nil
+        }
+    }
+
+    /// Giá trị JSON của một đối số ghi thuộc tính (`$json` ⇒ chính object/mảng; phần tử/byte ⇒ chuỗi).
+    func scriptValue(_ descriptor: LegadoEngineJSON) -> LegadoEngineJSON {
+        switch descriptor {
+        case .null, .bool, .number, .string: return descriptor
+        default:
+            if let json = descriptor["$json"] { return json }
+            return .string(text(of: descriptor))
         }
     }
 }

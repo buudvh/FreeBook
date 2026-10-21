@@ -64,6 +64,7 @@ extension LegadoEngineSession {
             var merged: [(name: String, value: String)] = [(name: "User-Agent", value: LegadoHTTPClient.defaultUserAgent)]
             let sourcePairs = try sourceHeaders(baseUrl: currentFrameBaseUrl)
             merged = LegadoHeaderParser.merge(merged, sourcePairs)
+            merged = LegadoHeaderParser.merge(merged, loginHeaders(forURL: resolved, pageURL: currentFrameBaseUrl))
             if let headers {
                 merged = LegadoHeaderParser.merge(merged, LegadoHeaderParser.pairs(fromText: headers))
             }

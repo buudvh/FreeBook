@@ -18,19 +18,23 @@ enum LegadoWebViewFetcher {
         var loader: WebViewLoader?
         var result: Result?
         var finished = false
+        var failureMessage: String?
     }
 
     private static let webJsRetryLimit = 3
 
     /// `htmlString` khác `nil` ⇒ nạp chuỗi HTML đó với URL nền `request.url` (`java.webView(html, url, js)`).
+    /// `sourceRegex` khác `nil` (spec §9.4): không lấy HTML khi trang tải xong mà theo dõi mọi URL trang request (điều
+    /// hướng, XHR, fetch, media — `WebViewLoader` đã cài bộ bắt request); URL đầu tiên khớp **toàn chuỗi** thành thân.
+    /// Hết `timeout` mà không khớp ⇒ lỗi "không bắt được tài nguyên".
     static func load(request: URLRequest, htmlString: String? = nil, userAgent: String, delay: TimeInterval,
                      webJs: String?, timeout: TimeInterval, cookies: [HTTPCookie],
-                     cancellation: LegadoEngineCancellation) throws -> Result {
+                     cancellation: LegadoEngineCancellation, sourceRegex: NSRegularExpression? = nil) throws -> Result {
         let state = State()
         let semaphore = DispatchSemaphore(value: 0)
         DispatchQueue.main.async {
             start(state, request: request, htmlString: htmlString, userAgent: userAgent, delay: delay, webJs: webJs,
-                  timeout: timeout, cookies: cookies, semaphore: semaphore)
+                  timeout: timeout, cookies: cookies, sourceRegex: sourceRegex, semaphore: semaphore)
         }
         let handlerId = cancellation.register {
             DispatchQueue.main.async { complete(state, result: nil, semaphore: semaphore) }
@@ -43,7 +47,12 @@ enum LegadoWebViewFetcher {
             throw URLError(.timedOut)
         }
         try cancellation.check()
-        guard let result = state.result else { throw URLError(.cannotLoadFromNetwork) }
+        guard let result = state.result else {
+            if let message = state.failureMessage {
+                throw LegadoEngineError.network(url: request.url?.absoluteString ?? "", message: message)
+            }
+            throw URLError(.cannotLoadFromNetwork)
+        }
         return result
     }
 
@@ -54,7 +63,7 @@ enum LegadoWebViewFetcher {
 
     private static func start(_ state: State, request: URLRequest, htmlString: String?, userAgent: String,
                               delay: TimeInterval, webJs: String?, timeout: TimeInterval, cookies: [HTTPCookie],
-                              semaphore: DispatchSemaphore) {
+                              sourceRegex: NSRegularExpression?, semaphore: DispatchSemaphore) {
         MainActor.assumeIsolated {
             guard !state.finished else { return }
             let loader = WebViewLoader(extensionLocalPath: nil)
@@ -63,8 +72,13 @@ enum LegadoWebViewFetcher {
             let cookieStore = loader.webView.configuration.websiteDataStore.httpCookieStore
             setCookies(cookies, into: cookieStore) { [weak loader] in
                 guard let loader, !state.finished else { return }
-                launch(loader, state: state, request: request, htmlString: htmlString, delay: delay, webJs: webJs,
-                       timeout: timeout, semaphore: semaphore)
+                if let sourceRegex {
+                    launchCapturing(loader, state: state, request: request, htmlString: htmlString, pattern: sourceRegex,
+                                    timeout: timeout, semaphore: semaphore)
+                } else {
+                    launch(loader, state: state, request: request, htmlString: htmlString, delay: delay, webJs: webJs,
+                           timeout: timeout, semaphore: semaphore)
+                }
             }
         }
     }
@@ -99,6 +113,50 @@ enum LegadoWebViewFetcher {
                 }
             }
         }
+    }
+
+    /// Nạp trang rồi dò URL tài nguyên khớp `pattern` mỗi 0,25 giây (main thread).
+    private static func launchCapturing(_ loader: WebViewLoader, state: State, request: URLRequest, htmlString: String?,
+                                        pattern: NSRegularExpression, timeout: TimeInterval, semaphore: DispatchSemaphore) {
+        MainActor.assumeIsolated {
+            loader.completion = nil
+            if let htmlString {
+                _ = loader.webView.loadHTMLString(htmlString, baseURL: request.url)
+            } else {
+                loader.beginLaunch(request)
+            }
+        }
+        pollResource(loader, state: state, request: request, pattern: pattern,
+                     deadline: Date().addingTimeInterval(timeout), semaphore: semaphore)
+    }
+
+    private static func pollResource(_ loader: WebViewLoader, state: State, request: URLRequest,
+                                     pattern: NSRegularExpression, deadline: Date, semaphore: DispatchSemaphore) {
+        guard !state.finished else { return }
+        let found: String? = MainActor.assumeIsolated {
+            loader.allRequestedUrls.first { matchesWhole(pattern, $0) }
+        }
+        if let found {
+            finish(state, loader: loader, body: found, request: request, semaphore: semaphore)
+            return
+        }
+        if Date() >= deadline {
+            state.failureMessage = "Không bắt được tài nguyên khớp sourceRegex"
+            complete(state, result: nil, semaphore: semaphore)
+            return
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            pollResource(loader, state: state, request: request, pattern: pattern, deadline: deadline, semaphore: semaphore)
+        }
+    }
+
+    /// Khớp **toàn chuỗi** (regex kiểu `.*\.m3u8.*` cho cùng kết quả với khớp một phần).
+    static func matchesWhole(_ pattern: NSRegularExpression, _ text: String) -> Bool {
+        let length = (text as NSString).length
+        guard let match = pattern.firstMatch(in: text, options: [.anchored], range: NSRange(location: 0, length: length)) else {
+            return false
+        }
+        return match.range.location == 0 && match.range.length == length
     }
 
     private static func setCookies(_ cookies: [HTTPCookie], into store: WKHTTPCookieStore, then next: @escaping () -> Void) {

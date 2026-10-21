@@ -2,11 +2,18 @@ import Foundation
 
 /// Phân tích `exploreUrl` (spec §5.2.1–§5.2.2): mảng JSON, văn bản `tên::url`, hoặc JS sinh một trong hai.
 extension LegadoEngineSession {
-    /// Danh sách mục khám phá. JS chạy với `baseUrl` = URL gốc nguồn, không có `key`/`page`; placeholder trong URL do
-    /// JS sinh **không** được thay ở đây. Mục `type` = `select`/`button` bị ẩn (đợt 2).
+    /// Danh sách mục khám phá **thường** (ô bấm + tiêu đề nhóm) — giữ đúng hành vi đợt 1 cho luồng `genre`: điều khiển
+    /// (`select`/`toggle`/`text`/`button`) bị loại. Danh sách đầy đủ có kiểu: `exploreEntries(_:)`.
+    /// JS chạy với `baseUrl` = URL gốc nguồn, không có `key`/`page`; placeholder trong URL do JS sinh **không** được thay ở đây.
     func exploreItems(_ exploreUrl: String) throws -> [LegadoEngineExploreItem] {
+        try exploreEntriesIncludingControls(exploreUrl).filter { !$0.isControl }
+    }
+
+    /// Mọi mục (kể cả điều khiển), chưa ghép giá trị `infoMap`. JS của `exploreUrl` thấy `infoMap` của nguồn (§11.3).
+    func exploreEntriesIncludingControls(_ exploreUrl: String) throws -> [LegadoEngineExploreItem] {
         let trimmed = exploreUrl.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
+        activateExploreInfo()
         let lower = trimmed.lowercased()
         if lower.hasPrefix("@js:") || lower.hasPrefix("<js>") {
             var code = String(trimmed.dropFirst(4))
@@ -22,7 +29,7 @@ extension LegadoEngineSession {
                 page = savedPage
             }
             let value = try evaluateScript(code, result: nil, baseUrl: sourceBase, src: nil)
-            return entries(fromScriptResult: value)
+            return try labelled(entries(fromScriptResult: value))
         }
         if trimmed.hasPrefix("[") {
             if let array = LegadoEngineJSONParser.parse(trimmed, lenient: true)?.arrayValue {
@@ -61,6 +68,16 @@ extension LegadoEngineSession {
 
     private static let requestOptionKeys: Set<String> = ["webview", "method", "body", "headers", "charset", "js", "webviewdelaytime", "retry"]
 
+    /// Đánh giá `viewName` (biểu thức JS) của điều khiển thành nhãn; lỗi ⇒ giữ `title`.
+    private func labelled(_ items: [LegadoEngineExploreItem]) throws -> [LegadoEngineExploreItem] {
+        var output = items
+        for index in output.indices {
+            guard let viewName = output[index].viewNameSource else { continue }
+            output[index].label = try viewNameLabel(.string(viewName), fallback: output[index].title)
+        }
+        return output
+    }
+
     static func entries(fromJSONItems items: [LegadoEngineJSON]) -> [LegadoEngineExploreItem] {
         var output: [LegadoEngineExploreItem] = []
         for item in items {
@@ -68,24 +85,49 @@ extension LegadoEngineSession {
                 if case .string(let text) = item { output.append(contentsOf: Self.entries(fromText: text)) }
                 continue
             }
-            let type = item["type"]?.scalarString.lowercased() ?? ""
-            if type == "select" || type == "button" { continue }
+            let type = (item["type"]?.scalarString ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             let title = (item["title"]?.scalarString ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            let style = item["style"]
+            if let control = Self.controlKind(type) {
+                let actionText = item["action"]?.scalarString.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                var entry = LegadoEngineExploreItem(
+                    title: title, url: nil, kind: control, action: actionText.isEmpty ? nil : actionText,
+                    chars: item["chars"]?.arrayValue?.map { $0.scalarString } ?? [],
+                    defaultValue: item["default"].flatMap { $0.isNull ? nil : $0.scalarString },
+                    style: LegadoFlexStyle.parse(style)
+                )
+                let viewName = item["viewName"]?.scalarString.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                entry.viewNameSource = viewName.isEmpty ? nil : viewName
+                output.append(entry)
+                continue
+            }
             var url = item["url"].map { $0.isNull ? "" : $0.scalarString }?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             let extras = fields.filter { requestOptionKeys.contains($0.key.lowercased()) }
             if !url.isEmpty, !extras.isEmpty, LegadoURLResolver.splitOption(url).option == nil {
                 url += "," + LegadoEngineJSON.object(extras).compactText
             }
-            let style = item["style"]
+            let flex = LegadoFlexStyle.parse(style)
             output.append(LegadoEngineExploreItem(
                 title: title,
-                url: url.isEmpty || url == "null" ? nil : url,
-                flexBasisPercent: style?["layout_flexBasisPercent"]?.doubleValue,
-                flexGrow: style?["layout_flexGrow"]?.doubleValue,
-                wrapBefore: (style?["layout_wrapBefore"]).map { LegadoRuleValue.isTruthy($0.scalarString) } ?? false
+                url: url.isEmpty || url == "null" || type == "title" ? nil : url,
+                flexBasisPercent: flex.flexBasisPercent,
+                flexGrow: flex.flexGrow,
+                wrapBefore: flex.wrapBefore,
+                style: flex
             ))
         }
         return output
+    }
+
+    /// `type` của mục → điều khiển (§11.2); mục thường/`title`/kiểu lạ ⇒ `nil` (hiển thị như mục thường nếu có `url`).
+    static func controlKind(_ type: String) -> LegadoEngineExploreItem.Kind? {
+        switch type {
+        case "select": return .select
+        case "toggle": return .toggle
+        case "text", "input": return .text
+        case "button": return .button
+        default: return nil
+        }
     }
 
     /// Dạng văn bản: mỗi mục `tên::url`, phân cách bằng xuống dòng hoặc `&&`; tách tại `::` đầu tiên.

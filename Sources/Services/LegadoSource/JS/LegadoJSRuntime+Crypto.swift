@@ -49,20 +49,32 @@ extension LegadoJSRuntime {
 
     /// `['enc'|'dec', biến-đổi, khoá, iv, dữ-liệu, 'hex'|'str'|'b64']`.
     private func symmetric(_ arguments: LegadoJSArguments) throws -> String {
-        let cipher = try LegadoSymmetricCipher(transformation: text(of: arguments[1]))
+        let transformation = text(of: arguments[1])
         let key = bytes(of: arguments[2]) ?? Data()
         let iv = arguments.isNull(3) ? nil : bytes(of: arguments[3])
-        let output: Data
-        if text(of: arguments[0]) == "enc" {
-            output = try cipher.encrypt(bytes(of: arguments[4]) ?? Data(), key: key, iv: iv)
+        let isEncrypt = text(of: arguments[0]) == "enc"
+        let input: Data
+        if isEncrypt || isByteArray(arguments[4]) {
+            input = bytes(of: arguments[4]) ?? Data()
         } else {
-            let input: Data
-            if isByteArray(arguments[4]) {
-                input = bytes(of: arguments[4]) ?? Data()
+            input = Self.decodeCipherText(text(of: arguments[4]))
+        }
+        let output: Data
+        if LegadoAESGCM.isGCM(transformation) {
+            // AES/GCM (spec §14.4): IV là nonce, thẻ 128 bit nằm cuối dữ liệu.
+            let nonce = iv ?? Data()
+            if isEncrypt {
+                output = try LegadoAESGCM.encrypt(input, key: key, nonce: nonce)
             } else {
-                input = Self.decodeCipherText(text(of: arguments[4]))
+                output = try LegadoAESGCM.decrypt(input, key: key, nonce: nonce)
             }
-            output = try cipher.decrypt(input, key: key, iv: iv)
+        } else {
+            let cipher = try LegadoSymmetricCipher(transformation: transformation)
+            if isEncrypt {
+                output = try cipher.encrypt(input, key: key, iv: iv)
+            } else {
+                output = try cipher.decrypt(input, key: key, iv: iv)
+            }
         }
         switch text(of: arguments[5]) {
         case "str": return String(decoding: output, as: UTF8.self)

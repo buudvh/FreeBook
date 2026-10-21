@@ -41,8 +41,18 @@ extension LegadoJSBootstrap {
               },
               toString: function () { return r.body; }
             };
+            L.defineHidden(res, '__lgResp', r);
+            L.defineHidden(res, '__lgString', function () { return { $resp: r }; });
             return res;
           }
+          L.response = response;
+          L.defineHidden(g, '__lgMakeResponse', function (text) { return response(JSON.parse(text)); });
+          L.defineHidden(g, '__lgClassify', function (v) {
+            if (v === undefined || v === null) { return '{"k":"none"}'; }
+            if (typeof v === 'object' && v.__lgResp) { return JSON.stringify({ k: 'resp', r: v.__lgResp }); }
+            if (typeof v === 'string' || v instanceof String) { return JSON.stringify({ k: 'str', s: String(v) }); }
+            return '{"k":"none"}';
+          });
           function symmetric(transformation, key, iv) {
             function run(op, data, output) { return call('sym', [op, String(transformation), key, iv === undefined ? null : iv, data, output]); }
             return {
@@ -104,7 +114,7 @@ extension LegadoJSBootstrap {
             log: function (msg) { call('log', [typeof msg === 'string' ? msg : (function () { try { return JSON.stringify(msg); } catch (e) { return String(msg); } })()]); return msg; },
             logType: function (v) { call('log', [Object.prototype.toString.call(v) + ' / ' + typeof v]); },
             toast: function (msg) { call('toast', [String(msg)]); },
-            longToast: function (msg) { call('toast', [String(msg)]); },
+            longToast: function (msg) { call('toast', [String(msg), true]); },
             timeFormat: function (ms) { return call('timeFormat', [Number(ms)]); },
             timeFormatUTC: function (ms, fmt, sh) { return call('timeFormatUTC', [Number(ms), String(fmt), sh === undefined ? 0 : Number(sh)]); },
             t2s: function (s) { return call('t2s', [s == null ? '' : String(s)]); },
@@ -115,15 +125,10 @@ extension LegadoJSBootstrap {
             getWebViewUA: function () { return call('webViewUA', []); },
             getCookie: function (url, key) { return call('cookieGet', [String(url), key === undefined || key === null ? null : String(key)]); }
           };
-          [
-            'startBrowser', 'startBrowserAwait', 'startBrowserDp', 'getVerificationCode', 'upLoginData', 'getStrResponse',
-            'initUrl', 'refreshTocUrl', 'reGetBook', 'refreshBookUrl', 'refreshExplore', 'importScript', 'cacheFile',
-            'toURL', 'queryTTF', 'queryBase64TTF', 'replaceFont', 'downloadFile', 'readTxtFile', 'unzipFile', 'unrarFile',
-            'un7zFile', 'unArchiveFile', 'getTxtInFolder', 'deleteFile', 'getZipStringContent', 'getZipByteArrayContent',
-            'getRarStringContent', 'getRarByteArrayContent', 'get7zStringContent', 'get7zByteArrayContent',
-            'createAsymmetricCrypto', 'createSign', 'desEncodeToBase64String', 'tripleDESEncodeBase64Str', 'open',
-            'openUrl', 'openVideoPlayer', 'showBrowser', 'showReadingBrowser', 'copyText', 'searchBook', 'addBook'
-          ].forEach(function (name) { java[name] = L.unsupported('java.' + name); });
+          // Hoãn hẳn / UI của ứng dụng gốc (spec §13.11, §14.5): stub ném "Chưa hỗ trợ …". Các hàm đợt 2/3 khác nằm ở
+          // `LegadoJSBootstrap+JavaExtra`. Cố ý KHÔNG định nghĩa: `showBrowser`, `showReadingBrowser`, `openWeb`
+          // (nguồn bọc `try` rồi rơi về `startBrowser`), `upLoginData`/`reLoginView` (chỉ có trong form đăng nhập), `readFile`.
+          ['open', 'openVideoPlayer', 'addBook'].forEach(function (name) { java[name] = L.unsupported('java.' + name); });
           g.java = java;
         })(this);
         """#

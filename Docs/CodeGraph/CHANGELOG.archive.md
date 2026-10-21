@@ -2,6 +2,26 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.534] - 2026-10-17
+
+### feat: nút đánh dấu và bỏ đánh dấu 18+ cho tiện ích
+
+Yêu cầu: *"thêm nút đánh dấu/bỏ đánh dấu ext nsfw"*.
+
+- **Lưu lựa chọn**
+  - `Extension.nsfwOverride: Bool?`: `true` = đánh dấu, `false` = bỏ đánh dấu, `nil` = nhận diện tự động. Decode khoan dung.
+  - Trường này **tách khỏi** `isNsfw`: cập nhật tiện ích đọc lại `isNsfw` từ `plugin.json`, nhưng không làm mất lựa chọn của người dùng.
+- **Nhận diện**: `ExtensionNsfwClassifier` ưu tiên `nsfwOverride` trên cả cờ tự khai lẫn heuristic. `ExtensionNsfwCache` so sánh cả bản ghi nên tự tính lại khi lựa chọn đổi.
+- **Ghi**: `ExtensionTransactionCoordinator.setNsfwOverride` (theo mẫu `setSavesHistory`), lưu ngay khi bấm.
+- **Giao diện**
+  - Màn Cấu hình tiện ích có section "Nội dung nhạy cảm" (`ExtensionConfigView+Nsfw`): nút "Đánh dấu 18+" / "Bỏ đánh dấu 18+"; đã tự chọn thì hiện thêm "Dùng nhận diện tự động". Chú thích ghi rõ trạng thái hiện tại.
+  - Nhấn giữ dòng tiện ích đã cài trong Kho có cùng các lựa chọn (`RepositoryManagerView+Nsfw`).
+- **Tác dụng kéo theo**: nhãn 18+ trên icon, ẩn khi công tắc NSFW tắt, và mặc định không lưu lịch sử nếu người dùng chưa tự chọn.
+- **Sao lưu**
+  - `BackupPayload` mang thêm `nsfwOverride`, tính vào fingerprint.
+  - Khi khôi phục, chỉ áp lựa chọn cho tiện ích mà máy đang khôi phục chưa tự chọn, cùng luật với `savesHistory`.
+- **Kiểm chứng**: `check_architecture.py` **2 violation, 0 mới**. Không build tại chỗ (Windows); CI chỉ xác nhận biên dịch.
+
 ## [1.3.533] - 2026-10-17
 
 ### feat: khám phá dạng section, trình phát kiểu Aloha có PiP và phát nền, hub luôn hiện, công tắc NSFW toàn app

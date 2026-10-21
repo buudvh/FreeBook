@@ -6,7 +6,7 @@ import Foundation
 /// - `enabledCookieJar = true`: engine tự lưu mọi `Set-Cookie` (mọi chặng chuyển hướng).
 /// - Luôn lưu: cookie do JS đặt (`cookie.setCookie`) và cookie đồng bộ từ WebView ẩn; luôn gửi cookie đang có (U19).
 /// - Tra theo tên miền: cookie miền `a.com` được gửi cho `a.com` và `x.a.com`.
-final class LegadoCookieJar {
+final class LegadoCookieJar: @unchecked Sendable {
     private static let registryLock = NSLock()
     private static var registry: [String: LegadoCookieJar] = [:]
 
@@ -58,6 +58,37 @@ final class LegadoCookieJar {
             if let expires = cookie.expires { properties[.expires] = Date(timeIntervalSince1970: expires) }
             return HTTPCookie(properties: properties)
         }
+    }
+
+    /// Cookie đang có cho tên miền của URL (để trao cho trình duyệt hiện cho người dùng).
+    func storedCookies(forURL url: String) -> [LegadoStoredCookie] {
+        current(forURL: url)
+    }
+
+    /// Gộp cookie đọc từ trình duyệt hiện cho người dùng / đăng nhập web (spec §10.2, §10.8) rồi ghi bền ngay.
+    func absorbStored(_ received: [LegadoStoredCookie]) {
+        guard !received.isEmpty else { return }
+        let now = Date()
+        lock.lock()
+        for cookie in received where !cookie.domain.isEmpty && !cookie.name.isEmpty {
+            var normalized = cookie
+            normalized.domain = cookie.domain.lowercased()
+            if normalized.domain.hasPrefix(".") { normalized.domain.removeFirst() }
+            upsert(normalized, expired: normalized.isExpired(at: now))
+        }
+        lock.unlock()
+        flushIfNeeded()
+    }
+
+    /// Xoá mọi cookie của nguồn (đăng xuất).
+    func removeAll() {
+        lock.lock()
+        if !cookies.isEmpty {
+            cookies.removeAll()
+            dirty = true
+        }
+        lock.unlock()
+        flushIfNeeded()
     }
 
     private func current(forURL url: String) -> [LegadoStoredCookie] {

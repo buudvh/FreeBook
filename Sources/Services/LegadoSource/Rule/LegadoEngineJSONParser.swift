@@ -64,6 +64,7 @@ struct LegadoEngineJSONParser {
         default:
             break
         }
+        if lenient, let curly = parseCurlyString() { return .string(curly) }
         if let literal = parseLiteral() { return literal }
         if Self.isNumberStart(byte) || (lenient && (byte == Self.plus || byte == Self.dot)),
            let number = parseNumber() {
@@ -134,6 +135,7 @@ struct LegadoEngineJSONParser {
         if byte == Self.doubleQuote { return parseString(quote: Self.doubleQuote) }
         guard lenient else { return nil }
         if byte == Self.singleQuote { return parseString(quote: Self.singleQuote) }
+        if let curly = parseCurlyString() { return curly }
         let start = index
         while index < bytes.count, bytes[index] != Self.colon,
               bytes[index] != Self.comma, bytes[index] != Self.closeBrace {
@@ -226,6 +228,29 @@ struct LegadoEngineJSONParser {
             index += 1
         }
         return lenient ? String(decoding: buffer, as: UTF8.self) : nil
+    }
+
+    /// Chuỗi trong nháy cong `“…”` / `‘…’` (chỉ lenient, đính chính §15.3 mục 5a: `',{webView:“true”}'`). Không bắt
+    /// đầu bằng nháy cong ⇒ `nil` và không đổi vị trí đọc.
+    private mutating func parseCurlyString() -> String? {
+        guard index + 2 < bytes.count, bytes[index] == 0xE2, bytes[index + 1] == 0x80 else { return nil }
+        let closers: [UInt8]
+        switch bytes[index + 2] {
+        case 0x9C: closers = [0x9D, 0x9C]
+        case 0x98: closers = [0x99, 0x98]
+        default: return nil
+        }
+        index += 3
+        var buffer: [UInt8] = []
+        while index < bytes.count {
+            if index + 2 < bytes.count, bytes[index] == 0xE2, bytes[index + 1] == 0x80, closers.contains(bytes[index + 2]) {
+                index += 3
+                return String(decoding: buffer, as: UTF8.self)
+            }
+            buffer.append(bytes[index])
+            index += 1
+        }
+        return String(decoding: buffer, as: UTF8.self)
     }
 
     private mutating func appendEscape(into buffer: inout [UInt8]) {

@@ -7,10 +7,10 @@ import Foundation
 /// giới dùng "descriptor" JSON: chuỗi/số/bool giữ nguyên, `{"$el": id}` = phần tử HTML (handle trong runtime),
 /// `{"$arr": [...]}` = danh sách, `{"$json": v}` = object/mảng JS, `{"$bytes": "hex"}` = mảng byte.
 ///
-/// Thứ tự nạp: `core` → `objects` → `java` → `jsoup` → `packages`.
+/// Thứ tự nạp: `core` → `info` → `objects` → `java` → `javaExtra` → `classes` → `jsoup` → `connect` → `packages`.
 enum LegadoJSBootstrap {
     static var scripts: [String] {
-        [core, objects, java, jsoup, packages]
+        [core, info, objects, java, javaExtra, classes, jsoup, connect, packages]
     }
 
     /// Lõi: mã hoá/giải mã descriptor, danh sách/map kiểu Java, hàm gọi native, xuất kết quả.
@@ -137,6 +137,28 @@ enum LegadoJSBootstrap {
           });
           defineHidden(g, '__lgExport', function (v) { return JSON.stringify(enc(v)); });
           defineHidden(g, '__lgImport', function (text) { return dec(JSON.parse(text)); });
+          // Mảng byte kiêm luồng đọc kiểu `InputStream` (`read()` → byte kế hoặc -1, `read(buf[, off, len])`).
+          function byteStream(bytes) {
+            var pos = 0;
+            defineHidden(bytes, 'read', function (buf, off, len) {
+              if (buf === undefined || buf === null) { return pos < bytes.length ? bytes[pos++] : -1; }
+              off = off || 0;
+              len = len === undefined ? buf.length - off : len;
+              if (pos >= bytes.length) { return -1; }
+              var n = Math.min(len, bytes.length - pos);
+              for (var i = 0; i < n; i++) { buf[off + i] = bytes[pos++]; }
+              return n;
+            });
+            defineHidden(bytes, 'available', function () { return bytes.length - pos; });
+            defineHidden(bytes, 'readBytes', function () { var out = bytes.slice(pos); pos = bytes.length; return out; });
+            defineHidden(bytes, 'readAllBytes', function () { var out = bytes.slice(pos); pos = bytes.length; return out; });
+            defineHidden(bytes, 'reset', function () { pos = 0; });
+            defineHidden(bytes, 'close', function () {});
+            return bytes;
+          }
+          g.__lg.byteStream = byteStream;
+          defineHidden(g, '__lgMakeMap', function (text) { return javaMap(JSON.parse(text)); });
+          defineHidden(g, '__lgMakeBytes', function (hex) { return byteStream(hexToBytes(hex)); });
           var stringPolyfills = {
             contains: function (s) { return String(this).indexOf(String(s)) >= 0; },
             equals: function (o) { return String(this) === String(o); },

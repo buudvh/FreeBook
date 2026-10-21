@@ -31,19 +31,32 @@ struct LegadoURLBuilder {
         templateSource.substitutesPlaceholdersInJS = false
         var urlPart = try render(split.url, with: templateSource)
         var option: LegadoURLOption?
+        var renderedOption: String?
         if let optionText = split.option {
             let rendered = try render(optionText, with: templateSource)
             option = LegadoURLOption.parse(rendered)
             if option == nil {
                 session.diagnostics.record(.ruleSyntax, "Khối option URL không đọc được: \(rendered.prefix(120))")
                 urlPart += "," + rendered
+            } else {
+                renderedOption = rendered
             }
         }
 
-        // 7 (phần đầu). Header: mặc định < nguồn < option.
+        // URL `data:` (spec §13.1): giữ nguyên chuỗi gồm khối option (nguồn đọc lại option từ `baseUrl`).
+        let dataCandidate = urlPart.trimmingCharacters(in: .whitespacesAndNewlines)
+        if LegadoDataURL.isDataURL(dataCandidate) {
+            var request = LegadoHTTPRequest(url: renderedOption.map { dataCandidate + "," + $0 } ?? dataCandidate)
+            request.type = option?.type
+            return request
+        }
+
+        // 7 (phần đầu). Header: mặc định < nguồn < đăng nhập (§10.6) < option.
         var headers: [(name: String, value: String)] = [(name: "User-Agent", value: LegadoHTTPClient.defaultUserAgent)]
         let sourcePairs = try session.sourceHeaders(baseUrl: baseUrl)
         headers = LegadoHeaderParser.merge(headers, sourcePairs)
+        let loginTarget = LegadoURLResolver.absolute(dataCandidate, base: baseUrl)
+        headers = LegadoHeaderParser.merge(headers, session.loginHeaders(forURL: loginTarget, pageURL: baseUrl))
         if let option {
             headers = LegadoHeaderParser.merge(headers, option.headers)
         }
@@ -58,7 +71,7 @@ struct LegadoURLBuilder {
 
         // 6. URL tuyệt đối + mã hoá.
         let trimmedURL = urlPart.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmedURL.lowercased().hasPrefix("data:") {
+        if LegadoDataURL.isDataURL(trimmedURL) {
             var request = LegadoHTTPRequest(url: trimmedURL)
             request.type = option?.type
             return request

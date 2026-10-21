@@ -30,4 +30,15 @@ protocol LegadoPersistentStore: AnyObject {
 
     /// `java.androidId()`: 16 hex ngẫu nhiên, sinh một lần, ổn định qua các lần mở app.
     func deviceIdentifier() -> String
+
+    /// `infoMap` của khám phá động (spec §11.3, U46: lưu bền theo nguồn).
+    func exploreInfo(sourceKey: String) -> [String: String]
+    /// `nil` ⇒ xoá khoá.
+    func setExploreValue(_ value: String?, forKey key: String, sourceKey: String)
+}
+
+extension LegadoPersistentStore {
+    /// Mặc định cho kho không hỗ trợ `infoMap`: rỗng, ghi bị bỏ qua.
+    func exploreInfo(sourceKey: String) -> [String: String] { [:] }
+    func setExploreValue(_ value: String?, forKey key: String, sourceKey: String) {}
 }

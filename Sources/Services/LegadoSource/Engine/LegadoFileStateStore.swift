@@ -25,6 +25,8 @@ final class LegadoFileStateStore: LegadoPersistentStore, @unchecked Sendable {
         var values: [String: String] = [:]
         var cache: [String: CacheEntry] = [:]
         var cookies: [LegadoStoredCookie] = []
+        /// `infoMap` của khám phá động (đợt 2). **Optional** để file của bản trước (không có khoá) vẫn decode được.
+        var infoMap: [String: String]?
     }
 
     private let rootURL: URL
@@ -86,6 +88,18 @@ final class LegadoFileStateStore: LegadoPersistentStore, @unchecked Sendable {
 
     func setCookies(_ cookies: [LegadoStoredCookie], sourceKey: String) {
         mutate(sourceKey) { $0.cookies = cookies }
+    }
+
+    func exploreInfo(sourceKey: String) -> [String: String] {
+        read(sourceKey) { $0.infoMap ?? [:] }
+    }
+
+    func setExploreValue(_ value: String?, forKey key: String, sourceKey: String) {
+        mutate(sourceKey) { state in
+            var info = state.infoMap ?? [:]
+            info[key] = value
+            state.infoMap = info.isEmpty ? nil : info
+        }
     }
 
     func libraryScript(url: String) -> String? {

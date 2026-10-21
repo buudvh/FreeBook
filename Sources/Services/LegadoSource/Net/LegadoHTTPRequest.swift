@@ -18,8 +18,11 @@ struct LegadoHTTPRequest {
     /// `false` cho `java.get/post/head` (§4.7): trả nguyên phản hồi 3xx.
     var followRedirects = true
     var type: String?
+    /// `sourceRegex` (spec §9.4): chỉ có tác dụng khi `useWebView` — URL tài nguyên đầu tiên trang request mà khớp
+    /// **toàn chuỗi** regex này trở thành thân phản hồi.
+    var sourceRegex: String?
 
-    /// `data:` URL (§3.11) — đợt 1 không gửi.
+    /// `data:` URL (spec §13.1): giải tại chỗ, không gửi mạng.
     var isDataURL: Bool {
         url.lowercased().hasPrefix("data:")
     }

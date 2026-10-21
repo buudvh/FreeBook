@@ -8,7 +8,10 @@ import Foundation
 /// - `variables`: kho của `book.putVariable/getVariable` (`book.variable` là chuỗi JSON của kho này).
 /// - `ruleVariables`: kho của `java.put`/`@put` khi có ngữ cảnh sách (khuyến nghị §5.7 mục 1).
 ///
-/// Thuộc tính ghi từ JS (`book.bookUrl = …`) chỉ đổi bản sao trong ngữ cảnh JS, không đổi đối tượng này (§6.6).
+/// Thuộc tính ghi từ JS (`book.x = v`, `book.setX(v)`, `setReverseToc`, `setUseReplaceRule`) đổi bản sao trong ngữ cảnh
+/// JS **và** được ghi nhận ở đây (spec §13.5): `scriptWrites` (mọi lệnh ghi), các ghi đè có kiểu (`typeOverride`,
+/// `reverseTocOverride`, `useReplaceRuleOverride`, `imageStyleOverride`), còn `bookUrl`/`tocUrl`/`canUpdate`/`variable`
+/// đổi thẳng thuộc tính tương ứng. Luồng quyết định lưu bền thuộc tính nào (engine không ghi đĩa).
 final class LegadoBookContext: @unchecked Sendable {
     var name: String
     var author: String
@@ -32,10 +35,20 @@ final class LegadoBookContext: @unchecked Sendable {
     var customCoverUrl: String
     var canUpdate: Bool
     var order: Int
+    /// Loại nội dung **của sách** do JS ghi (`book.type = v` / `book.setType(v)`, spec §13.6) — giá trị thô; luồng nạp lại
+    /// từ kho trạng thái cho lượt sau. `book.type` mà JS đọc = giá trị này, không có thì bitmask theo `type` của nguồn.
+    var typeOverride: Int?
+    /// `book.setReverseToc(b)` (§13.5): đảo mục lục theo sách, áp sau tiền tố `-` của rule.
+    var reverseTocOverride: Bool?
+    /// `book.setUseReplaceRule(b)` (§13.5, U53).
+    var useReplaceRuleOverride: Bool?
+    /// `book.imageStyle = s` (§8.5).
+    var imageStyleOverride: String?
 
     private let lock = NSLock()
     private var variableStore: [String: String]
     private var ruleVariableStore: [String: String]
+    private var writeStore: [String: LegadoEngineJSON] = [:]
     private var changed = false
 
     init(name: String = "", author: String = "", kind: String = "", coverUrl: String = "", intro: String = "",
@@ -135,6 +148,73 @@ final class LegadoBookContext: @unchecked Sendable {
         return LegadoEngineJSON.object(entries).compactText
     }
 
+    // MARK: - Ghi từ JS (spec §13.5)
+
+    /// Mọi lệnh ghi thuộc tính từ JS kể từ khi tạo: tên trường (`bookUrl`, `type`, `setReverseToc`…) → giá trị cuối.
+    var scriptWrites: [String: LegadoEngineJSON] {
+        lock.lock()
+        defer { lock.unlock() }
+        return writeStore
+    }
+
+    /// Ghi nhận `book.<field> = value` (hoặc `book.setReverseToc(value)`…) từ JS.
+    func recordScriptWrite(field: String, value: LegadoEngineJSON) {
+        lock.lock()
+        writeStore[field] = value
+        lock.unlock()
+        switch field {
+        case "setReverseToc": reverseTocOverride = Self.truthy(value)
+        case "setUseReplaceRule": useReplaceRuleOverride = Self.truthy(value)
+        case "type":
+            if let number = value.doubleValue, number.isFinite, abs(number) < 1_000_000_000 { typeOverride = Int(number) }
+        case "imageStyle": imageStyleOverride = value.scalarString
+        case "canUpdate": canUpdate = Self.truthy(value)
+        case "bookUrl": bookUrl = value.scalarString
+        case "tocUrl": tocUrl = value.scalarString
+        case "variable": replaceVariables(withText: value.scalarString)
+        default: break
+        }
+    }
+
+    /// `book.variable = "…"`: object JSON ⇒ thay cả kho; rỗng ⇒ xoá kho; chuỗi khác ⇒ xoá kho rồi lưu vào khoá `custom`
+    /// (khoá mà trình sửa "biến sách" dùng, spec §12.5).
+    private func replaceVariables(withText text: String) {
+        var replacement: [String: String] = [:]
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let entries = LegadoEngineJSONParser.parse(trimmed, lenient: true)?.objectEntries {
+            for entry in entries { replacement[entry.key] = entry.value.scalarString }
+        } else if !trimmed.isEmpty {
+            replacement["custom"] = text
+        }
+        lock.lock()
+        if variableStore != replacement {
+            variableStore = replacement
+            changed = true
+        }
+        lock.unlock()
+    }
+
+    static func truthy(_ value: LegadoEngineJSON) -> Bool {
+        switch value {
+        case .bool(let flag): return flag
+        case .null: return false
+        case .number(let number, _): return number != 0
+        default: return LegadoRuleValue.isTruthy(value.scalarString)
+        }
+    }
+
+    /// `book.type` mà JS đọc (spec §13.6, đính chính §15.3 mục 4): ghi đè của sách, không có thì **bitmask** theo
+    /// `bookSourceType` (0 ⇒ 8, 1 ⇒ 32, 2 ⇒ 64, 3 ⇒ 128, 4 ⇒ 8 — U54).
+    var scriptBookType: Int {
+        if let typeOverride { return typeOverride }
+        switch type {
+        case 1: return 32
+        case 2: return 64
+        case 3: return 128
+        default: return 8
+        }
+    }
+
     // MARK: - JS
 
     /// Giá trị một thuộc tính cho `book.x` / `book.getX()`; tên lạ ⇒ `null`.
@@ -149,7 +229,8 @@ final class LegadoBookContext: @unchecked Sendable {
         case "tocUrl": return .string(tocUrl)
         case "origin": return .string(origin)
         case "originName": return .string(originName)
-        case "type": return .fromNumber(Double(type))
+        case "type": return .fromNumber(Double(scriptBookType))
+        case "imageStyle": return .string(imageStyleOverride ?? "")
         case "latestChapterTitle", "lastChapter": return .string(latestChapterTitle)
         case "wordCount": return .string(wordCount)
         case "durChapterIndex": return .fromNumber(Double(durChapterIndex))

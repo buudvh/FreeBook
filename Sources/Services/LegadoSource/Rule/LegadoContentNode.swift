@@ -137,6 +137,16 @@ enum LegadoContentNode {
         displayText
     }
 
+    /// Như `finalString` nhưng phần tử HTML ⇒ **outer HTML** (danh sách nối `\n`) — trường nội dung, §15.3 mục 2.
+    var outerHTMLString: String {
+        switch self {
+        case .html(let element): return (try? element.outerHtml()) ?? ""
+        case .xpath(let node): return node.outerHTML
+        case .list(let items): return items.map { $0.outerHTMLString }.joined(separator: "\n")
+        default: return finalString
+        }
+    }
+
     var finalElements: [LegadoContentNode] {
         switch self {
         case .null:

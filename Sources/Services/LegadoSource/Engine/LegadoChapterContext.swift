@@ -17,6 +17,7 @@ final class LegadoChapterContext: @unchecked Sendable {
 
     private let lock = NSLock()
     private var variableStore: [String: String]
+    private var writeStore: [String: LegadoEngineJSON] = [:]
     private var changed = false
 
     init(title: String = "", url: String = "", index: Int = 0, baseUrl: String = "", bookUrl: String = "",
@@ -66,6 +67,20 @@ final class LegadoChapterContext: @unchecked Sendable {
             variableStore[key] = value
             changed = true
         }
+        lock.unlock()
+    }
+
+    /// Lệnh ghi thuộc tính từ JS (`chapter.url = …`, `chapter.title = …`, spec §13.5): chỉ có tác dụng trong lượt đang
+    /// chạy (bản sao trong JS); ghi lại ở đây để luồng đọc nếu cần (không lưu bền).
+    var scriptWrites: [String: LegadoEngineJSON] {
+        lock.lock()
+        defer { lock.unlock() }
+        return writeStore
+    }
+
+    func recordScriptWrite(field: String, value: LegadoEngineJSON) {
+        lock.lock()
+        writeStore[field] = value
         lock.unlock()
     }
 

@@ -15,6 +15,11 @@ extension LegadoJSRuntime {
             if let output = try nativeCrypto(command, arguments) { return output }
             if let output = try nativeText(command, arguments, session) { return output }
             if let output = try nativeJsoup(command, arguments) { return output }
+            if let output = try nativeLogin(command, arguments, session) { return output }
+            if let output = try nativeExplore(command, arguments, session) { return output }
+            if let output = try nativeTail(command, arguments, session) { return output }
+            if let output = try nativeFiles(command, arguments, session) { return output }
+            if let output = try nativeAsymmetric(command, arguments) { return output }
             throw LegadoJSNativeError("Lệnh bridge không tồn tại: \(command)")
         } catch is CancellationError {
             raise("Đã huỷ tác vụ")

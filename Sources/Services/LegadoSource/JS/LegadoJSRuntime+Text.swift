@@ -12,7 +12,7 @@ extension LegadoJSRuntime {
             session.logFromSource(text(of: arguments[0]))
             return ""
         case "toast":
-            session.emitToast(text(of: arguments[0]))
+            session.emitToast(text(of: arguments[0]), isLong: arguments.bool(1))
             return ""
         case "timeFormat":
             return Self.formatTime(arguments.number(0) ?? 0, pattern: "yyyy/MM/dd HH:mm", timeZone: .current)

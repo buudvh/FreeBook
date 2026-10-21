@@ -48,6 +48,12 @@ final class LegadoRuleAnalyzer {
         try evaluate(rule, kind: .string, content: item ?? content, isRoot: item == nil).finalString
     }
 
+    /// `getString` cho trường **nội dung** (đính chính spec §15.3 mục 2): phần tử HTML (do JS trả, vd danh sách `<img>`
+    /// đã sửa `src`) thành **outer HTML** nối `\n` thay vì chữ của phần tử. Trường khác vẫn dùng `string(_:in:)` (U61).
+    func contentString(_ rule: String, in item: LegadoContentNode? = nil) throws -> String {
+        try evaluate(rule, kind: .string, content: item ?? content, isRoot: item == nil, elementsAsHTML: true).finalString
+    }
+
     /// `getStringList`: danh sách chuỗi không rỗng (`nextTocUrl`, `nextContentUrl`).
     func strings(_ rule: String, in item: LegadoContentNode? = nil) throws -> [String] {
         try evaluate(rule, kind: .stringList, content: item ?? content, isRoot: item == nil).finalStrings
@@ -74,7 +80,8 @@ final class LegadoRuleAnalyzer {
     /// `isRoot`: nội dung là nội dung gốc của trang (không phải một mục). Khi đó phân đoạn JS **đứng đầu** nhận `result`
     /// là **chuỗi thân trang** (`src`), đúng cách nguồn dùng (`JSON.parse(result)`, `result.match(…)`,
     /// `Jsoup.parse(result)` — quan sát corpus); trên một mục, `result` là chính mục (object JSON / phần tử).
-    func evaluate(_ rule: String, kind: Kind, content start: LegadoContentNode, isRoot: Bool = false) throws -> LegadoContentNode {
+    func evaluate(_ rule: String, kind: Kind, content start: LegadoContentNode, isRoot: Bool = false,
+                  elementsAsHTML: Bool = false) throws -> LegadoContentNode {
         try session.checkCancellation()
         var text = rule.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return kind == .string ? .string("") : .list([]) }
@@ -113,7 +120,7 @@ final class LegadoRuleAnalyzer {
 
         switch kind {
         case .string:
-            return .string(current.finalString)
+            return .string(elementsAsHTML ? current.outerHTMLString : current.finalString)
         case .stringList:
             return .list(current.finalStrings.map { LegadoContentNode.string($0) })
         case .elements:
