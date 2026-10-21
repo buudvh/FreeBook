@@ -12,12 +12,14 @@ extension ReaderAIFullScreenView {
             BookAIMemoryStore.shared.syncWithBookData(bookId: bid)
         }
 
-        if let active = AIRuntimeCoordinator.shared.activeSession, active.bookId == bookId {
+        // Chỉ trạng thái của chính truyện này (1.3.558): phiên đang chạy, hoặc phiên mà lượt gần nhất đã dùng.
+        let run = AIRuntimeCoordinator.shared.run(for: bookId)
+        if let active = run?.session {
             var activeCopy = active
             condenseHistoricalMessages(in: &activeCopy)
             applyLoadedSession(activeCopy)
         } else {
-            let activeId = AIRuntimeCoordinator.shared.activeSessionId
+            let activeId = AIRuntimeCoordinator.shared.lastSessionId(for: bookId)
             Task.detached(priority: .userInitiated) {
                 let summaries = AIChatHistoryStore.shared.loadSessionSummaries(for: bid)
                 let targetId = (activeId != nil && summaries.contains(where: { $0.id == activeId }))
@@ -41,12 +43,12 @@ extension ReaderAIFullScreenView {
             }
         }
 
-        if AIRuntimeCoordinator.shared.isRunning {
+        if let run, run.isRunning {
             isStreaming = true
-            if let progress = AIRuntimeCoordinator.shared.batchProgress {
+            if let progress = run.batchProgress {
                 isBatchExtracting = true
                 batchProgress = progress
-                batchExtractedNames = AIRuntimeCoordinator.shared.batchExtractedNames
+                batchExtractedNames = run.batchExtractedNames
             }
         }
     }

@@ -2,6 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.558] - 2026-10-21
+
+### fix: màn AI chạy riêng theo từng truyện, nút nổi liệt kê AI đang chạy
+
+Người dùng: *"dù đang quét truyện A mà vào AI truyện B vẫn thấy báo quét và chặn AI truyện B"* → chọn hướng đầy đủ (mỗi truyện một tác vụ AI riêng); thêm *"bấm vào nút widget ai thì hiển thị ra danh sách AI đang chạy, bấm cái nào hiển thị cái đó"*; duyệt plan.
+
+- **Nguyên nhân**: `AIRuntimeCoordinator` giữ **một** ô trạng thái cho cả app (`isRunning`, `batchProgress`, `activeSession`…) và màn AI đọc thẳng không lọc truyện ⇒ quét A thì màn AI của B hiện dải quét của A, chip mờ, không gửi được; bấm dừng ở B gọi `stopActiveTask()` **huỷ luôn lượt quét của A**; mọi lệnh mới đều `cancelActiveTask()` toàn cục.
+- **Trạng thái theo truyện**: `AIBookRunState` (mới) trong `@Published runs: [String: AIBookRunState]`; tác vụ, mã lượt, ngữ cảnh lượt quét lỗi, phiên gần nhất và ngữ cảnh mở màn AI đều khoá theo `bookId`. Vòng đời lượt ở `AIRuntimeCoordinator+BookRuns.swift` (mới): `beginRun` chỉ thay tác vụ của **chính truyện đó**, `isCurrentRun` cho mọi cập nhật trễ, `endRun` bỏ entry (giữ lại khi còn nút "Thử lại", không giữ phiên), `stopActiveTask(bookId:)`. Bỏ hai chỗ màn AI tự gán `activeSession` (nguy cơ ghi phiên của B vào lịch sử của A). Cùng một truyện vẫn chỉ một tác vụ tại một thời điểm.
+- **Màn AI**: năm `onReceive` toàn cục gộp thành một `onReceive($runs)` → `applyRunState(runs[bookId])` (`ReaderAIFullScreenView+RuntimeSync.swift`, mới), chỉ gán khi giá trị đổi để màn của B không vẽ lại theo nhịp stream 50 ms của A. Mở lại màn AI về đúng phiên gần nhất **của truyện đó** (`lastSessionId(for:)`).
+- **`presentedAIBookId`** thay cờ `isFullScreenPresented`: truyện A xong trong lúc màn AI của B đang mở vẫn có toast, và toast kèm tên truyện khi màn AI của truyện đó không mở.
+- **Nút nổi**: dòng AI ghi tên truyện + tác vụ (1 truyện) hoặc "N truyện đang chạy"; chạm ⇒ thẻ menu sang trang **"AI đang chạy"** (`FloatingHubAITaskListView`, mới; nút ‹ quay lại), mỗi truyện một dòng, chạm truyện nào mở màn AI của đúng truyện đó (`presentFullScreen(bookId:)`). Trang luôn hiện kể cả khi chỉ 1 truyện; hết truyện chạy thì tự về menu chính; mở menu luôn bắt đầu ở trang chính. `FloatingHubPresentationReader` `map` `runs` về danh sách nhỏ rồi `removeDuplicates` — nút hub không vẽ lại theo từng batch.
+- **Gemini Web cho chạy song song**: `prepare()` không nạp lại trang khi token quá 30 phút mà còn fetch đang bay (nạp lại huỷ mọi fetch của truyện khác); token chết thật (HTTP 400/401/403) vẫn ép nạp lại. `streamGeneration` không tự thử lại khi đã phát chữ — lượt thử lại phát lại từ đầu nên chữ bị lặp trong tin (lỗi có sẵn, chạy song song dễ gặp hơn); `TurnObservation` thành `internal` để dùng chung.
+- Hạn chế: hai truyện cùng quét bằng Gemini Web ≈ gấp đôi số request ⇒ chạm hạn mức 1037/1060 sớm hơn; fetch bị cắt do nạp lại trang ép buộc có thể thành lượt lỗi (có nút Thử lại).
+- `rules.md`: cập nhật luật hub (d), thêm (e) trang "AI đang chạy"; luật mở lại AI theo ngữ cảnh, phiên sống, bấm dừng, nút thử lại chuyển sang theo truyện; thêm luật "trạng thái AI khoá theo truyện"; luật retry Gemini Web ghi rõ "chỉ khi chưa phát chữ" và không nạp lại trang khi còn fetch.
+- Chuyển entry `[1.3.528]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code, grep chéo caller của mọi member đổi chữ ký; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
+
 ## [1.3.557] - 2026-10-21
 
 ### feat: màn Thông báo hiện tiến độ tải, xuất và nhập truyện
@@ -602,16 +619,3 @@ Người dùng: *"tối ưu lại cách lưu tiện ích (cả data lẫn metada
 - **Tài liệu**: `rules.md` thêm mục "Extension store invariants (1.3.529)" và sửa các đoạn còn nói SwiftData/plugin.json-per-extension; `CLAUDE.md`/`AGENTS.md` cập nhật bootstrap, thư mục lưu trữ, số violation thật (2).
 - **Kiểm chứng**: `check_architecture.py` **2 violation, 0 mới**. Triển khai bằng 1 agent nền móng + 3 session song song + 1 agent rà soát chéo. **Không build tại chỗ** (Windows, không có `swiftc`) — CI xác nhận biên dịch. Rủi ro chính: lightweight migration của SwiftData khi gỡ 2 entity (nếu `ModelContainer` lỗi thì `fatalError`); tên bảng/cột nội bộ là giả định — chỉ kiểm chứng được bằng IPA trên máy thật.
 - **Còn lại**: `ttsExtensionLocalPath` (`TTSManager`) vẫn là đường dẫn tuyệt đối; thời điểm xoá `legacy/library-pre-ext.sqlite` chưa chốt.
-
-## [1.3.528] - 2026-10-16
-
-### feat: them bo giai ma script extension Vbook (AES-256-CBC) luc cai dat
-
-Người dùng: dán một JSON `script_data` gồm 10 file `.js` đã mã hoá nhờ decode, rồi yêu cầu *"thêm bộ giải mã vào app để giải mã những script bị mã hoá như thế này"* → phỏng vấn `grill-me` 6 câu, plan đã duyệt: `Docs/Plans/2026-10-15-plan-extension-script-decoder.md`.
-
-- **File mới** `Sources/Services/Extensions/Manager/ExtensionScriptDecoder.swift` (226 dòng, 1 type `enum`, chỉ `import CommonCrypto` / `CryptoKit` / `Foundation`): bỏ token `x0P1Xx` / `x0P2Xx` / `x0P3Xx` về `+` `/` `=` rồi giải **AES-256-CBC** (IV 16 byte `0x00`, padding PKCS#7), key `SHA256(MD5("com.vbook.app" + source + author) dạng hex)`. CryptoKit không có AES-CBC nên dùng CommonCrypto.
-- **Móc 2 dòng** vào `ExtensionManager.swift`, ngay sau `findMainExtensionFolder` ở **cả hai** luồng cài — `install(item:packageId:)` và `installFromLocalZip(fileUrl:)`. File 1003 → **1005** dòng (baseline `FILE_SIZE_LIMIT` 1022): toàn bộ logic nằm trong file mới, không nhồi thêm vào file legacy.
-- **Cách ghi**: ghi đè nội dung file script (giữ nguyên tên) + đặt `encrypt = false` trong `plugin.json` ⇒ bản đồ `script` không phải sửa, runtime và editor đọc bản rõ luôn, **không giải mã lại ở mỗi lần chạy**.
-- **Chốt phạm vi** (đã phỏng vấn): chỉ dùng công thức chuẩn — không ma trận biến thể key, không giải nén payload (tool chính thức của Vbook mã hoá JS thô), không nút giải mã thủ công / migration. File có token mà giải không ra JS ⇒ **ném lỗi để chặn cài**.
-- **Kiểm chứng**: công thức đã đối chứng bằng dữ liệu thật 10 file của extension `hhtqvietsub` v10 — key `d476a9f7…292073`, ciphertext khớp **100% từng ký tự** với ZIP công bố của `Darkrai9x/vbook-extensions`. `check_architecture.py`: **2 violation, 0 mới**. `swiftc -parse` sạch cả 2 file. **Không build tại chỗ** (Windows) — CI xác nhận biên dịch.
-- **Gap đã biết**: luồng khôi phục extension từ backup (`BackupExtensionInstaller`) chưa móc giải mã.

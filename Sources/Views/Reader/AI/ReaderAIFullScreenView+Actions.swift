@@ -40,7 +40,6 @@ extension ReaderAIFullScreenView {
         let placeholderMsg = AIChatMessage(id: assistantMsgId, role: .assistant, content: "", isStreaming: true)
         currentSession.messages.append(placeholderMsg)
         AIChatHistoryStore.shared.saveSession(currentSession, for: bookId)
-        AIRuntimeCoordinator.shared.activeSession = currentSession
 
         var config = AISettingsStore.shared.loadConfiguration()
         if let profile = config.profiles.first(where: { $0.id == selectedProfileId }) {
@@ -97,6 +96,7 @@ extension ReaderAIFullScreenView {
             messages: chatMessages,
             session: currentSession,
             bookId: bookId,
+            bookTitle: bookTitle,
             assistantMsgId: assistantMsgId,
             onDelta: { [self] (delta: String) in
                 Task { @MainActor in
@@ -145,7 +145,7 @@ extension ReaderAIFullScreenView {
     }
 
     internal func stopStreaming() {
-        AIRuntimeCoordinator.shared.stopActiveTask()
+        AIRuntimeCoordinator.shared.stopActiveTask(bookId: bookId)
         isStreaming = false
         for index in currentSession.messages.indices where currentSession.messages[index].isStreaming {
             currentSession.messages[index].isStreaming = false
@@ -183,8 +183,8 @@ extension ReaderAIFullScreenView {
     }
 
     internal func startBatchExtraction(promptOverride: String? = nil, fromChapterIndex: Int? = nil, limit: Int? = nil) {
-        // Đang chat stream thì không bắt đầu quét: `AIRuntimeCoordinator.startBatchExtraction` gọi `cancelActiveTask()`
-        // sẽ huỷ ngang câu trả lời đang chạy.
+        // Đang chat stream thì không bắt đầu quét: `AIRuntimeCoordinator.startBatchExtraction` thay tác vụ đang chạy của
+        // truyện này, sẽ huỷ ngang câu trả lời đang chạy.
         guard !isBatchExtracting, !isStreaming else { return }
         isBatchExtracting = true
         batchProgress = AINameScanProgress()
@@ -206,7 +206,6 @@ extension ReaderAIFullScreenView {
         // Khởi tạo content rỗng để hiển thị "AI đang suy nghĩ" trong timeline
         currentSession.messages.append(AIChatMessage(id: msgId, role: .assistant, content: "", isStreaming: true))
         AIChatHistoryStore.shared.saveSession(currentSession, for: bookId)
-        AIRuntimeCoordinator.shared.activeSession = currentSession
         isStreaming = true
 
         var config = AISettingsStore.shared.loadConfiguration()
@@ -217,6 +216,7 @@ extension ReaderAIFullScreenView {
 
         AIRuntimeCoordinator.shared.startBatchExtraction(
             bookId: bookId,
+            bookTitle: bookTitle,
             config: config,
             promptOverride: promptOverride,
             fromChapterIndex: fromChapterIndex,
@@ -242,6 +242,8 @@ extension ReaderAIFullScreenView {
             session.messages[idx].isStreaming = true
         }
         let started = AIRuntimeCoordinator.shared.retryFailedNameScanBatches(
+            bookId: bookId,
+            bookTitle: bookTitle,
             session: session,
             onProgress: { [self] (progress: AINameScanProgress, partial: [AIExtractedName]?) in
                 Task { @MainActor in self.applyNameScanProgress(progress, partial: partial, messageId: msgId) }
@@ -254,7 +256,7 @@ extension ReaderAIFullScreenView {
         currentSession = session
         isBatchExtracting = true
         isStreaming = true
-        batchProgress = AIRuntimeCoordinator.shared.batchProgress
+        batchProgress = AIRuntimeCoordinator.shared.run(for: bookId)?.batchProgress
     }
 
     /// Tiến độ quét/thử lại: dải batch + (khi danh sách tên đổi) tin kết quả đang chạy.
@@ -285,7 +287,7 @@ extension ReaderAIFullScreenView {
     }
 
     internal func cancelBatchExtraction() {
-        AIRuntimeCoordinator.shared.stopActiveTask()
+        AIRuntimeCoordinator.shared.stopActiveTask(bookId: bookId)
         isBatchExtracting = false
         isStreaming = false
         batchProgress = nil

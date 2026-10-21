@@ -251,11 +251,13 @@ public struct ReaderAIFullScreenView: View {
                 )
             }
             .onAppear {
-                AIRuntimeCoordinator.shared.isFullScreenPresented = true
+                AIRuntimeCoordinator.shared.presentedAIBookId = bookId
                 initializeSessionAsync()
             }
             .onDisappear {
-                AIRuntimeCoordinator.shared.isFullScreenPresented = false
+                if AIRuntimeCoordinator.shared.presentedAIBookId == bookId {
+                    AIRuntimeCoordinator.shared.presentedAIBookId = nil
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: AISettingsStore.didChangeNotification)) { _ in
                 reloadSettings()
@@ -266,36 +268,9 @@ public struct ReaderAIFullScreenView: View {
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("navigateReaderToPlayingChapter"))) { _ in
                 dismiss()
             }
-            .onReceive(AIRuntimeCoordinator.shared.$activeSession) { updatedSession in
-                guard let updated = updatedSession, updated.id == currentSession.id else { return }
-                for updatedMsg in updated.messages {
-                    if let idx = currentSession.messages.firstIndex(where: { $0.id == updatedMsg.id }) {
-                        if currentSession.messages[idx].content != updatedMsg.content ||
-                           currentSession.messages[idx].isStreaming != updatedMsg.isStreaming ||
-                           currentSession.messages[idx].extractedNames?.count != updatedMsg.extractedNames?.count {
-                            currentSession.messages[idx].content = updatedMsg.content
-                            currentSession.messages[idx].isStreaming = updatedMsg.isStreaming
-                            currentSession.messages[idx].extractedNames = updatedMsg.extractedNames
-                        }
-                    } else {
-                        currentSession.messages.append(updatedMsg)
-                    }
-                }
-            }
-            .onReceive(AIRuntimeCoordinator.shared.$isRunning) { running in
-                self.isStreaming = running
-            }
-            .onReceive(AIRuntimeCoordinator.shared.$batchProgress) { progress in
-                self.batchProgress = progress
-                self.isBatchExtracting = (progress != nil)
-            }
-            .onReceive(AIRuntimeCoordinator.shared.$batchExtractedNames) { names in
-                if !names.isEmpty {
-                    self.batchExtractedNames = names
-                }
-            }
-            .onReceive(AIRuntimeCoordinator.shared.$nameScanRetry) { retry in
-                self.nameScanRetry = retry
+            // Chỉ trạng thái của **chính truyện này** (1.3.558) — tác vụ của truyện khác không khoá màn này.
+            .onReceive(AIRuntimeCoordinator.shared.$runs) { runs in
+                applyRunState(runs[bookId])
             }
         }
     }

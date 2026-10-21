@@ -10,7 +10,8 @@ import UIKit
 /// + `presentationControllerDidDismiss` (luật 26), `.modelContainer` (thiếu là crash), gán delegate trong
 /// completion, và cửa sổ sống suốt lúc sheet mở (`FloatingHubWindowManager.setSheetPresented`).
 extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDelegate {
-    /// Mở một mục: menu đóng, hub thu về nép mép ngay (việc đã xong), rồi giao cho chủ của mục đó.
+    /// Mở một mục: menu đóng, hub thu về nép mép ngay (việc đã xong), rồi giao cho chủ của mục đó. Riêng AI
+    /// (1.3.558): menu **giữ mở** và chuyển sang trang "AI đang chạy" để chọn truyện (`openAITask`).
     ///
     /// Dòng xám đã `disabled` trong menu; guard ở đây chặn thêm đường VoiceOver và lượt chạm lọt vào đúng lúc
     /// trạng thái vừa đổi.
@@ -20,13 +21,17 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
     /// cửa sổ của hub. Chỉ màn Thông báo được trình bày từ chính cửa sổ này.
     func open(_ kind: FloatingHubItem.Kind) {
         guard isItemEnabled(kind) else { return }
+        if kind == .ai {
+            showMenuPage(.aiTasks)
+            return
+        }
         closeMenu(animated: false)
         viewModel.hide()
         updateLayout(animated: true)
 
         switch kind {
         case .ai:
-            AIRuntimeCoordinator.shared.presentFullScreen()
+            break
         case .notifications:
             presentInbox()
         case .video:
@@ -36,6 +41,16 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
             }
             reopen()
         }
+    }
+
+    /// Chạm một truyện ở trang "AI đang chạy": đóng menu, hub nép mép, mở màn AI của **đúng** truyện đó.
+    func openAITask(bookId: String) {
+        guard isItemEnabled(.ai),
+              presentationReader.snapshot.aiTasks.contains(where: { $0.bookId == bookId }) else { return }
+        closeMenu(animated: false)
+        viewModel.hide()
+        updateLayout(animated: true)
+        AIRuntimeCoordinator.shared.presentFullScreen(bookId: bookId)
     }
 
     // MARK: - Nút của dòng Video

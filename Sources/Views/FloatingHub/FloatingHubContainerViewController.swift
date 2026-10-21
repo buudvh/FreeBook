@@ -33,6 +33,8 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
     let menuContainerView = UIView()
     /// `internal`: `+Menu.swift` tạo nó ở lần mở menu đầu tiên.
     var menuHostingController: UIHostingController<FloatingHubMenuView>?
+    /// Trang đang hiện của thẻ menu (1.3.558): ba dòng chính, hoặc danh sách truyện đang chạy AI. Mở menu luôn về `.main`.
+    var menuPage: FloatingHubMenuView.Page = .main
 
     private var buttonHostingController: UIHostingController<FloatingHubButton>?
     private var panStartCenter: CGPoint = .zero
@@ -143,10 +145,10 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
             .store(in: &cancellables)
 
         // Menu chỉ vẽ khi đang mở, và chỉ **cập nhật** dòng đã có (sáng/xám, badge, chữ) — tập dòng cố định nên
-        // không bao giờ phải đóng menu vì "hết mục".
+        // không bao giờ phải đóng menu vì "hết mục". Danh sách truyện đang chạy AI cũng vẽ lại thẻ (trang "AI đang chạy").
         presentationReader.$snapshot
-            .map(\.items)
-            .removeDuplicates()
+            .map { ($0.items, $0.aiTasks) }
+            .removeDuplicates(by: ==)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 guard let self, self.viewModel.isMenuOpen else { return }

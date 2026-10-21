@@ -126,6 +126,8 @@ public actor GeminiWebClient {
     /// `onMetadata` (1.3.526) báo metadata **ngay khi** Google gửi về — thường ở gói đầu, trước cả chữ — để lượt bị
     /// huỷ giữa chừng (timeout) vẫn giữ được cid: Google đã tạo cuộc chat trên web dù app không nhận hết câu trả lời.
     /// `absoluteTimeout` (1.3.527): trần tuyệt đối của fetch — quét tên riêng truyền trần riêng, còn lại dùng mặc định.
+    /// Đã phát chữ thì **không** tự thử lại (1.3.558): lượt thử lại phát lại từ đầu, coordinator cộng dồn delta nên chữ
+    /// bị lặp trong tin (vd. trang nạp lại giữa chừng vì truyện khác ép làm mới token ⇒ `documentChanged`).
     @discardableResult
     func streamGeneration(
         prompt: String,
@@ -140,6 +142,7 @@ public actor GeminiWebClient {
         var session = try await GeminiWebSessionController.shared.prepare()
         let model = await resolveModel(named: modelName)
         var attempt = 0
+        let observed = TurnObservation()
 
         while true {
             try Task.checkCancellation()
@@ -158,10 +161,14 @@ public actor GeminiWebClient {
                     metadata: metadata,
                     idleTimeout: idleTimeout,
                     absoluteTimeout: absoluteTimeout,
-                    onDelta: onDelta,
+                    onDelta: { delta in
+                        observed.markEmitted()
+                        onDelta(delta)
+                    },
                     onMetadata: onMetadata
                 )
-            } catch let error as GeminiWebError where attempt == 0 && (error.isRetryable || error.suggestsSessionRefresh) {
+            } catch let error as GeminiWebError
+                where attempt == 0 && !observed.emitted && (error.isRetryable || error.suggestsSessionRefresh) {
                 attempt += 1
                 AppLogger.shared.log("🤖 [GeminiWeb] Lượt 1 lỗi (\(error.localizedDescription)) — thử lại 1 lần\(error.suggestsSessionRefresh ? " sau khi nạp lại trang" : "")")
                 if error.suggestsSessionRefresh {

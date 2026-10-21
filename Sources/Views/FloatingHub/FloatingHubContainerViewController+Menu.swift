@@ -17,6 +17,7 @@ import UIKit
 extension FloatingHubContainerViewController {
     func openMenu() {
         viewModel.setMenuOpen(true)
+        menuPage = .main
         refreshMenu()
         layoutMenu()
 
@@ -67,10 +68,24 @@ extension FloatingHubContainerViewController {
         }
     }
 
+    /// Chuyển trang của thẻ menu (menu vẫn mở) rồi đặt lại khung — hai trang cao khác nhau.
+    func showMenuPage(_ page: FloatingHubMenuView.Page) {
+        menuPage = page
+        refreshMenu()
+        layoutMenu()
+    }
+
     /// Gán lại nội dung thẻ theo snapshot hiện tại; tạo hosting controller ở lần mở đầu tiên.
+    /// Trang "AI đang chạy" mà không còn truyện nào chạy ⇒ tự về trang chính.
     func refreshMenu() {
+        let snapshot = presentationReader.snapshot
+        if menuPage == .aiTasks, snapshot.aiTasks.isEmpty {
+            menuPage = .main
+        }
         let menu = FloatingHubMenuView(
-            items: presentationReader.snapshot.items,
+            page: menuPage,
+            items: snapshot.items,
+            aiTasks: snapshot.aiTasks,
             onSelect: { [weak self] kind in
                 self?.open(kind)
             },
@@ -79,6 +94,12 @@ extension FloatingHubContainerViewController {
             },
             onStopVideo: { [weak self] in
                 self?.stopVideo()
+            },
+            onSelectAITask: { [weak self] bookId in
+                self?.openAITask(bookId: bookId)
+            },
+            onBack: { [weak self] in
+                self?.showMenuPage(.main)
             }
         )
 

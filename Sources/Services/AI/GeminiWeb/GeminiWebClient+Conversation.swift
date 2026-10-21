@@ -298,9 +298,10 @@ extension GeminiWebClient {
 }
 
 /// Quan sát một lượt, dùng chung giữa closure `@Sendable` và actor:
-/// - đã phát ít nhất một delta chưa — đã hiện chữ thì không mở lại cuộc chat mới (tránh trả lời trùng);
+/// - đã phát ít nhất một delta chưa — đã hiện chữ thì không mở lại cuộc chat mới (tránh trả lời trùng), và
+///   `GeminiWebClient.streamGeneration` không tự thử lại (1.3.558, tránh chữ lặp);
 /// - metadata mới nhất Google gửi về (1.3.526) — để lượt lỗi giữa chừng vẫn giữ được cid.
-private final class TurnObservation: @unchecked Sendable {
+final class TurnObservation: @unchecked Sendable {
     private let lock = NSLock()
     private var didEmit = false
     private var latestMetadata: [String?]?

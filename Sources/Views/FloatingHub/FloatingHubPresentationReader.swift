@@ -19,8 +19,9 @@ import Foundation
 ///   chỉ vẽ khi đang mở.
 ///
 /// ## Không observe cả `AIRuntimeCoordinator`
-/// Coordinator ghi `activeSession` mỗi ≥ 50 ms khi stream. Observe cả object là kéo hub vẽ lại theo nhịp đó
-/// (đúng lỗi của view widget AI cũ, xoá ở 1.3.524). Ở đây chỉ nghe đúng ba publisher cần. Video cũng vậy: chỉ
+/// Coordinator ghi `runs` mỗi ≥ 50 ms khi stream. Observe cả object là kéo hub vẽ lại theo nhịp đó (đúng lỗi của
+/// view widget AI cũ, xoá ở 1.3.524). Ở đây `runs` được `map` về danh sách nhỏ `AITask` (truyện đang chạy + tác vụ)
+/// rồi `removeDuplicates` — chỉ phát khi có truyện bắt đầu/xong hoặc tác vụ đổi chữ (1.3.558). Video cũng vậy: chỉ
 /// đọc cầu nối `VideoMiniPlayerState` (`ObservableObject`), không đọc session `@Observable` giữ `AVPlayer`.
 @MainActor
 final class FloatingHubPresentationReader: ObservableObject {
@@ -34,22 +35,34 @@ final class FloatingHubPresentationReader: ObservableObject {
         var activeCount: Int { activeKinds.count }
     }
 
+    /// Một truyện đang chạy AI — một dòng ở trang "AI đang chạy" của menu (1.3.558).
+    struct AITask: Equatable, Identifiable {
+        let bookId: String
+        let bookTitle: String
+        let taskTitle: String
+        let startedAt: Date
+
+        var id: String { bookId }
+    }
+
     struct Snapshot: Equatable {
         /// Luôn đủ `Kind.allCases`, theo thứ tự hiển thị cố định.
         var items: [FloatingHubItem] = FloatingHubItem.Kind.allCases.map { FloatingHubItem(kind: $0) }
         /// Bằng 0 khi mục Thông báo đang xám.
         var unreadCount = 0
+        /// Truyện đang chạy AI, bắt đầu gần nhất lên đầu — trang "AI đang chạy". Không vào `ButtonState`: tiêu đề
+        /// tác vụ đổi theo batch không làm vẽ lại nút.
+        var aiTasks: [AITask] = []
 
         var button: ButtonState {
             ButtonState(activeKinds: items.filter(\.isActive).map(\.kind), unreadCount: unreadCount)
         }
     }
 
-    /// Trạng thái AI lấy từ **giá trị được phát ra** của ba publisher, không đọc lại property của coordinator.
+    /// Trạng thái AI lấy từ **giá trị được phát ra** của publisher, không đọc lại property của coordinator.
     private struct AIState: Equatable {
-        var isRunning = false
+        var tasks: [AITask] = []
         var isFullScreenPresented = false
-        var title = ""
     }
 
     /// Trạng thái video nền, cũng lấy từ giá trị được phát ra: `@Published` phát ở willSet nên đọc lại
@@ -74,9 +87,8 @@ final class FloatingHubPresentationReader: ObservableObject {
     init() {
         let coordinator = AIRuntimeCoordinator.shared
         aiState = AIState(
-            isRunning: coordinator.isRunning,
-            isFullScreenPresented: coordinator.isFullScreenPresented,
-            title: coordinator.activeTaskTitle
+            tasks: Self.aiTasks(from: coordinator.runs),
+            isFullScreenPresented: coordinator.presentedAIBookId != nil
         )
         let video = VideoMiniPlayerState.shared
         videoState = VideoState(
@@ -89,19 +101,14 @@ final class FloatingHubPresentationReader: ObservableObject {
 
         // `@Published` phát ở willSet ⇒ mọi sink đi qua `receive(on:)` rồi mới tính lại. Nhánh AI và Video dùng
         // thẳng giá trị được phát ra (khuôn của window manager widget AI cũ).
-        Publishers.CombineLatest3(
-            coordinator.$isRunning,
-            coordinator.$isFullScreenPresented,
-            coordinator.$activeTaskTitle
+        Publishers.CombineLatest(
+            coordinator.$runs.map(Self.aiTasks(from:)).removeDuplicates(),
+            coordinator.$presentedAIBookId.map { $0 != nil }.removeDuplicates()
         )
         .receive(on: RunLoop.main)
-        .sink { [weak self] isRunning, isFullScreenPresented, title in
+        .sink { [weak self] tasks, isFullScreenPresented in
             guard let self else { return }
-            self.aiState = AIState(
-                isRunning: isRunning,
-                isFullScreenPresented: isFullScreenPresented,
-                title: title
-            )
+            self.aiState = AIState(tasks: tasks, isFullScreenPresented: isFullScreenPresented)
             self.refresh()
         }
         .store(in: &cancellables)
@@ -170,17 +177,38 @@ final class FloatingHubPresentationReader: ObservableObject {
                 return videoItem()
             }
         }
-        return Snapshot(items: items, unreadCount: unreadCount)
+        return Snapshot(items: items, unreadCount: unreadCount, aiTasks: aiState.tasks)
     }
 
-    /// Trợ lý AI dùng được khi đang chạy **và** màn AI đang đóng — đúng điều kiện có mục trước đây.
+    /// Truyện đang chạy AI (bỏ entry chỉ còn giữ nút "Thử lại"), bắt đầu gần nhất lên đầu.
+    nonisolated private static func aiTasks(from runs: [String: AIBookRunState]) -> [AITask] {
+        runs.values
+            .filter(\.isRunning)
+            .map { AITask(bookId: $0.bookId, bookTitle: $0.bookTitle, taskTitle: $0.taskTitle, startedAt: $0.startedAt) }
+            .sorted { $0.startedAt > $1.startedAt }
+    }
+
+    /// Trợ lý AI dùng được khi có truyện đang chạy **và** không có màn AI nào đang mở — đúng điều kiện có mục trước
+    /// đây. Chạm dòng thì menu sang trang "AI đang chạy" (1.3.558). Một truyện: tên truyện + tác vụ; nhiều truyện:
+    /// số truyện.
     private func aiItem() -> FloatingHubItem {
-        let title = aiState.title.isEmpty ? "Đang chạy" : aiState.title
-        let usable = aiState.isRunning && !aiState.isFullScreenPresented
+        let tasks = aiState.tasks
+        let usable = !tasks.isEmpty && !aiState.isFullScreenPresented
+        let detail: String
+        var headline = ""
+        if tasks.count == 1, let task = tasks.first {
+            headline = task.bookTitle
+            detail = task.taskTitle.isEmpty ? "Đang chạy" : task.taskTitle
+        } else if tasks.count > 1 {
+            detail = "\(tasks.count) truyện đang chạy"
+        } else {
+            detail = "Không có tác vụ"
+        }
         return FloatingHubItem(
             kind: .ai,
             isEnabled: usable,
-            detail: aiState.isRunning ? title : "Không có tác vụ",
+            headline: headline,
+            detail: detail,
             isActive: usable
         )
     }
