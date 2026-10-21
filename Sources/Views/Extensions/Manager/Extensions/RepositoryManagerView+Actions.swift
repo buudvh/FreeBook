@@ -130,14 +130,19 @@ extension RepositoryManagerView {
     /// Xoá bản ghi đã cài mà thư mục mất `plugin.json`. Gọi khi mở màn hình quản lý.
     @MainActor
     internal func auditInstalledExtensions() {
-        if case .failure(let err) = ExtensionTransactionCoordinator.shared.auditInstalledExtensions() {
+        switch ExtensionTransactionCoordinator.shared.auditInstalledExtensions() {
+        case .success(let removed):
+            // Audit có thể gỡ cả bản ghi nguồn Legado mất `plugin.json` ⇒ danh sách tab Legado phải đọc lại.
+            if removed > 0 { LegadoSourceRepository.shared.reload() }
+        case .failure(let err):
             errorMessage = "Lỗi dọn tiện ích: \(err.localizedDescription)"
         }
     }
 
+    /// Chỉ gỡ tiện ích JavaScript — nguồn Legado có lệnh xoá riêng ở tab "Nguồn Legado".
     @MainActor
     internal func uninstallAllExtensions() {
-        for ext in library.installed {
+        for ext in library.installed where !LegadoSourcePolicy.isLegado(ext) {
             uninstallExtension(ext)
         }
     }

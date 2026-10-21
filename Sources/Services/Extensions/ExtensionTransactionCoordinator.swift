@@ -266,6 +266,20 @@ public final class ExtensionTransactionCoordinator {
         return .success(())
     }
 
+    /// Như `deleteExtension` cho nhiều tiện ích, ghi index **một lần** (vd "Xoá tất cả nguồn Legado" — vài nghìn bản
+    /// ghi). Không xoá file: caller đã xoá thư mục trên nền. Trả số bản ghi đã xoá; không có bản ghi nào ⇒ `0`.
+    @discardableResult
+    public func deleteExtensions(packageIds: [String]) -> Result<Int, ExtensionTransactionError> {
+        let ids = Set(packageIds)
+        guard !ids.isEmpty else { return .success(0) }
+        for id in ids { ExtensionLocalStorageStore.shared.removeAll(namespace: id) }
+        let list = library.installed
+        let remaining = list.filter { !ids.contains($0.packageId) }
+        guard remaining.count != list.count else { return .success(0) }
+        library.setInstalled(remaining)
+        return .success(list.count - remaining.count)
+    }
+
     /// Gỡ hẳn: xoá thư mục trước, rồi `deleteExtension` (bản ghi + `localStorage`). Cấu hình, ghim, lần dùng mất
     /// theo bản ghi — đúng nghĩa gỡ.
     public func uninstallExtension(packageId: String) -> Result<Void, ExtensionTransactionError> {

@@ -55,6 +55,17 @@ public enum BackupExtensionInstaller {
                 }
             }
 
+            // Nguồn Legado: bản ghi dựng từ thư mục **thật** sau bước thay (type/version theo `plugin.json`, kèm
+            // `installOrigin` riêng) — không lấy metadata của archive khi máy giữ bản mới hơn.
+            if LegadoSourceIdentity.isLegado(type: record.type) {
+                if let command = LegadoSourceStore.restoreCommand(directory: target, packageId: record.packageId) {
+                    outcome.commands.append(command)
+                } else {
+                    outcome.errors.append("Nguồn Legado \(record.name): thư mục thiếu source.json/plugin.json")
+                }
+                continue
+            }
+
             let mainFolder = ExtensionManager.shared.findMainExtensionFolder(at: target)
             outcome.commands.append(
                 UpsertExtensionCommand(

@@ -280,6 +280,8 @@ public actor BackupRestoreWorker {
                 .subtracting(previouslyInstalled)
             result.merge(writer.restorePins(extensions, newlyInstalled: newlyInstalled))
             result.merge(writer.restoreHistoryPreferences(extensions))
+            // Danh sách nguồn Legado đọc lại từ thư mục vừa khôi phục (trên nền).
+            LegadoSourceRepository.shared.reload()
             return result
         }
         outcome.merge(batch)

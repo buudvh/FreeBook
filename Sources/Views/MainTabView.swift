@@ -101,6 +101,8 @@ struct MainTabView: View {
             Task { await ExtensionDraftStagingStore.shared.discardAll() }
             // Công tắc debug server sống lâu hơn màn hình: mở lại app thì theo lựa chọn cũ.
             ExtensionDebugServerLauncher.restoreIfEnabled(container: modelContext.container)
+            // Danh sách nguồn Legado (đọc source.json + dịch tên) — chạy trên nền, sau cổng từ điển.
+            LegadoSourceRepository.shared.loadIfNeeded()
         }
         // `.utility`: nén + tải lên + dọn truyện là việc nền, không được tranh CPU với Reader/TTS
         // (`.task` mặc định là `.userInitiated`). Bước nhảy MainActor bên trong vẫn chạy trên main.

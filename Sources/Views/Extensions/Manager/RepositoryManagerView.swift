@@ -8,12 +8,13 @@ struct RepositoryManagerView: View {
     internal var repositories: [ExtensionRepositoryRecord] {
         library.repositories.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
-    /// Đã cài ∪ mục registry chưa cài (`folder` rỗng ⇒ `localPath` rỗng).
-    internal var allExtensions: [Extension] { library.catalog }
+    /// Đã cài ∪ mục registry chưa cài (`folder` rỗng ⇒ `localPath` rỗng). **Không** gồm nguồn Legado (tab riêng).
+    internal var allExtensions: [Extension] { LegadoSourcePolicy.excludingLegado(library.catalog) }
 
     // Quản lý Tab chính của view
-    @State internal var selectedTab = 0 // 0: Tất cả tiện ích, 1: Danh sách kho
+    @State internal var selectedTab = 0 // 0: Tất cả tiện ích, 1: Danh sách kho, 2: Nguồn Legado
     @State internal var renderedTab = 0
+    @State internal var legadoState = LegadoSourceTabState()
     
     // Trạng thái cho Tab 1: Cửa hàng tiện ích gộp
     @State internal var showingAddRepo = false
@@ -60,7 +61,7 @@ struct RepositoryManagerView: View {
     }
 
     internal var isUninstallAllDisabled: Bool {
-        library.installed.isEmpty
+        !library.installed.contains { !LegadoSourcePolicy.isLegado($0) }
     }
     
     /// Sheet bộ lọc. Tác giả / nhóm ngôn ngữ / nhóm thể loại và số trên chip tính trên catalog (đã cài ∪ cache
@@ -109,6 +110,7 @@ struct RepositoryManagerView: View {
             Picker("", selection: $selectedTab) {
                 Text("Tất cả tiện ích").tag(0)
                 Text("Danh sách kho").tag(1)
+                Text("Nguồn Legado").tag(2)
             }
             .pickerStyle(.segmented)
             .padding(.horizontal)
@@ -118,6 +120,7 @@ struct RepositoryManagerView: View {
             TabView(selection: $selectedTab) {
                 allExtensionsTab.tag(0)
                 repositoryListTab.tag(1)
+                legadoSourcesTab.tag(2)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .onChange(of: selectedTab) { _, newVal in
@@ -183,6 +186,7 @@ struct RepositoryManagerView: View {
                     onCancel: nil
                 )
             }
+            .background { legadoFilePicker }
             .onAppear {
                 renderedTab = selectedTab
                 // Dọn trước khi làm mới kho: hàng đã mất file mà không có nguồn tải lại chỉ gây lỗi.
@@ -197,7 +201,9 @@ struct RepositoryManagerView: View {
 
     @ToolbarContentBuilder
     internal var toolbarContent: some ToolbarContent {
-        if selectedTab == 0 {
+        if selectedTab == 2 {
+            legadoToolbarContent
+        } else if selectedTab == 0 {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 Menu {
                     Button(action: { showingZipImporter = true }) {
@@ -517,16 +523,9 @@ struct RepositoryManagerView: View {
                         .buttonStyle(.plain)
                         .accessibilityLabel("Cấu hình \(ext.name)")
 
-                        Button(action: { uninstallExtension(ext) }) {
-                            Image(systemName: "trash")
-                                .font(.system(size: 15, weight: .medium))
-                                .foregroundColor(.red)
-                                .frame(width: 34, height: 34)
-                                .background(Color.red.opacity(0.1))
-                                .cornerRadius(8)
+                        ExtensionRowTrashButton(accessibilityLabel: "Gỡ cài đặt \(ext.name)") {
+                            uninstallExtension(ext)
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Gỡ cài đặt \(ext.name)")
                     }
                 }
             }
@@ -551,7 +550,7 @@ struct RepositoryManagerView: View {
                             Image(systemName: "square.stack.3d.up.slash")
                                 .font(.system(size: 40))
                                 .foregroundColor(.gray)
-                            Text("Bạn có thể nhập link kho truyện VBook (định dạng plugin.json) để bắt đầu tải các nguồn bóc tách truyện.")
+                            Text("Bạn có thể nhập link kho tiện ích (định dạng plugin.json) để bắt đầu tải các nguồn bóc tách truyện.")
                                 .font(.subheadline)
                                 .foregroundColor(.gray)
                             Button(action: { addSampleRepository() }) {
