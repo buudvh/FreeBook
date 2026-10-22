@@ -84,11 +84,21 @@ enum LegadoSourceExporter {
 
     /// Đường dẫn phải nằm **trong** `tmp/legado_export/` (sau khi chuẩn hoá `.`/`..`).
     static func validatePathSafety(for targetURL: URL) throws {
-        let root = exportRoot.standardizedFileURL
-        let target = targetURL.standardizedFileURL
-        guard target.pathComponents.count > root.pathComponents.count,
-              target.pathComponents.starts(with: root.pathComponents) else {
+        let root = comparableComponents(exportRoot)
+        let target = comparableComponents(targetURL)
+        guard target.count > root.count, target.starts(with: root) else {
             throw LegadoSourceError.unsafePath
         }
+    }
+
+    /// Thành phần đường dẫn đã chuẩn hoá, **bỏ tiền tố `/private`**. Thư mục tạm của iOS nằm dưới `/private/var/…`, mà
+    /// `standardizedFileURL` chỉ bỏ `/private` khi đường dẫn **đã tồn tại**: từ lần xuất thứ hai thư mục đã có (→ `/var/…`)
+    /// còn tệp mới thì chưa (→ `/private/var/…`), so sánh lệch và bị từ chối nhầm.
+    private static func comparableComponents(_ url: URL) -> [String] {
+        var parts = url.standardizedFileURL.pathComponents
+        if parts.count > 1, parts[0] == "/", parts[1] == "private" {
+            parts.remove(at: 1)
+        }
+        return parts
     }
 }

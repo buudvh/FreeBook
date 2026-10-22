@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.576] - 2026-10-22
+
+### fix: chia sẻ báo cáo và xuất nguồn Legado báo nhầm "truy cập file ngoài thư mục" từ lần thứ hai
+
+Người dùng: *"có thông báo truy cập file ngoài thư mục chia sẻ báo cáo bị từ chối"*.
+
+- **Nguyên nhân**: thư mục tạm của iOS nằm dưới `/private/var/…`, và `URL.standardizedFileURL` chỉ bỏ tiền tố `/private` khi đường dẫn **đã tồn tại**. Lần đầu thư mục chia sẻ chưa có ⇒ hai bên cùng `/private/var/…`, khớp. Từ lần thứ hai thư mục đã có (rút thành `/var/…`) còn tệp mới chưa có (giữ `/private/var/…`) ⇒ `validatePathSafety` tưởng tệp nằm ngoài thư mục và từ chối.
+- **Sửa**: `LegadoCorpusReportShare` (chia sẻ báo cáo Kiểm tra nguồn) và `LegadoSourceExporter` (xuất / chia sẻ nguồn — cùng ghi vào thư mục tạm, cùng lỗi) so sánh thành phần đường dẫn sau khi **tự bỏ `/private`** (`comparableComponents`), không phụ thuộc tệp đã tồn tại hay chưa. Các kho khác của nguồn Legado ghi vào Application Support (`/var/…`, không có `/private`) nên không bị.
+- Chuyển entry `[1.3.546]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.575] - 2026-10-22
 
 ### fix: nút chia sẻ chỉ chạy được lần đầu: bảng chia sẻ đóng xong không báo SwiftUI
@@ -417,19 +428,3 @@ Người dùng (kèm ảnh chụp máy thật): *"phần cấu hình tiện ích
 - **Màn "Thông tin plugin.json"** (`ExtensionMetadataSection`): 4 ô chữ `name`, `source`, `regexp`, `description` có cùng bộ nút (không có ↺); vẫn tự lưu 0,4 s như gõ tay.
 - **`ExtensionConfigView`**: `.listSectionSpacing(.compact)` bớt khoảng trống giữa các nhóm và phía trên thẻ đầu.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
-
-## [1.3.546] - 2026-10-19
-
-### feat: kiểu hiển thị danh sách truyện theo loại, làm lại màn cấu hình tiện ích
-
-Người dùng: *"tôi muốn thay tuỳ chỉnh hiển thị layout của danh sách truyện (bao gồm tab kệ sách và tab khám phá)"* và *"mockup lại phần cài đặt cấu hình ext… bỏ nút mở trình duyệt ở phần chọn ext của khám phá và mang vào trong cấu hình ext"*. Plan: `Docs/Plans/2026-10-18-plan-kieu-hien-thi-danh-sach-va-cau-hinh-tien-ich.md` (mockup đã duyệt trong phiên phỏng vấn). Nhánh `feature/list-layout-ext-config` tách từ `main` sau khi `feature/comic-video` được fast-forward vào `main`.
-
-- **Kiểu hiển thị** (`Sources/Views/Common/BookListLayout/`): ba kiểu `BookListLayoutMode` — Danh sách (mặc định, như cũ) / Lưới / Chỉ bìa; lưới 2–5 cột (mặc định 3). Lưu **theo loại nội dung** (`BookListLayoutScope`: Tất cả · Truyện chữ · Truyện tranh · Phim/Video), dùng chung giữa Kệ và Khám phá, trong `BookListLayoutPreferences` (`@MainActor @Observable`, khoá `bookListLayout.mode.<scope>` / `bookListLayout.columns.<scope>`; tự vào bản sao lưu vì khoá bắt đầu bằng chữ thường; nạp lại theo `UserDefaults.didChangeNotification` để khôi phục sao lưu có hiệu lực). Bìa video ngang 16:9, còn lại (kể cả "Tất cả") đứng 2:3.
-- **Đổi kiểu**: sheet nhỏ `BookListLayoutSheet` ("Áp cho: <loại>", thanh chọn kiểu + Số cột) mở từ menu "…" của Kệ (tab Kệ/Lịch sử), nút tròn mới trên header Khám phá, thanh điều hướng màn Thể loại/Xem thêm, menu của Bộ sưu tập; và Cài đặt → Thư Viện → **Kiểu hiển thị danh sách** (`BookListLayoutSettingsView`, 4 nhóm + "Đặt lại mặc định").
-- **Phía kệ**: `ShelfBooksLayoutView` dựng Kệ sách, Lịch sử, chi tiết Bộ sưu tập, Tìm trên kệ — nhánh danh sách giữ `List` cũ, nhánh lưới là `ScrollView` + `LazyVGrid` (không bao giờ lồng trong `List`), giữ nhóm Đang ghim/Truyện khác, nhóm theo ngày, phân trang 50/lượt, chạm/giữ bằng `onTapGesture` + `onLongPressGesture`. Thẻ `ShelfBookGridCardView`: ghim (trên-trái), chương mới (trên-phải), badge loại (dưới-phải), "icon nguồn · Ch. N" ("Tập N" với video). **Chip lọc loại** (`ShelfKindFilter` + `ExtensionKindFilterBar`, `@AppStorage("shelfKindFilter")`) ở đầu trang Kệ và Lịch sử, chỉ hiện khi có ≥ 2 loại; "Xóa tất cả lịch sử" chỉ xoá truyện đang hiện theo chip. Hai trang dời sang `ShelfView+Layout.swift` (`ShelfView` 873 → 684 dòng); header nhóm thành `ShelfSectionHeaderView`; luật dịch tên của danh sách đã lưu gom về `BookDisplayTranslation`.
-- **Phía Khám phá**: `DiscoveryNovelsLayoutView` dùng chung cho tab danh mục (`DiscoveryCategoryTabView`, tách sang file riêng) và `CategoryNovelsListView`; cả hai nhánh giữ `.id(link)`, neo cuộn, kéo làm mới, sentinel tải thêm. Thẻ `DiscoveryNovelGridCardView` tải bìa bằng `RemoteCoverImage` (không ghi `covers/`). Skeleton dạng lưới `DiscoverySkeletonGridView`. Trang dạng section **không đổi**.
-- **Bỏ nút safari** ở header Khám phá và ở từng dòng bảng chọn nguồn (`ExtensionSelectorView`, tách khỏi `DiscoveryView`; `DiscoveryView` 975 → 600 dòng). Trình duyệt của nguồn chỉ còn mở từ màn Cấu hình tiện ích.
-- **Màn Cấu hình tiện ích**: thẻ đầu `ExtensionConfigHeaderCard` (icon, tên, tác giả · phiên bản, loại, ngôn ngữ, mô tả "Xem thêm") với hàng nút **Trình duyệt · Ghim · Gỡ**; các nhóm "Cài đặt của tiện ích", "Duyệt và lịch sử" (18+ thành bộ chọn Tự động/Có/Không), "Mạng", "Nâng cao" (màn con `ExtensionMetadataScreen` "Thông tin plugin.json", sửa Script). **Tự lưu tất cả**: bỏ "Lưu"/"Hủy", chỉ còn "Đóng"; công tắc ghi ngay, ô chữ ghi sau 0,4 s, đóng màn thì ghi nốt (`ExtensionMetadataSection` cũng đổi từ huỷ sang ghi nốt khi rời màn). "Import truyện" từ trình duyệt: mở từ Khám phá thì Chi tiết hiện ở Khám phá như cũ, nơi khác thì hiện ngay trong màn Cấu hình.
-- **Sửa kèm**: giá trị bool đã lưu trong `configJson` bị đọc lại thành `"1"`/`"0"` (công tắc luôn hiện tắt, lần lưu sau ghi `true` thành `false`) — nhận diện bool thật qua `CFBoolean`.
-- **Không đổi**: `@Model`/schema, Tìm kiếm toàn nguồn, Gợi ý, sheet chọn truyện ở Từ điển, tab Tải về, hộp xác nhận và luật chặn gỡ tiện ích đang là giọng TTS.
-- **Kiểm chứng**: `check_architecture.py` 2 violation nền (`JSDom.swift`, `TTSManager.swift`), **0 mới**; mọi file mới ≤ 400 dòng, 1 type chính/file. Không build tại chỗ (Windows, không có `swiftc`) — CI xác nhận biên dịch; chưa thử trên máy.
