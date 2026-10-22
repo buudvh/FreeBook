@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Khối **"Đang chạy"** của `NotificationInboxView`: tiến độ sao lưu/khôi phục và tiến độ tải model,
-/// ghim ở **đầu danh sách** (ngoài nhóm theo ngày).
+/// Khối **"Đang chạy"** của `NotificationInboxView`: tiến độ nhập / tải / xuất truyện (vẽ ở
+/// `NotificationInboxView+StoryTasks.swift`), sao lưu/khôi phục và tải model, ghim ở **đầu danh sách**
+/// (ngoài nhóm theo ngày).
 ///
 /// ## Vì sao ghim trên cùng, không nhập vào nhóm theo ngày
 /// Hai card "Gộp VietPhrase" và "Phiên âm lại" nằm trong nhóm ngày vì chúng có **file kết quả trên đĩa**
@@ -12,7 +13,8 @@ import SwiftUI
 ///
 /// ## Không chạm đĩa trong `body`
 /// Mọi con số đến từ `@Published` **đã nằm trong RAM** (`BackupCoordinator.progress`,
-/// `ModelDownloadCenter.entries`). Không đọc file, không đếm lại — cùng nguyên tắc đã trả giá ở 1.3.448.
+/// `ModelDownloadCenter.entries`, `DownloadManager.tasks`, `BookImportProgressCenter.entry`). Không đọc file,
+/// không đếm lại — cùng nguyên tắc đã trả giá ở 1.3.448.
 ///
 /// ## Vì sao là extension + struct **lồng**
 /// Trần "1 type chính / file" của `check_architecture.py`: khai `ActivityRows` ở top level file này là một
@@ -26,6 +28,8 @@ extension NotificationInboxView {
     var hasActivity: Bool {
         BackupCoordinator.shared.progress.isInboxVisible
             || !ModelDownloadCenter.shared.entries.isEmpty
+            || BookImportProgressCenter.shared.isRunning
+            || DownloadManager.shared.hasActiveTasks
     }
 
     /// Hàng tiến độ ghim ở đầu danh sách. Trả về **rỗng** khi không có việc gì đang chạy hay vừa xong.
@@ -41,6 +45,10 @@ extension NotificationInboxView {
         @ObservedObject private var downloads = ModelDownloadCenter.shared
 
         var body: some View {
+            // Khối truyện tự observe `DownloadManager` (~10 nhịp/giây khi đang tải) nên không kéo hai hàng
+            // dưới vẽ lại theo.
+            StoryActivityRows()
+
             if backup.progress.isInboxVisible {
                 BackupActivityRow(progress: backup.progress) {
                     backup.dismissProgress()

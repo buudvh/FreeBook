@@ -1,22 +1,25 @@
 import SwiftUI
 
-/// Nút tròn 36px của hub nổi (1.3.524) — cùng khuôn nút thông báo / trình duyệt cũ: nền `.ultraThinMaterial`,
+/// Nút tròn 36px của hub nổi (1.3.524) — cùng khuôn nút trình duyệt thu nhỏ: nền `.ultraThinMaterial`,
 /// viền trắng 20 %, bóng đen 24 %.
 ///
 /// Từ 1.3.533 hub **luôn hiện** (trừ lúc cổng từ điển chưa mở, sheet của hub đang mở, hoặc trình phát video
-/// đang toàn màn), kể cả khi không mục nào hoạt động.
+/// đang toàn màn), kể cả khi không có tiến trình nào.
 ///
-/// ## Glyph theo số mục đang hoạt động
-/// - Đúng 1 mục: glyph của chính mục đó (`sparkles` tím / `bell.fill` hoặc `bell` / `play.rectangle`).
-/// - 0 hoặc từ 2 mục: `square.grid.2x2`.
+/// ## Icon và nháy theo số tiến trình (người dùng chốt 2026-10-22)
+/// "Tiến trình" = AI đang chạy, video thu nhỏ, tác vụ nền (tải/xuất/nhập truyện, sao lưu, tải model) — xem
+/// `FloatingHubPresentationReader.ButtonState.runningKinds`. Tin chưa đọc **không** tính.
+/// - 0 tiến trình: `bell` (viền), màu chữ hệ thống, không nháy.
+/// - 1 tiến trình: icon của chính mục đó (`sparkles` / `play.rectangle`; tác vụ nền ⇒ `bell`), nháy.
+/// - Từ 2 tiến trình: `square.stack.3d.up`, nháy.
 ///
-/// ## Chỉ báo
-/// - **Badge = số mục đang hoạt động** (dòng sáng trong menu). `.peeking` là chấm đỏ 9px, `.revealed` là số
-///   trong capsule đỏ — chữ luôn một dòng. Ở `.peeking`, tâm nút nằm đúng trên mép nên chỉ báo **lật sang
-///   phía còn nhìn thấy**. Số chưa đọc của Thông báo nằm ở badge của dòng trong menu, không ở đây.
-/// - **AI đang chạy**: viền tím **tĩnh**. Không xoay sparkles: animation SwiftUI `repeatForever` chạy theo
-///   từng frame, tốn năng lượng (cùng lý do `rules.md` cấm ở widget TTS).
-/// - Nhịp nháy đỏ của trình duyệt thu nhỏ đã theo trình duyệt về cửa sổ riêng (`VisibleBrowserReopenButton`).
+/// Nút **không bao giờ** dùng `bell.fill` và không đưa tín hiệu chưa đọc nào lên hình: không badge số, không chấm
+/// đỏ, không viền tím. Số chưa đọc chỉ còn ở badge của dòng Thông báo trong menu và ở nhãn VoiceOver.
+///
+/// ## Nháy
+/// `FloatingHubPulseView` đổi **màu** nền tròn đỏ sẫm ↔ đỏ tươi bằng Core Animation (cùng hằng màu/nhịp với nút
+/// trình duyệt thu nhỏ); icon trắng khi đang nháy. Lớp nháy luôn nằm trong cây view (không bọc `if`) để vẽ lại
+/// nút không huỷ/tạo lại animation. Không dùng `repeatForever` của SwiftUI: chạy theo từng frame, tốn năng lượng.
 ///
 /// View này **chỉ vẽ**: vị trí, kéo/thả và chạm do `FloatingHubContainerViewController` (UIKit) xử lý, nhờ vậy
 /// ngón tay không trễ theo vòng cập nhật state của SwiftUI. `onActivate` chỉ dùng cho VoiceOver.
@@ -25,28 +28,25 @@ struct FloatingHubButton: View {
     static let size: CGFloat = 36
 
     let state: FloatingHubPresentationReader.ButtonState
-    let mode: WidgetMode
-    /// Mép nút đang dán — quyết định phía đặt chỉ báo.
-    let edge: EdgeDirection
-    /// Hành động chính (cùng đường với chạm): bung và mở menu, hoặc đóng menu.
+    /// Hành động chính (cùng đường với chạm) — rẽ theo số tiến trình, hoặc đóng menu.
     let onActivate: () -> Void
 
     var body: some View {
-        ZStack(alignment: badgeAlignment) {
+        ZStack {
             Circle()
                 .fill(.ultraThinMaterial)
                 .frame(width: Self.size, height: Self.size)
-                .overlay(border)
+                .overlay {
+                    FloatingHubPulseView(isPulsing: state.isPulsing)
+                        .allowsHitTesting(false)
+                }
+                .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1))
                 .shadow(color: .black.opacity(0.24), radius: 8, x: 0, y: 3)
 
             Image(systemName: glyphName)
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(glyphColor)
+                .foregroundStyle(state.isPulsing ? Color.white : Color.primary)
                 .frame(width: Self.size, height: Self.size)
-
-            if state.activeCount > 0 {
-                badge
-            }
         }
         .frame(width: Self.size, height: Self.size)
         .contentShape(Circle())
@@ -59,76 +59,35 @@ struct FloatingHubButton: View {
         }
     }
 
-    // MARK: - Glyph & viền
-
-    private var singleActiveKind: FloatingHubItem.Kind? {
-        state.activeKinds.count == 1 ? state.activeKinds.first : nil
-    }
+    // MARK: - Glyph
 
     private var glyphName: String {
-        guard let kind = singleActiveKind else { return "square.grid.2x2" }
-        return kind.systemImage(unreadCount: state.unreadCount)
-    }
-
-    private var glyphColor: Color {
-        guard let kind = singleActiveKind else { return .primary }
-        return kind.tint
-    }
-
-    /// AI đang chạy ⇒ viền tím 2pt thay viền trắng. Tĩnh, không animation.
-    @ViewBuilder
-    private var border: some View {
-        if state.activeKinds.contains(.ai) {
-            Circle().stroke(Color.purple.opacity(0.8), lineWidth: 2)
-        } else {
-            Circle().stroke(Color.white.opacity(0.2), lineWidth: 1)
+        switch state.runningCount {
+        case 0:
+            return "bell"
+        case 1:
+            switch state.runningKinds[0] {
+            case .notifications:
+                // Tác vụ nền: chuông viền như lúc rảnh, chỉ khác ở chỗ nháy.
+                return "bell"
+            case .ai, .video:
+                return state.runningKinds[0].systemImage(unreadCount: 0)
+            }
+        default:
+            return "square.stack.3d.up"
         }
-    }
-
-    // MARK: - Chỉ báo số mục đang hoạt động
-
-    /// Chỉ bung mới có số; thu gọn thì chấm đỏ.
-    @ViewBuilder
-    private var badge: some View {
-        if mode == .revealed {
-            Text("\(state.activeCount)")
-                .font(.system(size: 10, weight: .bold))
-                .foregroundColor(.white)
-                .lineLimit(1)
-                .fixedSize()
-                .padding(.horizontal, 4)
-                .padding(.vertical, 1)
-                .background(Color.red, in: Capsule())
-                .offset(badgeOffset)
-        } else {
-            Circle()
-                .fill(Color.red)
-                .frame(width: 9, height: 9)
-                .offset(badgeOffset)
-        }
-    }
-
-    /// Bung: góc trên-phải như badge thông thường. Thu gọn: lật về phía **còn nhìn thấy**.
-    private var badgeAlignment: Alignment {
-        guard mode == .peeking, edge == .right else { return .topTrailing }
-        return .topLeading
-    }
-
-    private var badgeOffset: CGSize {
-        let out: CGFloat = mode == .peeking ? 3 : 6
-        // `.topLeading` + offset âm = đẩy ra ngoài về bên trái (phía còn thấy khi dán mép phải).
-        let horizontal = (mode == .peeking && edge == .right) ? -out : out
-        return CGSize(width: horizontal, height: -out)
     }
 
     // MARK: - Accessibility
 
     private var accessibilityText: String {
-        guard !state.activeKinds.isEmpty else {
-            return "Lối tắt nổi: không có mục đang hoạt động"
+        var text: String
+        if state.runningKinds.isEmpty {
+            text = "Lối tắt nổi: \(FloatingHubItem.Kind.notifications.title)"
+        } else {
+            let names = state.runningKinds.map(\.title).joined(separator: ", ")
+            text = "Lối tắt nổi: \(names)"
         }
-        let names = state.activeKinds.map(\.title).joined(separator: ", ")
-        var text = "Lối tắt nổi: \(names)"
         if state.unreadCount > 0 {
             text += ", \(state.unreadCount) thông báo chưa đọc"
         }

@@ -1,7 +1,8 @@
 import SwiftUI
 import UIKit
 
-/// Thẻ menu của nút hub nổi (1.3.524). Từ 1.3.533 menu luôn đủ ba dòng và mở ở mọi lần chạm hub.
+/// Thẻ menu của nút hub nổi (1.3.524). Từ 1.3.533 menu luôn đủ ba dòng. Từ 2026-10-22 chạm hub chỉ mở menu khi có
+/// từ 2 tiến trình, hoặc đúng 1 tiến trình là AI (mở thẳng trang "AI đang chạy") — xem `activateByRunningTasks`.
 ///
 /// Menu sống trong **chính cửa sổ hub**: lớp nền trong suốt `menuBackdropView` phủ toàn màn và thẻ
 /// `menuContainerView` cạnh nút. Khi menu mở, `FloatingHubUIWindow.hitTest` nhường **mọi** chạm cho cây view
@@ -17,6 +18,7 @@ import UIKit
 extension FloatingHubContainerViewController {
     func openMenu() {
         viewModel.setMenuOpen(true)
+        menuPage = .main
         refreshMenu()
         layoutMenu()
 
@@ -67,10 +69,24 @@ extension FloatingHubContainerViewController {
         }
     }
 
+    /// Chuyển trang của thẻ menu (menu vẫn mở) rồi đặt lại khung — hai trang cao khác nhau.
+    func showMenuPage(_ page: FloatingHubMenuView.Page) {
+        menuPage = page
+        refreshMenu()
+        layoutMenu()
+    }
+
     /// Gán lại nội dung thẻ theo snapshot hiện tại; tạo hosting controller ở lần mở đầu tiên.
+    /// Trang "AI đang chạy" mà không còn truyện nào chạy ⇒ tự về trang chính.
     func refreshMenu() {
+        let snapshot = presentationReader.snapshot
+        if menuPage == .aiTasks, snapshot.aiTasks.isEmpty {
+            menuPage = .main
+        }
         let menu = FloatingHubMenuView(
-            items: presentationReader.snapshot.items,
+            page: menuPage,
+            items: snapshot.items,
+            aiTasks: snapshot.aiTasks,
             onSelect: { [weak self] kind in
                 self?.open(kind)
             },
@@ -79,6 +95,12 @@ extension FloatingHubContainerViewController {
             },
             onStopVideo: { [weak self] in
                 self?.stopVideo()
+            },
+            onSelectAITask: { [weak self] bookId in
+                self?.openAITask(bookId: bookId)
+            },
+            onBack: { [weak self] in
+                self?.showMenuPage(.main)
             }
         )
 

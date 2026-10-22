@@ -59,7 +59,7 @@ struct VisibleBrowserReopenButton: View {
         .frame(width: Self.size, height: Self.size)
         .animation(
             pulseMonitor.isPulsing
-                ? .easeInOut(duration: 0.9).repeatForever(autoreverses: true)
+                ? .easeInOut(duration: FloatingHubPulseView.pulseHalfPeriod).repeatForever(autoreverses: true)
                 : .easeInOut(duration: 0.2),
             value: pulseLevel
         )
@@ -111,18 +111,15 @@ struct VisibleBrowserReopenButton: View {
     }
 
     /// 0 = đỏ sẫm nhất, 1 = đỏ tươi nhất. Dùng làm giá trị cho `animation(value:)` và để nội suy màu —
-    /// **không** bao giờ dùng làm opacity.
+    /// **không** bao giờ dùng làm opacity. Màu, đáy nhịp và nhịp đọc chung hằng với nút hub (`FloatingHubPulseView`).
     private var pulseLevel: Double {
         guard pulseMonitor.isPulsing else { return 0 }
-        return isPulseBright ? 1.0 : 0.4
+        return isPulseBright ? 1.0 : FloatingHubPulseView.pulseDimLevel
     }
 
     /// Màu đỏ đặc (alpha = 1) nội suy theo `pulseLevel`.
     private var pulseColor: Color {
-        Color(
-            red: 0.42 + 0.48 * pulseLevel,
-            green: 0.04 + 0.13 * pulseLevel,
-            blue: 0.04 + 0.13 * pulseLevel
-        )
+        let rgb = FloatingHubPulseView.pulseRGB(level: pulseLevel)
+        return Color(red: rgb.red, green: rgb.green, blue: rgb.blue)
     }
 }

@@ -13,6 +13,9 @@ struct SearchView: View {
     let initialSearchQuery: String
     
     let changeSourceTargetBook: Book?
+    /// "Thay đổi nguồn" ở Chi tiết truyện **chưa lưu** (không có `changeSourceTargetBook`): chỉ tìm nguồn cùng loại
+    /// với tiện ích này — xem `sameKindScopePackageId` (`SearchView+KindFilter`).
+    let kindScopePackageId: String?
     let onSourceChanged: (() -> Void)?
     
     @Environment(\.modelContext) private var modelContext
@@ -52,14 +55,15 @@ struct SearchView: View {
     }
 
     private var searchableExtensions: [Extension] {
-        SearchExtensionScopePolicy.searchableExtensions(activeExtensions, kindFilter: searchKindFilter, changeSourcePackageId: changeSourceTargetBook?.extensionPackageId)
+        SearchExtensionScopePolicy.searchableExtensions(activeExtensions, kindFilter: searchKindFilter, changeSourcePackageId: sameKindScopePackageId)
     }
-    
-    init(activeExtensions: [Extension], selectedExtension: Extension?, initialSearchQuery: String = "", changeSourceTargetBook: Book? = nil, onSourceChanged: (() -> Void)? = nil) {
+
+    init(activeExtensions: [Extension], selectedExtension: Extension?, initialSearchQuery: String = "", changeSourceTargetBook: Book? = nil, kindScopePackageId: String? = nil, onSourceChanged: (() -> Void)? = nil) {
         self.activeExtensions = activeExtensions
         self.selectedExtension = selectedExtension
         self.initialSearchQuery = initialSearchQuery
         self.changeSourceTargetBook = changeSourceTargetBook
+        self.kindScopePackageId = kindScopePackageId
         self.onSourceChanged = onSourceChanged
         
         // Mặc định tìm tất cả nguồn nếu chưa chọn nguồn cụ thể hoặc khi đang đổi nguồn

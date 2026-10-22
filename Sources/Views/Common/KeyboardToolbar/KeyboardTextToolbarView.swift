@@ -9,15 +9,24 @@ import SwiftUI
 ///
 /// Ô cài `KeyboardSuggestionSource` (ô Mẫu / Bản dịch của màn thêm rule) có thêm `KeyboardSuggestionRowView` nằm **trên**
 /// thanh này; các ô khác vẫn một tầng.
+///
+/// Có hàng gợi ý hay không là **cố định theo từng instance** (`includesSuggestionRow`), không đọc
+/// `model.showsSuggestionRow`: `KeyboardTextToolbarInstaller` giữ hai accessory chiều cao cố định, và cờ published cập
+/// nhật trễ một nhịp sẽ làm nội dung lệch khỏi khung trong khung hình đầu.
 struct KeyboardTextToolbarView: View {
     /// Chiều cao của riêng thanh nút (không tính hàng gợi ý).
     static let toolbarHeight: CGFloat = 46
 
+    static func height(includesSuggestionRow: Bool) -> CGFloat {
+        toolbarHeight + (includesSuggestionRow ? KeyboardSuggestionRowView.height : 0)
+    }
+
     @ObservedObject var model: KeyboardTextToolbarModel
+    let includesSuggestionRow: Bool
 
     var body: some View {
         VStack(spacing: 0) {
-            if model.showsSuggestionRow {
+            if includesSuggestionRow {
                 KeyboardSuggestionRowView(suggestions: model.suggestions) { model.applySuggestion($0) }
             }
             toolbarRow

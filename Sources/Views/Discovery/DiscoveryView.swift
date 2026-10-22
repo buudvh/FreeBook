@@ -75,8 +75,10 @@ struct DiscoveryView: View {
     @State private var importedHost: String = ""
     @State private var navigateToImportedBook = false
 
-    /// Sheet "Kiểu hiển thị" của loại nguồn đang chọn (nút tròn trên header).
+    /// Sheet "Kiểu hiển thị" của loại nguồn đang chọn (dòng trong menu header).
     @State private var showingLayoutSheet = false
+    /// Trình duyệt trang nguồn đang chọn (dòng "Mở trình duyệt" trong menu header); Import ⇒ Chi tiết trong stack này.
+    @State private var showingSourceBrowser = false
 
     private var selectedExtension: Extension? {
         activeExtensions.first(where: { $0.packageId == selectedExtensionId })
@@ -159,36 +161,20 @@ struct DiscoveryView: View {
                         
                         Spacer()
                         
-                        // Kiểu hiển thị danh sách của loại nguồn (thay nút trình duyệt cũ — trình duyệt của nguồn
-                        // giờ chỉ mở từ màn Cấu hình tiện ích).
-                        if selected != nil {
-                            Button(action: { showingLayoutSheet = true }) {
-                                Image(systemName: layout.mode.symbolName)
-                                    .font(.system(size: 17, weight: .semibold))
-                                    .foregroundColor(.primary)
-                                    .frame(width: 38, height: 38)
-                                    .background(Color(.secondarySystemBackground))
-                                    .clipShape(Circle())
-                            }
-                            .accessibilityLabel("Kiểu hiển thị")
+                        // Menu gộp của nguồn: Mở trình duyệt · Kiểu hiển thị · Dịch văn bản.
+                        if let ext = selected {
+                            DiscoverySourceMenuButton(
+                                packageId: ext.packageId,
+                                sourceName: ext.name,
+                                isChineseSourceHint: ext.isChineseSource,
+                                isTranslationEnabled: isTranslationEnabled,
+                                layoutSymbol: layout.mode.symbolName,
+                                canOpenBrowser: !ext.sourceUrl.isEmpty,
+                                onOpenBrowser: { showingSourceBrowser = true },
+                                onShowLayout: { showingLayoutSheet = true }
+                            )
                         }
 
-                        // Menu cấu hình dịch cho nguồn
-                        ReaderTranslationScopeMenuView(
-                            bookId: "",
-                            packageId: selectedExtensionId,
-                            sourceName: selected?.name ?? "",
-                            textColor: .white,
-                            showBackground: false,
-                            isChineseSourceHint: selected?.isChineseSource,
-                            iconSize: 17,
-                            frameWidth: 38,
-                            frameHeight: 38
-                        )
-                        .id("discovery-translate-\(selectedExtensionId)")
-                        .background(Color(.secondarySystemBackground))
-                        .clipShape(Circle())
-                        
                         // Nút Tìm Kiếm chuyển sang SearchView
                         // Tìm kiếm tự lọc phạm vi nguồn (`SearchExtensionScopePolicy`): truyền cả kho để nguồn Legado có
                         // rule tìm kiếm mà không có Khám phá vẫn được "tìm mọi nguồn".
@@ -222,7 +208,7 @@ struct DiscoveryView: View {
                                             Button(action: {
                                                 selectedCategoryId = genresTabId
                                             }) {
-                                                Image(systemName: "square.grid.2x2")
+                                                Image(systemName: "tag")
                                                     .font(.system(size: 16, weight: .medium))
                                                     .foregroundColor(isGenresSelected ? .white : .secondary)
                                                     .frame(width: 36, height: 36)
@@ -462,22 +448,27 @@ struct DiscoveryView: View {
                     selectedExtensionId: $selectedExtensionId,
                     extensionSearchQuery: $extensionSearchQuery,
                     onImport: { detailUrl, packageId, sourceName in
-                        importedBookId = BookIdUtils.make(extensionPackageId: packageId, detailUrl: detailUrl)
-                        importedExtensionPackageId = packageId
-                        importedDetailUrl = detailUrl
-                        importedSourceName = sourceName
-                        if let url = URL(string: detailUrl), let scheme = url.scheme, let host = url.host {
-                            importedHost = "\(scheme)://\(host)"
-                        } else {
-                            importedHost = ""
-                        }
-                        navigateToImportedBook = true
+                        showImportedBook(detailUrl: detailUrl, packageId: packageId, sourceName: sourceName)
                     }
                 )
             }
             .sheet(isPresented: $showingLayoutSheet) {
                 // Tính scope lúc mở từ nguồn hiện tại, không bắt `layoutScope` của lượt body cũ.
                 BookListLayoutSheet(scope: Self.layoutScope(for: selectedExtension))
+            }
+            .fullScreenCover(isPresented: $showingSourceBrowser) {
+                // Đọc `sourceUrl` lúc trình bày từ nguồn hiện tại, không bắt bản của lượt body cũ.
+                BypassWebView(
+                    urlString: selectedExtension?.sourceUrl ?? "",
+                    onImport: { detailUrl, packageId, sourceName in
+                        showingSourceBrowser = false
+                        AppLogger.shared.log("🌐 [Discovery] Import từ trình duyệt của \(sourceName): \(detailUrl)")
+                        // Chờ `fullScreenCover` đóng xong rồi mới đẩy Chi tiết, kẻo stack đổi giữa lúc đóng.
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            showImportedBook(detailUrl: detailUrl, packageId: packageId, sourceName: sourceName)
+                        }
+                    }
+                )
             }
             .navigationDestination(isPresented: $navigateToImportedBook) {
                 BookDetailView(
@@ -512,6 +503,21 @@ struct DiscoveryView: View {
         }
     }
     
+    /// Dựng route Chi tiết của truyện vừa "Import truyện" (từ trình duyệt của nguồn, mở ở menu header hoặc ở màn
+    /// Cấu hình tiện ích trong bảng chọn nguồn) rồi đẩy trong stack Khám phá.
+    private func showImportedBook(detailUrl: String, packageId: String, sourceName: String) {
+        importedBookId = BookIdUtils.make(extensionPackageId: packageId, detailUrl: detailUrl)
+        importedExtensionPackageId = packageId
+        importedDetailUrl = detailUrl
+        importedSourceName = sourceName
+        if let url = URL(string: detailUrl), let scheme = url.scheme, let host = url.host {
+            importedHost = "\(scheme)://\(host)"
+        } else {
+            importedHost = ""
+        }
+        navigateToImportedBook = true
+    }
+
     private func loadDiscoveryData() {
         guard let ext = selectedExtension else {
             isLoading = false

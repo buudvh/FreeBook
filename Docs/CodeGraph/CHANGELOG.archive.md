@@ -2,6 +2,84 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.556] - 2026-10-21
+
+### feat: thanh gợi ý token trên bàn phím ở màn thêm rule dịch
+
+Người dùng: *"thêm thanh gợi ý nhập các loại token vào phần nhập vế trái … token nghĩa vào phần nhập vế phải thêm rule dịch"*, *"ý tôi là thêm thanh gợi ý vào bàn phím"*; duyệt mockup bản gọn (*"token 1 hàng thôi"*) rồi duyệt plan.
+
+- **Thanh công cụ bàn phím chung có thêm hàng gợi ý tuỳ chọn** nằm trên hàng `aa…AA` · xoá · sao chép · dán. Ô nhập nào cài `KeyboardSuggestionSource` (mới, `KeyboardSuggestion.swift`) thì có hàng; mọi ô khác vẫn một tầng. Hàng (`KeyboardSuggestionRowView`, mới) là một dòng chip cuộn ngang, mép phải mờ dần. `KeyboardTextToolbarInstaller` đổi chiều cao accessory 46 ↔ 82pt lúc ô **bắt đầu gõ** (model gắn trước, rồi mới `reloadInputViews()`), không đổi giữa chừng. Bấm chip ⇒ `KeyboardTextToolbarModel.applySuggestion` chèn qua `UITextInput.insertText` như Dán, nên binding, con trỏ và hoàn tác đi đúng đường gõ tay; đang bôi đen thì thay đoạn đó.
+- **Ô Mẫu** (vế trái): đủ 13 token theo thứ tự nhóm của bảng token, rồi `( | ) )?`; token đang tắt ở Cấu hình token rule hiện mờ. **Ô Bản dịch** (vế phải): `{0} {1}…` theo token của mẫu, đã dùng có ✓, chưa dùng đỏ; mẫu chưa có token thì không có hàng.
+- **Lọc theo phần gõ dở**: sát trước con trỏ là `<h` (hoặc `{1`) thì chỉ còn chip khớp và chip thay luôn đoạn gõ dở; không khớp thì hiện đủ. Bỏ qua `\<` (escape) và lúc con trỏ nằm giữa một token đã viết xong. Logic ở `QuickTranslationRuleKeyboardSuggestions` (mới); `QuickTranslationRulePatternField` dùng `SuggestingTextView` (lớp con `UITextView`) và tham số `keyboardSuggestionMode`.
+- `QuickTranslationRuleTokenPaletteView`: danh sách token, cú pháp nhóm và nhãn chuyển từ `private` sang `internal` để hàng gợi ý dùng lại, không chép. Bảng token và dải `{i}` trong form giữ nguyên.
+- Chuyển entry `[1.3.526]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
+
+## [1.3.555] - 2026-10-20
+
+### feat: đưa lại nút xoá, sao chép, dán cạnh ô nhập, thêm nút viết hoa
+
+Người dùng: *"thêm lại copy, paste, clear và các nút format viết hoa … vào ô nhập"* — chọn "nút cạnh ô như cũ" (thanh công cụ trên bàn phím vẫn giữ), duyệt plan; kèm *"giảm size nút nsfw … nút quá to"*.
+
+- **Khôi phục nguyên văn** phần đã gỡ ở `[1.3.548]` (`b4c67e26`), đảo ngược đúng các hunk gỡ nút, không đụng code thanh bàn phím:
+  - `TextFieldClipboardButtons` (↺ · xoá · sao chép · dán, **dán thay cả giá trị**) ở Cấu hình tiện ích (biến cấu hình) và Thông tin plugin.json; xoá `RestoreDefaultValueButton` vì ↺ quay về trong bộ nút này.
+  - `clipboardToolbar` (**dán nối thêm dòng**) ở Thêm từ nhiều dòng (`DictEntrySheet`), Bộ nhớ AI (4 ô), Cài đặt AI (API keys, models).
+  - Nút ✕ / sao chép / dán tròn (dán **chèn tại con trỏ**, có toast) ở ô Mẫu và ô Bản dịch của Thêm/Sửa rule; Xoá / Sao chép / Dán ở ô chữ thử VieNeu; nút Dán tròn ở panel Dịch của Reader (bỏ lại hàm `hideKeyboard` riêng mà `[1.3.552]` đã gỡ).
+- **`TextCaseButtonGroup`** (mới, `Views/Common`): 5 nút `aa · Aa¹ · Aa² · Aa · AA` cao 26pt khớp bộ nút cạnh ô, luật đổi chữ dùng lại `TextCaseFormatter`. Gắn ở: Thêm từ nhiều dòng (đầu hàng nút; **chỉ đổi phần nghĩa** sau dấu `=` đầu tiên của từng dòng, dòng không có `=` giữ nguyên), Sửa từ (dòng dưới ô "Nghĩa dịch"), ô Bản dịch của Thêm/Sửa rule. Không gắn ở ô URL/khoá/API key, Bộ nhớ AI, chữ thử VieNeu (đoạn văn dài — `aa` sẽ viết thường cả đoạn) và ô Mẫu rule (thường là chữ Hán).
+- **Nút NSFW** ở bảng chọn nguồn Khám phá (`[1.3.554]`) thu nhỏ: viên thuốc cao 26pt, chữ 12pt, icon 11pt — nhỏ hơn chuẩn nút header 38pt theo yêu cầu người dùng; vùng chạm vẫn 36×38pt.
+- Chuyển entry `[1.3.525]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
+
+## [1.3.554] - 2026-10-20
+
+### feat: Khám phá giữ tab home khi có explore, nút NSFW ở bảng chọn nguồn
+
+Người dùng: *"hãy sửa để home không bị bỏ"* và *"thêm bật tắt nfsw ở màn chọn ext ở khám phá nữa"* (duyệt mockup B: nút trên thanh tiêu đề).
+
+- **Giữ tab `home` — cố ý khác hợp đồng**: `extension-api.md` (Darkrai9x, dòng 214–216 và 433–434) quy định khai cả `explore` lẫn `home` thì `explore` thắng, `home` bị bỏ. Nay `DiscoveryView.fetchCatalog` luôn gọi `home` song song với `genre`; tab "Trang chủ" dạng section (`ExploreSectionsView`) **đứng đầu**, các tab `home` xếp sau. Dùng lại đúng `exploreTab` truyền vào để trang section không bị dựng/tải lại. Đừng "sửa" về lại cho khớp hợp đồng.
+- **Gán tab sớm** (`loadDiscoveryData`): giữ tạm các tab `home` cũ cạnh tab explore mới, để tải lại cùng nguồn (đổi cấu hình, `extensionDidUpdate`) không đẩy người đang xem tab `home` về "Trang chủ". Đổi nguồn thì danh sách đã bị xoá trước nên vẫn mở vào "Trang chủ"; tab `home` xem lần trước không được khôi phục khi có `explore`.
+- **Thanh chip** không đổi code: điều kiện cũ đã tự hiện khi có tab `home` thật.
+- **Hợp đồng không cho tải bất đồng bộ từng section**: section chỉ có `type, title, subtitle, id, items, shape, more` (không có `script`/`input` riêng) và `fetch` là hàm đồng bộ — đường tải sau duy nhất là action `list` ("Xem thêm"). Không làm gì thêm ở đợt này.
+- **Nút NSFW** ở góc phải thanh tiêu đề của `ExtensionSelectorView`: viên thuốc `eye.slash`/`eye` + "NSFW", cao 38pt, bật thì tô màu nhấn như chip đang chọn của `ExtensionKindFilterBar`. Dùng chung khoá toàn app `RepositoryFilterPolicy.includeNsfwDefaultsKey` (Kho, Tìm kiếm, Lịch sử, Cài đặt đổi theo; vẫn tự tắt mỗi lần mở app). Danh sách nguồn do `DiscoveryView` lọc theo cùng khoá nên đổi ngay; tắt khi đang xem nguồn NSFW thì `DiscoveryView` tự chuyển nguồn như cũ. Chú thích ở `NsfwSettingsView` nhắc thêm chỗ bật nhanh này.
+- Ghi luật giữ tab `home` vào `CLAUDE.md`/`AGENTS.md` (mục Comic & Video). Chuyển entry `[1.3.524]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
+
+## [1.3.553] - 2026-10-19
+
+### fix: tiêu đề nhóm ở kiểu lưới của kệ sách dính đầu khi cuộn như danh sách
+
+Người dùng: *"phần section đang ghim, truyện khác, ngày ở kệ sách, lịch sử nếu chọn kiểu khác danh sách scroll lên không còn hiển thị sticker như danh sách"*.
+
+- **Vì sao**: kiểu danh sách là `List` `.plain` nên tiêu đề nhóm tự dính đầu màn; kiểu lưới (`ShelfBooksLayoutView`, `[1.3.546]`) bọc `LazyVGrid` trong một `LazyVStack` (để đặt sentinel tải thêm) và không khai `pinnedViews`, nên tiêu đề cuộn trôi theo thẻ.
+- **Sửa**: `LazyVGrid(pinnedViews: [.sectionHeaders])` nằm thẳng trong `ScrollView`; sentinel tải thêm chuyển thành **footer** của một section rỗng (vẫn trải hết bề ngang, vẫn dựng lười, giữ `.id(loadedCount)`). Tiêu đề lưới có nền đặc `systemBackground` tràn qua lề 16pt để thẻ cuộn bên dưới không lộ ra.
+- **Áp cho**: "Đang ghim" / "Truyện khác" ở Kệ sách và chi tiết Bộ sưu tập, từng ngày ở Lịch sử (cùng `ShelfBooksLayoutView`). Phía Khám phá không có tiêu đề nhóm — không đổi.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
+
+## [1.3.552] - 2026-10-19
+
+### fix: các màn tự tắt bàn phím khi chạm nền theo đúng tuỳ chọn
+
+Người dùng: *"dù cài đặt tắt tay nhưng vẫn đang tự động tắt"* — chọn "Không tắt bàn phím" mà chạm ra ngoài ô nhập vẫn tắt.
+
+- **Vì sao**: `KeyboardDismissGesture` (bộ chung ở window) có đọc `KeyboardDismissPreference`, nhưng 4 màn tự gắn `.onTapGesture` tắt bàn phím riêng từ trước thì không.
+- **`KeyboardDismissPreference.dismissOnTapOutsideIfEnabled()`** (mới): chỉ tắt khi tuỳ chọn là "Tự tắt". Bốn chỗ chuyển sang gọi nó: panel Dịch/tra từ (`ReaderDefinitionOverlayView`), panel xoá rác (`ReaderJunkDeleteOverlayView`), sheet công cụ tìm kiếm (`SearchEnginesConfigView`), vùng trống hai thanh dưới của trình sửa Script (`ExtensionScriptEditorView`); bỏ hai hàm `hideKeyboard()` riêng không còn dùng.
+- **Không đổi**: phím Return của ô một dòng, kéo danh sách, nút đóng bàn phím ở thanh công cụ và nút tắt bàn phím của trình sửa Script vẫn tắt như cũ.
+- Chuyển entry `[1.3.522]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
+
+## [1.3.551] - 2026-10-19
+
+### fix: thanh công cụ bàn phím có nền riêng, không lệch khỏi bàn phím
+
+Người dùng (ảnh máy thật, màn "Thêm rule", bàn phím nổi kiểu mới): *"vỡ UI bàn phím"* — sau `[1.3.550]` thanh đã hiện nhưng nổi lơ lửng không nền, chữ của màn bên dưới lộ qua giữa các nút và có khoảng hở với bàn phím.
+
+- **Vì sao**: thanh dựa vào nền `.keyboard` của `UIInputView`, nhưng bàn phím nổi kiểu mới để nền đó trong suốt; `UIHostingController` trong accessory còn tính vùng an toàn nên đệm thêm khoảng trống.
+- **`KeyboardTextToolbarView`**: thanh tự có nền — viên kính `.regularMaterial` bo tròn, viền mảnh, cách mép 6pt; tổng cao vẫn 46pt.
+- **`KeyboardTextToolbarInstaller`**: `host.safeAreaRegions = []`.
+- Chuyển entry `[1.3.521]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
+
+
 ## [1.3.550] - 2026-10-19
 
 ### fix: thanh công cụ bàn phím không hiện ở ô nhập SwiftUI

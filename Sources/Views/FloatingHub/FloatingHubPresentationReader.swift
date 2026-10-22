@@ -14,24 +14,41 @@ import Foundation
 ///
 /// ## Hai tầng chống vẽ lại
 /// - `Snapshot` chỉ phát khi giá trị **thật sự** đổi (`guard updated != snapshot`).
-/// - Nút chỉ vẽ lại theo `ButtonState` (các mục đang hoạt động + số chưa đọc), **không** theo chữ hay trạng
+/// - Nút chỉ vẽ lại theo `ButtonState` (tập tiến trình đang chạy + số chưa đọc), **không** theo chữ hay trạng
 ///   thái phát của dòng. Tiêu đề AI đổi theo từng batch ("Đang quét: Batch N/T") chỉ chạm tới menu, và menu
 ///   chỉ vẽ khi đang mở.
 ///
 /// ## Không observe cả `AIRuntimeCoordinator`
-/// Coordinator ghi `activeSession` mỗi ≥ 50 ms khi stream. Observe cả object là kéo hub vẽ lại theo nhịp đó
-/// (đúng lỗi của view widget AI cũ, xoá ở 1.3.524). Ở đây chỉ nghe đúng ba publisher cần. Video cũng vậy: chỉ
+/// Coordinator ghi `runs` mỗi ≥ 50 ms khi stream. Observe cả object là kéo hub vẽ lại theo nhịp đó (đúng lỗi của
+/// view widget AI cũ, xoá ở 1.3.524). Ở đây `runs` được `map` về danh sách nhỏ `AITask` (truyện đang chạy + tác vụ)
+/// rồi `removeDuplicates` — chỉ phát khi có truyện bắt đầu/xong hoặc tác vụ đổi chữ (1.3.558). Video cũng vậy: chỉ
 /// đọc cầu nối `VideoMiniPlayerState` (`ObservableObject`), không đọc session `@Observable` giữ `AVPlayer`.
 @MainActor
 final class FloatingHubPresentationReader: ObservableObject {
     /// Phần trạng thái mà **nút** cần. Cố ý không chứa chữ hay trạng thái phát của dòng.
     struct ButtonState: Equatable {
-        /// Các mục đang hoạt động, theo thứ tự cố định. Số phần tử là badge của nút hub.
-        var activeKinds: [FloatingHubItem.Kind] = []
-        /// Số chưa đọc — bằng 0 khi mục Thông báo đang xám. Chỉ để chọn glyph chuông và đọc VoiceOver.
+        /// Các **tiến trình** đang chạy, theo thứ tự `Kind.allCases` (người dùng chốt 2026-10-22): `.ai` khi AI
+        /// dùng được, `.video` khi có video thu nhỏ, `.notifications` khi có tác vụ nền (tải/xuất/nhập truyện, sao
+        /// lưu, tải model). Tính ở **mọi tab**; tin chưa đọc **không** tính. Số phần tử quyết định icon, nháy và
+        /// hành vi chạm của nút hub.
+        var runningKinds: [FloatingHubItem.Kind] = []
+        /// Số chưa đọc — bằng 0 ở tab Kệ Sách hoặc khi không có gì. Chỉ để đọc VoiceOver: nút không đưa tín hiệu
+        /// chưa đọc nào lên hình.
         var unreadCount = 0
 
-        var activeCount: Int { activeKinds.count }
+        var runningCount: Int { runningKinds.count }
+        /// Có ít nhất một tiến trình ⇒ nút nháy đỏ.
+        var isPulsing: Bool { runningCount > 0 }
+    }
+
+    /// Một truyện đang chạy AI — một dòng ở trang "AI đang chạy" của menu (1.3.558).
+    struct AITask: Equatable, Identifiable {
+        let bookId: String
+        let bookTitle: String
+        let taskTitle: String
+        let startedAt: Date
+
+        var id: String { bookId }
     }
 
     struct Snapshot: Equatable {
@@ -39,17 +56,22 @@ final class FloatingHubPresentationReader: ObservableObject {
         var items: [FloatingHubItem] = FloatingHubItem.Kind.allCases.map { FloatingHubItem(kind: $0) }
         /// Bằng 0 khi mục Thông báo đang xám.
         var unreadCount = 0
+        /// Truyện đang chạy AI, bắt đầu gần nhất lên đầu — trang "AI đang chạy". Không vào `ButtonState`: tiêu đề
+        /// tác vụ đổi theo batch không làm vẽ lại nút.
+        var aiTasks: [AITask] = []
+        /// Tiến trình đang chạy cho nút hub — xem `ButtonState.runningKinds`. Lưu riêng vì "tác vụ nền" không
+        /// suy ra được từ `items` (dòng Thông báo gộp cả tin chưa đọc).
+        var runningKinds: [FloatingHubItem.Kind] = []
 
         var button: ButtonState {
-            ButtonState(activeKinds: items.filter(\.isActive).map(\.kind), unreadCount: unreadCount)
+            ButtonState(runningKinds: runningKinds, unreadCount: unreadCount)
         }
     }
 
-    /// Trạng thái AI lấy từ **giá trị được phát ra** của ba publisher, không đọc lại property của coordinator.
+    /// Trạng thái AI lấy từ **giá trị được phát ra** của publisher, không đọc lại property của coordinator.
     private struct AIState: Equatable {
-        var isRunning = false
+        var tasks: [AITask] = []
         var isFullScreenPresented = false
-        var title = ""
     }
 
     /// Trạng thái video nền, cũng lấy từ giá trị được phát ra: `@Published` phát ở willSet nên đọc lại
@@ -74,9 +96,8 @@ final class FloatingHubPresentationReader: ObservableObject {
     init() {
         let coordinator = AIRuntimeCoordinator.shared
         aiState = AIState(
-            isRunning: coordinator.isRunning,
-            isFullScreenPresented: coordinator.isFullScreenPresented,
-            title: coordinator.activeTaskTitle
+            tasks: Self.aiTasks(from: coordinator.runs),
+            isFullScreenPresented: coordinator.presentedAIBookId != nil
         )
         let video = VideoMiniPlayerState.shared
         videoState = VideoState(
@@ -89,19 +110,14 @@ final class FloatingHubPresentationReader: ObservableObject {
 
         // `@Published` phát ở willSet ⇒ mọi sink đi qua `receive(on:)` rồi mới tính lại. Nhánh AI và Video dùng
         // thẳng giá trị được phát ra (khuôn của window manager widget AI cũ).
-        Publishers.CombineLatest3(
-            coordinator.$isRunning,
-            coordinator.$isFullScreenPresented,
-            coordinator.$activeTaskTitle
+        Publishers.CombineLatest(
+            coordinator.$runs.map(Self.aiTasks(from:)).removeDuplicates(),
+            coordinator.$presentedAIBookId.map { $0 != nil }.removeDuplicates()
         )
         .receive(on: RunLoop.main)
-        .sink { [weak self] isRunning, isFullScreenPresented, title in
+        .sink { [weak self] tasks, isFullScreenPresented in
             guard let self else { return }
-            self.aiState = AIState(
-                isRunning: isRunning,
-                isFullScreenPresented: isFullScreenPresented,
-                title: title
-            )
+            self.aiState = AIState(tasks: tasks, isFullScreenPresented: isFullScreenPresented)
             self.refresh()
         }
         .store(in: &cancellables)
@@ -149,8 +165,9 @@ final class FloatingHubPresentationReader: ObservableObject {
     /// Dựng đủ ba dòng theo `Kind.allCases` — không nhánh nào được bỏ qua một loại.
     private func makeSnapshot() -> Snapshot {
         let inbox = inboxReader.snapshot
-        // Thông báo **luôn** chạm được (mở sheet thông báo) và luôn có chấm đỏ khi còn tin chưa đọc. Chỉ việc tính
-        // vào badge số của nút hub mới bỏ qua tab Kệ Sách (tab đó đã có nút chuông riêng).
+        // Thông báo **luôn** chạm được (mở sheet thông báo) và luôn có chấm đỏ khi còn tin chưa đọc. Ngoại lệ tab Kệ
+        // Sách (đã có nút chuông riêng) thực tế chỉ còn đổi số chưa đọc của nút (đuôi nhãn VoiceOver): cờ `isActive`
+        // của dòng Thông báo không còn ai đọc, và việc đếm tiến trình bên dưới **không** xét tab.
         let notificationsActive = inbox.shouldShowWidget && !isShelfTabActive
         let unreadCount = notificationsActive ? inbox.unreadCount : 0
 
@@ -170,17 +187,43 @@ final class FloatingHubPresentationReader: ObservableObject {
                 return videoItem()
             }
         }
-        return Snapshot(items: items, unreadCount: unreadCount)
+        // Tiến trình của nút hub, theo thứ tự `items` (= `Kind.allCases`): AI và Video lấy `isActive` của dòng; Thông
+        // báo chỉ tính tác vụ nền, bỏ qua tin chưa đọc và không xét tab.
+        let runningKinds = items
+            .filter { $0.kind == .notifications ? inbox.hasRunningTask : $0.isActive }
+            .map(\.kind)
+        return Snapshot(items: items, unreadCount: unreadCount, aiTasks: aiState.tasks, runningKinds: runningKinds)
     }
 
-    /// Trợ lý AI dùng được khi đang chạy **và** màn AI đang đóng — đúng điều kiện có mục trước đây.
+    /// Truyện đang chạy AI (bỏ entry chỉ còn giữ nút "Thử lại"), bắt đầu gần nhất lên đầu.
+    nonisolated private static func aiTasks(from runs: [String: AIBookRunState]) -> [AITask] {
+        runs.values
+            .filter(\.isRunning)
+            .map { AITask(bookId: $0.bookId, bookTitle: $0.bookTitle, taskTitle: $0.taskTitle, startedAt: $0.startedAt) }
+            .sorted { $0.startedAt > $1.startedAt }
+    }
+
+    /// Trợ lý AI dùng được khi có truyện đang chạy **và** không có màn AI nào đang mở — đúng điều kiện có mục trước
+    /// đây. Chạm dòng thì menu sang trang "AI đang chạy" (1.3.558). Một truyện: tên truyện + tác vụ; nhiều truyện:
+    /// số truyện.
     private func aiItem() -> FloatingHubItem {
-        let title = aiState.title.isEmpty ? "Đang chạy" : aiState.title
-        let usable = aiState.isRunning && !aiState.isFullScreenPresented
+        let tasks = aiState.tasks
+        let usable = !tasks.isEmpty && !aiState.isFullScreenPresented
+        let detail: String
+        var headline = ""
+        if tasks.count == 1, let task = tasks.first {
+            headline = task.bookTitle
+            detail = task.taskTitle.isEmpty ? "Đang chạy" : task.taskTitle
+        } else if tasks.count > 1 {
+            detail = "\(tasks.count) truyện đang chạy"
+        } else {
+            detail = "Không có tác vụ"
+        }
         return FloatingHubItem(
             kind: .ai,
             isEnabled: usable,
-            detail: aiState.isRunning ? title : "Không có tác vụ",
+            headline: headline,
+            detail: detail,
             isActive: usable
         )
     }

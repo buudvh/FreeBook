@@ -351,6 +351,8 @@ struct BookDetailView: View {
                     selectedExtension: nil,
                     initialSearchQuery: title,
                     changeSourceTargetBook: localBook,
+                    // Truyện chưa lưu (`localBook == nil`) vẫn chỉ tìm nguồn cùng loại với tiện ích đang xem.
+                    kindScopePackageId: extensionPackageId,
                     onSourceChanged: {
                         navigateToChangeSource = false
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {

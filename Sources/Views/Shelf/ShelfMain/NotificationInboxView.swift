@@ -148,7 +148,7 @@ struct NotificationInboxView: View {
 
     private var inboxList: some View {
         List {
-            // Hàng tiến độ (sao lưu / khôi phục / tải model) ghim ở đầu, **ngoài** nhóm theo ngày — xem
+            // Hàng tiến độ (truyện / sao lưu / khôi phục / tải model) ghim ở đầu, **ngoài** nhóm theo ngày — xem
             // `NotificationInboxView+Activity.swift` để biết vì sao không nhập vào `InboxItem`.
             activityRows()
 

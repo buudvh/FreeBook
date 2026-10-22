@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.586] - 2026-10-22
+
+### merge: đưa nguồn Legado (đợt 1–3) vào main
+
+Gộp nhánh `claude/legado-source-bb5e46` (nguồn truyện Legado viết mới theo đặc tả — engine rule/mạng/JS, tab Nguồn Legado, tranh/video, đăng nhập, quản lý, bộ chạy nghiệm thu) vào `main`.
+
+- **Đánh lại số phiên bản**: `main` đã dùng 1.3.557–1.3.561 cho năm commit của các phiên khác, nên các mục của nhánh **1.3.557–1.3.580 nay là 1.3.562–1.3.585** (cộng 5; đổi cả chỗ nhắc trong `rules.md`, `check_architecture.py`, comment `AppFilledButtonStyle`). Số cũ còn gặp trong ghi chú/hội thoại trước ngày 2026-10-22 thì cộng 5.
+- **Xung đột**: chỉ ở `CHANGELOG.md` / `CHANGELOG.archive.md` — giữ mục của cả hai phía (Legado ở trên), phần đã chuyển sang lưu trữ theo nhánh; đối chiếu đủ mọi phiên bản của hai phía, không mất mục nào (ba số trùng 1.3.172/173/180 có sẵn từ trước). Đẩy 1.3.551–1.3.556 sang lưu trữ để file chính còn ~30 mục.
+- **File Swift tự gộp** (`SearchView`, `DiscoveryView`, `ExtensionSelectorView`, `BookDetailView`, `SearchExtensionScopePolicy`): đã đọc lại hai phía — `kindScopePackageId` của `main` và bộ lọc/lịch tìm nguồn Legado của nhánh cùng tồn tại; `main` không thêm lời gọi `ExtensionManager.shared.<x>` trực tiếp nào bỏ qua `SourceRuntime`.
+- **Kiểm chứng**: xem commit merge. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.585] - 2026-10-22
 
 ### fix: ô Khám phá của nguồn Legado hiện đủ chữ: 3 dòng, tự co chữ, cao bằng hàng
@@ -340,81 +351,76 @@ Bước 3 của đợt 1 plan "nguồn truyện Legado — viết mới theo đ�
 - **CI**: `build-ipa.yml` chạy cả trên nhánh `claude/legado-source-bb5e46`.
 - Chuyển entry `[1.3.527]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền (`JSDom.swift`, `TTSManager.swift`), **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch.
+## [1.3.561] - 2026-10-22
 
-## [1.3.556] - 2026-10-21
+### feat: menu Khám phá mở lại trình duyệt, widget chung nháy theo tiến trình
 
-### feat: thanh gợi ý token trên bàn phím ở màn thêm rule dịch
+Người dùng: *"đem nút mở trình duyệt ở khám phá trở lại"*, rồi *"gộp luôn nút dịch đi, dùng biểu tượng của widget chung, đổi biểu tượng widget chung thành cái khác"*, *"khi widget chỉ có 1 mục đang chạy thì hiển thị icon mục đó… bấm vào thì hiển thị trực tiếp ra mục đó"*, *"màu nhấp nháy đồng bộ"*, *"khi không có tiến trình chạy thì Icon chuông, không nháy, bấm vào mở màn hình thông báo"*. Chốt qua `/grill-me` (plan `Docs/Plans/2026-10-22-plan-menu-kham-pha-va-widget-chung.md`, mockup đã duyệt); người dùng duyệt cả việc viết lại `rules.md` § Nút hub nổi.
 
-Người dùng: *"thêm thanh gợi ý nhập các loại token vào phần nhập vế trái … token nghĩa vào phần nhập vế phải thêm rule dịch"*, *"ý tôi là thêm thanh gợi ý vào bàn phím"*; duyệt mockup bản gọn (*"token 1 hàng thôi"*) rồi duyệt plan.
+- **Header Khám phá**: nút Kiểu hiển thị và nút dịch gộp thành một nút menu tròn `square.grid.2x2` (`DiscoverySourceMenuButton`, 38×38, 17pt semibold, `.menuOrder(.fixed)`): **Mở trình duyệt** (trang nguồn đang chọn bằng `BypassWebView` toàn màn hình, ẩn khi nguồn không có link; "Import truyện" ⇒ Chi tiết trong stack Khám phá, bỏ toast "Đã hoàn tất tải các chương!" của nút cũ) · **Kiểu hiển thị** (sheet như cũ) · **Dịch văn bản** + dòng phụ Đang bật/Đang tắt (popover bảng dịch cũ neo ở nút menu). Nút safari đã bỏ ở 1.3.546 nay quay lại trong menu; bảng chọn nguồn vẫn không có, nút Trình duyệt ở Cấu hình tiện ích giữ nguyên. Dựng route Import gom về `DiscoveryView.showImportedBook`.
+- **Bảng dịch dùng chung**: nội dung popover của `ReaderTranslationScopeMenuView` (công tắc, phạm vi, Lưu lại, kẹp phạm vi) tách thành `TranslationScopePopupView` (`ReaderTranslationScopeMenuView` 307 → 143 dòng); chữ ký public và `TranslationPopupScope` giữ chỗ cũ, Reader và Chi tiết truyện không đổi.
+- **Chip Thể loại** ở Khám phá đổi icon lưới → `tag` (không trùng nút menu ngay trên).
+- **Widget chung theo số tiến trình** (AI đang chạy, video thu nhỏ, tác vụ nền tải/xuất/nhập/sao lưu/tải model; mọi tab; tin chưa đọc **không** tính — `ButtonState.runningKinds`): 0 ⇒ chuông `bell`, không nháy, chạm mở màn Thông báo; 1 ⇒ icon của mục, nháy, chạm mở thẳng mục (AI ⇒ bung + menu ở trang "AI đang chạy"); ≥ 2 ⇒ `square.stack.3d.up`, nháy, chạm mở menu. Áp cả khi đang nép. Bỏ badge số/chấm đỏ, viền tím AI, tham số `mode`/`edge` của `FloatingHubButton` và sink vẽ lại theo cạnh. Rẽ nhánh chạm ở `activateByRunningTasks` (`+Actions`).
+- **Nháy đồng bộ với nút trình duyệt thu nhỏ**: `FloatingHubPulseView` (`CABasicAnimation` đổi màu nền một layer con, ≤ 20 fps, chỉ gắn khi chưa có, gỡ khi rời cửa sổ, khôi phục khi về foreground; không đụng opacity). Màu đỏ, đáy nhịp (mức 0,4) và nửa chu kỳ 0,9 s là hằng `static` dùng chung — `VisibleBrowserReopenButton` đọc lại, giá trị không đổi. Không bảo đảm trùng pha (SwiftUI vs Core Animation).
+- **`rules.md`** § Nút hub nổi: (a) viết lại theo luật tiến trình; (b) bỏ đường "số mục còn < 2" (code không có — menu có tập dòng cố định từ 1.3.533); (c), (e) và câu hitTest cập nhật theo. Luật chạm cũ ở (a) vốn đã lệch code (code luôn mở menu).
+- Chuyển entry `[1.3.531]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code, grep chéo `ReaderTranslationScopeMenuView(`, `TranslationPopupScope`, `FloatingHubButton(`, `activeKinds`; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; **chưa thử trên máy**: popover dịch mở từ `Menu`, nháy khi hub nép mép, về lại foreground, chạm khi chỉ 1 AI.
 
-- **Thanh công cụ bàn phím chung có thêm hàng gợi ý tuỳ chọn** nằm trên hàng `aa…AA` · xoá · sao chép · dán. Ô nhập nào cài `KeyboardSuggestionSource` (mới, `KeyboardSuggestion.swift`) thì có hàng; mọi ô khác vẫn một tầng. Hàng (`KeyboardSuggestionRowView`, mới) là một dòng chip cuộn ngang, mép phải mờ dần. `KeyboardTextToolbarInstaller` đổi chiều cao accessory 46 ↔ 82pt lúc ô **bắt đầu gõ** (model gắn trước, rồi mới `reloadInputViews()`), không đổi giữa chừng. Bấm chip ⇒ `KeyboardTextToolbarModel.applySuggestion` chèn qua `UITextInput.insertText` như Dán, nên binding, con trỏ và hoàn tác đi đúng đường gõ tay; đang bôi đen thì thay đoạn đó.
-- **Ô Mẫu** (vế trái): đủ 13 token theo thứ tự nhóm của bảng token, rồi `( | ) )?`; token đang tắt ở Cấu hình token rule hiện mờ. **Ô Bản dịch** (vế phải): `{0} {1}…` theo token của mẫu, đã dùng có ✓, chưa dùng đỏ; mẫu chưa có token thì không có hàng.
-- **Lọc theo phần gõ dở**: sát trước con trỏ là `<h` (hoặc `{1`) thì chỉ còn chip khớp và chip thay luôn đoạn gõ dở; không khớp thì hiện đủ. Bỏ qua `\<` (escape) và lúc con trỏ nằm giữa một token đã viết xong. Logic ở `QuickTranslationRuleKeyboardSuggestions` (mới); `QuickTranslationRulePatternField` dùng `SuggestingTextView` (lớp con `UITextView`) và tham số `keyboardSuggestionMode`.
-- `QuickTranslationRuleTokenPaletteView`: danh sách token, cú pháp nhóm và nhãn chuyển từ `private` sang `internal` để hàng gợi ý dùng lại, không chép. Bảng token và dải `{i}` trong form giữ nguyên.
-- Chuyển entry `[1.3.526]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+## [1.3.560] - 2026-10-22
+
+### fix: đổi nguồn ở chi tiết truyện chưa lưu chỉ tìm nguồn cùng loại
+
+Người dùng: *"khi tìm truyện thay thế thì chỉ tìm nguồn truyện, không tìm video và comic, ngược lại video và comic cũng thế"*; bác giả thuyết `type` lạ (*"điều tra kỹ vào"*), duyệt plan.
+
+- **Nguyên nhân**: menu "…" → "Thay đổi nguồn" ở `BookDetailView` luôn hiện, nhưng truyện **chưa lưu** (mở từ Khám phá/Tìm kiếm, chưa đọc) có `localBook == nil` ⇒ `SearchView` nhận `changeSourceTargetBook: nil` và chạy như tìm thường: hiện hàng chip, lọc theo chip đã nhớ (mặc định "Tất cả") ⇒ tìm cả chữ, tranh, video. Bốn lối còn lại (Kệ, Tìm trên kệ, Bộ sưu tập, Reader) truyền đủ sách nên vốn đã lọc cùng loại. Giá trị `type` của tiện ích (registry + `plugin.json`) được lưu đúng chuẩn — không phải nguyên nhân.
+- `SearchView` thêm tham số `kindScopePackageId` (mặc định `nil`). `sameKindScopePackageId` (`SearchView+KindFilter`) = tiện ích của sách cần đổi ?? `kindScopePackageId`, đưa vào `SearchExtensionScopePolicy.searchableExtensions(changeSourcePackageId:)` — cùng luật cùng loại và ngoại lệ NSFW của đổi nguồn. Hàng chip và lượt tìm lại khi đổi chip tắt theo cùng điều kiện.
+- `BookDetailView` luôn truyền `kindScopePackageId: extensionPackageId` (sách đã lưu thì trùng tiện ích của `localBook`).
+- Truyện chưa lưu: bấm kết quả vẫn mở chi tiết truyện như trước (không có sách để chuyển dữ liệu); bản sửa chỉ giới hạn loại nguồn được tìm.
+- Chuyển entry `[1.3.530]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code, grep chéo caller của `SearchView(`; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
+
+## [1.3.559] - 2026-10-21
+
+### fix: thanh xoá, sao chép, dán bị bàn phím che ở màn thêm rule
+
+Người dùng: *"có lỗi thanh sao chép, dán, clear, bị che bởi gợi ý của bàn phím"* — chỉ ở màn Thêm rule; duyệt plan.
+
+- **Nguyên nhân (suy luận, chưa kiểm chứng trên máy)**: `[1.3.556]` dùng **một** `UIInputView` cho mọi ô rồi đổi chiều cao 46 ↔ 82pt theo ô; iOS giữ chiều cao đo lần đầu (46pt) nên nội dung 82pt tràn xuống, hàng xoá · sao chép · dán nằm sau thanh gợi ý chữ của bàn phím.
+- `KeyboardTextToolbarInstaller` giữ **hai** accessory, chiều cao đặt một lần lúc tạo và không bao giờ đổi: 46pt cho ô thường (như trước `[1.3.556]`), 82pt cho ô cài `KeyboardSuggestionSource`. Bỏ `updateAccessoryHeight`. Ô chuyển thanh đi đúng nhánh gán lại / `install` lại sẵn có.
+- `KeyboardTextToolbarView` nhận `includesSuggestionRow` cố định theo instance (thanh 82pt luôn chừa chỗ hàng gợi ý) thay vì đọc `model.showsSuggestionRow`; cờ này thôi `@Published` vì chỉ installer đọc.
+- **Chẩn đoán**: 0,6 s sau khi gắn thanh, nếu chiều cao thật lệch chiều cao đã đặt thì ghi `❌ [KeyboardToolbar] thanh cao …pt, cần …pt (ô <lớp>)` — ghi cả khi tắt log, mỗi chiều cao một lần.
+- Chuyển entry `[1.3.529]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
 
-## [1.3.555] - 2026-10-20
+## [1.3.558] - 2026-10-21
 
-### feat: đưa lại nút xoá, sao chép, dán cạnh ô nhập, thêm nút viết hoa
+### fix: màn AI chạy riêng theo từng truyện, nút nổi liệt kê AI đang chạy
 
-Người dùng: *"thêm lại copy, paste, clear và các nút format viết hoa … vào ô nhập"* — chọn "nút cạnh ô như cũ" (thanh công cụ trên bàn phím vẫn giữ), duyệt plan; kèm *"giảm size nút nsfw … nút quá to"*.
+Người dùng: *"dù đang quét truyện A mà vào AI truyện B vẫn thấy báo quét và chặn AI truyện B"* → chọn hướng đầy đủ (mỗi truyện một tác vụ AI riêng); thêm *"bấm vào nút widget ai thì hiển thị ra danh sách AI đang chạy, bấm cái nào hiển thị cái đó"*; duyệt plan.
 
-- **Khôi phục nguyên văn** phần đã gỡ ở `[1.3.548]` (`b4c67e26`), đảo ngược đúng các hunk gỡ nút, không đụng code thanh bàn phím:
-  - `TextFieldClipboardButtons` (↺ · xoá · sao chép · dán, **dán thay cả giá trị**) ở Cấu hình tiện ích (biến cấu hình) và Thông tin plugin.json; xoá `RestoreDefaultValueButton` vì ↺ quay về trong bộ nút này.
-  - `clipboardToolbar` (**dán nối thêm dòng**) ở Thêm từ nhiều dòng (`DictEntrySheet`), Bộ nhớ AI (4 ô), Cài đặt AI (API keys, models).
-  - Nút ✕ / sao chép / dán tròn (dán **chèn tại con trỏ**, có toast) ở ô Mẫu và ô Bản dịch của Thêm/Sửa rule; Xoá / Sao chép / Dán ở ô chữ thử VieNeu; nút Dán tròn ở panel Dịch của Reader (bỏ lại hàm `hideKeyboard` riêng mà `[1.3.552]` đã gỡ).
-- **`TextCaseButtonGroup`** (mới, `Views/Common`): 5 nút `aa · Aa¹ · Aa² · Aa · AA` cao 26pt khớp bộ nút cạnh ô, luật đổi chữ dùng lại `TextCaseFormatter`. Gắn ở: Thêm từ nhiều dòng (đầu hàng nút; **chỉ đổi phần nghĩa** sau dấu `=` đầu tiên của từng dòng, dòng không có `=` giữ nguyên), Sửa từ (dòng dưới ô "Nghĩa dịch"), ô Bản dịch của Thêm/Sửa rule. Không gắn ở ô URL/khoá/API key, Bộ nhớ AI, chữ thử VieNeu (đoạn văn dài — `aa` sẽ viết thường cả đoạn) và ô Mẫu rule (thường là chữ Hán).
-- **Nút NSFW** ở bảng chọn nguồn Khám phá (`[1.3.554]`) thu nhỏ: viên thuốc cao 26pt, chữ 12pt, icon 11pt — nhỏ hơn chuẩn nút header 38pt theo yêu cầu người dùng; vùng chạm vẫn 36×38pt.
-- Chuyển entry `[1.3.525]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
+- **Nguyên nhân**: `AIRuntimeCoordinator` giữ **một** ô trạng thái cho cả app (`isRunning`, `batchProgress`, `activeSession`…) và màn AI đọc thẳng không lọc truyện ⇒ quét A thì màn AI của B hiện dải quét của A, chip mờ, không gửi được; bấm dừng ở B gọi `stopActiveTask()` **huỷ luôn lượt quét của A**; mọi lệnh mới đều `cancelActiveTask()` toàn cục.
+- **Trạng thái theo truyện**: `AIBookRunState` (mới) trong `@Published runs: [String: AIBookRunState]`; tác vụ, mã lượt, ngữ cảnh lượt quét lỗi, phiên gần nhất và ngữ cảnh mở màn AI đều khoá theo `bookId`. Vòng đời lượt ở `AIRuntimeCoordinator+BookRuns.swift` (mới): `beginRun` chỉ thay tác vụ của **chính truyện đó**, `isCurrentRun` cho mọi cập nhật trễ, `endRun` bỏ entry (giữ lại khi còn nút "Thử lại", không giữ phiên), `stopActiveTask(bookId:)`. Bỏ hai chỗ màn AI tự gán `activeSession` (nguy cơ ghi phiên của B vào lịch sử của A). Cùng một truyện vẫn chỉ một tác vụ tại một thời điểm.
+- **Màn AI**: năm `onReceive` toàn cục gộp thành một `onReceive($runs)` → `applyRunState(runs[bookId])` (`ReaderAIFullScreenView+RuntimeSync.swift`, mới), chỉ gán khi giá trị đổi để màn của B không vẽ lại theo nhịp stream 50 ms của A. Mở lại màn AI về đúng phiên gần nhất **của truyện đó** (`lastSessionId(for:)`).
+- **`presentedAIBookId`** thay cờ `isFullScreenPresented`: truyện A xong trong lúc màn AI của B đang mở vẫn có toast, và toast kèm tên truyện khi màn AI của truyện đó không mở.
+- **Nút nổi**: dòng AI ghi tên truyện + tác vụ (1 truyện) hoặc "N truyện đang chạy"; chạm ⇒ thẻ menu sang trang **"AI đang chạy"** (`FloatingHubAITaskListView`, mới; nút ‹ quay lại), mỗi truyện một dòng, chạm truyện nào mở màn AI của đúng truyện đó (`presentFullScreen(bookId:)`). Trang luôn hiện kể cả khi chỉ 1 truyện; hết truyện chạy thì tự về menu chính; mở menu luôn bắt đầu ở trang chính. `FloatingHubPresentationReader` `map` `runs` về danh sách nhỏ rồi `removeDuplicates` — nút hub không vẽ lại theo từng batch.
+- **Gemini Web cho chạy song song**: `prepare()` không nạp lại trang khi token quá 30 phút mà còn fetch đang bay (nạp lại huỷ mọi fetch của truyện khác); token chết thật (HTTP 400/401/403) vẫn ép nạp lại. `streamGeneration` không tự thử lại khi đã phát chữ — lượt thử lại phát lại từ đầu nên chữ bị lặp trong tin (lỗi có sẵn, chạy song song dễ gặp hơn); `TurnObservation` thành `internal` để dùng chung.
+- Hạn chế: hai truyện cùng quét bằng Gemini Web ≈ gấp đôi số request ⇒ chạm hạn mức 1037/1060 sớm hơn; fetch bị cắt do nạp lại trang ép buộc có thể thành lượt lỗi (có nút Thử lại).
+- `rules.md`: cập nhật luật hub (d), thêm (e) trang "AI đang chạy"; luật mở lại AI theo ngữ cảnh, phiên sống, bấm dừng, nút thử lại chuyển sang theo truyện; thêm luật "trạng thái AI khoá theo truyện"; luật retry Gemini Web ghi rõ "chỉ khi chưa phát chữ" và không nạp lại trang khi còn fetch.
+- Chuyển entry `[1.3.528]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code, grep chéo caller của mọi member đổi chữ ký; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
 
-## [1.3.554] - 2026-10-20
+## [1.3.557] - 2026-10-21
 
-### feat: Khám phá giữ tab home khi có explore, nút NSFW ở bảng chọn nguồn
+### feat: màn Thông báo hiện tiến độ tải, xuất và nhập truyện
 
-Người dùng: *"hãy sửa để home không bị bỏ"* và *"thêm bật tắt nfsw ở màn chọn ext ở khám phá nữa"* (duyệt mockup B: nút trên thanh tiêu đề).
+Người dùng: *"thêm tiến độ download và xuất truyện, import truyện vào màn hình thông báo"*; duyệt plan.
 
-- **Giữ tab `home` — cố ý khác hợp đồng**: `extension-api.md` (Darkrai9x, dòng 214–216 và 433–434) quy định khai cả `explore` lẫn `home` thì `explore` thắng, `home` bị bỏ. Nay `DiscoveryView.fetchCatalog` luôn gọi `home` song song với `genre`; tab "Trang chủ" dạng section (`ExploreSectionsView`) **đứng đầu**, các tab `home` xếp sau. Dùng lại đúng `exploreTab` truyền vào để trang section không bị dựng/tải lại. Đừng "sửa" về lại cho khớp hợp đồng.
-- **Gán tab sớm** (`loadDiscoveryData`): giữ tạm các tab `home` cũ cạnh tab explore mới, để tải lại cùng nguồn (đổi cấu hình, `extensionDidUpdate`) không đẩy người đang xem tab `home` về "Trang chủ". Đổi nguồn thì danh sách đã bị xoá trước nên vẫn mở vào "Trang chủ"; tab `home` xem lần trước không được khôi phục khi có `explore`.
-- **Thanh chip** không đổi code: điều kiện cũ đã tự hiện khi có tab `home` thật.
-- **Hợp đồng không cho tải bất đồng bộ từng section**: section chỉ có `type, title, subtitle, id, items, shape, more` (không có `script`/`input` riêng) và `fetch` là hàm đồng bộ — đường tải sau duy nhất là action `list` ("Xem thêm"). Không làm gì thêm ở đợt này.
-- **Nút NSFW** ở góc phải thanh tiêu đề của `ExtensionSelectorView`: viên thuốc `eye.slash`/`eye` + "NSFW", cao 38pt, bật thì tô màu nhấn như chip đang chọn của `ExtensionKindFilterBar`. Dùng chung khoá toàn app `RepositoryFilterPolicy.includeNsfwDefaultsKey` (Kho, Tìm kiếm, Lịch sử, Cài đặt đổi theo; vẫn tự tắt mỗi lần mở app). Danh sách nguồn do `DiscoveryView` lọc theo cùng khoá nên đổi ngay; tắt khi đang xem nguồn NSFW thì `DiscoveryView` tự chuyển nguồn như cũ. Chú thích ở `NsfwSettingsView` nhắc thêm chỗ bật nhanh này.
-- Ghi luật giữ tab `home` vào `CLAUDE.md`/`AGENTS.md` (mục Comic & Video). Chuyển entry `[1.3.524]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
-
-## [1.3.553] - 2026-10-19
-
-### fix: tiêu đề nhóm ở kiểu lưới của kệ sách dính đầu khi cuộn như danh sách
-
-Người dùng: *"phần section đang ghim, truyện khác, ngày ở kệ sách, lịch sử nếu chọn kiểu khác danh sách scroll lên không còn hiển thị sticker như danh sách"*.
-
-- **Vì sao**: kiểu danh sách là `List` `.plain` nên tiêu đề nhóm tự dính đầu màn; kiểu lưới (`ShelfBooksLayoutView`, `[1.3.546]`) bọc `LazyVGrid` trong một `LazyVStack` (để đặt sentinel tải thêm) và không khai `pinnedViews`, nên tiêu đề cuộn trôi theo thẻ.
-- **Sửa**: `LazyVGrid(pinnedViews: [.sectionHeaders])` nằm thẳng trong `ScrollView`; sentinel tải thêm chuyển thành **footer** của một section rỗng (vẫn trải hết bề ngang, vẫn dựng lười, giữ `.id(loadedCount)`). Tiêu đề lưới có nền đặc `systemBackground` tràn qua lề 16pt để thẻ cuộn bên dưới không lộ ra.
-- **Áp cho**: "Đang ghim" / "Truyện khác" ở Kệ sách và chi tiết Bộ sưu tập, từng ngày ở Lịch sử (cùng `ShelfBooksLayoutView`). Phía Khám phá không có tiêu đề nhóm — không đổi.
-- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
-
-## [1.3.552] - 2026-10-19
-
-### fix: các màn tự tắt bàn phím khi chạm nền theo đúng tuỳ chọn
-
-Người dùng: *"dù cài đặt tắt tay nhưng vẫn đang tự động tắt"* — chọn "Không tắt bàn phím" mà chạm ra ngoài ô nhập vẫn tắt.
-
-- **Vì sao**: `KeyboardDismissGesture` (bộ chung ở window) có đọc `KeyboardDismissPreference`, nhưng 4 màn tự gắn `.onTapGesture` tắt bàn phím riêng từ trước thì không.
-- **`KeyboardDismissPreference.dismissOnTapOutsideIfEnabled()`** (mới): chỉ tắt khi tuỳ chọn là "Tự tắt". Bốn chỗ chuyển sang gọi nó: panel Dịch/tra từ (`ReaderDefinitionOverlayView`), panel xoá rác (`ReaderJunkDeleteOverlayView`), sheet công cụ tìm kiếm (`SearchEnginesConfigView`), vùng trống hai thanh dưới của trình sửa Script (`ExtensionScriptEditorView`); bỏ hai hàm `hideKeyboard()` riêng không còn dùng.
-- **Không đổi**: phím Return của ô một dòng, kéo danh sách, nút đóng bàn phím ở thanh công cụ và nút tắt bàn phím của trình sửa Script vẫn tắt như cũ.
-- Chuyển entry `[1.3.522]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
-
-## [1.3.551] - 2026-10-19
-
-### fix: thanh công cụ bàn phím có nền riêng, không lệch khỏi bàn phím
-
-Người dùng (ảnh máy thật, màn "Thêm rule", bàn phím nổi kiểu mới): *"vỡ UI bàn phím"* — sau `[1.3.550]` thanh đã hiện nhưng nổi lơ lửng không nền, chữ của màn bên dưới lộ qua giữa các nút và có khoảng hở với bàn phím.
-
-- **Vì sao**: thanh dựa vào nền `.keyboard` của `UIInputView`, nhưng bàn phím nổi kiểu mới để nền đó trong suốt; `UIHostingController` trong accessory còn tính vùng an toàn nên đệm thêm khoảng trống.
-- **`KeyboardTextToolbarView`**: thanh tự có nền — viên kính `.regularMaterial` bo tròn, viền mảnh, cách mép 6pt; tổng cao vẫn 46pt.
-- **`KeyboardTextToolbarInstaller`**: `host.safeAreaRegions = []`.
-- Chuyển entry `[1.3.521]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
+- **Khối "Đang chạy"** ở đầu màn Thông báo có thêm phần truyện (`NotificationInboxView+StoryTasks.swift`, mới): mỗi tác vụ tải/xuất **đang chạy** một dòng (tên truyện đã dịch như toast, `Tải truyện · 12/300 chương` hoặc giai đoạn xuất, thanh tiến độ, nút **Huỷ** gọi `DownloadManager.cancelTask`); tác vụ **đang chờ** gộp thành một dòng `N tác vụ tải/xuất đang chờ`; lượt nhập truyện từ file một dòng (không có nút huỷ — luồng nhập không nhận cancellation). `StoryActivityRows` tự observe nên nhịp ~10 lần/giây của `DownloadManager.tasks` không kéo hàng sao lưu / tải model vẽ lại.
+- **Dòng truyện biến mất khi tác vụ xong/lỗi/huỷ**, khác hàng sao lưu và tải model (ở lại chờ "Bỏ qua"): `DownloadTaskModel` sống qua khởi động lại nên giữ dòng đã xong là phải thêm bộ nhớ "đã bỏ qua"; kết quả đã có toast và toast tự ghi vào nhật ký của chính màn này. Chia sẻ lại / thử lại vẫn ở tab Tải.
+- **Tiến độ nhập truyện ra khỏi `ShelfView`**: bỏ bốn `@State` (`isImporting`, `importIsIndeterminate`, `importProgress`, `importStatusText`), thay bằng `BookImportProgressCenter` (mới, `Services/Import`, `@MainActor`, chỉ giữ lượt đang chạy; `fraction == nil` = vô định). Overlay chờ chuyển thành `ShelfView.ImportProgressOverlay` (lồng trong `ShelfView+BookImport.swift`) tự observe center — giao diện và hành vi chặn màn Kệ giữ nguyên, nhưng cả kệ không còn vẽ lại theo mỗi nhịp tiến độ.
+- **Hub nổi**: `NotificationInboxPresenceReader.hasRunningTask` tính cả tải/xuất/nhập truyện ⇒ suốt lượt tải truyện, mục "Thông báo" trên hub (ngoài tab Kệ) sáng và ghi "Đang chạy tác vụ" — đúng luật 2026-10-07. `$tasks` được rút về một bit rồi `removeDuplicates` trước khi sink, nên chỉ refresh lúc chuyển trạng thái.
+- `DownloadManager.hasActiveTasks` và `DownloadTask.isActive` (mới, `DownloadManager+TaskStore.swift`): chạy hoặc chờ = chưa tới trạng thái cuối.
+- Hạn chế đã biết (giống hàng sao lưu hiện có): mở màn Thông báo lúc trống rồi tác vụ mới bắt đầu thì màn vẫn rỗng tới khi mở lại.
+- Chuyển entry `[1.3.527]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
 

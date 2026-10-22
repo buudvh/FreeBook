@@ -70,10 +70,10 @@ final class GeminiWebSessionController: NSObject {
         return requestCounter
     }
 
-    /// Nạp (hoặc dùng lại) phiên: trang `/app` đã commit và `WIZ_global_data` có token. Các lời gọi đồng
-    /// thời gộp vào một `Task` để hai lượt chat cùng lúc không nạp trang hai lần.
+    /// Nạp (hoặc dùng lại) phiên; lời gọi đồng thời gộp vào một `Task`. Token quá 30 phút mà còn fetch đang bay (truyện
+    /// khác đang chạy, 1.3.558) ⇒ dùng tiếp, vì nạp lại trang huỷ các fetch đó; token chết thật thì đi nhánh `force`.
     func prepare(force: Bool = false) async throws -> GeminiWebInitSession {
-        if !force, let session = initSession, !session.isStale {
+        if !force, let session = initSession, !session.isStale || !streams.isEmpty {
             touch()
             return session
         }
