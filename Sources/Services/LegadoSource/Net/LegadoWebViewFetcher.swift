@@ -5,8 +5,9 @@ import WebKit
 ///
 /// Luồng: thread engine xếp việc sang main **bất đồng bộ** rồi chờ semaphore theo lát ngắn (có kiểm huỷ) — không bao giờ
 /// chờ trên main. Trên main: đẩy cookie của nguồn vào kho cookie WebKit → nạp `URLRequest` (giữ header, phương thức, thân) →
-/// chờ trang tải xong (tự hết giờ như `WebViewLoader.load`) → chờ thêm `webViewDelayTime` → chạy `webJs` nếu có (giá trị
-/// `null` thì thử lại tối đa 3 lần, mỗi lần cách 1 giây), không thì lấy `outerHTML` → đọc lại cookie của tên miền.
+/// chờ trang tải xong (tự hết giờ như `WebViewLoader.load`) → chờ trang lắng (`+Settle`: trang thử thách JS tự tải lại) →
+/// chờ thêm `webViewDelayTime` → chạy `webJs` nếu có (giá trị `null` thì thử lại tối đa 3 lần, mỗi lần cách 1 giây), không
+/// thì lấy `outerHTML` (đọc lại sau `webViewDelayTime`) → đọc lại cookie của tên miền.
 enum LegadoWebViewFetcher {
     struct Result {
         var body: String
@@ -86,15 +87,33 @@ enum LegadoWebViewFetcher {
     private static func launch(_ loader: WebViewLoader, state: State, request: URLRequest, htmlString: String?,
                                delay: TimeInterval, webJs: String?, timeout: TimeInterval, semaphore: DispatchSemaphore) {
         MainActor.assumeIsolated {
+            let deadline = Date().addingTimeInterval(timeout)
             loader.completion = { [weak loader] html in
                 guard let loader else { return }
-                DispatchQueue.main.asyncAfter(deadline: .now() + max(0, delay)) {
-                    let script = webJs?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                    if script.isEmpty {
-                        finish(state, loader: loader, body: html ?? "", request: request, semaphore: semaphore)
-                    } else {
-                        runWebJs(script, attempt: 0, state: state, loader: loader, request: request, semaphore: semaphore)
+                let afterLoad: (String) -> Void = { settled in
+                    DispatchQueue.main.asyncAfter(deadline: .now() + max(0, delay)) {
+                        let script = webJs?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                        if !script.isEmpty {
+                            runWebJs(script, attempt: 0, state: state, loader: loader, request: request, semaphore: semaphore)
+                        } else if delay > 0 {
+                            // Chờ thêm để trang dựng xong nội dung ⇒ đọc lại DOM sau khi chờ, không dùng bản cũ.
+                            MainActor.assumeIsolated {
+                                loader.webView.evaluateJavaScript("document.documentElement.outerHTML") { value, _ in
+                                    finish(state, loader: loader, body: value as? String ?? settled, request: request,
+                                           semaphore: semaphore)
+                                }
+                            }
+                        } else {
+                            finish(state, loader: loader, body: settled, request: request, semaphore: semaphore)
+                        }
                     }
+                }
+                if htmlString != nil {
+                    // Chuỗi HTML tự nạp (`java.webView(html, …)`) không thể là trang thử thách của máy chủ: không chờ lắng.
+                    afterLoad(html ?? "")
+                } else {
+                    // Lần tải xong đầu chưa chắc là trang thật: chờ trang lắng rồi mới tính `webViewDelayTime`.
+                    settle(loader, firstHTML: html ?? "", deadline: deadline, isFinished: { state.finished }, done: afterLoad)
                 }
             }
             if let htmlString {

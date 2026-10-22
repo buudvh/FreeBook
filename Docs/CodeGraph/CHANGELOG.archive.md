@@ -2,6 +2,21 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.548] - 2026-10-19
+
+### feat: thanh công cụ trên bàn phím cho mọi ô nhập, chọn tự tắt bàn phím
+
+Người dùng: *"xoá · sao chép · dán cho các ô nhập của màn hình thêm từ mới (phiên âm NghiTTS), thay thế TTS, quản lý nghĩa từ, sửa từ trong từ điển; bổ sung aa Aa1 Aa2 Aa AA…"* → *"thêm chung trên bàn phím ở mọi chỗ dùng bàn phím trong app"*, *"thêm 1 nút đóng bàn phím ở ngoài cùng bên trái"*, *"thêm config tự tắt/tắt tay"*. Plan: `Docs/Plans/2026-10-19-plan-thanh-cong-cu-ban-phim.md` (mockup đã duyệt).
+
+- **Thanh trên bàn phím** (`Sources/Views/Common/KeyboardToolbar/`): `KeyboardTextToolbarInstaller` nghe `textDidBeginEditing` của `UITextField`/`UITextView` và gắn **một** `inputAccessoryView` dùng chung cho ô vừa bắt đầu gõ — phủ mọi `TextField`, `TextEditor`, `.searchable`, ô trong hộp thoại, thanh URL, ô Mẫu rule mà không sửa từng màn. Trái → phải: nút **đóng bàn phím** · `aa · Aa¹ · Aa² · Aa · AA` · **Xoá · Sao chép · Dán** (icon `AppGlyph`). Thanh nằm trên thanh gợi ý chữ của iOS (không làm mất nó).
+- **Luật nút** (`KeyboardTextToolbarModel`): định dạng, Sao chép, Xoá tác động **cả ô**; Dán **chèn tại con trỏ** (thay đoạn bôi đen; ô một dòng đổi xuống dòng thành dấu cách). Sửa chữ đi qua `UITextInput` như gõ phím (`insertText`/`deleteBackward`) nên binding SwiftUI, `.editingChanged` và hoàn tác hệ thống chạy như thường; chữ Telex/VNI đang gõ dở được `unmarkText()` trước. Ô trống ⇒ định dạng/Xoá/Sao chép mờ (đọc lại theo notification + timer 0,5 s vì đổi chữ bằng code không bắn notification).
+- **Ngoại lệ**: không có thanh ở ô mật khẩu/API key (`isSecureTextEntry`) và trình sửa Script (`CodeEditorTextView`); ẩn `aa…AA` ở ô tìm kiếm/URL (`UISearchTextField`, bàn phím `.URL`/`.webSearch`, phím Return "Tìm") — 8 ô tìm kiếm tự dựng được gắn `.submitLabel(.search)` (`ReaderSearchView` vốn đã có). Ô trong trang web (`WKWebView`) không có thanh.
+- **Định dạng chữ dùng chung** `TextCaseFormatter` (`Sources/Common/Utils/`): luật cũ của panel Dịch; ô nhiều dòng định dạng từng dòng. `ReaderSelectionCoordinator.formatMeaning` gọi sang.
+- **Chạm ra ngoài ô nhập**: `KeyboardDismissPreference` (`keyboardDismissOnTapOutside`, mặc định tự tắt) — `KeyboardDismissGesture` không cài recognizer khi chọn "Không tắt bàn phím", đổi lúc bàn phím đang mở có hiệu lực ngay. Chỉnh bằng **giữ** nút đóng bàn phím (menu) hoặc Cài đặt → nhóm mới **"Chung"** → **"Bàn phím & ô nhập"** (`GeneralSettingsSection`, `KeyboardSettingsView`). Nhãn "Không tắt bàn phím" thay "Chỉ tắt bằng nút này" của mockup vì Return và kéo danh sách vẫn tắt bàn phím.
+- **Gỡ bộ nút theo từng ô** (đã có thanh chung): Cấu hình tiện ích + plugin.json (`TextFieldClipboardButtons` xoá; giữ nút ↺ khôi phục mặc định thành `RestoreDefaultValueButton`), Thêm từ nhiều dòng, Bộ nhớ AI, Cài đặt AI (đồng bộ key/model vẫn qua `.onChange`), ô Mẫu/Bản dịch của rule, ô chữ thử VieNeu (giữ nút Phát), nút Dán của panel Dịch Reader.
+- **Không đổi**: hàng `aa…AA` của panel Dịch, nút sao chép tin nhắn AI / log / debug / chẩn đoán, dữ liệu.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**; grep không còn `TextFieldClipboardButtons|clipboardToolbar(|pasteFromClipboard|appendClipboard`. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
+
 ## [1.3.547] - 2026-10-19
 
 ### fix: hàng nút và ô nhập ở màn cấu hình tiện ích khớp mockup
