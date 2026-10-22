@@ -137,9 +137,11 @@ struct LegadoSourceCheckView: View {
                         .font(.caption.weight(isSelected ? .semibold : .regular))
                         .padding(.horizontal, 12)
                         .frame(height: 30)
-                        .background(isSelected ? Color.accentColor.opacity(0.85) : Color(.secondarySystemBackground))
-                        .foregroundColor(isSelected ? .white : .primary)
+                        .background(isSelected ? Color.accentColor.opacity(0.18) : Color(.secondarySystemBackground))
+                        .foregroundColor(isSelected ? .accentColor : .primary)
                         .clipShape(Capsule())
+                        // App đặt `.tint(.white)` toàn cục ⇒ màu nhấn là trắng: chip chọn theo kiểu `ExtensionKindFilterBar`.
+                        .overlay(Capsule().stroke(isSelected ? Color.accentColor.opacity(0.6) : Color.white.opacity(0.12), lineWidth: 1))
                 }
                 .buttonStyle(.plain)
             }

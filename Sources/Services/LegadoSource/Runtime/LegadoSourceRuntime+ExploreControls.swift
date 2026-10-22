@@ -18,6 +18,21 @@ extension LegadoSourceRuntime {
 
         private let lock = NSLock()
         private var entries: [String: Entry] = [:]
+        private var running: [String: Task<[LegadoEngineExploreItem], Error>] = [:]
+
+        /// Lượt chạy đang bay của nguồn — mở nguồn ở Khám phá thì danh mục và tab điều khiển cùng hỏi trước khi bản
+        /// đệm có, nên lượt thứ hai dùng chung lượt đầu (JS `exploreUrl` không gửi request hai lần).
+        func runningTask(key: String) -> Task<[LegadoEngineExploreItem], Error>? {
+            lock.lock()
+            defer { lock.unlock() }
+            return running[key]
+        }
+
+        func setRunning(_ task: Task<[LegadoEngineExploreItem], Error>?, key: String) {
+            lock.lock()
+            defer { lock.unlock() }
+            running[key] = task
+        }
 
         func store(_ items: [LegadoEngineExploreItem], key: String) {
             lock.lock()
@@ -69,14 +84,29 @@ extension LegadoSourceRuntime {
     static func exploreEntries(_ target: Target, log: LegadoRunLog? = nil) async throws -> [LegadoEngineExploreItem] {
         let exploreUrl = target.source.exploreUrl
         guard nonEmpty(exploreUrl) != nil else { return [] }
-        let items: [LegadoEngineExploreItem] = try await runSession(target, log: log) { session in
-            let entries = try session.exploreEntries(exploreUrl)
-            if !entries.contains(where: { !$0.isGroupHeader }), Self.hasHardFailure(session) {
-                throw Self.emptyResultError(session, "exploreUrl")
-            }
-            return entries
+        let key = exploreCacheKey(target)
+        // Màn gỡ lỗi (có `log`) luôn chạy riêng; lượt thường dùng chung lượt đang bay của cùng nguồn.
+        if log == nil, let shared = exploreEntriesCache.runningTask(key: key) {
+            return try await shared.value
         }
-        exploreEntriesCache.store(items, key: exploreCacheKey(target))
+        // `Task {}` mang theo task-local `LegadoInteraction` của lời gọi đầu.
+        let task = Task { () throws -> [LegadoEngineExploreItem] in
+            try await runSession(target, log: log) { session in
+                let entries = try session.exploreEntries(exploreUrl)
+                if !entries.contains(where: { !$0.isGroupHeader }), Self.hasHardFailure(session) {
+                    throw Self.emptyResultError(session, "exploreUrl")
+                }
+                return entries
+            }
+        }
+        if log == nil { exploreEntriesCache.setRunning(task, key: key) }
+        defer { if log == nil { exploreEntriesCache.setRunning(nil, key: key) } }
+        let items = try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            task.cancel()
+        }
+        exploreEntriesCache.store(items, key: key)
         return items
     }
 

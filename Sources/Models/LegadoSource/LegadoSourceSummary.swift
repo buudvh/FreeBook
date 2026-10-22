@@ -4,7 +4,8 @@ import Foundation
 /// kiểm tra nhanh (bật/tắt, loại) mà không phải đọc lại `source.json`.
 ///
 /// Tên/nhóm gốc giữ nguyên; `translatedName`/`translatedGroups` là bản dịch QT do `LegadoSourceRepository` gắn
-/// (rỗng / bằng bản gốc khi chưa dịch xong hoặc từ điển chưa nạp).
+/// (rỗng / bằng bản gốc khi chưa dịch xong hoặc từ điển chưa nạp). Tên nguồn **hiển thị bản gốc** (`displayName`);
+/// tên dịch chỉ dùng cho ô tìm. Nhóm vẫn hiển thị bản dịch.
 public struct LegadoSourceSummary: Sendable, Identifiable, Hashable {
     public let packageId: String
     public let name: String
@@ -29,10 +30,9 @@ public struct LegadoSourceSummary: Sendable, Identifiable, Hashable {
 
     public var id: String { packageId }
 
-    /// Tên hiển thị: bản dịch nếu có, không thì tên gốc.
-    public var displayName: String {
-        translatedName.isEmpty ? name : translatedName
-    }
+    /// Tên hiển thị: **tên gốc** của nguồn — người dùng yêu cầu không dịch tên nguồn ở Kho Tiện Ích (2026-10-22).
+    /// `translatedName` vẫn được giữ để ô tìm khớp cả khi gõ tên đã dịch.
+    public var displayName: String { name }
 
     public var isUngrouped: Bool { groups.isEmpty }
 
@@ -69,8 +69,7 @@ public struct LegadoSourceSummary: Sendable, Identifiable, Hashable {
     }
 
     private mutating func refreshDerivedKeys() {
-        let display = displayName
-        searchKey = Self.fold(name + "\n" + display + "\n" + bookSourceUrl)
-        sortKey = Self.fold(display)
+        searchKey = Self.fold(name + "\n" + translatedName + "\n" + bookSourceUrl)
+        sortKey = Self.fold(displayName)
     }
 }

@@ -106,6 +106,10 @@ final class PaginatedNovelLoader: ObservableObject {
             isLoading = false
             isLoadingMore = false
             retryCount = 0
+        } catch is CancellationError {
+            // Lượt tải bị huỷ (rời màn, đổi nguồn) không phải lỗi: không ghi `❌`, không hiện thông báo, không tự thử lại.
+            isLoading = false
+            isLoadingMore = false
         } catch {
             AppLogger.shared.log("❌ [PaginatedNovelLoader] load page \(page) error: \(error.localizedDescription)")
             if page == 1 {

@@ -42,7 +42,14 @@ extension LegadoJSRuntime {
             return ""
         case "unsupported":
             let name = text(of: arguments[0])
-            session.diagnostics.record(.unsupported, name)
+            if Self.isAppProbeClass(name) {
+                // Lớp nội bộ của app Legado khác: nguồn tạo thử trong `try/catch` để dò đang chạy trên app nào (spec
+                // §6.10). Vẫn ném để nhánh dò đi tiếp, nhưng không phải "chưa hỗ trợ" — không gắn `❌`, không làm sai kết
+                // luận của màn Kiểm tra nguồn.
+                session.diagnostics.record(.info, "Dò biến thể app (bỏ qua): " + name)
+            } else {
+                session.diagnostics.record(.unsupported, name)
+            }
             throw LegadoJSNativeError.unsupported(name)
         case "deferredNoop":
             session.diagnostics.record(.unsupported, text(of: arguments[0]) + " (bỏ qua, chỉ ghi vào bản sao trong ngữ cảnh)")
@@ -59,5 +66,14 @@ extension LegadoJSRuntime {
         formatter.timeZone = timeZone
         formatter.dateFormat = pattern
         return formatter.string(from: Date(timeIntervalSince1970: milliseconds / 1000))
+    }
+
+    /// Thông báo "Lớp Java <tên>" của shim `Packages` mà `<tên>` thuộc gói nội bộ của các app Legado (`io.legado.*`,
+    /// bản fork `io.legato.*`) — chỉ dùng để dò biến thể app, không phải tính năng nguồn cần.
+    static func isAppProbeClass(_ message: String) -> Bool {
+        let prefix = "Lớp Java "
+        guard message.hasPrefix(prefix) else { return false }
+        let className = message.dropFirst(prefix.count)
+        return className.hasPrefix("io.legado.") || className.hasPrefix("io.legato.")
     }
 }

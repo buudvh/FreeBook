@@ -36,6 +36,9 @@ final class LegadoEngineSession {
     var page: Int?
     /// Biến JS `nextChapterUrl` (nội dung, §6.2).
     var nextChapterUrl: String?
+    /// URL (đã chuẩn hoá để so) của **mọi** chương khác trong mục lục của sách: vòng `nextContentUrl` dừng khi gặp một
+    /// URL thuộc tập này, kể cả khi không tra được đúng URL chương kế (nút "trang sau" cũng là "chương sau").
+    var tocStopKeys: Set<String> = []
     /// Nhận `java.toast/longToast` (đã giới hạn ≤ 1 lần/giây). Service không được gọi toast UI trực tiếp: lớp ráp
     /// nối tự chuyển tiếp sang event center của app nếu muốn. Mặc định chỉ ghi log.
     var onToast: ((String) -> Void)?

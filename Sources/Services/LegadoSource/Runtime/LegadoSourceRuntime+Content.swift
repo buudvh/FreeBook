@@ -36,6 +36,7 @@ extension LegadoSourceRuntime {
         let initial = store.state(packageId: target.packageId, bookUrl: context?.bookUrl, bookId: bookId)
         let bookUrl = nonEmpty(context?.bookUrl) ?? initial.bookUrl
         let nextURL = await nextChapterURL(target, chapterUrl: chapterUrl, bookUrl: bookUrl, context: context)
+        let stopKeys = await tocStopKeys(target, chapterUrl: chapterUrl, bookUrl: bookUrl, context: context)
         let persist = await shouldPersist(bookId: bookId)
         let book = makeBookContext(target, bookUrl: bookUrl, state: initial, context: context)
         let initialChapterVariables = initial.chapterVariables[chapterUrl] ?? [:]
@@ -49,6 +50,7 @@ extension LegadoSourceRuntime {
         )
         let value: T = try await runSession(target, book: book, chapter: chapter, log: log) { session in
             session.nextChapterUrl = nextURL
+            session.tocStopKeys = stopKeys
             return try body(session, nextURL)
         }
 
@@ -110,7 +112,8 @@ extension LegadoSourceRuntime {
             guard nonEmpty(rule.nextContentUrl) != nil else { continue }
             for next in try analyzer.urls(rule.nextContentUrl) {
                 let key = LegadoURLResolver.normalizedForComparison(next)
-                guard !key.isEmpty, !visited.contains(key), key != stopKey else { continue }
+                // Dừng ở ranh giới chương: URL chương kế, hoặc bất kỳ chương nào khác của mục lục.
+                guard !key.isEmpty, !visited.contains(key), key != stopKey, !session.tocStopKeys.contains(key) else { continue }
                 visited.insert(key)
                 queue.append(next)
             }
@@ -147,4 +150,29 @@ extension LegadoSourceRuntime {
         let next = rows.filter { $0.index > index && !$0.isSection }.min { $0.index < $1.index }
         return next?.url
     }
+
+    /// URL đã chuẩn hoá của mọi chương **khác** chương đang tải: mục lục đệm trong bộ nhớ, không có thì đọc
+    /// `ChapterStore` một lần theo `bookId` rồi đệm lại. Không có mục lục ⇒ tập rỗng (chỉ còn URL chương kế làm mốc).
+    static func tocStopKeys(_ target: Target, chapterUrl: String, bookUrl: String, context: SourceRuntimeContext?) async -> Set<String> {
+        var urls = bookUrl.isEmpty ? nil : LegadoTocURLCache.shared.urls(packageId: target.packageId, bookUrl: bookUrl)
+        if urls == nil, let bookId = nonEmpty(context?.bookId),
+           let rows = try? await ChapterStore.shared.fetchRange(bookId: bookId, startIndex: 0, count: tocStopFetchLimit),
+           !rows.isEmpty {
+            let list = rows.sorted { $0.index < $1.index }.map { $0.isSection ? "" : $0.url }
+            urls = list
+            if !bookUrl.isEmpty {
+                LegadoTocURLCache.shared.store(list, packageId: target.packageId, bookUrl: bookUrl)
+            }
+        }
+        let current = LegadoURLResolver.normalizedForComparison(chapterUrl)
+        var keys = Set<String>()
+        for url in urls ?? [] where !url.isEmpty {
+            let key = LegadoURLResolver.normalizedForComparison(url)
+            if !key.isEmpty, key != current { keys.insert(key) }
+        }
+        return keys
+    }
+
+    /// Trần số dòng mục lục đọc từ `ChapterStore` cho tập dừng (truyện dài nhất thường vài nghìn chương).
+    static let tocStopFetchLimit = 20_000
 }

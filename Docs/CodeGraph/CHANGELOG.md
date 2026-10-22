@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.570] - 2026-10-22
+
+### fix: nguồn Legado: tên gốc ở Kho, nút và chip không còn trắng trên trắng, không nối sang chương sau
+
+Thử máy với bộ 1298 (log `app_logs (113)`, `(114)`). Người dùng: *"đừng dịch tên nguồn ở tab tiện ích"*, *"nút đăng nhập đang lỗi nền trắng chữ trắng"*.
+
+- **Tên nguồn hiện bản gốc** ở tab Nguồn Legado, màn chi tiết, kiểm tra, gỡ lỗi, đăng nhập (`LegadoSourceSummary.displayName = name`; đảo quyết định 11 của plan đợt 1 theo yêu cầu người dùng). Tên dịch QT vẫn giữ để ô tìm khớp; **nhóm vẫn hiển thị bản dịch**.
+- **Trắng trên trắng**: app đặt `.tint(.white)` toàn cục (`MainTabView`) nên `Color.accentColor` là trắng. Nút "Đăng nhập" / "Mở trang đăng nhập" (`LegadoLoginView`) và "Chạy" (`LegadoSourceDebugView`) đổi sang nền `Color.blue`; chip đang chọn ở tab Nguồn Legado, Kiểm tra nguồn và Gỡ lỗi (nền nhấn 85% + chữ trắng) theo kiểu chip của `ExtensionKindFilterBar` (chữ nhấn, nền nhấn 18%, viền 60%).
+- **Không nối sang chương sau**: vòng `nextContentUrl` trước chỉ dừng ở **một** URL chương kế; tra không ra (mục lục chưa nạp trong phiên, URL lệch dạng…) là đi theo nút "下一章" kéo tới 30 chương vào một chương, request dồn dập và web chặn (thấy ở 错层小说: app nhận HTTP 400 cho đúng URL chương mà curl trả 200). Nay dừng khi gặp **bất kỳ** URL chương nào khác của mục lục (`LegadoEngineSession.tocStopKeys`; nguồn: mục lục đệm `LegadoTocURLCache.urls`, không có thì đọc `ChapterStore` một lần theo `bookId` rồi đệm).
+- **Bỏ lỗi giả khi nguồn dò app**: script tạo thử lớp nội bộ `io.legado.*` / `io.legato.*` trong `try/catch` để biết đang chạy trên app nào (spec §6.10) — vẫn ném cho script đi nhánh khác, nhưng ghi thông tin thay vì "chưa hỗ trợ" `❌` (魔丸小说 ghi 4 dòng `❌` mỗi lần đọc).
+- **`PaginatedNovelLoader`**: `CancellationError` (rời màn, đổi nguồn) không còn ghi `❌`, không hiện thông báo lỗi, không tự thử lại.
+- **Khám phá chạy `exploreUrl` một lần**: danh mục và tab điều khiển cùng hỏi khi mở nguồn trước khi bản đệm có ⇒ lượt thứ hai dùng chung lượt đang bay (`ExploreEntriesCache.runningTask`); màn Gỡ lỗi vẫn chạy riêng.
+- **Không phải lỗi app** (đã kiểm từ máy cùng vùng mạng): 篱笆好文学 (chặn theo vùng, 1Panel), 小原文学网, 可乐小说 (HTTP 403), 思路客 (captcha Cloudflare), 文桑小说 (quá thời gian), 鬼吹灯 (tên miền chết). 8/15 nguồn của bộ 1298 không khai `exploreUrl` nên không có ở Khám phá — đúng hành vi.
+- Chuyển entry `[1.3.540]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử lại trên máy.
+
 ## [1.3.569] - 2026-10-21
 
 ### feat: nối nốt nguồn Legado: giải mã bìa, imageStyle, ghi đè loại sách, làm mới chương, alert trình duyệt, dọn trạng thái mồ côi
@@ -419,16 +435,3 @@ Người dùng: *"xảy ra lỗi khi bấm đọc ngay rồi back về dễ xả
 - **F3 — `loadTOCDataOnly`**: guard "Tải thêm chương đang chạy" chỉ bắn khi `onlineChapters` đã có dữ liệu (trước đây bắn cả khi rỗng ⇒ tắt `isLoadingTOC` mà không gán gì = màn trắng, không nút "Tải lại"); khi phải gán trang 1 của nguồn nhiều trang thì mở lại cờ `remainingPagesLoaded` để nút "Tải thêm chương" hiện lại.
 - **Kiểm chứng**: `swiftc -parse` hai file sạch; `check_architecture.py` 2 violation nền (`JSDom.swift`, `TTSManager.swift`), **0 mới**; `BookDetailView.swift` 1128/1201 dòng baseline. Không build tại chỗ (Windows) — CI chỉ xác nhận biên dịch.
 - Plan: `Docs/Plans/2026-10-19-plan-toc-loss-after-read.md`.
-
-## [1.3.540] - 2026-10-19
-
-### Revert "fix: mọi danh sách và tên truyện dịch theo cờ của truyện rồi tới nguồn"
-
-Người dùng yêu cầu lùi nội dung commit `6bdc424` (entry `[1.3.538]`). Revert bằng `git revert --no-commit 6bdc424`, giữ nguyên `[1.3.539]` (commit sau, không liên quan).
-
-- **Xoá file**: `Sources/Services/Translation/Utils/TranslationConfigSnapshot.swift`, `Sources/Views/Search/SearchView+Translation.swift`.
-- **`TranslationConfigStore`**: bỏ hàm dùng chung `resolve(global:bookOverride:sourceOverride:packageId:isChineseSourceHint:)`, `resolveStatus` trở lại đọc `globalEnabled` + hai bảng override tại chỗ.
-- **`TranslateUtils.translateBookTitleIfNeeded`**: bỏ tham số `packageId`, điều kiện trở lại cờ toàn cục `isTranslationEnabled`.
-- **View**: `BookListItemView`, `CategoryNovelsListView`, `DiscoveryNovelRowView`, `DiscoveryView`, `ExploreBannerView`/`ExploreItemCard`/`ExploreListRow`/`ExploreRenderContext`/`ExploreSectionsView`, `SearchView`, `ComicReaderView`, `DownloadTrackerView`, `TaskOptionsSheet`, `BookActionSheet`/`BookActionRunner`, `NotificationInboxView`, `ReaderView`, `DictionaryListView+Transfer`, `ShelfView+BookImport`, `DownloadManager+TaskStore` trở lại đọc công tắc dịch **toàn cục** (`@AppStorage("isTranslationEnabled")`) thay vì cờ Truyện > Nguồn > Toàn cục. `TTSManager` trở lại `TranslateUtils.isTranslationEnabled`.
-- **Xung đột đã xử lý**: `SearchView.swift` auto-merge sạch — thay đổi của `[1.3.539]` (`fetchFullTOC`) còn nguyên. Hai file `Docs/CodeGraph/CHANGELOG*.md` xung đột: giữ nguyên lịch sử (không đẩy entry cũ trở lại `CHANGELOG.md`, không thêm lại entry vào archive).
-- **Kiểm chứng**: grep `Sources/` không còn tham chiếu `TranslationConfigSnapshot`, `translationRevision`, `currentTranslationConfig`; mọi call site `translateBookTitleIfNeeded` khớp chữ ký mới. **Không build tại chỗ** (Windows) — chỉ CI xác nhận biên dịch.

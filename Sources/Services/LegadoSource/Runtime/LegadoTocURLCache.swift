@@ -10,6 +10,14 @@ final class LegadoTocURLCache: @unchecked Sendable {
     private var lists: [String: [String]] = [:]
     private var order: [String] = []
 
+    /// Cả danh sách URL chương đã đệm của sách (`""` = dòng tiêu đề nhóm), `nil` khi chưa có.
+    func urls(packageId: String, bookUrl: String) -> [String]? {
+        let key = LegadoBookStateStore.memoryKey(packageId: packageId, bookUrl: bookUrl)
+        lock.lock()
+        defer { lock.unlock() }
+        return lists[key]
+    }
+
     func store(_ urls: [String], packageId: String, bookUrl: String) {
         let key = LegadoBookStateStore.memoryKey(packageId: packageId, bookUrl: bookUrl)
         lock.lock()

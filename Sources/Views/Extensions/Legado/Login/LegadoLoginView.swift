@@ -166,7 +166,7 @@ struct LegadoLoginView: View {
                     }
                     .frame(maxWidth: .infinity, minHeight: 44)
                     .foregroundColor(.white)
-                    .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 10))
+                    .background(Color.blue, in: RoundedRectangle(cornerRadius: 10)) // không dùng màu nhấn: app tint trắng
                 }
                 .disabled(isSubmitting || busyFieldId != nil || isLoadingForm)
             }
@@ -205,7 +205,7 @@ struct LegadoLoginView: View {
                     .font(.body.weight(.semibold))
                     .frame(maxWidth: .infinity, minHeight: 44)
                     .foregroundColor(.white)
-                    .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 10))
+                    .background(Color.blue, in: RoundedRectangle(cornerRadius: 10)) // không dùng màu nhấn: app tint trắng
             }
         }
         .padding(12)
