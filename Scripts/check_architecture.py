@@ -192,7 +192,7 @@ def run_checks():
                     errors.append(f"[SERVICE_SWIFTUI_IMPORT] {rel_path}: Service layer imports SwiftUI framework")
 
             # Rule 6: nền đặc bằng màu nhấn. `MainTabView` đặt `.tint(.white)` toàn cục ⇒ `Color.accentColor` và
-            # `.borderedProminent` không kèm tint là NỀN TRẮNG; chữ trắng lên đó là vô hình (1.3.447, 1.3.567).
+            # `.borderedProminent` không kèm tint là NỀN TRẮNG; chữ trắng lên đó là vô hình (1.3.447, 1.3.572).
             if rel_path.startswith("Sources/Views/"):
                 for line_no, message in find_white_tint_fills(raw_lines):
                     errors.append(f"[WHITE_TINT_FILL] {rel_path}:{line_no}: {message}")

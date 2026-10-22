@@ -15,7 +15,7 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## Nguồn Legado (1.3.557–1.3.567)
+## Nguồn Legado (1.3.562–1.3.572)
 
 Nguồn truyện JSON kiểu Legado là loại nguồn thứ hai, chạy song song tiện ích JS. Engine **viết mới theo đặc tả** (clean-room): hành vi lấy từ `Docs/Specs/legado-source-spec.md` (§0–§7) + `legado-source-spec-part2.md` (§8–§15), **không** từ mã nguồn Legado/Yuedu/nhánh `legado_source` (giấy phép GPL/MPL) — agent sửa engine chỉ được đọc spec, tài liệu trợ giúp được phép và dữ liệu nguồn thật; comment không trích file/dòng của mã gốc.
 
@@ -902,7 +902,7 @@ Dự án FreeBook được tổ chức theo cấu trúc phân tầng nghiêm ng�
 
 *   **Tên**: Không tô nền đặc bằng màu nhấn (app tint trắng)
 *   **Loại quy tắc**: **Normative Rule** (cưỡng chế bởi `check_architecture.py` — luật `WHITE_TINT_FILL`)
-*   **Mô tả**: `MainTabView` đặt `.tint(.white)` toàn cục, nên `Color.accentColor` và `.borderedProminent` không kèm `.tint(…)` là **nền trắng**; chữ trắng lên đó vô hình (lỗi đã gặp ở 1.3.447 màn thư viện giọng VieNeu và 1.3.567 các màn nguồn Legado). Nút nền đặc dùng `.buttonStyle(.appFilled)` hoặc `.appFilled(<màu>)` (`AppFilledButtonStyle`); `.borderedProminent` chỉ khi kèm `.tint(<màu khác trắng>)`; chip đang chọn theo kiểu `ExtensionKindFilterBar` (chữ `.accentColor`, nền `Color.accentColor.opacity(0.18)`, viền `opacity(0.6)`). Hình vẽ (`.fill(Color.accentColor)`, vd thanh tua) không bị cấm.
+*   **Mô tả**: `MainTabView` đặt `.tint(.white)` toàn cục, nên `Color.accentColor` và `.borderedProminent` không kèm `.tint(…)` là **nền trắng**; chữ trắng lên đó vô hình (lỗi đã gặp ở 1.3.447 màn thư viện giọng VieNeu và 1.3.572 các màn nguồn Legado). Nút nền đặc dùng `.buttonStyle(.appFilled)` hoặc `.appFilled(<màu>)` (`AppFilledButtonStyle`); `.borderedProminent` chỉ khi kèm `.tint(<màu khác trắng>)`; chip đang chọn theo kiểu `ExtensionKindFilterBar` (chữ `.accentColor`, nền `Color.accentColor.opacity(0.18)`, viền `opacity(0.6)`). Hình vẽ (`.fill(Color.accentColor)`, vd thanh tua) không bị cấm.
 *   **Ví dụ đúng**:
     ```swift
     Button("Đăng nhập", action: submit).buttonStyle(.appFilled)

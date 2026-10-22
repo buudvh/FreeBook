@@ -2,7 +2,7 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-## [1.3.580] - 2026-10-22
+## [1.3.585] - 2026-10-22
 
 ### fix: ô Khám phá của nguồn Legado hiện đủ chữ: 3 dòng, tự co chữ, cao bằng hàng
 
@@ -12,7 +12,7 @@ Người dùng: tag ở Khám phá của nguồn Legado *"nhỏ quá"*, chữ b�
 - Tiêu đề nhóm, ô chọn / ô nhập / nút của nguồn giữ nguyên. Đánh đổi: ô có nhãn quá dài có chữ nhỏ hơn ô bên cạnh.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
 
-## [1.3.579] - 2026-10-22
+## [1.3.584] - 2026-10-22
 
 ### fix: nguồn Legado dùng bộ giới hạn nhịp kiểu Java (69書吧) dựng được URL tìm kiếm
 
@@ -25,7 +25,7 @@ Từ báo cáo `kiem-tra-nguon-legado-20261022-160304.json`: 69書吧 báo *"Ngu
 - **`LegadoURLBuilder`**: URL không thành tuyệt đối mà JS dựng URL vừa lỗi ⇒ báo đúng lỗi đó (`unsupportedSyntax` trước, rồi `javaScript`); URL rỗng ⇒ `invalidURL`; `missingBaseURL` chỉ còn cho URL tương đối khi nguồn không có URL gốc.
 - **Kiểm chứng**: chạy `jsLib` thật của nguồn cùng các script bootstrap trích từ Swift trong Node `vm` ⇒ ra đúng URL tìm kiếm kèm header ký. `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy (tìm → chi tiết → mục lục → nội dung).
 
-## [1.3.578] - 2026-10-22
+## [1.3.583] - 2026-10-22
 
 ### fix: trình duyệt ẩn của nguồn Legado chờ trang thử thách JS tự tải lại rồi mới lấy HTML
 
@@ -36,7 +36,7 @@ Từ báo cáo `kiem-tra-nguon-legado-20261022-160304.json`: 起点小说 và �
 - **Sửa kèm**: `webViewDelayTime` giờ tính **sau** khi trang lắng, và HTML được đọc lại sau khoảng chờ đó (trước đây dùng bản chụp cũ, sai spec §4.4). `java.webView(html, …)` (nạp chuỗi HTML) không qua bước chờ lắng; đường `sourceRegex` không đổi.
 - **Kiểm chứng**: cơ chế tải lại và ngưỡng phân loại đã quan sát trên trình duyệt Chromium, **chưa** trên WKWebView của iPhone. `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy (thử sau khi xoá cookie, vì kho cookie WebKit giữ lại giữa các lần).
 
-## [1.3.577] - 2026-10-22
+## [1.3.582] - 2026-10-22
 
 ### fix: kiểm tra nguồn Legado không kết luận nhầm "lỗi thời" với trang báo lỗi ngắn, từ khoá mặc định dài hơn
 
@@ -49,7 +49,7 @@ Từ báo cáo `kiem-tra-nguon-legado-20261022-160304.json`: 抖音小说 bị k
 - **Từ khoá mặc định** khi nguồn không khai `checkKeyWord`: `我的` → `斗罗大陆` (Kiểm tra nguồn `LegadoCorpusRequest` và Gỡ lỗi nguồn `LegadoDebugInput`) — đủ dài để web có giới hạn độ dài từ khoá không chặn, và là tên truyện phổ biến nên dễ có kết quả.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
 
-## [1.3.576] - 2026-10-22
+## [1.3.581] - 2026-10-22
 
 ### fix: chia sẻ báo cáo và xuất nguồn Legado báo nhầm "truy cập file ngoài thư mục" từ lần thứ hai
 
@@ -60,7 +60,7 @@ Người dùng: *"có thông báo truy cập file ngoài thư mục chia sẻ b�
 - Chuyển entry `[1.3.546]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
 
-## [1.3.575] - 2026-10-22
+## [1.3.580] - 2026-10-22
 
 ### fix: nút chia sẻ chỉ chạy được lần đầu: bảng chia sẻ đóng xong không báo SwiftUI
 
@@ -72,7 +72,7 @@ Người dùng: *"tôi bấm chia sẻ kiểm tra nguồn nhưng không thấy h
 - Chuyển entry `[1.3.545]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
 
-## [1.3.574] - 2026-10-22
+## [1.3.579] - 2026-10-22
 
 ### feat: tự kết luận lỗi nguồn Legado do web, do nguồn hay do app, chia sẻ báo cáo kiểm tra
 
@@ -91,20 +91,20 @@ Người dùng: *"nhiều nguồn lỗi nhưng không biết lỗi do nguồn ha
 - Chuyển entry `[1.3.544]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới** (kể cả `WHITE_TINT_FILL`); không đụng engine `{JS,Engine,Net,Rule}`. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
 
-## [1.3.573] - 2026-10-22
+## [1.3.578] - 2026-10-22
 
 ### fix: chặn tận gốc lỗi nút trắng trên trắng: kiểu nút appFilled và luật WHITE_TINT_FILL
 
 Người dùng: *"Trắng trên trắng tìm cách fix luôn lỗi này đi, tôi thấy thêm nút mới hay bị lắm"*.
 
-- **Nguyên nhân gốc**: `MainTabView` đặt `.tint(.white)` toàn cục ⇒ `Color.accentColor` là **trắng**, `.borderedProminent` không kèm `.tint(…)` là nền trắng; nút mới tô nền bằng màu nhấn rồi đặt chữ trắng là vô hình. Đã gặp ở 1.3.447 (thư viện giọng VieNeu) và 1.3.567 (các màn nguồn Legado, sửa ở 1.3.570). Rà toàn app: hiện không còn chỗ nào dính — mọi `.borderedProminent` đều kèm tint màu.
+- **Nguyên nhân gốc**: `MainTabView` đặt `.tint(.white)` toàn cục ⇒ `Color.accentColor` là **trắng**, `.borderedProminent` không kèm `.tint(…)` là nền trắng; nút mới tô nền bằng màu nhấn rồi đặt chữ trắng là vô hình. Đã gặp ở 1.3.447 (thư viện giọng VieNeu) và 1.3.572 (các màn nguồn Legado, sửa ở 1.3.575). Rà toàn app: hiện không còn chỗ nào dính — mọi `.borderedProminent` đều kèm tint màu.
 - **`AppFilledButtonStyle`** (mới, `Views/Common/`): kiểu nút nền đặc chuẩn, chữ trắng trên màu cố định (mặc định xanh), mờ khi nhấn/tắt; `.buttonStyle(.appFilled)`, `.appFilled(.green, fullWidth: false)`. Nút "Mở trang đăng nhập" (`LegadoLoginView`) dùng kiểu này.
 - **Luật mới `WHITE_TINT_FILL`** trong `Scripts/check_architecture.py` (quét `Sources/Views/**`, bỏ dòng comment): báo lỗi `.borderedProminent` mà chuỗi modifier của chính nút không có `.tint(<màu khác trắng>)`, và `.background(…Color.accentColor…)` đặc (mờ < 50% thì được; `.background(.tint)` cũng bị bắt). `.fill(Color.accentColor)` cho hình vẽ (thanh tua video) không bị cấm. Thử trên mẫu: bắt đúng 5/5 mẫu sai, không báo nhầm 3 mẫu đúng; trên code thật 0 vi phạm mới.
 - **Tài liệu**: `CLAUDE.md` + `AGENTS.md` (bảng luật 5 → 6, ghi chú "màu nhấn của app là trắng"), `rules.md` §5.4 thêm quy tắc kèm ví dụ đúng/sai.
 - Chuyển entry `[1.3.543]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
 
-## [1.3.572] - 2026-10-22
+## [1.3.577] - 2026-10-22
 
 ### feat: danh mục tìm nhanh ở Khám phá cho nguồn Legado không có Khám phá
 
@@ -117,7 +117,7 @@ Người dùng: *"các nguồn không khai báo exploreUrl/ruleExplore của leg
 - Chuyển entry `[1.3.542]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
 
-## [1.3.571] - 2026-10-22
+## [1.3.576] - 2026-10-22
 
 ### feat: nút chi tiết nguồn Legado trong bảng Phần mở rộng của Khám phá
 
@@ -127,7 +127,7 @@ Người dùng: *"thêm nút chi tiết nguồn các ext ở phần mở rộng 
 - Chuyển entry `[1.3.541]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới** (`ExtensionSelectorView.swift` 200 → 217). Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
 
-## [1.3.570] - 2026-10-22
+## [1.3.575] - 2026-10-22
 
 ### fix: nguồn Legado: tên gốc ở Kho, nút và chip không còn trắng trên trắng, không nối sang chương sau
 
@@ -143,7 +143,7 @@ Thử máy với bộ 1298 (log `app_logs (113)`, `(114)`). Người dùng: *"đ
 - Chuyển entry `[1.3.540]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử lại trên máy.
 
-## [1.3.569] - 2026-10-21
+## [1.3.574] - 2026-10-21
 
 ### feat: nối nốt nguồn Legado: giải mã bìa, imageStyle, ghi đè loại sách, làm mới chương, alert trình duyệt, dọn trạng thái mồ côi
 
@@ -159,20 +159,20 @@ Người dùng: *"Làm nốt các mục chưa nối: coverDecodeJs, imageStyle, 
 - Chuyển entry `[1.3.539]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới** (`ComicReaderViewModel` không đổi). Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
 
-## [1.3.568] - 2026-10-21
+## [1.3.573] - 2026-10-21
 
 ### docs: quy chuẩn nguồn Legado trong rules.md, client gỡ lỗi nhận chi tiết media
 
 Rà soát cuối đợt 2 + 3 nguồn Legado.
 
-- **`rules.md`** thêm mục "Nguồn Legado (1.3.557–1.3.567)": clean-room (hành vi chỉ lấy từ spec), mọi lời gọi runtime qua `SourceRuntime`, nhận diện theo `Extension.type` + `packageId` đóng băng, không qua `cleanAndResolveUrl`, engine chạy ngoài main và chờ UI qua event center, `isInteractive` chỉ cho thao tác một nguồn do người dùng bấm, đăng nhập chỉ ở Keychain (dự phòng tệp bảo vệ) và không sao lưu, cửa sổ trượt 8 nguồn khi tìm mọi nguồn, media không qua pipeline text.
-- **Client VS Code** (`Tools/VSCode/FreeBookExtDebug/src/protocol.ts`): mirror trường tuỳ chọn `media` (`LegadoCorpusMediaCheck`) mà 1.3.565 thêm vào báo cáo nghiệm thu — trường thêm, tuỳ chọn, không đổi version giao thức. Kiểm kiểu `tsc --noEmit`: 0 lỗi.
-- **Bộ quét gợi ý** (`LegadoCorpusFeatureScan`): bỏ `Jsoup.connect` khỏi danh sách "chưa hỗ trợ" — shim `Connection` đã cài ở 1.3.564 (bootstrap `connect` chạy sau `jsoup`, ghi đè stub mặc định).
-- Entry 1.3.564 ghi rõ `java.open`, `openVideoPlayer`, `addBook` vẫn là stub (hoãn hẳn theo spec).
+- **`rules.md`** thêm mục "Nguồn Legado (1.3.562–1.3.572)": clean-room (hành vi chỉ lấy từ spec), mọi lời gọi runtime qua `SourceRuntime`, nhận diện theo `Extension.type` + `packageId` đóng băng, không qua `cleanAndResolveUrl`, engine chạy ngoài main và chờ UI qua event center, `isInteractive` chỉ cho thao tác một nguồn do người dùng bấm, đăng nhập chỉ ở Keychain (dự phòng tệp bảo vệ) và không sao lưu, cửa sổ trượt 8 nguồn khi tìm mọi nguồn, media không qua pipeline text.
+- **Client VS Code** (`Tools/VSCode/FreeBookExtDebug/src/protocol.ts`): mirror trường tuỳ chọn `media` (`LegadoCorpusMediaCheck`) mà 1.3.570 thêm vào báo cáo nghiệm thu — trường thêm, tuỳ chọn, không đổi version giao thức. Kiểm kiểu `tsc --noEmit`: 0 lỗi.
+- **Bộ quét gợi ý** (`LegadoCorpusFeatureScan`): bỏ `Jsoup.connect` khỏi danh sách "chưa hỗ trợ" — shim `Connection` đã cài ở 1.3.569 (bootstrap `connect` chạy sau `jsoup`, ghi đè stub mặc định).
+- Entry 1.3.569 ghi rõ `java.open`, `openVideoPlayer`, `addBook` vẫn là stub (hoãn hẳn theo spec).
 - Chuyển entry `[1.3.538]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch.
 
-## [1.3.567] - 2026-10-21
+## [1.3.572] - 2026-10-21
 
 ### feat: đăng nhập nguồn Legado (form + web), trình duyệt cho JS, Khám phá động
 
@@ -188,7 +188,7 @@ Khối D-UI, E-UI của plan đợt 2 + 3 nguồn Legado — giao diện khớp 
 - Chuyển entry `[1.3.537]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới** (`ChapterContentRepository` 430 → 430, `ReaderViewModel` 777 → 777, `DiscoveryView` 621 → 622, `SearchView` 794 → 794, `ComicReaderViewModel` 395 → 395). Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
 
-## [1.3.566] - 2026-10-21
+## [1.3.571] - 2026-10-21
 
 ### feat: màn quản lý nguồn Legado: chi tiết, sửa JSON, gỡ lỗi, kiểm tra hàng loạt, xuất, liên kết legado://
 
@@ -205,7 +205,7 @@ Khối F, G, H của plan đợt 2 + 3 nguồn Legado. Giao diện khớp mockup
 - Chuyển entry `[1.3.536]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**; `RepositoryManagerView.swift` không đổi. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
 
-## [1.3.565] - 2026-10-21
+## [1.3.570] - 2026-10-21
 
 ### feat: truyện tranh và video từ nguồn Legado
 
@@ -222,7 +222,7 @@ Khối A, B, C (và phần cấp luồng của khối I) của plan đợt 2 + 3
 - Chuyển entry `[1.3.535]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới** (`ComicReaderViewModel.swift` 394 → 395). Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
 
-## [1.3.564] - 2026-10-21
+## [1.3.569] - 2026-10-21
 
 ### feat: engine nguồn Legado đợt 2 + 3: đăng nhập, trình duyệt từ JS, khám phá có kiểu, font, tệp, RSA
 
@@ -237,7 +237,7 @@ Khối D-engine, E-engine, I, J của plan đợt 2 + 3 nguồn Legado (người
 - Chuyển entry `[1.3.534]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. 9 bootstrap JS chạy thử trên Node với lệnh native giả: 43/43 phép thử đạt. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
 
-## [1.3.563] - 2026-10-21
+## [1.3.568] - 2026-10-21
 
 ### docs: đặc tả hành vi nguồn Legado phần 2 (tranh, video, đăng nhập, quản lý, phần hiếm)
 
@@ -249,7 +249,7 @@ Người dùng: *"làm ra thành phẩm luôn đừng có nghiệm thu"* — ch�
 - Không đổi code; commit chỉ tài liệu nên CI không chạy.
 - Chuyển entry `[1.3.533]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 
-## [1.3.562] - 2026-10-21
+## [1.3.567] - 2026-10-21
 
 ### feat: bộ chạy nghiệm thu nguồn Legado qua Debug server
 
@@ -265,13 +265,13 @@ Bước 13 của đợt 1 plan "nguồn truyện Legado — viết mới theo đ
 - Chuyển entry `[1.3.532]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. TypeScript kiểm kiểu với stub theo chữ ký thật (chưa `npm run compile` thật). Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa chạy trên máy.
 
-## [1.3.561] - 2026-10-21
+## [1.3.566] - 2026-10-21
 
 ### feat: luồng nguồn Legado, facade SourceRuntime và nối vào Tìm kiếm, Khám phá, Reader, tải truyện
 
 Bước 9, 10 và phần còn lại của bước 11 trong đợt 1 plan "nguồn truyện Legado — viết mới theo đặc tả". Luồng theo `Docs/Specs/legado-source-spec.md` §5.
 
-- **Luồng** (`Sources/Services/LegadoSource/Runtime/`, mới): `LegadoSourceRuntime` + `Search` / `Explore` / `Detail` / `Toc` / `Content` trên engine 1.3.560, trả đúng DTO hiện có (`ExtensionItemResult`, `NovelDetailResult`, `ChapterResult`, `CategoryResult`, `String`). Vòng `nextTocUrl`/`nextContentUrl` dừng + chống lặp theo §5.6, có trần trang; nội dung nhiều trang dùng chung một runtime JS. Mục tên tập (`isVolume`) **không thành chương** (quyết định K), chương đánh số liên tục; chương tên rỗng thành "Chương N"; trang sau lỗi thì giữ phần đã tải. `kind` → thẻ thể loại không có script (chỉ là nhãn). Nguồn đang tắt vẫn đọc tiếp được sách đã có trên kệ.
+- **Luồng** (`Sources/Services/LegadoSource/Runtime/`, mới): `LegadoSourceRuntime` + `Search` / `Explore` / `Detail` / `Toc` / `Content` trên engine 1.3.565, trả đúng DTO hiện có (`ExtensionItemResult`, `NovelDetailResult`, `ChapterResult`, `CategoryResult`, `String`). Vòng `nextTocUrl`/`nextContentUrl` dừng + chống lặp theo §5.6, có trần trang; nội dung nhiều trang dùng chung một runtime JS. Mục tên tập (`isVolume`) **không thành chương** (quyết định K), chương đánh số liên tục; chương tên rỗng thành "Chương N"; trang sau lỗi thì giữ phần đã tải. `kind` → thẻ thể loại không có script (chỉ là nhãn). Nguồn đang tắt vẫn đọc tiếp được sách đã có trên kệ.
 - **Trạng thái theo truyện** (quyết định G): `LegadoBookStateStore` giữ `tocUrl` + biến truyện/chương **trong bộ nhớ** theo `packageId + bookUrl`; chỉ ghi sidecar `applicationSupport/legado_state/<sha256(bookId)>.json` khi sách đã thật sự tồn tại (đã có mục lục trong `ChapterStore`) — mở trang chi tiết (bookId UUID mới mỗi lần) hay đổi nguồn thất bại không sinh file. Lượt thông tin sách chạy song song với mục lục được gộp (`LegadoBookInfoCoalescer`). `deleteState(bookId:)` static, gọi khi xoá sách và khi đổi nguồn dọn sách cũ.
 - **Facade** `SourceRuntime` (`Sources/Services/Extensions/`, mới): giữ **nguyên nhãn tham số** của `ExtensionManager.search/detail/page/toc/chap/genre/home/executeCustomScript` (+ `context: SourceRuntimeContext?` tuỳ chọn ở cuối — bookId, URL sách, tên, tác giả, tiêu đề/chỉ số chương). Tiện ích JS ⇒ chuyển nguyên tham số sang `ExtensionManager` (hành vi không đổi). Nguồn Legado ⇒ engine, **không** qua `cleanAndResolveUrl`. `page` của Legado trả `[url]` (vòng mục lục nằm trong `toc`); `home` trả `[]`, `genre` trả các mục khám phá bấm được với script giả `__legado_explore__`. Tranh/video Legado ném "chưa hỗ trợ ở bản này".
 - **Call site** đổi sang facade (không đổi logic tiện ích JS): `ChapterContentRepository` (tách `+SourceFetch`), `BookDetailLoader` (+`context:`), `BookDetailView+Extensions/+TOCPreparation`, `SearchView`, `DiscoveryView+Loading`, `PaginatedNovelLoader`, `AllCommentsView`, `CommentSectionView`, `SuggestRowView`, `NewChapterProbe`, `ExportContentProvider`, `DownloadManager`. `BookDownloadWorker` rẽ nhánh Legado **trước** `prepareIfNeeded`/`cleanAndResolveUrl` (`+Legado`), vẫn tuần tự và huỷ được.
@@ -283,7 +283,7 @@ Bước 9, 10 và phần còn lại của bước 11 trong đợt 1 plan "nguồ
 - Chuyển entry `[1.3.531]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới** (`SearchView.swift` 821 → 794, `ChapterContentRepository.swift` 455 → 430; các file legacy khác ≤ baseline). Không còn `ExtensionManager.shared.(search|detail|toc|chap|page|home|genre|executeCustomScript)(` ngoài facade. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
 
-## [1.3.560] - 2026-10-21
+## [1.3.565] - 2026-10-21
 
 ### feat: engine nguồn Legado (rule, mạng, JS) viết mới theo đặc tả
 
@@ -297,7 +297,7 @@ Bước 6, 7, 8 của đợt 1 plan "nguồn truyện Legado — viết mới th
 - Chuyển entry `[1.3.530]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**; mọi file ≤ 400 dòng; không có tên/đường dẫn của mã nguồn gốc trong code. Bootstrap JS đã qua `node --check`. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
 
-## [1.3.559] - 2026-10-21
+## [1.3.564] - 2026-10-21
 
 ### feat: kho nguồn Legado và tab Nguồn Legado trong Kho Tiện Ích
 
@@ -315,7 +315,7 @@ Bước 4, 5, 12 và phần màn Kho của bước 11 trong đợt 1 plan "ngu�
 - Chuyển entry `[1.3.529]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
 
-## [1.3.558] - 2026-10-21
+## [1.3.563] - 2026-10-21
 
 ### docs: đặc tả hành vi nguồn Legado đợt 1 (clean-room)
 
@@ -328,7 +328,7 @@ Bước 2 của đợt 1 plan "nguồn truyện Legado — viết mới theo đ�
 - Không đổi code. Không build — commit chỉ có tài liệu nên CI không chạy.
 - Chuyển entry `[1.3.528]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 
-## [1.3.557] - 2026-10-21
+## [1.3.562] - 2026-10-21
 
 ### build: link libxml2 cho XPath của nguồn Legado, CI chạy trên nhánh Legado
 

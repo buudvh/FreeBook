@@ -4,7 +4,7 @@ import SwiftUI
 ///
 /// Vì sao phải có: `MainTabView` đặt `.tint(.white)` toàn cục, nên `Color.accentColor` **là màu trắng** và
 /// `.borderedProminent` không kèm `.tint(…)` là **nền trắng** — đặt chữ trắng lên là vô hình (lỗi đã gặp ở 1.3.447 và
-/// 1.3.567). Nút đặc mới dùng `.buttonStyle(.appFilled)` / `.appFilled(.purple)` thay vì tự tô nền bằng màu nhấn;
+/// 1.3.572). Nút đặc mới dùng `.buttonStyle(.appFilled)` / `.appFilled(.purple)` thay vì tự tô nền bằng màu nhấn;
 /// `check_architecture.py` (luật `WHITE_TINT_FILL`) chặn hai mẫu sai trong `Sources/Views/**`.
 ///
 /// ```swift
