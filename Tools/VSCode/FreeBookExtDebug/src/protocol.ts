@@ -113,6 +113,8 @@ export type LegadoCorpusFailureClass =
   | 'invalidSource'
   | 'other';
 export type LegadoCorpusOutcome = 'passed' | 'failed' | 'skipped' | 'cancelled';
+/** Mirror `LegadoFailureVerdict` (Swift) — kết luận "lỗi do ai" của nguồn lỗi. */
+export type LegadoFailureVerdict = 'web' | 'sourceOutdated' | 'needsUser' | 'app' | 'unknown';
 export type LegadoCorpusState = 'running' | 'finished' | 'cancelled';
 
 export interface LegadoCorpusStepRecord {
@@ -142,6 +144,10 @@ export interface LegadoCorpusSourceResult {
   abandonedSteps: number;
   /** Nguồn tranh/video: chi tiết bước media (nằm trong bước `content`); vắng với truyện chữ và app cũ. */
   media?: LegadoCorpusMediaCheck;
+  /** Kết luận "lỗi do ai" — chỉ nguồn lỗi; vắng với nguồn khác và app cũ. */
+  verdict?: LegadoFailureVerdict;
+  /** Một câu lý do của kết luận (đã redact như `message`). */
+  verdictReason?: string;
 }
 
 /** Mirror `LegadoCorpusReport.MediaCheck` (Swift). */
@@ -175,6 +181,8 @@ export interface LegadoCorpusReport {
   cancelledSources: number;
   passPercent: number;
   byFailureClass: Record<string, number>;
+  /** Số nguồn lỗi theo kết luận (`LegadoFailureVerdict`); vắng ở app cũ. */
+  byVerdict?: Record<string, number>;
   byLastPassedStep: Record<string, number>;
   byFailedStep: Record<string, number>;
   httpStatusCounts: Record<string, number>;

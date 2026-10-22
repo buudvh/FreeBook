@@ -10,6 +10,9 @@ enum LegadoDebugReportFormatter {
         var lines: [String] = []
         lines.append("Gỡ lỗi nguồn Legado: \(sourceName)")
         lines.append("Chế độ: \(input.mode.label) · đầu vào: \(redactedInput(input))")
+        if let stopping = steps.last(where: { $0.isStopping && $0.verdict != nil }), let verdict = stopping.verdict {
+            lines.append("Kết luận: \(verdict.label) — \(stopping.verdictReason ?? "")")
+        }
         for step in steps {
             lines.append("")
             lines.append("[\(step.id + 1)] \(step.kind.title) — \(statusText(step.status)) · \(step.durationMs) ms")
@@ -32,6 +35,9 @@ enum LegadoDebugReportFormatter {
             }
             if let rule = step.rule, step.status != .passed {
                 lines.append("  Rule: \(rule.name) (\(rule.value.count) ký tự)")
+            }
+            if let probe = step.probes.last {
+                lines.append("  Đầu dò bộ chọn (\(probe.field)): \(probe.summary)")
             }
             if !step.unsupported.isEmpty {
                 lines.append("  Chưa hỗ trợ: " + step.unsupported.map(LegadoCorpusErrorClassifier.redact).joined(separator: "; "))

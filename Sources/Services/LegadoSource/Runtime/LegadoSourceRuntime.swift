@@ -81,7 +81,10 @@ enum LegadoSourceRuntime {
 
     // MARK: - Phiên
 
-    /// Chạy một phiên engine; chép chẩn đoán vào `log` khi phiên kết thúc (kể cả khi ném lỗi).
+    /// Chạy một phiên engine; chép chẩn đoán vào `log` khi phiên kết thúc (kể cả khi ném lỗi). `log == nil` ⇒ dùng
+    /// task-local `LegadoRunLog.current` (bộ nghiệm thu gọi qua facade) — đọc **ở đây**, trong ngữ cảnh async, trước khi
+    /// engine sang thread riêng. Trong lúc phiên chạy, log được gắn với phiên để code luồng ghi đầu dò bộ chọn
+    /// (`LegadoSelectorProbe.record(in:…)`).
     static func runSession<T>(
         _ target: Target,
         book: LegadoBookContext? = nil,
@@ -89,8 +92,15 @@ enum LegadoSourceRuntime {
         log: LegadoRunLog?,
         _ body: @escaping @Sendable (LegadoEngineSession) throws -> T
     ) async throws -> T {
-        try await LegadoEngineSession.run(source: target.engineSource, book: book, chapter: chapter) { session in
-            defer { log?.absorb(session.diagnostics) }
+        let runLog = LegadoRunLog.resolve(log)
+        return try await LegadoEngineSession.run(source: target.engineSource, book: book, chapter: chapter) { session in
+            if let runLog { LegadoRunLog.sessions.bind(runLog, to: session) }
+            defer {
+                if let runLog {
+                    LegadoRunLog.sessions.unbind(session)
+                    runLog.absorb(session.diagnostics)
+                }
+            }
             return try body(session)
         }
     }

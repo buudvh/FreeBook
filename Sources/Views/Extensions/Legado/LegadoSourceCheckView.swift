@@ -2,8 +2,9 @@ import SwiftUI
 
 /// Màn **Kiểm tra nguồn** (spec §12.4): chạy `LegadoCorpusRunner` (4 nguồn song song, mỗi nguồn tìm/khám phá → chi
 /// tiết → mục lục → chương đầu) trên danh sách nguồn được giao, hiện tiêu đề phạm vi, thanh tiến độ, 3 ô Đạt / Lỗi /
-/// Còn lại, chip lọc Tất cả / Lỗi / Đạt, dòng từng nguồn (nút 🐞 ⇒ Gỡ lỗi từng bước), và các hành động trên nguồn lỗi:
-/// **Tắt nguồn lỗi**, **Gắn nhóm "Lỗi"**, **Xoá nguồn lỗi** (hỏi xác nhận), **Dừng** khi đang chạy.
+/// Còn lại, phần "Lỗi do ai" (ô đếm theo kết luận + chip lọc, `LegadoSourceCheckVerdictPanel`), dòng từng nguồn (nút 🐞
+/// ⇒ Gỡ lỗi từng bước), và các hành động trên nguồn lỗi: **Tắt nguồn lỗi**, **Gắn nhóm "Lỗi"**, **Xoá nguồn lỗi** (hỏi
+/// xác nhận), **Dừng** khi đang chạy. Nút chia sẻ (toolbar) xuất JSON báo cáo lượt hiện tại (đã redact) qua Services.
 ///
 /// Một lượt tại một thời điểm (bộ chạy dùng chung với Debug server). Gọi thẳng API Swift của bộ chạy (không qua mạng),
 /// thăm dò trạng thái mỗi giây. Không tự tạo `NavigationStack` — nơi trình bày bọc (sheet từ menu ⋯) hoặc đẩy trong
@@ -12,18 +13,6 @@ struct LegadoSourceCheckView: View {
     let packageIds: [String]
     let scopeTitle: String
 
-    private enum Filter: String, CaseIterable, Identifiable {
-        case all, failed, passed
-        var id: String { rawValue }
-        var label: String {
-            switch self {
-            case .all: return "Tất cả"
-            case .failed: return "Lỗi"
-            case .passed: return "Đạt"
-            }
-        }
-    }
-
     static let failedGroupName = "Lỗi"
 
     @State private var report: LegadoCorpusReport?
@@ -31,11 +20,13 @@ struct LegadoSourceCheckView: View {
     @State private var hasStarted = false
     @State private var startError: String?
     @State private var isBusyConflict = false
-    @State private var filter: Filter = .all
+    @State private var filter: LegadoSourceCheckFilter = .all
     @State private var debugPackageId: String?
     @State private var actionMessage: String?
     @State private var showingDeleteConfirm = false
     @State private var isActing = false
+    @State private var shareURL: URL?
+    @State private var isPreparingShare = false
 
     private var isRunning: Bool { report?.state == .running }
     private var results: [LegadoCorpusReport.SourceResult] { report?.sources ?? [] }
@@ -48,7 +39,7 @@ struct LegadoSourceCheckView: View {
                 startErrorView(startError)
             } else {
                 summaryTiles
-                filterChips
+                LegadoSourceCheckVerdictPanel(results: results, filter: $filter)
                 resultList
                 actionBar
             }
@@ -56,6 +47,21 @@ struct LegadoSourceCheckView: View {
         .padding(.top, 8)
         .navigationTitle("Kiểm tra nguồn")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(action: shareReport) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 17, weight: .semibold))
+                        .frame(width: 36, height: 36)
+                        .contentShape(Rectangle())
+                }
+                .disabled((report?.sources?.isEmpty ?? true) || isPreparingShare)
+                .accessibilityLabel("Chia sẻ báo cáo kiểm tra")
+            }
+        }
+        .sheet(isPresented: isSharing) {
+            if let shareURL { ShareSheet(activityItems: [shareURL]) }
+        }
         .navigationDestination(item: $debugPackageId) { id in
             LegadoSourceDebugView(packageId: id, sourceName: displayName(for: id))
         }
@@ -71,7 +77,7 @@ struct LegadoSourceCheckView: View {
         }
         .onDisappear {
             // Mở Gỡ lỗi (đẩy màn mới) cũng làm màn này "biến mất" — chỉ dừng khi thật sự rời màn.
-            guard debugPackageId == nil, isRunning else { return }
+            guard debugPackageId == nil, shareURL == nil, isRunning else { return }
             cancelRun()
         }
     }
@@ -128,40 +134,12 @@ struct LegadoSourceCheckView: View {
         .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
     }
 
-    private var filterChips: some View {
-        HStack(spacing: 8) {
-            ForEach(Filter.allCases) { item in
-                let isSelected = item == filter
-                Button(action: { filter = item }) {
-                    Text(item.label)
-                        .font(.caption.weight(isSelected ? .semibold : .regular))
-                        .padding(.horizontal, 12)
-                        .frame(height: 30)
-                        .background(isSelected ? Color.accentColor.opacity(0.18) : Color(.secondarySystemBackground))
-                        .foregroundColor(isSelected ? .accentColor : .primary)
-                        .clipShape(Capsule())
-                        // App đặt `.tint(.white)` toàn cục ⇒ màu nhấn là trắng: chip chọn theo kiểu `ExtensionKindFilterBar`.
-                        .overlay(Capsule().stroke(isSelected ? Color.accentColor.opacity(0.6) : Color.white.opacity(0.12), lineWidth: 1))
-                }
-                .buttonStyle(.plain)
-            }
-            Spacer()
-        }
-        .padding(.horizontal)
-    }
-
     // MARK: - Danh sách
 
     @ViewBuilder
     private var resultList: some View {
         let names = displayNames
-        let rows = results.filter { result in
-            switch filter {
-            case .all: return true
-            case .failed: return result.outcome == .failed
-            case .passed: return result.outcome == .passed
-            }
-        }
+        let rows = results.filter { filter.matches($0) }
         if rows.isEmpty {
             VStack {
                 Spacer()
@@ -292,6 +270,24 @@ struct LegadoSourceCheckView: View {
             }
             try? await Task.sleep(nanoseconds: 1_000_000_000)
         }
+    }
+
+    /// Chia sẻ JSON báo cáo lượt hiện tại: Services ghi tệp tạm (ngoài main), View chỉ trình bày share sheet.
+    private func shareReport() {
+        guard let report, !isPreparingShare else { return }
+        isPreparingShare = true
+        Task { @MainActor in
+            let result = await LegadoCorpusReportShare.write(report)
+            isPreparingShare = false
+            switch result {
+            case .success(let url): shareURL = url
+            case .failure(let error): actionMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private var isSharing: Binding<Bool> {
+        Binding(get: { shareURL != nil }, set: { if !$0 { shareURL = nil } })
     }
 
     private func cancelRun() {

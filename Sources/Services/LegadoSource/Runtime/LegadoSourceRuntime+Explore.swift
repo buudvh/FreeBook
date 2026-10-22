@@ -60,7 +60,12 @@ extension LegadoSourceRuntime {
             session.page = pageNumber
             let response = try session.fetch(url, key: "", page: pageNumber)
             let analyzer = session.analyzer(response: response)
-            let found = try Self.extractBooks(session: session, analyzer: analyzer, rule: rule)
+            let extracted = try Self.extractBooksCounting(session: session, analyzer: analyzer, rule: rule)
+            let found = extracted.books
+            if found.isEmpty {
+                LegadoSelectorProbe.record(in: session, field: "bookList", rule: rule.bookList, response: response,
+                                           matchedElements: extracted.matched)
+            }
             if found.isEmpty, Self.hasHardFailure(session) {
                 throw Self.emptyResultError(session, "bookList")
             }

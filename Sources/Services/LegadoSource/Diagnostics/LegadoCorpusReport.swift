@@ -85,6 +85,10 @@ public struct LegadoCorpusReport: Codable, Sendable {
         public let abandonedSteps: Int
         /// Nguồn tranh/video: chi tiết bước media (nằm trong bước `content`); `nil` với truyện chữ và báo cáo cũ.
         public let media: MediaCheck?
+        /// Kết luận "lỗi do ai" (`LegadoFailureArbiter`) — chỉ nguồn **lỗi**; `nil` với nguồn khác và báo cáo cũ.
+        public let verdict: LegadoFailureVerdict?
+        /// Một câu lý do của kết luận (đã redact như `message`).
+        public let verdictReason: String?
 
         public init(
             packageId: String,
@@ -101,7 +105,9 @@ public struct LegadoCorpusReport: Codable, Sendable {
             steps: [StepRecord],
             unsupportedHints: [String],
             abandonedSteps: Int,
-            media: MediaCheck? = nil
+            media: MediaCheck? = nil,
+            verdict: LegadoFailureVerdict? = nil,
+            verdictReason: String? = nil
         ) {
             self.packageId = packageId
             self.name = name
@@ -118,6 +124,8 @@ public struct LegadoCorpusReport: Codable, Sendable {
             self.unsupportedHints = unsupportedHints
             self.abandonedSteps = abandonedSteps
             self.media = media
+            self.verdict = verdict
+            self.verdictReason = verdictReason
         }
 
         /// Kết quả "bỏ qua" dựng ngay lúc chọn nguồn, chưa chạy bước nào.
@@ -162,6 +170,8 @@ public struct LegadoCorpusReport: Codable, Sendable {
     /// `passed / attempted × 100`, làm tròn 0,1. `0` khi chưa có nguồn nào chạy xong.
     public let passPercent: Double
     public let byFailureClass: [String: Int]
+    /// Số nguồn lỗi theo kết luận (`LegadoFailureVerdict.rawValue`); `nil` ở báo cáo cũ.
+    public let byVerdict: [String: Int]?
     /// Bước qua cuối cùng của mỗi nguồn đã chạy (`none` = hỏng ngay bước đầu).
     public let byLastPassedStep: [String: Int]
     public let byFailedStep: [String: Int]
@@ -192,6 +202,7 @@ extension LegadoCorpusReport {
         includeSources: Bool
     ) -> LegadoCorpusReport {
         var byFailureClass: [String: Int] = [:]
+        var byVerdict: [String: Int] = [:]
         var byLastPassedStep: [String: Int] = [:]
         var byFailedStep: [String: Int] = [:]
         var httpStatusCounts: [String: Int] = [:]
@@ -217,6 +228,9 @@ extension LegadoCorpusReport {
                 failed += 1
                 if let failureClass = result.failureClass {
                     byFailureClass[failureClass.rawValue, default: 0] += 1
+                }
+                if let verdict = result.verdict {
+                    byVerdict[verdict.rawValue, default: 0] += 1
                 }
                 if let step = result.failedStep {
                     byFailedStep[step.rawValue, default: 0] += 1
@@ -249,6 +263,7 @@ extension LegadoCorpusReport {
             cancelledSources: cancelled,
             passPercent: percent,
             byFailureClass: byFailureClass,
+            byVerdict: byVerdict,
             byLastPassedStep: byLastPassedStep,
             byFailedStep: byFailedStep,
             httpStatusCounts: httpStatusCounts,
@@ -267,8 +282,13 @@ extension LegadoCorpusReport {
             .map { "\($0.key) \($0.value)" }
             .joined(separator: ", ")
         let classText = classes.isEmpty ? "không có lỗi" : classes
+        let verdicts = (byVerdict ?? [:])
+            .sorted { $0.value == $1.value ? $0.key < $1.key : $0.value > $1.value }
+            .map { "\($0.key) \($0.value)" }
+            .joined(separator: ", ")
+        let verdictText = verdicts.isEmpty ? "" : " · lỗi do: \(verdicts)"
         return "🧪 [LegadoCorpus] \(state.rawValue): qua \(passed)/\(attempted) (\(passPercent)%) · bỏ qua \(skipped)"
-            + " · lỗi: \(classText) · báo cáo: \(reportPath ?? "chưa ghi")"
+            + " · lỗi: \(classText)\(verdictText) · báo cáo: \(reportPath ?? "chưa ghi")"
     }
 
     static func isoString(_ date: Date) -> String {

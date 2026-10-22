@@ -83,6 +83,8 @@ extension LegadoSourceRuntime {
         var parts: [String] = []
         var loaded = 0
         var firstPageURL = LegadoURLResolver.splitOption(chapterUrl).url
+        // Trang đầu — cho đầu dò bộ chọn khi cả chương ra rỗng (không dò khi thân là kết quả `webJs`).
+        var firstPage: LegadoHTTPResponse?
         while head < queue.count, loaded < contentPageLimit {
             let pageURL = queue[head]
             head += 1
@@ -98,7 +100,10 @@ extension LegadoSourceRuntime {
                 }
             }
             loaded += 1
-            if loaded == 1 { firstPageURL = response.finalURL }
+            if loaded == 1 {
+                firstPageURL = response.finalURL
+                firstPage = response
+            }
             visited.insert(LegadoURLResolver.normalizedForComparison(response.finalURL))
             let analyzer = session.analyzer(response: response)
             // Trường nội dung: phần tử HTML (vd danh sách `<img>` do JS trả) giữ outer HTML (spec §15.3 mục 2).
@@ -123,6 +128,10 @@ extension LegadoSourceRuntime {
         }
 
         let joined = parts.joined(separator: "\n")
+        if trimmed(joined).isEmpty, webJs == nil, let firstPage {
+            LegadoSelectorProbe.record(in: session, field: "content", rule: rule.content, response: firstPage,
+                                       matchedElements: nil)
+        }
         var processed = joined
         if nonEmpty(rule.replaceRegex) != nil, !trimmed(joined).isEmpty {
             let replaced = try session.analyzer(node: .string(joined), baseUrl: chapterUrl, src: joined).string(rule.replaceRegex)

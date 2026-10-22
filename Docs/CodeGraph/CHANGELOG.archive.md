@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.544] - 2026-10-19
+
+### feat: thêm nút tải hàng loạt trong danh sách chương của reader
+
+Người dùng: *"thêm cả nút download vào danh sách chương của reader"* → *"ở reader chữ, giống chức năng tải truyện khi nhấn giữ ở kệ và lịch sử"* → *"thêm nút tải hàng loạt cho cả reader comic"*. Mockup: `Docs/Mockups/2026-10-19-mockup-bulk-download.html`. Plan: `Docs/Plans/2026-10-19-plan-reader-toc-bulk-download.md`.
+
+- **Hiện trạng**: reader chữ đã có nút tải **từng chương** (1.3.334, ẩn khi `!canDownloadChapters`); comic chỉ hiện dấu "đã tải", chưa có tải lẻ; cả hai chưa có tải cả bộ.
+- **Reader chữ**: `bulkDownloadButton` (icon `arrow.down.to.line`) chèn **đầu** hàng nút ở header danh sách chương; `.sheet` ở gốc view mở `TaskOptionsSheet(book:taskType:.download)` — đúng sheet mà nhấn-giữ ở Kệ/Lịch sử vẫn mở, nên không nhân đôi logic tải. Ẩn cùng điều kiện `canDownloadChapters`.
+- **Comic**: `ComicReaderView` giữ `Book` đã đọc trong `bootstrap()` vào `@State localBook` (trước đây đọc xong bỏ); `ComicChapterListSheet` nhận `book`, thêm nút ở `topBarLeading` ("Tải ảnh offline") + sheet lồng mở cùng `TaskOptionsSheet`.
+- **Không làm**: không thêm tải lẻ cho comic; không đổi `TaskOptionsSheet` / `DownloadManager` / coordinator; không tạo hàng `Book` mới (nút ẩn khi sách chưa có trong thư viện).
+- **Kiểm chứng**: `swiftc -parse` sạch 7 file; `check_architecture.py` 2 violation nền (`JSDom.swift`, `TTSManager.swift`), **0 mới**; `ReaderChapterListView` 337 dòng, `+Download` 94, `ComicChapterListSheet` 135, `ComicReaderView` 273. Không build tại chỗ (Windows) — CI xác nhận biên dịch.
+
 ## [1.3.543] - 2026-10-19
 
 ### feat: mục lục dạng lưới tập cho màn chi tiết video

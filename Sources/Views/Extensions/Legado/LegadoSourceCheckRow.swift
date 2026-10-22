@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Một dòng kết quả của màn "Kiểm tra nguồn": icon trạng thái, tên nguồn, bước + lớp lỗi (hoặc thời gian khi qua) và
-/// nút 🐞 mở "Gỡ lỗi từng bước" của nguồn đó.
+/// Một dòng kết quả của màn "Kiểm tra nguồn": icon trạng thái, tên nguồn, dòng chi tiết và nút 🐞 mở "Gỡ lỗi từng
+/// bước" của nguồn đó. Nguồn lỗi có kết luận ⇒ dòng "Kết luận · bước · lý do" theo màu kết luận (icon cũng vậy), dưới
+/// là dòng kỹ thuật (lớp lỗi, HTTP, thông điệp) màu phụ.
 struct LegadoSourceCheckRow: View {
     let result: LegadoCorpusReport.SourceResult
     let displayName: String
@@ -15,10 +16,21 @@ struct LegadoSourceCheckRow: View {
                 Text(displayName)
                     .font(.subheadline.weight(.medium))
                     .lineLimit(1)
-                Text(detailLine)
-                    .font(.caption2)
-                    .foregroundColor(result.outcome == .failed ? .red : .secondary)
-                    .lineLimit(3)
+                if let verdict = failedVerdict {
+                    Text(verdictLine(verdict))
+                        .font(.caption2.weight(.medium))
+                        .foregroundColor(verdict.tint)
+                        .lineLimit(3)
+                    Text(detailLine)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                } else {
+                    Text(detailLine)
+                        .font(.caption2)
+                        .foregroundColor(result.outcome == .failed ? .red : .secondary)
+                        .lineLimit(3)
+                }
             }
             Spacer(minLength: 4)
             Button(action: onDebug) {
@@ -39,7 +51,11 @@ struct LegadoSourceCheckRow: View {
         case .passed:
             Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
         case .failed:
-            Image(systemName: "xmark.octagon.fill").foregroundColor(.red)
+            if let verdict = failedVerdict {
+                Image(systemName: verdict.systemImage).foregroundColor(verdict.tint)
+            } else {
+                Image(systemName: "xmark.octagon.fill").foregroundColor(.red)
+            }
         case .skipped:
             Image(systemName: "minus.circle").foregroundColor(.secondary)
         case .cancelled:
@@ -47,6 +63,19 @@ struct LegadoSourceCheckRow: View {
         default:
             Image(systemName: "questionmark.circle").foregroundColor(.secondary)
         }
+    }
+
+    /// Kết luận của nguồn lỗi (báo cáo cũ / nguồn không lỗi ⇒ `nil`).
+    private var failedVerdict: LegadoFailureVerdict? {
+        result.outcome == .failed ? result.verdict : nil
+    }
+
+    /// "Web chặn / sập · Tìm kiếm · HTTP 403 — web từ chối truy cập".
+    private func verdictLine(_ verdict: LegadoFailureVerdict) -> String {
+        var parts = [verdict.label]
+        if let step = result.failedStep { parts.append(Self.stepLabel(step)) }
+        if let reason = result.verdictReason, !reason.isEmpty { parts.append(reason) }
+        return parts.joined(separator: " · ")
     }
 
     private var detailLine: String {

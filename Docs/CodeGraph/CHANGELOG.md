@@ -2,6 +2,25 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.574] - 2026-10-22
+
+### feat: tự kết luận lỗi nguồn Legado do web, do nguồn hay do app, chia sẻ báo cáo kiểm tra
+
+Người dùng: *"nhiều nguồn lỗi nhưng không biết lỗi do nguồn hay do app"*; xem mockup rồi bảo *"tiếp tục"*.
+
+- **Bộ phân xử** (`LegadoFailureArbiter` + `+Evidence`, `LegadoFailureVerdict`, hàm thuần, `Services/LegadoSource/Diagnostics/`) — dừng ở luật đầu khớp:
+  1. **Cần xác minh / đăng nhập**: trang thử thách/captcha (dấu `challenge-platform` chỉ tính khi mã ≥ 400 vì Cloudflare chèn cả vào trang thường; chữ yếu như "captcha" chỉ tính trong `<title>`, trang < 6 KB hoặc mã ≥ 400), nguồn có `loginUrl` bị 401/403, hoặc engine báo cần trình duyệt/mã xác minh khi chạy không tương tác.
+  2. **Web chặn / sập**: trang chặn theo vùng / từ chối truy cập (`LegadoPageMarker`), lỗi mạng, engine quá thời gian, HTTP 403 / 404 ở bước đầu / 410 / 429 / 451 / 5xx.
+  3. **Nghi do app**: cú pháp/hàm chưa hỗ trợ (trừ lớp dò app `io.legado.*`/`io.legato.*`), lỗi JS chỉ vào phần app giả lập, hoặc **đầu dò bộ chọn** thấy trang 2xx có đủ class/id của rule mà rule khớp 0 (thêm điều kiện: rule không có JS sau bộ chọn, khớp 0 chứ không phải lọc hết, thẻ cuối có thật trong phần tử chứa — trang tìm không có kết quả không bị kết luận oan; bước nội dung cần ≥ 50 ký tự chữ).
+  4. **Nguồn lỗi thời**: trang 2xx mà không token class/id nào của rule có trong trang, hoặc nguồn thiếu rule.
+  5. **Chưa rõ**: còn lại, kèm lý do (404 ở bước sau, máy mất mạng, lỗi JS của chính script nguồn…).
+- **Đầu dò bộ chọn** (`LegadoSelectorProbe`, `LegadoRuleSelectorTokens`): khi bước danh sách/nội dung ra rỗng sau trang 2xx, tách token `class.X`/`.X`/`id.X`/`#X`/`tag.X` của rule và kiểm trong **toàn bộ** HTML trang, ghi vào run log.
+- **Bằng chứng cho bộ chạy hàng loạt**: `LegadoRunLog.current` (task-local) — `runSession` dùng `log ?? LegadoRunLog.current` (đọc trước khi sang thread engine); bộ chạy bọc **từng bước** của mỗi nguồn. Không đổi chữ ký facade.
+- **Báo cáo**: `SourceResult.verdict` + `verdictReason` (tuỳ chọn), báo cáo tổng thêm `byVerdict`; mirror `protocol.ts` (trường tuỳ chọn, không nâng version; `tsc --noEmit` sạch).
+- **UI** (khớp mockup): màn Kiểm tra nguồn có ô đếm "Lỗi do ai" (`LegadoSourceCheckVerdictPanel`, chỉ ô > 0), chip lọc theo kết luận (`LegadoSourceCheckFilter`), dòng lỗi "Kết luận · bước · lý do" theo màu kết luận (`LegadoFailureVerdictStyle`), nút **chia sẻ báo cáo** ở toolbar (`LegadoCorpusReportShare` ghi JSON đã redact ra file tạm, `ShareSheet`); màn Gỡ lỗi từng bước có dải "Kết luận: …" (`LegadoFailureVerdictBanner`, nền nhạt — không nền màu nhấn đặc) dùng chung bộ phân xử.
+- Chuyển entry `[1.3.544]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới** (kể cả `WHITE_TINT_FILL`); không đụng engine `{JS,Engine,Net,Rule}`. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.573] - 2026-10-22
 
 ### fix: chặn tận gốc lỗi nút trắng trên trắng: kiểu nút appFilled và luật WHITE_TINT_FILL
@@ -416,15 +435,3 @@ Người dùng: *"mục lục ở chi tiết sửa mockup lại (để các tab 
 - **Tìm kiếm**: ẩn hàng tab, lưới trải trên mọi nhóm (không kẹt trong tab đang mở).
 - **Không đổi**: tầng dữ liệu (`session.episodes` / `currentEpisodeIndex` / `chapterSnapshots`), nhánh truyện chữ / truyện tranh, nút tải hàng loạt của `[1.3.544]`.
 - **Kiểm chứng**: `swiftc -parse` sạch 6 file; `check_architecture.py` 2 violation nền, **0 mới**; `BookDetailVideoTOCGrid` 370 dòng, `+Groups` 79, `BookDetailTOCView` 378, `VideoEpisodeGridView` 197. Không build tại chỗ (Windows) — CI xác nhận biên dịch.
-
-## [1.3.544] - 2026-10-19
-
-### feat: thêm nút tải hàng loạt trong danh sách chương của reader
-
-Người dùng: *"thêm cả nút download vào danh sách chương của reader"* → *"ở reader chữ, giống chức năng tải truyện khi nhấn giữ ở kệ và lịch sử"* → *"thêm nút tải hàng loạt cho cả reader comic"*. Mockup: `Docs/Mockups/2026-10-19-mockup-bulk-download.html`. Plan: `Docs/Plans/2026-10-19-plan-reader-toc-bulk-download.md`.
-
-- **Hiện trạng**: reader chữ đã có nút tải **từng chương** (1.3.334, ẩn khi `!canDownloadChapters`); comic chỉ hiện dấu "đã tải", chưa có tải lẻ; cả hai chưa có tải cả bộ.
-- **Reader chữ**: `bulkDownloadButton` (icon `arrow.down.to.line`) chèn **đầu** hàng nút ở header danh sách chương; `.sheet` ở gốc view mở `TaskOptionsSheet(book:taskType:.download)` — đúng sheet mà nhấn-giữ ở Kệ/Lịch sử vẫn mở, nên không nhân đôi logic tải. Ẩn cùng điều kiện `canDownloadChapters`.
-- **Comic**: `ComicReaderView` giữ `Book` đã đọc trong `bootstrap()` vào `@State localBook` (trước đây đọc xong bỏ); `ComicChapterListSheet` nhận `book`, thêm nút ở `topBarLeading` ("Tải ảnh offline") + sheet lồng mở cùng `TaskOptionsSheet`.
-- **Không làm**: không thêm tải lẻ cho comic; không đổi `TaskOptionsSheet` / `DownloadManager` / coordinator; không tạo hàng `Book` mới (nút ẩn khi sách chưa có trong thư viện).
-- **Kiểm chứng**: `swiftc -parse` sạch 7 file; `check_architecture.py` 2 violation nền (`JSDom.swift`, `TTSManager.swift`), **0 mới**; `ReaderChapterListView` 337 dòng, `+Download` 94, `ComicChapterListSheet` 135, `ComicReaderView` 273. Không build tại chỗ (Windows) — CI xác nhận biên dịch.

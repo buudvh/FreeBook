@@ -16,9 +16,15 @@ extension LegadoSourceRuntime {
             session.page = pageNumber
             let response = try session.fetch(searchUrl, key: key, page: pageNumber)
             let analyzer = session.analyzer(response: response)
-            var found = try Self.extractBooks(session: session, analyzer: analyzer, rule: target.source.ruleSearch)
+            let extracted = try Self.extractBooksCounting(session: session, analyzer: analyzer, rule: target.source.ruleSearch)
+            var found = extracted.books
             if found.isEmpty, let direct = try Self.directBookPage(session: session, target: target, response: response) {
                 found = [direct]
+            }
+            if found.isEmpty {
+                // Đầu dò bộ chọn (chỉ khi lượt chạy có log): bằng chứng "nguồn lỗi thời" hay "nghi do app".
+                LegadoSelectorProbe.record(in: session, field: "bookList", rule: target.source.ruleSearch.bookList,
+                                           response: response, matchedElements: extracted.matched)
             }
             if found.isEmpty, Self.hasHardFailure(session) {
                 throw Self.emptyResultError(session, "bookList")
@@ -34,6 +40,15 @@ extension LegadoSourceRuntime {
     /// `name, author, kind, wordCount, lastChapter, intro, coverUrl, bookUrl` (spec §6.2) và gán dần vào `book` của mục
     /// để rule sau đọc được `{{book.name}}`. Bỏ mục thiếu `name` hoặc `bookUrl` (§5.1.1 bước 4).
     static func extractBooks(session: LegadoEngineSession, analyzer: LegadoRuleAnalyzer, rule: LegadoSearchRule) throws -> [FoundBook] {
+        try extractBooksCounting(session: session, analyzer: analyzer, rule: rule).books
+    }
+
+    /// Như `extractBooks`, trả thêm số phần tử `bookList` khớp **trước** khi lọc mục thiếu tên/link (đầu dò bộ chọn).
+    static func extractBooksCounting(
+        session: LegadoEngineSession,
+        analyzer: LegadoRuleAnalyzer,
+        rule: LegadoSearchRule
+    ) throws -> (books: [FoundBook], matched: Int) {
         let items = try analyzer.elements(rule.bookList)
         var output: [FoundBook] = []
         let savedBook = session.book
@@ -65,7 +80,7 @@ extension LegadoSourceRuntime {
                 tocUrl: nil
             ))
         }
-        return output
+        return (output, items.count)
     }
 
     /// Trang tìm kiếm rơi thẳng vào trang sách (spec §5.1.4, khuyến nghị cho U21): `bookList` ra 0 mục **và** URL cuối

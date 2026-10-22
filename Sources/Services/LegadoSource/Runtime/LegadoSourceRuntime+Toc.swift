@@ -159,6 +159,9 @@ extension LegadoSourceRuntime {
         var seenPages: Set<String> = []
         var output: [TocEntry] = []
         var loaded = 0
+        // Trang đầu + số phần tử `chapterList` khớp — cho đầu dò bộ chọn khi cả mục lục ra rỗng.
+        var firstPage: LegadoHTTPResponse?
+        var firstMatched = 0
         while head < queue.count, loaded < tocPageLimit {
             let pageURL = queue[head]
             head += 1
@@ -180,8 +183,13 @@ extension LegadoSourceRuntime {
             visited.insert(LegadoURLResolver.normalizedForComparison(response.finalURL))
             if loaded == 1 { book.tocUrl = response.finalURL }
             let analyzer = session.analyzer(response: response)
-            let entries = try parseTocPage(session: session, analyzer: analyzer, rule: rule, book: book,
-                                           startIndex: output.count, chapterVariables: &chapterVariables)
+            let parsed = try parseTocPage(session: session, analyzer: analyzer, rule: rule, book: book,
+                                          startIndex: output.count, chapterVariables: &chapterVariables)
+            let entries = parsed.entries
+            if loaded == 1 {
+                firstPage = response
+                firstMatched = parsed.matched
+            }
             let signature = entries.map { $0.name + "\u{1}" + $0.url }.joined(separator: "\u{2}")
             // Trang lờ tham số trả lại đúng trang trước ⇒ dừng.
             if loaded > 1, !entries.isEmpty, seenPages.contains(signature) { break }
@@ -200,11 +208,16 @@ extension LegadoSourceRuntime {
         if head < queue.count {
             session.diagnostics.record(.info, "Mục lục vượt \(tocPageLimit) trang — dừng, dùng phần đã có")
         }
+        if output.isEmpty, let firstPage {
+            LegadoSelectorProbe.record(in: session, field: "chapterList", rule: rule.chapterList, response: firstPage,
+                                       matchedElements: firstMatched)
+        }
         return output
     }
 
     /// Các chương của một trang mục lục. Thứ tự trường: `chapterName, chapterUrl, isVolume, isVip, isPay, updateTime`
-    /// (spec §5.4.1). `chapterUrl` rỗng ⇒ URL trang mục lục (truyện một trang); thiếu cả tên lẫn URL ⇒ bỏ.
+    /// (spec §5.4.1). `chapterUrl` rỗng ⇒ URL trang mục lục (truyện một trang); thiếu cả tên lẫn URL ⇒ bỏ. `matched` =
+    /// số phần tử `chapterList` khớp trước khi lọc (đầu dò bộ chọn).
     static func parseTocPage(
         session: LegadoEngineSession,
         analyzer: LegadoRuleAnalyzer,
@@ -212,7 +225,7 @@ extension LegadoSourceRuntime {
         book: LegadoBookContext,
         startIndex: Int,
         chapterVariables: inout [String: [String: String]]
-    ) throws -> [TocEntry] {
+    ) throws -> (entries: [TocEntry], matched: Int) {
         let items = try analyzer.elements(rule.chapterList)
         // Tranh (2) / video (4): tên tập thành dòng tiêu đề nhóm thay vì bị loại (spec §9.2).
         let keepsVolumes = session.source.type == 2 || session.source.type == 4
@@ -252,6 +265,6 @@ extension LegadoSourceRuntime {
             output.append(TocEntry(name: name.isEmpty ? "Chương \(index + 1)" : name, url: url, isVip: isVip,
                                    isPay: isPay, updateTime: updateTime))
         }
-        return output
+        return (output, items.count)
     }
 }

@@ -78,8 +78,16 @@ struct LegadoDebugStep: Sendable, Identifiable, Equatable {
     var errorCategory: String?
     /// Rule chính của bước (tên khoá → rule nguyên văn) — hiện khi bước rỗng / lỗi.
     var rule: Field?
+    /// Kết luận "lỗi do ai" khi bước rỗng / lỗi (`LegadoFailureArbiter`, cùng bộ phân xử với Kiểm tra nguồn).
+    var verdict: LegadoFailureVerdict?
+    var verdictReason: String?
+    /// Kết quả đầu dò bộ chọn của bước (khi danh sách/nội dung ra rỗng).
+    var probes: [LegadoSelectorProbe] = []
 
     var isFailure: Bool { status == .failed }
+
+    /// Bước dừng chuỗi vì rỗng hoặc lỗi (không tính đã dừng tay).
+    var isStopping: Bool { status == .failed || status == .empty }
 
     /// HTML/thân của request **cuối** (engine đã cắt tối đa 4 KB) — nút "Xem HTML trang".
     var lastBodySnippet: String {

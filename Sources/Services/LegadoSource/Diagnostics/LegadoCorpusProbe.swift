@@ -54,9 +54,13 @@ final class LegadoCorpusProbe {
     private var entryQuery = ""
     private var hints: [String] = []
     private var steps: [LegadoCorpusReport.StepRecord] = []
-    private var lastPassed: Step?
-    private var currentStep: Step = .search
+    private(set) var lastPassed: Step?
+    private(set) var currentStep: Step = .search
     private var abandonedSteps = 0
+    /// Run log của bước đang/vừa chạy (một log mỗi bước — bằng chứng cho kết luận "lỗi do ai").
+    private(set) var stepLog: LegadoRunLog?
+    /// Nguồn có `loginUrl` (HTTP 401/403 ⇒ cần đăng nhập).
+    private(set) var hasLoginUrl = false
     /// Loại nguồn (đọc từ `source.json`); tranh/video đi bước media thay cho nội dung chữ.
     var kind: LegadoSourceKind = .text
     var mediaCheck: LegadoCorpusReport.MediaCheck?
@@ -71,12 +75,13 @@ final class LegadoCorpusProbe {
         let probe = LegadoCorpusProbe(candidate: candidate)
         do {
             try await probe.execute(defaultKeyword: defaultKeyword)
-            return probe.makeResult(outcome: .passed, classification: nil)
+            return probe.makeResult(outcome: .passed, classification: nil, judgement: nil)
         } catch {
             if error is CancellationError, Task.isCancelled {
-                return probe.makeResult(outcome: .cancelled, classification: nil)
+                return probe.makeResult(outcome: .cancelled, classification: nil, judgement: nil)
             }
-            return probe.makeResult(outcome: .failed, classification: LegadoCorpusErrorClassifier.classify(error))
+            return probe.makeResult(outcome: .failed, classification: LegadoCorpusErrorClassifier.classify(error),
+                                    judgement: probe.judgement(for: error))
         }
     }
 
@@ -86,6 +91,7 @@ final class LegadoCorpusProbe {
         let source = try LegadoSourceStore.loadSource(localPath: candidate.localPath)
         hints = LegadoCorpusFeatureScan.hints(in: source)
         kind = source.kind
+        hasLoginUrl = !source.loginUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         entry = LegadoCorpusEntry.resolve(
             checkKeyWord: source.ruleSearch.checkKeyWord,
             fallbackKeyword: defaultKeyword,
@@ -117,7 +123,8 @@ final class LegadoCorpusProbe {
         case .contentURL(let url):
             try await content(ChapterRef(total: 1, index: 0, title: "", url: url), bookURL: nil, book: nil)
         case .unavailable:
-            throw StepFailure(failureClass: .invalidSource, message: "Nguồn không có rule tìm kiếm hay mục khám phá mở được")
+            throw StepFailure(failureClass: .invalidSource, message: "Nguồn không có rule tìm kiếm hay mục khám phá mở được",
+                              isSourceDefect: true)
         }
     }
 
@@ -252,7 +259,8 @@ final class LegadoCorpusProbe {
     // MARK: - Đo
 
     /// Chạy một bước dưới trần thời gian, ghi `StepRecord`. Bước "không ok" (rỗng) vẫn trả giá trị để caller ném
-    /// `noMatch` kèm câu cụ thể; lỗi thì ghi bước hỏng rồi ném tiếp.
+    /// `noMatch` kèm câu cụ thể; lỗi thì ghi bước hỏng rồi ném tiếp. Mỗi bước một `LegadoRunLog` gắn qua task-local
+    /// **bên trong** closure công việc (facade không có tham số log) — bằng chứng cho kết luận khi bước hỏng.
     func measure<T: Sendable>(
         _ step: Step,
         seconds: Int,
@@ -261,8 +269,12 @@ final class LegadoCorpusProbe {
     ) async throws -> T {
         currentStep = step
         let began = Date()
+        let log = LegadoRunLog()
+        stepLog = log
         do {
-            let value = try await LegadoCorpusDeadline.run(seconds: seconds, operation)
+            let value = try await LegadoCorpusDeadline.run(seconds: seconds) { () async throws -> T in
+                try await LegadoRunLog.$current.withValue(log) { try await operation() }
+            }
             let verdict = evaluate(value)
             steps.append(.init(step: step, durationMs: Self.milliseconds(since: began), count: verdict.count, ok: verdict.ok))
             if verdict.ok { lastPassed = step }
@@ -288,7 +300,8 @@ final class LegadoCorpusProbe {
 
     private func makeResult(
         outcome: LegadoCorpusReport.Outcome,
-        classification: LegadoCorpusErrorClassifier.Classification?
+        classification: LegadoCorpusErrorClassifier.Classification?,
+        judgement: LegadoFailureArbiter.Judgement?
     ) -> LegadoCorpusReport.SourceResult {
         LegadoCorpusReport.SourceResult(
             packageId: candidate.packageId,
@@ -305,7 +318,9 @@ final class LegadoCorpusProbe {
             steps: steps,
             unsupportedHints: hints,
             abandonedSteps: abandonedSteps,
-            media: mediaCheck
+            media: mediaCheck,
+            verdict: judgement?.verdict,
+            verdictReason: judgement?.reason
         )
     }
 

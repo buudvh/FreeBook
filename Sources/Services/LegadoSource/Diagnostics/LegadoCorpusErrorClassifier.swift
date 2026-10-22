@@ -17,6 +17,8 @@ enum LegadoCorpusErrorClassifier {
     struct StepFailure: Error, Sendable {
         let failureClass: LegadoCorpusReport.FailureClass
         let message: String
+        /// Lỗi do chính nguồn thiếu thứ cần có (không có lối vào…) — bộ phân xử kết luận "nguồn lỗi thời".
+        var isSourceDefect = false
     }
 
     static let maxMessageLength = 300

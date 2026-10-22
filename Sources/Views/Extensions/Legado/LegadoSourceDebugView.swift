@@ -6,7 +6,8 @@ import UIKit
 ///
 /// Bộ chạy `LegadoSourceDebugRunner` gọi thẳng luồng của nguồn (chạy được cả nguồn đang tắt), không ghi gì ra đĩa ngoài
 /// trạng thái engine mà một lượt duyệt thường cũng ghi, không gửi gì ra ngoài. Nút sao chép (toolbar) chép báo cáo văn
-/// bản đã che giá trị query của URL. Rời màn ⇒ dừng lượt đang chạy.
+/// bản đã che giá trị query của URL. Bước rỗng/lỗi ⇒ dải "Kết luận: …" (lỗi do ai) ở đầu danh sách bước. Rời màn ⇒
+/// dừng lượt đang chạy.
 struct LegadoSourceDebugView: View {
     let packageId: String
     let sourceName: String
@@ -40,6 +41,10 @@ struct LegadoSourceDebugView: View {
                     Text(hintText)
                         .font(.footnote)
                         .foregroundColor(.secondary)
+                }
+                // Kết luận "lỗi do ai" của bước dừng chuỗi (rỗng/lỗi) — cùng bộ phân xử với Kiểm tra nguồn.
+                if let stopping = steps.last(where: { $0.isStopping && $0.verdict != nil }), let verdict = stopping.verdict {
+                    LegadoFailureVerdictBanner(verdict: verdict, reason: stopping.verdictReason ?? "")
                 }
                 ForEach(steps) { step in
                     LegadoSourceDebugStepCard(step: step)

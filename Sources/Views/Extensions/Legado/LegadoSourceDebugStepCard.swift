@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Thẻ một bước của màn "Gỡ lỗi từng bước": tiêu đề + trạng thái + thời gian; đầu vào; request (phương thức, URL cuối,
 /// HTTP, bảng mã, kích thước, WebView); số kết quả; trường trích được của mục đầu; lỗi + lớp lỗi; hàm chưa hỗ trợ; log
-/// JS; "Xem HTML trang (cắt 4 KB)". Bước lỗi có viền đỏ.
+/// JS; kết quả đầu dò bộ chọn (bước rỗng/lỗi); "Xem HTML trang (cắt 4 KB)". Bước lỗi có viền đỏ.
 ///
 /// URL hiện nguyên văn (chỉ trên máy, không gửi đi); bản sao chép báo cáo mới che giá trị query.
 struct LegadoSourceDebugStepCard: View {
@@ -57,6 +57,13 @@ struct LegadoSourceDebugStepCard: View {
                         .font(.caption2.monospaced())
                         .textSelection(.enabled)
                 }
+            }
+
+            if let probe = step.probes.last, step.status != .passed {
+                Text("Đầu dò bộ chọn: " + probe.summary)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .textSelection(.enabled)
             }
 
             if !step.unsupported.isEmpty {

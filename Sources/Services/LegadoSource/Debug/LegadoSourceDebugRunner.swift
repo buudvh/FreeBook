@@ -256,6 +256,7 @@ final class LegadoSourceDebugRunner {
             if step.status == .empty {
                 step.errorCategory = step.errorCategory ?? "noMatch"
                 step.rule = ruleField(for: kind)
+                applyVerdict(.noMatch(step.errorMessage ?? ""), log: log, to: &step)
             }
             await onStep(step)
             return step.status == .passed ? value : nil
@@ -274,10 +275,28 @@ final class LegadoSourceDebugRunner {
                 step.errorCategory = LegadoRuntimeError.categoryName(of: error)
                 step.errorMessage = error.localizedDescription
             }
-            if step.status == .failed { step.rule = ruleField(for: kind) }
+            if step.status == .failed {
+                step.rule = ruleField(for: kind)
+                applyVerdict(LegadoFailureArbiter.errorKind(of: error), log: log, to: &step)
+            }
             await onStep(step)
             return nil
         }
+    }
+
+    /// Kết luận "lỗi do ai" của bước rỗng/lỗi từ log **đầy đủ** của bước (không phải `step.logs` đã cắt).
+    private func applyVerdict(_ error: LegadoFailureArbiter.ErrorKind, log: LegadoRunLog, to step: inout LegadoDebugStep) {
+        let evidence = LegadoFailureArbiter.evidence(
+            error: error,
+            isSearchStep: step.kind == .search,
+            isFirstStep: step.id == 0,
+            log: log,
+            hasLoginUrl: !target.source.loginUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        )
+        let judgement = LegadoFailureArbiter.judge(evidence)
+        step.verdict = judgement.verdict
+        step.verdictReason = judgement.reason
+        step.probes = log.probes
     }
 
     /// Rule chính của bước (để người dùng thấy rule nào ra rỗng / lỗi).
