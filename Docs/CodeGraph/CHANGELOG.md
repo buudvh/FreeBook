@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.577] - 2026-10-22
+
+### fix: kiểm tra nguồn Legado không kết luận nhầm "lỗi thời" với trang báo lỗi ngắn, từ khoá mặc định dài hơn
+
+Từ báo cáo `kiem-tra-nguon-legado-20261022-160304.json`: 抖音小说 bị kết luận **"Nguồn lỗi thời"**, nhưng web thực ra trả trang 444 byte chỉ có `alert("关键字最少 10 个字符")` — chê từ khoá mặc định `我的` quá ngắn. 起点 cũng bị kết luận lỗi thời với trang tìm kiếm ~1 KB (trang thử thách JS, sửa riêng).
+
+- **Bộ phân xử** (`LegadoFailureArbiter`): trang 2xx dưới **3 KB** (`minimumOutdatedPageBytes`) hoặc trang có `alert(...)` **không** còn đủ để kết luận "nguồn lỗi thời" — rơi về "Chưa rõ" kèm lý do cụ thể:
+  - có `alert(...)` ⇒ *"Web báo: «…»"*, ở bước tìm kiếm thêm gợi ý thử từ khoá khác;
+  - trang quá ngắn ⇒ *"Trang trả về rất ngắn (HTTP …, N KB) — thường là trang báo lỗi, chặn, hoặc trang thử thách JS chưa chạy xong"*.
+- **Dò bộ chọn** (`LegadoSelectorProbe`): thêm `alertMessage` — câu trong `alert("…")` đầu tiên của trang ≤ 4 KB (gọn khoảng trắng, tối đa 200 ký tự).
+- **Từ khoá mặc định** khi nguồn không khai `checkKeyWord`: `我的` → `斗罗大陆` (Kiểm tra nguồn `LegadoCorpusRequest` và Gỡ lỗi nguồn `LegadoDebugInput`) — đủ dài để web có giới hạn độ dài từ khoá không chặn, và là tên truyện phổ biến nên dễ có kết quả.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.576] - 2026-10-22
 
 ### fix: chia sẻ báo cáo và xuất nguồn Legado báo nhầm "truy cập file ngoài thư mục" từ lần thứ hai
@@ -415,16 +428,3 @@ Người dùng: *"xoá · sao chép · dán cho các ô nhập của màn hình 
 - **Không đổi**: hàng `aa…AA` của panel Dịch, nút sao chép tin nhắn AI / log / debug / chẩn đoán, dữ liệu.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**; grep không còn `TextFieldClipboardButtons|clipboardToolbar(|pasteFromClipboard|appendClipboard`. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
 
-## [1.3.547] - 2026-10-19
-
-### fix: hàng nút và ô nhập ở màn cấu hình tiện ích khớp mockup
-
-Người dùng (kèm ảnh chụp máy thật): *"phần cấu hình tiện ích mockup đẹp mà kết quả thật xấu quá"*, *"Trình duyệt · Bỏ ghim · Gỡ phần này còn chưa đẹp"* (chọn kiểu nút tròn), *"thêm bộ 3 nút clear, copy, paste những chỗ nhập text"*.
-
-- **Vì sao**: `[1.3.546]` dựng hàng nút bằng `Label` trong một dòng `Form` — iOS dàn icon và chữ ra hai đầu ô, chữ bị co. Mockup vẽ với giá trị ngắn, còn biến cấu hình thật toàn URL dài: ô nhập đặt bên phải chỉ còn vài ký tự, dòng phụ "mặc định https://…" xuống 3–4 dòng.
-- **`ExtensionConfigHeaderCard`**: hàng **Trình duyệt · Ghim · Gỡ** thành nút tròn 44pt (icon 18pt semibold) + nhãn `.caption` bên dưới, chia đều; đã ghim thì vòng cam nhạt, icon cam; Gỡ icon + nhãn đỏ.
-- **`TextFieldClipboardButtons`** (mới, `Sources/Views/Common/`): bộ nút ô một dòng ↺ khôi phục mặc định (chỉ hiện khi khác mặc định) · xoá · sao chép · dán — cùng dáng `clipboardToolbar` (28×26, dán tô màu nhấn, icon `AppGlyph`), nhưng **dán thay cả giá trị** (đã bỏ khoảng trắng đầu/cuối).
-- **Dòng "Cài đặt của tiện ích"** (`+GlobalConfig`): ô chữ = tiêu đề + khoá (chữ đều, một dòng), bộ nút bên phải, ô nhập nền mờ **rộng hết dòng** ở dưới, mặc định là chữ mờ trong ô; bỏ "mặc định …" khỏi dòng phụ. Ô số gọn bên phải (90pt), công tắc giữ chỗ.
-- **Màn "Thông tin plugin.json"** (`ExtensionMetadataSection`): 4 ô chữ `name`, `source`, `regexp`, `description` có cùng bộ nút (không có ↺); vẫn tự lưu 0,4 s như gõ tay.
-- **`ExtensionConfigView`**: `.listSectionSpacing(.compact)` bớt khoảng trống giữa các nhóm và phía trên thẻ đầu.
-- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.

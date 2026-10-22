@@ -68,6 +68,8 @@ struct LegadoSelectorProbe: Sendable, Equatable {
     /// Trường nội dung: số ký tự chữ (bỏ thẻ/script) bên trong phần tử đầu tiên khớp token — `nil` khi không đo.
     let elementTextLength: Int?
     let marker: LegadoPageMarker?
+    /// Trang ngắn chỉ để báo lỗi bằng `alert("…")` (vd "关键字最少 10 个字符" — web chê từ khoá): câu báo, `nil` khi không có.
+    let alertMessage: String?
 
     // MARK: - Kết luận từ số đếm
 
@@ -167,8 +169,26 @@ struct LegadoSelectorProbe: Sendable, Equatable {
             leaves: isJSON ? [] : leaves,
             hasScript: parsed.hasScript,
             elementTextLength: textLength,
-            marker: marker
+            marker: marker,
+            alertMessage: byteCount <= alertPageBytes ? alertText(in: body) : nil
         )
+    }
+
+    /// Trang lớn hơn mức này không coi là "trang chỉ để báo lỗi bằng alert".
+    static let alertPageBytes = 4_096
+    private static let alertPattern = try? NSRegularExpression(
+        pattern: #"alert\(\s*["'`]([^"'`]{1,200})["'`]\s*\)"#, options: []
+    )
+
+    /// Câu trong `alert("…")` đầu tiên của trang (đã gọn khoảng trắng).
+    static func alertText(in body: String) -> String? {
+        let text = body as NSString
+        guard let pattern = alertPattern,
+              let match = pattern.firstMatch(in: body, range: NSRange(location: 0, length: text.length)),
+              match.range(at: 1).location != NSNotFound else { return nil }
+        let message = text.substring(with: match.range(at: 1))
+            .components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.joined(separator: " ")
+        return message.isEmpty ? nil : message
     }
 
     private static let classPattern = try? NSRegularExpression(

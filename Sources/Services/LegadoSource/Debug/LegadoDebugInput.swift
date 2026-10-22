@@ -13,7 +13,7 @@ import Foundation
 /// Thứ tự nhận dạng (spec, đề xuất): `++` → `--` → có `::` → bắt đầu `http(s)://` → còn lại là từ khoá. Tiền tố gõ
 /// trong ô (`++`/`--`/`::`) thắng chip chế độ đang chọn; không có tiền tố thì theo chip, riêng chip "Từ khoá" mà ô là URL
 /// `http(s)` thì thành "URL chi tiết". Ô trống ở chế độ từ khoá ⇒ `checkKeyWord` của nguồn (bản thân nó có thể mang
-/// tiền tố), không có thì "我的".
+/// tiền tố), không có thì "斗罗大陆" (từ khoá ngắn quá có web chê, trả trang `alert(...)` thay vì kết quả).
 struct LegadoDebugInput: Sendable, Equatable {
     enum Mode: String, Sendable, CaseIterable, Identifiable {
         case keyword
@@ -50,7 +50,7 @@ struct LegadoDebugInput: Sendable, Equatable {
         let message: String
     }
 
-    static let fallbackKeyword = "我的"
+    static let fallbackKeyword = "斗罗大陆"
 
     let mode: Mode
     /// Từ khoá, hoặc rule URL (đã bỏ tiền tố / phần `tên::`).

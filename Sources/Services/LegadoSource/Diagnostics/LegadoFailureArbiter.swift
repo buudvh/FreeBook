@@ -65,6 +65,8 @@ enum LegadoFailureArbiter {
 
     /// Phần tử nội dung có ít nhất ngần này ký tự chữ trong HTML gốc mà rule ra rỗng ⇒ nghi app.
     static let minimumElementText = 50
+    /// Trang 2xx ngắn hơn mức này không đủ để kết luận "nguồn lỗi thời" (trang báo lỗi / chặn / thử thách JS thường ~1 KB).
+    static let minimumOutdatedPageBytes = 3_072
 
     static func judge(_ evidence: Evidence) -> Judgement {
         if let judgement = needsUser(evidence) { return judgement }
@@ -210,8 +212,10 @@ enum LegadoFailureArbiter {
         case .noMatch, .javaScript: break
         default: return nil
         }
+        // Trang quá ngắn (trang báo lỗi, chặn, thử thách JS chưa chạy xong…) không đủ để nói web đã đổi giao diện.
         guard let probe = usableProbe(evidence), probe.hasSelectorTokens, probe.presentTokens.isEmpty,
-              (probe.matchedElements ?? 0) == 0 else { return nil }
+              (probe.matchedElements ?? 0) == 0, probe.byteCount >= minimumOutdatedPageBytes,
+              probe.alertMessage == nil else { return nil }
         let hint = evidence.isSearchStep
             ? " — trang đã đổi giao diện, hoặc từ khoá không có kết quả"
             : " — trang đã đổi giao diện"
@@ -257,6 +261,14 @@ enum LegadoFailureArbiter {
         let field = fieldLabel(probe)
         if !probe.isPageLoaded {
             return "Trang trả HTTP \(probe.statusCode) — rule \(field) ra rỗng"
+        }
+        if let alert = probe.alertMessage {
+            let hint = isSearchStep ? " — thường do từ khoá không hợp lệ (vd quá ngắn), thử từ khoá khác" : ""
+            return "Web báo: «\(clip(alert, limit: 120))»" + hint
+        }
+        if probe.byteCount < minimumOutdatedPageBytes, !probe.isJSON {
+            return "Trang trả về rất ngắn (\(pageSummary(probe))) — thường là trang báo lỗi, chặn, hoặc trang thử thách JS"
+                + " chưa chạy xong (nguồn cần webView); rule \(field) ra rỗng"
         }
         if probe.isJSON {
             return "Trang trả JSON — rule \(field) ra rỗng, không dò được bằng bộ chọn"

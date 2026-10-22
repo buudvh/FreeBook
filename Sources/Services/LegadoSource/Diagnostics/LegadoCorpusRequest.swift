@@ -22,7 +22,7 @@ struct LegadoCorpusRequest: Sendable, Equatable {
     }
 
     /// Từ khoá mặc định khi nguồn không khai `checkKeyWord` và client không gửi từ khoá (spec §5.10: giá trị hay gặp).
-    static let fallbackKeyword = "我的"
+    static let fallbackKeyword = "斗罗大陆"
     static let maxKeywordLength = 100
     static let maxPackageIds = 10_000
 
