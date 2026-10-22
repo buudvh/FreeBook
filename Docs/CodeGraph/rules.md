@@ -900,6 +900,20 @@ Dự án FreeBook được tổ chức theo cấu trúc phân tầng nghiêm ng�
     HStack(spacing: 2) { ... } // Dính sát, khó bấm
     ```
 
+*   **Tên**: Không tô nền đặc bằng màu nhấn (app tint trắng)
+*   **Loại quy tắc**: **Normative Rule** (cưỡng chế bởi `check_architecture.py` — luật `WHITE_TINT_FILL`)
+*   **Mô tả**: `MainTabView` đặt `.tint(.white)` toàn cục, nên `Color.accentColor` và `.borderedProminent` không kèm `.tint(…)` là **nền trắng**; chữ trắng lên đó vô hình (lỗi đã gặp ở 1.3.447 màn thư viện giọng VieNeu và 1.3.567 các màn nguồn Legado). Nút nền đặc dùng `.buttonStyle(.appFilled)` hoặc `.appFilled(<màu>)` (`AppFilledButtonStyle`); `.borderedProminent` chỉ khi kèm `.tint(<màu khác trắng>)`; chip đang chọn theo kiểu `ExtensionKindFilterBar` (chữ `.accentColor`, nền `Color.accentColor.opacity(0.18)`, viền `opacity(0.6)`). Hình vẽ (`.fill(Color.accentColor)`, vd thanh tua) không bị cấm.
+*   **Ví dụ đúng**:
+    ```swift
+    Button("Đăng nhập", action: submit).buttonStyle(.appFilled)
+    Button("Duyệt", action: approve).buttonStyle(.borderedProminent).tint(.purple)
+    ```
+*   **Ví dụ sai**:
+    ```swift
+    Text("Đăng nhập").foregroundColor(.white).background(Color.accentColor, in: Capsule())
+    Button("Duyệt", action: approve).buttonStyle(.borderedProminent)
+    ```
+
 ### 5.5. Audio Rules
 *   **Tên**: Tránh chặn Main Thread bằng Semaphore khi tải WebView ngầm
 *   **Loại quy tắc**: **Recommended Rule**

@@ -70,6 +70,39 @@ def count_top_level_primary_types(code_text):
                 matches.append(line.strip())
     return len(matches)
 
+# Rule 6 (WHITE_TINT_FILL) — xem chú thích ở run_checks.
+_ACCENT_BACKGROUND = re.compile(
+    r"\.background\([^)]*?Color\.accentColor(?!\.opacity\(\s*0?\.[0-4])"   # nền màu nhấn đặc (mờ < 50% thì được)
+    r"|\.background\(\s*\.(?:tint|accentColor)\b"                          # .background(.tint) / (.accentColor)
+)
+_SAFE_TINT = re.compile(r"\.tint\((?!\s*(?:\.white|Color\.white|\.accentColor|Color\.accentColor)\s*\))")
+_FILLED_HINT = "dùng .buttonStyle(.appFilled) (AppFilledButtonStyle) hoặc nền màu cố định khác trắng"
+
+
+def find_white_tint_fills(raw_lines):
+    """(số dòng, thông điệp) của các chỗ tô nền đặc bằng màu nhấn — với tint trắng toàn cục là trắng trên trắng."""
+    found = []
+    for index, line in enumerate(raw_lines):
+        stripped = line.strip()
+        if stripped.startswith("//"):
+            continue
+        if ".borderedProminent" in line:
+            # Chỉ chuỗi modifier của chính nút này: dòng ngay trước nếu là `.tint(`, dòng hiện tại, và tối đa 4 dòng sau
+            # cho tới khi gặp nút khác — không "mượn" tint của nút liền kề.
+            window = [line]
+            if index > 0 and raw_lines[index - 1].strip().startswith(".tint("):
+                window.append(raw_lines[index - 1])
+            for other in raw_lines[index + 1: index + 5]:
+                if "Button(" in other or ".buttonStyle(" in other:
+                    break
+                window.append(other)
+            if not any(_SAFE_TINT.search(other) for other in window):
+                found.append((index + 1, ".borderedProminent không kèm .tint(<màu khác trắng>) — nền trắng; " + _FILLED_HINT))
+        if _ACCENT_BACKGROUND.search(line):
+            found.append((index + 1, "nền Color.accentColor đặc (tint toàn app là trắng) — " + _FILLED_HINT))
+    return found
+
+
 def run_checks():
     allowlist = load_allowlist()
     
@@ -157,6 +190,12 @@ def run_checks():
             if rel_path.startswith("Sources/Services/"):
                 if "import SwiftUI" in clean_code and not rel_path.endswith("WebViewLoader.swift"):
                     errors.append(f"[SERVICE_SWIFTUI_IMPORT] {rel_path}: Service layer imports SwiftUI framework")
+
+            # Rule 6: nền đặc bằng màu nhấn. `MainTabView` đặt `.tint(.white)` toàn cục ⇒ `Color.accentColor` và
+            # `.borderedProminent` không kèm tint là NỀN TRẮNG; chữ trắng lên đó là vô hình (1.3.447, 1.3.567).
+            if rel_path.startswith("Sources/Views/"):
+                for line_no, message in find_white_tint_fills(raw_lines):
+                    errors.append(f"[WHITE_TINT_FILL] {rel_path}:{line_no}: {message}")
 
     print("\n--- FreeBook Architecture Compliance Checker ---")
     if errors:

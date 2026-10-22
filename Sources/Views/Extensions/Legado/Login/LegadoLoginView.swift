@@ -202,11 +202,8 @@ struct LegadoLoginView: View {
                 .textSelection(.enabled)
             Button(action: openWebLogin) {
                 Label("Mở trang đăng nhập", systemImage: "safari")
-                    .font(.body.weight(.semibold))
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                    .foregroundColor(.white)
-                    .background(Color.blue, in: RoundedRectangle(cornerRadius: 10)) // không dùng màu nhấn: app tint trắng
             }
+            .buttonStyle(.appFilled)
         }
         .padding(12)
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))

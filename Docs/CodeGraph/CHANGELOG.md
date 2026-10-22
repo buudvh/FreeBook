@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.573] - 2026-10-22
+
+### fix: chặn tận gốc lỗi nút trắng trên trắng: kiểu nút appFilled và luật WHITE_TINT_FILL
+
+Người dùng: *"Trắng trên trắng tìm cách fix luôn lỗi này đi, tôi thấy thêm nút mới hay bị lắm"*.
+
+- **Nguyên nhân gốc**: `MainTabView` đặt `.tint(.white)` toàn cục ⇒ `Color.accentColor` là **trắng**, `.borderedProminent` không kèm `.tint(…)` là nền trắng; nút mới tô nền bằng màu nhấn rồi đặt chữ trắng là vô hình. Đã gặp ở 1.3.447 (thư viện giọng VieNeu) và 1.3.567 (các màn nguồn Legado, sửa ở 1.3.570). Rà toàn app: hiện không còn chỗ nào dính — mọi `.borderedProminent` đều kèm tint màu.
+- **`AppFilledButtonStyle`** (mới, `Views/Common/`): kiểu nút nền đặc chuẩn, chữ trắng trên màu cố định (mặc định xanh), mờ khi nhấn/tắt; `.buttonStyle(.appFilled)`, `.appFilled(.green, fullWidth: false)`. Nút "Mở trang đăng nhập" (`LegadoLoginView`) dùng kiểu này.
+- **Luật mới `WHITE_TINT_FILL`** trong `Scripts/check_architecture.py` (quét `Sources/Views/**`, bỏ dòng comment): báo lỗi `.borderedProminent` mà chuỗi modifier của chính nút không có `.tint(<màu khác trắng>)`, và `.background(…Color.accentColor…)` đặc (mờ < 50% thì được; `.background(.tint)` cũng bị bắt). `.fill(Color.accentColor)` cho hình vẽ (thanh tua video) không bị cấm. Thử trên mẫu: bắt đúng 5/5 mẫu sai, không báo nhầm 3 mẫu đúng; trên code thật 0 vi phạm mới.
+- **Tài liệu**: `CLAUDE.md` + `AGENTS.md` (bảng luật 5 → 6, ghi chú "màu nhấn của app là trắng"), `rules.md` §5.4 thêm quy tắc kèm ví dụ đúng/sai.
+- Chuyển entry `[1.3.543]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.572] - 2026-10-22
 
 ### feat: danh mục tìm nhanh ở Khám phá cho nguồn Legado không có Khám phá
@@ -415,18 +428,3 @@ Người dùng: *"thêm cả nút download vào danh sách chương của reader
 - **Comic**: `ComicReaderView` giữ `Book` đã đọc trong `bootstrap()` vào `@State localBook` (trước đây đọc xong bỏ); `ComicChapterListSheet` nhận `book`, thêm nút ở `topBarLeading` ("Tải ảnh offline") + sheet lồng mở cùng `TaskOptionsSheet`.
 - **Không làm**: không thêm tải lẻ cho comic; không đổi `TaskOptionsSheet` / `DownloadManager` / coordinator; không tạo hàng `Book` mới (nút ẩn khi sách chưa có trong thư viện).
 - **Kiểm chứng**: `swiftc -parse` sạch 7 file; `check_architecture.py` 2 violation nền (`JSDom.swift`, `TTSManager.swift`), **0 mới**; `ReaderChapterListView` 337 dòng, `+Download` 94, `ComicChapterListSheet` 135, `ComicReaderView` 273. Không build tại chỗ (Windows) — CI xác nhận biên dịch.
-
-## [1.3.543] - 2026-10-19
-
-### feat: mục lục dạng lưới tập cho màn chi tiết video
-
-Người dùng: *"sửa lại mục lục detail của video thành Đề xuất B"*. Mockup: `Docs/Mockups/2026-10-19-mockup-detail-toc.html`. Plan: `Docs/Plans/2026-10-19-plan-detail-video-toc-grid.md`.
-
-- **Vì sao**: tab "Mục lục" của màn Chi tiết vẽ mỗi chương một hàng có `Divider`; phim 60–120 tập thì danh sách rất dài, hàng không có số tập, tiêu đề nhóm không gấp được, và tập đang xem chỉ khác hàng thường ở `.white` ≈ `.primary` trong dark mode (`BookDetailTOCView.swift:155`).
-- **Mới — `BookDetailVideoTOCGrid`** (+ `BookDetailVideoTOCGrid+Groups.swift`): thanh công cụ dính (số tập + pill "Cũ nhất/Mới nhất" có nhãn + kính lúp bung ô tìm), chip chia khoảng dựng từ dòng `section` (nhóm > 60 tập tự cắt khúc 24), lưới 4 cột ô 46pt (đang xem = đảo màu, đã xem = mờ 36%, đã tải = chấm 4pt), chân "Hết …".
-- **Số tập**: ô hiển thị `ordinal` 1…N đếm bỏ qua dòng section, chạm ô trả về `index` thật; sắp xếp giảm dần thì `ordinal` đánh từ N về 1 nên số trên ô vẫn là số tập thật.
-- **`BookDetailTOCView`**: thêm `isVideo` (mặc định `false`), `body` rẽ nhánh bằng `Group`; `videoRows` giữ đúng thứ tự ưu tiên `chapterSnapshots` → `Book.chapters` → `onlineChapters`; tìm kiếm dùng chung `chapterSearchQuery`.
-- **`BookDetailView`**: truyền `isVideo: contentKind == .video`.
-- **Sửa kèm**: nút cuối danh sách dùng `"Tải thêm \(episodeNoun)"` thay vì hardcode "chương" (`BookDetailTOCView.swift:229`).
-- **Không đổi**: nhánh truyện chữ / truyện tranh, `navigationTitle`, tầng dữ liệu (không ghi SwiftData).
-- **Kiểm chứng**: `swiftc -parse` sạch 7 file; `check_architecture.py` 2 violation nền (`JSDom.swift`, `TTSManager.swift`), **0 mới**; `BookDetailVideoTOCGrid` 371 dòng, `+Groups` 98, `BookDetailTOCView` 396 (< 400). Không build tại chỗ (Windows) — CI xác nhận biên dịch.

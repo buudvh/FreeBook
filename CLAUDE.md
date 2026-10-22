@@ -79,7 +79,7 @@ Target đặt `CODE_SIGNING_ALLOWED: NO`. Deployment target iOS 17.0. Dependenci
 
 ## Kỷ luật kiến trúc (có script cưỡng chế)
 
-`Scripts/check_architecture.py` quét `Sources/` và enforce 5 luật:
+`Scripts/check_architecture.py` quét `Sources/` và enforce 6 luật:
 
 | Luật | Nội dung |
 |---|---|
@@ -88,6 +88,7 @@ Target đặt `CODE_SIGNING_ALLOWED: NO`. Deployment target iOS 17.0. Dependenci
 | `VIEW_SWIFTDATA_MUTATION` | `Sources/Views/**` không được `modelContext.insert/delete/save`; 6 view lớn còn bị cấm gán trực tiếp thuộc tính `@Model` và cấm bỏ qua `Result` của coordinator |
 | `SERVICE_TOAST_COUPLING` | `Sources/Services/**` không được gọi `ToastManager.shared` |
 | `SERVICE_SWIFTUI_IMPORT` | `Sources/Services/**` không được `import SwiftUI` (trừ `*WebViewLoader.swift`) |
+| `WHITE_TINT_FILL` | `Sources/Views/**` không tô nền đặc bằng `Color.accentColor` (mờ < 50% thì được) và không dùng `.borderedProminent` thiếu `.tint(<màu khác trắng>)` — app đặt `.tint(.white)` toàn cục nên đó là **trắng trên trắng**. Nút đặc mới dùng `.buttonStyle(.appFilled)` (`Sources/Views/Common/AppFilledButtonStyle.swift`) |
 
 Miễn trừ khai trong `Scripts/architecture_allowlist.json` (`schema_version: 2`, fail-closed). Mỗi entry có `expiresAt` — **script FAIL nếu entry hết hạn**; 88 entry hiện tại đều hết hạn `2026-12-31`. Chỉ có miễn trừ cho `FILE_SIZE_LIMIT` và `MULTI_PRIMARY_TYPES`; hai luật View-SwiftData và Service-Toast không có ngoại lệ nào.
 
@@ -244,6 +245,7 @@ Hợp đồng chuẩn: `extension-api.md` của Darkrai9x (repo Darkrai9x).
   - Khoảng cách giữa các nút liền kề trên Header bar tối thiểu **`6pt`**; hitbox chạm tối thiểu **`36 x 36pt`** (khuyến nghị **`36 x 38pt`**).
   - Nút tròn: **`38 x 38pt`**. Nút capsule/pill cùng hàng: chiều cao **`38pt`** (`cornerRadius: 19`).
   - Nút Quay lại (Back): hitbox tối thiểu **`38 x 44pt`**. Cụm nút mục lục/menu phụ bên trong: icon **`14pt semibold`**, frame **`32 x 32pt`**, spacing **`4pt`**.
+- **Màu nhấn của app là TRẮNG** (`MainTabView` đặt `.tint(.white)`): `Color.accentColor`, `.tint`, `.borderedProminent` không kèm tint đều ra trắng. Nút nền đặc dùng `.buttonStyle(.appFilled)` / `.appFilled(.green)`; chip đang chọn theo kiểu `ExtensionKindFilterBar` (chữ màu nhấn, nền nhấn mờ ~18%, viền ~60%). Luật `WHITE_TINT_FILL` của `check_architecture.py` chặn hai mẫu sai.
 - **Icon sao chép/dán bắt buộc dùng `AppGlyph`** (`Sources/Views/Common/AppGlyph.swift`: `.copy`, `.paste`, `.originalText` — asset Lucide `Lucide*.imageset` trong `Sources/Assets.xcassets`, giấy phép ISC ở `Docs/ThirdParty/Lucide-LICENSE.txt`). **Không** dùng SF Symbol `doc.on.doc` / `doc.on.clipboard` (hai icon gần như giống hệt nhau). Ảnh asset không co theo `.font(...)` nên phải gọi `image(size:)` với cỡ tường minh; trong `contextMenu`/`Menu` dùng `Label(_:image: AppGlyph.copy.assetName)`.
 
 ## Tests

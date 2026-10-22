@@ -2,6 +2,21 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.543] - 2026-10-19
+
+### feat: mục lục dạng lưới tập cho màn chi tiết video
+
+Người dùng: *"sửa lại mục lục detail của video thành Đề xuất B"*. Mockup: `Docs/Mockups/2026-10-19-mockup-detail-toc.html`. Plan: `Docs/Plans/2026-10-19-plan-detail-video-toc-grid.md`.
+
+- **Vì sao**: tab "Mục lục" của màn Chi tiết vẽ mỗi chương một hàng có `Divider`; phim 60–120 tập thì danh sách rất dài, hàng không có số tập, tiêu đề nhóm không gấp được, và tập đang xem chỉ khác hàng thường ở `.white` ≈ `.primary` trong dark mode (`BookDetailTOCView.swift:155`).
+- **Mới — `BookDetailVideoTOCGrid`** (+ `BookDetailVideoTOCGrid+Groups.swift`): thanh công cụ dính (số tập + pill "Cũ nhất/Mới nhất" có nhãn + kính lúp bung ô tìm), chip chia khoảng dựng từ dòng `section` (nhóm > 60 tập tự cắt khúc 24), lưới 4 cột ô 46pt (đang xem = đảo màu, đã xem = mờ 36%, đã tải = chấm 4pt), chân "Hết …".
+- **Số tập**: ô hiển thị `ordinal` 1…N đếm bỏ qua dòng section, chạm ô trả về `index` thật; sắp xếp giảm dần thì `ordinal` đánh từ N về 1 nên số trên ô vẫn là số tập thật.
+- **`BookDetailTOCView`**: thêm `isVideo` (mặc định `false`), `body` rẽ nhánh bằng `Group`; `videoRows` giữ đúng thứ tự ưu tiên `chapterSnapshots` → `Book.chapters` → `onlineChapters`; tìm kiếm dùng chung `chapterSearchQuery`.
+- **`BookDetailView`**: truyền `isVideo: contentKind == .video`.
+- **Sửa kèm**: nút cuối danh sách dùng `"Tải thêm \(episodeNoun)"` thay vì hardcode "chương" (`BookDetailTOCView.swift:229`).
+- **Không đổi**: nhánh truyện chữ / truyện tranh, `navigationTitle`, tầng dữ liệu (không ghi SwiftData).
+- **Kiểm chứng**: `swiftc -parse` sạch 7 file; `check_architecture.py` 2 violation nền (`JSDom.swift`, `TTSManager.swift`), **0 mới**; `BookDetailVideoTOCGrid` 371 dòng, `+Groups` 98, `BookDetailTOCView` 396 (< 400). Không build tại chỗ (Windows) — CI xác nhận biên dịch.
+
 ## [1.3.542] - 2026-10-19
 
 ### fix: menu dịch ở khám phá mặc định đúng phạm vi nguồn, không hiện "Truyện này"
