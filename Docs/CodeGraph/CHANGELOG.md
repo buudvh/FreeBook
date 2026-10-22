@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.580] - 2026-10-22
+
+### fix: ô Khám phá của nguồn Legado hiện đủ chữ: 3 dòng, tự co chữ, cao bằng hàng
+
+Người dùng: tag ở Khám phá của nguồn Legado *"nhỏ quá"*, chữ bị cắt — nhiều nguồn khai 4 ô/hàng (`style.layout_flexBasisPercent: 0.25`) cho nhãn tiếng Trung 2–3 chữ, bật dịch thì nhãn tiếng Việt dài gấp đôi. Người dùng chọn **giữ số ô/hàng nguồn khai**, chỉ tinh chỉnh để chữ hiện đủ.
+
+- **`LegadoExploreTabView`** (ô bấm, kể cả tag tìm nhanh): `lineLimit` 2 → **3**; `minimumScaleFactor(0.75)` + `allowsTightening` ⇒ chữ co (15pt → ~11pt) trước khi phải cắt "…"; đệm ngang 6 → 4, thêm đệm dọc 4; khung `maxHeight: .infinity` ⇒ các ô cùng hàng cao bằng ô cao nhất (`LegadoFlexLayout` đã tính chiều cao hàng theo ô cao nhất, không sửa).
+- Tiêu đề nhóm, ô chọn / ô nhập / nút của nguồn giữ nguyên. Đánh đổi: ô có nhãn quá dài có chữ nhỏ hơn ô bên cạnh.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.579] - 2026-10-22
 
 ### fix: nguồn Legado dùng bộ giới hạn nhịp kiểu Java (69書吧) dựng được URL tìm kiếm
@@ -407,17 +417,4 @@ Người dùng (ảnh máy thật, màn "Thêm rule", bàn phím nổi kiểu m�
 - **`KeyboardTextToolbarInstaller`**: `host.safeAreaRegions = []`.
 - Chuyển entry `[1.3.521]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
-
-## [1.3.550] - 2026-10-19
-
-### fix: thanh công cụ bàn phím không hiện ở ô nhập SwiftUI
-
-Người dùng (kèm 2 ảnh chụp máy thật — sheet "Quản lý nghĩa từ" và "Thêm từ mới"): *"fix lỗi thanh trên bàn phím hoàn toàn không được thêm vào"*.
-
-- **Vì sao** (đọc code, chưa xác nhận trên máy): `[1.3.548]` gắn thanh bằng cách gán `inputAccessoryView` lúc `textDidBeginEditing`, nhưng (1) `canAttach` bỏ qua mọi ô "đã có accessory của người khác" — ô `TextField`/`TextEditor` của SwiftUI rất có thể có sẵn accessory nội bộ (cho `.toolbar(placement: .keyboard)`) nên bị bỏ qua hết; (2) lớp nội bộ của SwiftUI có thể override getter / gán đè nên giá trị gán từ ngoài không ăn.
-- **`KeyboardAccessoryOverride`** (mới): giữ thanh trong associated object của đúng ô rồi thay getter `inputAccessoryView` của **lớp cụ thể** đó (mỗi lớp một lần) — có gắn thì trả thanh, không thì gọi getter gốc. Không bao giờ thay getter của `UITextField`/`UITextView` gốc.
-- **`KeyboardTextToolbarInstaller`**: bỏ `canAttach` (app không có màn nào tự gắn accessory); lớp SwiftUI luôn đi đường thay getter, lớp UIKit gán thẳng rồi đọc lại — không ăn thì chuyển sang thay getter. Ngoại lệ giữ nguyên: ô mật khẩu/API key, `CodeEditorTextView`.
-- **Log chẩn đoán** một lần mỗi lớp ô: `⌨️ [KeyboardToolbar] lớp ô …, accessory sẵn có …: <cách gắn>` (cần bật log trong Cài đặt); trường hợp hỏng có `❌` nên luôn được ghi.
-- Chuyển entry `[1.3.520]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; **chưa thử trên máy** — nếu thanh vẫn không hiện, gửi dòng log `⌨️ [KeyboardToolbar]`.
 

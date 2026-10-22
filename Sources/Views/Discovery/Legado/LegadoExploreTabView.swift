@@ -90,14 +90,19 @@ struct LegadoExploreTabView: View {
                 onPress: { press(item) }
             )
         } else if let category {
+            // Giữ số ô/hàng nguồn khai; nhãn dài (thường do dịch) được 3 dòng và tự co chữ trước khi phải cắt "…".
+            // `maxHeight: .infinity` ⇒ ô cao bằng hàng (`LegadoFlexLayout` lấy chiều cao ô cao nhất).
             Button(action: { onSelectGenre(category) }) {
                 Text(display(item.label))
                     .font(.subheadline)
                     .fontWeight(.medium)
-                    .lineLimit(2)
+                    .lineLimit(3)
+                    .minimumScaleFactor(0.75)
+                    .allowsTightening(true)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 6)
-                    .frame(maxWidth: .infinity, minHeight: 40)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 4)
+                    .frame(maxWidth: .infinity, minHeight: 40, maxHeight: .infinity)
                     .background(Color.white.opacity(0.12))
                     .foregroundColor(.white)
                     .cornerRadius(10)
