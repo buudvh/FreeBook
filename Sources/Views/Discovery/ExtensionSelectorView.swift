@@ -14,6 +14,8 @@ struct ExtensionSelectorView: View {
     var onImport: ((_ detailUrl: String, _ extensionPackageId: String, _ sourceName: String) -> Void)? = nil
     
     @State private var configExtension: Extension? = nil
+    /// Nguồn Legado đang mở màn Chi tiết nguồn (thay cho nút cấu hình của tiện ích JS).
+    @State private var legadoDetailExtension: Extension? = nil
     @AppStorage("discoveryKindFilter") private var kindFilter = "" // chip loại: "" = tất cả, còn lại `ExtensionContentKind.rawValue`
     /// Công tắc NSFW **toàn app** (chung khoá với Cài đặt và bộ lọc Kho). `activeExtensions` do `DiscoveryView` lọc theo
     /// cùng khoá nên bấm là danh sách đổi ngay; tắt khi đang xem nguồn NSFW thì `DiscoveryView` tự chuyển nguồn.
@@ -107,6 +109,18 @@ struct ExtensionSelectorView: View {
                                     .padding(8)
                             }
                             .buttonStyle(.plain)
+                        } else {
+                            // Nguồn Legado: mở màn Chi tiết nguồn (sửa JSON, gỡ lỗi, kiểm tra, đăng nhập…).
+                            Button(action: {
+                                legadoDetailExtension = ext
+                            }) {
+                                Image(systemName: "info.circle")
+                                    .font(.body)
+                                    .foregroundColor(.secondary)
+                                    .padding(8)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Chi tiết nguồn \(ext.name)")
                         }
                         
                         // Nút Ghim (Pin)
@@ -148,6 +162,9 @@ struct ExtensionSelectorView: View {
                 ExtensionConfigView(ext: ext, onImport: { detailUrl, packageId, sourceName in
                     importFromConfig(detailUrl: detailUrl, packageId: packageId, sourceName: sourceName)
                 })
+            }
+            .sheet(item: $legadoDetailExtension) { ext in
+                LegadoSourceDetailView(packageId: ext.packageId)
             }
         }
     }
