@@ -33,6 +33,9 @@ extension LegadoSourceRuntime {
     /// nhóm bị loại; tiêu đề trùng nhau được thêm tên nhóm phía trước để phân biệt; trùng `id` bị bỏ (ForEach cần id
     /// duy nhất). `exploreUrl` rỗng ⇒ `[]`.
     static func exploreCategories(_ target: Target, scriptName: String, log: LegadoRunLog? = nil) async throws -> [CategoryResult] {
+        if LegadoQuickSearch.applies(to: target.source) {
+            return exploreCategories(from: LegadoQuickSearch.entries(), scriptName: scriptName)
+        }
         let exploreUrl = target.source.exploreUrl
         guard nonEmpty(exploreUrl) != nil else { return [] }
         let items: [LegadoEngineExploreItem] = try await runSession(target, log: log) { session in

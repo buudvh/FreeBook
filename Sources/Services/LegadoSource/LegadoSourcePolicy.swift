@@ -38,6 +38,16 @@ public enum LegadoSourcePolicy {
         return summary.enabledExplore && summary.hasExploreRules
     }
 
+    /// Chạy được, không có Khám phá dùng được nhưng có rule tìm kiếm ⇒ Khám phá hiện danh mục tìm nhanh
+    /// (`LegadoQuickSearch`).
+    public static func isQuickSearchable(_ ext: Extension) -> Bool {
+        guard isRunnable(ext), let summary = LegadoSourceRepository.summarySnapshot(packageId: ext.packageId) else {
+            return false
+        }
+        return LegadoQuickSearch.applies(hasSearchRules: summary.hasSearchRules, hasExploreRules: summary.hasExploreRules,
+                                         enabledExplore: summary.enabledExplore)
+    }
+
     /// Chạy được và có rule tìm kiếm.
     public static func isSearchable(_ ext: Extension) -> Bool {
         guard isRunnable(ext), let summary = LegadoSourceRepository.summarySnapshot(packageId: ext.packageId) else {

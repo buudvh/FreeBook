@@ -82,6 +82,8 @@ extension LegadoSourceRuntime {
     ///
     /// Ngữ cảnh có người dùng do lớp gọi quyết (`LegadoInteraction`, task-local) — facade bọc khi người dùng đang xem.
     static func exploreEntries(_ target: Target, log: LegadoRunLog? = nil) async throws -> [LegadoEngineExploreItem] {
+        // Nguồn không có Khám phá dùng được nhưng tìm được ⇒ danh mục tìm nhanh (không chạy engine).
+        if LegadoQuickSearch.applies(to: target.source) { return LegadoQuickSearch.entries() }
         let exploreUrl = target.source.exploreUrl
         guard nonEmpty(exploreUrl) != nil else { return [] }
         let key = exploreCacheKey(target)

@@ -19,7 +19,7 @@ struct DiscoveryView: View {
 
     /// Tiện ích nội dung đã cài (chữ/tranh/video), thứ tự ghim → vừa dùng → A-Z (`ExtensionSortPolicy`); công tắc NSFW
     /// tắt thì bỏ nguồn NSFW — nguồn đang xem bị ẩn sẽ được `onChange` bên dưới đổi sang nguồn đầu tiên còn lại.
-    /// Nguồn Legado chỉ hiện khi đang bật, loại chữ và có Khám phá (`SearchExtensionScopePolicy.isDiscoverable`).
+    /// Nguồn Legado hiện khi đang bật, loại đã hỗ trợ và có Khám phá hoặc tìm được (danh mục tìm nhanh — `isDiscoverable`).
     private var activeExtensions: [Extension] {
         // Bật/tắt nguồn Legado nằm ở bảng chụp không quan sát được: đọc `summaries` để Observation vẽ lại khi đổi.
         _ = LegadoSourceRepository.shared.summaries

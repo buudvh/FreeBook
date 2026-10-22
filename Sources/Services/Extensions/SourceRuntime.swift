@@ -98,6 +98,14 @@ public final class SourceRuntime: @unchecked Sendable {
             guard scriptFileName == Self.legadoExploreScriptName else {
                 throw LegadoRuntimeError.unsupportedScript(scriptFileName)
             }
+            // Ô tìm nhanh (nguồn không có Khám phá): danh sách = kết quả tìm kiếm với từ khoá của ô.
+            if let keyword = LegadoQuickSearch.keyword(fromInput: input) {
+                let results = try await legadoCall("search", "query=\(keyword), page=\(page)") {
+                    try await LegadoSourceRuntime.search(target, query: keyword, page: page)
+                }
+                let canPage = !results.isEmpty && LegadoQuickSearch.supportsPaging(target.source)
+                return (results, canPage ? String(page + 1) : nil)
+            }
             return try await legadoCall("explore", "\(input), page=\(page)") {
                 try await LegadoSourceRuntime.explorePage(target, url: input, page: page)
             }

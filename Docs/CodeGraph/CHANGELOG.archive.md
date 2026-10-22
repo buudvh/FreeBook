@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.542] - 2026-10-19
+
+### fix: menu dịch ở khám phá mặc định đúng phạm vi nguồn, không hiện "Truyện này"
+
+Người dùng: *"ở khám phá, dịch văn bản không có lựa chọn truyện này nhưng mặc định nó luôn hiển thị truyện này, bấm mở select nó mới đổi lại chọn nguồn này"*. Plan: `Docs/Plans/2026-10-19-plan-discovery-translation-scope-default.md`.
+
+- **Nguyên nhân**: `ReaderTranslationScopeMenuView.selectedScope` khởi tạo cứng `.book` (`:27`), còn `preparePopupState()` chỉ sửa nó trong action của nút nên nội dung popover vẽ lần đầu vẫn đọc `.book`; `scopeDisplayText` đọc thẳng `selectedScope`. Khám phá truyền `bookId: ""` (`DiscoveryView.swift:167`) nên `Menu` không có mục "Truyện này" mà nhãn vẫn ghi "Truyện này", mở `Menu` lần nữa mới vẽ lại sang "Nguồn này". Kèm hệ quả: bấm "Lưu lại" ngay sẽ gọi `setBookOverride(bookId: "", …)` — ghi override rác với khoá rỗng.
+- **Sửa**:
+  - `availableScope(bookId:packageId:)` (hàm thuần) chọn cấp có thật: truyện → nguồn → toàn cục; dùng ở `init` để state bắt đầu đúng ngay từ lần vẽ đầu.
+  - `effectiveScope` kẹp `selectedScope` về cấp có thật; `scopeDisplayText`, dấu checkmark trong `Menu` và `saveSettings` đều dùng nó ⇒ không hiện/ghi "Truyện này" khi `bookId` rỗng.
+  - `refreshStatus()` kẹp lại khi `bookId`/`packageId` đổi (đổi nguồn ở Khám phá).
+- **Giữ nguyên**: Reader và BookDetail (bookId khác rỗng) vẫn mặc định "Truyện này" như cũ.
+- **Kiểm chứng**: `swiftc -parse` sạch; `check_architecture.py` 2 violation nền (`JSDom.swift`, `TTSManager.swift`), **0 mới**; file 307 dòng < 400. Không build tại chỗ (Windows) — CI chỉ xác nhận biên dịch.
+
 ## [1.3.541] - 2026-10-19
 
 ### fix: giữ mục lục ở chi tiết sau khi đọc ngay, đồng bộ lại khi đóng reader

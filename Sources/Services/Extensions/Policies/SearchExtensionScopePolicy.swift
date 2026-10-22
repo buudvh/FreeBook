@@ -37,7 +37,9 @@ public enum SearchExtensionScopePolicy {
     /// `exploreUrl` vẫn là "browsable" theo loại nên phải chặn ở đây.
     public static func isDiscoverable(_ ext: Extension) -> Bool {
         guard isBrowsable(ext) else { return false }
+        // Nguồn Legado không có Khám phá nhưng tìm được vẫn hiện, với danh mục tìm nhanh (`LegadoQuickSearch`).
         return !LegadoSourcePolicy.isLegado(ext) || LegadoSourcePolicy.isExplorable(ext)
+            || LegadoSourcePolicy.isQuickSearchable(ext)
     }
 
     /// Nguồn được tìm (kể cả đổi nguồn): tiện ích JS giữ nguyên; nguồn Legado chỉ khi chạy được và có rule tìm kiếm

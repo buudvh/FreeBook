@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.572] - 2026-10-22
+
+### feat: danh mục tìm nhanh ở Khám phá cho nguồn Legado không có Khám phá
+
+Người dùng: *"các nguồn không khai báo exploreUrl/ruleExplore của legado hãy thêm danh sách các từ tìm kiếm nhanh để người dùng có thể dùng để tìm kiếm nhanh. Tham khảo danh sách của …/wcshuba/src/genre.js"* (kèm báo 69書吧 không có ở Khám phá — nguồn này không khai `exploreUrl`).
+
+- **`LegadoQuickSearch`** (mới, `Services/LegadoSource/Search/`): 71 từ khoá tiếng Trung lấy theo danh mục tìm của tiện ích `wcshuba` (诸天, 聊天群, 万界, 斗罗, 遮天, 凡人, 火影, 柯南…), bỏ các mục phân loại riêng của trang đó; mục "木叶" tìm đúng "木叶" (bản tham khảo trỏ nhầm sang "火影"). Áp cho nguồn **có rule tìm kiếm** mà **không có Khám phá dùng được** (thiếu `exploreUrl`/rule khám phá, hoặc `enabledExplore = false`).
+- **Khám phá**: `SearchExtensionScopePolicy.isDiscoverable` nhận thêm nguồn Legado `LegadoSourcePolicy.isQuickSearchable` ⇒ hiện ở bảng chọn nguồn. Tab lưới của nguồn (`LegadoExploreTabView`) hiện các ô từ khoá (4 ô một hàng; tên ô dịch QT khi bật dịch như tên thể loại) — `LegadoSourceRuntime.exploreEntries`/`exploreCategories` trả mục tìm nhanh, không chạy engine.
+- **Bấm ô** ⇒ đi đường của mục khám phá (`legadoExploreScriptName`, URL mang tiền tố `legado-quick-search:`); `SourceRuntime.executeCustomScript` nhận ra và chạy **tìm kiếm** của nguồn với từ khoá đó; có trang sau khi trang có kết quả và `searchUrl` có dùng `page` (`PaginatedNovelLoader` vẫn dừng khi trang không thêm mục mới).
+- Nguồn có Khám phá riêng giữ nguyên danh mục của nguồn; tiện ích JS không đổi.
+- Chuyển entry `[1.3.542]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.571] - 2026-10-22
 
 ### feat: nút chi tiết nguồn Legado trong bảng Phần mở rộng của Khám phá
@@ -417,17 +430,3 @@ Người dùng: *"sửa lại mục lục detail của video thành Đề xuất
 - **Sửa kèm**: nút cuối danh sách dùng `"Tải thêm \(episodeNoun)"` thay vì hardcode "chương" (`BookDetailTOCView.swift:229`).
 - **Không đổi**: nhánh truyện chữ / truyện tranh, `navigationTitle`, tầng dữ liệu (không ghi SwiftData).
 - **Kiểm chứng**: `swiftc -parse` sạch 7 file; `check_architecture.py` 2 violation nền (`JSDom.swift`, `TTSManager.swift`), **0 mới**; `BookDetailVideoTOCGrid` 371 dòng, `+Groups` 98, `BookDetailTOCView` 396 (< 400). Không build tại chỗ (Windows) — CI xác nhận biên dịch.
-
-## [1.3.542] - 2026-10-19
-
-### fix: menu dịch ở khám phá mặc định đúng phạm vi nguồn, không hiện "Truyện này"
-
-Người dùng: *"ở khám phá, dịch văn bản không có lựa chọn truyện này nhưng mặc định nó luôn hiển thị truyện này, bấm mở select nó mới đổi lại chọn nguồn này"*. Plan: `Docs/Plans/2026-10-19-plan-discovery-translation-scope-default.md`.
-
-- **Nguyên nhân**: `ReaderTranslationScopeMenuView.selectedScope` khởi tạo cứng `.book` (`:27`), còn `preparePopupState()` chỉ sửa nó trong action của nút nên nội dung popover vẽ lần đầu vẫn đọc `.book`; `scopeDisplayText` đọc thẳng `selectedScope`. Khám phá truyền `bookId: ""` (`DiscoveryView.swift:167`) nên `Menu` không có mục "Truyện này" mà nhãn vẫn ghi "Truyện này", mở `Menu` lần nữa mới vẽ lại sang "Nguồn này". Kèm hệ quả: bấm "Lưu lại" ngay sẽ gọi `setBookOverride(bookId: "", …)` — ghi override rác với khoá rỗng.
-- **Sửa**:
-  - `availableScope(bookId:packageId:)` (hàm thuần) chọn cấp có thật: truyện → nguồn → toàn cục; dùng ở `init` để state bắt đầu đúng ngay từ lần vẽ đầu.
-  - `effectiveScope` kẹp `selectedScope` về cấp có thật; `scopeDisplayText`, dấu checkmark trong `Menu` và `saveSettings` đều dùng nó ⇒ không hiện/ghi "Truyện này" khi `bookId` rỗng.
-  - `refreshStatus()` kẹp lại khi `bookId`/`packageId` đổi (đổi nguồn ở Khám phá).
-- **Giữ nguyên**: Reader và BookDetail (bookId khác rỗng) vẫn mặc định "Truyện này" như cũ.
-- **Kiểm chứng**: `swiftc -parse` sạch; `check_architecture.py` 2 violation nền (`JSDom.swift`, `TTSManager.swift`), **0 mới**; file 307 dòng < 400. Không build tại chỗ (Windows) — CI chỉ xác nhận biên dịch.
