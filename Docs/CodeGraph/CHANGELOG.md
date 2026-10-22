@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.575] - 2026-10-22
+
+### fix: nút chia sẻ chỉ chạy được lần đầu: bảng chia sẻ đóng xong không báo SwiftUI
+
+Người dùng: *"tôi bấm chia sẻ kiểm tra nguồn nhưng không thấy hoạt động, trước đây có thành công 1 lần"*.
+
+- **Nguyên nhân**: `UIActivityViewController` tự đóng khi chia sẻ xong (hoặc huỷ) mà SwiftUI không biết ⇒ cờ `isPresented` / `item` của `.sheet` kẹt ở "đang mở"; lần bấm sau gán URL mới khi cờ vẫn `true` nên không có gì hiện ra.
+- **`ShareSheet`** (dùng chung cả app — sao lưu, từ điển, rule dịch, lọc rác, công cụ tìm kiếm, xuất nguồn Legado…): trong `completionWithItemsHandler` gọi `dismiss` của chính sheet (`context.environment.dismiss`, trên MainActor) sau `onComplete` ⇒ SwiftUI hạ trạng thái, lần sau trình bày lại được.
+- **Màn Kiểm tra nguồn**: `onComplete` hạ `shareURL`; nếu cờ vẫn kẹt khi bấm lại thì hạ trước, chờ ~0,4 s cho sheet cũ gỡ xong rồi mới trình bày.
+- Chuyển entry `[1.3.545]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.574] - 2026-10-22
 
 ### feat: tự kết luận lỗi nguồn Legado do web, do nguồn hay do app, chia sẻ báo cáo kiểm tra
@@ -421,17 +433,3 @@ Người dùng: *"tôi muốn thay tuỳ chỉnh hiển thị layout của danh 
 - **Sửa kèm**: giá trị bool đã lưu trong `configJson` bị đọc lại thành `"1"`/`"0"` (công tắc luôn hiện tắt, lần lưu sau ghi `true` thành `false`) — nhận diện bool thật qua `CFBoolean`.
 - **Không đổi**: `@Model`/schema, Tìm kiếm toàn nguồn, Gợi ý, sheet chọn truyện ở Từ điển, tab Tải về, hộp xác nhận và luật chặn gỡ tiện ích đang là giọng TTS.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền (`JSDom.swift`, `TTSManager.swift`), **0 mới**; mọi file mới ≤ 400 dòng, 1 type chính/file. Không build tại chỗ (Windows, không có `swiftc`) — CI xác nhận biên dịch; chưa thử trên máy.
-
-## [1.3.545] - 2026-10-19
-
-### feat: mục lục video dùng tab theo section ở chi tiết và trình phát
-
-Người dùng: *"mục lục ở chi tiết sửa mockup lại (để các tab vietsub, thuyết minh chọn được, đừng chia theo cụm tập"* và *"các phân mục lục khác của video cũng chia theo tab section"*. Mockup: `Docs/Mockups/2026-10-19-mockup-detail-toc.html`, `Docs/Mockups/2026-10-19-mockup-video-episode-list.html`.
-
-- **Vì sao**: `[1.3.543]` cắt mục lục thành cụm 24 tập (`1–24`, `25–48`…) — mốc số vô nghĩa với người xem, còn tên nhóm (`section`) thì có nghĩa. Trình phát thì ngược lại: vẫn vẽ tiêu đề nhóm chen giữa lưới nên muốn xem nhóm khác phải cuộn qua hết nhóm trước.
-- **`BookDetailVideoTOCGrid`**: bỏ hẳn `chunkSize` / `maxRowsPerGroup` / `RangeGroup` / `ordinal`; `SectionGroup` = đúng một section, hàng tab chia đều khi ≤ 3 nhóm và cuộn ngang khi nhiều hơn; badge cạnh tiêu đề đếm theo tab đang mở; `endLabel` theo tên nhóm.
-- **Số tập**: đánh lại 1…N **trong từng tab** (giảm dần thì đánh ngược), chạm ô vẫn trả `index` thật. `BookDetailTOCView.videoRows` không còn tính `ordinal`, bỏ luôn tham số `totalCount`.
-- **`VideoEpisodeGridView`** (dùng chung cho `VideoEpisodePanel` toàn màn và `VideoPlayerDetailsView` màn dọc): viết lại thành tab + lưới 4 cột ô 46pt, bỏ tiêu đề nhóm chen giữa lưới; `init` chọn sẵn tab chứa `currentEpisodeIndex` để `scrollTo` của màn cha vẫn tìm thấy ô; đổi tab **không** đổi tập đang phát.
-- **Tìm kiếm**: ẩn hàng tab, lưới trải trên mọi nhóm (không kẹt trong tab đang mở).
-- **Không đổi**: tầng dữ liệu (`session.episodes` / `currentEpisodeIndex` / `chapterSnapshots`), nhánh truyện chữ / truyện tranh, nút tải hàng loạt của `[1.3.544]`.
-- **Kiểm chứng**: `swiftc -parse` sạch 6 file; `check_architecture.py` 2 violation nền, **0 mới**; `BookDetailVideoTOCGrid` 370 dòng, `+Groups` 79, `BookDetailTOCView` 378, `VideoEpisodeGridView` 197. Không build tại chỗ (Windows) — CI xác nhận biên dịch.

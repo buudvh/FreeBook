@@ -60,7 +60,11 @@ struct LegadoSourceCheckView: View {
             }
         }
         .sheet(isPresented: isSharing) {
-            if let shareURL { ShareSheet(activityItems: [shareURL]) }
+            if let shareURL {
+                ShareSheet(activityItems: [shareURL]) { _, _, _, _ in
+                    self.shareURL = nil
+                }
+            }
         }
         .navigationDestination(item: $debugPackageId) { id in
             LegadoSourceDebugView(packageId: id, sourceName: displayName(for: id))
@@ -278,11 +282,19 @@ struct LegadoSourceCheckView: View {
         isPreparingShare = true
         Task { @MainActor in
             let result = await LegadoCorpusReportShare.write(report)
-            isPreparingShare = false
             switch result {
-            case .success(let url): shareURL = url
-            case .failure(let error): actionMessage = error.localizedDescription
+            case .success(let url):
+                // Cờ còn kẹt từ lần trước (bảng chia sẻ tự đóng mà SwiftUI không biết) ⇒ hạ trước, chờ sheet cũ gỡ
+                // xong rồi mới trình bày lại — gán thẳng URL mới khi cờ đang `true` thì không có gì hiện ra.
+                if shareURL != nil {
+                    shareURL = nil
+                    try? await Task.sleep(nanoseconds: 400_000_000)
+                }
+                shareURL = url
+            case .failure(let error):
+                actionMessage = error.localizedDescription
             }
+            isPreparingShare = false
         }
     }
 
