@@ -6,7 +6,8 @@ import Foundation
 /// - Hàng chip loại (`ExtensionKindFilterBar`) lưu lựa chọn dạng chuỗi: `""` = tất cả, còn lại là
 ///   `ExtensionContentKind.rawValue`. Giá trị lạ/hỏng coi như tất cả.
 /// - **Đổi nguồn**: chỉ tiện ích **cùng loại** với sách (mục lục, tiến độ và chương đã tải không chuyển được
-///   giữa chữ/tranh/video); hàng chip bị bỏ qua.
+///   giữa chữ/tranh/video); hàng chip bị bỏ qua. Áp cả cho "Thay đổi nguồn" ở Chi tiết truyện **chưa lưu**: khi đó
+///   `changeSourcePackageId` là tiện ích của trang chi tiết (`SearchView.kindScopePackageId`).
 /// - **NSFW**: tìm mọi nguồn (kể cả đổi nguồn) bỏ tiện ích NSFW khi công tắc NSFW toàn app đang tắt
 ///   (`RepositoryFilterPolicy.includeNsfwDefaultsKey`, mặc định tắt). Ngoại lệ: đổi nguồn cho sách của chính một
 ///   tiện ích NSFW thì giữ — nếu không danh sách nguồn thay thế luôn rỗng. Khám phá lọc NSFW ở chính `DiscoveryView`

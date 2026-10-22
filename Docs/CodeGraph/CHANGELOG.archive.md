@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.530] - 2026-10-16
+
+### fix(tts): tts tien ich suy duong dan tu packageId, bo ttsExtensionLocalPath tuyet doi
+
+Người dùng: duyệt plan *"TTS tiện ích: bỏ ttsExtensionLocalPath tuyệt đối"* — việc còn lại ở §9 plan `Docs/Plans/2026-10-16-plan-extension-store-json.md` (1.3.529).
+
+- **Vấn đề**: `TTSManager.extensionLocalPath` được lưu nguyên đường dẫn **tuyệt đối** vào `UserDefaults` (`ttsExtensionLocalPath`). Gốc thư mục dữ liệu đổi (LiveContainer, lỗi 1.3.523) ⇒ TTS tiện ích trỏ vào thư mục chết cho tới khi mở màn Cài đặt TTS, và `localStorage` của nó rơi vào namespace `"path:"+md5` thay vì `packageId` (`JSExecutor`). Restore cài đặt cũng hỏng tương tự: `ttsTool` về nhưng khoá đường dẫn bị `BackupSettingsArchiver` chặn ⇒ đường dẫn rỗng.
+- **File mới** `Sources/Services/TTS/TTSManager+ExtensionPath.swift`: `libraryExtensionLocalPath(tool:)` / `libraryExtensionConfigJson(tool:)` (`nonisolated static`, đọc `ExtensionLibraryRepository.snapshot(packageId:)`), `refreshExtensionPathFromLibrary()` (chỉ gán khi khác để không xoá cache prefetch vô ích), và dọn khoá cũ một lần — chuyển namespace `"path:"+md5(đường dẫn cũ)` sang `packageId` nếu namespace đó còn trống (cứu `localStorage` mà 1.3.529 có thể đã ghi nhầm chỗ), rồi xoá khoá.
+- **`TTSManager.swift`** giữ nguyên **3510** dòng: bỏ dòng ghi `UserDefaults` trong `didSet` (−1); `init` tính `extensionLocalPath` và `extensionConfigJson` từ index (`configJson` của tiện ích là nguồn sự thật, bản sao `ttsExtensionConfigJson` chỉ còn là dự phòng; ±0); `initialize(container:)` gọi `refreshExtensionPathFromLibrary()` sau khi library đã nạp (+1).
+- **Tài liệu**: `rules.md` bỏ ngoại lệ "`ttsExtensionLocalPath` còn tồn"; comment deny-list của `BackupSettingsArchiver` cập nhật (vẫn chặn khoá sót trên máy chưa dọn).
+- **Không đổi**: màn Cài đặt TTS (vẫn đồng bộ khi mở màn), luồng tổng hợp/cache; chưa tự cập nhật đường dẫn khi bản cập nhật tiện ích đổi thư mục con lúc app đang chạy (có từ trước).
+- **Kiểm chứng**: `check_architecture.py` **2 violation, 0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch. Test tay: chọn TTS tiện ích, khởi động lại app, nghe được ngay không cần mở màn cài đặt.
+
 ## [1.3.529] - 2026-10-16
 
 ### feat: luu tien ich va kho bang JSON thay SwiftData, sap xep ghim/vua dung, loc chip chon nhieu

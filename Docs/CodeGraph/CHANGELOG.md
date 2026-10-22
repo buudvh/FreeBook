@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.560] - 2026-10-22
+
+### fix: đổi nguồn ở chi tiết truyện chưa lưu chỉ tìm nguồn cùng loại
+
+Người dùng: *"khi tìm truyện thay thế thì chỉ tìm nguồn truyện, không tìm video và comic, ngược lại video và comic cũng thế"*; bác giả thuyết `type` lạ (*"điều tra kỹ vào"*), duyệt plan.
+
+- **Nguyên nhân**: menu "…" → "Thay đổi nguồn" ở `BookDetailView` luôn hiện, nhưng truyện **chưa lưu** (mở từ Khám phá/Tìm kiếm, chưa đọc) có `localBook == nil` ⇒ `SearchView` nhận `changeSourceTargetBook: nil` và chạy như tìm thường: hiện hàng chip, lọc theo chip đã nhớ (mặc định "Tất cả") ⇒ tìm cả chữ, tranh, video. Bốn lối còn lại (Kệ, Tìm trên kệ, Bộ sưu tập, Reader) truyền đủ sách nên vốn đã lọc cùng loại. Giá trị `type` của tiện ích (registry + `plugin.json`) được lưu đúng chuẩn — không phải nguyên nhân.
+- `SearchView` thêm tham số `kindScopePackageId` (mặc định `nil`). `sameKindScopePackageId` (`SearchView+KindFilter`) = tiện ích của sách cần đổi ?? `kindScopePackageId`, đưa vào `SearchExtensionScopePolicy.searchableExtensions(changeSourcePackageId:)` — cùng luật cùng loại và ngoại lệ NSFW của đổi nguồn. Hàng chip và lượt tìm lại khi đổi chip tắt theo cùng điều kiện.
+- `BookDetailView` luôn truyền `kindScopePackageId: extensionPackageId` (sách đã lưu thì trùng tiện ích của `localBook`).
+- Truyện chưa lưu: bấm kết quả vẫn mở chi tiết truyện như trước (không có sách để chuyển dữ liệu); bản sửa chỉ giới hạn loại nguồn được tìm.
+- Chuyển entry `[1.3.530]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code, grep chéo caller của `SearchView(`; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
+
 ## [1.3.559] - 2026-10-21
 
 ### fix: thanh xoá, sao chép, dán bị bàn phím che ở màn thêm rule
@@ -599,16 +612,3 @@ Người dùng duyệt plan `Docs/Plans/2026-10-17-plan-comic-video.md`, gồm: 
   - Sơ đồ mã hoá mới của AllShorts.
   - Backup **không** gói thư mục `comics/`.
 - **Kiểm chứng**: `check_architecture.py` báo **2 violation, 0 mới**. Không build tại chỗ (Windows); CI chỉ xác nhận biên dịch. Cần thử trên máy theo danh sách ext mẫu ở mục 7 của plan.
-
-## [1.3.530] - 2026-10-16
-
-### fix(tts): tts tien ich suy duong dan tu packageId, bo ttsExtensionLocalPath tuyet doi
-
-Người dùng: duyệt plan *"TTS tiện ích: bỏ ttsExtensionLocalPath tuyệt đối"* — việc còn lại ở §9 plan `Docs/Plans/2026-10-16-plan-extension-store-json.md` (1.3.529).
-
-- **Vấn đề**: `TTSManager.extensionLocalPath` được lưu nguyên đường dẫn **tuyệt đối** vào `UserDefaults` (`ttsExtensionLocalPath`). Gốc thư mục dữ liệu đổi (LiveContainer, lỗi 1.3.523) ⇒ TTS tiện ích trỏ vào thư mục chết cho tới khi mở màn Cài đặt TTS, và `localStorage` của nó rơi vào namespace `"path:"+md5` thay vì `packageId` (`JSExecutor`). Restore cài đặt cũng hỏng tương tự: `ttsTool` về nhưng khoá đường dẫn bị `BackupSettingsArchiver` chặn ⇒ đường dẫn rỗng.
-- **File mới** `Sources/Services/TTS/TTSManager+ExtensionPath.swift`: `libraryExtensionLocalPath(tool:)` / `libraryExtensionConfigJson(tool:)` (`nonisolated static`, đọc `ExtensionLibraryRepository.snapshot(packageId:)`), `refreshExtensionPathFromLibrary()` (chỉ gán khi khác để không xoá cache prefetch vô ích), và dọn khoá cũ một lần — chuyển namespace `"path:"+md5(đường dẫn cũ)` sang `packageId` nếu namespace đó còn trống (cứu `localStorage` mà 1.3.529 có thể đã ghi nhầm chỗ), rồi xoá khoá.
-- **`TTSManager.swift`** giữ nguyên **3510** dòng: bỏ dòng ghi `UserDefaults` trong `didSet` (−1); `init` tính `extensionLocalPath` và `extensionConfigJson` từ index (`configJson` của tiện ích là nguồn sự thật, bản sao `ttsExtensionConfigJson` chỉ còn là dự phòng; ±0); `initialize(container:)` gọi `refreshExtensionPathFromLibrary()` sau khi library đã nạp (+1).
-- **Tài liệu**: `rules.md` bỏ ngoại lệ "`ttsExtensionLocalPath` còn tồn"; comment deny-list của `BackupSettingsArchiver` cập nhật (vẫn chặn khoá sót trên máy chưa dọn).
-- **Không đổi**: màn Cài đặt TTS (vẫn đồng bộ khi mở màn), luồng tổng hợp/cache; chưa tự cập nhật đường dẫn khi bản cập nhật tiện ích đổi thư mục con lúc app đang chạy (có từ trước).
-- **Kiểm chứng**: `check_architecture.py` **2 violation, 0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch. Test tay: chọn TTS tiện ích, khởi động lại app, nghe được ngay không cần mở màn cài đặt.

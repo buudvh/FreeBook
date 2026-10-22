@@ -3,8 +3,15 @@ import SwiftUI
 /// Công tắc "tất cả nguồn" + hàng chip loại nội dung của màn Tìm kiếm.
 ///
 /// Tách khỏi `SearchView.swift` để file gốc không vượt baseline dòng (plan comic/video, A4). Luật lọc nằm ở
-/// `SearchExtensionScopePolicy`; khi đang **đổi nguồn** hàng chip bị ẩn vì policy đã ép đúng loại của sách.
+/// `SearchExtensionScopePolicy`; khi đang **đổi nguồn** (có sách cần đổi, hoặc "Thay đổi nguồn" ở Chi tiết truyện
+/// chưa lưu) hàng chip bị ẩn vì policy đã ép đúng loại của truyện.
 extension SearchView {
+    /// Tiện ích quyết định loại được tìm khi đổi nguồn: của sách cần đổi, không có sách thì `kindScopePackageId`.
+    /// `nil` ⇒ tìm thường, theo chip.
+    var sameKindScopePackageId: String? {
+        changeSourceTargetBook?.extensionPackageId ?? kindScopePackageId
+    }
+
     @ViewBuilder
     var searchOptionsView: some View {
         Toggle(isOn: $searchAllSources) {
@@ -16,7 +23,7 @@ extension SearchView {
         .padding(.horizontal)
         .padding(.vertical, 6)
 
-        if searchAllSources && changeSourceTargetBook == nil {
+        if searchAllSources && sameKindScopePackageId == nil {
             ExtensionKindFilterBar(selection: $searchKindFilter)
                 .onChange(of: searchKindFilter) { _, _ in
                     rerunSearchAfterKindChange()
@@ -26,7 +33,7 @@ extension SearchView {
 
     /// Đổi chip sau khi đã tìm trên nhiều nguồn ⇒ tìm lại: nguồn vừa lọc vào chưa từng được tìm.
     func rerunSearchAfterKindChange() {
-        guard searchAllSources, changeSourceTargetBook == nil, !sourceStates.isEmpty else { return }
+        guard searchAllSources, sameKindScopePackageId == nil, !sourceStates.isEmpty else { return }
         performSearch()
     }
 }
