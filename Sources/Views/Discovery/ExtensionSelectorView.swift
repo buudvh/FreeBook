@@ -3,8 +3,9 @@ import SwiftUI
 /// Sheet chọn nguồn của Khám phá: tìm theo tên/link, lọc theo loại, ghim, mở Cấu hình tiện ích.
 /// Tách khỏi `DiscoveryView.swift` để file đó còn chỗ dưới baseline dòng.
 ///
-/// Trình duyệt của nguồn không còn mở từ dòng ở đây mà từ nút "Trình duyệt" của màn Cấu hình tiện ích; `onImport`
-/// vẫn đi qua màn đó để "Import truyện" mở Chi tiết ở Khám phá như trước.
+/// Trình duyệt của nguồn không mở từ dòng ở đây mà từ dòng "Mở trình duyệt" trong menu header Khám phá
+/// (`DiscoverySourceMenuButton`) hoặc nút "Trình duyệt" của màn Cấu hình tiện ích; `onImport` vẫn đi qua màn Cấu hình
+/// để "Import truyện" từ đó mở Chi tiết ở Khám phá như trước.
 struct ExtensionSelectorView: View {
     @Environment(\.dismiss) private var dismiss
     

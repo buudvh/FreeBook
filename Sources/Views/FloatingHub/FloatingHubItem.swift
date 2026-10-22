@@ -56,7 +56,7 @@ struct FloatingHubItem: Equatable, Identifiable {
     }
 
     let kind: Kind
-    /// Dòng dùng được: chạm được và tính vào badge của nút hub. `false` ⇒ dòng xám, không chạm được — dòng
+    /// Dòng dùng được: chạm được. `false` ⇒ dòng xám, không chạm được — dòng
     /// **vẫn nằm đó**, không bị bỏ khỏi menu.
     var isEnabled = false
     /// Dòng chính; rỗng ⇒ dùng `kind.title`. Mục Video đặt tên phim vào đây.
@@ -67,8 +67,9 @@ struct FloatingHubItem: Equatable, Identifiable {
     var badgeCount = 0
     /// Chỉ mục Video dùng: đang phát hay đang dừng (glyph của nút phát/dừng).
     var isPlaying = false
-    /// Đang có việc (tính vào badge số của nút hub). Tách khỏi `isEnabled` vì Thông báo **luôn** chạm được
-    /// nhưng chỉ tính là "đang hoạt động" khi có tin chưa đọc hoặc tác vụ chạy.
+    /// Đang có việc. Với AI và Video, cờ này là "tiến trình" của nút hub (icon, nháy, chạm); Thông báo thì nút hub
+    /// chỉ tính tác vụ nền, không đọc cờ này. Tách khỏi `isEnabled` vì Thông báo **luôn** chạm được nhưng chỉ tính
+    /// là "đang hoạt động" khi có tin chưa đọc hoặc tác vụ chạy.
     var isActive = false
 
     var id: Kind { kind }

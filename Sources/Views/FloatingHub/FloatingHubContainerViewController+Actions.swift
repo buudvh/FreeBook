@@ -53,6 +53,44 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
         AIRuntimeCoordinator.shared.presentFullScreen(bookId: bookId)
     }
 
+    // MARK: - Chạm nút hub
+
+    /// Chạm nút hub khi menu **đang đóng** (người dùng chốt 2026-10-22) — rẽ theo số tiến trình của snapshot **lúc
+    /// chạm**, kể cả khi hub đang nép:
+    /// - 0 ⇒ màn Thông báo.
+    /// - 1 ⇒ mở thẳng mục đó, đúng như chạm dòng của nó trong menu. Thông báo/Video đi thẳng `open(_:)` (tự đóng
+    ///   menu, thu hub về mép rồi mới trình bày). AI phải bung + mở menu trước vì `open(.ai)` chỉ chuyển thẻ menu
+    ///   đang mở sang trang "AI đang chạy".
+    /// - Từ 2 ⇒ bung (nếu đang nép) và mở menu.
+    ///
+    /// Tập tiến trình đổi đúng lúc chạm (AI vừa xong) thì `open(_:)` đã guard `isItemEnabled`.
+    func activateByRunningTasks() {
+        let button = presentationReader.snapshot.button
+        switch button.runningCount {
+        case 0:
+            open(.notifications)
+        case 1:
+            let kind = button.runningKinds[0]
+            if kind == .ai {
+                revealAndOpenMenu()
+            }
+            open(kind)
+        default:
+            revealAndOpenMenu()
+        }
+    }
+
+    private func revealAndOpenMenu() {
+        if viewModel.mode == .peeking {
+            viewModel.reveal()
+            // `updateLayout` gán ngay vị trí đích cho `widgetContainerView` (animation chỉ chạy ở lớp hiển thị) ⇒
+            // `layoutMenu` đặt thẻ đúng cạnh nút đã bung.
+            updateLayout(animated: true)
+        }
+        // Mở menu bật `isMenuOpen` ⇒ huỷ hẹn giờ tự thu.
+        openMenu()
+    }
+
     // MARK: - Nút của dòng Video
 
     /// Phát/dừng video nền. Menu **giữ nguyên** để người dùng thấy glyph đổi ngay trên dòng.

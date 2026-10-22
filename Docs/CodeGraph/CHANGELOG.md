@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.561] - 2026-10-22
+
+### feat: menu Khám phá mở lại trình duyệt, widget chung nháy theo tiến trình
+
+Người dùng: *"đem nút mở trình duyệt ở khám phá trở lại"*, rồi *"gộp luôn nút dịch đi, dùng biểu tượng của widget chung, đổi biểu tượng widget chung thành cái khác"*, *"khi widget chỉ có 1 mục đang chạy thì hiển thị icon mục đó… bấm vào thì hiển thị trực tiếp ra mục đó"*, *"màu nhấp nháy đồng bộ"*, *"khi không có tiến trình chạy thì Icon chuông, không nháy, bấm vào mở màn hình thông báo"*. Chốt qua `/grill-me` (plan `Docs/Plans/2026-10-22-plan-menu-kham-pha-va-widget-chung.md`, mockup đã duyệt); người dùng duyệt cả việc viết lại `rules.md` § Nút hub nổi.
+
+- **Header Khám phá**: nút Kiểu hiển thị và nút dịch gộp thành một nút menu tròn `square.grid.2x2` (`DiscoverySourceMenuButton`, 38×38, 17pt semibold, `.menuOrder(.fixed)`): **Mở trình duyệt** (trang nguồn đang chọn bằng `BypassWebView` toàn màn hình, ẩn khi nguồn không có link; "Import truyện" ⇒ Chi tiết trong stack Khám phá, bỏ toast "Đã hoàn tất tải các chương!" của nút cũ) · **Kiểu hiển thị** (sheet như cũ) · **Dịch văn bản** + dòng phụ Đang bật/Đang tắt (popover bảng dịch cũ neo ở nút menu). Nút safari đã bỏ ở 1.3.546 nay quay lại trong menu; bảng chọn nguồn vẫn không có, nút Trình duyệt ở Cấu hình tiện ích giữ nguyên. Dựng route Import gom về `DiscoveryView.showImportedBook`.
+- **Bảng dịch dùng chung**: nội dung popover của `ReaderTranslationScopeMenuView` (công tắc, phạm vi, Lưu lại, kẹp phạm vi) tách thành `TranslationScopePopupView` (`ReaderTranslationScopeMenuView` 307 → 143 dòng); chữ ký public và `TranslationPopupScope` giữ chỗ cũ, Reader và Chi tiết truyện không đổi.
+- **Chip Thể loại** ở Khám phá đổi icon lưới → `tag` (không trùng nút menu ngay trên).
+- **Widget chung theo số tiến trình** (AI đang chạy, video thu nhỏ, tác vụ nền tải/xuất/nhập/sao lưu/tải model; mọi tab; tin chưa đọc **không** tính — `ButtonState.runningKinds`): 0 ⇒ chuông `bell`, không nháy, chạm mở màn Thông báo; 1 ⇒ icon của mục, nháy, chạm mở thẳng mục (AI ⇒ bung + menu ở trang "AI đang chạy"); ≥ 2 ⇒ `square.stack.3d.up`, nháy, chạm mở menu. Áp cả khi đang nép. Bỏ badge số/chấm đỏ, viền tím AI, tham số `mode`/`edge` của `FloatingHubButton` và sink vẽ lại theo cạnh. Rẽ nhánh chạm ở `activateByRunningTasks` (`+Actions`).
+- **Nháy đồng bộ với nút trình duyệt thu nhỏ**: `FloatingHubPulseView` (`CABasicAnimation` đổi màu nền một layer con, ≤ 20 fps, chỉ gắn khi chưa có, gỡ khi rời cửa sổ, khôi phục khi về foreground; không đụng opacity). Màu đỏ, đáy nhịp (mức 0,4) và nửa chu kỳ 0,9 s là hằng `static` dùng chung — `VisibleBrowserReopenButton` đọc lại, giá trị không đổi. Không bảo đảm trùng pha (SwiftUI vs Core Animation).
+- **`rules.md`** § Nút hub nổi: (a) viết lại theo luật tiến trình; (b) bỏ đường "số mục còn < 2" (code không có — menu có tập dòng cố định từ 1.3.533); (c), (e) và câu hitTest cập nhật theo. Luật chạm cũ ở (a) vốn đã lệch code (code luôn mở menu).
+- Chuyển entry `[1.3.531]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code, grep chéo `ReaderTranslationScopeMenuView(`, `TranslationPopupScope`, `FloatingHubButton(`, `activeKinds`; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; **chưa thử trên máy**: popover dịch mở từ `Menu`, nháy khi hub nép mép, về lại foreground, chạm khi chỉ 1 AI.
+
 ## [1.3.560] - 2026-10-22
 
 ### fix: đổi nguồn ở chi tiết truyện chưa lưu chỉ tìm nguồn cùng loại
@@ -533,82 +548,3 @@ Mốc sửa lỗi của plan đợt 2 (`Docs/Plans/2026-10-17-plan-round2-fixes-
   - Vị trí đọc dở của comic/video mở trước bản này có thể lệch vì mục lục có thêm dòng section.
   - "Xoá khỏi kệ" với tiện ích đã tắt lưu lịch sử thì sách bị dọn hẳn ở lần mở app sau.
 - **Kiểm chứng**: `check_architecture.py` báo **2 violation, 0 mới**. Không build tại chỗ (Windows); CI chỉ xác nhận biên dịch. Thử trên máy theo mục 6 của plan.
-
-## [1.3.531] - 2026-10-17
-
-### feat: ho tro extension comic va video, sua bo loc kho theo nhom the loai/ngon ngu, them nut go o man cau hinh
-
-Người dùng duyệt plan `Docs/Plans/2026-10-17-plan-comic-video.md`, gồm: comic và video làm chung một đợt; video hỗ trợ `native`, `auto` và nhúng `webview`; comic đọc cuộn dọc; làm cả API `Graphics` lẫn tải offline. Thêm hai yêu cầu: sửa bộ lọc kho (Phần E) và nút Gỡ ở màn cấu hình (Phần F). Toàn bộ làm trên nhánh `feature/comic-video`, đã thêm nhánh này vào trigger `build-ipa.yml`. Hợp đồng extension lấy theo `extension-api.md` của Darkrai9x.
-
-- **Nền tảng**
-  - `ExtensionType.video`.
-  - `ExtensionContentKind` (`text`/`comic`/`video`/`unsupported`) suy loại lúc chạy, theo `packageId` (bản đã cài → catalog → `text`) hoặc theo `plugin.json` của `localPath`. **Không** đổi `@Model`; `detail.type` ghi đè thì không lưu.
-  - Model media: `ComicPageSource`, `VideoServer`, `VideoTrack` (+ `VideoTrackKind`, `VideoTimeSkip`, `VideoSubtitleTrack`). Mapper thuần: `ComicPageMapper`, `VideoTrackMapper`, `JSValueReader`.
-  - `ExtensionManager+Media`: `comicPages` / `videoServers` / `videoTrack`. **Không** qua pipeline text (`cleanHTML`, JunkFilter, bin, dịch, TTS). `link` của ảnh có `script` và `data` của track được giữ nguyên văn. `chap()` cũ giữ nguyên chữ ký.
-  - `toc` bỏ item `type:"section"` chỉ với comic/video; truyện chữ giữ nguyên để chỉ số chương không lệch.
-- **Định tuyến**
-  - `BookContentDestination` (cùng nhãn tham số với `ReaderView`) thay `ReaderView(` ở 4 chỗ: BookDetail, Kệ, Tìm trên kệ, Bộ sưu tập. Router chọn `ReaderView` / `ComicReaderView` / `VideoPlayerScreen`.
-  - `BookContentLaunch.initialParagraphIndex` là `Int?`: `nil` = tiến độ đã lưu.
-- **Màn hình cho media**
-  - Khám phá và Tìm kiếm có hàng chip loại `ExtensionKindFilterBar`.
-  - Đổi nguồn chỉ cho chọn nguồn cùng loại (`SearchExtensionScopePolicy`, `BookSourceMigrator` chặn khác loại).
-  - BookDetail (`+Media`): comic/video ẩn Xuất ebook và Từ điển; video ẩn Tải; nhãn "Tải ảnh offline" / "Xem ngay".
-  - `BookActionSheet` ẩn các thao tác tương ứng.
-  - `BookKindBadge` trên bìa sách ở kệ.
-- **Comic**
-  - `ComicImageLoader` (actor): header gồm `headers` > `referer` > `Referer: <origin chương>/` + UA iPhone; thử `fallback` lần lượt; tối đa 3 request đồng thời.
-  - Downsample bằng ImageIO, khống chế bề ngang và tổng điểm ảnh.
-  - Cache gồm `NSCache` và `ComicImageDiskCache` (`Caches/comic_images/`, 400 MB, dọn khi vào nền).
-  - `ComicImageScriptRunner` chạy script ảnh, nhận base64 trần, `Response.success` hoặc `data:`.
-  - API JS `Graphics` (`JSGraphicsBridge` + `JSGraphicsBootstrapScript`): `createImage`, `createCanvas`, `drawImage` 3/5/9 tham số, `capture` → PNG base64.
-  - Màn đọc `Views/ComicReader/`: cuộn dọc, chạm đúp mở `ComicZoomViewer`, mục lục, chương trước/sau. Tiến độ (chỉ số ảnh) lưu qua `ReadingProgressStore.checkpoint`.
-  - Tải offline: `ComicOfflineStore` (`comics/<sha256(bookId)>/<chapterIndex>/manifest.json` + ảnh) và `DownloadManager+Comic` tải tuần tự từng chương, từng ảnh. Xoá sách thì xoá thư mục comic.
-  - `DownloadManager.executeTask` từ chối xuất ebook cho comic/video và từ chối tải video.
-- **Video**
-  - Browser của tiện ích bắt cả XHR, fetch, media và iframe nhờ `WebNetworkCaptureScript` (`WKUserScript` mọi frame) cùng `WebNetworkCaptureMessageProxy` (weak). `urls()` / `waitUrl` thấy toàn bộ request, đúng ngữ nghĩa hợp đồng extension.
-  - Autoplay tắt tiếng chỉ bật cho tiện ích loại video; tiện ích khác giữ `.all` như cũ.
-  - `VideoMediaSniffer` + `VideoSourceResolver` → `VideoPlaybackPlan` (`.native` / `.hlsText` / `.embed`). `auto` không ra link thì báo lỗi, đúng DOC; `webview` không ra link thì nhúng trang.
-  - `HLSPlaylistResourceLoader` (`fbhls://`) cho playlist dạng text hoặc `data:`. `VideoSubtitleParser` đọc SRT/VTT.
-  - Trình phát `Views/VideoPlayer/`: `AVPlayerViewController` có header (`AVURLAssetHTTPHeaderFieldsKey`) và PiP; chọn server (nhớ theo sách); lưới tập; nút Bỏ qua theo `timeSkip`; phụ đề trong `contentOverlayView`; tự sang tập kế; `VideoEmbedWebView` cho nhánh nhúng.
-  - Khi phát thì tạm dừng TTS và chiếm `AVAudioSession` `.playback/.moviePlayback`. Tiến độ (số giây) lưu qua `checkpoint`.
-- **Bộ lọc kho (Phần E)**
-  - `ExtensionFilterGroups` gom thể loại thô (`eng_novel`, `novel,comic`, `chinese_novel`…) và ngôn ngữ thô (`zh-CN`, `vi`, `vi-VN`, `global`, `ja_JP`, `kr_KR`…) thành nhóm cố định như trang danh mục tiện ích cộng đồng. Riêng `ja`/`ko` so theo tiền tố.
-  - `FilterSheet` hiện chip theo nhóm kèm số lượng. Lựa chọn đã lưu được ánh xạ lại qua nhóm. Comic không còn bị lọc khỏi kho.
-- **Nút Gỡ (Phần F)**: `ExtensionConfigView+Uninstall` thêm nút Gỡ có xác nhận, đi cùng đường `ExtensionTransactionCoordinator.uninstallExtension`. Chặn gỡ tiện ích đang làm giọng đọc. Khám phá tự chọn lại nguồn khi nguồn đang chọn bị gỡ.
-- **Sửa sau review phản biện (2 agent đọc chéo toàn bộ diff)**
-  - `waitUrl`:
-    - Reset danh sách URL **đồng bộ** lúc bắt đầu load (`beginLaunch`), tránh khớp nhầm URL của lần launch trước.
-    - So chuỗi con chỉ áp cho URL điều hướng (hành vi cũ); request bắt được phải khớp regex toàn URL. Nhờ vậy ext truyện chữ và màn giải captcha không bị đóng sớm.
-    - Thêm token chống timer cũ kết thúc lượt chờ mới.
-  - Browser của ext video được gắn cửa sổ ẩn (`WebViewLoader+HiddenWindow`) để iOS không treo media.
-  - Trang nhúng:
-    - Gửi `Referer` và UA.
-    - Chặn khung chính rời host gốc và chặn domain quảng cáo.
-  - Track video:
-    - `mimeType` dùng qua `AVURLAssetOverrideMIMETypeKey`, UA qua `AVURLAssetHTTPUserAgentKey`.
-    - `chap` trả chuỗi JSON thì được parse lại.
-  - Lưu tiến độ video:
-    - Hết tập không còn lưu giây ≈ độ dài phim.
-    - Mở lại đúng tập đang xem thì xem tiếp từ giây đã lưu.
-  - Comic online:
-    - Referer lấy theo URL chương **đã resolve**.
-    - Byte do script ảnh trả về phải là ảnh thật; mục cache hỏng thì bị xoá.
-    - Ảnh có cạnh dài ≤ 16384 px.
-  - Comic offline:
-    - Chỉ dùng bản đã tải khi `chapterUrl` của manifest khớp chương.
-    - Lượt tải dùng script runner riêng.
-    - Đổi nguồn thì xoá ảnh offline cũ.
-  - `Graphics`:
-    - Canvas mỗi cạnh ≤ 8192.
-    - `drawImage` giữ toạ độ thực.
-  - Đổi nguồn sách comic/video mà tiện ích cũ đã gỡ: không còn bị suy thành `text` (`resolveIfKnown`).
-  - Router: khi không tra được loại tiện ích mà sách có ảnh comic offline thì mở bằng màn comic, không mở reader chữ.
-  - Log `track` chỉ ghi dạng gọn, vì có thể chứa token hoặc header.
-- **Dòng file legacy**: `BookDetailView` 1200 → 1105 (chuyển hai hàm tải trang mục lục sang `+TOCPreparation`), `SearchView` 871 → 862. Mọi file mới ≤ 400 dòng.
-- **Ngoài phạm vi**:
-  - Video: feed `short`, DRM native (ClearKey chỉ qua nhúng), nhiều audio, danmaku, tải video.
-  - Comic: dấu "đã tải" trên mục lục chi tiết truyện.
-  - Đồng bộ cookie WKWebView sang URLSession.
-  - Sơ đồ mã hoá mới của AllShorts.
-  - Backup **không** gói thư mục `comics/`.
-- **Kiểm chứng**: `check_architecture.py` báo **2 violation, 0 mới**. Không build tại chỗ (Windows); CI chỉ xác nhận biên dịch. Cần thử trên máy theo danh sách ext mẫu ở mục 7 của plan.

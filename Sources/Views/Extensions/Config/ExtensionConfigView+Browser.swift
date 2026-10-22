@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Nút **Trình duyệt** của thẻ đầu: mở trang nguồn (`current.sourceUrl`) bằng `BypassWebView`. Đây là lối vào
-/// trình duyệt của nguồn duy nhất còn lại — bảng chọn nguồn và header Khám phá đã bỏ nút safari.
+/// Nút **Trình duyệt** của thẻ đầu: mở trang nguồn (`current.sourceUrl`) bằng `BypassWebView`. Cùng với dòng
+/// "Mở trình duyệt" trong menu header Khám phá (`DiscoverySourceMenuButton`), đây là lối vào trình duyệt của nguồn —
+/// dòng trong bảng chọn nguồn không có nút safari.
 ///
 /// "Import truyện" trong trình duyệt đi một trong hai đường, giữ đúng hành vi trước đây:
 /// - Có `onImport` của caller (mở từ bảng chọn nguồn của Khám phá): đóng trình duyệt, `dismiss()` màn này rồi

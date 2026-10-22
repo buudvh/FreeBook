@@ -18,9 +18,10 @@ import UIKit
 /// 2. `widgetContainerView` — nút hub.
 /// 3. `menuContainerView` — thẻ menu, cạnh nút về phía xa mép.
 ///
-/// ## Bảng chạm (1.3.533)
-/// Menu luôn có đủ ba dòng nên chạm **không còn phụ thuộc số mục**: `.peeking` ⇒ bung **và** mở menu ngay;
-/// `.revealed` ⇒ mở menu; menu đang mở ⇒ đóng. Không còn nhánh "1 mục thì mở thẳng".
+/// ## Bảng chạm (người dùng chốt 2026-10-22)
+/// Menu đang mở ⇒ đóng. Còn lại rẽ theo **số tiến trình** của snapshot lúc chạm (`activateByRunningTasks`,
+/// `+Actions.swift`), áp như nhau cho `.peeking` và `.revealed`: 0 ⇒ mở màn Thông báo; 1 ⇒ mở thẳng mục đó (AI ⇒
+/// bung + menu ở trang "AI đang chạy"); từ 2 ⇒ bung (nếu đang nép) **và** mở menu.
 @MainActor
 final class FloatingHubContainerViewController: UIViewController, UIGestureRecognizerDelegate {
     /// `internal` (không `private`): file `+Actions`/`+Menu` cần dùng, mà `private` của Swift chỉ có hiệu lực
@@ -112,8 +113,6 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
     private func makeButton() -> FloatingHubButton {
         FloatingHubButton(
             state: presentationReader.snapshot.button,
-            mode: viewModel.mode,
-            edge: viewModel.edgeDirection,
             onActivate: { [weak self] in
                 self?.handlePrimaryAction()
             }
@@ -133,8 +132,8 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
     }
 
     private func bindState() {
-        // Nút chỉ vẽ lại khi tập mục đang hoạt động hoặc số chưa đọc đổi — tiêu đề AI đổi theo batch không
-        // chạm tới đây.
+        // Nút chỉ vẽ lại khi tập tiến trình hoặc số chưa đọc đổi — tiêu đề AI đổi theo batch không chạm tới đây.
+        // Nút không còn phụ thuộc `mode`/`edgeDirection` (hết badge lật phía) nên hai sink đó không vẽ lại nút.
         presentationReader.$snapshot
             .map(\.button)
             .removeDuplicates()
@@ -161,19 +160,10 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 guard let self else { return }
-                self.refreshButton()
                 self.applyEdgeTransparency(animated: true)
                 if !self.viewModel.isDragging {
                     self.updateLayout(animated: true)
                 }
-            }
-            .store(in: &cancellables)
-
-        // Chỉ báo chưa đọc đổi phía theo mép ⇒ nút phải vẽ lại khi cạnh đổi (chỉ xảy ra lúc nhả tay).
-        viewModel.$edgeDirection
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.refreshButton()
             }
             .store(in: &cancellables)
     }
@@ -289,15 +279,7 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
             closeMenu(animated: true)
             return
         }
-
-        if viewModel.mode == .peeking {
-            viewModel.reveal()
-            // `updateLayout` gán ngay vị trí đích cho `widgetContainerView` (animation chỉ chạy ở lớp hiển thị) ⇒
-            // `layoutMenu` đặt thẻ đúng cạnh nút đã bung.
-            updateLayout(animated: true)
-        }
-        // Mở menu bật `isMenuOpen` ⇒ huỷ hẹn giờ tự thu.
-        openMenu()
+        activateByRunningTasks()
     }
 
     @objc private func handleTap(_ gesture: UITapGestureRecognizer) {
