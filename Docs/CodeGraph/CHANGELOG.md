@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.579] - 2026-10-22
+
+### fix: nguồn Legado dùng bộ giới hạn nhịp kiểu Java (69書吧) dựng được URL tìm kiếm
+
+Từ báo cáo `kiem-tra-nguon-legado-20261022-160304.json`: 69書吧 báo *"Nguồn không có URL gốc để ghép"* dù `searchUrl` là `@js:` dựng URL tuyệt đối.
+
+- **Nguyên nhân**: hàm `buildRequest` trong `jsLib` của nguồn kiểm chữ ký `bookSourceComment`, giới hạn nhịp bằng `java.lang.System.getProperties().computeIfAbsent(…, k => new AtomicLong(0))` + `System.nanoTime()` + `compareAndSet` + `LockSupport.parkNanos`, rồi ký request. Giả lập `java.lang.System` của app chỉ có `currentTimeMillis` ⇒ JS ném `TypeError`, URL thành rỗng, `LegadoURLBuilder` báo nhầm thành `missingBaseURL`. Không phải thiếu cấu hình đăng nhập (`loginUi` chỉ có 2 nút).
+- **Script `concurrent`** (`LegadoJSBootstrap+Concurrent`, nạp sau `classes`): `java.util.concurrent.atomic.AtomicLong` / `AtomicInteger` (get/set/compareAndSet/getAndSet/addAndGet/increment…), `System.getProperties()` (bảng `get`/`put`/`putIfAbsent`/`computeIfAbsent`/`getProperty`/`setProperty`…), `System.nanoTime()`, `getProperty`/`setProperty`/`clearProperty`/`lineSeparator`, `LockSupport.parkNanos`/`parkUntil` (qua lệnh `sleep` sẵn có: ≤ 5 giây, huỷ được).
+- **Ô dùng chung toàn tiến trình** (`LegadoJavaSharedCells` + lệnh native `javaCell`/`nanoTime` ở `LegadoJSRuntime+Concurrent`): mỗi tác vụ một `JSContext`, nên `AtomicLong` đặt vào bảng thuộc tính được gắn với ô native theo khoá — nhờ vậy bộ giới hạn nhịp của nguồn có tác dụng giữa các chương. Chỉ giữ số, tối đa 512 ô, không ghi đĩa. Nguồn này tự giãn: tìm ~5 s/lần, nội dung ~2 s/lần — là ý của nguồn.
+- **`java.lang.System`**: thành viên chưa có ⇒ lỗi "chưa hỗ trợ" thay vì `TypeError … is not a function`, để Kiểm tra nguồn quy về giới hạn của app.
+- **`LegadoURLBuilder`**: URL không thành tuyệt đối mà JS dựng URL vừa lỗi ⇒ báo đúng lỗi đó (`unsupportedSyntax` trước, rồi `javaScript`); URL rỗng ⇒ `invalidURL`; `missingBaseURL` chỉ còn cho URL tương đối khi nguồn không có URL gốc.
+- **Kiểm chứng**: chạy `jsLib` thật của nguồn cùng các script bootstrap trích từ Swift trong Node `vm` ⇒ ra đúng URL tìm kiếm kèm header ký. `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy (tìm → chi tiết → mục lục → nội dung).
+
 ## [1.3.578] - 2026-10-22
 
 ### fix: trình duyệt ẩn của nguồn Legado chờ trang thử thách JS tự tải lại rồi mới lấy HTML
@@ -407,20 +420,4 @@ Người dùng (kèm 2 ảnh chụp máy thật — sheet "Quản lý nghĩa t�
 - **Log chẩn đoán** một lần mỗi lớp ô: `⌨️ [KeyboardToolbar] lớp ô …, accessory sẵn có …: <cách gắn>` (cần bật log trong Cài đặt); trường hợp hỏng có `❌` nên luôn được ghi.
 - Chuyển entry `[1.3.520]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; **chưa thử trên máy** — nếu thanh vẫn không hiện, gửi dòng log `⌨️ [KeyboardToolbar]`.
-
-## [1.3.549] - 2026-10-19
-
-### feat: chặn quảng cáo theo bộ lọc AdGuard, chặn popup và chế độ máy tính cho webview
-
-Người dùng: *"tìm cách nâng cấp chặn quảng cáo trong trình duyệt của freebook… Thêm chế độ mở ở máy tính/điện thoại. bật/tắt chặn quảng cáo cho browser"*, *"có thể config chặn quảng cáo của aloha browser không"*; chốt qua `/grill-me` (plan `Docs/Plans/2026-10-19-plan-chan-quang-cao-trinh-duyet.md`, 3 mockup đã duyệt).
-
-- **Vì sao**: chặn cũ chỉ là 11 chuỗi tên miền (`isEngineDomainBlocked`) xét ở `decidePolicyFor` ⇒ chỉ huỷ được điều hướng trang/iframe; script, ảnh, XHR quảng cáo vẫn tải, và mọi `window.open` của trình duyệt mở thành tab mới. Aloha không lấy cấu hình được (mã đóng) nhưng dùng nguồn công khai: bộ lọc AdGuard.
-- **Bộ lọc** (`Sources/Services/Browser/AdBlock/`, 16 file): `WKContentRuleList` từ AdGuard bản tối ưu iOS — bật sẵn Base, Mobile Ads, ABPVN, Chinese; tắt sẵn Popups, Cookie Notices, Tracking. Chuyển đổi bằng **SafariConverterLib 4.3.1** (SPM mới, GPL-3.0 — app vốn đã GPL qua espeak-ng), mỗi bộ một rule list `adblock-<id>`, tự tải lại khi quá hạn `! Expires:` (5 ngày) + nút Cập nhật ngay. Bản đóng gói `Sources/Resources/AdBlock/` (4 bộ, `Scripts/update_adblock_snapshot.py`, `.gitattributes` giữ CRLF cho checksum; bỏ 3 dòng luật bên thứ ba chứa chuỗi bị cấm của repo).
-- **Chính sách** `WebContentPolicy` → `WebContentConfigurator`: trình duyệt = chỉnh riêng theo tên miền ?? cài đặt chung; webview tiện ích = `Extension.adBlockOverride ?? chung`, `desktopModeOverride ?? false`; UA track video tự khai thắng chế độ máy tính. Áp cho 5 webview (`BypassBrowserTabStore`, `WebViewLoader`, `VisibleWebViewController`, `VideoEmbedWebView`, `VideoMediaSniffer`), đều chuyển sang `decidePolicyFor:preferences:` để đặt `preferredContentMode`. Gemini/Google Drive giữ nguyên.
-- **Chặn popup** (trình duyệt, công tắc riêng): `createWebViewWith` không do bấm link (`!= .linkActivated`) sang tên miền khác ⇒ chặn + dải báo "Đã chặn cửa sổ bật lên" có nút Mở.
-- **UI**: nút khiên thay ổ khoá trong ô URL (bảng: Chặn quảng cáo / Xem bản máy tính — nhớ theo tên miền, nạp lại tab); màn **Cài đặt → Trình duyệt** (thay "Trình duyệt hiển thị": chặn QC, chặn popup, 7 bộ lọc + trạng thái, mặc định Điện thoại/Máy tính, trang đã chỉnh riêng, công tắc thu nhỏ cũ); **Cấu hình tiện ích → Trình duyệt** (`+WebContent`, lưu ngay).
-- **Dữ liệu**: `Extension` thêm `adBlockOverride`, `desktopModeOverride` (JSON, decode khoan dung; có trong sao lưu/khôi phục); `applicationSupportDirectory/adblock/` (Backup không gói); 4 khoá UserDefaults `web*`.
-- **Không làm**: scriptlet/extended CSS (đợt 2), bộ lọc tự thêm, đếm số quảng cáo đã chặn (WebKit không có API).
-- Chuyển entry `[1.3.519]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**; rà soát phản biện bằng agent (chữ ký API SafariConverterLib đối chiếu nguồn v4.3.1, caller của mọi init đổi chữ ký). Không build tại chỗ (Windows) — CI xác nhận biên dịch; **chưa thử trên máy**. Chưa chắc: tab `window.open` dùng chung `WKUserContentController` với tab mẹ, popup tạo bằng `a.click()` có bị báo `.linkActivated` không, và nếu chữ ký `decidePolicyFor:preferences:` lệch SDK thì WebKit không gọi (CI vẫn xanh) — kiểm trên máy theo §8 plan.
 

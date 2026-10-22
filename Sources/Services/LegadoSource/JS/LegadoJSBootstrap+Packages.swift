@@ -3,7 +3,8 @@ import Foundation
 extension LegadoJSBootstrap {
     /// `Packages`, `JavaImporter`, `importPackage`/`importClass`, `org.jsoup`, và `java.lang`/`java.util`… trỏ cùng bộ
     /// giả lập (spec §6.9). Giả lập sẵn: `java.lang.String(bytes|str[, charset])`, `java.lang.Thread.sleep` (≤ 5 giây),
-    /// `java.util.Base64`, `android.util.Base64`, `java.util.UUID`. Lớp khác ⇒ gọi/khởi tạo là ném lỗi "chưa hỗ trợ".
+    /// `java.lang.System` (`currentTimeMillis` + phần của script `concurrent`), `java.util.Base64`, `android.util.Base64`,
+    /// `java.util.UUID`. Lớp khác ⇒ gọi/khởi tạo là ném lỗi "chưa hỗ trợ".
     static let packages = #"""
         (function (g) {
           var L = g.__lg, call = L.call;
@@ -62,7 +63,16 @@ extension LegadoJSBootstrap {
             toHexString: function (n) { return (n >>> 0).toString(16); },
             MAX_VALUE: 2147483647, MIN_VALUE: -2147483648
           }, 'Integer');
-          var JSystem = named({ currentTimeMillis: function () { return Date.now(); } }, 'System');
+          // `System` giả lập một phần (`getProperties`/`nanoTime`… từ script `concurrent`): thành viên chưa có ném "chưa hỗ
+          // trợ" thay vì `TypeError … is not a function`, để lỗi được quy về giới hạn của app chứ không phải lỗi nguồn.
+          var JSystem = new Proxy(named(Object.assign({ currentTimeMillis: function () { return Date.now(); } }, L.system || {}), 'System'), {
+            get: function (target, prop) {
+              if (typeof prop !== 'string' || prop in target || prop === 'then' || prop === 'toJSON' || prop.indexOf('__') === 0) {
+                return target[prop];
+              }
+              return function () { call('unsupported', ['Lớp Java java.lang.System.' + prop]); };
+            }
+          });
           function base64Encode(bytes, flags) { return call('b64enc', [bytes, flags === undefined ? 2 : flags]); }
           function base64Decode(text, flags) { return L.hexToBytes(call('b64decBytes', [text, flags === undefined ? null : flags])); }
           var JBase64 = named({

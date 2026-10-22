@@ -11,6 +11,8 @@ struct LegadoURLBuilder {
     let session: LegadoEngineSession
 
     func build(_ rule: String, baseUrl: String, page: Int, content: LegadoContentNode?) throws -> LegadoHTTPRequest {
+        // Mốc chẩn đoán: JS sinh URL lỗi chỉ cho `.null` (§6.1) — nếu URL không dựng được thì báo lỗi JS đó (bước 6).
+        let diagnosticsMark = session.diagnostics.entries.count
         // 1. JS sinh URL.
         var accumulated = ""
         for segment in LegadoRuleScanner.segments(rule) {
@@ -78,7 +80,7 @@ struct LegadoURLBuilder {
         }
         let resolved = LegadoURLResolver.absolute(trimmedURL, base: baseUrl)
         guard LegadoURLResolver.hasHTTPScheme(resolved) else {
-            throw LegadoEngineError.missingBaseURL(trimmedURL)
+            throw unresolvedURLError(trimmedURL, diagnosticsMark: diagnosticsMark)
         }
         let encoding = LegadoCharset.requestEncoding(named: option?.charset)
         var request = LegadoHTTPRequest(url: LegadoURLEncoder.encodeURL(resolved, encoding: encoding))
@@ -106,6 +108,21 @@ struct LegadoURLBuilder {
     private func render(_ text: String, with analyzer: LegadoRuleAnalyzer) throws -> String {
         guard LegadoRuleScanner.containsPlaceholder(text) else { return text }
         return try analyzer.renderTemplate(text, content: analyzer.content, mode: .raw).text
+    }
+
+    /// URL không thành tuyệt đối. JS dựng URL (`@js:`, `{{…}}`, option `js`) vừa lỗi ⇒ báo đúng lỗi đó (hàm chưa hỗ trợ
+    /// trước, rồi lỗi JS) thay vì "không có URL gốc". Còn lại: URL rỗng ⇒ URL không hợp lệ; URL tương đối mà nguồn không
+    /// có URL gốc (§1.4) ⇒ `missingBaseURL`.
+    private func unresolvedURLError(_ url: String, diagnosticsMark: Int) -> LegadoEngineError {
+        let fresh = session.diagnostics.entries.dropFirst(diagnosticsMark)
+        // Mục "bỏ qua, chỉ ghi vào bản sao" không làm hỏng luồng — không phải nguyên nhân.
+        if let feature = fresh.first(where: { $0.kind == .unsupported && !$0.message.contains("bỏ qua") }) {
+            return .unsupportedSyntax(feature.message)
+        }
+        if let script = fresh.first(where: { $0.kind == .javaScript }) {
+            return .javaScript(script.message)
+        }
+        return url.isEmpty ? .invalidURL("(rỗng sau khi dựng)") : .missingBaseURL(url)
     }
 
     // MARK: - Bước phụ

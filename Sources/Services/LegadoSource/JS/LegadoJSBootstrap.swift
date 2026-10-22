@@ -7,10 +7,11 @@ import Foundation
 /// giới dùng "descriptor" JSON: chuỗi/số/bool giữ nguyên, `{"$el": id}` = phần tử HTML (handle trong runtime),
 /// `{"$arr": [...]}` = danh sách, `{"$json": v}` = object/mảng JS, `{"$bytes": "hex"}` = mảng byte.
 ///
-/// Thứ tự nạp: `core` → `info` → `objects` → `java` → `javaExtra` → `classes` → `jsoup` → `connect` → `packages`.
+/// Thứ tự nạp: `core` → `info` → `objects` → `java` → `javaExtra` → `classes` → `concurrent` → `jsoup` → `connect` →
+/// `packages`.
 enum LegadoJSBootstrap {
     static var scripts: [String] {
-        [core, info, objects, java, javaExtra, classes, jsoup, connect, packages]
+        [core, info, objects, java, javaExtra, classes, concurrent, jsoup, connect, packages]
     }
 
     /// Lõi: mã hoá/giải mã descriptor, danh sách/map kiểu Java, hàm gọi native, xuất kết quả.
