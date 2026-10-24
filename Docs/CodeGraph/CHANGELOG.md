@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.590] - 2026-10-24
+
+### feat: Google/Bing/Baidu lên đầu, tắt NSFW giữa lượt tìm bỏ nguồn NSFW, player ẩn điều khiển khi vuốt và hạ chất lượng khi phát ẩn
+
+Người dùng: *"để google, bing, baidu lên đầu danh sách. khi tìm tất cả nếu tắt nsfw thì không tìm các nguồn nsfw. ở phần player, nếu vuốt tua nhanh, tăng giảm sáng, tăng giảm âm lượng hãy tự ẩn phần đường timeline và các nút tua 10s. nếu được thì khi video phát ở chế độ ẩn thì hãy phát audio của nó thôi để giảm lưu lượng tốn"*; duyệt plan (ẩn **cả** lớp điều khiển khi vuốt; **giữ** ngoại lệ đổi nguồn cho truyện NSFW — *"bật nsfw mới xem được nsfw"*).
+
+- **Truy cập nhanh** (`BypassBrowserHomeView`): Google, Bing, Baidu đứng đầu rồi mới tới tiện ích; tiện ích trùng đúng URL của một trong ba thì bỏ ô trùng.
+- **Tìm mọi nguồn**: tắt NSFW từ trước thì vốn đã không tìm nguồn NSFW (`searchableExtensions` → `applyNsfwFilter`). Sửa ca **tắt giữa lượt tìm**: `SearchView.dropHiddenNsfwSources` gỡ nguồn NSFW khỏi `sourceStates` (số "Tìm thấy N", trạng thái rỗng, vòng "đang tìm" tính lại), kết quả về muộn của khoá đã gỡ bị bỏ; `LegadoSearchScheduler.searchAll(shouldStart:)` xét lại nguồn Legado **đang xếp hàng** lúc tới lượt — NSFW mà công tắc đã tắt thì không chạy (báo `nil`). Request của tiện ích JS đã gửi thì không thu hồi được. Ngoại lệ đổi nguồn cho sách của nguồn NSFW giữ nguyên, tách thành `SearchExtensionScopePolicy.keepsNsfw` dùng chung cho cả lọc lẫn bộ lập lịch.
+- **Player — vuốt** (`VideoPlayerController.handlePanBegan`): bắt đầu vuốt tua / độ sáng / âm lượng ⇒ ẩn **cả** lớp điều khiển (kiểu YouTube), nhả tay vẫn ẩn, chạm để hiện lại; vuốt xuống thu nhỏ không đổi.
+- **Player — phát ẩn** (`VideoPlaybackSession.refreshBandwidthLimit`): khi đã tách hình (thu nhỏ / nền không PiP — vốn đã chỉ phát tiếng) đặt `preferredPeakBitRate = 1` ⇒ HLS xuống biến thể thấp nhất; gắn lại hình ⇒ `0`. Gọi ở `refreshLayerAttachment` và sau `replaceCurrentItem` (tập kế tự phát lúc đang ẩn). Chỉ đỡ dữ liệu với HLS **nhiều** mức chất lượng; mp4, playlist một mức, playlist ghép hình + tiếng (`VideoAudioRenditionComposer`) không giảm được; không đổi sang luồng chỉ tiếng (thay item lúc PiP/nền/thu nhỏ làm hỏng các ca đó). Về lại màn hình thì vài giây đầu hình còn mờ.
+- Chuyển entry `[1.3.560]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.589] - 2026-10-24
 
 ### feat: tắt NSFW tự đóng màn của nguồn NSFW, Home trình duyệt chỉ giữ Google/Bing/Baidu
@@ -405,16 +418,3 @@ Người dùng: *"đem nút mở trình duyệt ở khám phá trở lại"*, r�
 - **`rules.md`** § Nút hub nổi: (a) viết lại theo luật tiến trình; (b) bỏ đường "số mục còn < 2" (code không có — menu có tập dòng cố định từ 1.3.533); (c), (e) và câu hitTest cập nhật theo. Luật chạm cũ ở (a) vốn đã lệch code (code luôn mở menu).
 - Chuyển entry `[1.3.531]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code, grep chéo `ReaderTranslationScopeMenuView(`, `TranslationPopupScope`, `FloatingHubButton(`, `activeKinds`; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; **chưa thử trên máy**: popover dịch mở từ `Menu`, nháy khi hub nép mép, về lại foreground, chạm khi chỉ 1 AI.
-
-## [1.3.560] - 2026-10-22
-
-### fix: đổi nguồn ở chi tiết truyện chưa lưu chỉ tìm nguồn cùng loại
-
-Người dùng: *"khi tìm truyện thay thế thì chỉ tìm nguồn truyện, không tìm video và comic, ngược lại video và comic cũng thế"*; bác giả thuyết `type` lạ (*"điều tra kỹ vào"*), duyệt plan.
-
-- **Nguyên nhân**: menu "…" → "Thay đổi nguồn" ở `BookDetailView` luôn hiện, nhưng truyện **chưa lưu** (mở từ Khám phá/Tìm kiếm, chưa đọc) có `localBook == nil` ⇒ `SearchView` nhận `changeSourceTargetBook: nil` và chạy như tìm thường: hiện hàng chip, lọc theo chip đã nhớ (mặc định "Tất cả") ⇒ tìm cả chữ, tranh, video. Bốn lối còn lại (Kệ, Tìm trên kệ, Bộ sưu tập, Reader) truyền đủ sách nên vốn đã lọc cùng loại. Giá trị `type` của tiện ích (registry + `plugin.json`) được lưu đúng chuẩn — không phải nguyên nhân.
-- `SearchView` thêm tham số `kindScopePackageId` (mặc định `nil`). `sameKindScopePackageId` (`SearchView+KindFilter`) = tiện ích của sách cần đổi ?? `kindScopePackageId`, đưa vào `SearchExtensionScopePolicy.searchableExtensions(changeSourcePackageId:)` — cùng luật cùng loại và ngoại lệ NSFW của đổi nguồn. Hàng chip và lượt tìm lại khi đổi chip tắt theo cùng điều kiện.
-- `BookDetailView` luôn truyền `kindScopePackageId: extensionPackageId` (sách đã lưu thì trùng tiện ích của `localBook`).
-- Truyện chưa lưu: bấm kết quả vẫn mở chi tiết truyện như trước (không có sách để chuyển dữ liệu); bản sửa chỉ giới hạn loại nguồn được tìm.
-- Chuyển entry `[1.3.530]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code, grep chéo caller của `SearchView(`; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.

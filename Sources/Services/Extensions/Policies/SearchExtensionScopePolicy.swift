@@ -71,17 +71,26 @@ public enum SearchExtensionScopePolicy {
         // bộ phân loại NSFW mỗi lượt vẽ.
         let candidates = extensions.filter { isSearchScoped($0) }
         let scoped: [Extension]
-        var keepsNsfw = includeNsfw
         if let packageId = changeSourcePackageId {
             if let bookKind = ExtensionContentKind.resolveIfKnown(packageId: packageId) {
                 scoped = candidates.filter { isBrowsable($0) && kind(of: $0) == bookKind }
             } else {
                 scoped = candidates.filter { isBrowsable($0) }
             }
-            keepsNsfw = keepsNsfw || RepositoryFilterPolicy.isNsfwSource(packageId: packageId)
         } else {
             scoped = candidates.filter { matches($0, kindFilter: kindFilter) }
         }
-        return RepositoryFilterPolicy.applyNsfwFilter(scoped, includeNsfw: keepsNsfw)
+        let keeps = keepsNsfw(changeSourcePackageId: changeSourcePackageId, includeNsfw: includeNsfw)
+        return RepositoryFilterPolicy.applyNsfwFilter(scoped, includeNsfw: keeps)
+    }
+
+    /// Có giữ nguồn NSFW trong lượt tìm không: công tắc bật, hoặc đang đổi nguồn cho sách của chính một nguồn NSFW
+    /// (người dùng giữ ngoại lệ này 2026-10-24). Đọc được từ thread bất kỳ — `LegadoSearchScheduler` xét lại trước
+    /// khi chạy nguồn Legado đang xếp hàng.
+    public static func keepsNsfw(
+        changeSourcePackageId: String?,
+        includeNsfw: Bool = RepositoryFilterPolicy.includesNsfwPreference
+    ) -> Bool {
+        includeNsfw || (changeSourcePackageId.map { RepositoryFilterPolicy.isNsfwSource(packageId: $0) } ?? false)
     }
 }

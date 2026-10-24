@@ -141,7 +141,10 @@ struct SearchView: View {
             .onChange(of: searchHistoryJSON, initial: true) { _, json in
                 displayedHistory = SearchHistoryStore.decode(json)
             }
-            // Tìm trong **một** nguồn NSFW (không phải đổi nguồn) ⇒ đóng khi tắt NSFW; tìm mọi nguồn thì chỉ ẩn nhóm.
+            .onChange(of: includeNsfw) { _, isOn in
+                if !isOn { dropHiddenNsfwSources() }
+            }
+            // Tìm trong **một** nguồn NSFW (không phải đổi nguồn) ⇒ đóng khi tắt NSFW; tìm mọi nguồn thì gỡ nhóm.
             .closesWhenNsfwHidden(
                 packageId: selectedExtension?.packageId,
                 isEnabled: !searchAllSources && changeSourceTargetBook == nil && kindScopePackageId == nil
@@ -716,6 +719,25 @@ struct SearchView: View {
         return TranslateUtils.translateMeta(text)
     }
 
+    private var foundCountMessage: String {
+        let foundCount = sourceStates.values.reduce(0) { count, state in
+            if case .found(let results) = state {
+                return count + results.count
+            }
+            return count
+        }
+        return "Tìm thấy \(foundCount) truyện trên các nguồn."
+    }
+
+    /// Tắt NSFW lúc đang ở kết quả "tìm mọi nguồn": gỡ nguồn NSFW khỏi `sourceStates` (số đếm, trạng thái rỗng, vòng
+    /// xoay "đang tìm" đều tính lại); kết quả của chúng về muộn bị bỏ qua.
+    private func dropHiddenNsfwSources() {
+        guard searchAllSources, !sourceStates.isEmpty else { return }
+        let kept = Set(searchableExtensions.map(\.packageId))
+        sourceStates = sourceStates.filter { kept.contains($0.key) }
+        if !isSearching { searchStatusMessage = foundCountMessage }
+    }
+
     private func saveQueryToHistory(_ query: String) {
         searchHistory = SearchHistoryStore.addQuery(query, to: searchHistory)
     }
@@ -749,10 +771,18 @@ struct SearchView: View {
             
             // Tiện ích JS song song không giới hạn như cũ; nguồn Legado qua cửa sổ trượt (`LegadoSearchScheduler`).
             let targets = extensionsToSearch.map { LegadoSearchScheduler.Target($0) }
+            // Tắt NSFW giữa lượt ⇒ nguồn Legado NSFW còn xếp hàng không được chạy (trừ ngoại lệ đổi nguồn).
+            let changeSourcePackageId = sameKindScopePackageId
+            let shouldStart: @Sendable (String) -> Bool = { packageId in
+                SearchExtensionScopePolicy.keepsNsfw(changeSourcePackageId: changeSourcePackageId)
+                    || !RepositoryFilterPolicy.isNsfwSource(packageId: packageId)
+            }
             searchTask = Task {
-                await LegadoSearchScheduler.searchAll(targets, query: trimmedQuery) { packageId, results in
+                await LegadoSearchScheduler.searchAll(targets, query: trimmedQuery, shouldStart: shouldStart) { packageId, results in
                     await MainActor.run {
                         guard !Task.isCancelled else { return } // lượt cũ không ghi đè trạng thái lượt mới
+                        // Khoá đã bị gỡ (vừa tắt NSFW — `dropHiddenNsfwSources`) ⇒ bỏ kết quả về muộn.
+                        guard self.sourceStates[packageId] != nil else { return }
                         let cleanResults = results.map { filterAndDeduplicate($0) } ?? []
                         let state: SourceSearchState = cleanResults.isEmpty ? .noResults : .found(results: cleanResults)
                         self.sourceStates[packageId] = state
@@ -762,13 +792,7 @@ struct SearchView: View {
                 await MainActor.run {
                     guard !Task.isCancelled else { return }
                     self.isSearching = false
-                    let foundCount = sourceStates.values.reduce(0) { count, state in
-                        if case .found(let results) = state {
-                            return count + results.count
-                        }
-                        return count
-                    }
-                    self.searchStatusMessage = "Tìm thấy \(foundCount) truyện trên các nguồn."
+                    self.searchStatusMessage = foundCountMessage
                 }
             }
         } else {

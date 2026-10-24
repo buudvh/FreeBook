@@ -30,9 +30,13 @@ enum LegadoSearchScheduler {
 
     /// Tìm `query` trên mọi `targets`. `onResult(packageId, results)` chạy trên task của caller mỗi khi một nguồn
     /// xong, theo thứ tự hoàn thành; `results == nil` = nguồn đó lỗi.
+    ///
+    /// `shouldStart` xét lại **lúc tới lượt** của nguồn Legado đang xếp hàng (vd người dùng vừa tắt NSFW giữa lượt
+    /// tìm): `false` ⇒ không chạy, báo `nil` như lỗi. Tiện ích JS chạy hết ngay từ đầu nên không xét lại được.
     static func searchAll(
         _ targets: [Target],
         query: String,
+        shouldStart: @escaping @Sendable (String) -> Bool = { _ in true },
         onResult: @escaping (String, [ExtensionItemResult]?) async -> Void
     ) async {
         let limit = maxConcurrentLegadoSearches
@@ -40,11 +44,20 @@ enum LegadoSearchScheduler {
             var pendingLegado = targets.filter { $0.isLegado }[...]
             let legadoIds = Set(pendingLegado.map { $0.packageId })
             var runningLegado = 0
+            var skipped: [String] = []
+
+            func popNextToStart() -> Target? {
+                while let next = pendingLegado.popFirst() {
+                    if shouldStart(next.packageId) { return next }
+                    skipped.append(next.packageId)
+                }
+                return nil
+            }
 
             for target in targets where !target.isLegado {
                 group.addTask { await LegadoSearchScheduler.search(target, query: query) }
             }
-            while runningLegado < limit, let next = pendingLegado.popFirst() {
+            while runningLegado < limit, let next = popNextToStart() {
                 runningLegado += 1
                 group.addTask { await LegadoSearchScheduler.search(next, query: query) }
             }
@@ -53,13 +66,16 @@ enum LegadoSearchScheduler {
                 if legadoIds.contains(outcome.0) {
                     runningLegado -= 1
                     // Lượt đã bị huỷ (tìm lại / rời màn) ⇒ không mở thêm request nào cho các nguồn còn chờ.
-                    if !Task.isCancelled, runningLegado < limit, let next = pendingLegado.popFirst() {
+                    if !Task.isCancelled, runningLegado < limit, let next = popNextToStart() {
                         runningLegado += 1
                         group.addTask { await LegadoSearchScheduler.search(next, query: query) }
                     }
                 }
                 await onResult(outcome.0, outcome.1)
+                for packageId in skipped { await onResult(packageId, nil) }
+                skipped.removeAll()
             }
+            for packageId in skipped { await onResult(packageId, nil) }
         }
     }
 

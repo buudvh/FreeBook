@@ -139,6 +139,7 @@ extension VideoPlaybackSession {
         observe(item: item)
         timeSkips = track.timeSkips
         player.replaceCurrentItem(with: item)
+        refreshBandwidthLimit() // tập kế tự phát lúc đang ẩn vẫn ở chất lượng thấp nhất
         phase = .buffering
         loadSubtitles(for: track, generation: generation)
     }

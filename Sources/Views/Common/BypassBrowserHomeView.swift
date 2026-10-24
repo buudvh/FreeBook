@@ -52,11 +52,20 @@ public struct BypassBrowserHomeView: View {
     }
 
     private var allShortcuts: [QuickShortcut] {
-        var list: [QuickShortcut] = []
+        // Ba công cụ tìm kiếm đứng **đầu**, rồi mới tới tiện ích (người dùng chốt 2026-10-24); tiện ích trùng đúng URL
+        // của một trong ba thì bỏ ô trùng.
+        let defaultSites: [(name: String, url: String, icon: String)] = [
+            ("Google", "https://www.google.com", "magnifyingglass"),
+            ("Bing", "https://www.bing.com", "b.circle.fill"),
+            ("Baidu", "https://www.baidu.com", "pawprint.fill")
+        ]
+        var list = defaultSites.map {
+            QuickShortcut(name: $0.name, url: $0.url, iconName: $0.icon, isSystemIcon: true)
+        }
 
-        // Tiện ích đã cài đặt
         for ext in installedExtensions {
             let src = ext.sourceUrl.isEmpty ? "https://www.google.com" : ext.sourceUrl
+            guard !defaultSites.contains(where: { $0.url == src }) else { continue }
             list.append(QuickShortcut(
                 name: ext.name,
                 url: src,
@@ -65,24 +74,6 @@ public struct BypassBrowserHomeView: View {
                 extLocalPath: ext.localPath,
                 extIconUrl: ext.iconUrl
             ))
-        }
-
-        // Trang mặc định ngoài tiện ích: chỉ ba công cụ tìm kiếm (người dùng chốt 2026-10-24).
-        let defaultSites: [(name: String, url: String, icon: String)] = [
-            ("Google", "https://www.google.com", "magnifyingglass"),
-            ("Bing", "https://www.bing.com", "b.circle.fill"),
-            ("Baidu", "https://www.baidu.com", "pawprint.fill")
-        ]
-
-        for site in defaultSites {
-            if !list.contains(where: { $0.url == site.url }) {
-                list.append(QuickShortcut(
-                    name: site.name,
-                    url: site.url,
-                    iconName: site.icon,
-                    isSystemIcon: true
-                ))
-            }
         }
 
         return list

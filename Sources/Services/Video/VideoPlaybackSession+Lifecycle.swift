@@ -133,9 +133,23 @@ extension VideoPlaybackSession {
         let isAttached = layerView.playerLayer.player != nil
         guard shouldAttach != isAttached else { return }
         layerView.playerLayer.player = shouldAttach ? player : nil
+        refreshBandwidthLimit()
         if launch != nil {
             AppLogger.shared.log(shouldAttach ? "🎬 [VideoPlayer] Gắn lại hình vào player" : "🎧 [VideoPlayer] Tách hình khỏi player ⇒ chỉ phát tiếng")
         }
+    }
+
+    /// Đang chỉ phát tiếng (đã tách hình: thu nhỏ / nền không PiP) ⇒ `preferredPeakBitRate = 1` để HLS xuống biến thể
+    /// bitrate thấp nhất, đỡ tải hình không ai xem; gắn lại hình ⇒ `0` (không giới hạn), chất lượng tự leo lại sau vài
+    /// đoạn. Chỉ có tác dụng với HLS **nhiều** mức chất lượng — mp4, playlist một mức hay playlist ghép hình + tiếng
+    /// (`VideoAudioRenditionComposer`) không giảm được. Không đổi sang luồng chỉ tiếng: thay item lúc PiP / nền / thu
+    /// nhỏ làm hỏng các ca đó (xem `+AudioFallback`). Gọi cả khi item mới vào (item mới mặc định `0`).
+    func refreshBandwidthLimit() {
+        guard let item = player.currentItem else { return }
+        let limit: Double = layerView.playerLayer.player == nil ? 1 : 0
+        guard item.preferredPeakBitRate != limit else { return }
+        item.preferredPeakBitRate = limit
+        AppLogger.shared.log(limit > 0 ? "📉 [VideoPlayer] Đang ẩn ⇒ hạ HLS xuống chất lượng thấp nhất" : "📈 [VideoPlayer] Hiện lại ⇒ bỏ giới hạn chất lượng")
     }
 
     // MARK: - Âm thanh & TTS

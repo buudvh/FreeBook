@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.560] - 2026-10-22
+
+### fix: đổi nguồn ở chi tiết truyện chưa lưu chỉ tìm nguồn cùng loại
+
+Người dùng: *"khi tìm truyện thay thế thì chỉ tìm nguồn truyện, không tìm video và comic, ngược lại video và comic cũng thế"*; bác giả thuyết `type` lạ (*"điều tra kỹ vào"*), duyệt plan.
+
+- **Nguyên nhân**: menu "…" → "Thay đổi nguồn" ở `BookDetailView` luôn hiện, nhưng truyện **chưa lưu** (mở từ Khám phá/Tìm kiếm, chưa đọc) có `localBook == nil` ⇒ `SearchView` nhận `changeSourceTargetBook: nil` và chạy như tìm thường: hiện hàng chip, lọc theo chip đã nhớ (mặc định "Tất cả") ⇒ tìm cả chữ, tranh, video. Bốn lối còn lại (Kệ, Tìm trên kệ, Bộ sưu tập, Reader) truyền đủ sách nên vốn đã lọc cùng loại. Giá trị `type` của tiện ích (registry + `plugin.json`) được lưu đúng chuẩn — không phải nguyên nhân.
+- `SearchView` thêm tham số `kindScopePackageId` (mặc định `nil`). `sameKindScopePackageId` (`SearchView+KindFilter`) = tiện ích của sách cần đổi ?? `kindScopePackageId`, đưa vào `SearchExtensionScopePolicy.searchableExtensions(changeSourcePackageId:)` — cùng luật cùng loại và ngoại lệ NSFW của đổi nguồn. Hàng chip và lượt tìm lại khi đổi chip tắt theo cùng điều kiện.
+- `BookDetailView` luôn truyền `kindScopePackageId: extensionPackageId` (sách đã lưu thì trùng tiện ích của `localBook`).
+- Truyện chưa lưu: bấm kết quả vẫn mở chi tiết truyện như trước (không có sách để chuyển dữ liệu); bản sửa chỉ giới hạn loại nguồn được tìm.
+- Chuyển entry `[1.3.530]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code, grep chéo caller của `SearchView(`; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
+
 ## [1.3.559] - 2026-10-21
 
 ### fix: thanh xoá, sao chép, dán bị bàn phím che ở màn thêm rule

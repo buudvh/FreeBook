@@ -164,9 +164,14 @@ final class VideoPlayerController {
 
     // MARK: - Vuốt
 
+    /// Tua / độ sáng / âm lượng: ẩn **cả** lớp điều khiển (kiểu YouTube, người dùng chốt 2026-10-24) để HUD không đè
+    /// lên timeline và cụm nút giữa; nhả tay vẫn ẩn, chạm để hiện lại.
     func handlePanBegan(_ kind: VideoGestureView.PanKind) {
+        if kind != .dismiss {
+            autoHideTask?.cancel()
+            controlsVisible = false
+        }
         guard kind == .seek, session.hasPlayableItem else { return }
-        autoHideTask?.cancel()
         scrubOrigin = session.currentPlaybackTime
         scrubSeconds = scrubOrigin
     }
