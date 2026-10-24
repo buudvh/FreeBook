@@ -7,8 +7,9 @@ import Foundation
 ///   `VideoOfflineHTTPServer` (127.0.0.1), file đơn phát `file://`; phụ đề viết thẳng từ file, mốc "Bỏ qua" từ manifest.
 /// - Chip "Trực tuyến" (`playOnline`) ⇒ nạp server như thường cho đúng tập đó; chip "Bản tải" (`playOffline`) quay lại.
 ///   Đổi tập thì bỏ lựa chọn trực tuyến (tập đã tải lại ưu tiên bản tải).
-/// - Bản tải không kiểm tiếng, không có phương án dự phòng (`sourceResolution == nil`). Item lỗi ⇒ tắt server (listener
-///   có thể đã chết khi app bị treo nền), dựng lại URL và nạp lại **một** lần mỗi tập tại vị trí đang xem.
+/// - Bản tải không kiểm tiếng, không có phương án dự phòng (`sourceResolution == nil`). Mỗi lượt nạp HLS bật server mới
+///   (listener có thể đã chết khi app bị treo nền); item lỗi ⇒ nạp lại tại vị trí đang xem, tối đa một lần mỗi
+///   `offlineRetryWindow` giây.
 /// - Toast thuộc tầng View: các hàm tải / xoá trả kết quả để màn hình tự báo.
 extension VideoPlaybackSession {
     enum EpisodeDownloadRequest {
@@ -18,6 +19,9 @@ extension VideoPlaybackSession {
         /// Chưa có hàng `Book` trong CSDL (hiếm — phim mở lần đầu chưa kịp tạo sách lịch sử).
         case unavailable
     }
+
+    /// Khoảng tối thiểu giữa hai lần tự nạp lại bản tải sau lỗi phát.
+    static let offlineRetryWindow: TimeInterval = 20
 
     /// Hàng chip / menu server có gì để chọn (bản tải và/hoặc nhiều server).
     var hasSourceChoices: Bool {
@@ -32,7 +36,6 @@ extension VideoPlaybackSession {
         // Menu tải / xoá của trình phát đọc `VideoOfflineLibrary` ⇒ làm mới tóm tắt mỗi lượt nạp tập.
         VideoOfflineLibrary.shared.refresh(bookId: bookId)
         if onlineOverrideEpisodeIndex != episode.index { onlineOverrideEpisodeIndex = nil }
-        if offlineRetriedEpisodeIndex != episode.index { offlineRetriedEpisodeIndex = nil }
         guard let manifest = offlineManifest(for: episode, bookId: bookId) else {
             hasOfflineCopy = false
             return false
@@ -41,6 +44,11 @@ extension VideoPlaybackSession {
         guard onlineOverrideEpisodeIndex == nil else { return false }
 
         phase = .resolving
+        if manifest.kind == .hls {
+            // App bị treo nền có thể làm listener chết mà vẫn tưởng còn sống ⇒ mỗi lượt nạp bật server mới (queue nối
+            // tiếp: tắt xong mới bật). Item cũ đã gỡ ở `prepareForNewLoad`.
+            VideoOfflineHTTPServer.shared.stop()
+        }
         let url = await offlineURL(manifest, bookId: bookId, episodeIndex: episode.index)
         guard isCurrent(generation) else { return true }
         guard let url else {
@@ -77,10 +85,13 @@ extension VideoPlaybackSession {
         beginEpisodeLoad(episode.index, resumeSeconds: resumePointForReload())
     }
 
-    /// Gọi đầu `logItemFailureAndTryFallback`: bản tải lỗi lần đầu của tập ⇒ dựng lại server + nạp lại, trả `true`.
+    /// Gọi đầu `logItemFailureAndTryFallback`: bản tải lỗi ⇒ dựng lại server + nạp lại, trả `true`. Lần thử trước còn
+    /// trong `offlineRetryWindow` giây thì thôi (tránh vòng lặp) — báo lỗi để người dùng chọn "Tải lại"/"Trực tuyến".
     func retryOfflineAfterFailure(message: String) -> Bool {
-        guard isPlayingOffline, let episode = currentEpisode, offlineRetriedEpisodeIndex != episode.index else { return false }
-        offlineRetriedEpisodeIndex = episode.index
+        guard isPlayingOffline, let episode = currentEpisode else { return false }
+        let now = ProcessInfo.processInfo.systemUptime
+        if let last = offlineLastRetryUptime, now - last < Self.offlineRetryWindow { return false }
+        offlineLastRetryUptime = now
         AppLogger.shared.log("❌ [VideoOffline] Bản tải tập \(episode.index) lỗi khi phát: \(message) ⇒ bật lại server, nạp lại")
         VideoOfflineHTTPServer.shared.stop()
         beginEpisodeLoad(episode.index, resumeSeconds: resumePointForReload())
@@ -92,7 +103,7 @@ extension VideoPlaybackSession {
         hasOfflineCopy = false
         isPlayingOffline = false
         onlineOverrideEpisodeIndex = nil
-        offlineRetriedEpisodeIndex = nil
+        offlineLastRetryUptime = nil
         VideoOfflineHTTPServer.shared.stop()
     }
 

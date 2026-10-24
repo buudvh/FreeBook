@@ -116,8 +116,8 @@ final class VideoPlaybackSession {
     @ObservationIgnored var qualityTask: Task<Void, Never>?
     /// Tập người dùng chọn xem trực tuyến dù đã có bản tải (chip "Trực tuyến"); đổi tập thì bỏ (`+Offline`).
     @ObservationIgnored var onlineOverrideEpisodeIndex: Int?
-    /// Tập đã thử bật lại server + nạp lại bản tải sau lỗi phát (một lần mỗi tập).
-    @ObservationIgnored var offlineRetriedEpisodeIndex: Int?
+    /// Lúc (uptime) gần nhất bật lại server + nạp lại bản tải sau lỗi phát — chặn vòng lặp lỗi liên tục.
+    @ObservationIgnored var offlineLastRetryUptime: TimeInterval?
 
     @ObservationIgnored var bookHost = ""
     @ObservationIgnored var openGeneration = 0

@@ -11,6 +11,7 @@ import Network
 /// - Phần đọc request / trả file nằm ở `VideoOfflineHTTPResponder`.
 final class VideoOfflineHTTPServer: @unchecked Sendable {
     static let shared = VideoOfflineHTTPServer()
+    private static let readyTimeout: TimeInterval = 3
 
     private let queue = DispatchQueue(label: "FreeBook.VideoOfflineHTTPServer")
     private var listener: NWListener?
@@ -80,6 +81,13 @@ final class VideoOfflineHTTPServer: @unchecked Sendable {
             self?.accept(connection)
         }
         newListener.start(queue: queue)
+        // Listener kẹt ở `.setup`/`.waiting` thì người chờ không bao giờ được trả ⇒ quá hạn thì tắt, trả `nil` để trình
+        // phát chuyển sang trực tuyến thay vì quay mãi.
+        queue.asyncAfter(deadline: .now() + Self.readyTimeout) { [weak self, weak newListener] in
+            guard let self, let newListener, self.listener === newListener, self.port == nil else { return }
+            AppLogger.shared.log("❌ [VideoOfflineServer] Listener không sẵn sàng sau \(Int(Self.readyTimeout)) giây")
+            self.teardown(reason: "quá hạn")
+        }
     }
 
     /// Chạy trên `queue`.

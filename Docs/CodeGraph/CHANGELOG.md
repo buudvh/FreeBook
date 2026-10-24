@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.593] - 2026-10-24
+
+### fix: bản tải video phát lại được sau khi app ra nền, ẩn nút xoá khi đã hết bản tải
+
+Rà lại sau 1.3.592 (chưa thử máy), ba lỗi trong code mới:
+
+- **Phát bản tải sau khi app bị treo nền**: listener 127.0.0.1 có thể đã chết nhưng URL item vẫn trỏ cổng cũ, và lượt tự nạp lại chỉ được **một lần mỗi tập** ⇒ tạm dừng / khoá máy lần hai trên cùng tập là báo lỗi, "Tải lại" cũng dùng lại cổng cũ. Nay mỗi lượt nạp HLS bản tải bật server mới (`VideoOfflineHTTPServer.stop()` trước `url(forRelativePath:)`, queue nối tiếp nên tắt xong mới bật); tự nạp lại sau lỗi tối đa một lần mỗi 20 giây (`offlineRetryWindow`, thay `offlineRetriedEpisodeIndex` bằng `offlineLastRetryUptime`).
+- **Server không sẵn sàng**: `ensureRunning()` không có hạn chót — listener kẹt ở `.setup`/`.waiting` làm tập quay mãi ở "đang phân giải". Nay quá 3 giây chưa `.ready` ⇒ log ❌, tắt, trả `nil` ⇒ trình phát chuyển sang trực tuyến.
+- **Nút "Xoá bản tải" còn hiện khi đã hết bản tải**: xoá dần từng tập / huỷ tập duy nhất để lại thư mục sách rỗng ⇒ `summary.hasFiles` vẫn `true`, nút hiện "0 byte". Nay `hasFiles` chỉ đúng khi còn tập trọn vẹn hoặc còn byte; xoá tập / bỏ bản dở thì dọn luôn thư mục sách rỗng.
+- Chuyển entry `[1.3.563]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; vẫn chưa thử trên máy.
+
 ## [1.3.592] - 2026-10-24
 
 ### feat: tải video về máy để xem offline
@@ -411,16 +423,3 @@ Bước 4, 5, 12 và phần màn Kho của bước 11 trong đợt 1 plan "ngu�
 - **Chưa xong / cần xác nhận**: tab Legado chưa áp công tắc NSFW (195 nguồn nhóm `特殊书源 🔞`); tên QT hiện kể cả khi tắt dịch toàn app; bật/tắt không tăng `version`. Tìm kiếm / Khám phá / Đổi nguồn / tải truyện / debug server chưa nối — commit sau.
 - Chuyển entry `[1.3.529]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.563] - 2026-10-21
-
-### docs: đặc tả hành vi nguồn Legado đợt 1 (clean-room)
-
-Bước 2 của đợt 1 plan "nguồn truyện Legado — viết mới theo đặc tả": `Docs/Specs/legado-source-spec.md` (mới, ~1.630 dòng) là **nguồn sự thật duy nhất** về "Legado chạy thế nào" cho các agent triển khai.
-
-- **Viết bởi một agent riêng**, chỉ từ tài liệu trợ giúp được phép (`ruleHelp.md`, `jsHelp.md`, `xpathHelp.md`, `regexHelp.md`, `debugHelp.md`…) + quan sát 6 bộ corpus yckceo (1315, 1316, 1208, 1158, 1298, 1272 — 3.701 nguồn sau bỏ trùng, 3.406 nguồn chữ) + ~20 lần curl trang thật. Không đọc mã nguồn Legado/Yuedu/nhánh cũ. Corpus nằm ngoài repo.
-- **Mục lục**: §0 phạm vi + luật nhãn · §1 model JSON (decode khoan dung, tách nhóm, loại, rule tối thiểu — 84% nguồn chữ đạt) · §2 rule (đường ống, nhận diện chế độ, `||` `&&` `%%`, `##`/`###`, placeholder, phương ngữ kiểu jsoup, CSS, `@put`/`@get`, JSONPath, XPath, regex danh sách) · §3 URL (khối option, placeholder, `<a,b>`, charset, header) · §4 mạng (`concurrentRate`, cookie, retry, WebView, redirect) · §5 luồng (tìm, khám phá 3 dạng, thông tin, mục lục, nội dung, phân trang + chống lặp, biến, `jsLib`) · §6 JS bridge (danh sách hàm `java.*`/`source.*`/`book`/`chapter`/`cookie`/`cache` đợt 1 theo tần suất, shim `org.jsoup`, hàm hoãn) · §7 phụ lục (bảng đợt 1/hoãn, 28 điểm `[UNKNOWN]` U1–U28 để bộ chạy nghiệm thu đo).
-- Mỗi khẳng định gắn `[tài liệu]` (112) / `[quan sát]` (151) / `[UNKNOWN]` (62); `[đề xuất]` là ghi chú khuyến nghị khi không có bằng chứng (§0.3).
-- **Kiểm clean-room** (script ngoài repo): không có tên lớp nội bộ của engine gốc ngoài những tên xuất hiện trong script của chính corpus; không câu nào trùng nguyên văn tài liệu (cửa sổ 40 ký tự / 15 chữ Hán); 0 chữ cấm.
-- Không đổi code. Không build — commit chỉ có tài liệu nên CI không chạy.
-- Chuyển entry `[1.3.528]` sang `CHANGELOG.archive.md` để giữ 30 entry.

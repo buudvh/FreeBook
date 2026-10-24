@@ -73,7 +73,8 @@ enum VideoOfflineStore {
                 totalBytes += directorySize(bookDirectory.appendingPathComponent(entry, isDirectory: true))
             }
         }
-        return BookSummary(completedEpisodes: completed, totalBytes: totalBytes, hasFiles: true)
+        // Thư mục sách rỗng (xoá dần từng tập / huỷ tập duy nhất) không tính là còn bản tải.
+        return BookSummary(completedEpisodes: completed, totalBytes: totalBytes, hasFiles: !completed.isEmpty || totalBytes > 0)
     }
 
     /// Dung lượng trống còn dùng được cho dữ liệu quan trọng; `nil` khi hệ điều hành không trả lời.
@@ -139,6 +140,7 @@ enum VideoOfflineStore {
         guard FileManager.default.fileExists(atPath: directory.path),
               (try? validatePathSafety(for: directory)) != nil else { return }
         try? FileManager.default.removeItem(at: directory)
+        removeBookDirectoryIfEmpty(bookId: bookId)
     }
 
     // MARK: - Xoá
@@ -148,6 +150,7 @@ enum VideoOfflineStore {
         guard FileManager.default.fileExists(atPath: directory.path) else { return }
         try validatePathSafety(for: directory)
         try FileManager.default.removeItem(at: directory)
+        removeBookDirectoryIfEmpty(bookId: bookId)
     }
 
     /// Xoá toàn bộ bản tải của một sách. Không có thư mục thì không làm gì (sách chữ/tranh cũng đi qua đây).
@@ -156,6 +159,13 @@ enum VideoOfflineStore {
         guard FileManager.default.fileExists(atPath: url.path) else { return }
         try validatePathSafety(for: url)
         try FileManager.default.removeItem(at: url)
+    }
+
+    private static func removeBookDirectoryIfEmpty(bookId: String) {
+        let url = bookDirectoryURL(bookId: bookId)
+        guard (try? FileManager.default.contentsOfDirectory(atPath: url.path))?.isEmpty == true,
+              (try? validatePathSafety(for: url)) != nil else { return }
+        try? FileManager.default.removeItem(at: url)
     }
 
     // MARK: - Đường dẫn
