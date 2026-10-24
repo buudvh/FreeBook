@@ -13,7 +13,8 @@ extension VideoPlaybackSession {
     func loadQualityOptions(for item: AVPlayerItem) {
         qualityTask?.cancel()
         qualityOptions = []
-        let asset = item.asset
+        // `variants` chỉ có trên `AVURLAsset` (item của trình phát luôn dựng từ `AVURLAsset`, kể cả `fbhls://`).
+        guard let asset = item.asset as? AVURLAsset else { return }
         qualityTask = Task { [weak self] in
             let variants = (try? await asset.load(.variants)) ?? []
             let options = Self.makeQualityOptions(from: variants)
