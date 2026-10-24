@@ -15,6 +15,9 @@ struct CollectionGridCardView: View {
 
     static let titleFont: Font = .caption.weight(.semibold)
 
+    /// Công tắc NSFW toàn app — tắt ⇒ bìa xem trước và số truyện bỏ truyện của nguồn NSFW.
+    @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
+
     /// Vùng chữ dưới ảnh ghép luôn cao đúng **2 dòng**.
     ///
     /// `LazyVGrid` lấy chiều cao hàng theo ô cao nhất rồi **căn giữa** những ô thấp hơn, nên trước đây
@@ -30,11 +33,12 @@ struct CollectionGridCardView: View {
     }
 
     var body: some View {
+        let books = Self.visibleBooks(of: collection, includeNsfw: includeNsfw)
         NavigationLink(destination: CollectionDetailView(collectionId: collection.collectionId)) {
             VStack(alignment: .leading, spacing: 8) {
                 CollectionCoverMosaicView(
-                    books: Self.previewBooks(from: collection.books),
-                    totalCount: collection.books.count,
+                    books: Self.previewBooks(from: books),
+                    totalCount: books.count,
                     size: size
                 )
 
@@ -84,6 +88,11 @@ struct CollectionGridCardView: View {
             }
         }
         return picked
+    }
+
+    /// Truyện của bộ còn hiện (bỏ nguồn NSFW khi công tắc tắt) — dùng chung với màn sắp xếp bộ.
+    static func visibleBooks(of collection: BookCollection, includeNsfw: Bool) -> [Book] {
+        RepositoryFilterPolicy.excludingNsfwSources(collection.books, includeNsfw: includeNsfw, packageId: \.extensionPackageId)
     }
 
     private static func isOrderedBefore(_ lhs: Book, _ rhs: Book) -> Bool {

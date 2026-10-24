@@ -7,9 +7,10 @@ public struct RepositoryFilterPolicy: Sendable {
 
     /// Khoá `UserDefaults` của công tắc NSFW **toàn app** (Cài đặt › Thư Viện và bộ lọc Kho dùng chung): mặc định
     /// **tắt** và tự tắt lại mỗi lần mở app (`resetNsfwVisibilityOnLaunch`). Tắt ⇒ ẩn tiện ích NSFW ở Kho, Tìm kiếm
-    /// mọi nguồn (`SearchExtensionScopePolicy`), Khám phá, ẩn sách lịch sử của nguồn NSFW (`ShelfBookPartition`),
-    /// ẩn mọi sách của nguồn NSFW, kể cả trên kệ, ở sheet chọn truyện `BookShareTargetSheet` / `BookImportSourceSheet`,
-    /// và ẩn ô Truy cập nhanh + lịch sử duyệt trang nguồn NSFW ở Home trình duyệt (`BypassWebView`).
+    /// mọi nguồn (`SearchExtensionScopePolicy`), Khám phá; ẩn **mọi** sách/tác vụ của nguồn NSFW ở Kệ + Lịch sử
+    /// (`ShelfBookPartition`), Tìm trong Kệ, Bộ sưu tập, tab Tải, hub nổi (AI đang chạy, Video), Quản lý phạm vi dịch,
+    /// sheet chọn truyện `BookShareTargetSheet` / `BookImportSourceSheet`; ẩn ô Truy cập nhanh + lịch sử duyệt trang
+    /// nguồn NSFW ở Home trình duyệt (`BypassWebView`). Thông báo (chương mới) **không** lọc (người dùng chốt 2026-10-24).
     public static let includeNsfwDefaultsKey = "extFilterIncludeNsfw"
 
     /// Giá trị hiện tại của công tắc NSFW (khoá chưa ghi ⇒ `false`).
@@ -27,6 +28,24 @@ public struct RepositoryFilterPolicy: Sendable {
         guard let ext = ExtensionLibraryRepository.snapshot(packageId: packageId)
                 ?? ExtensionLibraryRepository.catalogSnapshot(packageId: packageId) else { return false }
         return ExtensionNsfwCache.shared.isNsfw(ext)
+    }
+
+    /// Bỏ phần tử thuộc nguồn NSFW (sách, tác vụ tải…) khi `includeNsfw == false`, giữ thứ tự; mỗi `packageId` chỉ
+    /// tra kho + classifier một lần. Chỉ ẩn hiển thị — dữ liệu giữ nguyên, bật lại là hiện lại.
+    public static func excludingNsfwSources<T>(
+        _ items: [T],
+        includeNsfw: Bool,
+        packageId: (T) -> String
+    ) -> [T] {
+        guard !includeNsfw else { return items }
+        var nsfwByPackageId: [String: Bool] = [:]
+        return items.filter { item in
+            let id = packageId(item)
+            if let cached = nsfwByPackageId[id] { return !cached }
+            let isNsfw = isNsfwSource(packageId: id)
+            nsfwByPackageId[id] = isNsfw
+            return !isNsfw
+        }
     }
 
     /// Bỏ tiện ích NSFW (`ExtensionNsfwClassifier`, qua bộ đệm) khi `includeNsfw == false`.

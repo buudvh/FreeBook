@@ -3,9 +3,9 @@ import SwiftUI
 /// Màn **thuộc một nguồn** (Chi tiết truyện, danh sách thể loại, tìm trong một nguồn) tự đóng khi công tắc NSFW toàn
 /// app bị tắt trong lúc màn còn mở — thường là màn nằm lại ở tab khác khi người dùng tắt NSFW ở Cài đặt / Kho.
 ///
-/// - Chỉ đóng màn đã **thấy NSFW bật** lúc đang mở (bật lúc mở, hoặc bật trong lúc mở): màn mở khi NSFW đang tắt (sách
-///   NSFW trên Kệ vẫn mở được) không bị đụng, trừ khi người dùng bật rồi tắt lại. Áp cả cho sách trên Kệ (người dùng
-///   chốt 2026-10-24).
+/// - Chỉ đóng màn đã **thấy NSFW bật** lúc đang mở (bật lúc mở, hoặc bật trong lúc mở): màn mở khi NSFW đang tắt (vd từ
+///   Thông báo chương mới — mục này không lọc NSFW) không bị đụng, trừ khi người dùng bật rồi tắt lại. Áp cả cho sách
+///   trên Kệ (người dùng chốt 2026-10-24).
 /// - `packageId` chụp ở lần xuất hiện đầu: Khám phá đổi nguồn khi NSFW tắt, màn thể loại đang mở được dựng lại với
 ///   nguồn **mới** — đọc giá trị sống thì không bao giờ đóng.
 /// - Xét cả ở `onAppear`: màn ở tab không hiển thị / nằm dưới stack có thể chưa nhận `onChange` tới khi hiện lại.

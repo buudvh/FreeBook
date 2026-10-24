@@ -11,30 +11,30 @@ struct ShelfBookPartition {
     /// Tương đương `!allBooks.contains { $0.isOnShelf }`.
     var isShelfEmpty: Bool { pinned.isEmpty && unpinned.isEmpty }
 
-    /// `hidesNsfwHistory`: công tắc NSFW toàn app đang tắt ⇒ bỏ sách **lịch sử** của nguồn NSFW (chỉ ẩn hiển thị,
-    /// không xoá; sách trên kệ không bị ẩn).
-    init(_ books: [Book], hidesNsfwHistory: Bool = false) {
+    /// `hidesNsfw`: công tắc NSFW toàn app đang tắt ⇒ bỏ **mọi** sách của nguồn NSFW, cả trên kệ lẫn lịch sử (chỉ ẩn
+    /// hiển thị, không xoá; người dùng chốt 2026-10-24 — trước đó sách trên kệ vẫn hiện).
+    init(_ books: [Book], hidesNsfw: Bool = false) {
         // Partition chạy mỗi body: nhớ kết quả NSFW theo nguồn để mỗi `packageId` chỉ tra kho + classifier một lần.
         var nsfwByPackageId: [String: Bool] = [:]
-        for book in books {
+        for book in books where book.isOnShelf || book.isHistory {
+            if hidesNsfw {
+                let packageId = book.extensionPackageId
+                let isNsfw: Bool
+                if let cached = nsfwByPackageId[packageId] {
+                    isNsfw = cached
+                } else {
+                    isNsfw = RepositoryFilterPolicy.isNsfwSource(packageId: packageId)
+                    nsfwByPackageId[packageId] = isNsfw
+                }
+                if isNsfw { continue }
+            }
             if book.isOnShelf {
                 if book.isPinned {
                     pinned.append(book)
                 } else {
                     unpinned.append(book)
                 }
-            } else if book.isHistory {
-                if hidesNsfwHistory {
-                    let packageId = book.extensionPackageId
-                    let isNsfw: Bool
-                    if let cached = nsfwByPackageId[packageId] {
-                        isNsfw = cached
-                    } else {
-                        isNsfw = RepositoryFilterPolicy.isNsfwSource(packageId: packageId)
-                        nsfwByPackageId[packageId] = isNsfw
-                    }
-                    if isNsfw { continue }
-                }
+            } else {
                 history.append(book)
             }
         }

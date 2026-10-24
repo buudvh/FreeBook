@@ -154,6 +154,8 @@ final class BypassBrowserTabStore: NSObject, ObservableObject, WKNavigationDeleg
     private func makeDefaultConfiguration() -> WKWebViewConfiguration {
         let config = WKWebViewConfiguration()
         config.mediaTypesRequiringUserActionForPlayback = .all
+        config.allowsInlineMediaPlayback = true // chạm video phát tại chỗ, không tự bung toàn màn (kèm script)
+        InlineMediaScript.install(into: config.userContentController)
         // Cho phép trang tự gọi `window.open` (nhiều nguồn truyện dùng để mở link ngoài).
         config.preferences.javaScriptCanOpenWindowsAutomatically = true
         return config

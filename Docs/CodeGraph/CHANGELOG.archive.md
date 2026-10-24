@@ -2,6 +2,21 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.561] - 2026-10-22
+
+### feat: menu Khám phá mở lại trình duyệt, widget chung nháy theo tiến trình
+
+Người dùng: *"đem nút mở trình duyệt ở khám phá trở lại"*, rồi *"gộp luôn nút dịch đi, dùng biểu tượng của widget chung, đổi biểu tượng widget chung thành cái khác"*, *"khi widget chỉ có 1 mục đang chạy thì hiển thị icon mục đó… bấm vào thì hiển thị trực tiếp ra mục đó"*, *"màu nhấp nháy đồng bộ"*, *"khi không có tiến trình chạy thì Icon chuông, không nháy, bấm vào mở màn hình thông báo"*. Chốt qua `/grill-me` (plan `Docs/Plans/2026-10-22-plan-menu-kham-pha-va-widget-chung.md`, mockup đã duyệt); người dùng duyệt cả việc viết lại `rules.md` § Nút hub nổi.
+
+- **Header Khám phá**: nút Kiểu hiển thị và nút dịch gộp thành một nút menu tròn `square.grid.2x2` (`DiscoverySourceMenuButton`, 38×38, 17pt semibold, `.menuOrder(.fixed)`): **Mở trình duyệt** (trang nguồn đang chọn bằng `BypassWebView` toàn màn hình, ẩn khi nguồn không có link; "Import truyện" ⇒ Chi tiết trong stack Khám phá, bỏ toast "Đã hoàn tất tải các chương!" của nút cũ) · **Kiểu hiển thị** (sheet như cũ) · **Dịch văn bản** + dòng phụ Đang bật/Đang tắt (popover bảng dịch cũ neo ở nút menu). Nút safari đã bỏ ở 1.3.546 nay quay lại trong menu; bảng chọn nguồn vẫn không có, nút Trình duyệt ở Cấu hình tiện ích giữ nguyên. Dựng route Import gom về `DiscoveryView.showImportedBook`.
+- **Bảng dịch dùng chung**: nội dung popover của `ReaderTranslationScopeMenuView` (công tắc, phạm vi, Lưu lại, kẹp phạm vi) tách thành `TranslationScopePopupView` (`ReaderTranslationScopeMenuView` 307 → 143 dòng); chữ ký public và `TranslationPopupScope` giữ chỗ cũ, Reader và Chi tiết truyện không đổi.
+- **Chip Thể loại** ở Khám phá đổi icon lưới → `tag` (không trùng nút menu ngay trên).
+- **Widget chung theo số tiến trình** (AI đang chạy, video thu nhỏ, tác vụ nền tải/xuất/nhập/sao lưu/tải model; mọi tab; tin chưa đọc **không** tính — `ButtonState.runningKinds`): 0 ⇒ chuông `bell`, không nháy, chạm mở màn Thông báo; 1 ⇒ icon của mục, nháy, chạm mở thẳng mục (AI ⇒ bung + menu ở trang "AI đang chạy"); ≥ 2 ⇒ `square.stack.3d.up`, nháy, chạm mở menu. Áp cả khi đang nép. Bỏ badge số/chấm đỏ, viền tím AI, tham số `mode`/`edge` của `FloatingHubButton` và sink vẽ lại theo cạnh. Rẽ nhánh chạm ở `activateByRunningTasks` (`+Actions`).
+- **Nháy đồng bộ với nút trình duyệt thu nhỏ**: `FloatingHubPulseView` (`CABasicAnimation` đổi màu nền một layer con, ≤ 20 fps, chỉ gắn khi chưa có, gỡ khi rời cửa sổ, khôi phục khi về foreground; không đụng opacity). Màu đỏ, đáy nhịp (mức 0,4) và nửa chu kỳ 0,9 s là hằng `static` dùng chung — `VisibleBrowserReopenButton` đọc lại, giá trị không đổi. Không bảo đảm trùng pha (SwiftUI vs Core Animation).
+- **`rules.md`** § Nút hub nổi: (a) viết lại theo luật tiến trình; (b) bỏ đường "số mục còn < 2" (code không có — menu có tập dòng cố định từ 1.3.533); (c), (e) và câu hitTest cập nhật theo. Luật chạm cũ ở (a) vốn đã lệch code (code luôn mở menu).
+- Chuyển entry `[1.3.531]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code, grep chéo `ReaderTranslationScopeMenuView(`, `TranslationPopupScope`, `FloatingHubButton(`, `activeKinds`; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; **chưa thử trên máy**: popover dịch mở từ `Menu`, nháy khi hub nép mép, về lại foreground, chạm khi chỉ 1 AI.
+
 ## [1.3.560] - 2026-10-22
 
 ### fix: đổi nguồn ở chi tiết truyện chưa lưu chỉ tìm nguồn cùng loại

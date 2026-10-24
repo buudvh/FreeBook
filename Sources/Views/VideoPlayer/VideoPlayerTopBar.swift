@@ -5,7 +5,7 @@ import SwiftUI
 /// Trái: thu nhỏ, đóng. Phải: tốc độ (`gauge…`, bung menu 0.5–2×, chỉ hiện số nhỏ khi khác 1×), Vừa/Lấp đầy/Phóng
 /// (`aspectratio`), khoá xoay (khi ngang, hoặc khi đang khoá — khoá ở ngang rồi bấm Xoay dọc thì vẫn còn nút để mở
 /// khoá), phụ đề, PiP, server, `⋯`. Màn dọc hẹp nên khung hình và server dồn vào
-/// menu `⋯` (server còn có hàng chip dưới khung phim).
+/// menu `⋯` (server còn có hàng chip dưới khung phim). Chất lượng (HLS nhiều mức) luôn nằm trong `⋯`.
 struct VideoPlayerTopBar: View {
     let session: VideoPlaybackSession
     let controller: VideoPlayerController
@@ -131,6 +131,18 @@ struct VideoPlayerTopBar: View {
         }
     }
 
+    @ViewBuilder
+    private var qualityPicker: some View {
+        checkmarkButton("Tự động", isSelected: session.selectedQuality == nil) {
+            session.selectQuality(nil)
+        }
+        ForEach(session.qualityOptions) { option in
+            checkmarkButton(option.title, isSelected: session.selectedQuality != nil && option == session.appliedQuality) {
+                session.selectQuality(option)
+            }
+        }
+    }
+
     /// Mục menu có dấu tích ở lựa chọn hiện tại (thay `Picker` để hành động đi thẳng qua `Button`).
     @ViewBuilder
     private func checkmarkButton(_ title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
@@ -153,6 +165,13 @@ struct VideoPlayerTopBar: View {
             if !isLandscape, session.servers.count > 1 {
                 Menu("Server") {
                     serverPicker
+                }
+            }
+            // HLS từ 2 mức trở lên (`VideoPlaybackSession+Quality`); chọn = trần chất lượng, mạng yếu vẫn có thể thấp hơn.
+            // Danh sách chỉ xoá khi item mới vào ⇒ chặn thêm lúc nhúng trang / không có item để không hiện mục cũ.
+            if session.embedContent == nil, session.hasPlayableItem, !session.qualityOptions.isEmpty {
+                Menu("Chất lượng · \(session.appliedQuality?.title ?? "Tự động")") {
+                    qualityPicker
                 }
             }
             Button {

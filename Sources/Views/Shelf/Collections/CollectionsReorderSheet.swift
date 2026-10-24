@@ -12,6 +12,8 @@ struct CollectionsReorderSheet: View {
     let onReorder: (IndexSet, Int) -> String?
 
     @Environment(\.dismiss) private var dismiss
+    /// Số truyện của bộ không đếm truyện của nguồn NSFW khi công tắc tắt (khớp thẻ ở tab Bộ sưu tập).
+    @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
 
     var body: some View {
         NavigationStack {
@@ -25,7 +27,7 @@ struct CollectionsReorderSheet: View {
                                 .font(.subheadline)
                                 .lineLimit(1)
                             Spacer(minLength: 4)
-                            Text("\(collection.books.count)")
+                            Text("\(CollectionGridCardView.visibleBooks(of: collection, includeNsfw: includeNsfw).count)")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }

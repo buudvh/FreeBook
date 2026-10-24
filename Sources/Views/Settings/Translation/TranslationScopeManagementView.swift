@@ -9,15 +9,22 @@ public struct TranslationScopeManagementView: View {
     @State private var bookOverrides: [String: TranslationConfigStore.OverrideMode] = [:]
     @State private var sourceOverrides: [String: TranslationConfigStore.OverrideMode] = [:]
     @State private var showingResetAlert = false
+    /// Công tắc NSFW toàn app — tắt ⇒ không liệt kê nguồn NSFW và truyện của nguồn NSFW (cấu hình vẫn giữ, vẫn có
+    /// hiệu lực; "Đặt lại tất cả" vẫn xoá cả mục bị ẩn).
+    @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
 
     public init() {}
 
+    /// Truyện không còn trong thư viện thì không biết nguồn ⇒ vẫn liệt kê.
     private var bookIds: [String] {
-        bookOverrides.keys.sorted()
+        let ids = bookOverrides.keys.sorted()
+        guard !includeNsfw else { return ids }
+        let packageIdByBookId = Dictionary(allBooks.map { ($0.bookId, $0.extensionPackageId) }, uniquingKeysWith: { first, _ in first })
+        return RepositoryFilterPolicy.excludingNsfwSources(ids, includeNsfw: false) { packageIdByBookId[$0] ?? "" }
     }
 
     private var sourcePackageIds: [String] {
-        sourceOverrides.keys.sorted()
+        RepositoryFilterPolicy.excludingNsfwSources(sourceOverrides.keys.sorted(), includeNsfw: includeNsfw) { $0 }
     }
 
     public var body: some View {

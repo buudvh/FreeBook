@@ -140,16 +140,22 @@ extension VideoPlaybackSession {
     }
 
     /// Đang chỉ phát tiếng (đã tách hình: thu nhỏ / nền không PiP) ⇒ `preferredPeakBitRate = 1` để HLS xuống biến thể
-    /// bitrate thấp nhất, đỡ tải hình không ai xem; gắn lại hình ⇒ `0` (không giới hạn), chất lượng tự leo lại sau vài
-    /// đoạn. Chỉ có tác dụng với HLS **nhiều** mức chất lượng — mp4, playlist một mức hay playlist ghép hình + tiếng
-    /// (`VideoAudioRenditionComposer`) không giảm được. Không đổi sang luồng chỉ tiếng: thay item lúc PiP / nền / thu
-    /// nhỏ làm hỏng các ca đó (xem `+AudioFallback`). Gọi cả khi item mới vào (item mới mặc định `0`).
+    /// bitrate thấp nhất, đỡ tải hình không ai xem; gắn lại hình ⇒ trần theo mục Chất lượng (`appliedQuality`, `+Quality`)
+    /// hoặc `0` (không giới hạn) khi Tự động — chất lượng tự leo lại sau vài đoạn. Chỉ có tác dụng với HLS **nhiều** mức
+    /// chất lượng — mp4, playlist một mức hay playlist ghép hình + tiếng (`VideoAudioRenditionComposer`) không giảm được.
+    /// Không đổi sang luồng chỉ tiếng: thay item lúc PiP / nền / thu nhỏ làm hỏng các ca đó (xem `+AudioFallback`). Gọi
+    /// cả khi item mới vào (item mới mặc định không giới hạn).
     func refreshBandwidthLimit() {
         guard let item = player.currentItem else { return }
-        let limit: Double = layerView.playerLayer.player == nil ? 1 : 0
-        guard item.preferredPeakBitRate != limit else { return }
-        item.preferredPeakBitRate = limit
-        AppLogger.shared.log(limit > 0 ? "📉 [VideoPlayer] Đang ẩn ⇒ hạ HLS xuống chất lượng thấp nhất" : "📈 [VideoPlayer] Hiện lại ⇒ bỏ giới hạn chất lượng")
+        let isHidden = layerView.playerLayer.player == nil
+        let cap = isHidden ? nil : appliedQuality
+        let peak: Double = isHidden ? 1 : (cap?.peakBitRate ?? 0)
+        let resolution = cap.map { $0.width > 0 && $0.height > 0 ? CGSize(width: $0.width, height: $0.height) : .zero } ?? .zero
+        guard item.preferredPeakBitRate != peak || item.preferredMaximumResolution != resolution else { return }
+        item.preferredPeakBitRate = peak
+        item.preferredMaximumResolution = resolution
+        let state = isHidden ? "đang ẩn ⇒ chất lượng thấp nhất" : "trần \(cap?.title ?? "không giới hạn")"
+        AppLogger.shared.log("🎚️ [VideoPlayer] Giới hạn HLS: \(state)")
     }
 
     // MARK: - Âm thanh & TTS

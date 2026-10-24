@@ -87,6 +87,10 @@ final class VideoPlaybackSession {
     var embedPauseRequest = 0
     /// Thông báo ngắn trên khung phim khi tự đổi link vì mất tiếng; `nil` = không hiện. Tự ẩn sau vài giây.
     var playbackNotice: String?
+    /// Mức chất lượng của item đang phát (HLS ≥ 2 mức, cao → thấp); rỗng ⇒ menu không có mục Chất lượng (`+Quality`).
+    var qualityOptions: [VideoQualityOption] = []
+    /// Lựa chọn của người dùng, giữ qua các tập; `nil` = Tự động.
+    var selectedQuality: VideoQualityOption?
 
     // MARK: - Engine
 
@@ -105,6 +109,7 @@ final class VideoPlaybackSession {
     @ObservationIgnored var autoplayBlockedByTTS = false
     /// Background task giữ app sống trong nhịp chờ PiP lúc vào nền (`+Lifecycle`).
     @ObservationIgnored var audioFallbackBackgroundTask: UIBackgroundTaskIdentifier = .invalid
+    @ObservationIgnored var qualityTask: Task<Void, Never>?
 
     @ObservationIgnored var bookHost = ""
     @ObservationIgnored var openGeneration = 0
@@ -288,6 +293,10 @@ final class VideoPlaybackSession {
         reachedEndOfItem = false
         lastSavedProgress = nil
         autoplayBlockedByTTS = false
+        qualityTask?.cancel()
+        qualityTask = nil
+        qualityOptions = []
+        selectedQuality = nil
         resetPlaybackSource()
     }
 
@@ -327,6 +336,7 @@ final class VideoPlaybackSession {
             ? [currentEpisodeLabel, "Chạm để mở lại"].filter { !$0.isEmpty }.joined(separator: " · ")
             : currentEpisodeLabel
         let playing = isEmbed ? false : isPlaying
+        mini.packageId = launch?.extensionPackageId ?? ""
         if mini.title != bookTitle { mini.title = bookTitle }
         if mini.subtitle != subtitle { mini.subtitle = subtitle }
         if mini.isPlaying != playing { mini.isPlaying = playing }

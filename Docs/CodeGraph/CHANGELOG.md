@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.591] - 2026-10-24
+
+### feat: tắt NSFW ẩn khỏi Kệ/Bộ sưu tập/Tải/hub/phạm vi dịch, video trình duyệt phát tại chỗ, player chọn chất lượng
+
+Người dùng: *"khi tắt nfsw thì cũng phải ẩn ở kệ sách nữa"*, *"nói chung tắt nfsw thì mọi danh sách phim, comic, truyện đều phải ẩn. liệt kê ra chỗ còn sót rồi tôi sẽ duyệt"*; *"browser của app khi click vào video luôn tự mở rồi phóng to lên…"*; *"thêm mục chọn chất lượng cho player nếu được"*. Duyệt: Kệ sách, Bộ sưu tập, tab Tải, hub nổi, phạm vi dịch + plan video trình duyệt + chất lượng; **không** lọc Thông báo (chương mới) và thứ đang phát (widget TTS, màn khoá, PiP). Tải video tách sang phiên riêng.
+
+- **`RepositoryFilterPolicy.excludingNsfwSources(_:includeNsfw:packageId:)`** (mới, generic): bỏ phần tử của nguồn NSFW, giữ thứ tự, mỗi `packageId` tra một lần — dùng chung cho các danh sách dưới đây. Chỉ ẩn hiển thị, dữ liệu giữ nguyên.
+- **Kệ sách** (`ShelfBookPartition(hidesNsfw:)`, đổi từ `hidesNsfwHistory`): tắt NSFW bỏ **mọi** sách của nguồn NSFW, cả ghim/chưa ghim lẫn lịch sử (chip loại suy ra từ partition nên tự theo). **Tìm trong Kệ** quan sát công tắc, bỏ cả sách trên kệ.
+- **Bộ sưu tập**: danh sách trong bộ (`CollectionDetailView`), 3 bìa xem trước + số truyện của thẻ (`CollectionGridCardView.visibleBooks(of:includeNsfw:)`), số truyện ở màn sắp xếp bộ.
+- **Tab Tải** (`DownloadTrackerView`): ẩn tác vụ tải/xuất của truyện nguồn NSFW (tác vụ vẫn chạy).
+- **Hub nổi** (`FloatingHubPresentationReader`): "AI đang chạy" bỏ truyện của nguồn NSFW — run AI không lưu `packageId` nên suy từ tiền tố `bookId` (`BookIdUtils.make` = `<packageId viết thường>_<16 hex>`), không khớp tiện ích nào thì không ẩn; mục Video coi phim NSFW thu nhỏ như không có video (nút hub không nháy vì nó). `VideoMiniPlayerState.packageId` (mới, ghi trước `isActive`). Công tắc theo dõi qua `UserDefaults.didChangeNotification` rút về một bit.
+- **Quản lý phạm vi dịch** (`TranslationScopeManagementView`): không liệt kê nguồn NSFW và truyện của nguồn NSFW (truyện đã xoá khỏi thư viện thì không biết nguồn ⇒ vẫn liệt kê); cấu hình vẫn có hiệu lực, "Đặt lại tất cả" vẫn xoá cả mục bị ẩn.
+- **Video trong trình duyệt phát tại chỗ**: `BypassBrowserTabStore` bật `allowsInlineMediaPlayback`; **`InlineMediaScript`** (mới, `Services/Browser`) gắn `playsinline`/`webkit-playsinline` cho mọi `<video>` ở mọi frame (quét DOM, `MutationObserver`, `loadstart` + chạm ở pha capture — không sửa prototype). Tab mở từ link dùng config WebKit chép từ tab mẹ nên cũng có. Nút toàn màn hình của trang vẫn dùng được.
+- **Chất lượng** (`VideoPlaybackSession+Quality`, `VideoQualityOption` — mới): sau mỗi item đọc `AVAsset.variants`, mỗi độ phân giải giữ biến thể bitrate cao nhất, bỏ biến thể chỉ tiếng; từ 2 mức ⇒ menu `⋯` có "Chất lượng · <mức>" (Tự động + 1080p/720p…). Chọn = **trần** (`preferredPeakBitRate` + `preferredMaximumResolution`) — mạng yếu vẫn có thể thấp hơn. Lựa chọn giữ qua các tập (áp mức cao nhất không vượt lựa chọn), `stop()` về Tự động. `refreshBandwidthLimit` gộp: đang ẩn ⇒ thấp nhất, hiện ⇒ trần đã chọn hoặc không giới hạn. mp4 / HLS một mức / playlist ghép hình + tiếng ⇒ không có mục.
+- Cài đặt › Nội dung nhạy cảm: dòng Kệ đổi thành danh sách các chỗ ẩn mới.
+- Chuyển entry `[1.3.561]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy (đặc biệt: `variants` với asset qua resource loader `fbhls://`, `playsinline` trên các trang thật).
+
 ## [1.3.590] - 2026-10-24
 
 ### feat: Google/Bing/Baidu lên đầu, tắt NSFW giữa lượt tìm bỏ nguồn NSFW, player ẩn điều khiển khi vuốt và hạ chất lượng khi phát ẩn
@@ -404,17 +422,3 @@ Bước 3 của đợt 1 plan "nguồn truyện Legado — viết mới theo đ�
 - **CI**: `build-ipa.yml` chạy cả trên nhánh `claude/legado-source-bb5e46`.
 - Chuyển entry `[1.3.527]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền (`JSDom.swift`, `TTSManager.swift`), **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch.
-## [1.3.561] - 2026-10-22
-
-### feat: menu Khám phá mở lại trình duyệt, widget chung nháy theo tiến trình
-
-Người dùng: *"đem nút mở trình duyệt ở khám phá trở lại"*, rồi *"gộp luôn nút dịch đi, dùng biểu tượng của widget chung, đổi biểu tượng widget chung thành cái khác"*, *"khi widget chỉ có 1 mục đang chạy thì hiển thị icon mục đó… bấm vào thì hiển thị trực tiếp ra mục đó"*, *"màu nhấp nháy đồng bộ"*, *"khi không có tiến trình chạy thì Icon chuông, không nháy, bấm vào mở màn hình thông báo"*. Chốt qua `/grill-me` (plan `Docs/Plans/2026-10-22-plan-menu-kham-pha-va-widget-chung.md`, mockup đã duyệt); người dùng duyệt cả việc viết lại `rules.md` § Nút hub nổi.
-
-- **Header Khám phá**: nút Kiểu hiển thị và nút dịch gộp thành một nút menu tròn `square.grid.2x2` (`DiscoverySourceMenuButton`, 38×38, 17pt semibold, `.menuOrder(.fixed)`): **Mở trình duyệt** (trang nguồn đang chọn bằng `BypassWebView` toàn màn hình, ẩn khi nguồn không có link; "Import truyện" ⇒ Chi tiết trong stack Khám phá, bỏ toast "Đã hoàn tất tải các chương!" của nút cũ) · **Kiểu hiển thị** (sheet như cũ) · **Dịch văn bản** + dòng phụ Đang bật/Đang tắt (popover bảng dịch cũ neo ở nút menu). Nút safari đã bỏ ở 1.3.546 nay quay lại trong menu; bảng chọn nguồn vẫn không có, nút Trình duyệt ở Cấu hình tiện ích giữ nguyên. Dựng route Import gom về `DiscoveryView.showImportedBook`.
-- **Bảng dịch dùng chung**: nội dung popover của `ReaderTranslationScopeMenuView` (công tắc, phạm vi, Lưu lại, kẹp phạm vi) tách thành `TranslationScopePopupView` (`ReaderTranslationScopeMenuView` 307 → 143 dòng); chữ ký public và `TranslationPopupScope` giữ chỗ cũ, Reader và Chi tiết truyện không đổi.
-- **Chip Thể loại** ở Khám phá đổi icon lưới → `tag` (không trùng nút menu ngay trên).
-- **Widget chung theo số tiến trình** (AI đang chạy, video thu nhỏ, tác vụ nền tải/xuất/nhập/sao lưu/tải model; mọi tab; tin chưa đọc **không** tính — `ButtonState.runningKinds`): 0 ⇒ chuông `bell`, không nháy, chạm mở màn Thông báo; 1 ⇒ icon của mục, nháy, chạm mở thẳng mục (AI ⇒ bung + menu ở trang "AI đang chạy"); ≥ 2 ⇒ `square.stack.3d.up`, nháy, chạm mở menu. Áp cả khi đang nép. Bỏ badge số/chấm đỏ, viền tím AI, tham số `mode`/`edge` của `FloatingHubButton` và sink vẽ lại theo cạnh. Rẽ nhánh chạm ở `activateByRunningTasks` (`+Actions`).
-- **Nháy đồng bộ với nút trình duyệt thu nhỏ**: `FloatingHubPulseView` (`CABasicAnimation` đổi màu nền một layer con, ≤ 20 fps, chỉ gắn khi chưa có, gỡ khi rời cửa sổ, khôi phục khi về foreground; không đụng opacity). Màu đỏ, đáy nhịp (mức 0,4) và nửa chu kỳ 0,9 s là hằng `static` dùng chung — `VisibleBrowserReopenButton` đọc lại, giá trị không đổi. Không bảo đảm trùng pha (SwiftUI vs Core Animation).
-- **`rules.md`** § Nút hub nổi: (a) viết lại theo luật tiến trình; (b) bỏ đường "số mục còn < 2" (code không có — menu có tập dòng cố định từ 1.3.533); (c), (e) và câu hitTest cập nhật theo. Luật chạm cũ ở (a) vốn đã lệch code (code luôn mở menu).
-- Chuyển entry `[1.3.531]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code, grep chéo `ReaderTranslationScopeMenuView(`, `TranslationPopupScope`, `FloatingHubButton(`, `activeKinds`; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; **chưa thử trên máy**: popover dịch mở từ `Menu`, nháy khi hub nép mép, về lại foreground, chạm khi chỉ 1 AI.

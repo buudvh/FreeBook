@@ -73,12 +73,15 @@ struct ShelfSearchView: View {
             + CGFloat(visibleRowCount) * historyRowHeight
     }
 
-    /// Công tắc NSFW toàn app tắt ⇒ sách **lịch sử** của nguồn NSFW không tìm thấy (sách trên kệ vẫn tìm được).
+    /// Công tắc NSFW toàn app — tắt ⇒ mọi sách (kệ lẫn lịch sử) của nguồn NSFW không tìm thấy.
+    @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
+
     private var searchableBooks: [Book] {
-        let includeNsfw = RepositoryFilterPolicy.includesNsfwPreference
-        return allBooks.filter {
-            $0.isOnShelf || ($0.isHistory && (includeNsfw || !RepositoryFilterPolicy.isNsfwSource(packageId: $0.extensionPackageId)))
-        }
+        RepositoryFilterPolicy.excludingNsfwSources(
+            allBooks.filter { $0.isOnShelf || $0.isHistory },
+            includeNsfw: includeNsfw,
+            packageId: \.extensionPackageId
+        )
     }
 
     private var filteredBooks: [Book] {

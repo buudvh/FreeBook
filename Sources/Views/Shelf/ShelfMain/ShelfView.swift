@@ -114,7 +114,7 @@ struct ShelfView: View {
     }
 
     var body: some View {
-        let parts = ShelfBookPartition(allBooks, hidesNsfwHistory: !includeNsfw)
+        let parts = ShelfBookPartition(allBooks, hidesNsfw: !includeNsfw)
         let kindFilter = ShelfKindFilter(parts, kindFilter: shelfKindFilter)
         NavigationStack {
             ZStack {

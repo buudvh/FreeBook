@@ -46,21 +46,32 @@ struct CollectionDetailView: View {
         ExtensionLibraryRepository.shared.installed
     }
 
+    /// Công tắc NSFW toàn app — tắt ⇒ ẩn truyện của nguồn NSFW trong bộ (chỉ ẩn, vẫn nằm trong bộ).
+    @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
+
+    private var visibleBooks: [Book] {
+        RepositoryFilterPolicy.excludingNsfwSources(
+            collection?.books ?? [],
+            includeNsfw: includeNsfw,
+            packageId: \.extensionPackageId
+        )
+    }
+
     private var isEmpty: Bool {
-        (collection?.books ?? []).isEmpty
+        visibleBooks.isEmpty
     }
 
     /// 1.3.334 tách truyện ghim và truyện còn lại thành **hai section riêng** thay vì nối vào một mảng
     /// phẳng, khớp với tab Kệ sách. Lọc trước rồi mới sắp: sắp cả mảng rồi lọc cho ra thứ tự y hệt mà
     /// phải sắp hai lần.
     private var pinnedBooks: [Book] {
-        (collection?.books ?? [])
+        visibleBooks
             .filter { $0.isPinned }
             .sorted { $0.lastReadDate > $1.lastReadDate }
     }
 
     private var unpinnedBooks: [Book] {
-        (collection?.books ?? [])
+        visibleBooks
             .filter { !$0.isPinned }
             .sorted { $0.lastReadDate > $1.lastReadDate }
     }

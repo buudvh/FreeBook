@@ -9,10 +9,17 @@ struct DownloadTrackerView: View {
     @State private var selectedTaskType: TaskType = .download
     @State private var defaultOnlyExportCached = false
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
-    
+    /// Công tắc NSFW toàn app — tắt ⇒ ẩn tác vụ tải/xuất của truyện thuộc nguồn NSFW (tác vụ vẫn chạy).
+    @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
+
+    private var visibleTasks: [DownloadTask] {
+        RepositoryFilterPolicy.excludingNsfwSources(downloadManager.tasks, includeNsfw: includeNsfw, packageId: \.extensionPackageId)
+    }
+
     var body: some View {
+        let tasks = visibleTasks
         VStack(spacing: 0) {
-            if downloadManager.tasks.isEmpty {
+            if tasks.isEmpty {
                 VStack(spacing: 20) {
                     Image(systemName: "icloud.and.arrow.down")
                         .resizable()
@@ -33,7 +40,7 @@ struct DownloadTrackerView: View {
                 .frame(maxHeight: .infinity)
             } else {
                 List {
-                    ForEach(downloadManager.tasks) { task in
+                    ForEach(tasks) { task in
                         taskRow(task)
                     }
                 }

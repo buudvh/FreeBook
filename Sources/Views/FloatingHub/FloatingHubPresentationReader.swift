@@ -91,6 +91,9 @@ final class FloatingHubPresentationReader: ObservableObject {
     /// Tab Kệ Sách là tab 0 của `MainTabView`; mặc định `true` vì app luôn khởi động ở tab đó. Tab Kệ đã có
     /// nút chuông trên toolbar nên mục Thông báo **xám** ở đó (trước 1.3.533 là vắng hẳn).
     private var isShelfTabActive = true
+    /// Công tắc NSFW toàn app — tắt ⇒ bỏ truyện của nguồn NSFW khỏi "AI đang chạy" và coi phim NSFW thu nhỏ như
+    /// không có video (chỉ ẩn, tác vụ / phim vẫn chạy).
+    private var includeNsfw = RepositoryFilterPolicy.includesNsfwPreference
     private var cancellables = Set<AnyCancellable>()
 
     init() {
@@ -139,6 +142,19 @@ final class FloatingHubPresentationReader: ObservableObject {
         inboxReader.$snapshot
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in self?.refresh() }
+            .store(in: &cancellables)
+
+        // Công tắc NSFW là `UserDefaults` (không có publisher riêng): rút về một bit rồi `removeDuplicates`.
+        NotificationCenter.default
+            .publisher(for: UserDefaults.didChangeNotification)
+            .map { _ in RepositoryFilterPolicy.includesNsfwPreference }
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] includeNsfw in
+                guard let self, self.includeNsfw != includeNsfw else { return }
+                self.includeNsfw = includeNsfw
+                self.refresh()
+            }
             .store(in: &cancellables)
 
         // `selectedTab` của `MainTabView` là `@State` cục bộ nên chỉ đọc được qua notification này.
@@ -192,7 +208,22 @@ final class FloatingHubPresentationReader: ObservableObject {
         let runningKinds = items
             .filter { $0.kind == .notifications ? inbox.hasRunningTask : $0.isActive }
             .map(\.kind)
-        return Snapshot(items: items, unreadCount: unreadCount, aiTasks: aiState.tasks, runningKinds: runningKinds)
+        return Snapshot(items: items, unreadCount: unreadCount, aiTasks: visibleAITasks, runningKinds: runningKinds)
+    }
+
+    private var visibleAITasks: [AITask] {
+        includeNsfw ? aiState.tasks : aiState.tasks.filter { !Self.isNsfwBook(bookId: $0.bookId) }
+    }
+
+    /// `bookId` dựng bởi `BookIdUtils.make` = `<packageId viết thường>_<16 hex>` ⇒ suy ra nguồn từ tiền tố (run AI
+    /// không lưu `packageId`). Không khớp tiện ích đã cài nào (sách nhập file, id kiểu cũ) ⇒ không ẩn.
+    private static func isNsfwBook(bookId: String) -> Bool {
+        guard let cut = bookId.lastIndex(of: "_") else { return false }
+        let prefix = String(bookId[..<cut])
+        guard let ext = ExtensionLibraryRepository.installedSnapshot().first(where: { $0.packageId.lowercased() == prefix }) else {
+            return false
+        }
+        return RepositoryFilterPolicy.isNsfwSource(packageId: ext.packageId)
     }
 
     /// Truyện đang chạy AI (bỏ entry chỉ còn giữ nút "Thử lại"), bắt đầu gần nhất lên đầu.
@@ -207,7 +238,7 @@ final class FloatingHubPresentationReader: ObservableObject {
     /// đây. Chạm dòng thì menu sang trang "AI đang chạy" (1.3.558). Một truyện: tên truyện + tác vụ; nhiều truyện:
     /// số truyện.
     private func aiItem() -> FloatingHubItem {
-        let tasks = aiState.tasks
+        let tasks = visibleAITasks
         let usable = !tasks.isEmpty && !aiState.isFullScreenPresented
         let detail: String
         var headline = ""
@@ -230,7 +261,9 @@ final class FloatingHubPresentationReader: ObservableObject {
 
     /// Video dùng được khi trình phát đã thu nhỏ mà vẫn còn phiên (`VideoMiniPlayerState.isActive`).
     private func videoItem() -> FloatingHubItem {
-        guard videoState.isActive else {
+        let hidesNsfwVideo = !includeNsfw
+            && RepositoryFilterPolicy.isNsfwSource(packageId: VideoMiniPlayerState.shared.packageId)
+        guard videoState.isActive, !hidesNsfwVideo else {
             return FloatingHubItem(kind: .video, detail: "Không có video đang phát")
         }
         let fallback = videoState.isPlaying ? "Đang phát" : "Đã dừng"

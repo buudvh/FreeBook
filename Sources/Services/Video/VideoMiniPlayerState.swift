@@ -17,6 +17,9 @@ public final class VideoMiniPlayerState: ObservableObject {
     /// Tên tập / server.
     @Published public var subtitle = ""
     @Published public var isPlaying = false
+    /// Tiện ích nguồn của phim — hub ẩn mục Video khi công tắc NSFW tắt mà nguồn là NSFW. Không `@Published`: luôn
+    /// được ghi **trước** `isActive` (`VideoPlaybackSession.syncMiniPlayerState`) nên sink của `isActive` đọc được.
+    public var packageId = ""
 
     /// Phát/dừng từ hub.
     public var onTogglePlay: (() -> Void)?
@@ -33,6 +36,7 @@ public final class VideoMiniPlayerState: ObservableObject {
         title = ""
         subtitle = ""
         isPlaying = false
+        packageId = ""
         onTogglePlay = nil
         onReopen = nil
         onStop = nil
