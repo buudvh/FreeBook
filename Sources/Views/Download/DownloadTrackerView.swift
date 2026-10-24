@@ -201,17 +201,15 @@ struct DownloadTrackerView: View {
         }
     }
     
-    /// Giá trị thanh tiến độ: số mục xong, cộng phần đã tải của tập video đang tải (thanh chạy mượt trong một tập dài).
+    /// Giá trị thanh tiến độ: số mục xong, cộng phần đã tải của tập video đang tải (`DownloadTask.smoothProgressCount`).
     private func progressValue(_ task: DownloadTask) -> Double {
-        let current = task.videoEpisodes.first(where: \.isDownloading)?.fraction ?? 0
-        return min(Double(max(1, task.totalCount)), Double(task.progressCount) + current)
+        task.smoothProgressCount
     }
 
     /// "Tiến độ: 3/10 tập · 34%" với video; truyện giữ "Tiến độ: 3/10 chương".
     private func progressText(_ task: DownloadTask) -> String {
         let base = "Tiến độ: \(task.progressCount)/\(task.totalCount) \(task.unitNoun)"
-        guard task.isVideoDownload, task.totalCount > 0 else { return base }
-        let percent = Int((progressValue(task) / Double(task.totalCount) * 100).rounded())
+        guard let percent = task.videoProgressPercent else { return base }
         return "\(base) · \(percent)%"
     }
 

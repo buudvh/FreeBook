@@ -94,6 +94,17 @@ extension NotificationInboxView {
                         .lineLimit(2)
 
                     ProgressView(value: fraction)
+
+                    // Tác vụ video: tập đang tải ("Tập 4: 45% · 210 MB") và danh sách từng tập như tab Tải.
+                    if let mediaDetail = task.mediaDetail {
+                        Text(mediaDetail)
+                            .font(.footnote)
+                            .foregroundStyle(Color.secondary)
+                            .lineLimit(1)
+                    }
+                    if !task.videoEpisodes.isEmpty {
+                        VideoEpisodeProgressList(episodes: task.videoEpisodes)
+                    }
                 }
 
                 Spacer(minLength: 0)
@@ -107,17 +118,22 @@ extension NotificationInboxView {
             .padding(.vertical, 2)
         }
 
-        /// `nil` khi chưa biết tổng số chương (mục lục chưa nạp xong) ⇒ thanh chạy vô định.
+        /// `nil` khi chưa biết tổng số chương (mục lục chưa nạp xong) ⇒ thanh chạy vô định. Video chạy mượt theo phần
+        /// trăm của tập đang tải (`DownloadTask.smoothProgressCount`).
         private var fraction: Double? {
             guard task.totalCount > 0 else { return nil }
-            return min(1, Double(task.progressCount) / Double(task.totalCount))
+            return min(1, task.smoothProgressCount / Double(task.totalCount))
         }
 
-        /// "Tải truyện · 12/300 chương"; tác vụ xuất nối thêm giai đoạn ("Đang tạo file") khi đã có.
+        /// "Tải truyện · 12/300 chương" / "Tải video · 3/10 tập · 34%"; tác vụ xuất nối thêm giai đoạn ("Đang tạo
+        /// file") khi đã có.
         private var detail: String {
-            var parts = [task.taskType.rawValue]
+            var parts = [task.displayTypeName]
             if task.totalCount > 0 {
-                parts.append("\(task.progressCount)/\(task.totalCount) chương")
+                parts.append("\(task.progressCount)/\(task.totalCount) \(task.unitNoun)")
+            }
+            if let percent = task.videoProgressPercent {
+                parts.append("\(percent)%")
             }
             if let stage = task.exportStage {
                 parts.append(stage.displayName)

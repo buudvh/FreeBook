@@ -39,3 +39,18 @@ public struct VideoEpisodeProgress: Identifiable, Equatable, Sendable {
         }
     }
 }
+
+extension DownloadTask {
+    /// Số mục đã xong cộng phần đã tải của tập video đang tải — thanh tiến độ chạy mượt trong một tập dài. Dùng chung
+    /// cho tab Tải và màn Thông báo.
+    public var smoothProgressCount: Double {
+        let current = videoEpisodes.first(where: \.isDownloading)?.fraction ?? 0
+        return min(Double(max(1, totalCount)), Double(progressCount) + current)
+    }
+
+    /// Phần trăm cả tác vụ tải video; `nil` với tác vụ khác hoặc khi chưa biết tổng số tập.
+    public var videoProgressPercent: Int? {
+        guard isVideoDownload, totalCount > 0 else { return nil }
+        return Int((smoothProgressCount / Double(totalCount) * 100).rounded())
+    }
+}
