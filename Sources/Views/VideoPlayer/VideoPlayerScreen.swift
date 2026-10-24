@@ -79,6 +79,14 @@ struct VideoPlayerScreen: View {
         .onChange(of: suppressesFloatingWidgets) { _, suppressed in
             FloatingWidgetSuppression.shared.isSuppressed = suppressed
         }
+        .onChange(of: session.pictureInPictureStartCount) { _, _ in
+            // Bấm PiP lúc app đang mở ⇒ thu nhỏ trình phát về màn trước, phim chạy tiếp trong cửa sổ PiP (khôi phục từ PiP
+            // mở lại màn qua `requestScreen`). Đợi `didStart` mới rời màn: gỡ layer lúc PiP đang bật dở có thể làm hỏng PiP.
+            // PiP tự bật khi rời app thì app không còn `.active` ⇒ giữ nguyên màn.
+            guard session.isPictureInPictureActive, UIApplication.shared.applicationState == .active else { return }
+            AppLogger.shared.log("🖼️ [VideoPiP] Bấm PiP khi đang mở app ⇒ thu nhỏ trình phát")
+            leave(stopPlayback: false)
+        }
         .onDisappear {
             controller.cancelTimers()
             controller.onMinimizeRequest = nil

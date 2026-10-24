@@ -15,6 +15,8 @@ final class VideoPictureInPictureCoordinator: NSObject, AVPictureInPictureContro
     var onPossibleChange: (@MainActor (Bool) -> Void)?
     /// PiP bắt đầu (`true`, từ lúc *sắp* bật) / đã tắt hẳn (`false`).
     var onActiveChange: (@MainActor (Bool) -> Void)?
+    /// PiP đã bật xong (`didStart`) — màn hình dùng để tự thu nhỏ khi người dùng bấm PiP lúc app đang mở.
+    var onDidStart: (@MainActor () -> Void)?
     /// Người dùng bấm "khôi phục" trên cửa sổ PiP. Closure nhận completion của AVKit, phải gọi đúng một lần.
     var onRestoreRequest: (@MainActor (@escaping (Bool) -> Void) -> Void)?
 
@@ -75,6 +77,7 @@ final class VideoPictureInPictureCoordinator: NSObject, AVPictureInPictureContro
         Self.onMain { [weak self] in
             self?.isStarting = false
             AppLogger.shared.log("🖼️ [VideoPiP] Đã bật PiP")
+            self?.onDidStart?()
         }
     }
 

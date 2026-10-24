@@ -166,6 +166,9 @@ extension VideoPlaybackSession {
         coordinator.onActiveChange = { [weak self] active in
             self?.handlePictureInPictureChange(active: active)
         }
+        coordinator.onDidStart = { [weak self] in
+            self?.pictureInPictureStartCount += 1
+        }
         coordinator.onRestoreRequest = { [weak self] completion in
             self?.restoreFromPictureInPicture(completion: completion)
         }

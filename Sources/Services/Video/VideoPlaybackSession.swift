@@ -83,6 +83,8 @@ final class VideoPlaybackSession {
     var isBoosting = false
     var isPictureInPicturePossible = false
     var isPictureInPictureActive = false
+    /// Tăng mỗi lần PiP bật xong (`didStart`) — `VideoPlayerScreen` tự thu nhỏ khi người dùng bấm PiP lúc app đang mở.
+    var pictureInPictureStartCount = 0
     /// Tăng mỗi lần cần dừng media của trang nhúng đang hiện (TTS bắt đầu đọc) — `VideoEmbedWebView` so giá trị này.
     var embedPauseRequest = 0
     /// Thông báo ngắn trên khung phim khi tự đổi link vì mất tiếng; `nil` = không hiện. Tự ẩn sau vài giây.

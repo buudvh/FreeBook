@@ -2,6 +2,24 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.564] - 2026-10-21
+
+### feat: kho nguồn Legado và tab Nguồn Legado trong Kho Tiện Ích
+
+Bước 4, 5, 12 và phần màn Kho của bước 11 trong đợt 1 plan "nguồn truyện Legado — viết mới theo đặc tả" (người dùng đã duyệt plan + mockup). Hành vi Legado theo `Docs/Specs/legado-source-spec.md`.
+
+- **Model** (`Sources/Models/LegadoSource/`, mới): `LegadoBookSource` (+`Derived`) decode khoan dung qua `LegadoModelJSON`/`LegadoModelCoercion` (số-hoặc-chuỗi, bool-hoặc-số, nhóm rule là object hoặc chuỗi JSON lồng, giữ JSON gốc), `LegadoSearchRule` (dùng chung cho khám phá), `LegadoBookInfoRule`, `LegadoTocRule`, `LegadoContentRule`, `LegadoExploreEntry` (dạng không phải JS của `exploreUrl`), `LegadoSourceKind` (0 chữ / 2 tranh / 4 video / còn lại không hỗ trợ), `LegadoSourceSummary`, `LegadoSourceGroupCount`.
+- **Kho** (`Sources/Services/LegadoSource/Store/`, mới): mỗi nguồn là `extensions/<packageId>/` gồm `source.json` (nguyên văn) + `plugin.json` sinh tự động (`author: "Legado"`, `type` họ `legado*`, `locale: zh_CN`, `version` tăng mỗi lần ghi). `packageId = "legado_" + sha256(bookSourceUrl đã trim).prefix(16)` — đóng băng. Nhận diện nguồn Legado theo `Extension.type`, không theo tiền tố. Bật/tắt vá đúng khoá `enabled`. `LegadoSourceImporter` nhận mảng / object / chuỗi escape, bỏ trùng theo `bookSourceUrl`, bỏ qua kèm lý do: audio, tệp tải về, loại lạ, thiếu `bookSourceUrl`, thiếu rule tối thiểu (bản nới: tìm **hoặc** khám phá + mục lục + nội dung). `LegadoSourceRepository` (`@MainActor @Observable` + bảng chụp nonisolated cho tầng nền: `isEnabled(packageId:)`, `summarySnapshot(packageId:)`) nạp trên nền sau cổng từ điển, dịch QT tên + nhóm một lần rồi cache. `LegadoSourceCoordinator`: nhập tệp/URL/bộ nhớ tạm, bật/tắt, bật/tắt hàng loạt, xoá, xoá tất cả — ghi file trên nền rồi **một** lời gọi `upsertExtensions`. `installOrigin` mới `"legadoImport"`.
+- **`LegadoSourcePolicy`** (mới, thuần): `isLegado`, `excludingLegado`, `isRunnable` (Legado + đang bật + loại đã hỗ trợ — đợt 1 chỉ chữ).
+- **UI tab "Nguồn Legado"** (segment thứ 3 của Kho Tiện Ích, khớp mockup): toolbar chỉ menu ⋯ (nhập từ tệp JSON / URL / bộ nhớ tạm · bật/tắt tất cả theo danh sách đang lọc · "Xoá tất cả nguồn Legado" có xác nhận); ô "Tìm nguồn Legado" khớp tên gốc lẫn tên QT; chip nhóm có số đếm (sắp theo số nguồn, cuối là "Chưa nhóm"); dòng "Đang bật x/y"; dòng nguồn: tên QT, chip loại + nhóm (tối đa 2, còn lại "+N"), "Cần đăng nhập", "Chưa hỗ trợ" cho tranh/video, URL, công tắc, nút 🗑 34×34 xoá ngay. Alert tổng kết "Đã nhập N nguồn" (mới / cập nhật / bỏ qua theo lý do / "Nguồn giữ trạng thái bật/tắt trong tệp"). File: `LegadoSourceListView`, `LegadoSourceRowView`, `LegadoSourceTabState`, `RepositoryManagerView+LegadoMenu`; nút 🗑 tách thành `ExtensionRowTrashButton` dùng chung cho hai tab.
+- **Chặn rò rỉ ở màn Kho**: tab 0 và số đếm bộ lọc loại nguồn Legado; "Xóa tất cả tiện ích" chỉ gỡ tiện ích JS; audit gỡ bản ghi thì nạp lại danh sách Legado. `RepositoryManagerView.swift` 606 → 605 dòng; chữ hướng dẫn ở tab "Danh sách kho" bỏ tên nền tảng cũ, nay là "kho tiện ích".
+- **Coordinator**: thêm `ExtensionTransactionCoordinator.deleteExtensions(packageIds:)` — xoá nhiều bản ghi, ghi index một lần (xoá tất cả nguồn Legado).
+- **Backup**: `BackupExtensionInstaller` dựng bản ghi Legado từ thư mục thật sau bước thay (type/version theo `plugin.json`); `BackupRestoreWorker` nạp lại danh sách sau khôi phục.
+- **Hiệu năng (bộ 1316, 1.378 nguồn, ~10 MB)**: parse, phân loại, ghi file, dịch QT đều trên nền; main chỉ nhận kết quả + một lần upsert. Mô phỏng phân loại: nhập 804, bỏ qua 574 (thiếu rule tối thiểu 535, tệp 21, audio 11, trùng 6, thiếu URL 1).
+- **Chưa xong / cần xác nhận**: tab Legado chưa áp công tắc NSFW (195 nguồn nhóm `特殊书源 🔞`); tên QT hiện kể cả khi tắt dịch toàn app; bật/tắt không tăng `version`. Tìm kiếm / Khám phá / Đổi nguồn / tải truyện / debug server chưa nối — commit sau.
+- Chuyển entry `[1.3.529]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.563] - 2026-10-21
 
 ### docs: đặc tả hành vi nguồn Legado đợt 1 (clean-room)
