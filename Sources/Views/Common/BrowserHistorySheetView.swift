@@ -2,6 +2,8 @@ import SwiftUI
 
 /// Sheet danh sách toàn bộ lịch sử duyệt web dạng LazyVStack cuộn mượt, tìm kiếm và xoá từng mục.
 public struct BrowserHistorySheetView: View {
+    /// Công tắc NSFW toàn app tắt ⇒ bỏ mục thuộc trang của nguồn NSFW (chỉ ẩn, không xoá).
+    public let hidesNsfwHistory: Bool
     public let onSelectUrl: (String) -> Void
     @Environment(\.dismiss) private var dismiss
 
@@ -9,7 +11,8 @@ public struct BrowserHistorySheetView: View {
     @State private var searchText: String = ""
     @State private var showingClearConfirmation: Bool = false
 
-    public init(onSelectUrl: @escaping (String) -> Void) {
+    public init(hidesNsfwHistory: Bool = false, onSelectUrl: @escaping (String) -> Void) {
+        self.hidesNsfwHistory = hidesNsfwHistory
         self.onSelectUrl = onSelectUrl
     }
 
@@ -121,7 +124,8 @@ public struct BrowserHistorySheetView: View {
     }
 
     private func reload() {
-        historyItems = BrowserHistoryStore.shared.load()
+        let items = BrowserHistoryStore.shared.load()
+        historyItems = hidesNsfwHistory ? BrowserSourceSiteIndex.excludingNsfwSites(items) : items
     }
 
     private func deleteItem(_ id: String) {

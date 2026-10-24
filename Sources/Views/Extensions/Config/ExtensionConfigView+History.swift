@@ -44,8 +44,9 @@ extension ExtensionConfigView {
         let defaultNote = ExtensionNsfwClassifier.isNsfw(current)
             ? "Mặc định tắt vì tiện ích là 18+."
             : "Mặc định bật."
-        return "Tắt lưu lịch sử thì truyện/phim xem bằng tiện ích này không được ghi mới vào Lịch sử; lịch sử cũ giữ "
-            + "nguyên, truyện trên kệ vẫn nhớ vị trí đọc. " + defaultNote
+        return "Tắt lưu lịch sử thì truyện/phim xem bằng tiện ích này không được ghi mới vào Lịch sử, và trình duyệt tự "
+            + "ẩn danh (không ghi lịch sử duyệt) khi vào trang của tiện ích; lịch sử cũ giữ nguyên, truyện trên kệ vẫn "
+            + "nhớ vị trí đọc. " + defaultNote
     }
 
     @MainActor

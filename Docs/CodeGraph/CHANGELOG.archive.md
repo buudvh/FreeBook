@@ -2,6 +2,23 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.558] - 2026-10-21
+
+### fix: màn AI chạy riêng theo từng truyện, nút nổi liệt kê AI đang chạy
+
+Người dùng: *"dù đang quét truyện A mà vào AI truyện B vẫn thấy báo quét và chặn AI truyện B"* → chọn hướng đầy đủ (mỗi truyện một tác vụ AI riêng); thêm *"bấm vào nút widget ai thì hiển thị ra danh sách AI đang chạy, bấm cái nào hiển thị cái đó"*; duyệt plan.
+
+- **Nguyên nhân**: `AIRuntimeCoordinator` giữ **một** ô trạng thái cho cả app (`isRunning`, `batchProgress`, `activeSession`…) và màn AI đọc thẳng không lọc truyện ⇒ quét A thì màn AI của B hiện dải quét của A, chip mờ, không gửi được; bấm dừng ở B gọi `stopActiveTask()` **huỷ luôn lượt quét của A**; mọi lệnh mới đều `cancelActiveTask()` toàn cục.
+- **Trạng thái theo truyện**: `AIBookRunState` (mới) trong `@Published runs: [String: AIBookRunState]`; tác vụ, mã lượt, ngữ cảnh lượt quét lỗi, phiên gần nhất và ngữ cảnh mở màn AI đều khoá theo `bookId`. Vòng đời lượt ở `AIRuntimeCoordinator+BookRuns.swift` (mới): `beginRun` chỉ thay tác vụ của **chính truyện đó**, `isCurrentRun` cho mọi cập nhật trễ, `endRun` bỏ entry (giữ lại khi còn nút "Thử lại", không giữ phiên), `stopActiveTask(bookId:)`. Bỏ hai chỗ màn AI tự gán `activeSession` (nguy cơ ghi phiên của B vào lịch sử của A). Cùng một truyện vẫn chỉ một tác vụ tại một thời điểm.
+- **Màn AI**: năm `onReceive` toàn cục gộp thành một `onReceive($runs)` → `applyRunState(runs[bookId])` (`ReaderAIFullScreenView+RuntimeSync.swift`, mới), chỉ gán khi giá trị đổi để màn của B không vẽ lại theo nhịp stream 50 ms của A. Mở lại màn AI về đúng phiên gần nhất **của truyện đó** (`lastSessionId(for:)`).
+- **`presentedAIBookId`** thay cờ `isFullScreenPresented`: truyện A xong trong lúc màn AI của B đang mở vẫn có toast, và toast kèm tên truyện khi màn AI của truyện đó không mở.
+- **Nút nổi**: dòng AI ghi tên truyện + tác vụ (1 truyện) hoặc "N truyện đang chạy"; chạm ⇒ thẻ menu sang trang **"AI đang chạy"** (`FloatingHubAITaskListView`, mới; nút ‹ quay lại), mỗi truyện một dòng, chạm truyện nào mở màn AI của đúng truyện đó (`presentFullScreen(bookId:)`). Trang luôn hiện kể cả khi chỉ 1 truyện; hết truyện chạy thì tự về menu chính; mở menu luôn bắt đầu ở trang chính. `FloatingHubPresentationReader` `map` `runs` về danh sách nhỏ rồi `removeDuplicates` — nút hub không vẽ lại theo từng batch.
+- **Gemini Web cho chạy song song**: `prepare()` không nạp lại trang khi token quá 30 phút mà còn fetch đang bay (nạp lại huỷ mọi fetch của truyện khác); token chết thật (HTTP 400/401/403) vẫn ép nạp lại. `streamGeneration` không tự thử lại khi đã phát chữ — lượt thử lại phát lại từ đầu nên chữ bị lặp trong tin (lỗi có sẵn, chạy song song dễ gặp hơn); `TurnObservation` thành `internal` để dùng chung.
+- Hạn chế: hai truyện cùng quét bằng Gemini Web ≈ gấp đôi số request ⇒ chạm hạn mức 1037/1060 sớm hơn; fetch bị cắt do nạp lại trang ép buộc có thể thành lượt lỗi (có nút Thử lại).
+- `rules.md`: cập nhật luật hub (d), thêm (e) trang "AI đang chạy"; luật mở lại AI theo ngữ cảnh, phiên sống, bấm dừng, nút thử lại chuyển sang theo truyện; thêm luật "trạng thái AI khoá theo truyện"; luật retry Gemini Web ghi rõ "chỉ khi chưa phát chữ" và không nạp lại trang khi còn fetch.
+- Chuyển entry `[1.3.528]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code, grep chéo caller của mọi member đổi chữ ký; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
+
 ## [1.3.557] - 2026-10-21
 
 ### feat: màn Thông báo hiện tiến độ tải, xuất và nhập truyện

@@ -4,6 +4,8 @@ import SwiftUI
 /// Truy cập nhanh (lưới 4x3 trượt phân trang) và Lịch sử truy cập (10 card gần nhất + Xem thêm).
 public struct BypassBrowserHomeView: View {
     public let installedExtensions: [Extension]
+    /// Công tắc NSFW toàn app tắt ⇒ bỏ mục lịch sử duyệt thuộc trang của nguồn NSFW (chỉ ẩn, không xoá).
+    public let hidesNsfwHistory: Bool
     public let onSelectUrl: (String) -> Void
     public let onOpenAllHistory: () -> Void
 
@@ -13,10 +15,12 @@ public struct BypassBrowserHomeView: View {
 
     public init(
         installedExtensions: [Extension] = [],
+        hidesNsfwHistory: Bool = false,
         onSelectUrl: @escaping (String) -> Void,
         onOpenAllHistory: @escaping () -> Void
     ) {
         self.installedExtensions = installedExtensions
+        self.hidesNsfwHistory = hidesNsfwHistory
         self.onSelectUrl = onSelectUrl
         self.onOpenAllHistory = onOpenAllHistory
     }
@@ -300,6 +304,7 @@ public struct BypassBrowserHomeView: View {
     }
 
     private func reloadHistory() {
-        recentHistory = BrowserHistoryStore.shared.load()
+        let items = BrowserHistoryStore.shared.load()
+        recentHistory = hidesNsfwHistory ? BrowserSourceSiteIndex.excludingNsfwSites(items) : items
     }
 }

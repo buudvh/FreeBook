@@ -11,7 +11,9 @@ import WebKit
 /// `window.opener` mất liên kết và trang không nạp.
 ///
 /// Chặn quảng cáo + chế độ máy tính theo tên miền (`WebContentPolicy.decision(for: .userBrowser(host:))`) áp khi tạo
-/// tab và ở mỗi điều hướng khung chính; chặn cửa sổ bật lên ở `createWebViewWith` (`blockedPopup`).
+/// tab và ở mỗi điều hướng khung chính; chặn cửa sổ bật lên ở `createWebViewWith` (`blockedPopup`). Ẩn danh
+/// (`BypassBrowserTab.isIncognito`) chỉ bỏ ghi Lịch sử truy cập — cookie vẫn ở kho WebKit mặc định, dùng chung với
+/// trình duyệt ẩn của tiện ích, để vượt Cloudflare/đăng nhập ở đây vẫn có tác dụng cho nguồn.
 final class BypassBrowserTabStore: NSObject, ObservableObject, WKNavigationDelegate, WKUIDelegate {
     /// Trần số tab: mỗi tab là một `WKWebView` nên phải chặn để không phình bộ nhớ.
     static let maxTabCount = 8
@@ -106,7 +108,9 @@ final class BypassBrowserTabStore: NSObject, ObservableObject, WKNavigationDeleg
         guard let popup = blockedPopup else { return }
         blockedPopup = nil
         guard let url = popup.url else { return }
+        let openerIsIncognito = activeTab?.isIncognito ?? false
         if let tab = openTab(url: url, activate: true) {
+            tab.isIncognito = openerIsIncognito
             // Không ai tiêu thụ `pendingUrl` của tab không phải tab đầu ⇒ tự nạp.
             tab.load(url)
         } else if let active = activeTab {
@@ -204,7 +208,15 @@ final class BypassBrowserTabStore: NSObject, ObservableObject, WKNavigationDeleg
             decisionHandler(.allow, preferences)
             return
         }
+        markIncognitoIfNeeded(tab, url: url) // cả bước chuyển hướng: trang nguồn chuyển sang mirror vẫn ẩn danh
         decideMainFrame(navigationAction, url: url, tab: tab, preferences: preferences, decisionHandler: decisionHandler)
+    }
+
+    /// Ẩn danh dính theo tab: ở đây chỉ bật, `BypassWebView` tắt khi về Home. Không ghi host vào log.
+    private func markIncognitoIfNeeded(_ tab: BypassBrowserTab, url: URL) {
+        guard !tab.isIncognito, BrowserSourceSiteIndex.isPrivate(url: url) else { return }
+        tab.isIncognito = true
+        AppLogger.shared.log("[BypassBrowser] Trang thuộc nguồn không lưu lịch sử ⇒ tab chuyển sang ẩn danh")
     }
 
     /// Khung chính: decision theo host đích, cổng 11 tên miền chỉ khi chặn QC bật, đặt chế độ hiển thị.
@@ -263,13 +275,17 @@ final class BypassBrowserTabStore: NSObject, ObservableObject, WKNavigationDeleg
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        tab(for: webView)?.policyReloadURL = nil
-        if let url = webView.url?.absoluteString,
-           !url.isEmpty,
-           url != "about:blank" {
-            let title = webView.title ?? ""
-            BrowserHistoryStore.shared.add(title: title, urlString: url)
+        let tab = self.tab(for: webView)
+        tab?.policyReloadURL = nil
+        guard let url = webView.url, !url.absoluteString.isEmpty, url.absoluteString != "about:blank" else { return }
+        // Trang khôi phục từ bộ đệm lùi/tiến có thể không qua `decidePolicyFor` ⇒ xét lại ẩn danh trước khi ghi.
+        if let tab {
+            markIncognitoIfNeeded(tab, url: url)
+            guard !tab.isIncognito else { return }
+        } else if BrowserSourceSiteIndex.isPrivate(url: url) {
+            return
         }
+        BrowserHistoryStore.shared.add(title: webView.title ?? "", urlString: url.absoluteString)
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
@@ -311,6 +327,7 @@ final class BypassBrowserTabStore: NSObject, ObservableObject, WKNavigationDeleg
         }
 
         if let newTab = insertTab(url: nil, configuration: configuration, policyHost: target?.host, activate: true) {
+            newTab.isIncognito = tab(for: webView)?.isIncognito ?? false
             AppLogger.shared.log("[BypassBrowser] Mở tab mới cho link ngoài (\(tabs.count)/\(Self.maxTabCount))")
             return newTab.webView
         }

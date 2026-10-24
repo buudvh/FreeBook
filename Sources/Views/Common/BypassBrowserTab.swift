@@ -20,6 +20,9 @@ final class BypassBrowserTab: ObservableObject, Identifiable {
     @Published var progress: Double = 0.0
     @Published var canGoBack: Bool = false
     @Published var canGoForward: Bool = false
+    /// Tab **ẩn danh**: không ghi Lịch sử truy cập. `BypassBrowserTabStore` bật khi khung chính vào trang của nguồn tắt
+    /// "Lưu lịch sử đọc/xem" (`BrowserSourceSiteIndex`); giữ tới khi về Home / mở tab mới, tab mở từ nó thừa hưởng.
+    @Published var isIncognito: Bool = false
 
     /// Trạng thái luật/UA/chế độ hiển thị đã áp lên `webView` lần gần nhất (`nil` = chưa áp hoặc đã mất hiệu lực vì
     /// tab khác dùng chung `WKUserContentController` vừa đổi luật). Không `@Published`: View không vẽ theo nó.

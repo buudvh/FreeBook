@@ -19,12 +19,15 @@ struct NsfwSettingsView: View {
                 explanationRow("shippingbox", "Kho tiện ích và tìm kiếm mọi nguồn không hiện tiện ích NSFW.")
                 explanationRow("safari", "Khám phá ẩn nguồn NSFW. Đang xem nguồn NSFW thì tự chuyển sang nguồn khác.")
                 explanationRow("clock.arrow.circlepath", "Tab Lịch sử ẩn truyện chữ, truyện tranh và phim của nguồn NSFW. Dữ liệu vẫn giữ, bật lại là hiện lại.")
-                explanationRow("books.vertical", "Sách đã thêm lên Kệ vẫn hiện bình thường.")
+                explanationRow("books.vertical", "Sách đã thêm lên Kệ vẫn hiện ở Kệ và Tìm trong Kệ.")
+                explanationRow("doc.text", "Danh sách chọn truyện để chia sẻ/nhập từ điển riêng ẩn mọi truyện của nguồn NSFW, kể cả truyện trên Kệ.")
+                explanationRow("globe", "Trình duyệt: Truy cập nhanh không hiện nguồn NSFW, lịch sử duyệt trang của chúng bị ẩn (không xoá).")
             }
 
             Section(header: Text("Nhận biết nguồn NSFW")) {
                 explanationRow("tag", "Tiện ích tự khai nhạy cảm, hoặc tên, mô tả, tên miền chứa từ khoá nhạy cảm.")
                 explanationRow("clock.badge.xmark", "Tiện ích NSFW mặc định không lưu lịch sử đọc/xem; đổi được trong màn cấu hình của từng tiện ích.")
+                explanationRow("eye.slash", "Vào trang của nguồn không lưu lịch sử, tab trình duyệt tự ẩn danh: không ghi lịch sử duyệt, cookie và đăng nhập vẫn giữ. Về Home là hết ẩn danh.")
             }
         }
         .navigationTitle("Nội dung nhạy cảm")

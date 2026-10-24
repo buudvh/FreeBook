@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.588] - 2026-10-24
+
+### feat: trình duyệt ẩn nguồn NSFW ở Home và tự ẩn danh với nguồn không lưu lịch sử
+
+Người dùng: *"khi tắt nsfw thì đừng hiển thị các nguồn đó ở home của trình duyệt, tự động duyệt ẩn danh nếu config lựa chọn không lưu lịch sử"*; duyệt plan (ẩn danh theo tab, ẩn cả lịch sử duyệt cũ, thêm giải thích ở Cài đặt).
+
+- **`BrowserSourceSiteIndex`** (mới, `Services/Browser`): dò trang thuộc nguồn **đã cài** nào theo tên miền — host của trang trùng tên miền `sourceUrl` hoặc là tên miền con của nó, so **một chiều** (nguồn ở `xyz.blogspot.com` không kéo `blogspot.com`), bỏ `www.` hai phía. Gồm cả nguồn Legado; tra một host thì lọc thô bằng chuỗi con tên miền gốc trước khi phân tích URL, tra cả danh sách thì dựng chỉ mục một lần.
+- **Ẩn danh theo tab** (`BypassBrowserTab.isIncognito`): áp cho nguồn đang tắt "Lưu lịch sử đọc/xem" (`ExtensionHistoryPolicy`, mặc định = nguồn NSFW), **không** phụ thuộc công tắc NSFW. `BypassBrowserTabStore` bật cờ ở mọi điều hướng khung chính (kể cả chuyển hướng sang mirror) và xét lại ở `didFinish` (trang khôi phục từ bộ đệm lùi/tiến); tab ẩn danh không ghi `BrowserHistoryStore`. Tab mở từ tab ẩn danh (`createWebViewWith`, mở cửa sổ đã chặn) thừa hưởng; về Home (`loadHome`, tab mới) thì hết. Ô URL hiện icon `eye.slash`. Ẩn danh **chỉ** bỏ ghi lịch sử: cookie vẫn ở kho WebKit mặc định — dùng chung với trình duyệt ẩn của tiện ích — để vượt Cloudflare/đăng nhập ở đây vẫn có tác dụng cho nguồn. Log không ghi host.
+- **Home trình duyệt khi tắt NSFW**: Truy cập nhanh bỏ tiện ích NSFW (`RepositoryFilterPolicy.applyNsfwFilter`); Lịch sử truy cập ở Home và màn "Xem thêm" (`BrowserHistorySheetView`) ẩn mục thuộc trang của nguồn NSFW (chỉ ẩn, không xoá; "Xóa toàn bộ" vẫn xoá cả mục bị ẩn). Nút Import truyện không đổi.
+- **Giải thích**: Cài đặt › Nội dung nhạy cảm thêm dòng cho danh sách chọn truyện chia sẻ/nhập từ điển riêng (1.3.587), Home trình duyệt và ẩn danh; dòng Kệ đổi thành "vẫn hiện ở Kệ và Tìm trong Kệ". Chú thích công tắc "Lưu lịch sử đọc/xem" (`ExtensionConfigView+History`) nhắc trình duyệt tự ẩn danh.
+- Chuyển entry `[1.3.558]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.587] - 2026-10-24
 
 ### fix: danh sách chọn truyện chia sẻ/nhập từ điển riêng theo công tắc NSFW
@@ -403,20 +416,3 @@ Người dùng: *"có lỗi thanh sao chép, dán, clear, bị che bởi gợi �
 - **Chẩn đoán**: 0,6 s sau khi gắn thanh, nếu chiều cao thật lệch chiều cao đã đặt thì ghi `❌ [KeyboardToolbar] thanh cao …pt, cần …pt (ô <lớp>)` — ghi cả khi tắt log, mỗi chiều cao một lần.
 - Chuyển entry `[1.3.529]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
-
-## [1.3.558] - 2026-10-21
-
-### fix: màn AI chạy riêng theo từng truyện, nút nổi liệt kê AI đang chạy
-
-Người dùng: *"dù đang quét truyện A mà vào AI truyện B vẫn thấy báo quét và chặn AI truyện B"* → chọn hướng đầy đủ (mỗi truyện một tác vụ AI riêng); thêm *"bấm vào nút widget ai thì hiển thị ra danh sách AI đang chạy, bấm cái nào hiển thị cái đó"*; duyệt plan.
-
-- **Nguyên nhân**: `AIRuntimeCoordinator` giữ **một** ô trạng thái cho cả app (`isRunning`, `batchProgress`, `activeSession`…) và màn AI đọc thẳng không lọc truyện ⇒ quét A thì màn AI của B hiện dải quét của A, chip mờ, không gửi được; bấm dừng ở B gọi `stopActiveTask()` **huỷ luôn lượt quét của A**; mọi lệnh mới đều `cancelActiveTask()` toàn cục.
-- **Trạng thái theo truyện**: `AIBookRunState` (mới) trong `@Published runs: [String: AIBookRunState]`; tác vụ, mã lượt, ngữ cảnh lượt quét lỗi, phiên gần nhất và ngữ cảnh mở màn AI đều khoá theo `bookId`. Vòng đời lượt ở `AIRuntimeCoordinator+BookRuns.swift` (mới): `beginRun` chỉ thay tác vụ của **chính truyện đó**, `isCurrentRun` cho mọi cập nhật trễ, `endRun` bỏ entry (giữ lại khi còn nút "Thử lại", không giữ phiên), `stopActiveTask(bookId:)`. Bỏ hai chỗ màn AI tự gán `activeSession` (nguy cơ ghi phiên của B vào lịch sử của A). Cùng một truyện vẫn chỉ một tác vụ tại một thời điểm.
-- **Màn AI**: năm `onReceive` toàn cục gộp thành một `onReceive($runs)` → `applyRunState(runs[bookId])` (`ReaderAIFullScreenView+RuntimeSync.swift`, mới), chỉ gán khi giá trị đổi để màn của B không vẽ lại theo nhịp stream 50 ms của A. Mở lại màn AI về đúng phiên gần nhất **của truyện đó** (`lastSessionId(for:)`).
-- **`presentedAIBookId`** thay cờ `isFullScreenPresented`: truyện A xong trong lúc màn AI của B đang mở vẫn có toast, và toast kèm tên truyện khi màn AI của truyện đó không mở.
-- **Nút nổi**: dòng AI ghi tên truyện + tác vụ (1 truyện) hoặc "N truyện đang chạy"; chạm ⇒ thẻ menu sang trang **"AI đang chạy"** (`FloatingHubAITaskListView`, mới; nút ‹ quay lại), mỗi truyện một dòng, chạm truyện nào mở màn AI của đúng truyện đó (`presentFullScreen(bookId:)`). Trang luôn hiện kể cả khi chỉ 1 truyện; hết truyện chạy thì tự về menu chính; mở menu luôn bắt đầu ở trang chính. `FloatingHubPresentationReader` `map` `runs` về danh sách nhỏ rồi `removeDuplicates` — nút hub không vẽ lại theo từng batch.
-- **Gemini Web cho chạy song song**: `prepare()` không nạp lại trang khi token quá 30 phút mà còn fetch đang bay (nạp lại huỷ mọi fetch của truyện khác); token chết thật (HTTP 400/401/403) vẫn ép nạp lại. `streamGeneration` không tự thử lại khi đã phát chữ — lượt thử lại phát lại từ đầu nên chữ bị lặp trong tin (lỗi có sẵn, chạy song song dễ gặp hơn); `TurnObservation` thành `internal` để dùng chung.
-- Hạn chế: hai truyện cùng quét bằng Gemini Web ≈ gấp đôi số request ⇒ chạm hạn mức 1037/1060 sớm hơn; fetch bị cắt do nạp lại trang ép buộc có thể thành lượt lỗi (có nút Thử lại).
-- `rules.md`: cập nhật luật hub (d), thêm (e) trang "AI đang chạy"; luật mở lại AI theo ngữ cảnh, phiên sống, bấm dừng, nút thử lại chuyển sang theo truyện; thêm luật "trạng thái AI khoá theo truyện"; luật retry Gemini Web ghi rõ "chỉ khi chưa phát chữ" và không nạp lại trang khi còn fetch.
-- Chuyển entry `[1.3.528]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code, grep chéo caller của mọi member đổi chữ ký; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.

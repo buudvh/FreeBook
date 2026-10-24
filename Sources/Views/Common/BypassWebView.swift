@@ -29,6 +29,8 @@ struct BypassWebView: View {
     @State private var showingSourcePicker = false
     @State private var showingAllHistorySheet = false
     @State private var showingBrowserSettings = false // mở từ bảng nổi của nút khiên
+    /// Công tắc NSFW toàn app: tắt ⇒ Home không hiện ô của nguồn NSFW và ẩn lịch sử duyệt trang của chúng.
+    @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
 
     /// Tiện ích đã cài, đọc từ `ExtensionLibraryRepository` (Observation tự theo dõi khi đọc trong `body`). Bỏ nguồn
     /// Legado: không phải lối tắt trình duyệt (hàng nghìn nguồn), và `plugin.json` của chúng không có `regexp` nên dò
@@ -78,7 +80,8 @@ struct BypassWebView: View {
                 if let tab = store.activeTab {
                     if isHomeTab(tab) {
                         BypassBrowserHomeView(
-                            installedExtensions: bookExtensions,
+                            installedExtensions: RepositoryFilterPolicy.applyNsfwFilter(bookExtensions, includeNsfw: includeNsfw),
+                            hidesNsfwHistory: !includeNsfw,
                             onSelectUrl: { url in
                                 if let target = URL(string: url) {
                                     tab.load(target)
@@ -150,7 +153,7 @@ struct BypassWebView: View {
                 syncInputUrl(with: currentUrlString)
             }
             .sheet(isPresented: $showingAllHistorySheet) {
-                BrowserHistorySheetView { selectedUrl in
+                BrowserHistorySheetView(hidesNsfwHistory: !includeNsfw) { selectedUrl in
                     if let tab = store.activeTab, let target = URL(string: selectedUrl) {
                         tab.load(target)
                         inputUrl = selectedUrl
@@ -245,6 +248,13 @@ struct BypassWebView: View {
         HStack(spacing: 6) {
             BypassBrowserShieldButton(store: store, tab: tab) { showingBrowserSettings = true }
 
+            if tab.isIncognito {
+                Image(systemName: "eye.slash")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.secondary)
+                    .accessibilityLabel("Đang duyệt ẩn danh, không lưu lịch sử")
+            }
+
             URLBarTextField(
                 placeholder: "Nhập địa chỉ web...",
                 text: $inputUrl,
@@ -292,7 +302,9 @@ struct BypassWebView: View {
         loadHome(into: tab)
     }
 
+    /// Về Home cũng kết thúc ẩn danh của tab (lùi lại trang nguồn thì `BypassBrowserTabStore` bật lại).
     private func loadHome(into tab: BypassBrowserTab) {
+        tab.isIncognito = false
         tab.webView.load(URLRequest(url: URL(string: "about:blank")!))
         tab.title = "Home"
         tab.urlString = "about:blank"
