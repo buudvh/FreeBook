@@ -71,6 +71,8 @@ extension DownloadManager {
         let episodes = prepared.episodes
         let total = episodes.count
         await updateProgress(taskId: taskId, progress: 0, total: total)
+        let initialEpisodes = episodes.map { VideoEpisodeProgress(index: $0.index, title: $0.title, state: .waiting) }
+        await MainActor.run { self.setVideoEpisodes(taskId: taskId, initialEpisodes) }
         let client = VideoOfflineHTTPClient()
         defer { client.invalidate() }
         let quality = VideoDownloadQuality.current
@@ -84,6 +86,7 @@ extension DownloadManager {
 
         for (offset, episode) in episodes.enumerated() {
             if await isComicTaskCancelled(taskId) {
+                await MainActor.run { self.cancelWaitingVideoEpisodes(taskId: taskId) }
                 await markCancelled(taskId: taskId)
                 return
             }
@@ -91,6 +94,9 @@ extension DownloadManager {
             if let manifest = VideoOfflineStore.manifest(bookId: task.bookId, episodeIndex: episode.index),
                manifest.episodeUrl == episode.url {
                 skippedCount += 1
+                await MainActor.run {
+                    self.updateVideoEpisode(taskId: taskId, episodeIndex: episode.index, state: .alreadyDownloaded, mediaDetail: nil)
+                }
             } else {
                 if let free = VideoOfflineStore.availableCapacity(), free < Self.videoMinimumFreeBytes {
                     AppLogger.shared.log("❌ [VideoOffline] Bộ nhớ trống còn \(free / 1_048_576) MB — dừng tác vụ")
@@ -99,8 +105,12 @@ extension DownloadManager {
                 }
                 let label = episode.title.isEmpty ? "Tập \(episode.index + 1)" : episode.title
                 let key = VideoOfflineLibrary.EpisodeKey(bookId: task.bookId, episodeIndex: episode.index)
-                await MainActor.run { VideoOfflineLibrary.shared.markDownloading(key, true) }
-                let reporter = VideoDownloadDetailReporter(manager: self, taskId: taskId, label: label)
+                await MainActor.run {
+                    VideoOfflineLibrary.shared.markDownloading(key, true)
+                    self.updateVideoEpisode(taskId: taskId, episodeIndex: episode.index,
+                                            state: .downloading(fraction: 0, bytes: 0), mediaDetail: "\(label): 0%")
+                }
+                let reporter = VideoDownloadDetailReporter(manager: self, taskId: taskId, episodeIndex: episode.index, label: label)
                 let pipeline = VideoEpisodeDownloadPipeline(
                     bookId: task.bookId,
                     bookTitle: task.bookTitle,
@@ -113,24 +123,30 @@ extension DownloadManager {
                     progress: { fraction, bytes in reporter.report(fraction: fraction, bytes: bytes) }
                 )
                 var wasCancelled = false
+                let finalState: VideoEpisodeProgress.State
                 do {
-                    _ = try await pipeline.run(episode)
+                    let manifest = try await pipeline.run(episode)
                     downloadedCount += 1
+                    finalState = .done(bytes: manifest.totalBytes)
                 } catch {
                     if error is CancellationError || Task.isCancelled {
                         wasCancelled = true
+                        finalState = .cancelled
                         VideoOfflineStore.discardPartialEpisode(bookId: task.bookId, episodeIndex: episode.index)
                     } else {
                         failedCount += 1
+                        finalState = .failed(error.localizedDescription)
                         lastErrorMessage = "\(label): \(error.localizedDescription)"
                         AppLogger.shared.log("❌ [VideoOffline] Lỗi tải tập \(episode.index) của «\(task.bookTitle)»: \(error.localizedDescription)")
                     }
                 }
+                let didCancel = wasCancelled
                 await MainActor.run {
                     let library = VideoOfflineLibrary.shared
                     library.markDownloading(key, false)
                     library.refresh(bookId: task.bookId)
-                    self.updateMediaDetail(taskId: taskId, detail: nil)
+                    self.updateVideoEpisode(taskId: taskId, episodeIndex: episode.index, state: finalState, mediaDetail: nil)
+                    if didCancel { self.cancelWaitingVideoEpisodes(taskId: taskId) }
                 }
                 if wasCancelled {
                     await markCancelled(taskId: taskId)
@@ -150,11 +166,50 @@ extension DownloadManager {
         }
     }
 
-    /// Dòng phụ "Tập 4: 45% · 210 MB" của tác vụ video. Chỉ là trạng thái hiển thị (không ghi CSDL).
+    // MARK: - Trạng thái từng tập (chỉ hiển thị, không ghi CSDL)
+
+    /// Danh sách tập của lượt chạy này (mục "Chi tiết tập" ở tab Tải); thử lại tác vụ thì dựng lại.
     @MainActor
-    internal func updateMediaDetail(taskId: UUID, detail: String?) {
-        guard let index = tasks.firstIndex(where: { $0.id == taskId }), tasks[index].mediaDetail != detail else { return }
-        tasks[index].mediaDetail = detail
+    internal func setVideoEpisodes(taskId: UUID, _ episodes: [VideoEpisodeProgress]) {
+        guard let index = tasks.firstIndex(where: { $0.id == taskId }) else { return }
+        tasks[index].videoEpisodes = episodes
+        tasks[index].mediaDetail = nil
+    }
+
+    /// Đổi trạng thái một tập và dòng phụ "Tập 4: 45% · 210 MB" (`mediaDetail`, `nil` khi tập không còn đang tải) trong
+    /// **một** lần ghi `tasks` — tránh phát `@Published` hai lần mỗi nhịp tiến độ.
+    @MainActor
+    internal func updateVideoEpisode(taskId: UUID, episodeIndex: Int, state: VideoEpisodeProgress.State, mediaDetail: String?) {
+        guard let index = tasks.firstIndex(where: { $0.id == taskId }) else { return }
+        var task = tasks[index]
+        if let position = task.videoEpisodes.firstIndex(where: { $0.index == episodeIndex }) {
+            // Nhịp tiến độ đến muộn (Task riêng của reporter) không được kéo tập đã xong/lỗi/huỷ về "đang tải".
+            if case .downloading = state {
+                switch task.videoEpisodes[position].state {
+                case .waiting, .downloading: break
+                default: return
+                }
+            }
+            task.videoEpisodes[position].state = state
+        }
+        task.mediaDetail = mediaDetail
+        guard task.videoEpisodes != tasks[index].videoEpisodes || task.mediaDetail != tasks[index].mediaDetail else { return }
+        tasks[index] = task
+    }
+
+    /// Tác vụ bị huỷ: các tập còn chờ chuyển thành "Đã huỷ" (không còn lượt nào tải chúng).
+    @MainActor
+    internal func cancelWaitingVideoEpisodes(taskId: UUID) {
+        guard let index = tasks.firstIndex(where: { $0.id == taskId }) else { return }
+        var episodes = tasks[index].videoEpisodes
+        var changed = false
+        for position in episodes.indices where episodes[position].state == .waiting {
+            episodes[position].state = .cancelled
+            changed = true
+        }
+        guard changed else { return }
+        tasks[index].videoEpisodes = episodes
+        tasks[index].mediaDetail = nil
     }
 
     // MARK: - Danh sách tập
@@ -225,11 +280,13 @@ extension DownloadManager {
         private var lastReportAt: CFAbsoluteTime = 0
         private weak var manager: DownloadManager?
         private let taskId: UUID
+        private let episodeIndex: Int
         private let label: String
 
-        init(manager: DownloadManager, taskId: UUID, label: String) {
+        init(manager: DownloadManager, taskId: UUID, episodeIndex: Int, label: String) {
             self.manager = manager
             self.taskId = taskId
+            self.episodeIndex = episodeIndex
             self.label = label
         }
 
@@ -241,13 +298,16 @@ extension DownloadManager {
                 return true
             }
             guard shouldSend else { return }
-            let percent = Int((min(1, max(0, fraction)) * 100).rounded())
+            let clamped = min(1, max(0, fraction))
+            let percent = Int((clamped * 100).rounded())
             let size = ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
             let detail = "\(label): \(percent)% · \(size)"
             let id = self.taskId
+            let episode = self.episodeIndex
             let owner = self.manager
             Task { @MainActor in
-                owner?.updateMediaDetail(taskId: id, detail: detail)
+                owner?.updateVideoEpisode(taskId: id, episodeIndex: episode,
+                                          state: .downloading(fraction: clamped, bytes: bytes), mediaDetail: detail)
             }
         }
     }

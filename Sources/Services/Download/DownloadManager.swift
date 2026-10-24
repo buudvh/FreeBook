@@ -117,6 +117,8 @@ public struct DownloadTask: Identifiable {
     public var exportSummary: String? = nil
     /// Tiến độ bên trong tập phim đang tải ("Tập 4: 45% · 210 MB"). Trạng thái tạm thời, không lưu CSDL.
     public var mediaDetail: String? = nil
+    /// Trạng thái từng tập của tác vụ video (mục "Chi tiết tập" ở tab Tải). Trạng thái tạm thời, không lưu CSDL.
+    public var videoEpisodes: [VideoEpisodeProgress] = []
 
     /// Tác vụ tải của sách video (`DownloadManager+Video`). Loại suy lúc chạy, không lưu.
     public var isVideoDownload: Bool {

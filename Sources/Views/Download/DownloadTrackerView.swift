@@ -84,11 +84,11 @@ struct DownloadTrackerView: View {
                 
                 if task.status == .running || task.status == .pending {
                     VStack(alignment: .leading, spacing: 2) {
-                        ProgressView(value: Double(task.progressCount), total: Double(max(1, task.totalCount)))
+                        ProgressView(value: progressValue(task), total: Double(max(1, task.totalCount)))
                             .tint(.white)
                             .scaleEffect(x: 1, y: 0.8, anchor: .center)
 
-                        Text("Tiến độ: \(task.progressCount)/\(task.totalCount) \(task.unitNoun)")
+                        Text(progressText(task))
                             .font(.caption2)
                             .foregroundColor(.secondary)
 
@@ -124,6 +124,11 @@ struct DownloadTrackerView: View {
                         .font(.caption)
                         .foregroundColor(.red)
                         .lineLimit(2)
+                }
+
+                // Tác vụ video: phần trăm / trạng thái từng tập (một tập có thể mất vài phút).
+                if !task.videoEpisodes.isEmpty {
+                    VideoEpisodeProgressList(episodes: task.videoEpisodes)
                 }
             }
             
@@ -196,6 +201,20 @@ struct DownloadTrackerView: View {
         }
     }
     
+    /// Giá trị thanh tiến độ: số mục xong, cộng phần đã tải của tập video đang tải (thanh chạy mượt trong một tập dài).
+    private func progressValue(_ task: DownloadTask) -> Double {
+        let current = task.videoEpisodes.first(where: \.isDownloading)?.fraction ?? 0
+        return min(Double(max(1, task.totalCount)), Double(task.progressCount) + current)
+    }
+
+    /// "Tiến độ: 3/10 tập · 34%" với video; truyện giữ "Tiến độ: 3/10 chương".
+    private func progressText(_ task: DownloadTask) -> String {
+        let base = "Tiến độ: \(task.progressCount)/\(task.totalCount) \(task.unitNoun)"
+        guard task.isVideoDownload, task.totalCount > 0 else { return base }
+        let percent = Int((progressValue(task) / Double(task.totalCount) * 100).rounded())
+        return "\(base) · \(percent)%"
+    }
+
     private func statusBadge(_ status: TaskStatus) -> some View {
         let color: Color
         switch status {

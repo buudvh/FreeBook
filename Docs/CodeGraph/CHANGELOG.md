@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.595] - 2026-10-24
+
+### feat: tab Tải hiện phần trăm từng tập của tác vụ tải video
+
+Người dùng: *"vì tải video khả năng sẽ tốn khá nhiều thời gian, do đó đối với video tôi cần xem được phần trăm tải của từng video"*; chọn hiện ở **tab Tải** (không thêm gì lên ô tập trong trình phát), mockup đã duyệt.
+
+- **`VideoEpisodeProgress`** (mới, `Services/Download`): trạng thái một tập — chờ / đang tải (phần trăm + byte) / xong (byte) / có sẵn / lỗi / đã huỷ. **`DownloadTask.videoEpisodes`**: trạng thái tạm, không lưu CSDL (không đổi `DownloadTaskModel`); app khởi động lại thì mất, thử lại tác vụ dựng lại.
+- **`DownloadManager+Video`**: dựng danh sách lúc bắt đầu (tất cả "Chờ"), tập bỏ qua ⇒ "Có sẵn", bắt đầu ⇒ "Đang tải 0%", xong ⇒ "Xong" kèm dung lượng từ manifest, lỗi ⇒ lý do, huỷ ⇒ tập đang tải và các tập còn chờ thành "Đã huỷ". `VideoDownloadDetailReporter` (≤ 1 lần/giây) cập nhật trạng thái tập **và** dòng `mediaDetail` trong một lần ghi `tasks` (`updateVideoEpisode`; thay `updateMediaDetail`); nhịp đến muộn không kéo tập đã xong về "đang tải".
+- **Tab Tải** (`DownloadTrackerView`): tác vụ video có thanh tiến độ chạy mượt trong tập (`progressCount` + phần trăm tập đang tải) và chữ "Tiến độ: 3/10 tập · 34%"; nút **"Chi tiết tập (N)"** (`VideoEpisodeProgressList`, mới) mở/thu danh sách "✓ Xong · 480 MB", "✓ Có sẵn", "↓ 45% · 210 MB", "Chờ", "✕ Lỗi: …", "Đã huỷ" — hiện ở mọi trạng thái tác vụ khi có danh sách. Trên 60 tập thì chỉ hiện mọi tập lỗi (tối đa 50), 10 tập xong gần nhất, tập đang tải, 5 tập chờ kế tiếp, kèm dòng đếm "Xong · Đang tải · Lỗi · Chờ · Đã huỷ".
+- Chuyển entry `[1.3.565]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.594] - 2026-10-24
 
 ### feat: bấm PiP thì trình phát tự thu nhỏ về màn trước
@@ -402,17 +414,3 @@ Bước 9, 10 và phần còn lại của bước 11 trong đợt 1 plan "nguồ
 - **Còn nợ**: chưa dọn sidecar mồ côi lúc mở app; thêm sách rồi thoát trước lượt mục lục kế tiếp thì mất biến của lượt tìm; `canReName`, `ruleContent.title`, `isVip`/`updateTime` chưa dùng; nhập lại nguồn với `bookSourceType` khác đổi loại của sách đã lưu từ nguồn đó.
 - Chuyển entry `[1.3.531]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới** (`SearchView.swift` 821 → 794, `ChapterContentRepository.swift` 455 → 430; các file legacy khác ≤ baseline). Không còn `ExtensionManager.shared.(search|detail|toc|chap|page|home|genre|executeCustomScript)(` ngoài facade. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.565] - 2026-10-21
-
-### feat: engine nguồn Legado (rule, mạng, JS) viết mới theo đặc tả
-
-Bước 6, 7, 8 của đợt 1 plan "nguồn truyện Legado — viết mới theo đặc tả". Viết mới hoàn toàn từ `Docs/Specs/legado-source-spec.md` (clean-room), 65 file / ~7.600 dòng dưới `Sources/Services/LegadoSource/{Rule,Net,JS,Engine}/`. Chưa có caller — luồng + facade ở commit sau.
-
-- **Rule** (`Rule/`): đường ống phân đoạn `<js>`/`@js:`; 4 chế độ — mặc định kiểu jsoup (`LegadoJsoupSelector` trên SwiftSoup), CSS `@css:`, JSONPath tự viết có filter (`LegadoJSONPathEvaluator`/`Filter`), XPath trên libxml2 (`LegadoXPathDocument` mở rộng: ngữ cảnh theo nút, nút/chuỗi, serialize; `LegadoXPathNode`); regex danh sách `:`; toán tử `||` `&&` `%%`; đuôi `##`/`###`; chỉ số `.0` `.-1` `!0` `[a:b:c]` `[1,3]`; mẫu `{{…}}`/`{$.x}`/`@get:{}`; `@put`; tiền tố `-`/`+` của rule danh sách. Bộ quét có nhận biết nháy/ngoặc (`LegadoRuleScanner`), regex cache theo pattern (`LegadoRegexCache`), HTML → văn bản (`LegadoHTMLText`). Parser JSON lỏng riêng của engine (`LegadoEngineJSONParser`).
-- **Mạng** (`Net/`): dựng request theo thứ tự §3.2 — khối option `,{…}`, placeholder trang/từ khoá, `<a,b>`, mã hoá query/form theo `charset` kể cả GBK (`LegadoURLEncoder`, `LegadoCharset`), body + Content-Type; header nguồn JSON hoặc JS tính mỗi request; HTTP client riêng tự đi chuyển hướng để giữ `Set-Cookie` mọi chặng; cookie jar **theo nguồn** khi `enabledCookieJar`; `retry`; giải mã phản hồi theo §4.5; `concurrentRate` (cả `N/ms` và số ms) dùng chung giữa mọi phiên của cùng nguồn (`LegadoRateLimiter`); WebView ẩn qua `WebViewLoader` có sẵn (nhảy main bất đồng bộ, thread engine chờ theo lát ngắn — không semaphore trên main).
-- **JS** (`JS/`): JavaScriptCore **riêng** (không dùng `JSExecutor`) chạy trên thread nền chuyên dụng, một native dispatcher; `java.*` đợt 1 theo spec §6.4 (mạng `ajax`/`ajaxAll`/`connect`/`get`/`post`/`head`; rule `getString`/`getStringList`/`getElements`/`getElement`/`setContent`/`put`/`get`/`toNumChapter`; mã hoá/băm/base64/hex/AES/DES/HMAC; `log`/`toast`/`timeFormat`/`t2s`/`s2t`/`htmlFormat`/`randomUUID`/`androidId`/`getWebViewUA`/`getCookie`), `source`, `book`, `chapter`, `cookie`, `cache`, shim `org.jsoup`, `Packages`/`JavaImporter` giả lập phần hay gặp. `jsLib` nạp một lần mỗi runtime. Hàm hoãn (§6.11: `startBrowser*`, đăng nhập, `refreshExplore`, font, file/zip…) ném lỗi "Chưa hỗ trợ <tên> ở bản này" để bộ chạy nghiệm thu phân loại; cố ý không định nghĩa `java.qread`, `deviceID`, `reLoginView`, `getUserAgent` (§6.10). `toast` chỉ ghi log (Services không toast).
-- **Phiên** (`Engine/`): `LegadoEngineSession.run` chạy thân tác vụ trên thread engine, huỷ được, không bao giờ bọc `CancellationError`; `LegadoEngineSource` (bối cảnh nguồn, không phụ thuộc model của kho); `LegadoBookContext`/`LegadoChapterContext` (biến truyện/chương — luồng ở commit sau ghi sidecar); `LegadoEngineError` phân loại `category` (cú pháp chưa hỗ trợ / HTTP / quá thời gian / JS…), lỗi mềm vào `LegadoEngineDiagnostics`. Biến nguồn, `source.put`, `cache.*`, cookie, `jsLib` dạng map, `androidId` lưu file dưới `applicationSupport/legado_state/` (`LegadoFileStateStore`); `cache.putMemory` chỉ trong bộ nhớ.
-- **Tự chọn khi spec chưa nói** (cần đo bằng bộ chạy nghiệm thu): phân đoạn JS đứng đầu nhận `result` là chuỗi thân trang; XPath `//x` dưới một mục hiểu là tương đối với mục; placeholder trong mã JS chỉ nhận `{{…}}` và `@get:{}`; `book.setReverseToc`/`setUseReplaceRule` chỉ ghi chẩn đoán. WebView dùng kho dữ liệu WebKit mặc định (chung cookie với trình duyệt của app), POST qua WebView có thể mất body, mã trạng thái luôn 200.
-- Chuyển entry `[1.3.530]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**; mọi file ≤ 400 dòng; không có tên/đường dẫn của mã nguồn gốc trong code. Bootstrap JS đã qua `node --check`. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
