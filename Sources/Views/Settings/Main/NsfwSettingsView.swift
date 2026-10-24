@@ -22,6 +22,7 @@ struct NsfwSettingsView: View {
                 explanationRow("books.vertical", "Sách đã thêm lên Kệ vẫn hiện ở Kệ và Tìm trong Kệ.")
                 explanationRow("doc.text", "Danh sách chọn truyện để chia sẻ/nhập từ điển riêng ẩn mọi truyện của nguồn NSFW, kể cả truyện trên Kệ.")
                 explanationRow("globe", "Trình duyệt: Truy cập nhanh không hiện nguồn NSFW, lịch sử duyệt trang của chúng bị ẩn (không xoá).")
+                explanationRow("xmark.rectangle", "Màn Chi tiết truyện, danh sách thể loại và tìm trong một nguồn NSFW đang mở (kể cả ở tab khác, kể cả truyện trên Kệ) tự đóng. Tìm mọi nguồn thì ẩn nhóm kết quả của nguồn NSFW.")
             }
 
             Section(header: Text("Nhận biết nguồn NSFW")) {

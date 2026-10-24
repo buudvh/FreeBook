@@ -67,20 +67,11 @@ public struct BypassBrowserHomeView: View {
             ))
         }
 
-        // Các trang mặc định phổ biến
+        // Trang mặc định ngoài tiện ích: chỉ ba công cụ tìm kiếm (người dùng chốt 2026-10-24).
         let defaultSites: [(name: String, url: String, icon: String)] = [
             ("Google", "https://www.google.com", "magnifyingglass"),
-            ("YouTube", "https://www.youtube.com", "play.rectangle.fill"),
             ("Bing", "https://www.bing.com", "b.circle.fill"),
-            ("Baidu", "https://www.baidu.com", "pawprint.fill"),
-            ("Bilibili", "https://www.bilibili.com", "tv.fill"),
-            ("Weibo", "https://weibo.com", "bubble.left.and.bubble.right.fill"),
-            ("Zhihu", "https://www.zhihu.com", "questionmark.circle.fill"),
-            ("Wikipedia", "https://vi.wikipedia.org", "character.book.closed.fill"),
-            ("Dịch GG", "https://translate.google.com", "globe.badge.chevron.backward"),
-            ("Tangthuvien", "https://truyen.tangthuvien.vn", "book.fill"),
-            ("Qidian", "https://www.qidian.com", "flame.fill"),
-            ("69shu", "https://www.69shu.me", "bookmark.fill")
+            ("Baidu", "https://www.baidu.com", "pawprint.fill")
         ]
 
         for site in defaultSites {

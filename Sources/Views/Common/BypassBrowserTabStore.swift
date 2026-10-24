@@ -199,6 +199,12 @@ final class BypassBrowserTabStore: NSObject, ObservableObject, WKNavigationDeleg
             // Khung con, bước trước `createWebViewWith` (`targetFrame == nil`) hoặc URL không phải web: chỉ xét cổng
             // 11 tên miền theo decision đã áp cho khung chính của tab — không tính theo host của iframe, để trang được
             // miễn trừ thì iframe quảng cáo bên trong cũng không bị huỷ. Không bao giờ huỷ + nạp lại ở đây.
+            // Lùi/tiến về Home (`about:blank` của khung chính) ⇒ hết ẩn danh như bấm nút Home. Chỉ `.backForward`: cửa sổ
+            // mới mở trống cũng nạp `about:blank` mà phải giữ ẩn danh thừa hưởng.
+            if navigationAction.navigationType == .backForward, navigationAction.targetFrame?.isMainFrame == true,
+               url.absoluteString == "about:blank" {
+                owner?.isIncognito = false
+            }
             let adBlock = owner?.appliedState?.adBlock
                 ?? WebContentPolicy.decision(for: .userBrowser(host: webView.url?.host)).adBlock
             if adBlock, isEngineDomainBlocked(url.absoluteString) {

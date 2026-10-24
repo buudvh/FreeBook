@@ -234,6 +234,7 @@ struct BookDetailView: View {
         }
         .navigationTitle("Chi Tiết Truyện")
         .navigationBarTitleDisplayMode(.inline)
+        .closesWhenNsfwHidden(packageId: extensionPackageId) // tắt NSFW ⇒ đóng, kể cả truyện trên Kệ
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 6) {

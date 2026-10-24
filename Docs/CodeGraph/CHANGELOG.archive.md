@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.559] - 2026-10-21
+
+### fix: thanh xoá, sao chép, dán bị bàn phím che ở màn thêm rule
+
+Người dùng: *"có lỗi thanh sao chép, dán, clear, bị che bởi gợi ý của bàn phím"* — chỉ ở màn Thêm rule; duyệt plan.
+
+- **Nguyên nhân (suy luận, chưa kiểm chứng trên máy)**: `[1.3.556]` dùng **một** `UIInputView` cho mọi ô rồi đổi chiều cao 46 ↔ 82pt theo ô; iOS giữ chiều cao đo lần đầu (46pt) nên nội dung 82pt tràn xuống, hàng xoá · sao chép · dán nằm sau thanh gợi ý chữ của bàn phím.
+- `KeyboardTextToolbarInstaller` giữ **hai** accessory, chiều cao đặt một lần lúc tạo và không bao giờ đổi: 46pt cho ô thường (như trước `[1.3.556]`), 82pt cho ô cài `KeyboardSuggestionSource`. Bỏ `updateAccessoryHeight`. Ô chuyển thanh đi đúng nhánh gán lại / `install` lại sẵn có.
+- `KeyboardTextToolbarView` nhận `includesSuggestionRow` cố định theo instance (thanh 82pt luôn chừa chỗ hàng gợi ý) thay vì đọc `model.showsSuggestionRow`; cờ này thôi `@Published` vì chỉ installer đọc.
+- **Chẩn đoán**: 0,6 s sau khi gắn thanh, nếu chiều cao thật lệch chiều cao đã đặt thì ghi `❌ [KeyboardToolbar] thanh cao …pt, cần …pt (ô <lớp>)` — ghi cả khi tắt log, mỗi chiều cao một lần.
+- Chuyển entry `[1.3.529]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
+
 ## [1.3.558] - 2026-10-21
 
 ### fix: màn AI chạy riêng theo từng truyện, nút nổi liệt kê AI đang chạy

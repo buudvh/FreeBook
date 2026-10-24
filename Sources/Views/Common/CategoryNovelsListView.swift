@@ -108,6 +108,7 @@ struct CategoryNovelsListView: View {
         }
         .navigationTitle(translateIfNeeded(category.title))
         .navigationBarTitleDisplayMode(.inline)
+        .closesWhenNsfwHidden(packageId: extensionPackageId) // tắt NSFW ⇒ đóng danh sách của nguồn NSFW
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {

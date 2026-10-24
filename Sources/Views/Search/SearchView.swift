@@ -54,8 +54,16 @@ struct SearchView: View {
         return displayedHistory.filter { $0.localizedCaseInsensitiveContains(trimmed) }
     }
 
+    /// `includeNsfw` quan sát được: tắt NSFW lúc đang xem kết quả "tìm mọi nguồn" thì nhóm của nguồn NSFW biến mất ngay.
+    @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
+
     private var searchableExtensions: [Extension] {
-        SearchExtensionScopePolicy.searchableExtensions(activeExtensions, kindFilter: searchKindFilter, changeSourcePackageId: sameKindScopePackageId)
+        SearchExtensionScopePolicy.searchableExtensions(
+            activeExtensions,
+            kindFilter: searchKindFilter,
+            changeSourcePackageId: sameKindScopePackageId,
+            includeNsfw: includeNsfw
+        )
     }
 
     init(activeExtensions: [Extension], selectedExtension: Extension?, initialSearchQuery: String = "", changeSourceTargetBook: Book? = nil, kindScopePackageId: String? = nil, onSourceChanged: (() -> Void)? = nil) {
@@ -133,6 +141,11 @@ struct SearchView: View {
             .onChange(of: searchHistoryJSON, initial: true) { _, json in
                 displayedHistory = SearchHistoryStore.decode(json)
             }
+            // Tìm trong **một** nguồn NSFW (không phải đổi nguồn) ⇒ đóng khi tắt NSFW; tìm mọi nguồn thì chỉ ẩn nhóm.
+            .closesWhenNsfwHidden(
+                packageId: selectedExtension?.packageId,
+                isEnabled: !searchAllSources && changeSourceTargetBook == nil && kindScopePackageId == nil
+            )
 
             if isChangingSource {
                 Color.black.opacity(0.4)
