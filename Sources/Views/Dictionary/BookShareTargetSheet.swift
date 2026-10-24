@@ -92,9 +92,15 @@ struct BookShareTargetSheet: View {
         }
     }
 
+    /// Công tắc NSFW toàn app tắt ⇒ bỏ **mọi** truyện của nguồn NSFW, kể cả truyện trên kệ (người dùng chốt
+    /// 2026-10-24 — chặt hơn Kệ/Lịch sử vốn giữ sách trên kệ). Sheet modal nạp một lần nên đọc công tắc một lần.
     private func loadBooks() {
         let descriptor = FetchDescriptor<Book>(sortBy: [SortDescriptor(\Book.lastReadDate, order: .reverse)])
+        let includeNsfw = RepositoryFilterPolicy.includesNsfwPreference
         books = ((try? modelContext.fetch(descriptor)) ?? [])
-            .filter { $0.bookId != excludedBookId }
+            .filter {
+                $0.bookId != excludedBookId
+                    && (includeNsfw || !RepositoryFilterPolicy.isNsfwSource(packageId: $0.extensionPackageId))
+            }
     }
 }

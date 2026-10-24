@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.587] - 2026-10-24
+
+### fix: danh sách chọn truyện chia sẻ/nhập từ điển riêng theo công tắc NSFW
+
+Người dùng: danh sách truyện để chia sẻ VP và nhập VP *"chưa theo config nsfw"*.
+
+- **Nguyên nhân**: `BookShareTargetSheet` / `BookImportSourceSheet` (3 lối vào: chia sẻ + nhập từ điển riêng ở `DictionaryListView`, chia sẻ rule dịch nhanh ở `QuickTranslationRuleListView`) nạp mọi `Book` rồi chỉ bỏ truyện đang mở, không xét công tắc NSFW toàn app.
+- **Sửa**: `loadBooks()` của hai sheet đọc `RepositoryFilterPolicy.includesNsfwPreference` một lần; tắt ⇒ bỏ **mọi** truyện có `RepositoryFilterPolicy.isNsfwSource` (cả nguồn Legado), **kể cả truyện trên kệ** — người dùng chọn chặt hơn Kệ/Lịch sử (vốn giữ sách trên kệ). Truyện không ở kệ cũng không ở lịch sử vẫn hiện như cũ. Sheet modal nạp một lần nên không theo dõi công tắc khi đang mở.
+- Màn Cài đặt › Nội dung nhạy cảm chưa nhắc hai sheet này (dòng "Sách đã thêm lên Kệ vẫn hiện bình thường" chỉ đúng cho Kệ).
+- Chuyển entry `[1.3.557]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.586] - 2026-10-22
 
 ### merge: đưa nguồn Legado (đợt 1–3) vào main
@@ -408,19 +420,3 @@ Người dùng: *"dù đang quét truyện A mà vào AI truyện B vẫn thấy
 - `rules.md`: cập nhật luật hub (d), thêm (e) trang "AI đang chạy"; luật mở lại AI theo ngữ cảnh, phiên sống, bấm dừng, nút thử lại chuyển sang theo truyện; thêm luật "trạng thái AI khoá theo truyện"; luật retry Gemini Web ghi rõ "chỉ khi chưa phát chữ" và không nạp lại trang khi còn fetch.
 - Chuyển entry `[1.3.528]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code, grep chéo caller của mọi member đổi chữ ký; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
-
-## [1.3.557] - 2026-10-21
-
-### feat: màn Thông báo hiện tiến độ tải, xuất và nhập truyện
-
-Người dùng: *"thêm tiến độ download và xuất truyện, import truyện vào màn hình thông báo"*; duyệt plan.
-
-- **Khối "Đang chạy"** ở đầu màn Thông báo có thêm phần truyện (`NotificationInboxView+StoryTasks.swift`, mới): mỗi tác vụ tải/xuất **đang chạy** một dòng (tên truyện đã dịch như toast, `Tải truyện · 12/300 chương` hoặc giai đoạn xuất, thanh tiến độ, nút **Huỷ** gọi `DownloadManager.cancelTask`); tác vụ **đang chờ** gộp thành một dòng `N tác vụ tải/xuất đang chờ`; lượt nhập truyện từ file một dòng (không có nút huỷ — luồng nhập không nhận cancellation). `StoryActivityRows` tự observe nên nhịp ~10 lần/giây của `DownloadManager.tasks` không kéo hàng sao lưu / tải model vẽ lại.
-- **Dòng truyện biến mất khi tác vụ xong/lỗi/huỷ**, khác hàng sao lưu và tải model (ở lại chờ "Bỏ qua"): `DownloadTaskModel` sống qua khởi động lại nên giữ dòng đã xong là phải thêm bộ nhớ "đã bỏ qua"; kết quả đã có toast và toast tự ghi vào nhật ký của chính màn này. Chia sẻ lại / thử lại vẫn ở tab Tải.
-- **Tiến độ nhập truyện ra khỏi `ShelfView`**: bỏ bốn `@State` (`isImporting`, `importIsIndeterminate`, `importProgress`, `importStatusText`), thay bằng `BookImportProgressCenter` (mới, `Services/Import`, `@MainActor`, chỉ giữ lượt đang chạy; `fraction == nil` = vô định). Overlay chờ chuyển thành `ShelfView.ImportProgressOverlay` (lồng trong `ShelfView+BookImport.swift`) tự observe center — giao diện và hành vi chặn màn Kệ giữ nguyên, nhưng cả kệ không còn vẽ lại theo mỗi nhịp tiến độ.
-- **Hub nổi**: `NotificationInboxPresenceReader.hasRunningTask` tính cả tải/xuất/nhập truyện ⇒ suốt lượt tải truyện, mục "Thông báo" trên hub (ngoài tab Kệ) sáng và ghi "Đang chạy tác vụ" — đúng luật 2026-10-07. `$tasks` được rút về một bit rồi `removeDuplicates` trước khi sink, nên chỉ refresh lúc chuyển trạng thái.
-- `DownloadManager.hasActiveTasks` và `DownloadTask.isActive` (mới, `DownloadManager+TaskStore.swift`): chạy hoặc chờ = chưa tới trạng thái cuối.
-- Hạn chế đã biết (giống hàng sao lưu hiện có): mở màn Thông báo lúc trống rồi tác vụ mới bắt đầu thì màn vẫn rỗng tới khi mở lại.
-- Chuyển entry `[1.3.527]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
-

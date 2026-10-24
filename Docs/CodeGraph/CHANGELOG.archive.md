@@ -2,6 +2,21 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.557] - 2026-10-21
+
+### feat: màn Thông báo hiện tiến độ tải, xuất và nhập truyện
+
+Người dùng: *"thêm tiến độ download và xuất truyện, import truyện vào màn hình thông báo"*; duyệt plan.
+
+- **Khối "Đang chạy"** ở đầu màn Thông báo có thêm phần truyện (`NotificationInboxView+StoryTasks.swift`, mới): mỗi tác vụ tải/xuất **đang chạy** một dòng (tên truyện đã dịch như toast, `Tải truyện · 12/300 chương` hoặc giai đoạn xuất, thanh tiến độ, nút **Huỷ** gọi `DownloadManager.cancelTask`); tác vụ **đang chờ** gộp thành một dòng `N tác vụ tải/xuất đang chờ`; lượt nhập truyện từ file một dòng (không có nút huỷ — luồng nhập không nhận cancellation). `StoryActivityRows` tự observe nên nhịp ~10 lần/giây của `DownloadManager.tasks` không kéo hàng sao lưu / tải model vẽ lại.
+- **Dòng truyện biến mất khi tác vụ xong/lỗi/huỷ**, khác hàng sao lưu và tải model (ở lại chờ "Bỏ qua"): `DownloadTaskModel` sống qua khởi động lại nên giữ dòng đã xong là phải thêm bộ nhớ "đã bỏ qua"; kết quả đã có toast và toast tự ghi vào nhật ký của chính màn này. Chia sẻ lại / thử lại vẫn ở tab Tải.
+- **Tiến độ nhập truyện ra khỏi `ShelfView`**: bỏ bốn `@State` (`isImporting`, `importIsIndeterminate`, `importProgress`, `importStatusText`), thay bằng `BookImportProgressCenter` (mới, `Services/Import`, `@MainActor`, chỉ giữ lượt đang chạy; `fraction == nil` = vô định). Overlay chờ chuyển thành `ShelfView.ImportProgressOverlay` (lồng trong `ShelfView+BookImport.swift`) tự observe center — giao diện và hành vi chặn màn Kệ giữ nguyên, nhưng cả kệ không còn vẽ lại theo mỗi nhịp tiến độ.
+- **Hub nổi**: `NotificationInboxPresenceReader.hasRunningTask` tính cả tải/xuất/nhập truyện ⇒ suốt lượt tải truyện, mục "Thông báo" trên hub (ngoài tab Kệ) sáng và ghi "Đang chạy tác vụ" — đúng luật 2026-10-07. `$tasks` được rút về một bit rồi `removeDuplicates` trước khi sink, nên chỉ refresh lúc chuyển trạng thái.
+- `DownloadManager.hasActiveTasks` và `DownloadTask.isActive` (mới, `DownloadManager+TaskStore.swift`): chạy hoặc chờ = chưa tới trạng thái cuối.
+- Hạn chế đã biết (giống hàng sao lưu hiện có): mở màn Thông báo lúc trống rồi tác vụ mới bắt đầu thì màn vẫn rỗng tới khi mở lại.
+- Chuyển entry `[1.3.527]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI xác nhận biên dịch; chưa thử trên máy.
+
 ## [1.3.556] - 2026-10-21
 
 ### feat: thanh gợi ý token trên bàn phím ở màn thêm rule dịch
