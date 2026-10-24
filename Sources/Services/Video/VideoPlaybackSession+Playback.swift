@@ -21,6 +21,7 @@ extension VideoPlaybackSession {
             refreshIdleTimer()
         }
         resetPlaybackSource()
+        isPlayingOffline = false
         cues = []
         timeSkips = []
         hasSubtitles = false

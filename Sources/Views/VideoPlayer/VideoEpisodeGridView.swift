@@ -8,10 +8,12 @@ import SwiftUI
 /// vẫn `scrollTo` tới tập đang phát được.
 ///
 /// Hợp đồng: chỉ đọc `episodes` + `currentIndex`, mọi thao tác đi qua `onSelect` — đổi tab **không** đổi tập đang phát.
+/// Nhấn giữ ô tập (khi có `downloadActions`) ⇒ "Tải tập này" / "Xoá bản tải".
 struct VideoEpisodeGridView: View {
     let episodes: [VideoPlaybackSession.Episode]
     let currentIndex: Int
     let onSelect: (VideoPlaybackSession.Episode) -> Void
+    let downloadActions: VideoEpisodeDownloadActions?
 
     @State private var selectedGroup: Int
 
@@ -33,11 +35,13 @@ struct VideoEpisodeGridView: View {
     init(
         episodes: [VideoPlaybackSession.Episode],
         currentIndex: Int,
+        downloadActions: VideoEpisodeDownloadActions? = nil,
         onSelect: @escaping (VideoPlaybackSession.Episode) -> Void
     ) {
         self.episodes = episodes
         self.currentIndex = currentIndex
         self.onSelect = onSelect
+        self.downloadActions = downloadActions
         // Mở đúng tab chứa tập đang phát ngay từ lần vẽ đầu, để `scrollTo` của màn cha tìm thấy ô.
         let initial = Self.makeGroups(episodes).firstIndex { group in
             group.episodes.contains { $0.index == currentIndex }
@@ -53,7 +57,7 @@ struct VideoEpisodeGridView: View {
 
             LazyVGrid(columns: columns, spacing: 7) {
                 ForEach(Array(activeEpisodes.enumerated()), id: \.element.id) { offset, episode in
-                    cell(episode, number: offset + 1)
+                    cellWithMenu(episode, number: offset + 1)
                         .id(episode.index)
                 }
             }
@@ -115,6 +119,30 @@ struct VideoEpisodeGridView: View {
     }
 
     // MARK: - Ô tập
+
+    @ViewBuilder
+    private func cellWithMenu(_ episode: VideoPlaybackSession.Episode, number: Int) -> some View {
+        if let actions = downloadActions {
+            cell(episode, number: number)
+                .contextMenu {
+                    if actions.isDownloaded(episode) {
+                        Button(role: .destructive) {
+                            actions.deleteDownload(episode)
+                        } label: {
+                            Label("Xoá bản tải", systemImage: "trash")
+                        }
+                    } else {
+                        Button {
+                            actions.download(episode)
+                        } label: {
+                            Label("Tải tập này", systemImage: "arrow.down.circle")
+                        }
+                    }
+                }
+        } else {
+            cell(episode, number: number)
+        }
+    }
 
     private func cell(_ episode: VideoPlaybackSession.Episode, number: Int) -> some View {
         let isCurrent = episode.index == currentIndex

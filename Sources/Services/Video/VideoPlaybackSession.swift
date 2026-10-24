@@ -91,6 +91,10 @@ final class VideoPlaybackSession {
     var qualityOptions: [VideoQualityOption] = []
     /// Lựa chọn của người dùng, giữ qua các tập; `nil` = Tự động.
     var selectedQuality: VideoQualityOption?
+    /// Tập đang xem có bản tải trọn vẹn ⇒ hàng chip/menu server có "Bản tải" (`+Offline`).
+    var hasOfflineCopy = false
+    /// Item đang phát là bản tải trên máy.
+    var isPlayingOffline = false
 
     // MARK: - Engine
 
@@ -110,6 +114,10 @@ final class VideoPlaybackSession {
     /// Background task giữ app sống trong nhịp chờ PiP lúc vào nền (`+Lifecycle`).
     @ObservationIgnored var audioFallbackBackgroundTask: UIBackgroundTaskIdentifier = .invalid
     @ObservationIgnored var qualityTask: Task<Void, Never>?
+    /// Tập người dùng chọn xem trực tuyến dù đã có bản tải (chip "Trực tuyến"); đổi tập thì bỏ (`+Offline`).
+    @ObservationIgnored var onlineOverrideEpisodeIndex: Int?
+    /// Tập đã thử bật lại server + nạp lại bản tải sau lỗi phát (một lần mỗi tập).
+    @ObservationIgnored var offlineRetriedEpisodeIndex: Int?
 
     @ObservationIgnored var bookHost = ""
     @ObservationIgnored var openGeneration = 0
@@ -293,6 +301,7 @@ final class VideoPlaybackSession {
         reachedEndOfItem = false
         lastSavedProgress = nil
         autoplayBlockedByTTS = false
+        resetOfflineState()
         qualityTask?.cancel()
         qualityTask = nil
         qualityOptions = []

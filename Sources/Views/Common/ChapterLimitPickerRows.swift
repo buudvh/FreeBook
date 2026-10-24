@@ -9,11 +9,11 @@ import SwiftUI
 /// thanh kéo vào cùng một ô. Vì cùng lý do, điều kiện hiện hàng thanh kéo cũng đặt ở call site để cấu
 /// trúc hàng giống hệt trước khi tách.
 enum ChapterLimitPicker {
-    /// Picker các mốc số chương (Tất cả / 50 / 100 / 200 / 500 / 1000 / Tuỳ chọn).
-    static func optionPicker(option: Binding<ChapterLimitOption>) -> some View {
-        Picker("Số lượng chương", selection: option) {
+    /// Picker các mốc số chương (Tất cả / 50 / 100 / 200 / 500 / 1000 / Tuỳ chọn). `noun` = "tập" với video.
+    static func optionPicker(option: Binding<ChapterLimitOption>, noun: String = "chương") -> some View {
+        Picker("Số lượng \(noun)", selection: option) {
             ForEach(ChapterLimitOption.allCases, id: \.self) { item in
-                Text(item.title).tag(item)
+                Text(item.title(noun: noun)).tag(item)
             }
             Text(ChapterLimitOption.custom.title).tag(ChapterLimitOption.custom)
         }
@@ -22,10 +22,10 @@ enum ChapterLimitPicker {
 
     /// Hàng "Tuỳ chọn": thanh kéo 1...1000 bước 1, hai bên là nút -/+ đổi từng chương một cho
     /// người dùng chốt số chính xác (kéo tay khó dừng đúng con số muốn).
-    static func customRow(customLimit: Binding<Int>) -> some View {
+    static func customRow(customLimit: Binding<Int>, noun: String = "chương") -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Số chương tuỳ chọn")
+                Text("Số \(noun) tuỳ chọn")
                 Spacer()
                 Text("\(customLimit.wrappedValue)")
                     .font(.body.monospacedDigit())

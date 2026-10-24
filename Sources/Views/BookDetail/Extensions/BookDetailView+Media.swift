@@ -19,11 +19,11 @@ extension BookDetailView {
         !contentKind.isMedia
     }
 
-    /// Nhãn nút tải; `nil` = ẩn nút (video chưa hỗ trợ tải offline).
+    /// Nhãn nút tải (video tải offline qua `DownloadManager+Video`).
     internal var downloadActionTitle: String? {
         switch contentKind {
         case .comic: return "Tải ảnh offline"
-        case .video: return nil
+        case .video: return "Tải video offline"
         case .text, .unsupported: return "Tải truyện"
         }
     }

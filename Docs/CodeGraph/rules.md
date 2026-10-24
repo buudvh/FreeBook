@@ -28,6 +28,19 @@ Nguồn truyện JSON kiểu Legado là loại nguồn thứ hai, chạy song so
 * **Tìm mọi nguồn**: nguồn Legado chỉ khi đang bật + loại hỗ trợ + có rule tìm, qua cửa sổ trượt tối đa 8 (`LegadoSearchScheduler`); tiện ích JS giữ hành vi cũ.
 * **Media Legado không đi qua pipeline text** (giống tiện ích JS): tranh/video lấy qua `SourceRuntime.comicPages/videoServers/videoTrack`.
 
+## Tải video offline (1.3.592)
+
+Tập phim tải về `applicationSupport/videos/<sha256(bookId)>/<episodeIndex>/` (`VideoOfflineStore`), xem được khi không có mạng.
+
+* **Tải đi hàng đợi `DownloadManager`, tuần tự.** Tác vụ `.download` của sách video rẽ ở `executeMediaTaskIfNeeded` sang `DownloadManager+Video`; mỗi phim chỉ **một** tác vụ video chạy một lúc (`runNextTasksIfNeeded`), trong tập tải từng tài nguyên một (khoá → init → đoạn). Không thêm tải song song khi người dùng chưa yêu cầu.
+* **Không bật màn hình khi tải**: `VideoEpisodeDownloadPipeline` gọi `SourceRuntime.videoServers` với `SourceRuntimeContext(isInteractive: false)` và **không** bọc `SourceRuntime.userInitiated`. `VideoSourceResolver` (`@MainActor`) được dựng/gọi trên main. Server: server đã nhớ (`videoServer.<bookId>`) trước, lỗi thì lần lượt server khác (luật "không tự đổi server" chỉ áp cho **phát**). Không tải `.embed`, DRM (`SAMPLE-AES`, `skd://`, KEYFORMAT khác `identity`), luồng trực tiếp (không `EXT-X-ENDLIST`, trừ `PLAYLIST-TYPE:VOD`).
+* **`manifest.json` ghi sau cùng** ⇒ có manifest ⇔ tập trọn vẹn; manifest lưu `episodeUrl` thô — khác URL tập trong mục lục ⇒ coi như chưa tải. Bản dở giữ lại theo `partial.json` (chữ ký nguồn **bỏ query**) để tải tiếp; chỉ huỷ tác vụ / xoá mới dọn. File tài nguyên ghi atomic.
+* **Playlist local chỉ dùng URI tương đối** (tên file cùng thư mục, byterange tách thành file riêng, giữ `EXT-X-MEDIA-SEQUENCE` cho IV ngầm của AES-128); byte đoạn giữ nguyên văn; đuôi file theo vai trò (đuôi giả `.jpg/.png` ⇒ `.ts`/`.m4s`).
+* **Phát bản tải**: `runEpisodeLoad` gọi `startOfflinePlaybackIfAvailable` **trước** `installedExtension` (offline / tiện ích đã gỡ vẫn xem được). HLS phát qua `VideoOfflineHTTPServer` — **chỉ** loopback 127.0.0.1, cổng ngẫu nhiên, token ngẫu nhiên đầu đường dẫn, chỉ phục vụ file dưới `videos/`; tắt khi trình phát `stop()`. mp4 phát `file://`. Bản tải không kiểm tiếng, không phương án dự phòng; item lỗi ⇒ bật lại server + nạp lại một lần mỗi tập.
+* **UI không tự đọc đĩa**: trạng thái đã tải / đang tải / dung lượng đọc từ `VideoOfflineLibrary` (`@MainActor @Observable`, `refresh(bookId:)` đọc đĩa ngoài main); xoá qua `VideoOfflineLibrary.deleteEpisode/deleteAll`. Toast của thao tác tải/xoá do View báo (`VideoEpisodeDownloadActions`), session chỉ trả kết quả.
+* **Xoá theo truyện**: `BookStorageManager` (mọi đường xoá) và `BookSourceMigrator.cleanupOldBookStorage` xoá `videos/<sha256(bookId)>`. Backup không gói `videos/`; thư mục gốc đặt `isExcludedFromBackup`.
+* **Không đổi `DownloadTaskModel`**: chất lượng tải là lựa chọn chung (`VideoDownloadQuality`, UserDefaults), tập bắt đầu của "Tải tập này" là sidecar `VideoDownloadRequestStore` theo `taskId`; `TaskType.download.rawValue` giữ "Tải truyện" (nhãn hiển thị "Tải video" qua `DownloadTask.displayTypeName`).
+
 ## Nút hub nổi (1.3.524)
 
 Ba widget nổi (Trợ lý AI, Trình duyệt thu nhỏ, Thông báo) gộp thành **một** nút hub (`Sources/Views/FloatingHub/`), cửa sổ `FloatingHubUIWindow` ở level `alert - 2`, dưới widget TTS (`alert - 1`). Level `alert - 3` không còn cửa sổ nào dùng.

@@ -106,6 +106,7 @@ extension DownloadManager {
             lastTaskSaveAt = CFAbsoluteTimeGetCurrent()
         }
         lastProgressPublishAt.removeValue(forKey: taskId)
+        VideoDownloadRequestStore.remove(taskIds: [taskId])
 
         if let idx = tasks.firstIndex(where: { $0.id == taskId }) {
             tasks.remove(at: idx)
@@ -144,6 +145,7 @@ extension DownloadManager {
         tasks.removeAll { task in
             taskIdsToRemove.contains(task.id)
         }
+        VideoDownloadRequestStore.remove(taskIds: taskIdsToRemove)
 
         if let context = taskStoreContext() {
             for taskId in taskIdsToRemove {
@@ -219,7 +221,8 @@ extension DownloadManager {
         }
 
         let title = TranslateUtils.translateBookTitleIfNeeded(tasks[index].bookTitle, bookId: tasks[index].bookId)
-        let type = tasks[index].taskType.rawValue
+        let type = tasks[index].displayTypeName
+        tasks[index].mediaDetail = nil
         DownloadPresentationEventCenter.shared.send(.showToast(message: "Đã xong: \(type) '\(title)' thành công!", type: .success))
     }
 
@@ -264,7 +267,8 @@ extension DownloadManager {
         }
 
         let title = TranslateUtils.translateBookTitleIfNeeded(tasks[index].bookTitle, bookId: tasks[index].bookId)
-        let type = tasks[index].taskType.rawValue
+        let type = tasks[index].displayTypeName
+        tasks[index].mediaDetail = nil
         DownloadPresentationEventCenter.shared.send(.showToast(message: "Lỗi \(type) '\(title)': \(error)", type: .error))
     }
 
@@ -279,7 +283,8 @@ extension DownloadManager {
         }
 
         let title = TranslateUtils.translateBookTitleIfNeeded(tasks[index].bookTitle, bookId: tasks[index].bookId)
-        let type = tasks[index].taskType.rawValue
+        let type = tasks[index].displayTypeName
+        tasks[index].mediaDetail = nil
         DownloadPresentationEventCenter.shared.send(.showToast(message: "Đã hủy tác vụ: \(type) '\(title)'", type: .info))
     }
 }

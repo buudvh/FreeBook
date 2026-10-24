@@ -36,6 +36,7 @@ struct VideoEpisodePanel: View {
                     VideoEpisodeGridView(
                         episodes: session.episodes,
                         currentIndex: session.currentEpisodeIndex,
+                        downloadActions: VideoEpisodeDownloadActions(session: session),
                         onSelect: { episode in
                             session.selectEpisode(episode)
                             onClose()
@@ -45,6 +46,7 @@ struct VideoEpisodePanel: View {
                 }
                 .onAppear {
                     proxy.scrollTo(session.currentEpisodeIndex, anchor: .center)
+                    VideoEpisodeDownloadActions(session: session).refresh()
                 }
             }
         }

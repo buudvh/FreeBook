@@ -261,6 +261,7 @@ struct BookDetailView: View {
             )
             loadBookData()
             markSourceUsed()
+            if contentKind == .video, let videoBookId = localBook?.bookId { VideoOfflineLibrary.shared.refresh(bookId: videoBookId) }
             syncChaptersList()
             updateFilteredLocalChapters()
             updateFilteredOnlineChapters()
@@ -751,6 +752,11 @@ struct BookDetailView: View {
                                     .shadow(radius: 3)
                                 }
                                 .transition(.scale.combined(with: .opacity))
+                            }
+
+                            if contentKind == .video, let videoBookId = localBook?.bookId {
+                                VideoDownloadsDeletePill(bookId: videoBookId) { isMenuExpanded = false }
+                                    .transition(.scale.combined(with: .opacity))
                             }
                         }
 

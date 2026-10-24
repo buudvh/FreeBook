@@ -77,7 +77,7 @@ extension VideoPlaybackSession {
     /// Gọi mỗi lần player sang `.playing` (`handleTimeControlChange`).
     func scheduleAudioCheckIfNeeded() {
         let generation = loadGeneration
-        guard launch != nil, embedContent == nil, player.currentItem != nil,
+        guard launch != nil, embedContent == nil, !isPlayingOffline, player.currentItem != nil,
               audioCheckedGeneration != generation else { return }
         audioCheckedGeneration = generation
         audioCheckTask?.cancel()
@@ -192,6 +192,7 @@ extension VideoPlaybackSession {
     /// Đang ở phương án dự phòng (hoặc playlist ghép `audios`) mà lỗi ⇒ sang phương án kế và trả `true` (caller không
     /// báo lỗi).
     func logItemFailureAndTryFallback(message: String) -> Bool {
+        if retryOfflineAfterFailure(message: message) { return true }
         let item = player.currentItem
         let switchable = sourceResolution?.isOnFallback == true || sourceResolution?.isMergedAudio == true
         let canSwitch = switchable

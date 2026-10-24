@@ -22,13 +22,22 @@ struct TaskOptionsSheet: View {
     @State private var cachedChapterCount: Int? = nil
     @State private var totalChapterCount: Int? = nil
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
+    /// Chất lượng tải video — lựa chọn chung, tác vụ đọc lúc chạy (`VideoDownloadQuality`).
+    @AppStorage(VideoDownloadQuality.defaultsKey) private var videoQuality: VideoDownloadQuality = VideoDownloadQuality.defaultValue
+    /// Tải phim (`DownloadManager+Video`): đổi nhãn "chương" → "tập" và có thêm dòng Chất lượng.
+    private let isVideo: Bool
 
     init(book: Book, taskType: TaskType, defaultOnlyExportCached: Bool = false) {
         self.book = book
         self.taskType = taskType
+        self.isVideo = !taskType.isExport && ExtensionContentKind.resolve(packageId: book.extensionPackageId) == .video
         self._onlyExportCached = State(initialValue: defaultOnlyExportCached)
         self._exportFormat = State(initialValue: taskType.exportFormat ?? .txt)
     }
+
+    private var unitNoun: String { isVideo ? "tập" : "chương" }
+
+    private var sheetTitle: String { isVideo ? "Tải video" : effectiveTaskType.rawValue }
 
     /// Tác vụ này có tạo file hay chỉ tải cache.
     private var isExport: Bool { taskType.isExport }
@@ -73,7 +82,7 @@ struct TaskOptionsSheet: View {
                     }
                     .padding(.vertical, 4)
                 } header: {
-                    Text("Thông tin truyện")
+                    Text(isVideo ? "Thông tin phim" : "Thông tin truyện")
                 }
                 
                 if isExport {
@@ -94,13 +103,22 @@ struct TaskOptionsSheet: View {
                 }
 
                 Section {
-                    Toggle("Tải từ chương đang đọc", isOn: $startFromCurrentChapter)
+                    Toggle(isVideo ? "Tải từ tập đang xem" : "Tải từ chương đang đọc", isOn: $startFromCurrentChapter)
                         .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
 
-                    ChapterLimitPicker.optionPicker(option: $limitOption)
+                    ChapterLimitPicker.optionPicker(option: $limitOption, noun: unitNoun)
 
                     if limitOption == ChapterLimitOption.custom {
-                        ChapterLimitPicker.customRow(customLimit: $customLimit)
+                        ChapterLimitPicker.customRow(customLimit: $customLimit, noun: unitNoun)
+                    }
+
+                    if isVideo {
+                        Picker("Chất lượng", selection: $videoQuality) {
+                            ForEach(VideoDownloadQuality.allCases) { quality in
+                                Text(quality.title).tag(quality)
+                            }
+                        }
+                        .pickerStyle(.menu)
                     }
 
                     if isExport {
@@ -126,6 +144,10 @@ struct TaskOptionsSheet: View {
                         Text("Nếu bật 'Dịch nội dung', các chương sẽ được dịch tự động bằng Quick Translator trước khi ghi vào file.\nNếu bật 'Chỉ xuất chương đã tải', quá trình xuất sẽ chạy offline và chỉ lấy các chương đã có cache — bản xuất sẽ thiếu những chương chưa tải.\nTắt 'Hiển thị trong Kệ sách' để truyện nằm trong Lịch sử đọc.")
                             .font(.caption)
                             .foregroundColor(.secondary)
+                    } else if isVideo {
+                        Text("Tải lần lượt từng tập, chỉ chạy khi app đang mở: ra nền thì tạm dừng, mở lại tự tải tiếp. Nguồn có nhiều mức thì lấy mức cao nhất không vượt 'Chất lượng'. Tập chỉ xem được dạng nhúng trang hoặc có DRM sẽ bị bỏ qua.\nTắt 'Hiển thị trong Kệ sách' để phim nằm trong Lịch sử.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     } else {
                         Text("Tải truyện offline sẽ chỉ tải nội dung gốc chưa dịch để lưu trữ và tối ưu tốc độ đọc.\nTắt 'Hiển thị trong Kệ sách' để truyện nằm trong Lịch sử đọc.")
                             .font(.caption)
@@ -133,7 +155,7 @@ struct TaskOptionsSheet: View {
                     }
                 }
             }
-            .navigationTitle(effectiveTaskType.rawValue)
+            .navigationTitle(sheetTitle)
             .navigationBarTitleDisplayMode(.inline)
             .task {
                 guard isExport else { return }
@@ -212,6 +234,6 @@ struct TaskOptionsSheet: View {
             container: modelContext.container
         )
 
-        ToastManager.shared.show(message: "Đã thêm tác vụ '\(effectiveTaskType.rawValue)' vào hàng đợi.")
+        ToastManager.shared.show(message: "Đã thêm tác vụ '\(sheetTitle)' vào hàng đợi.")
     }
 }

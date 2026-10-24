@@ -33,9 +33,14 @@ public struct ChapterLimitOption: RawRepresentable, Hashable, Codable, CaseItera
     ]
 
     public var title: String {
+        title(noun: "chương")
+    }
+
+    /// Nhãn theo danh từ của mục lục: "chương" (truyện) hoặc "tập" (video).
+    public func title(noun: String) -> String {
         if rawValue < 0 { return "Tuỳ chọn" }
         if rawValue == 0 { return "Tất cả" }
-        return "\(rawValue) chương"
+        return "\(rawValue) \(noun)"
     }
 
     /// `nil` nghĩa là không giới hạn. Giá trị âm (mốc "Tuỳ chọn" lỡ rơi xuống đây) cũng coi là
@@ -110,6 +115,23 @@ public struct DownloadTask: Identifiable {
     public var exportStage: ExportStage? = nil
     /// Tổng kết `đã xuất/thiếu/lỗi` khi bản xuất không đủ chương. Cũng là trạng thái tạm thời.
     public var exportSummary: String? = nil
+    /// Tiến độ bên trong tập phim đang tải ("Tập 4: 45% · 210 MB"). Trạng thái tạm thời, không lưu CSDL.
+    public var mediaDetail: String? = nil
+
+    /// Tác vụ tải của sách video (`DownloadManager+Video`). Loại suy lúc chạy, không lưu.
+    public var isVideoDownload: Bool {
+        taskType == .download && ExtensionContentKind.resolve(packageId: extensionPackageId) == .video
+    }
+
+    /// Nhãn hiển thị của loại tác vụ — `taskType.rawValue` được lưu bền nên không đổi, chỉ đổi chữ hiện ra.
+    public var displayTypeName: String {
+        isVideoDownload ? "Tải video" : taskType.rawValue
+    }
+
+    /// Danh từ của một mục tiến độ: "tập" (video) hoặc "chương".
+    public var unitNoun: String {
+        isVideoDownload ? "tập" : "chương"
+    }
 }
 
 public final class DownloadManager: ObservableObject {
@@ -138,9 +160,9 @@ public final class DownloadManager: ObservableObject {
         limit: ChapterLimitOption,
         translate: Bool,
         onlyExportCached: Bool = false,
-        container: ModelContainer
+        container: ModelContainer,
+        taskId: UUID = UUID()
     ) {
-        let taskId = UUID()
         let bookId = book.bookId
         let title = book.title
         let cover = book.coverUrl
@@ -235,10 +257,17 @@ public final class DownloadManager: ObservableObject {
         let availableSlots = max(0, maxConcurrentTasks - runningCount)
         guard availableSlots > 0 else { return }
 
-        let pendingIndices = tasks.enumerated()
-            .filter { $0.element.status == .pending }
-            .prefix(availableSlots)
-            .map { $0.offset }
+        // Video: mỗi phim chỉ một tác vụ chạy một lúc — tải tuần tự (chủ ý) và hai tác vụ không ghi chung thư mục tập.
+        var busyVideoBooks = Set(tasks.filter { $0.status == .running && $0.isVideoDownload }.map(\.bookId))
+        var pendingIndices: [Int] = []
+        for (offset, task) in tasks.enumerated() where task.status == .pending {
+            guard pendingIndices.count < availableSlots else { break }
+            if task.isVideoDownload {
+                guard !busyVideoBooks.contains(task.bookId) else { continue }
+                busyVideoBooks.insert(task.bookId)
+            }
+            pendingIndices.append(offset)
+        }
 
         for index in pendingIndices {
             tasks[index].status = .running

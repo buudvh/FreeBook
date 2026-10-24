@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.592] - 2026-10-24
+
+### feat: tải video về máy để xem offline
+
+Người dùng: *"làm thêm chức năng tải video nữa"*; chốt qua grill-me + mockup (plan `Docs/Plans/2026-10-24-plan-tai-video-offline.md`), rồi *"tự làm đi không cần hỏi nữa"*. Quyết định: tự tải từng đoạn + server nội bộ phát lại; chất lượng mặc định tối đa 720p (chọn lại trong sheet, nhớ cho lần sau); server đã nhớ trước, lỗi thì thử server khác; lối vào ở trang chi tiết + nhấn giữ trên kệ, menu `⋯` trình phát, nhấn giữ ô tập (không có dấu đã tải trên ô); mở tập đã tải phát bản tải + chip "Trực tuyến"; có nút xoá hết bản tải kèm dung lượng.
+
+- **Lưu trữ** (`Services/Video/Offline/`): `VideoOfflineStore` — `videos/<sha256(bookId)>/<episodeIndex>/`, `manifest.json` (`VideoEpisodeManifest`) ghi **sau cùng**, `partial.json` = chữ ký nguồn bỏ query để tải tiếp bản dở, `validatePathSafety` riêng, `videos/` đặt `isExcludedFromBackup`; Backup không gói. `VideoDownloadQuality` (Cao nhất / Tối đa 1080p / 720p / 480p, UserDefaults `videoDownloadQuality`), `VideoDownloadRequestStore` (sidecar tập bắt đầu của "Tải tập này" theo `taskId` — không đổi `DownloadTaskModel`).
+- **Bộ tải**: `VideoHLSOfflinePlanner` (thuần: biến thể + rendition của playlist gốc, playlist con ⇒ danh sách khoá/init/đoạn + playlist local URI tương đối; byterange tách file; giữ `MEDIA-SEQUENCE` cho IV AES-128; từ chối `SAMPLE-AES`/`skd://`/live), `VideoHLSDownloader` (chọn mức theo chất lượng, kèm luồng tiếng `EXT-X-MEDIA TYPE=AUDIO` của nhóm, playlist `fbhls://` ghép tiếng đọc từ `subPlaylists`), `VideoFileDownloader` (mp4 ghi luồng ra đĩa, tải tiếp bằng `Range`), `VideoOfflineHTTPClient` (header tiện ích, thử lại 3 lượt; 401/403/404/410 ⇒ phân giải lại link một lần). Tất cả **tuần tự**.
+- **Tác vụ** (`DownloadManager+Video`, `VideoEpisodeDownloadPipeline`): nhánh video của `executeMediaTaskIfNeeded` không còn báo "không hỗ trợ"; server → track → `VideoSourceResolver` (bỏ `.embed`) → bộ tải → phụ đề đầu tiên → manifest; `isInteractive: false`. Bỏ qua tập đã có manifest cùng URL tập; còn dưới 1 GB trống ⇒ dừng; huỷ ⇒ bỏ bản dở của tập đang tải, lỗi/khởi động lại ⇒ giữ để tải tiếp. Mỗi phim chỉ một tác vụ video chạy một lúc (`runNextTasksIfNeeded`); "Tải tập này" trùng tập đang chờ/đang tải thì không thêm. `DownloadTask.mediaDetail` (tạm) = "Tập 4: 45% · 210 MB"; `displayTypeName` = "Tải video" (rawValue "Tải truyện" giữ nguyên vì được lưu bền).
+- **Phát bản tải** (`VideoPlaybackSession+Offline`): `runEpisodeLoad` thử bản tải **trước** khi tra tiện ích ⇒ xem được khi không mạng / tiện ích đã gỡ. HLS qua `VideoOfflineHTTPServer` + `VideoOfflineHTTPResponder` (`NWListener` **chỉ 127.0.0.1**, cổng + token ngẫu nhiên, chỉ file dưới `videos/`, `GET`/`HEAD` + `Range`), mp4 phát `file://`; phụ đề + mốc "Bỏ qua" từ manifest. Bản tải không kiểm tiếng; item lỗi ⇒ bật lại server, nạp lại một lần. Chip "Bản tải" / "Trực tuyến" ở hàng server và menu server.
+- **UI**: `VideoOfflineLibrary` (`@MainActor @Observable`) là nguồn trạng thái đã tải/đang tải/dung lượng cho View. Menu `⋯`: "Tải tập này" / "Xoá bản tải tập này" + "Tải nhiều tập…" (`TaskOptionsSheet`). Nhấn giữ ô tập: "Tải tập này" / "Xoá bản tải". Trang chi tiết: "Tải video offline" + "Xoá bản tải · N tập · X GB" (`VideoDownloadsDeletePill`). Nhấn giữ trên kệ: "Tải video offline" + "Xoá bản tải (…)" (`VideoDownloadsActionRow`, xử lý ngay trong sheet). `TaskOptionsSheet` chế độ video ("Tải từ tập đang xem", "Số lượng tập", "Chất lượng"). Tab Tải: "Tải video", "x/y tập", dòng phần trăm trong tập.
+- **Xoá**: `BookStorageManager` (cả 3 đường xoá) và `BookSourceMigrator` xoá `videos/<sha256(bookId)>`; `BookContentDestination` mở phim đã tải bằng trình phát khi tiện ích đã gỡ.
+- Tài liệu: `rules.md` mục "Tải video offline (1.3.592)"; `CLAUDE.md`/`AGENTS.md` thêm `videos/` vào danh sách lưu trữ + mục Comic & Video. Chuyển entry `[1.3.562]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + agent soát lỗi biên dịch; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch. **Chưa thử trên máy**: AVPlayer phát HLS qua `http://127.0.0.1` trong LiveContainer, `NWListener` loopback (có hỏi quyền Mạng cục bộ không), khoá AES-128, nguồn ngụy trang đoạn `.jpg/.png`, tải tiếp sau khi app ra nền. Thử lần đầu: bật log, tải 1 tập từ menu `⋯` → tab Tải có % → bật chế độ máy bay → mở tập (chip "Bản tải") → tua, phụ đề; lỗi thì gửi `app_logs.txt` (dòng `[VideoOffline]`, `[VideoOfflineServer]`).
+
 ## [1.3.591] - 2026-10-24
 
 ### feat: tắt NSFW ẩn khỏi Kệ/Bộ sưu tập/Tải/hub/phạm vi dịch, video trình duyệt phát tại chỗ, player chọn chất lượng
@@ -409,16 +424,3 @@ Bước 2 của đợt 1 plan "nguồn truyện Legado — viết mới theo đ�
 - **Kiểm clean-room** (script ngoài repo): không có tên lớp nội bộ của engine gốc ngoài những tên xuất hiện trong script của chính corpus; không câu nào trùng nguyên văn tài liệu (cửa sổ 40 ký tự / 15 chữ Hán); 0 chữ cấm.
 - Không đổi code. Không build — commit chỉ có tài liệu nên CI không chạy.
 - Chuyển entry `[1.3.528]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-
-## [1.3.562] - 2026-10-21
-
-### build: link libxml2 cho XPath của nguồn Legado, CI chạy trên nhánh Legado
-
-Bước 3 của đợt 1 plan "nguồn truyện Legado — viết mới theo đặc tả" (2026-10-19, người dùng đã duyệt): chứng minh libxml2 hệ thống link được trên CI trước khi xây engine rule.
-
-- **`project.yml`**: thêm `- sdk: libxml2.tbd` cạnh `libsqlite3.tbd`, và `HEADER_SEARCH_PATHS` = `$(inherited)` + `$(SDKROOT)/usr/include/libxml2` (header của libxml2 tự include nhau theo dạng `<libxml/...>`).
-- **Bridging header gom chung**: `SWIFT_OBJC_BRIDGING_HEADER` đổi từ `VieNeuONNXBridge.h` sang `Sources/Common/Bridging/FreeBookBridgingHeader.h` (mới), file này include `VieNeuONNXBridge.h` (không đổi nội dung) và `LegadoLibXML2.h` (mới — `HTMLparser.h`, `tree.h`, `xpath.h`, `xpathInternals.h`). Sai đường dẫn ở đây là mọi file Swift hỏng.
-- **`LegadoXPathDocument`** (mới, `Sources/Services/LegadoSource/Rule/`): bọc `htmlReadMemory` (RECOVER/NOERROR/NOWARNING/NONET) + `xmlXPathEval`, trả giá trị chuỗi của node-set/string/number/boolean. **Không** `#if canImport`, không fallback: thiếu libxml2 phải là lỗi biên dịch. Chưa có caller — engine rule ở các commit sau.
-- **CI**: `build-ipa.yml` chạy cả trên nhánh `claude/legado-source-bb5e46`.
-- Chuyển entry `[1.3.527]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: `check_architecture.py` 2 violation nền (`JSDom.swift`, `TTSManager.swift`), **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch.

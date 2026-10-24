@@ -11,7 +11,7 @@ struct VideoPlayerDetailsView: View {
                     header
                         .padding(.horizontal, 16)
 
-                    if !session.servers.isEmpty {
+                    if !session.servers.isEmpty || session.hasOfflineCopy {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Server")
                                 .font(.headline)
@@ -19,7 +19,8 @@ struct VideoPlayerDetailsView: View {
                                 .padding(.horizontal, 16)
                             VideoServerChipBar(
                                 servers: session.servers,
-                                selectedIndex: session.selectedServerIndex,
+                                selectedIndex: session.isPlayingOffline ? nil : session.selectedServerIndex,
+                                offline: offlineChips,
                                 onSelect: { session.selectServer(at: $0) }
                             )
                         }
@@ -29,6 +30,7 @@ struct VideoPlayerDetailsView: View {
                         VideoEpisodeGridView(
                             episodes: session.episodes,
                             currentIndex: session.currentEpisodeIndex,
+                            downloadActions: downloadActions,
                             onSelect: { session.selectEpisode($0) }
                         )
                     }
@@ -37,6 +39,7 @@ struct VideoPlayerDetailsView: View {
             }
             .onAppear {
                 scrollToEpisode(session.currentEpisodeIndex, proxy: proxy, animated: false)
+                downloadActions.refresh()
             }
             .onChange(of: session.currentEpisodeIndex) { _, newIndex in
                 scrollToEpisode(newIndex, proxy: proxy, animated: true)
@@ -45,6 +48,20 @@ struct VideoPlayerDetailsView: View {
                 scrollToEpisode(session.currentEpisodeIndex, proxy: proxy, animated: true)
             }
         }
+    }
+
+    private var downloadActions: VideoEpisodeDownloadActions {
+        VideoEpisodeDownloadActions(session: session)
+    }
+
+    /// Chip "Bản tải" / "Trực tuyến" khi tập đang xem đã tải về máy.
+    private var offlineChips: VideoServerChipBar.OfflineChips? {
+        guard session.hasOfflineCopy else { return nil }
+        return VideoServerChipBar.OfflineChips(
+            isSelected: session.isPlayingOffline,
+            onSelectOffline: { session.playOffline() },
+            onSelectOnline: { session.playOnline() }
+        )
     }
 
     private var header: some View {

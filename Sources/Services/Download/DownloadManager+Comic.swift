@@ -7,7 +7,8 @@ import SwiftData
 /// - Comic + `.download`: tải **tuần tự** từng chương, từng ảnh (chủ ý, tránh bị nguồn chặn) vào `ComicOfflineStore`.
 ///   Bỏ qua chương đã có manifest **cùng URL chương** (khác URL ⇒ tải lại, ghi đè); tôn trọng `startFromCurrent` /
 ///   `limit`; tiến độ theo chương; huỷ được. Script ảnh chạy trên `ComicImageScriptRunner` riêng của tác vụ.
-/// - Comic/video + xuất ebook, video + tải: báo thất bại (UI bình thường đã ẩn các nút này).
+/// - Video + `.download`: `DownloadManager+Video` (tải tuần tự từng tập vào `VideoOfflineStore`).
+/// - Comic/video + xuất ebook: báo thất bại (UI bình thường đã ẩn các nút này).
 extension DownloadManager {
     /// `true` khi tác vụ thuộc sách media và đã được xử lý trọn ở đây — caller phải `return` ngay.
     internal func executeMediaTaskIfNeeded(
@@ -23,9 +24,8 @@ extension DownloadManager {
             await markFailed(taskId: task.id, error: "Không hỗ trợ xuất ebook cho truyện tranh/video")
             return true
         }
-        guard kind == .comic else {
-            AppLogger.shared.log("❌ [DownloadManager] Từ chối tải offline sách \(kind.rawValue): \(task.bookTitle)")
-            await markFailed(taskId: task.id, error: "Video không hỗ trợ tải offline")
+        if kind == .video {
+            await executeVideoDownload(task, extensionSnapshot: extensionSnapshot, container: container)
             return true
         }
 
@@ -221,7 +221,8 @@ extension DownloadManager {
     }
 
     /// Huỷ qua `cancelTask`/`cancelTasksForBook`/`deleteTask` (đều `handle.cancel()`), cộng cờ `isTaskCancelled`.
-    private func isComicTaskCancelled(_ taskId: UUID) async -> Bool {
+    /// Dùng chung cho tác vụ video (`DownloadManager+Video`).
+    internal func isComicTaskCancelled(_ taskId: UUID) async -> Bool {
         if Task.isCancelled { return true }
         return await MainActor.run { self.isTaskCancelled(taskId: taskId) }
     }

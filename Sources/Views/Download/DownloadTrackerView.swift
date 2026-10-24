@@ -70,7 +70,7 @@ struct DownloadTrackerView: View {
                     .lineLimit(2)
                 
                 HStack(spacing: 8) {
-                    Text(task.taskType.rawValue)
+                    Text(task.displayTypeName)
                         .font(.caption)
                         .fontWeight(.semibold)
                         .foregroundColor(.white)
@@ -88,9 +88,16 @@ struct DownloadTrackerView: View {
                             .tint(.white)
                             .scaleEffect(x: 1, y: 0.8, anchor: .center)
 
-                        Text("Tiến độ: \(task.progressCount)/\(task.totalCount) chương")
+                        Text("Tiến độ: \(task.progressCount)/\(task.totalCount) \(task.unitNoun)")
                             .font(.caption2)
                             .foregroundColor(.secondary)
+
+                        // Tác vụ video: phần trăm / dung lượng của tập đang tải (một tập có thể mất vài phút).
+                        if let detail = task.mediaDetail {
+                            Text(detail)
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
 
                         // Giai đoạn của tác vụ xuất: chương cuối chạy xong không còn là khoảng im lặng
                         // không giải thích được nữa (renderer đang đóng file / dựng mục lục).
@@ -102,7 +109,7 @@ struct DownloadTrackerView: View {
                     }
                     .padding(.top, 2)
                 } else if task.status == .completed {
-                    Text("Đã xử lý \(task.progressCount) chương thành công")
+                    Text(task.isVideoDownload ? "Đã tải \(task.progressCount) tập" : "Đã xử lý \(task.progressCount) chương thành công")
                         .font(.caption)
                         .foregroundColor(.secondary)
 

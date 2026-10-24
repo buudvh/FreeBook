@@ -102,6 +102,7 @@ public final class BookStorageManager {
                 }
 
                 await Self.deleteComicFiles(bookId: bookId)
+                await Self.deleteVideoFiles(bookId: bookId)
                 await Self.deleteLegadoState(bookId: bookId)
             }
         }
@@ -176,6 +177,7 @@ public final class BookStorageManager {
                 }
 
                 await Self.deleteComicFiles(bookId: bookId)
+                await Self.deleteVideoFiles(bookId: bookId)
                 await Self.deleteLegadoState(bookId: bookId)
             }
         }
@@ -263,6 +265,7 @@ public final class BookStorageManager {
                 }
 
                 await Self.deleteComicFiles(bookId: bookId)
+                await Self.deleteVideoFiles(bookId: bookId)
                 await Self.deleteLegadoState(bookId: bookId)
             }
         }
@@ -275,6 +278,16 @@ public final class BookStorageManager {
         } catch {
             AppLogger.shared.log("❌ Lỗi xóa ảnh comic offline: \(error.localizedDescription)")
             await Self.shared.enqueueFailedDeletionAsync(path: ComicOfflineStore.bookDirectoryURL(bookId: bookId).path)
+        }
+    }
+
+    /// Phim tải offline (`videos/<sha256(bookId)>`); sách không phải video không có thư mục này nên là no-op.
+    nonisolated private static func deleteVideoFiles(bookId: String) async {
+        do {
+            try VideoOfflineStore.deleteBook(bookId: bookId)
+        } catch {
+            AppLogger.shared.log("❌ Lỗi xóa phim tải offline: \(error.localizedDescription)")
+            await Self.shared.enqueueFailedDeletionAsync(path: VideoOfflineStore.bookDirectoryURL(bookId: bookId).path)
         }
     }
 

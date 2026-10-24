@@ -118,6 +118,12 @@ public actor BookSourceMigrator {
         } catch {
             AppLogger.shared.log("❌ [BookSourceMigrator] Lỗi xoá ảnh offline của truyện cũ: \(error.localizedDescription)")
         }
+        // Phim: bản tải nằm ở `videos/<sha256(oldBookId)>`, sách mới không dùng lại được.
+        do {
+            try VideoOfflineStore.deleteBook(bookId: oldBookId)
+        } catch {
+            AppLogger.shared.log("❌ [BookSourceMigrator] Lỗi xoá phim tải offline của truyện cũ: \(error.localizedDescription)")
+        }
         // Trạng thái nguồn Legado của truyện cũ (sách mới có trạng thái riêng theo id mới).
         await BookStorageManager.deleteLegadoState(bookId: oldBookId)
     }

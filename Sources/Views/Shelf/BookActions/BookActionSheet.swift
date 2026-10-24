@@ -72,6 +72,12 @@ struct BookActionSheet: View {
             }
         }
         .listStyle(.insetGrouped)
+        .task(id: book.bookId) {
+            // Hàng "Xoá bản tải" của phim đọc tóm tắt từ `VideoOfflineLibrary`.
+            if ExtensionContentKind.resolve(packageId: book.extensionPackageId) == .video {
+                VideoOfflineLibrary.shared.refresh(bookId: book.bookId)
+            }
+        }
         .presentationDetents([.fraction(0.85), .large])
         // Không còn nút "Xong" nên phải để lộ tay cầm: vuốt xuống là đường đóng duy nhất.
         .presentationDragIndicator(.visible)
@@ -311,12 +317,9 @@ struct BookActionSheet: View {
             actionRow(.changeSource, "Đổi nguồn", "arrow.triangle.2.circlepath")
         }
 
-        // Loại nội dung suy lúc chạy (không lưu vào `Book`): video chưa tải offline được, truyện tranh/video
-        // không xuất ebook.
+        // Loại nội dung suy lúc chạy (không lưu vào `Book`): truyện tranh/video không xuất ebook.
         let kind = ExtensionContentKind.resolve(packageId: book.extensionPackageId)
-        if kind != .video {
-            actionRow(.download, kind == .comic ? "Tải ảnh offline" : "Tải truyện", "arrow.down.circle")
-        }
+        actionRow(.download, kind == .video ? "Tải video offline" : (kind == .comic ? "Tải ảnh offline" : "Tải truyện"), "arrow.down.circle")
         if !kind.isMedia {
             actionRow(.exportEbook, "Xuất ebook", "square.and.arrow.up")
         }
@@ -325,6 +328,10 @@ struct BookActionSheet: View {
         if currentCollectionId != nil {
             actionRow(.removeFromCurrentCollection, "Bỏ khỏi bộ sưu tập này", "folder.badge.minus")
                 .accessibilityHint("Truyện vẫn ở trên kệ sách")
+        }
+
+        if kind == .video {
+            VideoDownloadsActionRow(bookId: book.bookId)
         }
 
         if target.mode == .history {

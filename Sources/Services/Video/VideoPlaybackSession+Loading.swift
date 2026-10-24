@@ -213,6 +213,8 @@ extension VideoPlaybackSession {
             fail(generation: generation, message: "Không tìm thấy tập cần phát.")
             return
         }
+        // Tập đã tải ⇒ phát bản trên máy, không cần mạng hay tiện ích (`+Offline`).
+        if await startOfflinePlaybackIfAvailable(episode, generation: generation) { return }
         guard let ext = installedExtension(generation: generation) else { return }
         phase = .loadingServers
         let host = ExtensionHostResolver.chapterHost(chapterHost: episode.host, bookHost: bookHost, packageId: ext.packageId)

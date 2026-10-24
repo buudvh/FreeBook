@@ -48,6 +48,8 @@ final class VideoPlayerController {
     var isPortraitFullscreen = false
     var isOrientationLocked = false
     var showsEpisodePanel = false
+    /// Sheet "Tải nhiều tập…" (menu `⋯`) — `VideoPlayerScreen` trình bày `TaskOptionsSheet`.
+    var showsBatchDownloadSheet = false
     var gravity: Gravity = .fit
     /// Giây đang xem trước khi kéo thanh tua / vuốt ngang; `nil` = không tua.
     var scrubSeconds: Double?

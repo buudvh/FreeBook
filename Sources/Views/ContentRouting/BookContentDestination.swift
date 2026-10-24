@@ -40,13 +40,14 @@ struct BookContentDestination: View {
         self._kind = State(initialValue: Self.resolveKind(bookId: bookId, packageId: extensionPackageId))
     }
 
-    /// Tiện ích đã gỡ và không còn trong catalog (vd cài từ zip) thì không tra được loại. Truyện tranh đã tải
-    /// offline vẫn phải mở bằng màn comic thay vì rơi vào reader chữ.
+    /// Tiện ích đã gỡ và không còn trong catalog (vd cài từ zip) thì không tra được loại. Truyện tranh / phim đã tải
+    /// offline vẫn phải mở bằng màn comic / trình phát thay vì rơi vào reader chữ.
     /// Nguồn Legado: ghi đè loại **của sách** (`book.type`, spec §13.6) thắng loại của nguồn; tiện ích JS không đổi.
     private static func resolveKind(bookId: String, packageId: String) -> ExtensionContentKind {
         if let override = LegadoBookTypeOverride.shared.contentKind(bookId: bookId, packageId: packageId) { return override }
         if let known = ExtensionContentKind.resolveIfKnown(packageId: packageId) { return known }
-        return ComicOfflineStore.downloadedChapterIndexes(bookId: bookId).isEmpty ? .text : .comic
+        if !ComicOfflineStore.downloadedChapterIndexes(bookId: bookId).isEmpty { return .comic }
+        return VideoOfflineStore.downloadedEpisodeIndexes(bookId: bookId).isEmpty ? .text : .video
     }
 
     var body: some View {

@@ -64,7 +64,7 @@ struct VideoPlayerTopBar: View {
                     session.togglePictureInPicture()
                 }
             }
-            if isLandscape, session.servers.count > 1 {
+            if isLandscape, session.hasSourceChoices {
                 Menu {
                     serverPicker
                 } label: {
@@ -120,7 +120,19 @@ struct VideoPlayerTopBar: View {
         }
     }
 
+    /// Tập có bản tải ⇒ "Bản tải" đứng đầu (+ "Trực tuyến" khi chưa nạp server — `VideoPlaybackSession+Offline`).
+    @ViewBuilder
     private var serverPicker: some View {
+        if session.hasOfflineCopy {
+            checkmarkButton("Bản tải", isSelected: session.isPlayingOffline) {
+                session.playOffline()
+            }
+            if session.servers.isEmpty {
+                checkmarkButton("Trực tuyến", isSelected: false) {
+                    session.playOnline()
+                }
+            }
+        }
         ForEach(Array(session.servers.enumerated()), id: \.offset) { index, server in
             checkmarkButton(
                 server.title.isEmpty ? "Server \(index + 1)" : server.title,
@@ -162,7 +174,7 @@ struct VideoPlayerTopBar: View {
                     gravityPicker
                 }
             }
-            if !isLandscape, session.servers.count > 1 {
+            if !isLandscape, session.hasSourceChoices {
                 Menu("Server") {
                     serverPicker
                 }
@@ -174,6 +186,7 @@ struct VideoPlayerTopBar: View {
                     qualityPicker
                 }
             }
+            downloadItems
             Button {
                 session.retry()
             } label: {
@@ -194,6 +207,32 @@ struct VideoPlayerTopBar: View {
             VideoPlayerIconLabel(systemName: "ellipsis")
         }
         .accessibilityLabel("Thêm")
+    }
+
+    /// "Tải tập này" (hoặc "Xoá bản tải tập này" khi đã tải) và "Tải nhiều tập…" (sheet tải của màn hình).
+    @ViewBuilder
+    private var downloadItems: some View {
+        if let episode = session.currentEpisode {
+            let actions = VideoEpisodeDownloadActions(session: session)
+            if actions.isDownloaded(episode) {
+                Button(role: .destructive) {
+                    actions.deleteDownload(episode)
+                } label: {
+                    Label("Xoá bản tải tập này", systemImage: "trash")
+                }
+            } else {
+                Button {
+                    actions.download(episode)
+                } label: {
+                    Label("Tải tập này", systemImage: "arrow.down.circle")
+                }
+            }
+            Button {
+                controller.showsBatchDownloadSheet = true
+            } label: {
+                Label("Tải nhiều tập…", systemImage: "square.and.arrow.down.on.square")
+            }
+        }
     }
 
     static func rateLabel(_ rate: Float) -> String {

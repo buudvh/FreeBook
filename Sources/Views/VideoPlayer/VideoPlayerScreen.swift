@@ -63,6 +63,9 @@ struct VideoPlayerScreen: View {
         .statusBarHidden(isFullscreen)
         .persistentSystemOverlays(isFullscreen ? .hidden : .automatic)
         .animation(.easeInOut(duration: 0.25), value: isFullscreen)
+        .sheet(isPresented: $controller.showsBatchDownloadSheet) {
+            batchDownloadSheet
+        }
         .onAppear {
             VideoPlayerPresenter.install()
             if let launch {
@@ -84,6 +87,20 @@ struct VideoPlayerScreen: View {
             // `resetForExit` vừa bỏ khoá ⇒ đồng bộ nút khoá xoay nếu màn này hiện lại.
             controller.isOrientationLocked = false
             session.detachScreen(controller)
+        }
+    }
+
+    /// "Tải nhiều tập…" của menu `⋯`: sheet tải chung (`TaskOptionsSheet` tự sang chế độ video theo nguồn).
+    @ViewBuilder
+    private var batchDownloadSheet: some View {
+        if let book = session.fetchBook() {
+            TaskOptionsSheet(book: book, taskType: .download)
+        } else {
+            Text("Phim chưa có trong thư viện nên chưa tải được.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .padding()
+                .presentationDetents([.fraction(0.2)])
         }
     }
 
