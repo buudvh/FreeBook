@@ -33,6 +33,8 @@ struct SearchView: View {
     @State private var searchResults: [ExtensionItemResultWithExt] = []
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     @State private var searchStatusMessage = ""
+    /// Scope đang mở sheet "Kiểu hiển thị" (chỉ có khi tìm trong một nguồn).
+    @State private var layoutSheetScope: BookListLayoutScope?
     @AppStorage("search_history") private var searchHistoryJSON = "[]"
     /// Bản đã decode của `searchHistoryJSON`, **chỉ** cho hiển thị (`matchingHistory`) — xem `ShelfSearchView`.
     @State private var displayedHistory: [String] = []
@@ -117,8 +119,7 @@ struct SearchView: View {
                 searchStatusView
                 
                 if !searchAllSources && isSearching {
-                    ProgressView("Đang tìm trên nguồn hiện tại...")
-                        .frame(maxHeight: .infinity)
+                    singleSourceLoadingView
                 } else if searchAllSources && !sourceStates.isEmpty {
                     searchAllSourcesResultsView
                 } else if !searchAllSources && !searchResults.isEmpty {
@@ -129,6 +130,22 @@ struct SearchView: View {
             }
             .navigationTitle("Tìm Kiếm")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    if let scope = singleSourceLayoutScope {
+                        Button {
+                            layoutSheetScope = scope
+                        } label: {
+                            Image(systemName: BookListLayoutPreferences.shared.layout(for: scope).mode.symbolName)
+                                .font(.system(size: 17, weight: .semibold))
+                        }
+                        .accessibilityLabel("Kiểu hiển thị")
+                    }
+                }
+            }
+            .sheet(item: $layoutSheetScope) { scope in
+                BookListLayoutSheet(scope: scope)
+            }
             .onAppear {
                 if !initialSearchQuery.isEmpty && searchQuery.isEmpty {
                     searchQuery = initialSearchQuery
@@ -346,7 +363,7 @@ struct SearchView: View {
                                                                 showingChangeSourceAlert = true
                                                             }) {
                                                                 VStack(alignment: .leading, spacing: 6) {
-                                                                    searchResultCover(result, ext: ext, width: 90, height: 125)
+                                                                    Self.searchResultCover(result, ext: ext, width: 90, height: 125)
                                                                     
                                                                     Text(DisplayTextFormatter.titleCase(translateIfNeeded(result.name)))
                                                                         .font(.caption)
@@ -374,7 +391,7 @@ struct SearchView: View {
                                                                 initialHost: result.host
                                                             )) {
                                                                 VStack(alignment: .leading, spacing: 6) {
-                                                                    searchResultCover(result, ext: ext, width: 90, height: 125)
+                                                                    Self.searchResultCover(result, ext: ext, width: 90, height: 125)
                                                                     
                                                                     Text(DisplayTextFormatter.titleCase(translateIfNeeded(result.name)))
                                                                         .font(.caption)
@@ -412,85 +429,48 @@ struct SearchView: View {
         }
     }
     
+    /// Kiểu hiển thị khi tìm trong **một** nguồn: theo loại của nguồn đang tìm, cùng phạm vi với Khám phá của nguồn đó.
+    /// `nil` khi tìm mọi nguồn hoặc chưa chọn nguồn (không có nút Kiểu hiển thị).
+    private var singleSourceLayoutScope: BookListLayoutScope? {
+        guard !searchAllSources, let ext = selectedExtension else { return nil }
+        return BookListLayoutScope(kind: SearchExtensionScopePolicy.kind(of: ext))
+    }
+
+    /// Đang tìm trong một nguồn: kiểu lưới hiện khung chờ dạng lưới (như màn Thể loại), kiểu danh sách giữ vòng xoay.
+    @ViewBuilder
+    private var singleSourceLoadingView: some View {
+        let scope = singleSourceLayoutScope ?? .text
+        let layout = BookListLayoutPreferences.shared.layout(for: scope)
+        if layout.mode.isGrid {
+            DiscoverySkeletonGridView(
+                columns: layout.columns,
+                aspectRatio: scope.coverAspectRatio,
+                showsText: layout.mode == .grid
+            )
+            .frame(maxHeight: .infinity)
+        } else {
+            ProgressView("Đang tìm trên nguồn hiện tại...")
+                .frame(maxHeight: .infinity)
+        }
+    }
+
     @ViewBuilder
     private var singleSourceResultsView: some View {
         let displayResults = changeSourceTargetBook != nil ? searchResults.filter { !isSameBookSource(result: $0.result, ext: $0.ext) } : searchResults
-        List(displayResults) { item in
-            if changeSourceTargetBook != nil {
-                Button(action: {
-                    changeSourceTargetResult = item.result
-                    changeSourceTargetExtension = item.ext
-                    showingChangeSourceAlert = true
-                }) {
-                    HStack(spacing: 12) {
-                        searchResultCover(item.result, ext: item.ext, width: 50, height: 70)
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(DisplayTextFormatter.titleCase(translateIfNeeded(item.result.name)))
-                                .font(.subheadline)
-                                .fontWeight(.bold)
-                                .foregroundColor(.primary)
-                                .lineLimit(2)
-                                .multilineTextAlignment(.leading)
-                            
-                            let descText = !item.result.description.isEmpty ? item.result.description : (!item.result.content.isEmpty ? item.result.content : item.result.author)
-                            Text(translateIfNeeded(descText))
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .lineLimit(2)
-                                .multilineTextAlignment(.leading)
-                            
-                            Text(item.ext.name)
-                                .font(.system(size: 9))
-                                .fontWeight(.semibold)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.white.opacity(0.12))
-                                .foregroundColor(.white)
-                                .cornerRadius(4)
-                        }
-                    }
-                    .padding(.vertical, 4)
-                }
-                .buttonStyle(.plain)
-            } else {
-                NavigationLink(destination: BookDetailView(
-                    bookId: "\(item.ext.name.lowercased())_\(item.result.link)",
-                    extensionPackageId: item.ext.packageId,
-                    initialDetailUrl: item.result.link,
-                    sourceName: item.ext.name,
-                    initialHost: item.result.host
-                )) {
-                    HStack(spacing: 12) {
-                        searchResultCover(item.result, ext: item.ext, width: 50, height: 70)
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(DisplayTextFormatter.titleCase(translateIfNeeded(item.result.name)))
-                                .font(.subheadline)
-                                .fontWeight(.bold)
-                                .lineLimit(2)
-                            
-                            let descText = !item.result.description.isEmpty ? item.result.description : (!item.result.content.isEmpty ? item.result.content : item.result.author)
-                            Text(translateIfNeeded(descText))
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .lineLimit(2)
-                            
-                            Text(item.ext.name)
-                                .font(.system(size: 9))
-                                .fontWeight(.semibold)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.white.opacity(0.12))
-                                .foregroundColor(.white)
-                                .cornerRadius(4)
-                        }
-                    }
-                    .padding(.vertical, 4)
-                }
+        let scope = singleSourceLayoutScope ?? .text
+        // Đọc trong `body` ⇒ sheet "Kiểu hiển thị" hay màn Cài đặt ghi là kết quả vẽ lại theo kiểu mới.
+        SearchSingleSourceResultsView(
+            items: displayResults,
+            layout: BookListLayoutPreferences.shared.layout(for: scope),
+            aspectRatio: scope.coverAspectRatio,
+            isTranslationEnabled: isTranslationEnabled,
+            isChangingSource: changeSourceTargetBook != nil,
+            onChangeSource: { item in
+                changeSourceTargetResult = item.result
+                changeSourceTargetExtension = item.ext
+                showingChangeSourceAlert = true
             }
-        }
-        .listStyle(.plain)
+        )
     }
     
     @ViewBuilder

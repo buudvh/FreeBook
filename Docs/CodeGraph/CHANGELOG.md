@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.597] - 2026-10-25
+
+### feat: kết quả tìm trong một nguồn theo kiểu hiển thị của loại nguồn
+
+Người dùng: *"màn hình search chưa theo config layout, video, truyện, commic đang chỉ 1 kiểu, tôi đang nói search 1 nguồn"*.
+
+- **Tìm trong một nguồn** (`SearchSingleSourceResultsView`, mới): dựng theo `BookListLayout` của loại nguồn đang tìm — `BookListLayoutScope(kind: SearchExtensionScopePolicy.kind(of:))`, cùng phạm vi với Khám phá của nguồn đó. Kiểu Danh sách giữ nguyên dòng cũ (bìa 50×70, mô tả → nội dung → tác giả, chip tên nguồn); kiểu Lưới / Chỉ bìa dùng `ScrollView` + `LazyVGrid` của `DiscoveryNovelGridCardView` (video bìa ngang 16:9, số cột theo cài đặt). Đang đổi nguồn thì chạm vẫn hỏi xác nhận; còn lại mở Chi tiết truyện, `bookId` giữ dạng cũ.
+- **`SearchView`**: nút "Kiểu hiển thị" (icon theo kiểu đang chọn, 17pt semibold) ở góc phải thanh điều hướng, chỉ hiện khi tìm trong một nguồn (kể cả trước khi có kết quả), mở `BookListLayoutSheet`; đang tìm ở kiểu lưới thì hiện khung chờ dạng lưới (`DiscoverySkeletonGridView`). `searchResultCover` thành `static` để view mới dùng chung.
+- Không đổi: tìm trên mọi nguồn (dải bìa ngang theo nguồn), chỉ tải trang 1, công tắc dịch của màn Tìm kiếm.
+- Chuyển entry `[1.3.567]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.596] - 2026-10-24
 
 ### feat: màn Thông báo hiện phần trăm từng tập khi tải video
@@ -391,19 +403,3 @@ Người dùng: *"làm ra thành phẩm luôn đừng có nghiệm thu"* — ch�
 - **Kiểm clean-room** (script ngoài repo): tên lớp lạ xuất hiện đều có trong `jsHelp.md` hoặc trong script của corpus; không câu văn xuôi nào trùng nguyên văn tài liệu; 0 chữ cấm.
 - Không đổi code; commit chỉ tài liệu nên CI không chạy.
 - Chuyển entry `[1.3.533]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-
-## [1.3.567] - 2026-10-21
-
-### feat: bộ chạy nghiệm thu nguồn Legado qua Debug server
-
-Bước 13 của đợt 1 plan "nguồn truyện Legado — viết mới theo đặc tả": đo tỉ lệ nguồn chạy trọn chuỗi để chốt cổng đợt 1 (bộ 1316 nguồn chữ ≥ 55%). Không có UI trong app.
-
-- **`LegadoCorpusRunner`** (`Sources/Services/LegadoSource/Diagnostics/`, 11 file mới): với mỗi nguồn Legado **đã cài** được chọn — tìm (từ khoá `ruleSearch.checkKeyWord`, thiếu thì mặc định; nguồn không có rule tìm thì đi Khám phá qua `genre`) → kết quả đầu → chi tiết → mục lục → nội dung chương đầu, **qua facade `SourceRuntime`** (đúng đường app chạy thật). Song song tối đa 4; trần mỗi bước (tìm/khám phá/chi tiết 60 s, mục lục 300 s, nội dung 120 s); huỷ được. Trạng thái truyện dùng `bookId = "corpus-runner:<packageId>"` nên không đụng sách thật, không sinh sidecar.
-- **Phân loại lỗi** (`LegadoCorpusErrorClassifier`): cú pháp chưa hỗ trợ / HTTP (kèm mã) / rule khớp 0 / quá thời gian / mạng / JS / nguồn hỏng / khác. Thông điệp đã redact (giá trị query thành `…`, khối option `,{…}` và URL JS bị che, cắt 300 ký tự), không chứa nội dung chương, header, cookie.
-- **Báo cáo** JSON ở `applicationSupport/legado_reports/<thời điểm>.json` (`validatePathSafety`): tổng nguồn, số qua trọn chuỗi, %, đếm theo lớp lỗi và theo bước, chi tiết từng nguồn; một dòng tóm tắt qua `AppLogger` (không gắn `❌`).
-- **Debug server — contract v2**: lệnh mới `legado.sources`, `legado.corpus.start` (đầu vào chỉ là danh sách `packageId` **hoặc** "tất cả nguồn Legado đang bật", từ khoá, giới hạn — không nhận URL/đường dẫn/JS), `legado.corpus.status`, `legado.corpus.cancel`; mã lỗi `BUSY`. `ExtensionDebugProtocol.version` 1 → 2 và `ExtensionDebugEvent.contractVersion` 1 → 2 (shape event không đổi); server vẫn nhận envelope v1 nên client cũ chạy như trước, chỉ lệnh `legado.*` đòi v2. Logic ở `ExtensionDebugCommandRouter+Legado.swift` (mới); router gốc chỉ thêm `case`. Không qua `ExtensionDebugInstallGate`: lệnh không ghi thư viện/sách/cài đặt.
-- `extensions.list` không còn liệt kê nguồn Legado; `run.start` với nguồn Legado trả `UNKNOWN_ENTRYPOINT` kèm hướng dẫn (không cố chạy `search.js` không tồn tại).
-- **Client VS Code** (`Tools/VSCode/FreeBookExtDebug`): mirror `protocol.ts`; 3 lệnh Command Palette chạy / xem tiến độ / huỷ nghiệm thu (`legadoCorpus.ts` mới, `client.ts`, `extension.ts`, `package.json`); client mới gặp app cũ tự hạ về v1. Mô tả gói bỏ tên nền tảng cũ.
-- **Log facade**: thông điệp lỗi của nhánh Legado trong `SourceRuntime` được redact URL trước khi ghi file.
-- Chuyển entry `[1.3.532]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. TypeScript kiểm kiểu với stub theo chữ ký thật (chưa `npm run compile` thật). Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa chạy trên máy.
