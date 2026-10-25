@@ -212,7 +212,6 @@ struct ReaderView: View {
     @State internal var ttsAutoScrollGeneration: Int = 0
     @State internal var viewModel: ReaderViewModel? = nil
     @State private var updateProgressWorkItem: DispatchWorkItem? = nil
-    @State private var updateTTSPositionWorkItem: DispatchWorkItem? = nil
     @State private var prepareTTSTask: DispatchWorkItem? = nil
     @State private var translationRefreshDebounceTask: Task<Void, Never>? = nil
     @State private var isTranslationRefreshDeferred: Bool = false
@@ -917,7 +916,6 @@ struct ReaderView: View {
                 ReaderView.activeBookId = nil
             }
             updateProgressWorkItem?.cancel()
-            updateTTSPositionWorkItem?.cancel()
             prepareTTSTask?.cancel()
             paragraphTracker.removeAll()
             if let vm = viewModel {
@@ -954,7 +952,6 @@ struct ReaderView: View {
         }
         .onChange(of: chapterIndex) { _, newIndex in
             updateProgressWorkItem?.cancel()
-            updateTTSPositionWorkItem?.cancel()
             prepareTTSTask?.cancel()
             paragraphTracker.removeAll()
             // Vệt tìm chỉ có nghĩa ở đúng chương của nó; rời chương thì bỏ.
@@ -1844,18 +1841,9 @@ struct ReaderView: View {
         self.updateProgressWorkItem = progressWork
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: progressWork)
 
-        // 2. Debounce 1.5 giây cho việc đồng bộ con trỏ TTS (tránh re-render ttsManager khi cuộn nhanh)
-        guard ttsState.snapshot.isPlaying || ttsState.snapshot.showFloatingWidget else { return }
-        guard ttsState.snapshot.playingBookId == bookId else { return }
-
-        updateTTSPositionWorkItem?.cancel()
-        let ttsWork = DispatchWorkItem {
-            guard let top = self.paragraphTracker.getTopVisible(viewportTopY: 80, currentBookId: self.bookId, currentChapterIndex: self.chapterIndex) ?? self.paragraphTracker.topVisible else { return }
-            guard self.ttsState.snapshot.playingChapterIndex == top.chapterIndex else { return }
-            self.ttsManager.updateParagraphPositionWithoutPlaying(paragraphIndex: top.paragraphIndex)
-        }
-        self.updateTTSPositionWorkItem = ttsWork
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: ttsWork)
+        // Cuộn trang KHÔNG dời con trỏ TTS. Trước đây khối đồng bộ (debounce 1,5 s) chạy cả lúc TTS
+        // đang tạm dừng và kéo con trỏ về đoạn trên cùng màn hình ⇒ bấm tiếp tục bị lùi vài đoạn.
+        // Muốn nghe chỗ khác: nút tai nghe của Reader hoặc bôi đen → "Nghe".
     }
 
     private func attemptScroll(to target: ScrollTarget, proxy: ScrollViewProxy, vm: ReaderViewModel) -> Bool {

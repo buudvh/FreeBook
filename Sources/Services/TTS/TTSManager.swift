@@ -919,20 +919,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
-    public func updateParagraphPositionWithoutPlaying(paragraphIndex: Int) {
-        guard !isPlaying else { return }
-
-        let targetIdx = TTSChunkPositionMapper.indexForParagraphPosition(in: paragraphs, paragraphIndex: paragraphIndex)
-
-        if targetIdx >= 0 && targetIdx < paragraphs.count {
-            self.currentParagraphIndex = targetIdx
-            let paragraph = paragraphs[targetIdx]
-            self.highlightRange = paragraph.range
-            self.currentParentParagraphIndex = paragraph.paragraphIndex
-            updateNowPlayingInfo()
-        }
-    }
-
     #if DEBUG
     func waitForPreparationForTesting() async {
         await prepareSpeakingTask?.value
@@ -1108,7 +1094,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         finishTTSAutoAdvancePerf(outcome: "cancelled", endpoint: "pause")
         checkpointProgressAndRelease()
         self.isPlaying = false
-        invalidateAudibleHandoffGeneration()
+        // Siri giữ nguyên utterance để `continueSpeaking()`; tăng generation ở đây làm `onFinish` của nó
+        // bị loại ⇒ đọc xong chunk là im. Stop/skip vẫn tăng qua `stopCurrentPlayback()`.
+        if tool != "system" {
+            invalidateAudibleHandoffGeneration()
+        }
         publishLifecycleState(isPlaying: false)
         setSystemNowPlayingPlaybackState(.paused)
         cancelNextChapterPrefixWork()

@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.568] - 2026-10-21
+
+### docs: đặc tả hành vi nguồn Legado phần 2 (tranh, video, đăng nhập, quản lý, phần hiếm)
+
+Người dùng: *"làm ra thành phẩm luôn đừng có nghiệm thu"* — chọn làm luôn đợt 2 + 3 (không thử máy giữa chừng), giữ bộ chạy nghiệm thu, giao diện mới dựng mockup trước (đã duyệt cả 3 nhóm màn; giữ cả đăng nhập bằng form lẫn trên web; tab Legado theo công tắc NSFW chung; "Bật/Tắt tất cả" đổi nhãn). Plan đợt 2 + 3 đã duyệt (`Docs/Plans/2026-10-21-plan-nguon-legado-dot-2-3.md`, gitignore).
+
+- **`Docs/Specs/legado-source-spec-part2.md`** (mới, ~1.320 dòng), đánh số nối tiếp phần 1: §8 tranh (nội dung ra ảnh, URL ảnh kèm option, `imageStyle`, `imageDecode`, `coverDecodeJs`) · §9 video (13 nguồn mẫu: 12 trong corpus + 1 từ bộ yckceo 1111 tải thêm; tuyến phát trải thẳng vào mục lục, không có khái niệm server) · §10 đăng nhập (`loginUrl`, `loginUi`, `loginCheckJs`, `source.*Login*`, `java.startBrowser*`/`getVerificationCode`) · §11 Khám phá động (mục text/button/toggle/select, `refreshExplore`, `infoMap`) · §12 quản lý (xuất, scheme nhập nhanh, chế độ gỡ lỗi, `variableComment`) · §13 phần đuôi đợt 2 (`data:`, `sourceRegex`, `preUpdateJs`, `formatJs`, `setReverseToc`, `importScript`, `toURL`, `Jsoup.connect`, `javax.crypto`) · §14 đợt 3 (font chống crawl, tệp/zip, RSA/ký số, mã hoá đối xứng còn thiếu, danh sách đủ phần đuôi `java.*`/`source.*`/`cookie.*`/`cache.*`) · §15 phụ lục (bảng đợt, U29–U63, **đính chính phần 1** 8 mục — vd `book.type` là bitmask 8/32/64/128, khác §6.6).
+- Viết bởi agent riêng, cùng luật clean-room như phần 1: chỉ tài liệu trợ giúp được phép + quan sát corpus + 3 lần curl. Nhãn: `[tài liệu]` 60 / `[quan sát]` 128 / `[UNKNOWN]` 53.
+- **Kiểm clean-room** (script ngoài repo): tên lớp lạ xuất hiện đều có trong `jsHelp.md` hoặc trong script của corpus; không câu văn xuôi nào trùng nguyên văn tài liệu; 0 chữ cấm.
+- Không đổi code; commit chỉ tài liệu nên CI không chạy.
+- Chuyển entry `[1.3.533]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+
 ## [1.3.567] - 2026-10-21
 
 ### feat: bộ chạy nghiệm thu nguồn Legado qua Debug server

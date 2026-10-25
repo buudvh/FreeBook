@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.598] - 2026-10-25
+
+### fix: tạm dừng rồi tiếp tục TTS không còn lùi lại vài đoạn
+
+Người dùng: *"có lỗi tạm dừng tts rồi tiếp tục lại không phát tiếp tục mà lui lại vài đoạn"* (tiếp tục từ màn khoá/tai nghe); duyệt phương án A.
+
+- **Nguyên nhân**: `ReaderView.updateScrollReadingProgress` (chạy mỗi lần một đoạn hiện/khuất, kể cả do TTS tự cuộn) hẹn 1,5 s sau gọi `TTSManager.updateParagraphPositionWithoutPlaying(đoạn trên cùng màn hình)` khi `isPlaying || showFloatingWidget`. Lúc phát thì hàm bỏ qua, nhưng đã tạm dừng thì nó kéo `currentParagraphIndex` về chunk đầu của đoạn trên cùng màn hình — thường ở trên đoạn đang đọc vài đoạn, vì TTS chỉ tự cuộn khi vệt đọc ra khỏi vùng an toàn. Audio đang dừng không được giải phóng nên Google/tiện ích phát nốt chunk cũ rồi `nextParagraph()` nhảy về "đoạn trên cùng + 1", NghiTTS nạp tiếp "đoạn trên cùng + 1".
+- **Sửa**: cuộn trang không còn dời con trỏ TTS (xoá khối đồng bộ, `updateTTSPositionWorkItem`, `updateParagraphPositionWithoutPlaying`). Tiếp tục từ widget, màn khoá, tai nghe, sau cuộc gọi đều phát tiếp đúng chunk đang dừng.
+- **Nút tai nghe trong Reader**: đang tạm dừng truyện này, cùng chương, đoạn đang dừng còn trong vùng an toàn của màn hình (`ParagraphTracker.isParagraphInsideSafeViewport`, cùng điều kiện tự cuộn) ⇒ `resume()`; đã kéo đi chỗ khác ⇒ giữ như cũ (dừng rồi đọc từ đoạn trên cùng). Muốn nghe chỗ khác vẫn có bôi đen → "Nghe".
+- **Siri (`system`)**: `pause()` không tăng `audibleHandoffGeneration` cho Siri nữa — trước đây `onFinish` của utterance được `continueSpeaking()` bị `isContextValid` loại nên đọc xong chunk là im. Stop/skip vẫn tăng qua `stopCurrentPlayback()`.
+- Đánh đổi: mất kiểu "dừng → kéo trang → tiếp tục ở widget/màn khoá thì đọc từ chỗ mới" (có từ 07/2026). `TTSChunkPositionMapper.indexForParagraphPosition` không còn caller trong `Sources/` nhưng giữ nguyên.
+- Chuyển entry `[1.3.568]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới** (`TTSManager.swift` 3510 → 3500 dòng). CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.597] - 2026-10-25
 
 ### feat: kết quả tìm trong một nguồn theo kiểu hiển thị của loại nguồn
@@ -391,15 +405,3 @@ Khối D-engine, E-engine, I, J của plan đợt 2 + 3 nguồn Legado (người
 - **Ghi vết request** cho màn Gỡ lỗi: `LegadoEngineRequestRecord` + `LegadoEngineDiagnostics.recordRequest/requests` (≤ 100/phiên, mọi request kể cả lỗi, WebView, `data:`), không ghi vào `AppLogger`.
 - Chuyển entry `[1.3.534]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. 9 bootstrap JS chạy thử trên Node với lệnh native giả: 43/43 phép thử đạt. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.568] - 2026-10-21
-
-### docs: đặc tả hành vi nguồn Legado phần 2 (tranh, video, đăng nhập, quản lý, phần hiếm)
-
-Người dùng: *"làm ra thành phẩm luôn đừng có nghiệm thu"* — chọn làm luôn đợt 2 + 3 (không thử máy giữa chừng), giữ bộ chạy nghiệm thu, giao diện mới dựng mockup trước (đã duyệt cả 3 nhóm màn; giữ cả đăng nhập bằng form lẫn trên web; tab Legado theo công tắc NSFW chung; "Bật/Tắt tất cả" đổi nhãn). Plan đợt 2 + 3 đã duyệt (`Docs/Plans/2026-10-21-plan-nguon-legado-dot-2-3.md`, gitignore).
-
-- **`Docs/Specs/legado-source-spec-part2.md`** (mới, ~1.320 dòng), đánh số nối tiếp phần 1: §8 tranh (nội dung ra ảnh, URL ảnh kèm option, `imageStyle`, `imageDecode`, `coverDecodeJs`) · §9 video (13 nguồn mẫu: 12 trong corpus + 1 từ bộ yckceo 1111 tải thêm; tuyến phát trải thẳng vào mục lục, không có khái niệm server) · §10 đăng nhập (`loginUrl`, `loginUi`, `loginCheckJs`, `source.*Login*`, `java.startBrowser*`/`getVerificationCode`) · §11 Khám phá động (mục text/button/toggle/select, `refreshExplore`, `infoMap`) · §12 quản lý (xuất, scheme nhập nhanh, chế độ gỡ lỗi, `variableComment`) · §13 phần đuôi đợt 2 (`data:`, `sourceRegex`, `preUpdateJs`, `formatJs`, `setReverseToc`, `importScript`, `toURL`, `Jsoup.connect`, `javax.crypto`) · §14 đợt 3 (font chống crawl, tệp/zip, RSA/ký số, mã hoá đối xứng còn thiếu, danh sách đủ phần đuôi `java.*`/`source.*`/`cookie.*`/`cache.*`) · §15 phụ lục (bảng đợt, U29–U63, **đính chính phần 1** 8 mục — vd `book.type` là bitmask 8/32/64/128, khác §6.6).
-- Viết bởi agent riêng, cùng luật clean-room như phần 1: chỉ tài liệu trợ giúp được phép + quan sát corpus + 3 lần curl. Nhãn: `[tài liệu]` 60 / `[quan sát]` 128 / `[UNKNOWN]` 53.
-- **Kiểm clean-room** (script ngoài repo): tên lớp lạ xuất hiện đều có trong `jsHelp.md` hoặc trong script của corpus; không câu văn xuôi nào trùng nguyên văn tài liệu; 0 chữ cấm.
-- Không đổi code; commit chỉ tài liệu nên CI không chạy.
-- Chuyển entry `[1.3.533]` sang `CHANGELOG.archive.md` để giữ 30 entry.

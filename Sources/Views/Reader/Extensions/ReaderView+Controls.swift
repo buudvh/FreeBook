@@ -171,6 +171,10 @@ extension ReaderView {
             icon: "headphones",
             tint: selectedTheme.textColor.opacity(0.9),
             action: {
+                if canResumePausedTTSInPlace {
+                    ttsManager.resume()
+                    return
+                }
                 if ttsState.snapshot.isPlaying || ttsState.snapshot.showFloatingWidget {
                     ttsManager.stop()
                 }
@@ -199,6 +203,23 @@ extension ReaderView {
         .shadow(color: Color.black.opacity(0.18), radius: 12, x: 0, y: 4)
         .padding(.trailing, 8)
         .padding(.bottom, 12)
+    }
+
+    /// TTS đang **tạm dừng** truyện này và đoạn đang dừng vẫn nằm trong vùng an toàn của màn hình (cùng điều kiện
+    /// tự cuộn) ⇒ nút tai nghe phát tiếp đúng chunk đang dừng. Người dùng đã kéo trang đi chỗ khác thì giữ hành vi
+    /// cũ: dừng phiên và đọc từ đoạn trên cùng màn hình.
+    private var canResumePausedTTSInPlace: Bool {
+        let state = ttsState.snapshot
+        guard !state.isPlaying, state.showFloatingWidget,
+              state.playingBookId == bookId,
+              state.playingChapterIndex == chapterIndex else { return false }
+        return paragraphTracker.isParagraphInsideSafeViewport(
+            bookId: bookId,
+            chapterIndex: chapterIndex,
+            paragraphIndex: ttsHighlight.currentParentParagraphIndex,
+            viewportMinY: readerViewportMinY,
+            viewportMaxY: readerViewportMaxY
+        )
     }
 
     internal func readerEdgeButton(icon: String, tint: Color, action: @escaping () -> Void) -> some View {
