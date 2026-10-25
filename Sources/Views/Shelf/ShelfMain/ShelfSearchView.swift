@@ -302,6 +302,8 @@ struct ShelfSearchView: View {
         let ext = allExtensions.first(where: { $0.packageId == book.extensionPackageId })
         return BookListItemView(
             item: book,
+            // Cùng scope "Tất cả" với nhánh lưới ở trên; gọi trong lượt vẽ nên đổi cỡ dòng là vẽ lại.
+            rowSize: BookListLayoutPreferences.shared.layout(for: .all).rowSize,
             extensionLocalPath: ext?.localPath ?? "",
             extensionIconUrl: ext?.iconUrl
         )

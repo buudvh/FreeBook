@@ -6,7 +6,7 @@ import SwiftUI
 ///
 /// Hai nhánh tách hẳn nhau:
 /// - `.list`: `List` `.plain` + `Section` + `ShelfBookRowView`, sentinel `ProgressView` cuối danh sách — y như trước
-///   khi có tuỳ chọn kiểu.
+///   khi có tuỳ chọn kiểu, cỡ dòng theo `BookListLayout.rowSize`.
 /// - `.grid` / `.coverOnly`: `ScrollView` + `LazyVGrid` N cột với `ShelfBookGridCardView`. **`LazyVGrid` tuyệt đối
 ///   không lồng trong `List`** (crash `EXC_BREAKPOINT` ở 1.3.269, xem `CollectionsTabView`).
 ///
@@ -54,23 +54,23 @@ struct ShelfBooksLayoutView: View {
         if layout.mode.isGrid {
             gridView(layout)
         } else {
-            listView
+            listView(layout.rowSize)
         }
     }
 
     // MARK: - Danh sách
 
-    private var listView: some View {
+    private func listView(_ rowSize: BookListRowSize) -> some View {
         List {
             ForEach(groups) { group in
                 if let header = group.header {
                     Section {
-                        listRows(group.books)
+                        listRows(group.books, rowSize: rowSize)
                     } header: {
                         headerView(header)
                     }
                 } else {
-                    listRows(group.books)
+                    listRows(group.books, rowSize: rowSize)
                 }
             }
 
@@ -87,15 +87,15 @@ struct ShelfBooksLayoutView: View {
         .listStyle(.plain)
     }
 
-    private func listRows(_ books: [Book]) -> some View {
+    private func listRows(_ books: [Book], rowSize: BookListRowSize) -> some View {
         ForEach(books) { book in
-            listRow(book)
+            listRow(book, rowSize: rowSize)
         }
     }
 
     @ViewBuilder
-    private func listRow(_ book: Book) -> some View {
-        let row = ShelfBookRowView(book: book, extensions: extensions)
+    private func listRow(_ book: Book, rowSize: BookListRowSize) -> some View {
+        let row = ShelfBookRowView(book: book, extensions: extensions, rowSize: rowSize)
             .contentShape(Rectangle())
             .onTapGesture {
                 onTap(book)

@@ -4,7 +4,8 @@ import SwiftUI
 /// Thể loại / Xem thêm (`CategoryNovelsListView`), dựng theo `BookListLayout` của loại nguồn.
 ///
 /// Two branches that never mix:
-/// - `.list` → `List` of `DiscoveryNovelRowView`, kept exactly as before the layout option existed.
+/// - `.list` → `List` of `DiscoveryNovelRowView`, sized by `layout.rowSize` (the default size is exactly the row from
+///   before the layout option existed).
 /// - `.grid` / `.coverOnly` → `ScrollView` + `LazyVGrid` of `DiscoveryNovelGridCardView`. A `LazyVGrid` must never be
 ///   nested inside a `List` row (crashed with `EXC_BREAKPOINT` in 1.3.269, see `CollectionsTabView`).
 ///
@@ -74,7 +75,12 @@ struct DiscoveryNovelsLayoutView: View {
                 Button {
                     onSelectNovel(novel)
                 } label: {
-                    DiscoveryNovelRowView(item: novel, sourceHost: sourceHost, isTranslationEnabled: isTranslationEnabled)
+                    DiscoveryNovelRowView(
+                        item: novel,
+                        sourceHost: sourceHost,
+                        isTranslationEnabled: isTranslationEnabled,
+                        rowSize: layout.rowSize
+                    )
                         .padding(.vertical, rowVerticalPadding)
                 }
                 .buttonStyle(.plain)

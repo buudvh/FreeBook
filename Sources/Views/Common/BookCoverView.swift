@@ -10,6 +10,9 @@ struct BookCoverView: View {
     var host: String? = nil
     /// Tiện ích nguồn. Rỗng (sách local, chỗ gọi không biết nguồn) ⇒ chỉ tải được bìa tuyệt đối, không `Referer`.
     var extensionPackageId: String = ""
+    /// Báo kích thước (điểm) của ảnh bìa mỗi khi ảnh hiển thị đổi — thumbnail giữ tỉ lệ ảnh gốc, nên nơi dùng biết
+    /// bìa ngang hay dọc (`BookDetailHeroView`). `nil` ở mọi chỗ khác.
+    var onImageSize: ((CGSize) -> Void)? = nil
 
     @Environment(\.displayScale) private var displayScale
     @State private var localImage: UIImage? = nil
@@ -40,6 +43,11 @@ struct BookCoverView: View {
         }
         .onChange(of: bookId) { _, _ in
             showCachedImageIfAvailable()
+        }
+        .onChange(of: localImage?.size, initial: true) { _, size in
+            if let size, let onImageSize {
+                onImageSize(size)
+            }
         }
         // Khóa theo cả cỡ pixel: khung đổi cỡ (xoay ngang/dọc) thì dựng lại thumbnail đúng cỡ, không kéo giãn ảnh nhỏ.
         .task(id: "\(bookId)|\(Int(pixelSize.width))x\(Int(pixelSize.height))") {

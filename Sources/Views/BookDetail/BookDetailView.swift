@@ -232,10 +232,17 @@ struct BookDetailView: View {
                 }
             }
         }
+        // Tiêu đề không hiện (mục `.principal` rỗng) nhưng vẫn giữ: màn con lấy nó làm nhãn nút quay lại.
         .navigationTitle("Chi Tiết Truyện")
         .navigationBarTitleDisplayMode(.inline)
+        // Nút quay lại của màn này chỉ còn icon, không kèm tên màn trước.
+        .toolbarRole(.editor)
         .closesWhenNsfwHidden(packageId: extensionPackageId) // tắt NSFW ⇒ đóng, kể cả truyện trên Kệ
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("")
+                    .accessibilityHidden(true)
+            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 6) {
                     ReaderTranslationScopeMenuView(
@@ -414,6 +421,7 @@ struct BookDetailView: View {
                         title: title,
                         author: author,
                         sourceName: sourceName,
+                        sourceHost: resolvedHost,
                         iconUrl: ext?.iconUrl,
                         detail: detail,
                         cleanedDetailText: cleanedDetailText,
@@ -427,6 +435,7 @@ struct BookDetailView: View {
                         downloadUrl: ext?.downloadUrl ?? "",
                         configJson: ext?.configJson ?? "{}",
                         isTranslationEnabled: isTranslationEnabled,
+                        prefersLandscapeCover: contentKind == .video,
                         onTranslateMetaIfNeeded: translateMetaIfNeeded,
                         onLoadBookDetailOnly: loadBookDetailOnly
                     )
@@ -531,7 +540,8 @@ struct BookDetailView: View {
                         }
                     }
                 }
-                .padding(.vertical)
+                // Không đệm trên: khối bìa đầu tab (`BookDetailHeroView`) nằm sát thanh tab.
+                .padding(.bottom)
             } else {
                 Spacer()
             }

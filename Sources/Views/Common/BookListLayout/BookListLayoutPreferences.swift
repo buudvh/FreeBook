@@ -7,7 +7,8 @@ import Observation
 /// sheet "Kiểu hiển thị" hay màn Cài đặt ghi, kể cả khi scope của View đổi (Khám phá đổi nguồn) mà không phải
 /// dựng lại `@AppStorage` theo khoá mới.
 ///
-/// Khoá: `bookListLayout.mode.<scope>` (rawValue của `BookListLayoutMode`) và `bookListLayout.columns.<scope>`.
+/// Khoá: `bookListLayout.mode.<scope>` (rawValue của `BookListLayoutMode`), `bookListLayout.columns.<scope>` và
+/// `bookListLayout.rowSize.<scope>` (nấc `BookListRowSize`).
 /// Khoá bắt đầu bằng chữ thường nên `BackupSettingsArchiver` tự gói vào bản sao lưu. Khôi phục sao lưu ghi thẳng
 /// `UserDefaults`, nên bảng trong RAM nạp lại theo `UserDefaults.didChangeNotification`.
 @MainActor
@@ -56,18 +57,29 @@ final class BookListLayoutPreferences {
         UserDefaults.standard.set(clamped, forKey: Self.columnsKey(scope))
     }
 
-    /// Nút "Đặt lại mặc định" ở màn Cài đặt: xoá khoá ⇒ mọi scope về Danh sách, 3 cột.
+    func setRowSize(_ level: Int, for scope: BookListLayoutScope) {
+        var layout = layout(for: scope)
+        let size = BookListRowSize(level: level)
+        guard layout.rowSize != size else { return }
+        layout.rowSize = size
+        layouts[scope] = layout
+        UserDefaults.standard.set(size.level, forKey: Self.rowSizeKey(scope))
+    }
+
+    /// Nút "Đặt lại mặc định" ở màn Cài đặt: xoá khoá ⇒ mọi scope về Danh sách, 3 cột, cỡ dòng mặc định.
     func resetAll() {
         let defaults = UserDefaults.standard
         for scope in BookListLayoutScope.allCases {
             defaults.removeObject(forKey: Self.modeKey(scope))
             defaults.removeObject(forKey: Self.columnsKey(scope))
+            defaults.removeObject(forKey: Self.rowSizeKey(scope))
         }
         layouts = Self.readAll()
     }
 
     nonisolated static func modeKey(_ scope: BookListLayoutScope) -> String { "bookListLayout.mode.\(scope.rawValue)" }
     nonisolated static func columnsKey(_ scope: BookListLayoutScope) -> String { "bookListLayout.columns.\(scope.rawValue)" }
+    nonisolated static func rowSizeKey(_ scope: BookListLayoutScope) -> String { "bookListLayout.rowSize.\(scope.rawValue)" }
 
     nonisolated static func clampColumns(_ value: Int) -> Int {
         min(max(value, columnRange.lowerBound), columnRange.upperBound)
@@ -88,7 +100,12 @@ final class BookListLayoutPreferences {
         for scope in BookListLayoutScope.allCases {
             let mode = defaults.string(forKey: modeKey(scope)).flatMap(BookListLayoutMode.init(rawValue:)) ?? .list
             let storedColumns = defaults.object(forKey: columnsKey(scope)) as? Int
-            result[scope] = BookListLayout(mode: mode, columns: clampColumns(storedColumns ?? defaultColumns))
+            let storedRowSize = defaults.object(forKey: rowSizeKey(scope)) as? Int
+            result[scope] = BookListLayout(
+                mode: mode,
+                columns: clampColumns(storedColumns ?? defaultColumns),
+                rowSize: BookListRowSize(level: storedRowSize ?? BookListRowSize.defaultLevel)
+            )
         }
         return result
     }

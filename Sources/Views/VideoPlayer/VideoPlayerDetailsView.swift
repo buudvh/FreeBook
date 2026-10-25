@@ -64,17 +64,19 @@ struct VideoPlayerDetailsView: View {
         )
     }
 
+    /// Tên phim và tên tập hiện đầy đủ, không cắt dòng — phần này nằm trong `ScrollView` nên tên dài chỉ đẩy lưới tập
+    /// xuống.
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(session.bookTitle)
                 .font(.title3.weight(.bold))
                 .foregroundStyle(.white)
-                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
             if !session.currentEpisodeLabel.isEmpty {
                 Text(session.currentEpisodeLabel)
                     .font(.subheadline)
                     .foregroundStyle(.white.opacity(0.7))
-                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if session.phase == .embed {
                 Text("Đang phát nhúng trang nguồn — bấm play trong khung phim.")

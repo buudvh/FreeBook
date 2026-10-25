@@ -16,11 +16,13 @@ struct DiscoveryNovelRowView: View {
     /// Cờ dịch **theo nguồn** (`TranslationConfigStore`, do màn cha tính) — không đọc công tắc dịch toàn app, nếu không
     /// tắt dịch cho một nguồn thì danh sách vẫn dịch.
     let isTranslationEnabled: Bool
+    /// Cỡ dòng của kiểu Danh sách (`BookListLayout.rowSize`); nấc mặc định giữ đúng bố cục cũ.
+    var rowSize: BookListRowSize = .default
 
     var body: some View {
         HStack(spacing: 12) {
             Color(.secondarySystemBackground)
-                .frame(width: 50, height: 70)
+                .frame(width: rowSize.coverWidth, height: rowSize.coverHeight)
                 .overlay {
                     RemoteCoverImage(
                         url: item.cover,
@@ -35,17 +37,17 @@ struct DiscoveryNovelRowView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(DisplayTextFormatter.titleCase(translateIfNeeded(item.name, bookId: item.link)))
-                    .font(.system(size: 14.5, weight: .semibold))
-                    .lineLimit(2)
+                    .font(rowSize.font(.system(size: 14.5, weight: .semibold), base: 14.5, weight: .semibold))
+                    .lineLimit(rowSize.titleLineLimit)
 
                 if !item.description.isEmpty {
                     Text(translateIfNeeded(item.description.cleanHTML()))
-                        .font(.caption2)
+                        .font(rowSize.font(.caption2, base: 11))
                         .foregroundColor(.secondary)
-                        .lineLimit(2)
+                        .lineLimit(rowSize.isCompact ? 1 : 2)
                 } else if !item.author.isEmpty {
                     Text(DisplayTextFormatter.titleCase(displayedAuthor))
-                        .font(.system(size: 13))
+                        .font(rowSize.font(.system(size: 13), base: 13))
                         .foregroundColor(.secondary)
                         .lineLimit(1)
                 }

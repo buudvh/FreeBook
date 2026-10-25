@@ -4,8 +4,8 @@ import SwiftUI
 /// video) — cùng phạm vi kiểu hiển thị với Khám phá của nguồn đó.
 ///
 /// Two branches that never mix (same rule as `DiscoveryNovelsLayoutView`):
-/// - `.list` → `List` of the search row, kept exactly as before the layout option existed (cover 50×70, description →
-///   content → author, source-name chip).
+/// - `.list` → `List` of the search row, sized by `layout.rowSize`; the default size is exactly the row from before the
+///   layout option existed (cover 50×70, description → content → author, source-name chip).
 /// - `.grid` / `.coverOnly` → `ScrollView` + `LazyVGrid` of `DiscoveryNovelGridCardView`. A `LazyVGrid` must never be
 ///   nested inside a `List` row.
 ///
@@ -40,33 +40,37 @@ struct SearchSingleSourceResultsView: View {
         .listStyle(.plain)
     }
 
+    /// Cỡ theo `layout.rowSize`; nấc mặc định giữ đúng dòng cũ. Nấc gọn (1–2) bỏ chip tên nguồn, mô tả 1 dòng.
     private func listRow(_ item: ExtensionItemResultWithExt) -> some View {
-        HStack(spacing: 12) {
-            SearchView.searchResultCover(item.result, ext: item.ext, width: 50, height: 70)
+        let size = layout.rowSize
+        return HStack(spacing: 12) {
+            SearchView.searchResultCover(item.result, ext: item.ext, width: size.coverWidth, height: size.coverHeight)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(DisplayTextFormatter.titleCase(translateIfNeeded(item.result.name)))
-                    .font(.subheadline)
+                    .font(size.font(.subheadline, base: 15))
                     .fontWeight(.bold)
                     .foregroundColor(.primary)
-                    .lineLimit(2)
+                    .lineLimit(size.titleLineLimit)
                     .multilineTextAlignment(.leading)
 
                 let descText = !item.result.description.isEmpty ? item.result.description : (!item.result.content.isEmpty ? item.result.content : item.result.author)
                 Text(translateIfNeeded(descText))
-                    .font(.caption)
+                    .font(size.font(.caption, base: 12))
                     .foregroundColor(.secondary)
-                    .lineLimit(2)
+                    .lineLimit(size.isCompact ? 1 : 2)
                     .multilineTextAlignment(.leading)
 
-                Text(item.ext.name)
-                    .font(.system(size: 9))
-                    .fontWeight(.semibold)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.white.opacity(0.12))
-                    .foregroundColor(.white)
-                    .cornerRadius(4)
+                if !size.isCompact {
+                    Text(item.ext.name)
+                        .font(.system(size: 9))
+                        .fontWeight(.semibold)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.white.opacity(0.12))
+                        .foregroundColor(.white)
+                        .cornerRadius(4)
+                }
             }
         }
         .padding(.vertical, 4)

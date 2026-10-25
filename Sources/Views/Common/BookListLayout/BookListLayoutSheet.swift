@@ -34,7 +34,8 @@ struct BookListLayoutSheet: View {
             Spacer(minLength: 0)
         }
         .padding(20)
-        .presentationDetents([.height(240)])
+        // Đủ chỗ cho thanh "Cỡ dòng" (cao hơn bước "Số cột") cộng dòng ghi chú của Video.
+        .presentationDetents([.height(268)])
         .presentationDragIndicator(.visible)
     }
 }

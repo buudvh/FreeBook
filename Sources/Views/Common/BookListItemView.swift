@@ -39,8 +39,8 @@ struct BookListItemView<Item: BookDisplayable>: View {
     let item: Item
     var showChapter: Bool
     var showDescription: Bool
-    var coverWidth: CGFloat
-    var coverHeight: CGFloat
+    /// Cỡ dòng của kiểu Danh sách (`BookListLayout.rowSize`); nấc mặc định = bìa 50×70 như trước.
+    var rowSize: BookListRowSize
     var extensionLocalPath: String
     var extensionIconUrl: String?
     /// Tiện ích nguồn của item khi `item` không tự biết (`ExtensionItemResult` ở Khám phá/thể loại) — để bìa có
@@ -54,8 +54,7 @@ struct BookListItemView<Item: BookDisplayable>: View {
         style: BookListItemStyle = .shelfOrHistory,
         showChapter: Bool? = nil,
         showDescription: Bool? = nil,
-        coverWidth: CGFloat = 50,
-        coverHeight: CGFloat = 70,
+        rowSize: BookListRowSize = .default,
         extensionLocalPath: String = "",
         extensionIconUrl: String? = nil,
         extensionPackageId: String = ""
@@ -69,8 +68,7 @@ struct BookListItemView<Item: BookDisplayable>: View {
             self.showChapter = showChapter ?? false
             self.showDescription = showDescription ?? true
         }
-        self.coverWidth = coverWidth
-        self.coverHeight = coverHeight
+        self.rowSize = rowSize
         self.extensionLocalPath = extensionLocalPath
         self.extensionIconUrl = extensionIconUrl
         self.extensionPackageId = extensionPackageId
@@ -81,8 +79,8 @@ struct BookListItemView<Item: BookDisplayable>: View {
             BookCoverView(
                 bookId: item.bookId,
                 coverUrl: item.coverUrl,
-                width: coverWidth,
-                height: coverHeight,
+                width: rowSize.coverWidth,
+                height: rowSize.coverHeight,
                 host: item.coverHost,
                 extensionPackageId: coverPackageId
             )
@@ -93,12 +91,14 @@ struct BookListItemView<Item: BookDisplayable>: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(BookDisplayTranslation.title(item.title, bookId: item.bookId, isEnabled: isTranslationEnabled))
-                    .font(.system(size: 14.5, weight: .semibold))
-                    .lineLimit(2)
+                    .font(rowSize.font(.system(size: 14.5, weight: .semibold), base: 14.5, weight: .semibold))
+                    .lineLimit(rowSize.titleLineLimit)
 
-                if showDescription, !item.description.isEmpty {
+                if rowSize.isCompact {
+                    compactSubtitle
+                } else if showDescription, !item.description.isEmpty {
                     Text(translateIfNeeded(item.description.cleanHTML()))
-                        .font(.caption2)
+                        .font(rowSize.font(.caption2, base: 11))
                         .foregroundColor(.secondary)
                         .lineLimit(2)
                 } else {
@@ -108,7 +108,7 @@ struct BookListItemView<Item: BookDisplayable>: View {
                         HStack(spacing: 8) {
                             if hasAuthor {
                                 Text(DisplayTextFormatter.titleCase(displayedAuthor))
-                                    .font(.system(size: 13))
+                                    .font(rowSize.font(.system(size: 13), base: 13))
                                     .foregroundColor(.secondary)
                                     .lineLimit(1)
                             }
@@ -122,7 +122,7 @@ struct BookListItemView<Item: BookDisplayable>: View {
                     }
                 }
 
-                if showChapter {
+                if showChapter, !rowSize.isCompact {
                     let rawChapterTitle = item.currentChapterTitle.isEmpty
                         ? "Chương \(item.currentChapterIndex + 1)"
                         : item.currentChapterTitle
@@ -132,7 +132,7 @@ struct BookListItemView<Item: BookDisplayable>: View {
 
                     if !chapterTitle.isEmpty {
                         Text("Đang đọc: \(chapterTitle)")
-                            .font(.caption2)
+                            .font(rowSize.font(.caption2, base: 11))
                             .foregroundColor(.white)
                             .lineLimit(1)
                     }
@@ -141,6 +141,34 @@ struct BookListItemView<Item: BookDisplayable>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .contentShape(Rectangle())
+    }
+
+    /// Dòng gọn (nấc 1–2) thay cho dòng phụ + "Đang đọc": mô tả (kiểu Khám phá) hoặc "tác giả · Ch. N" (kiểu kệ;
+    /// video ghi "Tập N" như thẻ lưới).
+    @ViewBuilder
+    private var compactSubtitle: some View {
+        let text = compactSubtitleText
+        if !text.isEmpty {
+            Text(text)
+                .font(rowSize.font(.caption2, base: 11))
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+        }
+    }
+
+    private var compactSubtitleText: String {
+        if showDescription, !item.description.isEmpty {
+            return translateIfNeeded(item.description.cleanHTML())
+        }
+        var parts: [String] = []
+        if !item.author.isEmpty {
+            parts.append(DisplayTextFormatter.titleCase(displayedAuthor))
+        }
+        if showChapter {
+            let isVideo = ExtensionContentKind.resolve(packageId: coverPackageId) == .video
+            parts.append("\(isVideo ? "Tập" : "Ch.") \(item.currentChapterIndex + 1)")
+        }
+        return parts.joined(separator: " · ")
     }
 
     /// Luật dịch dùng chung với thẻ lưới phía kệ — xem `BookDisplayTranslation`.
@@ -179,7 +207,7 @@ struct BookListItemView<Item: BookDisplayable>: View {
                     .foregroundColor(.secondary)
             }
             Text(text)
-                .font(.caption2)
+                .font(rowSize.font(.caption2, base: 11))
                 .fontWeight(.medium)
                 .foregroundColor(.secondary)
                 .lineLimit(1)
