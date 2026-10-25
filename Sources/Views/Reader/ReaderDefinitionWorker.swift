@@ -36,7 +36,7 @@ actor ReaderDefinitionWorker {
         return try TranslationReadContext.$current.withValue(context) {
             let key = "\(context.generation)|\(request.bookId)|\(request.sentence)"
             let tokens = key == tokenKey ? cachedTokens
-                : TranslateUtils.getRuleAwareTokens(for: request.sentence, bookId: request.bookId)
+                : TranslateUtils.getTranslationTokens(for: request.sentence, bookId: request.bookId)
             try Task.checkCancellation()
             let meaning: String
             let matches: [DictionaryMatchInfo]
@@ -47,7 +47,8 @@ actor ReaderDefinitionWorker {
                         shouldConvertTraditionalToSimplified: request.convertTraditional)
                     : ReaderSelectionCoordinator.hanViet(for: request.word)
                 matches = ReaderView.dictionaryMatches(for: request.word, bookId: request.bookId)
-                suggestions = ReaderView.buildSuggestionChips(for: request.word, bookId: request.bookId)
+                // Cùng danh sách với màn quản lý định nghĩa ⇒ màn đó có nghĩa nào thì chip có nghĩa đó.
+                suggestions = ReaderView.suggestionChips(from: matches)
             } else {
                 meaning = ""
                 matches = []

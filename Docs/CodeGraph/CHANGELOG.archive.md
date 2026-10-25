@@ -2,6 +2,23 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.571] - 2026-10-21
+
+### feat: màn quản lý nguồn Legado: chi tiết, sửa JSON, gỡ lỗi, kiểm tra hàng loạt, xuất, liên kết legado://
+
+Khối F, G, H của plan đợt 2 + 3 nguồn Legado. Giao diện khớp mockup người dùng đã duyệt 2026-10-21. Hành vi Legado theo spec phần 2 §12.
+
+- **Chi tiết nguồn** (`Views/Extensions/Legado/LegadoSourceDetailView` + `…DetailHeaderCard`, mới): chạm dòng ở tab Nguồn Legado (toggle và 🗑 giữ nguyên) ⇒ thẻ đầu (tên QT, tên gốc · phiên bản, chip, URL, ghi chú "Xem thêm"), nút tròn Trình duyệt / Đăng nhập (khi có `loginUrl`) / Xoá; mục Hoạt động (Bật nguồn, **Biến của nguồn** — `…VariablesView`, gợi ý từ `variableComment`); mục Công cụ (Sửa JSON, Gỡ lỗi từng bước, Kiểm tra nguồn này, Chia sẻ nguồn).
+- **Sửa JSON** (`…JSONEditorView`): dùng lại trình sửa code của tiện ích JS (Cú pháp / Định dạng / Tải lại, đếm dòng/ký tự, cỡ chữ); chỉ lưu khi JSON hợp lệ (`LegadoSourceJSONValidator`, báo dòng lỗi); đổi `bookSourceUrl` ⇒ hỏi lại. Lưu qua `LegadoSourceCoordinator+Editing` (ghi dạng chuẩn hoá + `lastUpdateTime`, tăng `version`; runtime tự bỏ bản đệm cũ theo `version`).
+- **Gỡ lỗi từng bước** (`…DebugView`, `…DebugStepCard`; `Services/LegadoSource/Debug/` mới: `LegadoSourceDebugRunner`, `LegadoDebugInput`, `LegadoDebugStep`, `LegadoDebugReportFormatter`): chế độ từ khoá / URL chi tiết / `++` mục lục / `--` nội dung / `::` khám phá; thẻ từng bước có request, HTTP, bảng mã, số kết quả, trường mục đầu, thời gian, lớp lỗi, log JS / hàm chưa hỗ trợ, "Xem HTML trang (cắt 4 KB)". `LegadoRunLog` gom thêm ghi vết request của engine. Bản sao chép báo cáo che giá trị query; không gửi gì ra ngoài.
+- **Kiểm tra hàng loạt** (`…CheckView`, `…CheckRow`): từ menu ⋯ (danh sách đang hiện) hoặc từ chi tiết; dùng `LegadoCorpusRunner` trong app; Đạt / Lỗi / Còn lại, chip lọc, nút bọ ⇒ Gỡ lỗi, **Tắt nguồn lỗi**, **Gắn nhóm "Lỗi"**, **Xoá nguồn lỗi** (hỏi xác nhận), Dừng. Nguồn đang tắt không kiểm (bộ chạy bỏ qua).
+- **Xuất / chia sẻ** (`LegadoSourceExporter`): tệp `.json` là mảng `source.json` nguyên văn, qua `ShareSheet` có sẵn. Menu ⋯ thêm "Kiểm tra nguồn …" / "Xuất nguồn …"; "Bật/Tắt tất cả (theo danh sách đang hiện)" — đổi nhãn theo người dùng.
+- **Liên kết `legado://`**: `CFBundleURLTypes` (scheme `legado`) trong `project.yml`; `LegadoLinkImportModifier` ở root (`FreeBookApp` 131 → 133) hỏi "Nhập nguồn từ liên kết?" rồi nhập như "Nhập từ URL" (chỉ http/https, tối đa 20 MB); dạng khác báo chưa hỗ trợ.
+- **NSFW**: `ExtensionNsfwClassifier+Legado` nhận nguồn Legado theo nhóm/tên (cờ `nsfw` ghi vào `plugin.json`, bù cho nguồn đã nhập theo lô 200); tab Legado theo công tắc NSFW chung. Tìm kiếm/Khám phá bỏ heuristic theo ghi chú với nguồn Legado (41 nguồn bị gắn nhầm 18+ vì ghi chú có chữ `java.`).
+- **Backup** (`BackupLegadoStateArchiver`, mới): đưa sidecar truyện + biến/giá trị/cache của trạng thái nguồn trong `legado_state/` vào backup; **không** sao lưu cookie, đăng nhập (Keychain), `device.json`, `jslib/`. Khôi phục sau bước cài lại tiện ích, gộp theo khoá, giữ bản của máy. `BackupLibraryFingerprint.formatVersion` 3 → 4.
+- Chuyển entry `[1.3.536]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**; `RepositoryManagerView.swift` không đổi. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.570] - 2026-10-21
 
 ### feat: truyện tranh và video từ nguồn Legado

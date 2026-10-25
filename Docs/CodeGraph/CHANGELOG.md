@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.601] - 2026-10-25
+
+### fix: chip gợi ý màn Dịch hiện đủ nghĩa như màn quản lý, hoàn tác 1.3.600
+
+Người dùng: *"lỗi là lỗi thỉnh thoảng có token dù có nghĩa vp/name nhưng chip chỉ hiển thị hán việt"*, *"màn quản lý nghĩa hiển thị được đầy đủ, chỉ chip thiếu"* → *"dựng thẳng từ đúng danh sách mà màn quản lý đang dùng"*; chọn hoàn tác 1.3.600.
+
+- **Nguyên nhân**: thanh chip gợi ý (viền đỏ/xanh/xám, cạnh nút ⚙) tự tra lại từ điển bằng `buildSuggestionChips`, lệch với `dictionaryMatches` mà màn quản lý định nghĩa dùng ở hai chỗ: bỏ **cả mục** VietPhrase chung khi nghĩa dài ≥ 100 ký tự (giới hạn có từ bản đầu, không ghi lý do — từ thông dụng nhiều nghĩa rất hay vượt), và không tra Xưng hô / Luật nhân ⇒ thanh chỉ còn chip Hán-Việt.
+- **Sửa** (`ReaderView+Suggestions`): chip dựng thẳng từ `dictionaryMatches` — `suggestionChips(from:)` tách mỗi nguồn theo `/` và `¦`, bỏ nghĩa trùng, giữ thứ tự nguồn; nhãn "Names (…)" viền đỏ, "Phiên âm" viền xám (chữ thường như cũ), còn lại viền xanh. `ReaderDefinitionWorker` dùng **chính** mảng `matches` vừa tính cho màn quản lý; `buildSuggestionChips` còn là lớp bọc (bỏ khoảng trắng hai đầu rồi gọi `dictionaryMatches`).
+- **Hoàn tác code của 1.3.600**: chẩn đoán "rule dịch" ở 1.3.600 không phải nguyên nhân của báo lỗi này (người dùng xác nhận từ lỗi không nằm trong rule, và thanh lỗi là thanh chip gợi ý chứ không phải hàng token gạch chân). `getRuleAwareTokens`, `Segment.captures` và lời gọi trong worker trở về như trước 1.3.600; entry 1.3.600 giữ nguyên làm lịch sử.
+- Đánh đổi: từ nhiều nghĩa ra nhiều chip (thanh cuộn ngang); Xưng hô / Luật nhân hiện cả khi công tắc tắt — giống màn quản lý.
+- Chuyển entry `[1.3.571]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy — chạm lại token từng lỗi, thanh chip phải có chip xanh/đỏ bên cạnh chip xám.
+
 ## [1.3.600] - 2026-10-25
 
 ### fix: chip token ở màn Dịch tách từ theo rule dịch giống trang đọc
@@ -381,20 +394,3 @@ Khối D-UI, E-UI của plan đợt 2 + 3 nguồn Legado — giao diện khớp 
 - **Chưa làm**: `refreshContent` chưa nối vào trình đọc (chỉ ghi log); trình duyệt nhỏ chưa xử lý `alert()` của trang.
 - Chuyển entry `[1.3.537]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới** (`ChapterContentRepository` 430 → 430, `ReaderViewModel` 777 → 777, `DiscoveryView` 621 → 622, `SearchView` 794 → 794, `ComicReaderViewModel` 395 → 395). Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.571] - 2026-10-21
-
-### feat: màn quản lý nguồn Legado: chi tiết, sửa JSON, gỡ lỗi, kiểm tra hàng loạt, xuất, liên kết legado://
-
-Khối F, G, H của plan đợt 2 + 3 nguồn Legado. Giao diện khớp mockup người dùng đã duyệt 2026-10-21. Hành vi Legado theo spec phần 2 §12.
-
-- **Chi tiết nguồn** (`Views/Extensions/Legado/LegadoSourceDetailView` + `…DetailHeaderCard`, mới): chạm dòng ở tab Nguồn Legado (toggle và 🗑 giữ nguyên) ⇒ thẻ đầu (tên QT, tên gốc · phiên bản, chip, URL, ghi chú "Xem thêm"), nút tròn Trình duyệt / Đăng nhập (khi có `loginUrl`) / Xoá; mục Hoạt động (Bật nguồn, **Biến của nguồn** — `…VariablesView`, gợi ý từ `variableComment`); mục Công cụ (Sửa JSON, Gỡ lỗi từng bước, Kiểm tra nguồn này, Chia sẻ nguồn).
-- **Sửa JSON** (`…JSONEditorView`): dùng lại trình sửa code của tiện ích JS (Cú pháp / Định dạng / Tải lại, đếm dòng/ký tự, cỡ chữ); chỉ lưu khi JSON hợp lệ (`LegadoSourceJSONValidator`, báo dòng lỗi); đổi `bookSourceUrl` ⇒ hỏi lại. Lưu qua `LegadoSourceCoordinator+Editing` (ghi dạng chuẩn hoá + `lastUpdateTime`, tăng `version`; runtime tự bỏ bản đệm cũ theo `version`).
-- **Gỡ lỗi từng bước** (`…DebugView`, `…DebugStepCard`; `Services/LegadoSource/Debug/` mới: `LegadoSourceDebugRunner`, `LegadoDebugInput`, `LegadoDebugStep`, `LegadoDebugReportFormatter`): chế độ từ khoá / URL chi tiết / `++` mục lục / `--` nội dung / `::` khám phá; thẻ từng bước có request, HTTP, bảng mã, số kết quả, trường mục đầu, thời gian, lớp lỗi, log JS / hàm chưa hỗ trợ, "Xem HTML trang (cắt 4 KB)". `LegadoRunLog` gom thêm ghi vết request của engine. Bản sao chép báo cáo che giá trị query; không gửi gì ra ngoài.
-- **Kiểm tra hàng loạt** (`…CheckView`, `…CheckRow`): từ menu ⋯ (danh sách đang hiện) hoặc từ chi tiết; dùng `LegadoCorpusRunner` trong app; Đạt / Lỗi / Còn lại, chip lọc, nút bọ ⇒ Gỡ lỗi, **Tắt nguồn lỗi**, **Gắn nhóm "Lỗi"**, **Xoá nguồn lỗi** (hỏi xác nhận), Dừng. Nguồn đang tắt không kiểm (bộ chạy bỏ qua).
-- **Xuất / chia sẻ** (`LegadoSourceExporter`): tệp `.json` là mảng `source.json` nguyên văn, qua `ShareSheet` có sẵn. Menu ⋯ thêm "Kiểm tra nguồn …" / "Xuất nguồn …"; "Bật/Tắt tất cả (theo danh sách đang hiện)" — đổi nhãn theo người dùng.
-- **Liên kết `legado://`**: `CFBundleURLTypes` (scheme `legado`) trong `project.yml`; `LegadoLinkImportModifier` ở root (`FreeBookApp` 131 → 133) hỏi "Nhập nguồn từ liên kết?" rồi nhập như "Nhập từ URL" (chỉ http/https, tối đa 20 MB); dạng khác báo chưa hỗ trợ.
-- **NSFW**: `ExtensionNsfwClassifier+Legado` nhận nguồn Legado theo nhóm/tên (cờ `nsfw` ghi vào `plugin.json`, bù cho nguồn đã nhập theo lô 200); tab Legado theo công tắc NSFW chung. Tìm kiếm/Khám phá bỏ heuristic theo ghi chú với nguồn Legado (41 nguồn bị gắn nhầm 18+ vì ghi chú có chữ `java.`).
-- **Backup** (`BackupLegadoStateArchiver`, mới): đưa sidecar truyện + biến/giá trị/cache của trạng thái nguồn trong `legado_state/` vào backup; **không** sao lưu cookie, đăng nhập (Keychain), `device.json`, `jslib/`. Khôi phục sau bước cài lại tiện ích, gộp theo khoá, giữ bản của máy. `BackupLibraryFingerprint.formatVersion` 3 → 4.
-- Chuyển entry `[1.3.536]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**; `RepositoryManagerView.swift` không đổi. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
