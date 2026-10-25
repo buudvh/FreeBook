@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.600] - 2026-10-25
+
+### fix: chip token ở màn Dịch tách từ theo rule dịch giống trang đọc
+
+Người dùng: *"bị lỗi ở màn hình dịch của reader, thỉnh thoảng xuất hiện vài token thanh chip không có nghĩa, mặc dù sự thật chúng có nghĩa ở vp, name"* — chip hiện Hán-Việt, trang đọc dịch đúng, truyện không bật Phồn → Giản; duyệt phương án "mỗi từ một chip".
+
+- **Nguyên nhân**: trang đọc (`performTranslation`) áp rule dịch (bật sẵn) **trước** khi tách token — rule tự bắt từ VP/Names (thử mọi độ dài, quay lui) rồi thay cả cụm bằng nghĩa. Thanh token của panel Dịch (`ReaderDefinitionWorker` → `getTranslationTokens`) tách thẳng chữ gốc, không qua rule: ở cụm rule đã xử lý, tokenizer chọn mục dài nhất toàn cục có thể vớ một mục VP vắt qua ranh giới token của rule và bỏ lại chữ lẻ không có mục riêng ⇒ chip hiện Hán-Việt. Đoạn không có rule khớp thì hai bên tách giống hệt — vì vậy chỉ "thỉnh thoảng".
+- **Sửa**: `TranslateUtils.getRuleAwareTokens(for:bookId:)` (mới, `TranslateUtils+Tokenization`) — không có rule khớp ⇒ trả nguyên `getTranslationTokens`; đoạn đi qua ⇒ tách từ điển trên khúc gốc rồi dời offset; cụm rule ⇒ mỗi token rule một chip mang đúng nghĩa trang đang hiện, chữ giữa các token (literal của mẫu) tách từ điển; token rỗng/còn chữ Hán ⇒ tách chữ gốc; rule không có token ⇒ một chip cho cả cụm với kết quả rule. `QuickTranslationRewriteResult.Segment` thêm `captures` (mặc định `[]`), `QuickTranslationRuleEngine.assemble` ghi `match.captures` vào đoạn rule. `ReaderDefinitionWorker` gọi hàm mới ⇒ áp cho cả panel Dịch, Copy nội dung gốc, Xoá từ rác.
+- **Không đổi**: `getTranslationTokens` (span, `mapSelection`, `snapToToken` vẫn tách thô); chip chưa áp Phồn → Giản (trang có áp).
+- Chuyển entry `[1.3.570]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới** (`QuickTranslationRuleEngine.swift` giữ 399 dòng). CI là cổng biên dịch; chưa thử trên máy — mở lại đoạn từng lỗi, chip ở chỗ rule khớp phải hiện đúng nghĩa như trang.
+
 ## [1.3.599] - 2026-10-25
 
 ### feat: tab Chi tiết bìa lớn, cỡ dòng danh sách 7 nấc, tên phim hiện đầy đủ
@@ -386,20 +398,3 @@ Khối F, G, H của plan đợt 2 + 3 nguồn Legado. Giao diện khớp mockup
 - **Backup** (`BackupLegadoStateArchiver`, mới): đưa sidecar truyện + biến/giá trị/cache của trạng thái nguồn trong `legado_state/` vào backup; **không** sao lưu cookie, đăng nhập (Keychain), `device.json`, `jslib/`. Khôi phục sau bước cài lại tiện ích, gộp theo khoá, giữ bản của máy. `BackupLibraryFingerprint.formatVersion` 3 → 4.
 - Chuyển entry `[1.3.536]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**; `RepositoryManagerView.swift` không đổi. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.570] - 2026-10-21
-
-### feat: truyện tranh và video từ nguồn Legado
-
-Khối A, B, C (và phần cấp luồng của khối I) của plan đợt 2 + 3 nguồn Legado (người dùng đã duyệt). Hành vi theo spec phần 2 §8, §9, §13, §15.3.
-
-- **Facade media** `SourceRuntime+Media` (mới): `comicPages`/`videoServers`/`videoTrack` cùng nhãn tham số với `ExtensionManager+Media`; tiện ích JS chuyển nguyên tham số, nguồn Legado chạy engine. Nối `ComicReaderViewModel` (+`+SourceContext`), `DownloadManager+Comic`, `VideoPlaybackSession+Loading`. Không còn lời gọi `ExtensionManager.shared.(comicPages|videoServers|videoTrack)(` ngoài facade. Media vẫn **không** đi qua pipeline text; `chap` gọi trên nguồn tranh/video ném lỗi rõ ràng.
-- **Tranh** (`Runtime/LegadoSourceRuntime+Comic`, `LegadoComicImageExtractor`): nội dung chương ⇒ `[ComicPageSource]` (giữ `src` nguyên văn kể cả khối option; thiếu Referer thì chèn vào option), phân trang nội dung. `imageDecode`: `ComicPageSource.script` mang tên giả của Legado, `ComicImageScriptRunner` rẽ sang engine giải mã bytes → bytes (`+ImageDecode`; ảnh vẫn qua `concurrentRate`). Chương không có ảnh ⇒ lỗi kèm tối đa 600 ký tự chữ của trang.
-- **Video** (`+Video`, `LegadoVideoServerPayload`): mỗi tập đúng một server (nguồn Legado không có khái niệm server); `data` là JSON chứa URL tập + ngữ cảnh; URL phát giải lại mỗi lần `videoTrack` (kể cả Thử lại / chọn lại) vì có chữ ký hết hạn; URL tập đã là tệp media thì không tải thân.
-- **Mục lục tranh/video**: mục `isVolume` thành dòng tiêu đề nhóm (`isSection`); truyện chữ vẫn bỏ như cũ.
-- **Phần đuôi cấp luồng** (`+TocTail`): `preUpdateJs`, `formatJs` (`index` đếm từ 1, trần 2 s), hiệu lực `book.setReverseToc`, `refreshTocUrl`/`reGetBook`, `sourceRegex` chuyển cho engine.
-- **Mở loại**: `LegadoSourcePolicy` nhận chữ + tranh + video (chip "Chưa hỗ trợ" tự mất); Tìm kiếm / Khám phá / Đổi nguồn nhận nguồn tranh/video Legado theo loại.
-- **Bộ chạy nghiệm thu**: nguồn tranh/video đo ở bước nội dung (`LegadoCorpusProbe+Media`, trường tuỳ chọn `SourceResult.media`); không đổi API public.
-- **Chưa làm**: `coverDecodeJs` (2 nguồn), `imageStyle`, `ruleContent.title`, `canReName`; ghi đè loại theo từng sách (`typeOverride` đã lưu, `BookContentDestination` chưa đọc).
-- Chuyển entry `[1.3.535]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới** (`ComicReaderViewModel.swift` 394 → 395). Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.

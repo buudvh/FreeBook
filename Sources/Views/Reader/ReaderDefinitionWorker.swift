@@ -36,7 +36,7 @@ actor ReaderDefinitionWorker {
         return try TranslationReadContext.$current.withValue(context) {
             let key = "\(context.generation)|\(request.bookId)|\(request.sentence)"
             let tokens = key == tokenKey ? cachedTokens
-                : TranslateUtils.getTranslationTokens(for: request.sentence, bookId: request.bookId)
+                : TranslateUtils.getRuleAwareTokens(for: request.sentence, bookId: request.bookId)
             try Task.checkCancellation()
             let meaning: String
             let matches: [DictionaryMatchInfo]

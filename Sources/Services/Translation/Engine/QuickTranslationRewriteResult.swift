@@ -12,11 +12,18 @@ public struct QuickTranslationRewriteResult: Sendable {
         public let outputRange: NSRange
         /// Dòng rule đã sinh đoạn này; `nil` = đoạn đi qua nguyên vẹn.
         public let sourceLine: Int?
+        /// Các token rule đã nuốt (nghĩa đã render + range **nguồn** tuyệt đối); rỗng ở đoạn đi qua.
+        /// Thanh token của panel Dịch tách cụm rule theo đúng các token này thay vì tách lại bằng từ điển.
+        public let captures: [QuickTranslationRuleMatcher.Capture]
 
-        public init(sourceRange: NSRange, outputRange: NSRange, sourceLine: Int?) {
+        public init(
+            sourceRange: NSRange, outputRange: NSRange, sourceLine: Int?,
+            captures: [QuickTranslationRuleMatcher.Capture] = []
+        ) {
             self.sourceRange = sourceRange
             self.outputRange = outputRange
             self.sourceLine = sourceLine
+            self.captures = captures
         }
     }
 

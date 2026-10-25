@@ -345,7 +345,7 @@ public enum QuickTranslationRuleEngine {
             segments.append(QuickTranslationRewriteResult.Segment(
                 sourceRange: NSRange(location: match.start, length: match.length),
                 outputRange: NSRange(location: outputLength, length: renderedLength),
-                sourceLine: match.sourceLine
+                sourceLine: match.sourceLine, captures: match.captures
             ))
             outputLength += renderedLength
             cursor = match.start + match.length
