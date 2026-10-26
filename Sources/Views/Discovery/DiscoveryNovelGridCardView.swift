@@ -7,7 +7,7 @@ import SwiftUI
 ///   `ExploreCoverView`, ảnh không làm phình bố cục. **Không** dùng `BookCoverView`: nó ghi bìa xuống `covers/`, còn
 ///   item Khám phá chỉ là danh sách tạm (xem comment đầu `DiscoveryNovelRowView`). Referer = host item → `source`.
 /// - `.grid`: tên 2 dòng + mô tả 1 dòng dưới bìa (như `ExploreItemCard`).
-/// - `.coverOnly`: tên đè lên dải mờ ở đáy bìa.
+/// - `.coverOnly`: tên đè lên dải tối ở đáy bìa (`CoverCaptionStrip`).
 /// - Dịch theo cùng luật với `DiscoveryNovelRowView`: chỉ dịch khi cờ dịch **theo nguồn** bật và chuỗi có chữ Hán.
 ///
 /// Bề rộng do cột lưới quyết định; chiều cao bìa suy ra từ `aspectRatio`. Nơi dùng bọc thẻ trong `Button`.
@@ -68,25 +68,15 @@ struct DiscoveryNovelGridCardView: View {
             }
     }
 
-    /// Tên truyện trên dải tối mờ dần lên trên — đọc được trên mọi bìa. Nằm trong khung đã `clipShape` nên góc
-    /// dưới bo theo bìa.
+    /// Tên truyện trên dải tối ở đáy bìa — cùng kiểu với kiểu chỉ bìa của Kệ. Nằm trong khung đã `clipShape` nên góc
+    /// dưới bo theo bìa. Bìa ngang 16:9 thấp: một dòng tên và phần chuyển thấp.
     private var coverTitleStrip: some View {
-        Text(displayedTitle)
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundColor(.white)
-            .lineLimit(2)
-            .multilineTextAlignment(.leading)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 6)
-            .padding(.top, 14)
-            .padding(.bottom, 6)
-            .background(
-                LinearGradient(
-                    colors: [Color.black.opacity(0), Color.black.opacity(0.75)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
+        let isLandscape = aspectRatio > 1
+        return CoverCaptionStrip(
+            title: displayedTitle,
+            titleLineLimit: isLandscape ? 1 : 2,
+            fadeHeight: isLandscape ? CoverCaptionStrip.compactFadeHeight : CoverCaptionStrip.regularFadeHeight
+        )
     }
 
     private var displayedTitle: String {

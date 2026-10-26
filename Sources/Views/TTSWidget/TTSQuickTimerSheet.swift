@@ -325,10 +325,9 @@ struct TTSQuickTimerSheet: View {
             ttsManager.jumpToChapter(at: chapter.index)
         }) {
             HStack(spacing: 12) {
+                // Không có cột số thứ tự; chỉ chương đang phát có icon loa ở đầu hàng.
                 if isPlaying {
                     Image(systemName: "speaker.wave.2.fill").font(.system(size: 14, weight: .bold)).foregroundStyle(.tint).frame(width: 20)
-                } else {
-                    Text("\(chapter.index + 1)").font(.system(size: 12, weight: .medium, design: .monospaced)).foregroundStyle(.tertiary).frame(width: 20)
                 }
                 Text(displayTitle(for: chapter))
                     .font(.system(size: 14, weight: isPlaying ? .bold : .regular)).foregroundStyle(isPlaying ? Color.primary : Color.secondary)

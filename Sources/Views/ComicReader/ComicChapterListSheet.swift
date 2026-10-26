@@ -2,8 +2,9 @@ import SwiftUI
 
 /// Mục lục của màn đọc comic: chương đang đọc được đánh dấu, chương đã tải offline có icon; chạm để nhảy chương.
 ///
-/// `book` (nếu có) chỉ dùng cho nút **tải ảnh offline**: mở `TaskOptionsSheet` y như nhấn-giữ một truyện ở
-/// Kệ/Lịch sử. Sách chưa có trong thư viện thì không có hàng `Book` nên nút ẩn.
+/// `book` (nếu có) dùng cho hai nút ở toolbar trái: **tải ảnh offline** (mở `TaskOptionsSheet` y như nhấn-giữ một
+/// truyện ở Kệ/Lịch sử) và **thêm/bỏ kệ** (`ShelfToggleFlowModifier`, cùng luồng với danh sách chương Reader chữ).
+/// Sách chưa có trong thư viện thì không có hàng `Book` nên cả hai nút ẩn.
 @MainActor
 struct ComicChapterListSheet: View {
     let chapters: [ComicChapterEntry]
@@ -14,7 +15,10 @@ struct ComicChapterListSheet: View {
     let onSelect: (Int) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @State private var showingDownloadOptions = false
+    @State private var isConfirmingShelfRemoval = false
+    @State private var collectionPickerBook: Book? = nil
 
     var body: some View {
         NavigationStack {
@@ -33,15 +37,18 @@ struct ComicChapterListSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    if book != nil, !chapters.isEmpty {
-                        Button {
-                            showingDownloadOptions = true
-                        } label: {
-                            Image(systemName: "arrow.down.to.line")
-                                .font(.system(size: 17, weight: .semibold))
-                                .frame(width: 36, height: 38)
+                    HStack(spacing: 6) {
+                        if book != nil, !chapters.isEmpty {
+                            Button {
+                                showingDownloadOptions = true
+                            } label: {
+                                Image(systemName: "arrow.down.to.line")
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .frame(width: 36, height: 38)
+                            }
+                            .accessibilityLabel("Tải ảnh offline")
                         }
-                        .accessibilityLabel("Tải ảnh offline")
+                        shelfToggleButton
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -60,7 +67,42 @@ struct ComicChapterListSheet: View {
                     TaskOptionsSheet(book: book, taskType: .download)
                 }
             }
+            // Gắn ở đây như sheet tải, không gắn trong `ToolbarItem`.
+            .shelfToggleFlow(
+                book: book,
+                displayTitle: displayedBookTitle,
+                isConfirmingRemoval: $isConfirmingShelfRemoval,
+                collectionPickerBook: $collectionPickerBook
+            )
         }
+    }
+
+    @ViewBuilder
+    private var shelfToggleButton: some View {
+        if let book {
+            let isOnShelf = book.isOnShelf
+            Button {
+                ShelfToggleFlowModifier.toggle(
+                    book,
+                    in: modelContext,
+                    isConfirmingRemoval: $isConfirmingShelfRemoval,
+                    collectionPickerBook: $collectionPickerBook
+                )
+            } label: {
+                Image(systemName: ShelfToggleFlowModifier.iconName(isOnShelf: isOnShelf))
+                    .font(.system(size: 17, weight: .semibold))
+                    .frame(width: 36, height: 38)
+            }
+            // Chưa ở kệ: màu nhấn như nút tải bên cạnh; đã ở kệ: đỏ (nút bỏ).
+            .tint(isOnShelf ? Color.red : nil)
+            .accessibilityLabel(ShelfToggleFlowModifier.accessibilityLabel(isOnShelf: isOnShelf))
+        }
+    }
+
+    /// Tên trong hộp xác nhận bỏ kệ — cùng luật dịch tên với thẻ ở Kệ.
+    private var displayedBookTitle: String {
+        guard let book else { return "" }
+        return BookDisplayTranslation.title(book.title, bookId: book.bookId, isEnabled: isTranslationEnabled)
     }
 
     private var chapterList: some View {

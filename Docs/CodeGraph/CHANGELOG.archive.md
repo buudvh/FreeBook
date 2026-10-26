@@ -2,6 +2,22 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.574] - 2026-10-21
+
+### feat: nối nốt nguồn Legado: giải mã bìa, imageStyle, ghi đè loại sách, làm mới chương, alert trình duyệt, dọn trạng thái mồ côi
+
+Người dùng: *"Làm nốt các mục chưa nối: coverDecodeJs, imageStyle, typeOverride cho BookContentDestination, refreshContent vào trình đọc, alert() trong trình duyệt nhỏ, dọn sidecar mồ côi lúc mở app."* Hành vi theo spec phần 2 §8.5, §8.7, §13.6.
+
+- **`coverDecodeJs`** (`LegadoCoverDecoder`, mới): luồng tìm / khám phá / chi tiết ghi URL bìa của nguồn có `coverDecodeJs` vào sổ; `CoverImageLoader.data` (tìm kiếm, Khám phá) giải mã bytes → bytes **trước** bước kiểm ảnh rồi cache bản đã giải; `ImageCacheManager.downloadAndSaveCover(packageId:)` (mặc định `nil`) + `BookCoverView` truyền `extensionPackageId` nên bìa trên kệ giải được sau khi mở lại app. Tối đa 2 phiên engine cùng lúc; lỗi ⇒ dùng byte gốc, `❌` một lần mỗi nguồn. JS nhận `result` dạng luồng (`read()`/`available()`) — harness `runImageDecode` chỉ thêm, không đổi hành vi `imageDecode`. Tiện ích JS chỉ tốn một lần tra từ điển.
+- **`imageStyle`**: `ComicPageSource.imageStyle` (tuỳ chọn, mặc định `nil`), ưu tiên `style` trong option của ảnh > `book.imageStyle` do JS `content` ghi trong cùng phiên > `ruleContent.imageStyle`; chuyền tới `ComicPageView`. Trình đọc tranh vốn vẽ ảnh tràn bề ngang, không khoảng cách (= `FULL`, giá trị phổ biến nhất) nên **hình không đổi**; giá trị khác giữ cách hiện tại.
+- **Ghi đè loại theo sách** (`LegadoBookTypeOverride`, mới, bitmask §13.6: 64 ⇒ tranh, 8 ⇒ chữ; audio/tệp/`3` ⇒ theo loại của nguồn): `BookContentDestination.resolveKind` ưu tiên ghi đè của sách; guard `SourceRuntime.chap` nới cho sách tranh bị nguồn ghi đè thành chữ.
+- **`refreshContent` → trình đọc** (`LegadoContentRefreshSignal` + modifier `legadoContentRefresh`, mới; gom lặp 3 s): presenter báo tín hiệu theo nguồn; Reader chữ tải lại chương đang mở bỏ qua cache (`reloadCurrentChapterFromMenu`; `ReaderView` 2045 → 2046, baseline 2053); trình đọc tranh `retry()`. Không dùng NotificationCenter.
+- **`alert()` / `confirm()` / `prompt()`** trong trình duyệt nhỏ (`LegadoBrowserController` + `LegadoBrowserJSPanel`, mới; trình duyệt đăng nhập dùng chung): `UIAlertController`, completion gọi đúng một lần kể cả khi đóng trình duyệt giữa chừng.
+- **Dọn trạng thái mồ côi** (`LegadoOrphanStateSweeper`, mới): một lần mỗi lần mở app từ `MainTabView` (225 → 227), `Task.detached` + `ModelContext` riêng; `LegadoBookStateStore.removeOrphanFiles` chỉ xoá tệp đúng mẫu `<64 hex>.json` ở gốc `legado_state/` không còn sách, sửa lần cuối trước lúc bắt đầu lượt, qua `validatePathSafety`; đọc lỗi / danh sách sách rỗng ⇒ bỏ lượt.
+- **Còn hở**: tải truyện, `BookKindBadge` và nhãn "Tải truyện" vẫn theo loại của nguồn; bìa cho TTS không truyền `packageId`; `resolveKind` đọc tệp sidecar nhỏ trên main một lần mỗi sách; chương tranh đã tải offline thì làm mới vẫn mở bản offline; đổi nguồn giữa hai nguồn Legado có thể giữ ghi đè cũ; `book.imageStyle` chưa lưu bền.
+- Chuyển entry `[1.3.539]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới** (`ComicReaderViewModel` không đổi). Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.573] - 2026-10-21
 
 ### docs: quy chuẩn nguồn Legado trong rules.md, client gỡ lỗi nhận chi tiết media

@@ -28,6 +28,12 @@ Nguồn truyện JSON kiểu Legado là loại nguồn thứ hai, chạy song so
 * **Tìm mọi nguồn**: nguồn Legado chỉ khi đang bật + loại hỗ trợ + có rule tìm, qua cửa sổ trượt tối đa 8 (`LegadoSearchScheduler`); tiện ích JS giữ hành vi cũ.
 * **Media Legado không đi qua pipeline text** (giống tiện ích JS): tranh/video lấy qua `SourceRuntime.comicPages/videoServers/videoTrack`.
 
+## Danh sách chương Reader & nút kệ trong Reader (1.3.604)
+
+* **Danh sách chương Reader chữ là sheet gốc** (`ReaderView.readerChapterListSheet`, detents `.fraction(0.88)` + `.large`, thanh kéo hệ thống) — đừng thêm lại capsule/`DragGesture` tự dựng ở header. View bên trong dựng lại mỗi lần mở; trạng thái cần sống qua các lần mở (trang đã nạp, truy vấn tìm, thứ tự) nằm ở `ReaderChapterListStore` và view đọc lại từ đó, không giữ bản sao `@State` lệch với store. `ReaderChapterListHost` + `.equatable()` vẫn bắt buộc (luật 1.3.510).
+* **Bỏ khỏi kệ từ trong Reader chỉ đi `BookActionRunner.removeFromShelfOnly`** (giữ file/tiến độ, về Lịch sử) qua `ShelfToggleFlowModifier`, có hộp xác nhận. **Không bao giờ** dùng `BookDetailView.removeFromShelf` ở màn đang đọc — đường đó gọi `BookStorageManager.deleteBookAsync`, xoá hẳn truyện đang mở. Hộp xác nhận/sheet chọn bộ sưu tập gắn ở gốc view, không trong `ToolbarItem`.
+* **Chữ trên bìa (kiểu "Chỉ bìa", header danh sách chương) dùng chung `CoverCaptionStrip`** — đừng vẽ dải riêng ở màn mới. Không dùng `.ultraThinMaterial` trên ô lưới (GPU khi cuộn).
+
 ## Tải video offline (1.3.592)
 
 Tập phim tải về `applicationSupport/videos/<sha256(bookId)>/<episodeIndex>/` (`VideoOfflineStore`), xem được khi không có mạng.

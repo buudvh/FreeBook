@@ -2,8 +2,9 @@ import SwiftUI
 
 /// Lớp vỏ **không có trạng thái** của `ReaderChapterListView`, chỉ để mang phép so `==` cho `.equatable()`.
 ///
-/// Danh sách chương được giữ mounted suốt phiên Reader (ẩn bằng opacity/offset), nên nếu không chặn thì mỗi
-/// pass body của `ReaderView` (nhịp highlight TTS, publish VM) đều dựng lại header + `List` của nó.
+/// Danh sách chương là nội dung của sheet gốc (`ReaderView.readerChapterListSheet`): sheet còn mở thì mỗi pass body
+/// của `ReaderView` (publish VM, lưu tiến độ) lại dựng closure nội dung sheet, nên nếu không chặn thì header + `List`
+/// đều tính lại. (Trước 1.3.604 danh sách là overlay giữ mounted suốt phiên, ẩn bằng opacity/offset.)
 ///
 /// **Lỗi thật 1.3.510** — vì sao `==` phải nằm ở vỏ, không đặt trên chính `ReaderChapterListView`: commit
 /// `c9e7c20a` cho view thật (có `@State searchQuery` và đọc store `@Observable`) conform `Equatable` rồi bọc

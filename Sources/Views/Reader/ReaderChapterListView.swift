@@ -59,12 +59,13 @@ public struct ReaderChapterListView: View {
         self.onSelectChapter = onSelectChapter
         self.onClose = onClose
         self.onLocalTOCRefreshed = onLocalTOCRefreshed
+        // Danh sách là sheet dựng lại mỗi lần mở, còn store sống suốt phiên Reader: ô tìm lấy lại truy vấn đang áp.
+        self._searchQuery = State(initialValue: store.activeSearchQuery)
     }
 
     @Environment(\.modelContext) internal var modelContext
     @State private var showingBookDetail = false
     @State internal var searchQuery = ""
-    @State private var isAscending = true
     @State internal var isUpdating = false
     @State internal var errorMessage = ""
     @State internal var isPositioningInitialChapter = true
@@ -74,8 +75,11 @@ public struct ReaderChapterListView: View {
     @State internal var downloadingChapterIndices: Set<Int> = []
     /// Mở `TaskOptionsSheet` của tác vụ **tải cả truyện** (cùng sheet với nhấn-giữ ở Kệ/Lịch sử).
     @State internal var showingDownloadOptions = false
+    /// Luồng nút kệ — xem `ReaderChapterListView+Shelf.swift`.
+    @State internal var isConfirmingShelfRemoval = false
+    @State internal var collectionPickerBook: Book? = nil
 
-    private var metadataTitle: String {
+    internal var metadataTitle: String {
         let original = firstNonempty(localBook?.title, bookTitle) ?? "FreeBook"
         let translated = isTranslationEnabled && TranslateUtils.containsChinese(original)
             ? TranslateUtils.translateMeta(
@@ -131,6 +135,12 @@ public struct ReaderChapterListView: View {
                 TaskOptionsSheet(book: book, taskType: .download)
             }
         }
+        .shelfToggleFlow(
+            book: localBook,
+            displayTitle: metadataTitle,
+            isConfirmingRemoval: $isConfirmingShelfRemoval,
+            collectionPickerBook: $collectionPickerBook
+        )
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("chapterTitlesDidRetranslate"))) { notification in
             guard let notifBookId = notification.userInfo?["bookId"] as? String, notifBookId == bookId else { return }
             displayTitleCache.removeAll()
@@ -138,23 +148,30 @@ public struct ReaderChapterListView: View {
         }
     }
 
+    private static let coverWidth: CGFloat = 86
+    private static let coverHeight: CGFloat = 120
+
+    /// Thanh kéo là của sheet hệ thống (`ReaderView.readerChapterListSheet`) — header không tự vẽ capsule hay bắt cử
+    /// chỉ kéo nữa. Số chương nằm trên dải đáy bìa (`CoverCaptionStrip`, cùng kiểu chỉ bìa của Kệ); hàng nút dồn phải,
+    /// sát đáy bìa.
     private var header: some View {
         VStack(spacing: 8) {
-            Capsule()
-                .fill(theme.textColor.opacity(0.3))
-                .frame(width: 36, height: 5)
-                .accessibilityHidden(true)
-
             HStack(alignment: .top, spacing: 12) {
                 Button(action: { showingBookDetail = true }) {
                     BookCoverView(
                         bookId: bookId,
                         coverUrl: metadataCoverUrl,
-                        width: 72,
-                        height: 100,
+                        width: Self.coverWidth,
+                        height: Self.coverHeight,
                         host: localBook?.host,
                         extensionPackageId: ext?.packageId ?? localBook?.extensionPackageId ?? ""
                     )
+                    .overlay(alignment: .bottom) {
+                        CoverCaptionStrip(
+                            subtitle: "\(store.totalCount) chương",
+                            fadeHeight: CoverCaptionStrip.compactFadeHeight
+                        )
+                    }
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain)
@@ -214,16 +231,14 @@ public struct ReaderChapterListView: View {
                         .background(Color.secondary.opacity(0.12), in: Capsule())
                     }
 
-                    HStack(spacing: 6) {
-                        Text("\(store.totalCount) chương")
-                            .font(.caption.weight(.medium))
-                            .foregroundColor(theme.textColor.opacity(0.72))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
+                    Spacer(minLength: 0)
 
-                        Spacer(minLength: 4)
+                    HStack(spacing: 6) {
+                        Spacer(minLength: 0)
 
                         HStack(spacing: 4) {
+                            shelfToggleButton
+
                             bulkDownloadButton
 
                             Button(action: retranslateChaptersAction) {
@@ -251,40 +266,30 @@ public struct ReaderChapterListView: View {
                                 }
                             }
 
+                            // Thứ tự đọc thẳng từ store (sống suốt phiên Reader), không giữ bản sao trong view.
                             Button(action: {
-                                isAscending.toggle()
-                                store.updateSortOrder(isAscending: isAscending)
+                                store.updateSortOrder(isAscending: !store.isAscending)
                             }) {
                                 Image(systemName: "arrow.up.arrow.down")
                                     .font(.system(size: 14, weight: .semibold))
                                     .foregroundColor(theme.textColor)
                                     .frame(width: 32, height: 32)
                             }
-                            .accessibilityLabel(isAscending ? "Sắp xếp chương giảm dần" : "Sắp xếp chương tăng dần")
+                            .accessibilityLabel(store.isAscending ? "Sắp xếp chương giảm dần" : "Sắp xếp chương tăng dần")
                         }
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .topLeading)
+                .frame(maxWidth: .infinity, minHeight: Self.coverHeight, alignment: .topLeading)
             }
+            // Cột chữ có `Spacer` dọc (đẩy hàng nút xuống đáy bìa): không cố định chiều cao thì header tham chiều cao
+            // và chia đôi khoảng trống với `List` bên dưới.
+            .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 12)
-        .padding(.top, 8)
+        // Chừa chỗ cho thanh kéo của sheet hệ thống.
+        .padding(.top, 20)
         .padding(.bottom, 10)
         .background(theme.backgroundColor)
-        .contentShape(Rectangle())
-        .simultaneousGesture(dismissGesture)
-    }
-
-    private var dismissGesture: some Gesture {
-        DragGesture(minimumDistance: 16)
-            .onEnded { value in
-                let horizontalDistance = abs(value.translation.width)
-                let verticalDistance = value.translation.height
-                if verticalDistance >= 72,
-                   verticalDistance >= horizontalDistance * 1.25 {
-                    onClose()
-                }
-            }
     }
 
     private func firstNonempty(_ primary: String?, _ fallback: String?) -> String? {

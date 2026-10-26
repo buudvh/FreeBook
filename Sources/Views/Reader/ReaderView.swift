@@ -373,8 +373,6 @@ struct ReaderView: View {
                 junkDeleteOverlay(in: geometry)
 
                 ruleToolsOverlay(in: geometry)
-
-                readerChapterListOverlay(in: geometry)
             }
         }
         .toolbar(.hidden, for: .navigationBar) // Ẩn navigation bar gốc
@@ -515,6 +513,9 @@ struct ReaderView: View {
             // Nội dung co giãn theo việc bật dịch (3 hàng phụ) nên chiều cao cố định luôn cắt mất
             // hàng cuối: bảng cài đặt cuộn được và mở lên hết màn hình khi cần.
             .presentationDetents([.fraction(0.75), .large])
+        }
+        .sheet(isPresented: $showingChapterList) {
+            readerChapterListSheet
         }
         .sheet(isPresented: $showingBookDictionary) {
             NavigationStack {
@@ -1070,8 +1071,10 @@ struct ReaderView: View {
                     navigateToChangeSource = true
                 },
                 onOpenChapterList: {
-                    _ = getOrInitChapterListStore()
-                    showingChapterList = true
+                    // Store chưa dựng được (VM chưa sẵn) thì không mở một sheet rỗng.
+                    if getOrInitChapterListStore() != nil {
+                        showingChapterList = true
+                    }
                 },
                 onOpenReaderSearch: {
                     showingReaderSearch = true
@@ -1296,71 +1299,54 @@ struct ReaderView: View {
         return store
     }
 
+    /// Danh sách chương trình bày bằng sheet gốc — kéo theo ngón tay, detents giống sheet Hẹn giờ
+    /// (`TTSQuickTimerSheet`). Store sống ở `chapterListStore` của Reader nên trang đã nạp, ô tìm và thứ tự sắp xếp
+    /// còn nguyên qua các lần mở; view bên trong thì dựng lại mỗi lần mở.
     @ViewBuilder
-    private func readerChapterListOverlay(in geometry: GeometryProxy) -> some View {
+    private var readerChapterListSheet: some View {
         if let chapterListStore {
-            ZStack {
-                Color.clear
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        closeChapterList()
-                    }
-                    .opacity(showingChapterList ? 1 : 0)
-                    .allowsHitTesting(showingChapterList)
-
-                ReaderChapterListHost(
-                    bookId: bookId,
-                    bookTitle: bookTitle,
-                    bookAuthor: bookAuthor,
-                    bookCoverUrl: bookCoverUrl,
-                    bookDetailUrl: bookDetailUrl,
-                    localBook: localBook,
-                    ext: ext,
-                    currentChapterIndex: viewModel?.displayedChapterIndex ?? chapterIndex,
-                    isPresented: showingChapterList,
-                    isTranslationEnabled: isTranslationEnabled,
-                    shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified,
-                    theme: selectedTheme,
-                    store: chapterListStore,
-                    onlineChapters: $currentOnlineChapters,
-                    isLocalTXTBook: isLocalTXTBook,
-                    onSelectChapter: { selectedIdx in
+            ReaderChapterListHost(
+                bookId: bookId,
+                bookTitle: bookTitle,
+                bookAuthor: bookAuthor,
+                bookCoverUrl: bookCoverUrl,
+                bookDetailUrl: bookDetailUrl,
+                localBook: localBook,
+                ext: ext,
+                currentChapterIndex: viewModel?.displayedChapterIndex ?? chapterIndex,
+                isPresented: true,
+                isTranslationEnabled: isTranslationEnabled,
+                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified,
+                theme: selectedTheme,
+                store: chapterListStore,
+                onlineChapters: $currentOnlineChapters,
+                isLocalTXTBook: isLocalTXTBook,
+                onSelectChapter: { selectedIdx in
+                    // Đóng sheet trước, nạp chương ở lượt main kế tiếp: việc nạp chương không chen vào animation đóng.
+                    showingChapterList = false
+                    DispatchQueue.main.async {
                         selectChapter(at: selectedIdx)
-                    },
-                    onClose: {
-                        closeChapterList()
-                    },
-                    onLocalTOCRefreshed: { result in
-                        Task { @MainActor in
-                            self.localChaptersCount = result.totalCount
-                            self.chapterListStore?.updateChapters(totalCount: result.totalCount, onlineChapters: [])
-                            self.viewModel?.applyLocalTOCReconciliation(result)
-                            self.ttsManager.applyTOCReconciliation(result)
-                            if ttsState.snapshot.playingBookId == bookId {
-                                ttsManager.refreshChaptersQueueInBackground(bookId: bookId, onlineChapters: nil)
-                            }
+                    }
+                },
+                onClose: {
+                    showingChapterList = false
+                },
+                onLocalTOCRefreshed: { result in
+                    Task { @MainActor in
+                        self.localChaptersCount = result.totalCount
+                        self.chapterListStore?.updateChapters(totalCount: result.totalCount, onlineChapters: [])
+                        self.viewModel?.applyLocalTOCReconciliation(result)
+                        self.ttsManager.applyTOCReconciliation(result)
+                        if ttsState.snapshot.playingBookId == bookId {
+                            ttsManager.refreshChaptersQueueInBackground(bookId: bookId, onlineChapters: nil)
                         }
                     }
-                )
-                .equatable()
-                .frame(width: geometry.size.width, height: geometry.size.height - 60)
-                .offset(
-                    y: reduceMotion
-                        ? 60
-                        : (showingChapterList ? 60 : geometry.size.height + geometry.safeAreaInsets.bottom)
-                )
-                .opacity(showingChapterList ? 1 : 0)
-                .animation(.easeInOut(duration: reduceMotion ? 0.15 : 0.25), value: showingChapterList)
-                .allowsHitTesting(showingChapterList)
-                .accessibilityHidden(!showingChapterList)
-            }
-            .zIndex(10)
-        }
-    }
-
-    private func closeChapterList() {
-        withAnimation(.easeInOut(duration: reduceMotion ? 0.15 : 0.25)) {
-            showingChapterList = false
+                }
+            )
+            .equatable()
+            .presentationDetents([.fraction(0.88), .large])
+            .presentationDragIndicator(.visible)
+            .presentationBackground(selectedTheme.backgroundColor)
         }
     }
 

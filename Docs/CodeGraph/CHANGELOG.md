@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.604] - 2026-10-26
+
+### feat: danh sách chương Reader kéo được như Hẹn giờ, thêm nút kệ, chữ trên bìa rõ hơn
+
+Người dùng: *"Sửa lại sheet danh sách truyện của reader, hiện tại sheet này kéo không được để nó kéo được như sheet hẹn giờ"*, *"Thêm nút thêm vào kệ vào sheet danh sách truyện của reader"*, *"Bỏ phần số thứ tự ở danh sách chương của màn hình hẹn giờ"*, *"số lượng chương trên cover giống hiển thị chỉ bìa … Tăng cover danh sách chương của reader lên chút"*, *"điều chỉnh luôn kiểu chỉ bìa của danh sách truyện để phần chữ ghi trên cover nhìn rõ hơn"*. Plan duyệt: `Docs/Plans/2026-10-26-plan-reader-toc-sheet-shelf-toggle.md` (mockup duyệt trong chat).
+
+- **Danh sách chương Reader chữ là sheet gốc** (`ReaderView.readerChapterListSheet`, thay overlay `readerChapterListOverlay`): `.presentationDetents([.fraction(0.88), .large])` + thanh kéo hệ thống như `TTSQuickTimerSheet`, kéo theo ngón tay, kéo xuống/chạm ngoài để đóng. Bỏ `Capsule` giả và `dismissGesture` ở header. Chọn chương: đóng sheet trước, `selectChapter` ở lượt main kế tiếp. Không mở sheet khi store chưa dựng được. Sheet dựng lại view mỗi lần mở nên ô tìm lấy lại truy vấn từ store (`ReaderChapterListStore.activeSearchQuery`, mới) và nút sắp xếp đọc thẳng `store.isAscending` (bỏ `@State isAscending` vốn lệch với store khi mở lại). `ReaderChapterListHost` + `.equatable()` giữ nguyên (doc comment cập nhật). Lần thử cùng hướng ngày 19/8 (`716ae779`) bị revert không rõ lý do — cần thử trên máy.
+- **Nút thêm/bỏ kệ chỉ có icon** (mới `ShelfToggleFlowModifier`, `ReaderChapterListView+Shelf.swift`): đầu hàng nút header danh sách chương Reader chữ và cạnh nút tải ở `ComicChapterListSheet`. `bookmark.fill` (chưa ở kệ) / `bookmark.slash.fill` đỏ (đã ở kệ) — cặp icon của `BookActionSheet`. Thêm ⇒ `BookActionRunner.addToShelf` rồi mở `CollectionPickerSheet`; bỏ ⇒ hộp xác nhận rồi `BookActionRunner.removeFromShelfOnly` (giữ file/tiến độ, về Lịch sử). **Không** dùng `BookDetailView.removeFromShelf` — đường đó xoá hẳn truyện. Chưa có bản ghi `Book` ⇒ ẩn nút. Hộp xác nhận/sheet chọn bộ sưu tập gắn ở gốc view, không trong `ToolbarItem`; tên trong hộp là tên đang hiển thị (đã dịch).
+- **Header danh sách chương**: bìa 72×100 → 86×120; "N chương" chuyển từ hàng nút xuống dải đáy bìa; hàng nút dồn phải sát đáy bìa.
+- **Chữ trên bìa kiểu "Chỉ bìa" rõ hơn** (mới `CoverCaptionStrip`, dùng ở `ShelfBookGridCardView`, `DiscoveryNovelGridCardView` và header trên): nền trong suốt → đen 75% trên đoạn chuyển phía trên chữ → 95% ở đáy, phần chuyển không chiếm chỗ bố cục (hàng badge tag/loại ở Kệ giữ vị trí, `zIndex(1)` để vẽ đè); tên 13pt bold, dòng phụ 11pt semibold trắng 100%, bóng chữ nhẹ trên từng `Text`; bìa 16:9 dùng đoạn chuyển thấp. Trước đó Kệ dùng nền đặc 60% (dòng "Ch. N" 10pt trắng 85%), Khám phá dùng dải chuyển 0 → 75% chỉ cao 14pt. Vẫn không dùng `.ultraThinMaterial`.
+- **Sheet Hẹn giờ** (`TTSQuickTimerSheet.chapterRow`): bỏ cột số thứ tự; chương đang phát giữ icon loa.
+- `rules.md`: bullet luật công tắc kệ trong Reader. Chuyển entry `[1.3.574]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới** (`ReaderView.swift` 2034 → 2020). Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.603] - 2026-10-26
 
 ### fix: quét tên coi Không có name là lượt hợp lệ, tên chương dịch theo cấu hình
@@ -377,19 +391,3 @@ Thử máy với bộ 1298 (log `app_logs (113)`, `(114)`). Người dùng: *"đ
 - **Không phải lỗi app** (đã kiểm từ máy cùng vùng mạng): 篱笆好文学 (chặn theo vùng, 1Panel), 小原文学网, 可乐小说 (HTTP 403), 思路客 (captcha Cloudflare), 文桑小说 (quá thời gian), 鬼吹灯 (tên miền chết). 8/15 nguồn của bộ 1298 không khai `exploreUrl` nên không có ở Khám phá — đúng hành vi.
 - Chuyển entry `[1.3.540]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử lại trên máy.
-
-## [1.3.574] - 2026-10-21
-
-### feat: nối nốt nguồn Legado: giải mã bìa, imageStyle, ghi đè loại sách, làm mới chương, alert trình duyệt, dọn trạng thái mồ côi
-
-Người dùng: *"Làm nốt các mục chưa nối: coverDecodeJs, imageStyle, typeOverride cho BookContentDestination, refreshContent vào trình đọc, alert() trong trình duyệt nhỏ, dọn sidecar mồ côi lúc mở app."* Hành vi theo spec phần 2 §8.5, §8.7, §13.6.
-
-- **`coverDecodeJs`** (`LegadoCoverDecoder`, mới): luồng tìm / khám phá / chi tiết ghi URL bìa của nguồn có `coverDecodeJs` vào sổ; `CoverImageLoader.data` (tìm kiếm, Khám phá) giải mã bytes → bytes **trước** bước kiểm ảnh rồi cache bản đã giải; `ImageCacheManager.downloadAndSaveCover(packageId:)` (mặc định `nil`) + `BookCoverView` truyền `extensionPackageId` nên bìa trên kệ giải được sau khi mở lại app. Tối đa 2 phiên engine cùng lúc; lỗi ⇒ dùng byte gốc, `❌` một lần mỗi nguồn. JS nhận `result` dạng luồng (`read()`/`available()`) — harness `runImageDecode` chỉ thêm, không đổi hành vi `imageDecode`. Tiện ích JS chỉ tốn một lần tra từ điển.
-- **`imageStyle`**: `ComicPageSource.imageStyle` (tuỳ chọn, mặc định `nil`), ưu tiên `style` trong option của ảnh > `book.imageStyle` do JS `content` ghi trong cùng phiên > `ruleContent.imageStyle`; chuyền tới `ComicPageView`. Trình đọc tranh vốn vẽ ảnh tràn bề ngang, không khoảng cách (= `FULL`, giá trị phổ biến nhất) nên **hình không đổi**; giá trị khác giữ cách hiện tại.
-- **Ghi đè loại theo sách** (`LegadoBookTypeOverride`, mới, bitmask §13.6: 64 ⇒ tranh, 8 ⇒ chữ; audio/tệp/`3` ⇒ theo loại của nguồn): `BookContentDestination.resolveKind` ưu tiên ghi đè của sách; guard `SourceRuntime.chap` nới cho sách tranh bị nguồn ghi đè thành chữ.
-- **`refreshContent` → trình đọc** (`LegadoContentRefreshSignal` + modifier `legadoContentRefresh`, mới; gom lặp 3 s): presenter báo tín hiệu theo nguồn; Reader chữ tải lại chương đang mở bỏ qua cache (`reloadCurrentChapterFromMenu`; `ReaderView` 2045 → 2046, baseline 2053); trình đọc tranh `retry()`. Không dùng NotificationCenter.
-- **`alert()` / `confirm()` / `prompt()`** trong trình duyệt nhỏ (`LegadoBrowserController` + `LegadoBrowserJSPanel`, mới; trình duyệt đăng nhập dùng chung): `UIAlertController`, completion gọi đúng một lần kể cả khi đóng trình duyệt giữa chừng.
-- **Dọn trạng thái mồ côi** (`LegadoOrphanStateSweeper`, mới): một lần mỗi lần mở app từ `MainTabView` (225 → 227), `Task.detached` + `ModelContext` riêng; `LegadoBookStateStore.removeOrphanFiles` chỉ xoá tệp đúng mẫu `<64 hex>.json` ở gốc `legado_state/` không còn sách, sửa lần cuối trước lúc bắt đầu lượt, qua `validatePathSafety`; đọc lỗi / danh sách sách rỗng ⇒ bỏ lượt.
-- **Còn hở**: tải truyện, `BookKindBadge` và nhãn "Tải truyện" vẫn theo loại của nguồn; bìa cho TTS không truyền `packageId`; `resolveKind` đọc tệp sidecar nhỏ trên main một lần mỗi sách; chương tranh đã tải offline thì làm mới vẫn mở bản offline; đổi nguồn giữa hai nguồn Legado có thể giữ ghi đè cũ; `book.imageStyle` chưa lưu bền.
-- Chuyển entry `[1.3.539]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới** (`ComicReaderViewModel` không đổi). Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.

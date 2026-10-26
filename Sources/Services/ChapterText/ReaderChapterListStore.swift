@@ -15,6 +15,8 @@ public final class ReaderChapterListStore {
 
     private let searchCoordinator = ChapterListSearchCoordinator()
     private var currentSearchQuery = ""
+    /// Truy vấn tìm đang áp (đã trim) — danh sách chương là sheet dựng lại mỗi lần mở, đọc lại để ô tìm khớp kết quả.
+    public var activeSearchQuery: String { currentSearchQuery }
 
     public let bookId: String
     internal let modelContext: ModelContext?

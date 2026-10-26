@@ -3,7 +3,7 @@ import SwiftUI
 /// Thẻ một truyện trong lưới phía kệ (Kệ sách, Lịch sử, Bộ sưu tập, Tìm trên kệ), cho hai kiểu lưới của
 /// `BookListLayoutMode`:
 /// - `.grid`: bìa; dưới bìa là tên 2 dòng + dòng "icon nguồn · Ch. N".
-/// - `.coverOnly`: tên + "Ch. N" trên dải tối mờ ở đáy bìa, không có icon nguồn.
+/// - `.coverOnly`: tên + "Ch. N" trên dải tối ở đáy bìa (`CoverCaptionStrip`), không có icon nguồn.
 ///
 /// Góc bìa: ghim cam (trên-trái, khi `isPinned`), badge chương mới (trên-phải), badge loại (dưới-phải — chỉ truyện
 /// tranh/video, như `ShelfBookRowView`). Video ghi "Tập N" thay "Ch. N".
@@ -90,7 +90,7 @@ struct ShelfBookGridCardView: View {
     }
 
     /// Đáy bìa: hàng nhãn (`tag` trái, loại phải) và — kiểu chỉ bìa — dải tên + chương ngay dưới, để badge loại
-    /// không đè lên chữ.
+    /// không đè lên chữ. Nền chuyển của dải tràn lên sau hàng nhãn ⇒ hàng nhãn `zIndex(1)` để vẽ đè lên nền.
     private func bottomOverlay(kind: ExtensionContentKind, title: String, progress: String) -> some View {
         VStack(spacing: 0) {
             HStack(alignment: .bottom, spacing: 4) {
@@ -99,6 +99,7 @@ struct ShelfBookGridCardView: View {
                 BookKindBadge(kind: kind)
             }
             .padding(4)
+            .zIndex(1)
 
             if mode == .coverOnly {
                 coverCaption(title: title, progress: progress)
@@ -108,23 +109,14 @@ struct ShelfBookGridCardView: View {
     }
 
     private func coverCaption(title: String, progress: String) -> some View {
-        VStack(alignment: .leading, spacing: 1) {
-            Text(title)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(.white)
-                // Bìa ngang 16:9 thấp: một dòng tên, không thì dải chữ che gần hết bìa.
-                .lineLimit(aspectRatio > 1 ? 1 : 2)
-                .multilineTextAlignment(.leading)
-            Text(progress)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundColor(.white.opacity(0.85))
-                .lineLimit(1)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 6)
-        .padding(.vertical, 4)
-        // Nền tối mờ thay vì `.ultraThinMaterial`: hiệu ứng làm mờ trên từng ô lưới tốn GPU khi cuộn nhanh.
-        .background(Color.black.opacity(0.6))
+        // Bìa ngang 16:9 thấp: một dòng tên và phần chuyển thấp, không thì dải chữ che gần hết bìa.
+        let isLandscape = aspectRatio > 1
+        return CoverCaptionStrip(
+            title: title,
+            subtitle: progress,
+            titleLineLimit: isLandscape ? 1 : 2,
+            fadeHeight: isLandscape ? CoverCaptionStrip.compactFadeHeight : CoverCaptionStrip.regularFadeHeight
+        )
     }
 
     @ViewBuilder
