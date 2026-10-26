@@ -115,6 +115,8 @@ struct AddTTSReplacementSheet: View {
                 }
             }
         }
+        // Mở nửa màn, vuốt lên được toàn màn (1.3.610) — `Form` tự cuộn khi bàn phím hiện.
+        .presentationDetents([.medium, .large])
     }
 
     private var hasBookLayer: Bool {

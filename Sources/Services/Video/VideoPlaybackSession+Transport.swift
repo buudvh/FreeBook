@@ -42,8 +42,14 @@ extension VideoPlaybackSession {
 
     /// TTS bắt đầu/tiếp tục đọc (`VideoNowPlayingCoordinator.yieldToTTS`) — kể cả khi video chưa giữ phiên (đang nạp
     /// item, đang nhúng trang). Cờ đặt TRƯỚC mọi guard: item nạp xong (`readyToPlay`) không được tự phát dập TTS.
+    /// Video native đang tắt tiếng không giành âm thanh ⇒ phát tiếp cùng TTS, không bật cờ (việc trả điều khiển màn
+    /// khoá cho TTS vẫn do `yieldToTTS` làm).
     func pauseForTTS() {
         guard launch != nil else { return }
+        guard !isEffectivelyMuted else {
+            AppLogger.shared.log("🔇 [VideoPlayer] TTS bắt đầu phát, video đang tắt tiếng ⇒ không tạm dừng video")
+            return
+        }
         autoplayBlockedByTTS = true
         if embedContent != nil {
             // Media của trang nhúng không điều khiển được từ native ⇒ nhờ WKWebView đang hiện dừng hết media của nó.
@@ -59,12 +65,47 @@ extension VideoPlaybackSession {
 
     /// Người dùng chủ động chọn phát (mở phim mới, chọn tập, chọn server, thử lại): bỏ cờ nhường TTS và tạm dừng TTS
     /// ngay để item mới tự phát khi sẵn sàng. Tự sang tập kế lúc hết tập **không** đi qua đây — vẫn tôn trọng cờ.
+    /// Video đang tắt tiếng ⇒ để TTS đọc tiếp. So `isMuted` chứ không `isEffectivelyMuted`: mọi lời gọi đều đứng trước
+    /// một lượt nạp mới mà `embedContent` của item cũ chưa bị xoá; item mới là trang nhúng thì nhánh `.embed` của
+    /// `apply(plan:)` tự dừng TTS (`prepareAudioForPlayback`).
     func beginUserRequestedPlayback() {
         autoplayBlockedByTTS = false
         let tts = TTSManager.shared
         guard tts.isPlaying else { return }
+        guard !isMuted else {
+            AppLogger.shared.log("🔇 [VideoPlayer] Người dùng chọn phát video đang tắt tiếng ⇒ để TTS đọc tiếp")
+            return
+        }
         AppLogger.shared.log("⏸️ [VideoPlayer] Người dùng chọn phát video ⇒ tạm dừng TTS")
         tts.pause()
+    }
+
+    // MARK: - Tắt tiếng
+
+    /// Đang tắt tiếng **và** phát native. Trang nhúng không đi qua `AVPlayer` nên tắt tiếng không có tác dụng với nó.
+    /// Video tắt tiếng không giành âm thanh của TTS (`prepareAudioForPlayback`, `pauseForTTS`, `readyToPlay`).
+    var isEffectivelyMuted: Bool { isMuted && embedContent == nil }
+
+    /// Gán `player.isMuted` (gắn với player ⇒ đổi tập vẫn giữ). Bật tiếng lại khi video đang phát (kể cả đang chờ đệm)
+    /// ⇒ lấy lại âm thanh như lúc bắt đầu phát (`prepareAudioForPlayback`: dừng TTS nếu đang đọc, cấu hình
+    /// `AVAudioSession`, giữ màn khoá); item đang đệm sắp tự phát mà TTS đang đọc ⇒ dừng TTS để `readyToPlay` tự phát
+    /// có tiếng. Tắt tiếng **không** tự cho TTS đọc tiếp.
+    func setMuted(_ muted: Bool) {
+        if player.isMuted != muted { player.isMuted = muted }
+        guard isMuted != muted else { return }
+        isMuted = muted
+        AppLogger.shared.log(muted ? "🔇 [VideoPlayer] Tắt tiếng video" : "🔊 [VideoPlayer] Bật tiếng video")
+        guard !muted, launch != nil, embedContent == nil else { return }
+        let tts = TTSManager.shared
+        if player.timeControlStatus != .paused {
+            if tts.isPlaying {
+                AppLogger.shared.log("🔊 [VideoPlayer] Bật tiếng khi video đang phát, TTS đang đọc ⇒ video lấy lại âm thanh")
+            }
+            prepareAudioForPlayback()
+        } else if phase == .buffering, !autoplayBlockedByTTS, tts.isPlaying {
+            AppLogger.shared.log("⏸️ [VideoPlayer] Bật tiếng khi item đang đệm, TTS đang đọc ⇒ tạm dừng TTS để video tự phát có tiếng")
+            tts.pause()
+        }
     }
 
     // MARK: - Tua

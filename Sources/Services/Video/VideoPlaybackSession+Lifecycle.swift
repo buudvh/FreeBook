@@ -163,9 +163,15 @@ extension VideoPlaybackSession {
     /// TTS đang đọc thì tạm dừng (chỉ gọi hàm, không observe `TTSManager`), chuyển session sang
     /// `.playback` / `.moviePlayback` rồi giữ phiên điều khiển màn khoá. Gọi lại nhiều lần vẫn an toàn.
     /// `claimRemoteControls == false` cho trang nhúng: không điều khiển được media của trang.
+    /// Video native đang tắt tiếng mà TTS đang đọc ⇒ không giành gì: TTS đọc tiếp, `AVAudioSession` và màn khoá giữ
+    /// nguyên cho TTS. Bật tiếng lại thì `setMuted(false)` gọi lại hàm này để video lấy lại âm thanh.
     func prepareAudioForPlayback(claimRemoteControls: Bool = true) {
         let tts = TTSManager.shared
         if tts.isPlaying {
+            guard !isEffectivelyMuted else {
+                AppLogger.shared.log("🔇 [VideoPlayer] Video đang tắt tiếng, TTS đang đọc ⇒ không dừng TTS, giữ âm thanh + màn khoá cho TTS")
+                return
+            }
             AppLogger.shared.log("⏸️ [VideoPlayer] TTS đang đọc ⇒ tạm dừng để phát video")
             tts.pause()
         }

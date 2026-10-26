@@ -116,17 +116,22 @@ struct BookActionSheet: View {
         }
     }
 
-    /// Phần đầu chia làm **hai vùng cạnh nhau, không lồng nhau**: khối bìa + tên nhận cử chỉ chạm/nhấn
-    /// giữ, cột phải chứa hai nút (Sửa thông tin, Kệ). Đặt nút kệ sách trong `overlay` lên trên vùng có cử chỉ
-    /// là để hai bên tranh nhau cùng một cú chạm, nên nó là *sibling*.
+    /// Phần đầu gồm **hai lớp không lồng nhau** trong một `ZStack`: khối bìa + tên nhận cử chỉ chạm/nhấn giữ, và
+    /// hàng hai nút (Sửa thông tin, Kệ) nằm **trên** ở góc dưới phải. Nút là *sibling* của vùng có cử chỉ chứ không
+    /// phải con của nó (gắn `overlay` lên vùng có cử chỉ là để hai bên tranh nhau cùng một cú chạm).
     ///
     /// Từ 1.3.607: bìa 86×120, trạng thái ghim là `CoverPinBadge` ở góc trên trái bìa (thay dòng "Đang ghim đầu
-    /// kệ"), bỏ icon ⓘ trang trí ở góc trên phải.
+    /// kệ"), bỏ icon ⓘ trang trí. Từ 1.3.610: hàng nút xuống đáy thay cho cột bên phải — cột đó cao bằng bìa nên
+    /// chiếm cả dải phải, tên truyện bị ép xuống dòng sớm; nay tên/tác giả chiếm hết bề ngang, cột chữ chừa sẵn
+    /// `actionRowHeight` ở đáy để chữ không chạm nút.
     @ViewBuilder
     private var header: some View {
-        HStack(alignment: .top, spacing: 12) {
+        ZStack(alignment: .bottomTrailing) {
             headerTappableContent
-            headerTrailingColumn
+            HStack(spacing: 8) {
+                editInfoButton
+                shelfToggleButton
+            }
         }
         .padding(.vertical, 4)
     }
@@ -155,8 +160,13 @@ struct BookActionSheet: View {
                         .foregroundColor(.secondary)
                         .lineLimit(2)
                 }
+
+                // Chừa chỗ cho hàng nút ở góc dưới phải (lớp trên trong `header`): cột cao ít nhất bằng bìa,
+                // tên dài hơn bìa thì cả phần đầu cao thêm và nút vẫn nằm đáy.
+                Spacer(minLength: 0)
+                Color.clear.frame(height: Self.actionRowHeight)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: Self.coverHeight, alignment: .topLeading)
         }
         .contentShape(Rectangle())
         // `onTapGesture` phải đăng ký **trước** `onLongPressGesture`, ngược lại chạm nhanh cũng bị
@@ -179,21 +189,8 @@ struct BookActionSheet: View {
 
     private static let coverWidth: CGFloat = 86
     private static let coverHeight: CGFloat = 120
-
-    /// `minHeight` = chiều cao ảnh bìa nên nút luôn nằm đúng đáy panel ngay cả khi tên truyện ngắn;
-    /// `maxHeight: .infinity` để cột giãn theo hàng khi tên dài hơn ảnh bìa.
-    @ViewBuilder
-    private var headerTrailingColumn: some View {
-        VStack(alignment: .trailing, spacing: 0) {
-            Spacer(minLength: 8)
-
-            HStack(spacing: 8) {
-                editInfoButton
-                shelfToggleButton
-            }
-        }
-        .frame(minHeight: Self.coverHeight, maxHeight: .infinity, alignment: .trailing)
-    }
+    /// Chiều cao hàng nút (khung 32 của `editInfoButton` / `shelfToggleButton`).
+    private static let actionRowHeight: CGFloat = 32
 
     /// Nút icon sửa thông tin đặt cạnh nút thêm kệ ở góc dưới phải.
     @ViewBuilder

@@ -97,6 +97,8 @@ final class VideoPlaybackSession {
     var hasOfflineCopy = false
     /// Item đang phát là bản tải trên máy.
     var isPlayingOffline = false
+    /// `AVPlayer.isMuted` (đổi qua `setMuted`, `+Transport`); mở phim mới thì đặt theo `VideoMutePolicy`.
+    var isMuted = false
 
     // MARK: - Engine
 
@@ -111,7 +113,7 @@ final class VideoPlaybackSession {
     @ObservationIgnored var attachedScreens = Set<ObjectIdentifier>()
     @ObservationIgnored var isInBackground = false
     /// Video đã nhường TTS (`pauseForTTS`): item nạp xong không tự phát. Người dùng bấm phát / chọn tập / chọn server /
-    /// thử lại, hoặc player thật sự chuyển sang phát (PiP, màn khoá) thì xoá.
+    /// thử lại, hoặc player thật sự chuyển sang phát (PiP, màn khoá) thì xoá. Video đang tắt tiếng không bật cờ này.
     @ObservationIgnored var autoplayBlockedByTTS = false
     /// Background task giữ app sống trong nhịp chờ PiP lúc vào nền (`+Lifecycle`).
     @ObservationIgnored var audioFallbackBackgroundTask: UIBackgroundTaskIdentifier = .invalid
@@ -219,6 +221,10 @@ final class VideoPlaybackSession {
         launch = newLaunch
         bookTitle = newLaunch.bookTitle ?? ""
         currentEpisodeIndex = max(0, newLaunch.chapterIndex)
+        // Chỉ phim mới mới áp tuỳ chọn tắt tiếng; đặt TRƯỚC `beginUserRequestedPlayback` (tắt tiếng ⇒ không dừng TTS).
+        let startMuted = VideoMutePolicy.shouldStartMuted(packageId: newLaunch.extensionPackageId)
+        AppLogger.shared.log("🎬 [VideoPlayer] Mở phim mới: \(startMuted ? "tắt tiếng" : "có tiếng") theo tuỳ chọn «\(VideoMutePolicy.current.title)»")
+        setMuted(startMuted)
         beginUserRequestedPlayback()
         beginStart()
     }

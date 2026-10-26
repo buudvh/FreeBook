@@ -88,6 +88,8 @@ struct ShelfView: View {
     /// Truyện đang được sửa thông tin. Sheet "Sửa thông tin" trước đây chỉ vào được từ menu "…" của màn Chi tiết;
     /// giờ dùng chung cho cả tab Kệ sách và Lịch sử qua context menu.
     @State private var editingInfoBook: Book? = nil
+    /// Lên kệ xong (Lịch sử → Kệ) mời chọn bộ sưu tập, như màn Chi tiết / Reader.
+    @State private var collectionPickerBook: Book? = nil
 
     // Import từ trình duyệt
     @State private var importedBookId: String = ""
@@ -383,6 +385,9 @@ struct ShelfView: View {
                     coverUrl: book.coverUrl
                 )
             }
+            .sheet(item: $collectionPickerBook) { book in
+                CollectionPickerSheet(bookId: book.bookId)
+            }
             .fullScreenCover(isPresented: $showingBypassBrowser) {
                 BypassWebView(
                     urlString: "home",
@@ -572,6 +577,9 @@ struct ShelfView: View {
             BookActionRunner.togglePin(book, in: modelContext)
         case .addToShelf:
             BookActionRunner.addToShelf(book, in: modelContext)
+            // Như màn Chi tiết / Reader: lên kệ xong mời chọn bộ sưu tập (bỏ qua thì truyện vẫn ở kệ). Sheet nhấn giữ
+            // đã đóng trước khi tới đây (`BookActionSheet.emit`), giống đường mở sheet Sửa thông tin.
+            if book.isOnShelf { collectionPickerBook = book }
         case .removeFromShelfOnly:
             BookActionRunner.removeFromShelfOnly(book, in: modelContext)
         case .removeFromCurrentCollection:

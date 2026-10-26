@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Thanh dưới của trình phát: hàng thời gian (đang xem · thanh tua có phần đã đệm · còn lại) và hàng nút biểu tượng
-/// (khoá cảm ứng · tập kế · danh sách tập · Xoay · toàn màn ở màn dọc).
+/// (khoá cảm ứng · tắt/bật tiếng · tập kế · danh sách tập · Xoay · toàn màn ở màn dọc).
 ///
 /// Hàng thời gian tách thành `VideoTimelineRow` để chỉ nó vẽ lại theo tick 0,5 giây.
 struct VideoPlayerBottomBar: View {
@@ -16,6 +16,14 @@ struct VideoPlayerBottomBar: View {
             HStack(spacing: 6) {
                 VideoPlayerIconButton(systemName: "lock", label: "Khoá cảm ứng") {
                     controller.setTouchLocked(true)
+                }
+                VideoPlayerIconButton(
+                    systemName: session.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill",
+                    label: session.isMuted ? "Bật tiếng" : "Tắt tiếng",
+                    isActive: session.isMuted
+                ) {
+                    session.setMuted(!session.isMuted)
+                    controller.showControls()
                 }
                 Spacer(minLength: 0)
                 if session.nextEpisode != nil {

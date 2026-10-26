@@ -31,6 +31,8 @@ struct ShelfSearchView: View {
     @State var detailTargetBook: Book? = nil
     @State var navigateToBookDetail = false
     @State var editingInfoBook: Book? = nil
+    /// Lên kệ xong mời chọn bộ sưu tập, như màn Chi tiết / Reader — `ShelfSearchView+Actions`.
+    @State var collectionPickerBook: Book? = nil
     @State var selectedBookForTask: Book? = nil
     @State var selectedTaskType: TaskType = .download
     @State var changeSourceTargetBook: Book? = nil
@@ -122,6 +124,9 @@ struct ShelfSearchView: View {
                     author: book.author,
                     coverUrl: book.coverUrl
                 )
+            }
+            .sheet(item: $collectionPickerBook) { book in
+                CollectionPickerSheet(bookId: book.bookId)
             }
             .navigationDestination(isPresented: $navigateToBookDetail) {
                 bookDetailDestinationView

@@ -92,6 +92,8 @@ extension ShelfSearchView {
             BookActionRunner.togglePin(book, in: modelContext)
         case .addToShelf:
             BookActionRunner.addToShelf(book, in: modelContext)
+            // Như màn Chi tiết / Reader: lên kệ xong mời chọn bộ sưu tập (bỏ qua thì truyện vẫn ở kệ).
+            if book.isOnShelf { collectionPickerBook = book }
         case .removeFromShelfOnly:
             BookActionRunner.removeFromShelfOnly(book, in: modelContext)
         case .removeFromCurrentCollection:
