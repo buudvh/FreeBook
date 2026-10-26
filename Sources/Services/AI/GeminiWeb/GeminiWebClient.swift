@@ -232,6 +232,9 @@ public actor GeminiWebClient {
             try Task.checkCancellation()
             try handle(parser.feed(chunk))
         }
+        // Bị huỷ thì stream kết thúc êm (không ném) — phải ném ở đây (1.3.602), nếu không lượt bị huỷ trước chunk đầu
+        // thành `protocolChanged` "không có ứng viên", bị coi như Google từ chối (log ❌ giả, thử lại nối tiếp vô ích).
+        try Task.checkCancellation()
         try handle(parser.flush())
 
         let elapsed = Int(Date().timeIntervalSince(startedAt) * 1000)

@@ -173,13 +173,10 @@ extension ReaderAIFullScreenView {
         }
     }
 
-    /// Chạy quét batch với prompt, phạm vi và số chương người dùng đã chọn trong sheet.
-    internal func beginBatchExtraction(with prompt: String, fromCurrentChapter: Bool, limit: Int?) {
-        startBatchExtraction(
-            promptOverride: prompt,
-            fromChapterIndex: fromCurrentChapter ? chapterIndex : nil,
-            limit: limit
-        )
+    /// Chạy quét batch với prompt, chương bắt đầu (`nil` = từ chương đã tải đầu tiên) và số chương người dùng đã chọn
+    /// trong sheet (1.3.602).
+    internal func beginBatchExtraction(with prompt: String, fromChapterIndex: Int?, limit: Int?) {
+        startBatchExtraction(promptOverride: prompt, fromChapterIndex: fromChapterIndex, limit: limit)
     }
 
     internal func startBatchExtraction(promptOverride: String? = nil, fromChapterIndex: Int? = nil, limit: Int? = nil) {
@@ -190,14 +187,12 @@ extension ReaderAIFullScreenView {
         batchProgress = AINameScanProgress()
         batchExtractedNames.removeAll()
 
-        // Nhãn phạm vi: giữ nguyên câu cũ khi không giới hạn, thêm số chương khi có giới hạn.
+        // Nhãn phạm vi: số chương hiển thị đánh từ 1 như mọi chỗ khác; thêm số chương khi có giới hạn (1.3.602).
         let scopeLabel: String
-        if let limit = limit {
-            scopeLabel = fromChapterIndex == nil
-                ? "\(limit) chương đã tải"
-                : "\(limit) chương từ chương đang đọc"
+        if let from = fromChapterIndex {
+            scopeLabel = limit.map { "\($0) chương từ ch.\(from + 1)" } ?? "từ ch.\(from + 1)"
         } else {
-            scopeLabel = fromChapterIndex == nil ? "toàn bộ chương đã tải" : "từ chương đang đọc"
+            scopeLabel = limit.map { "\($0) chương đã tải" } ?? "toàn bộ chương đã tải"
         }
         let userMsg = AIChatMessage(role: .user, content: "Quét tên riêng \(scopeLabel)")
         currentSession.messages.append(userMsg)

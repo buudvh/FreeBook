@@ -50,6 +50,9 @@ extension AIRuntimeCoordinator {
                         // `Task.isCancelled` ở đây là của Task MỚI này (không bao giờ bị huỷ) ⇒ phải so mã lần chạy.
                         guard let self = self, self.isCurrentRun(runId, bookId: bookId) else { return }
                         self.applyBatchProgress(progress, names: decorated, bookId: bookId, assistantMsgId: assistantMsgId)
+                        if decorated != nil {
+                            self.persistNameScanProgress(progress, bookId: bookId)
+                        }
                         onProgress(progress, decorated)
                     }
                 }
@@ -66,7 +69,7 @@ extension AIRuntimeCoordinator {
                     // Lần chạy đã bị thay (dừng / lệnh mới của chính truyện này) thì đã được dọn — không ghi đè.
                     guard let self = self, self.isCurrentRun(runId, bookId: bookId) else { return }
                     self.writeNames(finalResults, toMessage: assistantMsgId, bookId: bookId)
-                    self.saveRunSession(bookId: bookId)
+                    self.persistNameScanProgress(outcome.progress, bookId: bookId)
                     if let mid = assistantMsgId, !outcome.failedBatches.isEmpty {
                         self.setNameScanRetry(NameScanRetryContext(
                             bookId: bookId,
@@ -75,7 +78,8 @@ extension AIRuntimeCoordinator {
                             sessionId: sessionId,
                             assistantMsgId: mid,
                             names: finalResults,
-                            failedBatches: outcome.failedBatches
+                            failedBatches: outcome.failedBatches,
+                            resume: outcome.resume
                         ), bookId: bookId)
                     }
                     let isPresented = self.presentedAIBookId == bookId
@@ -91,9 +95,18 @@ extension AIRuntimeCoordinator {
             } catch {
                 await MainActor.run {
                     guard let self = self, self.isCurrentRun(runId, bookId: bookId) else { return }
-                    self.updateMessage(assistantMsgId, bookId: bookId) {
-                        $0.content = "Lỗi quét tên riêng: \(error.localizedDescription)"
-                        $0.isStreaming = false
+                    let errorText = "Lỗi quét tên riêng: \(error.localizedDescription)"
+                    // Dừng vì hạn mức/tài khoản giữa chừng (1.3.602): điểm tiếp nối đã ghi theo các lượt xong trước đó,
+                    // nên tên của các lượt đó phải ở lại tin kết quả — lỗi thành một tin riêng. Chưa có tên ⇒ như cũ.
+                    let scannedNames = self.runs[bookId]?.batchExtractedNames ?? []
+                    if scannedNames.isEmpty {
+                        self.updateMessage(assistantMsgId, bookId: bookId) {
+                            $0.content = errorText
+                            $0.isStreaming = false
+                        }
+                    } else {
+                        self.writeNames(scannedNames, toMessage: assistantMsgId, bookId: bookId)
+                        self.updateRun(bookId) { $0.session?.messages.append(AIChatMessage(role: .assistant, content: errorText)) }
                     }
                     self.saveRunSession(bookId: bookId)
                     let toast = self.toastText("Quét tên riêng bị gián đoạn.", bookId: bookId, bookTitle: bookTitle)
@@ -121,6 +134,16 @@ extension AIRuntimeCoordinator {
             session.messages[index].isStreaming = true
             state.session = session
         }
+    }
+
+    /// Sau mỗi lượt và ở lối ra cuối (1.3.602): lưu phiên (tin kết quả đang giữ danh sách tên) **rồi mới** ghi điểm tiếp
+    /// nối của lượt đó — thoát app giữa chừng thì điểm không bao giờ vượt quá phần tên đã lưu. Gọi sau `isCurrentRun`:
+    /// lượt đã bị dừng/thay thì tên của nó bị bỏ, điểm cũng không được ghi. `resumeChapterIndex == nil` (chưa lượt nào
+    /// xong) ⇒ giữ điểm cũ.
+    func persistNameScanProgress(_ progress: AINameScanProgress, bookId: String) {
+        saveRunSession(bookId: bookId)
+        guard let resume = progress.resumeChapterIndex else { return }
+        AINameScanScopeStore.shared.setResumeChapterIndex(resume, bookId: bookId)
     }
 
     /// Ghi danh sách `Tên=Nghĩa` cuối cùng vào tin kết quả và đánh dấu tin đã xong.
@@ -154,10 +177,12 @@ extension AIRuntimeCoordinator {
         }
     }
 
-    /// Tiêu đề tác vụ — cùng nghĩa với dải tiến độ: N là lượt **đang gửi**.
+    /// Tiêu đề tác vụ — cùng nghĩa với dải tiến độ: N là lượt **đang gửi**; lúc chuẩn bị kèm số chương đã đọc (1.3.602).
     static func batchTaskTitle(for progress: AINameScanProgress) -> String {
         if progress.isPreparing {
-            return progress.isRetry ? "Đang chuẩn bị thử lại..." : "Đang chuẩn bị quét..."
+            if progress.isRetry { return "Đang chuẩn bị thử lại..." }
+            guard let count = progress.chapterCount else { return "Đang chuẩn bị quét..." }
+            return "Đang chuẩn bị quét: đã đọc \(progress.preparedChapters)/\(count) chương"
         }
         let verb = progress.isRetry ? "Đang thử lại" : "Đang quét"
         return "\(verb): Batch \(progress.sendingBatch)/\(progress.totalBatches)"

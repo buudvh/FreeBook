@@ -11,6 +11,10 @@ import Foundation
 /// - Lượt quét tên riêng (`forceContext`, 1.3.527): phiên **đã có** cuộc chat (cid) thì **không bao giờ** mở cuộc chat
 ///   mới — bị từ chối thì chờ 5 s, thử lại đúng lượt nối tiếp một lần, vẫn lỗi thì ném (lượt đó tính là lỗi, có nút
 ///   thử lại). Chỉ đổi model / đổi công tắc lưu lịch sử mới được mở chat mới, và luôn log ❌ kèm lý do.
+///   **Ngoại lệ 1097** (1.3.602, `GeminiWebError.conversationBroken`): cuộc chat đã hỏng — log thật cho thấy thử lại
+///   sau 5 s luôn dính lại 1097 — nên bỏ lần thử lại, mở ngay cuộc chat mới với đủ ngữ cảnh và ghi nhớ cho phiên; chính
+///   lượt mở chat mới đó lỗi thì ném như mọi lượt khác (không vòng lặp).
+/// - Lượt quét tên riêng đi qua `GeminiWebClient+NameScan` (1.3.602): tạm dừng khi app ở nền, gửi lại khi app mở lại.
 /// - Đi đường này: chat trong Reader, và quét tên riêng nhiều chương khi bật "Lưu chat vào lịch sử Gemini" (1.3.524 —
 ///   nối tiếp **đúng** cuộc chat của phiên chat app, không mở cuộc chat riêng). "Kiểm tra kết nối" vẫn là chat tạm.
 extension GeminiWebClient {
@@ -132,7 +136,8 @@ extension GeminiWebClient {
                 AppLogger.shared.log("🤖 [GeminiWeb] Nối tiếp cuộc chat (lưu=\(saveToHistory), cập nhật ngữ cảnh=\(contextUpdate != nil))")
                 return
             }
-            if forceContext {
+            // 1097 (1.3.602): cuộc chat hỏng hẳn — lượt quét bỏ lần thử lại, đi thẳng đường mở chat mới bên dưới.
+            if forceContext, !rejection.isConversationBroken {
                 try await retryRejectedScanContinuation(attempt, rejection: rejection, onDelta: onDelta)
                 return
             }
@@ -141,9 +146,9 @@ extension GeminiWebClient {
         }
 
         if forceContext, previous != nil {
-            // Phiên đã có trạng thái chat mà lượt quét vẫn phải mở chat mới (đổi model / đổi công tắc / mất cid): đây
-            // chính là triệu chứng "mỗi batch một cuộc chat" ⇒ luôn ghi log dù người dùng tắt log.
-            AppLogger.shared.log("❌ 🤖 [GeminiWeb] Quét tên riêng mở cuộc chat Gemini MỚI dù phiên đã có chat — lý do: \(freshReason)")
+            // Phiên đã có trạng thái chat mà lượt quét vẫn phải mở chat mới (đổi model / đổi công tắc / mất cid / 1097):
+            // đây chính là triệu chứng "mỗi batch một cuộc chat" ⇒ luôn ghi log dù người dùng tắt log.
+            AppLogger.shared.log("❌ 🤖 [GeminiWeb] Quét tên riêng mở cuộc chat Gemini MỚI dù phiên đã có chat \(GeminiWebForegroundGate.shared.appStateLabel) — lý do: \(freshReason)")
         }
 
         var state = GeminiWebConversationState(model: modelName, contextFingerprint: fingerprint, savedToHistory: saveToHistory)
@@ -164,7 +169,7 @@ extension GeminiWebClient {
             var probe = state
             if let partial = observed.metadata { probe.metadata = partial }
             if forceContext, !Task.isCancelled, probe.cid.isEmpty {
-                AppLogger.shared.log("❌ 🤖 [GeminiWeb] Quét tên riêng: lượt mở cuộc chat mới lỗi trước khi nhận cid (\(error.localizedDescription)) — Gemini có thể đã tạo cuộc chat trên web, lượt sau sẽ lại mở chat mới")
+                AppLogger.shared.log("❌ 🤖 [GeminiWeb] Quét tên riêng: lượt mở cuộc chat mới lỗi trước khi nhận cid (\(error.localizedDescription)) \(GeminiWebForegroundGate.shared.appStateLabel) — Gemini có thể đã tạo cuộc chat trên web, lượt sau sẽ lại mở chat mới")
             }
             throw error
         }
@@ -172,7 +177,7 @@ extension GeminiWebClient {
         remember(state, sessionId: sessionId, persist: persist)
         AppLogger.shared.log("🤖 [GeminiWeb] Mở cuộc chat mới (lưu=\(saveToHistory), có cid=\(!state.cid.isEmpty), lý do: \(freshReason))")
         if state.cid.isEmpty {
-            AppLogger.shared.log("❌ 🤖 [GeminiWeb] Mở cuộc chat mới nhưng không lấy được cid — lượt sau sẽ lại mở chat mới")
+            AppLogger.shared.log("❌ 🤖 [GeminiWeb] Mở cuộc chat mới nhưng không lấy được cid \(GeminiWebForegroundGate.shared.appStateLabel) — lượt sau sẽ lại mở chat mới")
         }
     }
 
@@ -192,7 +197,8 @@ extension GeminiWebClient {
 
     /// Một lần gửi nối tiếp cuộc chat cũ. Thành công ⇒ ghi nhớ trạng thái mới, trả `nil`. Bị Google từ chối **trước khi
     /// có chữ nào** với lỗi có thể do chính cuộc chat cũ (`allowsFreshRestart`) ⇒ trả lỗi đó để caller quyết định (chat
-    /// thường mở chat mới; quét tên riêng thử lại nối tiếp). Lỗi khác ⇒ giữ cid đã nhận (`rememberPartial`) rồi ném.
+    /// thường mở chat mới; quét tên riêng thử lại nối tiếp, riêng 1097 thì mở chat mới). Lỗi khác ⇒ giữ cid đã nhận
+    /// (`rememberPartial`) rồi ném.
     private func continueConversation(
         _ attempt: ContinuationAttempt,
         onDelta: @escaping @Sendable (String) -> Void
@@ -225,14 +231,15 @@ extension GeminiWebClient {
         return nil
     }
 
-    /// Lượt quét tên riêng bị từ chối khi nối tiếp (1.3.527): **không** mở chat mới — chờ 5 s (huỷ được), thử lại đúng
-    /// lượt nối tiếp này một lần; vẫn lỗi thì ném để vòng quét đếm là lượt lỗi (nút "Thử lại" lo phần còn lại).
+    /// Lượt quét tên riêng bị từ chối khi nối tiếp (1.3.527; trừ 1097 từ 1.3.602): **không** mở chat mới — chờ 5 s (huỷ
+    /// được), thử lại đúng lượt nối tiếp này một lần; vẫn lỗi thì ném để vòng quét đếm là lượt lỗi (nút "Thử lại" lo
+    /// phần còn lại).
     private func retryRejectedScanContinuation(
         _ attempt: ContinuationAttempt,
         rejection: GeminiWebError,
         onDelta: @escaping @Sendable (String) -> Void
     ) async throws {
-        AppLogger.shared.log("❌ 🤖 [GeminiWeb] Quét tên riêng: lượt nối tiếp bị Google từ chối (\(rejection.localizedDescription)) — chờ 5 s rồi thử lại đúng cuộc chat cũ, không mở chat mới")
+        AppLogger.shared.log("❌ 🤖 [GeminiWeb] Quét tên riêng: lượt nối tiếp bị Google từ chối (\(rejection.localizedDescription)) \(GeminiWebForegroundGate.shared.appStateLabel) — chờ 5 s rồi thử lại đúng cuộc chat cũ, không mở chat mới")
         try await Task.sleep(nanoseconds: Self.scanContinuationRetryDelay)
         do {
             if let again = try await continueConversation(attempt, onDelta: onDelta) {
@@ -240,7 +247,7 @@ extension GeminiWebClient {
             }
         } catch {
             if !Task.isCancelled {
-                AppLogger.shared.log("❌ 🤖 [GeminiWeb] Quét tên riêng: thử lại nối tiếp vẫn lỗi (\(error.localizedDescription)) — bỏ lượt này, giữ cuộc chat cũ, không mở chat mới")
+                AppLogger.shared.log("❌ 🤖 [GeminiWeb] Quét tên riêng: thử lại nối tiếp vẫn lỗi (\(error.localizedDescription)) \(GeminiWebForegroundGate.shared.appStateLabel) — bỏ lượt này, giữ cuộc chat cũ, không mở chat mới")
             }
             throw error
         }
@@ -277,7 +284,7 @@ extension GeminiWebClient {
     /// chính cuộc chat cũ.
     private static func allowsFreshRestart(after error: GeminiWebError) -> Bool {
         switch error {
-        case .usageLimit, .ipBlocked, .notSignedIn, .accountStatus, .timeout, .sessionUnavailable:
+        case .usageLimit, .ipBlocked, .notSignedIn, .accountStatus, .timeout, .sessionUnavailable, .interruptedInBackground:
             return false
         default:
             return true

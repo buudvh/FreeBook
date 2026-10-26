@@ -30,6 +30,13 @@ extension GeminiWebSessionController {
             .replacingOccurrences(of: "\u{2029}", with: "\\u2029")
     }
 
+    /// Huỷ `fetch` của stream `id` qua `AbortController` mà `fetchScript` cất ở `window.__fbGeminiAbort`. Không còn
+    /// controller (fetch đã xong, hoặc trang đã đổi document) thì không làm gì.
+    static func abortFetchScript(id: String) throws -> String {
+        let idLiteral = try jsLiteral(id)
+        return "(function(){try{var c=window.__fbGeminiAbort&&window.__fbGeminiAbort[\(idLiteral)];if(c){c.abort();}}catch(e){}return true;})();"
+    }
+
     /// Thông điệp lỗi do JS gửi về: `HTTP <mã> <đoạn body>` thành `.http`, còn lại là `.script`.
     static func scriptError(from payload: String) -> GeminiWebError {
         if payload.hasPrefix("HTTP ") {

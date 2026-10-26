@@ -153,14 +153,15 @@ public struct ReaderAINameReviewSheet: View {
     }
 
     /// Gọi trong `.contextMenu` của **mọi** tin mỗi lần màn AI vẽ lại (mỗi nhịp stream 50 ms): duyệt từng dòng
-    /// và dừng ở dòng `từ=nghĩa` đầu tiên thay vì tách cả tin thành mảng dòng.
+    /// và dừng ở dòng `từ=nghĩa` đầu tiên thay vì tách cả tin thành mảng dòng. Cùng luật bỏ dòng với
+    /// `parseEntriesFromText` (nghĩa lẫn chữ Hán không tính).
     public static func hasDictionaryEntries(in text: String) -> Bool {
         var found = false
         text.enumerateLines { line, stop in
             guard let eqIdx = line.firstIndex(of: "=") else { return }
             let k = line[..<eqIdx].trimmingCharacters(in: .whitespacesAndNewlines)
             let v = line[line.index(after: eqIdx)...].trimmingCharacters(in: .whitespacesAndNewlines)
-            if !k.isEmpty && !v.isEmpty {
+            if !k.isEmpty && !v.isEmpty && !TranslateUtils.containsChinese(v) {
                 found = true
                 stop = true
             }
@@ -168,6 +169,8 @@ public struct ReaderAINameReviewSheet: View {
         return found
     }
 
+    /// Tách các dòng `từ=nghĩa`. Bỏ dòng có nghĩa (vế phải) lẫn chữ Hán (1.3.602): AI đôi khi trả nghĩa chưa dịch
+    /// hết kiểu `林动=Lâm 动`, lưu vào từ điển là hỏng bản dịch.
     private static func parseEntriesFromText(_ text: String) -> [(key: String, value: String)] {
         var seenKeys = Set<String>()
         var result: [(key: String, value: String)] = []
@@ -176,7 +179,7 @@ public struct ReaderAINameReviewSheet: View {
             guard let eqIdx = line.firstIndex(of: "=") else { continue }
             let k = String(line[..<eqIdx]).trimmingCharacters(in: .whitespacesAndNewlines)
             let v = String(line[line.index(after: eqIdx)...]).trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !k.isEmpty, !v.isEmpty else { continue }
+            guard !k.isEmpty, !v.isEmpty, !TranslateUtils.containsChinese(v) else { continue }
             if seenKeys.contains(k) {
                 if let existingIdx = result.firstIndex(where: { $0.key == k }) {
                     result[existingIdx] = (key: k, value: v)

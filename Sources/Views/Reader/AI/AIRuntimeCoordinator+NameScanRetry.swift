@@ -23,6 +23,9 @@ extension AIRuntimeCoordinator {
         let assistantMsgId: UUID
         var names: [AIExtractedName]
         var failedBatches: [AINameScanFailedBatch]
+        /// Bộ theo dõi điểm tiếp nối của lần quét gốc (1.3.602): lượt thử lại thành công đẩy điểm tiếp nối đi tiếp theo
+        /// luật "dừng trước lượt lỗi".
+        let resume: AINameScanResumeTracker?
     }
 
     /// Nơi duy nhất ghi `nameScanRetryContexts` — giữ `runs[bookId].nameScanRetry` (phát cho UI) luôn khớp với nó.
@@ -66,13 +69,18 @@ extension AIRuntimeCoordinator {
                     existingNames: context.names,
                     config: context.config,
                     promptOverride: context.promptOverride,
-                    sessionId: context.sessionId
+                    sessionId: context.sessionId,
+                    resume: context.resume
                 ) { progress, partial in
                     // Danh sách báo về đã gộp sẵn với tên cũ ⇒ tin kết quả không mất tên trong lúc thử lại.
                     let decorated = partial.map { AIBookDataInspector.shared.decorateExtractedNames(names: $0, bookId: bookId) }
                     Task { @MainActor [weak self] in
                         guard let self = self, self.isCurrentRun(runId, bookId: bookId) else { return }
                         self.applyBatchProgress(progress, names: decorated, bookId: bookId, assistantMsgId: messageId)
+                        if let decorated {
+                            self.persistNameScanProgress(progress, bookId: bookId)
+                            self.syncNameScanRetry(names: decorated, bookId: bookId)
+                        }
                         onProgress(progress, decorated)
                     }
                 }
@@ -86,7 +94,7 @@ extension AIRuntimeCoordinator {
                 await MainActor.run {
                     guard let self = self, self.isCurrentRun(runId, bookId: bookId) else { return }
                     self.writeNames(finalResults, toMessage: messageId, bookId: bookId)
-                    self.saveRunSession(bookId: bookId)
+                    self.persistNameScanProgress(outcome.progress, bookId: bookId)
                     var remaining = context
                     remaining.names = finalResults
                     remaining.failedBatches = outcome.failedBatches
@@ -120,6 +128,19 @@ extension AIRuntimeCoordinator {
             }
         }
         return true
+    }
+
+    /// Sau mỗi lượt của lần thử lại (1.3.602): context trong RAM theo kịp phần vừa lưu — danh sách tên đã gộp, bỏ các
+    /// lượt mà bộ theo dõi điểm tiếp nối ghi là đã thành công. Không làm vậy thì lần thử lại bị dừng giữa chừng để lại
+    /// context cũ: lần bấm sau gộp từ danh sách tên cũ (mất tên của lượt vừa xong) trong khi điểm tiếp nối đã vượt qua
+    /// lượt đó. Lối ra bình thường vẫn thay context bằng kết quả cuối như cũ.
+    func syncNameScanRetry(names: [AIExtractedName], bookId: String) {
+        guard var context = nameScanRetryContexts[bookId] else { return }
+        context.names = names
+        if let resume = context.resume {
+            context.failedBatches.removeAll { resume.isSucceeded(turnIndex: $0.turnIndex) }
+        }
+        setNameScanRetry(context.failedBatches.isEmpty ? nil : context, bookId: bookId)
     }
 
     /// Còn lượt lỗi ⇒ toast lỗi kể cả khi màn AI đang mở (nút vẫn còn, nhãn đổi số). Hết lỗi ⇒ toast thành công

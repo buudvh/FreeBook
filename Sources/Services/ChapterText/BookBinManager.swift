@@ -115,6 +115,63 @@ public actor BookBinManager {
         throw NSError(domain: "BookBinManager", code: 501, userInfo: [NSLocalizedDescriptionKey: "Lỗi giải mã UTF-8 cho chương truyện"])
     }
 
+    /// Đọc nhiều đoạn `(offset, length)` của cùng một truyện với **một** `FileHandle` mở một lần (1.3.602) — dùng cho bước
+    /// chuẩn bị quét tên riêng nhiều chương, thay cho mỗi chương một lần nhảy actor + `fileExists` + mở/đóng file.
+    ///
+    /// Trả mảng đúng thứ tự `ranges`: đoạn đọc hỏng hoặc giải mã UTF-8 lỗi ⇒ `nil` (gom thành **một** dòng log ❌ tóm
+    /// tắt, không log từng đoạn); `length <= 0` ⇒ chuỗi rỗng như `readChapterContent`. File không có hoặc mở hỏng ⇒ ném
+    /// một lần cho cả mảng.
+    public func readChapterContents(bookId: String, ranges: [(offset: Int64, length: Int64)]) throws -> [String?] {
+        guard !ranges.isEmpty else { return [] }
+        let fileURL = try resolvedBinURL(for: bookId)
+
+        guard fileManager.fileExists(atPath: fileURL.path) else {
+            throw NSError(domain: "BookBinManager", code: 404, userInfo: [NSLocalizedDescriptionKey: "File .bin không tồn tại cho sách \(bookId)"])
+        }
+
+        let fileHandle: FileHandle
+        do {
+            fileHandle = try FileHandle(forReadingFrom: fileURL)
+        } catch {
+            FileDescriptorCensus.noteOpenFailure(context: "BookBinManager.readMany", error: error)
+            throw error
+        }
+        defer { try? fileHandle.close() }
+
+        var results: [String?] = []
+        results.reserveCapacity(ranges.count)
+        var failedCount = 0
+        var firstFailure: String?
+        for range in ranges {
+            guard range.length > 0 else {
+                results.append("")
+                continue
+            }
+            var content: String?
+            var reason = "giải mã UTF-8 lỗi"
+            do {
+                try fileHandle.seek(toOffset: UInt64(range.offset))
+                if let data = try fileHandle.read(upToCount: Int(range.length)) {
+                    content = String(data: data, encoding: .utf8)
+                } else {
+                    reason = "không có dữ liệu"
+                }
+            } catch {
+                reason = error.localizedDescription
+            }
+            if content == nil {
+                failedCount += 1
+                if firstFailure == nil { firstFailure = "offset \(range.offset): \(reason)" }
+            }
+            results.append(content)
+        }
+
+        if failedCount > 0 {
+            AppLogger.shared.log("❌ Đọc \(failedCount)/\(ranges.count) chương từ file .bin lỗi (đầu tiên: \(firstFailure ?? "-"))")
+        }
+        return results
+    }
+
     public func writeChapterContent(bookId: String, content: String) throws -> (offset: Int64, length: Int64) {
         let fileURL = try resolvedBinURL(for: bookId)
 

@@ -2,7 +2,8 @@ import SwiftUI
 
 /// Dải tiến độ quét tên riêng nhiều chương ở đầu màn AI (1.3.524).
 ///
-/// - Đang chuẩn bị (chưa chia lượt): "Đang chuẩn bị quét tên riêng..." + số chương đang đọc.
+/// - Đang chuẩn bị (chưa chia lượt): "Đang chuẩn bị quét tên riêng..." + "Đã đọc k/N chương" (báo sau mỗi khối
+///   chương, 1.3.602).
 /// - Đang gửi: "Batch N/T" với N là lượt **đang gửi** — khớp số tin gửi đi và dòng log `gửi lượt N/T`; dòng phụ
 ///   thêm số lượt lỗi đã bỏ qua khi có.
 /// - Vòng thử lại lượt lỗi (tự động ở cuối lần quét hoặc nút "Thử lại k lượt lỗi", 1.3.527): "Đang thử lại: Batch i/k",
@@ -52,7 +53,7 @@ public struct ReaderAIBatchProgressBannerView: View {
     private var subtitle: String {
         if progress.isPreparing {
             if let count = progress.chapterCount {
-                return "Đang đọc \(count) chương đã tải"
+                return "Đã đọc \(progress.preparedChapters)/\(count) chương"
             }
             return "Đang đọc chương đã tải"
         }

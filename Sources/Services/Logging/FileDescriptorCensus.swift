@@ -15,6 +15,10 @@ import Darwin
 ///   dùng nghe được lâu hơn trong lúc chờ tìm chỗ rò; log vẫn thấy fd tăng dần.
 /// - Báo nền/active cho `FileDescriptorStepProbe` (đo theo bước) và mỗi `FileDescriptorSweeper.chunkInterval`
 ///   đoạn audio gọi `FileDescriptorSweeper` dọn fd mồ côi (1.3.521).
+///
+/// 1.3.602: đã tìm ra gốc (lỗi Dead10ccFix của LiveContainer) nên các dòng log `[FD]` định kỳ (launch, chương,
+/// nền/active, `chunks=`) và việc đếm chỉ để phục vụ chúng bị **comment lại** theo yêu cầu — bỏ comment để bật lại.
+/// Vẫn giữ: nâng giới hạn mềm, dọn fd mồ côi, `openCount()` cho màn log, và `[FD] FAILURE` + bảng chụp lúc lỗi.
 enum FileDescriptorCensus {
     /// Mọi việc đếm và mọi trạng thái bên dưới chạy tuần tự trên queue này: không chặn main/TTS.
     private static let queue = DispatchQueue(label: "FreeBook.FileDescriptorCensus", qos: .utility)
@@ -45,45 +49,49 @@ enum FileDescriptorCensus {
     static func start() {
         var limit = rlimit()
         guard getrlimit(RLIMIT_NOFILE, &limit) == 0 else {
-            AppLogger.shared.logAlways("[FD] launch getrlimit lỗi errno=\(errno)")
-            record(event: "launch")
+            // 1.3.602: tắt log [FD] — bỏ comment để bật lại.
+            // AppLogger.shared.logAlways("[FD] launch getrlimit lỗi errno=\(errno)")
+            // record(event: "launch")
             return
         }
-        let before = limit.rlim_cur
+        // let before = limit.rlim_cur
         for candidate in raiseCandidates where candidate > limit.rlim_cur && candidate <= limit.rlim_max {
             var raised = limit
             raised.rlim_cur = candidate
             if setrlimit(RLIMIT_NOFILE, &raised) == 0 { break }
         }
-        _ = getrlimit(RLIMIT_NOFILE, &limit)
-        AppLogger.shared.logAlways("[FD] launch soft=\(before)->\(limit.rlim_cur) hard=\(limit.rlim_max)")
-        record(event: "launch")
+        // 1.3.602: tắt log [FD] — bỏ comment để bật lại.
+        // _ = getrlimit(RLIMIT_NOFILE, &limit)
+        // AppLogger.shared.logAlways("[FD] launch soft=\(before)->\(limit.rlim_cur) hard=\(limit.rlim_max)")
+        // record(event: "launch")
     }
 
     /// Đếm đủ theo nhóm, in tổng + chênh lệch so với lần đếm đủ trước.
+    /// 1.3.602: tắt log [FD] — thân hàm comment lại (không đếm, không báo nền/active cho `FileDescriptorStepProbe`
+    /// nên bộ đo theo bước cũng nghỉ); giữ hàm vì `MainTabView`/`TTSManager` vẫn gọi.
     static func record(event: String) {
-        if event == "background" || event == "active" {
-            FileDescriptorStepProbe.noteScene(background: event == "background")
-        }
-        queue.async { Self.recordOnQueue(event: event, includeAllBuckets: false) }
+        // if event == "background" || event == "active" {
+        //     FileDescriptorStepProbe.noteScene(background: event == "background")
+        // }
+        // queue.async { Self.recordOnQueue(event: event, includeAllBuckets: false) }
     }
 
     /// Mỗi đoạn audio bắt đầu phát: cứ `chunkSampleInterval` đoạn đếm tổng một lần (rẻ), tổng tăng
-    /// nhanh thì đếm đủ luôn.
+    /// nhanh thì đếm đủ luôn. 1.3.602: phần đếm + log `[FD] chunks=` comment lại, chỉ còn nhịp dọn fd mồ côi.
     static func tickChunk() {
-        FileDescriptorStepProbe.noteChunk()
+        // FileDescriptorStepProbe.noteChunk()
         queue.async {
             Self.chunkCount += 1
             if Self.chunkCount % FileDescriptorSweeper.chunkInterval == 0 {
                 let (total, soft) = Self.countOpen()
                 FileDescriptorSweeper.sweepIfNeeded(total: total, soft: soft)
             }
-            guard Self.chunkCount % Self.chunkSampleInterval == 0 else { return }
-            let (total, soft) = Self.countOpen()
-            AppLogger.shared.logAlways("[FD] chunks=\(Self.chunkCount) total=\(total)/\(soft)")
-            if total - Self.previousTotal > Self.growthTriggerCount {
-                Self.recordOnQueue(event: "growth", includeAllBuckets: false)
-            }
+            // guard Self.chunkCount % Self.chunkSampleInterval == 0 else { return }
+            // let (total, soft) = Self.countOpen()
+            // AppLogger.shared.logAlways("[FD] chunks=\(Self.chunkCount) total=\(total)/\(soft)")
+            // if total - Self.previousTotal > Self.growthTriggerCount {
+            //     Self.recordOnQueue(event: "growth", includeAllBuckets: false)
+            // }
         }
     }
 

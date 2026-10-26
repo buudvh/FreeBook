@@ -13,7 +13,8 @@ import Darwin
 /// 5. không phải fd số nhỏ nhất của đống (luôn chừa lại một, phòng đó là bản gốc).
 ///
 /// Chạy trên queue của `FileDescriptorCensus` (gọi từ `tickChunk`), chỉ khi tổng fd ≥ `sweepThreshold` và công tắc
-/// "Tự dọn file mở thừa" (`enabledKey`, mặc định bật) đang bật. Mỗi lần dọn ghi một dòng `[FD] sweep …`.
+/// "Tự dọn file mở thừa" (`enabledKey`, mặc định bật) đang bật. Mỗi lần dọn ghi một dòng `[FD] sweep …` — 1.3.602:
+/// dòng này đã comment lại theo yêu cầu tắt log `[FD]` (việc dọn vẫn chạy như cũ).
 enum FileDescriptorSweeper {
     static let enabledKey = "fdSweeperEnabled"
     /// Cứ bấy nhiêu đoạn audio thì xét dọn một lần (~1 phút với Google TTS).
@@ -48,17 +49,18 @@ enum FileDescriptorSweeper {
         }
         let now = ProcessInfo.processInfo.systemUptime
         var piles: [FileIdentity: [Int32]] = [:]
-        var paths: [FileIdentity: String] = [:]
+        // 1.3.602: tắt log [FD] — `paths`/`closedByFile`/`closed` chỉ để dựng dòng `[FD] sweep`, bỏ comment để bật lại.
+        // var paths: [FileIdentity: String] = [:]
         var pathBuffer = [CChar](repeating: 0, count: Int(MAXPATHLEN))
         for fd in Int32(3)..<Int32(soft) where fcntl(fd, F_GETFD) != -1 {
             guard let candidate = orphanCandidate(fd, pathBuffer: &pathBuffer) else { continue }
             piles[candidate.identity, default: []].append(fd)
-            paths[candidate.identity] = candidate.path
+            // paths[candidate.identity] = candidate.path
         }
 
         var nextSightings: [Int32: Sighting] = [:]
-        var closedByFile: [String: Int] = [:]
-        var closed = 0
+        // var closedByFile: [String: Int] = [:]
+        // var closed = 0
         for (identity, fds) in piles {
             let sorted = fds.sorted()
             for fd in sorted {
@@ -66,22 +68,22 @@ enum FileDescriptorSweeper {
                 let firstSeen = previous?.identity == identity ? (previous?.firstSeen ?? now) : now
                 let removable = sorted.count >= minimumPileSize && fd != sorted[0] && now - firstSeen >= minimumOrphanAge
                 if removable, close(fd) == 0 {
-                    closed += 1
-                    closedByFile[FileDescriptorCensus.normalize(paths[identity] ?? "?"), default: 0] += 1
+                    // closed += 1
+                    // closedByFile[FileDescriptorCensus.normalize(paths[identity] ?? "?"), default: 0] += 1
                 } else {
                     nextSightings[fd] = Sighting(identity: identity, firstSeen: firstSeen)
                 }
             }
         }
         sightings = nextSightings
-        guard closed > 0 else { return }
-        let top = closedByFile
-            .sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }
-            .prefix(6)
-            .map { "\($0.key)×\($0.value)" }
-        AppLogger.shared.logAlways(
-            "[FD] sweep total=\(total)->\(total - closed) closed=\(closed) kept=\(nextSightings.count) top=[\(top.joined(separator: ", "))]"
-        )
+        // guard closed > 0 else { return }
+        // let top = closedByFile
+        //     .sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }
+        //     .prefix(6)
+        //     .map { "\($0.key)×\($0.value)" }
+        // AppLogger.shared.logAlways(
+        //     "[FD] sweep total=\(total)->\(total - closed) closed=\(closed) kept=\(nextSightings.count) top=[\(top.joined(separator: ", "))]"
+        // )
     }
 
     /// fd thoả điều kiện 1–2 thì trả file của nó, không thì `nil`. Chỉ dùng `fstat`/`fcntl`/`lseek` (không dời vị trí).

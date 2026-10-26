@@ -116,8 +116,10 @@ final class GeminiWebSessionController: NSObject {
         let id = UUID().uuidString
         let kind = request.url.contains("batchexecute") ? "batchexecute" : "StreamGenerate"
         return AsyncThrowingStream { continuation in
+            // 1.3.602: gắn handler huỷ ngay, không chờ Task dưới — consumer rời sớm thì Task không chạy fetch nữa.
+            let termination = GeminiWebStreamTermination(continuation) { [weak self] in Task { @MainActor in self?.abortScript(id: id) } }
             Task { @MainActor [weak self] in
-                guard let self, let webView = self.webView, self.initSession != nil else {
+                guard let self, let webView = self.webView, self.initSession != nil, !termination.isTerminated else {
                     continuation.finish(throwing: GeminiWebError.sessionUnavailable)
                     return
                 }
@@ -127,9 +129,6 @@ final class GeminiWebSessionController: NSObject {
                 state.watchdog = self.makeWatchdog(id: id)
                 self.streams[id] = state
                 self.touch()
-                continuation.onTermination = { [weak self] _ in
-                    Task { @MainActor in self?.abortScript(id: id) }
-                }
 
                 do {
                     let script = try Self.fetchScript(id: id, request: request)
@@ -198,7 +197,7 @@ final class GeminiWebSessionController: NSObject {
         state.watchdog?.cancel()
         let elapsed = Self.ms(since: state.startedAt)
         if let error {
-            AppLogger.shared.log("❌ 🤖 [GeminiWeb] \(state.kind) lỗi sau \(elapsed) ms, chunk=\(state.chunks): \(error.localizedDescription)")
+            AppLogger.shared.log("❌ 🤖 [GeminiWeb] \(state.kind) lỗi sau \(elapsed) ms, chunk=\(state.chunks) \(GeminiWebForegroundGate.currentAppStateLabel): \(error.localizedDescription)")
             state.continuation.finish(throwing: error)
         } else {
             AppLogger.shared.log("🤖 [GeminiWeb] \(state.kind) xong sau \(elapsed) ms, chunk=\(state.chunks)")
@@ -206,13 +205,13 @@ final class GeminiWebSessionController: NSObject {
         }
     }
 
-    /// Consumer dừng sớm (đổi chương, huỷ chat): huỷ `fetch` tương ứng trong trang. Stream đã kết thúc
-    /// bình thường thì không còn trong `streams` nên không làm gì.
+    /// Stream kết thúc vì bất kỳ lý do gì (consumer dừng sớm, watchdog timeout, `failAllStreams`…): huỷ `fetch` tương
+    /// ứng trong trang, **kể cả** khi stream đã rời `streams` — trước 1.3.602 timeout bỏ qua bước này nên fetch cũ sống
+    /// tiếp trong trang (đứng im lúc app ở nền rồi chạy tiếp khi mở lại) trong khi lượt sau đã gửi vào cùng cuộc chat.
+    /// Fetch đã xong thì script không làm gì (`finally` đã xoá controller).
     private func abortScript(id: String) {
-        guard let state = streams.removeValue(forKey: id) else { return }
-        state.watchdog?.cancel()
-        guard let webView, let idLiteral = try? Self.jsLiteral(id) else { return }
-        let script = "(function(){try{var c=window.__fbGeminiAbort&&window.__fbGeminiAbort[\(idLiteral)];if(c){c.abort();}}catch(e){}return true;})();"
+        streams.removeValue(forKey: id)?.watchdog?.cancel()
+        guard let webView, let script = try? Self.abortFetchScript(id: id) else { return }
         webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
@@ -387,7 +386,7 @@ final class GeminiWebSessionController: NSObject {
 
     func navigationDidFail(_ error: Error) {
         expectingNavigation = false
-        AppLogger.shared.log("❌ 🤖 [GeminiWeb] Nạp trang thất bại: \(error.localizedDescription)")
+        AppLogger.shared.log("❌ 🤖 [GeminiWeb] Nạp trang thất bại \(GeminiWebForegroundGate.currentAppStateLabel): \(error.localizedDescription)")
         failNavigationWaiters(GeminiWebError.script(error.localizedDescription))
     }
 

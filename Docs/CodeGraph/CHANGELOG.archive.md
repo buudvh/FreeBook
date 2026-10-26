@@ -2,6 +2,22 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.572] - 2026-10-21
+
+### feat: đăng nhập nguồn Legado (form + web), trình duyệt cho JS, Khám phá động
+
+Khối D-UI, E-UI của plan đợt 2 + 3 nguồn Legado — giao diện khớp mockup đã duyệt (người dùng chọn giữ cả đăng nhập bằng form lẫn trên web). Hành vi theo spec phần 2 §10, §11.
+
+- **Đăng nhập** (`Views/Extensions/Legado/Login/`, mới): `LegadoLoginView` (+`Actions`, `LegadoLoginFieldView`) dựng form từ `loginUi` (ô chữ/mật khẩu…, nút hành động của nguồn chạy JS), Đăng nhập, "Đăng nhập trên web", Đăng xuất, dải trạng thái; `LegadoLoginWebView` — trình duyệt nhỏ (Huỷ / URL / ↻ / Xong ⇒ nhập cookie vào kho cookie của nguồn). Nút Đăng nhập ở màn chi tiết nguồn nối vào đây (ẩn khi `loginUrl` rỗng/chỉ là chú thích).
+- **Keychain dự phòng**: `LegadoLoginFallbackStore` theo mẫu `TelegramTokenStore`, chỉ dùng khi Keychain lỗi (vd chạy dưới LiveContainer); tệp ở `.legado_login/` ngoài `legado_state/`, không log, không sao lưu. Xoá nguồn ⇒ xoá luôn thông tin đăng nhập của nguồn (`LegadoLoginService.forget`, khoá theo `bookSourceUrl`).
+- **Trình duyệt / mã xác minh từ JS** (`Views/Extensions/Legado/Browser/`, mới): `LegadoPresentationPresenter` là subscriber duy nhất của event center engine, gắn một lần ở root (`.legadoPresentationHandler()` trong `FreeBookApp`); trình bày `LegadoBrowserSheet` (`java.startBrowser*`) hoặc `LegadoVerificationCodeSheet` (`getVerificationCode`), trả kết quả/huỷ cho thread engine đang chờ ngoài main. `searchBook` mở Tìm kiếm; `openUrl` hỏi nhập nguồn / mở trình duyệt nhỏ / hỏi trước khi mở app ngoài.
+- **Cờ người dùng chủ động**: `SourceRuntimeContext.isInteractive` (mặc định `false`); facade Legado bọc `LegadoInteraction.$isInteractive` khi bật. Bật ở: trang chi tiết (chi tiết + mục lục), chương đang mở trong Reader (không phải prefetch; chương Legado đang mở chờ tối đa 620 s để kịp qua xác minh, tiện ích JS vẫn 30 s), kéo làm mới mục lục, Đổi nguồn, chương tranh đang mở, video đang xem, Khám phá, Gỡ lỗi từng bước. **Không** bật ở TTS, tải truyện, kiểm chương mới, tìm mọi nguồn, kiểm tra hàng loạt, bộ nghiệm thu. Engine nay cũng không phát `refreshExplore`/`searchBook`/`refreshContent`/`copyText` khi không có người dùng (kiểm tra hàng loạt không tự bật màn hình).
+- **Khám phá động** (`Views/Discovery/Legado/`, mới: `LegadoExploreTabView`, `LegadoExploreControlView`, `LegadoExploreRefreshSignal`; `Views/Common/LegadoFlexLayout`): tab lưới thể loại của nguồn Legado có tiêu đề nhóm, ô bấm, điều khiển chọn / bật tắt / ô nhập + "Áp dụng", bố cục theo `style` của nguồn; `java.refreshExplore` tải lại danh mục. API: `SourceRuntime+ExploreControls`, `LegadoSourceRuntime+ExploreControls`. Danh sách mở ra vẫn là `CategoryNovelsListView`/`PaginatedNovelLoader`. `DiscoveryGenresTabView` chỉ thêm chỗ cắm; `DiscoveryView+Loading` chạy `exploreUrl` của nguồn Legado một lần rồi đệm.
+- **Dọn ráp nối**: bộ quét gợi ý của bộ nghiệm thu (`LegadoCorpusFeatureScan`) chỉ còn gắn cờ những gì vẫn chưa hỗ trợ; hai comment lỗi thời ở `SearchExtensionScopePolicy`.
+- **Chưa làm**: `refreshContent` chưa nối vào trình đọc (chỉ ghi log); trình duyệt nhỏ chưa xử lý `alert()` của trang.
+- Chuyển entry `[1.3.537]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới** (`ChapterContentRepository` 430 → 430, `ReaderViewModel` 777 → 777, `DiscoveryView` 621 → 622, `SearchView` 794 → 794, `ComicReaderViewModel` 395 → 395). Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.571] - 2026-10-21
 
 ### feat: màn quản lý nguồn Legado: chi tiết, sửa JSON, gỡ lỗi, kiểm tra hàng loạt, xuất, liên kết legado://

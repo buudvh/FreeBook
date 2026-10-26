@@ -27,13 +27,14 @@ final class AIBookDataInspector: Sendable {
         return result
     }
 
-    /// Tóm tắt phạm vi quét để hiện trong sheet: số chương sẽ quét và tiêu đề chương đầu tiên.
-    func nameScanScopeSummary(bookId: String, fromChapterIndex: Int? = nil) async -> (count: Int, firstTitle: String?) {
-        let chapters = await fetchDownloadedChapters(bookId: bookId, fromChapterIndex: fromChapterIndex)
-        guard let first = chapters.first else { return (0, nil) }
-        let title = first.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        let fallback = first.titleTrans?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return (chapters.count, title.isEmpty ? (fallback.isEmpty ? nil : fallback) : title)
+    /// Danh sách chương đã tải (chỉ số + tên hiển thị) cho sheet chọn phạm vi quét tên riêng (1.3.602) — nạp một lần
+    /// khi mở sheet, mọi con số của sheet tính trên RAM từ danh sách này. Tên = `title` đã trim, rỗng thì `titleTrans`.
+    func nameScanChapters(bookId: String) async -> [AINameScanChapter] {
+        await fetchDownloadedChapters(bookId: bookId).map { chapter in
+            let title = chapter.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            let fallback = chapter.titleTrans?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            return AINameScanChapter(index: chapter.index, title: title.isEmpty ? fallback : title)
+        }
     }
 
     /// Đọc nội dung raw (chưa dịch) từ file binary của một chương đã tải.

@@ -92,9 +92,11 @@ enum FileDescriptorStepProbe {
             return
         }
         remainingStepLogs -= 1
-        let chunk = chunkIndex
+        // 1.3.602: tắt log [FD] — bỏ comment để bật lại (bộ đo này cũng không còn chạy vì `FileDescriptorCensus`
+        // không báo nền nữa, xem doc ở đó).
+        // let chunk = chunkIndex
         lock.unlock()
-        AppLogger.shared.logAlways("[FD] step=\(step) +\(after - before) total=\(after) chunk=\(chunk)")
+        // AppLogger.shared.logAlways("[FD] step=\(step) +\(after - before) total=\(after) chunk=\(chunk)")
     }
 
     /// Chỉ gọi trên `tickQueue`.
@@ -102,7 +104,8 @@ enum FileDescriptorStepProbe {
         guard tickTimer == nil else { return }
         tickStartedAt = ProcessInfo.processInfo.systemUptime
         lastTickTotal = countOpen()
-        AppLogger.shared.logAlways("[FD] probe start total=\(lastTickTotal)")
+        // 1.3.602: tắt log [FD] — bỏ comment để bật lại.
+        // AppLogger.shared.logAlways("[FD] probe start total=\(lastTickTotal)")
         let timer = DispatchSource.makeTimerSource(queue: tickQueue)
         timer.schedule(deadline: .now() + 1, repeating: 1, leeway: .milliseconds(100))
         timer.setEventHandler {
@@ -113,11 +116,12 @@ enum FileDescriptorStepProbe {
             }
             let total = countOpen()
             guard total != lastTickTotal else { return }
-            lock.lock()
-            let chunk = chunkIndex
-            lock.unlock()
-            let delta = total - lastTickTotal
-            AppLogger.shared.logAlways("[FD] tick t=\(elapsed)s \(delta > 0 ? "+" : "")\(delta) total=\(total) chunk=\(chunk)")
+            // 1.3.602: tắt log [FD] — bỏ comment để bật lại.
+            // lock.lock()
+            // let chunk = chunkIndex
+            // lock.unlock()
+            // let delta = total - lastTickTotal
+            // AppLogger.shared.logAlways("[FD] tick t=\(elapsed)s \(delta > 0 ? "+" : "")\(delta) total=\(total) chunk=\(chunk)")
             lastTickTotal = total
         }
         tickTimer = timer

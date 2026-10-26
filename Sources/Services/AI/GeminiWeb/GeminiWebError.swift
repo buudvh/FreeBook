@@ -31,9 +31,19 @@ public enum GeminiWebError: LocalizedError, Sendable, Equatable {
     case emptyResponse(completed: Bool)
     /// Trang gemini.google.com tự điều hướng sang document mới khi `fetch` đang bay — fetch chết theo document cũ.
     case documentChanged
+    /// Mã 1097 (1.3.602): Google từ chối nối tiếp cuộc chat. Google không công bố nghĩa; log thật — một cuộc chat dính
+    /// 1097 thì mọi lượt sau trong nó (kể cả thử lại sau 5 s) cũng dính, thường ngay sau một lượt bị cắt dở. Cách khắc
+    /// phục duy nhất thấy được là mở cuộc chat mới.
+    case conversationBroken(Int)
+    /// Lượt quét tên riêng bị app vào nền cắt quá số lần gửi lại cho phép (1.3.602, `GeminiWebClient+NameScan`).
+    case interruptedInBackground
 
     public var errorDescription: String? {
         switch self {
+        case .conversationBroken(let code):
+            return "Cuộc chat Gemini bị hỏng (mã \(code)) — Google không cho nối tiếp cuộc chat này nữa; gửi lại sẽ mở cuộc chat mới."
+        case .interruptedInBackground:
+            return "Lượt gửi Gemini Web bị gián đoạn vì app vào nền nhiều lần — để app mở trong lúc quét rồi thử lại."
         case .emptyResponse(let completed):
             return completed
                 ? "Gemini hoàn tất nhưng không trả về nội dung (có thể bị bộ lọc an toàn) — thử diễn đạt lại."
@@ -81,8 +91,15 @@ public enum GeminiWebError: LocalizedError, Sendable, Equatable {
         case 1050, 1052: return .modelInvalid
         case 1060: return .ipBlocked
         case 1013: return .temporary
+        case 1097: return .conversationBroken(code)
         default: return .protocolChanged("mã lỗi server \(code)")
         }
+    }
+
+    /// Lỗi do chính cuộc chat đang nối tiếp đã hỏng (1097) — lượt quét tên riêng mở chat mới ngay thay vì thử lại.
+    public var isConversationBroken: Bool {
+        if case .conversationBroken = self { return true }
+        return false
     }
 
     /// Trạng thái tài khoản của `GetUserStatus` (`body[14]`): 1000 là bình thường ⇒ `nil`.
