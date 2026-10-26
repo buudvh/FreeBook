@@ -244,6 +244,9 @@ public struct ReaderAIFullScreenView: View {
                     bookId: bookId,
                     onSave: { itemsToSave, isName, isMerge in
                         saveNamesToDictionary(itemsToSave, isName: isName, isMerge: isMerge)
+                    },
+                    onDeleteName: { key in
+                        removeNameLine(key: key, fromMessage: target.messageId)
                     }
                 )
             }
@@ -303,7 +306,7 @@ public struct ReaderAIFullScreenView: View {
 
                         if ReaderAINameReviewSheet.hasDictionaryEntries(in: message.content) {
                             Button {
-                                nameReviewTarget = ReaderAINameReviewSheet.Target(content: message.content)
+                                nameReviewTarget = ReaderAINameReviewSheet.Target(content: message.content, messageId: message.id)
                             } label: {
                                 Label("Thêm vào VP / Name riêng", systemImage: "tag")
                             }
@@ -328,7 +331,7 @@ public struct ReaderAIFullScreenView: View {
 
                                 if ReaderAINameReviewSheet.hasDictionaryEntries(in: message.content) {
                                     Button {
-                                        nameReviewTarget = ReaderAINameReviewSheet.Target(content: message.content)
+                                        nameReviewTarget = ReaderAINameReviewSheet.Target(content: message.content, messageId: message.id)
                                     } label: {
                                         Label("Thêm vào VP / Name riêng", systemImage: "tag")
                                     }

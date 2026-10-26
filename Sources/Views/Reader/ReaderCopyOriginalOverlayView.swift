@@ -7,8 +7,9 @@ import SwiftUI
 /// rỗng (vùng vừa bị rule rewrite). Cho người dùng thấy từng ký tự gốc và tự nới/thu là cách duy nhất
 /// bảo đảm copy đúng chữ họ muốn.
 ///
-/// Không có nút Hủy: **mọi** đường đóng đều copy (chốt của chủ dự án). Host gom về đúng một hàm
-/// `commitCopyOriginal()` nên nút ✕ ở đây cũng gọi `onCommit`.
+/// Không có nút Hủy: **mọi** đường đóng đều copy (chốt của chủ dự án). Panel nằm trong sheet gốc; nút
+/// Copy và ✕ ở đây chỉ gọi `onCommit` để đóng sheet, còn việc copy do `onDismiss` của sheet làm
+/// (`commitCopyOriginal()`, đường copy duy nhất), nên kéo xuống hay chạm vùng mờ cũng copy đúng một lần.
 struct ReaderCopyOriginalOverlayView: View {
     let originalSentence: String
     @Binding var selectedWordOffset: Int
@@ -20,7 +21,7 @@ struct ReaderCopyOriginalOverlayView: View {
     let onShrinkSelectionRight: () -> Void
     let onExpandSelectionRight: () -> Void
     let onUpdateEditorFromSelection: () -> Void
-    /// Copy chuỗi đang chọn vào clipboard rồi đóng panel.
+    /// Đóng panel. Host copy ở `onDismiss` của sheet, không ở closure này.
     let onCommit: () -> Void
 
     private var accent: Color { .white }
@@ -36,22 +37,17 @@ struct ReaderCopyOriginalOverlayView: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            dragIndicatorView
             headerView
             originalSentenceRowView
             translatedTokensRowView
             previewView
             copyButtonView
         }
-        .padding()
+        .padding([.horizontal, .bottom])
+        // Thanh kéo là của sheet gốc (`ReaderView+SelectionSheets`). Khoảng trên = chỗ capsule giả cũ
+        // (16 + 13 + 14) để sheet cao đúng như panel trước.
+        .padding(.top, 43)
         .background(Color(uiColor: .systemBackground))
-    }
-
-    private var dragIndicatorView: some View {
-        Capsule()
-            .fill(Color.secondary.opacity(0.3))
-            .frame(width: 36, height: 5)
-            .padding(.top, 8)
     }
 
     private var headerView: some View {

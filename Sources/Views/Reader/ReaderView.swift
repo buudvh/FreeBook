@@ -174,10 +174,16 @@ struct ReaderView: View {
     @State internal var showingSettings = false // Hiện bảng cài đặt font chữ, màu nền
     @State internal var showingJunkDeleteSheet = false
     @State internal var junkPatternInput = ""
+    /// Chiều cao đo được của ba sheet bôi đen — giữ ở đây để lần mở sau không nháy giá trị tạm (`ReaderView+SelectionSheets`).
+    @State var definitionSheetHeight: CGFloat = 0
+    @State var junkDeleteSheetHeight: CGFloat = 0
+    @State var copyOriginalSheetHeight: CGFloat = 0
 
     // Trạng thái bypass Cloudflare và import sách
     @State internal var showingBypassBrowser = false
     @State var lookupRoute: ReaderLookupRoute?
+    /// Tra cứu mở từ **trong** sheet Dịch: cover phải gắn trong sheet đó (`ReaderView+SelectionSheets`).
+    @State var definitionLookupRoute: ReaderLookupRoute?
     @State private var importedBookId = ""
     @State private var importedExtensionPackageId = ""
     @State private var importedDetailUrl = ""
@@ -366,13 +372,7 @@ struct ReaderView: View {
                     .ignoresSafeArea()
                 readerMainContent(geometry: geometry)
 
-                definitionPanelOverlay(in: geometry)
-
                 floatingSelectionMenuOverlay(in: geometry)
-
-                junkDeleteOverlay(in: geometry)
-
-                ruleToolsOverlay(in: geometry)
             }
         }
         .toolbar(.hidden, for: .navigationBar) // Ẩn navigation bar gốc
@@ -432,66 +432,9 @@ struct ReaderView: View {
         )
     }
 
-    @ViewBuilder
-    private func junkDeleteOverlay(in geometry: GeometryProxy) -> some View {
-        if showingJunkDeleteSheet {
-            VStack(spacing: 0) {
-                // Vùng trống phía trên bắt tap để đóng panel xoá từ rác
-                Color.clear
-                    .contentShape(Rectangle())
-                    .simultaneousGesture(
-                        TapGesture().onEnded {
-                            withAnimation {
-                                showingJunkDeleteSheet = false
-                            }
-                        }
-                    )
-
-                ReaderJunkDeleteOverlayView(
-                    isPresented: $showingJunkDeleteSheet,
-                    selectedTheme: selectedTheme,
-                    originalSentence: originalSentence,
-                    selectedWordOffset: $selectedWordOffset,
-                    selectedWordLength: $selectedWordLength,
-                    translationTokens: translationTokens,
-                    junkPatternInput: $junkPatternInput,
-                    onExpandSelectionLeft: expandSelectionLeft,
-                    onShrinkSelectionLeft: shrinkSelectionLeft,
-                    onShrinkSelectionRight: shrinkSelectionRight,
-                    onExpandSelectionRight: expandSelectionRight,
-                    onUpdateEditorFromSelection: updateEditorFromSelection,
-                    onConfirmDelete: { pattern in
-                        confirmDeleteJunk(pattern)
-                    },
-                    onCancel: {
-                        showingJunkDeleteSheet = false
-                    }
-                )
-                .padding([.horizontal, .bottom])
-                .background(
-                    UnevenRoundedRectangle(topLeadingRadius: 16, topTrailingRadius: 16)
-                        .fill(selectedTheme == .dark ? Color(red: 0.12, green: 0.12, blue: 0.14) : Color.white)
-                )
-                .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: -4)
-                .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? 0 : 8)
-                .gesture(
-                    DragGesture()
-                        .onEnded { value in
-                            if value.translation.height > 50 {
-                                withAnimation {
-                                    showingJunkDeleteSheet = false
-                                }
-                            }
-                        }
-                )
-            }
-            .transition(.move(edge: .bottom).combined(with: .opacity))
-            .zIndex(6)
-        }
-    }
-
+    /// Ba panel bôi đen (Dịch, Xoá từ rác, Copy gốc) là sheet gốc gắn ở đây — xem `ReaderView+SelectionSheets`.
     private var readerSheetLayer: some View {
-        readerOverlayStack
+        withSelectionSheets(readerOverlayStack)
         .sheet(isPresented: $showingSettings) {
             ReaderSettingsView(
                 bookId: bookId,
@@ -539,13 +482,6 @@ struct ReaderView: View {
                     )
                 }
             )
-        }
-        .sheet(isPresented: $showingSearchEnginesConfigSheet, onDismiss: { searchEngines = SearchEngine.loadEngines() }) {
-            NavigationStack {
-                SearchEnginesConfigView().toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button("Xong") { showingSearchEnginesConfigSheet = false } }
-                }
-            }
         }
         .fullScreenCover(isPresented: $showingAIFullScreen) { aiFullScreenDestination }
     }
@@ -702,6 +638,7 @@ struct ReaderView: View {
                 }
             )
         }
+        // Chỉ cho nút "Tìm" của menu bôi đen; tra cứu từ trong sheet Dịch đi `definitionLookupRoute`.
         .fullScreenCover(item: $lookupRoute) { route in
             BypassWebView(
                 urlString: route.urlString
@@ -821,7 +758,7 @@ struct ReaderView: View {
         self.wordSynthesizer = synthesizer
     }
 
-    private func confirmDeleteJunk(_ pattern: String) {
+    func confirmDeleteJunk(_ pattern: String) {
         let trimmed = pattern.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 

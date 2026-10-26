@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.606] - 2026-10-26
+
+### feat: ba panel bôi đen thành sheet kéo được, ✕ xoá hẳn name AI, thẻ đầu tiện ích kiểu avatar
+
+Người dùng: *"sửa lại các sheet khác thủ công ở màn hình dịch luôn"* (chọn cả 3 panel; *"độ cao của 3 sheet phải bằng độ cao hiện tại"*), *"phần ai, danh sách name nếu bấm x thì xoá luôn đi, tôi không muốn lần sau vào thấy lại nữa"* (chọn xoá dòng khỏi tin nhắn), *"sửa lại phần cấu hình tiện ích để cover của ext ở giữa, kiểu như avatar"* (PA2 bo góc; *"ngôn ngữ, tên tác giả, loại tiện ích, version hiển thị badge trên 1 hàng"*, *"ngôn ngữ dùng cờ đi"*), *"script editor path của script hiển thị sai: chữ private dính vào chữ sau, không có dấu /"*. Plan duyệt: `Docs/Plans/2026-10-26-plan-reader-panels-ai-names-ext-header-script-path.md`.
+
+- **Panel Dịch / Xoá từ rác / Copy nội dung gốc là sheet gốc** (mới `ReaderView+SelectionSheets.swift`, `FittedSheetDetentModifier`; xoá `ReaderView+DefinitionPanel.swift`, `junkDeleteOverlay`, `ruleToolsOverlay`/`bottomPanel`): thanh kéo hệ thống, kéo bám ngón tay, chạm vùng mờ là đóng. **Một nấc** cao đúng bằng nội dung (`.fixedSize` rồi đo bằng `GeometryReader` + `PreferenceKey`, chiều cao giữ ở `@State` của `ReaderView` để lần mở sau không nháy `.medium`); padding trên = chỗ capsule giả cũ nên cao như panel trước. Bỏ capsule giả và `.presentationDetents([.height(660), .large])` thừa trong `ReaderDefinitionOverlayView`. Copy gốc: `onDismiss` là đường **duy nhất** copy (nút Copy/✕ chỉ hạ cờ) ⇒ mọi đường đóng copy đúng một lần (toast hiện sau khi sheet đóng). Presentation con của panel Dịch (sửa/thêm rule, cấu hình công cụ tìm, cover tra cứu nhanh) dời **vào trong** sheet Dịch; `performQuickLookup` đi `definitionLookupRoute` khi sheet Dịch mở, nút "Tìm" vẫn `lookupRoute`. `handleDefinitionPanelClosed` trả các cờ con về. Hậu xử lý khi đóng giữ ở `.onChange` sẵn có. Panel Dịch từng là `.sheet` trước 2026-07-18 (`de6f4432` chuyển sang overlay, không ghi lý do) — cần thử máy. `ReaderView.swift` 2020 → 1957.
+- **✕ xoá hẳn name** (mới `ReaderAIFullScreenView+NameDeletion.swift`): `ReaderAINameReviewSheet.Target` thêm `messageId`, sheet thêm `onDeleteName`; ✕ bỏ **mọi** dòng `khoá=…` trùng khoá khỏi tin nguồn rồi lưu phiên, và sửa luôn tin trong phiên đang chạy của coordinator (`updateMessage`) để `mergeRunningSession` không chép ngược. `ReaderAINameReviewCardView.deleteItem` báo nơi dùng trước khi tự xoá.
+- **Thẻ đầu Cấu hình tiện ích** (`ExtensionConfigHeaderCard`): icon bo góc 84pt ở giữa, tên căn giữa, một hàng badge cờ ngôn ngữ (`ExtensionFilterGroups.localeGroupFlag`, VoiceOver đọc tên ngôn ngữ) · tác giả (co "…") · loại · `vN`; bỏ dòng "tác giả · Phiên bản N".
+- **Script editor** (`ExtensionScriptEditorView.loadScriptFiles`): `/var` là symlink tới `/private/var` — giải symlink thư mục lẫn từng file rồi cắt theo tiền tố (trước `replacingOccurrences` để sót `/private` ⇒ "/privatesrc/chap.js"). `fileUrl` nay cùng dạng `ext.localPath` nên phép so script chuẩn ở `+Toolbars` khớp lại.
+- `rules.md`: bullet ba panel bôi đen là sheet gốc + presentation con gắn trong sheet Dịch + đường copy duy nhất. Chuyển entry `[1.3.576]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy (bàn phím trong sheet cố định chiều cao chưa kiểm chứng).
+
 ## [1.3.605] - 2026-10-26
 
 ### feat: nút dịch dùng icon Lucide languages thay character.bubble
@@ -377,13 +390,3 @@ Người dùng: *"các nguồn không khai báo exploreUrl/ruleExplore của leg
 - Nguồn có Khám phá riêng giữ nguyên danh mục của nguồn; tiện ích JS không đổi.
 - Chuyển entry `[1.3.542]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.576] - 2026-10-22
-
-### feat: nút chi tiết nguồn Legado trong bảng Phần mở rộng của Khám phá
-
-Người dùng: *"thêm nút chi tiết nguồn các ext ở phần mở rộng của khám phá"*.
-
-- Bảng chọn nguồn "Phần mở rộng" của Khám phá (`ExtensionSelectorView`): dòng nguồn Legado có nút ⓘ (`info.circle`, cùng kiểu và vị trí với nút ⚙ của tiện ích JS) mở `LegadoSourceDetailView` dạng sheet — từ đó sửa JSON, gỡ lỗi từng bước, kiểm tra, đăng nhập, chia sẻ ngay khi đang duyệt. Tiện ích JS giữ nút ⚙ mở màn Cấu hình như cũ; nguồn Legado vẫn không có lối vào màn cấu hình/sửa script của tiện ích JS.
-- Chuyển entry `[1.3.541]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới** (`ExtensionSelectorView.swift` 200 → 217). Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.

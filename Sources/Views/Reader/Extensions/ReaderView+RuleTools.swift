@@ -3,7 +3,7 @@ import SwiftUI
 /// Hai công cụ mới của menu bôi đen: **Copy nội dung gốc** và **Check rule**.
 ///
 /// Đặt ở file riêng vì `ReaderView.swift` đã vượt baseline dòng của `check_architecture.py` nên chỉ
-/// được giảm; ở đó chỉ còn phần khai `@State` và một dòng gọi `ruleToolsOverlay(in:)`.
+/// được giảm; ở đó chỉ còn phần khai `@State`. Sheet của các panel nằm ở `ReaderView+SelectionSheets`.
 ///
 /// Bất biến của cả hai công cụ: chúng dùng **chung** `originalSentence` + `selectedWordOffset/Length`
 /// với màn Dịch và panel Xoá từ rác, nên mở một cái phải đóng những cái còn lại.
@@ -17,12 +17,12 @@ extension ReaderView {
         updateEditorFromSelection()
     }
 
-    /// **Một** đường ra duy nhất cho panel copy gốc: nút Copy, nút ✕, kéo xuống và tap ra ngoài đều
-    /// gọi hàm này. Bốn đường đóng là chỗ dễ bỏ sót nhất của yêu cầu "đóng là copy".
+    /// Copy cụm gốc đang chọn. **Chỉ** gọi từ `onDismiss` của sheet copy gốc
+    /// (`ReaderView+SelectionSheets`): nút Copy, nút ✕, kéo xuống và chạm vùng mờ đều chỉ đóng sheet,
+    /// rồi `onDismiss` copy đúng một lần. Gọi thêm ở chỗ khác là copy hai lần (hai toast).
     func commitCopyOriginal() {
         let ns = originalSentence as NSString
         let range = NSRange(location: selectedWordOffset, length: selectedWordLength)
-        showingCopyOriginalSheet = false
 
         guard selectedWordOffset >= 0, selectedWordLength > 0, NSMaxRange(range) <= ns.length else { return }
         let text = ns.substring(with: range)
@@ -79,6 +79,12 @@ extension ReaderView {
 
     /// Gọi từ `.onChange` khi panel Dịch vừa đóng: có đổi dữ liệu rule thì dựng lại bản dịch.
     func handleDefinitionPanelClosed() {
+        // Presentation con gắn trong sheet Dịch bị gỡ cùng sheet cha; trả cờ về để không treo ở trạng thái
+        // "đang mở" (`ruleEditorMode != nil` chặn luôn bôi đen ở `onSelectionChangeInParagraph`).
+        ruleEditorMode = nil
+        showingSearchEnginesConfigSheet = false
+        showingManageDefinitionsSheet = false
+        definitionLookupRoute = nil
         definitionSession.cancel()
         let shouldRetranslate = didChangeRuleData
         didChangeRuleData = false
@@ -171,7 +177,7 @@ extension ReaderView {
         }
     }
 
-    // MARK: - Overlay
+    // MARK: - Panel bôi đen
 
     /// Ba panel dùng chung vùng chọn nên chỉ một cái được mở. `nil` = đóng hết (dùng khi mở panel Dịch).
     enum SelectionPanel {
@@ -185,39 +191,6 @@ extension ReaderView {
         if panel != nil { showingDefinitionSheet = false }
     }
 
-    @ViewBuilder
-    func ruleToolsOverlay(in geometry: GeometryProxy) -> some View {
-        ZStack {
-            if showingCopyOriginalSheet {
-                bottomPanel(in: geometry, onDismiss: { commitCopyOriginal() }) {
-                    ReaderCopyOriginalOverlayView(
-                        originalSentence: originalSentence,
-                        selectedWordOffset: $selectedWordOffset,
-                        selectedWordLength: $selectedWordLength,
-                        translationTokens: translationTokens,
-                        onExpandSelectionLeft: expandSelectionLeft,
-                        onShrinkSelectionLeft: shrinkSelectionLeft,
-                        onShrinkSelectionRight: shrinkSelectionRight,
-                        onExpandSelectionRight: expandSelectionRight,
-                        onUpdateEditorFromSelection: updateEditorFromSelection,
-                        onCommit: { commitCopyOriginal() }
-                    )
-                }
-                .zIndex(7)
-            }
-
-        }
-        .sheet(item: $ruleEditorMode) { mode in
-            QuickTranslationRuleEditorSheet(
-                mode: mode,
-                defaultScope: defaultRuleEditorScope(for: mode),
-                contextBookId: bookId
-            ) { pattern, replacement, scope in
-                await saveRuleFromEditor(mode: mode, pattern: pattern, replacement: replacement, scope: scope)
-            }
-        }
-    }
-
     func defaultRuleEditorScope(for mode: QuickTranslationRuleEditorSheet.Mode) -> QuickTranslationRuleScope {
         if case .edit(_, _, _, let scope) = mode { return scope }
         return .book(bookId)
@@ -229,44 +202,6 @@ extension ReaderView {
         let range = NSRange(location: selectedWordOffset, length: selectedWordLength)
         guard selectedWordOffset >= 0, selectedWordLength > 0, NSMaxRange(range) <= ns.length else { return "" }
         return ns.substring(with: range)
-    }
-
-    /// Khuôn panel đáy dùng chung, mượn nguyên bố cục panel Xoá từ rác: vùng trống phía trên bắt tap
-    /// để đóng, panel bo góc trên, kéo xuống > 50pt là đóng. `onDismiss` là **cùng một** hàm với nút
-    /// đóng trong panel, nên không có đường ra nào bỏ sót việc phải làm khi đóng.
-    @ViewBuilder
-    private func bottomPanel<Content: View>(
-        in geometry: GeometryProxy,
-        onDismiss: @escaping () -> Void,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(spacing: 0) {
-            Color.clear
-                .contentShape(Rectangle())
-                .simultaneousGesture(
-                    TapGesture().onEnded {
-                        withAnimation { onDismiss() }
-                    }
-                )
-
-            content()
-                .padding([.horizontal, .bottom])
-                .background(
-                    UnevenRoundedRectangle(topLeadingRadius: 16, topTrailingRadius: 16)
-                        .fill(selectedTheme == .dark ? Color(red: 0.12, green: 0.12, blue: 0.14) : Color.white)
-                )
-                .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: -4)
-                .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? 0 : 8)
-                .gesture(
-                    DragGesture()
-                        .onEnded { value in
-                            if value.translation.height > 50 {
-                                withAnimation { onDismiss() }
-                            }
-                        }
-                )
-        }
-        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 
     // MARK: - Lưu thay thế TTS từ sheet bôi đen

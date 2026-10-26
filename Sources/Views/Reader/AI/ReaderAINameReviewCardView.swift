@@ -219,9 +219,10 @@ public struct ReaderAINameReviewCardView: View {
         }
     }
 
+    /// Báo nơi dùng **trước** khi xoá: nơi dùng cần tra mục theo `id` (vd lấy khoá để xoá hẳn khỏi tin nguồn).
     private func deleteItem(id: UUID) {
-        names.removeAll(where: { $0.id == id })
         onDelete?(id)
+        names.removeAll(where: { $0.id == id })
     }
 
     private func applySorting() {

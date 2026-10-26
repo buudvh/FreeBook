@@ -8,9 +8,12 @@ public struct ReaderAINameReviewSheet: View {
     public struct Target: Identifiable, Sendable {
         public let id = UUID()
         public let content: String
+        /// Tin nguồn — nút ✕ xoá dòng `từ=nghĩa` khỏi chính tin này (`ReaderAIFullScreenView.removeNameLine`).
+        public let messageId: UUID
 
-        public init(content: String) {
+        public init(content: String, messageId: UUID) {
             self.content = content
+            self.messageId = messageId
         }
     }
 
@@ -19,6 +22,8 @@ public struct ReaderAINameReviewSheet: View {
     public let content: String
     public let bookId: String
     public let onSave: ([AIExtractedName], Bool, Bool) -> Void
+    /// Bấm ✕ một name: nhận **khoá** (`original`) để nơi gọi xoá hẳn dòng đó khỏi tin nguồn.
+    public let onDeleteName: (String) -> Void
 
     @State private var isLoading: Bool = true
     @State private var names: [AIExtractedName] = []
@@ -28,11 +33,13 @@ public struct ReaderAINameReviewSheet: View {
     public init(
         content: String,
         bookId: String,
-        onSave: @escaping ([AIExtractedName], Bool, Bool) -> Void
+        onSave: @escaping ([AIExtractedName], Bool, Bool) -> Void,
+        onDeleteName: @escaping (String) -> Void = { _ in }
     ) {
         self.content = content
         self.bookId = bookId
         self.onSave = onSave
+        self.onDeleteName = onDeleteName
     }
 
     private var selectedCount: Int {
@@ -61,6 +68,10 @@ public struct ReaderAINameReviewSheet: View {
                         ReaderAINameReviewCardView(
                             names: $names,
                             onDelete: { deletedId in
+                                // Card gọi trước khi tự xoá khỏi danh sách ⇒ còn tra được khoá theo id.
+                                if let key = names.first(where: { $0.id == deletedId })?.original {
+                                    onDeleteName(key)
+                                }
                                 names.removeAll(where: { $0.id == deletedId })
                             }
                         )

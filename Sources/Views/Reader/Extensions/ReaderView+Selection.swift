@@ -86,7 +86,14 @@ extension ReaderView {
 
         // Present one immutable URL snapshot. A fresh identity also guarantees
         // the browser cannot reuse the previous lookup request.
-        self.lookupRoute = ReaderLookupRoute(urlString: url.absoluteString)
+        let route = ReaderLookupRoute(urlString: url.absoluteString)
+        // Sheet Dịch đang mở thì `ReaderView` không trình bày thêm được cover: phải đi cover gắn
+        // **trong** sheet đó (`ReaderView+SelectionSheets`). Nút "Tìm" (chưa có sheet) đi `lookupRoute`.
+        if showingDefinitionSheet {
+            self.definitionLookupRoute = route
+        } else {
+            self.lookupRoute = route
+        }
     }
 
     /// Nút "Tìm" của menu bôi đen (1.3.334, thế chỗ nút Check rule cũ): tra cụm đang bôi đen bằng

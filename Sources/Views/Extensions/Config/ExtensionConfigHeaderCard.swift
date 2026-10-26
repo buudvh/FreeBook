@@ -1,7 +1,10 @@
 import SwiftUI
 
-/// Thẻ đầu màn **Cấu hình tiện ích**: icon, tên, "<tác giả> · Phiên bản N", nhãn loại + ngôn ngữ, mô tả 2 dòng có
-/// "Xem thêm", rồi hàng 3 nút tròn có nhãn **Trình duyệt · Ghim · Gỡ**.
+/// Thẻ đầu màn **Cấu hình tiện ích**, căn giữa kiểu hồ sơ: icon bo góc 84pt, tên, **một hàng badge** cờ ngôn ngữ ·
+/// tác giả · loại · phiên bản, mô tả 2 dòng có "Xem thêm", rồi hàng 3 nút tròn có nhãn **Trình duyệt · Ghim · Gỡ**.
+///
+/// Hàng badge không xuống dòng: chỉ badge tác giả được co "…" (`layoutPriority(-1)`); thiếu ngôn ngữ/tác giả thì bỏ
+/// badge đó. Cờ dùng chung bảng của chip lọc ngôn ngữ (`ExtensionFilterGroups.localeGroupFlag`).
 ///
 /// Chỉ đọc bản ghi `Extension` (caller truyền `current` — bản tra lại theo `packageId`, nên ghim xong là thẻ vẽ lại
 /// "Bỏ ghim"); không đọc `plugin.json`. Sửa các trường metadata ở màn con "Thông tin plugin.json".
@@ -18,30 +21,20 @@ struct ExtensionConfigHeaderCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 12) {
+            VStack(spacing: 8) {
                 // Nhãn 18+ của icon đọc bảng chụp có lock (không observe được) và tham số icon không đổi khi đổi
                 // "Nội dung 18+" ở dưới ⇒ gắn `id` theo trạng thái NSFW để icon dựng lại ngay.
-                ExtensionIconView(localPath: ext.localPath, iconUrl: ext.iconUrl, size: 46)
+                ExtensionIconView(localPath: ext.localPath, iconUrl: ext.iconUrl, size: 84)
                     .id(ExtensionNsfwClassifier.isNsfw(ext))
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(ext.name)
-                        .font(.headline)
-                        .lineLimit(2)
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                    HStack(spacing: 6) {
-                        kindTag
-                        if !ext.locale.isEmpty {
-                            chip(ExtensionDisplayCatalog.label(forLocale: ext.locale))
-                        }
-                    }
-                }
+                Text(ext.name)
+                    .font(.headline)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
 
-                Spacer(minLength: 0)
+                badgeRow
             }
+            .frame(maxWidth: .infinity)
 
             if !descriptionText.isEmpty {
                 ExpandableTextView(text: descriptionText, lineLimit: 2, font: .footnote, foregroundColor: .secondary)
@@ -55,10 +48,48 @@ struct ExtensionConfigHeaderCard: View {
 
     // MARK: - Thông tin
 
-    private var subtitle: String {
-        let version = "Phiên bản \(ext.version)"
-        let author = ext.author.trimmingCharacters(in: .whitespacesAndNewlines)
-        return author.isEmpty ? version : "\(author) · \(version)"
+    /// Cờ ngôn ngữ · tác giả · loại · phiên bản trên một hàng.
+    private var badgeRow: some View {
+        HStack(spacing: 4) {
+            if !ext.locale.isEmpty {
+                Text(ExtensionFilterGroups.localeGroupFlag(ExtensionFilterGroups.localeGroup(for: ext.locale)))
+                    .font(.system(size: 13))
+                    .lineLimit(1)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 1)
+                    .background(Color.gray.opacity(0.35))
+                    .cornerRadius(4)
+                    .fixedSize()
+                    .accessibilityLabel(ExtensionDisplayCatalog.label(forLocale: ext.locale))
+            }
+            if !authorText.isEmpty {
+                HStack(spacing: 3) {
+                    Image(systemName: "person.fill")
+                        .font(.system(size: 8, weight: .semibold))
+                    Text(authorText)
+                        .font(.system(size: 9, weight: .semibold))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .foregroundColor(.white)
+                .background(Color.gray.opacity(0.35))
+                .cornerRadius(4)
+                .layoutPriority(-1)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Tác giả \(authorText)")
+            }
+            kindTag
+                .fixedSize()
+            chip("v\(ext.version)")
+                .fixedSize()
+                .accessibilityLabel("Phiên bản \(ext.version)")
+        }
+    }
+
+    private var authorText: String {
+        ext.author.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// Mô tả có thể là HTML (registry/`plugin.json`) — bỏ thẻ như các màn khác (`cleanHTML()`).

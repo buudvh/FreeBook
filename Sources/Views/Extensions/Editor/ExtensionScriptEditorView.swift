@@ -296,14 +296,22 @@ public struct ExtensionScriptEditorView: View {
 
         var files: [ScriptFileInfo] = []
         let fileManager = FileManager.default
+        // iOS: `/var` là symlink tới `/private/var` — enumerator trả đường thật `/private/var/…` còn thư mục tiện ích
+        // là `/var/…`. Giải symlink cả hai về cùng dạng rồi cắt theo tiền tố (trước đây `replacingOccurrences` cắt
+        // giữa chuỗi, để sót `/private` thành "/privatesrc/chap.js"; `+Toolbars` so đường với `ext.localPath` cũng lệch).
+        let rootPath = folderUrl.resolvingSymlinksInPath().standardizedFileURL.path
 
         if let enumerator = fileManager.enumerator(at: folderUrl, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles]) {
-            for case let fileUrl as URL in enumerator {
+            for case let rawUrl as URL in enumerator {
+                let fileUrl = rawUrl.resolvingSymlinksInPath().standardizedFileURL
                 let fileName = fileUrl.lastPathComponent
                 let extStr = fileUrl.pathExtension.lowercased()
 
                 if extStr == "js" || fileName == "plugin.json" {
-                    let relativePath = fileUrl.path.replacingOccurrences(of: folderUrl.path + "/", with: "")
+                    let filePath = fileUrl.path
+                    let relativePath = filePath.hasPrefix(rootPath + "/")
+                        ? String(filePath.dropFirst(rootPath.count + 1))
+                        : fileName
                     let info = ScriptFileInfo(
                         id: relativePath,
                         fileName: relativePath,

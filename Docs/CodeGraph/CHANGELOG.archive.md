@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.576] - 2026-10-22
+
+### feat: nút chi tiết nguồn Legado trong bảng Phần mở rộng của Khám phá
+
+Người dùng: *"thêm nút chi tiết nguồn các ext ở phần mở rộng của khám phá"*.
+
+- Bảng chọn nguồn "Phần mở rộng" của Khám phá (`ExtensionSelectorView`): dòng nguồn Legado có nút ⓘ (`info.circle`, cùng kiểu và vị trí với nút ⚙ của tiện ích JS) mở `LegadoSourceDetailView` dạng sheet — từ đó sửa JSON, gỡ lỗi từng bước, kiểm tra, đăng nhập, chia sẻ ngay khi đang duyệt. Tiện ích JS giữ nút ⚙ mở màn Cấu hình như cũ; nguồn Legado vẫn không có lối vào màn cấu hình/sửa script của tiện ích JS.
+- Chuyển entry `[1.3.541]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới** (`ExtensionSelectorView.swift` 200 → 217). Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.575] - 2026-10-22
 
 ### fix: nguồn Legado: tên gốc ở Kho, nút và chip không còn trắng trên trắng, không nối sang chương sau

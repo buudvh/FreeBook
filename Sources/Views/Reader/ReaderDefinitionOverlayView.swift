@@ -89,7 +89,6 @@ struct ReaderDefinitionOverlayView: View {
             // Gom thành hai `Group`: thân này đã có đúng 10 con trước 1.3.334, thêm hai hàng nữa là
             // vượt trần `@ViewBuilder` và lỗi "extra argument in call".
             Group {
-                dragIndicatorView
                 headerView
                 originalSentenceRowView
                 translatedTokensRowView
@@ -107,10 +106,11 @@ struct ReaderDefinitionOverlayView: View {
             }
         }
         .padding(.horizontal)
-        .padding(.top, 4)
+        // Thanh kéo là của sheet gốc (`ReaderView+SelectionSheets`). Khoảng trên = chỗ capsule giả cũ
+        // (4 + 13 + 8) để sheet cao đúng như panel trước. Nấc sheet do `fittedSheetDetent` đo, không khai ở đây.
+        .padding(.top, 25)
         .padding(.bottom, 8)
         .background(Color(uiColor: .systemBackground).onTapGesture { KeyboardDismissPreference.dismissOnTapOutsideIfEnabled() })
-        .presentationDetents([.height(660), .large])
         .confirmationDialog(
             ruleActionTarget.map { "Rule dòng \($0.sourceLine) · \($0.scope.longLabel)" } ?? "Rule",
             isPresented: $showingRuleActions,
@@ -131,13 +131,6 @@ struct ReaderDefinitionOverlayView: View {
                 }
             )
         }
-    }
-
-    private var dragIndicatorView: some View {
-        Capsule()
-            .fill(Color.secondary.opacity(0.3))
-            .frame(width: 36, height: 5)
-            .padding(.top, 8)
     }
 
     private var headerView: some View {

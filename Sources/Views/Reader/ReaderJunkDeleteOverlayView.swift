@@ -19,22 +19,17 @@ struct ReaderJunkDeleteOverlayView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            dragIndicatorView
             headerView
             originalSentenceRowView
             translatedTokensRowView
             junkInputView
             actionButtonsView
         }
-        .padding()
+        .padding([.horizontal, .bottom])
+        // Thanh kéo là của sheet gốc (`ReaderView+SelectionSheets`). Khoảng trên = chỗ capsule giả cũ
+        // (16 + 13 + 16) để sheet cao đúng như panel trước.
+        .padding(.top, 45)
         .background(Color(uiColor: .systemBackground).onTapGesture { KeyboardDismissPreference.dismissOnTapOutsideIfEnabled() })
-    }
-
-    private var dragIndicatorView: some View {
-        Capsule()
-            .fill(Color.secondary.opacity(0.3))
-            .frame(width: 36, height: 5)
-            .padding(.top, 8)
     }
 
     private var headerView: some View {
