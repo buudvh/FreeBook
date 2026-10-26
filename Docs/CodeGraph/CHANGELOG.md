@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.611] - 2026-10-26
+
+### fix: xoá name AI không quay lại qua lượt quét và nút Thử lại
+
+Người dùng: *"Tôi đã yêu cầu nếu bấm xoá name trong danh sách name thì lần sau mở danh sách name này lại thì name bị xoá phải mất và trên chat cũng phải mất. Nhưng bạn chưa làm được"* (phạm vi: chỉ tin đang mở). Plan duyệt trong chat.
+
+- **Nguyên nhân** (1.3.606 chỉ sửa `content` của tin): ba đường của lượt quét dựng lại `content` từ **danh sách tên đầy đủ** — `applyBatchProgress` mỗi lượt đang chạy, `writeNames` lúc xong / dừng vì lỗi, nút "Thử lại k lượt lỗi" (`NameScanRetryContext.names` giữ bản cũ) — nên name vừa xoá quay lại ở cả chat lẫn danh sách. Tin cũ còn `extractedNames` thì `condenseHistoricalMessages` dựng lại `content` từ mảng đó mỗi lần mở màn AI.
+- **Sửa** (mới `AIRuntimeCoordinator+NameRemoval.swift`): coordinator nhớ khoá đã xoá **theo tin** (`removedNameKeys`, trong bộ nhớ suốt phiên app); `applyBatchProgress` / `writeNames` lọc qua `keepingUnremovedNames` trước khi ghi; `forgetName` sửa tin trong phiên đang chạy và bỏ name khỏi context "Thử lại" của đúng tin đó. `removeNameLine` gọi qua coordinator, bỏ name khỏi `extractedNames` của tin cũ, lọc `batchExtractedNames` của màn. Hàm tách dòng chuyển sang coordinator (`contentRemovingNameLines`, `nameKey`).
+- **Log để chẩn đoán**: xoá được ⇒ log thường (khoá + số dòng bỏ); không thấy dòng nào trùng khoá hoặc tin nguồn không còn ⇒ log `❌` (ghi kể cả khi tắt log).
+- Chuyển entry `[1.3.581]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.610] - 2026-10-26
 
 ### feat: nút tắt tiếng video, video tắt tiếng không dừng TTS, sheet thêm từ nửa màn, sửa header sheet nhấn giữ
@@ -377,15 +389,4 @@ Từ báo cáo `kiem-tra-nguon-legado-20261022-160304.json`: 抖音小说 bị k
   - trang quá ngắn ⇒ *"Trang trả về rất ngắn (HTTP …, N KB) — thường là trang báo lỗi, chặn, hoặc trang thử thách JS chưa chạy xong"*.
 - **Dò bộ chọn** (`LegadoSelectorProbe`): thêm `alertMessage` — câu trong `alert("…")` đầu tiên của trang ≤ 4 KB (gọn khoảng trắng, tối đa 200 ký tự).
 - **Từ khoá mặc định** khi nguồn không khai `checkKeyWord`: `我的` → `斗罗大陆` (Kiểm tra nguồn `LegadoCorpusRequest` và Gỡ lỗi nguồn `LegadoDebugInput`) — đủ dài để web có giới hạn độ dài từ khoá không chặn, và là tên truyện phổ biến nên dễ có kết quả.
-- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.581] - 2026-10-22
-
-### fix: chia sẻ báo cáo và xuất nguồn Legado báo nhầm "truy cập file ngoài thư mục" từ lần thứ hai
-
-Người dùng: *"có thông báo truy cập file ngoài thư mục chia sẻ báo cáo bị từ chối"*.
-
-- **Nguyên nhân**: thư mục tạm của iOS nằm dưới `/private/var/…`, và `URL.standardizedFileURL` chỉ bỏ tiền tố `/private` khi đường dẫn **đã tồn tại**. Lần đầu thư mục chia sẻ chưa có ⇒ hai bên cùng `/private/var/…`, khớp. Từ lần thứ hai thư mục đã có (rút thành `/var/…`) còn tệp mới chưa có (giữ `/private/var/…`) ⇒ `validatePathSafety` tưởng tệp nằm ngoài thư mục và từ chối.
-- **Sửa**: `LegadoCorpusReportShare` (chia sẻ báo cáo Kiểm tra nguồn) và `LegadoSourceExporter` (xuất / chia sẻ nguồn — cùng ghi vào thư mục tạm, cùng lỗi) so sánh thành phần đường dẫn sau khi **tự bỏ `/private`** (`comparableComponents`), không phụ thuộc tệp đã tồn tại hay chưa. Các kho khác của nguồn Legado ghi vào Application Support (`/var/…`, không có `/private`) nên không bị.
-- Chuyển entry `[1.3.546]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.

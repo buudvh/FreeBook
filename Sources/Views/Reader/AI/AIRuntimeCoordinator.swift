@@ -60,6 +60,9 @@ public final class AIRuntimeCoordinator: ObservableObject {
     var runIds: [String: UUID] = [:]
     var nameScanRetryContexts: [String: NameScanRetryContext] = [:]
     var lastSessionIds: [String: UUID] = [:]
+    /// Khoá name người dùng đã bấm ✕ xoá, **theo tin** — mọi đường dựng lại nội dung tin kết quả từ danh sách tên
+    /// đều lọc qua đây (`AIRuntimeCoordinator+NameRemoval`). Giữ trong bộ nhớ suốt phiên app.
+    var removedNameKeys: [UUID: Set<String>] = [:]
     /// Ngữ cảnh mở màn AI theo truyện — nút nổi mở đúng màn AI của truyện được chạm. Chỉ giữ truyện còn entry trong
     /// `runs` và truyện mở AI gần nhất (`pruneContexts`), vì ngữ cảnh mang cả nội dung chương.
     private var contexts: [String: ActiveContext] = [:]
