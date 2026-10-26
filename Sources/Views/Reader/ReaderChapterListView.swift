@@ -242,8 +242,7 @@ public struct ReaderChapterListView: View {
                             bulkDownloadButton
 
                             Button(action: retranslateChaptersAction) {
-                                Image(systemName: "character.bubble")
-                                    .font(.system(size: 14, weight: .semibold))
+                                AppGlyph.translate.image(size: 14)
                                     .foregroundColor(.white)
                                     .frame(width: 32, height: 32)
                             }

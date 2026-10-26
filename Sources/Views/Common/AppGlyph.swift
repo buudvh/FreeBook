@@ -1,6 +1,9 @@
 import SwiftUI
 
-/// Icon dùng chung cho các nút sao chép / dán / sao chép văn bản gốc.
+/// Icon dùng chung cho các nút sao chép / dán / sao chép văn bản gốc, và icon bật/tắt dịch.
+///
+/// `translate` (1.3.605) thay SF Symbol `character.bubble` ở mọi nút dịch. Icon ngoài không có bản "fill" nên trạng
+/// thái bật/tắt chỉ phân biệt bằng màu (hoặc chữ "Bật/Tắt" trong menu). Cùng ảnh với `originalText`.
 ///
 /// Vì sao không dùng SF Symbols: cặp SF Symbol họ `doc.on.*` cũ cho sao chép và dán gần như
 /// giống hệt nhau ở cỡ nhỏ, hai nút đứng cạnh nhau là người dùng không phân biệt được. Thay bằng
@@ -22,13 +25,15 @@ enum AppGlyph {
     case paste
     /// Sao chép văn bản gốc (chưa dịch) — Lucide `languages`, để không trùng icon "Copy" đứng cạnh.
     case originalText
+    /// Bật/tắt dịch, dịch lại — Lucide `languages`.
+    case translate
 
     /// Tên imageset trong `Sources/Assets.xcassets`.
     var assetName: String {
         switch self {
         case .copy: return "LucideCopy"
         case .paste: return "LucideClipboardPaste"
-        case .originalText: return "LucideLanguages"
+        case .originalText, .translate: return "LucideLanguages"
         }
     }
 
@@ -39,6 +44,7 @@ enum AppGlyph {
         case .copy: return "Sao chép"
         case .paste: return "Dán"
         case .originalText: return "Sao chép văn bản gốc"
+        case .translate: return "Dịch"
         }
     }
 

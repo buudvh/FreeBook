@@ -40,7 +40,7 @@ struct DiscoverySourceMenuButton: View {
                     Text("Dịch văn bản")
                     Text(isTranslationEnabled ? "Đang bật" : "Đang tắt")
                 } icon: {
-                    Image(systemName: isTranslationEnabled ? "character.bubble.fill" : "character.bubble")
+                    Image(AppGlyph.translate.assetName)
                 }
             }
         } label: {

@@ -62,8 +62,7 @@ struct TranslationScopePopupView: View {
         VStack(spacing: 12) {
             // Hàng 1: Cần gạt Bật / Tắt dịch
             HStack(spacing: 10) {
-                Image(systemName: tempIsEnabled ? "character.bubble.fill" : "character.bubble")
-                    .font(.system(size: 17, weight: .medium))
+                AppGlyph.translate.image(size: 17)
                     .foregroundColor(.white)
 
                 Text("Dịch văn bản")

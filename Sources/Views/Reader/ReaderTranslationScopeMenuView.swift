@@ -77,8 +77,8 @@ public struct ReaderTranslationScopeMenuView: View {
         }) {
             if showBackground {
                 ZStack(alignment: .topTrailing) {
-                    Image(systemName: status.isEnabled ? "character.bubble.fill" : "character.bubble")
-                        .font(.system(size: iconSize, weight: .semibold))
+                    // Icon ngoài không có bản "fill": bật/tắt chỉ khác màu.
+                    AppGlyph.translate.image(size: iconSize)
                         .foregroundColor(status.isEnabled ? .white : (textColor?.opacity(0.45) ?? .secondary.opacity(0.6)))
                         .frame(width: resolvedWidth, height: resolvedHeight)
                         .background(
@@ -94,8 +94,7 @@ public struct ReaderTranslationScopeMenuView: View {
                     }
                 }
             } else {
-                Image(systemName: status.isEnabled ? "character.bubble.fill" : "character.bubble")
-                    .font(.system(size: iconSize, weight: .semibold))
+                AppGlyph.translate.image(size: iconSize)
                     .foregroundColor(status.isEnabled ? .white : (textColor?.opacity(0.45) ?? .secondary.opacity(0.6)))
                     .overlay(alignment: .topTrailing) {
                         if status.bookOverride != .inherited {

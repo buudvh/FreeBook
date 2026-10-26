@@ -201,7 +201,7 @@ struct ShelfView: View {
                         }) {
                             Label(
                                 isTranslationEnabled ? "Tắt Dịch Nghĩa" : "Bật Dịch Nghĩa",
-                                systemImage: isTranslationEnabled ? "character.bubble.fill" : "character.bubble"
+                                image: AppGlyph.translate.assetName
                             )
                         }
 

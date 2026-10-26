@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.605] - 2026-10-26
+
+### feat: nút dịch dùng icon Lucide languages thay character.bubble
+
+Người dùng: *"Tôi muốn đổi icon nút dịch thành icon ngoài"* → chọn Lucide `languages` (文A), đổi ở **tất cả** nút dịch. Plan duyệt trong chat.
+
+- **`AppGlyph.translate`** (mới): asset `LucideLanguages` sẵn có (cùng ảnh với `originalText`), nhãn VoiceOver "Dịch". Icon ngoài không có bản "fill" ⇒ bật/tắt chỉ khác màu (nút header Reader vốn đổi màu theo trạng thái; menu có chữ "Bật/Tắt").
+- Thay `character.bubble`/`character.bubble.fill` ở: nút dịch header Reader + màn Chi tiết (`ReaderTranslationScopeMenuView`, 2 nhánh), hàng "Dịch văn bản" của popup dịch (`TranslationScopePopupView`), nút "Dịch lại chương và mục lục" (`ReaderChapterListView`), mục "Bật/Tắt Dịch Nghĩa" menu Kệ (`ShelfView`, `Label(_:image:)`), mục "Dịch văn bản" menu Khám phá (`DiscoverySourceMenuButton`).
+- **Không đổi**: icon dự phòng nhóm tiện ích "Dịch thuật" (`ExtensionFilterGroups.typeGroupSymbol`, API chỉ nhận SF Symbol, không phải nút dịch). Nút "Gốc" của menu chọn chữ (`FloatingSelectionMenu`) vốn dùng cùng ảnh 文A — giữ nguyên theo plan; nay 文A vừa là bật/tắt dịch vừa là "Gốc" ở menu chọn chữ.
+- Chuyển entry `[1.3.575]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.604] - 2026-10-26
 
 ### feat: danh sách chương Reader kéo được như Hẹn giờ, thêm nút kệ, chữ trên bìa rõ hơn
@@ -375,19 +387,3 @@ Người dùng: *"thêm nút chi tiết nguồn các ext ở phần mở rộng 
 - Bảng chọn nguồn "Phần mở rộng" của Khám phá (`ExtensionSelectorView`): dòng nguồn Legado có nút ⓘ (`info.circle`, cùng kiểu và vị trí với nút ⚙ của tiện ích JS) mở `LegadoSourceDetailView` dạng sheet — từ đó sửa JSON, gỡ lỗi từng bước, kiểm tra, đăng nhập, chia sẻ ngay khi đang duyệt. Tiện ích JS giữ nút ⚙ mở màn Cấu hình như cũ; nguồn Legado vẫn không có lối vào màn cấu hình/sửa script của tiện ích JS.
 - Chuyển entry `[1.3.541]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới** (`ExtensionSelectorView.swift` 200 → 217). Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.575] - 2026-10-22
-
-### fix: nguồn Legado: tên gốc ở Kho, nút và chip không còn trắng trên trắng, không nối sang chương sau
-
-Thử máy với bộ 1298 (log `app_logs (113)`, `(114)`). Người dùng: *"đừng dịch tên nguồn ở tab tiện ích"*, *"nút đăng nhập đang lỗi nền trắng chữ trắng"*.
-
-- **Tên nguồn hiện bản gốc** ở tab Nguồn Legado, màn chi tiết, kiểm tra, gỡ lỗi, đăng nhập (`LegadoSourceSummary.displayName = name`; đảo quyết định 11 của plan đợt 1 theo yêu cầu người dùng). Tên dịch QT vẫn giữ để ô tìm khớp; **nhóm vẫn hiển thị bản dịch**.
-- **Trắng trên trắng**: app đặt `.tint(.white)` toàn cục (`MainTabView`) nên `Color.accentColor` là trắng. Nút "Đăng nhập" / "Mở trang đăng nhập" (`LegadoLoginView`) và "Chạy" (`LegadoSourceDebugView`) đổi sang nền `Color.blue`; chip đang chọn ở tab Nguồn Legado, Kiểm tra nguồn và Gỡ lỗi (nền nhấn 85% + chữ trắng) theo kiểu chip của `ExtensionKindFilterBar` (chữ nhấn, nền nhấn 18%, viền 60%).
-- **Không nối sang chương sau**: vòng `nextContentUrl` trước chỉ dừng ở **một** URL chương kế; tra không ra (mục lục chưa nạp trong phiên, URL lệch dạng…) là đi theo nút "下一章" kéo tới 30 chương vào một chương, request dồn dập và web chặn (thấy ở 错层小说: app nhận HTTP 400 cho đúng URL chương mà curl trả 200). Nay dừng khi gặp **bất kỳ** URL chương nào khác của mục lục (`LegadoEngineSession.tocStopKeys`; nguồn: mục lục đệm `LegadoTocURLCache.urls`, không có thì đọc `ChapterStore` một lần theo `bookId` rồi đệm).
-- **Bỏ lỗi giả khi nguồn dò app**: script tạo thử lớp nội bộ `io.legado.*` / `io.legato.*` trong `try/catch` để biết đang chạy trên app nào (spec §6.10) — vẫn ném cho script đi nhánh khác, nhưng ghi thông tin thay vì "chưa hỗ trợ" `❌` (魔丸小说 ghi 4 dòng `❌` mỗi lần đọc).
-- **`PaginatedNovelLoader`**: `CancellationError` (rời màn, đổi nguồn) không còn ghi `❌`, không hiện thông báo lỗi, không tự thử lại.
-- **Khám phá chạy `exploreUrl` một lần**: danh mục và tab điều khiển cùng hỏi khi mở nguồn trước khi bản đệm có ⇒ lượt thứ hai dùng chung lượt đang bay (`ExploreEntriesCache.runningTask`); màn Gỡ lỗi vẫn chạy riêng.
-- **Không phải lỗi app** (đã kiểm từ máy cùng vùng mạng): 篱笆好文学 (chặn theo vùng, 1Panel), 小原文学网, 可乐小说 (HTTP 403), 思路客 (captcha Cloudflare), 文桑小说 (quá thời gian), 鬼吹灯 (tên miền chết). 8/15 nguồn của bộ 1298 không khai `exploreUrl` nên không có ở Khám phá — đúng hành vi.
-- Chuyển entry `[1.3.540]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử lại trên máy.
