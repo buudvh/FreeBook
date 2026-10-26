@@ -8,6 +8,8 @@ import SwiftUI
 ///   thêm số lượt lỗi đã bỏ qua khi có.
 /// - Vòng thử lại lượt lỗi (tự động ở cuối lần quét hoặc nút "Thử lại k lượt lỗi", 1.3.527): "Đang thử lại: Batch i/k",
 ///   đếm trong số lượt đang thử lại.
+/// - Chế độ AI của Google bị giới hạn số câu trả lời AI (1.3.612): đang chờ ⇒ nền cam, đồng hồ cát, đếm ngược từng giây
+///   ("Google giới hạn câu trả lời AI — chờ 1:45"); đã chuyển sang Gemini Web ⇒ dòng phụ "Đã chuyển sang …".
 public struct ReaderAIBatchProgressBannerView: View {
     public let progress: AINameScanProgress
     public let foundCount: Int
@@ -21,12 +23,27 @@ public struct ReaderAIBatchProgressBannerView: View {
 
     public var body: some View {
         HStack(spacing: 10) {
-            ProgressView()
-                .controlSize(.small)
+            if progress.rateLimitWaitUntil == nil {
+                ProgressView()
+                    .controlSize(.small)
+            } else {
+                Image(systemName: "hourglass")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.orange)
+            }
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.caption)
-                    .fontWeight(.semibold)
+                if progress.rateLimitWaitUntil != nil {
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        Text("Google giới hạn câu trả lời AI — chờ \(GoogleAIModeError.clockText(seconds: progress.rateLimitRemainingSeconds(at: context.date) ?? 0))")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.orange)
+                    }
+                } else {
+                    Text(title)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                }
                 Text(subtitle)
                     .font(.caption2)
                     .foregroundColor(.secondary)
@@ -39,7 +56,7 @@ public struct ReaderAIBatchProgressBannerView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
-        .background(Color.purple.opacity(0.12))
+        .background(progress.rateLimitWaitUntil == nil ? Color.purple.opacity(0.12) : Color.orange.opacity(0.15))
     }
 
     private var title: String {
@@ -57,7 +74,11 @@ public struct ReaderAIBatchProgressBannerView: View {
             }
             return "Đang đọc chương đã tải"
         }
-        let found = "Đã tìm thấy \(foundCount) tên riêng"
+        if progress.rateLimitWaitUntil != nil {
+            return "Batch \(progress.sendingBatch)/\(progress.totalBatches) · lần chờ \(progress.rateLimitWaitAttempt)/\(progress.rateLimitWaitTotal) · Đã tìm thấy \(foundCount) tên riêng"
+        }
+        let found = progress.switchedProviderName.map { "Đã chuyển sang \($0) (Chế độ AI bị giới hạn) · \(foundCount) tên" }
+            ?? "Đã tìm thấy \(foundCount) tên riêng"
         return progress.failedBatches > 0 ? "\(found) · \(progress.failedBatches) lượt lỗi" : found
     }
 }

@@ -26,9 +26,24 @@ public enum GoogleAIModeError: LocalizedError, Sendable, Equatable {
     case webViewUnavailable
     /// Lượt quét tên riêng bị app vào nền cắt quá số lần gửi lại cho phép (`HiddenWebForegroundRunner`).
     case interruptedInBackground
+    /// Google báo "đã đạt đến giới hạn về số lượng yêu cầu đối với câu trả lời của AI" (1.3.612), hoặc app còn đang trong
+    /// hạn chờ sau lần báo đó (`GoogleAIModeTurnQueue`) — **không bao giờ** gửi lại ngay. `retryAfter` (giây, 0 = chưa rõ)
+    /// là hạn chờ còn lại.
+    case rateLimited(retryAfter: Int)
+    /// Quét tên riêng đã chờ đủ các lần (1 → 2 → 4 → 8 phút) mà Google vẫn giới hạn, và không có profile Gemini Web để
+    /// chuyển sang — dừng lần quét, giữ tên và điểm tiếp nối.
+    case rateLimitExhausted(waitedMinutes: Int)
 
     /// Chuỗi cố định trong mô tả của `captchaRequired` — màn AI và màn Cấu hình AI dò chuỗi này để hiện nút xác minh.
     public static let captchaMarker = "Google cần xác minh bạn không phải robot"
+    /// Chuỗi cố định trong mô tả của `rateLimited` (1.3.612).
+    public static let rateLimitMarker = "Google tạm giới hạn số câu trả lời AI"
+
+    /// "1:45" — đếm ngược của hạn chờ, dùng chung cho thông điệp lỗi, dải tiến độ và tiêu đề tác vụ.
+    public static func clockText(seconds: Int) -> String {
+        let value = max(0, seconds)
+        return "\(value / 60):" + String(format: "%02d", value % 60)
+    }
 
     public var errorDescription: String? {
         switch self {
@@ -52,22 +67,34 @@ public enum GoogleAIModeError: LocalizedError, Sendable, Equatable {
             return "Trình duyệt ẩn của Chế độ AI chưa sẵn sàng — thử lại."
         case .interruptedInBackground:
             return "Lượt gửi Chế độ AI bị gián đoạn vì app vào nền nhiều lần — để app mở trong lúc quét rồi thử lại."
+        case .rateLimited(let retryAfter):
+            let when = retryAfter > 0 ? "thử lại sau \(Self.clockText(seconds: retryAfter))" : "thử lại sau ít phút"
+            return "\(Self.rateLimitMarker) — \(when)."
+        case .rateLimitExhausted(let waitedMinutes):
+            return "Google giới hạn số câu trả lời AI, đã chờ \(waitedMinutes) phút vẫn chưa mở. Quét lại bằng \"Tiếp nối\" để đi tiếp từ chỗ dừng."
         }
     }
 
-    /// Thử lại một lần (chỉ khi chưa phát chữ nào): trang báo lỗi tạm hoặc trả rỗng.
+    /// Thử lại một lần (chỉ khi chưa phát chữ nào): trang trả rỗng. **Không** gồm `generationFailed` (1.3.612): người
+    /// dùng gặp đúng lỗi này khi Google giới hạn số câu trả lời AI — gửi lại ngay chỉ đốt thêm hạn mức.
     public var isRetryable: Bool {
         switch self {
-        case .generationFailed, .emptyResponse: return true
+        case .emptyResponse: return true
         default: return false
         }
     }
 
-    /// Lỗi khiến quét tên riêng nhiều chương phải dừng cả lần quét: gọi tiếp chỉ làm Google chặn nặng hơn (captcha) hoặc
-    /// lượt nào cũng lỗi y hệt (prompt quá dài).
+    public var isRateLimit: Bool {
+        if case .rateLimited = self { return true }
+        return false
+    }
+
+    /// Lỗi khiến quét tên riêng nhiều chương phải dừng cả lần quét: gọi tiếp chỉ làm Google chặn nặng hơn (captcha, đã
+    /// chờ hết các lần mà vẫn bị giới hạn) hoặc lượt nào cũng lỗi y hệt (prompt quá dài). `rateLimited` không nằm đây:
+    /// vòng quét tự chuyển Gemini Web hoặc tự chờ (`AINameExtractionBatchProcessor+RateLimit`).
     public var stopsNameScan: Bool {
         switch self {
-        case .captchaRequired, .requestTooLong: return true
+        case .captchaRequired, .requestTooLong, .rateLimitExhausted: return true
         default: return false
         }
     }

@@ -65,7 +65,8 @@ public actor GoogleAIModeClient {
         let prompt = try GoogleAIModePromptBudget.freshPrompt(from: messages, allowsTrimming: false)
         return try await HiddenWebForegroundRunner.run(
             logTag: "[AIMode]",
-            shouldStop: { AINameExtractionBatchProcessor.shouldStopBatch(on: $0) },
+            // Giới hạn số câu trả lời AI cũng không được gửi lại khi app đã vào nền (1.3.612) — vòng quét tự xử lý.
+            shouldStop: { AINameExtractionBatchProcessor.shouldStopBatch(on: $0) || ($0 as? GoogleAIModeError)?.isRateLimit == true },
             exhaustedError: GoogleAIModeError.interruptedInBackground
         ) {
             try await self.runTurn(.fresh(prompt), isScan: true, timeouts: Self.scanTimeouts, onDelta: nil, onMstk: nil)

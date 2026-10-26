@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.612] - 2026-10-26
+
+### fix: Chế độ AI hết phí hạn mức khi bị Google giới hạn, tự chuyển Gemini Web hoặc tự chờ
+
+Người dùng: *"provider Chế độ AI của Goôgle dễ bị hạn chê số request quá, tìm cách fix"*; lúc bị chặn app báo "Chế độ AI của Google báo lỗi…", trang Google ghi *"Bạn hiện đã đạt đến giới hạn về số lượng yêu cầu đối với câu trả lời của AI. Hãy thử lại sau giây lát"*, xảy ra sau khi quét được một lúc. Chốt qua chất vấn: tự chờ rồi quét tiếp, giữ 2.500 chữ/lượt, **tự chuyển sang Gemini Web** (ngay khi bị giới hạn). Yêu cầu "lách" giới hạn (đổi cookie/IP/tài khoản, giả trình duyệt) — **không làm**, đã nói lý do. Plan duyệt trong chat.
+
+- **Nguyên nhân**: 1.3.609 không nhận ra câu giới hạn; `generationFailed` được gửi lại ngay, lỗi không dừng quét, cuối lần quét còn tự thử lại một vòng ⇒ đang bị giới hạn vẫn gửi đều mỗi 5 s, giới hạn kéo dài.
+- **Nhận ra giới hạn**: `GoogleAIModePageContract.rateLimitText` (trong lượt mới hoặc ngoài mọi khối lượt) ⇒ `GoogleAIModeError.rateLimited(retryAfter:)`; hạn chờ toàn cục 60 s trong `GoogleAIModeTurnQueue` (hai lượt liên tiếp "báo lỗi" ở chat hay quét cũng đặt hạn chờ này) — chat lẫn quét không gửi gì tới hạn đó, chat báo "thử lại sau m:ss"; log `❌` kèm ~160 ký tự quanh câu lỗi của trang. `generationFailed` thôi được gửi lại ngay; runner nền không gửi lại `rateLimited`.
+- **Quét**: `AINameScanProviderSwitch` + `AINameExtractionBatchProcessor+RateLimit` — `rateLimited` hoặc 2 lượt `generationFailed` liên tiếp ⇒ có profile Gemini Web thì chuyển ngay, gửi lại đúng lượt đó, phần còn lại (cả vòng tự thử lại) chạy Gemini Web, toast một lần; không có thì chờ 1 → 2 → 4 → 8 phút rồi gửi lại, hết nấc ⇒ dừng (`rateLimitExhausted`) giữ tên + điểm tiếp nối. `runTurns` đọc provider mỗi lượt.
+- **UI**: dải tiến độ trạng thái chờ (nền cam, đồng hồ cát, đếm ngược từng giây, "lần chờ i/4"), dòng phụ "Đã chuyển sang … (Chế độ AI bị giới hạn)"; tiêu đề tác vụ "Chờ Google m:ss · Batch N/T"; ghi chú ở `GoogleAIModeAccountRow`.
+- **Tên ví dụ của prompt** (thử thật: Chế độ AI trả `何老三=Hà lão tam`, `李掌柜=…` dù văn bản không có): `droppingPromptExamples` bỏ tên trùng ví dụ `X=Y` của prompt mà không có trong văn bản đã gửi — mọi provider.
+- `rules.md`: bullet "Giới hạn số câu trả lời AI" + "Tên ví dụ của prompt", sửa bullet retry. Chuyển entry `[1.3.582]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Chạy đúng script `snapshot` mới trên trang Chế độ AI thật (chèn câu giới hạn vào DOM, không gửi gì): trang thường ⇒ không báo; câu ngoài khối lượt ⇒ `limitedPage`; câu trong lượt cũ ⇒ không báo nhầm; câu trong lượt mới nhất ⇒ `limitedNewest`. Không build tại chỗ (Windows) — CI là cổng biên dịch; **chưa thử trên máy** (chưa gặp lại trang giới hạn thật để biết câu nằm đâu trên DOM — log `❌ 🤖 [AIMode]` ghi đoạn chữ lúc phát hiện).
+
 ## [1.3.611] - 2026-10-26
 
 ### fix: xoá name AI không quay lại qua lượt quét và nút Thử lại
@@ -377,16 +391,3 @@ Từ báo cáo `kiem-tra-nguon-legado-20261022-160304.json`: 起点小说 và �
 - **Chờ trang lắng** (`LegadoWebViewFetcher+Settle`, file mới): sau lần tải đầu, mỗi 0,25 s kiểm `webView.isLoading`; trang phải yên liên tục 0,5 s mới xét. Một đoạn JS đếm chữ / ảnh / script / meta refresh: dưới 64 ký tự chữ, dưới 3 ảnh, có script hoặc meta refresh ⇒ coi là trang chờ, chờ tiếp tối đa 8 s kể từ lần tải xong gần nhất. Trần cứng vẫn là timeout của request (không kéo dài tổng thời gian chờ); huỷ thì dừng ở lượt kiểm kế tiếp. Trang thường chỉ chậm thêm ~0,5 s.
 - **Sửa kèm**: `webViewDelayTime` giờ tính **sau** khi trang lắng, và HTML được đọc lại sau khoảng chờ đó (trước đây dùng bản chụp cũ, sai spec §4.4). `java.webView(html, …)` (nạp chuỗi HTML) không qua bước chờ lắng; đường `sourceRegex` không đổi.
 - **Kiểm chứng**: cơ chế tải lại và ngưỡng phân loại đã quan sát trên trình duyệt Chromium, **chưa** trên WKWebView của iPhone. `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy (thử sau khi xoá cookie, vì kho cookie WebKit giữ lại giữa các lần).
-
-## [1.3.582] - 2026-10-22
-
-### fix: kiểm tra nguồn Legado không kết luận nhầm "lỗi thời" với trang báo lỗi ngắn, từ khoá mặc định dài hơn
-
-Từ báo cáo `kiem-tra-nguon-legado-20261022-160304.json`: 抖音小说 bị kết luận **"Nguồn lỗi thời"**, nhưng web thực ra trả trang 444 byte chỉ có `alert("关键字最少 10 个字符")` — chê từ khoá mặc định `我的` quá ngắn. 起点 cũng bị kết luận lỗi thời với trang tìm kiếm ~1 KB (trang thử thách JS, sửa riêng).
-
-- **Bộ phân xử** (`LegadoFailureArbiter`): trang 2xx dưới **3 KB** (`minimumOutdatedPageBytes`) hoặc trang có `alert(...)` **không** còn đủ để kết luận "nguồn lỗi thời" — rơi về "Chưa rõ" kèm lý do cụ thể:
-  - có `alert(...)` ⇒ *"Web báo: «…»"*, ở bước tìm kiếm thêm gợi ý thử từ khoá khác;
-  - trang quá ngắn ⇒ *"Trang trả về rất ngắn (HTTP …, N KB) — thường là trang báo lỗi, chặn, hoặc trang thử thách JS chưa chạy xong"*.
-- **Dò bộ chọn** (`LegadoSelectorProbe`): thêm `alertMessage` — câu trong `alert("…")` đầu tiên của trang ≤ 4 KB (gọn khoảng trắng, tối đa 200 ký tự).
-- **Từ khoá mặc định** khi nguồn không khai `checkKeyWord`: `我的` → `斗罗大陆` (Kiểm tra nguồn `LegadoCorpusRequest` và Gỡ lỗi nguồn `LegadoDebugInput`) — đủ dài để web có giới hạn độ dài từ khoá không chặn, và là tên truyện phổ biến nên dễ có kết quả.
-- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.

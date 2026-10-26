@@ -14,6 +14,9 @@ import Foundation
 /// - `resumeChapterIndex` (1.3.602): điểm tiếp nối tính tới lượt vừa xong (`AINameScanResumeTracker`); `nil` = chưa có
 ///   lượt nào xong. Coordinator chỉ ghi nó xuống `AINameScanScopeStore` **cùng lúc** áp danh sách tên của lượt đó, để
 ///   điểm tiếp nối không bao giờ vượt quá phần tên đã giữ được.
+/// - `rateLimitWaitUntil` (1.3.612): đang chờ Google mở lại giới hạn số câu trả lời AI của Chế độ AI — dải tiến độ đếm
+///   ngược tới mốc này, kèm nấc chờ `rateLimitWaitAttempt`/`rateLimitWaitTotal`. `switchedProviderName`: lần quét đã
+///   chuyển sang profile Gemini Web này vì Chế độ AI bị giới hạn.
 public struct AINameScanProgress: Sendable, Equatable {
     public var sendingBatch: Int
     public var totalBatches: Int
@@ -22,6 +25,10 @@ public struct AINameScanProgress: Sendable, Equatable {
     public var isRetry: Bool
     public var preparedChapters: Int
     public var resumeChapterIndex: Int?
+    public var rateLimitWaitUntil: Date?
+    public var rateLimitWaitAttempt: Int
+    public var rateLimitWaitTotal: Int
+    public var switchedProviderName: String?
 
     public init(
         sendingBatch: Int = 0,
@@ -30,7 +37,11 @@ public struct AINameScanProgress: Sendable, Equatable {
         chapterCount: Int? = nil,
         isRetry: Bool = false,
         preparedChapters: Int = 0,
-        resumeChapterIndex: Int? = nil
+        resumeChapterIndex: Int? = nil,
+        rateLimitWaitUntil: Date? = nil,
+        rateLimitWaitAttempt: Int = 0,
+        rateLimitWaitTotal: Int = 0,
+        switchedProviderName: String? = nil
     ) {
         self.sendingBatch = sendingBatch
         self.totalBatches = totalBatches
@@ -39,7 +50,17 @@ public struct AINameScanProgress: Sendable, Equatable {
         self.isRetry = isRetry
         self.preparedChapters = preparedChapters
         self.resumeChapterIndex = resumeChapterIndex
+        self.rateLimitWaitUntil = rateLimitWaitUntil
+        self.rateLimitWaitAttempt = rateLimitWaitAttempt
+        self.rateLimitWaitTotal = rateLimitWaitTotal
+        self.switchedProviderName = switchedProviderName
     }
 
     public var isPreparing: Bool { totalBatches == 0 }
+
+    /// Số giây còn phải chờ giới hạn tại `date`; `nil` = không chờ.
+    public func rateLimitRemainingSeconds(at date: Date = Date()) -> Int? {
+        guard let until = rateLimitWaitUntil else { return nil }
+        return max(0, Int(until.timeIntervalSince(date).rounded(.up)))
+    }
 }

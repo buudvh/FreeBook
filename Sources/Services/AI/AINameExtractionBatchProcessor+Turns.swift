@@ -15,10 +15,13 @@ extension AINameExtractionBatchProcessor {
     /// chặn điểm tiếp nối. 1.3.603: vẫn rỗng nhưng AI đã trả lời đúng "Không có name" (ở lần đầu hoặc lần gửi lại) thì là
     /// **lượt hợp lệ** — không tính lỗi, không chặn điểm tiếp nối. Mỗi lượt xong mà không bị huỷ được ghi vào `resume`;
     /// báo sau lượt kèm điểm tiếp nối mới.
+    ///
+    /// 1.3.612: provider đọc **mỗi lượt** từ `providerSwitch` — Chế độ AI của Google bị giới hạn thì lần quét có thể chuyển
+    /// sang Gemini Web giữa chừng (`+RateLimit.swift`); nghỉ 2 s giữa lượt theo provider đang dùng.
     func runTurns(
         _ turns: [AINameScanFailedBatch],
         seedNames: [AIExtractedName],
-        config: AIConfiguration,
+        providerSwitch: AINameScanProviderSwitch,
         promptOverride: String?,
         conversationId: UUID?,
         isRetry: Bool,
@@ -31,29 +34,31 @@ extension AINameExtractionBatchProcessor {
             chapterCount: chapterCount,
             isRetry: isRetry,
             preparedChapters: chapterCount ?? 0,
-            resumeChapterIndex: resume?.resumeChapterIndex
+            resumeChapterIndex: resume?.resumeChapterIndex,
+            switchedProviderName: providerSwitch.switchedProviderName
         )
         var aggregatedNames: [String: AIExtractedName] = [:]
         Self.aggregate(seedNames, into: &aggregatedNames)
         var failed: [AINameScanFailedBatch] = []
-        let isGeminiWeb = config.activeProfile.isGeminiWeb
-        let characterLimit = Self.turnCharacterLimit(for: config)
 
         for (position, turn) in turns.enumerated() {
             if Task.isCancelled { break }
             let turnLabel = isRetry ? "\(turn.turnLabel), thử lại" : turn.turnLabel
+            let characterLimit = Self.turnCharacterLimit(for: providerSwitch.config)
             progress.sendingBatch = position + 1
             onProgress(progress, nil)
             AppLogger.shared.log("🤖 [AI] Quét tên riêng: gửi \(turnLabel) (\(min(turn.text.count, characterLimit)) ký tự, chat phiên=\(conversationId != nil))")
 
             var succeeded = false
             do {
-                let reply = try await extractTurnRetryingEmpty(
+                let reply = try await extractTurnHandlingRateLimit(
                     turn,
                     turnLabel: turnLabel,
-                    config: config,
+                    providerSwitch: providerSwitch,
                     promptOverride: promptOverride,
-                    conversationId: conversationId
+                    conversationId: conversationId,
+                    progress: &progress,
+                    onProgress: onProgress
                 )
                 if !reply.names.isEmpty {
                     Self.aggregate(reply.names, into: &aggregatedNames)
@@ -71,7 +76,7 @@ extension AINameExtractionBatchProcessor {
                 // tiếp chỉ làm bị chặn nặng hơn. Dừng và báo rõ; phần đã quét vẫn nằm trong `batchExtractedNames` của
                 // coordinator, được giữ lại trong tin kết quả (1.3.602 — điểm tiếp nối đã ghi theo phần đó). Thông điệp
                 // giữ mô tả lỗi gốc ⇒ có `GoogleAIModeError.captchaMarker` cho nút xác minh.
-                let tag = config.activeProfile.isGoogleAIMode ? "[AIMode]" : "[GeminiWeb]"
+                let tag = providerSwitch.config.activeProfile.isGoogleAIMode ? "[AIMode]" : "[GeminiWeb]"
                 AppLogger.shared.log("❌ 🤖 \(tag) Dừng quét tên riêng ở \(turnLabel): \(error.localizedDescription)")
                 let verb = isRetry ? "Dừng thử lại" : "Dừng quét"
                 throw NSError(domain: "AINameExtraction", code: 429, userInfo: [
@@ -95,7 +100,7 @@ extension AINameExtractionBatchProcessor {
             onProgress(progress, Self.sortedNames(aggregatedNames))
 
             // Chế độ AI của Google nghỉ 5 s trong `GoogleAIModeTurnQueue` (khoảng nghỉ toàn cục, mọi truyện).
-            if isGeminiWeb, position < turns.count - 1 {
+            if providerSwitch.config.activeProfile.isGeminiWeb, position < turns.count - 1 {
                 try? await Task.sleep(nanoseconds: Self.geminiWebTurnPause)
             }
         }
@@ -108,7 +113,7 @@ extension AINameExtractionBatchProcessor {
     /// tên thì dùng; vẫn rỗng thì `saidNoNames` = một trong hai lần đã trả lời đúng "Không có name" (lượt hợp lệ), không
     /// thì vòng lượt tính là lỗi. Huỷ trong lúc nghỉ ⇒ `Task.sleep` ném `CancellationError`, vòng lượt dừng như mọi lần
     /// huỷ khác.
-    private func extractTurnRetryingEmpty(
+    func extractTurnRetryingEmpty(
         _ turn: AINameScanFailedBatch,
         turnLabel: String,
         config: AIConfiguration,

@@ -16,6 +16,9 @@ enum GoogleAIModePageContract {
     static let host = "https://www.google.com"
     static let readyStatusText = "Chế độ AI đã sẵn sàng trả lời"
     static let generationErrorText = "Đã xảy ra lỗi nên không tạo được nội dung"
+    /// Câu Google hiện khi hết hạn mức số câu trả lời AI (người dùng gặp 2026-10-26: "Bạn hiện đã đạt đến giới hạn về số
+    /// lượng yêu cầu đối với câu trả lời của AI. Hãy thử lại sau giây lát") — so khớp không phân biệt hoa thường.
+    static let rateLimitText = "đã đạt đến giới hạn về số lượng yêu cầu"
     static let composerLabel = "Hỏi bất cứ điều gì"
     static let sendButtonLabel = "Gửi"
     /// Đoạn cuối mở đầu bằng các cụm này là câu gợi ý hỏi tiếp của Google, không phải câu trả lời.
@@ -32,6 +35,15 @@ enum GoogleAIModePageContract {
         let newestText: String
         let answerFound: Bool
         let newestHasError: Bool
+        /// Câu giới hạn nằm trong **lượt mới nhất**. Chỉ có nghĩa khi lượt đó là lượt mới (số lượt tăng) — trang khôi
+        /// phục còn lượt cũ.
+        let newestRateLimited: Bool
+        /// Câu giới hạn nằm **ngoài** mọi khối lượt (thông báo của trang) — số lần nó xuất hiện trong trang nhiều hơn
+        /// trong các khối lượt.
+        let pageRateLimited: Bool
+        /// ~160 ký tự quanh câu lỗi/giới hạn (lượt mới nhất, hoặc ngoài khối lượt) — chỉ để ghi log khi gặp lỗi, cho
+        /// biết trang thật sự hiện gì.
+        let errorSnippet: String
         let readyStatus: Bool
         let composerFound: Bool
         let mstk: String
@@ -45,6 +57,9 @@ enum GoogleAIModePageContract {
             newestText = dict["text"] as? String ?? ""
             answerFound = (dict["answerFound"] as? Bool) ?? false
             newestHasError = (dict["hasError"] as? Bool) ?? false
+            newestRateLimited = (dict["limitedNewest"] as? Bool) ?? false
+            pageRateLimited = (dict["limitedPage"] as? Bool) ?? false
+            errorSnippet = dict["errorSnippet"] as? String ?? ""
             readyStatus = (dict["ready"] as? Bool) ?? false
             composerFound = (dict["composer"] as? Bool) ?? false
             mstk = dict["mstk"] as? String ?? ""
@@ -136,11 +151,16 @@ enum GoogleAIModePageContract {
     /// `<span role="button">` (thử thật: bỏ thì "Dân số thành phố Paris…" mất chữ "Paris").
     static let snapshotScript = jsPrelude + #"""
     (function () {
-      var out = { turnCount: 0, text: "", answerFound: false, hasError: false, ready: false, composer: false, mstk: "", path: location.pathname, bodyLength: 0 };
+      var out = { turnCount: 0, text: "", answerFound: false, hasError: false, limitedNewest: false, limitedPage: false, errorSnippet: "", ready: false, composer: false, mstk: "", path: location.pathname, bodyLength: 0 };
       try {
-        out.bodyLength = ((document.body && document.body.innerText) || "").length;
+        var bodyText = (document.body && document.body.innerText) || "";
+        out.bodyLength = bodyText.length;
         var turns = document.querySelectorAll('[data-scope-id="turn"]');
         out.turnCount = turns.length;
+        var inTurns = 0;
+        for (var k = 0; k < turns.length; k++) { inTurns += __countLimit(turns[k].innerText); }
+        out.limitedPage = __countLimit(bodyText) > inTurns;
+        if (out.limitedPage) { out.errorSnippet = __snippet(bodyText, __LIMIT); }
         var lives = document.querySelectorAll('[aria-live]');
         for (var i = 0; i < lives.length; i++) {
           if ((lives[i].textContent || "").trim() === __READY) { out.ready = true; break; }
@@ -152,6 +172,9 @@ enum GoogleAIModePageContract {
         if (turns.length) {
           var newest = turns[turns.length - 1];
           out.hasError = (newest.innerText || "").indexOf(__FAILED) >= 0;
+          out.limitedNewest = __countLimit(newest.innerText) > 0;
+          if (out.limitedNewest) { out.errorSnippet = __snippet(newest.innerText, __LIMIT); }
+          else if (out.hasError && !out.errorSnippet) { out.errorSnippet = __snippet(newest.innerText, __FAILED.toLowerCase()); }
           var answer = newest.querySelector('[data-subtree="aimc"]');
           out.answerFound = !!answer;
           out.text = answer ? __collectText(answer) : "";
@@ -212,7 +235,23 @@ enum GoogleAIModePageContract {
     var __FAILED = "\(generationErrorText)";
     var __COMPOSER = "\(composerLabel)";
     var __SEND = "\(sendButtonLabel)";
+    var __LIMIT = "\(rateLimitText)";
     """ + #"""
+
+    function __snippet(text, needle) {
+      var raw = text || "";
+      var at = raw.toLowerCase().indexOf(needle);
+      if (at < 0) { return ""; }
+      return raw.substring(Math.max(0, at - 60), at + needle.length + 60).replace(/\s+/g, ' ');
+    }
+
+    function __countLimit(text) {
+      var hay = (text || "").toLowerCase();
+      var count = 0;
+      var at = hay.indexOf(__LIMIT);
+      while (at >= 0) { count += 1; at = hay.indexOf(__LIMIT, at + __LIMIT.length); }
+      return count;
+    }
 
     function __findComposer() {
       var list = document.querySelectorAll('textarea');

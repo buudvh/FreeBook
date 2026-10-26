@@ -36,7 +36,7 @@ public struct GoogleAIModeAccountRow: View {
             }
             .buttonStyle(.bordered)
 
-            Text("Giao thức web không chính thức: Google đổi là có thể hỏng. Không hỗ trợ Dịch mượt (Chế độ AI chỉ tóm lược). Quét tên: ~2.500 chữ mỗi lượt, nghỉ 5 s.")
+            Text("Giao thức web không chính thức: Google đổi là có thể hỏng. Không hỗ trợ Dịch mượt (Chế độ AI chỉ tóm lược). Quét tên: ~2.500 chữ mỗi lượt, nghỉ 5 s. Quét bị Google giới hạn ⇒ tự chuyển sang profile Gemini Web (nếu có), không có thì chờ 1→2→4→8 phút.")
                 .font(.system(size: 10))
                 .foregroundColor(.secondary)
         }

@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.582] - 2026-10-22
+
+### fix: kiểm tra nguồn Legado không kết luận nhầm "lỗi thời" với trang báo lỗi ngắn, từ khoá mặc định dài hơn
+
+Từ báo cáo `kiem-tra-nguon-legado-20261022-160304.json`: 抖音小说 bị kết luận **"Nguồn lỗi thời"**, nhưng web thực ra trả trang 444 byte chỉ có `alert("关键字最少 10 个字符")` — chê từ khoá mặc định `我的` quá ngắn. 起点 cũng bị kết luận lỗi thời với trang tìm kiếm ~1 KB (trang thử thách JS, sửa riêng).
+
+- **Bộ phân xử** (`LegadoFailureArbiter`): trang 2xx dưới **3 KB** (`minimumOutdatedPageBytes`) hoặc trang có `alert(...)` **không** còn đủ để kết luận "nguồn lỗi thời" — rơi về "Chưa rõ" kèm lý do cụ thể:
+  - có `alert(...)` ⇒ *"Web báo: «…»"*, ở bước tìm kiếm thêm gợi ý thử từ khoá khác;
+  - trang quá ngắn ⇒ *"Trang trả về rất ngắn (HTTP …, N KB) — thường là trang báo lỗi, chặn, hoặc trang thử thách JS chưa chạy xong"*.
+- **Dò bộ chọn** (`LegadoSelectorProbe`): thêm `alertMessage` — câu trong `alert("…")` đầu tiên của trang ≤ 4 KB (gọn khoảng trắng, tối đa 200 ký tự).
+- **Từ khoá mặc định** khi nguồn không khai `checkKeyWord`: `我的` → `斗罗大陆` (Kiểm tra nguồn `LegadoCorpusRequest` và Gỡ lỗi nguồn `LegadoDebugInput`) — đủ dài để web có giới hạn độ dài từ khoá không chặn, và là tên truyện phổ biến nên dễ có kết quả.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.581] - 2026-10-22
 
 ### fix: chia sẻ báo cáo và xuất nguồn Legado báo nhầm "truy cập file ngoài thư mục" từ lần thứ hai

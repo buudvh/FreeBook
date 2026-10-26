@@ -122,8 +122,25 @@ public final class AINameExtractionBatchProcessor: Sendable {
         }
         guard let content = content else { return ([], false) }
 
-        let names = parseNamesFromText(content)
+        let names = Self.droppingPromptExamples(parseNamesFromText(content), prompt: systemInstruction, sentText: truncated)
         return (names, names.isEmpty && Self.isNoNamesReply(content))
+    }
+
+    /// Bỏ tên AI chép lại từ **ví dụ** của prompt (1.3.612 — thử thật Chế độ AI trả cả `何老三=Hà lão tam`, `李掌柜=…` của
+    /// prompt mặc định dù văn bản không có): tên gốc trùng vế trái một dòng `X=Y` có chữ Hán trong prompt **và** không có
+    /// trong phần văn bản đã gửi. Tên có thật trong văn bản không bao giờ bị bỏ. Mọi provider.
+    static func droppingPromptExamples(_ names: [AIExtractedName], prompt: String, sentText: String) -> [AIExtractedName] {
+        let examples = Set(prompt.components(separatedBy: .newlines).compactMap { line -> String? in
+            guard let eq = line.firstIndex(of: "=") else { return nil }
+            let left = line[..<eq].trimmingCharacters(in: .whitespaces)
+            return TranslateUtils.containsChinese(left) ? left : nil
+        })
+        guard !examples.isEmpty else { return names }
+        let kept = names.filter { !examples.contains($0.original) || sentText.contains($0.original) }
+        if kept.count < names.count {
+            AppLogger.shared.log("🤖 [AI] Quét tên riêng: bỏ \(names.count - kept.count) tên chép từ ví dụ của prompt")
+        }
+        return kept
     }
 
     /// Cả câu trả lời chỉ là "Không có name" (không phân biệt hoa thường, bỏ code fence, dấu chấm cuối và khoảng trắng).
@@ -210,7 +227,9 @@ public final class AINameExtractionBatchProcessor: Sendable {
             onProgress(chunkProgress, nil)
         }
         guard let loaded, !Task.isCancelled else { return ([], preparing, [], nil) }
-        let isGeminiWeb = config.activeProfile.isGeminiWeb
+        // Một bộ chuyển provider cho cả lần quét (1.3.612): Chế độ AI bị giới hạn mà đã chuyển Gemini Web thì vòng tự thử
+        // lại ở cuối cũng chạy Gemini Web.
+        let providerSwitch = AINameScanProviderSwitch(config: config)
         let splitStart = CFAbsoluteTimeGetCurrent()
         let turns = AINameScanTextLoader.makeBatches(
             loaded.texts,
@@ -230,7 +249,7 @@ public final class AINameExtractionBatchProcessor: Sendable {
         var outcome = try await runTurns(
             turns,
             seedNames: [],
-            config: config,
+            providerSwitch: providerSwitch,
             promptOverride: promptOverride,
             conversationId: conversationId,
             isRetry: false,
@@ -251,14 +270,14 @@ public final class AINameExtractionBatchProcessor: Sendable {
         // vẫn đang được Google sinh nốt — để cuối thì Google kịp xong, lượt nối tiếp không bị từ chối.
         if !outcome.failedBatches.isEmpty, !Task.isCancelled {
             AppLogger.shared.log("🤖 [AI] Quét tên riêng: tự thử lại \(outcome.failedBatches.count) lượt lỗi ở cuối lần quét")
-            if isGeminiWeb {
+            if providerSwitch.config.activeProfile.isGeminiWeb {
                 try? await Task.sleep(nanoseconds: Self.geminiWebTurnPause)
             }
             if !Task.isCancelled {
                 outcome = try await runTurns(
                     outcome.failedBatches,
                     seedNames: outcome.names,
-                    config: config,
+                    providerSwitch: providerSwitch,
                     promptOverride: promptOverride,
                     conversationId: conversationId,
                     isRetry: true,
@@ -297,7 +316,7 @@ public final class AINameExtractionBatchProcessor: Sendable {
         return try await runTurns(
             batches,
             seedNames: existingNames,
-            config: config,
+            providerSwitch: AINameScanProviderSwitch(config: config),
             promptOverride: promptOverride,
             conversationId: conversationId,
             isRetry: true,

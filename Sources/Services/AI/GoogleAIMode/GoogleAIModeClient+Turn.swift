@@ -9,8 +9,9 @@ import Foundation
 ///   `protocolChanged` (tránh dòng mẫu `Tên gốc=Nghĩa` thành name).
 /// - Phát chữ theo tiền tố, chỉ các dòng đã trọn; lúc xong mà bản cuối không nối tiếp phần đã phát thì nối bản cuối sau
 ///   dấu "— Chế độ AI sửa lại câu trả lời —" (coordinator cộng dồn delta, như Gemini Web).
-/// - Retry đúng một tầng: một lần khi `isRetryable` **và chưa phát chữ nào**, lặp lại đúng loại lượt (lượt mới thì mở
-///   lại, lượt nối tiếp thì khôi phục `mstk` mới nhất rồi gửi lại — không lặng lẽ mở cuộc chat mới).
+/// - Retry đúng một tầng: một lần khi `isRetryable` (chỉ còn trả rỗng, 1.3.612) **và chưa phát chữ nào**, lặp lại đúng
+///   loại lượt (lượt mới thì mở lại, lượt nối tiếp thì khôi phục `mstk` mới nhất rồi gửi lại — không lặng lẽ mở cuộc
+///   chat mới). Câu "đã đạt đến giới hạn" của Google ⇒ `rateLimited` + hạn chờ toàn cục, không bao giờ gửi lại.
 extension GoogleAIModeClient {
     enum TurnKind: Sendable {
         /// Cuộc chat mới, câu hỏi trong URL.
@@ -27,6 +28,9 @@ extension GoogleAIModeClient {
     private static let sendClickFallbackSeconds: TimeInterval = 4
     /// Chưa tới chừng này ký tự thì chưa phát chữ (trang có thể đang hiện chữ chờ ngắn).
     private static let minStreamLength = 24
+    /// Hạn chờ mặc định khi trang báo hết hạn mức số câu trả lời AI ("thử lại sau giây lát") — vòng quét tự kéo dài
+    /// theo nấc chờ của nó (1.3.612).
+    private static let rateLimitCooldown: TimeInterval = 60
 
     /// Quan sát một lượt, dùng chung giữa các lần thử: đã phát chữ chưa, `mstk` mới nhất trang để lộ.
     final class TurnProgress: @unchecked Sendable {
@@ -207,6 +211,13 @@ extension GoogleAIModeClient {
             }
             missingSnapshots = 0
             if GoogleAIModePageContract.isVerificationPath(snapshot.path) { throw GoogleAIModeError.captchaRequired }
+            // Hết hạn mức số câu trả lời AI (1.3.612): chặn mọi lượt một lúc, không gửi lại. Câu giới hạn trong khối lượt
+            // chỉ tính khi đó là lượt mới — trang khôi phục còn lượt cũ.
+            if snapshot.pageRateLimited || (snapshot.turnCount > baseline && snapshot.newestRateLimited) {
+                AppLogger.shared.log("❌ 🤖 [AIMode] Google báo hết hạn mức số câu trả lời AI sau \(Self.ms(since: startedAt)) ms — chặn mọi lượt \(Int(Self.rateLimitCooldown)) s \(GeminiWebForegroundGate.shared.appStateLabel); trang: «\(snapshot.errorSnippet)»")
+                await GoogleAIModeTurnQueue.shared.noteRateLimited(for: Self.rateLimitCooldown)
+                throw GoogleAIModeError.rateLimited(retryAfter: Int(Self.rateLimitCooldown))
+            }
             if !snapshot.mstk.isEmpty, snapshot.mstk != lastMstk {
                 lastMstk = snapshot.mstk
                 observation.record(mstk: snapshot.mstk)
@@ -224,7 +235,7 @@ extension GoogleAIModeClient {
                     AppLogger.shared.log("🤖 [AIMode] Thấy lượt trả lời mới sau \(Self.ms(since: startedAt)) ms")
                 }
                 if snapshot.newestHasError {
-                    AppLogger.shared.log("❌ 🤖 [AIMode] Trang báo lỗi trong lượt mới sau \(Self.ms(since: startedAt)) ms")
+                    AppLogger.shared.log("❌ 🤖 [AIMode] Trang báo lỗi trong lượt mới sau \(Self.ms(since: startedAt)) ms; trang: «\(snapshot.errorSnippet)»")
                     throw GoogleAIModeError.generationFailed
                 }
                 answerFound = answerFound || snapshot.answerFound

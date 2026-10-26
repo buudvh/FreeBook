@@ -125,6 +125,14 @@ extension AIRuntimeCoordinator {
     func applyBatchProgress(_ progress: AINameScanProgress, names: [AIExtractedName]?, bookId: String, assistantMsgId: UUID?) {
         // Name người dùng đã ✕ trong tin này không được quay lại qua nhịp tiến độ (`+NameRemoval`).
         let keptNames = names.map { keepingUnremovedNames($0, messageId: assistantMsgId) }
+        // Lần quét vừa chuyển sang Gemini Web vì Chế độ AI bị giới hạn (1.3.612): toast một lần, cả khi màn AI đang mở.
+        if let switched = progress.switchedProviderName, runs[bookId]?.batchProgress?.switchedProviderName == nil {
+            let bookTitle = runs[bookId]?.bookTitle ?? ""
+            ToastManager.shared.show(
+                message: toastText("Chế độ AI bị Google giới hạn — quét tiếp bằng \(switched)", bookId: bookId, bookTitle: bookTitle),
+                type: .info
+            )
+        }
         updateRun(bookId) { state in
             state.batchProgress = progress
             state.taskTitle = Self.batchTaskTitle(for: progress)
@@ -187,6 +195,10 @@ extension AIRuntimeCoordinator {
             if progress.isRetry { return "Đang chuẩn bị thử lại..." }
             guard let count = progress.chapterCount else { return "Đang chuẩn bị quét..." }
             return "Đang chuẩn bị quét: đã đọc \(progress.preparedChapters)/\(count) chương"
+        }
+        // Đang chờ Chế độ AI hết giới hạn (1.3.612): tiến độ báo lại mỗi 15 s nên tiêu đề đếm ngược theo nhịp đó.
+        if let remaining = progress.rateLimitRemainingSeconds() {
+            return "Chờ Google \(GoogleAIModeError.clockText(seconds: remaining)) · Batch \(progress.sendingBatch)/\(progress.totalBatches)"
         }
         let verb = progress.isRetry ? "Đang thử lại" : "Đang quét"
         return "\(verb): Batch \(progress.sendingBatch)/\(progress.totalBatches)"
