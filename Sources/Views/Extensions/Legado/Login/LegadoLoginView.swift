@@ -222,7 +222,7 @@ struct LegadoLoginView: View {
         VStack(alignment: .leading, spacing: 12) {
             if !isWebMode {
                 Button(action: openWebLogin) {
-                    Label("Đăng nhập trên web", systemImage: "globe")
+                    Label("Đăng nhập trên web", systemImage: "safari")
                         .font(.subheadline.weight(.medium))
                 }
             }

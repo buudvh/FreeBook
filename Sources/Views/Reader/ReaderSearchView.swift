@@ -13,6 +13,11 @@ struct ReaderSearchView: View {
     let chapters: [ReaderSearchMatcher.Chapter]
     let chapterTitles: [Int: String]
     let currentChapterIndex: Int
+    /// Truy vấn lần trước trong lượt đọc này — mở lại sheet thì điền sẵn và tìm ngay.
+    var initialQuery: String = ""
+    /// Báo truy vấn cuối khi sheet đóng để `ReaderView` giữ cho lần mở sau. Không nối thẳng `Binding` vào
+    /// `@State` của `ReaderView`: mỗi phím gõ sẽ bắt cả thân Reader vẽ lại.
+    var onQueryChange: (String) -> Void = { _ in }
     let onSelect: (_ chapterIndex: Int, _ paragraphIndex: Int, _ query: String) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -48,9 +53,18 @@ struct ReaderSearchView: View {
                 }
             }
         }
-        .onAppear { isSearchFocused = true }
+        .onAppear {
+            isSearchFocused = true
+            // Gán qua `onChange` bên dưới ⇒ tìm lại ngay trên các chương đang nạp.
+            if query.isEmpty, !initialQuery.isEmpty {
+                query = initialQuery
+            }
+        }
         .onChange(of: query) { _, _ in scheduleSearch() }
-        .onDisappear { searchTask?.cancel() }
+        .onDisappear {
+            searchTask?.cancel()
+            onQueryChange(query)
+        }
     }
 
     // MARK: - Thanh tìm kiếm

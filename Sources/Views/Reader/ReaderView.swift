@@ -232,6 +232,8 @@ struct ReaderView: View {
     @State internal var showingChapterList = false
     @State internal var showingAIFullScreen = false
     @State private var showingReaderSearch = false
+    /// Truy vấn "Tìm trong chương" lần trước — nhớ trong lượt đọc này (đóng Reader là mất).
+    @State private var readerSearchQuery = ""
     /// Kết quả tìm vừa được nhảy tới — dùng để tô vệt trên trang. `nil` = không tô gì.
     @State internal var searchHighlight: ReaderSearchMatcher.Highlight? = nil
     @State internal var showingBookDictionary = false
@@ -474,6 +476,8 @@ struct ReaderView: View {
                 chapters: snapshot.chapters,
                 chapterTitles: snapshot.titles,
                 currentChapterIndex: viewModel?.displayedChapterIndex ?? chapterIndex,
+                initialQuery: readerSearchQuery,
+                onQueryChange: { readerSearchQuery = $0 },
                 onSelect: { targetChapter, targetParagraph, query in
                     jumpToReaderSearchResult(
                         chapterIndex: targetChapter,

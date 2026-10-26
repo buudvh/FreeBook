@@ -117,8 +117,11 @@ struct BookActionSheet: View {
     }
 
     /// Phần đầu chia làm **hai vùng cạnh nhau, không lồng nhau**: khối bìa + tên nhận cử chỉ chạm/nhấn
-    /// giữ, cột phải chứa hai icon. Đặt nút kệ sách trong `overlay` lên trên vùng có cử chỉ là để hai
-    /// bên tranh nhau cùng một cú chạm, nên nó là *sibling*.
+    /// giữ, cột phải chứa hai nút (Sửa thông tin, Kệ). Đặt nút kệ sách trong `overlay` lên trên vùng có cử chỉ
+    /// là để hai bên tranh nhau cùng một cú chạm, nên nó là *sibling*.
+    ///
+    /// Từ 1.3.607: bìa 86×120, trạng thái ghim là `CoverPinBadge` ở góc trên trái bìa (thay dòng "Đang ghim đầu
+    /// kệ"), bỏ icon ⓘ trang trí ở góc trên phải.
     @ViewBuilder
     private var header: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -131,8 +134,15 @@ struct BookActionSheet: View {
     @ViewBuilder
     private var headerTappableContent: some View {
         HStack(alignment: .top, spacing: 12) {
-            BookCoverView(bookId: book.bookId, coverUrl: book.coverUrl, width: 60, height: 84, host: book.host, extensionPackageId: book.extensionPackageId)
+            BookCoverView(bookId: book.bookId, coverUrl: book.coverUrl, width: Self.coverWidth, height: Self.coverHeight, host: book.host, extensionPackageId: book.extensionPackageId)
                 .cornerRadius(6)
+                // Ghim nhô nhẹ ra ngoài góc trên trái bìa — vẫn nằm trong lề của ô `List`.
+                .overlay(alignment: .topLeading) {
+                    if book.isPinned {
+                        CoverPinBadge(diameter: 24)
+                            .offset(x: -6, y: -6)
+                    }
+                }
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(DisplayTextFormatter.titleCase(displayedTitle))
@@ -144,12 +154,6 @@ struct BookActionSheet: View {
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .lineLimit(2)
-                }
-
-                if book.isPinned {
-                    Label("Đang ghim đầu kệ", systemImage: "pin.fill")
-                        .font(.caption2)
-                        .foregroundColor(.orange)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -168,23 +172,19 @@ struct BookActionSheet: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(DisplayTextFormatter.titleCase(displayedTitle))
+        .accessibilityValue(book.isPinned ? "Đang ghim đầu kệ" : "")
         .accessibilityHint(headerHint)
         .accessibilityAddTraits(canOpenDetail ? .isButton : [])
     }
 
-    /// `minHeight: 84` khớp chiều cao ảnh bìa nên nút luôn nằm đúng đáy panel ngay cả khi tên truyện
-    /// ngắn; `maxHeight: .infinity` để cột giãn theo hàng khi tên dài hơn ảnh bìa.
+    private static let coverWidth: CGFloat = 86
+    private static let coverHeight: CGFloat = 120
+
+    /// `minHeight` = chiều cao ảnh bìa nên nút luôn nằm đúng đáy panel ngay cả khi tên truyện ngắn;
+    /// `maxHeight: .infinity` để cột giãn theo hàng khi tên dài hơn ảnh bìa.
     @ViewBuilder
     private var headerTrailingColumn: some View {
         VStack(alignment: .trailing, spacing: 0) {
-            if canOpenDetail {
-                Image(systemName: "info.circle")
-                    .font(.system(size: 18, weight: .regular))
-                    .foregroundColor(.white)
-                    .frame(width: 32, height: 32, alignment: .trailing)
-                    .accessibilityHidden(true)
-            }
-
             Spacer(minLength: 8)
 
             HStack(spacing: 8) {
@@ -192,7 +192,7 @@ struct BookActionSheet: View {
                 shelfToggleButton
             }
         }
-        .frame(minHeight: 84, maxHeight: .infinity, alignment: .trailing)
+        .frame(minHeight: Self.coverHeight, maxHeight: .infinity, alignment: .trailing)
     }
 
     /// Nút icon sửa thông tin đặt cạnh nút thêm kệ ở góc dưới phải.

@@ -119,17 +119,12 @@ struct ShelfBookGridCardView: View {
         )
     }
 
+    /// Ghim chéo dùng chung (`CoverPinBadge`); nằm **trong** góc bìa vì các ô lưới đứng sát nhau.
     @ViewBuilder
     private var pinBadge: some View {
         if book.isPinned {
-            Image(systemName: "pin.fill")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundColor(.orange)
+            CoverPinBadge(diameter: 20)
                 .padding(4)
-                .background(Color.black.opacity(0.55), in: Circle())
-                .padding(4)
-                .allowsHitTesting(false)
-                .accessibilityLabel("Đang ghim đầu kệ")
         }
     }
 

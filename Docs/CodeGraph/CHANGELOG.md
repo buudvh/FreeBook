@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.607] - 2026-10-26
+
+### feat: ghim chéo trên bìa ở Kệ, icon dịch kiểu Google, nhớ nội dung Tìm trong chương
+
+Người dùng: *"tăng size cover ở sheet contextmenu ở kệ sách/lịch sử"*, *"để icon ghim ở góc trên bên trái của cover (icon chéo một chút), bỏ icon ghim cũ và dòng đã ghim lên kệ"*, *"bỏ icon thông tin"*, *"Đổi icon ghim lên cover đối với truyện trong kệ luôn"*, *"icon dịch xấu quá, đổi icon khác đi"* (chọn Material `g_translate` sau hai lượt mockup), *"sửa icon mở trình duyệt ở kệ sách cho đồng bộ"* (chỉ các nút mở), *"mở tìm trong chương lại hãy nhớ nội dung vừa tìm"* (trong lượt đọc). Plan duyệt trong chat.
+
+- **Ghim chéo trên bìa** (mới `CoverPinBadge`): `pin.fill` cam xoay 35° trên nền tròn tối, dùng chung cho dòng danh sách Kệ (`ShelfBookRowView` — bỏ ghim bên phải dòng, ghim nhô nhẹ ra ngoài góc bìa, cỡ theo `BookListRowSize.coverWidth` trong 14…20pt), ô lưới/chỉ bìa (`ShelfBookGridCardView.pinBadge` — trong góc) và sheet nhấn giữ. Áp cho Kệ, Lịch sử, Bộ sưu tập, Tìm trên kệ.
+- **Sheet nhấn giữ** (`BookActionSheet`): bìa 60×84 → 86×120 (cột nút `minHeight` theo), ghim lên góc bìa thay dòng "Đang ghim đầu kệ" (VoiceOver vẫn đọc qua `accessibilityValue`), bỏ icon ⓘ trang trí.
+- **Icon dịch** (`AppGlyph.translate`): asset mới `MaterialGTranslate` = Material Symbols `g_translate` Rounded, tô đặc, nét 600 (Apache 2.0, `Docs/ThirdParty/MaterialSymbols-LICENSE.txt`; `viewBox` đổi về gốc 0 bằng `translate`). Sáu chỗ của 1.3.605 tự đổi theo; nút "Gốc" ở menu chọn chữ giữ 文A (`originalText`) — hai icon không còn trùng.
+- **Icon mở trình duyệt**: `globe` → `safari` ở menu Kệ "Mở trình duyệt web" và "Đăng nhập trên web" (`LegadoLoginView`, lệch với nút "Mở trang đăng nhập" ngay trên). Dòng "Trình duyệt" của Cài đặt và dòng NSFW giữ `globe` (tab Khám phá đã là `safari.fill`).
+- **Tìm trong chương nhớ truy vấn** (`ReaderSearchView` `initialQuery`/`onQueryChange`, `ReaderView.readerSearchQuery`): đóng sheet thì báo truy vấn cuối về Reader; mở lại thì điền sẵn và tìm lại ngay. Nhớ trong lượt đọc (đóng Reader là mất). Không nối `Binding` thẳng vào `@State` của Reader để phím gõ không vẽ lại cả thân Reader.
+- Chuyển entry `[1.3.577]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy (asset SVG `g_translate` hiển thị đúng chưa kiểm).
+
 ## [1.3.606] - 2026-10-26
 
 ### feat: ba panel bôi đen thành sheet kéo được, ✕ xoá hẳn name AI, thẻ đầu tiện ích kiểu avatar
@@ -376,17 +390,4 @@ Người dùng: *"Trắng trên trắng tìm cách fix luôn lỗi này đi, tô
 - **Luật mới `WHITE_TINT_FILL`** trong `Scripts/check_architecture.py` (quét `Sources/Views/**`, bỏ dòng comment): báo lỗi `.borderedProminent` mà chuỗi modifier của chính nút không có `.tint(<màu khác trắng>)`, và `.background(…Color.accentColor…)` đặc (mờ < 50% thì được; `.background(.tint)` cũng bị bắt). `.fill(Color.accentColor)` cho hình vẽ (thanh tua video) không bị cấm. Thử trên mẫu: bắt đúng 5/5 mẫu sai, không báo nhầm 3 mẫu đúng; trên code thật 0 vi phạm mới.
 - **Tài liệu**: `CLAUDE.md` + `AGENTS.md` (bảng luật 5 → 6, ghi chú "màu nhấn của app là trắng"), `rules.md` §5.4 thêm quy tắc kèm ví dụ đúng/sai.
 - Chuyển entry `[1.3.543]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.577] - 2026-10-22
-
-### feat: danh mục tìm nhanh ở Khám phá cho nguồn Legado không có Khám phá
-
-Người dùng: *"các nguồn không khai báo exploreUrl/ruleExplore của legado hãy thêm danh sách các từ tìm kiếm nhanh để người dùng có thể dùng để tìm kiếm nhanh. Tham khảo danh sách của …/wcshuba/src/genre.js"* (kèm báo 69書吧 không có ở Khám phá — nguồn này không khai `exploreUrl`).
-
-- **`LegadoQuickSearch`** (mới, `Services/LegadoSource/Search/`): 70 từ khoá tiếng Trung lấy theo danh mục tìm của tiện ích `wcshuba` (诸天, 聊天群, 万界, 斗罗, 遮天, 凡人, 火影, 柯南…), bỏ các mục phân loại riêng của trang đó; mục "木叶" tìm đúng "木叶" (bản tham khảo trỏ nhầm sang "火影"). Áp cho nguồn **có rule tìm kiếm** mà **không có Khám phá dùng được** (thiếu `exploreUrl`/rule khám phá, hoặc `enabledExplore = false`).
-- **Khám phá**: `SearchExtensionScopePolicy.isDiscoverable` nhận thêm nguồn Legado `LegadoSourcePolicy.isQuickSearchable` ⇒ hiện ở bảng chọn nguồn. Tab lưới của nguồn (`LegadoExploreTabView`) hiện các ô từ khoá (4 ô một hàng; tên ô dịch QT khi bật dịch như tên thể loại) — `LegadoSourceRuntime.exploreEntries`/`exploreCategories` trả mục tìm nhanh, không chạy engine.
-- **Bấm ô** ⇒ đi đường của mục khám phá (`legadoExploreScriptName`, URL mang tiền tố `legado-quick-search:`); `SourceRuntime.executeCustomScript` nhận ra và chạy **tìm kiếm** của nguồn với từ khoá đó; có trang sau khi trang có kết quả và `searchUrl` có dùng `page` (`PaginatedNovelLoader` vẫn dừng khi trang không thêm mục mới).
-- Nguồn có Khám phá riêng giữ nguyên danh mục của nguồn; tiện ích JS không đổi.
-- Chuyển entry `[1.3.542]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.

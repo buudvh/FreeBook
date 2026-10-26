@@ -220,7 +220,7 @@ struct ShelfView: View {
                         Button(action: {
                             showingBypassBrowser = true
                         }) {
-                            Label("Mở trình duyệt web", systemImage: "globe")
+                            Label("Mở trình duyệt web", systemImage: "safari")
                         }
 
                         if selectedTab == .shelf && !parts.isShelfEmpty {

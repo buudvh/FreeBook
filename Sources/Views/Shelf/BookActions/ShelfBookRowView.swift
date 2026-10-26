@@ -2,8 +2,8 @@ import SwiftUI
 
 /// Một dòng truyện trên Kệ sách / trong bộ sưu tập.
 ///
-/// Ghim và badge chương mới nằm **cạnh** `BookListItemView` chứ không nhét vào trong: view đó dùng
-/// chung với Khám phá / chia sẻ truyện, sửa nó là đổi cả những màn không liên quan.
+/// Ghim (góc trên trái bìa, `CoverPinBadge`) và badge chương mới gắn **bên ngoài** `BookListItemView` chứ không
+/// nhét vào trong: view đó dùng chung với Khám phá / chia sẻ truyện, sửa nó là đổi cả những màn không liên quan.
 struct ShelfBookRowView: View {
     let book: Book
     let extensions: [Extension]
@@ -26,12 +26,13 @@ struct ShelfBookRowView: View {
                     .frame(width: rowSize.coverWidth, height: rowSize.coverHeight, alignment: .bottomTrailing)
                     .allowsHitTesting(false)
             }
-
-            if book.isPinned {
-                Image(systemName: "pin.fill")
-                    .font(.caption)
-                    .foregroundColor(.orange)
-                    .accessibilityLabel("Đang ghim đầu kệ")
+            // Ghim chéo nhô nhẹ ra ngoài góc trên trái bìa (cùng khung cỡ bìa như badge loại).
+            .overlay(alignment: .leading) {
+                if book.isPinned {
+                    CoverPinBadge(diameter: CoverPinBadge.diameter(forCoverWidth: rowSize.coverWidth))
+                        .offset(x: -5, y: -5)
+                        .frame(width: rowSize.coverWidth, height: rowSize.coverHeight, alignment: .topLeading)
+                }
             }
 
             NewChapterBadgeView(bookId: book.bookId)
