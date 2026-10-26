@@ -18,6 +18,9 @@ public struct ReaderAIBatchPromptSheet: View {
     public let bookId: String
     /// Chương đang đọc (0-based theo mục lục).
     public let chapterIndex: Int
+    /// Cấu hình dịch của Reader cho truyện (1.3.603): bật dịch thì tên chương hiện bản dịch như danh sách chương Reader.
+    public let translatesChapterTitles: Bool
+    public let convertsTraditionalToSimplified: Bool
     /// `prompt`, `fromChapterIndex` (chương bắt đầu, 0-based; `nil` = từ chương đã tải đầu tiên), `limit` (số chương
     /// cần quét, `nil` = không giới hạn).
     public let onStart: (String, Int?, Int?) -> Void
@@ -46,11 +49,15 @@ public struct ReaderAIBatchPromptSheet: View {
         settingsPrompt: String,
         bookId: String,
         chapterIndex: Int,
+        translatesChapterTitles: Bool = false,
+        convertsTraditionalToSimplified: Bool = false,
         onStart: @escaping (String, Int?, Int?) -> Void
     ) {
         self.settingsPrompt = settingsPrompt
         self.bookId = bookId
         self.chapterIndex = chapterIndex
+        self.translatesChapterTitles = translatesChapterTitles
+        self.convertsTraditionalToSimplified = convertsTraditionalToSimplified
         self.onStart = onStart
         self._customPrompt = State(initialValue: settingsPrompt)
         self.prefersFromCurrentChapter = AINameScanScopeStore.shared.prefersFromCurrentChapter(bookId: bookId)
@@ -291,7 +298,11 @@ public struct ReaderAIBatchPromptSheet: View {
     /// `.task` của màn gốc chạy lại mỗi lần quay về từ "Chọn chương…" ⇒ đã nạp thì thôi.
     private func loadChapters() async {
         guard chapters == nil else { return }
-        let loaded = await AIBookDataInspector.shared.nameScanChapters(bookId: bookId)
+        let loaded = await AIBookDataInspector.shared.nameScanChapters(
+            bookId: bookId,
+            translatesTitles: translatesChapterTitles,
+            convertsTraditionalToSimplified: convertsTraditionalToSimplified
+        )
         await MainActor.run {
             self.chapters = loaded
         }

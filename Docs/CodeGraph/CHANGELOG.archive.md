@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.573] - 2026-10-21
+
+### docs: quy chuẩn nguồn Legado trong rules.md, client gỡ lỗi nhận chi tiết media
+
+Rà soát cuối đợt 2 + 3 nguồn Legado.
+
+- **`rules.md`** thêm mục "Nguồn Legado (1.3.562–1.3.572)": clean-room (hành vi chỉ lấy từ spec), mọi lời gọi runtime qua `SourceRuntime`, nhận diện theo `Extension.type` + `packageId` đóng băng, không qua `cleanAndResolveUrl`, engine chạy ngoài main và chờ UI qua event center, `isInteractive` chỉ cho thao tác một nguồn do người dùng bấm, đăng nhập chỉ ở Keychain (dự phòng tệp bảo vệ) và không sao lưu, cửa sổ trượt 8 nguồn khi tìm mọi nguồn, media không qua pipeline text.
+- **Client VS Code** (`Tools/VSCode/FreeBookExtDebug/src/protocol.ts`): mirror trường tuỳ chọn `media` (`LegadoCorpusMediaCheck`) mà 1.3.570 thêm vào báo cáo nghiệm thu — trường thêm, tuỳ chọn, không đổi version giao thức. Kiểm kiểu `tsc --noEmit`: 0 lỗi.
+- **Bộ quét gợi ý** (`LegadoCorpusFeatureScan`): bỏ `Jsoup.connect` khỏi danh sách "chưa hỗ trợ" — shim `Connection` đã cài ở 1.3.569 (bootstrap `connect` chạy sau `jsoup`, ghi đè stub mặc định).
+- Entry 1.3.569 ghi rõ `java.open`, `openVideoPlayer`, `addBook` vẫn là stub (hoãn hẳn theo spec).
+- Chuyển entry `[1.3.538]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch.
+
 ## [1.3.572] - 2026-10-21
 
 ### feat: đăng nhập nguồn Legado (form + web), trình duyệt cho JS, Khám phá động

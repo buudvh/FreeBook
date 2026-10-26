@@ -5,8 +5,10 @@ import Foundation
 struct AINameScanChapter: Sendable, Identifiable, Equatable {
     /// Chỉ số 0-based theo mục lục.
     let index: Int
-    /// `title` đã trim, rỗng thì `titleTrans`; có thể rỗng.
+    /// Tên hiển thị: đã dịch theo cấu hình dịch của Reader khi bật (1.3.603), không thì bằng `rawTitle`; có thể rỗng.
     let title: String
+    /// Tên gốc (`title` đã trim, rỗng thì `titleTrans`) — ô tìm của "Chọn chương…" khớp cả tên gốc lẫn tên dịch.
+    let rawTitle: String
 
     var id: Int { index }
 

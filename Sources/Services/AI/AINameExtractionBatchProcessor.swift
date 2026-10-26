@@ -48,6 +48,8 @@ public final class AINameExtractionBatchProcessor: Sendable {
     /// `conversationId` khác nil (chỉ Gemini Web) ⇒ gửi như một lượt nối tiếp cuộc chat Gemini của phiên chat đó (lưu
     /// trạng thái), ép kèm prompt trích xuất (`forceContext`) — prompt không đổi giữa các lượt nên so băm sẽ bỏ nó từ
     /// lượt 2. `turnLabel` ("lượt N/T") gắn vào tin gửi.
+    /// `saidNoNames` (1.3.603): không có tên nào **và** AI trả lời đúng câu "Không có name" mà prompt mặc định dặn — khác
+    /// với trả lời từ chối/sai định dạng, vòng lượt coi đó là lượt hợp lệ sau khi đã gửi lại.
     public func extractNamesFromText(
         text: String,
         config: AIConfiguration,
@@ -55,9 +57,9 @@ public final class AINameExtractionBatchProcessor: Sendable {
         characterLimit: Int? = nil,
         conversationId: UUID? = nil,
         turnLabel: String? = nil
-    ) async throws -> [AIExtractedName] {
+    ) async throws -> (names: [AIExtractedName], saidNoNames: Bool) {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return []
+            return ([], false)
         }
 
         let systemInstruction = resolveSystemInstruction(config: config, promptOverride: promptOverride)
@@ -97,9 +99,21 @@ public final class AINameExtractionBatchProcessor: Sendable {
             let (res, _) = try await OpenAIClient.shared.sendChat(config: config, messages: messages)
             content = res
         }
-        guard let content = content else { return [] }
+        guard let content = content else { return ([], false) }
 
-        return parseNamesFromText(content)
+        let names = parseNamesFromText(content)
+        return (names, names.isEmpty && Self.isNoNamesReply(content))
+    }
+
+    /// Cả câu trả lời chỉ là "Không có name" (không phân biệt hoa thường, bỏ code fence, dấu chấm cuối và khoảng trắng).
+    private static func isNoNamesReply(_ content: String) -> Bool {
+        let lines = content.precomposedStringWithCanonicalMapping
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty && !$0.hasPrefix("```") }
+        guard lines.count == 1 else { return false }
+        let line = lines[0].trimmingCharacters(in: CharacterSet(charactersIn: ".!*_`\"'")).lowercased()
+        return line == "không có name"
     }
 
     /// Lỗi Gemini Web khiến gọi tiếp vô ích (và có hại cho tài khoản): dừng cả lượt quét thay vì nuốt như lỗi lẻ.

@@ -3,8 +3,9 @@ import SwiftUI
 /// Màn "Chọn chương…" của sheet quét tên riêng nhiều chương (1.3.602).
 ///
 /// Chỉ liệt kê các chương **đã tải** (danh sách sheet đã nạp, không đọc lại mục lục). Tìm theo số chương (đánh từ 1,
-/// khớp phần đầu: "12" ra ch.12, ch.120…) hoặc theo tên; dấu tích ở chương đang chọn, mở ra tự cuộn tới chương đó.
-/// Chạm một chương ⇒ báo `onSelect` (chỉ số 0-based) rồi quay lại sheet.
+/// khớp phần đầu: "12" ra ch.12, ch.120…) hoặc theo tên — tên hiển thị (đã dịch khi Reader bật dịch, 1.3.603) lẫn tên
+/// gốc; dấu tích ở chương đang chọn, mở ra tự cuộn tới chương đó. Chạm một chương ⇒ báo `onSelect` (chỉ số 0-based)
+/// rồi quay lại sheet.
 struct ReaderAINameScanChapterPickerView: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -26,6 +27,7 @@ struct ReaderAINameScanChapterPickerView: View {
         return chapters.filter { chapter in
             if isNumber, String(chapter.number).hasPrefix(text) { return true }
             return chapter.title.localizedCaseInsensitiveContains(text)
+                || chapter.rawTitle.localizedCaseInsensitiveContains(text)
         }
     }
 

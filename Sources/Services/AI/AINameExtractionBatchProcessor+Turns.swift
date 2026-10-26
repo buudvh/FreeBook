@@ -12,7 +12,9 @@ extension AINameExtractionBatchProcessor {
     ///
     /// 1.3.602: lượt trả về không có name (Gemini Web hay từ chối lọc tên) được gửi lại một lần
     /// (`extractTurnRetryingEmpty`), vẫn rỗng thì tính là **lượt lỗi** như lỗi lẻ — vào vòng tự thử lại / nút thử lại và
-    /// chặn điểm tiếp nối. Mỗi lượt xong mà không bị huỷ được ghi vào `resume`; báo sau lượt kèm điểm tiếp nối mới.
+    /// chặn điểm tiếp nối. 1.3.603: vẫn rỗng nhưng AI đã trả lời đúng "Không có name" (ở lần đầu hoặc lần gửi lại) thì là
+    /// **lượt hợp lệ** — không tính lỗi, không chặn điểm tiếp nối. Mỗi lượt xong mà không bị huỷ được ghi vào `resume`;
+    /// báo sau lượt kèm điểm tiếp nối mới.
     func runTurns(
         _ turns: [AINameScanFailedBatch],
         seedNames: [AIExtractedName],
@@ -46,20 +48,23 @@ extension AINameExtractionBatchProcessor {
 
             var succeeded = false
             do {
-                let batchResults = try await extractTurnRetryingEmpty(
+                let reply = try await extractTurnRetryingEmpty(
                     turn,
                     turnLabel: turnLabel,
                     config: config,
                     promptOverride: promptOverride,
                     conversationId: conversationId
                 )
-                if batchResults.isEmpty {
+                if !reply.names.isEmpty {
+                    Self.aggregate(reply.names, into: &aggregatedNames)
+                    succeeded = true
+                } else if reply.saidNoNames {
+                    succeeded = true
+                    AppLogger.shared.log("🤖 [AI] Quét tên riêng: \(turnLabel) AI trả lời \"Không có name\" sau khi gửi lại — coi là lượt hợp lệ")
+                } else {
                     progress.failedBatches += 1
                     failed.append(turn)
                     AppLogger.shared.log("❌ 🤖 [AI] Quét tên riêng \(turnLabel) không trả về name sau khi thử lại (có thể bị từ chối), bỏ qua")
-                } else {
-                    Self.aggregate(batchResults, into: &aggregatedNames)
-                    succeeded = true
                 }
             } catch let error as GeminiWebError where !Task.isCancelled && Self.shouldStopBatch(on: error) {
                 // Hết hạn mức / chặn IP / mất đăng nhập: gọi tiếp chỉ làm tài khoản bị chặn nặng hơn.
@@ -96,15 +101,17 @@ extension AINameExtractionBatchProcessor {
     }
 
     /// Gửi một lượt; trả về rỗng (sau bộ lọc của `parseNamesFromText`) ⇒ nghỉ rồi gửi lại **đúng** lượt đó một lần
-    /// (cùng prompt, cùng cuộc chat). Kết quả lần hai trả nguyên cho vòng lượt — rỗng nữa thì vòng lượt tính là lỗi.
-    /// Huỷ trong lúc nghỉ ⇒ `Task.sleep` ném `CancellationError`, vòng lượt dừng như mọi lần huỷ khác.
+    /// (cùng prompt, cùng cuộc chat) — kể cả khi AI trả lời "Không có name" (người dùng chọn: vẫn thử lại). Lần hai có
+    /// tên thì dùng; vẫn rỗng thì `saidNoNames` = một trong hai lần đã trả lời đúng "Không có name" (lượt hợp lệ), không
+    /// thì vòng lượt tính là lỗi. Huỷ trong lúc nghỉ ⇒ `Task.sleep` ném `CancellationError`, vòng lượt dừng như mọi lần
+    /// huỷ khác.
     private func extractTurnRetryingEmpty(
         _ turn: AINameScanFailedBatch,
         turnLabel: String,
         config: AIConfiguration,
         promptOverride: String?,
         conversationId: UUID?
-    ) async throws -> [AIExtractedName] {
+    ) async throws -> (names: [AIExtractedName], saidNoNames: Bool) {
         let first = try await extractNamesFromText(
             text: turn.text,
             config: config,
@@ -112,18 +119,21 @@ extension AINameExtractionBatchProcessor {
             conversationId: conversationId,
             turnLabel: turnLabel
         )
-        guard first.isEmpty else { return first }
+        guard first.names.isEmpty else { return first }
         try Task.checkCancellation()
-        AppLogger.shared.log("🤖 [AI] Quét tên riêng: \(turnLabel) không trả về name, nghỉ rồi gửi lại một lần")
+        let reason = first.saidNoNames ? "trả lời \"Không có name\"" : "không trả về name"
+        AppLogger.shared.log("🤖 [AI] Quét tên riêng: \(turnLabel) \(reason), nghỉ rồi gửi lại một lần")
         let isGeminiWeb = config.activeProfile.isGeminiWeb
         try await Task.sleep(nanoseconds: isGeminiWeb ? Self.geminiWebTurnPause : Self.emptyTurnRetryPause)
-        return try await extractNamesFromText(
+        let second = try await extractNamesFromText(
             text: turn.text,
             config: config,
             promptOverride: promptOverride,
             conversationId: conversationId,
             turnLabel: turnLabel
         )
+        guard second.names.isEmpty else { return second }
+        return ([], first.saidNoNames || second.saidNoNames)
     }
 
     /// Gộp tên theo `original` đã trim, cộng dồn `occurrenceCount` — một luật duy nhất cho mọi vòng lượt.

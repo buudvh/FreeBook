@@ -9,6 +9,9 @@ public struct ReaderAIFullScreenView: View {
     public let chapterIndex: Int
     public let chapterTitle: String
     public let currentChapterRawContent: String
+    /// Cấu hình dịch của Reader cho truyện (1.3.603) — sheet quét tên riêng dịch tên chương theo nó.
+    public let translatesChapterTitles: Bool
+    public let convertsTraditionalToSimplified: Bool
 
     @State internal var currentSession: AIChatSession
     @State internal var inputText: String = ""
@@ -49,13 +52,17 @@ public struct ReaderAIFullScreenView: View {
         bookTitle: String,
         chapterIndex: Int,
         chapterTitle: String,
-        currentChapterRawContent: String
+        currentChapterRawContent: String,
+        translatesChapterTitles: Bool = false,
+        convertsTraditionalToSimplified: Bool = false
     ) {
         self.bookId = bookId
         self.bookTitle = bookTitle
         self.chapterIndex = chapterIndex
         self.chapterTitle = chapterTitle
         self.currentChapterRawContent = currentChapterRawContent
+        self.translatesChapterTitles = translatesChapterTitles
+        self.convertsTraditionalToSimplified = convertsTraditionalToSimplified
 
         let initialSession = AIChatSession(bookId: bookId, title: "Phiên chat mới")
         self._currentSession = State(initialValue: initialSession)
@@ -245,6 +252,8 @@ public struct ReaderAIFullScreenView: View {
                     settingsPrompt: nameExtractionPromptForSheet,
                     bookId: bookId,
                     chapterIndex: chapterIndex,
+                    translatesChapterTitles: translatesChapterTitles,
+                    convertsTraditionalToSimplified: convertsTraditionalToSimplified,
                     onStart: { prompt, fromChapterIndex, limit in
                         beginBatchExtraction(with: prompt, fromChapterIndex: fromChapterIndex, limit: limit)
                     }

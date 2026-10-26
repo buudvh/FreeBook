@@ -29,11 +29,27 @@ final class AIBookDataInspector: Sendable {
 
     /// Danh sách chương đã tải (chỉ số + tên hiển thị) cho sheet chọn phạm vi quét tên riêng (1.3.602) — nạp một lần
     /// khi mở sheet, mọi con số của sheet tính trên RAM từ danh sách này. Tên = `title` đã trim, rỗng thì `titleTrans`.
-    func nameScanChapters(bookId: String) async -> [AINameScanChapter] {
+    /// `translatesTitles` (1.3.603, cấu hình dịch Reader đang áp cho truyện): tên còn chữ Hán thì dịch bằng
+    /// `TranslateUtils.translateChapterTitle` — đúng luật danh sách chương Reader (`ReaderChapterListView.displayTitle`).
+    /// Chạy ngoài main thread (hàm `async` không gắn actor); bị huỷ (đóng sheet) thì thôi dịch phần còn lại.
+    func nameScanChapters(
+        bookId: String,
+        translatesTitles: Bool = false,
+        convertsTraditionalToSimplified: Bool = false
+    ) async -> [AINameScanChapter] {
         await fetchDownloadedChapters(bookId: bookId).map { chapter in
             let title = chapter.title.trimmingCharacters(in: .whitespacesAndNewlines)
             let fallback = chapter.titleTrans?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            return AINameScanChapter(index: chapter.index, title: title.isEmpty ? fallback : title)
+            let raw = title.isEmpty ? fallback : title
+            guard translatesTitles, !Task.isCancelled, TranslateUtils.containsChinese(raw) else {
+                return AINameScanChapter(index: chapter.index, title: raw, rawTitle: raw)
+            }
+            let translated = TranslateUtils.translateChapterTitle(
+                raw,
+                bookId: bookId,
+                shouldConvertTraditionalToSimplified: convertsTraditionalToSimplified
+            )
+            return AINameScanChapter(index: chapter.index, title: translated.isEmpty ? raw : translated, rawTitle: raw)
         }
     }
 

@@ -18,19 +18,26 @@ public final class AIRuntimeCoordinator: ObservableObject {
         public let chapterIndex: Int
         public let chapterTitle: String
         public let currentChapterRawContent: String
+        /// Cấu hình dịch Reader đang áp cho truyện (1.3.603) — sheet quét tên riêng dịch tên chương theo đúng nó.
+        public let translatesChapterTitles: Bool
+        public let convertsTraditionalToSimplified: Bool
 
         public init(
             bookId: String,
             bookTitle: String,
             chapterIndex: Int,
             chapterTitle: String,
-            currentChapterRawContent: String
+            currentChapterRawContent: String,
+            translatesChapterTitles: Bool = false,
+            convertsTraditionalToSimplified: Bool = false
         ) {
             self.bookId = bookId
             self.bookTitle = bookTitle
             self.chapterIndex = chapterIndex
             self.chapterTitle = chapterTitle
             self.currentChapterRawContent = currentChapterRawContent
+            self.translatesChapterTitles = translatesChapterTitles
+            self.convertsTraditionalToSimplified = convertsTraditionalToSimplified
         }
     }
 
@@ -226,7 +233,9 @@ public final class AIRuntimeCoordinator: ObservableObject {
             bookTitle: ctx.bookTitle,
             chapterIndex: ctx.chapterIndex,
             chapterTitle: ctx.chapterTitle,
-            currentChapterRawContent: ctx.currentChapterRawContent
+            currentChapterRawContent: ctx.currentChapterRawContent,
+            translatesChapterTitles: ctx.translatesChapterTitles,
+            convertsTraditionalToSimplified: ctx.convertsTraditionalToSimplified
         )
 
         let hosting = UIHostingController(rootView: aiView)

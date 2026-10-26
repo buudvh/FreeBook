@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.603] - 2026-10-26
+
+### fix: quét tên coi Không có name là lượt hợp lệ, tên chương dịch theo cấu hình
+
+Người dùng (sau 1.3.602): *"coi câu trả lời đúng "Không có name" là lượt hợp lệ: không gửi lại, không tính lỗi, không chặn Tiếp nối"* → sửa lại *""Không có name" là lượt hợp lệ nhưng vẫn phải thử lại nhé"*; *"tên chương cần được dịch theo config"*.
+
+- **"Không có name"** (`AINameExtractionBatchProcessor.extractNamesFromText` trả thêm `saidNoNames`; `+Turns`): lượt không có tên vẫn được gửi lại một lần như 1.3.602; vẫn rỗng mà một trong hai lần AI trả lời đúng câu "Không có name" (prompt mặc định dặn câu này; so khớp bỏ hoa thường, code fence, dấu chấm cuối) ⇒ **lượt hợp lệ**: không tính lỗi, không vào danh sách "Thử lại", không chặn điểm tiếp nối (log thường, không ❌). Trả lời từ chối/sai định dạng khác giữ luật cũ (vẫn rỗng ⇒ lượt lỗi).
+- **Tên chương dịch theo cấu hình** (`ReaderAIBatchPromptSheet`, `ReaderAINameScanChapterPickerView`, `AIBookDataInspector.nameScanChapters`): khi Reader đang bật dịch cho truyện, tên chương ở 4 dòng chọn chương bắt đầu, tóm tắt và màn "Chọn chương…" hiện bản dịch — đúng luật danh sách chương Reader (`TranslateUtils.translateChapterTitle` khi còn chữ Hán, kèm chuyển phồn → giản của truyện). Cấu hình đi từ `ReaderView` qua `AIRuntimeCoordinator.ActiveContext` / `ReaderAIFullScreenView` (tham số mới `translatesChapterTitles`, `convertsTraditionalToSimplified`, mặc định `false`) — màn AI không tự resolve vì không biết nguồn của truyện (bật dịch quyết theo truyện → nguồn → chung). Dịch lúc nạp danh sách, ngoài main thread; ô tìm khớp cả tên dịch lẫn tên gốc (`AINameScanChapter.rawTitle`).
+- `rules.md`: bullet quét tên 1.3.602 thêm hai luật trên. Chuyển entry `[1.3.573]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.602] - 2026-10-26
 
 ### feat: quét tên chọn chương bắt đầu, chuẩn bị nhanh hơn, Gemini Web bớt lỗi
@@ -382,16 +393,3 @@ Người dùng: *"Làm nốt các mục chưa nối: coverDecodeJs, imageStyle, 
 - **Còn hở**: tải truyện, `BookKindBadge` và nhãn "Tải truyện" vẫn theo loại của nguồn; bìa cho TTS không truyền `packageId`; `resolveKind` đọc tệp sidecar nhỏ trên main một lần mỗi sách; chương tranh đã tải offline thì làm mới vẫn mở bản offline; đổi nguồn giữa hai nguồn Legado có thể giữ ghi đè cũ; `book.imageStyle` chưa lưu bền.
 - Chuyển entry `[1.3.539]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới** (`ComicReaderViewModel` không đổi). Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.573] - 2026-10-21
-
-### docs: quy chuẩn nguồn Legado trong rules.md, client gỡ lỗi nhận chi tiết media
-
-Rà soát cuối đợt 2 + 3 nguồn Legado.
-
-- **`rules.md`** thêm mục "Nguồn Legado (1.3.562–1.3.572)": clean-room (hành vi chỉ lấy từ spec), mọi lời gọi runtime qua `SourceRuntime`, nhận diện theo `Extension.type` + `packageId` đóng băng, không qua `cleanAndResolveUrl`, engine chạy ngoài main và chờ UI qua event center, `isInteractive` chỉ cho thao tác một nguồn do người dùng bấm, đăng nhập chỉ ở Keychain (dự phòng tệp bảo vệ) và không sao lưu, cửa sổ trượt 8 nguồn khi tìm mọi nguồn, media không qua pipeline text.
-- **Client VS Code** (`Tools/VSCode/FreeBookExtDebug/src/protocol.ts`): mirror trường tuỳ chọn `media` (`LegadoCorpusMediaCheck`) mà 1.3.570 thêm vào báo cáo nghiệm thu — trường thêm, tuỳ chọn, không đổi version giao thức. Kiểm kiểu `tsc --noEmit`: 0 lỗi.
-- **Bộ quét gợi ý** (`LegadoCorpusFeatureScan`): bỏ `Jsoup.connect` khỏi danh sách "chưa hỗ trợ" — shim `Connection` đã cài ở 1.3.569 (bootstrap `connect` chạy sau `jsoup`, ghi đè stub mặc định).
-- Entry 1.3.569 ghi rõ `java.open`, `openVideoPlayer`, `addBook` vẫn là stub (hoãn hẳn theo spec).
-- Chuyển entry `[1.3.538]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch.

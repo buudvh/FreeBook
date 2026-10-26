@@ -9,7 +9,9 @@ extension ReaderView {
             bookTitle: readerBookDisplayTitle,
             chapterIndex: readerPresentedChapterIndex,
             chapterTitle: readerChapterDisplayTitle,
-            currentChapterRawContent: currentChapterRawContentForAI
+            currentChapterRawContent: currentChapterRawContentForAI,
+            translatesChapterTitles: isTranslationEnabled,
+            convertsTraditionalToSimplified: shouldConvertTraditionalToSimplified
         )
     }
 
@@ -20,7 +22,9 @@ extension ReaderView {
             bookTitle: readerBookDisplayTitle,
             chapterIndex: readerPresentedChapterIndex,
             chapterTitle: readerChapterDisplayTitle,
-            currentChapterRawContent: currentChapterRawContentForAI
+            currentChapterRawContent: currentChapterRawContentForAI,
+            translatesChapterTitles: isTranslationEnabled,
+            convertsTraditionalToSimplified: shouldConvertTraditionalToSimplified
         )
         AIRuntimeCoordinator.shared.updateContext(context)
         showingAIFullScreen = true
