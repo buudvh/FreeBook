@@ -8,7 +8,7 @@ import SwiftUI
 /// bảo đảm copy đúng chữ họ muốn.
 ///
 /// Không có nút Hủy: **mọi** đường đóng đều copy (chốt của chủ dự án). Panel nằm trong sheet gốc; nút
-/// Copy và ✕ ở đây chỉ gọi `onCommit` để đóng sheet, còn việc copy do `onDismiss` của sheet làm
+/// Copy ở đây chỉ gọi `onCommit` để đóng sheet, còn việc copy do `onDismiss` của sheet làm
 /// (`commitCopyOriginal()`, đường copy duy nhất), nên kéo xuống hay chạm vùng mờ cũng copy đúng một lần.
 struct ReaderCopyOriginalOverlayView: View {
     let originalSentence: String
@@ -47,25 +47,20 @@ struct ReaderCopyOriginalOverlayView: View {
         // Thanh kéo là của sheet gốc (`ReaderView+SelectionSheets`). Khoảng trên = chỗ capsule giả cũ
         // (16 + 13 + 14) để sheet cao đúng như panel trước.
         .padding(.top, 43)
-        .background(Color(uiColor: .systemBackground))
+        // Không tô nền riêng: màu là của sheet (`ReaderView+SelectionSheets`), vùng đệm và nội dung cùng màu.
     }
 
+    /// Không còn nút ✕ (1.3.608): đóng bằng nút Copy, vuốt xuống hoặc chạm vùng mờ — đường nào cũng copy.
     private var headerView: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Copy nội dung gốc")
-                    .font(.headline)
+                    .font(.system(size: 20, weight: .bold))
                 Text("Chọn lại cụm chữ gốc; đóng panel là copy")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
             Spacer()
-            Button(action: onCommit) {
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundColor(.secondary)
-                    .font(.title2)
-            }
-            .accessibilityLabel("Copy rồi đóng")
         }
     }
 

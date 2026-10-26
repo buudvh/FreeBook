@@ -18,7 +18,7 @@ extension ReaderView {
     }
 
     /// Copy cụm gốc đang chọn. **Chỉ** gọi từ `onDismiss` của sheet copy gốc
-    /// (`ReaderView+SelectionSheets`): nút Copy, nút ✕, kéo xuống và chạm vùng mờ đều chỉ đóng sheet,
+    /// (`ReaderView+SelectionSheets`): nút Copy, kéo xuống và chạm vùng mờ đều chỉ đóng sheet,
     /// rồi `onDismiss` copy đúng một lần. Gọi thêm ở chỗ khác là copy hai lần (hai toast).
     func commitCopyOriginal() {
         let ns = originalSentence as NSString
@@ -70,14 +70,8 @@ extension ReaderView {
         refreshDefinitionRules()
     }
 
-    /// Đóng panel Dịch. Chỉ hạ cờ — phần "dịch lại khi rule đã đổi" nằm ở `.onChange(of:
-    /// showingDefinitionSheet)` của `ReaderView`, vì nút ✕ trong panel đóng bằng binding `isPresented`
-    /// nên không đi qua hàm này. Một chỗ xử lý cho **mọi** đường đóng.
-    func closeDefinitionPanel() {
-        showingDefinitionSheet = false
-    }
-
-    /// Gọi từ `.onChange` khi panel Dịch vừa đóng: có đổi dữ liệu rule thì dựng lại bản dịch.
+    /// Gọi từ `.onChange(of: showingDefinitionSheet)` khi panel Dịch vừa đóng — một chỗ xử lý cho **mọi** đường
+    /// đóng (vuốt xuống, chạm vùng mờ, lưu xong): có đổi dữ liệu rule thì dựng lại bản dịch.
     func handleDefinitionPanelClosed() {
         // Presentation con gắn trong sheet Dịch bị gỡ cùng sheet cha; trả cờ về để không treo ở trạng thái
         // "đang mở" (`ruleEditorMode != nil` chặn luôn bôi đen ở `onSelectionChangeInParagraph`).

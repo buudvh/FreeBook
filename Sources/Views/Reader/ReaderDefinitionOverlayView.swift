@@ -110,7 +110,8 @@ struct ReaderDefinitionOverlayView: View {
         // (4 + 13 + 8) để sheet cao đúng như panel trước. Nấc sheet do `fittedSheetDetent` đo, không khai ở đây.
         .padding(.top, 25)
         .padding(.bottom, 8)
-        .background(Color(uiColor: .systemBackground).onTapGesture { KeyboardDismissPreference.dismissOnTapOutsideIfEnabled() })
+        // Nền trong suốt (màu là của sheet — `ReaderView+SelectionSheets`) nhưng vẫn nhận chạm để tắt bàn phím.
+        .background(Color.clear.contentShape(Rectangle()).onTapGesture { KeyboardDismissPreference.dismissOnTapOutsideIfEnabled() })
         .confirmationDialog(
             ruleActionTarget.map { "Rule dòng \($0.sourceLine) · \($0.scope.longLabel)" } ?? "Rule",
             isPresented: $showingRuleActions,
@@ -133,16 +134,12 @@ struct ReaderDefinitionOverlayView: View {
         }
     }
 
+    /// Không còn nút ✕ (1.3.608): sheet gốc đóng bằng vuốt xuống / chạm vùng mờ.
     private var headerView: some View {
         HStack {
             Text("Dịch")
-                .font(.headline)
+                .font(.system(size: 20, weight: .bold))
             Spacer()
-            Button(action: { isPresented = false }) {
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundColor(.secondary)
-                    .font(.title2)
-            }
         }
     }
 

@@ -29,27 +29,21 @@ struct ReaderJunkDeleteOverlayView: View {
         // Thanh kéo là của sheet gốc (`ReaderView+SelectionSheets`). Khoảng trên = chỗ capsule giả cũ
         // (16 + 13 + 16) để sheet cao đúng như panel trước.
         .padding(.top, 45)
-        .background(Color(uiColor: .systemBackground).onTapGesture { KeyboardDismissPreference.dismissOnTapOutsideIfEnabled() })
+        // Nền trong suốt (màu là của sheet — `ReaderView+SelectionSheets`) nhưng vẫn nhận chạm để tắt bàn phím.
+        .background(Color.clear.contentShape(Rectangle()).onTapGesture { KeyboardDismissPreference.dismissOnTapOutsideIfEnabled() })
     }
 
+    /// Không còn nút ✕ (1.3.608): đóng bằng vuốt xuống / chạm vùng mờ, hoặc nút "Huỷ" bên dưới.
     private var headerView: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Xoá từ rác")
-                    .font(.headline)
+                    .font(.system(size: 20, weight: .bold))
                 Text("Từ sẽ bị xoá khỏi câu trước khi chuẩn hoá")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
             Spacer()
-            Button(action: {
-                isPresented = false
-                onCancel()
-            }) {
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundColor(.secondary)
-                    .font(.title2)
-            }
         }
     }
 

@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Sheet gốc **một nấc**, cao đúng bằng nội dung — dùng cho ba panel bôi đen của Reader.
+/// Sheet gốc mở ở nấc **cao đúng bằng nội dung**, vuốt lên được tới nấc toàn màn (1.3.608 — trước đó chỉ có
+/// một nấc nên không kéo lên được) — dùng cho ba panel bôi đen của Reader.
 ///
 /// Ba điểm dễ làm sai:
 /// 1. Nội dung phải `.fixedSize(horizontal: false, vertical: true)` **trước** khi đo. Không làm vậy thì
@@ -34,9 +35,9 @@ struct FittedSheetDetentModifier: ViewModifier {
             .presentationBackground(background)
     }
 
-    /// Đúng một nấc: chiều cao đo được, hoặc `.medium` khi chưa đo (tránh nháy cao 0).
+    /// Nấc vừa nội dung (hoặc `.medium` khi chưa đo, tránh nháy cao 0) + nấc toàn màn. Sheet mở ở nấc nhỏ hơn.
     private var detents: Set<PresentationDetent> {
-        height > 0 ? [.height(height)] : [.medium]
+        height > 0 ? [.height(height), .large] : [.medium, .large]
     }
 
     /// Lồng trong modifier để file chỉ có một type chính ở top level.

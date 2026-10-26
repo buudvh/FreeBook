@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.608] - 2026-10-26
+
+### fix: ba sheet bôi đen kéo lên được, nền đồng bộ, bỏ nút ✕, tiêu đề to hơn
+
+Người dùng (sau 1.3.606): *"lỗi ba panel bôi đen không kéo được lên trên nữa"*, *"màu phần padding và màu background chưa đồng bộ"* (chọn B — xám đậm), *"bỏ luôn nút x trên 3 màn"*, *"tăng size tên sheet và chiều cao sheet do tăng size tên sheet"* (chọn 20 bold). Plan duyệt trong chat.
+
+- **Kéo lên được** (`FittedSheetDetentModifier`): nấc `[.height(đo được), .large]` (chưa đo: `[.medium, .large]`) — mở vẫn cao vừa nội dung, vuốt lên giãn toàn màn. 1.3.606 chỉ có một nấc nên vuốt lên chỉ nảy lại.
+- **Nền đồng bộ**: nền sheet cố định `#1F1F24` (0.12/0.12/0.14) cho mọi theme (`ReaderView+SelectionSheets.selectionSheetBackground`, bỏ nhánh trắng của Sáng/Trầm ấm); ba view nội dung bỏ `systemBackground` (đen) — trước đó viền trắng/xám bao khối đen. Panel Dịch và Xoá rác giữ chạm nền để tắt bàn phím (`Color.clear` + `contentShape`).
+- **Bỏ nút ✕ ở tiêu đề** cả ba sheet: đóng bằng vuốt xuống / chạm vùng mờ (Copy gốc vẫn copy ở `onDismiss`; Xoá rác còn nút "Huỷ"). Giữ ⓧ xoá chữ trong ô nhập. Xoá `ReaderView.closeDefinitionPanel()` (không còn caller nào trong `Sources/`).
+- **Tiêu đề 20pt bold** (trước `.headline`); sheet đo chiều cao theo nội dung nên tự cao theo.
+- `rules.md`: bullet ba panel bôi đen cập nhật nấc/nền/không ✕. Chuyển entry `[1.3.578]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.607] - 2026-10-26
 
 ### feat: ghim chéo trên bìa ở Kệ, icon dịch kiểu Google, nhớ nội dung Tìm trong chương
@@ -378,16 +391,3 @@ Người dùng: *"nhiều nguồn lỗi nhưng không biết lỗi do nguồn ha
 - **UI** (khớp mockup): màn Kiểm tra nguồn có ô đếm "Lỗi do ai" (`LegadoSourceCheckVerdictPanel`, chỉ ô > 0), chip lọc theo kết luận (`LegadoSourceCheckFilter`), dòng lỗi "Kết luận · bước · lý do" theo màu kết luận (`LegadoFailureVerdictStyle`), nút **chia sẻ báo cáo** ở toolbar (`LegadoCorpusReportShare` ghi JSON đã redact ra file tạm, `ShareSheet`); màn Gỡ lỗi từng bước có dải "Kết luận: …" (`LegadoFailureVerdictBanner`, nền nhạt — không nền màu nhấn đặc) dùng chung bộ phân xử.
 - Chuyển entry `[1.3.544]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới** (kể cả `WHITE_TINT_FILL`); không đụng engine `{JS,Engine,Net,Rule}`. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.578] - 2026-10-22
-
-### fix: chặn tận gốc lỗi nút trắng trên trắng: kiểu nút appFilled và luật WHITE_TINT_FILL
-
-Người dùng: *"Trắng trên trắng tìm cách fix luôn lỗi này đi, tôi thấy thêm nút mới hay bị lắm"*.
-
-- **Nguyên nhân gốc**: `MainTabView` đặt `.tint(.white)` toàn cục ⇒ `Color.accentColor` là **trắng**, `.borderedProminent` không kèm `.tint(…)` là nền trắng; nút mới tô nền bằng màu nhấn rồi đặt chữ trắng là vô hình. Đã gặp ở 1.3.447 (thư viện giọng VieNeu) và 1.3.572 (các màn nguồn Legado, sửa ở 1.3.575). Rà toàn app: hiện không còn chỗ nào dính — mọi `.borderedProminent` đều kèm tint màu.
-- **`AppFilledButtonStyle`** (mới, `Views/Common/`): kiểu nút nền đặc chuẩn, chữ trắng trên màu cố định (mặc định xanh), mờ khi nhấn/tắt; `.buttonStyle(.appFilled)`, `.appFilled(.green, fullWidth: false)`. Nút "Mở trang đăng nhập" (`LegadoLoginView`) dùng kiểu này.
-- **Luật mới `WHITE_TINT_FILL`** trong `Scripts/check_architecture.py` (quét `Sources/Views/**`, bỏ dòng comment): báo lỗi `.borderedProminent` mà chuỗi modifier của chính nút không có `.tint(<màu khác trắng>)`, và `.background(…Color.accentColor…)` đặc (mờ < 50% thì được; `.background(.tint)` cũng bị bắt). `.fill(Color.accentColor)` cho hình vẽ (thanh tua video) không bị cấm. Thử trên mẫu: bắt đúng 5/5 mẫu sai, không báo nhầm 3 mẫu đúng; trên code thật 0 vi phạm mới.
-- **Tài liệu**: `CLAUDE.md` + `AGENTS.md` (bảng luật 5 → 6, ghi chú "màu nhấn của app là trắng"), `rules.md` §5.4 thêm quy tắc kèm ví dụ đúng/sai.
-- Chuyển entry `[1.3.543]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.

@@ -5,12 +5,13 @@ import SwiftUI
 /// `DragGesture` > 50pt thì đóng); nay có thanh kéo hệ thống, kéo bám ngón tay, chạm vùng mờ là đóng.
 ///
 /// Bất biến:
-/// - Mỗi sheet **một nấc**, cao đúng bằng nội dung (`fittedSheetDetent`), như panel cũ. Chiều cao đo
-///   được giữ ở `@State` của `ReaderView` để lần mở sau không nháy giá trị tạm.
+/// - Mỗi sheet mở ở nấc cao đúng bằng nội dung (`fittedSheetDetent`), như panel cũ, vuốt lên được toàn màn.
+///   Chiều cao đo được giữ ở `@State` của `ReaderView` để lần mở sau không nháy giá trị tạm.
+/// - Không có nút ✕ ở tiêu đề (1.3.608): đóng bằng vuốt xuống / chạm vùng mờ.
 /// - Hậu xử lý khi đóng nằm ở `.onChange(of: showingDefinitionSheet / showingJunkDeleteSheet)` của
-///   `ReaderView`, áp cho **mọi** đường đóng (✕, kéo xuống, chạm vùng mờ, lưu xong). Không thêm đường
+///   `ReaderView`, áp cho **mọi** đường đóng (kéo xuống, chạm vùng mờ, lưu xong, nút trong panel). Không thêm đường
 ///   đóng nào khác ở đây.
-/// - Copy gốc: `onDismiss` là đường **duy nhất** copy; nút Copy và ✕ trong panel chỉ hạ cờ ⇒ không
+/// - Copy gốc: `onDismiss` là đường **duy nhất** copy; nút Copy trong panel chỉ hạ cờ ⇒ không
 ///   bao giờ copy hai lần.
 /// - Presentation con của panel Dịch (sửa/thêm rule, cấu hình công cụ tìm, tra cứu nhanh) phải gắn
 ///   **trong** sheet Dịch: một view đang trình bày sheet thì không trình bày thêm được sheet thứ hai.
@@ -40,9 +41,10 @@ extension ReaderView {
             }
     }
 
-    /// Cùng màu nền panel overlay cũ.
+    /// Xám đậm cho **mọi** theme, và ba view nội dung không tô nền riêng ⇒ vùng đệm và nội dung cùng một màu
+    /// (1.3.608). Không theo theme Sáng/Trầm ấm: chữ và chip của panel làm cho nền tối.
     private var selectionSheetBackground: Color {
-        selectedTheme == .dark ? Color(red: 0.12, green: 0.12, blue: 0.14) : Color.white
+        Color(red: 0.12, green: 0.12, blue: 0.14)
     }
 
     // MARK: - Dịch
