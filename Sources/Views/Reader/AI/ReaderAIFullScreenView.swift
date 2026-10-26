@@ -150,8 +150,12 @@ public struct ReaderAIFullScreenView: View {
 
                 Divider()
 
-                // Thanh gợi ý thao tác nhanh — mờ và khoá khi có lệnh AI đang chạy (chat hoặc quét)
-                ReaderAIQuickActionChipsView(isDisabled: isStreaming || isBatchExtracting) { actionType in
+                // Thanh gợi ý thao tác nhanh — mờ và khoá khi có lệnh AI đang chạy (chat hoặc quét); Chế độ AI của Google
+                // khoá riêng "Dịch mượt raw" (chỉ tóm lược, 1.3.609)
+                ReaderAIQuickActionChipsView(
+                    isDisabled: isStreaming || isBatchExtracting,
+                    disabledActions: isGoogleAIModeSelected ? [.translateSmoothly] : []
+                ) { actionType in
                     handleQuickAction(actionType)
                 }
 
@@ -313,6 +317,8 @@ public struct ReaderAIFullScreenView: View {
                         }
                     }
             } else {
+                // Tin lỗi captcha của Chế độ AI của Google (1.3.609): nền đỏ nhạt + nút xác minh ngay dưới.
+                let needsVerification = !message.isStreaming && GoogleAIModeVerifyButton.applies(to: message.content)
                 VStack(alignment: .leading, spacing: 8) {
                     if message.isStreaming && message.content.isEmpty {
                         ReaderAIThinkingIndicatorView()
@@ -320,7 +326,7 @@ public struct ReaderAIFullScreenView: View {
                         AIMarkdownMessageView(content: message.content, isUser: false)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .background(Color(UIColor.secondarySystemBackground))
+                            .background(needsVerification ? Color.red.opacity(0.15) : Color(UIColor.secondarySystemBackground))
                             .cornerRadius(16)
                             .contextMenu {
                                 Button {
@@ -354,6 +360,10 @@ public struct ReaderAIFullScreenView: View {
                             onReject: { action in rejectAction(action) },
                             onApproveAll: { approveAllActions(actions) }
                         )
+                    }
+
+                    if needsVerification {
+                        GoogleAIModeVerifyButton()
                     }
 
                     // Quét tên riêng còn lượt vẫn lỗi sau vòng tự thử lại (1.3.527): nút ngay dưới đúng tin kết quả.

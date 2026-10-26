@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.609] - 2026-10-26
+
+### feat: thêm provider Chế độ AI của Google cho chat và quét tên riêng
+
+Người dùng: thêm provider dùng **chế độ AI của Google** (`google.com/search?udm=50`) vào màn AI của Reader như các provider hiện có. Qua `/grill-me` chốt: chat + quét tên, **khoá Dịch mượt** (thử thật: AI Mode tóm lược cả khi dặn không); dùng chung đăng nhập Google với Gemini Web; chat nối tiếp một cuộc chat theo phiên; mỗi lượt quét một cuộc chat mới, ~2.500 chữ/lượt, nghỉ 5 s; captcha thì dừng + nút "Mở Google để xác minh". Mockup 3 màn và plan duyệt trong chat.
+
+- **Provider mới** `googleAIMode` (`AIProviderProfile.defaultGoogleAIMode`, `isGoogleAIMode`), code ở `Services/AI/GoogleAIMode/`: WKWebView ẩn riêng đọc **DOM** của trang (không có API — phản hồi là HTML server-render), mọi selector/chuỗi/JS gom ở `GoogleAIModePageContract`, một hàng đợi tuần tự cho mọi lượt mọi truyện (`GoogleAIModeTurnQueue`, nghỉ 5 s toàn cục trước lượt quét), ngân sách độ dài theo byte URL (`GoogleAIModePromptBudget`: thử thật 413 ở ~71 KB; `q` ≤ 48.000 byte, ô nhập ≤ 8.000 ký tự, cắt đuôi ngữ cảnh), retry một lần ở client khi chưa phát chữ.
+- **Chat**: mở lại cuộc chat bằng `mstk` mới nhất rồi gửi qua ô nhập (đã thử trên Chrome), `mstk` lưu theo phiên (`GoogleAIModeConversationStore`); không mở lại được thì mở cuộc chat mới đủ ngữ cảnh. Màn AI chỉ gửi [system, tin hiện tại] như Gemini Web bật lưu lịch sử; không nén ngữ cảnh.
+- **Quét tên riêng**: chế độ chia lượt `.googleAIMode` tách chương dài ở dòng → dấu câu → cắt cứng, mảnh dở có `lastChapterIndex = k − 1`; chặn trích nhầm câu hỏi (nhãn prompt ⇒ `protocolChanged`). `shouldStopBatch(on: Error)` dừng cả lần quét khi captcha / prompt quá dài; `runTurns` bắt bằng `catch where` thay vì chỉ `GeminiWebError`.
+- **Chạy ở nền dùng chung**: vòng chờ/gửi lại của Gemini Web 1.3.602 chuyển nguyên văn sang `HiddenWebForegroundRunner`, Gemini Web gọi với đúng tham số cũ (hành vi không đổi).
+- **UI**: mẫu "Google Chế độ AI (không cần key)", segmented 4 ô (rút "Anthropic Claude" → "Anthropic"), hàng `GoogleAIModeAccountRow` thay URL/key, ẩn khối model (tách `AISettingsView+Models.swift`) và temperature; chip "Dịch mượt raw" mờ + ổ khoá (`disabledActions`); tin lỗi captcha nền đỏ nhạt + `GoogleAIModeVerifyButton` (cả kết quả kiểm tra kết nối và lần "Thử lại k lượt lỗi").
+- `rules.md`: mục mới "Google AI Mode provider invariants (1.3.609)"; bullet Gemini Web 1.3.602 trỏ sang runner dùng chung. Chuyển entry `[1.3.579]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code, grep chéo mọi chỗ rẽ nhánh provider; `check_architecture.py` 2 violation nền, **0 mới**. Chạy đúng các script `snapshot`/điền ô nhập/Enter của app trên trang Chế độ AI thật (Chrome desktop và giả lập Android, chưa đăng nhập): đọc đúng số lượt, chữ trả lời, `mstk`; khôi phục bằng `mstk` rồi gửi tiếp được và đọc ra lượt mới — lần thử đầu lộ lỗi bỏ `[role="button"]` làm mất tên thực thể ("Paris"), đã sửa. Rà soát còn sửa: phần đã phát kết thúc bằng xuống dòng làm bản cuối (đã bỏ câu gợi ý) không nối tiếp ⇒ câu trả lời bị nối đôi; ô nhập nhận theo `getClientRects` (khối nhập của bản mobile là `position: fixed`); lượt chưa có khối trả lời thì coi là chưa có chữ (không đọc cả lượt — dính câu hỏi); log luật kết thúc lượt. Không build tại chỗ (Windows) — CI là cổng biên dịch; **chưa thử trên máy** (trang trong WKWebView iOS, khi đã đăng nhập, ngưỡng captcha là UNKNOWN — chỉnh theo log `🤖 [AIMode]`).
+
 ## [1.3.608] - 2026-10-26
 
 ### fix: ba sheet bôi đen kéo lên được, nền đồng bộ, bỏ nút ✕, tiêu đề to hơn
@@ -372,22 +386,3 @@ Người dùng: *"tôi bấm chia sẻ kiểm tra nguồn nhưng không thấy h
 - **Màn Kiểm tra nguồn**: `onComplete` hạ `shareURL`; nếu cờ vẫn kẹt khi bấm lại thì hạ trước, chờ ~0,4 s cho sheet cũ gỡ xong rồi mới trình bày.
 - Chuyển entry `[1.3.545]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.579] - 2026-10-22
-
-### feat: tự kết luận lỗi nguồn Legado do web, do nguồn hay do app, chia sẻ báo cáo kiểm tra
-
-Người dùng: *"nhiều nguồn lỗi nhưng không biết lỗi do nguồn hay do app"*; xem mockup rồi bảo *"tiếp tục"*.
-
-- **Bộ phân xử** (`LegadoFailureArbiter` + `+Evidence`, `LegadoFailureVerdict`, hàm thuần, `Services/LegadoSource/Diagnostics/`) — dừng ở luật đầu khớp:
-  1. **Cần xác minh / đăng nhập**: trang thử thách/captcha (dấu `challenge-platform` chỉ tính khi mã ≥ 400 vì Cloudflare chèn cả vào trang thường; chữ yếu như "captcha" chỉ tính trong `<title>`, trang < 6 KB hoặc mã ≥ 400), nguồn có `loginUrl` bị 401/403, hoặc engine báo cần trình duyệt/mã xác minh khi chạy không tương tác.
-  2. **Web chặn / sập**: trang chặn theo vùng / từ chối truy cập (`LegadoPageMarker`), lỗi mạng, engine quá thời gian, HTTP 403 / 404 ở bước đầu / 410 / 429 / 451 / 5xx.
-  3. **Nghi do app**: cú pháp/hàm chưa hỗ trợ (trừ lớp dò app `io.legado.*`/`io.legato.*`), lỗi JS chỉ vào phần app giả lập, hoặc **đầu dò bộ chọn** thấy trang 2xx có đủ class/id của rule mà rule khớp 0 (thêm điều kiện: rule không có JS sau bộ chọn, khớp 0 chứ không phải lọc hết, thẻ cuối có thật trong phần tử chứa — trang tìm không có kết quả không bị kết luận oan; bước nội dung cần ≥ 50 ký tự chữ).
-  4. **Nguồn lỗi thời**: trang 2xx mà không token class/id nào của rule có trong trang, hoặc nguồn thiếu rule.
-  5. **Chưa rõ**: còn lại, kèm lý do (404 ở bước sau, máy mất mạng, lỗi JS của chính script nguồn…).
-- **Đầu dò bộ chọn** (`LegadoSelectorProbe`, `LegadoRuleSelectorTokens`): khi bước danh sách/nội dung ra rỗng sau trang 2xx, tách token `class.X`/`.X`/`id.X`/`#X`/`tag.X` của rule và kiểm trong **toàn bộ** HTML trang, ghi vào run log.
-- **Bằng chứng cho bộ chạy hàng loạt**: `LegadoRunLog.current` (task-local) — `runSession` dùng `log ?? LegadoRunLog.current` (đọc trước khi sang thread engine); bộ chạy bọc **từng bước** của mỗi nguồn. Không đổi chữ ký facade.
-- **Báo cáo**: `SourceResult.verdict` + `verdictReason` (tuỳ chọn), báo cáo tổng thêm `byVerdict`; mirror `protocol.ts` (trường tuỳ chọn, không nâng version; `tsc --noEmit` sạch).
-- **UI** (khớp mockup): màn Kiểm tra nguồn có ô đếm "Lỗi do ai" (`LegadoSourceCheckVerdictPanel`, chỉ ô > 0), chip lọc theo kết luận (`LegadoSourceCheckFilter`), dòng lỗi "Kết luận · bước · lý do" theo màu kết luận (`LegadoFailureVerdictStyle`), nút **chia sẻ báo cáo** ở toolbar (`LegadoCorpusReportShare` ghi JSON đã redact ra file tạm, `ShareSheet`); màn Gỡ lỗi từng bước có dải "Kết luận: …" (`LegadoFailureVerdictBanner`, nền nhạt — không nền màu nhấn đặc) dùng chung bộ phân xử.
-- Chuyển entry `[1.3.544]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới** (kể cả `WHITE_TINT_FILL`); không đụng engine `{JS,Engine,Net,Rule}`. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.

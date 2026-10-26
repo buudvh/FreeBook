@@ -27,6 +27,12 @@ public final class AIContextCompactor: Sendable {
             AppLogger.shared.log("🤖 [GeminiWeb] Bỏ qua nén ngữ cảnh cho profile Gemini Web")
             return session.contextSummary
         }
+        // Chế độ AI của Google (1.3.609): cuộc chat trên Google tự giữ hội thoại; thêm một lượt tóm tắt chỉ tăng nguy cơ
+        // bị captcha.
+        if config.activeProfile.isGoogleAIMode {
+            AppLogger.shared.log("🤖 [AIMode] Bỏ qua nén ngữ cảnh cho profile Chế độ AI của Google")
+            return session.contextSummary
+        }
 
         let cutoffIndex = session.messages.count - Self.recentMessagesPreservedCount
         guard cutoffIndex > 0 else { return session.contextSummary }

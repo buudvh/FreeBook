@@ -41,8 +41,26 @@ public final class AINameExtractionBatchProcessor: Sendable {
     private static let geminiWebAbsoluteTimeout: TimeInterval = 600
     /// Nghỉ giữa các lượt Gemini Web để không bị coi là tự động hoá dồn dập (1037 hết hạn mức, 1060 chặn IP).
     static let geminiWebTurnPause: UInt64 = 2_000_000_000
+    /// Chế độ AI của Google (1.3.609): ~2.500 chữ/lượt — thử thật ~5.000 chữ Hán thì vế phải vẫn là chữ Hán (parser bỏ
+    /// hết). Chương dài hơn được tách thành nhiều lượt (`AINameScanTextLoader`), không cắt. Khoảng nghỉ 5 s giữa các lượt
+    /// nằm ở `GoogleAIModeTurnQueue` (toàn cục, mọi truyện).
+    static let googleAIModeCharacterLimit = 2_500
 
     private init() {}
+
+    /// Giới hạn ký tự một lượt quét theo provider (cũng là mức `extractNamesFromText` cắt lúc gửi).
+    static func turnCharacterLimit(for config: AIConfiguration) -> Int {
+        if config.activeProfile.isGeminiWeb { return geminiWebCharacterLimit }
+        if config.activeProfile.isGoogleAIMode { return googleAIModeCharacterLimit }
+        return apiCharacterLimit
+    }
+
+    /// Cách chia lượt theo provider (`AINameScanTextLoader.makeBatches`).
+    static func batchMode(for config: AIConfiguration) -> AINameScanTextLoader.BatchMode {
+        if config.activeProfile.isGeminiWeb { return .geminiWeb }
+        if config.activeProfile.isGoogleAIMode { return .googleAIMode }
+        return .api
+    }
 
     /// Quét tên riêng trên một đoạn văn bản (một chương hoặc một batch).
     /// `conversationId` khác nil (chỉ Gemini Web) ⇒ gửi như một lượt nối tiếp cuộc chat Gemini của phiên chat đó (lưu
@@ -63,7 +81,7 @@ public final class AINameExtractionBatchProcessor: Sendable {
         }
 
         let systemInstruction = resolveSystemInstruction(config: config, promptOverride: promptOverride)
-        let limit = characterLimit ?? (config.activeProfile.isGeminiWeb ? Self.geminiWebCharacterLimit : Self.apiCharacterLimit)
+        let limit = characterLimit ?? Self.turnCharacterLimit(for: config)
         let truncated = String(text.prefix(limit))
         let header = turnLabel.map { "Văn bản raw chương truyện (\($0)):" } ?? "Văn bản raw chương truyện:"
         let messages = [
@@ -92,6 +110,9 @@ public final class AINameExtractionBatchProcessor: Sendable {
                 )
                 content = res
             }
+        } else if config.activeProfile.isGoogleAIMode {
+            // Mỗi lượt một cuộc chat Chế độ AI mới (người dùng chọn): lượt lỗi không kéo lượt sau.
+            content = try await GoogleAIModeClient.shared.sendNameScanTurn(messages: messages)
         } else if config.activeProfile.apiFormat == "anthropic" {
             let (res, _) = try await AnthropicClient.shared.sendChat(config: config, messages: messages)
             content = res
@@ -116,12 +137,19 @@ public final class AINameExtractionBatchProcessor: Sendable {
         return line == "không có name"
     }
 
-    /// Lỗi Gemini Web khiến gọi tiếp vô ích (và có hại cho tài khoản): dừng cả lượt quét thay vì nuốt như lỗi lẻ.
-    static func shouldStopBatch(on error: GeminiWebError) -> Bool {
-        switch error {
-        case .usageLimit, .ipBlocked, .notSignedIn, .accountStatus: return true
-        default: return false
+    /// Lỗi khiến gọi tiếp vô ích (và có hại cho tài khoản): dừng cả lượt quét thay vì nuốt như lỗi lẻ. Gemini Web: hạn
+    /// mức/chặn IP/mất đăng nhập/trạng thái tài khoản; Chế độ AI (1.3.609): captcha, prompt quá dài.
+    static func shouldStopBatch(on error: Error) -> Bool {
+        if let gemini = error as? GeminiWebError {
+            switch gemini {
+            case .usageLimit, .ipBlocked, .notSignedIn, .accountStatus: return true
+            default: return false
+            }
         }
+        if let aiMode = error as? GoogleAIModeError {
+            return aiMode.stopsNameScan
+        }
+        return false
     }
 
     /// Prompt hệ thống: ưu tiên prompt tự nhập cho lần quét này, rồi tới prompt đã lưu, cuối cùng là mặc định.
@@ -134,7 +162,8 @@ public final class AINameExtractionBatchProcessor: Sendable {
     }
 
     /// Bật lưu lịch sử ⇒ đúng cuộc chat Gemini của phiên chat app (cùng khoá với chat thường), một chat cho cả lần
-    /// quét. Tắt (hoặc không có phiên) ⇒ mỗi lượt là chat tạm độc lập.
+    /// quét. Tắt (hoặc không có phiên) ⇒ mỗi lượt là chat tạm độc lập. Chế độ AI của Google luôn `nil` (mỗi lượt một
+    /// cuộc chat mới).
     private static func chatConversationId(config: AIConfiguration, sessionId: UUID?) -> UUID? {
         (config.activeProfile.isGeminiWeb && GeminiWebConversationStore.saveToHistory) ? sessionId : nil
     }
@@ -185,8 +214,8 @@ public final class AINameExtractionBatchProcessor: Sendable {
         let splitStart = CFAbsoluteTimeGetCurrent()
         let turns = AINameScanTextLoader.makeBatches(
             loaded.texts,
-            isGeminiWeb: isGeminiWeb,
-            characterLimit: isGeminiWeb ? Self.geminiWebCharacterLimit : Self.apiCharacterLimit
+            mode: Self.batchMode(for: config),
+            characterLimit: Self.turnCharacterLimit(for: config)
         )
         let splitMs = Int((CFAbsoluteTimeGetCurrent() - splitStart) * 1000)
         let resume = AINameScanResumeTracker(turns: turns)
@@ -282,7 +311,7 @@ public final class AINameExtractionBatchProcessor: Sendable {
     /// đối chiếu khi Gemini tách nhiều cuộc chat (1.3.527). Không phải lỗi ⇒ không gắn ❌.
     private func logRunStart(_ summary: String, config: AIConfiguration, sessionId: UUID?, conversationId: UUID?) async {
         let isGeminiWeb = config.activeProfile.isGeminiWeb
-        var detail = "GeminiWeb=\(isGeminiWeb), chat phiên=\(conversationId != nil)"
+        var detail = "GeminiWeb=\(isGeminiWeb), AIMode=\(config.activeProfile.isGoogleAIMode), chat phiên=\(conversationId != nil)"
         if isGeminiWeb {
             var cidPrefix: String?
             if let sessionId {

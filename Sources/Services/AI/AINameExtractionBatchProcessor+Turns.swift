@@ -37,7 +37,7 @@ extension AINameExtractionBatchProcessor {
         Self.aggregate(seedNames, into: &aggregatedNames)
         var failed: [AINameScanFailedBatch] = []
         let isGeminiWeb = config.activeProfile.isGeminiWeb
-        let characterLimit = isGeminiWeb ? Self.geminiWebCharacterLimit : Self.apiCharacterLimit
+        let characterLimit = Self.turnCharacterLimit(for: config)
 
         for (position, turn) in turns.enumerated() {
             if Task.isCancelled { break }
@@ -66,11 +66,13 @@ extension AINameExtractionBatchProcessor {
                     failed.append(turn)
                     AppLogger.shared.log("❌ 🤖 [AI] Quét tên riêng \(turnLabel) không trả về name sau khi thử lại (có thể bị từ chối), bỏ qua")
                 }
-            } catch let error as GeminiWebError where !Task.isCancelled && Self.shouldStopBatch(on: error) {
-                // Hết hạn mức / chặn IP / mất đăng nhập: gọi tiếp chỉ làm tài khoản bị chặn nặng hơn.
-                // Dừng và báo rõ; phần đã quét vẫn nằm trong `batchExtractedNames` của coordinator, được giữ lại trong
-                // tin kết quả (1.3.602 — điểm tiếp nối đã ghi theo phần đó).
-                AppLogger.shared.log("❌ 🤖 [GeminiWeb] Dừng quét tên riêng ở \(turnLabel): \(error.localizedDescription)")
+            } catch where !Task.isCancelled && Self.shouldStopBatch(on: error) {
+                // Hết hạn mức / chặn IP / mất đăng nhập (Gemini Web), captcha / prompt quá dài (Chế độ AI, 1.3.609): gọi
+                // tiếp chỉ làm bị chặn nặng hơn. Dừng và báo rõ; phần đã quét vẫn nằm trong `batchExtractedNames` của
+                // coordinator, được giữ lại trong tin kết quả (1.3.602 — điểm tiếp nối đã ghi theo phần đó). Thông điệp
+                // giữ mô tả lỗi gốc ⇒ có `GoogleAIModeError.captchaMarker` cho nút xác minh.
+                let tag = config.activeProfile.isGoogleAIMode ? "[AIMode]" : "[GeminiWeb]"
+                AppLogger.shared.log("❌ 🤖 \(tag) Dừng quét tên riêng ở \(turnLabel): \(error.localizedDescription)")
                 let verb = isRetry ? "Dừng thử lại" : "Dừng quét"
                 throw NSError(domain: "AINameExtraction", code: 429, userInfo: [
                     NSLocalizedDescriptionKey: "\(verb) sau \(position)/\(turns.count) lượt — \(error.localizedDescription) Các tên đã quét được vẫn giữ trong tin kết quả."
@@ -92,6 +94,7 @@ extension AINameExtractionBatchProcessor {
             }
             onProgress(progress, Self.sortedNames(aggregatedNames))
 
+            // Chế độ AI của Google nghỉ 5 s trong `GoogleAIModeTurnQueue` (khoảng nghỉ toàn cục, mọi truyện).
             if isGeminiWeb, position < turns.count - 1 {
                 try? await Task.sleep(nanoseconds: Self.geminiWebTurnPause)
             }

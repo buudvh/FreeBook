@@ -66,18 +66,25 @@ public struct AISettingsView: View {
                             set: { newFormat in
                                 var p = config.activeProfile
                                 p.apiFormat = newFormat
+                                // Chuyển sang Chế độ AI từ profile trống: điền host để nút kiểm tra kết nối không bị khoá.
+                                if newFormat == "googleAIMode", p.baseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                    p.baseURL = AIProviderProfile.defaultGoogleAIMode.baseURL
+                                }
                                 config.updateActiveProfile(p)
                             }
                         )) {
                             Text("OpenAI").tag("openai")
-                            Text("Anthropic Claude").tag("anthropic")
+                            Text("Anthropic").tag("anthropic")
                             Text("Gemini Web").tag("geminiWeb")
+                            Text("AI Mode").tag("googleAIMode")
                         }
                         .pickerStyle(.segmented)
                     }
 
                     if config.activeProfile.isGeminiWeb {
                         GeminiWebAccountRow()
+                    } else if config.activeProfile.isGoogleAIMode {
+                        GoogleAIModeAccountRow()
                     } else {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("API Base URL")
@@ -145,53 +152,9 @@ public struct AISettingsView: View {
                         }
                     }
 
-                    // Quản lý model của profile
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Model đang chọn:")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Text(config.activeProfile.selectedModel.isEmpty ? "Chưa chọn" : config.activeProfile.selectedModel)
-                                .font(.system(.subheadline, design: .monospaced))
-                                .fontWeight(.semibold)
-                                .foregroundColor(.purple)
-                        }
-                        Spacer()
-                        Button(action: fetchModelsFromAPI) {
-                            HStack(spacing: 4) {
-                                if isFetchingModels {
-                                    ProgressView()
-                                        .controlSize(.small)
-                                } else {
-                                    Image(systemName: "arrow.triangle.2.circlepath")
-                                }
-                                Text("Load từ API")
-                            }
-                            .font(.subheadline)
-                        }
-                        .disabled(isFetchingModels || config.activeProfile.baseURL.isEmpty)
-                    }
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Text("Danh sách Model (\(parsedModelsCount) models):")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Spacer()
-                            clipboardToolbar(for: $modelsText) {
-                                syncModelsFromText(modelsText)
-                            }
-                        }
-                        TextEditor(text: $modelsText)
-                            .font(.system(.caption, design: .monospaced))
-                            .frame(minHeight: 80)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-                            )
-                            .onChange(of: modelsText) { _, newText in
-                                syncModelsFromText(newText)
-                            }
+                    // Chế độ AI của Google không có model để chọn (1.3.609) — ẩn cả khối.
+                    if !config.activeProfile.isGoogleAIMode {
+                        modelManagementRows
                     }
 
                     Button(role: .destructive, action: deleteCurrentProfile) {
@@ -206,8 +169,8 @@ public struct AISettingsView: View {
 
                 // SECTION 4: THAM SỐ VÀ TEST KẾT NỐI
                 Section(header: Text("Tham Số AI & Kiểm Tra")) {
-                    // Gemini Web không nhận temperature — ẩn để khỏi gợi ý một tham số vô hiệu.
-                    if !config.activeProfile.isGeminiWeb {
+                    // Gemini Web và Chế độ AI của Google không nhận temperature — ẩn để khỏi gợi ý một tham số vô hiệu.
+                    if !config.activeProfile.isGeminiWeb && !config.activeProfile.isGoogleAIMode {
                         VStack(alignment: .leading, spacing: 6) {
                             HStack {
                                 Text("Temperature (Độ sáng tạo)")
@@ -254,6 +217,10 @@ public struct AISettingsView: View {
                             Text(message)
                                 .font(.footnote)
                                 .foregroundColor(isTestSuccess ? .green : .red)
+                        }
+                        // Captcha của Chế độ AI của Google (1.3.609): mở trang xác minh trong trình duyệt bypass.
+                        if !isTestSuccess, GoogleAIModeVerifyButton.applies(to: message) {
+                            GoogleAIModeVerifyButton()
                         }
                     }
                 }

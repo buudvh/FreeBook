@@ -116,6 +116,12 @@ extension AIRuntimeCoordinator {
                     // Giữ nguyên nội dung tin (danh sách đã gộp tới lúc dừng) và các lượt lỗi cũ: lần bấm sau gộp lại
                     // từ danh sách đã lưu nên không cộng trùng số lần xuất hiện.
                     self.updateMessage(messageId, bookId: bookId) { $0.isStreaming = false }
+                    // Google bắt xác minh (Chế độ AI, 1.3.609): thêm tin lỗi riêng để màn AI hiện nút "Mở Google để xác
+                    // minh" dưới nó — chỉ toast thì người dùng không có chỗ bấm.
+                    if error.localizedDescription.contains(GoogleAIModeError.captchaMarker) {
+                        let text = "Lỗi quét tên riêng: \(error.localizedDescription)"
+                        self.updateRun(bookId) { $0.session?.messages.append(AIChatMessage(role: .assistant, content: text)) }
+                    }
                     self.saveRunSession(bookId: bookId)
                     let toast = self.toastText(
                         "Thử lại lượt lỗi bị gián đoạn: \(error.localizedDescription)",

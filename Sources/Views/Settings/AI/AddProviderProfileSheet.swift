@@ -33,6 +33,7 @@ public struct AddProviderProfileSheet: View {
                         Section("Mẫu có sẵn (Built-in)") {
                             Text("Google Gemini").tag("gemini")
                             Text("Google Gemini (Web — đăng nhập)").tag("geminiWeb")
+                            Text("Google Chế độ AI (không cần key)").tag("googleAIMode")
                             Text("OpenAI (API Key)").tag("openai")
                             Text("Anthropic Claude (Chính thức)").tag("anthropic")
                             Text("DeepSeek").tag("deepseek")
@@ -73,20 +74,26 @@ public struct AddProviderProfileSheet: View {
                             .foregroundColor(.secondary)
                         Picker("Định dạng API", selection: $apiFormat) {
                             Text("OpenAI").tag("openai")
-                            Text("Anthropic Claude").tag("anthropic")
+                            Text("Anthropic").tag("anthropic")
                             Text("Gemini Web").tag("geminiWeb")
+                            Text("AI Mode").tag("googleAIMode")
                         }
                         .pickerStyle(.segmented)
                         .onChange(of: apiFormat) { _, newFormat in
-                            // Chuyển sang Gemini Web từ mẫu trống: điền host để nút Lưu không bị khoá.
+                            // Chuyển sang Gemini Web / Chế độ AI từ mẫu trống: điền host để nút Lưu không bị khoá.
                             if newFormat == "geminiWeb", baseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                                 baseURL = "https://gemini.google.com"
+                            }
+                            if newFormat == "googleAIMode", baseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                baseURL = AIProviderProfile.defaultGoogleAIMode.baseURL
                             }
                         }
                     }
 
                     if apiFormat == "geminiWeb" {
                         GeminiWebAccountRow()
+                    } else if apiFormat == "googleAIMode" {
+                        GoogleAIModeAccountRow()
                     } else {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("API Base URL")
@@ -109,41 +116,44 @@ public struct AddProviderProfileSheet: View {
                     }
                 }
 
-                Section(header: Text("Quản Lý Danh Sách Model")) {
-                    HStack {
-                        Text("Danh sách Models:")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Spacer()
-                        Button(action: fetchModelsFromAPI) {
-                            HStack(spacing: 4) {
-                                if isFetchingModels {
-                                    ProgressView()
-                                        .controlSize(.small)
-                                } else {
-                                    Image(systemName: "bolt.fill")
+                // Chế độ AI của Google không có model để chọn (1.3.609) — ẩn cả mục.
+                if apiFormat != "googleAIMode" {
+                    Section(header: Text("Quản Lý Danh Sách Model")) {
+                        HStack {
+                            Text("Danh sách Models:")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Button(action: fetchModelsFromAPI) {
+                                HStack(spacing: 4) {
+                                    if isFetchingModels {
+                                        ProgressView()
+                                            .controlSize(.small)
+                                    } else {
+                                        Image(systemName: "bolt.fill")
+                                    }
+                                    Text("Load từ API")
                                 }
-                                Text("Load từ API")
+                                .font(.caption)
+                                .fontWeight(.semibold)
                             }
-                            .font(.caption)
-                            .fontWeight(.semibold)
+                            .disabled(isFetchingModels || baseURL.isEmpty)
                         }
-                        .disabled(isFetchingModels || baseURL.isEmpty)
-                    }
 
-                    if let message = fetchMessage {
-                        Text(message)
-                            .font(.caption2)
-                            .foregroundColor(isFetchSuccess ? .green : .red)
-                    }
+                        if let message = fetchMessage {
+                            Text(message)
+                                .font(.caption2)
+                                .foregroundColor(isFetchSuccess ? .green : .red)
+                        }
 
-                    TextEditor(text: $modelsText)
-                        .font(.system(.caption, design: .monospaced))
-                        .frame(minHeight: 100)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-                        )
+                        TextEditor(text: $modelsText)
+                            .font(.system(.caption, design: .monospaced))
+                            .frame(minHeight: 100)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                            )
+                    }
                 }
 
                 Section {
@@ -192,6 +202,12 @@ public struct AddProviderProfileSheet: View {
                 baseURL = "https://gemini.google.com"
                 apiFormat = "geminiWeb"
                 modelsText = GeminiWebClient.fallbackModelNames.joined(separator: "\n")
+            case "googleAIMode":
+                let template = AIProviderProfile.defaultGoogleAIMode
+                name = template.name
+                baseURL = template.baseURL
+                apiFormat = template.apiFormat
+                modelsText = template.availableModels.joined(separator: "\n")
             case "openai":
                 name = "OpenAI"
                 baseURL = "https://api.openai.com/v1"
@@ -245,6 +261,8 @@ public struct AddProviderProfileSheet: View {
     }
 
     private func fetchModelsFromAPI() {
+        // Chế độ AI của Google không có danh sách model (mục model đã ẩn) — không rơi sang nhánh OpenAI.
+        guard apiFormat != "googleAIMode" else { return }
         isFetchingModels = true
         fetchMessage = nil
         Task {
@@ -287,9 +305,12 @@ public struct AddProviderProfileSheet: View {
     private func saveNewProfile() {
         let cleanName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanURL = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        let models = modelsText.components(separatedBy: .newlines)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
+        // Chế độ AI không chọn model: luôn đúng một tên cố định, dù người dùng đổi định dạng từ mẫu khác.
+        let models = apiFormat == "googleAIMode"
+            ? AIProviderProfile.defaultGoogleAIMode.availableModels
+            : modelsText.components(separatedBy: .newlines)
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
 
         let newProfile = AIProviderProfile(
             id: "custom_\(UUID().uuidString.prefix(8))",
@@ -300,7 +321,7 @@ public struct AddProviderProfileSheet: View {
             availableModels: models.isEmpty ? ["default-model"] : models,
             temperature: 0.3,
             isCustom: true,
-            authType: apiFormat == "geminiWeb" ? "googleWebSession" : "apiKey",
+            authType: (apiFormat == "geminiWeb" || apiFormat == "googleAIMode") ? "googleWebSession" : "apiKey",
             apiFormat: apiFormat
         )
 

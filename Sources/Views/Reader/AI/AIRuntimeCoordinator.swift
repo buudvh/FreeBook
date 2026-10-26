@@ -127,6 +127,13 @@ public final class AIRuntimeCoordinator: ObservableObject {
                         messages: messages,
                         sessionId: session.id
                     )
+                } else if config.activeProfile.isGoogleAIMode {
+                    // Nối tiếp một cuộc chat Chế độ AI của Google cho mỗi phiên chat của app (1.3.609).
+                    stream = await GoogleAIModeClient.shared.sendConversationStreaming(
+                        config: config,
+                        messages: messages,
+                        sessionId: session.id
+                    )
                 } else if config.activeProfile.apiFormat == "anthropic" {
                     stream = await AnthropicClient.shared.sendChatStreaming(config: config, messages: messages)
                 } else {

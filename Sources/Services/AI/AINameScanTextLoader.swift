@@ -102,20 +102,32 @@ enum AINameScanTextLoader {
         }
     }
 
+    /// Cách chia lượt theo provider.
+    enum BatchMode: Sendable {
+        case api
+        case geminiWeb
+        /// Chế độ AI của Google (1.3.609): như Gemini Web nhưng chương dài hơn giới hạn được **tách** thành nhiều lượt.
+        case googleAIMode
+    }
+
     /// Gom văn bản chương thành các lượt, mỗi lượt mang chương đầu/cuối. Ngữ nghĩa chia như trước 1.3.602:
     /// - API: `apiChaptersPerBatch` chương/lượt, nối `"\n\n"`.
     /// - Gemini Web: gom chương liền nhau tới `characterLimit` *Character*, không cắt giữa chương (một chương dài hơn
     ///   mức đó vẫn đứng riêng một lượt). Đếm `text.count` **một** lần mỗi chương rồi cộng dồn — trước đây mỗi vòng gọi
     ///   `current.count` trên cả chuỗi đang gom (O(n) đếm grapheme). `"\n\n"` không bao giờ dính grapheme với chữ hai
     ///   bên nên tổng cộng dồn bằng đúng `count` của chuỗi nối.
+    /// - Chế độ AI của Google: `makePieceBatches`.
     ///
     /// `characterLimit` là đúng mức `extractNamesFromText` cắt lúc gửi (API 15.000, Gemini Web 40.000) ⇒ chương cuối của
     /// lượt (`lastChapterIndex`, dùng cho điểm tiếp nối) là chương cuối nằm **trọn** trong phần thật sự được gửi: lượt API
     /// 5 chương dài bị cắt thì phần đuôi không được tính là đã quét.
-    static func makeBatches(_ texts: [ChapterText], isGeminiWeb: Bool, characterLimit: Int) -> [AINameScanFailedBatch] {
+    static func makeBatches(_ texts: [ChapterText], mode: BatchMode, characterLimit: Int) -> [AINameScanFailedBatch] {
+        if mode == .googleAIMode {
+            return makePieceBatches(texts, characterLimit: characterLimit)
+        }
         let counts = texts.map { $0.text.count }
         var ranges: [Range<Int>] = []
-        if isGeminiWeb {
+        if mode == .geminiWeb {
             var groupStart = 0
             var currentCount = 0
             for position in texts.indices {
@@ -161,5 +173,119 @@ enum AINameScanTextLoader {
             last = texts[position].index
         }
         return last
+    }
+
+    // MARK: - Chế độ AI của Google (1.3.609)
+
+    /// Mỗi lượt ≤ `characterLimit` ký tự và không bỏ chữ nào:
+    /// - chương dài hơn giới hạn được tách thành nhiều mảnh (`splitText`);
+    /// - các mảnh liền nhau được gom tới giới hạn như Gemini Web (nối `"\n\n"`);
+    /// - lượt kết thúc bằng một mảnh **không phải** mảnh cuối của chương k ⇒ `lastChapterIndex = k − 1`: chương k chưa
+    ///   quét trọn nên điểm tiếp nối (luật "dừng trước lượt lỗi") không vượt qua nó; lượt chỉ chứa mảnh giữa chương k có
+    ///   `lastChapterIndex` nhỏ hơn `firstChapterIndex` — `AINameScanResumeTracker` chỉ đọc chương cuối nên vẫn đúng.
+    private static func makePieceBatches(_ texts: [ChapterText], characterLimit: Int) -> [AINameScanFailedBatch] {
+        struct Piece {
+            let chapterIndex: Int
+            let text: String
+            let count: Int
+            let endsChapter: Bool
+        }
+        var pieces: [Piece] = []
+        for chapter in texts {
+            let parts = splitText(chapter.text, limit: characterLimit)
+            for (offset, part) in parts.enumerated() {
+                pieces.append(Piece(chapterIndex: chapter.index, text: part, count: part.count, endsChapter: offset == parts.count - 1))
+            }
+        }
+
+        var groups: [Range<Int>] = []
+        var groupStart = 0
+        var currentCount = 0
+        for position in pieces.indices {
+            let count = pieces[position].count
+            if position > groupStart, currentCount + count + 2 > characterLimit {
+                groups.append(groupStart..<position)
+                groupStart = position
+                currentCount = 0
+            }
+            currentCount += position == groupStart ? count : count + 2
+        }
+        if groupStart < pieces.count { groups.append(groupStart..<pieces.count) }
+
+        return groups.enumerated().compactMap { item -> AINameScanFailedBatch? in
+            let group = pieces[item.element]
+            guard let first = group.first, let last = group.last else { return nil }
+            return AINameScanFailedBatch(
+                text: group.map(\.text).joined(separator: "\n\n"),
+                turnIndex: item.offset + 1,
+                totalTurns: groups.count,
+                firstChapterIndex: first.chapterIndex,
+                lastChapterIndex: last.endsChapter ? last.chapterIndex : last.chapterIndex - 1
+            )
+        }
+    }
+
+    /// Tách `text` thành các phần ≤ `limit` ký tự, giữ nguyên mọi chữ: gom theo dòng; dòng dài hơn thì theo câu
+    /// (`。！？!?`); câu vẫn dài hơn thì cắt cứng (chương có thể là một dòng rất dài).
+    static func splitText(_ text: String, limit: Int) -> [String] {
+        guard limit > 0, text.count > limit else { return [text] }
+        var units: [String] = []
+        let lines = text.components(separatedBy: "\n")
+        for (lineIndex, line) in lines.enumerated() {
+            let separator = lineIndex < lines.count - 1 ? "\n" : ""
+            let lineUnit = line + separator
+            if lineUnit.count <= limit {
+                units.append(lineUnit)
+                continue
+            }
+            var sentences = splitSentences(line)
+            if !separator.isEmpty, !sentences.isEmpty {
+                sentences[sentences.count - 1] += separator
+            }
+            for sentence in sentences {
+                if sentence.count <= limit {
+                    units.append(sentence)
+                    continue
+                }
+                var rest = Substring(sentence)
+                while !rest.isEmpty {
+                    let chunk = rest.prefix(limit)
+                    units.append(String(chunk))
+                    rest = rest.dropFirst(chunk.count)
+                }
+            }
+        }
+
+        var pieces: [String] = []
+        var current = ""
+        var currentCount = 0
+        for unit in units {
+            let count = unit.count
+            if currentCount > 0, currentCount + count > limit {
+                pieces.append(current)
+                current = ""
+                currentCount = 0
+            }
+            current += unit
+            currentCount += count
+        }
+        if !current.isEmpty { pieces.append(current) }
+        return pieces
+            .map { $0.trimmingCharacters(in: .newlines) }
+            .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+    }
+
+    private static func splitSentences(_ line: String) -> [String] {
+        var sentences: [String] = []
+        var current = ""
+        for character in line {
+            current.append(character)
+            if "。！？!?".contains(character) {
+                sentences.append(current)
+                current = ""
+            }
+        }
+        if !current.isEmpty { sentences.append(current) }
+        return sentences
     }
 }

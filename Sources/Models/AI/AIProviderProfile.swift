@@ -112,6 +112,20 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
         apiFormat: "geminiWeb"
     )
 
+    /// Chế độ AI của Google Search (`google.com/search?udm=50`) qua trang web trong WKWebView ẩn (1.3.609): không key,
+    /// không chọn model, không temperature — chỉ chat và quét tên riêng (xem `GoogleAIModeClient`).
+    public static let defaultGoogleAIMode = AIProviderProfile(
+        id: "googleAIMode",
+        name: "Google Chế độ AI",
+        baseURL: "https://www.google.com",
+        selectedModel: "ai-mode",
+        availableModels: ["ai-mode"],
+        temperature: 0.3,
+        isCustom: false,
+        authType: "googleWebSession",
+        apiFormat: "googleAIMode"
+    )
+
     public static let defaultOpenAI = AIProviderProfile(
         id: "openai",
         name: "OpenAI",
@@ -189,12 +203,18 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
 
     /// Các mẫu provider chuẩn định nghĩa sẵn để người dùng chọn khi thêm mới.
     public static var standardTemplates: [AIProviderProfile] {
-        [defaultGemini, defaultGeminiWeb, defaultOpenAI, defaultAnthropic, defaultDeepSeek, defaultClaudeOpenRouter, defaultGroq, defaultOllama]
+        [defaultGemini, defaultGeminiWeb, defaultGoogleAIMode, defaultOpenAI, defaultAnthropic, defaultDeepSeek, defaultClaudeOpenRouter, defaultGroq, defaultOllama]
     }
 
     /// Provider Gemini Web: không key, không temperature, chỉ chat — các chỗ rẽ nhánh client dựa vào cờ này.
     public var isGeminiWeb: Bool {
         apiFormat == "geminiWeb"
+    }
+
+    /// Provider Chế độ AI của Google (1.3.609): mọi chỗ rẽ nhánh theo provider phải xét cờ này **trước** nhánh `else`
+    /// rơi về `OpenAIClient`.
+    public var isGoogleAIMode: Bool {
+        apiFormat == "googleAIMode"
     }
 
     /// Mặc định không lưu sẵn profile rỗng nào, chỉ lưu khi người dùng chủ động thêm.

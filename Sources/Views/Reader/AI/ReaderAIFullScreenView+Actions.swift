@@ -46,9 +46,11 @@ extension ReaderAIFullScreenView {
             config.activeProfileId = profile.id
         }
         config.selectedModel = selectedModel
-        // Gemini Web + bật "Lưu chat vào lịch sử Gemini" (1.3.524): Gemini tự giữ hội thoại của phiên ⇒ không gom
-        // tóm tắt ngữ cảnh cũ lẫn cửa sổ tin gần nhất vào prompt, kể cả khi phải mở cuộc chat Gemini mới.
-        let geminiKeepsHistory = config.activeProfile.isGeminiWeb && GeminiWebConversationStore.saveToHistory
+        // Gemini Web + bật "Lưu chat vào lịch sử Gemini" (1.3.524), và Chế độ AI của Google (1.3.609): provider tự giữ
+        // hội thoại của phiên ⇒ không gom tóm tắt ngữ cảnh cũ lẫn cửa sổ tin gần nhất vào prompt, kể cả khi phải mở cuộc
+        // chat mới (provider không biết các lượt trước — đánh đổi đã chấp nhận).
+        let geminiKeepsHistory = (config.activeProfile.isGeminiWeb && GeminiWebConversationStore.saveToHistory)
+            || config.activeProfile.isGoogleAIMode
 
         // 1. Nạp từ điển Name riêng và VP riêng của truyện
         let bookDictContext = AIBookDataInspector.shared.fetchBookDictionaryContext(
@@ -144,6 +146,11 @@ extension ReaderAIFullScreenView {
         )
     }
 
+    /// Profile đang chọn trên màn AI là Chế độ AI của Google (1.3.609) — khoá chip "Dịch mượt raw".
+    internal var isGoogleAIModeSelected: Bool {
+        availableProfiles.first(where: { $0.id == selectedProfileId })?.isGoogleAIMode == true
+    }
+
     internal func stopStreaming() {
         AIRuntimeCoordinator.shared.stopActiveTask(bookId: bookId)
         isStreaming = false
@@ -169,6 +176,8 @@ extension ReaderAIFullScreenView {
         case .explainContextAndCharacters:
             sendUserMessage(promptOverride: "Giải thích bối cảnh, các thế lực và nhân vật xuất hiện trong chương này.")
         case .translateSmoothly:
+            // Chế độ AI của Google chỉ tóm lược, không dịch đủ (1.3.609) — chip đã khoá, chặn thêm ở đây.
+            guard !isGoogleAIModeSelected else { return }
             sendUserMessage(promptOverride: "Dịch lại toàn bộ nội dung chương này theo văn phong mượt mà, thuần Việt, tự nhiên.")
         }
     }
