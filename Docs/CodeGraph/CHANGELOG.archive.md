@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.585] - 2026-10-22
+
+### fix: ô Khám phá của nguồn Legado hiện đủ chữ: 3 dòng, tự co chữ, cao bằng hàng
+
+Người dùng: tag ở Khám phá của nguồn Legado *"nhỏ quá"*, chữ bị cắt — nhiều nguồn khai 4 ô/hàng (`style.layout_flexBasisPercent: 0.25`) cho nhãn tiếng Trung 2–3 chữ, bật dịch thì nhãn tiếng Việt dài gấp đôi. Người dùng chọn **giữ số ô/hàng nguồn khai**, chỉ tinh chỉnh để chữ hiện đủ.
+
+- **`LegadoExploreTabView`** (ô bấm, kể cả tag tìm nhanh): `lineLimit` 2 → **3**; `minimumScaleFactor(0.75)` + `allowsTightening` ⇒ chữ co (15pt → ~11pt) trước khi phải cắt "…"; đệm ngang 6 → 4, thêm đệm dọc 4; khung `maxHeight: .infinity` ⇒ các ô cùng hàng cao bằng ô cao nhất (`LegadoFlexLayout` đã tính chiều cao hàng theo ô cao nhất, không sửa).
+- Tiêu đề nhóm, ô chọn / ô nhập / nút của nguồn giữ nguyên. Đánh đổi: ô có nhãn quá dài có chữ nhỏ hơn ô bên cạnh.
+- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.584] - 2026-10-22
 
 ### fix: nguồn Legado dùng bộ giới hạn nhịp kiểu Java (69書吧) dựng được URL tìm kiếm

@@ -26,6 +26,20 @@ public struct AISettingsView: View {
                 onAddProfile: { showingAddProviderSheet = true }
             )
 
+            // SECTION 1b: TÀI KHOẢN GOOGLE (1.3.614) — mỗi profile Chế độ AI là một tài khoản, xoay vòng khi bị giới hạn
+            Section(header: Text("Tài Khoản Google")) {
+                NavigationLink {
+                    GoogleAccountsView()
+                } label: {
+                    HStack {
+                        Image(systemName: "person.2.circle")
+                            .foregroundColor(.green)
+                        Text("Tài khoản Google (\(googleAccountCount))")
+                            .font(.subheadline)
+                    }
+                }
+            }
+
             // SECTION 2: TÙY CHỈNH PROMPT
             Section(header: Text("Tùy Chỉnh Prompt")) {
                 NavigationLink {
@@ -84,7 +98,7 @@ public struct AISettingsView: View {
                     if config.activeProfile.isGeminiWeb {
                         GeminiWebAccountRow()
                     } else if config.activeProfile.isGoogleAIMode {
-                        GoogleAIModeAccountRow()
+                        GoogleAIModeAccountRow(profile: config.activeProfile)
                     } else {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("API Base URL")
@@ -281,6 +295,10 @@ public struct AISettingsView: View {
             modelsText = config.activeProfile.availableModels.joined(separator: "\n")
             apiKeysText = config.activeProfile.allEffectiveApiKeys().joined(separator: "\n")
         }
+        .task {
+            // Nâng cấp từ 1.3.613: gắn phiên Google đang có vào profile Chế độ AI đang chọn (một lần, có cờ).
+            await GoogleSessionSwitcher.shared.migrateIfNeeded(profile: config.activeProfile)
+        }
         .onChange(of: config) { _, newConfig in
             AISettingsStore.shared.saveConfiguration(newConfig)
         }
@@ -303,6 +321,11 @@ public struct AISettingsView: View {
                 apiKeysText = config.activeProfile.allEffectiveApiKeys().joined(separator: "\n")
             }
         }
+    }
+
+    /// Số tài khoản Google = số profile Chế độ AI của Google (1.3.614).
+    internal var googleAccountCount: Int {
+        config.profiles.filter { $0.isGoogleAIMode }.count
     }
 
     internal var parsedKeysCount: Int {

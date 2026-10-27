@@ -2,6 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.615] - 2026-10-27
+
+### feat: tự xoay tài khoản Google cho Chế độ AI khi bị giới hạn
+
+Người dùng (qua `/grill-me`, 7 câu, mockup B duyệt trong chat): *"giúp tôi làm chức năng tự chuyển profile của provider chế độ AI của google"* → chốt **xoay vòng nhiều tài khoản Google** (đảo ngược quyết định `[1.3.612]` "không đổi cookie/tài khoản"), mỗi profile Chế độ AI là một tài khoản, snapshot phiên trong Keychain, tráo vào kho cookie mặc định, ghi vào Cài đặt, áp dụng cả quét tên lẫn chat Reader. Plan: `Docs/Plans/2026-10-27-plan-google-ai-mode-account-rotation.md`.
+
+- **Vì sao tráo cookie chứ không tách kho**: iOS chỉ có `WKWebsiteDataStore.default()` và `.nonPersistent()` (`forIdentifier:` là API macOS) ⇒ mọi provider Google của app dùng chung một kho; "đổi tài khoản" = thay toàn bộ cookie `*.google.com`. Hệ quả đã chấp nhận: cả app (Chế độ AI, Gemini Web, trình duyệt bypass, captcha) cùng lúc chỉ ở một tài khoản.
+- **Mới `Sources/Services/AI/GoogleAccounts/`**: `GoogleAccountSnapshot` (cookie + `sessionFingerprint` băm `__Secure-1PSID`, không đọc email), `GoogleAccountSnapshotStore` (Keychain, một item/profile, `AfterFirstUnlockThisDeviceOnly`), `GoogleSessionSwitcher` (`@MainActor`: capture/apply/restore/adopt/migrate; **bắt buộc** giải phóng WKWebView ẩn + `refreshAfterLogin` trước khi tráo, và kiểm `isSignedIn()` sau khi tráo — sai thì khôi phục phiên cũ), `GoogleAccountRotation` (thay `AINameScanProviderSwitch`: xoay tài khoản Chế độ AI theo thứ tự → Gemini Web → chờ nấc 1→2→4→8 phút).
+- **Quét tên** (`AINameExtractionBatchProcessor+RateLimit`): bị giới hạn ⇒ `rotateToNextAccount()` → `apply(profile:)` → ghi `activeProfileId` → `clearRateLimitBlock()` (hạn chờ 60 s của tài khoản cũ không còn nghĩa) → gửi lại đúng lượt đó; hết tài khoản mới rơi về Gemini Web rồi mới chờ.
+- **Chat Reader** (mới `AIRuntimeCoordinator+AccountRotation.swift`): lượt bị giới hạn **khi chưa phát chữ nào** ⇒ tráo tài khoản, xoá `mstk` của phiên (`GoogleAIModeConversationStore.delete`) để mở cuộc chat mới với đủ ngữ cảnh, chạy lại đúng lượt đó. Đang có chữ thì không tráo — câu trả lời sẽ đứt rồi viết lại.
+- **Snapshot tự tươi**: sau **mỗi lượt thành công** `GoogleAIModeClient.runTurn` dump lại snapshot của profile đang dùng — `__Secure-1PSIDTS` bị Google xoay liên tục, snapshot cũ sẽ chết.
+- **UI (mockup B)**: màn mới `GoogleAccountsView` + `+Actions` — mỗi dòng một tài khoản, chip "Đang dùng", dòng cam "Chưa gắn phiên — bấm để đăng nhập", kéo ≡ đổi thứ tự xoay vòng (`AIConfiguration.moveGoogleAIModeProfiles` chỉ hoán vị các profile Chế độ AI), nút "+ Thêm tài khoản Google" (adopt phiên đang có → backup cookie → xoá → đăng nhập → lưu; **huỷ thì khôi phục phiên cũ**). Hàng dẫn vào trong Cấu hình AI; `GoogleAIModeAccountRow` giờ nhận `profile` và dẫn sang màn này khi đã gắn phiên.
+- **Đăng xuất / xoá**: `GeminiWebSessionController.signOut` xoá snapshot của **đúng tài khoản** vừa đăng xuất (mọi profile giữ nó), giữ các tài khoản khác; xoá profile Chế độ AI xoá snapshot của nó. Nâng cấp từ 1.3.613: phiên Google sẵn có tự gắn vào profile Chế độ AI đang chọn (cờ `FreeBook_GoogleAccountMigration_V1`, một lần).
+- **Khác plan một điểm**: bỏ field `googleAccountLabel` dự kiến thêm vào `AIProviderProfile` — tên tài khoản chính là tên profile (đã sửa được sẵn trong Cấu hình AI), thêm field nữa chỉ tạo dữ liệu trùng. Không đổi `Codable` của profile.
+- **Rủi ro đã biết**: Google có thể vô hiệu phiên khi tráo (nhất là `__Secure-1PSIDTS`) ⇒ `apply` kiểm `isSignedIn()` rồi khôi phục; cùng thiết bị nhảy tài khoản nhanh có thể bị gắn cờ/captcha nặng hơn — đánh đổi đã được người dùng chấp nhận, không thêm gì để "giấu" (không đổi UA/IP).
+- **Kiểm chứng**: đọc code; `check_architecture.py` **2 violation nền, 0 mới** (JSDom 580/555, TTSManager 3500/3470). Không build tại chỗ (Windows, không có xcodegen) — CI là cổng biên dịch; **chưa thử trên máy** (chưa có 2 tài khoản Google thật để thử tráo phiên).
+
 ## [1.3.614] - 2026-10-27
 
 ### feat: nút mở link lỗi ở các màn báo lỗi, ghim NE/VP R/C kiểu bìa Kệ
@@ -394,13 +411,3 @@ Gộp nhánh `claude/legado-source-bb5e46` (nguồn truyện Legado viết mới
 - **Xung đột**: chỉ ở `CHANGELOG.md` / `CHANGELOG.archive.md` — giữ mục của cả hai phía (Legado ở trên), phần đã chuyển sang lưu trữ theo nhánh; đối chiếu đủ mọi phiên bản của hai phía, không mất mục nào (ba số trùng 1.3.172/173/180 có sẵn từ trước). Đẩy 1.3.551–1.3.556 sang lưu trữ để file chính còn ~30 mục.
 - **File Swift tự gộp** (`SearchView`, `DiscoveryView`, `ExtensionSelectorView`, `BookDetailView`, `SearchExtensionScopePolicy`): đã đọc lại hai phía — `kindScopePackageId` của `main` và bộ lọc/lịch tìm nguồn Legado của nhánh cùng tồn tại; `main` không thêm lời gọi `ExtensionManager.shared.<x>` trực tiếp nào bỏ qua `SourceRuntime`.
 - **Kiểm chứng**: xem commit merge. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.585] - 2026-10-22
-
-### fix: ô Khám phá của nguồn Legado hiện đủ chữ: 3 dòng, tự co chữ, cao bằng hàng
-
-Người dùng: tag ở Khám phá của nguồn Legado *"nhỏ quá"*, chữ bị cắt — nhiều nguồn khai 4 ô/hàng (`style.layout_flexBasisPercent: 0.25`) cho nhãn tiếng Trung 2–3 chữ, bật dịch thì nhãn tiếng Việt dài gấp đôi. Người dùng chọn **giữ số ô/hàng nguồn khai**, chỉ tinh chỉnh để chữ hiện đủ.
-
-- **`LegadoExploreTabView`** (ô bấm, kể cả tag tìm nhanh): `lineLimit` 2 → **3**; `minimumScaleFactor(0.75)` + `allowsTightening` ⇒ chữ co (15pt → ~11pt) trước khi phải cắt "…"; đệm ngang 6 → 4, thêm đệm dọc 4; khung `maxHeight: .infinity` ⇒ các ô cùng hàng cao bằng ô cao nhất (`LegadoFlexLayout` đã tính chiều cao hàng theo ô cao nhất, không sửa).
-- Tiêu đề nhóm, ô chọn / ô nhập / nút của nguồn giữ nguyên. Đánh đổi: ô có nhãn quá dài có chữ nhỏ hơn ô bên cạnh.
-- **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.

@@ -48,6 +48,24 @@ public struct AIConfiguration: Codable, Sendable, Equatable {
         }
     }
 
+    /// Đổi thứ tự **chỉ** các profile Chế độ AI của Google trong `profiles` (1.3.614) — màn Tài khoản Google kéo đổi thứ
+    /// tự xoay vòng, mà thứ tự xoay vòng chính là thứ tự các profile này. Profile của provider khác giữ nguyên chỗ.
+    public mutating func moveGoogleAIModeProfiles(fromOffsets source: IndexSet, toOffset destination: Int) {
+        let slots = profiles.indices.filter { profiles[$0].isGoogleAIMode }
+        guard !slots.isEmpty else { return }
+        let accounts = slots.map { profiles[$0] }
+        let moving = source.filter { $0 >= 0 && $0 < accounts.count }.map { accounts[$0] }
+        guard !moving.isEmpty else { return }
+        var rest = accounts.enumerated().filter { !source.contains($0.offset) }.map(\.element)
+        let removedBefore = source.filter { $0 < destination }.count
+        let insertAt = min(max(0, destination - removedBefore), rest.count)
+        rest.insert(contentsOf: moving, at: insertAt)
+        guard rest.count == slots.count else { return }
+        for (slot, profile) in zip(slots, rest) {
+            profiles[slot] = profile
+        }
+    }
+
     // Các thuộc tính forward tương thích ngược hoàn toàn
     public var baseURL: String {
         get { activeProfile.baseURL }

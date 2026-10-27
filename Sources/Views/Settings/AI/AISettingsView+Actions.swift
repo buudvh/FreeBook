@@ -13,6 +13,8 @@ extension AISettingsView {
     internal func deleteCurrentProfile() {
         let idToDelete = config.activeProfileId
         config.deleteProfile(id: idToDelete)
+        // Xoá profile Chế độ AI thì xoá luôn phiên Google của nó (1.3.614) — không để lại snapshot mồ côi.
+        GoogleAccountSnapshotStore.delete(profileId: idToDelete)
         modelsText = config.activeProfile.availableModels.joined(separator: "\n")
         apiKeysText = config.activeProfile.allEffectiveApiKeys().joined(separator: "\n")
         testResultMessage = nil

@@ -38,6 +38,12 @@ actor GoogleAIModeTurnQueue {
         noteRateLimited(until: Date().addingTimeInterval(seconds))
     }
 
+    /// Bỏ hạn chờ toàn cục (1.3.614): vừa tráo sang **tài khoản Google khác** thì hạn chờ của tài khoản cũ không còn
+    /// nghĩa — lượt gửi lại phải đi ngay, không bị chặn 60 s của tài khoản trước.
+    func clearRateLimitBlock() {
+        blockedUntil = nil
+    }
+
     /// Chạy `body` khi tới lượt; luôn nhả hàng ở mọi lối ra.
     func run<Value: Sendable>(isScan: Bool, _ body: @Sendable () async throws -> Value) async throws -> Value {
         try throwIfBlocked()

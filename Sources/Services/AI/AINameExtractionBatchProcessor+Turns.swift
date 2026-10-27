@@ -21,7 +21,7 @@ extension AINameExtractionBatchProcessor {
     func runTurns(
         _ turns: [AINameScanFailedBatch],
         seedNames: [AIExtractedName],
-        providerSwitch: AINameScanProviderSwitch,
+        providerSwitch: GoogleAccountRotation,
         promptOverride: String?,
         conversationId: UUID?,
         isRetry: Bool,

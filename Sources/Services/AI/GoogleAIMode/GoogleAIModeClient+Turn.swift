@@ -70,9 +70,13 @@ extension GoogleAIModeClient {
         while true {
             let current = request
             do {
-                return try await GoogleAIModeTurnQueue.shared.run(isScan: isScan) {
+                let reply = try await GoogleAIModeTurnQueue.shared.run(isScan: isScan) {
                     try await self.performTurn(current, timeouts: timeouts, observation: observation, onDelta: onDelta, onMstk: onMstk)
                 }
+                // Lượt thành công ⇒ dump lại snapshot phiên Google (1.3.614): `__Secure-1PSIDTS` bị Google xoay liên tục,
+                // snapshot cũ sẽ chết và lần tráo sau đăng nhập hỏng.
+                await GoogleSessionSwitcher.shared.refreshSnapshotIfActive()
+                return reply
             } catch let error as GoogleAIModeError where attempt == 0 && error.isRetryable && !observation.emitted {
                 attempt += 1
                 AppLogger.shared.log("🤖 [AIMode] Lượt lỗi (\(error.localizedDescription)) — thử lại 1 lần")

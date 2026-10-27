@@ -121,50 +121,50 @@ public final class AIRuntimeCoordinator: ObservableObject {
         let runId = beginRun(bookId: bookId, bookTitle: bookTitle, taskTitle: Self.chatTaskTitle, session: session)
 
         tasks[bookId] = Task { [weak self] in
+            // Bộ xoay tài khoản Google của **lượt này** (1.3.614) — bị giới hạn thì tráo sang tài khoản kế rồi gửi lại.
+            let rotation = GoogleAccountRotation(config: config)
+            var activeConfig = config
             do {
-                let stream: AsyncThrowingStream<String, Error>
-                if config.activeProfile.isGeminiWeb {
-                    // Nối tiếp một cuộc chat Gemini cho mỗi phiên chat của app (1.3.514).
-                    stream = await GeminiWebClient.shared.sendConversationStreaming(
-                        config: config,
-                        messages: messages,
-                        sessionId: session.id
-                    )
-                } else if config.activeProfile.isGoogleAIMode {
-                    // Nối tiếp một cuộc chat Chế độ AI của Google cho mỗi phiên chat của app (1.3.609).
-                    stream = await GoogleAIModeClient.shared.sendConversationStreaming(
-                        config: config,
-                        messages: messages,
-                        sessionId: session.id
-                    )
-                } else if config.activeProfile.apiFormat == "anthropic" {
-                    stream = await AnthropicClient.shared.sendChatStreaming(config: config, messages: messages)
-                } else {
-                    stream = await OpenAIClient.shared.sendChatStreaming(config: config, messages: messages)
-                }
                 var accumulated = ""
-                var lastUIUpdateTime: TimeInterval = 0
-                for try await delta in stream {
-                    guard !Task.isCancelled else { break }
-                    accumulated += delta
-                    let now = Date().timeIntervalSinceReferenceDate
-                    if now - lastUIUpdateTime >= 0.05 {
-                        lastUIUpdateTime = now
-                        let stillCurrent = await MainActor.run { () -> Bool in
-                            guard let self = self, self.isCurrentRun(runId, bookId: bookId) else { return false }
-                            self.updateMessage(assistantMsgId, bookId: bookId) { $0.content = accumulated }
-                            return true
+                attempts: while true {
+                    guard let stream = await self?.makeChatStream(config: activeConfig, messages: messages, session: session) else { return }
+                    accumulated = ""
+                    var lastUIUpdateTime: TimeInterval = 0
+                    do {
+                        for try await delta in stream {
+                            guard !Task.isCancelled else { break }
+                            accumulated += delta
+                            let now = Date().timeIntervalSinceReferenceDate
+                            if now - lastUIUpdateTime >= 0.05 {
+                                lastUIUpdateTime = now
+                                let stillCurrent = await MainActor.run { () -> Bool in
+                                    guard let self = self, self.isCurrentRun(runId, bookId: bookId) else { return false }
+                                    self.updateMessage(assistantMsgId, bookId: bookId) { $0.content = accumulated }
+                                    return true
+                                }
+                                guard stillCurrent else { break }
+                                onDelta(accumulated)
+                            }
                         }
-                        guard stillCurrent else { break }
-                        onDelta(accumulated)
+                    } catch {
+                        guard !Task.isCancelled else { return }
+                        // Chỉ tráo khi lượt chưa phát chữ nào — đang có chữ mà tráo thì câu trả lời đứt rồi viết lại.
+                        guard accumulated.isEmpty,
+                              let coordinator = self,
+                              let nextConfig = await coordinator.rotateGoogleAccount(after: error, rotation: rotation, session: session) else {
+                            throw error
+                        }
+                        activeConfig = nextConfig
+                        continue attempts
                     }
+                    break
                 }
 
                 guard !Task.isCancelled else { return }
 
                 // Phản hồi rỗng là lỗi, không phải hoàn tất: tin trợ lý rỗng bị màn AI ẩn đi, người dùng
                 // sẽ không thấy gì (lỗi thật 1.3.506). Ném để rơi vào nhánh `catch` bên dưới.
-                let providerName = config.activeProfile.name
+                let providerName = activeConfig.activeProfile.name
                 guard !accumulated.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                     throw AIEmptyResponseError(providerName: providerName)
                 }
@@ -187,7 +187,7 @@ public final class AIRuntimeCoordinator: ObservableObject {
                 }
             } catch {
                 guard !Task.isCancelled else { return }
-                AppLogger.shared.log("❌ 🤖 [AI] \(config.activeProfile.name) lỗi: \(error.localizedDescription)")
+                AppLogger.shared.log("❌ 🤖 [AI] \(activeConfig.activeProfile.name) lỗi: \(error.localizedDescription)")
                 onError(error.localizedDescription)
                 await MainActor.run {
                     guard let self = self, self.isCurrentRun(runId, bookId: bookId) else { return }

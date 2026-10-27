@@ -229,7 +229,7 @@ public final class AINameExtractionBatchProcessor: Sendable {
         guard let loaded, !Task.isCancelled else { return ([], preparing, [], nil) }
         // Một bộ chuyển provider cho cả lần quét (1.3.612): Chế độ AI bị giới hạn mà đã chuyển Gemini Web thì vòng tự thử
         // lại ở cuối cũng chạy Gemini Web.
-        let providerSwitch = AINameScanProviderSwitch(config: config)
+        let providerSwitch = GoogleAccountRotation(config: config)
         let splitStart = CFAbsoluteTimeGetCurrent()
         let turns = AINameScanTextLoader.makeBatches(
             loaded.texts,
@@ -316,7 +316,7 @@ public final class AINameExtractionBatchProcessor: Sendable {
         return try await runTurns(
             batches,
             seedNames: existingNames,
-            providerSwitch: AINameScanProviderSwitch(config: config),
+            providerSwitch: GoogleAccountRotation(config: config),
             promptOverride: promptOverride,
             conversationId: conversationId,
             isRetry: true,

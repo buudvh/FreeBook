@@ -1,17 +1,19 @@
 import Foundation
 
-/// Quét tên riêng khi Chế độ AI của Google bị giới hạn số câu trả lời AI (1.3.612).
+/// Quét tên riêng khi Chế độ AI của Google bị giới hạn số câu trả lời AI (1.3.612, xoay tài khoản từ 1.3.614).
 ///
 /// Bằng chứng (người dùng, 2026-10-26): quét được một lúc thì app báo "Chế độ AI của Google báo lỗi…", mở trang thì Google
 /// ghi "Bạn hiện đã đạt đến giới hạn về số lượng yêu cầu đối với câu trả lời của AI. Hãy thử lại sau giây lát". Bản
 /// 1.3.609 khi đó vẫn gửi lại ngay rồi quét tiếp mỗi 5 s ⇒ càng gửi càng bị giới hạn lâu. Ở đây, lỗi được
-/// `AINameScanProviderSwitch.treatsAsRateLimit` coi là bị giới hạn thì:
-/// - có profile Gemini Web ⇒ **chuyển ngay** (người dùng chọn), gửi lại đúng lượt đó bằng Gemini Web, phần còn lại của lần
-///   quét chạy Gemini Web;
-/// - không có ⇒ chờ theo nấc 1 → 2 → 4 → 8 phút (đặt luôn hạn chờ của `GoogleAIModeTurnQueue` để chat cũng không gửi),
-///   báo tiến độ mỗi 15 s để dải tiến độ và tiêu đề tác vụ đếm ngược, chờ xong gửi lại đúng lượt đó; hết nấc ⇒ ném
-///   `rateLimitExhausted` (lỗi dừng quét — tên và điểm tiếp nối giữ như mọi lỗi dừng).
-/// Không có bất kỳ cách "lách" nào (đổi cookie/IP/tài khoản): đó là vượt cơ chế chống lạm dụng của Google.
+/// `GoogleAccountRotation.treatsAsRateLimit` coi là bị giới hạn thì:
+/// - còn **tài khoản Google khác** (profile Chế độ AI có snapshot phiên) ⇒ tráo phiên, ghi vào Cài đặt, gửi lại đúng lượt
+///   đó bằng tài khoản mới (1.3.614);
+/// - có profile Gemini Web ⇒ chuyển sang đó (người dùng chọn ở 1.3.612);
+/// - không có gì để chuyển ⇒ chờ theo nấc 1 → 2 → 4 → 8 phút (đặt luôn hạn chờ của `GoogleAIModeTurnQueue` để chat cũng
+///   không gửi), báo tiến độ mỗi 15 s để dải tiến độ và tiêu đề tác vụ đếm ngược, chờ xong gửi lại đúng lượt đó; hết nấc
+///   ⇒ ném `rateLimitExhausted` (lỗi dừng quét — tên và điểm tiếp nối giữ như mọi lỗi dừng).
+/// Không có cách "lách" nào khác (đổi IP, giả trình duyệt): đổi tài khoản chỉ là dùng hạn mức của tài khoản khác do chính
+/// người dùng đăng nhập.
 extension AINameExtractionBatchProcessor {
     /// Báo tiến độ khi đang chờ giới hạn mỗi chừng này giây (dải tiến độ tự đếm từng giây).
     private static let rateLimitProgressInterval: TimeInterval = 15
@@ -20,7 +22,7 @@ extension AINameExtractionBatchProcessor {
     func extractTurnHandlingRateLimit(
         _ turn: AINameScanFailedBatch,
         turnLabel: String,
-        providerSwitch: AINameScanProviderSwitch,
+        providerSwitch: GoogleAccountRotation,
         promptOverride: String?,
         conversationId: UUID?,
         progress: inout AINameScanProgress,
@@ -40,15 +42,26 @@ extension AINameExtractionBatchProcessor {
                 return reply
             } catch let error as GoogleAIModeError where config.activeProfile.isGoogleAIMode && !Task.isCancelled {
                 guard providerSwitch.treatsAsRateLimit(error) else { throw error }
+                let previousProfileId = config.activeProfileId
+                if let account = providerSwitch.rotateToNextAccount(),
+                   await GoogleSessionSwitcher.shared.apply(profile: account) {
+                    AISettingsStore.shared.setActiveProfile(id: account.id)
+                    await GoogleAIModeTurnQueue.shared.clearRateLimitBlock()
+                    AppLogger.shared.log("❌ 🤖 [AIMode] Quét tên riêng: Chế độ AI bị Google giới hạn ở \(turnLabel) (\(error.localizedDescription)) — tráo sang tài khoản \(account.name), gửi lại lượt này")
+                    progress.switchedProviderName = account.name
+                    onProgress(progress, nil)
+                    continue
+                }
+                providerSwitch.rollbackSwitch(to: previousProfileId)
                 if let name = providerSwitch.switchToGeminiWeb() {
-                    AppLogger.shared.log("❌ 🤖 [AIMode] Quét tên riêng: Chế độ AI bị Google giới hạn ở \(turnLabel) (\(error.localizedDescription)) — chuyển sang \(name), gửi lại lượt này")
+                    AppLogger.shared.log("❌ 🤖 [AIMode] Quét tên riêng: hết tài khoản Google để tráo ở \(turnLabel) — chuyển sang \(name), gửi lại lượt này")
                     progress.switchedProviderName = name
                     onProgress(progress, nil)
                     continue
                 }
                 guard let wait = providerSwitch.nextWait() else {
-                    AppLogger.shared.log("❌ 🤖 [AIMode] Quét tên riêng: đã chờ hết \(AINameScanProviderSwitch.rateLimitWaits.count) nấc mà Chế độ AI vẫn bị giới hạn ở \(turnLabel) — dừng")
-                    throw GoogleAIModeError.rateLimitExhausted(waitedMinutes: AINameScanProviderSwitch.totalWaitMinutes)
+                    AppLogger.shared.log("❌ 🤖 [AIMode] Quét tên riêng: đã chờ hết \(GoogleAccountRotation.rateLimitWaits.count) nấc mà Chế độ AI vẫn bị giới hạn ở \(turnLabel) — dừng")
+                    throw GoogleAIModeError.rateLimitExhausted(waitedMinutes: GoogleAccountRotation.totalWaitMinutes)
                 }
                 var retryAfter: TimeInterval = 0
                 if case .rateLimited(let seconds) = error {

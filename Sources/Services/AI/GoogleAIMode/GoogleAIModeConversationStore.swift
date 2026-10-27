@@ -36,6 +36,17 @@ enum GoogleAIModeConversationStore {
         UserDefaults.standard.set(data, forKey: storageKey)
     }
 
+    /// Quên cuộc chat của một phiên (1.3.614): tráo sang tài khoản Google khác thì `mstk` cũ thuộc tài khoản trước,
+    /// mở lại chỉ ra `threadUnavailable` — xoá trước để lượt sau mở cuộc chat mới với đủ ngữ cảnh.
+    static func delete(sessionId: UUID) {
+        lock.lock()
+        defer { lock.unlock() }
+        var entries = all()
+        guard entries.removeValue(forKey: sessionId.uuidString) != nil else { return }
+        guard let data = try? JSONEncoder().encode(entries) else { return }
+        UserDefaults.standard.set(data, forKey: storageKey)
+    }
+
     private static func all() -> [String: Entry] {
         guard let data = UserDefaults.standard.data(forKey: storageKey),
               let entries = try? JSONDecoder().decode([String: Entry].self, from: data) else {
