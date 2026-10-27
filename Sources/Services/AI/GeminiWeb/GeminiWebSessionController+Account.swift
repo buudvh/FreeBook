@@ -11,18 +11,18 @@ extension GeminiWebSessionController {
 
     /// Xoá mọi cookie `*.google.com` của kho mặc định — **cũng** đăng xuất Google trong trình duyệt bypass của app.
     ///
-    /// 1.3.614: xoá luôn snapshot phiên của **đúng tài khoản** vừa đăng xuất (mọi profile đang giữ nó); snapshot của các
-    /// tài khoản khác giữ nguyên để còn xoay vòng.
+    /// 1.3.616: xoá luôn **tài khoản** vừa đăng xuất ở mọi provider đang giữ nó (khớp theo phiên); tài khoản khác giữ
+    /// nguyên để còn xoay vòng.
     func signOut() async {
         let store = WKWebsiteDataStore.default().httpCookieStore
         let cookies = await store.allCookies()
-        let googleCookies = GoogleAccountSnapshot.googleCookies(of: cookies)
-        let fingerprint = GoogleAccountSnapshot.fingerprint(of: googleCookies)
+        let googleCookies = GoogleAccount.googleCookies(of: cookies)
+        let fingerprint = GoogleAccount.fingerprint(of: googleCookies)
         for cookie in googleCookies {
             await store.deleteCookie(cookie)
         }
         if let fingerprint {
-            GoogleAccountSnapshotStore.deleteAll(matchingFingerprint: fingerprint)
+            GoogleAccountStore.deleteAll(matchingFingerprint: fingerprint)
         }
         invalidateSession()
         releaseWebView()

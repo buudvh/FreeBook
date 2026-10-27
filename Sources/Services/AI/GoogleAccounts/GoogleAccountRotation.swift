@@ -1,25 +1,26 @@
 import Foundation
 
-/// Bộ xoay tài khoản Google cho **một** lần chạy (quét tên riêng hoặc một lượt chat Reader) — 1.3.614, thay
-/// `AINameScanProviderSwitch` của 1.3.612.
+/// Bộ xoay **tài khoản Google** trong một provider Chế độ AI, cho một lần chạy (quét tên riêng hoặc một lượt chat Reader)
+/// — 1.3.616, thay bản xoay theo profile của 1.3.615.
 ///
-/// Google giới hạn số câu trả lời AI theo **tài khoản**. Mỗi profile `googleAIMode` là một tài khoản
-/// (`GoogleAccountSnapshot`), nên khi bị giới hạn:
-/// 1. chuyển sang profile Chế độ AI **kế tiếp** trong danh sách chưa bị giới hạn trong lần chạy này;
-/// 2. hết tài khoản Chế độ AI ⇒ chuyển sang profile **Gemini Web** nếu có (giữ nguyên hành vi 1.3.612);
+/// Google giới hạn số câu trả lời AI theo **tài khoản**, mà provider Chế độ AI giữ nhiều tài khoản
+/// (`GoogleAccountStore.accounts(forProfileId:)`). Khi bị giới hạn:
+/// 1. chuyển sang tài khoản **kế tiếp** trong provider chưa bị giới hạn ở lần chạy này (vòng tròn theo `order`);
+/// 2. hết tài khoản ⇒ chuyển sang profile **Gemini Web** nếu có (giữ nguyên hành vi 1.3.612);
 /// 3. không có gì để chuyển ⇒ chờ theo nấc `rateLimitWaits` (1 → 2 → 4 → 8 phút), hết nấc thì dừng.
 ///
 /// Lượt thành công đưa nấc chờ về 0 và xoá danh sách tài khoản đã bị giới hạn. Hai lượt liên tiếp "Chế độ AI báo lỗi"
 /// (`generationFailed`) cũng tính là bị giới hạn — người dùng gặp đúng lỗi này khi Google chặn.
 ///
-/// Class có khoá vì vòng lượt chạy trong Task nền; đọc Keychain để biết profile nào thật sự có phiên.
+/// **Không** đổi `activeProfileId`: provider vẫn là một, chỉ tài khoản bên trong đổi — nên Cài đặt không tự nhảy provider.
+/// Class có khoá vì vòng lượt chạy trong Task nền.
 final class GoogleAccountRotation: @unchecked Sendable {
     /// Nấc chờ khi không còn tài khoản nào để chuyển (giây).
     static let rateLimitWaits: [TimeInterval] = [60, 120, 240, 480]
 
     private let lock = NSLock()
     private var current: AIConfiguration
-    private var limitedProfileIds: Set<String> = []
+    private var limitedAccountIds: Set<String> = []
     private var switchedName: String?
     private var waitLevel = 0
     private var consecutiveGenerationFailures = 0
@@ -34,7 +35,7 @@ final class GoogleAccountRotation: @unchecked Sendable {
         return current
     }
 
-    /// Tên profile đã chuyển sang (tài khoản Google hoặc Gemini Web); `nil` = chưa chuyển.
+    /// Nhãn tài khoản (hoặc tên profile Gemini Web) đã chuyển sang; `nil` = chưa chuyển.
     var switchedProviderName: String? {
         lock.lock(); defer { lock.unlock() }
         return switchedName
@@ -50,7 +51,7 @@ final class GoogleAccountRotation: @unchecked Sendable {
         lock.lock(); defer { lock.unlock() }
         waitLevel = 0
         consecutiveGenerationFailures = 0
-        limitedProfileIds.removeAll()
+        limitedAccountIds.removeAll()
     }
 
     /// Lỗi của Chế độ AI có phải dấu hiệu bị giới hạn không — `rateLimited`, hoặc `generationFailed` lần thứ hai liên
@@ -66,36 +67,29 @@ final class GoogleAccountRotation: @unchecked Sendable {
         return consecutiveGenerationFailures >= 2
     }
 
-    /// Chuyển sang tài khoản Google kế tiếp **chưa bị giới hạn và có snapshot phiên**, vòng tròn theo thứ tự danh sách
-    /// profile. `nil` = không còn tài khoản nào (hoặc đang không chạy Chế độ AI).
+    /// Tài khoản kế tiếp **chưa bị giới hạn** trong provider đang dùng, vòng tròn từ tài khoản đang dùng. `nil` = không
+    /// còn (hoặc provider chỉ có một tài khoản).
     ///
-    /// Đánh dấu tài khoản đang dùng là đã bị giới hạn ngay khi gọi — người gọi phải gọi `rollbackSwitch(to:)` nếu tráo
-    /// cookie thất bại.
-    func rotateToNextAccount() -> AIProviderProfile? {
+    /// Đánh dấu tài khoản đang dùng là đã bị giới hạn ngay khi gọi. Người gọi chỉ cần `GoogleSessionSwitcher.apply(account:)`
+    /// — hàm đó tự khôi phục tài khoản cũ nếu tráo hỏng.
+    func rotateToNextAccount() -> GoogleAccount? {
         lock.lock(); defer { lock.unlock() }
         guard current.activeProfile.isGoogleAIMode else { return nil }
-        let currentId = current.activeProfileId
-        limitedProfileIds.insert(currentId)
+        let profileId = current.activeProfileId
+        let accounts = GoogleAccountStore.accounts(forProfileId: profileId)
+        guard let startId = GoogleAccountStore.currentAccountId(forProfileId: profileId) ?? accounts.first?.id,
+              let start = accounts.firstIndex(where: { $0.id == startId }) else { return nil }
+        limitedAccountIds.insert(startId)
+        guard accounts.count > 1 else { return nil }
 
-        let accounts = current.profiles.filter { $0.isGoogleAIMode }
-        guard accounts.count > 1, let start = accounts.firstIndex(where: { $0.id == currentId }) else { return nil }
         for offset in 1...accounts.count {
             let candidate = accounts[(start + offset) % accounts.count]
-            guard candidate.id != currentId, !limitedProfileIds.contains(candidate.id) else { continue }
-            guard GoogleAccountSnapshotStore.load(profileId: candidate.id) != nil else { continue }
-            current.activeProfileId = candidate.id
-            switchedName = candidate.name
+            guard candidate.id != startId, !limitedAccountIds.contains(candidate.id) else { continue }
+            switchedName = candidate.label
             consecutiveGenerationFailures = 0
             return candidate
         }
         return nil
-    }
-
-    /// Tráo cookie thất bại ⇒ trả con trỏ về profile cũ để lần sau còn thử lại.
-    func rollbackSwitch(to profileId: String) {
-        lock.lock(); defer { lock.unlock() }
-        current.activeProfileId = profileId
-        switchedName = nil
     }
 
     /// Chuyển sang profile Gemini Web đầu tiên — bước cuối trước khi phải chờ. `nil` khi không có hoặc đang không chạy

@@ -34,29 +34,23 @@ extension AIRuntimeCoordinator {
         return await OpenAIClient.shared.sendChatStreaming(config: config, messages: messages)
     }
 
-    /// Lượt chat Chế độ AI bị Google giới hạn ⇒ tráo sang tài khoản Google kế tiếp. Trả `config` mới để gửi lại lượt đó;
-    /// `nil` = không chuyển được (hết tài khoản / tráo hỏng / lỗi không phải giới hạn hạn mức).
+    /// Lượt chat Chế độ AI bị Google giới hạn ⇒ tráo sang tài khoản Google kế tiếp **trong cùng provider**. Trả `true` để
+    /// gửi lại lượt đó; `false` = không chuyển được (hết tài khoản / tráo hỏng / lỗi không phải giới hạn hạn mức).
     ///
     /// Chỉ gọi khi lượt chưa phát chữ nào — đang có chữ mà tráo thì người dùng thấy câu trả lời bị đứt rồi viết lại.
     func rotateGoogleAccount(
         after error: Error,
         rotation: GoogleAccountRotation,
         session: AIChatSession
-    ) async -> AIConfiguration? {
+    ) async -> Bool {
         guard let googleError = error as? GoogleAIModeError,
               rotation.config.activeProfile.isGoogleAIMode,
-              rotation.treatsAsRateLimit(googleError) else { return nil }
-        let previousProfileId = rotation.config.activeProfileId
-        guard let account = rotation.rotateToNextAccount(),
-              await GoogleSessionSwitcher.shared.apply(profile: account) else {
-            rotation.rollbackSwitch(to: previousProfileId)
-            return nil
-        }
-        // Ghi vào Cài đặt (người dùng chọn): lần chạy sau bắt đầu bằng tài khoản vừa chuyển.
-        AISettingsStore.shared.setActiveProfile(id: account.id)
+              rotation.treatsAsRateLimit(googleError),
+              let account = rotation.rotateToNextAccount(),
+              await GoogleSessionSwitcher.shared.apply(account: account) else { return false }
         GoogleAIModeConversationStore.delete(sessionId: session.id)
         await GoogleAIModeTurnQueue.shared.clearRateLimitBlock()
-        AppLogger.shared.log("❌ 🤖 [AIMode] Chat bị Google giới hạn (\(googleError.localizedDescription)) — tráo sang tài khoản \(account.name), mở cuộc chat mới")
-        return rotation.config
+        AppLogger.shared.log("❌ 🤖 [AIMode] Chat bị Google giới hạn (\(googleError.localizedDescription)) — tráo sang tài khoản \"\(account.label)\", mở cuộc chat mới")
+        return true
     }
 }

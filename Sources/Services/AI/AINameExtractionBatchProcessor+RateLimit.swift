@@ -1,13 +1,13 @@
 import Foundation
 
-/// Quét tên riêng khi Chế độ AI của Google bị giới hạn số câu trả lời AI (1.3.612, xoay tài khoản từ 1.3.614).
+/// Quét tên riêng khi Chế độ AI của Google bị giới hạn số câu trả lời AI (1.3.612, xoay tài khoản từ 1.3.616).
 ///
 /// Bằng chứng (người dùng, 2026-10-26): quét được một lúc thì app báo "Chế độ AI của Google báo lỗi…", mở trang thì Google
 /// ghi "Bạn hiện đã đạt đến giới hạn về số lượng yêu cầu đối với câu trả lời của AI. Hãy thử lại sau giây lát". Bản
 /// 1.3.609 khi đó vẫn gửi lại ngay rồi quét tiếp mỗi 5 s ⇒ càng gửi càng bị giới hạn lâu. Ở đây, lỗi được
 /// `GoogleAccountRotation.treatsAsRateLimit` coi là bị giới hạn thì:
-/// - còn **tài khoản Google khác** (profile Chế độ AI có snapshot phiên) ⇒ tráo phiên, ghi vào Cài đặt, gửi lại đúng lượt
-///   đó bằng tài khoản mới (1.3.614);
+/// - còn **tài khoản Google khác** trong cùng provider (Chế độ AI giữ nhiều tài khoản) ⇒ tráo phiên, gửi lại đúng lượt đó
+///   bằng tài khoản mới (1.3.616);
 /// - có profile Gemini Web ⇒ chuyển sang đó (người dùng chọn ở 1.3.612);
 /// - không có gì để chuyển ⇒ chờ theo nấc 1 → 2 → 4 → 8 phút (đặt luôn hạn chờ của `GoogleAIModeTurnQueue` để chat cũng
 ///   không gửi), báo tiến độ mỗi 15 s để dải tiến độ và tiêu đề tác vụ đếm ngược, chờ xong gửi lại đúng lượt đó; hết nấc
@@ -42,17 +42,14 @@ extension AINameExtractionBatchProcessor {
                 return reply
             } catch let error as GoogleAIModeError where config.activeProfile.isGoogleAIMode && !Task.isCancelled {
                 guard providerSwitch.treatsAsRateLimit(error) else { throw error }
-                let previousProfileId = config.activeProfileId
                 if let account = providerSwitch.rotateToNextAccount(),
-                   await GoogleSessionSwitcher.shared.apply(profile: account) {
-                    AISettingsStore.shared.setActiveProfile(id: account.id)
+                   await GoogleSessionSwitcher.shared.apply(account: account) {
                     await GoogleAIModeTurnQueue.shared.clearRateLimitBlock()
-                    AppLogger.shared.log("❌ 🤖 [AIMode] Quét tên riêng: Chế độ AI bị Google giới hạn ở \(turnLabel) (\(error.localizedDescription)) — tráo sang tài khoản \(account.name), gửi lại lượt này")
-                    progress.switchedProviderName = account.name
+                    AppLogger.shared.log("❌ 🤖 [AIMode] Quét tên riêng: Chế độ AI bị Google giới hạn ở \(turnLabel) (\(error.localizedDescription)) — tráo sang tài khoản \"\(account.label)\", gửi lại lượt này")
+                    progress.switchedProviderName = account.label
                     onProgress(progress, nil)
                     continue
                 }
-                providerSwitch.rollbackSwitch(to: previousProfileId)
                 if let name = providerSwitch.switchToGeminiWeb() {
                     AppLogger.shared.log("❌ 🤖 [AIMode] Quét tên riêng: hết tài khoản Google để tráo ở \(turnLabel) — chuyển sang \(name), gửi lại lượt này")
                     progress.switchedProviderName = name

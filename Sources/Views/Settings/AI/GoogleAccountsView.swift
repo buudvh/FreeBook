@@ -1,57 +1,68 @@
 import SwiftUI
 
-/// Màn **Tài khoản Google** (1.3.614) — mỗi dòng là một profile Chế độ AI của Google, tức một tài khoản Google.
+/// Màn **Tài khoản Google** (1.3.616) — danh sách tài khoản của **một provider** Chế độ AI.
 ///
-/// Thứ tự dòng **chính là** thứ tự xoay vòng khi Google giới hạn số câu trả lời AI: bị giới hạn thì app tráo sang dòng kế
-/// tiếp (`GoogleAccountRotation`), hết tài khoản thì mới chuyển Gemini Web rồi mới chờ. Kéo ≡ để đổi thứ tự.
+/// Thứ tự dòng **chính là** thứ tự xoay vòng khi Google giới hạn số câu trả lời AI: bị giới hạn thì app tráo sang tài
+/// khoản kế tiếp (`GoogleAccountRotation`), hết tài khoản mới chuyển Gemini Web rồi mới chờ. Kéo ≡ để đổi thứ tự.
 ///
-/// Chỉ có **một** kho cookie Google trong app (iOS không có `WKWebsiteDataStore(forIdentifier:)`) ⇒ thêm tài khoản là
-/// tráo cookie, và cả app — kể cả Gemini Web lẫn trình duyệt bypass — chuyển theo tài khoản đang dùng.
+/// Chỉ có **một** kho cookie Google trong app (iOS không có `WKWebsiteDataStore(forIdentifier:)`) ⇒ chạm một dòng là tráo
+/// cookie sang tài khoản đó, và cả app — kể cả Gemini Web lẫn trình duyệt bypass — chuyển theo.
 public struct GoogleAccountsView: View {
     @State internal var config: AIConfiguration = AISettingsStore.shared.loadConfiguration()
-    /// Profile đã có snapshot phiên trong Keychain.
-    @State internal var snapshotProfileIds: Set<String> = []
-    @State internal var busyProfileId: String?
+    @State internal var accounts: [GoogleAccount] = []
+    @State internal var currentAccountId: String?
+    @State internal var busyAccountId: String?
     @State internal var errorMessage: String?
+    @State internal var draftLabel: String = ""
+    @State internal var showingNameAlert = false
+    /// `nil` = hộp tên đang dùng để **thêm** tài khoản mới; khác `nil` = đổi tên tài khoản này.
+    @State internal var renamingAccount: GoogleAccount?
 
     public init() {}
 
-    internal var accounts: [AIProviderProfile] {
-        config.profiles.filter { $0.isGoogleAIMode }
+    /// Provider đang hiển thị: provider đang chọn nếu nó là Chế độ AI, không thì provider Chế độ AI đầu tiên.
+    internal var displayProfile: AIProviderProfile? {
+        if config.activeProfile.isGoogleAIMode { return config.activeProfile }
+        return config.profiles.first(where: { $0.isGoogleAIMode })
     }
 
     public var body: some View {
         Form {
             Section(header: Text("Thứ Tự Xoay Vòng Khi Bị Giới Hạn"), footer: Text(rotationFooter)) {
+                if let displayProfile {
+                    Text("Provider: \(displayProfile.name)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
                 if accounts.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Chưa có tài khoản nào.")
                             .font(.subheadline)
                             .fontWeight(.medium)
-                        Text("Thêm một tài khoản bên dưới — app tạo profile \"Chế độ AI của Google\" tương ứng.")
+                        Text("Bấm \"Thêm tài khoản Google\" bên dưới để đăng nhập tài khoản đầu tiên.")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
                     .padding(.vertical, 4)
                 } else {
-                    ForEach(accounts) { profile in
-                        accountRow(profile)
+                    ForEach(accounts) { account in
+                        accountRow(account)
                     }
                     .onMove(perform: moveAccounts)
                 }
             }
 
             Section {
-                Button(action: addAccount) {
+                Button(action: startAddAccount) {
                     HStack(spacing: 8) {
                         Image(systemName: "plus.circle.fill")
                         Text("Thêm tài khoản Google")
                     }
                     .font(.subheadline)
                 }
-                .disabled(busyProfileId != nil)
+                .disabled(busyAccountId != nil || displayProfile == nil)
             } footer: {
-                Text("Thêm tài khoản = lưu phiên tài khoản đang đăng nhập vào profile hiện tại → xoá cookie Google → mở trang đăng nhập; đăng nhập xong thì lưu phiên vào profile mới. Huỷ giữa chừng thì phiên cũ được khôi phục.")
+                Text("Thêm tài khoản = lưu phiên tài khoản đang đăng nhập vào provider này → xoá cookie Google → mở trang đăng nhập; đăng nhập xong thì lưu thành tài khoản mới. Huỷ giữa chừng thì phiên cũ được khôi phục.")
             }
 
             if let errorMessage {
@@ -67,7 +78,7 @@ public struct GoogleAccountsView: View {
             }
 
             Section {
-                Text("Trình duyệt bypass và Gemini Web cũng chuyển sang tài khoản đang dùng — cả app chỉ có một tài khoản Google tại một thời điểm. Giao thức web không chính thức: Google đổi là có thể hỏng.")
+                Text("Cả app chỉ có một tài khoản Google tại một thời điểm (giới hạn của iOS): chạm một tài khoản là tráo phiên cho cả Chế độ AI, Gemini Web và trình duyệt bypass. Giao thức web không chính thức — Google đổi là có thể hỏng.")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
             }
@@ -78,7 +89,16 @@ public struct GoogleAccountsView: View {
         .task { await refresh() }
         .onReceive(NotificationCenter.default.publisher(for: AISettingsStore.didChangeNotification)) { _ in
             config = AISettingsStore.shared.loadConfiguration()
-            refreshSnapshotFlags()
+            reloadAccounts()
+        }
+        .alert(renamingAccount == nil ? "Thêm tài khoản Google" : "Đổi tên tài khoản", isPresented: $showingNameAlert) {
+            TextField("Tên tài khoản", text: $draftLabel)
+            Button("Huỷ", role: .cancel) { renamingAccount = nil }
+            Button("Tiếp tục") { confirmName() }
+        } message: {
+            Text(renamingAccount == nil
+                 ? "Đặt tên để phân biệt các tài khoản (ví dụ \"acc chính\", \"acc phụ\")."
+                 : "Tên chỉ để hiển thị trong app.")
         }
     }
 
@@ -86,23 +106,22 @@ public struct GoogleAccountsView: View {
         guard accounts.count > 1 else {
             return "Chỉ có một tài khoản: bị Google giới hạn thì app chờ 1 → 2 → 4 → 8 phút rồi quét tiếp. Thêm tài khoản thứ hai để app tự chuyển khi bị giới hạn."
         }
-        return "Bị Google giới hạn số câu trả lời AI ⇒ tự chuyển sang tài khoản kế tiếp theo thứ tự này và ghi vào Cài đặt. Hết tất cả ⇒ chờ 1 → 2 → 4 → 8 phút."
+        return "Bị Google giới hạn số câu trả lời AI ⇒ tự chuyển sang tài khoản kế tiếp theo thứ tự này. Hết tất cả ⇒ chuyển Gemini Web (nếu có), rồi chờ 1 → 2 → 4 → 8 phút."
     }
 
     @ViewBuilder
-    private func accountRow(_ profile: AIProviderProfile) -> some View {
-        let hasSession = snapshotProfileIds.contains(profile.id)
+    private func accountRow(_ account: GoogleAccount) -> some View {
         Button {
-            login(profile)
+            useAccount(account)
         } label: {
             HStack(alignment: .center, spacing: 10) {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
-                        Text(profile.name)
+                        Text(account.label)
                             .font(.subheadline)
                             .fontWeight(.semibold)
                             .foregroundColor(.primary)
-                        if profile.id == config.activeProfileId {
+                        if account.id == currentAccountId {
                             Text("Đang dùng")
                                 .font(.system(size: 9, weight: .bold))
                                 .padding(.horizontal, 5)
@@ -112,18 +131,12 @@ public struct GoogleAccountsView: View {
                                 .cornerRadius(4)
                         }
                     }
-                    if hasSession {
-                        Text("Chế độ AI · đã lưu phiên")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    } else {
-                        Text("Chưa gắn phiên — bấm để đăng nhập")
-                            .font(.caption)
-                            .foregroundColor(.orange)
-                    }
+                    Text("Đã lưu phiên · \(account.cookies.count) cookie")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
                 Spacer()
-                if busyProfileId == profile.id {
+                if busyAccountId == account.id {
                     ProgressView()
                         .controlSize(.small)
                 }
@@ -131,6 +144,19 @@ public struct GoogleAccountsView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(busyProfileId != nil)
+        .disabled(busyAccountId != nil)
+        .swipeActions(edge: .trailing) {
+            Button(role: .destructive) {
+                deleteAccount(account)
+            } label: {
+                Label("Xoá", systemImage: "trash")
+            }
+            Button {
+                startRename(account)
+            } label: {
+                Label("Đổi tên", systemImage: "pencil")
+            }
+            .tint(.blue)
+        }
     }
 }

@@ -121,13 +121,12 @@ public final class AIRuntimeCoordinator: ObservableObject {
         let runId = beginRun(bookId: bookId, bookTitle: bookTitle, taskTitle: Self.chatTaskTitle, session: session)
 
         tasks[bookId] = Task { [weak self] in
-            // Bộ xoay tài khoản Google của **lượt này** (1.3.614) — bị giới hạn thì tráo sang tài khoản kế rồi gửi lại.
+            // Bộ xoay tài khoản Google của **lượt này** (1.3.616) — bị giới hạn thì tráo tài khoản rồi gửi lại.
             let rotation = GoogleAccountRotation(config: config)
-            var activeConfig = config
             do {
                 var accumulated = ""
                 attempts: while true {
-                    guard let stream = await self?.makeChatStream(config: activeConfig, messages: messages, session: session) else { return }
+                    guard let stream = await self?.makeChatStream(config: config, messages: messages, session: session) else { return }
                     accumulated = ""
                     var lastUIUpdateTime: TimeInterval = 0
                     do {
@@ -151,10 +150,9 @@ public final class AIRuntimeCoordinator: ObservableObject {
                         // Chỉ tráo khi lượt chưa phát chữ nào — đang có chữ mà tráo thì câu trả lời đứt rồi viết lại.
                         guard accumulated.isEmpty,
                               let coordinator = self,
-                              let nextConfig = await coordinator.rotateGoogleAccount(after: error, rotation: rotation, session: session) else {
+                              await coordinator.rotateGoogleAccount(after: error, rotation: rotation, session: session) else {
                             throw error
                         }
-                        activeConfig = nextConfig
                         continue attempts
                     }
                     break
@@ -164,7 +162,7 @@ public final class AIRuntimeCoordinator: ObservableObject {
 
                 // Phản hồi rỗng là lỗi, không phải hoàn tất: tin trợ lý rỗng bị màn AI ẩn đi, người dùng
                 // sẽ không thấy gì (lỗi thật 1.3.506). Ném để rơi vào nhánh `catch` bên dưới.
-                let providerName = activeConfig.activeProfile.name
+                let providerName = config.activeProfile.name
                 guard !accumulated.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                     throw AIEmptyResponseError(providerName: providerName)
                 }
@@ -187,7 +185,7 @@ public final class AIRuntimeCoordinator: ObservableObject {
                 }
             } catch {
                 guard !Task.isCancelled else { return }
-                AppLogger.shared.log("❌ 🤖 [AI] \(activeConfig.activeProfile.name) lỗi: \(error.localizedDescription)")
+                AppLogger.shared.log("❌ 🤖 [AI] \(config.activeProfile.name) lỗi: \(error.localizedDescription)")
                 onError(error.localizedDescription)
                 await MainActor.run {
                     guard let self = self, self.isCurrentRun(runId, bookId: bookId) else { return }

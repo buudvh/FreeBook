@@ -8,17 +8,27 @@ extension AISettingsView {
         apiKeysText = config.activeProfile.allEffectiveApiKeys().joined(separator: "\n")
         testResultMessage = nil
         saveConfigSilently()
+        refreshGoogleAccountCount()
+    }
+
+    /// Đếm tài khoản Google của provider Chế độ AI đang dùng (hoặc provider Chế độ AI đầu tiên) — 1.3.616.
+    internal func refreshGoogleAccountCount() {
+        let profile = config.activeProfile.isGoogleAIMode
+            ? config.activeProfile
+            : config.profiles.first(where: { $0.isGoogleAIMode })
+        googleAccountCount = profile.map { GoogleAccountStore.accounts(forProfileId: $0.id).count } ?? 0
     }
 
     internal func deleteCurrentProfile() {
         let idToDelete = config.activeProfileId
         config.deleteProfile(id: idToDelete)
-        // Xoá profile Chế độ AI thì xoá luôn phiên Google của nó (1.3.614) — không để lại snapshot mồ côi.
-        GoogleAccountSnapshotStore.delete(profileId: idToDelete)
+        // Xoá profile Chế độ AI thì xoá luôn các tài khoản Google của nó (1.3.616) — không để lại tài khoản mồ côi.
+        GoogleAccountStore.deleteAll(profileId: idToDelete)
         modelsText = config.activeProfile.availableModels.joined(separator: "\n")
         apiKeysText = config.activeProfile.allEffectiveApiKeys().joined(separator: "\n")
         testResultMessage = nil
         saveConfigSilently()
+        refreshGoogleAccountCount()
     }
 
     internal func syncModelsFromText(_ text: String) {

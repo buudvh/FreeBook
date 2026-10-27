@@ -12,6 +12,8 @@ public struct AISettingsView: View {
     @State internal var isTestSuccess = false
     @State internal var isFetchingModels = false
     @State internal var showingAddProviderSheet = false
+    /// Số tài khoản Google của provider Chế độ AI (1.3.616) — đọc Keychain nên giữ ở `@State`, làm mới khi cần.
+    @State internal var googleAccountCount: Int = 0
     @State private var showingClearAllSessionsAlert = false
 
     public init() {}
@@ -294,10 +296,12 @@ public struct AISettingsView: View {
             config = AISettingsStore.shared.loadConfiguration()
             modelsText = config.activeProfile.availableModels.joined(separator: "\n")
             apiKeysText = config.activeProfile.allEffectiveApiKeys().joined(separator: "\n")
+            refreshGoogleAccountCount()
         }
         .task {
-            // Nâng cấp từ 1.3.613: gắn phiên Google đang có vào profile Chế độ AI đang chọn (một lần, có cờ).
+            // Nâng cấp: gắn phiên Google đang có thành tài khoản của provider Chế độ AI (một lần, có cờ).
             await GoogleSessionSwitcher.shared.migrateIfNeeded(profile: config.activeProfile)
+            refreshGoogleAccountCount()
         }
         .onChange(of: config) { _, newConfig in
             AISettingsStore.shared.saveConfiguration(newConfig)
@@ -320,12 +324,8 @@ public struct AISettingsView: View {
                 modelsText = config.activeProfile.availableModels.joined(separator: "\n")
                 apiKeysText = config.activeProfile.allEffectiveApiKeys().joined(separator: "\n")
             }
+            refreshGoogleAccountCount()
         }
-    }
-
-    /// Số tài khoản Google = số profile Chế độ AI của Google (1.3.614).
-    internal var googleAccountCount: Int {
-        config.profiles.filter { $0.isGoogleAIMode }.count
     }
 
     internal var parsedKeysCount: Int {

@@ -1,16 +1,17 @@
 import Foundation
 
-/// Ảnh chụp phiên đăng nhập Google của **một** profile Chế độ AI (1.3.614).
+/// Một **tài khoản Google** thuộc một provider Chế độ AI (1.3.616) — provider giữ nhiều tài khoản và xoay vòng giữa chúng
+/// khi Google giới hạn số câu trả lời AI.
 ///
 /// iOS không có `WKWebsiteDataStore(forIdentifier:)` (chỉ macOS) nên app chỉ có một kho cookie Google tại một thời điểm.
-/// Muốn nhiều tài khoản thì phải tự lưu/khôi phục: mỗi profile Chế độ AI giữ một snapshot trong Keychain
-/// (`GoogleAccountSnapshotStore`), `GoogleSessionSwitcher` tráo vào `WKWebsiteDataStore.default()` trước mỗi lượt.
+/// Muốn nhiều tài khoản thì phải tự lưu/khôi phục: mỗi tài khoản giữ một bản cookie trong Keychain
+/// (`GoogleAccountStore`), `GoogleSessionSwitcher` tráo vào `WKWebsiteDataStore.default()` trước mỗi lượt.
 ///
-/// Chỉ giữ cookie domain `*.google.com` — Chế độ AI và Gemini Web đều nằm trong domain đó. `sessionFingerprint` băm
-/// cookie phiên `__Secure-1PSID` để biết kho đang chứa tài khoản nào mà không cần đọc email từ trang Google.
-struct GoogleAccountSnapshot: Codable, Sendable, Equatable {
-    /// Cookie đã tách khỏi `HTTPCookie` để `Codable` được. Thiếu `sameSite` là chấp nhận được: mọi điều hướng của app
-    /// đều trong `google.com` nên không phải request cross-site.
+/// Chỉ giữ cookie domain `*.google.com`. `sessionFingerprint` băm cookie phiên `__Secure-1PSID` để biết kho đang chứa tài
+/// khoản nào mà không cần đọc email từ trang Google. `order` quyết định thứ tự xoay vòng (0 trước).
+struct GoogleAccount: Codable, Sendable, Equatable, Identifiable {
+    /// Cookie đã tách khỏi `HTTPCookie` để `Codable` được. Thiếu `sameSite` là chấp nhận được: mọi điều hướng của app đều
+    /// trong `google.com` nên không phải request cross-site.
     struct Cookie: Codable, Sendable, Equatable {
         var name: String
         var value: String
@@ -21,19 +22,35 @@ struct GoogleAccountSnapshot: Codable, Sendable, Equatable {
         var isHTTPOnly: Bool
     }
 
+    var id: String
+    /// Provider sở hữu tài khoản này (`AIProviderProfile.id`).
     var profileId: String
+    /// Tên người dùng đặt ("acc chính", "acc phụ"…).
+    var label: String
     var cookies: [Cookie]
     var savedAt: Date
     var sessionFingerprint: String
+    /// Thứ tự xoay vòng trong provider.
+    var order: Int
 
     /// Cookie mang phiên đăng nhập Google — có nó là đã đăng nhập (`GeminiWebSessionController+Account.isSignedIn`).
     static let sessionCookieName = "__Secure-1PSID"
 
-    /// `nil` khi kho không có cookie phiên (chưa đăng nhập) — không lưu snapshot rỗng.
-    init?(profileId: String, cookies: [HTTPCookie], savedAt: Date = Date()) {
+    /// `nil` khi kho không có cookie phiên (chưa đăng nhập) — không lưu tài khoản rỗng.
+    init?(
+        profileId: String,
+        label: String,
+        order: Int,
+        cookies: [HTTPCookie],
+        id: String = UUID().uuidString,
+        savedAt: Date = Date()
+    ) {
         let google = Self.googleCookies(of: cookies)
         guard let fingerprint = Self.fingerprint(of: google) else { return nil }
+        self.id = id
         self.profileId = profileId
+        self.label = label
+        self.order = order
         self.savedAt = savedAt
         self.sessionFingerprint = fingerprint
         self.cookies = google.map {
@@ -55,6 +72,10 @@ struct GoogleAccountSnapshot: Codable, Sendable, Equatable {
 
     /// Cookie để nạp lại vào `WKHTTPCookieStore`. Cookie hỏng (`HTTPCookie(properties:)` trả `nil`) bị bỏ qua.
     var httpCookies: [HTTPCookie] {
+        Self.httpCookies(from: cookies)
+    }
+
+    static func httpCookies(from cookies: [Cookie]) -> [HTTPCookie] {
         cookies.compactMap { cookie in
             var properties: [HTTPCookiePropertyKey: Any] = [
                 .name: cookie.name,
