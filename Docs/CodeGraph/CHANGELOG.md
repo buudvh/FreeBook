@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.616] - 2026-10-27
+
+### fix: giảm đệm trái phải ba sheet bôi đen, sheet thêm rule mở toàn màn
+
+Người dùng: *"giảm padding của các màn hình dịch, xóa từ rác, copy gốc / bỏ nấc hiển thị giữa màn hình của sheet thêm rule"*, rồi chốt *"giảm padding trái phải thôi"*.
+
+- **Ba sheet bôi đen** (Dịch `ReaderDefinitionOverlayView`, Xoá từ rác `ReaderJunkDeleteOverlayView`, Copy gốc `ReaderCopyOriginalOverlayView`): đệm ngang 16 → 12; đệm trên, dưới và khoảng giãn giữa các hàng giữ nguyên.
+- **Sheet thêm/sửa rule** (`QuickTranslationRuleEditorSheet`): bỏ nấc nửa màn của 1.3.613 (`presentationDetents([.medium, .large], selection:)`, state `detent`, tự kéo lên khi chạm ô nhập) — sheet mở toàn màn như trước.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.615] - 2026-10-27
 
 ### feat: tự xoay tài khoản Google cho Chế độ AI khi bị giới hạn
@@ -400,14 +410,3 @@ Người dùng: danh sách truyện để chia sẻ VP và nhập VP *"chưa the
 - Màn Cài đặt › Nội dung nhạy cảm chưa nhắc hai sheet này (dòng "Sách đã thêm lên Kệ vẫn hiện bình thường" chỉ đúng cho Kệ).
 - Chuyển entry `[1.3.557]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.586] - 2026-10-22
-
-### merge: đưa nguồn Legado (đợt 1–3) vào main
-
-Gộp nhánh `claude/legado-source-bb5e46` (nguồn truyện Legado viết mới theo đặc tả — engine rule/mạng/JS, tab Nguồn Legado, tranh/video, đăng nhập, quản lý, bộ chạy nghiệm thu) vào `main`.
-
-- **Đánh lại số phiên bản**: `main` đã dùng 1.3.557–1.3.561 cho năm commit của các phiên khác, nên các mục của nhánh **1.3.557–1.3.580 nay là 1.3.562–1.3.585** (cộng 5; đổi cả chỗ nhắc trong `rules.md`, `check_architecture.py`, comment `AppFilledButtonStyle`). Số cũ còn gặp trong ghi chú/hội thoại trước ngày 2026-10-22 thì cộng 5.
-- **Xung đột**: chỉ ở `CHANGELOG.md` / `CHANGELOG.archive.md` — giữ mục của cả hai phía (Legado ở trên), phần đã chuyển sang lưu trữ theo nhánh; đối chiếu đủ mọi phiên bản của hai phía, không mất mục nào (ba số trùng 1.3.172/173/180 có sẵn từ trước). Đẩy 1.3.551–1.3.556 sang lưu trữ để file chính còn ~30 mục.
-- **File Swift tự gộp** (`SearchView`, `DiscoveryView`, `ExtensionSelectorView`, `BookDetailView`, `SearchExtensionScopePolicy`): đã đọc lại hai phía — `kindScopePackageId` của `main` và bộ lọc/lịch tìm nguồn Legado của nhánh cùng tồn tại; `main` không thêm lời gọi `ExtensionManager.shared.<x>` trực tiếp nào bỏ qua `SourceRuntime`.
-- **Kiểm chứng**: xem commit merge. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.

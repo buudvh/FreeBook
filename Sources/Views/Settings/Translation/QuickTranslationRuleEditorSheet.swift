@@ -11,9 +11,7 @@ import SwiftUI
 /// Ở chế độ sửa (hoặc không có truyện), Lưu là nút thường: chế độ sửa giữ phạm vi của rule đang sửa — đổi phạm vi
 /// lúc sửa là *copy sang bộ khác*, không phải sửa — việc đó đã có nút Chuyển ở danh sách.
 ///
-/// Sheet tự khai nấc `.medium` / `.large` nên cả hai nơi mở (panel Dịch của Reader, danh sách rule) đều mở nửa màn.
-/// Ngoại lệ: dựng lại giữa lúc gõ (`restoredFocus != nil`) thì mở `.large`. Chạm vào ô nhập ⇒ tự kéo lên `.large`;
-/// không tự thu về `.medium`.
+/// Sheet mở toàn màn (không có nấc nửa màn — đã thử ở 1.3.613, bỏ ở 1.3.615 theo yêu cầu người dùng).
 ///
 /// **Chữ đang gõ không còn chỉ sống trong `@State` của sheet**: nó được mirror sang
 /// `QuickTranslationRuleDraftStore` và `init` khôi phục lại từ đó. Lý do đầy đủ ở doc của store — tóm
@@ -89,11 +87,9 @@ struct QuickTranslationRuleEditorSheet: View {
     /// Lỗi do store trả về lúc lưu (khác với lỗi cú pháp mà bản nháp tự chấm được).
     @State private var errorText: String? = nil
     @State private var isSaving = false
-    /// Ô đang gõ: ghi vào bản nháp, và khác `nil` thì kéo sheet lên `.large`. Cả hai ô nhập đều là
-    /// `UIViewRepresentable` nên không dùng được `@FocusState`; mỗi ô tự báo lên qua `onFocusChange`.
+    /// Ô đang gõ, chỉ để ghi vào bản nháp. Cả hai ô nhập đều là `UIViewRepresentable` nên không dùng
+    /// được `@FocusState`; mỗi ô tự báo lên qua `onFocusChange`.
     @State var focusedField: QuickTranslationRuleDraftStore.Field?
-    /// Nấc sheet đang chọn — xem doc đầu struct.
-    @State private var detent: PresentationDetent
 
     /// Ô đang gõ lúc bản nháp được lưu. Khôi phục ở `onAppear` để một lượt dựng lại không làm tụt
     /// bàn phím giữa lúc gõ.
@@ -141,8 +137,6 @@ struct QuickTranslationRuleEditorSheet: View {
         _replacementSelectionLength = State(initialValue: restored?.replacementSelectionLength ?? 0)
         restoredFocus = restored?.focus
         didRestoreDraft = restored != nil
-        // Đang gõ dở thì ô nhập tự lấy lại bàn phím (`autoFocus`) ⇒ mở thẳng `.large` cho khỏi nhảy nấc.
-        _detent = State(initialValue: restored?.focus != nil ? .large : .medium)
     }
 
     private var isEditing: Bool {
@@ -225,12 +219,7 @@ struct QuickTranslationRuleEditorSheet: View {
             .onChange(of: replacement) { _, newValue in
                 reconcileReplacementSelection(after: newValue)
             }
-            .onChange(of: focusedField) { _, newValue in
-                guard newValue != nil, detent != .large else { return }
-                withAnimation { detent = .large }
-            }
         }
-        .presentationDetents([.medium, .large], selection: $detent)
     }
 
     // MARK: - Lưu

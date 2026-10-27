@@ -25,7 +25,8 @@ struct ReaderJunkDeleteOverlayView: View {
             junkInputView
             actionButtonsView
         }
-        .padding([.horizontal, .bottom])
+        .padding(.horizontal, 12)
+        .padding(.bottom)
         // Thanh kéo là của sheet gốc (`ReaderView+SelectionSheets`). Khoảng trên = chỗ capsule giả cũ
         // (16 + 13 + 16) để sheet cao đúng như panel trước.
         .padding(.top, 45)

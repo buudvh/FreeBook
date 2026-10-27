@@ -127,7 +127,7 @@ struct ReaderDefinitionOverlayView: View {
                 quickLookupLinksView
             }
         }
-        .padding(.horizontal)
+        .padding(.horizontal, 12)
         // Thanh kéo là của sheet gốc (`ReaderView+SelectionSheets`). Khoảng trên = chỗ capsule giả cũ
         // (4 + 13 + 8) để sheet cao đúng như panel trước. Nấc sheet do `fittedSheetDetent` đo, không khai ở đây.
         .padding(.top, 25)

@@ -43,7 +43,8 @@ struct ReaderCopyOriginalOverlayView: View {
             previewView
             copyButtonView
         }
-        .padding([.horizontal, .bottom])
+        .padding(.horizontal, 12)
+        .padding(.bottom)
         // Thanh kéo là của sheet gốc (`ReaderView+SelectionSheets`). Khoảng trên = chỗ capsule giả cũ
         // (16 + 13 + 14) để sheet cao đúng như panel trước.
         .padding(.top, 43)
