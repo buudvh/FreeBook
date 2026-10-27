@@ -18,6 +18,9 @@ struct VideoPlayerScreen: View {
     private let onDismiss: (() -> Void)?
     @State private var controller: VideoPlayerController
     @State private var isLeaving = false
+    /// Trình duyệt "Mở link lỗi" (`fullScreenCover`) đã che màn lúc `onDisappear` ⇒ lần `onAppear` kế tiếp là quay lại từ
+    /// trình duyệt, không phải mở màn — bỏ qua cả hai (xem chú thích ở `onDisappear`).
+    @State private var isCoveredByErrorBrowser = false
 
     init(launch: BookContentLaunch) {
         self.launch = launch
@@ -66,7 +69,13 @@ struct VideoPlayerScreen: View {
         .sheet(isPresented: $controller.showsBatchDownloadSheet) {
             batchDownloadSheet
         }
+        // Lớp phủ lỗi ⇒ "Mở link lỗi": đóng trình duyệt ⇒ chép cookie ⇒ đúng hành động "Thử lại" của lớp phủ.
+        .errorLinkBrowser(link: $controller.openingErrorLink, packageId: session.launch?.extensionPackageId) { session.retry() }
         .onAppear {
+            if isCoveredByErrorBrowser {
+                isCoveredByErrorBrowser = false
+                return
+            }
             VideoPlayerPresenter.install()
             if let launch {
                 session.open(launch, modelContainer: modelContext.container)
@@ -88,6 +97,12 @@ struct VideoPlayerScreen: View {
             leave(stopPlayback: false)
         }
         .onDisappear {
+            // Trình duyệt "Mở link lỗi" che màn (không phải rời màn): gỡ màn lúc này sẽ thu nhỏ trình phát (hub hiện mục
+            // Video) và trả khoá xoay; khi quay lại, `open` lại tự `retry()` trước khi kịp chép cookie. Giữ nguyên hết.
+            if controller.openingErrorLink != nil {
+                isCoveredByErrorBrowser = true
+                return
+            }
             controller.cancelTimers()
             controller.onMinimizeRequest = nil
             FloatingWidgetSuppression.shared.isSuppressed = false

@@ -15,7 +15,7 @@ extension BookDetailView {
             case .success:
                 targetBook = book
             case .failure(let err):
-                self.detailErrorMessage = "Lỗi thêm vào kệ: \(err.localizedDescription)"
+                self.setDetailError("Lỗi thêm vào kệ: \(err.localizedDescription)")
                 return
             }
         } else {

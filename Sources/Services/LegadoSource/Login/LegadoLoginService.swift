@@ -135,6 +135,27 @@ enum LegadoLoginService {
         LegadoLoginStore.shared.markChecked(sourceKey: source.key)
     }
 
+    /// Nút "Mở link lỗi" (`WebKitCookieBridge`, sau khi đóng trình duyệt): gộp cookie WebKit đã khớp tên miền lỗi vào kho
+    /// cookie của nguồn `packageId` **nếu** đó là nguồn Legado đã cài — engine Legado chỉ gửi cookie trong kho theo nguồn
+    /// (session ephemeral, không đọc `HTTPCookieStorage.shared`). Không phải nguồn Legado ⇒ bỏ qua. Không đánh dấu
+    /// "kiểm tra lúc" (không phải đăng nhập); `absorbStored` tự ghi bền. Không log giá trị cookie.
+    static func importErrorLinkCookies(_ cookies: [HTTPCookie], packageId: String) async {
+        guard !cookies.isEmpty,
+              let ext = ExtensionLibraryRepository.snapshot(packageId: packageId),
+              LegadoSourceIdentity.isLegado(ext) else { return }
+        let target: LegadoSourceRuntime.Target?
+        do {
+            target = try LegadoSourceTargetResolver.shared.target(localPath: ext.localPath)
+        } catch {
+            AppLogger.shared.log("[LegadoLogin] Không tra được nguồn \(packageId) để gộp cookie: \(LegadoCorpusErrorClassifier.redact(error.localizedDescription))")
+            return
+        }
+        guard let target else { return }
+        let jar = LegadoCookieJar.shared(forSourceKey: target.engineSource.key, store: LegadoFileStateStore.shared)
+        jar.absorbStored(cookies.map { LegadoStoredCookie(httpCookie: $0) })
+        AppLogger.shared.log("[LegadoLogin] Đã gộp \(cookies.count) cookie vào kho của nguồn \(packageId)")
+    }
+
     /// Đăng xuất (§10.4 mục 6): xoá thông tin + header đăng nhập (Keychain) và **mọi** cookie của nguồn.
     static func logout(source: LegadoEngineSource) async {
         LegadoLoginStore.shared.removeAll(sourceKey: source.key)

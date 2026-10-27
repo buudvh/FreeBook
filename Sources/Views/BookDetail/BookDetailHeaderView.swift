@@ -20,6 +20,9 @@ struct BookDetailHeaderView: View {
     @Binding var isDescExpanded: Bool
     let isLoadingDetail: Bool
     let detailErrorMessage: String
+    /// Link "Mở link lỗi" của `detailErrorMessage`; màn cha gắn `.errorLinkBrowser` cho `openingErrorLink`.
+    let detailErrorLink: SourceErrorLink?
+    @Binding var openingErrorLink: SourceErrorLink?
     let extensionPackageId: String
     let localPath: String
     let downloadUrl: String
@@ -114,19 +117,34 @@ struct BookDetailHeaderView: View {
         }
     }
 
+    /// Dải lỗi gọn (đã có tên truyện): câu lỗi + dòng URL xám, bên phải la bàn "Mở link lỗi" và ↻ thử lại chi tiết.
     private var errorView: some View {
-        VStack(spacing: 12) {
-            Text(detailErrorMessage)
-                .foregroundColor(.red)
-                .font(.caption)
-                .multilineTextAlignment(.center)
-            Button("Thử lại chi tiết") {
-                onLoadBookDetailOnly()
+        HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(detailErrorMessage)
+                    .foregroundColor(.red)
+                    .font(.caption)
+                    .lineLimit(3)
+                ErrorLinkCaption(link: detailErrorLink)
             }
-            .buttonStyle(.bordered)
+            Spacer(minLength: 4)
+            ErrorLinkButton(link: detailErrorLink, presenting: $openingErrorLink, style: .icon)
+            Button(action: onLoadBookDetailOnly) {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Color.white)
+                    .frame(width: 36, height: 36)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Thử lại chi tiết")
         }
-        .padding(.vertical, 20)
-        .frame(maxWidth: .infinity)
+        .padding(.leading, 12)
+        .padding(.trailing, 4)
+        .padding(.vertical, 6)
+        .background(Color.red.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+        .padding(.horizontal)
+        .padding(.top, 16)
     }
 
     private var formattedAuthor: String {

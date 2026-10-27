@@ -42,7 +42,8 @@ final class VideoPlaybackSession {
         case buffering
         case playing
         case embed
-        case failed(String)
+        /// Chữ lỗi + link "Mở link lỗi" của lớp phủ lỗi (`episodeErrorLink`) — link mất cùng lúc với trạng thái lỗi.
+        case failed(String, link: SourceErrorLink? = nil)
     }
 
     /// Trang nhúng kèm hai header duy nhất được đưa tới trang (hợp đồng extension: chỉ `User-Agent` và `Referer`).

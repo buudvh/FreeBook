@@ -46,7 +46,8 @@ struct VideoPlayerStage: View {
                 phase: session.phase,
                 canTryAnotherServer: session.canTryAnotherServer,
                 onRetry: { session.retry() },
-                onTryAnotherServer: { session.tryAnotherServer() }
+                onTryAnotherServer: { session.tryAnotherServer() },
+                onOpenErrorLink: { controller.openingErrorLink = $0 }
             )
 
             VideoPlayerControlsOverlay(

@@ -181,6 +181,10 @@ struct ReaderView: View {
 
     // Trạng thái bypass Cloudflare và import sách
     @State internal var showingBypassBrowser = false
+    @State internal var openingChapterErrorLink: SourceErrorLink? // nút "Mở link lỗi" của khối lỗi tải chương
+    /// Trình duyệt "Mở link lỗi" che màn lúc `onDisappear` ⇒ lượt `.task` bootstrap kế tiếp bỏ qua: chương đang lỗi sẽ bị
+    /// `updateChapterSnapshot` tải lại trước khi chép cookie. `retryPendingNavigation` (sau chép cookie) cũng hạ cờ.
+    @State private var skipsReappearBootstrap = false
     @State var lookupRoute: ReaderLookupRoute?
     /// Tra cứu mở từ **trong** sheet Dịch: cover phải gắn trong sheet đó (`ReaderView+SelectionSheets`).
     @State var definitionLookupRoute: ReaderLookupRoute?
@@ -648,6 +652,10 @@ struct ReaderView: View {
                 urlString: route.urlString
             )
         }
+        .errorLinkBrowser(link: $openingChapterErrorLink, packageId: localBook?.extensionPackageId ?? extensionPackageId) {
+            skipsReappearBootstrap = false
+            viewModel?.retryPendingNavigation()
+        }
         .background(
             Group {
                 NavigationLink(
@@ -829,6 +837,10 @@ struct ReaderView: View {
     private var readerLifecycleView: some View {
         readerDataObservationView
         .task(id: readerBootstrapKey) {
+            if skipsReappearBootstrap {
+                skipsReappearBootstrap = false
+                return
+            }
             await initializeReaderIfNeeded()
         }
         .onAppear {
@@ -845,6 +857,11 @@ struct ReaderView: View {
             updateDisplayedBookTitleCache()
         }
         .onDisappear {
+            // Trình duyệt "Mở link lỗi" che màn (không phải rời Reader): không `shutdown`, không tải lại khi hiện lại.
+            if openingChapterErrorLink != nil {
+                skipsReappearBootstrap = true
+                return
+            }
             if navigateToChangeSource || navigateToBookDetail { return }
             if !showingAIFullScreen, AIRuntimeCoordinator.shared.activeReaderBookId == bookId {
                 AIRuntimeCoordinator.shared.activeReaderBookId = nil

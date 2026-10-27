@@ -15,7 +15,8 @@ final class ComicReaderViewModel {
         case loading
         case loaded
         case empty
-        case failed(String)
+        /// Chữ lỗi + link "Mở link lỗi" (fetch lỗi của script → URL chương) — link mất cùng lúc với trạng thái lỗi.
+        case failed(String, link: SourceErrorLink?)
     }
 
     let launch: BookContentLaunch
@@ -167,7 +168,8 @@ final class ComicReaderViewModel {
         } catch {
             // Không log lại: `comicPages` đã log ❌ (`ExtensionManagerError.sourceResponse`), lỗi của màn này log ở `readerError`.
             guard generation == loadGeneration, !Task.isCancelled else { return }
-            loadState = .failed(error.localizedDescription)
+            let link = SourceErrorLink.resolve(from: error, fallback: currentChapterUrl, host: bookHost)
+            loadState = .failed(error.localizedDescription, link: link)
         }
     }
 

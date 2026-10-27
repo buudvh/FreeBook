@@ -36,6 +36,9 @@ struct BookDetailVideoTOCGrid: View {
     let isAscending: Bool
     let isLoading: Bool
     let errorMessage: String
+    /// Link "Mở link lỗi" của `errorMessage` (đã resolve ở màn cha, dự phòng URL chi tiết truyện).
+    let errorLink: SourceErrorLink?
+    @Binding var openingErrorLink: SourceErrorLink?
     /// "tập" với video — dùng cho tiêu đề, placeholder và nhãn trợ năng.
     let noun: String
     /// Số trang mục lục còn lại chưa nạp (0 = không hiện nút "Tải thêm").
@@ -348,18 +351,9 @@ struct BookDetailVideoTOCGrid: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 40)
         } else if !errorMessage.isEmpty {
-            VStack(spacing: 12) {
-                Text(errorMessage)
-                    .font(.subheadline)
-                    .foregroundStyle(.red)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-
-                Button("Tải lại mục lục", action: onReload)
-                    .buttonStyle(.bordered)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 30)
+            BookDetailTOCErrorBlock(message: errorMessage, link: errorLink, openingLink: $openingErrorLink, onReload: onReload)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 10)
         } else {
             Text("Không tìm thấy \(noun) nào hoặc lỗi tải \(noun)")
                 .font(.subheadline)

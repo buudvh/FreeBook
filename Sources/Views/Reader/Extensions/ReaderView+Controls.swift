@@ -23,25 +23,62 @@ extension ReaderView {
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Button(action: { vm.retryPendingNavigation() }) {
-                HStack(spacing: 8) {
-                    if vm.isRetryingNavigation {
-                        ProgressView().tint(selectedTheme.textColor)
-                    } else {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                    Text("Tải lại")
-                }
-                .font(.body.weight(.semibold))
-                .foregroundColor(selectedTheme.textColor)
-                .frame(minWidth: 132, minHeight: 44)
-                .background(selectedTheme.textColor.opacity(0.1))
-                .cornerRadius(8)
+            if let link = failure.errorLink {
+                // Như `ErrorLinkCaption` nhưng theo màu theme đọc (`.secondary` lệch tông trên theme sáng/trầm ấm).
+                Text(link.displayText)
+                    .font(.caption2)
+                    .foregroundColor(selectedTheme.textColor.opacity(0.5))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .accessibilityLabel("Link lỗi: \(link.displayText)")
             }
-            .disabled(vm.isRetryingNavigation)
+
+            // Hai nút một hàng; chữ to (Dynamic Type) không đủ chỗ thì xếp dọc.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) { chapterErrorActions(failure: failure, viewModel: vm) }
+                VStack(spacing: 10) { chapterErrorActions(failure: failure, viewModel: vm) }
+            }
         }
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// `[Tải lại] [Mở link lỗi]` của khối lỗi tải chương. Nút link tự dựng theo kiểu nút "Tải lại" (màu theme đọc) thay
+    /// cho `ErrorLinkButton` (chữ trắng cố định — mất trên theme sáng); bấm ⇒ `.errorLinkBrowser` ở `ReaderView` mở trình
+    /// duyệt, đóng ⇒ chép cookie ⇒ `retryPendingNavigation()`.
+    @ViewBuilder
+    private func chapterErrorActions(failure: ReaderChapterLoadFailure, viewModel vm: ReaderViewModel) -> some View {
+        Button(action: { vm.retryPendingNavigation() }) {
+            HStack(spacing: 8) {
+                if vm.isRetryingNavigation {
+                    ProgressView().tint(selectedTheme.textColor)
+                } else {
+                    Image(systemName: "arrow.clockwise")
+                }
+                Text("Tải lại")
+            }
+            .font(.body.weight(.semibold))
+            .foregroundColor(selectedTheme.textColor)
+            .frame(minWidth: 132, minHeight: 44)
+            .background(selectedTheme.textColor.opacity(0.1))
+            .cornerRadius(8)
+        }
+        .disabled(vm.isRetryingNavigation)
+
+        if let link = failure.errorLink {
+            Button(action: { openingChapterErrorLink = link }) {
+                Label(ErrorLinkButton.title, systemImage: ErrorLinkButton.systemImage)
+                    .font(.body.weight(.semibold))
+                    .foregroundColor(selectedTheme.textColor)
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 44)
+                    .background(selectedTheme.textColor.opacity(0.1))
+                    .cornerRadius(8)
+            }
+            .disabled(vm.isRetryingNavigation)
+            .accessibilityLabel(ErrorLinkButton.accessibilityText)
+            .accessibilityHint(link.displayText)
+        }
     }
 
     internal func completeReaderPositionRestore(after delay: TimeInterval = 0) {

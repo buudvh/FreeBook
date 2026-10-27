@@ -10,6 +10,8 @@ final class PaginatedNovelLoader: ObservableObject {
     @Published private(set) var isLoading = false
     @Published private(set) var isLoadingMore = false
     @Published private(set) var errorMessage = ""
+    /// Link "Mở link lỗi" của `errorMessage` (lỗi trang 1) — gán/xoá cùng chỗ với chữ lỗi; `nil` ⇒ màn ẩn nút.
+    @Published private(set) var errorLink: SourceErrorLink?
     @Published private(set) var canLoadMore = false
 
     private let localPath: String
@@ -59,6 +61,7 @@ final class PaginatedNovelLoader: ObservableObject {
         if page == 1 {
             isLoading = true
             errorMessage = ""
+            errorLink = nil
             retryCount = 0
         } else {
             isLoadingMore = true
@@ -114,6 +117,9 @@ final class PaginatedNovelLoader: ObservableObject {
             AppLogger.shared.log("❌ [PaginatedNovelLoader] load page \(page) error: \(error.localizedDescription)")
             if page == 1 {
                 errorMessage = error.localizedDescription
+                // URL mục (`input`) có thể là mẫu `{0}` / từ khoá trần ⇒ `SourceErrorLink` tự loại, dùng `source` nguồn.
+                let sourceUrl = ExtensionHostResolver.sourceUrl(localPath: localPath)
+                errorLink = SourceErrorLink.resolve(from: error, fallbacks: [input, sourceUrl], host: sourceUrl)
                 isLoading = false
                 canLoadMore = false
             } else {

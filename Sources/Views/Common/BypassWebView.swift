@@ -12,11 +12,21 @@ struct BypassWebView: View {
 
     let urlString: String
     let host: String?
+    /// Ép UA/chế độ điện thoại cho mọi tab của phiên này (bỏ qua chế độ máy tính theo tên miền, không ghi đè tuỳ chọn
+    /// đã lưu) — dùng khi mở từ nút "Mở link lỗi" để clearance khớp UA của `fetch`. Xem `BypassBrowserTabStore+MobileOverride`.
+    /// Bật thì `urlString` http(s) tuyệt đối được mở nguyên văn (không qua `cleanAndResolveUrl`) — xem `resolvedUrl`.
+    let forcesMobileUserAgent: Bool
     var onImport: ((_ detailUrl: String, _ extensionPackageId: String, _ sourceName: String) -> Void)? = nil
 
-    init(urlString: String, host: String? = nil, onImport: ((_ detailUrl: String, _ extensionPackageId: String, _ sourceName: String) -> Void)? = nil) {
+    init(
+        urlString: String,
+        host: String? = nil,
+        forcesMobileUserAgent: Bool = false,
+        onImport: ((_ detailUrl: String, _ extensionPackageId: String, _ sourceName: String) -> Void)? = nil
+    ) {
         self.urlString = urlString
         self.host = host
+        self.forcesMobileUserAgent = forcesMobileUserAgent
         self.onImport = onImport
     }
 
@@ -45,6 +55,13 @@ struct BypassWebView: View {
 
     var resolvedUrl: URL? {
         if urlString == "home" { return nil }
+        // Link lỗi (`SourceErrorLink.url`) đã là URL tuyệt đối đã kiểm: mở **nguyên văn**. `cleanAndResolveUrl` nhảy tới
+        // `http(s)://` cuối cùng trong chuỗi ⇒ URL fetch kiểu `…?url=https://…` sẽ mở nhầm trang và chép nhầm cookie.
+        if forcesMobileUserAgent, let direct = URL(string: urlString),
+           let scheme = direct.scheme?.lowercased(), scheme == "http" || scheme == "https",
+           let directHost = direct.host, !directHost.isEmpty {
+            return direct
+        }
         let resolvedString = JSExecutor.cleanAndResolveUrl(urlString, host: host)
         return URL(string: resolvedString)
     }
@@ -286,8 +303,13 @@ struct BypassWebView: View {
 
     private func prepareInitialTab() {
         let isFirstMount = store.tabs.isEmpty
+        // Đặt trước `prepareFirstTab`: tab đầu phải được tạo với UA điện thoại ngay từ đầu.
+        store.forcesMobileUserAgent = forcesMobileUserAgent
         let tab = store.prepareFirstTab(url: resolvedUrl)
         guard isFirstMount else { return }
+        // Link lỗi có thể mang token trong query ⇒ tab đầu ẩn danh: không vào Lịch sử. Ẩn danh của trình duyệt này chỉ
+        // bỏ ghi lịch sử, cookie vẫn ở kho WebKit mặc định nên chép cookie khi đóng vẫn có tác dụng.
+        if forcesMobileUserAgent { tab.isIncognito = true }
 
         if let pending = tab.consumePendingUrl() {
             tab.load(pending)

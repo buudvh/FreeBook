@@ -8,11 +8,18 @@ struct CommentSectionView: View {
     let extensionPackageId: String
     let sourceName: String
     let isTranslationEnabled: Bool
+    /// Host sách — ghép `category.input` tương đối thành URL dự phòng cho nút "Mở link lỗi".
+    var host: String? = nil
     
     @State private var comments: [ExtensionItemResult] = []
     @State private var isLoading = true
     @State private var errorMessage = ""
+    @State private var errorLink: SourceErrorLink? = nil
+    @State private var openingErrorLink: SourceErrorLink? = nil
     @State private var nextPageUrl: String? = nil
+    /// Bị trình duyệt "Mở link lỗi" che lúc biến mất ⇒ `.task` lần hiện lại kế tiếp không tải chồng trước khi chép cookie
+    /// (lượt thử lại của `.errorLinkBrowser` lo tải và cũng hạ cờ) — xem `ErrorLinkBrowserModifier`.
+    @State private var skipsReappearLoad = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -24,12 +31,16 @@ struct CommentSectionView: View {
                     Spacer()
                 }
             } else if !errorMessage.isEmpty {
-                HStack {
-                    Text("Lỗi tải bình luận: \(errorMessage)")
-                        .font(.caption)
-                        .foregroundColor(.red)
-                        .lineLimit(2)
+                HStack(spacing: 6) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Lỗi tải bình luận: \(errorMessage)")
+                            .font(.caption)
+                            .foregroundColor(.red)
+                            .lineLimit(2)
+                        ErrorLinkCaption(link: errorLink)
+                    }
                     Spacer()
+                    ErrorLinkButton(link: errorLink, presenting: $openingErrorLink, style: .icon)
                     Button(action: {
                         Task {
                             await loadComments()
@@ -102,7 +113,9 @@ struct CommentSectionView: View {
                             localPath: localPath,
                             downloadUrl: downloadUrl,
                             configJson: configJson,
-                            isTranslationEnabled: isTranslationEnabled
+                            isTranslationEnabled: isTranslationEnabled,
+                            host: host,
+                            extensionPackageId: extensionPackageId
                         )) {
                             HStack {
                                 Spacer()
@@ -123,7 +136,18 @@ struct CommentSectionView: View {
             }
         }
         .task {
+            if skipsReappearLoad {
+                skipsReappearLoad = false
+                return
+            }
             await loadComments()
+        }
+        .onDisappear {
+            if openingErrorLink != nil { skipsReappearLoad = true }
+        }
+        .errorLinkBrowser(link: $openingErrorLink, packageId: extensionPackageId) {
+            skipsReappearLoad = false
+            Task { await loadComments() }
         }
     }
     
@@ -131,6 +155,7 @@ struct CommentSectionView: View {
         await MainActor.run {
             isLoading = true
             errorMessage = ""
+            errorLink = nil
         }
         
         do {
@@ -152,6 +177,7 @@ struct CommentSectionView: View {
         } catch {
             await MainActor.run {
                 self.errorMessage = error.localizedDescription
+                self.errorLink = SourceErrorLink.resolve(from: error, fallback: category.input, host: host)
                 self.isLoading = false
             }
         }

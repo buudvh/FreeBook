@@ -23,7 +23,7 @@ struct SearchView: View {
     @State private var changeSourceTargetResult: ExtensionItemResult? = nil
     @State private var changeSourceTargetExtension: Extension? = nil
     @State private var showingChangeSourceAlert = false
-    @State private var isChangingSource = false
+    @State var isChangingSource = false
     
     @State private var searchQuery = ""
     @State private var isSearching = false
@@ -32,7 +32,10 @@ struct SearchView: View {
     @AppStorage("searchKindFilter") var searchKindFilter = "" // chip loại nội dung — `SearchView+KindFilter`
     @State private var searchResults: [ExtensionItemResultWithExt] = []
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
-    @State private var searchStatusMessage = ""
+    @State var searchStatusMessage = ""
+    /// Lỗi tìm/đổi nguồn kèm link "Mở link lỗi" (`SearchView+ErrorLink`) và trình duyệt đang mở cho nó.
+    @State var statusErrorLink: StatusErrorLink?
+    @State private var openingErrorLink: SourceErrorLink?
     /// Scope đang mở sheet "Kiểu hiển thị" (chỉ có khi tìm trong một nguồn).
     @State private var layoutSheetScope: BookListLayoutScope?
     @AppStorage("search_history") private var searchHistoryJSON = "[]"
@@ -146,6 +149,7 @@ struct SearchView: View {
             .sheet(item: $layoutSheetScope) { scope in
                 BookListLayoutSheet(scope: scope)
             }
+            .errorLinkBrowser(link: $openingErrorLink, packageId: statusErrorLink?.packageId) { retryStatusError() }
             .onAppear {
                 if !initialSearchQuery.isEmpty && searchQuery.isEmpty {
                     searchQuery = initialSearchQuery
@@ -259,13 +263,21 @@ struct SearchView: View {
     @ViewBuilder
     private var searchStatusView: some View {
         if !searchStatusMessage.isEmpty {
-            Text(searchStatusMessage)
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.horizontal)
-                .padding(.vertical, 6)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(.secondarySystemBackground))
+            // Câu lỗi có link ⇒ dải gọn: thêm dòng URL xám + la bàn "Mở link lỗi" bên phải.
+            HStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(searchStatusMessage)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    ErrorLinkCaption(link: currentStatusErrorLink)
+                }
+                Spacer(minLength: 0)
+                ErrorLinkButton(link: currentStatusErrorLink, presenting: $openingErrorLink, style: .icon)
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(.secondarySystemBackground))
         }
     }
     
@@ -582,16 +594,18 @@ struct SearchView: View {
         return str
     }
 
-    private func executeSourceChange(to result: ExtensionItemResult, ext: Extension) async {
+    func executeSourceChange(to result: ExtensionItemResult, ext: Extension) async {
         guard let oldBook = changeSourceTargetBook else { return }
         
         let oldBookId = oldBook.bookId
         let newBookId = UUID().uuidString
         let oldChapterIndex = oldBook.currentChapterIndex
         let isPlayingTTS = (TTSManager.shared.isPlaying || TTSManager.shared.showFloatingWidget) && TTSManager.shared.playingBookId == oldBookId
-        
+        var passedKindCheck = false // lỗi "khác loại nội dung" không phải lỗi tải trang ⇒ không gắn "Mở link lỗi"
+
         do {
             try BookSourceMigrator.ensureSameContentKind(oldPackageId: oldBook.extensionPackageId, newPackageId: ext.packageId)
+            passedKindCheck = true
             let path = ext.localPath
             // Ngữ cảnh theo `newBookId`: nguồn Legado ghi trạng thái theo đúng id của sách sắp tạo.
             let context = SourceRuntimeContext(bookId: newBookId, bookUrl: result.link, bookName: result.name, bookAuthor: result.author, isInteractive: true)
@@ -688,7 +702,17 @@ struct SearchView: View {
             }
         } catch {
             AppLogger.shared.log("❌ Lỗi đổi nguồn truyện: \(error.localizedDescription)")
-            await MainActor.run { searchStatusMessage = "Lỗi đổi nguồn: \(error.localizedDescription)" }
+            let linksError = passedKindCheck // closure `@Sendable` không được bắt `var`
+            await MainActor.run {
+                searchStatusMessage = "Lỗi đổi nguồn: \(error.localizedDescription)"
+                guard linksError else {
+                    statusErrorLink = nil
+                    return
+                }
+                let bookHost = ExtensionHostResolver.nonEmpty(result.host) ?? ext.sourceUrl
+                attachStatusErrorLink(error, fallbacks: [result.link, ext.sourceUrl], host: bookHost,
+                                      retry: .sourceChange(result: result, ext: ext), packageId: ext.packageId)
+            }
         }
     }
     
@@ -806,6 +830,7 @@ struct SearchView: View {
                         guard !Task.isCancelled else { return }
                         self.isSearching = false
                         self.searchStatusMessage = "Lỗi khi tìm kiếm: \(error.localizedDescription)"
+                        self.attachStatusErrorLink(error, fallbacks: [ext.sourceUrl], host: nil, retry: .search, packageId: ext.packageId)
                     }
                 }
             }

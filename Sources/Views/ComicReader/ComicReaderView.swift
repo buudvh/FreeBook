@@ -28,6 +28,8 @@ struct ComicReaderView: View {
     @State private var localBook: Book?
     @State private var zoomImage: UIImage?
     @State private var isZoomPresented = false
+    /// Trình duyệt "Mở link lỗi" đang mở (cũng là `fullScreenCover` ⇒ bỏ qua dọn dẹp như trình xem phóng to).
+    @State private var openingErrorLink: SourceErrorLink?
 
     init(launch: BookContentLaunch) {
         self.launch = launch
@@ -89,6 +91,8 @@ struct ComicReaderView: View {
         .fullScreenCover(isPresented: $isZoomPresented, onDismiss: { zoomImage = nil }) {
             zoomCover
         }
+        // Đóng ⇒ chép cookie rồi nạp lại đúng chương lỗi (`retry` dùng `chapterIndex` = chương đang nạp).
+        .errorLinkBrowser(link: $openingErrorLink, packageId: launch.extensionPackageId) { viewModel.retry() }
     }
 
     // MARK: - Nội dung theo trạng thái
@@ -104,7 +108,7 @@ struct ComicReaderView: View {
                     .font(.footnote)
                     .foregroundStyle(Color.white.opacity(0.7))
             }
-        case .failed(let message):
+        case .failed(let message, let link):
             statusView {
                 Image(systemName: "exclamationmark.triangle")
                     .font(.system(size: 28, weight: .semibold))
@@ -114,7 +118,12 @@ struct ComicReaderView: View {
                     .foregroundStyle(Color.white.opacity(0.8))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
-                actionButton("Thử lại", systemImage: "arrow.clockwise") { viewModel.retry() }
+                ErrorLinkCaption(link: link)
+                    .padding(.horizontal, 24)
+                HStack(spacing: 10) {
+                    actionButton("Thử lại", systemImage: "arrow.clockwise") { viewModel.retry() }
+                    ErrorLinkButton(link: link, presenting: $openingErrorLink, style: .capsule)
+                }
             }
         case .empty:
             statusView {
@@ -318,8 +327,8 @@ struct ComicReaderView: View {
     }
 
     private func handleDisappear() {
-        // Trình xem phóng to đang che màn này — màn đọc vẫn sống, không dọn dẹp.
-        if isZoomPresented { return }
+        // Trình xem phóng to / trình duyệt "Mở link lỗi" đang che màn này — màn đọc vẫn sống, không dọn dẹp.
+        if isZoomPresented || openingErrorLink != nil { return }
         ScreenIdleTimerLock.release(ObjectIdentifier(viewModel))
         viewModel.shutdown()
     }

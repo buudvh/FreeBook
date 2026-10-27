@@ -234,7 +234,8 @@ extension VideoPlaybackSession {
             guard isCurrent(generation) else { return }
             guard !list.isEmpty else {
                 AppLogger.shared.log("❌ [VideoPlayer] Tập \(episode.index) không có server phát nào")
-                fail(generation: generation, message: "Tập này không có server phát nào.")
+                // Trang tập bị chặn (Cloudflare…) thường cho danh sách rỗng ⇒ vẫn cho mở trang tập.
+                fail(generation: generation, message: "Tập này không có server phát nào.", link: episodeErrorLink(for: nil))
                 return
             }
             servers = list
@@ -246,7 +247,8 @@ extension VideoPlaybackSession {
         } catch {
             guard isCurrent(generation), !(error is CancellationError) else { return }
             // `ExtensionManager` đã log ❌ (`ExtensionManagerError.sourceResponse`) ⇒ chỉ hiện lỗi, không log lại.
-            fail(generation: generation, message: "Không lấy được danh sách server: \(error.localizedDescription)")
+            fail(generation: generation, message: "Không lấy được danh sách server: \(error.localizedDescription)",
+                 link: episodeErrorLink(for: error))
         }
     }
 
@@ -277,13 +279,25 @@ extension VideoPlaybackSession {
             guard isCurrent(generation), !(error is CancellationError) else { return }
             resolver = nil
             // `videoTrack` và `VideoSourceResolver` đều đã log ❌ ⇒ chỉ hiện lỗi, không log lại.
-            fail(generation: generation, message: "Không lấy được link phát: \(error.localizedDescription)")
+            fail(generation: generation, message: "Không lấy được link phát: \(error.localizedDescription)",
+                 link: episodeErrorLink(for: error))
         }
     }
 
-    func fail(generation: Int, message: String) {
+    /// Link "Mở link lỗi" cho lỗi nạp tập đang mở: `fetch` lỗi của lượt chạy script (nếu `error` mang dấu vết) → URL
+    /// trang tập (ghép host như lúc gọi script). Gọi ngay trong `catch`, nơi còn `error`.
+    func episodeErrorLink(for error: Error?) -> SourceErrorLink? {
+        let episode = currentEpisode
+        let host = episode.flatMap {
+            ExtensionHostResolver.chapterHost(chapterHost: $0.host, bookHost: bookHost, packageId: launch?.extensionPackageId ?? "")
+        }
+        return SourceErrorLink.resolve(from: error, fallback: episode?.url, host: host)
+    }
+
+    /// `link`: chỉ lỗi liên quan trang nguồn (server, link phát, phát lỗi) — lỗi cài đặt/mục lục để `nil`.
+    func fail(generation: Int, message: String, link: SourceErrorLink? = nil) {
         guard isCurrent(generation) else { return }
-        phase = .failed(message)
+        phase = .failed(message, link: link)
         // Không còn item phát ⇒ không giữ phiên màn khoá (TTS dựng lại lệnh của nó nếu đang có widget).
         VideoNowPlayingCoordinator.shared.release(handBackToTTS: true)
     }

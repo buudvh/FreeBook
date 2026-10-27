@@ -51,8 +51,8 @@ extension ReaderDefinitionOverlayView {
                     }
                 }
                 .padding(2)
-                .background(Color.secondary.opacity(0.15))
-                .cornerRadius(6)
+                // Nền bo góc thay cho `.cornerRadius` (cắt cả nhóm): ghim của nút nhô ra ngoài nhóm, không được bị cắt.
+                .background(Color.secondary.opacity(0.15), in: RoundedRectangle(cornerRadius: 6))
 
                 // Phạm vi (R vs C)
                 HStack(spacing: 0) {
@@ -72,8 +72,7 @@ extension ReaderDefinitionOverlayView {
                     }
                 }
                 .padding(2)
-                .background(Color.secondary.opacity(0.15))
-                .cornerRadius(6)
+                .background(Color.secondary.opacity(0.15), in: RoundedRectangle(cornerRadius: 6))
             }
         }
     }
@@ -87,20 +86,24 @@ extension ReaderDefinitionOverlayView {
         onPin: @escaping () -> Void
     ) -> some View {
         Button(action: onTap) {
-            HStack(spacing: 3) {
-                if isPinned {
-                    Image(systemName: "pin.fill")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.white)
-                }
-                Text(title)
-                    .font(.system(size: 13, weight: isSelected ? .bold : .medium))
+            Text(title)
+                .font(.system(size: 13, weight: isSelected ? .bold : .medium))
+                .foregroundColor(isSelected ? selectedTheme.textColor : .secondary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+                .background(isSelected ? Color.secondary.opacity(0.25) : Color.clear)
+                .cornerRadius(6)
+        }
+        // Trạng thái ghim đọc qua giá trị của nút (badge ẩn khỏi trợ năng — không thành phần tử rời).
+        .accessibilityValue(isPinned ? "Đang ghim mặc định" : "")
+        // Ghim kiểu bìa Kệ ở góc trên phải, nhô ra ngoài nút; chữ luôn ở giữa. Nút thứ hai của cặp vẽ sau ⇒ nâng
+        // `zIndex` để nền "đang chọn" của nó không phủ lên ghim của nút đầu.
+        .overlay(alignment: .topTrailing) {
+            if isPinned {
+                CoverPinBadge(diameter: 15, angle: 20, accessibilityText: "Đang ghim mặc định")
+                    .offset(x: 5, y: -7)
+                    .accessibilityHidden(true)
             }
-            .foregroundColor(isSelected ? selectedTheme.textColor : .secondary)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
-            .background(isSelected ? Color.secondary.opacity(0.25) : Color.clear)
-            .cornerRadius(6)
         }
         .simultaneousGesture(
             LongPressGesture(minimumDuration: 0.4).onEnded { _ in
@@ -108,6 +111,7 @@ extension ReaderDefinitionOverlayView {
                 onPin()
             }
         )
+        .zIndex(isPinned ? 1 : 0)
     }
 
     internal var updateButtonView: some View {

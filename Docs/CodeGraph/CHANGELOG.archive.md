@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.584] - 2026-10-22
+
+### fix: nguồn Legado dùng bộ giới hạn nhịp kiểu Java (69書吧) dựng được URL tìm kiếm
+
+Từ báo cáo `kiem-tra-nguon-legado-20261022-160304.json`: 69書吧 báo *"Nguồn không có URL gốc để ghép"* dù `searchUrl` là `@js:` dựng URL tuyệt đối.
+
+- **Nguyên nhân**: hàm `buildRequest` trong `jsLib` của nguồn kiểm chữ ký `bookSourceComment`, giới hạn nhịp bằng `java.lang.System.getProperties().computeIfAbsent(…, k => new AtomicLong(0))` + `System.nanoTime()` + `compareAndSet` + `LockSupport.parkNanos`, rồi ký request. Giả lập `java.lang.System` của app chỉ có `currentTimeMillis` ⇒ JS ném `TypeError`, URL thành rỗng, `LegadoURLBuilder` báo nhầm thành `missingBaseURL`. Không phải thiếu cấu hình đăng nhập (`loginUi` chỉ có 2 nút).
+- **Script `concurrent`** (`LegadoJSBootstrap+Concurrent`, nạp sau `classes`): `java.util.concurrent.atomic.AtomicLong` / `AtomicInteger` (get/set/compareAndSet/getAndSet/addAndGet/increment…), `System.getProperties()` (bảng `get`/`put`/`putIfAbsent`/`computeIfAbsent`/`getProperty`/`setProperty`…), `System.nanoTime()`, `getProperty`/`setProperty`/`clearProperty`/`lineSeparator`, `LockSupport.parkNanos`/`parkUntil` (qua lệnh `sleep` sẵn có: ≤ 5 giây, huỷ được).
+- **Ô dùng chung toàn tiến trình** (`LegadoJavaSharedCells` + lệnh native `javaCell`/`nanoTime` ở `LegadoJSRuntime+Concurrent`): mỗi tác vụ một `JSContext`, nên `AtomicLong` đặt vào bảng thuộc tính được gắn với ô native theo khoá — nhờ vậy bộ giới hạn nhịp của nguồn có tác dụng giữa các chương. Chỉ giữ số, tối đa 512 ô, không ghi đĩa. Nguồn này tự giãn: tìm ~5 s/lần, nội dung ~2 s/lần — là ý của nguồn.
+- **`java.lang.System`**: thành viên chưa có ⇒ lỗi "chưa hỗ trợ" thay vì `TypeError … is not a function`, để Kiểm tra nguồn quy về giới hạn của app.
+- **`LegadoURLBuilder`**: URL không thành tuyệt đối mà JS dựng URL vừa lỗi ⇒ báo đúng lỗi đó (`unsupportedSyntax` trước, rồi `javaScript`); URL rỗng ⇒ `invalidURL`; `missingBaseURL` chỉ còn cho URL tương đối khi nguồn không có URL gốc.
+- **Kiểm chứng**: chạy `jsLib` thật của nguồn cùng các script bootstrap trích từ Swift trong Node `vm` ⇒ ra đúng URL tìm kiếm kèm header ký. `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy (tìm → chi tiết → mục lục → nội dung).
+
 ## [1.3.583] - 2026-10-22
 
 ### fix: trình duyệt ẩn của nguồn Legado chờ trang thử thách JS tự tải lại rồi mới lấy HTML

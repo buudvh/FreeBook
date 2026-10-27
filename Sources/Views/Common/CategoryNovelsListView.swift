@@ -13,6 +13,10 @@ struct CategoryNovelsListView: View {
     @State private var sourceHost: String? = nil
     @State private var selectedNovel: ExtensionItemResult? = nil
     @State private var showingLayoutSheet = false
+    @State private var openingErrorLink: SourceErrorLink? = nil
+    /// Màn bị trình duyệt "Mở link lỗi" che (biến mất khi nó mở): lần xuất hiện lại kế tiếp không để `.task` tải chồng
+    /// trước khi chép cookie — lượt thử lại do `.errorLinkBrowser` gọi sau khi chép.
+    @State private var skipsReappearLoad = false
 
     /// Kiểu hiển thị theo loại của nguồn (màn này mở cả từ Khám phá lẫn Chi tiết truyện, chỉ có `packageId`).
     private var layoutScope: BookListLayoutScope {
@@ -76,12 +80,17 @@ struct CategoryNovelsListView: View {
                         .font(.subheadline)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
-                    Button("Thử lại") {
-                        Task {
-                            await loader.loadInitial()
+                    ErrorLinkCaption(link: loader.errorLink)
+                        .padding(.horizontal)
+                    HStack(spacing: 10) {
+                        Button("Thử lại") {
+                            Task {
+                                await loader.loadInitial()
+                            }
                         }
+                        .buttonStyle(.bordered)
+                        ErrorLinkButton(link: loader.errorLink, presenting: $openingErrorLink, style: .bordered)
                     }
-                    .buttonStyle(.bordered)
                 }
                 .frame(maxHeight: .infinity)
             } else {
@@ -123,12 +132,22 @@ struct CategoryNovelsListView: View {
         .sheet(isPresented: $showingLayoutSheet) {
             BookListLayoutSheet(scope: layoutScope)
         }
+        .errorLinkBrowser(link: $openingErrorLink, packageId: extensionPackageId) {
+            Task { await loader.loadInitial() }
+        }
         .onAppear {
             if sourceHost == nil {
                 sourceHost = ExtensionHostResolver.sourceUrl(localPath: localPath)
             }
         }
+        .onDisappear {
+            if openingErrorLink != nil { skipsReappearLoad = true }
+        }
         .task {
+            if skipsReappearLoad {
+                skipsReappearLoad = false
+                return
+            }
             await loader.loadInitial()
         }
     }

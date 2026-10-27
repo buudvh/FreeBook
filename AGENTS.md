@@ -191,6 +191,8 @@ Mỗi tác vụ bóc tách tạo `JSExecutor` mới rồi giải phóng — **kh
 
 **`fetch` lỗi tự thử lại bằng browser ẩn** (1.3.613, `JSExecutor+FetchBrowserFallback` → `HiddenBrowserFetch`): chỉ khi lỗi mạng / hết giờ / HTTP 403, 429, 503, request GET không body, URL http(s), không phải domain bị chặn, không huỷ, và **không ở main thread** (semaphore + main queue sẽ deadlock ⇒ bỏ qua). Browser ẩn chờ tối đa 15s qua trang chặn Cloudflare, đọc lỗi điều hướng + mã HTTP trang chính (`WebViewLoader+NavigationResponse`). Thành công ⇒ trả 200 cho script; cả hai lỗi ⇒ giữ response gốc, `statusText` = `"<gốc> | Browser ẩn: <lý do>"`. Executor cần dữ liệu nhị phân tắt bằng `allowsFetchBrowserFallback = false` (`ExtTTSRuntime`, `ComicImageScriptRunner`). Cookie qua thử thách nằm trong kho WebKit, **không** sang URLSession.
 
+**Nút "Mở link lỗi"** (1.3.614): executor ghi URL fetch lỗi / fetch gần nhất của lượt chạy (`JSExecutor+FetchTrace`, xoá ở `beginExecution()`; tên miền chặn sẵn không ghi); `ExtensionManager` bọc lỗi của 10 hàm chạy script bằng `ExtensionLoadError` (chữ lỗi giữ nguyên — so kiểu lỗi gốc thì `ExtensionLoadError.unwrapped(_:)`). Màn lỗi dựng link bằng `SourceErrorLink.resolve(from:fallback(s):host:)` **ngay trong `catch`** (fetch lỗi → fetch gần nhất → URL lỗi Legado → URL đầu vào), hiện `ErrorLinkCaption` + `ErrorLinkButton`, và `.errorLinkBrowser(link:onRetry:)` mở `BypassWebView(forcesMobileUserAgent: true)`; đóng ⇒ `WebKitCookieBridge` chép cookie WebKit của tên miền sang `HTTPCookieStorage.shared` ⇒ tự thử lại. Màn lỗi mới thì nối cùng kiểu này.
+
 Có skill riêng cho việc này: `.agents/skills/vbook_helper/SKILL.md` (mẫu `plugin.json` + mẫu từng script).
 
 ### Comic & Video (1.3.531)

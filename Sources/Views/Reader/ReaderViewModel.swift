@@ -425,7 +425,9 @@ class ReaderViewModel: ObservableObject {
                 }
                 guard cached.state == .loaded else {
                     let message = cached.state.failureMessage ?? "Không tải được chương"
-                    failNavigation(request, message: message)
+                    let link = await chapterErrorLink(at: request.chapterIndex, error: nil)
+                    guard !Task.isCancelled, workerIdentity == activeWorkerIdentity, request.generation == navigationGeneration else { return }
+                    failNavigation(request, message: message, errorLink: link)
                     continue
                 }
 
@@ -457,7 +459,11 @@ class ReaderViewModel: ObservableObject {
             } catch {
                 guard !Task.isCancelled, workerIdentity == activeWorkerIdentity, request.generation == navigationGeneration else { return }
                 AppLogger.shared.log("❌ [ReaderViewModel] Không tải được chương \(request.chapterIndex): \(FileDescriptorCensus.describe(error))")
-                failNavigation(request, message: error.localizedDescription)
+                // Resolve link ngay khi còn `error` (URL fetch lỗi), dự phòng URL của đúng chương đích; tra URL có
+                // `await` ⇒ kiểm lại lượt điều hướng trước khi báo lỗi.
+                let link = await chapterErrorLink(at: request.chapterIndex, error: error)
+                guard !Task.isCancelled, workerIdentity == activeWorkerIdentity, request.generation == navigationGeneration else { return }
+                failNavigation(request, message: error.localizedDescription, errorLink: link)
             }
         }
 
@@ -520,7 +526,7 @@ class ReaderViewModel: ObservableObject {
         ReaderEnergyDiagnostics.shared.recordNavigationCommit(index: request.chapterIndex)
     }
 
-    private func failNavigation(_ request: ReaderNavigationRequest, message: String) {
+    private func failNavigation(_ request: ReaderNavigationRequest, message: String, errorLink: SourceErrorLink? = nil) {
         guard request.generation == navigationGeneration else { return }
         pendingNavigationIndex = request.chapterIndex
         isRetryingNavigation = false
@@ -534,7 +540,8 @@ class ReaderViewModel: ObservableObject {
             source: request.source,
             paragraphIndex: request.paragraphIndex,
             persistProgress: request.persistProgress,
-            forceRefresh: request.forceRefresh
+            forceRefresh: request.forceRefresh,
+            errorLink: errorLink
         )
     }
 

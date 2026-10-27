@@ -33,6 +33,9 @@ struct ExploreSectionsView: View {
     @State private var isLoading = false
     @State private var hasLoaded = false
     @State private var errorMessage = ""
+    /// Link "Mở link lỗi" của `errorMessage` — gán/xoá cùng chỗ với chữ lỗi.
+    @State private var errorLink: SourceErrorLink? = nil
+    @State private var openingErrorLink: SourceErrorLink? = nil
     /// Referer dự phòng cho bìa: `source` của tiện ích (bản cài → `plugin.json`). Tính một lần trước lượt tải đầu.
     @State private var sourceHost: String? = nil
 
@@ -66,6 +69,10 @@ struct ExploreSectionsView: View {
         .task {
             await loadIfNeeded()
         }
+        // Đóng trình duyệt "Mở link lỗi" ⇒ chép cookie rồi tải lại (lần xuất hiện lại không tự tải: `hasLoaded`).
+        .errorLinkBrowser(link: $openingErrorLink, packageId: ext.packageId) {
+            Task { await load() }
+        }
     }
 
     // MARK: - Trạng thái
@@ -81,10 +88,19 @@ struct ExploreSectionsView: View {
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
-            Button("Thử lại") {
-                Task { await load() }
+            if isError {
+                ErrorLinkCaption(link: errorLink)
+                    .padding(.horizontal, 24)
             }
-            .buttonStyle(.bordered)
+            HStack(spacing: 10) {
+                Button("Thử lại") {
+                    Task { await load() }
+                }
+                .buttonStyle(.bordered)
+                if isError {
+                    ErrorLinkButton(link: errorLink, presenting: $openingErrorLink, style: .bordered)
+                }
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 80)
@@ -139,12 +155,14 @@ struct ExploreSectionsView: View {
             )
             sections = loaded
             errorMessage = ""
+            errorLink = nil
             hasLoaded = true
         } catch {
             if error is CancellationError || Task.isCancelled { return }
             hasLoaded = true
             if sections.isEmpty {
                 errorMessage = error.localizedDescription
+                errorLink = SourceErrorLink.resolve(from: error, fallbacks: [ext.sourceUrl, sourceHost])
             } else {
                 ToastManager.shared.show(message: "Không làm mới được trang khám phá", type: .error)
             }

@@ -15,21 +15,24 @@ import JavaScriptCore
 ///   (với `detail` là URL item — khoá nhận diện sách).
 extension ExtensionManager {
     func explore(localPath: String, downloadUrl: String = "", configJson: String = "{}") async throws -> [ExploreSection] {
+        // Khai ngoài `do` để `catch` đọc được dấu vết fetch (`ExtensionLoadError.wrapping`).
+        var executor: JSExecutor?
         do {
             let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "explore")
             let scriptName = scriptUrl.lastPathComponent
             AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: arguments=[], configJson=\(configJson)")
             let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
 
-            let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
+            let runner = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
+            executor = runner
             let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
-            executor.injectGlobals(configs)
+            runner.injectGlobals(configs)
 
-            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
+            let jsValue = try await runner.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
             let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "explore")
             let sourceHost = ExtensionHostResolver.sourceUrl(localPath: localPath)
             // JSValue gắn với JSContext của executor: ánh xạ xong trong lúc executor còn sống.
-            let sections = withExtendedLifetime(executor) {
+            let sections = withExtendedLifetime(runner) {
                 Self.exploreSections(from: cleanVal, sourceHost: sourceHost)
             }
             let itemCount = sections.reduce(0) { $0 + $1.items.count }
@@ -40,7 +43,7 @@ extension ExtensionManager {
                 AppLogger.shared.log("❌ [ExtensionManager] explore lỗi: \(error.localizedDescription)")
             }
             updateDiagnostics(action: "explore", input: "localPath: \(localPath)", status: "Error", details: error.localizedDescription)
-            throw error
+            throw ExtensionLoadError.wrapping(error, executor: executor)
         }
     }
 

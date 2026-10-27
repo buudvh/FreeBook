@@ -14,6 +14,8 @@ struct DiscoveryCategoryTabView: View {
     @Binding var selectedCategoryId: String
     /// Neo cuộn dùng chung của cả Khám Phá — giữ ở `DiscoveryView` nên sống qua một lượt tab bị dựng lại.
     let scrollAnchors: DiscoveryScrollAnchorStore
+    /// Tiện ích/nguồn của tab — nguồn Legado thì cookie của trình duyệt "Mở link lỗi" được gộp vào kho của nguồn.
+    let packageId: String?
     let onSelectNovel: (ExtensionItemResult) -> Void
     /// Referer dự phòng cho bìa khi item không có `host`. Tra lười khi tab xuất hiện, không trong `init` — `init`
     /// chạy lại mỗi lần `DiscoveryView` dựng lại body.
@@ -24,6 +26,7 @@ struct DiscoveryCategoryTabView: View {
     /// Neo đang chờ áp. Có giá trị từ lúc tab xuất hiện/được chọn tới lúc `scrollTo` chạy được —
     /// dữ liệu có thể chưa nạp xong ở thời điểm xuất hiện.
     @State private var pendingRestoreAnchor: String? = nil
+    @State private var openingErrorLink: SourceErrorLink? = nil
 
     init(
         category: CategoryResult,
@@ -34,6 +37,7 @@ struct DiscoveryCategoryTabView: View {
         layoutScope: BookListLayoutScope,
         selectedCategoryId: Binding<String>,
         scrollAnchors: DiscoveryScrollAnchorStore,
+        packageId: String? = nil,
         onSelectNovel: @escaping (ExtensionItemResult) -> Void
     ) {
         self.category = category
@@ -44,6 +48,7 @@ struct DiscoveryCategoryTabView: View {
         self.layoutScope = layoutScope
         self._selectedCategoryId = selectedCategoryId
         self.scrollAnchors = scrollAnchors
+        self.packageId = packageId
         self.onSelectNovel = onSelectNovel
         _loader = StateObject(wrappedValue: PaginatedNovelLoader(
             localPath: localPath,
@@ -79,12 +84,17 @@ struct DiscoveryCategoryTabView: View {
                         .font(.subheadline)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
-                    Button("Thử lại") {
-                        Task {
-                            await loader.loadInitial()
+                    ErrorLinkCaption(link: loader.errorLink)
+                        .padding(.horizontal)
+                    HStack(spacing: 10) {
+                        Button("Thử lại") {
+                            Task {
+                                await loader.loadInitial()
+                            }
                         }
+                        .buttonStyle(.bordered)
+                        ErrorLinkButton(link: loader.errorLink, presenting: $openingErrorLink, style: .bordered)
                     }
-                    .buttonStyle(.bordered)
                     Spacer()
                 }
                 .frame(maxHeight: .infinity)
@@ -125,6 +135,11 @@ struct DiscoveryCategoryTabView: View {
                     }
                 }
             }
+        }
+        // Đóng trình duyệt "Mở link lỗi" ⇒ chép cookie rồi tải lại trang đầu. Lần xuất hiện lại không tự tải chồng:
+        // `checkAndLoadData` bỏ qua khi đang có lỗi.
+        .errorLinkBrowser(link: $openingErrorLink, packageId: packageId) {
+            Task { await loader.loadInitial() }
         }
         .onAppear {
             checkAndLoadData()

@@ -30,6 +30,14 @@ struct BookDetailView: View {
     @State private var isLoadingTOC = true
     @State internal var detailErrorMessage = ""
     @State internal var tocErrorMessage = ""
+    // Link "Mở link lỗi" của hai chữ lỗi trên — chỉ gán qua `setDetailError`/`setTOCError` (`BookDetailView+ErrorLink`).
+    @State internal var detailErrorLink: SourceErrorLink?
+    @State internal var tocErrorLink: SourceErrorLink?
+    @State private var openingDetailErrorLink: SourceErrorLink?
+    @State private var openingTOCErrorLink: SourceErrorLink?
+    /// Bị trình duyệt "Mở link lỗi" che lúc biến mất ⇒ `onAppear` kế tiếp không `loadBookData()` trước khi chép cookie
+    /// (lượt thử lại của `.errorLinkBrowser` lo tải và cũng hạ cờ) — xem `ErrorLinkBrowserModifier`.
+    @State private var skipsReappearLoad = false
 
     @State internal var genres: [CategoryResult] = []
     @State internal var suggests: [CategoryResult] = []
@@ -266,12 +274,19 @@ struct BookDetailView: View {
                 packageId: extensionPackageId,
                 isChineseSourceHint: ext?.isChineseSource
             )
-            loadBookData()
+            if skipsReappearLoad {
+                skipsReappearLoad = false
+            } else {
+                loadBookData()
+            }
             markSourceUsed()
             if contentKind == .video, let videoBookId = localBook?.bookId { VideoOfflineLibrary.shared.refresh(bookId: videoBookId) }
             syncChaptersList()
             updateFilteredLocalChapters()
             updateFilteredOnlineChapters()
+        }
+        .onDisappear {
+            if openingDetailErrorLink != nil || openingTOCErrorLink != nil { skipsReappearLoad = true }
         }
         .onReceive(NotificationCenter.default.publisher(for: TranslationConfigStore.didChangeNotification)) { _ in
             let newState = TranslationConfigStore.shared.isTranslationEnabled(
@@ -342,6 +357,16 @@ struct BookDetailView: View {
         .sheet(item: $collectionPickerBook) { book in
             CollectionPickerSheet(bookId: book.bookId)
         }
+        // Lỗi chi tiết thường kéo theo lỗi mục lục (cùng trang chặn) ⇒ thử lại cả mục lục nếu nó cũng đang lỗi.
+        .errorLinkBrowser(link: $openingDetailErrorLink, packageId: extensionPackageId) {
+            skipsReappearLoad = false
+            loadBookDetailOnly()
+            if !tocErrorMessage.isEmpty { loadTOCDataOnly() }
+        }
+        .errorLinkBrowser(link: $openingTOCErrorLink, packageId: extensionPackageId) {
+            skipsReappearLoad = false
+            loadTOCDataOnly()
+        }
     }
 
     @ViewBuilder
@@ -400,10 +425,14 @@ struct BookDetailView: View {
                 .font(.subheadline)
                 .foregroundColor(.red)
                 .multilineTextAlignment(.center)
-            Button("Thử lại") {
-                loadBookDetailOnly()
+            ErrorLinkCaption(link: detailErrorLink)
+            HStack(spacing: 10) {
+                Button("Thử lại") {
+                    loadBookDetailOnly()
+                }
+                .buttonStyle(.bordered)
+                ErrorLinkButton(link: detailErrorLink, presenting: $openingDetailErrorLink, style: .bordered)
             }
-            .buttonStyle(.bordered)
         }
         .padding()
         .frame(maxHeight: .infinity)
@@ -430,6 +459,8 @@ struct BookDetailView: View {
                         isDescExpanded: $isDescExpanded,
                         isLoadingDetail: isLoadingDetail,
                         detailErrorMessage: detailErrorMessage,
+                        detailErrorLink: detailErrorLink,
+                        openingErrorLink: $openingDetailErrorLink,
                         extensionPackageId: extensionPackageId,
                         localPath: ext?.localPath ?? "",
                         downloadUrl: ext?.downloadUrl ?? "",
@@ -495,7 +526,8 @@ struct BookDetailView: View {
                                     configJson: ext?.configJson ?? "{}",
                                     extensionPackageId: extensionPackageId,
                                     sourceName: sourceName,
-                                    isTranslationEnabled: isTranslationEnabled
+                                    isTranslationEnabled: isTranslationEnabled,
+                                    host: resolvedHost
                                 )
                             }
                         }
@@ -534,7 +566,8 @@ struct BookDetailView: View {
                                     configJson: ext?.configJson ?? "{}",
                                     extensionPackageId: extensionPackageId,
                                     sourceName: sourceName,
-                                    isTranslationEnabled: isTranslationEnabled
+                                    isTranslationEnabled: isTranslationEnabled,
+                                    host: resolvedHost
                                 )
                             }
                         }
@@ -578,6 +611,8 @@ struct BookDetailView: View {
                     totalChaps: totalChaps,
                     isTocAscending: $isTocAscending,
                     tocErrorMessage: tocErrorMessage,
+                    tocErrorLink: tocErrorLink,
+                    openingErrorLink: $openingTOCErrorLink,
                     isLoadingTOC: isLoadingTOC,
                     localBook: localBook,
                     filteredLocalChapters: filteredLocalChapters,
@@ -844,8 +879,8 @@ struct BookDetailView: View {
 
         isLoadingDetail = true
         isLoadingTOC = true
-        detailErrorMessage = ""
-        tocErrorMessage = ""
+        setDetailError("")
+        setTOCError("")
 
         loadBookDetailOnly()
         loadTOCDataOnly()
@@ -854,7 +889,7 @@ struct BookDetailView: View {
     private func loadBookDetailOnly() {
         if let ext = ext, !ext.localPath.isEmpty {
             isLoadingDetail = true
-            detailErrorMessage = ""
+            setDetailError("")
 
             let snapshot = ExtensionExecutionSnapshot(
                 packageId: ext.packageId,
@@ -883,7 +918,7 @@ struct BookDetailView: View {
                             let savedDesc = detailResult.detail.isEmpty ? detailResult.description.cleanHTML() : "\(detailResult.description.cleanHTML())\n\n---\n\(self.cleanDetailText(detailResult.detail))"
                             let res = BookTransactionCoordinator.shared.updateBookMetadata(bookId: book.bookId, title: detailResult.name, author: detailResult.author, coverUrl: detailResult.cover, desc: savedDesc, host: detailResult.host, in: modelContext)
                             if case .failure(let err) = res {
-                                self.detailErrorMessage = err.localizedDescription
+                                self.setDetailError(err.localizedDescription)
                             }
                         }
                         self.isLoadingDetail = false
@@ -904,17 +939,17 @@ struct BookDetailView: View {
                         BookDetailCacheManager.shared.setCache(for: self.actualBookId, entry: cacheEntry)
                     }
                 } catch {
-                    await MainActor.run { self.detailErrorMessage = error.localizedDescription; self.isLoadingDetail = false }
+                    await MainActor.run { self.setDetailError(error.localizedDescription, sourceError: error); self.isLoadingDetail = false }
                 }
             }
         } else if let book = localBook {
             self.title = book.title; self.author = book.author; self.coverUrl = book.coverUrl
             self.desc = book.desc; self.detail = book.desc; self.host = book.host ?? ""; self.isLoadingDetail = false
         } else if let ext = ext {
-            self.detailErrorMessage = "Vui lòng cài đặt tiện ích '\(ext.name)' trong phần Tiện Ích trước khi bóc tách nguồn này!"
+            self.setDetailError("Vui lòng cài đặt tiện ích '\(ext.name)' trong phần Tiện Ích trước khi bóc tách nguồn này!")
             self.isLoadingDetail = false
         } else {
-            self.detailErrorMessage = "Không tìm thấy tiện ích bóc tách của truyện này!"
+            self.setDetailError("Không tìm thấy tiện ích bóc tách của truyện này!")
             self.isLoadingDetail = false
         }
     }
@@ -929,23 +964,23 @@ struct BookDetailView: View {
             self.isLoadingTOC = false
             return
         } else if let ext = ext {
-            self.tocErrorMessage = "Vui lòng cài đặt tiện ích '\(ext.name)' trong phần Tiện Ích trước khi bóc tách nguồn này!"
+            self.setTOCError("Vui lòng cài đặt tiện ích '\(ext.name)' trong phần Tiện Ích trước khi bóc tách nguồn này!")
             self.isLoadingTOC = false
             return
         } else {
-            self.tocErrorMessage = "Không tìm thấy tiện ích bóc tách của truyện này!"
+            self.setTOCError("Không tìm thấy tiện ích bóc tách của truyện này!")
             self.isLoadingTOC = false
             return
         }
 
         guard let ext = ext, !ext.localPath.isEmpty else {
-            tocErrorMessage = "Không tìm thấy tiện ích bóc tách!"
+            setTOCError("Không tìm thấy tiện ích bóc tách!")
             self.isLoadingTOC = false
             return
         }
 
         isLoadingTOC = true
-        tocErrorMessage = ""
+        setTOCError("")
 
         let snapshot = ExtensionExecutionSnapshot(
             packageId: ext.packageId,
@@ -1013,7 +1048,7 @@ struct BookDetailView: View {
                 }
             } catch {
                 await MainActor.run {
-                    self.tocErrorMessage = error.localizedDescription
+                    self.setTOCError(error.localizedDescription, sourceError: error)
                     self.isLoadingTOC = false
                 }
             }
@@ -1068,7 +1103,7 @@ struct BookDetailView: View {
             }
             return savedBook ?? localBook
         } catch {
-            self.tocErrorMessage = "Không thể tạo sách: \(error.localizedDescription)"
+            self.setTOCError("Không thể tạo sách: \(error.localizedDescription)")
             return nil
         }
     }

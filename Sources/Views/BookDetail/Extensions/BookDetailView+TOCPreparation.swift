@@ -6,7 +6,7 @@ extension BookDetailView {
         if let book = localBook, hasLocalChapters {
             let res = BookTransactionCoordinator.shared.setCurrentChapterIndex(bookId: resolvedBookId, index: chapterIndex, in: modelContext)
             if case .failure(let err) = res {
-                self.detailErrorMessage = err.localizedDescription
+                self.setDetailError(err.localizedDescription)
                 return
             }
             scheduleBackgroundTitleTranslationIfNeeded(for: book)
@@ -19,13 +19,14 @@ extension BookDetailView {
         prepareProgressText = "Đang lấy mục lục..."
 
         bookOpenTask = Task { @MainActor in
+            var loadingTOCPageURL: String? // trang mục lục đang tải — dự phòng cho nút "Mở link lỗi"
             do {
                 if let book = localBook {
                     let count = (try? await ChapterStore.shared.countChapters(bookId: resolvedBookId)) ?? 0
                     if count > 0 {
                         let res = BookTransactionCoordinator.shared.setCurrentChapterIndex(bookId: resolvedBookId, index: chapterIndex, in: modelContext)
                         if case .failure(let err) = res {
-                            self.detailErrorMessage = err.localizedDescription
+                            self.setDetailError(err.localizedDescription)
                             isPreparingBookProgress = false
                             bookOpenTask = nil
                             return
@@ -52,6 +53,7 @@ extension BookDetailView {
                     if ExtensionManager.shared.hasScript(localPath: path, scriptKey: "page") {
                         pages = try await SourceRuntime.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson, context: context)
                     }
+                    loadingTOCPageURL = pages.first
                     let firstChaps = try await SourceRuntime.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pages.first ?? initialDetailUrl, host: resolvedHost, configJson: ext.configJson, context: context)
                     try BookDetailLoader.requireChapters(firstChaps, page: 1, of: max(pages.count, 1))
                     allChapters.append(contentsOf: firstChaps)
@@ -71,6 +73,7 @@ extension BookDetailView {
                     for pageIndex in min(1 + loadedPages, totalPages)..<totalPages {
                         try Task.checkCancellation()
                         self.prepareProgressText = "Đang lấy mục lục... Trang \(pageIndex + 1)/\(totalPages) (Đã lấy \(allChapters.count) chương)"
+                        loadingTOCPageURL = pages[pageIndex]
                         let pageChaps = try await SourceRuntime.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pages[pageIndex], host: resolvedHost, configJson: ext.configJson, context: context)
                         try BookDetailLoader.requireChapters(pageChaps, page: pageIndex + 1, of: totalPages)
                         allChapters.append(contentsOf: pageChaps)
@@ -80,13 +83,15 @@ extension BookDetailView {
                     self.onlineChapters = allChapters
                     self.remainingPagesLoaded = true
                 }
+                // Hết vòng tải mục lục: lỗi từ đây (ghi DB…) không phải lỗi của trang mục lục cuối.
+                loadingTOCPageURL = nil
 
                 let savedDesc = detail.isEmpty ? desc : "\(desc)\n\n---\n\(cleanDetailText(detail))"
                 let createSnapshot: TOCBookCreateSnapshot?
                 if localBook != nil {
                     let res = BookTransactionCoordinator.shared.setCurrentChapterIndex(bookId: resolvedBookId, index: chapterIndex, in: modelContext)
                     if case .failure(let err) = res {
-                        self.detailErrorMessage = err.localizedDescription
+                        self.setDetailError(err.localizedDescription)
                         isPreparingBookProgress = false
                         bookOpenTask = nil
                         return
@@ -131,7 +136,7 @@ extension BookDetailView {
                 isPreparingBookProgress = false
                 readerRoute = nil
                 if !Task.isCancelled {
-                    self.tocErrorMessage = "Lỗi chuẩn bị sách: \(error.localizedDescription)"
+                    self.setTOCError("Lỗi chuẩn bị sách: \(error.localizedDescription)", sourceError: error, failedPageURL: loadingTOCPageURL)
                 }
             }
         }
@@ -173,7 +178,7 @@ extension BookDetailView {
     internal func startBackgroundRemainingPagesLoading(for targetBook: Book? = nil) {
         guard tocPages.count > 1, !remainingPagesLoaded, !isLoadingRemainingPages else { return }
         isLoadingRemainingPages = true
-        tocErrorMessage = ""
+        setTOCError("")
 
         let bookRef = targetBook ?? localBook
         let pages = tocPages
@@ -186,6 +191,7 @@ extension BookDetailView {
         let context = sourceRuntimeContext
 
         loadingTask = Task {
+            var loadingPageURL: String? // trang đang tải — dự phòng cho nút "Mở link lỗi"
             do {
                 guard let ext = ext else {
                     await MainActor.run { self.isLoadingRemainingPages = false }
@@ -196,6 +202,7 @@ extension BookDetailView {
 
                 for pageIndex in firstPageIndex..<pages.count {
                     try Task.checkCancellation()
+                    loadingPageURL = pages[pageIndex]
                     let pageChaps = try await SourceRuntime.shared.toc(
                         localPath: ext.localPath,
                         downloadUrl: ext.downloadUrl,
@@ -223,6 +230,7 @@ extension BookDetailView {
                     }
                     await Task.yield()
                 }
+                loadingPageURL = nil // hết vòng tải trang: lỗi ghi DB bên dưới không trỏ trang mục lục cuối
 
                 // Ghi **một lần** khi đã đủ mọi trang: lỗi giữa chừng không để lại mục lục ghi dở, và đối chiếu đầy đủ
                 // dọn luôn hàng thừa/trùng (khớp theo url nên không mất chương đã tải). Tên dịch do lượt dịch nền lo.
@@ -257,8 +265,9 @@ extension BookDetailView {
                 }
             } catch {
                 if !Task.isCancelled {
+                    let failedPageURL = loadingPageURL // closure `@Sendable` không được bắt `var`
                     await MainActor.run {
-                        self.tocErrorMessage = "Lỗi tải thêm chương: \(error.localizedDescription)"
+                        self.setTOCError("Lỗi tải thêm chương: \(error.localizedDescription)", sourceError: error, failedPageURL: failedPageURL)
                         self.isLoadingRemainingPages = false
                         self.loadingTask = nil
                     }

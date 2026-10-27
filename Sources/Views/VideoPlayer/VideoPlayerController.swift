@@ -50,6 +50,8 @@ final class VideoPlayerController {
     var showsEpisodePanel = false
     /// Sheet "Tải nhiều tập…" (menu `⋯`) — `VideoPlayerScreen` trình bày `TaskOptionsSheet`.
     var showsBatchDownloadSheet = false
+    /// Trình duyệt "Mở link lỗi" của lớp phủ lỗi đang mở — `VideoPlayerScreen` trình bày (`.errorLinkBrowser`).
+    var openingErrorLink: SourceErrorLink?
     var gravity: Gravity = .fit
     /// Giây đang xem trước khi kéo thanh tua / vuốt ngang; `nil` = không tua.
     var scrubSeconds: Double?

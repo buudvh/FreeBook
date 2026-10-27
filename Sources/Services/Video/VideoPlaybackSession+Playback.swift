@@ -88,7 +88,7 @@ extension VideoPlaybackSession {
                 embedContent = .html(html, baseURL: baseURL, userAgent: userAgent)
             } else {
                 AppLogger.shared.log("❌ [VideoPlayer] Kế hoạch nhúng không có URL lẫn HTML (server «\(selectedServerTitle)»)")
-                fail(generation: generation, message: "Không có trang để phát nhúng.")
+                fail(generation: generation, message: "Không có trang để phát nhúng.", link: episodeErrorLink(for: nil))
                 return
             }
             AppLogger.shared.log("🌐 [VideoPlayer] Không bắt được link media ⇒ phát nhúng trang (server «\(selectedServerTitle)»)")
@@ -246,7 +246,7 @@ extension VideoPlaybackSession {
         guard isCurrentItem(itemId) else { return }
         // Log ❌ kèm nguồn + URL đã che; phương án dự phòng (mất tiếng) lỗi thì sang phương án kế thay vì báo lỗi.
         guard !logItemFailureAndTryFallback(message: message) else { return }
-        phase = .failed("Không phát được video: \(message)")
+        phase = .failed("Không phát được video: \(message)", link: episodeErrorLink(for: nil))
         // Không còn item phát ⇒ không giữ phiên màn khoá (TTS dựng lại lệnh của nó nếu đang có widget).
         VideoNowPlayingCoordinator.shared.release(handBackToTTS: true)
     }

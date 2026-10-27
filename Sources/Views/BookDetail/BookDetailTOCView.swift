@@ -6,6 +6,9 @@ struct BookDetailTOCView: View {
     let totalChaps: Int
     @Binding var isTocAscending: Bool
     let tocErrorMessage: String
+    /// Link "Mở link lỗi" của `tocErrorMessage`; `BookDetailView` gắn `.errorLinkBrowser` cho `openingErrorLink`.
+    let tocErrorLink: SourceErrorLink?
+    @Binding var openingErrorLink: SourceErrorLink?
     let isLoadingTOC: Bool
     let localBook: Book?
     let filteredLocalChapters: [Chapter]
@@ -59,6 +62,8 @@ struct BookDetailTOCView: View {
             isAscending: isTocAscending,
             isLoading: isLoadingTOC,
             errorMessage: tocErrorMessage,
+            errorLink: tocErrorLink,
+            openingErrorLink: $openingErrorLink,
             noun: episodeNoun,
             remainingPages: tocPages.count > 1 && !remainingPagesLoaded ? tocPages.count - 1 : 0,
             searchQuery: $chapterSearchQuery,
@@ -178,6 +183,23 @@ struct BookDetailTOCView: View {
                             .font(.caption)
                             .foregroundColor(.red)
                         }
+                        if let link = tocErrorLink {
+                            // Nút tròn la bàn 24pt cỡ hàng tiêu đề, vùng chạm 36×36; padding âm giữ bố cục như nút 24pt
+                            // (hàng không cao lên, vị trí không xê dịch).
+                            Button { openingErrorLink = link } label: {
+                                Image(systemName: ErrorLinkButton.systemImage)
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .frame(width: 24, height: 24)
+                                    .background(Circle().fill(Color.white.opacity(0.16)))
+                                    .frame(width: 36, height: 36)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .padding(-6)
+                            .accessibilityLabel(ErrorLinkButton.accessibilityText)
+                            .accessibilityHint(link.displayText)
+                        }
                     }
                 }
                 .padding(.horizontal)
@@ -192,19 +214,12 @@ struct BookDetailTOCView: View {
                     }
                 } else if totalChaps == 0 {
                     if !tocErrorMessage.isEmpty {
-                        VStack(spacing: 12) {
-                            Text(tocErrorMessage)
-                                .foregroundColor(.red)
-                                .font(.subheadline)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal)
-                            Button("Tải lại mục lục") {
-                                onLoadTOCDataOnly()
-                            }
-                            .buttonStyle(.bordered)
-                        }
-                        .padding(.vertical, 20)
-                        .frame(maxWidth: .infinity)
+                        BookDetailTOCErrorBlock(
+                            message: tocErrorMessage,
+                            link: tocErrorLink,
+                            openingLink: $openingErrorLink,
+                            onReload: onLoadTOCDataOnly
+                        )
                     } else {
                         Text("Không tìm thấy chương nào hoặc lỗi tải chương")
                             .foregroundColor(.gray)

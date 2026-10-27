@@ -14,6 +14,8 @@ public final class JSExecutor: @unchecked Sendable {
     internal var executionCancelled = false
     /// `fetch` lỗi ⇒ thử lại bằng browser ẩn (`+FetchBrowserFallback`). Tắt cho executor cần dữ liệu nhị phân (TTS, ảnh comic).
     internal var allowsFetchBrowserFallback = true
+    /// URL fetch gần nhất / fetch lỗi gần nhất của lượt chạy hiện tại (`+FetchTrace`); xoá ở `beginExecution()`.
+    internal let fetchTrace = JSFetchTrace()
     internal var injectedConfigs: [String: Any] = [:]
     /// Trace của lượt debug. Luồng đọc/tải production truyền `nil` và vì thế hành vi không đổi; xem
     /// `JSExecutor+Debug`. Cố ý **không** phải shared/singleton: mỗi run có sink riêng, đúng như mỗi
@@ -280,6 +282,7 @@ public final class JSExecutor: @unchecked Sendable {
             if isEngineDomainBlocked(resolvedUrlString) {
                 // AppLogger.shared.log("🚫 [JSExecutor] Blocked network fetch to: \(resolvedUrlString)")
                 self.emitDebugFetchFinished(taskID: 0, url: resolvedUrlString, status: 403, statusText: "Blocked domain", bytes: 0, startedAt: Date())
+                // Không ghi dấu vết: tên miền chặn sẵn (thường là quảng cáo) không phải trang nút "Mở link lỗi" nên mở.
                 return ["html": "", "status": 403, "raw": "", "headers": [String: String]()]
             }
             // AppLogger.shared.log("🌐 [JSExecutor] Sync Fetching: \(resolvedUrlString)")
@@ -422,7 +425,8 @@ public final class JSExecutor: @unchecked Sendable {
                 startedAt: fetchStartedAt
             )
             let response: [String: Any] = ["html": resultHtml, "status": statusCode, "statusText": statusText, "raw": resultRawBase64, "headers": responseHeaders, "url": finalUrl]
-            return self.applyingFetchBrowserFallback(to: response, request: request, error: fetchError, timedOut: waitResult == .timedOut && statusCode == 408)
+            let finalResponse = self.applyingFetchBrowserFallback(to: response, request: request, error: fetchError, timedOut: waitResult == .timedOut && statusCode == 408)
+            return self.tracingFetch(finalResponse, requestURL: resolvedUrlString)
         }
         context.setObject(syncFetchBlock, forKeyedSubscript: "_nativeSyncFetch" as NSCopying & NSObjectProtocol)
 
@@ -950,6 +954,7 @@ public final class JSExecutor: @unchecked Sendable {
         networkTaskLock.lock()
         executionCancelled = false
         networkTaskLock.unlock()
+        fetchTrace.reset()
     }
 
     public func cancelCurrentExecution() {

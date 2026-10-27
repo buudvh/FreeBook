@@ -135,6 +135,8 @@ extension BypassBrowserShieldButton {
                     title: "Xem bản máy tính",
                     isOn: binding(decision.desktop, field: .desktop, host: host)
                 )
+                // Phiên ép điện thoại ("Mở link lỗi"): bật ở đây chỉ lưu tuỳ chọn ngược với trang đang hiện ⇒ khoá.
+                .disabled(store.forcesMobileUserAgent)
 
                 Divider()
                     .background(Color.white.opacity(0.12))

@@ -116,7 +116,7 @@ extension ExtensionManager {
             return result
         } catch {
             updateDiagnostics(action: action, input: diagnosticsInput, status: "Error", details: error.localizedDescription)
-            throw error
+            throw ExtensionLoadError.wrapping(error, executor: executor)
         }
     }
 

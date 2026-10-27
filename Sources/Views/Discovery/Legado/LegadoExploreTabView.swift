@@ -18,6 +18,12 @@ struct LegadoExploreTabView: View {
     @State private var items: [LegadoEngineExploreItem]? = nil
     @State private var isLoading = false
     @State private var errorMessage: String? = nil
+    /// Link "Mở link lỗi" của `errorMessage` — gán/xoá cùng chỗ với chữ lỗi.
+    @State private var errorLink: SourceErrorLink? = nil
+    @State private var openingErrorLink: SourceErrorLink? = nil
+    /// Tab bị trình duyệt "Mở link lỗi" che (biến mất khi nó mở): lần xuất hiện lại kế tiếp không để `.task` tải trước
+    /// khi chép cookie — `load` đang chạy sẽ nuốt lượt thử lại do `.errorLinkBrowser` gọi (`guard !isLoading`).
+    @State private var skipsReappearLoad = false
     @State private var drafts: [String: String] = [:]
     @State private var busyTitle: String? = nil
 
@@ -31,7 +37,17 @@ struct LegadoExploreTabView: View {
         }
         .refreshable { await load(preferCached: false) }
         .task {
+            if skipsReappearLoad {
+                skipsReappearLoad = false
+                return
+            }
             if items == nil { await load(preferCached: true) }
+        }
+        .onDisappear {
+            if openingErrorLink != nil { skipsReappearLoad = true }
+        }
+        .errorLinkBrowser(link: $openingErrorLink, packageId: packageId) {
+            Task { await load(preferCached: false) }
         }
         .onChange(of: refreshSerial) { _, _ in
             Task { await load(preferCached: false) }
@@ -60,8 +76,13 @@ struct LegadoExploreTabView: View {
                     .font(.footnote)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
-                Button("Thử lại") { Task { await load(preferCached: false) } }
-                    .font(.subheadline.weight(.semibold))
+                ErrorLinkCaption(link: errorLink)
+                HStack(spacing: 10) {
+                    // Cùng kiểu `.bordered` với nút "Mở link lỗi" cạnh nó (các tab Khám phá khác cũng vậy).
+                    Button("Thử lại") { Task { await load(preferCached: false) } }
+                        .buttonStyle(.bordered)
+                    ErrorLinkButton(link: errorLink, presenting: $openingErrorLink, style: .bordered)
+                }
             }
             .padding(.top, 40)
         } else if items != nil {
@@ -120,10 +141,13 @@ struct LegadoExploreTabView: View {
             let loaded = try await SourceRuntime.shared.legadoExploreItems(localPath: localPath, preferCached: preferCached)
             items = loaded
             errorMessage = nil
+            errorLink = nil
         } catch is CancellationError {
             // Rời màn giữa chừng.
         } catch {
             errorMessage = "Không tải được danh mục khám phá: \(error.localizedDescription)"
+            // URL request lỗi lấy từ `LegadoEngineError`; không có thì trang chủ nguồn.
+            errorLink = SourceErrorLink.resolve(from: error, fallback: ExtensionHostResolver.sourceUrl(packageId: packageId))
             if items?.isEmpty ?? true { items = nil }
         }
         isLoading = false

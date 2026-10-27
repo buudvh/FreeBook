@@ -51,7 +51,10 @@ struct DiscoveryView: View {
     /// cuộn không invalidate body — xem `DiscoveryScrollAnchorStore`.
     @State private var scrollAnchors = DiscoveryScrollAnchorStore()
     @State private var discoveryError: String = ""
-    
+    /// Link "Mở link lỗi" của `discoveryError` — gán/xoá cùng chỗ với chữ lỗi; `nil` khi nguồn chỉ thiếu script.
+    @State private var discoveryErrorLink: SourceErrorLink? = nil
+    @State private var openingErrorLink: SourceErrorLink? = nil
+
     // Thể loại được chọn để điều hướng đẩy view chuyên biệt
     @State private var selectedGenre: CategoryResult? = nil
     @State private var navigateToGenre = false
@@ -276,19 +279,13 @@ struct DiscoveryView: View {
                         
                         VStack(spacing: 0) {
                             if !discoveryError.isEmpty {
-                                // Hiển thị thông báo thiếu home và genres ở khám phá
-                                VStack(spacing: 16) {
-                                    Image(systemName: "exclamationmark.triangle.fill")
-                                        .font(.system(size: 48))
-                                        .foregroundColor(.orange)
-                                    Text(discoveryError)
-                                        .font(.headline)
-                                        .foregroundColor(.secondary)
-                                        .multilineTextAlignment(.center)
-                                        .padding(.horizontal)
-                                }
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .padding(.vertical, 80)
+                                // Lỗi thật của script danh mục, hoặc câu báo nguồn thiếu home và genres.
+                                DiscoveryCatalogErrorView(
+                                    message: discoveryError,
+                                    link: discoveryErrorLink,
+                                    openingLink: $openingErrorLink,
+                                    onRetry: { loadDiscoveryData() }
+                                )
                             } else {
                                 // TabView vuốt ngang trang gốc
                                 TabView(selection: $selectedCategoryId) {
@@ -334,6 +331,7 @@ struct DiscoveryView: View {
                                                     layoutScope: layoutScope,
                                                     selectedCategoryId: $selectedCategoryId,
                                                     scrollAnchors: scrollAnchors,
+                                                    packageId: extPackageId,
                                                     onSelectNovel: openNovel
                                                 )
                                                 .tag(item.id)
@@ -364,6 +362,7 @@ struct DiscoveryView: View {
                 genreItems.removeAll()
                 selectedCategoryId = ""
                 discoveryError = ""
+                discoveryErrorLink = nil
                 if !newValue.isEmpty {
                     loadDiscoveryData()
                 } else {
@@ -456,6 +455,8 @@ struct DiscoveryView: View {
                 // Tính scope lúc mở từ nguồn hiện tại, không bắt `layoutScope` của lượt body cũ.
                 BookListLayoutSheet(scope: Self.layoutScope(for: selectedExtension))
             }
+            // Đóng trình duyệt "Mở link lỗi" của khối lỗi danh mục ⇒ chép cookie rồi tải lại danh mục.
+            .errorLinkBrowser(link: $openingErrorLink, packageId: selectedExtension?.packageId) { loadDiscoveryData() }
             .fullScreenCover(isPresented: $showingSourceBrowser) {
                 // Đọc `sourceUrl` lúc trình bày từ nguồn hiện tại, không bắt bản của lượt body cũ.
                 BypassWebView(
@@ -527,6 +528,7 @@ struct DiscoveryView: View {
         discoveryLoadTask?.cancel()
         isLoading = true
         discoveryError = ""
+        discoveryErrorLink = nil
         // Danh mục sắp được dựng lại từ đầu: neo cũ trỏ vào danh sách không còn tồn tại.
         scrollAnchors.removeAll()
 
@@ -549,7 +551,9 @@ struct DiscoveryView: View {
                 genreItems = loaded.genre
                 isLoading = false
                 let hasData = !loaded.home.isEmpty || !loaded.genre.isEmpty
-                discoveryError = hasData ? "" : "Extension thiếu home và genres"
+                // Không có mục nào: lỗi thật của script đã khai, không thì nguồn thiếu cả hai script.
+                discoveryError = hasData ? "" : (loaded.failure?.message ?? "Extension thiếu home và genres")
+                discoveryErrorLink = hasData ? nil : loaded.failure?.link
                 selectedCategoryId = Self.resolveCategoryId(current: selectedCategoryId, saved: lastSelectedCategoryId,
                                                             home: loaded.home, hasGenre: !loaded.genre.isEmpty, genresTabId: genresTabId)
             }

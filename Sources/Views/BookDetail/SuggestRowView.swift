@@ -8,10 +8,17 @@ struct SuggestRowView: View {
     let extensionPackageId: String
     let sourceName: String
     let isTranslationEnabled: Bool
+    /// Host sách — ghép `category.input` tương đối thành URL dự phòng cho nút "Mở link lỗi".
+    var host: String? = nil
     
     @State private var novels: [ExtensionItemResult] = []
     @State private var isLoading = true
     @State private var errorMessage = ""
+    @State private var errorLink: SourceErrorLink? = nil
+    @State private var openingErrorLink: SourceErrorLink? = nil
+    /// Bị trình duyệt "Mở link lỗi" che lúc biến mất ⇒ `.task` lần hiện lại kế tiếp không tải chồng trước khi chép cookie
+    /// (lượt thử lại của `.errorLinkBrowser` lo tải và cũng hạ cờ) — xem `ErrorLinkBrowserModifier`.
+    @State private var skipsReappearLoad = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -23,12 +30,16 @@ struct SuggestRowView: View {
                     Spacer()
                 }
             } else if !errorMessage.isEmpty {
-                HStack {
-                    Text("Lỗi tải gợi ý: \(errorMessage)")
-                        .font(.caption)
-                        .foregroundColor(.red)
-                        .lineLimit(2)
+                HStack(spacing: 6) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Lỗi tải gợi ý: \(errorMessage)")
+                            .font(.caption)
+                            .foregroundColor(.red)
+                            .lineLimit(2)
+                        ErrorLinkCaption(link: errorLink)
+                    }
                     Spacer()
+                    ErrorLinkButton(link: errorLink, presenting: $openingErrorLink, style: .icon)
                     Button(action: {
                         Task {
                             await loadSuggests()
@@ -94,7 +105,18 @@ struct SuggestRowView: View {
             }
         }
         .task {
+            if skipsReappearLoad {
+                skipsReappearLoad = false
+                return
+            }
             await loadSuggests()
+        }
+        .onDisappear {
+            if openingErrorLink != nil { skipsReappearLoad = true }
+        }
+        .errorLinkBrowser(link: $openingErrorLink, packageId: extensionPackageId) {
+            skipsReappearLoad = false
+            Task { await loadSuggests() }
         }
     }
     
@@ -102,6 +124,7 @@ struct SuggestRowView: View {
         await MainActor.run {
             isLoading = true
             errorMessage = ""
+            errorLink = nil
         }
         
         do {
@@ -124,6 +147,7 @@ struct SuggestRowView: View {
         } catch {
             await MainActor.run {
                 self.errorMessage = error.localizedDescription
+                self.errorLink = SourceErrorLink.resolve(from: error, fallback: category.input, host: host)
                 self.isLoading = false
             }
         }

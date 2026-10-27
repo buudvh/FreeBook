@@ -22,6 +22,8 @@ final class BypassBrowserTabStore: NSObject, ObservableObject, WKNavigationDeleg
     @Published private(set) var activeTabId: String = ""
     /// Cửa sổ bật lên vừa bị chặn (dải báo đọc giá trị này); `nil` = không có gì để báo.
     @Published private(set) var blockedPopup: BypassBrowserBlockedPopup?
+    /// Ép chế độ điện thoại cho mọi tab (mở từ nút "Mở link lỗi"); đặt trước khi tạo tab đầu — xem `+MobileOverride`.
+    var forcesMobileUserAgent = false
 
     /// Chuyển tiếp thay đổi của từng tab lên store để View chỉ cần quan sát store.
     private var tabObservations: [String: AnyCancellable] = [:]
@@ -85,7 +87,7 @@ final class BypassBrowserTabStore: NSObject, ObservableObject, WKNavigationDeleg
     /// Decision theo tên miền của trang tab đang hiển thị; `nil` khi tab là Home / `about:blank` / chưa có trang.
     func decision(for tab: BypassBrowserTab) -> WebContentDecision? {
         guard let host = Self.pageHost(of: tab) else { return nil }
-        return WebContentPolicy.decision(for: .userBrowser(host: host))
+        return policyDecision(host: host)
     }
 
     /// Sau khi đổi cài đặt theo tên miền (menu khiên): tính lại decision theo host tab đang xem, áp rồi nạp lại ngay.
@@ -144,7 +146,7 @@ final class BypassBrowserTabStore: NSObject, ObservableObject, WKNavigationDeleg
         webView.navigationDelegate = self
         webView.uiDelegate = self
         let tab = BypassBrowserTab(webView: webView, initialUrl: url)
-        applyContentPolicy(WebContentPolicy.decision(for: .userBrowser(host: policyHost)), to: tab)
+        applyContentPolicy(policyDecision(host: policyHost), to: tab)
         tabObservations[tab.id] = tab.objectWillChange.sink { [weak self] _ in
             self?.objectWillChange.send()
         }
@@ -242,7 +244,7 @@ final class BypassBrowserTabStore: NSObject, ObservableObject, WKNavigationDeleg
         preferences: WKWebpagePreferences,
         decisionHandler: @escaping (WKNavigationActionPolicy, WKWebpagePreferences) -> Void
     ) {
-        let decision = WebContentPolicy.decision(for: .userBrowser(host: url.host))
+        let decision = policyDecision(host: url.host)
         preferences.preferredContentMode = WebContentConfigurator.contentMode(for: decision)
         if decision.adBlock, isEngineDomainBlocked(url.absoluteString) {
             decisionHandler(.cancel, preferences)

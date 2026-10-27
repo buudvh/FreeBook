@@ -6,14 +6,23 @@ struct AllCommentsView: View {
     let downloadUrl: String
     let configJson: String
     let isTranslationEnabled: Bool
+    /// Host sách — ghép `category.input` tương đối thành URL dự phòng cho nút "Mở link lỗi".
+    var host: String? = nil
+    /// Tiện ích/nguồn của truyện — nguồn Legado thì cookie của trình duyệt "Mở link lỗi" được gộp vào kho của nguồn.
+    var extensionPackageId: String? = nil
     
     @State private var comments: [ExtensionItemResult] = []
     @State private var isLoading = true
     @State private var isLoadingMore = false
     @State private var errorMessage = ""
+    @State private var errorLink: SourceErrorLink? = nil
+    @State private var openingErrorLink: SourceErrorLink? = nil
     @State private var currentPage = 1
     @State private var nextPageUrl: String? = nil
     @State private var retryCount = 0
+    /// Bị trình duyệt "Mở link lỗi" che lúc biến mất ⇒ `.task` lần hiện lại kế tiếp không tải chồng trước khi chép cookie
+    /// (lượt thử lại của `.errorLinkBrowser` lo tải và cũng hạ cờ) — xem `ErrorLinkBrowserModifier`.
+    @State private var skipsReappearLoad = false
     
     var body: some View {
         VStack {
@@ -27,12 +36,19 @@ struct AllCommentsView: View {
                         .font(.subheadline)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
-                    Button("Thử lại") {
-                        Task {
-                            await loadComments(page: 1)
-                        }
+                    if errorLink != nil {
+                        ErrorLinkCaption(link: errorLink)
+                            .padding(.horizontal)
                     }
-                    .buttonStyle(.bordered)
+                    HStack(spacing: 10) {
+                        Button("Thử lại") {
+                            Task {
+                                await loadComments(page: 1)
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        ErrorLinkButton(link: errorLink, presenting: $openingErrorLink, style: .bordered)
+                    }
                 }
                 .frame(maxHeight: .infinity)
             } else {
@@ -104,7 +120,18 @@ struct AllCommentsView: View {
         .navigationTitle((isTranslationEnabled && TranslateUtils.containsChinese(category.title)) ? TranslateUtils.translateMeta(category.title) : category.title)
         .navigationBarTitleDisplayMode(.inline)
         .task {
+            if skipsReappearLoad {
+                skipsReappearLoad = false
+                return
+            }
             await loadComments(page: 1)
+        }
+        .onDisappear {
+            if openingErrorLink != nil { skipsReappearLoad = true }
+        }
+        .errorLinkBrowser(link: $openingErrorLink, packageId: extensionPackageId) {
+            skipsReappearLoad = false
+            Task { await loadComments(page: 1) }
         }
     }
     
@@ -113,6 +140,7 @@ struct AllCommentsView: View {
             await MainActor.run {
                 isLoading = true
                 errorMessage = ""
+                errorLink = nil
                 retryCount = 0
             }
         } else {
@@ -149,6 +177,7 @@ struct AllCommentsView: View {
             await MainActor.run {
                 if page == 1 {
                     self.errorMessage = error.localizedDescription
+                    self.errorLink = SourceErrorLink.resolve(from: error, fallback: category.input, host: host)
                     self.isLoading = false
                 } else {
                     self.isLoadingMore = false

@@ -43,7 +43,7 @@ extension BookDetailView {
             // Lượt "Tải thêm chương" đang chạy thì dừng; các trang nó đã nối nằm sẵn trong `baseChapters`.
             loadingTask?.cancel()
             isLoadingRemainingPages = true
-            tocErrorMessage = ""
+            setTOCError("")
             let baseChapters = onlineChapters
             let loadedPages = loadedRemainingPageCount
 
@@ -100,7 +100,7 @@ extension BookDetailView {
                 } catch {
                     if !Task.isCancelled {
                         await MainActor.run {
-                            self.tocErrorMessage = "Lỗi tải thêm chương: \(error.localizedDescription)"
+                            self.setTOCError("Lỗi tải thêm chương: \(error.localizedDescription)", sourceError: error)
                             self.isLoadingRemainingPages = false
                             self.loadingTask = nil
                         }
@@ -271,8 +271,8 @@ extension BookDetailView {
         guard !ext.localPath.isEmpty else { return }
 
         await MainActor.run {
-            self.detailErrorMessage = ""
-            self.tocErrorMessage = ""
+            self.setDetailError("")
+            self.setTOCError("")
             self.markSourceUsed()
             // Lượt "Tải thêm chương"/chuẩn bị tải đang nối trang vào `onlineChapters` sẽ đua với mục lục đầy đủ dưới đây.
             self.loadingTask?.cancel()
@@ -317,14 +317,14 @@ extension BookDetailView {
                             in: modelContext
                         )
                         if case .failure(let err) = res {
-                            self.detailErrorMessage = err.localizedDescription
+                            self.setDetailError(err.localizedDescription)
                         }
                     }
                 }
             }
         } catch {
             await MainActor.run {
-                self.detailErrorMessage = "Lỗi tải chi tiết: \(error.localizedDescription)"
+                self.setDetailError("Lỗi tải chi tiết: \(error.localizedDescription)", sourceError: error)
             }
         }
 
@@ -369,7 +369,7 @@ extension BookDetailView {
             }
         } catch {
             await MainActor.run {
-                self.tocErrorMessage = "Lỗi tải mục lục: \(error.localizedDescription)"
+                self.setTOCError("Lỗi tải mục lục: \(error.localizedDescription)", sourceError: error)
             }
         }
     }

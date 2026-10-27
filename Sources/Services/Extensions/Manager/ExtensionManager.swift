@@ -345,7 +345,7 @@ public final class ExtensionManager: ObservableObject {
         } catch {
             // AppLogger.shared.log("❌ [ExtensionManager] search error: \(error.localizedDescription)")
             updateDiagnostics(action: "search", input: "query: \(query), page: \(page)", status: "Error", details: error.localizedDescription)
-            throw error
+            throw ExtensionLoadError.wrapping(error, executor: executor)
         }
     }
     
@@ -400,7 +400,7 @@ public final class ExtensionManager: ObservableObject {
         } catch {
             // AppLogger.shared.log("❌ [ExtensionManager] detail error: \(error.localizedDescription)")
             updateDiagnostics(action: "detail", input: url, status: "Error", details: error.localizedDescription)
-            throw error
+            throw ExtensionLoadError.wrapping(error, executor: executor)
         }
     }
     
@@ -435,7 +435,7 @@ public final class ExtensionManager: ObservableObject {
         } catch {
             // AppLogger.shared.log("❌ [ExtensionManager] toc error: \(error.localizedDescription)")
             updateDiagnostics(action: "toc", input: url, status: "Error", details: error.localizedDescription)
-            throw error
+            throw ExtensionLoadError.wrapping(error, executor: executor)
         }
     }
 
@@ -502,7 +502,7 @@ public final class ExtensionManager: ObservableObject {
         } catch {
             // AppLogger.shared.log("❌ [ExtensionManager] chap error: \(error.localizedDescription)")
             updateDiagnostics(action: "chap", input: url, status: "Error", details: error.localizedDescription)
-            throw error
+            throw ExtensionLoadError.wrapping(error, executor: executor)
         }
     }
     
@@ -511,15 +511,18 @@ public final class ExtensionManager: ObservableObject {
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "genre")
         let scriptName = scriptUrl.lastPathComponent
         AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: arguments=[], configJson=\(configJson)")
-        
+
+        // Khai ngoài `do` để `catch` đọc được dấu vết fetch (`ExtensionLoadError.wrapping`).
+        var executor: JSExecutor?
         do {
             let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
-            
-            let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
+
+            let runner = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
+            executor = runner
             let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
-            executor.injectGlobals(configs)
-            
-            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
+            runner.injectGlobals(configs)
+
+            let jsValue = try await runner.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
             let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "genre")
             
             var results: [CategoryResult] = []
@@ -544,7 +547,7 @@ public final class ExtensionManager: ObservableObject {
         } catch {
             // AppLogger.shared.log("❌ [ExtensionManager] genre script failed or not supported: \(error.localizedDescription)")
             updateDiagnostics(action: "genre", input: "localPath: \(localPath)", status: "Error", details: error.localizedDescription)
-            throw error
+            throw ExtensionLoadError.wrapping(error, executor: executor)
         }
     }
     
@@ -560,17 +563,22 @@ public final class ExtensionManager: ObservableObject {
         let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
         executor.injectGlobals(configs)
         
-        let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
-        let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "home")
-        
-        let results = cleanVal.isArray ? Self.categoryItems(from: toDictionaryArray(cleanVal)) : []
+        do {
+            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
+            let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "home")
 
-        // AppLogger.shared.log("✅ [ExtensionManager] home parsed \(results.count) tabs")
-        if !results.isEmpty {
-            updateDiagnostics(action: "home", input: "localPath: \(localPath)", status: "Success", details: "Parsed \(results.count) tabs:")
-            return results
-        } else {
-            throw NSError(domain: "ExtensionManager", code: -7, userInfo: [NSLocalizedDescriptionKey: "Home script returned empty or invalid response"])
+            let results = cleanVal.isArray ? Self.categoryItems(from: toDictionaryArray(cleanVal)) : []
+
+            // AppLogger.shared.log("✅ [ExtensionManager] home parsed \(results.count) tabs")
+            if !results.isEmpty {
+                updateDiagnostics(action: "home", input: "localPath: \(localPath)", status: "Success", details: "Parsed \(results.count) tabs:")
+                return results
+            } else {
+                throw NSError(domain: "ExtensionManager", code: -7, userInfo: [NSLocalizedDescriptionKey: "Home script returned empty or invalid response"])
+            }
+        } catch {
+            // Chỉ bọc dấu vết fetch; giữ nguyên việc không ghi `AppDiagnostics` khi lỗi như trước.
+            throw ExtensionLoadError.wrapping(error, executor: executor)
         }
     }
     
@@ -618,7 +626,7 @@ public final class ExtensionManager: ObservableObject {
         } catch {
             // AppLogger.shared.log("❌ [ExtensionManager] custom script error: \(error.localizedDescription)")
             updateDiagnostics(action: scriptFileName, input: "input: \(input), page: \(page)", status: "Error", details: error.localizedDescription)
-            throw error
+            throw ExtensionLoadError.wrapping(error, executor: executor)
         }
     }
     
@@ -657,7 +665,7 @@ public final class ExtensionManager: ObservableObject {
         } catch {
             AppLogger.shared.log("❌ [ExtensionManager] page script error: \(error.localizedDescription)")
             updateDiagnostics(action: "page", input: url, status: "Error", details: error.localizedDescription)
-            throw error
+            throw ExtensionLoadError.wrapping(error, executor: executor)
         }
     }
     
