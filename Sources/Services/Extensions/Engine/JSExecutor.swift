@@ -12,6 +12,8 @@ public final class JSExecutor: @unchecked Sendable {
     internal var activeNetworkTasks: [Int: URLSessionDataTask] = [:]
     internal var nextNetworkTaskID = 0
     internal var executionCancelled = false
+    /// `fetch` lỗi ⇒ thử lại bằng browser ẩn (`+FetchBrowserFallback`). Tắt cho executor cần dữ liệu nhị phân (TTS, ảnh comic).
+    internal var allowsFetchBrowserFallback = true
     internal var injectedConfigs: [String: Any] = [:]
     /// Trace của lượt debug. Luồng đọc/tải production truyền `nil` và vì thế hành vi không đổi; xem
     /// `JSExecutor+Debug`. Cố ý **không** phải shared/singleton: mỗi run có sink riêng, đúng như mỗi
@@ -291,6 +293,7 @@ public final class JSExecutor: @unchecked Sendable {
             var statusText = "OK"
             var finalUrl = resolvedUrlString
             var responseHeaders: [String: String] = [:]
+            var fetchError: Error?
             var timeoutSeconds: TimeInterval = 15.0
             let semaphore = DispatchSemaphore(value: 0)
 
@@ -350,6 +353,7 @@ public final class JSExecutor: @unchecked Sendable {
                 }
                 if error != nil {
                     // AppLogger.shared.log("❌ [JSExecutor] Fetch error: \(error.localizedDescription)")
+                    fetchError = error
                     statusCode = 500
                     statusText = error?.localizedDescription ?? "Network Error"
                 }
@@ -405,6 +409,8 @@ public final class JSExecutor: @unchecked Sendable {
                 // bounded wait prevents the callback from mutating result state
                 // after this synchronous bridge has returned.
                 _ = semaphore.wait(timeout: .now() + 1.0)
+                // Callback của task vừa huỷ ghi đè thành 500 "cancelled" (lỗi -999) — giữ đúng 408 cho ca hết giờ.
+                if fetchError != nil { (statusCode, statusText) = (408, "Request Timeout") }
             }
 
             self.emitDebugFetchFinished(
@@ -415,7 +421,8 @@ public final class JSExecutor: @unchecked Sendable {
                 bytes: responseByteCount,
                 startedAt: fetchStartedAt
             )
-            return ["html": resultHtml, "status": statusCode, "statusText": statusText, "raw": resultRawBase64, "headers": responseHeaders, "url": finalUrl]
+            let response: [String: Any] = ["html": resultHtml, "status": statusCode, "statusText": statusText, "raw": resultRawBase64, "headers": responseHeaders, "url": finalUrl]
+            return self.applyingFetchBrowserFallback(to: response, request: request, error: fetchError, timedOut: waitResult == .timedOut && statusCode == 408)
         }
         context.setObject(syncFetchBlock, forKeyedSubscript: "_nativeSyncFetch" as NSCopying & NSObjectProtocol)
 

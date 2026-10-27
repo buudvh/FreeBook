@@ -80,6 +80,8 @@ actor ComicImageScriptRunner {
         let content = try String(contentsOf: scriptURL, encoding: .utf8)
 
         let executor = JSExecutor(localPath: key.localPath, downloadUrl: downloadUrl)
+        // Script ảnh cần byte ảnh: trang HTML của browser ẩn không thay được ⇒ fetch lỗi trả lỗi ngay.
+        executor.allowsFetchBrowserFallback = false
         executor.injectGlobals(ExtensionManager.shared.getCombinedConfigs(localPath: key.localPath, configJson: key.configJson))
         try executor.prepareScript(content)
         executors[key] = executor

@@ -4,8 +4,9 @@ import SwiftData
 /// Luồng của nút icon thêm/bỏ kệ trong danh sách chương Reader chữ và mục lục comic.
 ///
 /// - Thêm: `BookActionRunner.addToShelf` (tự toast) rồi mở `CollectionPickerSheet` — giống màn Chi tiết.
-/// - Bỏ: hỏi xác nhận rồi `BookActionRunner.removeFromShelfOnly` — truyện rời kệ, rời mọi bộ sưu tập và bỏ ghim,
-///   nhưng giữ file/tiến độ và về Lịch sử. **Không** dùng `BookDetailView.removeFromShelf`: đường đó xoá hẳn truyện
+/// - Bỏ: hỏi xác nhận (`ShelfRemovalConfirmationModifier`, cùng hộp với sheet nhấn giữ ở Kệ sách) rồi
+///   `BookActionRunner.removeFromShelfOnly` — truyện rời kệ, rời mọi bộ sưu tập và bỏ ghim, nhưng giữ file/tiến độ và
+///   về Lịch sử. **Không** dùng `BookDetailView.removeFromShelf`: đường đó xoá hẳn truyện
 ///   (`BookStorageManager.deleteBookAsync`), trong khi truyện đang mở ngay trong Reader.
 /// - Hộp xác nhận và sheet chọn bộ sưu tập gắn ở gốc view của nơi dùng, không gắn trong `ToolbarItem`.
 /// - Icon dùng lại cặp của công tắc kệ ở `BookActionSheet`: `bookmark.fill` / `bookmark.slash.fill` (đỏ).
@@ -17,20 +18,9 @@ struct ShelfToggleFlowModifier: ViewModifier {
     @Binding var isConfirmingRemoval: Bool
     @Binding var collectionPickerBook: Book?
 
-    @Environment(\.modelContext) private var modelContext
-
     func body(content: Content) -> some View {
         content
-            .alert("Bỏ \"\(displayTitle)\" khỏi kệ?", isPresented: $isConfirmingRemoval) {
-                Button("Huỷ", role: .cancel) {}
-                Button("Bỏ khỏi kệ", role: .destructive) {
-                    if let book {
-                        BookActionRunner.removeFromShelfOnly(book, in: modelContext)
-                    }
-                }
-            } message: {
-                Text("Truyện sẽ rời mọi bộ sưu tập và bỏ ghim. Tiến độ đọc và chương đã tải vẫn giữ, truyện chuyển sang Lịch sử.")
-            }
+            .shelfRemovalConfirmation(book: book, displayTitle: displayTitle, isPresented: $isConfirmingRemoval)
             .sheet(item: $collectionPickerBook) { book in
                 CollectionPickerSheet(bookId: book.bookId)
             }

@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.583] - 2026-10-22
+
+### fix: trình duyệt ẩn của nguồn Legado chờ trang thử thách JS tự tải lại rồi mới lấy HTML
+
+Từ báo cáo `kiem-tra-nguon-legado-20261022-160304.json`: 起点小说 và 🎉起点中文网 (tìm kiếm `webView:true`) luôn nhận trang ~1 KB và bị kết luận nhầm "nguồn lỗi thời".
+
+- **Nguyên nhân**: lần tải đầu, qidian trả HTTP 202, 209 byte — thân rỗng + `probe.js`; trong trình duyệt, script này đặt cookie rồi tự tải lại đúng URL (trang thật ~60 KB, 11 mục `.res-book-item`). `WebViewLoader` báo xong ngay lần tải đầu nên `LegadoWebViewFetcher` lấy HTML trang thử thách rồi dọn WebView — JS không kịp đặt cookie, lần nào cũng gặp lại trang thử thách.
+- **Chờ trang lắng** (`LegadoWebViewFetcher+Settle`, file mới): sau lần tải đầu, mỗi 0,25 s kiểm `webView.isLoading`; trang phải yên liên tục 0,5 s mới xét. Một đoạn JS đếm chữ / ảnh / script / meta refresh: dưới 64 ký tự chữ, dưới 3 ảnh, có script hoặc meta refresh ⇒ coi là trang chờ, chờ tiếp tối đa 8 s kể từ lần tải xong gần nhất. Trần cứng vẫn là timeout của request (không kéo dài tổng thời gian chờ); huỷ thì dừng ở lượt kiểm kế tiếp. Trang thường chỉ chậm thêm ~0,5 s.
+- **Sửa kèm**: `webViewDelayTime` giờ tính **sau** khi trang lắng, và HTML được đọc lại sau khoảng chờ đó (trước đây dùng bản chụp cũ, sai spec §4.4). `java.webView(html, …)` (nạp chuỗi HTML) không qua bước chờ lắng; đường `sourceRegex` không đổi.
+- **Kiểm chứng**: cơ chế tải lại và ngưỡng phân loại đã quan sát trên trình duyệt Chromium, **chưa** trên WKWebView của iPhone. `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy (thử sau khi xoá cookie, vì kho cookie WebKit giữ lại giữa các lần).
+
 ## [1.3.582] - 2026-10-22
 
 ### fix: kiểm tra nguồn Legado không kết luận nhầm "lỗi thời" với trang báo lỗi ngắn, từ khoá mặc định dài hơn

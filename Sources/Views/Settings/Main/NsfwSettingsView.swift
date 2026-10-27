@@ -1,11 +1,14 @@
 import SwiftUI
 
-/// Màn "Nội dung nhạy cảm (NSFW)" trong Cài đặt › Thư Viện: công tắc NSFW **toàn app** kèm giải thích.
+/// Màn "Nội dung nhạy cảm (NSFW)" trong Cài đặt › Thư Viện: công tắc NSFW **toàn app** kèm giải thích, và tuỳ chọn
+/// "Tắt tiếng khi mở phim" (`VideoMutePolicy`, chuyển từ Cài đặt › Đọc & Nghe sang đây).
 ///
 /// Dùng chung khoá `RepositoryFilterPolicy.includeNsfwDefaultsKey` với công tắc NSFW trong bộ lọc Kho, nên đổi ở một
 /// chỗ là chỗ kia đổi theo. Khoá về `false` mỗi lần mở app (`RepositoryFilterPolicy.resetNsfwVisibilityOnLaunch`).
 struct NsfwSettingsView: View {
     @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
+    /// Cùng khoá `VideoMutePolicy` đọc lúc mở phim mới; mặc định `nsfwOnly`.
+    @AppStorage(VideoMutePolicy.defaultsKey) private var videoMutePolicy: VideoMutePolicy = VideoMutePolicy.defaultValue
 
     var body: some View {
         Form {
@@ -13,6 +16,17 @@ struct NsfwSettingsView: View {
                 Toggle("Hiện nội dung nhạy cảm", isOn: $includeNsfw)
             } footer: {
                 Text("Mặc định tắt. Mỗi lần mở lại app, công tắc tự tắt. Cũng bật/tắt nhanh ở bảng chọn nguồn của Khám phá.")
+            }
+
+            Section {
+                Picker(selection: $videoMutePolicy) {
+                    ForEach(VideoMutePolicy.allCases) { policy in
+                        Text(policy.title).tag(policy)
+                    }
+                } label: {
+                    Label("Tắt tiếng khi mở phim", systemImage: "speaker.slash")
+                }
+                .pickerStyle(.navigationLink)
             }
 
             Section(header: Text("Khi tắt")) {

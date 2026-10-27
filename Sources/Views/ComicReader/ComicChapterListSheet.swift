@@ -1,113 +1,117 @@
 import SwiftUI
 
-/// Mục lục của màn đọc comic: chương đang đọc được đánh dấu, chương đã tải offline có icon; chạm để nhảy chương.
+/// Mục lục của màn đọc comic — cùng bố cục với mục lục truyện chữ (`ReaderChapterListView`): header bìa + tên + nguồn
+/// + hàng nút (`ComicChapterListSheet+Header.swift`), ô tìm chương, danh sách chương. `ComicReaderView` trình bày bằng
+/// sheet gốc (detents 0.88/large, có thanh kéo) nên không có thanh tiêu đề hay nút đóng: kéo xuống để đóng.
 ///
-/// `book` (nếu có) dùng cho hai nút ở toolbar trái: **tải ảnh offline** (mở `TaskOptionsSheet` y như nhấn-giữ một
-/// truyện ở Kệ/Lịch sử) và **thêm/bỏ kệ** (`ShelfToggleFlowModifier`, cùng luồng với danh sách chương Reader chữ).
-/// Sách chưa có trong thư viện thì không có hàng `Book` nên cả hai nút ẩn.
+/// - Màn comic luôn tối (`preferredColorScheme(.dark)`), không có `ReaderTheme` riêng ⇒ dùng màu của `ReaderTheme.dark`.
+/// - `book` (nếu có) dùng cho nút **tải ảnh offline** (`TaskOptionsSheet`, y như nhấn-giữ một truyện ở Kệ/Lịch sử) và
+///   nút **thêm/bỏ kệ** (`ShelfToggleFlowModifier`). Sách chưa có trong thư viện thì không có hàng `Book` nên hai nút
+///   ẩn; bìa/tên/tác giả khi đó lấy từ `launch`.
+/// - Thứ tự sắp xếp là `Binding` từ `ComicReaderView`: giữ suốt phiên đọc, không lưu đĩa.
+/// - Đang tìm hoặc đang xếp giảm dần ⇒ ẩn dòng tiêu đề nhóm (`isSection`): nhãn nhóm chỉ có nghĩa khi đứng ngay trên
+///   các chương của nó theo thứ tự gốc.
 @MainActor
 struct ComicChapterListSheet: View {
+    /// Màu nền/chữ của sheet — `ComicReaderView` dùng cùng màu cho `presentationBackground`.
+    static var theme: ReaderTheme { .dark }
+
     let chapters: [ComicChapterEntry]
     let currentIndex: Int
     let downloadedIndexes: Set<Int>
     let isTranslationEnabled: Bool
     let book: Book?
+    let launch: BookContentLaunch
+    @Binding var isAscending: Bool
     let onSelect: (Int) -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
-    @State private var showingDownloadOptions = false
-    @State private var isConfirmingShelfRemoval = false
-    @State private var collectionPickerBook: Book? = nil
+    @Environment(\.modelContext) var modelContext
+    @State private var searchQuery = ""
+    @State var showingBookDetail = false
+    @State var showingDownloadOptions = false
+    @State var isConfirmingShelfRemoval = false
+    @State var collectionPickerBook: Book? = nil
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if chapters.isEmpty {
-                    ContentUnavailableView(
-                        "Chưa có mục lục",
-                        systemImage: "list.bullet",
-                        description: Text("Mở trang chi tiết truyện để tải mục lục.")
-                    )
-                } else {
-                    chapterList
-                }
-            }
-            .navigationTitle("Mục lục (\(readableChapterCount))")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    HStack(spacing: 6) {
-                        if book != nil, !chapters.isEmpty {
-                            Button {
-                                showingDownloadOptions = true
-                            } label: {
-                                Image(systemName: "arrow.down.to.line")
-                                    .font(.system(size: 17, weight: .semibold))
-                                    .frame(width: 36, height: 38)
-                            }
-                            .accessibilityLabel("Tải ảnh offline")
-                        }
-                        shelfToggleButton
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 17, weight: .semibold))
-                            .frame(width: 36, height: 38)
-                    }
-                    .accessibilityLabel("Đóng")
-                }
-            }
-            .sheet(isPresented: $showingDownloadOptions) {
-                if let book {
-                    TaskOptionsSheet(book: book, taskType: .download)
-                }
-            }
-            // Gắn ở đây như sheet tải, không gắn trong `ToolbarItem`.
-            .shelfToggleFlow(
-                book: book,
-                displayTitle: displayedBookTitle,
-                isConfirmingRemoval: $isConfirmingShelfRemoval,
-                collectionPickerBook: $collectionPickerBook
-            )
-        }
-    }
+        VStack(spacing: 0) {
+            header
+            Divider().background(Self.theme.textColor.opacity(0.1))
 
-    @ViewBuilder
-    private var shelfToggleButton: some View {
-        if let book {
-            let isOnShelf = book.isOnShelf
-            Button {
-                ShelfToggleFlowModifier.toggle(
-                    book,
-                    in: modelContext,
-                    isConfirmingRemoval: $isConfirmingShelfRemoval,
-                    collectionPickerBook: $collectionPickerBook
+            if chapters.isEmpty {
+                ContentUnavailableView(
+                    "Chưa có mục lục",
+                    systemImage: "list.bullet",
+                    description: Text("Mở trang chi tiết truyện để tải mục lục.")
                 )
-            } label: {
-                Image(systemName: ShelfToggleFlowModifier.iconName(isOnShelf: isOnShelf))
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(width: 36, height: 38)
+                .frame(maxHeight: .infinity)
+            } else {
+                searchField
+                chapterList
             }
-            // Chưa ở kệ: màu nhấn như nút tải bên cạnh; đã ở kệ: đỏ (nút bỏ).
-            .tint(isOnShelf ? Color.red : nil)
-            .accessibilityLabel(ShelfToggleFlowModifier.accessibilityLabel(isOnShelf: isOnShelf))
         }
+        .background(Self.theme.backgroundColor.ignoresSafeArea())
+        .sheet(isPresented: $showingDownloadOptions) {
+            if let book {
+                TaskOptionsSheet(book: book, taskType: .download)
+            }
+        }
+        .shelfToggleFlow(
+            book: book,
+            displayTitle: metadataTitle,
+            isConfirmingRemoval: $isConfirmingShelfRemoval,
+            collectionPickerBook: $collectionPickerBook
+        )
     }
 
-    /// Tên trong hộp xác nhận bỏ kệ — cùng luật dịch tên với thẻ ở Kệ.
-    private var displayedBookTitle: String {
-        guard let book else { return "" }
-        return BookDisplayTranslation.title(book.title, bookId: book.bookId, isEnabled: isTranslationEnabled)
+    // MARK: - Ô tìm
+
+    private var searchField: some View {
+        HStack {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(Self.theme.textColor.opacity(0.6))
+            TextField("Tìm kiếm chương...", text: $searchQuery)
+                .textFieldStyle(.plain)
+                .textInputAutocapitalization(.never)
+                .foregroundColor(Self.theme.textColor)
+                .submitLabel(.search)
+            if !searchQuery.isEmpty {
+                Button(action: { searchQuery = "" }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(Self.theme.textColor.opacity(0.6))
+                }
+                .accessibilityLabel("Xoá từ khoá")
+            }
+        }
+        .padding(10)
+        .background(Self.theme.textColor.opacity(0.08))
+        .cornerRadius(8)
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+    }
+
+    // MARK: - Danh sách
+
+    private var trimmedQuery: String {
+        searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Hàng đang hiện: lọc theo tên **đang hiển thị** (đã dịch nếu bật dịch), không phân biệt hoa thường, rồi xếp theo
+    /// `isAscending`. Dòng tiêu đề nhóm chỉ giữ khi không tìm và xếp tăng dần.
+    private var visibleChapters: [ComicChapterEntry] {
+        let query = trimmedQuery
+        let showsSections = query.isEmpty && isAscending
+        let rows = chapters.filter { chapter in
+            if chapter.isSection { return showsSections }
+            guard !query.isEmpty else { return true }
+            return chapter.displayTitle(translated: isTranslationEnabled).localizedCaseInsensitiveContains(query)
+        }
+        return isAscending ? rows : Array(rows.reversed())
     }
 
     private var chapterList: some View {
         ScrollViewReader { proxy in
-            List(chapters, id: \.index) { chapter in
+            List(visibleChapters, id: \.index) { chapter in
                 Group {
                     if chapter.isSection {
                         sectionHeader(for: chapter)
@@ -118,6 +122,8 @@ struct ComicChapterListSheet: View {
                 .id(chapter.index)
             }
             .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(Self.theme.backgroundColor)
             .onAppear {
                 // Đợi List dựng xong rồi mới cuộn tới chương đang đọc.
                 DispatchQueue.main.async {
@@ -127,51 +133,53 @@ struct ComicChapterListSheet: View {
         }
     }
 
-    /// Số chương đọc được — không tính dòng tiêu đề nhóm.
-    private var readableChapterCount: Int {
-        chapters.reduce(0) { count, chapter in chapter.isSection ? count : count + 1 }
-    }
-
     /// Dòng tiêu đề nhóm tập (`isSection`): chỉ là nhãn, không chạm được.
     private func sectionHeader(for chapter: ComicChapterEntry) -> some View {
         Text(chapter.displayTitle(translated: isTranslationEnabled))
             .font(.subheadline.weight(.bold))
-            .foregroundStyle(Color.secondary)
+            .foregroundColor(Self.theme.textColor.opacity(0.6))
             .lineLimit(2)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, 8)
-            .listRowBackground(Color(.secondarySystemBackground))
+            .listRowBackground(Color.white.opacity(0.05))
             .accessibilityAddTraits(.isHeader)
     }
 
+    /// Cùng kiểu `ReaderChapterRowView`: đang đọc = chữ trắng đậm + nền trắng mờ; đã đọc (index logic nhỏ hơn) = mờ
+    /// 0.4; đã tải offline = icon xanh trong khung 30×30 cố định để hàng không đổi chiều cao.
     private func row(for chapter: ComicChapterEntry) -> some View {
         let isCurrent = chapter.index == currentIndex
+        let isRead = chapter.index < currentIndex
+        let theme = Self.theme
         return Button {
             onSelect(chapter.index)
             dismiss()
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: 4) {
                 Text(chapter.displayTitle(translated: isTranslationEnabled))
-                    .font(.subheadline.weight(isCurrent ? .semibold : .regular))
-                    .foregroundStyle(isCurrent ? Color.accentColor : Color.primary)
+                    .font(.body)
+                    .foregroundColor(isCurrent ? .white : (isRead ? theme.textColor.opacity(0.4) : theme.textColor))
+                    .fontWeight(isCurrent ? .semibold : .regular)
                     .lineLimit(2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                if downloadedIndexes.contains(chapter.index) {
-                    Image(systemName: "arrow.down.circle.fill")
-                        .font(.footnote)
-                        .foregroundStyle(Color.green)
-                        .accessibilityLabel("Đã tải offline")
-                }
-                if isCurrent {
-                    Image(systemName: "book.fill")
-                        .font(.footnote)
-                        .foregroundStyle(Color.accentColor)
-                        .accessibilityLabel("Đang đọc")
-                }
+                    .multilineTextAlignment(.leading)
+                Spacer(minLength: 8)
+
+                Color.clear
+                    .frame(width: 30, height: 30)
+                    .overlay {
+                        if downloadedIndexes.contains(chapter.index) {
+                            Image(systemName: "arrow.down.circle.fill")
+                                .font(.caption)
+                                .foregroundColor(.green)
+                                .accessibilityLabel("Đã tải offline")
+                        }
+                    }
             }
+            .padding(.vertical, 4)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .listRowBackground(isCurrent ? Color.accentColor.opacity(0.12) : Color.clear)
+        .listRowBackground(isCurrent ? Color.white.opacity(0.1) : theme.backgroundColor)
+        .accessibilityAddTraits(isCurrent ? .isSelected : [])
     }
 }

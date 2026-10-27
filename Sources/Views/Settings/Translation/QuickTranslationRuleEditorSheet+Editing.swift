@@ -253,10 +253,23 @@ extension QuickTranslationRuleEditorSheet {
                 }
             }
         } header: {
-            Text("Mẫu (vế trái dấu =)")
-        } footer: {
-            Text("Nút token chèn **tại con trỏ** của ô nhập, hoặc thay đoạn đang bôi đen. Chạm một chip token (ở dải trên hoặc trong ô nhập) để mở thanh chỉnh độ dài. Token: `<n>` số, `<y>` đọc từng chữ số, `<h>` chữ số Hán, `<d>` chữ số 0-9, `<m>` đơn vị bậc (十 → mươi, 百 → trăm), `<a>` chữ cái A-Z giữ nguyên văn, `<L>` nhãn chương, `<hv>` một chữ Hán-Việt, `<ne>/<pn>/<vp>/<w>` cụm trong từ điển. `<L>`, `<hv>` và `<m>` luôn đúng một ký tự nên không có thanh độ dài. Nhóm `(a|b)` và `(a|b)?` không được đánh số. Mỗi token chịu sự chi phối của Cấu hình token rule; tắt token không sửa file nhưng rule chứa token đó sẽ không chạy.")
+            HStack(spacing: 6) {
+                Text("Mẫu (vế trái dấu =)")
+                QuickTranslationRuleHelpButton(accessibilityLabel: "Giải thích phần mẫu", paragraphs: patternHelpParagraphs)
+            }
         }
+    }
+
+    /// Giải thích của nút dấu hỏi ở header "Mẫu" (trước là footer). Chế độ sửa thêm câu về việc đổi mẫu — trước
+    /// nằm ở `editInfoSection`.
+    private var patternHelpParagraphs: [LocalizedStringKey] {
+        var paragraphs: [LocalizedStringKey] = [
+            "Nút token chèn **tại con trỏ** của ô nhập, hoặc thay đoạn đang bôi đen. Chạm một chip token (ở dải trên hoặc trong ô nhập) để mở thanh chỉnh độ dài. Token: `<n>` số, `<y>` đọc từng chữ số, `<h>` chữ số Hán, `<d>` chữ số 0-9, `<m>` đơn vị bậc (十 → mươi, 百 → trăm), `<a>` chữ cái A-Z giữ nguyên văn, `<L>` nhãn chương, `<hv>` một chữ Hán-Việt, `<ne>/<pn>/<vp>/<w>` cụm trong từ điển. `<L>`, `<hv>` và `<m>` luôn đúng một ký tự nên không có thanh độ dài. Nhóm `(a|b)` và `(a|b)?` không được đánh số. Mỗi token chịu sự chi phối của Cấu hình token rule; tắt token không sửa file nhưng rule chứa token đó sẽ không chạy."
+        ]
+        if case .edit = mode {
+            paragraphs.append("Đổi mẫu sẽ **thêm rule mới** và giữ nguyên rule cũ — giống sửa key ở từ điển. Muốn bỏ rule cũ thì xoá nó ở danh sách.")
+        }
+        return paragraphs
     }
 
     @ViewBuilder
@@ -341,21 +354,23 @@ extension QuickTranslationRuleEditorSheet {
                 insertIntoReplacement("{\(index)}")
             }
         } header: {
-            Text("Bản dịch (vế phải dấu =)")
-        } footer: {
-            Text("`{0}`, `{1}`… đánh số **token** theo thứ tự xuất hiện, không đánh số nhóm hay literal. Chip chèn **tại con trỏ** của ô nhập, hoặc thay đoạn đang bôi đen. Mọi token phải được dùng, và mẫu phải có ít nhất một ký tự thường làm neo.")
+            HStack(spacing: 6) {
+                Text("Bản dịch (vế phải dấu =)")
+                QuickTranslationRuleHelpButton(
+                    accessibilityLabel: "Giải thích phần bản dịch",
+                    paragraphs: ["`{0}`, `{1}`… đánh số **token** theo thứ tự xuất hiện, không đánh số nhóm hay literal. Chip chèn **tại con trỏ** của ô nhập, hoặc thay đoạn đang bôi đen. Mọi token phải được dùng, và mẫu phải có ít nhất một ký tự thường làm neo."]
+                )
+            }
         }
     }
 
+    /// Câu về việc đổi mẫu đã chuyển vào popover của header "Mẫu" (`patternHelpParagraphs`).
     @ViewBuilder
     var editInfoSection: some View {
         if case .edit(_, _, let sourceLine, let scope) = mode {
             Section {
                 LabeledContent("Phạm vi", value: scope.longLabel)
                 LabeledContent("Dòng trong file", value: "\(sourceLine)")
-                Text("Đổi mẫu sẽ **thêm rule mới** và giữ nguyên rule cũ — giống sửa key ở từ điển. Muốn bỏ rule cũ thì xoá nó ở danh sách.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
             }
         }
     }

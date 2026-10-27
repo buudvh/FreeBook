@@ -23,13 +23,35 @@ public enum SuggestionChipCategory: String, Sendable {
 }
 
 public struct SuggestionChip: Identifiable, Hashable, Sendable {
+    /// Phạm vi từ điển của nghĩa, vẽ thành badge `R` / `C` ở góc trên phải chip. Chỉ nguồn Names và VietPhrase
+    /// mới có phạm vi (xem `ReaderView.suggestionChips(from:)`).
+    public enum Scope: Sendable, Hashable {
+        case book    // "(Riêng)" — badge R
+        case global  // "(Chung)" — badge C
+
+        public var badgeLetter: String {
+            self == .book ? "R" : "C"
+        }
+
+        public var badgeBackground: Color {
+            self == .book ? Color.red : Color(white: 0.25)
+        }
+
+        public var badgeTextColor: Color {
+            self == .book ? Color.white : Color(white: 0.85)
+        }
+    }
+
     public let id = UUID()
     public let text: String
     public let category: SuggestionChipCategory
+    /// `nil` = không badge (Xưng hô, Luật nhân, Phiên âm). `var` để khi gộp nghĩa trùng thì nâng được badge.
+    public var scope: Scope?
 
-    public init(text: String, category: SuggestionChipCategory) {
+    public init(text: String, category: SuggestionChipCategory, scope: Scope? = nil) {
         self.text = text
         self.category = category
+        self.scope = scope
     }
 }
 
@@ -356,6 +378,9 @@ struct ReaderDefinitionOverlayView: View {
             .accessibilityLabel("Dán từ clipboard")
             .accessibilityHint("Dán nội dung clipboard vào ô nhập nghĩa")
 
+            // Badge R/C nhô lên trên phải chip. ScrollView cắt nội dung theo **khung của chính nó**, nên nội dung
+            // chừa `badgeInset` ở trên/phải và ScrollView được padding âm đúng chừng đó ở trên: khung cuộn lấn lên
+            // khoảng trống 8pt giữa các hàng, chip vẫn nằm đúng chỗ cũ, hàng vẫn cao 36.
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(suggestionChips) { chip in
@@ -371,12 +396,44 @@ struct ReaderDefinitionOverlayView: View {
                                     RoundedRectangle(cornerRadius: 15)
                                         .stroke(chip.category.borderColor, lineWidth: 1)
                                 )
+                                .overlay(alignment: .topTrailing) {
+                                    if let scope = chip.scope {
+                                        scopeBadge(scope)
+                                    }
+                                }
                         }
+                        .accessibilityLabel(chipAccessibilityLabel(chip))
                     }
                 }
+                .padding(.top, Self.badgeInset)
+                .padding(.trailing, Self.badgeInset)
             }
+            .padding(.top, -Self.badgeInset)
         }
         .frame(maxWidth: .infinity, minHeight: 36, maxHeight: 36, alignment: .leading)
+    }
+
+    /// Phần badge nhô ra ngoài chip (trên và phải). Phải nhỏ hơn `spacing: 8` của hàng chip, không thì chip kế tiếp
+    /// vẽ đè lên badge, và không quá khoảng 8pt giữa hàng chip với hàng trên.
+    private static let badgeInset: CGFloat = 6
+
+    private func scopeBadge(_ scope: SuggestionChip.Scope) -> some View {
+        Text(scope.badgeLetter)
+            .font(.system(size: 10, weight: .bold))
+            .foregroundColor(scope.badgeTextColor)
+            .padding(.horizontal, 4)
+            .frame(minWidth: 15, minHeight: 15)
+            .background(scope.badgeBackground, in: Capsule())
+            .offset(x: Self.badgeInset, y: -Self.badgeInset)
+            .allowsHitTesting(false)
+    }
+
+    private func chipAccessibilityLabel(_ chip: SuggestionChip) -> String {
+        switch chip.scope {
+        case .book: return "\(chip.text), từ điển riêng"
+        case .global: return "\(chip.text), từ điển chung"
+        case nil: return chip.text
+        }
     }
 
     private func pasteFromClipboard() {

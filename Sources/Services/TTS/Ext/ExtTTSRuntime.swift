@@ -40,6 +40,8 @@ internal actor ExtTTSRuntime {
             executor?.cancelCurrentExecution()
 
             let newExecutor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
+            // Script TTS cần âm thanh nhị phân: trang HTML của browser ẩn không thay được ⇒ fetch lỗi trả lỗi ngay.
+            newExecutor.allowsFetchBrowserFallback = false
             let configurationObject = try JSONSerialization.jsonObject(with: configurationData)
             if let globals = configurationObject as? [String: Any] {
                 newExecutor.injectGlobals(globals)

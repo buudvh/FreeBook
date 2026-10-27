@@ -29,6 +29,14 @@ struct CollectionDetailView: View {
     @State private var changeSourceTargetBook: Book? = nil
     @State private var navigateToChangeSource = false
     @State private var isProcessingDeletion = false
+    /// Truyện chờ xác nhận "Bỏ khỏi kệ" (nút kệ của sheet nhấn giữ hiện ở mọi chế độ, kể cả `.collection`). Giữ riêng
+    /// vì sheet đã đóng và `actionTarget` đã về `nil` trước khi hành động tới (`BookActionSheet.emit`).
+    @State private var pendingShelfRemovalBook: Book? = nil
+    /// Hành động tới khi sheet nhấn giữ **còn đang đóng**; bật alert lúc đó dễ không hiện ⇒ xếp hàng ở đây, chuyển sang
+    /// `pendingShelfRemovalBook` trong `onDismiss` của sheet (đóng xong hẳn).
+    @State private var queuedShelfRemovalBook: Book? = nil
+    /// Cờ dịch cho tên truyện trong hộp xác nhận — cùng khoá các hàng truyện đang đọc.
+    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     /// Quản lý chính bộ sưu tập (đổi tên / xoá) ngay tại màn chi tiết: trước 1.3.336 hai việc này chỉ
     /// có ở **swipe action** của danh sách bộ — không ai thấy, và đang ở trong bộ thì phải lùi ra mới
     /// làm được.
@@ -106,7 +114,13 @@ struct CollectionDetailView: View {
         } message: {
             Text("Chỉ bộ sưu tập bị xoá. Các truyện bên trong vẫn ở nguyên trên kệ sách.")
         }
-        .sheet(item: $actionTarget) { target in
+        .shelfRemovalConfirmation(pendingBook: $pendingShelfRemovalBook, isTranslationEnabled: isTranslationEnabled)
+        .sheet(item: $actionTarget, onDismiss: {
+            if let book = queuedShelfRemovalBook {
+                queuedShelfRemovalBook = nil
+                pendingShelfRemovalBook = book
+            }
+        }) { target in
             BookActionSheet(
                 target: target,
                 isCheckingNewChapters: newChapters.isChecking,
@@ -325,7 +339,9 @@ struct CollectionDetailView: View {
         case .togglePin:
             BookActionRunner.togglePin(book, in: modelContext)
         case .removeFromShelfOnly:
-            BookActionRunner.removeFromShelfOnly(book, in: modelContext)
+            // Hỏi lại bằng đúng hộp của danh sách chương; bỏ kệ thật ở nút "Bỏ khỏi kệ" của hộp. Hộp bật trong
+            // `onDismiss` của sheet nhấn giữ (xem `queuedShelfRemovalBook`).
+            queuedShelfRemovalBook = book
         case .removeFromCurrentCollection:
             BookActionRunner.removeFromCollection(book, collectionId: collectionId, in: modelContext)
         case .addToShelf:

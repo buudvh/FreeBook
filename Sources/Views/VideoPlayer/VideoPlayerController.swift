@@ -173,6 +173,11 @@ final class VideoPlayerController {
             autoHideTask?.cancel()
             controlsVisible = false
         }
+        // Vuốt chỉnh âm lượng = muốn nghe ⇒ bỏ tắt tiếng. Bật tiếng khi video đang phát sẽ dừng TTS đang đọc
+        // (đúng hành vi của `setMuted(false)`). Chỉ cử chỉ vuốt, không theo dõi nút âm lượng cứng.
+        if kind == .volume, session.isMuted {
+            session.setMuted(false)
+        }
         guard kind == .seek, session.hasPlayableItem else { return }
         scrubOrigin = session.currentPlaybackTime
         scrubSeconds = scrubOrigin

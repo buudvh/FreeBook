@@ -70,6 +70,8 @@ class WebViewLoader: NSObject, WKNavigationDelegate {
     internal var isWaitingForReady = false
     internal var waitReadyTimerWorkItem: DispatchWorkItem?
     internal var waitReadyTimeoutWorkItem: DispatchWorkItem?
+    /// Status/MIME/lỗi của điều hướng main-frame mới nhất (`+NavigationResponse`); reset khi điều hướng mới bắt đầu.
+    internal var mainFrameNavigation = MainFrameNavigationState()
 
     deinit {
         FileDescriptorCensus.trackLive("WebViewLoader", -1)
@@ -370,10 +372,12 @@ class WebViewLoader: NSObject, WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        mainFrameNavigation = MainFrameNavigationState()
         checkWaitUrl(webView.url?.absoluteString)
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        recordNavigationFailure(error)
         if let comp = self.completion {
             self.completion = nil
             comp("")
@@ -381,6 +385,7 @@ class WebViewLoader: NSObject, WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        recordNavigationFailure(error)
         if let comp = self.completion {
             self.completion = nil
             comp("")

@@ -95,7 +95,9 @@ extension ShelfSearchView {
             // Như màn Chi tiết / Reader: lên kệ xong mời chọn bộ sưu tập (bỏ qua thì truyện vẫn ở kệ).
             if book.isOnShelf { collectionPickerBook = book }
         case .removeFromShelfOnly:
-            BookActionRunner.removeFromShelfOnly(book, in: modelContext)
+            // Hỏi lại bằng đúng hộp của danh sách chương; bỏ kệ thật ở nút "Bỏ khỏi kệ" của hộp. Hộp bật trong
+            // `onDismiss` của sheet nhấn giữ (xem `queuedShelfRemovalBook`).
+            queuedShelfRemovalBook = book
         case .removeFromCurrentCollection:
             // Màn này không bao giờ mở sheet ở chế độ `.collection`; giữ nhánh cho `switch` đủ case.
             break

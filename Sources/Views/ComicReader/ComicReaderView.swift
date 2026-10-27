@@ -22,6 +22,8 @@ struct ComicReaderView: View {
     @State private var viewModel: ComicReaderViewModel
     @State private var showsChrome = true
     @State private var showsChapterList = false
+    /// Thứ tự của mục lục — sheet dựng lại mỗi lần mở nên giữ ở đây: còn nguyên suốt phiên đọc, không lưu đĩa.
+    @State private var isChapterListAscending = true
     /// `Book` đọc một lần lúc mở màn — chỉ để mục lục có thể mở `TaskOptionsSheet` (tải ảnh offline).
     @State private var localBook: Book?
     @State private var zoomImage: UIImage?
@@ -40,6 +42,9 @@ struct ComicReaderView: View {
                 content(screenWidth: geometry.size.width)
             }
             .ignoresSafeArea(edges: .bottom)
+            // Gắn một lần quanh mọi trạng thái (không gắn trên từng ảnh): `simultaneous` để cuộn dọc, chạm, chạm đúp
+            // của ảnh vẫn chạy như cũ. Thanh điều khiển là lớp trên trong `ZStack` nên vuốt trên thanh không tính.
+            .simultaneousGesture(chapterSwipeGesture)
 
             if showsChrome {
                 ComicReaderChromeView(
@@ -71,8 +76,15 @@ struct ComicReaderView: View {
                 downloadedIndexes: viewModel.downloadedChapterIndexes,
                 isTranslationEnabled: isTranslationEnabled,
                 book: localBook,
+                launch: launch,
+                isAscending: $isChapterListAscending,
                 onSelect: { viewModel.openChapter($0) }
             )
+            // Cùng cách trình bày với mục lục truyện chữ (`ReaderView.readerChapterListSheet`): kéo xuống để đóng.
+            .presentationDetents([.fraction(0.88), .large])
+            .presentationDragIndicator(.visible)
+            .presentationBackground(ComicChapterListSheet.theme.backgroundColor)
+            .preferredColorScheme(.dark)
         }
         .fullScreenCover(isPresented: $isZoomPresented, onDismiss: { zoomImage = nil }) {
             zoomCover
@@ -164,8 +176,13 @@ struct ComicReaderView: View {
             Text("Hết chương")
                 .font(.footnote)
                 .foregroundStyle(Color.white.opacity(0.6))
-            if let next = viewModel.nextChapterIndex {
-                actionButton("Chương tiếp", systemImage: "chevron.right") { viewModel.openChapter(next) }
+            if viewModel.nextChapterIndex != nil {
+                // Chuyển chương bằng vuốt ngang (`chapterSwipeGesture`), cuối chương chỉ còn dòng gợi ý.
+                Label("Vuốt sang trái để sang chương tiếp theo", systemImage: "arrow.left")
+                    .font(.footnote)
+                    .foregroundStyle(Color.white.opacity(0.8))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
             } else {
                 Text("Đây là chương mới nhất")
                     .font(.footnote)
@@ -224,6 +241,40 @@ struct ComicReaderView: View {
     private func openZoom(_ image: UIImage) {
         zoomImage = image
         isZoomPresented = true
+    }
+
+    /// Quãng vuốt ngang tối thiểu để đổi chương.
+    private static let chapterSwipeMinDistance: CGFloat = 80
+
+    /// Vuốt ngang ở bất kỳ đâu trong chương: sang trái ⇒ chương sau, sang phải ⇒ chương trước. Chỉ xét lúc thả tay và chỉ
+    /// nhận cú vuốt rõ ràng ngang (|dx| ≥ 80pt và |dx| > 2·|dy|) để không nhầm với cuộn dọc; `minimumDistance` 24 để chạm
+    /// một lần/chạm đúp của ảnh không bị biến thành kéo.
+    private var chapterSwipeGesture: some Gesture {
+        DragGesture(minimumDistance: 24)
+            .onEnded { value in
+                handleChapterSwipe(value.translation)
+            }
+    }
+
+    private func handleChapterSwipe(_ translation: CGSize) {
+        let dx = translation.width
+        let dy = translation.height
+        guard abs(dx) >= Self.chapterSwipeMinDistance, abs(dx) > 2 * abs(dy) else { return }
+        // Đang nạp chương: `openChapter` đã đổi `chapterIndex` sang chương đích ⇒ vuốt thêm sẽ nhảy cóc một chương nữa.
+        guard !isZoomPresented, !showsChapterList, viewModel.loadState != .loading else { return }
+        if dx < 0 {
+            guard let next = viewModel.nextChapterIndex else {
+                ToastManager.shared.show(message: "Đây là chương mới nhất", type: .info)
+                return
+            }
+            viewModel.openChapter(next)
+        } else {
+            guard let previous = viewModel.previousChapterIndex else {
+                ToastManager.shared.show(message: "Đây là chương đầu tiên", type: .info)
+                return
+            }
+            viewModel.openChapter(previous)
+        }
     }
 
     /// Cuộn tới ảnh đã lưu. Cuộn hai lần: lần đầu khi danh sách vừa dựng (khung còn là ước lượng),

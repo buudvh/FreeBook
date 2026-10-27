@@ -6,9 +6,14 @@ import SwiftUI
 /// sai (lệch ngoặc, `{2}` vượt số token, không có literal làm neo…) sẽ bị từ chối kèm lý do — đóng
 /// sheet lúc đó là bắt người dùng gõ lại từ đầu. Đóng chỉ khi ghi file thành công.
 ///
-/// Segment **Riêng / Chung** chỉ hiện ở chế độ **thêm** và chỉ khi biết truyện đang mở. Ở chế độ sửa,
-/// phạm vi cố định theo rule đang sửa: đổi phạm vi lúc sửa là *copy sang bộ khác*, không phải sửa —
-/// việc đó đã có nút Chuyển ở danh sách.
+/// Phạm vi chọn **lúc bấm Lưu**: ở chế độ **thêm** và biết truyện đang mở, nút Lưu là `Menu` đúng hai mục
+/// "Lưu vào bộ riêng truyện" / "Lưu vào bộ chung" — giống sheet "Thêm từ mới" của phiên âm (`AddWordSheet`).
+/// Ở chế độ sửa (hoặc không có truyện), Lưu là nút thường: chế độ sửa giữ phạm vi của rule đang sửa — đổi phạm vi
+/// lúc sửa là *copy sang bộ khác*, không phải sửa — việc đó đã có nút Chuyển ở danh sách.
+///
+/// Sheet tự khai nấc `.medium` / `.large` nên cả hai nơi mở (panel Dịch của Reader, danh sách rule) đều mở nửa màn.
+/// Ngoại lệ: dựng lại giữa lúc gõ (`restoredFocus != nil`) thì mở `.large`. Chạm vào ô nhập ⇒ tự kéo lên `.large`;
+/// không tự thu về `.medium`.
 ///
 /// **Chữ đang gõ không còn chỉ sống trong `@State` của sheet**: nó được mirror sang
 /// `QuickTranslationRuleDraftStore` và `init` khôi phục lại từ đó. Lý do đầy đủ ở doc của store — tóm
@@ -84,12 +89,11 @@ struct QuickTranslationRuleEditorSheet: View {
     /// Lỗi do store trả về lúc lưu (khác với lỗi cú pháp mà bản nháp tự chấm được).
     @State private var errorText: String? = nil
     @State private var isSaving = false
-    /// Bật khi bấm Lưu ở chế độ **thêm** và có truyện đang mở: phạm vi được chọn ngay lúc lưu thay vì
-    /// bằng một ô chọn nằm sẵn trong form.
-    @State private var showingScopeDialog = false
-    /// Ô đang gõ, chỉ để ghi vào bản nháp. Cả hai ô nhập đều là `UIViewRepresentable` nên không dùng
-    /// được `@FocusState`; mỗi ô tự báo lên qua `onFocusChange`.
+    /// Ô đang gõ: ghi vào bản nháp, và khác `nil` thì kéo sheet lên `.large`. Cả hai ô nhập đều là
+    /// `UIViewRepresentable` nên không dùng được `@FocusState`; mỗi ô tự báo lên qua `onFocusChange`.
     @State var focusedField: QuickTranslationRuleDraftStore.Field?
+    /// Nấc sheet đang chọn — xem doc đầu struct.
+    @State private var detent: PresentationDetent
 
     /// Ô đang gõ lúc bản nháp được lưu. Khôi phục ở `onAppear` để một lượt dựng lại không làm tụt
     /// bàn phím giữa lúc gõ.
@@ -137,6 +141,8 @@ struct QuickTranslationRuleEditorSheet: View {
         _replacementSelectionLength = State(initialValue: restored?.replacementSelectionLength ?? 0)
         restoredFocus = restored?.focus
         didRestoreDraft = restored != nil
+        // Đang gõ dở thì ô nhập tự lấy lại bàn phím (`autoFocus`) ⇒ mở thẳng `.large` cho khỏi nhảy nấc.
+        _detent = State(initialValue: restored?.focus != nil ? .large : .medium)
     }
 
     private var isEditing: Bool {
@@ -144,8 +150,8 @@ struct QuickTranslationRuleEditorSheet: View {
         return false
     }
 
-    /// Phạm vi sẽ ghi khi **không** hỏi: chế độ sửa dùng scope từ `mode`, chế độ thêm mà không có
-    /// truyện nào đang mở thì chỉ còn bộ chung. Chế độ thêm có truyện mở đi qua popup, không qua đây.
+    /// Phạm vi của nút Lưu thường: chế độ sửa dùng scope từ `mode`, chế độ thêm mà không có truyện nào
+    /// đang mở thì chỉ còn bộ chung. Chế độ thêm có truyện mở đi qua `Menu` Lưu, không qua đây.
     private var effectiveScope: QuickTranslationRuleScope {
         if isEditing {
             if case .edit(_, _, _, let scope) = mode { return scope }
@@ -200,28 +206,8 @@ struct QuickTranslationRuleEditorSheet: View {
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Lưu") { submit() }
-                        .disabled(!canSave || isSaving)
+                    saveControl
                 }
-            }
-            .confirmationDialog(
-                "Lưu rule vào bộ nào?",
-                isPresented: $showingScopeDialog,
-                titleVisibility: .visible
-            ) {
-                if let contextBookId, !contextBookId.isEmpty {
-                    Button("Bộ riêng truyện") {
-                        saveToBook = true
-                        performSubmit(scope: .book(contextBookId))
-                    }
-                }
-                Button("Bộ chung") {
-                    saveToBook = false
-                    performSubmit(scope: .global)
-                }
-                Button("Hủy", role: .cancel) {}
-            } message: {
-                Text("Bộ riêng chỉ áp cho truyện đang đọc và thắng bộ chung khi trùng mọi tiêu chí ưu tiên khác.")
             }
             .onAppear {
                 if didRestoreDraft {
@@ -239,22 +225,35 @@ struct QuickTranslationRuleEditorSheet: View {
             .onChange(of: replacement) { _, newValue in
                 reconcileReplacementSelection(after: newValue)
             }
+            .onChange(of: focusedField) { _, newValue in
+                guard newValue != nil, detent != .large else { return }
+                withAnimation { detent = .large }
+            }
         }
+        .presentationDetents([.medium, .large], selection: $detent)
     }
 
     // MARK: - Lưu
 
-    /// Bấm Lưu. Ở chế độ **thêm** và đang có truyện mở, phạm vi được hỏi ngay tại đây thay vì bằng một
-    /// ô chọn nằm sẵn trong form — người dùng quyết định lúc đã viết xong rule, không phải trước đó.
-    private func submit() {
-        let key = pattern.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !key.isEmpty else { return }
-
+    /// Chế độ **thêm** có truyện mở ⇒ `Menu` hai mục, chọn phạm vi lúc đã viết xong rule. Còn lại ⇒ nút thường.
+    @ViewBuilder
+    private var saveControl: some View {
         if !isEditing, let contextBookId, !contextBookId.isEmpty {
-            showingScopeDialog = true
-            return
+            Menu("Lưu") {
+                Button("Lưu vào bộ riêng truyện") {
+                    saveToBook = true
+                    performSubmit(scope: .book(contextBookId))
+                }
+                Button("Lưu vào bộ chung") {
+                    saveToBook = false
+                    performSubmit(scope: .global)
+                }
+            }
+            .disabled(!canSave || isSaving)
+        } else {
+            Button("Lưu") { performSubmit(scope: effectiveScope) }
+                .disabled(!canSave || isSaving)
         }
-        performSubmit(scope: effectiveScope)
     }
 
     /// Lưu thật vào một phạm vi cụ thể.

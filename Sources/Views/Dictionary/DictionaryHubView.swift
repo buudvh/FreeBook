@@ -10,15 +10,8 @@ struct DictionaryHubView: View {
 
     var body: some View {
         List {
+            // Names đứng trên VietPhrase ở cả hai section.
             Section(header: Text("Từ Điển Riêng (Truyện)")) {
-                NavigationLink(destination: DictionaryListView(type: .vietPhrase, bookId: bookId, bookName: bookName)) {
-                    DictionaryNavRow(
-                        title: "VietPhrase Riêng",
-                        icon: "doc.text",
-                        iconColor: .blue,
-                        subtitle: bookEntryCount(type: .vietPhrase)
-                    )
-                }
                 NavigationLink(destination: DictionaryListView(type: .names, bookId: bookId, bookName: bookName)) {
                     DictionaryNavRow(
                         title: "Names Riêng",
@@ -27,23 +20,31 @@ struct DictionaryHubView: View {
                         subtitle: bookEntryCount(type: .names)
                     )
                 }
+                NavigationLink(destination: DictionaryListView(type: .vietPhrase, bookId: bookId, bookName: bookName)) {
+                    DictionaryNavRow(
+                        title: "VietPhrase Riêng",
+                        icon: "doc.text",
+                        iconColor: .blue,
+                        subtitle: bookEntryCount(type: .vietPhrase)
+                    )
+                }
             }
 
             Section {
-                NavigationLink(destination: DictionaryListView(type: .vietPhrase, bookId: nil, contextBookId: bookId)) {
-                    DictionaryNavRow(
-                        title: "VietPhrase Chung",
-                        icon: "book.closed",
-                        iconColor: .green,
-                        subtitle: globalStatusText(type: .vietPhrase)
-                    )
-                }
                 NavigationLink(destination: DictionaryListView(type: .names, bookId: nil, contextBookId: bookId)) {
                     DictionaryNavRow(
                         title: "Names Chung",
                         icon: "person.2",
                         iconColor: .purple,
                         subtitle: globalStatusText(type: .names)
+                    )
+                }
+                NavigationLink(destination: DictionaryListView(type: .vietPhrase, bookId: nil, contextBookId: bookId)) {
+                    DictionaryNavRow(
+                        title: "VietPhrase Chung",
+                        icon: "book.closed",
+                        iconColor: .green,
+                        subtitle: globalStatusText(type: .vietPhrase)
                     )
                 }
 
@@ -68,8 +69,6 @@ struct DictionaryHubView: View {
                 }
             } header: {
                 Text("Từ Điển Chung (Toàn Cục)")
-            } footer: {
-                Text("Gộp từ chỉnh sửa + từ đã xoá vào **một file text mới** (`VietPhraseMerged.txt`), không đụng từ điển gốc. Sau đó mở màn **Thông báo** để chọn nhập vào VietPhrase hoặc xuất file.")
             }
 
             Section(header: Text("Rule Dịch")) {
@@ -104,8 +103,6 @@ struct DictionaryHubView: View {
                 }
             } header: {
                 Text("Thay thế từ (TTS)")
-            } footer: {
-                Text("Rule thay thế ký tự **chỉ áp cho truyện này**; khi đọc, rule riêng **đè** rule chung theo chuỗi gốc. Rule riêng đang **tắt** vẫn **chặn** rule chung cùng chuỗi gốc.")
             }
         }
         .id(refreshToken)
