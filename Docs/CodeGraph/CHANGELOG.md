@@ -12,7 +12,7 @@ Người dùng: *"giảm padding của các màn hình dịch, xóa từ rác, c
 - **Sheet thêm/sửa rule** (`QuickTranslationRuleEditorSheet`): bỏ nấc nửa màn của 1.3.613 (`presentationDetents([.medium, .large], selection:)`, state `detent`, tự kéo lên khi chạm ô nhập) — sheet mở toàn màn như trước.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
 
-## [1.3.616] - 2026-10-27
+## [1.3.617] - 2026-10-27
 
 ### fix: một provider Chế độ AI chứa nhiều tài khoản Google, xoay vòng trong provider
 
