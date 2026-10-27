@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.588] - 2026-10-24
+
+### feat: trình duyệt ẩn nguồn NSFW ở Home và tự ẩn danh với nguồn không lưu lịch sử
+
+Người dùng: *"khi tắt nsfw thì đừng hiển thị các nguồn đó ở home của trình duyệt, tự động duyệt ẩn danh nếu config lựa chọn không lưu lịch sử"*; duyệt plan (ẩn danh theo tab, ẩn cả lịch sử duyệt cũ, thêm giải thích ở Cài đặt).
+
+- **`BrowserSourceSiteIndex`** (mới, `Services/Browser`): dò trang thuộc nguồn **đã cài** nào theo tên miền — host của trang trùng tên miền `sourceUrl` hoặc là tên miền con của nó, so **một chiều** (nguồn ở `xyz.blogspot.com` không kéo `blogspot.com`), bỏ `www.` hai phía. Gồm cả nguồn Legado; tra một host thì lọc thô bằng chuỗi con tên miền gốc trước khi phân tích URL, tra cả danh sách thì dựng chỉ mục một lần.
+- **Ẩn danh theo tab** (`BypassBrowserTab.isIncognito`): áp cho nguồn đang tắt "Lưu lịch sử đọc/xem" (`ExtensionHistoryPolicy`, mặc định = nguồn NSFW), **không** phụ thuộc công tắc NSFW. `BypassBrowserTabStore` bật cờ ở mọi điều hướng khung chính (kể cả chuyển hướng sang mirror) và xét lại ở `didFinish` (trang khôi phục từ bộ đệm lùi/tiến); tab ẩn danh không ghi `BrowserHistoryStore`. Tab mở từ tab ẩn danh (`createWebViewWith`, mở cửa sổ đã chặn) thừa hưởng; về Home (`loadHome`, tab mới) thì hết. Ô URL hiện icon `eye.slash`. Ẩn danh **chỉ** bỏ ghi lịch sử: cookie vẫn ở kho WebKit mặc định — dùng chung với trình duyệt ẩn của tiện ích — để vượt Cloudflare/đăng nhập ở đây vẫn có tác dụng cho nguồn. Log không ghi host.
+- **Home trình duyệt khi tắt NSFW**: Truy cập nhanh bỏ tiện ích NSFW (`RepositoryFilterPolicy.applyNsfwFilter`); Lịch sử truy cập ở Home và màn "Xem thêm" (`BrowserHistorySheetView`) ẩn mục thuộc trang của nguồn NSFW (chỉ ẩn, không xoá; "Xóa toàn bộ" vẫn xoá cả mục bị ẩn). Nút Import truyện không đổi.
+- **Giải thích**: Cài đặt › Nội dung nhạy cảm thêm dòng cho danh sách chọn truyện chia sẻ/nhập từ điển riêng (1.3.587), Home trình duyệt và ẩn danh; dòng Kệ đổi thành "vẫn hiện ở Kệ và Tìm trong Kệ". Chú thích công tắc "Lưu lịch sử đọc/xem" (`ExtensionConfigView+History`) nhắc trình duyệt tự ẩn danh.
+- Chuyển entry `[1.3.558]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.587] - 2026-10-24
 
 ### fix: danh sách chọn truyện chia sẻ/nhập từ điển riêng theo công tắc NSFW

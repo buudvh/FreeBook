@@ -325,10 +325,18 @@ public enum VietPhraseTokenizer {
     }
 
     internal static func isLatinLetterOrNumber(_ char: Character) -> Bool {
-        guard let scalar = char.unicodeScalars.first, char.unicodeScalars.count == 1 else { return false }
+        let scalars = char.unicodeScalars
+        guard let scalar = scalars.first else { return false }
+        // Chữ kèm dấu rời (NFD, vd "u" + U+0303 = "ũ") xét theo chữ gốc, để không bị tách khỏi từ.
+        // Chỉ nhận dấu thuộc khối Combining Diacritical Marks (đủ mọi dấu tiếng Việt); ký tự nhiều
+        // scalar khác (emoji, keycap "1️⃣") vẫn không phải chữ.
+        let hasCombiningMarks = scalars.count > 1
+        if hasCombiningMarks, !scalars.dropFirst().allSatisfy({ (0x300...0x36F).contains($0.value) }) {
+            return false
+        }
         let val = scalar.value
-        // 1. Chữ số ASCII 0-9
-        if val >= 0x30 && val <= 0x39 { return true }
+        // 1. Chữ số ASCII 0-9 (chỉ khi đứng một mình)
+        if !hasCombiningMarks && val >= 0x30 && val <= 0x39 { return true }
         // 2. Chữ cái Latin (bắt buộc char.isLetter để loại trừ các symbol như × U+00D7, ÷ U+00F7)
         guard char.isLetter else { return false }
         if (val >= 0x41 && val <= 0x5A) || (val >= 0x61 && val <= 0x7A) { return true }

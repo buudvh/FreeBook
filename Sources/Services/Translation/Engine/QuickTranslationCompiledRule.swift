@@ -90,6 +90,9 @@ public struct QuickTranslationCompiledRule: Sendable {
     }
 
     /// Render RHS từ các capture đã khớp. Capture vắng (token optional) render chuỗi rỗng.
+    ///
+    /// Kết quả chuẩn hoá NFC: nghĩa từ điển có thể lưu dấu rời (NFD, "u" + U+0303 thay vì "ũ"), mà
+    /// dòng sau khi ghép rule còn bị tách token lại — chữ dấu rời từng bị tách thành "Ng ũ tuy ệ t".
     public func render(captures: [String]) -> String {
         var output = ""
         for segment in template {
@@ -102,6 +105,6 @@ public struct QuickTranslationCompiledRule: Sendable {
                 }
             }
         }
-        return output
+        return output.precomposedStringWithCanonicalMapping
     }
 }
