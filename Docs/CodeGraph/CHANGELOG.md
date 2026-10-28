@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.631] - 2026-10-28
+
+### fix: ngăn kéo menu bỏ lớp kính mờ, nhìn xuyên được nền phía sau
+
+Người dùng (kèm ảnh chụp ngăn kéo Kệ trên máy): *"sao ngăn kéo chẳng trong suốt tí nào"*.
+
+- **Nguyên nhân** (`SideDrawerMenuPanel.drawerBackground`): lớp `.ultraThinMaterial` làm nhoè nền phía sau rất mạnh; nền Kệ gần như toàn đen với chữ nhỏ nên bị nhoè thành một mảng xám đều — nhìn như nền đặc dù lớp tối phía trên đã hạ còn 38% (1.3.626). Mockup đã duyệt vốn không làm mờ.
+- **Sửa**: bỏ material, nền ngăn kéo chỉ còn một lớp tối bán trong suốt `Color(white: 0.08).opacity(0.62)` — bìa và chữ của màn bên dưới vẫn nhìn thấy (tối đi), chữ menu trắng vẫn đọc được. Viền trái và lớp phủ 30% phần màn còn lại giữ nguyên.
+- Chuyển entry `[1.3.601]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.630] - 2026-10-28
 
 ### feat: giữ kết quả AI chưa xem trên nút nổi, bấm để mở thẳng màn AI
@@ -406,17 +417,3 @@ Người dùng: *"sửa lại app phần lọc name nhiều chương cho phép c
 - **Tắt log `[FD]`** (`FileDescriptorCensus`, `FileDescriptorStepProbe`, `FileDescriptorSweeper`): comment các dòng định kỳ (launch, chương, nền/active, `chunks=`, `step`, `tick`, `sweep`) và phần đếm chỉ phục vụ chúng. Giữ: nâng giới hạn fd, tự dọn fd mồ côi, `openCount()` cho màn log, `[FD] FAILURE` + bảng chụp lúc lỗi.
 - `rules.md`: bullet mới về chọn chương/điểm tiếp nối và tạm dừng khi nền; luật 1.3.527 thêm ngoại lệ 1097. Chuyển entry `[1.3.572]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code + 2 agent review phản biện (đã sửa 5 điểm: điểm tiếp nối vượt tên đã giữ khi thử lại bị dừng, đuôi lượt API bị cắt vẫn tính là đã quét, sheet nạp lại mục lục, fetch mồ côi khi huỷ sớm, lỗi tài khoản bị gửi lại); `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy. Còn để ngỏ: lượt bị huỷ vì vào nền vẫn giữ metadata dở (`rememberPartial`) nên lượt gửi lại có thể dính 1097 rồi tự mở chat mới.
-
-## [1.3.601] - 2026-10-25
-
-### fix: chip gợi ý màn Dịch hiện đủ nghĩa như màn quản lý, hoàn tác 1.3.600
-
-Người dùng: *"lỗi là lỗi thỉnh thoảng có token dù có nghĩa vp/name nhưng chip chỉ hiển thị hán việt"*, *"màn quản lý nghĩa hiển thị được đầy đủ, chỉ chip thiếu"* → *"dựng thẳng từ đúng danh sách mà màn quản lý đang dùng"*; chọn hoàn tác 1.3.600.
-
-- **Nguyên nhân**: thanh chip gợi ý (viền đỏ/xanh/xám, cạnh nút ⚙) tự tra lại từ điển bằng `buildSuggestionChips`, lệch với `dictionaryMatches` mà màn quản lý định nghĩa dùng ở hai chỗ: bỏ **cả mục** VietPhrase chung khi nghĩa dài ≥ 100 ký tự (giới hạn có từ bản đầu, không ghi lý do — từ thông dụng nhiều nghĩa rất hay vượt), và không tra Xưng hô / Luật nhân ⇒ thanh chỉ còn chip Hán-Việt.
-- **Sửa** (`ReaderView+Suggestions`): chip dựng thẳng từ `dictionaryMatches` — `suggestionChips(from:)` tách mỗi nguồn theo `/` và `¦`, bỏ nghĩa trùng, giữ thứ tự nguồn; nhãn "Names (…)" viền đỏ, "Phiên âm" viền xám (chữ thường như cũ), còn lại viền xanh. `ReaderDefinitionWorker` dùng **chính** mảng `matches` vừa tính cho màn quản lý; `buildSuggestionChips` còn là lớp bọc (bỏ khoảng trắng hai đầu rồi gọi `dictionaryMatches`).
-- **Hoàn tác code của 1.3.600**: chẩn đoán "rule dịch" ở 1.3.600 không phải nguyên nhân của báo lỗi này (người dùng xác nhận từ lỗi không nằm trong rule, và thanh lỗi là thanh chip gợi ý chứ không phải hàng token gạch chân). `getRuleAwareTokens`, `Segment.captures` và lời gọi trong worker trở về như trước 1.3.600; entry 1.3.600 giữ nguyên làm lịch sử.
-- Đánh đổi: từ nhiều nghĩa ra nhiều chip (thanh cuộn ngang); Xưng hô / Luật nhân hiện cả khi công tắc tắt — giống màn quản lý.
-- Chuyển entry `[1.3.571]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy — chạm lại token từng lỗi, thanh chip phải có chip xanh/đỏ bên cạnh chip xám.
-

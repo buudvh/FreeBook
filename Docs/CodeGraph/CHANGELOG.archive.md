@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.601] - 2026-10-25
+
+### fix: chip gợi ý màn Dịch hiện đủ nghĩa như màn quản lý, hoàn tác 1.3.600
+
+Người dùng: *"lỗi là lỗi thỉnh thoảng có token dù có nghĩa vp/name nhưng chip chỉ hiển thị hán việt"*, *"màn quản lý nghĩa hiển thị được đầy đủ, chỉ chip thiếu"* → *"dựng thẳng từ đúng danh sách mà màn quản lý đang dùng"*; chọn hoàn tác 1.3.600.
+
+- **Nguyên nhân**: thanh chip gợi ý (viền đỏ/xanh/xám, cạnh nút ⚙) tự tra lại từ điển bằng `buildSuggestionChips`, lệch với `dictionaryMatches` mà màn quản lý định nghĩa dùng ở hai chỗ: bỏ **cả mục** VietPhrase chung khi nghĩa dài ≥ 100 ký tự (giới hạn có từ bản đầu, không ghi lý do — từ thông dụng nhiều nghĩa rất hay vượt), và không tra Xưng hô / Luật nhân ⇒ thanh chỉ còn chip Hán-Việt.
+- **Sửa** (`ReaderView+Suggestions`): chip dựng thẳng từ `dictionaryMatches` — `suggestionChips(from:)` tách mỗi nguồn theo `/` và `¦`, bỏ nghĩa trùng, giữ thứ tự nguồn; nhãn "Names (…)" viền đỏ, "Phiên âm" viền xám (chữ thường như cũ), còn lại viền xanh. `ReaderDefinitionWorker` dùng **chính** mảng `matches` vừa tính cho màn quản lý; `buildSuggestionChips` còn là lớp bọc (bỏ khoảng trắng hai đầu rồi gọi `dictionaryMatches`).
+- **Hoàn tác code của 1.3.600**: chẩn đoán "rule dịch" ở 1.3.600 không phải nguyên nhân của báo lỗi này (người dùng xác nhận từ lỗi không nằm trong rule, và thanh lỗi là thanh chip gợi ý chứ không phải hàng token gạch chân). `getRuleAwareTokens`, `Segment.captures` và lời gọi trong worker trở về như trước 1.3.600; entry 1.3.600 giữ nguyên làm lịch sử.
+- Đánh đổi: từ nhiều nghĩa ra nhiều chip (thanh cuộn ngang); Xưng hô / Luật nhân hiện cả khi công tắc tắt — giống màn quản lý.
+- Chuyển entry `[1.3.571]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy — chạm lại token từng lỗi, thanh chip phải có chip xanh/đỏ bên cạnh chip xám.
+
 ## [1.3.600] - 2026-10-25
 
 ### fix: chip token ở màn Dịch tách từ theo rule dịch giống trang đọc
