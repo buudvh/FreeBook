@@ -8,7 +8,7 @@ public struct RepositoryFilterPolicy: Sendable {
     /// Khoá `UserDefaults` của công tắc NSFW **toàn app** (Cài đặt › Thư Viện và bộ lọc Kho dùng chung): mặc định
     /// **tắt** và tự tắt lại mỗi lần mở app (`resetNsfwVisibilityOnLaunch`). Tắt ⇒ ẩn tiện ích NSFW ở Kho, Tìm kiếm
     /// mọi nguồn (`SearchExtensionScopePolicy`), Khám phá; ẩn **mọi** sách/tác vụ của nguồn NSFW ở Kệ + Lịch sử
-    /// (`ShelfBookPartition`), Tìm trong Kệ, Bộ sưu tập, tab Tải, hub nổi (AI đang chạy, Video), Quản lý phạm vi dịch,
+    /// (`ShelfBookPartition`), Tìm trong Kệ, Bộ sưu tập, tab Tải, hub nổi (Tác vụ AI, Video), Quản lý phạm vi dịch,
     /// sheet chọn truyện `BookShareTargetSheet` / `BookImportSourceSheet`; ẩn ô Truy cập nhanh + lịch sử duyệt trang
     /// nguồn NSFW ở Home trình duyệt (`BypassWebView`). Thông báo (chương mới) **không** lọc (người dùng chốt 2026-10-24).
     public static let includeNsfwDefaultsKey = "extFilterIncludeNsfw"

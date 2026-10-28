@@ -94,7 +94,7 @@ extension AIRuntimeCoordinator {
                         ), bookId: bookId)
                     }
                     let isPresented = self.presentedAIBookId == bookId
-                    self.endRun(bookId: bookId)
+                    self.finishRun(bookId: bookId, outcome: .finished)
                     onComplete(finalResults)
                     self.showBatchCompletionToast(
                         nameCount: finalResults.count,
@@ -123,14 +123,14 @@ extension AIRuntimeCoordinator {
                     // Lần quét tự dừng (hết hạn mức, mất đăng nhập, Google bắt xác minh…): toast chương đang lọc lúc
                     // dừng, kể cả khi màn AI đang mở — lý do chi tiết là tin lỗi ở trên. Đọc tiến độ trước `endRun`.
                     let toast = self.nameScanStopToast("Lọc name tự dừng", bookId: bookId, bookTitle: bookTitle)
-                    self.endRun(bookId: bookId)
+                    self.finishRun(bookId: bookId, outcome: .failed)
                     ToastManager.shared.show(message: toast, type: .error)
                 }
             }
         }
     }
 
-    /// Ghi tiến độ của lượt quét hiện hành lên dải batch, tiêu đề trang "AI đang chạy" và (khi tên đổi) tin trợ lý
+    /// Ghi tiến độ của lượt quét hiện hành lên dải batch, tiêu đề trang "Tác vụ AI" và (khi tên đổi) tin trợ lý
     /// đang chạy — trong **một** lần ghi entry.
     func applyBatchProgress(_ progress: AINameScanProgress, names: [AIExtractedName]?, bookId: String, assistantMsgId: UUID?) {
         // Name người dùng đã ✕ trong tin này không được quay lại qua nhịp tiến độ (`+NameRemoval`).

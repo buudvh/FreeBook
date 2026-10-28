@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.600] - 2026-10-25
+
+### fix: chip token ở màn Dịch tách từ theo rule dịch giống trang đọc
+
+Người dùng: *"bị lỗi ở màn hình dịch của reader, thỉnh thoảng xuất hiện vài token thanh chip không có nghĩa, mặc dù sự thật chúng có nghĩa ở vp, name"* — chip hiện Hán-Việt, trang đọc dịch đúng, truyện không bật Phồn → Giản; duyệt phương án "mỗi từ một chip".
+
+- **Nguyên nhân**: trang đọc (`performTranslation`) áp rule dịch (bật sẵn) **trước** khi tách token — rule tự bắt từ VP/Names (thử mọi độ dài, quay lui) rồi thay cả cụm bằng nghĩa. Thanh token của panel Dịch (`ReaderDefinitionWorker` → `getTranslationTokens`) tách thẳng chữ gốc, không qua rule: ở cụm rule đã xử lý, tokenizer chọn mục dài nhất toàn cục có thể vớ một mục VP vắt qua ranh giới token của rule và bỏ lại chữ lẻ không có mục riêng ⇒ chip hiện Hán-Việt. Đoạn không có rule khớp thì hai bên tách giống hệt — vì vậy chỉ "thỉnh thoảng".
+- **Sửa**: `TranslateUtils.getRuleAwareTokens(for:bookId:)` (mới, `TranslateUtils+Tokenization`) — không có rule khớp ⇒ trả nguyên `getTranslationTokens`; đoạn đi qua ⇒ tách từ điển trên khúc gốc rồi dời offset; cụm rule ⇒ mỗi token rule một chip mang đúng nghĩa trang đang hiện, chữ giữa các token (literal của mẫu) tách từ điển; token rỗng/còn chữ Hán ⇒ tách chữ gốc; rule không có token ⇒ một chip cho cả cụm với kết quả rule. `QuickTranslationRewriteResult.Segment` thêm `captures` (mặc định `[]`), `QuickTranslationRuleEngine.assemble` ghi `match.captures` vào đoạn rule. `ReaderDefinitionWorker` gọi hàm mới ⇒ áp cho cả panel Dịch, Copy nội dung gốc, Xoá từ rác.
+- **Không đổi**: `getTranslationTokens` (span, `mapSelection`, `snapToToken` vẫn tách thô); chip chưa áp Phồn → Giản (trang có áp).
+- Chuyển entry `[1.3.570]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới** (`QuickTranslationRuleEngine.swift` giữ 399 dòng). CI là cổng biên dịch; chưa thử trên máy — mở lại đoạn từng lỗi, chip ở chỗ rule khớp phải hiện đúng nghĩa như trang.
+
 ## [1.3.599] - 2026-10-25
 
 ### feat: tab Chi tiết bìa lớn, cỡ dòng danh sách 7 nấc, tên phim hiện đầy đủ

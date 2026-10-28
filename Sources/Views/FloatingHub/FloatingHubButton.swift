@@ -10,6 +10,8 @@ import SwiftUI
 /// "Tiến trình" = AI đang chạy, video thu nhỏ, tác vụ nền (tải/xuất/nhập truyện, sao lưu, tải model) — xem
 /// `FloatingHubPresentationReader.ButtonState.runningKinds`. Tin chưa đọc **không** tính.
 /// - 0 tiến trình: `bell` (viền), màu chữ hệ thống, không nháy.
+/// - Chỉ còn kết quả AI chưa xem (1.3.630): tính là một mục `.ai` (`sparkles`, chạm mở trang "Tác vụ AI") nhưng nằm
+///   trong `quietKinds` nên **không** nháy, icon màu chữ hệ thống.
 /// - 1 tiến trình: icon của chính mục đó (`sparkles` / `play.rectangle`; tác vụ nền ⇒ `bell`), nháy.
 /// - Từ 2 tiến trình: `square.stack.3d.up`, nháy.
 ///
@@ -85,7 +87,9 @@ struct FloatingHubButton: View {
         if state.runningKinds.isEmpty {
             text = "Lối tắt nổi: \(FloatingHubItem.Kind.notifications.title)"
         } else {
-            let names = state.runningKinds.map(\.title).joined(separator: ", ")
+            let names = state.runningKinds
+                .map { state.quietKinds.contains($0) ? "\($0.title) đã xong, chưa xem" : $0.title }
+                .joined(separator: ", ")
             text = "Lối tắt nổi: \(names)"
         }
         if state.unreadCount > 0 {

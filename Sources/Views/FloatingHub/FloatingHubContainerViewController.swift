@@ -21,7 +21,7 @@ import UIKit
 /// ## Bảng chạm (người dùng chốt 2026-10-22)
 /// Menu đang mở ⇒ đóng. Còn lại rẽ theo **số tiến trình** của snapshot lúc chạm (`activateByRunningTasks`,
 /// `+Actions.swift`), áp như nhau cho `.peeking` và `.revealed`: 0 ⇒ mở màn Thông báo; 1 ⇒ mở thẳng mục đó (AI ⇒
-/// bung + menu ở trang "AI đang chạy"); từ 2 ⇒ bung (nếu đang nép) **và** mở menu.
+/// bung + menu ở trang "Tác vụ AI"); từ 2 ⇒ bung (nếu đang nép) **và** mở menu.
 @MainActor
 final class FloatingHubContainerViewController: UIViewController, UIGestureRecognizerDelegate {
     /// `internal` (không `private`): file `+Actions`/`+Menu` cần dùng, mà `private` của Swift chỉ có hiệu lực
@@ -144,7 +144,7 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
             .store(in: &cancellables)
 
         // Menu chỉ vẽ khi đang mở, và chỉ **cập nhật** dòng đã có (sáng/xám, badge, chữ) — tập dòng cố định nên
-        // không bao giờ phải đóng menu vì "hết mục". Danh sách truyện đang chạy AI cũng vẽ lại thẻ (trang "AI đang chạy").
+        // không bao giờ phải đóng menu vì "hết mục". Danh sách truyện đang chạy AI cũng vẽ lại thẻ (trang "Tác vụ AI").
         presentationReader.$snapshot
             .map { ($0.items, $0.aiTasks) }
             .removeDuplicates(by: ==)

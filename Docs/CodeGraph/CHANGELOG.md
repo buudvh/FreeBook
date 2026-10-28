@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.630] - 2026-10-28
+
+### feat: giữ kết quả AI chưa xem trên nút nổi, bấm để mở thẳng màn AI
+
+Người dùng: *"sau khi chế độ AI chạy xong mà người dùng chưa xem hãy giữ lại để người dùng có thể bấm vào xem trực tiếp"*, *"ý tôi là sau khi chạy xong người dùng chưa đọc thì còn trên widget để người dùng vào xem"*; duyệt mockup, chọn: nút ✨ đứng yên (không nháy), mục mất khi mở màn AI của truyện, giữ qua lần mở app; duyệt plan.
+
+- **Kết quả chưa xem**: lượt chat, quét name nhiều chương hay thử lại lượt lỗi chạy xong (hoặc lỗi) trong lúc màn AI của truyện đó **không** mở ⇒ entry ở lại `AIRuntimeCoordinator.runs` với `isRunning = false` + `unseenOutcome` (`.finished`/`.failed`, `AIBookRunState`). Lối ra hoàn tất/lỗi đi qua `finishRun` (`AIRuntimeCoordinator+UnseenResults`); bấm dừng vẫn gọi thẳng `endRun` nên **không bao giờ** thành kết quả chưa xem. Lượt mới của chính truyện đó (`beginRun`) bỏ kết quả cũ. Toast hoàn tất giữ như cũ.
+- **Mất khi xem**: `presentedAIBookId` nhận đúng `bookId` (mọi đường mở màn AI: nút nổi, nút AI trong Reader) ⇒ `markResultSeen` bỏ cờ; entry chỉ còn vì nó thì bỏ luôn entry, còn nút "Thử lại k lượt lỗi" thì giữ entry.
+- **Qua lần mở app**: `AIUnseenResultStore` (`Services/AI/`) ghi `applicationSupportDirectory/ai_unseen_results.json` trên queue nền, mỗi truyện một `AIUnseenResult` (`Models/AI/`): tên truyện, xong/lỗi, mốc xong, **phiên chat chứa kết quả**, chương, hai cờ dịch tên chương. Khởi tạo coordinator nạp lại entry, `lastSessionIds` (màn AI mở đúng phiên có kết quả) và `ActiveContext` cho `presentFullScreen`. **Giới hạn**: không lưu nội dung chương ⇒ sau khi mở lại app, màn AI mở từ nút nổi (không qua Reader của chính truyện đó) có `currentChapterRawContent` rỗng — xem kết quả không ảnh hưởng, chỉ lượt chat mới từ màn đó thiếu nội dung chương hiện tại.
+- **Nút nổi** (`FloatingHubPresentationReader`): truyện chưa xem vào `aiTasks` sau các truyện đang chạy (xong gần nhất lên đầu). AI chỉ còn kết quả chưa xem ⇒ vẫn là `.ai` trong `runningKinds` (icon ✨, chạm bung menu sang trang AI) nhưng nằm trong `ButtonState.quietKinds` nên **không nháy**, icon màu chữ hệ thống; VoiceOver đọc "Trợ lý AI đã xong, chưa xem".
+- **Menu**: dòng Trợ lý AI một truyện ⇒ "Đã xong — bấm để xem" (xanh) / "Lỗi — bấm để xem" (đỏ) (`FloatingHubItem.DetailTone`); nhiều truyện ⇒ "1 đang chạy · 2 chưa xem" / "N truyện chưa xem". Trang danh sách đổi tên **"Tác vụ AI"** (`FloatingHubAITaskListView`): truyện chưa xem có icon ✓ xanh / ! đỏ, không có nút ✕. Chữ giải thích ở Cài đặt › Nội dung nhạy cảm đổi theo tên mới.
+- Chưa build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.629] - 2026-10-28
 
 ### feat: công tắc NSFW ở đầu ngăn kéo menu Khám phá
@@ -407,14 +420,3 @@ Người dùng: *"lỗi là lỗi thỉnh thoảng có token dù có nghĩa vp/n
 - Chuyển entry `[1.3.571]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy — chạm lại token từng lỗi, thanh chip phải có chip xanh/đỏ bên cạnh chip xám.
 
-## [1.3.600] - 2026-10-25
-
-### fix: chip token ở màn Dịch tách từ theo rule dịch giống trang đọc
-
-Người dùng: *"bị lỗi ở màn hình dịch của reader, thỉnh thoảng xuất hiện vài token thanh chip không có nghĩa, mặc dù sự thật chúng có nghĩa ở vp, name"* — chip hiện Hán-Việt, trang đọc dịch đúng, truyện không bật Phồn → Giản; duyệt phương án "mỗi từ một chip".
-
-- **Nguyên nhân**: trang đọc (`performTranslation`) áp rule dịch (bật sẵn) **trước** khi tách token — rule tự bắt từ VP/Names (thử mọi độ dài, quay lui) rồi thay cả cụm bằng nghĩa. Thanh token của panel Dịch (`ReaderDefinitionWorker` → `getTranslationTokens`) tách thẳng chữ gốc, không qua rule: ở cụm rule đã xử lý, tokenizer chọn mục dài nhất toàn cục có thể vớ một mục VP vắt qua ranh giới token của rule và bỏ lại chữ lẻ không có mục riêng ⇒ chip hiện Hán-Việt. Đoạn không có rule khớp thì hai bên tách giống hệt — vì vậy chỉ "thỉnh thoảng".
-- **Sửa**: `TranslateUtils.getRuleAwareTokens(for:bookId:)` (mới, `TranslateUtils+Tokenization`) — không có rule khớp ⇒ trả nguyên `getTranslationTokens`; đoạn đi qua ⇒ tách từ điển trên khúc gốc rồi dời offset; cụm rule ⇒ mỗi token rule một chip mang đúng nghĩa trang đang hiện, chữ giữa các token (literal của mẫu) tách từ điển; token rỗng/còn chữ Hán ⇒ tách chữ gốc; rule không có token ⇒ một chip cho cả cụm với kết quả rule. `QuickTranslationRewriteResult.Segment` thêm `captures` (mặc định `[]`), `QuickTranslationRuleEngine.assemble` ghi `match.captures` vào đoạn rule. `ReaderDefinitionWorker` gọi hàm mới ⇒ áp cho cả panel Dịch, Copy nội dung gốc, Xoá từ rác.
-- **Không đổi**: `getTranslationTokens` (span, `mapSelection`, `snapToToken` vẫn tách thô); chip chưa áp Phồn → Giản (trang có áp).
-- Chuyển entry `[1.3.570]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới** (`QuickTranslationRuleEngine.swift` giữ 399 dòng). CI là cổng biên dịch; chưa thử trên máy — mở lại đoạn từng lỗi, chip ở chỗ rule khớp phải hiện đúng nghĩa như trang.

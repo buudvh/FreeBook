@@ -38,7 +38,7 @@ struct FloatingHubMenuRow: View {
                             .truncationMode(.tail)
                         Text(item.detail)
                             .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(item.detailTone.style)
                             .lineLimit(1)
                             .truncationMode(.tail)
                     }

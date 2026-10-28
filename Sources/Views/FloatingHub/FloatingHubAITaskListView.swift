@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Trang "AI đang chạy" trong thẻ menu của nút hub nổi (1.3.558): mỗi truyện đang chạy AI một dòng — tên truyện và
-/// tác vụ ("AI đang suy nghĩ", "Đang quét: Batch N/T"), truyện bắt đầu gần nhất lên đầu. Chạm dòng nào thì mở màn AI
+/// Trang "Tác vụ AI" trong thẻ menu của nút hub nổi (1.3.558): mỗi truyện đang chạy AI một dòng — tên truyện và
+/// tác vụ ("AI đang suy nghĩ", "Đang quét: Batch N/T"), truyện bắt đầu gần nhất lên đầu. Từ 1.3.630 thêm truyện có
+/// kết quả chưa xem bên dưới (✓ xanh "Đã xong — bấm để xem", ! đỏ "Lỗi — bấm để xem"). Chạm dòng nào thì mở màn AI
 /// của đúng truyện đó; nút ‹ quay về trang chính của menu.
 ///
 /// Cùng khung dòng với `FloatingHubMenuRow` (icon 28pt, hai dòng chữ, cao tối thiểu 48pt) để hai trang trông như một.
@@ -32,7 +33,7 @@ struct FloatingHubAITaskListView: View {
             .buttonStyle(.plain)
             .accessibilityLabel(Text("Quay lại"))
 
-            Text("AI đang chạy")
+            Text("Tác vụ AI")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Color.primary)
                 .lineLimit(1)
@@ -46,9 +47,9 @@ struct FloatingHubAITaskListView: View {
     private func row(_ task: FloatingHubPresentationReader.AITask) -> some View {
         Button(action: { onSelect(task.bookId) }) {
             HStack(spacing: 12) {
-                Image(systemName: FloatingHubItem.Kind.ai.systemImage(unreadCount: 0))
+                Image(systemName: iconName(task))
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(FloatingHubItem.Kind.ai.tint)
+                    .foregroundStyle(task.isRunning ? AnyShapeStyle(FloatingHubItem.Kind.ai.tint) : task.detailTone.style)
                     .frame(width: 28, height: 28)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -57,9 +58,9 @@ struct FloatingHubAITaskListView: View {
                         .foregroundStyle(Color.primary)
                         .lineLimit(1)
                         .truncationMode(.tail)
-                    Text(task.taskTitle.isEmpty ? "Đang chạy" : task.taskTitle)
+                    Text(task.detailText)
                         .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(task.detailTone.style)
                         .lineLimit(1)
                         .truncationMode(.tail)
                 }
@@ -78,6 +79,17 @@ struct FloatingHubAITaskListView: View {
         .overlay(alignment: .top) {
             Divider()
                 .padding(.leading, 52)
+        }
+    }
+
+    private func iconName(_ task: FloatingHubPresentationReader.AITask) -> String {
+        switch task.outcome {
+        case nil:
+            return FloatingHubItem.Kind.ai.systemImage(unreadCount: 0)
+        case .finished:
+            return "checkmark.circle.fill"
+        case .failed:
+            return "exclamationmark.circle.fill"
         }
     }
 }

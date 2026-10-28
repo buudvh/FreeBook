@@ -55,6 +55,24 @@ struct FloatingHubItem: Equatable, Identifiable {
         }
     }
 
+    /// Màu dòng phụ (1.3.630): kết quả AI chưa xem tô xanh (đã xong) hoặc đỏ (lỗi); còn lại màu phụ hệ thống.
+    enum DetailTone: Equatable {
+        case normal
+        case success
+        case failure
+
+        var style: AnyShapeStyle {
+            switch self {
+            case .normal:
+                return AnyShapeStyle(HierarchicalShapeStyle.secondary)
+            case .success:
+                return AnyShapeStyle(Color.green)
+            case .failure:
+                return AnyShapeStyle(Color.red)
+            }
+        }
+    }
+
     let kind: Kind
     /// Dòng dùng được: chạm được. `false` ⇒ dòng xám, không chạm được — dòng
     /// **vẫn nằm đó**, không bị bỏ khỏi menu.
@@ -63,6 +81,7 @@ struct FloatingHubItem: Equatable, Identifiable {
     var headline = ""
     /// Dòng phụ một dòng. Reader luôn điền chữ (kể cả lúc xám) để chiều cao dòng không đổi.
     var detail = ""
+    var detailTone = DetailTone.normal
     /// Số trên badge của dòng (Thông báo: số chưa đọc). 0 ⇒ badge trong suốt, không bị bỏ khỏi cây view.
     var badgeCount = 0
     /// Chỉ mục Video dùng: đang phát hay đang dừng (glyph của nút phát/dừng).

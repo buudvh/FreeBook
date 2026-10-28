@@ -17,9 +17,11 @@ extension AIRuntimeCoordinator {
     }
 
     /// Mở một lượt mới cho truyện: huỷ tác vụ cũ **của chính truyện đó**, dựng entry mới (giữ nút "Thử lại" nếu có),
-    /// cấp mã lượt. Mọi cập nhật trễ của lượt phải so mã này qua `isCurrentRun`.
+    /// cấp mã lượt. Mọi cập nhật trễ của lượt phải so mã này qua `isCurrentRun`. Lượt mới thay kết quả chưa xem của
+    /// lượt trước (1.3.630) — entry mới không mang cờ đó, bản ghi trên đĩa cũng bỏ.
     func beginRun(bookId: String, bookTitle: String, taskTitle: String, session: AIChatSession?) -> UUID {
         cancelTask(bookId: bookId)
+        AIUnseenResultStore.shared.remove(bookId: bookId)
         var state = AIBookRunState(bookId: bookId, bookTitle: bookTitle, taskTitle: taskTitle, session: session)
         state.nameScanRetry = runs[bookId]?.nameScanRetry
         runs[bookId] = state
@@ -67,13 +69,15 @@ extension AIRuntimeCoordinator {
     }
 
     /// Kết thúc lượt của truyện (xong, lỗi hoặc dừng): bỏ entry để màn AI và nút nổi thấy truyện đã rảnh. Còn lượt
-    /// quét lỗi chờ nút "Thử lại" thì giữ entry nhưng `isRunning = false` và bỏ `session` (đã ghi xuống lịch sử).
+    /// quét lỗi chờ nút "Thử lại", hoặc kết quả chưa xem (`finishRun` đã gắn `unseenOutcome`, 1.3.630), thì giữ entry
+    /// nhưng `isRunning = false` và bỏ `session` (đã ghi xuống lịch sử).
     ///
     /// Gọi **sau** khi đã ghi trạng thái cuối của phiên vào entry: màn AI đang mở nhận bản cuối đó trước khi entry mất.
+    /// Lối ra hoàn tất/lỗi đi qua `finishRun`; bấm dừng gọi thẳng hàm này nên không bao giờ thành kết quả chưa xem.
     func endRun(bookId: String) {
         runIds[bookId] = nil
         tasks[bookId] = nil
-        if var state = runs[bookId], state.nameScanRetry != nil {
+        if var state = runs[bookId], state.nameScanRetry != nil || state.unseenOutcome != nil {
             state.isRunning = false
             state.session = nil
             state.batchProgress = nil

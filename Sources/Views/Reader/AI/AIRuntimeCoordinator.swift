@@ -46,8 +46,15 @@ public final class AIRuntimeCoordinator: ObservableObject {
     /// Setter `internal` (không `private`) vì các luồng chạy nằm ở `+BookRuns`/`+BatchExtraction`/`+NameScanRetry`.
     @Published public internal(set) var runs: [String: AIBookRunState] = [:]
     /// `bookId` của màn AI đang mở (`nil` = không có màn AI nào). Thay cờ Bool cũ: truyện A xong trong lúc màn AI của
-    /// truyện B đang mở vẫn phải có toast cho A.
-    @Published public var presentedAIBookId: String? = nil
+    /// truyện B đang mở vẫn phải có toast cho A. Nhận đúng `bookId` ⇒ kết quả chưa xem của truyện đó coi như đã xem
+    /// (`+UnseenResults`, 1.3.630) — bắt mọi đường mở màn AI: nút nổi, nút AI trong Reader.
+    @Published public var presentedAIBookId: String? = nil {
+        didSet {
+            if let bookId = presentedAIBookId, bookId != oldValue {
+                markResultSeen(bookId: bookId)
+            }
+        }
+    }
     /// `bookId` của Reader đang trên màn hình (`nil` khi không có Reader nào). Là **bookId** chứ không
     /// phải cờ Bool: widget thu nhỏ của truyện A bấm khi đang đọc truyện B phải mở lại AI của **A**,
     /// không được nhờ Reader B dựng màn AI theo truyện của nó.
@@ -64,8 +71,9 @@ public final class AIRuntimeCoordinator: ObservableObject {
     /// đều lọc qua đây (`AIRuntimeCoordinator+NameRemoval`). Giữ trong bộ nhớ suốt phiên app.
     var removedNameKeys: [UUID: Set<String>] = [:]
     /// Ngữ cảnh mở màn AI theo truyện — nút nổi mở đúng màn AI của truyện được chạm. Chỉ giữ truyện còn entry trong
-    /// `runs` và truyện mở AI gần nhất (`pruneContexts`), vì ngữ cảnh mang cả nội dung chương.
-    private var contexts: [String: ActiveContext] = [:]
+    /// `runs` và truyện mở AI gần nhất (`pruneContexts`), vì ngữ cảnh mang cả nội dung chương. `internal` cho
+    /// `+UnseenResults` (dựng lại ngữ cảnh của kết quả chưa xem lúc mở app).
+    var contexts: [String: ActiveContext] = [:]
     private var latestContextBookId: String? = nil
     private var cancellables = Set<AnyCancellable>()
     private weak var currentPresentedVC: UIViewController? = nil
@@ -74,6 +82,7 @@ public final class AIRuntimeCoordinator: ObservableObject {
 
     private init() {
         setupTTSObservers()
+        restoreUnseenResults()
     }
 
     /// Lắng nghe các notification điều hướng từ TTS để tự động đóng màn hình AI an toàn.
@@ -178,7 +187,7 @@ public final class AIRuntimeCoordinator: ObservableObject {
                     self.saveRunSession(bookId: bookId)
                     let toast = self.toastText("AI đã hoàn tất phản hồi!", bookId: bookId, bookTitle: bookTitle)
                     let isPresented = self.presentedAIBookId == bookId
-                    self.endRun(bookId: bookId)
+                    self.finishRun(bookId: bookId, outcome: .finished)
                     if !isPresented {
                         ToastManager.shared.show(message: toast, type: .success)
                     }
@@ -196,7 +205,7 @@ public final class AIRuntimeCoordinator: ObservableObject {
                     self.saveRunSession(bookId: bookId)
                     let toast = self.toastText("AI phản hồi thất bại.", bookId: bookId, bookTitle: bookTitle)
                     let isPresented = self.presentedAIBookId == bookId
-                    self.endRun(bookId: bookId)
+                    self.finishRun(bookId: bookId, outcome: .failed)
                     if !isPresented {
                         ToastManager.shared.show(message: toast, type: .error)
                     }

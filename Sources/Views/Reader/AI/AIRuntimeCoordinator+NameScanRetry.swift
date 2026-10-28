@@ -104,7 +104,7 @@ extension AIRuntimeCoordinator {
                     remaining.failedBatches = outcome.failedBatches
                     self.setNameScanRetry(outcome.failedBatches.isEmpty ? nil : remaining, bookId: bookId)
                     let isPresented = self.presentedAIBookId == bookId
-                    self.endRun(bookId: bookId)
+                    self.finishRun(bookId: bookId, outcome: .finished)
                     onComplete(finalResults)
                     self.showRetryCompletionToast(
                         nameCount: finalResults.count,
@@ -127,7 +127,7 @@ extension AIRuntimeCoordinator {
                     self.saveRunSession(bookId: bookId)
                     // Đọc tiến độ (chương của lượt đang gửi) trước `endRun`; toast kể cả khi màn AI đang mở.
                     let toast = self.nameScanStopToast("Lọc name tự dừng", bookId: bookId, bookTitle: bookTitle)
-                    self.endRun(bookId: bookId)
+                    self.finishRun(bookId: bookId, outcome: .failed)
                     ToastManager.shared.show(message: toast, type: .error)
                 }
             }

@@ -33,7 +33,7 @@ struct NsfwSettingsView: View {
                 explanationRow("shippingbox", "Kho tiện ích và tìm kiếm mọi nguồn không hiện tiện ích NSFW.")
                 explanationRow("safari", "Khám phá ẩn nguồn NSFW. Đang xem nguồn NSFW thì tự chuyển sang nguồn khác.")
                 explanationRow("clock.arrow.circlepath", "Tab Lịch sử ẩn truyện chữ, truyện tranh và phim của nguồn NSFW. Dữ liệu vẫn giữ, bật lại là hiện lại.")
-                explanationRow("books.vertical", "Kệ sách, Tìm trong Kệ, Bộ sưu tập, tab Tải, hub nổi (AI đang chạy, Video) và Quản lý phạm vi dịch ẩn truyện, truyện tranh, phim của nguồn NSFW. Dữ liệu vẫn giữ, bật lại là hiện lại.")
+                explanationRow("books.vertical", "Kệ sách, Tìm trong Kệ, Bộ sưu tập, tab Tải, hub nổi (Tác vụ AI, Video) và Quản lý phạm vi dịch ẩn truyện, truyện tranh, phim của nguồn NSFW. Dữ liệu vẫn giữ, bật lại là hiện lại.")
                 explanationRow("doc.text", "Danh sách chọn truyện để chia sẻ/nhập từ điển riêng ẩn mọi truyện của nguồn NSFW, kể cả truyện trên Kệ.")
                 explanationRow("globe", "Trình duyệt: Truy cập nhanh không hiện nguồn NSFW, lịch sử duyệt trang của chúng bị ẩn (không xoá).")
                 explanationRow("xmark.rectangle", "Màn Chi tiết truyện, danh sách thể loại và tìm trong một nguồn NSFW đang mở (kể cả ở tab khác, kể cả truyện trên Kệ) tự đóng. Tìm mọi nguồn thì ẩn nhóm kết quả của nguồn NSFW.")

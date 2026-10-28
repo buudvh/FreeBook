@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 /// Thẻ menu của nút hub nổi (1.3.524). Từ 1.3.533 menu luôn đủ ba dòng. Từ 2026-10-22 chạm hub chỉ mở menu khi có
-/// từ 2 tiến trình, hoặc đúng 1 tiến trình là AI (mở thẳng trang "AI đang chạy") — xem `activateByRunningTasks`.
+/// từ 2 tiến trình, hoặc đúng 1 tiến trình là AI (mở thẳng trang "Tác vụ AI") — xem `activateByRunningTasks`.
 ///
 /// Menu sống trong **chính cửa sổ hub**: lớp nền trong suốt `menuBackdropView` phủ toàn màn và thẻ
 /// `menuContainerView` cạnh nút. Khi menu mở, `FloatingHubUIWindow.hitTest` nhường **mọi** chạm cho cây view
@@ -77,7 +77,7 @@ extension FloatingHubContainerViewController {
     }
 
     /// Gán lại nội dung thẻ theo snapshot hiện tại; tạo hosting controller ở lần mở đầu tiên.
-    /// Trang "AI đang chạy" mà không còn truyện nào chạy ⇒ tự về trang chính.
+    /// Trang "Tác vụ AI" mà không còn truyện nào chạy ⇒ tự về trang chính.
     func refreshMenu() {
         let snapshot = presentationReader.snapshot
         if menuPage == .aiTasks, snapshot.aiTasks.isEmpty {

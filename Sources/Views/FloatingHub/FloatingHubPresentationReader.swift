@@ -23,6 +23,11 @@ import Foundation
 /// view widget AI cũ, xoá ở 1.3.524). Ở đây `runs` được `map` về danh sách nhỏ `AITask` (truyện đang chạy + tác vụ)
 /// rồi `removeDuplicates` — chỉ phát khi có truyện bắt đầu/xong hoặc tác vụ đổi chữ (1.3.558). Video cũng vậy: chỉ
 /// đọc cầu nối `VideoMiniPlayerState` (`ObservableObject`), không đọc session `@Observable` giữ `AVPlayer`.
+///
+/// ## Kết quả AI chưa xem (1.3.630)
+/// Truyện chạy AI xong trong lúc màn AI của nó đóng vẫn có dòng ở trang "Tác vụ AI" ("Đã xong — bấm để xem") cho tới
+/// khi màn AI của truyện được mở. Nó tính là `.ai` trong `runningKinds` (icon ✨, chạm mở trang AI) nhưng **không**
+/// nháy: chỉ còn kết quả chưa xem thì `.ai` nằm trong `quietKinds` (người dùng chốt 2026-10-28).
 @MainActor
 final class FloatingHubPresentationReader: ObservableObject {
     /// Phần trạng thái mà **nút** cần. Cố ý không chứa chữ hay trạng thái phát của dòng.
@@ -32,23 +37,53 @@ final class FloatingHubPresentationReader: ObservableObject {
         /// lưu, tải model). Tính ở **mọi tab**; tin chưa đọc **không** tính. Số phần tử quyết định icon, nháy và
         /// hành vi chạm của nút hub.
         var runningKinds: [FloatingHubItem.Kind] = []
+        /// Mục có trong `runningKinds` nhưng không có gì **đang chạy** — hiện nay chỉ `.ai` khi chỉ còn kết quả chưa
+        /// xem (1.3.630). Vẫn quyết định icon và hành vi chạm, không làm nút nháy.
+        var quietKinds: [FloatingHubItem.Kind] = []
         /// Số chưa đọc — bằng 0 ở tab Kệ Sách hoặc khi không có gì. Chỉ để đọc VoiceOver: nút không đưa tín hiệu
         /// chưa đọc nào lên hình.
         var unreadCount = 0
 
         var runningCount: Int { runningKinds.count }
-        /// Có ít nhất một tiến trình ⇒ nút nháy đỏ.
-        var isPulsing: Bool { runningCount > 0 }
+        /// Có ít nhất một tiến trình thật sự đang chạy ⇒ nút nháy đỏ.
+        var isPulsing: Bool { runningKinds.contains { !quietKinds.contains($0) } }
     }
 
-    /// Một truyện đang chạy AI — một dòng ở trang "AI đang chạy" của menu (1.3.558).
+    /// Một truyện đang chạy AI, hoặc có kết quả AI chưa xem (1.3.630) — một dòng ở trang "Tác vụ AI" của menu (1.3.558).
     struct AITask: Equatable, Identifiable {
         let bookId: String
         let bookTitle: String
         let taskTitle: String
         let startedAt: Date
+        /// `nil` = đang chạy; khác `nil` = đã xong/lỗi, chưa xem.
+        var outcome: AIUnseenResult.Outcome? = nil
+        var finishedAt: Date? = nil
 
         var id: String { bookId }
+        var isRunning: Bool { outcome == nil }
+
+        /// Dòng phụ của truyện ở trang "Tác vụ AI" (và ở dòng Trợ lý AI khi chỉ có một truyện).
+        var detailText: String {
+            switch outcome {
+            case nil:
+                return taskTitle.isEmpty ? "Đang chạy" : taskTitle
+            case .finished:
+                return "Đã xong — bấm để xem"
+            case .failed:
+                return "Lỗi — bấm để xem"
+            }
+        }
+
+        var detailTone: FloatingHubItem.DetailTone {
+            switch outcome {
+            case nil:
+                return .normal
+            case .finished:
+                return .success
+            case .failed:
+                return .failure
+            }
+        }
     }
 
     struct Snapshot: Equatable {
@@ -56,15 +91,17 @@ final class FloatingHubPresentationReader: ObservableObject {
         var items: [FloatingHubItem] = FloatingHubItem.Kind.allCases.map { FloatingHubItem(kind: $0) }
         /// Bằng 0 khi mục Thông báo đang xám.
         var unreadCount = 0
-        /// Truyện đang chạy AI, bắt đầu gần nhất lên đầu — trang "AI đang chạy". Không vào `ButtonState`: tiêu đề
-        /// tác vụ đổi theo batch không làm vẽ lại nút.
+        /// Truyện đang chạy AI (bắt đầu gần nhất lên đầu) rồi tới truyện có kết quả chưa xem (xong gần nhất lên đầu) —
+        /// trang "Tác vụ AI". Không vào `ButtonState`: tiêu đề tác vụ đổi theo batch không làm vẽ lại nút.
         var aiTasks: [AITask] = []
         /// Tiến trình đang chạy cho nút hub — xem `ButtonState.runningKinds`. Lưu riêng vì "tác vụ nền" không
         /// suy ra được từ `items` (dòng Thông báo gộp cả tin chưa đọc).
         var runningKinds: [FloatingHubItem.Kind] = []
+        /// Xem `ButtonState.quietKinds`.
+        var quietKinds: [FloatingHubItem.Kind] = []
 
         var button: ButtonState {
-            ButtonState(runningKinds: runningKinds, unreadCount: unreadCount)
+            ButtonState(runningKinds: runningKinds, quietKinds: quietKinds, unreadCount: unreadCount)
         }
     }
 
@@ -91,7 +128,7 @@ final class FloatingHubPresentationReader: ObservableObject {
     /// Tab Kệ Sách là tab 0 của `MainTabView`; mặc định `true` vì app luôn khởi động ở tab đó. Tab Kệ đã có
     /// nút chuông trên toolbar nên mục Thông báo **xám** ở đó (trước 1.3.533 là vắng hẳn).
     private var isShelfTabActive = true
-    /// Công tắc NSFW toàn app — tắt ⇒ bỏ truyện của nguồn NSFW khỏi "AI đang chạy" và coi phim NSFW thu nhỏ như
+    /// Công tắc NSFW toàn app — tắt ⇒ bỏ truyện của nguồn NSFW khỏi "Tác vụ AI" và coi phim NSFW thu nhỏ như
     /// không có video (chỉ ẩn, tác vụ / phim vẫn chạy).
     private var includeNsfw = RepositoryFilterPolicy.includesNsfwPreference
     private var cancellables = Set<AnyCancellable>()
@@ -208,7 +245,18 @@ final class FloatingHubPresentationReader: ObservableObject {
         let runningKinds = items
             .filter { $0.kind == .notifications ? inbox.hasRunningTask : $0.isActive }
             .map(\.kind)
-        return Snapshot(items: items, unreadCount: unreadCount, aiTasks: visibleAITasks, runningKinds: runningKinds)
+        // AI chỉ còn kết quả chưa xem ⇒ vẫn là mục của nút (icon, chạm) nhưng không nháy.
+        let tasks = visibleAITasks
+        let quietKinds: [FloatingHubItem.Kind] = runningKinds.contains(.ai) && !tasks.contains(where: \.isRunning)
+            ? [.ai]
+            : []
+        return Snapshot(
+            items: items,
+            unreadCount: unreadCount,
+            aiTasks: tasks,
+            runningKinds: runningKinds,
+            quietKinds: quietKinds
+        )
     }
 
     private var visibleAITasks: [AITask] {
@@ -226,27 +274,46 @@ final class FloatingHubPresentationReader: ObservableObject {
         return RepositoryFilterPolicy.isNsfwSource(packageId: ext.packageId)
     }
 
-    /// Truyện đang chạy AI (bỏ entry chỉ còn giữ nút "Thử lại"), bắt đầu gần nhất lên đầu.
+    /// Truyện đang chạy AI (bắt đầu gần nhất lên đầu) rồi truyện có kết quả chưa xem (xong gần nhất lên đầu). Bỏ entry
+    /// chỉ còn giữ nút "Thử lại".
     nonisolated private static func aiTasks(from runs: [String: AIBookRunState]) -> [AITask] {
-        runs.values
-            .filter(\.isRunning)
-            .map { AITask(bookId: $0.bookId, bookTitle: $0.bookTitle, taskTitle: $0.taskTitle, startedAt: $0.startedAt) }
-            .sorted { $0.startedAt > $1.startedAt }
+        let tasks = runs.values.compactMap { state -> AITask? in
+            guard state.isRunning || state.unseenOutcome != nil else { return nil }
+            return AITask(
+                bookId: state.bookId,
+                bookTitle: state.bookTitle,
+                taskTitle: state.taskTitle,
+                startedAt: state.startedAt,
+                outcome: state.isRunning ? nil : state.unseenOutcome,
+                finishedAt: state.finishedAt
+            )
+        }
+        let running = tasks.filter(\.isRunning).sorted { $0.startedAt > $1.startedAt }
+        let unseen = tasks.filter { !$0.isRunning }.sorted { ($0.finishedAt ?? $0.startedAt) > ($1.finishedAt ?? $1.startedAt) }
+        return running + unseen
     }
 
-    /// Trợ lý AI dùng được khi có truyện đang chạy **và** không có màn AI nào đang mở — đúng điều kiện có mục trước
-    /// đây. Chạm dòng thì menu sang trang "AI đang chạy" (1.3.558). Một truyện: tên truyện + tác vụ; nhiều truyện:
-    /// số truyện.
+    /// Trợ lý AI dùng được khi có truyện đang chạy hoặc có kết quả chưa xem (1.3.630) **và** không có màn AI nào đang
+    /// mở. Chạm dòng thì menu sang trang "Tác vụ AI" (1.3.558). Một truyện: tên truyện + tác vụ / "Đã xong — bấm để
+    /// xem"; nhiều truyện: số truyện đang chạy và chưa xem.
     private func aiItem() -> FloatingHubItem {
         let tasks = visibleAITasks
         let usable = !tasks.isEmpty && !aiState.isFullScreenPresented
         let detail: String
         var headline = ""
+        var tone = FloatingHubItem.DetailTone.normal
+        let runningCount = tasks.filter(\.isRunning).count
+        let unseenCount = tasks.count - runningCount
         if tasks.count == 1, let task = tasks.first {
             headline = task.bookTitle
-            detail = task.taskTitle.isEmpty ? "Đang chạy" : task.taskTitle
-        } else if tasks.count > 1 {
-            detail = "\(tasks.count) truyện đang chạy"
+            detail = task.detailText
+            tone = task.detailTone
+        } else if runningCount > 0, unseenCount > 0 {
+            detail = "\(runningCount) đang chạy · \(unseenCount) chưa xem"
+        } else if runningCount > 1 {
+            detail = "\(runningCount) truyện đang chạy"
+        } else if unseenCount > 1 {
+            detail = "\(unseenCount) truyện chưa xem"
         } else {
             detail = "Không có tác vụ"
         }
@@ -255,6 +322,7 @@ final class FloatingHubPresentationReader: ObservableObject {
             isEnabled: usable,
             headline: headline,
             detail: detail,
+            detailTone: tone,
             isActive: usable
         )
     }
