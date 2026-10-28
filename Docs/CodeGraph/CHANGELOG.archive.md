@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.598] - 2026-10-25
+
+### fix: tạm dừng rồi tiếp tục TTS không còn lùi lại vài đoạn
+
+Người dùng: *"có lỗi tạm dừng tts rồi tiếp tục lại không phát tiếp tục mà lui lại vài đoạn"* (tiếp tục từ màn khoá/tai nghe); duyệt phương án A.
+
+- **Nguyên nhân**: `ReaderView.updateScrollReadingProgress` (chạy mỗi lần một đoạn hiện/khuất, kể cả do TTS tự cuộn) hẹn 1,5 s sau gọi `TTSManager.updateParagraphPositionWithoutPlaying(đoạn trên cùng màn hình)` khi `isPlaying || showFloatingWidget`. Lúc phát thì hàm bỏ qua, nhưng đã tạm dừng thì nó kéo `currentParagraphIndex` về chunk đầu của đoạn trên cùng màn hình — thường ở trên đoạn đang đọc vài đoạn, vì TTS chỉ tự cuộn khi vệt đọc ra khỏi vùng an toàn. Audio đang dừng không được giải phóng nên Google/tiện ích phát nốt chunk cũ rồi `nextParagraph()` nhảy về "đoạn trên cùng + 1", NghiTTS nạp tiếp "đoạn trên cùng + 1".
+- **Sửa**: cuộn trang không còn dời con trỏ TTS (xoá khối đồng bộ, `updateTTSPositionWorkItem`, `updateParagraphPositionWithoutPlaying`). Tiếp tục từ widget, màn khoá, tai nghe, sau cuộc gọi đều phát tiếp đúng chunk đang dừng.
+- **Nút tai nghe trong Reader**: đang tạm dừng truyện này, cùng chương, đoạn đang dừng còn trong vùng an toàn của màn hình (`ParagraphTracker.isParagraphInsideSafeViewport`, cùng điều kiện tự cuộn) ⇒ `resume()`; đã kéo đi chỗ khác ⇒ giữ như cũ (dừng rồi đọc từ đoạn trên cùng). Muốn nghe chỗ khác vẫn có bôi đen → "Nghe".
+- **Siri (`system`)**: `pause()` không tăng `audibleHandoffGeneration` cho Siri nữa — trước đây `onFinish` của utterance được `continueSpeaking()` bị `isContextValid` loại nên đọc xong chunk là im. Stop/skip vẫn tăng qua `stopCurrentPlayback()`.
+- Đánh đổi: mất kiểu "dừng → kéo trang → tiếp tục ở widget/màn khoá thì đọc từ chỗ mới" (có từ 07/2026). `TTSChunkPositionMapper.indexForParagraphPosition` không còn caller trong `Sources/` nhưng giữ nguyên.
+- Chuyển entry `[1.3.568]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới** (`TTSManager.swift` 3510 → 3500 dòng). CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.597] - 2026-10-25
 
 ### feat: kết quả tìm trong một nguồn theo kiểu hiển thị của loại nguồn

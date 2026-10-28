@@ -9,6 +9,8 @@ extension AIRuntimeCoordinator {
     /// `session` khác nil ⇒ Gemini Web (bật lưu lịch sử) quét nối tiếp đúng cuộc chat Gemini của phiên này.
     /// `onProgress` nhận danh sách tên `nil` khi chỉ đổi tiến độ (báo "đang gửi lượt N"), tên giữ nguyên.
     /// Lượt vẫn lỗi sau vòng tự thử lại được giữ trong RAM (`nameScanRetryContexts`) cho nút "Thử lại k lượt lỗi".
+    /// `translatesChapterTitles`/`convertsTraditionalToSimplified`: cấu hình dịch tên chương của màn AI (như Reader) —
+    /// dải tiến độ hiện tên chương của lượt đang gửi theo đó; nút "Thử lại" dùng lại cấu hình này.
     public func startBatchExtraction(
         bookId: String,
         bookTitle: String,
@@ -18,6 +20,8 @@ extension AIRuntimeCoordinator {
         limit: Int? = nil,
         session: AIChatSession? = nil,
         assistantMsgId: UUID? = nil,
+        translatesChapterTitles: Bool = false,
+        convertsTraditionalToSimplified: Bool = false,
         onProgress: @escaping (AINameScanProgress, [AIExtractedName]?) -> Void,
         onComplete: @escaping ([AIExtractedName]) -> Void
     ) {
@@ -33,6 +37,11 @@ extension AIRuntimeCoordinator {
         )
         updateRun(bookId) { $0.batchProgress = initialProgress }
         let sessionId = session?.id
+        let chapterTitleStyle = AINameScanChapterTitleStyle(
+            bookId: bookId,
+            translatesTitles: translatesChapterTitles,
+            convertsTraditionalToSimplified: convertsTraditionalToSimplified
+        )
 
         tasks[bookId] = Task { [weak self] in
             do {
@@ -42,7 +51,8 @@ extension AIRuntimeCoordinator {
                     promptOverride: promptOverride,
                     fromChapterIndex: fromChapterIndex,
                     limit: limit,
-                    sessionId: sessionId
+                    sessionId: sessionId,
+                    chapterTitleStyle: chapterTitleStyle
                 ) { progress, partial in
                     // Chỉ gắn cờ NE/VP khi danh sách tên đổi — báo "đang gửi lượt N" không kèm tên.
                     let decorated = partial.map { AIBookDataInspector.shared.decorateExtractedNames(names: $0, bookId: bookId) }
@@ -79,7 +89,8 @@ extension AIRuntimeCoordinator {
                             assistantMsgId: mid,
                             names: finalResults,
                             failedBatches: outcome.failedBatches,
-                            resume: outcome.resume
+                            resume: outcome.resume,
+                            chapterTitleStyle: chapterTitleStyle
                         ), bookId: bookId)
                     }
                     let isPresented = self.presentedAIBookId == bookId
@@ -109,12 +120,11 @@ extension AIRuntimeCoordinator {
                         self.updateRun(bookId) { $0.session?.messages.append(AIChatMessage(role: .assistant, content: errorText)) }
                     }
                     self.saveRunSession(bookId: bookId)
-                    let toast = self.toastText("Quét tên riêng bị gián đoạn.", bookId: bookId, bookTitle: bookTitle)
-                    let isPresented = self.presentedAIBookId == bookId
+                    // Lần quét tự dừng (hết hạn mức, mất đăng nhập, Google bắt xác minh…): toast chương đang lọc lúc
+                    // dừng, kể cả khi màn AI đang mở — lý do chi tiết là tin lỗi ở trên. Đọc tiến độ trước `endRun`.
+                    let toast = self.nameScanStopToast("Lọc name tự dừng", bookId: bookId, bookTitle: bookTitle)
                     self.endRun(bookId: bookId)
-                    if !isPresented {
-                        ToastManager.shared.show(message: toast, type: .error)
-                    }
+                    ToastManager.shared.show(message: toast, type: .error)
                 }
             }
         }
@@ -189,18 +199,28 @@ extension AIRuntimeCoordinator {
         }
     }
 
-    /// Tiêu đề tác vụ — cùng nghĩa với dải tiến độ: N là lượt **đang gửi**; lúc chuẩn bị kèm số chương đã đọc (1.3.602).
+    /// Toast khi lần quét/thử lại dừng giữa chừng: `prefix` + chương của lượt đang gửi lúc dừng (" · ch.21–30: tên →
+    /// tên", một chương " · ch.21: tên"); chưa gửi lượt nào ⇒ chỉ `prefix`. Màn AI của truyện không mở ⇒ kèm tên truyện
+    /// (`toastText`). Gọi **trước** `endRun` — `endRun` dọn tiến độ của entry.
+    func nameScanStopToast(_ prefix: String, bookId: String, bookTitle: String) -> String {
+        let label = runs[bookId]?.batchProgress?.sendingChapterToastLabel
+        return toastText(label.map { "\(prefix) · \($0)" } ?? prefix, bookId: bookId, bookTitle: bookTitle)
+    }
+
+    /// Tiêu đề tác vụ — cùng nghĩa với dải tiến độ: N là lượt **đang gửi**, kèm khoảng chương của lượt đó
+    /// (" · ch.21–30"); lúc chuẩn bị kèm số chương đã đọc (1.3.602).
     static func batchTaskTitle(for progress: AINameScanProgress) -> String {
         if progress.isPreparing {
             if progress.isRetry { return "Đang chuẩn bị thử lại..." }
             guard let count = progress.chapterCount else { return "Đang chuẩn bị quét..." }
             return "Đang chuẩn bị quét: đã đọc \(progress.preparedChapters)/\(count) chương"
         }
+        let chapters = progress.sendingChapterRangeLabel.map { " · \($0)" } ?? ""
         // Đang chờ Chế độ AI hết giới hạn (1.3.612): tiến độ báo lại mỗi 15 s nên tiêu đề đếm ngược theo nhịp đó.
         if let remaining = progress.rateLimitRemainingSeconds() {
-            return "Chờ Google \(GoogleAIModeError.clockText(seconds: remaining)) · Batch \(progress.sendingBatch)/\(progress.totalBatches)"
+            return "Chờ Google \(GoogleAIModeError.clockText(seconds: remaining)) · Batch \(progress.sendingBatch)/\(progress.totalBatches)\(chapters)"
         }
         let verb = progress.isRetry ? "Đang thử lại" : "Đang quét"
-        return "\(verb): Batch \(progress.sendingBatch)/\(progress.totalBatches)"
+        return "\(verb): Batch \(progress.sendingBatch)/\(progress.totalBatches)\(chapters)"
     }
 }

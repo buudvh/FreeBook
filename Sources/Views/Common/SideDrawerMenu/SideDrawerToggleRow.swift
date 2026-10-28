@@ -4,10 +4,15 @@ import SwiftUI
 ///
 /// Công tắc cùng kiểu với phần còn lại của app (`SwitchToggleStyle(tint: Color(white: 0.35))`); nó chỉ để hiển thị,
 /// cú chạm do cả hàng nhận. VoiceOver thấy cả hàng như một `Toggle` chuẩn.
+///
+/// Đổi xong thì nhờ ngăn kéo vẽ lại (`refreshContent`): ngăn kéo ở cửa sổ riêng, màn có thể không tự vẽ lại nếu
+/// `body` của nó không đọc giá trị này.
 struct SideDrawerToggleRow: View {
     let title: String
     let icon: SideDrawerMenuIcon
     @Binding var isOn: Bool
+
+    @Environment(\.sideDrawerMenuDismiss) private var drawer
 
     init(_ title: String, systemImage: String, isOn: Binding<Bool>) {
         self.title = title
@@ -24,7 +29,7 @@ struct SideDrawerToggleRow: View {
 
     var body: some View {
         Button {
-            isOn.toggle()
+            setOn(!isOn)
         } label: {
             SideDrawerMenuRowLabel(icon: icon, title: title, tint: Color.white) {
                 Toggle(title, isOn: $isOn)
@@ -35,7 +40,12 @@ struct SideDrawerToggleRow: View {
         }
         .buttonStyle(SideDrawerRowButtonStyle())
         .accessibilityRepresentation {
-            Toggle(title, isOn: $isOn)
+            Toggle(title, isOn: Binding(get: { isOn }, set: { setOn($0) }))
         }
+    }
+
+    private func setOn(_ value: Bool) {
+        isOn = value
+        drawer.refreshContent()
     }
 }

@@ -3,7 +3,7 @@ import SwiftUI
 /// Nút menu tròn trên header Khám phá, gộp ba việc của nguồn đang chọn: Mở trình duyệt · Kiểu hiển thị · Dịch văn bản.
 /// Chỉ hiện khi đã chọn nguồn. Bấm ⇒ ngăn kéo trượt từ mép phải (`sideDrawerMenu`). Mở trình duyệt / Kiểu hiển thị do
 /// `DiscoveryView` trình bày qua hai callback; dòng Dịch văn bản mở bảng dịch dùng chung (`TranslationScopePopupView`)
-/// dạng popover neo vào chính nút này — sau khi ngăn kéo đã đóng hẳn (hàng thao tác lo việc chờ).
+/// dạng popover neo vào chính nút này — mở ngay khi ngăn kéo bắt đầu trượt ra (ngăn kéo ở cửa sổ riêng, không chặn).
 struct DiscoverySourceMenuButton: View {
     let packageId: String
     let sourceName: String

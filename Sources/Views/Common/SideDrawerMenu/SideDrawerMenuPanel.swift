@@ -1,21 +1,28 @@
 import SwiftUI
 
-/// Nội dung của cover do `SideDrawerMenuModifier` trình bày: lớp phủ tối + ngăn kéo kính mờ bám mép phải.
+/// Nội dung cửa sổ ngăn kéo (`SideDrawerMenuWindowRoot`): lớp phủ tối + ngăn kéo kính mờ bám mép phải.
 ///
 /// - Ngăn kéo cao toàn màn, rộng 78% bề ngang (tối đa 360pt), bo góc trái, viền trái mảnh; nội dung luôn tông tối
 ///   (`colorScheme = .dark`) để chữ trắng đọc rõ cả khi màn bên dưới là bìa sáng màu.
 /// - Đóng: chạm ra ngoài, vuốt sang phải trên ngăn kéo, hoặc chọn một hàng thao tác. Không có nút ✕.
-/// - Trượt ra xong mới gọi `onClosed` (kèm action của hàng vừa chọn, nếu có) để modifier gỡ cover.
+/// - Bắt đầu trượt ra ⇒ gọi ngay `onCloseBegan` (kèm action của hàng vừa chọn, nếu có) để cửa sổ thôi nhận chạm và
+///   action chạy luôn; trượt ra xong ⇒ `onClosed` để cửa sổ ẩn đi.
 struct SideDrawerMenuPanel<Content: View>: View {
     let title: String
-    /// Gọi đúng một lần khi ngăn kéo đã trượt ra hết; tham số là action của hàng thao tác vừa chọn (`nil` = chỉ đóng).
-    let onClosed: ((() -> Void)?) -> Void
+    /// Panel vừa lên màn (bắt đầu trượt vào) — chỉ để đo thời gian.
+    let onAppeared: () -> Void
+    /// Gọi đúng một lần khi ngăn kéo bắt đầu trượt ra; tham số là action của hàng thao tác vừa chọn (`nil` = chỉ đóng).
+    let onCloseBegan: ((() -> Void)?) -> Void
+    /// Gọi đúng một lần khi ngăn kéo đã trượt ra hết.
+    let onClosed: () -> Void
     @ViewBuilder let content: () -> Content
 
     @State private var isShown = false
     @State private var isClosing = false
     @State private var didFinish = false
     @State private var dragOffset: CGFloat = 0
+    /// Tăng khi hàng công tắc / hàng chọn vừa đổi giá trị ⇒ `body` chạy lại, đọc lại state mới nhất của màn.
+    @State private var contentRevision = 0
 
     /// Nhanh hơn bản đầu (0,26 / 0,2 s) theo yêu cầu người dùng (1.3.623).
     private static var openAnimation: Animation { .easeOut(duration: 0.18) }
@@ -34,8 +41,12 @@ struct SideDrawerMenuPanel<Content: View>: View {
             .frame(width: proxy.size.width, height: proxy.size.height)
         }
         .allowsHitTesting(!isClosing)
-        .environment(\.sideDrawerMenuDismiss, SideDrawerMenuDismissAction(handler: close))
+        .environment(
+            \.sideDrawerMenuDismiss,
+            SideDrawerMenuDismissAction(handler: close, revision: contentRevision, refresher: refreshContent)
+        )
         .onAppear {
+            onAppeared()
             withAnimation(Self.openAnimation) {
                 isShown = true
             }
@@ -138,24 +149,32 @@ struct SideDrawerMenuPanel<Content: View>: View {
             }
     }
 
-    /// Trượt ngăn kéo ra rồi mới báo `onClosed`. Lần gọi thứ hai trở đi (bấm liên tiếp hai hàng) bị bỏ qua.
+    /// Bắt đầu trượt ra và báo `onCloseBegan` **ngay** (action của hàng chạy luôn, không chờ trượt xong); trượt xong mới
+    /// báo `onClosed`. Lần gọi thứ hai trở đi (bấm liên tiếp hai hàng) bị bỏ qua.
     private func close(_ followUp: (() -> Void)?) {
         guard !isClosing else { return }
         isClosing = true
         withAnimation(.easeIn(duration: Self.closeDuration)) {
             isShown = false
         } completion: {
-            finish(followUp)
+            finish()
         }
-        // Dự phòng: completion của animation không được gọi thì vẫn gỡ cover, không để một lớp vô hình chặn chạm.
+        // Dự phòng: completion của animation không được gọi thì vẫn ẩn cửa sổ, không để một lớp vô hình chặn chạm.
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.closeDuration + 0.3) {
-            finish(followUp)
+            finish()
         }
+        onCloseBegan(followUp)
     }
 
-    private func finish(_ followUp: (() -> Void)?) {
+    private func finish() {
         guard !didFinish else { return }
         didFinish = true
-        onClosed(followUp)
+        onClosed()
+    }
+
+    /// Hàng công tắc / hàng chọn vừa đổi giá trị: vẽ lại để đọc state mới (màn có thể không vẽ lại nếu `body` của nó
+    /// không đọc giá trị đó, nên không đợi lượt đẩy từ màn).
+    private func refreshContent() {
+        contentRevision &+= 1
     }
 }

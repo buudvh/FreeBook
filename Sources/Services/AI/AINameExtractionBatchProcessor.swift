@@ -193,6 +193,7 @@ public final class AINameExtractionBatchProcessor: Sendable {
     /// `onProgress` (1.3.524) báo: khi đã biết số chương (đang chuẩn bị) và sau mỗi khối chương đã đọc
     /// (`preparedChapters`, 1.3.602), **trước** mỗi lượt (`sendingBatch` = lượt sắp gửi, tên = `nil` vì chưa đổi) và sau
     /// mỗi lượt (danh sách tên gộp + số lượt lỗi + điểm tiếp nối). Vòng tự thử lại ở cuối báo với `isRetry == true`.
+    /// Báo trước lượt kèm các chương của lượt, tên dịch theo `chapterTitleStyle` (`nil` = tên gốc).
     ///
     /// Trả về `progress` **tóm tắt**: `totalBatches` = số lượt của vòng chính, `failedBatches` = số lượt **vẫn** lỗi sau
     /// vòng tự thử lại, `isRetry` = đã chạy vòng tự thử lại, `resumeChapterIndex` = điểm tiếp nối cuối cùng; mảng
@@ -208,6 +209,7 @@ public final class AINameExtractionBatchProcessor: Sendable {
         fromChapterIndex: Int? = nil,
         limit: Int? = nil,
         sessionId: UUID? = nil,
+        chapterTitleStyle: AINameScanChapterTitleStyle? = nil,
         onProgress: @escaping @Sendable (AINameScanProgress, [AIExtractedName]?) -> Void
     ) async throws -> ScanOutcome {
         var preparing = AINameScanProgress()
@@ -255,6 +257,7 @@ public final class AINameExtractionBatchProcessor: Sendable {
             isRetry: false,
             chapterCount: downloaded.count,
             resume: resume,
+            chapterTitleStyle: chapterTitleStyle,
             onProgress: onProgress
         )
         var summary = AINameScanProgress(
@@ -283,6 +286,7 @@ public final class AINameExtractionBatchProcessor: Sendable {
                     isRetry: true,
                     chapterCount: downloaded.count,
                     resume: resume,
+                    chapterTitleStyle: chapterTitleStyle,
                     onProgress: onProgress
                 )
                 summary.failedBatches = outcome.failedBatches.count
@@ -297,6 +301,7 @@ public final class AINameExtractionBatchProcessor: Sendable {
     /// gộp vào `existingNames` theo cùng luật với lần quét. Cùng prompt, cùng cuộc chat Gemini của phiên, cùng timeout.
     /// `progress` trả về: `totalBatches` = số lượt đã thử lại, `failedBatches` = số lượt vẫn lỗi, `isRetry == true`,
     /// `resumeChapterIndex` = điểm tiếp nối sau khi thử lại (`resume` = bộ theo dõi của lần quét gốc, 1.3.602).
+    /// `chapterTitleStyle`: như lần quét gốc — tên chương của lượt đang gửi trên dải tiến độ.
     public func retryFailedBatches(
         _ batches: [AINameScanFailedBatch],
         existingNames: [AIExtractedName],
@@ -304,6 +309,7 @@ public final class AINameExtractionBatchProcessor: Sendable {
         promptOverride: String? = nil,
         sessionId: UUID? = nil,
         resume: AINameScanResumeTracker? = nil,
+        chapterTitleStyle: AINameScanChapterTitleStyle? = nil,
         onProgress: @escaping @Sendable (AINameScanProgress, [AIExtractedName]?) -> Void
     ) async throws -> ScanOutcome {
         let conversationId = Self.chatConversationId(config: config, sessionId: sessionId)
@@ -322,6 +328,7 @@ public final class AINameExtractionBatchProcessor: Sendable {
             isRetry: true,
             chapterCount: nil,
             resume: resume,
+            chapterTitleStyle: chapterTitleStyle,
             onProgress: onProgress
         )
     }

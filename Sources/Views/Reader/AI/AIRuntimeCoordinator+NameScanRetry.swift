@@ -26,6 +26,8 @@ extension AIRuntimeCoordinator {
         /// Bộ theo dõi điểm tiếp nối của lần quét gốc (1.3.602): lượt thử lại thành công đẩy điểm tiếp nối đi tiếp theo
         /// luật "dừng trước lượt lỗi".
         let resume: AINameScanResumeTracker?
+        /// Cấu hình dịch tên chương của lần quét gốc — dải tiến độ của lần thử lại hiện tên chương như lần quét.
+        let chapterTitleStyle: AINameScanChapterTitleStyle?
     }
 
     /// Nơi duy nhất ghi `nameScanRetryContexts` — giữ `runs[bookId].nameScanRetry` (phát cho UI) luôn khớp với nó.
@@ -41,7 +43,8 @@ extension AIRuntimeCoordinator {
     /// Chạy lại các lượt còn lỗi của truyện rồi ghi đè danh sách gộp vào **đúng** tin kết quả cũ. Vòng đời giống
     /// `startBatchExtraction`: chỉ thay tác vụ của chính truyện này, so mã lượt ở mọi cập nhật trễ, `batchProgress`
     /// về `nil` ở mọi lối ra (`endRun`). Trả `false` (không làm gì) khi không còn lượt nào để thử lại.
-    /// Lỗi tài khoản/hạn mức giữa chừng ⇒ giữ nguyên tin kết quả và các lượt lỗi cũ (bấm lại được), chỉ báo toast.
+    /// Lỗi tài khoản/hạn mức giữa chừng ⇒ giữ nguyên tin kết quả và các lượt lỗi cũ (bấm lại được); lý do dừng thành tin
+    /// lỗi riêng, toast "Lọc name tự dừng" kèm chương đang lọc.
     @discardableResult
     public func retryFailedNameScanBatches(
         bookId: String,
@@ -70,7 +73,8 @@ extension AIRuntimeCoordinator {
                     config: context.config,
                     promptOverride: context.promptOverride,
                     sessionId: context.sessionId,
-                    resume: context.resume
+                    resume: context.resume,
+                    chapterTitleStyle: context.chapterTitleStyle
                 ) { progress, partial in
                     // Danh sách báo về đã gộp sẵn với tên cũ ⇒ tin kết quả không mất tên trong lúc thử lại.
                     let decorated = partial.map { AIBookDataInspector.shared.decorateExtractedNames(names: $0, bookId: bookId) }
@@ -116,18 +120,13 @@ extension AIRuntimeCoordinator {
                     // Giữ nguyên nội dung tin (danh sách đã gộp tới lúc dừng) và các lượt lỗi cũ: lần bấm sau gộp lại
                     // từ danh sách đã lưu nên không cộng trùng số lần xuất hiện.
                     self.updateMessage(messageId, bookId: bookId) { $0.isStreaming = false }
-                    // Google bắt xác minh (Chế độ AI, 1.3.609): thêm tin lỗi riêng để màn AI hiện nút "Mở Google để xác
-                    // minh" dưới nó — chỉ toast thì người dùng không có chỗ bấm.
-                    if error.localizedDescription.contains(GoogleAIModeError.captchaMarker) {
-                        let text = "Lỗi quét tên riêng: \(error.localizedDescription)"
-                        self.updateRun(bookId) { $0.session?.messages.append(AIChatMessage(role: .assistant, content: text)) }
-                    }
+                    // Lý do dừng thành một tin lỗi riêng như lần quét chính — toast giờ chỉ báo chương đang lọc lúc dừng.
+                    // Google bắt xác minh (Chế độ AI, 1.3.609): màn AI hiện nút "Mở Google để xác minh" dưới tin này.
+                    let text = "Lỗi quét tên riêng: \(error.localizedDescription)"
+                    self.updateRun(bookId) { $0.session?.messages.append(AIChatMessage(role: .assistant, content: text)) }
                     self.saveRunSession(bookId: bookId)
-                    let toast = self.toastText(
-                        "Thử lại lượt lỗi bị gián đoạn: \(error.localizedDescription)",
-                        bookId: bookId,
-                        bookTitle: bookTitle
-                    )
+                    // Đọc tiến độ (chương của lượt đang gửi) trước `endRun`; toast kể cả khi màn AI đang mở.
+                    let toast = self.nameScanStopToast("Lọc name tự dừng", bookId: bookId, bookTitle: bookTitle)
                     self.endRun(bookId: bookId)
                     ToastManager.shared.show(message: toast, type: .error)
                 }

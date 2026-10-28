@@ -10,6 +10,9 @@ import SwiftUI
 ///   đếm trong số lượt đang thử lại.
 /// - Chế độ AI của Google bị giới hạn số câu trả lời AI (1.3.612): đang chờ ⇒ nền cam, đồng hồ cát, đếm ngược từng giây
 ///   ("Google giới hạn câu trả lời AI — chờ 1:45"); đã chuyển sang Gemini Web ⇒ dòng phụ "Đã chuyển sang …".
+/// - Chương của lượt đang gửi: tiêu đề thêm " · ch.21–30" (một chương: " · ch.21: tên"), ngay dưới là dòng tên
+///   "ch.21 tên → ch.30 tên" (một dòng, cắt đuôi, tím nhạt). Lúc chờ giới hạn tiêu đề là đồng hồ đếm ngược nên dòng
+///   chương luôn hiện. Tên đã dịch sẵn trong `AINameScanProgress` — `body` chỉ ghép chuỗi.
 public struct ReaderAIBatchProgressBannerView: View {
     public let progress: AINameScanProgress
     public let foundCount: Int
@@ -43,6 +46,15 @@ public struct ReaderAIBatchProgressBannerView: View {
                     Text(title)
                         .font(.caption)
                         .fontWeight(.semibold)
+                        .lineLimit(2)
+                }
+                if let chapterLine {
+                    Text(chapterLine)
+                        .font(.caption2)
+                        .fontWeight(.medium)
+                        .foregroundColor(Color.purple.opacity(0.85))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                 }
                 Text(subtitle)
                     .font(.caption2)
@@ -64,7 +76,20 @@ public struct ReaderAIBatchProgressBannerView: View {
             return progress.isRetry ? "Đang chuẩn bị thử lại..." : "Đang chuẩn bị quét tên riêng..."
         }
         let verb = progress.isRetry ? "Đang thử lại" : "Đang quét tên riêng"
-        return "\(verb): Batch \(progress.sendingBatch)/\(progress.totalBatches)..."
+        guard let headline = progress.sendingChapterHeadline else {
+            return "\(verb): Batch \(progress.sendingBatch)/\(progress.totalBatches)..."
+        }
+        return "\(verb): Batch \(progress.sendingBatch)/\(progress.totalBatches) · \(headline)"
+    }
+
+    /// Dòng tên chương dưới tiêu đề: lượt nhiều chương có tên ⇒ "ch.21 tên → ch.30 tên". Lúc chờ giới hạn (tiêu đề là
+    /// đồng hồ) thì luôn có dòng chương — không có dòng tên thì dùng phần chương của tiêu đề ("ch.21: tên", "ch.21–30").
+    private var chapterLine: String? {
+        guard !progress.isPreparing else { return nil }
+        if progress.rateLimitWaitUntil != nil {
+            return progress.sendingChapterNamesLine ?? progress.sendingChapterHeadline
+        }
+        return progress.sendingChapterNamesLine
     }
 
     private var subtitle: String {

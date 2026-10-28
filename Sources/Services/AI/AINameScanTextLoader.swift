@@ -10,10 +10,12 @@ import Foundation
 /// `ChapterTextNormalizer.normalize` (an toàn đa luồng: `JunkFilterManager` chụp luật dưới lock, `NSRegularExpression`
 /// dùng chung được giữa các luồng).
 enum AINameScanTextLoader {
-    /// Văn bản đã chuẩn hoá của một chương, kèm chỉ số 0-based theo mục lục.
+    /// Văn bản đã chuẩn hoá của một chương, kèm chỉ số 0-based theo mục lục và tên gốc (`rawTitle(of:)`, có thể rỗng)
+    /// để dải tiến độ báo lượt đang gửi gồm những chương nào.
     struct ChapterText: Sendable {
         let index: Int
         let text: String
+        let title: String
     }
 
     /// Kết quả bước đọc: văn bản theo đúng thứ tự chương (đã bỏ chương rỗng) và thời gian từng pha (ms, thời gian thực).
@@ -66,7 +68,7 @@ enum AINameScanTextLoader {
             normalizeTime += CFAbsoluteTimeGetCurrent() - normalizeStart
             for (chapter, text) in zip(chunk, normalized) {
                 guard let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
-                texts.append(ChapterText(index: chapter.index, text: text))
+                texts.append(ChapterText(index: chapter.index, text: text, title: rawTitle(of: chapter)))
             }
             start += chunk.count
             if Task.isCancelled { return nil }
@@ -76,6 +78,13 @@ enum AINameScanTextLoader {
             AppLogger.shared.log("❌ 🤖 [AI] Quét tên riêng: tổng cộng \(unreadableChapters)/\(chapters.count) chương không đọc được")
         }
         return LoadResult(texts: texts, readMs: Int(readTime * 1000), normalizeMs: Int(normalizeTime * 1000))
+    }
+
+    /// Tên gốc của chương: `title` đã trim, rỗng thì `titleTrans` — cùng luật `AIBookDataInspector.nameScanChapters`.
+    private static func rawTitle(of chapter: StoredChapterSnapshot) -> String {
+        let title = chapter.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard title.isEmpty else { return title }
+        return chapter.titleTrans?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     }
 
     /// Chuẩn hoá song song, tối đa `min(maxNormalizeWidth, số lõi đang hoạt động)` việc cùng lúc; kết quả đúng thứ tự.
@@ -147,14 +156,34 @@ enum AINameScanTextLoader {
         }
         return ranges.enumerated().map { item in
             let range = item.element
+            let shownLast = lastTouchedPosition(counts: counts, range: range, characterLimit: characterLimit)
             return AINameScanFailedBatch(
                 text: texts[range].map(\.text).joined(separator: "\n\n"),
                 turnIndex: item.offset + 1,
                 totalTurns: ranges.count,
                 firstChapterIndex: texts[range.lowerBound].index,
-                lastChapterIndex: lastSentChapterIndex(texts, counts: counts, range: range, characterLimit: characterLimit)
+                lastChapterIndex: lastSentChapterIndex(texts, counts: counts, range: range, characterLimit: characterLimit),
+                displayLastChapterIndex: texts[shownLast].index,
+                firstChapterTitle: texts[range.lowerBound].title,
+                lastChapterTitle: texts[shownLast].title
             )
         }
+    }
+
+    /// Vị trí (trong `texts`) của chương cuối thuộc `range` có **ít nhất một chữ** nằm trong `characterLimit` ký tự đầu
+    /// của chuỗi nối — chương cuối để hiển thị (lượt API 5 chương dài bị cắt thì chương bị cắt mất hẳn không tính).
+    private static func lastTouchedPosition(counts: [Int], range: Range<Int>, characterLimit: Int) -> Int {
+        var used = 0
+        var last = range.lowerBound
+        for position in range {
+            if position > range.lowerBound {
+                used += 2
+                guard used < characterLimit else { break }
+            }
+            last = position
+            used += counts[position]
+        }
+        return last
     }
 
     /// Chương cuối của `range` nằm trọn trong `characterLimit` ký tự đầu của chuỗi nối. Chương đầu tự nó đã dài hơn mức
@@ -186,6 +215,7 @@ enum AINameScanTextLoader {
     private static func makePieceBatches(_ texts: [ChapterText], characterLimit: Int) -> [AINameScanFailedBatch] {
         struct Piece {
             let chapterIndex: Int
+            let chapterTitle: String
             let text: String
             let count: Int
             let endsChapter: Bool
@@ -194,7 +224,13 @@ enum AINameScanTextLoader {
         for chapter in texts {
             let parts = splitText(chapter.text, limit: characterLimit)
             for (offset, part) in parts.enumerated() {
-                pieces.append(Piece(chapterIndex: chapter.index, text: part, count: part.count, endsChapter: offset == parts.count - 1))
+                pieces.append(Piece(
+                    chapterIndex: chapter.index,
+                    chapterTitle: chapter.title,
+                    text: part,
+                    count: part.count,
+                    endsChapter: offset == parts.count - 1
+                ))
             }
         }
 
@@ -220,7 +256,10 @@ enum AINameScanTextLoader {
                 turnIndex: item.offset + 1,
                 totalTurns: groups.count,
                 firstChapterIndex: first.chapterIndex,
-                lastChapterIndex: last.endsChapter ? last.chapterIndex : last.chapterIndex - 1
+                lastChapterIndex: last.endsChapter ? last.chapterIndex : last.chapterIndex - 1,
+                displayLastChapterIndex: last.chapterIndex,
+                firstChapterTitle: first.chapterTitle,
+                lastChapterTitle: last.chapterTitle
             )
         }
     }

@@ -18,6 +18,9 @@ extension AINameExtractionBatchProcessor {
     ///
     /// 1.3.612: provider đọc **mỗi lượt** từ `providerSwitch` — Chế độ AI của Google bị giới hạn thì lần quét có thể chuyển
     /// sang Gemini Web giữa chừng (`+RateLimit.swift`); nghỉ 2 s giữa lượt theo provider đang dùng.
+    ///
+    /// Trước khi gửi mỗi lượt, tiến độ mang các chương của lượt đó và tên đã dịch theo `chapterTitleStyle` (`nil` = tên
+    /// gốc) — dịch ở đây, một lần mỗi lượt, ngoài main thread (`markSending`).
     func runTurns(
         _ turns: [AINameScanFailedBatch],
         seedNames: [AIExtractedName],
@@ -27,6 +30,7 @@ extension AINameExtractionBatchProcessor {
         isRetry: Bool,
         chapterCount: Int?,
         resume: AINameScanResumeTracker?,
+        chapterTitleStyle: AINameScanChapterTitleStyle?,
         onProgress: @escaping @Sendable (AINameScanProgress, [AIExtractedName]?) -> Void
     ) async throws -> ScanOutcome {
         var progress = AINameScanProgress(
@@ -46,6 +50,7 @@ extension AINameExtractionBatchProcessor {
             let turnLabel = isRetry ? "\(turn.turnLabel), thử lại" : turn.turnLabel
             let characterLimit = Self.turnCharacterLimit(for: providerSwitch.config)
             progress.sendingBatch = position + 1
+            Self.markSending(turn, style: chapterTitleStyle, into: &progress)
             onProgress(progress, nil)
             AppLogger.shared.log("🤖 [AI] Quét tên riêng: gửi \(turnLabel) (\(min(turn.text.count, characterLimit)) ký tự, chat phiên=\(conversationId != nil))")
 
@@ -142,6 +147,24 @@ extension AINameExtractionBatchProcessor {
         )
         guard second.names.isEmpty else { return second }
         return ([], first.saidNoNames || second.saidNoNames)
+    }
+
+    /// Ghi chương đầu/cuối (hiển thị) của lượt sắp gửi vào tiến độ, kèm tên đã dịch theo `style` (`nil` = tên gốc đã
+    /// trim). Lượt một chương chỉ dịch một lần.
+    static func markSending(
+        _ turn: AINameScanFailedBatch,
+        style: AINameScanChapterTitleStyle?,
+        into progress: inout AINameScanProgress
+    ) {
+        let display: (String) -> String = { raw in
+            style?.displayTitle(raw) ?? raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        let isSingle = turn.displayLastChapterIndex == turn.firstChapterIndex
+        let firstTitle = display(turn.firstChapterTitle)
+        progress.sendingFirstChapterIndex = turn.firstChapterIndex
+        progress.sendingLastChapterIndex = turn.displayLastChapterIndex
+        progress.sendingFirstChapterTitle = firstTitle
+        progress.sendingLastChapterTitle = isSingle ? firstTitle : display(turn.lastChapterTitle)
     }
 
     /// Gộp tên theo `original` đã trim, cộng dồn `occurrenceCount` — một luật duy nhất cho mọi vòng lượt.

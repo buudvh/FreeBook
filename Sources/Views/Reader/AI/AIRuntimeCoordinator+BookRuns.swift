@@ -88,7 +88,14 @@ extension AIRuntimeCoordinator {
     /// Người dùng bấm **dừng** trong màn AI của truyện (1.3.515): huỷ tác vụ của truyện đó, hoàn tất mọi tin đang chạy
     /// trong phiên — tin còn rỗng ghi "Đã dừng." — rồi lưu phiên. Không làm vậy thì luồng bị huỷ thoát mà tin vẫn
     /// `isStreaming`, màn AI đồng bộ ngược trạng thái đó nên dòng "AI đang suy nghĩ" không bao giờ mất.
+    ///
+    /// Đang lọc name nhiều chương (lần quét hoặc thử lại — entry có `batchProgress`) ⇒ toast "Đã dừng lọc name" kèm
+    /// chương của lượt đang gửi, kể cả khi màn AI đang mở. Đọc tiến độ **trước** khi huỷ/`endRun` dọn entry; chat thường
+    /// không có tiến độ ⇒ không toast.
     public func stopActiveTask(bookId: String) {
+        let stopToast: String? = runs[bookId]?.batchProgress == nil
+            ? nil
+            : nameScanStopToast("Đã dừng lọc name", bookId: bookId, bookTitle: runs[bookId]?.bookTitle ?? "")
         cancelTask(bookId: bookId)
         updateRun(bookId) { state in
             guard var session = state.session else { return }
@@ -102,6 +109,9 @@ extension AIRuntimeCoordinator {
         }
         saveRunSession(bookId: bookId)
         endRun(bookId: bookId)
+        if let stopToast {
+            ToastManager.shared.show(message: stopToast, type: .info)
+        }
     }
 
     /// Chữ toast của một truyện: màn AI của truyện đó không mở (đang ở màn khác hoặc màn AI của truyện khác) ⇒ kèm

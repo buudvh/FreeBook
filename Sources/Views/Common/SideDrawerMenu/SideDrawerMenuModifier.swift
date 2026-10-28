@@ -16,70 +16,88 @@ import SwiftUI
 /// (`List`/`Form`) — một ngăn kéo cho cả danh sách. View chỉ là một `Section` (không có gốc ổn định) thì dùng
 /// `SideDrawerMenuButton` ở từng hàng.
 ///
-/// **Đừng** gắn modifier này bên trong `ToolbarItem`: presenter nằm trong nội dung toolbar bị gỡ khi pop màn ⇒ màn
-/// trắng (bug 1.3.281, xem `QuickTranslationRuleIOMenu`).
+/// **Đừng** gắn modifier này bên trong `ToolbarItem`: nội dung toolbar bị gỡ/dựng lại thất thường ⇒ `onDisappear` gỡ
+/// ngăn kéo ngoài ý muốn (trước đây là màn trắng khi pop, bug 1.3.281, xem `QuickTranslationRuleIOMenu`).
 ///
 /// Cơ chế:
-/// - Trình bày bằng `fullScreenCover` nền trong suốt nên phủ cả thanh điều hướng lẫn thanh tab. Hiệu ứng trượt lên mặc
-///   định bị tắt (`Transaction.disablesAnimations`); `SideDrawerMenuPanel` tự trượt ngăn kéo vào từ phải.
-/// - Nơi gọi chỉ bật `isPresented`; trạng thái cover nội bộ đi theo qua `onChange`.
-/// - Hàng thao tác (`SideDrawerActionRow`) đóng ngăn kéo **trước**, action chạy trong `onDismiss` của cover — lúc đó
-///   cover đã gỡ hẳn nên sheet / confirmationDialog / bộ chọn tệp / alert / điều hướng mà action mở ra không bị hụt.
-///   Hàng công tắc và hàng chọn (`SideDrawerToggleRow`, `SideDrawerOptionRow`) đổi giá trị ngay, ngăn kéo vẫn mở.
+/// - Ngăn kéo nằm ở **cửa sổ nổi riêng** (`SideDrawerMenuWindowManager`), không còn `fullScreenCover`: cover chặn màn bên
+///   dưới trình bày sheet mới nên phải chờ gỡ cover xong mới chạy action ⇒ sheet hiện chậm.
+/// - Hàng thao tác (`SideDrawerActionRow`) chạy action **ngay** khi ngăn kéo bắt đầu trượt ra; sheet / hộp thoại /
+///   bộ chọn tệp / điều hướng mà action mở ra trượt lên phía dưới trong lúc ngăn kéo trượt đi. Hàng công tắc và hàng
+///   chọn (`SideDrawerToggleRow`, `SideDrawerOptionRow`) đổi giá trị ngay, ngăn kéo vẫn mở.
+/// - Nội dung ngăn kéo luôn theo state của màn: trong lúc mở, `SideDrawerMenuContentRelay` (view vô hình gắn sau màn)
+///   đẩy bản mới nhất sang cửa sổ mỗi lần màn vẽ lại; Binding trong hàng vẫn trỏ về state của màn.
+/// - Màn rời cây view khi ngăn kéo còn mở (pop, đóng sheet chứa nó…) ⇒ gỡ cửa sổ ngay và hạ `isPresented`.
 struct SideDrawerMenuModifier<MenuContent: View>: ViewModifier {
     @Binding var isPresented: Bool
     let title: String
     @ViewBuilder let menuContent: () -> MenuContent
 
-    @State private var isCoverPresented = false
-    /// Action của hàng thao tác vừa chọn — chạy khi cover đã gỡ xong.
-    @State private var pendingAction: (() -> Void)?
+    /// Định danh chỗ gắn này với `SideDrawerMenuWindowManager` (một màn có thể gắn nhiều ngăn kéo).
+    @State private var ownerID = UUID()
 
     func body(content: Content) -> some View {
         content
-            .onChange(of: isPresented) { _, presented in
-                if presented, !isCoverPresented {
-                    setCoverPresented(true)
-                } else if !presented, isCoverPresented {
-                    // Nơi gọi tự tắt khi ngăn kéo còn mở (hiếm) ⇒ gỡ ngay, không chờ hiệu ứng trượt ra.
-                    setCoverPresented(false)
+            .background {
+                if isPresented {
+                    SideDrawerMenuContentRelay {
+                        pushContent()
+                    }
+                    .frame(width: 0, height: 0)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
                 }
             }
-            .fullScreenCover(isPresented: $isCoverPresented, onDismiss: handleCoverDismiss) {
-                SideDrawerMenuPanel(title: title, onClosed: finishClose, content: menuContent)
-                    .presentationBackground(.clear)
+            .onChange(of: isPresented) { _, presented in
+                if presented {
+                    present()
+                } else {
+                    // Ngăn kéo tự đóng (hàng thao tác, chạm ngoài, vuốt) đã hạ `isPresented` lúc bắt đầu trượt ra —
+                    // manager bỏ qua lệnh này để hiệu ứng chạy nốt. Còn lại là nơi gọi tự tắt ⇒ gỡ ngay.
+                    SideDrawerMenuWindowManager.shared.dismiss(ownerID: ownerID)
+                }
+            }
+            .onAppear {
+                if isPresented {
+                    present()
+                }
+            }
+            .onDisappear {
+                SideDrawerMenuWindowManager.shared.dismiss(ownerID: ownerID)
+                // Không hạ thì lần sau bấm "…" gán `true` lên `true`, `onChange` không chạy ⇒ ngăn kéo không mở.
+                if isPresented {
+                    isPresented = false
+                }
             }
     }
 
-    private func setCoverPresented(_ value: Bool) {
-        var transaction = Transaction()
-        transaction.disablesAnimations = true
-        withTransaction(transaction) {
-            isCoverPresented = value
-        }
-    }
-
-    /// Ngăn kéo đã trượt ra hết: gỡ cover (không hiệu ứng) rồi báo nơi gọi.
-    private func finishClose(_ followUp: (() -> Void)?) {
-        // Cover đã bị gỡ bằng đường khác (nơi gọi tự tắt) ⇒ `onDismiss` đã chạy, không giữ lại action mồ côi.
-        guard isCoverPresented else { return }
-        pendingAction = followUp
-        setCoverPresented(false)
-        if isPresented {
+    @MainActor
+    private func present() {
+        let binding = $isPresented
+        let didPresent = SideDrawerMenuWindowManager.shared.present(
+            ownerID: ownerID,
+            title: title,
+            content: contentProvider,
+            resetPresented: {
+                if binding.wrappedValue {
+                    binding.wrappedValue = false
+                }
+            }
+        )
+        if !didPresent {
             isPresented = false
         }
     }
 
-    private func handleCoverDismiss() {
-        if isPresented {
-            isPresented = false
-        }
-        guard let action = pendingAction else { return }
-        pendingAction = nil
-        // Nhường một nhịp runloop để UIKit dọn xong cover trước khi action trình bày cái mới.
-        DispatchQueue.main.async {
-            action()
-        }
+    @MainActor
+    private func pushContent() {
+        SideDrawerMenuWindowManager.shared.update(ownerID: ownerID, title: title, content: contentProvider)
+    }
+
+    /// Bọc nội dung thành `AnyView` cho host dùng chung; closure được gọi lại mỗi lần panel vẽ.
+    private var contentProvider: () -> AnyView {
+        let build = menuContent
+        return { AnyView(build()) }
     }
 }
 
@@ -95,11 +113,15 @@ extension View {
 
     /// Biến thể cho menu theo **từng hàng** của danh sách: gán `item` = hàng được bấm để mở; ngăn kéo đóng thì `item`
     /// về `nil`. Tiêu đề ngăn kéo lấy từ chính hàng đó.
+    ///
+    /// Hàng được chụp lại ngay lúc màn vẽ: `item` về `nil` khi ngăn kéo bắt đầu trượt ra, nội dung đang trượt vẫn là
+    /// của hàng cũ (không trống trơn giữa chừng).
     func sideDrawerMenu<Item: Identifiable, MenuContent: View>(
         item: Binding<Item?>,
         title: @escaping (Item) -> String,
         @ViewBuilder content: @escaping (Item) -> MenuContent
     ) -> some View {
+        let current = item.wrappedValue
         let isPresented = Binding<Bool>(
             get: { item.wrappedValue != nil },
             set: { presented in
@@ -109,9 +131,9 @@ extension View {
             }
         )
         return modifier(
-            SideDrawerMenuModifier(isPresented: isPresented, title: item.wrappedValue.map(title) ?? "") {
-                if let value = item.wrappedValue {
-                    content(value)
+            SideDrawerMenuModifier(isPresented: isPresented, title: current.map(title) ?? "") {
+                if let current {
+                    content(current)
                 }
             }
         )

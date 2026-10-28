@@ -207,8 +207,8 @@ struct ReaderHeaderFooterOverlayView: View {
             .frame(height: 52)
             .background(readerChromeBackground.ignoresSafeArea(edges: .bottom))
         }
-        // Ngăn kéo luôn tông tối riêng, đọc rõ với mọi theme của Reader. "Mở Cài đặt" đóng cả Reader ⇒ chạy sau khi
-        // ngăn kéo đã gỡ (hàng thao tác lo việc này).
+        // Ngăn kéo luôn tông tối riêng, đọc rõ với mọi theme của Reader. Ngăn kéo ở cửa sổ riêng nên "Mở Cài đặt" đóng
+        // cả Reader ngay lúc ngăn kéo bắt đầu trượt ra; màn rời đi thì ngăn kéo vẫn trượt nốt rồi ẩn.
         .sideDrawerMenu(isPresented: $showingOptionsMenu, title: "Tuỳ chọn trình đọc") {
             SideDrawerActionRow("Trợ lý AI", systemImage: "sparkles", action: onOpenAI)
             if hasLocalBook {

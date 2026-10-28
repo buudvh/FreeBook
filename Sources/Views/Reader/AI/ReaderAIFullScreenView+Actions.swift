@@ -227,6 +227,8 @@ extension ReaderAIFullScreenView {
             limit: limit,
             session: currentSession,
             assistantMsgId: msgId,
+            translatesChapterTitles: translatesChapterTitles,
+            convertsTraditionalToSimplified: convertsTraditionalToSimplified,
             onProgress: { [self] (progress: AINameScanProgress, partial: [AIExtractedName]?) in
                 Task { @MainActor in self.applyNameScanProgress(progress, partial: partial, messageId: msgId) }
             },

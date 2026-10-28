@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Hàng thao tác của ngăn kéo: bấm ⇒ ngăn kéo trượt ra **trước**, `action` chạy sau khi ngăn kéo đã gỡ hẳn (nên action
-/// được phép mở sheet / alert / confirmationDialog / bộ chọn tệp / điều hướng).
+/// Hàng thao tác của ngăn kéo: bấm ⇒ ngăn kéo bắt đầu trượt ra và `action` chạy **ngay** — ngăn kéo nằm ở cửa sổ nổi
+/// riêng nên màn bên dưới mở sheet / alert / confirmationDialog / bộ chọn tệp / điều hướng được luôn, hiện lên phía
+/// dưới trong lúc ngăn kéo trượt đi.
 ///
 /// `role: .destructive` ⇒ chữ và icon màu đỏ. `.disabled(...)` gắn ngoài hàng thì hàng mờ đi và không bấm được.
 struct SideDrawerActionRow: View {
