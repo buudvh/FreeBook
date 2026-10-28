@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.633] - 2026-10-28
+
+### fix: ngăn kéo menu thành kính đục vừa
+
+Người dùng: *"làm cho menu có một độ đục nhất định. Cho mockup trước"*; duyệt **kiểu 2 — kính đục vừa** (nhoè vừa + tối 55%).
+
+- **`SideDrawerPartialBlurView`** (mới, `Views/Common/SideDrawerMenu/`): nhoè **một phần** — `UIVisualEffectView` với `UIViewPropertyAnimator` chuyển `effect` từ `nil` sang `UIBlurEffect(.systemUltraThinMaterialDark)` rồi dừng ở `intensity` (0,6). Material của SwiftUI chỉ có một mức nhoè, mạnh tới mức nền Kệ đen thành mảng xám đều (lý do 1.3.622–630 bị chê "chẳng trong suốt"). Animator dựng lại khi view vào cửa sổ và khi app trở lại foreground; luôn `stopAnimation(true)` trước khi thả (thả animator đang dừng là crash).
+- **`SideDrawerMenuPanel.drawerBackground`**: nhoè 60% + lớp tối `Color(white: 0.16).opacity(0.55)` (thay lớp tối 80% không nhoè của 1.3.632); viền trái và lớp phủ 30% phần màn còn lại giữ nguyên.
+- Chuyển entry `[1.3.603]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — độ nhoè thật trên máy có thể khác mockup, chỉnh `intensity` nếu cần.
+
 ## [1.3.632] - 2026-10-28
 
 ### fix: bấm dừng lọc name ghi chương đã dừng vào tin AI, ngăn kéo menu tối 80%
@@ -402,14 +413,3 @@ Người dùng: *"Sửa lại sheet danh sách truyện của reader, hiện t�
 - **Sheet Hẹn giờ** (`TTSQuickTimerSheet.chapterRow`): bỏ cột số thứ tự; chương đang phát giữ icon loa.
 - `rules.md`: bullet luật công tắc kệ trong Reader. Chuyển entry `[1.3.574]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới** (`ReaderView.swift` 2034 → 2020). Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.603] - 2026-10-26
-
-### fix: quét tên coi Không có name là lượt hợp lệ, tên chương dịch theo cấu hình
-
-Người dùng (sau 1.3.602): *"coi câu trả lời đúng "Không có name" là lượt hợp lệ: không gửi lại, không tính lỗi, không chặn Tiếp nối"* → sửa lại *""Không có name" là lượt hợp lệ nhưng vẫn phải thử lại nhé"*; *"tên chương cần được dịch theo config"*.
-
-- **"Không có name"** (`AINameExtractionBatchProcessor.extractNamesFromText` trả thêm `saidNoNames`; `+Turns`): lượt không có tên vẫn được gửi lại một lần như 1.3.602; vẫn rỗng mà một trong hai lần AI trả lời đúng câu "Không có name" (prompt mặc định dặn câu này; so khớp bỏ hoa thường, code fence, dấu chấm cuối) ⇒ **lượt hợp lệ**: không tính lỗi, không vào danh sách "Thử lại", không chặn điểm tiếp nối (log thường, không ❌). Trả lời từ chối/sai định dạng khác giữ luật cũ (vẫn rỗng ⇒ lượt lỗi).
-- **Tên chương dịch theo cấu hình** (`ReaderAIBatchPromptSheet`, `ReaderAINameScanChapterPickerView`, `AIBookDataInspector.nameScanChapters`): khi Reader đang bật dịch cho truyện, tên chương ở 4 dòng chọn chương bắt đầu, tóm tắt và màn "Chọn chương…" hiện bản dịch — đúng luật danh sách chương Reader (`TranslateUtils.translateChapterTitle` khi còn chữ Hán, kèm chuyển phồn → giản của truyện). Cấu hình đi từ `ReaderView` qua `AIRuntimeCoordinator.ActiveContext` / `ReaderAIFullScreenView` (tham số mới `translatesChapterTitles`, `convertsTraditionalToSimplified`, mặc định `false`) — màn AI không tự resolve vì không biết nguồn của truyện (bật dịch quyết theo truyện → nguồn → chung). Dịch lúc nạp danh sách, ngoài main thread; ô tìm khớp cả tên dịch lẫn tên gốc (`AINameScanChapter.rawTitle`).
-- `rules.md`: bullet quét tên 1.3.602 thêm hai luật trên. Chuyển entry `[1.3.573]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
