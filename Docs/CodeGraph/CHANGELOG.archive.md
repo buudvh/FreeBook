@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.597] - 2026-10-25
+
+### feat: kết quả tìm trong một nguồn theo kiểu hiển thị của loại nguồn
+
+Người dùng: *"màn hình search chưa theo config layout, video, truyện, commic đang chỉ 1 kiểu, tôi đang nói search 1 nguồn"*.
+
+- **Tìm trong một nguồn** (`SearchSingleSourceResultsView`, mới): dựng theo `BookListLayout` của loại nguồn đang tìm — `BookListLayoutScope(kind: SearchExtensionScopePolicy.kind(of:))`, cùng phạm vi với Khám phá của nguồn đó. Kiểu Danh sách giữ nguyên dòng cũ (bìa 50×70, mô tả → nội dung → tác giả, chip tên nguồn); kiểu Lưới / Chỉ bìa dùng `ScrollView` + `LazyVGrid` của `DiscoveryNovelGridCardView` (video bìa ngang 16:9, số cột theo cài đặt). Đang đổi nguồn thì chạm vẫn hỏi xác nhận; còn lại mở Chi tiết truyện, `bookId` giữ dạng cũ.
+- **`SearchView`**: nút "Kiểu hiển thị" (icon theo kiểu đang chọn, 17pt semibold) ở góc phải thanh điều hướng, chỉ hiện khi tìm trong một nguồn (kể cả trước khi có kết quả), mở `BookListLayoutSheet`; đang tìm ở kiểu lưới thì hiện khung chờ dạng lưới (`DiscoverySkeletonGridView`). `searchResultCover` thành `static` để view mới dùng chung.
+- Không đổi: tìm trên mọi nguồn (dải bìa ngang theo nguồn), chỉ tải trang 1, công tắc dịch của màn Tìm kiếm.
+- Chuyển entry `[1.3.567]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.596] - 2026-10-24
 
 ### feat: màn Thông báo hiện phần trăm từng tập khi tải video

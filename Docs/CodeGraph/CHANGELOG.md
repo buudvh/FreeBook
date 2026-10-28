@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.627] - 2026-10-28
+
+### feat: icon đã tải ở danh sách chọn chương bắt đầu của sheet tải truyện
+
+Người dùng: *"thêm biểu tượng đã tải vào danh sách chương ở tải truyện nữa"*; duyệt mockup + plan.
+
+- **Màn "Chọn chương bắt đầu"** (`ReaderAINameScanChapterPickerView`): chương đã có trong máy hiện `arrow.down.circle.fill` cỡ caption màu xanh lá bên phải (trước dấu ✓ nếu đang chọn) — cùng kiểu danh sách chương Reader / Chi tiết truyện / mục lục comic.
+- **Trạng thái đã tải đọc ngầm** cùng lượt nạp + dịch danh sách (`DownloadStartChapterCatalog`, trong `Task.detached`, không đọc đĩa trong `body`): truyện chữ theo cờ `isCached` + `length > 0` của mục lục `ChapterStore` (cùng điều kiện dòng "Đã tải X/Y"); truyện tranh theo `ComicOfflineStore.downloadedChapterIndexes`, video theo `VideoOfflineStore.downloadedEpisodeIndexes` (manifest, đọc một lần). `pickerChapters` nhận `contentKind` thay cho `skipsSections`; `TaskOptionsSheet.isMediaBook` thành `contentKind`.
+- `AINameScanChapter.isCached` (mặc định `false`): sheet quét tên AI không đặt cờ — danh sách ở đó vốn toàn chương đã tải, không hiện icon thừa.
+- Chuyển entry `[1.3.597]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.626] - 2026-10-28
 
 ### fix: ngăn kéo menu trong suốt hơn nữa
@@ -404,15 +416,3 @@ Người dùng: *"có lỗi tạm dừng tts rồi tiếp tục lại không ph�
 - Đánh đổi: mất kiểu "dừng → kéo trang → tiếp tục ở widget/màn khoá thì đọc từ chỗ mới" (có từ 07/2026). `TTSChunkPositionMapper.indexForParagraphPosition` không còn caller trong `Sources/` nhưng giữ nguyên.
 - Chuyển entry `[1.3.568]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới** (`TTSManager.swift` 3510 → 3500 dòng). CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.597] - 2026-10-25
-
-### feat: kết quả tìm trong một nguồn theo kiểu hiển thị của loại nguồn
-
-Người dùng: *"màn hình search chưa theo config layout, video, truyện, commic đang chỉ 1 kiểu, tôi đang nói search 1 nguồn"*.
-
-- **Tìm trong một nguồn** (`SearchSingleSourceResultsView`, mới): dựng theo `BookListLayout` của loại nguồn đang tìm — `BookListLayoutScope(kind: SearchExtensionScopePolicy.kind(of:))`, cùng phạm vi với Khám phá của nguồn đó. Kiểu Danh sách giữ nguyên dòng cũ (bìa 50×70, mô tả → nội dung → tác giả, chip tên nguồn); kiểu Lưới / Chỉ bìa dùng `ScrollView` + `LazyVGrid` của `DiscoveryNovelGridCardView` (video bìa ngang 16:9, số cột theo cài đặt). Đang đổi nguồn thì chạm vẫn hỏi xác nhận; còn lại mở Chi tiết truyện, `bookId` giữ dạng cũ.
-- **`SearchView`**: nút "Kiểu hiển thị" (icon theo kiểu đang chọn, 17pt semibold) ở góc phải thanh điều hướng, chỉ hiện khi tìm trong một nguồn (kể cả trước khi có kết quả), mở `BookListLayoutSheet`; đang tìm ở kiểu lưới thì hiện khung chờ dạng lưới (`DiscoverySkeletonGridView`). `searchResultCover` thành `static` để view mới dùng chung.
-- Không đổi: tìm trên mọi nguồn (dải bìa ngang theo nguồn), chỉ tải trang 1, công tắc dịch của màn Tìm kiếm.
-- Chuyển entry `[1.3.567]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy.

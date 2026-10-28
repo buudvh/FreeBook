@@ -88,6 +88,13 @@ struct ReaderAINameScanChapterPickerView: View {
                     }
                 }
                 Spacer()
+                // Cùng kiểu icon "đã tải" của danh sách chương Reader / Chi tiết truyện / mục lục comic (1.3.627).
+                if chapter.isCached {
+                    Image(systemName: "arrow.down.circle.fill")
+                        .font(.caption)
+                        .foregroundColor(.green)
+                        .accessibilityLabel("Đã tải")
+                }
                 if isSelected {
                     Image(systemName: "checkmark")
                         .font(.system(size: 15, weight: .semibold))

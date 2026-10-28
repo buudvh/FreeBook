@@ -42,8 +42,8 @@ struct TaskOptionsSheet: View {
     @AppStorage(VideoDownloadQuality.defaultsKey) private var videoQuality: VideoDownloadQuality = VideoDownloadQuality.defaultValue
     /// Tải phim (`DownloadManager+Video`): đổi nhãn "chương" → "tập" và có thêm dòng Chất lượng.
     internal let isVideo: Bool
-    /// Truyện tranh/video: mục lục bỏ dòng tiêu đề nhóm, không có chọn số luồng.
-    internal let isMediaBook: Bool
+    /// Loại nội dung của nguồn: truyện tranh/video bỏ dòng tiêu đề nhóm ở mục lục, dấu "đã tải" đọc từ manifest.
+    internal let contentKind: ExtensionContentKind
     /// Chỉ truyện chữ của tiện ích JS được chọn số luồng (Legado luôn 1 luồng — `DownloadManager+ChapterLanes`).
     internal let supportsLanes: Bool
 
@@ -52,7 +52,7 @@ struct TaskOptionsSheet: View {
         self.taskType = taskType
         let kind = ExtensionContentKind.resolve(packageId: book.extensionPackageId)
         self.isVideo = !taskType.isExport && kind == .video
-        self.isMediaBook = kind.isMedia
+        self.contentKind = kind
         let isLegado = ExtensionLibraryRepository.snapshot(packageId: book.extensionPackageId)
             .map { SourceRuntime.shared.isLegado(localPath: $0.localPath) } ?? false
         self.supportsLanes = !kind.isMedia && !isLegado

@@ -73,7 +73,7 @@ extension TaskOptionsSheet {
             from: toc,
             bookId: book.bookId,
             packageId: book.extensionPackageId,
-            skipsSections: isMediaBook
+            contentKind: contentKind
         )
         guard !Task.isCancelled else { return }
         pickerChapters = chapters

@@ -9,6 +9,9 @@ struct AINameScanChapter: Sendable, Identifiable, Equatable {
     let title: String
     /// Tên gốc (`title` đã trim, rỗng thì `titleTrans`) — ô tìm của "Chọn chương…" khớp cả tên gốc lẫn tên dịch.
     let rawTitle: String
+    /// Chương đã có trong máy — màn chọn hiện icon "đã tải" (1.3.627). Chỉ sheet tải/xuất đặt cờ này; sheet quét tên
+    /// vốn chỉ liệt kê chương đã tải nên để mặc định `false`, không hiện icon thừa.
+    var isCached: Bool = false
 
     var id: Int { index }
 
