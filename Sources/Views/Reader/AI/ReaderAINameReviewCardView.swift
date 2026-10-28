@@ -112,8 +112,9 @@ public struct ReaderAINameReviewCardView: View {
 
                         VStack(alignment: .leading, spacing: 3) {
                             HStack(spacing: 6) {
+                                // Cỡ chữ theo hàng VP/Name (`DictionaryEntryRow`): tên `.headline`, nghĩa `.subheadline`.
                                 Text(item.original)
-                                    .font(.system(size: 13, weight: .bold))
+                                    .font(.headline)
                                     .foregroundColor(.primary)
                                     .lineLimit(2)
 
@@ -171,7 +172,7 @@ public struct ReaderAINameReviewCardView: View {
                             }
 
                             TextField("Nghĩa Hán-Việt/Dịch", text: $item.suggestedMeaning)
-                                .font(.system(size: 12))
+                                .font(.subheadline)
                                 .textFieldStyle(.plain)
                                 .foregroundColor(.secondary)
                         }

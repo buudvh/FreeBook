@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.635] - 2026-10-28
+
+### fix: thay thế TTS hiện 2 dòng, đồng bộ cỡ chữ danh sách theo VP/Name
+
+Người dùng: *"danh sách thay thế tts: mỗi rule hiển thị 2 dòng, dòng 1 là từ gốc, dòng 2 là mũi tên và từ thay thế. Giảm size chữ lại bằng size của danh sách vp/name. Đồng bộ size chữ các danh sách khác bằng vp/name luôn"*; duyệt mockup, chọn font thường (không monospaced) cho dòng regex, *"chỗ nào chưa hiển thị 2 hàng thì lọc ra chuyển thành 2 hàng luôn"*, *"lọc rác không làm"*.
+
+- **Chuẩn**: hàng VP/Name `DictionaryEntryRow` — dòng khoá `.headline`, dòng giá trị `.subheadline` màu phụ.
+- **Thay thế TTS** (`TTSReplacementManagerView+Layer`): `ruleText(for:)` mới dùng chung cho `ruleRow` và `globalRulesSection` — dòng 1 `"gốc"` `.headline` (màu phụ khi rule tắt), dòng 2 `→ "thay thế"` hoặc `→ (rỗng)` `.subheadline`; bỏ `.body` monospaced một dòng. Giữ dấu nháy vì nhiều rule mặc định thay bằng dấu cách. Icon sửa `.subheadline`; công tắc, vuốt "Sang chung", nút "Lấy" giữ nguyên.
+- **Từ điển tiếng Nhật VieNeu** (`VieNeuJapaneseDictionaryView.row`): một dòng `khoá … cách đọc` thành hai dòng `.headline` / `.subheadline`, vẫn bấm cả hàng để sửa.
+- **Chỉ đổi cỡ chữ**: rule dịch nhanh (`QuickTranslationRuleEntryRow`: pattern `.footnote` monospaced → `.headline`, replacement `.footnote` → `.subheadline`, giữ màu trắng và dòng "dòng N"/badge), công cụ tra cứu (`SearchEnginesConfigView`: URL `.caption` → `.subheadline`), quy tắc mục lục (`TOCRulesConfigView`: tên `.headline`, regex `.caption` monospaced → `.subheadline`, "Ví dụ" giữ `.caption2`), duyệt name AI (`ReaderAINameReviewCardView`: 13/12pt cố định → `.headline`/`.subheadline`, hàng cao hơn, badge giữ cỡ cũ).
+- **Không đổi**: lọc rác (người dùng loại), xung đột khi nhập từ điển (bố cục `cũ → mới` cố ý), màn thử rule dịch nhanh, chọn quy tắc mục lục khi nhập truyện.
+- Chuyển entry `[1.3.605]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.634] - 2026-10-28
 
 ### feat: tải truyện dừng và báo lỗi khi 5 chương liên tiếp tải lỗi
@@ -401,15 +415,3 @@ Người dùng: *"sửa lại các sheet khác thủ công ở màn hình dịch
 - **Script editor** (`ExtensionScriptEditorView.loadScriptFiles`): `/var` là symlink tới `/private/var` — giải symlink thư mục lẫn từng file rồi cắt theo tiền tố (trước `replacingOccurrences` để sót `/private` ⇒ "/privatesrc/chap.js"). `fileUrl` nay cùng dạng `ext.localPath` nên phép so script chuẩn ở `+Toolbars` khớp lại.
 - `rules.md`: bullet ba panel bôi đen là sheet gốc + presentation con gắn trong sheet Dịch + đường copy duy nhất. Chuyển entry `[1.3.576]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy (bàn phím trong sheet cố định chiều cao chưa kiểm chứng).
-
-## [1.3.605] - 2026-10-26
-
-### feat: nút dịch dùng icon Lucide languages thay character.bubble
-
-Người dùng: *"Tôi muốn đổi icon nút dịch thành icon ngoài"* → chọn Lucide `languages` (文A), đổi ở **tất cả** nút dịch. Plan duyệt trong chat.
-
-- **`AppGlyph.translate`** (mới): asset `LucideLanguages` sẵn có (cùng ảnh với `originalText`), nhãn VoiceOver "Dịch". Icon ngoài không có bản "fill" ⇒ bật/tắt chỉ khác màu (nút header Reader vốn đổi màu theo trạng thái; menu có chữ "Bật/Tắt").
-- Thay `character.bubble`/`character.bubble.fill` ở: nút dịch header Reader + màn Chi tiết (`ReaderTranslationScopeMenuView`, 2 nhánh), hàng "Dịch văn bản" của popup dịch (`TranslationScopePopupView`), nút "Dịch lại chương và mục lục" (`ReaderChapterListView`), mục "Bật/Tắt Dịch Nghĩa" menu Kệ (`ShelfView`, `Label(_:image:)`), mục "Dịch văn bản" menu Khám phá (`DiscoverySourceMenuButton`).
-- **Không đổi**: icon dự phòng nhóm tiện ích "Dịch thuật" (`ExtensionFilterGroups.typeGroupSymbol`, API chỉ nhận SF Symbol, không phải nút dịch). Nút "Gốc" của menu chọn chữ (`FloatingSelectionMenu`) vốn dùng cùng ảnh 文A — giữ nguyên theo plan; nay 文A vừa là bật/tắt dịch vừa là "Gốc" ở menu chọn chữ.
-- Chuyển entry `[1.3.575]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.

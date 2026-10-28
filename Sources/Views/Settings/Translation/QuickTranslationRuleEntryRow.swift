@@ -49,9 +49,9 @@ struct QuickTranslationRuleEntryRow: View {
                 }
 
                 Text(rule.pattern)
-                    .font(.system(.footnote, design: .monospaced))
+                    .font(.headline)
                 Text(rule.replacement)
-                    .font(.footnote)
+                    .font(.subheadline)
                     .foregroundColor(.white)
             }
             .opacity(isDisabled ? 0.5 : 1)

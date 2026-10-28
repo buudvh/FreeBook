@@ -183,8 +183,7 @@ struct TOCRulesConfigView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
                         Text(rule.name)
-                            .font(.body)
-                            .fontWeight(.semibold)
+                            .font(.headline)
                             .foregroundColor(rule.enabled ? .primary : .secondary)
 
                         if isDefault {
@@ -199,7 +198,7 @@ struct TOCRulesConfigView: View {
                     }
 
                     Text(rule.rule)
-                        .font(.system(.caption, design: .monospaced))
+                        .font(.subheadline)
                         .foregroundColor(rule.enabled ? .secondary : Color.secondary.opacity(0.6))
                         .lineLimit(2)
 

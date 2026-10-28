@@ -82,15 +82,7 @@ extension TTSReplacementManagerView {
             Section {
                 ForEach(manager.rules) { rule in
                     HStack(spacing: 12) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("\"\(rule.pattern)\"")
-                                .font(.system(.body, design: .monospaced))
-                                .fontWeight(.semibold)
-                                .foregroundColor(rule.isEnabled ? .primary : .secondary)
-                            Text(rule.replacement.isEmpty ? "(rỗng)" : "\"\(rule.replacement)\"")
-                                .font(.system(.caption, design: .monospaced))
-                                .foregroundColor(.secondary)
-                        }
+                        ruleText(for: rule)
                         Spacer()
                         Button("Lấy") { pullFromGlobal(rule) }
                             .buttonStyle(.bordered)
@@ -106,26 +98,24 @@ extension TTSReplacementManagerView {
 
     // MARK: - Hàng rule
 
+    /// Hai dòng theo cỡ chữ của hàng VP/Name (`DictionaryEntryRow`): chuỗi gốc `.headline`, dòng `→ thay thế`
+    /// `.subheadline`. Giữ dấu nháy vì nhiều rule thay bằng dấu cách — bỏ nháy thì dòng 2 chỉ còn mũi tên trơn.
+    func ruleText(for rule: TTSReplacementRule) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("\"\(rule.pattern)\"")
+                .font(.headline)
+                .foregroundColor(rule.isEnabled ? .primary : .secondary)
+            Text("→ " + (rule.replacement.isEmpty ? "(rỗng)" : "\"\(rule.replacement)\""))
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+    }
+
     @ViewBuilder
     func ruleRow(for rule: TTSReplacementRule) -> some View {
         HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text("\"\(rule.pattern)\"")
-                        .font(.system(.body, design: .monospaced))
-                        .fontWeight(.semibold)
-                        .foregroundColor(rule.isEnabled ? .primary : .secondary)
-                    
-                    Image(systemName: "arrow.right")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    Text(rule.replacement.isEmpty ? "(rỗng)" : "\"\(rule.replacement)\"")
-                        .font(.system(.body, design: .monospaced))
-                        .foregroundColor(rule.replacement.isEmpty ? .secondary : (rule.isEnabled ? .primary : .secondary))
-                }
-            }
-            
+            ruleText(for: rule)
+
             Spacer()
             
             Toggle("", isOn: Binding(
@@ -145,6 +135,7 @@ extension TTSReplacementManagerView {
             }) {
                 Image(systemName: "pencil")
                     .foregroundColor(.white)
+                    .font(.subheadline)
                     .padding(8)
             }
             .buttonStyle(.plain)

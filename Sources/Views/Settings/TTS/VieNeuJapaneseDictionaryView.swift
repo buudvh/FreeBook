@@ -211,13 +211,17 @@ struct VieNeuJapaneseDictionaryView: View {
             editingKey = key
             editingValue = allWords[key] ?? ""
         } label: {
-            HStack {
+            // Hai dòng, cùng cỡ chữ với hàng VP/Name (`DictionaryEntryRow`).
+            VStack(alignment: .leading, spacing: 4) {
                 Text(key)
+                    .font(.headline)
                     .foregroundStyle(.primary)
-                Spacer()
                 Text(allWords[key] ?? "")
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
         }
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) {

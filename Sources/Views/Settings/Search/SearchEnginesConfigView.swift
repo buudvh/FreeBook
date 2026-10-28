@@ -33,7 +33,7 @@ struct SearchEnginesConfigView: View {
                         Text(engine.name)
                             .font(.headline)
                         Text(engine.urlTemplate)
-                            .font(.caption)
+                            .font(.subheadline)
                             .foregroundColor(.secondary)
                             .lineLimit(2)
                     }
