@@ -163,11 +163,12 @@ extension ReaderAIFullScreenView {
         appendStopNote(stopNote)
     }
 
-    /// Dừng lúc đang lọc name nhiều chương ⇒ coordinator đã thêm tin AI ghi chương đã dừng vào phiên của nó (1.3.632);
-    /// màn giữ phiên riêng trong `@State` nên thêm đúng tin đó vào phiên đang hiện. Chat thường ⇒ `nil`, không thêm gì.
-    private func appendStopNote(_ stopNote: String?) {
-        guard let stopNote else { return }
-        currentSession.messages.append(AIChatMessage(role: .assistant, content: stopNote))
+    /// Dừng lúc đang lọc name nhiều chương ⇒ coordinator đã thêm tin AI ghi chương đã dừng vào phiên của nó (1.3.632).
+    /// Tin đó thường đã vào phiên đang hiện qua `$runs` (`mergeRunningSession`) ⇒ chỉ thêm khi chưa có tin cùng `id`
+    /// (1.3.639 — trước đó thêm bản thứ hai). Chat thường ⇒ `nil`, không thêm gì.
+    private func appendStopNote(_ stopNote: AIChatMessage?) {
+        guard let stopNote, !currentSession.messages.contains(where: { $0.id == stopNote.id }) else { return }
+        currentSession.messages.append(stopNote)
     }
 
     internal func handleQuickAction(_ type: ReaderAIQuickActionChipsView.ActionType) {

@@ -98,12 +98,14 @@ extension AIRuntimeCoordinator {
     /// ghi trong tin trả lời chứ không toast (1.3.632); danh sách `Tên=Nghĩa` của tin kết quả giữ sạch để sao chép. Đọc
     /// tiến độ **trước** khi huỷ/`endRun` dọn entry; chat thường không có tiến độ ⇒ không thêm gì.
     ///
-    /// Trả về tin vừa thêm để màn AI (giữ phiên riêng trong `@State`) thêm đúng tin đó vào phiên đang hiện.
+    /// Trả về **chính tin** vừa thêm (cùng `id`). Màn AI thường đã nhận tin này qua `$runs` → `mergeRunningSession`
+    /// ngay lúc `updateRun` phát; màn chỉ thêm khi phiên đang hiện chưa có tin cùng `id` — trước 1.3.639 màn tự dựng
+    /// một tin mới từ chuỗi nên dòng dừng hiện hai lần.
     @discardableResult
-    public func stopActiveTask(bookId: String) -> String? {
-        let stopNote: String? = runs[bookId]?.batchProgress == nil
+    public func stopActiveTask(bookId: String) -> AIChatMessage? {
+        let stopNote: AIChatMessage? = runs[bookId]?.batchProgress == nil
             ? nil
-            : nameScanStopNote("Đã dừng lọc name", bookId: bookId)
+            : AIChatMessage(role: .assistant, content: nameScanStopNote("Đã dừng lọc name", bookId: bookId))
         cancelTask(bookId: bookId)
         updateRun(bookId) { state in
             guard var session = state.session else { return }
@@ -114,7 +116,7 @@ extension AIRuntimeCoordinator {
                 }
             }
             if let stopNote {
-                session.messages.append(AIChatMessage(role: .assistant, content: stopNote))
+                session.messages.append(stopNote)
             }
             state.session = session
         }

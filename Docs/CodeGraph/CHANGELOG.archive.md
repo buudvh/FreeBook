@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.609] - 2026-10-26
+
+### feat: thêm provider Chế độ AI của Google cho chat và quét tên riêng
+
+Người dùng: thêm provider dùng **chế độ AI của Google** (`google.com/search?udm=50`) vào màn AI của Reader như các provider hiện có. Qua `/grill-me` chốt: chat + quét tên, **khoá Dịch mượt** (thử thật: AI Mode tóm lược cả khi dặn không); dùng chung đăng nhập Google với Gemini Web; chat nối tiếp một cuộc chat theo phiên; mỗi lượt quét một cuộc chat mới, ~2.500 chữ/lượt, nghỉ 5 s; captcha thì dừng + nút "Mở Google để xác minh". Mockup 3 màn và plan duyệt trong chat.
+
+- **Provider mới** `googleAIMode` (`AIProviderProfile.defaultGoogleAIMode`, `isGoogleAIMode`), code ở `Services/AI/GoogleAIMode/`: WKWebView ẩn riêng đọc **DOM** của trang (không có API — phản hồi là HTML server-render), mọi selector/chuỗi/JS gom ở `GoogleAIModePageContract`, một hàng đợi tuần tự cho mọi lượt mọi truyện (`GoogleAIModeTurnQueue`, nghỉ 5 s toàn cục trước lượt quét), ngân sách độ dài theo byte URL (`GoogleAIModePromptBudget`: thử thật 413 ở ~71 KB; `q` ≤ 48.000 byte, ô nhập ≤ 8.000 ký tự, cắt đuôi ngữ cảnh), retry một lần ở client khi chưa phát chữ.
+- **Chat**: mở lại cuộc chat bằng `mstk` mới nhất rồi gửi qua ô nhập (đã thử trên Chrome), `mstk` lưu theo phiên (`GoogleAIModeConversationStore`); không mở lại được thì mở cuộc chat mới đủ ngữ cảnh. Màn AI chỉ gửi [system, tin hiện tại] như Gemini Web bật lưu lịch sử; không nén ngữ cảnh.
+- **Quét tên riêng**: chế độ chia lượt `.googleAIMode` tách chương dài ở dòng → dấu câu → cắt cứng, mảnh dở có `lastChapterIndex = k − 1`; chặn trích nhầm câu hỏi (nhãn prompt ⇒ `protocolChanged`). `shouldStopBatch(on: Error)` dừng cả lần quét khi captcha / prompt quá dài; `runTurns` bắt bằng `catch where` thay vì chỉ `GeminiWebError`.
+- **Chạy ở nền dùng chung**: vòng chờ/gửi lại của Gemini Web 1.3.602 chuyển nguyên văn sang `HiddenWebForegroundRunner`, Gemini Web gọi với đúng tham số cũ (hành vi không đổi).
+- **UI**: mẫu "Google Chế độ AI (không cần key)", segmented 4 ô (rút "Anthropic Claude" → "Anthropic"), hàng `GoogleAIModeAccountRow` thay URL/key, ẩn khối model (tách `AISettingsView+Models.swift`) và temperature; chip "Dịch mượt raw" mờ + ổ khoá (`disabledActions`); tin lỗi captcha nền đỏ nhạt + `GoogleAIModeVerifyButton` (cả kết quả kiểm tra kết nối và lần "Thử lại k lượt lỗi").
+- `rules.md`: mục mới "Google AI Mode provider invariants (1.3.609)"; bullet Gemini Web 1.3.602 trỏ sang runner dùng chung. Chuyển entry `[1.3.579]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code, grep chéo mọi chỗ rẽ nhánh provider; `check_architecture.py` 2 violation nền, **0 mới**. Chạy đúng các script `snapshot`/điền ô nhập/Enter của app trên trang Chế độ AI thật (Chrome desktop và giả lập Android, chưa đăng nhập): đọc đúng số lượt, chữ trả lời, `mstk`; khôi phục bằng `mstk` rồi gửi tiếp được và đọc ra lượt mới — lần thử đầu lộ lỗi bỏ `[role="button"]` làm mất tên thực thể ("Paris"), đã sửa. Rà soát còn sửa: phần đã phát kết thúc bằng xuống dòng làm bản cuối (đã bỏ câu gợi ý) không nối tiếp ⇒ câu trả lời bị nối đôi; ô nhập nhận theo `getClientRects` (khối nhập của bản mobile là `position: fixed`); lượt chưa có khối trả lời thì coi là chưa có chữ (không đọc cả lượt — dính câu hỏi); log luật kết thúc lượt. Không build tại chỗ (Windows) — CI là cổng biên dịch; **chưa thử trên máy** (trang trong WKWebView iOS, khi đã đăng nhập, ngưỡng captcha là UNKNOWN — chỉnh theo log `🤖 [AIMode]`).
+
 ## [1.3.608] - 2026-10-26
 
 ### fix: ba sheet bôi đen kéo lên được, nền đồng bộ, bỏ nút ✕, tiêu đề to hơn

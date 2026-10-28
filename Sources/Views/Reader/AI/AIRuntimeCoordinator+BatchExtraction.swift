@@ -210,12 +210,14 @@ extension AIRuntimeCoordinator {
     }
 
     /// Câu ghi chương đã dừng cho **tin AI** (1.3.632): "`prefix` ở ch.21–30: tên → tên." (một chương "ở ch.21: tên.");
-    /// chưa gửi lượt nào ⇒ "`prefix` khi đang chuẩn bị.". Gọi **trước** `endRun` — `endRun` dọn tiến độ của entry.
+    /// chưa gửi lượt nào ⇒ "`prefix` khi đang chuẩn bị.". Tên chương đã kết bằng dấu câu ⇒ không thêm "." (tránh
+    /// "Hà.."). Gọi **trước** `endRun` — `endRun` dọn tiến độ của entry.
     func nameScanStopNote(_ prefix: String, bookId: String) -> String {
         guard let label = runs[bookId]?.batchProgress?.sendingChapterToastLabel else {
             return "\(prefix) khi đang chuẩn bị."
         }
-        return "\(prefix) ở \(label)."
+        let endsWithPunctuation = label.last.map { ".!?…".contains($0) } ?? false
+        return "\(prefix) ở \(label)\(endsWithPunctuation ? "" : ".")"
     }
 
     /// Tiêu đề tác vụ — cùng nghĩa với dải tiến độ: N là lượt **đang gửi**, kèm khoảng chương của lượt đó
