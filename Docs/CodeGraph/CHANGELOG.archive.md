@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.596] - 2026-10-24
+
+### feat: màn Thông báo hiện phần trăm từng tập khi tải video
+
+Người dùng: *"Cho màn hình thông báo cũng xem được phần trăm tải của từng tập"*.
+
+- **Màn Thông báo** (`NotificationInboxView+StoryTasks`, hàng tác vụ đang chạy): tác vụ tải video ghi "Tải video · 3/10 tập · 34%" (trước là "Tải truyện · … chương"), thanh tiến độ chạy mượt theo phần trăm tập đang tải, thêm dòng "Tập 4: 45% · 210 MB" và nút **"Chi tiết tập (N)"** dùng chung `VideoEpisodeProgressList` với tab Tải. Tác vụ truyện/xuất ebook giữ nguyên.
+- `DownloadTask.smoothProgressCount` / `videoProgressPercent` (mới, cạnh `VideoEpisodeProgress`): một chỗ tính tiến độ mượt + phần trăm cho cả tab Tải lẫn màn Thông báo.
+- Chuyển entry `[1.3.566]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.595] - 2026-10-24
 
 ### feat: tab Tải hiện phần trăm từng tập của tác vụ tải video
