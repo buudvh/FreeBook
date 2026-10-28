@@ -26,6 +26,7 @@ struct RepositoryManagerView: View {
     @State internal var errorMessage = ""
     @State internal var selectedExtensionForConfig: Extension? = nil
     @State internal var selectedExtensionForScriptEditor: Extension? = nil
+    @State internal var sourceCheckRoute: ExtensionCheckView.Route? // `+SourceCheck`
     @State internal var repositoryToDelete: ExtensionRepositoryRecord?
     @State internal var showingDeleteRepositoryAlert = false
     
@@ -174,6 +175,7 @@ struct RepositoryManagerView: View {
             .sheet(item: $selectedExtensionForScriptEditor) { ext in
                 ExtensionScriptEditorView(ext: ext)
             }
+            .sheet(item: $sourceCheckRoute, onDismiss: stopSourceCheck) { route in sourceCheckSheet(route) }
             .background {
                 DocumentPickerPresenter(
                     isPresented: $showingZipImporter,
@@ -204,23 +206,7 @@ struct RepositoryManagerView: View {
         if selectedTab == 2 {
             legadoToolbarContent
         } else if selectedTab == 0 {
-            ToolbarItemGroup(placement: .navigationBarTrailing) {
-                Menu {
-                    Button(action: { showingZipImporter = true }) {
-                        Label("Import tiện ích (.zip)", systemImage: "doc.badge.plus")
-                    }
-                    
-                    Divider()
-                    
-                    Button(role: .destructive, action: { showingUninstallAllAlert = true }) {
-                        Label("Xóa tất cả tiện ích", systemImage: "trash")
-                    }
-                    .disabled(isUninstallAllDisabled)
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .font(.system(size: 17, weight: .semibold))
-                }
-            }
+            allExtensionsToolbarContent // `+SourceCheck`
         } else {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: { showingAddRepo = true }) {

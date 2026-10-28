@@ -2,6 +2,24 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.591] - 2026-10-24
+
+### feat: tắt NSFW ẩn khỏi Kệ/Bộ sưu tập/Tải/hub/phạm vi dịch, video trình duyệt phát tại chỗ, player chọn chất lượng
+
+Người dùng: *"khi tắt nfsw thì cũng phải ẩn ở kệ sách nữa"*, *"nói chung tắt nfsw thì mọi danh sách phim, comic, truyện đều phải ẩn. liệt kê ra chỗ còn sót rồi tôi sẽ duyệt"*; *"browser của app khi click vào video luôn tự mở rồi phóng to lên…"*; *"thêm mục chọn chất lượng cho player nếu được"*. Duyệt: Kệ sách, Bộ sưu tập, tab Tải, hub nổi, phạm vi dịch + plan video trình duyệt + chất lượng; **không** lọc Thông báo (chương mới) và thứ đang phát (widget TTS, màn khoá, PiP). Tải video tách sang phiên riêng.
+
+- **`RepositoryFilterPolicy.excludingNsfwSources(_:includeNsfw:packageId:)`** (mới, generic): bỏ phần tử của nguồn NSFW, giữ thứ tự, mỗi `packageId` tra một lần — dùng chung cho các danh sách dưới đây. Chỉ ẩn hiển thị, dữ liệu giữ nguyên.
+- **Kệ sách** (`ShelfBookPartition(hidesNsfw:)`, đổi từ `hidesNsfwHistory`): tắt NSFW bỏ **mọi** sách của nguồn NSFW, cả ghim/chưa ghim lẫn lịch sử (chip loại suy ra từ partition nên tự theo). **Tìm trong Kệ** quan sát công tắc, bỏ cả sách trên kệ.
+- **Bộ sưu tập**: danh sách trong bộ (`CollectionDetailView`), 3 bìa xem trước + số truyện của thẻ (`CollectionGridCardView.visibleBooks(of:includeNsfw:)`), số truyện ở màn sắp xếp bộ.
+- **Tab Tải** (`DownloadTrackerView`): ẩn tác vụ tải/xuất của truyện nguồn NSFW (tác vụ vẫn chạy).
+- **Hub nổi** (`FloatingHubPresentationReader`): "AI đang chạy" bỏ truyện của nguồn NSFW — run AI không lưu `packageId` nên suy từ tiền tố `bookId` (`BookIdUtils.make` = `<packageId viết thường>_<16 hex>`), không khớp tiện ích nào thì không ẩn; mục Video coi phim NSFW thu nhỏ như không có video (nút hub không nháy vì nó). `VideoMiniPlayerState.packageId` (mới, ghi trước `isActive`). Công tắc theo dõi qua `UserDefaults.didChangeNotification` rút về một bit.
+- **Quản lý phạm vi dịch** (`TranslationScopeManagementView`): không liệt kê nguồn NSFW và truyện của nguồn NSFW (truyện đã xoá khỏi thư viện thì không biết nguồn ⇒ vẫn liệt kê); cấu hình vẫn có hiệu lực, "Đặt lại tất cả" vẫn xoá cả mục bị ẩn.
+- **Video trong trình duyệt phát tại chỗ**: `BypassBrowserTabStore` bật `allowsInlineMediaPlayback`; **`InlineMediaScript`** (mới, `Services/Browser`) gắn `playsinline`/`webkit-playsinline` cho mọi `<video>` ở mọi frame (quét DOM, `MutationObserver`, `loadstart` + chạm ở pha capture — không sửa prototype). Tab mở từ link dùng config WebKit chép từ tab mẹ nên cũng có. Nút toàn màn hình của trang vẫn dùng được.
+- **Chất lượng** (`VideoPlaybackSession+Quality`, `VideoQualityOption` — mới): sau mỗi item đọc `AVAsset.variants`, mỗi độ phân giải giữ biến thể bitrate cao nhất, bỏ biến thể chỉ tiếng; từ 2 mức ⇒ menu `⋯` có "Chất lượng · <mức>" (Tự động + 1080p/720p…). Chọn = **trần** (`preferredPeakBitRate` + `preferredMaximumResolution`) — mạng yếu vẫn có thể thấp hơn. Lựa chọn giữ qua các tập (áp mức cao nhất không vượt lựa chọn), `stop()` về Tự động. `refreshBandwidthLimit` gộp: đang ẩn ⇒ thấp nhất, hiện ⇒ trần đã chọn hoặc không giới hạn. mp4 / HLS một mức / playlist ghép hình + tiếng ⇒ không có mục.
+- Cài đặt › Nội dung nhạy cảm: dòng Kệ đổi thành danh sách các chỗ ẩn mới.
+- Chuyển entry `[1.3.561]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy (đặc biệt: `variants` với asset qua resource loader `fbhls://`, `playsinline` trên các trang thật).
+
 ## [1.3.590] - 2026-10-24
 
 ### feat: Google/Bing/Baidu lên đầu, tắt NSFW giữa lượt tìm bỏ nguồn NSFW, player ẩn điều khiển khi vuốt và hạ chất lượng khi phát ẩn

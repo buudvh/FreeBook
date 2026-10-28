@@ -42,6 +42,7 @@ struct ExtensionConfigView: View {
     @State internal var showingBrowser = false
     @State internal var importedBook: ImportedBookRoute? = nil
     @State internal var navigateToImportedBook = false
+    @State internal var showingSourceCheck = false // `+SourceCheck`
 
     struct ConfigItem: Codable {
         let title: String?
@@ -52,7 +53,7 @@ struct ExtensionConfigView: View {
 
     var body: some View {
         NavigationStack {
-            browserPresentation(on: uninstallDialogs(on: screenContent))
+            sourceCheckPresentation(on: browserPresentation(on: uninstallDialogs(on: screenContent)))
                 .navigationTitle("Cấu hình tiện ích")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -118,6 +119,7 @@ struct ExtensionConfigView: View {
                 ExtensionConfigHeaderCard(
                     ext: current,
                     onOpenBrowser: openBrowserAction, // `+Browser`
+                    onCheck: sourceCheckAction, // `+SourceCheck`
                     onUninstall: uninstallAction // `+Uninstall`
                 )
             }

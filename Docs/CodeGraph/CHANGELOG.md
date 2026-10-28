@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.621] - 2026-10-28
+
+### feat: bộ kiểm tra tiện ích JS chạy đủ script khai trong plugin.json
+
+Người dùng: *"Thêm bộ kiểm tra nguồn tương tự legado cho các ext. Nó phải kiểm tra đủ script khai báo trong plugin.json"*. Duyệt plan + mockup: kiểm từng tiện ích và hàng loạt (3 tiện ích cùng lúc), từ khoá tìm lấy 3 từ gần nhất trong lịch sử tìm kiếm rồi tên truyện của trang chủ, TTS chỉ chạy `voice`, có nhãn "lỗi do ai", chia sẻ báo cáo và gỡ tiện ích lỗi.
+
+- **Một dòng kết quả cho mỗi khoá script** (khác bộ kiểm Legado dừng ở bước hỏng đầu): lỗi một nhánh không dừng nhánh khác. `ExtensionCheckReport` (mới, `Services/Extensions/Diagnostics/`) — đạt / lỗi / bỏ qua (kèm lý do) / chỉ kiểm tĩnh, thời gian, số mục, kết luận, câu lỗi đã redact; `errorLink` không vào JSON.
+- **Tầng tĩnh cho mọi khoá khai báo** (`ExtensionScriptStaticCheck`): tên file hợp lệ, file có ở gốc hoặc `src/` (thứ tự như `getScriptPath`), đọc được UTF-8, đúng cú pháp bằng `JSCheckScriptSyntax` (chỉ phân tích, không chạy code top-level), có `execute`, mọi `load("x")` chữ cố định trỏ tới file có thật. Khoá app không gọi (`config`, `action`, `language`, `model`, `style`, `translate`, `chatStream`, khoá lạ, `track` của tiện ích không phải video, `tts`) chỉ kiểm tĩnh.
+- **Chạy thật** (`ExtensionCheckProbe` + `+Entries` + `+Book`, qua `SourceRuntime` / `ExtensionManager` như app): `home` → `explore` → `genre` → `search` độc lập (`home`/`genre` chạy thêm script phụ của mục đầu thành dòng con); truyện thử ưu tiên mục của `search`, rồi `detail`, `page` → `toc` (trang đầu, như `BookDetailLoader.fetchFirstPageTOC`) → `chap` (chữ; tranh: danh sách ảnh + tải ảnh đầu qua `ComicImageLoader`; video: server) → `track` (tải thử 1 KB đầu nguồn `native`). Bước trước không cho dữ liệu ⇒ bước sau "bỏ qua". Trần thời gian mỗi bước dùng lại `LegadoCorpusDeadline`, phân loại lỗi dùng lại `LegadoCorpusErrorClassifier`.
+- **Kết luận "lỗi do ai"** (`ExtensionCheckVerdict`, heuristic): captcha/Cloudflare/đăng nhập/HTTP 401 ⇒ cần người dùng; mạng/hết giờ/HTTP/có `fetch` lỗi ⇒ web; trả rỗng ⇒ nguồn lỗi thời; thiếu file/cú pháp/ngoại lệ JS ⇒ lỗi script; còn lại ⇒ chưa rõ. Mỗi dòng lỗi có "Mở link lỗi" (`SourceErrorLink.resolve` ngay trong `catch`); đóng trình duyệt ⇒ chạy lại tiện ích đó.
+- **`ExtensionCheckRunner`** (actor): một lượt tại một thời điểm, cửa sổ trượt 3 tiện ích, trong một tiện ích chạy lần lượt; `retry(packageId:)` chạy lại một tiện ích, giữ kết quả các tiện ích khác. Không ghi đĩa, không đụng thư viện. `ExtensionCheckReportShare` ghi JSON vào `tmp/extension_check_share/`.
+- **Màn** (`Views/Extensions/Check/`): `ExtensionCheckView` — một tiện ích (nút **Kiểm tra** mới ở thẻ đầu Cấu hình tiện ích, đẩy trong stack) hoặc hàng loạt (menu `⋯` tab Tất cả tiện ích › "Kiểm tra tiện ích (theo danh sách đang hiện)", chỉ tiện ích đã cài): ô Đạt đủ / Có lỗi / Còn lại, chip lọc, chạm dòng ⇒ `ExtensionCheckResultScreen`; nút Dừng, Chạy lại, Gỡ tiện ích lỗi (hỏi xác nhận), chia sẻ. Dòng "bỏ qua" không tính là lỗi khi gỡ. Rời màn / đóng sheet ⇒ dừng lượt.
+- Menu `⋯` của tab 0 chuyển sang `RepositoryManagerView+SourceCheck` để file legacy `RepositoryManagerView.swift` giảm (605 → 591 dòng).
+- Chuyển entry `[1.3.591]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch. **Chưa thử trên máy**: `JSCheckScriptSyntax` với các tiện ích thật, tiện ích có trang chặn Cloudflare (bước có thể chậm), kiểm hàng loạt nhiều tiện ích.
+
 ## [1.3.620] - 2026-10-28
 
 ### fix: danh sách thay thế TTS chung không còn trống dù đã có rule
@@ -395,21 +411,3 @@ Người dùng: *"làm thêm chức năng tải video nữa"*; chốt qua grill-
 - **Xoá**: `BookStorageManager` (cả 3 đường xoá) và `BookSourceMigrator` xoá `videos/<sha256(bookId)>`; `BookContentDestination` mở phim đã tải bằng trình phát khi tiện ích đã gỡ.
 - Tài liệu: `rules.md` mục "Tải video offline (1.3.592)"; `CLAUDE.md`/`AGENTS.md` thêm `videos/` vào danh sách lưu trữ + mục Comic & Video. Chuyển entry `[1.3.562]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code + agent soát lỗi biên dịch; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch. **Chưa thử trên máy**: AVPlayer phát HLS qua `http://127.0.0.1` trong LiveContainer, `NWListener` loopback (có hỏi quyền Mạng cục bộ không), khoá AES-128, nguồn ngụy trang đoạn `.jpg/.png`, tải tiếp sau khi app ra nền. Thử lần đầu: bật log, tải 1 tập từ menu `⋯` → tab Tải có % → bật chế độ máy bay → mở tập (chip "Bản tải") → tua, phụ đề; lỗi thì gửi `app_logs.txt` (dòng `[VideoOffline]`, `[VideoOfflineServer]`).
-
-## [1.3.591] - 2026-10-24
-
-### feat: tắt NSFW ẩn khỏi Kệ/Bộ sưu tập/Tải/hub/phạm vi dịch, video trình duyệt phát tại chỗ, player chọn chất lượng
-
-Người dùng: *"khi tắt nfsw thì cũng phải ẩn ở kệ sách nữa"*, *"nói chung tắt nfsw thì mọi danh sách phim, comic, truyện đều phải ẩn. liệt kê ra chỗ còn sót rồi tôi sẽ duyệt"*; *"browser của app khi click vào video luôn tự mở rồi phóng to lên…"*; *"thêm mục chọn chất lượng cho player nếu được"*. Duyệt: Kệ sách, Bộ sưu tập, tab Tải, hub nổi, phạm vi dịch + plan video trình duyệt + chất lượng; **không** lọc Thông báo (chương mới) và thứ đang phát (widget TTS, màn khoá, PiP). Tải video tách sang phiên riêng.
-
-- **`RepositoryFilterPolicy.excludingNsfwSources(_:includeNsfw:packageId:)`** (mới, generic): bỏ phần tử của nguồn NSFW, giữ thứ tự, mỗi `packageId` tra một lần — dùng chung cho các danh sách dưới đây. Chỉ ẩn hiển thị, dữ liệu giữ nguyên.
-- **Kệ sách** (`ShelfBookPartition(hidesNsfw:)`, đổi từ `hidesNsfwHistory`): tắt NSFW bỏ **mọi** sách của nguồn NSFW, cả ghim/chưa ghim lẫn lịch sử (chip loại suy ra từ partition nên tự theo). **Tìm trong Kệ** quan sát công tắc, bỏ cả sách trên kệ.
-- **Bộ sưu tập**: danh sách trong bộ (`CollectionDetailView`), 3 bìa xem trước + số truyện của thẻ (`CollectionGridCardView.visibleBooks(of:includeNsfw:)`), số truyện ở màn sắp xếp bộ.
-- **Tab Tải** (`DownloadTrackerView`): ẩn tác vụ tải/xuất của truyện nguồn NSFW (tác vụ vẫn chạy).
-- **Hub nổi** (`FloatingHubPresentationReader`): "AI đang chạy" bỏ truyện của nguồn NSFW — run AI không lưu `packageId` nên suy từ tiền tố `bookId` (`BookIdUtils.make` = `<packageId viết thường>_<16 hex>`), không khớp tiện ích nào thì không ẩn; mục Video coi phim NSFW thu nhỏ như không có video (nút hub không nháy vì nó). `VideoMiniPlayerState.packageId` (mới, ghi trước `isActive`). Công tắc theo dõi qua `UserDefaults.didChangeNotification` rút về một bit.
-- **Quản lý phạm vi dịch** (`TranslationScopeManagementView`): không liệt kê nguồn NSFW và truyện của nguồn NSFW (truyện đã xoá khỏi thư viện thì không biết nguồn ⇒ vẫn liệt kê); cấu hình vẫn có hiệu lực, "Đặt lại tất cả" vẫn xoá cả mục bị ẩn.
-- **Video trong trình duyệt phát tại chỗ**: `BypassBrowserTabStore` bật `allowsInlineMediaPlayback`; **`InlineMediaScript`** (mới, `Services/Browser`) gắn `playsinline`/`webkit-playsinline` cho mọi `<video>` ở mọi frame (quét DOM, `MutationObserver`, `loadstart` + chạm ở pha capture — không sửa prototype). Tab mở từ link dùng config WebKit chép từ tab mẹ nên cũng có. Nút toàn màn hình của trang vẫn dùng được.
-- **Chất lượng** (`VideoPlaybackSession+Quality`, `VideoQualityOption` — mới): sau mỗi item đọc `AVAsset.variants`, mỗi độ phân giải giữ biến thể bitrate cao nhất, bỏ biến thể chỉ tiếng; từ 2 mức ⇒ menu `⋯` có "Chất lượng · <mức>" (Tự động + 1080p/720p…). Chọn = **trần** (`preferredPeakBitRate` + `preferredMaximumResolution`) — mạng yếu vẫn có thể thấp hơn. Lựa chọn giữ qua các tập (áp mức cao nhất không vượt lựa chọn), `stop()` về Tự động. `refreshBandwidthLimit` gộp: đang ẩn ⇒ thấp nhất, hiện ⇒ trần đã chọn hoặc không giới hạn. mp4 / HLS một mức / playlist ghép hình + tiếng ⇒ không có mục.
-- Cài đặt › Nội dung nhạy cảm: dòng Kệ đổi thành danh sách các chỗ ẩn mới.
-- Chuyển entry `[1.3.561]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy (đặc biệt: `variants` với asset qua resource loader `fbhls://`, `playsinline` trên các trang thật).

@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// Thẻ đầu màn **Cấu hình tiện ích**, căn giữa kiểu hồ sơ: icon bo góc 84pt, tên, **một hàng badge** cờ ngôn ngữ ·
-/// tác giả · loại · phiên bản, mô tả 2 dòng có "Xem thêm", rồi hàng 3 nút tròn có nhãn **Trình duyệt · Ghim · Gỡ**.
+/// tác giả · loại · phiên bản, mô tả 2 dòng có "Xem thêm", rồi hàng nút tròn có nhãn **Trình duyệt · Kiểm tra · Ghim ·
+/// Gỡ**.
 ///
 /// Hàng badge không xuống dòng: chỉ badge tác giả được co "…" (`layoutPriority(-1)`); thiếu ngôn ngữ/tác giả thì bỏ
 /// badge đó. Cờ dùng chung bảng của chip lọc ngôn ngữ (`ExtensionFilterGroups.localeGroupFlag`).
@@ -9,13 +10,15 @@ import SwiftUI
 /// Chỉ đọc bản ghi `Extension` (caller truyền `current` — bản tra lại theo `packageId`, nên ghim xong là thẻ vẽ lại
 /// "Bỏ ghim"); không đọc `plugin.json`. Sửa các trường metadata ở màn con "Thông tin plugin.json".
 ///
-/// Thiếu nút nào (không có `onOpenBrowser` / `onUninstall`) thì các nút còn lại giãn đều. Mọi nút dùng
+/// Thiếu nút nào (không có `onOpenBrowser` / `onCheck` / `onUninstall`) thì các nút còn lại giãn đều. Mọi nút dùng
 /// `.buttonStyle(.borderless)`: trong một dòng của `Form`, nút kiểu mặc định khiến chạm bất kỳ đâu trên dòng là
 /// bấm **tất cả** nút của dòng đó.
 struct ExtensionConfigHeaderCard: View {
     let ext: Extension
     /// `nil` ⇒ ẩn nút Trình duyệt (không có link nguồn, hoặc tiện ích TTS/dịch…).
     var onOpenBrowser: (() -> Void)? = nil
+    /// `nil` ⇒ ẩn nút Kiểm tra (tiện ích chưa cài) — chạy đủ script khai trong `plugin.json` (`ExtensionCheckView`).
+    var onCheck: (() -> Void)? = nil
     /// `nil` ⇒ ẩn nút Gỡ (tiện ích chưa cài).
     var onUninstall: (() -> Void)? = nil
 
@@ -127,6 +130,9 @@ struct ExtensionConfigHeaderCard: View {
         HStack(alignment: .top, spacing: 8) {
             if let onOpenBrowser {
                 actionButton(title: "Trình duyệt", systemImage: "safari", action: onOpenBrowser)
+            }
+            if let onCheck {
+                actionButton(title: "Kiểm tra", systemImage: "checkmark.seal", action: onCheck)
             }
             actionButton(
                 title: ext.isPinned ? "Bỏ ghim" : "Ghim",
