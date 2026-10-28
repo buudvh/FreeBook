@@ -2,39 +2,34 @@ import SwiftUI
 import SwiftData
 
 extension BookDetailView {
-    /// Menu "…" ở toolbar. Nằm ở đây thay vì `BookDetailView.swift` để giữ file gốc dưới baseline dòng.
-    @ViewBuilder
+    /// Nút "…" ở toolbar — mở ngăn kéo `ellipsisMenuItems` (gắn ở `mainContentView`, không gắn trong toolbar).
+    /// Nằm ở đây thay vì `BookDetailView.swift` để giữ file gốc dưới baseline dòng.
     internal var ellipsisMenu: some View {
-        Menu {
-            if localBook != nil && showsDictionaryMenu {
-                Button(action: {
-                    navigateToDictionary = true
-                }) {
-                    Label("Từ điển", systemImage: "character.book.closed")
-                }
-            }
-
-            Button(action: {
-                navigateToChangeSource = true
-            }) {
-                Label("Thay đổi nguồn", systemImage: "arrow.2.squarepath")
-            }
-
-            Button(action: {
-                showingBypassBrowser = true
-            }) {
-                Label("Mở bằng trình duyệt", systemImage: "safari")
-            }
-
-            Button(action: {
-                // Chưa làm chức năng
-            }) {
-                Label("Chia sẻ", systemImage: "square.and.arrow.up")
-            }
-        } label: {
+        Button(action: { showingEllipsisMenu = true }) {
             Image(systemName: "ellipsis.circle")
                 .font(.system(size: 17, weight: .semibold))
                 .frame(width: 36, height: 36)
+        }
+    }
+
+    /// Tiêu đề ngăn kéo: tên truyện như ở phần đầu tab Chi tiết (dịch khi bật dịch), chưa có thì tên màn.
+    internal var ellipsisMenuTitle: String {
+        guard !title.isEmpty else { return "Chi tiết truyện" }
+        let shown = isTranslationEnabled && TranslateUtils.containsChinese(title)
+            ? TranslateUtils.translateMeta(title, bookId: actualBookId)
+            : title
+        return DisplayTextFormatter.titleCase(shown)
+    }
+
+    @ViewBuilder
+    internal var ellipsisMenuItems: some View {
+        if localBook != nil && showsDictionaryMenu {
+            SideDrawerActionRow("Từ điển", systemImage: "character.book.closed") { navigateToDictionary = true }
+        }
+        SideDrawerActionRow("Thay đổi nguồn", systemImage: "arrow.2.squarepath") { navigateToChangeSource = true }
+        SideDrawerActionRow("Mở bằng trình duyệt", systemImage: "safari") { showingBypassBrowser = true }
+        SideDrawerActionRow("Chia sẻ", systemImage: "square.and.arrow.up") {
+            // Chưa làm chức năng
         }
     }
 

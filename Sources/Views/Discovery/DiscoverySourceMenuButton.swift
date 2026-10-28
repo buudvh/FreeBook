@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// Nút menu tròn trên header Khám phá, gộp ba việc của nguồn đang chọn: Mở trình duyệt · Kiểu hiển thị · Dịch văn bản.
-/// Chỉ hiện khi đã chọn nguồn. Mở trình duyệt / Kiểu hiển thị do `DiscoveryView` trình bày qua hai callback; dòng
-/// Dịch văn bản mở bảng dịch dùng chung (`TranslationScopePopupView`) dạng popover neo vào chính nút này.
+/// Chỉ hiện khi đã chọn nguồn. Bấm ⇒ ngăn kéo trượt từ mép phải (`sideDrawerMenu`). Mở trình duyệt / Kiểu hiển thị do
+/// `DiscoveryView` trình bày qua hai callback; dòng Dịch văn bản mở bảng dịch dùng chung (`TranslationScopePopupView`)
+/// dạng popover neo vào chính nút này — sau khi ngăn kéo đã đóng hẳn (hàng thao tác lo việc chờ).
 struct DiscoverySourceMenuButton: View {
     let packageId: String
     let sourceName: String
@@ -17,32 +18,11 @@ struct DiscoverySourceMenuButton: View {
     let onShowLayout: () -> Void
 
     @State private var showingTranslationPopup = false
+    @State private var showingDrawer = false
 
     var body: some View {
-        Menu {
-            if canOpenBrowser {
-                Button(action: onOpenBrowser) {
-                    Label("Mở trình duyệt", systemImage: "safari")
-                }
-            }
-
-            Button(action: onShowLayout) {
-                Label("Kiểu hiển thị", systemImage: layoutSymbol)
-            }
-
-            Button {
-                // Action chạy khi menu hệ thống còn đang đóng; bật popover ở lượt runloop kế để nó trình bày được.
-                DispatchQueue.main.async {
-                    showingTranslationPopup = true
-                }
-            } label: {
-                Label {
-                    Text("Dịch văn bản")
-                    Text(isTranslationEnabled ? "Đang bật" : "Đang tắt")
-                } icon: {
-                    Image(AppGlyph.translate.assetName)
-                }
-            }
+        Button {
+            showingDrawer = true
         } label: {
             Image(systemName: "square.grid.2x2")
                 .font(.system(size: 17, weight: .semibold))
@@ -51,8 +31,21 @@ struct DiscoverySourceMenuButton: View {
                 .background(Color(.secondarySystemBackground))
                 .clipShape(Circle())
         }
-        .menuOrder(.fixed)
+        .buttonStyle(.plain)
         .accessibilityLabel("Tuỳ chọn nguồn")
+        .sideDrawerMenu(isPresented: $showingDrawer, title: "Tuỳ chọn nguồn") {
+            if canOpenBrowser {
+                SideDrawerActionRow("Mở trình duyệt", systemImage: "safari", action: onOpenBrowser)
+            }
+            SideDrawerActionRow("Kiểu hiển thị", systemImage: layoutSymbol, action: onShowLayout)
+            SideDrawerActionRow(
+                "Dịch văn bản",
+                glyph: .translate,
+                detail: isTranslationEnabled ? "Đang bật" : "Đang tắt"
+            ) {
+                showingTranslationPopup = true
+            }
+        }
         .popover(isPresented: $showingTranslationPopup, arrowEdge: .top) {
             // Khám phá không có truyện cụ thể ⇒ `bookId: ""`, bảng chỉ cho chọn Nguồn này / Tất cả.
             TranslationScopePopupView(

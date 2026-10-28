@@ -5,13 +5,15 @@ import SwiftUI
 /// Trái: thu nhỏ, đóng. Phải: tốc độ (`gauge…`, bung menu 0.5–2×, chỉ hiện số nhỏ khi khác 1×), Vừa/Lấp đầy/Phóng
 /// (`aspectratio`), khoá xoay (khi ngang, hoặc khi đang khoá — khoá ở ngang rồi bấm Xoay dọc thì vẫn còn nút để mở
 /// khoá), phụ đề, PiP, server, `⋯`. Màn dọc hẹp nên khung hình và server dồn vào
-/// menu `⋯` (server còn có hàng chip dưới khung phim). Chất lượng (HLS nhiều mức) luôn nằm trong `⋯`.
+/// ngăn kéo `⋯` (server còn có hàng chip dưới khung phim). Chất lượng (HLS nhiều mức) luôn nằm trong `⋯`.
 struct VideoPlayerTopBar: View {
     let session: VideoPlaybackSession
     let controller: VideoPlayerController
     let isLandscape: Bool
     let onMinimize: () -> Void
     let onClose: () -> Void
+
+    @State private var showingMoreMenu = false // Ngăn kéo `⋯`
 
     var body: some View {
         HStack(spacing: 6) {
@@ -76,6 +78,8 @@ struct VideoPlayerTopBar: View {
         }
         .padding(.horizontal, 8)
         .frame(height: 44)
+        // Ngăn kéo cao toàn màn, bám mép phải cả khi nằm ngang; tông tối riêng nên đọc rõ trên khung phim.
+        .sideDrawerMenu(isPresented: $showingMoreMenu, title: "Tuỳ chọn trình phát") { moreMenuItems }
     }
 
     // MARK: - Menu
@@ -143,18 +147,6 @@ struct VideoPlayerTopBar: View {
         }
     }
 
-    @ViewBuilder
-    private var qualityPicker: some View {
-        checkmarkButton("Tự động", isSelected: session.selectedQuality == nil) {
-            session.selectQuality(nil)
-        }
-        ForEach(session.qualityOptions) { option in
-            checkmarkButton(option.title, isSelected: session.selectedQuality != nil && option == session.appliedQuality) {
-                session.selectQuality(option)
-            }
-        }
-    }
-
     /// Mục menu có dấu tích ở lựa chọn hiện tại (thay `Picker` để hành động đi thẳng qua `Button`).
     @ViewBuilder
     private func checkmarkButton(_ title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
@@ -167,46 +159,73 @@ struct VideoPlayerTopBar: View {
         }
     }
 
+    /// Nút `⋯` bật ngăn kéo `moreMenuItems` (gắn ở thân thanh này — thanh chỉ mờ đi khi tự ẩn, không rời cây view).
     private var moreMenu: some View {
-        Menu {
-            if !isLandscape, session.embedContent == nil {
-                Menu("Khung hình") {
-                    gravityPicker
-                }
-            }
-            if !isLandscape, session.hasSourceChoices {
-                Menu("Server") {
-                    serverPicker
-                }
-            }
-            // HLS từ 2 mức trở lên (`VideoPlaybackSession+Quality`); chọn = trần chất lượng, mạng yếu vẫn có thể thấp hơn.
-            // Danh sách chỉ xoá khi item mới vào ⇒ chặn thêm lúc nhúng trang / không có item để không hiện mục cũ.
-            if session.embedContent == nil, session.hasPlayableItem, !session.qualityOptions.isEmpty {
-                Menu("Chất lượng · \(session.appliedQuality?.title ?? "Tự động")") {
-                    qualityPicker
-                }
-            }
-            downloadItems
-            Button {
-                session.retry()
-            } label: {
-                Label("Tải lại", systemImage: "arrow.clockwise")
-            }
-            if session.canTryAnotherServer {
-                Button {
-                    session.tryAnotherServer()
-                } label: {
-                    Label("Thử server khác", systemImage: "arrow.triangle.2.circlepath")
-                }
-            }
-            Divider()
-            Button(role: .destructive, action: onClose) {
-                Label("Đóng trình phát", systemImage: "xmark")
-            }
+        Button {
+            showingMoreMenu = true
         } label: {
             VideoPlayerIconLabel(systemName: "ellipsis")
         }
+        .buttonStyle(.plain)
         .accessibilityLabel("Thêm")
+    }
+
+    /// Ba menu con cũ (Khung hình / Server / Chất lượng) ⇒ ba nhóm hàng chọn: bấm là áp dụng ngay, ngăn kéo vẫn mở.
+    @ViewBuilder
+    private var moreMenuItems: some View {
+        let showsGravity = !isLandscape && session.embedContent == nil
+        let showsServers = !isLandscape && session.hasSourceChoices
+        // HLS từ 2 mức trở lên (`VideoPlaybackSession+Quality`); chọn = trần chất lượng, mạng yếu vẫn có thể thấp hơn.
+        // Danh sách chỉ xoá khi item mới vào ⇒ chặn thêm lúc nhúng trang / không có item để không hiện mục cũ.
+        let showsQuality = session.embedContent == nil && session.hasPlayableItem && !session.qualityOptions.isEmpty
+        if showsGravity {
+            SideDrawerSectionHeader("Khung hình")
+            ForEach(VideoPlayerController.Gravity.allCases) { gravity in
+                SideDrawerOptionRow(gravity.title, isSelected: gravity == controller.gravity) { controller.setGravity(gravity) }
+            }
+        }
+        if showsServers {
+            SideDrawerSectionHeader("Server")
+            serverOptionRows
+        }
+        if showsQuality {
+            SideDrawerSectionHeader("Chất lượng · \(session.appliedQuality?.title ?? "Tự động")")
+            SideDrawerOptionRow("Tự động", isSelected: session.selectedQuality == nil) { session.selectQuality(nil) }
+            ForEach(session.qualityOptions) { option in
+                SideDrawerOptionRow(option.title, isSelected: session.selectedQuality != nil && option == session.appliedQuality) {
+                    session.selectQuality(option)
+                }
+            }
+        }
+        if showsGravity || showsServers || showsQuality {
+            SideDrawerDivider()
+        }
+        downloadItems
+        SideDrawerActionRow("Tải lại", systemImage: "arrow.clockwise") { session.retry() }
+        if session.canTryAnotherServer {
+            SideDrawerActionRow("Thử server khác", systemImage: "arrow.triangle.2.circlepath") { session.tryAnotherServer() }
+        }
+        SideDrawerDivider()
+        SideDrawerActionRow("Đóng trình phát", systemImage: "xmark", role: .destructive, action: onClose)
+    }
+
+    /// Bản hàng chọn của `serverPicker` cho ngăn kéo (menu Server lúc nằm ngang vẫn dùng `serverPicker`).
+    @ViewBuilder
+    private var serverOptionRows: some View {
+        if session.hasOfflineCopy {
+            SideDrawerOptionRow("Bản tải", isSelected: session.isPlayingOffline) { session.playOffline() }
+            if session.servers.isEmpty {
+                SideDrawerOptionRow("Trực tuyến", isSelected: false) { session.playOnline() }
+            }
+        }
+        ForEach(Array(session.servers.enumerated()), id: \.offset) { index, server in
+            SideDrawerOptionRow(
+                server.title.isEmpty ? "Server \(index + 1)" : server.title,
+                isSelected: index == session.selectedServerIndex
+            ) {
+                session.selectServer(at: index)
+            }
+        }
     }
 
     /// "Tải tập này" (hoặc "Xoá bản tải tập này" khi đã tải) và "Tải nhiều tập…" (sheet tải của màn hình).
@@ -215,22 +234,14 @@ struct VideoPlayerTopBar: View {
         if let episode = session.currentEpisode {
             let actions = VideoEpisodeDownloadActions(session: session)
             if actions.isDownloaded(episode) {
-                Button(role: .destructive) {
+                SideDrawerActionRow("Xoá bản tải tập này", systemImage: "trash", role: .destructive) {
                     actions.deleteDownload(episode)
-                } label: {
-                    Label("Xoá bản tải tập này", systemImage: "trash")
                 }
             } else {
-                Button {
-                    actions.download(episode)
-                } label: {
-                    Label("Tải tập này", systemImage: "arrow.down.circle")
-                }
+                SideDrawerActionRow("Tải tập này", systemImage: "arrow.down.circle") { actions.download(episode) }
             }
-            Button {
+            SideDrawerActionRow("Tải nhiều tập…", systemImage: "square.and.arrow.down.on.square") {
                 controller.showsBatchDownloadSheet = true
-            } label: {
-                Label("Tải nhiều tập…", systemImage: "square.and.arrow.down.on.square")
             }
         }
     }

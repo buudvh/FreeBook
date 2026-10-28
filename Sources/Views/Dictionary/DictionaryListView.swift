@@ -33,6 +33,7 @@ struct DictionaryListView: View {
     @State private var showingAddSheet = false
     @State private var showingFileImporter = false
     @State private var showingDeleteAllAlert = false
+    @State private var showingOptionsMenu = false // Ngăn kéo "…"
     @State private var exportDocumentToShare: ExportDocument? = nil
     @State private var selectedTab: DictViewTab = .custom
     @State private var pendingImportURL: URL? = nil
@@ -84,6 +85,22 @@ struct DictionaryListView: View {
         return "\(type.displayName) (\(scope))"
     }
 
+    @ViewBuilder
+    private var optionsMenuItems: some View {
+        SideDrawerActionRow("Thêm từ mới", systemImage: "plus") { showingAddSheet = true }
+        SideDrawerActionRow("Nhập từ điển (\(type.displayName))", systemImage: "square.and.arrow.down") {
+            showingFileImporter = true
+        }
+        if !isGlobal {
+            SideDrawerActionRow("Chia sẻ sang truyện khác", systemImage: "square.and.arrow.up") { showingShareBookSheet = true }
+            SideDrawerActionRow("Nhập từ truyện khác...", systemImage: "square.and.arrow.down") { showingImportBookSheet = true }
+        }
+        if !allEntries.isEmpty || (isGlobal && !deletedWordsList.isEmpty) {
+            SideDrawerActionRow("Xuất từ điển (\(type.displayName))", systemImage: "square.and.arrow.up") { exportDictionary() }
+        }
+        SideDrawerActionRow("Xóa tất cả", systemImage: "trash", role: .destructive) { showingDeleteAllAlert = true }
+    }
+
     var body: some View {
         ZStack {
             VStack(spacing: 0) {
@@ -124,51 +141,15 @@ struct DictionaryListView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button {
-                        showingAddSheet = true
-                    } label: {
-                        Label("Thêm từ mới", systemImage: "plus")
-                    }
-                    
-                    Button {
-                        showingFileImporter = true
-                    } label: {
-                        Label("Nhập từ điển (\(type.displayName))", systemImage: "square.and.arrow.down")
-                    }
-                    
-                    if !isGlobal {
-                        Button {
-                            showingShareBookSheet = true
-                        } label: {
-                            Label("Chia sẻ sang truyện khác", systemImage: "square.and.arrow.up")
-                        }
-                        Button {
-                            showingImportBookSheet = true
-                        } label: {
-                            Label("Nhập từ truyện khác...", systemImage: "square.and.arrow.down")
-                        }
-                    }
-                    
-                    if !allEntries.isEmpty || (isGlobal && !deletedWordsList.isEmpty) {
-                        Button {
-                            exportDictionary()
-                        } label: {
-                            Label("Xuất từ điển (\(type.displayName))", systemImage: "square.and.arrow.up")
-                        }
-                    }
-                    
-                    Button(role: .destructive) {
-                        showingDeleteAllAlert = true
-                    } label: {
-                        Label("Xóa tất cả", systemImage: "trash")
-                    }
+                Button {
+                    showingOptionsMenu = true
                 } label: {
                     Image(systemName: "ellipsis.circle")
                         .font(.system(size: 17, weight: .semibold))
                 }
             }
         }
+        .sideDrawerMenu(isPresented: $showingOptionsMenu, title: navTitle) { optionsMenuItems }
         .alert("Xác nhận xóa tất cả", isPresented: $showingDeleteAllAlert) {
             Button("Xóa tất cả", role: .destructive) {
                 deleteAllEntries()

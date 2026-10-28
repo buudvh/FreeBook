@@ -90,6 +90,7 @@ struct BookDetailView: View {
     @State internal var readerRoute: ReaderRoute?
     @State internal var navigateToDictionary = false
     @State internal var navigateToChangeSource = false
+    @State internal var showingEllipsisMenu = false // Ngăn kéo "…" (`BookDetailView+Extensions`)
 
     // Trình duyệt bypass Cloudflare & Import
     @State internal var showingBypassBrowser = false
@@ -267,6 +268,7 @@ struct BookDetailView: View {
                 }
             }
         }
+        .sideDrawerMenu(isPresented: $showingEllipsisMenu, title: ellipsisMenuTitle) { ellipsisMenuItems }
         .onAppear {
             renderedTab = selectedTab
             isTranslationEnabled = TranslationConfigStore.shared.isTranslationEnabled(

@@ -34,6 +34,8 @@ struct VieNeuVoiceLibraryView: View {
     @State var renamingID: String?
     @State var renameText = ""
     @State var pendingDeletion: VieNeuCustomVoiceStore.Record?
+    /// Giọng đang mở ngăn kéo "…" (`voiceMenuItems`); `nil` = đóng.
+    @State var menuRecord: VieNeuCustomVoiceStore.Record?
     @State var workTask: Task<Void, Never>?
     /// Bước hiện tại của lượt nhân bản. Xem `EnrollProgress` ở file `+Sections`.
     @StateObject var enrollProgress = EnrollProgress()
@@ -84,6 +86,7 @@ struct VieNeuVoiceLibraryView: View {
         .tint(.white)
         .navigationTitle("Giọng của tôi")
         .navigationBarTitleDisplayMode(.inline)
+        .sideDrawerMenu(item: $menuRecord, title: { $0.name }) { record in voiceMenuItems(record) }
         .onAppear(perform: reload)
         .onDisappear(perform: teardown)
         .sheet(isPresented: $showingCreator) {

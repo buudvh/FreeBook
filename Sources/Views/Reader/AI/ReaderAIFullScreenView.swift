@@ -25,6 +25,7 @@ public struct ReaderAIFullScreenView: View {
     @State internal var nameScanRetry: AIRuntimeCoordinator.NameScanRetryInfo? = nil
 
     @State internal var showingSettings: Bool = false
+    @State private var showingOptionsMenu: Bool = false // Ngăn kéo "…"
     @State internal var showingSessionList: Bool = false
     @State internal var showingMemorySheet: Bool = false
     @State internal var showingBatchPromptSheet: Bool = false
@@ -201,27 +202,20 @@ public struct ReaderAIFullScreenView: View {
                 }
 
                 ToolbarItem(placement: .primaryAction) {
-                    Menu {
-                        Button(action: startNewChat) {
-                            Label("Tạo phiên mới", systemImage: "plus")
-                        }
-                        Button(action: { showingMemorySheet = true }) {
-                            Label("Trí nhớ truyện", systemImage: "brain")
-                        }
-                        Button(action: { showingSessionList = true }) {
-                            Label("Lịch sử chat", systemImage: "clock.arrow.circlepath")
-                        }
-                        Divider()
-                        Button(action: { showingSettings = true }) {
-                            Label("Cài đặt AI", systemImage: "gearshape")
-                        }
-                    } label: {
+                    Button(action: { showingOptionsMenu = true }) {
                         Image(systemName: "ellipsis.circle")
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundColor(.white)
                             .frame(width: 36, height: 36)
                     }
                 }
+            }
+            .sideDrawerMenu(isPresented: $showingOptionsMenu, title: "Trợ lý AI") {
+                SideDrawerActionRow("Tạo phiên mới", systemImage: "plus", action: startNewChat)
+                SideDrawerActionRow("Trí nhớ truyện", systemImage: "brain") { showingMemorySheet = true }
+                SideDrawerActionRow("Lịch sử chat", systemImage: "clock.arrow.circlepath") { showingSessionList = true }
+                SideDrawerDivider()
+                SideDrawerActionRow("Cài đặt AI", systemImage: "gearshape") { showingSettings = true }
             }
             .sheet(isPresented: $showingSettings) {
                 NavigationStack {

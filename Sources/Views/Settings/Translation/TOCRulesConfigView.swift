@@ -37,6 +37,7 @@ struct TOCRulesConfigView: View {
 
     // State cho Khôi phục mặc định & Thao tác
     @State private var showingResetConfirmation = false
+    @State private var showingOptionsMenu = false // Ngăn kéo "…"
     @State private var debounceSaveTask: Task<Void, Never>? = nil
 
     private var defaultIDs: Set<String> {
@@ -84,42 +85,27 @@ struct TOCRulesConfigView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Menu {
-                    Button(action: prepareForAdd) {
-                        Label("Thêm quy tắc mới", systemImage: "plus")
-                    }
-                    
-                    Button(action: {
-                        withAnimation {
-                            isEditingMode.toggle()
-                        }
-                    }) {
-                        Label(
-                            isEditingMode ? "Hoàn tất sắp xếp" : "Sắp xếp quy tắc",
-                            systemImage: isEditingMode ? "checkmark.circle" : "arrow.up.arrow.down"
-                        )
-                    }
-                    
-                    Divider()
-                    
-                    Button(action: prepareForImport) {
-                        Label("Nhập cấu hình JSON", systemImage: "square.and.arrow.down")
-                    }
-                    
-                    Button(action: exportRules) {
-                        Label("Xuất cấu hình JSON", systemImage: "square.and.arrow.up")
-                    }
-                    
-                    Divider()
-                    
-                    Button(role: .destructive, action: { showingResetConfirmation = true }) {
-                        Label("Khôi phục mặc định", systemImage: "arrow.counterclockwise")
-                    }
-                } label: {
+                Button(action: { showingOptionsMenu = true }) {
                     Image(systemName: "ellipsis.circle")
                         .font(.title3)
                 }
                 .disabled(isLoading || isSaving || isImporting || isExporting)
+            }
+        }
+        .sideDrawerMenu(isPresented: $showingOptionsMenu, title: "Quy tắc TOC (Chương TXT)") {
+            SideDrawerActionRow("Thêm quy tắc mới", systemImage: "plus", action: prepareForAdd)
+            SideDrawerActionRow(
+                isEditingMode ? "Hoàn tất sắp xếp" : "Sắp xếp quy tắc",
+                systemImage: isEditingMode ? "checkmark.circle" : "arrow.up.arrow.down"
+            ) {
+                withAnimation { isEditingMode.toggle() }
+            }
+            SideDrawerDivider()
+            SideDrawerActionRow("Nhập cấu hình JSON", systemImage: "square.and.arrow.down", action: prepareForImport)
+            SideDrawerActionRow("Xuất cấu hình JSON", systemImage: "square.and.arrow.up", action: exportRules)
+            SideDrawerDivider()
+            SideDrawerActionRow("Khôi phục mặc định", systemImage: "arrow.counterclockwise", role: .destructive) {
+                showingResetConfirmation = true
             }
         }
         .task {

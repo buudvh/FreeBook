@@ -33,6 +33,7 @@ struct NotificationInboxView: View {
     /// trong extension khác file, mà khối đó nằm ở `NotificationInboxView+Merge.swift` vì trần 400 dòng.
     @State var isApplyingMerge = false
     @State var mergeErrorMessage = ""
+    @State private var showingOptionsMenu = false // Ngăn kéo "…"
 
     /// Một dòng trong danh sách: truyện có chương mới, một toast đã hiện, hoặc mục **Gộp VietPhrase**.
     ///
@@ -140,6 +141,7 @@ struct NotificationInboxView: View {
             .navigationTitle("Thông báo")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }
+            .sideDrawerMenu(isPresented: $showingOptionsMenu, title: "Thông báo") { optionsMenuItems }
         }
         .task { await inbox.loadIfNeeded() }
     }
@@ -309,26 +311,26 @@ struct NotificationInboxView: View {
             Button("Đóng") { dismiss() }
         }
         ToolbarItem(placement: .primaryAction) {
-            Menu {
-                Button {
-                    markEverythingRead()
-                } label: {
-                    Label("Đánh dấu đã đọc hết", systemImage: "checkmark.circle")
-                }
-                Button(role: .destructive) {
-                    // Không hiện toast xác nhận: `ToastManager.show` lại ghi vào chính hộp thư này.
-                    inbox.deleteRead()
-                    newChapters.clearReadAnnouncements()
-                } label: {
-                    Label("Xoá thông báo đã đọc", systemImage: "trash")
-                }
-                .disabled(!inbox.hasRead && !newChapters.hasReadAnnouncement)
+            // Ngăn kéo `optionsMenuItems` gắn ở thân màn, không gắn trong toolbar.
+            Button {
+                showingOptionsMenu = true
             } label: {
                 Image(systemName: "ellipsis.circle")
                     .font(.system(size: 17, weight: .semibold))
             }
             .disabled(isEmpty)
         }
+    }
+
+    @ViewBuilder
+    private var optionsMenuItems: some View {
+        SideDrawerActionRow("Đánh dấu đã đọc hết", systemImage: "checkmark.circle") { markEverythingRead() }
+        SideDrawerActionRow("Xoá thông báo đã đọc", systemImage: "trash", role: .destructive) {
+            // Không hiện toast xác nhận: `ToastManager.show` lại ghi vào chính hộp thư này.
+            inbox.deleteRead()
+            newChapters.clearReadAnnouncements()
+        }
+        .disabled(!inbox.hasRead && !newChapters.hasReadAnnouncement)
     }
 
     /// "Đánh dấu đã đọc hết": đọc mọi toast + mọi dòng chương mới (dòng vẫn ở lại danh sách).

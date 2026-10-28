@@ -21,6 +21,7 @@ struct TTSDictionaryEditView: View {
     @State private var showingRephoneticizeConfirmation = false
     @State private var showingDownloadConfirmation = false
     @State private var showingDeleteAllConfirmation = false
+    @State private var showingOptionsMenu = false // Ngăn kéo "…"
     @State private var exportDocumentToShare: ExportDocument? = nil
     @State private var visibleCount = 100
 
@@ -156,57 +157,32 @@ struct TTSDictionaryEditView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        // 1. Thêm từ mới
-                        Button {
-                            showingAddSheet = true
-                        } label: {
-                            Label("Thêm từ mới", systemImage: "plus")
-                        }
-                        
-                        // 2. Nhập từ điển
-                        Button {
-                            showingFileImporter = true
-                        } label: {
-                            Label("Nhập từ điển", systemImage: "square.and.arrow.down")
-                        }
-                        
-                        // 3. Xuất từ điển (Submenu)
-                        Menu {
-                            Button("Property List (.plist)") {
-                                exportAsPlist()
-                            }
-                            Button("JSON (.json)") {
-                                exportAsJson()
-                            }
-                            Button("CSV (.csv)") {
-                                exportAsCsv()
-                            }
-                        } label: {
-                            Label("Xuất từ điển", systemImage: "square.and.arrow.up")
-                        }
-                        
-                        // 4. Phiên âm lại toàn bộ — chạy ngầm, **không** ghi gì tới khi người dùng áp
-                        Button {
-                            showingRephoneticizeConfirmation = true
-                        } label: {
-                            Label("Phiên âm lại từ điển", systemImage: "arrow.clockwise")
-                        }
-
-                        // 5. Tải lại từ điển gốc
-                        Button(role: .destructive) {
-                            showingDownloadConfirmation = true
-                        } label: {
-                            Label("Tải lại từ điển gốc", systemImage: "arrow.down.to.line")
-                        }
-                        Button(role: .destructive) {
-                            showingDeleteAllConfirmation = true
-                        } label: {
-                            Label("Xoá tất cả phiên âm", systemImage: "trash")
-                        }
+                    Button {
+                        showingOptionsMenu = true
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
+                }
+            }
+            .sideDrawerMenu(isPresented: $showingOptionsMenu, title: "Từ điển phiên âm NghiTTS") {
+                SideDrawerActionRow("Thêm từ mới", systemImage: "plus") { showingAddSheet = true }
+                SideDrawerActionRow("Nhập từ điển", systemImage: "square.and.arrow.down") { showingFileImporter = true }
+                // Menu con "Xuất từ điển" cũ ⇒ một nhóm ba hàng, mỗi định dạng một hàng.
+                SideDrawerDivider()
+                SideDrawerSectionHeader("Xuất từ điển")
+                SideDrawerActionRow("Property List (.plist)", systemImage: "square.and.arrow.up") { exportAsPlist() }
+                SideDrawerActionRow("JSON (.json)", systemImage: "square.and.arrow.up") { exportAsJson() }
+                SideDrawerActionRow("CSV (.csv)", systemImage: "square.and.arrow.up") { exportAsCsv() }
+                SideDrawerDivider()
+                // Phiên âm lại toàn bộ — chạy ngầm, **không** ghi gì tới khi người dùng áp
+                SideDrawerActionRow("Phiên âm lại từ điển", systemImage: "arrow.clockwise") {
+                    showingRephoneticizeConfirmation = true
+                }
+                SideDrawerActionRow("Tải lại từ điển gốc", systemImage: "arrow.down.to.line", role: .destructive) {
+                    showingDownloadConfirmation = true
+                }
+                SideDrawerActionRow("Xoá tất cả phiên âm", systemImage: "trash", role: .destructive) {
+                    showingDeleteAllConfirmation = true
                 }
             }
             .sheet(isPresented: $showingAddSheet) {

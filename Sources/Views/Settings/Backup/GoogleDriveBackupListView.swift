@@ -12,6 +12,8 @@ struct GoogleDriveBackupListView: View {
     @State private var clientIdInput = ""
     @State private var isConfigured = GoogleDriveConfiguration.isConfigured
     @State private var deletingFile: GoogleDriveFile?
+    /// Bản đang mở ngăn kéo "…"; `nil` = đóng.
+    @State private var menuFile: GoogleDriveFile?
 
     var body: some View {
         List {
@@ -29,6 +31,8 @@ struct GoogleDriveBackupListView: View {
         }
         .navigationTitle("Google Drive")
         .navigationBarTitleDisplayMode(.inline)
+        // Gắn ở `List` (luôn được dựng), không ở footer của section — footer có thể chưa dựng khi cuộn khuất.
+        .sideDrawerMenu(item: $menuFile, title: { $0.name }) { file in fileMenuItems(file) }
         .task {
             guard isConfigured, coordinator.isDriveSignedIn, coordinator.driveFiles.isEmpty else { return }
             await coordinator.refreshDriveFiles()
@@ -158,31 +162,27 @@ struct GoogleDriveBackupListView: View {
                     .foregroundColor(.secondary)
             }
             Spacer(minLength: 8)
-            Menu {
-                Button {
-                    startRestoreEverything(file)
-                } label: {
-                    Label("Khôi phục ngay tất cả", systemImage: "arrow.clockwise.icloud")
-                }
-                .disabled(coordinator.isBusy)
-
-                Button {
-                    Task { await coordinator.downloadFromDrive(file) }
-                } label: {
-                    Label("Tải về máy", systemImage: "icloud.and.arrow.down")
-                }
-                .disabled(coordinator.isBusy)
-
-                Button(role: .destructive) {
-                    deletingFile = file
-                } label: {
-                    Label("Xoá trên Drive", systemImage: "trash")
-                }
+            // `.borderless`: trong hàng của `List`, nút mặc định biến cả hàng thành vùng bấm.
+            Button {
+                menuFile = file
             } label: {
                 Image(systemName: "ellipsis.circle")
                     .foregroundColor(.white)
             }
+            .buttonStyle(.borderless)
         }
+    }
+
+    /// Nội dung ngăn kéo "…" của một bản trên Drive (ngăn kéo gắn ở `List` của `body`, không gắn từng hàng).
+    @ViewBuilder
+    private func fileMenuItems(_ file: GoogleDriveFile) -> some View {
+        SideDrawerActionRow("Khôi phục ngay tất cả", systemImage: "arrow.clockwise.icloud") { startRestoreEverything(file) }
+            .disabled(coordinator.isBusy)
+        SideDrawerActionRow("Tải về máy", systemImage: "icloud.and.arrow.down") {
+            Task { await coordinator.downloadFromDrive(file) }
+        }
+        .disabled(coordinator.isBusy)
+        SideDrawerActionRow("Xoá trên Drive", systemImage: "trash", role: .destructive) { deletingFile = file }
     }
 
     private var isDeleting: Binding<Bool> {

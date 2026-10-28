@@ -31,6 +31,7 @@ struct VieNeuJapaneseDictionaryView: View {
     @State private var showingFileImporter = false
     @State private var showingRephoneticizeConfirmation = false
     @State private var showingDeleteAllConfirmation = false
+    @State private var showingOptionsMenu = false // Ngăn kéo "…"
     @State private var showingDownloadConfirmation = false
     @State private var exportDocumentToShare: ExportDocument? = nil
     @State private var visibleCount = 100
@@ -64,43 +65,22 @@ struct VieNeuJapaneseDictionaryView: View {
         .searchable(text: $searchText, prompt: "Tìm từ")
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
-                Menu {
-                    Button {
-                        showingDownloadConfirmation = true
-                    } label: {
-                        Label("Tải từ điển từ HuggingFace", systemImage: "arrow.down.circle")
-                    }
-                    Button {
-                        showingFileImporter = true
-                    } label: {
-                        Label("Nhập từ file…", systemImage: "square.and.arrow.down")
-                    }
-                    Button {
-                        export(asJSON: false)
-                    } label: {
-                        Label("Xuất .plist", systemImage: "square.and.arrow.up")
-                    }
-                    Button {
-                        export(asJSON: true)
-                    } label: {
-                        Label("Xuất .json", systemImage: "square.and.arrow.up")
-                    }
-                    Divider()
-                    Button {
-                        showingRephoneticizeConfirmation = true
-                    } label: {
-                        Label("Phiên âm lại từ điển", systemImage: "arrow.clockwise")
-                    }
-                    Divider()
-                    Button(role: .destructive) {
-                        showingDeleteAllConfirmation = true
-                    } label: {
-                        Label("Xoá tất cả phiên âm", systemImage: "trash")
-                    }
+                Button {
+                    showingOptionsMenu = true
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
             }
+        }
+        .sideDrawerMenu(isPresented: $showingOptionsMenu, title: "Từ điển phiên âm VieNeu-TTS") {
+            SideDrawerActionRow("Tải từ điển từ HuggingFace", systemImage: "arrow.down.circle") { showingDownloadConfirmation = true }
+            SideDrawerActionRow("Nhập từ file…", systemImage: "square.and.arrow.down") { showingFileImporter = true }
+            SideDrawerActionRow("Xuất .plist", systemImage: "square.and.arrow.up") { export(asJSON: false) }
+            SideDrawerActionRow("Xuất .json", systemImage: "square.and.arrow.up") { export(asJSON: true) }
+            SideDrawerDivider()
+            SideDrawerActionRow("Phiên âm lại từ điển", systemImage: "arrow.clockwise") { showingRephoneticizeConfirmation = true }
+            SideDrawerDivider()
+            SideDrawerActionRow("Xoá tất cả phiên âm", systemImage: "trash", role: .destructive) { showingDeleteAllConfirmation = true }
         }
         .sheet(isPresented: $showingAddSheet) {
             AddWordSheet(initialKey: searchText, showSuggestions: true, target: .vieNeu) { key, val, destination in

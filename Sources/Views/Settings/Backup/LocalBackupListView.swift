@@ -99,55 +99,37 @@ struct LocalBackupListView: View {
                     .foregroundColor(.secondary)
             }
             Spacer(minLength: 8)
-            Menu {
-                Button {
-                    onRestore(item)
-                } label: {
-                    Label("Khôi phục từ bản này", systemImage: "arrow.counterclockwise")
-                }
-                .disabled(coordinator.isBusy)
-
-                Button {
-                    onShare(item)
-                } label: {
-                    Label("Xuất ra Files", systemImage: "square.and.arrow.up")
-                }
-
-                if canUploadToDrive {
-                    Button {
-                        onUpload(item)
-                    } label: {
-                        Label("Tải lên Google Drive", systemImage: "icloud.and.arrow.up")
-                    }
-                    .disabled(coordinator.isBusy)
-                }
-
-                if canUploadToTelegram {
-                    Button {
-                        onTelegram(item)
-                    } label: {
-                        Label("Gửi qua Telegram", systemImage: "paperplane")
-                    }
-                    .disabled(coordinator.isBusy)
-                }
-
-                Button {
-                    renameText = item.baseName
-                    renamingItem = item
-                } label: {
-                    Label("Đổi tên", systemImage: "pencil")
-                }
-
-                Button(role: .destructive) {
-                    deleteTarget = .one(item)
-                } label: {
-                    Label("Xoá", systemImage: "trash")
-                }
+            // Ngăn kéo gắn vào chính nút của hàng: body là `Section` (gắn lên đó thì lan xuống từng hàng), còn footer
+            // có thể chưa được dựng khi danh sách dài cuộn khuất. `.borderless`: nút mặc định biến cả hàng thành vùng bấm.
+            SideDrawerMenuButton(title: item.baseName) {
+                itemMenuItems(item)
             } label: {
                 Image(systemName: "ellipsis.circle")
                     .foregroundColor(.white)
             }
+            .buttonStyle(.borderless)
         }
+    }
+
+    /// Nội dung ngăn kéo "…" của một bản sao lưu.
+    @ViewBuilder
+    private func itemMenuItems(_ item: LocalBackupStore.Item) -> some View {
+        SideDrawerActionRow("Khôi phục từ bản này", systemImage: "arrow.counterclockwise") { onRestore(item) }
+            .disabled(coordinator.isBusy)
+        SideDrawerActionRow("Xuất ra Files", systemImage: "square.and.arrow.up") { onShare(item) }
+        if canUploadToDrive {
+            SideDrawerActionRow("Tải lên Google Drive", systemImage: "icloud.and.arrow.up") { onUpload(item) }
+                .disabled(coordinator.isBusy)
+        }
+        if canUploadToTelegram {
+            SideDrawerActionRow("Gửi qua Telegram", systemImage: "paperplane") { onTelegram(item) }
+                .disabled(coordinator.isBusy)
+        }
+        SideDrawerActionRow("Đổi tên", systemImage: "pencil") {
+            renameText = item.baseName
+            renamingItem = item
+        }
+        SideDrawerActionRow("Xoá", systemImage: "trash", role: .destructive) { deleteTarget = .one(item) }
     }
 
     private var isRenaming: Binding<Bool> {

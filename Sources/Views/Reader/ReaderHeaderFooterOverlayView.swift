@@ -32,6 +32,8 @@ struct ReaderHeaderFooterOverlayView: View {
     let onOpenAppSettings: () -> Void
     let onOpenAI: () -> Void
 
+    @State private var showingOptionsMenu = false // Ngăn kéo "…"
+
     var readerChromeBackground: Color {
         selectedTheme.backgroundColor
     }
@@ -98,31 +100,7 @@ struct ReaderHeaderFooterOverlayView: View {
                         }
                         .accessibilityLabel("Cài đặt trình đọc")
 
-                        Menu {
-                            Button(action: onOpenAI) {
-                                Label("Trợ lý AI", systemImage: "sparkles")
-                            }
-
-                            if hasLocalBook {
-                                Button(action: { showingBookDictionary = true }) {
-                                    Label("Từ điển truyện", systemImage: "book.closed")
-                                }
-                            }
-
-                            Button(action: { showingBypassBrowser = true }) {
-                                Label("Mở bằng trình duyệt", systemImage: "safari")
-                            }
-
-                            if !isLocalTXTBook {
-                                Button(action: onChangeSource) {
-                                    Label("Đổi nguồn truyện", systemImage: "arrow.triangle.2.circlepath")
-                                }
-                            }
-
-                            Button(action: onOpenAppSettings) {
-                                Label("Mở Cài đặt", systemImage: "gearshape.fill")
-                            }
-                        } label: {
+                        Button(action: { showingOptionsMenu = true }) {
                             Image(systemName: "ellipsis.circle")
                                 .font(.system(size: 17, weight: .semibold))
                                 .foregroundColor(selectedTheme.textColor)
@@ -228,6 +206,19 @@ struct ReaderHeaderFooterOverlayView: View {
             .foregroundColor(selectedTheme.textColor)
             .frame(height: 52)
             .background(readerChromeBackground.ignoresSafeArea(edges: .bottom))
+        }
+        // Ngăn kéo luôn tông tối riêng, đọc rõ với mọi theme của Reader. "Mở Cài đặt" đóng cả Reader ⇒ chạy sau khi
+        // ngăn kéo đã gỡ (hàng thao tác lo việc này).
+        .sideDrawerMenu(isPresented: $showingOptionsMenu, title: "Tuỳ chọn trình đọc") {
+            SideDrawerActionRow("Trợ lý AI", systemImage: "sparkles", action: onOpenAI)
+            if hasLocalBook {
+                SideDrawerActionRow("Từ điển truyện", systemImage: "book.closed") { showingBookDictionary = true }
+            }
+            SideDrawerActionRow("Mở bằng trình duyệt", systemImage: "safari") { showingBypassBrowser = true }
+            if !isLocalTXTBook {
+                SideDrawerActionRow("Đổi nguồn truyện", systemImage: "arrow.triangle.2.circlepath", action: onChangeSource)
+            }
+            SideDrawerActionRow("Mở Cài đặt", systemImage: "gearshape.fill", action: onOpenAppSettings)
         }
     }
 

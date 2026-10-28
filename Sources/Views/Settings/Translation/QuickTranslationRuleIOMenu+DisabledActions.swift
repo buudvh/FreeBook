@@ -13,34 +13,16 @@ extension QuickTranslationRuleIOMenu {
 
     var isDisabledListEmpty: Bool { currentDisabledPatterns.isEmpty }
 
+    /// Các hàng ngăn kéo "…" khi đang ở tab Đã tắt.
     @ViewBuilder
     var disabledRuleMenuItems: some View {
-        Button {
-            showingDisabledImporter = true
-        } label: {
-            Label("Nhập file rule tắt (.txt)", systemImage: "square.and.arrow.down")
-        }
-
-        Button {
-            exportDisabledRules()
-        } label: {
-            Label("Xuất danh sách rule tắt", systemImage: "square.and.arrow.up")
-        }
-        .disabled(isDisabledListEmpty)
-
-        Button {
-            showingReenableConfirm = true
-        } label: {
-            Label("Bật lại tất cả rule đã tắt", systemImage: "play.circle")
-        }
-        .disabled(isDisabledListEmpty)
-
-        Button(role: .destructive) {
-            showingDeleteDisabledConfirm = true
-        } label: {
-            Label("Xoá tất cả rule đã tắt", systemImage: "trash")
-        }
-        .disabled(isDisabledListEmpty)
+        SideDrawerActionRow("Nhập file rule tắt (.txt)", systemImage: "square.and.arrow.down") { showingDisabledImporter = true }
+        SideDrawerActionRow("Xuất danh sách rule tắt", systemImage: "square.and.arrow.up") { exportDisabledRules() }
+            .disabled(isDisabledListEmpty)
+        SideDrawerActionRow("Bật lại tất cả rule đã tắt", systemImage: "play.circle") { showingReenableConfirm = true }
+            .disabled(isDisabledListEmpty)
+        SideDrawerActionRow("Xoá tất cả rule đã tắt", systemImage: "trash", role: .destructive) { showingDeleteDisabledConfirm = true }
+            .disabled(isDisabledListEmpty)
     }
 
     func readDisabledImport(from url: URL?) {

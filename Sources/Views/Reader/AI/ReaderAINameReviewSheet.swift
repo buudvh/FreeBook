@@ -120,7 +120,16 @@ public struct ReaderAINameReviewSheet: View {
     }
 
     /// Bước 1: chọn đích — mở dialog Gộp / Thay thế hoàn toàn.
+    ///
+    /// Không từ nào đang chọn có sẵn trong **từ điển đích** (cờ `hasInBookNames` / `hasInBookVP` dựng lúc mở sheet)
+    /// ⇒ gộp luôn, không hỏi: không có gì để ghi đè. Chỉ xét đích — lưu vào Name riêng thì từ đang có ở VP riêng
+    /// vẫn là từ mới với `Names.txt`.
     private func requestSave(isName: Bool) {
+        let hasExisting = names.contains { $0.isSelected && (isName ? $0.hasInBookNames : $0.hasInBookVP) }
+        guard hasExisting else {
+            executeSave(isName: isName, isMerge: true)
+            return
+        }
         pendingIsName = isName
         showingModeDialog = true
     }

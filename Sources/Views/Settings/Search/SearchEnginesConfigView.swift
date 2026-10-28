@@ -17,6 +17,7 @@ struct SearchEnginesConfigView: View {
 
     // Trạng thái Nhập/Xuất cấu hình JSON
     @State private var showingFileImporter = false
+    @State private var showingOptionsMenu = false // Ngăn kéo "…"
     @State private var pendingImport: [SearchEngine]? = nil
     @State private var showingImportOptions = false
     @State private var exportDocumentToShare: ExportDocument? = nil
@@ -67,18 +68,15 @@ struct SearchEnginesConfigView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Menu {
-                    Button(action: { showingFileImporter = true }) {
-                        Label("Nhập cấu hình JSON", systemImage: "square.and.arrow.down")
-                    }
-                    Button(action: exportEngines) {
-                        Label("Xuất cấu hình JSON", systemImage: "square.and.arrow.up")
-                    }
-                } label: {
+                Button(action: { showingOptionsMenu = true }) {
                     Image(systemName: "ellipsis.circle")
                         .font(.title3)
                 }
             }
+        }
+        .sideDrawerMenu(isPresented: $showingOptionsMenu, title: "Công cụ tra cứu nhanh") {
+            SideDrawerActionRow("Nhập cấu hình JSON", systemImage: "square.and.arrow.down") { showingFileImporter = true }
+            SideDrawerActionRow("Xuất cấu hình JSON", systemImage: "square.and.arrow.up", action: exportEngines)
         }
         .onAppear(perform: loadEngines)
         .sheet(isPresented: $showingAddEditSheet) {

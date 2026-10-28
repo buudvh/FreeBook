@@ -131,38 +131,27 @@ extension VieNeuVoiceLibraryView {
             .disabled(isWorking)
             .accessibilityLabel("Nghe thử \(record.name)")
 
-            Menu {
-                Button {
-                    reEnroll(record)
-                } label: {
-                    Label("Tạo lại embedding", systemImage: "arrow.triangle.2.circlepath")
-                }
-                .disabled(!hasCloneGraphs || isWorking)
-
-                Button {
-                    playSample(record)
-                } label: {
-                    Label("Nghe audio mẫu gốc", systemImage: "waveform")
-                }
-
-                Button {
-                    renamingID = record.id
-                    renameText = record.name
-                } label: {
-                    Label("Đổi tên", systemImage: "pencil")
-                }
-
-                Button(role: .destructive) {
-                    pendingDeletion = record
-                } label: {
-                    Label("Xoá", systemImage: "trash")
-                }
+            // Ngăn kéo `voiceMenuItems` gắn ở `Form` của màn (`VieNeuVoiceLibraryView`), không gắn từng hàng.
+            Button {
+                menuRecord = record
             } label: {
                 Image(systemName: "ellipsis.circle")
             }
             .buttonStyle(.borderless)
             .accessibilityLabel("Tuỳ chọn cho \(record.name)")
         }
+    }
+
+    @ViewBuilder
+    func voiceMenuItems(_ record: VieNeuCustomVoiceStore.Record) -> some View {
+        SideDrawerActionRow("Tạo lại embedding", systemImage: "arrow.triangle.2.circlepath") { reEnroll(record) }
+            .disabled(!hasCloneGraphs || isWorking)
+        SideDrawerActionRow("Nghe audio mẫu gốc", systemImage: "waveform") { playSample(record) }
+        SideDrawerActionRow("Đổi tên", systemImage: "pencil") {
+            renamingID = record.id
+            renameText = record.name
+        }
+        SideDrawerActionRow("Xoá", systemImage: "trash", role: .destructive) { pendingDeletion = record }
     }
 
     @ViewBuilder

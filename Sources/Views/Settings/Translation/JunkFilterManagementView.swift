@@ -22,6 +22,7 @@ struct JunkFilterManagementView: View {
     @State private var pendingImportJSON = ""
     @State private var showingImportOptions = false
     @State private var showingClearAlert = false
+    @State private var showingOptionsMenu = false // Ngăn kéo "…"
     @State private var exportDocumentToShare: ExportDocument? = nil
 
     @State private var alertMessage = ""
@@ -112,39 +113,24 @@ struct JunkFilterManagementView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button(action: { prepareForAdd() }) {
-                        Label("Thêm quy tắc", systemImage: "plus")
-                    }
-
-                    if !isSearching {
-                        Button(action: { toggleReordering() }) {
-                            Label(
-                                editMode == .active ? "Xong sắp xếp" : "Sắp xếp lại",
-                                systemImage: editMode == .active ? "checkmark" : "arrow.up.arrow.down"
-                            )
-                        }
-                    }
-
-                    Divider()
-
-                    Button(action: { showingFileImporter = true }) {
-                        Label("Nhập cấu hình (JSON)", systemImage: "square.and.arrow.down")
-                    }
-
-                    Button(action: { exportRules() }) {
-                        Label("Xuất cấu hình (JSON)", systemImage: "square.and.arrow.up")
-                    }
-
-                    Divider()
-
-                    Button(role: .destructive, action: { showingClearAlert = true }) {
-                        Label("Xóa tất cả quy tắc", systemImage: "trash")
-                    }
-                } label: {
+                Button(action: { showingOptionsMenu = true }) {
                     Label("Tùy chọn", systemImage: "ellipsis.circle")
                 }
             }
+        }
+        .sideDrawerMenu(isPresented: $showingOptionsMenu, title: "Quản lý lọc rác") {
+            SideDrawerActionRow("Thêm quy tắc", systemImage: "plus") { prepareForAdd() }
+            if !isSearching {
+                SideDrawerActionRow(
+                    editMode == .active ? "Xong sắp xếp" : "Sắp xếp lại",
+                    systemImage: editMode == .active ? "checkmark" : "arrow.up.arrow.down"
+                ) { toggleReordering() }
+            }
+            SideDrawerDivider()
+            SideDrawerActionRow("Nhập cấu hình (JSON)", systemImage: "square.and.arrow.down") { showingFileImporter = true }
+            SideDrawerActionRow("Xuất cấu hình (JSON)", systemImage: "square.and.arrow.up") { exportRules() }
+            SideDrawerDivider()
+            SideDrawerActionRow("Xóa tất cả quy tắc", systemImage: "trash", role: .destructive) { showingClearAlert = true }
         }
         .sheet(isPresented: $showingEditSheet) {
             editRuleSheet

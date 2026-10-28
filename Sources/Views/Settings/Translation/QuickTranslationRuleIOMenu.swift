@@ -34,6 +34,7 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
     @State private var pendingImportText: String? = nil
     @State private var pendingPreview: (added: Int, overlapping: Int, machineOnly: Int) = (0, 0, 0)
     @State private var sharedFile: SharedFile? = nil
+    @State private var showingOptionsMenu = false // Ngăn kéo "…"
 
     @State var showingDisabledImporter = false
     @State var showingDisabledImportModes = false
@@ -69,42 +70,31 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
         content
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        if showingDisabled {
-                            disabledRuleMenuItems
-                        } else {
-                            Button {
-                                showingImporter = true
-                            } label: {
-                                Label("Nhập file rule (.txt)", systemImage: "square.and.arrow.down")
-                            }
-
-                            Button {
-                                exportRules()
-                            } label: {
-                                Label("Xuất bộ rule \(scopeLabel)", systemImage: "square.and.arrow.up")
-                            }
-                            .disabled(!hasRuleFile)
-
-                            if !scope.isGlobal, let onShareAll {
-                                Button {
-                                    onShareAll()
-                                } label: {
-                                    Label("Chia sẻ bộ rule riêng sang truyện khác…", systemImage: "square.and.arrow.up.on.square")
-                                }
-                                .disabled(!hasRuleFile)
-                            }
-
-                            Button(role: .destructive) {
-                                showingDeleteConfirm = true
-                            } label: {
-                                Label("Xoá bộ rule \(scopeLabel)", systemImage: "trash")
-                            }
-                            .disabled(!hasRuleFile)
-                        }
+                    // Chỉ nút bật ngăn kéo nằm trong toolbar; ngăn kéo gắn lên body chính như các presenter khác.
+                    Button {
+                        showingOptionsMenu = true
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
+                }
+            }
+            .sideDrawerMenu(isPresented: $showingOptionsMenu, title: showingDisabled ? "\(scopeLongLabel) đã tắt" : scopeLongLabel) {
+                if showingDisabled {
+                    disabledRuleMenuItems
+                } else {
+                    SideDrawerActionRow("Nhập file rule (.txt)", systemImage: "square.and.arrow.down") { showingImporter = true }
+                    SideDrawerActionRow("Xuất bộ rule \(scopeLabel)", systemImage: "square.and.arrow.up") { exportRules() }
+                        .disabled(!hasRuleFile)
+                    if !scope.isGlobal, let onShareAll {
+                        SideDrawerActionRow("Chia sẻ bộ rule riêng sang truyện khác…", systemImage: "square.and.arrow.up.on.square") {
+                            onShareAll()
+                        }
+                        .disabled(!hasRuleFile)
+                    }
+                    SideDrawerActionRow("Xoá bộ rule \(scopeLabel)", systemImage: "trash", role: .destructive) {
+                        showingDeleteConfirm = true
+                    }
+                    .disabled(!hasRuleFile)
                 }
             }
             .background(

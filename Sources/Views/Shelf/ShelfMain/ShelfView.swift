@@ -73,6 +73,7 @@ struct ShelfView: View {
     /// Chip loại của Kệ sách + Lịch sử (`""` = tất cả, như `ExtensionKindFilterBar`).
     @AppStorage("shelfKindFilter") internal var shelfKindFilter = ""
     @State private var showingLayoutSheet = false // Sheet "Kiểu hiển thị" mở từ menu "…"
+    @State private var showingShelfMenu = false // Ngăn kéo "…" trượt từ mép phải
     @State private var isProcessingDeletion = false // Trạng thái đang xóa sách bất đồng bộ (tránh bấm lặp)
 
     // Chỉ đọc snapshot TTS khi nhận sự kiện mở Reader; không redraw toàn bộ Shelf theo từng đoạn.
@@ -115,6 +116,35 @@ struct ShelfView: View {
     // Từ 1.3.334 hai nhóm ghim / chưa ghim **không** còn nối thành một mảng phẳng: mỗi nhóm là một
     // section riêng của tab Kệ sách. Ba nhóm (kể cả lịch sử) được chia MỘT lần mỗi body bằng
     // `ShelfBookPartition`, giữ nguyên thứ tự `lastReadDate` của `@Query`.
+
+    /// Nội dung ngăn kéo "…" của Kệ. Tách khỏi `body` để biểu thức `body` (đã rất dài) không vượt ngân sách type-check.
+    @ViewBuilder
+    private func shelfMenuItems(_ parts: ShelfBookPartition, _ kindFilter: ShelfKindFilter) -> some View {
+        SideDrawerSectionHeader("Hiển thị")
+        SideDrawerToggleRow("Dịch nghĩa", glyph: .translate, isOn: $isTranslationEnabled)
+        // Công tắc NSFW toàn app — chung khoá với Cài đặt › Nội dung nhạy cảm và nút NSFW của Khám phá.
+        SideDrawerToggleRow("Nội dung NSFW", systemImage: "eye", isOn: $includeNsfw)
+
+        SideDrawerDivider()
+        SideDrawerSectionHeader("Thao tác")
+        if selectedTab == .shelf || selectedTab == .history {
+            SideDrawerActionRow("Kiểu hiển thị", systemImage: "square.grid.2x2") { showingLayoutSheet = true }
+        }
+        SideDrawerActionRow("Nhập truyện từ file", systemImage: "square.and.arrow.down") { showingFilePicker = true }
+        SideDrawerActionRow("Mở trình duyệt web", systemImage: "safari") { showingBypassBrowser = true }
+        if selectedTab == .shelf && !parts.isShelfEmpty {
+            SideDrawerActionRow("Kiểm tra chương mới", systemImage: "bell.badge") { checkAllNewChapters() }
+                .disabled(newChapters.isChecking)
+        }
+        if selectedTab == .downloads && !DownloadManager.shared.tasks.isEmpty {
+            SideDrawerActionRow("Dọn dẹp tác vụ", systemImage: "trash") { DownloadManager.shared.clearFinishedTasks() }
+        }
+        if selectedTab == .history && !kindFilter.history.isEmpty {
+            SideDrawerActionRow("Xóa tất cả lịch sử", systemImage: "trash", role: .destructive) {
+                showingClearHistoryAlert = true
+            }
+        }
+    }
 
     /// Badge chuông = số toast chưa đọc + số truyện có chương mới.
     private var notificationBadgeCount: Int {
@@ -203,71 +233,15 @@ struct ShelfView: View {
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        Button(action: {
-                            isTranslationEnabled.toggle()
-                        }) {
-                            Label(
-                                isTranslationEnabled ? "Tắt Dịch Nghĩa" : "Bật Dịch Nghĩa",
-                                image: AppGlyph.translate.assetName
-                            )
-                        }
-
-                        // Công tắc NSFW toàn app — chung khoá với Cài đặt › Nội dung nhạy cảm và nút NSFW của Khám phá.
-                        Button(action: { includeNsfw.toggle() }) {
-                            Label(
-                                includeNsfw ? "Ẩn nội dung NSFW" : "Hiện nội dung NSFW",
-                                systemImage: includeNsfw ? "eye.slash" : "eye"
-                            )
-                        }
-
-                        if selectedTab == .shelf || selectedTab == .history {
-                            Button(action: { showingLayoutSheet = true }) {
-                                Label("Kiểu hiển thị", systemImage: "square.grid.2x2")
-                            }
-                        }
-
-                        Button(action: {
-                            showingFilePicker = true
-                        }) {
-                            Label("Nhập truyện từ file", systemImage: "square.and.arrow.down")
-                        }
-
-                        Button(action: {
-                            showingBypassBrowser = true
-                        }) {
-                            Label("Mở trình duyệt web", systemImage: "safari")
-                        }
-
-                        if selectedTab == .shelf && !parts.isShelfEmpty {
-                            Button(action: {
-                                checkAllNewChapters()
-                            }) {
-                                Label("Kiểm tra chương mới", systemImage: "bell.badge")
-                            }
-                            .disabled(newChapters.isChecking)
-                        }
-
-                        if selectedTab == .downloads && !DownloadManager.shared.tasks.isEmpty {
-                            Button(action: {
-                                DownloadManager.shared.clearFinishedTasks()
-                            }) {
-                                Label("Dọn dẹp tác vụ", systemImage: "trash")
-                            }
-                        }
-
-                        if selectedTab == .history && !kindFilter.history.isEmpty {
-                            Button(role: .destructive, action: {
-                                showingClearHistoryAlert = true
-                            }) {
-                                Label("Xóa tất cả lịch sử", systemImage: "trash")
-                            }
-                        }
-                    } label: {
+                    Button(action: { showingShelfMenu = true }) {
                         Image(systemName: "ellipsis.circle")
                             .font(.system(size: 17, weight: .semibold))
                     }
                 }
+            }
+            // Ngăn kéo "…" gắn ở thân màn (không gắn trong `ToolbarItem`) — xem `SideDrawerMenuModifier`.
+            .sideDrawerMenu(isPresented: $showingShelfMenu, title: "Tuỳ chọn Kệ") {
+                shelfMenuItems(parts, kindFilter)
             }
             .navigationDestination(isPresented: $navigateToChangeSource) {
                 changeSourceDestinationView

@@ -14,35 +14,29 @@ import SwiftData
 extension CollectionDetailView {
 
     /// `ellipsis.circle` cho khớp Kệ sách / Reader / Chi tiết truyện (đồng bộ từ 1.3.334). Bộ đã bị xoá
-    /// trong lúc màn còn trên stack thì không còn gì để quản lý ⇒ ẩn hẳn menu.
+    /// trong lúc màn còn trên stack thì không còn gì để quản lý ⇒ ẩn hẳn menu. Nút chỉ bật ngăn kéo
+    /// `collectionMenuItems` — ngăn kéo gắn ở thân màn (`CollectionDetailView.body`), không gắn trong toolbar.
     @ViewBuilder
     var collectionMenu: some View {
         if collection != nil {
-            Menu {
-                // Bộ sưu tập không có chip loại ⇒ luôn theo kiểu của "Tất cả" (dùng chung với Kệ khi chip ở "Tất cả").
-                Button {
-                    showingLayoutSheet = true
-                } label: {
-                    Label("Kiểu hiển thị", systemImage: "square.grid.2x2")
-                }
-
-                Button {
-                    renameText = collection?.name ?? ""
-                    showingRenameAlert = true
-                } label: {
-                    Label("Đổi tên", systemImage: "pencil")
-                }
-
-                Button(role: .destructive) {
-                    showingDeleteConfirm = true
-                } label: {
-                    Label("Xoá bộ sưu tập", systemImage: "trash")
-                }
+            Button {
+                showingCollectionMenu = true
             } label: {
                 Image(systemName: "ellipsis.circle")
                     .font(.system(size: 17, weight: .semibold))
             }
         }
+    }
+
+    @ViewBuilder
+    var collectionMenuItems: some View {
+        // Bộ sưu tập không có chip loại ⇒ luôn theo kiểu của "Tất cả" (dùng chung với Kệ khi chip ở "Tất cả").
+        SideDrawerActionRow("Kiểu hiển thị", systemImage: "square.grid.2x2") { showingLayoutSheet = true }
+        SideDrawerActionRow("Đổi tên", systemImage: "pencil") {
+            renameText = collection?.name ?? ""
+            showingRenameAlert = true
+        }
+        SideDrawerActionRow("Xoá bộ sưu tập", systemImage: "trash", role: .destructive) { showingDeleteConfirm = true }
     }
 
     func commitRename() {

@@ -45,6 +45,8 @@ struct CollectionDetailView: View {
     @State var showingDeleteConfirm = false
     /// Sheet "Kiểu hiển thị" (scope "Tất cả") mở từ `collectionMenu`.
     @State var showingLayoutSheet = false
+    /// Ngăn kéo "…" (`collectionMenuItems`).
+    @State var showingCollectionMenu = false
 
     var collection: BookCollection? {
         allCollections.first(where: { $0.collectionId == collectionId })
@@ -98,6 +100,7 @@ struct CollectionDetailView: View {
                 collectionMenu
             }
         }
+        .sideDrawerMenu(isPresented: $showingCollectionMenu, title: collection?.name ?? "Bộ sưu tập") { collectionMenuItems }
         .alert("Đổi tên bộ sưu tập", isPresented: $showingRenameAlert) {
             TextField("Tên bộ sưu tập", text: $renameText)
                 .textInputAutocapitalization(.sentences)

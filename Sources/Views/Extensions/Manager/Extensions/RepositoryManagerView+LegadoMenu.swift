@@ -92,54 +92,12 @@ extension RepositoryManagerView {
 
     // MARK: - Toolbar
 
-    /// Toolbar của tab Legado: **chỉ** nút menu ⋯ (không có `+`, không có nút làm mới).
+    /// Toolbar của tab Legado: **chỉ** nút menu ⋯ (không có `+`, không có nút làm mới). Nút chỉ bật ngăn kéo
+    /// `legadoMenuItems` — ngăn kéo gắn ở gốc màn (`applySheetsAndAlerts`), không gắn trong toolbar.
     @ToolbarContentBuilder
     internal var legadoToolbarContent: some ToolbarContent {
         ToolbarItem(placement: .navigationBarTrailing) {
-            Menu {
-                let isEmpty = LegadoSourceRepository.shared.summaries.isEmpty
-                Button(action: { legadoState.showingFileImporter = true }) {
-                    Label("Nhập nguồn từ tệp JSON", systemImage: "doc.badge.plus")
-                }
-                Button(action: {
-                    legadoState.urlInput = ""
-                    legadoState.showingURLPrompt = true
-                }) {
-                    Label("Nhập nguồn từ URL", systemImage: "link.badge.plus")
-                }
-                Button(action: importLegadoFromClipboard) {
-                    Label("Dán JSON từ bộ nhớ tạm", image: AppGlyph.paste.assetName)
-                }
-
-                Divider()
-
-                Button(action: { setLegadoEnabledForVisible(true) }) {
-                    Label("Bật tất cả (theo danh sách đang hiện)", systemImage: "checkmark.circle")
-                }
-                .disabled(isEmpty)
-                Button(action: { setLegadoEnabledForVisible(false) }) {
-                    Label("Tắt tất cả (theo danh sách đang hiện)", systemImage: "circle")
-                }
-                .disabled(isEmpty)
-
-                Divider()
-
-                Button(action: checkVisibleLegadoSources) {
-                    Label("Kiểm tra nguồn (theo nhóm đang lọc)", systemImage: "checkmark.seal")
-                }
-                .disabled(isEmpty)
-                Button(action: exportVisibleLegadoSources) {
-                    Label("Xuất nguồn (theo nhóm đang lọc)", systemImage: "square.and.arrow.up")
-                }
-                .disabled(isEmpty)
-
-                Divider()
-
-                Button(role: .destructive, action: confirmDeleteAllLegadoSources) {
-                    Label("Xoá tất cả nguồn Legado", systemImage: "trash")
-                }
-                .disabled(LegadoSourcePolicy.onlyLegado(library.installed).isEmpty)
-            } label: {
+            Button(action: { showingLegadoMenu = true }) {
                 Image(systemName: "ellipsis.circle")
                     .font(.system(size: 17, weight: .semibold))
                     .frame(width: 36, height: 36)
@@ -147,6 +105,41 @@ extension RepositoryManagerView {
             .disabled(legadoState.isBusy)
             .accessibilityLabel("Menu nguồn Legado")
         }
+    }
+
+    /// Nội dung ngăn kéo "…" của tab Legado. "Bật/Tắt tất cả" là hai thao tác hàng loạt, không phải một công tắc.
+    @ViewBuilder
+    internal var legadoMenuItems: some View {
+        let isEmpty = LegadoSourceRepository.shared.summaries.isEmpty
+        SideDrawerActionRow("Nhập nguồn từ tệp JSON", systemImage: "doc.badge.plus") { legadoState.showingFileImporter = true }
+        SideDrawerActionRow("Nhập nguồn từ URL", systemImage: "link.badge.plus") {
+            legadoState.urlInput = ""
+            legadoState.showingURLPrompt = true
+        }
+        SideDrawerActionRow("Dán JSON từ bộ nhớ tạm", glyph: .paste, action: importLegadoFromClipboard)
+
+        SideDrawerDivider()
+
+        SideDrawerActionRow("Bật tất cả (theo danh sách đang hiện)", systemImage: "checkmark.circle") {
+            setLegadoEnabledForVisible(true)
+        }
+        .disabled(isEmpty)
+        SideDrawerActionRow("Tắt tất cả (theo danh sách đang hiện)", systemImage: "circle") {
+            setLegadoEnabledForVisible(false)
+        }
+        .disabled(isEmpty)
+
+        SideDrawerDivider()
+
+        SideDrawerActionRow("Kiểm tra nguồn (theo nhóm đang lọc)", systemImage: "checkmark.seal", action: checkVisibleLegadoSources)
+            .disabled(isEmpty)
+        SideDrawerActionRow("Xuất nguồn (theo nhóm đang lọc)", systemImage: "square.and.arrow.up", action: exportVisibleLegadoSources)
+            .disabled(isEmpty)
+
+        SideDrawerDivider()
+
+        SideDrawerActionRow("Xoá tất cả nguồn Legado", systemImage: "trash", role: .destructive, action: confirmDeleteAllLegadoSources)
+            .disabled(LegadoSourcePolicy.onlyLegado(library.installed).isEmpty)
     }
 
     // MARK: - Nhập

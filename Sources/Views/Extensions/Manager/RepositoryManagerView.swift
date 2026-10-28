@@ -38,6 +38,9 @@ struct RepositoryManagerView: View {
     @State internal var showingFilterSheet = false
     @State internal var showingUninstallAllAlert = false
     @State internal var showingZipImporter = false
+    /// Ngăn kéo "…" của tab Tất cả tiện ích / tab Nguồn Legado (`RepositoryManagerView+LegadoMenu`).
+    @State internal var showingExtensionsMenu = false
+    @State internal var showingLegadoMenu = false
     // Bộ lọc chọn nhiều: JSON `[String]`, rỗng = chưa ghi (đọc khoá cũ) — xem `ExtensionFilterSelection`.
     @AppStorage(ExtensionFilterSelection.typesKey) internal var filterTypesJSON: String = ""
     @AppStorage(ExtensionFilterSelection.localesKey) internal var filterLocalesJSON: String = ""
@@ -138,6 +141,8 @@ struct RepositoryManagerView: View {
     @ViewBuilder
     internal func applySheetsAndAlerts<V: View>(_ content: V) -> some View {
         content
+            .sideDrawerMenu(isPresented: $showingExtensionsMenu, title: "Tất cả tiện ích") { extensionsMenuItems }
+            .sideDrawerMenu(isPresented: $showingLegadoMenu, title: "Nguồn Legado") { legadoMenuItems }
             .alert("Xóa tất cả tiện ích?", isPresented: $showingUninstallAllAlert) {
                 Button("Hủy", role: .cancel) { }
                 Button("Xóa sạch", role: .destructive) {
