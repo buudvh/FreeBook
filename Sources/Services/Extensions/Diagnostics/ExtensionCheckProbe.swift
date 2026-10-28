@@ -260,9 +260,11 @@ final class ExtensionCheckProbe {
 
     // MARK: - Hàm thuần
 
+    /// Theo `type` của bản ghi đã cài — cùng cách `BookContentDestination` chọn màn đọc (`resolve(packageId:)`), để
+    /// tiện ích tranh/video thiếu `metadata.type` trong `plugin.json` không bị kiểm như truyện chữ.
     static func kind(of target: ExtensionCheckRunner.Target) -> Kind {
         if target.type == ExtensionType.tts { return .tts }
-        switch ExtensionContentKind.resolve(localPath: target.localPath) {
+        switch ExtensionContentKind(typeString: target.type) {
         case .text: return .text
         case .comic: return .comic
         case .video: return .video

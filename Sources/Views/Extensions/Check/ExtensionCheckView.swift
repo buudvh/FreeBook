@@ -336,11 +336,16 @@ struct ExtensionCheckView: View {
         Task { await ExtensionCheckRunner.shared.cancel(runId: runId) }
     }
 
+    /// Bỏ qua tiện ích đang là giọng đọc TTS — cùng luật chặn của nút Gỡ ở Cấu hình tiện ích (`requestUninstall`).
     @MainActor
     private func uninstallFailed() {
         var removed = 0
         var errors: [String] = []
         for packageId in failedIds {
+            if TTSManager.shared.tool == packageId {
+                errors.append("tiện ích đang dùng làm giọng đọc, chọn giọng khác trước khi gỡ")
+                continue
+            }
             switch ExtensionTransactionCoordinator.shared.uninstallExtension(packageId: packageId) {
             case .success:
                 removedIds.insert(packageId)
