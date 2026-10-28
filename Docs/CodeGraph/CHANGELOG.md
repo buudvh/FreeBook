@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.623] - 2026-10-28
+
+### fix: ngăn kéo menu trong hơn, trượt vào ra nhanh hơn
+
+Người dùng: *"Menu bạn làm chưa có độ trong suốt, cho hoạt ảnh trượt vào trượt ra nhanh hơn tí"*, rồi *"84% mà tôi không hề thấy trong suốt tí nào"*.
+
+- **Nguyên nhân** (`SideDrawerMenuPanel.drawerBackground`, 1.3.622): lớp tối `Color(white: 0.08).opacity(0.84)` nằm **trên** lớp `.ultraThinMaterial`, nên chỉ ~16% nền mờ lọt qua — nhìn như nền đặc, đậm hơn hẳn mockup đã duyệt.
+- **Sửa**: lớp tối còn `Color(white: 0.12).opacity(0.55)`; chữ trắng vẫn đọc rõ nhờ lớp mờ của material. Lớp phủ phần màn còn lại giữ 30%.
+- **Hoạt ảnh**: trượt vào 0,26 → 0,18 s, trượt ra 0,2 → 0,14 s.
+- Chuyển entry `[1.3.593]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — mức 55% cần người dùng xem lại trên máy.
+
 ## [1.3.622] - 2026-10-28
 
 ### feat: menu ba chấm thành ngăn kéo kính mờ, lưu tên AI tự gộp khi không trùng
@@ -400,15 +412,3 @@ Người dùng: *"khi nhấn video sang pip hãy tự trở về màn hình trư
 - Chờ `didStart` chứ không rời màn ở `willStart`: gỡ layer khỏi cửa sổ lúc PiP đang bật dở có thể làm PiP hỏng. PiP **tự bật khi rời app** (app không còn `.active`) giữ nguyên màn như trước.
 - Chuyển entry `[1.3.564]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy (PiP chạy tiếp khi màn đóng, nút khôi phục mở lại đúng màn).
-
-## [1.3.593] - 2026-10-24
-
-### fix: bản tải video phát lại được sau khi app ra nền, ẩn nút xoá khi đã hết bản tải
-
-Rà lại sau 1.3.592 (chưa thử máy), ba lỗi trong code mới:
-
-- **Phát bản tải sau khi app bị treo nền**: listener 127.0.0.1 có thể đã chết nhưng URL item vẫn trỏ cổng cũ, và lượt tự nạp lại chỉ được **một lần mỗi tập** ⇒ tạm dừng / khoá máy lần hai trên cùng tập là báo lỗi, "Tải lại" cũng dùng lại cổng cũ. Nay mỗi lượt nạp HLS bản tải bật server mới (`VideoOfflineHTTPServer.stop()` trước `url(forRelativePath:)`, queue nối tiếp nên tắt xong mới bật); tự nạp lại sau lỗi tối đa một lần mỗi 20 giây (`offlineRetryWindow`, thay `offlineRetriedEpisodeIndex` bằng `offlineLastRetryUptime`).
-- **Server không sẵn sàng**: `ensureRunning()` không có hạn chót — listener kẹt ở `.setup`/`.waiting` làm tập quay mãi ở "đang phân giải". Nay quá 3 giây chưa `.ready` ⇒ log ❌, tắt, trả `nil` ⇒ trình phát chuyển sang trực tuyến.
-- **Nút "Xoá bản tải" còn hiện khi đã hết bản tải**: xoá dần từng tập / huỷ tập duy nhất để lại thư mục sách rỗng ⇒ `summary.hasFiles` vẫn `true`, nút hiện "0 byte". Nay `hasFiles` chỉ đúng khi còn tập trọn vẹn hoặc còn byte; xoá tập / bỏ bản dở thì dọn luôn thư mục sách rỗng.
-- Chuyển entry `[1.3.563]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; vẫn chưa thử trên máy.

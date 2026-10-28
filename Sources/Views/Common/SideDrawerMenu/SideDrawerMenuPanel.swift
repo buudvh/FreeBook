@@ -17,8 +17,9 @@ struct SideDrawerMenuPanel<Content: View>: View {
     @State private var didFinish = false
     @State private var dragOffset: CGFloat = 0
 
-    private static var openAnimation: Animation { .easeOut(duration: 0.26) }
-    private static var closeDuration: Double { 0.2 }
+    /// Nhanh hơn bản đầu (0,26 / 0,2 s) theo yêu cầu người dùng (1.3.623).
+    private static var openAnimation: Animation { .easeOut(duration: 0.18) }
+    private static var closeDuration: Double { 0.14 }
 
     var body: some View {
         GeometryReader { proxy in
@@ -93,13 +94,15 @@ struct SideDrawerMenuPanel<Content: View>: View {
         .accessibilityAction(.escape) { close(nil) }
     }
 
-    /// Kính mờ đậm: material + lớp tối ~84% để chữ trắng đọc rõ trên mọi nền. Nền tràn vào vùng an toàn (tai thỏ khi
-    /// nằm ngang, thanh trạng thái, home indicator); nới 1pt ra ngoài mép trên/dưới/phải để viền chỉ còn thấy ở cạnh trái.
+    /// Kính mờ: material + lớp tối 55%. Lớp tối nằm **trên** lớp kính nên quyết định gần hết độ trong — bản đầu 84%
+    /// chỉ để lọt ~16% nền mờ, nhìn như nền đặc (1.3.623 hạ xuống, khớp mockup đã duyệt); chữ trắng vẫn đọc rõ nhờ lớp
+    /// mờ của material. Nền tràn vào vùng an toàn (tai thỏ khi nằm ngang, thanh trạng thái, home indicator); nới 1pt ra
+    /// ngoài mép trên/dưới/phải để viền chỉ còn thấy ở cạnh trái.
     private var drawerBackground: some View {
         let shape = UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: 16, style: .continuous)
         return ZStack {
             shape.fill(.ultraThinMaterial)
-            shape.fill(Color(white: 0.08).opacity(0.84))
+            shape.fill(Color(white: 0.12).opacity(0.55))
             shape.stroke(Color.white.opacity(0.14), lineWidth: 0.5)
         }
         .padding(.vertical, -1)
