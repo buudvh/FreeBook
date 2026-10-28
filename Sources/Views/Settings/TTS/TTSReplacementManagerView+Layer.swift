@@ -21,8 +21,11 @@ extension TTSReplacementManagerView {
     }
 
     /// Rule của **tầng đang mở** (chỉ rule của chính tầng đó, không phải danh sách đã gộp).
+    ///
+    /// Tầng chung đọc thẳng `manager.rules`: `rules(bookId:)` chỉ dành cho tầng riêng và trả `[]` khi `bookId == nil`
+    /// (phần gộp `mergedRules` cần đúng hành vi đó), nên trước 1.3.620 màn chung luôn trống dù đã có rule.
     var currentRules: [TTSReplacementRule] {
-        manager.rules(bookId: bookId)
+        isBookLayer ? manager.rules(bookId: bookId) : manager.rules
     }
 
     func deleteRuleLayer(_ id: UUID) {

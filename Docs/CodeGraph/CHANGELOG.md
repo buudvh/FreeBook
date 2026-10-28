@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.620] - 2026-10-28
+
+### fix: danh sách thay thế TTS chung không còn trống dù đã có rule
+
+Người dùng: *"điều tra thử màn hình danh sách thay thế tts chung bị gì xem không thấy phần tử nào dù nó có"*; duyệt cách sửa.
+
+- **Nguyên nhân**: từ lần tách thay thế TTS thành hai tầng (`4c76df00`, 2026-09-30), `TTSReplacementManagerView.currentRules` đọc qua `TTSReplacementManager.rules(bookId:)` cho **cả hai** tầng. Hàm đó chỉ dành cho tầng riêng và trả `[]` khi `bookId == nil` (`mergedRules` cần đúng hành vi này), nên màn chung luôn hiện "Chưa có quy tắc thay thế nào".
+- **Sửa** (`TTSReplacementManagerView+Layer`): tầng chung đọc thẳng `manager.rules`, tầng riêng giữ `rules(bookId:)`. Hàm của manager không đổi.
+- Dữ liệu không mất: thêm/sửa/xoá/sắp xếp/nhập file vẫn ghi đúng tầng chung, và TTS vẫn áp rule chung lúc đọc — chỉ màn hình không hiện.
+- Chuyển entry `[1.3.590]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.619] - 2026-10-28
 
 ### feat: chip nghĩa cho sheet Sửa từ, badge góc chip, NSFW ở menu Kệ
@@ -401,16 +413,3 @@ Người dùng: *"khi tắt nfsw thì cũng phải ẩn ở kệ sách nữa"*, 
 - Cài đặt › Nội dung nhạy cảm: dòng Kệ đổi thành danh sách các chỗ ẩn mới.
 - Chuyển entry `[1.3.561]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy (đặc biệt: `variants` với asset qua resource loader `fbhls://`, `playsinline` trên các trang thật).
-
-## [1.3.590] - 2026-10-24
-
-### feat: Google/Bing/Baidu lên đầu, tắt NSFW giữa lượt tìm bỏ nguồn NSFW, player ẩn điều khiển khi vuốt và hạ chất lượng khi phát ẩn
-
-Người dùng: *"để google, bing, baidu lên đầu danh sách. khi tìm tất cả nếu tắt nsfw thì không tìm các nguồn nsfw. ở phần player, nếu vuốt tua nhanh, tăng giảm sáng, tăng giảm âm lượng hãy tự ẩn phần đường timeline và các nút tua 10s. nếu được thì khi video phát ở chế độ ẩn thì hãy phát audio của nó thôi để giảm lưu lượng tốn"*; duyệt plan (ẩn **cả** lớp điều khiển khi vuốt; **giữ** ngoại lệ đổi nguồn cho truyện NSFW — *"bật nsfw mới xem được nsfw"*).
-
-- **Truy cập nhanh** (`BypassBrowserHomeView`): Google, Bing, Baidu đứng đầu rồi mới tới tiện ích; tiện ích trùng đúng URL của một trong ba thì bỏ ô trùng.
-- **Tìm mọi nguồn**: tắt NSFW từ trước thì vốn đã không tìm nguồn NSFW (`searchableExtensions` → `applyNsfwFilter`). Sửa ca **tắt giữa lượt tìm**: `SearchView.dropHiddenNsfwSources` gỡ nguồn NSFW khỏi `sourceStates` (số "Tìm thấy N", trạng thái rỗng, vòng "đang tìm" tính lại), kết quả về muộn của khoá đã gỡ bị bỏ; `LegadoSearchScheduler.searchAll(shouldStart:)` xét lại nguồn Legado **đang xếp hàng** lúc tới lượt — NSFW mà công tắc đã tắt thì không chạy (báo `nil`). Request của tiện ích JS đã gửi thì không thu hồi được. Ngoại lệ đổi nguồn cho sách của nguồn NSFW giữ nguyên, tách thành `SearchExtensionScopePolicy.keepsNsfw` dùng chung cho cả lọc lẫn bộ lập lịch.
-- **Player — vuốt** (`VideoPlayerController.handlePanBegan`): bắt đầu vuốt tua / độ sáng / âm lượng ⇒ ẩn **cả** lớp điều khiển (kiểu YouTube), nhả tay vẫn ẩn, chạm để hiện lại; vuốt xuống thu nhỏ không đổi.
-- **Player — phát ẩn** (`VideoPlaybackSession.refreshBandwidthLimit`): khi đã tách hình (thu nhỏ / nền không PiP — vốn đã chỉ phát tiếng) đặt `preferredPeakBitRate = 1` ⇒ HLS xuống biến thể thấp nhất; gắn lại hình ⇒ `0`. Gọi ở `refreshLayerAttachment` và sau `replaceCurrentItem` (tập kế tự phát lúc đang ẩn). Chỉ đỡ dữ liệu với HLS **nhiều** mức chất lượng; mp4, playlist một mức, playlist ghép hình + tiếng (`VideoAudioRenditionComposer`) không giảm được; không đổi sang luồng chỉ tiếng (thay item lúc PiP/nền/thu nhỏ làm hỏng các ca đó). Về lại màn hình thì vài giây đầu hình còn mờ.
-- Chuyển entry `[1.3.560]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.

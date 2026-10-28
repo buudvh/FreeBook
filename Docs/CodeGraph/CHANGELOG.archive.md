@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.590] - 2026-10-24
+
+### feat: Google/Bing/Baidu lên đầu, tắt NSFW giữa lượt tìm bỏ nguồn NSFW, player ẩn điều khiển khi vuốt và hạ chất lượng khi phát ẩn
+
+Người dùng: *"để google, bing, baidu lên đầu danh sách. khi tìm tất cả nếu tắt nsfw thì không tìm các nguồn nsfw. ở phần player, nếu vuốt tua nhanh, tăng giảm sáng, tăng giảm âm lượng hãy tự ẩn phần đường timeline và các nút tua 10s. nếu được thì khi video phát ở chế độ ẩn thì hãy phát audio của nó thôi để giảm lưu lượng tốn"*; duyệt plan (ẩn **cả** lớp điều khiển khi vuốt; **giữ** ngoại lệ đổi nguồn cho truyện NSFW — *"bật nsfw mới xem được nsfw"*).
+
+- **Truy cập nhanh** (`BypassBrowserHomeView`): Google, Bing, Baidu đứng đầu rồi mới tới tiện ích; tiện ích trùng đúng URL của một trong ba thì bỏ ô trùng.
+- **Tìm mọi nguồn**: tắt NSFW từ trước thì vốn đã không tìm nguồn NSFW (`searchableExtensions` → `applyNsfwFilter`). Sửa ca **tắt giữa lượt tìm**: `SearchView.dropHiddenNsfwSources` gỡ nguồn NSFW khỏi `sourceStates` (số "Tìm thấy N", trạng thái rỗng, vòng "đang tìm" tính lại), kết quả về muộn của khoá đã gỡ bị bỏ; `LegadoSearchScheduler.searchAll(shouldStart:)` xét lại nguồn Legado **đang xếp hàng** lúc tới lượt — NSFW mà công tắc đã tắt thì không chạy (báo `nil`). Request của tiện ích JS đã gửi thì không thu hồi được. Ngoại lệ đổi nguồn cho sách của nguồn NSFW giữ nguyên, tách thành `SearchExtensionScopePolicy.keepsNsfw` dùng chung cho cả lọc lẫn bộ lập lịch.
+- **Player — vuốt** (`VideoPlayerController.handlePanBegan`): bắt đầu vuốt tua / độ sáng / âm lượng ⇒ ẩn **cả** lớp điều khiển (kiểu YouTube), nhả tay vẫn ẩn, chạm để hiện lại; vuốt xuống thu nhỏ không đổi.
+- **Player — phát ẩn** (`VideoPlaybackSession.refreshBandwidthLimit`): khi đã tách hình (thu nhỏ / nền không PiP — vốn đã chỉ phát tiếng) đặt `preferredPeakBitRate = 1` ⇒ HLS xuống biến thể thấp nhất; gắn lại hình ⇒ `0`. Gọi ở `refreshLayerAttachment` và sau `replaceCurrentItem` (tập kế tự phát lúc đang ẩn). Chỉ đỡ dữ liệu với HLS **nhiều** mức chất lượng; mp4, playlist một mức, playlist ghép hình + tiếng (`VideoAudioRenditionComposer`) không giảm được; không đổi sang luồng chỉ tiếng (thay item lúc PiP/nền/thu nhỏ làm hỏng các ca đó). Về lại màn hình thì vài giây đầu hình còn mờ.
+- Chuyển entry `[1.3.560]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.589] - 2026-10-24
 
 ### feat: tắt NSFW tự đóng màn của nguồn NSFW, Home trình duyệt chỉ giữ Google/Bing/Baidu
