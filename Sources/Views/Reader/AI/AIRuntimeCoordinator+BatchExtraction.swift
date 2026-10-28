@@ -106,7 +106,9 @@ extension AIRuntimeCoordinator {
             } catch {
                 await MainActor.run {
                     guard let self = self, self.isCurrentRun(runId, bookId: bookId) else { return }
-                    let errorText = "Lỗi quét tên riêng: \(error.localizedDescription)"
+                    // Dòng đầu ghi chương đã dừng (1.3.632) — đọc tiến độ trước `finishRun`; toast bên dưới vẫn giữ.
+                    let stopNote = self.nameScanStopNote("Lọc name tự dừng", bookId: bookId)
+                    let errorText = "\(stopNote)\nLỗi quét tên riêng: \(error.localizedDescription)"
                     // Dừng vì hạn mức/tài khoản giữa chừng (1.3.602): điểm tiếp nối đã ghi theo các lượt xong trước đó,
                     // nên tên của các lượt đó phải ở lại tin kết quả — lỗi thành một tin riêng. Chưa có tên ⇒ như cũ.
                     let scannedNames = self.runs[bookId]?.batchExtractedNames ?? []
@@ -205,6 +207,15 @@ extension AIRuntimeCoordinator {
     func nameScanStopToast(_ prefix: String, bookId: String, bookTitle: String) -> String {
         let label = runs[bookId]?.batchProgress?.sendingChapterToastLabel
         return toastText(label.map { "\(prefix) · \($0)" } ?? prefix, bookId: bookId, bookTitle: bookTitle)
+    }
+
+    /// Câu ghi chương đã dừng cho **tin AI** (1.3.632): "`prefix` ở ch.21–30: tên → tên." (một chương "ở ch.21: tên.");
+    /// chưa gửi lượt nào ⇒ "`prefix` khi đang chuẩn bị.". Gọi **trước** `endRun` — `endRun` dọn tiến độ của entry.
+    func nameScanStopNote(_ prefix: String, bookId: String) -> String {
+        guard let label = runs[bookId]?.batchProgress?.sendingChapterToastLabel else {
+            return "\(prefix) khi đang chuẩn bị."
+        }
+        return "\(prefix) ở \(label)."
     }
 
     /// Tiêu đề tác vụ — cùng nghĩa với dải tiến độ: N là lượt **đang gửi**, kèm khoảng chương của lượt đó

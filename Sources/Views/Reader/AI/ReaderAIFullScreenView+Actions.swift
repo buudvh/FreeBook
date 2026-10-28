@@ -152,7 +152,7 @@ extension ReaderAIFullScreenView {
     }
 
     internal func stopStreaming() {
-        AIRuntimeCoordinator.shared.stopActiveTask(bookId: bookId)
+        let stopNote = AIRuntimeCoordinator.shared.stopActiveTask(bookId: bookId)
         isStreaming = false
         for index in currentSession.messages.indices where currentSession.messages[index].isStreaming {
             currentSession.messages[index].isStreaming = false
@@ -160,6 +160,14 @@ extension ReaderAIFullScreenView {
                 currentSession.messages[index].content = "Đã dừng."
             }
         }
+        appendStopNote(stopNote)
+    }
+
+    /// Dừng lúc đang lọc name nhiều chương ⇒ coordinator đã thêm tin AI ghi chương đã dừng vào phiên của nó (1.3.632);
+    /// màn giữ phiên riêng trong `@State` nên thêm đúng tin đó vào phiên đang hiện. Chat thường ⇒ `nil`, không thêm gì.
+    private func appendStopNote(_ stopNote: String?) {
+        guard let stopNote else { return }
+        currentSession.messages.append(AIChatMessage(role: .assistant, content: stopNote))
     }
 
     internal func handleQuickAction(_ type: ReaderAIQuickActionChipsView.ActionType) {
@@ -293,7 +301,7 @@ extension ReaderAIFullScreenView {
     }
 
     internal func cancelBatchExtraction() {
-        AIRuntimeCoordinator.shared.stopActiveTask(bookId: bookId)
+        let stopNote = AIRuntimeCoordinator.shared.stopActiveTask(bookId: bookId)
         isBatchExtracting = false
         isStreaming = false
         batchProgress = nil
@@ -303,6 +311,7 @@ extension ReaderAIFullScreenView {
                 currentSession.messages[index].content = "Đã dừng."
             }
         }
+        appendStopNote(stopNote)
     }
 
     internal func saveNamesToDictionary(_ items: [AIExtractedName], isName: Bool, isMerge: Bool) {

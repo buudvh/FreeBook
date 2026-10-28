@@ -93,13 +93,17 @@ extension AIRuntimeCoordinator {
     /// trong phiên — tin còn rỗng ghi "Đã dừng." — rồi lưu phiên. Không làm vậy thì luồng bị huỷ thoát mà tin vẫn
     /// `isStreaming`, màn AI đồng bộ ngược trạng thái đó nên dòng "AI đang suy nghĩ" không bao giờ mất.
     ///
-    /// Đang lọc name nhiều chương (lần quét hoặc thử lại — entry có `batchProgress`) ⇒ toast "Đã dừng lọc name" kèm
-    /// chương của lượt đang gửi, kể cả khi màn AI đang mở. Đọc tiến độ **trước** khi huỷ/`endRun` dọn entry; chat thường
-    /// không có tiến độ ⇒ không toast.
-    public func stopActiveTask(bookId: String) {
-        let stopToast: String? = runs[bookId]?.batchProgress == nil
+    /// Đang lọc name nhiều chương (lần quét hoặc thử lại — entry có `batchProgress`) ⇒ thêm **tin AI riêng** ngay sau
+    /// tin kết quả, ghi chương của lượt đang gửi lúc dừng ("Đã dừng lọc name ở ch.21–30: tên → tên.") — người dùng chọn
+    /// ghi trong tin trả lời chứ không toast (1.3.632); danh sách `Tên=Nghĩa` của tin kết quả giữ sạch để sao chép. Đọc
+    /// tiến độ **trước** khi huỷ/`endRun` dọn entry; chat thường không có tiến độ ⇒ không thêm gì.
+    ///
+    /// Trả về tin vừa thêm để màn AI (giữ phiên riêng trong `@State`) thêm đúng tin đó vào phiên đang hiện.
+    @discardableResult
+    public func stopActiveTask(bookId: String) -> String? {
+        let stopNote: String? = runs[bookId]?.batchProgress == nil
             ? nil
-            : nameScanStopToast("Đã dừng lọc name", bookId: bookId, bookTitle: runs[bookId]?.bookTitle ?? "")
+            : nameScanStopNote("Đã dừng lọc name", bookId: bookId)
         cancelTask(bookId: bookId)
         updateRun(bookId) { state in
             guard var session = state.session else { return }
@@ -109,13 +113,14 @@ extension AIRuntimeCoordinator {
                     session.messages[index].content = "Đã dừng."
                 }
             }
+            if let stopNote {
+                session.messages.append(AIChatMessage(role: .assistant, content: stopNote))
+            }
             state.session = session
         }
         saveRunSession(bookId: bookId)
         endRun(bookId: bookId)
-        if let stopToast {
-            ToastManager.shared.show(message: stopToast, type: .info)
-        }
+        return stopNote
     }
 
     /// Chữ toast của một truyện: màn AI của truyện đó không mở (đang ở màn khác hoặc màn AI của truyện khác) ⇒ kèm

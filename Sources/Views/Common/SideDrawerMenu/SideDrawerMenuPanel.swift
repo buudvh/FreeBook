@@ -105,15 +105,15 @@ struct SideDrawerMenuPanel<Content: View>: View {
         .accessibilityAction(.escape) { close(nil) }
     }
 
-    /// Nền bán trong suốt **không làm mờ** (1.3.631): chỉ một lớp tối 62%, nên bìa/chữ của màn bên dưới vẫn nhìn thấy
-    /// (mờ tối đi) như mockup đã duyệt. Trước đó dùng `.ultraThinMaterial` + lớp tối (84% → 55% → 38%): lớp kính nhoè
+    /// Nền bán trong suốt **không làm mờ** (1.3.631): chỉ một lớp tối — 62% rồi 80% theo người dùng (1.3.632), nên
+    /// bìa/chữ của màn bên dưới vẫn thấp thoáng (tối đi) như mockup đã duyệt. Trước đó dùng `.ultraThinMaterial` + lớp tối (84% → 55% → 38%): lớp kính nhoè
     /// nền Kệ (gần như toàn đen, chữ nhỏ) thành một mảng xám đều nên người dùng vẫn thấy "chẳng trong suốt tí nào" dù lớp
     /// tối đã rất mỏng. Nền tràn vào vùng an toàn (tai thỏ khi nằm ngang, thanh trạng thái, home indicator); nới 1pt ra
     /// ngoài mép trên/dưới/phải để viền chỉ còn thấy ở cạnh trái.
     private var drawerBackground: some View {
         let shape = UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: 16, style: .continuous)
         return ZStack {
-            shape.fill(Color(white: 0.08).opacity(0.62))
+            shape.fill(Color(white: 0.08).opacity(0.8))
             shape.stroke(Color.white.opacity(0.14), lineWidth: 0.5)
         }
         .padding(.vertical, -1)

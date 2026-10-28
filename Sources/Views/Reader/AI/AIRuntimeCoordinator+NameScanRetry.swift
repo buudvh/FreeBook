@@ -122,7 +122,9 @@ extension AIRuntimeCoordinator {
                     self.updateMessage(messageId, bookId: bookId) { $0.isStreaming = false }
                     // Lý do dừng thành một tin lỗi riêng như lần quét chính — toast giờ chỉ báo chương đang lọc lúc dừng.
                     // Google bắt xác minh (Chế độ AI, 1.3.609): màn AI hiện nút "Mở Google để xác minh" dưới tin này.
-                    let text = "Lỗi quét tên riêng: \(error.localizedDescription)"
+                    // Dòng đầu ghi chương đã dừng (1.3.632) — đọc tiến độ trước `finishRun`; toast bên dưới vẫn giữ.
+                    let stopNote = self.nameScanStopNote("Lọc name tự dừng", bookId: bookId)
+                    let text = "\(stopNote)\nLỗi quét tên riêng: \(error.localizedDescription)"
                     self.updateRun(bookId) { $0.session?.messages.append(AIChatMessage(role: .assistant, content: text)) }
                     self.saveRunSession(bookId: bookId)
                     // Đọc tiến độ (chương của lượt đang gửi) trước `endRun`; toast kể cả khi màn AI đang mở.
