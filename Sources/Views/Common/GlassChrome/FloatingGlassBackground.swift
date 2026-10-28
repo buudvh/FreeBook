@@ -2,6 +2,9 @@ import SwiftUI
 
 /// Nền tròn "kính" của nút nổi — nút tai nghe Reader và nút "+" của các màn danh sách (1.3.636). Đọc thẳng cài đặt ở
 /// Cài đặt › Giao diện (`GlassChromeSettings`) nên kéo thanh trượt ở đó là mọi nút đổi theo ngay, kể cả ô xem trước.
+///
+/// Lớp nhoè là material chuẩn mờ dần theo "độ đục" (1.3.640) — không có trạng thái nên không bao giờ kẹt ở mức nhoè đầy
+/// đủ như animator dừng giữa chừng trước đó.
 struct FloatingGlassBackground: View {
     /// Nền phía sau tối (Reader chủ đề Tối, mọi màn ngoài Reader) ⇒ nhoè tông tối; nền sáng ⇒ nhoè tông sáng.
     var isDark = true
@@ -15,11 +18,10 @@ struct FloatingGlassBackground: View {
 
     var body: some View {
         ZStack {
-            SideDrawerPartialBlurView(
-                style: isDark ? .systemUltraThinMaterialDark : .systemUltraThinMaterialLight,
-                intensity: frost
-            )
-            .clipShape(Circle())
+            Circle()
+                .fill(.ultraThinMaterial)
+                .environment(\.colorScheme, isDark ? .dark : .light)
+                .opacity(frost)
             Circle().fill(Color(white: isDark ? 0.16 : 0.3).opacity(1 - transparency))
             Circle().stroke(outline.opacity(0.28), lineWidth: 0.75)
         }

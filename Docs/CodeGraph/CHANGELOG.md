@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.640] - 2026-10-28
+
+### fix: độ trong suốt và độ đục của nút nổi, menu áp đúng cài đặt
+
+Người dùng: *"Cài đặt trong suốt không hoạt động. Tôi cài kiểu gì cũng hiển thị giống 2 hình đầu"* (ảnh: nút tai nghe Reader là đĩa xám đặc, ngăn kéo menu xám đều; ô xem trước ở màn Giao diện thì đổi đúng theo thanh kéo).
+
+- **Nguyên nhân (khả năng cao, chưa kiểm được trên máy)**: lớp nhoè `SideDrawerPartialBlurView` (1.3.633) dùng `UIViewPropertyAnimator` dừng giữa chừng để có mức nhoè lưng chừng. Animator dễ bị hệ thống chạy hết (dựng view lần đầu, chuyển màn, app vào nền rồi về) ⇒ kẹt ở mức nhoè **đầy đủ**; ô xem trước trông đúng chỉ vì mỗi lần kéo thanh là animator được dựng lại. Hệ quả: "kính đục vừa" của 1.3.633 nhiều khả năng chưa bao giờ hiện đúng trên máy, và mọi giá trị cài đặt trông như nhau.
+- **`FloatingGlassBackground`, `SideDrawerGlassBackground`**: lớp nhoè thay bằng shape tô `.ultraThinMaterial` (ép tông tối/sáng qua `colorScheme`) với `.opacity(frost)` — không có trạng thái nên không kẹt. Lớp màu vẫn `1 − độ trong suốt`, viền giữ nguyên.
+- **Đánh đổi** (người dùng đã duyệt): 0% và 100% đúng y cài đặt; mức giữa là nền rõ trộn nền nhoè (hơi có bóng đôi) thay vì nhoè mịn bán kính nhỏ.
+- Xoá `SideDrawerPartialBlurView.swift` (chỉ hai chỗ dùng trên); sửa chú thích `GlassChromeSettings`.
+- Chuyển entry `[1.3.610]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử 0%/100% ở cả ngăn kéo lẫn nút tai nghe, và sau khi cho app vào nền rồi mở lại.
+
 ## [1.3.639] - 2026-10-28
 
 ### fix: tin dừng lọc name không còn hiện hai lần
@@ -398,18 +411,3 @@ Người dùng: *"Tôi đã yêu cầu nếu bấm xoá name trong danh sách na
 - **Log để chẩn đoán**: xoá được ⇒ log thường (khoá + số dòng bỏ); không thấy dòng nào trùng khoá hoặc tin nguồn không còn ⇒ log `❌` (ghi kể cả khi tắt log).
 - Chuyển entry `[1.3.581]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.610] - 2026-10-26
-
-### feat: nút tắt tiếng video, video tắt tiếng không dừng TTS, sheet thêm từ nửa màn, sửa header sheet nhấn giữ
-
-Người dùng: *"Thêm nút tắt tiếng player video"* (thanh dưới; *"hiển thị nút tắt tiếng ở player full và player nhỏ"* = khung phim nhỏ màn dọc), *"có config trong tab cài đặt nhưng với nguồn 18+, mặc định tắt tiếng"* (chọn 3 mức), *"Nếu đang nghe truyện mà mở video bị tắt tiếng thì đừng tạm dừng tts"* (bật tiếng lại thì dừng TTS), *"Sheet thêm từ mới, thêm thay thế tts quá cao, cho cao nửa màn hình thôi"* (kéo lên được), *"chia lại layout header của menu context cho đúng. Phần tên truyện và tác giả bị mất góc bên phải"*, *"bấm nút thêm vào kệ ở lịch sử thiếu hiển thị sheet chọn bộ sưu tập"*. Plan duyệt trong chat.
-
-- **Nút tắt tiếng** (`VideoPlayerBottomBar`, ngay sau nút khoá cảm ứng — thanh này dùng chung cho khung phim nhỏ màn dọc và toàn màn): `speaker.wave.2.fill` ↔ `speaker.slash.fill` (`isActive`). `VideoPlaybackSession.isMuted` + `setMuted(_:)` (`+Transport`) ghi `player.isMuted` ⇒ đổi tập vẫn giữ. Phim nhúng trang không có thanh dưới.
-- **Tuỳ chọn "Tắt tiếng khi mở phim"** (mới `VideoMutePolicy`, khoá `videoMuteOnOpenPolicy`; Cài đặt › Đọc & Nghe, `Picker` `.navigationLink`): Không / **Chỉ nguồn 18+** (mặc định, `RepositoryFilterPolicy.isNsfwSource`) / Mọi phim. Chỉ áp ở `open()` khi mở phim khác — mở lại từ hub/PiP, cùng phim, đổi tập giữ trạng thái hiện tại.
-- **Video tắt tiếng không giành âm thanh của TTS** (`isEffectivelyMuted = isMuted && embedContent == nil`): `prepareAudioForPlayback` không dừng TTS / không đổi `AVAudioSession` / không giành màn khoá khi TTS đang đọc; `beginUserRequestedPlayback` không dừng TTS; `readyToPlay` tự phát dù TTS đang đọc; `pauseForTTS` không dừng video (`yieldToTTS` vẫn trả màn khoá cho TTS). Bật tiếng lại khi đang phát ⇒ `prepareAudioForPlayback()` (dừng TTS, lấy lại session + màn khoá); đang đệm ⇒ dừng TTS để tự phát có tiếng. Tắt tiếng không tự cho TTS đọc tiếp. `CLAUDE.md`/`AGENTS.md` cập nhật dòng "Trình phát video … tạm dừng TTS".
-- **Sheet "Thêm từ mới" / "Thêm thay thế TTS"** (`AddWordSheet`, `AddTTSReplacementSheet`): `.presentationDetents([.medium, .large])` — áp mọi chỗ mở (menu bôi đen Reader, từ điển phiên âm NghiTTS, từ điển tiếng Nhật VieNeu).
-- **Header sheet nhấn giữ** (`BookActionSheet`): cột 2 nút bên phải cao bằng bìa chiếm cả dải phải ⇒ tên/tác giả bị ép xuống dòng sớm. Nay `ZStack(.bottomTrailing)`: khối bìa + tên/tác giả (chiếm hết bề ngang, chừa `actionRowHeight` 32 ở đáy) và hàng 2 nút là hai lớp sibling — nút không lồng trong vùng chạm/nhấn giữ.
-- **Thêm vào kệ ở Kệ/Lịch sử/Tìm trên kệ mở sheet chọn bộ sưu tập** (`ShelfView`, `ShelfSearchView` + `+Actions`): như Chi tiết/Reader; sheet nhấn giữ đã đóng trước (`BookActionSheet.emit`) như đường Sửa thông tin.
-- Chuyển entry `[1.3.580]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới** (`+Playback.swift` 386/400). Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy (video tắt tiếng phát cùng TTS khi app vào nền chưa kiểm).
