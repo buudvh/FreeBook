@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.638] - 2026-10-28
+
+### feat: xuất TXT cho từ điển chung
+
+Người dùng: *"thêm nút xuất ra txt cho vp,name,phiên âm,… chung"*; chọn "icon trên mỗi thẻ" và "đúng file gốc"; duyệt mockup + plan.
+
+- **Service** `GlobalDictionaryTextExporter` (mới, `Services/Translation/Manager/`): xuất một từ điển chung ra file tạm `VietPhrase_/Name_/PhienAm_/Pronouns_/LuatNhan_<yyyyMMddHHmmss>.txt`. VietPhrase/Name/Pronouns/LuatNhan duyệt ngược cây đang nạp (hoặc mở `.dat`) bằng `allEntries()`, ghi `từ=nghĩa` theo khúc ~1 MB; số entry phải khớp `wordCount`, lệch thì báo lỗi, không xuất file thiếu (cùng chốt chặn với `DictionaryMergeService`). PhienAm (và `.txt` chưa kịp biên dịch) chép nguyên file. Xuất **đúng file gốc** — không kèm từ thêm/xoá ở VP/Name Chung (bản đó đi qua nút Gộp); nhập lại qua chính thẻ cho ra từ điển y như cũ.
+- **Cài đặt dịch thuật › Từ điển chung**: icon ↑ cuối mỗi thẻ (`TranslationSettingsView+Export`, phủ `overlay` lên thẻ vì thẻ là nhãn của nút Nhập — lồng nút trong nhãn nút thì chạm lẫn nhau; `DictionaryCard` chừa ô 32×32 qua `reservesExportSlot`). Chạm thẻ vẫn là Nhập. Đang xuất: vòng quay + "Đang xuất...", nút Nhập của thẻ đó khoá; một lượt xuất một lúc; thẻ chưa có dữ liệu thì icon mờ. Xuất chạy `Task.detached` rồi mở bảng chia sẻ; đóng bảng thì xoá file tạm; lỗi ⇒ toast + log `❌`.
+- Chuyển entry `[1.3.608]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy. Rủi ro: VietPhrase cỡ trăm nghìn – triệu từ nên xuất mất vài giây và tốn RAM cỡ lúc Gộp.
+
 ## [1.3.637] - 2026-10-28
 
 ### fix: thanh kéo Giao diện cập nhật ngay, nút + nổi ở Lọc rác
@@ -402,16 +413,3 @@ Người dùng: thêm provider dùng **chế độ AI của Google** (`google.co
 - **UI**: mẫu "Google Chế độ AI (không cần key)", segmented 4 ô (rút "Anthropic Claude" → "Anthropic"), hàng `GoogleAIModeAccountRow` thay URL/key, ẩn khối model (tách `AISettingsView+Models.swift`) và temperature; chip "Dịch mượt raw" mờ + ổ khoá (`disabledActions`); tin lỗi captcha nền đỏ nhạt + `GoogleAIModeVerifyButton` (cả kết quả kiểm tra kết nối và lần "Thử lại k lượt lỗi").
 - `rules.md`: mục mới "Google AI Mode provider invariants (1.3.609)"; bullet Gemini Web 1.3.602 trỏ sang runner dùng chung. Chuyển entry `[1.3.579]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code, grep chéo mọi chỗ rẽ nhánh provider; `check_architecture.py` 2 violation nền, **0 mới**. Chạy đúng các script `snapshot`/điền ô nhập/Enter của app trên trang Chế độ AI thật (Chrome desktop và giả lập Android, chưa đăng nhập): đọc đúng số lượt, chữ trả lời, `mstk`; khôi phục bằng `mstk` rồi gửi tiếp được và đọc ra lượt mới — lần thử đầu lộ lỗi bỏ `[role="button"]` làm mất tên thực thể ("Paris"), đã sửa. Rà soát còn sửa: phần đã phát kết thúc bằng xuống dòng làm bản cuối (đã bỏ câu gợi ý) không nối tiếp ⇒ câu trả lời bị nối đôi; ô nhập nhận theo `getClientRects` (khối nhập của bản mobile là `position: fixed`); lượt chưa có khối trả lời thì coi là chưa có chữ (không đọc cả lượt — dính câu hỏi); log luật kết thúc lượt. Không build tại chỗ (Windows) — CI là cổng biên dịch; **chưa thử trên máy** (trang trong WKWebView iOS, khi đã đăng nhập, ngưỡng captcha là UNKNOWN — chỉnh theo log `🤖 [AIMode]`).
-
-## [1.3.608] - 2026-10-26
-
-### fix: ba sheet bôi đen kéo lên được, nền đồng bộ, bỏ nút ✕, tiêu đề to hơn
-
-Người dùng (sau 1.3.606): *"lỗi ba panel bôi đen không kéo được lên trên nữa"*, *"màu phần padding và màu background chưa đồng bộ"* (chọn B — xám đậm), *"bỏ luôn nút x trên 3 màn"*, *"tăng size tên sheet và chiều cao sheet do tăng size tên sheet"* (chọn 20 bold). Plan duyệt trong chat.
-
-- **Kéo lên được** (`FittedSheetDetentModifier`): nấc `[.height(đo được), .large]` (chưa đo: `[.medium, .large]`) — mở vẫn cao vừa nội dung, vuốt lên giãn toàn màn. 1.3.606 chỉ có một nấc nên vuốt lên chỉ nảy lại.
-- **Nền đồng bộ**: nền sheet cố định `#1F1F24` (0.12/0.12/0.14) cho mọi theme (`ReaderView+SelectionSheets.selectionSheetBackground`, bỏ nhánh trắng của Sáng/Trầm ấm); ba view nội dung bỏ `systemBackground` (đen) — trước đó viền trắng/xám bao khối đen. Panel Dịch và Xoá rác giữ chạm nền để tắt bàn phím (`Color.clear` + `contentShape`).
-- **Bỏ nút ✕ ở tiêu đề** cả ba sheet: đóng bằng vuốt xuống / chạm vùng mờ (Copy gốc vẫn copy ở `onDismiss`; Xoá rác còn nút "Huỷ"). Giữ ⓧ xoá chữ trong ô nhập. Xoá `ReaderView.closeDefinitionPanel()` (không còn caller nào trong `Sources/`).
-- **Tiêu đề 20pt bold** (trước `.headline`); sheet đo chiều cao theo nội dung nên tự cao theo.
-- `rules.md`: bullet ba panel bôi đen cập nhật nấc/nền/không ✕. Chuyển entry `[1.3.578]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.

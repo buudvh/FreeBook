@@ -14,10 +14,15 @@ struct TranslationSettingsView: View {
     /// Tập "đang nhập" phải sống lâu hơn màn này (xem `TranslationImportState`); giữ tên `importingTypes` để
     /// phần code chuyển nguyên văn từ `SettingsView` không phải đổi.
     @ObservedObject private var importState = TranslationImportState.shared
-    private var importingTypes: Set<String> {
+    var importingTypes: Set<String> {
         get { importState.importingTypes }
         nonmutating set { importState.importingTypes = newValue }
     }
+    /// Xuất TXT từ điển chung (1.3.638, `TranslationSettingsView+Export`): mã thẻ đang xuất, file chờ chia sẻ, và URL
+    /// file tạm để xoá khi đóng bảng chia sẻ (`sheet(item:)` đã đặt `nil` trước khi gọi `onDismiss`).
+    @State var exportingDictionaryType: String? = nil
+    @State var dictionaryExport: DictionaryTextExport? = nil
+    @State var dictionaryExportURL: URL? = nil
 
     var body: some View {
         Form {
@@ -87,11 +92,16 @@ struct TranslationSettingsView: View {
                                     title: "VietPhrase.txt",
                                     statusText: getStatusText(for: "vietphrase"),
                                     isSet: translationManager.isVietPhraseLoaded,
-                                    isLoading: importingTypes.contains("vietphrase")
+                                    isLoading: importingTypes.contains("vietphrase"),
+                                    isExporting: exportingDictionaryType == "vietphrase",
+                                    reservesExportSlot: true
                                 )
                             }
                             .buttonStyle(PlainButtonStyle())
-                            .disabled(importingTypes.contains("vietphrase"))
+                            .disabled(importingTypes.contains("vietphrase") || exportingDictionaryType == "vietphrase")
+                            .overlay(alignment: .trailing) {
+                                dictionaryExportButton(type: "vietphrase", title: "VietPhrase.txt", isSet: translationManager.isVietPhraseLoaded)
+                            }
 
                             Button(action: {
                                 importType = "names"
@@ -101,11 +111,16 @@ struct TranslationSettingsView: View {
                                     title: "Name.txt",
                                     statusText: getStatusText(for: "names"),
                                     isSet: translationManager.isNamesLoaded,
-                                    isLoading: importingTypes.contains("names")
+                                    isLoading: importingTypes.contains("names"),
+                                    isExporting: exportingDictionaryType == "names",
+                                    reservesExportSlot: true
                                 )
                             }
                             .buttonStyle(PlainButtonStyle())
-                            .disabled(importingTypes.contains("names"))
+                            .disabled(importingTypes.contains("names") || exportingDictionaryType == "names")
+                            .overlay(alignment: .trailing) {
+                                dictionaryExportButton(type: "names", title: "Name.txt", isSet: translationManager.isNamesLoaded)
+                            }
 
                             Button(action: {
                                 importType = "phienam"
@@ -115,11 +130,16 @@ struct TranslationSettingsView: View {
                                     title: "PhienAm.txt",
                                     statusText: getStatusText(for: "phienam"),
                                     isSet: translationManager.isPhienAmLoaded,
-                                    isLoading: importingTypes.contains("phienam")
+                                    isLoading: importingTypes.contains("phienam"),
+                                    isExporting: exportingDictionaryType == "phienam",
+                                    reservesExportSlot: true
                                 )
                             }
                             .buttonStyle(PlainButtonStyle())
-                            .disabled(importingTypes.contains("phienam"))
+                            .disabled(importingTypes.contains("phienam") || exportingDictionaryType == "phienam")
+                            .overlay(alignment: .trailing) {
+                                dictionaryExportButton(type: "phienam", title: "PhienAm.txt", isSet: translationManager.isPhienAmLoaded)
+                            }
 
                             Button(action: {
                                 importType = "pronouns"
@@ -129,11 +149,16 @@ struct TranslationSettingsView: View {
                                     title: "Pronouns.txt",
                                     statusText: getStatusText(for: "pronouns"),
                                     isSet: translationManager.isPronounsLoaded,
-                                    isLoading: importingTypes.contains("pronouns")
+                                    isLoading: importingTypes.contains("pronouns"),
+                                    isExporting: exportingDictionaryType == "pronouns",
+                                    reservesExportSlot: true
                                 )
                             }
                             .buttonStyle(PlainButtonStyle())
-                            .disabled(importingTypes.contains("pronouns"))
+                            .disabled(importingTypes.contains("pronouns") || exportingDictionaryType == "pronouns")
+                            .overlay(alignment: .trailing) {
+                                dictionaryExportButton(type: "pronouns", title: "Pronouns.txt", isSet: translationManager.isPronounsLoaded)
+                            }
 
                             Button(action: {
                                 importType = "luatnhan"
@@ -143,11 +168,16 @@ struct TranslationSettingsView: View {
                                     title: "LuatNhan.txt",
                                     statusText: getStatusText(for: "luatnhan"),
                                     isSet: translationManager.isLuatNhanLoaded,
-                                    isLoading: importingTypes.contains("luatnhan")
+                                    isLoading: importingTypes.contains("luatnhan"),
+                                    isExporting: exportingDictionaryType == "luatnhan",
+                                    reservesExportSlot: true
                                 )
                             }
                             .buttonStyle(PlainButtonStyle())
-                            .disabled(importingTypes.contains("luatnhan"))
+                            .disabled(importingTypes.contains("luatnhan") || exportingDictionaryType == "luatnhan")
+                            .overlay(alignment: .trailing) {
+                                dictionaryExportButton(type: "luatnhan", title: "LuatNhan.txt", isSet: translationManager.isLuatNhanLoaded)
+                            }
                         }
                         .padding(.vertical, 4)
                     }
@@ -213,6 +243,9 @@ struct TranslationSettingsView: View {
         .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .navigationTitle("Cài đặt dịch thuật")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $dictionaryExport, onDismiss: cleanUpDictionaryExport) { export in
+            dictionaryShareSheet(export)
+        }
         .background(
             DocumentPickerPresenter(
                 isPresented: $showingFileImporter,
@@ -261,6 +294,9 @@ struct TranslationSettingsView: View {
     private func getStatusText(for type: String) -> String {
         if importingTypes.contains(type) {
             return "Đang import..."
+        }
+        if exportingDictionaryType == type {
+            return "Đang xuất..."
         }
         if let count = translationManager.getWordCount(for: type) {
             return "\(count) từ"

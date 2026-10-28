@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.608] - 2026-10-26
+
+### fix: ba sheet bôi đen kéo lên được, nền đồng bộ, bỏ nút ✕, tiêu đề to hơn
+
+Người dùng (sau 1.3.606): *"lỗi ba panel bôi đen không kéo được lên trên nữa"*, *"màu phần padding và màu background chưa đồng bộ"* (chọn B — xám đậm), *"bỏ luôn nút x trên 3 màn"*, *"tăng size tên sheet và chiều cao sheet do tăng size tên sheet"* (chọn 20 bold). Plan duyệt trong chat.
+
+- **Kéo lên được** (`FittedSheetDetentModifier`): nấc `[.height(đo được), .large]` (chưa đo: `[.medium, .large]`) — mở vẫn cao vừa nội dung, vuốt lên giãn toàn màn. 1.3.606 chỉ có một nấc nên vuốt lên chỉ nảy lại.
+- **Nền đồng bộ**: nền sheet cố định `#1F1F24` (0.12/0.12/0.14) cho mọi theme (`ReaderView+SelectionSheets.selectionSheetBackground`, bỏ nhánh trắng của Sáng/Trầm ấm); ba view nội dung bỏ `systemBackground` (đen) — trước đó viền trắng/xám bao khối đen. Panel Dịch và Xoá rác giữ chạm nền để tắt bàn phím (`Color.clear` + `contentShape`).
+- **Bỏ nút ✕ ở tiêu đề** cả ba sheet: đóng bằng vuốt xuống / chạm vùng mờ (Copy gốc vẫn copy ở `onDismiss`; Xoá rác còn nút "Huỷ"). Giữ ⓧ xoá chữ trong ô nhập. Xoá `ReaderView.closeDefinitionPanel()` (không còn caller nào trong `Sources/`).
+- **Tiêu đề 20pt bold** (trước `.headline`); sheet đo chiều cao theo nội dung nên tự cao theo.
+- `rules.md`: bullet ba panel bôi đen cập nhật nấc/nền/không ✕. Chuyển entry `[1.3.578]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.607] - 2026-10-26
 
 ### feat: ghim chéo trên bìa ở Kệ, icon dịch kiểu Google, nhớ nội dung Tìm trong chương
