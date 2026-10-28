@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.625] - 2026-10-28
+
+### fix: sheet tải/xuất mở toàn màn, bỏ nửa màn
+
+Người dùng: *"sửa lại sheet tải và xoát thành toàn màn hình đi, bỏ nữa màn hình"*.
+
+- `TaskOptionsSheet`: `.presentationDetents([.medium, .large])` của 1.3.624 thành `[.large]` — mở thẳng toàn màn ở cả 7 chỗ gọi. Sheet nhập kho tiện ích và nhập nguồn Legado từ URL giữ nửa màn (không nằm trong yêu cầu).
+- Chuyển entry `[1.3.595]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.624] - 2026-10-28
 
 ### feat: sheet tải/xuất nửa màn, chọn chương bắt đầu, nghỉ và số luồng tải; nhập kho, Legado URL thành sheet
@@ -406,16 +416,4 @@ Người dùng: *"Cho màn hình thông báo cũng xem được phần trăm t�
 - **Màn Thông báo** (`NotificationInboxView+StoryTasks`, hàng tác vụ đang chạy): tác vụ tải video ghi "Tải video · 3/10 tập · 34%" (trước là "Tải truyện · … chương"), thanh tiến độ chạy mượt theo phần trăm tập đang tải, thêm dòng "Tập 4: 45% · 210 MB" và nút **"Chi tiết tập (N)"** dùng chung `VideoEpisodeProgressList` với tab Tải. Tác vụ truyện/xuất ebook giữ nguyên.
 - `DownloadTask.smoothProgressCount` / `videoProgressPercent` (mới, cạnh `VideoEpisodeProgress`): một chỗ tính tiến độ mượt + phần trăm cho cả tab Tải lẫn màn Thông báo.
 - Chuyển entry `[1.3.566]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.595] - 2026-10-24
-
-### feat: tab Tải hiện phần trăm từng tập của tác vụ tải video
-
-Người dùng: *"vì tải video khả năng sẽ tốn khá nhiều thời gian, do đó đối với video tôi cần xem được phần trăm tải của từng video"*; chọn hiện ở **tab Tải** (không thêm gì lên ô tập trong trình phát), mockup đã duyệt.
-
-- **`VideoEpisodeProgress`** (mới, `Services/Download`): trạng thái một tập — chờ / đang tải (phần trăm + byte) / xong (byte) / có sẵn / lỗi / đã huỷ. **`DownloadTask.videoEpisodes`**: trạng thái tạm, không lưu CSDL (không đổi `DownloadTaskModel`); app khởi động lại thì mất, thử lại tác vụ dựng lại.
-- **`DownloadManager+Video`**: dựng danh sách lúc bắt đầu (tất cả "Chờ"), tập bỏ qua ⇒ "Có sẵn", bắt đầu ⇒ "Đang tải 0%", xong ⇒ "Xong" kèm dung lượng từ manifest, lỗi ⇒ lý do, huỷ ⇒ tập đang tải và các tập còn chờ thành "Đã huỷ". `VideoDownloadDetailReporter` (≤ 1 lần/giây) cập nhật trạng thái tập **và** dòng `mediaDetail` trong một lần ghi `tasks` (`updateVideoEpisode`; thay `updateMediaDetail`); nhịp đến muộn không kéo tập đã xong về "đang tải".
-- **Tab Tải** (`DownloadTrackerView`): tác vụ video có thanh tiến độ chạy mượt trong tập (`progressCount` + phần trăm tập đang tải) và chữ "Tiến độ: 3/10 tập · 34%"; nút **"Chi tiết tập (N)"** (`VideoEpisodeProgressList`, mới) mở/thu danh sách "✓ Xong · 480 MB", "✓ Có sẵn", "↓ 45% · 210 MB", "Chờ", "✕ Lỗi: …", "Đã huỷ" — hiện ở mọi trạng thái tác vụ khi có danh sách. Trên 60 tập thì chỉ hiện mọi tập lỗi (tối đa 50), 10 tập xong gần nhất, tập đang tải, 5 tập chờ kế tiếp, kèm dòng đếm "Xong · Đang tải · Lỗi · Chờ · Đã huỷ".
-- Chuyển entry `[1.3.565]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy.

@@ -5,7 +5,7 @@ import SwiftData
 /// trình phát video.
 ///
 /// 1.3.624:
-/// - Mở nửa màn, vuốt lên được toàn màn.
+/// - Mở toàn màn (1.3.625 bỏ nửa màn của 1.3.624 theo yêu cầu người dùng).
 /// - Đoạn giải thích chuyển vào nút "?" ở tiêu đề từng mục (`TaskOptionsSheet+Help`).
 /// - Chọn chương bắt đầu từ mục lục đã dịch, nạp ngầm (`TaskOptionsSheet+StartChapter`).
 /// - Nghỉ giữa các lần tải và số luồng, nhớ theo nguồn (`TaskOptionsSheet+Speed`).
@@ -119,8 +119,8 @@ struct TaskOptionsSheet: View {
                 }
             }
         }
-        // Mở nửa màn, vuốt lên được toàn màn (1.3.624) — cùng kiểu `AddWordSheet`; `Form` tự cuộn phần còn lại.
-        .presentationDetents([.medium, .large])
+        // Toàn màn (1.3.625): người dùng bỏ nửa màn của 1.3.624 — đừng thêm lại `.medium`.
+        .presentationDetents([.large])
     }
 
     private var bookInfoSection: some View {
