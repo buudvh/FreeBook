@@ -127,6 +127,9 @@ extension DownloadManager {
                 }
             }
         }
+        // Huỷ lúc các chương cuối còn đang tải: JS bị ngắt có thể trả `.failed` thay vì ném `CancellationError`,
+        // nên chốt lại ở đây để tác vụ báo "Đã hủy" thay vì hoàn thành/thất bại.
+        try Task.checkCancellation()
     }
 
     /// Nhả executor của worker luồng thêm. Worker luồng 0 và mục `activeWorkers` của tác vụ do `executeTask` dọn khi
