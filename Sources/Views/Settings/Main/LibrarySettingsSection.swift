@@ -2,16 +2,10 @@ import SwiftUI
 
 /// Section "Thư Viện" của tab Cài đặt (1.3.520): gom 3 dòng trước đây mỗi dòng một section riêng
 /// (`NewChapterSettingsSection`, `BackupSettingsSection`, `StaleBookCleanupSettingsSection`). Đích, nhãn và icon
-/// giữ nguyên.
+/// giữ nguyên. "Nội dung nhạy cảm" và "Kiểu hiển thị danh sách" chuyển vào Chung › Giao diện từ 1.3.636.
 struct LibrarySettingsSection: View {
     var body: some View {
         Section(header: Text("Thư Viện")) {
-            NavigationLink(destination: NsfwSettingsView()) {
-                Label("Nội dung nhạy cảm (NSFW)", systemImage: "eye.slash")
-            }
-            NavigationLink(destination: BookListLayoutSettingsView()) {
-                Label("Kiểu hiển thị danh sách", systemImage: "square.grid.2x2")
-            }
             NavigationLink(destination: NewChapterSettingsView()) {
                 Label("Kiểm tra chương mới", systemImage: "bell.badge")
             }

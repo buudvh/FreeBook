@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Cài đặt → Thư Viện → **Kiểu hiển thị danh sách**: chỉnh cả 4 scope ở một chỗ. Sheet nhanh trên từng màn chỉ
+/// Cài đặt → Chung → Giao diện → **Kiểu hiển thị danh sách**: chỉnh cả 4 scope ở một chỗ. Sheet nhanh trên từng màn chỉ
 /// chỉnh scope đang xem; màn này để xem/đặt lại toàn bộ.
 struct BookListLayoutSettingsView: View {
     var body: some View {

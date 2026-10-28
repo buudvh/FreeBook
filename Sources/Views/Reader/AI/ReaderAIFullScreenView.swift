@@ -39,6 +39,10 @@ public struct ReaderAIFullScreenView: View {
     @State internal var currentSessionId: UUID = UUID()
     @State internal var isLoadingSession: Bool = true
     @State internal var visibleMessageCount: Int = 20
+    /// Tự nạp tin cũ khi cuộn lên đầu (`+OlderMessages`): chỉ bật cho đúng phiên này sau lượt cuộn-xuống-cuối ban đầu.
+    @State internal var olderMessagesArmedSessionId: UUID? = nil
+    @State internal var isLoadingOlderMessages: Bool = false
+    @State internal var isOlderMessagesSentinelNearTop: Bool = false
 
     internal var displayedMessages: [AIChatMessage] {
         let all = currentSession.messages
@@ -90,20 +94,9 @@ public struct ReaderAIFullScreenView: View {
                     ScrollViewReader { proxy in
                         ScrollView {
                             VStack(spacing: 12) {
+                                // Cuộn lên gần đầu thì tự nạp tin cũ hơn (thay nút "Tải thêm tin nhắn cũ hơn")
                                 if currentSession.messages.count > visibleMessageCount {
-                                    Button(action: {
-                                        withAnimation {
-                                            visibleMessageCount += 20
-                                        }
-                                    }) {
-                                        HStack(spacing: 6) {
-                                            Image(systemName: "arrow.up.circle.fill")
-                                            Text("Tải thêm tin nhắn cũ hơn (\(currentSession.messages.count - visibleMessageCount) còn lại)")
-                                        }
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                        .padding(.vertical, 8)
-                                    }
+                                    olderMessagesSentinel(proxy: proxy)
                                 }
 
                                 // Badge nén ngữ cảnh nếu session đã compact
@@ -134,6 +127,9 @@ public struct ReaderAIFullScreenView: View {
                             .padding(.vertical, 12)
                         }
                         .defaultScrollAnchor(.bottom)
+                        .coordinateSpace(name: Self.chatScrollSpace)
+                        // Mở màn / đổi phiên ⇒ chờ lượt cuộn-xuống-cuối xong rồi mới cho tự nạp tin cũ.
+                        .task(id: currentSession.id) { await armOlderMessagesAutoLoad(proxy: proxy) }
                         .scrollDismissesKeyboard(.interactively)
                         .onChange(of: currentSession.messages.count) { _, _ in
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {

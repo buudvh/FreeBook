@@ -28,7 +28,7 @@ struct DictionaryListView: View {
     @State private var bookEntries: [DictEntry] = []
     @State private var isLoadingBook = false
     @State private var searchText = ""
-    @State private var visibleCount = 200
+    @State private var visibleCount = pageSize
     @State private var editingEntry: DictEntry? = nil
     @State private var showingAddSheet = false
     @State private var showingFileImporter = false
@@ -85,9 +85,12 @@ struct DictionaryListView: View {
         return "\(type.displayName) (\(scope))"
     }
 
+    /// Cuộn vô cực: mỗi lượt nạp thêm chừng này hàng; nạp sớm khi còn `prefetchDistance` hàng nữa tới cuối.
+    private static let pageSize = 200
+    private static let prefetchDistance = 50
+
     @ViewBuilder
     private var optionsMenuItems: some View {
-        SideDrawerActionRow("Thêm từ mới", systemImage: "plus") { showingAddSheet = true }
         SideDrawerActionRow("Nhập từ điển (\(type.displayName))", systemImage: "square.and.arrow.down") {
             showingFileImporter = true
         }
@@ -230,34 +233,31 @@ struct DictionaryListView: View {
     @ViewBuilder
     private var customEntriesView: some View {
         List {
+            // Tính MỘT lần mỗi lượt vẽ: lọc cả từ điển và dò mốc nạp sớm không chạy lại trong `onAppear` của từng hàng.
+            let matched = matchedEntries
+            let shown = Array(matched.prefix(visibleCount))
+            let hasMore = shown.count < matched.count
+            let prefetchId: DictEntry.ID? = shown.isEmpty ? nil : shown[max(0, shown.count - Self.prefetchDistance)].id
+            let lastId = shown.last?.id
+            // `max` + đích tính sẵn: hàng mốc và hàng cuối cùng hiện trong một lượt thì chỉ nạp thêm một trang.
+            let nextCount = shown.count + Self.pageSize
+
             // Stats section
             Section {
                 if searchText.isEmpty {
-                    if displayedEntries.count < allEntries.count {
-                        Text("Hiển thị \(displayedEntries.count)/\(allEntries.count) từ. Cuộn xuống để tải thêm.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    } else {
-                        Text("Tổng cộng \(allEntries.count) từ.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
+                    Text("Tổng cộng \(allEntries.count) từ.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 } else {
-                    if displayedEntries.count < matchedEntries.count {
-                        Text("Hiển thị \(displayedEntries.count)/\(matchedEntries.count) kết quả. Cuộn xuống để tải thêm.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    } else {
-                        Text("\(matchedEntries.count) kết quả cho \"\(searchText)\"")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
+                    Text("\(matched.count) kết quả cho \"\(searchText)\"")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
             }
 
             // Entries
             Section {
-                ForEach(displayedEntries) { entry in
+                ForEach(shown) { entry in
                     DictionaryEntryRow(
                         entry: entry,
                         isGlobalScope: isGlobal,
@@ -268,8 +268,9 @@ struct DictionaryListView: View {
                         onMissingContext: { reportMissingTransferContext() }
                     )
                     .onAppear {
-                        if entry.id == displayedEntries.last?.id && visibleCount < matchedEntries.count {
-                            visibleCount += 200
+                        // Cuộn vô cực: còn ~50 hàng nữa tới cuối thì nạp lượt kế; hàng cuối là lưới an toàn khi cuộn nhanh.
+                        if hasMore && (entry.id == prefetchId || entry.id == lastId) {
+                            visibleCount = max(visibleCount, nextCount)
                         }
                     }
                 }
@@ -279,7 +280,7 @@ struct DictionaryListView: View {
         }
         .searchable(text: $searchText, prompt: "Tìm từ...")
         .onChange(of: searchText) { _, _ in
-            visibleCount = 200
+            visibleCount = Self.pageSize
         }
         .overlay {
             if displayedEntries.isEmpty && !searchText.isEmpty {
@@ -307,6 +308,8 @@ struct DictionaryListView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        // Nút "+" nổi thay mục "Thêm từ mới" của ngăn kéo; chỉ tab Từ chỉnh sửa, tab Từ đã xoá không có.
+        .floatingAddButton("Thêm từ mới") { showingAddSheet = true }
     }
 
     @ViewBuilder

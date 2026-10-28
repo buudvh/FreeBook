@@ -61,7 +61,7 @@ struct TOCRulesConfigView: View {
                     Text("Chưa có quy tắc TOC nào")
                         .font(.headline)
                         .foregroundColor(.secondary)
-                    Text("Nhấn biểu tượng 3 chấm trên thanh công cụ để thêm hoặc khôi phục mặc định.")
+                    Text("Nhấn nút + ở góc dưới để thêm, hoặc biểu tượng 3 chấm trên thanh công cụ để khôi phục mặc định.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -81,19 +81,26 @@ struct TOCRulesConfigView: View {
                 .environment(\.editMode, isEditingMode ? .constant(.active) : .constant(.inactive))
             }
         }
+        // Lấp đầy màn để nút "+" nổi nằm góc dưới phải cả khi đang tải / danh sách rỗng (lúc đó không có `List`).
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .floatingAddButton("Thêm quy tắc") {
+            // Cùng điều kiện khoá nút "…" cũ: thêm lúc đang tải/lưu sẽ ghi đè bằng `rules` chưa đủ.
+            guard !(isLoading || isSaving || isImporting || isExporting) else { return }
+            prepareForAdd()
+        }
         .navigationTitle("Quy tắc TOC (Chương TXT)")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: { showingOptionsMenu = true }) {
                     Image(systemName: "ellipsis.circle")
-                        .font(.title3)
+                        .font(.system(size: 17, weight: .semibold))
                 }
+                .accessibilityLabel("Tùy chọn")
                 .disabled(isLoading || isSaving || isImporting || isExporting)
             }
         }
         .sideDrawerMenu(isPresented: $showingOptionsMenu, title: "Quy tắc TOC (Chương TXT)") {
-            SideDrawerActionRow("Thêm quy tắc mới", systemImage: "plus", action: prepareForAdd)
             SideDrawerActionRow(
                 isEditingMode ? "Hoàn tất sắp xếp" : "Sắp xếp quy tắc",
                 systemImage: isEditingMode ? "checkmark.circle" : "arrow.up.arrow.down"
@@ -172,68 +179,6 @@ struct TOCRulesConfigView: View {
         }
     }
 
-    // MARK: - Row View
-    @ViewBuilder
-    private func ruleRow(for rule: TOCRule) -> some View {
-        let isDefault = isDefaultRule(rule)
-        HStack(spacing: 12) {
-            Button(action: {
-                prepareForEdit(rule)
-            }) {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
-                        Text(rule.name)
-                            .font(.headline)
-                            .foregroundColor(rule.enabled ? .primary : .secondary)
-
-                        if isDefault {
-                            Text("Mặc định")
-                                .font(.caption2)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.white.opacity(0.12))
-                                .foregroundColor(.white)
-                                .cornerRadius(4)
-                        }
-                    }
-
-                    Text(rule.rule)
-                        .font(.subheadline)
-                        .foregroundColor(rule.enabled ? .secondary : Color.secondary.opacity(0.6))
-                        .lineLimit(2)
-
-                    if let ex = rule.example, !ex.isEmpty {
-                        Text("Ví dụ: \(ex)")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                            .italic()
-                            .lineLimit(1)
-                    }
-                }
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Quy tắc \(rule.name)")
-            .accessibilityHint("Nhấn hai lần để chỉnh sửa quy tắc này")
-
-            Spacer()
-
-            Toggle("", isOn: Binding(
-                get: { rule.enabled },
-                set: { newValue in
-                    var updated = rules
-                    if let idx = updated.firstIndex(where: { $0.id == rule.id }) {
-                        updated[idx].enabled = newValue
-                        onRulesChanged(updated)
-                    }
-                }
-            ))
-            .labelsHidden()
-            .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
-            .accessibilityLabel("Kích hoạt quy tắc \(rule.name)")
-            .accessibilityValue(rule.enabled ? "Đã bật" : "Đã tắt")
-        }
-    }
-
     // MARK: - Add / Edit Sheet
     @ViewBuilder
     private var addEditSheet: some View {
@@ -309,7 +254,8 @@ struct TOCRulesConfigView: View {
         debounceSaveTask = nil
     }
 
-    private func isDefaultRule(_ rule: TOCRule) -> Bool {
+    /// **Không** `private`: `ruleRow` ở `TOCRulesConfigView+Row.swift` gọi (Swift giới hạn `private` theo file).
+    func isDefaultRule(_ rule: TOCRule) -> Bool {
         defaultIDs.contains(rule.id)
     }
 
@@ -368,6 +314,21 @@ struct TOCRulesConfigView: View {
         onRulesChanged(updated)
     }
 
+    /// Icon Tắt/Bật của hàng — đúng logic `Binding.set` của `Toggle` cũ. Không `private`: gọi từ file `+Row`.
+    func setRuleEnabled(_ rule: TOCRule, _ enabled: Bool) {
+        var updated = rules
+        if let idx = updated.firstIndex(where: { $0.id == rule.id }) {
+            updated[idx].enabled = enabled
+            onRulesChanged(updated)
+        }
+    }
+
+    /// Icon Xoá của hàng: xoá theo `id`, đi đúng `deleteCustomRules` (rule mặc định bị bỏ qua). Gọi từ file `+Row`.
+    func deleteCustomRule(id: String) {
+        guard let index = rules.firstIndex(where: { $0.id == id }) else { return }
+        deleteCustomRules(at: IndexSet(integer: index))
+    }
+
     private func moveRules(from source: IndexSet, to destination: Int) {
         var updated = rules
         updated.move(fromOffsets: source, toOffset: destination)
@@ -383,7 +344,8 @@ struct TOCRulesConfigView: View {
         showingAddEditSheet = true
     }
 
-    private func prepareForEdit(_ rule: TOCRule) {
+    /// **Không** `private`: `ruleRow` ở file `+Row` gọi.
+    func prepareForEdit(_ rule: TOCRule) {
         editingRule = rule
         inputName = rule.name
         inputRule = rule.rule

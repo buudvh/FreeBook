@@ -105,22 +105,14 @@ struct SideDrawerMenuPanel<Content: View>: View {
         .accessibilityAction(.escape) { close(nil) }
     }
 
-    /// "Kính đục vừa" (1.3.633, mockup đã duyệt): nhoè **một phần** (`SideDrawerPartialBlurView`, 60% hiệu ứng) + lớp tối
-    /// 55% — bìa/chữ phía sau còn nhận ra được nhưng mềm đi, chữ menu vẫn nổi. Lịch sử: material đầy đủ + lớp tối
-    /// (84% → 55% → 38%, 1.3.622–626) nhoè nền Kệ đen thành mảng xám đều nên "chẳng trong suốt tí nào"; rồi bỏ nhoè, chỉ
-    /// lớp tối 62% → 80% (1.3.631–632). Nền tràn vào vùng an toàn (tai thỏ khi nằm ngang, thanh trạng thái, home
-    /// indicator); nới 1pt ra ngoài mép trên/dưới/phải để viền chỉ còn thấy ở cạnh trái.
+    /// Nền kính theo Cài đặt › Giao diện (`SideDrawerGlassBackground`, mặc định "kính đục vừa" của 1.3.633). Nền tràn
+    /// vào vùng an toàn (tai thỏ khi nằm ngang, thanh trạng thái, home indicator); nới 1pt ra ngoài mép trên/dưới/phải
+    /// để viền chỉ còn thấy ở cạnh trái.
     private var drawerBackground: some View {
-        let shape = UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: 16, style: .continuous)
-        return ZStack {
-            SideDrawerPartialBlurView(style: .systemUltraThinMaterialDark, intensity: 0.6)
-                .clipShape(shape)
-            shape.fill(Color(white: 0.16).opacity(0.55))
-            shape.stroke(Color.white.opacity(0.14), lineWidth: 0.5)
-        }
-        .padding(.vertical, -1)
-        .padding(.trailing, -1)
-        .ignoresSafeArea()
+        SideDrawerGlassBackground()
+            .padding(.vertical, -1)
+            .padding(.trailing, -1)
+            .ignoresSafeArea()
     }
 
     // MARK: - Đóng

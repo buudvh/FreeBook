@@ -34,10 +34,6 @@ struct TTSDictionaryEditView: View {
         }
     }
 
-    var filteredKeys: [String] {
-        return Array(matchedKeys.prefix(visibleCount))
-    }
-
     var body: some View {
         ZStack {
             VStack {
@@ -45,112 +41,7 @@ struct TTSDictionaryEditView: View {
                     ProgressView("Đang tải từ điển...")
                         .frame(maxHeight: .infinity)
                 } else {
-                    List {
-                        if !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-                           allWords[searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()] == nil {
-                            Section {
-                                Button(action: {
-                                    showingAddSheet = true
-                                }) {
-                                    HStack {
-                                        Image(systemName: "plus.circle.fill")
-                                            .foregroundColor(.white)
-                                            .font(.title3)
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text("Thêm mới phiên âm cho '\(searchText)'")
-                                                .font(.headline)
-                                                .foregroundColor(.primary)
-                                            let suggested = EnglishTransliterator.transliterateWord(searchText.trimmingCharacters(in: .whitespacesAndNewlines))
-                                            Text("Gợi ý: \(suggested)")
-                                                .font(.subheadline)
-                                                .foregroundColor(.secondary)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        if searchText.isEmpty {
-                            Section {
-                                if filteredKeys.count < sortedKeys.count {
-                                    Text("Hiển thị \(filteredKeys.count)/\(sortedKeys.count) từ. Cuộn xuống để tải thêm.")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                } else {
-                                    Text("Đã hiển thị toàn bộ \(sortedKeys.count) từ.")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                        } else {
-                            Section {
-                                if filteredKeys.count < matchedKeys.count {
-                                    Text("Hiển thị \(filteredKeys.count)/\(matchedKeys.count) từ kết quả. Cuộn xuống để tải thêm.")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                } else {
-                                    Text("Đã hiển thị toàn bộ \(matchedKeys.count) từ kết quả.")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                        }
-
-                        Section {
-                            ForEach(filteredKeys, id: \.self) { key in
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(key)
-                                            .font(.headline)
-                                            .foregroundStyle(.primary)
-                                        Text(allWords[key] ?? "")
-                                            .font(.subheadline)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    Spacer()
-                                    Image(systemName: "pencil")
-                                        .foregroundColor(.white)
-                                        .font(.subheadline)
-                                }
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    editingKey = key
-                                    editingValue = allWords[key] ?? ""
-                                }
-                                .swipeActions(edge: .trailing) {
-                                    Button(role: .destructive) {
-                                        deleteWord(key: key)
-                                    } label: {
-                                        Label("Xóa", systemImage: "trash")
-                                    }
-                                }
-                                .onAppear {
-                                    if key == filteredKeys.last && visibleCount < matchedKeys.count {
-                                        visibleCount += 100
-                                    }
-                                }
-                            }
-                        } header: {
-                            Text("Từ vựng (\(allWords.count) từ)")
-                        }
-                    }
-                    .searchable(text: $searchText, prompt: "Tìm từ...")
-                    .onChange(of: searchText) { oldValue, newValue in
-                        visibleCount = 100
-                    }
-                    .overlay {
-                        if filteredKeys.isEmpty && !searchText.isEmpty {
-                            VStack(spacing: 8) {
-                                Image(systemName: "magnifyingglass")
-                                    .font(.largeTitle)
-                                    .foregroundColor(.secondary)
-                                Text("Không tìm thấy kết quả cho \"\(searchText)\"")
-                                    .font(.headline)
-                                    .foregroundColor(.secondary)
-                            }
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        }
-                    }
+                    wordList
                 }
             }
             .navigationTitle("Sửa từ điển phiên âm NghiTTS")
@@ -161,11 +52,12 @@ struct TTSDictionaryEditView: View {
                         showingOptionsMenu = true
                     } label: {
                         Image(systemName: "ellipsis.circle")
+                            .font(.system(size: 17, weight: .semibold))
                     }
+                    .accessibilityLabel("Tùy chọn")
                 }
             }
             .sideDrawerMenu(isPresented: $showingOptionsMenu, title: "Từ điển phiên âm NghiTTS") {
-                SideDrawerActionRow("Thêm từ mới", systemImage: "plus") { showingAddSheet = true }
                 SideDrawerActionRow("Nhập từ điển", systemImage: "square.and.arrow.down") { showingFileImporter = true }
                 // Menu con "Xuất từ điển" cũ ⇒ một nhóm ba hàng, mỗi định dạng một hàng.
                 SideDrawerDivider()
@@ -246,6 +138,139 @@ struct TTSDictionaryEditView: View {
             }
         }
         .tint(.white)
+    }
+
+    /// Danh sách từ, nạp 100 từ/lượt. Lượt kế nạp **sớm** khi hàng còn cách cuối ~50 hàng xuất hiện; hàng cuối
+    /// là lưới an toàn khi cuộn nhanh. Khoá kích hoạt tính sẵn một lần mỗi lần vẽ — `onAppear` chỉ tra `Set`,
+    /// không lọc lại cả từ điển hay dò chỉ số O(n) như bản cũ.
+    @ViewBuilder
+    private var wordList: some View {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let matched = matchedKeys
+        let shown = Array(matched.prefix(visibleCount))
+        let nextLimit = visibleCount + 100
+        let loadMoreKeys: Set<String> = !shown.isEmpty && shown.count < matched.count
+            ? [shown[max(0, shown.count - 50)], shown[shown.count - 1]]
+            : []
+        let summary = query.isEmpty ? "Tổng cộng \(sortedKeys.count) từ." : "\(matched.count) kết quả cho \"\(query)\"."
+
+        List {
+            if !query.isEmpty && allWords[query.lowercased()] == nil {
+                Section {
+                    Button(action: {
+                        showingAddSheet = true
+                    }) {
+                        HStack {
+                            Image(systemName: "plus.circle.fill")
+                                .foregroundColor(.white)
+                                .font(.title3)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Thêm mới phiên âm cho '\(searchText)'")
+                                    .font(.headline)
+                                    .foregroundColor(.primary)
+                                let suggested = EnglishTransliterator.transliterateWord(query)
+                                Text("Gợi ý: \(suggested)")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+
+            Section {
+                Text(summary)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Section {
+                ForEach(shown, id: \.self) { key in
+                    wordRow(key)
+                        .onAppear {
+                            // `nextLimit` cố định theo lần vẽ ⇒ hàng sớm và hàng cuối cùng hiện cũng chỉ nạp 1 lượt.
+                            if loadMoreKeys.contains(key), visibleCount < nextLimit {
+                                visibleCount = nextLimit
+                            }
+                        }
+                }
+            } header: {
+                Text("Từ vựng (\(allWords.count) từ)")
+            }
+        }
+        .searchable(text: $searchText, prompt: "Tìm từ...")
+        .onChange(of: searchText) { oldValue, newValue in
+            visibleCount = 100
+        }
+        .overlay {
+            if shown.isEmpty && !searchText.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.largeTitle)
+                        .foregroundColor(.secondary)
+                    Text("Không tìm thấy kết quả cho \"\(searchText)\"")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        // "Thêm từ mới" là nút "+" nổi góc dưới phải (không còn trong ngăn kéo).
+        .floatingAddButton("Thêm từ mới") { showingAddSheet = true }
+    }
+
+    /// Hàng theo mẫu VP/Name: chữ (chạm để sửa) + icon `[Sửa] [Xoá]`; vẫn giữ vuốt để xoá. Chạm chỉ gắn vào
+    /// khối chữ — gắn cả hàng thì tranh chạm với icon.
+    private func wordRow(_ key: String) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(key)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                Text(allWords[key] ?? "")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture { beginEditing(key) }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+
+            HStack(spacing: 10) {
+                Button {
+                    beginEditing(key)
+                } label: {
+                    Image(systemName: "pencil")
+                        .foregroundColor(.white)
+                        .font(.subheadline)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Sửa từ \(key)")
+
+                Button {
+                    deleteWord(key: key)
+                } label: {
+                    Image(systemName: "trash")
+                        .foregroundColor(.red)
+                        .font(.subheadline)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Xoá từ \(key)")
+            }
+        }
+        .swipeActions(edge: .trailing) {
+            Button(role: .destructive) {
+                deleteWord(key: key)
+            } label: {
+                Label("Xóa", systemImage: "trash")
+            }
+        }
+    }
+
+    private func beginEditing(_ key: String) {
+        editingKey = key
+        editingValue = allWords[key] ?? ""
     }
 
     private func loadDictionary() async {

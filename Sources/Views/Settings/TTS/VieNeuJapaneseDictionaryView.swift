@@ -16,7 +16,7 @@ import UniformTypeIdentifiers
 ///
 /// ## Vì sao dùng lại `EditWordSheet` của màn NghiTTS
 /// Trần "1 type chính / file" của `check_architecture.py`: khai thêm một `struct` sửa-từ ở file này là một
-/// vi phạm mới. `EditWordSheet` (`TTSDictionaryEditView.swift:519`) đã `internal` nên dùng lại được.
+/// vi phạm mới. `EditWordSheet` (cuối `TTSDictionaryEditView.swift`) đã `internal` nên dùng lại được.
 struct VieNeuJapaneseDictionaryView: View {
     struct ExportDocument: Identifiable {
         var id: String { url.absoluteString }
@@ -44,10 +44,6 @@ struct VieNeuJapaneseDictionaryView: View {
         return sortedKeys.filter { $0.contains(query) }
     }
 
-    private var filteredKeys: [String] {
-        Array(matchedKeys.prefix(visibleCount))
-    }
-
     var body: some View {
         ZStack {
             VStack {
@@ -64,12 +60,14 @@ struct VieNeuJapaneseDictionaryView: View {
         .tint(.white)
         .searchable(text: $searchText, prompt: "Tìm từ")
         .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
+            ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     showingOptionsMenu = true
                 } label: {
                     Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 17, weight: .semibold))
                 }
+                .accessibilityLabel("Tùy chọn")
             }
         }
         .sideDrawerMenu(isPresented: $showingOptionsMenu, title: "Từ điển phiên âm VieNeu-TTS") {
@@ -166,51 +164,61 @@ struct VieNeuJapaneseDictionaryView: View {
 
     // MARK: - Danh sách
 
+    /// Nạp 100 từ/lượt, cuộn vô cực: lượt kế nạp **sớm** khi hàng còn cách cuối ~50 hàng xuất hiện; hàng cuối là
+    /// lưới an toàn khi cuộn nhanh. Khoá kích hoạt tính sẵn một lần mỗi lần vẽ — `onAppear` chỉ tra `Set`.
     @ViewBuilder
     private var listContent: some View {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let matched = matchedKeys
+        let shown = Array(matched.prefix(visibleCount))
+        let nextLimit = visibleCount + 100
+        let loadMoreKeys: Set<String> = !shown.isEmpty && shown.count < matched.count
+            ? [shown[max(0, shown.count - 50)], shown[shown.count - 1]]
+            : []
+
         List {
             statusSection
 
             if allWords.isEmpty {
                 Section {
-                    Text("Chưa có từ nào. Bấm **Tải từ điển từ HuggingFace** ở góc trên, hoặc bấm “Thêm từ mới”.")
+                    Text("Chưa có từ nào. Mở **…** ở góc trên, chọn **Tải từ điển từ HuggingFace**, hoặc bấm nút **+** ở góc dưới để thêm từ.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             } else {
                 Section {
-                    if !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                       allWords[searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()] == nil {
+                    if !query.isEmpty, allWords[query.lowercased()] == nil {
                         Button {
                             showingAddSheet = true
                         } label: {
                             Label("Thêm mới phiên âm cho '\(searchText)'", systemImage: "plus.circle.fill")
                         }
                     }
-                    ForEach(filteredKeys, id: \.self) { key in
+                    ForEach(shown, id: \.self) { key in
                         row(key: key)
-                    }
-                    if filteredKeys.count < matchedKeys.count {
-                        Button("Hiển thị thêm 100 từ (\(filteredKeys.count)/\(matchedKeys.count))") {
-                            visibleCount += 100
-                        }
-                        .font(.footnote)
+                            .onAppear {
+                                // `nextLimit` cố định theo lần vẽ ⇒ hàng sớm và hàng cuối cùng hiện cũng chỉ nạp 1 lượt.
+                                if loadMoreKeys.contains(key), visibleCount < nextLimit {
+                                    visibleCount = nextLimit
+                                }
+                            }
                     }
                 } header: {
                     Text("Từ vựng (\(allWords.count) từ)")
                 } footer: {
-                    Text("Khoá được lưu ở dạng **đã gấp dấu phụ** (`otōto` → `ototo`) — đúng cách app tra lúc đọc. Bấm một dòng để sửa cách đọc; vuốt để xoá.")
+                    Text("Khoá được lưu ở dạng **đã gấp dấu phụ** (`otōto` → `ototo`) — đúng cách app tra lúc đọc. Bấm một dòng hoặc icon bút để sửa cách đọc; icon thùng rác hoặc vuốt để xoá.")
                 }
             }
         }
+        .onChange(of: searchText) { _, _ in visibleCount = 100 }
+        // "Thêm từ" là nút "+" nổi góc dưới phải.
+        .floatingAddButton("Thêm từ") { showingAddSheet = true }
     }
 
-    @ViewBuilder
+    /// Hàng theo mẫu VP/Name: chữ (chạm để sửa) + icon `[Sửa] [Xoá]`. Hàng **không** còn bọc `Button` ngoài —
+    /// nút lồng nút thì icon không bấm riêng được; chạm chỉ gắn vào khối chữ.
     private func row(key: String) -> some View {
-        Button {
-            editingKey = key
-            editingValue = allWords[key] ?? ""
-        } label: {
+        HStack {
             // Hai dòng, cùng cỡ chữ với hàng VP/Name (`DictionaryEntryRow`).
             VStack(alignment: .leading, spacing: 4) {
                 Text(key)
@@ -222,6 +230,31 @@ struct VieNeuJapaneseDictionaryView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
+            .onTapGesture { beginEditing(key) }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+
+            HStack(spacing: 10) {
+                Button {
+                    beginEditing(key)
+                } label: {
+                    Image(systemName: "pencil")
+                        .foregroundColor(.white)
+                        .font(.subheadline)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Sửa từ \(key)")
+
+                Button {
+                    deleteWord(key)
+                } label: {
+                    Image(systemName: "trash")
+                        .foregroundColor(.red)
+                        .font(.subheadline)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Xoá từ \(key)")
+            }
         }
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) {
@@ -230,6 +263,11 @@ struct VieNeuJapaneseDictionaryView: View {
                 Label("Xoá", systemImage: "trash")
             }
         }
+    }
+
+    private func beginEditing(_ key: String) {
+        editingKey = key
+        editingValue = allWords[key] ?? ""
     }
 
     // MARK: - Hành động

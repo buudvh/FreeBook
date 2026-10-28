@@ -235,11 +235,9 @@ extension ReaderView {
             }
         )
         .accessibilityLabel(isTTSPlayingThisBook ? "Dừng đọc thành tiếng" : "Đọc thành tiếng")
-        .padding(8)
-        .background(.ultraThinMaterial, in: Circle())
-        .shadow(color: Color.black.opacity(0.18), radius: 12, x: 0, y: 4)
-        .padding(.trailing, 8)
-        .padding(.bottom, 12)
+        // Tâm nút giữ đúng chỗ cũ (nút cũ 60pt = 44pt + đệm kính 8pt, lề phải 8 / dưới 12).
+        .padding(.trailing, 12)
+        .padding(.bottom, 16)
     }
 
     /// TTS đang **tạm dừng** truyện này và đoạn đang dừng vẫn nằm trong vùng an toàn của màn hình (cùng điều kiện
@@ -259,14 +257,15 @@ extension ReaderView {
         )
     }
 
+    /// Nút tròn 52pt nền kính theo Cài đặt › Giao diện (1.3.636) — cùng kiểu với nút "+" nổi của màn danh sách.
     internal func readerEdgeButton(icon: String, tint: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundColor(tint)
-                .frame(width: 44, height: 44)
-                .background(Color.black.opacity(selectedTheme == .dark ? 0.34 : 0.12))
-                .clipShape(Circle())
+                .frame(width: 52, height: 52)
+                .background { FloatingGlassBackground(isDark: selectedTheme == .dark, outline: tint) }
+                .contentShape(Circle())
         }
     }
 

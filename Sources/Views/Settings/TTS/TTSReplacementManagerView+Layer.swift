@@ -111,34 +111,15 @@ extension TTSReplacementManagerView {
         }
     }
 
+    /// Hàng theo mẫu VP/Name (`QuickTranslationRuleEntryRow`): chữ + icon `[Sửa] [Chuyển] [Tắt|Bật] [Xoá]`
+    /// (Chuyển chỉ có ở tầng riêng). Hàng **không** bọc `Button` ngoài — nút lồng nút thì icon không bấm riêng được.
     @ViewBuilder
     func ruleRow(for rule: TTSReplacementRule) -> some View {
         HStack(spacing: 12) {
             ruleText(for: rule)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer()
-            
-            Toggle("", isOn: Binding(
-                get: { rule.isEnabled },
-                set: { newValue in
-                    var updated = rule
-                    updated.isEnabled = newValue
-                    manager.updateRule(updated, bookId: bookId)
-                }
-            ))
-            .labelsHidden()
-            .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
-            
-            // Nút nhấn để sửa
-            Button(action: {
-                prepareForEdit(rule)
-            }) {
-                Image(systemName: "pencil")
-                    .foregroundColor(.white)
-                    .font(.subheadline)
-                    .padding(8)
-            }
-            .buttonStyle(.plain)
+            ruleActionIcons(for: rule)
         }
         .contentShape(Rectangle())
         // Chỉ ở màn tầng riêng: đẩy rule này lên tầng chung. Chiều ngược lại cần chọn truyện nên nằm ở
@@ -151,6 +132,56 @@ extension TTSReplacementManagerView {
                     Label("Sang chung", systemImage: "arrow.up.to.line")
                 }
             }
+        }
+    }
+
+    /// Cụm icon của hàng: Tắt/Bật ghi qua `updateRule` y như `Toggle` cũ; Xoá theo `id` (không theo vị trí,
+    /// vì lúc đang tìm thứ tự hiện ra không phải thứ tự trong tầng).
+    private func ruleActionIcons(for rule: TTSReplacementRule) -> some View {
+        HStack(spacing: 10) {
+            Button {
+                prepareForEdit(rule)
+            } label: {
+                Image(systemName: "pencil")
+                    .foregroundColor(.white)
+                    .font(.subheadline)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Sửa quy tắc \"\(rule.pattern)\"")
+
+            if isBookLayer {
+                Button {
+                    transferToOtherLayer(rule)
+                } label: {
+                    Image(systemName: "arrow.left.arrow.right")
+                        .foregroundColor(.white)
+                        .font(.subheadline)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Chuyển quy tắc \"\(rule.pattern)\" sang tầng chung")
+            }
+
+            Button {
+                var updated = rule
+                updated.isEnabled.toggle()
+                manager.updateRule(updated, bookId: bookId)
+            } label: {
+                Image(systemName: rule.isEnabled ? "pause.circle" : "play.circle")
+                    .foregroundColor(rule.isEnabled ? .orange : .green)
+                    .font(.subheadline)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(rule.isEnabled ? "Tắt quy tắc \"\(rule.pattern)\"" : "Bật quy tắc \"\(rule.pattern)\"")
+
+            Button {
+                deleteRuleLayer(rule.id)
+            } label: {
+                Image(systemName: "trash")
+                    .foregroundColor(.red)
+                    .font(.subheadline)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Xoá quy tắc \"\(rule.pattern)\"")
         }
     }
 }

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Cài đặt → Chung → **Bàn phím & ô nhập**: chọn có tự tắt bàn phím khi chạm ra ngoài ô nhập hay không. Cùng tuỳ chọn
+/// Cài đặt → Chung → Giao diện → **Bàn phím & ô nhập**: chọn có tự tắt bàn phím khi chạm ra ngoài ô nhập hay không. Cùng tuỳ chọn
 /// với menu khi **giữ** nút đóng bàn phím ở thanh công cụ trên bàn phím; ghi qua `KeyboardDismissPreference` để có
 /// hiệu lực ngay.
 struct KeyboardSettingsView: View {

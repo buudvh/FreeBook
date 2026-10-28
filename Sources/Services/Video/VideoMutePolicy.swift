@@ -1,6 +1,6 @@
 import Foundation
 
-/// Tuỳ chọn "Tắt tiếng khi mở phim" (Cài đặt › Thư Viện › Nội dung nhạy cảm). Chỉ áp lúc **mở một phim mới**
+/// Tuỳ chọn "Tắt tiếng khi mở phim" (Cài đặt › Chung › Giao diện › Nội dung nhạy cảm). Chỉ áp lúc **mở một phim mới**
 /// (`VideoPlaybackSession.open` với phim khác phim đang chạy); mở lại trình phát đang thu nhỏ (hub, PiP) hay đổi tập
 /// giữ nguyên trạng thái tiếng hiện tại (`AVPlayer.isMuted` gắn với player).
 ///

@@ -32,6 +32,7 @@ struct BookDetailTOCView: View {
     /// `BookDetailView` (có closure nên không bỏ qua được): lọc `localizedStandardContains` hàng nghìn
     /// chương ở mỗi lần vẽ là việc thừa — chỉ tính lại khi query/chiều/mục lục đổi.
     @State private var visibleSnapshots: [StoredChapterSnapshot] = []
+    @State var didAutoLoadMoreChapters = false // `+AutoLoad`: tự tải trang mục lục còn lại tối đa một lần
 
     var body: some View {
         Group {
@@ -74,7 +75,8 @@ struct BookDetailTOCView: View {
             },
             onSelect: { onStartReading($0) },
             onReload: onLoadTOCDataOnly,
-            onLoadMore: onLoadMoreChapters
+            onLoadMore: onLoadMoreChapters,
+            onReachEnd: autoLoadMoreChaptersIfNeeded
         )
     }
 
@@ -330,6 +332,7 @@ struct BookDetailTOCView: View {
                                 .padding(.horizontal)
                                 .padding(.top, 10)
                             }
+                            .onAppear(perform: autoLoadMoreChaptersIfNeeded) // nằm trong `LazyVStack` ⇒ chỉ khi cuộn tới cuối
                         }
                     }
                 }

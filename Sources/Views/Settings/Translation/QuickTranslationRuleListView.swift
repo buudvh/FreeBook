@@ -35,6 +35,8 @@ struct QuickTranslationRuleListView: View {
     @State private var showingShareAll = false
 
     private static let pageSize = 200
+    /// Cuộn vô cực: nạp trang kế khi còn chừng này hàng nữa tới cuối.
+    private static let prefetchDistance = 50
 
     private struct DisplayRule: Identifiable {
         let rule: QuickTranslationCompiledRule
@@ -103,10 +105,6 @@ struct QuickTranslationRuleListView: View {
         }
     }
 
-    private var visibleRows: [DisplayRule] {
-        Array(filteredRows.reversed().prefix(visibleLimit))
-    }
-
     private var enabledCount: Int {
         let disabled = disabledPatterns
         return ruleRows.filter { !disabled.contains($0.rule.pattern) }.count
@@ -122,18 +120,13 @@ struct QuickTranslationRuleListView: View {
             rulesSection
         }
         .listStyle(.plain)
+        // Nút "+" nổi thay nút "+" trên header — header chỉ còn nút quay lại và "…" (`quickTranslationRuleIOMenu`).
+        .floatingAddButton("Thêm rule") {
+            editorMode = .add(prefilledPattern: "", prefilledReplacement: "")
+        }
         .searchable(text: $searchText, prompt: "Tìm mẫu, bản dịch hoặc số dòng...")
         .navigationTitle(scope.isGlobal ? "Rule chung" : "Rule riêng truyện")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItemGroup(placement: .navigationBarTrailing) {
-                Button {
-                    editorMode = .add(prefilledPattern: "", prefilledReplacement: "")
-                } label: {
-                    Image(systemName: "plus")
-                }
-            }
-        }
         .quickTranslationRuleIOMenu(
             scope: scope,
             showingDisabled: showingDisabled,
@@ -203,11 +196,6 @@ struct QuickTranslationRuleListView: View {
                     .font(.footnote)
                     .foregroundColor(.secondary)
                 Spacer()
-                if filteredRows.count > visibleRows.count {
-                    Text("hiện \(visibleRows.count)")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
             }
         } footer: {
             // Hai `Text` literal riêng chứ không phải một ternary: SwiftUI chỉ parse markdown cho
@@ -224,6 +212,13 @@ struct QuickTranslationRuleListView: View {
 
     @ViewBuilder
     private var rulesSection: some View {
+        // Tính MỘT lần mỗi lượt vẽ (lọc + đảo chiều là O(n)); `onAppear` của hàng chỉ so id với mốc tính sẵn.
+        let filtered = filteredRows
+        let rows = Array(filtered.reversed().prefix(visibleLimit))
+        let hasMore = rows.count < filtered.count
+        let prefetchId: DisplayRule.ID? = rows.isEmpty ? nil : rows[max(0, rows.count - Self.prefetchDistance)].id
+        let lastId = rows.last?.id
+        let nextLimit = rows.count + Self.pageSize
         Section {
             if ruleRows.isEmpty {
                 Text(scope.isGlobal
@@ -231,7 +226,7 @@ struct QuickTranslationRuleListView: View {
                      : "Truyện này chưa có rule riêng. Bấm + để thêm, hoặc dùng nút Chuyển ở danh sách rule chung.")
                     .font(.footnote)
                     .foregroundColor(.secondary)
-            } else if visibleRows.isEmpty {
+            } else if rows.isEmpty {
                 Text(searchText.isEmpty
                      ? (showingDisabled ? "Chưa tắt rule nào ở phạm vi này." : "Mọi rule ở phạm vi này đang bị tắt.")
                      : "Không có rule nào khớp \"\(searchText)\".")
@@ -239,15 +234,15 @@ struct QuickTranslationRuleListView: View {
                     .foregroundColor(.secondary)
             }
 
-            ForEach(visibleRows) { row in
+            ForEach(rows) { row in
                 ruleRow(row)
-            }
-
-            if filteredRows.count > visibleRows.count {
-                Button("Xem thêm \(min(Self.pageSize, filteredRows.count - visibleRows.count)) rule") {
-                    visibleLimit += Self.pageSize
-                }
-                .font(.subheadline)
+                    .onAppear {
+                        // Cuộn vô cực: còn ~50 hàng nữa tới cuối thì nạp trang kế; hàng cuối là lưới an toàn khi cuộn nhanh.
+                        // `max` + đích tính sẵn ⇒ hai hàng cùng hiện trong một lượt chỉ nạp thêm một trang.
+                        if hasMore && (row.id == prefetchId || row.id == lastId) {
+                            visibleLimit = max(visibleLimit, nextLimit)
+                        }
+                    }
             }
         }
     }

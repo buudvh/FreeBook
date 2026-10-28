@@ -119,6 +119,8 @@ struct TTSReplacementManagerView: View {
             // Chỉ có nội dung ở màn tầng riêng: danh sách rule chung để "Lấy vào riêng".
             globalRulesSection
         }
+        // "Thêm quy tắc" là nút "+" nổi góc dưới phải (không còn trong ngăn kéo).
+        .floatingAddButton("Thêm quy tắc") { prepareForAdd() }
         .searchable(text: $searchText, prompt: "Tìm mẫu hoặc chuỗi thay thế...")
         .environment(\.editMode, $editMode)
         .onChange(of: isSearching) { _, searching in
@@ -130,19 +132,20 @@ struct TTSReplacementManagerView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button(action: { showingOptionsMenu = true }) {
-                    Label("Tùy chọn", systemImage: "ellipsis.circle")
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 17, weight: .semibold))
                 }
+                .accessibilityLabel("Tùy chọn")
             }
         }
         .sideDrawerMenu(isPresented: $showingOptionsMenu, title: layerTitle) {
-            SideDrawerActionRow("Thêm quy tắc", systemImage: "plus") { prepareForAdd() }
             if !isSearching {
                 SideDrawerActionRow(
                     editMode == .active ? "Xong sắp xếp" : "Sắp xếp lại",
                     systemImage: editMode == .active ? "checkmark" : "arrow.up.arrow.down"
                 ) { toggleReordering() }
+                SideDrawerDivider()
             }
-            SideDrawerDivider()
             SideDrawerActionRow("Nhập cấu hình (JSON)", systemImage: "square.and.arrow.down") { showingFileImporter = true }
             SideDrawerActionRow("Xuất cấu hình (JSON)", systemImage: "square.and.arrow.up") { exportRules() }
             // Tầng riêng không có bộ mặc định (bộ mặc định là của tầng chung) nên ẩn hẳn mục này.

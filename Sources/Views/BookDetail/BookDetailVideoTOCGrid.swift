@@ -49,6 +49,9 @@ struct BookDetailVideoTOCGrid: View {
     let onSelect: (Int) -> Void
     let onReload: () -> Void
     let onLoadMore: () -> Void
+    /// Ô cuối của tab đang mở xuất hiện khi còn trang chưa nạp — màn cha quyết định có tự tải hay không
+    /// (`BookDetailTOCView+AutoLoad`). Nút "Tải thêm" vẫn giữ làm nút thử lại thủ công.
+    var onReachEnd: () -> Void = {}
 
     @State private var isSearchVisible = false
     @State var selectedGroup = 0
@@ -257,8 +260,12 @@ struct BookDetailVideoTOCGrid: View {
                     Color.clear.frame(height: 0).id("grid-top")
 
                     LazyVGrid(columns: columns, spacing: Self.spacing) {
+                        // Mốc "cuộn tới cuối" là ô cuối trong `LazyVGrid` (chỉ dựng khi cuộn gần tới), không phải
+                        // `loadMoreButton`: nút nằm trong `VStack` thường nên `onAppear` của nó chạy ngay lúc mở tab.
+                        let lastRowId = remainingPages > 0 ? visibleRows.last?.id : nil
                         ForEach(Array(visibleRows.enumerated()), id: \.element.id) { offset, row in
                             cell(row, number: displayNumber(for: offset))
+                                .onAppear { if row.id == lastRowId { onReachEnd() } }
                         }
                     }
                     .padding(.horizontal, 16)

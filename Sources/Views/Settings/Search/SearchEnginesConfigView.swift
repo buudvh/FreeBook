@@ -29,54 +29,30 @@ struct SearchEnginesConfigView: View {
         List {
             Section(footer: Text("Sử dụng ký tự %s trong mẫu URL để đại diện cho từ chữ Hán được bôi đen.")) {
                 ForEach(engines) { engine in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(engine.name)
-                            .font(.headline)
-                        Text(engine.urlTemplate)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .lineLimit(2)
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        editingEngine = engine
-                        inputName = engine.name
-                        inputTemplate = engine.urlTemplate
-                        showingAddEditSheet = true
-                    }
+                    engineRow(engine)
                 }
                 .onDelete(perform: deleteEngine)
             }
-            
-            Section {
-                Button(action: {
-                    editingEngine = nil
-                    inputName = ""
-                    inputTemplate = ""
-                    showingAddEditSheet = true
-                }) {
-                    Label("Thêm công cụ mới", systemImage: "plus")
-                }
-                
-                Button(action: restoreDefaults) {
-                    Label("Khôi phục mặc định", systemImage: "arrow.counterclockwise")
-                }
-                .foregroundColor(.red)
-            }
         }
+        // "Thêm công cụ mới" là nút "+" nổi góc dưới phải (trước đây là hàng cuối danh sách).
+        .floatingAddButton("Thêm công cụ") { prepareForAdd() }
         .navigationTitle("Công cụ tra cứu nhanh")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: { showingOptionsMenu = true }) {
                     Image(systemName: "ellipsis.circle")
-                        .font(.title3)
+                        .font(.system(size: 17, weight: .semibold))
                 }
+                .accessibilityLabel("Tùy chọn")
             }
         }
         .sideDrawerMenu(isPresented: $showingOptionsMenu, title: "Công cụ tra cứu nhanh") {
             SideDrawerActionRow("Nhập cấu hình JSON", systemImage: "square.and.arrow.down") { showingFileImporter = true }
             SideDrawerActionRow("Xuất cấu hình JSON", systemImage: "square.and.arrow.up", action: exportEngines)
+            // "Khôi phục mặc định" chuyển từ cuối danh sách vào ngăn kéo, cùng chỗ với các màn cấu hình khác.
+            SideDrawerDivider()
+            SideDrawerActionRow("Khôi phục mặc định", systemImage: "arrow.counterclockwise", role: .destructive, action: restoreDefaults)
         }
         .onAppear(perform: loadEngines)
         .sheet(isPresented: $showingAddEditSheet) {
@@ -147,15 +123,77 @@ struct SearchEnginesConfigView: View {
         }
     }
     
+    /// Hàng theo mẫu VP/Name: chữ (chạm để sửa) + icon `[Sửa] [Xoá]`; vẫn giữ vuốt để xoá. Chạm chỉ gắn vào
+    /// khối chữ — gắn cả hàng thì tranh chạm với icon.
+    private func engineRow(_ engine: SearchEngine) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(engine.name)
+                    .font(.headline)
+                Text(engine.urlTemplate)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture { prepareForEdit(engine) }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+
+            HStack(spacing: 10) {
+                Button {
+                    prepareForEdit(engine)
+                } label: {
+                    Image(systemName: "pencil")
+                        .foregroundColor(.white)
+                        .font(.subheadline)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Sửa công cụ \(engine.name)")
+
+                Button {
+                    removeEngine(id: engine.id)
+                } label: {
+                    Image(systemName: "trash")
+                        .foregroundColor(.red)
+                        .font(.subheadline)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Xoá công cụ \(engine.name)")
+            }
+        }
+    }
+
+    private func prepareForAdd() {
+        editingEngine = nil
+        inputName = ""
+        inputTemplate = ""
+        showingAddEditSheet = true
+    }
+
+    private func prepareForEdit(_ engine: SearchEngine) {
+        editingEngine = engine
+        inputName = engine.name
+        inputTemplate = engine.urlTemplate
+        showingAddEditSheet = true
+    }
+
     private func loadEngines() {
         engines = SearchEngine.loadEngines()
     }
-    
+
     private func deleteEngine(at offsets: IndexSet) {
         engines.remove(atOffsets: offsets)
         SearchEngine.saveEngines(engines)
     }
-    
+
+    /// Xoá theo `id` cho icon thùng rác — đổi sang vị trí rồi đi đúng đường lưu của `deleteEngine(at:)`.
+    private func removeEngine(id: UUID) {
+        guard let index = engines.firstIndex(where: { $0.id == id }) else { return }
+        deleteEngine(at: IndexSet(integer: index))
+    }
+
     private func restoreDefaults() {
         engines = SearchEngine.defaults
         SearchEngine.saveEngines(engines)
