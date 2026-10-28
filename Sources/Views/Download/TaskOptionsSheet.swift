@@ -1,6 +1,14 @@
 import SwiftUI
 import SwiftData
 
+/// Sheet tuỳ chọn của tác vụ tải / xuất truyện — mở từ Kệ, Lịch sử, Chi tiết, tab Tải, danh sách chương Reader/comic và
+/// trình phát video.
+///
+/// 1.3.624:
+/// - Mở nửa màn, vuốt lên được toàn màn.
+/// - Đoạn giải thích chuyển vào nút "?" ở tiêu đề từng mục (`TaskOptionsSheet+Help`).
+/// - Chọn chương bắt đầu từ mục lục đã dịch, nạp ngầm (`TaskOptionsSheet+StartChapter`).
+/// - Nghỉ giữa các lần tải và số luồng, nhớ theo nguồn (`TaskOptionsSheet+Speed`).
 struct TaskOptionsSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -8,83 +16,68 @@ struct TaskOptionsSheet: View {
     let book: Book
     let taskType: TaskType
 
-    @State private var startFromCurrentChapter = true
+    @State internal var startChoice: StartChoice = .current
+    /// `index` của chương tự chọn ở "Chọn chương…" — chỉ có nghĩa khi `startChoice == .custom`.
+    @State internal var customStartIndex: Int? = nil
     @State private var limitOption: ChapterLimitOption = .all
     /// Số chương của mốc "Tuỳ chọn" — chỉ có nghĩa khi `limitOption == .custom`.
     @State private var customLimit: Int = 100
     @State private var translateContent = false
-    @State private var onlyExportCached = false
+    @State internal var onlyExportCached = false
     @State private var displayInShelf = true
     /// Định dạng bản xuất. `taskType` chỉ quyết định đây là tác vụ tải hay xuất; định dạng do người dùng
     /// chọn ở sheet này và được ghi bền qua `BookExportFormat.taskType`.
-    @State private var exportFormat: BookExportFormat = .txt
+    @State internal var exportFormat: BookExportFormat = .txt
     /// Số chương đã có cache / tổng số chương — để người dùng biết trước bản xuất offline sẽ thiếu bao nhiêu.
-    @State private var cachedChapterCount: Int? = nil
-    @State private var totalChapterCount: Int? = nil
+    @State internal var cachedChapterCount: Int? = nil
+    @State internal var totalChapterCount: Int? = nil
+    /// Mục lục đã nạp (`nil` = đang nạp). `.task` của màn gốc chạy lại mỗi lần quay về từ "Chọn chương…".
+    @State internal var tocChapters: [StoredChapterSnapshot]? = nil
+    /// Danh sách cho màn chọn chương, tên đã dịch (`nil` = đang nạp/dịch).
+    @State internal var pickerChapters: [AINameScanChapter]? = nil
+    /// Nghỉ giữa các lần tải + số luồng của nguồn; ghi lại khi bấm "Bắt đầu".
+    @State internal var speed: DownloadSpeedSettings
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     /// Chất lượng tải video — lựa chọn chung, tác vụ đọc lúc chạy (`VideoDownloadQuality`).
     @AppStorage(VideoDownloadQuality.defaultsKey) private var videoQuality: VideoDownloadQuality = VideoDownloadQuality.defaultValue
     /// Tải phim (`DownloadManager+Video`): đổi nhãn "chương" → "tập" và có thêm dòng Chất lượng.
-    private let isVideo: Bool
+    internal let isVideo: Bool
+    /// Truyện tranh/video: mục lục bỏ dòng tiêu đề nhóm, không có chọn số luồng.
+    internal let isMediaBook: Bool
+    /// Chỉ truyện chữ của tiện ích JS được chọn số luồng (Legado luôn 1 luồng — `DownloadManager+ChapterLanes`).
+    internal let supportsLanes: Bool
 
     init(book: Book, taskType: TaskType, defaultOnlyExportCached: Bool = false) {
         self.book = book
         self.taskType = taskType
-        self.isVideo = !taskType.isExport && ExtensionContentKind.resolve(packageId: book.extensionPackageId) == .video
+        let kind = ExtensionContentKind.resolve(packageId: book.extensionPackageId)
+        self.isVideo = !taskType.isExport && kind == .video
+        self.isMediaBook = kind.isMedia
+        let isLegado = ExtensionLibraryRepository.snapshot(packageId: book.extensionPackageId)
+            .map { SourceRuntime.shared.isLegado(localPath: $0.localPath) } ?? false
+        self.supportsLanes = !kind.isMedia && !isLegado
         self._onlyExportCached = State(initialValue: defaultOnlyExportCached)
         self._exportFormat = State(initialValue: taskType.exportFormat ?? .txt)
+        self._speed = State(initialValue: DownloadSpeedSettings.load(packageId: book.extensionPackageId))
     }
 
-    private var unitNoun: String { isVideo ? "tập" : "chương" }
+    internal var unitNoun: String { isVideo ? "tập" : "chương" }
 
     private var sheetTitle: String { isVideo ? "Tải video" : effectiveTaskType.rawValue }
 
     /// Tác vụ này có tạo file hay chỉ tải cache.
-    private var isExport: Bool { taskType.isExport }
+    internal var isExport: Bool { taskType.isExport }
 
     /// Loại tác vụ thật sự được đưa vào hàng đợi — với tác vụ xuất, nó theo định dạng đang chọn.
     private var effectiveTaskType: TaskType {
         return isExport ? exportFormat.taskType : taskType
     }
-    
+
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    HStack(spacing: 16) {
-                        BookCoverView(bookId: book.bookId, coverUrl: book.coverUrl, width: 60, height: 84, host: book.host, extensionPackageId: book.extensionPackageId)
-                            .cornerRadius(6)
-                            .shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 2)
-                        
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(displayedBookTitle)
-                                .font(.headline)
-                                .lineLimit(2)
-                            
-                            if !displayedAuthor.isEmpty {
-                                HStack(spacing: 5) {
-                                    Image(systemName: "person.fill")
-                                        .font(.caption)
-                                    Text(displayedAuthor)
-                                        .lineLimit(1)
-                                }
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            }
+                bookInfoSection
 
-                            Text("\(book.sourceName)")
-                                .font(.caption)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(Color.secondary.opacity(0.12))
-                                .cornerRadius(4)
-                        }
-                    }
-                    .padding(.vertical, 4)
-                } header: {
-                    Text(isVideo ? "Thông tin phim" : "Thông tin truyện")
-                }
-                
                 if isExport {
                     Section {
                         Picker("Định dạng", selection: $exportFormat) {
@@ -94,72 +87,22 @@ struct TaskOptionsSheet: View {
                         }
                         .pickerStyle(.menu)
                     } header: {
-                        Text("Định dạng bản xuất")
-                    } footer: {
-                        Text(exportFormat.summary)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                        helpHeader("Định dạng bản xuất", paragraphs: [LocalizedStringKey(exportFormat.summary)])
                     }
                 }
 
-                Section {
-                    Toggle(isVideo ? "Tải từ tập đang xem" : "Tải từ chương đang đọc", isOn: $startFromCurrentChapter)
-                        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
+                startChapterSection
 
-                    ChapterLimitPicker.optionPicker(option: $limitOption, noun: unitNoun)
+                taskOptionsSection
 
-                    if limitOption == ChapterLimitOption.custom {
-                        ChapterLimitPicker.customRow(customLimit: $customLimit, noun: unitNoun)
-                    }
-
-                    if isVideo {
-                        Picker("Chất lượng", selection: $videoQuality) {
-                            ForEach(VideoDownloadQuality.allCases) { quality in
-                                Text(quality.title).tag(quality)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                    }
-
-                    if isExport {
-                        Toggle("Chỉ xuất chương đã tải", isOn: $onlyExportCached)
-                            .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
-
-                        Toggle("Dịch nội dung", isOn: $translateContent)
-                            .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
-
-                        if let cachedPreview {
-                            Text(cachedPreview)
-                                .font(.caption)
-                                .foregroundColor(onlyExportCached && (totalChapterCount ?? 0) > (cachedChapterCount ?? 0) ? .orange : .secondary)
-                        }
-                    }
-
-                    Toggle("Hiển thị trong Kệ sách", isOn: $displayInShelf)
-                        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
-                } header: {
-                    Text("Tùy chọn tác vụ")
-                } footer: {
-                    if isExport {
-                        Text("Nếu bật 'Dịch nội dung', các chương sẽ được dịch tự động bằng Quick Translator trước khi ghi vào file.\nNếu bật 'Chỉ xuất chương đã tải', quá trình xuất sẽ chạy offline và chỉ lấy các chương đã có cache — bản xuất sẽ thiếu những chương chưa tải.\nTắt 'Hiển thị trong Kệ sách' để truyện nằm trong Lịch sử đọc.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    } else if isVideo {
-                        Text("Tải lần lượt từng tập, chỉ chạy khi app đang mở: ra nền thì tạm dừng, mở lại tự tải tiếp. Nguồn có nhiều mức thì lấy mức cao nhất không vượt 'Chất lượng'. Tập chỉ xem được dạng nhúng trang hoặc có DRM sẽ bị bỏ qua.\nTắt 'Hiển thị trong Kệ sách' để phim nằm trong Lịch sử.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    } else {
-                        Text("Tải truyện offline sẽ chỉ tải nội dung gốc chưa dịch để lưu trữ và tối ưu tốc độ đọc.\nTắt 'Hiển thị trong Kệ sách' để truyện nằm trong Lịch sử đọc.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
+                if showsSpeedSection {
+                    speedSection
                 }
             }
             .navigationTitle(sheetTitle)
             .navigationBarTitleDisplayMode(.inline)
             .task {
-                guard isExport else { return }
-                await loadCacheStats()
+                await loadChapterCatalog()
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -176,8 +119,85 @@ struct TaskOptionsSheet: View {
                 }
             }
         }
+        // Mở nửa màn, vuốt lên được toàn màn (1.3.624) — cùng kiểu `AddWordSheet`; `Form` tự cuộn phần còn lại.
+        .presentationDetents([.medium, .large])
     }
-    
+
+    private var bookInfoSection: some View {
+        Section {
+            HStack(spacing: 16) {
+                BookCoverView(bookId: book.bookId, coverUrl: book.coverUrl, width: 60, height: 84, host: book.host, extensionPackageId: book.extensionPackageId)
+                    .cornerRadius(6)
+                    .shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 2)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(displayedBookTitle)
+                        .font(.headline)
+                        .lineLimit(2)
+
+                    if !displayedAuthor.isEmpty {
+                        HStack(spacing: 5) {
+                            Image(systemName: "person.fill")
+                                .font(.caption)
+                            Text(displayedAuthor)
+                                .lineLimit(1)
+                        }
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    }
+
+                    Text("\(book.sourceName)")
+                        .font(.caption)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color.secondary.opacity(0.12))
+                        .cornerRadius(4)
+                }
+            }
+            .padding(.vertical, 4)
+        } header: {
+            Text(isVideo ? "Thông tin phim" : "Thông tin truyện")
+        }
+    }
+
+    private var taskOptionsSection: some View {
+        Section {
+            ChapterLimitPicker.optionPicker(option: $limitOption, noun: unitNoun)
+
+            if limitOption == ChapterLimitOption.custom {
+                ChapterLimitPicker.customRow(customLimit: $customLimit, noun: unitNoun)
+            }
+
+            if isVideo {
+                Picker("Chất lượng", selection: $videoQuality) {
+                    ForEach(VideoDownloadQuality.allCases) { quality in
+                        Text(quality.title).tag(quality)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+
+            if isExport {
+                Toggle("Chỉ xuất chương đã tải", isOn: $onlyExportCached)
+                    .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
+
+                Toggle("Dịch nội dung", isOn: $translateContent)
+                    .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
+
+                if let cachedPreview {
+                    Text(cachedPreview)
+                        .font(.caption)
+                        .foregroundColor(onlyExportCached && (totalChapterCount ?? 0) > (cachedChapterCount ?? 0) ? .orange : .secondary)
+                }
+            }
+
+            Toggle("Hiển thị trong Kệ sách", isOn: $displayInShelf)
+                .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
+        } header: {
+            helpHeader("Tùy chọn tác vụ", paragraphs: taskOptionsHelpParagraphs)
+        }
+    }
+
     private var displayedBookTitle: String {
         let title = isTranslationEnabled && TranslateUtils.containsChinese(book.title)
             ? TranslateUtils.translateMeta(book.title, bookId: book.bookId)
@@ -199,16 +219,6 @@ struct TaskOptionsSheet: View {
         return "Đã tải \(cached)/\(total) chương — thiếu \(total - cached) chương."
     }
 
-    /// Đếm chương đã cache từ `ChapterStore` (mục lục thật, không phải bảng SwiftData `Chapter`).
-    private func loadCacheStats() async {
-        guard let chapters = try? await ChapterStore.shared.fetchOrderedTOC(bookId: book.bookId) else { return }
-        let cached = chapters.filter { $0.isCached && $0.length > 0 }.count
-        await MainActor.run {
-            self.totalChapterCount = chapters.count
-            self.cachedChapterCount = cached
-        }
-    }
-
     /// Giới hạn thật đưa vào hàng đợi: mốc "Tuỳ chọn" được quy đổi thành số chương đang kéo.
     private var effectiveLimit: ChapterLimitOption {
         limitOption == ChapterLimitOption.custom
@@ -224,14 +234,28 @@ struct TaskOptionsSheet: View {
             AppLogger.shared.log("❌ [TaskOptionsSheet] Lỗi cập nhật vị trí hiển thị truyện: \(err.localizedDescription)")
         }
 
+        // Sidecar chương bắt đầu ghi **trước** `enqueueTask`: tác vụ có thể chạy ngay khi vào hàng đợi.
+        let taskId = UUID()
+        if startChoice == .custom, let index = customStartIndex {
+            if isVideo {
+                VideoDownloadRequestStore.setStartEpisode(index, taskId: taskId)
+            } else {
+                DownloadStartChapterStore.setStartChapter(index, taskId: taskId)
+            }
+        }
+        if showsSpeedSection {
+            DownloadSpeedSettings.save(speed, packageId: book.extensionPackageId)
+        }
+
         DownloadManager.shared.enqueueTask(
             book: book,
             taskType: effectiveTaskType,
-            startFromCurrent: startFromCurrentChapter,
+            startFromCurrent: startChoice == .current,
             limit: effectiveLimit,
             translate: translateContent,
             onlyExportCached: onlyExportCached,
-            container: modelContext.container
+            container: modelContext.container,
+            taskId: taskId
         )
 
         ToastManager.shared.show(message: "Đã thêm tác vụ '\(sheetTitle)' vào hàng đợi.")

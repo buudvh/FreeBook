@@ -1,8 +1,10 @@
 import SwiftUI
 
-/// Màn "Chọn chương…" của sheet quét tên riêng nhiều chương (1.3.602).
+/// Màn "Chọn chương…" của sheet quét tên riêng nhiều chương (1.3.602), dùng lại ở mục "Bắt đầu từ" của sheet tải/xuất
+/// (`TaskOptionsSheet`, 1.3.624).
 ///
-/// Chỉ liệt kê các chương **đã tải** (danh sách sheet đã nạp, không đọc lại mục lục). Tìm theo số chương (đánh từ 1,
+/// Liệt kê đúng danh sách caller đã nạp, không đọc lại mục lục: sheet quét tên đưa chương **đã tải**, sheet tải/xuất
+/// đưa **cả mục lục**. `noun` = "tập" với video (tiêu đề, ô tìm, nhãn số). Tìm theo số chương (đánh từ 1,
 /// khớp phần đầu: "12" ra ch.12, ch.120…) hoặc theo tên — tên hiển thị (đã dịch khi Reader bật dịch, 1.3.603) lẫn tên
 /// gốc; dấu tích ở chương đang chọn, mở ra tự cuộn tới chương đó. Chạm một chương ⇒ báo `onSelect` (chỉ số 0-based)
 /// rồi quay lại sheet.
@@ -10,11 +12,18 @@ struct ReaderAINameScanChapterPickerView: View {
     @Environment(\.dismiss) private var dismiss
 
     let chapters: [AINameScanChapter]
+    /// "chương" hoặc "tập".
+    var noun: String = "chương"
     /// Chỉ số 0-based của chương đang chọn (dấu tích + cuộn tới khi mở); `nil` = chưa chọn.
     let selectedIndex: Int?
     let onSelect: (Int) -> Void
 
     @State private var query: String = ""
+
+    /// Nhãn số đứng trước tên: "ch.12" (chương) hoặc "tập 12".
+    private var numberPrefix: String {
+        noun == "chương" ? "ch." : "\(noun) "
+    }
 
     private var trimmedQuery: String {
         query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -46,9 +55,9 @@ struct ReaderAINameScanChapterPickerView: View {
             .searchable(
                 text: $query,
                 placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Số chương hoặc tên chương"
+                prompt: "Số \(noun) hoặc tên \(noun)"
             )
-            .navigationTitle("Chọn chương bắt đầu")
+            .navigationTitle("Chọn \(noun) bắt đầu")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
                 // `List` chưa dựng xong lúc `onAppear` ⇒ đẩy sang lượt sau mới cuộn được. Đang tìm thì không cuộn.
@@ -68,7 +77,7 @@ struct ReaderAINameScanChapterPickerView: View {
         } label: {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("ch.\(chapter.number)")
+                    Text("\(numberPrefix)\(chapter.number)")
                         .font(.caption)
                         .foregroundColor(.secondary)
                     if !chapter.title.isEmpty {

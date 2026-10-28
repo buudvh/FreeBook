@@ -107,6 +107,7 @@ extension DownloadManager {
         }
         lastProgressPublishAt.removeValue(forKey: taskId)
         VideoDownloadRequestStore.remove(taskIds: [taskId])
+        DownloadStartChapterStore.remove(taskIds: [taskId])
 
         if let idx = tasks.firstIndex(where: { $0.id == taskId }) {
             tasks.remove(at: idx)
@@ -146,6 +147,7 @@ extension DownloadManager {
             taskIdsToRemove.contains(task.id)
         }
         VideoDownloadRequestStore.remove(taskIds: taskIdsToRemove)
+        DownloadStartChapterStore.remove(taskIds: taskIdsToRemove)
 
         if let context = taskStoreContext() {
             for taskId in taskIdsToRemove {

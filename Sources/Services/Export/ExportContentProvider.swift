@@ -7,9 +7,13 @@ import Foundation
 /// `task.taskType`, nên hai đường tải và xuất rất dễ trôi khác nhau. Tách ra đây để **cả hai dùng đúng một
 /// bộ đếm và đúng một thứ tự thao tác** (đọc cache → tải → `cleanHTML` → `BookBinManager` → `ChapterStore`);
 /// khác biệt duy nhất giữa hai đường là cờ `skipUncached`.
-final class ExportContentProvider {
+///
+/// Tải nhiều luồng (1.3.624, `DownloadManager+ChapterLanes`): mỗi luồng một provider + worker riêng, và tại một thời
+/// điểm chỉ một luồng dùng một provider ⇒ `tally` không bị hai luồng ghi cùng lúc (lý do của `@unchecked Sendable`).
+/// Bộ đếm của các luồng được cộng lại bằng `Tally.add` sau khi xong.
+final class ExportContentProvider: @unchecked Sendable {
     /// Kết quả lấy một chương.
-    enum Acquisition {
+    enum Acquisition: Sendable {
         /// Có nội dung (từ cache hoặc vừa tải xong).
         case content(String)
         /// Bỏ qua vì chưa cache và tác vụ chỉ xuất chương đã tải.
@@ -19,12 +23,21 @@ final class ExportContentProvider {
     }
 
     /// Bộ đếm dùng cho log và cho `DownloadTaskOutcomeCalculator`.
-    struct Tally {
+    struct Tally: Sendable {
         var cached = 0
         var skippedUncached = 0
         var uncachedAttempt = 0
         var saved = 0
         var failed = 0
+
+        /// Cộng bộ đếm của một luồng tải khác vào.
+        mutating func add(_ other: Tally) {
+            cached += other.cached
+            skippedUncached += other.skippedUncached
+            uncachedAttempt += other.uncachedAttempt
+            saved += other.saved
+            failed += other.failed
+        }
     }
 
     private let bookId: String

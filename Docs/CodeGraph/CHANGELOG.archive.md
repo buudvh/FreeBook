@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.594] - 2026-10-24
+
+### feat: bấm PiP thì trình phát tự thu nhỏ về màn trước
+
+Người dùng: *"khi nhấn video sang pip hãy tự trở về màn hình trước khi vào màn hình phát"*.
+
+- `VideoPictureInPictureCoordinator.onDidStart` (mới) báo khi PiP **đã bật xong**; `VideoPlaybackSession.pictureInPictureStartCount` tăng mỗi lần. `VideoPlayerScreen` nghe số này: PiP đang bật và app đang `.active` (tức người dùng bấm nút PiP) ⇒ `leave(stopPlayback: false)` — thu nhỏ như vuốt xuống, phim chạy tiếp trong cửa sổ PiP, hub hiện mục Video; khôi phục từ PiP mở lại màn qua `requestScreen` như cũ.
+- Chờ `didStart` chứ không rời màn ở `willStart`: gỡ layer khỏi cửa sổ lúc PiP đang bật dở có thể làm PiP hỏng. PiP **tự bật khi rời app** (app không còn `.active`) giữ nguyên màn như trước.
+- Chuyển entry `[1.3.564]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy (PiP chạy tiếp khi màn đóng, nút khôi phục mở lại đúng màn).
+
 ## [1.3.593] - 2026-10-24
 
 ### fix: bản tải video phát lại được sau khi app ra nền, ẩn nút xoá khi đã hết bản tải

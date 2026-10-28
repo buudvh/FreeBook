@@ -5,8 +5,9 @@ import SwiftData
 /// media không bao giờ chạm pipeline chữ (`ExportContentProvider`, `BookBinManager`, `ChapterContentRepository`).
 ///
 /// - Comic + `.download`: tải **tuần tự** từng chương, từng ảnh (chủ ý, tránh bị nguồn chặn) vào `ComicOfflineStore`.
-///   Bỏ qua chương đã có manifest **cùng URL chương** (khác URL ⇒ tải lại, ghi đè); tôn trọng `startFromCurrent` /
-///   `limit`; tiến độ theo chương; huỷ được. Script ảnh chạy trên `ComicImageScriptRunner` riêng của tác vụ.
+///   Bỏ qua chương đã có manifest **cùng URL chương** (khác URL ⇒ tải lại, ghi đè); tôn trọng chương bắt đầu
+///   (`DownloadStartChapterStore` / `startFromCurrent`) và `limit`; nghỉ giữa các chương theo `DownloadSpeedSettings`
+///   của nguồn; tiến độ theo chương; huỷ được. Script ảnh chạy trên `ComicImageScriptRunner` riêng của tác vụ.
 /// - Video + `.download`: `DownloadManager+Video` (tải tuần tự từng tập vào `VideoOfflineStore`).
 /// - Comic/video + xuất ebook: báo thất bại (UI bình thường đã ẩn các nút này).
 extension DownloadManager {
@@ -61,13 +62,21 @@ extension DownloadManager {
         await updateProgress(taskId: taskId, progress: 0, total: total)
         // Runner riêng: không chung executor/lượt chạy với màn đọc (`ComicImageLoader.shared`), tự nhả khi xong/huỷ.
         let scriptRunner = ComicImageScriptRunner()
+        // Nghỉ giữa các chương theo cấu hình của nguồn (1.3.624). Truyện tranh luôn tải 1 luồng: `laneCount` bỏ qua.
+        let restNanoseconds = DownloadSpeedSettings.load(packageId: task.extensionPackageId).delayNanoseconds
 
         var downloadedCount = 0
         var skippedCount = 0
         var failedCount = 0
         var lastErrorMessage: String?
 
+        var restsBeforeNextChapter = false
         for (offset, chapter) in chapters.enumerated() {
+            // Chỉ nghỉ sau chương vừa tải từ mạng; huỷ trong lúc nghỉ thì kiểm tra huỷ ngay dưới bắt được.
+            if restsBeforeNextChapter, restNanoseconds > 0 {
+                try? await Task.sleep(nanoseconds: restNanoseconds)
+            }
+            restsBeforeNextChapter = false
             if await isComicTaskCancelled(taskId) {
                 await finishCancelledComicDownload(taskId: taskId, scriptRunner: scriptRunner)
                 return
@@ -89,6 +98,7 @@ extension DownloadManager {
                                                       chapterTitle: chapter.title, chapterIndex: chapter.index)
                     )
                     downloadedCount += 1
+                    restsBeforeNextChapter = true
                 } catch {
                     ComicOfflineStore.discardChapter(bookId: task.bookId, chapterIndex: chapter.index)
                     // Huỷ giữa chừng có thể nổi lên dưới dạng `URLError.cancelled`/lỗi JS chứ không chỉ `CancellationError`.
@@ -171,7 +181,8 @@ extension DownloadManager {
     }
 
     /// Mục lục cần tải — cùng quy tắc với nhánh chữ của `executeTask` (ChapterStore trước, SwiftData sau;
-    /// `startFromCurrent` theo `currentChapterIndex`; `limit`), và cũng đẩy truyện lên kệ nếu chưa nằm ở đâu.
+    /// chương bắt đầu theo `DownloadStartChapterStore.startPosition`; `limit`), và cũng đẩy truyện lên kệ nếu chưa
+    /// nằm ở đâu.
     /// Bỏ dòng tiêu đề nhóm tập (`isSection`): không có ảnh để tải. Trả kèm host sách cho fallback host và URL trang
     /// chi tiết (`detailUrl`, khoá trạng thái truyện của nguồn Legado).
     private func comicChaptersToDownload(
@@ -210,7 +221,12 @@ extension DownloadManager {
         let storeChapters = (try? await ChapterStore.shared.fetchOrderedTOC(bookId: task.bookId)) ?? []
         let sortedChapters = storeChapters.isEmpty ? legacyChapters : storeChapters
 
-        let startIdx = task.startFromCurrent ? currentIndex : 0
+        let startIdx = DownloadStartChapterStore.startPosition(
+            in: sortedChapters,
+            taskId: task.id,
+            startFromCurrent: task.startFromCurrent,
+            currentIndex: currentIndex
+        )
         guard startIdx >= 0, startIdx < sortedChapters.count else {
             throw NSError(domain: "DownloadManager", code: -3, userInfo: [NSLocalizedDescriptionKey: "Chỉ mục chương bắt đầu vượt quá số lượng chương hiện có."])
         }

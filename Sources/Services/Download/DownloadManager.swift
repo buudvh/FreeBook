@@ -217,7 +217,8 @@ public final class DownloadManager: ObservableObject {
         self.runNextTasksIfNeeded(container: container)
     }
 
-    private var activeWorkers: [UUID: BookDownloadWorker] = [:]
+    /// Mọi worker của tác vụ đang chạy — một cho mỗi luồng tải (`DownloadManager+ChapterLanes`).
+    internal var activeWorkers: [UUID: [BookDownloadWorker]] = [:]
     private var activeTasks: [UUID: Task<Void, Never>] = [:]
     public var maxConcurrentTasks: Int = 2
 
@@ -236,9 +237,11 @@ public final class DownloadManager: ObservableObject {
         if let handle = activeTasks.removeValue(forKey: taskId) {
             handle.cancel()
         }
-        if let worker = activeWorkers.removeValue(forKey: taskId) {
+        if let workers = activeWorkers.removeValue(forKey: taskId) {
             Task {
-                await worker.cancel()
+                for worker in workers {
+                    await worker.cancel()
+                }
             }
         }
 
@@ -302,7 +305,7 @@ public final class DownloadManager: ObservableObject {
         }
         await MainActor.run {
             if let worker = worker {
-                self.activeWorkers[taskId] = worker
+                self.activeWorkers[taskId, default: []].append(worker)
             }
         }
 
@@ -359,7 +362,12 @@ public final class DownloadManager: ObservableObject {
                 }
             }
 
-            let startIdx = task.startFromCurrent ? bgBook.currentChapterIndex : 0
+            let startIdx = DownloadStartChapterStore.startPosition(
+                in: sortedChapters,
+                taskId: taskId,
+                startFromCurrent: task.startFromCurrent,
+                currentIndex: bgBook.currentChapterIndex
+            )
 
             guard startIdx < sortedChapters.count else {
                 throw NSError(domain: "DownloadManager", code: -3, userInfo: [NSLocalizedDescriptionKey: "Chỉ mục chương bắt đầu vượt quá số lượng chương hiện có."])
@@ -394,37 +402,39 @@ public final class DownloadManager: ObservableObject {
                 await self.updateExportStage(taskId: taskId, stage: .fetchingChapters)
             }
 
-            // Cùng một provider cho tải và xuất: khác biệt duy nhất là `skipUncached`.
-            let provider = ExportContentProvider(
-                bookId: bgBook.bookId,
-                worker: worker,
-                skipUncached: exportFormat != nil && task.onlyExportCached,
-                bookHost: bgBook.host,
-                packageId: bgBook.extensionPackageId,
-                bookContext: SourceRuntimeContext(bookId: bgBook.bookId, bookUrl: bgBook.detailUrl, bookName: bgBook.title, bookAuthor: bgBook.author)
-            )
+            // Cùng một provider cho tải và xuất: khác biệt duy nhất là `skipUncached`. Mỗi luồng tải một provider
+            // (`DownloadManager+ChapterLanes`); kết quả về đúng thứ tự mục lục.
+            let bookId = bgBook.bookId
+            let bookHost = bgBook.host
+            let packageId = bgBook.extensionPackageId
+            let skipUncached = exportFormat != nil && task.onlyExportCached
+            let bookContext = SourceRuntimeContext(bookId: bookId, bookUrl: bgBook.detailUrl, bookName: bgBook.title, bookAuthor: bgBook.author)
             var processedCount = 0
 
-            for chapter in chapsToProcess {
-                // Không hop MainActor chỉ để hỏi cờ huỷ nữa: `activeTasks[taskId]` được gán ngay sau
-                // `Task.detached`, và mọi đường huỷ (`cancelTask`, `cancelTasksForBook`, `deleteTask`) đều gọi
-                // `handle.cancel()` ⇒ `Task.isCancelled` đã phủ hết. Đọc `cancelledTaskIds` từ đây còn là một
-                // truy cập `Set` không đồng bộ hoá.
-                if Task.isCancelled {
-                    renderer?.discard()
-                    await self.markCancelled(taskId: taskId)
-                    return
+            let tally = try await acquireChaptersInOrder(
+                chapsToProcess,
+                taskId: taskId,
+                primaryWorker: worker,
+                extensionSnapshot: bgExt,
+                speed: DownloadSpeedSettings.load(packageId: task.extensionPackageId),
+                makeProvider: { laneWorker in
+                    ExportContentProvider(
+                        bookId: bookId,
+                        worker: laneWorker,
+                        skipUncached: skipUncached,
+                        bookHost: bookHost,
+                        packageId: packageId,
+                        bookContext: bookContext
+                    )
                 }
-
-                let acquisition = try await provider.acquire(chapter: chapter)
-
+            ) { chapter, acquisition in
                 if case .content(let originalContent) = acquisition, renderer != nil {
                     var titleToExport = chapter.title
                     var contentToExport = originalContent
 
                     if task.translate {
-                        titleToExport = TranslateUtils.translateChapterTitle(titleToExport, bookId: bgBook.bookId)
-                        contentToExport = TranslateUtils.translateContent(contentToExport, bookId: bgBook.bookId)
+                        titleToExport = TranslateUtils.translateChapterTitle(titleToExport, bookId: bookId)
+                        contentToExport = TranslateUtils.translateContent(contentToExport, bookId: bookId)
                     }
 
                     let payload = ExportChapterPayload(
@@ -440,7 +450,6 @@ public final class DownloadManager: ObservableObject {
             }
 
             // 4. Save and finish outcome
-            let tally = provider.tally
             AppLogger.shared.log("📊 [DownloadManager] Tác vụ \(taskId) hoàn tất xử lý: cachedCount=\(tally.cached), savedCount=\(tally.saved), skippedUncachedCount=\(tally.skippedUncached), uncachedAttemptCount=\(tally.uncachedAttempt), failedCount=\(tally.failed)")
             let renderedChapterCount = renderer?.writtenChapterCount ?? 0
             let outcome = DownloadTaskOutcomeCalculator.calculateOutcome(

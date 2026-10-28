@@ -31,15 +31,11 @@ extension RepositoryManagerView {
         } message: { _ in
             Text(legadoState.alertMessage)
         }
-        .alert("Nhập nguồn từ URL", isPresented: $legadoState.showingURLPrompt) {
-            TextField("https://…/nguon.json", text: $legadoState.urlInput)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .keyboardType(.URL)
-            Button("Huỷ", role: .cancel) {}
-            Button("Nhập") { importLegadoFromURL() }
-        } message: {
-            Text("URL của tệp JSON chứa một nguồn hoặc mảng nguồn Legado.")
+        // Sheet thay alert từ 1.3.624 (ô URL có nút xoá · sao chép · dán). Nhập chạy sau khi sheet đóng hẳn.
+        .sheet(isPresented: $legadoState.showingURLPrompt, onDismiss: runPendingURLImport) {
+            LegadoURLImportSheet(url: $legadoState.urlInput) {
+                legadoState.isURLImportPending = true
+            }
         }
         .sheet(item: $legadoState.detail) { route in
             LegadoSourceDetailView(packageId: route.packageId)
@@ -114,6 +110,7 @@ extension RepositoryManagerView {
         SideDrawerActionRow("Nhập nguồn từ tệp JSON", systemImage: "doc.badge.plus") { legadoState.showingFileImporter = true }
         SideDrawerActionRow("Nhập nguồn từ URL", systemImage: "link.badge.plus") {
             legadoState.urlInput = ""
+            legadoState.isURLImportPending = false
             legadoState.showingURLPrompt = true
         }
         SideDrawerActionRow("Dán JSON từ bộ nhớ tạm", glyph: .paste, action: importLegadoFromClipboard)
@@ -149,6 +146,13 @@ extension RepositoryManagerView {
         runLegadoImport(message: "Đang nhập \(urls.count) tệp…") {
             await LegadoSourceCoordinator.shared.importFiles(urls)
         }
+    }
+
+    /// `onDismiss` của sheet URL: chỉ nhập khi người dùng bấm "Nhập" (vuốt đóng / "Huỷ" thì thôi).
+    private func runPendingURLImport() {
+        guard legadoState.isURLImportPending else { return }
+        legadoState.isURLImportPending = false
+        importLegadoFromURL()
     }
 
     private func importLegadoFromURL() {

@@ -45,6 +45,9 @@ struct LegadoSourceTabState {
     var showingFileImporter = false
     var showingURLPrompt = false
     var urlInput = ""
+    /// Bấm "Nhập" ở sheet URL (1.3.624): việc nhập chạy ở `onDismiss` của sheet, để alert tổng kết không trình bày
+    /// chồng lúc sheet còn đang đóng.
+    var isURLImportPending = false
     var alert: PendingAlert?
     var detail: DetailRoute?
     var check: CheckRoute?
