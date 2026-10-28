@@ -17,7 +17,7 @@ extension ReaderView {
         suggestionChips = Self.buildSuggestionChips(for: rawWord, bookId: bookId)
     }
 
-    nonisolated static func buildSuggestionChips(for rawWord: String, bookId: String) -> [SuggestionChip] {
+    nonisolated static func buildSuggestionChips(for rawWord: String, bookId: String?) -> [SuggestionChip] {
         let word = rawWord.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !word.isEmpty else { return [] }
         return suggestionChips(from: dictionaryMatches(for: word, bookId: bookId))

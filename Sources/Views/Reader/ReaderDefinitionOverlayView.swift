@@ -378,62 +378,12 @@ struct ReaderDefinitionOverlayView: View {
             .accessibilityLabel("Dán từ clipboard")
             .accessibilityHint("Dán nội dung clipboard vào ô nhập nghĩa")
 
-            // Badge R/C nhô lên trên phải chip. ScrollView cắt nội dung theo **khung của chính nó**, nên nội dung
-            // chừa `badgeInset` ở trên/phải và ScrollView được padding âm đúng chừng đó ở trên: khung cuộn lấn lên
-            // khoảng trống 8pt giữa các hàng, chip vẫn nằm đúng chỗ cũ, hàng vẫn cao 36.
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(suggestionChips) { chip in
-                        Button(action: { customMeaning = chip.text }) {
-                            Text(chip.text)
-                                .font(.subheadline)
-                                .foregroundColor(chip.category.textColor)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Color(red: 0.12, green: 0.12, blue: 0.15))
-                                .cornerRadius(15)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 15)
-                                        .stroke(chip.category.borderColor, lineWidth: 1)
-                                )
-                                .overlay(alignment: .topTrailing) {
-                                    if let scope = chip.scope {
-                                        scopeBadge(scope)
-                                    }
-                                }
-                        }
-                        .accessibilityLabel(chipAccessibilityLabel(chip))
-                    }
-                }
-                .padding(.top, Self.badgeInset)
-                .padding(.trailing, Self.badgeInset)
-            }
-            .padding(.top, -Self.badgeInset)
+            // Badge R/C nhô lên trên phải chip; hàng chip chừa chỗ cho badge, padding âm ở trên để khung cuộn lấn
+            // lên khoảng trống 8pt giữa các hàng: chip vẫn nằm đúng chỗ cũ, hàng vẫn cao 36.
+            MeaningSuggestionChipRow(chips: suggestionChips) { customMeaning = $0.text }
+                .padding(.top, -ChipCornerBadge.inset)
         }
         .frame(maxWidth: .infinity, minHeight: 36, maxHeight: 36, alignment: .leading)
-    }
-
-    /// Phần badge nhô ra ngoài chip (trên và phải). Phải nhỏ hơn `spacing: 8` của hàng chip, không thì chip kế tiếp
-    /// vẽ đè lên badge, và không quá khoảng 8pt giữa hàng chip với hàng trên.
-    private static let badgeInset: CGFloat = 6
-
-    private func scopeBadge(_ scope: SuggestionChip.Scope) -> some View {
-        Text(scope.badgeLetter)
-            .font(.system(size: 10, weight: .bold))
-            .foregroundColor(scope.badgeTextColor)
-            .padding(.horizontal, 4)
-            .frame(minWidth: 15, minHeight: 15)
-            .background(scope.badgeBackground, in: Capsule())
-            .offset(x: Self.badgeInset, y: -Self.badgeInset)
-            .allowsHitTesting(false)
-    }
-
-    private func chipAccessibilityLabel(_ chip: SuggestionChip) -> String {
-        switch chip.scope {
-        case .book: return "\(chip.text), từ điển riêng"
-        case .global: return "\(chip.text), từ điển chung"
-        case nil: return chip.text
-        }
     }
 
     private func pasteFromClipboard() {

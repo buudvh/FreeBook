@@ -213,6 +213,14 @@ struct ShelfView: View {
                             )
                         }
 
+                        // Công tắc NSFW toàn app — chung khoá với Cài đặt › Nội dung nhạy cảm và nút NSFW của Khám phá.
+                        Button(action: { includeNsfw.toggle() }) {
+                            Label(
+                                includeNsfw ? "Ẩn nội dung NSFW" : "Hiện nội dung NSFW",
+                                systemImage: includeNsfw ? "eye.slash" : "eye"
+                            )
+                        }
+
                         if selectedTab == .shelf || selectedTab == .history {
                             Button(action: { showingLayoutSheet = true }) {
                                 Label("Kiểu hiển thị", systemImage: "square.grid.2x2")

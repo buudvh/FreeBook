@@ -122,12 +122,19 @@ extension ReaderView {
         Self.dictionaryMatches(for: word, bookId: bookId)
     }
 
-    nonisolated static func dictionaryMatches(for word: String, bookId: String) -> [DictionaryMatchInfo] {
+    /// `bookId == nil` (sheet Sửa từ của từ điển chung mở không kèm truyện) ⇒ bỏ hai nguồn "(Riêng)", không nạp từ
+    /// điển của một truyện rỗng vào bộ nhớ đệm.
+    nonisolated static func dictionaryMatches(for word: String, bookId: String?) -> [DictionaryMatchInfo] {
         var matches: [DictionaryMatchInfo] = []
         guard !word.isEmpty else { return matches }
 
         let manager = TranslationManager.shared
-        let bookDicts = manager.getBookDictionaries(for: bookId)
+        let bookDicts: (vietPhrase: TrieDictionary?, names: TrieDictionary?)
+        if let bookId {
+            bookDicts = manager.getBookDictionaries(for: bookId)
+        } else {
+            bookDicts = (nil, nil)
+        }
 
         // 1. Book Names
         if let bookNames = bookDicts.names,

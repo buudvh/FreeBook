@@ -187,7 +187,7 @@ struct DictionaryListView: View {
             })
         }
         .sheet(item: $editingEntry) { entry in
-            DictEntrySheet(mode: .edit(key: entry.key, value: entry.value), onSaveSingle: { newKey, newValue in
+            DictEntrySheet(mode: .edit(key: entry.key, value: entry.value), chipBookId: bookId ?? contextBookId, onSaveSingle: { newKey, newValue in
                 if newKey == entry.key {
                     upsertEntry(key: newKey, value: newValue)
                 } else {

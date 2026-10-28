@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.619] - 2026-10-28
+
+### feat: chip nghĩa cho sheet Sửa từ, badge góc chip, NSFW ở menu Kệ
+
+Người dùng: *"sửa sheet sửa từ và thêm từ của vp/name hiển thị giữa màn hình. Hiển thị thanh chip nghĩa như màn hình dịch cho sheet sửa từ giúp tôi. Ngoài ra giúp tôi sửa vị trí badge cho sheet thêm phiên âm, thêm thay thế tts giống màn hình dịch"*, duyệt mockup, rồi thêm *"thêm bật tắt nfsw vào dropdown của tab kệ sách"*.
+
+- **Thanh chip nghĩa dùng chung** (`Views/Common/MeaningSuggestionChipRow`, mới): tách nguyên khối chip của panel Dịch (viền theo nguồn, badge R/C góc trên phải, nhãn trợ năng) ra view riêng; `ReaderDefinitionOverlayView` gọi lại view đó, giao diện panel Dịch không đổi. Nút chip đặt `.buttonStyle(.plain)` để đặt được trong `Form` (nút mặc định trong một hàng `Form` làm cả hàng bấm được).
+- **Badge góc chip** (`Views/Common/ChipCornerBadge`, mới): capsule 15pt nhô ra trên/phải 6pt, có `init(scope:)` cho R/C cùng màu ở mọi nơi.
+- **Sheet Sửa từ / Thêm từ mới của VP và Names** (`DictEntrySheet`): mở nửa màn, vuốt lên được toàn màn (như sheet phiên âm và thay thế TTS). Chế độ sửa có thanh chip nghĩa ngay dưới ô nghĩa — cùng nguồn và thứ tự với panel Dịch (`ReaderView.buildSuggestionChips`); bấm chip điền nghĩa, đổi từ gốc thì chip tính lại. Chip "(Riêng)" lấy theo truyện: từ điển riêng ⇒ truyện đó, từ điển chung ⇒ truyện đang mở màn Từ điển (`contextBookId`).
+- `ReaderView.dictionaryMatches(for:bookId:)` và `buildSuggestionChips(for:bookId:)` nhận `bookId: String?`; `nil` bỏ hai nguồn "(Riêng)" thay vì nạp từ điển của truyện rỗng vào bộ nhớ đệm 3 truyện.
+- **Sheet thêm phiên âm** (`AddWordSheet`): badge NGI/VIE/JP/EN chuyển từ trong chip lên góc trên phải (nền trắng, chữ đen); nhấn giữ để xoá và viền chip gợi ý chính giữ nguyên.
+- **Sheet thêm thay thế TTS** (`AddTTSReplacementSheet`): badge R/C lên góc trên phải, đổi sang màu của panel Dịch (R đỏ, C xám đậm) thay cho xanh ngọc/xanh dương; chip của rule đang tắt vẫn mờ.
+- **Menu ba chấm của tab Kệ**: thêm "Hiện nội dung NSFW" / "Ẩn nội dung NSFW" ngay dưới mục Dịch nghĩa — công tắc NSFW toàn app, chung khoá với Cài đặt và nút NSFW của Khám phá.
+- Chuyển entry `[1.3.589]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.618] - 2026-10-27
 
 ### fix: rule <vp> tách rời chữ có dấu thành từng mảnh
@@ -397,19 +413,4 @@ Người dùng: *"để google, bing, baidu lên đầu danh sách. khi tìm t�
 - **Player — vuốt** (`VideoPlayerController.handlePanBegan`): bắt đầu vuốt tua / độ sáng / âm lượng ⇒ ẩn **cả** lớp điều khiển (kiểu YouTube), nhả tay vẫn ẩn, chạm để hiện lại; vuốt xuống thu nhỏ không đổi.
 - **Player — phát ẩn** (`VideoPlaybackSession.refreshBandwidthLimit`): khi đã tách hình (thu nhỏ / nền không PiP — vốn đã chỉ phát tiếng) đặt `preferredPeakBitRate = 1` ⇒ HLS xuống biến thể thấp nhất; gắn lại hình ⇒ `0`. Gọi ở `refreshLayerAttachment` và sau `replaceCurrentItem` (tập kế tự phát lúc đang ẩn). Chỉ đỡ dữ liệu với HLS **nhiều** mức chất lượng; mp4, playlist một mức, playlist ghép hình + tiếng (`VideoAudioRenditionComposer`) không giảm được; không đổi sang luồng chỉ tiếng (thay item lúc PiP/nền/thu nhỏ làm hỏng các ca đó). Về lại màn hình thì vài giây đầu hình còn mờ.
 - Chuyển entry `[1.3.560]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.589] - 2026-10-24
-
-### feat: tắt NSFW tự đóng màn của nguồn NSFW, Home trình duyệt chỉ giữ Google/Bing/Baidu
-
-Người dùng: *"khi tôi xem các màn khác của nguồn nfsw mà nếu sau đó tôi tắt nfsw đi thì hãy tự tắt các màn đó đi giúp tôi, phím tắt nhanh ở home ngoài các tiện ích ra hãy chỉ giữ lại google, bing, baidu thôi"*; duyệt plan (đóng cả màn của truyện trên Kệ, làm luôn vuốt lùi về Home hết ẩn danh).
-
-- **`NsfwSourceScreenGuard`** (mới, `Views/Common`, `.closesWhenNsfwHidden(packageId:isEnabled:)`): màn của một nguồn tự `dismiss` khi công tắc NSFW toàn app bị tắt mà màn đã **thấy NSFW bật** lúc đang mở (bật lúc mở hoặc bật trong lúc mở) — màn mở khi NSFW đang tắt (sách NSFW trên Kệ) không bị đụng. `packageId` chụp ở lần xuất hiện đầu: Khám phá đổi nguồn khi NSFW tắt và dựng lại màn thể loại đang mở với nguồn **mới**, đọc giá trị sống thì không bao giờ đóng. Xét cả ở `onAppear` (màn ở tab khác / dưới stack có thể chưa nhận `onChange` tới khi hiện lại); `dismiss()` chạy ở lượt main kế tiếp; log không ghi tên nguồn.
-- Gắn vào **Chi tiết truyện** (`BookDetailView` — mọi lối vào, kể cả truyện trên Kệ), **danh sách thể loại / xem thêm** (`CategoryNovelsListView`), **tìm trong một nguồn** (`SearchView` ở chế độ một nguồn, không phải đổi nguồn — `isEnabled` đọc sống theo công tắc "tìm mọi nguồn"). Tìm mọi nguồn: `SearchView` quan sát công tắc NSFW và truyền thẳng vào `searchableExtensions` ⇒ nhóm kết quả của nguồn NSFW biến mất ngay; dòng "Tìm thấy N truyện" giữ số cũ tới lượt tìm sau.
-- Không cần guard: Reader / truyện tranh / video / trình duyệt (toàn màn hình) và cấu hình tiện ích / chi tiết nguồn Legado (sheet) — lúc chúng mở không với tới công tắc NSFW. TTS đang đọc truyện NSFW và widget nổi **không** bị dừng.
-- **Home trình duyệt**: Truy cập nhanh ngoài ô tiện ích chỉ còn Google, Bing, Baidu (bỏ YouTube, Bilibili, Weibo, Zhihu, Wikipedia, Dịch GG, Tangthuvien, Qidian, 69shu).
-- **Ẩn danh**: lùi/tiến về Home (`about:blank` của khung chính, `navigationType == .backForward`) cũng tắt `isIncognito` như nút Home; cửa sổ mới mở trống (cũng `about:blank`, loại `.other`) giữ ẩn danh thừa hưởng. **Chưa kiểm trên máy** việc WebKit có gọi `decidePolicyFor` cho trang lấy từ bộ đệm lùi/tiến hay không.
-- Cài đặt › Nội dung nhạy cảm thêm dòng giải thích màn tự đóng.
-- Chuyển entry `[1.3.559]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.

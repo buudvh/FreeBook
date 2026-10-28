@@ -2,6 +2,21 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.589] - 2026-10-24
+
+### feat: tắt NSFW tự đóng màn của nguồn NSFW, Home trình duyệt chỉ giữ Google/Bing/Baidu
+
+Người dùng: *"khi tôi xem các màn khác của nguồn nfsw mà nếu sau đó tôi tắt nfsw đi thì hãy tự tắt các màn đó đi giúp tôi, phím tắt nhanh ở home ngoài các tiện ích ra hãy chỉ giữ lại google, bing, baidu thôi"*; duyệt plan (đóng cả màn của truyện trên Kệ, làm luôn vuốt lùi về Home hết ẩn danh).
+
+- **`NsfwSourceScreenGuard`** (mới, `Views/Common`, `.closesWhenNsfwHidden(packageId:isEnabled:)`): màn của một nguồn tự `dismiss` khi công tắc NSFW toàn app bị tắt mà màn đã **thấy NSFW bật** lúc đang mở (bật lúc mở hoặc bật trong lúc mở) — màn mở khi NSFW đang tắt (sách NSFW trên Kệ) không bị đụng. `packageId` chụp ở lần xuất hiện đầu: Khám phá đổi nguồn khi NSFW tắt và dựng lại màn thể loại đang mở với nguồn **mới**, đọc giá trị sống thì không bao giờ đóng. Xét cả ở `onAppear` (màn ở tab khác / dưới stack có thể chưa nhận `onChange` tới khi hiện lại); `dismiss()` chạy ở lượt main kế tiếp; log không ghi tên nguồn.
+- Gắn vào **Chi tiết truyện** (`BookDetailView` — mọi lối vào, kể cả truyện trên Kệ), **danh sách thể loại / xem thêm** (`CategoryNovelsListView`), **tìm trong một nguồn** (`SearchView` ở chế độ một nguồn, không phải đổi nguồn — `isEnabled` đọc sống theo công tắc "tìm mọi nguồn"). Tìm mọi nguồn: `SearchView` quan sát công tắc NSFW và truyền thẳng vào `searchableExtensions` ⇒ nhóm kết quả của nguồn NSFW biến mất ngay; dòng "Tìm thấy N truyện" giữ số cũ tới lượt tìm sau.
+- Không cần guard: Reader / truyện tranh / video / trình duyệt (toàn màn hình) và cấu hình tiện ích / chi tiết nguồn Legado (sheet) — lúc chúng mở không với tới công tắc NSFW. TTS đang đọc truyện NSFW và widget nổi **không** bị dừng.
+- **Home trình duyệt**: Truy cập nhanh ngoài ô tiện ích chỉ còn Google, Bing, Baidu (bỏ YouTube, Bilibili, Weibo, Zhihu, Wikipedia, Dịch GG, Tangthuvien, Qidian, 69shu).
+- **Ẩn danh**: lùi/tiến về Home (`about:blank` của khung chính, `navigationType == .backForward`) cũng tắt `isIncognito` như nút Home; cửa sổ mới mở trống (cũng `about:blank`, loại `.other`) giữ ẩn danh thừa hưởng. **Chưa kiểm trên máy** việc WebKit có gọi `decidePolicyFor` cho trang lấy từ bộ đệm lùi/tiến hay không.
+- Cài đặt › Nội dung nhạy cảm thêm dòng giải thích màn tự đóng.
+- Chuyển entry `[1.3.559]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.588] - 2026-10-24
 
 ### feat: trình duyệt ẩn nguồn NSFW ở Home và tự ẩn danh với nguồn không lưu lịch sử

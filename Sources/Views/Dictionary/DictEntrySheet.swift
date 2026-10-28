@@ -19,19 +19,26 @@ public struct DictEntrySheet: View {
     @Environment(\.dismiss) private var dismiss
 
     public let mode: Mode
+    /// Truyện dùng cho chip nghĩa "(Riêng)" của chế độ sửa: từ điển riêng ⇒ chính truyện đó; từ điển chung ⇒ truyện
+    /// đang mở màn Từ điển; `nil` ⇒ chỉ chip từ điển chung.
+    public let chipBookId: String?
     public let onSaveBatch: ([(key: String, value: String)]) -> Void
     public let onSaveSingle: (String, String) -> Void
 
     @State private var key: String
     @State private var value: String
     @State private var rawText: String = ""
+    /// Chip nghĩa của từ gốc đang sửa — tính lại khi từ gốc đổi, `body` chỉ đọc.
+    @State private var suggestionChips: [SuggestionChip] = []
 
     public init(
         mode: Mode,
+        chipBookId: String? = nil,
         onSaveBatch: @escaping ([(key: String, value: String)]) -> Void = { _ in },
         onSaveSingle: @escaping (String, String) -> Void = { _, _ in }
     ) {
         self.mode = mode
+        self.chipBookId = chipBookId
         self.onSaveBatch = onSaveBatch
         self.onSaveSingle = onSaveSingle
         switch mode {
@@ -85,6 +92,11 @@ public struct DictEntrySheet: View {
 
                         TextField("Nghĩa dịch (value)", text: $value)
 
+                        // Cùng thanh chip của panel Dịch: bấm chip ⇒ điền nghĩa đó vào ô.
+                        if !suggestionChips.isEmpty {
+                            MeaningSuggestionChipRow(chips: suggestionChips) { value = $0.text }
+                        }
+
                         TextCaseButtonGroup(isDisabled: value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) { style in
                             value = TextCaseFormatter.format(value, style: style)
                         }
@@ -110,7 +122,17 @@ public struct DictEntrySheet: View {
                     .disabled(isSaveDisabled)
                 }
             }
+            .onAppear(perform: refreshSuggestionChips)
+            .onChange(of: key) { _, _ in refreshSuggestionChips() }
         }
+        // Mở nửa màn, vuốt lên được toàn màn — như sheet phiên âm và thay thế TTS; `Form` tự cuộn khi bàn phím hiện.
+        .presentationDetents([.medium, .large])
+    }
+
+    /// Chế độ thêm (nhập nhiều dòng) không có chip. Tra từ điển đồng bộ: vài lượt `findLongestMatch` cho một từ.
+    private func refreshSuggestionChips() {
+        guard !isAdd else { return }
+        suggestionChips = ReaderView.buildSuggestionChips(for: key, bookId: chipBookId)
     }
 
     // MARK: - Actions & Parser

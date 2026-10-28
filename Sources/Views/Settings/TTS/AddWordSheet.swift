@@ -168,6 +168,9 @@ struct AddWordSheet: View {
                             suggestionChip(suggestion)
                         }
                     }
+                    // Chừa chỗ cho badge nhô ra góc trên phải chip — ScrollView cắt theo khung của nó.
+                    .padding(.top, ChipCornerBadge.inset)
+                    .padding(.trailing, ChipCornerBadge.inset)
                 }
             }
         }
@@ -178,30 +181,25 @@ struct AddWordSheet: View {
         let chip = Button(action: {
             value = suggestion.text
         }) {
-            HStack(spacing: 6) {
-                Text(suggestion.origin.badge)
-                    .font(.caption2.weight(.bold))
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 2)
-                    .background(suggestion.origin.tint.opacity(0.18))
-                    .foregroundColor(suggestion.origin.tint)
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-                Text(suggestion.text)
-                    .font(.subheadline)
-                    .foregroundColor(suggestion.isPipelineChoice ? .primary : .secondary)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(Color.secondary.opacity(0.1))
-            .clipShape(Capsule())
-            .overlay(
-                Capsule().stroke(
-                    suggestion.isPipelineChoice
-                        ? suggestion.origin.tint.opacity(0.5)
-                        : Color.gray.opacity(0.3),
-                    lineWidth: suggestion.isPipelineChoice ? 1.5 : 1
+            Text(suggestion.text)
+                .font(.subheadline)
+                .foregroundColor(suggestion.isPipelineChoice ? .primary : .secondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.secondary.opacity(0.1))
+                .clipShape(Capsule())
+                .overlay(
+                    Capsule().stroke(
+                        suggestion.isPipelineChoice
+                            ? suggestion.origin.tint.opacity(0.5)
+                            : Color.gray.opacity(0.3),
+                        lineWidth: suggestion.isPipelineChoice ? 1.5 : 1
+                    )
                 )
-            )
+                // Badge nguồn ở góc trên phải như chip nghĩa của panel Dịch (1.3.619); trước đây nằm trong chip.
+                .overlay(alignment: .topTrailing) {
+                    ChipCornerBadge(text: suggestion.origin.badge, foreground: .black, background: suggestion.origin.tint)
+                }
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(suggestion.text). \(suggestion.origin.explanation)")

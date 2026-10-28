@@ -83,7 +83,10 @@ struct AddTTSReplacementSheet: View {
                                 chipButton(chip)
                             }
                         }
-                        .padding(.vertical, 2)
+                        // Chừa chỗ cho badge R/C nhô ra góc trên phải chip.
+                        .padding(.top, 2 + ChipCornerBadge.inset)
+                        .padding(.bottom, 2)
+                        .padding(.trailing, ChipCornerBadge.inset)
                     } header: {
                         Text("Gợi ý từ rule đã có")
                     } footer: {
@@ -137,43 +140,33 @@ struct AddTTSReplacementSheet: View {
             replacement = chip.rule.replacement
             isEnabled = chip.rule.isEnabled
         } label: {
-            HStack(spacing: 6) {
-                Text(badgeLabel(chip.layer))
-                    .font(.caption2.weight(.semibold))
-                    .frame(width: 16, height: 16)
-                    .background(badgeColor(chip.layer).opacity(0.18), in: RoundedRectangle(cornerRadius: 4))
-                    .foregroundStyle(badgeColor(chip.layer))
-                // `(rỗng)` là quy ước **có sẵn** của app cho chuỗi thay thế rỗng — xem `ruleRow` ở
-                // `TTSReplacementManagerView`. Không phải nhãn mới do lượt này nghĩ ra.
-                Text(chip.rule.replacement.isEmpty ? "(rỗng)" : chip.rule.replacement)
-                    .font(.footnote)
-                    .foregroundStyle(.primary)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .overlay(
-                Capsule().stroke(
-                    selectedChipID == chip.id ? Color.accentColor : Color.secondary.opacity(0.35),
-                    lineWidth: selectedChipID == chip.id ? 1.5 : 0.5
+            // `(rỗng)` là quy ước **có sẵn** của app cho chuỗi thay thế rỗng — xem `ruleRow` ở
+            // `TTSReplacementManagerView`. Không phải nhãn mới do lượt này nghĩ ra.
+            Text(chip.rule.replacement.isEmpty ? "(rỗng)" : chip.rule.replacement)
+                .font(.footnote)
+                .foregroundStyle(.primary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .overlay(
+                    Capsule().stroke(
+                        selectedChipID == chip.id ? Color.accentColor : Color.secondary.opacity(0.35),
+                        lineWidth: selectedChipID == chip.id ? 1.5 : 0.5
+                    )
                 )
-            )
-            // Rule đang tắt ⇒ chip mờ.
-            .opacity(chip.rule.isEnabled ? 1 : 0.45)
+                // Badge R/C ở góc trên phải, cùng màu chip nghĩa của panel Dịch (1.3.619).
+                .overlay(alignment: .topTrailing) {
+                    ChipCornerBadge(scope: badgeScope(chip.layer))
+                }
+                // Rule đang tắt ⇒ chip mờ.
+                .opacity(chip.rule.isEnabled ? 1 : 0.45)
         }
         .buttonStyle(.plain)
     }
 
-    private func badgeLabel(_ layer: TTSReplacementScope) -> String {
+    private func badgeScope(_ layer: TTSReplacementScope) -> SuggestionChip.Scope {
         switch layer {
-        case .book: return "R"
-        case .global: return "C"
-        }
-    }
-
-    private func badgeColor(_ layer: TTSReplacementScope) -> Color {
-        switch layer {
-        case .book: return .teal
-        case .global: return .blue
+        case .book: return .book
+        case .global: return .global
         }
     }
 
