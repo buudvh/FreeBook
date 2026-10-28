@@ -1,9 +1,10 @@
 import SwiftUI
 
-/// Nút menu tròn trên header Khám phá, gộp ba việc của nguồn đang chọn: Mở trình duyệt · Kiểu hiển thị · Dịch văn bản.
-/// Chỉ hiện khi đã chọn nguồn. Bấm ⇒ ngăn kéo trượt từ mép phải (`sideDrawerMenu`). Mở trình duyệt / Kiểu hiển thị do
-/// `DiscoveryView` trình bày qua hai callback; dòng Dịch văn bản mở bảng dịch dùng chung (`TranslationScopePopupView`)
-/// dạng popover neo vào chính nút này — mở ngay khi ngăn kéo bắt đầu trượt ra (ngăn kéo ở cửa sổ riêng, không chặn).
+/// Nút menu tròn trên header Khám phá, gộp ba việc của nguồn đang chọn: Mở trình duyệt · Kiểu hiển thị · Dịch văn bản,
+/// cùng công tắc "Nội dung NSFW" toàn app ở đầu ngăn kéo (1.3.629). Chỉ hiện khi đã chọn nguồn. Bấm ⇒ ngăn kéo trượt
+/// từ mép phải (`sideDrawerMenu`). Mở trình duyệt / Kiểu hiển thị do `DiscoveryView` trình bày qua hai callback; dòng
+/// Dịch văn bản mở bảng dịch dùng chung (`TranslationScopePopupView`) dạng popover neo vào chính nút này — mở ngay khi
+/// ngăn kéo bắt đầu trượt ra (ngăn kéo ở cửa sổ riêng, không chặn).
 struct DiscoverySourceMenuButton: View {
     let packageId: String
     let sourceName: String
@@ -17,6 +18,9 @@ struct DiscoverySourceMenuButton: View {
     let onOpenBrowser: () -> Void
     let onShowLayout: () -> Void
 
+    /// Công tắc NSFW toàn app — chung khoá với Cài đặt › Nội dung nhạy cảm, ngăn kéo của Kệ và nút NSFW ở màn chọn
+    /// nguồn. Tắt khi đang xem nguồn NSFW ⇒ `DiscoveryView` tự chuyển sang nguồn đầu tiên còn lại.
+    @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
     @State private var showingTranslationPopup = false
     @State private var showingDrawer = false
 
@@ -34,6 +38,7 @@ struct DiscoverySourceMenuButton: View {
         .buttonStyle(.plain)
         .accessibilityLabel("Tuỳ chọn nguồn")
         .sideDrawerMenu(isPresented: $showingDrawer, title: "Tuỳ chọn nguồn") {
+            SideDrawerToggleRow("Nội dung NSFW", systemImage: "eye", isOn: $includeNsfw)
             if canOpenBrowser {
                 SideDrawerActionRow("Mở trình duyệt", systemImage: "safari", action: onOpenBrowser)
             }

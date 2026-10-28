@@ -164,7 +164,7 @@ struct DiscoveryView: View {
                         
                         Spacer()
                         
-                        // Menu gộp của nguồn: Mở trình duyệt · Kiểu hiển thị · Dịch văn bản.
+                        // Menu gộp của nguồn: công tắc NSFW · Mở trình duyệt · Kiểu hiển thị · Dịch văn bản.
                         if let ext = selected {
                             DiscoverySourceMenuButton(
                                 packageId: ext.packageId,

@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.599] - 2026-10-25
+
+### feat: tab Chi tiết bìa lớn, cỡ dòng danh sách 7 nấc, tên phim hiện đầy đủ
+
+Người dùng: *"mockup lại UI của tab 1 trên màn chi tiết tương tự hình này"* (chọn phương án A qua 4 bản mockup), *"làm thêm phần điều chỉnh kích thước đối với kiểu hiển thị danh sách nữa"* → *"nhiều cỡ lên"* (7 nấc), *"tên video trong phần phát hãy hiển thị đầy đủ thay vì chỉ 2 hàng"*.
+
+- **Tab Chi tiết** (`BookDetailHeaderView`): khối đầu mới `BookDetailHeroView` — nền là bìa làm mờ nhạt dần về màu nền, bìa lớn ở giữa, tên 22pt căn giữa, chip tác giả, chip nguồn (icon tiện ích + tên miền của host sách, không có thì tên tiện ích). Bìa dọc 150×210 hay ngang gần hết bề ngang theo **tỉ lệ thật của ảnh** (`BookCoverView.onImageSize` mới, thumbnail giữ tỉ lệ gốc; ≥ 1,15 là ngang, tối đa 2,4); chưa có ảnh thì video đoán ngang 16:9. Thông tin (`detail`), Thể loại, Giới thiệu thành thẻ bo góc `BookDetailSectionCard` (tiêu đề xanh nhạt). Đề xuất, bình luận, nút "+" và thanh tab Chi tiết/Mục lục giữ nguyên; thẻ Giới thiệu chỉ hiện khi có mô tả.
+- **Thanh điều hướng màn Chi tiết**: bỏ chữ "Chi Tiết Truyện" (mục `.principal` rỗng; `navigationTitle` giữ làm nhãn quay lại của màn con), nút quay lại chỉ còn icon (`.toolbarRole(.editor)`). Nút dịch và ⋮ giữ nguyên.
+- **Cỡ dòng kiểu Danh sách** (`BookListRowSize`, mới): 7 nấc, nấc 4 = cỡ cũ (bìa 50×70, tên 14.5pt) và là mặc định — ở nấc này mọi dòng dùng đúng font cũ. Nấc 1–2 là dòng gọn (tên 1 dòng, dòng phụ "tác giả · Ch./Tập N" hoặc mô tả 1 dòng). Lưu theo scope ở `bookListLayout.rowSize.<scope>` (sao lưu tự gói, "Đặt lại mặc định" xoá luôn). Sheet "Kiểu hiển thị" và màn Cài đặt có thanh trượt "Cỡ dòng" khi chọn Danh sách (sheet cao 240 → 268). Áp cho Kệ/Lịch sử/Bộ sưu tập (`ShelfBookRowView` → `BookListItemView`), Tìm trên kệ, tab Khám phá và màn Thể loại (`DiscoveryNovelRowView`), kết quả tìm trong một nguồn. `BookListItemView` thay `coverWidth`/`coverHeight` bằng `rowSize` (không caller nào truyền hai tham số cũ).
+- **Màn phát video** (`VideoPlayerDetailsView`): tên phim và tên tập bỏ giới hạn 2 dòng.
+- Chuyển entry `[1.3.569]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy (đặc biệt: `.principal` rỗng có ẩn hẳn tiêu đề không, nền mờ khi kéo làm mới, chuyển bìa dọc → ngang khi ảnh về).
+
 ## [1.3.598] - 2026-10-25
 
 ### fix: tạm dừng rồi tiếp tục TTS không còn lùi lại vài đoạn
