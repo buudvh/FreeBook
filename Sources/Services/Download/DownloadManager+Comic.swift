@@ -7,7 +7,8 @@ import SwiftData
 /// - Comic + `.download`: tải **tuần tự** từng chương, từng ảnh (chủ ý, tránh bị nguồn chặn) vào `ComicOfflineStore`.
 ///   Bỏ qua chương đã có manifest **cùng URL chương** (khác URL ⇒ tải lại, ghi đè); tôn trọng chương bắt đầu
 ///   (`DownloadStartChapterStore` / `startFromCurrent`) và `limit`; nghỉ giữa các chương theo `DownloadSpeedSettings`
-///   của nguồn; tiến độ theo chương; huỷ được. Script ảnh chạy trên `ComicImageScriptRunner` riêng của tác vụ.
+///   của nguồn; tiến độ theo chương; huỷ được; `DownloadFailureStreak.limit` chương liên tiếp lỗi thì dừng, báo
+///   "Thất bại". Script ảnh chạy trên `ComicImageScriptRunner` riêng của tác vụ.
 /// - Video + `.download`: `DownloadManager+Video` (tải tuần tự từng tập vào `VideoOfflineStore`).
 /// - Comic/video + xuất ebook: báo thất bại (UI bình thường đã ẩn các nút này).
 extension DownloadManager {
@@ -71,6 +72,7 @@ extension DownloadManager {
         var lastErrorMessage: String?
 
         var restsBeforeNextChapter = false
+        var failureStreak = DownloadFailureStreak()
         for (offset, chapter) in chapters.enumerated() {
             // Chỉ nghỉ sau chương vừa tải từ mạng; huỷ trong lúc nghỉ thì kiểm tra huỷ ngay dưới bắt được.
             if restsBeforeNextChapter, restNanoseconds > 0 {
@@ -85,6 +87,7 @@ extension DownloadManager {
             let chapterUrl = JSExecutor.cleanAndResolveUrl(chapter.url, host: chapter.host)
             if ComicOfflineStore.manifest(bookId: task.bookId, chapterIndex: chapter.index)?.chapterUrl == chapterUrl {
                 skippedCount += 1
+                failureStreak.recordSuccess()
             } else {
                 do {
                     try await downloadComicChapter(
@@ -99,6 +102,7 @@ extension DownloadManager {
                     )
                     downloadedCount += 1
                     restsBeforeNextChapter = true
+                    failureStreak.recordSuccess()
                 } catch {
                     ComicOfflineStore.discardChapter(bookId: task.bookId, chapterIndex: chapter.index)
                     // Huỷ giữa chừng có thể nổi lên dưới dạng `URLError.cancelled`/lỗi JS chứ không chỉ `CancellationError`.
@@ -109,6 +113,14 @@ extension DownloadManager {
                     failedCount += 1
                     lastErrorMessage = error.localizedDescription
                     AppLogger.shared.log("❌ [DownloadManager] Lỗi tải ảnh chương \(chapter.index) của \(task.bookTitle): \(error.localizedDescription)")
+                    if failureStreak.recordFailure(chapterIndex: chapter.index) {
+                        let message = failureStreak.stopMessage(noun: "chương")
+                        AppLogger.shared.log("❌ [DownloadManager] Tác vụ comic \(taskId) dừng: \(message)")
+                        await updateProgress(taskId: taskId, progress: offset + 1, total: total)
+                        await scriptRunner.releaseAll()
+                        await markFailed(taskId: taskId, error: message)
+                        return
+                    }
                 }
             }
 

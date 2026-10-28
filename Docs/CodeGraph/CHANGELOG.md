@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.634] - 2026-10-28
+
+### feat: tải truyện dừng và báo lỗi khi 5 chương liên tiếp tải lỗi
+
+Người dùng: *"nếu tải bị lỗi 5 chương liên tiếp thì dừng lại và thông báo"*; chọn báo lỗi + Thử lại (không thêm trạng thái tạm dừng), áp cho chữ + comic + video, xuất ebook bị dừng thì không ghi file; duyệt plan.
+
+- **`DownloadFailureStreak`** (mới): ngưỡng `limit = 5` (cùng `TTSManager.maxConsecutiveChapterFailures`); chương lỗi ⇒ +1, chương lấy được hoặc đã có sẵn trong máy ⇒ về 0; lời báo *"Đã dừng: 5 chương liên tiếp tải lỗi (ch.12–16). Kiểm tra nguồn rồi bấm Thử lại — chương đã tải không phải tải lại."* (video: "tập").
+- **Truyện chữ / xuất ebook** (`DownloadManager+ChapterLanes.runChapterLanes`): đếm ở vòng giao kết quả đã xếp đúng thứ tự mục lục ⇒ "liên tiếp" đúng cả khi chạy 2–3 luồng; `.skippedUncached` ("Chỉ xuất chương đã tải") không tính. Chạm ngưỡng ⇒ `checkCancellation` (đang huỷ thì vẫn báo "Đã hủy") rồi ném `LimitReached` ⇒ nhánh `catch` sẵn có của `executeTask` bỏ file xuất dở + `markFailed`. Trước đây chương lỗi bị bỏ qua tới hết phạm vi.
+- **Truyện tranh** (`DownloadManager+Comic`): đếm trong vòng từng chương; chạm ngưỡng ⇒ nhả `ComicImageScriptRunner` + `markFailed`.
+- **Video** (`DownloadManager+Video`): đếm theo tập; chạm ngưỡng ⇒ các tập còn chờ thành "Đã huỷ" + `markFailed`, cùng kiểu dừng khi bộ nhớ dưới 1 GB.
+- **Thông báo**: dùng `markFailed` sẵn có — toast lỗi, dòng "Thất bại" kèm lý do ở tab Tải và hộp thư Thông báo, nút Thử lại (tải tiếp, chương đã tải bỏ qua nhanh).
+- Chuyển entry `[1.3.604]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.633] - 2026-10-28
 
 ### fix: ngăn kéo menu thành kính đục vừa
@@ -399,17 +413,3 @@ Người dùng: *"Tôi muốn đổi icon nút dịch thành icon ngoài"* → c
 - **Không đổi**: icon dự phòng nhóm tiện ích "Dịch thuật" (`ExtensionFilterGroups.typeGroupSymbol`, API chỉ nhận SF Symbol, không phải nút dịch). Nút "Gốc" của menu chọn chữ (`FloatingSelectionMenu`) vốn dùng cùng ảnh 文A — giữ nguyên theo plan; nay 文A vừa là bật/tắt dịch vừa là "Gốc" ở menu chọn chữ.
 - Chuyển entry `[1.3.575]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.604] - 2026-10-26
-
-### feat: danh sách chương Reader kéo được như Hẹn giờ, thêm nút kệ, chữ trên bìa rõ hơn
-
-Người dùng: *"Sửa lại sheet danh sách truyện của reader, hiện tại sheet này kéo không được để nó kéo được như sheet hẹn giờ"*, *"Thêm nút thêm vào kệ vào sheet danh sách truyện của reader"*, *"Bỏ phần số thứ tự ở danh sách chương của màn hình hẹn giờ"*, *"số lượng chương trên cover giống hiển thị chỉ bìa … Tăng cover danh sách chương của reader lên chút"*, *"điều chỉnh luôn kiểu chỉ bìa của danh sách truyện để phần chữ ghi trên cover nhìn rõ hơn"*. Plan duyệt: `Docs/Plans/2026-10-26-plan-reader-toc-sheet-shelf-toggle.md` (mockup duyệt trong chat).
-
-- **Danh sách chương Reader chữ là sheet gốc** (`ReaderView.readerChapterListSheet`, thay overlay `readerChapterListOverlay`): `.presentationDetents([.fraction(0.88), .large])` + thanh kéo hệ thống như `TTSQuickTimerSheet`, kéo theo ngón tay, kéo xuống/chạm ngoài để đóng. Bỏ `Capsule` giả và `dismissGesture` ở header. Chọn chương: đóng sheet trước, `selectChapter` ở lượt main kế tiếp. Không mở sheet khi store chưa dựng được. Sheet dựng lại view mỗi lần mở nên ô tìm lấy lại truy vấn từ store (`ReaderChapterListStore.activeSearchQuery`, mới) và nút sắp xếp đọc thẳng `store.isAscending` (bỏ `@State isAscending` vốn lệch với store khi mở lại). `ReaderChapterListHost` + `.equatable()` giữ nguyên (doc comment cập nhật). Lần thử cùng hướng ngày 19/8 (`716ae779`) bị revert không rõ lý do — cần thử trên máy.
-- **Nút thêm/bỏ kệ chỉ có icon** (mới `ShelfToggleFlowModifier`, `ReaderChapterListView+Shelf.swift`): đầu hàng nút header danh sách chương Reader chữ và cạnh nút tải ở `ComicChapterListSheet`. `bookmark.fill` (chưa ở kệ) / `bookmark.slash.fill` đỏ (đã ở kệ) — cặp icon của `BookActionSheet`. Thêm ⇒ `BookActionRunner.addToShelf` rồi mở `CollectionPickerSheet`; bỏ ⇒ hộp xác nhận rồi `BookActionRunner.removeFromShelfOnly` (giữ file/tiến độ, về Lịch sử). **Không** dùng `BookDetailView.removeFromShelf` — đường đó xoá hẳn truyện. Chưa có bản ghi `Book` ⇒ ẩn nút. Hộp xác nhận/sheet chọn bộ sưu tập gắn ở gốc view, không trong `ToolbarItem`; tên trong hộp là tên đang hiển thị (đã dịch).
-- **Header danh sách chương**: bìa 72×100 → 86×120; "N chương" chuyển từ hàng nút xuống dải đáy bìa; hàng nút dồn phải sát đáy bìa.
-- **Chữ trên bìa kiểu "Chỉ bìa" rõ hơn** (mới `CoverCaptionStrip`, dùng ở `ShelfBookGridCardView`, `DiscoveryNovelGridCardView` và header trên): nền trong suốt → đen 75% trên đoạn chuyển phía trên chữ → 95% ở đáy, phần chuyển không chiếm chỗ bố cục (hàng badge tag/loại ở Kệ giữ vị trí, `zIndex(1)` để vẽ đè); tên 13pt bold, dòng phụ 11pt semibold trắng 100%, bóng chữ nhẹ trên từng `Text`; bìa 16:9 dùng đoạn chuyển thấp. Trước đó Kệ dùng nền đặc 60% (dòng "Ch. N" 10pt trắng 85%), Khám phá dùng dải chuyển 0 → 75% chỉ cao 14pt. Vẫn không dùng `.ultraThinMaterial`.
-- **Sheet Hẹn giờ** (`TTSQuickTimerSheet.chapterRow`): bỏ cột số thứ tự; chương đang phát giữ icon loa.
-- `rules.md`: bullet luật công tắc kệ trong Reader. Chuyển entry `[1.3.574]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới** (`ReaderView.swift` 2034 → 2020). Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.

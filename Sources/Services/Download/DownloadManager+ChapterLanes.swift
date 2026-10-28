@@ -15,6 +15,9 @@ import Foundation
 ///   của nó. Kết quả vẫn được giao ngay (tiến độ không trễ) và không có lượt nghỉ thừa sau chương cuối. Chương đã có
 ///   trong máy không làm luồng phải nghỉ, để xuất ebook truyện đã tải không chậm đi.
 /// - **Huỷ**: `Task.sleep` / `acquire` ném `CancellationError`, caller `markCancelled` như trước.
+/// - **Lỗi liên tiếp**: đủ `DownloadFailureStreak.limit` chương lỗi liền nhau theo thứ tự mục lục thì ném
+///   `DownloadFailureStreak.LimitReached`, caller `markFailed`. Chương bị bỏ qua vì "Chỉ xuất chương đã tải" không
+///   tính là lỗi.
 /// - Mặc định (1 luồng, không nghỉ) giữ đúng thứ tự thao tác cũ: lấy một chương, xử lý xong rồi mới tới chương sau.
 extension DownloadManager {
 
@@ -66,6 +69,9 @@ extension DownloadManager {
                 onAcquired: onAcquired
             )
         } catch {
+            if let stop = error as? DownloadFailureStreak.LimitReached {
+                AppLogger.shared.log("❌ [DownloadManager] Tác vụ \(taskId) dừng: \(stop.message)")
+            }
             await cleanUpLaneWorkers(extraWorkers)
             throw error
         }
@@ -91,6 +97,7 @@ extension DownloadManager {
             var freeLanes = Array(providers.indices.reversed())
             var finished: [Int: ExportContentProvider.Acquisition] = [:]
             var restingLanes = Set<Int>()
+            var failureStreak = DownloadFailureStreak()
 
             while nextToEmit < chapters.count {
                 while nextToLaunch < chapters.count, nextToLaunch - nextToEmit < window, let lane = freeLanes.popLast() {
@@ -122,8 +129,21 @@ extension DownloadManager {
                 }
                 finished[result.position] = result.acquisition
                 while let acquisition = finished.removeValue(forKey: nextToEmit) {
-                    try await onAcquired(chapters[nextToEmit], acquisition)
+                    let chapter = chapters[nextToEmit]
+                    try await onAcquired(chapter, acquisition)
                     nextToEmit += 1
+                    switch acquisition {
+                    case .failed:
+                        if failureStreak.recordFailure(chapterIndex: chapter.index) {
+                            // Đang huỷ thì JS bị ngắt cũng trả `.failed` — báo "Đã hủy", không báo dừng vì lỗi.
+                            try Task.checkCancellation()
+                            throw DownloadFailureStreak.LimitReached(message: failureStreak.stopMessage(noun: "chương"))
+                        }
+                    case .content:
+                        failureStreak.recordSuccess()
+                    case .skippedUncached:
+                        break
+                    }
                 }
             }
         }

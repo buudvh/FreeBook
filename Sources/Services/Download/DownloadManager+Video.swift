@@ -7,7 +7,8 @@ import SwiftData
 ///   mỗi phim chỉ một tác vụ video chạy một lúc (`runNextTasksIfNeeded`).
 /// - Tập bắt đầu: sidecar `VideoDownloadRequestStore` ("Tải tập này") → `startFromCurrent` (so `index` thật của tập với
 ///   `Book.currentChapterIndex`) → đầu mục lục; rồi `limit`. Bỏ dòng tiêu đề nhóm (`isSection`).
-/// - Bỏ qua tập đã có manifest **cùng URL tập**. Còn dưới `videoMinimumFreeBytes` ⇒ dừng tác vụ.
+/// - Bỏ qua tập đã có manifest **cùng URL tập**. Còn dưới `videoMinimumFreeBytes` ⇒ dừng tác vụ; đủ
+///   `DownloadFailureStreak.limit` tập liên tiếp lỗi ⇒ dừng tác vụ, các tập còn chờ thành "Đã huỷ".
 /// - Tiến độ theo tập + dòng phụ `mediaDetail` (phần trăm/dung lượng của tập đang tải, ≤ 1 lần/giây).
 /// - Huỷ ⇒ bỏ bản dở của tập đang tải; lỗi / app khởi động lại ⇒ giữ bản dở để lần thử sau tải tiếp.
 extension DownloadManager {
@@ -83,6 +84,8 @@ extension DownloadManager {
         var skippedCount = 0
         var failedCount = 0
         var lastErrorMessage: String?
+        // Đủ `DownloadFailureStreak.limit` tập liên tiếp lỗi thì dừng, báo "Thất bại" — cùng kiểu dừng khi bộ nhớ thấp.
+        var failureStreak = DownloadFailureStreak()
 
         for (offset, episode) in episodes.enumerated() {
             if await isComicTaskCancelled(taskId) {
@@ -94,6 +97,7 @@ extension DownloadManager {
             if let manifest = VideoOfflineStore.manifest(bookId: task.bookId, episodeIndex: episode.index),
                manifest.episodeUrl == episode.url {
                 skippedCount += 1
+                failureStreak.recordSuccess()
                 await MainActor.run {
                     self.updateVideoEpisode(taskId: taskId, episodeIndex: episode.index, state: .alreadyDownloaded, mediaDetail: nil)
                 }
@@ -123,10 +127,12 @@ extension DownloadManager {
                     progress: { fraction, bytes in reporter.report(fraction: fraction, bytes: bytes) }
                 )
                 var wasCancelled = false
+                var reachedFailureLimit = false
                 let finalState: VideoEpisodeProgress.State
                 do {
                     let manifest = try await pipeline.run(episode)
                     downloadedCount += 1
+                    failureStreak.recordSuccess()
                     finalState = .done(bytes: manifest.totalBytes)
                 } catch {
                     if error is CancellationError || Task.isCancelled {
@@ -138,6 +144,7 @@ extension DownloadManager {
                         finalState = .failed(error.localizedDescription)
                         lastErrorMessage = "\(label): \(error.localizedDescription)"
                         AppLogger.shared.log("❌ [VideoOffline] Lỗi tải tập \(episode.index) của «\(task.bookTitle)»: \(error.localizedDescription)")
+                        reachedFailureLimit = failureStreak.recordFailure(chapterIndex: episode.index)
                     }
                 }
                 let didCancel = wasCancelled
@@ -150,6 +157,14 @@ extension DownloadManager {
                 }
                 if wasCancelled {
                     await markCancelled(taskId: taskId)
+                    return
+                }
+                if reachedFailureLimit {
+                    let message = failureStreak.stopMessage(noun: "tập")
+                    AppLogger.shared.log("❌ [VideoOffline] Tác vụ \(taskId) dừng: \(message)")
+                    await updateProgress(taskId: taskId, progress: offset + 1, total: total)
+                    await MainActor.run { self.cancelWaitingVideoEpisodes(taskId: taskId) }
+                    await markFailed(taskId: taskId, error: message)
                     return
                 }
             }
