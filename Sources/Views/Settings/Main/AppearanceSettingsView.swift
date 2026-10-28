@@ -15,10 +15,17 @@ struct AppearanceSettingsView: View {
     @AppStorage(GlassChromeSettings.drawerFrostKey)
     private var drawerFrost = GlassChromeSettings.defaultDrawerFrost
 
-    /// Nền + chữ mẫu cho ô xem trước — cùng màu nền chủ đề Tối của Reader.
+    /// Nền ô xem trước — cùng màu nền chủ đề Tối của Reader.
     private static let previewBackground = Color(red: 0.08, green: 0.08, blue: 0.09)
-    private static let previewText = "Gió đêm thổi qua dãy núi phía tây, mang theo mùi cỏ dại và tiếng chuông xa. "
-        + "Cô dừng lại bên bờ suối, nhìn ánh trăng vỡ ra trên mặt nước rồi chậm rãi bước tiếp về phía làng."
+    /// Dải "bìa" màu chạy dưới kính ở ô xem trước (1.3.637): nền tối + chữ xám cũ gần như không đổi khi kéo thanh,
+    /// vì lớp màu kính cũng tối và nhoè chữ xám mờ thì khó thấy.
+    private static let previewCoverColors: [Color] = [
+        Color(red: 0.85, green: 0.35, blue: 0.19),
+        Color(red: 0.22, green: 0.54, blue: 0.87),
+        Color(red: 0.50, green: 0.47, blue: 0.87),
+        Color(red: 0.94, green: 0.62, blue: 0.15),
+        Color(red: 0.11, green: 0.62, blue: 0.46)
+    ]
 
     var body: some View {
         Form {
@@ -86,24 +93,33 @@ struct AppearanceSettingsView: View {
 
     // MARK: - Xem trước
 
-    private var previewTextBlock: some View {
-        Text(Self.previewText)
-            .font(.footnote)
-            .foregroundColor(Color.white.opacity(0.75))
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .padding(10)
+    private var previewBackdrop: some View {
+        HStack(spacing: 8) {
+            ForEach(Self.previewCoverColors.indices, id: \.self) { index in
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(Self.previewCoverColors[index])
+                    .overlay(alignment: .bottomLeading) {
+                        Text("Ch.\(index + 1)")
+                            .font(.caption2)
+                            .foregroundColor(.white)
+                            .padding(5)
+                    }
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var floatingPreview: some View {
         ZStack(alignment: .bottomTrailing) {
-            previewTextBlock
+            previewBackdrop
             HStack(spacing: 10) {
                 previewCircle(systemImage: "plus")
                 previewCircle(systemImage: "headphones")
             }
             .padding(10)
         }
-        .frame(height: 112)
+        .frame(height: 128)
         .background(Self.previewBackground)
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .accessibilityElement(children: .ignore)
@@ -121,7 +137,7 @@ struct AppearanceSettingsView: View {
     private var drawerPreview: some View {
         GeometryReader { proxy in
             ZStack(alignment: .trailing) {
-                previewTextBlock
+                previewBackdrop
                 VStack(alignment: .leading, spacing: 10) {
                     Label("Thêm quy tắc", systemImage: "plus")
                     Label("Nhập cấu hình", systemImage: "square.and.arrow.down")
@@ -135,7 +151,7 @@ struct AppearanceSettingsView: View {
                 .background { SideDrawerGlassBackground() }
             }
         }
-        .frame(height: 112)
+        .frame(height: 128)
         .background(Self.previewBackground)
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .accessibilityElement(children: .ignore)

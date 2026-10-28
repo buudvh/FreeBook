@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.637] - 2026-10-28
+
+### fix: thanh kéo Giao diện cập nhật ngay, nút + nổi ở Lọc rác
+
+Người dùng: *"cài đặt độ trong suốt và độ đục chưa hoạt động"*, *"nút thêm lọc rác chưa chuẩn hoá"*; duyệt mockup + plan.
+
+- **Khoá cài đặt kính bỏ dấu chấm** (`GlassChromeSettings`): `glassChrome.floatingButton.transparency`… → `glassChromeFloatingTransparency`, `glassChromeFloatingFrost`, `glassChromeDrawerTransparency`, `glassChromeDrawerFrost`. `@AppStorage` nghe thay đổi qua KVO của `UserDefaults`, KVO đọc dấu chấm là key path lồng nhau ⇒ thanh kéo ghi được nhưng nút nổi, ngăn kéo và ô xem trước (mỗi view một `@AppStorage` riêng) không được báo. Mọi khoá `@AppStorage` khác trong app vốn không có dấu chấm. Giá trị đã kéo dưới khoá cũ (chỉ có từ 1.3.636) về mặc định một lần.
+- **Ô xem trước** (`AppearanceSettingsView`): nền tối + chữ xám mờ đổi thành dải 5 "bìa" màu (Ch.1–Ch.5) chạy dưới nút và dưới ngăn kéo, cao 112 → 128pt — trên nền tối, lớp màu kính (xám 0.16) và độ nhoè gần như không đổi khi kéo. Mặc định và màu lớp kính giữ nguyên.
+- **Lọc rác** (`JunkFilterManagementView`): "Thêm quy tắc" rời ngăn kéo thành nút "+" nổi (`.floatingAddButton`); nút "…" 17pt semibold như các màn danh sách khác; vạch ngăn sau "Sắp xếp lại" chỉ hiện cùng mục đó (đang tìm thì ngăn kéo không mở đầu bằng vạch). Hàng quy tắc giữ nguyên (người dùng loại Lọc rác khỏi đợt đồng bộ hàng ở 1.3.635).
+- Chuyển entry `[1.3.607]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy. Nguyên nhân khoá có dấu chấm là suy từ code, chưa tái hiện được trên máy.
+
 ## [1.3.636] - 2026-10-28
 
 ### feat: màn Giao diện chỉnh nút nổi và menu, nút + nổi, danh sách cuộn vô cực
@@ -403,17 +415,3 @@ Người dùng (sau 1.3.606): *"lỗi ba panel bôi đen không kéo được l�
 - **Tiêu đề 20pt bold** (trước `.headline`); sheet đo chiều cao theo nội dung nên tự cao theo.
 - `rules.md`: bullet ba panel bôi đen cập nhật nấc/nền/không ✕. Chuyển entry `[1.3.578]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.607] - 2026-10-26
-
-### feat: ghim chéo trên bìa ở Kệ, icon dịch kiểu Google, nhớ nội dung Tìm trong chương
-
-Người dùng: *"tăng size cover ở sheet contextmenu ở kệ sách/lịch sử"*, *"để icon ghim ở góc trên bên trái của cover (icon chéo một chút), bỏ icon ghim cũ và dòng đã ghim lên kệ"*, *"bỏ icon thông tin"*, *"Đổi icon ghim lên cover đối với truyện trong kệ luôn"*, *"icon dịch xấu quá, đổi icon khác đi"* (chọn Material `g_translate` sau hai lượt mockup), *"sửa icon mở trình duyệt ở kệ sách cho đồng bộ"* (chỉ các nút mở), *"mở tìm trong chương lại hãy nhớ nội dung vừa tìm"* (trong lượt đọc). Plan duyệt trong chat.
-
-- **Ghim chéo trên bìa** (mới `CoverPinBadge`): `pin.fill` cam xoay 35° trên nền tròn tối, dùng chung cho dòng danh sách Kệ (`ShelfBookRowView` — bỏ ghim bên phải dòng, ghim nhô nhẹ ra ngoài góc bìa, cỡ theo `BookListRowSize.coverWidth` trong 14…20pt), ô lưới/chỉ bìa (`ShelfBookGridCardView.pinBadge` — trong góc) và sheet nhấn giữ. Áp cho Kệ, Lịch sử, Bộ sưu tập, Tìm trên kệ.
-- **Sheet nhấn giữ** (`BookActionSheet`): bìa 60×84 → 86×120 (cột nút `minHeight` theo), ghim lên góc bìa thay dòng "Đang ghim đầu kệ" (VoiceOver vẫn đọc qua `accessibilityValue`), bỏ icon ⓘ trang trí.
-- **Icon dịch** (`AppGlyph.translate`): asset mới `MaterialGTranslate` = Material Symbols `g_translate` Rounded, tô đặc, nét 600 (Apache 2.0, `Docs/ThirdParty/MaterialSymbols-LICENSE.txt`; `viewBox` đổi về gốc 0 bằng `translate`). Sáu chỗ của 1.3.605 tự đổi theo; nút "Gốc" ở menu chọn chữ giữ 文A (`originalText`) — hai icon không còn trùng.
-- **Icon mở trình duyệt**: `globe` → `safari` ở menu Kệ "Mở trình duyệt web" và "Đăng nhập trên web" (`LegadoLoginView`, lệch với nút "Mở trang đăng nhập" ngay trên). Dòng "Trình duyệt" của Cài đặt và dòng NSFW giữ `globe` (tab Khám phá đã là `safari.fill`).
-- **Tìm trong chương nhớ truy vấn** (`ReaderSearchView` `initialQuery`/`onQueryChange`, `ReaderView.readerSearchQuery`): đóng sheet thì báo truy vấn cuối về Reader; mở lại thì điền sẵn và tìm lại ngay. Nhớ trong lượt đọc (đóng Reader là mất). Không nối `Binding` thẳng vào `@State` của Reader để phím gõ không vẽ lại cả thân Reader.
-- Chuyển entry `[1.3.577]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy (asset SVG `g_translate` hiển thị đúng chưa kiểm).

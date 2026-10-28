@@ -102,6 +102,8 @@ struct JunkFilterManagementView: View {
                 }
             }
         }
+        // "Thêm quy tắc" là nút "+" nổi góc dưới phải như các màn danh sách khác (trước đây là mục đầu ngăn kéo).
+        .floatingAddButton("Thêm quy tắc") { prepareForAdd() }
         .searchable(text: $searchText, prompt: "Tìm từ lọc rác...")
         .environment(\.editMode, $editMode)
         .onChange(of: isSearching) { _, searching in
@@ -114,19 +116,20 @@ struct JunkFilterManagementView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button(action: { showingOptionsMenu = true }) {
-                    Label("Tùy chọn", systemImage: "ellipsis.circle")
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 17, weight: .semibold))
                 }
+                .accessibilityLabel("Tùy chọn")
             }
         }
         .sideDrawerMenu(isPresented: $showingOptionsMenu, title: "Quản lý lọc rác") {
-            SideDrawerActionRow("Thêm quy tắc", systemImage: "plus") { prepareForAdd() }
             if !isSearching {
                 SideDrawerActionRow(
                     editMode == .active ? "Xong sắp xếp" : "Sắp xếp lại",
                     systemImage: editMode == .active ? "checkmark" : "arrow.up.arrow.down"
                 ) { toggleReordering() }
+                SideDrawerDivider()
             }
-            SideDrawerDivider()
             SideDrawerActionRow("Nhập cấu hình (JSON)", systemImage: "square.and.arrow.down") { showingFileImporter = true }
             SideDrawerActionRow("Xuất cấu hình (JSON)", systemImage: "square.and.arrow.up") { exportRules() }
             SideDrawerDivider()

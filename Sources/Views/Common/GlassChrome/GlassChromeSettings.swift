@@ -8,11 +8,14 @@ import Foundation
 ///
 /// Mặc định của ngăn kéo giữ đúng "kính đục vừa" đã duyệt ở 1.3.633 (lớp tối 55% ⇒ trong suốt 45%, nhoè 60%); nút nổi
 /// mặc định "kính rất nhạt" (lớp màu 10%, không nhoè) theo mockup đã duyệt.
+///
+/// Khoá **không được có dấu chấm** (1.3.637): `@AppStorage` nghe thay đổi qua KVO của `UserDefaults`, mà KVO đọc dấu
+/// chấm là key path lồng nhau ⇒ thanh kéo ghi được nhưng các view khác (nút nổi, ngăn kéo, ô xem trước) không được báo.
 enum GlassChromeSettings {
-    static let floatingTransparencyKey = "glassChrome.floatingButton.transparency"
-    static let floatingFrostKey = "glassChrome.floatingButton.frost"
-    static let drawerTransparencyKey = "glassChrome.sideDrawer.transparency"
-    static let drawerFrostKey = "glassChrome.sideDrawer.frost"
+    static let floatingTransparencyKey = "glassChromeFloatingTransparency"
+    static let floatingFrostKey = "glassChromeFloatingFrost"
+    static let drawerTransparencyKey = "glassChromeDrawerTransparency"
+    static let drawerFrostKey = "glassChromeDrawerFrost"
 
     static let defaultFloatingTransparency = 0.9
     static let defaultFloatingFrost = 0.0
