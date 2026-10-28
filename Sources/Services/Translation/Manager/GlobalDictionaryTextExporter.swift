@@ -44,37 +44,37 @@ enum GlobalDictionaryTextExporter {
     /// `type` dùng đúng mã của màn Cài đặt dịch thuật: `vietphrase`, `names`, `phienam`, `pronouns`, `luatnhan`.
     static func export(type: String) throws -> URL {
         let manager = TranslationManager.shared
-        let source = try source(for: type, manager: manager)
-        let destination = temporaryURL(prefix: source.exportPrefix)
+        let descriptor = try source(for: type, manager: manager)
+        let destination = temporaryURL(prefix: descriptor.exportPrefix)
         let fileManager = FileManager.default
         if fileManager.fileExists(atPath: destination.path) {
             try fileManager.removeItem(at: destination)
         }
 
         let dictionary: TrieDictionary
-        if let loaded = source.loaded {
+        if let loaded = descriptor.loaded {
             dictionary = loaded
-        } else if let datFileName = source.datFileName,
+        } else if let datFileName = descriptor.datFileName,
                   fileManager.fileExists(atPath: manager.translateDirectory.appendingPathComponent(datFileName).path) {
             let trie = DoubleArrayTrie()
             try trie.load(from: manager.translateDirectory.appendingPathComponent(datFileName))
-            guard trie.isLoaded else { throw ExportError.notAvailable(source.exportPrefix) }
+            guard trie.isLoaded else { throw ExportError.notAvailable(descriptor.exportPrefix) }
             dictionary = trie
         } else {
             // PhienAm, hoặc `.txt` vừa tải về mà chưa kịp biên dịch sang `.dat`: chép nguyên file text.
-            let textURL = manager.translateDirectory.appendingPathComponent(source.txtFileName)
+            let textURL = manager.translateDirectory.appendingPathComponent(descriptor.txtFileName)
             guard fileManager.fileExists(atPath: textURL.path) else {
-                throw ExportError.notAvailable(source.exportPrefix)
+                throw ExportError.notAvailable(descriptor.exportPrefix)
             }
             try fileManager.copyItem(at: textURL, to: destination)
             return destination
         }
 
         let entries = dictionary.allEntries()
-        guard !entries.isEmpty else { throw ExportError.notAvailable(source.exportPrefix) }
+        guard !entries.isEmpty else { throw ExportError.notAvailable(descriptor.exportPrefix) }
         guard entries.count == dictionary.wordCount else {
             throw ExportError.enumerationMismatch(
-                name: source.exportPrefix,
+                name: descriptor.exportPrefix,
                 expected: dictionary.wordCount,
                 actual: entries.count
             )
