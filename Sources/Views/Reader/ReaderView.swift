@@ -171,6 +171,7 @@ struct ReaderView: View {
     @AppStorage("readerSelectedTheme") internal var selectedTheme: ReaderTheme = .dark // Theme giao diện đọc (Sáng, Trầm ấm, Tối)
     @AppStorage("readerFontFamily") internal var fontFamily: ReaderFontFamily = .georgia // Phông chữ đọc sách
     @AppStorage("hasOpenedReader") internal var hasOpenedReader = false
+    @AppStorage(ReaderEdgeTapDetector.preferenceKey) internal var edgeTapChangesChapter = true // Chạm 1/3 trái/phải để chuyển chương
     @State internal var showingSettings = false // Hiện bảng cài đặt font chữ, màu nền
     @State internal var showingJunkDeleteSheet = false
     @State internal var junkPatternInput = ""
@@ -1883,12 +1884,7 @@ struct ReaderView: View {
                 .padding(.horizontal, 18)
                 .padding(.vertical, 24)
                 // Đầu dò phải nằm TRONG content của ScrollView để tìm được `UIScrollView` bao ngoài.
-                .background(
-                    ReaderUserScrollDetector { handleUserScrollWhilePlaying() }
-                        .frame(width: 1, height: 1)
-                        .allowsHitTesting(false),
-                    alignment: .topLeading
-                )
+                .background(readerScrollProbes, alignment: .topLeading)
             }
             .onAppear {
                 renderedChapterIndex = chapter.index

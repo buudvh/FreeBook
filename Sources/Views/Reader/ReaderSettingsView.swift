@@ -31,6 +31,8 @@ struct ReaderSettingsView: View {
     @State private var bookOverride: TranslationConfigStore.ScopeOverride = .inherited
     @State private var sourceOverride: TranslationConfigStore.ScopeOverride = .inherited
     @State private var globalEnabled: Bool = false
+    /// Đọc thẳng `UserDefaults` — `ReaderView` cùng khoá nên đổi là áp ngay cho khung đọc bên dưới.
+    @AppStorage(ReaderEdgeTapDetector.preferenceKey) private var edgeTapChangesChapter = true
 
     var body: some View {
         ScrollView {
@@ -289,6 +291,10 @@ struct ReaderSettingsView: View {
                 }
             ))
             .padding(.horizontal)
+
+            // Chạm 1/3 trái ⇒ chương trước, 1/3 phải ⇒ chương sau (`ReaderEdgeTapDetector`); không đụng bôi đen.
+            Toggle("Chạm hai bên để chuyển chương", isOn: $edgeTapChangesChapter)
+                .padding(.horizontal)
         }
     }
 

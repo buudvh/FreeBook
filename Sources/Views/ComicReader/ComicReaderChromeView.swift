@@ -11,6 +11,8 @@ struct ComicReaderChromeView: View {
     let isTranslationEnabled: Bool
     let onBack: () -> Void
     let onOpenChapterList: () -> Void
+    /// Ngăn kéo "…" của màn đọc (chọn cách chuyển chương).
+    let onOpenMenu: () -> Void
 
     private static let barBackground = Color.black.opacity(0.82)
 
@@ -56,6 +58,14 @@ struct ComicReaderChromeView: View {
                     .contentShape(Rectangle())
             }
             .accessibilityLabel("Mục lục")
+
+            Button(action: onOpenMenu) {
+                Image(systemName: "ellipsis.circle")
+                    .font(.system(size: 17, weight: .semibold))
+                    .frame(width: 36, height: 38)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("Tuỳ chọn đọc")
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 2)

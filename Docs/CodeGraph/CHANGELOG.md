@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.643] - 2026-10-29
+
+### feat: chạm 1/3 hai bên để chuyển chương ở Reader và truyện tranh
+
+Người dùng: *"Tôi muốn thêm hành động tap ở 1/3 màn hình trái phải để chuyển chương. Nhưng sợ xung đột với hành động bôi đen"* — duyệt plan, công tắc mặc định **bật**.
+
+- **`ReaderEdgeTapDetector`** (`Sources/Views/Reader/Components/`): `UITapGestureRecognizer` không tiêu thụ touch gắn lên `UIScrollView` của chương (cùng mẫu `ReaderUserScrollDetector`: `cancelsTouchesInView = false`, nhận đồng thời, không đòi recognizer khác fail) ⇒ không giành touch của ô chữ. 1/3 trái ⇒ chương trước, 1/3 phải ⇒ chương sau, giữa không làm gì; tính cả chạm lên chữ lẫn lề.
+- **Không tính là chạm chuyển chương** khi: lúc đặt ngón đang có đoạn bôi đen / menu bôi đen hiện (chạm để bỏ bôi đen); giữ > 0,35 s hoặc kéo; trang đang trôi/đang kéo (chạm để dừng cuộn); chạm đúp — chờ 0,25 s, có chạm thứ hai hoặc chữ vừa được bôi đen thì huỷ; chương đầu/cuối; chương đang tải/lỗi (khung cuộn chưa có). Khung nội dung chương chỉ chứa đoạn chữ, nút Chương trước/sau ở thanh điều khiển ngoài ⇒ không bấm trùng nút.
+- Chuyển chương đi qua `stepChapterHonoringTTS` như nút Chương trước/sau (tôn trọng TTS đang đọc), rung nhẹ. Hai đầu dò gộp thành `readerScrollProbes` ở `ReaderView+Controls`.
+- Công tắc "Chạm hai bên để chuyển chương" ở Cài đặt đọc (`@AppStorage("readerEdgeTapChangesChapter")`, mặc định bật).
+- **Truyện tranh** (người dùng: *"Comic làm luôn, cho config chọn kiểu mới này và kiểu vuốt cũ. Mặc định kiểu mới"*): `ComicChapterNavigationMode` (`@AppStorage("comicChapterNavigationMode")`) chọn ở ngăn kéo "…" mới trên thanh trên của màn đọc ("Tuỳ chọn đọc" › "Chuyển chương"). **Chạm hai bên** (mặc định): chạm 1/3 trái/phải trên ảnh hoặc dòng "Hết chương" ⇒ chương trước/sau, giữa ⇒ bật/tắt thanh, vuốt ngang không đổi chương. **Vuốt ngang**: như 1.3.613. Chạm đúp vẫn phóng to (`ComicPageView` báo điểm chạm `.global`). Dòng gợi ý cuối chương đổi theo kiểu; chạm hai bên và vuốt dùng chung `stepChapter(forward:)` (chặn khi đang nạp chương, toast ở chương đầu/cuối). CLAUDE.md/AGENTS.md cập nhật mục màn đọc comic.
+- Chuyển entry `[1.3.613]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: nhấn giữ bôi đen, chạm đúp chọn từ, kéo nới vùng chọn, chạm bỏ bôi đen, chạm khi trang đang trôi, chạm lúc TTS đang đọc; truyện tranh: chạm hai bên, chạm đúp phóng to, chuyển kiểu ở ngăn kéo "…".
+
 ## [1.3.642] - 2026-10-29
 
 ### feat: nhập truyện tranh và phim từ file, xuất truyện tranh CBZ/PDF
@@ -395,27 +409,4 @@ Người dùng (qua `/grill-me`, mockup duyệt trong chat, plan `Docs/Plans/202
 - CLAUDE.md + AGENTS.md: đoạn "Nút Mở link lỗi" (cách nối cho màn lỗi mới). Chuyển entry `[1.3.584]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Giới hạn đã biết**: chép cookie có thể chưa đủ để URLSession qua Cloudflare (vân tay kết nối khác Safari) — fallback browser ẩn vẫn dùng cookie WebKit; nguồn Legado gửi UA Chrome Android khác UA iPhone của trình duyệt nên clearance gắn UA có thể không dùng lại được; fetch chạy lúc nạp script không có dấu vết ⇒ rơi về URL đầu vào.
 - **Kiểm chứng**: đọc code; hai agent review phản biện (service + UI) không thấy lỗi biên dịch, đã sửa các bug hành vi nêu ra. `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; **chưa thử trên máy** (nhất là `fullScreenCover` có làm màn bên dưới chạy lại `onAppear` hay không, 3 cover nối nhau ở màn Chi tiết, và nguồn Cloudflare thật).
-
-## [1.3.613] - 2026-10-27
-
-### feat: fetch lỗi thử lại bằng browser ẩn, mục lục comic như truyện chữ, badge R/C, hỏi lại bỏ kệ
-
-Người dùng (qua `/grill-me`, 10 mục, mockup duyệt trong chat, *"làm luôn không cần plan"*): badge riêng/chung cho chip nghĩa màn Dịch; *"fetch nếu không fetch được thì tự mở bằng browser (nếu browser cũng lỗi thì hiển thị lỗi fetch)"* + *"log kiểu lỗi 403, đang thử mở browser ẩn…"* + *"cả 2 lỗi thì hiển thị lỗi của cả 2"*; hỏi lại khi xoá khỏi kệ ở sheet nhấn giữ; vuốt âm lượng bỏ tắt tiếng video; Hub từ điển Names trên VietPhrase, bớt giải thích; màn thêm rule có dấu hỏi, nửa màn, nút Lưu như "Thêm từ mới"; dòng tắt tiếng sang màn Nội dung nhạy cảm; mục lục comic giống truyện chữ; cuối chương comic bỏ nút, vuốt ngang chuyển chương.
-
-- **`fetch` lỗi ⇒ browser ẩn** (`JSExecutor+FetchBrowserFallback`, `HiddenBrowserFetch`, `HiddenBrowserFetchScripts`, `WebViewLoader+NavigationResponse`, mới): chỉ khi lỗi mạng / hết giờ / HTTP 403, 429, 503; GET không body, URL http(s); không phải domain bị chặn, không huỷ; executor cho phép (`allowsFetchBrowserFallback`, tắt ở `ExtTTSRuntime` và `ComicImageScriptRunner`); không ở main thread (semaphore + main queue ⇒ deadlock, bỏ qua kèm log) và app không ở nền (WebKit tạm dừng WebContent). Luôn bật, không có cài đặt.
-  - Browser ẩn mới mỗi lượt, gắn cửa sổ ẩn, tối đa 3 cái cùng lúc (chờ suất ≤ 3 s), hạn 15 s. Dò DOM mỗi 0,5 s: chờ qua trang chặn Cloudflare (`_cf_chl_opt`, `cf-chl`, `#challenge-form`, title "Just a moment"…) và trang chờ; `WebViewLoader` giờ giữ lỗi điều hướng (`didFail*`) và status/MIME trang chính của lần điều hướng **mới nhất** (`decidePolicyFor navigationResponse`, mô phỏng mặc định WebKit). Thất bại khi: lỗi điều hướng, status ≥ 400, nội dung nhị phân, vẫn trang chặn / trống / hết giờ.
-  - Thành công ⇒ 200 + nội dung (HTML lấy `outerHTML`; JSON/text — kể cả bị gắn nhãn HTML — lấy text), `raw` mã hoá theo `characterSet` (họ GBK dùng GB18030). Cả hai lỗi ⇒ giữ response gốc, `statusText` = `"<gốc> | Browser ẩn: <lý do>"`.
-  - Log: `❌ [JSFetch] HTTP 403 <host><path> — đang thử mở browser ẩn…`, `✅ … Browser ẩn tải được`, `❌ … Fetch lỗi (…) và browser ẩn cũng lỗi (…)`; không ghi query string. Console debug tiện ích thấy lượt "BROWSER".
-  - Kèm: fetch hết giờ giờ trả đúng 408 "Request Timeout" (trước bị callback ghi đè thành 500).
-- **Chip nghĩa màn Dịch**: badge `R`/`C` góc trên phải (`SuggestionChip.Scope`), chỉ nguồn Names/VietPhrase; nghĩa có ở bất kỳ nguồn Riêng ⇒ `R`. Phạm vi suy từ hậu tố nhãn "(Riêng)"/"(Chung)" của `dictionaryMatches` (đã chú thích hợp đồng ở `ReaderView+Selection`).
-- **Bỏ kệ từ sheet nhấn giữ** (Kệ/Lịch sử, Tìm trên kệ, Bộ sưu tập) hỏi lại bằng đúng hộp của danh sách chương — tách `ShelfRemovalConfirmationModifier` (mới), `ShelfToggleFlowModifier` dùng lại. Hộp bật trong `onDismiss` của sheet nhấn giữ (`queuedShelfRemovalBook`) để không trình bày chồng lúc sheet đang đóng.
-- **Video**: bắt đầu vuốt âm lượng (toàn màn) khi đang tắt tiếng ⇒ `setMuted(false)` (dừng TTS đang đọc như bật tiếng bằng nút). Nút âm lượng cứng không đụng; khung dọc không thêm cử chỉ (người dùng bỏ).
-- **"Tắt tiếng khi mở phim"** chuyển từ Đọc & Nghe sang Cài đặt › Thư Viện › Nội dung nhạy cảm (section riêng sau công tắc).
-- **Hub từ điển**: Names trên VietPhrase ở cả hai section; xoá hai footer giải thích.
-- **Sheet thêm/sửa rule**: nút dấu hỏi ở header "Mẫu"/"Bản dịch" mở popover chứa giải thích cũ (`QuickTranslationRuleHelpButton`, mới; câu "Đổi mẫu sẽ thêm rule mới…" của chế độ sửa vào popover "Mẫu"); Lưu = `Menu` đúng hai mục "Lưu vào bộ riêng truyện" / "Lưu vào bộ chung" khi thêm và có truyện (bỏ `confirmationDialog`), còn lại nút thường; sheet mở nửa màn, chạm ô nhập tự lên toàn màn (khôi phục nháp giữa lúc gõ thì mở toàn màn).
-- **Mục lục comic** (`ComicChapterListSheet` viết lại + `+Header`, mới): sheet 0.88/large có thanh kéo, bỏ tiêu đề + ✕; header bìa (số chương, chạm mở Chi tiết) / tên / tác giả / nhãn nguồn, nút kệ / tải ảnh offline / đảo thứ tự (giữ trong phiên, `ComicReaderView`); ô tìm; hàng kiểu `ReaderChapterRowView`; tìm hoặc giảm dần ⇒ ẩn dòng nhóm. Metadata thiếu `Book` thì lấy từ `launch`. Không làm: dịch lại tên chương, cập nhật mục lục, tải lẻ.
-- **Màn đọc comic**: cuối chương bỏ nút "Chương tiếp", thay dòng "Vuốt sang trái để sang chương tiếp theo"; vuốt ngang mọi chỗ (`DragGesture` simultaneous, |dx| ≥ 80 pt và > 2·|dy|): trái ⇒ chương sau, phải ⇒ chương trước, hết chương thì toast; bỏ qua khi đang nạp / phóng to / mở mục lục.
-- CLAUDE.md + AGENTS.md: đoạn fetch → browser ẩn, vị trí `VideoMutePolicy`, màn đọc comic. Chuyển entry `[1.3.583]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Giới hạn đã biết**: cookie `cf_clearance` nằm trong kho WebKit, không sang URLSession ⇒ mỗi fetch sau tới site đó lại 403 rồi mới vào browser (chưa nhớ host bị chặn); lỗi của điều hướng phụ có thể làm browser báo lỗi nhầm; executor dùng lại (`BookDownloadWorker`) bị huỷ thì browser của lượt cũ giữ suất tới hết hạn.
-- **Kiểm chứng**: đọc code; hai agent review phản biện (service + UI) không thấy lỗi biên dịch/deadlock, đã sửa các bug hành vi nêu ra. `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; **chưa thử trên máy**, nhất là vuốt ngang trên `ScrollView` của comic (nếu `onEnded` không tới thì chuyển sang `UIPanGestureRecognizer`), popover trong header `Form`, và các dấu hiệu Cloudflare trên site thật.
 

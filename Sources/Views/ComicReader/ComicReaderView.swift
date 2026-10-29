@@ -18,9 +18,11 @@ struct ComicReaderView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.displayScale) private var displayScale
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
+    @AppStorage(ComicChapterNavigationMode.storageKey) private var navigationModeRaw = ComicChapterNavigationMode.tapSides.rawValue
 
     @State private var viewModel: ComicReaderViewModel
     @State private var showsChrome = true
+    @State private var showsOptionsMenu = false
     @State private var showsChapterList = false
     /// Thứ tự của mục lục — sheet dựng lại mỗi lần mở nên giữ ở đây: còn nguyên suốt phiên đọc, không lưu đĩa.
     @State private var isChapterListAscending = true
@@ -53,9 +55,18 @@ struct ComicReaderView: View {
                     viewModel: viewModel,
                     isTranslationEnabled: isTranslationEnabled,
                     onBack: { dismiss() },
-                    onOpenChapterList: { showsChapterList = true }
+                    onOpenChapterList: { showsChapterList = true },
+                    onOpenMenu: { showsOptionsMenu = true }
                 )
                 .transition(.opacity)
+            }
+        }
+        .sideDrawerMenu(isPresented: $showsOptionsMenu, title: "Tuỳ chọn đọc") {
+            SideDrawerSectionHeader("Chuyển chương")
+            ForEach(ComicChapterNavigationMode.allCases) { mode in
+                SideDrawerOptionRow(mode.title, isSelected: mode.rawValue == navigationModeRaw) {
+                    navigationModeRaw = mode.rawValue
+                }
             }
         }
         .toolbar(.hidden, for: .navigationBar)
@@ -141,11 +152,11 @@ struct ComicReaderView: View {
                 }
             }
         case .loaded:
-            pageList(maxPixelWidth: max(1, Int((screenWidth * displayScale).rounded())))
+            pageList(screenWidth: screenWidth, maxPixelWidth: max(1, Int((screenWidth * displayScale).rounded())))
         }
     }
 
-    private func pageList(maxPixelWidth: Int) -> some View {
+    private func pageList(screenWidth: CGFloat, maxPixelWidth: Int) -> some View {
         let generation = viewModel.loadGeneration
         return ScrollViewReader { proxy in
             ScrollView(.vertical) {
@@ -160,7 +171,7 @@ struct ComicReaderView: View {
                                 onAspectRatioMeasured: { ratio in
                                     viewModel.recordAspectRatio(ratio, at: index, generation: generation)
                                 },
-                                onSingleTap: toggleChrome,
+                                onSingleTap: { handleSingleTap(at: $0, screenWidth: screenWidth) },
                                 onDoubleTap: openZoom
                             )
                             .id(index)
@@ -168,7 +179,7 @@ struct ComicReaderView: View {
                             .onDisappear { viewModel.pageDidDisappear(index, generation: generation) }
                         }
                     }
-                    chapterEndFooter
+                    chapterEndFooter(screenWidth: screenWidth)
                 }
             }
             .scrollIndicators(.hidden)
@@ -180,14 +191,19 @@ struct ComicReaderView: View {
         }
     }
 
-    private var chapterEndFooter: some View {
+    private func chapterEndFooter(screenWidth: CGFloat) -> some View {
         VStack(spacing: 14) {
             Text("Hết chương")
                 .font(.footnote)
                 .foregroundStyle(Color.white.opacity(0.6))
             if viewModel.nextChapterIndex != nil {
-                // Chuyển chương bằng vuốt ngang (`chapterSwipeGesture`), cuối chương chỉ còn dòng gợi ý.
-                Label("Vuốt sang trái để sang chương tiếp theo", systemImage: "arrow.left")
+                // Cuối chương chỉ còn dòng gợi ý, theo cách chuyển chương đang chọn (chạm hai bên / vuốt ngang).
+                Label(
+                    navigationMode == .tapSides
+                        ? "Chạm bên phải màn hình để sang chương tiếp theo"
+                        : "Vuốt sang trái để sang chương tiếp theo",
+                    systemImage: navigationMode == .tapSides ? "hand.tap" : "arrow.left"
+                )
                     .font(.footnote)
                     .foregroundStyle(Color.white.opacity(0.8))
                     .multilineTextAlignment(.center)
@@ -202,7 +218,7 @@ struct ComicReaderView: View {
         .padding(.top, 36)
         .padding(.bottom, 96)
         .contentShape(Rectangle())
-        .onTapGesture(perform: toggleChrome)
+        .onTapGesture(count: 1, coordinateSpace: .global) { handleSingleTap(at: $0, screenWidth: screenWidth) }
     }
 
     private func statusView<Content: View>(@ViewBuilder _ inner: () -> Content) -> some View {
@@ -252,6 +268,46 @@ struct ComicReaderView: View {
         isZoomPresented = true
     }
 
+    private var navigationMode: ComicChapterNavigationMode {
+        ComicChapterNavigationMode(rawValue: navigationModeRaw) ?? .tapSides
+    }
+
+    /// Chạm một lần trên ảnh / dòng cuối chương. Kiểu "Chạm hai bên": 1/3 trái ⇒ chương trước, 1/3 phải ⇒ chương sau,
+    /// giữa ⇒ bật/tắt thanh. Kiểu "Vuốt ngang": chạm ở đâu cũng chỉ bật/tắt thanh như cũ. Chạm đúp (phóng to) không tới
+    /// đây — `ComicPageView` đặt chạm đúp trước chạm đơn.
+    private func handleSingleTap(at location: CGPoint, screenWidth: CGFloat) {
+        guard navigationMode == .tapSides, screenWidth > 0 else {
+            toggleChrome()
+            return
+        }
+        if location.x < screenWidth / 3 {
+            stepChapter(forward: false)
+        } else if location.x > screenWidth * 2 / 3 {
+            stepChapter(forward: true)
+        } else {
+            toggleChrome()
+        }
+    }
+
+    /// Cửa chung của chạm hai bên và vuốt ngang. Đang nạp chương: `openChapter` đã đổi `chapterIndex` sang chương đích ⇒
+    /// chuyển thêm sẽ nhảy cóc một chương nữa.
+    private func stepChapter(forward: Bool) {
+        guard !isZoomPresented, !showsChapterList, viewModel.loadState != .loading else { return }
+        if forward {
+            guard let next = viewModel.nextChapterIndex else {
+                ToastManager.shared.show(message: "Đây là chương mới nhất", type: .info)
+                return
+            }
+            viewModel.openChapter(next)
+        } else {
+            guard let previous = viewModel.previousChapterIndex else {
+                ToastManager.shared.show(message: "Đây là chương đầu tiên", type: .info)
+                return
+            }
+            viewModel.openChapter(previous)
+        }
+    }
+
     /// Quãng vuốt ngang tối thiểu để đổi chương.
     private static let chapterSwipeMinDistance: CGFloat = 80
 
@@ -265,25 +321,13 @@ struct ComicReaderView: View {
             }
     }
 
+    /// Chỉ áp ở kiểu "Vuốt ngang"; kiểu "Chạm hai bên" thì vuốt ngang không đổi chương.
     private func handleChapterSwipe(_ translation: CGSize) {
+        guard navigationMode == .swipe else { return }
         let dx = translation.width
         let dy = translation.height
         guard abs(dx) >= Self.chapterSwipeMinDistance, abs(dx) > 2 * abs(dy) else { return }
-        // Đang nạp chương: `openChapter` đã đổi `chapterIndex` sang chương đích ⇒ vuốt thêm sẽ nhảy cóc một chương nữa.
-        guard !isZoomPresented, !showsChapterList, viewModel.loadState != .loading else { return }
-        if dx < 0 {
-            guard let next = viewModel.nextChapterIndex else {
-                ToastManager.shared.show(message: "Đây là chương mới nhất", type: .info)
-                return
-            }
-            viewModel.openChapter(next)
-        } else {
-            guard let previous = viewModel.previousChapterIndex else {
-                ToastManager.shared.show(message: "Đây là chương đầu tiên", type: .info)
-                return
-            }
-            viewModel.openChapter(previous)
-        }
+        stepChapter(forward: dx < 0)
     }
 
     /// Cuộn tới ảnh đã lưu. Cuộn hai lần: lần đầu khi danh sách vừa dựng (khung còn là ước lượng),
