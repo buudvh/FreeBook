@@ -43,7 +43,10 @@ struct AppearanceSettingsView: View {
 
             Section {
                 percentSlider("Độ trong suốt", value: $floatingTransparency)
-                percentSlider("Độ đục", value: $floatingFrost)
+                // Nút nổi chỉ có 6 nấc kính thật của iOS (`GlassFrostLevel`) — thanh nhảy theo nấc, hiện cả tên nấc.
+                percentSlider("Độ đục", value: $floatingFrost, step: GlassFrostLevel.step) { value in
+                    GlassFrostLevel(frost: value).title
+                }
                 floatingPreview
                 Button("Đặt lại mặc định") {
                     floatingTransparency = GlassChromeSettings.defaultFloatingTransparency
@@ -72,16 +75,24 @@ struct AppearanceSettingsView: View {
 
     // MARK: - Thanh kéo
 
-    private func percentSlider(_ title: String, value: Binding<Double>) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+    /// `levelName` ≠ nil ⇒ giá trị hiện kèm tên nấc ("60% · Vừa"), phần trăm làm tròn theo `step`.
+    private func percentSlider(
+        _ title: String,
+        value: Binding<Double>,
+        step: Double = 0.05,
+        levelName: ((Double) -> String)? = nil
+    ) -> some View {
+        let snapped = (value.wrappedValue / step).rounded() * step
+        let percent = "\(Int((snapped * 100).rounded()))%"
+        return VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text(title)
                 Spacer()
-                Text("\(Int((value.wrappedValue * 100).rounded()))%")
+                Text(levelName.map { "\(percent) · \($0(value.wrappedValue))" } ?? percent)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
             }
-            Slider(value: value, in: 0...1, step: 0.05)
+            Slider(value: value, in: 0...1, step: step)
                 .accessibilityLabel(title)
         }
     }
@@ -105,9 +116,13 @@ struct AppearanceSettingsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    /// Chỉ cắt góc **dải bìa**, không cắt khung chứa nút: kính iOS hỏng khi một lớp cha bị cắt bằng mặt nạ (tài liệu
+    /// `UIVisualEffectView`), nút lại nằm gọn trong khung nên không cần cắt.
     private var floatingPreview: some View {
         ZStack(alignment: .bottomTrailing) {
             previewBackdrop
+                .background(Self.previewBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             HStack(spacing: 10) {
                 previewCircle(systemImage: "plus")
                 previewCircle(systemImage: "headphones")
@@ -115,8 +130,6 @@ struct AppearanceSettingsView: View {
             .padding(10)
         }
         .frame(height: 128)
-        .background(Self.previewBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Xem trước nút nổi")
     }
@@ -143,7 +156,14 @@ struct AppearanceSettingsView: View {
                 .padding(12)
                 .frame(width: proxy.size.width * 0.58, alignment: .topLeading)
                 .frame(maxHeight: .infinity, alignment: .top)
-                .background { SideDrawerGlassBackground() }
+                // Nền phía sau = chính dải bìa cả bề ngang, căn góc trên-phải như ngăn kéo thật ⇒ nhoè mịn theo độ đục.
+                .background {
+                    SideDrawerGlassBackground {
+                        previewBackdrop
+                            .frame(width: proxy.size.width, height: proxy.size.height)
+                            .background(Self.previewBackground)
+                    }
+                }
             }
         }
         .frame(height: 128)

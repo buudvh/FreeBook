@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.645] - 2026-10-29
+
+### fix: ngăn kéo nhoè mịn theo độ đục, nút nổi chỉnh độ đục theo 6 nấc kính
+
+Người dùng: *"Vì sao config độ đục giữa 95% và 100% nó khác biệt hoàn toàn vậy?"* — điều tra lại, chọn phương án B (ảnh chụp nền cho ngăn kéo).
+
+- **Nguyên nhân**: 1.3.640 vẽ `.ultraThinMaterial` rồi `.opacity(độ đục)`. Tài liệu `UIVisualEffectView` của Apple: alpha < 1 trên lớp hiệu ứng hoặc lớp cha ép vẽ tách riêng ⇒ hiệu ứng "hiện sai hoặc không hiện". Kính SwiftUI chạy cùng cơ chế ⇒ 0–95% thực ra **không nhoè** (chỉ phủ lớp xám), chỉ 100% mới nhoè. Mặc định ngăn kéo 60% vì vậy chưa từng nhoè.
+- **Ngăn kéo** (`SideDrawerGlassBackground<Backdrop>`): bỏ kính iOS, nhoè **mịn** bằng SwiftUI `.blur(radius: độ đục × 28pt, opaque: true)` trên ảnh chụp màn bên dưới. `SideDrawerMenuWindowManager.captureBackdrop` chụp cửa sổ chính (level `.normal`) bằng `drawHierarchy(afterScreenUpdates: false)` ở scale 1 lúc mở, chỉ khi độ đục > 0; ảnh đi qua `Session` → `Presentation` → `SideDrawerMenuPanel`, nhả khi ẩn cửa sổ; có log `[Drawer]` đo ms, chụp lỗi ⇒ log `❌` và mở như độ đục 0. Ảnh phủ lớp tối 30% như `dimmingLayer` (không thì từ 0 lên 5% phần sau ngăn kéo sáng vọt), dịch `-offset` của ngăn kéo để đứng yên theo màn khi trượt/vuốt. Video và trang web có thể ra tối trong ảnh chụp.
+- **Nút nổi** (`FloatingGlassBackground`): độ đục thành 6 nấc kính iOS (`GlassFrostLevel`: Không nhoè / Rất mỏng / Mỏng / Vừa / Dày / Rất dày), luôn vẽ ở độ hiện 100%; giá trị đã lưu làm tròn về nấc gần nhất (bước 0,2).
+- **Cài đặt › Giao diện**: thanh độ đục nút nổi bước 20% kèm tên nấc ("60% · Vừa"); ô xem trước nút nổi chỉ cắt góc dải bìa (kính iOS hỏng khi lớp cha bị cắt mặt nạ); ô xem trước ngăn kéo nhoè chính dải bìa theo cùng công thức. Sửa chú thích sai ở `GlassChromeSettings`.
+- **Thay đổi thấy được**: ngăn kéo để mặc định 60% giờ mới nhoè thật.
+- Chuyển entry `[1.3.615]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code + tài liệu Apple; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử kéo độ đục ngăn kéo 0→100% (mịn, không nhảy), ngăn kéo trượt vào/vuốt ra (nền đứng yên), độ trễ mở ngăn kéo (log `[Drawer]`), 6 nấc nút nổi.
+
 ## [1.3.644] - 2026-10-29
 
 ### fix: nhập truyện tranh và phim từ file bị từ chối do lệch tiền tố /private
@@ -389,21 +403,4 @@ Người dùng sau `[1.3.615]`: *"bạn đang làm mỗi tài khoản thành 1 p
 - **Đăng xuất / xoá**: `signOut` xoá mọi tài khoản cùng phiên (khớp `sessionFingerprint`) ở mọi provider; xoá provider Chế độ AI xoá toàn bộ tài khoản của nó.
 - **Di trú (một lần, `FreeBook_GoogleAccountModel_V2`)**: item Keychain kiểu 1.3.615 (khoá `profileId`) → tài khoản của provider đang chọn, nhãn = tên profile cũ, xoá item cũ sau khi ghi; profile thừa **không** bị xoá. Chưa có tài khoản nào mà kho đang đăng nhập ⇒ thêm "Tài khoản 1".
 - **Kiểm chứng**: `check_architecture.py` **2 violation nền, 0 mới**. Không build tại chỗ (Windows, không có xcodegen) — CI là cổng biên dịch; **chưa thử trên máy** (cần 2 tài khoản Google thật để thử tráo phiên).
-
-## [1.3.615] - 2026-10-27
-
-### feat: tự xoay tài khoản Google cho Chế độ AI khi bị giới hạn
-
-Người dùng (qua `/grill-me`, 7 câu, mockup B duyệt trong chat): *"giúp tôi làm chức năng tự chuyển profile của provider chế độ AI của google"* → chốt **xoay vòng nhiều tài khoản Google** (đảo ngược quyết định `[1.3.612]` "không đổi cookie/tài khoản"), mỗi profile Chế độ AI là một tài khoản, snapshot phiên trong Keychain, tráo vào kho cookie mặc định, ghi vào Cài đặt, áp dụng cả quét tên lẫn chat Reader. Plan: `Docs/Plans/2026-10-27-plan-google-ai-mode-account-rotation.md`.
-
-- **Vì sao tráo cookie chứ không tách kho**: iOS chỉ có `WKWebsiteDataStore.default()` và `.nonPersistent()` (`forIdentifier:` là API macOS) ⇒ mọi provider Google của app dùng chung một kho; "đổi tài khoản" = thay toàn bộ cookie `*.google.com`. Hệ quả đã chấp nhận: cả app (Chế độ AI, Gemini Web, trình duyệt bypass, captcha) cùng lúc chỉ ở một tài khoản.
-- **Mới `Sources/Services/AI/GoogleAccounts/`**: `GoogleAccountSnapshot` (cookie + `sessionFingerprint` băm `__Secure-1PSID`, không đọc email), `GoogleAccountSnapshotStore` (Keychain, một item/profile, `AfterFirstUnlockThisDeviceOnly`), `GoogleSessionSwitcher` (`@MainActor`: capture/apply/restore/adopt/migrate; **bắt buộc** giải phóng WKWebView ẩn + `refreshAfterLogin` trước khi tráo, và kiểm `isSignedIn()` sau khi tráo — sai thì khôi phục phiên cũ), `GoogleAccountRotation` (thay `AINameScanProviderSwitch`: xoay tài khoản Chế độ AI theo thứ tự → Gemini Web → chờ nấc 1→2→4→8 phút).
-- **Quét tên** (`AINameExtractionBatchProcessor+RateLimit`): bị giới hạn ⇒ `rotateToNextAccount()` → `apply(profile:)` → ghi `activeProfileId` → `clearRateLimitBlock()` (hạn chờ 60 s của tài khoản cũ không còn nghĩa) → gửi lại đúng lượt đó; hết tài khoản mới rơi về Gemini Web rồi mới chờ.
-- **Chat Reader** (mới `AIRuntimeCoordinator+AccountRotation.swift`): lượt bị giới hạn **khi chưa phát chữ nào** ⇒ tráo tài khoản, xoá `mstk` của phiên (`GoogleAIModeConversationStore.delete`) để mở cuộc chat mới với đủ ngữ cảnh, chạy lại đúng lượt đó. Đang có chữ thì không tráo — câu trả lời sẽ đứt rồi viết lại.
-- **Snapshot tự tươi**: sau **mỗi lượt thành công** `GoogleAIModeClient.runTurn` dump lại snapshot của profile đang dùng — `__Secure-1PSIDTS` bị Google xoay liên tục, snapshot cũ sẽ chết.
-- **UI (mockup B)**: màn mới `GoogleAccountsView` + `+Actions` — mỗi dòng một tài khoản, chip "Đang dùng", dòng cam "Chưa gắn phiên — bấm để đăng nhập", kéo ≡ đổi thứ tự xoay vòng (`AIConfiguration.moveGoogleAIModeProfiles` chỉ hoán vị các profile Chế độ AI), nút "+ Thêm tài khoản Google" (adopt phiên đang có → backup cookie → xoá → đăng nhập → lưu; **huỷ thì khôi phục phiên cũ**). Hàng dẫn vào trong Cấu hình AI; `GoogleAIModeAccountRow` giờ nhận `profile` và dẫn sang màn này khi đã gắn phiên.
-- **Đăng xuất / xoá**: `GeminiWebSessionController.signOut` xoá snapshot của **đúng tài khoản** vừa đăng xuất (mọi profile giữ nó), giữ các tài khoản khác; xoá profile Chế độ AI xoá snapshot của nó. Nâng cấp từ 1.3.613: phiên Google sẵn có tự gắn vào profile Chế độ AI đang chọn (cờ `FreeBook_GoogleAccountMigration_V1`, một lần).
-- **Khác plan một điểm**: bỏ field `googleAccountLabel` dự kiến thêm vào `AIProviderProfile` — tên tài khoản chính là tên profile (đã sửa được sẵn trong Cấu hình AI), thêm field nữa chỉ tạo dữ liệu trùng. Không đổi `Codable` của profile.
-- **Rủi ro đã biết**: Google có thể vô hiệu phiên khi tráo (nhất là `__Secure-1PSIDTS`) ⇒ `apply` kiểm `isSignedIn()` rồi khôi phục; cùng thiết bị nhảy tài khoản nhanh có thể bị gắn cờ/captcha nặng hơn — đánh đổi đã được người dùng chấp nhận, không thêm gì để "giấu" (không đổi UA/IP).
-- **Kiểm chứng**: đọc code; `check_architecture.py` **2 violation nền, 0 mới** (JSDom 580/555, TTSManager 3500/3470). Không build tại chỗ (Windows, không có xcodegen) — CI là cổng biên dịch; **chưa thử trên máy** (chưa có 2 tài khoản Google thật để thử tráo phiên).
 
